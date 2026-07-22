@@ -112,6 +112,7 @@ class ApiGatewayIntegrationTest {
     final ConcurrentLinkedQueue<JsonNode> tradeMessages = new ConcurrentLinkedQueue<>();
     final ConcurrentLinkedQueue<JsonNode> myOrderMessages = new ConcurrentLinkedQueue<>();
     final ConcurrentLinkedQueue<JsonNode> myAssetMessages = new ConcurrentLinkedQueue<>();
+    final ConcurrentLinkedQueue<JsonNode> candleMessages = new ConcurrentLinkedQueue<>();
 
     String buyOrderId;
 
@@ -236,6 +237,7 @@ class ApiGatewayIntegrationTest {
 
         subscribe(wsSession, "/topic/orderbook.KRW-BTC", orderbookMessages);
         subscribe(wsSession, "/topic/trade.KRW-BTC", tradeMessages);
+        subscribe(wsSession, "/topic/candle.1m.KRW-BTC", candleMessages);
         subscribe(wsSession, "/user/queue/myOrder", myOrderMessages);
         subscribe(wsSession, "/user/queue/myAsset", myAssetMessages);
 
@@ -292,6 +294,23 @@ class ApiGatewayIntegrationTest {
         assertEquals("50000000", trade.path("price").asText());
         assertEquals("0.01", trade.path("volume").asText());
         assertEquals("bid", trade.path("taker_side").asText());
+
+        // 공개 candle 채널: 체결로 형성 중 1m 캔들 방출(§5-3, §5-4). 단일 체결이라 OHLC 동일가.
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> !candleMessages.isEmpty());
+        JsonNode candle = candleMessages.peek();
+        assertEquals("candle", candle.path("type").asText());
+        assertEquals("1m", candle.path("unit").asText());
+        assertEquals("KRW-BTC", candle.path("market").asText());
+        assertEquals("50000000", candle.path("open").asText());
+        assertEquals("50000000", candle.path("high").asText());
+        assertEquals("50000000", candle.path("low").asText());
+        assertEquals("50000000", candle.path("close").asText());
+        assertEquals("0.01", candle.path("volume").asText());
+        assertTrue(candle.path("candle_time").isTextual());
+        assertTrue(candle.has("seq") && candle.has("epoch"));
+        // §5-4 candle 스키마 계약: stream·trade_count 필드 부재가 계약이다.
+        assertTrue(candle.path("stream").isMissingNode(), "candle에는 stream 필드 없음(§5-4)");
+        assertTrue(candle.path("trade_count").isMissingNode(), "WS candle에는 trade_count 없음(§5-4)");
 
         // 비공개 myOrder: FILLED + taker 체결 통지
         Awaitility.await().atMost(Duration.ofSeconds(10))
@@ -517,6 +536,136 @@ class ApiGatewayIntegrationTest {
         ResponseEntity<String> badUnit =
                 rest.getForEntity("/api/v1/candles/2m?market=KRW-BTC", String.class);
         assertEquals(400, badUnit.getStatusCode().value());
+    }
+
+    // ------------------------------------------------------------------
+    // 캔들 집계 정확성(§4-A-5): 구간 경계·OHLC·volume 합·sparse·결정론·커서
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(8)
+    void candleAggregationBoundaryOhlcSparseDeterminismCursor() throws Exception {
+        // 합성 체결을 controlled created_at으로 직접 적재한다. 엔진 경로 밖 id 대역(9_000_000+)이라
+        // trade_seq_registry 충돌이 없고, 07-20은 24h 밖이라 ticker 24h 집계와 간섭하지 않는다.
+        seedTrade(9_000_001, "2026-07-20T09:00:10Z", "100", "1");
+        seedTrade(9_000_002, "2026-07-20T09:00:30Z", "120", "2");
+        seedTrade(9_000_003, "2026-07-20T09:00:50Z", "90", "1");
+        seedTrade(9_000_004, "2026-07-20T09:01:05Z", "110", "5");
+        // 09:02 구간 공백(sparse)
+        seedTrade(9_000_005, "2026-07-20T09:03:00Z", "130", "1");
+        // 동일 created_at 3건: (created_at,id) 정렬로 open=최소 id, close=최대 id 검증
+        seedTrade(9_000_012, "2026-07-20T09:05:00Z", "210", "1");
+        seedTrade(9_000_010, "2026-07-20T09:05:00Z", "195", "1");
+        seedTrade(9_000_011, "2026-07-20T09:05:00Z", "205", "1");
+
+        JsonNode data = candlesData("/api/v1/candles/1m?market=KRW-BTC&count=200");
+        Map<String, JsonNode> byTime = new java.util.HashMap<>();
+        data.forEach(c -> byTime.put(c.path("candle_time").asText(), c));
+
+        // 구간 경계 정렬 + sparse
+        assertTrue(byTime.containsKey("2026-07-20T09:00:00.000Z"));
+        assertTrue(byTime.containsKey("2026-07-20T09:01:00.000Z"));
+        assertTrue(byTime.containsKey("2026-07-20T09:03:00.000Z"));
+        assertTrue(byTime.containsKey("2026-07-20T09:05:00.000Z"));
+        assertTrue(!byTime.containsKey("2026-07-20T09:02:00.000Z"), "체결 없는 구간은 sparse");
+
+        // OHLC + volume 합 + trade_count
+        JsonNode b0 = byTime.get("2026-07-20T09:00:00.000Z");
+        assertEquals("100", b0.path("open").asText());
+        assertEquals("120", b0.path("high").asText());
+        assertEquals("90", b0.path("low").asText());
+        assertEquals("90", b0.path("close").asText());
+        assertEquals("4", b0.path("volume").asText());
+        assertEquals(3, b0.path("trade_count").asInt());
+
+        // 동일 시각 tie-break: open=id 9_000_010(195), close=id 9_000_012(210)
+        JsonNode b5 = byTime.get("2026-07-20T09:05:00.000Z");
+        assertEquals("195", b5.path("open").asText());
+        assertEquals("210", b5.path("close").asText());
+        assertEquals("210", b5.path("high").asText());
+        assertEquals("195", b5.path("low").asText());
+        assertEquals("3", b5.path("volume").asText());
+
+        // 결정론: 같은 trades에서 같은 캔들이 재현된다(DB now() 미사용)
+        JsonNode data2 = candlesData("/api/v1/candles/1m?market=KRW-BTC&count=200");
+        assertEquals(data.toString(), data2.toString(), "같은 trades → 같은 캔들");
+
+        // 커서 페이지네이션: (candle_time, market) 자연키로 다음 페이지가 더 과거를 반환
+        JsonNode page1 = objectMapper.readTree(
+                rest.getForEntity("/api/v1/candles/1m?market=KRW-BTC&count=2", String.class).getBody());
+        JsonNode d1 = page1.path("data");
+        assertEquals(2, d1.size());
+        assertTrue(page1.path("pagination").path("has_more").asBoolean());
+        String cursor = page1.path("pagination").path("next_cursor").asText();
+        JsonNode d2 = candlesData("/api/v1/candles/1m?market=KRW-BTC&count=2&cursor=" + cursor);
+        String lastP1 = d1.get(d1.size() - 1).path("candle_time").asText();
+        String firstP2 = d2.get(0).path("candle_time").asText();
+        assertTrue(firstP2.compareTo(lastP1) < 0, "다음 페이지는 더 과거 캔들(candle_time DESC)");
+    }
+
+    // ------------------------------------------------------------------
+    // WS 형성 캔들 값 진화 + 미구독 unit 미방출(§5-3, §5-4)
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(9)
+    void wsFormingCandleEvolvesAndUnsubscribedUnitsStaySilent() throws Exception {
+        // 1d 구독 추가. 오늘 실체결이 같은 1d 버킷에 모여 형성 캔들 high/low/close 진화를 한 버킷에서
+        // 관찰한다(07-20 합성 체결은 다른 날 버킷이라 오늘 집계와 분리). 단건 케이스(@Order 3)는
+        // OHLC가 전부 동일가라 값 진화를 증명하지 못한다.
+        subscribe(wsSession, "/topic/candle.1d.KRW-BTC", candleMessages);
+
+        // 직전 종가 50,000,000 대비 상승 후 하락. 최종 close는 마지막 체결가여야 한다.
+        tradeAt("ws-hi-sell", "ws-hi-buy", "51000000", "0.01");
+        tradeAt("ws-lo-sell", "ws-lo-buy", "49000000", "0.01");
+
+        // 오늘 1d 버킷: open=50,000,000(최초 @Order 3), high=51,000,000, low=49,000,000, close=49,000,000
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> candleMessages.stream()
+                .anyMatch(m -> "1d".equals(m.path("unit").asText())
+                        && "49000000".equals(m.path("close").asText())));
+        JsonNode day = candleMessages.stream()
+                .filter(m -> "1d".equals(m.path("unit").asText()))
+                .reduce((a, b) -> b).orElseThrow();
+        assertEquals("50000000", day.path("open").asText(), "형성 캔들 open은 최초 체결가 고정");
+        assertEquals("51000000", day.path("high").asText(), "상승 체결로 high 갱신");
+        assertEquals("49000000", day.path("low").asText(), "하락 체결로 low 갱신");
+        assertEquals("49000000", day.path("close").asText(), "close는 최종 체결가로 진화");
+
+        // 미구독 unit 미방출: 구독은 1m·1d뿐이라 다른 unit candle은 오지 않는다(방출 비용 실구독 제한).
+        assertTrue(candleMessages.stream().allMatch(m -> {
+            String u = m.path("unit").asText();
+            return "1m".equals(u) || "1d".equals(u);
+        }), "구독하지 않은 unit의 candle이 방출됐다");
+    }
+
+    // 지정가 maker(bob 매도) 후 동일가 taker(alice 매수)로 정확히 그 가격에 체결시킨다.
+    private void tradeAt(String sellKey, String buyKey, String price, String volume) {
+        byte[] sell = orderBody("KRW-BTC", "ask", "limit", price, volume, sellKey);
+        assertEquals(201, post("/api/v1/orders", sell,
+                TestSigner.bearerForBody(bobKey.accessKey(), bobKey.secretKey(),
+                        "POST", "/api/v1/orders", sell)).getStatusCode().value());
+        byte[] buy = orderBody("KRW-BTC", "bid", "limit", price, volume, buyKey);
+        assertEquals(201, post("/api/v1/orders", buy,
+                TestSigner.bearerForBody(aliceKey.accessKey(), aliceKey.secretKey(),
+                        "POST", "/api/v1/orders", buy)).getStatusCode().value());
+    }
+
+    private void seedTrade(long id, String isoTime, String price, String qty) {
+        java.time.OffsetDateTime at = java.time.OffsetDateTime.parse(isoTime);
+        jdbc.sql("""
+                        INSERT INTO trades (id, market_id, maker_order_id, taker_order_id,
+                            maker_user_id, taker_user_id, taker_side, price, quantity,
+                            maker_fee, taker_fee, fencing_epoch, executed_at, created_at)
+                        VALUES (?, ?, 0, 0, 0, 0, 'BUY', ?, ?, 0, 0, 1, ?, ?)
+                        """)
+                .params(id, KRW_BTC, new BigDecimal(price), new BigDecimal(qty), at, at)
+                .update();
+    }
+
+    private JsonNode candlesData(String url) throws Exception {
+        ResponseEntity<String> response = rest.getForEntity(url, String.class);
+        assertEquals(200, response.getStatusCode().value());
+        return objectMapper.readTree(response.getBody()).path("data");
     }
 
     // ------------------------------------------------------------------

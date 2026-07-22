@@ -518,7 +518,7 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
     "volume":"12.34","trade_count":345,"seq":8801 } ],
   "pagination":{"next_cursor":"eyJ0cyI6...","has_more":true} }
 ```
-> **데이터 소스(v2.8)**: `candles` 테이블은 DB 설계상 비정규화 trades 파생 프로젝션이며 V-로드맵이다(DB 설계 §7). V1·데모는 별도 테이블 없이 **trades를 unit 구간으로 실시간 집계**해 응답한다(재구축 가능, 저장 없음). 구간 경계는 epoch 정렬(`floor(epoch/sec)*sec`)이고 `1d`는 UTC 자정, `1w`는 epoch 주(목요일 기준) 정렬이다. `open`/`close`는 구간 내 (executed_at,id) 정렬 최초·최종 체결가, `high`/`low`는 구간 최대·최소가, `volume`은 수량 합, `trade_count`는 체결 수, `seq`는 구간 내 최대 event_seq다(구간 간 단조 증가, §5-2 candle seq 도메인 = market×unit). 체결이 없는 구간은 응답에 포함하지 않는다(sparse, 클라이언트가 갭 처리). 정렬은 `candle_time` DESC, 커서 id 축은 `(candle_time, market)` 자연키(§2-6 U5)다.
+> **데이터 소스(v2.8)**: `candles` 테이블은 DB 설계상 비정규화 trades 파생 프로젝션이며 V-로드맵이다(DB 설계 §7). V1·데모는 별도 테이블 없이 **trades를 unit 구간으로 실시간 집계**해 응답한다(재구축 가능, 저장 없음). 구간 경계는 epoch 정렬(`floor(epoch/sec)*sec`)이고 `1d`는 UTC 자정, `1w`는 epoch 주(목요일 기준) 정렬이다. `open`/`close`는 구간 내 (created_at,id) 정렬 최초·최종 체결가, `high`/`low`는 구간 최대·최소가, `volume`은 수량 합, `trade_count`는 체결 수, `seq`는 구간 내 최대 event_seq다(구간 간 단조 증가, §5-2 candle seq 도메인 = market×unit). 버킷팅·정렬 축은 `created_at`이다. trades에서 `created_at = executed_at`(둘 다 원인 command의 engine_ts 파생, DB `now()` 미사용)이 불변식이라 축을 바꿔도 결과가 불변이고, 파티션 키·인덱스가 `created_at`이라 이 축으로 집계·프루닝한다. 체결이 없는 구간은 응답에 포함하지 않는다(sparse, 클라이언트가 갭 처리). 정렬은 `candle_time` DESC, 커서 id 축은 `(candle_time, market)` 자연키(§2-6 U5)다.
 
 #### 4-A-6. `GET /api/v1/exchange-config` (v2.10)
 트레이딩 UI(공개 오리진)가 읽는 표면 구성 조회다. `/markets`와 동급 무인증 공개 API이며, system_config의 UI 안전 키 화이트리스트만 노출한다(봇_방향성 §5-4, 체결_시각효과 §6 정본 반영).

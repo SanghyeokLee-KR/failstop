@@ -21,6 +21,7 @@ import kr.exchange.api.market.MarketDataService;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.OrderGateway;
 import kr.exchange.api.order.OrderQueryService;
+import kr.exchange.api.ws.CandleSubscriptions;
 import kr.exchange.api.ws.ChannelSequences;
 import kr.exchange.api.ws.MarketDataPublisher;
 import kr.exchange.api.ws.OrderbookSnapshotOnSubscribe;
@@ -185,14 +186,20 @@ public class ApiConfig {
     }
 
     @Bean
+    public CandleSubscriptions candleSubscriptions() {
+        return new CandleSubscriptions();
+    }
+
+    @Bean
     public MarketDataPublisher marketDataPublisher(SimpMessagingTemplate messaging,
                                                    JdbcClient jdbc, MarketDirectory markets,
                                                    MarketDataService marketData,
                                                    OrderQueryService orders,
                                                    ChannelSequences sequences,
-                                                   EpochSource epochSource) {
+                                                   EpochSource epochSource,
+                                                   CandleSubscriptions candleSubscriptions) {
         return new MarketDataPublisher(messaging, jdbc, markets, marketData, orders,
-                sequences, epochSource);
+                sequences, epochSource, candleSubscriptions);
     }
 
     @Bean

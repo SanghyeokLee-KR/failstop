@@ -7,8 +7,11 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -287,21 +290,60 @@ public class MarketDataService {
         params.add(count);
         return jdbc.sql(sql.toString())
                 .params(params)
-                .query((rs, rowNum) -> {
-                    Map<String, Object> row = new LinkedHashMap<>();
-                    OffsetDateTime candleTime = rs.getObject("candle_time", OffsetDateTime.class);
-                    row.put("market", market.symbol());
-                    row.put("candle_time", ApiFormats.time(candleTime));
-                    row.put("open", ApiFormats.amount(rs.getBigDecimal("open")));
-                    row.put("high", ApiFormats.amount(rs.getBigDecimal("high")));
-                    row.put("low", ApiFormats.amount(rs.getBigDecimal("low")));
-                    row.put("close", ApiFormats.amount(rs.getBigDecimal("close")));
-                    row.put("volume", ApiFormats.amount(rs.getBigDecimal("volume")));
-                    row.put("trade_count", rs.getInt("trade_count"));
-                    row.put("seq", rs.getLong("seq"));
-                    row.put("cursor_ts", candleTime);
-                    return row;
-                })
+                .query((rs, rowNum) -> candleRow(market, rs))
                 .list();
+    }
+
+    /**
+     * 라이브 WS 방출용 최근 버킷 1건. REST candles()의 무제한 이력 스캔과 달리 현재 버킷 창
+     * (created_at >= 버킷 시작)만 읽어 idx_trades_market_time 레인지 스캔·파티션 프루닝이 붙는다.
+     * 형성 중 캔들은 최근 버킷 하나만 필요해 페이지 완결 요건이 없으므로 이력 하한을 둘 수 있다.
+     * 최신 체결 시각이 최근 버킷을 정하고, 그 버킷 시작 이후 체결이 곧 현재 버킷 집합이다
+     * (최신 이후 체결이 없어 상한은 열어도 안전). 체결 이력이 없으면 null.
+     */
+    public Map<String, Object> latestCandle(MarketDirectory.Market market, String unit) {
+        long sec = UNIT_SECONDS.get(unit);
+        OffsetDateTime latest = jdbc.sql("""
+                        SELECT created_at FROM trades WHERE market_id = ?
+                        ORDER BY created_at DESC, id DESC LIMIT 1
+                        """)
+                .params(market.id())
+                .query(OffsetDateTime.class)
+                .optional()
+                .orElse(null);
+        if (latest == null) {
+            return null;
+        }
+        long bucket = Math.floorDiv(latest.toInstant().getEpochSecond(), sec) * sec;
+        OffsetDateTime bucketStart = OffsetDateTime.ofInstant(Instant.ofEpochSecond(bucket), ZoneOffset.UTC);
+        return jdbc.sql("""
+                        SELECT to_timestamp(?) AS candle_time,
+                               (array_agg(price ORDER BY created_at ASC, id ASC))[1] AS open,
+                               MAX(price) AS high, MIN(price) AS low,
+                               (array_agg(price ORDER BY created_at DESC, id DESC))[1] AS close,
+                               SUM(quantity) AS volume, COUNT(*) AS trade_count, MAX(id) AS seq
+                        FROM trades
+                        WHERE market_id = ? AND created_at >= ?
+                        """)
+                .params(bucket, market.id(), bucketStart)
+                .query((rs, rowNum) -> candleRow(market, rs))
+                .optional()
+                .orElse(null);
+    }
+
+    private Map<String, Object> candleRow(MarketDirectory.Market market, ResultSet rs) throws SQLException {
+        Map<String, Object> row = new LinkedHashMap<>();
+        OffsetDateTime candleTime = rs.getObject("candle_time", OffsetDateTime.class);
+        row.put("market", market.symbol());
+        row.put("candle_time", ApiFormats.time(candleTime));
+        row.put("open", ApiFormats.amount(rs.getBigDecimal("open")));
+        row.put("high", ApiFormats.amount(rs.getBigDecimal("high")));
+        row.put("low", ApiFormats.amount(rs.getBigDecimal("low")));
+        row.put("close", ApiFormats.amount(rs.getBigDecimal("close")));
+        row.put("volume", ApiFormats.amount(rs.getBigDecimal("volume")));
+        row.put("trade_count", rs.getInt("trade_count"));
+        row.put("seq", rs.getLong("seq"));
+        row.put("cursor_ts", candleTime);
+        return row;
     }
 }

@@ -41,11 +41,12 @@ public class MarketDataPublisher {
     private final OrderQueryService orders;
     private final ChannelSequences sequences;
     private final EpochSource epochSource;
+    private final CandleSubscriptions candleSubscriptions;
 
     public MarketDataPublisher(SimpMessagingTemplate messaging, JdbcClient jdbc,
                                MarketDirectory markets, MarketDataService marketData,
                                OrderQueryService orders, ChannelSequences sequences,
-                               EpochSource epochSource) {
+                               EpochSource epochSource, CandleSubscriptions candleSubscriptions) {
         this.messaging = messaging;
         this.jdbc = jdbc;
         this.markets = markets;
@@ -53,6 +54,7 @@ public class MarketDataPublisher {
         this.orders = orders;
         this.sequences = sequences;
         this.epochSource = epochSource;
+        this.candleSubscriptions = candleSubscriptions;
     }
 
     /** 정산 커밋이 끝난 단일 명령 방출 배치를 게시한다. 실패는 삼키고 기록만 한다. */
@@ -97,6 +99,7 @@ public class MarketDataPublisher {
             publishOrderbook(market, epoch, events.get(0).engineTs());
             if (traded) {
                 publishTicker(market, epoch);
+                publishCandles(market, epoch);
             }
         }
         for (long userId : touchedUsers) {
@@ -128,6 +131,44 @@ public class MarketDataPublisher {
         body.put("type", "orderbook");
         body.put("stream", "realtime");
         messaging.convertAndSend("/topic/" + channel, body);
+    }
+
+    /**
+     * 체결이 발생한 마켓의 활성 candle 구독 unit에 형성 중 캔들을 방출한다(§5-3, §5-4). 값은
+     * REST와 같은 trades 집계(§4-A-5)의 최근 버킷 1건이나, 라이브 경로는 현재 버킷 창만 읽는
+     * latestCandle을 써 이력 무제한 스캔이 라이터 루프를 잠식하지 않게 한다.
+     * "현재 캔들 갱신"·"새 캔들 확정"은 별도 필드 없이 candle_time 단조성으로 구분한다(§5-3).
+     * seq 도메인은 채널(market×unit) 독립 단조 증가다(§5-2). trade_count·stream은 §5-4 candle
+     * 스키마에 없어 싣지 않는다. unit별로 격리해 한 unit 조회 실패가 나머지 unit·채널을 취소하지
+     * 않게 한다(candle은 이 배치에서 가장 무거운 경로).
+     */
+    private void publishCandles(MarketDirectory.Market market, long epoch) {
+        for (String unit : candleSubscriptions.subscribedUnits(market.symbol())) {
+            try {
+                Map<String, Object> candle = marketData.latestCandle(market, unit);
+                if (candle == null) {
+                    continue;
+                }
+                String channel = "candle." + unit + "." + market.symbol();
+                Map<String, Object> body = new LinkedHashMap<>();
+                body.put("schema_version", ApiFormats.SCHEMA_VERSION);
+                body.put("type", "candle");
+                body.put("unit", unit);
+                body.put("market", market.symbol());
+                body.put("epoch", epoch);
+                body.put("seq", sequences.next(channel));
+                body.put("candle_time", candle.get("candle_time"));
+                body.put("open", candle.get("open"));
+                body.put("high", candle.get("high"));
+                body.put("low", candle.get("low"));
+                body.put("close", candle.get("close"));
+                body.put("volume", candle.get("volume"));
+                messaging.convertAndSend("/topic/" + channel, body);
+            } catch (RuntimeException e) {
+                log.warn("candle 방출 실패(unit={} market={}, 다른 채널·unit 영향 없음): {}",
+                        unit, market.symbol(), e.getMessage());
+            }
+        }
     }
 
     private void publishTicker(MarketDirectory.Market market, long epoch) {
