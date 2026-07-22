@@ -17,6 +17,8 @@ interface Props<T extends string> {
   onChange: (value: T) => void;
   variant?: "neutral" | "directional" | "underline";
   ariaLabel: string;
+  /** 제출 in-flight 등 선택 잠금. 버튼 비활성 + onChange 무시 */
+  disabled?: boolean;
 }
 
 export default function SegmentedTab<T extends string>({
@@ -25,6 +27,7 @@ export default function SegmentedTab<T extends string>({
   onChange,
   variant = "neutral",
   ariaLabel,
+  disabled = false,
 }: Props<T>) {
   return (
     <div className={styles.root} data-variant={variant} role="tablist" aria-label={ariaLabel}>
@@ -39,7 +42,11 @@ export default function SegmentedTab<T extends string>({
             className={styles.tab}
             data-selected={selected || undefined}
             data-tone={variant === "directional" ? item.tone : undefined}
-            onClick={() => onChange(item.value)}
+            disabled={disabled}
+            onClick={() => {
+              if (disabled) return;
+              onChange(item.value);
+            }}
           >
             {item.label}
           </button>

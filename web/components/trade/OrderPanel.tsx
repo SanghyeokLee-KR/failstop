@@ -96,9 +96,11 @@ export default function OrderPanel({ market, initialSide, prefill }: Props) {
     });
   }, [apply]);
 
-  /* 프리필은 가격만 주입, side 유지. 시장가 상태면 가격 입력이 보이도록 지정가 전환 */
+  /* 프리필은 가격만 주입, side 유지. 시장가 상태면 가격 입력이 보이도록 지정가 전환.
+     제출 in-flight 중에는 보류한다. 동결된 확정 내용을 프리필이 바꾸면 동일 키·다른 내용이 된다 */
   useEffect(() => {
     if (!prefill) return;
+    if (submittingRef.current) return;
     setOrdType((t) => (t === "market" ? "limit" : t));
     setPriceRaw(String(Math.round(toNum(prefill.price))));
     setActivePct(null);
@@ -217,7 +219,7 @@ export default function OrderPanel({ market, initialSide, prefill }: Props) {
 
   /* ===== 제출 (인라인 2단계 확인) ===== */
   const submit = async () => {
-    if (submitting) return;
+    if (submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
     // 제출 직전에 키를 확정한다. 내용이 바뀌었으면 새 키, 실패 후 동일 내용 재시도면 기존 키(API §2-4).
@@ -276,7 +278,14 @@ export default function OrderPanel({ market, initialSide, prefill }: Props) {
   return (
     <PanelCard>
       <div className={styles.form}>
-        <SegmentedTab items={SIDE_ITEMS} value={side} onChange={setSide} variant="directional" ariaLabel="주문 방향" />
+        <SegmentedTab
+          items={SIDE_ITEMS}
+          value={side}
+          onChange={setSide}
+          variant="directional"
+          ariaLabel="주문 방향"
+          disabled={submitting}
+        />
 
         <div className={styles.typRow} role="group" aria-label="주문 유형">
           {(["limit", "market"] as OrdType[]).map((t) => (
@@ -286,6 +295,7 @@ export default function OrderPanel({ market, initialSide, prefill }: Props) {
               className={styles.typBtn}
               data-on={t === ordType || undefined}
               aria-pressed={t === ordType}
+              disabled={submitting}
               onClick={() => {
                 setOrdType(t);
                 setActivePct(null);
