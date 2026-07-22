@@ -17,7 +17,7 @@ import { useExchangeStore, useLiveChannels } from "@/lib/store";
 import { dest, type Order } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
 import { COIN_META } from "@/lib/sim/engine";
-import { formatKRW, formatQty, formatTimeHMS, toNum } from "@/lib/format";
+import { formatPrice, formatQty, formatTimeHMS, toNum } from "@/lib/format";
 import styles from "./page.module.css";
 
 type HistoryTab = "open" | "closed";
@@ -42,6 +42,7 @@ function sideLabel(side: Order["side"]): string {
 export default function HistoryPage() {
   const openOrders = useExchangeStore((s) => s.openOrders);
   const closedOrders = useExchangeStore((s) => s.closedOrders);
+  const markets = useExchangeStore((s) => s.markets);
   const loadOrders = useExchangeStore((s) => s.loadOrders);
 
   const [tab, setTab] = useState<HistoryTab>("open");
@@ -85,6 +86,8 @@ export default function HistoryPage() {
   };
 
   const metaOf = (market: string) => COIN_META.find((c) => c.market === market);
+  // 표시 자리수는 주문 마켓 스펙에서 유도한다(호출부 상수 금지). 미로딩 시 폴백
+  const specOf = (market: string) => markets.find((m) => m.market === market);
 
   const rows = useMemo(() => {
     const base = tab === "open" ? openOrders : closedOrders;
@@ -138,21 +141,21 @@ export default function HistoryPage() {
         width: "minmax(110px, 1fr)",
         align: "right",
         sortValue: (o) => toNum(o.price ?? 0),
-        render: (o) => (o.price ? formatKRW(o.price) : "시장가"),
+        render: (o) => (o.price ? formatPrice(o.price, specOf(o.market)?.tick_size) : "시장가"),
       },
       {
         key: "volume",
         label: "주문수량",
         width: "minmax(110px, 1fr)",
         align: "right",
-        render: (o) => formatQty(o.volume ?? o.remaining_volume, 8),
+        render: (o) => formatQty(o.volume ?? o.remaining_volume, specOf(o.market)?.qty_scale ?? 8),
       },
       {
         key: "executed",
         label: "체결수량",
         width: "minmax(110px, 1fr)",
         align: "right",
-        render: (o) => formatQty(o.executed_volume, 8),
+        render: (o) => formatQty(o.executed_volume, specOf(o.market)?.qty_scale ?? 8),
       },
       {
         key: "status",
@@ -199,8 +202,9 @@ export default function HistoryPage() {
       });
     }
     return cols;
-    // canceling 변경 시 취소 버튼 상태를 다시 그려야 하므로 의존성에 포함한다
-  }, [tab, canceling]);
+    // canceling 변경 시 취소 버튼 상태를 다시 그려야 하므로 의존성에 포함한다.
+    // markets 로딩 후 표시 자리수를 재유도하도록 의존성에 포함한다
+  }, [tab, canceling, markets]);
 
   return (
     <main className={styles.page} aria-busy={!loaded}>

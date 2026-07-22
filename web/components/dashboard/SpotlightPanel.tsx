@@ -14,7 +14,7 @@ import SymbolChip from "@/components/SymbolChip";
 import PricePill from "@/components/PricePill";
 import { useExchangeStore } from "@/lib/store";
 import { COIN_META } from "@/lib/sim/engine";
-import { dirOf, formatPrice, formatQty } from "@/lib/format";
+import { dirOf, formatCompactQty, formatPrice } from "@/lib/format";
 import type { CandleUnit } from "@/lib/types";
 import styles from "./SpotlightPanel.module.css";
 
@@ -31,6 +31,9 @@ export default function SpotlightPanel() {
   const [unit, setUnit] = useState<CandleUnit>("60m");
   const meta = COIN_META.find((c) => c.market === market)!;
   const ticker = useExchangeStore((s) => s.tickers[market]);
+  const spec = useExchangeStore((s) => s.markets.find((m) => m.market === market));
+  const tickSpec = spec?.tick_size;
+  const qtyScale = spec?.qty_scale ?? 8;
   const dir = ticker ? dirOf(ticker.change) : "flat";
 
   return (
@@ -60,7 +63,7 @@ export default function SpotlightPanel() {
         </div>
         <div className={styles.figures}>
           <span className={`${styles.price} num dir-hero`} data-dir={dir}>
-            {ticker ? formatPrice(ticker.trade_price) : "-"}
+            {ticker ? formatPrice(ticker.trade_price, tickSpec) : "-"}
           </span>
           {ticker && (
             <PricePill
@@ -90,16 +93,16 @@ export default function SpotlightPanel() {
       <div className={styles.summary}>
         <div className={styles.stat}>
           <span className={styles.statLabel}>고가(24H)</span>
-          <span className={`${styles.statValue} num`}>{ticker ? formatPrice(ticker.high_24h) : "-"}</span>
+          <span className={`${styles.statValue} num`}>{ticker ? formatPrice(ticker.high_24h, tickSpec) : "-"}</span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statLabel}>저가(24H)</span>
-          <span className={`${styles.statValue} num`}>{ticker ? formatPrice(ticker.low_24h) : "-"}</span>
+          <span className={`${styles.statValue} num`}>{ticker ? formatPrice(ticker.low_24h, tickSpec) : "-"}</span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statLabel}>거래량(24H)</span>
           <span className={`${styles.statValue} num`}>
-            {ticker ? `${formatQty(ticker.acc_trade_volume_24h, 2)} ${meta.symbol}` : "-"}
+            {ticker ? `${formatCompactQty(ticker.acc_trade_volume_24h, qtyScale)} ${meta.symbol}` : "-"}
           </span>
         </div>
         <Link href={`/exchange/${market}`} className={`btn btn--primary ${styles.cta}`}>

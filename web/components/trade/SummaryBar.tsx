@@ -15,7 +15,7 @@ import Skeleton from "@/components/Skeleton";
 import { useExchangeStore } from "@/lib/store";
 import { useEffectIntensity } from "@/lib/useEffectIntensity";
 import { COIN_META } from "@/lib/sim/engine";
-import { dirOf, formatCompactKRW, formatPrice, toNum } from "@/lib/format";
+import { dirOf, formatCompactKRW, formatCompactQty, formatPrice, toNum } from "@/lib/format";
 import type { CoinMeta } from "@/lib/types";
 import { useTradeRateGovernor } from "./useTradeRateGovernor";
 import { effectiveLevel } from "./effectGovernor";
@@ -29,6 +29,9 @@ interface Props {
 export default function SummaryBar({ market, meta }: Props) {
   const router = useRouter();
   const ticker = useExchangeStore((s) => s.tickers[market]);
+  const spec = useExchangeStore((s) => s.markets.find((m) => m.market === market));
+  const tickSpec = spec?.tick_size;
+  const qtyScale = spec?.qty_scale ?? 8;
   const favorites = useExchangeStore((s) => s.favorites);
   const toggleFavorite = useExchangeStore((s) => s.toggleFavorite);
 
@@ -153,7 +156,7 @@ export default function SummaryBar({ market, meta }: Props) {
       {ticker ? (
         <div className={styles.price}>
           <span className={`${styles.cur} num dir-hero`} data-dir={dir}>
-            <TickCell value={toNum(ticker.trade_price)} format={formatPrice} level={heroLevel} popCap={gov.popCap} popScope="summary" throttleBonus={gov.throttleBonusMs} />
+            <TickCell value={toNum(ticker.trade_price)} format={(v) => formatPrice(v, tickSpec)} level={heroLevel} popCap={gov.popCap} popScope="summary" throttleBonus={gov.throttleBonusMs} />
           </span>
           <PricePill change={ticker.change} changeRate={ticker.change_rate} amount={ticker.change_price} variant="inline" />
         </div>
@@ -166,13 +169,13 @@ export default function SummaryBar({ market, meta }: Props) {
         <div className={styles.stat}>
           <span className={styles.statLabel}>고가(24H)</span>
           <span className={`${styles.statValue} ${styles.statUp} num`}>
-            {ticker ? formatPrice(ticker.high_24h) : "-"}
+            {ticker ? formatPrice(ticker.high_24h, tickSpec) : "-"}
           </span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statLabel}>저가(24H)</span>
           <span className={`${styles.statValue} ${styles.statDown} num`}>
-            {ticker ? formatPrice(ticker.low_24h) : "-"}
+            {ticker ? formatPrice(ticker.low_24h, tickSpec) : "-"}
           </span>
         </div>
         <div className={styles.stat}>
@@ -186,7 +189,7 @@ export default function SummaryBar({ market, meta }: Props) {
           <span className={`${styles.statValue} num`}>
             {ticker ? (
               <>
-                {formatCompactKRW(ticker.acc_trade_volume_24h)} <span className="unit-suffix">{meta.symbol}</span>
+                {formatCompactQty(ticker.acc_trade_volume_24h, qtyScale)} <span className="unit-suffix">{meta.symbol}</span>
               </>
             ) : (
               "-"

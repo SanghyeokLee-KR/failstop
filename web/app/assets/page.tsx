@@ -17,6 +17,7 @@ import SymbolChip from "@/components/SymbolChip";
 import { useExchangeStore, useLiveChannels } from "@/lib/store";
 import { dest, type ChangeState } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
+import { compareDecimal, decimalsOf, fromScaledInt, mulDecimal, scaledIntTrunc } from "@/lib/decimal";
 import {
   dirOf,
   formatChangeRate,
@@ -30,6 +31,29 @@ import styles from "./page.module.css";
 
 const HIDDEN = "••••••";
 
+// 평가·손익·합산은 문자열 십진 연산으로 처리한다. float 산술은 금액·수량 NUMERIC(40,18) 정밀을 잃는다
+function addDec(a: string, b: string): string {
+  const s = Math.max(decimalsOf(a), decimalsOf(b));
+  return fromScaledInt(scaledIntTrunc(a, s) + scaledIntTrunc(b, s), s);
+}
+function subDec(a: string, b: string): string {
+  const s = Math.max(decimalsOf(a), decimalsOf(b));
+  return fromScaledInt(scaledIntTrunc(a, s) - scaledIntTrunc(b, s), s);
+}
+// 수익률 소수부 자리수. 백분율 2자리 표시에 충분한 여유
+const RATE_SCALE = 8;
+// |a| / b 를 고정 자리수 비율 문자열로. b<=0이면 "0"(0 나눗셈·매수금액 0 보호)
+function absRate(a: string, b: string): string {
+  const da = decimalsOf(a);
+  const db = decimalsOf(b);
+  let n = scaledIntTrunc(a, da);
+  if (n < 0n) n = -n;
+  const d = scaledIntTrunc(b, db);
+  if (d <= 0n) return "0";
+  const scaled = (n * 10n ** BigInt(db + RATE_SCALE)) / (d * 10n ** BigInt(da));
+  return fromScaledInt(scaled, RATE_SCALE);
+}
+
 interface Holding {
   currency: string;
   market: string;
@@ -37,27 +61,31 @@ interface Holding {
   symbol: string;
   brandColor: string;
   brandTextDark?: boolean;
-  qty: number;
-  avgBuyPrice: number;
-  price: number;
-  valuation: number;
-  buyAmount: number;
-  pnl: number;
-  /** 절대값 수익률 (0.182 = 18.2%) */
-  pnlRate: number;
+  qty: string;
+  avgBuyPrice: string;
+  valuation: string;
+  buyAmount: string;
+  pnl: string;
+  /** 절대값 수익률 문자열 (0.182 = 18.2%) */
+  pnlRate: string;
+  /** 표시 자리수 유도용 마켓 스펙 */
+  qtyScale: number;
+  tickSpec?: string;
   change: ChangeState;
   /** 현재가 티커 도착 여부. 미도착 행은 가격 파생 셀을 '-'로 표기 */
   priced: boolean;
 }
 
-function changeOf(pnl: number): ChangeState {
-  return pnl > 0 ? "RISE" : pnl < 0 ? "FALL" : "EVEN";
+function changeOf(pnl: string): ChangeState {
+  const c = compareDecimal(pnl, "0");
+  return c > 0 ? "RISE" : c < 0 ? "FALL" : "EVEN";
 }
 
 export default function AssetsPage() {
   const router = useRouter();
   const assets = useExchangeStore((s) => s.assets);
   const tickers = useExchangeStore((s) => s.tickers);
+  const markets = useExchangeStore((s) => s.markets);
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
   const [hidden, setHidden] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -96,13 +124,14 @@ export default function AssetsPage() {
         .map((a): Holding | null => {
           const market = `KRW-${a.currency}`;
           const meta = COIN_META.find((c) => c.market === market);
-          const qty = toNum(a.balance) + toNum(a.locked);
-          if (!meta || qty <= 0) return null;
-          const price = toNum(tickers[market]?.trade_price);
-          const avgBuyPrice = toNum(a.avg_buy_price);
-          const valuation = qty * price;
-          const buyAmount = qty * avgBuyPrice;
-          const pnl = valuation - buyAmount;
+          const qty = addDec(a.balance, a.locked);
+          if (!meta || compareDecimal(qty, "0") <= 0) return null;
+          const spec = markets.find((m) => m.market === market);
+          const price = tickers[market]?.trade_price ?? "0";
+          const avgBuyPrice = a.avg_buy_price;
+          const valuation = mulDecimal(qty, price);
+          const buyAmount = mulDecimal(qty, avgBuyPrice);
+          const pnl = subDec(valuation, buyAmount);
           return {
             currency: a.currency,
             market,
@@ -112,42 +141,45 @@ export default function AssetsPage() {
             brandTextDark: meta.brandTextDark,
             qty,
             avgBuyPrice,
-            price,
             valuation,
             buyAmount,
             pnl,
-            pnlRate: buyAmount > 0 ? Math.abs(pnl / buyAmount) : 0,
+            pnlRate: absRate(pnl, buyAmount),
+            qtyScale: spec?.qty_scale ?? 8,
+            tickSpec: spec?.tick_size,
             change: changeOf(pnl),
-            priced: price > 0,
+            priced: compareDecimal(price, "0") > 0,
           };
         })
         .filter((h): h is Holding => h !== null)
-        .sort((a, b) => b.valuation - a.valuation),
-    [assets, tickers],
+        .sort((a, b) => compareDecimal(b.valuation, a.valuation)),
+    [assets, tickers, markets],
   );
 
   const cash = useMemo(() => {
     const krw = assets.find((a) => a.currency === "KRW");
-    return krw ? toNum(krw.balance) + toNum(krw.locked) : 0;
+    return krw ? addDec(krw.balance, krw.locked) : "0";
   }, [assets]);
 
   // 미가격 보유코인은 해당 행만 '-' 처리한다. 개별 티커 지연이 전체 화면을 고착시키지 않도록 !priced 의존을 뺀다
   const loading = !loaded;
 
-  const totalValuation = holdings.reduce((s, h) => s + h.valuation, 0);
-  const totalBuy = holdings.reduce((s, h) => s + h.buyAmount, 0);
-  const totalAsset = cash + totalValuation;
-  const totalPnl = totalValuation - totalBuy;
+  const totalValuation = holdings.reduce((s, h) => addDec(s, h.valuation), "0");
+  const totalBuy = holdings.reduce((s, h) => addDec(s, h.buyAmount), "0");
+  const totalAsset = addDec(cash, totalValuation);
+  const totalPnl = subDec(totalValuation, totalBuy);
   const totalChange = changeOf(totalPnl);
-  const totalRate = totalBuy > 0 ? Math.abs(totalPnl / totalBuy) : 0;
+  const totalRate = absRate(totalPnl, totalBuy);
 
   /* ===== 보유 비중 (상위 5 + 기타, 가로 막대) ===== */
   const weights = useMemo(() => {
-    if (totalValuation <= 0) return [];
+    // 비중은 화면 막대 폭·aria 값이라 비율 number로 계산한다(금액 값이 아님)
+    const totalNum = toNum(totalValuation);
+    if (totalNum <= 0) return [];
     const top = holdings.slice(0, 5).map((h) => ({ label: h.symbol, name: h.koreanName, value: h.valuation }));
-    const rest = holdings.slice(5).reduce((s, h) => s + h.valuation, 0);
-    if (rest > 0) top.push({ label: "기타", name: "", value: rest });
-    return top.map((seg) => ({ ...seg, pct: (seg.value / totalValuation) * 100 }));
+    const rest = holdings.slice(5).reduce((s, h) => addDec(s, h.valuation), "0");
+    if (toNum(rest) > 0) top.push({ label: "기타", name: "", value: rest });
+    return top.map((seg) => ({ ...seg, pct: (toNum(seg.value) / totalNum) * 100 }));
   }, [holdings, totalValuation]);
 
   const columns: DataColumn<Holding>[] = useMemo(
@@ -173,23 +205,23 @@ export default function AssetsPage() {
         label: "보유수량",
         width: "minmax(120px, 1fr)",
         align: "right",
-        sortValue: (h) => h.qty,
-        render: (h) => (hidden ? HIDDEN : `${formatQty(h.qty, 8)} ${h.symbol}`),
+        sortValue: (h) => toNum(h.qty),
+        render: (h) => (hidden ? HIDDEN : `${formatQty(h.qty, h.qtyScale)} ${h.symbol}`),
       },
       {
         key: "avg",
         label: "매수평균가",
         width: "minmax(110px, 1fr)",
         align: "right",
-        sortValue: (h) => h.avgBuyPrice,
-        render: (h) => (hidden ? HIDDEN : formatPrice(h.avgBuyPrice)),
+        sortValue: (h) => toNum(h.avgBuyPrice),
+        render: (h) => (hidden ? HIDDEN : formatPrice(h.avgBuyPrice, h.tickSpec)),
       },
       {
         key: "valuation",
         label: "평가금액",
         width: "minmax(120px, 1fr)",
         align: "right",
-        sortValue: (h) => h.valuation,
+        sortValue: (h) => toNum(h.valuation),
         render: (h) => (
           <b className={styles.valuation}>{hidden ? HIDDEN : h.priced ? formatKRW(h.valuation) : "-"}</b>
         ),
@@ -199,7 +231,7 @@ export default function AssetsPage() {
         label: "평가손익",
         width: "minmax(160px, 1fr)",
         align: "right",
-        sortValue: (h) => h.pnl,
+        sortValue: (h) => toNum(h.pnl),
         render: (h) =>
           hidden ? (
             HIDDEN

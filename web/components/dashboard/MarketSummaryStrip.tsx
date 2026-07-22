@@ -12,6 +12,7 @@ import Sparkline from "./Sparkline";
 import { useExchangeStore } from "@/lib/store";
 import { getDataSource } from "@/lib/api/datasource";
 import { COIN_META } from "@/lib/sim/engine";
+import { fromScaledInt, scaledIntTrunc } from "@/lib/decimal";
 import {
   dirOf,
   formatChangeRate,
@@ -29,7 +30,8 @@ const REPRESENTATIVES = COIN_META.slice(0, 4);
 export default function MarketSummaryStrip() {
   const tickers = useExchangeStore((s) => s.tickers);
 
-  let totalValue = 0;
+  // 총 거래대금은 won 정수 BigInt로 합산한다. float 합은 2^53 초과·오차 누적으로 금액 정밀을 잃는다
+  let totalValueWon = 0n;
   let up = 0;
   let down = 0;
   let flat = 0;
@@ -38,7 +40,7 @@ export default function MarketSummaryStrip() {
     const t = tickers[c.market];
     if (!t) continue;
     priced += 1;
-    totalValue += toNum(t.acc_trade_price_24h);
+    totalValueWon += scaledIntTrunc(t.acc_trade_price_24h, 0);
     if (t.change === "RISE") up += 1;
     else if (t.change === "FALL") down += 1;
     else flat += 1;
@@ -51,7 +53,7 @@ export default function MarketSummaryStrip() {
         <div className={styles.aggMain}>
           <span className={styles.aggLabel}>24시간 총 거래대금</span>
           <b className={`${styles.aggValue} num ${ready ? "" : styles.pending}`}>
-            {ready ? formatCompactKRW(totalValue) : "-"}
+            {ready ? formatCompactKRW(fromScaledInt(totalValueWon, 0)) : "-"}
           </b>
         </div>
         <div className={styles.counts}>
@@ -88,6 +90,7 @@ export default function MarketSummaryStrip() {
 function RepCard({ meta }: { meta: CoinMeta }) {
   const router = useRouter();
   const ticker = useExchangeStore((s) => s.tickers[meta.market]);
+  const tickSpec = useExchangeStore((s) => s.markets.find((m) => m.market === meta.market)?.tick_size);
   const [points, setPoints] = useState<number[]>([]);
 
   useEffect(() => {
@@ -124,7 +127,7 @@ function RepCard({ meta }: { meta: CoinMeta }) {
         <div className={styles.repBody}>
           <div className={styles.repFigures}>
             <span className={`${styles.repPrice} num`}>
-              {ticker ? formatPrice(ticker.trade_price) : "-"}
+              {ticker ? formatPrice(ticker.trade_price, tickSpec) : "-"}
             </span>
             <span
               className={`${styles.repChange} num dir-text`}

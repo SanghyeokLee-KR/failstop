@@ -1,58 +1,120 @@
 /**
- * lib/format.ts. KRW/수량/등락률 포맷터.
- * 규약: 숫자는 tabular-nums + Intl.NumberFormat('ko-KR'), 방향은 색 단독 금지(부호+화살표 병기).
+ * lib/format.ts. KRW/가격/수량/등락 표시 포맷터.
+ * 규약
+ * - 숫자는 tabular-nums + Intl.NumberFormat('ko-KR'), 방향은 색 단독 금지(부호+화살표 병기).
+ * - 금액·수량은 문자열로 다룬다. 표시 반올림·자리구분을 BigInt 십진 경로로 처리해 NUMERIC(40,18) 정밀을 보존한다.
+ *   parseFloat·Math.round 기반 float 왕복을 표시 계층에서 제거한다.
+ * - 표시 소수 자릿수는 마켓 스펙에서 유도한다. 가격은 tick_size(문자열) 또는 price_scale(숫자),
+ *   수량은 qty_scale(숫자). 고정 자릿수로 tabular 정렬을 보존한다(유효숫자 가변 아님).
+ *   스펙 미전달 시 가격대별 안전 폴백으로 sub-1 KRW가 "0"으로 뭉개지지 않게 한다.
+ *
+ * 소비처 규약(마켓 스펙 전달)
+ * - 가격류: formatPrice(value, market.tick_size) 또는 formatPrice(value, market.price_scale).
+ * - 수량류: formatQty(value, market.qty_scale).
+ * - 등락액: formatDirectionalAmount(change_price, change, market.tick_size).
+ * - 스펙을 못 넘기는 경로만 인자 생략(폴백). 스펙이 있으면 반드시 전달한다.
  */
 
 import type { ChangeState, Direction } from "./types";
+import {
+  absDecimal,
+  compareDecimal,
+  decimalsOf,
+  mulDecimal,
+  normalizeDecimal,
+  scaledIntRound,
+  scaledIntTrunc,
+} from "./decimal";
 
-const nfKRW = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 });
-const nfDec = new Map<number, Intl.NumberFormat>();
+/** 가격 스펙: tick_size 문자열("1000"·"0.0001") 또는 price_scale 숫자(소수 자릿수) */
+export type PriceSpec = string | number;
 
-function decFmt(digits: number): Intl.NumberFormat {
-  let f = nfDec.get(digits);
-  if (!f) {
-    f = new Intl.NumberFormat("ko-KR", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: digits,
-    });
-    nfDec.set(digits, f);
-  }
-  return f;
+const nfInt = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 });
+
+const MAX_DISPLAY_DECIMALS = 18; // NUMERIC(40,18) 소수부 상한
+
+function clampDecimals(d: number): number {
+  if (!Number.isFinite(d) || d <= 0) return 0;
+  return d > MAX_DISPLAY_DECIMALS ? MAX_DISPLAY_DECIMALS : Math.floor(d);
 }
 
-/** 문자열 NUMERIC → number (표시 전용 변환. 계약상 원본은 항상 string) */
+/**
+ * 십진 문자열을 고정 소수 자릿수로 반올림해 자리구분 표기.
+ * 정수부는 BigInt로 Intl 자리구분(2^53 초과 보존), 소수부는 고정 길이 문자열(후행 0 유지→tabular 정렬).
+ * 음수는 U+2212로 표기. parseFloat·Math.round를 경유하지 않는다.
+ */
+function formatFixed(value: string | number, decimals: number): string {
+  const d = clampDecimals(decimals);
+  const scaled = scaledIntRound(value, d);
+  const neg = scaled < 0n;
+  const digits = (neg ? -scaled : scaled).toString().padStart(d + 1, "0");
+  const cut = digits.length - d;
+  const intStr = nfInt.format(BigInt(digits.slice(0, cut)));
+  const body = d > 0 ? `${intStr}.${digits.slice(cut)}` : intStr;
+  return neg ? `−${body}` : body;
+}
+
+/** 스펙 미전달 시 가격대별 소수 자릿수. sub-1 KRW·sub-100 KRW가 "0"으로 붕괴하지 않게 넉넉히 잡는다 */
+function fallbackPriceDecimals(value: string | number): number {
+  const n = Math.abs(toNum(value));
+  if (n >= 1000) return 0;
+  if (n >= 1) return 2;
+  if (n >= 0.01) return 4;
+  if (n >= 0.0001) return 6;
+  if (n > 0) return 8;
+  return 0;
+}
+
+/** 가격 스펙 → 고정 소수 자릿수. 숫자는 price_scale, 문자열은 tick_size에서 유도 */
+function priceDecimalsOf(spec: PriceSpec | undefined, value: string | number): number {
+  if (typeof spec === "number") return clampDecimals(spec);
+  if (typeof spec === "string" && spec.trim() !== "") return clampDecimals(decimalsOf(spec));
+  return fallbackPriceDecimals(value);
+}
+
+/** 절대 비율(예: "0.0234")을 백분율 소수 2자리 문자열("2.34")로. 자리구분 불필요한 소수 비율 */
+function formatPct(rate: string | number): string {
+  const pct = mulDecimal(normalizeDecimal(rate), "100");
+  const d = 2;
+  const scaled = scaledIntRound(absDecimal(pct), d);
+  const digits = scaled.toString().padStart(d + 1, "0");
+  const cut = digits.length - d;
+  return `${digits.slice(0, cut)}.${digits.slice(cut)}`;
+}
+
+/** 문자열 NUMERIC → number. 표시 폴백 대역 판정·비산술 용도의 경계 변환 전용. 금액 산술에 쓰지 않는다 */
 export function toNum(v: string | number | null | undefined): number {
   if (v == null) return 0;
   const n = typeof v === "number" ? v : parseFloat(v);
   return Number.isFinite(n) ? n : 0;
 }
 
-/** KRW 정수 포맷: 84320000 → "84,320,000" */
+/** KRW 정수 포맷: "84320000" → "84,320,000" (won 아래 절사 없이 반올림) */
 export function formatKRW(value: string | number): string {
-  return nfKRW.format(Math.round(toNum(value)));
+  return formatFixed(value, 0);
 }
 
 /** 정수 카운트 포맷(대수·OPS 등 통화 아닌 개수): 1200 → "1,200" */
 export function formatCount(value: string | number): string {
-  return nfKRW.format(Math.round(toNum(value)));
+  return formatFixed(value, 0);
 }
 
-/** 가격 포맷. 1,000원 미만 코인은 소수 표시 허용 */
-export function formatPrice(value: string | number): string {
-  const n = toNum(value);
-  if (Math.abs(n) >= 1000) return nfKRW.format(Math.round(n));
-  if (Math.abs(n) >= 100) return decFmt(1).format(n);
-  return decFmt(2).format(n);
+/**
+ * 가격 포맷. 소수 자릿수를 마켓 스펙(tick_size 문자열 또는 price_scale 숫자)에서 유도한다.
+ * 스펙 미전달 시 가격대별 폴백. sub-1 KRW(최저 0.000398)가 "0"·동일 문자열로 붕괴하지 않는다.
+ */
+export function formatPrice(value: string | number, spec?: PriceSpec): string {
+  return formatFixed(value, priceDecimalsOf(spec, value));
 }
 
-/** 수량 포맷: 0.00412 → "0.00412" (최대 scale 자리, 후행 0 제거) */
-export function formatQty(value: string | number, scale = 8): string {
-  return decFmt(scale).format(toNum(value));
+/** 수량 포맷: qty_scale에서 고정 소수 자릿수 유도. 0.00412(scale 8) → "0.00412000" (절단·정수강제 없음) */
+export function formatQty(value: string | number, qtyScale = 8): string {
+  return formatFixed(value, qtyScale);
 }
 
-/** 등락률(절대값 rate 문자열 "0.0234" + change) → "+2.34%" / "−1.08%" / "0.00%" */
+/** 등락률(절대 rate 문자열 + change) → "+2.34%" / "−1.08%" / "0.00%" */
 export function formatChangeRate(changeRate: string | number, change: ChangeState): string {
-  const pct = (toNum(changeRate) * 100).toFixed(2);
+  const pct = formatPct(changeRate);
   if (change === "RISE") return `+${pct}%`;
   if (change === "FALL") return `−${pct}%`; // U+2212 MINUS SIGN
   return "0.00%";
@@ -66,20 +128,43 @@ export function formatDirectional(changeRate: string | number, change: ChangeSta
   return body; // 보합: 화살표 없음
 }
 
-/** 등락 금액 병기: ▲ +1,930,000 */
-export function formatDirectionalAmount(amount: string | number, change: ChangeState): string {
-  const n = Math.abs(toNum(amount));
-  if (change === "RISE") return `▲ +${nfKRW.format(Math.round(n))}`;
-  if (change === "FALL") return `▼ −${nfKRW.format(Math.round(n))}`;
-  return nfKRW.format(Math.round(n));
+/**
+ * 등락 금액 병기: ▲ +1,930,000 / ▼ −0.000398.
+ * 소수 자릿수를 가격 스펙에서 유도해 sub-1 KRW change_price가 "+0"으로 뭉개지지 않게 한다.
+ */
+export function formatDirectionalAmount(
+  amount: string | number,
+  change: ChangeState,
+  spec?: PriceSpec,
+): string {
+  const d = priceDecimalsOf(spec, amount);
+  const body = formatFixed(absDecimal(amount), d);
+  if (change === "RISE") return `▲ +${body}`;
+  if (change === "FALL") return `▼ −${body}`;
+  return body;
 }
 
-/** 거래대금 축약: 345,000,000,000 → "3,450억", 64,000,000,000 → "640억", 그 미만 → "5,200만" */
+/** KRW 거래대금 축약: "345000000000" → "3,450억", "64000000000" → "640억", 그 미만 → "5,200만" */
 export function formatCompactKRW(value: string | number): string {
-  const n = toNum(value);
-  if (n >= 1e8) return `${nfKRW.format(Math.round(n / 1e8))}억`;
-  if (n >= 1e4) return `${nfKRW.format(Math.round(n / 1e4))}만`;
-  return nfKRW.format(Math.round(n));
+  const won = scaledIntTrunc(value, 0); // won 아래 절사. 억·만 축약에서 sub-won은 무의미
+  const neg = won < 0n;
+  const a = neg ? -won : won;
+  const roundDiv = (n: bigint, unit: bigint) => nfInt.format((n + unit / 2n) / unit);
+  let out: string;
+  if (a >= 100_000_000n) out = `${roundDiv(a, 100_000_000n)}억`;
+  else if (a >= 10_000n) out = `${roundDiv(a, 10_000n)}만`;
+  else out = nfInt.format(a);
+  return neg ? `−${out}` : out;
+}
+
+/**
+ * 코인 수량 축약. KRW 축약과 달리 통화 단위·정수 강제가 없다.
+ * 1 이상은 소수 2자리로 압축(3.75→"3.75", 7000→"7,000.00"), 1 미만은 qty_scale까지 보존해
+ * 세션 초반 소액 누적분이 "0"으로 사라지지 않게 한다.
+ */
+export function formatCompactQty(value: string | number, qtyScale = 8): string {
+  if (compareDecimal(absDecimal(value), "1") >= 0) return formatFixed(value, 2);
+  return formatFixed(value, qtyScale);
 }
 
 /** ChangeState → UI Direction */
@@ -87,14 +172,20 @@ export function dirOf(change: ChangeState): Direction {
   return change === "RISE" ? "up" : change === "FALL" ? "down" : "flat";
 }
 
-/** 두 가격 비교 → Direction (틱 플래시 판정) */
+/** 숫자 delta → Direction (틱 플래시 판정. 근접 가격은 dirOfPrices 사용) */
 export function dirOfDelta(delta: number): Direction {
   return delta > 0 ? "up" : delta < 0 ? "down" : "flat";
 }
 
+/** 두 가격 문자열 비교 → Direction. float 왕복 없이 근접 가격의 방향 오판을 막는다 */
+export function dirOfPrices(prev: string | number, next: string | number): Direction {
+  const c = compareDecimal(next, prev);
+  return c > 0 ? "up" : c < 0 ? "down" : "flat";
+}
+
 /** 접근성 라벨: "상승 2.34퍼센트" (A-6 계약) */
 export function ariaChangeLabel(changeRate: string | number, change: ChangeState): string {
-  const pct = (toNum(changeRate) * 100).toFixed(2);
+  const pct = formatPct(changeRate);
   if (change === "RISE") return `상승 ${pct}퍼센트`;
   if (change === "FALL") return `하락 ${pct}퍼센트`;
   return "보합";

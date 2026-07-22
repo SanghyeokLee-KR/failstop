@@ -9,7 +9,7 @@
 
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
-import { formatKRW, formatQty } from "@/lib/format";
+import { formatKRW, formatPrice, formatQty, type PriceSpec } from "@/lib/format";
 import type { Side } from "@/lib/types";
 import styles from "./OrderConfirmDialog.module.css";
 
@@ -20,6 +20,8 @@ interface Props {
   ordType: "limit" | "market";
   /** 지정가 가격 문자열. 시장가면 미표시 */
   priceStr?: string;
+  /** 가격 표시 자릿수 스펙(tick_size 또는 price_scale). 저가 마켓 가격이 정수 반올림으로 0원이 되지 않게 한다 */
+  priceSpec?: PriceSpec;
   qtyStr: string;
   qtyScale: number;
   totalStr: string;
@@ -36,6 +38,7 @@ export default function OrderConfirmDialog({
   base,
   ordType,
   priceStr,
+  priceSpec,
   qtyStr,
   qtyScale,
   totalStr,
@@ -140,7 +143,7 @@ export default function OrderConfirmDialog({
             <div className={styles.row}>
               <dt>가격</dt>
               <dd className="num">
-                {formatKRW(priceStr)} <span className="unit-suffix">원</span>
+                {formatPrice(priceStr, priceSpec)} <span className="unit-suffix">원</span>
               </dd>
             </div>
           )}

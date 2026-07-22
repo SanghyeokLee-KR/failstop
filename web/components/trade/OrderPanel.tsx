@@ -170,7 +170,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const curPrice = ticker ? toNum(ticker.trade_price) : 0;
 
   const price = ordType === "market" ? curPrice : toNum(priceRaw);
-  const qty = toNum(qtyRaw);
+  // 수량을 qty_scale 격자로 1회 내림한다. 검증·총액·수수료·최소주문·제출 volume이 단일 기준을 공유해
+  // 경계에서 UI ready인데 서버가 under_min_order·insufficient_funds로 거부하는 불일치를 없앤다. 잔고 안전 위해 반올림이 아닌 내림.
+  const qty = floorTo(toNum(qtyRaw), qtyScale);
   const amount = toNum(amountRaw);
   const isMarketBuy = ordType === "market" && side === "bid";
   const total = isMarketBuy ? amount : price * qty;
@@ -381,7 +383,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
                 inputMode="decimal"
                 autoComplete="off"
                 value={priceRaw ? formatPriceField(priceRaw) : ""}
-                placeholder={ticker ? formatPrice(curPrice) : "0"}
+                placeholder={ticker ? formatPrice(curPrice, priceTick) : "0"}
                 onChange={(e) => onPriceInput(e.target.value)}
                 aria-label="주문 가격(원)"
                 disabled={submitting}
@@ -544,6 +546,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           base={base}
           ordType={ordType}
           priceStr={confirmPriceStr}
+          priceSpec={priceTick}
           qtyStr={confirmQtyStr}
           qtyScale={qtyScale}
           totalStr={confirmTotalStr}

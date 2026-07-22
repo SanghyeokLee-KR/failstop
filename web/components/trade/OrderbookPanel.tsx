@@ -30,6 +30,10 @@ interface Props {
 export default function OrderbookPanel({ market, onPricePrefill }: Props) {
   const orderbook = useExchangeStore((s) => s.orderbooks[market]);
   const ticker = useExchangeStore((s) => s.tickers[market]);
+  const spec = useExchangeStore((s) => s.markets.find((m) => m.market === market));
+  // 표시 자리수는 마켓 스펙에서 유도한다(호출부 상수 금지). 미로딩 시 폴백
+  const tickSpec = spec?.tick_size;
+  const qtyScale = spec?.qty_scale ?? 8;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const midRef = useRef<HTMLDivElement>(null);
@@ -85,16 +89,16 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
         type="button"
         className={`${styles.row} ${side === "ask" ? styles.rowAsk : styles.rowBid} num`}
         onClick={() => onPricePrefill(price)}
-        aria-label={`${sideLabel}호가 ${formatPrice(p)}원, 잔량 ${formatQty(size, 4)}, 주문 가격으로 입력`}
+        aria-label={`${sideLabel}호가 ${formatPrice(price, tickSpec)}원, 잔량 ${formatQty(size, qtyScale)}, 주문 가격으로 입력`}
       >
         <span
           className={styles.depth}
           style={{ width: maxSize > 0 ? `${Math.min(100, (toNum(size) / maxSize) * 100)}%` : 0 }}
           aria-hidden="true"
         />
-        <span className={`${styles.cell} ${styles.qty}`}>{formatQty(size, 3)}</span>
+        <span className={`${styles.cell} ${styles.qty}`}>{formatQty(size, qtyScale)}</span>
         <span className={`${styles.cell} ${styles.price} dir-text`} data-dir={d}>
-          {formatPrice(p)}
+          {formatPrice(price, tickSpec)}
         </span>
         <span className={`${styles.cell} ${styles.rate} dir-text`} data-dir={d}>
           {formatChangeRate(rate, state)}
@@ -114,7 +118,7 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
                 .reverse()}
               <div className={`${styles.mid} num dir-text`} data-dir={dir} ref={midRef}>
                 {ticker ? (
-                  <TickCell value={toNum(ticker.trade_price)} format={formatPrice} level={midLevel} popCap={gov.popCap} popScope="orderbook" throttleBonus={gov.throttleBonusMs} />
+                  <TickCell value={toNum(ticker.trade_price)} format={(v) => formatPrice(v, tickSpec)} level={midLevel} popCap={gov.popCap} popScope="orderbook" throttleBonus={gov.throttleBonusMs} />
                 ) : (
                   "-"
                 )}
@@ -127,13 +131,13 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
               <span className={styles.totalItem}>
                 <span className={styles.totalLabel}>매도 잔량</span>
                 <span className="dir-text" data-dir="down">
-                  {formatQty(orderbook.total_ask_size, 3)}
+                  {formatQty(orderbook.total_ask_size, qtyScale)}
                 </span>
               </span>
               <span className={styles.totalItem}>
                 <span className={styles.totalLabel}>매수 잔량</span>
                 <span className="dir-text" data-dir="up">
-                  {formatQty(orderbook.total_bid_size, 3)}
+                  {formatQty(orderbook.total_bid_size, qtyScale)}
                 </span>
               </span>
             </div>

@@ -6,64 +6,18 @@
 
 import type { Side } from "../../lib/types";
 import { toNum } from "../../lib/format";
+import {
+  decimalsOf,
+  fromScaledInt,
+  normalizeDecimal,
+  scaledIntRound,
+  scaledIntTrunc,
+} from "../../lib/decimal";
 
 /** 가용 잔고 대비 이 비율 이상이면 인라인 확인 대신 확인 다이얼로그로 오발주를 막는다 */
 export const LARGE_ORDER_RATIO = 0.7;
 
-/* ===== 십진 문자열 · BigInt 격자 연산 ===== */
-
-/** 지수표기를 고정 소수 문자열로 환산. 십진 격자 연산은 지수표기를 입력으로 받지 않는다 */
-function normalizeDecimal(v: string | number): string {
-  const s = typeof v === "number" ? String(v) : v.trim();
-  if (s === "") return "0";
-  if (!/[eE]/.test(s)) return s;
-  const n = Number(s);
-  if (!Number.isFinite(n)) return "0";
-  return n.toFixed(20).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
-}
-
-/** 십진 문자열의 소수 자릿수 */
-function decimalsOf(v: string): number {
-  const s = normalizeDecimal(v);
-  const i = s.indexOf(".");
-  return i < 0 ? 0 : s.length - i - 1;
-}
-
-/** 십진 문자열 → 10^scale 스케일드 BigInt. 절사(초과 자릿수 버림) */
-function scaledIntTrunc(v: string, scale: number): bigint {
-  const raw = normalizeDecimal(v);
-  const neg = raw.startsWith("-");
-  const s = (neg ? raw.slice(1) : raw) || "0";
-  const [intPart, fracPart = ""] = s.split(".");
-  const frac = (fracPart + "0".repeat(scale)).slice(0, scale);
-  const n = BigInt((intPart || "0") + frac);
-  return neg ? -n : n;
-}
-
-/** 십진 문자열 → 10^scale 스케일드 BigInt. scale 자리에서 반올림(half-up) */
-function scaledIntRound(v: string, scale: number): bigint {
-  const raw = normalizeDecimal(v);
-  const neg = raw.startsWith("-");
-  const s = (neg ? raw.slice(1) : raw) || "0";
-  const [intPart, fracPart = ""] = s.split(".");
-  const padded = (fracPart + "0".repeat(scale + 1)).slice(0, scale + 1);
-  const keep = padded.slice(0, scale);
-  const guard = padded.charCodeAt(scale) - 48;
-  let n = BigInt((intPart || "0") + keep);
-  if (guard >= 5) n += 1n;
-  return neg ? -n : n;
-}
-
-/** 10^scale 스케일드 BigInt → 십진 문자열. 후행 0 제거 */
-function fromScaledInt(n: bigint, scale: number): string {
-  const neg = n < 0n;
-  let s = (neg ? -n : n).toString();
-  if (scale <= 0) return (neg ? "-" : "") + s;
-  s = s.padStart(scale + 1, "0");
-  const intPart = s.slice(0, s.length - scale);
-  const frac = s.slice(s.length - scale).replace(/0+$/, "");
-  return (neg ? "-" : "") + intPart + (frac ? "." + frac : "");
-}
+/* ===== 격자(틱) 반올림 · 총액 역산 (십진 연산은 lib/decimal 공유) ===== */
 
 /**
  * 가격을 마켓 틱 격자에 반올림한 십진 문자열. 저가·소수틱(0.1, 0.001, 0.000398 등)에서 0으로 강제되지 않게 한다.

@@ -15,6 +15,7 @@ import Skeleton from "@/components/Skeleton";
 import { useExchangeStore } from "@/lib/store";
 import { useEffectIntensity } from "@/lib/useEffectIntensity";
 import { getDataSource } from "@/lib/api/datasource";
+import { mulDecimal } from "@/lib/decimal";
 import type { Side, Trade } from "@/lib/types";
 import {
   dirOf,
@@ -37,7 +38,9 @@ const HIT_WINDOW = 20; // 홍수 히트 틴트 우세 방향 판정 창(최근 �
 
 interface Row {
   id: string;
+  /** 방향·등락 판정용 수치 값. 표시·거래대금 곱은 priceStr(원본 문자열)로 정밀 보존 */
   price: number;
+  priceStr: string;
   volume: string;
   side: Side;
   timestamp: string;
@@ -50,6 +53,9 @@ function prefersReducedMotion(): boolean {
 export default function TradesPanel({ market }: { market: string }) {
   const liveTrades = useExchangeStore((s) => s.trades[market]);
   const ticker = useExchangeStore((s) => s.tickers[market]);
+  const spec = useExchangeStore((s) => s.markets.find((m) => m.market === market));
+  const tickSpec = spec?.tick_size;
+  const qtyScale = spec?.qty_scale ?? 8;
   const [backfill, setBackfill] = useState<Trade[] | null>(null);
 
   const config = useEffectIntensity();
@@ -76,7 +82,7 @@ export default function TradesPanel({ market }: { market: string }) {
     const push = (id: string, price: string, volume: string, side: Side, timestamp: string) => {
       if (seen.has(id)) return;
       seen.add(id);
-      out.push({ id, price: toNum(price), volume, side, timestamp });
+      out.push({ id, price: toNum(price), priceStr: price, volume, side, timestamp });
     };
     (liveTrades ?? []).forEach((t) => push(t.trade_id, t.price, t.volume, t.taker_side, t.timestamp));
     (backfill ?? []).forEach((t) => push(t.trade_id, t.price, t.volume, t.taker_side, t.timestamp));
@@ -143,7 +149,8 @@ export default function TradesPanel({ market }: { market: string }) {
               const sideDir = t.side === "bid" ? "up" : "down";
               const flashing = flash?.id === t.id;
               const isLarge = large.isLarge(t.volume);
-              const largeAmount = isLarge ? formatCompactKRW(t.price * toNum(t.volume)) : "";
+              // 거래대금은 원본 문자열 정밀 곱(float 곱 금지). sub-1 KRW 대량 체결 정밀 보존
+              const largeAmount = isLarge ? formatCompactKRW(mulDecimal(t.priceStr, t.volume)) : "";
               return (
                 <tr key={t.id} className={flashing ? "trade-flash" : undefined} data-flash={flashing ? flash?.dir : undefined}>
                   <td className={styles.priceCell}>
@@ -160,12 +167,12 @@ export default function TradesPanel({ market }: { market: string }) {
                     <span
                       className="dir-text"
                       data-dir={sideDir}
-                      aria-label={`${t.side === "bid" ? "매수" : "매도"} 체결 ${formatPrice(t.price)}원${isLarge ? `, 대형 체결 ${largeAmount}` : ""}`}
+                      aria-label={`${t.side === "bid" ? "매수" : "매도"} 체결 ${formatPrice(t.priceStr, tickSpec)}원${isLarge ? `, 대형 체결 ${largeAmount}` : ""}`}
                     >
-                      {t.side === "bid" ? "▲" : "▼"} {formatPrice(t.price)}
+                      {t.side === "bid" ? "▲" : "▼"} {formatPrice(t.priceStr, tickSpec)}
                     </span>
                   </td>
-                  <td className={styles.qty}>{formatQty(t.volume, 4)}</td>
+                  <td className={styles.qty}>{formatQty(t.volume, qtyScale)}</td>
                   <td>
                     <span className="dir-text" data-dir={d}>
                       {formatChangeRate(rate, state)}

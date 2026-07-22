@@ -12,6 +12,7 @@ import SymbolChip from "@/components/SymbolChip";
 import TickCell from "@/components/TickCell";
 import { useExchangeStore } from "@/lib/store";
 import { COIN_META } from "@/lib/sim/engine";
+import { compareDecimal } from "@/lib/decimal";
 import {
   ariaChangeLabel,
   dirOf,
@@ -39,6 +40,8 @@ function signedRate(t: { change: string; change_rate: string } | undefined): num
 export default function RankingTable() {
   const router = useRouter();
   const tickers = useExchangeStore((s) => s.tickers);
+  const markets = useExchangeStore((s) => s.markets);
+  const specOf = (m: string) => markets.find((x) => x.market === m)?.tick_size;
   const [tab, setTab] = useState<RankTab>("value");
 
   const rows = useMemo(() => {
@@ -47,7 +50,8 @@ export default function RankingTable() {
       const ta = tickers[a.market];
       const tb = tickers[b.market];
       if (tab === "value") {
-        return toNum(tb?.acc_trade_price_24h) - toNum(ta?.acc_trade_price_24h);
+        // 거래대금 내림차순. 2^53 초과 정밀 보존 위해 문자열 십진 비교
+        return compareDecimal(tb?.acc_trade_price_24h ?? "0", ta?.acc_trade_price_24h ?? "0");
       }
       const diff = signedRate(tb) - signedRate(ta); // 급상승: 내림차순
       return tab === "gainers" ? diff : -diff;
@@ -105,7 +109,7 @@ export default function RankingTable() {
                   </span>
                 </span>
                 <span role="cell" className={`${styles.right} num`}>
-                  {t ? <TickCell value={toNum(t.trade_price)} format={formatPrice} /> : "-"}
+                  {t ? <TickCell value={toNum(t.trade_price)} format={(v) => formatPrice(v, specOf(c.market))} /> : "-"}
                 </span>
                 <span
                   role="cell"

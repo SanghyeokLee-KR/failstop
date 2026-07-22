@@ -12,6 +12,7 @@ import SymbolChip from "@/components/SymbolChip";
 import TickCell from "@/components/TickCell";
 import { useExchangeStore } from "@/lib/store";
 import { COIN_META } from "@/lib/sim/engine";
+import { compareDecimal } from "@/lib/decimal";
 import {
   ariaChangeLabel,
   dirOf,
@@ -27,6 +28,8 @@ const FALLBACK_COUNT = 6;
 export default function WatchlistSidebar() {
   const router = useRouter();
   const tickers = useExchangeStore((s) => s.tickers);
+  const markets = useExchangeStore((s) => s.markets);
+  const specOf = (m: string) => markets.find((x) => x.market === m)?.tick_size;
   const favorites = useExchangeStore((s) => s.favorites);
 
   const favMetas = useMemo(
@@ -39,7 +42,12 @@ export default function WatchlistSidebar() {
   const rows = useMemo(() => {
     if (!usingFallback) return favMetas;
     return [...COIN_META]
-      .sort((a, b) => toNum(tickers[b.market]?.acc_trade_price_24h) - toNum(tickers[a.market]?.acc_trade_price_24h))
+      .sort((a, b) =>
+        compareDecimal(
+          tickers[b.market]?.acc_trade_price_24h ?? "0",
+          tickers[a.market]?.acc_trade_price_24h ?? "0",
+        ),
+      )
       .slice(0, FALLBACK_COUNT);
   }, [usingFallback, favMetas, tickers]);
 
@@ -72,7 +80,7 @@ export default function WatchlistSidebar() {
                 </span>
                 <span className={styles.figures}>
                   <span className={`${styles.price} num`}>
-                    {t ? <TickCell value={toNum(t.trade_price)} format={formatPrice} /> : "-"}
+                    {t ? <TickCell value={toNum(t.trade_price)} format={(v) => formatPrice(v, specOf(c.market))} /> : "-"}
                   </span>
                   <span
                     className={`${styles.change} num dir-text`}

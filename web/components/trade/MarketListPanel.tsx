@@ -14,6 +14,7 @@ import TickCell from "@/components/TickCell";
 import { useExchangeStore } from "@/lib/store";
 import { useEffectIntensity } from "@/lib/useEffectIntensity";
 import { COIN_META } from "@/lib/sim/engine";
+import { compareDecimal } from "@/lib/decimal";
 import { dirOf, formatChangeRate, formatCompactKRW, formatPrice, toNum } from "@/lib/format";
 import styles from "./MarketListPanel.module.css";
 
@@ -41,8 +42,10 @@ const HEADERS: { key: SortKey; label: string }[] = [
 export default function MarketListPanel({ market }: { market: string }) {
   const router = useRouter();
   const tickers = useExchangeStore((s) => s.tickers);
+  const markets = useExchangeStore((s) => s.markets);
   const favorites = useExchangeStore((s) => s.favorites);
   const assets = useExchangeStore((s) => s.assets);
+  const specOf = (m: string) => markets.find((x) => x.market === m)?.tick_size;
   // 목록은 다마켓이라 마켓별 거버너를 걸지 않고 설정 강도를 그대로 소비한다(셀당 체결률 낮음)
   const effectConfig = useEffectIntensity();
 
@@ -92,15 +95,21 @@ export default function MarketListPanel({ market }: { market: string }) {
           cmp = a.koreanName.localeCompare(b.koreanName, "ko");
           break;
         case "price":
-          cmp = toNum(tickers[a.market]?.trade_price) - toNum(tickers[b.market]?.trade_price);
+          // 근접 두 가격의 float 왕복 순서 역전을 막는다(문자열 십진 비교)
+          cmp = compareDecimal(
+            tickers[a.market]?.trade_price ?? "0",
+            tickers[b.market]?.trade_price ?? "0",
+          );
           break;
         case "change":
           cmp = signedRate(a.market) - signedRate(b.market);
           break;
         case "volume":
-          cmp =
-            toNum(tickers[a.market]?.acc_trade_price_24h) -
-            toNum(tickers[b.market]?.acc_trade_price_24h);
+          // 거래대금은 2^53 초과 가능. 문자열 십진 비교로 정렬 키 정밀 보존
+          cmp = compareDecimal(
+            tickers[a.market]?.acc_trade_price_24h ?? "0",
+            tickers[b.market]?.acc_trade_price_24h ?? "0",
+          );
           break;
       }
       return sortDir === "asc" ? cmp : -cmp;
@@ -183,7 +192,7 @@ export default function MarketListPanel({ market }: { market: string }) {
                     </span>
                   </span>
                   <span className="dir-text num" data-dir={d}>
-                    {t ? <TickCell value={toNum(t.trade_price)} format={formatPrice} level={effectConfig.level} popCap={LIST_POP_CAP} popScope="market-list" /> : "-"}
+                    {t ? <TickCell value={toNum(t.trade_price)} format={(v) => formatPrice(v, specOf(c.market))} level={effectConfig.level} popCap={LIST_POP_CAP} popScope="market-list" /> : "-"}
                   </span>
                   <span className="dir-text num" data-dir={d}>
                     {t ? formatChangeRate(t.change_rate, t.change) : "-"}
