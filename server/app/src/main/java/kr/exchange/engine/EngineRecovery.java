@@ -1,14 +1,16 @@
 package kr.exchange.engine;
 
 import kr.exchange.engine.core.EngineEvent;
-import kr.exchange.engine.core.MatchingEngine;
+import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.SingleWriterLoop;
 import kr.exchange.journal.ReplayResult;
 import kr.exchange.journal.ReplayService;
+import kr.exchange.snapshot.SnapshotSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 기동 복구: 저널 재생으로 오더북을 재구성하고, 크래시 창(명령 커밋 후·이벤트 커밋 전)의
@@ -33,16 +35,42 @@ public class EngineRecovery {
     private final ReplayService replayService;
     private final SingleWriterLoop.EventSink reappendSink;
     private final LeaderLeaseService lease;
+    // null이면 스냅샷 비활성. 저널 seq 0 전량 재생으로만 복구한다(기존 경로).
+    private final SnapshotSource snapshotSource;
 
     public EngineRecovery(ReplayService replayService, SingleWriterLoop.EventSink reappendSink,
                           LeaderLeaseService lease) {
+        this(replayService, reappendSink, lease, null);
+    }
+
+    public EngineRecovery(ReplayService replayService, SingleWriterLoop.EventSink reappendSink,
+                          LeaderLeaseService lease, SnapshotSource snapshotSource) {
         this.replayService = replayService;
         this.reappendSink = reappendSink;
         this.lease = lease;
+        this.snapshotSource = snapshotSource;
     }
 
-    public ReplayResult recover(MatchingEngine engine) {
-        ReplayResult result = replayService.rebuild(engine);
+    /**
+     * 스냅샷 로드 후 tail 재생(복구 RTO 설계 §3-b). fresh 엔진에 최신 채택 스냅샷을 적재하고
+     * seq > snapshot.last_applied_seq만 재생해 tail을 상한한다. 채택 게이트를 통과하는 스냅샷이
+     * 없으면 eventStart=0으로 seq 0 전량 재생(폴백)한다. 버전·설정·checksum 불일치는 게이트가
+     * 폐기하므로 여기까지 오지 않는다(§3-b 단일 정본 규율). 로드는 fresh 엔진에만 허용된다
+     * (MatchingEngineImpl.loadSnapshot 가드).
+     */
+    public ReplayResult recover(MatchingEngineImpl engine) {
+        long eventStart = 0;
+        if (snapshotSource != null) {
+            Optional<SnapshotSource.Loaded> snap = snapshotSource.loadLatestAdoptable();
+            if (snap.isPresent()) {
+                long snapSeq = snap.get().seq();
+                engine.loadSnapshot(snapSeq, snap.get().books());
+                eventStart = snapshotSource.eventWatermark(snapSeq);
+                log.info("스냅샷 채택: last_applied_seq={}, event_watermark={}, markets={}",
+                        snapSeq, eventStart, snap.get().books().size());
+            }
+        }
+        ReplayResult result = replayService.rebuild(engine, eventStart);
         List<EngineEvent> pending = result.pendingEvents();
         if (pending.isEmpty()) {
             return result;

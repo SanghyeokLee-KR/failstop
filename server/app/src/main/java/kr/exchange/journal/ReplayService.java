@@ -50,7 +50,20 @@ public class ReplayService {
     }
 
     public ReplayResult rebuild(MatchingEngine engine) {
-        JournalEventCursor cursor = new JournalEventCursor();
+        return rebuild(engine, 0);
+    }
+
+    /**
+     * 스냅샷 경계 tail 재생(복구 RTO 설계 §3-b). eventStartSeq는 스냅샷 워터마크 W이며,
+     * 명령 커서는 engine.lastAppliedSeq() 초과분(= 스냅샷 로드로 세운 snapshot seq 초과분),
+     * 이벤트 커서는 W+1부터 대조한다. eventStartSeq=0이면 seq 0 전량 재생(기존 경로).
+     *
+     * W는 호출측이 event_journal에서 max(event_seq) WHERE source_cmd_seq <= snapshot seq로
+     * 유도한다. event_seq는 source_cmd_seq 오름차순 gapless 배정이라 유도값이 캡처 시점 W와
+     * 정확히 일치하고, 커서를 W로 두면 첫 tail 이벤트(W+1)를 기대해 prefix가 정합한다.
+     */
+    public ReplayResult rebuild(MatchingEngine engine, long eventStartSeq) {
+        JournalEventCursor cursor = new JournalEventCursor(eventStartSeq);
         List<EngineEvent> pending = new ArrayList<>();
         long replayedCommands = 0;
         long verifiedEvents = 0;
@@ -144,6 +157,12 @@ public class ReplayService {
         private long lastSeq;
         private boolean exhausted;
         private EventJournalRow current;
+
+        // lastSeq를 스냅샷 워터마크 W로 초기화한다. readAfter(W)가 W+1부터 읽고 선두 결번
+        // 검사(expected = lastSeq==0 ? 1 : lastSeq+1)도 W+1을 기대해 tail prefix가 정합한다.
+        JournalEventCursor(long eventStartSeq) {
+            this.lastSeq = eventStartSeq;
+        }
 
         EventJournalRow next() {
             if (exhausted) {

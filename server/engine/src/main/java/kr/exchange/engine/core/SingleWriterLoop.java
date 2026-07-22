@@ -32,6 +32,16 @@ public final class SingleWriterLoop {
         List<OrderCommand> readAfter(long lastAppliedSeq, int limit);
     }
 
+    /**
+     * 명령 경계 스냅샷 훅(복구 RTO 설계 §3-b). 한 명령의 적용·정산이 끝난 경계에서 라이터
+     * 스레드가 호출한다. 구현은 인코딩만 라이터에서 하고 DB 영속화는 별도 워커로 넘겨야 한다
+     * (핫패스 블로킹 금지). 스냅샷은 best-effort 최적화라 이 훅은 예외를 밖으로 던지지 않는다
+     * (던지면 라이터 fail-fast를 오염시킨다). engine 모듈 순수성 유지를 위해 인터페이스만 둔다.
+     */
+    public interface SnapshotHook {
+        void afterCommand(MatchingEngine engine);
+    }
+
     private static final int CATCH_UP_BATCH = 500;
 
     private final BlockingQueue<OrderCommand> queue;
@@ -45,6 +55,8 @@ public final class SingleWriterLoop {
     // 프로덕션 기본 null. fail-fast rethrow는 JVM 기본 경로로 간다. 테스트는 워커 스레드
     // 전용 핸들러를 배선해 재던진 Error를 캡처하고 기본 경로(테스트 인프라)로 새지 않게 한다.
     private volatile Thread.UncaughtExceptionHandler writerUncaughtExceptionHandler;
+    // 기본 null(무동작). 프로덕션만 배선하고 직접 생성 테스트는 스냅샷 없이 돈다.
+    private volatile SnapshotHook snapshotHook;
 
     public SingleWriterLoop(int queueCapacity, MatchingEngine engine, EventSink eventSink,
                             CatchUpSource catchUpSource, Consumer<Throwable> fatalHandler) {
@@ -91,6 +103,11 @@ public final class SingleWriterLoop {
      */
     public void setWriterUncaughtExceptionHandler(Thread.UncaughtExceptionHandler handler) {
         this.writerUncaughtExceptionHandler = handler;
+    }
+
+    /** 명령 경계 스냅샷 훅 배선(복구 RTO 설계 §3-b). start() 이전에 설정한다. */
+    public void setSnapshotHook(SnapshotHook hook) {
+        this.snapshotHook = hook;
     }
 
     public void start() {
@@ -211,6 +228,11 @@ public final class SingleWriterLoop {
         List<EngineEvent> events = engine.apply(command);
         if (!events.isEmpty()) {
             eventSink.accept(events);
+        }
+        // 정산 커밋 후 이벤트 경계에서 스냅샷 캡처 판정(§3-b). 훅은 예외를 밖으로 던지지 않는다.
+        SnapshotHook hook = snapshotHook;
+        if (hook != null) {
+            hook.afterCommand(engine);
         }
     }
 }

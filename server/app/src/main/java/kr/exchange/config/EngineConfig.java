@@ -21,6 +21,8 @@ import kr.exchange.journal.EventJournalReader;
 import kr.exchange.journal.ReplayService;
 import kr.exchange.ledger.MarketCatalog;
 import kr.exchange.ledger.SettlementService;
+import kr.exchange.snapshot.SnapshotCapture;
+import kr.exchange.snapshot.SnapshotStore;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
@@ -29,7 +31,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
-@EnableConfigurationProperties(EngineProperties.class)
+@EnableConfigurationProperties({EngineProperties.class, SnapshotProperties.class})
 public class EngineConfig {
 
     @Bean
@@ -92,12 +94,39 @@ public class EngineConfig {
     }
 
     @Bean
+    public SnapshotStore snapshotStore(JdbcClient jdbcClient,
+                                       TransactionTemplate transactionTemplate,
+                                       SnapshotProperties props) {
+        return new SnapshotStore(jdbcClient, transactionTemplate,
+                props.engineVersion(), props.configHash());
+    }
+
+    @Bean
     public EngineRecovery engineRecovery(ReplayService replayService,
                                          SettlementService settlementService,
-                                         LeaderLeaseService leaderLeaseService) {
+                                         LeaderLeaseService leaderLeaseService,
+                                         SnapshotStore snapshotStore,
+                                         SnapshotProperties snapshotProps) {
         // 크래시 창 재적재는 라이브 sink와 동일한 append+정산 원자 경로를 쓴다(§5.5 ②).
+        // 스냅샷 활성 시 로드 후 tail 재생으로 복구·승격 재생량을 상한한다(§3-b).
         return new EngineRecovery(replayService, settlementService::appendAndSettle,
-                leaderLeaseService);
+                leaderLeaseService, snapshotProps.enabled() ? snapshotStore : null);
+    }
+
+    // 주기 스냅샷 캡처. 라이터 명령 경계 훅으로 인코딩하고 별도 워커가 영속화한다(§3-b).
+    // 비활성이면 훅을 배선하지 않아 캡처가 전혀 돌지 않는다.
+    @Bean(destroyMethod = "close")
+    public SnapshotCapture snapshotCapture(SnapshotStore snapshotStore,
+                                           LeaderLeaseService leaderLeaseService,
+                                           SnapshotProperties props,
+                                           SingleWriterLoop loop,
+                                           MeterRegistry meterRegistry) {
+        SnapshotCapture capture = new SnapshotCapture(snapshotStore, leaderLeaseService,
+                props.commandInterval(), props.timeInterval(), props.queueCapacity(), meterRegistry);
+        if (props.enabled()) {
+            loop.setSnapshotHook(capture);
+        }
+        return capture;
     }
 
     @Bean
