@@ -59,11 +59,15 @@ public class BotFleet {
             String suffix = shortName(per.market());
             long marketSalt = marketIndex * 100_000_019L;
 
+            // TREND·NOISE 초기 목표(r4). 0 파킹을 탈피해 페르소나가 상시 구동한다. 명시 없으면
+            // taker 수에서 파생한다. governor가 typeCap·marketCap·globalCap으로 클램프한다.
+            int trendInit = spec.trendCount() != null ? spec.trendCount() : per.taker().count();
+            int noiseInit = spec.noiseCount() != null ? spec.noiseCount() : per.taker().count();
             Map<BotType, Integer> initialTargets = new EnumMap<>(BotType.class);
             initialTargets.put(BotType.MARKET_MAKER, per.marketMaker().count());
             initialTargets.put(BotType.TAKER, per.taker().count());
-            initialTargets.put(BotType.TREND, 0);
-            initialTargets.put(BotType.NOISE, 0);
+            initialTargets.put(BotType.TREND, Math.max(0, trendInit));
+            initialTargets.put(BotType.NOISE, Math.max(0, noiseInit));
             fleet.registerMarket(per.market(),
                     new BigDecimal(per.initialPrice()), initialTargets);
 
@@ -97,10 +101,12 @@ public class BotFleet {
             String botId = idPrefix + "-" + i;
             BotCredentials creds = seeder.seed(botId + "@bots.exchange.local", per.market(),
                     quoteFunding, baseFunding);
+            // TREND는 index 결정론으로 momentum/mean-revert 이분(r7), TAKER·NOISE는 STATIC.
+            DirectionSource ds = DirectionSource.of(type, i);
             TakerBot bot = new TakerBot(botId,
                     new BotApiClient(per.baseUrl(), creds, botId),
                     per.seed() * seedMul + marketSalt + i, per, kDir, stepMul, () -> running,
-                    governor, fleet, type, i);
+                    governor, fleet, type, i, ds);
             threads.add(Thread.ofVirtual().name("sim-" + botId).start(bot));
         }
     }
@@ -129,7 +135,8 @@ public class BotFleet {
         }
         return List.of(new SimProperties.MarketSpec(props.market(), props.initialPrice(),
                 props.marketMaker().count(), props.taker().count(),
-                props.marketMaker().quoteSize(), props.taker().qtyStep(), props.funding().base()));
+                props.marketMaker().quoteSize(), props.taker().qtyStep(), props.funding().base(),
+                null, null));
     }
 
     /** MarketSpec을 마켓별 SimProperties 뷰로 투영한다. 지정 안 된 필드는 top-level 값 유지. */

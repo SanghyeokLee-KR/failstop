@@ -899,7 +899,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
       "scale":{"MARKET_MAKER":{"target":40,"active":40},"TAKER":{"target":30,"active":28}},
       "fill_ratio":"0.61", "trade_flash":"normal" } ] }
 ```
-**봇 유형**: `MARKET_MAKER`(유동성·재고 스큐) / `TAKER` / `TREND`(모멘텀) / `NOISE`. 가격은 **OU 평균회귀 + 점프 프로세스**로 fair value만 제공, 체결가는 오더북에서 창발.
+**봇 유형**: `MARKET_MAKER`(유동성·재고 스큐) / `TAKER` / `TREND`(모멘텀·역추세 이원 페르소나, 봇_방향성 §2-1-a) / `NOISE`. 코드 경로는 둘(MarketMakerBot·TakerBot)이고 TREND·NOISE는 TakerBot 프리셋으로 실현한다. 가격은 **OU 평균회귀 + 점프 프로세스**로 fair value만 제공, 체결가는 오더북에서 창발.
 
 **`POST /sim/bots` 응답 계약(v2.11, governor set-point 반영)**: 이 경로는 개별 봇 인스턴스를 즉시 기동하지 않고 인메모리 governor의 유형별 목표 대수를 `count`만큼 상향한다(캡 클램프 적용). 실제 인스턴스는 별도 `bots` 프로파일이 목표 대수를 좇아 기동하므로 이 경로는 인스턴스 id를 발급하지 않는다. 따라서 `bot_ids`는 상시 빈 배열이다. `created`는 클램프 후 순증분, `applied_target`은 클램프 후 해당 유형 목표, `fleet_total`은 전 마켓 목표 대수 합계, `clamped`는 캡에 걸렸는지, `fleet_present`는 governor 주입 여부다. governor 부재 배포는 `count`를 그대로 `created`·`applied_target`·`fleet_total`로 보고하고 `fleet_present:false`를 준다. Cluster B는 `created`·`fleet_total`로 결과를 표시하고 `clamped`로 캡 도달을 안내한다.
 

@@ -55,6 +55,7 @@ public class MarketMakerBot implements Runnable {
     private final OpsGovernor governor;
     private final BotFleetGovernor fleet;
     private final int index;
+    private final double reactionFactor;
     private final ObjectMapper mapper = new ObjectMapper();
 
     // 레벨 가격틱 -> 외부 주문 id. 공통 레벨은 유지, 이탈·누락만 교체(r2).
@@ -80,6 +81,7 @@ public class MarketMakerBot implements Runnable {
         this.governor = governor;
         this.fleet = fleet;
         this.index = index;
+        this.reactionFactor = BotReaction.reactionJitter(seed);
         this.fairTicks = new BigDecimal(props.initialPrice())
                 .divideToIntegralValue(tick).longValueExact();
     }
@@ -124,6 +126,8 @@ public class MarketMakerBot implements Runnable {
      * desired 사다리(가격틱 -> quoteSize 배수). bid는 중심-반폭-j간격, ask는 중심+반폭+j간격.
      * 레벨 수량 배수는 round(1+kDepth*j)(정수). quoteSize 자체가 로트 배수라 그 정수 배수도 로트
      * 배수를 유지한다. 삽입 순서 결정적. 순수 함수.
+     * 비양수 bid 틱은 제외한다(price>0 불변). run() 하한 가드가 정상 경로에선 이를 막지만,
+     * 큰 halfTicks·낮은 fair 조합의 방어선으로 사다리 자체가 0 이하 가격을 발주하지 않게 한다.
      */
     static LinkedHashMap<Long, Long> buildLadder(long fairTicks, long halfTicks, int levelCount,
                                                  int spacingTicks, double kDepth) {
@@ -131,7 +135,10 @@ public class MarketMakerBot implements Runnable {
         for (int j = 0; j < levelCount; j++) {
             long off = halfTicks + (long) j * spacingTicks;
             long mult = Math.max(1L, Math.round(1.0 + kDepth * j));
-            out.put(fairTicks - off, mult);
+            long bid = fairTicks - off;
+            if (bid > 0) {
+                out.put(bid, mult);
+            }
             out.put(fairTicks + off, mult);
         }
         return out;
@@ -165,6 +172,8 @@ public class MarketMakerBot implements Runnable {
     @Override
     public void run() {
         SimProperties.MarketMaker mm = props.marketMaker();
+        // 봇별 반응 지터(r17). requoteMs에 상수 배율만 적용, rng·의사결정에 미유입.
+        long requoteMs = Math.max(1L, Math.round(mm.requoteMs() * reactionFactor));
         while (running.getAsBoolean()) {
             try {
                 if (fleet != null && !fleet.active(props.market(), BotType.MARKET_MAKER, index)) {
@@ -174,17 +183,21 @@ public class MarketMakerBot implements Runnable {
                 cycle++;
                 long anchorTicks = fetchAnchorTicks();
                 drift(mm, driftMult(), anchorTicks);
+                long halfTicks = spreadHalfTicks(mm.spreadTicks(), spreadMult());
                 long effectiveFairTicks = fairTicks
                         + inventorySkewTicks(readImbalance(), K_INV, mm.spreadTicks());
-                effectiveFairTicks = Math.max(effectiveFairTicks, mm.spreadTicks() + 1L);
+                // 하한을 halfTicks 인지형으로 잡는다(r12 스프레드 배수·다단 사다리 반영). 최저 bid
+                // 오프셋(halfTicks + (LEVEL_COUNT-1)*간격)보다 fair가 낮으면 bid가 0 이하로 내려가므로
+                // 그 오프셋+1을 하한으로 강제한다.
+                long lowestOffset = halfTicks + (long) (LEVEL_COUNT - 1) * LEVEL_SPACING_TICKS;
+                effectiveFairTicks = Math.max(effectiveFairTicks, lowestOffset + 1L);
 
                 if (!resting.isEmpty() && Math.abs(effectiveFairTicks - lastQuotedFairTicks)
                         < REQUOTE_THRESHOLD_TICKS) {
-                    Thread.sleep(mm.requoteMs());
+                    Thread.sleep(requoteMs);
                     continue;
                 }
 
-                long halfTicks = spreadHalfTicks(mm.spreadTicks(), spreadMult());
                 LinkedHashMap<Long, Long> desired = buildLadder(effectiveFairTicks, halfTicks,
                         LEVEL_COUNT, LEVEL_SPACING_TICKS, K_DEPTH);
                 reconcile(desired, effectiveFairTicks, mm.quoteSize());
@@ -194,7 +207,7 @@ public class MarketMakerBot implements Runnable {
                     fleet.recordPrice(props.market(),
                             tick.multiply(BigDecimal.valueOf(effectiveFairTicks)));
                 }
-                Thread.sleep(mm.requoteMs());
+                Thread.sleep(requoteMs);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;

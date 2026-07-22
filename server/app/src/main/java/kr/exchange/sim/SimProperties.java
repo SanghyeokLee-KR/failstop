@@ -32,10 +32,12 @@ public record SimProperties(
      * 마켓별 봇 배치. 가격 규모·틱·로트가 마켓마다 달라 quoteSize(MM 호가 수량)·qtyStep
      * (taker 수량 스텝)·baseFunding(초기 재고)을 마켓별로 지정한다. null 필드는 top-level
      * MM/Taker/Funding 값으로 폴백한다.
+     * trendCount·noiseCount는 TREND·NOISE 초기 목표 대수(r4). null이면 BotFleet가 taker 수에서
+     * 파생한다. 파킹 게이트·캡으로 경계되므로 값은 활성 상한 힌트일 뿐이다.
      */
     public record MarketSpec(String symbol, String initialPrice, Integer mmCount,
                              Integer takerCount, String quoteSize, String qtyStep,
-                             String baseFunding) {
+                             String baseFunding, Integer trendCount, Integer noiseCount) {
     }
 
     public record Funding(String quote, String base) {
