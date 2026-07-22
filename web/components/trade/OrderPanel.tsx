@@ -25,11 +25,14 @@ import {
   resolveKeyForSubmit,
   type OrderKeyState,
 } from "./orderKey";
+import OrderConfirmDialog from "./OrderConfirmDialog";
 import styles from "./OrderPanel.module.css";
 
 const FEE_RATE = 0.0005;
 const MIN_ORDER_KRW = 5000;
 const CONFIRM_TIMEOUT_MS = 3000;
+// 가용 잔고 대비 이 비율 이상이면 인라인 확인 대신 확인 다이얼로그로 오발주를 막는다
+const LARGE_ORDER_RATIO = 0.7;
 
 type OrdType = "limit" | "market";
 
@@ -81,6 +84,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const [amountRaw, setAmountRaw] = useState<string>(""); // 시장가 매수 금액
   const [activePct, setActivePct] = useState<number | null>(null);
   const [armed, setArmed] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // 지연 초기화: 매 렌더 키 생성(Date.now·Math.random) 방지
   const keyStateRef = useRef<OrderKeyState | null>(null);
@@ -182,6 +186,18 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   else if (side === "ask" && qty > availCoin) error = "보유 수량을 초과했어요";
   const ready = total >= MIN_ORDER_KRW && error === null && !loadingBalance && !accountsFailed;
 
+  // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다.
+  // bid는 (총액+수수료)/현금, ask는 수량/보유코인 기준
+  const committedRatio =
+    side === "bid"
+      ? availKRW > 0
+        ? (total + fee) / availKRW
+        : 0
+      : availCoin > 0
+        ? qty / availCoin
+        : 0;
+  const isLargeOrder = ready && committedRatio >= LARGE_ORDER_RATIO;
+
   /* ===== 입력 핸들러 ===== */
   const onPriceInput = (v: string) => {
     setPriceRaw(v.replace(/[^0-9]/g, "").slice(0, 12));
@@ -195,6 +211,14 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   };
   const onAmountInput = (v: string) => {
     setAmountRaw(v.replace(/[^0-9]/g, "").slice(0, 12));
+    setActivePct(null);
+  };
+  // 주문총액 입력 → 가격 기준 수량 역산(양방향). 지정가는 입력가, 시장가 매도는 현재가 기준.
+  // 수량이 원본, 총액은 파생. 총액 입력은 역산해 수량에 되쓴다.
+  const onTotalInput = (v: string) => {
+    const t = toNum(v.replace(/[^0-9]/g, "").slice(0, 14));
+    const p = ordType === "market" ? curPrice : price;
+    if (p > 0) setQtyRaw(String(floorTo(t / p, qtyScale)));
     setActivePct(null);
   };
 
@@ -265,6 +289,12 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
 
   const onCta = () => {
     if (!ready || submitting) return;
+    // 임계 이상은 확인 다이얼로그로. 임계 미만은 기존 인라인 2단계 흐름
+    if (isLargeOrder) {
+      disarm();
+      setConfirmOpen(true);
+      return;
+    }
     if (!armed) {
       setArmed(true);
       armTimer.current = setTimeout(() => {
@@ -277,8 +307,23 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     void submit();
   };
 
+  const onConfirmLarge = () => {
+    if (submitting) return;
+    void submit().finally(() => setConfirmOpen(false));
+  };
+
   const sideLabel = side === "bid" ? "매수" : "매도";
   const btnClass = side === "bid" ? "btn--buy" : "btn--sell";
+
+  // 다이얼로그 표시값. 시장가 매수는 체결 수량이 확정 전이라 현재가 기준 추정 수량을 보인다
+  const confirmQtyStr = isMarketBuy
+    ? curPrice > 0
+      ? String(floorTo(amount / curPrice, qtyScale))
+      : "0"
+    : String(qty);
+  const confirmPriceStr = ordType === "limit" ? String(Math.round(price)) : undefined;
+  const confirmTotalStr = String(Math.round(total));
+  const ratioPct = Math.round(committedRatio * 100);
 
   return (
     <PanelCard className={styles.card}>
@@ -403,12 +448,35 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
 
         <div className={styles.divider} />
 
-        <div className={styles.sumRow}>
-          <span>주문총액</span>
-          <b className="num">
-            {formatKRW(total)} <span className="unit-suffix">원</span>
-          </b>
-        </div>
+        {/* 주문총액: 시장가 매수는 위 금액 입력이 곧 총액이라 표시만, 그 외는 입력 가능(수량 역산) */}
+        {isMarketBuy ? (
+          <div className={styles.sumRow}>
+            <span>주문총액</span>
+            <b className="num">
+              {formatKRW(total)} <span className="unit-suffix">원</span>
+            </b>
+          </div>
+        ) : (
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="panel-ord-total">
+              주문총액
+            </label>
+            <div className={styles.inp}>
+              <input
+                id="panel-ord-total"
+                className="num"
+                inputMode="numeric"
+                autoComplete="off"
+                value={total > 0 ? formatKRW(total) : ""}
+                placeholder="0"
+                onChange={(e) => onTotalInput(e.target.value)}
+                aria-label="주문총액(원)"
+                disabled={submitting}
+              />
+              <span className={`unit-suffix ${styles.unit}`}>원</span>
+            </div>
+          </div>
+        )}
         <div className={styles.sumRow}>
           <span>예상 수수료 (0.05%)</span>
           <b className="num">
@@ -460,6 +528,25 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
               : `${sideLabel}하기`}
         </button>
       </div>
+
+      {confirmOpen && (
+        <OrderConfirmDialog
+          side={side}
+          market={market}
+          base={base}
+          ordType={ordType}
+          priceStr={confirmPriceStr}
+          qtyStr={confirmQtyStr}
+          qtyScale={qtyScale}
+          totalStr={confirmTotalStr}
+          ratioPct={ratioPct}
+          busy={submitting}
+          onConfirm={onConfirmLarge}
+          onClose={() => {
+            if (!submitting) setConfirmOpen(false);
+          }}
+        />
+      )}
     </PanelCard>
   );
 }

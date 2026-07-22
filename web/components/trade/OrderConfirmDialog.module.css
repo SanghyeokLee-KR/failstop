@@ -1,0 +1,78 @@
+/* 대형 주문 확인 다이얼로그. 토큰만 소비, 하드코딩 hex 금지 */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--overlay-dim);
+}
+.dialog {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-4);
+}
+.title {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.desc {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-secondary);
+}
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-1) 0;
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+}
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--font-body-sm-size);
+}
+.row dt {
+  color: var(--text-secondary);
+}
+.row dd {
+  color: var(--text-default);
+  font-weight: var(--fw-medium);
+}
+.rowTotal {
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.rowTotal dt {
+  color: var(--text-default);
+}
+.rowTotal dd {
+  color: var(--text-strong);
+  font-weight: var(--fw-bold);
+}
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.actions .btn,
+.actions button {
+  flex: 1;
+  min-height: 44px;
+}
