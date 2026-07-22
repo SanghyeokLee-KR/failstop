@@ -12,6 +12,7 @@ import type {
   Asset,
   EffectConfig,
   Market,
+  MemberSession,
   Order,
   OrderbookMessage,
   TickerMessage,
@@ -58,12 +59,17 @@ interface ExchangeState {
   connected: boolean;
   /** 체결 시각효과 강도. 폴링 전 안전 폴백(§4-A-6) */
   effectConfig: EffectConfig;
+  /** 회원 세션(§4-5). null이면 미로그인·데모 둘러보기. DataSource가 유일 갱신 주체 */
+  session: MemberSession | null;
 
   apply(msg: WsMessage): void;
   /** 효과 강도 재조회. 폴링 훅이 호출한다(실시간 push 아님, §4-A-6) */
   loadEffectConfig(): Promise<void>;
   /** DataSource.onConnectionChange가 유일한 호출 주체 (§5.1) */
   setConnected(v: boolean): void;
+  /** DataSource.onMemberSessionChange가 유일한 호출 주체(§4-5). 화면은 setter를 직접 호출하지 않는다.
+   * 세션 해제도 setSession(null)로 수렴한다(별도 clearSession 없음) */
+  setSession(s: MemberSession | null): void;
   toggleFavorite(market: string): void;
   /** SSR 안전 하이드레이션: 마운트 후 localStorage 관심 목록 반영 */
   hydrateFavorites(): void;
@@ -83,6 +89,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   favorites: DEFAULT_FAVORITES,
   connected: true,
   effectConfig: DEFAULT_EFFECT_CONFIG,
+  session: null,
 
   apply(msg) {
     switch (msg.type) {
@@ -151,6 +158,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     set({ connected: v });
   },
 
+  setSession(s) {
+    set({ session: s });
+  },
+
   toggleFavorite(market) {
     set((s) => {
       const favorites = s.favorites.includes(market)
@@ -212,4 +223,24 @@ export function useEffectConfigPolling(intervalMs = EFFECT_POLL_MS): void {
     const id = setInterval(() => void loadEffectConfig(), intervalMs);
     return () => clearInterval(id);
   }, [loadEffectConfig, intervalMs]);
+}
+
+/**
+ * 회원 세션 부트스트랩. 한 곳(HeaderNav)에서만 호출한다.
+ * onMemberSessionChange 구독으로 store를 갱신하고, 마운트 시 refresh로 세션 복원을 시도한다.
+ */
+export function useMemberSessionBootstrap(): void {
+  const setSession = useExchangeStore((s) => s.setSession);
+  useEffect(() => {
+    const ds = getDataSource();
+    const off = ds.onMemberSessionChange(setSession);
+    // 새로고침 후 httpOnly refresh 쿠키로 access 재획득(§4-5). sim은 인메모리 세션을 그대로 반환
+    void ds.refresh().catch(() => {});
+    return off;
+  }, [setSession]);
+}
+
+/** 회원 세션 셀렉터. 화면은 이 셀렉터로 로그인 상태를 구독한다 */
+export function useMemberSession(): MemberSession | null {
+  return useExchangeStore((s) => s.session);
 }

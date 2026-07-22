@@ -1,0 +1,131 @@
+/* 로그인·가입 공통 셸(§4-3). HeaderNav 아래 480px 중앙 카드, 상단 패딩 64px. 고정형이라 리플로우 없음 */
+
+.page {
+  min-height: calc(100vh - 56px);
+  display: flex;
+  justify-content: center;
+  padding: var(--space-10) var(--space-4) var(--space-9);
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  height: fit-content;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-7);
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.title {
+  font-size: var(--font-title-2-size);
+  line-height: var(--font-title-2-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.sub {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-secondary);
+}
+
+/* 데모 안전 배너: 색 단독 금지 규칙대로 아이콘·라벨 병기(§4-3) */
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-warning-bg);
+  border-radius: var(--radius-md);
+}
+.bannerIcon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+  color: var(--text-inverse);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-bold);
+}
+.bannerText {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--color-warning-text);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* 폼 상단 에러 배너(폼 레벨 코드: invalid_credentials·account_locked 등) */
+.formError {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-danger-bg);
+  border-radius: var(--radius-md);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--color-danger);
+}
+.formErrorIcon {
+  flex-shrink: 0;
+  font-weight: var(--fw-bold);
+}
+
+.submit {
+  margin-top: var(--space-1);
+}
+
+.foot {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-secondary);
+}
+.footLink {
+  color: var(--text-brand);
+  font-weight: var(--fw-semibold);
+}
+.footLink:hover {
+  text-decoration: underline;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--font-caption-size);
+}
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+.browse {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}

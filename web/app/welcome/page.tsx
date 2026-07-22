@@ -6,8 +6,8 @@ export const metadata: Metadata = { title: "시작하기" };
 
 /**
  * 화면 1. 온보딩. 히어로 + 하단 CTA 스택 (§8 화면1).
- * 보안 규칙: 실제 계정 생성·비밀번호 입력·인증 UI 없음(별도 인증 플로우 소관).
- * 본 캡스톤은 완전 시뮬레이션이라 두 CTA 모두 데모 세션(/exchange)으로 진입한다.
+ * CTA는 회원 가입·둘러보기 2안(회원_설계 §4-1). 둘러보기는 데모 세션으로 /exchange 진입.
+ * 보안 규칙: 이 화면은 자격증명 입력 필드를 두지 않는다(가입은 /auth/signup 소관).
  */
 export default function WelcomePage() {
   return (
@@ -27,13 +27,18 @@ export default function WelcomePage() {
       </section>
 
       <div className={styles.cta}>
-        <Link href="/exchange" className="btn btn--primary btn--full btn--xl">
-          시작하기
+        <Link href="/auth/signup" className="btn btn--primary btn--full btn--xl">
+          회원 가입
         </Link>
         <Link href="/exchange" className="btn btn--secondary btn--full btn--xl">
-          이미 계정이 있어요
+          로그인 없이 둘러보기
         </Link>
-        <p className={styles.terms}>가입하면 이용약관에 동의해요 · 시뮬레이션 데모예요</p>
+        <p className={styles.terms}>
+          이미 회원이신가요?{" "}
+          <Link href="/auth/login" className={styles.termsLink}>
+            로그인
+          </Link>
+        </p>
       </div>
     </main>
   );

@@ -10,16 +10,20 @@ import type {
   Candle,
   CandleUnit,
   EffectConfig,
+  LoginInput,
   Market,
+  MemberSession,
+  MemberUser,
   Order,
   OrderRequest,
   OrderbookMessage,
+  SignupInput,
   Ticker,
   Trade,
   WsMessage,
 } from "../types";
 import { SimEngine } from "../sim/engine";
-import { HttpStompDataSource } from "./httpDatasource";
+import { ApiError, HttpStompDataSource } from "./httpDatasource";
 
 export interface DataSource {
   /* ===== REST 미러 (§4) ===== */
@@ -47,11 +51,107 @@ export interface DataSource {
 
   connect(): void;
   disconnect(): void;
+
+  /* ===== 회원 세션 (§3-8) =====
+   * 로그인 성공 시 이후 인증 REST·WS는 회원 access를 Bearer로 자동 첨부한다.
+   * 미로그인이면 데모 세션으로 폴백해 둘러보기가 그대로 동작한다(§4-1 병존). */
+
+  /** 가입. 성공 시 세션을 내부 확립하고 onMemberSessionChange로 통지 */
+  signup(input: SignupInput): Promise<MemberSession>;
+  /** 로그인. 실패는 §3-4 에러코드(invalid_credentials·account_locked 등)로 throw */
+  login(input: LoginInput): Promise<MemberSession>;
+  /** 로그아웃. 서버 refresh family 폐기 시도 후 세션 해제 */
+  logout(): Promise<void>;
+  /** refresh 쿠키로 세션 복원(앱 로드·401 재시도). 없으면 null, 조용히 실패 */
+  refresh(): Promise<MemberSession | null>;
+  /** 회원 세션 사용자 로드(§3-8 GET /me) */
+  getMe(): Promise<MemberUser>;
+  getMemberSession(): MemberSession | null;
+  /** 세션 변화 통지(로그인·갱신·로그아웃). 등록 즉시 현재 상태 1회 통지 */
+  onMemberSessionChange(cb: (s: MemberSession | null) => void): () => void;
+}
+
+/** 데모 회원 로컬 흐름용 이메일·비밀번호 검증(§1-1 최소 길이 8자, 이메일 형식) */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LEN = 8;
+
+function validateCredentials(email: string, password: string): void {
+  if (!EMAIL_RE.test(email)) throw new ApiError(400, "invalid_email", "이메일 형식을 확인해 주세요");
+  if (password.length < MIN_PASSWORD_LEN) {
+    throw new ApiError(400, "weak_password", "비밀번호는 8자 이상이어야 해요");
+  }
 }
 
 /** 시뮬레이터 기반 구현. 런타임 외부 의존 0 */
 export class SimDataSource implements DataSource {
   constructor(private engine: SimEngine) {}
+
+  /* ===== 회원 세션(데모 로컬 흐름) =====
+   * 인메모리 레지스트리. 비밀번호는 저장소·로그로 나가지 않고 이 datasource 싱글턴 수명 동안만
+   * 메모리에 둔다(로그아웃해도 members는 잔존, 재로그인 검증용). 새로고침 시 싱글턴이 재생성돼
+   * 레지스트리·세션이 함께 소멸한다(데모 한계, §4-5). */
+  private members = new Map<string, { password: string; user: MemberUser }>();
+  private memberSession: MemberSession | null = null;
+  private memberListeners = new Set<(s: MemberSession | null) => void>();
+
+  private emitMember(): void {
+    for (const cb of this.memberListeners) cb(this.memberSession);
+  }
+
+  private establish(user: MemberUser): MemberSession {
+    // 데모 access는 검증 대상이 아니라 존재 표식일 뿐. 실 서명은 http 경로에서만 발생
+    this.memberSession = { user, accessToken: `sim.${user.external_id}` };
+    this.emitMember();
+    return this.memberSession;
+  }
+
+  async signup(input: SignupInput): Promise<MemberSession> {
+    validateCredentials(input.email, input.password);
+    const email = input.email.toLowerCase();
+    if (this.members.has(email)) throw new ApiError(409, "email_taken", "이미 가입된 이메일이에요");
+    const user: MemberUser = {
+      external_id: crypto.randomUUID(),
+      email,
+      display_name: input.display_name.trim() || email.split("@")[0],
+      kind: "HUMAN",
+    };
+    this.members.set(email, { password: input.password, user });
+    return this.establish(user);
+  }
+
+  async login(input: LoginInput): Promise<MemberSession> {
+    const email = input.email.toLowerCase();
+    const found = this.members.get(email);
+    // 존재 여부 비노출: 미가입·오비밀번호를 동일 코드로 처리(§3-4)
+    if (!found || found.password !== input.password) {
+      throw new ApiError(401, "invalid_credentials", "이메일 또는 비밀번호를 확인해 주세요");
+    }
+    return this.establish(found.user);
+  }
+
+  async logout(): Promise<void> {
+    this.memberSession = null;
+    this.emitMember();
+  }
+
+  async refresh(): Promise<MemberSession | null> {
+    return this.memberSession;
+  }
+
+  async getMe(): Promise<MemberUser> {
+    if (!this.memberSession) throw new ApiError(401, "session_expired", "세션이 만료됐어요");
+    return this.memberSession.user;
+  }
+
+  getMemberSession(): MemberSession | null {
+    return this.memberSession;
+  }
+
+  onMemberSessionChange(cb: (s: MemberSession | null) => void): () => void {
+    this.memberListeners.add(cb);
+    cb(this.memberSession);
+    return () => this.memberListeners.delete(cb);
+  }
 
   async getMarkets(): Promise<Market[]> { return this.engine.getMarkets(); }
   async getTicker(markets: string[]): Promise<Ticker[]> { return this.engine.getTicker(markets); }

@@ -266,6 +266,35 @@ export const dest = {
   myAsset: "/user/queue/myAsset" as const,
 };
 
+/* ===== 회원 세션 (§3-8 미러) ===== */
+
+/** GET /me·가입·로그인 응답의 user 객체 */
+export interface MemberUser {
+  external_id: string;
+  email: string;
+  display_name: string;
+  kind: string; // "HUMAN"
+}
+
+/** 회원 세션. access는 메모리 보관, refresh는 httpOnly 쿠키(JS 접근 불가) */
+export interface MemberSession {
+  user: MemberUser;
+  accessToken: string;
+}
+
+/** POST /api/v1/auth/signup 요청 */
+export interface SignupInput {
+  email: string;
+  password: string;
+  display_name: string;
+}
+
+/** POST /api/v1/auth/login 요청 */
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
 /* ===== UI 보조 (데이터성 색상. 코인 브랜드색은 토큰 예외 허용) ===== */
 
 export interface CoinMeta {

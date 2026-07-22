@@ -17,13 +17,17 @@ import type {
   CandleMessage,
   EffectConfig,
   EffectLevel,
+  LoginInput,
   Market,
+  MemberSession,
+  MemberUser,
   MyAssetMessage,
   MyOrderMessage,
   Order,
   OrderRequest,
   OrderbookMessage,
   OrderbookSnapshot,
+  SignupInput,
   Ticker,
   TickerMessage,
   Trade,
@@ -75,7 +79,11 @@ interface ErrorEnvelope {
   error?: { name?: string; message?: string; retry_after?: number | null; detail?: unknown };
 }
 
-async function toApiError(res: { status: number; json(): Promise<unknown> }): Promise<ApiError> {
+async function toApiError(res: {
+  status: number;
+  headers?: { get(name: string): string | null };
+  json(): Promise<unknown>;
+}): Promise<ApiError> {
   let name = res.status >= 500 ? "server_error" : "invalid_parameter";
   let message = GENERIC_ERROR_MESSAGE;
   let retryAfter: number | null = null;
@@ -90,6 +98,13 @@ async function toApiError(res: { status: number; json(): Promise<unknown> }): Pr
     }
   } catch {
     // 본문이 JSON이 아니면 상태코드 기반 기본값 유지
+  }
+  if (retryAfter === null) {
+    // 바디 retry_after 부재 시 HTTP Retry-After 헤더를 폴백으로 읽는다(§2-3 423 account_locked).
+    // 초 단위만 취하고, HTTP-date 형식이면 Number가 NaN이라 null 유지(안내는 "잠시 후"로 열화)
+    const header = res.headers?.get("Retry-After");
+    const sec = header != null ? Number(header) : Number.NaN;
+    if (Number.isFinite(sec) && sec >= 0) retryAfter = sec;
   }
   return new ApiError(res.status, name, message, retryAfter, detail);
 }
@@ -114,6 +129,14 @@ function unwrapList<T>(json: unknown, path: string): T[] {
 interface DemoSessionResponse {
   access_token?: string;
   user?: { external_id?: string; email?: string };
+}
+
+/** §3-8 가입·로그인·갱신 공통 응답. refresh는 user 없이 access_token만 준다 */
+interface AuthResponse {
+  access_token?: string;
+  token_type?: string;
+  expires_in?: number;
+  user?: MemberUser;
 }
 
 /** JWT payload의 exp(epoch s)를 ms로 추출. 파싱 실패 시 null(만료 판정 불가 → 401 재발급에 위임) */
@@ -241,6 +264,11 @@ export class HttpStompDataSource implements DataSource {
   private session: { token: string; expMs: number | null } | null = null;
   private sessionPromise: Promise<string> | null = null;
 
+  /** 회원 세션(§3-8). access는 메모리만. refresh는 httpOnly 쿠키라 JS 미접근 */
+  private member: { user: MemberUser; token: string; expMs: number | null } | null = null;
+  private memberListeners = new Set<(s: MemberSession | null) => void>();
+  private refreshPromise: Promise<MemberSession | null> | null = null;
+
   private channels = new Map<string, ChannelState>();
   private connListeners = new Set<(connected: boolean) => void>();
   /** 리더 세대(§5-2). 변경 감지 시 전 채널 강제 재동기화 */
@@ -257,6 +285,7 @@ export class HttpStompDataSource implements DataSource {
   /* ===== REST 코어 ===== */
 
   private async http<T>(path: string, init: RequestInit = {}, auth = false): Promise<T> {
+    const isWrite = (init.method ?? "GET").toUpperCase() !== "GET";
     const run = async (token: string | null) => {
       const headers: Record<string, string> = {
         ...(init.body != null ? JSON_HEADERS : {}),
@@ -264,13 +293,42 @@ export class HttpStompDataSource implements DataSource {
       };
       return this.fetchFn(`${this.apiBase}${path}`, { ...init, headers });
     };
-    let res = await run(auth ? await this.ensureSession() : null);
+    // 토큰 확보. 회원 기원 쓰기는 refresh 실패 시 데모 계정으로 재집행하지 않는다.
+    // 데모 폴백은 §4-1 둘러보기(읽기) 연속성 의도다. 회원 주문(placeOrder·cancelOrder)을
+    // 데모 계정 Bearer로 실행하면 사용자 의도와 다른 계정 집행이라 계약 위반이다.
+    // 회원이 있었는데 토큰 확보 후 사라졌으면(refresh 실패로 clearMember) 데모로 강등된 것이므로,
+    // 쓰기는 요청을 보내지 않고 session_expired로 표면화해 재로그인을 유도한다.
+    const authorize = async (force: boolean): Promise<string> => {
+      const wasMember = this.member !== null;
+      const token = await this.ensureAuthToken(force);
+      if (isWrite && wasMember && !this.member) {
+        throw new ApiError(401, "session_expired", "세션이 만료됐어요. 다시 로그인해 주세요");
+      }
+      return token;
+    };
+    let res = await run(auth ? await authorize(false) : null);
     if (auth && res.status === 401) {
-      // 세션 만료 추정 → 재발급 후 1회 재시도
-      res = await run(await this.ensureSession(true));
+      // 세션 만료 추정 → 회원이면 refresh, 아니면 데모 재발급 후 1회 재시도
+      res = await run(await authorize(true));
     }
     if (!res.ok) throw await toApiError(res);
     return (await res.json()) as T;
+  }
+
+  private memberFresh(): boolean {
+    if (!this.member) return false;
+    return this.member.expMs === null || Date.now() < this.member.expMs - SESSION_SKEW_MS;
+  }
+
+  /** 인증 REST용 Bearer 결정. 회원 세션 우선, 없으면 데모 세션 폴백(§4-1 병존) */
+  private async ensureAuthToken(force = false): Promise<string> {
+    if (this.member) {
+      if (!force && this.memberFresh()) return this.member.token;
+      const restored = await this.refresh();
+      if (restored) return restored.accessToken;
+      // refresh 실패 시 refresh()가 회원 세션을 해제하고 통지했다. 데모로 폴백
+    }
+    return this.ensureSession(force);
   }
 
   private sessionFresh(): boolean {
@@ -434,7 +492,12 @@ export class HttpStompDataSource implements DataSource {
       this.stomp = this.stompFactory({
         url: this.wsUrl,
         connectHeaders: (): Record<string, string> => {
-          const token = this.sessionFresh() ? this.session!.token : null;
+          // 회원 세션이 있으면 회원 Bearer로 CONNECT해 /user 채널을 회원 스코프로 연다
+          const token = this.memberFresh()
+            ? this.member!.token
+            : this.sessionFresh()
+              ? this.session!.token
+              : null;
           this.authOnConnect = token !== null;
           return token ? { Authorization: `Bearer ${token}` } : {};
         },
@@ -448,6 +511,136 @@ export class HttpStompDataSource implements DataSource {
   disconnect(): void {
     this.handleDisconnect();
     void this.stomp?.deactivate();
+  }
+
+  /* ===== 회원 세션 (§3-8) ===== */
+
+  private emitMember(): void {
+    const s = this.getMemberSession();
+    for (const cb of this.memberListeners) cb(s);
+  }
+
+  private setMember(user: MemberUser, token: string): MemberSession {
+    this.member = { user, token, expMs: decodeJwtExpMs(token) };
+    this.emitMember();
+    // /user 채널을 회원 Bearer로 다시 열기 위해 재연결(승격)
+    this.reconnectWs();
+    return { user, accessToken: token };
+  }
+
+  private clearMember(): void {
+    if (!this.member) return;
+    this.member = null;
+    this.emitMember();
+    this.reconnectWs();
+  }
+
+  /** 세션 토큰이 바뀌면 CONNECT 헤더를 갱신하려 재연결한다(§5-6) */
+  private reconnectWs(): void {
+    if (!this.stomp || !this.stompConnected) return;
+    void (async () => {
+      await this.stomp!.deactivate();
+      this.stomp!.activate();
+    })();
+  }
+
+  private async authPost(path: string, body?: unknown): Promise<AuthResponse> {
+    const res = await this.fetchFn(`${this.apiBase}${path}`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      // refresh 쿠키 수신·송신을 위해 자격증명 포함(§4-5)
+      credentials: "include",
+      ...(body != null ? { body: JSON.stringify(body) } : {}),
+    });
+    if (!res.ok) throw await toApiError(res);
+    return (await res.json()) as AuthResponse;
+  }
+
+  async signup(input: SignupInput): Promise<MemberSession> {
+    const body = await this.authPost("/api/v1/auth/signup", input);
+    if (!body.access_token || !body.user) {
+      throw new ApiError(0, "invalid_envelope", "가입 응답에 세션 정보가 없습니다");
+    }
+    return this.setMember(body.user, body.access_token);
+  }
+
+  async login(input: LoginInput): Promise<MemberSession> {
+    const body = await this.authPost("/api/v1/auth/login", input);
+    if (!body.access_token || !body.user) {
+      throw new ApiError(0, "invalid_envelope", "로그인 응답에 세션 정보가 없습니다");
+    }
+    return this.setMember(body.user, body.access_token);
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.authPost("/api/v1/auth/logout");
+    } catch {
+      // 서버 폐기 실패라도 로컬 세션은 해제한다(재사용 토큰은 서버가 회전·탐지)
+    }
+    this.clearMember();
+  }
+
+  async refresh(): Promise<MemberSession | null> {
+    // 동시 401·부트스트랩이 refresh를 중복 호출하지 않도록 단일 프라미스 공유
+    if (this.refreshPromise) return this.refreshPromise;
+    this.refreshPromise = this.doRefresh().finally(() => {
+      this.refreshPromise = null;
+    });
+    return this.refreshPromise;
+  }
+
+  private async doRefresh(): Promise<MemberSession | null> {
+    let token: string;
+    try {
+      const body = await this.authPost("/api/v1/auth/refresh");
+      if (!body.access_token) throw new ApiError(0, "invalid_envelope", "갱신 응답에 access_token이 없습니다");
+      token = body.access_token;
+    } catch {
+      // 만료·부재·재사용 탐지는 모두 세션 종료로 수렴한다(§3-4)
+      this.clearMember();
+      return null;
+    }
+    // refresh 응답은 user를 주지 않으므로 /me로 사용자 로드(§3-8)
+    const user = this.member?.user ?? (await this.fetchMe(token));
+    if (!user) {
+      this.clearMember();
+      return null;
+    }
+    return this.setMember(user, token);
+  }
+
+  private async fetchMe(token: string): Promise<MemberUser | null> {
+    try {
+      const res = await this.fetchFn(`${this.apiBase}/api/v1/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as { user?: MemberUser };
+      return body.user ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getMe(): Promise<MemberUser> {
+    const token = await this.ensureAuthToken();
+    const user = await this.fetchMe(token);
+    if (!user) throw new ApiError(401, "session_expired", "세션이 만료됐어요");
+    return user;
+  }
+
+  getMemberSession(): MemberSession | null {
+    return this.member ? { user: this.member.user, accessToken: this.member.token } : null;
+  }
+
+  onMemberSessionChange(cb: (s: MemberSession | null) => void): () => void {
+    this.memberListeners.add(cb);
+    cb(this.getMemberSession());
+    return () => {
+      this.memberListeners.delete(cb);
+    };
   }
 
   /* ===== STOMP 내부 ===== */
@@ -488,7 +681,8 @@ export class HttpStompDataSource implements DataSource {
     if (this.authUpgrading) return;
     this.authUpgrading = true;
     try {
-      await this.ensureSession();
+      // 회원 세션이 있으면 회원 토큰을, 없으면 데모 세션을 확보(§4-1 병존)
+      await this.ensureAuthToken();
       if (this.stomp && this.stompConnected && !this.authOnConnect) {
         await this.stomp.deactivate();
         this.stomp.activate();

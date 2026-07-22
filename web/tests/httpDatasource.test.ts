@@ -603,3 +603,152 @@ test("myOrder 재동기화는 open과 closed를 함께 복원해 종결 통지�
   assert.ok(terminal, "종결 주문의 myOrder 통지 전달");
   assert.equal((terminal as { status: string }).status, "FILLED");
 });
+
+/* ===== 회원 세션 (§3-8) ===== */
+
+function edJwt(ttlMs: number, sub = "member"): string {
+  const payload = {
+    typ: "access",
+    sub,
+    user_id: 42,
+    scope: "TRADE",
+    kind: "HUMAN",
+    exp: Math.floor((Date.now() + ttlMs) / 1000),
+  };
+  return `${b64url({ alg: "EdDSA", typ: "JWT" })}.${b64url(payload)}.sig`;
+}
+
+const MEMBER_USER = {
+  external_id: "9f2b7a4e",
+  email: "trader@demo.local",
+  display_name: "데모트레이더",
+  kind: "HUMAN",
+};
+
+test("로그인 성공 시 세션을 확립하고 onMemberSessionChange로 통지", async () => {
+  const { ds } = newDs({
+    "/api/v1/auth/login": () =>
+      jsonRes(200, { schema_version: "1.0", access_token: edJwt(900_000), token_type: "Bearer", user: MEMBER_USER }),
+  });
+  const seen: (string | null)[] = [];
+  ds.onMemberSessionChange((s) => seen.push(s ? s.user.email : null));
+  const session = await ds.login({ email: "trader@demo.local", password: "demopass1" });
+  assert.equal(session.user.email, "trader@demo.local");
+  assert.equal(ds.getMemberSession()?.user.display_name, "데모트레이더");
+  // 등록 즉시 null 1회 + 로그인 후 이메일 1회
+  assert.deepEqual(seen, [null, "trader@demo.local"]);
+});
+
+test("로그인 실패는 §3-4 에러코드로 throw(존재 여부 비노출)", async () => {
+  const { ds } = newDs({
+    "/api/v1/auth/login": () =>
+      jsonRes(401, { error: { name: "invalid_credentials", message: "이메일 또는 비밀번호를 확인해 주세요" } }),
+  });
+  await assert.rejects(
+    () => ds.login({ email: "x@y.z", password: "nope12345" }),
+    (e: unknown) => e instanceof ApiError && e.code === "invalid_credentials",
+  );
+  assert.equal(ds.getMemberSession(), null);
+});
+
+test("인증 REST는 회원 세션 access를 Bearer로 첨부(데모 토큰 아님)", async () => {
+  const memberToken = edJwt(900_000);
+  const { ds, calls } = newDs({
+    "/api/v1/auth/login": () => jsonRes(200, { schema_version: "1.0", access_token: memberToken, user: MEMBER_USER }),
+    "/api/v1/demo/session": () => jsonRes(200, { access_token: makeJwt(900_000), user: { external_id: "demo" } }),
+    "/api/v1/accounts": () => jsonRes(200, { schema_version: "1.0", data: [] }),
+  });
+  await ds.login({ email: "trader@demo.local", password: "demopass1" });
+  await ds.getAccounts();
+  const acct = calls.find((c) => c.url.includes("/api/v1/accounts"));
+  assert.equal(acct?.auth, `Bearer ${memberToken}`);
+  // 데모 세션 발급이 일어나지 않았다(회원 토큰 우선)
+  assert.equal(calls.some((c) => c.url.includes("/api/v1/demo/session")), false);
+});
+
+test("인증 REST 401은 회원 refresh 후 새 토큰으로 1회 재시도", async () => {
+  const firstToken = edJwt(900_000, "stale");
+  const nextToken = edJwt(900_000, "fresh");
+  let acctHits = 0;
+  const { ds, calls } = newDs({
+    "/api/v1/auth/login": () => jsonRes(200, { schema_version: "1.0", access_token: firstToken, user: MEMBER_USER }),
+    "/api/v1/auth/refresh": () => jsonRes(200, { schema_version: "1.0", access_token: nextToken }),
+    "/api/v1/accounts": () => {
+      acctHits += 1;
+      // 첫 호출은 만료로 401, 재시도는 성공
+      return acctHits === 1
+        ? jsonRes(401, { error: { name: "jwt_verification", message: "만료" } })
+        : jsonRes(200, { schema_version: "1.0", data: [] });
+    },
+  });
+  await ds.login({ email: "trader@demo.local", password: "demopass1" });
+  await ds.getAccounts();
+  assert.equal(acctHits, 2, "401 후 1회 재시도");
+  const retried = calls.filter((c) => c.url.includes("/api/v1/accounts"));
+  assert.equal(retried[1]?.auth, `Bearer ${nextToken}`, "재시도는 갱신된 회원 토큰 사용");
+});
+
+test("refresh 실패는 회원 세션을 해제하고 데모로 폴백", async () => {
+  const memberToken = edJwt(900_000);
+  const { ds, calls } = newDs({
+    "/api/v1/auth/login": () => jsonRes(200, { schema_version: "1.0", access_token: memberToken, user: MEMBER_USER }),
+    "/api/v1/auth/refresh": () => jsonRes(401, { error: { name: "session_expired", message: "만료" } }),
+    "/api/v1/demo/session": () => jsonRes(200, { access_token: makeJwt(900_000), user: { external_id: "demo" } }),
+    "/api/v1/accounts": () => jsonRes(200, { schema_version: "1.0", data: [] }),
+  });
+  const seen: (string | null)[] = [];
+  ds.onMemberSessionChange((s) => seen.push(s ? s.user.email : null));
+  await ds.login({ email: "trader@demo.local", password: "demopass1" });
+  const restored = await ds.refresh();
+  assert.equal(restored, null, "refresh 실패는 null");
+  assert.equal(ds.getMemberSession(), null, "세션 해제");
+  // 세션 해제 후 인증 REST는 데모 세션으로 폴백
+  await ds.getAccounts();
+  assert.ok(calls.some((c) => c.url.includes("/api/v1/demo/session")), "데모 세션 폴백 발급");
+  assert.equal(seen[seen.length - 1], null, "마지막 통지는 세션 null");
+});
+
+test("회원 기원 쓰기는 refresh 실패 시 데모로 재집행하지 않고 session_expired", async () => {
+  const memberToken = edJwt(900_000);
+  let orderHits = 0;
+  const { ds, calls } = newDs({
+    "/api/v1/auth/login": () => jsonRes(200, { schema_version: "1.0", access_token: memberToken, user: MEMBER_USER }),
+    "/api/v1/auth/refresh": () => jsonRes(401, { error: { name: "session_expired", message: "만료" } }),
+    "/api/v1/demo/session": () => jsonRes(200, { access_token: makeJwt(900_000), user: { external_id: "demo" } }),
+    "/api/v1/orders": () => {
+      orderHits += 1;
+      // 서버측 세션 폐기(타 기기 로그아웃 등)로 회원 토큰이 401
+      return jsonRes(401, { error: { name: "jwt_verification", message: "만료" } });
+    },
+  });
+  await ds.login({ email: "trader@demo.local", password: "demopass1" });
+  await assert.rejects(
+    () =>
+      ds.placeOrder({
+        market: "KRW-BTC",
+        side: "bid",
+        ord_type: "limit",
+        price: "50000000",
+        volume: "0.001",
+        client_order_id: "web-order-1",
+      }),
+    (e: unknown) => e instanceof ApiError && e.code === "session_expired",
+    "쓰기는 데모 폴백 대신 session_expired로 표면화",
+  );
+  assert.equal(orderHits, 1, "회원 토큰 최초 시도 1회만. 데모로 재집행 없음");
+  const orderCalls = calls.filter((c) => c.url.includes("/api/v1/orders"));
+  assert.equal(orderCalls[0]?.auth, `Bearer ${memberToken}`, "주문은 회원 Bearer로만 나감");
+  assert.equal(ds.getMemberSession(), null, "회원 세션 해제");
+});
+
+test("로그아웃은 서버 폐기 시도 후 세션 해제", async () => {
+  const memberToken = edJwt(900_000);
+  const { ds, count } = newDs({
+    "/api/v1/auth/login": () => jsonRes(200, { schema_version: "1.0", access_token: memberToken, user: MEMBER_USER }),
+    "/api/v1/auth/logout": () => new Response(null, { status: 204 }),
+  });
+  await ds.login({ email: "trader@demo.local", password: "demopass1" });
+  await ds.logout();
+  assert.equal(ds.getMemberSession(), null);
+  assert.ok(count("/api/v1/auth/logout") >= 1, "서버 로그아웃 호출");
+});

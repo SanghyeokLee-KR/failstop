@@ -63,3 +63,10 @@
   color: var(--text-secondary); /* 약관 안내=정보 전달, tertiary 금지 (§2) */
   margin-top: var(--space-1);
 }
+.termsLink {
+  color: var(--text-brand);
+  font-weight: var(--fw-semibold);
+}
+.termsLink:hover {
+  text-decoration: underline;
+}
