@@ -1,9 +1,9 @@
 # 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.15)
 
-> 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V6+ 로드맵)
+> 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V11+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
 > 설계 우선순위: **정확성(exactness) > 성능 > 편의성**. DB는 매칭 핫패스가 아니라 "진실의 원천(SoT) + 최종 방어선"이다.
-> 이 제출본은 초안·v2.0 검증에서 지적된 critical/high 결함(파티션 소진, RESERVE amount=0 모순, `user_id=0` 수수료 계정 무효, 파티션 seq 유일성 무력화, 비원자적 fencing, `transaction_id` 권위 부재, RULE 기반 무음 무시)을 **계정 모델 재설계**로 근본 해결한다. (v2.1~v2.9 패치 반영 사항은 문서 말미 참조)
+> 이 제출본은 초안·v2.0 검증에서 지적된 critical/high 결함(파티션 소진, RESERVE amount=0 모순, `user_id=0` 수수료 계정 무효, 파티션 seq 유일성 무력화, 비원자적 fencing, `transaction_id` 권위 부재, RULE 기반 무음 무시)을 **계정 모델 재설계**로 근본 해결한다. (v2.1~v2.15 패치 반영 사항은 문서 말미 참조)
 
 ---
 
@@ -72,7 +72,7 @@
 ## 2. 전체 ERD (Mermaid)
 
 > ERD는 **주요 컬럼만 발췌 표기**한다. 전체 컬럼·제약의 정본은 §3 DDL이다(예: `outbox.aggregate_id`, `orders.reject_reason`/`orders.updated_at` 등은 지면상 ERD에서 생략된 것으로, 누락이 아니라 발췌 표기다, v2.5).
-> INVARIANT_CHECKS·RECOVERY_RUNS는 V3(관측성)에 적용됐다. TRANSFER_REQUESTS·CANDLES·audit_log·shedlock은 V1 범위 외 V6+ 로드맵 엔티티다. V1 정본은 §3.1 구현 목록을 따른다(v2.6, v2.11 로드맵 정정).
+> INVARIANT_CHECKS·RECOVERY_RUNS는 V3(관측성)에 적용됐다. TRANSFER_REQUESTS·CANDLES·audit_log·shedlock은 V1 범위 외 V11+ 로드맵 엔티티다. V1 정본은 §3.1 구현 목록을 따른다(v2.6, v2.11 로드맵 정정).
 
 ```mermaid
 erDiagram
@@ -603,10 +603,14 @@ CREATE TABLE trades (
 CREATE INDEX idx_trades_market_time ON trades (market_id, created_at DESC);
 CREATE INDEX idx_trades_taker_time  ON trades (taker_user_id, created_at DESC);
 CREATE INDEX idx_trades_maker_time  ON trades (maker_user_id, created_at DESC);
--- (v2.13) order_id 축 인덱스(V8). §4-B-1 주문 조회의 수수료 집계가
--- maker_order_id = ? OR taker_order_id = ? 로 trades를 스캔한다. 위 인덱스는
--- user/market 축뿐이라 order_id 조회는 전 파티션 seq scan이 되어 체결 누적에 선형
--- 붕괴한다. maker/taker를 분리 단일열 인덱스로 두어 OR을 BitmapOr로 처리한다.
+-- (v2.13) order_id 축 인덱스(V8). maker_order_id = ? OR taker_order_id = ? 로
+-- trades를 스캔하는 경로용이다. user/market 축 인덱스만으로는 order_id 조회가
+-- 전 파티션 seq scan이 되어 체결 누적에 선형 붕괴한다. maker/taker를 분리 단일열
+-- 인덱스로 두어 OR을 BitmapOr로 처리한다.
+-- 용도(v2.15 갱신): 최초 목적이던 §4-B-1 주문 조회의 수수료 재집계는 V10이
+-- paid_fee·trades_count를 orders에 물질화하면서 핫패스에서 제거됐다. 이 인덱스는
+-- 이제 V10 백필(maker/taker_order_id UNION 집계, §3 V10 항목)과 admin·감사 대조·
+-- 재정산 backfill 경로가 소비한다. 조회 핫패스는 orders 단일 스캔이다.
 -- created_at 하한은 걸지 않는다: trades.created_at=engine_ts, orders.created_at=정산 now()라
 -- trade.created_at < order.created_at이 정상이므로 order.created_at 하한은 체결을 누락한다.
 CREATE INDEX idx_trades_maker_order ON trades (maker_order_id);
@@ -1203,7 +1207,7 @@ CREATE TABLE idempotency_keys (
 
 -- ────────────────────────────────────────────────────────────────
 -- 7. 시장데이터 / 감사 / 관측
---    ※ V1 범위 외. 로드맵(V6+) 예정 DDL. invariant_checks·recovery_runs는 V3에서
+--    ※ V1 범위 외. 로드맵(V11+) 예정 DDL. invariant_checks·recovery_runs는 V3에서
 --      선반영됐고, candles·audit_log는 미배정 로드맵이다. V1 정본은 §3 도입부 로드맵 표.
 -- ────────────────────────────────────────────────────────────────
 CREATE TABLE candles (
@@ -2420,6 +2424,20 @@ M3 게시판(커뮤니티) 스키마를 §9로 신설하고 마이그레이션 `
 
 ---
 
+## v2.13 패치 반영 사항
+
+`trades` order_id 축 조회 인덱스와 시간 파티션 사전생성을 마이그레이션 `V8__trades_order_index_and_partitions.sql`로 확정했다. §3 마이그레이션 표에 V8을 명시했다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| I1 | §3.1 trades 인덱스 | `idx_trades_maker_order`·`idx_trades_taker_order`(maker/taker_order_id 단일열). order_id 축 조회가 user/market 인덱스만으로 전 파티션 seq scan이 되던 결함 교정. OR은 BitmapOr 처리 |
+| I2 | §3.2 파티션 유지관리 | 2026-09~2027-08 월 파티션 12개 수동 선생성. 외부 확장(pg_partman/pg_cron) 없이 빈 PG17 단독 적용을 유지. 미선생성 시 2026-09 이후 전 행이 `*_default` 유입되어 프루닝 무력화 |
+| I3 | 채택 경로 | partman 자동화는 확장 전제 환경의 선택 경로(§3.2). 표준 배포(Testcontainers postgres:17)는 수동 파티션 경로를 채택한다. 둘 중 하나만 적용 |
+
+문서 헤더 버전을 v2.13으로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
 ## v2.14 패치 반영 사항
 
 `app_role` GRANT 화이트리스트에서 하드 DELETE 런타임 경로 두 곳의 권한 누락을 교정했다.
@@ -2433,3 +2451,17 @@ M3 게시판(커뮤니티) 스키마를 §9로 신설하고 마이그레이션 `
 | G3 | 경계 불변 | 원장·잔고 직접 DML 경계(§9 REVOKE)와 append-only 저널 불변은 무접촉. 소프트 삭제 테이블(notices 등)은 UPDATE 유지, DELETE 미부여 |
 
 문서 헤더 버전을 v2.14로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.15 패치 반영 사항
+
+`orders` 수수료 프로젝션을 마이그레이션 `V10__orders_fee_projection.sql`로 확정했다. §3 마이그레이션 표에 V10을 명시하고, V8 order_id 인덱스 주석의 용도를 백필·감사 경로로 갱신했다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| F1 | orders 컬럼 | `paid_fee`(NUMERIC(40,18))·`trades_count`(BIGINT) 물질화. `OrderQueryService.view`가 조회마다 trades를 order_id로 재집계(feeStats N+1)하던 경로 제거. 조회는 orders 단일 스캔 |
+| F2 | 누적 규약 | SettlementService 체결 경로가 `filled_qty`·`executed_quote`와 동일 트랜잭션·동일 UPDATE에서 결정론 누적. 두 컬럼은 정산이 재생 시 재구성하는 프로젝션(엔진 상태 아님)이라 재생·크래시 창 정합이 기존 집계 컬럼과 같다 |
+| F3 | 백필 | 이미 체결된 주문은 attach된 trades 파티션의 maker/taker leg UNION 집계로 채운다. detach된 파티션은 종전 feeStats도 못 보던 범위라 종전 응답과 동치. V8 order_id 인덱스가 이 백필과 admin 재집계 경로를 받친다 |
+
+문서 헤더 버전을 v2.15로 순증(이전 패치 노트의 역사 서술은 원문 유지).

@@ -68,8 +68,8 @@ dev 프로파일 DB 접속 정보는 `app/src/main/resources/application.yml`의
 
 ## 계약 문서 (정본)
 
-- `../docs/백엔드_DB_설계.md` (v2.10). DDL 정본. V1 마이그레이션의 원천
-- `../docs/백엔드_API_설계.md` (v2.7). 스택/버전, API, 인증(데모 세션 §3-7 포함), 결정론 규칙
+- `../docs/백엔드_DB_설계.md` (v2.15). DDL 정본. V0~V10 마이그레이션의 원천
+- `../docs/백엔드_API_설계.md` (v2.12). 스택/버전, API, 인증(데모 세션 §3-7 포함), 결정론 규칙
 - `../docs/하네스_검증설계.md` (v1.1). 불변식 검증기 C01~C19, 카오스 매트릭스, V3 통합테스트
 
 스키마와 코드가 어긋나면 문서가 이긴다. 변경은 문서 개정 후 반영한다.
@@ -115,10 +115,13 @@ M1-3(정산 계층) 산출물이 REST/WS 게이트웨이 단계에 요구하는 
   루프 정지 + demote다(LoopFatalHandler). demote된 인스턴스는 재승격이 금지되고
   리스는 TTL 만료로 풀려 failover가 열린다. EngineBridge는 루프 정지 상태의 접수를
   저널 커밋 전에 거부한다. 복귀는 재생을 포함한 프로세스 재기동뿐이다.
-- 엔진 거부 사유 어휘(no_liquidity, order_not_found, invalid_parameters,
-  unsupported_time_in_force, unsupported_ord_type, duplicate_order_id)는 API 설계
-  §4-B-1 reject_reason 목록에 없는 엔진 내부 어휘다. orders.reject_reason에는 이
-  어휘가 그대로 적재되므로 게이트웨이 노출 시 매핑 또는 문서 개정이 선행돼야 한다.
+- 엔진 거부 사유 어휘 중 no_liquidity, order_not_found, invalid_parameters,
+  duplicate_order_id는 API 설계 §4-B-1 reject_reason 목록에 없는 엔진 내부 어휘다.
+  나머지(self_trade_prevented, post_only_would_take, fok_not_filled, ioc_partial_canceled)는
+  §4-B-1 도메인 거부 목록과 일치한다. 미지원 TIF·주문유형은 게이트웨이가 접수 전
+  400 invalid_parameter로 정적 거부하므로 unsupported_time_in_force·unsupported_ord_type
+  reject_reason은 엔진에서 제거됐다(§4-B-1 상호배타 규칙). 내부 어휘는 orders.reject_reason에
+  그대로 적재되므로 게이트웨이 노출 시 매핑 또는 문서 개정이 선행돼야 한다.
 - EngineBridge.submit의 synchronized 직렬화는 소비측 seq 연속성 검증(갭 감지 +
   catch-up)이 들어온 뒤에도 유지한다. 큐 투입 순서 역전은 catch-up 왕복을 만들 뿐
   오류는 아니지만, 핫패스에서 불필요한 저널 재조회를 피하는 쪽이 이득이다.
@@ -140,10 +143,11 @@ M1-4(REST·WS 게이트웨이) 산출물이 봇·프론트 연동 단계에 넘�
   규약으로 서명한다. 키 발급은 DemoKeySeeder.issue(사용자, scope, label). 마스터키는
   EXCHANGE_MASTER_KEY_BASE64(base64 32바이트) 주입이 전제이며 미주입 시 프로세스 한정
   임시 키로 동작한다(재기동 후 기존 키 무효).
-- candles 미구현(결정 필요): GET /api/v1/candles/{unit}와 /topic/candle.{unit}.{market}
-  채널이 없다. trades 실시간 집계(쿼리·머티리얼라이즈드 뷰) vs 별도 candles 테이블
-  (V1 제외분, §3.1) 적재 중 택일해야 한다. WS candle의 seq 도메인은 market x type x unit
+- candles(M1-5 인계 시점 미구현, 결정 필요): GET /api/v1/candles/{unit}와 /topic/candle.{unit}.{market}
+  채널이 없었다. trades 실시간 집계(쿼리·머티리얼라이즈드 뷰) vs 별도 candles 테이블
+  (V1 제외분, §3.1) 적재 중 택일해야 했다. WS candle의 seq 도메인은 market x type x unit
   (§5-2 v2.3)임을 구현 시 지켜야 한다.
+  현행 상태: GET /api/v1/candles/{unit}는 trades 실시간 집계로 구현됨(MarketController, API §4-A-5 X2 결정). 별도 candles 테이블 미적재.
 - rate limit(§2-5) 미구현: 토큰버킷·X-RateLimit 헤더·auth_throttled·418 auto_ban 전부.
   Resilience4j 의존성은 이미 들어 있다.
 - nonce 저장소는 단일 노드 인메모리다(NonceStore). API 정본 §3-4 구현 각주(v2.7)로
@@ -153,19 +157,23 @@ M1-4(REST·WS 게이트웨이) 산출물이 봇·프론트 연동 단계에 넘�
 - WS 게시는 정산 커밋 후 best-effort다(MarketDataPublisher가 예외를 삼킨다). 게시 유실은
   클라이언트 seq gap 감지 → REST 재동기화로 흡수된다(§5-2). 기동 복구(EngineRecovery)의
   재정산분은 게시하지 않는다.
-- 엔진 reject_reason 어휘(no_liquidity, unsupported_time_in_force 등)는 API §4-B-1
-  목록과 불일치인 채로 detail.reject_reason에 그대로 노출된다. 매핑 표 확정 또는 API
-  문서 개정이 필요하다. IOC/FOK/POST_ONLY/BEST는 게이트웨이가 통과시키고 엔진 REJECTED
-  (422 domain_rejected)로 종결된다. 엔진이 이를 구현하면 게이트웨이는 무수정이다.
+- 엔진 내부 reject_reason(no_liquidity, order_not_found, invalid_parameters,
+  duplicate_order_id)는 API §4-B-1 목록에 없는 채로 detail.reject_reason에 노출된다.
+  매핑 표 확정 또는 API 문서 개정이 필요하다. self_trade_prevented·post_only_would_take·
+  fok_not_filled·ioc_partial_canceled는 §4-B-1 도메인 거부와 일치한다. unsupported_time_in_force·
+  unsupported_ord_type는 게이트웨이 정적 거부(400)로 대체돼 엔진에서 제거됐다. IOC/FOK/POST_ONLY/BEST는
+  게이트웨이가 통과시키고 엔진 REJECTED(422 domain_rejected)로 종결된다.
 - API 설계 §5-5·§4-B-5·§4-C-3 수치 예시는 v2.7에서 '수취 자산 수수료 + 예약 무수수료'
   모델로 재계산 정정됐다. WS trade.fee는 trades.maker_fee/taker_fee 박제값(수취 자산 단위)이다.
 - 잔고 사전 가드의 가드-정산 경합 창은 게이트웨이 인메모리 in-flight 예약 누계로 좁혔다.
   다중 게이트웨이 노드에서는 성립하지 않으므로 M2에서 재설계한다.
 - 시장가 매수(notional)는 quote 자산 scale 18 마켓만 허용된다(§1.4 v2.9 앱 가드).
   KRW(scale 0) 마켓은 시장가 매수가 400으로 거부된다. 봇 시나리오 작성 시 전제.
-- 미구현 REST: orders/batch, 일괄 취소(DELETE /orders), orders/chance, my/trades,
+- 미구현 REST(M1-5 인계 시점): orders/batch, 일괄 취소(DELETE /orders), orders/chance, my/trades,
   my/ledger, keys rotate·폐기, by-client 취소 라우트. by-client 조회(§7-6 재조회 계약)와
   GET /orders/{id}는 구현돼 있다.
+  현행 상태: orders/batch·일괄 취소(DELETE /orders)·by-client 취소 라우트·candles는 이후 구현됨
+  (OrderController·MarketController). orders/chance·my/trades·my/ledger·keys rotate·폐기는 미구현 유지.
 - accounts의 avg_buy_price는 "0" 고정이다(평단가 산출 미구현).
 
 ## M1-6 인계 (하네스 계약과 잔여 결정)

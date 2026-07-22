@@ -822,7 +822,7 @@ V1/V2는 `CREATE EXTENSION pg_partman/pg_cron`·`REVOKE ... FROM app_role`을 �
 | 주체 | 계정 | 역할 |
 |---|---|---|
 | initdb (`infra/pg/initdb/01-roles.sql`) | postgres(superuser, 이미지 엔트리포인트) | `CREATE ROLE app_role LOGIN PASSWORD ...; CREATE ROLE grafana_ro LOGIN ...;` + 스키마 기본 GRANT(SELECT/INSERT 등 최소). V1의 `REVOKE ... FROM app_role`이 참조하는 롤을 **선재**시킨다 |
-| 마이그레이션 (`flyway-migrate` 잡, §3-1) | postgres(superuser) | V1~V4 + `V90__observability_ext.sql` 실행. CREATE EXTENSION·REVOKE·cron.schedule 전부 이 주체 |
+| 마이그레이션 (`flyway-migrate` 잡, §3-1) | postgres(superuser) | 전 마이그레이션(V0~V10) + `V90__observability_ext.sql` 실행. CREATE EXTENSION·REVOKE·cron.schedule 전부 이 주체 |
 | 런타임 | `app_role` | exchange-api/admin/bots DataSource. `spring.flyway.enabled=false`(demo 프로파일), 앱은 마이그레이션을 절대 실행하지 않는다 |
 | 관측 조회 | `grafana_ro` | invariant_checks/recovery_runs/failover_runs/admin_audit_log SELECT만 |
 
