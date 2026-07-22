@@ -13,6 +13,7 @@ server/**/build/
 .env
 .env.*
 !.env.example
+!.env.*.example
 *.local
 
 # IDE
@@ -29,6 +30,10 @@ Desktop.ini
 *.log
 *.tmp
 tmp/
+
+# 테스트·세션 런타임 산물 (재생성됨, 추적 불필요)
+**/.jqwik-database
+.claude/scheduled_tasks.lock
 
 # 문서 빌드 중간물은 추적하되, PDF 소스 HTML은 유지한다.
 # (docs/*.html은 PDF 재생성 원본이므로 커밋 대상)
