@@ -2,6 +2,8 @@ package kr.exchange.harness;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.math.BigDecimal;
@@ -17,6 +19,8 @@ import java.util.Map;
  * 산출물을 append 한다.
  */
 public class FailoverRecorder {
+
+    private static final Logger log = LoggerFactory.getLogger(FailoverRecorder.class);
 
     private final JdbcClient jdbc;
     private final ObjectMapper objectMapper;
@@ -50,8 +54,19 @@ public class FailoverRecorder {
         try {
             return objectMapper.writeValueAsString(details);
         } catch (JsonProcessingException e) {
-            return "{}";
+            // 직렬화 실패를 무음 처리하면 details 관측 증거가 통째로 유실된다. 로깅하고
+            // 오류 표식을 남겨 적재 자체는 유지한다.
+            log.warn("failover details 직렬화 실패, 오류 표식으로 대체: {}", e.getMessage());
+            return "{\"serialization_error\":\"" + jsonEscape(e.getMessage()) + "\"}";
         }
+    }
+
+    private static String jsonEscape(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", " ").replace("\r", " ");
     }
 
     public record FailoverRecord(

@@ -17,7 +17,10 @@ public final class Cursors {
     }
 
     public static String encode(OffsetDateTime ts, String id) {
-        String json = "{\"ts\":\"" + ApiFormats.time(ts) + "\",\"id\":\"" + id + "\"}";
+        // 커서 ts는 왕복 무손실이어야 한다. 표시용 포맷터(ApiFormats.time, .SSS 절단)를 쓰면
+        // created_at 마이크로초가 잘려 같은 밀리초 경계 행이 다음 페이지에서 소실된다. 마이크로초
+        // 정밀을 보존하는 Instant ISO로 직렬화한다.
+        String json = "{\"ts\":\"" + ts.toInstant().toString() + "\",\"id\":\"" + id + "\"}";
         return Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(json.getBytes(StandardCharsets.UTF_8));
     }

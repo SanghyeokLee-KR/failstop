@@ -14,6 +14,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -183,6 +187,56 @@ public class OrderGateway {
         return new Placement(settled, false, result.epoch());
     }
 
+    /** by-client 취소(§4-B-2). 프로젝션 미반영은 저널 권위로 404·409를 가른다(§4-B-4-a). */
+    public Placement cancelByClient(long userId, String clientOrderId) {
+        Optional<OrderQueryService.OrderRow> row = orders.byClientOrderId(userId, clientOrderId);
+        if (row.isPresent()) {
+            return cancel(userId, row.get().externalId());
+        }
+        Long journaled = jdbc.sql("""
+                        SELECT count(*) FROM command_journal
+                        WHERE command_type = 'NEW' AND user_id = ? AND client_order_id = ?
+                        """)
+                .params(userId, clientOrderId)
+                .query(Long.class)
+                .single();
+        if (journaled == 0) {
+            throw new ApiException(404, "order_not_found", "주문이 없습니다.");
+        }
+        throw new ApiException(409, "order_in_progress",
+                "주문이 처리 중입니다. 재조회하십시오.", null, 1);
+    }
+
+    public record BulkCancelResult(List<String> canceledIds, List<Map<String, Object>> failed) {
+    }
+
+    /** 일괄 취소(§4-B-3). 미체결(OPEN·PARTIAL) 전량을 개별 취소하고 성패를 per-item 집계한다. */
+    public BulkCancelResult cancelAll(long userId, String market) {
+        List<String> canceled = new ArrayList<>();
+        List<Map<String, Object>> failed = new ArrayList<>();
+        for (UUID externalId : orders.openOrderIds(userId, market)) {
+            try {
+                Placement placement = cancel(userId, externalId);
+                if ("CANCELED".equals(placement.row().status())) {
+                    canceled.add(externalId.toString());
+                } else {
+                    // 나열과 취소 사이에 체결·종결된 경합 분. 취소 대상이 아니라 실패로 집계한다.
+                    failed.add(failure(externalId, placement.row().status().toLowerCase(Locale.ROOT)));
+                }
+            } catch (ApiException e) {
+                failed.add(failure(externalId, e.name()));
+            }
+        }
+        return new BulkCancelResult(canceled, failed);
+    }
+
+    private static Map<String, Object> failure(UUID externalId, String reason) {
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("id", externalId.toString());
+        entry.put("reason", reason);
+        return entry;
+    }
+
     private long currentEpoch() {
         return jdbc.sql("SELECT COALESCE(max(epoch), 0) FROM leader_lease WHERE resource = 'matching-engine'")
                 .query(Long.class)
@@ -300,6 +354,12 @@ public class OrderGateway {
             case BEST -> {
                 if (volume == null || price != null) {
                     throw invalid("best_requires_volume");
+                }
+                if (side == OrderCommand.Side.BUY) {
+                    // best 매수는 volume만 지정하고 체결가가 오더북 의존이라 정적 예약 산식이 없다.
+                    // 접수 시 reserve()가 price null로 NPE를 내 결정론적 500이 무한 반복되므로,
+                    // idempotency insert 이전인 이 지점에서 명시 거부한다(§4-B-1 side 제약 연동).
+                    throw invalid("best_bid_unsupported");
                 }
                 if (tif != OrderCommand.TimeInForce.IOC && tif != OrderCommand.TimeInForce.FOK) {
                     throw invalid("best_requires_ioc_or_fok");

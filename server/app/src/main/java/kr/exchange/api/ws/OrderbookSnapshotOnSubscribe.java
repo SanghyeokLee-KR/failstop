@@ -60,10 +60,12 @@ public class OrderbookSnapshotOnSubscribe implements ApplicationListener<Session
         try {
             String symbol = destination.substring(PREFIX.length());
             MarketDirectory.Market market = markets.bySymbol(symbol);
+            // seq를 depth보다 먼저 읽어 라벨이 데이터의 하한이 되게 한다. 역순이면 depth에 없는
+            // realtime 갱신까지 seq에 반영돼 클라이언트가 그 갱신을 건너뛴다(§5-2 연속성 기준점).
+            long seq = sequences.current("orderbook." + market.symbol());
             MarketDataService.Depth depth = marketData.depth(market.id());
             Map<String, Object> body = marketData.orderbookBody(market.symbol(), depth,
-                    epochSource.epoch(), sequences.current("orderbook." + market.symbol()),
-                    ApiFormats.time(Instant.now()));
+                    epochSource.epoch(), seq, ApiFormats.time(Instant.now()));
             body.put("type", "orderbook");
             body.put("stream", "snapshot");
 

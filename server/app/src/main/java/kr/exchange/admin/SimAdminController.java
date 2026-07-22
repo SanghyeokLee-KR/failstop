@@ -341,6 +341,11 @@ public class SimAdminController {
         } catch (NumberFormatException e) {
             throw new ApiException(400, "invalid_parameter", "target_ops 형식이 올바르지 않습니다.");
         }
+        // Infinity·1e400은 POSITIVE_INFINITY로 파싱돼 v<=0을 통과, setTargetOps(Inf)로
+        // 토큰버킷 상시 허용(rate limit 해제)을 유발한다. NaN도 여기서 함께 차단한다.
+        if (!Double.isFinite(v)) {
+            throw new ApiException(400, "invalid_parameter", "target_ops는 유한한 값이어야 합니다.");
+        }
         if (v <= 0) {
             throw new ApiException(400, "invalid_parameter", "target_ops는 양수여야 합니다.");
         }

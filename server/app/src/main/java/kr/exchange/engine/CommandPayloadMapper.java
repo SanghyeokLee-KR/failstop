@@ -52,34 +52,50 @@ public class CommandPayloadMapper {
         }
     }
 
+    /** CommandDraft.CommandType → OrderCommand.CommandType 단일 매핑. 접수·재생이 공유한다. */
+    public static OrderCommand.CommandType commandType(CommandDraft.CommandType type) {
+        return switch (type) {
+            case NEW -> OrderCommand.CommandType.NEW;
+            case CANCEL -> OrderCommand.CommandType.CANCEL;
+        };
+    }
+
     public OrderCommand toCommand(JournalEntry entry) {
         JsonNode payload = readPayload(entry);
-        return new OrderCommand(
-                entry.seq(),
-                entry.marketId(),
-                entry.type() == CommandDraft.CommandType.NEW
-                        ? OrderCommand.CommandType.NEW : OrderCommand.CommandType.CANCEL,
-                entry.userId(),
-                entry.clientOrderId(),
-                entry.assignedOrderId(),
-                entry.engineTs(),
-                entry.tieBreak(),
-                enumOf(payload, "side", OrderCommand.Side.class),
-                enumOf(payload, "ord_type", OrderCommand.OrdType.class),
-                enumOf(payload, "time_in_force", OrderCommand.TimeInForce.class),
-                decimalOf(payload, "price"),
-                decimalOf(payload, "qty"),
-                decimalOf(payload, "quote_order_qty"),
-                entry.fencingToken());
+        try {
+            return new OrderCommand(
+                    entry.seq(),
+                    entry.marketId(),
+                    commandType(entry.type()),
+                    entry.userId(),
+                    entry.clientOrderId(),
+                    entry.assignedOrderId(),
+                    entry.engineTs(),
+                    entry.tieBreak(),
+                    enumOf(payload, "side", OrderCommand.Side.class),
+                    enumOf(payload, "ord_type", OrderCommand.OrdType.class),
+                    enumOf(payload, "time_in_force", OrderCommand.TimeInForce.class),
+                    decimalOf(payload, "price"),
+                    decimalOf(payload, "qty"),
+                    decimalOf(payload, "quote_order_qty"),
+                    entry.fencingToken());
+        } catch (RuntimeException e) {
+            // 필드 파싱 실패도 seq를 실어 손상 위치를 남긴다(손상 진단 계약).
+            throw new IllegalStateException("command payload 필드 손상: seq=" + entry.seq(), e);
+        }
     }
 
     public Extras extras(JournalEntry entry) {
         JsonNode payload = readPayload(entry);
-        JsonNode ext = payload.get("external_id");
-        return new Extras(
-                ext == null || ext.isNull() ? null : UUID.fromString(ext.asText()),
-                decimalOf(payload, "maker_fee_rate"),
-                decimalOf(payload, "taker_fee_rate"));
+        try {
+            JsonNode ext = payload.get("external_id");
+            return new Extras(
+                    ext == null || ext.isNull() ? null : UUID.fromString(ext.asText()),
+                    decimalOf(payload, "maker_fee_rate"),
+                    decimalOf(payload, "taker_fee_rate"));
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("command payload 필드 손상: seq=" + entry.seq(), e);
+        }
     }
 
     private JsonNode readPayload(JournalEntry entry) {

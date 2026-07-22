@@ -34,6 +34,8 @@ public class DevConfig {
         cfg.setAllowedMethods(List.of("GET", "POST", "DELETE"));
         cfg.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         cfg.setAllowCredentials(false);
+        // 프리플라이트 응답 캐시. 없으면 dev 브라우저가 변이 요청마다 OPTIONS를 반복한다.
+        cfg.setMaxAge(1800L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/v1/**", cfg);
         FilterRegistrationBean<CorsFilter> registration =

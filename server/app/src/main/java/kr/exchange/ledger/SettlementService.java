@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 이벤트 유형별 정산과 event_journal append의 원자 커밋 경로(DB 설계 §5.1~§5.3, §3.1 6.2).
@@ -47,11 +48,14 @@ public class SettlementService {
     private static final short PAYLOAD_SCHEMA_VERSION = 1;
     /** 수수료 샤드 수 K=1 박제. K 변경은 재생·catch-up의 샤드 배정 동일성을 깬다(DB 설계 §1.2). */
     private static final int FEE_SHARD = 0;
+    /** notional(quote 지정) 매수의 quote 소진 scale. 엔진 소진액 규약과 동일해야 이벤트
+     * 합산 재구성과 어긋나지 않는다(DB 설계 §5.2). 게이트 가드 아닌 산식 상수로 박제한다. */
+    private static final int NOTIONAL_SOAK_SCALE = 18;
 
     private static final String SELECT_EPOCH_SQL = """
             SELECT epoch FROM leader_lease
             WHERE resource = 'matching-engine'
-              AND holder = ? AND epoch = ? AND lease_until > now()
+              AND holder = ? AND epoch = ? AND lease_until > clock_timestamp()
             FOR SHARE
             """;
 
@@ -89,6 +93,13 @@ public class SettlementService {
     private final MarketCatalog catalog;
     private final CommandJournalReader commandReader;
     private final CommandPayloadMapper payloadMapper;
+    // 계정 id는 계정 생성 시점에 확정되고 (owner, purpose, asset, shard)당 불변이라 캐시한다.
+    // 체결마다 5~6회 왕복하던 매핑 조회를 제거한다. 성공 조회만 저장하고 미스는 캐시하지 않는다.
+    private final Map<Short, Long> feeAccountCache = new ConcurrentHashMap<>();
+    private final Map<UserAccountKey, Long> userAccountCache = new ConcurrentHashMap<>();
+
+    private record UserAccountKey(long userId, String purpose, short assetId) {
+    }
 
     public SettlementService(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease,
                              ObjectMapper objectMapper, MarketCatalog catalog,
@@ -330,7 +341,7 @@ public class SettlementService {
         BigDecimal refund;
         boolean buyerFilled;
         if (buyer.notional()) {
-            quoteOut = Fees.quantize(qty.multiply(price), 18, RoundingMode.DOWN);
+            quoteOut = Fees.quantize(qty.multiply(price), NOTIONAL_SOAK_SCALE, RoundingMode.DOWN);
             proceeds = quoteOut;
             refund = BigDecimal.ZERO;
             buyerFilled = buyer.lockedAmount().compareTo(quoteOut) == 0;
@@ -593,28 +604,31 @@ public class SettlementService {
     }
 
     private long userAccount(long userId, String purpose, short assetId) {
-        return jdbc.sql("""
-                        SELECT id FROM accounts
-                        WHERE owner_type = 'USER' AND owner_id = ? AND purpose = ?
-                          AND asset_id = ? AND shard = 0
-                        """)
-                .params(userId, purpose, assetId)
-                .query(Long.class)
-                .optional()
-                .orElseThrow(() -> new IllegalStateException(
-                        "사용자 계정 없음: user=" + userId + ", purpose=" + purpose + ", asset=" + assetId));
+        // computeIfAbsent의 매핑 함수가 던지면 ConcurrentHashMap은 항목을 남기지 않아 미스는 캐시되지 않는다.
+        return userAccountCache.computeIfAbsent(new UserAccountKey(userId, purpose, assetId), k ->
+                jdbc.sql("""
+                                SELECT id FROM accounts
+                                WHERE owner_type = 'USER' AND owner_id = ? AND purpose = ?
+                                  AND asset_id = ? AND shard = 0
+                                """)
+                        .params(k.userId(), k.purpose(), k.assetId())
+                        .query(Long.class)
+                        .optional()
+                        .orElseThrow(() -> new IllegalStateException("사용자 계정 없음: user=" + k.userId()
+                                + ", purpose=" + k.purpose() + ", asset=" + k.assetId())));
     }
 
     private long feeAccount(short assetId) {
-        return jdbc.sql("""
-                        SELECT id FROM accounts
-                        WHERE owner_type = 'SYSTEM' AND purpose = 'FEE_INCOME'
-                          AND asset_id = ? AND shard = ?
-                        """)
-                .params(assetId, FEE_SHARD)
-                .query(Long.class)
-                .optional()
-                .orElseThrow(() -> new IllegalStateException("수수료 계정 없음: asset=" + assetId));
+        return feeAccountCache.computeIfAbsent(assetId, k ->
+                jdbc.sql("""
+                                SELECT id FROM accounts
+                                WHERE owner_type = 'SYSTEM' AND purpose = 'FEE_INCOME'
+                                  AND asset_id = ? AND shard = ?
+                                """)
+                        .params(k, FEE_SHARD)
+                        .query(Long.class)
+                        .optional()
+                        .orElseThrow(() -> new IllegalStateException("수수료 계정 없음: asset=" + k)));
     }
 
     private boolean orderExists(long orderId) {

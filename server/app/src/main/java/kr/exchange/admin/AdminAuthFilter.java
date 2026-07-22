@@ -80,8 +80,12 @@ public class AdminAuthFilter extends OncePerRequestFilter {
             // 컨트롤러 인가·검증 실패(403·400·5xx)는 @RestControllerAdvice가 내부에서 처리해
             // 예외로 전파되지 않는다. 응답 상태에서 result를 파생해 거부를 OK로 오라벨하지 않는다.
             int status = response.getStatus();
-            audit.record(operatorId, action, request.getRequestURI(), requestId, null,
-                    resultForStatus(status), Map.of("status", status));
+            try {
+                audit.record(operatorId, action, request.getRequestURI(), requestId, null,
+                        resultForStatus(status), Map.of("status", status));
+            } catch (RuntimeException ignored) {
+                // 변이는 이미 커밋됐다. 감사 적재 실패가 응답을 삼키지 않게 한다(거부 경로와 동일).
+            }
         } catch (ApiException e) {
             recordDenied(certOperator, action, request.getRequestURI(), requestId, e);
             errorRenderer.write(response, e);

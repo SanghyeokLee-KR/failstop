@@ -19,10 +19,13 @@ public class EpochSource {
     }
 
     public long epoch() {
+        // 비리더면 leader_lease 실측 epoch를 읽는다. resource가 PK라 단일 행이므로 max() 불필요.
+        // COALESCE(...,0) 대체값은 클래스 계약(0 고정 금지) 위반이라 쓰지 않는다. 행은 V1
+        // 부트스트랩 시드로 항상 선재하므로 미조회는 정상 상태가 아니다(single이 그대로 노출).
         return lease.current()
                 .map(LeaderIdentity::epoch)
                 .orElseGet(() -> jdbc.sql(
-                                "SELECT COALESCE(max(epoch), 0) FROM leader_lease WHERE resource = 'matching-engine'")
+                                "SELECT epoch FROM leader_lease WHERE resource = 'matching-engine'")
                         .query(Long.class)
                         .single());
     }

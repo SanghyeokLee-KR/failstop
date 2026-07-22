@@ -25,7 +25,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * 두 실행 모드:
  *   runScheduled()     SCHEDULED 스코프 경량 검증. 각 체크는 단일 SELECT라 문장 단위
  *                      스냅샷으로 내부 정합이 성립한다(READ COMMITTED 무해).
- *   runAuthoritative() 실험 판정 프로토콜의 사전·사후 권위 run. 전 체크(C16·C19 포함)를
+ *   runAuthoritative() 실험 판정 프로토콜의 사전·사후 권위 run. enum 담당 전 체크(SCHEDULED가
+ *                      건너뛰는 C16·C19 포함, C01~C19 전체는 아님)를
  *                      REPEATABLE READ READ ONLY 단일 스냅샷에서 읽어 교차 정합을 보장하고,
  *                      결과를 details(run_id·window·watermark)와 함께 적재한다.
  *
@@ -81,8 +82,8 @@ public class InvariantVerifier {
     public AuthoritativeRun runAuthoritative(String runId, String window) {
         // 읽기 단계: 단일 스냅샷에서 워터마크 + 전 체크 위반 수를 확정한다.
         AuthoritativeRun snapshot = readOnlyRepeatableRead.execute(status -> {
-            long cmdWm = scalarOrZero("SELECT COALESCE(max(seq), 0) FROM command_journal");
-            long evtWm = scalarOrZero("SELECT COALESCE(max(event_seq), 0) FROM event_journal");
+            long cmdWm = count("SELECT COALESCE(max(seq), 0) FROM command_journal");
+            long evtWm = count("SELECT COALESCE(max(event_seq), 0) FROM event_journal");
             List<InvariantResult> results = new ArrayList<>();
             for (InvariantCheck check : InvariantCheck.values()) {
                 results.add(InvariantResult.of(check, count(check.sql())));
@@ -156,11 +157,6 @@ public class InvariantVerifier {
     }
 
     private long count(String sql) {
-        Long v = jdbc.sql(sql).query(Long.class).single();
-        return v == null ? 0 : v;
-    }
-
-    private long scalarOrZero(String sql) {
         Long v = jdbc.sql(sql).query(Long.class).single();
         return v == null ? 0 : v;
     }

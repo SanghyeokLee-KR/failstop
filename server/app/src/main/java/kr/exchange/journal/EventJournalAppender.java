@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * event_journal 저널 전용 append 경로(DB 설계 v2.8 §3.1 6.2).
+ * event_journal 저널 전용 append 경로(DB 설계 v2.11 §3.1 6.2).
  *
  * 한 트랜잭션 안에서 [assert_current_leader → leader_lease FOR SHARE 재검증 →
  * next_journal_value('event_seq') 블록 채번 → 이벤트별 INSERT 반복]을 원자 수행한다.
@@ -34,7 +34,7 @@ public class EventJournalAppender {
     private static final String SELECT_EPOCH_SQL = """
             SELECT epoch FROM leader_lease
             WHERE resource = 'matching-engine'
-              AND holder = ? AND epoch = ? AND lease_until > now()
+              AND holder = ? AND epoch = ? AND lease_until > clock_timestamp()
             FOR SHARE
             """;
 

@@ -15,8 +15,10 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** 공개 시장 데이터(§4-A). 인증 불필요, 리스트는 §2-2 엔벌로프. */
 @RestController
@@ -24,6 +26,7 @@ import java.util.Map;
 public class MarketController {
 
     private static final int MAX_COUNT = 200;
+    private static final int MAX_TICKER_MARKETS = 100;
 
     private final MarketDirectory markets;
     private final MarketDataService data;
@@ -64,9 +67,11 @@ public class MarketController {
     public Map<String, Object> orderbook(@RequestParam("market") String market,
                                          @RequestParam(value = "level", required = false) String level) {
         MarketDirectory.Market m = markets.bySymbol(market);
-        MarketDataService.Depth depth = data.depth(m.id());
-        // seq는 WS orderbook 채널과 같은 도메인이다. 재동기화 기준점 계약(§5-2).
+        // seq를 depth 이전에 캡처한다. 반대 순서면 depth 조회 사이에 도착한 갱신이 seq를 올려
+        // 스냅샷이 실제보다 낮은 seq로 표기되고, 클라이언트가 seq 이하 realtime을 폐기해 갱신을
+        // 잃는다(§5-2 W6). depth가 seq 이후 상태를 담는 방향은 안전하다(중복 폐기로 수렴).
         long seq = sequences.current("orderbook." + m.symbol());
+        MarketDataService.Depth depth = data.depth(m.id());
         return data.orderbookBody(m.symbol(), depth, epochSource.epoch(), seq,
                 ApiFormats.time(Instant.now()));
     }
@@ -113,9 +118,20 @@ public class MarketController {
 
     @GetMapping("/ticker")
     public Map<String, Object> ticker(@RequestParam("markets") String marketsParam) {
+        String[] requested = marketsParam.split(",");
+        if (requested.length > MAX_TICKER_MARKETS) {
+            throw new ApiException(400, "invalid_parameter",
+                    "markets는 최대 " + MAX_TICKER_MARKETS + "개입니다.");
+        }
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (String symbol : marketsParam.split(",")) {
-            MarketDirectory.Market m = markets.bySymbol(symbol.trim());
+        Set<String> seen = new LinkedHashSet<>();
+        for (String raw : requested) {
+            String symbol = raw.trim();
+            // 중복·빈 항목은 조회·응답에서 제외한다(같은 마켓 반복 폴링 방어).
+            if (symbol.isEmpty() || !seen.add(symbol)) {
+                continue;
+            }
+            MarketDirectory.Market m = markets.bySymbol(symbol);
             rows.add(data.ticker(m, epochSource.epoch(),
                     sequences.current("ticker." + m.symbol())));
         }

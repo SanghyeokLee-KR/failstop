@@ -86,7 +86,7 @@ class SingleWriterLoopTest {
     }
 
     @Test
-    void errorInProcessNotifiesFatalHandlerAndStops() {
+    void errorInProcessNotifiesFatalHandlerAndStops() throws Exception {
         // sink가 Error를 던지면 라이터 스레드가 조용히 죽지 않고 fatalHandler 통지 후 정지해야 한다.
         MatchingEngineImpl engine = new MatchingEngineImpl();
         AtomicReference<Throwable> fatal = new AtomicReference<>();
@@ -96,15 +96,16 @@ class SingleWriterLoopTest {
                 },
                 (lastApplied, limit) -> List.of(),
                 fatal::set);
-        Thread.setDefaultUncaughtExceptionHandler((t, e) -> { });
-        try {
-            assertTrue(loop.offer(limitBuy(1, 1)));
-            loop.start();
-            await(() -> !loop.isRunning());
-        } finally {
-            Thread.setDefaultUncaughtExceptionHandler(null);
-        }
+        // 재던진 Error를 워커 스레드 전용 핸들러로 흡수한다. JVM 기본 핸들러를 건드리지 않아
+        // 다른 테스트와의 전역 상태 경합을 없앤다. 관측용으로 uncaught도 별도 캡처한다.
+        AtomicReference<Throwable> uncaught = new AtomicReference<>();
+        loop.setWriterUncaughtExceptionHandler((t, e) -> uncaught.set(e));
+        assertTrue(loop.offer(limitBuy(1, 1)));
+        loop.start();
+        // rethrow가 uncaughtExceptionHandler로 전파 완료될 때까지 결정적으로 대기한다.
+        loop.awaitWriterTermination(5_000L);
         assertInstanceOf(Error.class, fatal.get(), "Error가 fatalHandler로 통지돼야 한다");
+        assertInstanceOf(Error.class, uncaught.get(), "재던진 Error가 워커 핸들러로 전파돼야 한다");
         assertFalse(loop.isRunning(), "Error 후 running=false여야 한다");
         assertEquals(0, loop.queueSize());
     }

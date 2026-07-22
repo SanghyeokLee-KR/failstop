@@ -1,5 +1,6 @@
 package kr.exchange.api.ws;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -9,6 +10,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 /**
  * /ws/v1 STOMP 엔드포인트(§5-1). 단일 노드 SimpleBroker 구성이다.
@@ -20,14 +22,19 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthInterceptor authInterceptor;
+    private final String[] allowedOrigins;
 
-    public WebSocketConfig(@Lazy StompAuthInterceptor authInterceptor) {
+    public WebSocketConfig(@Lazy StompAuthInterceptor authInterceptor,
+                           @Value("${app.ws.allowed-origins:https://demo.exchange.local,http://localhost:3000}")
+                           String[] allowedOrigins) {
         this.authInterceptor = authInterceptor;
+        this.allowedOrigins = allowedOrigins;
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws/v1").setAllowedOriginPatterns("*");
+        // 백엔드_API_설계.md §2-7: 데모 오리진 화이트리스트, * 금지. 정확한 오리진만 허용한다.
+        registry.addEndpoint("/ws/v1").setAllowedOrigins(allowedOrigins);
     }
 
     @Override
@@ -41,6 +48,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(authInterceptor);
+    }
+
+    /**
+     * 슬로우 컨슈머 백프레셔 한도. 미설정 시 버퍼가 무한 적재되어 힙을 잠식한다.
+     * 전송 버퍼·전송 시간 초과 세션은 종료되고, 클라이언트는 §5-2 재구독·REST 재동기화로 복구한다.
+     * 메시지 상한 64KB는 §2-7 요청 바디 상한과 정렬한다.
+     */
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        registration.setSendTimeLimit(15_000);
+        registration.setSendBufferSizeLimit(512 * 1024);
+        registration.setMessageSizeLimit(64 * 1024);
     }
 
     @Bean

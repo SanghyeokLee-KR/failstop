@@ -1,8 +1,13 @@
 package kr.exchange.harness;
 
 /**
- * 불변식 검증 카탈로그(하네스 검증설계 §4-1 C01~C19). 각 SQL은 위반 행 수(BIGINT)를
- * 단일 값으로 반환하고, ok는 count=0으로 판정한다. 컬럼명은 DB 설계 정본 실제 DDL 기준.
+ * 불변식 검증 카탈로그 중 앱 검증기 담당 부분집합(하네스 검증설계 §4-1 C01~C19 전체가
+ * 아니다). 각 SQL은 위반 행 수(BIGINT)를 단일 값으로 반환하고, ok는 count=0으로 판정한다.
+ * 컬럼명은 DB 설계 정본 실제 DDL 기준.
+ *
+ * 미포함 체크의 담당: C03·C09~C12·C15는 pg_cron 분담(§4-2), C04는 DEFERRED CONSTRAINT
+ * TRIGGER(V1:350~370)가 하드 강제한다. runScheduled/runAuthoritative는 이 enum의 values()만
+ * 순회하므로 여기 없는 체크는 앱 run에서 평가하지 않는다.
  *
  * trades의 체결 seq는 컬럼 id다(trade_id = event_seq, DB 설계 §3.1). 설계 문서 §4-1의
  * trades.seq 표기는 실제 컬럼 id로 옮긴다.

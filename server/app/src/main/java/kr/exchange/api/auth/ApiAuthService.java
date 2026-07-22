@@ -9,7 +9,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
-import java.util.Locale;
 
 /**
  * 거래 평면 인증 검증기. 검증 순서는 §3-4 계약 그대로다:
@@ -81,10 +80,11 @@ public class ApiAuthService {
         }
 
         // 3. timestamp 단방향 창: now - recvWindow <= ts <= now + skew
-        long recvWindow = Math.min(
+        // 음수 recvWindow는 하한을 반전시켜 과거 timestamp를 무한 허용하므로 0으로 클램프한다.
+        long recvWindow = Math.max(0, Math.min(
                 payload.hasNonNull("recvWindow") ? payload.get("recvWindow").asLong()
                         : DEFAULT_RECV_WINDOW_MS,
-                MAX_RECV_WINDOW_MS);
+                MAX_RECV_WINDOW_MS));
         long ts = payload.get("timestamp").asLong();
         long now = System.currentTimeMillis();
         if (ts < now - recvWindow || ts > now + CLOCK_SKEW_MS) {
@@ -98,7 +98,7 @@ public class ApiAuthService {
 
         // 5. canonical(query_hash) 대조: method + path 바인딩 포함
         String recomputed = CanonicalRequests.sha512Hex(canonical);
-        if (!recomputed.equalsIgnoreCase(queryHash.toLowerCase(Locale.ROOT))) {
+        if (!recomputed.equalsIgnoreCase(queryHash)) {
             throw unauthorized("invalid_query_payload", "canonical 서명이 일치하지 않습니다.");
         }
 

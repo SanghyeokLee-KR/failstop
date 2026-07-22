@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -81,6 +83,11 @@ public class HarnessController {
     /** 페일오버 측정 적재(오케스트레이터가 RTO/RPO/verdict 계산 후 호출). */
     @PostMapping("/failover")
     public Map<String, Object> recordFailover(@RequestBody FailoverRequest req) {
+        // 적재 전 검증. verdict가 null이면 INSERT는 성공하나 응답 Map.of가 null 값에서
+        // NPE→500, 행은 이미 적재돼 IDENTITY PK로 재시도마다 중복 누적된다. DDL 경계
+        // (experiment_id VARCHAR(32) NOT NULL, verdict VARCHAR(8))도 진입부에서 400으로 막는다.
+        requireField(req.experimentId(), "experimentId", 32);
+        requireField(req.verdict(), "verdict", 8);
         long id = failoverRecorder.record(new FailoverRecorder.FailoverRecord(
                 req.experimentId(), req.oldLeader(), req.newLeader(),
                 req.oldEpoch(), req.newEpoch(),
@@ -88,6 +95,16 @@ public class HarnessController {
                 req.rtoSeconds(), req.downtimeSeconds(), req.rpoRecords(),
                 req.verdict(), req.details()));
         return Map.of("failover_run_id", id, "verdict", req.verdict());
+    }
+
+    private static void requireField(String value, String name, int maxLen) {
+        if (value == null || value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, name + " 필수");
+        }
+        if (value.length() > maxLen) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    name + " 길이 초과(max " + maxLen + ")");
+        }
     }
 
     private long scalar(String sql) {

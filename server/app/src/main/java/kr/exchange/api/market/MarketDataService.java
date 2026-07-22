@@ -1,5 +1,6 @@
 package kr.exchange.api.market;
 
+import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -95,49 +96,62 @@ public class MarketDataService {
 
     public List<Map<String, Object>> recentTrades(MarketDirectory.Market market, int count,
                                                   Cursors.Cursor cursor) {
+        // created_at 축 조회. executed_at과 값은 동일(둘 다 engine_ts 파생)이나 파티션 키·
+        // idx_trades_market_time이 created_at이라 이 축이라야 프루닝·인덱스가 붙는다.
         StringBuilder sql = new StringBuilder("""
-                SELECT id, price, quantity, taker_side, executed_at
+                SELECT id, price, quantity, taker_side, created_at
                 FROM trades
                 WHERE market_id = ?
                 """);
         List<Object> params = new ArrayList<>(List.of(market.id()));
         if (cursor != null) {
-            sql.append(" AND (executed_at, id) < (?, ?)");
+            sql.append(" AND (created_at, id) < (?, ?)");
             params.add(cursor.ts());
-            params.add(Long.parseLong(cursor.id()));
+            params.add(parseTradeId(cursor.id()));
         }
-        sql.append(" ORDER BY executed_at DESC, id DESC LIMIT ?");
+        sql.append(" ORDER BY created_at DESC, id DESC LIMIT ?");
         params.add(count);
         return jdbc.sql(sql.toString())
                 .params(params)
                 .query((rs, rowNum) -> {
                     Map<String, Object> row = new LinkedHashMap<>();
                     long tradeId = rs.getLong("id");
-                    OffsetDateTime executedAt = rs.getObject("executed_at", OffsetDateTime.class);
+                    OffsetDateTime createdAt = rs.getObject("created_at", OffsetDateTime.class);
                     row.put("trade_id", String.valueOf(tradeId));
                     row.put("market", market.symbol());
                     row.put("price", ApiFormats.amount(rs.getBigDecimal("price")));
                     row.put("volume", ApiFormats.amount(rs.getBigDecimal("quantity")));
                     row.put("taker_side", "BUY".equals(rs.getString("taker_side")) ? "bid" : "ask");
                     row.put("liquidity_flag_taker", "TAKER");
-                    row.put("timestamp", ApiFormats.time(executedAt));
+                    row.put("timestamp", ApiFormats.time(createdAt));
                     row.put("seq", tradeId);
-                    row.put("cursor_ts", executedAt);
+                    row.put("cursor_ts", createdAt);
                     return row;
                 })
                 .list();
     }
 
+    // 조작 커서(유효 base64 + 비수치 id) 방어. opaque 커서 계약(§2-6)상 400이어야 하므로
+    // NumberFormatException이 500으로 새지 않게 정규화한다.
+    private static long parseTradeId(String id) {
+        try {
+            return Long.parseLong(id);
+        } catch (NumberFormatException e) {
+            throw new ApiException(400, "invalid_parameter", "커서 형식이 올바르지 않습니다.");
+        }
+    }
+
     public Map<String, Object> ticker(MarketDirectory.Market market, long epoch, long seq) {
+        // created_at 축(파티션 키·인덱스). executed_at과 값 동일이나 프루닝을 위해 이 축을 쓴다.
         Map<String, Object> last = jdbc.sql("""
-                        SELECT price, executed_at FROM trades
+                        SELECT price, created_at FROM trades
                         WHERE market_id = ?
-                        ORDER BY executed_at DESC, id DESC LIMIT 1
+                        ORDER BY created_at DESC, id DESC LIMIT 1
                         """)
                 .params(market.id())
                 .query((rs, rowNum) -> Map.<String, Object>of(
                         "price", rs.getBigDecimal("price"),
-                        "at", rs.getObject("executed_at", OffsetDateTime.class)))
+                        "at", rs.getObject("created_at", OffsetDateTime.class)))
                 .optional()
                 .orElse(null);
 
@@ -146,7 +160,7 @@ public class MarketDataService {
                         SELECT MAX(price) AS high, MIN(price) AS low,
                                COALESCE(SUM(quantity), 0) AS vol,
                                COALESCE(SUM(price * quantity), 0) AS turnover
-                        FROM trades WHERE market_id = ? AND executed_at > ?
+                        FROM trades WHERE market_id = ? AND created_at > ?
                         """)
                 .params(market.id(), dayAgo)
                 .query((rs, rowNum) -> {
@@ -161,15 +175,15 @@ public class MarketDataService {
 
         BigDecimal prev = jdbc.sql("""
                         SELECT price FROM trades
-                        WHERE market_id = ? AND executed_at <= ?
-                        ORDER BY executed_at DESC, id DESC LIMIT 1
+                        WHERE market_id = ? AND created_at <= ?
+                        ORDER BY created_at DESC, id DESC LIMIT 1
                         """)
                 .params(market.id(), dayAgo)
                 .query(BigDecimal.class)
                 .optional()
                 .orElseGet(() -> jdbc.sql("""
                                 SELECT price FROM trades WHERE market_id = ?
-                                ORDER BY executed_at ASC, id ASC LIMIT 1
+                                ORDER BY created_at ASC, id ASC LIMIT 1
                                 """)
                         .params(market.id())
                         .query(BigDecimal.class)
@@ -224,8 +238,6 @@ public class MarketDataService {
      * unit별 구간 초. candles 테이블은 DB 정본상 V-로드맵(비정규화 trades 파생)이라 데모는
      * trades를 실시간 집계해 응답한다(재구축 가능·별도 저장 없음). 구간 경계는 epoch 정렬이다.
      */
-    private static final long CANDLE_SCAN_MARGIN = 4L;
-
     private static final Map<String, Long> UNIT_SECONDS = Map.ofEntries(
             Map.entry("1s", 1L), Map.entry("1m", 60L), Map.entry("3m", 180L),
             Map.entry("5m", 300L), Map.entry("15m", 900L), Map.entry("30m", 1800L),
@@ -238,29 +250,26 @@ public class MarketDataService {
 
     /**
      * trades를 unit 구간으로 버킷팅해 OHLCV를 집계한다. open/close는 구간 내 최초·최종 체결가
-     * (executed_at,id 정렬)이고 seq는 구간 내 최대 event_seq다(구간 간 단조 증가, §5-2 candle
+     * (created_at,id 정렬)이고 seq는 구간 내 최대 event_seq다(구간 간 단조 증가, §5-2 candle
      * 도메인 market×unit). 커서 id 축은 (candle_time, market) 자연키다(§2-6 U5, 시각축만으로 정렬).
      */
     public List<Map<String, Object>> candles(MarketDirectory.Market market, String unit,
                                              int count, Cursors.Cursor cursor) {
         long sec = UNIT_SECONDS.get(unit);
-        // 스캔 하한. 없으면 매 요청이 마켓 trades 전체 이력을 버킷 집계한다(HAVING·LIMIT는 집계
-        // 후 필터라 스캔을 못 줄임). count 창의 배수로 하한을 걸어 스캔을 근방으로 제한한다.
-        // 커서 페이징은 커서 시각 기준으로 창을 내린다. 배수는 sparse 갭 보정 여유.
-        OffsetDateTime anchor = cursor != null
-                ? cursor.ts()
-                : OffsetDateTime.now(java.time.ZoneOffset.UTC);
-        OffsetDateTime scanFrom = anchor.minusSeconds(sec * (long) count * CANDLE_SCAN_MARGIN);
+        // 스캔 시각 하한을 두지 않는다. 하한(count 창의 배수)은 밀도 낮은 마켓의 sparse 이력을
+        // 잘라 count 미만이 반환되고 has_more가 조기 false로 떨어져 페이지네이션이 조기 종료됐다.
+        // 정확성(페이지 완결) > 성능이라 마켓 이력 전체를 버킷 집계하고 ORDER BY b DESC LIMIT로
+        // 창을 낸다. created_at 축은 파티션 키·인덱스.
         StringBuilder sql = new StringBuilder("""
                 WITH bucketed AS (
-                    SELECT floor(extract(epoch FROM executed_at) / ?) AS b,
-                           price, quantity, id, executed_at
-                    FROM trades WHERE market_id = ? AND executed_at > ?
+                    SELECT floor(extract(epoch FROM created_at) / ?) AS b,
+                           price, quantity, id, created_at
+                    FROM trades WHERE market_id = ?
                 )
                 SELECT to_timestamp(b * ?) AS candle_time,
-                       (array_agg(price ORDER BY executed_at ASC, id ASC))[1] AS open,
+                       (array_agg(price ORDER BY created_at ASC, id ASC))[1] AS open,
                        MAX(price) AS high, MIN(price) AS low,
-                       (array_agg(price ORDER BY executed_at DESC, id DESC))[1] AS close,
+                       (array_agg(price ORDER BY created_at DESC, id DESC))[1] AS close,
                        SUM(quantity) AS volume, COUNT(*) AS trade_count, MAX(id) AS seq
                 FROM bucketed
                 GROUP BY b
@@ -268,7 +277,6 @@ public class MarketDataService {
         List<Object> params = new ArrayList<>();
         params.add(sec);
         params.add(market.id());
-        params.add(scanFrom);
         params.add(sec);
         if (cursor != null) {
             sql.append(" HAVING to_timestamp(b * ?) < ?");

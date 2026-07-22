@@ -28,12 +28,16 @@ public class SecretCipher {
         byte[] key;
         if (masterKeyBase64 == null || masterKeyBase64.isBlank()) {
             // dev 편의 경로. 프로세스 생존 동안만 유효한 임시 키라 재기동 후 기존 enc_secret은
-            // 복호화 불가다. 운영·데모 구동은 EXCHANGE_MASTER_KEY_BASE64 주입이 전제다.
+            // 복호화 불가다. 운영·데모 구동은 EXCHANGE_AUTH_MASTER_KEY_BASE64 주입이 전제다.
             key = new byte[32];
-            new SecureRandom().nextBytes(key);
+            random.nextBytes(key);
             log.warn("마스터키 미주입: 프로세스 한정 임시 키로 동작한다. 재기동 시 기존 API 키는 무효.");
         } else {
-            key = Base64.getDecoder().decode(masterKeyBase64);
+            try {
+                key = Base64.getDecoder().decode(masterKeyBase64);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("마스터키가 유효한 base64가 아니다", e);
+            }
             if (key.length != 32) {
                 throw new IllegalArgumentException("마스터키는 base64 인코딩된 32바이트여야 한다");
             }
@@ -60,6 +64,10 @@ public class SecretCipher {
     public String decrypt(String encoded) {
         try {
             byte[] in = Base64.getDecoder().decode(encoded);
+            if (in.length < IV_LENGTH + TAG_BITS / 8) {
+                // IV + GCM 태그보다 짧으면 잘린 암호문이다. 음수 길이 doFinal 전에 끊는다.
+                throw new IllegalStateException("암호문 길이가 최소 길이 미만이다");
+            }
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.DECRYPT_MODE, masterKey,
                     new GCMParameterSpec(TAG_BITS, in, 0, IV_LENGTH));

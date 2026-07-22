@@ -44,7 +44,14 @@ public class ErrorRenderer {
     }
 
     public void write(HttpServletResponse response, ApiException e) throws IOException {
-        String requestId = UUID.randomUUID().toString();
+        write(response, e, UUID.randomUUID().toString());
+    }
+
+    /**
+     * 상관 추적(§3-6)용. 호출측(필터)이 감사행에 남긴 requestId를 그대로 헤더·body에 실어
+     * 클라이언트 수신 request_id와 감사 request_id를 일치시킨다. 인자 없는 오버로드는 신규 발급.
+     */
+    public void write(HttpServletResponse response, ApiException e, String requestId) throws IOException {
         response.setStatus(e.status());
         response.setContentType("application/json;charset=utf-8");
         response.setHeader("X-Request-Id", requestId);

@@ -24,5 +24,11 @@ public record EngineProperties(Duration leaseTtl, Duration leaseTickInterval, in
         if (queueCapacity <= 0) {
             queueCapacity = 65536;
         }
+        // tick이 TTL 이상이면 갱신 전 리스가 만료돼 정당 단독 리더가 스스로 펜싱된다(half-leader).
+        if (leaseTickInterval.compareTo(leaseTtl) >= 0) {
+            throw new IllegalArgumentException(
+                    "leaseTickInterval must be shorter than leaseTtl: tick=" + leaseTickInterval
+                            + " ttl=" + leaseTtl);
+        }
     }
 }

@@ -47,7 +47,7 @@ CREATE TABLE markets (
     max_qty        NUMERIC(40,18) NOT NULL CHECK (max_qty > 0),
     maker_fee_rate NUMERIC(10,8)  NOT NULL DEFAULT 0.0005
                    CHECK (maker_fee_rate BETWEEN 0 AND 0.1),
-    taker_fee_rate NUMERIC(10,8)  NOT NULL DEFAULT 0.0010
+    taker_fee_rate NUMERIC(10,8)  NOT NULL DEFAULT 0.0005
                    CHECK (taker_fee_rate BETWEEN 0 AND 0.1),
     status         VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE'
                    CHECK (status IN ('ACTIVE','HALTED','DELISTED')),

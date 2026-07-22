@@ -24,7 +24,7 @@ public class CommandJournalAppender {
             SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, l.epoch, ?
             FROM leader_lease l
             WHERE l.resource = 'matching-engine'
-              AND l.holder = ? AND l.epoch = ? AND l.lease_until > now()
+              AND l.holder = ? AND l.epoch = ? AND l.lease_until > clock_timestamp()
             FOR SHARE OF l
             """;
 

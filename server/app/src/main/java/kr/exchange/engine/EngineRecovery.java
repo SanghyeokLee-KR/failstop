@@ -22,6 +22,9 @@ import java.util.List;
  * sink는 라이브 루프와 동일 계약(명령 단위 배치, append와 정산의 원자 커밋)이다. 명령
  * 단위로 잘라 넘기므로 도중 크래시가 나도 커밋된 prefix는 레지스트리 멱등 판정으로
  * 스킵되고 나머지만 재정산된다.
+ *
+ * sink가 배정한 event_seq는 재적재 결과라 여기서 버린다. 복구는 WS 게시 대상이 아니고
+ * (라이브만 게시), 재기동 후 스냅샷·구독으로 상태가 전달된다. 게시 비대칭은 의도된 것이다.
  */
 public class EngineRecovery {
 
@@ -51,8 +54,19 @@ public class EngineRecovery {
             throw new IllegalStateException(
                     "크래시 창 이벤트 " + pending.size() + "건 재적재 불가: 리더 승격 실패");
         }
+        // EngineConfig 순서상 recover()가 lease.start()보다 먼저 돌아 이 구간엔 스케줄러
+        // renew가 없다. 대형 크래시 창 재적재가 TTL을 넘기면 정당 단독 리더가 fencing으로
+        // 자기-거부한다. 재적재 중 주기 renew로 리스를 살려둔다(§5.5). renew 실패는 실제
+        // 상실이므로 이어지는 sink append가 NotLeader/fencing으로 fail-fast한다.
+        long renewIntervalNanos = lease.ttl().dividedBy(3).toNanos();
+        long lastRenewNanos = System.nanoTime();
+        // 배치 그룹핑은 pending이 source_cmd_seq 오름차순·연속이라는 재생 방출 순서에 의존한다.
         int from = 0;
         while (from < pending.size()) {
+            if (System.nanoTime() - lastRenewNanos >= renewIntervalNanos) {
+                lease.renew();
+                lastRenewNanos = System.nanoTime();
+            }
             int to = from + 1;
             while (to < pending.size()
                     && pending.get(to).sourceCmdSeq() == pending.get(from).sourceCmdSeq()) {

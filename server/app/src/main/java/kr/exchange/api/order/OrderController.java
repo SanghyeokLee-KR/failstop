@@ -31,6 +31,7 @@ import java.util.UUID;
 public class OrderController {
 
     private static final int MAX_COUNT = 1000;
+    private static final int MAX_BATCH = 20;
 
     private final OrderGateway gateway;
     private final OrderQueryService orders;
@@ -60,6 +61,68 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(view);
     }
 
+    /** 일괄 주문(§4-B-6). 비원자·per-item 계약. 요청 자체가 유효하면 부분 성패라도 200. */
+    @PostMapping("/batch")
+    public Map<String, Object> batch(HttpServletRequest request) throws java.io.IOException {
+        AuthPrincipal principal = principal(request);
+        JsonNode array = parseArray(request.getInputStream().readAllBytes());
+        List<Map<String, Object>> results = new ArrayList<>();
+        int accepted = 0;
+        int rejected = 0;
+        int replayed = 0;
+        int inProgress = 0;
+        for (int i = 0; i < array.size(); i++) {
+            JsonNode element = array.get(i);
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("index", i);
+            item.put("client_order_id", element.hasNonNull("client_order_id")
+                    ? element.get("client_order_id").asText() : null);
+            try {
+                if (!element.isObject()) {
+                    throw new ApiException(400, "invalid_parameter", "주문 원소는 객체여야 합니다.");
+                }
+                // per-item 멱등 해시는 해당 원소 객체의 JCS 바이트 기준이다(§2-4).
+                byte[] itemBody = objectMapper.writeValueAsBytes(element);
+                OrderGateway.Placement placement =
+                        gateway.place(principal.userId(), element, itemBody);
+                if (placement.replayed()) {
+                    item.put("status", "replayed");
+                    item.put("idempotent_replay", true);
+                    replayed++;
+                } else {
+                    item.put("status", "accepted");
+                    accepted++;
+                }
+                item.put("order", orders.view(placement.row(), placement.epoch()));
+            } catch (ApiException e) {
+                if (e.retryAfter() != null) {
+                    // 비종결(in-flight·페일오버). 재시도 대상이라 rejected와 구분한다.
+                    item.put("status", "in_progress");
+                    item.put("error", inProgressError(e));
+                    inProgress++;
+                } else {
+                    item.put("status", "rejected");
+                    item.put("error", rejectedError(e));
+                    rejected++;
+                }
+            }
+            results.add(item);
+        }
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("accepted", accepted);
+        summary.put("rejected", rejected);
+        summary.put("replayed", replayed);
+        if (inProgress > 0) {
+            summary.put("in_progress", inProgress);
+        }
+        summary.put("total", array.size());
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("schema_version", ApiFormats.SCHEMA_VERSION);
+        body.put("results", results);
+        body.put("summary", summary);
+        return body;
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Object> cancel(HttpServletRequest request, @PathVariable("id") String id) {
         AuthPrincipal principal = principal(request);
@@ -71,6 +134,30 @@ public class OrderController {
         }
         OrderGateway.Placement placement = gateway.cancel(principal.userId(), externalId);
         return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
+    }
+
+    /** by-client 취소(§4-B-2). 재조회 계약과 동일한 저널 권위로 404·409를 판정한다. */
+    @DeleteMapping("/by-client/{clientOrderId}")
+    public ResponseEntity<Object> cancelByClient(HttpServletRequest request,
+                                                 @PathVariable("clientOrderId") String clientOrderId) {
+        AuthPrincipal principal = principal(request);
+        OrderGateway.Placement placement =
+                gateway.cancelByClient(principal.userId(), clientOrderId);
+        return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
+    }
+
+    /** 일괄 취소(§4-B-3). market 미지정 시 전체 미체결 취소. */
+    @DeleteMapping
+    public Map<String, Object> cancelAll(HttpServletRequest request,
+                                         @RequestParam(value = "market", required = false) String market) {
+        AuthPrincipal principal = principal(request);
+        OrderGateway.BulkCancelResult result = gateway.cancelAll(principal.userId(), market);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("schema_version", ApiFormats.SCHEMA_VERSION);
+        body.put("canceled_count", result.canceledIds().size());
+        body.put("canceled_ids", result.canceledIds());
+        body.put("failed", result.failed());
+        return body;
     }
 
     @GetMapping("/{id}")
@@ -166,6 +253,44 @@ public class OrderController {
         } catch (java.io.IOException e) {
             throw new ApiException(400, "invalid_parameter", "요청 바디가 유효한 JSON이 아닙니다.");
         }
+    }
+
+    private JsonNode parseArray(byte[] body) {
+        JsonNode node;
+        try {
+            node = objectMapper.readTree(body);
+        } catch (java.io.IOException e) {
+            throw new ApiException(400, "invalid_parameter", "요청 바디가 유효한 JSON이 아닙니다.");
+        }
+        if (node == null || !node.isArray()) {
+            throw new ApiException(400, "invalid_parameter", "주문 배열 바디가 필요합니다.");
+        }
+        if (node.isEmpty()) {
+            throw new ApiException(400, "invalid_parameter", "주문 배열이 비어 있습니다.");
+        }
+        if (node.size() > MAX_BATCH) {
+            throw new ApiException(400, "invalid_parameter", "일괄 주문은 최대 " + MAX_BATCH + "건입니다.");
+        }
+        return node;
+    }
+
+    private static Map<String, Object> rejectedError(ApiException e) {
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("name", e.name());
+        error.put("message", e.getMessage());
+        if (e.detail() != null) {
+            error.put("detail", e.detail());
+        }
+        return error;
+    }
+
+    private static Map<String, Object> inProgressError(ApiException e) {
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("name", e.name());
+        if (e.retryAfter() != null) {
+            error.put("retry_after", e.retryAfter());
+        }
+        return error;
     }
 
     static AuthPrincipal principal(HttpServletRequest request) {

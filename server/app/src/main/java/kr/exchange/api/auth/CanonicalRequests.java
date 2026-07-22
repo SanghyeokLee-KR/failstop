@@ -1,5 +1,8 @@
 package kr.exchange.api.auth;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.StreamReadFeature;
 import kr.exchange.api.common.ApiException;
 import org.erdtman.jcs.JsonCanonicalizer;
 
@@ -16,6 +19,12 @@ import java.util.TreeMap;
  * 같은 구현 규약(JCS RFC 8785, 디코딩된 쿼리 키 정렬)을 공유해야 바이트 단위 재현이 성립한다.
  */
 public final class CanonicalRequests {
+
+    // JsonCanonicalizer는 중복 키를 조용히 마지막 값으로 덮어 서명 우회를 허용한다. §3-3(b)는 중복 키
+    // 400을 요구하므로 정규화 전에 엄격 파서로 검출한다.
+    private static final JsonFactory STRICT_JSON = JsonFactory.builder()
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+            .build();
 
     private CanonicalRequests() {
     }
@@ -50,10 +59,22 @@ public final class CanonicalRequests {
         if (body == null || body.length == 0) {
             return "";
         }
+        rejectDuplicateKeys(body);
         try {
             return new JsonCanonicalizer(new String(body, StandardCharsets.UTF_8)).getEncodedString();
         } catch (IOException e) {
             throw new ApiException(400, "invalid_parameter", "요청 바디가 유효한 JSON이 아닙니다.");
+        }
+    }
+
+    private static void rejectDuplicateKeys(byte[] body) {
+        try (JsonParser parser = STRICT_JSON.createParser(body)) {
+            while (parser.nextToken() != null) {
+                // 전체 순회로 중첩 오브젝트 중복 키까지 검출한다.
+            }
+        } catch (IOException e) {
+            throw new ApiException(400, "invalid_parameter",
+                    "요청 바디에 중복 키가 있거나 유효한 JSON이 아닙니다.");
         }
     }
 

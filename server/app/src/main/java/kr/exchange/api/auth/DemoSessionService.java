@@ -1,6 +1,8 @@
 package kr.exchange.api.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import kr.exchange.api.common.ApiException;
 
 import java.nio.charset.StandardCharsets;
@@ -23,21 +25,36 @@ public class DemoSessionService {
     private static final String HEADER_B64 = base64Url(
             "{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8));
 
-    private final byte[] key;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    // HMAC 키를 문자열 시크릿으로 한 번만 인코딩해 매 호출 base64 재인코딩을 없앤다.
+    private final String keyB64;
 
     public DemoSessionService() {
-        this.key = new byte[32];
-        new SecureRandom().nextBytes(this.key);
+        byte[] key = new byte[32];
+        new SecureRandom().nextBytes(key);
+        this.keyB64 = Base64.getEncoder().encodeToString(key);
     }
 
     public String issue(long userId, String externalId, Duration ttl) {
         long iat = System.currentTimeMillis() / 1000;
         long exp = iat + ttl.toSeconds();
-        String payload = "{\"typ\":\"" + TYP + "\",\"sub\":\"" + externalId
-                + "\",\"user_id\":" + userId + ",\"scope\":\"TRADE\",\"iat\":" + iat
-                + ",\"exp\":" + exp + "}";
-        String signingInput = HEADER_B64 + "."
-                + base64Url(payload.getBytes(StandardCharsets.UTF_8));
+        // 문자열 접합 대신 Jackson으로 조립해 externalId의 특수문자가 JSON을 깨거나 클레임을
+        // 주입하지 못하게 한다. 삽입 순서가 그대로 직렬화된다.
+        ObjectNode payload = MAPPER.createObjectNode();
+        payload.put("typ", TYP);
+        payload.put("sub", externalId);
+        payload.put("user_id", userId);
+        payload.put("scope", "TRADE");
+        payload.put("iat", iat);
+        payload.put("exp", exp);
+        byte[] payloadBytes;
+        try {
+            payloadBytes = MAPPER.writeValueAsBytes(payload);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("세션 payload 직렬화 실패", e);
+        }
+        String signingInput = HEADER_B64 + "." + base64Url(payloadBytes);
         return signingInput + "." + Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(hmac(signingInput));
     }
@@ -69,8 +86,7 @@ public class DemoSessionService {
     }
 
     private byte[] hmac(String data) {
-        return ApiAuthService.hmacSha256(new String(
-                Base64.getEncoder().encode(key), StandardCharsets.UTF_8), data);
+        return ApiAuthService.hmacSha256(keyB64, data);
     }
 
     private static String base64Url(byte[] bytes) {

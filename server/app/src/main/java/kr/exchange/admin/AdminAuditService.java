@@ -27,12 +27,22 @@ public class AdminAuditService {
         } catch (Exception e) {
             json = "{}";
         }
+        // 긴 URI·대상 경로가 컬럼 폭을 넘겨 22001로 감사 INSERT가 실패하면 성공 경로 응답
+        // 커밋 후 예외 전파로 감사행이 유실된다. DDL 폭에 맞춰 절단해 적재를 보장한다.
         jdbc.sql("""
                         INSERT INTO admin_audit_log
                             (operator_id, action, target, request_id, approval_id, result, detail)
                         VALUES (?, ?, ?, ?, ?, ?, ?::jsonb)
                         """)
-                .params(operatorId, action, target, requestId, approvalId, result, json)
+                .params(clip(operatorId, 64), clip(action, 64), clip(target, 128),
+                        clip(requestId, 64), approvalId, result, json)
                 .update();
+    }
+
+    private static String clip(String value, int max) {
+        if (value == null || value.length() <= max) {
+            return value;
+        }
+        return value.substring(0, max);
     }
 }

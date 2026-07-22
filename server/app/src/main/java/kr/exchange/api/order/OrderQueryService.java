@@ -1,5 +1,6 @@
 package kr.exchange.api.order;
 
+import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -73,13 +74,40 @@ public class OrderQueryService {
             params.add(marketSymbol);
         }
         if (cursor != null) {
-            sql.append(" AND (o.created_at, o.id) < (?, (SELECT id FROM orders WHERE external_id = ?))");
-            params.add(cursor.ts());
-            params.add(UUID.fromString(cursor.id()));
+            // 커서 ts는 밀리초 절단이라 같은 밀리초·상위 마이크로초 행을 다음 페이지에서 누락한다.
+            // 절단된 ts 대신 커서 행의 실제 created_at·id를 서브쿼리로 함께 비교한다(마이크로초 보존).
+            UUID cursorId = parseCursorId(cursor.id());
+            sql.append(" AND (o.created_at, o.id) < ((SELECT created_at FROM orders WHERE external_id = ?),")
+                    .append(" (SELECT id FROM orders WHERE external_id = ?))");
+            params.add(cursorId);
+            params.add(cursorId);
         }
         sql.append(" ORDER BY o.created_at DESC, o.id DESC LIMIT ?");
         params.add(limit);
         return jdbc.sql(sql.toString()).params(params).query(this::map).list();
+    }
+
+    /** 조작 커서 방어(§2-6): 비UUID id는 500이 아니라 400으로 정규화한다. */
+    private static UUID parseCursorId(String id) {
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw new ApiException(400, "invalid_parameter", "커서 형식이 올바르지 않습니다.");
+        }
+    }
+
+    public List<UUID> openOrderIds(long userId, String marketSymbol) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT o.external_id FROM orders o JOIN markets m ON m.id = o.market_id"
+                        + " WHERE o.user_id = ? AND o.status IN ('OPEN','PARTIAL')");
+        List<Object> params = new ArrayList<>(List.of(userId));
+        if (marketSymbol != null) {
+            sql.append(" AND m.symbol = ?");
+            params.add(marketSymbol);
+        }
+        sql.append(" ORDER BY o.id");
+        return jdbc.sql(sql.toString()).params(params)
+                .query((rs, rowNum) -> rs.getObject("external_id", UUID.class)).list();
     }
 
     /** §4-B-1 단건 응답 본문. epoch·seq는 호출측이 채운다(도메인이 다르다). */

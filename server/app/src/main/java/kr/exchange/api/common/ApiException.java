@@ -19,7 +19,8 @@ public class ApiException extends RuntimeException {
 
     public ApiException(int status, String name, String message,
                         Map<String, Object> detail, Integer retryAfter) {
-        super(message);
+        // 제어흐름 전용 예외. 스택트레이스 캡처를 끊어 4xx 정상 경로의 오버헤드를 없앤다.
+        super(message, null, false, false);
         this.status = status;
         this.name = name;
         this.detail = detail;

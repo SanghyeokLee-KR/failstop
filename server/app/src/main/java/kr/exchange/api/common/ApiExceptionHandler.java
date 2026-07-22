@@ -1,5 +1,6 @@
 package kr.exchange.api.common;
 
+import jakarta.servlet.http.HttpServletResponse;
 import kr.exchange.engine.NotLeaderException;
 import kr.exchange.engine.NotReadyException;
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.UUID;
 
@@ -26,50 +28,65 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<Object> apiException(ApiException e) {
-        return render(e);
+    public ResponseEntity<Object> apiException(ApiException e, HttpServletResponse response) {
+        return render(e, response);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<Object> missingParameter(MissingServletRequestParameterException e) {
+    public ResponseEntity<Object> missingParameter(MissingServletRequestParameterException e,
+                                                   HttpServletResponse response) {
         return render(new ApiException(400, "invalid_parameter",
-                "필수 파라미터 누락: " + e.getParameterName()));
+                "필수 파라미터 누락: " + e.getParameterName()), response);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Object> typeMismatch(MethodArgumentTypeMismatchException e,
+                                               HttpServletResponse response) {
+        // count=abc 같은 타입 불일치. 노출 지점은 전부 멱등 GET이라 §2-3 400으로 정규화한다.
+        return render(new ApiException(400, "invalid_parameter",
+                "파라미터 형식이 올바르지 않습니다: " + e.getName()), response);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<Object> methodNotAllowed(HttpRequestMethodNotSupportedException e) {
-        return render(new ApiException(405, "method_not_allowed", "허용되지 않은 메서드입니다."));
+    public ResponseEntity<Object> methodNotAllowed(HttpRequestMethodNotSupportedException e,
+                                                   HttpServletResponse response) {
+        return render(new ApiException(405, "method_not_allowed", "허용되지 않은 메서드입니다."), response);
     }
 
     @ExceptionHandler(NotLeaderException.class)
-    public ResponseEntity<Object> notLeader(NotLeaderException e) {
+    public ResponseEntity<Object> notLeader(NotLeaderException e, HttpServletResponse response) {
         // 페일오버 창. 클라이언트는 UNKNOWN 처리 후 재조회 계약(§7-6)으로 수렴한다.
         return render(new ApiException(503, "service_unavailable",
-                "페일오버 진행 중입니다. 재조회 후 판단하십시오.", null, 1));
+                "페일오버 진행 중입니다. 재조회 후 판단하십시오.", null, 1), response);
     }
 
     @ExceptionHandler(NotReadyException.class)
-    public ResponseEntity<Object> notReady(NotReadyException e) {
+    public ResponseEntity<Object> notReady(NotReadyException e, HttpServletResponse response) {
         // 승격 재생 중. 리더 인지 LB는 readiness DOWN으로 이미 제외하나, 경합 창 접수는 여기서 흡수.
         return render(new ApiException(503, "service_unavailable",
-                "승격 준비 중입니다. 잠시 후 재시도하십시오.", null, 1));
+                "승격 준비 중입니다. 잠시 후 재시도하십시오.", null, 1), response);
     }
 
     @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<Object> illegalState(IllegalStateException e) {
-        log.error("게이트웨이 내부 상태 오류", e);
+    public ResponseEntity<Object> illegalState(IllegalStateException e, HttpServletResponse response) {
+        String requestId = resolveRequestId(response);
+        log.error("게이트웨이 내부 상태 오류 request_id={}", requestId, e);
         return render(new ApiException(503, "service_unavailable",
-                "일시적으로 요청을 처리할 수 없습니다.", null, 1));
+                "일시적으로 요청을 처리할 수 없습니다.", null, 1), response, requestId);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Object> unexpected(Exception e) {
-        log.error("처리되지 않은 예외", e);
-        return render(new ApiException(500, "server_error", "일시적 서버 오류입니다."));
+    public ResponseEntity<Object> unexpected(Exception e, HttpServletResponse response) {
+        String requestId = resolveRequestId(response);
+        log.error("처리되지 않은 예외 request_id={}", requestId, e);
+        return render(new ApiException(500, "server_error", "일시적 서버 오류입니다."), response, requestId);
     }
 
-    private ResponseEntity<Object> render(ApiException e) {
-        String requestId = UUID.randomUUID().toString();
+    private ResponseEntity<Object> render(ApiException e, HttpServletResponse response) {
+        return render(e, response, resolveRequestId(response));
+    }
+
+    private ResponseEntity<Object> render(ApiException e, HttpServletResponse response, String requestId) {
         ResponseEntity.BodyBuilder builder = ResponseEntity.status(HttpStatus.valueOf(e.status()))
                 .header("X-Request-Id", requestId)
                 .header("Content-Type", "application/json;charset=utf-8");
@@ -78,5 +95,12 @@ public class ApiExceptionHandler {
         }
         return builder.body(renderer.body(e.name(), e.getMessage(), e.detail(),
                 e.retryAfter(), requestId));
+    }
+
+    // 상관 추적(§3-6). 업스트림 필터가 이미 발급한 X-Request-Id가 있으면 재사용해 감사행과
+    // 클라이언트 수신값을 일치시킨다. 없으면(고객 평면 등) 신규 발급.
+    private static String resolveRequestId(HttpServletResponse response) {
+        String existing = response.getHeader("X-Request-Id");
+        return existing != null ? existing : UUID.randomUUID().toString();
     }
 }

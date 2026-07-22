@@ -57,17 +57,10 @@ public class EngineBridge {
             return new SubmitResult(ack.seq(), ack.fencingToken(), true, false);
         }
         boolean queued = loop.offer(new OrderCommand(
-                ack.seq(), intake.marketId(), commandType(intake.type()), intake.userId(),
-                intake.clientOrderId(), intake.assignedOrderId(), intake.engineTs(),
+                ack.seq(), intake.marketId(), CommandPayloadMapper.commandType(intake.type()),
+                intake.userId(), intake.clientOrderId(), intake.assignedOrderId(), intake.engineTs(),
                 intake.tieBreak(), intake.side(), intake.ordType(), intake.timeInForce(),
                 intake.price(), intake.quantity(), intake.quoteOrderQty(), ack.fencingToken()));
         return new SubmitResult(ack.seq(), ack.fencingToken(), false, queued);
-    }
-
-    private OrderCommand.CommandType commandType(CommandDraft.CommandType type) {
-        return switch (type) {
-            case NEW -> OrderCommand.CommandType.NEW;
-            case CANCEL -> OrderCommand.CommandType.CANCEL;
-        };
     }
 }

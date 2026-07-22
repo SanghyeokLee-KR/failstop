@@ -2,6 +2,7 @@ package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,6 +33,12 @@ public class AuditController {
     public Map<String, Object> audit(HttpServletRequest request,
                                      @RequestParam(required = false) String operator,
                                      @RequestParam(required = false) String action,
+                                     @RequestParam(required = false)
+                                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                                     OffsetDateTime from,
+                                     @RequestParam(required = false)
+                                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                                     OffsetDateTime to,
                                      @RequestParam(defaultValue = "100") int limit) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
         int capped = Math.max(1, Math.min(limit, 500));
@@ -48,7 +55,16 @@ public class AuditController {
             sql.append(" AND action = ?");
             params.add(action);
         }
-        sql.append(" ORDER BY created_at DESC LIMIT ?");
+        if (from != null) {
+            sql.append(" AND created_at >= ?");
+            params.add(from);
+        }
+        if (to != null) {
+            sql.append(" AND created_at <= ?");
+            params.add(to);
+        }
+        // created_at 동률 시 id로 안정 정렬해 LIMIT 절단이 비결정으로 흔들리지 않게 한다.
+        sql.append(" ORDER BY created_at DESC, id DESC LIMIT ?");
         params.add(capped);
         List<Map<String, Object>> rows = jdbc.sql(sql.toString())
                 .params(params)

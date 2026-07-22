@@ -2,6 +2,7 @@ package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
+import kr.exchange.api.common.ApiFormats;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -51,6 +52,6 @@ public class ApprovalController {
                 "approval_id", issued.approvalId(),
                 "action", body.action(),
                 "target", body.target() == null ? "" : body.target(),
-                "expires_at", issued.expiresAt());
+                "expires_at", ApiFormats.time(java.time.Instant.ofEpochSecond(issued.expiresAt())));
     }
 }

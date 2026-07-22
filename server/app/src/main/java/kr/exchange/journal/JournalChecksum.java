@@ -25,6 +25,20 @@ public final class JournalChecksum {
     private JournalChecksum() {
     }
 
+    /**
+     * 저널 행 손상 검증. 재생(ReplayService)과 라이브 catch-up(JournalCatchUpSource)이
+     * 같은 지점을 쓴다. 검증 없이 toCommand로 넘기면 변조된 행이 event_journal에 비가역
+     * 방출된다(DB 설계 §5.5).
+     */
+    public static void verify(JournalEntry entry) {
+        CommandDraft draft = new CommandDraft(entry.marketId(), entry.type(), entry.userId(),
+                entry.clientOrderId(), entry.assignedOrderId(), entry.engineTs(),
+                entry.tieBreak(), entry.payloadJson());
+        if (of(entry.seq(), draft) != entry.checksum()) {
+            throw new ReplayMismatchException("command_journal 행 손상: seq=" + entry.seq());
+        }
+    }
+
     public static long of(long seq, CommandDraft draft) {
         String canonical = seq + "|" + draft.marketId()
                 + "|" + draft.type()

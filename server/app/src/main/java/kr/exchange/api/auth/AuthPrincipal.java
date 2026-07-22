@@ -4,8 +4,4 @@ package kr.exchange.api.auth;
 public record AuthPrincipal(long userId, String accessKey, String scope) {
 
     public static final String REQUEST_ATTRIBUTE = "exchange.auth.principal";
-
-    public boolean canTrade() {
-        return "TRADE".equals(scope);
-    }
 }

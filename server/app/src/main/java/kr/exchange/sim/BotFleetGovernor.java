@@ -208,7 +208,9 @@ public class BotFleetGovernor {
         if (state == null) {
             return false;
         }
-        return index1based <= state.targets.get(type.ordinal());
+        // 물리 풀 초과 인덱스는 기동된 스레드가 없다. activeCount·snapshot과 동일하게 풀로 클램프해
+        // typeCap>poolPerType 구성에서 활성 판정이 실제 대수보다 커지지 않게 한다.
+        return index1based <= Math.min(state.targets.get(type.ordinal()), poolPerType);
     }
 
     public double effectiveBias(String market) {

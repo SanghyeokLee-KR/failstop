@@ -30,6 +30,8 @@ public class ReplayService {
 
     private static final Logger log = LoggerFactory.getLogger(ReplayService.class);
     private static final int BATCH = 500;
+    // 재생 대조 기준. append 경로(EventJournalAppender·SettlementService)와 같은 값이어야 한다.
+    private static final short PAYLOAD_SCHEMA_VERSION = 1;
 
     private final CommandJournalReader commandReader;
     private final EventJournalReader eventReader;
@@ -59,7 +61,7 @@ public class ReplayService {
                 break;
             }
             for (JournalEntry entry : batch) {
-                verifyChecksum(entry);
+                JournalChecksum.verify(entry);
                 OrderCommand command = mapper.toCommand(entry);
                 for (EngineEvent event : engine.apply(command)) {
                     EventJournalRow row = cursor.next();
@@ -68,7 +70,9 @@ public class ReplayService {
                         continue;
                     }
                     if (!pending.isEmpty()) {
-                        // prefix 성질 위반: 이벤트 없는 명령 뒤에 이벤트 있는 명령이 나왔다.
+                        // 방어적 불변식. 커서가 한 번 null을 반환하면 exhausted라 이후 next()는
+                        // 계속 null(pending 경로)이므로 현재 커서 구현에서는 도달하지 않는다.
+                        // 커서 변경 시 prefix 성질 위반을 조용히 넘기지 않도록 남긴다.
                         throw new ReplayMismatchException(
                                 "event_journal prefix 위반: event_seq=" + row.eventSeq());
                     }
@@ -88,16 +92,12 @@ public class ReplayService {
         return new ReplayResult(engine.lastAppliedSeq(), replayedCommands, verifiedEvents, pending);
     }
 
-    private void verifyChecksum(JournalEntry entry) {
-        CommandDraft draft = new CommandDraft(entry.marketId(), entry.type(), entry.userId(),
-                entry.clientOrderId(), entry.assignedOrderId(), entry.engineTs(),
-                entry.tieBreak(), entry.payloadJson());
-        if (JournalChecksum.of(entry.seq(), draft) != entry.checksum()) {
-            throw new ReplayMismatchException("command_journal 행 손상: seq=" + entry.seq());
-        }
-    }
-
     private void verifyMatch(EventJournalRow row, EngineEvent event, JournalEntry entry) {
+        if (row.payloadSchemaVersion() != PAYLOAD_SCHEMA_VERSION) {
+            throw new ReplayMismatchException("payload_schema_version 불일치: event_seq="
+                    + row.eventSeq() + ", 저널=" + row.payloadSchemaVersion()
+                    + ", 기대=" + PAYLOAD_SCHEMA_VERSION);
+        }
         if (row.sourceCmdSeq() != event.sourceCmdSeq()
                 || row.eventOrdinal() != event.eventOrdinal()
                 || !row.eventType().equals(event.type().name())) {
@@ -158,8 +158,11 @@ public class ReplayService {
                 }
             }
             EventJournalRow row = buffer.get(index++);
-            if (lastSeq != 0 && row.eventSeq() != lastSeq + 1) {
-                throw new ReplayMismatchException("event_seq 결번: " + lastSeq + " 다음이 "
+            // 선두 결번도 검출한다. event_seq는 1부터 gapless라(journal_counters 시드=1)
+            // 첫 행이 1이 아니면 앞쪽 유실이다. lastSeq==0을 검사에서 빼면 선두 결번을 놓친다.
+            long expected = lastSeq == 0 ? 1 : lastSeq + 1;
+            if (row.eventSeq() != expected) {
+                throw new ReplayMismatchException("event_seq 결번: 기대 " + expected + ", 실제 "
                         + row.eventSeq());
             }
             lastSeq = row.eventSeq();

@@ -48,7 +48,10 @@ public class OpsGovernor {
     private synchronized boolean tryAcquire() {
         long now = System.nanoTime();
         double rate = targetOps;
-        tokens = Math.min(rate, tokens + rate * (now - lastRefillNanos) / 1_000_000_000.0);
+        // 버킷 용량을 refill rate에 묶으면 targetOps<1.0에서 tokens가 1.0에 못 미쳐 tryAcquire가
+        // 영영 false, acquire가 무한 스핀한다. 용량 하한을 1.0으로 분리해 저율에서도 토큰이 축적되게 한다.
+        double capacity = Math.max(1.0, rate);
+        tokens = Math.min(capacity, tokens + rate * (now - lastRefillNanos) / 1_000_000_000.0);
         lastRefillNanos = now;
         if (tokens >= 1.0) {
             tokens -= 1.0;

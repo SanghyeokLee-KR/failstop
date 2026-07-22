@@ -83,9 +83,10 @@ public class MarketDataPublisher {
                     touchedUsers.add(event.takerUserId());
                 }
                 case ACCEPTED, CANCELED -> {
-                    publishMyOrder(market, event, event.orderId(), epoch);
-                    orders.byInternalId(event.orderId())
-                            .ifPresent(row -> touchedUsers.add(row.userId()));
+                    Long userId = publishMyOrder(market, event, event.orderId(), epoch);
+                    if (userId != null) {
+                        touchedUsers.add(userId);
+                    }
                 }
                 case REJECTED -> publishMyOrder(market, event, event.orderId(), epoch);
             }
@@ -138,15 +139,16 @@ public class MarketDataPublisher {
         messaging.convertAndSend("/topic/" + channel, body);
     }
 
-    private void publishMyOrder(MarketDirectory.Market market, EngineEvent event,
+    /** 게시한 주문의 소유 user_id를 반환한다. 대상 행이 없으면 null(중복 조회 방지용 재사용). */
+    private Long publishMyOrder(MarketDirectory.Market market, EngineEvent event,
                                 Long orderId, long epoch) {
         if (orderId == null) {
-            return;
+            return null;
         }
         OrderQueryService.OrderRow row = orders.byInternalId(orderId).orElse(null);
         if (row == null) {
             // REJECTED 중 프로젝션 불가 형태(기형 명령)는 행이 없다. 통지 대상 사용자도 특정 불가.
-            return;
+            return null;
         }
         String channel = "myOrder:" + row.userId();
         Map<String, Object> body = new LinkedHashMap<>();
@@ -176,6 +178,7 @@ public class MarketDataPublisher {
         }
         body.put("timestamp", ApiFormats.timeMs(event.engineTs()));
         messaging.convertAndSendToUser(String.valueOf(row.userId()), "/queue/myOrder", body);
+        return row.userId();
     }
 
     private BigDecimal tradeFee(long tradeId, boolean maker) {

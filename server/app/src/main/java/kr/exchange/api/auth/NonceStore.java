@@ -3,6 +3,7 @@ package kr.exchange.api.auth;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * nonce 재사용 차단 저장소. TTL은 요청별 유효 recvWindow + clock skew로 허용창 전체를
@@ -14,7 +15,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class NonceStore {
 
+    private static final int PURGE_THRESHOLD = 10_000;
+    private static final long PURGE_INTERVAL_MS = 1_000;
+
     private final Map<String, Long> seen = new ConcurrentHashMap<>();
+    private final AtomicLong nextPurgeAt = new AtomicLong();
 
     /** 최초 등록이면 true. 이미 존재(미만료)하면 false = 재전송. */
     public boolean register(String key, long ttlMs) {
@@ -32,8 +37,13 @@ public class NonceStore {
     }
 
     private void purge(long now) {
-        // 호출 경로에서 상시 청소한다. 수만 nonce 수준의 데모 부하에서 전용 스레드는 과설계다.
-        if (seen.size() < 10_000) {
+        // 호출 경로에서 청소한다. 전용 스레드는 데모 부하에 과설계다. 다만 임계 초과 후 매 요청 O(n)
+        // 스캔을 피하려고 최소 간격으로 한 스레드만 스캔하게 게이트한다.
+        if (seen.size() < PURGE_THRESHOLD) {
+            return;
+        }
+        long due = nextPurgeAt.get();
+        if (now < due || !nextPurgeAt.compareAndSet(due, now + PURGE_INTERVAL_MS)) {
             return;
         }
         Iterator<Map.Entry<String, Long>> it = seen.entrySet().iterator();

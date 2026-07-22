@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 마켓 운영 구성(관리자 설계 §2, §4-2). 마켓 halt/resume은 파괴 액션이라 2인 승인 필수
@@ -23,6 +24,8 @@ import java.util.Map;
 @RequestMapping("/admin/v1/config")
 @ConditionalOnProperty(prefix = "exchange.admin", name = "enabled", havingValue = "true")
 public class ConfigAdminController {
+
+    private static final Set<String> NOTICE_SEVERITIES = Set.of("INFO", "WARNING", "CRITICAL");
 
     public record ApprovalBody(String approval_token) {
     }
@@ -79,11 +82,19 @@ public class ConfigAdminController {
         principal.require(AdminRole.SUPER);
         String token = body == null ? null : body.approval_token();
         long approvalId = approvals.consume(principal.operatorId(), token, action, symbol);
-        int updated = jdbc.sql("UPDATE markets SET status = ?, updated_at = now() WHERE symbol = ?")
-                .params(targetStatus, symbol).update();
-        if (updated == 0) {
+        // 현재 상태를 잠그고 검증한다. DELISTED는 종국 상태라 halt/resume으로 되살릴 수 없다.
+        // 승인 토큰은 consume과 같은 트랜잭션이라 여기서 throw하면 롤백돼 재사용 가능하다.
+        String current = jdbc.sql("SELECT status FROM markets WHERE symbol = ? FOR UPDATE")
+                .param(symbol).query(String.class).optional().orElse(null);
+        if (current == null) {
             throw new ApiException(404, "market_not_found", "존재하지 않는 마켓입니다: " + symbol);
         }
+        if ("DELISTED".equals(current)) {
+            throw new ApiException(409, "market_delisted",
+                    "상장폐지된 마켓은 상태를 전이할 수 없습니다: " + symbol);
+        }
+        jdbc.sql("UPDATE markets SET status = ?, updated_at = now() WHERE symbol = ?")
+                .params(targetStatus, symbol).update();
         audit.record(principal.operatorId(), action, symbol,
                 AdminRequestContext.requestId(request), approvalId, "OK",
                 Map.of("status", targetStatus));
@@ -99,6 +110,10 @@ public class ConfigAdminController {
             throw new ApiException(400, "invalid_parameter", "공지 제목이 필요합니다.");
         }
         String severity = body.severity() == null ? "INFO" : body.severity();
+        if (!NOTICE_SEVERITIES.contains(severity)) {
+            throw new ApiException(400, "invalid_parameter",
+                    "severity는 INFO|WARNING|CRITICAL 중 하나여야 합니다.");
+        }
         long id = jdbc.sql("""
                         INSERT INTO notices (title, body, severity, published_by)
                         VALUES (?, ?, ?, ?) RETURNING id
