@@ -151,6 +151,96 @@
         ]
       },
       "options": { "showHeader": true, "sortBy": [ { "displayName": "created_at", "desc": true } ] }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "복구 경로 스냅샷 채택 vs 전량 재생(DB 원본)",
+      "description": "snapshot_head=0이면 채택 가능 스냅샷 부재로 복구가 저널 seq 0 전량 재생으로 폴백(FULL_REPLAY_FROM_0). replay_tail=command_head-snapshot_head가 재생 명령 수. 데모 저널이 작아 전량 재생이 RTO를 통과해도 여기서 스냅샷 경로 회귀가 드러난다.",
+      "datasource": { "type": "postgres", "uid": "pg-proof" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 30 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "editorMode": "code",
+          "rawSql": "SELECT (SELECT COALESCE(max(seq),0) FROM command_journal) AS command_head, (SELECT COALESCE(max(last_applied_seq),0) FROM snapshots) AS snapshot_head, (SELECT COALESCE(max(seq),0) FROM command_journal) - (SELECT COALESCE(max(last_applied_seq),0) FROM snapshots) AS replay_tail_commands, CASE WHEN (SELECT COALESCE(max(last_applied_seq),0) FROM snapshots)=0 THEN 'FULL_REPLAY_FROM_0' ELSE 'SNAPSHOT_TAIL' END AS recovery_path"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "text" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "recovery_path" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": { "FULL_REPLAY_FROM_0": { "color": "red", "index": 0 }, "SNAPSHOT_TAIL": { "color": "green", "index": 1 } } }
+              ] }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "replay_tail_commands" },
+            "properties": [ { "id": "unit", "value": "short" } ]
+          }
+        ]
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "" }, "textMode": "value_and_name", "colorMode": "value", "orientation": "horizontal" }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "채택 가능 스냅샷 재고(DB 원본, 버전 튜플별)",
+      "description": "engine_version·config_hash·format_version이 런타임과 다르면 채택 게이트가 폐기해 전량 재생으로 무음 폴백한다. 빈 표=스냅샷 미기록(=전량 재생 강제). snapshot_head가 command_head에 근접해야 tail이 상한된다.",
+      "datasource": { "type": "postgres", "uid": "pg-proof" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 36 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "editorMode": "code",
+          "rawSql": "SELECT engine_version, config_hash, format_version, fencing_epoch, max(last_applied_seq) AS snapshot_head, count(DISTINCT market_id) AS markets, max(created_at) AS newest FROM snapshots GROUP BY engine_version, config_hash, format_version, fencing_epoch ORDER BY newest DESC LIMIT 20"
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "options": { "showHeader": true, "sortBy": [ { "displayName": "newest", "desc": true } ] }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "스냅샷 캡처 파이프라인 rate",
+      "description": "captured=큐잉된 캡처, dropped=큐 포화·인코딩 실패, persist_failed=워커 INSERT 실패. dropped·persist_failed rate>0이 지속되면 SnapshotDropped·SnapshotPersistFailed 발화.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 43 },
+      "targets": [
+        { "refId": "A", "expr": "exchange:snapshot_captured:rate1m", "legendFormat": "captured/s" },
+        { "refId": "B", "expr": "exchange:snapshot_dropped:rate1m", "legendFormat": "dropped/s" },
+        { "refId": "C", "expr": "exchange:snapshot_persist_failed:rate1m", "legendFormat": "persist_failed/s" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 }, "unit": "ops" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "dropped/s" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] },
+          { "matcher": { "id": "byName", "options": "persist_failed/s" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "스냅샷 영속화 진행 exchange_snapshot_last_persisted_seq",
+      "description": "워커가 영속화한 최신 seq. 계단이 멈추면(정지) 캡처 진행 중에도 워커 정체·영속화 지속 실패를 뜻해 SnapshotStalled 발화. 계단이 오를수록 복구 tail이 짧아진다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 43 },
+      "targets": [
+        { "refId": "A", "expr": "max(exchange_snapshot_last_persisted_seq)", "legendFormat": "last_persisted_seq" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 0 }, "decimals": 0, "unit": "short" },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
     }
   ]
 }

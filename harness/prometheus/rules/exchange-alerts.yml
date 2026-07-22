@@ -3,7 +3,9 @@
 # 기계 판정(임계 초과 시 pending→firing)이 성립한다. 알림 라우팅(contact point)은
 # 정본 infra/ 토폴로지의 Grafana 통합 얼럿이 맡는다(§5-6). 하네스 축약 사유는 README 참조.
 #
-# 원천 메트릭은 전부 서버 실등록 7종. DuplicateFill(exchange_duplicate_fills_total)은 서버
+# 원천 메트릭은 전부 서버 실등록분(체결·지연·리더·원장·불변식·페일오버 + 스냅샷 4종
+# exchange_snapshot_{captured,dropped,persist_failed}_total·_last_persisted_seq).
+# DuplicateFill(exchange_duplicate_fills_total)은 서버
 # 미등록이라 제외한다. 중복 체결 검출은 exchange_invariant_violations{check_name="TRADE_SEQ_DUP"}
 # (C08)이 DB 원본으로 방어하므로 InvariantViolation 알람이 커버한다.
 groups:
@@ -55,3 +57,39 @@ groups:
         annotations:
           summary: "리더 부재 15s 초과"
           description: "exchange_leader_is_leader==1 시계열 소멸. 승격 지연·양쪽 스탠바이 의심."
+
+      # 스냅샷 파이프라인 경보(SnapshotCapture, 서버 실등록 4종). 정확성은 무손실이라
+      # 무결성 계열(critical)이 아니라 복구 준비도 저하(warning)로 둔다. 지속되면 채택
+      # 스냅샷이 낡아 복구가 저널 seq 0 전량 재생으로 폴백하고 RTO가 저널 크기에 비례한다.
+      # 데모 저널이 작아 전량 재생이 우연히 RTO를 통과해도 이 경보가 스냅샷 경로 회귀를 드러낸다.
+      - alert: SnapshotPersistFailed
+        expr: rate(exchange_snapshot_persist_failed_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: snapshot
+        annotations:
+          summary: "스냅샷 영속화 실패(복구 tail 상한 무력화 위험)"
+          description: "instance={{ $labels.instance }} persist_failed rate={{ $value }}/s. 워커 INSERT 실패가 지속되면 채택 가능 스냅샷이 낡아 복구가 저널 전량 재생으로 폴백한다."
+
+      - alert: SnapshotDropped
+        expr: rate(exchange_snapshot_dropped_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: snapshot
+        annotations:
+          summary: "스냅샷 캡처 드롭(유계 큐 포화·인코딩 실패)"
+          description: "instance={{ $labels.instance }} dropped rate={{ $value }}/s. 정확성은 무손실이나 채택 스냅샷 간격이 벌어져 tail 재생이 길어진다."
+
+      - alert: SnapshotStalled
+        expr: |
+          changes(exchange_snapshot_last_persisted_seq[5m]) == 0
+          and rate(exchange_snapshot_captured_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          component: snapshot
+        annotations:
+          summary: "스냅샷 영속화 정지(캡처 진행, seq 전진 없음)"
+          description: "instance={{ $labels.instance }} last_persisted_seq가 5분 창에서 전진 0회인데 캡처는 큐잉 중. 워커 스레드 정체·영속화 지속 실패. 복구가 저널 전량 재생으로 폴백해 RTO가 저널 크기에 비례한다. 비리더는 캡처 rate 0이라 발화하지 않는다."

@@ -16,3 +16,12 @@ groups:
         expr: |
           sum(rate(exchange_order_latency_seconds_bucket{le="0.5"}[1m]))
           / sum(rate(exchange_order_latency_seconds_count[1m]))
+      # 스냅샷 캡처 파이프라인 rate. SnapshotCapture의 FunctionCounter 3종(_total)을 대시보드·
+      # 알람이 공유한다. 드롭·영속화 실패 급증이 채택 스냅샷을 낡게 만들어 복구가 저널 전량
+      # 재생으로 폴백하는 회귀를 rate 상승으로 포착한다.
+      - record: exchange:snapshot_captured:rate1m
+        expr: sum(rate(exchange_snapshot_captured_total[1m]))
+      - record: exchange:snapshot_dropped:rate1m
+        expr: sum(rate(exchange_snapshot_dropped_total[1m]))
+      - record: exchange:snapshot_persist_failed:rate1m
+        expr: sum(rate(exchange_snapshot_persist_failed_total[1m]))

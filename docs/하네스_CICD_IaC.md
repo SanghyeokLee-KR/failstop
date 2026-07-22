@@ -644,6 +644,10 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 | `exchange.journal.replay.commands` | Counter | - | `exchange_journal_replay_commands_total` | 복구 재생 처리량 |
 | `exchange.sequencer.queue.size` | Gauge | - | `exchange_sequencer_queue_size` | 백프레셔(P4) |
 | `exchange.orders.rejected` | Counter | `reason` | `exchange_orders_rejected_total` | 거부율(429/domain_rejected) |
+| `exchange.snapshot.captured` | Counter(FunctionCounter) | - | `exchange_snapshot_captured_total` | 큐잉된 스냅샷 캡처 수(SnapshotCapture) |
+| `exchange.snapshot.dropped` | Counter(FunctionCounter) | - | `exchange_snapshot_dropped_total` | 큐 포화·인코딩 실패 드롭, rate>0 알람 |
+| `exchange.snapshot.persist_failed` | Counter(FunctionCounter) | - | `exchange_snapshot_persist_failed_total` | 워커 영속화 실패, rate>0 알람 |
+| `exchange.snapshot.last_persisted_seq` | Gauge | - | `exchange_snapshot_last_persisted_seq` | 영속화 최신 seq, 정지=복구 tail 상한 무력화 |
 
 자동 계측(코드 0): `http_server_requests_*`, `hikaricp_connections_active/pending`(§7-5 풀 고갈→p99 인과), `resilience4j_circuitbreaker_state`, `resilience4j_ratelimiter_available_permissions`, `spring_kafka_*`, `jvm_*`.
 
@@ -711,7 +715,7 @@ datasources:
 | # | 대시보드 | 핵심 패널 (원천) |
 |---|---|---|
 | ① | **체결 무결성 증명** | Stat `max(abs(exchange_ledger_imbalance))`(0=녹/≠0=적) · 자산별 imbalance 수평선 Timeseries · Stat 3연(중복 체결 0·유실 0·시퀀스 갭 0, pg-proof SQL 직조회) · Table `SELECT check_name, ok, violated_rows, checked_at FROM invariant_checks ORDER BY checked_at DESC LIMIT 20`(**DB 원본이 메트릭 미러보다 강한 증거**), 카오스 음영 위에서 전부 무결 |
-| ② | **자동 복구 증명** | Gauge `exchange_failover_downtime_seconds` vs 임계 30s · State-timeline `exchange_leader_is_leader{node}`(kill 시점 리더 밴드 교대) · `exchange_leader_epoch` 계단 + kill annotation 수직선 정렬 · `exchange:trades_per_second:rate1m` 곡선 사멸→수초 부활 · **Table 2장: `recovery_runs`(fp_replay=fp_live, matched=true, 재생 결정론) + `failover_runs`(rto_seconds·rpo_records·verdict 이력, §6-C API와 동일 계산점, §4-3)** · replay rate |
+| ② | **자동 복구 증명** | Gauge `exchange_failover_downtime_seconds` vs 임계 30s · State-timeline `exchange_leader_is_leader{node}`(kill 시점 리더 밴드 교대) · `exchange_leader_epoch` 계단 + kill annotation 수직선 정렬 · `exchange:trades_per_second:rate1m` 곡선 사멸→수초 부활 · **Table 2장: `recovery_runs`(fp_replay=fp_live, matched=true, 재생 결정론) + `failover_runs`(rto_seconds·rpo_records·verdict 이력, §6-C API와 동일 계산점, §4-3)** · replay rate · **복구 경로 구분(pg-proof): snapshot_head=0이면 `FULL_REPLAY_FROM_0`(적)/아니면 `SNAPSHOT_TAIL`(녹), replay_tail=command_head-snapshot_head 재생 명령 수 · 채택 가능 스냅샷 재고(버전 튜플별, 드리프트 무음 폴백 노출) · 스냅샷 캡처 파이프라인 rate(captured/dropped/persist_failed) · `exchange_snapshot_last_persisted_seq` 진행 계단** |
 | ③ | **부하·SLO** | k6 Remote Write 계열(공식 대시보드 19665 병행 임포트) · `exchange:slo_500ms_ratio_1m` · p95/p99 · 429 비율(`exchange_orders_rejected_total{reason="rate_limited"}`) · `exchange_sequencer_queue_size` · Resilience4j CB/RateLimiter, "거부는 늘어도 p99·무결성은 방어" 장 |
 | ④ | **시스템** | HikariCP active/pending · JVM heap/GC · `exchange_ws_clients` · orderbook depth · Kafka lag · `up`/readiness |
 
@@ -751,6 +755,11 @@ datasources:
 | `OrderP99SloBreach` | `exchange:order_latency:p99_1m` | `>0.5` for 2m | warning |
 | `FailoverRtoExceeded` | `max(exchange_failover_downtime_seconds)` | `>30` | critical |
 | `LeaderAbsent` | `absent(exchange_leader_is_leader == 1)` | for 15s | critical |
+| `SnapshotPersistFailed` | `rate(exchange_snapshot_persist_failed_total[5m])` | `>0` for 1m | warning |
+| `SnapshotDropped` | `rate(exchange_snapshot_dropped_total[5m])` | `>0` for 1m | warning |
+| `SnapshotStalled` | `changes(exchange_snapshot_last_persisted_seq[5m])==0 and rate(exchange_snapshot_captured_total[5m])>0` | for 2m | warning |
+
+스냅샷 3종은 정확성 무손실이라 warning이다(다음 캡처가 대체). 지속되면 채택 스냅샷이 낡아 복구가 저널 seq 0 전량 재생으로 폴백해 RTO가 저널 크기에 비례한다. 데모 저널이 작아 전량 재생이 RTO를 통과해도 이 경보와 대시보드 ②의 복구 경로 지표가 스냅샷 경로 회귀를 드러낸다. `SnapshotStalled`는 비리더(캡처 rate 0)에서 발화하지 않는다.
 
 CRITICAL(무결성 계열) 발화 시 앱 자동 조치 상한: **정지(HALTED + self-shutdown)·프로젝션 재빌드·멱등 재정산까지만 자동**, 원장·저널 자동 수정 금지(정정=REVERSAL+2인 승인, API§3-6).
 
