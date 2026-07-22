@@ -26,7 +26,20 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     public WebSocketConfig(@Lazy StompAuthInterceptor authInterceptor,
                            @Value("${app.ws.allowed-origins:https://demo.exchange.local,http://localhost:3000}")
-                           String[] allowedOrigins) {
+                           String[] allowedOrigins,
+                           @Value("${exchange.require-secrets:false}") boolean requireSecrets) {
+        // 운영 기동에서 데모·로컬 오리진이 남아 있으면(미지정 시 @Value 기본값으로 폴백) fail-closed.
+        // 운영 CONNECT 인증이 있어도 오리진 화이트리스트는 심층방어의 첫 관문이라 명시를 강제한다.
+        if (requireSecrets) {
+            for (String origin : allowedOrigins) {
+                if (origin == null || origin.isBlank()
+                        || origin.contains("localhost") || origin.contains("demo.exchange.local")) {
+                    throw new IllegalStateException(
+                            "운영 WS 오리진에 데모·로컬 오리진이 있다: " + origin
+                                    + ". app.ws.allowed-origins를 운영 오리진으로 명시하라.");
+                }
+            }
+        }
         this.authInterceptor = authInterceptor;
         this.allowedOrigins = allowedOrigins;
     }

@@ -69,7 +69,7 @@ class CommunityIntegrationTest {
         registry.add("exchange.member.session-seed-base64",
                 () -> Base64.getEncoder().encodeToString(new byte[32]));
         registry.add("exchange.member.password-pepper-base64",
-                () -> Base64.getEncoder().encodeToString("pepper-fixed-for-test".getBytes()));
+                () -> Base64.getEncoder().encodeToString(new byte[32]));
         registry.add("exchange.admin.enabled", () -> "true");
         registry.add("exchange.admin.mtls.trusted-forwarding", () -> "true");
         // 신고 임계 자동 숨김을 낮춰 단일 신고로 검증 가능하게 한다.

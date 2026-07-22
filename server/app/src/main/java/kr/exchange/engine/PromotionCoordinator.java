@@ -34,9 +34,13 @@ public class PromotionCoordinator implements AutoCloseable {
     private final SingleWriterLoop loop;
     private final LeaderLeaseService lease;
     private final CommandJournalReader journalReader;
+    private final AvailabilitySignal availability;
 
     private final AtomicBoolean accepting = new AtomicBoolean(false);
     private volatile State state = State.FOLLOWER;
+    // 상태 전이 상호배제. 승격 말미의 ACCEPTING 전환과 리스 상실의 DEMOTED 전환이 경합하면
+    // DEMOTED→ACCEPTING 역전(zombie ACCEPTING)이 난다. 모든 전이를 이 락으로 직렬화한다.
+    private final Object stateLock = new Object();
     // 부팅 승격(recover가 이미 처리)과 런타임 승격을 가른다. arm 이전 gain은 부팅 몫이라 무시한다.
     private volatile boolean armed;
     // 루프에 설치된 엔진. head 도달 판정에 쓴다(부팅 시 shared, 승격 후 fresh).
@@ -50,10 +54,17 @@ public class PromotionCoordinator implements AutoCloseable {
 
     public PromotionCoordinator(EngineRecovery recovery, SingleWriterLoop loop,
                                 LeaderLeaseService lease, CommandJournalReader journalReader) {
+        this(recovery, loop, lease, journalReader, AvailabilitySignal.NOOP);
+    }
+
+    public PromotionCoordinator(EngineRecovery recovery, SingleWriterLoop loop,
+                                LeaderLeaseService lease, CommandJournalReader journalReader,
+                                AvailabilitySignal availability) {
         this.recovery = recovery;
         this.loop = loop;
         this.lease = lease;
         this.journalReader = journalReader;
+        this.availability = availability;
     }
 
     /** EngineBridge가 소비하는 접수 게이트. */
@@ -77,13 +88,19 @@ public class PromotionCoordinator implements AutoCloseable {
      */
     public void bootstrap(MatchingEngineImpl sharedEngine, boolean leaderAtBoot) {
         this.installedEngine = sharedEngine;
-        if (leaderAtBoot) {
-            state = State.ACCEPTING;
-            accepting.set(true);
-        } else {
-            state = State.FOLLOWER;
-            accepting.set(false);
+        boolean accept;
+        synchronized (stateLock) {
+            if (leaderAtBoot) {
+                state = State.ACCEPTING;
+                accepting.set(true);
+                accept = true;
+            } else {
+                state = State.FOLLOWER;
+                accepting.set(false);
+                accept = false;
+            }
         }
+        signal(accept);
     }
 
     /** arm 이후의 gain부터 런타임 승격으로 처리한다. lease.start() 직전에 호출한다. */
@@ -97,18 +114,26 @@ public class PromotionCoordinator implements AutoCloseable {
             // 부팅 recover의 획득. shared 엔진은 lifecycle이 별도로 recover한다.
             return;
         }
-        if (state == State.ACCEPTING) {
-            return;
+        synchronized (stateLock) {
+            // 이미 접수 중이거나 강등 확정이면 승격을 시작하지 않는다(재승격 금지 계약).
+            if (state == State.ACCEPTING || state == State.DEMOTED) {
+                return;
+            }
+            state = State.PROMOTING;
+            accepting.set(false);
         }
-        state = State.PROMOTING;
-        accepting.set(false);
+        // PROMOTING은 재생 완료 전이라 접수를 열지 않는다. readiness도 REFUSING을 유지한다.
+        availability.refusing();
         promotionWorker.submit(() -> promote(identity));
     }
 
     /** 리스 상실 콜백. 접수를 닫는다(loop.halt는 별도 리스너가 처리). */
     public void onLeadershipLost() {
-        accepting.set(false);
-        state = State.DEMOTED;
+        synchronized (stateLock) {
+            accepting.set(false);
+            state = State.DEMOTED;
+        }
+        availability.refusing();
     }
 
     private void promote(LeaderIdentity identity) {
@@ -130,14 +155,39 @@ public class PromotionCoordinator implements AutoCloseable {
                 log.info("승격 재생 생략(엔진 이미 head): epoch={}, lastAppliedSeq={}, head={}",
                         identity.epoch(), current.lastAppliedSeq(), head);
             }
-            state = State.ACCEPTING;
-            accepting.set(true);
+            boolean opened;
+            synchronized (stateLock) {
+                // 재생 도중 리스를 잃었으면(onLeadershipLost가 DEMOTED로 전환, 또는 리스 만료)
+                // ACCEPTING으로 되돌리지 않는다. zombie ACCEPTING 방지(감사 Low 경합 항목).
+                if (state != State.PROMOTING || !lease.isLeader()) {
+                    log.warn("승격 완료 시점에 리더 아님. ACCEPTING 전환 취소: epoch={}, state={}",
+                            identity.epoch(), state);
+                    return;
+                }
+                state = State.ACCEPTING;
+                accepting.set(true);
+                opened = true;
+            }
+            if (opened) {
+                availability.accepting();
+            }
         } catch (Throwable t) {
             // rebuild·재정산 실패는 승격 거부·self-shutdown이다(무음 유실 금지, §3-a).
             log.error("승격 재생 실패, 강등한다: epoch={}", identity.epoch(), t);
-            accepting.set(false);
-            state = State.DEMOTED;
+            synchronized (stateLock) {
+                accepting.set(false);
+                state = State.DEMOTED;
+            }
+            availability.refusing();
             lease.demote("승격 재생 실패: " + t.getClass().getSimpleName());
+        }
+    }
+
+    private void signal(boolean accepting) {
+        if (accepting) {
+            availability.accepting();
+        } else {
+            availability.refusing();
         }
     }
 

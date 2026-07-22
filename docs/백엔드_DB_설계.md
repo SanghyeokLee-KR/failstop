@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.12)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.13)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V6+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -593,11 +593,23 @@ CREATE TABLE trades (
 CREATE INDEX idx_trades_market_time ON trades (market_id, created_at DESC);
 CREATE INDEX idx_trades_taker_time  ON trades (taker_user_id, created_at DESC);
 CREATE INDEX idx_trades_maker_time  ON trades (maker_user_id, created_at DESC);
+-- (v2.13) order_id 축 인덱스(V8). §4-B-1 주문 조회의 수수료 집계가
+-- maker_order_id = ? OR taker_order_id = ? 로 trades를 스캔한다. 위 인덱스는
+-- user/market 축뿐이라 order_id 조회는 전 파티션 seq scan이 되어 체결 누적에 선형
+-- 붕괴한다. maker/taker를 분리 단일열 인덱스로 두어 OR을 BitmapOr로 처리한다.
+-- created_at 하한은 걸지 않는다: trades.created_at=engine_ts, orders.created_at=정산 now()라
+-- trade.created_at < order.created_at이 정상이므로 order.created_at 하한은 체결을 누락한다.
+CREATE INDEX idx_trades_maker_order ON trades (maker_order_id);
+CREATE INDEX idx_trades_taker_order ON trades (taker_order_id);
 -- (v2.6) idx_trades_seq 삭제: seq 컬럼 자체가 없음. id 유일성은 레지스트리 PK가 담당.
 -- ※ 아래 초기 파티션/DEFAULT는 partman 명명 규칙(_pYYYY_MM)에 맞춘 부트스트랩이다(v2.3 정합화).
---   V0→V1→V2는 단일 Flyway 체인이므로 운영에서도 이 수동 파티션이 무조건 먼저 생성되며, **드랍하지
---   않고 유지**한다. §3.2의 partman.create_parent가 p_start_partition으로 경계를 정렬해 이를
---   **채택(adoption)**하고, 이후의 사전생성·관리형 DEFAULT를 전담한다(medium#5, §3.2 채택 원칙).
+--   V0→V1은 단일 Flyway 체인이므로 운영에서도 이 수동 파티션이 무조건 먼저 생성되며, **드랍하지
+--   않고 유지**한다.
+--   실제 채택 경로(v2.13): 표준 배포(Testcontainers postgres:17 포함)는 외부 확장 없이 단독
+--   적용되어야 하므로, 2026-09 이후 월 파티션을 **V8이 수동 선생성**한다(trades/ledger_entries/outbox,
+--   2026-09~2027-08 12개월). partman.create_parent는 pg_partman·pg_cron 전제를 갖춘 환경의
+--   선택 경로이며(§3.2), 이 경우 p_start_partition으로 경계를 정렬해 수동 파티션을 채택하고
+--   이후 사전생성을 전담한다(medium#5). 둘 중 하나만 적용한다.
 CREATE TABLE trades_p2026_07 PARTITION OF trades FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
 CREATE TABLE trades_p2026_08 PARTITION OF trades FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
 CREATE TABLE trades_default PARTITION OF trades DEFAULT;   -- 소진 방어(partman 관리형 DEFAULT로 대체 채택)
@@ -1330,6 +1342,8 @@ END $$;
 ### 3.2 `V2__partition_automation.sql`: 파티션 소진 방어 실구현 (초안 critical)
 
 초안은 pg_partman을 "권장"만 했다. DEFAULT 파티션은 오류를 흡수하지만 **DEFAULT에 쌓이면 이후 해당 범위 파티션 생성이 불가**하므로 사전 생성이 필수다.
+
+**베이스라인(v2.13): 확장 없는 수동 선생성.** 표준 배포와 통합테스트(Testcontainers `postgres:17`)는 외부 확장(pg_partman/pg_cron) 없이 단독 적용되어야 한다. 따라서 시간 파티션 소진 방어의 1차 수단은 `V8`이 월 파티션을 수동 선생성하는 것이다(trades·ledger_entries·outbox, 2026-09~2027-08 12개월). 이는 이후에도 새 월을 추가하는 마이그레이션으로 연장한다. 아래 partman·pg_cron 배선은 그 전제(shared_preload_libraries, 확장 설치)를 충족하는 환경에서만 채택하는 자동화 경로이며, 수동 선생성과 병용하지 않는다(둘 중 하나).
 
 **채택(adoption) 원칙(medium#5)**: §3.1의 수동 초기 파티션은 partman 명명 규칙(`_pYYYY_MM` / `_p<start_value>`)에 이미 맞춰 두었다. `create_parent`는 **기존 파티션을 등록**하되, `p_start_partition`으로 시작점을 명시해 **겹치는 범위를 새로 만들지 않게** 한다. 관리형 DEFAULT는 partman이 소유하며, 수동 DEFAULT와 이름이 같으면 그대로 채택된다. `create_parent` 직후 첫 `run_maintenance`가 **범위 겹침 없이** 동작하는지는 `V3` 통합테스트로 실증한다.
 

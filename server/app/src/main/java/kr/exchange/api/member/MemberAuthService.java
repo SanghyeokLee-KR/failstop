@@ -1,6 +1,7 @@
 package kr.exchange.api.member;
 
 import kr.exchange.api.common.ApiException;
+import kr.exchange.api.common.ClientIp;
 import kr.exchange.ledger.AccountBootstrap;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -30,6 +31,8 @@ public class MemberAuthService {
     private static final String INITIAL_KRW = "100000000";
 
     private static final int MIN_PASSWORD_LENGTH = 8;
+    // Argon2id는 입력 길이에 비례해 CPU를 쓴다. 상한이 없으면 거대 password가 해시 단계 DoS로 유입된다.
+    private static final int MAX_PASSWORD_LENGTH = 128;
     private static final int LOCK_THRESHOLD = 5;
     private static final long BASE_LOCK_SECONDS = 30;
     private static final long MAX_LOCK_SECONDS = 900;
@@ -324,7 +327,9 @@ public class MemberAuthService {
                         VALUES (?, ?::uuid, ?, ?, now() + make_interval(secs => ?), ?, ?::inet)
                         """)
                 .params(userId, familyId, sha256Hex(rawRefresh), prevId,
-                        (double) REFRESH_TTL_SECONDS, truncate(userAgent, 256), ip)
+                        (double) REFRESH_TTL_SECONDS, truncate(userAgent, 256),
+                        // 비 IP 값이 ?::inet 캐스트로 500·고아 세션을 만들지 않게 사전 검증한다. 무효면 null 저장.
+                        ClientIp.inetOrNull(ip))
                 .update();
     }
 
@@ -387,6 +392,10 @@ public class MemberAuthService {
         if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
             throw new ApiException(400, "weak_password",
                     "비밀번호는 최소 " + MIN_PASSWORD_LENGTH + "자입니다.");
+        }
+        if (password.length() > MAX_PASSWORD_LENGTH) {
+            throw new ApiException(400, "weak_password",
+                    "비밀번호는 최대 " + MAX_PASSWORD_LENGTH + "자입니다.");
         }
     }
 

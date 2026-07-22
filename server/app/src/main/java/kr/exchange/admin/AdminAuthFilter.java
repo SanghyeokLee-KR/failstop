@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import kr.exchange.api.common.AccountRateLimiter;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ErrorRenderer;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -32,6 +33,9 @@ public class AdminAuthFilter extends OncePerRequestFilter {
     private final AdminOperatorDirectory operators;
     private final AdminAuditService audit;
     private final ErrorRenderer errorRenderer;
+    // §2-5 관리 버킷: 60토큰/60s. mTLS 게이트 뒤이나 승인 토큰 브루트포스·감사 로그 폭주 방어선.
+    // 노드 로컬 구현이라 다중 노드 실효 한도는 노드 수 배수다(AccountRateLimiter 제약 주석 참조).
+    private final AccountRateLimiter rateLimiter = new AccountRateLimiter(60, 60_000, "admin", "admin");
 
     public AdminAuthFilter(AdminMtlsResolver mtlsResolver, AdminSessionService sessions,
                            AdminOperatorDirectory operators, AdminAuditService audit,
@@ -74,6 +78,15 @@ public class AdminAuthFilter extends OncePerRequestFilter {
             if (!op.active()) {
                 throw forbidden("비활성 운영자입니다.", "operator_disabled");
             }
+            // 세션 부트스트랩(POST /session)은 위에서 이미 통과했다. 그 외 관리 요청만 operator 키로 차감.
+            AccountRateLimiter.Decision rate = rateLimiter.acquire(operatorId, 1);
+            if (!rate.allowed()) {
+                ApiException tooMany = rateLimiter.rejection(rate);
+                recordDenied(operatorId, action, request.getRequestURI(), requestId, tooMany);
+                errorRenderer.write(response, tooMany, requestId, rateLimiter.headers(rate));
+                return;
+            }
+            rateLimiter.writeHeaders(response, rate);
             request.setAttribute(AdminPrincipal.REQUEST_ATTRIBUTE,
                     new AdminPrincipal(operatorId, null, op.roles()));
             chain.doFilter(request, response);

@@ -9,6 +9,8 @@
 #
 # 운영 프로파일은 이 파일을 상속하지 않는다. 운영은 운영 PKI 인증서로 keystore/truststore를
 # 교체하고 client-auth: need를 유지하며 trusted-forwarding: false를 강제한다.
+# 미교체 가드: require-secrets(운영) 기동에서 keystore 비밀번호 changeit 또는 데모 CA(admin-demo)면
+# StartupSecretValidator가 기동을 중단한다.
 server:
   port: 8443
   ssl:

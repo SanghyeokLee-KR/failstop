@@ -3,7 +3,9 @@ package kr.exchange.api.order;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import kr.exchange.api.auth.AuthPrincipal;
+import kr.exchange.api.common.AccountRateLimiter;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
@@ -32,6 +34,12 @@ public class OrderController {
 
     private static final int MAX_COUNT = 1000;
     private static final int MAX_BATCH = 20;
+    // §2-7 요청 바디 상한 64KB. 인증 필터가 선차단하나, 필터 없이 도달하는 경로(테스트·재배치)에서도
+    // 컨트롤러가 무제한 적재하지 않도록 자체 방어를 둔다.
+    private static final int MAX_BODY_BYTES = 64 * 1024;
+
+    // §2-5 계정 버킷: 주문 생성/취소 100토큰/10s. 단일 라이터 앞 유일 유량 방벽이라 라이터 진입 전에 차감한다.
+    private final AccountRateLimiter rateLimiter = new AccountRateLimiter(100, 10_000, "account", "order");
 
     private final OrderGateway gateway;
     private final OrderQueryService orders;
@@ -49,9 +57,11 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<Object> create(HttpServletRequest request) throws java.io.IOException {
+    public ResponseEntity<Object> create(HttpServletRequest request, HttpServletResponse response)
+            throws java.io.IOException {
         AuthPrincipal principal = principal(request);
-        byte[] body = request.getInputStream().readAllBytes();
+        rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
+        byte[] body = readBoundedBody(request);
         JsonNode json = parse(body);
         OrderGateway.Placement placement = gateway.place(principal.userId(), json, body);
         Map<String, Object> view = orders.view(placement.row(), placement.epoch());
@@ -63,9 +73,12 @@ public class OrderController {
 
     /** 일괄 주문(§4-B-6). 비원자·per-item 계약. 요청 자체가 유효하면 부분 성패라도 200. */
     @PostMapping("/batch")
-    public Map<String, Object> batch(HttpServletRequest request) throws java.io.IOException {
+    public Map<String, Object> batch(HttpServletRequest request, HttpServletResponse response)
+            throws java.io.IOException {
         AuthPrincipal principal = principal(request);
-        JsonNode array = parseArray(request.getInputStream().readAllBytes());
+        JsonNode array = parseArray(readBoundedBody(request));
+        // 원소 수만큼 차감해 batch 증폭(요청당 최대 20배)을 상쇄한다. 전량 통과하거나 전량 429.
+        rateLimiter.enforce(response, String.valueOf(principal.userId()), array.size());
         List<Map<String, Object>> results = new ArrayList<>();
         int accepted = 0;
         int rejected = 0;
@@ -124,8 +137,10 @@ public class OrderController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Object> cancel(HttpServletRequest request, @PathVariable("id") String id) {
+    public ResponseEntity<Object> cancel(HttpServletRequest request, HttpServletResponse response,
+                                         @PathVariable("id") String id) {
         AuthPrincipal principal = principal(request);
+        rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
         UUID externalId;
         try {
             externalId = UUID.fromString(id);
@@ -138,9 +153,10 @@ public class OrderController {
 
     /** by-client 취소(§4-B-2). 재조회 계약과 동일한 저널 권위로 404·409를 판정한다. */
     @DeleteMapping("/by-client/{clientOrderId}")
-    public ResponseEntity<Object> cancelByClient(HttpServletRequest request,
+    public ResponseEntity<Object> cancelByClient(HttpServletRequest request, HttpServletResponse response,
                                                  @PathVariable("clientOrderId") String clientOrderId) {
         AuthPrincipal principal = principal(request);
+        rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
         OrderGateway.Placement placement =
                 gateway.cancelByClient(principal.userId(), clientOrderId);
         return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
@@ -148,9 +164,10 @@ public class OrderController {
 
     /** 일괄 취소(§4-B-3). market 미지정 시 전체 미체결 취소. */
     @DeleteMapping
-    public Map<String, Object> cancelAll(HttpServletRequest request,
+    public Map<String, Object> cancelAll(HttpServletRequest request, HttpServletResponse response,
                                          @RequestParam(value = "market", required = false) String market) {
         AuthPrincipal principal = principal(request);
+        rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
         OrderGateway.BulkCancelResult result = gateway.cancelAll(principal.userId(), market);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("schema_version", ApiFormats.SCHEMA_VERSION);
@@ -240,6 +257,27 @@ public class OrderController {
         body.put("schema_version", ApiFormats.SCHEMA_VERSION);
         body.put("data", data);
         body.put("pagination", pagination);
+        return body;
+    }
+
+    /** 상한을 넘으면 전량 적재하지 않고 413으로 끊는다(§2-7). 실제 읽기에서 상한+1로 chunked 우회도 차단. */
+    private static byte[] readBoundedBody(HttpServletRequest request) throws java.io.IOException {
+        long declared = request.getContentLengthLong();
+        if (declared > MAX_BODY_BYTES) {
+            throw new ApiException(413, "payload_too_large", "요청 바디가 64KB 상한을 초과했습니다.");
+        }
+        java.io.InputStream in = request.getInputStream();
+        byte[] buffer = new byte[MAX_BODY_BYTES + 1];
+        int total = 0;
+        int read;
+        while (total < buffer.length && (read = in.read(buffer, total, buffer.length - total)) != -1) {
+            total += read;
+        }
+        if (total > MAX_BODY_BYTES) {
+            throw new ApiException(413, "payload_too_large", "요청 바디가 64KB 상한을 초과했습니다.");
+        }
+        byte[] body = new byte[total];
+        System.arraycopy(buffer, 0, body, 0, total);
         return body;
     }
 

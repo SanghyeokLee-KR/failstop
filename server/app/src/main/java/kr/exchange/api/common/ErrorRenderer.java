@@ -52,11 +52,23 @@ public class ErrorRenderer {
      * 클라이언트 수신 request_id와 감사 request_id를 일치시킨다. 인자 없는 오버로드는 신규 발급.
      */
     public void write(HttpServletResponse response, ApiException e, String requestId) throws IOException {
+        write(response, e, requestId, null);
+    }
+
+    /**
+     * rate limit 등 부가 헤더(§2-5 X-RateLimit-*)를 에러 응답에 함께 싣는다. 429뿐 아니라
+     * rate limit이 적용된 임의 응답이 버킷 잔량 헤더를 노출하도록 한다.
+     */
+    public void write(HttpServletResponse response, ApiException e, String requestId,
+                      Map<String, String> extraHeaders) throws IOException {
         response.setStatus(e.status());
         response.setContentType("application/json;charset=utf-8");
         response.setHeader("X-Request-Id", requestId);
         if (e.retryAfter() != null) {
             response.setHeader("Retry-After", String.valueOf(e.retryAfter()));
+        }
+        if (extraHeaders != null) {
+            extraHeaders.forEach(response::setHeader);
         }
         response.getOutputStream().write(
                 body(e.name(), e.getMessage(), e.detail(), e.retryAfter(), requestId)

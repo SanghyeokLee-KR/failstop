@@ -1,16 +1,20 @@
 package kr.exchange.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
 import kr.exchange.api.ws.MarketDataPublisher;
 import kr.exchange.engine.CommandPayloadMapper;
 import kr.exchange.engine.EngineBridge;
 import kr.exchange.engine.EngineRecovery;
+import kr.exchange.engine.HaAvailability;
 import kr.exchange.engine.JournalCatchUpSource;
 import kr.exchange.engine.LeaderLeaseService;
 import kr.exchange.engine.LoopFatalHandler;
 import kr.exchange.engine.PromotionCoordinator;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.SingleWriterLoop;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import kr.exchange.journal.CommandJournalAppender;
 import kr.exchange.journal.CommandJournalReader;
 import kr.exchange.journal.EventJournalReader;
@@ -116,17 +120,33 @@ public class EngineConfig {
                 new LoopFatalHandler(leaderLeaseService));
     }
 
+    // HA 관측 게이지 + readiness 배선. 승격 상태 전이를 AvailabilityChangeEvent로 승격시켜
+    // LB가 팔로워·승격 대기 노드를 제외하게 한다(감사 관측성·복구, 복구 RTO §3-a).
+    @Bean
+    public HaAvailability haAvailability(ApplicationEventPublisher publisher,
+                                         MeterRegistry meterRegistry,
+                                         @Value("${exchange.node.id:${spring.application.name:exchange}}")
+                                         String nodeId) {
+        return new HaAvailability(publisher, meterRegistry, nodeId);
+    }
+
     // 승격 재생 조율. 리스 획득·상실 콜백을 여기서 배선한다. 부팅 recover가 도는 lifecycle과
     // 이중 실행하지 않도록 arm 이전 gain(부팅 획득)은 코디네이터가 무시한다(복구 RTO §3-a).
     @Bean
     public PromotionCoordinator promotionCoordinator(EngineRecovery engineRecovery,
                                                      SingleWriterLoop loop,
                                                      LeaderLeaseService leaderLeaseService,
-                                                     CommandJournalReader commandJournalReader) {
+                                                     CommandJournalReader commandJournalReader,
+                                                     HaAvailability haAvailability) {
         PromotionCoordinator coordinator = new PromotionCoordinator(
-                engineRecovery, loop, leaderLeaseService, commandJournalReader);
+                engineRecovery, loop, leaderLeaseService, commandJournalReader, haAvailability);
         leaderLeaseService.onLeadershipGained(coordinator::onLeadershipGained);
         leaderLeaseService.onLeadershipLost(coordinator::onLeadershipLost);
+        // 관측: epoch 계단·is_leader·failover downtime 게이지 갱신(라이터 스레드 밖).
+        leaderLeaseService.onLeadershipAcquired(
+                (identity, downtimeSeconds) -> haAvailability.leaderAcquired(
+                        identity.epoch(), downtimeSeconds));
+        leaderLeaseService.onLeadershipLost(haAvailability::leaderLost);
         return coordinator;
     }
 

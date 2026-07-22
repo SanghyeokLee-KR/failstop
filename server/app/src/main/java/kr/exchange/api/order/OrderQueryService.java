@@ -143,6 +143,10 @@ public class OrderQueryService {
     public record FeeStats(BigDecimal paidFee, long count) {
     }
 
+    // idx_trades_maker_order·idx_trades_taker_order(V8)가 order_id 축 프루닝을 담당한다.
+    // created_at 하한을 걸지 않는 이유: trades.created_at은 engine_ts(채번 시각) 파생이고
+    // orders.created_at은 정산 now()라 trade.created_at < order.created_at이 정상이다.
+    // order.created_at을 하한으로 쓰면 주문 자신의 체결을 누락한다.
     private FeeStats feeStats(long orderId) {
         return jdbc.sql("""
                         SELECT COUNT(*) AS cnt,

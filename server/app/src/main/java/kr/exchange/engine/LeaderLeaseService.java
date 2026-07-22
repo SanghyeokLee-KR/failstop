@@ -44,6 +44,8 @@ public class LeaderLeaseService implements AutoCloseable {
     private final List<Runnable> lossListeners = new CopyOnWriteArrayList<>();
     // 승격 통지. 리스 획득 시점에 발화해 접수 개방 전 인메모리 선복원을 트리거한다(복구 RTO §3-a).
     private final List<Consumer<LeaderIdentity>> gainListeners = new CopyOnWriteArrayList<>();
+    // 관측 통지. 승격 시 epoch + 페일오버 다운타임을 함께 넘긴다(하네스 CICD §5-1 단일 계산점).
+    private final List<AcquisitionListener> acquisitionListeners = new CopyOnWriteArrayList<>();
     private volatile ScheduledExecutorService scheduler;
 
     public LeaderLeaseService(JdbcClient jdbc, Duration ttl, Duration tickInterval) {
@@ -103,6 +105,21 @@ public class LeaderLeaseService implements AutoCloseable {
     }
 
     /**
+     * 승격 관측 통지 등록. tryAcquire 성공 시 epoch와 페일오버 다운타임을 함께 넘긴다. 게이지
+     * 갱신 전용이라 상태기계(gainListeners)와 분리한다. 리스너는 리스 스케줄러 스레드에서 짧게
+     * 반환해야 한다.
+     */
+    public void onLeadershipAcquired(AcquisitionListener listener) {
+        acquisitionListeners.add(listener);
+    }
+
+    /** 승격 관측 통지. failoverDowntimeSeconds는 구 리더 최종 심박~승격 간격(실 페일오버 아니면 0). */
+    @FunctionalInterface
+    public interface AcquisitionListener {
+        void onAcquired(LeaderIdentity identity, double failoverDowntimeSeconds);
+    }
+
+    /**
      * 외부에서 확정된 상실 통지 경로(DB 설계 §5.4 'stale 리더 즉시 self-shutdown').
      * fencing 거부(INSERT 0행, assert_current_leader 예외)는 renew 틱보다 먼저
      * 상실을 확정하므로 다음 틱을 기다리지 않고 즉시 강등한다.
@@ -119,6 +136,9 @@ public class LeaderLeaseService implements AutoCloseable {
         if (demoted) {
             return false;
         }
+        // 승격 전 구 리스 상태를 캡처해 다운타임을 산정한다(관측 전용, 승격 정확성과 무관).
+        // try_acquire_leader가 lease_until을 덮어쓰므로 반드시 취득 시도 전에 읽는다.
+        double failoverDowntimeSeconds = capturePriorDowntimeSeconds();
         // 실패는 NULL 반환 계약이라 single()이 아니라 optional()로 받는다.
         Long acquired = jdbc.sql("SELECT try_acquire_leader(?, ? * interval '1 millisecond')")
                 .params(holder, ttl.toMillis())
@@ -145,7 +165,39 @@ public class LeaderLeaseService implements AutoCloseable {
                 log.error("리더십 획득 콜백 실패", e);
             }
         }
+        for (AcquisitionListener listener : acquisitionListeners) {
+            try {
+                listener.onAcquired(identity, failoverDowntimeSeconds);
+            } catch (RuntimeException e) {
+                log.error("리더십 획득 관측 콜백 실패", e);
+            }
+        }
         return true;
+    }
+
+    /**
+     * 페일오버 다운타임 = 승격 시각 − 구 리더 최종 심박. 구 리더 최종 심박 = old_lease_until − ttl
+     * (같은 ttl로 renew하므로, 하네스 CICD §5-1 T1). 시드(holder='')나 실 페일오버가 아닌
+     * 최초 기동 승격은 0을 돌려 게이지 오염을 막는다. 읽기 실패는 0으로 흡수해 승격을 막지 않는다.
+     */
+    private double capturePriorDowntimeSeconds() {
+        try {
+            Double expiredSeconds = jdbc.sql("""
+                    SELECT CASE WHEN holder <> ''
+                                THEN EXTRACT(EPOCH FROM (clock_timestamp() - lease_until))
+                                ELSE NULL END
+                    FROM leader_lease WHERE resource = 'matching-engine'
+                    """)
+                    .query(Double.class)
+                    .optional()
+                    .orElse(null);
+            if (expiredSeconds == null || expiredSeconds < 0) {
+                return 0;
+            }
+            return expiredSeconds + ttl.toMillis() / 1000.0;
+        } catch (RuntimeException e) {
+            return 0;
+        }
     }
 
     /**

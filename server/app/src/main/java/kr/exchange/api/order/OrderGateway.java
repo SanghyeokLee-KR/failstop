@@ -66,21 +66,32 @@ public class OrderGateway {
                     "client_order_id는 1~36자의 [A-Za-z0-9_-]여야 합니다.");
         }
 
+        // 정지·해지 계정 차단(§3-8 account_suspended). 스테이트리스 액세스 토큰(15분) 무효화 지연을
+        // 주문 생성 경로에서 좁힌다. 라이터 스레드 밖의 가벼운 조회다.
+        requireActiveUser(userId);
+
         ParsedOrder parsed = validate(body);
         MarketDirectory.Market market = parsed.market();
 
         // 멱등 내용 비교(§2-4): 원본 요청 바디의 JCS 바이트 해시를 저장해 재전송과 대조한다.
-        // 기존 키가 있으면 재전송 경로라 잔고 가드를 다시 적용하지 않는다(원 주문이 이미 예약을
-        // 소비했으므로 재적용은 정당한 replay를 잔고 부족으로 오거부한다).
+        // 기존 키가 있어도 저널 미기록(고아 키)이면 잔고 가드가 적용된 적 없다. 저널 실재를 확인해
+        // 가드 재적용 여부를 가른다(고아 키가 잔고 사전 가드를 무력화하는 경로 차단, §데이터 무결성).
+        // 저널에 실재하면 원 주문이 예약을 소비했으므로 재적용하지 않는다(정당한 replay 오거부 방지).
         String requestHash = CanonicalRequests.sha256Hex(CanonicalRequests.jcs(rawBody));
         Optional<String> stored = storedRequestHash(userId, clientOrderId);
-        boolean guarded = false;
         short reserveAsset = parsed.buy() ? market.quoteAssetId() : market.baseAssetId();
         String reserveKey = userId + ":" + reserveAsset;
         BigDecimal required = parsed.reserve();
+        boolean guardApplies;
         if (stored.isPresent()) {
             requireSameContent(stored.get(), requestHash);
+            guardApplies = !commandJournaled(userId, clientOrderId);
         } else {
+            guardApplies = true;
+        }
+        boolean guarded = false;
+        boolean insertedKey = false;
+        if (guardApplies) {
             // 잔고 사전 가드(§5.1 v2.9). in-flight 예약 누계를 합산해 가드-정산 경합 창을 좁힌다.
             // 가드 실패는 멱등 키를 소비하기 전이라 같은 키의 후속 시도를 오염시키지 않는다.
             if (!inflight.tryReserve(reserveKey, required,
@@ -88,16 +99,20 @@ public class OrderGateway {
                 throw new ApiException(400, "insufficient_funds", "주문 가능 잔고가 부족합니다.");
             }
             guarded = true;
-            int inserted = jdbc.sql("""
-                            INSERT INTO idempotency_keys (user_id, idem_key, request_hash)
-                            VALUES (?, ?, ?) ON CONFLICT (user_id, idem_key) DO NOTHING
-                            """)
-                    .params(userId, clientOrderId, requestHash)
-                    .update();
-            if (inserted == 0) {
-                // 동시 도착 경합에서 진 쪽. 내용 비교 후 저널 멱등 판정으로 수렴한다(§2-4).
-                requireSameContent(storedRequestHash(userId, clientOrderId).orElse(requestHash),
-                        requestHash);
+            if (stored.isEmpty()) {
+                int inserted = jdbc.sql("""
+                                INSERT INTO idempotency_keys (user_id, idem_key, request_hash)
+                                VALUES (?, ?, ?) ON CONFLICT (user_id, idem_key) DO NOTHING
+                                """)
+                        .params(userId, clientOrderId, requestHash)
+                        .update();
+                if (inserted == 0) {
+                    // 동시 도착 경합에서 진 쪽. 내용 비교 후 저널 멱등 판정으로 수렴한다(§2-4).
+                    requireSameContent(storedRequestHash(userId, clientOrderId).orElse(requestHash),
+                            requestHash);
+                } else {
+                    insertedKey = true;
+                }
             }
         }
         boolean journaled = false;
@@ -136,6 +151,12 @@ public class OrderGateway {
             }
             return new Placement(row, result.replayed(), result.epoch());
         } finally {
+            if (insertedKey && !journaled) {
+                // 저널 미기록 확정(페일오버 창 submit 실패 등). 선삽입한 고아 멱등 키를 정리해
+                // 다음 재시도가 잔고 가드를 재적용하게 한다. 정리 실패해도 재시도 경로의
+                // command_journal 실재 확인이 backstop이라 가드 무력화로 이어지지 않는다.
+                deleteOrphanKey(userId, clientOrderId, requestHash);
+            }
             if (guarded) {
                 if (row != null || !journaled) {
                     // 정산 관측 완료(available 반영) 또는 저널 미기록 확정. 즉시 해제해도 안전하다.
@@ -146,6 +167,41 @@ public class OrderGateway {
                     inflight.defer(reserveKey, required, orderId);
                 }
             }
+        }
+    }
+
+    private void requireActiveUser(long userId) {
+        String status = jdbc.sql("SELECT status FROM users WHERE id = ?")
+                .params(userId)
+                .query(String.class)
+                .optional()
+                .orElse("CLOSED");
+        if (!"ACTIVE".equals(status)) {
+            throw new ApiException(403, "account_suspended", "주문할 수 없는 계정 상태입니다.");
+        }
+    }
+
+    private boolean commandJournaled(long userId, String clientOrderId) {
+        Long journaled = jdbc.sql("""
+                        SELECT count(*) FROM command_journal
+                        WHERE command_type = 'NEW' AND user_id = ? AND client_order_id = ?
+                        """)
+                .params(userId, clientOrderId)
+                .query(Long.class)
+                .single();
+        return journaled > 0;
+    }
+
+    private void deleteOrphanKey(long userId, String clientOrderId, String requestHash) {
+        try {
+            jdbc.sql("""
+                            DELETE FROM idempotency_keys
+                            WHERE user_id = ? AND idem_key = ? AND request_hash = ?
+                            """)
+                    .params(userId, clientOrderId, requestHash)
+                    .update();
+        } catch (RuntimeException ignored) {
+            // 정리 실패는 재시도 경로의 commandJournaled 확인이 흡수한다.
         }
     }
 

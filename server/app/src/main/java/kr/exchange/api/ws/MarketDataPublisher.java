@@ -5,6 +5,9 @@ import kr.exchange.api.common.EpochSource;
 import kr.exchange.api.market.MarketDataService;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.OrderQueryService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.OrderCommand;
 import org.slf4j.Logger;
@@ -13,11 +16,16 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 정산 완료 이벤트 → WS 게시 파이프라인(§5).
@@ -42,11 +50,16 @@ public class MarketDataPublisher {
     private final ChannelSequences sequences;
     private final EpochSource epochSource;
     private final CandleSubscriptions candleSubscriptions;
+    private final MeterRegistry meterRegistry;
+    // 미터는 market당 1개라 캐시로 태그 리스트 재구성·레지스트리 조회를 라이터 스레드에서 없앤다.
+    private final Map<String, Counter> tradeCounters = new ConcurrentHashMap<>();
+    private final Map<String, Timer> fillTimers = new ConcurrentHashMap<>();
 
     public MarketDataPublisher(SimpMessagingTemplate messaging, JdbcClient jdbc,
                                MarketDirectory markets, MarketDataService marketData,
                                OrderQueryService orders, ChannelSequences sequences,
-                               EpochSource epochSource, CandleSubscriptions candleSubscriptions) {
+                               EpochSource epochSource, CandleSubscriptions candleSubscriptions,
+                               MeterRegistry meterRegistry) {
         this.messaging = messaging;
         this.jdbc = jdbc;
         this.markets = markets;
@@ -55,6 +68,7 @@ public class MarketDataPublisher {
         this.sequences = sequences;
         this.epochSource = epochSource;
         this.candleSubscriptions = candleSubscriptions;
+        this.meterRegistry = meterRegistry;
     }
 
     /** 정산 커밋이 끝난 단일 명령 방출 배치를 게시한다. 실패는 삼키고 기록만 한다. */
@@ -83,6 +97,7 @@ public class MarketDataPublisher {
                     publishMyOrder(market, event, event.counterOrderId(), epoch);
                     touchedUsers.add(event.makerUserId());
                     touchedUsers.add(event.takerUserId());
+                    recordTradeMetrics(market, event);
                 }
                 case ACCEPTED, CANCELED -> {
                     Long userId = publishMyOrder(market, event, event.orderId(), epoch);
@@ -96,9 +111,11 @@ public class MarketDataPublisher {
 
         for (int marketId : touchedMarkets) {
             MarketDirectory.Market market = markets.byId(marketId);
-            publishOrderbook(market, epoch, events.get(0).engineTs());
+            // depth를 마켓당 한 번만 집계해 orderbook·ticker 두 경로에 공유한다(배치당 중복 제거).
+            MarketDataService.Depth depth = marketData.depth(market.id());
+            publishOrderbook(market, depth, epoch, events.get(0).engineTs());
             if (traded) {
-                publishTicker(market, epoch);
+                publishTicker(market, depth, epoch);
                 publishCandles(market, epoch);
             }
         }
@@ -114,7 +131,10 @@ public class MarketDataPublisher {
         body.put("type", "trade");
         body.put("market", market.symbol());
         body.put("epoch", epoch);
-        body.put("seq", sequences.next(channel));
+        // seq는 event_seq 도메인(= REST §4-A-3 seq = trade_id). REST 스냅샷과 WS 라이브가 한
+        // 도메인이라 재연결 재동기화 후 라이브가 드롭되지 않는다(계약 §5-2, §5-4). 채널 인메모리
+        // 카운터를 쓰면 REST(event_seq 수백만대)와 도메인이 갈려 재동기화가 피드를 영구 정지시킨다.
+        body.put("seq", event.eventSeq());
         body.put("trade_id", String.valueOf(event.eventSeq()));
         body.put("price", ApiFormats.amount(event.price()));
         body.put("volume", ApiFormats.amount(event.quantity()));
@@ -123,9 +143,9 @@ public class MarketDataPublisher {
         messaging.convertAndSend("/topic/" + channel, body);
     }
 
-    private void publishOrderbook(MarketDirectory.Market market, long epoch, long engineTs) {
+    private void publishOrderbook(MarketDirectory.Market market, MarketDataService.Depth depth,
+                                  long epoch, long engineTs) {
         String channel = "orderbook." + market.symbol();
-        MarketDataService.Depth depth = marketData.depth(market.id());
         Map<String, Object> body = marketData.orderbookBody(market.symbol(), depth,
                 epoch, sequences.next(channel), ApiFormats.timeMs(engineTs));
         body.put("type", "orderbook");
@@ -138,9 +158,10 @@ public class MarketDataPublisher {
      * REST와 같은 trades 집계(§4-A-5)의 최근 버킷 1건이나, 라이브 경로는 현재 버킷 창만 읽는
      * latestCandle을 써 이력 무제한 스캔이 라이터 루프를 잠식하지 않게 한다.
      * "현재 캔들 갱신"·"새 캔들 확정"은 별도 필드 없이 candle_time 단조성으로 구분한다(§5-3).
-     * seq 도메인은 채널(market×unit) 독립 단조 증가다(§5-2). trade_count·stream은 §5-4 candle
-     * 스키마에 없어 싣지 않는다. unit별로 격리해 한 unit 조회 실패가 나머지 unit·채널을 취소하지
-     * 않게 한다(candle은 이 배치에서 가장 무거운 경로).
+     * seq는 버킷 최대 event_seq(= REST §4-A-5 seq)라 REST 스냅샷과 WS 라이브가 한 도메인이다
+     * (§5-2, 재연결 재동기화 연속성). 같은 배치 방출이라 이 버킷 최대 id == 방금 체결의 event_seq다.
+     * trade_count·stream은 §5-4 candle 스키마에 없어 싣지 않는다. unit별로 격리해 한 unit 조회
+     * 실패가 나머지 unit·채널을 취소하지 않게 한다(candle은 이 배치에서 가장 무거운 경로).
      */
     private void publishCandles(MarketDirectory.Market market, long epoch) {
         for (String unit : candleSubscriptions.subscribedUnits(market.symbol())) {
@@ -156,7 +177,7 @@ public class MarketDataPublisher {
                 body.put("unit", unit);
                 body.put("market", market.symbol());
                 body.put("epoch", epoch);
-                body.put("seq", sequences.next(channel));
+                body.put("seq", candle.get("seq"));
                 body.put("candle_time", candle.get("candle_time"));
                 body.put("open", candle.get("open"));
                 body.put("high", candle.get("high"));
@@ -171,12 +192,13 @@ public class MarketDataPublisher {
         }
     }
 
-    private void publishTicker(MarketDirectory.Market market, long epoch) {
+    private void publishTicker(MarketDirectory.Market market, MarketDataService.Depth depth,
+                               long epoch) {
         String channel = "ticker." + market.symbol();
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("schema_version", ApiFormats.SCHEMA_VERSION);
         body.put("type", "ticker");
-        body.putAll(marketData.ticker(market, epoch, sequences.next(channel)));
+        body.putAll(marketData.ticker(market, epoch, sequences.next(channel), depth));
         messaging.convertAndSend("/topic/" + channel, body);
     }
 
@@ -208,7 +230,7 @@ public class MarketDataPublisher {
         body.put("reject_reason", row.rejectReason());
         if (event.type() == EngineEvent.EventType.TRADE) {
             boolean maker = orderId == event.counterOrderId().longValue();
-            BigDecimal fee = tradeFee(event.eventSeq(), maker);
+            BigDecimal fee = tradeFee(event.eventSeq(), maker, event.engineTs());
             Map<String, Object> trade = new LinkedHashMap<>();
             trade.put("trade_id", String.valueOf(event.eventSeq()));
             trade.put("price", ApiFormats.amount(event.price()));
@@ -222,13 +244,45 @@ public class MarketDataPublisher {
         return row.userId();
     }
 
-    private BigDecimal tradeFee(long tradeId, boolean maker) {
+    private BigDecimal tradeFee(long tradeId, boolean maker, long engineTs) {
+        // trades PK가 (id, created_at)라 id 단독은 파티션 프루닝이 안 붙어 전 파티션 프로브였다.
+        // created_at = engine_ts 파생 불변식이라 같은 값을 동반해 대상 파티션·PK로 직접 프로브한다.
+        OffsetDateTime createdAt = OffsetDateTime.ofInstant(
+                Instant.ofEpochMilli(engineTs), ZoneOffset.UTC);
         return jdbc.sql("SELECT " + (maker ? "maker_fee" : "taker_fee")
-                        + " FROM trades WHERE id = ?")
-                .params(tradeId)
+                        + " FROM trades WHERE id = ? AND created_at = ?")
+                .params(tradeId, createdAt)
                 .query(BigDecimal.class)
                 .optional()
                 .orElse(null);
+    }
+
+    /** 체결 곡선 Counter + 접수→체결확정 지연 Timer(하네스 CICD §5-2). 라이터 스레드 비블로킹. */
+    private void recordTradeMetrics(MarketDirectory.Market market, EngineEvent event) {
+        tradeCounter(market.symbol()).increment();
+        long latencyMs = Math.max(0, System.currentTimeMillis() - event.engineTs());
+        fillTimer(market.symbol()).record(Duration.ofMillis(latencyMs));
+    }
+
+    private Counter tradeCounter(String market) {
+        return tradeCounters.computeIfAbsent(market, m ->
+                Counter.builder("exchange.trades")
+                        .description("체결 건수(체결/초 곡선)")
+                        .tag("market", m)
+                        .register(meterRegistry));
+    }
+
+    private Timer fillTimer(String market) {
+        // classic 히스토그램 + 500ms SLO 경계 버킷. 서버측 histogram_quantile p95/p99와
+        // slo_500ms 직독을 지원한다(CICD §5-2, §5-3).
+        return fillTimers.computeIfAbsent(market, m ->
+                Timer.builder("exchange.order.latency")
+                        .description("접수→체결확정 지연(SLI)")
+                        .tag("market", m)
+                        .tag("outcome", "filled")
+                        .publishPercentileHistogram()
+                        .serviceLevelObjectives(Duration.ofMillis(500))
+                        .register(meterRegistry));
     }
 
     private void publishMyAsset(long userId, Set<Integer> marketIds, long epoch, long engineTs) {

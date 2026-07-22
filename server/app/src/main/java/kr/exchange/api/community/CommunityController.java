@@ -3,6 +3,7 @@ package kr.exchange.api.community;
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.ClientIp;
 import kr.exchange.api.common.SlidingWindowThrottle;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,7 +61,7 @@ public class CommunityController {
                                          @RequestParam(value = "cursor", required = false) String cursor,
                                          @RequestParam(value = "count", required = false) Integer count,
                                          HttpServletRequest request) {
-        readThrottle.check(clientIp(request));
+        readThrottle.check(ClientIp.of(request));
         CommunityService.Page page = community.listPosts(market, sort, cursor, count);
         return envelope(page);
     }
@@ -89,7 +90,7 @@ public class CommunityController {
 
     @GetMapping("/posts/{externalId}")
     public Map<String, Object> getPost(@PathVariable String externalId, HttpServletRequest request) {
-        readThrottle.check(clientIp(request));
+        readThrottle.check(ClientIp.of(request));
         return community.getPost(externalId);
     }
 
@@ -120,7 +121,7 @@ public class CommunityController {
                                             @RequestParam(value = "cursor", required = false) String cursor,
                                             @RequestParam(value = "count", required = false) Integer count,
                                             HttpServletRequest request) {
-        readThrottle.check(clientIp(request));
+        readThrottle.check(ClientIp.of(request));
         return envelope(community.listComments(externalId, cursor, count));
     }
 
@@ -229,14 +230,5 @@ public class CommunityController {
         body.put("data", page.rows());
         body.put("pagination", pagination);
         return body;
-    }
-
-    private static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            int comma = forwarded.indexOf(',');
-            return (comma >= 0 ? forwarded.substring(0, comma) : forwarded).trim();
-        }
-        return request.getRemoteAddr();
     }
 }

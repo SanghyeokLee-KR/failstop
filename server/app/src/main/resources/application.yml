@@ -1,3 +1,8 @@
+server:
+  # LB·프록시 종단에서 X-Forwarded-* 를 신뢰 체인으로 처리한다. getRemoteAddr()가 원시
+  # 최좌측 XFF 대신 검증된 클라이언트 IP를 반환해야 레이트리밋 IP 버킷 우회를 막는다.
+  forward-headers-strategy: native
+
 spring:
   application:
     name: exchange
@@ -7,15 +12,21 @@ spring:
   profiles:
     default: dev
 
+# 고객 평면(8080) actuator 노출은 health·info로 한정한다. prometheus·metrics는 자산 보존
+# 신호(ledger_imbalance)·내부 지표를 담아 외부 노출 대상이 아니다. dev는 하네스 스크레이프용으로
+# 동일 포트에 재노출하고, 운영은 management.server.port로 내부망에 분리한다.
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics
+        include: health, info
   endpoint:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState
 
 ---
 spring:
@@ -29,6 +40,46 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+# dev·하네스 chaos 스택은 8080에서 /actuator/prometheus를 스크레이프한다(harness prometheus.yml).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+
+---
+# 운영 프로파일. 명시 활성(SPRING_PROFILES_ACTIVE=prod)이 전제다. 시크릿 fail-fast를 켜고
+# 커넥션 풀·타임아웃을 유계화하며 actuator를 내부 포트로 분리한다. 데이터소스 접속정보는
+# 표준 SPRING_DATASOURCE_* 환경변수로 주입한다.
+spring:
+  config:
+    activate:
+      on-profile: prod
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  datasource:
+    hikari:
+      maximum-pool-size: 32
+      minimum-idle: 8
+      connection-timeout: 3000
+      # 장기 잠금 대기·폭주 질의가 스레드·커넥션을 무한 점유하지 못하게 세션 상한을 고정한다.
+      # 초과는 Postgres가 취소하고 게이트웨이가 TransientDataAccessException으로 503 변환한다.
+      connection-init-sql: "SET statement_timeout TO '3000ms'; SET lock_timeout TO '2000ms'"
+
+exchange:
+  # StartupSecretValidator·운영 WS 오리진 가드를 켠다. 시크릿 미주입 시 fail-closed 기동 중단.
+  require-secrets: true
+
+management:
+  # actuator 전량을 내부 포트로 이전한다. 고객 평면 8080은 actuator를 전혀 서빙하지 않는다.
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
 
 ---
 spring:

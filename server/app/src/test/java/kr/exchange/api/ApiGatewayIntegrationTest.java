@@ -638,6 +638,59 @@ class ApiGatewayIntegrationTest {
         }), "구독하지 않은 unit의 candle이 방출됐다");
     }
 
+    // ------------------------------------------------------------------
+    // trade·candle 재동기화 seq 도메인 고정(감사 High, §5-2 (2)). ticker와 별도.
+    // WS 라이브 seq와 REST 스냅샷 seq가 같은 event_seq 도메인이어야 재연결 재동기화 후
+    // 라이브가 도메인 불일치로 드롭되지 않는다. 도메인이 다시 갈라지면 이 테스트가 깨진다.
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(10)
+    void tradeAndCandleWsSeqShareEventSeqDomainWithRest() throws Exception {
+        tradeAt("seq-dom-sell", "seq-dom-buy", "52000000", "0.01");
+
+        // WS trade seq == trade_id == event_seq. 채널 인메모리 카운터(부팅 0 기점)면 등식이 깨진다.
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> tradeMessages.stream()
+                .anyMatch(m -> "52000000".equals(m.path("price").asText())));
+        JsonNode wsTrade = tradeMessages.stream()
+                .filter(m -> "52000000".equals(m.path("price").asText()))
+                .reduce((a, b) -> b).orElseThrow();
+        long wsTradeSeq = wsTrade.path("seq").asLong();
+        String tradeId = wsTrade.path("trade_id").asText();
+        assertEquals(Long.parseLong(tradeId), wsTradeSeq,
+                "WS trade seq는 event_seq 도메인(= trade_id)이어야 한다");
+
+        // REST 스냅샷 seq == WS 라이브 seq(동일 도메인). 재동기화 후 ch.lastSeq 기준점 정합.
+        JsonNode tradesData = objectMapper.readTree(
+                        rest.getForEntity("/api/v1/trades?market=KRW-BTC&count=50", String.class).getBody())
+                .path("data");
+        JsonNode restTrade = streamOf(tradesData)
+                .filter(t -> tradeId.equals(t.path("trade_id").asText()))
+                .findFirst().orElseThrow(() -> new AssertionError("REST에 해당 체결 없음: " + tradeId));
+        assertEquals(wsTradeSeq, restTrade.path("seq").asLong(),
+                "REST trade seq와 WS trade seq는 동일 도메인이어야 한다");
+
+        // WS candle(1m) seq도 event_seq 도메인(버킷 최대 event_seq). 같은 배치 방출이라 이 버킷의
+        // 최대 id == 방금 체결의 event_seq다.
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> candleMessages.stream()
+                .anyMatch(m -> "1m".equals(m.path("unit").asText())
+                        && m.path("seq").asLong() == wsTradeSeq));
+        JsonNode wsCandle = candleMessages.stream()
+                .filter(m -> "1m".equals(m.path("unit").asText())
+                        && m.path("seq").asLong() == wsTradeSeq)
+                .reduce((a, b) -> b).orElseThrow();
+        assertEquals("52000000", wsCandle.path("close").asText(), "형성 캔들 close는 방금 체결가");
+        String candleTime = wsCandle.path("candle_time").asText();
+
+        // REST candle 같은 버킷 seq도 event_seq 도메인(WS 이후 체결이 없으면 동일, 있으면 증가).
+        JsonNode candlesData = candlesData("/api/v1/candles/1m?market=KRW-BTC&count=200");
+        JsonNode restCandle = streamOf(candlesData)
+                .filter(c -> candleTime.equals(c.path("candle_time").asText()))
+                .findFirst().orElseThrow(() -> new AssertionError("REST에 해당 캔들 없음: " + candleTime));
+        assertTrue(restCandle.path("seq").asLong() >= wsTradeSeq,
+                "REST candle seq는 WS candle seq와 동일 event_seq 도메인(단조)이어야 한다");
+    }
+
     // 지정가 maker(bob 매도) 후 동일가 taker(alice 매수)로 정확히 그 가격에 체결시킨다.
     private void tradeAt(String sellKey, String buyKey, String price, String volume) {
         byte[] sell = orderBody("KRW-BTC", "ask", "limit", price, volume, sellKey);

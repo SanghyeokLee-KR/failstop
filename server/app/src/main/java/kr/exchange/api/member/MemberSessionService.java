@@ -112,6 +112,11 @@ public class MemberSessionService {
         if (!payload.hasNonNull("user_id") || !"TRADE".equals(payload.path("scope").asText())) {
             throw unauthorized("세션 클레임이 올바르지 않습니다.");
         }
+        // verifyCommunity와 대칭으로 kind=HUMAN을 강제한다. 비 HUMAN 종류 토큰이 발급되어도
+        // 거래 평면을 무검증 통과하지 못하게 막는다(KIND_MEMBER 고정 스탬프의 무결성 보강).
+        if (!"HUMAN".equals(payload.path("kind").asText())) {
+            throw unauthorized("회원 세션이 아닙니다.");
+        }
         if (!audienceContainsExchange(payload)) {
             throw unauthorized("이 토큰은 거래 평면 대상이 아닙니다.");
         }

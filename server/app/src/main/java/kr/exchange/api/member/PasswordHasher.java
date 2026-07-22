@@ -37,7 +37,12 @@ public class PasswordHasher {
             this.pepper = generated;
             log.warn("비밀번호 페퍼 미주입: 프로세스 한정 임시 페퍼로 동작한다. 재기동 시 기존 회원 해시는 검증 불가.");
         } else {
-            this.pepper = Base64.getDecoder().decode(pepperBase64);
+            byte[] decoded = Base64.getDecoder().decode(pepperBase64);
+            // SecretCipher·MemberSessionService와 대칭. 오설정 페퍼를 기동 시점에 검출한다.
+            if (decoded.length != 32) {
+                throw new IllegalArgumentException("비밀번호 페퍼는 base64 인코딩된 32바이트여야 한다");
+            }
+            this.pepper = decoded;
         }
     }
 

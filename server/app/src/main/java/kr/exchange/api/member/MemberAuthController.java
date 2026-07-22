@@ -3,6 +3,7 @@ package kr.exchange.api.member;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.ClientIp;
 import kr.exchange.api.common.SlidingWindowThrottle;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -51,11 +52,12 @@ public class MemberAuthController {
     @PostMapping("/api/v1/auth/signup")
     public ResponseEntity<Map<String, Object>> signup(@RequestBody(required = false) SignupRequest request,
                                                       HttpServletRequest http) {
-        signupThrottle.check(clientIp(http));
+        String ip = ClientIp.of(http);
+        signupThrottle.check(ip);
         SignupRequest body = request == null ? new SignupRequest(null, null, null) : request;
         MemberAuthService.SessionResult result = auth.signup(
                 body.email(), body.password(), body.display_name(),
-                clientIp(http), http.getHeader("User-Agent"));
+                ip, http.getHeader("User-Agent"));
         return sessionResponse(HttpStatus.CREATED, result);
     }
 
@@ -63,21 +65,23 @@ public class MemberAuthController {
     public ResponseEntity<Map<String, Object>> login(@RequestBody(required = false) LoginRequest request,
                                                      HttpServletRequest http) {
         LoginRequest body = request == null ? new LoginRequest(null, null) : request;
+        String ip = ClientIp.of(http);
         // IP·이메일 각 10회/60s(§3-1). 계정 백오프(서비스 계층)와 병행해 IP 분산·계정 표적을 함께 막는다.
-        loginThrottle.check(clientIp(http));
+        loginThrottle.check(ip);
         if (body.email() != null && !body.email().isBlank()) {
             loginThrottle.check("email:" + body.email().trim().toLowerCase());
         }
         MemberAuthService.SessionResult result = auth.login(
-                body.email(), body.password(), clientIp(http), http.getHeader("User-Agent"));
+                body.email(), body.password(), ip, http.getHeader("User-Agent"));
         return sessionResponse(HttpStatus.OK, result);
     }
 
     @PostMapping("/api/v1/auth/refresh")
     public ResponseEntity<Map<String, Object>> refresh(HttpServletRequest http) {
-        refreshThrottle.check(clientIp(http));
+        String ip = ClientIp.of(http);
+        refreshThrottle.check(ip);
         MemberAuthService.SessionResult result = auth.refresh(
-                readRefreshCookie(http), clientIp(http), http.getHeader("User-Agent"));
+                readRefreshCookie(http), ip, http.getHeader("User-Agent"));
         return sessionResponse(HttpStatus.OK, result);
     }
 
@@ -122,14 +126,5 @@ public class MemberAuthController {
             }
         }
         return null;
-    }
-
-    private static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            int comma = forwarded.indexOf(',');
-            return (comma >= 0 ? forwarded.substring(0, comma) : forwarded).trim();
-        }
-        return request.getRemoteAddr();
     }
 }

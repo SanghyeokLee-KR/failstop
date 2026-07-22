@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -141,6 +142,7 @@ public class CommunityService {
     }
 
     public Map<String, Object> getPost(String externalId) {
+        requireUuid(externalId, "존재하지 않는 글입니다.");
         PostRow row = jdbc.sql("""
                         SELECT id, external_id::text AS external_id, market_symbol, title, body,
                                author_handle, status, like_count, comment_count, created_at, updated_at
@@ -254,6 +256,7 @@ public class CommunityService {
             }
             Long parentId = null;
             if (parentExternalId != null && !parentExternalId.isBlank()) {
+                requireUuid(parentExternalId, "존재하지 않는 부모 댓글입니다.");
                 CommentRef parent = jdbc.sql("""
                                 SELECT id, post_id, author_id, status, parent_comment_id
                                 FROM comments WHERE external_id = ?::uuid
@@ -561,6 +564,7 @@ public class CommunityService {
     }
 
     private PostRef loadPostRef(String externalId) {
+        requireUuid(externalId, "존재하지 않는 글입니다.");
         return jdbc.sql("SELECT id, author_id, status FROM posts WHERE external_id = ?::uuid")
                 .param(externalId)
                 .query((rs, n) -> new PostRef(rs.getLong("id"), rs.getLong("author_id"),
@@ -572,6 +576,7 @@ public class CommunityService {
     // 상태 전이(삭제·모더레이션) 경로 전용. 대상 행을 FOR UPDATE로 잠가 read-modify-write를 한 트랜잭션·행잠금에
     // 모아 stale status·이중 감산을 차단한다(감사 C·D). caller 트랜잭션 안에서만 호출한다.
     private PostRef lockPostRef(String externalId) {
+        requireUuid(externalId, "존재하지 않는 글입니다.");
         return jdbc.sql("SELECT id, author_id, status FROM posts WHERE external_id = ?::uuid FOR UPDATE")
                 .param(externalId)
                 .query((rs, n) -> new PostRef(rs.getLong("id"), rs.getLong("author_id"),
@@ -581,6 +586,7 @@ public class CommunityService {
     }
 
     private CommentRef loadCommentRef(String externalId) {
+        requireUuid(externalId, "존재하지 않는 댓글입니다.");
         return jdbc.sql("""
                         SELECT id, post_id, author_id, status, parent_comment_id
                         FROM comments WHERE external_id = ?::uuid
@@ -592,6 +598,7 @@ public class CommunityService {
     }
 
     private CommentRef lockCommentRef(String externalId) {
+        requireUuid(externalId, "존재하지 않는 댓글입니다.");
         return jdbc.sql("""
                         SELECT id, post_id, author_id, status, parent_comment_id
                         FROM comments WHERE external_id = ?::uuid FOR UPDATE
@@ -668,6 +675,19 @@ public class CommunityService {
 
     private static ApiException notFound(String message) {
         return new ApiException(404, "not_found", message);
+    }
+
+    // external_id를 ?::uuid 캐스트 전에 형식 검증한다. 비 UUID 입력이 캐치올 500·매 건 log.error로 새는
+    // 것을 막고 OrderController 패턴대로 404로 정규화한다(무인증 GET 소음 제거).
+    private static void requireUuid(String externalId, String message) {
+        if (externalId == null) {
+            throw notFound(message);
+        }
+        try {
+            UUID.fromString(externalId);
+        } catch (IllegalArgumentException e) {
+            throw notFound(message);
+        }
     }
 
     // ------------------------------------------------------------------

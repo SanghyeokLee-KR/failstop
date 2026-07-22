@@ -145,6 +145,16 @@ public class MarketDataService {
     }
 
     public Map<String, Object> ticker(MarketDirectory.Market market, long epoch, long seq) {
+        // REST 단건 경로. depth를 한 번 산출해 4-인자 경로에 위임한다.
+        return ticker(market, epoch, seq, depth(market.id()));
+    }
+
+    /**
+     * depth를 인자로 받는 경로. WS 게시(§5)는 같은 배치에서 orderbook·ticker가 같은 호가를
+     * 쓰므로 depth를 한 번 산출해 두 경로에 공유한다(라이터 스레드 depth 이중 집계 제거).
+     */
+    public Map<String, Object> ticker(MarketDirectory.Market market, long epoch, long seq,
+                                      Depth depth) {
         // created_at 축(파티션 키·인덱스). executed_at과 값 동일이나 프루닝을 위해 이 축을 쓴다.
         Map<String, Object> last = jdbc.sql("""
                         SELECT price, created_at FROM trades
@@ -193,7 +203,6 @@ public class MarketDataService {
                         .optional()
                         .orElse(null));
 
-        Depth depth = depth(market.id());
         BigDecimal lastPrice = last == null ? null : (BigDecimal) last.get("price");
 
         // 부호는 change로, 크기는 change_rate/change_price 절대값으로 분리 노출한다(프론트 규약,
@@ -259,27 +268,34 @@ public class MarketDataService {
     public List<Map<String, Object>> candles(MarketDirectory.Market market, String unit,
                                              int count, Cursors.Cursor cursor) {
         long sec = UNIT_SECONDS.get(unit);
-        // 스캔 시각 하한을 두지 않는다. 하한(count 창의 배수)은 밀도 낮은 마켓의 sparse 이력을
-        // 잘라 count 미만이 반환되고 has_more가 조기 false로 떨어져 페이지네이션이 조기 종료됐다.
-        // 정확성(페이지 완결) > 성능이라 마켓 이력 전체를 버킷 집계하고 ORDER BY b DESC LIMIT로
-        // 창을 낸다. created_at 축은 파티션 키·인덱스.
-        StringBuilder sql = new StringBuilder("""
-                WITH bucketed AS (
-                    SELECT floor(extract(epoch FROM created_at) / ?) AS b,
-                           price, quantity, id, created_at
-                    FROM trades WHERE market_id = ?
-                )
-                SELECT to_timestamp(b * ?) AS candle_time,
-                       (array_agg(price ORDER BY created_at ASC, id ASC))[1] AS open,
-                       MAX(price) AS high, MIN(price) AS low,
-                       (array_agg(price ORDER BY created_at DESC, id DESC))[1] AS close,
-                       SUM(quantity) AS volume, COUNT(*) AS trade_count, MAX(id) AS seq
-                FROM bucketed
-                GROUP BY b
-                """);
+        // 첫 페이지는 시각 하한을 두지 않는다. 하한(count 창의 배수)은 밀도 낮은 마켓의 sparse
+        // 이력을 잘라 count 미만이 반환되고 has_more가 조기 false로 떨어져 페이지네이션이 조기
+        // 종료됐다. 정확성(페이지 완결) > 성능이라 첫 페이지는 마켓 이력 전체를 버킷 집계한다.
+        // 커서가 있으면(더 과거 페이지) 스캔에 created_at 상한을 준다. 상한은 cursor.ts + 한
+        // 버킷이라 넘겨 담기는 체결은 전부 HAVING이 버리는 버킷(candle_time >= cursor.ts)에만
+        // 속해 유지 버킷 집계를 바꾸지 않는다. 결과 불변 + created_at 파티션 프루닝으로 깊은
+        // 페이지의 스캔 범위를 좁힌다. created_at 축은 파티션 키·인덱스.
         List<Object> params = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+                "WITH bucketed AS (\n"
+                + "    SELECT floor(extract(epoch FROM created_at) / ?) AS b,\n"
+                + "           price, quantity, id, created_at\n"
+                + "    FROM trades WHERE market_id = ?\n");
         params.add(sec);
         params.add(market.id());
+        if (cursor != null) {
+            sql.append("      AND created_at < ?\n");
+            params.add(cursor.ts().plusSeconds(sec));
+        }
+        sql.append(
+                ")\n"
+                + "SELECT to_timestamp(b * ?) AS candle_time,\n"
+                + "       (array_agg(price ORDER BY created_at ASC, id ASC))[1] AS open,\n"
+                + "       MAX(price) AS high, MIN(price) AS low,\n"
+                + "       (array_agg(price ORDER BY created_at DESC, id DESC))[1] AS close,\n"
+                + "       SUM(quantity) AS volume, COUNT(*) AS trade_count, MAX(id) AS seq\n"
+                + "FROM bucketed\n"
+                + "GROUP BY b\n");
         params.add(sec);
         if (cursor != null) {
             sql.append(" HAVING to_timestamp(b * ?) < ?");

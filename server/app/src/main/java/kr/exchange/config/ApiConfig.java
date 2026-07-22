@@ -29,6 +29,7 @@ import kr.exchange.api.ws.StompAuthInterceptor;
 import kr.exchange.engine.EngineBridge;
 import kr.exchange.engine.LeaderLeaseService;
 import kr.exchange.ledger.AccountBootstrap;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.ApplicationContext;
@@ -197,9 +198,10 @@ public class ApiConfig {
                                                    OrderQueryService orders,
                                                    ChannelSequences sequences,
                                                    EpochSource epochSource,
-                                                   CandleSubscriptions candleSubscriptions) {
+                                                   CandleSubscriptions candleSubscriptions,
+                                                   MeterRegistry meterRegistry) {
         return new MarketDataPublisher(messaging, jdbc, markets, marketData, orders,
-                sequences, epochSource, candleSubscriptions);
+                sequences, epochSource, candleSubscriptions, meterRegistry);
     }
 
     @Bean

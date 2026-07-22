@@ -2,6 +2,7 @@ package kr.exchange.api.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.ClientIp;
 import kr.exchange.api.common.SlidingWindowThrottle;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,7 +30,7 @@ public class DemoSessionController {
 
     @PostMapping("/api/v1/demo/session")
     public Map<String, Object> issue(HttpServletRequest request) {
-        throttle.check(clientKey(request));
+        throttle.check(ClientIp.of(request));
         DemoUserProvisioner.DemoUser user = provisioner.ensure();
         String token = sessions.issue(user.userId(), user.externalId(),
                 DemoSessionService.DEFAULT_TTL);
@@ -43,18 +44,5 @@ public class DemoSessionController {
         body.put("expires_in", DemoSessionService.DEFAULT_TTL.toSeconds());
         body.put("user", userView);
         return body;
-    }
-
-    /**
-     * 리버스 프록시 뒤에서 getRemoteAddr는 프록시 IP라 모든 클라이언트가 한 버킷을 공유한다.
-     * X-Forwarded-For 첫 홉(원 클라이언트)을 신뢰 경계로 사용하고, 없으면 remoteAddr로 폴백한다.
-     */
-    private static String clientKey(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            int comma = forwarded.indexOf(',');
-            return (comma >= 0 ? forwarded.substring(0, comma) : forwarded).trim();
-        }
-        return request.getRemoteAddr();
     }
 }
