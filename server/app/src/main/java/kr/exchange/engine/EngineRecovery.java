@@ -40,6 +40,8 @@ public class EngineRecovery {
     private final LeaderLeaseService lease;
     // null이면 스냅샷 비활성. 저널 seq 0 전량 재생으로만 복구한다(기존 경로).
     private final SnapshotSource snapshotSource;
+    // 재생 명령 수 관측(§5-2 exchange.journal.replay.commands). 기본 no-op이라 테스트 경로는 무변경.
+    private final java.util.function.LongConsumer replayObserver;
 
     public EngineRecovery(ReplayService replayService, SingleWriterLoop.EventSink reappendSink,
                           LeaderLeaseService lease) {
@@ -48,10 +50,18 @@ public class EngineRecovery {
 
     public EngineRecovery(ReplayService replayService, SingleWriterLoop.EventSink reappendSink,
                           LeaderLeaseService lease, SnapshotSource snapshotSource) {
+        this(replayService, reappendSink, lease, snapshotSource, n -> {
+        });
+    }
+
+    public EngineRecovery(ReplayService replayService, SingleWriterLoop.EventSink reappendSink,
+                          LeaderLeaseService lease, SnapshotSource snapshotSource,
+                          java.util.function.LongConsumer replayObserver) {
         this.replayService = replayService;
         this.reappendSink = reappendSink;
         this.lease = lease;
         this.snapshotSource = snapshotSource;
+        this.replayObserver = replayObserver;
     }
 
     /**
@@ -74,6 +84,7 @@ public class EngineRecovery {
             }
         }
         ReplayResult result = replayService.rebuild(engine, eventStart);
+        replayObserver.accept(result.replayedCommands());
         List<EngineEvent> pending = result.pendingEvents();
         if (pending.isEmpty()) {
             return result;

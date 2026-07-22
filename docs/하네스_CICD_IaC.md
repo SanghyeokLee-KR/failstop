@@ -655,6 +655,12 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 
 **계측 위치(코어 순수성)**: exchange-core에 Micrometer 반입 금지. 주문 지연 Timer는 시퀀서 ACK→event_journal 소비 시점을 api 계층이 측정, 오더북 depth는 방출 이벤트의 프로젝션 Gauge, 불변식 게이지는 검증기 배치가 `invariant_checks` INSERT와 동시 갱신(별도 postgres_exporter 불요).
 
+**미방출 항목(의도적 보류)**:
+- `exchange.orderbook.depth`: 마켓 269개 × side 2 = 538 시계열이라 방출 보류. 상한/집계(전체 합 또는 top-N) 설계 확정 후 배선한다. 오더북 잔량은 시스템 대시보드 부가 신호라 무데이터 패널을 증거로 두지 않는 원칙에 따라 제외한다.
+- `exchange.duplicate.fills`: InvariantVerifier의 C-카탈로그 검증(중복 체결 0)이 `exchange_invariant_violations{check_name}`로 이미 커버해 별도 Counter는 중복이라 방출하지 않는다.
+- `exchange.ws.clients`: `channel` 태그는 연결 단위 계량이라 단일 값(`stomp`)만 방출한다. 목적지별 분해는 세션-구독 회계가 필요해 후속.
+- `exchange.orders.rejected`: `reason`은 종결 거부(4xx: 429·422·400·403·413) 에러코드 집합이며 429는 대시보드 PromQL 정합을 위해 `rate_limited`로 정규화한다. 409·503은 재조회 수렴 신호라 거부율에서 제외한다.
+
 ### 5-3. Prometheus 구성 (`infra/prometheus/prometheus.yml`)
 
 ```yaml

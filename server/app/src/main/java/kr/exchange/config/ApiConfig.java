@@ -177,6 +177,17 @@ public class ApiConfig {
     }
 
     @Bean
+    public kr.exchange.api.order.OrderRejectionMetrics orderRejectionMetrics(
+            MeterRegistry meterRegistry) {
+        return new kr.exchange.api.order.OrderRejectionMetrics(meterRegistry);
+    }
+
+    @Bean
+    public kr.exchange.api.ws.WsSessionMetrics wsSessionMetrics(MeterRegistry meterRegistry) {
+        return new kr.exchange.api.ws.WsSessionMetrics(meterRegistry);
+    }
+
+    @Bean
     public EpochSource epochSource(LeaderLeaseService lease, JdbcClient jdbc) {
         return new EpochSource(lease, jdbc);
     }

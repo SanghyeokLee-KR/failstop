@@ -3,6 +3,7 @@ package kr.exchange.api;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.api.auth.DemoKeySeeder;
+import kr.exchange.api.common.Cursors;
 import kr.exchange.ledger.AccountBootstrap;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -689,6 +690,84 @@ class ApiGatewayIntegrationTest {
                 .findFirst().orElseThrow(() -> new AssertionError("REST에 해당 캔들 없음: " + candleTime));
         assertTrue(restCandle.path("seq").asLong() >= wsTradeSeq,
                 "REST candle seq는 WS candle seq와 동일 event_seq 도메인(단조)이어야 한다");
+    }
+
+    // ------------------------------------------------------------------
+    // 커서 조작 방어(§2-6) + 정상 next_cursor 연속성(감사·reviewer 지적)
+    // 조작 커서는 조용한 빈 페이지가 아니라 400 invalid_parameter로 정규화돼야 한다.
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(11)
+    void cursorValidationRejectsTamperedCursorsAndPreservesContinuity() throws Exception {
+        // (1) 비UUID id 커서: 디코드는 되지만 id가 UUID가 아니다 → 400 invalid_parameter
+        String nonUuid = Cursors.encode(java.time.OffsetDateTime.now(), "not-a-uuid");
+        assertCursorRejected(aliceKey, nonUuid);
+
+        // (2) 형식은 UUID지만 미존재 주문 → 400(anchor 부재를 조용한 빈 페이지로 넘기지 않는다)
+        String ghost = Cursors.encode(java.time.OffsetDateTime.now(), UUID.randomUUID().toString());
+        assertCursorRejected(aliceKey, ghost);
+
+        // (3) 타 사용자 소유 주문 UUID를 커서로: bob 스코프에서 alice 주문 external_id는 anchor
+        //     조회(user_id 스코프)로 걸러져 400. 무경계 서브쿼리로 정렬 위치를 캐던 경로 제거 확인.
+        assertNotNull(buyOrderId, "alice 주문 선행 필요");
+        String foreign = Cursors.encode(java.time.OffsetDateTime.now(), buyOrderId);
+        assertCursorRejected(bobKey, foreign);
+
+        // (4) 정상 커서 연속성: count=2 두 페이지의 합이 전체 목록 앞 4건과 정확히 일치(누락·중복·역전 0)
+        List<String> full = closedIds(aliceKey, Map.of("count", "100"));
+        assertTrue(full.size() >= 4, "연속성 검증에 alice 종결주문 4건 이상 필요");
+
+        ResponseEntity<String> page1 = getSigned("/api/v1/orders/closed", Map.of("count", "2"), aliceKey);
+        assertEquals(200, page1.getStatusCode().value());
+        JsonNode p1body = objectMapper.readTree(page1.getBody());
+        assertTrue(p1body.path("pagination").path("has_more").asBoolean(), "다음 페이지 있음");
+        String next = p1body.path("pagination").path("next_cursor").asText();
+        assertTrue(next != null && !next.isBlank(), "next_cursor 발급");
+        List<String> p1ids = idList(p1body.path("data"));
+        assertEquals(2, p1ids.size());
+
+        List<String> p2ids = closedIds(aliceKey, Map.of("count", "2", "cursor", next));
+        assertEquals(2, p2ids.size());
+
+        List<String> joined = new ArrayList<>(p1ids);
+        joined.addAll(p2ids);
+        assertEquals(full.subList(0, 4), joined, "커서 경계에서 누락·중복·역전 없음");
+        assertEquals(4, new java.util.HashSet<>(joined).size(), "커서 페이지 간 중복 발생");
+    }
+
+    private void assertCursorRejected(DemoKeySeeder.IssuedKey key, String cursor) {
+        ResponseEntity<String> r = getSigned("/api/v1/orders/closed", Map.of("cursor", cursor), key);
+        assertEquals(400, r.getStatusCode().value(), "조작 커서는 400이어야 한다: " + r.getBody());
+        assertEquals("invalid_parameter", errorName(r));
+    }
+
+    private List<String> closedIds(DemoKeySeeder.IssuedKey key, Map<String, String> params)
+            throws Exception {
+        ResponseEntity<String> r = getSigned("/api/v1/orders/closed", params, key);
+        assertEquals(200, r.getStatusCode().value(), r.getBody());
+        return idList(objectMapper.readTree(r.getBody()).path("data"));
+    }
+
+    private static List<String> idList(JsonNode data) {
+        List<String> ids = new ArrayList<>();
+        data.forEach(o -> ids.add(o.path("id").asText()));
+        return ids;
+    }
+
+    // 서명 query_hash는 서버가 파라미터를 정렬해 산출하므로 URL 순서는 무관하다. base64url 커서는
+    // url-safe 알파벳이라 추가 인코딩 없이 그대로 붙인다.
+    private ResponseEntity<String> getSigned(String path, Map<String, String> params,
+                                             DemoKeySeeder.IssuedKey key) {
+        StringBuilder url = new StringBuilder(path);
+        boolean first = true;
+        for (Map.Entry<String, String> e : new java.util.TreeMap<>(params).entrySet()) {
+            url.append(first ? '?' : '&').append(e.getKey()).append('=').append(e.getValue());
+            first = false;
+        }
+        String bearer = TestSigner.bearerForQuery(key.accessKey(), key.secretKey(),
+                "GET", path, params);
+        return get(url.toString(), bearer);
     }
 
     // 지정가 maker(bob 매도) 후 동일가 taker(alice 매수)로 정확히 그 가격에 체결시킨다.

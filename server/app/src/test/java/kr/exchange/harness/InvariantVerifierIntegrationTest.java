@@ -284,6 +284,50 @@ class InvariantVerifierIntegrationTest {
                 "C13A는 권위 run에서 평가돼야 한다");
     }
 
+    /**
+     * C20 음성 검증: orders.paid_fee·trades_count 물질화가 trades 실합과 어긋나면 C20이 잡는지
+     * 반증한다. 프로젝션 드리프트(정산 UPDATE 누락·이중)를 모사한다. orders는 정산이 갱신하는
+     * 프로젝션이라 주입 후 복원해도 append-only 원장 불변식을 건드리지 않는다. 마지막 순서라
+     * 복원 후 잔여 무해.
+     */
+    @Test
+    @Order(5)
+    void verifierCatchesC20FeeMaterializationDrift() {
+        // trade leg를 가진 주문 하나를 고른다. 봇 체결이 maker·taker 주문을 남겼다.
+        long orderId = count("""
+                SELECT o.id FROM orders o
+                WHERE o.created_at >= now() - interval '90 days'
+                  AND EXISTS (SELECT 1 FROM trades t
+                              WHERE t.maker_order_id = o.id OR t.taker_order_id = o.id)
+                ORDER BY o.id LIMIT 1
+                """);
+        assertTrue(orderId > 0, "trade leg를 가진 주문이 없다(봇 체결 선행 실패)");
+
+        // 기준: 주입 전 C20 clean.
+        assertTrue(runScheduledCheck(InvariantCheck.C20_ORDER_FEE_MATERIALIZED).ok(),
+                "주입 전 C20이 이미 위반");
+
+        // paid_fee 드리프트 주입 → 위반 검출.
+        jdbc.sql("UPDATE orders SET paid_fee = paid_fee + 1 WHERE id = ?").params(orderId).update();
+        InvariantResult feeDirty = runScheduledCheck(InvariantCheck.C20_ORDER_FEE_MATERIALIZED);
+        assertFalse(feeDirty.ok(), "주입한 paid_fee 드리프트를 C20이 놓침");
+        assertTrue(feeDirty.violatedRows() >= 1, "C20 위반행 계수 0");
+        jdbc.sql("UPDATE orders SET paid_fee = paid_fee - 1 WHERE id = ?").params(orderId).update();
+        assertTrue(runScheduledCheck(InvariantCheck.C20_ORDER_FEE_MATERIALIZED).ok(),
+                "paid_fee 복원 후 C20 clean 미복귀(항상 FAIL·게이지 고착 반증)");
+
+        // trades_count 드리프트 주입 → 위반 검출.
+        jdbc.sql("UPDATE orders SET trades_count = trades_count + 1 WHERE id = ?")
+                .params(orderId).update();
+        InvariantResult countDirty = runScheduledCheck(InvariantCheck.C20_ORDER_FEE_MATERIALIZED);
+        assertFalse(countDirty.ok(), "주입한 trades_count 드리프트를 C20이 놓침");
+        assertTrue(countDirty.violatedRows() >= 1, "C20 위반행 계수 0");
+        jdbc.sql("UPDATE orders SET trades_count = trades_count - 1 WHERE id = ?")
+                .params(orderId).update();
+        assertTrue(runScheduledCheck(InvariantCheck.C20_ORDER_FEE_MATERIALIZED).ok(),
+                "trades_count 복원 후 C20 clean 미복귀");
+    }
+
     private InvariantResult runScheduledCheck(InvariantCheck target) {
         return verifier.runScheduled().stream()
                 .filter(r -> r.check() == target)

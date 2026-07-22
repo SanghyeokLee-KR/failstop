@@ -106,11 +106,17 @@ public class EngineConfig {
                                          SettlementService settlementService,
                                          LeaderLeaseService leaderLeaseService,
                                          SnapshotStore snapshotStore,
-                                         SnapshotProperties snapshotProps) {
+                                         SnapshotProperties snapshotProps,
+                                         MeterRegistry meterRegistry) {
         // 크래시 창 재적재는 라이브 sink와 동일한 append+정산 원자 경로를 쓴다(§5.5 ②).
         // 스냅샷 활성 시 로드 후 tail 재생으로 복구·승격 재생량을 상한한다(§3-b).
+        // 재생 명령 수 Counter(§5-2). 부팅 복구·승격 재생 모두 recover를 거치므로 단일 관측점이다.
+        io.micrometer.core.instrument.Counter replayCommands = io.micrometer.core.instrument.Counter
+                .builder("exchange.journal.replay.commands")
+                .description("복구·승격 재생으로 재적용한 명령 수").register(meterRegistry);
         return new EngineRecovery(replayService, settlementService::appendAndSettle,
-                leaderLeaseService, snapshotProps.enabled() ? snapshotStore : null);
+                leaderLeaseService, snapshotProps.enabled() ? snapshotStore : null,
+                replayCommands::increment);
     }
 
     // 주기 스냅샷 캡처. 라이터 명령 경계 훅으로 인코딩하고 별도 워커가 영속화한다(§3-b).
@@ -135,8 +141,9 @@ public class EngineConfig {
                                              CommandJournalReader commandJournalReader,
                                              CommandPayloadMapper commandPayloadMapper,
                                              LeaderLeaseService leaderLeaseService,
-                                             MarketDataPublisher marketDataPublisher) {
-        return new SingleWriterLoop(
+                                             MarketDataPublisher marketDataPublisher,
+                                             MeterRegistry meterRegistry) {
+        SingleWriterLoop loop = new SingleWriterLoop(
                 props.queueCapacity(),
                 engine,
                 // 정산 커밋 후 WS 게시(§5). 게시 실패는 publisher가 삼키므로 sink 예외
@@ -147,6 +154,12 @@ public class EngineConfig {
                 // 이벤트 정산 실패는 무음 재시도 대상이 아니다. 원인 불문 리더십을 함께
                 // 내려놓아 접수 경로를 닫는다(LoopFatalHandler, DB 설계 §5.4).
                 new LoopFatalHandler(leaderLeaseService));
+        // 단일 라이터 큐 깊이 Gauge(§5-2 백프레셔 P4). 스크레이프 시점 queue.size() 조회라
+        // 라이터 핫패스와 무관하다.
+        io.micrometer.core.instrument.Gauge
+                .builder("exchange.sequencer.queue.size", loop, SingleWriterLoop::queueSize)
+                .description("단일 라이터 명령 큐 깊이(백프레셔)").register(meterRegistry);
+        return loop;
     }
 
     // HA 관측 게이지 + readiness 배선. 승격 상태 전이를 AvailabilityChangeEvent로 승격시켜

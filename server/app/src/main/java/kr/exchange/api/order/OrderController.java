@@ -50,29 +50,37 @@ public class OrderController {
     private final EpochSource epochSource;
     private final ObjectMapper objectMapper;
     private final JdbcClient jdbc;
+    private final OrderRejectionMetrics rejections;
 
     public OrderController(OrderGateway gateway, OrderQueryService orders,
-                           EpochSource epochSource, ObjectMapper objectMapper, JdbcClient jdbc) {
+                           EpochSource epochSource, ObjectMapper objectMapper, JdbcClient jdbc,
+                           OrderRejectionMetrics rejections) {
         this.gateway = gateway;
         this.orders = orders;
         this.epochSource = epochSource;
         this.objectMapper = objectMapper;
         this.jdbc = jdbc;
+        this.rejections = rejections;
     }
 
     @PostMapping
     public ResponseEntity<Object> create(HttpServletRequest request, HttpServletResponse response)
             throws java.io.IOException {
         AuthPrincipal principal = principal(request);
-        rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
-        byte[] body = readBoundedBody(request);
-        JsonNode json = parse(body);
-        OrderGateway.Placement placement = gateway.place(principal.userId(), json, body);
-        Map<String, Object> view = orders.view(placement.row(), placement.epoch());
-        if (placement.replayed()) {
-            return ResponseEntity.ok().header("X-Idempotent-Replay", "true").body(view);
+        try {
+            rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
+            byte[] body = readBoundedBody(request);
+            JsonNode json = parse(body);
+            OrderGateway.Placement placement = gateway.place(principal.userId(), json, body);
+            Map<String, Object> view = orders.view(placement.row(), placement.epoch());
+            if (placement.replayed()) {
+                return ResponseEntity.ok().header("X-Idempotent-Replay", "true").body(view);
+            }
+            return ResponseEntity.status(HttpStatus.CREATED).body(view);
+        } catch (ApiException e) {
+            rejections.record(e);
+            throw e;
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(view);
     }
 
     /** 일괄 주문(§4-B-6). 비원자·per-item 계약. 요청 자체가 유효하면 부분 성패라도 200. */
@@ -80,9 +88,16 @@ public class OrderController {
     public Map<String, Object> batch(HttpServletRequest request, HttpServletResponse response)
             throws java.io.IOException {
         AuthPrincipal principal = principal(request);
-        JsonNode array = parseArray(readBoundedBody(request));
-        // 원소 수만큼 차감해 batch 증폭(요청당 최대 20배)을 상쇄한다. 전량 통과하거나 전량 429.
-        rateLimiter.enforce(response, String.valueOf(principal.userId()), array.size());
+        JsonNode array;
+        try {
+            array = parseArray(readBoundedBody(request));
+            // 원소 수만큼 차감해 batch 증폭(요청당 최대 20배)을 상쇄한다. 전량 통과하거나 전량 429.
+            rateLimiter.enforce(response, String.valueOf(principal.userId()), array.size());
+        } catch (ApiException e) {
+            // 배열 형식오류·전량 429는 요청 전체 거부라 1건으로 계량한다(per-item 거부와 별도).
+            rejections.record(e);
+            throw e;
+        }
         List<Map<String, Object>> results = new ArrayList<>();
         int accepted = 0;
         int rejected = 0;
@@ -120,6 +135,7 @@ public class OrderController {
                 } else {
                     item.put("status", "rejected");
                     item.put("error", rejectedError(e));
+                    rejections.record(e);
                     rejected++;
                 }
             }
@@ -144,15 +160,20 @@ public class OrderController {
     public ResponseEntity<Object> cancel(HttpServletRequest request, HttpServletResponse response,
                                          @PathVariable("id") String id) {
         AuthPrincipal principal = principal(request);
-        rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
-        UUID externalId;
         try {
-            externalId = UUID.fromString(id);
-        } catch (IllegalArgumentException e) {
-            throw new ApiException(404, "order_not_found", "주문이 없습니다.");
+            rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
+            UUID externalId;
+            try {
+                externalId = UUID.fromString(id);
+            } catch (IllegalArgumentException e) {
+                throw new ApiException(404, "order_not_found", "주문이 없습니다.");
+            }
+            OrderGateway.Placement placement = gateway.cancel(principal.userId(), externalId);
+            return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
+        } catch (ApiException e) {
+            rejections.record(e);
+            throw e;
         }
-        OrderGateway.Placement placement = gateway.cancel(principal.userId(), externalId);
-        return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
     }
 
     /** by-client 취소(§4-B-2). 재조회 계약과 동일한 저널 권위로 404·409를 판정한다. */
@@ -160,10 +181,15 @@ public class OrderController {
     public ResponseEntity<Object> cancelByClient(HttpServletRequest request, HttpServletResponse response,
                                                  @PathVariable("clientOrderId") String clientOrderId) {
         AuthPrincipal principal = principal(request);
-        rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
-        OrderGateway.Placement placement =
-                gateway.cancelByClient(principal.userId(), clientOrderId);
-        return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
+        try {
+            rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
+            OrderGateway.Placement placement =
+                    gateway.cancelByClient(principal.userId(), clientOrderId);
+            return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
+        } catch (ApiException e) {
+            rejections.record(e);
+            throw e;
+        }
     }
 
     /** 일괄 취소(§4-B-3). market 미지정 시 전체 미체결 취소. */
@@ -171,7 +197,12 @@ public class OrderController {
     public Map<String, Object> cancelAll(HttpServletRequest request, HttpServletResponse response,
                                          @RequestParam(value = "market", required = false) String market) {
         AuthPrincipal principal = principal(request);
-        rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
+        try {
+            rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
+        } catch (ApiException e) {
+            rejections.record(e);
+            throw e;
+        }
         OrderGateway.BulkCancelResult result = gateway.cancelAll(principal.userId(), market);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("schema_version", ApiFormats.SCHEMA_VERSION);
