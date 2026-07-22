@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ESP",
+  "korean_name": "에스프레소",
+  "english_name": "Espresso",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:52.166Z",
+  "window": {
+    "candle_count": 149,
+    "from": "2026-02-24T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "104",
+  "price_stats": {
+    "min": "85.3",
+    "max": "265",
+    "mean": "116.7959731543624",
+    "median": "105"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 148,
+    "daily_stddev": "0.044599129325596995",
+    "annualized": "0.8520651693734956"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.006319857613816555"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4294008098.0029197",
+    "avg_daily_trade_volume": "25930809.368164305"
+  },
+  "sufficient": true
+}

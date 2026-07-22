@@ -1,0 +1,33 @@
+{
+  "market": "KRW-BABY",
+  "korean_name": "바빌론",
+  "english_name": "Babylon",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:18.127Z",
+  "window": {
+    "candle_count": 48,
+    "from": "2026-06-05T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "18.5",
+  "price_stats": {
+    "min": "18.4",
+    "max": "29.2",
+    "mean": "21.08333333333334",
+    "median": "20.35"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 47,
+    "daily_stddev": "0.05135897010091073",
+    "annualized": "0.9812117460500451"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.008122616931944176"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3557190295.389824",
+    "avg_daily_trade_volume": "133278879.34926258"
+  },
+  "sufficient": true
+}

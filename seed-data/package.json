@@ -1,0 +1,14 @@
+{
+  "name": "seed-data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "시드 타임 1회 수집 스크립트. 런타임 외부 의존 0 원칙에 따라 결과 JSON과 로고만 저장소에 커밋하고, 런타임은 이 산출물만 읽는다.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "markets": "node fetch-markets.mjs",
+    "coin-meta": "node fetch-coin-meta.mjs"
+  }
+}

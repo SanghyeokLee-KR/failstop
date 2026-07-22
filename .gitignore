@@ -1,0 +1,34 @@
+# 빌드 산출물
+web/node_modules/
+web/.next/
+web/out/
+web/.test-dist/
+web/tsconfig.tsbuildinfo
+server/.gradle/
+server/build/
+server/**/build/
+**/bin/
+
+# 환경/비밀
+.env
+.env.*
+!.env.example
+*.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 로그/임시
+*.log
+*.tmp
+tmp/
+
+# 문서 빌드 중간물은 추적하되, PDF 소스 HTML은 유지한다.
+# (docs/*.html은 PDF 재생성 원본이므로 커밋 대상)

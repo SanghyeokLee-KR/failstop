@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ATOM",
+  "korean_name": "코스모스",
+  "english_name": "Cosmos",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:48.900Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "2155",
+  "price_stats": {
+    "min": "2155",
+    "max": "3860",
+    "mean": "2852.4",
+    "median": "2782"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.029555476423790302",
+    "annualized": "0.5646565842373459"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002266191790165132"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1084516845.948301",
+    "avg_daily_trade_volume": "370448.6638318923"
+  },
+  "sufficient": true
+}

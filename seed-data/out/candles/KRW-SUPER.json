@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SUPER",
+  "korean_name": "슈퍼버스",
+  "english_name": "SuperVerse",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:01.658Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "126",
+  "price_stats": {
+    "min": "124",
+    "max": "342",
+    "mean": "183.565",
+    "median": "171.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03969241841425257",
+    "annualized": "0.758322589037024"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004822994190019567"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2371530112.952093",
+    "avg_daily_trade_volume": "11870144.686452013"
+  },
+  "sufficient": true
+}

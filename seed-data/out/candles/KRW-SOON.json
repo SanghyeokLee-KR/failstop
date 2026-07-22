@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SOON",
+  "korean_name": "쑨",
+  "english_name": "SOON",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:09.734Z",
+  "window": {
+    "candle_count": 97,
+    "from": "2026-04-17T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "239",
+  "price_stats": {
+    "min": "220",
+    "max": "333",
+    "mean": "252.35051546391753",
+    "median": "250"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 96,
+    "daily_stddev": "0.04675105692677568",
+    "annualized": "0.8931776884675727"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003454988938009721"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "9146890718.490133",
+    "avg_daily_trade_volume": "32394350.435467184"
+  },
+  "sufficient": true
+}

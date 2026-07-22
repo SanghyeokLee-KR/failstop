@@ -1,0 +1,23 @@
+/* 차트 래퍼. PanelCard 본문을 세로 flex로 채워 CandleChart가 1fr 행을 흡수 */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+}
+/* SegmentedTab을 좌측 정렬·콘텐츠 폭으로 배치, 라벨 줄바꿈 방지 */
+.toolbar {
+  display: flex;
+  flex-shrink: 0;
+}
+.toolbar button {
+  white-space: nowrap;
+  padding: 0 var(--space-3);
+  min-height: 32px;
+}
+.chartArea {
+  flex: 1;
+  min-height: 0;
+}

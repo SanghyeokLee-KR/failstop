@@ -1,0 +1,33 @@
+{
+  "market": "KRW-QTUM",
+  "korean_name": "퀀텀",
+  "english_name": "Qtum",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:03.986Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1025",
+  "price_stats": {
+    "min": "990",
+    "max": "2301",
+    "mean": "1373.465",
+    "median": "1335"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.032523030651441694",
+    "annualized": "0.6213516281506267"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00339412151611055"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1908406530.7582781",
+    "avg_daily_trade_volume": "1219969.7216204475"
+  },
+  "sufficient": true
+}

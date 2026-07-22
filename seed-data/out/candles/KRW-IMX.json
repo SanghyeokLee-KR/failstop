@@ -1,0 +1,33 @@
+{
+  "market": "KRW-IMX",
+  "korean_name": "이뮤터블엑스",
+  "english_name": "Immutable X",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:00.100Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "187",
+  "price_stats": {
+    "min": "172",
+    "max": "437",
+    "mean": "250.865",
+    "median": "239"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04165901945490091",
+    "annualized": "0.7958944491636384"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003757674110786609"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1044315516.5279881",
+    "avg_daily_trade_volume": "3996802.557342846"
+  },
+  "sufficient": true
+}

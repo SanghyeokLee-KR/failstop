@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AAVE",
+  "korean_name": "에이브",
+  "english_name": "Aave",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:47.191Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "139500",
+  "price_stats": {
+    "min": "92200",
+    "max": "261500",
+    "mean": "157062.5",
+    "median": "144750"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.040996537382188086",
+    "annualized": "0.7832377469358445"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.0026759999307893"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2421198482.7878675",
+    "avg_daily_trade_volume": "16468.79579373675"
+  },
+  "sufficient": true
+}

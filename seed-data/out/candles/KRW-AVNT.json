@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AVNT",
+  "korean_name": "아반티스",
+  "english_name": "Avantis",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:58.700Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "135",
+  "price_stats": {
+    "min": "132",
+    "max": "511",
+    "mean": "243.655",
+    "median": "217"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04561635017076218",
+    "annualized": "0.8714991463329623"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.006688918652086811"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "5906989118.89276",
+    "avg_daily_trade_volume": "19951983.080138627"
+  },
+  "sufficient": true
+}

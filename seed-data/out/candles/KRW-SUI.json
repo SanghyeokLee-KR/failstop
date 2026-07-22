@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SUI",
+  "korean_name": "수이",
+  "english_name": "Sui",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:17.665Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1108",
+  "price_stats": {
+    "min": "1033",
+    "max": "2768",
+    "mean": "1486.805",
+    "median": "1391.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.039931191048820924",
+    "annualized": "0.7628843338152673"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003987595156942436"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "16006968195.541471",
+    "avg_daily_trade_volume": "10330730.571255136"
+  },
+  "sufficient": true
+}

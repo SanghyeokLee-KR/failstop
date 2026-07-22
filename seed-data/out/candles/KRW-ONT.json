@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ONT",
+  "korean_name": "온톨로지",
+  "english_name": "Ontology",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:19.538Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "62.3",
+  "price_stats": {
+    "min": "58.1",
+    "max": "169",
+    "mean": "83.36850000000003",
+    "median": "75.3"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05716263397162759",
+    "annualized": "1.0920905886141539"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001975290028720596"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "7377519544.192483",
+    "avg_daily_trade_volume": "67625011.01800294"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,4 @@
+[
+  { "name": "pg-api1", "listen": "0.0.0.0:15432", "upstream": "chaos-pg:5432", "enabled": true },
+  { "name": "pg-api2", "listen": "0.0.0.0:25432", "upstream": "chaos-pg:5432", "enabled": true }
+]

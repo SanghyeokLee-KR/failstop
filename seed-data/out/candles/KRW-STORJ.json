@@ -1,0 +1,33 @@
+{
+  "market": "KRW-STORJ",
+  "korean_name": "스토리지",
+  "english_name": "Storj",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:05.074Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "109",
+  "price_stats": {
+    "min": "108",
+    "max": "217",
+    "mean": "146.62",
+    "median": "144"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03904669364082269",
+    "annualized": "0.7459860345625083"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00284496226029466"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1951648844.854174",
+    "avg_daily_trade_volume": "11518251.98115"
+  },
+  "sufficient": true
+}

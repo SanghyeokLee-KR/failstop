@@ -1,0 +1,33 @@
+{
+  "market": "KRW-DEEP",
+  "korean_name": "딥북",
+  "english_name": "DeepBook",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:19.848Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "26.8",
+  "price_stats": {
+    "min": "22.4",
+    "max": "83.8",
+    "mean": "42.3075",
+    "median": "42.45"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05611357298617329",
+    "annualized": "1.0720483066285902"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003853544150739917"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3762518795.1811957",
+    "avg_daily_trade_volume": "78072214.6568514"
+  },
+  "sufficient": true
+}

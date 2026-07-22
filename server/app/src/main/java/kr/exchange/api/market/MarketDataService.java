@@ -1,0 +1,299 @@
+package kr.exchange.api.market;
+
+import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.Cursors;
+import org.springframework.jdbc.core.simple.JdbcClient;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 시장 데이터 조회. 호가는 orders 프로젝션 집계(idx_orderbook_open), 체결·티커는 trades
+ * 프로젝션이다. 엔진 인메모리 상태를 직접 읽지 않는 이유: 오더북은 단일 라이터 스레드 소유라
+ * 교차 스레드 읽기가 결정론 규약을 흔들고, 프로젝션은 정산 커밋과 같은 트랜잭션이라 정합하다.
+ */
+public class MarketDataService {
+
+    public record Level(BigDecimal price, BigDecimal size) {
+    }
+
+    public record Depth(List<Level> asks, List<Level> bids,
+                        BigDecimal totalAsk, BigDecimal totalBid) {
+    }
+
+    private static final int DEPTH_LEVELS = 15;
+
+    private final JdbcClient jdbc;
+
+    public MarketDataService(JdbcClient jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    public Depth depth(int marketId) {
+        List<Level> asks = levels(marketId, "SELL", "ASC");
+        List<Level> bids = levels(marketId, "BUY", "DESC");
+        return new Depth(asks, bids, total(marketId, "SELL"), total(marketId, "BUY"));
+    }
+
+    private List<Level> levels(int marketId, String side, String direction) {
+        return jdbc.sql("""
+                        SELECT price, SUM(remaining_qty) AS size
+                        FROM orders
+                        WHERE market_id = ? AND side = ? AND status IN ('OPEN','PARTIAL')
+                        GROUP BY price
+                        ORDER BY price %s
+                        LIMIT %d
+                        """.formatted(direction, DEPTH_LEVELS))
+                .params(marketId, side)
+                .query((rs, rowNum) -> new Level(rs.getBigDecimal("price"), rs.getBigDecimal("size")))
+                .list();
+    }
+
+    private BigDecimal total(int marketId, String side) {
+        return jdbc.sql("""
+                        SELECT COALESCE(SUM(remaining_qty), 0)
+                        FROM orders
+                        WHERE market_id = ? AND side = ? AND status IN ('OPEN','PARTIAL')
+                        """)
+                .params(marketId, side)
+                .query(BigDecimal.class)
+                .single();
+    }
+
+    /** REST 단건 객체·WS 메시지 공용 호가 본문. stream 필드는 WS 호출측만 덧붙인다(§5-2 v2.4). */
+    public Map<String, Object> orderbookBody(String marketSymbol, Depth depth,
+                                             long epoch, long seq, String timestamp) {
+        List<Map<String, Object>> units = new ArrayList<>();
+        int rows = Math.max(depth.asks().size(), depth.bids().size());
+        for (int i = 0; i < rows; i++) {
+            Map<String, Object> unit = new LinkedHashMap<>();
+            Level ask = i < depth.asks().size() ? depth.asks().get(i) : null;
+            Level bid = i < depth.bids().size() ? depth.bids().get(i) : null;
+            unit.put("ask_price", ask == null ? null : ApiFormats.amount(ask.price()));
+            unit.put("ask_size", ask == null ? null : ApiFormats.amount(ask.size()));
+            unit.put("bid_price", bid == null ? null : ApiFormats.amount(bid.price()));
+            unit.put("bid_size", bid == null ? null : ApiFormats.amount(bid.size()));
+            units.add(unit);
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("schema_version", ApiFormats.SCHEMA_VERSION);
+        body.put("market", marketSymbol);
+        body.put("timestamp", timestamp);
+        body.put("epoch", epoch);
+        body.put("seq", seq);
+        body.put("total_ask_size", ApiFormats.amount(depth.totalAsk()));
+        body.put("total_bid_size", ApiFormats.amount(depth.totalBid()));
+        body.put("orderbook_units", units);
+        return body;
+    }
+
+    public List<Map<String, Object>> recentTrades(MarketDirectory.Market market, int count,
+                                                  Cursors.Cursor cursor) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT id, price, quantity, taker_side, executed_at
+                FROM trades
+                WHERE market_id = ?
+                """);
+        List<Object> params = new ArrayList<>(List.of(market.id()));
+        if (cursor != null) {
+            sql.append(" AND (executed_at, id) < (?, ?)");
+            params.add(cursor.ts());
+            params.add(Long.parseLong(cursor.id()));
+        }
+        sql.append(" ORDER BY executed_at DESC, id DESC LIMIT ?");
+        params.add(count);
+        return jdbc.sql(sql.toString())
+                .params(params)
+                .query((rs, rowNum) -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    long tradeId = rs.getLong("id");
+                    OffsetDateTime executedAt = rs.getObject("executed_at", OffsetDateTime.class);
+                    row.put("trade_id", String.valueOf(tradeId));
+                    row.put("market", market.symbol());
+                    row.put("price", ApiFormats.amount(rs.getBigDecimal("price")));
+                    row.put("volume", ApiFormats.amount(rs.getBigDecimal("quantity")));
+                    row.put("taker_side", "BUY".equals(rs.getString("taker_side")) ? "bid" : "ask");
+                    row.put("liquidity_flag_taker", "TAKER");
+                    row.put("timestamp", ApiFormats.time(executedAt));
+                    row.put("seq", tradeId);
+                    row.put("cursor_ts", executedAt);
+                    return row;
+                })
+                .list();
+    }
+
+    public Map<String, Object> ticker(MarketDirectory.Market market, long epoch, long seq) {
+        Map<String, Object> last = jdbc.sql("""
+                        SELECT price, executed_at FROM trades
+                        WHERE market_id = ?
+                        ORDER BY executed_at DESC, id DESC LIMIT 1
+                        """)
+                .params(market.id())
+                .query((rs, rowNum) -> Map.<String, Object>of(
+                        "price", rs.getBigDecimal("price"),
+                        "at", rs.getObject("executed_at", OffsetDateTime.class)))
+                .optional()
+                .orElse(null);
+
+        OffsetDateTime dayAgo = OffsetDateTime.now(java.time.ZoneOffset.UTC).minusHours(24);
+        Map<String, Object> agg = jdbc.sql("""
+                        SELECT MAX(price) AS high, MIN(price) AS low,
+                               COALESCE(SUM(quantity), 0) AS vol,
+                               COALESCE(SUM(price * quantity), 0) AS turnover
+                        FROM trades WHERE market_id = ? AND executed_at > ?
+                        """)
+                .params(market.id(), dayAgo)
+                .query((rs, rowNum) -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("high", rs.getBigDecimal("high"));
+                    m.put("low", rs.getBigDecimal("low"));
+                    m.put("vol", rs.getBigDecimal("vol"));
+                    m.put("turnover", rs.getBigDecimal("turnover"));
+                    return m;
+                })
+                .single();
+
+        BigDecimal prev = jdbc.sql("""
+                        SELECT price FROM trades
+                        WHERE market_id = ? AND executed_at <= ?
+                        ORDER BY executed_at DESC, id DESC LIMIT 1
+                        """)
+                .params(market.id(), dayAgo)
+                .query(BigDecimal.class)
+                .optional()
+                .orElseGet(() -> jdbc.sql("""
+                                SELECT price FROM trades WHERE market_id = ?
+                                ORDER BY executed_at ASC, id ASC LIMIT 1
+                                """)
+                        .params(market.id())
+                        .query(BigDecimal.class)
+                        .optional()
+                        .orElse(null));
+
+        Depth depth = depth(market.id());
+        BigDecimal lastPrice = last == null ? null : (BigDecimal) last.get("price");
+
+        // 부호는 change로, 크기는 change_rate/change_price 절대값으로 분리 노출한다(프론트 규약,
+        // web SimEngine.tickerOf와 정합). 색 단독 표현 금지 규칙을 부호 필드로 뒷받침한다.
+        String change = "EVEN";
+        String changeRate = "0";
+        String changePrice = "0";
+        if (lastPrice != null && prev != null && prev.signum() > 0) {
+            int cmp = lastPrice.compareTo(prev);
+            change = cmp > 0 ? "RISE" : cmp < 0 ? "FALL" : "EVEN";
+            BigDecimal diff = lastPrice.subtract(prev);
+            changeRate = diff.abs()
+                    .divide(prev, 8, RoundingMode.HALF_UP)
+                    .stripTrailingZeros().toPlainString();
+            changePrice = ApiFormats.amount(
+                    diff.abs().setScale(market.quoteScale(), RoundingMode.HALF_UP));
+        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("market", market.symbol());
+        body.put("trade_price", lastPrice == null ? null : ApiFormats.amount(lastPrice));
+        body.put("change", change);
+        body.put("change_rate", changeRate);
+        body.put("change_price", changePrice);
+        body.put("high_24h", agg.get("high") == null ? null
+                : ApiFormats.amount((BigDecimal) agg.get("high")));
+        body.put("low_24h", agg.get("low") == null ? null
+                : ApiFormats.amount((BigDecimal) agg.get("low")));
+        body.put("acc_trade_volume_24h", ApiFormats.amount((BigDecimal) agg.get("vol")));
+        body.put("acc_trade_price_24h", ApiFormats.amount(((BigDecimal) agg.get("turnover"))
+                .setScale(market.quoteScale(), RoundingMode.HALF_UP)));
+        body.put("best_bid", depth.bids().isEmpty() ? null
+                : ApiFormats.amount(depth.bids().get(0).price()));
+        body.put("best_ask", depth.asks().isEmpty() ? null
+                : ApiFormats.amount(depth.asks().get(0).price()));
+        body.put("seq", seq);
+        body.put("epoch", epoch);
+        body.put("timestamp", last == null
+                ? ApiFormats.time(Instant.now())
+                : ApiFormats.time((OffsetDateTime) last.get("at")));
+        return body;
+    }
+
+    /**
+     * unit별 구간 초. candles 테이블은 DB 정본상 V-로드맵(비정규화 trades 파생)이라 데모는
+     * trades를 실시간 집계해 응답한다(재구축 가능·별도 저장 없음). 구간 경계는 epoch 정렬이다.
+     */
+    private static final long CANDLE_SCAN_MARGIN = 4L;
+
+    private static final Map<String, Long> UNIT_SECONDS = Map.ofEntries(
+            Map.entry("1s", 1L), Map.entry("1m", 60L), Map.entry("3m", 180L),
+            Map.entry("5m", 300L), Map.entry("15m", 900L), Map.entry("30m", 1800L),
+            Map.entry("60m", 3600L), Map.entry("240m", 14400L),
+            Map.entry("1d", 86400L), Map.entry("1w", 604800L));
+
+    public static boolean isSupportedUnit(String unit) {
+        return UNIT_SECONDS.containsKey(unit);
+    }
+
+    /**
+     * trades를 unit 구간으로 버킷팅해 OHLCV를 집계한다. open/close는 구간 내 최초·최종 체결가
+     * (executed_at,id 정렬)이고 seq는 구간 내 최대 event_seq다(구간 간 단조 증가, §5-2 candle
+     * 도메인 market×unit). 커서 id 축은 (candle_time, market) 자연키다(§2-6 U5, 시각축만으로 정렬).
+     */
+    public List<Map<String, Object>> candles(MarketDirectory.Market market, String unit,
+                                             int count, Cursors.Cursor cursor) {
+        long sec = UNIT_SECONDS.get(unit);
+        // 스캔 하한. 없으면 매 요청이 마켓 trades 전체 이력을 버킷 집계한다(HAVING·LIMIT는 집계
+        // 후 필터라 스캔을 못 줄임). count 창의 배수로 하한을 걸어 스캔을 근방으로 제한한다.
+        // 커서 페이징은 커서 시각 기준으로 창을 내린다. 배수는 sparse 갭 보정 여유.
+        OffsetDateTime anchor = cursor != null
+                ? cursor.ts()
+                : OffsetDateTime.now(java.time.ZoneOffset.UTC);
+        OffsetDateTime scanFrom = anchor.minusSeconds(sec * (long) count * CANDLE_SCAN_MARGIN);
+        StringBuilder sql = new StringBuilder("""
+                WITH bucketed AS (
+                    SELECT floor(extract(epoch FROM executed_at) / ?) AS b,
+                           price, quantity, id, executed_at
+                    FROM trades WHERE market_id = ? AND executed_at > ?
+                )
+                SELECT to_timestamp(b * ?) AS candle_time,
+                       (array_agg(price ORDER BY executed_at ASC, id ASC))[1] AS open,
+                       MAX(price) AS high, MIN(price) AS low,
+                       (array_agg(price ORDER BY executed_at DESC, id DESC))[1] AS close,
+                       SUM(quantity) AS volume, COUNT(*) AS trade_count, MAX(id) AS seq
+                FROM bucketed
+                GROUP BY b
+                """);
+        List<Object> params = new ArrayList<>();
+        params.add(sec);
+        params.add(market.id());
+        params.add(scanFrom);
+        params.add(sec);
+        if (cursor != null) {
+            sql.append(" HAVING to_timestamp(b * ?) < ?");
+            params.add(sec);
+            params.add(cursor.ts());
+        }
+        sql.append(" ORDER BY b DESC LIMIT ?");
+        params.add(count);
+        return jdbc.sql(sql.toString())
+                .params(params)
+                .query((rs, rowNum) -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    OffsetDateTime candleTime = rs.getObject("candle_time", OffsetDateTime.class);
+                    row.put("market", market.symbol());
+                    row.put("candle_time", ApiFormats.time(candleTime));
+                    row.put("open", ApiFormats.amount(rs.getBigDecimal("open")));
+                    row.put("high", ApiFormats.amount(rs.getBigDecimal("high")));
+                    row.put("low", ApiFormats.amount(rs.getBigDecimal("low")));
+                    row.put("close", ApiFormats.amount(rs.getBigDecimal("close")));
+                    row.put("volume", ApiFormats.amount(rs.getBigDecimal("volume")));
+                    row.put("trade_count", rs.getInt("trade_count"));
+                    row.put("seq", rs.getLong("seq"));
+                    row.put("cursor_ts", candleTime);
+                    return row;
+                })
+                .list();
+    }
+}

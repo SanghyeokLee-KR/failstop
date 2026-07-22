@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>웹 화면 명세서 (구현 명세). 고가용성 가상 암호화폐 거래소</title>
+<style>
+@page { size: A4; margin: 13mm 13mm 15mm; }
+*{box-sizing:border-box}
+:root{
+  --brand:#2E6BE6; --brand-600:#1F58CC; --brand-weak:#EBF1FE;
+  --up:#F23645; --up-text:#DC2536; --down-text:#0E6BCB;
+  --green:#0B8C5D; --g50:#F8FAFB; --g100:#F1F3F5; --g200:#E7EAEE; --g300:#D5DAE0;
+  --g500:#8C95A1; --g600:#6A7480; --g800:#2E3540; --g900:#16191F;
+}
+body{margin:0;font-family:'Pretendard Variable',Pretendard,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+  color:var(--g800);font-size:10.5pt;line-height:1.6;}
+.page{page-break-after:always}
+.page:last-child{page-break-after:auto}
+h1{font-size:20pt;color:var(--g900);margin:0 0 4mm}
+h2{font-size:14pt;color:var(--g900);margin:0 0 3mm;padding-bottom:2mm;border-bottom:2px solid var(--g900)}
+h3{font-size:11.5pt;color:var(--g900);margin:5mm 0 2mm}
+h4{font-size:10.5pt;color:var(--g900);margin:4mm 0 1.5mm}
+table{width:100%;border-collapse:collapse;font-size:9pt;margin:2mm 0}
+th{background:var(--g100);color:var(--g900);font-weight:700;text-align:left;padding:1.8mm 2.5mm;border:1px solid var(--g300)}
+td{padding:1.6mm 2.5mm;border:1px solid var(--g300);vertical-align:top}
+tr{page-break-inside:avoid}
+.small{font-size:8.5pt;color:var(--g600)}
+code{font-family:Consolas,'Courier New',monospace;font-size:8.5pt;background:var(--g100);padding:.2mm 1.2mm;border-radius:2px}
+pre{font-family:Consolas,'Courier New',monospace;font-size:8.2pt;line-height:1.5;background:var(--g50);
+  border:1px solid var(--g200);border-radius:2mm;padding:2.5mm 3.5mm;overflow:hidden;white-space:pre;page-break-inside:avoid}
+.note{background:var(--g50);border:1px solid var(--g200);border-left:3px solid var(--brand);border-radius:2mm;padding:2.5mm 3.5mm;font-size:9pt;margin:3mm 0}
+.rt{display:flex;justify-content:space-between;font-size:8pt;color:var(--g500);
+  border-bottom:1px solid var(--g200);padding-bottom:1.5mm;margin-bottom:5mm}
+.cover{display:flex;flex-direction:column;height:255mm}
+.cover .top{margin-top:38mm}
+.cover .doc-type{font-size:11pt;font-weight:700;color:var(--brand-600);letter-spacing:.14em}
+.cover h1{font-size:26pt;line-height:1.35;margin:6mm 0 3mm}
+.cover .sub{font-size:12pt;color:var(--g600)}
+.cover .mark{width:17mm;height:17mm;border-radius:5mm;background:var(--brand);display:flex;align-items:center;justify-content:center;margin-bottom:8mm}
+.cover .mark div{width:8.5mm;height:8.5mm;background:#fff;opacity:.92;border-radius:1.6mm;transform:rotate(45deg)}
+.cover .meta{margin-top:auto;border-top:1.5px solid var(--g900);padding-top:4mm}
+.cover .meta td,.cover .meta th{border:0;border-bottom:1px solid var(--g200);padding:1.8mm 1mm}
+.cover .meta th{background:none;width:30mm;color:var(--g600)}
+ol.toc{font-size:10.5pt;line-height:2.05;padding-left:6mm}
+.tag{display:inline-block;border-radius:99px;padding:.3mm 2.4mm;font-size:8pt;font-weight:700;background:var(--brand-weak);color:var(--brand-600)}
+</style>
+</head>
+<body>
+
+<!-- ===== 표지 ===== -->
+<section class="page cover">
+  <div class="top">
+    <div class="mark"><div></div></div>
+    <div class="doc-type">웹 화 면 명 세 서</div>
+    <h1>고가용성 가상 암호화폐 거래소<br>프론트엔드 구현 명세</h1>
+    <div class="sub">Web Screen Implementation Specification · Next.js App Router · 고정형 데스크톱</div>
+  </div>
+  <div class="meta">
+    <table>
+      <tr><th>문서 버전</th><td>v2.0</td><th>작성일</th><td>2026-07-22</td></tr>
+      <tr><th>문서 성격</th><td colspan="3"><b>구현 계약</b>. 데스크톱 트레이딩 화면(<code>/exchange/[market]</code>) 기준으로 라우트·상태·데이터 바인딩·이벤트를 확정</td></tr>
+      <tr><th>대상 코드</th><td colspan="3"><code>프로젝트/web</code> (Next.js App Router · TypeScript · zustand · lightweight-charts · 정적 export)</td></tr>
+      <tr><th>참조 문서</th><td colspan="3">데스크톱 레이아웃 설계 v1.1 · 프론트 디자인시스템 · 백엔드 API 설계 v2.5 · DB 설계 v2.5</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ===== 목차/개요 ===== -->
+<section class="page">
+  <div class="rt"><span>웹 화면 명세서 v2.0</span><span>고가용성 가상 암호화폐 거래소</span></div>
+  <h2>목차</h2>
+  <ol class="toc">
+    <li><b>개요</b>. 문서 목적 · 산출물 관계 · 화면 정책</li>
+    <li><b>라우팅 명세</b>. 실제 라우트 · 정적 export 리다이렉트</li>
+    <li><b>공통 아키텍처</b>. 앱 프레임 · 상태관리(zustand) · DataSource · 실시간 파이프라인</li>
+    <li><b>공통 컴포넌트 인벤토리</b></li>
+    <li><b>화면별 명세</b>. 거래 화면 · 자산 · 거래내역 · 시스템 상태 · 온보딩</li>
+    <li><b>Spring 백엔드 연동 전환 계획</b></li>
+  </ol>
+
+  <h2 style="margin-top:8mm">1. 개요</h2>
+  <h3>1.1 문서 목적</h3>
+  <p>본 문서는 프론트엔드 구현 계약을 고정한다.
+  데스크톱 레이아웃 설계 v1.1이 "어떻게 보이는가"(그리드·패널·색 규약)를 정의했다면,
+  본 문서는 "<b>어떻게 동작하고 무엇과 연결되는가</b>"(라우트·컴포넌트 트리·상태·데이터 바인딩·이벤트·백엔드 전환 지점)를 정의한다.</p>
+  <h3>1.2 화면 정책 (고정형 데스크톱 전용)</h3>
+  <table>
+    <tr><th style="width:34mm">항목</th><th>규칙</th></tr>
+    <tr><td>기준 화면</td><td>업비트 동형의 고정형 데스크톱 웹. 거래 화면 <code>/exchange/[market]</code>가 메인. 차트·호가·체결·주문·마켓 목록을 한 화면에 동시 노출</td></tr>
+    <tr><td>최소 폭</td><td><code>body</code> min-width 1280px. 더 좁으면 레이아웃을 접지 않고 가로 스크롤. 반응형 리플로우·모바일 레이아웃 없음</td></tr>
+    <tr><td>최대 폭</td><td>거래 화면 콘텐츠 max-width 1920px 중앙 정렬. 서브 화면 max-width 1200px 중앙 정렬</td></tr>
+    <tr><td>세로 대응</td><td>가로 미디어 쿼리 없음. 세로만 높이 브레이크포인트(820·640) 적용(레이아웃 설계 §2.3)</td></tr>
+    <tr><td>전 화면 프레임</td><td>상단 <code>HeaderNav</code> 1줄(56px, sticky). 하단 TabBar·모바일 AppBar·BottomSheet·<code>.app-frame</code>은 폐지</td></tr>
+  </table>
+  <h3>1.3 산출물 관계</h3>
+  <table>
+    <tr><th style="width:44mm">문서</th><th>관점</th><th style="width:50mm">답하는 질문</th></tr>
+    <tr><td>데스크톱 레이아웃 설계 v1.1</td><td>디자인. 그리드·패널 스펙·색·접근성</td><td>화면이 어떻게 보이는가</td></tr>
+    <tr><td><b>웹 화면 명세서 v2.0 (본 문서)</b></td><td>구현. 라우트·상태·바인딩·이벤트·연동</td><td>화면이 어떻게 동작하는가</td></tr>
+    <tr><td>백엔드 API 설계 v2.5</td><td>계약. REST/WS 스키마·멱등·서명</td><td>무엇을 주고받는가</td></tr>
+  </table>
+  <h3>1.4 핵심 설계 결정</h3>
+  <div class="note"><b>DataSource 추상화</b>. 모든 화면은 <code>DataSource</code> 인터페이스만 소비한다.
+  현재 구현 <code>SimDataSource</code>(클라이언트 GBM 시뮬레이터, 런타임 외부 의존 0)를
+  <code>HttpStompDataSource</code>(Spring REST + STOMP)로 <b>화면 코드 수정 없이</b> 교체한다(§6).
+  <code>getDataSource()</code> 팩토리가 <code>NEXT_PUBLIC_DATASOURCE=sim|http</code>로 구현체를 선택하며 기본은 sim이다.</div>
+  <div class="note"><b>정적 export</b>. <code>next.config.ts</code>가 <code>output:"export"</code>. 산출물 <code>out/</code>을 Nginx, Spring 정적 리소스로 서빙한다.
+  서버 <code>redirects()</code>·서버 리다이렉트가 동작하지 않으므로 모든 경로 이관은 클라이언트 <code>router.replace</code>로 처리하고,
+  동적 라우트는 <code>generateStaticParams</code>로 전 마켓 경로를 사전 생성한다.</div>
+  <h3>1.5 변경 이력</h3>
+  <table>
+    <tr><th style="width:20mm">버전</th><th style="width:26mm">일자</th><th>내용</th></tr>
+    <tr><td>v1.0</td><td>2026-07-21</td><td>초판. 모바일 앱 프레임(420px) 기준 SCR-01~07(<code>/market</code>·<code>/coin</code>·<code>/order</code>), TabBar·BottomSheet</td></tr>
+    <tr><td><b>v2.0</b></td><td>2026-07-22</td><td>고정형 데스크톱 전환 반영 전면 재작성. 거래 화면 <code>/exchange/[market]</code> 단일 통합, 구 라우트 클라이언트 리다이렉트, 실제 컴포넌트 트리(<code>components/trade/*</code>)·zustand 스토어·<code>HttpStompDataSource</code> 연동 반영</td></tr>
+  </table>
+</section>
+
+<!-- ===== 2. 라우팅 ===== -->
+<section class="page">
+  <div class="rt"><span>웹 화면 명세서 v2.0</span><span>2. 라우팅 명세</span></div>
+  <h2>2. 라우팅 명세</h2>
+  <h3>2.1 라우트 표</h3>
+  <table>
+    <tr><th style="width:40mm">경로</th><th style="width:52mm">페이지 파일</th><th>파라미터 / 쿼리 · 동작</th></tr>
+    <tr><td><code>/exchange/[market]</code></td><td><code>app/exchange/[market]/page.tsx</code><br><code>+ ExchangeMarketClient.tsx</code></td><td><code>market</code>: 마켓 코드(<code>KRW-BTC</code>). <b>거래 화면 본체.</b> <code>generateStaticParams</code>로 전 마켓 사전 생성. 쿼리 <code>side=bid|ask</code>·<code>price</code>는 OrderPanel 프리필로 승계</td></tr>
+    <tr><td><code>/exchange</code></td><td><code>app/exchange/page.tsx</code></td><td>클라이언트 <code>router.replace</code>. localStorage <code>exchange.recentMarket</code>(없으면 <code>KRW-BTC</code>)로 이동</td></tr>
+    <tr><td><code>/</code></td><td><code>app/page.tsx</code></td><td>클라이언트 <code>router.replace('/exchange')</code></td></tr>
+    <tr><td><code>/welcome</code></td><td><code>app/welcome/page.tsx</code></td><td>온보딩(정적). 두 CTA 모두 <code>/exchange</code>. 시뮬레이션 데모라 실제 계정·인증 없음</td></tr>
+    <tr><td><code>/market</code></td><td><code>app/market/page.tsx</code></td><td>[레거시] 딥링크 보존. 클라이언트 <code>router.replace('/exchange')</code></td></tr>
+    <tr><td><code>/coin/[market]</code></td><td><code>app/coin/[market]/page.tsx</code><br><code>+ CoinRedirect.tsx</code></td><td>[레거시] <code>generateStaticParams</code> 유지. <code>router.replace('/exchange/[market]')</code></td></tr>
+    <tr><td><code>/order/[market]</code></td><td><code>app/order/[market]/page.tsx</code><br><code>+ OrderRedirect.tsx</code></td><td>[레거시] <code>generateStaticParams</code> 유지. <code>useSearchParams</code>로 <code>side</code>·<code>price</code>를 읽어 <code>/exchange/[market]?side=&price=</code>로 승계. Suspense 경계 필수</td></tr>
+    <tr><td><code>/assets</code></td><td><code>app/assets/page.tsx</code></td><td>자산 화면(§5.2, 와이드)</td></tr>
+    <tr><td><code>/history</code></td><td><code>app/history/page.tsx</code></td><td>거래내역 화면(§5.3, 와이드)</td></tr>
+    <tr><td><code>/system</code></td><td><code>app/system/page.tsx</code></td><td>시스템 상태 화면(§5.4, 와이드)</td></tr>
+  </table>
+  <p class="small">마켓 코드는 API §2-1의 <code>KRW-BTC</code>(quote-base). 존재하지 않는 마켓은 거래 화면에서 EmptyState + [거래소로 돌아가기]로 안내한다.</p>
+
+  <h3>2.2 정적 export 리다이렉트 전략</h3>
+  <div class="note"><code>output:"export"</code>는 서버 리다이렉트를 지원하지 않는다. 구 라우트는 <b>페이지 파일과 <code>generateStaticParams</code>를 유지</b>한 채 본문을 클라이언트 리다이렉트 컴포넌트로 교체해 딥링크를 보존한다.
+  <code>/order</code>는 서버 redirect로 쿼리 승계가 불가하므로 반드시 <code>useSearchParams</code> 클라이언트 처리로 <code>side</code>·<code>price</code>를 넘긴다.
+  <code>useSearchParams</code>를 쓰는 컴포넌트는 정적 프리렌더에서 <code>Suspense</code> 경계로 감싼다.</div>
+
+  <h3>2.3 통합 배경</h3>
+  <p>구 <code>/market</code>(목록)·<code>/coin/[market]</code>(상세)·<code>/order/[market]</code>(주문)을 거래 화면 하나로 통합했다.
+  마켓 목록·주문 폼이 거래 화면의 상주 패널이 되어 독립 페이지의 존재 이유가 사라졌다. 업비트 <code>/exchange</code> 단일 화면 모델과 동형이다.</p>
+
+  <h2 style="margin-top:7mm">3. 공통 아키텍처</h2>
+  <h3>3.1 앱 프레임 · 테마 · 폰트</h3>
+  <table>
+    <tr><th style="width:34mm">항목</th><th>규칙</th></tr>
+    <tr><td>전역 셸</td><td><code>app/layout.tsx</code>가 <code>HeaderNav</code>(전 화면 공통 상단)와 <code>Toaster</code>를 상주 렌더. 화면 본문은 <code>{children}</code>. <code>.app-frame</code>·TabBar 없음</td></tr>
+    <tr><td>테마</td><td><code>tokens.css</code> 계약: 라이트 <code>:root</code> / 다크 <code>[data-theme="dark"]</code> + <code>prefers-color-scheme</code> 미러. <code>ThemeToggle</code>이 <code>data-theme</code> 토글. FOUC 방지 인라인 스크립트가 first paint 전 저장 테마 적용</td></tr>
+    <tr><td>폰트</td><td>Pretendard npm self-host(<code>pretendard/dist/web/variable</code>). CDN 금지. 런타임 외부 의존 0</td></tr>
+    <tr><td>스타일</td><td>Tailwind 금지. <code>styles/tokens.css</code> + CSS Modules. 하드코딩 hex 금지(코인 <code>brandColor</code> 데이터만 예외)</td></tr>
+    <tr><td>숫자</td><td><code>.num</code>(tabular-nums) + <code>lib/format.ts</code>. 금액·수량은 문자열 유지(NUMERIC(40,18), <code>parseFloat</code>는 표시용 <code>toNum</code>에서만). 방향은 색 단독 금지. 부호(U+2212)+화살표(▲▼) 병기 + aria 라벨</td></tr>
+  </table>
+
+  <h3>3.2 상태관리. <code>lib/store.ts</code> (zustand)</h3>
+  <h4>상태 (ExchangeState)</h4>
+  <table>
+    <tr><th style="width:38mm">필드</th><th style="width:44mm">타입</th><th>내용</th></tr>
+    <tr><td><code>markets</code></td><td><code>Market[]</code></td><td>마켓 목록 (초기 1회 로드)</td></tr>
+    <tr><td><code>tickers</code></td><td><code>Record&lt;market, TickerMessage&gt;</code></td><td>마켓별 최신 시세 (WS 갱신)</td></tr>
+    <tr><td><code>orderbooks</code></td><td><code>Record&lt;market, OrderbookMessage&gt;</code></td><td>마켓별 호가 스냅샷+실시간</td></tr>
+    <tr><td><code>trades</code></td><td><code>Record&lt;market, TradeMessage[]&gt;</code></td><td>최근 체결 (마켓별 최대 60건 링버퍼)</td></tr>
+    <tr><td><code>assets</code></td><td><code>Asset[]</code></td><td>보유 자산 (myAsset로 갱신)</td></tr>
+    <tr><td><code>openOrders</code> / <code>closedOrders</code></td><td><code>Order[]</code></td><td>미체결/체결 주문 (myOrder 전이 반영)</td></tr>
+    <tr><td><code>favorites</code></td><td><code>string[]</code></td><td>관심 마켓. localStorage <code>exchange.favorites</code> 영속(SSR 안전 하이드레이션)</td></tr>
+    <tr><td><code>connected</code></td><td><code>boolean</code></td><td>WS 연결 상태 → HeaderNav 연결 점. 갱신 주체는 <code>DataSource.onConnectionChange</code> 뿐</td></tr>
+  </table>
+  <h4>액션</h4>
+  <table>
+    <tr><th style="width:52mm">액션</th><th>동작</th></tr>
+    <tr><td><code>apply(msg: WsMessage)</code></td><td>WS 메시지 타입별 라우팅. ticker/orderbook/trade/myAsset을 슬라이스에 흡수. myOrder는 상태별 미체결↔체결 목록 전이(OPEN·PARTIAL은 openOrders, 그 외는 closedOrders로 이동). candle은 미보관(차트가 로컬 구독)</td></tr>
+    <tr><td><code>setConnected(v)</code></td><td>연결 점 갱신의 유일 경로. <code>onConnectionChange</code> 콜백이 호출</td></tr>
+    <tr><td><code>toggleFavorite(market)</code></td><td>관심 토글 + localStorage 반영</td></tr>
+    <tr><td><code>hydrateFavorites()</code></td><td>마운트 후 localStorage 값 반영 (SSR 불일치 방지)</td></tr>
+    <tr><td><code>loadMarkets()</code> / <code>loadAccounts()</code> / <code>loadOrders(market?)</code></td><td>DataSource REST 미러 호출로 초기/갱신 스냅샷 적재</td></tr>
+  </table>
+  <p class="small">구독 훅 <code>useLiveChannels(destinations: string[])</code>. 화면이 필요한 채널만 선언하면 마운트 시 구독·언마운트 시 해제. 수신 메시지는 전부 <code>apply()</code> 경유. 화면은 selector로 필요한 조각만 구독(셀 단위 리렌더 최소화).</p>
+</section>
+
+<!-- ===== 3.3~3.5 ===== -->
+<section class="page">
+  <div class="rt"><span>웹 화면 명세서 v2.0</span><span>3. 공통 아키텍처</span></div>
+  <h3>3.3 DataSource 인터페이스. <code>lib/api/datasource.ts</code></h3>
+  <table>
+    <tr><th style="width:58mm">메서드</th><th style="width:50mm">API v2.5 대응 (Spring 전환 시)</th><th>사용처</th></tr>
+    <tr><td><code>getMarkets()</code></td><td><code>GET /api/v1/markets</code></td><td>store.loadMarkets</td></tr>
+    <tr><td><code>getTicker(markets)</code></td><td><code>GET /api/v1/ticker?markets=…</code></td><td>초기 스냅샷 합성</td></tr>
+    <tr><td><code>getOrderbook(market)</code></td><td><code>GET /api/v1/orderbook</code></td><td>스냅샷·재동기화</td></tr>
+    <tr><td><code>getTrades(market, count=30)</code></td><td><code>GET /api/v1/trades</code></td><td>TradesPanel 백필</td></tr>
+    <tr><td><code>getCandles(market, unit, count=120)</code></td><td><code>GET /api/v1/candles/{unit}</code></td><td>CandleChart 백필</td></tr>
+    <tr><td><code>getAccounts()</code></td><td><code>GET /api/v1/accounts</code></td><td>store.loadAccounts</td></tr>
+    <tr><td><code>getOpenOrders(market?)</code> / <code>getClosedOrders(market?)</code></td><td><code>GET /api/v1/orders/open|closed</code></td><td>store.loadOrders</td></tr>
+    <tr><td><code>placeOrder(req: OrderRequest)</code></td><td><code>POST /api/v1/orders</code>. <b>client_order_id 필수</b>(멱등)</td><td>OrderPanel</td></tr>
+    <tr><td><code>cancelOrder(idOrClientId)</code></td><td><code>DELETE /api/v1/orders/{id}</code></td><td>거래내역 취소</td></tr>
+    <tr><td><code>subscribe(destination, cb) → unsubscribe</code></td><td>STOMP SUBSCRIBE. §5-3 경로(<code>dest</code> 헬퍼). <b>구독 즉시 snapshot 1건</b>(§5-2)</td><td>useLiveChannels</td></tr>
+    <tr><td><code>onConnectionChange(cb) → off</code></td><td>연결 상태 통지. 등록 즉시 현재 상태 1회 통지</td><td>HeaderNav</td></tr>
+    <tr><td><code>connect()</code> / <code>disconnect()</code></td><td>STOMP CONNECT / DISCONNECT</td><td>싱글턴 수명주기(<code>getDataSource</code>)</td></tr>
+  </table>
+  <p class="small"><code>SimDataSource</code>는 <code>onConnectionChange</code> 등록 시 <code>true</code> 1회만 통지(네트워크 단절 없음). <code>getDataSource()</code>는 클라이언트 싱글턴이며 최초 접근 시 <code>connect()</code> 1회 호출.</p>
+
+  <h3>3.4 실시간 파이프라인</h3>
+  <pre>SimEngine (GBM 틱, 시드 PRNG)                 ← 현재: 클라이언트 시뮬레이터
+   │ WsMessage {type, market, seq, epoch, stream:"snapshot"|"realtime", …}
+   ▼
+DataSource.subscribe(dest, cb) ──→ store.apply(msg) ──→ 화면 selector 구독
+                                                        │ (셀 단위 리렌더 최소화)
+                                                        ▼
+                                            TickCell: 유의미 변동 시 data-tick 플래시
+                                            (throttle 300ms · reduced-motion 시 생략)</pre>
+  <table>
+    <tr><th style="width:34mm">규약</th><th>구현</th></tr>
+    <tr><td>채널별 <code>seq</code></td><td>단조 증가 검사. gap 감지 시 REST 스냅샷 재호출로 재동기화. HttpStompDataSource가 담당(§6)</td></tr>
+    <tr><td><code>epoch</code></td><td>변경(백엔드 페일오버) 감지 시 전 채널 강제 재동기화. 사용자 개입 없음</td></tr>
+    <tr><td>스냅샷 계약</td><td>구독 즉시 <code>snapshot</code> 1건 수신 후 <code>realtime</code> 스트림. 어댑터가 raw <code>seq/epoch/stream</code>을 흡수하고 store에는 연속화된 도메인 이벤트만 전달</td></tr>
+    <tr><td>레이아웃 시프트</td><td>실시간 갱신은 시프트 0. 호가는 10+10 슬롯 고정(빈 슬롯은 자리행). 틱 플래시는 셀별 throttle 300ms</td></tr>
+  </table>
+
+  <h3>3.5 시뮬레이터. <code>lib/sim/engine.ts</code></h3>
+  <p class="small">GBM 틱 엔진(시드 PRNG, 재현 가능) · 코인 6종(<code>COIN_META</code>: BTC/ETH/SOL/XRP/DOGE/ADA) ·
+  호가 10단계 · 체결 스트림 · 캔들 백필 · 주문 시뮬(멱등 <code>client_order_id</code>, 최소주문 5,000원, 잔고 락/해제, 수수료 0.0005, myOrder/myAsset 발행) ·
+  <code>priceStep(price)</code>·<code>CANDLE_UNIT_MS</code> 유틸 노출.
+  API v2.5의 WS 메시지 스키마·채널별 독립 seq를 그대로 미러. <b>백엔드가 생겨도 화면이 받는 메시지 형태는 동일</b>.</p>
+</section>
+
+<!-- ===== 4. 컴포넌트 인벤토리 ===== -->
+<section class="page">
+  <div class="rt"><span>웹 화면 명세서 v2.0</span><span>4. 공통 컴포넌트 인벤토리</span></div>
+  <h2>4. 공통 컴포넌트 인벤토리</h2>
+  <h4>4.1 전역 · 레이아웃</h4>
+  <table>
+    <tr><th style="width:34mm">컴포넌트</th><th style="width:50mm">핵심 Props</th><th>역할</th></tr>
+    <tr><td><code>HeaderNav</code></td><td>없음 (경로 기반 active)</td><td>전 화면 공통 상단 내비(56px sticky). 로고·링크 4개(거래소·자산·거래내역·시스템 상태)·WS 연결 점·<code>ThemeToggle</code>. <code>onConnectionChange</code> 구독으로 연결 상태 갱신</td></tr>
+    <tr><td><code>TradeLayout</code></td><td><code>summary/chart/book/trades/order/marketList</code></td><td>거래 화면 그리드 컨테이너. grid-template + 세로 높이 브레이크포인트(820·640)만 담당, 패널은 슬롯으로 수신</td></tr>
+    <tr><td><code>PanelCard</code></td><td><code>title?/actions?/dense?/scroll?</code></td><td>거래 화면 패널 공통 셸. surface 카드 + 선택적 헤더 + 내부 스크롤 슬롯. <code>dense</code>=테이블성 패널 12px 패딩</td></tr>
+    <tr><td><code>DataTable&lt;T&gt;</code></td><td><code>columns/rows/rowKey/defaultSort/rowHeight/onRowClick</code></td><td>자산·거래내역·시스템 로그 공용 정렬 테이블. 헤더 sticky(top 56px), <code>tabular-nums</code>, 키보드 행 활성</td></tr>
+  </table>
+  <h4>4.2 거래 화면 패널 (<code>components/trade/*</code>)</h4>
+  <table>
+    <tr><th style="width:34mm">컴포넌트</th><th>역할</th></tr>
+    <tr><td><code>SummaryBar</code></td><td>종목 식별(SymbolChip·한글명)·마켓 전환 드롭다운·현재가(TickCell)·등락(PricePill)·24H 스탯(고가·저가·거래대금·거래량)·관심 토글</td></tr>
+    <tr><td><code>ChartPanel</code></td><td>주기 탭(SegmentedTab, 1분~1주) + <code>CandleChart</code>(<code>next/dynamic</code>, ssr:false, height 100%)</td></tr>
+    <tr><td><code>OrderbookPanel</code></td><td>세로 호가. 매도 10호가(Blue 틴트) 위 / 현재가 경계 / 매수 10호가(Red 틴트) 아래. 잔량 막대·가격·등락률(전일종가 역산). 클릭 시 가격만 프리필(side 유지)</td></tr>
+    <tr><td><code>TradesPanel</code></td><td>최근 체결 4열 테이블(체결가·체결량·등락률·시각). sticky 헤더 + 내부 스크롤. 스토어 60건 + REST 백필 병합·중복 제거</td></tr>
+    <tr><td><code>OrderPanel</code></td><td>인라인 주문 폼. 매수(Red)·매도(Blue), 지정가·시장가, 가격 ±스텝, 수량 + 퍼센트 칩, 총액·수수료·주문가능. 인라인 2단계 확인</td></tr>
+    <tr><td><code>MarketListPanel</code></td><td>검색(코인명·심볼) + 탭(원화·관심·보유) + 정렬 헤더(한글명·현재가·전일대비·거래대금) + 코인 행. 행 클릭 시 <code>/exchange/[market]</code> 이동</td></tr>
+    <tr><td><code>derive.ts</code></td><td>파생 계산 유틸. 전일종가 역산(<code>prevCloseOf</code>), 임의 가격 등락률(<code>rateVsPrevClose</code>), 호가 실재 슬롯 판정(<code>isPresentLevel</code>)</td></tr>
+  </table>
+  <h4>4.3 프리미티브</h4>
+  <table>
+    <tr><th style="width:30mm">컴포넌트</th><th style="width:48mm">핵심 Props</th><th>역할</th></tr>
+    <tr><td><code>SegmentedTab</code></td><td><code>items/value/onChange/variant</code></td><td>탭 전환. <code>directional</code>=매수Red/매도Blue, <code>neutral</code>, <code>underline</code></td></tr>
+    <tr><td><code>PricePill</code></td><td><code>change/changeRate/amount/variant</code></td><td>등락 표시. 색+부호+화살표 병기, EVEN은 무채색</td></tr>
+    <tr><td><code>TickCell</code></td><td><code>value/format</code></td><td>실시간 숫자 셀. 플래시 throttle 300ms, reduced-motion 대응, memo</td></tr>
+    <tr><td><code>SymbolChip</code></td><td><code>meta/size</code></td><td>코인 심볼 칩(브랜드색 예외 허용 지점)</td></tr>
+    <tr><td><code>CandleChart</code></td><td><code>market/unit/height</code></td><td>lightweight-charts 래퍼. 양봉 Red/음봉 Blue(토큰 주입), <code>series.update</code> 실시간. <code>height: number | string</code></td></tr>
+    <tr><td><code>Skeleton</code></td><td><code>variant/width/height</code></td><td>로딩 형상. CLS 0</td></tr>
+    <tr><td><code>Toast</code> / <code>Toaster</code></td><td><code>toast(msg, variant)</code></td><td>접수/체결/실패 알림. <code>info|success|error</code></td></tr>
+    <tr><td><code>ThemeToggle</code></td><td>없음</td><td><code>data-theme</code> 라이트/다크 토글</td></tr>
+    <tr><td><code>ListRow</code></td><td><code>leading/title/subtitle/trailing</code></td><td>범용 리스트 행 프리미티브</td></tr>
+  </table>
+  <p class="small">폐지 컴포넌트: <code>AppBar</code>·<code>TabBar</code>·<code>BottomSheet</code>(모바일 전용). 데스크톱 전환으로 제거, 죽은 코드로 남기지 않는다.</p>
+</section>
+
+<!-- ===== 5. 거래 화면 ===== -->
+<section class="page">
+  <div class="rt"><span>웹 화면 명세서 v2.0</span><span>5. 화면별 명세</span></div>
+  <h2>5. 화면별 명세</h2>
+
+  <h3>5.1 거래 화면. <code>/exchange/[market]</code></h3>
+  <h4>컴포넌트 트리</h4>
+  <pre>app/exchange/[market]/page.tsx        (서버 셸 · generateStaticParams: 전 마켓)
+└─ ExchangeMarketClient               (Suspense 경계 · useSearchParams 프리렌더 대비)
+   └─ ExchangeMarketBody              (useParams·useSearchParams · 채널 배선·프리필 상태)
+      └─ TradeLayout                  (그리드 6슬롯 · 높이 브레이크포인트)
+         ├─ SummaryBar        (summary)
+         ├─ ChartPanel        (chart)   ── SegmentedTab + CandleChart(dynamic)
+         ├─ OrderbookPanel    (book)    ── onPricePrefill → OrderPanel
+         ├─ TradesPanel       (trades)
+         ├─ OrderPanel        (order · key=market)
+         └─ MarketListPanel   (marketList)
+HeaderNav는 app/layout.tsx에서 전 화면 공통 렌더</pre>
+  <h4>채널 배선 · 초기 로드 (ExchangeMarketBody)</h4>
+  <table>
+    <tr><th style="width:44mm">배선</th><th>내용</th></tr>
+    <tr><td><code>useLiveChannels</code></td><td><code>[dest.orderbook(market), dest.trade(market), ...COIN_META.map(dest.ticker)]</code>. 현재 마켓 호가·체결 + 마켓 목록/요약용 전 마켓 티커</td></tr>
+    <tr><td>마운트 effect</td><td><code>hydrateFavorites()</code> · 미로드 시 <code>loadMarkets()</code> · <code>loadAccounts()</code> · <code>loadOrders()</code></td></tr>
+    <tr><td>최근 마켓</td><td>유효 마켓 진입 시 <code>writeRecentMarket(market)</code>로 localStorage 갱신(<code>/exchange</code> 복원용)</td></tr>
+    <tr><td>OrderPanel 별도</td><td><code>useLiveChannels([dest.myAsset])</code> + <code>subscribe(dest.myOrder)</code> 직접 구독(체결 Toast)</td></tr>
+  </table>
+  <h4>데이터 바인딩</h4>
+  <table>
+    <tr><th style="width:30mm">패널</th><th style="width:54mm">스토어/원천</th><th>파생</th></tr>
+    <tr><td>SummaryBar</td><td><code>tickers[market]</code> · <code>favorites</code></td><td>방향색·등락, <code>formatCompactKRW</code> 축약</td></tr>
+    <tr><td>OrderbookPanel</td><td><code>orderbooks[market]</code> + <code>tickers[market]</code></td><td>등락률 = 전일종가 역산(<code>prevCloseOf</code>+<code>rateVsPrevClose</code>). 잔량 막대 = 최대 잔량 대비 %</td></tr>
+    <tr><td>TradesPanel</td><td><code>trades[market]</code>(MAX 60) + <code>getTrades</code> 백필</td><td>체결가 방향색, 등락률 역산, 중복 <code>trade_id</code> 제거</td></tr>
+    <tr><td>ChartPanel</td><td><code>getCandles(market, unit)</code> 백필 + <code>trade</code> 실시간 <code>series.update</code></td><td>주기 로컬 상태(기본 15m)</td></tr>
+    <tr><td>OrderPanel</td><td><code>tickers[market]</code>·<code>assets</code>·<code>markets</code></td><td>총액·수수료(0.05%)·주문가능, 퍼센트 칩 자동 계산</td></tr>
+    <tr><td>MarketListPanel</td><td><code>tickers</code>·<code>favorites</code>·<code>assets</code></td><td>탭 필터·정렬(거래대금 desc 기본)</td></tr>
+  </table>
+  <h4>이벤트</h4>
+  <table>
+    <tr><th style="width:44mm">이벤트</th><th>처리</th></tr>
+    <tr><td>마켓 드롭다운·마켓 행·보유 행 클릭</td><td><code>router.push('/exchange/[market]')</code>. 마켓 전환 시 이전 마켓 프리필 파기</td></tr>
+    <tr><td>호가 행 클릭</td><td><code>onPricePrefill(price)</code> → OrderPanel에 <b>가격만 주입, side 유지</b>(데스크톱 상주 폼 컨텍스트 보호). 시장가 상태면 지정가로 전환</td></tr>
+    <tr><td>관심 토글</td><td><code>toggleFavorite(market)</code></td></tr>
+    <tr><td>주기 탭</td><td>로컬 <code>unit</code> 변경 → <code>getCandles</code> 재백필</td></tr>
+    <tr><td>쿼리 승계</td><td>진입 쿼리 <code>side</code>는 초기 방향, <code>price</code>는 초기 프리필로 반영</td></tr>
+  </table>
+</section>
+
+<!-- ===== 5.1 주문 규약 ===== -->
+<section class="page">
+  <div class="rt"><span>웹 화면 명세서 v2.0</span><span>5. 화면별 명세</span></div>
+  <h4>OrderPanel. 주문 검증 · 제출 규약</h4>
+  <table>
+    <tr><th style="width:34mm">항목</th><th>규칙</th></tr>
+    <tr><td>주문 유형</td><td>지정가(<code>limit</code>) / 시장가(<code>market</code>). 시장가 매수는 <code>price</code>에 주문 금액(notional), 시장가 매도는 <code>volume</code></td></tr>
+    <tr><td>가격</td><td>지정가만 입력. ±스텝은 <code>priceStep(price)</code> 호가 단위. 프리필·현재가 1회 채움</td></tr>
+    <tr><td>수량 / 금액</td><td>퍼센트 칩(10·25·50·최대). 매도는 보유 수량, 지정가 매수는 가용 KRW÷(가격·수수료), 시장가 매수는 금액 기준 자동 계산. 소수는 <code>qty_scale</code> 내림</td></tr>
+    <tr><td>검증</td><td>최소주문 5,000원 미만 → 에러 + CTA disabled / 매수 총액+수수료 &gt; 가용 KRW → "주문 가능 금액 초과" / 매도 수량 &gt; 보유 → "보유 수량 초과"</td></tr>
+    <tr><td>멱등</td><td><code>client_order_id</code> 클라이언트 생성(<code>web-{ts}-{rand}</code>). 확인 진입(arm) 시 1개 발급, 주문 1건당 1키</td></tr>
+    <tr><td>제출</td><td><code>placeOrder(req)</code> → 접수 Toast(info) + 입력 초기화 + <code>loadOrders()</code>. 실패 시 오류 메시지 Toast(error)</td></tr>
+    <tr><td>체결</td><td><code>myOrder</code> 구독에서 <code>status==="FILLED"</code> 수신 시 체결 Toast(success)</td></tr>
+  </table>
+  <div class="note"><b>인라인 2단계 확인</b>. 1차 클릭 시 CTA가 확인 라벨("<code>{총액} KRW {매수|매도} 확정</code>")로 전환, 3초 내 재클릭으로 확정한다.
+  Esc·외부 클릭·3초 경과·입력(방향·유형·가격·수량·마켓) 변경 시 원복. 모달·바텀시트 없음(상주 폼의 포커스 이탈 비용 배제).</div>
+
+  <h4>OrderbookPanel · TradesPanel. 등락률 조인</h4>
+  <p class="small">orderbook·trade 메시지에는 전일종가가 없다. <code>derive.ts</code>가 <code>tickers[market]</code>에서 역산한다: 전일종가 = 현재가 ∓ 등락액(RISE 차감·FALL 가산). 임의 가격의 등락률은 이 전일종가 대비로 계산해 각 호가·체결 행에 색·부호로 병기한다. 얇은 호가의 빈 슬롯(가격·잔량 0)은 등락률 오표시(-100%)를 막기 위해 값 없는 자리행으로 렌더한다.</p>
+
+  <h4>상태 (로딩 · 빈 · 에러)</h4>
+  <table>
+    <tr><th style="width:34mm">상태</th><th>처리</th></tr>
+    <tr><td>로딩</td><td>티커 미수신 시 SummaryBar 현재가 Skeleton, 호가·체결·차트 각 Skeleton(<code>variant</code> 대응)</td></tr>
+    <tr><td>빈</td><td>체결 없음 → "아직 체결 내역이 없어요". 마켓 목록 탭별 빈 문구(관심·보유·검색 결과)</td></tr>
+    <tr><td>존재하지 않는 마켓</td><td><code>COIN_META</code> 미존재 → EmptyState + [거래소로 돌아가기]</td></tr>
+    <tr><td>연결 단절</td><td>HeaderNav 연결 점이 "연결 끊김"으로 전환(<code>connected=false</code>). 시뮬레이터는 항상 연결</td></tr>
+  </table>
+
+  <h3 style="margin-top:6mm">5.5 온보딩. <code>/welcome</code></h3>
+  <table>
+    <tr><th style="width:26mm">데이터</th><td>없음 (정적)</td></tr>
+    <tr><th>이벤트</th><td>[시작하기]·[이미 계정이 있어요] 모두 <code>/exchange</code>. 완전 시뮬레이션이라 계정 생성·비밀번호·인증 UI 없음</td></tr>
+  </table>
+</section>
+
+<!-- ===== 5.2 자산 / 5.3 거래내역 ===== -->
+<section class="page">
+  <div class="rt"><span>웹 화면 명세서 v2.0</span><span>5. 화면별 명세</span></div>
+  <h3>5.2 자산. <code>/assets</code></h3>
+  <h4>구조 · 컴포넌트</h4>
+  <pre>AssetsPage (max-width 1200px)
+├─ 총 보유자산 요약 카드 (전폭)   ── 총평가·총매수·평가손익(PricePill)·보유현금·총자산 · 숨김 토글
+└─ grid 1fr 320px
+   ├─ 보유 자산 테이블 (DataTable) ── 코인(SymbolChip)·보유수량·매수평균가·평가금액·평가손익, 행 48px
+   └─ 보유 비중 카드              ── 상위 5 + 기타 가로 막대(role="meter")</pre>
+  <table>
+    <tr><th style="width:34mm">항목</th><th>규칙</th></tr>
+    <tr><td>데이터</td><td><code>assets</code> ← <code>loadAccounts()</code> + <code>useLiveChannels([...보유 마켓 ticker, dest.myAsset])</code></td></tr>
+    <tr><td>평가 재계산</td><td>보유량 = balance + locked. 평가손익 = (현재가 − 매수평균가)×수량, 수익률 = 손익/매수금액. selector 메모</td></tr>
+    <tr><td>손익 표시</td><td>색 + 부호 병기(<code>dir-text</code> + <code>formatDirectionalAmount</code> + 등락률). green 금지</td></tr>
+    <tr><td>숨김 토글</td><td>금액 전부 <code>••••••</code> 마스킹 (로컬 상태)</td></tr>
+    <tr><td>행 클릭</td><td><code>/exchange/[market]</code> 이동</td></tr>
+    <tr><td>빈 상태</td><td>"아직 보유한 코인이 없어요" + [거래소 가기]</td></tr>
+  </table>
+
+  <h3 style="margin-top:6mm">5.3 거래내역. <code>/history</code></h3>
+  <h4>구조 · 컴포넌트</h4>
+  <pre>HistoryPage (max-width 1200px, 전폭 단일 컬럼)
+├─ 필터 바 (48px)  ── SegmentedTab(미체결·체결) + 마켓 셀렉트 + 기간 칩(전체·1일·1주·1개월)
+└─ 본문 테이블 (DataTable, 행 44px)
+   시각 | 마켓(SymbolChip) | 구분(매수Red·매도Blue 배지) | 주문가격 | 주문수량 | 체결수량 | 상태 | [취소]</pre>
+  <table>
+    <tr><th style="width:34mm">항목</th><th>규칙</th></tr>
+    <tr><td>데이터</td><td><code>openOrders</code>/<code>closedOrders</code> ← <code>loadOrders()</code> + <code>useLiveChannels([dest.myOrder])</code>. 스토어 apply가 미체결↔체결 전이</td></tr>
+    <tr><td>상태 배지</td><td>부분체결(warning) · 체결(success) · 취소됨/접수(무채색). 색 도메인은 헬스, 방향 배지는 시세 색</td></tr>
+    <tr><td>취소</td><td>미체결 탭만 노출. <code>cancelOrder(order.id)</code>(UUID) → Toast + <code>loadOrders()</code>. 중복 클릭 차단(canceling 셋)</td></tr>
+    <tr><td>필터</td><td>마켓·기간 클라이언트 필터. 정렬은 DataTable(시각 desc 기본)</td></tr>
+    <tr><td>빈 상태</td><td>탭별 문구 + [거래소 가기]</td></tr>
+  </table>
+</section>
+
+<!-- ===== 5.4 시스템 ===== -->
+<section class="page">
+  <div class="rt"><span>웹 화면 명세서 v2.0</span><span>5. 화면별 명세</span></div>
+  <h3>5.4 시스템 상태. <code>/system</code></h3>
+  <h4>구조 · 컴포넌트</h4>
+  <pre>SystemPage (max-width 1200px)
+├─ 전체 상태 배너 (전폭 72px)     ── 정상 success / 성능저하 warning · 가동률·처리량·p99·최근 RTO
+├─ 서비스 카드 3열 grid (각 140px) ── 노드명(mono)·상태점+라벨·지연시간·가동률
+└─ 이벤트 로그 테이블 (DataTable) ── 시각·서비스·수준·메시지, 최신순, 행 40px</pre>
+  <table>
+    <tr><th style="width:34mm">항목</th><th>규칙</th></tr>
+    <tr><td>데이터(현재)</td><td>클라이언트 시뮬레이션(<code>advance</code> 1s 틱). 노드 6종(API·체결 엔진·저널 DB), 확률적 성능 저하 주입 후 5~10틱 자동 복구</td></tr>
+    <tr><td>색 도메인</td><td>시스템 헬스(success/warning/danger). 시세 색과 분리. 배지+아이콘+라벨 병기</td></tr>
+    <tr><td>상태 전이 플래시</td><td>헬스 전용 토큰(<code>.status-pill[data-transition]</code>). 시세 틱 플래시 차용 금지</td></tr>
+    <tr><td>복구 관찰</td><td>노드 복구 시 RTO 실측 갱신 + Toast(success)</td></tr>
+    <tr><td>데이터(Spring 전환 후)</td><td>헬스/메트릭 API 폴링(5s) + Prometheus 지표 미러로 교체(§6.1-7)</td></tr>
+  </table>
+  <p class="small">시스템 화면은 현재 프론트 내부 시뮬레이션이라 DataSource를 경유하지 않는다. 전환 시 별도 헬스/메트릭 소스로 교체한다(다른 화면의 무수정 원칙과 무관).</p>
+</section>
+
+<!-- ===== 6. Spring 전환 ===== -->
+<section class="page">
+  <div class="rt"><span>웹 화면 명세서 v2.0</span><span>6. Spring 백엔드 연동 전환 계획</span></div>
+  <h2>6. Spring 백엔드 연동 전환 계획</h2>
+  <p><b>전환 원칙: 화면 코드 무수정.</b> <code>HttpStompDataSource</code>(<code>lib/api/httpDatasource.ts</code>)가 <code>DataSource</code> 인터페이스를 구현하고
+  <code>getDataSource()</code> 팩토리가 <code>NEXT_PUBLIC_DATASOURCE</code>로 선택한다. 어댑터는 이미 구현돼 있고 시뮬레이터와 동일 계약을 미러한다.</p>
+  <h3>6.1 전환 체크리스트</h3>
+  <table>
+    <tr><th style="width:10mm">#</th><th style="width:40mm">항목</th><th>내용</th></tr>
+    <tr><td>1</td><td>환경 변수</td><td><code>NEXT_PUBLIC_DATASOURCE=sim|http</code>(기본 sim), <code>NEXT_PUBLIC_API_BASE</code>, <code>NEXT_PUBLIC_WS_BASE</code></td></tr>
+    <tr><td>2</td><td>REST 어댑터</td><td>§3.3 매핑대로 fetch. 리스트 엔벌로프(<code>{data}</code>)·표준 에러(<code>{error:{name,message,retry_after}}</code> → <code>ApiError</code>) 파싱. 금액은 <b>문자열 유지</b>(NUMERIC(40,18)). 캔들 조회 실패는 빈 배열로 흡수(표시 전용 피드)</td></tr>
+    <tr><td>3</td><td>STOMP 어댑터</td><td><code>@stomp/stompjs</code>로 <code>/ws/v1</code> 연결. <code>subscribe(dest, cb)</code> → SUBSCRIBE. 재연결 시 전 채널 재구독 + REST 재동기화. 신규 구독자에 초기 스냅샷 1건 합성 전달(<code>deliverInitialSnapshot</code>)</td></tr>
+    <tr><td>4</td><td>인증</td><td>데모 세션(<code>POST /api/v1/demo/session</code>) 단기 JWT를 메모리에만 보관. 401 시 재발급 후 1회 재시도. 비공개 채널 구독 시 Bearer CONNECT로 승격. <b>브라우저에 secret 저장 금지</b></td></tr>
+    <tr><td>5</td><td>seq/epoch</td><td>채널별 seq 단조 검사·gap REST 재동기화·epoch 변경 강제 재동기화를 어댑터가 담당. 재동기화 중 도착분은 버퍼링 후 seq 오름차순 flush. store에는 연속화된 도메인 이벤트만 전달(raw <code>seq/epoch/stream</code> 미노출)</td></tr>
+    <tr><td>6</td><td>주문 멱등</td><td><code>client_order_id</code> 생성·재시도 재사용은 OrderPanel에 구현 완료. 어댑터 무관. 취소는 <code>order.id</code>(UUID) 정규 라우트</td></tr>
+    <tr><td>7</td><td>시스템 화면</td><td><code>/system</code> 데이터 소스를 내부 시뮬레이션 → 헬스/메트릭 API 폴링(5s)으로 교체</td></tr>
+    <tr><td>8</td><td>검증</td><td>전환 후 하네스 봇 플릿·k6 시나리오가 동일 API 사용. E2E 스모크: 마켓 조회 → 주문 → 체결 Toast → 거래내역 반영</td></tr>
+  </table>
+  <h3>6.2 백엔드에 요구되는 계약 (수용 기준 4가지)</h3>
+  <div class="note">Spring 구현이 지켜야 프론트가 무수정으로 붙는 것: ① API v2.5의 REST 경로·엔벌로프·에러코드
+  ② WS 채널 경로(§5-3)·<code>seq/epoch/stream</code> 필드·구독 즉시 스냅샷 1건(§5-2)
+  ③ <code>client_order_id</code> 멱등(§2-4) ④ 금액 문자열 표기(NUMERIC(40,18)).
+  이 4가지는 <code>SimDataSource</code>가 이미 미러하고 <code>HttpStompDataSource</code>가 검증하므로, <b>백엔드 구현의 수용 테스트 기준</b>으로 그대로 사용한다.</div>
+  <p class="small">본 문서는 <code>프로젝트/web</code> 구현(데스크톱 그리드 + 서브 3화면 + 온보딩)과 1:1 정합하며, 이후 코드 변경 시 함께 갱신한다. 웹 화면 명세서 v2.0 끝.</p>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ARX",
+  "korean_name": "아르키움",
+  "english_name": "Arcium",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:58.228Z",
+  "window": {
+    "candle_count": 30,
+    "from": "2026-06-23T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "228",
+  "price_stats": {
+    "min": "217",
+    "max": "496",
+    "mean": "310.8333333333333",
+    "median": "283"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 29,
+    "daily_stddev": "0.0722920135452706",
+    "annualized": "1.3811369795160793"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.026801044750706438"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "18345360796.100376",
+    "avg_daily_trade_volume": "46073605.682922296"
+  },
+  "sufficient": true
+}

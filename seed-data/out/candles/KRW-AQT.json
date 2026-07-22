@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AQT",
+  "korean_name": "알파쿼크",
+  "english_name": "Alpha Quark Token",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:56.990Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "270",
+  "price_stats": {
+    "min": "266",
+    "max": "986",
+    "mean": "700.465",
+    "median": "759.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.042476753036055165",
+    "annualized": "0.8115172272955133"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005942892798682434"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4180530505.539317",
+    "avg_daily_trade_volume": "6592779.630405469"
+  },
+  "sufficient": true
+}

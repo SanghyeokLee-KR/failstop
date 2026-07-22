@@ -1,0 +1,33 @@
+{
+  "market": "KRW-CKB",
+  "korean_name": "너보스",
+  "english_name": "Nervos Network",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:06.477Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1.34",
+  "price_stats": {
+    "min": "1.31",
+    "max": "4.21",
+    "mean": "2.2780000000000005",
+    "median": "2.21"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03366379888203469",
+    "annualized": "0.6431459745944766"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005570418892717688"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "588675609.2861081",
+    "avg_daily_trade_volume": "252655885.5587293"
+  },
+  "sufficient": true
+}

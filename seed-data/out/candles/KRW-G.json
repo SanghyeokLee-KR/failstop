@@ -1,0 +1,33 @@
+{
+  "market": "KRW-G",
+  "korean_name": "그래비티",
+  "english_name": "Gravity",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:49.994Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "4.69",
+  "price_stats": {
+    "min": "3.96",
+    "max": "8.45",
+    "mean": "5.507900000000001",
+    "median": "5.42"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.060312019448415785",
+    "annualized": "1.152259513664487"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001896257031036531"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "5598238186.050608",
+    "avg_daily_trade_volume": "839896172.4321369"
+  },
+  "sufficient": true
+}

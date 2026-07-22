@@ -1,0 +1,68 @@
+/* DataTable: 공용 정렬 테이블 (§5.2). 테이블성 밀도 13px, 숫자 tabular-nums */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+
+.head {
+  display: grid;
+  gap: var(--space-2);
+  align-items: center;
+  height: 36px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  /* 페이지 스크롤에서 HeaderNav(56px) 아래 고정 */
+  position: sticky;
+  top: 56px;
+  z-index: 1;
+  background: var(--surface-default);
+}
+
+.hcell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.hcell[data-align="right"] { justify-content: flex-end; }
+.hcell[data-align="center"] { justify-content: center; }
+
+.sortBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 28px;
+  font-size: inherit;
+  color: inherit;
+  white-space: nowrap;
+}
+.sortBtn[data-on] {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+
+.row {
+  display: grid;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.row:last-child { border-bottom: 0; }
+.row[data-clickable] { cursor: pointer; }
+.row[data-clickable]:hover { background: var(--surface-hover); }
+
+.cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.cell[data-align="right"] { justify-content: flex-end; text-align: right; }
+.cell[data-align="center"] { justify-content: center; }

@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>화면설계서 · 고가용성 가상 암호화폐 거래소 (데스크톱)</title>
+<style>
+/* ===== 인쇄 설정 ===== */
+@page { size: A4; margin: 13mm 13mm 15mm; }
+*{box-sizing:border-box}
+:root{
+  --brand:#2E6BE6; --brand-600:#1F58CC; --brand-weak:#EBF1FE;
+  --up:#F23645; --up-text:#DC2536; --up-bg:#FDECEE;
+  --down:#1C82E8; --down-text:#0E6BCB; --down-bg:#E9F3FD;
+  --green:#0B8C5D; --green-bg:#E6F7F0; --orange:#DB7A00; --orange-bg:#FFF4E5;
+  --crimson:#A61E3C; --crimson-bg:#FBE9EE;
+  --g50:#F8FAFB; --g100:#F1F3F5; --g200:#E7EAEE; --g300:#D5DAE0; --g500:#8C95A1;
+  --g600:#6A7480; --g800:#2E3540; --g900:#16191F;
+}
+body{margin:0;font-family:'Pretendard Variable',Pretendard,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+  color:var(--g800);font-size:10.5pt;line-height:1.6;}
+.num{font-variant-numeric:tabular-nums}
+.page{page-break-after:always;position:relative;}
+.page:last-child{page-break-after:auto}
+h1{font-size:20pt;color:var(--g900);margin:0 0 4mm}
+h2{font-size:14pt;color:var(--g900);margin:0 0 3mm;padding-bottom:2mm;border-bottom:2px solid var(--g900)}
+h3{font-size:11.5pt;color:var(--g900);margin:5mm 0 2mm}
+table{width:100%;border-collapse:collapse;font-size:9pt;margin:2mm 0}
+th{background:var(--g100);color:var(--g900);font-weight:700;text-align:left;padding:1.8mm 2.5mm;border:1px solid var(--g300)}
+td{padding:1.6mm 2.5mm;border:1px solid var(--g300);vertical-align:top}
+.small{font-size:8.5pt;color:var(--g600)}
+.tag{display:inline-block;border-radius:99px;padding:.3mm 2.4mm;font-size:8pt;font-weight:700}
+.tag-up{background:var(--up-bg);color:var(--up-text)}
+.tag-down{background:var(--down-bg);color:var(--down-text)}
+.tag-ok{background:var(--green-bg);color:var(--green)}
+.tag-warn{background:var(--orange-bg);color:var(--orange)}
+.tag-danger{background:var(--crimson-bg);color:var(--crimson)}
+.tag-brand{background:var(--brand-weak);color:var(--brand-600)}
+code{font-family:Consolas,'Courier New',monospace;font-size:8.5pt;background:var(--g100);padding:.2mm 1.2mm;border-radius:2px}
+.sw{display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:-1px;margin-right:1.5mm}
+
+/* ===== 표지 ===== */
+.cover{display:flex;flex-direction:column;height:255mm}
+.cover .top{margin-top:38mm}
+.cover .doc-type{font-size:11pt;font-weight:700;color:var(--brand-600);letter-spacing:.14em}
+.cover h1{font-size:27pt;line-height:1.35;margin:6mm 0 3mm}
+.cover .sub{font-size:12pt;color:var(--g600)}
+.cover .mark{width:17mm;height:17mm;border-radius:5mm;background:var(--brand);display:flex;align-items:center;justify-content:center;margin-bottom:8mm}
+.cover .mark div{width:8.5mm;height:8.5mm;background:#fff;opacity:.92;border-radius:1.6mm;transform:rotate(45deg)}
+.cover .meta{margin-top:auto;border-top:1.5px solid var(--g900);padding-top:4mm}
+.cover .meta table{font-size:9.5pt}
+.cover .meta td,.cover .meta th{border:0;border-bottom:1px solid var(--g200);padding:1.8mm 1mm}
+.cover .meta th{background:none;width:30mm;color:var(--g600)}
+
+/* ===== 헤더(러닝타이틀) ===== */
+.rt{display:flex;justify-content:space-between;font-size:8pt;color:var(--g500);
+  border-bottom:1px solid var(--g200);padding-bottom:1.5mm;margin-bottom:5mm}
+
+/* ===== 콜아웃 번호 (와이어프레임 공통) ===== */
+.co{position:absolute;width:4.6mm;height:4.6mm;border-radius:50%;background:var(--brand);color:#fff;
+  font-size:6.6pt;font-weight:700;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 .6mm #fff;z-index:5}
+
+/* ===== 데스크톱 와이어프레임 (고정형, 1280px+ 가로 화면 축약) ===== */
+.dwf{position:relative;background:var(--g50);border:1.2px solid var(--g300);border-radius:3mm;
+  overflow:hidden;font-size:7pt;line-height:1.4;color:var(--g800);margin:3mm 0}
+.dwf .cap{position:absolute;top:1.2mm;right:2.4mm;font-size:5.6pt;color:var(--g500);letter-spacing:.04em}
+/* HeaderNav 스트립 */
+.hn{display:flex;align-items:center;gap:4mm;background:#fff;border-bottom:1px solid var(--g200);padding:2mm 3mm}
+.hn .logo{display:flex;align-items:center;gap:1.4mm;font-weight:700;font-size:8pt;color:var(--g900)}
+.hn .logo i{width:3.4mm;height:3.4mm;background:var(--brand);border-radius:1mm;transform:rotate(45deg);font-style:normal}
+.hn .nav{display:flex;gap:3.4mm;font-size:7.4pt;font-weight:600;color:var(--g500)}
+.hn .nav .on{color:var(--g900);border-bottom:1.6px solid var(--brand);padding-bottom:.7mm}
+.hn .right{margin-left:auto;display:flex;align-items:center;gap:2.6mm;font-size:6.6pt;color:var(--g600)}
+.hn .conn::before{content:"";display:inline-block;width:2mm;height:2mm;border-radius:50%;background:var(--green);margin-right:1mm;vertical-align:.2mm}
+.hn .theme{width:5mm;height:3mm;background:var(--g100);border-radius:99px}
+/* 패널 공통 (PanelCard) */
+.pane{background:#fff;border:1px solid var(--g200);border-radius:2mm;padding:1.6mm 2mm;min-width:0}
+.pane h4{margin:0 0 1mm;font-size:6.2pt;font-weight:700;color:var(--g900);
+  display:flex;justify-content:space-between;align-items:center}
+.pane h4 span{font-weight:500;color:var(--g500);font-size:5.6pt}
+.u{color:var(--up-text)} .d{color:var(--down-text)} .f{color:var(--g600)}
+.mini-pill{display:inline-block;border-radius:99px;padding:.1mm 1.6mm;font-size:5.4pt;font-weight:700}
+.mp-up{background:var(--up-bg);color:var(--up-text)} .mp-down{background:var(--down-bg);color:var(--down-text)}
+.mp-ok{background:var(--green-bg);color:var(--green)} .mp-warn{background:var(--orange-bg);color:var(--orange)}
+/* 거래 그리드 (§2) */
+.tg{display:grid;grid-template-columns:1fr 40mm 44mm;
+  grid-template-rows:auto minmax(28mm,1fr) auto;
+  grid-template-areas:"summary summary side" "chart book side" "trades book side";
+  gap:1.6mm;padding:2mm}
+.tg .a-sum{grid-area:summary} .tg .a-chart{grid-area:chart}
+.tg .a-book{grid-area:book} .tg .a-trd{grid-area:trades}
+.tg .a-side{grid-area:side;display:flex;flex-direction:column;gap:1.6mm}
+/* SummaryBar */
+.sumbar{display:flex;align-items:center;gap:3mm}
+.sumbar .sym{width:5.6mm;height:5.6mm;border-radius:50%;background:#F7931A;color:#fff;font-size:4pt;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sumbar .nm{font-weight:700;font-size:7pt;color:var(--g900)}
+.sumbar .px{font-size:11pt;font-weight:700;letter-spacing:-.01em}
+.sumbar .chg{font-size:6.4pt;font-weight:700}
+.sumbar .stat{margin-left:auto;display:flex;gap:3mm;font-size:5.8pt;color:var(--g600);text-align:right}
+.sumbar .stat b{display:block;color:var(--g900);font-weight:600}
+/* 캔들 미니차트 */
+.dwf svg{display:block}
+.tfbar{display:flex;gap:1.4mm;font-size:5.6pt;color:var(--g600);margin-bottom:1.2mm}
+.tfbar .on{color:var(--g900);font-weight:700;border-bottom:1.2px solid var(--brand)}
+/* 세로 호가 */
+.obk{display:flex;flex-direction:column;font-size:5.8pt}
+.obk .r{display:grid;grid-template-columns:1fr auto auto;gap:1.6mm;align-items:center;
+  padding:.55mm 1.2mm;border-radius:1mm;margin-bottom:.3mm;position:relative}
+.obk .r .bar{position:absolute;top:0;bottom:0;right:0;border-radius:1mm;opacity:.5}
+.obk .r span{position:relative;z-index:1}
+.obk .r .qty{color:var(--g600)} .obk .r .rt-c{font-size:5.2pt}
+.obk .ask{background:var(--down-bg)} .obk .ask b{color:var(--down-text)} .obk .ask .bar{background:var(--down-bg)}
+.obk .bid{background:var(--up-bg)} .obk .bid b{color:var(--up-text)} .obk .bid .bar{background:var(--up-bg)}
+.obk .mid{display:flex;justify-content:space-between;padding:.8mm 1.2mm;margin:.5mm 0;
+  border-top:1px dashed var(--g300);border-bottom:1px dashed var(--g300);font-weight:700;color:var(--up-text);font-size:6.6pt}
+/* 체결 테이블 */
+.trd{font-size:5.8pt}
+.trd .h,.trd .r{display:grid;grid-template-columns:1.3fr 1fr .8fr .8fr;gap:1.2mm;padding:.5mm 1mm}
+.trd .h{color:var(--g500);font-size:5.2pt;border-bottom:1px solid var(--g200);font-weight:600}
+.trd .r b{font-weight:600}
+/* OrderPanel */
+.opnl .seg2{display:flex;gap:.8mm;background:var(--g100);border-radius:1.6mm;padding:.6mm;margin-bottom:1.2mm}
+.opnl .seg2 span{flex:1;text-align:center;padding:1mm 0;border-radius:1.2mm;font-size:6.2pt;font-weight:700;color:var(--g600)}
+.opnl .seg2 .buy{background:var(--up-text);color:#fff}
+.opnl .type{display:flex;gap:2.4mm;font-size:5.8pt;color:var(--g500);margin-bottom:1.2mm}
+.opnl .type .on{color:var(--g900);font-weight:700;text-decoration:underline;text-underline-offset:1.6px}
+.opnl .lbl{font-size:5.4pt;color:var(--g600);margin:.8mm 0 .4mm}
+.opnl .inp{display:flex;justify-content:space-between;align-items:center;background:var(--g100);
+  border-radius:1.4mm;padding:1mm 1.6mm;font-size:6.4pt;font-weight:700;color:var(--g900)}
+.opnl .inp em{font-style:normal;font-size:5.4pt;font-weight:600;color:var(--g600)}
+.opnl .chips{display:flex;gap:1mm;margin:1mm 0}
+.opnl .chips span{flex:1;text-align:center;border:1px solid var(--g300);border-radius:1.2mm;padding:.7mm 0;font-size:5.4pt;font-weight:600;color:var(--g600)}
+.opnl .chips .on{border-color:var(--up-text);color:var(--up-text);background:var(--up-bg)}
+.opnl .kv{display:flex;justify-content:space-between;font-size:5.6pt;color:var(--g600);margin:.5mm 0}
+.opnl .kv b{color:var(--g900)}
+.opnl .cta{margin-top:1.2mm;text-align:center;border-radius:1.6mm;padding:1.6mm 0;font-size:6.6pt;font-weight:700;color:#fff;background:var(--up-text)}
+/* MarketListPanel */
+.mlp .srch{background:var(--g100);border-radius:1.4mm;padding:.9mm 1.6mm;font-size:5.6pt;color:var(--g500);margin-bottom:1mm}
+.mlp .tabs{display:flex;gap:2.4mm;font-size:5.6pt;color:var(--g500);margin-bottom:1mm}
+.mlp .tabs .on{color:var(--g900);font-weight:700}
+.mlp .row{display:grid;grid-template-columns:1fr auto auto;gap:1.6mm;align-items:center;padding:.7mm 0;border-top:1px solid var(--g200);font-size:5.8pt}
+.mlp .row .nm b{font-weight:600;color:var(--g900)}
+.mlp .row .nm i{font-style:normal;color:var(--g500);font-size:5.2pt;margin-left:1mm}
+/* 서브 화면 중앙 컨테이너 (max 1200px 축약) */
+.wrap{max-width:150mm;margin:0 auto;padding:2.4mm 3mm}
+.card2{background:#fff;border:1px solid var(--g200);border-radius:2mm;padding:2mm 2.6mm;margin-bottom:1.8mm}
+.card2 h4{margin:0 0 1mm;font-size:6.4pt;font-weight:700;color:var(--g900)}
+.hero-amt{font-size:12pt;font-weight:700;color:var(--g900)}
+.dtable{width:100%;font-size:5.8pt;border-collapse:collapse}
+.dtable th{background:var(--g50);color:var(--g600);font-size:5.2pt;font-weight:600;text-align:left;padding:1mm 1.4mm;border:0;border-bottom:1px solid var(--g200)}
+.dtable td{padding:1.1mm 1.4mm;border:0;border-bottom:1px solid var(--g100);vertical-align:middle}
+.dtable td.r{text-align:right}
+.grid2{display:grid;grid-template-columns:1fr 46mm;gap:1.8mm;align-items:start}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.6mm}
+.wbar{height:2.4mm;border-radius:99px;background:var(--brand);margin-top:.6mm}
+.node{background:#fff;border:1px solid var(--g200);border-radius:2mm;padding:1.4mm 1.8mm}
+.node .n{font-family:Consolas,monospace;font-size:5.8pt;font-weight:700;color:var(--g900)}
+.node .role{font-size:5pt;color:var(--g600);margin:.4mm 0 .8mm}
+.node .st{display:flex;justify-content:space-between;font-size:5.2pt;color:var(--g600)}
+.banner{display:flex;align-items:center;gap:2.4mm;background:var(--green-bg);border:1px solid #C0ECD9;border-radius:2mm;padding:1.8mm 2.6mm;margin-bottom:1.8mm}
+.banner .big{font-size:8pt;font-weight:700;color:var(--green)}
+
+table tr{page-break-inside:avoid}
+/* 흐름도 */
+.flow{display:flex;align-items:center;gap:3mm;flex-wrap:wrap;margin:4mm 0}
+.flow .n{border:1.4px solid var(--g900);border-radius:2.6mm;padding:2.4mm 4.5mm;font-weight:700;font-size:9.5pt;background:#fff}
+.flow .n.entry{background:var(--brand);border-color:var(--brand);color:#fff}
+.flow .a{font-size:10pt;color:var(--g500)}
+.note{background:var(--g50);border:1px solid var(--g200);border-left:3px solid var(--brand);border-radius:2mm;padding:2.5mm 3.5mm;font-size:9pt;margin:3mm 0}
+ol.toc{font-size:10.5pt;line-height:2.1;padding-left:6mm}
+ol.toc b{color:var(--g900)}
+</style>
+</head>
+<body>
+
+<!-- ===================== 표지 ===================== -->
+<section class="page cover">
+  <div class="top">
+    <div class="mark"><div></div></div>
+    <div class="doc-type">화 면 설 계 서</div>
+    <h1>고가용성 가상 암호화폐 거래소<br>웹 애플리케이션 (데스크톱)</h1>
+    <div class="sub">Screen Design Specification · 고정형 데스크톱 트레이딩 웹</div>
+  </div>
+  <div class="meta">
+    <table>
+      <tr><th>문서 버전</th><td>v2.0</td><th>작성일</th><td>2026-07-22</td></tr>
+      <tr><th>대상 시스템</th><td colspan="3">가상 암호화폐 거래소 프론트엔드 (Next.js App Router · TypeScript · 정적 export)</td></tr>
+      <tr><th>참조 문서</th><td colspan="3">데스크톱 레이아웃설계 v1.1 · 프론트 디자인시스템 v1.1 · 백엔드 API 설계 v2.5</td></tr>
+      <tr><th>화면 정책</th><td colspan="3">고정형 데스크톱 전용(최소 폭 1280px, 그보다 좁으면 가로 스크롤) · 반응형 리플로우·모바일 미지원</td></tr>
+      <tr><th>비고</th><td colspan="3">완전 시뮬레이션(실거래·실자산 없음) · 교육용 캡스톤 프로젝트</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ===================== 목차 + 개요 ===================== -->
+<section class="page">
+  <div class="rt"><span>화면설계서 v2.0 (데스크톱)</span><span>고가용성 가상 암호화폐 거래소</span></div>
+  <h2>목차</h2>
+  <ol class="toc">
+    <li><b>개요</b> · 목적 · 범위 · 참조 문서</li>
+    <li><b>공통 규약</b> · 화면 정책 · 색상 · 타이포 · 실시간 · 접근성</li>
+    <li><b>화면 목록 및 이동도</b> · 데스크톱 라우트 · 레거시 리다이렉트</li>
+    <li><b>SCR-01</b> 거래소 통합화면 <code>/exchange/[market]</code></li>
+    <li><b>SCR-02</b> 자산 <code>/assets</code></li>
+    <li><b>SCR-03</b> 거래내역 <code>/history</code></li>
+    <li><b>SCR-04</b> 시스템 상태 <code>/system</code></li>
+    <li><b>SCR-05</b> 온보딩 <code>/welcome</code></li>
+    <li><b>부록</b> · 레거시 라우트 리다이렉트 · 변경 이력</li>
+  </ol>
+
+  <h2 style="margin-top:8mm">1. 개요</h2>
+  <h3>1.1 목적</h3>
+  <p>고가용성 가상 암호화폐 거래소 웹의 화면 구성·구성요소·동작·데이터 연동을 정의한다. 모든 시각 속성(색·타이포·간격·모션)은
+  <b>프론트 디자인시스템 v1.1의 토큰(tokens.css)</b>을 계약으로 소비하고, 레이아웃은 <b>데스크톱 레이아웃설계 v1.1</b>을 정본으로 한다.</p>
+  <h3>1.2 범위</h3>
+  <p>고정형 데스크톱 웹(업비트 동형) 5개 화면. 기준 화면은 <code>/exchange/[market]</code> 거래 통합화면이며, 차트·호가·체결·주문·마켓 목록을
+  한 화면에 동시 노출한다. 실시간 데이터는 <code>DataSource</code> 인터페이스(WebSocket 스키마 미러)로만 접근하고, 백엔드 미연동 단계에서는
+  동일 스키마의 클라이언트 시뮬레이터로 대체한다.</p>
+  <h3>1.3 참조 문서</h3>
+  <table>
+    <tr><th style="width:44mm">문서</th><th>내용</th></tr>
+    <tr><td>데스크톱_레이아웃설계.md (v1.1)</td><td>그리드·패널 스펙 정본. §2 거래 그리드, §2.3 세로 높이 브레이크포인트, §3 서브 화면 와이드 레이아웃</td></tr>
+    <tr><td>프론트_디자인시스템.md (v1.1)</td><td>디자인 토큰(tokens.css) · 컴포넌트 인벤토리 · 접근성 체크리스트</td></tr>
+    <tr><td>백엔드_API_설계.md (v2.5)</td><td>REST/WS 계약 · 엔드포인트 · WS 채널(seq/epoch) · 멱등성(client_order_id) · 에러코드</td></tr>
+    <tr><td>웹_화면명세서 (참조)</td><td>라우트·상태·데이터 바인딩·이벤트 계약</td></tr>
+  </table>
+</section>
+
+<!-- ===================== 공통 규약 ===================== -->
+<section class="page">
+  <div class="rt"><span>화면설계서 v2.0 (데스크톱)</span><span>2. 공통 규약</span></div>
+  <h2>2. 공통 규약</h2>
+
+  <h3>2.1 화면 정책 (고정형, 데스크톱 전용)</h3>
+  <table>
+    <tr><th style="width:34mm">항목</th><th>규칙</th></tr>
+    <tr><td>최소 지원 폭</td><td>1280px. 뷰포트가 더 좁으면 레이아웃을 접지 않고 <code>body</code>에 <code>min-width:1280px</code> 가로 스크롤. 접속 차단·안내 배너 없음</td></tr>
+    <tr><td>최대 폭</td><td>거래 화면 콘텐츠 최대 1920px 중앙 정렬, 서브 화면 최대 1200px 중앙 정렬. 초광폭은 좌우 여백만 확장</td></tr>
+    <tr><td>가로 미디어 쿼리</td><td>없음. 전 해상도에서 동일 구성. 세로만 §2.3 높이 브레이크포인트(820·640) 적용</td></tr>
+    <tr><td>글로벌 내비</td><td>상단 <b>HeaderNav</b> 1줄(높이 56px, sticky) 전 화면 공통. 하단 TabBar·AppBar·BottomSheet 주문 경로 없음(제거 완료)</td></tr>
+    <tr><td>세로 예산</td><td>뷰포트 높이 821px 이상 무스크롤 / 641~820px 압축 스펙 무스크롤 / 640px 이하 페이지 세로 스크롤 허용(§2.3)</td></tr>
+  </table>
+
+  <h3>2.2 색상 규약 (한국 시장 관례 · 전 화면 불변)</h3>
+  <table>
+    <tr><th style="width:30mm">구분</th><th style="width:44mm">색상</th><th>사용 규칙</th></tr>
+    <tr><td><b>상승 · 매수</b></td><td><span class="sw" style="background:#F23645"></span>Red <code>#F23645</code> / 텍스트 <code>#DC2536</code></td>
+      <td>가격 상승, 매수 방향, 수익. 소형 텍스트는 600단계(<code>--color-up-text</code>), 틴트 위는 700단계(<code>-strong</code>)</td></tr>
+    <tr><td><b>하락 · 매도</b></td><td><span class="sw" style="background:#1C82E8"></span>Blue <code>#1C82E8</code> / 텍스트 <code>#0E6BCB</code></td>
+      <td>가격 하락, 매도 방향, 손실. 브랜드 블루와 hue 분리(Azure 계열)</td></tr>
+    <tr><td>브랜드</td><td><span class="sw" style="background:#2E6BE6"></span>Blue <code>#2E6BE6</code></td><td>버튼·링크·강조·활성 내비. 하락색과 혼동 방지를 위해 링크·활성 내비는 밑줄 병행</td></tr>
+    <tr><td>시스템 성공</td><td><span class="sw" style="background:#0B8C5D"></span>Green <code>#0B8C5D</code></td><td>체결 완료·정상 상태 전용. <b>가격 방향에 green 사용 금지</b></td></tr>
+    <tr><td>주의 / 장애</td><td><span class="sw" style="background:#DB7A00"></span>Orange / <span class="sw" style="background:#A61E3C"></span>Crimson</td><td>시스템 헬스 도메인(SCR-04) 전용 · 시세 색과 물리적 분리</td></tr>
+  </table>
+  <div class="note"><b>방향 표기 병기 원칙</b> · 상승/하락은 색 단독으로 표현하지 않는다. 반드시 <b>색 + 부호(+/−) + 화살표(▲▼)</b>를 병기한다(적록색약·명도 저하 보정). 보합(0.00%)은 무채색·화살표 없음. 하드코딩 hex 금지(코인 브랜드색 데이터만 예외).</div>
+
+  <h3>2.3 타이포그래피 · 숫자</h3>
+  <table>
+    <tr><th style="width:40mm">토큰</th><th style="width:26mm">크기/행간/굵기</th><th>용도</th></tr>
+    <tr><td><code>--font-display-lg</code></td><td class="num">34 / 44 / 700</td><td>자산 히어로 (대형 예외: -500 방향색 허용)</td></tr>
+    <tr><td><code>--font-title-1·2·3</code></td><td class="num">24·20·18</td><td>현재가 대형 / 섹션 제목 / 패널 헤더</td></tr>
+    <tr><td><code>--font-body(-lg/-sm)</code></td><td class="num">17·15·14</td><td>본문 · CTA 라벨 · 기본 페이지 폰트(14)</td></tr>
+    <tr><td><code>--font-caption·micro</code></td><td class="num">13·11</td><td>테이블성 패널(호가·체결·목록 13) · 뱃지</td></tr>
+  </table>
+  <p class="small">폰트: <b>Pretendard</b>(OFL-1.1, self-host). 모든 숫자는 <code>tabular-nums</code> + <code>Intl.NumberFormat('ko-KR')</code>. 금액·수량은
+  NUMERIC(40,18) 정밀도 보존을 위해 프론트에서 문자열로 다루며 <code>parseFloat</code> 금지. 실시간 갱신 시 레이아웃 시프트 0.</p>
+
+  <h3>2.4 실시간 · 상태 규약</h3>
+  <table>
+    <tr><th style="width:34mm">항목</th><th>규칙</th></tr>
+    <tr><td>데이터 접근</td><td><b><code>DataSource</code> 인터페이스만 사용</b>. 화면 코드가 시뮬레이터·fetch를 직접 호출하지 않는다. 상태는 zustand 스토어 셀렉터로 소비</td></tr>
+    <tr><td>WS 연결 상태</td><td>HeaderNav 우측 점 · 스토어 <code>connected</code>가 원천, <code>DataSource.onConnectionChange</code>로만 갱신. 연결 green / 단절 crimson, 라벨 병기</td></tr>
+    <tr><td>틱 플래시</td><td>유의미 변동 시 셀 배경 플래시(상승 Red틴트/하락 Blue틴트). 셀별 최소 간격 300ms(throttle), 진행 중 플래시는 취소 후 재시작. <code>prefers-reduced-motion</code> 시 무력화(값 갱신만)</td></tr>
+    <tr><td>WS 재동기화</td><td>채널별 <code>seq</code> 단조 증가 검사 · gap 감지 시 REST 스냅샷 재동기화. <code>epoch</code> 변경(페일오버) 시 강제 재동기화</td></tr>
+    <tr><td>로딩·빈·에러</td><td>Skeleton(레이아웃 동일 형상, CLS 0) / 빈 상태 안내 + 행동 CTA / 연결 단절 시 stale 흐림 + 재연결 안내</td></tr>
+  </table>
+
+  <h3>2.5 접근성</h3>
+  <table>
+    <tr><th style="width:34mm">항목</th><th>기준</th></tr>
+    <tr><td>대비</td><td>본문·소형 숫자 4.5:1 이상(WCAG AA). 방향색은 면/대형용(500)과 텍스트용(600) 분리 운용</td></tr>
+    <tr><td>탭 타깃</td><td>인터랙티브 요소 44×44px 이상. 호가 행은 오탭 방지를 위해 시각 높이 상향</td></tr>
+    <tr><td>모션</td><td><code>prefers-reduced-motion</code> 대응 · 플래시·전환 무력화</td></tr>
+    <tr><td>라벨·색맹</td><td>인터랙티브 요소에 접근성 라벨. 방향은 색+부호+화살표 3중 병기(2.2)</td></tr>
+  </table>
+</section>
+
+<!-- ===================== 화면 목록/이동도 ===================== -->
+<section class="page">
+  <div class="rt"><span>화면설계서 v2.0 (데스크톱)</span><span>3. 화면 목록 및 이동도</span></div>
+  <h2>3. 화면 목록 및 이동도</h2>
+  <h3>3.1 화면 목록 (데스크톱 실제 라우트)</h3>
+  <table>
+    <tr><th style="width:16mm">화면 ID</th><th style="width:32mm">화면명</th><th style="width:38mm">경로(URL)</th><th>주요 기능</th><th style="width:34mm">실시간 채널</th></tr>
+    <tr><td><b>SCR-01</b></td><td>거래소 통합화면</td><td><code>/exchange/[market]</code></td><td>차트·호가·체결·주문·마켓 목록 동시 노출</td><td><code>ticker·orderbook·trade·myOrder</code></td></tr>
+    <tr><td><b>SCR-02</b></td><td>자산</td><td><code>/assets</code></td><td>총자산·손익·보유코인·보유 비중</td><td><code>ticker</code></td></tr>
+    <tr><td><b>SCR-03</b></td><td>거래내역</td><td><code>/history</code></td><td>미체결·체결 조회, 취소</td><td><code>myOrder</code></td></tr>
+    <tr><td><b>SCR-04</b></td><td>시스템 상태</td><td><code>/system</code></td><td>서비스 헬스·TPS·RTO · HA 증명</td><td>헬스 폴링·WS(시뮬)</td></tr>
+    <tr><td><b>SCR-05</b></td><td>온보딩</td><td><code>/welcome</code></td><td>최초 진입, 시작 CTA</td><td>·</td></tr>
+  </table>
+  <p class="small">구 모바일 라우트(<code>/market</code> · <code>/coin/[market]</code> · <code>/order/[market]</code>)는 거래 통합화면으로 흡수했다.
+  페이지 파일과 <code>generateStaticParams</code>는 정적 export 산출 경로 보존을 위해 유지하되, 본문을 클라이언트 리다이렉트로 교체한다(부록 A).</p>
+
+  <h3>3.2 화면 이동도</h3>
+  <div class="flow">
+    <span class="n entry">SCR-05 온보딩</span><span class="a">→</span>
+    <span class="n">SCR-01 거래소 통합화면</span>
+  </div>
+  <div class="flow">
+    <span class="n" style="border-style:dashed">HeaderNav (전역 sticky)</span><span class="a">⇄</span>
+    <span class="n">SCR-01 거래소</span><span class="a">·</span>
+    <span class="n">SCR-02 자산</span><span class="a">·</span>
+    <span class="n">SCR-03 거래내역</span><span class="a">·</span>
+    <span class="n">SCR-04 시스템</span>
+  </div>
+  <div class="note">
+    <b>주요 전이</b> · ① SCR-01 호가 행 클릭 → 상주 OrderPanel에 <b>가격만 프리필</b>(side 유지, 작성 컨텍스트 보호)
+    ② SCR-01 MarketListPanel 행 클릭 → <code>/exchange/[market]</code> 마켓 전환
+    ③ OrderPanel 인라인 2단계 확인(CTA 라벨 전환 → 3초 내 재클릭 확정) → 접수 Toast → 체결 시 Toast(success) → SCR-03 반영
+    ④ WS <code>epoch</code> 변경(페일오버) → 전 화면 자동 재동기화(사용자 개입 없음)
+  </div>
+
+  <h3>3.3 보안 · 시뮬레이션 고지</h3>
+  <p class="small">완전 시뮬레이션으로 실자산·실거래가 없다. 실제 금융 자격증명(카드·계좌·비밀번호)은 입력받지 않는다.
+  주문 생성은 <code>client_order_id</code>(필수)로 멱등 처리되어 재전송 시 이중 주문이 발생하지 않으며, 재시도는 같은 키를 재사용한다.</p>
+</section>
+
+<!-- ===================== SCR-01 거래소 통합화면 (와이어프레임) ===================== -->
+<section class="page">
+  <div class="rt"><span>화면설계서 v2.0 (데스크톱)</span><span>4. SCR-01 거래소 통합화면</span></div>
+  <h2>4. SCR-01 거래소 통합화면</h2>
+  <table>
+    <tr><th style="width:22mm">화면 ID</th><td style="width:44mm"><b>SCR-01</b></td><th style="width:22mm">경로</th><td><code>/exchange/[market]</code></td></tr>
+    <tr><th>REST</th><td colspan="3"><code>GET /market/all</code> · <code>GET /ticker</code> · <code>GET /candles</code> · <code>GET /orderbook</code> · <code>GET /trades</code> · <code>GET /accounts</code> (스냅샷)</td></tr>
+    <tr><th>WS</th><td colspan="3"><code>ticker</code>(전 마켓, 목록용) · <code>orderbook</code>(seq gap→재스냅샷) · <code>trade</code> · <code>myOrder</code> · 현재 마켓 구독</td></tr>
+    <tr><th>정적 export</th><td colspan="3"><code>generateStaticParams</code>로 전 마켓 사전 생성. 동적 라우트 산출 경로 보존</td></tr>
+  </table>
+
+  <div class="dwf">
+    <span class="cap">1280px+ 고정형 · 콘텐츠 최대 1920px 중앙 정렬</span>
+    <!-- HeaderNav -->
+    <div class="hn">
+      <span class="logo"><i></i>가상거래소</span>
+      <span class="nav"><span class="on">거래소</span><span>자산</span><span>거래내역</span><span>시스템 상태</span></span>
+      <span class="right"><span class="conn">연결됨</span><span class="theme"></span></span>
+    </div>
+    <span class="co" style="top:2.6mm;left:1.2mm">0</span>
+    <!-- 거래 그리드 -->
+    <div class="tg">
+      <!-- SummaryBar -->
+      <div class="pane a-sum">
+        <div class="sumbar">
+          <span class="sym">BTC</span>
+          <span class="nm">비트코인 <span style="color:var(--g500);font-weight:500">KRW-BTC ▾</span></span>
+          <span class="px u num">84,320,000</span>
+          <span class="chg u num">▲ +1,930,000&nbsp;&nbsp;+2.34%</span>
+          <span class="stat">
+            <span>고가<b class="num">84.9M</b></span>
+            <span>저가<b class="num">82.1M</b></span>
+            <span>거래대금<b class="num">3,450억</b></span>
+            <span>관심</span>
+          </span>
+        </div>
+      </div>
+      <span class="co" style="top:11mm;left:1.2mm">1</span>
+      <!-- CandleChart -->
+      <div class="pane a-chart">
+        <h4>차트 <span>lightweight-charts</span></h4>
+        <div class="tfbar"><span class="on">1분</span><span>15분</span><span>1시간</span><span>1일</span><span>1주</span></div>
+        <svg viewBox="0 0 300 60" style="width:100%">
+          <line x1="0" y1="15" x2="300" y2="15" stroke="#E7EAEE"/><line x1="0" y1="30" x2="300" y2="30" stroke="#E7EAEE"/><line x1="0" y1="45" x2="300" y2="45" stroke="#E7EAEE"/>
+          <g>
+            <rect x="8" y="34" width="7" height="11" fill="#1C82E8"/><rect x="26" y="28" width="7" height="10" fill="#F23645"/>
+            <rect x="44" y="24" width="7" height="9" fill="#F23645"/><rect x="62" y="30" width="7" height="10" fill="#1C82E8"/>
+            <rect x="80" y="22" width="7" height="10" fill="#F23645"/><rect x="98" y="18" width="7" height="10" fill="#F23645"/>
+            <rect x="116" y="23" width="7" height="9" fill="#1C82E8"/><rect x="134" y="17" width="7" height="10" fill="#F23645"/>
+            <rect x="152" y="12" width="7" height="10" fill="#F23645"/><rect x="170" y="16" width="7" height="9" fill="#1C82E8"/>
+            <rect x="188" y="11" width="7" height="10" fill="#F23645"/><rect x="206" y="7" width="7" height="10" fill="#F23645"/>
+            <rect x="224" y="11" width="7" height="9" fill="#1C82E8"/><rect x="242" y="6" width="7" height="10" fill="#F23645"/>
+            <rect x="260" y="9" width="7" height="10" fill="#F23645"/><rect x="278" y="4" width="7" height="10" fill="#F23645"/>
+          </g>
+          <g fill="#B4BCC6"><rect x="8" y="54" width="7" height="4"/><rect x="26" y="52" width="7" height="6"/><rect x="44" y="53" width="7" height="5"/><rect x="62" y="51" width="7" height="7"/><rect x="80" y="53" width="7" height="5"/><rect x="98" y="50" width="7" height="8"/><rect x="116" y="52" width="7" height="6"/><rect x="134" y="49" width="7" height="9"/><rect x="152" y="51" width="7" height="7"/><rect x="170" y="53" width="7" height="5"/><rect x="188" y="50" width="7" height="8"/><rect x="206" y="52" width="7" height="6"/><rect x="224" y="53" width="7" height="5"/><rect x="242" y="49" width="7" height="9"/><rect x="260" y="51" width="7" height="7"/><rect x="278" y="50" width="7" height="8"/></g>
+        </svg>
+      </div>
+      <span class="co" style="top:20mm;left:1.2mm">2</span>
+      <!-- OrderbookPanel -->
+      <div class="pane a-book">
+        <h4>호가 <span>매도↑ · 매수↓</span></h4>
+        <div class="obk">
+          <div class="r ask"><span class="bar" style="width:40%"></span><span class="qty num">0.31</span><b class="num">84,360,000</b><span class="rt-c num d">+2.6%</span></div>
+          <div class="r ask"><span class="bar" style="width:62%"></span><span class="qty num">1.24</span><b class="num">84,350,000</b><span class="rt-c num d">+2.5%</span></div>
+          <div class="r ask"><span class="bar" style="width:28%"></span><span class="qty num">0.52</span><b class="num">84,340,000</b><span class="rt-c num d">+2.4%</span></div>
+          <div class="mid"><span class="num">84,320,000</span><span class="num">▲ +2.34%</span></div>
+          <div class="r bid"><span class="bar" style="width:80%"></span><span class="qty num">2.41</span><b class="num">84,310,000</b><span class="rt-c num u">+2.3%</span></div>
+          <div class="r bid"><span class="bar" style="width:55%"></span><span class="qty num">1.86</span><b class="num">84,300,000</b><span class="rt-c num u">+2.2%</span></div>
+          <div class="r bid"><span class="bar" style="width:34%"></span><span class="qty num">0.94</span><b class="num">84,290,000</b><span class="rt-c num u">+2.1%</span></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:5.2pt;color:var(--g600);margin-top:1mm;border-top:1px solid var(--g200);padding-top:.8mm">
+          <span>매도합 <b class="d num">4.82</b></span><span>매수합 <b class="u num">6.15</b></span></div>
+      </div>
+      <span class="co" style="top:20mm;right:46mm">3</span>
+      <!-- TradesPanel -->
+      <div class="pane a-trd">
+        <h4>체결 <span>최근 60건 · 내부 스크롤</span></h4>
+        <div class="trd">
+          <div class="h"><span>체결가</span><span>체결량</span><span>등락</span><span>시각</span></div>
+          <div class="r"><b class="u num">84,320,000</b><span class="num">0.012</span><span class="u num">+2.3%</span><span class="num f">14:23:01</span></div>
+          <div class="r"><b class="d num">84,310,000</b><span class="num">0.105</span><span class="d num">+2.2%</span><span class="num f">14:23:00</span></div>
+          <div class="r"><b class="u num">84,310,000</b><span class="num">0.007</span><span class="u num">+2.2%</span><span class="num f">14:22:59</span></div>
+          <div class="r"><b class="d num">84,300,000</b><span class="num">0.260</span><span class="d num">+2.1%</span><span class="num f">14:22:58</span></div>
+        </div>
+      </div>
+      <span class="co" style="bottom:2.4mm;left:1.2mm">4</span>
+      <!-- side: OrderPanel + MarketListPanel -->
+      <div class="a-side">
+        <div class="pane opnl">
+          <div class="seg2"><span class="buy">매수</span><span>매도</span></div>
+          <div class="type"><span class="on">지정가</span><span>시장가</span></div>
+          <div class="lbl">가격</div>
+          <div class="inp"><span>⊖</span><b class="num">84,320,000</b><em>원 ⊕</em></div>
+          <div class="lbl">수량</div>
+          <div class="inp"><b class="num" style="margin-left:auto">0.00412</b><em>BTC</em></div>
+          <div class="chips"><span>10%</span><span class="on">25%</span><span>50%</span><span>100%</span></div>
+          <div class="kv"><span>주문총액</span><b class="num">347,398 원</b></div>
+          <div class="kv"><span>수수료 (0.05%)</span><b class="num">173 원</b></div>
+          <div class="kv"><span>주문가능</span><b class="num">1,234,567 원</b></div>
+          <div class="cta">매수하기</div>
+        </div>
+        <span class="co" style="top:18mm;right:1.2mm">5</span>
+        <div class="pane mlp">
+          <div class="srch">코인명·심볼 검색</div>
+          <div class="tabs"><span class="on">원화</span><span>관심</span><span>보유</span></div>
+          <div class="row"><span class="nm"><b>비트코인</b><i>BTC</i></span><b class="u num">84,320,000</b><span class="u num">+2.34%</span></div>
+          <div class="row"><span class="nm"><b>이더리움</b><i>ETH</i></span><b class="d num">4,512,000</b><span class="d num">−1.08%</span></div>
+          <div class="row"><span class="nm"><b>리플</b><i>XRP</i></span><b class="u num">742</b><span class="u num">+5.12%</span></div>
+        </div>
+        <span class="co" style="bottom:1.2mm;right:1.2mm">6</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>구성요소 (§2.5 데스크톱 레이아웃설계)</h3>
+  <table>
+    <tr><th style="width:8mm">번호</th><th style="width:36mm">구성요소 (컴포넌트)</th><th>설명 / 동작</th></tr>
+    <tr><td>⓪</td><td>HeaderNav</td><td>전 화면 공통 sticky 56px. 로고 + 링크 4개(활성=밑줄) + WS 연결 점(green/crimson, 라벨 병기) + ThemeToggle. 축소 변형 없음</td></tr>
+    <tr><td>①</td><td>SummaryBar</td><td>SymbolChip + 한글명 + 마켓 전환 드롭다운 / 현재가(방향색 대형) + 등락률·등락액(부호·화살표) / 24H 스탯(접힘 규칙: 고가·저가 &gt; 거래대금 &gt; 거래량) + 관심 토글. 데이터 <code>tickers[market]</code></td></tr>
+    <tr><td>②</td><td>CandleChart</td><td>lightweight-charts 재사용 · 양봉 Red/음봉 Blue(토큰 주입), 주기 탭(1분~1주), 거래량 서브차트. 래퍼 <code>height:100%</code>로 1fr 채움</td></tr>
+    <tr><td>③</td><td>OrderbookPanel</td><td>세로 호가 · 매도 10호가(위·Blue틴트) → 현재가 경계 → 매수 10호가(아래·Red틴트). 잔량 막대·가격·등락률(ticker 역산 조인). <b>행 클릭 → 가격만 프리필</b>(side 유지)</td></tr>
+    <tr><td>④</td><td>TradesPanel</td><td>체결가(방향색)·체결량·등락률·시각 4열, sticky 헤더 + 내부 스크롤. 데이터 <code>trades[market]</code>(최대 60건)</td></tr>
+    <tr><td>⑤</td><td>OrderPanel</td><td>매수(Red)/매도(Blue) SegmentedTab, 지정가·시장가, 가격 ±스텝, 수량 + %칩, 총액·수수료 0.05%·가용잔고. <b>인라인 2단계 확인</b>(CTA 라벨 전환 → 3초 내 재클릭, Esc·외부 클릭·3초 경과 시 원복)</td></tr>
+    <tr><td>⑥</td><td>MarketListPanel</td><td>검색 + 탭(원화·관심·보유) + 정렬 헤더(한글명·현재가·전일대비·거래대금). 행 클릭 → 마켓 전환. TickCell 셀 플래시. 데이터 <code>markets</code>+<code>tickers</code>+<code>favorites</code></td></tr>
+  </table>
+</section>
+
+<!-- ===================== SCR-01 상태·그리드 ===================== -->
+<section class="page">
+  <div class="rt"><span>화면설계서 v2.0 (데스크톱)</span><span>4. SCR-01 (그리드 · 상태)</span></div>
+  <h2 style="font-size:12pt;border-bottom-width:1.4px">4.1 그리드 정의 (§2.2)</h2>
+  <table>
+    <tr><th style="width:34mm">항목</th><th>값</th></tr>
+    <tr><td>columns</td><td><code>minmax(0,1fr) 300px 320px</code> · 차트·체결 열 / 호가 열 / 사이드(주문·목록) 열</td></tr>
+    <tr><td>rows</td><td><code>64px minmax(380px,1fr) 260px</code> · 요약 / 차트 / 체결</td></tr>
+    <tr><td>areas</td><td><code>"summary summary side" / "chart book side" / "trades book side"</code></td></tr>
+    <tr><td>gap · padding</td><td>gap 12px, padding 16px, <code>height:calc(100dvh - 56px)</code>, max-width 1920px 중앙 정렬</td></tr>
+    <tr><td>side 내부</td><td><code>auto minmax(160px,1fr)</code> 세로 2분할 · OrderPanel(위, 내용 기준) + MarketListPanel(아래, 내부 스크롤)</td></tr>
+  </table>
+
+  <h3>4.2 세로 높이 브레이크포인트 (§2.3)</h3>
+  <table>
+    <tr><th style="width:44mm">뷰포트 높이</th><th>규칙</th></tr>
+    <tr><td>821px 이상</td><td>기본 스펙. 무스크롤</td></tr>
+    <tr><td>641~820px <code>(max-height:820px)</code></td><td>압축 스펙 · 요약 64→48, 차트 min 380→300, 체결 260→180, 카드 패딩 16→12. 최소 소요 640px, 무스크롤 유지</td></tr>
+    <tr><td>640px 이하 <code>(max-height:640px)</code></td><td>무스크롤 해제 · <code>height:auto; min-height:calc(100dvh - 56px)</code>, 각 트랙 min 유지, 페이지 세로 스크롤 허용</td></tr>
+  </table>
+
+  <h3>4.3 상태</h3>
+  <table>
+    <tr><th style="width:26mm">상태</th><th>처리</th></tr>
+    <tr><td>로딩</td><td>SummaryBar·차트·호가·체결·목록 각 Skeleton(레이아웃 동일 형상, CLS 0)</td></tr>
+    <tr><td>차트 에러</td><td>ChartPanel error + 재시도 버튼, 요약 텍스트 유지</td></tr>
+    <tr><td>호가 재동기화</td><td>seq gap → resyncing 오버레이 + REST 스냅샷, 행 인터랙션 잠금</td></tr>
+    <tr><td>체결·목록 빈</td><td>"아직 체결 내역이 없어요" / "표시할 코인이 없어요" EmptyState</td></tr>
+    <tr><td>연결 단절</td><td>HeaderNav 점 crimson 전환 + stale 데이터 흐림</td></tr>
+    <tr><td>존재하지 않는 마켓</td><td>"존재하지 않는 마켓이에요" + 거래소 홈 링크</td></tr>
+  </table>
+
+  <h3>4.4 주문 검증 · 멱등</h3>
+  <table>
+    <tr><th style="width:36mm">케이스</th><th>처리</th></tr>
+    <tr><td>최소주문 미만(5,000원)</td><td>입력 error(<code>--color-danger</code>) + CTA disabled + 인라인 안내</td></tr>
+    <tr><td>가용잔고 초과</td><td>초과 경고 + 최대 가능 수량 제안</td></tr>
+    <tr><td>인라인 확인</td><td>1차 클릭 → CTA "84,320,000 KRW 매수 확정"으로 전환 → 3초 내 재클릭 확정. 모달 없음(포커스 이탈 비용)</td></tr>
+    <tr><td>재전송·타임아웃</td><td>동일 <code>client_order_id</code> 재사용 → 서버 멱등 replay(이중 주문 불가)</td></tr>
+  </table>
+  <div class="note" style="font-size:8.5pt">호가 클릭 프리필은 데스크톱 상주 OrderPanel 특성상 <b>가격만 주입하고 side는 유지</b>한다(작성 중 컨텍스트 보호, 업비트 동형).
+  <code>/order/[market]?side=…&amp;price=…</code> 리다이렉트로 진입한 경우 쿼리의 side·price를 초기 프리필로 승계한다.</div>
+</section>
+
+<!-- ===================== SCR-02 자산 ===================== -->
+<section class="page">
+  <div class="rt"><span>화면설계서 v2.0 (데스크톱)</span><span>5. SCR-02 자산</span></div>
+  <h2>5. SCR-02 자산 / 포트폴리오</h2>
+  <table>
+    <tr><th style="width:22mm">화면 ID</th><td style="width:44mm"><b>SCR-02</b></td><th style="width:22mm">경로</th><td><code>/assets</code></td></tr>
+    <tr><th>REST</th><td colspan="3"><code>GET /accounts</code> (보유 계좌·잔고 스냅샷)</td></tr>
+    <tr><th>WS</th><td colspan="3"><code>ticker</code> → 평가금액·손익·수익률 실시간 재계산. 평가손익 = <code>(현재가 − 매수평균가) × 수량</code></td></tr>
+  </table>
+
+  <div class="dwf">
+    <span class="cap">서브 화면 · 콘텐츠 최대 1200px 중앙 정렬 · 세로 스크롤 허용</span>
+    <div class="hn">
+      <span class="logo"><i></i>가상거래소</span>
+      <span class="nav"><span>거래소</span><span class="on">자산</span><span>거래내역</span><span>시스템 상태</span></span>
+      <span class="right"><span class="conn">연결됨</span><span class="theme"></span></span>
+    </div>
+    <div class="wrap">
+      <!-- 총 보유자산 요약 카드 (전폭) -->
+      <div class="card2" style="display:flex;gap:6mm;align-items:flex-end">
+        <div><span style="font-size:5.4pt;color:var(--g600)">총 보유자산</span><div class="hero-amt num">12,480,000 <span style="font-size:6pt;color:var(--g600)">원</span></div></div>
+        <div><span style="font-size:5.4pt;color:var(--g600)">총 매수금액</span><div class="num" style="font-size:7pt;font-weight:600">11,240,000</div></div>
+        <div><span style="font-size:5.4pt;color:var(--g600)">평가손익</span><div class="u num" style="font-size:7pt;font-weight:700">▲ +1,240,000&nbsp;+11.0%</div></div>
+      </div>
+      <span class="co" style="top:9mm;left:2mm">1</span>
+      <div class="grid2">
+        <!-- 보유 자산 테이블 -->
+        <div class="card2">
+          <h4>보유 자산</h4>
+          <table class="dtable">
+            <tr><th>코인</th><th class="r">보유수량</th><th class="r">매수평균가</th><th class="r">평가금액</th><th class="r">평가손익</th></tr>
+            <tr><td><b>비트코인</b> <span class="f">BTC</span></td><td class="r num">0.0918</td><td class="r num">72,400,000</td><td class="r num">7,740,000</td><td class="r u num">▲ +18.2%</td></tr>
+            <tr><td><b>이더리움</b> <span class="f">ETH</span></td><td class="r num">0.6900</td><td class="r num">4,670,000</td><td class="r num">3,120,000</td><td class="r d num">▼ −3.4%</td></tr>
+            <tr><td><b>솔라나</b> <span class="f">SOL</span></td><td class="r num">6.2100</td><td class="r num">241,000</td><td class="r num">1,620,000</td><td class="r u num">▲ +2.4%</td></tr>
+          </table>
+        </div>
+        <span class="co" style="top:20mm;left:2mm">2</span>
+        <!-- 보유 비중 카드 -->
+        <div class="card2">
+          <h4>보유 비중</h4>
+          <div style="font-size:5.4pt;color:var(--g800)">BTC 62% <div class="wbar" style="width:62%"></div></div>
+          <div style="font-size:5.4pt;color:var(--g800);margin-top:1.2mm">ETH 25% <div class="wbar" style="width:25%;background:#7B9FF5"></div></div>
+          <div style="font-size:5.4pt;color:var(--g800);margin-top:1.2mm">SOL 13% <div class="wbar" style="width:13%;background:#D5DAE0"></div></div>
+        </div>
+        <span class="co" style="top:20mm;right:2mm">3</span>
+      </div>
+    </div>
+  </div>
+
+  <h3>구성요소 (§3.1)</h3>
+  <table>
+    <tr><th style="width:8mm">번호</th><th style="width:34mm">구성요소</th><th>설명 / 동작</th></tr>
+    <tr><td>①</td><td>총 보유자산 요약 카드</td><td>전폭. 총 평가금액(히어로) · 총 매수금액 · 평가손익·수익률(방향색+부호). 숨김 토글 시 금액 <code>••••••</code> 마스킹</td></tr>
+    <tr><td>②</td><td>보유 자산 테이블 (DataTable)</td><td>코인 · 보유수량 · 매수평균가 · 평가금액 · 평가손익. 정렬 가능(기본 평가금액 desc). 손익 컬럼 색+부호 병기. 데이터 <code>assets</code>+<code>tickers</code></td></tr>
+    <tr><td>③</td><td>보유 비중 카드</td><td>상위 5개 + 기타를 가로 막대 + 라벨 병기(도넛 대신). 브랜드·뉴트럴 팔레트(방향색·헬스색 사용 금지)</td></tr>
+  </table>
+  <div class="note" style="font-size:8.5pt">그리드 <code>1fr 320px</code>, gap 16px. 고정형 정책으로 열 접힘 없음 · 1280px 미만은 페이지 가로 스크롤. 빈 상태 "보유 자산이 없어요".</div>
+</section>
+
+<!-- ===================== SCR-03 거래내역 ===================== -->
+<section class="page">
+  <div class="rt"><span>화면설계서 v2.0 (데스크톱)</span><span>6. SCR-03 거래내역</span></div>
+  <h2>6. SCR-03 거래내역</h2>
+  <table>
+    <tr><th style="width:22mm">화면 ID</th><td style="width:44mm"><b>SCR-03</b></td><th style="width:22mm">경로</th><td><code>/history</code></td></tr>
+    <tr><th>REST</th><td colspan="3"><code>GET /orders?state=…</code>(opaque 커서) · <code>DELETE /orders/{id}</code>(멱등 취소)</td></tr>
+    <tr><th>WS</th><td colspan="3"><code>myOrder</code> · 미체결→부분체결→체결/취소 전이 실시간 반영(스토어 apply)</td></tr>
+  </table>
+
+  <div class="dwf">
+    <span class="cap">전폭 단일 컬럼 · 최대 1200px 중앙 정렬</span>
+    <div class="hn">
+      <span class="logo"><i></i>가상거래소</span>
+      <span class="nav"><span>거래소</span><span>자산</span><span class="on">거래내역</span><span>시스템 상태</span></span>
+      <span class="right"><span class="conn">연결됨</span><span class="theme"></span></span>
+    </div>
+    <div class="wrap">
+      <!-- 필터 바 -->
+      <div style="display:flex;align-items:center;gap:2.4mm;margin-bottom:1.8mm">
+        <span style="display:flex;gap:.8mm;background:var(--g100);border-radius:1.6mm;padding:.6mm">
+          <span style="background:#fff;border-radius:1.2mm;padding:.8mm 2.4mm;font-size:5.6pt;font-weight:700;color:var(--g900)">미체결</span>
+          <span style="padding:.8mm 2.4mm;font-size:5.6pt;font-weight:600;color:var(--g600)">체결</span></span>
+        <span style="font-size:5.4pt;color:var(--g600);background:var(--g100);border-radius:99px;padding:.7mm 2.2mm">마켓 전체 ▾</span>
+        <span style="font-size:5.4pt;color:var(--g600);background:var(--g100);border-radius:99px;padding:.7mm 2.2mm">기간 1개월 ▾</span>
+      </div>
+      <span class="co" style="top:9mm;left:2mm">1</span>
+      <!-- 테이블 카드 -->
+      <div class="card2">
+        <table class="dtable">
+          <tr><th>시각</th><th>마켓</th><th>구분</th><th class="r">주문가격</th><th class="r">주문수량</th><th class="r">체결수량</th><th>상태</th><th>액션</th></tr>
+          <tr><td class="num">14:02:11</td><td><b>비트코인</b></td><td><span class="mini-pill mp-up">매수</span></td><td class="r num">83,000,000</td><td class="r num">0.010</td><td class="r num">0.004</td><td class="f">부분체결</td><td><span style="border:1px solid var(--g300);border-radius:1.2mm;padding:.5mm 2mm;font-size:5.2pt">취소</span></td></tr>
+          <tr><td class="num">13:55:40</td><td><b>리플</b></td><td><span class="mini-pill mp-down">매도</span></td><td class="r num">742</td><td class="r num">1,000</td><td class="r num">1,000</td><td><span class="mini-pill mp-ok">체결</span></td><td class="f">·</td></tr>
+          <tr><td class="num">13:40:02</td><td><b>이더리움</b></td><td><span class="mini-pill mp-up">매수</span></td><td class="r num">4,480,000</td><td class="r num">0.500</td><td class="r num">0.000</td><td class="f">미체결</td><td><span style="border:1px solid var(--g300);border-radius:1.2mm;padding:.5mm 2mm;font-size:5.2pt">취소</span></td></tr>
+        </table>
+      </div>
+      <span class="co" style="top:19mm;left:2mm">2</span>
+    </div>
+  </div>
+
+  <h3>구성요소 (§3.2)</h3>
+  <table>
+    <tr><th style="width:8mm">번호</th><th style="width:34mm">구성요소</th><th>설명 / 동작</th></tr>
+    <tr><td>①</td><td>필터 바 (높이 48px)</td><td>SegmentedTab(미체결·체결) + 마켓 셀렉트 + 기간 칩(전체·1일·1주·1개월)</td></tr>
+    <tr><td>②</td><td>본문 테이블 (DataTable)</td><td>시각 · 마켓 · 구분(매수 Red·매도 Blue 배지) · 주문가격 · 주문수량 · 체결수량 · 상태 · 액션. 행 44px. 미체결 탭에서 취소 버튼</td></tr>
+  </table>
+  <h3>상태</h3>
+  <table>
+    <tr><th style="width:26mm">상태</th><th>처리</th></tr>
+    <tr><td>빈</td><td>미체결 "미체결 주문이 없어요" / 체결 "체결 내역이 없어요"</td></tr>
+    <tr><td>부분체결</td><td>체결수량 실시간 tick + 상태 전이</td></tr>
+    <tr><td>취소 성공</td><td>행 제거 + Toast("주문을 취소했어요")</td></tr>
+    <tr><td>취소 실패</td><td>Toast error + 롤백. 동일 주문 <code>DELETE</code>는 멱등</td></tr>
+  </table>
+</section>
+
+<!-- ===================== SCR-04 시스템 상태 ===================== -->
+<section class="page">
+  <div class="rt"><span>화면설계서 v2.0 (데스크톱)</span><span>7. SCR-04 시스템 상태</span></div>
+  <h2>7. SCR-04 시스템 상태 (고가용성 증명)</h2>
+  <table>
+    <tr><th style="width:22mm">화면 ID</th><td style="width:44mm"><b>SCR-04</b></td><th style="width:22mm">경로</th><td><code>/system</code></td></tr>
+    <tr><th>데이터</th><td colspan="3">헬스/메트릭 폴링 + WS(시뮬) · TPS·p99·서비스 상태·RTO</td></tr>
+    <tr><th>색 도메인</th><td colspan="3"><b>시스템 헬스 관례</b>(정상 green / 성능저하 orange / 장애 crimson) · 시세 색과 물리적 분리, 배지+아이콘+라벨 병기. 상태 전이 플래시는 <code>--color-health-flash-*</code></td></tr>
+  </table>
+
+  <div class="dwf">
+    <span class="cap">서브 화면 · 최대 1200px 중앙 정렬</span>
+    <div class="hn">
+      <span class="logo"><i></i>가상거래소</span>
+      <span class="nav"><span>거래소</span><span>자산</span><span>거래내역</span><span class="on">시스템 상태</span></span>
+      <span class="right"><span class="conn">연결됨</span><span class="theme"></span></span>
+    </div>
+    <div class="wrap">
+      <!-- 전체 상태 배너 (전폭 72px) -->
+      <div class="banner">
+        <span class="mini-pill mp-ok" style="font-size:6pt">● 모든 서비스 정상</span>
+        <span class="big num">가동률 99.98%</span>
+        <span style="font-size:5.2pt;color:var(--g600);margin-left:auto">최근 30일 · 장애 주입 실험 전부 자동 복구</span>
+      </div>
+      <span class="co" style="top:9mm;left:2mm">1</span>
+      <!-- 서비스 카드 3열 -->
+      <div class="grid3">
+        <div class="node"><span class="n">engine-primary</span><div class="role">체결 엔진 · leader</div><div class="st"><span class="mini-pill mp-ok">leader</span><span class="num">4ms · 99.99%</span></div></div>
+        <div class="node"><span class="n">engine-replica</span><div class="role">체결 엔진 · standby</div><div class="st"><span class="mini-pill mp-ok">standby</span><span class="num">6ms · 99.97%</span></div></div>
+        <div class="node"><span class="n">db-primary</span><div class="role">저널 DB</div><div class="st"><span class="mini-pill mp-ok">healthy</span><span class="num">12ms · 99.98%</span></div></div>
+        <div class="node"><span class="n">db-replica</span><div class="role">저널 DB · replica</div><div class="st"><span class="mini-pill mp-warn">degraded</span><span class="num">120ms · 99.95%</span></div></div>
+        <div class="node"><span class="n">api-01</span><div class="role">API 게이트웨이</div><div class="st"><span class="mini-pill mp-ok">healthy</span><span class="num">38ms · 99.99%</span></div></div>
+        <div class="node"><span class="n">api-02</span><div class="role">API 게이트웨이</div><div class="st"><span class="mini-pill mp-ok">healthy</span><span class="num">41ms · 99.98%</span></div></div>
+      </div>
+      <span class="co" style="top:20mm;left:2mm">2</span>
+      <!-- 이벤트 로그 테이블 (전폭) -->
+      <div class="card2" style="margin-top:1.8mm">
+        <h4>이벤트 로그 <span style="font-weight:500;color:var(--g500);font-size:5.4pt">· 최신순</span></h4>
+        <table class="dtable">
+          <tr><th style="width:20mm">시각</th><th style="width:30mm">서비스</th><th style="width:16mm">수준</th><th>메시지</th></tr>
+          <tr><td class="num">14:23:40</td><td>engine-replica</td><td><span class="mini-pill mp-ok">success</span></td><td>자동 복구 완료 · RTO 18초</td></tr>
+          <tr><td class="num">14:23:22</td><td>db-replica</td><td><span class="mini-pill mp-warn">warning</span></td><td>지연시간 상승 · 성능 저하 감지</td></tr>
+          <tr><td class="num">14:20:05</td><td>전체</td><td><span class="mini-pill" style="background:var(--brand-weak);color:var(--brand-600)">info</span></td><td>정기 헬스체크 통과 · 전체 서비스 정상</td></tr>
+        </table>
+      </div>
+      <span class="co" style="bottom:2mm;left:2mm">3</span>
+    </div>
+  </div>
+
+  <h3>구성요소 (§3.3)</h3>
+  <table>
+    <tr><th style="width:8mm">번호</th><th style="width:34mm">구성요소</th><th>설명 / 동작</th></tr>
+    <tr><td>①</td><td>전체 상태 배너 (전폭 72px)</td><td>종합 상태 배지(대형, 아이콘+라벨) + 가동률. 정상 green · 성능저하 orange · 장애 crimson. 상태 전이 시 헬스 플래시</td></tr>
+    <tr><td>②</td><td>서비스 카드 3열 그리드</td><td><code>repeat(3,1fr)</code> 고정. 각 카드 = 이름(mono) · 상태점+라벨 · 지연시간 · 가동률. 6개 서비스(엔진 2 · DB 2 · API 2)</td></tr>
+    <tr><td>③</td><td>이벤트 로그 테이블 (전폭)</td><td>시각 · 서비스 · 수준(success·warning·info) · 메시지. 최신순</td></tr>
+  </table>
+  <h3>동작</h3>
+  <table>
+    <tr><th style="width:26mm">이벤트</th><th>처리</th></tr>
+    <tr><td>성능 저하</td><td>해당 서비스 카드 warning 배지 + 배너 상태 반영. 헬스 플래시(시세 플래시 차용 금지)</td></tr>
+    <tr><td>자동 복구</td><td>Toast("리더가 교체됐어요" 류) + RTO 실측 로그 + green 복귀</td></tr>
+  </table>
+  <div class="note" style="font-size:8.5pt">본 화면이 캡스톤의 <b>증명 대시보드</b>다 · 폭주·장애 주입 중에도 서비스 자동 복구와 총자산 보존 불변식 유지를 실시간으로 보여준다.</div>
+</section>
+
+<!-- ===================== SCR-05 온보딩 ===================== -->
+<section class="page">
+  <div class="rt"><span>화면설계서 v2.0 (데스크톱)</span><span>8. SCR-05 온보딩</span></div>
+  <h2>8. SCR-05 온보딩</h2>
+  <table>
+    <tr><th style="width:22mm">화면 ID</th><td style="width:44mm"><b>SCR-05</b></td><th style="width:22mm">경로</th><td><code>/welcome</code></td></tr>
+    <tr><th>진입</th><td>최초 방문</td><th>다음 화면</th><td>SCR-01 거래소 통합화면 (시작하기)</td></tr>
+  </table>
+
+  <div class="dwf">
+    <span class="cap">중앙 히어로 · HeaderNav 하위 진입 화면</span>
+    <div class="hn">
+      <span class="logo"><i></i>가상거래소</span>
+      <span class="nav"><span>거래소</span><span>자산</span><span>거래내역</span><span>시스템 상태</span></span>
+      <span class="right"><span class="conn">연결됨</span><span class="theme"></span></span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8mm 0 10mm">
+      <div style="width:9mm;height:9mm;border-radius:2.6mm;background:var(--brand);display:flex;align-items:center;justify-content:center;margin-bottom:2.4mm">
+        <div style="width:4mm;height:4mm;background:#fff;opacity:.92;border-radius:.8mm;transform:rotate(45deg)"></div></div>
+      <b style="font-size:10pt;color:var(--g900)">한눈에 보는 트레이딩 화면</b>
+      <span style="font-size:6.4pt;color:var(--g600);margin-top:1.2mm">차트·호가·체결·주문을 한 화면에서</span>
+      <span class="co" style="position:relative;left:0;margin-top:2mm">1</span>
+      <div style="display:flex;gap:2mm;margin-top:3mm">
+        <span style="background:var(--brand);color:#fff;border-radius:1.6mm;padding:1.6mm 5mm;font-size:6.6pt;font-weight:700">거래 시작하기</span>
+        <span style="background:var(--g100);color:var(--g900);border-radius:1.6mm;padding:1.6mm 5mm;font-size:6.6pt;font-weight:700">둘러보기</span>
+      </div>
+      <span class="co" style="position:relative;left:0;margin-top:1.6mm">2</span>
+    </div>
+  </div>
+
+  <h3>구성요소</h3>
+  <table>
+    <tr><th style="width:8mm">번호</th><th style="width:34mm">구성요소</th><th>설명 / 동작</th></tr>
+    <tr><td>①</td><td>히어로</td><td>로고 마크 + 타이틀(<code>--font-title-1</code>) + 서브카피. 진입 시 페이드+슬라이드업(<code>--ease-emphasized</code>)</td></tr>
+    <tr><td>②</td><td>진입 CTA</td><td>"거래 시작하기" → 최근 마켓(없으면 KRW-BTC)으로 <code>/exchange</code> 이동. "둘러보기" 보조 액션</td></tr>
+  </table>
+  <div class="note" style="font-size:8.5pt">실제 비밀번호·금융정보 입력 없음. 완전 시뮬레이션 진입점이며, 인증·계정 생성 UI는 두지 않는다.</div>
+</section>
+
+<!-- ===================== 부록 ===================== -->
+<section class="page">
+  <div class="rt"><span>화면설계서 v2.0 (데스크톱)</span><span>부록</span></div>
+  <h2>부록 A. 레거시 라우트 리다이렉트</h2>
+  <p class="small"><code>next.config.ts</code>가 <code>output:"export"</code>(정적 산출물, Nginx 서빙)이므로 <code>redirects()</code>는 동작하지 않는다.
+  구 라우트는 페이지 파일과 <code>generateStaticParams</code>를 유지한 채 본문을 클라이언트 <code>router.replace</code>로 교체한다(딥링크·정적 경로 보존).</p>
+  <table>
+    <tr><th style="width:46mm">구 라우트</th><th>처리</th></tr>
+    <tr><td><code>/</code></td><td><code>/exchange</code>로 클라이언트 replace</td></tr>
+    <tr><td><code>/exchange</code></td><td>localStorage 최근 마켓(없으면 KRW-BTC)으로 <code>/exchange/[market]</code> replace</td></tr>
+    <tr><td><code>/market</code></td><td>페이지 유지, 본문을 <code>/exchange</code>로 replace</td></tr>
+    <tr><td><code>/coin/[market]</code></td><td>페이지·<code>generateStaticParams</code> 유지, <code>/exchange/[market]</code>로 replace</td></tr>
+    <tr><td><code>/order/[market]</code></td><td>페이지·<code>generateStaticParams</code> 유지. <code>side</code>·<code>price</code> 쿼리를 읽어 <code>/exchange/[market]?side=…&amp;price=…</code>로 replace, OrderPanel 프리필로 승계</td></tr>
+  </table>
+
+  <h2 style="margin-top:8mm">부록 B. 변경 이력</h2>
+  <table>
+    <tr><th style="width:20mm">버전</th><th style="width:26mm">일자</th><th>변경 내용</th></tr>
+    <tr><td>v1.0</td><td>2026-07-21</td><td>최초 작성. 모바일 퍼스트 7화면(SCR-01~07, 하단 TabBar·AppBar·BottomSheet, <code>/market /coin /order</code>)</td></tr>
+    <tr><td><b>v2.0</b></td><td>2026-07-22</td><td>고정형 데스크톱 전용으로 전면 재작성. HeaderNav 상단 내비 도입, TabBar·AppBar 폐지. 화면 목록을 데스크톱 실제(거래소 통합화면 <code>/exchange/[market]</code> · 자산 · 거래내역 · 시스템 상태 · 온보딩)로 교체. 와이어프레임을 와이드 그리드로 재작성(거래 그리드 <code>1fr 300px 320px</code>, §2.3 세로 브레이크포인트). 레거시 라우트 클라이언트 리다이렉트를 부록 A로 명시. 색·타이포·접근성·멱등 규약은 유지</td></tr>
+  </table>
+  <p class="small" style="margin-top:6mm">정본: 데스크톱_레이아웃설계.md v1.1 · 프론트_디자인시스템.md v1.1 · 백엔드_API_설계.md v2.5. 코드가 문서와 어긋나면 문서를 먼저 고치고 코드를 맞춘다.</p>
+</section>
+
+</body>
+</html>

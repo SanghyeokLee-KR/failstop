@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MOC",
+  "korean_name": "모스코인",
+  "english_name": "Moss Coin",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:16.113Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "26.4",
+  "price_stats": {
+    "min": "24.6",
+    "max": "58.2",
+    "mean": "39.599000000000004",
+    "median": "40.9"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.027630759256084145",
+    "annualized": "0.5278849143797377"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003249382738316847"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2133422705.1334925",
+    "avg_daily_trade_volume": "43448433.901316196"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,31 @@
+/* TradesPanel: 4열 테이블, sticky 헤더 + 내부 스크롤 (§2.5) */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0 var(--space-2) var(--space-1);
+  background: var(--surface-default);
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  text-align: right;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.table td {
+  height: 28px;
+  padding: 0 var(--space-2);
+  text-align: right;
+  white-space: nowrap;
+}
+.table tbody tr:hover { background: var(--surface-hover); }
+
+.qty { color: var(--text-default); }
+.time { color: var(--text-secondary); }

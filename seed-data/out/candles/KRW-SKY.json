@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SKY",
+  "korean_name": "스카이프로토콜",
+  "english_name": "Sky Protocol",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:45.321Z",
+  "window": {
+    "candle_count": 114,
+    "from": "2026-03-31T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "91.8",
+  "price_stats": {
+    "min": "74.8",
+    "max": "134",
+    "mean": "101.08508771929817",
+    "median": "102"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 113,
+    "daily_stddev": "0.02897841895973958",
+    "annualized": "0.553631916866487"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.0018387214255389"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "822497579.6810814",
+    "avg_daily_trade_volume": "7475938.383487145"
+  },
+  "sufficient": true
+}

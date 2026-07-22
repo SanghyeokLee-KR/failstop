@@ -1,0 +1,33 @@
+{
+  "market": "KRW-STRAX",
+  "korean_name": "저트라",
+  "english_name": "Xertra",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:20.000Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "13.9",
+  "price_stats": {
+    "min": "12.5",
+    "max": "36.2",
+    "mean": "20.540499999999994",
+    "median": "19.8"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05797489342884132",
+    "annualized": "1.107608783754991"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003932430996359446"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3766630636.330189",
+    "avg_daily_trade_volume": "167384768.86458898"
+  },
+  "sufficient": true
+}

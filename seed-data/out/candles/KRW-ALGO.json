@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ALGO",
+  "korean_name": "알고랜드",
+  "english_name": "Algorand",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:44.236Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "122",
+  "price_stats": {
+    "min": "121",
+    "max": "207",
+    "mean": "152.06",
+    "median": "146"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03732942699110257",
+    "annualized": "0.7131777012860685"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00238237997234805"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2036428578.5736527",
+    "avg_daily_trade_volume": "12902248.034431571"
+  },
+  "sufficient": true
+}

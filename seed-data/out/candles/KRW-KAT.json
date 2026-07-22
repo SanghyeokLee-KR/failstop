@@ -1,0 +1,33 @@
+{
+  "market": "KRW-KAT",
+  "korean_name": "카타나",
+  "english_name": "Katana",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:10.977Z",
+  "window": {
+    "candle_count": 119,
+    "from": "2026-03-26T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "6.9",
+  "price_stats": {
+    "min": "6.87",
+    "max": "37",
+    "mean": "11.662857142857138",
+    "median": "11.9"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 118,
+    "daily_stddev": "0.09250308407601927",
+    "annualized": "1.7672689398348254"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.008933563780485385"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "12337038672.616825",
+    "avg_daily_trade_volume": "710815454.5404042"
+  },
+  "sufficient": true
+}

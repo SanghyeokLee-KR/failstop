@@ -1,0 +1,33 @@
+{
+  "market": "KRW-BERA",
+  "korean_name": "베라체인",
+  "english_name": "Berachain",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:11.762Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "276",
+  "price_stats": {
+    "min": "269",
+    "max": "1411",
+    "mean": "651.475",
+    "median": "611.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.07664844627867076",
+    "annualized": "1.4643665100243897"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.006237741079213974"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "18307033256.848167",
+    "avg_daily_trade_volume": "19127894.163003255"
+  },
+  "sufficient": true
+}

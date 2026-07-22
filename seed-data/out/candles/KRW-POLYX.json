@@ -1,0 +1,33 @@
+{
+  "market": "KRW-POLYX",
+  "korean_name": "폴리매쉬",
+  "english_name": "Polymesh",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:20.786Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "57.7",
+  "price_stats": {
+    "min": "51.9",
+    "max": "101",
+    "mean": "69.50049999999999",
+    "median": "68.75"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04044035485250694",
+    "annualized": "0.7726118946261368"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00206357258864588"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4191045493.8601265",
+    "avg_daily_trade_volume": "53332664.22757736"
+  },
+  "sufficient": true
+}

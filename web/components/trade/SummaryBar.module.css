@@ -1,0 +1,128 @@
+/* SummaryBar: summary 영역 64px(압축 48px) 1행 유지, 오버플로 금지 (§2.5) */
+
+.root {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  padding: 0 var(--space-4);
+  background: var(--surface-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  white-space: nowrap;
+  overflow: hidden;
+}
+:global([data-theme="dark"]) .root { border: 1px solid var(--border-subtle); }
+
+/* ===== 좌: 종목 식별 + 마켓 전환 드롭다운 ===== */
+.ident { position: relative; flex-shrink: 0; }
+.identBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  margin-left: calc(-1 * var(--space-2));
+  border-radius: var(--radius-sm);
+}
+.identBtn:hover { background: var(--surface-hover); }
+.name {
+  font-size: var(--font-body-size);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.symbol {
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}
+.caret {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: var(--z-dropdown);
+  min-width: 220px;
+  padding: var(--space-1);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-body-sm-size);
+  color: var(--text-default);
+  text-align: left;
+}
+.menuItem:hover { background: var(--surface-hover); }
+.menuItem[data-on] {
+  background: var(--brand-weak-bg);
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
+.menuItemName { flex: 1; }
+.menuItemSym { font-size: var(--font-caption-size); color: var(--text-secondary); }
+
+/* ===== 중: 현재가 + 등락 ===== */
+.price {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+  flex-shrink: 0;
+}
+/* 방향색 대형 규격: 24px/700 → --color-up/down 허용 영역 (§2.5) */
+.cur {
+  font-size: var(--font-title-1-size);
+  line-height: var(--font-title-1-line);
+  font-weight: var(--fw-bold);
+}
+
+/* ===== 우: 스탯 스트립 + 관심 토글 ===== */
+.stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.stat { display: flex; flex-direction: column; align-items: flex-end; }
+.statLabel {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+.statValue {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
+}
+
+.star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.star:hover { background: var(--surface-hover); }
+.star[data-on] { color: var(--color-warning); }
+
+/* §2.3 압축(48px): 간격·현재가 폰트 축소, 1행 유지 */
+@media (max-height: 820px) {
+  .root { gap: var(--space-5); padding: 0 var(--space-3); }
+  .cur { font-size: var(--font-title-2-size); line-height: var(--font-title-2-line); }
+  .stats { gap: var(--space-4); }
+}

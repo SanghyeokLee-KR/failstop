@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SONIC",
+  "korean_name": "소닉SVM",
+  "english_name": "Sonic SVM",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:57.455Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "33.5",
+  "price_stats": {
+    "min": "33.1",
+    "max": "127",
+    "mean": "61.43949999999995",
+    "median": "57.95"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04731631950799839",
+    "annualized": "0.9039770149184053"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00628456530636551"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "5981645555.635028",
+    "avg_daily_trade_volume": "87174254.63324183"
+  },
+  "sufficient": true
+}

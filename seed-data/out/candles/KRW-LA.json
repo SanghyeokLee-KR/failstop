@@ -1,0 +1,33 @@
+{
+  "market": "KRW-LA",
+  "korean_name": "라그랑주",
+  "english_name": "Lagrange",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:58.859Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "76.8",
+  "price_stats": {
+    "min": "73.3",
+    "max": "497",
+    "mean": "251.764",
+    "median": "247.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05541044412687549",
+    "annualized": "1.058615048633459"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.009156332481814139"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4809787865.761583",
+    "avg_daily_trade_volume": "22611212.103541743"
+  },
+  "sufficient": true
+}

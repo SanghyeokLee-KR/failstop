@@ -1,0 +1,33 @@
+{
+  "market": "KRW-B3",
+  "korean_name": "비쓰리",
+  "english_name": "B3",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:48.276Z",
+  "window": {
+    "candle_count": 77,
+    "from": "2026-05-07T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "0.749",
+  "price_stats": {
+    "min": "0.713",
+    "max": "2.37",
+    "mean": "1.069831168831169",
+    "median": "0.897"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 76,
+    "daily_stddev": "0.060997010953909775",
+    "annualized": "1.1653462580017395"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.01515666119226259"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "9726688821.471565",
+    "avg_daily_trade_volume": "7946883405.751206"
+  },
+  "sufficient": true
+}

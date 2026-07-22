@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MBL",
+  "korean_name": "무비블록",
+  "english_name": "MovieBloc",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:12.849Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1.02",
+  "price_stats": {
+    "min": "0.985",
+    "max": "1.97",
+    "mean": "1.3724249999999996",
+    "median": "1.4"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.026968572267990112",
+    "annualized": "0.51523384973567"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002769733262761594"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "858721977.3662753",
+    "avg_daily_trade_volume": "549453603.641902"
+  },
+  "sufficient": true
+}

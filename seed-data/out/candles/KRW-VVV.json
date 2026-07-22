@@ -1,0 +1,33 @@
+{
+  "market": "KRW-VVV",
+  "korean_name": "베니스토큰",
+  "english_name": "Venice Token",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:47.652Z",
+  "window": {
+    "candle_count": 72,
+    "from": "2026-05-12T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "18290",
+  "price_stats": {
+    "min": "15620",
+    "max": "30900",
+    "mean": "21566.25",
+    "median": "21645"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 71,
+    "daily_stddev": "0.06836893241045289",
+    "annualized": "1.306186619673832"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003961085527121965"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "6724378614.429668",
+    "avg_daily_trade_volume": "283420.2488407262"
+  },
+  "sufficient": true
+}

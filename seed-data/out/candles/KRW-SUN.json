@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SUN",
+  "korean_name": "썬",
+  "english_name": "SUN",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:18.599Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "26.9",
+  "price_stats": {
+    "min": "22.1",
+    "max": "31.5",
+    "mean": "26.925000000000008",
+    "median": "26.7"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.023470899045217288",
+    "annualized": "0.4484108966412785"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.000377736398887844"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1130280897.567546",
+    "avg_daily_trade_volume": "41145134.6796679"
+  },
+  "sufficient": true
+}

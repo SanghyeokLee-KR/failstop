@@ -1,0 +1,2171 @@
+{
+  "meta": {
+    "source": "Upbit Open API",
+    "endpoints": [
+      "/v1/market/all",
+      "/v1/candles/days"
+    ],
+    "note": "원본 시세 미저장. 시드가·변동성·드리프트·유동성 파생 통계만 저장. 비상업 교육용.",
+    "quote": "KRW",
+    "collected_at": "2026-07-22T06:29:20.787Z",
+    "throttle_ms": 150,
+    "candle_count": 200,
+    "count": 269,
+    "failed": 0
+  },
+  "markets": [
+    {
+      "market": "KRW-WAXP",
+      "korean_name": "왁스",
+      "english_name": "WAX",
+      "seed_price": "5.8",
+      "annualized_volatility": "0.7087679163127428",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CARV",
+      "korean_name": "카브",
+      "english_name": "CARV",
+      "seed_price": "45.1",
+      "annualized_volatility": "0.8092379130485905",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-LSK",
+      "korean_name": "리스크",
+      "english_name": "Lisk",
+      "seed_price": "126",
+      "annualized_volatility": "0.598353823080378",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-0G",
+      "korean_name": "제로지",
+      "english_name": "0G",
+      "seed_price": "266",
+      "annualized_volatility": "1.0083537061096401",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-WIF",
+      "korean_name": "도그위프햇",
+      "english_name": "dogwifhat",
+      "seed_price": "223",
+      "annualized_volatility": "0.6764379364661806",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TRAC",
+      "korean_name": "오리진트레일",
+      "english_name": "OriginTrail",
+      "seed_price": "443",
+      "annualized_volatility": "1.1015145278870104",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BORA",
+      "korean_name": "보라",
+      "english_name": "BORA",
+      "seed_price": "34.4",
+      "annualized_volatility": "0.6649259178940571",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PUNDIX",
+      "korean_name": "펀디엑스",
+      "english_name": "Pundi X",
+      "seed_price": "120",
+      "annualized_volatility": "0.6651044151814456",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PROS",
+      "korean_name": "파로스",
+      "english_name": "Pharos",
+      "seed_price": "499",
+      "annualized_volatility": "1.0047140274256205",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-USD1",
+      "korean_name": "월드리버티파이낸셜유에스디",
+      "english_name": "World Liberty Financial USD",
+      "seed_price": "1461",
+      "annualized_volatility": "0.10555742554658536",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BAT",
+      "korean_name": "베이직어텐션토큰",
+      "english_name": "Basic Attention Token",
+      "seed_price": "116",
+      "annualized_volatility": "0.7231928075874919",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-HUNT",
+      "korean_name": "헌트",
+      "english_name": "HUNT",
+      "seed_price": "118",
+      "annualized_volatility": "0.5975740684373446",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PENGU",
+      "korean_name": "펏지펭귄",
+      "english_name": "Pudgy Penguins",
+      "seed_price": "9.07",
+      "annualized_volatility": "0.8810619773634372",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-FIL",
+      "korean_name": "파일코인",
+      "english_name": "Filecoin",
+      "seed_price": "1120",
+      "annualized_volatility": "0.779560956386721",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BEAM",
+      "korean_name": "빔",
+      "english_name": "Beam",
+      "seed_price": "2.2",
+      "annualized_volatility": "0.6893513534847322",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-DOOD",
+      "korean_name": "두들즈",
+      "english_name": "Doodles",
+      "seed_price": "2.23",
+      "annualized_volatility": "0.7956920530530919",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-WAVES",
+      "korean_name": "웨이브",
+      "english_name": "Waves",
+      "seed_price": "368",
+      "annualized_volatility": "0.6206310138637225",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-USDC",
+      "korean_name": "유에스디코인",
+      "english_name": "USD Coin",
+      "seed_price": "1463",
+      "annualized_volatility": "0.10361050866894835",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MOVE",
+      "korean_name": "무브먼트",
+      "english_name": "Movement",
+      "seed_price": "15.6",
+      "annualized_volatility": "0.7596725185049845",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TREE",
+      "korean_name": "트리하우스",
+      "english_name": "Treehouse",
+      "seed_price": "54",
+      "annualized_volatility": "0.7846422024988006",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-USDE",
+      "korean_name": "유에스디이",
+      "english_name": "Ethena USDe",
+      "seed_price": "1466",
+      "annualized_volatility": "0.11503752858489097",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AERGO",
+      "korean_name": "아르고",
+      "english_name": "Aergo",
+      "seed_price": "32.2",
+      "annualized_volatility": "0.7416170005859389",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-WET",
+      "korean_name": "휴미디파이",
+      "english_name": "HumidiFi",
+      "seed_price": "99.7",
+      "annualized_volatility": "1.1967298048664796",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-USDT",
+      "korean_name": "테더",
+      "english_name": "Tether",
+      "seed_price": "1464",
+      "annualized_volatility": "0.1026068234179936",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-USDS",
+      "korean_name": "유에스디에스",
+      "english_name": "USDS",
+      "seed_price": "1470",
+      "annualized_volatility": "0.10776135497619348",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-2Z",
+      "korean_name": "더블제로",
+      "english_name": "DoubleZero",
+      "seed_price": "93.8",
+      "annualized_volatility": "0.8275082650202451",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BOUNTY",
+      "korean_name": "체인바운티",
+      "english_name": "Chainbounty",
+      "seed_price": "21.7",
+      "annualized_volatility": "1.077879275861208",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-KAITO",
+      "korean_name": "카이토",
+      "english_name": "KAITO",
+      "seed_price": "1433",
+      "annualized_volatility": "0.9714377604921479",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-LPT",
+      "korean_name": "라이브피어",
+      "english_name": "Livepeer",
+      "seed_price": "2117",
+      "annualized_volatility": "0.7227991229199293",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BLAST",
+      "korean_name": "블라스트",
+      "english_name": "Blast",
+      "seed_price": "0.404",
+      "annualized_volatility": "0.8459914954958887",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ETHFI",
+      "korean_name": "이더파이",
+      "english_name": "Ether.fi",
+      "seed_price": "666",
+      "annualized_volatility": "0.8510738414053017",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-DKA",
+      "korean_name": "디카르고",
+      "english_name": "dKargo",
+      "seed_price": "5.65",
+      "annualized_volatility": "0.9289907051132466",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ANKR",
+      "korean_name": "앵커",
+      "english_name": "Ankr",
+      "seed_price": "5.15",
+      "annualized_volatility": "0.7005528584915379",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ALGO",
+      "korean_name": "알고랜드",
+      "english_name": "Algorand",
+      "seed_price": "122",
+      "annualized_volatility": "0.7131777012860685",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SHIB",
+      "korean_name": "시바이누",
+      "english_name": "Shiba Inu",
+      "seed_price": "0.00618",
+      "annualized_volatility": "0.5355864108543423",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-UNI",
+      "korean_name": "유니스왑",
+      "english_name": "Uniswap",
+      "seed_price": "5380",
+      "annualized_volatility": "0.722554201877457",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BIO",
+      "korean_name": "바이오프로토콜",
+      "english_name": "Bio Protocol",
+      "seed_price": "39.5",
+      "annualized_volatility": "1.5007068025379926",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-WLFI",
+      "korean_name": "월드리버티파이낸셜",
+      "english_name": "World Liberty Financial",
+      "seed_price": "82.4",
+      "annualized_volatility": "0.6949091765267603",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-UP2",
+      "korean_name": "슈퍼폼",
+      "english_name": "Superform",
+      "seed_price": "87.7",
+      "annualized_volatility": "1.1593471380608755",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TOKAMAK",
+      "korean_name": "토카막네트워크",
+      "english_name": "Tokamak Network",
+      "seed_price": "523",
+      "annualized_volatility": "0.5330126681107522",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SKY",
+      "korean_name": "스카이프로토콜",
+      "english_name": "Sky Protocol",
+      "seed_price": "91.8",
+      "annualized_volatility": "0.553631916866487",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CYBER",
+      "korean_name": "사이버",
+      "english_name": "Cyber",
+      "seed_price": "490",
+      "annualized_volatility": "0.7485851112245036",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SKR",
+      "korean_name": "시커",
+      "english_name": "Seeker",
+      "seed_price": "12.1",
+      "annualized_volatility": "0.8566134678381109",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-DOGE",
+      "korean_name": "도지코인",
+      "english_name": "Dogecoin",
+      "seed_price": "105",
+      "annualized_volatility": "0.5833438863369217",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-WLD",
+      "korean_name": "월드코인",
+      "english_name": "Worldcoin",
+      "seed_price": "555",
+      "annualized_volatility": "1.3139141014132498",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PEPE",
+      "korean_name": "페페",
+      "english_name": "Pepe",
+      "seed_price": "0.00417",
+      "annualized_volatility": "0.8124375962420701",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-HBAR",
+      "korean_name": "헤데라",
+      "english_name": "Hedera",
+      "seed_price": "102",
+      "annualized_volatility": "0.5416971130785029",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BCH",
+      "korean_name": "비트코인캐시",
+      "english_name": "Bitcoin Cash",
+      "seed_price": "323900",
+      "annualized_volatility": "0.6493466334886039",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-NEWT",
+      "korean_name": "뉴턴프로토콜",
+      "english_name": "Newton Protocol",
+      "seed_price": "65.3",
+      "annualized_volatility": "0.744275527204821",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SEI",
+      "korean_name": "세이",
+      "english_name": "Sei",
+      "seed_price": "67.2",
+      "annualized_volatility": "0.6830430300944125",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BONK",
+      "korean_name": "봉크",
+      "english_name": "Bonk",
+      "seed_price": "0.00699",
+      "annualized_volatility": "1.1677594270084757",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-JST",
+      "korean_name": "저스트",
+      "english_name": "JUST",
+      "seed_price": "150",
+      "annualized_volatility": "0.7361480563463132",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AAVE",
+      "korean_name": "에이브",
+      "english_name": "Aave",
+      "seed_price": "139500",
+      "annualized_volatility": "0.7832377469358445",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-JTO",
+      "korean_name": "지토",
+      "english_name": "Jito",
+      "seed_price": "911",
+      "annualized_volatility": "1.3115010999608723",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-JUP",
+      "korean_name": "주피터",
+      "english_name": "Jupiter",
+      "seed_price": "285",
+      "annualized_volatility": "0.8813427566641837",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-VVV",
+      "korean_name": "베니스토큰",
+      "english_name": "Venice Token",
+      "seed_price": "18290",
+      "annualized_volatility": "1.306186619673832",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AI",
+      "korean_name": "젠신",
+      "english_name": "Gensyn",
+      "seed_price": "36.7",
+      "annualized_volatility": "0.821881692287096",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PIEVERSE",
+      "korean_name": "파이버스",
+      "english_name": "Pieverse",
+      "seed_price": "993",
+      "annualized_volatility": "1.3285694821577596",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ALT",
+      "korean_name": "알트레이어",
+      "english_name": "Altlayer",
+      "seed_price": "9.23",
+      "annualized_volatility": "0.7455320909149411",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-B3",
+      "korean_name": "비쓰리",
+      "english_name": "B3",
+      "seed_price": "0.749",
+      "annualized_volatility": "1.1653462580017395",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-LAYER",
+      "korean_name": "솔레이어",
+      "english_name": "Solayer",
+      "seed_price": "93.8",
+      "annualized_volatility": "0.8563609888304541",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TRX",
+      "korean_name": "트론",
+      "english_name": "TRON",
+      "seed_price": "482",
+      "annualized_volatility": "0.2536812793463054",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-POWR",
+      "korean_name": "파워렛저",
+      "english_name": "Power ledger",
+      "seed_price": "63.9",
+      "annualized_volatility": "0.629537998496733",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ATOM",
+      "korean_name": "코스모스",
+      "english_name": "Cosmos",
+      "seed_price": "2155",
+      "annualized_volatility": "0.5646565842373459",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ARKM",
+      "korean_name": "아캄",
+      "english_name": "Arkham",
+      "seed_price": "164",
+      "annualized_volatility": "0.8998992865238961",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CRO",
+      "korean_name": "크로노스",
+      "english_name": "Cronos",
+      "seed_price": "84",
+      "annualized_volatility": "0.47764315437703475",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-NXPC",
+      "korean_name": "넥스페이스",
+      "english_name": "Nexpace",
+      "seed_price": "355",
+      "annualized_volatility": "0.7038296059308993",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-A",
+      "korean_name": "볼타",
+      "english_name": "Vaulta",
+      "seed_price": "97.9",
+      "annualized_volatility": "0.7324207447229082",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TRUMP",
+      "korean_name": "오피셜트럼프",
+      "english_name": "Official Trump",
+      "seed_price": "2316",
+      "annualized_volatility": "0.7689038414571804",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-F",
+      "korean_name": "신퓨처스",
+      "english_name": "SynFutures",
+      "seed_price": "4.7",
+      "annualized_volatility": "0.7192656835352838",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-G",
+      "korean_name": "그래비티",
+      "english_name": "Gravity",
+      "seed_price": "4.69",
+      "annualized_volatility": "1.152259513664487",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CELO",
+      "korean_name": "셀로",
+      "english_name": "Celo",
+      "seed_price": "102",
+      "annualized_volatility": "0.7761924052001721",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AERO",
+      "korean_name": "에어로드롬파이낸스",
+      "english_name": "Aerodrome Finance",
+      "seed_price": "639",
+      "annualized_volatility": "1.0066114779386657",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CTC",
+      "korean_name": "크레딧코인",
+      "english_name": "Creditcoin",
+      "seed_price": "118",
+      "annualized_volatility": "0.7723001288504047",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ANIME",
+      "korean_name": "애니메코인",
+      "english_name": "Animecoin",
+      "seed_price": "3.92",
+      "annualized_volatility": "0.6942864974994968",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-APT",
+      "korean_name": "앱토스",
+      "english_name": "Aptos",
+      "seed_price": "880",
+      "annualized_volatility": "0.7617491176978358",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MOCA",
+      "korean_name": "모카네트워크",
+      "english_name": "Moca Network",
+      "seed_price": "12.6",
+      "annualized_volatility": "0.7204742804029906",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-API3",
+      "korean_name": "에이피아이쓰리",
+      "english_name": "API3",
+      "seed_price": "319",
+      "annualized_volatility": "0.728195488296486",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AHT",
+      "korean_name": "아하토큰",
+      "english_name": "AhaToken",
+      "seed_price": "1.48",
+      "annualized_volatility": "0.4282384756492623",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-EGLD",
+      "korean_name": "멀티버스엑스",
+      "english_name": "MultiversX",
+      "seed_price": "4532",
+      "annualized_volatility": "0.7127524221947175",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BLEND",
+      "korean_name": "플루언트",
+      "english_name": "Fluent",
+      "seed_price": "91",
+      "annualized_volatility": "1.113751486952634",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ERA",
+      "korean_name": "칼데라",
+      "english_name": "Caldera",
+      "seed_price": "127",
+      "annualized_volatility": "0.8850923678680569",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-FF",
+      "korean_name": "팔콘파이낸스",
+      "english_name": "Falcon Finance",
+      "seed_price": "88.5",
+      "annualized_volatility": "0.9650668248073453",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PLUME",
+      "korean_name": "플룸",
+      "english_name": "Plume",
+      "seed_price": "16.7",
+      "annualized_volatility": "0.9179613078274137",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ESP",
+      "korean_name": "에스프레소",
+      "english_name": "Espresso",
+      "seed_price": "104",
+      "annualized_volatility": "0.8520651693734956",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CC",
+      "korean_name": "캔톤",
+      "english_name": "Canton",
+      "seed_price": "182",
+      "annualized_volatility": "0.502579837531499",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-NEO",
+      "korean_name": "네오",
+      "english_name": "NEO",
+      "seed_price": "2930",
+      "annualized_volatility": "0.5870636665960491",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ETC",
+      "korean_name": "이더리움클래식",
+      "english_name": "Ethereum Classic",
+      "seed_price": "10140",
+      "annualized_volatility": "0.5382494987107307",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-IOTA",
+      "korean_name": "아이오타",
+      "english_name": "IOTA",
+      "seed_price": "52.9",
+      "annualized_volatility": "0.6579341779600965",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-IOST",
+      "korean_name": "아이오에스티",
+      "english_name": "IOST",
+      "seed_price": "0.964",
+      "annualized_volatility": "0.5545106459270835",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AKT",
+      "korean_name": "아카시네트워크",
+      "english_name": "Akash Network",
+      "seed_price": "797",
+      "annualized_volatility": "1.0541908202346455",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-COW",
+      "korean_name": "카우프로토콜",
+      "english_name": "CoW Protocol",
+      "seed_price": "198",
+      "annualized_volatility": "0.704223741009275",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-VIRTUAL",
+      "korean_name": "버추얼프로토콜",
+      "english_name": "Virtuals Protocol",
+      "seed_price": "943",
+      "annualized_volatility": "0.9334567696195203",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ETH",
+      "korean_name": "이더리움",
+      "english_name": "Ethereum",
+      "seed_price": "2801000",
+      "annualized_volatility": "0.590514655012589",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-IQ",
+      "korean_name": "아이큐",
+      "english_name": "IQ.wiki",
+      "seed_price": "1.08",
+      "annualized_volatility": "0.4399755899105317",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-NEAR",
+      "korean_name": "니어프로토콜",
+      "english_name": "NEAR Protocol",
+      "seed_price": "2784",
+      "annualized_volatility": "0.9418280328672797",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-RVN",
+      "korean_name": "레이븐코인",
+      "english_name": "Ravencoin",
+      "seed_price": "5.58",
+      "annualized_volatility": "0.5484533670368927",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PRL",
+      "korean_name": "펄",
+      "english_name": "Perle",
+      "seed_price": "253",
+      "annualized_volatility": "1.0247880083428522",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AGLD",
+      "korean_name": "어드벤처골드",
+      "english_name": "Adventure Gold",
+      "seed_price": "221",
+      "annualized_volatility": "1.412730380355497",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ID",
+      "korean_name": "스페이스아이디",
+      "english_name": "SPACE ID",
+      "seed_price": "45.8",
+      "annualized_volatility": "1.0989320170407975",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-IO",
+      "korean_name": "아이오넷",
+      "english_name": "io.net",
+      "seed_price": "217",
+      "annualized_volatility": "0.9575018982089837",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-IN",
+      "korean_name": "인피닛",
+      "english_name": "Infinit",
+      "seed_price": "60",
+      "annualized_volatility": "1.5082755852086709",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MANTRA",
+      "korean_name": "만트라",
+      "english_name": "MANTRA",
+      "seed_price": "9.45",
+      "annualized_volatility": "1.0582298515341526",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-WAL",
+      "korean_name": "월러스",
+      "english_name": "Walrus",
+      "seed_price": "43.8",
+      "annualized_volatility": "0.8432723206897709",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PENDLE",
+      "korean_name": "펜들",
+      "english_name": "Pendle",
+      "seed_price": "2314",
+      "annualized_volatility": "0.908678129881079",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BLUR",
+      "korean_name": "블러",
+      "english_name": "Blur",
+      "seed_price": "23",
+      "annualized_volatility": "1.141117462506202",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AWE",
+      "korean_name": "에이더블유이",
+      "english_name": "AWE Network",
+      "seed_price": "83.4",
+      "annualized_volatility": "0.91657311496884",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-THETA",
+      "korean_name": "쎄타토큰",
+      "english_name": "Theta Token",
+      "seed_price": "200",
+      "annualized_volatility": "0.7646650583288244",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AXL",
+      "korean_name": "엑셀라",
+      "english_name": "Axelar",
+      "seed_price": "60",
+      "annualized_volatility": "1.081051805976397",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-HP",
+      "korean_name": "히포프로토콜",
+      "english_name": "Hippo Protocol",
+      "seed_price": "13",
+      "annualized_volatility": "0.5455613453042997",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SAND",
+      "korean_name": "샌드박스",
+      "english_name": "The Sandbox",
+      "seed_price": "69.7",
+      "annualized_volatility": "0.7959947345895011",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-WCT",
+      "korean_name": "월렛커넥트",
+      "english_name": "WalletConnect",
+      "seed_price": "61.8",
+      "annualized_volatility": "0.8192164292468801",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-YGG",
+      "korean_name": "일드길드게임즈",
+      "english_name": "Yield Guild Games",
+      "seed_price": "27",
+      "annualized_volatility": "0.8018558015787157",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AXS",
+      "korean_name": "엑시인피니티",
+      "english_name": "Axie Infinity",
+      "seed_price": "1349",
+      "annualized_volatility": "1.3086346298510765",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ARDR",
+      "korean_name": "아더",
+      "english_name": "Ardor",
+      "seed_price": "30.5",
+      "annualized_volatility": "0.6437189248795467",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AQT",
+      "korean_name": "알파쿼크",
+      "english_name": "Alpha Quark Token",
+      "seed_price": "270",
+      "annualized_volatility": "0.8115172272955133",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ME",
+      "korean_name": "매직에덴",
+      "english_name": "Magic Eden",
+      "seed_price": "93.9",
+      "annualized_volatility": "0.8706932767280607",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TRUST",
+      "korean_name": "인튜이션",
+      "english_name": "Intuition",
+      "seed_price": "71.4",
+      "annualized_volatility": "0.8436719820279431",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SONIC",
+      "korean_name": "소닉SVM",
+      "english_name": "Sonic SVM",
+      "seed_price": "33.5",
+      "annualized_volatility": "0.9039770149184053",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ARB",
+      "korean_name": "아비트럼",
+      "english_name": "Arbitrum",
+      "seed_price": "132",
+      "annualized_volatility": "0.7121782565978966",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-POL",
+      "korean_name": "폴리곤에코시스템토큰",
+      "english_name": "Polygon Ecosystem Token",
+      "seed_price": "117",
+      "annualized_volatility": "0.647361824722141",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CVC",
+      "korean_name": "시빅",
+      "english_name": "Civic",
+      "seed_price": "28.9",
+      "annualized_volatility": "0.5655169759380525",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-T",
+      "korean_name": "쓰레스홀드",
+      "english_name": "Threshold",
+      "seed_price": "5.33",
+      "annualized_volatility": "0.7991616090126741",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ARX",
+      "korean_name": "아르키움",
+      "english_name": "Arcium",
+      "seed_price": "228",
+      "annualized_volatility": "1.3811369795160793",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-W",
+      "korean_name": "웜홀",
+      "english_name": "Wormhole",
+      "seed_price": "13.3",
+      "annualized_volatility": "0.8483019197542135",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ARK",
+      "korean_name": "아크",
+      "english_name": "Ark",
+      "seed_price": "152",
+      "annualized_volatility": "0.5991479159220092",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AVNT",
+      "korean_name": "아반티스",
+      "english_name": "Avantis",
+      "seed_price": "135",
+      "annualized_volatility": "0.8714991463329623",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-LA",
+      "korean_name": "라그랑주",
+      "english_name": "Lagrange",
+      "seed_price": "76.8",
+      "annualized_volatility": "1.058615048633459",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-HYPER",
+      "korean_name": "하이퍼레인",
+      "english_name": "Hyperlane",
+      "seed_price": "97.4",
+      "annualized_volatility": "1.120289268837763",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ATH",
+      "korean_name": "에이셔",
+      "english_name": "Aethir",
+      "seed_price": "6.63",
+      "annualized_volatility": "0.9004337072535109",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TAIKO",
+      "korean_name": "타이코",
+      "english_name": "Taiko",
+      "seed_price": "118",
+      "annualized_volatility": "1.2227061144480098",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-RE",
+      "korean_name": "리",
+      "english_name": "Re",
+      "seed_price": "633",
+      "annualized_volatility": "1.9487067894441477",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AVAX",
+      "korean_name": "아발란체",
+      "english_name": "Avalanche",
+      "seed_price": "9475",
+      "annualized_volatility": "0.599801639267272",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-XAUT",
+      "korean_name": "테더골드",
+      "english_name": "Tether Gold",
+      "seed_price": "6018000",
+      "annualized_volatility": "0.3242920013868809",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CPOOL",
+      "korean_name": "클리어풀",
+      "english_name": "Clearpool",
+      "seed_price": "29.6",
+      "annualized_volatility": "0.8480282319595759",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-IMX",
+      "korean_name": "이뮤터블엑스",
+      "english_name": "Immutable X",
+      "seed_price": "187",
+      "annualized_volatility": "0.7958944491636384",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SC",
+      "korean_name": "시아코인",
+      "english_name": "Siacoin",
+      "seed_price": "0.86",
+      "annualized_volatility": "0.4786974966776232",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-INJ",
+      "korean_name": "인젝티브",
+      "english_name": "Injective",
+      "seed_price": "7645",
+      "annualized_volatility": "0.8603314592246759",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MVL",
+      "korean_name": "엠블",
+      "english_name": "MVL",
+      "seed_price": "1.28",
+      "annualized_volatility": "0.40915528945941876",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-HIVE",
+      "korean_name": "하이브",
+      "english_name": "Hive",
+      "seed_price": "70",
+      "annualized_volatility": "0.6854511600401594",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CBK",
+      "korean_name": "코박토큰",
+      "english_name": "Cobak Token",
+      "seed_price": "263",
+      "annualized_volatility": "0.6166496323533367",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-XLM",
+      "korean_name": "스텔라루멘",
+      "english_name": "Lumen",
+      "seed_price": "276",
+      "annualized_volatility": "0.813468704987332",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-OP",
+      "korean_name": "옵티미즘",
+      "english_name": "Optimism",
+      "seed_price": "142",
+      "annualized_volatility": "0.8299235745442429",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SAFE",
+      "korean_name": "세이프",
+      "english_name": "Safe",
+      "seed_price": "127",
+      "annualized_volatility": "0.9068540094125004",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-GLM",
+      "korean_name": "골렘",
+      "english_name": "Golem",
+      "seed_price": "145",
+      "annualized_volatility": "0.6718304460769513",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SUPER",
+      "korean_name": "슈퍼버스",
+      "english_name": "SuperVerse",
+      "seed_price": "126",
+      "annualized_volatility": "0.758322589037024",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-LINEA",
+      "korean_name": "리네아",
+      "english_name": "Linea",
+      "seed_price": "3.57",
+      "annualized_volatility": "0.9118663605858495",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-DATA",
+      "korean_name": "데이터네트워크",
+      "english_name": "Data Network",
+      "seed_price": "391",
+      "annualized_volatility": "1.0629596181525784",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-KERNEL",
+      "korean_name": "커널다오",
+      "english_name": "KernelDAO",
+      "seed_price": "49.9",
+      "annualized_volatility": "1.1111897739076004",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-POKT",
+      "korean_name": "포켓네트워크",
+      "english_name": "Pocket Network",
+      "seed_price": "11.2",
+      "annualized_volatility": "0.896512004042318",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SENT",
+      "korean_name": "센티언트",
+      "english_name": "Sentient",
+      "seed_price": "20.4",
+      "annualized_volatility": "1.203363095564851",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ZKC",
+      "korean_name": "바운드리스",
+      "english_name": "Boundless",
+      "seed_price": "61.2",
+      "annualized_volatility": "0.8366054450855038",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-KNC",
+      "korean_name": "카이버네트워크",
+      "english_name": "Kyber Network",
+      "seed_price": "159",
+      "annualized_volatility": "0.6958063253862161",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ZKP",
+      "korean_name": "지케이패스",
+      "english_name": "zkPass",
+      "seed_price": "67",
+      "annualized_volatility": "1.480204338847445",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AUCTION",
+      "korean_name": "바운스토큰",
+      "english_name": "Bounce",
+      "seed_price": "4870",
+      "annualized_volatility": "0.9819991842968837",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ORDER",
+      "korean_name": "오덜리",
+      "english_name": "Orderly",
+      "seed_price": "46.4",
+      "annualized_volatility": "0.8520965252617941",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-FCT2",
+      "korean_name": "피르마체인",
+      "english_name": "FirmaChain",
+      "seed_price": "11.5",
+      "annualized_volatility": "0.5823460501956209",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MTL",
+      "korean_name": "메탈",
+      "english_name": "Metal",
+      "seed_price": "326",
+      "annualized_volatility": "0.5271676233854378",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-VET",
+      "korean_name": "비체인",
+      "english_name": "VeChain",
+      "seed_price": "7.15",
+      "annualized_volatility": "0.6092842157039058",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TAO",
+      "korean_name": "비트텐서",
+      "english_name": "Bittensor",
+      "seed_price": "287000",
+      "annualized_volatility": "0.8393052956630304",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-QTUM",
+      "korean_name": "퀀텀",
+      "english_name": "Qtum",
+      "seed_price": "1025",
+      "annualized_volatility": "0.6213516281506267",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TT",
+      "korean_name": "썬더코어",
+      "english_name": "ThunderCore",
+      "seed_price": "0.924",
+      "annualized_volatility": "0.5725870936088093",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-LINK",
+      "korean_name": "체인링크",
+      "english_name": "Chainlink",
+      "seed_price": "12600",
+      "annualized_volatility": "0.5674905586761226",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-XRP",
+      "korean_name": "엑스알피(리플)",
+      "english_name": "XRP",
+      "seed_price": "1655",
+      "annualized_volatility": "0.5956825073703096",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CHZ",
+      "korean_name": "칠리즈",
+      "english_name": "Chiliz",
+      "seed_price": "21.9",
+      "annualized_volatility": "0.920410124042492",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ASTR",
+      "korean_name": "아스타",
+      "english_name": "Astar",
+      "seed_price": "7.52",
+      "annualized_volatility": "0.6813283968248517",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ZK",
+      "korean_name": "지케이싱크",
+      "english_name": "ZKsync",
+      "seed_price": "13.8",
+      "annualized_volatility": "0.8790464834386623",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-STORJ",
+      "korean_name": "스토리지",
+      "english_name": "Storj",
+      "seed_price": "109",
+      "annualized_volatility": "0.7459860345625083",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ENA",
+      "korean_name": "에테나",
+      "english_name": "Ethena",
+      "seed_price": "126",
+      "annualized_volatility": "0.927545024490422",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MANA",
+      "korean_name": "디센트럴랜드",
+      "english_name": "Decentraland",
+      "seed_price": "102",
+      "annualized_volatility": "0.718121581143305",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-OPEN",
+      "korean_name": "오픈렛저",
+      "english_name": "OpenLedger",
+      "seed_price": "231",
+      "annualized_volatility": "1.034228697926258",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PYTH",
+      "korean_name": "피스네트워크",
+      "english_name": "Pyth Network",
+      "seed_price": "68.4",
+      "annualized_volatility": "0.9034083989571027",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ENS",
+      "korean_name": "이더리움네임서비스",
+      "english_name": "Ethereum Name Service",
+      "seed_price": "6690",
+      "annualized_volatility": "0.6927391962310725",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-GRT",
+      "korean_name": "더그래프",
+      "english_name": "The Graph",
+      "seed_price": "23.9",
+      "annualized_volatility": "0.6098875466340561",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PUMP",
+      "korean_name": "펌프펀",
+      "english_name": "Pump.fun",
+      "seed_price": "2.89",
+      "annualized_volatility": "1.0177600558175641",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-XTZ",
+      "korean_name": "테조스",
+      "english_name": "Tezos",
+      "seed_price": "329",
+      "annualized_volatility": "0.6422102945625956",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CKB",
+      "korean_name": "너보스",
+      "english_name": "Nervos Network",
+      "seed_price": "1.34",
+      "annualized_volatility": "0.6431459745944766",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-KAVA",
+      "korean_name": "카바",
+      "english_name": "Kava",
+      "seed_price": "66.2",
+      "annualized_volatility": "0.737959524877362",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TOSHI",
+      "korean_name": "토시",
+      "english_name": "Toshi",
+      "seed_price": "0.167",
+      "annualized_volatility": "0.7546393648457869",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BARD",
+      "korean_name": "롬바드",
+      "english_name": "Lombard",
+      "seed_price": "181",
+      "annualized_volatility": "1.232977292875089",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ZRO",
+      "korean_name": "레이어제로",
+      "english_name": "LayerZero",
+      "seed_price": "1169",
+      "annualized_volatility": "0.9788517992117798",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-RAY",
+      "korean_name": "레이디움",
+      "english_name": "Raydium",
+      "seed_price": "1017",
+      "annualized_volatility": "0.7572166436828186",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ONDO",
+      "korean_name": "온도파이낸스",
+      "english_name": "Ondo Finance",
+      "seed_price": "580",
+      "annualized_volatility": "0.9031974762441976",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ZRX",
+      "korean_name": "제로엑스",
+      "english_name": "0x Protocol",
+      "seed_price": "125",
+      "annualized_volatility": "0.6356183931104575",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-GMT",
+      "korean_name": "스테픈",
+      "english_name": "Stepn",
+      "seed_price": "10.5",
+      "annualized_volatility": "0.813917511907381",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TFUEL",
+      "korean_name": "쎄타퓨엘",
+      "english_name": "Theta Fuel",
+      "seed_price": "11.8",
+      "annualized_volatility": "0.49060699272817165",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CFG",
+      "korean_name": "센트리퓨즈",
+      "english_name": "Centrifuge",
+      "seed_price": "267",
+      "annualized_volatility": "1.3958601117077223",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-AZTEC",
+      "korean_name": "아즈텍",
+      "english_name": "Aztec",
+      "seed_price": "20.4",
+      "annualized_volatility": "0.9867657873446224",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-XPL",
+      "korean_name": "플라즈마",
+      "english_name": "Plasma",
+      "seed_price": "120",
+      "annualized_volatility": "1.278214329634191",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ZAMA",
+      "korean_name": "자마",
+      "english_name": "Zama",
+      "seed_price": "60.2",
+      "annualized_volatility": "0.8648607813774273",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MASK",
+      "korean_name": "마스크네트워크",
+      "english_name": "Mask Network",
+      "seed_price": "569",
+      "annualized_volatility": "0.6522919760145225",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-COMP",
+      "korean_name": "컴파운드",
+      "english_name": "Compound",
+      "seed_price": "25220",
+      "annualized_volatility": "0.7251758267140496",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ZETA",
+      "korean_name": "제타체인",
+      "english_name": "ZetaChain",
+      "seed_price": "49.6",
+      "annualized_volatility": "0.7742614277011559",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-RED",
+      "korean_name": "레드스톤",
+      "english_name": "RedStone",
+      "seed_price": "146",
+      "annualized_volatility": "1.1398063443311246",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-TIA",
+      "korean_name": "셀레스티아",
+      "english_name": "Celestia",
+      "seed_price": "527",
+      "annualized_volatility": "0.9071987620772193",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ADA",
+      "korean_name": "에이다",
+      "english_name": "Ada",
+      "seed_price": "250",
+      "annualized_volatility": "0.6765224703833206",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ELF",
+      "korean_name": "엘프",
+      "english_name": "aelf",
+      "seed_price": "90.7",
+      "annualized_volatility": "0.5467939160499049",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SOON",
+      "korean_name": "쑨",
+      "english_name": "SOON",
+      "seed_price": "239",
+      "annualized_volatility": "0.8931776884675727",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-STEEM",
+      "korean_name": "스팀",
+      "english_name": "Steem",
+      "seed_price": "58.1",
+      "annualized_volatility": "0.7914136086606411",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ELSA",
+      "korean_name": "헤이엘사",
+      "english_name": "HeyElsa",
+      "seed_price": "69.2",
+      "annualized_volatility": "1.0239823841683475",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SPK",
+      "korean_name": "스파크",
+      "english_name": "Spark",
+      "seed_price": "25.5",
+      "annualized_volatility": "0.7177620345868352",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SOPH",
+      "korean_name": "소폰",
+      "english_name": "Sophon",
+      "seed_price": "6.75",
+      "annualized_volatility": "0.6290943325745125",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SPX",
+      "korean_name": "에스피엑스6900",
+      "english_name": "SPX6900",
+      "seed_price": "526",
+      "annualized_volatility": "0.9884086429876399",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MED",
+      "korean_name": "메디블록",
+      "english_name": "MediBloc",
+      "seed_price": "2.09",
+      "annualized_volatility": "0.5746739011612407",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-1INCH",
+      "korean_name": "1인치네트워크",
+      "english_name": "1inch Network",
+      "seed_price": "119",
+      "annualized_volatility": "0.640824043522188",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-KAT",
+      "korean_name": "카타나",
+      "english_name": "Katana",
+      "seed_price": "6.9",
+      "annualized_volatility": "1.7672689398348254",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MEW",
+      "korean_name": "캣인어독스월드",
+      "english_name": "cat in a dogs world",
+      "seed_price": "0.528",
+      "annualized_volatility": "0.7859331749734305",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ORBS",
+      "korean_name": "오브스",
+      "english_name": "Orbs",
+      "seed_price": "8.85",
+      "annualized_volatility": "0.6456790237615011",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-RENDER",
+      "korean_name": "렌더토큰",
+      "english_name": "Render Token",
+      "seed_price": "2200",
+      "annualized_volatility": "0.8237682299130386",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ORCA",
+      "korean_name": "오르카",
+      "english_name": "Orca",
+      "seed_price": "1714",
+      "annualized_volatility": "1.1418409142364012",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BERA",
+      "korean_name": "베라체인",
+      "english_name": "Berachain",
+      "seed_price": "276",
+      "annualized_volatility": "1.4643665100243897",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SIGN",
+      "korean_name": "사인",
+      "english_name": "Sign",
+      "seed_price": "12.6",
+      "annualized_volatility": "1.1211690088963546",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SLX",
+      "korean_name": "솔스티스",
+      "english_name": "Solstice",
+      "seed_price": "159",
+      "annualized_volatility": "2.459335296346491",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-VANA",
+      "korean_name": "바나",
+      "english_name": "Vana",
+      "seed_price": "1687",
+      "annualized_volatility": "0.7348934169097318",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-DOT",
+      "korean_name": "폴카닷",
+      "english_name": "Polkadot",
+      "seed_price": "1230",
+      "annualized_volatility": "0.718863579314801",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-EDGE",
+      "korean_name": "디피니티브",
+      "english_name": "Definitive",
+      "seed_price": "95.7",
+      "annualized_volatility": "1.113698864056856",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MET2",
+      "korean_name": "메테오라",
+      "english_name": "Meteora",
+      "seed_price": "238",
+      "annualized_volatility": "1.0641720171689855",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MBL",
+      "korean_name": "무비블록",
+      "english_name": "MovieBloc",
+      "seed_price": "1.02",
+      "annualized_volatility": "0.51523384973567",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-FLUID",
+      "korean_name": "플루이드",
+      "english_name": "Fluid",
+      "seed_price": "1466",
+      "annualized_volatility": "0.9338735722888114",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BIGTIME",
+      "korean_name": "빅타임",
+      "english_name": "Big Time",
+      "seed_price": "9.61",
+      "annualized_volatility": "0.7136472845558444",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SNT",
+      "korean_name": "스테이터스네트워크토큰",
+      "english_name": "Status Network Token",
+      "seed_price": "10.5",
+      "annualized_volatility": "0.5086114425079925",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SOL",
+      "korean_name": "솔라나",
+      "english_name": "Solana",
+      "seed_price": "112900",
+      "annualized_volatility": "0.6073546003443894",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-QKC",
+      "korean_name": "쿼크체인",
+      "english_name": "QuarkChain",
+      "seed_price": "2.86",
+      "annualized_volatility": "0.5445941226601224",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-DRV",
+      "korean_name": "디라이브",
+      "english_name": "Derive",
+      "seed_price": "173",
+      "annualized_volatility": "0.45786282818774293",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-META",
+      "korean_name": "메타디움",
+      "english_name": "Metadium",
+      "seed_price": "11.7",
+      "annualized_volatility": "0.6027487253806941",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-IRYS",
+      "korean_name": "아이리스",
+      "english_name": "Irys",
+      "seed_price": "18.2",
+      "annualized_volatility": "0.8705336618626457",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SAHARA",
+      "korean_name": "사하라에이아이",
+      "english_name": "Sahara AI",
+      "seed_price": "13.1",
+      "annualized_volatility": "1.455737106501328",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MLK",
+      "korean_name": "밀크",
+      "english_name": "MiL.k",
+      "seed_price": "49.9",
+      "annualized_volatility": "0.5857897541845389",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-VTHO",
+      "korean_name": "비토르토큰",
+      "english_name": "VeThor Token",
+      "seed_price": "0.536",
+      "annualized_volatility": "0.6023385993737923",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-KITE",
+      "korean_name": "카이트",
+      "english_name": "Kite",
+      "seed_price": "171",
+      "annualized_volatility": "1.2823598138803782",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MINA",
+      "korean_name": "미나",
+      "english_name": "Mina",
+      "seed_price": "67.2",
+      "annualized_volatility": "0.705702006402013",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MMT",
+      "korean_name": "모멘텀",
+      "english_name": "Momentum",
+      "seed_price": "257",
+      "annualized_volatility": "1.0831320634465147",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-CHIP",
+      "korean_name": "유에스디에이아이",
+      "english_name": "USD.AI",
+      "seed_price": "44.1",
+      "annualized_volatility": "1.710232598222418",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ZORA",
+      "korean_name": "조라",
+      "english_name": "Zora",
+      "seed_price": "9.25",
+      "annualized_volatility": "0.8048916190953513",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-XCN",
+      "korean_name": "오닉스코인",
+      "english_name": "Onyxcoin",
+      "seed_price": "5.26",
+      "annualized_volatility": "0.421489919893049",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-GAS",
+      "korean_name": "가스",
+      "english_name": "GAS",
+      "seed_price": "1522",
+      "annualized_volatility": "0.6301976371649287",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MEGA",
+      "korean_name": "메가이더",
+      "english_name": "MegaETH",
+      "seed_price": "62.6",
+      "annualized_volatility": "1.0980715284772713",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MNT",
+      "korean_name": "맨틀",
+      "english_name": "Mantle",
+      "seed_price": "618",
+      "annualized_volatility": "0.6266891557640698",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MOC",
+      "korean_name": "모스코인",
+      "english_name": "Moss Coin",
+      "seed_price": "26.4",
+      "annualized_volatility": "0.5278849143797377",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MOODENG",
+      "korean_name": "무뎅",
+      "english_name": "Moo Deng",
+      "seed_price": "55.5",
+      "annualized_volatility": "0.8940148019108686",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-XEC",
+      "korean_name": "이캐시",
+      "english_name": "eCash",
+      "seed_price": "0.012",
+      "annualized_volatility": "0.8602489692695688",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MON",
+      "korean_name": "모나드",
+      "english_name": "Monad",
+      "seed_price": "34",
+      "annualized_volatility": "0.9547749247354455",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ZIL",
+      "korean_name": "질리카",
+      "english_name": "Zilliqa",
+      "seed_price": "3.83",
+      "annualized_volatility": "0.7706533742064855",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-GAME2",
+      "korean_name": "게임빌드",
+      "english_name": "GameBuild",
+      "seed_price": "1.28",
+      "annualized_volatility": "0.4562639501800942",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-STX",
+      "korean_name": "스택스",
+      "english_name": "Stacks",
+      "seed_price": "242",
+      "annualized_volatility": "0.6533306995640136",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-FLOCK",
+      "korean_name": "플록",
+      "english_name": "FLock.io",
+      "seed_price": "46.2",
+      "annualized_volatility": "0.9174011324910994",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-PROVE",
+      "korean_name": "서싱트",
+      "english_name": "Succinct",
+      "seed_price": "279",
+      "annualized_volatility": "1.0384863978258636",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BSV",
+      "korean_name": "비트코인에스브이",
+      "english_name": "Bitcoin SV",
+      "seed_price": "19800",
+      "annualized_volatility": "0.7074549947631075",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SUI",
+      "korean_name": "수이",
+      "english_name": "Sui",
+      "seed_price": "1108",
+      "annualized_volatility": "0.7628843338152673",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SYRUP",
+      "korean_name": "메이플파이낸스",
+      "english_name": "Maple Finance",
+      "seed_price": "266",
+      "annualized_volatility": "0.7418153169058826",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BTC",
+      "korean_name": "비트코인",
+      "english_name": "Bitcoin",
+      "seed_price": "96339000",
+      "annualized_volatility": "0.44270860992986116",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BABY",
+      "korean_name": "바빌론",
+      "english_name": "Babylon",
+      "seed_price": "18.5",
+      "annualized_volatility": "0.9812117460500451",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-HOLO",
+      "korean_name": "홀로월드에이아이",
+      "english_name": "Holoworld AI",
+      "seed_price": "95.3",
+      "annualized_volatility": "0.900160413309006",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-MIRA",
+      "korean_name": "미라네트워크",
+      "english_name": "Mira Network",
+      "seed_price": "65.3",
+      "annualized_volatility": "0.8505092898509471",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SUN",
+      "korean_name": "썬",
+      "english_name": "SUN",
+      "seed_price": "26.9",
+      "annualized_volatility": "0.4484108966412785",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ZBT",
+      "korean_name": "제로베이스",
+      "english_name": "ZEROBASE",
+      "seed_price": "146",
+      "annualized_volatility": "1.2787151620620427",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ONG",
+      "korean_name": "온톨로지가스",
+      "english_name": "ONG",
+      "seed_price": "68.2",
+      "annualized_volatility": "0.9239069420911065",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BTT",
+      "korean_name": "비트토렌트",
+      "english_name": "BitTorrent",
+      "seed_price": "0.000398",
+      "annualized_volatility": "0.37276601279563715",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ENSO",
+      "korean_name": "엔소",
+      "english_name": "Enso",
+      "seed_price": "1070",
+      "annualized_volatility": "1.8193995426874658",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BIRB",
+      "korean_name": "문버드",
+      "english_name": "Moonbirds",
+      "seed_price": "82.7",
+      "annualized_volatility": "1.3971072383809442",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ONT",
+      "korean_name": "온톨로지",
+      "english_name": "Ontology",
+      "seed_price": "62.3",
+      "annualized_volatility": "1.0920905886141539",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-SOMI",
+      "korean_name": "솜니아",
+      "english_name": "Somnia",
+      "seed_price": "143",
+      "annualized_volatility": "1.2337011788597636",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-DEEP",
+      "korean_name": "딥북",
+      "english_name": "DeepBook",
+      "seed_price": "26.8",
+      "annualized_volatility": "1.0720483066285902",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-STRAX",
+      "korean_name": "저트라",
+      "english_name": "Xertra",
+      "seed_price": "13.9",
+      "annualized_volatility": "1.107608783754991",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ICP",
+      "korean_name": "인터넷컴퓨터",
+      "english_name": "Internet Computer",
+      "seed_price": "3175",
+      "annualized_volatility": "0.7675486026297458",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-OPG",
+      "korean_name": "오픈그라디언트",
+      "english_name": "OpenGradient",
+      "seed_price": "152",
+      "annualized_volatility": "0.7672122318991412",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-BREV",
+      "korean_name": "브레비스",
+      "english_name": "Brevis",
+      "seed_price": "109",
+      "annualized_volatility": "1.0212161851160644",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-ICX",
+      "korean_name": "아이콘",
+      "english_name": "Icon",
+      "seed_price": "34.1",
+      "annualized_volatility": "0.6104303930133091",
+      "sufficient": true
+    },
+    {
+      "market": "KRW-POLYX",
+      "korean_name": "폴리매쉬",
+      "english_name": "Polymesh",
+      "seed_price": "57.7",
+      "annualized_volatility": "0.7726118946261368",
+      "sufficient": true
+    }
+  ],
+  "failures": []
+}

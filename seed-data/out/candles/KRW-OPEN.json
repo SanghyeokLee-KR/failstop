@@ -1,0 +1,33 @@
+{
+  "market": "KRW-OPEN",
+  "korean_name": "오픈렛저",
+  "english_name": "OpenLedger",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:05.539Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "231",
+  "price_stats": {
+    "min": "209",
+    "max": "413",
+    "mean": "265.44",
+    "median": "252"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05413400419239312",
+    "annualized": "1.034228697926258"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.000437243100450396"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3144400738.248601",
+    "avg_daily_trade_volume": "11114198.701822171"
+  },
+  "sufficient": true
+}

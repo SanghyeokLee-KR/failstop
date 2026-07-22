@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ORCA",
+  "korean_name": "오르카",
+  "english_name": "Orca",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:11.605Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1714",
+  "price_stats": {
+    "min": "1068",
+    "max": "3159",
+    "mean": "1663.455",
+    "median": "1660.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.0597666850303613",
+    "annualized": "1.1418409142364012"
+  },
+  "drift": {
+    "daily_mean_log_return": "0.000136706111753939"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "15193832920.644081",
+    "avg_daily_trade_volume": "7007656.2854521405"
+  },
+  "sufficient": true
+}

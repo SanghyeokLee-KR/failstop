@@ -1,0 +1,47 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  padding: var(--space-4);
+}
+/* 다크는 그림자 대비가 약해 보더 병행 (.card 전역 규칙과 동일 경로) */
+:global([data-theme="dark"]) .root { border: 1px solid var(--border-subtle); }
+
+.dense { padding: var(--space-3); }
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  flex-shrink: 0;
+}
+.title {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+}
+.scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* §2.3 압축 스펙: 641~820px 뷰포트 높이에서 내부 패딩 16→12 */
+@media (max-height: 820px) {
+  .root { padding: var(--space-3); }
+}

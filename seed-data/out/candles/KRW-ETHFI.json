@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ETHFI",
+  "korean_name": "이더파이",
+  "english_name": "Ether.fi",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:43.768Z",
+  "window": {
+    "candle_count": 126,
+    "from": "2026-03-19T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "666",
+  "price_stats": {
+    "min": "436",
+    "max": "879",
+    "mean": "612.9920634920635",
+    "median": "621.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 125,
+    "daily_stddev": "0.04454724084822845",
+    "annualized": "0.8510738414053017"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001436520065998608"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1916310035.0020688",
+    "avg_daily_trade_volume": "2533371.8758201213"
+  },
+  "sufficient": true
+}

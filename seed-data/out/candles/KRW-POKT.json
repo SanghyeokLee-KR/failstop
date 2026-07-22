@@ -1,0 +1,33 @@
+{
+  "market": "KRW-POKT",
+  "korean_name": "포켓네트워크",
+  "english_name": "Pocket Network",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:02.279Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "11.2",
+  "price_stats": {
+    "min": "11.2",
+    "max": "29.9",
+    "mean": "17.708000000000002",
+    "median": "18.05"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.046925582980504366",
+    "annualized": "0.896512004042318"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002786435614415337"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "6668698223.352941",
+    "avg_daily_trade_volume": "295124165.541116"
+  },
+  "sufficient": true
+}

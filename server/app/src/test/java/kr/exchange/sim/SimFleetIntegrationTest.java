@@ -1,0 +1,154 @@
+package kr.exchange.sim;
+
+import kr.exchange.api.auth.DemoKeySeeder;
+import kr.exchange.ledger.AccountBootstrap;
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.util.Base64;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * M1-5 봇 플릿 통합 검증. MM+TAKER 플릿을 §3 서명 HTTP(외부 관점)로 수 초 구동해
+ * 체결을 만들고, 정지 후 DB 불변식을 검증한다:
+ * 자산별 원장 합 0, balance_ledger_check 0행, 저널 gapless, FILLED 락 잔량 0.
+ * 종료 후 봇 스레드 정지·저널 증가 중단(정지 정상성)까지 확인한다.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class SimFleetIntegrationTest {
+
+    private static final int KRW = 1;
+    private static final int BTC = 2;
+    private static final int KRW_BTC = 1;
+
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
+            .withDatabaseName("exchange")
+            .withUsername("exchange")
+            .withPassword("exchange");
+
+    static {
+        POSTGRES.start();
+    }
+
+    @DynamicPropertySource
+    static void properties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("exchange.auth.master-key-base64",
+                () -> Base64.getEncoder().encodeToString(new byte[32]));
+    }
+
+    @Autowired
+    JdbcClient jdbc;
+    @Autowired
+    AccountBootstrap bootstrap;
+    @Autowired
+    DemoKeySeeder keySeeder;
+    @LocalServerPort
+    int port;
+
+    @BeforeAll
+    void seed() {
+        bootstrap.asset(KRW, "KRW", "Korean Won", "FIAT", 0);
+        bootstrap.asset(BTC, "BTC", "Bitcoin", "CRYPTO", 8);
+        bootstrap.market(KRW_BTC, "KRW-BTC", BTC, KRW,
+                new BigDecimal("0.0005"), new BigDecimal("0.0005"));
+        // 현실 규모 호가 단위. AccountBootstrap 기본(1e-18)은 틱 산술에 부적합하다.
+        jdbc.sql("UPDATE markets SET tick_size = 1000, lot_size = 0.0001, min_notional = 5000 "
+                        + "WHERE id = ?")
+                .params(KRW_BTC)
+                .update();
+        Awaitility.await().atMost(Duration.ofSeconds(15)).until(() ->
+                jdbc.sql("SELECT count(*) FROM leader_lease WHERE resource = 'matching-engine' "
+                                + "AND lease_until > now()")
+                        .query(Long.class).single() > 0);
+    }
+
+    @Test
+    void fleetProducesTradesAndInvariantsHold() {
+        SimProperties props = new SimProperties(
+                "http://localhost:" + port, 42, 60, "KRW-BTC", "50000000",
+                new SimProperties.Funding("1000000000", "100"),
+                new SimProperties.MarketMaker(2, 10, 3, "0.01", 300),
+                new SimProperties.Taker(2, 4.0, "0.001", 5, 0.2), null);
+        BotSeeder seeder = new BotSeeder(jdbc, bootstrap, keySeeder);
+        OpsGovernor governor = new OpsGovernor(props.targetOps());
+        BotFleet fleet = new BotFleet(props, seeder, governor);
+
+        fleet.start();
+        try {
+            // 재호가·취소·부분체결 경로가 섞이도록 체결 다건까지 구동한다.
+            Awaitility.await().atMost(Duration.ofSeconds(40)).until(() ->
+                    count("SELECT count(*) FROM trades") >= 8);
+        } finally {
+            fleet.stop();
+        }
+        assertFalse(fleet.isRunning(), "정지 후 running 플래그 해제");
+
+        // 정지 정상성: 서버측 in-flight 처리 소진 후 저널 증가가 멈춘다(연속 2회 동수 관측).
+        long[] previous = {-1};
+        Awaitility.await().atMost(Duration.ofSeconds(15)).pollInterval(Duration.ofSeconds(1))
+                .until(() -> {
+                    long now = count("SELECT count(*) FROM command_journal");
+                    boolean stable = now == previous[0];
+                    previous[0] = now;
+                    return stable;
+                });
+
+        long trades = count("SELECT count(*) FROM trades");
+        assertTrue(trades >= 8, "체결 발생: " + trades);
+
+        // 불변식 1: 자산별 복식부기 합 = 0
+        assertEquals(0, count("""
+                SELECT count(*) FROM (
+                    SELECT asset_id FROM ledger_entries GROUP BY asset_id HAVING sum(amount) <> 0
+                ) broken
+                """), "자산별 원장 합 0");
+
+        // 불변식 2: balances와 원장 합 대조 뷰 mismatch 0행
+        assertEquals(0, count("SELECT count(*) FROM balance_ledger_check WHERE mismatch"),
+                "balance_ledger_check 0행");
+
+        // 불변식 3: 저널 gapless(§6-C ①)
+        assertEquals(0, count("""
+                SELECT CASE WHEN max(seq) - min(seq) + 1 = count(*) THEN 0 ELSE 1 END
+                FROM command_journal
+                """), "command_journal gapless");
+        assertEquals(0, count("""
+                SELECT CASE WHEN max(event_seq) - min(event_seq) + 1 = count(*) THEN 0 ELSE 1 END
+                FROM event_journal
+                """), "event_journal gapless");
+
+        // 불변식 4: FILLED 주문의 락 잔량 0(§4-B-5)
+        assertEquals(0, count(
+                        "SELECT count(*) FROM orders WHERE status = 'FILLED' AND locked_amount <> 0"),
+                "FILLED locked=0");
+
+        // 봇 접수는 전부 §3 서명 HTTP 경로였음을 봇 사용자 저널 존재로 확인(외부 관점 계약)
+        assertTrue(count("""
+                SELECT count(*) FROM command_journal cj
+                JOIN users u ON u.id = cj.user_id
+                WHERE u.kind = 'BOT'
+                """) > 0, "봇 기원 명령 존재");
+    }
+
+    private long count(String sql) {
+        return jdbc.sql(sql).query(Long.class).single();
+    }
+}

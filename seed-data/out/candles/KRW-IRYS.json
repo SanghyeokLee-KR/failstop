@@ -1,0 +1,33 @@
+{
+  "market": "KRW-IRYS",
+  "korean_name": "아이리스",
+  "english_name": "Irys",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:14.087Z",
+  "window": {
+    "candle_count": 69,
+    "from": "2026-05-15T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "18.2",
+  "price_stats": {
+    "min": "18.2",
+    "max": "90.9",
+    "mean": "30.63623188405796",
+    "median": "26.4"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 68,
+    "daily_stddev": "0.04556581440389688",
+    "annualized": "0.8705336618626457"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.02365203539853946"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "11677419485.844187",
+    "avg_daily_trade_volume": "233106784.80434504"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-UP2",
+  "korean_name": "슈퍼폼",
+  "english_name": "Superform",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:45.010Z",
+  "window": {
+    "candle_count": 71,
+    "from": "2026-05-13T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "87.7",
+  "price_stats": {
+    "min": "79.5",
+    "max": "290",
+    "mean": "120.39154929577461",
+    "median": "99.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 70,
+    "daily_stddev": "0.06068300266475616",
+    "annualized": "1.1593471380608755"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.017085128908605463"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "7012803640.836555",
+    "avg_daily_trade_volume": "38377352.43748738"
+  },
+  "sufficient": true
+}

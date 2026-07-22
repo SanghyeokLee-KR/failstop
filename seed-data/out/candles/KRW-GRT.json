@@ -1,0 +1,33 @@
+{
+  "market": "KRW-GRT",
+  "korean_name": "더그래프",
+  "english_name": "The Graph",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:06.006Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "23.9",
+  "price_stats": {
+    "min": "23.9",
+    "max": "63.7",
+    "mean": "38.4285",
+    "median": "37.45"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03192297319981195",
+    "annualized": "0.6098875466340561"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004532475536281784"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "809849485.4864262",
+    "avg_daily_trade_volume": "20233673.974861685"
+  },
+  "sufficient": true
+}

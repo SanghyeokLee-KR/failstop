@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MEW",
+  "korean_name": "캣인어독스월드",
+  "english_name": "cat in a dogs world",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:11.145Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "0.528",
+  "price_stats": {
+    "min": "0.509",
+    "max": "1.62",
+    "mean": "0.8781650000000005",
+    "median": "0.8725"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04113762253383738",
+    "annualized": "0.7859331749734305"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005633593691056124"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1212499874.650828",
+    "avg_daily_trade_volume": "1327855982.4891295"
+  },
+  "sufficient": true
+}

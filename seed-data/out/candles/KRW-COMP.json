@@ -1,0 +1,33 @@
+{
+  "market": "KRW-COMP",
+  "korean_name": "컴파운드",
+  "english_name": "Compound",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:08.804Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "25220",
+  "price_stats": {
+    "min": "23190",
+    "max": "40270",
+    "mean": "29519.05",
+    "median": "27505"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03795743757862689",
+    "annualized": "0.7251758267140496"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002133558488470197"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2011870150.1231794",
+    "avg_daily_trade_volume": "66160.27394774366"
+  },
+  "sufficient": true
+}

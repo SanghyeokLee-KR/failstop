@@ -1,0 +1,33 @@
+{
+  "market": "KRW-IQ",
+  "korean_name": "아이큐",
+  "english_name": "IQ.wiki",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:53.723Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1.08",
+  "price_stats": {
+    "min": "1.07",
+    "max": "2.62",
+    "mean": "1.6482500000000002",
+    "median": "1.625"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.023029374911491377",
+    "annualized": "0.4399755899105317"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003991619722649705"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "678699499.2111872",
+    "avg_daily_trade_volume": "382018724.1149599"
+  },
+  "sufficient": true
+}

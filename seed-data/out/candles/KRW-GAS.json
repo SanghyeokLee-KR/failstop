@@ -1,0 +1,33 @@
+{
+  "market": "KRW-GAS",
+  "korean_name": "가스",
+  "english_name": "GAS",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:15.647Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1522",
+  "price_stats": {
+    "min": "1493",
+    "max": "3217",
+    "mean": "2290.36",
+    "median": "2362.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.032986051925195124",
+    "annualized": "0.6301976371649287"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003430045479890221"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3912505852.930539",
+    "avg_daily_trade_volume": "1581270.0499024868"
+  },
+  "sufficient": true
+}

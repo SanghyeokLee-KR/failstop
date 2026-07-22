@@ -1,0 +1,33 @@
+{
+  "market": "KRW-VIRTUAL",
+  "korean_name": "버추얼프로토콜",
+  "english_name": "Virtuals Protocol",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:53.411Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "943",
+  "price_stats": {
+    "min": "765",
+    "max": "1662",
+    "mean": "1038.635",
+    "median": "1012"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04885936039226388",
+    "annualized": "0.9334567696195203"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001648002428524832"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "12298479773.800974",
+    "avg_daily_trade_volume": "11257961.653561229"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-APT",
+  "korean_name": "앱토스",
+  "english_name": "Aptos",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:50.775Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "880",
+  "price_stats": {
+    "min": "871",
+    "max": "2893",
+    "mean": "1461.3",
+    "median": "1394"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.039871771121503564",
+    "annualized": "0.7617491176978358"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005830682701876627"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2422302297.489242",
+    "avg_daily_trade_volume": "1703625.1647212964"
+  },
+  "sufficient": true
+}

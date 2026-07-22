@@ -1,0 +1,33 @@
+{
+  "market": "KRW-WIF",
+  "korean_name": "도그위프햇",
+  "english_name": "dogwifhat",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:39.729Z",
+  "window": {
+    "candle_count": 78,
+    "from": "2026-05-06T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "223",
+  "price_stats": {
+    "min": "219",
+    "max": "340",
+    "mean": "261.6025641025641",
+    "median": "252.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 77,
+    "daily_stddev": "0.0354063798093958",
+    "annualized": "0.6764379364661806"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004891602738566476"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1207726505.651393",
+    "avg_daily_trade_volume": "3802658.120649703"
+  },
+  "sufficient": true
+}

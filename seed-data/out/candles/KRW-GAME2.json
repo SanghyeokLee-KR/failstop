@@ -1,0 +1,33 @@
+{
+  "market": "KRW-GAME2",
+  "korean_name": "게임빌드",
+  "english_name": "GameBuild",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:16.900Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1.28",
+  "price_stats": {
+    "min": "1.22",
+    "max": "2.82",
+    "mean": "1.9432499999999997",
+    "median": "2.03"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.023881946653977075",
+    "annualized": "0.4562639501800942"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003262451993091008"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "784644094.922487",
+    "avg_daily_trade_volume": "344180231.7109505"
+  },
+  "sufficient": true
+}

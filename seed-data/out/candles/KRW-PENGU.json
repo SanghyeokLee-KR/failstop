@@ -1,0 +1,33 @@
+{
+  "market": "KRW-PENGU",
+  "korean_name": "펏지펭귄",
+  "english_name": "Pudgy Penguins",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:40.974Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "9.07",
+  "price_stats": {
+    "min": "8.61",
+    "max": "19.5",
+    "mean": "11.612899999999993",
+    "median": "10.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.046116891623666036",
+    "annualized": "0.8810619773634372"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003499745376661828"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "6917281426.180697",
+    "avg_daily_trade_volume": "571298259.0053519"
+  },
+  "sufficient": true
+}

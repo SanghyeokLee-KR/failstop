@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ORBS",
+  "korean_name": "오브스",
+  "english_name": "Orbs",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:11.291Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "8.85",
+  "price_stats": {
+    "min": "8.53",
+    "max": "18.6",
+    "mean": "12.492050000000004",
+    "median": "12.8"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03379638473514647",
+    "annualized": "0.6456790237615011"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002750931504414827"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3386375496.487753",
+    "avg_daily_trade_volume": "225298285.4715612"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ID",
+  "korean_name": "스페이스아이디",
+  "english_name": "SPACE ID",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:54.500Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "45.8",
+  "price_stats": {
+    "min": "35.9",
+    "max": "126",
+    "mean": "61.326999999999956",
+    "median": "54.25"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.057520730701946986",
+    "annualized": "1.0989320170407975"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003908952692701774"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "8259393379.30126",
+    "avg_daily_trade_volume": "146631410.51415622"
+  },
+  "sufficient": true
+}

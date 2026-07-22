@@ -1,0 +1,33 @@
+{
+  "market": "KRW-TRUST",
+  "korean_name": "인튜이션",
+  "english_name": "Intuition",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:57.304Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "71.4",
+  "price_stats": {
+    "min": "69.7",
+    "max": "184",
+    "mean": "105.10050000000003",
+    "median": "101"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04415980982125263",
+    "annualized": "0.8436719820279431"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00432965249033937"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2876514684.3623977",
+    "avg_daily_trade_volume": "25807766.665880788"
+  },
+  "sufficient": true
+}

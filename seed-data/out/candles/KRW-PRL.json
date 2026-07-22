@@ -1,0 +1,33 @@
+{
+  "market": "KRW-PRL",
+  "korean_name": "펄",
+  "english_name": "Perle",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:54.206Z",
+  "window": {
+    "candle_count": 87,
+    "from": "2026-04-27T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "253",
+  "price_stats": {
+    "min": "210",
+    "max": "530",
+    "mean": "293.5977011494253",
+    "median": "269"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 86,
+    "daily_stddev": "0.053639855915022835",
+    "annualized": "1.0247880083428522"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.007518920522384323"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "10552560856.91679",
+    "avg_daily_trade_volume": "26207355.134310905"
+  },
+  "sufficient": true
+}

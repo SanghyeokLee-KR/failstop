@@ -1,0 +1,33 @@
+{
+  "market": "KRW-XCN",
+  "korean_name": "오닉스코인",
+  "english_name": "Onyxcoin",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:15.493Z",
+  "window": {
+    "candle_count": 87,
+    "from": "2026-04-27T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "5.26",
+  "price_stats": {
+    "min": "5.26",
+    "max": "9.17",
+    "mean": "6.460229885057471",
+    "median": "6.07"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 86,
+    "daily_stddev": "0.022061790720265467",
+    "annualized": "0.421489919893049"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.006462863482776215"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3345480633.833522",
+    "avg_daily_trade_volume": "389273306.483084"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-POWR",
+  "korean_name": "파워렛저",
+  "english_name": "Power ledger",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:48.755Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "63.9",
+  "price_stats": {
+    "min": "62.7",
+    "max": "143",
+    "mean": "94.18300000000004",
+    "median": "94.95"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.0329515248592752",
+    "annualized": "0.629537998496733"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003530115793860212"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1408294206.1633456",
+    "avg_daily_trade_volume": "16230591.001304314"
+  },
+  "sufficient": true
+}

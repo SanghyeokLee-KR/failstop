@@ -1,0 +1,33 @@
+{
+  "market": "KRW-FLUID",
+  "korean_name": "플루이드",
+  "english_name": "Fluid",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:13.005Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1466",
+  "price_stats": {
+    "min": "1258",
+    "max": "4960",
+    "mean": "2701.485",
+    "median": "2517"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04888117684107452",
+    "annualized": "0.9338735722888114"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005511515696596078"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3180280818.2530785",
+    "avg_daily_trade_volume": "929888.168801012"
+  },
+  "sufficient": true
+}

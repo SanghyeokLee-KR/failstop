@@ -1,0 +1,33 @@
+{
+  "market": "KRW-XEC",
+  "korean_name": "이캐시",
+  "english_name": "eCash",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:16.421Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "0.012",
+  "price_stats": {
+    "min": "0.00752",
+    "max": "0.0181",
+    "mean": "0.011075549999999988",
+    "median": "0.0106"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.045027488989926596",
+    "annualized": "0.8602489692695688"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001690815259403084"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2381406238.634047",
+    "avg_daily_trade_volume": "209115665113.518"
+  },
+  "sufficient": true
+}

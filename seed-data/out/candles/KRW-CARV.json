@@ -1,0 +1,33 @@
+{
+  "market": "KRW-CARV",
+  "korean_name": "카브",
+  "english_name": "CARV",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:39.266Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "45.1",
+  "price_stats": {
+    "min": "45.1",
+    "max": "186",
+    "mean": "88.20499999999998",
+    "median": "84.65"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04235744827566115",
+    "annualized": "0.8092379130485905"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.007119921744746575"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2573470568.7660475",
+    "avg_daily_trade_volume": "29432382.18426314"
+  },
+  "sufficient": true
+}

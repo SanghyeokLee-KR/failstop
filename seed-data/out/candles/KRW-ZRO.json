@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ZRO",
+  "korean_name": "레이어제로",
+  "english_name": "LayerZero",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:07.097Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1169",
+  "price_stats": {
+    "min": "1146",
+    "max": "3412",
+    "mean": "2233.825",
+    "median": "2231.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.051235444837791806",
+    "annualized": "0.9788517992117798"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002753459487981651"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3704493512.232995",
+    "avg_daily_trade_volume": "1478588.436274864"
+  },
+  "sufficient": true
+}

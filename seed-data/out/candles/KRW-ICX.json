@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ICX",
+  "korean_name": "아이콘",
+  "english_name": "Icon",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:20.634Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "34.1",
+  "price_stats": {
+    "min": "33.7",
+    "max": "88.8",
+    "mean": "55.42250000000001",
+    "median": "54.4"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03195138707793121",
+    "annualized": "0.6104303930133091"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004506261988950676"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1179744003.9879131",
+    "avg_daily_trade_volume": "20081166.27747801"
+  },
+  "sufficient": true
+}

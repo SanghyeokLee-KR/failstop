@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AWE",
+  "korean_name": "에이더블유이",
+  "english_name": "AWE Network",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:55.587Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "83.4",
+  "price_stats": {
+    "min": "71.4",
+    "max": "148",
+    "mean": "83.83250000000005",
+    "median": "80.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.047975629517772116",
+    "annualized": "0.91657311496884"
+  },
+  "drift": {
+    "daily_mean_log_return": "0.000024159304362328"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2555160806.1426864",
+    "avg_daily_trade_volume": "28603876.444312777"
+  },
+  "sufficient": true
+}

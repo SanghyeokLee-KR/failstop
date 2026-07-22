@@ -1,0 +1,58 @@
+# E3 폭주 + 리더 kill 복합. 봇 OPS를 10배로 올린 스파이크 plateau 중 리더 kill.
+# 판정: E1 판정 + 스파이크 중 불변식 유지. 런타임 OPS 변경 API 미구현이라 봇 노드를
+# 높은 target-ops로 재기동해 스파이크를 재현한다(축약). 정본 개방루프 스파이크는
+# load/order_flow.js(PROFILE=e6)가 담당.
+param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e3.env'))
+
+$ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'lib.ps1')
+$cfg = Read-EnvFile $ConfigPath
+$runId = "E3-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
+$target = $cfg['TARGET_NODE']
+
+function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
+
+Write-Section "E3 시작 runId=$runId target=$target"
+Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
+
+Write-Section 'ⓐ 사전 권위 run'
+$prePort = Get-LiveNodePort
+Reset-LoadtestAcks -Port $prePort
+$s0 = Get-HarnessStatus -Port $prePort
+$oldEpoch = [long]$s0.epoch; $oldHolder = $s0.holder
+$leaseUntilBefore = ([datetimeoffset]$s0.leaseUntil).UtcDateTime
+$pre = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'pre'
+Write-Host "사전 verdict=$($pre.verdict) old_epoch=$oldEpoch"
+
+Write-Section "스파이크: 봇 OPS $($cfg['BASE_OPS']) -> $($cfg['SPIKE_OPS']) (봇 노드 재기동)"
+$env:CHAOS_BOTS_OPS = $cfg['SPIKE_OPS']
+Invoke-Compose up -d --no-deps --force-recreate chaos-bots | Out-Null
+# 스파이크 plateau 진입 대기
+Start-Sleep -Seconds ([int]$cfg['KILL_AFTER_SPIKE_SEC'])
+
+# 스파이크 중 불변식 유지 확인. 상시 스캔(fixedDelay 5분)에만 의존하면 60s plateau 창에
+# 스캔이 0회일 수 있어 위반 0이 무결이 아니라 미실행을 뜻할 수 있다. plateau 중 온디맨드
+# 권위 run을 강제 호출해 창 내 실제 스캔 1회를 보장하고, 그 run의 위반 0을 판정 근거로 삼는다.
+Write-Section '스파이크 중 불변식 관측(plateau 온디맨드 권위 run)'
+$spikePort = Get-LiveNodePort
+$spikeRun = Invoke-InvariantRun -Port $spikePort -RunId $runId -Window 'spike'
+$spikeViol = [long]$spikeRun.totalViolations
+# 창 내 실제 스캔 존재 증거: invariant_checks에 window='spike' 적재 확인(공허 통과 차단).
+$spikeScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='spike'"
+Write-Host "스파이크 창 권위 run verdict=$($spikeRun.verdict) 위반합=$spikeViol 스캔체크수=$spikeScans"
+if ($spikeScans -lt 1) { throw '스파이크 창 내 권위 run 미적재(공허 통과 방지 가드)' }
+
+Write-Section 'ⓑ 주입: docker kill (스파이크 plateau 중)'
+$t0 = (Get-Date).ToUniversalTime()
+$tradesAtInject = Get-TradeCount
+& docker kill $target | Out-Null
+Write-Host "T0=$($t0.ToUniversalTime().ToString('o')) trades_at_inject=$tradesAtInject"
+
+$verdict = Complete-FailoverExperiment -ExperimentId 'E3' -RunId $runId `
+    -OldEpoch $oldEpoch -OldHolder $oldHolder -LeaseUntilBefore $leaseUntilBefore `
+    -TradesAtInject $tradesAtInject -T0 $t0 `
+    -ObserveSec ([int]$cfg['POST_KILL_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC'])
+
+Write-Host "스파이크 중 불변식 위반 누계: $spikeViol (0 + 창 내 스캔 $spikeScans 회여야 폭주 중 무결 성립)"
+if ($verdict -ne 'PASS' -or $spikeRun.verdict -ne 'PASS' -or $spikeViol -ne 0) { exit 1 }
+Write-Host 'E3 PASS.' -ForegroundColor Green

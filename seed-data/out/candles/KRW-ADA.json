@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ADA",
+  "korean_name": "에이다",
+  "english_name": "Ada",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:09.428Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "250",
+  "price_stats": {
+    "min": "218",
+    "max": "617",
+    "mean": "373.74",
+    "median": "375"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03541080451684594",
+    "annualized": "0.6765224703833206"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004220309345280148"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "12241027535.714079",
+    "avg_daily_trade_volume": "32878403.308249965"
+  },
+  "sufficient": true
+}

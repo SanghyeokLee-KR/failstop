@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AZTEC",
+  "korean_name": "아즈텍",
+  "english_name": "Aztec",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:08.179Z",
+  "window": {
+    "candle_count": 153,
+    "from": "2026-02-20T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "20.4",
+  "price_stats": {
+    "min": "19.4",
+    "max": "50.9",
+    "mean": "29.18562091503268",
+    "median": "30.3"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 152,
+    "daily_stddev": "0.051649681908974295",
+    "annualized": "0.9867657873446224"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005778448249673049"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "6646399596.546914",
+    "avg_daily_trade_volume": "160723692.76817334"
+  },
+  "sufficient": true
+}

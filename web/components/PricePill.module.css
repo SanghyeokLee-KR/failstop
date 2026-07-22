@@ -1,0 +1,33 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+}
+
+/* pill: 틴트 위 소형 텍스트 → -strong(700) (§6 v1.1 정정) */
+.root[data-variant="pill"] {
+  border-radius: var(--radius-full);
+  padding: var(--space-1) var(--space-2);
+}
+.root[data-variant="pill"][data-dir="up"] {
+  color: var(--color-up-strong);
+  background: var(--color-up-bg);
+}
+.root[data-variant="pill"][data-dir="down"] {
+  color: var(--color-down-strong);
+  background: var(--color-down-bg);
+}
+.root[data-variant="pill"][data-dir="flat"] {
+  color: var(--color-flat);
+  background: var(--surface-sunken);
+}
+
+/* inline: 기본 surface 위 소형 텍스트 → -text(600) */
+.root[data-variant="inline"][data-dir="up"] { color: var(--color-up-text); }
+.root[data-variant="inline"][data-dir="down"] { color: var(--color-down-text); }
+.root[data-variant="inline"][data-dir="flat"] { color: var(--color-flat); }
+
+.amount { font-weight: var(--fw-semibold); }

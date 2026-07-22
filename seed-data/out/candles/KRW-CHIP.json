@@ -1,0 +1,33 @@
+{
+  "market": "KRW-CHIP",
+  "korean_name": "유에스디에이아이",
+  "english_name": "USD.AI",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:15.181Z",
+  "window": {
+    "candle_count": 93,
+    "from": "2026-04-21T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "44.1",
+  "price_stats": {
+    "min": "44",
+    "max": "168",
+    "mean": "66.14946236559143",
+    "median": "55.1"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 92,
+    "daily_stddev": "0.0895176655103231",
+    "annualized": "1.710232598222418"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.007885848063186006"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "30022780107.387054",
+    "avg_daily_trade_volume": "284546271.6026838"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "dom"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "noEmit": false,
+    "outDir": ".test-dist"
+  },
+  "include": ["tests/**/*.ts", "lib/api/**/*.ts", "lib/types.ts", "lib/sim/**/*.ts", "lib/format.ts", "components/trade/derive.ts", "components/trade/orderKey.ts"]
+}

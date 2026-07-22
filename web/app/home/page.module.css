@@ -1,0 +1,24 @@
+/* 홈 대시보드. 고정형 데스크톱, max 1440px 중앙. 페이지 세로 스크롤 허용(랜딩) */
+
+.page {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--layout-gutter) var(--space-9);
+}
+
+/* 요약(전폭) + 대표/순위(좌) + 관심(우 2행 관통) */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas:
+    "summary   summary"
+    "spotlight watch"
+    "ranking   watch";
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.summary { grid-area: summary; }
+.spotlight { grid-area: spotlight; }
+.ranking { grid-area: ranking; }
+.watch { grid-area: watch; }

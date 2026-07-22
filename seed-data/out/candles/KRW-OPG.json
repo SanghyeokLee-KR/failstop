@@ -1,0 +1,33 @@
+{
+  "market": "KRW-OPG",
+  "korean_name": "오픈그라디언트",
+  "english_name": "OpenGradient",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:20.301Z",
+  "window": {
+    "candle_count": 16,
+    "from": "2026-07-07T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "152",
+  "price_stats": {
+    "min": "152",
+    "max": "192",
+    "mean": "166.25",
+    "median": "164.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 15,
+    "daily_stddev": "0.04015772358798412",
+    "annualized": "0.7672122318991412"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.015574323412100346"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "10123221930.631943",
+    "avg_daily_trade_volume": "53948577.4072745"
+  },
+  "sufficient": true
+}

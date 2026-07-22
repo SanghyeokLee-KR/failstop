@@ -1,0 +1,33 @@
+{
+  "market": "KRW-CYBER",
+  "korean_name": "사이버",
+  "english_name": "Cyber",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:45.482Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "490",
+  "price_stats": {
+    "min": "483",
+    "max": "1251",
+    "mean": "767.5",
+    "median": "782.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03918273553097611",
+    "annualized": "0.7485851112245036"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004229864837416402"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2859842806.343715",
+    "avg_daily_trade_volume": "3060680.494455239"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-OP",
+  "korean_name": "옵티미즘",
+  "english_name": "Optimism",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:01.187Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "142",
+  "price_stats": {
+    "min": "137",
+    "max": "538",
+    "mean": "224.045",
+    "median": "180"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04344018528380393",
+    "annualized": "0.8299235745442429"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005939195962236042"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "906099795.9529284",
+    "avg_daily_trade_volume": "4597406.182339111"
+  },
+  "sufficient": true
+}

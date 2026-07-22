@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MIRA",
+  "korean_name": "미라네트워크",
+  "english_name": "Mira Network",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:18.448Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "65.3",
+  "price_stats": {
+    "min": "58.8",
+    "max": "220",
+    "mean": "121.70999999999995",
+    "median": "121"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.044517690869319976",
+    "annualized": "0.8505092898509471"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.006080802480070931"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3602878089.9950213",
+    "avg_daily_trade_volume": "33548309.190999836"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ENSO",
+  "korean_name": "엔소",
+  "english_name": "Enso",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:19.222Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1070",
+  "price_stats": {
+    "min": "812",
+    "max": "3916",
+    "mean": "1412.175",
+    "median": "1313"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.09523172453923144",
+    "annualized": "1.8193995426874658"
+  },
+  "drift": {
+    "daily_mean_log_return": "0.000220814682695963"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "36346068868.26725",
+    "avg_daily_trade_volume": "17865069.790678397"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AXL",
+  "korean_name": "엑셀라",
+  "english_name": "Axelar",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:55.902Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "60",
+  "price_stats": {
+    "min": "58.9",
+    "max": "128",
+    "mean": "82.92700000000005",
+    "median": "80.80000000000001"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05658483768074003",
+    "annualized": "1.081051805976397"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003091385121056449"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "5989773648.961084",
+    "avg_daily_trade_volume": "63923054.45825934"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-BLEND",
+  "korean_name": "플루언트",
+  "english_name": "Fluent",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:51.543Z",
+  "window": {
+    "candle_count": 85,
+    "from": "2026-04-29T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "91",
+  "price_stats": {
+    "min": "80.6",
+    "max": "251",
+    "mean": "121.15882352941179",
+    "median": "98.9"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 84,
+    "daily_stddev": "0.05829641720914309",
+    "annualized": "1.113751486952634"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.012078493245415869"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "7119888269.018044",
+    "avg_daily_trade_volume": "46971491.2927247"
+  },
+  "sufficient": true
+}

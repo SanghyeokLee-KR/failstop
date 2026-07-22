@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SOMI",
+  "korean_name": "솜니아",
+  "english_name": "Somnia",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:19.693Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "143",
+  "price_stats": {
+    "min": "142",
+    "max": "500",
+    "mean": "252.11",
+    "median": "255"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.06457487103429484",
+    "annualized": "1.2337011788597636"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004844630129198513"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "6400767192.972969",
+    "avg_daily_trade_volume": "17219770.774033707"
+  },
+  "sufficient": true
+}

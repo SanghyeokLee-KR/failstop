@@ -1,0 +1,33 @@
+{
+  "market": "KRW-DATA",
+  "korean_name": "데이터네트워크",
+  "english_name": "Data Network",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:01.966Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "391",
+  "price_stats": {
+    "min": "391",
+    "max": "5785",
+    "mean": "1249.13",
+    "median": "792.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.055637849288841836",
+    "annualized": "1.0629596181525784"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.01037174530644349"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "22724036679.02706",
+    "avg_daily_trade_volume": "15347843.834200067"
+  },
+  "sufficient": true
+}

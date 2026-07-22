@@ -1,0 +1,33 @@
+{
+  "market": "KRW-XTZ",
+  "korean_name": "테조스",
+  "english_name": "Tezos",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:06.319Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "329",
+  "price_stats": {
+    "min": "314",
+    "max": "914",
+    "mean": "541.58",
+    "median": "543"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03361482315077704",
+    "annualized": "0.6422102945625956"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004382766319859462"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "620969706.1985812",
+    "avg_daily_trade_volume": "1045134.7499726062"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ETC",
+  "korean_name": "이더리움클래식",
+  "english_name": "Ethereum Classic",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:52.640Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "10140",
+  "price_stats": {
+    "min": "10110",
+    "max": "19490",
+    "mean": "12938.65",
+    "median": "12515"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.028173266394738685",
+    "annualized": "0.5382494987107307"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003029663528312716"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3309883283.231336",
+    "avg_daily_trade_volume": "248490.38982400403"
+  },
+  "sufficient": true
+}

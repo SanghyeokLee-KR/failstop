@@ -1,0 +1,33 @@
+{
+  "market": "KRW-TFUEL",
+  "korean_name": "쎄타퓨엘",
+  "english_name": "Theta Fuel",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:07.881Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "11.8",
+  "price_stats": {
+    "min": "11.3",
+    "max": "30.2",
+    "mean": "18.149500000000007",
+    "median": "17.35"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.02567954365839681",
+    "annualized": "0.49060699272817165"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004159484093129201"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "536145559.7737709",
+    "avg_daily_trade_volume": "26573725.586074706"
+  },
+  "sufficient": true
+}

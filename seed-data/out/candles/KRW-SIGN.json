@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SIGN",
+  "korean_name": "사인",
+  "english_name": "Sign",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:11.920Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "12.6",
+  "price_stats": {
+    "min": "12.4",
+    "max": "83.9",
+    "mean": "35.907500000000006",
+    "median": "34.25"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05868466805231122",
+    "annualized": "1.1211690088963546"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.007459730589442728"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "6534737854.81535",
+    "avg_daily_trade_volume": "155997380.18632266"
+  },
+  "sufficient": true
+}

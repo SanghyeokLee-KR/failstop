@@ -1,0 +1,150 @@
+name: exchange-chaos
+
+# 격리 다중 노드 토폴로지. 데모 스택과 컨테이너명·포트·볼륨·네트워크가 전부 분리된다.
+# app→toxiproxy→postgres 상시 경유(E2 노드별 단절 주입점). api-1 리더/api-2 스탠바이가
+# 동일 DB의 leader_lease를 경쟁한다. 봇 플릿은 엔진을 끈 별도 노드(외부 관점 관찰 주체).
+
+x-app-image: &app-image ${CHAOS_APP_IMAGE:-exchange-chaos-app:local}
+
+services:
+  chaos-pg:
+    image: postgres:17-alpine
+    container_name: chaos-pg
+    environment:
+      POSTGRES_DB: ${CHAOS_PG_DB:-exchange}
+      POSTGRES_USER: ${CHAOS_PG_USER:-exchange}
+      POSTGRES_PASSWORD: ${CHAOS_PG_PASSWORD:-exchange}
+    command: ["postgres", "-c", "synchronous_commit=on"]
+    ports: ["55432:5432"]
+    volumes: ["chaos-pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CHAOS_PG_USER:-exchange} -d ${CHAOS_PG_DB:-exchange}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [chaos-net]
+
+  chaos-toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    container_name: chaos-toxiproxy
+    ports: ["58474:8474"]     # admin API. 격리 스택이라 실험 스크립트 주입용으로 호스트 노출
+    depends_on:
+      chaos-pg: { condition: service_healthy }
+    networks: [chaos-net]
+
+  chaos-toxiproxy-init:
+    image: curlimages/curl:latest
+    container_name: chaos-toxiproxy-init
+    depends_on: [chaos-toxiproxy]
+    volumes: ["./toxiproxy/populate.json:/populate.json:ro"]
+    command: ["sh", "-c",
+      "for i in $(seq 1 30); do curl -sf -XPOST chaos-toxiproxy:8474/populate -d @/populate.json && exit 0; sleep 1; done; exit 1"]
+    restart: "no"
+    networks: [chaos-net]
+
+  chaos-api-1:
+    image: *app-image
+    container_name: chaos-api-1
+    environment: &api-env
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-toxiproxy:15432/exchange
+      SPRING_DATASOURCE_USERNAME: ${CHAOS_PG_USER:-exchange}
+      SPRING_DATASOURCE_PASSWORD: ${CHAOS_PG_PASSWORD:-exchange}
+      SPRING_FLYWAY_ENABLED: "true"
+      EXCHANGE_HARNESS_ENABLED: "true"
+      EXCHANGE_ENGINE_ENABLED: "true"
+      EXCHANGE_ENGINE_LEASE_TTL: ${CHAOS_LEASE_TTL:-6s}
+      EXCHANGE_ENGINE_LEASE_TICK_INTERVAL: ${CHAOS_LEASE_TICK:-2s}
+      EXCHANGE_AUTH_MASTER_KEY_BASE64: ${CHAOS_MASTER_KEY_BASE64}
+    ports: ["18080:8080"]
+    depends_on:
+      chaos-pg: { condition: service_healthy }
+      chaos-toxiproxy-init: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 40s
+    restart: unless-stopped
+    deploy: { resources: { limits: { memory: 1g } } }
+    networks: [chaos-net]
+
+  chaos-api-2:
+    image: *app-image
+    container_name: chaos-api-2
+    environment:
+      <<: *api-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-toxiproxy:25432/exchange
+      SPRING_FLYWAY_ENABLED: "false"     # 마이그레이션은 api-1 단독. 스키마 확정 후 기동
+    ports: ["28080:8080"]
+    depends_on:
+      chaos-api-1: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 40s
+    restart: unless-stopped
+    deploy: { resources: { limits: { memory: 1g } } }
+    networks: [chaos-net]
+
+  chaos-lb:
+    image: nginx:1.29
+    container_name: chaos-lb
+    volumes: ["./nginx/nginx.conf:/etc/nginx/nginx.conf:ro"]
+    ports: ["58080:8080"]
+    depends_on:
+      chaos-api-1: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [chaos-net]
+
+  chaos-bots:
+    image: *app-image
+    container_name: chaos-bots
+    environment:
+      SPRING_PROFILES_ACTIVE: bots
+      SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-pg:5432/exchange   # 시드 전용 직결(토식 무관)
+      SPRING_DATASOURCE_USERNAME: ${CHAOS_PG_USER:-exchange}
+      SPRING_DATASOURCE_PASSWORD: ${CHAOS_PG_PASSWORD:-exchange}
+      SPRING_FLYWAY_ENABLED: "false"
+      EXCHANGE_ENGINE_ENABLED: "false"   # 봇 노드는 리더 경쟁에서 빠진다(승격 주체 오염 방지)
+      EXCHANGE_AUTH_MASTER_KEY_BASE64: ${CHAOS_MASTER_KEY_BASE64}
+      EXCHANGE_SIM_BASE_URL: http://chaos-lb:8080
+      EXCHANGE_SIM_TARGET_OPS: ${CHAOS_BOTS_OPS:-40}
+    depends_on:
+      chaos-api-1: { condition: service_healthy }
+      chaos-lb: { condition: service_started }
+    restart: unless-stopped        # 카오스 중에도 생존(외부 관점 자동 복구 관찰)
+    deploy: { resources: { limits: { memory: 512m } } }
+    networks: [chaos-net]
+
+  chaos-prometheus:
+    image: prom/prometheus:v3.13.0
+    container_name: chaos-prometheus
+    volumes: ["./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    command: ["--storage.tsdb.retention.time=2h", "--config.file=/etc/prometheus/prometheus.yml"]
+    ports: ["59090:9090"]
+    restart: unless-stopped
+    profiles: [obs]
+    networks: [chaos-net]
+
+  chaos-grafana:
+    image: grafana/grafana:13.1.0
+    container_name: chaos-grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    ports: ["53001:3000"]
+    depends_on: [chaos-prometheus]
+    restart: unless-stopped
+    profiles: [obs]
+    networks: [chaos-net]
+
+volumes:
+  chaos-pgdata:
+
+networks:
+  chaos-net:
+    name: chaos-net

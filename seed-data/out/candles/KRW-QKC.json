@@ -1,0 +1,33 @@
+{
+  "market": "KRW-QKC",
+  "korean_name": "쿼크체인",
+  "english_name": "QuarkChain",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:13.648Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "2.86",
+  "price_stats": {
+    "min": "2.8",
+    "max": "6.61",
+    "mean": "4.518449999999999",
+    "median": "4.6"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.028505359190233726",
+    "annualized": "0.5445941226601224"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.0039284414015907"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1693538993.0274045",
+    "avg_daily_trade_volume": "314421732.44353086"
+  },
+  "sufficient": true
+}

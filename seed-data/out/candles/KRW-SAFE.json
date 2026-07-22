@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SAFE",
+  "korean_name": "세이프",
+  "english_name": "Safe",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:01.348Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "127",
+  "price_stats": {
+    "min": "117",
+    "max": "310",
+    "mean": "180.445",
+    "median": "167"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04746690828233536",
+    "annualized": "0.9068540094125004"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002896220667405503"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2770003959.0051894",
+    "avg_daily_trade_volume": "11760155.045830272"
+  },
+  "sufficient": true
+}

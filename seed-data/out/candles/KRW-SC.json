@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SC",
+  "korean_name": "시아코인",
+  "english_name": "Siacoin",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:00.254Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "0.86",
+  "price_stats": {
+    "min": "0.86",
+    "max": "2.53",
+    "mean": "1.5006000000000004",
+    "median": "1.44"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.025056172144511734",
+    "annualized": "0.4786974966776232"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00511519285134657"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "434918051.97844344",
+    "avg_daily_trade_volume": "307383022.0776244"
+  },
+  "sufficient": true
+}

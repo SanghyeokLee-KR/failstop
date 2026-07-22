@@ -1,0 +1,33 @@
+{
+  "market": "KRW-XLM",
+  "korean_name": "스텔라루멘",
+  "english_name": "Lumen",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:01.033Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "276",
+  "price_stats": {
+    "min": "213",
+    "max": "385",
+    "mean": "267.685",
+    "median": "255.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04257889804688507",
+    "annualized": "0.813468704987332"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001003427460478456"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "22808436555.78739",
+    "avg_daily_trade_volume": "76067747.33776619"
+  },
+  "sufficient": true
+}

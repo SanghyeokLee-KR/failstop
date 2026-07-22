@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SPK",
+  "korean_name": "스파크",
+  "english_name": "Spark",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:10.201Z",
+  "window": {
+    "candle_count": 91,
+    "from": "2026-04-23T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "25.5",
+  "price_stats": {
+    "min": "24.7",
+    "max": "77.3",
+    "mean": "36.70109890109888",
+    "median": "30.2"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 90,
+    "daily_stddev": "0.03756938196297739",
+    "annualized": "0.7177620345868352"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.012322394482544404"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "11313871873.626694",
+    "avg_daily_trade_volume": "188206246.91723743"
+  },
+  "sufficient": true
+}

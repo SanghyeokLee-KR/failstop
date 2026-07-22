@@ -1,0 +1,33 @@
+{
+  "market": "KRW-JUP",
+  "korean_name": "주피터",
+  "english_name": "Jupiter",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:47.502Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "285",
+  "price_stats": {
+    "min": "203",
+    "max": "389",
+    "mean": "276.625",
+    "median": "274"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04613158828396393",
+    "annualized": "0.8813427566641837"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00051885946391086"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1260121982.3783538",
+    "avg_daily_trade_volume": "4462142.537129235"
+  },
+  "sufficient": true
+}

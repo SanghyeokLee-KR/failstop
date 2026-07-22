@@ -1,0 +1,33 @@
+{
+  "market": "KRW-HIVE",
+  "korean_name": "하이브",
+  "english_name": "Hive",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:00.724Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "70",
+  "price_stats": {
+    "min": "70",
+    "max": "163",
+    "mean": "96.94350000000003",
+    "median": "91.1"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03587815349322326",
+    "annualized": "0.6854511600401594"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003589695418143456"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2264705622.983632",
+    "avg_daily_trade_volume": "22862332.652176008"
+  },
+  "sufficient": true
+}

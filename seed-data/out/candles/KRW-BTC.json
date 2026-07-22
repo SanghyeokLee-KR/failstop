@@ -1,0 +1,33 @@
+{
+  "market": "KRW-BTC",
+  "korean_name": "비트코인",
+  "english_name": "Bitcoin",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:17.980Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "96339000",
+  "price_stats": {
+    "min": "89290000",
+    "max": "142160000",
+    "mean": "107921185",
+    "median": "104346000"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.02317242771739488",
+    "annualized": "0.44270860992986116"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001597229530085699"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "178606484610.66467",
+    "avg_daily_trade_volume": "1669.2870264590993"
+  },
+  "sufficient": true
+}

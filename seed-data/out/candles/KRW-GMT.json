@@ -1,0 +1,33 @@
+{
+  "market": "KRW-GMT",
+  "korean_name": "스테픈",
+  "english_name": "Stepn",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:07.725Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "10.5",
+  "price_stats": {
+    "min": "10.4",
+    "max": "32.6",
+    "mean": "16.687",
+    "median": "16.2"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.042602389674742835",
+    "annualized": "0.813917511907381"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004090953723505565"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2307003336.322441",
+    "avg_daily_trade_volume": "103375439.02012432"
+  },
+  "sufficient": true
+}

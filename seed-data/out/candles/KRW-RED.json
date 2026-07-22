@@ -1,0 +1,33 @@
+{
+  "market": "KRW-RED",
+  "korean_name": "레드스톤",
+  "english_name": "RedStone",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:09.116Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "146",
+  "price_stats": {
+    "min": "136",
+    "max": "394",
+    "mean": "218.865",
+    "median": "197.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05966019077430091",
+    "annualized": "1.1398063443311246"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004233133093829715"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3998439389.310232",
+    "avg_daily_trade_volume": "16218455.178968837"
+  },
+  "sufficient": true
+}

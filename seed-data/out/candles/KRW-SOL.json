@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SOL",
+  "korean_name": "솔라나",
+  "english_name": "Solana",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:13.469Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "112900",
+  "price_stats": {
+    "min": "94600",
+    "max": "214900",
+    "mean": "132485.25",
+    "median": "125500"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.031790392731547185",
+    "annualized": "0.6073546003443894"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00272038034124478"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "43546720244.40162",
+    "avg_daily_trade_volume": "326003.731453518"
+  },
+  "sufficient": true
+}

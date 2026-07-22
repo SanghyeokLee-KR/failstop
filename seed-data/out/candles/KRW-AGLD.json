@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AGLD",
+  "korean_name": "어드벤처골드",
+  "english_name": "Adventure Gold",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:54.345Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "221",
+  "price_stats": {
+    "min": "189",
+    "max": "570",
+    "mean": "346.135",
+    "median": "357.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.07394568772480388",
+    "annualized": "1.412730380355497"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003190570453673609"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4985869658.987915",
+    "avg_daily_trade_volume": "13197490.88336925"
+  },
+  "sufficient": true
+}

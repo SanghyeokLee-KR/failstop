@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AXS",
+  "korean_name": "엑시인피니티",
+  "english_name": "Axie Infinity",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:56.676Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1349",
+  "price_stats": {
+    "min": "1340",
+    "max": "4326",
+    "mean": "1848.435",
+    "median": "1706.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.06849706711940429",
+    "annualized": "1.3086346298510765"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.000168496673606588"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "31842326092.839542",
+    "avg_daily_trade_volume": "12008331.229245696"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,119 @@
+/* OrderPanel: side 상단 인라인 주문 폼, 높이 auto(내용 기준) (§2.5) */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* 지정가/시장가 소형 토글 */
+.typRow {
+  display: flex;
+  gap: var(--space-1);
+  padding: 2px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+}
+.typBtn {
+  flex: 1;
+  height: 30px;
+  border-radius: calc(var(--radius-sm) - 2px);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.typBtn[data-on] {
+  background: var(--surface-default);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-1);
+}
+
+.field { display: flex; flex-direction: column; gap: var(--space-1); }
+.label {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+.inp {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 36px;
+  padding: 0 var(--space-2);
+  background: var(--surface-sunken);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+.inp:focus-within { border-color: var(--brand-primary); }
+.inp[data-error] { border-color: var(--color-danger); }
+.inp input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  text-align: right;
+  font-size: var(--font-body-sm-size);
+}
+.inp input:focus { outline: none; box-shadow: none; }
+.unit {
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.step {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  font-size: var(--font-body-size);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.step:hover { background: var(--surface-hover); }
+
+/* 퍼센트 칩 */
+.pct { display: flex; gap: var(--space-1); }
+.pctBtn {
+  flex: 1;
+  height: 28px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
+}
+.pctBtn:hover { background: var(--surface-hover); }
+.pctBtn[data-on] {
+  background: var(--surface-sunken);
+  border-color: var(--border-strong);
+  color: var(--text-strong);
+}
+
+.divider { height: 1px; background: var(--border-subtle); }
+
+.sumRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}
+.sumRow b { color: var(--text-strong); font-weight: var(--fw-semibold); }
+
+.error {
+  font-size: var(--font-caption-size);
+  color: var(--color-danger);
+}
+
+/* CTA 인라인 2단계 확인: armed 시 라벨 전환 (§2.5) */
+.cta {
+  min-height: 44px;
+  font-size: var(--font-body-sm-size);
+}
+
+/* §2.3 압축: 패딩·행 간격 축소로 약 400px */
+@media (max-height: 820px) {
+  .form { gap: var(--space-2); }
+  .inp { height: 32px; }
+  .cta { min-height: 40px; }
+}

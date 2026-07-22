@@ -1,0 +1,33 @@
+{
+  "market": "KRW-USDT",
+  "korean_name": "테더",
+  "english_name": "Tether",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:42.684Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1464",
+  "price_stats": {
+    "min": "1441",
+    "max": "1524",
+    "mean": "1485.115",
+    "median": "1483"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.005370686599796761",
+    "annualized": "0.1026068234179936"
+  },
+  "drift": {
+    "daily_mean_log_return": "0.000062167295490186"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "84575917896.82693",
+    "avg_daily_trade_volume": "57069032.96720621"
+  },
+  "sufficient": true
+}

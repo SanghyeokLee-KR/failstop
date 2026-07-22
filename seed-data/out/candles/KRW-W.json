@@ -1,0 +1,33 @@
+{
+  "market": "KRW-W",
+  "korean_name": "웜홀",
+  "english_name": "Wormhole",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:58.389Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "13.3",
+  "price_stats": {
+    "min": "13",
+    "max": "57.7",
+    "mean": "24.805500000000002",
+    "median": "20.6"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04440215183785592",
+    "annualized": "0.8483019197542135"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.007188036010195127"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1764887859.894084",
+    "avg_daily_trade_volume": "78608428.68623945"
+  },
+  "sufficient": true
+}

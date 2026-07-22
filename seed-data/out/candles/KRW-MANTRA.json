@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MANTRA",
+  "korean_name": "만트라",
+  "english_name": "MANTRA",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:54.969Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "9.45",
+  "price_stats": {
+    "min": "9.12",
+    "max": "34.8",
+    "mean": "17.465825",
+    "median": "16.05"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05539028198920657",
+    "annualized": "1.0582298515341526"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005591070481094001"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "5884866043.072454",
+    "avg_daily_trade_volume": "270509034.5329856"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AERO",
+  "korean_name": "에어로드롬파이낸스",
+  "english_name": "Aerodrome Finance",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:50.298Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "639",
+  "price_stats": {
+    "min": "414",
+    "max": "889",
+    "mean": "616.985",
+    "median": "612"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05268845283069888",
+    "annualized": "1.0066114779386657"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00119780703385868"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1318286351.8495739",
+    "avg_daily_trade_volume": "2122971.944392333"
+  },
+  "sufficient": true
+}

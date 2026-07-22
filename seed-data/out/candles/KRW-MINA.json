@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MINA",
+  "korean_name": "미나",
+  "english_name": "Mina",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:14.873Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "67.2",
+  "price_stats": {
+    "min": "57.4",
+    "max": "137",
+    "mean": "87.95950000000002",
+    "median": "85.85"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.036938131237072576",
+    "annualized": "0.705702006402013"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002996722599015838"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1501591011.3126516",
+    "avg_daily_trade_volume": "15859795.030818513"
+  },
+  "sufficient": true
+}

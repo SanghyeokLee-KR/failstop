@@ -1,0 +1,33 @@
+{
+  "market": "KRW-KAVA",
+  "korean_name": "카바",
+  "english_name": "Kava",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:06.630Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "66.2",
+  "price_stats": {
+    "min": "63.3",
+    "max": "137",
+    "mean": "85.66799999999998",
+    "median": "82.2"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.038626566922411926",
+    "annualized": "0.737959524877362"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003113084886580176"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2548602515.290566",
+    "avg_daily_trade_volume": "28259025.343308937"
+  },
+  "sufficient": true
+}

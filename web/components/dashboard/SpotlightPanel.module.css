@@ -1,0 +1,100 @@
+/* SpotlightPanel: 칩 선택 + 식별/시세 + 주기 탭 + 미니 캔들 + 요약/CTA */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  /* 접근성 탭 타깃 44px. 시각 밀도는 유지하되 히트영역만 확보한다(CLAUDE.md 접근성). */
+  min-height: 44px;
+  padding: 0 var(--space-3) 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.chip:hover { background: var(--surface-hover); }
+.chip[data-on] {
+  background: var(--brand-weak-bg);
+  color: var(--text-brand);
+}
+
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--space-1);
+}
+.ident {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.name {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.sym {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.figures {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.price {
+  font-size: var(--font-title-1-size);
+  line-height: var(--font-title-1-line);
+  font-weight: var(--fw-bold);
+}
+
+.tf { padding: 0 var(--space-1); }
+
+.chart { min-height: 240px; }
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-2) var(--space-1) 0;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.statLabel {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.statValue {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.cta {
+  margin-left: auto;
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  font-size: var(--font-body-sm-size);
+}

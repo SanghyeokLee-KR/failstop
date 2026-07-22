@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AI",
+  "korean_name": "젠신",
+  "english_name": "Gensyn",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:47.802Z",
+  "window": {
+    "candle_count": 23,
+    "from": "2026-06-30T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "36.7",
+  "price_stats": {
+    "min": "34.5",
+    "max": "53.9",
+    "mean": "39.88695652173914",
+    "median": "39"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 22,
+    "daily_stddev": "0.043019253928199476",
+    "annualized": "0.821881692287096"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.017470623766110308"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "12518276144.86002",
+    "avg_daily_trade_volume": "263209527.58702374"
+  },
+  "sufficient": true
+}

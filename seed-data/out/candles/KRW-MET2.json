@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MET2",
+  "korean_name": "메테오라",
+  "english_name": "Meteora",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:12.784Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "238",
+  "price_stats": {
+    "min": "147",
+    "max": "465",
+    "mean": "257.54",
+    "median": "238"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.055701309153733065",
+    "annualized": "1.0641720171689855"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00263407746204797"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2591725651.974036",
+    "avg_daily_trade_volume": "8799271.3100072"
+  },
+  "sufficient": true
+}

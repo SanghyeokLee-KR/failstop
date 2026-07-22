@@ -1,0 +1,33 @@
+{
+  "market": "KRW-HOLO",
+  "korean_name": "홀로월드에이아이",
+  "english_name": "Holoworld AI",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:18.289Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "95.3",
+  "price_stats": {
+    "min": "78.7",
+    "max": "128",
+    "mean": "97.243",
+    "median": "96.44999999999999"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.047116549449462794",
+    "annualized": "0.900160413309006"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001073642280429691"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3349721847.159814",
+    "avg_daily_trade_volume": "34421974.21522903"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-IOTA",
+  "korean_name": "아이오타",
+  "english_name": "IOTA",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:52.791Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "52.9",
+  "price_stats": {
+    "min": "52.2",
+    "max": "163",
+    "mean": "90.35700000000003",
+    "median": "86.95"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.034437848823404144",
+    "annualized": "0.6579341779600965"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005169894145225439"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1255859169.9735026",
+    "avg_daily_trade_volume": "14513779.857184893"
+  },
+  "sufficient": true
+}

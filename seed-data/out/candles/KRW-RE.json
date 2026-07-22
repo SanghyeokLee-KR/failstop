@@ -1,0 +1,33 @@
+{
+  "market": "KRW-RE",
+  "korean_name": "리",
+  "english_name": "Re",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:59.471Z",
+  "window": {
+    "candle_count": 34,
+    "from": "2026-06-19T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "633",
+  "price_stats": {
+    "min": "548",
+    "max": "1522",
+    "mean": "920.9411764705883",
+    "median": "895.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 33,
+    "daily_stddev": "0.10199997517090374",
+    "annualized": "1.9487067894441477"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.022951195432978768"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "38781522175.6465",
+    "avg_daily_trade_volume": "34791711.07644722"
+  },
+  "sufficient": true
+}

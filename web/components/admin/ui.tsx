@@ -1,0 +1,55 @@
+/**
+ * 관리 평면 공용 UI 조각. 헬스 색 도메인(success/warning/danger)만 쓰고 시세색을 차용하지 않는다.
+ * 상태 표현은 색 단독 금지: 아이콘·라벨을 병기한다(§4-3).
+ */
+
+import type { ReactNode } from "react";
+import styles from "./admin.module.css";
+
+export type Health = "success" | "warning" | "danger";
+
+const HEALTH_ICON: Record<Health, string> = { success: "●", warning: "▲", danger: "▲" };
+
+/** 헬스 상태 필. 항상 아이콘+라벨 병기 */
+export function HealthPill({ health, label }: { health: Health; label: string }) {
+  return (
+    <span className="status-pill" data-health={health}>
+      {HEALTH_ICON[health]} {label}
+    </span>
+  );
+}
+
+/** 지표 타일. 헬스 톤은 값 강조에만 쓴다 */
+export function StatTile({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: Health }) {
+  return (
+    <div className={styles.statTile}>
+      <span className={styles.statLabel}>{label}</span>
+      <span className={`${styles.statValue} num`} data-tone={tone ?? undefined}>
+        {value}
+      </span>
+      {sub != null && <span className={styles.statSub}>{sub}</span>}
+    </div>
+  );
+}
+
+/** 화면 헤더. 제목 + 설명 + 우측 액션 슬롯 */
+export function PageHeader({ title, desc, actions }: { title: string; desc?: string; actions?: ReactNode }) {
+  return (
+    <header className={styles.pageHead}>
+      <div>
+        <h1 className={styles.pageTitle}>{title}</h1>
+        {desc && <p className={styles.pageDesc}>{desc}</p>}
+      </div>
+      {actions != null && <div className={styles.pageActions}>{actions}</div>}
+    </header>
+  );
+}
+
+/** 권한 부족 안내(읽기는 허용, 변경 버튼만 잠길 때 섹션 상단에 병기) */
+export function PermissionNote({ children }: { children: ReactNode }) {
+  return (
+    <p className={styles.permNote} role="note">
+      {children}
+    </p>
+  );
+}

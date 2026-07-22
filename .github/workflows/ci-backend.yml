@@ -1,0 +1,52 @@
+name: ci-backend
+
+# 백엔드 PR 게이트(하네스_CICD_IaC.md §2-2). ubuntu-latest는 Docker 내장이라 Testcontainers
+# 무설정이고, ASCII 경로라 Windows 정션(비ASCII 물리 경로) + cp949 워커의 클래스패스 손상과
+# 무관하게 gradlew build/test를 재현한다. 완료 게이트(gradlew build)의 재현 가능한 원천.
+#
+# 정본 §2-2의 paths는 구 모듈명(exchange-*)을 쓰지만 이 리포는 server/ 단일 트리(:engine·:app)라
+# 실제 경로로 옮긴다. 코드가 정본과 어긋나면 정본을 먼저 고치는 원칙에 따라 후속 정본 개정 대상.
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'server/**'
+      - '.github/workflows/ci-backend.yml'
+  # main/develop push로도 돈다. cache-read-only가 main에서만 쓰기라, PR 전용 트리거로는 Gradle
+  # 캐시가 영영 안 채워져 매 PR이 콜드 빌드가 된다. push(main)가 캐시를 채우고 PR이 읽는다.
+  push:
+    branches: [main, develop]
+    paths:
+      - 'server/**'
+      - '.github/workflows/ci-backend.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30          # Testcontainers 통합테스트 포함, 폭주 시 상한
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Gradle 캐시는 setup-gradle 전담. PR은 읽기 전용(캐시 오염 방지, §2-2 캐시 규칙).
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      # 단위 + 통합(MigrationSmokeTest·InvariantVerifierIntegrationTest 포함). Testcontainers는
+      # 러너 내장 Docker로 PG17을 기동한다. green = 완료 게이트 재현.
+      - run: ./gradlew build

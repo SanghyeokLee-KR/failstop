@@ -1,0 +1,33 @@
+{
+  "market": "KRW-STX",
+  "korean_name": "스택스",
+  "english_name": "Stacks",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:17.051Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "242",
+  "price_stats": {
+    "min": "241",
+    "max": "579",
+    "mean": "356.515",
+    "median": "353.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.034196891751440445",
+    "annualized": "0.6533306995640136"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003795121479934923"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3415530535.8541474",
+    "avg_daily_trade_volume": "8909340.674399203"
+  },
+  "sufficient": true
+}

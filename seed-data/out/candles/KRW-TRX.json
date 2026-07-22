@@ -1,0 +1,33 @@
+{
+  "market": "KRW-TRX",
+  "korean_name": "트론",
+  "english_name": "TRON",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:48.594Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "482",
+  "price_stats": {
+    "min": "399",
+    "max": "557",
+    "mean": "468.79",
+    "median": "478.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.013278285032314695",
+    "annualized": "0.2536812793463054"
+  },
+  "drift": {
+    "daily_mean_log_return": "0.000620626973775033"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4937493476.914421",
+    "avg_daily_trade_volume": "10647679.412138633"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,13 @@
+# 시크릿·의존·임시물만 무시한다.
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+
+# out/ 는 무시하지 않는다.
+# 이 파이프라인의 목적이 "시드 타임 1회 수집 후 결과물을 저장소에 내재화"이므로
+# out/markets.json, out/candles/*.json, out/coin-meta.json 과 self-host 로고(out/logos/*)는
+# 커밋 대상이다. 런타임은 이 산출물만 읽는다(외부 의존 0).
+# 로고 바이너리 용량이 문제가 되면 그때 web/public 복사 단계나 Git LFS로 전환한다.

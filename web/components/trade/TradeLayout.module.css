@@ -1,0 +1,48 @@
+/* §2.2 그리드 정의 그대로 + §2.3 세로 높이 브레이크포인트(820·640).
+   고정형 정책(§4): 가로 미디어 쿼리 금지, 세로만 둔다. */
+
+.tradeGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px 320px;
+  grid-template-rows: 64px minmax(380px, 1fr) 260px;
+  grid-template-areas:
+    "summary summary side"
+    "chart   book    side"
+    "trades  book    side";
+  gap: 12px;
+  padding: 16px;
+  height: calc(100dvh - 56px);
+  max-width: 1920px;
+  margin: 0 auto;
+}
+
+/* 각 영역 셀. display:grid로 단일 자식(패널 카드)을 양축 스트레치 */
+.summary { grid-area: summary; display: grid; min-width: 0; min-height: 0; }
+.chart   { grid-area: chart;   display: grid; min-width: 0; min-height: 0; }
+.book    { grid-area: book;    display: grid; min-width: 0; min-height: 0; }
+.trades  { grid-area: trades;  display: grid; min-width: 0; min-height: 0; }
+
+/* side 내부 세로 2분할. OrderPanel auto(내용 기준) + MarketListPanel minmax(160px, 1fr) (§2.2) */
+.side {
+  grid-area: side;
+  display: grid;
+  grid-template-rows: auto minmax(160px, 1fr);
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+}
+.order      { display: grid; min-width: 0; min-height: 0; }
+.marketList { display: grid; min-width: 0; min-height: 0; }
+
+/* §2.3 압축 스펙: 요약 64→48, 차트 min 380→300, 체결 260→180 */
+@media (max-height: 820px) {
+  .tradeGrid { grid-template-rows: 48px minmax(300px, 1fr) 180px; }
+}
+
+/* §2.3 무스크롤 원칙 해제: 트랙 min값 유지, 페이지 세로 스크롤 허용 */
+@media (max-height: 640px) {
+  .tradeGrid {
+    height: auto;
+    min-height: calc(100dvh - 56px);
+  }
+}

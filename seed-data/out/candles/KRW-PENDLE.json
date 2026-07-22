@@ -1,0 +1,33 @@
+{
+  "market": "KRW-PENDLE",
+  "korean_name": "펜들",
+  "english_name": "Pendle",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:55.277Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "2314",
+  "price_stats": {
+    "min": "1520",
+    "max": "3398",
+    "mean": "2194.33",
+    "median": "2001.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.047562387111429405",
+    "annualized": "0.908678129881079"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001595924890237091"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1611471737.156991",
+    "avg_daily_trade_volume": "728562.4166494411"
+  },
+  "sufficient": true
+}

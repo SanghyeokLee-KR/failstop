@@ -1,0 +1,33 @@
+{
+  "market": "KRW-UNI",
+  "korean_name": "유니스왑",
+  "english_name": "Uniswap",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:44.551Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "5380",
+  "price_stats": {
+    "min": "3614",
+    "max": "8935",
+    "mean": "5363.765",
+    "median": "5152.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03782021546307397",
+    "annualized": "0.722554201877457"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002280613741157127"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2892548860.972152",
+    "avg_daily_trade_volume": "528357.7117660198"
+  },
+  "sufficient": true
+}

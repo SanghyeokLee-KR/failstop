@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SOPH",
+  "korean_name": "소폰",
+  "english_name": "Sophon",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:10.369Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "6.75",
+  "price_stats": {
+    "min": "6.58",
+    "max": "20.3",
+    "mean": "12.487650000000006",
+    "median": "12.9"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03292830232354238",
+    "annualized": "0.6290943325745125"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005356718901266488"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2080342366.285421",
+    "avg_daily_trade_volume": "159704153.35612118"
+  },
+  "sufficient": true
+}

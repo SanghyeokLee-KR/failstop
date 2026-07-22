@@ -1,0 +1,33 @@
+{
+  "market": "KRW-PUMP",
+  "korean_name": "펌프펀",
+  "english_name": "Pump.fun",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:06.176Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "2.89",
+  "price_stats": {
+    "min": "1.83",
+    "max": "4.61",
+    "mean": "2.828550000000001",
+    "median": "2.71"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.053271996067166434",
+    "annualized": "1.0177600558175641"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.000831436126487867"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1869303276.6951892",
+    "avg_daily_trade_volume": "590289703.0105156"
+  },
+  "sufficient": true
+}

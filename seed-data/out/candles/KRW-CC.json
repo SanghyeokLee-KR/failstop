@@ -1,0 +1,33 @@
+{
+  "market": "KRW-CC",
+  "korean_name": "캔톤",
+  "english_name": "Canton",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:52.319Z",
+  "window": {
+    "candle_count": 99,
+    "from": "2026-04-15T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "182",
+  "price_stats": {
+    "min": "182",
+    "max": "261",
+    "mean": "223.1010101010101",
+    "median": "226"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 98,
+    "daily_stddev": "0.026306230997548953",
+    "annualized": "0.502579837531499"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002027251987709028"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2000781268.2732325",
+    "avg_daily_trade_volume": "8802599.226978093"
+  },
+  "sufficient": true
+}

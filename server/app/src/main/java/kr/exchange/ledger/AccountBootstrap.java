@@ -1,0 +1,131 @@
+package kr.exchange.ledger;
+
+import org.springframework.jdbc.core.simple.JdbcClient;
+
+import java.math.BigDecimal;
+
+/**
+ * 계정 모델(DB 설계 §1.2) 시드 헬퍼. 통합테스트와 시드 타임 도구가 같은 경로를 쓴다.
+ *
+ * 원장·잔고 직접 DML을 하지 않는다. 입금은 GENESIS 소스계정에서 post_ledger_transaction
+ * 단일 경로로 게시한다(음수 잔고는 GENESIS의 allow_negative가 흡수, §6.1 ①).
+ */
+public class AccountBootstrap {
+
+    private final JdbcClient jdbc;
+
+    public AccountBootstrap(JdbcClient jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    public void asset(int id, String symbol, String name, String kind, int scale) {
+        jdbc.sql("""
+                        INSERT INTO assets (id, symbol, name, kind, scale)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT (id) DO NOTHING
+                        """)
+                .params(id, symbol, name, kind, scale)
+                .update();
+        systemAccount("FEE_INCOME", id);
+        systemAccount("GENESIS", id);
+    }
+
+    public void market(int id, String symbol, int baseAssetId, int quoteAssetId,
+                       BigDecimal makerFeeRate, BigDecimal takerFeeRate) {
+        jdbc.sql("""
+                        INSERT INTO markets
+                          (id, symbol, base_asset_id, quote_asset_id, tick_size, lot_size,
+                           min_notional, max_notional, max_qty, maker_fee_rate, taker_fee_rate)
+                        VALUES (?, ?, ?, ?, 0.000000000000000001, 0.000000000000000001,
+                                0, 1000000000000, 1000000000000, ?, ?)
+                        ON CONFLICT (id) DO NOTHING
+                        """)
+                .params(id, symbol, baseAssetId, quoteAssetId, makerFeeRate, takerFeeRate)
+                .update();
+    }
+
+    /** 현실 규모 마켓 규칙을 명시 시드한다. 시드 타임 도구(dev·운영 프로비저닝)용. */
+    public void market(int id, String symbol, int baseAssetId, int quoteAssetId,
+                       BigDecimal tickSize, BigDecimal lotSize, BigDecimal minNotional,
+                       BigDecimal maxNotional, BigDecimal maxQty,
+                       BigDecimal makerFeeRate, BigDecimal takerFeeRate) {
+        jdbc.sql("""
+                        INSERT INTO markets
+                          (id, symbol, base_asset_id, quote_asset_id, tick_size, lot_size,
+                           min_notional, max_notional, max_qty, maker_fee_rate, taker_fee_rate)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT (id) DO NOTHING
+                        """)
+                .params(id, symbol, baseAssetId, quoteAssetId, tickSize, lotSize,
+                        minNotional, maxNotional, maxQty, makerFeeRate, takerFeeRate)
+                .update();
+    }
+
+    public long user(String email) {
+        jdbc.sql("INSERT INTO users (email) VALUES (?) ON CONFLICT (email) DO NOTHING")
+                .params(email)
+                .update();
+        return jdbc.sql("SELECT id FROM users WHERE email = ?")
+                .params(email)
+                .query(Long.class)
+                .single();
+    }
+
+    /** 사용자 x 자산의 AVAILABLE·LOCKED 계정 페어를 보장한다(§1.2: 잔고 키는 account 단일). */
+    public void userAccounts(long userId, int assetId) {
+        userAccount(userId, "AVAILABLE", assetId);
+        userAccount(userId, "LOCKED", assetId);
+    }
+
+    /** GENESIS 입금. business_event_id는 GENESIS 이벤트 축의 단조 증가 값이다(멱등 키 충돌 방지). */
+    public void deposit(long userId, int assetId, BigDecimal amount) {
+        long genesis = accountId("SYSTEM", 0, "GENESIS", assetId);
+        long avail = accountId("USER", userId, "AVAILABLE", assetId);
+        // 시드 경로는 단일 스레드 전제라 max+1 채번으로 충분하다. 동시 시드는 지원 범위 밖.
+        long eventId = jdbc.sql("""
+                        SELECT COALESCE(max(business_event_id), 0) + 1
+                        FROM ledger_transactions WHERE business_event_type = 'GENESIS'
+                        """)
+                .query(Long.class)
+                .single();
+        String entries = """
+                [{"account_id": %d, "asset_id": %d, "amount": %s, "entry_type": "GENESIS"},
+                 {"account_id": %d, "asset_id": %d, "amount": %s, "entry_type": "GENESIS"}]
+                """.formatted(genesis, assetId, amount.negate().toPlainString(),
+                              avail, assetId, amount.toPlainString());
+        jdbc.sql("SELECT post_ledger_transaction('GENESIS', ?, ?::jsonb)")
+                .params(eventId, entries)
+                .query(Long.class)
+                .single();
+    }
+
+    private void systemAccount(String purpose, int assetId) {
+        jdbc.sql("""
+                        INSERT INTO accounts (owner_type, owner_id, purpose, asset_id, shard)
+                        VALUES ('SYSTEM', 0, ?, ?, 0)
+                        ON CONFLICT (owner_type, owner_id, purpose, asset_id, shard) DO NOTHING
+                        """)
+                .params(purpose, assetId)
+                .update();
+    }
+
+    private void userAccount(long userId, String purpose, int assetId) {
+        jdbc.sql("""
+                        INSERT INTO accounts (owner_type, owner_id, purpose, asset_id, shard)
+                        VALUES ('USER', ?, ?, ?, 0)
+                        ON CONFLICT (owner_type, owner_id, purpose, asset_id, shard) DO NOTHING
+                        """)
+                .params(userId, purpose, assetId)
+                .update();
+    }
+
+    private long accountId(String ownerType, long ownerId, String purpose, int assetId) {
+        return jdbc.sql("""
+                        SELECT id FROM accounts
+                        WHERE owner_type = ? AND owner_id = ? AND purpose = ? AND asset_id = ? AND shard = 0
+                        """)
+                .params(ownerType, ownerId, purpose, assetId)
+                .query(Long.class)
+                .single();
+    }
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-1INCH",
+  "korean_name": "1인치네트워크",
+  "english_name": "1inch Network",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:10.829Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "119",
+  "price_stats": {
+    "min": "100",
+    "max": "245",
+    "mean": "142.365",
+    "median": "138"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03354226345505055",
+    "annualized": "0.640824043522188"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003267447918808605"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "567448578.3691373",
+    "avg_daily_trade_volume": "3618773.1575612877"
+  },
+  "sufficient": true
+}

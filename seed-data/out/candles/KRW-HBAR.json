@@ -1,0 +1,33 @@
+{
+  "market": "KRW-HBAR",
+  "korean_name": "헤데라",
+  "english_name": "Hedera",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:46.260Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "102",
+  "price_stats": {
+    "min": "97.3",
+    "max": "191",
+    "mean": "134.89600000000002",
+    "median": "134"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.028353722778334457",
+    "annualized": "0.5416971130785029"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002909717958756413"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4368627543.78807",
+    "avg_daily_trade_volume": "31808222.18713064"
+  },
+  "sufficient": true
+}

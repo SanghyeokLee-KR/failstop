@@ -1,0 +1,33 @@
+{
+  "market": "KRW-PROVE",
+  "korean_name": "서싱트",
+  "english_name": "Succinct",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:17.360Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "279",
+  "price_stats": {
+    "min": "268",
+    "max": "690",
+    "mean": "396.7",
+    "median": "372.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.054356862390659476",
+    "annualized": "1.0384863978258636"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004273192700779224"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2733902248.3389497",
+    "avg_daily_trade_volume": "6121534.0261474755"
+  },
+  "sufficient": true
+}

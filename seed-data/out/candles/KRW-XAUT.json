@@ -1,0 +1,33 @@
+{
+  "market": "KRW-XAUT",
+  "korean_name": "테더골드",
+  "english_name": "Tether Gold",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:59.792Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "6018000",
+  "price_stats": {
+    "min": "5862000",
+    "max": "8003000",
+    "mean": "6844770",
+    "median": "6841000"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.016974219143055223",
+    "annualized": "0.3242920013868809"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.000253996271096638"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3696663981.7816496",
+    "avg_daily_trade_volume": "510.91021590035"
+  },
+  "sufficient": true
+}

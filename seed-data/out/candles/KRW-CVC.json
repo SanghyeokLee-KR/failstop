@@ -1,0 +1,33 @@
+{
+  "market": "KRW-CVC",
+  "korean_name": "시빅",
+  "english_name": "Civic",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:57.922Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "28.9",
+  "price_stats": {
+    "min": "28.8",
+    "max": "72.3",
+    "mean": "45.403499999999994",
+    "median": "45.45"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.029600511383685097",
+    "annualized": "0.5655169759380525"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004026492653225735"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1793402079.7407851",
+    "avg_daily_trade_volume": "35108601.86964445"
+  },
+  "sufficient": true
+}

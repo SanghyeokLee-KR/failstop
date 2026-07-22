@@ -1,0 +1,123 @@
+/* MarketSummaryStrip: 좌 집계 + 우 대표 코인 카드. 1행 유지, 고정형(가로 미디어 쿼리 없음) */
+
+.root {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+}
+
+/* ===== 좌: 전체 집계 ===== */
+.aggregate {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-shrink: 0;
+}
+
+.aggMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.aggLabel {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.aggValue {
+  font-size: var(--font-title-2-size);
+  line-height: var(--font-title-2-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+
+.counts {
+  display: flex;
+  gap: var(--space-4);
+  padding-left: var(--space-6);
+  border-left: 1px solid var(--border-subtle);
+}
+.count {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
+}
+.countLabel {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.count b {
+  font-size: var(--font-body-lg-size);
+  line-height: var(--font-body-lg-line);
+  font-weight: var(--fw-bold);
+}
+
+/* ===== 우: 대표 코인 카드 ===== */
+.reps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.rep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  text-align: left;
+}
+.rep:hover { background: var(--surface-hover); }
+
+.repHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.repName {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repSym {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.repBody {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.repFigures {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.repPrice {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  font-weight: var(--fw-bold);
+}
+.repChange {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+}

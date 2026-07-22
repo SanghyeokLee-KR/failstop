@@ -1,0 +1,33 @@
+{
+  "market": "KRW-CFG",
+  "korean_name": "센트리퓨즈",
+  "english_name": "Centrifuge",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:08.041Z",
+  "window": {
+    "candle_count": 147,
+    "from": "2026-02-26T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "267",
+  "price_stats": {
+    "min": "156",
+    "max": "461",
+    "mean": "304.4149659863946",
+    "median": "303"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 146,
+    "daily_stddev": "0.07306265750572699",
+    "annualized": "1.3958601117077223"
+  },
+  "drift": {
+    "daily_mean_log_return": "0.001710346429444738"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "12310423617.536242",
+    "avg_daily_trade_volume": "43253984.221997336"
+  },
+  "sufficient": true
+}

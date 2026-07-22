@@ -1,0 +1,65 @@
+/* 온보딩 화면. 데스크톱 뷰포트 중앙 정렬, CTA 열은 360px 고정 폭 */
+
+.root {
+  min-height: calc(100dvh - 56px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--layout-gutter);
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  /* 진입 모션: 페이드 + 슬라이드업 (reduced-motion 시 --dur-* 토큰이 0ms) */
+  animation: hero-in var(--dur-slow) var(--ease-emphasized) both;
+}
+@keyframes hero-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mark {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-xl);
+  background: var(--brand-primary-fill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-4);
+  box-shadow: var(--shadow-2);
+}
+
+.title {
+  font-size: var(--font-title-1-size);
+  line-height: var(--font-title-1-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+
+.sub {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  color: var(--text-secondary);
+}
+
+.cta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 360px;
+  margin-top: var(--space-8);
+}
+
+.terms {
+  text-align: center;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary); /* 약관 안내=정보 전달, tertiary 금지 (§2) */
+  margin-top: var(--space-1);
+}

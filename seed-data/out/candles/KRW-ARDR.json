@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ARDR",
+  "korean_name": "아더",
+  "english_name": "Ardor",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:56.833Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "30.5",
+  "price_stats": {
+    "min": "30.3",
+    "max": "94.5",
+    "mean": "61.291",
+    "median": "63.95"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03369378847060075",
+    "annualized": "0.6437189248795467"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005267243392166928"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3364107690.271415",
+    "avg_daily_trade_volume": "49404324.04092774"
+  },
+  "sufficient": true
+}

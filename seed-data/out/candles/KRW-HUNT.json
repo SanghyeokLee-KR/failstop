@@ -1,0 +1,33 @@
+{
+  "market": "KRW-HUNT",
+  "korean_name": "헌트",
+  "english_name": "HUNT",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:40.816Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "118",
+  "price_stats": {
+    "min": "118",
+    "max": "236",
+    "mean": "152.715",
+    "median": "149.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03127845629396678",
+    "annualized": "0.5975740684373446"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002872611193463046"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1141175172.774445",
+    "avg_daily_trade_volume": "6839108.790626514"
+  },
+  "sufficient": true
+}

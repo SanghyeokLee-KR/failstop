@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ONG",
+  "korean_name": "온톨로지가스",
+  "english_name": "ONG",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:18.912Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "68.2",
+  "price_stats": {
+    "min": "66.5",
+    "max": "155",
+    "mean": "98.21100000000006",
+    "median": "96.1"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04835949957376564",
+    "annualized": "0.9239069420911065"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003163747231508548"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3715205157.867953",
+    "avg_daily_trade_volume": "33341636.472551208"
+  },
+  "sufficient": true
+}

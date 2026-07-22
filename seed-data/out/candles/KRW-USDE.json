@@ -1,0 +1,33 @@
+{
+  "market": "KRW-USDE",
+  "korean_name": "유에스디이",
+  "english_name": "Ethena USDe",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:42.217Z",
+  "window": {
+    "candle_count": 190,
+    "from": "2026-01-14T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1466",
+  "price_stats": {
+    "min": "1440",
+    "max": "1525",
+    "mean": "1485.5105263157895",
+    "median": "1482.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 189,
+    "daily_stddev": "0.006021339445698747",
+    "annualized": "0.11503752858489097"
+  },
+  "drift": {
+    "daily_mean_log_return": "0.000010838526065989"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3147238697.02424",
+    "avg_daily_trade_volume": "2125500.243410096"
+  },
+  "sufficient": true
+}

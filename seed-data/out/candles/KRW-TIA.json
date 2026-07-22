@@ -1,0 +1,33 @@
+{
+  "market": "KRW-TIA",
+  "korean_name": "셀레스티아",
+  "english_name": "Celestia",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:09.275Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "527",
+  "price_stats": {
+    "min": "434",
+    "max": "892",
+    "mean": "563.26",
+    "median": "540.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04748495346154442",
+    "annualized": "0.9071987620772193"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002276480435145396"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1032415531.7406142",
+    "avg_daily_trade_volume": "1788641.5576559806"
+  },
+  "sufficient": true
+}

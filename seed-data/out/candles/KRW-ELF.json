@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ELF",
+  "korean_name": "엘프",
+  "english_name": "aelf",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:09.584Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "90.7",
+  "price_stats": {
+    "min": "88.4",
+    "max": "175",
+    "mean": "115.07500000000006",
+    "median": "117"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.028620501638730523",
+    "annualized": "0.5467939160499049"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001885651082740103"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1897257654.23229",
+    "avg_daily_trade_volume": "13384964.882183911"
+  },
+  "sufficient": true
+}

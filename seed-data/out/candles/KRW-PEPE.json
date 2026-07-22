@@ -1,0 +1,33 @@
+{
+  "market": "KRW-PEPE",
+  "korean_name": "페페",
+  "english_name": "Pepe",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:46.105Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "0.00417",
+  "price_stats": {
+    "min": "0.00354",
+    "max": "0.0104",
+    "mean": "0.0055406",
+    "median": "0.005339999999999999"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04252492734847886",
+    "annualized": "0.8124375962420701"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004592410906214157"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "5474581529.648886",
+    "avg_daily_trade_volume": "881392173824.3289"
+  },
+  "sufficient": true
+}

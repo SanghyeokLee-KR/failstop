@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MEGA",
+  "korean_name": "메가이더",
+  "english_name": "MegaETH",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:15.797Z",
+  "window": {
+    "candle_count": 84,
+    "from": "2026-04-30T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "62.6",
+  "price_stats": {
+    "min": "62.4",
+    "max": "249",
+    "mean": "103.23095238095237",
+    "median": "83.95"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 83,
+    "daily_stddev": "0.05747569067202049",
+    "annualized": "1.0980715284772713"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.016634790582634375"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "11167065412.728231",
+    "avg_daily_trade_volume": "92603903.24772932"
+  },
+  "sufficient": true
+}

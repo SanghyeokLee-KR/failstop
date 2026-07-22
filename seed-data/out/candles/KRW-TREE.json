@@ -1,0 +1,33 @@
+{
+  "market": "KRW-TREE",
+  "korean_name": "트리하우스",
+  "english_name": "Treehouse",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:42.071Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "54",
+  "price_stats": {
+    "min": "51.7",
+    "max": "169",
+    "mean": "97.70099999999998",
+    "median": "98.25"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.0410700499461747",
+    "annualized": "0.7846422024988006"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005582323523919212"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2801989801.4205503",
+    "avg_daily_trade_volume": "29022986.75727974"
+  },
+  "sufficient": true
+}

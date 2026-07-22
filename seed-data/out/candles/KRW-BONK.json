@@ -1,0 +1,33 @@
+{
+  "market": "KRW-BONK",
+  "korean_name": "봉크",
+  "english_name": "Bonk",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:46.880Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "0.00699",
+  "price_stats": {
+    "min": "0.00473",
+    "max": "0.0175",
+    "mean": "0.009230849999999999",
+    "median": "0.008910000000000001"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.06112332199264767",
+    "annualized": "1.1677594270084757"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004553899222402089"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3824647203.9919715",
+    "avg_daily_trade_volume": "397702103638.2941"
+  },
+  "sufficient": true
+}

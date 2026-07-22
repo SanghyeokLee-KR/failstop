@@ -1,0 +1,33 @@
+{
+  "market": "KRW-USDS",
+  "korean_name": "유에스디에스",
+  "english_name": "USDS",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:42.839Z",
+  "window": {
+    "candle_count": 114,
+    "from": "2026-03-31T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1470",
+  "price_stats": {
+    "min": "1459",
+    "max": "1527",
+    "mean": "1492.0087719298247",
+    "median": "1489"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 113,
+    "daily_stddev": "0.005640487112527564",
+    "annualized": "0.10776135497619348"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.000255150743500652"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "348328455.733585",
+    "avg_daily_trade_volume": "218843.71942327387"
+  },
+  "sufficient": true
+}

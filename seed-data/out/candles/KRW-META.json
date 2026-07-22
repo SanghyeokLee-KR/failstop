@@ -1,0 +1,33 @@
+{
+  "market": "KRW-META",
+  "korean_name": "메타디움",
+  "english_name": "Metadium",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:13.940Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "11.7",
+  "price_stats": {
+    "min": "11.2",
+    "max": "18.2",
+    "mean": "14.089500000000008",
+    "median": "14.3"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.031549310217501444",
+    "annualized": "0.6027487253806941"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00163528844439512"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1284990984.4923804",
+    "avg_daily_trade_volume": "79801692.92031604"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ONDO",
+  "korean_name": "온도파이낸스",
+  "english_name": "Ondo Finance",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:07.407Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "580",
+  "price_stats": {
+    "min": "332",
+    "max": "666",
+    "mean": "468.805",
+    "median": "471.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04727551658893193",
+    "annualized": "0.9031974762441976"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00045526078066445"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "21297876430.023285",
+    "avg_daily_trade_volume": "41215254.04537168"
+  },
+  "sufficient": true
+}

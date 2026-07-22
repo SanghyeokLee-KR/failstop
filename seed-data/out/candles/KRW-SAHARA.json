@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SAHARA",
+  "korean_name": "사하라에이아이",
+  "english_name": "Sahara AI",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:14.252Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "13.1",
+  "price_stats": {
+    "min": "13.1",
+    "max": "65.4",
+    "mean": "33.04900000000001",
+    "median": "33.9"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.07619676265450528",
+    "annualized": "1.455737106501328"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005721195139907789"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "19674419541.395985",
+    "avg_daily_trade_volume": "560980765.9195361"
+  },
+  "sufficient": true
+}

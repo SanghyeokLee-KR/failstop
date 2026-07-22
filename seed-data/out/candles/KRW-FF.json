@@ -1,0 +1,33 @@
+{
+  "market": "KRW-FF",
+  "korean_name": "팔콘파이낸스",
+  "english_name": "Falcon Finance",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:51.858Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "88.5",
+  "price_stats": {
+    "min": "87.1",
+    "max": "166",
+    "mean": "114.21799999999998",
+    "median": "112"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05051390630023433",
+    "annualized": "0.9650668248073453"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002195871225197195"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3073597554.6278906",
+    "avg_daily_trade_volume": "24015169.49260122"
+  },
+  "sufficient": true
+}

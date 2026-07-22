@@ -1,0 +1,33 @@
+{
+  "market": "KRW-WET",
+  "korean_name": "휴미디파이",
+  "english_name": "HumidiFi",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:42.528Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "99.7",
+  "price_stats": {
+    "min": "81",
+    "max": "274",
+    "mean": "137.4575",
+    "median": "140"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.06263970087438338",
+    "annualized": "1.1967298048664796"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005043398941347768"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4571053237.3903475",
+    "avg_daily_trade_volume": "28049869.004179236"
+  },
+  "sufficient": true
+}

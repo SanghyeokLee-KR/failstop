@@ -1,0 +1,33 @@
+{
+  "market": "KRW-WAVES",
+  "korean_name": "웨이브",
+  "english_name": "Waves",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:41.595Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "368",
+  "price_stats": {
+    "min": "366",
+    "max": "1045",
+    "mean": "635.83",
+    "median": "624.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.0324853119757691",
+    "annualized": "0.6206310138637225"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005147562579917476"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3001270251.024773",
+    "avg_daily_trade_volume": "4726279.87923771"
+  },
+  "sufficient": true
+}

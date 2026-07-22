@@ -1,0 +1,38 @@
+# 관리 평면(exchange-admin) 프로파일. 고객 평면(/api)·거래 웹과 물리 분리된 배포단위로
+# 기동한다(관리자 설계 §0, §4-1). 데모 mTLS는 config/admin-demo 자산으로 충족한다.
+#
+# 로컬 데모 실행:
+#   1. bash scripts/gen-admin-demo-pki.sh      데모 CA·서버·운영자 인증서 생성(1회)
+#   2. 운영자는 op-01.p12/op-02.p12를 브라우저 인증서 저장소에 임포트(storepass=changeit)
+#   3. gradlew bootRun --args='--spring.profiles.active=dev,admin'
+#   4. https://localhost:8443/admin/v1/session 로 세션 발급(브라우저가 클라이언트 인증서 제시)
+#
+# 운영 프로파일은 이 파일을 상속하지 않는다. 운영은 운영 PKI 인증서로 keystore/truststore를
+# 교체하고 client-auth: need를 유지하며 trusted-forwarding: false를 강제한다.
+server:
+  port: 8443
+  ssl:
+    enabled: true
+    key-store: "file:config/admin-demo/admin-server.p12"
+    key-store-password: "changeit"
+    key-store-type: PKCS12
+    # 운영자 클라이언트 인증서 검증. need = mTLS 강제(인증서 없는 TLS 핸드셰이크 거부).
+    client-auth: need
+    trust-store: "file:config/admin-demo/truststore.p12"
+    trust-store-password: "changeit"
+    trust-store-type: PKCS12
+
+exchange:
+  admin:
+    enabled: true
+    # 관리 세션 수명. 파괴 액션은 세션과 독립인 2인 승인(approval-ttl 5m)이 별도 게이트라
+    # 세션 단독으로는 조회·요청 트리거만 가능하다. 운영자 워크플로(모니터링 관찰·조사) 길이를
+    # 고려한 상한이며 유휴 시 재발급 비용을 낮춘다. 운영 프로파일에서 하향 조정 가능.
+    session-ttl: 30m
+    approval-ttl: 5m
+    mtls:
+      # 운영 기본. Spring SSL client-auth가 X509 클라이언트 인증서를 직접 검증한다.
+      # 게이트웨이가 mTLS를 종단하는 토폴로지에서만 true로 열고, 인그레스가 외부 요청의
+      # forward-header 제거를 보장해야 한다(관리자 설계 §1-3).
+      trusted-forwarding: false
+      forward-header: "X-Operator-Cn"

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ALT",
+  "korean_name": "알트레이어",
+  "english_name": "Altlayer",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:48.130Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "9.23",
+  "price_stats": {
+    "min": "8.52",
+    "max": "20",
+    "mean": "11.631900000000007",
+    "median": "10.8"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03902293314435823",
+    "annualized": "0.7455320909149411"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003885795100699645"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1665819629.995289",
+    "avg_daily_trade_volume": "140274165.1761343"
+  },
+  "sufficient": true
+}

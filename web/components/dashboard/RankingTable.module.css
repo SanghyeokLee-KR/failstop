@@ -1,0 +1,95 @@
+/* RankingTable: 헤더(제목+탭) + 순위 테이블. 행 클릭 이동, 44px 히트 타깃 */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--space-1);
+}
+.title {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+
+.table {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 5열: 순위 · 코인(1fr) · 현재가 · 전일대비 · 거래대금 */
+.row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 132px 128px 120px;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.head {
+  min-height: 36px;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+}
+.head span {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+
+/* 데이터 행: 클릭 가능 */
+.row[tabindex] { cursor: pointer; }
+.row[tabindex]:hover { background: var(--surface-hover); }
+
+.rank {
+  text-align: center;
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+  font-weight: var(--fw-semibold);
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.nameText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.nameKo {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nameSym {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+.right {
+  text-align: right;
+  justify-self: end;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+}
+.vol { color: var(--text-secondary); font-weight: var(--fw-regular); }

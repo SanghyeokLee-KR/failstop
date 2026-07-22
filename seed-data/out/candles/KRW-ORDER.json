@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ORDER",
+  "korean_name": "오덜리",
+  "english_name": "Orderly",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:03.207Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "46.4",
+  "price_stats": {
+    "min": "45.8",
+    "max": "159",
+    "mean": "82.05549999999995",
+    "median": "80.4"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04460077056780194",
+    "annualized": "0.8520965252617941"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005962718902583252"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3367533942.0449157",
+    "avg_daily_trade_volume": "37630704.72619996"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ME",
+  "korean_name": "매직에덴",
+  "english_name": "Magic Eden",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:57.142Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "93.9",
+  "price_stats": {
+    "min": "86",
+    "max": "422",
+    "mean": "171.10800000000006",
+    "median": "159.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.0455741690277928",
+    "annualized": "0.8706932767280607"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.0062853428249745"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "5393442189.898386",
+    "avg_daily_trade_volume": "26320861.634315833"
+  },
+  "sufficient": true
+}

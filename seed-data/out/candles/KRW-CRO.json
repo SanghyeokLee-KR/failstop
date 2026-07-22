@@ -1,0 +1,33 @@
+{
+  "market": "KRW-CRO",
+  "korean_name": "크로노스",
+  "english_name": "Cronos",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:49.213Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "84",
+  "price_stats": {
+    "min": "81",
+    "max": "161",
+    "mean": "107.96249999999995",
+    "median": "106"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.025000985346239055",
+    "annualized": "0.47764315437703475"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003110749790986048"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "941788099.4726263",
+    "avg_daily_trade_volume": "8468027.813803583"
+  },
+  "sufficient": true
+}

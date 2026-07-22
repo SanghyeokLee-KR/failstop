@@ -1,0 +1,33 @@
+{
+  "market": "KRW-WCT",
+  "korean_name": "월렛커넥트",
+  "english_name": "WalletConnect",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:56.370Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "61.8",
+  "price_stats": {
+    "min": "60.6",
+    "max": "129",
+    "mean": "87.49300000000001",
+    "median": "88.05"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04287974768467503",
+    "annualized": "0.8192164292468801"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003292563460542132"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2807150839.713537",
+    "avg_daily_trade_volume": "29164935.067532517"
+  },
+  "sufficient": true
+}

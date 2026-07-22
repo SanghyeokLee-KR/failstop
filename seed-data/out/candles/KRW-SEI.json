@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SEI",
+  "korean_name": "세이",
+  "english_name": "Sei",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:46.725Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "67.2",
+  "price_stats": {
+    "min": "67.2",
+    "max": "190",
+    "mean": "100.6960000000001",
+    "median": "91.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03575210621099228",
+    "annualized": "0.6830430300944125"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004951173886236714"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4936708444.765218",
+    "avg_daily_trade_volume": "50058520.647960335"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-THETA",
+  "korean_name": "쎄타토큰",
+  "english_name": "Theta Token",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:55.748Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "200",
+  "price_stats": {
+    "min": "194",
+    "max": "508",
+    "mean": "289.855",
+    "median": "277"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.040024398429814784",
+    "annualized": "0.7646650583288244"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003904666655983155"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "950587848.8824562",
+    "avg_daily_trade_volume": "3171492.9130311655"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ASTR",
+  "korean_name": "아스타",
+  "english_name": "Astar",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:04.763Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "7.52",
+  "price_stats": {
+    "min": "7.38",
+    "max": "17.1",
+    "mean": "11.332850000000002",
+    "median": "11.3"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03566235820381656",
+    "annualized": "0.6813283968248517"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003825392633309892"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1209290599.7147515",
+    "avg_daily_trade_volume": "103569145.61028045"
+  },
+  "sufficient": true
+}

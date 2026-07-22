@@ -1,0 +1,31 @@
+/* 구 시스템 상태 라우트. 관리 평면 이관 안내 전용(내부 지표 미노출) */
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-9) var(--layout-gutter);
+  display: flex;
+  justify-content: center;
+}
+
+.notice {
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: flex-start;
+  padding: var(--space-7);
+}
+
+.title {
+  font-size: var(--font-title-2-size);
+  line-height: var(--font-title-2-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+
+.desc {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  color: var(--text-secondary);
+}

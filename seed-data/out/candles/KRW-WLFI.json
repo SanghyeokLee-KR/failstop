@@ -1,0 +1,33 @@
+{
+  "market": "KRW-WLFI",
+  "korean_name": "월드리버티파이낸셜",
+  "english_name": "World Liberty Financial",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:44.862Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "82.4",
+  "price_stats": {
+    "min": "80.9",
+    "max": "263",
+    "mean": "136.57600000000002",
+    "median": "120"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03637320870215722",
+    "annualized": "0.6949091765267603"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00551659748599272"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4780994698.759121",
+    "avg_daily_trade_volume": "34401476.79297973"
+  },
+  "sufficient": true
+}

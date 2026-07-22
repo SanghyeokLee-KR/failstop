@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ETH",
+  "korean_name": "이더리움",
+  "english_name": "Ethereum",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:53.568Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "2801000",
+  "price_stats": {
+    "min": "2382000",
+    "max": "4917000",
+    "mean": "3215045",
+    "median": "3102500"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.030908949707369616",
+    "annualized": "0.590514655012589"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002435734068393558"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "126556396222.61224",
+    "avg_daily_trade_volume": "39268.237080518345"
+  },
+  "sufficient": true
+}

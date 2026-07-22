@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MASK",
+  "korean_name": "마스크네트워크",
+  "english_name": "Mask Network",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:08.651Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "569",
+  "price_stats": {
+    "min": "515",
+    "max": "1031",
+    "mean": "696.225",
+    "median": "665.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.0341425224759643",
+    "annualized": "0.6522919760145225"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002581073509643515"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1104616385.7371821",
+    "avg_daily_trade_volume": "1355316.7201421685"
+  },
+  "sufficient": true
+}

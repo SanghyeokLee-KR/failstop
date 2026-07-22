@@ -1,0 +1,53 @@
+.region {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: var(--space-7); /* 데스크톱 하단 고정, TabBar 폐지로 오프셋 축소 (§1.1) */
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(calc(100% - var(--space-8)), 372px);
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-2);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-strong);
+  animation: toastIn var(--dur-slow) var(--ease-emphasized);
+}
+[data-theme="dark"] .toast { border: 1px solid var(--border-subtle); }
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-bold);
+  color: var(--text-inverse);
+  flex-shrink: 0;
+}
+.icon[data-type="success"] { background: var(--color-success); }
+.icon[data-type="error"] { background: var(--color-danger); }
+.icon[data-type="info"] { background: var(--color-info); }
+
+.message { flex: 1; }
+
+@keyframes toastIn {
+  from { transform: translateY(12px); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}

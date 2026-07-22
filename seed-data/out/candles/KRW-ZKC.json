@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ZKC",
+  "korean_name": "바운드리스",
+  "english_name": "Boundless",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:02.586Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "61.2",
+  "price_stats": {
+    "min": "60.3",
+    "max": "225",
+    "mean": "112.31850000000004",
+    "median": "111"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.043789930372698606",
+    "annualized": "0.8366054450855038"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005365006838059315"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3792544058.576251",
+    "avg_daily_trade_volume": "26094410.153811928"
+  },
+  "sufficient": true
+}

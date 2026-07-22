@@ -1,0 +1,33 @@
+{
+  "market": "KRW-PLUME",
+  "korean_name": "플룸",
+  "english_name": "Plume",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:52.018Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "16.7",
+  "price_stats": {
+    "min": "13.1",
+    "max": "28.1",
+    "mean": "17.779999999999994",
+    "median": "17.1"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04804829085290675",
+    "annualized": "0.9179613078274137"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002185757650778207"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2272280621.6485815",
+    "avg_daily_trade_volume": "122740161.7989733"
+  },
+  "sufficient": true
+}

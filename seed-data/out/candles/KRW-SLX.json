@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SLX",
+  "korean_name": "솔스티스",
+  "english_name": "Solstice",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:12.065Z",
+  "window": {
+    "candle_count": 52,
+    "from": "2026-06-01T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "159",
+  "price_stats": {
+    "min": "152",
+    "max": "881",
+    "mean": "356.25",
+    "median": "282.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 51,
+    "daily_stddev": "0.1287274927778246",
+    "annualized": "2.459335296346491"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.023196072175405036"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "48193944221.23828",
+    "avg_daily_trade_volume": "115409378.08971569"
+  },
+  "sufficient": true
+}

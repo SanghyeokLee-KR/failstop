@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AKT",
+  "korean_name": "아카시네트워크",
+  "english_name": "Akash Network",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:53.103Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "797",
+  "price_stats": {
+    "min": "410",
+    "max": "1380",
+    "mean": "791.155",
+    "median": "750"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.0551788694285813",
+    "annualized": "1.0541908202346455"
+  },
+  "drift": {
+    "daily_mean_log_return": "0.001286360074798125"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "6076657478.764774",
+    "avg_daily_trade_volume": "7811781.9726635525"
+  },
+  "sufficient": true
+}

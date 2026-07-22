@@ -1,0 +1,185 @@
+/* 자산 화면, §3.1 와이드 레이아웃. max 1200px 중앙, 고정 2열(1fr 320px) */
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-7) var(--layout-gutter) var(--space-9);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ===== 총 보유자산 요약 카드 (전폭 120px) ===== */
+.summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 120px;
+  padding: var(--space-5) var(--space-6);
+}
+
+.statHero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.heroValue {
+  font-size: var(--font-display-md-size);
+  line-height: var(--font-display-md-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.heroValue small {
+  font-size: var(--font-body-lg-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+  margin-left: var(--space-1);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.statLabel {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+
+.statValue {
+  font-size: var(--font-body-lg-size);
+  line-height: var(--font-body-lg-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+
+.hideBtn {
+  margin-left: auto;
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.hideBtn:hover { background: var(--surface-hover); }
+
+/* ===== 본문 2열: 테이블 1fr + 비중 320px (열 접힘 없음, §4) ===== */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.tableCard {
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+
+.coinCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.coinText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.coinName {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.coinSym {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+.valuation {
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+
+/* ===== 보유 비중 카드 (가로 막대, 라벨 병기) ===== */
+.weightCard {
+  padding: var(--space-5) var(--space-5) var(--space-6);
+}
+
+.weightTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  margin-bottom: var(--space-4);
+}
+
+.weightList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.weightRow {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) 52px;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+
+.weightLabel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.weightLabel b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.weightName {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.weightTrack {
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.weightFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--brand-primary-fill);
+  transition: width var(--dur-base) var(--ease-standard);
+}
+
+.weightPct {
+  text-align: right;
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}

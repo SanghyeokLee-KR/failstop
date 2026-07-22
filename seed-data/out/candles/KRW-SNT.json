@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SNT",
+  "korean_name": "스테이터스네트워크토큰",
+  "english_name": "Status Network Token",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:13.314Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "10.5",
+  "price_stats": {
+    "min": "10.3",
+    "max": "23",
+    "mean": "14.957999999999995",
+    "median": "14.7"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.02662193963118004",
+    "annualized": "0.5086114425079925"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003624713856917801"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "950790778.490286",
+    "avg_daily_trade_volume": "58700045.98011044"
+  },
+  "sufficient": true
+}

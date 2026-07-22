@@ -1,0 +1,33 @@
+{
+  "market": "KRW-TAIKO",
+  "korean_name": "타이코",
+  "english_name": "Taiko",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:59.327Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "118",
+  "price_stats": {
+    "min": "93.8",
+    "max": "298",
+    "mean": "176.923",
+    "median": "175.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.06399936305994161",
+    "annualized": "1.2227061144480098"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003969834203768152"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3218629733.437916",
+    "avg_daily_trade_volume": "15567493.99519068"
+  },
+  "sufficient": true
+}

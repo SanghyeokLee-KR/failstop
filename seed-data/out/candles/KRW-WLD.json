@@ -1,0 +1,33 @@
+{
+  "market": "KRW-WLD",
+  "korean_name": "월드코인",
+  "english_name": "Worldcoin",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:45.954Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "555",
+  "price_stats": {
+    "min": "348",
+    "max": "1015",
+    "mean": "574.375",
+    "median": "565.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.06877340729083191",
+    "annualized": "1.3139141014132498"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002253140761401798"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "27750792360.808422",
+    "avg_daily_trade_volume": "40772046.93462198"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ELSA",
+  "korean_name": "헤이엘사",
+  "english_name": "HeyElsa",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:10.050Z",
+  "window": {
+    "candle_count": 182,
+    "from": "2026-01-22T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "69.2",
+  "price_stats": {
+    "min": "59.7",
+    "max": "257",
+    "mean": "102.33516483516489",
+    "median": "101.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 181,
+    "daily_stddev": "0.05359768761846756",
+    "annualized": "1.0239823841683475"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.007249034377191136"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "9126535202.929861",
+    "avg_daily_trade_volume": "57567879.74251208"
+  },
+  "sufficient": true
+}

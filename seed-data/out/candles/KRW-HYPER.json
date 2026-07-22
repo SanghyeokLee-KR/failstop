@@ -1,0 +1,33 @@
+{
+  "market": "KRW-HYPER",
+  "korean_name": "하이퍼레인",
+  "english_name": "Hyperlane",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:59.014Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "97.4",
+  "price_stats": {
+    "min": "96.5",
+    "max": "237",
+    "mean": "143.43200000000002",
+    "median": "139"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.05863862035307844",
+    "annualized": "1.120289268837763"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003331260323674141"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2966748355.978186",
+    "avg_daily_trade_volume": "16502999.305373907"
+  },
+  "sufficient": true
+}

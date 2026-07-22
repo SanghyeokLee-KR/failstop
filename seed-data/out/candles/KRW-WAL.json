@@ -1,0 +1,33 @@
+{
+  "market": "KRW-WAL",
+  "korean_name": "월러스",
+  "english_name": "Walrus",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:55.122Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "43.8",
+  "price_stats": {
+    "min": "42.5",
+    "max": "234",
+    "mean": "108.47249999999998",
+    "median": "109"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04413889059071925",
+    "annualized": "0.8432723206897709"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.007631575623947924"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1735440699.9012942",
+    "avg_daily_trade_volume": "17471060.18114128"
+  },
+  "sufficient": true
+}

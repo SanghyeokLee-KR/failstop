@@ -1,0 +1,33 @@
+{
+  "market": "KRW-TRAC",
+  "korean_name": "오리진트레일",
+  "english_name": "OriginTrail",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:39.881Z",
+  "window": {
+    "candle_count": 66,
+    "from": "2026-05-18T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "443",
+  "price_stats": {
+    "min": "381",
+    "max": "712",
+    "mean": "499.030303030303",
+    "median": "514"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 65,
+    "daily_stddev": "0.05765590549767263",
+    "annualized": "1.1015145278870104"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005368775329585585"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "9880809762.088497",
+    "avg_daily_trade_volume": "16404600.668969708"
+  },
+  "sufficient": true
+}

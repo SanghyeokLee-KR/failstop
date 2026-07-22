@@ -1,0 +1,33 @@
+{
+  "market": "KRW-XRP",
+  "korean_name": "엑스알피(리플)",
+  "english_name": "XRP",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:04.450Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1655",
+  "price_stats": {
+    "min": "1580",
+    "max": "3403",
+    "mean": "2094.34",
+    "median": "2037.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.031179447462614137",
+    "annualized": "0.5956825073703096"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00302738043702661"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "222139440318.15344",
+    "avg_daily_trade_volume": "104017966.05985752"
+  },
+  "sufficient": true
+}

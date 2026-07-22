@@ -1,0 +1,33 @@
+{
+  "market": "KRW-LSK",
+  "korean_name": "리스크",
+  "english_name": "Lisk",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:39.418Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "126",
+  "price_stats": {
+    "min": "124",
+    "max": "311",
+    "mean": "189.4",
+    "median": "189"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03131927051735822",
+    "annualized": "0.598353823080378"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004409300997778354"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1203152104.6187506",
+    "avg_daily_trade_volume": "5709352.084784295"
+  },
+  "sufficient": true
+}

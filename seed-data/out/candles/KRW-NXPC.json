@@ -1,0 +1,33 @@
+{
+  "market": "KRW-NXPC",
+  "korean_name": "넥스페이스",
+  "english_name": "Nexpace",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:49.366Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "355",
+  "price_stats": {
+    "min": "354",
+    "max": "641",
+    "mean": "463.82",
+    "median": "439.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.036840125317147566",
+    "annualized": "0.7038296059308993"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002352972433428819"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1322004478.535072",
+    "avg_daily_trade_volume": "2774505.0823000856"
+  },
+  "sufficient": true
+}

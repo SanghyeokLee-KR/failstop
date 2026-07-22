@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SPX",
+  "korean_name": "에스피엑스6900",
+  "english_name": "SPX6900",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:10.510Z",
+  "window": {
+    "candle_count": 37,
+    "from": "2026-06-16T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "526",
+  "price_stats": {
+    "min": "492",
+    "max": "646",
+    "mean": "547.7027027027027",
+    "median": "552"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 36,
+    "daily_stddev": "0.05173567290346606",
+    "annualized": "0.9884086429876399"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002953073180392958"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "5653047934.160551",
+    "avg_daily_trade_volume": "9035871.111319574"
+  },
+  "sufficient": true
+}

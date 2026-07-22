@@ -1,0 +1,33 @@
+{
+  "market": "KRW-PUNDIX",
+  "korean_name": "펀디엑스",
+  "english_name": "Pundi X",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:40.201Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "120",
+  "price_stats": {
+    "min": "118",
+    "max": "379",
+    "mean": "219.52",
+    "median": "221"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03481315619263423",
+    "annualized": "0.6651044151814456"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005464517527989881"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1116614663.2471986",
+    "avg_daily_trade_volume": "5667222.704245913"
+  },
+  "sufficient": true
+}

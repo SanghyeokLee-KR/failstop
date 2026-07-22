@@ -1,0 +1,33 @@
+{
+  "market": "KRW-AERGO",
+  "korean_name": "아르고",
+  "english_name": "Aergo",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:42.398Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "32.2",
+  "price_stats": {
+    "min": "31.3",
+    "max": "99.3",
+    "mean": "73.3335",
+    "median": "80.7"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.0388180079506281",
+    "annualized": "0.7416170005859389"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005468373706065295"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4048019988.046208",
+    "avg_daily_trade_volume": "61233430.786834545"
+  },
+  "sufficient": true
+}

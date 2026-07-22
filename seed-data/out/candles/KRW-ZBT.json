@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ZBT",
+  "korean_name": "제로베이스",
+  "english_name": "ZEROBASE",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:18.755Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "146",
+  "price_stats": {
+    "min": "93",
+    "max": "323",
+    "mean": "163.8775",
+    "median": "160.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.06693101060020952",
+    "annualized": "1.2787151620620427"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001802651408323996"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "8086347922.006892",
+    "avg_daily_trade_volume": "41583903.53795364"
+  },
+  "sufficient": true
+}

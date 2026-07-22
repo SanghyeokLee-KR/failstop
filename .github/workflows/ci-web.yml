@@ -1,0 +1,67 @@
+name: ci-web
+
+# 웹 PR 게이트. Next.js 정적 export(web/next.config.ts의 output:'export' → out/)가 완료 게이트다.
+# 러너는 ASCII 경로라 server의 한글 경로 클래스패스 이슈와 무관하다.
+# main/develop push로도 트리거한다. setup-node 캐시는 lockfile 해시 키라 PR에서도 복원되지만,
+# 병합 후 게이트로 develop/main 브랜치 상태를 상시 green으로 유지한다.
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'web/**'
+      - '.github/workflows/ci-web.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'web/**'
+      - '.github/workflows/ci-web.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'   # 빌드 중 아웃바운드 텔레메트리 호출 차단
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # lockfile 고정 설치. package-lock 불일치 시 실패해 계약 외 의존성 유입을 차단한다.
+      - run: npm ci
+
+      # next build가 권위 타입 검사 + 정적 export를 겸한다. output:'export'라 별도 export 단계 불요.
+      - run: npm run build
+
+      # 정적 export 산출물 확인. out/ 비었거나 index.html 부재면 완료 게이트 미달로 실패시킨다.
+      - name: verify static export
+        run: |
+          if [ ! -d out ] || [ -z "$(ls -A out)" ]; then
+            echo "정적 export 산출물 out/ 이 비었다. next build output:export 확인 필요."
+            exit 1
+          fi
+          if [ ! -f out/index.html ]; then
+            echo "out/index.html 부재."
+            ls -la out
+            exit 1
+          fi
+
+      # broad tsconfig(app/lib/components 전부) 타입 검사. next build가 포함하지 않는 파일까지 본다.
+      - run: npx tsc --noEmit
+
+      # 단위 테스트. tsconfig.test.json 컴파일 후 node --test(.test-dist)로 실행(web/package.json).
+      - run: npm test

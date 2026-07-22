@@ -1,0 +1,33 @@
+{
+  "market": "KRW-NEWT",
+  "korean_name": "뉴턴프로토콜",
+  "english_name": "Newton Protocol",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:46.571Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "65.3",
+  "price_stats": {
+    "min": "64.3",
+    "max": "158",
+    "mean": "104.97450000000002",
+    "median": "104"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.038957161593744676",
+    "annualized": "0.744275527204821"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004212501510213761"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1356896984.3829968",
+    "avg_daily_trade_volume": "11718402.32539147"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ANIME",
+  "korean_name": "애니메코인",
+  "english_name": "Animecoin",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:50.623Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "3.92",
+  "price_stats": {
+    "min": "3.87",
+    "max": "12",
+    "mean": "6.871949999999999",
+    "median": "6.9350000000000005"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03634061619226072",
+    "annualized": "0.6942864974994968"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.005045990390278841"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3768468260.616827",
+    "avg_daily_trade_volume": "474621330.6552464"
+  },
+  "sufficient": true
+}

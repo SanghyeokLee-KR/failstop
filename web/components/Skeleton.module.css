@@ -1,0 +1,41 @@
+.base {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+  background: var(--skeleton-base);
+  flex-shrink: 0;
+}
+.base::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--skeleton-shine), transparent);
+  animation: shimmer 1.4s var(--ease-linear) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .base::after { animation: none; } /* static */
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+.text { height: 14px; width: 100%; border-radius: var(--radius-xs); }
+.circle { border-radius: var(--radius-full); }
+.card { display: block; width: 100%; height: 96px; border-radius: var(--radius-lg); }
+.chart { display: block; width: 100%; height: 180px; border-radius: var(--radius-md); }
+
+/* listRow 합성. 실제 ListRow와 동일 치수 (CLS 0) */
+.listRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 64px;
+  padding: var(--space-3) var(--layout-gutter);
+}
+.listText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-DOOD",
+  "korean_name": "두들즈",
+  "english_name": "Doodles",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:41.445Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "2.23",
+  "price_stats": {
+    "min": "2.09",
+    "max": "9.37",
+    "mean": "4.512300000000001",
+    "median": "4.585"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04164842555829098",
+    "annualized": "0.7956920530530919"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.007213625682303036"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3305043198.8591905",
+    "avg_daily_trade_volume": "712786736.4698788"
+  },
+  "sufficient": true
+}

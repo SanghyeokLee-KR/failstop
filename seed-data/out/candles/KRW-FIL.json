@@ -1,0 +1,33 @@
+{
+  "market": "KRW-FIL",
+  "korean_name": "파일코인",
+  "english_name": "Filecoin",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:41.131Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1120",
+  "price_stats": {
+    "min": "1059",
+    "max": "2330",
+    "mean": "1434.84",
+    "median": "1376"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.0408040853690116",
+    "annualized": "0.779560956386721"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003298072694601344"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2420865478.590781",
+    "avg_daily_trade_volume": "1566722.7744866426"
+  },
+  "sufficient": true
+}

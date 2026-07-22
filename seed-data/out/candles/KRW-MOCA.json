@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MOCA",
+  "korean_name": "모카네트워크",
+  "english_name": "Moca Network",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:50.928Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "12.6",
+  "price_stats": {
+    "min": "12.3",
+    "max": "37.4",
+    "mean": "20.915",
+    "median": "20.2"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03771134739738949",
+    "annualized": "0.7204742804029906"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.004620403550931822"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1420708501.3314874",
+    "avg_daily_trade_volume": "57151593.25200468"
+  },
+  "sufficient": true
+}

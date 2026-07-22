@@ -1,0 +1,33 @@
+{
+  "market": "KRW-TAO",
+  "korean_name": "비트텐서",
+  "english_name": "Bittensor",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:03.829Z",
+  "window": {
+    "candle_count": 157,
+    "from": "2026-02-16T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "287000",
+  "price_stats": {
+    "min": "244800",
+    "max": "517500",
+    "mean": "362752.22929936304",
+    "median": "364500"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 156,
+    "daily_stddev": "0.043931247010668244",
+    "annualized": "0.8393052956630304"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.000158830720562275"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "8199057862.989916",
+    "avg_daily_trade_volume": "21217.190547015485"
+  },
+  "sufficient": true
+}

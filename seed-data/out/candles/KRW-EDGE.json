@@ -1,0 +1,33 @@
+{
+  "market": "KRW-EDGE",
+  "korean_name": "디피니티브",
+  "english_name": "Definitive",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:12.539Z",
+  "window": {
+    "candle_count": 141,
+    "from": "2026-03-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "95.7",
+  "price_stats": {
+    "min": "89.7",
+    "max": "271",
+    "mean": "147.0170212765958",
+    "median": "153"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 140,
+    "daily_stddev": "0.05829366280089047",
+    "annualized": "1.113698864056856"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.007435003731577085"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "6220807698.930428",
+    "avg_daily_trade_volume": "34507392.08518018"
+  },
+  "sufficient": true
+}

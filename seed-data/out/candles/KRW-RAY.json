@@ -1,0 +1,33 @@
+{
+  "market": "KRW-RAY",
+  "korean_name": "레이디움",
+  "english_name": "Raydium",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:07.250Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1017",
+  "price_stats": {
+    "min": "839",
+    "max": "1814",
+    "mean": "1068.9",
+    "median": "981.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03963453058870571",
+    "annualized": "0.7572166436828186"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002370466822875609"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "2948880444.5695763",
+    "avg_daily_trade_volume": "2708711.3717461457"
+  },
+  "sufficient": true
+}

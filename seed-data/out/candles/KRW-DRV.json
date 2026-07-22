@@ -1,0 +1,33 @@
+{
+  "market": "KRW-DRV",
+  "korean_name": "디라이브",
+  "english_name": "Derive",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:13.771Z",
+  "window": {
+    "candle_count": 9,
+    "from": "2026-07-14T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "173",
+  "price_stats": {
+    "min": "173",
+    "max": "228",
+    "mean": "192",
+    "median": "184"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 8,
+    "daily_stddev": "0.02396563575382775",
+    "annualized": "0.45786282818774293"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.034506754307082735"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "11705546072.09063",
+    "avg_daily_trade_volume": "49294244.820142284"
+  },
+  "sufficient": true
+}

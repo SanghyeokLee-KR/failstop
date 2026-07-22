@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ZK",
+  "korean_name": "지케이싱크",
+  "english_name": "ZKsync",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:04.921Z",
+  "window": {
+    "candle_count": 198,
+    "from": "2026-01-06T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "13.8",
+  "price_stats": {
+    "min": "13.7",
+    "max": "53.2",
+    "mean": "26.474242424242423",
+    "median": "25.35"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 197,
+    "daily_stddev": "0.0460113958500598",
+    "annualized": "0.8790464834386623"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.006849694437484468"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "9993072924.775557",
+    "avg_daily_trade_volume": "200849390.25616375"
+  },
+  "sufficient": true
+}

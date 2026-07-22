@@ -1,0 +1,55 @@
+.root {
+  display: flex;
+  gap: var(--space-1);
+}
+.root[data-variant="neutral"],
+.root[data-variant="directional"] {
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  padding: 3px;
+}
+.root[data-variant="underline"] {
+  gap: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tab {
+  flex: 1;
+  min-height: 44px; /* 탭타깃 ≥44px */
+  border-radius: calc(var(--radius-md) - 3px);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  /* §9 v1.3: sunken 트랙 위 정보 라벨은 --text-secondary 금지(라이트 4.27:1 미달) → --text-default (A-9 unselected) */
+  color: var(--text-default);
+  transition: background-color var(--dur-base) var(--ease-standard), color var(--dur-base) var(--ease-standard);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* neutral: 선택 캡슐 = surface + shadow-1 */
+.root[data-variant="neutral"] .tab[data-selected] {
+  background: var(--surface-default);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-1);
+}
+
+/* directional: 매수=Red / 매도=Blue (라벨 병기. 색 단독 아님) */
+.root[data-variant="directional"] .tab[data-selected][data-tone="buy"] {
+  background: var(--color-buy);
+  color: var(--text-inverse);
+}
+.root[data-variant="directional"] .tab[data-selected][data-tone="sell"] {
+  background: var(--color-sell);
+  color: var(--text-inverse);
+}
+
+/* underline */
+.root[data-variant="underline"] .tab {
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.root[data-variant="underline"] .tab[data-selected] {
+  color: var(--text-strong);
+  border-bottom-color: var(--text-strong);
+}

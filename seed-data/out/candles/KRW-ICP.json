@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ICP",
+  "korean_name": "인터넷컴퓨터",
+  "english_name": "Internet Computer",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:20.154Z",
+  "window": {
+    "candle_count": 134,
+    "from": "2026-03-11T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "3175",
+  "price_stats": {
+    "min": "3120",
+    "max": "5340",
+    "mean": "3674",
+    "median": "3584"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 133,
+    "daily_stddev": "0.04017533003670988",
+    "annualized": "0.7675486026297458"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001602085024298249"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3455816313.4125247",
+    "avg_daily_trade_volume": "852574.1753827721"
+  },
+  "sufficient": true
+}

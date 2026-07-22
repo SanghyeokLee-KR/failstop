@@ -1,0 +1,33 @@
+{
+  "market": "KRW-TRUMP",
+  "korean_name": "오피셜트럼프",
+  "english_name": "Official Trump",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:49.680Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "2316",
+  "price_stats": {
+    "min": "2279",
+    "max": "8305",
+    "mean": "4340.45",
+    "median": "4251"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.04024626647902012",
+    "annualized": "0.7689038414571804"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.006124418673855451"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "11924210190.829762",
+    "avg_daily_trade_volume": "2640544.423524847"
+  },
+  "sufficient": true
+}

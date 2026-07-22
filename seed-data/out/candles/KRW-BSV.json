@@ -1,0 +1,33 @@
+{
+  "market": "KRW-BSV",
+  "korean_name": "비트코인에스브이",
+  "english_name": "Bitcoin SV",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:17.514Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "19800",
+  "price_stats": {
+    "min": "16450",
+    "max": "30940",
+    "mean": "22419.7",
+    "median": "22290"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03702988684149448",
+    "annualized": "0.7074549947631075"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.001543656115959984"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3139345788.26938",
+    "avg_daily_trade_volume": "128837.41549843605"
+  },
+  "sufficient": true
+}

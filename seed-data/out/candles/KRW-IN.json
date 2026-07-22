@@ -1,0 +1,33 @@
+{
+  "market": "KRW-IN",
+  "korean_name": "인피닛",
+  "english_name": "Infinit",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:54.810Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "60",
+  "price_stats": {
+    "min": "59.8",
+    "max": "186",
+    "mean": "99.31250000000004",
+    "median": "97.7"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.07894675231569727",
+    "annualized": "1.5082755852086709"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002812139637866441"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "7702017684.708358",
+    "avg_daily_trade_volume": "69492109.9883614"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-BORA",
+  "korean_name": "보라",
+  "english_name": "BORA",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:40.040Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "34.4",
+  "price_stats": {
+    "min": "34.4",
+    "max": "80.7",
+    "mean": "52.086499999999994",
+    "median": "54"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03480381321760057",
+    "annualized": "0.6649259178940571"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.00281213963786645"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3217996256.6165504",
+    "avg_daily_trade_volume": "50224355.23794381"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MTL",
+  "korean_name": "메탈",
+  "english_name": "Metal",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:03.520Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "326",
+  "price_stats": {
+    "min": "325",
+    "max": "603",
+    "mean": "427.165",
+    "median": "417.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.027593214529496635",
+    "annualized": "0.5271676233854378"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.002628245712863364"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "1051305603.1545997",
+    "avg_daily_trade_volume": "2096479.4842653004"
+  },
+  "sufficient": true
+}

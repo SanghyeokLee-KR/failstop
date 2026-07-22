@@ -1,0 +1,33 @@
+{
+  "market": "KRW-SHIB",
+  "korean_name": "시바이누",
+  "english_name": "Shiba Inu",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:44.392Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "0.00618",
+  "price_stats": {
+    "min": "0.00607",
+    "max": "0.0135",
+    "mean": "0.00880345",
+    "median": "0.008805"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.02803387400553937",
+    "annualized": "0.5355864108543423"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003736839628100187"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "7026965879.914992",
+    "avg_daily_trade_volume": "777327707470.5156"
+  },
+  "sufficient": true
+}

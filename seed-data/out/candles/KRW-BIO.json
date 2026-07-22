@@ -1,0 +1,33 @@
+{
+  "market": "KRW-BIO",
+  "korean_name": "바이오프로토콜",
+  "english_name": "Bio Protocol",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:44.703Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "39.5",
+  "price_stats": {
+    "min": "24.3",
+    "max": "89.9",
+    "mean": "46.02900000000003",
+    "median": "44.2"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.07855058412422534",
+    "annualized": "1.5007068025379926"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003058614321224493"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "12420310624.340034",
+    "avg_daily_trade_volume": "220652758.14369115"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-VANA",
+  "korean_name": "바나",
+  "english_name": "Vana",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:12.232Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1687",
+  "price_stats": {
+    "min": "1591",
+    "max": "3665",
+    "mean": "2212.165",
+    "median": "2107.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.03846607949646171",
+    "annualized": "0.7348934169097318"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003686022963416373"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "3429963903.2594213",
+    "avg_daily_trade_volume": "1414794.8227099865"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-BREV",
+  "korean_name": "브레비스",
+  "english_name": "Brevis",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:20.467Z",
+  "window": {
+    "candle_count": 197,
+    "from": "2026-01-07T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "109",
+  "price_stats": {
+    "min": "106",
+    "max": "640",
+    "mean": "199.87309644670052",
+    "median": "182"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 196,
+    "daily_stddev": "0.053452898142606425",
+    "annualized": "1.0212161851160644"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.009031225990431503"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "7554876341.3124",
+    "avg_daily_trade_volume": "24511420.506491262"
+  },
+  "sufficient": true
+}

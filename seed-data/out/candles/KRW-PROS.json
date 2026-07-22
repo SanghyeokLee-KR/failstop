@@ -1,0 +1,33 @@
+{
+  "market": "KRW-PROS",
+  "korean_name": "파로스",
+  "english_name": "Pharos",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:40.361Z",
+  "window": {
+    "candle_count": 76,
+    "from": "2026-05-08T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "499",
+  "price_stats": {
+    "min": "475",
+    "max": "1485",
+    "mean": "825.1184210526316",
+    "median": "865.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 75,
+    "daily_stddev": "0.05258913573165298",
+    "annualized": "1.0047140274256205"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.012580940556387952"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "16345288527.607367",
+    "avg_daily_trade_volume": "13406904.299450498"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,292 @@
+/* ============================================================================
+   tokens.css. 디자인 시스템 v1.1 계약 (docs/프론트_디자인시스템.md §1~5 그대로)
+   색·간격·라운드·모션은 반드시 이 파일의 CSS 변수로만 소비한다.
+   ========================================================================== */
+
+/* ===== §1. Primitive 팔레트 (테마 무관) ===== */
+:root {
+  /* ===== Neutral Grey (살짝 차가운 청록빛 뉴트럴) ===== */
+  --grey-50:#F8FAFB; --grey-100:#F1F3F5; --grey-200:#E7EAEE; --grey-300:#D5DAE0;
+  --grey-400:#B4BCC6; --grey-500:#8C95A1; --grey-600:#6A7480; --grey-700:#4B5563;
+  --grey-800:#2E3540; --grey-900:#16191F;
+
+  /* ===== Grey Opacity (딤/pressed/오버레이 재사용) ===== */
+  --grey-alpha-50:rgba(0,23,51,.02);  --grey-alpha-100:rgba(2,32,71,.05);
+  --grey-alpha-200:rgba(0,27,55,.10); --grey-alpha-300:rgba(0,29,58,.18);
+  --grey-alpha-400:rgba(0,25,54,.31); --grey-alpha-500:rgba(3,24,50,.46);
+  --grey-alpha-600:rgba(0,19,43,.58); --grey-alpha-700:rgba(3,18,40,.70);
+  --grey-alpha-800:rgba(0,12,30,.80); --grey-alpha-900:rgba(2,9,19,.91);
+
+  /* ===== Brand Blue (Primary·royal, 하락블루와 분리) ===== */
+  --brand-50:#EBF1FE; --brand-100:#D3E0FC; --brand-200:#A9C2FA; --brand-300:#7B9FF5;
+  --brand-400:#4E7DEE; --brand-500:#2E6BE6; --brand-600:#1F58CC; --brand-700:#1848AC;
+  --brand-800:#143B8C; --brand-900:#102F6E;
+
+  /* ===== Red = 상승/매수 (한국식) ===== */
+  --red-50:#FDECEE; --red-100:#FAD4D8; --red-200:#F5A8B0; --red-300:#F17C88;
+  --red-400:#F35162; --red-500:#F23645; --red-600:#DC2536; --red-700:#BC1B2A;
+  --red-800:#9C1723; --red-900:#7D131C;
+
+  /* ===== Azure = 하락/매도 (브랜드와 분리된 cyan-lean 다운블루) ===== */
+  --azure-50:#E9F3FD; --azure-100:#CBE3FB; --azure-200:#98C8F6; --azure-300:#5FA9F0;
+  --azure-400:#3B93EC; --azure-500:#1C82E8; --azure-600:#0E6BCB; --azure-700:#0D549E;
+  --azure-800:#0B457F; --azure-900:#093763;
+
+  /* ===== Green = 시스템 성공 (가격 방향 사용 금지) ===== */
+  --green-50:#E6F7F0; --green-100:#C0ECD9; --green-200:#86DCB8; --green-300:#47CA95;
+  --green-400:#17B67B; --green-500:#10A56E; --green-600:#0B8C5D; --green-700:#08744C;
+  --green-800:#065E3D; --green-900:#044B31;
+
+  /* ===== Orange = 주의/경고 ===== */
+  --orange-50:#FFF4E5; --orange-100:#FFE1B8; --orange-200:#FFC978; --orange-300:#FFB03D;
+  --orange-400:#FF9E14; --orange-500:#F59000; --orange-600:#DB7A00; --orange-700:#B36100;
+  --orange-800:#8F4D00; --orange-900:#703C00;
+
+  /* ===== Crimson = danger (up-red와 hue/채도 분리; 삭제/오류/시스템 헬스 '장애' 전용) ===== */
+  --crimson-500:#C2304C; --crimson-600:#A61E3C; --crimson-700:#8A1730;
+}
+
+/* ===== §2. 시맨틱 토큰·라이트 (:root) ===== */
+:root{
+  color-scheme:light;
+
+  /* ===== Background / Surface (4단계) ===== */
+  --bg-base:#FFFFFF; --bg-muted:var(--grey-50);
+  --surface-default:#FFFFFF; --surface-sunken:var(--grey-100);
+  --surface-hover:var(--grey-100); --surface-elevated:#FFFFFF;
+
+  /* ===== Border ===== */
+  --border-subtle:var(--grey-200); --border-default:var(--grey-300); --border-strong:var(--grey-400);
+
+  /* ===== Text ===== */
+  --text-strong:var(--grey-900);   /* 제목·큰 숫자 */
+  --text-default:var(--grey-800);  /* 본문 */
+  --text-secondary:var(--grey-600);/* 정보 전달용 캡션/라벨 최소선 (≈4.75:1) */
+  --text-tertiary:var(--grey-500); /* 장식/비활성만. 정보 전달 금지 */
+  --text-disabled:var(--grey-400);
+  --text-inverse:#FFFFFF;
+  --text-brand:var(--brand-600);   /* 링크 텍스트 (600으로 대비 확보) */
+  --text-on-brand:#FFFFFF;
+
+  /* ===== Brand / Interactive ===== */
+  --brand-primary:var(--brand-600);         /* 텍스트/보더에 안전한 기본 */
+  --brand-primary-fill:var(--brand-500);    /* 큰 면(버튼 배경) */
+  --brand-primary-hover:var(--brand-600);
+  --brand-primary-pressed:var(--brand-700);
+  --brand-weak-bg:var(--brand-50);
+
+  /* ===== 시장 방향색·면/대형 vs 텍스트 분리 (critical 반영) ===== */
+  /* 면·히어로(large-text ≥24px/700 또는 배경 틴트) 전용 */
+  --color-up:var(--red-500);        --color-down:var(--azure-500);
+  --color-up-bg:var(--red-50);      --color-down-bg:var(--azure-50);
+  --color-up-flash:rgba(242,54,69,.10);   /* #F23645 파생. 값 통일 */
+  --color-down-flash:rgba(28,130,232,.10);/* #1C82E8 파생. 값 통일 */
+  /* 소형 텍스트(캡션/바디/미세 숫자) 전용. 흰/기본 surface 기준 4.5:1 이상.
+     틴트(-bg) 위 소형 텍스트는 -text가 아닌 -strong(700) 사용:
+     red-600 on red-50 4.22:1 미달 / red-700 on red-50 5.53:1 / azure-700 on azure-50 6.73:1 */
+  --color-up-text:var(--red-600);   /* on #FFF 4.82:1 */
+  --color-down-text:var(--azure-600);/* on #FFF 5.27:1 */
+  --color-up-strong:var(--red-700); --color-down-strong:var(--azure-700);
+  --color-flat:var(--grey-600);     /* 보합. 무채색, 화살표 없음 */
+
+  /* 주문 CTA. 라벨은 --text-inverse. 라이트: fill 면 위 흰 텍스트 4.5:1 확보 → 600단계(4.82/5.27:1).
+     다크는 600단계가 아닌 전용값 + #16191F 라벨(§3 주석 참조) */
+  --color-buy:var(--red-600);          --color-buy-pressed:var(--red-700);
+  --color-sell:var(--azure-600);       --color-sell-pressed:var(--azure-700);
+
+  /* ===== 시스템 시맨틱 ===== */
+  /* 600 원색은 아이콘·점·면·보더 전용. 소형 텍스트 대비 미달(green-600 on #FFF 4.27:1, orange-600 3.09:1).
+     소형 텍스트는 반드시 -text 사용(틴트 -bg 위 포함 4.5:1 확보). */
+  --color-success:var(--green-600);  --color-success-bg:var(--green-50);
+  --color-success-text:var(--green-700);   /* on #FFF 5.81:1 / on green-50 5.24:1 */
+  --color-warning:var(--orange-600); --color-warning-bg:var(--orange-50);
+  --color-warning-text:var(--orange-800);  /* on #FFF 6.50:1 / on orange-50 5.98:1 (orange-700은 틴트 위 4.18:1 미달) */
+  --color-danger:var(--crimson-600); --color-danger-bg:rgba(194,48,76,.08);
+  --color-info:var(--brand-600);     --color-info-bg:var(--brand-50);
+  /* 시스템 헬스 상태 전이 플래시(화면7 전용). 시세 플래시(--color-up/down-flash)와 도메인 분리, 차용 금지 */
+  --color-health-flash-success:rgba(11,140,93,.10);  /* green-600 #0B8C5D 파생 */
+  --color-health-flash-warning:rgba(219,122,0,.10);  /* orange-600 #DB7A00 파생 */
+  --color-health-flash-danger:rgba(166,30,60,.10);   /* crimson-600 #A61E3C 파생 */
+
+  /* ===== Overlay / State / Focus ===== */
+  --overlay-dim:rgba(15,23,42,.55);
+  --pressed-layer:var(--grey-alpha-100);
+  --skeleton-base:var(--grey-100); --skeleton-shine:var(--grey-50);
+  /* 이중 포커스 링: 안쪽 surface 오프셋 + 바깥 불투명 브랜드 (≥3:1, 비색 단서 병행) */
+  --focus-ring:0 0 0 2px var(--surface-default), 0 0 0 4px var(--brand-600);
+}
+
+/* ===== §3. 시맨틱 토큰·다크 ([data-theme="dark"]) ===== */
+[data-theme="dark"]{
+  color-scheme:dark;
+
+  --bg-base:#0F1115; --bg-muted:#14161C;
+  --surface-default:#171A21; --surface-sunken:#12141A;
+  --surface-hover:#1E222B; --surface-elevated:#232833;
+
+  --border-subtle:#262B35; --border-default:#333A46; --border-strong:#454E5C;
+
+  --text-strong:#F2F4F6; --text-default:#E4E8ED;
+  --text-secondary:#A8B2BE;   /* 상향 → ≈4.7:1 (정보 전달용 최소선) */
+  --text-tertiary:#8A94A3;    /* 상향 → ≈4.5:1 (초안 #6B7684 3.78 실패 해소) */
+  --text-disabled:#4B5563;
+  --text-inverse:#16191F;
+  --text-brand:#8FB4FF; --text-on-brand:#FFFFFF;
+
+  /* fill은 --text-on-brand(#FFFFFF) 라벨 4.5:1 확보값.
+     v1.0 #4E88F5는 흰 라벨 3.41:1 미달 → v1.1 #3D6DDB(4.76:1)로 하향, pressed #2E5BC7(6.11:1) */
+  --brand-primary:#6B9DF7; --brand-primary-fill:#3D6DDB;
+  --brand-primary-hover:#8FB4FF; --brand-primary-pressed:#2E5BC7;
+  --brand-weak-bg:rgba(46,107,230,.18);
+
+  /* ===== 방향색·다크 분리 재조정 (high 반영) =====
+     초안: down #4D93FF vs brand #4E88F5 → 사실상 동색(붕괴).
+     수정: down을 cyan-lean(#35A6FF, hue↓)으로 이동해 라이트와 동등한 ΔHue 확보. */
+  --color-up:#FF5D63;         --color-down:#35A6FF;
+  --color-up-bg:rgba(255,93,99,.14);   --color-down-bg:rgba(53,166,255,.14);
+  --color-up-flash:rgba(255,93,99,.16);--color-down-flash:rgba(53,166,255,.16);
+  --color-up-text:#FF8086;    --color-down-text:#5CB6FF;   /* 다크 surface 위 ≥4.5:1 */
+  --color-up-strong:#FF9A9E;  --color-down-strong:#82C6FF;
+  --color-flat:#8C95A1;
+
+  /* 다크 CTA는 600단계가 아닌 다크 전용값(--color-up/down과 동일 계열).
+     라벨은 --text-inverse(#16191F): on buy 5.87:1 / on sell 6.75:1 통과.
+     흰(#FFFFFF) 라벨은 3.00/2.61:1 미달. 다크에서 흰 CTA 라벨 금지. */
+  --color-buy:#FF5D63;        --color-buy-pressed:#E5484D;
+  --color-sell:#35A6FF;       --color-sell-pressed:#1F8FE5;
+
+  --color-success:#2DD196;  --color-success-bg:rgba(45,209,150,.14);
+  --color-success-text:#2DD196;   /* on surface #171A21 8.85:1. 다크는 동일값으로 충족 */
+  --color-warning:#FFAA2B;  --color-warning-bg:rgba(255,170,43,.14);
+  --color-warning-text:#FFAA2B;   /* on surface #171A21 9.15:1 */
+  --color-danger:#FF7A93;   --color-danger-bg:rgba(255,122,147,.14);
+  --color-info:#6B9DF7;     --color-info-bg:rgba(107,157,247,.14); /* info 자기값 파생. 폐기값 #4E88F5 잔재 제거(v1.2) */
+  --color-health-flash-success:rgba(45,209,150,.16); /* #2DD196 파생 */
+  --color-health-flash-warning:rgba(255,170,43,.16); /* #FFAA2B 파생 */
+  --color-health-flash-danger:rgba(255,122,147,.16); /* #FF7A93 파생 */
+
+  --overlay-dim:rgba(0,0,0,.60);
+  --pressed-layer:rgba(255,255,255,.06);
+  --skeleton-base:#1E222B; --skeleton-shine:#262B35;
+  --focus-ring:0 0 0 2px var(--surface-default), 0 0 0 4px #6B9DF7;
+}
+
+/* ===== §4. 타이포그래피 (Pretendard)·단일 네이밍 체계 ===== */
+:root{
+  --font-sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,
+              system-ui,'Apple SD Gothic Neo','Segoe UI',Roboto,sans-serif;
+  --fw-light:300; --fw-regular:400; --fw-medium:500; --fw-semibold:600; --fw-bold:700;
+  --font-feature-num:"tnum" 1,"lnum" 1;
+
+  --font-display-lg-size:34px; --font-display-lg-line:44px; --font-display-lg-weight:700;
+  --font-display-md-size:28px; --font-display-md-line:38px; --font-display-md-weight:700;
+  --font-title-1-size:24px; --font-title-1-line:32px; --font-title-1-weight:700;
+  --font-title-2-size:20px; --font-title-2-line:28px; --font-title-2-weight:700;
+  --font-title-3-size:18px; --font-title-3-line:26px; --font-title-3-weight:600;
+  --font-body-lg-size:17px; --font-body-lg-line:26px; --font-body-lg-weight:400;
+  --font-body-size:15px;    --font-body-line:23px;    --font-body-weight:400;
+  --font-body-sm-size:14px; --font-body-sm-line:21px; --font-body-sm-weight:400;
+  --font-caption-size:13px; --font-caption-line:18px; --font-caption-weight:400;
+  --font-micro-size:11px;   --font-micro-line:15px;   --font-micro-weight:500;
+}
+.num,.price,.pnl{font-variant-numeric:tabular-nums lining-nums;
+  font-feature-settings:var(--font-feature-num);}
+.price-hero{font-size:var(--font-display-lg-size);line-height:var(--font-display-lg-line);
+  font-weight:var(--fw-bold);font-variant-numeric:tabular-nums lining-nums;}
+
+/* ===== §5. Spacing · Radius · Shadow · Motion · z-index ===== */
+:root{
+  --space-0:0; --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-7:32px; --space-8:40px; --space-9:48px; --space-10:64px;
+  --layout-gutter:24px;      /* 화면 좌우 표준 패딩 (초안 --gutter-screen 폐기·통일) */
+  --gap-cta-content:32px;    /* 바텀시트 CTA↔본문 */
+
+  --radius-xs:6px; --radius-sm:8px; --radius-md:12px; --radius-lg:16px;
+  --radius-xl:20px; --radius-2xl:24px; --radius-full:999px;
+
+  --shadow-0:none;
+  --shadow-1:0 1px 2px rgba(16,25,40,.06),0 1px 3px rgba(16,25,40,.04);
+  --shadow-2:0 4px 12px rgba(16,25,40,.08);
+  --shadow-3:0 -6px 24px rgba(16,25,40,.12);
+  --shadow-4:0 8px 32px rgba(16,25,40,.16);
+  --shadow-focus:var(--focus-ring);   /* 별칭 통일: 초안 --shadow-focus == --focus-ring */
+
+  --dur-instant:0ms; --dur-fast:120ms; --dur-base:200ms; --dur-slow:320ms;
+  --dur-slower:480ms; --dur-flash:220ms;
+  --flash-throttle:300ms;   /* 셀별 플래시 최소 간격 (플래시 중첩 방지) */
+
+  --ease-standard:cubic-bezier(.22,1,.36,1);
+  --ease-emphasized:cubic-bezier(.34,1.56,.64,1);
+  --ease-accelerate:cubic-bezier(.4,0,1,1);
+  --ease-decelerate:cubic-bezier(0,0,.2,1);
+  --ease-linear:linear;
+
+  --toast-duration:3000ms; --toast-duration-action:5000ms;
+  --z-base:0; --z-sticky:100; --z-nav:200; --z-dropdown:1000;
+  --z-overlay:2000; --z-bottomsheet:2100; --z-toast:3000;
+}
+[data-theme="dark"]{
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);  --shadow-2:0 4px 12px rgba(0,0,0,.5);
+  --shadow-3:0 -6px 24px rgba(0,0,0,.5);--shadow-4:0 8px 32px rgba(0,0,0,.6);
+}
+/* 접근성: reduced-motion → 플래시 배경 자체를 무력화 (전환 0ms + 배경 none) */
+@media (prefers-reduced-motion:reduce){
+  :root{--dur-fast:0ms;--dur-base:0ms;--dur-slow:0ms;--dur-slower:0ms;--dur-flash:0ms;}
+  .price-cell[data-tick]{background:transparent!important;}       /* 시세 틱 플래시 완전 비활성 */
+  .status-pill[data-transition]{background:transparent!important;} /* 헬스 상태 전이 플래시 완전 비활성 */
+}
+
+/* ============================================================================
+   시스템 다크 자동 적용. [data-theme] 미지정 시 prefers-color-scheme 반영.
+   (명시적 data-theme="light"|"dark" 토글이 항상 우선. 값은 §3·§5 다크와 동일)
+   ========================================================================== */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]):not([data-theme="dark"]){
+    color-scheme:dark;
+
+    --bg-base:#0F1115; --bg-muted:#14161C;
+    --surface-default:#171A21; --surface-sunken:#12141A;
+    --surface-hover:#1E222B; --surface-elevated:#232833;
+
+    --border-subtle:#262B35; --border-default:#333A46; --border-strong:#454E5C;
+
+    --text-strong:#F2F4F6; --text-default:#E4E8ED;
+    --text-secondary:#A8B2BE;
+    --text-tertiary:#8A94A3;
+    --text-disabled:#4B5563;
+    --text-inverse:#16191F;
+    --text-brand:#8FB4FF; --text-on-brand:#FFFFFF;
+
+    --brand-primary:#6B9DF7; --brand-primary-fill:#3D6DDB;
+    --brand-primary-hover:#8FB4FF; --brand-primary-pressed:#2E5BC7;
+    --brand-weak-bg:rgba(46,107,230,.18);
+
+    --color-up:#FF5D63;         --color-down:#35A6FF;
+    --color-up-bg:rgba(255,93,99,.14);   --color-down-bg:rgba(53,166,255,.14);
+    --color-up-flash:rgba(255,93,99,.16);--color-down-flash:rgba(53,166,255,.16);
+    --color-up-text:#FF8086;    --color-down-text:#5CB6FF;
+    --color-up-strong:#FF9A9E;  --color-down-strong:#82C6FF;
+    --color-flat:#8C95A1;
+
+    --color-buy:#FF5D63;        --color-buy-pressed:#E5484D;
+    --color-sell:#35A6FF;       --color-sell-pressed:#1F8FE5;
+
+    --color-success:#2DD196;  --color-success-bg:rgba(45,209,150,.14);
+    --color-success-text:#2DD196;
+    --color-warning:#FFAA2B;  --color-warning-bg:rgba(255,170,43,.14);
+    --color-warning-text:#FFAA2B;
+    --color-danger:#FF7A93;   --color-danger-bg:rgba(255,122,147,.14);
+    --color-info:#6B9DF7;     --color-info-bg:rgba(107,157,247,.14);
+    --color-health-flash-success:rgba(45,209,150,.16);
+    --color-health-flash-warning:rgba(255,170,43,.16);
+    --color-health-flash-danger:rgba(255,122,147,.16);
+
+    --overlay-dim:rgba(0,0,0,.60);
+    --pressed-layer:rgba(255,255,255,.06);
+    --skeleton-base:#1E222B; --skeleton-shine:#262B35;
+    --focus-ring:0 0 0 2px var(--surface-default), 0 0 0 4px #6B9DF7;
+
+    --shadow-1:0 1px 2px rgba(0,0,0,.4);  --shadow-2:0 4px 12px rgba(0,0,0,.5);
+    --shadow-3:0 -6px 24px rgba(0,0,0,.5);--shadow-4:0 8px 32px rgba(0,0,0,.6);
+  }
+}

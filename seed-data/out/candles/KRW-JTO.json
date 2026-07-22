@@ -1,0 +1,33 @@
+{
+  "market": "KRW-JTO",
+  "korean_name": "지토",
+  "english_name": "Jito",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:47.347Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "911",
+  "price_stats": {
+    "min": "350",
+    "max": "1245",
+    "mean": "639.35",
+    "median": "536.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.06864710502228998",
+    "annualized": "1.3115010999608723"
+  },
+  "drift": {
+    "daily_mean_log_return": "0.001302442238438659"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "9407846505.10252",
+    "avg_daily_trade_volume": "13355832.295429783"
+  },
+  "sufficient": true
+}

@@ -1,0 +1,33 @@
+{
+  "market": "KRW-MVL",
+  "korean_name": "엠블",
+  "english_name": "MVL",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:00.564Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "1.28",
+  "price_stats": {
+    "min": "1.27",
+    "max": "2.79",
+    "mean": "1.925299999999998",
+    "median": "1.97"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.02141616665573833",
+    "annualized": "0.40915528945941876"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.003363973135390102"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "318291550.35555536",
+    "avg_daily_trade_volume": "166049151.63149002"
+  },
+  "sufficient": true
+}

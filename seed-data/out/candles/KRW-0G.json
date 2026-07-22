@@ -1,0 +1,33 @@
+{
+  "market": "KRW-0G",
+  "korean_name": "제로지",
+  "english_name": "0G",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:28:39.580Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "266",
+  "price_stats": {
+    "min": "254",
+    "max": "1694",
+    "mean": "773.985",
+    "median": "808.5"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.052779645221028744",
+    "annualized": "1.0083537061096401"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.008472967039328998"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "9080396779.131422",
+    "avg_daily_trade_volume": "9524254.400443846"
+  },
+  "sufficient": true
+}

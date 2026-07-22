@@ -1,0 +1,33 @@
+{
+  "market": "KRW-ZORA",
+  "korean_name": "조라",
+  "english_name": "Zora",
+  "source": "Upbit Open API (파생 통계, 원본 시세 아님)",
+  "collected_at": "2026-07-22T06:29:15.335Z",
+  "window": {
+    "candle_count": 200,
+    "from": "2026-01-04T00:00:00",
+    "to": "2026-07-22T00:00:00"
+  },
+  "seed_price": "9.25",
+  "price_stats": {
+    "min": "9.25",
+    "max": "64",
+    "mean": "24.2996",
+    "median": "21.35"
+  },
+  "volatility": {
+    "basis": "daily_log_return",
+    "sample_size": 199,
+    "daily_stddev": "0.042129952852687697",
+    "annualized": "0.8048916190953513"
+  },
+  "drift": {
+    "daily_mean_log_return": "-0.009616773347309253"
+  },
+  "liquidity": {
+    "avg_daily_trade_price": "4557540072.496372",
+    "avg_daily_trade_volume": "151557791.60732812"
+  },
+  "sufficient": true
+}
