@@ -58,10 +58,6 @@ public class MemberAuthService {
         this.dummyHash = hasher.hash("timing-equalizer-" + UUID.randomUUID());
     }
 
-    // ------------------------------------------------------------------
-    // 가입
-    // ------------------------------------------------------------------
-
     public SessionResult signup(String email, String password, String displayName,
                                 String ip, String userAgent) {
         String normalizedEmail = validateEmail(email);
@@ -141,10 +137,6 @@ public class MemberAuthService {
         return userId;
     }
 
-    // ------------------------------------------------------------------
-    // 로그인
-    // ------------------------------------------------------------------
-
     public SessionResult login(String email, String password, String ip, String userAgent) {
         String normalizedEmail = validateEmail(email);
         if (password == null || password.isEmpty()) {
@@ -217,10 +209,6 @@ public class MemberAuthService {
         }
     }
 
-    // ------------------------------------------------------------------
-    // 토큰 갱신(회전 + 재사용 탐지)
-    // ------------------------------------------------------------------
-
     public SessionResult refresh(String rawRefresh, String ip, String userAgent) {
         if (rawRefresh == null || rawRefresh.isBlank()) {
             throw sessionExpired();
@@ -286,10 +274,6 @@ public class MemberAuthService {
         return new SessionResult(accessToken, rawNext, REFRESH_TTL_SECONDS, userView(row.userId()));
     }
 
-    // ------------------------------------------------------------------
-    // 로그아웃
-    // ------------------------------------------------------------------
-
     public void logout(String rawRefresh) {
         if (rawRefresh == null || rawRefresh.isBlank()) {
             return;
@@ -303,10 +287,6 @@ public class MemberAuthService {
             revokeFamily(familyId);
         }
     }
-
-    // ------------------------------------------------------------------
-    // 내 정보
-    // ------------------------------------------------------------------
 
     public Map<String, Object> userView(long userId) {
         Map<String, Object> view = jdbc.sql("""
@@ -326,10 +306,6 @@ public class MemberAuthService {
                 .single();
         return view;
     }
-
-    // ------------------------------------------------------------------
-    // 내부 헬퍼
-    // ------------------------------------------------------------------
 
     private SessionResult issueSession(long userId, String ip, String userAgent) {
         String externalId = externalId(userId);

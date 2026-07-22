@@ -124,7 +124,7 @@ public class BotFleetGovernor {
         if (sum <= cap) {
             return false;
         }
-        // 결정론적 순차 감축. 유형 순서(ordinal) 역순으로 초과분을 깎는다.
+        // 고정 순서로 깎아야 재생 결정론이 유지된다.
         int excess = sum - cap;
         BotType[] order = BotType.values();
         for (int i = order.length - 1; i >= 0 && excess > 0; i--) {
