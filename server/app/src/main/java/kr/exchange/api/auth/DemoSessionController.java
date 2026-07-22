@@ -1,17 +1,13 @@
 package kr.exchange.api.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
-import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.SlidingWindowThrottle;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 데모 세션 발급(§3-7). 무인증 엔드포인트라 IP 단위 강한 rate limit을 자체 적용한다.
@@ -20,14 +16,11 @@ import java.util.concurrent.atomic.AtomicLong;
 @RestController
 public class DemoSessionController {
 
-    private static final int WINDOW_LIMIT = 10;
-    private static final long WINDOW_MS = 60_000;
-    private static final String BUCKET = "demo_session";
-
     private final DemoSessionService sessions;
     private final DemoUserProvisioner provisioner;
-    private final ConcurrentHashMap<String, Deque<Long>> issuedAt = new ConcurrentHashMap<>();
-    private final AtomicLong nextSweepAt = new AtomicLong();
+    // IP당 10회/60초(§3-7).
+    private final SlidingWindowThrottle throttle =
+            new SlidingWindowThrottle(10, 60_000, "demo_session");
 
     public DemoSessionController(DemoSessionService sessions, DemoUserProvisioner provisioner) {
         this.sessions = sessions;
@@ -36,7 +29,7 @@ public class DemoSessionController {
 
     @PostMapping("/api/v1/demo/session")
     public Map<String, Object> issue(HttpServletRequest request) {
-        throttle(clientKey(request));
+        throttle.check(clientKey(request));
         DemoUserProvisioner.DemoUser user = provisioner.ensure();
         String token = sessions.issue(user.userId(), user.externalId(),
                 DemoSessionService.DEFAULT_TTL);
@@ -63,45 +56,5 @@ public class DemoSessionController {
             return (comma >= 0 ? forwarded.substring(0, comma) : forwarded).trim();
         }
         return request.getRemoteAddr();
-    }
-
-    private void throttle(String ip) {
-        long now = System.currentTimeMillis();
-        sweep(now);
-        Deque<Long> window = issuedAt.computeIfAbsent(ip, k -> new ArrayDeque<>());
-        synchronized (window) {
-            while (!window.isEmpty() && now - window.peekFirst() >= WINDOW_MS) {
-                window.pollFirst();
-            }
-            if (window.size() >= WINDOW_LIMIT) {
-                Map<String, Object> detail = new LinkedHashMap<>();
-                detail.put("bucket", BUCKET);
-                throw new ApiException(429, "too_many_requests",
-                        "데모 세션 발급 한도를 초과했습니다.", detail,
-                        (int) ((WINDOW_MS - (now - window.peekFirst())) / 1000) + 1);
-            }
-            window.addLast(now);
-        }
-    }
-
-    /**
-     * 재방문 없는 IP의 빈 Deque가 맵에 잔존해 무한 증가하는 것을 최소 간격으로 정리한다.
-     * 창을 벗어난 엔트리만 제거하므로 활성 버킷은 건드리지 않는다.
-     */
-    private void sweep(long now) {
-        long due = nextSweepAt.get();
-        if (now < due || !nextSweepAt.compareAndSet(due, now + WINDOW_MS)) {
-            return;
-        }
-        issuedAt.forEach((ip, window) -> {
-            synchronized (window) {
-                while (!window.isEmpty() && now - window.peekFirst() >= WINDOW_MS) {
-                    window.pollFirst();
-                }
-                if (window.isEmpty()) {
-                    issuedAt.remove(ip, window);
-                }
-            }
-        });
     }
 }

@@ -161,8 +161,16 @@ exchange-platform/
 | 401 | `nonce_used` | nonce 재사용(재전송 공격) |
 | 401 | `timestamp_out_of_window` | `timestamp`가 허용창 밖 |
 | 401 | `auth_throttled` | **반복 401 임계 초과 일시 차단(신규)** |
-| 403 | `out_of_scope` | API Key 권한 부족(조회키로 주문 등) |
+| 403 | `out_of_scope` | API Key 권한 부족(조회키로 주문 등), 또는 세션 종류가 리소스 요구와 불일치(데모·API 키로 회원 전용 `/me` 접근, §3-8) |
 | 403 | `admin_forbidden` | **관리 스코프/승인 부족(신규, §3-6)** |
+| 400 | `weak_password` | **회원 비밀번호 최소 길이(8자) 미달(신규, §3-8)** |
+| 400 | `invalid_email` | **회원 이메일 형식 오류(신규, §3-8)** |
+| 401 | `invalid_credentials` | **로그인 이메일·비밀번호 불일치. 존재 여부 비노출(미가입도 동일 코드·메시지·유사 지연) (신규, §3-8)** |
+| 401 | `refresh_reuse` | **소각·폐기된 리프레시 재제출. 도난 신호로 family 전체 폐기(신규, §3-8)** |
+| 401 | `session_expired` | **리프레시 만료·부재(신규, §3-8)** |
+| 403 | `account_suspended` | **`users.status` SUSPENDED·CLOSED 계정의 로그인·갱신 거부(신규, §3-8)** |
+| 409 | `email_taken` | **이메일 중복 가입(신규, §3-8)** |
+| 423 | `account_locked` | **로그인 실패 누적 백오프 잠금(+`Retry-After`, 신규, §3-8)** |
 | 404 | `order_not_found` | 주문 없음 |
 | 405 | `method_not_allowed` | **허용되지 않은 메서드(신규)** |
 | 409 | `duplicate_client_order_id` | 멱등키 충돌(내용 상이) |
@@ -323,6 +331,14 @@ query_hash = SHA512(canonical)      # hex, UTF-8 바이트 기준
 
 ### 3-4. 서버 검증 순서 (게이트웨이)
 
+**인증 경로 분기(v2.11 확정)**: `Authorization: Bearer <JWT>` 수신 시 JWT 헤더 `alg`와 payload `typ`으로 세 경로를 나눈다. 세 경로 모두 통과 후 동일하게 `(user_id, scope)` 컨텍스트를 주입하므로, 이후 주문·조회 핸들러는 인증 경로를 구분하지 않는다.
+
+- `alg=HS256` + `typ="demo_session"` → 데모 세션(§3-7). 대칭 프로세스 키로 서명·`exp`·`scope`만 검증. HMAC canonical·nonce·timestamp 미적용.
+- `alg=EdDSA` + `typ="access"` → 회원 세션(§3-8). 공개키로 서명·`exp`·`scope`·`aud` 검증 + `user_id` 주입. HMAC canonical·nonce 미적용. 개인키는 인증 발급자에만 상주하고 검증자는 공개키만 가져 위조 능력이 없다(게시판 평면 침해가 거래 토큰 위조로 전파되지 않음).
+- `typ` 미존재(=`access_key` 클레임 존재) → §3 HMAC 경로. 아래 canonical·nonce·timestamp 전 검증을 수행한다.
+
+HMAC 경로(`typ` 미존재)의 검증 순서:
+
 ```
 1. Authorization 헤더 JWT 파싱 → 실패 401 jwt_verification
 2. access_key로 secret 복호화·조회 → HMAC-SHA256 재계산·대조 → 불일치 401 jwt_verification
@@ -396,6 +412,37 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
 - **사용**: 보호 경로에 `Authorization: Bearer <access_token>`만으로 인증한다. §3-3~§3-4의 HMAC canonical·`query_hash`·nonce·timestamp 검증은 **적용하지 않는다**. 서버는 `typ=demo_session` 판별 후 서명·`exp`·scope만 검증한다. 만료·서명 불일치는 `401 jwt_verification`.
 - **범위 제한**: 데모 세션은 **시드된 데모 계정에 한정**해 발급된다. 임의 사용자 지정 발급은 없다(요청 파라미터 없음). scope는 `TRADE` 고정이며 관리 평면(§3-6)에는 사용 불가.
 - **경계**: 봇·외부 클라이언트는 기존 §3 서명 규약을 그대로 사용한다. 데모 세션은 브라우저 데모 전용 경로이며, §3 서명 경로의 검증 순서·에러 계약은 본 절의 영향을 받지 않는다.
+
+### 3-8. 회원 세션 인증 (가입한 실사용자, v2.11 신설)
+
+세 번째 인증 경로다. 상세 정본은 `회원_설계.md`. 데모 세션(§3-7)과 병존하며 상호 대체가 아니다. 웹 최초 진입은 데모 세션, 개인 자산·주문 이력이 필요하면 회원 가입으로 승격한다.
+
+- **계정 범위**: 회원별 개인 계정(`users.kind='HUMAN'`). 자기 `user_id`의 주문·계좌·체결·원장만 접근(§3-3 조회 엔드포인트 재사용). 게이트웨이가 토큰 `user_id`를 주입하고 핸들러는 바디·경로의 사용자 지정을 무시한다.
+- **서명(EdDSA/Ed25519, 비대칭)**: 액세스 토큰 payload = `{ "typ":"access", "alg":"EdDSA", "sub":"<external_id>", "user_id":<BIGINT>, "scope":"TRADE", "kind":"HUMAN", "aud":["exchange","community"], "iat":<epoch s>, "exp":<iat+900> }`. 개인키는 인증 발급자 프로세스에만 상주(시크릿 관리소 주입), 공개키는 게이트웨이·community-api에 배포. 만료 15분. M2는 단일 키라 헤더에 `kid`를 넣지 않는다(키 회전은 다중 키 도입 후속 단위).
+- **리프레시**: 불투명 256비트 랜덤. httpOnly·Secure·SameSite=Strict 쿠키 `rt`(경로 `/api/v1/auth`)로만 전달. DB에는 SHA-256 해시만 저장. TTL 14일. 회전(단회용 소각)+재사용 탐지: 소각·폐기 토큰 재제출 시 family 전체 폐기 + `401 refresh_reuse`.
+
+**엔드포인트**. 브라우저 전용이라 HMAC canonical·nonce를 요구하지 않는다. `/api/v1/auth/*`는 §3-4 인증 필터 제외이며 진입 rate limit을 자체 적용한다.
+
+| 기능 | 메서드·경로 | 인증 | rate limit |
+|---|---|---|---|
+| 가입 | `POST /api/v1/auth/signup` | 없음 | IP 5회/60s → `429 too_many_requests` |
+| 로그인 | `POST /api/v1/auth/login` | 없음 | IP·이메일 각 10회/60s + 계정 백오프(`423 account_locked`) |
+| 토큰 갱신 | `POST /api/v1/auth/refresh` | 쿠키 `rt` | IP 30회/60s |
+| 로그아웃 | `POST /api/v1/auth/logout` | 쿠키 `rt` | 표준 |
+| 내 정보 | `GET /api/v1/me` | 회원 세션 | 계좌 조회 버킷 |
+
+```json
+// POST /api/v1/auth/signup  { "email":"trader@demo.local", "password":"demopass1", "display_name":"데모트레이더" }
+// 201 (+ Set-Cookie: rt=...; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth)
+{ "schema_version":"1.0", "access_token":"<JWT EdDSA>", "token_type":"Bearer", "expires_in":900,
+  "user":{ "external_id":"9f2b7a4e-...", "email":"trader@demo.local", "display_name":"데모트레이더", "kind":"HUMAN" } }
+```
+
+- **로그인**: 가입과 동일 스키마(`200`). `invalid_credentials`는 미가입 이메일과 오비밀번호를 동일 코드·동일 메시지·유사 지연으로 처리(계정 존재 여부 비노출).
+- **갱신**: 쿠키 `rt` 제출 → 새 `access_token` + 회전된 `rt` 쿠키. 만료·부재는 `401 session_expired`.
+- **로그아웃**: 제출된 `rt`의 family 폐기 후 `204`. 인증은 쿠키 `rt` 기반이다(필터 제외 경로라 회원 세션 principal 미주입).
+- **내 정보**: `user` 객체 반환. 회원 세션 전용이라 데모·API 키 주체는 `403 out_of_scope`(EdDSA `kind=MEMBER`만 통과).
+- **가입 자금**: 초기 KRW 1억을 기존 원장 단일 경로 `post_ledger_transaction`(GENESIS)로 발급. `business_event_id`는 시드 GENESIS와 서로소인 예약 네임스페이스(DB 설계 §3.3)에서 배정해 멱등을 물리 보증한다.
 
 ---
 
@@ -479,7 +526,7 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
 // GET /api/v1/exchange-config → 200
 { "schema_version":"1.0", "trade_flash":"normal" }
 ```
-> **노출 경계**: 화이트리스트 전용이다. 운영·보안 config 키는 노출하지 않는다(system_config를 통째로 열지 않는다). 효과 강도(`trade_flash ∈ off|subtle|normal|strong`)는 cosmetic 값이며 관리 평면 `PUT /admin/v1/sim/effects`(§6-A)가 쓰기 권위다. 값 변경은 폴링·재조회로 반영한다(실시간 push 아님).
+> **노출 경계**: 화이트리스트 전용이다. 운영·보안 config 키는 노출하지 않는다(system_config를 통째로 열지 않는다). 효과 강도(`trade_flash ∈ off|subtle|normal|strong|auto`)는 cosmetic 값이며 관리 평면 `PUT /admin/v1/sim/effects`(§6-A)가 쓰기 권위다. `auto`는 UI가 자체 관측 체결률로 강도를 파생하라는 지시값이고 백엔드는 열거값만 저장한다(봇_방향성 §5-3). 값 변경은 폴링·재조회로 반영한다(실시간 push 아님).
 
 ### 4-B. 주문 (인증 필요)
 
@@ -804,9 +851,15 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 // 201
 { "created":40,"bot_ids":["mm-001","..."],"fleet_total":140 }
 
-// GET /admin/v1/sim/status → 200
-{ "running":true,"active_bots":140,"current_ops":3120.5,
-  "order_success_ratio":0.9993,"avg_latency_ms":42.1,"duplicate_fill_total":0 }
+// GET /admin/v1/sim/status → 200 (schema 1.1, 봇_방향성 §5-5)
+{ "schema_version":"1.1", "fleet_present":true, "target_ops":"20",
+  "trade_flash":"normal",
+  "markets":[
+    { "market":"KRW-BTC",
+      "target_net_bias":"0.30", "measured_net_bias":"0.22", "effective_bias":"0.24",
+      "auto_balance":{"enabled":true,"strength":"0.5"},
+      "scale":{"MARKET_MAKER":{"target":40,"active":40},"TAKER":{"target":30,"active":28}},
+      "fill_ratio":"0.61", "trade_flash":"normal" } ] }
 ```
 **봇 유형**: `MARKET_MAKER`(유동성·재고 스큐) / `TAKER` / `TREND`(모멘텀) / `NOISE`. 가격은 **OU 평균회귀 + 점프 프로세스**로 fair value만 제공, 체결가는 오더북에서 창발.
 

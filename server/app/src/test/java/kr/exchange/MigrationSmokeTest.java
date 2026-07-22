@@ -46,7 +46,9 @@ class MigrationSmokeTest {
             "invariant_checks", "recovery_runs",
             // V5 관리 평면 테이블
             "admin_operators", "operator_roles", "admin_sessions", "admin_approvals",
-            "admin_audit_log", "system_config", "notices");
+            "admin_audit_log", "system_config", "notices",
+            // V6 회원 테이블
+            "user_credentials", "user_profiles", "auth_sessions", "user_provisioning");
 
     @BeforeAll
     static void migrateAndSeed() throws Exception {
@@ -204,6 +206,56 @@ class MigrationSmokeTest {
             SQLException noDel = assertThrows(SQLException.class,
                     () -> st.execute("DELETE FROM admin_audit_log"));
             assertTrue(noDel.getMessage().contains("append-only"), noDel.getMessage());
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // V6: 회원 스키마가 빈 PG17에 단독 적용되고 핵심 제약이 강제된다
+    // ------------------------------------------------------------------
+
+    @Test
+    void memberSchemaEnforcesCredentialAndSessionContracts() throws Exception {
+        try (Connection conn = open(); Statement st = conn.createStatement()) {
+            long uid = queryLong(conn, "INSERT INTO users (email, kind) "
+                    + "VALUES ('member1@demo.test','HUMAN') RETURNING id");
+            st.execute("INSERT INTO user_credentials (user_id, password_hash) "
+                    + "VALUES (" + uid + ", '$argon2id$v=19$m=16384,t=2,p=1$abc$def')");
+            st.execute("INSERT INTO user_profiles (user_id, display_name) "
+                    + "VALUES (" + uid + ", '회원1')");
+
+            // algo CHECK: 정의 밖 알고리즘은 거부
+            SQLException badAlgo = assertThrows(SQLException.class, () -> st.execute(
+                    "INSERT INTO user_credentials (user_id, password_hash, algo) VALUES ("
+                    + uid + ", 'h', 'PLAINTEXT')"));
+            assertEquals("23514", badAlgo.getSQLState(), badAlgo.getMessage());
+
+            // auth_sessions: expires_at > issued_at CHECK
+            SQLException badExpiry = assertThrows(SQLException.class, () -> st.execute("""
+                    INSERT INTO auth_sessions (user_id, family_id, token_hash, issued_at, expires_at)
+                    VALUES (%d, gen_random_uuid(), repeat('a', 64), now(), now() - interval '1 hour')
+                    """.formatted(uid)));
+            assertEquals("23514", badExpiry.getSQLState(), badExpiry.getMessage());
+
+            // token_hash UNIQUE
+            st.execute("""
+                    INSERT INTO auth_sessions (user_id, family_id, token_hash, expires_at)
+                    VALUES (%d, gen_random_uuid(), repeat('b', 64), now() + interval '14 days')
+                    """.formatted(uid));
+            SQLException dupToken = assertThrows(SQLException.class, () -> st.execute("""
+                    INSERT INTO auth_sessions (user_id, family_id, token_hash, expires_at)
+                    VALUES (%d, gen_random_uuid(), repeat('b', 64), now() + interval '14 days')
+                    """.formatted(uid)));
+            assertEquals("23505", dupToken.getSQLState(), dupToken.getMessage());
+
+            // user_provisioning: genesis_event_id UNIQUE
+            st.execute("INSERT INTO user_provisioning (user_id, genesis_event_id) "
+                    + "VALUES (" + uid + ", 1000000000001)");
+            long uid2 = queryLong(conn, "INSERT INTO users (email, kind) "
+                    + "VALUES ('member2@demo.test','HUMAN') RETURNING id");
+            SQLException dupGenesis = assertThrows(SQLException.class, () -> st.execute(
+                    "INSERT INTO user_provisioning (user_id, genesis_event_id) VALUES ("
+                    + uid2 + ", 1000000000001)"));
+            assertEquals("23505", dupGenesis.getSQLState(), dupGenesis.getMessage());
         }
     }
 

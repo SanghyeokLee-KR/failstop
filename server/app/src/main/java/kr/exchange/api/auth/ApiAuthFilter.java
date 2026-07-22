@@ -49,7 +49,10 @@ public class ApiAuthFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/v1/ticker")
                 || path.startsWith("/api/v1/candles")
                 || path.startsWith("/api/v1/exchange-config")
-                || path.equals("/api/v1/demo/session");
+                || path.equals("/api/v1/demo/session")
+                // 회원 인증 엔드포인트는 무인증(가입·로그인) 또는 쿠키 rt(갱신·로그아웃)라
+                // Bearer 서명 검증 대상이 아니다. me·keys는 여기서 제외되지 않아 회원 세션을 통과한다.
+                || path.startsWith("/api/v1/auth/");
     }
 
     @Override

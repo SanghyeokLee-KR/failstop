@@ -3,6 +3,7 @@ package kr.exchange.api.auth;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.api.common.ApiException;
+import kr.exchange.api.member.MemberSessionService;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -26,14 +27,17 @@ public class ApiAuthService {
     private final NonceStore nonces;
     private final ObjectMapper objectMapper;
     private final DemoSessionService demoSessions;
+    private final MemberSessionService memberSessions;
 
     public ApiAuthService(ApiKeyDirectory keys, SecretCipher cipher, NonceStore nonces,
-                          ObjectMapper objectMapper, DemoSessionService demoSessions) {
+                          ObjectMapper objectMapper, DemoSessionService demoSessions,
+                          MemberSessionService memberSessions) {
         this.keys = keys;
         this.cipher = cipher;
         this.nonces = nonces;
         this.objectMapper = objectMapper;
         this.demoSessions = demoSessions;
+        this.memberSessions = memberSessions;
     }
 
     /** canonical은 호출측이 요청 형태(a: 쿼리, b: JCS 바디)에 맞춰 만들어 전달한다. */
@@ -49,7 +53,13 @@ public class ApiAuthService {
         }
         JsonNode header = decodeJson(parts[0]);
         JsonNode payload = decodeJson(parts[1]);
-        if (!"HS256".equals(header.path("alg").asText())) {
+        String alg = header.path("alg").asText();
+        if ("EdDSA".equals(alg)) {
+            // 회원 세션(§1-3): 공개키 서명·exp·scope·aud 검증. HMAC canonical·nonce 미적용.
+            // scope는 발급 시 TRADE 고정이라 needsTrade 검사가 항상 성립한다.
+            return memberSessions.verify(parts, payload);
+        }
+        if (!"HS256".equals(alg)) {
             throw unauthorized("jwt_verification", "지원하지 않는 서명 알고리즘입니다.");
         }
         if (DemoSessionService.isDemoSession(payload)) {
@@ -106,7 +116,8 @@ public class ApiAuthService {
         if (needsTrade && !"TRADE".equals(key.scope())) {
             throw new ApiException(403, "out_of_scope", "이 API 키에는 주문 권한이 없습니다.");
         }
-        return new AuthPrincipal(key.userId(), key.accessKey(), key.scope());
+        return new AuthPrincipal(key.userId(), key.accessKey(), key.scope(),
+                AuthPrincipal.KIND_API_KEY);
     }
 
     private JsonNode decodeJson(String base64Url) {

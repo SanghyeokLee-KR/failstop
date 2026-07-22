@@ -329,7 +329,7 @@ erDiagram
 
 ## 3. 전체 DDL
 
-정본 마이그레이션은 현재 `V0`~`V5` 6개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V6 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
+정본 마이그레이션은 현재 `V0`~`V6` 7개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V7 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
 
 | 버전 | 파일 | 내용 | 적용 전제 |
 |---|---|---|---|
@@ -339,7 +339,8 @@ erDiagram
 | V3 | `V3__observability_tables.sql` | 관측 테이블 `invariant_checks`·`recovery_runs` 도입 | V1 |
 | V4 | `V4__harness_schema.sql` | 하네스 전용 객체를 `harness` 스키마로 격리(계약 스키마 public 오염 차단) | V1 |
 | V5 | `V5__admin.sql` | 관리 평면(exchange-admin) 스키마: `api_keys.scope`에 `ADMIN` 추가·operator 바인딩, `admin_operators`·`operator_roles`·`admin_sessions`·`admin_approvals`·`system_config`·`notices`(관리자 설계 v1.1 §1-5) | V1 |
-| V6+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V6 | `V6__members.sql` | 회원 인증·세션·프로필: `user_credentials`·`user_profiles`·`auth_sessions`·`user_provisioning`(회원_설계.md §2, §3.3). 기존 `users`·`api_keys`·`accounts` 무변경 | V1 |
+| V7+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -1438,6 +1439,71 @@ SELECT cron.schedule('check-default-part','*/5 * * * *', $$SELECT check_default_
 ```
 
 > V3·V4 내용과 적용 전제는 §3 도입부 로드맵 표를 정본으로 한다(v2.6).
+
+### 3.3 `V6__members.sql`: 회원 인증·세션·프로필 (v2.11 신설)
+
+회원 기능은 코어(매칭·저널·정산)에 의존성을 더하지 않는 격리 모듈이다. 자금 프로비저닝만 기존 원장 단일 경로 `post_ledger_transaction`을 재사용한다. 상세 설계·근거는 `회원_설계.md` §2. 신규 테이블 4종만 더하고 기존 `users`·`api_keys`·`accounts`는 변경하지 않는다.
+
+```sql
+-- V6__members.sql
+SET timezone = 'UTC';
+
+-- 자격 증명: users와 1:1 분리(인증 관심사 격리). 평문·가역 저장 금지.
+CREATE TABLE user_credentials (
+    user_id         BIGINT       PRIMARY KEY REFERENCES users(id),
+    algo            VARCHAR(16)  NOT NULL DEFAULT 'ARGON2ID' CHECK (algo IN ('ARGON2ID','BCRYPT')),
+    password_hash   VARCHAR(255) NOT NULL,   -- Argon2id 인코딩 문자열(파라미터 내장). 가역 저장 금지
+    pwd_updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    failed_attempts SMALLINT     NOT NULL DEFAULT 0 CHECK (failed_attempts >= 0),  -- 온라인 브루트포스 백오프
+    locked_until    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE TABLE user_profiles (
+    user_id      BIGINT       PRIMARY KEY REFERENCES users(id),
+    display_name VARCHAR(32)  NOT NULL,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- 리프레시 토큰 패밀리(회전·재사용 탐지). raw는 저장하지 않고 SHA-256 해시만 저장.
+CREATE TABLE auth_sessions (
+    id          BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id     BIGINT       NOT NULL REFERENCES users(id),
+    family_id   UUID         NOT NULL,          -- 로그인 1회 = 1 패밀리
+    token_hash  CHAR(64)     NOT NULL UNIQUE,   -- SHA-256 hex
+    prev_id     BIGINT       REFERENCES auth_sessions(id),  -- 회전 체인
+    issued_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ  NOT NULL,
+    used_at     TIMESTAMPTZ,                    -- 회전 시 소각 시각(단회용)
+    revoked_at  TIMESTAMPTZ,                    -- 로그아웃·재사용 탐지 시 패밀리 폐기
+    user_agent  VARCHAR(256),
+    ip          INET,
+    CONSTRAINT chk_expiry CHECK (expires_at > issued_at)
+);
+CREATE INDEX idx_auth_sessions_user   ON auth_sessions (user_id, expires_at);
+CREATE INDEX idx_auth_sessions_family ON auth_sessions (family_id);
+
+-- 가입 GENESIS 자금 발급의 멱등 기록. genesis_event_id = PROVISION_GENESIS_BASE + user_id.
+CREATE TABLE user_provisioning (
+    user_id          BIGINT      PRIMARY KEY REFERENCES users(id),
+    status           VARCHAR(16) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','DONE')),
+    genesis_event_id BIGINT      NOT NULL,   -- ledger_transactions.business_event_id로 사용
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    completed_at     TIMESTAMPTZ,
+    UNIQUE (genesis_event_id)
+);
+```
+
+권한 경계: `app_role`은 위 4개 테이블에 SELECT·INSERT·UPDATE만 갖고 잔고·원장 직접 DML은 없다(자금 이동은 `post_ledger_transaction` EXECUTE 유일 경로, §9 경계 유지). `harness_role`은 상시 게이트 불변식 검증용 SELECT만 갖는다(V5 패턴 일치). `auth_sessions.id`는 `GENERATED ALWAYS AS IDENTITY`라 INSERT 권한만으로 채번되어 별도 시퀀스 `USAGE` GRANT가 불요하다(public 전체 시퀀스로 넓히지 않음).
+
+#### GENESIS `business_event_id` 네임스페이스 예약 (회원_설계.md §2-4)
+
+`ledger_transactions`의 멱등은 `UNIQUE(business_event_type, business_event_id)`다. `business_event_type='GENESIS'`는 시드 초기 유동성 발급과 회원 가입 프로비저닝이 함께 쓰므로, 두 발급원의 `business_event_id`가 겹치면 회원 가입이 23505로 오작동한다. 아래 네임스페이스로 서로소를 물리 보증한다.
+
+- **시드 GENESIS**: `business_event_id ∈ [1, SEED_GENESIS_MAX]`. `SEED_GENESIS_MAX = 1_000_000_000`(코드: `AccountBootstrap.SEED_GENESIS_MAX`). 시드 입금의 `max+1` 채번은 `WHERE business_event_id <= SEED_GENESIS_MAX`로 이 범위에 갇혀 회원 범위로 진입하지 않는다.
+- **회원 프로비저닝**: `genesis_event_id = PROVISION_GENESIS_BASE + user_id`. `PROVISION_GENESIS_BASE = 1_000_000_000_000`(코드: `MemberAuthService.PROVISION_GENESIS_BASE`), `SEED_GENESIS_MAX`를 넘는 예약 상수. `user_id`가 BIGINT 양수 identity라 두 범위는 서로소이고 프로비저닝 내부 유일성도 성립한다.
+- 대안(`business_event_type`에 `PROVISION` 전용 타입 추가)은 CHECK 변경이라 더 무겁다. 예약 오프셋을 정본으로 채택한다.
 
 ---
 

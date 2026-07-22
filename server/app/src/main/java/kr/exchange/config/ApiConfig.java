@@ -11,6 +11,9 @@ import kr.exchange.api.auth.NonceStore;
 import kr.exchange.api.auth.SecretCipher;
 import kr.exchange.api.common.EpochSource;
 import kr.exchange.api.common.ErrorRenderer;
+import kr.exchange.api.member.MemberAuthService;
+import kr.exchange.api.member.MemberSessionService;
+import kr.exchange.api.member.PasswordHasher;
 import kr.exchange.api.market.MarketDataService;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.OrderGateway;
@@ -30,6 +33,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -72,10 +77,32 @@ public class ApiConfig {
     }
 
     @Bean
+    public MemberSessionService memberSessionService(
+            ObjectMapper objectMapper,
+            @Value("${exchange.member.session-seed-base64:}") String sessionSeedBase64) {
+        return new MemberSessionService(objectMapper, sessionSeedBase64);
+    }
+
+    @Bean
+    public PasswordHasher passwordHasher(
+            @Value("${exchange.member.password-pepper-base64:}") String pepperBase64) {
+        return new PasswordHasher(pepperBase64);
+    }
+
+    @Bean
+    public MemberAuthService memberAuthService(JdbcClient jdbc, PlatformTransactionManager txManager,
+                                               PasswordHasher hasher, MemberSessionService sessions,
+                                               AccountBootstrap bootstrap) {
+        return new MemberAuthService(jdbc, new TransactionTemplate(txManager), hasher, sessions,
+                bootstrap);
+    }
+
+    @Bean
     public ApiAuthService apiAuthService(ApiKeyDirectory keys, SecretCipher cipher,
                                          NonceStore nonces, ObjectMapper objectMapper,
-                                         DemoSessionService demoSessions) {
-        return new ApiAuthService(keys, cipher, nonces, objectMapper, demoSessions);
+                                         DemoSessionService demoSessions,
+                                         MemberSessionService memberSessions) {
+        return new ApiAuthService(keys, cipher, nonces, objectMapper, demoSessions, memberSessions);
     }
 
     @Bean

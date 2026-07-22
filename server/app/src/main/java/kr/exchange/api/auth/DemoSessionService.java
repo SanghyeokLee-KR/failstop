@@ -82,7 +82,8 @@ public class DemoSessionService {
         if (!payload.hasNonNull("user_id") || !"TRADE".equals(payload.path("scope").asText())) {
             throw unauthorized("세션 클레임이 올바르지 않습니다.");
         }
-        return new AuthPrincipal(payload.get("user_id").asLong(), "demo-session", "TRADE");
+        return new AuthPrincipal(payload.get("user_id").asLong(), "demo-session", "TRADE",
+                AuthPrincipal.KIND_DEMO);
     }
 
     private byte[] hmac(String data) {

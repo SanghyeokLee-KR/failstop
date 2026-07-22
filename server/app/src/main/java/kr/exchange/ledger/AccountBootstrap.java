@@ -12,6 +12,11 @@ import java.math.BigDecimal;
  */
 public class AccountBootstrap {
 
+    // 시드 GENESIS business_event_id 상한(회원_설계.md §2-4). 회원 프로비저닝은 이보다 큰
+    // PROVISION_GENESIS_BASE(1e12) + user_id를 쓰므로 두 발급원의 채번 공간이 서로소다.
+    // deposit()의 max+1 채번을 이 상한 이하로 가둬 회원 genesis_event_id 선점을 물리 차단한다.
+    public static final long SEED_GENESIS_MAX = 1_000_000_000L;
+
     private final JdbcClient jdbc;
 
     public AccountBootstrap(JdbcClient jdbc) {
@@ -82,10 +87,14 @@ public class AccountBootstrap {
         long genesis = accountId("SYSTEM", 0, "GENESIS", assetId);
         long avail = accountId("USER", userId, "AVAILABLE", assetId);
         // 시드 경로는 단일 스레드 전제라 max+1 채번으로 충분하다. 동시 시드는 지원 범위 밖.
+        // 회원 프로비저닝이 게시한 1e12대 GENESIS를 채번 대상에서 제외해(<=SEED_GENESIS_MAX) 그 범위로
+        // 진입하지 않게 한다. 진입하면 미래 회원 genesis_event_id를 선점해 가입 tx를 23505로 롤백시킨다.
         long eventId = jdbc.sql("""
                         SELECT COALESCE(max(business_event_id), 0) + 1
-                        FROM ledger_transactions WHERE business_event_type = 'GENESIS'
+                        FROM ledger_transactions
+                        WHERE business_event_type = 'GENESIS' AND business_event_id <= ?
                         """)
+                .params(SEED_GENESIS_MAX)
                 .query(Long.class)
                 .single();
         String entries = """
