@@ -32,6 +32,11 @@ export function formatKRW(value: string | number): string {
   return nfKRW.format(Math.round(toNum(value)));
 }
 
+/** 정수 카운트 포맷(대수·OPS 등 통화 아닌 개수): 1200 → "1,200" */
+export function formatCount(value: string | number): string {
+  return nfKRW.format(Math.round(toNum(value)));
+}
+
 /** 가격 포맷. 1,000원 미만 코인은 소수 표시 허용 */
 export function formatPrice(value: string | number): string {
   const n = toNum(value);

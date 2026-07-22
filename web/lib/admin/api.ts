@@ -22,11 +22,15 @@ import type {
   AdminOperator,
   AdminRole,
   AuditEntry,
+  DirectionBiasResult,
+  FleetScaleResult,
+  FleetScaleTargets,
   HaRecovery,
   HaStatus,
   InvariantCheck,
   Notice,
   SimStatus,
+  TradeFlash,
 } from "./types";
 
 /** 표준 관리 에러. name에 API §2-3 코드를 노출(jwt_verification·admin_forbidden 등) */
@@ -71,6 +75,14 @@ export interface AdminApi {
   simPause(): Promise<void>;
   simSetRate(rate: number): Promise<void>;
   createBot(type: BotType, market: string): Promise<Bot>;
+
+  /* ===== 시장 생동감(§3-2~3-5). approval 불요, 전량 감사 ===== */
+  /** 타입별 목표 대수 set-point. 서버가 현재·목표 차이를 수렴한다 */
+  setFleetScale(market: string, targets: FleetScaleTargets): Promise<FleetScaleResult>;
+  /** 마켓 방향 바이어스·자동균형. net bias·strength는 문자열(float 금지) */
+  setDirectionBias(market: string, targetNetBias: string, autoBalance: boolean, strength: string): Promise<DirectionBiasResult>;
+  /** 체결 시각효과 강도 저장(system_config). 트레이딩 UI가 공개 조회로 읽는다 */
+  setEffectConfig(tradeFlash: TradeFlash): Promise<TradeFlash>;
 
   /* ===== 카오스(§2-2) ===== */
   getChaosCatalog(): ChaosExperimentDef[];

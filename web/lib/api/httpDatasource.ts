@@ -131,6 +131,8 @@ function decodeJwtExpMs(token: string): number | null {
 
 /** 만료 30초 전부터 재발급 대상으로 간주 (시계 오차·전송 지연 흡수) */
 const SESSION_SKEW_MS = 30_000;
+/** 재동기화 REST 상한. never-settle REST가 채널을 영구 정지시키지 않도록 fetch를 취소한다 */
+const RESYNC_TIMEOUT_MS = 8_000;
 
 /* ===== STOMP 추상 (테스트 주입 지점) ===== */
 
@@ -305,15 +307,15 @@ export class HttpStompDataSource implements DataSource {
     return unwrapList<Market>(await this.http("/api/v1/markets"), "/markets");
   }
 
-  async getTicker(markets: string[]): Promise<Ticker[]> {
+  async getTicker(markets: string[], signal?: AbortSignal): Promise<Ticker[]> {
     if (markets.length === 0) return [];
     const q = new URLSearchParams({ markets: markets.join(",") });
-    return unwrapList<Ticker>(await this.http(`/api/v1/ticker?${q}`), "/ticker");
+    return unwrapList<Ticker>(await this.http(`/api/v1/ticker?${q}`, { signal }), "/ticker");
   }
 
-  async getOrderbook(market: string): Promise<OrderbookMessage> {
+  async getOrderbook(market: string, signal?: AbortSignal): Promise<OrderbookMessage> {
     const q = new URLSearchParams({ market });
-    const snap = await this.http<OrderbookSnapshot>(`/api/v1/orderbook?${q}`);
+    const snap = await this.http<OrderbookSnapshot>(`/api/v1/orderbook?${q}`, { signal });
     // 단건 객체(§4-A-2) → WS 스키마 상의 snapshot 메시지로 변환
     return {
       schema_version: SCHEMA_VERSION,
@@ -329,15 +331,15 @@ export class HttpStompDataSource implements DataSource {
     };
   }
 
-  async getTrades(market: string, count = 30): Promise<Trade[]> {
+  async getTrades(market: string, count = 30, signal?: AbortSignal): Promise<Trade[]> {
     const q = new URLSearchParams({ market, count: String(count) });
-    return unwrapList<Trade>(await this.http(`/api/v1/trades?${q}`), "/trades");
+    return unwrapList<Trade>(await this.http(`/api/v1/trades?${q}`, { signal }), "/trades");
   }
 
-  async getCandles(market: string, unit: CandleUnit, count = 120): Promise<Candle[]> {
+  async getCandles(market: string, unit: CandleUnit, count = 120, signal?: AbortSignal): Promise<Candle[]> {
     const q = new URLSearchParams({ market, count: String(count) });
     try {
-      return unwrapList<Candle>(await this.http(`/api/v1/candles/${unit}?${q}`), "/candles");
+      return unwrapList<Candle>(await this.http(`/api/v1/candles/${unit}?${q}`, { signal }), "/candles");
     } catch (e) {
       // 캔들은 표시 전용 피드다. 미구현·조회 실패(4xx/5xx)·비정상 엔벌로프는 빈 배열로
       // 흡수해 화면이 에러 대신 빈 상태를 그리게 한다. 구현되면 정상 데이터로 전환된다.
@@ -357,18 +359,18 @@ export class HttpStompDataSource implements DataSource {
     }
   }
 
-  async getAccounts(): Promise<Asset[]> {
-    return unwrapList<Asset>(await this.http("/api/v1/accounts", {}, true), "/accounts");
+  async getAccounts(signal?: AbortSignal): Promise<Asset[]> {
+    return unwrapList<Asset>(await this.http("/api/v1/accounts", { signal }, true), "/accounts");
   }
 
-  async getOpenOrders(market?: string): Promise<Order[]> {
+  async getOpenOrders(market?: string, signal?: AbortSignal): Promise<Order[]> {
     const q = market ? `?${new URLSearchParams({ market })}` : "";
-    return unwrapList<Order>(await this.http(`/api/v1/orders/open${q}`, {}, true), "/orders/open");
+    return unwrapList<Order>(await this.http(`/api/v1/orders/open${q}`, { signal }, true), "/orders/open");
   }
 
-  async getClosedOrders(market?: string): Promise<Order[]> {
+  async getClosedOrders(market?: string, signal?: AbortSignal): Promise<Order[]> {
     const q = market ? `?${new URLSearchParams({ market })}` : "";
-    return unwrapList<Order>(await this.http(`/api/v1/orders/closed${q}`, {}, true), "/orders/closed");
+    return unwrapList<Order>(await this.http(`/api/v1/orders/closed${q}`, { signal }, true), "/orders/closed");
   }
 
   async placeOrder(req: OrderRequest): Promise<Order> {
@@ -561,12 +563,17 @@ export class HttpStompDataSource implements DataSource {
   private startResync(destination: string, ch: ChannelState, pending?: WsMessage): void {
     ch.resyncing = true;
     ch.buffer = pending ? [pending] : [];
-    void this.resyncChannel(destination, ch)
+    // REST가 영영 안 끝나면 finally 미실행 → resyncing 잔류 → 채널 영구 정지·버퍼 무한 증가.
+    // 타임아웃으로 fetch를 취소해 프라미스를 확정 종료시킨다(catch로 수렴).
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), RESYNC_TIMEOUT_MS);
+    void this.resyncChannel(destination, ch, controller.signal)
       .catch(() => {
-        // 재동기화 실패 시 스트림 정지 방지: 기준점 초기화 후 realtime 재개
+        // 재동기화 실패·타임아웃 시 스트림 정지 방지: 기준점 초기화 후 realtime 재개
         ch.lastSeq = null;
       })
       .finally(() => {
+        clearTimeout(timer);
         const buffered = ch.buffer.sort((a, b) => a.seq - b.seq);
         ch.buffer = [];
         ch.resyncing = false;
@@ -578,21 +585,21 @@ export class HttpStompDataSource implements DataSource {
       });
   }
 
-  /** 채널 종류별 REST 스냅샷 재동기화(§5-2 gap 규칙) */
-  private async resyncChannel(destination: string, ch: ChannelState): Promise<void> {
+  /** 채널 종류별 REST 스냅샷 재동기화(§5-2 gap 규칙). signal은 타임아웃 취소용 */
+  private async resyncChannel(destination: string, ch: ChannelState, signal?: AbortSignal): Promise<void> {
     const parsed = parseDest(destination);
     if (!parsed) return;
     const prevSeq = ch.lastSeq;
 
     switch (parsed.kind) {
       case "orderbook": {
-        const snap = await this.getOrderbook(parsed.market);
+        const snap = await this.getOrderbook(parsed.market, signal);
         ch.lastSeq = snap.seq;
         this.deliver(ch, snap);
         return;
       }
       case "ticker": {
-        const [t] = await this.getTicker([parsed.market]);
+        const [t] = await this.getTicker([parsed.market], signal);
         if (!t) return;
         ch.lastSeq = t.seq;
         this.deliver(ch, this.tickerToMessage(t, "snapshot"));
@@ -600,7 +607,7 @@ export class HttpStompDataSource implements DataSource {
       }
       case "trade": {
         // 놓친 체결만 오래된 순으로 재전달 (REST seq는 WS 채널과 동일 도메인, §4-A-3)
-        const trades = await this.getTrades(parsed.market, 50);
+        const trades = await this.getTrades(parsed.market, 50, signal);
         const missed = trades
           .filter((t) => prevSeq === null || t.seq > prevSeq)
           .sort((a, b) => a.seq - b.seq);
@@ -611,7 +618,7 @@ export class HttpStompDataSource implements DataSource {
         return;
       }
       case "candle": {
-        const [c] = await this.getCandles(parsed.market, parsed.unit, 1);
+        const [c] = await this.getCandles(parsed.market, parsed.unit, 1, signal);
         if (!c) return;
         ch.lastSeq = c.seq;
         this.deliver(ch, this.candleToMessage(c, parsed.unit));
@@ -621,14 +628,14 @@ export class HttpStompDataSource implements DataSource {
         // 채널 seq 도메인(user×type)은 REST에 없음 → 상태만 복원, 기준점은 다음 realtime.
         // open만 복원하면 gap 구간에 종결된 주문의 종결 통지가 유실된다. closed도 함께
         // 재전달해 스토어가 open→closed 전이를 확정한다(§5-2 myOrder 스냅샷 부재 보완).
-        const [open, closed] = await Promise.all([this.getOpenOrders(), this.getClosedOrders()]);
+        const [open, closed] = await Promise.all([this.getOpenOrders(undefined, signal), this.getClosedOrders(undefined, signal)]);
         ch.lastSeq = null;
         for (const o of open) this.deliver(ch, this.orderToMyOrderMessage(o));
         for (const o of closed) this.deliver(ch, this.orderToMyOrderMessage(o));
         return;
       }
       case "myAsset": {
-        const assets = await this.getAccounts();
+        const assets = await this.getAccounts(signal);
         ch.lastSeq = null;
         this.deliver(ch, this.assetsToMessage(assets));
         return;

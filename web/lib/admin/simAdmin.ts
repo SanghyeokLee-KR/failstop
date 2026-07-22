@@ -25,14 +25,20 @@ import type {
   ConfigMarket,
   DemoClientCert,
   DestructiveAction,
+  DirectionBiasResult,
+  FleetScaleResult,
+  FleetScaleTargets,
   HaNode,
   HaRecovery,
   HaStatus,
   InvariantCheck,
+  MarketSimState,
   Notice,
   RecoveryRun,
   SimStatus,
+  TradeFlash,
 } from "./types";
+import { FLEET_TYPE_CAP } from "./types";
 
 const SESSION_TTL_MS = 30 * 60_000; // 단기 관리자 세션
 const APPROVAL_TTL_MS = 5 * 60_000; // §1-4 TTL 5분
@@ -45,6 +51,33 @@ function uid(prefix: string): string {
 }
 function rand(lo: number, hi: number): number {
   return lo + Math.random() * (hi - lo);
+}
+
+const BOT_TYPES: BotType[] = ["MARKET_MAKER", "TAKER", "TREND", "NOISE"];
+
+/** 방향 net bias·strength 표기(문자열, 2자리). float 표기 금지 계약 준수 */
+function biasStr(v: number): string {
+  return (Math.round(v * 100) / 100).toFixed(2);
+}
+/** net bias 정의역 [-1, 1] */
+function clampBias(v: number): number {
+  return Math.max(-1, Math.min(1, v));
+}
+/** effective bias 하드캡 [-0.7, 0.7] (봇_방향성 §1-3) */
+function clampEffective(v: number): number {
+  return Math.max(-0.7, Math.min(0.7, v));
+}
+/** strength 정의역 [0, 1] */
+function clampUnit(v: number): number {
+  return Math.max(0, Math.min(1, v));
+}
+
+interface BiasState {
+  target: number;
+  measured: number;
+  effective: number;
+  auto: boolean;
+  strength: number;
 }
 
 export class SimAdminApi implements AdminApi {
@@ -109,6 +142,11 @@ export class SimAdminApi implements AdminApi {
   private duplicateFillTotal = 0;
   private bots: Bot[] = this.seedBots();
 
+  // 시장 생동감 상태(인메모리, 봇_방향성 §7-1 volatile 규율과 동형). 외부 의존 0
+  private scaleTargets = new Map<string, FleetScaleTargets>();
+  private biasStates = new Map<string, BiasState>();
+  private tradeFlash: TradeFlash = "normal";
+
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
@@ -164,6 +202,14 @@ export class SimAdminApi implements AdminApi {
     }
 
     for (const inv of this.invariants) inv.checkedAt = isoNow();
+
+    // 측정 net bias가 effective로 느슨하게 수렴(관측 프록시). 자동균형 on이면 강도만큼 빠르게 당긴다
+    if (!this.simPaused) {
+      for (const st of this.biasStates.values()) {
+        const pull = st.auto ? 0.04 + st.strength * 0.16 : 0.03;
+        st.measured = clampBias(st.measured + (st.effective - st.measured) * pull + rand(-0.01, 0.01));
+      }
+    }
   }
 
   private leader(): HaNode {
@@ -529,7 +575,44 @@ export class SimAdminApi implements AdminApi {
       avgLatencyMs: Math.round(rand(8, 22)),
       duplicateFillTotal: this.duplicateFillTotal,
       bots: this.bots.map((b) => ({ ...b, params: { ...b.params } })),
+      markets: this.marketStates(),
+      tradeFlash: this.tradeFlash,
     });
+  }
+
+  /** 봇·바이어스가 걸린 마켓 합집합의 방향·대수 스냅샷(§5-5) */
+  private marketStates(): MarketSimState[] {
+    const universe = new Set<string>();
+    for (const b of this.bots) universe.add(b.market);
+    for (const m of this.biasStates.keys()) universe.add(m);
+    for (const m of this.scaleTargets.keys()) universe.add(m);
+    const out: MarketSimState[] = [];
+    for (const market of universe) {
+      const bias = this.biasStates.get(market);
+      const targets = this.scaleTargets.get(market);
+      const scale: MarketSimState["scale"] = {};
+      for (const type of BOT_TYPES) {
+        const present = this.bots.filter((b) => b.market === market && b.type === type);
+        const active = present.filter((b) => b.active).length;
+        const target = targets?.[type] ?? present.length;
+        // 대수·바이어스 어느 쪽도 없는 타입은 스냅샷에서 생략(빈 행 방지)
+        if (target === 0 && present.length === 0) continue;
+        scale[type] = { target, active };
+      }
+      const measured = bias?.measured ?? 0;
+      const effective = bias?.effective ?? 0;
+      out.push({
+        market,
+        targetNetBias: biasStr(bias?.target ?? 0),
+        measuredNetBias: biasStr(measured),
+        effectiveBias: biasStr(effective),
+        autoBalance: { enabled: bias?.auto ?? false, strength: biasStr(bias?.strength ?? 0) },
+        scale,
+        fillRatio: biasStr(clampUnit(0.5 + effective * 0.25)),
+        tradeFlash: this.tradeFlash,
+      });
+    }
+    return out.sort((a, b) => a.market.localeCompare(b.market));
   }
 
   simStart(): Promise<void> {
@@ -576,6 +659,74 @@ export class SimAdminApi implements AdminApi {
     this.bots.push(bot);
     this.log(s, "sim.bots.create", `${type} ${market}`, null, "OK");
     return Promise.resolve({ ...bot, params: { ...bot.params } });
+  }
+
+  /* ===== 시장 생동감 ===== */
+
+  setFleetScale(market: string, targets: FleetScaleTargets): Promise<FleetScaleResult> {
+    const s = this.auth("BOT_OPS");
+    const applied: FleetScaleTargets = {};
+    let clamped = false;
+    for (const type of BOT_TYPES) {
+      const raw = targets[type];
+      if (raw == null) continue;
+      const t = Math.max(0, Math.min(FLEET_TYPE_CAP, Math.round(raw)));
+      if (t !== raw) clamped = true;
+      applied[type] = t;
+      this.convergeScale(market, type, t);
+    }
+    this.scaleTargets.set(market, { ...(this.scaleTargets.get(market) ?? {}), ...applied });
+    this.log(s, "sim.scale", market, null, "OK");
+    return Promise.resolve({ market, applied, clamped, fleetPresent: true });
+  }
+
+  /** 목표 대수에 맞춰 인메모리 봇을 생성·제거로 수렴(파킹 대신 데모는 실제 증감) */
+  private convergeScale(market: string, type: BotType, target: number): void {
+    const present = this.bots.filter((b) => b.market === market && b.type === type);
+    if (present.length < target) {
+      for (let i = present.length; i < target; i += 1) {
+        this.bots.push({
+          id: uid("bot"),
+          type,
+          market,
+          active: this.simRunning && !this.simPaused,
+          ops: Math.round(rand(4, 12)),
+          params: { spread: "0.0008", size: "0.02", ttl_ms: "1500" },
+        });
+      }
+    } else if (present.length > target) {
+      const remove = new Set(present.slice(target).map((b) => b.id));
+      this.bots = this.bots.filter((b) => !remove.has(b.id));
+    }
+  }
+
+  setDirectionBias(market: string, targetNetBias: string, autoBalance: boolean, strength: string): Promise<DirectionBiasResult> {
+    const s = this.auth("BOT_OPS");
+    // 확률 편향 스칼라(자금 경로 아님, §2-2). 표기·전송은 문자열, 내부만 수치
+    const target = clampBias(Number(targetNetBias));
+    const st = clampUnit(Number(strength));
+    if (!Number.isFinite(target) || !Number.isFinite(st)) {
+      return Promise.reject(new AdminError("invalid_parameter", "바이어스·강도 값이 올바르지 않습니다"));
+    }
+    const effective = clampEffective(target);
+    const prev = this.biasStates.get(market);
+    this.biasStates.set(market, { target, measured: prev?.measured ?? 0, effective, auto: autoBalance, strength: st });
+    this.log(s, "sim.bias", market, null, "OK");
+    return Promise.resolve({
+      market,
+      targetNetBias: biasStr(target),
+      autoBalance,
+      strength: biasStr(st),
+      effectiveBias: biasStr(effective),
+      fleetPresent: true,
+    });
+  }
+
+  setEffectConfig(tradeFlash: TradeFlash): Promise<TradeFlash> {
+    const s = this.auth("BOT_OPS");
+    this.tradeFlash = tradeFlash;
+    this.log(s, "sim.effects", `trade_flash=${tradeFlash}`, null, "OK");
+    return Promise.resolve(tradeFlash);
   }
 
   /* ===== 카오스 ===== */

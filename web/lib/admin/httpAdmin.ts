@@ -24,6 +24,7 @@ import { CHAOS_CATALOG } from "./catalog";
 import type {
   AdminOperator,
   AdminOverview,
+  AdminRole,
   AdminSession,
   ApprovalPayload,
   ApprovalRequest,
@@ -35,15 +36,55 @@ import type {
   ConfigMarket,
   DemoClientCert,
   DestructiveAction,
+  DirectionBiasResult,
+  FleetScaleResult,
+  FleetScaleTargets,
   HaRecovery,
   HaStatus,
   InvariantCheck,
+  MarketSimState,
   Notice,
   SimStatus,
+  TradeFlash,
 } from "./types";
 
 interface ErrorEnvelope {
   error?: { name?: string; message?: string };
+}
+
+/** POST /admin/v1/session 와이어 스키마(§3-6, snake_case). issued_at은 서버 미전송 */
+interface WireSession {
+  schema_version?: string;
+  token?: string;
+  operator_id?: string;
+  display_name?: string;
+  roles?: AdminRole[];
+  issued_at?: string;
+  expires_at?: string;
+}
+
+/* ===== /admin/v1/sim/status 1.1 와이어 스키마(§5-5). snake_case 원본을 매핑한다 ===== */
+
+interface WireScaleEntry {
+  target?: number;
+  active?: number;
+}
+interface WireMarketState {
+  market: string;
+  target_net_bias?: string;
+  measured_net_bias?: string;
+  effective_bias?: string;
+  auto_balance?: { enabled?: boolean; strength?: string };
+  scale?: Record<string, WireScaleEntry>;
+  fill_ratio?: string;
+  trade_flash?: TradeFlash;
+}
+interface WireSimStatus {
+  schema_version?: string;
+  fleet_present?: boolean;
+  target_ops?: string;
+  trade_flash?: TradeFlash;
+  markets?: WireMarketState[];
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
@@ -88,16 +129,32 @@ export class HttpAdminApi implements AdminApi {
   }
 
   async establishSession(): Promise<AdminSession> {
-    const s = await this.http<AdminSession>("/admin/v1/session", { method: "POST" });
+    // 서버 세션 응답은 snake_case(AdminSessionController). camelCase 도메인으로 명시 매핑한다.
+    // 무검사 캐스팅은 operatorId·displayName·expiresAt를 undefined로 남겨 카운트다운 NaN·
+    // 클라 만료 미발동을 유발한다. issued_at은 서버가 싣지 않아 수신 시각으로 파생한다.
+    const raw = await this.http<WireSession>("/admin/v1/session", { method: "POST" });
+    const s: AdminSession = {
+      operatorId: raw.operator_id ?? "",
+      displayName: raw.display_name ?? "",
+      roles: raw.roles ?? [],
+      token: raw.token ?? "",
+      issuedAt: raw.issued_at ?? new Date().toISOString(),
+      expiresAt: raw.expires_at ?? new Date().toISOString(),
+    };
     this.session = s;
     this.emit();
     return s;
   }
 
   getSession(): AdminSession | null {
-    if (this.session && Date.now() > new Date(this.session.expiresAt).getTime()) {
-      this.session = null;
-      this.emit();
+    // expiresAt 파싱 실패(NaN)면 만료 판정을 건너뛴다. NaN 비교는 항상 false라 손상 값이
+    // 세션을 영구 유지시키는 것을 막고, 유효 값일 때만 클라 만료를 발동한다.
+    if (this.session) {
+      const exp = new Date(this.session.expiresAt).getTime();
+      if (Number.isFinite(exp) && Date.now() > exp) {
+        this.session = null;
+        this.emit();
+      }
     }
     return this.session;
   }
@@ -198,8 +255,104 @@ export class HttpAdminApi implements AdminApi {
 
   /* ===== 봇 플릿 ===== */
 
-  getSimStatus(): Promise<SimStatus> {
-    return this.http<SimStatus>("/admin/v1/sim/status");
+  async getSimStatus(): Promise<SimStatus> {
+    // 서버 /status 1.1은 {schema_version, fleet_present, target_ops, trade_flash, markets[]}만 준다.
+    // SimStatus 전 필드를 무검사 캐스팅하면 undefined가 number 필드에 실려 NaN 렌더된다.
+    // 명시 매핑 + 안전 기본값으로 좁힌다(대수는 markets scale 합, currentOps는 target_ops).
+    const raw = await this.http<WireSimStatus>("/admin/v1/sim/status");
+    const markets = this.mapMarkets(raw.markets);
+    let activeBots = 0;
+    let botCount = 0;
+    for (const m of markets) {
+      for (const type of Object.keys(m.scale) as (keyof MarketSimState["scale"])[]) {
+        const e = m.scale[type];
+        if (!e) continue;
+        activeBots += e.active;
+        botCount += e.target;
+      }
+    }
+    const rate = Number(raw.target_ops ?? "0");
+    return {
+      running: raw.fleet_present === true,
+      paused: false,
+      rate: Number.isFinite(rate) ? rate : 0,
+      currentOps: Number.isFinite(rate) ? rate : 0,
+      botCount,
+      activeBots,
+      successRate: "1.0000",
+      avgLatencyMs: 0,
+      duplicateFillTotal: 0,
+      // 서버 status에 개별 봇 목록은 없다(생성·파라미터는 별도 경로). 빈 목록으로 정직하게 둔다
+      bots: [],
+      markets,
+      tradeFlash: raw.trade_flash ?? "normal",
+    };
+  }
+
+  private mapMarkets(rows: WireMarketState[] | undefined): MarketSimState[] {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((r) => {
+      const scale: MarketSimState["scale"] = {};
+      for (const [key, entry] of Object.entries(r.scale ?? {})) {
+        scale[key as keyof MarketSimState["scale"]] = {
+          target: Number(entry.target ?? 0),
+          active: Number(entry.active ?? 0),
+        };
+      }
+      return {
+        market: r.market,
+        targetNetBias: r.target_net_bias ?? "0.00",
+        measuredNetBias: r.measured_net_bias ?? "0.00",
+        effectiveBias: r.effective_bias ?? "0.00",
+        autoBalance: { enabled: r.auto_balance?.enabled ?? false, strength: r.auto_balance?.strength ?? "0.00" },
+        scale,
+        fillRatio: r.fill_ratio ?? "0.00",
+        tradeFlash: r.trade_flash ?? "normal",
+      };
+    });
+  }
+
+  async setFleetScale(market: string, targets: FleetScaleTargets): Promise<FleetScaleResult> {
+    const res = await this.http<{ market: string; applied?: FleetScaleTargets; clamped?: boolean; fleet_present?: boolean }>(
+      "/admin/v1/sim/scale",
+      { method: "PUT", body: JSON.stringify({ market, targets }) },
+    );
+    return {
+      market: res.market,
+      applied: res.applied ?? {},
+      clamped: res.clamped === true,
+      fleetPresent: res.fleet_present === true,
+    };
+  }
+
+  async setDirectionBias(market: string, targetNetBias: string, autoBalance: boolean, strength: string): Promise<DirectionBiasResult> {
+    const res = await this.http<{
+      market: string;
+      target_net_bias?: string;
+      auto_balance?: boolean;
+      strength?: string;
+      effective_bias?: string;
+      fleet_present?: boolean;
+    }>("/admin/v1/sim/bias", {
+      method: "PUT",
+      body: JSON.stringify({ market, target_net_bias: targetNetBias, auto_balance: autoBalance, strength }),
+    });
+    return {
+      market: res.market,
+      targetNetBias: res.target_net_bias ?? targetNetBias,
+      autoBalance: res.auto_balance === true,
+      strength: res.strength ?? strength,
+      effectiveBias: res.effective_bias ?? "0.00",
+      fleetPresent: res.fleet_present === true,
+    };
+  }
+
+  async setEffectConfig(tradeFlash: TradeFlash): Promise<TradeFlash> {
+    const res = await this.http<{ trade_flash?: TradeFlash }>("/admin/v1/sim/effects", {
+      method: "PUT",
+      body: JSON.stringify({ trade_flash: tradeFlash }),
+    });
+    return res.trade_flash ?? tradeFlash;
   }
 
   simStart(): Promise<void> {

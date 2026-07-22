@@ -484,6 +484,202 @@
   text-overflow: ellipsis;
 }
 
+/* ===== 시장 생동감 =====
+   봇·효과 제어는 시세 방향색(양전 up=Red·음전 down=Blue)을 쓴다(§3-1). 헬스색과 섞지 않는다.
+   색 단독 금지라 값·부호·화살표를 항상 병기한다. */
+.livelinessNote {
+  margin-bottom: var(--space-3);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.livelinessBlock {
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.livelinessBlock:first-of-type {
+  border-top: 0;
+}
+.livelinessHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-3);
+}
+.livelinessTitle {
+  font-size: var(--font-body-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.livelinessHint {
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}
+.livelinessFoot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.scaleGrid {
+  display: grid;
+  gap: var(--space-2);
+}
+.scaleRow {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+.scaleLabel {
+  font-size: var(--font-body-sm-size);
+  color: var(--text-default);
+}
+.scaleRow input[type="range"] {
+  width: 100%;
+  min-height: 44px;
+}
+.scaleValue {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 132px;
+}
+.scaleValue b {
+  font-size: var(--font-body-size);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.scaleActive {
+  font-size: var(--font-micro-size);
+  color: var(--text-secondary);
+}
+.scaleSum {
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}
+.scaleSum b {
+  color: var(--text-strong);
+}
+.scaleSum[data-over] b {
+  color: var(--color-danger);
+}
+.scaleErr {
+  font-size: var(--font-caption-size);
+  color: var(--color-danger);
+}
+
+.biasRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.biasTrack {
+  flex: 1;
+  min-height: 44px;
+  /* 음전 Blue ~ 중립 ~ 양전 Red. 트랙 색은 방향의 보조 신호, 값·부호·화살표가 주 표기 */
+  accent-color: var(--text-strong);
+  background: linear-gradient(90deg, var(--color-down), var(--surface-sunken) 50%, var(--color-up));
+  border-radius: var(--radius-full);
+  height: 6px;
+  align-self: center;
+}
+.biasValue {
+  min-width: 132px;
+  text-align: right;
+  font-size: var(--font-body-size);
+  font-weight: var(--fw-bold);
+  color: var(--text-secondary);
+}
+.biasValue[data-dir="up"] {
+  color: var(--color-up-text);
+}
+.biasValue[data-dir="down"] {
+  color: var(--color-down-text);
+}
+.biasMeta {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}
+.biasMeta b {
+  color: var(--text-strong);
+}
+.biasControls {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
+.biasControls .field[data-dim] {
+  opacity: 0.5;
+}
+.biasControls .field input[type="range"] {
+  width: 180px;
+}
+.toggleField {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  font-size: var(--font-body-sm-size);
+  color: var(--text-default);
+}
+.toggleField input {
+  width: 18px;
+  height: 18px;
+}
+
+.flashPreview {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.flashCell {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-sunken);
+}
+.flashCell[data-dir="up"] {
+  color: var(--color-up-text);
+}
+.flashCell[data-dir="down"] {
+  color: var(--color-down-text);
+}
+.flashCell[data-dir="flat"] {
+  color: var(--text-secondary);
+}
+/* 강도 미리보기: 배경 틴트 세기로만 단계를 표현한다(값·방향 표식은 상시 유지) */
+.flashPreview[data-level="off"] .flashCell[data-dir="up"],
+.flashPreview[data-level="off"] .flashCell[data-dir="down"] {
+  background: var(--surface-sunken);
+}
+.flashPreview[data-level="subtle"] .flashCell[data-dir="up"],
+.flashPreview[data-level="normal"] .flashCell[data-dir="up"],
+.flashPreview[data-level="strong"] .flashCell[data-dir="up"],
+.flashPreview[data-level="auto"] .flashCell[data-dir="up"] {
+  background: var(--color-up-flash);
+}
+.flashPreview[data-level="subtle"] .flashCell[data-dir="down"],
+.flashPreview[data-level="normal"] .flashCell[data-dir="down"],
+.flashPreview[data-level="strong"] .flashCell[data-dir="down"],
+.flashPreview[data-level="auto"] .flashCell[data-dir="down"] {
+  background: var(--color-down-flash);
+}
+.flashPreview[data-level="strong"] .flashCell {
+  box-shadow: var(--shadow-1);
+}
+
 /* ===== 불변식 ===== */
 .invGrid {
   display: grid;

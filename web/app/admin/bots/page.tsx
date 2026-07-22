@@ -8,25 +8,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAdminApi } from "@/lib/admin/api";
 import { useCan } from "@/lib/admin/store";
+import { BOT_TYPES, BOT_TYPE_LABEL } from "@/lib/admin/types";
 import type { Bot, BotType, DestructiveAction, SimStatus } from "@/lib/admin/types";
 import { COIN_META } from "@/lib/sim/engine";
-import { formatKRW } from "@/lib/format";
+import { formatCount } from "@/lib/format";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
+import LivelinessSection from "@/components/admin/LivelinessSection";
 import { HealthPill, PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
 import styles from "@/components/admin/admin.module.css";
 
-const BOT_TYPES: BotType[] = ["MARKET_MAKER", "TAKER", "TREND", "NOISE"];
-const BOT_TYPE_LABEL: Record<BotType, string> = {
-  MARKET_MAKER: "마켓메이커",
-  TAKER: "테이커",
-  TREND: "추세",
-  NOISE: "노이즈",
-};
 const PARAM_ACTIONS: DestructiveAction[] = ["sim.bots.params"];
 
 export default function BotsPage() {
@@ -116,7 +111,7 @@ export default function BotsPage() {
               )}
             </span>
           </div>
-          <StatTile label="현재 OPS · 목표" value={formatKRW(sim.currentOps)} sub={`목표 ${formatKRW(sim.rate)}`} />
+          <StatTile label="현재 OPS · 목표" value={formatCount(sim.currentOps)} sub={`목표 ${formatCount(sim.rate)}`} />
           <StatTile label="활성 봇" value={`${sim.activeBots} / ${sim.botCount}`} sub="활성 / 전체" />
           <StatTile label="성공률" value={`${(Number(sim.successRate) * 100).toFixed(2)}%`} tone="success" />
           <StatTile label="평균 지연" value={`${sim.avgLatencyMs}ms`} />
@@ -154,11 +149,13 @@ export default function BotsPage() {
                 aria-label="전역 OPS 목표"
                 onChange={(e) => void run(() => api.simSetRate(Number(e.target.value)), `OPS 목표를 ${e.target.value}로 바꿨어요`)}
               />
-              <b className="num">{formatKRW(sim.rate)}</b>
+              <b className="num">{formatCount(sim.rate)}</b>
             </label>
           )}
         </div>
       </PanelCard>
+
+      <LivelinessSection sim={sim} canOps={canOps} onChanged={load} />
 
       <PanelCard title="봇 생성">
         {!canOps && <PermissionNote>봇 생성 권한(BOT_OPS 이상)이 없습니다.</PermissionNote>}

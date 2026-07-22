@@ -21,7 +21,7 @@ import type { CandleUnit } from "@/lib/types";
 import { dest } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
 import { CANDLE_UNIT_MS } from "@/lib/sim/engine";
-import { toNum } from "@/lib/format";
+import { formatPrice, toNum } from "@/lib/format";
 import Skeleton from "./Skeleton";
 
 interface Props {
@@ -30,8 +30,6 @@ interface Props {
   /** number=px, string은 그대로 적용. 래퍼가 높이를 갖는 경우 "100%" 사용 (§5.1) */
   height?: number | string;
 }
-
-const nfKRW = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 });
 
 function cssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -71,7 +69,8 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
       grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } },
       rightPriceScale: { borderColor: t.grid, scaleMargins: { top: 0.08, bottom: 0.24 } },
       timeScale: { borderColor: t.grid, timeVisible: true, secondsVisible: false },
-      localization: { locale: "ko-KR", priceFormatter: (p: number) => nfKRW.format(p) },
+      // 저가 코인(1,000원 미만) 축·라벨이 정수 반올림으로 "0"이 되지 않도록 구간별 소수 규칙 사용
+      localization: { locale: "ko-KR", priceFormatter: (p: number) => formatPrice(p) },
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {

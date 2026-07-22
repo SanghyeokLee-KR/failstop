@@ -153,6 +153,15 @@ export interface HaRecovery {
 
 export type BotType = "MARKET_MAKER" | "TAKER" | "TREND" | "NOISE";
 
+/** BotType 표기 순서·한글 라벨. 화면 공용 단일 출처(페이지·섹션 중복 정의 방지) */
+export const BOT_TYPES: BotType[] = ["MARKET_MAKER", "TAKER", "TREND", "NOISE"];
+export const BOT_TYPE_LABEL: Record<BotType, string> = {
+  MARKET_MAKER: "마켓메이커",
+  TAKER: "테이커",
+  TREND: "추세",
+  NOISE: "노이즈",
+};
+
 export interface Bot {
   id: string;
   type: BotType;
@@ -173,6 +182,60 @@ export interface SimStatus {
   avgLatencyMs: number;
   duplicateFillTotal: number;
   bots: Bot[];
+  /** 마켓별 방향·대수·측정치(status 1.1, §5-5). 데모·HTTP 공통 */
+  markets: MarketSimState[];
+  /** 체결 시각효과 강도 전역 저장값(system_config, §5-3). auto 포함 */
+  tradeFlash: TradeFlash;
+}
+
+/* ===== 시장 생동감: 대수·방향 바이어스·효과 강도 (봇_방향성_거버넌스 §5, 체결_시각효과 §3) ===== */
+
+/** 효과 강도 저장값. auto는 트레이딩 UI 거버너가 관측 강도로 상한 하향(§3-5) */
+export type TradeFlash = "off" | "subtle" | "normal" | "strong" | "auto";
+
+export const TRADE_FLASH_VALUES: TradeFlash[] = ["off", "subtle", "normal", "strong", "auto"];
+
+/** 타입별 목표 대수 set-point(§5-1). 서버가 현재 대수와 차이를 생성·제거로 수렴한다 */
+export type FleetScaleTargets = Partial<Record<BotType, number>>;
+
+// 프론트 검증 상한. 서버 BotFleetGovernor.defaults()(typeCap 30·marketCap 80)와 정렬한다.
+// 서버가 권위적으로 클램프하고 clamped를 반환하므로 프론트 캡은 사전 안내·과대 표시 방지용이다.
+/** 타입별 대수 상한 */
+export const FLEET_TYPE_CAP = 30;
+/** 마켓 합계 상한 */
+export const FLEET_MARKET_CAP = 80;
+
+/** PUT /admin/v1/sim/scale 응답 미러(§5-1) */
+export interface FleetScaleResult {
+  market: string;
+  applied: FleetScaleTargets;
+  clamped: boolean;
+  fleetPresent: boolean;
+}
+
+/**
+ * PUT /admin/v1/sim/bias 응답 미러(§5-2). net bias·strength는 문자열이다
+ * (분수 파라미터 표기·전송은 문자열, float 금지 계약 상속).
+ */
+export interface DirectionBiasResult {
+  market: string;
+  targetNetBias: string;
+  autoBalance: boolean;
+  strength: string;
+  effectiveBias: string;
+  fleetPresent: boolean;
+}
+
+/** SimStatus.markets[] 원소(§5-5). 방향 측정치와 타입별 target/active 대수 */
+export interface MarketSimState {
+  market: string;
+  targetNetBias: string;
+  measuredNetBias: string;
+  effectiveBias: string;
+  autoBalance: { enabled: boolean; strength: string };
+  scale: Partial<Record<BotType, { target: number; active: number }>>;
+  fillRatio: string;
+  tradeFlash: TradeFlash;
 }
 
 /* ===== 카오스 (§2-2, /admin/v1/chaos/*) ===== */

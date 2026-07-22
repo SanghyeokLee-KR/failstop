@@ -11,6 +11,10 @@ import { getAdminApi } from "@/lib/admin/api";
 import { toast } from "@/components/Toast";
 import styles from "./admin.module.css";
 
+// http 모드는 mTLS를 TLS 계층(브라우저 인증서)이 처리하고 앱은 POST /admin/v1/session으로
+// 신원 유래 세션만 발급받는다. 인증서 열거가 없으므로 세션 확립 액션을 직접 노출한다.
+const IS_HTTP = process.env.NEXT_PUBLIC_DATASOURCE === "http";
+
 export default function AdminLogin() {
   const certs = getAdminApi().listDemoCerts();
   const [busy, setBusy] = useState<string | null>(null);
@@ -34,7 +38,25 @@ export default function AdminLogin() {
           인증서 CN에서 유래하며 자가신고할 수 없습니다.
         </p>
 
-        {certs.length === 0 ? (
+        {certs.length === 0 && IS_HTTP ? (
+          <>
+            <span className={styles.loginPickLabel}>브라우저 클라이언트 인증서로 세션 확립</span>
+            <button
+              type="button"
+              className={styles.certOption}
+              onClick={() => void present("")}
+              disabled={busy !== null}
+              aria-busy={busy === ""}
+            >
+              <span className={styles.certCn}>운영자 mTLS 세션 발급</span>
+              <span className={styles.certIssuer}>POST /admin/v1/session</span>
+              <span className={styles.certAction}>{busy === "" ? "확립 중" : "세션 확립"}</span>
+            </button>
+            <p className={styles.loginHint}>
+              TLS 핸드셰이크에서 제시된 운영자 인증서 신원으로 단기 세션을 발급합니다. 인증서 미설치·비인가 신원은 서버가 거절합니다.
+            </p>
+          </>
+        ) : certs.length === 0 ? (
           <div className={styles.loginNoCert} role="alert">
             <span className={styles.loginNoCertTitle}>클라이언트 인증서를 찾지 못했습니다</span>
             <span className={styles.loginNoCertDesc}>
