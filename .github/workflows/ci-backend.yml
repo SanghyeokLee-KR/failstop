@@ -35,18 +35,21 @@ jobs:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
 
       # Gradle 캐시는 setup-gradle 전담. PR은 읽기 전용(캐시 오염 방지, §2-2 캐시 규칙).
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       # 단위 + 통합(MigrationSmokeTest·InvariantVerifierIntegrationTest 포함). Testcontainers는
       # 러너 내장 Docker로 PG17을 기동한다. green = 완료 게이트 재현.
+      # 정본 토폴로지(§2-1/§2-3)는 PR=단위+ArchUnit, main=integration(V3 T1~T6). 통합을
+      # integration.yml(main)로 분리하려면 server 빌드에 integrationTest sourceSet·task가 선행한다.
+      # 그 태스크가 서기 전까지는 build가 통합을 함께 돌려 완료 게이트를 유지한다.
       - run: ./gradlew build

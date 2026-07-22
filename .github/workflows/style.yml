@@ -61,7 +61,8 @@ jobs:
             echo "커밋 메시지에 금지 문자."
             exit 1
           fi
-          if grep -nE 'Generated with|Co-Authored-By: Claude' commits.txt; then
-            echo "커밋 메시지에 도구 서명."
+          # 규칙 3·6·7은 커밋 메시지에도 적용된다. 문구 검사를 추가한 줄 검사와 동일 패턴으로 강제한다.
+          if grep -nE 'Generated with|Co-Authored-By: Claude|물론입니다|해 드리겠습니다|드리겠습니다!|Here is the (completed|finalized|final) document|Now writing the completed|I hope this helps|Let me know if you|Certainly!' commits.txt; then
+            echo "커밋 메시지에 AI 어투 또는 도구 서명."
             exit 1
           fi

@@ -8,3 +8,10 @@ scrape_configs:
     static_configs:
       - targets: ['chaos-api-1:8080', 'chaos-api-2:8080']
         labels: { stack: chaos }
+
+  # 봇 플릿 텔레메트리. 부하·주문 발행률·재전송을 페일오버 창과 함께 관측한다(§7 데모 재현).
+  - job_name: chaos-bots
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['chaos-bots:8080']
+        labels: { stack: chaos }

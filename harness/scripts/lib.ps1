@@ -20,6 +20,18 @@ function Invoke-Compose {
     & docker compose -f $Global:CHAOS.ComposeFile --env-file $Global:CHAOS.EnvFile @Args
 }
 
+# 리스 TTL(초). §5-1 T1 = 구 lease_until − 리스 TTL(마지막 heartbeat 역산). 카오스 스택은
+# CHAOS_LEASE_TTL로 가속(6s), 값 부재 시 DB§5.4 기본 10s. downtime=T2-T1 산정에 쓴다.
+function Get-LeaseTtlSec {
+    try {
+        if (Test-Path $Global:CHAOS.EnvFile) {
+            $raw = (Read-EnvFile $Global:CHAOS.EnvFile)['CHAOS_LEASE_TTL']
+            if ($raw -and ($raw -match '([0-9]+(\.[0-9]+)?)')) { return [double] $Matches[1] }
+        }
+    } catch { }
+    return 10.0
+}
+
 function Read-EnvFile {
     param([string] $Path)
     $map = @{}
@@ -171,7 +183,10 @@ function Complete-FailoverExperiment {
     $rpo = $cmdGap + $evtGap + $ordersLost
 
     $rto = $null; if ($t5) { $rto = ($t5 - $T0).TotalSeconds }
-    $downtime = $null; if ($t2) { $downtime = ($t2 - $LeaseUntilBefore).TotalSeconds }
+    # §5-1 정의: downtime(exchange_failover_downtime_seconds)=T2-T1. T1은 마지막 heartbeat이며
+    # 구 lease_until − 리스 TTL로 역산한다. 사전 스냅샷 lease_until을 T1로 직접 쓰면 TTL만큼 편향된다.
+    $leaseTtlSec = Get-LeaseTtlSec
+    $downtime = $null; if ($t2) { $downtime = ($t2 - $LeaseUntilBefore).TotalSeconds + $leaseTtlSec }
     $rtoRounded = $null; if ($null -ne $rto) { $rtoRounded = [math]::Round($rto, 3) }
     $downtimeRounded = $null; if ($null -ne $downtime) { $downtimeRounded = [math]::Round($downtime, 3) }
     $rtoDisplay = 'n/a'; if ($null -ne $rtoRounded) { $rtoDisplay = $rtoRounded }
