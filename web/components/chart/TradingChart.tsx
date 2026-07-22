@@ -1,0 +1,229 @@
+"use client";
+
+/**
+ * TradingChart. 메인 풀 TA 차트(klinecharts, 설계 §3.1).
+ * init·resize·dispose 수명주기, 캔들·실시간 배선(candleStream), 테마 반영을 담당한다.
+ * 클라이언트 전용. ChartPanel이 next/dynamic ssr:false로 로드한다(코드 스플릿).
+ * 데이터 접근은 candleStream(단일 통로)만 쓰고 화면 코드는 DataSource를 직접 부르지 않는다.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { dispose, init, type Chart, type IndicatorCreate } from "klinecharts";
+import Skeleton from "@/components/Skeleton";
+import type { CandleUnit } from "@/lib/types";
+import { formatPrice } from "@/lib/format";
+import ChartToolbar from "./ChartToolbar";
+import { readChartTokens, useChartTheme } from "./useChartTheme";
+import { buildChartStyles, precisionOf, volStyles } from "./chartTheme";
+import { DEFAULT_ACTIVE, specOf, type IndicatorKey, type IndicatorSpec } from "./indicators";
+import { startCandleStream, type CandleStreamHandle, type LiveCandle } from "./candleStream";
+import styles from "./chart.module.css";
+
+const CANDLE_PANE_ID = "candle_pane";
+
+/** 모션 킬스위치 판정. init·테마 재주입 시 klinecharts 애니메이션 비활성에 소비(§4.5) */
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+const UNIT_LABEL: Record<string, string> = {
+  "1m": "1분", "5m": "5분", "15m": "15분", "60m": "1시간", "240m": "4시간", "1d": "1일",
+};
+
+/** 지표 생성. main=캔들 pane에 스택, sub=새 보조 pane. 생성 paneId 반환 */
+function createIndicatorFor(chart: Chart, spec: IndicatorSpec, tokens: ReturnType<typeof readChartTokens>): string | null {
+  const create: IndicatorCreate = { name: spec.name };
+  if (spec.calcParams) create.calcParams = spec.calcParams;
+  // DeepPartial 오버라이드를 라이브러리의 Partial 스타일 파라미터 경계에서 좁힌다
+  if (spec.styles) create.styles = spec.styles(tokens) as IndicatorCreate["styles"];
+  if (spec.placement === "main") {
+    chart.createIndicator(create, true, { id: CANDLE_PANE_ID });
+    return CANDLE_PANE_ID;
+  }
+  const id = chart.createIndicator(create, false);
+  return typeof id === "string" ? id : null;
+}
+
+export default function TradingChart({ market }: { market: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<Chart | null>(null);
+  const streamRef = useRef<CandleStreamHandle | null>(null);
+  const subPaneRef = useRef<Map<IndicatorKey, string>>(new Map());
+  const appliedRef = useRef<Set<IndicatorKey>>(new Set());
+  const precisionRef = useRef<number>(0);
+
+  const [unit, setUnit] = useState<CandleUnit>("15m");
+  const [active, setActive] = useState<Set<IndicatorKey>>(() => new Set(DEFAULT_ACTIVE));
+  const [loading, setLoading] = useState(true);
+  const [empty, setEmpty] = useState(false);
+  const [latest, setLatest] = useState<LiveCandle | null>(null);
+
+  const unitRef = useRef(unit);
+  unitRef.current = unit;
+  const activeRef = useRef(active);
+  activeRef.current = active;
+
+  const handleLatest = useCallback((candle: LiveCandle | null) => {
+    const chart = chartRef.current;
+    if (chart && candle) {
+      // 종가 크기 기반 축 정밀도. 변할 때만 재설정해 불필요한 재그리기 방지
+      const p = precisionOf(String(candle.close));
+      if (p !== precisionRef.current) {
+        precisionRef.current = p;
+        chart.setPriceVolumePrecision(p, 4);
+      }
+    }
+    setLatest(candle);
+  }, []);
+
+  // 테마 전환 → 전역 스타일 + 지표별 색 재주입(§4.3)
+  const reapplyTheme = useCallback(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const tokens = readChartTokens();
+    chart.setStyles(buildChartStyles(tokens, prefersReducedMotion()));
+    chart.overrideIndicator({ name: "VOL", styles: volStyles(tokens) as IndicatorCreate["styles"] }, CANDLE_PANE_ID);
+    activeRef.current.forEach((key) => {
+      const spec = specOf(key);
+      if (!spec || !spec.styles) return;
+      const paneId = spec.placement === "main" ? CANDLE_PANE_ID : subPaneRef.current.get(key);
+      if (paneId) chart.overrideIndicator({ name: spec.name, styles: spec.styles(tokens) as IndicatorCreate["styles"] }, paneId);
+    });
+  }, []);
+  useChartTheme(reapplyTheme);
+
+  // 초기화: 차트 생성 + 거래량(상시) + 활성 지표 + resize 관찰. [market]마다 재생성
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const tokens = readChartTokens();
+    const chart = init(el, { styles: buildChartStyles(tokens, prefersReducedMotion()) });
+    if (!chart) return;
+    chartRef.current = chart;
+    chart.setPriceVolumePrecision(precisionRef.current, 4);
+    chart.createIndicator({ name: "VOL", styles: volStyles(tokens) as IndicatorCreate["styles"] }, true, { id: CANDLE_PANE_ID });
+
+    subPaneRef.current.clear();
+    appliedRef.current = new Set();
+    activeRef.current.forEach((key) => {
+      const spec = specOf(key);
+      if (!spec) return;
+      const id = createIndicatorFor(chart, spec, tokens);
+      if (spec.placement === "sub" && id) subPaneRef.current.set(key, id);
+      appliedRef.current.add(key);
+    });
+
+    const ro = new ResizeObserver(() => chart.resize());
+    ro.observe(el);
+
+    return () => {
+      ro.disconnect();
+      streamRef.current?.dispose();
+      streamRef.current = null;
+      dispose(el);
+      chartRef.current = null;
+    };
+  }, [market]);
+
+  // 캔들 스트림: market·unit 조합마다 재배선. 초기 로드 + 체결 합성 폴백
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    setLoading(true);
+    setEmpty(false);
+    setLatest(null);
+    streamRef.current?.dispose();
+    streamRef.current = startCandleStream(market, unit, chart, {
+      onLoaded: (hasData) => {
+        setLoading(false);
+        setEmpty(!hasData);
+      },
+      onLatest: handleLatest,
+    });
+    return () => {
+      streamRef.current?.dispose();
+      streamRef.current = null;
+    };
+  }, [market, unit, handleLatest]);
+
+  // 지표 토글: 활성 집합 diff만 반영(전체 재생성 없이)
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const applied = appliedRef.current;
+    const tokens = readChartTokens();
+    active.forEach((key) => {
+      if (applied.has(key)) return;
+      const spec = specOf(key);
+      if (!spec) return;
+      const id = createIndicatorFor(chart, spec, tokens);
+      if (spec.placement === "sub" && id) subPaneRef.current.set(key, id);
+      applied.add(key);
+    });
+    [...applied].forEach((key) => {
+      if (active.has(key)) return;
+      const spec = specOf(key);
+      if (spec) {
+        const paneId = spec.placement === "main" ? CANDLE_PANE_ID : subPaneRef.current.get(key);
+        if (paneId) chart.removeIndicator(paneId, spec.name);
+        subPaneRef.current.delete(key);
+      }
+      applied.delete(key);
+    });
+  }, [active]);
+
+  const onToggleIndicator = useCallback((key: IndicatorKey) => {
+    setActive((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const onDraw = useCallback((overlay: string) => {
+    chartRef.current?.createOverlay(overlay);
+  }, []);
+
+  const onClearDrawings = useCallback(() => {
+    chartRef.current?.removeOverlay();
+  }, []);
+
+  const unitLabel = UNIT_LABEL[unit] ?? unit;
+  const ariaLabel = `${market} ${unitLabel} 캔들 차트. 양봉은 빨간색 상승, 음봉은 파란색 하락, 하단은 거래량입니다.`;
+  const srSummary = useMemo(() => {
+    if (!latest) return `${market} ${unitLabel} 캔들 데이터 준비 중입니다.`;
+    const dir = latest.close > latest.open ? "상승" : latest.close < latest.open ? "하락" : "보합";
+    return `${market} ${unitLabel} 현재 봉. 시가 ${formatPrice(latest.open)}, 고가 ${formatPrice(latest.high)}, 저가 ${formatPrice(latest.low)}, 종가 ${formatPrice(latest.close)}, ${dir}.`;
+  }, [latest, market, unitLabel]);
+
+  return (
+    <div className={styles.body}>
+      <ChartToolbar
+        unit={unit}
+        onUnit={setUnit}
+        active={active}
+        onToggleIndicator={onToggleIndicator}
+        onDraw={onDraw}
+        onClearDrawings={onClearDrawings}
+        latest={latest}
+      />
+      <div className={styles.chartArea}>
+        <div ref={containerRef} className={styles.canvas} role="img" aria-label={ariaLabel} />
+        {loading && (
+          <div className={styles.overlayState} aria-hidden="true">
+            <Skeleton variant="chart" width="100%" height="100%" />
+          </div>
+        )}
+        {empty && !loading && (
+          <div className={styles.overlayState} role="status">
+            차트 데이터 준비 중
+          </div>
+        )}
+        <p className={styles.srOnly} role="status" aria-live="polite">
+          {srSummary}
+        </p>
+      </div>
+    </div>
+  );
+}

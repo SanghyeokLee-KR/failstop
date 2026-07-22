@@ -311,7 +311,7 @@ export class SimAdminApi implements AdminApi {
       requesterName: s.displayName,
       approverId: null,
       approverName: null,
-      state: "PENDING",
+      state: "ISSUED",
       issuedAt: isoNow(now),
       expiresAt: isoNow(now + APPROVAL_TTL_MS),
       consumedAt: null,
@@ -324,7 +324,8 @@ export class SimAdminApi implements AdminApi {
   private sweep(): void {
     const now = Date.now();
     for (const a of this.approvals) {
-      if ((a.state === "PENDING" || a.state === "APPROVED") && now > new Date(a.expiresAt).getTime()) {
+      // 승인 전(approverId=null)·승인 후(approverId set) 모두 ISSUED. 소각 전이면 만료 대상
+      if (a.state === "ISSUED" && now > new Date(a.expiresAt).getTime()) {
         a.state = "EXPIRED";
       }
     }
@@ -335,13 +336,14 @@ export class SimAdminApi implements AdminApi {
     this.sweep();
     const a = this.approvals.find((x) => x.id === approvalId);
     if (!a) return Promise.reject(new AdminError("admin_forbidden", "승인 대상 요청이 없습니다"));
-    if (a.state !== "PENDING") return Promise.reject(new AdminError("admin_forbidden", `승인 불가 상태(${a.state})`));
+    if (a.state !== "ISSUED") return Promise.reject(new AdminError("admin_forbidden", `승인 불가 상태(${a.state})`));
+    if (a.approverId !== null) return Promise.reject(new AdminError("admin_forbidden", "이미 승인된 요청입니다"));
     // 반결탁: 요청자와 승인자는 서로 다른 인증 주체여야 한다(§1-3)
     if (a.requesterId === s.operatorId) {
       this.log(s, "approval.approve.denied", a.targetLabel, a.id, "DENIED");
       return Promise.reject(new AdminError("admin_forbidden", "요청자와 승인자가 같은 운영자입니다. 다른 운영자 인증서로 승인하세요"));
     }
-    a.state = "APPROVED";
+    // 승인해도 state는 ISSUED 유지(정본 어휘). approverId로 실행 대기 단계를 파생한다
     a.approverId = s.operatorId;
     a.approverName = s.displayName;
     this.log(s, `approval.approve:${a.action}`, a.targetLabel, a.id, "OK");
@@ -352,7 +354,8 @@ export class SimAdminApi implements AdminApi {
     const s = this.auth("VIEW");
     const a = this.approvals.find((x) => x.id === approvalId);
     if (!a) return Promise.reject(new AdminError("admin_forbidden", "대상 요청이 없습니다"));
-    if (a.state !== "PENDING") return Promise.reject(new AdminError("admin_forbidden", `거부 불가 상태(${a.state})`));
+    if (a.state !== "ISSUED") return Promise.reject(new AdminError("admin_forbidden", `거부 불가 상태(${a.state})`));
+    if (a.approverId !== null) return Promise.reject(new AdminError("admin_forbidden", "이미 승인된 요청은 거부할 수 없습니다"));
     a.state = "REJECTED";
     a.approverId = s.operatorId;
     a.approverName = s.displayName;
@@ -365,7 +368,8 @@ export class SimAdminApi implements AdminApi {
     this.sweep();
     const a = this.approvals.find((x) => x.id === approvalId);
     if (!a) return Promise.reject(new AdminError("admin_forbidden", "실행 대상 승인이 없습니다"));
-    if (a.state !== "APPROVED") return Promise.reject(new AdminError("admin_forbidden", `실행 불가 상태(${a.state})`));
+    // 실행은 승인 완료(ISSUED + approverId) 상태에서만. 승인 전이면 approverId=null
+    if (a.state !== "ISSUED" || a.approverId === null) return Promise.reject(new AdminError("admin_forbidden", `실행 불가 상태(${a.state})`));
     // 실행 주체는 요청자 본인이어야 한다(토큰 requester 바인딩)
     if (a.requesterId !== s.operatorId) {
       this.log(s, "execute.denied", a.targetLabel, a.id, "DENIED");
@@ -466,7 +470,7 @@ export class SimAdminApi implements AdminApi {
       botsActive: this.bots.filter((b) => b.active).length,
       currentOps: this.currentOps(),
       chaosRunning: this.chaosRuns.filter((r) => r.state === "RUNNING").length,
-      pendingApprovals: this.approvals.filter((a) => a.state === "PENDING").length,
+      pendingApprovals: this.approvals.filter((a) => a.state === "ISSUED" && a.approverId === null).length,
       suspendedMarkets: this.markets.filter((m) => m.state === "SUSPENDED").length,
       generatedAt: isoNow(),
     });

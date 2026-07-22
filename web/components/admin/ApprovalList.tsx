@@ -10,22 +10,33 @@ import { useCallback, useEffect, useState } from "react";
 import { getAdminApi } from "@/lib/admin/api";
 import { ACTION_LABEL } from "@/lib/admin/roles";
 import { useAdminSession } from "@/lib/admin/store";
-import type { ApprovalRequest, ApprovalState, DestructiveAction } from "@/lib/admin/types";
+import type { ApprovalRequest, DestructiveAction } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
 import { toast } from "@/components/Toast";
 import styles from "./admin.module.css";
 
-const STATE_LABEL: Record<ApprovalState, string> = {
-  PENDING: "승인 대기",
-  APPROVED: "실행 대기",
+/**
+ * 표시 단계. 정본 state는 ISSUED|CONSUMED|EXPIRED|REJECTED뿐이라(§7-7),
+ * "승인 대기"와 "실행 대기"는 ISSUED + approverId 유무로 파생한다.
+ */
+type ApprovalPhase = "AWAITING_APPROVAL" | "AWAITING_EXECUTION" | "CONSUMED" | "EXPIRED" | "REJECTED";
+
+function phaseOf(a: ApprovalRequest): ApprovalPhase {
+  if (a.state === "ISSUED") return a.approverId ? "AWAITING_EXECUTION" : "AWAITING_APPROVAL";
+  return a.state;
+}
+
+const PHASE_LABEL: Record<ApprovalPhase, string> = {
+  AWAITING_APPROVAL: "승인 대기",
+  AWAITING_EXECUTION: "실행 대기",
   CONSUMED: "실행 완료",
   EXPIRED: "만료",
   REJECTED: "거부됨",
 };
 
-const STATE_HEALTH: Record<ApprovalState, "success" | "warning" | "danger" | null> = {
-  PENDING: "warning",
-  APPROVED: "warning",
+const PHASE_HEALTH: Record<ApprovalPhase, "success" | "warning" | "danger" | null> = {
+  AWAITING_APPROVAL: "warning",
+  AWAITING_EXECUTION: "warning",
   CONSUMED: "success",
   EXPIRED: null,
   REJECTED: "danger",
@@ -84,7 +95,8 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
     <ul className={styles.approvalList}>
       {items.map((a) => {
         const mine = session?.operatorId === a.requesterId;
-        const health = STATE_HEALTH[a.state];
+        const phase = phaseOf(a);
+        const health = PHASE_HEALTH[phase];
         return (
           <li key={a.id} className={styles.approvalItem}>
             <div className={styles.approvalMain}>
@@ -100,13 +112,13 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
             <div className={styles.approvalActions}>
               {health ? (
                 <span className="status-pill" data-health={health}>
-                  {a.state === "CONSUMED" ? "●" : a.state === "REJECTED" ? "▲" : "◐"} {STATE_LABEL[a.state]}
+                  {phase === "CONSUMED" ? "●" : phase === "REJECTED" ? "▲" : "◐"} {PHASE_LABEL[phase]}
                 </span>
               ) : (
-                <span className={styles.neutralPill}>{STATE_LABEL[a.state]}</span>
+                <span className={styles.neutralPill}>{PHASE_LABEL[phase]}</span>
               )}
 
-              {a.state === "PENDING" && !mine && (
+              {phase === "AWAITING_APPROVAL" && !mine && (
                 <>
                   <button
                     type="button"
@@ -126,8 +138,8 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
                   </button>
                 </>
               )}
-              {a.state === "PENDING" && mine && <span className={styles.waitNote}>다른 운영자 승인 대기</span>}
-              {a.state === "APPROVED" && mine && (
+              {phase === "AWAITING_APPROVAL" && mine && <span className={styles.waitNote}>다른 운영자 승인 대기</span>}
+              {phase === "AWAITING_EXECUTION" && mine && (
                 <button
                   type="button"
                   className={styles.dangerBtn}
@@ -137,7 +149,7 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
                   실행
                 </button>
               )}
-              {a.state === "APPROVED" && !mine && <span className={styles.waitNote}>요청자 실행 대기</span>}
+              {phase === "AWAITING_EXECUTION" && !mine && <span className={styles.waitNote}>요청자 실행 대기</span>}
             </div>
           </li>
         );

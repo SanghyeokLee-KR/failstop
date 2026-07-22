@@ -100,7 +100,8 @@ web/
 │  └─ <route>/page.tsx + page.module.css
 ├─ components/
 │  ├─ HeaderNav / PanelCard / DataTable / SegmentedTab / ListRow / Toast / Skeleton
-│  ├─ PricePill(A-6) / TickCell(A-5 틱 플래시) / CandleChart(A-8, lightweight-charts)
+│  ├─ PricePill(A-6) / TickCell(A-5 틱 플래시) / CandleChart(lightweight-charts, 대시보드 미니 전용)
+│  ├─ chart/             # 메인 TA 차트(klinecharts). TradingChart·ChartToolbar·chartTheme·useChartTheme·candleStream·indicators·drawingTools
 │  ├─ trade/             # 거래 화면 패널(TradeLayout·SummaryBar·ChartPanel·OrderbookPanel·TradesPanel·OrderPanel·MarketListPanel)
 │  ├─ dashboard/         # 홈 대시보드 패널(MarketSummaryStrip·RankingTable·SpotlightPanel·WatchlistSidebar·Sparkline)
 │  ├─ admin/             # 관리 평면 셸·조각(AdminLayout·AdminSidebar·OperatorBar·AdminLogin·RoleBadge·RequestButton·ApprovalList·ui + admin.module.css)
@@ -116,7 +117,9 @@ web/
 └─ docs 참조: ../docs/프론트_디자인시스템.md, ../docs/데스크톱_레이아웃설계.md
 ```
 
-의존성: `next` `react` `react-dom` `typescript` `pretendard`(self-host) `lightweight-charts` `zustand`. 이외 추가 금지.
+의존성: `next` `react` `react-dom` `typescript` `pretendard`(self-host) `lightweight-charts` `klinecharts` `zustand`. 이외 추가 금지.
+
+차트 이원화(설계 `../docs/차트_기술적분석_설계.md`). 메인 거래 화면 차트는 `klinecharts`(지표·그리기 내장, 순수 canvas, 런타임 외부 호출 0)로 `components/chart/TradingChart`에서 렌더하고 `ChartPanel`이 `next/dynamic` `ssr:false`로 로드해 코드 스플릿한다. 대시보드 미니 캔들·스팟라이트는 기존 `lightweight-charts`(`CandleChart`)를 유지한다. 두 라이브러리는 화면별로 격리돼 서로의 청크를 내려받지 않는다. 캔들은 지금 체결(trade) 합성 폴백으로 생성하며 백엔드 캔들 채널이 준비되면 `candleStream.ts` 내부 교체로 승격한다.
 
 ## 디자인 계약 요약 (../docs/프론트_디자인시스템.md)
 

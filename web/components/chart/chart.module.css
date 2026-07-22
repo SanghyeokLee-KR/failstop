@@ -1,0 +1,161 @@
+/* 트레이딩 차트 셸. PanelCard 본문을 세로 flex로 채워 canvas가 잔여 높이를 흡수 */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.toolbar :global(.dir-text) {
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+}
+/* 타임프레임 탭은 좌측, 줄바꿈 방지. min-height는 SegmentedTab(.tab 44px)에 위임해 탭 타깃 계약 유지 */
+.tabs button {
+  white-space: nowrap;
+  padding: 0 var(--space-3);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.readout {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.readoutPrice {
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+
+/* 지표 토글 드롭다운. 네이티브 details로 키보드·포커스 접근 확보 */
+.menu {
+  position: relative;
+}
+.menu > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-default);
+  color: var(--text-default);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-medium);
+}
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu[open] > summary {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+.menuPanel {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: var(--z-dropdown);
+  min-width: 168px;
+  padding: var(--space-2);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+}
+.menuGroupLabel {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-tertiary);
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-caption-size);
+  color: var(--text-default);
+}
+.menuItem:hover {
+  background: var(--surface-hover);
+}
+.menuItem input {
+  accent-color: var(--brand-primary);
+  width: 16px;
+  height: 16px;
+}
+
+.toolBtn {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-default);
+  color: var(--text-default);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+.toolBtn:hover {
+  background: var(--surface-hover);
+}
+.toolBtn[data-active="true"] {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background: var(--brand-weak-bg);
+}
+
+.chartArea {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.overlayState {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-body-sm-size);
+  pointer-events: none;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

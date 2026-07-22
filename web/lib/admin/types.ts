@@ -54,7 +54,12 @@ export type DestructiveAction =
   | "config.market.resume"
   | "operators.roles";
 
-export type ApprovalState = "PENDING" | "APPROVED" | "CONSUMED" | "EXPIRED" | "REJECTED";
+/**
+ * admin_approvals.state 정본 어휘(V5__admin.sql CHECK). 비정본 PENDING·APPROVED를 폐기하고
+ * ISSUED로 수렴한다(관리자 설계 §7-7). "승인 대기"와 "실행 대기"는 별도 상태가 아니라
+ * ISSUED + approverId 유무로 파생한다(ApprovalList phaseOf).
+ */
+export type ApprovalState = "ISSUED" | "CONSUMED" | "EXPIRED" | "REJECTED";
 
 export type ApprovalPayload =
   | { action: "chaos.inject"; experimentId: string }
