@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.11)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.12)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V6+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -2068,6 +2068,28 @@ failover에서도 RPO 0을 주장하려면 아래 요건을 전부 갖춰야 한
 
 ---
 
+## 9. M3 게시판(커뮤니티) 스키마 (V7)
+
+게시판_설계.md §3 정본을 실제 마이그레이션 `V7__community_board.sql`로 확정한 스키마다. 코어(원장·저널·정산·엔진)와 격리한다. 게시판 테이블은 원장·저널과 어떤 FK·트리거로도 무관하고, 작성자만 `users(id)`로 논리 연결한다. 데모 동거 구성(단일 PG17)이라 코어 라인의 다음 가용 버전 V7에 얹었다. 물리 DB 분리 구성으로 승격하면 이 라인을 커뮤니티 전용 Flyway 이력으로 분리한다(설계 §2.3).
+
+타입 규약: 식별자 `BIGINT GENERATED ALWAYS AS IDENTITY` PK + `external_id UUID UNIQUE`(코어 orders·users 패턴 계승). 시각 `TIMESTAMPTZ` UTC, 카운트 `INTEGER`. 금액·수량 타입 규칙은 게시판에 해당 없다(수치는 카운트뿐).
+
+| 테이블 | 역할 | 핵심 제약 |
+|---|---|---|
+| `posts` | 마켓별 글. market_symbol은 markets.symbol 값 참조(물리 FK 없음, 앱 검증) | author_id FK users(id), status CHECK(VISIBLE/HIDDEN/DELETED), like_count·comment_count CHECK ≥ 0 |
+| `comments` | 1뎁스 대댓글까지(깊이 제한 앱 가드) | post_id FK posts, parent_comment_id FK comments, author_id FK users |
+| `post_likes` / `comment_likes` | 회원·대상 1:1 토글 | PK(대상, member_id)로 중복 물리 차단(자연 멱등) |
+| `post_rank_snapshot` | 인기순 페이징용 세대 불변 순위 | PK(market_symbol, post_id), 인덱스(market_symbol, generation, rank_score DESC, post_id DESC) |
+| `reports` | 글·댓글 신고 | UNIQUE(target_type, target_id, reporter_id)로 1인 1회, reason·status CHECK |
+| `community_moderation_log` | MEMBER_MOD 숨김·복구·삭제·신고 처리 이력 | action CHECK(HIDE/UNHIDE/DELETE), operator_id 값 참조 |
+
+- 상태·삭제(설계 §1.3): 물리 삭제 없음. `deleted_at` soft delete + 본문 마스킹. 숨김·삭제는 목록·집계에서 제외.
+- 카운트 정합: like_count·comment_count는 좋아요·댓글 INSERT/soft-delete와 같은 커뮤니티 DB 트랜잭션에서 앱 계층이 갱신한다(코어 원장 불변식과 분리).
+- 인기순 스냅샷(설계 §1.2): 가변 like_count를 커서 축에서 분리한다. 세대 단위 불변 순위를 적재하고, 인기순 커서는 첫 페이지에서 고른 세대를 시퀀스 끝까지 유지한다. 첫 요청 시 지연 산출, 주기 재산출은 운영 스케줄러 훅으로 확장한다.
+- 권한 경계: app_role은 게시판 테이블에 SELECT·INSERT·UPDATE. 좋아요 토글은 물리 삭제라 post_likes·comment_likes에만 DELETE를 더한다. 글·댓글은 soft delete뿐이라 DELETE 없음. 원장·잔고 직접 DML 경계(§7)는 그대로다.
+
+---
+
 ## v2.1 패치 반영 사항
 
 v2.0 제출 후 잔여 검증에서 지적된 결함을 아래와 같이 수정했다. (반영 위치는 §/DDL 기준)
@@ -2345,3 +2367,17 @@ v2.9 clarity: M1-3 재판정 잔여 반영. 구현 계약을 문서로 명문화
 | Z3 | low | §7 candles DDL | `interval` CHECK `('1m','5m','15m','1h','1d')`가 API §4-A-5 unit 토큰과 어긋남('1h' 대 '60m', '240m'·'3m'·'30m'·'1w'·'1s' 누락) | CHECK 어휘를 API unit과 동일하게 확장. candles는 V6+ 로드맵 DDL이라 적용 코드 없음(신규 마이그레이션 작성 시 반영) |
 
 문서 헤더 버전을 v2.11로 순증(v2.1~v2.10 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.12 패치 반영 사항
+
+M3 게시판(커뮤니티) 스키마를 §9로 신설하고 마이그레이션 `V7__community_board.sql`로 확정했다. 게시판_설계.md §3 정본을 코어 라인의 다음 가용 버전 V7에 반영한 것이다(데모 동거 구성).
+
+| # | 위치 | 내용 |
+|---|---|---|
+| C1 | §9 신설 | posts·comments·post_likes·comment_likes·post_rank_snapshot·reports·community_moderation_log 7개 테이블. 작성자만 users(id) FK, 원장·저널과 무관 |
+| C2 | 격리 | 게시판 테이블은 코어 테이블과 FK·조인·트리거로 연결되지 않는다. market_symbol은 markets.symbol 값 참조(물리 FK 없음, 앱 검증) |
+| C3 | 권한 | app_role은 게시판 테이블 SELECT·INSERT·UPDATE + 좋아요 2테이블 DELETE. 원장·잔고 직접 DML 경계(§7)는 불변 |
+
+문서 헤더 버전을 v2.12로 순증(이전 패치 노트의 역사 서술은 원문 유지).

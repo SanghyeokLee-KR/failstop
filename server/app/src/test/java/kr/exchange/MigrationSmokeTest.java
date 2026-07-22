@@ -48,7 +48,10 @@ class MigrationSmokeTest {
             "admin_operators", "operator_roles", "admin_sessions", "admin_approvals",
             "admin_audit_log", "system_config", "notices",
             // V6 회원 테이블
-            "user_credentials", "user_profiles", "auth_sessions", "user_provisioning");
+            "user_credentials", "user_profiles", "auth_sessions", "user_provisioning",
+            // V7 게시판 테이블
+            "posts", "comments", "post_likes", "comment_likes", "post_rank_snapshot",
+            "reports", "community_moderation_log");
 
     @BeforeAll
     static void migrateAndSeed() throws Exception {
@@ -256,6 +259,61 @@ class MigrationSmokeTest {
                     "INSERT INTO user_provisioning (user_id, genesis_event_id) VALUES ("
                     + uid2 + ", 1000000000001)"));
             assertEquals("23505", dupGenesis.getSQLState(), dupGenesis.getMessage());
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // V7: 게시판 스키마가 빈 PG17에 단독 적용되고 핵심 제약이 강제된다
+    // ------------------------------------------------------------------
+
+    @Test
+    void communitySchemaEnforcesBoardContracts() throws Exception {
+        try (Connection conn = open(); Statement st = conn.createStatement()) {
+            long author = queryLong(conn, "INSERT INTO users (email, kind) "
+                    + "VALUES ('poster@demo.test','HUMAN') RETURNING id");
+
+            // author_id는 users(id) FK: 미존재 회원은 23503
+            SQLException badAuthor = assertThrows(SQLException.class, () -> st.execute(
+                    "INSERT INTO posts (market_symbol, author_id, author_handle, title, body) "
+                    + "VALUES ('KRW-BTC', 999999999, 'x', 't', 'b')"));
+            assertEquals("23503", badAuthor.getSQLState(), badAuthor.getMessage());
+
+            // status CHECK: 정의 밖 상태는 23514
+            SQLException badStatus = assertThrows(SQLException.class, () -> st.execute(
+                    "INSERT INTO posts (market_symbol, author_id, author_handle, title, body, status) "
+                    + "VALUES ('KRW-BTC', " + author + ", 'x', 't', 'b', 'PURGED')"));
+            assertEquals("23514", badStatus.getSQLState(), badStatus.getMessage());
+
+            long postId = queryLong(conn, "INSERT INTO posts "
+                    + "(market_symbol, author_id, author_handle, title, body) "
+                    + "VALUES ('KRW-BTC', " + author + ", '작성자', '제목', '본문') RETURNING id");
+
+            // comments.post_id FK: 미존재 글은 23503
+            SQLException badPost = assertThrows(SQLException.class, () -> st.execute(
+                    "INSERT INTO comments (post_id, author_id, author_handle, body) "
+                    + "VALUES (999999999, " + author + ", 'x', 'c')"));
+            assertEquals("23503", badPost.getSQLState(), badPost.getMessage());
+
+            // 신고 대상별 1인 1회: 동일 (target_type, target_id, reporter_id)은 23505
+            st.execute("INSERT INTO reports (target_type, target_id, reporter_id, reason) "
+                    + "VALUES ('POST', " + postId + ", " + author + ", 'SPAM')");
+            SQLException dupReport = assertThrows(SQLException.class, () -> st.execute(
+                    "INSERT INTO reports (target_type, target_id, reporter_id, reason) "
+                    + "VALUES ('POST', " + postId + ", " + author + ", 'ABUSE')"));
+            assertEquals("23505", dupReport.getSQLState(), dupReport.getMessage());
+
+            // 좋아요 PK 유니크: 동일 (post_id, member_id) 중복은 23505
+            st.execute("INSERT INTO post_likes (post_id, member_id) VALUES ("
+                    + postId + ", " + author + ")");
+            SQLException dupLike = assertThrows(SQLException.class, () -> st.execute(
+                    "INSERT INTO post_likes (post_id, member_id) VALUES ("
+                    + postId + ", " + author + ")"));
+            assertEquals("23505", dupLike.getSQLState(), dupLike.getMessage());
+
+            // like_count 음수 방지 CHECK
+            SQLException negLike = assertThrows(SQLException.class, () -> st.execute(
+                    "UPDATE posts SET like_count = -1 WHERE id = " + postId));
+            assertEquals("23514", negLike.getSQLState(), negLike.getMessage());
         }
     }
 

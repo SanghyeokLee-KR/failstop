@@ -50,6 +50,10 @@ public class ApiAuthFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/v1/candles")
                 || path.startsWith("/api/v1/exchange-config")
                 || path.equals("/api/v1/demo/session")
+                // 게시판 평면(게시판_설계.md §2.4)은 거래 평면과 경계 분리한다. 읽기는 무인증, 쓰기는
+                // aud=community 회원 토큰을 커뮤니티 계층이 자체 검증한다(CommunityAuthenticator).
+                // 거래 평면 aud=exchange 검증을 여기서 강제하면 경계가 뭉개지므로 필터에서 제외한다.
+                || path.startsWith("/api/v1/community/")
                 // 회원 인증 엔드포인트는 무인증(가입·로그인) 또는 쿠키 rt(갱신·로그아웃)라
                 // Bearer 서명 검증 대상이 아니다. me·keys는 여기서 제외되지 않아 회원 세션을 통과한다.
                 || path.startsWith("/api/v1/auth/");

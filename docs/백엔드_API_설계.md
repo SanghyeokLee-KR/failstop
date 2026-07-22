@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.10, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.11, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -702,6 +702,41 @@ POST /api/v1/orders
 
 ---
 
+### 4-D. 게시판(커뮤니티) API (M3, `/api/v1/community`)
+
+게시판_설계.md §4 정본. 거래 평면과 aud 클레임으로 경계 분리한다: 읽기(GET)는 무인증, 쓰기는 회원 세션(EdDSA, aud=community, kind=HUMAN)을 CommunityAuthenticator가 자체 검증한다. 거래 평면 인증 필터(ApiAuthFilter)를 통과하지 않는다. 공통 규약(엔벌로프 §2-2, 에러 §2-3, 커서 §2-6)을 상속한다. schema_version "1.0" 고정.
+
+| 기능 | 메서드·경로 | 인증 | 비고 |
+|---|---|---|---|
+| 글 목록 | `GET /api/v1/community/boards/{market}/posts` | 불필요 | `sort`(latest\|popular), `cursor`, `count`(기본 20, ≤50) |
+| 글 작성 | `POST /api/v1/community/boards/{market}/posts` | 회원 | `Idempotency-Key` 헤더 선택(1~36자 `[A-Za-z0-9_-]`). 재요청은 200 + `X-Idempotent-Replay: true` |
+| 글 단건 | `GET /api/v1/community/posts/{externalId}` | 불필요 | soft-deleted·hidden은 마스킹 본문 |
+| 글 수정 | `PATCH /api/v1/community/posts/{externalId}` | 회원 | 작성자 본인만 |
+| 글 삭제 | `DELETE /api/v1/community/posts/{externalId}` | 회원 | soft delete, 본인만 |
+| 댓글 목록 | `GET /api/v1/community/posts/{externalId}/comments` | 불필요 | `cursor`, `count`. created_at ASC 커서 |
+| 댓글 작성 | `POST /api/v1/community/posts/{externalId}/comments` | 회원 | `parent_comment_id` 선택(1뎁스). 2뎁스는 400 |
+| 댓글 삭제 | `DELETE /api/v1/community/comments/{externalId}` | 회원 | soft delete, 본인만 |
+| 글 좋아요 | `POST` / `DELETE /api/v1/community/posts/{externalId}/like` | 회원 | PK 유니크로 멱등. 응답 `{liked, like_count}` |
+| 댓글 좋아요 | `POST` / `DELETE /api/v1/community/comments/{externalId}/like` | 회원 | 멱등 |
+| 신고 | `POST /api/v1/community/reports` | 회원 | `{target_type, target_id, reason, detail?}`. 대상별 1인 1회. 임계 초과 자동 HIDDEN |
+
+**본문·길이·이스케이프**: 제목 ≤120, 글 본문 ≤4000, 댓글 ≤1000자. 초과·빈 값은 `400 invalid_parameter`. 저장은 원문, 응답 렌더 시 HTML 유의 문자를 엔티티로 이스케이프한다(XSS 방어). 파라미터 바인딩만 사용(인젝션 방어).
+
+**rate limit**(게시판 전용 버킷, 코어 주문 버킷과 별개): 조회 IP당 300/10s, 쓰기 회원당 60/60s. 초과는 `429 too_many_requests` + Retry-After.
+
+**에러 코드**(§2-3 재사용 + 게시판 추가): `400 invalid_parameter`(길이·sort·커서), `401 jwt_verification`(미인증·비회원 토큰 쓰기), `403 out_of_scope`(작성자 불일치), `404 not_found`(board/post/comment 미존재), `409 duplicate_report`(중복 신고), `429 too_many_requests`.
+
+**운영(모더레이션, 관리 평면 MEMBER_MOD, `/admin/v1/community`)**: 숨김·복구·삭제·신고 처리는 배포 단위 C(exchange-admin)가 받아 커뮤니티 서비스에 위임한다. 관리자 조작은 게시판 도메인(posts·comments·reports) 밖(원장·저널)에 닿지 않고 admin_audit_log에 적재된다.
+
+| 기능 | 메서드·경로 | 역할 |
+|---|---|---|
+| 글 모더레이션 | `POST /admin/v1/community/posts/{externalId}/moderate` | MEMBER_MOD, `{action(HIDE\|UNHIDE\|DELETE), note?}` |
+| 댓글 모더레이션 | `POST /admin/v1/community/comments/{externalId}/moderate` | MEMBER_MOD |
+| 신고 목록 | `GET /admin/v1/community/reports?status=` | MEMBER_MOD |
+| 신고 처리 | `POST /admin/v1/community/reports/{reportId}/resolve` | MEMBER_MOD, `{resolution(REVIEWED\|ACTIONED\|DISMISSED), note?}` |
+
+---
+
 <a name="5"></a>
 ## 5. WebSocket(STOMP) 채널 명세
 
@@ -1218,3 +1253,18 @@ M1-5.5 시장 데이터 구현(candles·ticker 24h)에서 확정한 규약을 �
 | Y4 | low | §4-A-1 | 수수료 예시는 markets `maker/taker=0.0005`로 이미 확정(§4-A-1/§4-B-5). DB 문서·마이그레이션의 taker `0.0010`과 충돌 | 정본값을 `taker=0.0005`로 확정(API·UI 표면값이 정본, 근거 §4-A-1 권위 소스 확정·§5-5 예시). DB 문서 정합은 DB 설계 v2.11, 코드 정합은 마이그레이션 변경 필요(V1__init.sql taker DEFAULT) |
 
 문서 헤더 버전을 v2.10으로 순증(v2.1~v2.8 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.11 패치 반영 사항
+
+M3 게시판(커뮤니티) API를 §4-D로 신설했다. 게시판_설계.md §4 정본을 REST 계약으로 확정하고 구현(`kr.exchange.api.community`, `V7__community_board.sql`)과 정합시킨 것이다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| C1 | §4-D 신설 | `/api/v1/community` 글·댓글·좋아요·신고 엔드포인트. 읽기 무인증, 쓰기 회원 세션(aud=community) |
+| C2 | 인증 경계 | 게시판은 거래 평면과 aud로 분리. ApiAuthFilter 제외 경로이며 CommunityAuthenticator가 EdDSA·aud=community·kind=HUMAN을 자체 검증. 비회원 토큰 쓰기는 401 |
+| C3 | 모더레이션 | 숨김·복구·삭제·신고 처리는 관리 평면 MEMBER_MOD(`/admin/v1/community`). 원장·저널 무접촉, 전 액션 감사 |
+| C4 | 에러 | `409 duplicate_report`(대상별 1인 1회 위반) 추가. 나머지는 §2-3 재사용 |
+
+문서 헤더 버전을 v2.11로 순증(이전 패치 노트의 역사 서술은 원문 유지).

@@ -37,6 +37,7 @@ public class MemberSessionService {
     public static final Duration ACCESS_TTL = Duration.ofMinutes(15);
     private static final String TYP = "access";
     private static final String AUDIENCE_EXCHANGE = "exchange";
+    private static final String AUDIENCE_COMMUNITY = "community";
     private static final String HEADER_B64 = base64Url(
             "{\"alg\":\"EdDSA\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8));
 
@@ -118,17 +119,53 @@ public class MemberSessionService {
                 AuthPrincipal.KIND_MEMBER);
     }
 
+    /**
+     * 게시판 평면(게시판_설계.md §2.4) 검증. 거래 평면과 aud로 경계 분리한다: 서명·exp·typ은 동일
+     * 검증하되 aud가 community를 포함하고 kind=HUMAN인 회원 토큰만 통과시킨다. 거래 전용 클레임
+     * (scope=TRADE)에는 의존하지 않아 게시판 침해가 거래 토큰 위조로 전파되지 않는 격리를 코드로 보존한다.
+     */
+    public AuthPrincipal verifyCommunity(String[] tokenParts, JsonNode payload) {
+        String signingInput = tokenParts[0] + "." + tokenParts[1];
+        byte[] provided;
+        try {
+            provided = Base64.getUrlDecoder().decode(tokenParts[2]);
+        } catch (IllegalArgumentException e) {
+            throw unauthorized("세션 토큰 인코딩이 올바르지 않습니다.");
+        }
+        if (!verifySignature(signingInput.getBytes(StandardCharsets.UTF_8), provided)) {
+            throw unauthorized("세션 서명 검증에 실패했습니다.");
+        }
+        if (!TYP.equals(payload.path("typ").asText())) {
+            throw unauthorized("세션 토큰 유형이 올바르지 않습니다.");
+        }
+        if (payload.path("exp").asLong(0) <= System.currentTimeMillis() / 1000) {
+            throw unauthorized("세션이 만료되었습니다. 다시 로그인하십시오.");
+        }
+        if (!"HUMAN".equals(payload.path("kind").asText()) || !payload.hasNonNull("user_id")) {
+            throw unauthorized("회원 세션이 아닙니다.");
+        }
+        if (!audienceContains(payload, AUDIENCE_COMMUNITY)) {
+            throw unauthorized("이 토큰은 게시판 평면 대상이 아닙니다.");
+        }
+        return new AuthPrincipal(payload.get("user_id").asLong(), "member-session", "COMMUNITY",
+                AuthPrincipal.KIND_MEMBER);
+    }
+
     private static boolean audienceContainsExchange(JsonNode payload) {
+        return audienceContains(payload, AUDIENCE_EXCHANGE);
+    }
+
+    private static boolean audienceContains(JsonNode payload, String audience) {
         JsonNode aud = payload.path("aud");
         if (aud.isArray()) {
             for (JsonNode entry : aud) {
-                if (AUDIENCE_EXCHANGE.equals(entry.asText())) {
+                if (audience.equals(entry.asText())) {
                     return true;
                 }
             }
             return false;
         }
-        return AUDIENCE_EXCHANGE.equals(aud.asText());
+        return audience.equals(aud.asText());
     }
 
     private byte[] sign(byte[] message) {

@@ -11,6 +11,9 @@ import kr.exchange.api.auth.NonceStore;
 import kr.exchange.api.auth.SecretCipher;
 import kr.exchange.api.common.EpochSource;
 import kr.exchange.api.common.ErrorRenderer;
+import kr.exchange.api.community.CommunityAuthenticator;
+import kr.exchange.api.community.CommunityRankService;
+import kr.exchange.api.community.CommunityService;
 import kr.exchange.api.member.MemberAuthService;
 import kr.exchange.api.member.MemberSessionService;
 import kr.exchange.api.member.PasswordHasher;
@@ -138,6 +141,26 @@ public class ApiConfig {
     @Bean
     public MarketDataService marketDataService(JdbcClient jdbc) {
         return new MarketDataService(jdbc);
+    }
+
+    @Bean
+    public CommunityRankService communityRankService(JdbcClient jdbc, MarketDirectory markets) {
+        return new CommunityRankService(jdbc, markets);
+    }
+
+    @Bean
+    public CommunityService communityService(
+            JdbcClient jdbc, PlatformTransactionManager txManager, MarketDirectory markets,
+            CommunityRankService ranks,
+            @Value("${exchange.community.auto-hide-threshold:10}") int autoHideThreshold) {
+        return new CommunityService(jdbc, new TransactionTemplate(txManager), markets, ranks,
+                autoHideThreshold);
+    }
+
+    @Bean
+    public CommunityAuthenticator communityAuthenticator(MemberSessionService memberSessions,
+                                                         ObjectMapper objectMapper) {
+        return new CommunityAuthenticator(memberSessions, objectMapper);
     }
 
     @Bean
