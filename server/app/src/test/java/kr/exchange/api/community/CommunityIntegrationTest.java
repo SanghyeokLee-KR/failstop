@@ -183,6 +183,23 @@ class CommunityIntegrationTest {
     }
 
     @Test
+    void signupIpBucketUsesRightmostUntrusted() throws Exception {
+        // 커뮤니티 진입 전 회원 가입 경로의 IP 스로틀도 rightmost-untrusted를 따른다(§2-5).
+        // 다중값 XFF 프리픽스는 원 클라이언트가 주입 가능하므로 무시되고, 우측 비프록시 IP만 버킷 키가
+        // 된다. 프리픽스만 회전시키고 우측을 고정하면 한 버킷에 계상되어 임계 초과 시 429가 나야 한다.
+        String pinnedClient = "198.51.100.23";
+        for (int i = 0; i < 5; i++) {
+            String spoofedXff = "203.0.113." + (i + 1) + ", " + pinnedClient;
+            assertEquals(201, signupWithXff(spoofedXff).getStatusCode().value(),
+                    "5회까지는 통과해야 한다(우측 고정 버킷)");
+        }
+        ResponseEntity<String> sixth = signupWithXff("203.0.113.6, " + pinnedClient);
+        assertEquals(429, sixth.getStatusCode().value(),
+                "프리픽스 스푸핑이 무시되고 우측 IP 버킷이 소진되어야 한다");
+        assertEquals("too_many_requests", errorName(sixth));
+    }
+
+    @Test
     void invalidMarketAndLengthGuards() throws Exception {
         Member m = signup();
         // 미존재 마켓 → 404
@@ -498,6 +515,18 @@ class CommunityIntegrationTest {
                 new HttpEntity<>(json, headers), String.class);
         assertEquals(201, res.getStatusCode().value(), "signup 실패: " + res.getBody());
         return new Member(json(res).path("access_token").asText(), email);
+    }
+
+    // xff는 단일 IP 또는 "prefix, client" 다중값. RemoteIpValve의 우측 파생을 그대로 테스트한다.
+    private ResponseEntity<String> signupWithXff(String xff) {
+        String email = "board" + seq.incrementAndGet() + "@demo.test";
+        String json = "{\"email\":\"" + email + "\",\"password\":\"demopass1\","
+                + "\"display_name\":\"스푸핑" + seq.get() + "\"}";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Forwarded-For", xff);
+        return rest.exchange("/api/v1/auth/signup", HttpMethod.POST,
+                new HttpEntity<>(json, headers), String.class);
     }
 
     private String createPost(Member m, String market, String title, String body) throws Exception {

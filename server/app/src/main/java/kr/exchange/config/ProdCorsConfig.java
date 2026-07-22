@@ -35,6 +35,11 @@ public class ProdCorsConfig {
         cfg.setAllowedOrigins(allowedOrigins);
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        // 크로스오리진에서 기본 노출되지 않는 레이트리밋·상관추적 헤더를 web 폴백이 읽도록 노출한다.
+        cfg.setExposedHeaders(List.of("Retry-After",
+                "X-RateLimit-Limit-account", "X-RateLimit-Limit-admin",
+                "X-RateLimit-Remaining-account", "X-RateLimit-Remaining-admin",
+                "X-RateLimit-Reset", "X-Request-Id"));
         cfg.setAllowCredentials(true);
         cfg.setMaxAge(1800L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

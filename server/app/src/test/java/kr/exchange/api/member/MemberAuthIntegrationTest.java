@@ -310,6 +310,25 @@ class MemberAuthIntegrationTest {
     }
 
     @Test
+    void signupIpBucketUsesRightmostUntrusted() throws Exception {
+        // 스푸핑 방어(§2-5 rightmost-untrusted). 다중값 XFF에서 프리픽스는 원 클라이언트가 임의 주입
+        // 가능하므로 무시되어야 한다. 소켓피어(루프백)만 신뢰 프록시라, 우측 비프록시 IP가 채택된다.
+        // 프리픽스만 회전시키고 우측을 고정하면 전 요청이 같은 버킷에 계상되어 임계 초과 시 429가 나야
+        // 한다. 최좌측을 채택하는 잘못된 구현이면 매 요청 버킷이 갈려 영원히 통과한다(회귀 감지).
+        String pinnedClient = "198.51.100.9";
+        for (int i = 0; i < 5; i++) {
+            String spoofedXff = "203.0.113." + (i + 1) + ", " + pinnedClient;
+            assertEquals(201, signupWithXff(uniqueEmail(), spoofedXff).getStatusCode().value(),
+                    "5회까지는 통과해야 한다(우측 고정 버킷)");
+        }
+        ResponseEntity<String> sixth = signupWithXff(uniqueEmail(), "203.0.113.6, " + pinnedClient);
+        assertEquals(429, sixth.getStatusCode().value(),
+                "프리픽스 스푸핑이 무시되고 우측 IP 버킷이 소진되어야 한다");
+        assertEquals("too_many_requests",
+                objectMapper.readTree(sixth.getBody()).path("error").path("name").asText());
+    }
+
+    @Test
     void meRejectsNonMemberSession() throws Exception {
         // 데모 세션(비회원 유효 토큰)으로 /me 접근 → 500이 아니라 403(§3-1 회원 세션 전용).
         HttpHeaders headers = new HttpHeaders();
@@ -330,11 +349,16 @@ class MemberAuthIntegrationTest {
     // ------------------------------------------------------------------
 
     private ResponseEntity<String> signupFromIp(String email, String ip) {
+        return signupWithXff(email, ip);
+    }
+
+    // xff는 단일 IP 또는 "prefix, client" 다중값. RemoteIpValve의 우측 파생을 그대로 테스트한다.
+    private ResponseEntity<String> signupWithXff(String email, String xff) {
         String json = "{\"email\":\"" + email + "\",\"password\":\"demopass1\","
                 + "\"display_name\":\"스로틀\"}";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Forwarded-For", ip);
+        headers.set("X-Forwarded-For", xff);
         return rest.exchange("/api/v1/auth/signup", HttpMethod.POST,
                 new HttpEntity<>(json, headers), String.class);
     }
@@ -377,9 +401,12 @@ class MemberAuthIntegrationTest {
                 extractRt(res), body);
     }
 
-    // 진입 rate limit(§3-1)은 X-Forwarded-For 첫 홉을 클라이언트 IP로 본다. TestRestTemplate은
-    // 전 요청이 동일 루프백 IP라 IP 버킷을 공유해 버린다. 정상 왕복 케이스는 요청마다 고유 IP를
-    // 실어 서로 다른 클라이언트를 모사한다. 버킷 소진 자체는 별도 테스트(signupThrottledPerIp)로 검증한다.
+    // 진입 rate limit(§2-5)은 getRemoteAddr()가 파생한 클라이언트 IP로 버킷을 나눈다.
+    // forward-headers-strategy=native의 RemoteIpValve가 XFF를 우측부터 신뢰 프록시(internal-proxies)로
+    // 벗겨 남는 첫 IP(rightmost-untrusted)를 채택한다. in-test 소켓피어는 루프백이라 신뢰 프록시로
+    // 처리되고, 단일 10.x XFF는 루프백이 아니므로 그대로 클라이언트로 채택된다. 그래서 요청마다 고유
+    // XFF를 실으면 서로 다른 클라이언트가 되고, TestRestTemplate 공유 루프백 소켓이 버킷을 합치지 않는다.
+    // 버킷 소진 자체는 signupThrottledPerIp로, 우측 기준·프리픽스 스푸핑 무시는 signupIpBucketUsesRightmostUntrusted로 검증한다.
     private final AtomicInteger ipSeq = new AtomicInteger();
 
     private String uniqueIp() {
