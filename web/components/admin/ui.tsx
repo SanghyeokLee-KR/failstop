@@ -8,7 +8,8 @@ import styles from "./admin.module.css";
 
 export type Health = "success" | "warning" | "danger";
 
-const HEALTH_ICON: Record<Health, string> = { success: "●", warning: "▲", danger: "▲" };
+// 색약·모노 변별을 위해 심각도별 형태 분리(success 원·warning 삼각·danger 사각). 색은 보조 채널
+const HEALTH_ICON: Record<Health, string> = { success: "●", warning: "▲", danger: "■" };
 
 /** 헬스 상태 필. 항상 아이콘+라벨 병기 */
 export function HealthPill({ health, label }: { health: Health; label: string }) {
@@ -19,12 +20,12 @@ export function HealthPill({ health, label }: { health: Health; label: string })
   );
 }
 
-/** 지표 타일. 헬스 톤은 값 강조에만 쓴다 */
-export function StatTile({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: Health }) {
+/** 지표 타일. 헬스 톤은 값 강조에만 쓴다. hero는 화면당 단일 대표 지표에만(700 승격) */
+export function StatTile({ label, value, sub, tone, hero }: { label: string; value: ReactNode; sub?: ReactNode; tone?: Health; hero?: boolean }) {
   return (
     <div className={styles.statTile}>
       <span className={styles.statLabel}>{label}</span>
-      <span className={`${styles.statValue} num`} data-tone={tone ?? undefined}>
+      <span className={`${styles.statValue} num`} data-tone={tone ?? undefined} data-hero={hero ? "" : undefined}>
         {value}
       </span>
       {sub != null && <span className={styles.statSub}>{sub}</span>}

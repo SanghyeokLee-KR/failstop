@@ -50,7 +50,8 @@
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   font-weight: var(--fw-medium);
-  color: var(--text-tertiary);
+  /* 식별 정보성 라벨이라 secondary 이상(tertiary는 장식 전용, 4.5:1) */
+  color: var(--text-secondary);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -128,7 +129,7 @@
 }
 .opId {
   font-size: var(--font-micro-size);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 .roleRow {
   display: flex;
@@ -163,6 +164,7 @@
   font-family: inherit;
 }
 .logout {
+  position: relative;
   min-height: 36px;
   padding: 0 var(--space-3);
   border-radius: var(--control-radius);
@@ -246,8 +248,8 @@
   text-align: left;
   background: var(--surface-default);
 }
+/* 호버 신호는 무채 surface 이동으로만. 유채 1px 보더 카드 패턴 제거(§2.2) */
 .certOption:hover:not(:disabled) {
-  border-color: var(--brand-primary);
   background: var(--surface-hover);
 }
 .certOption:disabled {
@@ -269,7 +271,8 @@
   grid-area: action;
   font-size: var(--font-caption-size);
   font-weight: var(--fw-semibold);
-  color: var(--brand-primary);
+  /* 소형 액션 텍스트라 링크 토큰(-text 변형)으로 대비 확보. 다크 surface 위 4.5:1 */
+  color: var(--text-brand);
 }
 .loginHint {
   font-size: var(--font-caption-size);
@@ -360,11 +363,17 @@
   font-size: var(--font-caption-size);
   color: var(--text-secondary);
 }
+/* 700 히어로 절제(§3): 값은 기본 600, 화면당 단일 대표 지표만 data-hero로 700 승격.
+   20px+ 큰 숫자 자간 밀착 -0.01em로 계기 밀착감 통일(§3.2) */
 .statValue {
   font-size: var(--font-title-2-size);
   line-height: var(--font-title-2-line);
-  font-weight: var(--fw-bold);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.01em;
   color: var(--text-strong);
+}
+.statValue[data-hero] {
+  font-weight: var(--fw-bold);
 }
 .statValue[data-tone="success"] {
   color: var(--color-success-text);
@@ -389,6 +398,7 @@
 .neutralBtn,
 .approveBtn,
 .dangerBtn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -400,20 +410,38 @@
   white-space: nowrap;
   transition: background-color var(--dur-fast) var(--ease-standard);
 }
-.primaryBtn,
+/* 히트 영역 44px(§8): 시각 밀도(36·40px)는 유지하고 투명 ::after로 탭 타깃만 확장.
+   같은 요소의 pseudo라 클릭이 버튼으로 귀속. 행 gap(8px) 안이라 인접 겹침 없음 */
+.primaryBtn::after,
+.controlBtn::after,
+.neutralBtn::after,
+.approveBtn::after,
+.dangerBtn::after,
+.logout::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
+/* 채도 예산(§2.1): 화면당 긍정 확정 1개(승인)만 브랜드 fill 유지.
+   적용·생성(primaryBtn)은 중립 fill + 잉크로 강등해 정지 스크린샷을 무채로 회수 */
 .approveBtn {
   background: var(--brand-primary-fill);
   color: var(--text-on-brand);
 }
-.primaryBtn:hover:not(:disabled),
 .approveBtn:hover:not(:disabled) {
   background: var(--brand-primary-hover);
 }
+.primaryBtn,
 .controlBtn,
 .neutralBtn {
   background: var(--surface-sunken);
   color: var(--text-strong);
 }
+.primaryBtn:hover:not(:disabled),
 .controlBtn:hover:not(:disabled),
 .neutralBtn:hover:not(:disabled) {
   background: var(--surface-hover);
@@ -490,6 +518,69 @@
   text-overflow: ellipsis;
 }
 
+/* ===== 계기 슬라이더(§6.2) =====
+   방향 없는 스칼라(대수·OPS·강도·bias)라 트랙은 무채, 값은 옆 숫자·부호가 전달한다.
+   브라우저 기본 accent(파랑·green)를 제거해 채도 예산·색 규약을 지키고,
+   biasTrack과 동일한 rule-tick 눈금으로 캘리퍼처럼 읽게 한다. 히트 44px. */
+.instrumentSlider,
+.field input[type="range"],
+.scaleRow input[type="range"],
+.rateField input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  accent-color: var(--text-strong);
+  cursor: pointer;
+}
+.instrumentSlider::-webkit-slider-runnable-track,
+.field input[type="range"]::-webkit-slider-runnable-track,
+.scaleRow input[type="range"]::-webkit-slider-runnable-track,
+.rateField input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background:
+    repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
+    var(--surface-sunken);
+}
+.instrumentSlider::-moz-range-track,
+.field input[type="range"]::-moz-range-track,
+.scaleRow input[type="range"]::-moz-range-track,
+.rateField input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background:
+    repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
+    var(--surface-sunken);
+}
+.instrumentSlider::-webkit-slider-thumb,
+.field input[type="range"]::-webkit-slider-thumb,
+.scaleRow input[type="range"]::-webkit-slider-thumb,
+.rateField input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: var(--radius-full);
+  background: var(--text-strong);
+  border: 2px solid var(--surface-default);
+  box-shadow: var(--shadow-1);
+}
+.instrumentSlider::-moz-range-thumb,
+.field input[type="range"]::-moz-range-thumb,
+.scaleRow input[type="range"]::-moz-range-thumb,
+.rateField input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--text-strong);
+  border: 2px solid var(--surface-default);
+  box-shadow: var(--shadow-1);
+}
+
 /* ===== 시장 생동감 =====
    봇·효과 제어는 시세 방향색(양전 up=Red·음전 down=Blue)을 쓴다(§3-1). 헬스색과 섞지 않는다.
    색 단독 금지라 값·부호·화살표를 항상 병기한다. */
@@ -556,6 +647,7 @@
 .scaleValue b {
   font-size: var(--font-body-size);
   font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
   color: var(--text-strong);
 }
 .scaleActive {
@@ -600,6 +692,7 @@
   text-align: right;
   font-size: var(--font-body-size);
   font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
   color: var(--text-secondary);
 }
 .biasValue[data-dir="up"] {
@@ -787,7 +880,7 @@
 .chaosId {
   font-size: var(--font-caption-size);
   font-weight: var(--fw-bold);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 .chaosLabel {
   font-size: var(--font-body-size);
