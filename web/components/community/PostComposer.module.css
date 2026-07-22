@@ -1,0 +1,45 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.label {
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
+}
+.textarea {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-default);
+  color: var(--text-default);
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  resize: vertical;
+  min-height: 160px;
+}
+.textarea:focus-visible { border-color: var(--brand-primary); }
+.textarea[data-invalid] { border-color: var(--color-danger); }
+.textarea:disabled { background: var(--surface-sunken); color: var(--text-disabled); }
+.count {
+  align-self: flex-end;
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}
+.error {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--color-danger);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}

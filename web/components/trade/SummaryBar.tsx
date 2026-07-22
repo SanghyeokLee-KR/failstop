@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import SymbolChip from "@/components/SymbolChip";
 import TickCell from "@/components/TickCell";
 import PricePill from "@/components/PricePill";
@@ -98,6 +99,23 @@ export default function SummaryBar({ market, meta }: Props) {
           </div>
         )}
       </div>
+
+      <Link
+        href={`/community/${market}`}
+        className={styles.discuss}
+        aria-label={`${meta.koreanName} 토론 게시판으로 이동`}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M4 5h16v11H9l-4 3v-3H4z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinejoin="round"
+          />
+        </svg>
+        토론
+      </Link>
 
       {ticker ? (
         <div className={styles.price}>

@@ -71,6 +71,22 @@
 .menuItemName { flex: 1; }
 .menuItemSym { font-size: var(--font-caption-size); color: var(--text-secondary); }
 
+/* 종목명 인접 토론 진입점(게시판_설계 §5). 시세와 무관한 브랜드 링크 */
+.discuss {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+}
+.discuss:hover { background: var(--surface-hover); color: var(--text-brand); border-color: var(--brand-primary); }
+
 /* ===== 중: 현재가 + 등락 ===== */
 .price {
   display: flex;
