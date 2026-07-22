@@ -219,15 +219,25 @@ class PromotionRecoveryIntegrationTest {
                 new JournalCatchUpSource(commandReader, mapper),
                 new LoopFatalHandler(lease).andThen(fatal::set));
         lease.onLeadershipLost(loop::halt);
-        Thread.setDefaultUncaughtExceptionHandler((t, e) -> { });
+        // 재던진 Error를 워커 스레드 전용 핸들러로 캡처한다. 프로세스 기본 핸들러를 건드리지
+        // 않아 재던짐이 테스트 인프라로 새지 않는다. 진입 기본값은 보존했다가 그대로 되돌린다.
+        AtomicReference<Throwable> workerUncaught = new AtomicReference<>();
+        Thread.UncaughtExceptionHandler previousDefault = Thread.getDefaultUncaughtExceptionHandler();
+        loop.setWriterUncaughtExceptionHandler((t, e) -> workerUncaught.set(e));
         loop.start();
         try {
             EngineBridge bridge = new EngineBridge(new CommandJournalAppender(jdbc, tx, lease), loop, mapper);
             bridge.submit(buyIntake(3, 91001, "50"));
-            Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> !loop.isRunning());
+            // await(!isRunning)는 running=false와 rethrow 사이 경합을 남긴다. 워커 스레드 종료를
+            // join으로 기다려 rethrow가 핸들러로 전파 완료된 뒤 단언한다.
+            loop.awaitWriterTermination(Duration.ofSeconds(10).toMillis());
         } finally {
-            Thread.setDefaultUncaughtExceptionHandler(null);
+            Thread.setDefaultUncaughtExceptionHandler(previousDefault);
         }
+        assertFalse(loop.isRunning(), "fail-fast 후 running=false여야 한다");
+        assertTrue(workerUncaught.get() instanceof AssertionError,
+                "재던진 Error가 워커 스레드 핸들러로 캡처돼야 한다");
+        assertEquals("치명 오류 시뮬레이션", workerUncaught.get().getMessage());
         assertTrue(fatal.get() instanceof Error, "Error가 fatal 경로로 통지돼야 한다");
         assertFalse(lease.isLeader(), "Error fail-fast는 리더십을 내려놓아야 한다");
         assertFalse(lease.tryAcquire(), "강등 후 재승격 금지");

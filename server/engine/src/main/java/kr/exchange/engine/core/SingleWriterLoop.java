@@ -42,6 +42,9 @@ public final class SingleWriterLoop {
     private final Consumer<Throwable> fatalHandler;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile Thread writerThread;
+    // 프로덕션 기본 null. fail-fast rethrow는 JVM 기본 경로로 간다. 테스트는 워커 스레드
+    // 전용 핸들러를 배선해 재던진 Error를 캡처하고 기본 경로(테스트 인프라)로 새지 않게 한다.
+    private volatile Thread.UncaughtExceptionHandler writerUncaughtExceptionHandler;
 
     public SingleWriterLoop(int queueCapacity, MatchingEngine engine, EventSink eventSink,
                             CatchUpSource catchUpSource, Consumer<Throwable> fatalHandler) {
@@ -82,14 +85,37 @@ public final class SingleWriterLoop {
         this.engine = newEngine;
     }
 
+    /**
+     * 워커 스레드 rethrow 관측 훅. 재던진 Error가 JVM 기본 처리 경로로 새지 않게 워커
+     * 스레드 전용 핸들러를 배선한다. start() 이전에 설정한다. 미설정 시 기본 경로를 탄다.
+     */
+    public void setWriterUncaughtExceptionHandler(Thread.UncaughtExceptionHandler handler) {
+        this.writerUncaughtExceptionHandler = handler;
+    }
+
     public void start() {
         if (!running.compareAndSet(false, true)) {
             return;
         }
         Thread t = new Thread(this::runLoop, "matching-engine-writer");
         t.setDaemon(false);
+        Thread.UncaughtExceptionHandler ueh = writerUncaughtExceptionHandler;
+        if (ueh != null) {
+            t.setUncaughtExceptionHandler(ueh);
+        }
         writerThread = t;
         t.start();
+    }
+
+    /**
+     * 워커 스레드 종료 대기. rethrow가 uncaughtExceptionHandler로 전파 완료된 뒤 반환한다.
+     * fail-fast 후 rethrow 완료를 결정적으로 기다려야 하는 검증 경로에서 쓴다.
+     */
+    public void awaitWriterTermination(long timeoutMillis) throws InterruptedException {
+        Thread t = writerThread;
+        if (t != null) {
+            t.join(timeoutMillis);
+        }
     }
 
     /** 정상 종료. 잔여 큐를 소진한 뒤 멈춘다. */
