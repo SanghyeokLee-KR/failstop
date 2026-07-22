@@ -1,6 +1,6 @@
 /**
  * lib/types.ts. API 계약(docs/백엔드_API_설계.md v2.3)의 스키마 미러.
- * 금액/수량은 계약대로 "문자열 NUMERIC(36,18)" (JSON float 금지, §2-1).
+ * 금액/수량은 계약대로 "문자열 NUMERIC(40,18)" (JSON float 금지, §2-1).
  * WS 메시지는 §5-4/§5-5의 채널 스키마를 그대로 따른다 (ticker/orderbook/trade/candle/myOrder/myAsset).
  * 추후 실제 Spring REST/STOMP 어댑터로 교체 시 이 타입이 그대로 유지된다.
  */

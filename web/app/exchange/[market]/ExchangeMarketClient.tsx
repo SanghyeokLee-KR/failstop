@@ -16,6 +16,7 @@ import OrderbookPanel from "@/components/trade/OrderbookPanel";
 import TradesPanel from "@/components/trade/TradesPanel";
 import OrderPanel, { type PricePrefill } from "@/components/trade/OrderPanel";
 import MarketListPanel from "@/components/trade/MarketListPanel";
+import { toast } from "@/components/Toast";
 import { useExchangeStore, useLiveChannels, useEffectConfigPolling } from "@/lib/store";
 import { dest, type Side } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
@@ -52,6 +53,16 @@ function ExchangeMarketBody() {
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
   const loadOrders = useExchangeStore((s) => s.loadOrders);
   const marketsLoaded = useExchangeStore((s) => s.markets.length > 0);
+  const [accountsFailed, setAccountsFailed] = useState(false);
+
+  // 계좌 로드 실패를 표면화한다. catch 없으면 assets가 빈 배열로 남아 주문 CTA가 영구 비활성된다
+  const reloadAccounts = useCallback(() => {
+    setAccountsFailed(false);
+    loadAccounts().catch(() => {
+      setAccountsFailed(true);
+      toast("잔고를 불러오지 못했어요. 다시 시도해 주세요", "error");
+    });
+  }, [loadAccounts]);
 
   // 실시간 배선: 현재 마켓 orderbook·trade + 마켓 목록용 전 마켓 ticker (§2.5)
   useLiveChannels(
@@ -66,9 +77,9 @@ function ExchangeMarketBody() {
   useEffect(() => {
     hydrateFavorites();
     if (!marketsLoaded) void loadMarkets();
-    void loadAccounts();
+    reloadAccounts();
     void loadOrders();
-  }, [hydrateFavorites, loadMarkets, loadAccounts, loadOrders, marketsLoaded]);
+  }, [hydrateFavorites, loadMarkets, reloadAccounts, loadOrders, marketsLoaded]);
 
   useEffect(() => {
     if (meta) writeRecentMarket(market);
@@ -94,7 +105,16 @@ function ExchangeMarketBody() {
         chart={<ChartPanel market={market} />}
         book={<OrderbookPanel market={market} onPricePrefill={onPricePrefill} />}
         trades={<TradesPanel market={market} />}
-        order={<OrderPanel key={market} market={market} initialSide={initialSide} prefill={prefill} />}
+        order={
+          <OrderPanel
+            key={market}
+            market={market}
+            initialSide={initialSide}
+            prefill={prefill}
+            accountsFailed={accountsFailed}
+            onRetryAccounts={reloadAccounts}
+          />
+        }
         marketList={<MarketListPanel market={market} />}
       />
     </main>

@@ -130,13 +130,20 @@ export class HttpCommunityDataSource {
   async createPost(market: string, input: CreatePostInput): Promise<CommunityPost> {
     const headers: Record<string, string> = {};
     if (input.clientKey) headers["Idempotency-Key"] = input.clientKey;
-    return this.unwrap<CommunityPost>(
+    const created = this.unwrap<Partial<CommunityPost> & { post_id?: string }>(
       await this.request(
         `/boards/${encodeURIComponent(market)}/posts`,
         { method: "POST", headers, body: JSON.stringify({ title: input.title, body: input.body }) },
         true,
       ),
     );
+    // 백엔드 생성 응답은 {schema_version, post_id}만 반환해(게시판_설계 §4.1) 상세 필드가 없다.
+    // sim은 전체 객체를 돌려주므로 계약을 맞추려 생성된 id로 단건 재조회해 합성한다.
+    // 백엔드가 이미 전체 객체를 반환하면(추후 계약 확정) 재조회 없이 그대로 쓴다.
+    if (created.external_id && typeof created.body === "string") return created as CommunityPost;
+    const id = created.external_id ?? created.post_id;
+    if (!id) throw new ApiError(0, "invalid_envelope", "글 생성 응답에 식별자가 없습니다");
+    return this.getPost(id);
   }
 
   async updatePost(externalId: string, input: UpdatePostInput): Promise<CommunityPost> {
@@ -163,9 +170,29 @@ export class HttpCommunityDataSource {
     if (input.clientKey) headers["Idempotency-Key"] = input.clientKey;
     const body: Record<string, unknown> = { body: input.body };
     if (input.parentId) body.parent_comment_id = input.parentId;
-    return this.unwrap<CommunityComment>(
+    const created = this.unwrap<Partial<CommunityComment> & { comment_id?: string }>(
       await this.request(`/posts/${postExternalId}/comments`, { method: "POST", headers, body: JSON.stringify(body) }, true),
     );
+    // 백엔드 생성 응답은 {schema_version, comment_id}만 반환하고(게시판_설계 §4.1) 단건 댓글 GET이
+    // 계약에 없다(§4 표). 전체 객체를 반환하면 그대로 쓰고, 아니면 요청 본문·회원 신원으로
+    // sim과 동일 형태를 합성한다. 방금 작성자가 요청자이므로 mine=true, like는 0에서 시작.
+    if (created.external_id && typeof created.body === "string") return created as CommunityComment;
+    const id = created.external_id ?? created.comment_id;
+    const me = this.identity();
+    if (!id || !me) throw new ApiError(0, "invalid_envelope", "댓글 생성 응답에 식별자가 없습니다");
+    return {
+      external_id: id,
+      post_id: postExternalId,
+      parent_id: input.parentId ?? null,
+      author_id: me.externalId,
+      author_handle: me.handle,
+      body: input.body.trim(),
+      status: "VISIBLE",
+      like_count: 0,
+      liked: false,
+      mine: true,
+      created_at: new Date().toISOString(),
+    };
   }
 
   async deleteComment(externalId: string): Promise<void> {

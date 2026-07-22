@@ -1,0 +1,69 @@
+/* 라우트 에러·404 공용 표면. 정숙 계기 어휘: 무채 판독판 + 계측 눈금. 하드코딩 색 없음 */
+
+.shell {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10) var(--layout-gutter);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  max-width: 420px;
+}
+
+/* 눈금만 새겨진 무채 판독판. '표시할 값 없음'의 계기 어휘(빈·에러 공통) */
+.mark {
+  width: 72px;
+  height: 44px;
+  border-radius: var(--control-radius);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--surface-sunken);
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--rule-tick) 0,
+    var(--rule-tick) 1px,
+    transparent 1px,
+    transparent 10px
+  );
+}
+
+/* 404 코드 명판. 값이 아닌 상태 표기이므로 큰 숫자여도 계기 명판 톤을 유지 */
+.code {
+  font-size: var(--font-display-md-size);
+  line-height: var(--font-display-md-line);
+  font-weight: var(--font-display-md-weight);
+  letter-spacing: 0.04em;
+  color: var(--text-strong);
+}
+
+.title {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--font-title-3-weight);
+  color: var(--text-strong);
+}
+
+.desc {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-secondary);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* global-error는 루트 레이아웃을 대체하므로 헤더·크롬이 없다. 최소 중앙 정렬만 보강 */
+.rootFallback {
+  min-height: 100vh;
+  background: var(--bg-muted);
+  color: var(--text-default);
+}

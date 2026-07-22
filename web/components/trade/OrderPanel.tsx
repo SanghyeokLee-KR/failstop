@@ -49,6 +49,10 @@ interface Props {
   initialSide: Side;
   /** 호가 클릭·쿼리 승계 프리필. 가격만 주입, side 유지 (§2.5) */
   prefill: PricePrefill | null;
+  /** 계좌 로드 실패 여부. 실패면 잔고 미확정으로 CTA를 막고 재시도를 노출한다 */
+  accountsFailed?: boolean;
+  /** 계좌 재조회 트리거 (부모 소유) */
+  onRetryAccounts?: () => void;
 }
 
 function newClientOrderId(): string {
@@ -61,7 +65,7 @@ function floorTo(value: number, scale: number): number {
   return Math.floor(value * p) / p;
 }
 
-export default function OrderPanel({ market, initialSide, prefill }: Props) {
+export default function OrderPanel({ market, initialSide, prefill, accountsFailed = false, onRetryAccounts }: Props) {
   const base = market.split("-")[1] ?? "";
 
   const ticker = useExchangeStore((s) => s.tickers[market]);
@@ -168,14 +172,15 @@ export default function OrderPanel({ market, initialSide, prefill }: Props) {
 
   const availKRW = toNum(assets.find((a) => a.currency === "KRW")?.balance);
   const availCoin = toNum(assets.find((a) => a.currency === base)?.balance);
-  const loadingBalance = assets.length === 0 || !ticker;
+  // 진행 중과 실패를 분리한다. 실패면 영구 로딩 대신 재시도를 노출하고, 잔고 미확정이므로 CTA는 막는다
+  const loadingBalance = !accountsFailed && (assets.length === 0 || !ticker);
 
   /* ===== 검증 (OrderClient 규약 그대로) ===== */
   let error: string | null = null;
   if (total > 0 && total < MIN_ORDER_KRW) error = "최소 주문 금액은 5,000원이에요";
   else if (side === "bid" && total > 0 && total + fee > availKRW) error = "주문 가능 금액을 초과했어요";
   else if (side === "ask" && qty > availCoin) error = "보유 수량을 초과했어요";
-  const ready = total >= MIN_ORDER_KRW && error === null && !loadingBalance;
+  const ready = total >= MIN_ORDER_KRW && error === null && !loadingBalance && !accountsFailed;
 
   /* ===== 입력 핸들러 ===== */
   const onPriceInput = (v: string) => {
@@ -409,12 +414,22 @@ export default function OrderPanel({ market, initialSide, prefill }: Props) {
           <span>주문가능</span>
           {loadingBalance ? (
             <Skeleton variant="text" width={110} height={16} />
+          ) : accountsFailed ? (
+            <button type="button" className={styles.retry} onClick={() => onRetryAccounts?.()}>
+              불러오기 실패, 다시 시도
+            </button>
           ) : (
             <span className="num">
               {side === "bid" ? `${formatKRW(availKRW)} 원` : `${formatQty(availCoin, qtyScale)} ${base}`}
             </span>
           )}
         </div>
+
+        {accountsFailed && (
+          <p className={styles.error} role="alert">
+            잔고를 불러오지 못해 주문할 수 없어요. 다시 시도해 주세요
+          </p>
+        )}
 
         {error && (
           <p className={styles.error} role="alert">

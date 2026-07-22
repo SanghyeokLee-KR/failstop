@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import Skeleton from "@/components/Skeleton";
 import PricePill from "@/components/PricePill";
@@ -46,6 +46,8 @@ interface Holding {
   /** 절대값 수익률 (0.182 = 18.2%) */
   pnlRate: number;
   change: ChangeState;
+  /** 현재가 티커 도착 여부. 미도착 행은 가격 파생 셀을 '-'로 표기 */
+  priced: boolean;
 }
 
 function changeOf(pnl: number): ChangeState {
@@ -58,10 +60,21 @@ export default function AssetsPage() {
   const tickers = useExchangeStore((s) => s.tickers);
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
   const [hidden, setHidden] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  // loaded는 성공·실패 모두 확정한다. 계좌 로드 실패가 스켈레톤을 영구 고착시키지 않도록 분리한다
+  const load = useCallback(() => {
+    setFailed(false);
+    loadAccounts()
+      .then(() => setFailed(false))
+      .catch(() => setFailed(true))
+      .finally(() => setLoaded(true));
+  }, [loadAccounts]);
 
   useEffect(() => {
-    void loadAccounts();
-  }, [loadAccounts]);
+    load();
+  }, [load]);
 
   /* 보유코인 마켓 티커 + 내 자산 실시간 구독 */
   const heldMarkets = useMemo(
@@ -105,6 +118,7 @@ export default function AssetsPage() {
             pnl,
             pnlRate: buyAmount > 0 ? Math.abs(pnl / buyAmount) : 0,
             change: changeOf(pnl),
+            priced: price > 0,
           };
         })
         .filter((h): h is Holding => h !== null)
@@ -117,8 +131,8 @@ export default function AssetsPage() {
     return krw ? toNum(krw.balance) + toNum(krw.locked) : 0;
   }, [assets]);
 
-  const priced = holdings.every((h) => h.price > 0);
-  const loading = assets.length === 0 || (holdings.length > 0 && !priced);
+  // 미가격 보유코인은 해당 행만 '-' 처리한다. 개별 티커 지연이 전체 화면을 고착시키지 않도록 !priced 의존을 뺀다
+  const loading = !loaded;
 
   const totalValuation = holdings.reduce((s, h) => s + h.valuation, 0);
   const totalBuy = holdings.reduce((s, h) => s + h.buyAmount, 0);
@@ -177,7 +191,7 @@ export default function AssetsPage() {
         align: "right",
         sortValue: (h) => h.valuation,
         render: (h) => (
-          <b className={styles.valuation}>{hidden ? HIDDEN : formatKRW(h.valuation)}</b>
+          <b className={styles.valuation}>{hidden ? HIDDEN : h.priced ? formatKRW(h.valuation) : "-"}</b>
         ),
       },
       {
@@ -189,6 +203,8 @@ export default function AssetsPage() {
         render: (h) =>
           hidden ? (
             HIDDEN
+          ) : !h.priced ? (
+            <span className="num">-</span>
           ) : (
             <span className="dir-text num" data-dir={dirOf(h.change)}>
               {formatDirectionalAmount(h.pnl, h.change)} ({formatChangeRate(h.pnlRate, h.change)})
@@ -206,6 +222,17 @@ export default function AssetsPage() {
           <Skeleton variant="card" width="100%" height={120} />
           <Skeleton variant="card" width="100%" height={320} />
         </div>
+      ) : failed ? (
+        <section className="card" aria-label="자산 로드 실패">
+          <div className="empty-state" role="alert">
+            <span className={styles.emptyMark} aria-hidden="true" />
+            <span className="empty-state__title">자산을 불러오지 못했어요</span>
+            <span className="empty-state__desc">서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요</span>
+            <button type="button" className="btn btn--secondary" onClick={load}>
+              다시 시도
+            </button>
+          </div>
+        </section>
       ) : (
         <>
           {/* ===== 총 보유자산 요약 카드 (전폭) ===== */}

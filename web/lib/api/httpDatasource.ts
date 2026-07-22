@@ -806,7 +806,9 @@ export class HttpStompDataSource implements DataSource {
         return;
       }
       case "trade": {
-        // 놓친 체결만 오래된 순으로 재전달 (REST seq는 WS 채널과 동일 도메인, §4-A-3)
+        // 놓친 체결만 오래된 순으로 재전달. trade 채널은 REST 스냅샷과 WS 실시간이 동일 event_seq
+        // 도메인을 쓴다(백엔드_API_설계 §4-A-3, §5-2). 따라서 prevSeq(WS 기준점)로 이미 본 체결을
+        // 거르고, lastSeq를 REST seq로 올려도 이어지는 실시간 seq와 단조성이 유지된다.
         const trades = await this.getTrades(parsed.market, 50, signal);
         const missed = trades
           .filter((t) => prevSeq === null || t.seq > prevSeq)
@@ -818,6 +820,8 @@ export class HttpStompDataSource implements DataSource {
         return;
       }
       case "candle": {
+        // candle 채널도 REST와 WS가 동일 event_seq 도메인(§5-2). 최신 캔들 seq를 기준점으로
+        // 삼으면 이어지는 실시간 캔들이 단조 검사에 걸리지 않고 이어진다.
         const [c] = await this.getCandles(parsed.market, parsed.unit, 1, signal);
         if (!c) return;
         ch.lastSeq = c.seq;

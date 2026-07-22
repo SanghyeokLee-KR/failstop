@@ -105,6 +105,16 @@
   color: var(--color-danger);
 }
 
+/* 잔고 로드 실패 시 행 내 재시도. 텍스트 링크 어휘, 색 단독 아님(밑줄 병기) */
+.retry {
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: var(--space-1) var(--space-2);
+}
+
 /* CTA 인라인 2단계 확인: armed 시 라벨 전환 (§2.5) */
 .cta {
   min-height: 44px;

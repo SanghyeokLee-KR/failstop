@@ -7,7 +7,7 @@
  */
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import SegmentedTab from "@/components/SegmentedTab";
 import Skeleton from "@/components/Skeleton";
@@ -48,13 +48,23 @@ export default function HistoryPage() {
   const [marketFilter, setMarketFilter] = useState("all");
   const [period, setPeriod] = useState<Period>("all");
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [canceling, setCanceling] = useState<Set<string>>(new Set());
 
   useLiveChannels(useMemo(() => [dest.myOrder], []));
 
-  useEffect(() => {
-    void loadOrders().then(() => setLoaded(true));
+  // loaded는 성공·실패 모두 확정한다. catch 없으면 REST 실패 시 스켈레톤이 영구 고착된다
+  const load = useCallback(() => {
+    setFailed(false);
+    loadOrders()
+      .then(() => setFailed(false))
+      .catch(() => setFailed(true))
+      .finally(() => setLoaded(true));
   }, [loadOrders]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const cancel = async (order: Order) => {
     if (canceling.has(order.id)) return;
@@ -229,6 +239,17 @@ export default function HistoryPage() {
       {/* ===== 본문 테이블 카드 ===== */}
       {!loaded ? (
         <Skeleton variant="card" width="100%" height={320} />
+      ) : failed ? (
+        <section className={`card ${styles.tableCard}`} aria-label="주문 목록">
+          <div className="empty-state" role="alert">
+            <span className={styles.emptyMark} aria-hidden="true" />
+            <span className="empty-state__title">거래내역을 불러오지 못했어요</span>
+            <span className="empty-state__desc">서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요</span>
+            <button type="button" className="btn btn--secondary" onClick={load}>
+              다시 시도
+            </button>
+          </div>
+        </section>
       ) : (
         <section className={`card ${styles.tableCard}`} aria-label="주문 목록">
           <DataTable

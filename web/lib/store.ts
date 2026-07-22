@@ -13,16 +13,46 @@ import type {
   EffectConfig,
   Market,
   MemberSession,
+  MyOrderMessage,
   Order,
   OrderbookMessage,
   TickerMessage,
   TradeMessage,
   WsMessage,
 } from "./types";
-import { DEFAULT_EFFECT_CONFIG } from "./types";
+import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION } from "./types";
 import { getDataSource } from "./api/datasource";
 
 const MAX_TRADES = 60;
+
+/**
+ * myOrder 메시지로부터 미보유 주문을 스토어에 채우기 위한 최소 Order 합성.
+ * 재동기화·타 세션 신규 주문은 openOrders에 없어 유실되므로 즉시 표시용으로 append 한다.
+ * 상세 필드(ord_type·수수료·체결금액)는 메시지에 없어 안전 기본값을 두고, 이어지는
+ * loadOrders 전량 조회가 권위 있는 Order로 교체한다. amount는 문자열 규약을 지켜 산술하지 않는다.
+ */
+function synthOrderFromMyOrder(msg: MyOrderMessage): Order {
+  return {
+    schema_version: SCHEMA_VERSION,
+    id: msg.id,
+    client_order_id: msg.client_order_id,
+    market: msg.market,
+    side: msg.side,
+    ord_type: "limit", // 미체결 잔존 주문은 지정가가 표준. 정확한 종류는 loadOrders가 확정
+    status: msg.status,
+    price: msg.price,
+    volume: null,
+    remaining_volume: msg.remaining_volume,
+    executed_volume: msg.executed_volume,
+    executed_funds: "0",
+    remaining_notional: null,
+    paid_fee: "0",
+    trades_count: 0,
+    created_at: msg.timestamp,
+    epoch: msg.epoch,
+    seq: msg.seq,
+  };
+}
 const FAV_STORAGE_KEY = "exchange.favorites";
 const DEFAULT_FAVORITES = ["KRW-BTC", "KRW-XRP"];
 
@@ -132,9 +162,11 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
         const inOpen = openOrders.find((o) => o.id === msg.id);
         if (msg.status === "OPEN" || msg.status === "PARTIAL") {
           set({
+            // 미보유 OPEN·PARTIAL은 재동기화·타 세션 신규 주문이다. 드롭하지 않고 합성해 append,
+            // 이후 loadOrders 전량 조회가 권위 데이터로 교체한다(재연결 유실 방지)
             openOrders: inOpen
               ? openOrders.map((o) => (o.id === msg.id ? patch(o) : o))
-              : openOrders, // 신규 주문은 placeOrder 응답/loadOrders로 합류
+              : [synthOrderFromMyOrder(msg), ...openOrders],
           });
         } else {
           set({
