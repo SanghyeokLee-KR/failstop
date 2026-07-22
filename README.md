@@ -12,8 +12,10 @@ server/   Spring Boot 3.5 백엔드 (Gradle 멀티모듈)
           app/     API, 저널, 원장, 리더 리스, 봇 플릿
 web/      Next.js 데스크톱 웹 (정적 export, 고정형 1280px 기준)
 docs/     정본 계약 문서 (DB, API, 디자인, 하네스, 로드맵). docs/README.md 참조
+harness/  안정성 증명 하네스. 격리 카오스 토폴로지, 실험 E1~E3, 불변식 SQL, 부하(load/), 관측(prometheus·grafana). harness/README.md 참조
+seed-data/시드 타임 1회 수집 스크립트. 결과(markets.json·candles/*)를 저장소에 내재화, 런타임 외부 의존 0. seed-data/README.md 참조
 scripts/  로컬 도구 (check-style.ps1)
-.github/  기여 규칙, PR 템플릿, CI(스타일 게이트)
+.github/  기여 규칙, PR 템플릿, CI 3종 (ci-backend, ci-web, style)
 .claude/  역할 하네스 정의 (backend-engineer, frontend-engineer, harness-engineer, reviewer)
 CLAUDE.md 작업 규칙 정본 (스타일, 역할 체계, 기술 계약)
 ```

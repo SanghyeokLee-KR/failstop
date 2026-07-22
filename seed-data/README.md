@@ -54,6 +54,10 @@ out/
   logos/<id>.png        self-host 로고 + ATTRIBUTION.txt
 ```
 
+현재 저장소에 내재화된 범위는 `markets.json`과 `candles/*.json`(269종)이다. CoinGecko 경로
+(`coin-meta.json`·로고)는 Demo 키가 있어야 수집되며 아직 미수집이라 커밋물에 없다. 소비 배선도
+markets·candles 기준이다.
+
 캔들 파일에 담기는 것은 원본 OHLC 시계열이 아니라 파생 통계다.
 
 - `seed_price`: 최신 종가. 시뮬레이션 초기가.
@@ -80,5 +84,6 @@ ATTRIBUTION.md 참조. 요지.
 
 ## 커밋 정책
 
-`out/` 는 .gitignore에서 제외하지 않는다. 파생 JSON과 self-host 로고는 커밋 대상이다.
-시크릿(.env)과 node_modules, 임시 로그만 무시한다.
+`out/` 는 .gitignore에서 제외하지 않는다. 파생 JSON과 self-host 로고는 커밋 대상이다(현재
+커밋물은 markets.json·candles/*, coin-meta·로고는 수집 시 추가). 시크릿(.env)과 node_modules,
+임시 로그만 무시한다.

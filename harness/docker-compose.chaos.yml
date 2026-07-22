@@ -33,7 +33,7 @@ services:
     networks: [chaos-net]
 
   chaos-toxiproxy-init:
-    image: curlimages/curl:latest
+    image: curlimages/curl:8.11.0
     container_name: chaos-toxiproxy-init
     depends_on: [chaos-toxiproxy]
     volumes: ["./toxiproxy/populate.json:/populate.json:ro"]

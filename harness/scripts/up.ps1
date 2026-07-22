@@ -11,6 +11,12 @@ $ErrorActionPreference = 'Stop'
 $server = Resolve-Path (Join-Path $PSScriptRoot '..\..\server')
 $harness = Resolve-Path (Join-Path $PSScriptRoot '..')
 
+# .env.chaos 부재 시 빈 마스터키로 StartupSecretValidator가 기동을 막고 compose --env-file도 깨진다.
+# 빌드 전에 먼저 잡아 example 복사를 안내한다.
+if (-not (Test-Path $Global:CHAOS.EnvFile)) {
+    throw ".env.chaos 부재. harness/.env.chaos.example를 harness/.env.chaos로 복사하고 CHAOS_MASTER_KEY_BASE64 등 값을 채운 뒤 다시 실행한다."
+}
+
 Write-Section '1/3 bootJar 빌드'
 Push-Location $server
 try {
