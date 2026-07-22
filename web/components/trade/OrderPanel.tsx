@@ -26,13 +26,18 @@ import {
   type OrderKeyState,
 } from "./orderKey";
 import OrderConfirmDialog from "./OrderConfirmDialog";
+import {
+  committedRatioOf,
+  floorTo,
+  isLargeOrder as computeLargeOrder,
+  qtyFromTotal,
+  toPlainString,
+} from "./orderMath";
 import styles from "./OrderPanel.module.css";
 
 const FEE_RATE = 0.0005;
 const MIN_ORDER_KRW = 5000;
 const CONFIRM_TIMEOUT_MS = 3000;
-// 가용 잔고 대비 이 비율 이상이면 인라인 확인 대신 확인 다이얼로그로 오발주를 막는다
-const LARGE_ORDER_RATIO = 0.7;
 
 type OrdType = "limit" | "market";
 
@@ -60,12 +65,6 @@ interface Props {
 
 function newClientOrderId(): string {
   return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-/** 소수 자릿수 내림 (주문 가능 수량 초과 방지) */
-function floorTo(value: number, scale: number): number {
-  const p = 10 ** scale;
-  return Math.floor(value * p) / p;
 }
 
 export default function OrderPanel({ market, initialSide, prefill, accountsFailed = false, onRetryAccounts }: Props) {
@@ -186,17 +185,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   else if (side === "ask" && qty > availCoin) error = "보유 수량을 초과했어요";
   const ready = total >= MIN_ORDER_KRW && error === null && !loadingBalance && !accountsFailed;
 
-  // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다.
-  // bid는 (총액+수수료)/현금, ask는 수량/보유코인 기준
-  const committedRatio =
-    side === "bid"
-      ? availKRW > 0
-        ? (total + fee) / availKRW
-        : 0
-      : availCoin > 0
-        ? qty / availCoin
-        : 0;
-  const isLargeOrder = ready && committedRatio >= LARGE_ORDER_RATIO;
+  // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다
+  const committedRatio = committedRatioOf(side, total, fee, availKRW, availCoin, qty);
+  const isLargeOrder = computeLargeOrder(ready, committedRatio);
 
   /* ===== 입력 핸들러 ===== */
   const onPriceInput = (v: string) => {
@@ -218,7 +209,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const onTotalInput = (v: string) => {
     const t = toNum(v.replace(/[^0-9]/g, "").slice(0, 14));
     const p = ordType === "market" ? curPrice : price;
-    if (p > 0) setQtyRaw(String(floorTo(t / p, qtyScale)));
+    const next = qtyFromTotal(t, p, qtyScale);
+    if (next !== null) setQtyRaw(next);
     setActivePct(null);
   };
 
@@ -233,7 +225,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const applyPct = (pct: number) => {
     setActivePct(pct);
     if (side === "ask") {
-      setQtyRaw(String(floorTo(availCoin * (pct / 100), qtyScale)));
+      setQtyRaw(toPlainString(floorTo(availCoin * (pct / 100), qtyScale), qtyScale));
       return;
     }
     if (isMarketBuy) {
@@ -242,7 +234,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     }
     if (price > 0) {
       const usable = (availKRW * (pct / 100)) / (price * (1 + FEE_RATE));
-      setQtyRaw(String(floorTo(usable, qtyScale)));
+      setQtyRaw(toPlainString(floorTo(usable, qtyScale), qtyScale));
     }
   };
 
@@ -318,7 +310,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   // 다이얼로그 표시값. 시장가 매수는 체결 수량이 확정 전이라 현재가 기준 추정 수량을 보인다
   const confirmQtyStr = isMarketBuy
     ? curPrice > 0
-      ? String(floorTo(amount / curPrice, qtyScale))
+      ? toPlainString(floorTo(amount / curPrice, qtyScale), qtyScale)
       : "0"
     : String(qty);
   const confirmPriceStr = ordType === "limit" ? String(Math.round(price)) : undefined;

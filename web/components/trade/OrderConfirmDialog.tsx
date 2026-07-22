@@ -62,7 +62,12 @@ export default function OrderConfirmDialog({
         const focusables = dialog.querySelectorAll<HTMLElement>(
           'button:not([disabled]), [tabindex]:not([tabindex="-1"])',
         );
-        if (focusables.length === 0) return;
+        // busy 구간엔 취소·확정 모두 disabled라 focusable이 0이 된다. 이때 루트에 포커스를 고정해 Tab 유출을 막는다
+        if (focusables.length === 0) {
+          e.preventDefault();
+          dialog.focus();
+          return;
+        }
         const first = focusables[0];
         const last = focusables[focusables.length - 1];
         if (e.shiftKey && document.activeElement === first) {
@@ -75,8 +80,11 @@ export default function OrderConfirmDialog({
       }
     };
     document.addEventListener("keydown", onKey);
-    // 확정 버튼이 아니라 취소에 초기 포커스를 둔다. 오발주 방지가 목적이라 확정은 의도적 이동을 요구한다
-    dialog?.querySelector<HTMLButtonElement>(`.${styles.cancel}`)?.focus();
+    // 확정 버튼이 아니라 취소에 초기 포커스를 둔다. 오발주 방지가 목적이라 확정은 의도적 이동을 요구한다.
+    // 취소가 disabled(busy)면 루트로 폴백해 포커스가 다이얼로그 밖에 머물지 않게 한다
+    const cancel = dialog?.querySelector<HTMLButtonElement>(`.${styles.cancel}`);
+    if (cancel && !cancel.disabled) cancel.focus();
+    else dialog?.focus();
     return () => {
       document.removeEventListener("keydown", onKey);
       prevFocused?.focus?.();
@@ -106,6 +114,7 @@ export default function OrderConfirmDialog({
         ref={dialogRef}
         className={styles.dialog}
         role="dialog"
+        tabIndex={-1}
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descId}
