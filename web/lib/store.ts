@@ -10,6 +10,7 @@ import { useEffect, useMemo } from "react";
 import { create } from "zustand";
 import type {
   Asset,
+  EffectConfig,
   Market,
   Order,
   OrderbookMessage,
@@ -17,6 +18,7 @@ import type {
   TradeMessage,
   WsMessage,
 } from "./types";
+import { DEFAULT_EFFECT_CONFIG } from "./types";
 import { getDataSource } from "./api/datasource";
 
 const MAX_TRADES = 60;
@@ -54,8 +56,12 @@ interface ExchangeState {
   closedOrders: Order[];
   favorites: string[];
   connected: boolean;
+  /** 체결 시각효과 강도. 폴링 전 안전 폴백(§4-A-6) */
+  effectConfig: EffectConfig;
 
   apply(msg: WsMessage): void;
+  /** 효과 강도 재조회. 폴링 훅이 호출한다(실시간 push 아님, §4-A-6) */
+  loadEffectConfig(): Promise<void>;
   /** DataSource.onConnectionChange가 유일한 호출 주체 (§5.1) */
   setConnected(v: boolean): void;
   toggleFavorite(market: string): void;
@@ -76,6 +82,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   closedOrders: [],
   favorites: DEFAULT_FAVORITES,
   connected: true,
+  effectConfig: DEFAULT_EFFECT_CONFIG,
 
   apply(msg) {
     switch (msg.type) {
@@ -134,6 +141,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     }
   },
 
+  async loadEffectConfig() {
+    // 효과 강도는 WS push가 아니라 폴링·재조회로 반영한다(§4-A-6). 실패는 어댑터가 폴백 흡수
+    const cfg = await getDataSource().getEffectConfig();
+    set({ effectConfig: cfg });
+  },
+
   setConnected(v) {
     set({ connected: v });
   },
@@ -186,4 +199,17 @@ export function useLiveChannels(destinations: string[]): void {
     const offs = stable.map((d) => ds.subscribe(d, apply));
     return () => offs.forEach((off) => off());
   }, [stable, apply]);
+}
+
+// 효과 강도는 실시간 push가 아니라 폴링으로 반영한다(§4-A-6). cosmetic 값이라 저빈도로 충분
+const EFFECT_POLL_MS = 15_000;
+
+/** 마운트 시 효과 강도 1회 조회 후 주기 재조회. 관리자 변경을 폴링으로 흡수 */
+export function useEffectConfigPolling(intervalMs = EFFECT_POLL_MS): void {
+  const loadEffectConfig = useExchangeStore((s) => s.loadEffectConfig);
+  useEffect(() => {
+    void loadEffectConfig();
+    const id = setInterval(() => void loadEffectConfig(), intervalMs);
+    return () => clearInterval(id);
+  }, [loadEffectConfig, intervalMs]);
 }

@@ -9,6 +9,7 @@ import type {
   Asset,
   Candle,
   CandleUnit,
+  EffectConfig,
   Market,
   Order,
   OrderRequest,
@@ -32,6 +33,9 @@ export interface DataSource {
   getClosedOrders(market?: string): Promise<Order[]>;
   placeOrder(req: OrderRequest): Promise<Order>;
   cancelOrder(idOrClientId: string): Promise<Order>;
+
+  /** 효과 강도 조회(§4-A-6). WS push 아님. 갱신은 폴링(useEffectConfigPolling). 실패는 어댑터가 폴백 흡수 */
+  getEffectConfig(): Promise<EffectConfig>;
 
   /* ===== WS(STOMP) 미러 (§5) =====
    * destination은 §5-3 경로 문자열(/topic/ticker.KRW-BTC 등, lib/types의 dest 헬퍼 사용).
@@ -61,6 +65,7 @@ export class SimDataSource implements DataSource {
   async getClosedOrders(market?: string): Promise<Order[]> { return this.engine.getOrders(false, market); }
   async placeOrder(req: OrderRequest): Promise<Order> { return this.engine.placeOrder(req); }
   async cancelOrder(idOrClientId: string): Promise<Order> { return this.engine.cancelOrder(idOrClientId); }
+  async getEffectConfig(): Promise<EffectConfig> { return this.engine.getEffectConfig(); }
 
   subscribe(destination: string, cb: (msg: WsMessage) => void): () => void {
     return this.engine.subscribe(destination, cb);

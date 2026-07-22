@@ -11,5 +11,5 @@
     "noEmit": false,
     "outDir": ".test-dist"
   },
-  "include": ["tests/**/*.ts", "lib/api/**/*.ts", "lib/types.ts", "lib/sim/**/*.ts", "lib/format.ts", "components/trade/derive.ts", "components/trade/orderKey.ts"]
+  "include": ["tests/**/*.ts", "lib/api/**/*.ts", "lib/types.ts", "lib/sim/**/*.ts", "lib/format.ts", "components/trade/derive.ts", "components/trade/orderKey.ts", "components/trade/effectGovernor.ts"]
 }

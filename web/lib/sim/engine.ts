@@ -10,6 +10,9 @@ import type {
   Candle,
   CandleUnit,
   CoinMeta,
+  EffectConfig,
+  EffectLevel,
+  EffectMode,
   Market,
   MyOrderMessage,
   MyAssetMessage,
@@ -24,7 +27,7 @@ import type {
   TradeMessage,
   WsMessage,
 } from "../types";
-import { SCHEMA_VERSION, dest } from "../types";
+import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION, dest } from "../types";
 import { isoNow } from "../format";
 
 /* ===== 코인 시드 (목업과 동일 시드가) =====
@@ -127,6 +130,29 @@ interface SimOrder extends Order {
 }
 
 type Listener = (msg: WsMessage) => void;
+
+const EFFECT_STORAGE_KEY = "exchange.effects";
+const EFFECT_LEVELS: EffectLevel[] = ["off", "subtle", "normal", "strong"];
+const EFFECT_MODES: EffectMode[] = ["auto", "manual"];
+
+/**
+ * 데모 공유 저장소(localStorage)에서 효과 강도를 읽는다.
+ * 관리·고객 sim 싱글턴 분리를 넘어 즉시 반영이 필요할 때의 읽기 소스(§4-2). 미설정·손상 시 안전 폴백.
+ * 런타임 외부 의존이 아니다(브라우저 로컬 저장소).
+ */
+function readEffectConfig(): EffectConfig {
+  if (typeof window === "undefined") return DEFAULT_EFFECT_CONFIG;
+  try {
+    const raw = window.localStorage.getItem(EFFECT_STORAGE_KEY);
+    if (!raw) return DEFAULT_EFFECT_CONFIG;
+    const parsed = JSON.parse(raw) as { mode?: unknown; level?: unknown };
+    const mode = EFFECT_MODES.includes(parsed.mode as EffectMode) ? (parsed.mode as EffectMode) : DEFAULT_EFFECT_CONFIG.mode;
+    const level = EFFECT_LEVELS.includes(parsed.level as EffectLevel) ? (parsed.level as EffectLevel) : DEFAULT_EFFECT_CONFIG.level;
+    return { mode, level, schema_version: SCHEMA_VERSION };
+  } catch {
+    return DEFAULT_EFFECT_CONFIG;
+  }
+}
 
 let seqCounter = 0;
 function ulid(): string {
@@ -387,6 +413,11 @@ export class SimEngine {
 
   getTicker(markets: string[]): Ticker[] {
     return markets.filter((m) => this.states.has(m)).map((m) => this.tickerOf(m));
+  }
+
+  /** sim은 config를 항상 제공한다(§4-2). 관리 쓰기는 범위 밖이라 저장소·기본값만 읽는다 */
+  getEffectConfig(): EffectConfig {
+    return readEffectConfig();
   }
 
   getOrderbook(market: string): OrderbookMessage {

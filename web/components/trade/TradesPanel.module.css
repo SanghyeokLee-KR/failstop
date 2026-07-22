@@ -29,3 +29,28 @@
 
 .qty { color: var(--text-default); }
 .time { color: var(--text-secondary); }
+
+/* 체결가 셀: 가격은 우측 정렬 유지(다른 우측정렬 열과 정렬 일치), 대형 태그는 셀 좌측 여백에
+   절대 배치한다. 흐름 밖이라 열 폭에 기여하지 않아 대형 행이 스크롤 진입·이탈해도 가로 시프트 0.
+   가격은 우측, 태그는 좌측이라 인접 열(체결량·등락률·시각)을 덮지 않는다. */
+.priceCell { position: relative; }
+
+/* 대형 체결 태그(§2-1). 방향색 틴트 위 -strong(700), 색+화살표 병기(색 단독 금지). 금액은 title·aria로 낭독 */
+.largeTag {
+  position: absolute;
+  left: var(--space-1);
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-bold);
+  pointer-events: none;
+}
+.largeTag[data-dir="up"] { color: var(--color-up-strong); background: var(--color-up-bg); }
+.largeTag[data-dir="down"] { color: var(--color-down-strong); background: var(--color-down-bg); }

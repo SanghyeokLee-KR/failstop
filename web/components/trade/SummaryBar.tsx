@@ -12,9 +12,12 @@ import TickCell from "@/components/TickCell";
 import PricePill from "@/components/PricePill";
 import Skeleton from "@/components/Skeleton";
 import { useExchangeStore } from "@/lib/store";
+import { useEffectIntensity } from "@/lib/useEffectIntensity";
 import { COIN_META } from "@/lib/sim/engine";
 import { dirOf, formatCompactKRW, formatPrice, toNum } from "@/lib/format";
 import type { CoinMeta } from "@/lib/types";
+import { useTradeRateGovernor } from "./useTradeRateGovernor";
+import { effectiveLevel } from "./effectGovernor";
 import styles from "./SummaryBar.module.css";
 
 interface Props {
@@ -46,6 +49,11 @@ export default function SummaryBar({ market, meta }: Props) {
       window.removeEventListener("keydown", onKey);
     };
   }, [menuOpen]);
+
+  const config = useEffectIntensity();
+  const gov = useTradeRateGovernor(market);
+  // 자동 모드면 거버너가 선택 단계를 상한으로 하향한다(§3-5)
+  const heroLevel = config.mode === "auto" ? effectiveLevel(config.level, gov) : config.level;
 
   const favorite = favorites.includes(market);
   const dir = ticker ? dirOf(ticker.change) : "flat";
@@ -94,7 +102,7 @@ export default function SummaryBar({ market, meta }: Props) {
       {ticker ? (
         <div className={styles.price}>
           <span className={`${styles.cur} num dir-hero`} data-dir={dir}>
-            <TickCell value={toNum(ticker.trade_price)} format={formatPrice} />
+            <TickCell value={toNum(ticker.trade_price)} format={formatPrice} level={heroLevel} popCap={gov.popCap} popScope="summary" throttleBonus={gov.throttleBonusMs} />
           </span>
           <PricePill change={ticker.change} changeRate={ticker.change_rate} amount={ticker.change_price} variant="inline" />
         </div>

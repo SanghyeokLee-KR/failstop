@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import PanelCard from "@/components/PanelCard";
 import TickCell from "@/components/TickCell";
 import { useExchangeStore } from "@/lib/store";
+import { useEffectIntensity } from "@/lib/useEffectIntensity";
 import { COIN_META } from "@/lib/sim/engine";
 import { dirOf, formatChangeRate, formatCompactKRW, formatPrice, toNum } from "@/lib/format";
 import styles from "./MarketListPanel.module.css";
@@ -18,6 +19,10 @@ import styles from "./MarketListPanel.module.css";
 type ListTab = "krw" | "fav" | "held";
 type SortKey = "name" | "price" | "change" | "volume";
 type SortDir = "asc" | "desc";
+
+// 목록은 셀 수가 많아 팝 예산을 걸지 않으면 동시 팝이 무제한 누적된다. 자체 scope로
+// 격리해 현재가 히어로·호가 mid 셀 예산을 잠식하지 않게 한다(§2-5 패널 간 격리)
+const LIST_POP_CAP = 8;
 
 const TABS: { value: ListTab; label: string }[] = [
   { value: "krw", label: "원화" },
@@ -37,6 +42,8 @@ export default function MarketListPanel({ market }: { market: string }) {
   const tickers = useExchangeStore((s) => s.tickers);
   const favorites = useExchangeStore((s) => s.favorites);
   const assets = useExchangeStore((s) => s.assets);
+  // 목록은 다마켓이라 마켓별 거버너를 걸지 않고 설정 강도를 그대로 소비한다(셀당 체결률 낮음)
+  const effectConfig = useEffectIntensity();
 
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<ListTab>("krw");
@@ -187,7 +194,7 @@ export default function MarketListPanel({ market }: { market: string }) {
                     </span>
                   </span>
                   <span className="dir-text num" data-dir={d}>
-                    {t ? <TickCell value={toNum(t.trade_price)} format={formatPrice} /> : "-"}
+                    {t ? <TickCell value={toNum(t.trade_price)} format={formatPrice} level={effectConfig.level} popCap={LIST_POP_CAP} popScope="market-list" /> : "-"}
                   </span>
                   <span className="dir-text num" data-dir={d}>
                     {t ? formatChangeRate(t.change_rate, t.change) : "-"}

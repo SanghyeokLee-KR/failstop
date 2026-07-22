@@ -512,6 +512,68 @@ test("재연결 시 전 채널 재동기화, 연결 상태 통지", async () => 
   assert.equal(count("/api/v1/ticker"), fetchesBefore + 1, "재연결이 채널 재동기화를 호출");
 });
 
+/* ===== exchange-config 파싱 (§4-A-6) ===== */
+
+test("exchange-config trade_flash=auto는 mode:auto·level:normal로 좁힌다", async () => {
+  const { ds } = newDs({
+    "/api/v1/exchange-config": () => jsonRes(200, { schema_version: "1.0", trade_flash: "auto" }),
+  });
+  assert.deepEqual(await ds.getEffectConfig(), { mode: "auto", level: "normal", schema_version: "1.0" });
+});
+
+test("exchange-config trade_flash 열거값은 mode:manual·해당 level로 좁힌다", async () => {
+  for (const flash of ["off", "subtle", "normal", "strong"] as const) {
+    const { ds } = newDs({
+      "/api/v1/exchange-config": () => jsonRes(200, { schema_version: "1.0", trade_flash: flash }),
+    });
+    assert.deepEqual(await ds.getEffectConfig(), { mode: "manual", level: flash, schema_version: "1.0" });
+  }
+});
+
+test("exchange-config 미인증 공개 조회다(Authorization 미첨부)", async () => {
+  const { ds, calls } = newDs({
+    "/api/v1/exchange-config": () => jsonRes(200, { schema_version: "1.0", trade_flash: "normal" }),
+  });
+  await ds.getEffectConfig();
+  const call = calls.find((c) => c.url.includes("/exchange-config"));
+  assert.equal(call?.auth, null);
+});
+
+test("exchange-config 미상값·누락은 안전 폴백(auto·normal)", async () => {
+  for (const body of [{ schema_version: "1.0" }, { trade_flash: "loud" }, { trade_flash: 3 }, {}]) {
+    const { ds } = newDs({ "/api/v1/exchange-config": () => jsonRes(200, body) });
+    assert.deepEqual(await ds.getEffectConfig(), { mode: "auto", level: "normal", schema_version: "1.0" });
+  }
+});
+
+test("exchange-config 조회 실패는 안전 폴백(비민감·비필수)", async () => {
+  const { ds } = newDs({
+    "/api/v1/exchange-config": () => jsonRes(500, { error: { name: "server_error", message: "일시 오류" } }),
+  });
+  assert.deepEqual(await ds.getEffectConfig(), { mode: "auto", level: "normal", schema_version: "1.0" });
+});
+
+/* ===== seq 도메인 없는 채널 ===== */
+
+test("seq 도메인 없는 채널(§5-3 미분류)은 단조 seq 검사를 우회해 전달", async () => {
+  const stomp = makeStomp();
+  const { ds } = newDs({}, stomp.factory);
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  const misc = "/topic/config";
+  ds.subscribe(misc, (m) => received.push(m));
+  await settle();
+
+  // 역행·중복 seq여도 seq 규약을 적용하지 않아 전량 전달된다
+  stomp.push(misc, { type: "config", seq: 5, epoch: 1 });
+  stomp.push(misc, { type: "config", seq: 3, epoch: 1 });
+  stomp.push(misc, { type: "config", seq: 3, epoch: 1 });
+  await settle();
+
+  assert.equal(received.length, 3);
+});
+
 test("myOrder 재동기화는 open과 closed를 함께 복원해 종결 통지를 확정", async () => {
   const stomp = makeStomp();
   const openOrder = { id: "1b4e28ba-2fa1-11d2-883f-0016d3cca427", status: "OPEN", created_at: "2026-07-21T09:00:00.000Z" };

@@ -15,6 +15,8 @@ import type {
   Candle,
   CandleUnit,
   CandleMessage,
+  EffectConfig,
+  EffectLevel,
   Market,
   MyAssetMessage,
   MyOrderMessage,
@@ -28,8 +30,26 @@ import type {
   TradeMessage,
   WsMessage,
 } from "../types";
-import { SCHEMA_VERSION } from "../types";
+import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION } from "../types";
 import type { DataSource } from "./datasource";
+
+/** 효과 강도 공개 조회 경로(§4-A-6). 무인증 화이트리스트 조회 */
+const EFFECT_CONFIG_PATH = "/api/v1/exchange-config";
+const EFFECT_LEVELS: EffectLevel[] = ["off", "subtle", "normal", "strong"];
+
+/**
+ * §4-A-6 응답 {schema_version, trade_flash}을 EffectConfig로 좁힌다.
+ * trade_flash=auto는 UI 자체 관측 파생 지시(mode:auto), 그 외 열거값은 관리자 고정 강도(mode:manual).
+ * 누락·비정상 값은 안전 폴백(DEFAULT_EFFECT_CONFIG).
+ */
+function coerceEffectConfig(json: unknown): EffectConfig {
+  const flash = (json as { trade_flash?: unknown } | null | undefined)?.trade_flash;
+  if (flash === "auto") return { mode: "auto", level: "normal", schema_version: SCHEMA_VERSION };
+  if (EFFECT_LEVELS.includes(flash as EffectLevel)) {
+    return { mode: "manual", level: flash as EffectLevel, schema_version: SCHEMA_VERSION };
+  }
+  return DEFAULT_EFFECT_CONFIG;
+}
 
 /* ===== 표준 에러 (§2-3 미러. SimApiError와 동일하게 name에 코드 노출) ===== */
 
@@ -365,6 +385,15 @@ export class HttpStompDataSource implements DataSource {
     return this.http<Order>(path, { method: "DELETE" }, true);
   }
 
+  async getEffectConfig(): Promise<EffectConfig> {
+    try {
+      return coerceEffectConfig(await this.http(EFFECT_CONFIG_PATH));
+    } catch {
+      // config는 표시 강도라 비민감·비필수. 조회 실패는 안전 폴백으로 흡수(§4-2)
+      return DEFAULT_EFFECT_CONFIG;
+    }
+  }
+
   /* ===== 구독 (§5) ===== */
 
   subscribe(destination: string, cb: Listener): () => void {
@@ -483,6 +512,13 @@ export class HttpStompDataSource implements DataSource {
         this.lastEpoch = msg.epoch;
         this.resyncAll();
       }
+    }
+
+    // seq 도메인이 없는 채널(§5-3 미분류, 예: config류)은 단조 seq·gap 검사를 우회하고 그대로 전달한다.
+    // 이런 채널은 REST 재동기화 대상도 아니라 seq 규약을 적용하면 정상 메시지가 드롭될 수 있다.
+    if (parseDest(destination) === null) {
+      this.deliver(ch, msg);
+      return;
     }
 
     if (ch.resyncing) {
@@ -617,6 +653,7 @@ export class HttpStompDataSource implements DataSource {
         if (alive()) cb(this.assetsToMessage(assets));
       }
       // trade·candle·myOrder는 스냅샷 없음. 화면이 REST로 초기화(§5-2)
+      // config는 WS 채널이 아니다(§5-3). 폴링으로 갱신(§4-A-6)
     } catch {
       // 초기 스냅샷 실패는 realtime 수신으로 수렴
     }

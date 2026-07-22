@@ -59,6 +59,32 @@ a { color: inherit; text-decoration: none; }
 .price-cell[data-tick="down"] { background: var(--color-down-flash); }
 /* flat 틱은 플래시 생략. reduced-motion 무력화는 tokens.css §5에 정의 */
 
+/* ===== 체결 시각효과 · 프라이스 셀 팝 (체결_시각효과 설계 §2, §5-3) =====
+   강도·방향·대형은 data 속성으로만 표현하고 throttle·중첩취소·팝 캡은 TickCell 훅이 관리한다.
+   transform scale은 합성 단계라 리플로우 0, box-shadow 글로우는 레이아웃 무관 → 시프트 0. */
+.price-cell[data-pop] {
+  transition: transform var(--dur-pop) var(--ease-emphasized),
+    box-shadow var(--dur-pop) var(--ease-standard),
+    background-color var(--dur-flash) var(--ease-standard);
+}
+.price-cell[data-pop="up"] { box-shadow: var(--effect-glow-up); }
+.price-cell[data-pop="down"] { box-shadow: var(--effect-glow-down); }
+/* 강도별 스케일. subtle은 팝 없이 배경 플래시만이라 data-pop을 걸지 않음(TickCell) */
+.price-cell[data-pop][data-intensity="normal"] { transform: scale(var(--effect-pop-scale-normal)); }
+.price-cell[data-pop][data-intensity="strong"] { transform: scale(var(--effect-pop-scale-strong)); }
+/* 대형 체결은 한 단계 강한 스케일로 승격(§2-1) */
+.price-cell[data-pop][data-strong="true"] { transform: scale(var(--effect-pop-scale-strong)); }
+
+/* ===== 체결 테이프 첫 행 플래시(§2-1). 방향색 틴트 1회 점멸 후 소거 =====
+   전역 클래스인 이유: tokens.css reduced-motion 킬스위치가 .trade-flash[data-flash]를 참조 */
+.trade-flash { transition: background-color var(--dur-flash) var(--ease-standard); }
+.trade-flash[data-flash="up"] { background: var(--color-up-flash); }
+.trade-flash[data-flash="down"] { background: var(--color-down-flash); }
+
+/* 홍수 모드 방향 히트 틴트(§2-3). 개별 팝 대신 패널 배경만 저알파로 바꿔 리플로우 0 */
+.hit-tint[data-hit="up"] { background: var(--color-up-flash); }
+.hit-tint[data-hit="down"] { background: var(--color-down-flash); }
+
 /* ===== 방향 텍스트 공용 (소형=-text 600 / 히어로=-500) ===== */
 [data-dir="up"].dir-text { color: var(--color-up-text); }
 [data-dir="down"].dir-text { color: var(--color-down-text); }

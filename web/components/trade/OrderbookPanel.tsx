@@ -10,9 +10,13 @@
 import { useEffect, useRef } from "react";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
+import TickCell from "@/components/TickCell";
 import { useExchangeStore } from "@/lib/store";
+import { useEffectIntensity } from "@/lib/useEffectIntensity";
 import { dirOf, formatChangeRate, formatPrice, formatQty, toNum } from "@/lib/format";
 import { isPresentLevel, prevCloseOf, rateVsPrevClose } from "./derive";
+import { useTradeRateGovernor } from "./useTradeRateGovernor";
+import { effectiveLevel } from "./effectGovernor";
 import styles from "./OrderbookPanel.module.css";
 
 const DEPTH = 10;
@@ -54,6 +58,10 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
   );
   const prevClose = prevCloseOf(ticker);
   const dir = ticker ? dirOf(ticker.change) : "flat";
+
+  const config = useEffectIntensity();
+  const gov = useTradeRateGovernor(market);
+  const midLevel = config.mode === "auto" ? effectiveLevel(config.level, gov) : config.level;
 
   const renderRow = (side: "ask" | "bid", price: string, size: string, index: number) => {
     // 얇은 호가의 빈 슬롯(가격·잔량 0)은 값 없는 자리행으로 그린다.
@@ -105,7 +113,11 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
                 .map((u, i) => renderRow("ask", u?.ask_price ?? "0", u?.ask_size ?? "0", i))
                 .reverse()}
               <div className={`${styles.mid} num dir-text`} data-dir={dir} ref={midRef}>
-                {ticker ? formatPrice(ticker.trade_price) : "-"}
+                {ticker ? (
+                  <TickCell value={toNum(ticker.trade_price)} format={formatPrice} level={midLevel} popCap={gov.popCap} popScope="orderbook" throttleBonus={gov.throttleBonusMs} />
+                ) : (
+                  "-"
+                )}
                 {dir !== "flat" && <span aria-hidden="true">{dir === "up" ? "▲" : "▼"}</span>}
                 <span className={styles.midCaption}>현재가</span>
               </div>

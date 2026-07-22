@@ -16,7 +16,7 @@ import OrderbookPanel from "@/components/trade/OrderbookPanel";
 import TradesPanel from "@/components/trade/TradesPanel";
 import OrderPanel, { type PricePrefill } from "@/components/trade/OrderPanel";
 import MarketListPanel from "@/components/trade/MarketListPanel";
-import { useExchangeStore, useLiveChannels } from "@/lib/store";
+import { useExchangeStore, useLiveChannels, useEffectConfigPolling } from "@/lib/store";
 import { dest, type Side } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
 import { writeRecentMarket } from "../recentMarket";
@@ -53,13 +53,15 @@ function ExchangeMarketBody() {
   const loadOrders = useExchangeStore((s) => s.loadOrders);
   const marketsLoaded = useExchangeStore((s) => s.markets.length > 0);
 
-  // 실시간 배선: 현재 마켓 orderbook·trade + 마켓 목록용 전 마켓 ticker (§2.5 데이터)
+  // 실시간 배선: 현재 마켓 orderbook·trade + 마켓 목록용 전 마켓 ticker (§2.5)
   useLiveChannels(
     useMemo(
       () => [dest.orderbook(market), dest.trade(market), ...COIN_META.map((c) => dest.ticker(c.market))],
       [market],
     ),
   );
+  // 효과 강도는 WS가 아니라 폴링으로 반영(§4-A-6)
+  useEffectConfigPolling();
 
   useEffect(() => {
     hydrateFavorites();

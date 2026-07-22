@@ -19,9 +19,10 @@
   font-size: var(--font-caption-size);
   font-weight: var(--fw-semibold);
 }
-/* 타임프레임 탭은 좌측, 줄바꿈 방지. min-height는 SegmentedTab(.tab 44px)에 위임해 탭 타깃 계약 유지 */
+/* 타임프레임 탭은 좌측, 줄바꿈 방지. SegmentedTab(.tab 44px)에 더해 탭 타깃 계약을 명시 고정 */
 .tabs button {
   white-space: nowrap;
+  min-height: 44px;
   padding: 0 var(--space-3);
 }
 

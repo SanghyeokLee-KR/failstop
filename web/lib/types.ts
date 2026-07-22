@@ -21,6 +21,30 @@ export type CandleUnit =
 /** UI 방향 도메인 (상승=Red / 하락=Blue / 보합=무채색) */
 export type Direction = "up" | "down" | "flat";
 
+/* ===== 체결 시각효과 강도 (체결_시각효과 설계 §4-3) ===== */
+
+/** 효과 강도 4단계. off=표식만, strong=최대 */
+export type EffectLevel = "off" | "subtle" | "normal" | "strong";
+/** auto=체결률 거버너가 선택 단계를 상한으로 하향, manual=선택 단계 고정 */
+export type EffectMode = "auto" | "manual";
+
+/**
+ * 프론트 내부 효과 강도 표현. REST §4-A-6 trade_flash(auto|off|subtle|normal|strong)를
+ * 어댑터가 이 형태로 좁힌다(auto→mode:auto, 그 외→mode:manual). WS 채널 아님, 폴링으로 갱신.
+ */
+export interface EffectConfig {
+  mode: EffectMode;
+  level: EffectLevel;
+  schema_version: typeof SCHEMA_VERSION;
+}
+
+/** config 조회 실패 시 안전 폴백(§4-A-6). 화면은 이 값으로 정상 렌더 */
+export const DEFAULT_EFFECT_CONFIG: EffectConfig = {
+  mode: "auto",
+  level: "normal",
+  schema_version: SCHEMA_VERSION,
+};
+
 /* ===== 시장 데이터 (§4-A) ===== */
 
 /** GET /api/v1/markets 원소 */
