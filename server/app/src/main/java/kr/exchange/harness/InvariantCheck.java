@@ -94,6 +94,30 @@ public enum InvariantCheck {
             ) x
             """),
 
+    // ── orders 수수료 물질화 = trades 자기측 fee leg 합(V10 프로젝션 드리프트) ──
+    // paid_fee·trades_count는 정산이 filled_qty·executed_quote와 같은 UPDATE에서 누적하는
+    // 프로젝션(V10). trade INSERT와 동일 정산 트랜잭션이라 async 물질화 창이 없어 SCHEDULED
+    // (append 이후 물질화되는 C13A와 다르다). 자기측 fee: maker면 maker_fee, taker면 taker_fee.
+    // 90일 하한은 detach된 파티션을 제외한다(C10 규약·V10 백필과 동일). 주문 생성이 체결보다
+    // 앞서므로 90일 내 주문의 leg는 전부 attached 파티션에 있어 합계가 온전하다.
+    C20_ORDER_FEE_MATERIALIZED(Severity.HIGH, Scope.SCHEDULED, """
+            SELECT count(*) FROM (
+                SELECT o.id
+                FROM orders o
+                LEFT JOIN (
+                    SELECT maker_order_id AS oid, maker_fee AS fee FROM trades
+                    WHERE created_at >= now() - interval '90 days'
+                    UNION ALL
+                    SELECT taker_order_id AS oid, taker_fee AS fee FROM trades
+                    WHERE created_at >= now() - interval '90 days'
+                ) legs ON legs.oid = o.id
+                WHERE o.created_at >= now() - interval '90 days'
+                GROUP BY o.id, o.paid_fee, o.trades_count
+                HAVING o.paid_fee <> COALESCE(SUM(legs.fee), 0)
+                    OR o.trades_count <> COUNT(legs.oid)
+            ) x
+            """),
+
     // ── 재생 결정론 ─────────────────────────────────────────────────────
     C17_REPLAY_DETERMINISM(Severity.CRITICAL, Scope.SCHEDULED,
             "SELECT count(*) FROM recovery_runs WHERE matched = false"),

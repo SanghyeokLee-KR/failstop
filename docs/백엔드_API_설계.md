@@ -588,6 +588,8 @@ POST /api/v1/orders
 `market_suspended`(마켓 정지) / `post_only_would_take`(POST_ONLY 즉시체결) / `fok_not_filled`(FOK 전량충족 불가) / `ioc_partial_canceled`(IOC 잔량 취소 사유·정보성) / `self_trade_prevented`(자전거래 방지 발동). `myOrder` 이벤트에도 동일 `reject_reason` 노출.
 > v2.2: `over_max_order`를 이 목록에서 **삭제**. 최소/최대 주문 한도는 마켓 메타(`min_order_amount`/`max_order_amount`) 기반 **게이트웨이 정적 검증**이므로 `under_min_order`와 대칭으로 **`400 over_max_order`(§2-3) 단일 경로**로 확정한다(동일 위반의 400/422 이중 정의 상충 해소).
 
+**FOK 자기유동성(정본 §7-2 상호참조)**: `fok_not_filled` 게이트는 자기 유동성(같은 `user_id`의 반대편 레스팅)을 충족 용량으로 센다. 자기 유동성만으로 전량 충족되는 FOK는 `fok_not_filled`로 거부되지 않고 접수되며, 실행 시 해당 부분은 체결이 아니라 STP-DC로 소멸한다(maker·taker 양쪽 `self_trade_prevented` CANCELED, taker 잔량 0 도달, 무체결 전량 소멸 가능). 사전 스캔이 자기 유동성을 제외하면 스캔·실행 판정이 갈려 결정론이 깨지므로 포함이 계약이다. 판정·소멸 산식의 정본은 §7-2이고 엔진 동작(`wouldFullyFill`·STP-DC)은 무변경이다.
+
 **멱등 재요청**: 동일 키·동일 내용 → `200` + `X-Idempotent-Replay: true` + 기존 주문. in-flight 동시 → §2-4.
 
 #### 4-B-2. 취소 (멱등·by-client 라우트 확정)

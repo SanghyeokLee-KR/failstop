@@ -75,16 +75,26 @@ public class OrderQueryService {
         }
         if (cursor != null) {
             // 커서 ts는 밀리초 절단이라 같은 밀리초·상위 마이크로초 행을 다음 페이지에서 누락한다.
-            // 절단된 ts 대신 커서 행의 실제 created_at·id를 서브쿼리로 함께 비교한다(마이크로초 보존).
+            // 절단된 ts 대신 커서 행의 실제 created_at·id를 직접 바인딩한다(마이크로초 보존).
+            // 커서 행은 user_id 스코프로 조회한다: 타 사용자 주문 UUID를 커서로 넘겨 정렬 위치를
+            // 캐던 무경계 서브쿼리를 제거한다. 부재·위조 커서는 형식오류와 동일하게 400으로 정규화해
+            // 조용한 빈 페이지를 없앤다.
             UUID cursorId = parseCursorId(cursor.id());
-            sql.append(" AND (o.created_at, o.id) < ((SELECT created_at FROM orders WHERE external_id = ?),")
-                    .append(" (SELECT id FROM orders WHERE external_id = ?))");
-            params.add(cursorId);
-            params.add(cursorId);
+            CursorAnchor anchor = jdbc.sql("SELECT created_at, id FROM orders WHERE user_id = ? AND external_id = ?")
+                    .params(userId, cursorId)
+                    .query((rs, rn) -> new CursorAnchor(rs.getObject("created_at", OffsetDateTime.class), rs.getLong("id")))
+                    .optional()
+                    .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서가 유효하지 않습니다."));
+            sql.append(" AND (o.created_at, o.id) < (?, ?)");
+            params.add(anchor.createdAt());
+            params.add(anchor.id());
         }
         sql.append(" ORDER BY o.created_at DESC, o.id DESC LIMIT ?");
         params.add(limit);
         return jdbc.sql(sql.toString()).params(params).query(this::map).list();
+    }
+
+    private record CursorAnchor(OffsetDateTime createdAt, long id) {
     }
 
     /** 조작 커서 방어(§2-6): 비UUID id는 500이 아니라 400으로 정규화한다. */
