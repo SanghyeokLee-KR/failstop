@@ -230,7 +230,7 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
             fontSize: "var(--font-body-sm-size)",
           }}
         >
-          차트 데이터 준비 중
+          표시할 차트 데이터가 없어요
         </div>
       )}
     </div>

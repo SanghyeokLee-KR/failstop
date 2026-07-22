@@ -88,7 +88,8 @@
 .price {
   font-size: var(--font-body-sm-size);
   line-height: var(--font-body-sm-line);
-  font-weight: var(--fw-bold);
+  font-weight: var(--fw-semibold); /* 계기면 진정: 값 무게 700→600 */
+  color: var(--text-strong); /* 색=사건: 현재가는 무채 잉크, 방향색은 전일대비만 */
 }
 .change {
   font-size: var(--font-micro-size);

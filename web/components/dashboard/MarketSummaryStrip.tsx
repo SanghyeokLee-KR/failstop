@@ -123,7 +123,7 @@ function RepCard({ meta }: { meta: CoinMeta }) {
         </div>
         <div className={styles.repBody}>
           <div className={styles.repFigures}>
-            <span className={`${styles.repPrice} num dir-text`} data-dir={dir}>
+            <span className={`${styles.repPrice} num`}>
               {ticker ? formatPrice(ticker.trade_price) : "-"}
             </span>
             <span

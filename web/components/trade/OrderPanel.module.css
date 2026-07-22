@@ -1,5 +1,11 @@
 /* OrderPanel: side 상단 인라인 주문 폼, 높이 auto(내용 기준) (§2.5) */
 
+/* 이중 밀도(§2.5): 주문 폼은 space-5 여백으로 호가 주사존(12px)과 밀도 대비를 넓힌다.
+   클래스 중복으로 명시도를 올려 PanelCard .root(space-4)를 가져오기 순서와 무관하게 덮어쓴다. */
+.card.card {
+  padding: var(--space-5);
+}
+
 .form {
   display: flex;
   flex-direction: column;
@@ -56,9 +62,8 @@
   font-size: var(--font-body-sm-size);
 }
 .inp input:focus { outline: none; box-shadow: none; }
+/* 값 뒤 단위. 타이포·색은 공용 .unit-suffix(micro/tertiary)가 소유, 여기선 레이아웃만 */
 .unit {
-  font-size: var(--font-caption-size);
-  color: var(--text-secondary);
   flex-shrink: 0;
 }
 .step {
@@ -123,6 +128,7 @@
 
 /* §2.3 압축: 패딩·행 간격 축소로 약 400px */
 @media (max-height: 820px) {
+  .card.card { padding: var(--space-3); }
   .form { gap: var(--space-2); }
   .inp { height: 32px; }
   .cta { min-height: 40px; }

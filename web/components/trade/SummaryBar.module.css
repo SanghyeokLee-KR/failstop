@@ -27,7 +27,7 @@
 .identBtn:hover { background: var(--surface-hover); }
 .name {
   font-size: var(--font-body-size);
-  font-weight: var(--fw-bold);
+  font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
 .symbol {
@@ -137,11 +137,12 @@
   line-height: var(--font-micro-line);
   color: var(--text-secondary);
 }
+/* 값 잉크·크기를 승격해 micro 라벨과 위계 급강하(§2.5) */
 .statValue {
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  font-weight: var(--fw-medium);
-  color: var(--text-default);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
 }
 /* 고가·저가 방향 톤. 라벨 병기로 색 단독 아님(§0-2) */
 .statUp { color: var(--color-up-text); }

@@ -218,7 +218,7 @@ export default function TradingChart({ market }: { market: string }) {
   const unitLabel = UNIT_LABEL[unit] ?? unit;
   const ariaLabel = `${market} ${unitLabel} 캔들 차트. 양봉은 빨간색 상승, 음봉은 파란색 하락, 하단은 거래량입니다.`;
   const srSummary = useMemo(() => {
-    if (!latest) return `${market} ${unitLabel} 캔들 데이터 준비 중입니다.`;
+    if (!latest) return `${market} ${unitLabel} 표시할 캔들 데이터가 없어요.`;
     const dir = latest.close > latest.open ? "상승" : latest.close < latest.open ? "하락" : "보합";
     return `${market} ${unitLabel} 현재 봉. 시가 ${formatPrice(latest.open)}, 고가 ${formatPrice(latest.high)}, 저가 ${formatPrice(latest.low)}, 종가 ${formatPrice(latest.close)}, ${dir}.`;
   }, [latest, market, unitLabel]);
@@ -243,7 +243,7 @@ export default function TradingChart({ market }: { market: string }) {
         )}
         {empty && !loading && (
           <div className={styles.emptyState} role="status">
-            <span>차트 데이터 준비 중</span>
+            <span>표시할 차트 데이터가 없어요</span>
             <button type="button" className={styles.retryBtn} onClick={() => setRetrySeq((n) => n + 1)}>
               다시 불러오기
             </button>

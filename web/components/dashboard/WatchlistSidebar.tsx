@@ -63,7 +63,6 @@ export default function WatchlistSidebar() {
               <button
                 type="button"
                 className={styles.row}
-                aria-label={`${c.koreanName} 거래 화면으로 이동`}
                 onClick={() => router.push(`/exchange/${c.market}`)}
               >
                 <SymbolChip meta={c} size="sm" />
@@ -72,7 +71,7 @@ export default function WatchlistSidebar() {
                   <span className={`${styles.nameSym} num`}>{c.symbol}</span>
                 </span>
                 <span className={styles.figures}>
-                  <span className={`${styles.price} num dir-text`} data-dir={dir}>
+                  <span className={`${styles.price} num`}>
                     {t ? <TickCell value={toNum(t.trade_price)} format={formatPrice} /> : "-"}
                   </span>
                   <span

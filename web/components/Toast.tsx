@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * A-14. Toast. 체결·액션 결과·에러. aria-live="polite"(시세 tick 미낭독),
+ * A-14. Toast. 체결·액션 결과·에러. live 시맨틱은 항목 role(status/alert)에만 둬 중첩 낭독을 피한다.
  * success는 시스템 성공(green) 도메인. 가격 방향과 별개 (§0-3).
  * 사용: toast("주문을 접수했어요", "success") / 레이아웃에 <Toaster /> 1회 장착.
  */
@@ -24,6 +24,8 @@ interface ToastState {
 }
 
 const TOAST_DURATION_MS = 3000; // == --toast-duration
+// 에러는 사용자가 읽고 대응할 시간이 필요해 소멸을 연장한다. 수동 닫기 버튼도 함께 제공한다
+const TOAST_DURATION_ERROR_MS = 7000;
 let nextId = 1;
 
 const useToastStore = create<ToastState>((set) => ({
@@ -31,7 +33,8 @@ const useToastStore = create<ToastState>((set) => ({
   push(message, type) {
     const id = nextId++;
     set((s) => ({ items: [...s.items, { id, type, message }] }));
-    setTimeout(() => set((s) => ({ items: s.items.filter((t) => t.id !== id) })), TOAST_DURATION_MS);
+    const ttl = type === "error" ? TOAST_DURATION_ERROR_MS : TOAST_DURATION_MS;
+    setTimeout(() => set((s) => ({ items: s.items.filter((t) => t.id !== id) })), ttl);
   },
   remove(id) {
     set((s) => ({ items: s.items.filter((t) => t.id !== id) }));
@@ -49,13 +52,30 @@ export function Toaster() {
   const items = useToastStore((s) => s.items);
   const remove = useToastStore((s) => s.remove);
   return (
-    <div className={styles.region} aria-live="polite" aria-atomic="false">
+    <div className={styles.region}>
       {items.map((t) => (
-        <div key={t.id} className={styles.toast} data-type={t.type} onClick={() => remove(t.id)}>
+        // live 시맨틱은 항목 role에만 둔다. region이 별도 live면 중첩 낭독이 생긴다.
+        // status는 암묵 polite, alert는 암묵 assertive라 에러만 즉시 낭독된다
+        <div
+          key={t.id}
+          className={styles.toast}
+          data-type={t.type}
+          role={t.type === "error" ? "alert" : "status"}
+        >
           <span className={styles.icon} data-type={t.type} aria-hidden="true">
             {ICONS[t.type]}
           </span>
           <span className={styles.message}>{t.message}</span>
+          <button
+            type="button"
+            className={styles.close}
+            aria-label="알림 닫기"
+            onClick={() => remove(t.id)}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
       ))}
     </div>

@@ -34,12 +34,15 @@ a { color: inherit; text-decoration: none; }
   text-underline-offset: 3px;
 }
 
-/* ===== 포커스 (이중 링, ≥3:1) ===== */
+/* ===== 포커스 (이중 링, ≥3:1) =====
+   바깥 링은 outline(offset)로 그린다. box-shadow 링은 스크롤 컨테이너(호가·마켓·자산 리스트)
+   overflow 경계에서 잘렸다. outline은 클리핑되지 않고 outline-offset 간격이 surface 분리 역할을 한다.
+   안쪽 헤어라인은 inset box-shadow라 유색·틴트 fill 위에서도 링 분리를 유지하며 레이아웃 시프트 0. */
 :focus { outline: none; }
 :focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-radius: var(--radius-xs);
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  box-shadow: inset 0 0 0 1px var(--surface-default);
 }
 
 /* ===== 스크린리더 전용 ===== */
@@ -51,6 +54,29 @@ a { color: inherit; text-decoration: none; }
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ===== 본문 바로가기(skip link) =====
+   평소 화면 밖, 키보드 포커스 시에만 좌상단 노출. 스티키 헤더 위로 떠야 하므로 z-toast. */
+.skip-link {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: var(--z-toast);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-elevated);
+  color: var(--text-strong);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  transform: translateY(calc(-100% - var(--space-4)));
+}
+.skip-link:focus-visible { transform: translateY(0); }
+@media (prefers-reduced-motion: no-preference) {
+  .skip-link { transition: transform var(--dur-fast) var(--ease-standard); }
 }
 
 /* ===== 틱 플래시 셀 (§6 계약, throttle·중첩 취소는 TickCell 훅이 관리) ===== */
@@ -171,6 +197,31 @@ a { color: inherit; text-decoration: none; }
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   color: var(--text-secondary); /* 안내 문구=정보 전달, tertiary 금지 (§2) */
+}
+/* 빈 상태 계기 마크. 눈금만 새겨진 무채 판독판 = '아직 표시할 값 없음'. 장식 아닌 계기 어휘.
+   assets·history 로컬 .emptyMark를 공용 승격(표준=64x40, 소형=48x30) */
+.empty-state__mark {
+  width: 64px;
+  height: 40px;
+  border-radius: var(--control-radius);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--surface-sunken);
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--rule-tick) 0,
+    var(--rule-tick) 1px,
+    transparent 1px,
+    transparent 10px
+  );
+}
+.empty-state__mark--sm { width: 48px; height: 30px; }
+
+/* 단위 접미 (원·%·KRW 등 값 뒤 보조 라벨). 화폐·수량 단위를 전달하는 정보 텍스트라 secondary(4.5:1)로 둔다. 위계 분리는 micro 크기·regular로 확보 */
+.unit-suffix {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
 }
 
 /* ===== 버튼 공용 (A-3 핵심 변형만, 세부는 화면 구현 시 확장) ===== */

@@ -225,7 +225,7 @@ export default function AssetsPage() {
       ) : failed ? (
         <section className="card" aria-label="자산 로드 실패">
           <div className="empty-state" role="alert">
-            <span className={styles.emptyMark} aria-hidden="true" />
+            <span className="empty-state__mark" aria-hidden="true" />
             <span className="empty-state__title">자산을 불러오지 못했어요</span>
             <span className="empty-state__desc">서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요</span>
             <button type="button" className="btn btn--secondary" onClick={load}>
@@ -262,12 +262,13 @@ export default function AssetsPage() {
             </div>
             <div className={styles.stat}>
               <span className="gauge-plate">총 보유자산</span>
-              <b className={`${styles.statValue} num`}>{hidden ? HIDDEN : formatKRW(totalAsset)}</b>
+              <b className={`${styles.statValueEmph} num`}>{hidden ? HIDDEN : formatKRW(totalAsset)}</b>
             </div>
             <button
               type="button"
               className={styles.hideBtn}
               aria-pressed={hidden}
+              aria-label={hidden ? "자산 금액 보기" : "자산 금액 숨기기"}
               onClick={() => setHidden((h) => !h)}
             >
               {hidden ? "보기" : "숨김"}
@@ -288,7 +289,7 @@ export default function AssetsPage() {
                 ariaLabel="보유 자산"
                 empty={
                   <div className="empty-state">
-                    <span className={styles.emptyMark} aria-hidden="true" />
+                    <span className="empty-state__mark" aria-hidden="true" />
                     <span className="empty-state__title">아직 보유한 코인이 없어요</span>
                     <span className="empty-state__desc">첫 코인을 담아 포트폴리오를 시작해 보세요</span>
                     <Link href="/exchange" className="btn btn--secondary">
@@ -303,7 +304,7 @@ export default function AssetsPage() {
               <h2 className={`${styles.weightTitle} gauge-plate`}>보유 비중</h2>
               {weights.length === 0 ? (
                 <div className="empty-state">
-                  <span className={styles.emptyMark} aria-hidden="true" />
+                  <span className="empty-state__mark" aria-hidden="true" />
                   <span className="empty-state__title">보유 자산이 없어요</span>
                 </div>
               ) : (

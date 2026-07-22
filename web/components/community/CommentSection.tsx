@@ -161,7 +161,10 @@ export default function CommentSection({ postExternalId, session, commentCount, 
       )}
 
       {phase === "ready" && roots.length === 0 && (
-        <p className={styles.empty}>아직 댓글이 없어요. 첫 댓글을 남겨보세요</p>
+        <div className={styles.empty}>
+          <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+          <p>아직 댓글이 없어요. 첫 댓글을 남겨보세요</p>
+        </div>
       )}
 
       {phase === "ready" && roots.length > 0 && (

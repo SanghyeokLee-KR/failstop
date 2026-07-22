@@ -93,20 +93,3 @@
 }
 .cancelBtn:hover { background: var(--surface-hover); }
 .cancelBtn:disabled { color: var(--text-disabled); cursor: default; }
-
-/* 빈 상태 계기 마크. 눈금만 새겨진 무채 판독판 = '아직 표시할 값 없음'. 장식 아닌 계기 어휘 */
-.emptyMark {
-  width: 64px;
-  height: 40px;
-  margin-bottom: var(--space-1);
-  border-radius: var(--control-radius);
-  border: 1px solid var(--border-subtle);
-  background-color: var(--surface-sunken);
-  background-image: repeating-linear-gradient(
-    to right,
-    var(--rule-tick) 0,
-    var(--rule-tick) 1px,
-    transparent 1px,
-    transparent 10px
-  );
-}

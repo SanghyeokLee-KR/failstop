@@ -29,8 +29,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
       <body>
+        <a href="#main" className="skip-link">
+          본문 바로가기
+        </a>
         <HeaderNav />
-        {children}
+        {/* 스킵 링크·리딩 순서의 본문 시작점. 각 페이지는 이 안에서 자체 main 랜드마크를 렌더한다 */}
+        <div id="main" tabIndex={-1}>
+          {children}
+        </div>
         <Toaster />
       </body>
     </html>

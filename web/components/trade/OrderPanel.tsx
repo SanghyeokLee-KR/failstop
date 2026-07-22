@@ -281,13 +281,14 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const btnClass = side === "bid" ? "btn--buy" : "btn--sell";
 
   return (
-    <PanelCard>
+    <PanelCard className={styles.card}>
       <div className={styles.form}>
         <SegmentedTab
           items={SIDE_ITEMS}
           value={side}
           onChange={setSide}
           variant="directional"
+          semantics="radio"
           ariaLabel="주문 방향"
           disabled={submitting}
         />
@@ -332,7 +333,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
                 aria-label="주문 가격(원)"
                 disabled={submitting}
               />
-              <span className={styles.unit}>원</span>
+              <span className={`unit-suffix ${styles.unit}`}>원</span>
               <button type="button" className={styles.step} aria-label="가격 한 호가 올리기" onClick={() => stepPrice(1)} disabled={submitting}>
                 ＋
               </button>
@@ -358,7 +359,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
                 aria-label="시장가 매수 금액(원)"
                 disabled={submitting}
               />
-              <span className={styles.unit}>원</span>
+              <span className={`unit-suffix ${styles.unit}`}>원</span>
             </div>
           </div>
         ) : (
@@ -378,7 +379,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
                 aria-label={`주문 수량(${base})`}
                 disabled={submitting}
               />
-              <span className={styles.unit}>{base}</span>
+              <span className={`unit-suffix ${styles.unit}`}>{base}</span>
             </div>
           </div>
         )}
@@ -404,11 +405,15 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
 
         <div className={styles.sumRow}>
           <span>주문총액</span>
-          <b className="num">{formatKRW(total)} 원</b>
+          <b className="num">
+            {formatKRW(total)} <span className="unit-suffix">원</span>
+          </b>
         </div>
         <div className={styles.sumRow}>
           <span>예상 수수료 (0.05%)</span>
-          <b className="num">{formatKRW(fee)} 원</b>
+          <b className="num">
+            {formatKRW(fee)} <span className="unit-suffix">원</span>
+          </b>
         </div>
         <div className={styles.sumRow}>
           <span>주문가능</span>
@@ -420,7 +425,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             </button>
           ) : (
             <span className="num">
-              {side === "bid" ? `${formatKRW(availKRW)} 원` : `${formatQty(availCoin, qtyScale)} ${base}`}
+              {side === "bid" ? formatKRW(availKRW) : formatQty(availCoin, qtyScale)}{" "}
+              <span className="unit-suffix">{side === "bid" ? "원" : base}</span>
             </span>
           )}
         </div>

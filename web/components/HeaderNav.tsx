@@ -43,15 +43,32 @@ function MemberMenu({ displayName }: { displayName: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const initial = displayName.trim().charAt(0).toUpperCase() || "?";
+
+  const menuItems = () =>
+    Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+
+  const closeAndReturn = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  // 열릴 때 첫 항목으로 포커스 이동(§4-2 키보드 흐름)
+  useEffect(() => {
+    if (!open) return;
+    menuItems()[0]?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     };
+    // 포커스가 메뉴를 벗어난 경우의 Escape 안전망. 트리거로 포커스 복귀
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closeAndReturn();
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -60,6 +77,28 @@ function MemberMenu({ displayName }: { displayName: string }) {
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  const onMenuKeyDown = (e: React.KeyboardEvent) => {
+    const list = menuItems();
+    if (list.length === 0) return;
+    const idx = list.indexOf(document.activeElement as HTMLElement);
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      list[(idx + 1) % list.length]?.focus();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      list[(idx - 1 + list.length) % list.length]?.focus();
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      list[0]?.focus();
+    } else if (e.key === "End") {
+      e.preventDefault();
+      list[list.length - 1]?.focus();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closeAndReturn();
+    }
+  };
 
   const logout = async () => {
     setOpen(false);
@@ -75,11 +114,18 @@ function MemberMenu({ displayName }: { displayName: string }) {
   return (
     <div className={styles.member} ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className={styles.memberChip}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
       >
         <span className={styles.avatar} aria-hidden="true">
           {initial}
@@ -90,7 +136,14 @@ function MemberMenu({ displayName }: { displayName: string }) {
         </span>
       </button>
       {open && (
-        <div className={styles.menu} role="menu" aria-label="회원 메뉴">
+        <div
+          ref={menuRef}
+          className={styles.menu}
+          role="menu"
+          aria-label="회원 메뉴"
+          aria-orientation="vertical"
+          onKeyDown={onMenuKeyDown}
+        >
           {MENU_LINKS.map((m) => (
             <Link
               key={m.href}
@@ -103,7 +156,12 @@ function MemberMenu({ displayName }: { displayName: string }) {
             </Link>
           ))}
           <div className={styles.menuSep} role="separator" />
-          <button type="button" role="menuitem" className={styles.menuLogout} onClick={() => void logout()}>
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.menuLogout}
+            onClick={() => void logout()}
+          >
             로그아웃
           </button>
         </div>

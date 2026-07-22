@@ -104,7 +104,7 @@ export default function RankingTable() {
                     <span className={`${styles.nameSym} num`}>{c.symbol}/KRW</span>
                   </span>
                 </span>
-                <span role="cell" className={`${styles.right} num dir-text`} data-dir={dir}>
+                <span role="cell" className={`${styles.right} num`}>
                   {t ? <TickCell value={toNum(t.trade_price)} format={formatPrice} /> : "-"}
                 </span>
                 <span

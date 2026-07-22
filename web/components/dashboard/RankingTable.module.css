@@ -32,7 +32,7 @@
   grid-template-columns: 36px minmax(0, 1fr) 132px 128px 120px;
   align-items: center;
   gap: var(--space-3);
-  min-height: 52px;
+  min-height: 46px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
 }
@@ -94,5 +94,6 @@
   font-size: var(--font-body-sm-size);
   line-height: var(--font-body-sm-line);
   font-weight: var(--fw-semibold);
+  color: var(--text-strong); /* 색=사건: 현재가는 무채 잉크. 방향색은 전일대비 한 채널만(dir-text가 재정의) */
 }
 .vol { color: var(--text-secondary); font-weight: var(--fw-regular); }

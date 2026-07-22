@@ -34,6 +34,8 @@ export default function SummaryBar({ market, meta }: Props) {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const identRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -41,7 +43,11 @@ export default function SummaryBar({ market, meta }: Props) {
       if (identRef.current && !identRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
+      // Escape는 닫고 트리거로 포커스 복귀. 항목이 많아 role=menu 대신 명시 포커스 관리
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        triggerRef.current?.focus();
+      }
     };
     document.addEventListener("mousedown", onDown);
     window.addEventListener("keydown", onKey);
@@ -50,6 +56,29 @@ export default function SummaryBar({ market, meta }: Props) {
       window.removeEventListener("keydown", onKey);
     };
   }, [menuOpen]);
+
+  // 열림 시 현재 마켓 항목(없으면 첫 항목)으로 포커스 진입
+  useEffect(() => {
+    if (!menuOpen) return;
+    const idx = Math.max(
+      0,
+      COIN_META.findIndex((c) => c.market === market),
+    );
+    menuItemRefs.current[idx]?.focus();
+  }, [menuOpen, market]);
+
+  const onMenuKeyDown = (e: React.KeyboardEvent) => {
+    const count = COIN_META.length;
+    const idx = menuItemRefs.current.findIndex((el) => el === document.activeElement);
+    let next = -1;
+    if (e.key === "ArrowDown") next = idx < 0 ? 0 : (idx + 1) % count;
+    else if (e.key === "ArrowUp") next = idx < 0 ? count - 1 : (idx - 1 + count) % count;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = count - 1;
+    else return;
+    e.preventDefault();
+    menuItemRefs.current[next]?.focus();
+  };
 
   const config = useEffectIntensity();
   const gov = useTradeRateGovernor(market);
@@ -63,6 +92,7 @@ export default function SummaryBar({ market, meta }: Props) {
     <div className={styles.root}>
       <div className={styles.ident} ref={identRef}>
         <button
+          ref={triggerRef}
           type="button"
           className={styles.identBtn}
           aria-haspopup="menu"
@@ -78,10 +108,13 @@ export default function SummaryBar({ market, meta }: Props) {
           </span>
         </button>
         {menuOpen && (
-          <div className={styles.menu} role="menu" aria-label="마켓 목록">
-            {COIN_META.map((c) => (
+          <div className={styles.menu} role="menu" aria-label="마켓 목록" onKeyDown={onMenuKeyDown}>
+            {COIN_META.map((c, i) => (
               <button
                 key={c.market}
+                ref={(el) => {
+                  menuItemRefs.current[i] = el;
+                }}
                 type="button"
                 role="menuitem"
                 className={styles.menuItem}
@@ -151,7 +184,13 @@ export default function SummaryBar({ market, meta }: Props) {
         <div className={styles.stat}>
           <span className={styles.statLabel}>거래량(24H)</span>
           <span className={`${styles.statValue} num`}>
-            {ticker ? `${formatCompactKRW(ticker.acc_trade_volume_24h)} ${meta.symbol}` : "-"}
+            {ticker ? (
+              <>
+                {formatCompactKRW(ticker.acc_trade_volume_24h)} <span className="unit-suffix">{meta.symbol}</span>
+              </>
+            ) : (
+              "-"
+            )}
           </span>
         </div>
         <button

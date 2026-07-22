@@ -147,6 +147,7 @@ export default function BoardListView({ market, meta, session }: Props) {
 
             {phase === "error" && (
               <div className="empty-state" role="alert">
+                <span className="empty-state__mark" aria-hidden="true" />
                 <p className="empty-state__title">글을 불러오지 못했어요</p>
                 <p className="empty-state__desc">잠시 후 다시 시도해 주세요</p>
                 <button type="button" className="btn btn--secondary" onClick={() => void load(sort, true)}>
@@ -157,6 +158,7 @@ export default function BoardListView({ market, meta, session }: Props) {
 
             {phase === "ready" && posts.length === 0 && (
               <div className="empty-state">
+                <span className="empty-state__mark" aria-hidden="true" />
                 <p className="empty-state__title">아직 글이 없어요. 첫 글을 남겨보세요</p>
                 <button type="button" className="btn btn--primary" onClick={openCompose}>
                   글쓰기

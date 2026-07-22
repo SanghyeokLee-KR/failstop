@@ -45,6 +45,22 @@
 
 .message { flex: 1; }
 
+/* 닫기 버튼. 히트 타깃 44px는 유지하되 음수 마진으로 토스트 높이를 부풀리지 않는다 */
+.close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-top: calc(var(--space-3) * -1);
+  margin-bottom: calc(var(--space-3) * -1);
+  margin-right: calc(var(--space-2) * -1);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.close:hover { color: var(--text-strong); }
+
 @keyframes toastIn {
   from { transform: translateY(12px); opacity: 0; }
 }

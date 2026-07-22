@@ -27,6 +27,7 @@ export default function CommunityClient() {
     return (
       <main className={styles.page}>
         <div className={styles.notFound}>
+          <span className="empty-state__mark" aria-hidden="true" />
           <h1 className={styles.notFoundTitle}>존재하지 않는 종목 게시판이에요</h1>
           <Link href="/exchange" className="btn btn--secondary">
             거래소로 이동

@@ -242,7 +242,7 @@ export default function HistoryPage() {
       ) : failed ? (
         <section className={`card ${styles.tableCard}`} aria-label="주문 목록">
           <div className="empty-state" role="alert">
-            <span className={styles.emptyMark} aria-hidden="true" />
+            <span className="empty-state__mark" aria-hidden="true" />
             <span className="empty-state__title">거래내역을 불러오지 못했어요</span>
             <span className="empty-state__desc">서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요</span>
             <button type="button" className="btn btn--secondary" onClick={load}>
@@ -261,7 +261,7 @@ export default function HistoryPage() {
             ariaLabel={tab === "open" ? "미체결 주문" : "체결·취소 주문"}
             empty={
               <div className="empty-state">
-                <span className={styles.emptyMark} aria-hidden="true" />
+                <span className="empty-state__mark" aria-hidden="true" />
                 <span className="empty-state__title">
                   {tab === "open" ? "대기 중인 주문이 없어요" : "거래내역이 없어요"}
                 </span>

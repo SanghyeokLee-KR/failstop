@@ -123,6 +123,7 @@ export default function TradesPanel({ market }: { market: string }) {
         <Skeleton variant="card" width="100%" height="100%" />
       ) : rows.length === 0 ? (
         <div className="empty-state">
+          <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
           <span className="empty-state__title">아직 체결 내역이 없어요</span>
         </div>
       ) : (

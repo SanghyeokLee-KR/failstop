@@ -30,23 +30,9 @@
 .search input:focus { outline: none; box-shadow: none; }
 .search input::placeholder { color: var(--text-tertiary); }
 
+/* 필터 구분은 공용 SegmentedTab 소비. 래퍼는 세로 압축만 방지 */
 .tabs {
-  display: flex;
-  gap: var(--space-1);
   flex-shrink: 0;
-}
-.tabBtn {
-  flex: 1;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: var(--fw-semibold);
-  color: var(--text-secondary);
-  background: var(--surface-sunken);
-}
-.tabBtn[data-on] {
-  background: var(--brand-weak-bg);
-  color: var(--text-brand);
 }
 
 /* 정렬 가능 헤더 */

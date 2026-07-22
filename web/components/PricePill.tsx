@@ -26,7 +26,7 @@ export default function PricePill({ change, changeRate, amount, variant = "pill"
       aria-label={ariaChangeLabel(changeRate, change)}
     >
       {amount != null && (
-        <span className={styles.amount}>{formatDirectionalAmount(amount, change)}&nbsp;&nbsp;</span>
+        <span className={styles.amount}>{formatDirectionalAmount(amount, change)}</span>
       )}
       {amount != null
         ? formatDirectional(changeRate, change).replace(/^[▲▼]\s/, "")

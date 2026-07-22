@@ -9,6 +9,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PanelCard from "@/components/PanelCard";
+import SegmentedTab from "@/components/SegmentedTab";
 import TickCell from "@/components/TickCell";
 import { useExchangeStore } from "@/lib/store";
 import { useEffectIntensity } from "@/lib/useEffectIntensity";
@@ -130,20 +131,8 @@ export default function MarketListPanel({ market }: { market: string }) {
           />
         </div>
 
-        <div className={styles.tabs} role="tablist" aria-label="마켓 목록 구분">
-          {TABS.map((t) => (
-            <button
-              key={t.value}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.value}
-              className={styles.tabBtn}
-              data-on={tab === t.value || undefined}
-              onClick={() => setTab(t.value)}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className={styles.tabs}>
+          <SegmentedTab items={TABS} value={tab} onChange={setTab} ariaLabel="마켓 목록 구분" />
         </div>
 
         <div className={styles.head}>
@@ -168,6 +157,7 @@ export default function MarketListPanel({ market }: { market: string }) {
         <div className={styles.list}>
           {rows.length === 0 ? (
             <div className="empty-state">
+              <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
               <span className="empty-state__title">{emptyText}</span>
             </div>
           ) : (
@@ -182,7 +172,6 @@ export default function MarketListPanel({ market }: { market: string }) {
                   className={styles.row}
                   data-current={current || undefined}
                   aria-current={current ? "page" : undefined}
-                  aria-label={`${c.koreanName} 거래 화면으로 이동`}
                   onClick={() => {
                     if (!current) router.push(`/exchange/${c.market}`);
                   }}

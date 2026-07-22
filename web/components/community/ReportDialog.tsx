@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReportReason, ReportTargetType } from "@/lib/community/types";
 import { REPORT_DETAIL_MAX } from "@/lib/community/types";
 import styles from "./ReportDialog.module.css";
@@ -26,10 +27,12 @@ interface Props {
 
 export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
   const titleId = useId();
+  const descId = useId();
   const [reason, setReason] = useState<ReportReason>("SPAM");
   const [detail, setDetail] = useState("");
   const [busy, setBusy] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const prevFocused = document.activeElement as HTMLElement | null;
@@ -65,6 +68,21 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
     };
   }, [onClose]);
 
+  // 배경 격리는 포커스 효과 뒤에 선언한다. 정리 역순 실행이라 inert 해제가 포커스 복원보다 먼저 돈다
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const bg = Array.from(document.body.children).filter((el) => el !== overlay) as HTMLElement[];
+    // inert가 접근성 트리에서 이미 제거하므로 aria-hidden은 중복이라 두지 않는다
+    const prev = bg.map((n) => ({ n, inert: n.hasAttribute("inert") }));
+    bg.forEach((n) => n.setAttribute("inert", ""));
+    return () => {
+      prev.forEach(({ n, inert }) => {
+        if (!inert) n.removeAttribute("inert");
+      });
+    };
+  }, []);
+
   const submit = async () => {
     if (busy) return;
     setBusy(true);
@@ -77,20 +95,21 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
 
   const label = targetType === "POST" ? "글" : "댓글";
 
-  return (
-    <div className={styles.overlay} onMouseDown={onClose}>
+  return createPortal(
+    <div ref={overlayRef} className={styles.overlay} onMouseDown={onClose}>
       <div
         ref={dialogRef}
         className={styles.dialog}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-describedby={descId}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <h2 id={titleId} className={styles.title}>
           {label} 신고
         </h2>
-        <p className={styles.desc}>신고 사유를 선택해 주세요. 접수 후 운영 검토를 거쳐요.</p>
+        <p id={descId} className={styles.desc}>신고 사유를 선택해 주세요. 접수 후 운영 검토를 거쳐요.</p>
 
         <fieldset className={styles.reasons}>
           <legend className="sr-only">신고 사유</legend>
@@ -130,6 +149,7 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

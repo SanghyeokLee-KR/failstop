@@ -30,4 +30,5 @@
 .root[data-variant="inline"][data-dir="down"] { color: var(--color-down-text); }
 .root[data-variant="inline"][data-dir="flat"] { color: var(--color-flat); }
 
-.amount { font-weight: var(--fw-semibold); }
+/* 등락금액·등락률 간격은 nbsp 대신 토큰 margin으로 고정해 tabular 리듬 유지 */
+.amount { font-weight: var(--fw-semibold); margin-right: var(--space-2); }
