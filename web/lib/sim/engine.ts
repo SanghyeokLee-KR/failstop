@@ -70,7 +70,7 @@ export const COIN_META: CoinMeta[] = SEEDS.map((s) => ({
   brandTextDark: s.brandTextDark,
 }));
 
-/** 호가 가격 단위 (Upbit 관례 축약) */
+/** 호가 가격 단위 (Upbit 관례 축약). 저가 구간은 소수 틱으로 격자를 유지한다(sub-1 KRW 마켓 0 강제 방지) */
 export function priceStep(price: number): number {
   if (price >= 2_000_000) return 1000;
   if (price >= 1_000_000) return 500;
@@ -79,7 +79,11 @@ export function priceStep(price: number): number {
   if (price >= 10_000) return 10;
   if (price >= 1_000) return 1;
   if (price >= 100) return 1;
-  return 0.1;
+  if (price >= 10) return 0.1;
+  if (price >= 1) return 0.01;
+  if (price >= 0.1) return 0.001;
+  if (price >= 0.01) return 0.0001;
+  return 0.00001;
 }
 
 function roundToStep(price: number): number {

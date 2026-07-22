@@ -29,8 +29,11 @@ import OrderConfirmDialog from "./OrderConfirmDialog";
 import {
   committedRatioOf,
   floorTo,
+  formatPriceField,
   isLargeOrder as computeLargeOrder,
   qtyFromTotal,
+  roundToTick,
+  stepToTick,
   toPlainString,
 } from "./orderMath";
 import styles from "./OrderPanel.module.css";
@@ -109,7 +112,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     if (!prefill) return;
     if (submittingRef.current) return;
     setOrdType((t) => (t === "market" ? "limit" : t));
-    setPriceRaw(String(Math.round(toNum(prefill.price))));
+    setPriceRaw(roundToTick(prefill.price, tickRef.current));
     setActivePct(null);
   }, [prefill]);
 
@@ -118,7 +121,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   useEffect(() => {
     if (!prefilled.current && ticker) {
       prefilled.current = true;
-      setPriceRaw(String(Math.round(toNum(ticker.trade_price))));
+      setPriceRaw(roundToTick(ticker.trade_price, tickRef.current));
     }
   }, [ticker]);
 
@@ -172,6 +175,16 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const isMarketBuy = ordType === "market" && side === "bid";
   const total = isMarketBuy ? amount : price * qty;
   const fee = total * FEE_RATE;
+  const displayTotal = Math.round(total);
+
+  // 가격 격자. 마켓 tick_size가 있으면 그것을, 없으면 가격대별 priceStep을 쓴다. 저가·소수틱 마켓 0 강제 방지.
+  const priceTick =
+    marketInfo?.tick_size && toNum(marketInfo.tick_size) > 0
+      ? marketInfo.tick_size
+      : String(priceStep(price > 0 ? price : curPrice > 0 ? curPrice : 1));
+  // 프리필 이펙트는 marketInfo를 deps에 넣지 않으려 최신 틱을 ref로 참조한다(ticker 변화마다 재주입 방지)
+  const tickRef = useRef(priceTick);
+  tickRef.current = priceTick;
 
   const availKRW = toNum(assets.find((a) => a.currency === "KRW")?.balance);
   const availCoin = toNum(assets.find((a) => a.currency === base)?.balance);
@@ -180,10 +193,11 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
 
   /* ===== 검증 (OrderClient 규약 그대로) ===== */
   let error: string | null = null;
-  if (total > 0 && total < MIN_ORDER_KRW) error = "최소 주문 금액은 5,000원이에요";
+  // 최소주문 판정을 표시 총액(반올림)과 정렬한다. 역산 내림의 서브원 오차로 '5,000 표시+미달' 모순이 나지 않게 한다
+  if (displayTotal > 0 && displayTotal < MIN_ORDER_KRW) error = "최소 주문 금액은 5,000원이에요";
   else if (side === "bid" && total > 0 && total + fee > availKRW) error = "주문 가능 금액을 초과했어요";
   else if (side === "ask" && qty > availCoin) error = "보유 수량을 초과했어요";
-  const ready = total >= MIN_ORDER_KRW && error === null && !loadingBalance && !accountsFailed;
+  const ready = displayTotal >= MIN_ORDER_KRW && error === null && !loadingBalance && !accountsFailed;
 
   // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다
   const committedRatio = committedRatioOf(side, total, fee, availKRW, availCoin, qty);
@@ -191,7 +205,11 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
 
   /* ===== 입력 핸들러 ===== */
   const onPriceInput = (v: string) => {
-    setPriceRaw(v.replace(/[^0-9]/g, "").slice(0, 12));
+    // 소수 허용(저가·소수틱 마켓). 숫자와 소수점 1개만 남긴다
+    let cleaned = v.replace(/[^0-9.]/g, "");
+    const dot = cleaned.indexOf(".");
+    if (dot >= 0) cleaned = cleaned.slice(0, dot + 1) + cleaned.slice(dot + 1).replace(/\./g, "");
+    setPriceRaw(cleaned.slice(0, 16));
     setActivePct(null);
   };
   const onQtyInput = (v: string) => {
@@ -215,10 +233,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   };
 
   const stepPrice = (sign: 1 | -1) => {
-    const p = price > 0 ? price : curPrice;
-    const step = priceStep(p);
-    const next = Math.max(step, p + sign * step);
-    setPriceRaw(String(Math.round(next)));
+    const ref = price > 0 ? price : curPrice;
+    setPriceRaw(stepToTick(ref, priceTick, sign));
     setActivePct(null);
   };
 
@@ -252,13 +268,13 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             market,
             side,
             ord_type: "limit",
-            price: String(Math.round(price)),
-            volume: String(qty),
+            price: roundToTick(priceRaw, priceTick),
+            volume: toPlainString(qty, qtyScale),
             client_order_id: cid,
           }
         : side === "bid"
           ? { market, side, ord_type: "market", price: String(Math.round(amount)), client_order_id: cid }
-          : { market, side, ord_type: "market", volume: String(qty), client_order_id: cid };
+          : { market, side, ord_type: "market", volume: toPlainString(qty, qtyScale), client_order_id: cid };
     try {
       await getDataSource().placeOrder(req);
       // 확정 성공. 다음 주문은 새 키
@@ -313,7 +329,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
       ? toPlainString(floorTo(amount / curPrice, qtyScale), qtyScale)
       : "0"
     : String(qty);
-  const confirmPriceStr = ordType === "limit" ? String(Math.round(price)) : undefined;
+  const confirmPriceStr = ordType === "limit" ? roundToTick(priceRaw, priceTick) : undefined;
   const confirmTotalStr = String(Math.round(total));
   const ratioPct = Math.round(committedRatio * 100);
 
@@ -362,9 +378,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
               <input
                 id="panel-ord-price"
                 className="num"
-                inputMode="numeric"
+                inputMode="decimal"
                 autoComplete="off"
-                value={priceRaw ? formatKRW(priceRaw) : ""}
+                value={priceRaw ? formatPriceField(priceRaw) : ""}
                 placeholder={ticker ? formatPrice(curPrice) : "0"}
                 onChange={(e) => onPriceInput(e.target.value)}
                 aria-label="주문 가격(원)"

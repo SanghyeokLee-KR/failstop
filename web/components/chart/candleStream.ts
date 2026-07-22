@@ -30,7 +30,8 @@ export interface LiveCandle {
 export interface CandleStreamCallbacks {
   /** 초기 로드 결과. hasData=false면 빈 상태 렌더 */
   onLoaded: (hasData: boolean) => void;
-  /** 형성 중 마지막 캔들 갱신. 헤더 판독·aria 요약이 소비 */
+  /** 형성 중 마지막 캔들 갱신(300ms coalesce). 시각 판독(ChartReadout)만 소비하고, aria 낭독은
+   *  TradingChart가 봉 롤오버·크로스헤어로 별도 게이팅한다 */
   onLatest: (candle: LiveCandle | null) => void;
 }
 

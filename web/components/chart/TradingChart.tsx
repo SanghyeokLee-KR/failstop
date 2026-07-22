@@ -7,11 +7,11 @@
  * 데이터 접근은 candleStream(단일 통로)만 쓰고 화면 코드는 DataSource를 직접 부르지 않는다.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActionType, dispose, init, type Chart, type IndicatorCreate, type KLineData } from "klinecharts";
 import Skeleton from "@/components/Skeleton";
 import type { CandleUnit } from "@/lib/types";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatQty } from "@/lib/format";
 import ChartToolbar from "./ChartToolbar";
 import ChartReadout from "./ChartReadout";
 import { readChartTokens, useChartTheme } from "./useChartTheme";
@@ -30,6 +30,16 @@ function prefersReducedMotion(): boolean {
 const UNIT_LABEL: Record<string, string> = {
   "1m": "1분", "5m": "5분", "15m": "15분", "60m": "1시간", "240m": "4시간", "1d": "1일",
 };
+
+// status 리전 낭독 디바운스. 크로스헤어 스윕·연속 이벤트를 최종 1건으로 합쳐 SR 낭독 큐 폭주를 막는다.
+// 시각 채널(플래시 throttle 300ms, 소음 0)의 청각 대칭.
+const ANNOUNCE_DEBOUNCE_MS = 2500;
+
+/** 게이팅된 낭독 문구. 형성봉 300ms 스트림이 아니라 롤오버·크로스헤어·명시 갱신에서만 호출된다 */
+function candleSummary(market: string, unitLabel: string, c: LiveCandle, prefix: string): string {
+  const dir = c.close > c.open ? "상승" : c.close < c.open ? "하락" : "보합";
+  return `${market} ${unitLabel} ${prefix} 시가 ${formatPrice(c.open)}, 고가 ${formatPrice(c.high)}, 저가 ${formatPrice(c.low)}, 종가 ${formatPrice(c.close)}, 거래량 ${formatQty(c.volume, 4)}, ${dir}.`;
+}
 
 /** 지표 생성. main=캔들 pane에 스택, sub=새 보조 pane. 생성 paneId 반환 */
 function createIndicatorFor(chart: Chart, spec: IndicatorSpec, tokens: ReturnType<typeof readChartTokens>): string | null {
@@ -63,11 +73,38 @@ export default function TradingChart({ market }: { market: string }) {
   const hoverTsRef = useRef<number | null>(null);
   // 재시도 카운터. 빈 상태의 다시 불러오기가 스트림 effect를 재실행시킨다
   const [retrySeq, setRetrySeq] = useState(0);
+  // status 리전 낭독 문구. 형성봉 300ms 스트림과 분리해 게이팅된 이벤트에서만 갱신한다
+  const [ariaMessage, setAriaMessage] = useState("");
 
   const unitRef = useRef(unit);
   unitRef.current = unit;
   const activeRef = useRef(active);
   activeRef.current = active;
+  const marketRef = useRef(market);
+  marketRef.current = market;
+  // 마지막으로 관측한 형성봉 timestamp. 봉 롤오버(단위당 1회) 판정에 쓴다
+  const lastBarTsRef = useRef<number | null>(null);
+  const announceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingAriaRef = useRef<string>("");
+
+  // 낭독 게이트. immediate는 명시 갱신(최초 로드·마켓/유닛 전환)용 즉시 낭독, 그 외는 수초 디바운스
+  const announce = useCallback((message: string, immediate = false) => {
+    if (announceTimerRef.current) {
+      clearTimeout(announceTimerRef.current);
+      announceTimerRef.current = null;
+    }
+    if (immediate) {
+      setAriaMessage(message);
+      return;
+    }
+    pendingAriaRef.current = message;
+    announceTimerRef.current = setTimeout(() => {
+      announceTimerRef.current = null;
+      setAriaMessage(pendingAriaRef.current);
+    }, ANNOUNCE_DEBOUNCE_MS);
+  }, []);
+  const announceRef = useRef(announce);
+  announceRef.current = announce;
 
   const handleLatest = useCallback((candle: LiveCandle | null) => {
     const chart = chartRef.current;
@@ -80,6 +117,21 @@ export default function TradingChart({ market }: { market: string }) {
       }
     }
     setLatest(candle);
+    // 형성봉 300ms 갱신은 시각(ChartReadout) 전용. 낭독은 봉 롤오버에서만 게이팅해 큐 폭주를 막는다
+    if (!candle) {
+      lastBarTsRef.current = null;
+      return;
+    }
+    const prevTs = lastBarTsRef.current;
+    lastBarTsRef.current = candle.timestamp;
+    const unitLabel = UNIT_LABEL[unitRef.current] ?? unitRef.current;
+    if (prevTs === null) {
+      // 최초 로드·마켓/유닛 전환 후 첫 봉: 명시 갱신으로 즉시 낭독
+      announceRef.current(candleSummary(marketRef.current, unitLabel, candle, "현재 봉."), true);
+    } else if (candle.timestamp !== prevTs) {
+      // 봉 롤오버: 단위당 1회만 낭독
+      announceRef.current(candleSummary(marketRef.current, unitLabel, candle, "새 봉 시작."), false);
+    }
   }, []);
 
   // 테마 전환 → 전역 스타일 + 지표별 색 재주입(§4.3)
@@ -125,11 +177,15 @@ export default function TradingChart({ market }: { market: string }) {
       const ts = k ? k.timestamp : null;
       if (ts === hoverTsRef.current) return;
       hoverTsRef.current = ts;
-      setHover(
-        k
-          ? { timestamp: k.timestamp, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume ?? 0 }
-          : null,
-      );
+      const c = k
+        ? { timestamp: k.timestamp, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume ?? 0 }
+        : null;
+      setHover(c);
+      // 크로스헤어 조작은 사용자 능동 행위. 가리킨 봉을 디바운스 낭독 큐에 올려 스윕 소음을 흡수한다
+      if (c) {
+        const unitLabel = UNIT_LABEL[unitRef.current] ?? unitRef.current;
+        announceRef.current(candleSummary(marketRef.current, unitLabel, c, "선택 봉."), false);
+      }
     };
     chart.subscribeAction(ActionType.OnCrosshairChange, onCrosshair);
 
@@ -155,6 +211,8 @@ export default function TradingChart({ market }: { market: string }) {
     setLatest(null);
     hoverTsRef.current = null;
     setHover(null);
+    // 재배선 시 첫 봉을 명시 갱신으로 낭독하도록 롤오버 기준을 리셋
+    lastBarTsRef.current = null;
     streamRef.current?.dispose();
     streamRef.current = startCandleStream(market, unit, chart, {
       onLoaded: (hasData) => {
@@ -195,6 +253,11 @@ export default function TradingChart({ market }: { market: string }) {
     });
   }, [active]);
 
+  // 언마운트 시 대기 중 낭독 디바운스 타이머 정리
+  useEffect(() => () => {
+    if (announceTimerRef.current) clearTimeout(announceTimerRef.current);
+  }, []);
+
   const onToggleIndicator = useCallback((key: IndicatorKey) => {
     setActive((prev) => {
       const next = new Set(prev);
@@ -217,11 +280,6 @@ export default function TradingChart({ market }: { market: string }) {
 
   const unitLabel = UNIT_LABEL[unit] ?? unit;
   const ariaLabel = `${market} ${unitLabel} 캔들 차트. 양봉은 빨간색 상승, 음봉은 파란색 하락, 하단은 거래량입니다.`;
-  const srSummary = useMemo(() => {
-    if (!latest) return `${market} ${unitLabel} 표시할 캔들 데이터가 없어요.`;
-    const dir = latest.close > latest.open ? "상승" : latest.close < latest.open ? "하락" : "보합";
-    return `${market} ${unitLabel} 현재 봉. 시가 ${formatPrice(latest.open)}, 고가 ${formatPrice(latest.high)}, 저가 ${formatPrice(latest.low)}, 종가 ${formatPrice(latest.close)}, ${dir}.`;
-  }, [latest, market, unitLabel]);
 
   return (
     <div className={styles.body}>
@@ -250,7 +308,7 @@ export default function TradingChart({ market }: { market: string }) {
           </div>
         )}
         <p className={styles.srOnly} role="status" aria-live="polite">
-          {srSummary}
+          {ariaMessage}
         </p>
       </div>
     </div>
