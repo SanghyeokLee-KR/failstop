@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.11, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.12, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -1011,8 +1011,9 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 - 체결가 = **maker(먼저 앉은 주문)의 지정가**(price improvement는 taker 차익).
 - price-time priority: 가격 우선 + 같은 가격 FIFO.
 - 비결정성 제거: 시간·ID·난수를 **시퀀서가 command에 박제** → 코어는 그 값만 사용. `System.currentTimeMillis()`/`UUID.randomUUID()`/`HashMap` 순회순서/부동소수 금지. 구체 규약(v2.6, id 표기 v2.7 정정): ① 주문 `external_id`(UUID)는 명령 접수 전 사전 발급되어 저널에 박제, ② 체결 `executed_at`은 command의 `engine_ts`에서 파생, ③ `trade_id`는 event_journal `event_seq`에서 결정론 파생, ④ 한 command가 생성한 복수 이벤트의 순서는 `event_ordinal`로 고정(`UNIQUE(source_cmd_seq, event_ordinal)`, §7-1). 재생 시 ID·시각·이벤트 순서까지 원본과 동일하다.
-- FOK: 체결 전 반대편 유동성 스캔 → 전량 충족 가능할 때만 체결(불가 시 `fok_not_filled`).
-- STP(자전거래 방지): maker 체결 직전 `incoming.userId==resting.userId` 검사, 기본 `Decrement & Cancel`(발동 시 `self_trade_prevented` 이벤트).
+- FOK: 체결 전 반대편 유동성 스캔 → 전량 충족 가능할 때만 접수(불가 시 `fok_not_filled`).
+- FOK 자기유동성 규약: 사전 스캔은 자기 유동성(같은 `user_id`의 반대편 레스팅)을 **충족 유동성에 포함**한다. 스캔은 실제 매칭 루프와 동일한 순회·동일 잔량 감액을 가상으로 재생하며, STP-DC로 소멸할 자기 유동성도 taker 잔량을 감액하는 것으로 계산한다. 스캔에서 자기 유동성을 제외하면 스캔과 실행의 충족 판정이 갈려 결정론이 깨진다. 따라서 자기 유동성만으로 전량 충족되는 FOK는 `fok_not_filled`로 거부되지 않고 접수되며, 실행 시 해당 부분은 **STP-DC로 소멸**한다(체결 아님): maker·taker 양쪽이 `self_trade_prevented` CANCELED로 감액되어 taker 잔량이 0에 도달한다(무체결 전량 소멸 가능).
+- STP(자전거래 방지): maker 체결 직전 `incoming.userId==resting.userId` 검사, 기본 `Decrement & Cancel`(발동 시 maker·taker 양쪽에 `self_trade_prevented` 이벤트, 해당 수량은 체결이 아니라 취소로 종결).
 - **매칭 결과 노출**: REST/WS의 trade·myOrder에 `liquidity_flag`(MAKER/TAKER), price improvement 차익, `reject_reason`, `self_trade_prevented` 이벤트로 명시.
 
 ### 7-3. 구현 로드맵 (완성도 우선)
@@ -1299,3 +1300,16 @@ M3 게시판(커뮤니티) API를 §4-D로 신설했다. 게시판_설계.md §4
 | C4 | 에러 | `409 duplicate_report`(대상별 1인 1회 위반) 추가. 나머지는 §2-3 재사용 |
 
 문서 헤더 버전을 v2.11로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.12 패치 반영 사항
+
+§7-2에 FOK 자기유동성 규약을 명시했다. 신규 계약 창설이 아니라 기존 매칭엔진 구현(`OrderBookImpl.wouldFullyFill`·STP-DC 경로)의 확정 동작을 문서로 드러낸 것이다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| D1 | §7-2 | FOK 사전 스캔이 자기 유동성(같은 `user_id` 반대편 레스팅)을 충족 유동성에 포함함을 명시. 스캔은 실행 루프와 동일 순회·동일 감액을 재생하며 STP-DC 소멸분도 taker 잔량 감액으로 계산한다(제외 시 스캔·실행 판정이 갈려 결정론 파괴) |
+| D2 | §7-2 | 자기 유동성만으로 전량 충족되는 FOK는 `fok_not_filled`로 거부되지 않고 접수되며, 해당 부분은 체결 아닌 STP-DC 소멸(maker·taker 양쪽 `self_trade_prevented` CANCELED)로 종결, taker 잔량 0 도달(무체결 전량 소멸 가능) |
+
+문서 헤더 버전을 v2.12로 순증(이전 패치 노트의 역사 서술은 원문 유지).

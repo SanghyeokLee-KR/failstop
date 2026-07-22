@@ -400,8 +400,8 @@ public class SettlementService {
                         price, qty, fees.makerFee(), fees.takerFee(), epoch, ts, ts)
                 .update();
 
-        applyTradeToOrder(seller, qty, proceeds, baseOut, sellerFilled);
-        applyTradeToOrder(buyer, qty, proceeds, quoteOut, buyerFilled);
+        applyTradeToOrder(seller, qty, proceeds, baseOut, sellerFilled, sellerFee);
+        applyTradeToOrder(buyer, qty, proceeds, quoteOut, buyerFilled, buyerFee);
 
         // 아웃박스(§5.2 (7)): 동일 트랜잭션이라 dual-write가 없다. 수치는 text 박제.
         ObjectNode outbox = objectMapper.createObjectNode();
@@ -417,18 +417,22 @@ public class SettlementService {
                 .update();
     }
 
+    // fee는 이 주문 측 수수료(maker면 maker_fee, taker면 taker_fee). paid_fee·trades_count는
+    // 조회 핫패스가 trades를 재집계하지 않도록 filled_qty·executed_quote와 같은 UPDATE에서
+    // 누적하는 프로젝션이다(재생 시 정산이 재구성, DB 설계 §5.2).
     private void applyTradeToOrder(OrderRow row, BigDecimal qty, BigDecimal proceeds,
-                                   BigDecimal lockedOut, boolean filled) {
+                                   BigDecimal lockedOut, boolean filled, BigDecimal fee) {
         int updated;
         if (row.notional()) {
             updated = jdbc.sql("""
                             UPDATE orders
                             SET filled_qty = filled_qty + ?, executed_quote = executed_quote + ?,
                                 locked_amount = locked_amount - ?,
+                                paid_fee = paid_fee + ?, trades_count = trades_count + 1,
                                 status = ?, version = version + 1
                             WHERE id = ? AND version = ?
                             """)
-                    .params(qty, proceeds, lockedOut,
+                    .params(qty, proceeds, lockedOut, fee,
                             filled ? "FILLED" : "PARTIAL", row.id(), row.version())
                     .update();
         } else {
@@ -437,10 +441,11 @@ public class SettlementService {
                             SET filled_qty = filled_qty + ?, remaining_qty = remaining_qty - ?,
                                 executed_quote = executed_quote + ?,
                                 locked_amount = locked_amount - ?,
+                                paid_fee = paid_fee + ?, trades_count = trades_count + 1,
                                 status = ?, version = version + 1
                             WHERE id = ? AND version = ?
                             """)
-                    .params(qty, qty, proceeds, lockedOut,
+                    .params(qty, qty, proceeds, lockedOut, fee,
                             filled ? "FILLED" : "PARTIAL", row.id(), row.version())
                     .update();
         }

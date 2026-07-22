@@ -24,7 +24,7 @@ public class OrderQueryService {
                            String timeInForce, BigDecimal price, BigDecimal quantity,
                            BigDecimal quoteOrderQty, BigDecimal filledQty, BigDecimal remainingQty,
                            BigDecimal executedQuote, BigDecimal lockedAmount, String status,
-                           String rejectReason, Long commandSeq,
+                           String rejectReason, Long commandSeq, BigDecimal paidFee, long tradesCount,
                            OffsetDateTime createdAt, OffsetDateTime updatedAt) {
         boolean notional() {
             return quoteOrderQty != null;
@@ -40,7 +40,7 @@ public class OrderQueryService {
                    o.client_order_id, o.side, o.ord_type, o.time_in_force, o.price, o.quantity,
                    o.quote_order_qty, o.filled_qty, o.remaining_qty, o.executed_quote,
                    o.locked_amount, o.status, o.reject_reason, o.command_seq,
-                   o.created_at, o.updated_at
+                   o.paid_fee, o.trades_count, o.created_at, o.updated_at
             FROM orders o JOIN markets m ON m.id = o.market_id
             """;
 
@@ -127,9 +127,10 @@ public class OrderQueryService {
         body.put("executed_volume", ApiFormats.amount(row.filledQty()));
         body.put("executed_funds", ApiFormats.amount(row.executedQuote()));
         body.put("remaining_notional", row.notional() ? ApiFormats.amount(row.lockedAmount()) : null);
-        FeeStats fees = feeStats(row.id());
-        body.put("paid_fee", ApiFormats.amount(fees.paidFee()));
-        body.put("trades_count", fees.count());
+        // paid_fee·trades_count는 orders에 물질화된 프로젝션(V10). 조회마다 trades를 재집계하지
+        // 않는다. 정산 체결 경로가 결정론적으로 누적하고 재생 시 재구성한다(DB 설계 §5.2).
+        body.put("paid_fee", ApiFormats.amount(row.paidFee()));
+        body.put("trades_count", row.tradesCount());
         body.put("reject_reason", row.rejectReason());
         body.put("created_at", ApiFormats.time(row.createdAt()));
         if ("CANCELED".equals(row.status())) {
@@ -138,26 +139,6 @@ public class OrderQueryService {
         body.put("epoch", epoch);
         body.put("seq", row.commandSeq());
         return body;
-    }
-
-    public record FeeStats(BigDecimal paidFee, long count) {
-    }
-
-    // idx_trades_maker_order·idx_trades_taker_order(V8)가 order_id 축 프루닝을 담당한다.
-    // created_at 하한을 걸지 않는 이유: trades.created_at은 engine_ts(채번 시각) 파생이고
-    // orders.created_at은 정산 now()라 trade.created_at < order.created_at이 정상이다.
-    // order.created_at을 하한으로 쓰면 주문 자신의 체결을 누락한다.
-    private FeeStats feeStats(long orderId) {
-        return jdbc.sql("""
-                        SELECT COUNT(*) AS cnt,
-                               COALESCE(SUM(CASE WHEN maker_order_id = ? THEN maker_fee
-                                                 ELSE taker_fee END), 0) AS fee
-                        FROM trades
-                        WHERE maker_order_id = ? OR taker_order_id = ?
-                        """)
-                .params(orderId, orderId, orderId)
-                .query((rs, rowNum) -> new FeeStats(rs.getBigDecimal("fee"), rs.getLong("cnt")))
-                .single();
     }
 
     private OrderRow map(ResultSet rs, int rowNum) throws SQLException {
@@ -171,6 +152,7 @@ public class OrderQueryService {
                 rs.getBigDecimal("executed_quote"), rs.getBigDecimal("locked_amount"),
                 rs.getString("status"), rs.getString("reject_reason"),
                 (Long) rs.getObject("command_seq"),
+                rs.getBigDecimal("paid_fee"), rs.getLong("trades_count"),
                 rs.getObject("created_at", OffsetDateTime.class),
                 rs.getObject("updated_at", OffsetDateTime.class));
     }

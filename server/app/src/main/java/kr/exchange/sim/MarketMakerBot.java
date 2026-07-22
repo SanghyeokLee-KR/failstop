@@ -45,6 +45,7 @@ public class MarketMakerBot implements Runnable {
     private static final long PARK_MS = 400;
 
     private final String botId;
+    private final String runNonce;
     private final BotApiClient client;
     private final SplittableRandom rng;
     private final SimProperties props;
@@ -66,11 +67,12 @@ public class MarketMakerBot implements Runnable {
     private long cycle;
     private long coidSeq;
 
-    public MarketMakerBot(String botId, BotApiClient client, long seed, SimProperties props,
-                          BigDecimal tick, BigDecimal targetBase,
+    public MarketMakerBot(String botId, String runNonce, BotApiClient client, long seed,
+                          SimProperties props, BigDecimal tick, BigDecimal targetBase,
                           BooleanSupplier running, OpsGovernor governor, BotFleetGovernor fleet,
                           int index) {
         this.botId = botId;
+        this.runNonce = runNonce;
         this.client = client;
         this.rng = new SplittableRandom(seed);
         this.props = props;
@@ -358,13 +360,22 @@ public class MarketMakerBot implements Runnable {
         }
     }
 
+    /**
+     * client_order_id. run 단위 nonce 접두로 재기동 시 직전 run과의 coid 충돌을 막는다(멱등키
+     * 재사용에 의한 무의미한 replay 회피). nonce·botId 고정, coidSeq 단조라 한 run 안에서는
+     * 결정적이다.
+     */
+    private String coid() {
+        return runNonce + "-" + botId + "-" + (++coidSeq);
+    }
+
     private void place(String side, long priceTicks, long quoteMult, String quoteSize) {
         String price = tick.multiply(BigDecimal.valueOf(priceTicks)).toPlainString();
         String volume = new BigDecimal(quoteSize)
                 .multiply(BigDecimal.valueOf(quoteMult)).toPlainString();
         String body = "{\"market\":\"" + props.market() + "\",\"side\":\"" + side
                 + "\",\"ord_type\":\"limit\",\"price\":\"" + price + "\",\"volume\":\"" + volume
-                + "\",\"client_order_id\":\"" + botId + "-" + (++coidSeq) + "\"}";
+                + "\",\"client_order_id\":\"" + coid() + "\"}";
         BotApiClient.Response response = client.placeOrder(body);
         if (response.status() == 201 || response.status() == 200) {
             try {

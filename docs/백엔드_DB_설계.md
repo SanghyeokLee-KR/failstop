@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.14)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.15)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V6+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -329,7 +329,7 @@ erDiagram
 
 ## 3. 전체 DDL
 
-정본 마이그레이션은 현재 `V0`~`V6` 7개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V7 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
+정본 마이그레이션은 현재 `V0`~`V10` 11개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V11 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
 
 | 버전 | 파일 | 내용 | 적용 전제 |
 |---|---|---|---|
@@ -343,7 +343,8 @@ erDiagram
 | V7 | `V7__community_board.sql` | M3 종목 토론 게시판 7개 테이블(§9). `app_role`에 게시판 SELECT·INSERT·UPDATE + 좋아요 2테이블 DELETE | V1 |
 | V8 | `V8__trades_order_index_and_partitions.sql` | `trades` order_id 축 조회 인덱스, 시간 파티션 12개월 수동 선생성(§3.1·§3.2) | V1 |
 | V9 | `V9__operator_roles_delete_grant.sql` | `app_role`에 `operator_roles`·`idempotency_keys` DELETE 부여. 두 효과 테이블의 하드 DELETE 런타임 경로가 V5·V1 GRANT 누락으로 운영 롤에서 42501 실패하던 결함 교정 | V5, V1 |
-| V10+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V10 | `V10__orders_fee_projection.sql` | `orders` 수수료 프로젝션(`paid_fee`·`trades_count`) 물질화. 정산 경로에서 결정론적 누적, 주문 조회 feeStats N+1 재집계 제거 | V1 |
+| V11+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -524,6 +525,12 @@ CREATE TABLE orders (
     -- 열린 주문에서도 아래 보존식이 성립한다. 금액기반(notional) 주문은 사용하지 않는다.
     canceled_qty    NUMERIC(40,18) NOT NULL DEFAULT 0 CHECK (canceled_qty >= 0),
     executed_quote  NUMERIC(40,18) NOT NULL DEFAULT 0 CHECK (executed_quote >= 0),
+    -- 조회 핫패스 물질화(V10). 주문 자기 측 수수료 누계(maker면 maker_fee, taker면 taker_fee)와
+    -- 체결 횟수. §5.2 체결 UPDATE가 filled_qty·executed_quote와 같은 트랜잭션에서 누적한다.
+    -- 재생 시 정산이 재구성하는 프로젝션이라 엔진 상태가 아니다. 조회는 trades 재집계 없이
+    -- orders 단일 스캔으로 paid_fee·trades_count를 답한다(감사 R2 rank2).
+    paid_fee        NUMERIC(40,18) NOT NULL DEFAULT 0 CHECK (paid_fee >= 0),
+    trades_count    BIGINT         NOT NULL DEFAULT 0 CHECK (trades_count >= 0),
     locked_account_id BIGINT     REFERENCES accounts(id),   -- 예약 자금이 묶인 LOCKED 계정
     -- 과다 환급/음수 락 방지 최종 방어선(P0-3). 부분 체결의 마지막 체결은 계산값이 아니라
     -- 이 실잔여를 전부 소비 또는 환급해 잔차를 남기지 않는다(정산 계층 규약).
@@ -1550,6 +1557,7 @@ CREATE TABLE user_provisioning (
 | `client_order_id` | 멱등성 키. `UNIQUE(user_id, client_order_id)` 부분 인덱스로 이중주문 차단 |
 | `quantity` / `quote_order_qty` | 수량기반(base) / 금액기반(시장가 매수, quote). `chk_order_shape`로 형태별 강제 |
 | `filled_qty/remaining_qty/canceled_qty/executed_quote` | 체결·감액 집계. 수량기반은 `filled+remaining+canceled=quantity` CHECK(v2.8), 금액기반은 `executed_quote`·`locked_amount`로 추적. `canceled_qty`는 STP 부분 감액 누계 |
+| `paid_fee/trades_count` | 조회 핫패스 물질화(V10). 주문 자기 측 수수료 누계(maker=maker_fee, taker=taker_fee)와 체결 횟수. §5.2 체결 UPDATE가 `filled_qty`·`executed_quote`와 같은 트랜잭션에서 누적. 재생 시 정산이 재구성하는 프로젝션이라 조회가 trades를 재집계하지 않는다(N+1 제거, 감사 R2 rank2) |
 | `locked_account_id/locked_amount` | 예약 자금이 묶인 LOCKED 계정과 잔여 예약액. 취소 시 환급 기준 |
 | `command_seq` | 생성 command_journal.seq(논리참조). 재생 추적 |
 
@@ -1732,13 +1740,16 @@ SELECT post_ledger_transaction('TRADE', :event_seq, jsonb_build_array(
 --     locked_amount를 전량 소비 또는 환급한다(정산 계층 규약). orders.locked_amount
 --     CHECK(>=0)가 과다 차감을 커밋 전에 차단한다. 최종 체결이면 locked_amount = 0 대입 +
 --     잔차는 환급 분개로 정산.
+-- paid_fee/trades_count: 조회 핫패스 프로젝션(V10). 자기 측 수수료를 같은 UPDATE에서 누적.
 UPDATE orders SET filled_qty=filled_qty+:qty, remaining_qty=remaining_qty-:qty,
     locked_amount = locked_amount - (:qty * :L),
+    paid_fee = paid_fee + :taker_fee, trades_count = trades_count + 1,
     status = CASE WHEN remaining_qty-:qty=0 THEN 'FILLED' ELSE 'PARTIAL' END,
     version = version+1
  WHERE id=:taker_oid AND version=:taker_ver;   -- 0행이면 불변식 위반 → fail-fast(재시도 아님)
 UPDATE orders SET filled_qty=filled_qty+:qty, remaining_qty=remaining_qty-:qty,
     locked_amount = locked_amount - :qty,
+    paid_fee = paid_fee + :maker_fee, trades_count = trades_count + 1,
     status = CASE WHEN remaining_qty-:qty=0 THEN 'FILLED' ELSE 'PARTIAL' END,
     version = version+1
  WHERE id=:maker_oid AND version=:maker_ver;   -- 동일: 0행이면 fail-fast

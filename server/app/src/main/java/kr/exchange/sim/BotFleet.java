@@ -22,6 +22,9 @@ public class BotFleet {
 
     private static final Logger log = LoggerFactory.getLogger(BotFleet.class);
     private static final long STOP_JOIN_MS = 5_000;
+    // 프로세스 내 플릿 기동 횟수. start()마다 전진해 run 단위 nonce가 재기동마다 달라지게 한다.
+    private static final java.util.concurrent.atomic.AtomicLong RUN_SEQ =
+            new java.util.concurrent.atomic.AtomicLong();
 
     private final SimProperties props;
     private final BotSeeder seeder;
@@ -30,6 +33,7 @@ public class BotFleet {
     private final ObjectMapper mapper = new ObjectMapper();
     private final List<Thread> threads = new ArrayList<>();
     private Thread balancer;
+    private String runNonce;
 
     private volatile boolean running;
 
@@ -46,6 +50,7 @@ public class BotFleet {
             return;
         }
         running = true;
+        runNonce = nextRunNonce(props.seed());
         BigDecimal quoteFunding = new BigDecimal(props.funding().quote());
         List<SimProperties.MarketSpec> specs = resolveMarkets();
         int pool = fleet.poolPerType();
@@ -75,7 +80,7 @@ public class BotFleet {
                 String botId = "mm-" + suffix + "-" + i;
                 BotCredentials creds = seeder.seed(botId + "@bots.exchange.local", per.market(),
                         quoteFunding, baseFunding);
-                MarketMakerBot bot = new MarketMakerBot(botId,
+                MarketMakerBot bot = new MarketMakerBot(botId, runNonce,
                         new BotApiClient(per.baseUrl(), creds, botId),
                         per.seed() * 1_000_003L + marketSalt + i, per, tick, baseFunding,
                         () -> running, governor, fleet, i);
@@ -103,7 +108,7 @@ public class BotFleet {
                     quoteFunding, baseFunding);
             // TREND는 index 결정론으로 momentum/mean-revert 이분(r7), TAKER·NOISE는 STATIC.
             DirectionSource ds = DirectionSource.of(type, i);
-            TakerBot bot = new TakerBot(botId,
+            TakerBot bot = new TakerBot(botId, runNonce,
                     new BotApiClient(per.baseUrl(), creds, botId),
                     per.seed() * seedMul + marketSalt + i, per, kDir, stepMul, () -> running,
                     governor, fleet, type, i, ds);
@@ -155,6 +160,17 @@ public class BotFleet {
                 tk.maxSteps(), tk.marketRatio());
         return new SimProperties(props.baseUrl(), props.seed(), props.targetOps(),
                 spec.symbol(), spec.initialPrice(), props.funding(), perMm, perTk, List.of());
+    }
+
+    /**
+     * run 단위 client_order_id nonce. seed와 프로세스 내 기동 카운터를 섞어 base36 문자열로
+     * 만든다. 같은 (seed, 기동 순번)이면 재현 동일(결정론)하고, 재기동(카운터 전진)마다 접두가
+     * 달라져 직전 run의 coid와 겹치지 않는다. coid는 봇 클라이언트 산물이고 재생 정본은
+     * command_journal이라, run별 nonce 차이는 엔진 재생 결정론에 무관하다.
+     */
+    static String nextRunNonce(long seed) {
+        long mixed = seed * 0x9E3779B97F4A7C15L + RUN_SEQ.incrementAndGet();
+        return Long.toUnsignedString(mixed, 36);
     }
 
     private static String shortName(String symbol) {

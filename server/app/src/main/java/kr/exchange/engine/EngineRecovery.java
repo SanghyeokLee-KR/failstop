@@ -31,6 +31,9 @@ import java.util.Optional;
 public class EngineRecovery {
 
     private static final Logger log = LoggerFactory.getLogger(EngineRecovery.class);
+    // 시간 기준 renew 사이에도 이 이벤트 수마다 리스를 갱신한다. 명령 하나가 큰 이벤트 배치를
+    // 내면(북 스윕) 시간 판정만으로는 renew 간격이 벌어질 수 있어, 누적 이벤트 상한으로 보강한다.
+    private static final int RENEW_EVENT_INTERVAL = 10_000;
 
     private final ReplayService replayService;
     private final SingleWriterLoop.EventSink reappendSink;
@@ -88,12 +91,17 @@ public class EngineRecovery {
         // 상실이므로 이어지는 sink append가 NotLeader/fencing으로 fail-fast한다.
         long renewIntervalNanos = lease.ttl().dividedBy(3).toNanos();
         long lastRenewNanos = System.nanoTime();
+        long eventsSinceRenew = 0;
         // 배치 그룹핑은 pending이 source_cmd_seq 오름차순·연속이라는 재생 방출 순서에 의존한다.
+        // 명령 단위 원자성 때문에 한 배치(같은 source_cmd_seq) 내부에서는 renew할 수 없다.
+        // 명령 경계마다 시간·누적 이벤트 수 둘 다로 판정해 renew 간격을 이중으로 상한한다.
         int from = 0;
         while (from < pending.size()) {
-            if (System.nanoTime() - lastRenewNanos >= renewIntervalNanos) {
+            if (System.nanoTime() - lastRenewNanos >= renewIntervalNanos
+                    || eventsSinceRenew >= RENEW_EVENT_INTERVAL) {
                 lease.renew();
                 lastRenewNanos = System.nanoTime();
+                eventsSinceRenew = 0;
             }
             int to = from + 1;
             while (to < pending.size()
@@ -107,6 +115,7 @@ public class EngineRecovery {
                 throw new IllegalStateException("크래시 창 재적재·재정산 실패: source_cmd_seq="
                         + batch.get(0).sourceCmdSeq(), e);
             }
+            eventsSinceRenew += (to - from);
             from = to;
         }
         log.info("크래시 창 이벤트 재적재·재정산: {}건 (source_cmd_seq {}..{})", pending.size(),

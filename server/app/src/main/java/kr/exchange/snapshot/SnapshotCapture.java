@@ -1,5 +1,6 @@
 package kr.exchange.snapshot;
 
+import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.MeterRegistry;
 import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.LeaderLeaseService;
@@ -65,9 +66,16 @@ public class SnapshotCapture implements SingleWriterLoop.SnapshotHook, AutoClose
         this.timeIntervalNanos = timeInterval.toNanos();
         this.queue = new ArrayBlockingQueue<>(queueCapacity);
         if (registry != null) {
-            registry.gauge("exchange.snapshot.captured", capturedCount);
-            registry.gauge("exchange.snapshot.dropped", droppedCount);
-            registry.gauge("exchange.snapshot.persist_failed", persistFailedCount);
+            // 단조 누적치는 Counter로 노출해 하네스가 rate()로 증가율(드롭·영속화 실패 급증)을
+            // 감시하게 한다. AtomicLong을 소스로 두는 FunctionCounter라 증분 경로는 그대로다.
+            FunctionCounter.builder("exchange.snapshot.captured", capturedCount, AtomicLong::doubleValue)
+                    .description("라이터 명령 경계에서 큐잉된 스냅샷 캡처 수").register(registry);
+            FunctionCounter.builder("exchange.snapshot.dropped", droppedCount, AtomicLong::doubleValue)
+                    .description("유계 큐 포화·인코딩 실패로 드롭된 스냅샷 캡처 수").register(registry);
+            FunctionCounter.builder("exchange.snapshot.persist_failed", persistFailedCount, AtomicLong::doubleValue)
+                    .description("워커 스레드의 스냅샷 영속화 실패 수").register(registry);
+            // last_persisted_seq는 진행 지표라 게이지로 둔다. 값이 멈추면(정지) 워커 정체·영속화
+            // 실패 지속을 뜻하므로 하네스는 이 게이지의 정지를 알림 조건으로 쓴다.
             registry.gauge("exchange.snapshot.last_persisted_seq", lastPersistedSeq);
         }
         this.worker = new Thread(this::drain, "snapshot-writer");

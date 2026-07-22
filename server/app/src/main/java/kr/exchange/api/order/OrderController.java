@@ -40,6 +40,10 @@ public class OrderController {
 
     // §2-5 계정 버킷: 주문 생성/취소 100토큰/10s. 단일 라이터 앞 유일 유량 방벽이라 라이터 진입 전에 차감한다.
     private final AccountRateLimiter rateLimiter = new AccountRateLimiter(100, 10_000, "account", "order");
+    // §2-5 계좌/주문 조회 버킷: 200토큰/10s, weight 2. /open·/closed 폴링 증폭 방벽.
+    // 주문 버킷과 분리해 조회 폴링이 주문 생성 예산을 잠식하지 않게 한다.
+    private static final int QUERY_WEIGHT = 2;
+    private final AccountRateLimiter queryLimiter = new AccountRateLimiter(200, 10_000, "account", "query");
 
     private final OrderGateway gateway;
     private final OrderQueryService orders;
@@ -215,24 +219,25 @@ public class OrderController {
     }
 
     @GetMapping("/open")
-    public Map<String, Object> open(HttpServletRequest request,
+    public Map<String, Object> open(HttpServletRequest request, HttpServletResponse response,
                                     @RequestParam(value = "market", required = false) String market,
                                     @RequestParam(value = "count", required = false) Integer count,
                                     @RequestParam(value = "cursor", required = false) String cursor) {
-        return page(request, true, market, count, cursor);
+        return page(request, response, true, market, count, cursor);
     }
 
     @GetMapping("/closed")
-    public Map<String, Object> closed(HttpServletRequest request,
+    public Map<String, Object> closed(HttpServletRequest request, HttpServletResponse response,
                                       @RequestParam(value = "market", required = false) String market,
                                       @RequestParam(value = "count", required = false) Integer count,
                                       @RequestParam(value = "cursor", required = false) String cursor) {
-        return page(request, false, market, count, cursor);
+        return page(request, response, false, market, count, cursor);
     }
 
-    private Map<String, Object> page(HttpServletRequest request, boolean open, String market,
-                                     Integer count, String cursor) {
+    private Map<String, Object> page(HttpServletRequest request, HttpServletResponse response,
+                                     boolean open, String market, Integer count, String cursor) {
         AuthPrincipal principal = principal(request);
+        queryLimiter.enforce(response, String.valueOf(principal.userId()), QUERY_WEIGHT);
         int limit = count == null ? 100 : count;
         if (limit < 1 || limit > MAX_COUNT) {
             throw new ApiException(400, "invalid_parameter", "count는 1~" + MAX_COUNT + "이어야 합니다.");
