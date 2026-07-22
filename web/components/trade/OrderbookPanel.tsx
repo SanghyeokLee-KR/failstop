@@ -104,7 +104,7 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
   };
 
   return (
-    <PanelCard dense>
+    <PanelCard dense title="호가">
       <div className={styles.wrap}>
         {orderbook ? (
           <>

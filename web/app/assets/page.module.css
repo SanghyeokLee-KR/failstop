@@ -34,6 +34,8 @@
   font-size: var(--font-display-md-size);
   line-height: var(--font-display-md-line);
   font-weight: var(--fw-bold);
+  /* 20px 이상 큰 숫자 밀착 (§3.2). 계기 판독감 */
+  letter-spacing: -0.01em;
   color: var(--text-strong);
 }
 .heroValue small {
@@ -49,11 +51,7 @@
   gap: var(--space-1);
 }
 
-.statLabel {
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-secondary);
-}
+/* 필드 라벨은 계기 명판(.gauge-plate)으로 소비. 요약 클러스터를 한 장의 계기 판독으로 묶는다 */
 
 .statValue {
   font-size: var(--font-body-lg-size);
@@ -121,11 +119,8 @@
   padding: var(--space-5) var(--space-5) var(--space-6);
 }
 
+/* 폰트는 .gauge-plate가 소유(계기 명판). 여기서는 여백만 */
 .weightTitle {
-  font-size: var(--font-body-sm-size);
-  line-height: var(--font-body-sm-line);
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
   margin-bottom: var(--space-4);
 }
 
@@ -163,6 +158,7 @@
 }
 
 .weightTrack {
+  position: relative;
   display: block;
   height: 8px;
   border-radius: var(--radius-full);
@@ -170,16 +166,40 @@
   overflow: hidden;
 }
 
+/* 비중은 방향 없는 데이터라 무채 잉크 막대. 색은 시세·상태 특권(§2.2) */
 .weightFill {
   display: block;
   height: 100%;
   border-radius: var(--radius-full);
-  background: var(--brand-primary-fill);
+  background: var(--text-secondary);
   transition: width var(--dur-base) var(--ease-standard);
+}
+
+/* 계측 눈금 rail(§6.2). 잔량 비율을 캘리퍼처럼 읽게 하는 무채 hairline. fill 위 오버레이 */
+.weightTicks {
+  position: absolute;
+  inset: 0;
 }
 
 .weightPct {
   text-align: right;
   font-weight: var(--fw-semibold);
   color: var(--text-default);
+}
+
+/* 빈 상태 계기 마크. 눈금만 새겨진 무채 판독판 = '아직 표시할 값 없음'. 장식 아닌 계기 어휘 */
+.emptyMark {
+  width: 64px;
+  height: 40px;
+  margin-bottom: var(--space-1);
+  border-radius: var(--control-radius);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--surface-sunken);
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--rule-tick) 0,
+    var(--rule-tick) 1px,
+    transparent 1px,
+    transparent 10px
+  );
 }

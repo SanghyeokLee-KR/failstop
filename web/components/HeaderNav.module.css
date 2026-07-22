@@ -60,7 +60,8 @@
   right: var(--space-3);
   bottom: 0;
   height: 2px;
-  background: var(--brand-primary);
+  /* 활성 인디케이터. 크롬 액센트 한정, fill 금지 표식 (§2.2) */
+  background: var(--chrome-accent);
 }
 
 .right {
@@ -85,6 +86,8 @@
   border-radius: var(--radius-full);
   background: var(--color-danger);
   flex-shrink: 0;
+  /* 계기 상태등. 연결 전이는 색 전이만, 깜빡임 없음 (§5.2) */
+  transition: background-color var(--dur-base) var(--ease-standard);
 }
 .conn[data-connected] .connDot { background: var(--color-success); }
 
@@ -102,7 +105,8 @@
   padding: 0 var(--space-3);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
-  color: var(--brand-primary);
+  /* 내비 링크 액센트. 크롬 액센트 한정 (§2.2) */
+  color: var(--chrome-accent);
   white-space: nowrap;
 }
 .loginLink:hover { color: var(--brand-primary-hover); }
@@ -138,8 +142,10 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-full);
-  background: var(--brand-primary-fill);
-  color: var(--text-on-brand);
+  /* 내비는 무채. 브랜드 fill blob 대신 잉크 온 페이퍼 (§2.1) */
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-default);
   font-size: var(--font-caption-size);
   font-weight: var(--fw-bold);
   flex-shrink: 0;

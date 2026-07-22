@@ -117,7 +117,7 @@ export default function MarketListPanel({ market }: { market: string }) {
           : "마켓 정보가 없어요";
 
   return (
-    <PanelCard dense>
+    <PanelCard dense title="마켓">
       <div className={styles.wrap}>
         <div className={styles.search}>
           <span aria-hidden="true">⌕</span>

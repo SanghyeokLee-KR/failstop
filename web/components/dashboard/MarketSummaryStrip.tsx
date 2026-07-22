@@ -50,7 +50,9 @@ export default function MarketSummaryStrip() {
       <div className={styles.aggregate}>
         <div className={styles.aggMain}>
           <span className={styles.aggLabel}>24시간 총 거래대금</span>
-          <b className={`${styles.aggValue} num`}>{ready ? formatCompactKRW(totalValue) : "-"}</b>
+          <b className={`${styles.aggValue} num ${ready ? "" : styles.pending}`}>
+            {ready ? formatCompactKRW(totalValue) : "-"}
+          </b>
         </div>
         <div className={styles.counts}>
           <span className={styles.count}>

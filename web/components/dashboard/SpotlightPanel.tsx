@@ -35,6 +35,7 @@ export default function SpotlightPanel() {
 
   return (
     <section className={`card ${styles.root}`} aria-label="대표 코인">
+      <span className={`gauge-plate ${styles.plate}`}>대표 코인</span>
       <div className={styles.chips} role="tablist" aria-label="대표 코인 선택">
         {CHOICES.map((c) => (
           <button

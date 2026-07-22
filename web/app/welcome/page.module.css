@@ -15,24 +15,25 @@
   align-items: center;
   text-align: center;
   gap: var(--space-2);
-  /* 진입 모션: 페이드 + 슬라이드업 (reduced-motion 시 --dur-* 토큰이 0ms) */
-  animation: hero-in var(--dur-slow) var(--ease-emphasized) both;
+  /* 진입 모션: 페이드 + 슬라이드업. 정숙 계기는 튐 금지라 감속 이징만 (reduced-motion 시 --dur-* 0ms) */
+  animation: hero-in var(--dur-slow) var(--ease-standard) both;
 }
 @keyframes hero-in {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* 브랜드 blob 대신 계기 명판 베젤. 무채 표면 + 헤어라인, 브랜드는 안쪽 잉크 마크로만 발화 (§6.1, §6.6) */
 .mark {
   width: 64px;
   height: 64px;
-  border-radius: var(--radius-xl);
-  background: var(--brand-primary-fill);
+  border-radius: var(--radius-lg);
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: var(--space-4);
-  box-shadow: var(--shadow-2);
+  margin-bottom: var(--space-5);
 }
 
 .title {
@@ -40,6 +41,8 @@
   line-height: var(--font-title-1-line);
   font-weight: var(--fw-bold);
   color: var(--text-strong);
+  /* 큰 텍스트 밀착이 계기 판독감을 만든다 (§3.2) */
+  letter-spacing: -0.01em;
 }
 
 .sub {
@@ -66,7 +69,7 @@
 .termsLink {
   color: var(--text-brand);
   font-weight: var(--fw-semibold);
-}
-.termsLink:hover {
+  /* 링크는 색 단독 금지, 밑줄 비색 단서 병행 (§8) */
   text-decoration: underline;
+  text-underline-offset: 3px;
 }

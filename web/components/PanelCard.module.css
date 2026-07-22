@@ -1,14 +1,13 @@
+/* 정숙 계기(§6.4): 드롭섀도 카드 대신 헤어라인 우선. 라운드 12로 통일 */
 .root {
   display: flex;
   flex-direction: column;
   min-height: 0;
   background: var(--surface-default);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
   padding: var(--space-4);
 }
-/* 다크는 그림자 대비가 약해 보더 병행 (.card 전역 규칙과 동일 경로) */
-:global([data-theme="dark"]) .root { border: 1px solid var(--border-subtle); }
 
 .dense { padding: var(--space-3); }
 
@@ -20,10 +19,12 @@
   margin-bottom: var(--space-3);
   flex-shrink: 0;
 }
+/* 계기 명판(§6.3): micro 라벨 + 자간 확장. 한글 대문자화 없음 */
 .title {
-  font-size: var(--font-body-sm-size);
-  line-height: var(--font-body-sm-line);
-  font-weight: var(--fw-semibold);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em;
   color: var(--text-secondary);
 }
 .actions {

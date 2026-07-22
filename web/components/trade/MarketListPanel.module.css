@@ -91,7 +91,12 @@
   text-align: right;
 }
 .row:hover { background: var(--surface-hover); }
-.row[data-current] { background: var(--surface-sunken); }
+/* 활성 위치 신호(§6.6): 현재 마켓 행을 크롬 액센트 인셋 hairline로 표시.
+   방향이 아닌 위치 신호라 무채 크롬 어휘를 쓰고, inset이라 레이아웃 시프트 0. */
+.row[data-current] {
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--chrome-accent);
+}
 
 .nameCell {
   display: flex;

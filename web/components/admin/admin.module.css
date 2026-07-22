@@ -51,7 +51,7 @@
   line-height: var(--font-micro-line);
   font-weight: var(--fw-medium);
   color: var(--text-tertiary);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -65,7 +65,7 @@
   align-items: center;
   min-height: 44px;
   padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
   color: var(--text-secondary);
@@ -74,9 +74,10 @@
   color: var(--text-default);
   background: var(--surface-hover);
 }
+/* 활성 인디케이터: 브랜드 fill 금지(§2.1). 좌측 레일 hairline + 브랜드 잉크로만 활성을 표시한다 */
 .navLink[data-active] {
-  color: var(--brand-primary);
-  background: var(--brand-weak-bg);
+  color: var(--chrome-accent);
+  box-shadow: inset 2px 0 0 var(--chrome-accent);
 }
 
 /* ===== 운영자 바 ===== */
@@ -99,8 +100,12 @@
   background: var(--surface-default);
   box-shadow: inset 0 -1px 0 var(--border-subtle);
 }
+/* 계기 명판(§6.3): 평면 식별 라벨을 micro + 자간 확장으로 명판화. 한글 대문자화 없음 */
 .opbarPlane {
-  font-size: var(--font-caption-size);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em;
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -146,7 +151,7 @@
   min-height: 40px;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--control-radius);
   background: var(--surface-default);
   color: var(--text-default);
   font-size: var(--font-body-sm-size);
@@ -160,7 +165,7 @@
 .logout {
   min-height: 36px;
   padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--control-radius);
   font-size: var(--font-caption-size);
   font-weight: var(--fw-semibold);
   color: var(--text-secondary);
@@ -171,6 +176,8 @@
 }
 
 /* ===== 역할 배지 ===== */
+/* 역할은 상태·방향이 아닌 메타데이터라 무채 칩으로 둔다(§2.1 크롬 무채). 의미는 라벨이 전달한다.
+   유일한 유채 role은 SUPER: 파괴 액션 권한이 있는 상위 역할을 caution 톤으로 도드라지게 한다 */
 .roleBadge {
   display: inline-flex;
   align-items: center;
@@ -179,8 +186,8 @@
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   font-weight: var(--fw-semibold);
-  color: var(--text-brand);
-  background: var(--brand-weak-bg);
+  color: var(--text-default);
+  background: var(--surface-sunken);
   white-space: nowrap;
 }
 .roleBadge[data-super] {
@@ -235,7 +242,7 @@
   width: 100%;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   text-align: left;
   background: var(--surface-default);
 }
@@ -274,7 +281,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   background: var(--color-warning-bg);
 }
 .loginNoCertTitle {
@@ -325,7 +332,7 @@
 .permNote {
   margin-bottom: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--control-radius);
   font-size: var(--font-caption-size);
   color: var(--color-warning-text);
   background: var(--color-warning-bg);
@@ -337,6 +344,8 @@
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-3);
 }
+/* 정숙 계기(§6.4): 지표 타일은 그림자로 띄우지 않는다. 헤어라인으로 구획하고 라운드 12로 통일한다.
+   양 테마 동일 규칙(다크 전용 보더 분기 제거) */
 .statTile {
   display: flex;
   flex-direction: column;
@@ -344,11 +353,8 @@
   min-height: 96px;
   padding: var(--space-4);
   background: var(--surface-default);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
-}
-:global([data-theme="dark"]) .statTile {
   border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
 }
 .statLabel {
   font-size: var(--font-caption-size);
@@ -388,7 +394,7 @@
   justify-content: center;
   min-height: 40px;
   padding: 0 var(--space-4);
-  border-radius: var(--radius-sm);
+  border-radius: var(--panel-radius);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
   white-space: nowrap;
@@ -579,9 +585,12 @@
 .biasTrack {
   flex: 1;
   min-height: 44px;
-  /* 음전 Blue ~ 중립 ~ 양전 Red. 트랙 색은 방향의 보조 신호, 값·부호·화살표가 주 표기 */
+  /* 음전 Blue ~ 중립 ~ 양전 Red. 트랙 색은 방향의 보조 신호, 값·부호·화살표가 주 표기.
+     계측 눈금 rail(§6.2): 방향 gradient 위에 무채 hairline 눈금을 얹어 캘리퍼처럼 읽게 한다 */
   accent-color: var(--text-strong);
-  background: linear-gradient(90deg, var(--color-down), var(--surface-sunken) 50%, var(--color-up));
+  background:
+    repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
+    linear-gradient(90deg, var(--color-down), var(--surface-sunken) 50%, var(--color-up));
   border-radius: var(--radius-full);
   height: 6px;
   align-self: center;
@@ -644,7 +653,7 @@
   display: inline-flex;
   align-items: center;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--control-radius);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
@@ -692,7 +701,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   background: var(--surface-sunken);
 }
 .invLabel {
@@ -717,7 +726,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   background: var(--surface-sunken);
 }
 .approvalMain {
@@ -766,7 +775,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   border: 1px solid var(--border-subtle);
   background: var(--surface-default);
 }
@@ -816,7 +825,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   background: var(--surface-sunken);
 }
 .runningLabel {
@@ -847,7 +856,7 @@
 }
 .noticeItem {
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   background: var(--surface-sunken);
 }
 .noticeHead {
@@ -886,11 +895,12 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   background: var(--surface-sunken);
 }
+/* 선택 신호는 방향이 아닌 위치 신호(§6.6): 무채 chrome-accent 인셋 hairline. 시프트 0 */
 .opItem[data-selected] {
-  outline: 2px solid var(--brand-primary);
+  box-shadow: inset 0 0 0 1px var(--chrome-accent);
 }
 .opCol {
   display: flex;
@@ -937,7 +947,7 @@
   align-items: flex-start;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--control-radius);
   background: var(--surface-sunken);
 }
 .roleCheckLabel {
@@ -957,7 +967,7 @@
 .auditStale {
   margin-bottom: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--control-radius);
   background: var(--surface-sunken);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);

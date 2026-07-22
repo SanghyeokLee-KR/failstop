@@ -1,5 +1,6 @@
 /* SummaryBar: summary 영역 64px(압축 48px) 1행 유지, 오버플로 금지 (§2.5) */
 
+/* 정숙 계기(§6.4): 그림자로 띄우지 않고 헤어라인으로 구획, 라운드 12로 통일 */
 .root {
   display: flex;
   align-items: center;
@@ -7,12 +8,11 @@
   min-width: 0;
   padding: 0 var(--space-4);
   background: var(--surface-default);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
   white-space: nowrap;
   overflow: hidden;
 }
-:global([data-theme="dark"]) .root { border: 1px solid var(--border-subtle); }
 
 /* ===== 좌: 종목 식별 + 마켓 전환 드롭다운 ===== */
 .ident { position: relative; flex-shrink: 0; }
@@ -109,11 +109,13 @@
   min-width: 0;
   flex-shrink: 0;
 }
-/* 방향색 대형 규격: 24px/700 → --color-up/down 허용 영역 (§2.5) */
+/* 방향색 대형 규격: 24px/700 → --color-up/down 허용 영역 (§2.5).
+   §3.2 큰 숫자 밀착: 20px 이상은 자간 -0.01em으로 계기 판독감을 준다 */
 .cur {
   font-size: var(--font-title-1-size);
   line-height: var(--font-title-1-line);
   font-weight: var(--fw-bold);
+  letter-spacing: -0.01em;
 }
 
 /* ===== 우: 스탯 스트립 + 관심 토글 ===== */

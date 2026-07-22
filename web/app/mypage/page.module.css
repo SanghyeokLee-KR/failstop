@@ -49,8 +49,10 @@
   width: 56px;
   height: 56px;
   border-radius: var(--radius-full);
-  background: var(--brand-primary-fill);
-  color: var(--text-on-brand);
+  /* 채도 예산(§2.1): 아바타는 크롬면이라 브랜드 fill 금지, 무채 계기칩으로 처리 */
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-strong);
   font-size: var(--font-title-3-size);
   font-weight: var(--fw-bold);
   flex-shrink: 0;
@@ -90,11 +92,13 @@
   align-items: baseline;
   justify-content: space-between;
 }
+/* 계기 명판(§6.3). 요약 카드 헤더를 계측기 명판처럼. 값(statValue)이 히어로, 명판은 낮춘다 */
 .summaryTitle {
-  font-size: var(--font-body-lg-size);
-  line-height: var(--font-body-lg-line);
-  font-weight: var(--fw-bold);
-  color: var(--text-strong);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
 }
 .deepLink {
   font-size: var(--font-body-sm-size);

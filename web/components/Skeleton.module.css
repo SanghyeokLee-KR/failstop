@@ -22,7 +22,7 @@
 
 .text { height: 14px; width: 100%; border-radius: var(--radius-xs); }
 .circle { border-radius: var(--radius-full); }
-.card { display: block; width: 100%; height: 96px; border-radius: var(--radius-lg); }
+.card { display: block; width: 100%; height: 96px; border-radius: var(--panel-radius); }
 .chart { display: block; width: 100%; height: 180px; border-radius: var(--radius-md); }
 
 /* listRow 합성. 실제 ListRow와 동일 치수 (CLS 0) */

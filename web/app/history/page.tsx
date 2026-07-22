@@ -240,6 +240,7 @@ export default function HistoryPage() {
             ariaLabel={tab === "open" ? "미체결 주문" : "체결·취소 주문"}
             empty={
               <div className="empty-state">
+                <span className={styles.emptyMark} aria-hidden="true" />
                 <span className="empty-state__title">
                   {tab === "open" ? "대기 중인 주문이 없어요" : "거래내역이 없어요"}
                 </span>

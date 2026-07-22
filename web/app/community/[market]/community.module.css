@@ -37,8 +37,12 @@
   font-weight: var(--fw-bold);
   color: var(--text-strong);
 }
+/* 마켓 티커를 계기 명판으로. 자간 확장으로만 명판 성격, 대문자화 없음(§6.3) */
 .boardSymbol {
-  font-size: var(--font-body-sm-size);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em;
   color: var(--text-secondary);
 }
 
@@ -71,15 +75,15 @@
   gap: var(--space-3);
 }
 
+/* 목록면은 그림자로 띄우지 않는다. 헤어라인 구획 + 패널 라운드(§4.3, §6.4) */
 .rows {
   display: flex;
   flex-direction: column;
   background: var(--surface-default);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
   overflow: hidden;
 }
-:global([data-theme="dark"]) .rows { border: 1px solid var(--border-subtle); }
 .rows > li + li { border-top: 1px solid var(--border-subtle); }
 
 .rowTitle {
@@ -122,7 +126,7 @@
   min-height: 44px;
   padding: 0 var(--space-6);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   color: var(--text-brand);
   font-weight: var(--fw-semibold);
   font-size: var(--font-body-sm-size);
@@ -231,11 +235,13 @@
   gap: var(--space-3);
   padding: var(--space-5);
 }
+/* 레일 패널 헤더 = 계기 명판. 본문보다 조용한 라벨(§6.3) */
 .railTitle {
-  font-size: var(--font-body-lg-size);
-  line-height: var(--font-body-lg-line);
-  font-weight: var(--fw-bold);
-  color: var(--text-strong);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
 }
 .railText {
   font-size: var(--font-body-sm-size);
@@ -261,12 +267,13 @@
   border-radius: var(--radius-sm);
 }
 .railItem:hover { background: var(--surface-hover); }
+/* 순위 숫자는 무채. 색은 데이터 특권이므로 서열 표기에 브랜드색을 쓰지 않는다(§2, §7.5) */
 .railRank {
   flex-shrink: 0;
   width: 20px;
   text-align: center;
-  font-weight: var(--fw-bold);
-  color: var(--text-brand);
+  font-weight: var(--fw-semibold);
+  color: var(--text-secondary);
 }
 .railItemTitle {
   font-size: var(--font-body-sm-size);

@@ -14,7 +14,8 @@
     "summary   summary"
     "spotlight watch"
     "ranking   watch";
-  gap: var(--space-4);
+  /* 이음새 채널(§6.4). 패널 사이로 bg-muted가 12px 폭으로 비쳐 한 장의 계기판으로 읽힌다 */
+  gap: var(--seam-width);
   align-items: start;
 }
 

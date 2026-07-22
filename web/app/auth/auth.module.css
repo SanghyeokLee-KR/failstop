@@ -17,14 +17,18 @@
   padding: var(--space-8) var(--space-7);
   background: var(--surface-default);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  border-radius: var(--panel-radius);
 }
 
 .head {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* 계기 명판(§6.3). 타이틀 위 도메인 네임스탬프. 자간 확장은 gauge-plate 전역이 담당 */
+.eyebrow {
+  margin-bottom: var(--space-1);
 }
 .title {
   font-size: var(--font-title-2-size);
@@ -45,7 +49,7 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--color-warning-bg);
-  border-radius: var(--radius-md);
+  border-radius: var(--control-radius);
 }
 .bannerIcon {
   flex-shrink: 0;
@@ -79,7 +83,7 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   background: var(--color-danger-bg);
-  border-radius: var(--radius-md);
+  border-radius: var(--control-radius);
   font-size: var(--font-body-sm-size);
   line-height: var(--font-body-sm-line);
   color: var(--color-danger);
@@ -91,6 +95,10 @@
 
 .submit {
   margin-top: var(--space-1);
+}
+/* 최종 확정 액션의 유일한 브랜드 fill. 호버는 계기답게 명도 한 단만 이동(§5-1) */
+.submit:hover:not(:disabled) {
+  background: var(--brand-primary-hover);
 }
 
 .foot {
@@ -128,4 +136,7 @@
   display: flex;
   width: 100%;
   justify-content: center;
+}
+.browse:hover {
+  background: var(--surface-hover);
 }

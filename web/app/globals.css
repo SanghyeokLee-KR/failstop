@@ -93,14 +93,13 @@ a { color: inherit; text-decoration: none; }
 [data-dir="down"].dir-hero { color: var(--color-down); }
 [data-dir="flat"].dir-hero { color: var(--text-strong); }
 
-/* ===== 카드 공용 (§6) ===== */
+/* ===== 카드 공용 (§6). 정숙 계기: 그림자 대신 헤어라인, 라운드 12 ===== */
 .card {
   background: var(--surface-default);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
   padding: var(--space-5);
 }
-[data-theme="dark"] .card { border: 1px solid var(--border-subtle); }
 
 /* ===== 심볼칩 (코인 브랜드 로고색 = 데이터성 색상, 토큰 예외 허용 대상, 인라인 style로 주입) ===== */
 .sym-chip {
@@ -180,7 +179,7 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  border-radius: var(--radius-lg);
+  border-radius: var(--panel-radius); /* 정숙 계기: 프로 표면에서 16은 물러 보인다 → 12 (§4.3) */
   font-size: var(--font-body-lg-size);
   line-height: var(--font-body-lg-line);
   font-weight: var(--fw-semibold);
@@ -198,3 +197,41 @@ a { color: inherit; text-decoration: none; }
 .btn--sell { background: var(--color-sell); color: var(--text-inverse); }
 .btn--sell:active { background: var(--color-sell-pressed); }
 .btn:disabled { background: var(--surface-sunken); color: var(--text-disabled); cursor: default; }
+
+/* ============================================================================
+   정숙 계기 시그니처 (Quiet Instrument). 무채 크롬 위에서 위치·형태로 값을 더한다.
+   색은 데이터 특권이므로 아래 장치는 색 단독으로 방향을 표현하지 않는다.
+   ========================================================================== */
+
+/* ===== 계기 명판 (§6.3). 패널 헤더 라벨을 계측기 명판처럼. 한글 대문자화 없음 ===== */
+.gauge-plate {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em; /* 자간 확장으로만 명판 성격. text-transform 미적용 */
+  color: var(--text-secondary);
+}
+
+/* ===== 계측 눈금 rail (§6.2). 무채 hairline 눈금. 호가 depth·슬라이더·퍼센트 트랙 오버레이 =====
+   fill 위에 얹는 오버레이 요소에 건다. 색이 아니라 위치로 잔량·비율을 캘리퍼처럼 읽게 한다.
+   pointer-events:none으로 하위 인터랙션을 막지 않는다. */
+.rule-rail {
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--rule-tick) 0,
+    var(--rule-tick) 1px,
+    transparent 1px,
+    transparent var(--rule-tick-gap)
+  );
+}
+/* 세로 트랙(가격축 등)용 변형 */
+.rule-rail[data-axis="y"] {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--rule-tick) 0,
+    var(--rule-tick) 1px,
+    transparent 1px,
+    transparent var(--rule-tick-gap)
+  );
+}

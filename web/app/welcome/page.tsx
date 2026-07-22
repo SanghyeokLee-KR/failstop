@@ -15,15 +15,15 @@ export default function WelcomePage() {
       <section className={styles.hero}>
         <div className={styles.mark} aria-hidden="true">
           <svg width="30" height="30" viewBox="0 0 30 30">
-            <rect x="4" y="4" width="22" height="22" rx="6" transform="rotate(45 15 15)" fill="var(--text-on-brand)" opacity=".92" />
+            <rect x="4" y="4" width="22" height="22" rx="6" transform="rotate(45 15 15)" fill="var(--brand-primary)" />
           </svg>
         </div>
         <h1 className={styles.title}>
-          쉽고 안전한
+          암호화폐를
           <br />
-          암호화폐 거래
+          실시간으로 거래
         </h1>
-        <p className={styles.sub}>간편하게 시작해요</p>
+        <p className={styles.sub}>호가와 체결이 살아 있는 모의 거래소</p>
       </section>
 
       <div className={styles.cta}>

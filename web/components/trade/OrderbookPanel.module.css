@@ -32,7 +32,9 @@
 /* 얇은 호가의 빈 슬롯 자리행. 높이만 차지하고 상호작용·호버 없음 */
 .rowEmpty { pointer-events: none; }
 
-/* 잔량 비율 막대. 최대 잔량 대비 %, 톤은 매도 Blue·매수 Red 틴트 (§2.5) */
+/* 잔량 비율 막대. 최대 잔량 대비 %, 톤은 매도 Blue·매수 Red 틴트 (§2.5).
+   계측 눈금(§6.2): 채워진 구간 위에 무채 hairline 눈금을 얹어 잔량을 캘리퍼처럼 읽게 한다.
+   색이 아니라 위치로 값을 더하므로 색 단독 표현과 무관하다. */
 .depth {
   position: absolute;
   left: 2px;
@@ -40,16 +42,24 @@
   bottom: 4px;
   border-radius: 3px;
   pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--rule-tick) 0,
+    var(--rule-tick) 1px,
+    transparent 1px,
+    transparent var(--rule-tick-gap)
+  );
 }
-.rowAsk .depth { background: var(--color-down-bg); }
-.rowBid .depth { background: var(--color-up-bg); }
+.rowAsk .depth { background-color: var(--color-down-bg); }
+.rowBid .depth { background-color: var(--color-up-bg); }
 
 .cell { position: relative; }
 .qty { color: var(--text-secondary); }
 .price { font-weight: var(--fw-semibold); }
 .rate { font-size: 12px; }
 
-/* 현재가 경계 행 */
+/* 현재가 경계 행. 프라이스 마크 수렴(§6.5): 세 지점(히어로·경계행·차트) 공용 프레임 규격을
+   경계행에 적용한다. 방향은 dir-text 색과 ▲▼로만 싣고, 프레임 자체는 무채 계기 슬롯이다. */
 .mid {
   display: flex;
   align-items: center;
@@ -57,8 +67,10 @@
   gap: var(--space-2);
   height: 36px;
   margin: 2px 0;
-  border-top: 1px solid var(--border-default);
-  border-bottom: 1px solid var(--border-default);
+  padding: 0 var(--space-2);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--price-mark-radius);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-bold);
 }

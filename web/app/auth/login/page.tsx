@@ -52,10 +52,11 @@ export default function LoginPage() {
       <main className={styles.page}>
         <section className={styles.card} aria-labelledby="login-title">
           <div className={styles.head}>
+            <span className={`gauge-plate ${styles.eyebrow}`}>회원</span>
             <h1 id="login-title" className={styles.title}>
-              이미 로그인했어요
+              이미 로그인한 상태
             </h1>
-            <p className={styles.sub}>{session.user.display_name} 계정으로 접속한 상태예요</p>
+            <p className={styles.sub}>{session.user.display_name} 계정으로 접속 중</p>
           </div>
           <Link href="/exchange" className={`btn btn--primary btn--full btn--xl ${styles.submit}`}>
             거래소로 가기
@@ -72,10 +73,11 @@ export default function LoginPage() {
     <main className={styles.page}>
       <section className={styles.card} aria-labelledby="login-title">
         <div className={styles.head}>
+          <span className={`gauge-plate ${styles.eyebrow}`}>회원</span>
           <h1 id="login-title" className={styles.title}>
             로그인
           </h1>
-          <p className={styles.sub}>이메일과 비밀번호로 회원 계정에 접속해요</p>
+          <p className={styles.sub}>이메일과 비밀번호로 회원 계정에 접속</p>
         </div>
 
         <form className={styles.form} onSubmit={submit} noValidate>

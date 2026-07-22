@@ -118,7 +118,7 @@ export default function TradesPanel({ market }: { market: string }) {
   }, [gov.flood, rows]);
 
   return (
-    <PanelCard dense scroll>
+    <PanelCard dense scroll title="체결">
       {backfill === null && rows.length === 0 ? (
         <Skeleton variant="card" width="100%" height="100%" />
       ) : rows.length === 0 ? (

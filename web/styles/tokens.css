@@ -253,6 +253,30 @@
 }
 
 /* ============================================================================
+   §6. 정숙 계기 시맨틱 별칭 (Quiet Instrument)
+   신규 primitive·색값 없음. 소비 규칙의 이름표만. 값은 기존 시맨틱·primitive 재사용.
+   테마 분기는 참조 대상(brand-primary·bg-muted 등)이 이미 담당하므로 여기서 재선언하지 않는다.
+   (var() 치환은 사용 시점 요소의 컨텍스트에서 일어나 다크에서도 자동 정합)
+   ========================================================================== */
+:root{
+  /* 크롬 액센트. 내비·포커스·링크·활성 인디케이터 한정. fill 금지 표식(§2.1) */
+  --chrome-accent:var(--brand-primary);
+  /* 패널 사이 이음새 채널(§6.4). bg-muted가 surface-default·sunken 사이로 비친다 */
+  --surface-seam:var(--bg-muted);
+  --seam-width:var(--space-3);
+  /* 표면 라운드. 패널 12, 인풋·칩 8(§4.3). 16 이상은 오버레이·시트 전용 */
+  --panel-radius:var(--radius-md);
+  --control-radius:var(--radius-sm);
+  /* 계측 눈금 hairline(§6.2). 무채, 색이 아니라 위치로 값을 더한다 */
+  --rule-tick:var(--border-subtle);
+  --rule-tick-gap:var(--space-4);
+  /* 프라이스 마크 3지점 공용 규격(§6.5). 형태만 소유, 방향색은 소비처가 결정 */
+  --price-mark-radius:var(--radius-sm);
+  --price-mark-pad-y:var(--space-1);
+  --price-mark-pad-x:var(--space-2);
+}
+
+/* ============================================================================
    시스템 다크 자동 적용. [data-theme] 미지정 시 prefers-color-scheme 반영.
    (명시적 data-theme="light"|"dark" 토글이 항상 우선. 값은 §3·§5 다크와 동일)
    ========================================================================== */

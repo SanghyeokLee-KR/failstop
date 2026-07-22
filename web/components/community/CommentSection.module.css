@@ -9,12 +9,13 @@
   font-weight: var(--fw-bold);
   color: var(--text-strong);
 }
-.heading .num { color: var(--text-brand); }
+/* 댓글 수는 잉크. 색은 데이터 특권이라 집계 숫자에 브랜드색을 얹지 않는다(§2, §7.5) */
+.heading .num { color: var(--text-strong); }
 
 .loginPrompt {
   padding: var(--space-4);
   border: 1px dashed var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   background: var(--surface-sunken);
   color: var(--text-secondary);
   font-size: var(--font-body-sm-size);
@@ -33,7 +34,7 @@
   gap: var(--space-3);
   margin-top: var(--space-3);
   padding-left: var(--space-5);
-  border-left: 2px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
 }
 .replyBox { margin-top: var(--space-3); padding-left: var(--space-5); }
 
@@ -115,7 +116,7 @@
   min-height: 40px;
   padding: 0 var(--space-4);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   color: var(--text-brand);
   font-weight: var(--fw-semibold);
   font-size: var(--font-body-sm-size);
@@ -129,7 +130,7 @@
   gap: var(--space-2);
   padding: var(--space-4);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--panel-radius);
   background: var(--surface-sunken);
 }
 .composer[data-compact] { padding: var(--space-3); background: var(--surface-default); }

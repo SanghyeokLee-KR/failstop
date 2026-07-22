@@ -211,18 +211,18 @@ export default function AssetsPage() {
           {/* ===== 총 보유자산 요약 카드 (전폭) ===== */}
           <section className={`card ${styles.summary}`} aria-label="총 보유자산 요약">
             <div className={styles.statHero}>
-              <span className={styles.statLabel}>총 평가금액</span>
+              <span className="gauge-plate">총 평가금액</span>
               <b className={`${styles.heroValue} num`}>
                 {hidden ? HIDDEN : formatKRW(totalValuation)}
                 <small>원</small>
               </b>
             </div>
             <div className={styles.stat}>
-              <span className={styles.statLabel}>총 매수금액</span>
+              <span className="gauge-plate">총 매수금액</span>
               <b className={`${styles.statValue} num`}>{hidden ? HIDDEN : formatKRW(totalBuy)}</b>
             </div>
             <div className={styles.stat}>
-              <span className={styles.statLabel}>평가손익</span>
+              <span className="gauge-plate">평가손익</span>
               {hidden ? (
                 <b className={`${styles.statValue} num`}>{HIDDEN}</b>
               ) : (
@@ -230,11 +230,11 @@ export default function AssetsPage() {
               )}
             </div>
             <div className={styles.stat}>
-              <span className={styles.statLabel}>보유현금</span>
+              <span className="gauge-plate">보유현금</span>
               <b className={`${styles.statValue} num`}>{hidden ? HIDDEN : formatKRW(cash)}</b>
             </div>
             <div className={styles.stat}>
-              <span className={styles.statLabel}>총 보유자산</span>
+              <span className="gauge-plate">총 보유자산</span>
               <b className={`${styles.statValue} num`}>{hidden ? HIDDEN : formatKRW(totalAsset)}</b>
             </div>
             <button
@@ -261,6 +261,7 @@ export default function AssetsPage() {
                 ariaLabel="보유 자산"
                 empty={
                   <div className="empty-state">
+                    <span className={styles.emptyMark} aria-hidden="true" />
                     <span className="empty-state__title">아직 보유한 코인이 없어요</span>
                     <span className="empty-state__desc">첫 코인을 담아 포트폴리오를 시작해 보세요</span>
                     <Link href="/exchange" className="btn btn--secondary">
@@ -272,9 +273,10 @@ export default function AssetsPage() {
             </section>
 
             <section className={`card ${styles.weightCard}`} aria-label="보유 비중">
-              <h2 className={styles.weightTitle}>보유 비중</h2>
+              <h2 className={`${styles.weightTitle} gauge-plate`}>보유 비중</h2>
               {weights.length === 0 ? (
                 <div className="empty-state">
+                  <span className={styles.emptyMark} aria-hidden="true" />
                   <span className="empty-state__title">보유 자산이 없어요</span>
                 </div>
               ) : (
@@ -294,6 +296,7 @@ export default function AssetsPage() {
                         aria-valuemax={100}
                       >
                         <span className={styles.weightFill} style={{ width: `${w.pct.toFixed(1)}%` }} />
+                        <span className={`${styles.weightTicks} rule-rail`} aria-hidden="true" />
                       </span>
                       <b className={`${styles.weightPct} num`}>{w.pct.toFixed(1)}%</b>
                     </li>

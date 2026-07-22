@@ -7,6 +7,11 @@
   padding: var(--space-4);
 }
 
+/* 계기 명판(§6.3). 헤더 없는 패널의 계측기 명판. 컨트롤(head/tf)과 좌측 정렬 */
+.plate {
+  padding: 0 var(--space-1);
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -24,11 +29,14 @@
   font-size: var(--font-caption-size);
   font-weight: var(--fw-semibold);
   color: var(--text-default);
+  transition: box-shadow var(--dur-base) var(--ease-standard);
 }
 .chip:hover { background: var(--surface-hover); }
+/* 선택은 브랜드 fill이 아니라 위치 신호(§2.1, §6.6). 무채면 유지 + chrome-accent 인셋 hairline,
+   텍스트는 잉크 강조. 방향 데이터가 아니므로 색이 아닌 엣지·굵기로 선택을 전달한다 */
 .chip[data-on] {
-  background: var(--brand-weak-bg);
-  color: var(--text-brand);
+  color: var(--text-strong);
+  box-shadow: inset 0 0 0 1px var(--chrome-accent);
 }
 
 .head {
@@ -64,6 +72,7 @@
   font-size: var(--font-title-1-size);
   line-height: var(--font-title-1-line);
   font-weight: var(--fw-bold);
+  letter-spacing: -0.01em; /* 20px 이상 큰 숫자 밀착(§3.2). 계기 판독감 */
 }
 
 .tf { padding: 0 var(--space-1); }

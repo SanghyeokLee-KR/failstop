@@ -9,8 +9,9 @@
     "summary summary side"
     "chart   book    side"
     "trades  book    side";
-  gap: 12px;
-  padding: 16px;
+  /* 정숙한 이음새(§6.4): 패널 사이로 페이지 배경(--surface-seam)이 12px 채널로 비친다 */
+  gap: var(--seam-width);
+  padding: var(--space-4);
   height: calc(100dvh - 56px);
   max-width: 1920px;
   margin: 0 auto;

@@ -66,10 +66,11 @@ export default function SignupPage() {
       <main className={styles.page}>
         <section className={styles.card} aria-labelledby="signup-title">
           <div className={styles.head}>
+            <span className={`gauge-plate ${styles.eyebrow}`}>회원</span>
             <h1 id="signup-title" className={styles.title}>
-              이미 로그인했어요
+              이미 로그인한 상태
             </h1>
-            <p className={styles.sub}>{session.user.display_name} 계정으로 접속한 상태예요</p>
+            <p className={styles.sub}>{session.user.display_name} 계정으로 접속 중</p>
           </div>
           <Link href="/exchange" className={`btn btn--primary btn--full btn--xl ${styles.submit}`}>
             거래소로 가기
@@ -86,10 +87,11 @@ export default function SignupPage() {
     <main className={styles.page}>
       <section className={styles.card} aria-labelledby="signup-title">
         <div className={styles.head}>
+          <span className={`gauge-plate ${styles.eyebrow}`}>회원</span>
           <h1 id="signup-title" className={styles.title}>
             회원 가입
           </h1>
-          <p className={styles.sub}>이메일로 회원 계정을 만들고 개인 자산·주문 이력을 관리해요</p>
+          <p className={styles.sub}>이메일로 회원 계정을 만들고 개인 자산·주문 이력을 관리</p>
         </div>
 
         <div className={styles.banner} role="note">
@@ -97,8 +99,8 @@ export default function SignupPage() {
             !
           </span>
           <span className={styles.bannerText}>
-            데모 거래소예요. 실제로 쓰는 비밀번호나 카드·계좌·주민번호 같은 금융정보를 입력하지 마세요. 이메일은 검증하지
-            않는 데모 핸들이에요.
+            데모 거래소. 실제로 쓰는 비밀번호나 카드·계좌·주민번호 같은 금융정보 입력 금지. 이메일은 검증하지 않는 데모
+            핸들.
           </span>
         </div>
 
@@ -131,7 +133,7 @@ export default function SignupPage() {
             value={password}
             onChange={setPassword}
             error={fieldErrors.password}
-            hint="8자 이상. 데모 전용이라 실제 비밀번호는 쓰지 마세요"
+            hint="8자 이상. 데모 전용, 실제 비밀번호 사용 금지"
             disabled={busy}
           />
           <TextField

@@ -21,7 +21,7 @@
   height: 36px;
   padding: 0 var(--space-3);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border-radius: var(--control-radius);
   background: var(--surface-default);
   font-size: var(--font-caption-size);
   color: var(--text-default);
@@ -42,9 +42,11 @@
   color: var(--text-default);
 }
 .chip:hover { background: var(--surface-hover); }
+/* 선택 상태는 무채면 + chrome-accent 인셋 hairline(활성·선택 인디케이터, §2.1). 브랜드 fill 금지 */
 .chip[data-on] {
-  background: var(--brand-weak-bg);
-  color: var(--text-brand);
+  background: var(--surface-default);
+  color: var(--text-strong);
+  box-shadow: inset 0 0 0 1px var(--chrome-accent);
 }
 
 /* ===== 본문 테이블 카드 ===== */
@@ -91,3 +93,20 @@
 }
 .cancelBtn:hover { background: var(--surface-hover); }
 .cancelBtn:disabled { color: var(--text-disabled); cursor: default; }
+
+/* 빈 상태 계기 마크. 눈금만 새겨진 무채 판독판 = '아직 표시할 값 없음'. 장식 아닌 계기 어휘 */
+.emptyMark {
+  width: 64px;
+  height: 40px;
+  margin-bottom: var(--space-1);
+  border-radius: var(--control-radius);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--surface-sunken);
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--rule-tick) 0,
+    var(--rule-tick) 1px,
+    transparent 1px,
+    transparent 10px
+  );
+}
