@@ -279,6 +279,40 @@ class CommunityIntegrationTest {
                 "{\"action\":\"UNHIDE\"}", "op-mod", modToken).getStatusCode().value());
     }
 
+    @Test
+    void moderationRejectsSelfDeletedTargets() throws Exception {
+        Member author = signup();
+        String modToken = adminSession("op-mod");
+
+        // 회원 자가삭제 글(DELETED)에 HIDE→UNHIDE 부활 시도 차단
+        String postId = createPost(author, "KRW-BTC", "자가삭제 글", "본문");
+        assertEquals(200, delete("/api/v1/community/posts/" + postId, author.token)
+                .getStatusCode().value());
+        ResponseEntity<String> hideDeleted = adminPost(
+                "/admin/v1/community/posts/" + postId + "/moderate",
+                "{\"action\":\"HIDE\"}", "op-mod", modToken);
+        assertEquals(400, hideDeleted.getStatusCode().value(), hideDeleted.getBody());
+        assertEquals("invalid_parameter", errorName(hideDeleted));
+        // 여전히 DELETED, 본문 마스킹 유지
+        assertEquals("DELETED", json(get("/api/v1/community/posts/" + postId, null))
+                .path("status").asText());
+        // UNHIDE도 거부(부활 경로 봉쇄)
+        assertEquals(400, adminPost("/admin/v1/community/posts/" + postId + "/moderate",
+                "{\"action\":\"UNHIDE\"}", "op-mod", modToken).getStatusCode().value());
+
+        // 자가삭제 댓글도 동일하게 모더레이션 거부, comment_count 불변
+        String postId2 = createPost(author, "KRW-BTC", "댓글 자가삭제", "본문");
+        String commentId = createComment(author, postId2, "지울 댓글");
+        assertCommentConsistency(postId2, 1);
+        assertEquals(200, delete("/api/v1/community/comments/" + commentId, author.token)
+                .getStatusCode().value());
+        assertCommentConsistency(postId2, 0);
+        assertEquals(400, adminPost("/admin/v1/community/comments/" + commentId + "/moderate",
+                "{\"action\":\"HIDE\"}", "op-mod", modToken).getStatusCode().value());
+        // 거부되었으므로 이중 감산 없이 0 유지
+        assertCommentConsistency(postId2, 0);
+    }
+
     private void assertCommentConsistency(String postId, int expected) throws Exception {
         int listed = json(get("/api/v1/community/posts/" + postId + "/comments", null))
                 .path("data").size();

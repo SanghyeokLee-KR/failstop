@@ -211,6 +211,44 @@ class MemberAuthIntegrationTest {
 
         Refresh afterLogout = refresh(ok.rtCookie);
         assertEquals(401, afterLogout.status);
+        // 폐기된 family 토큰 재제출은 재사용으로 판정한다(§1-3).
+        assertEquals("refresh_reuse", afterLogout.body.path("error").path("name").asText());
+    }
+
+    @Test
+    void revokedFamilyCannotBeResurrectedByRotation() throws Exception {
+        // 회전 소각 UPDATE는 revoked_at을 검사해 폐기 family 부활을 물리 차단한다(감사 high).
+        // 초기 SELECT와 소각 사이에 revokeFamily가 커밋된 상태(revoked_at 세팅, used_at NULL)를 직접 구성해
+        // 가드가 적용된 소각이 0행임을 확인하고, 서비스 경로가 재사용으로 판정하는지 본다.
+        String email = uniqueEmail();
+        signup(email, "correctpass1", "소각가드");
+        Login ok = login(email, "correctpass1");
+
+        // 로그인 세션이 가장 최근 tip이다(가입 세션과 별개 family). 그 행만 폐기 상태로 만든다.
+        Long sessionId = jdbc.sql("""
+                        SELECT s.id FROM auth_sessions s JOIN users u ON u.id = s.user_id
+                        WHERE u.email = ? ORDER BY s.id DESC LIMIT 1
+                        """)
+                .param(email).query(Long.class).single();
+        String familyId = jdbc.sql("SELECT family_id::text FROM auth_sessions WHERE id = ?")
+                .param(sessionId).query(String.class).single();
+        jdbc.sql("UPDATE auth_sessions SET revoked_at = now() WHERE id = ?").param(sessionId).update();
+
+        int burned = jdbc.sql("""
+                        UPDATE auth_sessions SET used_at = now()
+                        WHERE id = ? AND used_at IS NULL AND revoked_at IS NULL
+                        """)
+                .param(sessionId).update();
+        assertEquals(0, burned, "폐기된 세션이 소각되어 되살아남");
+
+        Refresh reused = refresh(ok.rtCookie);
+        assertEquals(401, reused.status);
+        assertEquals("refresh_reuse", reused.body.path("error").path("name").asText());
+        // 폐기 family에 살아있는 tip(revoked_at NULL)이 재생성되지 않았다.
+        long live = jdbc.sql(
+                        "SELECT count(*) FROM auth_sessions WHERE family_id = ?::uuid AND revoked_at IS NULL")
+                .param(familyId).query(Long.class).single();
+        assertEquals(0, live, "폐기된 family에 살아있는 세션이 남음");
     }
 
     @Test

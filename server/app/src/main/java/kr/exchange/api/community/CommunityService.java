@@ -288,16 +288,20 @@ public class CommunityService {
 
     public void deleteComment(long userId, String externalId) {
         tx.executeWithoutResult(status -> {
-            CommentRef ref = loadCommentRef(externalId);
+            // FOR UPDATE로 행을 잠가 동시 삭제·자동숨김·모더레이션과 직렬화한다. 락 없이 읽은 stale status로
+            // 감산하면 두 경로가 각자 감산해 comment_count가 이중으로 줄어든다(감사 C).
+            CommentRef ref = lockCommentRef(externalId);
             requireOwner(ref.authorId(), userId);
             if ("DELETED".equals(ref.status())) {
                 throw notFound("이미 삭제된 댓글입니다.");
             }
+            boolean wasVisible = "VISIBLE".equals(ref.status());
             jdbc.sql("UPDATE comments SET status = 'DELETED', deleted_at = now() WHERE id = ?")
                     .param(ref.id())
                     .update();
-            // 가시 댓글이 사라지므로 집계에서 뺀다(HIDDEN·DELETED 제외 규약, §1.3).
-            if ("VISIBLE".equals(ref.status())) {
+            // VISIBLE 댓글만 집계에 잡혀 있으므로 그 전이에서만 감산한다. HIDDEN은 숨김 시점에 이미
+            // 빠졌으므로 재감산하지 않는다(§1.3).
+            if (wasVisible) {
                 jdbc.sql("UPDATE posts SET comment_count = greatest(comment_count - 1, 0) WHERE id = ?")
                         .param(ref.postId())
                         .update();
@@ -448,17 +452,25 @@ public class CommunityService {
     // ------------------------------------------------------------------
 
     public void moderatePost(String operatorId, String externalId, String action, String note) {
-        PostRef ref = loadPostRef(externalId);
-        applyModeration("POST", "posts", ref.id(), null, ref.status(), operatorId, action, note);
+        tx.executeWithoutResult(status -> {
+            PostRef ref = lockPostRef(externalId);
+            applyModeration("POST", "posts", ref.id(), 0, ref.status(), operatorId, action, note);
+        });
     }
 
     public void moderateComment(String operatorId, String externalId, String action, String note) {
-        CommentRef ref = loadCommentRef(externalId);
-        applyModeration("COMMENT", "comments", ref.id(), ref.postId(), ref.status(),
-                operatorId, action, note);
+        tx.executeWithoutResult(status -> {
+            CommentRef ref = lockCommentRef(externalId);
+            applyModeration("COMMENT", "comments", ref.id(), ref.postId(), ref.status(),
+                    operatorId, action, note);
+        });
     }
 
-    private void applyModeration(String type, String table, long targetId, Long postId,
+    /**
+     * 대상 행을 FOR UPDATE로 잠근 caller 트랜잭션 안에서만 호출한다. currentStatus는 락 이후 재조회한 값이라
+     * 회원 자가삭제·자동숨김과 교차해도 stale하지 않다(감사 C·D). 상태 판정·전이·감산·감사를 한 트랜잭션에 묶는다.
+     */
+    private void applyModeration(String type, String table, long targetId, long postId,
                                  String currentStatus, String operatorId, String action, String note) {
         String act = action == null ? "" : action.toUpperCase();
         String target = switch (act) {
@@ -468,34 +480,36 @@ public class CommunityService {
             default -> throw new ApiException(400, "invalid_parameter",
                     "action은 HIDE, UNHIDE, DELETE입니다.");
         };
-        // UNHIDE는 직전 HIDDEN만 복구한다. 자가 삭제(DELETED)에 적용하면 본문 마스킹이 풀리고
-        // deleted_at과 status가 어긋난다(§1.3).
+        // DELETED는 종료 상태다. 회원 자가삭제 대상에 HIDE→UNHIDE 2단계로 본문 마스킹을 푸는 부활을 막기 위해
+        // 모든 모더레이션 전이를 거부한다(감사 D).
+        if ("DELETED".equals(currentStatus)) {
+            throw new ApiException(400, "invalid_parameter", "이미 삭제된 대상은 모더레이션할 수 없습니다.");
+        }
+        // UNHIDE는 직전 HIDDEN만 복구한다.
         if ("UNHIDE".equals(act) && !"HIDDEN".equals(currentStatus)) {
             throw new ApiException(400, "invalid_parameter", "숨김 상태의 대상만 복구할 수 있습니다.");
         }
-        tx.executeWithoutResult(status -> {
-            String setDeleted = "DELETE".equals(act) ? ", deleted_at = now()" : "";
-            jdbc.sql("UPDATE " + table + " SET status = ?" + setDeleted + " WHERE id = ?")
-                    .params(target, targetId)
-                    .update();
-            // 댓글 가시성 전이는 부모 글 comment_count를 같은 트랜잭션에서 맞춘다(§1.3 목록·집계 동시 제외).
-            if ("COMMENT".equals(type) && postId != null) {
-                int delta = ("VISIBLE".equals(target) ? 1 : 0)
-                        - ("VISIBLE".equals(currentStatus) ? 1 : 0);
-                if (delta != 0) {
-                    jdbc.sql("UPDATE posts SET comment_count = greatest(comment_count + ?, 0) WHERE id = ?")
-                            .params(delta, postId)
-                            .update();
-                }
+        String setDeleted = "DELETE".equals(act) ? ", deleted_at = now()" : "";
+        jdbc.sql("UPDATE " + table + " SET status = ?" + setDeleted + " WHERE id = ?")
+                .params(target, targetId)
+                .update();
+        // 댓글 가시성 전이는 부모 글 comment_count를 같은 트랜잭션에서 맞춘다(§1.3 목록·집계 동시 제외).
+        if ("COMMENT".equals(type)) {
+            int delta = ("VISIBLE".equals(target) ? 1 : 0)
+                    - ("VISIBLE".equals(currentStatus) ? 1 : 0);
+            if (delta != 0) {
+                jdbc.sql("UPDATE posts SET comment_count = greatest(comment_count + ?, 0) WHERE id = ?")
+                        .params(delta, postId)
+                        .update();
             }
-            jdbc.sql("""
-                            INSERT INTO community_moderation_log
-                                (target_type, target_id, action, operator_id, note)
-                            VALUES (?, ?, ?, ?, ?)
-                            """)
-                    .params(type, targetId, act, operatorId, note == null ? null : clip(note, 500))
-                    .update();
-        });
+        }
+        jdbc.sql("""
+                        INSERT INTO community_moderation_log
+                            (target_type, target_id, action, operator_id, note)
+                        VALUES (?, ?, ?, ?, ?)
+                        """)
+                .params(type, targetId, act, operatorId, note == null ? null : clip(note, 500))
+                .update();
     }
 
     public List<Map<String, Object>> listReports(String status) {
@@ -555,10 +569,32 @@ public class CommunityService {
                 .orElseThrow(() -> notFound("존재하지 않는 글입니다."));
     }
 
+    // 상태 전이(삭제·모더레이션) 경로 전용. 대상 행을 FOR UPDATE로 잠가 read-modify-write를 한 트랜잭션·행잠금에
+    // 모아 stale status·이중 감산을 차단한다(감사 C·D). caller 트랜잭션 안에서만 호출한다.
+    private PostRef lockPostRef(String externalId) {
+        return jdbc.sql("SELECT id, author_id, status FROM posts WHERE external_id = ?::uuid FOR UPDATE")
+                .param(externalId)
+                .query((rs, n) -> new PostRef(rs.getLong("id"), rs.getLong("author_id"),
+                        rs.getString("status")))
+                .optional()
+                .orElseThrow(() -> notFound("존재하지 않는 글입니다."));
+    }
+
     private CommentRef loadCommentRef(String externalId) {
         return jdbc.sql("""
                         SELECT id, post_id, author_id, status, parent_comment_id
                         FROM comments WHERE external_id = ?::uuid
+                        """)
+                .param(externalId)
+                .query(CommunityService::mapCommentRef)
+                .optional()
+                .orElseThrow(() -> notFound("존재하지 않는 댓글입니다."));
+    }
+
+    private CommentRef lockCommentRef(String externalId) {
+        return jdbc.sql("""
+                        SELECT id, post_id, author_id, status, parent_comment_id
+                        FROM comments WHERE external_id = ?::uuid FOR UPDATE
                         """)
                 .param(externalId)
                 .query(CommunityService::mapCommentRef)
