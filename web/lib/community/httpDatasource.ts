@@ -38,7 +38,8 @@ interface ListEnvelope<T> {
 }
 
 async function toApiError(res: Response): Promise<ApiError> {
-  let name = res.status >= 500 ? "server_error" : "invalid_parameter";
+  // 비 JSON 게이트웨이 응답도 상태코드로 분류한다. 429를 invalid_parameter로 오분류하지 않는다
+  let name = res.status >= 500 ? "server_error" : res.status === 429 ? "too_many_requests" : "invalid_parameter";
   let message = GENERIC_MESSAGE;
   let retryAfter: number | null = null;
   try {

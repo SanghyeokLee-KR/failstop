@@ -125,7 +125,7 @@ export default function CommentSection({ postExternalId, session, onRequireLogin
   return (
     <section className={styles.root} aria-label="댓글">
       <h2 className={styles.heading}>
-        댓글 <span className="num">{roots.length + comments.filter((c) => c.parent_id).length}</span>
+        댓글 <span className="num">{comments.filter((c) => c.status !== "DELETED").length}</span>
       </h2>
 
       {session ? (

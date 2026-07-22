@@ -6,7 +6,7 @@
  * 좋아요 토글은 상세 뷰에서 한다. 상태: 로딩·빈·에러 설계(§5 상태 규약).
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CoinMeta, MemberSession } from "@/lib/types";
@@ -46,6 +46,8 @@ export default function BoardListView({ market, meta, session }: Props) {
   const [composing, setComposing] = useState(false);
   const [bodyError, setBodyError] = useState<string | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
+  // 멱등키는 컴포즈 세션에 고정한다. 실패 시 유지해 재시도가 같은 키로 중복 작성을 막는다
+  const postKeyRef = useRef<string>("");
 
   const load = useCallback(
     async (nextSort: PostSort, reset: boolean) => {
@@ -81,14 +83,17 @@ export default function BoardListView({ market, meta, session }: Props) {
     if (!session) return requireLogin();
     setTitleError(null);
     setBodyError(null);
+    postKeyRef.current = "";
     setComposing(true);
   };
 
   const submitPost = async (title: string, body: string) => {
     setTitleError(null);
     setBodyError(null);
+    if (!postKeyRef.current) postKeyRef.current = crypto.randomUUID();
     try {
-      const post = await ds.createPost(market, { title, body, clientKey: crypto.randomUUID() });
+      const post = await ds.createPost(market, { title, body, clientKey: postKeyRef.current });
+      postKeyRef.current = "";
       toast("글을 등록했어요", "success");
       setComposing(false);
       router.push(`/community/${market}?post=${post.external_id}`);

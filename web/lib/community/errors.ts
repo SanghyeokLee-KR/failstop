@@ -37,6 +37,7 @@ export function mapCommunityError(e: unknown): MappedCommunityError {
     case "out_of_scope":
       return { field: null, message: "본인 글·댓글만 수정하거나 삭제할 수 있어요", retryAfter, needsLogin: false };
     case "not_found":
+      return { field: null, message: "이미 삭제됐거나 없는 대상이에요", retryAfter, needsLogin: false };
     case "post_not_found":
       return { field: null, message: "이미 삭제됐거나 없는 글이에요", retryAfter, needsLogin: false };
     case "comment_not_found":

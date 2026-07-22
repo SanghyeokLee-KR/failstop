@@ -188,7 +188,7 @@
   gap: var(--space-2);
 }
 .textAction {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
   font-size: var(--font-body-sm-size);
@@ -197,7 +197,7 @@
 }
 .textAction:hover { background: var(--surface-hover); color: var(--text-default); }
 .dangerAction {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
   font-size: var(--font-body-sm-size);
