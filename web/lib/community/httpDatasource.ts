@@ -21,6 +21,8 @@ import type {
 export interface HttpCommunityOptions {
   apiBase: string;
   identityProvider: () => MemberIdentity | null;
+  /** access 만료 시 회원 세션 갱신. 거래 어댑터 refresh와 대칭. 없으면 401을 로그인 유도로 표면화 */
+  refreshIdentity?: () => Promise<MemberIdentity | null>;
   fetchFn?: typeof fetch;
 }
 
@@ -63,16 +65,22 @@ async function toApiError(res: Response): Promise<ApiError> {
 export class HttpCommunityDataSource {
   private readonly apiBase: string;
   private readonly identity: () => MemberIdentity | null;
+  private readonly refreshIdentity?: () => Promise<MemberIdentity | null>;
   private readonly fetchFn: typeof fetch;
 
   constructor(options: HttpCommunityOptions) {
     this.apiBase = options.apiBase.replace(/\/+$/, "");
     this.identity = options.identityProvider;
+    this.refreshIdentity = options.refreshIdentity;
     this.fetchFn = options.fetchFn ?? ((input, init) => fetch(input, init));
   }
 
-  private async request<T>(path: string, init: RequestInit, auth: boolean): Promise<T> {
-    const headers: Record<string, string> = { ...(init.body != null ? JSON_HEADERS : {}) };
+  private async request<T>(path: string, init: RequestInit, auth: boolean, retried = false): Promise<T> {
+    // init.headers(멱등키 등)를 보존한다. JSON_HEADERS·Authorization은 이후 병합으로 확정한다
+    const headers: Record<string, string> = {
+      ...(init.body != null ? JSON_HEADERS : {}),
+      ...(init.headers as Record<string, string> | undefined),
+    };
     if (auth) {
       const me = this.identity();
       // 미로그인 쓰기는 서버 왕복 전에 로그인 유도로 표면화(§4 인증)
@@ -80,6 +88,12 @@ export class HttpCommunityDataSource {
       headers.Authorization = `Bearer ${me.token}`;
     }
     const res = await this.fetchFn(`${this.apiBase}${BASE}${path}`, { ...init, headers });
+    if (res.status === 401 && auth && !retried && this.refreshIdentity) {
+      // access 만료·refresh 쿠키 유효 시 거래 어댑터와 대칭으로 1회 갱신 후 재시도.
+      // init(멱등키·본문 포함)을 그대로 재전송해 재시도가 중복 생성으로 이어지지 않게 한다
+      const fresh = await this.refreshIdentity();
+      if (fresh) return this.request<T>(path, init, auth, true);
+    }
     if (!res.ok) throw await toApiError(res);
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;

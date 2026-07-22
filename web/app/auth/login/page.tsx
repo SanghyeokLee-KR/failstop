@@ -12,11 +12,13 @@ import { useState } from "react";
 import TextField from "@/components/TextField";
 import { toast } from "@/components/Toast";
 import { getDataSource } from "@/lib/api/datasource";
+import { useMemberSession } from "@/lib/store";
 import { mapAuthError } from "../authErrors";
 import styles from "../auth.module.css";
 
 export default function LoginPage() {
   const router = useRouter();
+  const session = useMemberSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
@@ -43,6 +45,28 @@ export default function LoginPage() {
       setBusy(false);
     }
   };
+
+  // 로그인 상태에서 인증 화면 재진입 시 무자각 계정 전환을 막는다. 폼 대신 현재 신원을 안내한다
+  if (session) {
+    return (
+      <main className={styles.page}>
+        <section className={styles.card} aria-labelledby="login-title">
+          <div className={styles.head}>
+            <h1 id="login-title" className={styles.title}>
+              이미 로그인했어요
+            </h1>
+            <p className={styles.sub}>{session.user.display_name} 계정으로 접속한 상태예요</p>
+          </div>
+          <Link href="/exchange" className={`btn btn--primary btn--full btn--xl ${styles.submit}`}>
+            거래소로 가기
+          </Link>
+          <Link href="/mypage" className={`btn btn--secondary btn--full ${styles.browse}`}>
+            마이페이지
+          </Link>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className={styles.page}>

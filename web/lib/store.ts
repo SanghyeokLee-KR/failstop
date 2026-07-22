@@ -68,7 +68,8 @@ interface ExchangeState {
   /** DataSource.onConnectionChange가 유일한 호출 주체 (§5.1) */
   setConnected(v: boolean): void;
   /** DataSource.onMemberSessionChange가 유일한 호출 주체(§4-5). 화면은 setter를 직접 호출하지 않는다.
-   * 세션 해제도 setSession(null)로 수렴한다(별도 clearSession 없음) */
+   * 세션 해제도 setSession(null)로 수렴한다(별도 clearSession 없음). 신원 전환·해제 시
+   * 사설 슬라이스(assets·openOrders·closedOrders)를 이 한 지점에서 소거해 평면 간 누수를 막는다 */
   setSession(s: MemberSession | null): void;
   toggleFavorite(market: string): void;
   /** SSR 안전 하이드레이션: 마운트 후 localStorage 관심 목록 반영 */
@@ -159,7 +160,14 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   },
 
   setSession(s) {
-    set({ session: s });
+    set((state) => {
+      const prevId = state.session?.user.external_id ?? null;
+      const nextId = s?.user.external_id ?? null;
+      // 같은 신원의 토큰 재발급은 사설 슬라이스를 보존한다. 신원 전환·해제만 소거해
+      // 이전 회원의 잔액·주문이 다음 신원 화면에 잔존·flash 하지 않게 한다
+      if (prevId === nextId) return { session: s };
+      return { session: s, assets: [], openOrders: [], closedOrders: [] };
+    });
   },
 
   toggleFavorite(market) {

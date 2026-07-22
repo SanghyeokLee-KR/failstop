@@ -32,12 +32,37 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const prevFocused = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      // 모달 포커스 트랩: Tab이 다이얼로그 밖으로 새지 않게 처음·끝을 순환한다
+      if (e.key === "Tab" && dialog) {
+        const focusables = dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", onKey);
-    dialogRef.current?.querySelector<HTMLElement>("input, button")?.focus();
-    return () => document.removeEventListener("keydown", onKey);
+    dialog?.querySelector<HTMLElement>("input, button")?.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      // 닫힐 때 호출 지점으로 포커스를 복귀시킨다(키보드 흐름 유지)
+      prevFocused?.focus?.();
+    };
   }, [onClose]);
 
   const submit = async () => {

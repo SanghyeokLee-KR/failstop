@@ -12,6 +12,7 @@ import type { CommunityComment, ReportReason } from "@/lib/community/types";
 import { COMMENT_BODY_MAX } from "@/lib/community/types";
 import { getCommunityDataSource } from "@/lib/community/datasource";
 import { mapCommunityError } from "@/lib/community/errors";
+import { formatCount } from "@/lib/format";
 import { formatRelativeTime, formatAbsoluteTime } from "@/lib/community/time";
 import { toast } from "@/components/Toast";
 import Skeleton from "@/components/Skeleton";
@@ -22,11 +23,13 @@ import styles from "./CommentSection.module.css";
 interface Props {
   postExternalId: string;
   session: MemberSession | null;
+  /** 글의 전체 댓글 수(서버 집계). 헤딩은 로드된 페이지가 아니라 이 총계를 반영한다 */
+  commentCount: number;
   onRequireLogin(): void;
   onCountChange?(delta: number): void;
 }
 
-export default function CommentSection({ postExternalId, session, onRequireLogin, onCountChange }: Props) {
+export default function CommentSection({ postExternalId, session, commentCount, onRequireLogin, onCountChange }: Props) {
   const ds = getCommunityDataSource();
   const [comments, setComments] = useState<CommunityComment[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -125,7 +128,7 @@ export default function CommentSection({ postExternalId, session, onRequireLogin
   return (
     <section className={styles.root} aria-label="댓글">
       <h2 className={styles.heading}>
-        댓글 <span className="num">{comments.filter((c) => c.status !== "DELETED").length}</span>
+        댓글 <span className="num">{formatCount(commentCount)}</span>
       </h2>
 
       {session ? (

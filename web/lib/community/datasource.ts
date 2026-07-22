@@ -497,11 +497,19 @@ function currentIdentity(): MemberIdentity | null {
   return { externalId: s.user.external_id, handle: s.user.display_name, token: s.accessToken };
 }
 
+/** access 만료 시 거래 세션 refresh로 신선한 신원을 확보한다. 게시판·거래 세션 수명을 대칭으로 맞춘다 */
+async function refreshIdentity(): Promise<MemberIdentity | null> {
+  const s = await getDataSource().refresh();
+  if (!s) return null;
+  return { externalId: s.user.external_id, handle: s.user.display_name, token: s.accessToken };
+}
+
 function createCommunityDataSource(): CommunityDataSource {
   if (process.env.NEXT_PUBLIC_DATASOURCE === "http") {
     return new HttpCommunityDataSource({
       apiBase: process.env.NEXT_PUBLIC_API_BASE ?? "",
       identityProvider: currentIdentity,
+      refreshIdentity,
     });
   }
   return new SimCommunityDataSource(currentIdentity);

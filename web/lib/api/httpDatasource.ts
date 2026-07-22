@@ -268,6 +268,8 @@ export class HttpStompDataSource implements DataSource {
   private member: { user: MemberUser; token: string; expMs: number | null } | null = null;
   private memberListeners = new Set<(s: MemberSession | null) => void>();
   private refreshPromise: Promise<MemberSession | null> | null = null;
+  /** 재연결 직렬화 체인. setMember·clearMember 근접 호출의 이중 활성을 막는다 */
+  private reconnectChain: Promise<void> = Promise.resolve();
 
   private channels = new Map<string, ChannelState>();
   private connListeners = new Set<(connected: boolean) => void>();
@@ -535,13 +537,17 @@ export class HttpStompDataSource implements DataSource {
     this.reconnectWs();
   }
 
-  /** 세션 토큰이 바뀌면 CONNECT 헤더를 갱신하려 재연결한다(§5-6) */
+  /** 세션 토큰이 바뀌면 CONNECT 헤더를 갱신하려 재연결한다(§5-6).
+   * setMember·clearMember 근접 호출이 겹쳐 이중 활성·유휴 연결이 남지 않도록 단일 체인으로 직렬화한다 */
   private reconnectWs(): void {
     if (!this.stomp || !this.stompConnected) return;
-    void (async () => {
-      await this.stomp!.deactivate();
-      this.stomp!.activate();
-    })();
+    this.reconnectChain = this.reconnectChain
+      .then(async () => {
+        if (!this.stomp) return;
+        await this.stomp.deactivate();
+        this.stomp.activate();
+      })
+      .catch(() => {});
   }
 
   private async authPost(path: string, body?: unknown): Promise<AuthResponse> {

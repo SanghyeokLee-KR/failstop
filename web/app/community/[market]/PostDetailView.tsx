@@ -245,6 +245,7 @@ export default function PostDetailView({ market, meta, postId, session }: Props)
               <CommentSection
                 postExternalId={post.external_id}
                 session={session}
+                commentCount={post.comment_count}
                 onRequireLogin={requireLogin}
                 onCountChange={(delta) =>
                   setPost((p) => (p ? { ...p, comment_count: Math.max(0, p.comment_count + delta) } : p))
