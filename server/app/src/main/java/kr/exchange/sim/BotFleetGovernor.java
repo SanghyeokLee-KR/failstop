@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SplittableRandom;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicLong;
@@ -27,21 +28,53 @@ public class BotFleetGovernor {
     public static final double KP_MAX = 0.2;
     public static final double PRICE_BAND = 0.40;
     public static final long CONTROL_PERIOD_MS = 3_000;
+    // 레짐 시드 미지정 생성자용 상수. props.seed 미주입 경로(단위 테스트)의 재현 기준.
+    public static final long DEFAULT_REGIME_SEED = 42L;
 
     private static final int TYPE_COUNT = BotType.values().length;
+
+    /**
+     * 변동성 레짐(설계 §5-r5). controlStep당 마켓별 시드 PRNG로 1회 전이한다. 배수는 스칼라라
+     * 봇 의사결정(드리프트 크기·스프레드 폭·도착률·고래 확률)만 곱하고 NUMERIC 산술에 유입되지
+     * 않는다. CALM 기준, TREND/SHOCK로 갈수록 변동성이 커진다.
+     */
+    public enum Regime {
+        CALM(1.0, 1.0, 1.0, 1.0),
+        TREND(1.5, 1.2, 1.3, 1.5),
+        SHOCK(2.5, 2.0, 1.8, 3.0);
+
+        private final double drift;
+        private final double spread;
+        private final double lambda;
+        private final double pWhale;
+
+        Regime(double drift, double spread, double lambda, double pWhale) {
+            this.drift = drift;
+            this.spread = spread;
+            this.lambda = lambda;
+            this.pWhale = pWhale;
+        }
+    }
 
     private final int typeCap;
     private final int marketCap;
     private final int globalCap;
     private final int poolPerType;
+    private final long regimeSeed;
 
     private final Map<String, MarketState> markets = new ConcurrentHashMap<>();
 
     public BotFleetGovernor(int typeCap, int marketCap, int globalCap, int poolPerType) {
+        this(typeCap, marketCap, globalCap, poolPerType, DEFAULT_REGIME_SEED);
+    }
+
+    public BotFleetGovernor(int typeCap, int marketCap, int globalCap, int poolPerType,
+                            long regimeSeed) {
         this.typeCap = Math.max(1, typeCap);
         this.marketCap = Math.max(1, marketCap);
         this.globalCap = Math.max(1, globalCap);
         this.poolPerType = Math.max(1, poolPerType);
+        this.regimeSeed = regimeSeed;
     }
 
     /**
@@ -49,7 +82,54 @@ public class BotFleetGovernor {
      * poolPerType은 typeCap과 같게 잡아 캡 상향이 재기동을 요구하지 않게 한다(§3-3).
      */
     public static BotFleetGovernor defaults() {
-        return new BotFleetGovernor(30, 80, 300, 30);
+        return defaults(DEFAULT_REGIME_SEED);
+    }
+
+    public static BotFleetGovernor defaults(long regimeSeed) {
+        return new BotFleetGovernor(30, 80, 300, 30, regimeSeed);
+    }
+
+    /**
+     * 마켓명 안정 해시(FNV-1a 32bit). String.hashCode도 계약상 안정이나, 레짐 시퀀스 재현이
+     * 봇 결정성의 일부라 JVM·구현 무관하게 고정되는 해시를 명시적으로 쓴다.
+     */
+    static long stableSalt(String market) {
+        long h = 0x811c9dc5L;
+        for (int i = 0; i < market.length(); i++) {
+            h ^= market.charAt(i);
+            h = (h * 0x01000193L) & 0xffffffffL;
+        }
+        return h;
+    }
+
+    /** 레짐 전이 1스텝(순수). u는 [0,1) 균등. 설계 §5-r5 전이 행렬. */
+    static Regime nextRegime(Regime current, double u) {
+        return switch (current) {
+            case CALM -> u < 0.90 ? Regime.CALM : u < 0.98 ? Regime.TREND : Regime.SHOCK;
+            case TREND -> u < 0.30 ? Regime.CALM : u < 0.90 ? Regime.TREND : Regime.SHOCK;
+            case SHOCK -> u < 0.50 ? Regime.CALM : u < 0.70 ? Regime.TREND : Regime.SHOCK;
+        };
+    }
+
+    public Regime regime(String market) {
+        MarketState state = markets.get(market);
+        return state == null ? Regime.CALM : state.regime;
+    }
+
+    public double regimeDriftMult(String market) {
+        return regime(market).drift;
+    }
+
+    public double regimeSpreadMult(String market) {
+        return regime(market).spread;
+    }
+
+    public double regimeLambdaMult(String market) {
+        return regime(market).lambda;
+    }
+
+    public double regimePWhaleMult(String market) {
+        return regime(market).pWhale;
     }
 
     public int poolPerType() {
@@ -179,6 +259,9 @@ public class BotFleetGovernor {
      */
     public void controlStep() {
         for (MarketState state : markets.values()) {
+            // 레짐 전이는 마켓별 시드 PRNG를 controlStep당 정확히 1회 전진시킨다. 같은 시드 +
+            // 같은 호출 횟수 = 같은 레짐 시퀀스. 벽시계 미사용.
+            state.regime = nextRegime(state.regime, state.regimeRng.nextDouble());
             long buy = state.buyAgg.getAndSet(0);
             long sell = state.sellAgg.getAndSet(0);
             long fills = state.fillAgg.getAndSet(0);
@@ -355,7 +438,7 @@ public class BotFleetGovernor {
         return Math.max(0, Math.min(value, typeCap));
     }
 
-    private static final class MarketState {
+    private final class MarketState {
         private final String market;
         private volatile BigDecimal referencePrice;
         private volatile BigDecimal currentPrice;
@@ -366,6 +449,8 @@ public class BotFleetGovernor {
         private volatile double fillRatio;
         private volatile boolean autoBalance;
         private volatile double strength = 0.5;
+        private volatile Regime regime = Regime.CALM;
+        private final SplittableRandom regimeRng;
         private final AtomicLong buyAgg = new AtomicLong();
         private final AtomicLong sellAgg = new AtomicLong();
         private final AtomicLong fillAgg = new AtomicLong();
@@ -373,6 +458,7 @@ public class BotFleetGovernor {
         private MarketState(String market, BigDecimal referencePrice) {
             this.market = market;
             this.referencePrice = referencePrice;
+            this.regimeRng = new SplittableRandom(regimeSeed ^ stableSalt(market));
         }
 
         private int totalTarget() {

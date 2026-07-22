@@ -119,4 +119,47 @@ class BotFleetGovernorTest {
         gov.controlStep();
         assertEquals(0.0, gov.effectiveBias("KRW-BTC"), 1e-12, "밴드 이탈 시 effective 0 강제");
     }
+
+    @Test
+    void regimeTransitionMatrixRespectsBoundaries() {
+        // CALM: [0,0.90) CALM, [0.90,0.98) TREND, [0.98,1) SHOCK.
+        assertEquals(BotFleetGovernor.Regime.CALM,
+                BotFleetGovernor.nextRegime(BotFleetGovernor.Regime.CALM, 0.0));
+        assertEquals(BotFleetGovernor.Regime.TREND,
+                BotFleetGovernor.nextRegime(BotFleetGovernor.Regime.CALM, 0.95));
+        assertEquals(BotFleetGovernor.Regime.SHOCK,
+                BotFleetGovernor.nextRegime(BotFleetGovernor.Regime.CALM, 0.99));
+        // SHOCK은 절반 확률로 CALM 복귀.
+        assertEquals(BotFleetGovernor.Regime.CALM,
+                BotFleetGovernor.nextRegime(BotFleetGovernor.Regime.SHOCK, 0.2));
+    }
+
+    @Test
+    void regimeSequenceIsReproducibleForSeed() {
+        BotFleetGovernor a = new BotFleetGovernor(30, 80, 300, 8, 42L);
+        BotFleetGovernor b = new BotFleetGovernor(30, 80, 300, 8, 42L);
+        a.registerMarket("KRW-BTC", new BigDecimal("100"), null);
+        b.registerMarket("KRW-BTC", new BigDecimal("100"), null);
+        StringBuilder sa = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 300; i++) {
+            a.controlStep();
+            b.controlStep();
+            sa.append(a.regime("KRW-BTC")).append(',');
+            sb.append(b.regime("KRW-BTC")).append(',');
+        }
+        assertEquals(sa.toString(), sb.toString(), "같은 시드 = 같은 레짐 시퀀스");
+        // 300스텝이면 CALM 외 레짐이 최소 한 번은 관측된다(전이 발생).
+        assertTrue(sa.indexOf("TREND") >= 0 || sa.indexOf("SHOCK") >= 0, "레짐 전이 발생");
+    }
+
+    @Test
+    void regimeMultipliersReflectCurrentRegime() {
+        BotFleetGovernor gov = new BotFleetGovernor(30, 80, 300, 8);
+        // 미등록 마켓은 CALM 기본(배수 1.0).
+        assertEquals(1.0, gov.regimeDriftMult("KRW-XYZ"), 1e-12);
+        assertEquals(1.0, gov.regimeSpreadMult("KRW-XYZ"), 1e-12);
+        assertEquals(1.0, gov.regimeLambdaMult("KRW-XYZ"), 1e-12);
+        assertEquals(1.0, gov.regimePWhaleMult("KRW-XYZ"), 1e-12);
+    }
 }

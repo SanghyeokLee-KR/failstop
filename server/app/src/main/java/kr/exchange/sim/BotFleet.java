@@ -73,8 +73,8 @@ public class BotFleet {
                         quoteFunding, baseFunding);
                 MarketMakerBot bot = new MarketMakerBot(botId,
                         new BotApiClient(per.baseUrl(), creds, botId),
-                        per.seed() * 1_000_003L + marketSalt + i, per, tick, () -> running,
-                        governor, fleet, i);
+                        per.seed() * 1_000_003L + marketSalt + i, per, tick, baseFunding,
+                        () -> running, governor, fleet, i);
                 threads.add(Thread.ofVirtual().name("sim-" + botId).start(bot));
             }
             spawnTakers(BotType.TAKER, "tk-" + suffix, per, marketSalt, 2_000_003L,

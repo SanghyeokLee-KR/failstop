@@ -66,6 +66,29 @@ public class BotApiClient {
         return send(request);
     }
 
+    /**
+     * 인증 GET(§3 서명). accounts 등 사용자 스코프 조회에 쓴다. 읽기라 OPS를 소비하지 않는다
+     * (테이커의 orderbook 읽기와 동일 취급). params는 정렬 쿼리로 canonical과 URL을 함께 만든다.
+     */
+    public Response getSigned(String path, Map<String, String> params) {
+        String bearer = bearer("GET", path, queryHash("GET", path, params));
+        StringBuilder url = new StringBuilder(baseUrl).append(path);
+        if (!params.isEmpty()) {
+            TreeMap<String, String> sorted = new TreeMap<>(params);
+            char sep = path.indexOf('?') >= 0 ? '&' : '?';
+            for (Map.Entry<String, String> e : sorted.entrySet()) {
+                url.append(sep).append(e.getKey()).append('=').append(e.getValue());
+                sep = '&';
+            }
+        }
+        HttpRequest request = HttpRequest.newBuilder(URI.create(url.toString()))
+                .timeout(Duration.ofSeconds(10))
+                .header("Authorization", bearer)
+                .GET()
+                .build();
+        return send(request);
+    }
+
     public Response getPublic(String pathWithQuery) {
         HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + pathWithQuery))
                 .timeout(Duration.ofSeconds(10))

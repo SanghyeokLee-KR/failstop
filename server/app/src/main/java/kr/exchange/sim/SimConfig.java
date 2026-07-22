@@ -29,8 +29,9 @@ public class SimConfig {
     }
 
     @Bean
-    public BotFleetGovernor botFleetGovernor() {
-        return BotFleetGovernor.defaults();
+    public BotFleetGovernor botFleetGovernor(SimProperties props) {
+        // 레짐 시퀀스 재현을 위해 봇 시드를 레짐 PRNG에 주입한다.
+        return BotFleetGovernor.defaults(props.seed());
     }
 
     @Bean
