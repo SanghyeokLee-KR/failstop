@@ -5,8 +5,8 @@
  * 운영자 신원은 mTLS 인증서 CN 유래이며 password_hash가 없다(V5 admin_operators).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAdminApi } from "@/lib/admin/api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { useCan } from "@/lib/admin/store";
 import { ROLE_DESC } from "@/lib/admin/roles";
 import { ADMIN_ROLES, type AdminOperator, type AdminRole, type DestructiveAction } from "@/lib/admin/types";
@@ -15,31 +15,30 @@ import Skeleton from "@/components/Skeleton";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
 import RoleBadge from "@/components/admin/RoleBadge";
+import { useAdminResource } from "@/components/admin/useAdminResource";
+import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
 import { HealthPill, PageHeader, PermissionNote } from "@/components/admin/ui";
 import styles from "@/components/admin/admin.module.css";
+
+const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
 const OP_ACTIONS: DestructiveAction[] = ["operators.roles"];
 
 export default function OperatorsPage() {
   const canSuper = useCan("SUPER");
-  const [ops, setOps] = useState<AdminOperator[] | null>(null);
   const [targetId, setTargetId] = useState("");
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const actions = useMemo(() => OP_ACTIONS, []);
 
-  const load = useCallback(async () => {
-    try {
-      setOps(await getAdminApi().getOperators());
-    } catch {
-      // 세션 게이트 처리
-    }
-  }, []);
+  const res = useAdminResource<AdminOperator[]>(() => getAdminApi().getOperators(), { intervalMs: 3000, isSessionError });
+  const ops = res.data;
+  const load = res.reload;
 
+  // 역할 편집 대상 선택 시 편집 영역으로 포커스를 옮긴다(§9 키보드 흐름). 편집기가 그려진 뒤 실행
+  const editorHeadingRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    void load();
-    const iv = setInterval(() => void load(), 3000);
-    return () => clearInterval(iv);
-  }, [load]);
+    if (targetId) editorHeadingRef.current?.focus();
+  }, [targetId]);
 
   const selectTarget = (op: AdminOperator) => {
     setTargetId(op.operatorId);
@@ -52,10 +51,16 @@ export default function OperatorsPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="운영자·역할" desc="역할 부여·회수는 SUPER + 2인 승인. 신원은 mTLS 인증서 CN에서 유래합니다." />
+      <PageHeader
+        title="운영자·역할"
+        desc="역할 부여·회수는 SUPER + 2인 승인. 신원은 mTLS 인증서 CN에서 유래합니다."
+        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
+      />
 
       <PanelCard title="운영자">
-        {!ops ? (
+        {res.error ? (
+          <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
+        ) : !ops ? (
           <Skeleton variant="card" width="100%" height={160} />
         ) : (
           <ul className={styles.opList}>
@@ -86,7 +91,9 @@ export default function OperatorsPage() {
         {!canSuper && <PermissionNote>운영자 관리 권한(SUPER)이 없어 조회만 가능합니다.</PermissionNote>}
         {targetId ? (
           <div className={styles.roleEditor}>
-            <span className={styles.roleEditorTarget}>대상 운영자 {targetId}</span>
+            <span className={styles.roleEditorTarget} ref={editorHeadingRef} tabIndex={-1}>
+              대상 운영자 {targetId}
+            </span>
             <fieldset className={styles.roleFieldset}>
               <legend className="sr-only">부여할 역할</legend>
               {ADMIN_ROLES.map((r) => (

@@ -20,12 +20,35 @@ export function HealthPill({ health, label }: { health: Health; label: string })
   );
 }
 
-/** 지표 타일. 헬스 톤은 값 강조에만 쓴다. hero는 화면당 단일 대표 지표에만(700 승격) */
-export function StatTile({ label, value, sub, tone, hero }: { label: string; value: ReactNode; sub?: ReactNode; tone?: Health; hero?: boolean }) {
+/**
+ * 지표 타일. 헬스 톤은 값 강조에만 쓴다. hero는 화면당 단일 대표 지표에만(700 승격).
+ * 색 단독 금지라 tone이 있으면 값 옆에 심각도 형태(●/▲/■)를 병기한다.
+ * alarm은 위험 타일을 톤 보더 + 좌측 상태 레일로 승격해 균일 격자에서 경보를 도드라지게 한다.
+ */
+export function StatTile({
+  label,
+  value,
+  sub,
+  tone,
+  hero,
+  alarm,
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: ReactNode;
+  tone?: Health;
+  hero?: boolean;
+  alarm?: boolean;
+}) {
   return (
-    <div className={styles.statTile}>
+    <div className={styles.statTile} data-alarm={alarm ? tone ?? "warning" : undefined}>
       <span className={styles.statLabel}>{label}</span>
       <span className={`${styles.statValue} num`} data-tone={tone ?? undefined} data-hero={hero ? "" : undefined}>
+        {tone && (
+          <span className={styles.toneIcon} aria-hidden="true">
+            {HEALTH_ICON[tone]}
+          </span>
+        )}
         {value}
       </span>
       {sub != null && <span className={styles.statSub}>{sub}</span>}

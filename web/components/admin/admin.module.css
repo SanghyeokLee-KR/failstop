@@ -4,10 +4,13 @@
    ========================================================================== */
 
 /* ===== 셸 ===== */
+/* 셸 스크롤 소유권(§4-1 rank15): 셸이 뷰포트에 고정되고 .content가 유일한 스크롤 컨테이너다.
+   사이드바·운영자 바는 스크롤 밖에 남아 항상 보이고, 배경 격리는 셸이 소유한다 */
 .shell {
   display: flex;
   align-items: stretch;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: var(--bg-muted);
 }
 .booting {
@@ -85,8 +88,15 @@
 .main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+}
+/* 페이지 본문 스크롤 컨테이너. opbar는 형제라 스크롤 밖에 고정된다 */
+.content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
 }
 .opbar {
   position: sticky;
@@ -136,13 +146,25 @@
   gap: var(--space-1);
 }
 .sessionTtl {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--font-caption-size);
   color: var(--text-secondary);
   white-space: nowrap;
 }
 .sessionTtl b {
-  margin-left: var(--space-1);
   color: var(--text-strong);
+}
+/* 임박 비색 단서(§4-3 rank11): 색 전이와 함께 형태(▲)·라벨을 병기한다 */
+.sessionTtl[data-imminent] {
+  color: var(--color-warning-text);
+}
+.sessionTtl[data-imminent] b {
+  color: var(--color-warning-text);
+}
+.sessionWarn {
+  font-weight: var(--fw-semibold);
 }
 .certSwitch select,
 .field select,
@@ -391,6 +413,68 @@
 .statPillWrap {
   margin-top: var(--space-1);
 }
+/* 색 단독 금지 보조 채널(§4-3): 값 옆 심각도 형태. 색은 statValue tone에서 상속 */
+.toneIcon {
+  margin-right: var(--space-1);
+  font-size: 0.68em;
+  vertical-align: 0.12em;
+}
+/* 경보 승격(§6.4 경보 위계): 균일 격자에서 위험 타일만 톤 보더 + 좌측 상태 레일로 도드라지게 한다.
+   레일은 inset box-shadow라 레이아웃 시프트 0. 색 외 채널은 값 옆 toneIcon이 병기 */
+.statTile[data-alarm="warning"] {
+  border-color: var(--color-warning-text);
+  box-shadow: inset 3px 0 0 var(--color-warning-text);
+}
+.statTile[data-alarm="danger"] {
+  border-color: var(--color-danger);
+  box-shadow: inset 3px 0 0 var(--color-danger);
+}
+
+/* 의미 그룹 구획(§6.4 스캔 경로): 헬스·운영·승인 KPI를 헤어라인으로 나눈다.
+   명판(§6.3)은 micro + 자간 확장으로 그룹을 식별한다 */
+.kpiGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.kpiGroup:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+.kpiGroupLabel {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* 스테일·연결 신호(§5.2): 폴링 실패 지연 배지. 깜빡임 금지, 무채 칩 + 경과.
+   경고 형태(▲)를 병기해 색 없이도 지연을 읽게 한다 */
+.staleBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  white-space: nowrap;
+}
+/* 스테일 구간 갱신 영역 감쇠: 폴링 실패 시 마지막 값임을 opacity로 알린다. 시프트 0 */
+.staleRegion {
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.staleRegion[data-stale] {
+  opacity: 0.62;
+}
 
 /* ===== 버튼 ===== */
 .primaryBtn,
@@ -510,6 +594,12 @@
 .rateField b {
   color: var(--text-strong);
 }
+/* 드래프트와 적용값 차이 고지. 슬라이더 편집이 아직 반영 전임을 무채 캡션으로 알린다 */
+.rateApplied {
+  font-size: var(--font-micro-size);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
 .paramCell {
   font-size: var(--font-caption-size);
   color: var(--text-secondary);
@@ -522,7 +612,6 @@
    방향 없는 스칼라(대수·OPS·강도·bias)라 트랙은 무채, 값은 옆 숫자·부호가 전달한다.
    브라우저 기본 accent(파랑·green)를 제거해 채도 예산·색 규약을 지키고,
    biasTrack과 동일한 rule-tick 눈금으로 캘리퍼처럼 읽게 한다. 히트 44px. */
-.instrumentSlider,
 .field input[type="range"],
 .scaleRow input[type="range"],
 .rateField input[type="range"] {
@@ -535,7 +624,6 @@
   accent-color: var(--text-strong);
   cursor: pointer;
 }
-.instrumentSlider::-webkit-slider-runnable-track,
 .field input[type="range"]::-webkit-slider-runnable-track,
 .scaleRow input[type="range"]::-webkit-slider-runnable-track,
 .rateField input[type="range"]::-webkit-slider-runnable-track {
@@ -545,7 +633,6 @@
     repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
     var(--surface-sunken);
 }
-.instrumentSlider::-moz-range-track,
 .field input[type="range"]::-moz-range-track,
 .scaleRow input[type="range"]::-moz-range-track,
 .rateField input[type="range"]::-moz-range-track {
@@ -555,7 +642,6 @@
     repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
     var(--surface-sunken);
 }
-.instrumentSlider::-webkit-slider-thumb,
 .field input[type="range"]::-webkit-slider-thumb,
 .scaleRow input[type="range"]::-webkit-slider-thumb,
 .rateField input[type="range"]::-webkit-slider-thumb {
@@ -569,7 +655,6 @@
   border: 2px solid var(--surface-default);
   box-shadow: var(--shadow-1);
 }
-.instrumentSlider::-moz-range-thumb,
 .field input[type="range"]::-moz-range-thumb,
 .scaleRow input[type="range"]::-moz-range-thumb,
 .rateField input[type="range"]::-moz-range-thumb {
@@ -1055,14 +1140,4 @@
 .auditAction {
   font-variant-numeric: tabular-nums;
   color: var(--text-default);
-}
-
-.auditStale {
-  margin-bottom: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--control-radius);
-  background: var(--surface-sunken);
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-secondary);
 }

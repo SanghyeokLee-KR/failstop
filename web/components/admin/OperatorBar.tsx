@@ -13,9 +13,14 @@ import ThemeToggle from "@/components/ThemeToggle";
 import RoleBadge from "./RoleBadge";
 import styles from "./admin.module.css";
 
-function remain(expiresAt: string): string {
-  const ms = new Date(expiresAt).getTime() - Date.now();
-  if (ms <= 0) return "00:00";
+// 임박 낭독 임계. 이 값 이하에서만 polite 리전이 1회 경고한다(매초 낭독 방지)
+const IMMINENT_SEC = 60;
+
+function remainMs(expiresAt: string): number {
+  return Math.max(0, new Date(expiresAt).getTime() - Date.now());
+}
+
+function mmss(ms: number): string {
   const total = Math.floor(ms / 1000);
   const m = Math.floor(total / 60);
   const s = total % 60;
@@ -32,6 +37,11 @@ export default function OperatorBar() {
   }, []);
 
   if (!session) return null;
+
+  const ms = remainMs(session.expiresAt);
+  const imminent = ms > 0 && ms <= IMMINENT_SEC * 1000;
+  // 낭독 문구는 imminent 불리언에만 의존한다. 매초 바뀌는 잔여 초를 넣지 않아야 polite 리전이 1회만 낭독한다
+  const liveMsg = imminent ? "세션 만료가 1분 이내로 임박했어요. 곧 다시 인증해야 해요." : "";
 
   const certs = getAdminApi().listDemoCerts();
 
@@ -58,8 +68,13 @@ export default function OperatorBar() {
             <RoleBadge key={r} role={r} />
           ))}
         </span>
-        <span className={styles.sessionTtl} role="status" aria-label="세션 만료까지 남은 시간">
-          세션 <b className="num">{remain(session.expiresAt)}</b>
+        {/* 매초 바뀌는 카운트다운은 낭독 대상에서 제외(aria-hidden). 임박 시 아래 polite 리전이 1회만 고지한다 */}
+        <span className={styles.sessionTtl} data-imminent={imminent ? "" : undefined} aria-hidden="true">
+          {imminent && <span className={styles.sessionWarn}>▲ 만료 임박</span>}
+          세션 <b className="num">{mmss(ms)}</b>
+        </span>
+        <span className="sr-only" role="status" aria-live="polite">
+          {liveMsg}
         </span>
         {certs.length > 0 && (
           <label className={styles.certSwitch}>

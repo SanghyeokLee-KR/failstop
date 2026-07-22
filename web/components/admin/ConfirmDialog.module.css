@@ -1,0 +1,99 @@
+/* 관리 평면 위험 액션 확인 다이얼로그. 토큰만 소비, 하드코딩 hex 금지 */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--overlay-dim);
+}
+.dialog {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-4);
+}
+.title {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.desc {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-secondary);
+}
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-1) 0;
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+}
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font-size: var(--font-body-sm-size);
+}
+.row dt {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.row dd {
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+  text-align: right;
+}
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.actions button {
+  flex: 1;
+  min-height: 44px;
+}
+/* 확정은 파괴 위계라 fill이 아닌 color-danger 보더로 둔다. dangerBtn 규약 재사용.
+   warning tone은 주의 액션(비파괴)에서 caution 보더로 강등 */
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-4);
+  border-radius: var(--control-radius);
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+  background: transparent;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+.confirm[data-tone="danger"] {
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+}
+.confirm[data-tone="danger"]:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+}
+.confirm[data-tone="warning"] {
+  border: 1px solid var(--color-warning-text);
+  color: var(--color-warning-text);
+}
+.confirm[data-tone="warning"]:hover:not(:disabled) {
+  background: var(--color-warning-bg);
+}
+.confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

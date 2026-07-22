@@ -5,8 +5,8 @@
  * 공지 등록은 SUPER 즉시 실행(가역, 승인 불요). 수수료는 조회 표기.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAdminApi } from "@/lib/admin/api";
+import { useMemo, useState } from "react";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { useCan } from "@/lib/admin/store";
 import type { ConfigMarket, DestructiveAction, Notice } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
@@ -15,36 +15,33 @@ import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
+import { useAdminResource } from "@/components/admin/useAdminResource";
+import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
 import { HealthPill, PageHeader, PermissionNote } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
 import styles from "@/components/admin/admin.module.css";
+
+const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
 const MARKET_ACTIONS: DestructiveAction[] = ["config.market.halt", "config.market.resume"];
 
 export default function ConfigPage() {
   const canSuper = useCan("SUPER");
-  const [markets, setMarkets] = useState<ConfigMarket[] | null>(null);
-  const [notices, setNotices] = useState<Notice[] | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const actions = useMemo(() => MARKET_ACTIONS, []);
 
-  const load = useCallback(async () => {
-    try {
+  const res = useAdminResource(
+    async () => {
       const api = getAdminApi();
-      const [m, n] = await Promise.all([api.getConfigMarkets(), api.getNotices()]);
-      setMarkets(m);
-      setNotices(n);
-    } catch {
-      // 세션 게이트 처리
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-    const iv = setInterval(() => void load(), 2000);
-    return () => clearInterval(iv);
-  }, [load]);
+      const [markets, notices] = await Promise.all([api.getConfigMarkets(), api.getNotices()]);
+      return { markets, notices };
+    },
+    { intervalMs: 2000, isSessionError },
+  );
+  const markets: ConfigMarket[] | null = res.data?.markets ?? null;
+  const notices: Notice[] | null = res.data?.notices ?? null;
+  const load = res.reload;
 
   const postNotice = async () => {
     if (!title.trim() || !body.trim()) {
@@ -85,6 +82,13 @@ export default function ConfigPage() {
             payload={{ action: "config.market.halt", symbol: m.symbol }}
             label="중지 요청"
             onRequested={load}
+            confirm={{
+              title: "마켓 거래 중지 요청",
+              description: "승인·실행 시 이 마켓의 신규 주문이 차단됩니다.",
+              target: `${m.koreanName} (${m.symbol})`,
+              blastRadius: "단일 마켓 · 미체결 주문 유지",
+              confirmLabel: "중지 요청",
+            }}
           />
         ) : (
           <RequestButton
@@ -99,11 +103,17 @@ export default function ConfigPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="마켓·공지" desc="마켓 거래 중지·재개는 SUPER + 2인 승인. 공지는 즉시 등록." />
+      <PageHeader
+        title="마켓·공지"
+        desc="마켓 거래 중지·재개는 SUPER + 2인 승인. 공지는 즉시 등록."
+        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
+      />
 
       <PanelCard title="마켓 상태·수수료">
         {!canSuper && <PermissionNote>마켓 제어 권한(SUPER)이 없어 조회만 가능합니다.</PermissionNote>}
-        {!markets ? (
+        {res.error ? (
+          <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
+        ) : !markets ? (
           <Skeleton variant="card" width="100%" height={200} />
         ) : (
           <DataTable columns={marketCols} rows={markets} rowKey={(m) => m.symbol} rowHeight={48} ariaLabel="마켓 설정" />

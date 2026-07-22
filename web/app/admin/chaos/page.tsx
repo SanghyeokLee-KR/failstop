@@ -5,8 +5,8 @@
  * 정적 카탈로그를 제시하고, 주입은 명시 클릭 + 승인 + 요청자 실행 3단계. 자동 주입 없음(§6).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAdminApi } from "@/lib/admin/api";
+import { useMemo } from "react";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { useCan } from "@/lib/admin/store";
 import type { ChaosExperimentDef, ChaosRun, DestructiveAction } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
@@ -15,8 +15,12 @@ import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
+import { useAdminResource } from "@/components/admin/useAdminResource";
+import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
 import { HealthPill, PageHeader, PermissionNote } from "@/components/admin/ui";
 import styles from "@/components/admin/admin.module.css";
+
+const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
 const CHAOS_ACTIONS: DestructiveAction[] = ["chaos.inject", "chaos.clear"];
 
@@ -37,28 +41,20 @@ const RUN_COLUMNS: DataColumn<ChaosRun>[] = [
 export default function ChaosPage() {
   const canChaos = useCan("CHAOS_OPS");
   const catalog: ChaosExperimentDef[] = getAdminApi().getChaosCatalog();
-  const [runs, setRuns] = useState<ChaosRun[] | null>(null);
+  const res = useAdminResource<ChaosRun[]>(() => getAdminApi().getChaosRuns(), { intervalMs: 2000, isSessionError });
+  const runs = res.data;
+  const load = res.reload;
   const actions = useMemo(() => CHAOS_ACTIONS, []);
-
-  const load = useCallback(async () => {
-    try {
-      setRuns(await getAdminApi().getChaosRuns());
-    } catch {
-      // 세션 게이트 처리
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-    const iv = setInterval(() => void load(), 2000);
-    return () => clearInterval(iv);
-  }, [load]);
 
   const running = (runs ?? []).filter((r) => r.state === "RUNNING");
 
   return (
     <div className={styles.page}>
-      <PageHeader title="카오스 콘솔" desc="실험 주입·해제는 모두 2인 승인 필수. 관측 값이 임계를 넘어도 자동 주입하지 않습니다." />
+      <PageHeader
+        title="카오스 콘솔"
+        desc="실험 주입·해제는 모두 2인 승인 필수. 관측 값이 임계를 넘어도 자동 주입하지 않습니다."
+        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
+      />
 
       <PanelCard title="실험 카탈로그 (E1~E9)">
         {!canChaos && <PermissionNote>카오스 권한(CHAOS_OPS 이상)이 없어 주입 요청을 만들 수 없습니다.</PermissionNote>}
@@ -79,6 +75,13 @@ export default function ChaosPage() {
                 payload={{ action: "chaos.inject", experimentId: e.id }}
                 label="주입 요청"
                 onRequested={load}
+                confirm={{
+                  title: "카오스 실험 주입 요청",
+                  description: "승인·실행 뒤 실제 장애가 주입됩니다. 해제하려면 별도 요청이 필요합니다.",
+                  target: `${e.id} · ${e.label}`,
+                  blastRadius: e.blastRadius,
+                  confirmLabel: "주입 요청",
+                }}
               />
             </li>
           ))}
@@ -101,6 +104,13 @@ export default function ChaosPage() {
                   payload={{ action: "chaos.clear", runId: r.id }}
                   label="해제 요청"
                   onRequested={load}
+                  confirm={{
+                    title: "카오스 실험 해제 요청",
+                    description: "승인·실행 시 주입 중인 장애가 걷힙니다.",
+                    target: `${r.experimentId} · ${r.label}`,
+                    blastRadius: r.blastRadius,
+                    confirmLabel: "해제 요청",
+                  }}
                 />
               </li>
             ))}
@@ -113,7 +123,9 @@ export default function ChaosPage() {
       </PanelCard>
 
       <PanelCard title="실험 이력">
-        {!runs ? (
+        {res.error ? (
+          <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
+        ) : !runs ? (
           <Skeleton variant="card" width="100%" height={160} />
         ) : (
           <DataTable

@@ -5,8 +5,8 @@
  * 실행 중 파라미터 변경은 파괴 액션으로 2인 승인 필수(§2-1, §3-2).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAdminApi } from "@/lib/admin/api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { useCan } from "@/lib/admin/store";
 import { BOT_TYPES, BOT_TYPE_LABEL } from "@/lib/admin/types";
 import type { Bot, BotType, DestructiveAction, SimStatus } from "@/lib/admin/types";
@@ -18,15 +18,28 @@ import DataTable, { type DataColumn } from "@/components/DataTable";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
 import LivelinessSection from "@/components/admin/LivelinessSection";
+import { useAdminResource } from "@/components/admin/useAdminResource";
+import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
 import { HealthPill, PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
+import type { Health } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
 import styles from "@/components/admin/admin.module.css";
 
 const PARAM_ACTIONS: DestructiveAction[] = ["sim.bots.params"];
 
+const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
+
+// 성공률 톤 임계. 99% 이상 정상, 95% 미만 위험, 사이는 주의. 하드코딩 tone 제거 근거
+const SUCCESS_RATE_OK = 0.99;
+const SUCCESS_RATE_WARN = 0.95;
+function successRateTone(rate: number): Health {
+  if (rate >= SUCCESS_RATE_OK) return "success";
+  if (rate >= SUCCESS_RATE_WARN) return "warning";
+  return "danger";
+}
+
 export default function BotsPage() {
   const canOps = useCan("BOT_OPS");
-  const [sim, setSim] = useState<SimStatus | null>(null);
   const [newType, setNewType] = useState<BotType>("MARKET_MAKER");
   const [newMarket, setNewMarket] = useState(COIN_META[0]?.market ?? "KRW-BTC");
 
@@ -35,19 +48,20 @@ export default function BotsPage() {
   const [size, setSize] = useState("0.02");
   const [ttl, setTtl] = useState("1500");
 
-  const load = useCallback(async () => {
-    try {
-      setSim(await getAdminApi().getSimStatus());
-    } catch {
-      // 세션 게이트 처리
-    }
-  }, []);
+  // 전역 OPS는 로컬 드래프트 + 적용(§3). 슬라이더 드래그마다 커밋하던 즉시 폭주를 없앤다
+  const [rateDraft, setRateDraft] = useState(0);
+  const rateSeeded = useRef(false);
+
+  const res = useAdminResource<SimStatus>(() => getAdminApi().getSimStatus(), { intervalMs: 2000, isSessionError });
+  const sim = res.data;
+  const load = res.reload;
 
   useEffect(() => {
-    void load();
-    const iv = setInterval(() => void load(), 2000);
-    return () => clearInterval(iv);
-  }, [load]);
+    if (sim && !rateSeeded.current) {
+      setRateDraft(sim.rate);
+      rateSeeded.current = true;
+    }
+  }, [sim]);
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     try {
@@ -87,9 +101,15 @@ export default function BotsPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="봇 플릿" desc="시뮬레이션 봇 제어. 파라미터 변경은 2인 승인이 필요합니다." />
+      <PageHeader
+        title="봇 플릿"
+        desc="시뮬레이션 봇 제어. 파라미터 변경은 2인 승인이 필요합니다."
+        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
+      />
 
-      {!sim ? (
+      {res.error ? (
+        <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
+      ) : !sim ? (
         <div className={styles.kpiGrid}>
           {Array.from({ length: 6 }, (_, i) => (
             <Skeleton key={i} variant="card" width="100%" height={96} />
@@ -113,7 +133,11 @@ export default function BotsPage() {
           </div>
           <StatTile label="현재 OPS · 목표" value={formatCount(sim.currentOps)} sub={`목표 ${formatCount(sim.rate)}`} />
           <StatTile label="활성 봇" value={`${sim.activeBots} / ${sim.botCount}`} sub="활성 / 전체" />
-          <StatTile label="성공률" value={`${(Number(sim.successRate) * 100).toFixed(2)}%`} tone="success" />
+          <StatTile
+            label="성공률"
+            value={`${(Number(sim.successRate) * 100).toFixed(2)}%`}
+            tone={successRateTone(Number(sim.successRate))}
+          />
           <StatTile label="평균 지연" value={`${sim.avgLatencyMs}ms`} />
           <StatTile
             label="중복 체결"
@@ -137,20 +161,29 @@ export default function BotsPage() {
             정지
           </button>
           {sim && (
-            <label className={styles.rateField}>
+            <div className={styles.rateField}>
               <span>전역 OPS</span>
               <input
                 type="range"
                 min={0}
                 max={600}
                 step={10}
-                defaultValue={sim.rate}
+                value={rateDraft}
                 disabled={!canOps}
                 aria-label="전역 OPS 목표"
-                onChange={(e) => void run(() => api.simSetRate(Number(e.target.value)), `OPS 목표를 ${e.target.value}로 바꿨어요`)}
+                onChange={(e) => setRateDraft(Number(e.target.value))}
               />
-              <b className="num">{formatCount(sim.rate)}</b>
-            </label>
+              <b className="num">{formatCount(rateDraft)}</b>
+              {rateDraft !== sim.rate && <span className={styles.rateApplied}>적용값 {formatCount(sim.rate)}</span>}
+              <button
+                type="button"
+                className={styles.primaryBtn}
+                disabled={!canOps || rateDraft === sim.rate}
+                onClick={() => void run(() => api.simSetRate(rateDraft), `OPS 목표를 ${rateDraft}로 바꿨어요`)}
+              >
+                적용
+              </button>
+            </div>
           )}
         </div>
       </PanelCard>

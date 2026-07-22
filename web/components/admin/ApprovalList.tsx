@@ -6,13 +6,14 @@
  * 반결탁: 요청자와 같은 운영자에게는 승인 버튼을 노출하지 않고, 서버도 이중 강제한다.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getAdminApi } from "@/lib/admin/api";
 import { ACTION_LABEL } from "@/lib/admin/roles";
 import { useAdminSession } from "@/lib/admin/store";
 import type { ApprovalRequest, DestructiveAction } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
 import { toast } from "@/components/Toast";
+import ConfirmDialog from "./ConfirmDialog";
 import styles from "./admin.module.css";
 
 /**
@@ -54,6 +55,10 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
   const session = useAdminSession();
   const [items, setItems] = useState<ApprovalRequest[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  // 실행 확인 대상. 승인된 토큰 소각은 되돌릴 수 없어 확인 다이얼로그로 한 번 더 막는다
+  const [execTarget, setExecTarget] = useState<ApprovalRequest | null>(null);
+  // 액션 후 포커스 착지점. 버튼이 사라져도 갱신된 행에 포커스를 남긴다(§9 키보드 흐름)
+  const rowRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   const refresh = useCallback(async () => {
     try {
@@ -78,6 +83,9 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
       toast(ok, "info");
       await refresh();
       onChange?.();
+      setExecTarget(null);
+      // 다이얼로그 정리(트리거 복귀)가 끝난 다음 프레임에 갱신된 행으로 포커스를 옮긴다
+      requestAnimationFrame(() => rowRefs.current[id]?.focus());
     } catch (e) {
       toast(e instanceof Error ? e.message : "처리에 실패했어요", "error");
     } finally {
@@ -92,13 +100,21 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
   }
 
   return (
+    <>
     <ul className={styles.approvalList}>
       {items.map((a) => {
         const mine = session?.operatorId === a.requesterId;
         const phase = phaseOf(a);
         const health = PHASE_HEALTH[phase];
         return (
-          <li key={a.id} className={styles.approvalItem}>
+          <li
+            key={a.id}
+            className={styles.approvalItem}
+            ref={(el) => {
+              rowRefs.current[a.id] = el;
+            }}
+            tabIndex={-1}
+          >
             <div className={styles.approvalMain}>
               <span className={styles.approvalAction}>{ACTION_LABEL[a.action]}</span>
               <span className={styles.approvalTarget}>{a.targetLabel}</span>
@@ -144,7 +160,7 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
                   type="button"
                   className={styles.dangerBtn}
                   disabled={busy === a.id}
-                  onClick={() => void act(a.id, () => api.execute(a.id), "실행했어요")}
+                  onClick={() => setExecTarget(a)}
                 >
                   실행
                 </button>
@@ -155,5 +171,21 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
         );
       })}
     </ul>
+      {execTarget && (
+        <ConfirmDialog
+          title="승인된 액션 실행"
+          description="실행하면 되돌릴 수 없어요. 요청 시점 파라미터로 즉시 반영됩니다."
+          target={ACTION_LABEL[execTarget.action]}
+          blastRadius={execTarget.targetLabel}
+          tone="danger"
+          confirmLabel="실행"
+          busy={busy === execTarget.id}
+          onConfirm={() => void act(execTarget.id, () => api.execute(execTarget.id), "실행했어요")}
+          onClose={() => {
+            if (busy !== execTarget.id) setExecTarget(null);
+          }}
+        />
+      )}
+    </>
   );
 }
