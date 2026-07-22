@@ -557,7 +557,7 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
 | `time_in_force` | enum | 선택 | `GTC`(기본)/`IOC`/`FOK`/`POST_ONLY` |
 | `client_order_id` | string(1~36) | **필수** | 멱등키 `[A-Za-z0-9_-]`. 미제공 시 예외 없이 `400 client_order_id_required`(§2-4). 서버 생성 fallback 없음. 재시도 시 클라이언트가 동일 키 재사용 |
 
-**조건부 규칙(v2.6 상호배타 확정)**: `limit`은 `price`+`volume` 필수. `market`+`bid`(시장가 매수)는 `price`(금액, notional) 필수이며 `volume` 동시 제공 금지(둘은 상호배타). `market`+`ask`는 `volume` 필수이며 `price` 제공 금지. `best`는 `volume` 필수 + `time_in_force`∈{IOC,FOK}. `time_in_force=POST_ONLY`는 `ord_type=limit` 전용이며 `market`·`best`와 배타. notional 지정(`market`+`bid`의 `price`)은 non-MARKET 주문에서 금지된다(limit의 `price`는 지정가이며 notional이 아니다). 조합 위반은 전부 `400 invalid_parameter` + `detail.constraint`(위반 규칙명)로 거부한다. 이 규칙은 DB 계약의 orders CHECK(MARKET과 POST_ONLY 배타, MARKET BUY의 수량·notional 상호배타, non-MARKET의 notional 금지)와 1:1 대응한다.
+**조건부 규칙(v2.6 상호배타 확정)**: `limit`은 `price`+`volume` 필수. `market`+`bid`(시장가 매수)는 `price`(금액, notional) 필수이며 `volume` 동시 제공 금지(둘은 상호배타). `market`+`ask`는 `volume` 필수이며 `price` 제공 금지. `best`는 `side=ask`(매도) 전용이며 `volume` 필수 + `time_in_force`∈{IOC,FOK}(매수 best는 정적 예약 산식이 없어 `400 best_bid_unsupported`로 거부). `time_in_force=POST_ONLY`는 `ord_type=limit` 전용이며 `market`·`best`와 배타. notional 지정(`market`+`bid`의 `price`)은 non-MARKET 주문에서 금지된다(limit의 `price`는 지정가이며 notional이 아니다). 조합 위반은 전부 `400 invalid_parameter` + `detail.constraint`(위반 규칙명)로 거부한다. 이 규칙은 DB 계약의 orders CHECK(MARKET과 POST_ONLY 배타, MARKET BUY의 수량·notional 상호배타, non-MARKET의 notional 금지)와 1:1 대응한다.
 **시장가 매수 정책 확정**: `market`+`bid`는 **notional(금액) 기준**. 응답에 notional 전용 필드 노출(아래).
 
 ```json

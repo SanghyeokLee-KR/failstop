@@ -15,9 +15,12 @@ import java.util.TreeMap;
  * 결정론 규약(API 설계 v2.6 §7-2): 시각은 command.engineTs만, 순서는 seq 전순서만 사용한다.
  * 자료구조는 순회 순서가 정의된 것(TreeMap, ArrayDeque)만 쓴다. HashMap 계열 금지(하네스 T3-A).
  *
- * 지원 범위(M1-2): LIMIT GTC, MARKET(IOC 의미론). IOC/FOK/POST_ONLY와 BEST는 명시적 거부
- * 이벤트로 종결한다. 확장 지점은 applyNew의 검증 분기이며, FOK 사전 유동성 스캔과 POST_ONLY
- * 즉시체결 검사(post_only_would_take)를 매칭 루프 진입 전에 추가하는 형태다.
+ * 지원 범위: LIMIT(GTC/IOC/FOK/POST_ONLY), MARKET(GTC/IOC/FOK), BEST(IOC/FOK, 매도 전용).
+ * 비-GTC와 BEST는 매칭 루프 진입 전 사전판정으로 처리한다. POST_ONLY는 반대편 best 1회 비교로
+ * 즉시체결이면 거부(post_only_would_take), 아니면 전량 게시한다. FOK는 read-only 사전스캔으로
+ * 전량 충족을 판정해 불가면 접수 없이 거부(fok_not_filled)한다. IOC와 BEST 잔량은 rest하지
+ * 않고 취소로 종단한다. 어떤 신규 타입도 새 영속 주문 상태를 만들지 않아 state hash 표현이
+ * 불변이다(POST_ONLY 게시는 일반 LIMIT resting과 동일 표현).
  */
 public final class OrderBookImpl implements OrderBook {
 
@@ -29,8 +32,9 @@ public final class OrderBookImpl implements OrderBook {
     public static final String REASON_ORDER_NOT_FOUND = "order_not_found";
     public static final String REASON_INVALID_PARAMETERS = "invalid_parameters";
     public static final String REASON_DUPLICATE_ORDER_ID = "duplicate_order_id";
-    public static final String REASON_UNSUPPORTED_TIF = "unsupported_time_in_force";
-    public static final String REASON_UNSUPPORTED_ORD_TYPE = "unsupported_ord_type";
+    public static final String REASON_POST_ONLY_WOULD_TAKE = "post_only_would_take";
+    public static final String REASON_FOK_NOT_FILLED = "fok_not_filled";
+    public static final String REASON_IOC_PARTIAL_CANCELED = "ioc_partial_canceled";
 
     private final int marketId;
     // 매수는 높은 가격 우선, 매도는 낮은 가격 우선. TreeMap 순회가 곧 우선순위다.
@@ -152,31 +156,66 @@ public final class OrderBookImpl implements OrderBook {
         }
 
         OrderCommand.Side side = command.side();
-        boolean market = command.ordType() == OrderCommand.OrdType.MARKET;
+        OrderCommand.OrdType ordType = command.ordType();
+        OrderCommand.TimeInForce tif = command.timeInForce() == null
+                ? OrderCommand.TimeInForce.GTC : command.timeInForce();
+        boolean market = ordType == OrderCommand.OrdType.MARKET;
+        boolean best = ordType == OrderCommand.OrdType.BEST;
         boolean notional = market && side == OrderCommand.Side.BUY;
         TreeMap<BigDecimal, ArrayDeque<RestingOrder>> opposite =
                 side == OrderCommand.Side.BUY ? asks : bids;
 
-        if (market && opposite.isEmpty()) {
-            // 빈 반대편 시장가는 체결 불가 확정이므로 접수 없이 거부한다.
+        BigDecimal limitPrice = ordType == OrderCommand.OrdType.LIMIT
+                ? normalize(command.price()) : null;
+        // notional 주문은 잔여를 quote 금액으로, 그 외는 base 수량으로 추적한다.
+        BigDecimal remaining = notional
+                ? normalize(command.quoteOrderQty())
+                : normalize(command.quantity());
+
+        // POST_ONLY(LIMIT 전용): 반대편 best와 1회 비교로 종결. 크로스면 접수 없이 거부하고,
+        // 아니면 체결 0이 보장되므로 매칭 루프 없이 전량 게시한다(새 영속 상태 없음).
+        if (tif == OrderCommand.TimeInForce.POST_ONLY) {
+            BigDecimal bestOpp = side == OrderCommand.Side.BUY ? bestAsk() : bestBid();
+            if (bestOpp != null && crosses(side, limitPrice, bestOpp)) {
+                em.rejected(command.assignedOrderId(), REASON_POST_ONLY_WOULD_TAKE);
+                return;
+            }
+            em.accepted(command.assignedOrderId());
+            rest(command, limitPrice, remaining);
+            return;
+        }
+
+        // FOK: 북 변경 전 read-only 사전스캔. 전량(금액기반은 경제적) 충족 불가면 접수 없이 거부.
+        if (tif == OrderCommand.TimeInForce.FOK) {
+            if (!wouldFullyFill(side, market, notional, best, limitPrice, opposite, remaining)) {
+                em.rejected(command.assignedOrderId(), REASON_FOK_NOT_FILLED);
+                return;
+            }
+        } else if (market && opposite.isEmpty()) {
+            // 빈 반대편 시장가는 체결 불가 확정이므로 접수 없이 거부한다(비 FOK 경로).
             em.rejected(command.assignedOrderId(), REASON_NO_LIQUIDITY);
             return;
         }
 
         em.accepted(command.assignedOrderId());
 
-        BigDecimal limitPrice = market ? null : normalize(command.price());
-        // notional 주문은 잔여를 quote 금액으로, 그 외는 base 수량으로 추적한다.
-        BigDecimal remaining = notional
-                ? normalize(command.quoteOrderQty())
-                : normalize(command.quantity());
+        // BEST(최유리)는 접수 시점 반대편 최우선 가격 한 레벨만 소비한다(API §4-B-1).
+        BigDecimal bestPx = null;
+        if (best) {
+            Map.Entry<BigDecimal, ArrayDeque<RestingOrder>> first = opposite.firstEntry();
+            bestPx = first == null ? null : first.getKey();
+        }
 
         while (remaining.signum() > 0) {
             Map.Entry<BigDecimal, ArrayDeque<RestingOrder>> level = opposite.firstEntry();
             if (level == null) {
                 break;
             }
-            if (!market && !crosses(side, limitPrice, level.getKey())) {
+            if (best) {
+                if (bestPx == null || level.getKey().compareTo(bestPx) != 0) {
+                    break;
+                }
+            } else if (!market && !crosses(side, limitPrice, level.getKey())) {
                 break;
             }
             RestingOrder maker = level.getValue().peekFirst();
@@ -222,43 +261,118 @@ public final class OrderBookImpl implements OrderBook {
             if (market) {
                 // 시장가는 잔량을 게시하지 않는다. 유동성 소진 잔여는 취소로 종결(IOC 의미론).
                 // 양자화 차감 규약상 remaining은 항상 scale 18 그대로라 0수량 이벤트가 없다.
+                // FOK 금액기반은 사전스캔 통과 후 남는 dust만 이 경로로 온다.
                 em.canceled(command.assignedOrderId(), remaining, REASON_NO_LIQUIDITY);
+            } else if (best || tif == OrderCommand.TimeInForce.IOC) {
+                // IOC·BEST 잔량은 게시하지 않고 취소로 종단한다(정보성 사유, API §4-B-1).
+                // FOK 수량기반은 사전스캔이 잔여 0을 보장하므로 이 분기에 오지 않는다.
+                em.canceled(command.assignedOrderId(), remaining, REASON_IOC_PARTIAL_CANCELED);
             } else {
                 rest(command, limitPrice, remaining);
             }
         }
     }
 
+    /**
+     * FOK 사전 유동성 스캔. 실제 매칭 루프와 동일한 순회(레벨 우선순위 + 레벨 내 FIFO)를 가상
+     * 잔량 위에서 재생하되 북을 변경하지 않는다. STP-DC 소비도 실제 루프처럼 잔량을 감액해
+     * 등가로 판정한다(자기 유동성 제외 시 스캔과 실행 결정이 갈려 결정론이 깨진다).
+     *
+     * 반환: 잔량이 0에 도달하거나(수량기반) 유효 잔량이 dust로 절사되면(금액기반) true.
+     * 크로스 유동성이 먼저 소진되어 유효 잔량이 남으면 false.
+     */
+    private boolean wouldFullyFill(OrderCommand.Side side, boolean market, boolean notional,
+                                   boolean best, BigDecimal limitPrice,
+                                   TreeMap<BigDecimal, ArrayDeque<RestingOrder>> opposite,
+                                   BigDecimal remaining) {
+        BigDecimal rem = remaining;
+        BigDecimal bestPx = null;
+        for (Map.Entry<BigDecimal, ArrayDeque<RestingOrder>> level : opposite.entrySet()) {
+            BigDecimal levelPrice = level.getKey();
+            if (best) {
+                if (bestPx == null) {
+                    bestPx = levelPrice;
+                } else if (levelPrice.compareTo(bestPx) != 0) {
+                    break;
+                }
+            } else if (!market && !crosses(side, limitPrice, levelPrice)) {
+                break;
+            }
+            for (RestingOrder maker : level.getValue()) {
+                if (rem.signum() == 0) {
+                    return true;
+                }
+                BigDecimal takerCapacity = notional
+                        ? rem.divide(maker.price, SCALE, RoundingMode.DOWN)
+                        : rem;
+                BigDecimal fill = takerCapacity.min(maker.remaining);
+                if (fill.signum() == 0) {
+                    // 금액기반 dust(다음 단위도 못 사는 잔액). 경제적 전량 충족.
+                    return true;
+                }
+                BigDecimal delta = notional ? quantizeDown(fill.multiply(maker.price)) : fill;
+                if (delta.signum() == 0) {
+                    return true;
+                }
+                if (fill.compareTo(maker.remaining) < 0) {
+                    // taker 한정: 이 maker가 잔량을 전부 흡수한다(수량기반=정확히 0, 금액기반=dust만 잔여).
+                    return true;
+                }
+                rem = rem.subtract(delta);
+            }
+        }
+        return rem.signum() == 0;
+    }
+
     private String validateNew(OrderCommand c) {
         if (c.ordType() == null || c.side() == null) {
             return REASON_INVALID_PARAMETERS;
         }
-        if (c.ordType() == OrderCommand.OrdType.BEST) {
-            return REASON_UNSUPPORTED_ORD_TYPE;
-        }
         OrderCommand.TimeInForce tif =
                 c.timeInForce() == null ? OrderCommand.TimeInForce.GTC : c.timeInForce();
-        if (tif != OrderCommand.TimeInForce.GTC) {
-            return REASON_UNSUPPORTED_TIF;
+        // 게이트웨이(§4-B-1)가 이미 강제하는 조합 규칙의 엔진 이중검증. 불법 조합의 방어적 거부는
+        // 단일 사유로 일원화한다. 특히 BEST 매수는 정적 예약 산식이 없어 접수 시 정산이 성립하지
+        // 않으므로 ACCEPTED로 넘기지 않는다.
+        if (tif == OrderCommand.TimeInForce.POST_ONLY
+                && c.ordType() != OrderCommand.OrdType.LIMIT) {
+            return REASON_INVALID_PARAMETERS;
+        }
+        if (c.ordType() == OrderCommand.OrdType.BEST) {
+            if (c.side() == OrderCommand.Side.BUY) {
+                return REASON_INVALID_PARAMETERS;
+            }
+            if (tif != OrderCommand.TimeInForce.IOC && tif != OrderCommand.TimeInForce.FOK) {
+                return REASON_INVALID_PARAMETERS;
+            }
         }
         if (ordersById.containsKey(c.assignedOrderId())) {
             return REASON_DUPLICATE_ORDER_ID;
         }
-        if (c.ordType() == OrderCommand.OrdType.LIMIT) {
-            if (!positiveWithinScale(c.price()) || !positiveWithinScale(c.quantity())
-                    || c.quoteOrderQty() != null) {
-                return REASON_INVALID_PARAMETERS;
+        // 형태 검증(§4-B-1 상호배타). LIMIT=가격+수량, BEST=수량(가격·notional 금지),
+        // MARKET 매수=notional(수량 금지)·매도=수량(notional 금지).
+        switch (c.ordType()) {
+            case LIMIT -> {
+                if (!positiveWithinScale(c.price()) || !positiveWithinScale(c.quantity())
+                        || c.quoteOrderQty() != null) {
+                    return REASON_INVALID_PARAMETERS;
+                }
             }
-            return null;
-        }
-        // MARKET. 매수는 notional 필수·수량 금지, 매도는 수량 필수·notional 금지(API §4-B-1 상호배타).
-        if (c.side() == OrderCommand.Side.BUY) {
-            if (!positiveWithinScale(c.quoteOrderQty()) || c.quantity() != null) {
-                return REASON_INVALID_PARAMETERS;
+            case BEST -> {
+                if (c.price() != null || c.quoteOrderQty() != null
+                        || !positiveWithinScale(c.quantity())) {
+                    return REASON_INVALID_PARAMETERS;
+                }
             }
-        } else {
-            if (!positiveWithinScale(c.quantity()) || c.quoteOrderQty() != null) {
-                return REASON_INVALID_PARAMETERS;
+            case MARKET -> {
+                if (c.side() == OrderCommand.Side.BUY) {
+                    if (!positiveWithinScale(c.quoteOrderQty()) || c.quantity() != null) {
+                        return REASON_INVALID_PARAMETERS;
+                    }
+                } else {
+                    if (!positiveWithinScale(c.quantity()) || c.quoteOrderQty() != null) {
+                        return REASON_INVALID_PARAMETERS;
+                    }
+                }
             }
         }
         return null;

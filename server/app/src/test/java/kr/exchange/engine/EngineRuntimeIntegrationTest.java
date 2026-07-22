@@ -131,8 +131,9 @@ class EngineRuntimeIntegrationTest {
         EngineBridge bridge = new EngineBridge(commandAppender, loop, mapper);
         loop.start();
         try {
-            // 가격·시간 우선, 부분 체결, 취소·중복 취소, 시장가 소진, 빈 반대편, STP,
-            // 미지원 TIF까지 전 이벤트 유형(ACCEPTED/TRADE/CANCELED/REJECTED)을 지나는 시나리오.
+            // 가격·시간 우선, 부분 체결, 취소·중복 취소(REJECTED), 시장가 소진, 빈 반대편
+            // (REJECTED), IOC 잔량 취소까지 전 이벤트 유형(ACCEPTED/TRADE/CANCELED/REJECTED)을
+            // 지나는 시나리오.
             submit(bridge, limitIntake(1, 1, OrderCommand.Side.SELL, "100", "1"));
             submit(bridge, limitIntake(1, 2, OrderCommand.Side.SELL, "100", "2"));
             submit(bridge, limitIntake(1, 3, OrderCommand.Side.SELL, "99", "1"));

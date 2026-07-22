@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
  * 매칭 코어 단위 검증: 가격·시간 우선, 부분 체결, 시장가 소진, 빈 반대편 거부,
- * 자전 처리(Decrement & Cancel), 이벤트 ordinal 단조, 미지원 유형 거부.
+ * 자전 처리(Decrement & Cancel), 이벤트 ordinal 단조, 주문 타입(POST_ONLY/IOC/FOK/BEST).
  */
 class MatchingEngineImplTest {
 
@@ -222,28 +222,201 @@ class MatchingEngineImplTest {
     }
 
     // ------------------------------------------------------------------
-    // 미지원 유형·검증 거부
+    // POST_ONLY
     // ------------------------------------------------------------------
 
     @Test
-    void nonGtcTimeInForceIsExplicitlyRejected() {
-        for (OrderCommand.TimeInForce tif : List.of(OrderCommand.TimeInForce.IOC,
-                OrderCommand.TimeInForce.FOK, OrderCommand.TimeInForce.POST_ONLY)) {
-            List<EngineEvent> events = engine.apply(newCommand(1, nextSeq(), OrderCommand.Side.BUY,
-                    OrderCommand.OrdType.LIMIT, tif, dec("100"), dec("1"), null));
-            assertEquals(1, events.size());
-            assertEquals(EngineEvent.EventType.REJECTED, events.get(0).type());
-            assertEquals(OrderBookImpl.REASON_UNSUPPORTED_TIF, events.get(0).reason());
-        }
+    void postOnlyRestsWhenNonCrossing() {
+        engine.apply(limitSell(1, 1, "101", "1"));
+        List<EngineEvent> events = engine.apply(
+                postOnly(2, 2, OrderCommand.Side.BUY, "100", "1"));
+
+        assertEquals(1, events.size());
+        assertEquals(EngineEvent.EventType.ACCEPTED, events.get(0).type());
+        // 크로스하지 않으므로 체결 0으로 전량 게시된다.
+        assertDecimal("1", engine.orderBook(1).openQuantity(2));
+        assertDecimal("100", engine.orderBook(1).bestBid());
     }
 
     @Test
-    void bestOrdTypeIsExplicitlyRejected() {
+    void postOnlyRejectedWhenWouldTake() {
+        engine.apply(limitSell(1, 1, "100", "1"));
+        long before = engine.stateChecksum();
+        List<EngineEvent> events = engine.apply(
+                postOnly(2, 2, OrderCommand.Side.BUY, "100", "1"));
+
+        assertEquals(1, events.size());
+        assertEquals(EngineEvent.EventType.REJECTED, events.get(0).type());
+        assertEquals(OrderBookImpl.REASON_POST_ONLY_WOULD_TAKE, events.get(0).reason());
+        // 접수 없이 거부. 북 무변경.
+        assertNull(engine.orderBook(1).openQuantity(2));
+        assertEquals(before, engine.stateChecksum());
+    }
+
+    // ------------------------------------------------------------------
+    // IOC
+    // ------------------------------------------------------------------
+
+    @Test
+    void iocPartialFillsThenCancelsRemainder() {
+        engine.apply(limitSell(1, 1, "100", "1"));
+        List<EngineEvent> events = engine.apply(
+                iocLimit(2, 2, OrderCommand.Side.BUY, "100", "3"));
+
+        assertEquals(EngineEvent.EventType.ACCEPTED, events.get(0).type());
+        assertEquals(EngineEvent.EventType.TRADE, events.get(1).type());
+        assertDecimal("1", events.get(1).quantity());
+        EngineEvent canceled = events.get(2);
+        assertEquals(EngineEvent.EventType.CANCELED, canceled.type());
+        assertDecimal("2", canceled.quantity());
+        assertEquals(OrderBookImpl.REASON_IOC_PARTIAL_CANCELED, canceled.reason());
+        // IOC는 잔량을 게시하지 않는다.
+        assertNull(engine.orderBook(1).openQuantity(2));
+        assertNull(engine.orderBook(1).bestBid());
+    }
+
+    @Test
+    void iocFullyFilledEmitsNoCancel() {
+        engine.apply(limitSell(1, 1, "100", "3"));
+        List<EngineEvent> events = engine.apply(
+                iocLimit(2, 2, OrderCommand.Side.BUY, "100", "1"));
+
+        assertEquals(2, events.size());
+        assertEquals(EngineEvent.EventType.ACCEPTED, events.get(0).type());
+        assertEquals(EngineEvent.EventType.TRADE, events.get(1).type());
+    }
+
+    @Test
+    void iocWithoutCrossAcceptsThenCancels() {
+        engine.apply(limitSell(1, 1, "101", "1"));
+        List<EngineEvent> events = engine.apply(
+                iocLimit(2, 2, OrderCommand.Side.BUY, "100", "1"));
+
+        assertEquals(2, events.size());
+        assertEquals(EngineEvent.EventType.ACCEPTED, events.get(0).type());
+        assertEquals(EngineEvent.EventType.CANCELED, events.get(1).type());
+        assertEquals(OrderBookImpl.REASON_IOC_PARTIAL_CANCELED, events.get(1).reason());
+        assertDecimal("1", events.get(1).quantity());
+        assertNull(engine.orderBook(1).openQuantity(2));
+    }
+
+    // ------------------------------------------------------------------
+    // FOK
+    // ------------------------------------------------------------------
+
+    @Test
+    void fokRejectedWhenNotFullyFillableAndBookUnchanged() {
+        engine.apply(limitSell(1, 1, "100", "1"));
+        long before = engine.stateChecksum();
+        List<EngineEvent> events = engine.apply(
+                fokLimit(2, 2, OrderCommand.Side.BUY, "100", "3"));
+
+        assertEquals(1, events.size());
+        assertEquals(EngineEvent.EventType.REJECTED, events.get(0).type());
+        assertEquals(OrderBookImpl.REASON_FOK_NOT_FILLED, events.get(0).reason());
+        // 사전스캔 거부는 북을 건드리지 않는다.
+        assertEquals(before, engine.stateChecksum());
+        assertDecimal("1", engine.orderBook(1).openQuantity(1));
+    }
+
+    @Test
+    void fokFullyFillsAcrossLevels() {
+        engine.apply(limitSell(1, 1, "99", "1"));
+        engine.apply(limitSell(1, 2, "100", "2"));
+        List<EngineEvent> events = engine.apply(
+                fokLimit(2, 3, OrderCommand.Side.BUY, "100", "3"));
+
+        assertEquals(EngineEvent.EventType.ACCEPTED, events.get(0).type());
+        List<EngineEvent> trades = events.stream()
+                .filter(e -> e.type() == EngineEvent.EventType.TRADE).toList();
+        assertEquals(2, trades.size());
+        // 전량 충족이라 취소 이벤트가 없다.
+        assertEquals(0, events.stream()
+                .filter(e -> e.type() == EngineEvent.EventType.CANCELED).count());
+        assertNull(engine.orderBook(1).openQuantity(3));
+    }
+
+    @Test
+    void fokMarketSellFullyFillsWithoutLeftover() {
+        engine.apply(limitBuy(1, 1, "100", "2"));
+        List<EngineEvent> events = engine.apply(fokMarketSell(2, 2, "2"));
+
+        assertEquals(2, events.size());
+        assertEquals(EngineEvent.EventType.ACCEPTED, events.get(0).type());
+        assertEquals(EngineEvent.EventType.TRADE, events.get(1).type());
+    }
+
+    @Test
+    void fokMarketSellRejectedWhenBookTooThin() {
+        engine.apply(limitBuy(1, 1, "100", "1"));
+        List<EngineEvent> events = engine.apply(fokMarketSell(2, 2, "2"));
+
+        assertEquals(1, events.size());
+        assertEquals(EngineEvent.EventType.REJECTED, events.get(0).type());
+        assertEquals(OrderBookImpl.REASON_FOK_NOT_FILLED, events.get(0).reason());
+        assertDecimal("1", engine.orderBook(1).openQuantity(1));
+    }
+
+    // ------------------------------------------------------------------
+    // BEST (최유리, 매도 전용)
+    // ------------------------------------------------------------------
+
+    @Test
+    void bestSellConsumesOnlyBestLevelThenCancels() {
+        // 서로 다른 두 매수 레벨. best는 최우선(100) 한 레벨만 소비한다.
+        engine.apply(limitBuy(1, 1, "100", "1"));
+        engine.apply(limitBuy(1, 2, "99", "5"));
+        List<EngineEvent> events = engine.apply(
+                bestSell(2, 3, OrderCommand.TimeInForce.IOC, "3"));
+
+        List<EngineEvent> trades = events.stream()
+                .filter(e -> e.type() == EngineEvent.EventType.TRADE).toList();
+        assertEquals(1, trades.size());
+        assertDecimal("100", trades.get(0).price());
+        assertDecimal("1", trades.get(0).quantity());
+        EngineEvent canceled = events.get(events.size() - 1);
+        assertEquals(EngineEvent.EventType.CANCELED, canceled.type());
+        assertEquals(OrderBookImpl.REASON_IOC_PARTIAL_CANCELED, canceled.reason());
+        assertDecimal("2", canceled.quantity());
+        // 다음 레벨(99)은 건드리지 않는다.
+        assertDecimal("5", engine.orderBook(1).openQuantity(2));
+        assertNull(engine.orderBook(1).openQuantity(3));
+    }
+
+    @Test
+    void bestSellFokRejectedWhenBestLevelTooThin() {
+        engine.apply(limitBuy(1, 1, "100", "1"));
+        engine.apply(limitBuy(1, 2, "99", "5"));
+        List<EngineEvent> events = engine.apply(
+                bestSell(2, 3, OrderCommand.TimeInForce.FOK, "3"));
+
+        assertEquals(1, events.size());
+        assertEquals(EngineEvent.EventType.REJECTED, events.get(0).type());
+        // best 레벨(100)만으로 3을 못 채우므로 거부. 깊은 레벨(99)은 스캔 대상이 아니다.
+        assertEquals(OrderBookImpl.REASON_FOK_NOT_FILLED, events.get(0).reason());
+    }
+
+    @Test
+    void bestBuyIsRejectedAsInvalid() {
         List<EngineEvent> events = engine.apply(newCommand(1, nextSeq(), OrderCommand.Side.BUY,
                 OrderCommand.OrdType.BEST, OrderCommand.TimeInForce.IOC, null, dec("1"), null));
+        assertEquals(1, events.size());
         assertEquals(EngineEvent.EventType.REJECTED, events.get(0).type());
-        assertEquals(OrderBookImpl.REASON_UNSUPPORTED_ORD_TYPE, events.get(0).reason());
+        assertEquals(OrderBookImpl.REASON_INVALID_PARAMETERS, events.get(0).reason());
     }
+
+    @Test
+    void bestSellGtcIsRejectedAsInvalid() {
+        List<EngineEvent> events = engine.apply(newCommand(1, nextSeq(), OrderCommand.Side.SELL,
+                OrderCommand.OrdType.BEST, OrderCommand.TimeInForce.GTC, null, dec("1"), null));
+        assertEquals(1, events.size());
+        assertEquals(EngineEvent.EventType.REJECTED, events.get(0).type());
+        assertEquals(OrderBookImpl.REASON_INVALID_PARAMETERS, events.get(0).reason());
+    }
+
+    // ------------------------------------------------------------------
+    // 검증 거부
+    // ------------------------------------------------------------------
 
     @Test
     void invalidParameterCombinationsAreRejected() {
@@ -372,6 +545,43 @@ class MatchingEngineImplTest {
         return new OrderCommand(s, 1, OrderCommand.CommandType.NEW, userId, "c-" + orderId,
                 orderId, BASE_TS + s, s, OrderCommand.Side.SELL, OrderCommand.OrdType.MARKET,
                 null, null, dec(qty), null, 1);
+    }
+
+    private OrderCommand typed(long userId, long orderId, OrderCommand.Side side,
+                               OrderCommand.OrdType ordType, OrderCommand.TimeInForce tif,
+                               BigDecimal price, BigDecimal qty, BigDecimal notional) {
+        long s = nextSeq();
+        return new OrderCommand(s, 1, OrderCommand.CommandType.NEW, userId, "c-" + orderId,
+                orderId, BASE_TS + s, s, side, ordType, tif, price, qty, notional, 1);
+    }
+
+    private OrderCommand postOnly(long userId, long orderId, OrderCommand.Side side,
+                                  String price, String qty) {
+        return typed(userId, orderId, side, OrderCommand.OrdType.LIMIT,
+                OrderCommand.TimeInForce.POST_ONLY, dec(price), dec(qty), null);
+    }
+
+    private OrderCommand iocLimit(long userId, long orderId, OrderCommand.Side side,
+                                  String price, String qty) {
+        return typed(userId, orderId, side, OrderCommand.OrdType.LIMIT,
+                OrderCommand.TimeInForce.IOC, dec(price), dec(qty), null);
+    }
+
+    private OrderCommand fokLimit(long userId, long orderId, OrderCommand.Side side,
+                                  String price, String qty) {
+        return typed(userId, orderId, side, OrderCommand.OrdType.LIMIT,
+                OrderCommand.TimeInForce.FOK, dec(price), dec(qty), null);
+    }
+
+    private OrderCommand fokMarketSell(long userId, long orderId, String qty) {
+        return typed(userId, orderId, OrderCommand.Side.SELL, OrderCommand.OrdType.MARKET,
+                OrderCommand.TimeInForce.FOK, null, dec(qty), null);
+    }
+
+    private OrderCommand bestSell(long userId, long orderId, OrderCommand.TimeInForce tif,
+                                  String qty) {
+        return typed(userId, orderId, OrderCommand.Side.SELL, OrderCommand.OrdType.BEST,
+                tif, null, dec(qty), null);
     }
 
     private OrderCommand newCommand(long userId, long s, OrderCommand.Side side,
