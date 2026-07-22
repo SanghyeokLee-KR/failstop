@@ -29,8 +29,14 @@ public class SimConfig {
     }
 
     @Bean
-    public BotFleet botFleet(SimProperties props, BotSeeder seeder, OpsGovernor governor) {
-        return new BotFleet(props, seeder, governor);
+    public BotFleetGovernor botFleetGovernor() {
+        return BotFleetGovernor.defaults();
+    }
+
+    @Bean
+    public BotFleet botFleet(SimProperties props, BotSeeder seeder, OpsGovernor governor,
+                             BotFleetGovernor fleetGovernor) {
+        return new BotFleet(props, seeder, governor, fleetGovernor);
     }
 
     @Bean

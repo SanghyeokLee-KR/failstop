@@ -7,10 +7,15 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * MM·TAKER 플릿 수명주기. 시드(계정·자금·키) 후 봇을 가상 스레드로 기동한다.
+ * MM·TAKER·TREND·NOISE 플릿 수명주기. 시드(계정·자금·키) 후 봇을 가상 스레드로 기동한다.
+ * 대수 스케일은 파킹 게이트로 구현한다. 타입별 최대 풀(poolPerType)을 기동하되 각 봇은
+ * 인덱스 <= 현재 목표일 때만 활성이다. 목표 초과 봇은 파킹(OPS 미소비)하므로 봇 수 증가가
+ * 처리량을 못 올린다(백프레셔 무해). TREND·NOISE는 테이커 프리셋으로 실현한다(설계 §2-1).
  * 마켓 규칙(tick)은 내부 조회가 아니라 공개 API(GET /markets)에서 읽는다(봇=외부 관점).
  */
 public class BotFleet {
@@ -21,15 +26,19 @@ public class BotFleet {
     private final SimProperties props;
     private final BotSeeder seeder;
     private final OpsGovernor governor;
+    private final BotFleetGovernor fleet;
     private final ObjectMapper mapper = new ObjectMapper();
     private final List<Thread> threads = new ArrayList<>();
+    private Thread balancer;
 
     private volatile boolean running;
 
-    public BotFleet(SimProperties props, BotSeeder seeder, OpsGovernor governor) {
+    public BotFleet(SimProperties props, BotSeeder seeder, OpsGovernor governor,
+                    BotFleetGovernor fleet) {
         this.props = props;
         this.seeder = seeder;
         this.governor = governor;
+        this.fleet = fleet;
     }
 
     public synchronized void start() {
@@ -39,8 +48,7 @@ public class BotFleet {
         running = true;
         BigDecimal quoteFunding = new BigDecimal(props.funding().quote());
         List<SimProperties.MarketSpec> specs = resolveMarkets();
-        int totalMm = 0;
-        int totalTaker = 0;
+        int pool = fleet.poolPerType();
         int marketIndex = 0;
         for (SimProperties.MarketSpec spec : specs) {
             marketIndex++;
@@ -49,31 +57,69 @@ public class BotFleet {
             BigDecimal baseFunding = new BigDecimal(spec.baseFunding() != null
                     ? spec.baseFunding() : props.funding().base());
             String suffix = shortName(per.market());
-            // seed에 마켓 인덱스를 섞어 마켓 간 봇 의사결정이 서로 다른 열을 갖게 한다.
             long marketSalt = marketIndex * 100_000_019L;
-            for (int i = 1; i <= per.marketMaker().count(); i++) {
+
+            Map<BotType, Integer> initialTargets = new EnumMap<>(BotType.class);
+            initialTargets.put(BotType.MARKET_MAKER, per.marketMaker().count());
+            initialTargets.put(BotType.TAKER, per.taker().count());
+            initialTargets.put(BotType.TREND, 0);
+            initialTargets.put(BotType.NOISE, 0);
+            fleet.registerMarket(per.market(),
+                    new BigDecimal(per.initialPrice()), initialTargets);
+
+            for (int i = 1; i <= pool; i++) {
                 String botId = "mm-" + suffix + "-" + i;
                 BotCredentials creds = seeder.seed(botId + "@bots.exchange.local", per.market(),
                         quoteFunding, baseFunding);
                 MarketMakerBot bot = new MarketMakerBot(botId,
                         new BotApiClient(per.baseUrl(), creds, botId),
-                        per.seed() * 1_000_003L + marketSalt + i, per, tick, () -> running, governor);
+                        per.seed() * 1_000_003L + marketSalt + i, per, tick, () -> running,
+                        governor, fleet, i);
                 threads.add(Thread.ofVirtual().name("sim-" + botId).start(bot));
-                totalMm++;
             }
-            for (int i = 1; i <= per.taker().count(); i++) {
-                String botId = "tk-" + suffix + "-" + i;
-                BotCredentials creds = seeder.seed(botId + "@bots.exchange.local", per.market(),
-                        quoteFunding, baseFunding);
-                TakerBot bot = new TakerBot(botId,
-                        new BotApiClient(per.baseUrl(), creds, botId),
-                        per.seed() * 2_000_003L + marketSalt + i, per, () -> running, governor);
-                threads.add(Thread.ofVirtual().name("sim-" + botId).start(bot));
-                totalTaker++;
-            }
+            spawnTakers(BotType.TAKER, "tk-" + suffix, per, marketSalt, 2_000_003L,
+                    0.8, 1, quoteFunding, baseFunding, pool);
+            spawnTakers(BotType.TREND, "tr-" + suffix, per, marketSalt, 3_000_003L,
+                    1.0, 1, quoteFunding, baseFunding, pool);
+            spawnTakers(BotType.NOISE, "ns-" + suffix, per, marketSalt, 4_000_003L,
+                    0.0, 2, quoteFunding, baseFunding, pool);
         }
-        log.info("봇 플릿 기동: 마켓 {} MM {} TAKER {} targetOps {}",
-                specs.size(), totalMm, totalTaker, governor.targetOps());
+        startBalancer();
+        log.info("봇 플릿 기동: 마켓 {} 타입당 풀 {} 캡(타입 {}) 균형주기 {}ms targetOps {}",
+                specs.size(), pool, fleet.typeCap(), BotFleetGovernor.CONTROL_PERIOD_MS,
+                governor.targetOps());
+    }
+
+    private void spawnTakers(BotType type, String idPrefix, SimProperties per, long marketSalt,
+                             long seedMul, double kDir, int stepMul, BigDecimal quoteFunding,
+                             BigDecimal baseFunding, int pool) {
+        for (int i = 1; i <= pool; i++) {
+            String botId = idPrefix + "-" + i;
+            BotCredentials creds = seeder.seed(botId + "@bots.exchange.local", per.market(),
+                    quoteFunding, baseFunding);
+            TakerBot bot = new TakerBot(botId,
+                    new BotApiClient(per.baseUrl(), creds, botId),
+                    per.seed() * seedMul + marketSalt + i, per, kDir, stepMul, () -> running,
+                    governor, fleet, type, i);
+            threads.add(Thread.ofVirtual().name("sim-" + botId).start(bot));
+        }
+    }
+
+    /** 자동균형 외부 제어 루프. 느린 고정 주기로 measured 집계·effective 수렴을 돌린다(§4). */
+    private void startBalancer() {
+        balancer = Thread.ofVirtual().name("sim-balancer").start(() -> {
+            while (running) {
+                try {
+                    Thread.sleep(BotFleetGovernor.CONTROL_PERIOD_MS);
+                    fleet.controlStep();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                } catch (Exception e) {
+                    log.debug("균형 루프 스텝 실패, 계속: {}", e.toString());
+                }
+            }
+        });
     }
 
     /** markets 미지정 시 top-level 단일 마켓으로 폴백한다(하위호환). */
@@ -118,6 +164,9 @@ public class BotFleet {
             return;
         }
         running = false;
+        if (balancer != null) {
+            balancer.interrupt();
+        }
         for (Thread thread : threads) {
             thread.interrupt();
         }
@@ -132,6 +181,7 @@ public class BotFleet {
         }
         boolean alive = threads.stream().anyMatch(Thread::isAlive);
         threads.clear();
+        balancer = null;
         if (alive) {
             log.warn("봇 스레드 일부가 종료 대기 시간 내에 끝나지 않았다");
         } else {

@@ -89,7 +89,9 @@ class SimFleetIntegrationTest {
                 new SimProperties.Taker(2, 4.0, "0.001", 5, 0.2), null);
         BotSeeder seeder = new BotSeeder(jdbc, bootstrap, keySeeder);
         OpsGovernor governor = new OpsGovernor(props.targetOps());
-        BotFleet fleet = new BotFleet(props, seeder, governor);
+        // 파킹 게이트 검증 겸 시드 비용 억제를 위해 타입당 풀을 작게 잡는다.
+        BotFleetGovernor fleetGovernor = new BotFleetGovernor(30, 80, 300, 3);
+        BotFleet fleet = new BotFleet(props, seeder, governor, fleetGovernor);
 
         fleet.start();
         try {

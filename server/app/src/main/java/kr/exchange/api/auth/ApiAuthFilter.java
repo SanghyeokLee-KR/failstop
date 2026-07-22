@@ -39,6 +39,7 @@ public class ApiAuthFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/v1/trades")
                 || path.startsWith("/api/v1/ticker")
                 || path.startsWith("/api/v1/candles")
+                || path.startsWith("/api/v1/exchange-config")
                 || path.equals("/api/v1/demo/session");
     }
 

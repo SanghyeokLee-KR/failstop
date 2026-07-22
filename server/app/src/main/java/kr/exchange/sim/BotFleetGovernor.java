@@ -1,0 +1,384 @@
+package kr.exchange.sim;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * 봇 방향성·대수·자동균형 상태 보관소(설계 §3·§4). OpsGovernor 옆 인메모리 volatile.
+ * 안전 경계.
+ * - 대수 스케일은 OPS 버킷을 만지지 않는다. 봇 수 증가는 처리량을 못 올린다(백프레셔 무해).
+ * - 목표 대수는 타입·마켓·전역 하드캡으로 클램프한다. 초과는 거부가 아니라 클램프+감사.
+ * - effective bias는 [-0.7, +0.7] 하드캡. 기준가 대비 ±40% 이탈 시 목표 무관 0으로 강제.
+ * - bias는 확률·틱 오프셋 계산에만 쓰는 스칼라다. 가격·수량 NUMERIC 산술에 곱해지지 않는다.
+ */
+public class BotFleetGovernor {
+
+    public static final double EFFECTIVE_MIN = -0.7;
+    public static final double EFFECTIVE_MAX = 0.7;
+    public static final double BIAS_MIN = -1.0;
+    public static final double BIAS_MAX = 1.0;
+    public static final double DEADBAND = 0.1;
+    public static final double KP_MAX = 0.2;
+    public static final double PRICE_BAND = 0.40;
+    public static final long CONTROL_PERIOD_MS = 3_000;
+
+    private static final int TYPE_COUNT = BotType.values().length;
+
+    private final int typeCap;
+    private final int marketCap;
+    private final int globalCap;
+    private final int poolPerType;
+
+    private final Map<String, MarketState> markets = new ConcurrentHashMap<>();
+
+    public BotFleetGovernor(int typeCap, int marketCap, int globalCap, int poolPerType) {
+        this.typeCap = Math.max(1, typeCap);
+        this.marketCap = Math.max(1, marketCap);
+        this.globalCap = Math.max(1, globalCap);
+        this.poolPerType = Math.max(1, poolPerType);
+    }
+
+    /**
+     * 데모 기본 캡. globalCap은 하네스 normal(140봇) 기준 여유 상한이다.
+     * poolPerType은 typeCap과 같게 잡아 캡 상향이 재기동을 요구하지 않게 한다(§3-3).
+     */
+    public static BotFleetGovernor defaults() {
+        return new BotFleetGovernor(30, 80, 300, 30);
+    }
+
+    public int poolPerType() {
+        return poolPerType;
+    }
+
+    public int typeCap() {
+        return typeCap;
+    }
+
+    /** 플릿 기동 시 마켓 등록. referencePrice는 가격 밴드 기준가(±40%)로 고정된다. */
+    public void registerMarket(String market, BigDecimal referencePrice,
+                               Map<BotType, Integer> initialTargets) {
+        MarketState state = markets.computeIfAbsent(market,
+                m -> new MarketState(m, referencePrice));
+        if (referencePrice != null && state.referencePrice == null) {
+            state.referencePrice = referencePrice;
+        }
+        if (initialTargets != null) {
+            for (BotType type : BotType.values()) {
+                Integer t = initialTargets.get(type);
+                if (t != null) {
+                    state.targets.set(type.ordinal(), clampType(t));
+                }
+            }
+        }
+    }
+
+    private MarketState state(String market) {
+        return markets.computeIfAbsent(market, m -> new MarketState(m, null));
+    }
+
+    // ----------------------------------------------------------------
+    // 대수 스케일(설계 §3, §5-1)
+    // ----------------------------------------------------------------
+
+    public record ScaleResult(Map<BotType, Integer> applied, boolean clamped) {
+    }
+
+    /**
+     * 타입별 목표 대수 갱신. 각 타입 캡·마켓 캡·전역 캡으로 클램프한다.
+     * 클램프가 한 번이라도 걸리면 clamped=true. OPS 버킷은 만지지 않는다.
+     */
+    public synchronized ScaleResult setScale(String market, Map<BotType, Integer> targets) {
+        MarketState state = state(market);
+        boolean clamped = false;
+        EnumMap<BotType, Integer> requested = new EnumMap<>(BotType.class);
+        for (BotType type : BotType.values()) {
+            int cur = state.targets.get(type.ordinal());
+            Integer req = targets == null ? null : targets.get(type);
+            int value = req == null ? cur : Math.max(0, req);
+            int typeClamped = Math.min(value, typeCap);
+            if (typeClamped != value) {
+                clamped = true;
+            }
+            requested.put(type, typeClamped);
+        }
+        clamped |= clampAgainst(requested, marketCap);
+        clamped |= clampAgainst(requested, remainingGlobal(market));
+        EnumMap<BotType, Integer> applied = new EnumMap<>(BotType.class);
+        for (BotType type : BotType.values()) {
+            int value = requested.get(type);
+            state.targets.set(type.ordinal(), value);
+            applied.put(type, value);
+        }
+        return new ScaleResult(applied, clamped);
+    }
+
+    /** 요청 합이 상한을 넘으면 유형 순서(ordinal) 역순으로 순차 감축한다. 하나라도 줄면 true. */
+    private static boolean clampAgainst(EnumMap<BotType, Integer> requested, int cap) {
+        int sum = requested.values().stream().mapToInt(Integer::intValue).sum();
+        if (sum <= cap) {
+            return false;
+        }
+        // 결정론적 순차 감축. 유형 순서(ordinal) 역순으로 초과분을 깎는다.
+        int excess = sum - cap;
+        BotType[] order = BotType.values();
+        for (int i = order.length - 1; i >= 0 && excess > 0; i--) {
+            BotType type = order[i];
+            int cur = requested.get(type);
+            int cut = Math.min(cur, excess);
+            requested.put(type, cur - cut);
+            excess -= cut;
+        }
+        return true;
+    }
+
+    /** 전역 캡에서 이 마켓을 뺀 나머지 마켓이 이미 점유한 목표를 제외한 잔여 예산. */
+    private int remainingGlobal(String market) {
+        int others = 0;
+        for (MarketState s : markets.values()) {
+            if (!s.market.equals(market)) {
+                others += s.totalTarget();
+            }
+        }
+        return Math.max(0, globalCap - others);
+    }
+
+    // ----------------------------------------------------------------
+    // 방향·자동균형(설계 §4, §5-2)
+    // ----------------------------------------------------------------
+
+    public record BiasResult(double targetBias, boolean autoBalance, double strength,
+                             double effectiveBias) {
+    }
+
+    /**
+     * 목표 net bias·자동균형 갱신. auto off면 effective = clamp(target) 즉시 반영(§4-5).
+     * auto on이면 균형 루프(controlStep)가 다음 주기부터 effective를 수렴시킨다.
+     */
+    public BiasResult setBias(String market, double targetBias, boolean autoBalance,
+                              double strength) {
+        MarketState state = state(market);
+        state.targetBias = clampBias(targetBias);
+        state.autoBalance = autoBalance;
+        state.strength = clampStrength(strength);
+        if (!autoBalance) {
+            state.effectiveBias = clampEffective(state.targetBias);
+        }
+        return new BiasResult(state.targetBias, state.autoBalance, state.strength,
+                state.effectiveBias);
+    }
+
+    /**
+     * 균형 루프 1회. 마켓별로 측정 net bias를 집계하고, auto on이면 비례 제어로 effective를
+     * 갱신한다. auto off면 effective는 clamp(target) 유지. 측정 창은 매 주기 리셋한다.
+     */
+    public void controlStep() {
+        for (MarketState state : markets.values()) {
+            long buy = state.buyAgg.getAndSet(0);
+            long sell = state.sellAgg.getAndSet(0);
+            long fills = state.fillAgg.getAndSet(0);
+            long aggressors = buy + sell;
+            state.measuredBias = (double) (buy - sell) / Math.max(aggressors, 1L);
+            // 접수 성공/개시 시도 비율. 창당 시도 <= 접수라 [0, 1]. 생동감 프록시(§4-1).
+            state.fillRatio = aggressors == 0 ? 0.0
+                    : Math.min(1.0, (double) fills / aggressors);
+            if (!state.autoBalance) {
+                state.effectiveBias = clampEffective(state.targetBias);
+                continue;
+            }
+            boolean band = priceBandBreached(state.currentPrice, state.referencePrice, PRICE_BAND);
+            double kp = KP_MAX * state.strength;
+            state.effectiveBias = nextEffectiveBias(state.effectiveBias, state.targetBias,
+                    state.measuredBias, kp, DEADBAND, band);
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // 봇 런타임 조회·집계
+    // ----------------------------------------------------------------
+
+    /** 파킹 게이트. 봇 인덱스(1-based)가 현재 목표 이하일 때만 활성이다. */
+    public boolean active(String market, BotType type, int index1based) {
+        MarketState state = markets.get(market);
+        if (state == null) {
+            return false;
+        }
+        return index1based <= state.targets.get(type.ordinal());
+    }
+
+    public double effectiveBias(String market) {
+        MarketState state = markets.get(market);
+        return state == null ? 0.0 : state.effectiveBias;
+    }
+
+    /**
+     * 테이커가 개시 방향을 보고한다. 측정 net bias의 유일한 입력이다(관측 지표 미소비).
+     * 실제 주문 제출 직전(호가 존재 확인 후)에만 호출해 미접수 방향이 측정에 새지 않게 한다.
+     */
+    public void recordAggressor(String market, boolean buy) {
+        MarketState state = markets.get(market);
+        if (state == null) {
+            return;
+        }
+        if (buy) {
+            state.buyAgg.incrementAndGet();
+        } else {
+            state.sellAgg.incrementAndGet();
+        }
+    }
+
+    /** 개시 주문이 접수(2xx)되면 보고한다. fill_ratio 프록시의 분자다(recordAggressor가 분모). */
+    public void recordFill(String market) {
+        MarketState state = markets.get(market);
+        if (state != null) {
+            state.fillAgg.incrementAndGet();
+        }
+    }
+
+    /** MM이 fair value 유래 현재가를 보고한다. 가격 밴드 판정 입력이다. */
+    public void recordPrice(String market, BigDecimal price) {
+        MarketState state = markets.get(market);
+        if (state != null) {
+            state.currentPrice = price;
+        }
+    }
+
+    public int activeCount(String market, BotType type) {
+        MarketState state = markets.get(market);
+        if (state == null) {
+            return 0;
+        }
+        return Math.min(state.targets.get(type.ordinal()), poolPerType);
+    }
+
+    // ----------------------------------------------------------------
+    // 상태 스냅샷(§5-5)
+    // ----------------------------------------------------------------
+
+    public record MarketSnapshot(String market, double targetBias, double measuredBias,
+                                 double effectiveBias, boolean autoBalance, double strength,
+                                 Map<BotType, int[]> scale, double fillRatio) {
+    }
+
+    public List<MarketSnapshot> snapshot() {
+        List<MarketSnapshot> out = new ArrayList<>();
+        List<String> keys = new ArrayList<>(markets.keySet());
+        keys.sort(String::compareTo);
+        for (String key : keys) {
+            MarketState state = markets.get(key);
+            EnumMap<BotType, int[]> scale = new EnumMap<>(BotType.class);
+            for (BotType type : BotType.values()) {
+                int target = state.targets.get(type.ordinal());
+                scale.put(type, new int[]{target, Math.min(target, poolPerType)});
+            }
+            out.add(new MarketSnapshot(key, state.targetBias, state.measuredBias,
+                    state.effectiveBias, state.autoBalance, state.strength, scale,
+                    state.fillRatio));
+        }
+        return out;
+    }
+
+    // ----------------------------------------------------------------
+    // 순수 함수(단위 테스트 대상). bias 도메인 스칼라 연산이며 자금 경로가 아니다.
+    // ----------------------------------------------------------------
+
+    public static double clampEffective(double v) {
+        return Math.max(EFFECTIVE_MIN, Math.min(EFFECTIVE_MAX, v));
+    }
+
+    public static double clampBias(double v) {
+        return Math.max(BIAS_MIN, Math.min(BIAS_MAX, v));
+    }
+
+    public static double clampStrength(double v) {
+        return Math.max(0.0, Math.min(1.0, v));
+    }
+
+    /** 기준가 대비 이탈이 밴드를 넘으면 true. price 비교 전용이며 원장 산술이 아니다. */
+    public static boolean priceBandBreached(BigDecimal price, BigDecimal reference, double bandPct) {
+        if (price == null || reference == null || reference.signum() <= 0) {
+            return false;
+        }
+        double ratio = price.doubleValue() / reference.doubleValue() - 1.0;
+        return Math.abs(ratio) > bandPct;
+    }
+
+    /**
+     * 비례 제어 1스텝. 밴드 이탈이면 목표·오차 무관 0으로 강제(평균 회귀). 데드밴드 내면
+     * 조정하지 않는다(플래핑 억제). 결과는 [-0.7, +0.7] 하드캡.
+     */
+    public static double nextEffectiveBias(double current, double target, double measured,
+                                           double kp, double deadband, boolean bandBreached) {
+        if (bandBreached) {
+            return 0.0;
+        }
+        double error = target - measured;
+        double next = Math.abs(error) < deadband ? current : current + kp * error;
+        return clampEffective(next);
+    }
+
+    /** 문자열 target_net_bias 파싱 + 정의역 검증([-1, +1]). */
+    public static double parseBias(String raw) {
+        double v = new BigDecimal(raw.trim()).doubleValue();
+        if (v < BIAS_MIN || v > BIAS_MAX) {
+            throw new IllegalArgumentException("target_net_bias는 [-1, +1] 범위여야 합니다.");
+        }
+        return v;
+    }
+
+    /** 문자열 strength 파싱. off/subtle/normal/strong 별칭 또는 [0, 1] 숫자. */
+    public static double parseStrength(String raw) {
+        String s = raw == null ? "" : raw.trim();
+        return switch (s.toLowerCase(java.util.Locale.ROOT)) {
+            case "off" -> 0.0;
+            case "subtle" -> 0.25;
+            case "normal", "" -> 0.5;
+            case "strong" -> 1.0;
+            default -> {
+                double v = new BigDecimal(s).doubleValue();
+                if (v < 0.0 || v > 1.0) {
+                    throw new IllegalArgumentException("strength는 [0, 1] 또는 별칭이어야 합니다.");
+                }
+                yield v;
+            }
+        };
+    }
+
+    private int clampType(int value) {
+        return Math.max(0, Math.min(value, typeCap));
+    }
+
+    private static final class MarketState {
+        private final String market;
+        private volatile BigDecimal referencePrice;
+        private volatile BigDecimal currentPrice;
+        private final AtomicIntegerArray targets = new AtomicIntegerArray(TYPE_COUNT);
+        private volatile double targetBias;
+        private volatile double effectiveBias;
+        private volatile double measuredBias;
+        private volatile double fillRatio;
+        private volatile boolean autoBalance;
+        private volatile double strength = 0.5;
+        private final AtomicLong buyAgg = new AtomicLong();
+        private final AtomicLong sellAgg = new AtomicLong();
+        private final AtomicLong fillAgg = new AtomicLong();
+
+        private MarketState(String market, BigDecimal referencePrice) {
+            this.market = market;
+            this.referencePrice = referencePrice;
+        }
+
+        private int totalTarget() {
+            int sum = 0;
+            for (int i = 0; i < TYPE_COUNT; i++) {
+                sum += targets.get(i);
+            }
+            return sum;
+        }
+    }
+}

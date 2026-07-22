@@ -5,6 +5,7 @@ import kr.exchange.api.auth.DemoKeySeeder;
 import kr.exchange.engine.LeaderLeaseService;
 import kr.exchange.ledger.AccountBootstrap;
 import kr.exchange.sim.BotFleet;
+import kr.exchange.sim.BotFleetGovernor;
 import kr.exchange.sim.BotSeeder;
 import kr.exchange.sim.OpsGovernor;
 import kr.exchange.sim.SimProperties;
@@ -108,7 +109,7 @@ class InvariantVerifierIntegrationTest {
                 new SimProperties.MarketMaker(2, 10, 3, "0.01", 300),
                 new SimProperties.Taker(2, 4.0, "0.001", 5, 0.2), null);
         BotFleet fleet = new BotFleet(props, new BotSeeder(jdbc, bootstrap, keySeeder),
-                new OpsGovernor(props.targetOps()));
+                new OpsGovernor(props.targetOps()), new BotFleetGovernor(30, 80, 300, 3));
         fleet.start();
         try {
             Awaitility.await().atMost(Duration.ofSeconds(40)).until(() ->
