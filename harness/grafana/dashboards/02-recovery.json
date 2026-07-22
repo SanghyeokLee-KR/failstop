@@ -1,0 +1,156 @@
+{
+  "uid": "proof-recovery",
+  "title": "② 자동 복구 증명",
+  "tags": ["proof", "failover"],
+  "schemaVersion": 39,
+  "editable": false,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "annotations": {
+    "list": [
+      {
+        "name": "chaos",
+        "enable": true,
+        "iconColor": "red",
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "target": { "type": "tags", "tags": ["chaos"], "limit": 100, "matchAny": true }
+      },
+      {
+        "name": "failover",
+        "enable": true,
+        "iconColor": "orange",
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "target": { "type": "tags", "tags": ["failover"], "limit": 100, "matchAny": true }
+      }
+    ]
+  },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "gauge",
+      "title": "페일오버 RTO exchange_failover_downtime_seconds",
+      "description": "목표 <30s. 승격 콜백 1회 계산값(§5-1). 화면 숫자 = API rto_seconds.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 0 },
+      "targets": [ { "refId": "A", "expr": "max(exchange_failover_downtime_seconds)" } ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "max": 60,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 30 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdMarkers": true }
+    },
+    {
+      "id": 2,
+      "type": "state-timeline",
+      "title": "리더 소유권 exchange_leader_is_leader{node}",
+      "description": "kill 시점 리더 밴드 교대. 1=리더, 0=비리더.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 18, "x": 6, "y": 0 },
+      "targets": [ { "refId": "A", "expr": "exchange_leader_is_leader", "legendFormat": "{{node}}" } ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "gray", "value": null }, { "color": "green", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "mergeValues": true, "showValue": "auto" }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "리더 epoch 계단 exchange_leader_epoch{node}",
+      "description": "kill annotation 수직선과 계단(42→43) 정렬. 정확히 +1.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 7 },
+      "targets": [ { "refId": "A", "expr": "exchange_leader_epoch", "legendFormat": "{{node}}" } ],
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 0 }, "decimals": 0 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "체결 곡선 exchange:trades_per_second:rate1m",
+      "description": "kill 시 사멸→수초 만에 부활. RTO 외부 관점 교차검증(§5-1).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 7 },
+      "targets": [ { "refId": "A", "expr": "exchange:trades_per_second:rate1m", "legendFormat": "trades/s" } ],
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 15 }, "unit": "ops" },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "failover_runs 이력(DB 원본)",
+      "description": "rto_seconds·rpo_records·verdict. §6-C API와 동일 계산점(harness.failover_runs).",
+      "datasource": { "type": "postgres", "uid": "pg-proof" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "editorMode": "code",
+          "rawSql": "SELECT experiment_id, old_epoch, new_epoch, rto_seconds, downtime_seconds, rpo_records, verdict, created_at FROM harness.failover_runs ORDER BY created_at DESC LIMIT 20"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "verdict" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": { "FAIL": { "color": "red", "index": 0 }, "PASS": { "color": "green", "index": 1 } } }
+              ] }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [ { "displayName": "created_at", "desc": true } ] }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "recovery_runs 재생 결정론(DB 원본)",
+      "description": "fp_replay=fp_live, matched=true면 재생 결정론. M4 이후 채워진다(빈 표=미배선).",
+      "datasource": { "type": "postgres", "uid": "pg-proof" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "editorMode": "code",
+          "rawSql": "SELECT market_id, replayed_from_seq, replayed_to_seq, fp_replay, fp_live, matched, duration_ms, created_at FROM recovery_runs ORDER BY created_at DESC LIMIT 20"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "matched" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": { "false": { "color": "red", "index": 0 }, "true": { "color": "green", "index": 1 } } }
+              ] }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [ { "displayName": "created_at", "desc": true } ] }
+    }
+  ]
+}

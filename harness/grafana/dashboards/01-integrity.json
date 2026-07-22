@@ -1,0 +1,122 @@
+{
+  "uid": "proof-integrity",
+  "title": "① 체결 무결성 증명",
+  "tags": ["proof", "integrity"],
+  "schemaVersion": 39,
+  "editable": false,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "annotations": {
+    "list": [
+      {
+        "name": "chaos",
+        "enable": true,
+        "iconColor": "red",
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "target": { "type": "tags", "tags": ["chaos"], "limit": 100, "matchAny": true }
+      },
+      {
+        "name": "failover",
+        "enable": true,
+        "iconColor": "orange",
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "target": { "type": "tags", "tags": ["failover"], "limit": 100, "matchAny": true }
+      }
+    ]
+  },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "자산 보존 신호 max(abs(imbalance))",
+      "description": "0=무결. 0이 아니면 자산 보존 위반이므로 즉시 적색.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "max(abs(exchange_ledger_imbalance))", "instant": false }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 18,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.000000000000000001 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "자산별 원장 총합 exchange_ledger_imbalance{asset}",
+      "description": "항상 0 수평선이어야 한다. 카오스 음영 위에서도 무결.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 18, "x": 6, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "exchange_ledger_imbalance", "legendFormat": "asset {{asset}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 0 }, "decimals": 18 },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max"] } }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "불변식 위반 수 max by(check_name)(exchange_invariant_violations)",
+      "description": "전 계열 0 유지가 증명. check_name은 §5-6 C-카탈로그 표준명.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+      "targets": [
+        { "refId": "A", "expr": "max by (check_name) (exchange_invariant_violations)", "legendFormat": "{{check_name}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max"] } }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "invariant_checks 최근 20건(DB 원본)",
+      "description": "DB 원본이 메트릭 미러보다 강한 증거(§5-5 ①). ok=false 행이 위반.",
+      "datasource": { "type": "postgres", "uid": "pg-proof" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "editorMode": "code",
+          "rawSql": "SELECT check_name, ok, violated_rows, checked_at FROM invariant_checks ORDER BY checked_at DESC LIMIT 20"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "ok" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": { "false": { "color": "red", "index": 0 }, "true": { "color": "green", "index": 1 } } }
+              ] }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "sortBy": [ { "displayName": "checked_at", "desc": true } ] }
+    }
+  ]
+}

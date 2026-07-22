@@ -1,0 +1,57 @@
+# 알람 규칙(하네스_CICD_IaC.md §5-6). 격리 하네스 스택은 Alertmanager를 생략하고
+# Prometheus 네이티브 알람으로 평가한다. 발화 상태는 ALERTS 시계열과 /alerts로 조회 가능해
+# 기계 판정(임계 초과 시 pending→firing)이 성립한다. 알림 라우팅(contact point)은
+# 정본 infra/ 토폴로지의 Grafana 통합 얼럿이 맡는다(§5-6). 하네스 축약 사유는 README 참조.
+#
+# 원천 메트릭은 전부 서버 실등록 7종. DuplicateFill(exchange_duplicate_fills_total)은 서버
+# 미등록이라 제외한다. 중복 체결 검출은 exchange_invariant_violations{check_name="TRADE_SEQ_DUP"}
+# (C08)이 DB 원본으로 방어하므로 InvariantViolation 알람이 커버한다.
+groups:
+  - name: exchange.alerts
+    interval: 10s
+    rules:
+      - alert: LedgerImbalance
+        expr: max(abs(exchange_ledger_imbalance)) > 0
+        for: 0s
+        labels:
+          severity: critical
+          check: ASSET_CONSERVATION
+        annotations:
+          summary: "원장 자산 총합이 0이 아니다(자산 보존 위반)"
+          description: "max(abs(exchange_ledger_imbalance))={{ $value }}. 항상 0이어야 한다. 즉시 정지·조사."
+
+      - alert: InvariantViolation
+        expr: max by (check_name, severity) (exchange_invariant_violations) > 0
+        for: 30s
+        labels:
+          severity: "{{ $labels.severity }}"
+        annotations:
+          summary: "불변식 위반: {{ $labels.check_name }}"
+          description: "check_name={{ $labels.check_name }} 위반행={{ $value }}. §5-6 C-카탈로그 심각도로 라우팅."
+
+      - alert: OrderP99SloBreach
+        expr: exchange:order_latency:p99_1m > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "주문 지연 p99가 500ms SLO 초과"
+          description: "exchange:order_latency:p99_1m={{ $value }}s. 거부는 늘어도 무결성은 방어가 원칙."
+
+      - alert: FailoverRtoExceeded
+        expr: max(exchange_failover_downtime_seconds) > 30
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "페일오버 RTO 30s 목표 초과"
+          description: "exchange_failover_downtime_seconds={{ $value }}s. 목표 <30s(API§7-4)."
+
+      - alert: LeaderAbsent
+        expr: absent(exchange_leader_is_leader == 1)
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "리더 부재 15s 초과"
+          description: "exchange_leader_is_leader==1 시계열 소멸. 승격 지연·양쪽 스탠바이 의심."

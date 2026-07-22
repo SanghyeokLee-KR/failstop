@@ -1,0 +1,77 @@
+{
+  "uid": "proof-system",
+  "title": "④ 시스템",
+  "tags": ["proof", "system"],
+  "schemaVersion": 39,
+  "editable": false,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "annotations": {
+    "list": [
+      {
+        "name": "chaos",
+        "enable": true,
+        "iconColor": "red",
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "target": { "type": "tags", "tags": ["chaos"], "limit": 100, "matchAny": true }
+      }
+    ]
+  },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "타깃 up",
+      "description": "exchange-api 잡 스크레이프 상태. kill 시 해당 인스턴스 0.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "targets": [ { "refId": "A", "expr": "up{job=\"exchange-api\"}", "legendFormat": "{{instance}}" } ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] },
+          "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN" }, "1": { "text": "UP" } } } ]
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "" } }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HikariCP 커넥션 active/pending",
+      "description": "풀 고갈→p99 인과(§7-5). pending 상승은 백프레셔 신호.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "hikaricp_connections_active", "legendFormat": "active {{instance}}" },
+        { "refId": "B", "expr": "hikaricp_connections_pending", "legendFormat": "pending {{instance}}" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 5 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max"] } }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "JVM heap 사용량",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        { "refId": "A", "expr": "jvm_memory_used_bytes{area=\"heap\"}", "legendFormat": "{{instance}} {{id}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 5 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 4,
+      "type": "text",
+      "title": "미배선(서버 메트릭 미등록)",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 16 },
+      "options": {
+        "mode": "markdown",
+        "content": "정본 §5-5 ④의 `exchange_ws_clients`·`exchange_orderbook_depth`·Kafka lag은 서버 메트릭 미등록이라 표시하지 않는다. 서버 등록 후 패널을 추가한다."
+      }
+    }
+  ]
+}

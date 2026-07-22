@@ -123,7 +123,9 @@ services:
   chaos-prometheus:
     image: prom/prometheus:v3.13.0
     container_name: chaos-prometheus
-    volumes: ["./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro     # 레코딩·알람 규칙(§5-3/§5-6)
     command: ["--storage.tsdb.retention.time=2h", "--config.file=/etc/prometheus/prometheus.yml"]
     ports: ["59090:9090"]
     restart: unless-stopped
@@ -136,6 +138,12 @@ services:
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      # pg-proof 데이터소스 자격. 격리 하네스는 컴포즈 PG 계정을 읽기용으로 쓴다(§5-4 grafana_ro는 infra/ 대상)
+      GF_PG_PROOF_USER: ${CHAOS_PG_USER:-exchange}
+      GF_PG_PROOF_PASSWORD: ${CHAOS_PG_PASSWORD:-exchange}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports: ["53001:3000"]
     depends_on: [chaos-prometheus]
     restart: unless-stopped

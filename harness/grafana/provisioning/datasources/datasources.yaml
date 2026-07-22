@@ -1,0 +1,29 @@
+apiVersion: 1
+
+# uid 고정: 대시보드 JSON이 uid로 데이터소스를 참조한다(§5-4 참조 안정성).
+datasources:
+  - name: prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://chaos-prometheus:9090
+    isDefault: true
+    jsonData:
+      timeInterval: 2s          # exchange-api 잡 스크레이프 간격과 정합
+
+  # pg-proof: DB 원본 직조회(invariant_checks·recovery_runs·harness.failover_runs).
+  # DB 원본은 메트릭 미러보다 강한 증거다(§5-5 ①). 격리 하네스는 grafana_ro 롤 대신
+  # 컴포즈 PG 계정을 쓰고, 대시보드 쿼리는 SELECT 전용이다. grafana_ro 하드닝은 정본
+  # infra/ 토폴로지 대상(§5-4). 비밀번호는 컴포즈 env로 주입한다.
+  - name: pg-proof
+    uid: pg-proof
+    type: postgres
+    access: proxy
+    url: chaos-pg:5432
+    user: ${GF_PG_PROOF_USER}
+    jsonData:
+      database: exchange
+      sslmode: disable
+      postgresVersion: 1700
+    secureJsonData:
+      password: ${GF_PG_PROOF_PASSWORD}

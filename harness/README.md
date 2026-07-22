@@ -16,6 +16,11 @@
 | LB | `nginx/nginx.conf` | api-1 1차 / api-2 백업(리더 kill 시 승계) |
 | 실험 설정 | `config/e1.env`,`e2.env`,`e3.env` | 시드·타임라인·판정 임계(재현용) |
 | 스크립트 | `scripts/*.ps1` | up/down + E1~E3 오케스트레이터 + 공용 lib |
+| k6 부하 | `load/` | 개방루프 SLO 계측 시나리오 + STOMP/서명 라이브러리(§2-2). `load/README.md` 참조 |
+| 검증 SQL | `sql/invariants.sql`,`sql/summary.sql` | 불변식 C01~C19 psql 직조회본(§4-1). 데모 라이브 판정·수동 감사 |
+| 관측 규칙 | `prometheus/rules/*.yml` | 레코딩(§5-3)·알람(§5-6). obs 프로파일 |
+| 대시보드 | `grafana/dashboards/*.json` | 증명 4장(①무결성 ②복구 ③SLO ④시스템) |
+| 프로비저닝 | `grafana/provisioning/**` | 데이터소스(prometheus·pg-proof) + 대시보드 프로바이더 |
 
 ## 포트 (데모 스택과 무충돌)
 
@@ -86,6 +91,30 @@ CI 재현 게이트는 `.github/workflows/ci-backend.yml`(ubuntu-latest, `./grad
 ubuntu 러너는 ASCII 경로라 Windows 정션(비ASCII 물리 경로) + cp949 워커의 클래스패스 손상과
 무관하게 green을 재현한다. 로컬 Windows 실행은 `gradle.properties`·`app/build.gradle.kts`의
 `sun.jnu.encoding=UTF-8` 고정으로 콘솔 코드페이지와 무관하게 통과한다.
+
+## 관측성 배선
+
+obs 프로파일(`up.ps1 -Obs`)로 prometheus(59090)·grafana(53001)를 띄운다. 대시보드·알람은
+파일 프로비저닝이라 컨테이너 기동 즉시 로드된다. PromQL은 서버 실등록 메트릭 7종에만 배선한다:
+`exchange_trades_total`, `exchange_order_latency_seconds_*`, `exchange_leader_epoch`,
+`exchange_leader_is_leader`, `exchange_ledger_imbalance`, `exchange_failover_downtime_seconds`,
+`exchange_invariant_violations`. DB 원본 패널(`invariant_checks`·`recovery_runs`·
+`harness.failover_runs`)은 pg-proof 데이터소스로 직조회한다.
+
+정본(하네스_CICD_IaC.md §5-2/§5-3/§5-6) 대비 격리 하네스의 의도된 축약:
+
+- 스크레이프 타깃은 dev 8080 `/actuator/prometheus`다. 정본 §5-3의 admin 9404 분리는 prod
+  토폴로지 규약이고, 이 스택 api 노드는 dev 노출이다.
+- 알람은 Prometheus 네이티브 규칙으로 평가한다(§5-6은 Grafana 통합 얼럿). Alertmanager를
+  생략해도 발화 상태는 `ALERTS` 시계열·`/alerts`로 조회 가능해 기계 판정이 성립한다. contact
+  point 라우팅은 정본 infra/ 스택이 맡는다.
+- pg-proof는 컴포즈 PG 계정을 읽기용으로 쓴다(§5-4 `grafana_ro` 롤 하드닝은 infra/ 대상).
+- 무데이터 패널을 증거로 두지 않는다. 서버 미등록 메트릭(`exchange_duplicate_fills_total`,
+  `exchange_orders_rejected_total`, `exchange_sequencer_queue_size`,
+  `exchange_journal_replay_commands_total`, `exchange_orderbook_depth`, `exchange_ws_clients`)에
+  걸린 §5-5 패널·§5-6 `DuplicateFill` 알람은 배선하지 않고 대시보드 텍스트로 사유를 명시한다.
+  중복 체결 검출은 `exchange_invariant_violations{check_name="TRADE_SEQ_DUP"}`(C08)이 DB
+  원본으로 방어하므로 `InvariantViolation` 알람이 커버한다.
 
 ## 한계
 

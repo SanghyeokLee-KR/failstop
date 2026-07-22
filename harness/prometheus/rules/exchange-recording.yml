@@ -1,0 +1,18 @@
+# 레코딩 규칙. 대시보드·알람이 같은 식을 공유한다(하네스_CICD_IaC.md §5-3).
+# 원천 메트릭은 서버 실등록 7종 중 trades·order.latency. histogram_quantile은
+# exchange.order.latency Timer의 publishPercentileHistogram + 500ms SLO 경계 버킷에 의존한다
+# (MarketDataPublisher.fillTimer). le="0.5" 버킷 직독으로 보간 없는 SLO 판정.
+groups:
+  - name: exchange.recording
+    interval: 5s
+    rules:
+      - record: exchange:trades_per_second:rate1m
+        expr: sum(rate(exchange_trades_total[1m]))
+      - record: exchange:order_latency:p99_1m
+        expr: histogram_quantile(0.99, sum by (le) (rate(exchange_order_latency_seconds_bucket[1m])))
+      - record: exchange:order_latency:p95_1m
+        expr: histogram_quantile(0.95, sum by (le) (rate(exchange_order_latency_seconds_bucket[1m])))
+      - record: exchange:slo_500ms_ratio_1m
+        expr: |
+          sum(rate(exchange_order_latency_seconds_bucket{le="0.5"}[1m]))
+          / sum(rate(exchange_order_latency_seconds_count[1m]))

@@ -1,0 +1,95 @@
+{
+  "uid": "proof-load-slo",
+  "title": "③ 부하·SLO",
+  "tags": ["proof", "slo"],
+  "schemaVersion": 39,
+  "editable": false,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "annotations": {
+    "list": [
+      {
+        "name": "chaos",
+        "enable": true,
+        "iconColor": "red",
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "target": { "type": "tags", "tags": ["chaos"], "limit": 100, "matchAny": true }
+      }
+    ]
+  },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "주문 지연 p95/p99 (SLI)",
+      "description": "exchange:order_latency:p95_1m·p99_1m. SLO 경계 500ms 임계선.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "exchange:order_latency:p95_1m", "legendFormat": "p95" },
+        { "refId": "B", "expr": "exchange:order_latency:p99_1m", "legendFormat": "p99" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 5 },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.5 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "현재 p99",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [ { "refId": "A", "expr": "exchange:order_latency:p99_1m" } ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 0.5 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "500ms SLO 충족률 exchange:slo_500ms_ratio_1m",
+      "description": "le=0.5 버킷 직독(보간 0). 1.0 근접 유지가 목표.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 8 },
+      "targets": [ { "refId": "A", "expr": "exchange:slo_500ms_ratio_1m", "legendFormat": "<=500ms 비율" } ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "체결/초 exchange:trades_per_second:rate1m",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "targets": [ { "refId": "A", "expr": "exchange:trades_per_second:rate1m", "legendFormat": "trades/s" } ],
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 15 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 5,
+      "type": "text",
+      "title": "미배선(서버 메트릭 미등록)",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 16 },
+      "options": {
+        "mode": "markdown",
+        "content": "정본 §5-5 ③의 429 비율(`exchange_orders_rejected_total`)·백프레셔(`exchange_sequencer_queue_size`)·Resilience4j CB/RateLimiter·k6 Remote Write는 서버 메트릭 미등록 또는 부하 원격쓰기 미배선이라 이 스택에서 표시하지 않는다. 서버 등록 후 패널을 추가한다(무데이터 패널을 증거로 두지 않는 원칙)."
+      }
+    }
+  ]
+}
