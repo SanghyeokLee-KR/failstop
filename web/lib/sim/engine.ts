@@ -156,7 +156,7 @@ function readEffectConfig(): EffectConfig {
 
 let seqCounter = 0;
 function ulid(): string {
-  // 계약상 외부 노출 id는 ULID 문자열. 시뮬레이터는 형태만 미러한 유사 ULID를 쓴다.
+  // 계약상 외부 노출 id는 UUID(§7-1 v2.7 정정). 시뮬레이터는 고유성만 필요해 형태만 미러한 유사 id를 쓴다.
   const t = Date.now().toString(36).toUpperCase().padStart(9, "0");
   const r = Math.random().toString(36).slice(2, 10).toUpperCase();
   return `01${t}${r}${(seqCounter++ % 36).toString(36).toUpperCase()}`.slice(0, 26).padEnd(26, "0");
@@ -507,7 +507,7 @@ export class SimEngine {
   /* ===== 주문 시뮬레이션 (멱등키 client_order_id, §2-4) ===== */
 
   placeOrder(req: OrderRequest): Order {
-    if (!req.client_order_id) throw new SimApiError("client_order_id_required", "client_order_id는 필수입니다.");
+    if (!req.client_order_id) throw new SimApiError("client_order_id_required", "client_order_id가 필요해요.");
     // 멱등 replay: 동일 키 → 기존 주문 반환
     const existingId = this.ordersByClientId.get(req.client_order_id);
     if (existingId) {
@@ -515,7 +515,7 @@ export class SimEngine {
       return o;
     }
     const st = this.states.get(req.market);
-    if (!st) throw new SimApiError("invalid_parameter", "존재하지 않는 마켓입니다.");
+    if (!st) throw new SimApiError("invalid_parameter", "존재하지 않는 마켓이에요.");
 
     const isMarketBuy = req.ord_type === "market" && req.side === "bid";
     const price = req.price != null ? parseFloat(req.price) : null;
