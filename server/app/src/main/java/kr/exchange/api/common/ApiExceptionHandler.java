@@ -12,6 +12,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.UUID;
 
@@ -73,6 +74,13 @@ public class ApiExceptionHandler {
         log.error("게이트웨이 내부 상태 오류 request_id={}", requestId, e);
         return render(new ApiException(503, "service_unavailable",
                 "일시적으로 요청을 처리할 수 없습니다.", null, 1), response, requestId);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Object> noResource(NoResourceFoundException e, HttpServletResponse response) {
+        // 미매핑 경로·정적 리소스 부재는 본래 404다. catch-all Exception 핸들러가 먼저 삼키면
+        // 500 server_error로 오분류되고 오탐 경로마다 ERROR 로그가 쌓인다. 표준 404로 정규화한다.
+        return render(new ApiException(404, "not_found", "존재하지 않는 리소스입니다."), response);
     }
 
     @ExceptionHandler(Exception.class)
