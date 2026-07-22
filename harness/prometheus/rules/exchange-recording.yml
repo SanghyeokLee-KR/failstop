@@ -25,3 +25,12 @@ groups:
         expr: sum(rate(exchange_snapshot_dropped_total[1m]))
       - record: exchange:snapshot_persist_failed:rate1m
         expr: sum(rate(exchange_snapshot_persist_failed_total[1m]))
+      # 주문 거부율(reason 유지). 대시보드 ③와 OrderRejectSpike가 공유한다. reason은 유한 집합
+      # (429 rate_limited 정규화 + 나머지 ApiException.name(): insufficient_funds·invalid_price·invalid_volume·over/under_max/min_order·invalid_parameter·client_order_id_required·account_suspended·admin_forbidden·out_of_scope)이라 by(reason) 카디널리티가 유계다.
+      - record: exchange:orders_rejected:rate1m
+        expr: sum by (reason) (rate(exchange_orders_rejected_total[1m]))
+      # 단일 라이터 큐 깊이 1분 이동평균. 큐 게이지는 스크레이프 시점 queue.size() 표본이라
+      # 순간 튐이 크다. avg_over_time으로 평활해 대시보드 ③와 SequencerQueueBackpressure가 공유한다.
+      # max()로 리더 노드를 취한다(비리더 라이터는 유휴라 큐 0).
+      - record: exchange:sequencer_queue:avg1m
+        expr: max(avg_over_time(exchange_sequencer_queue_size[1m]))

@@ -241,6 +241,22 @@
         "overrides": []
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "복구 재생 명령 수 exchange_journal_replay_commands_total",
+      "description": "노드 기동 시 저널에서 재생한 누적 명령 수(§5-2). 계단 상승분 = 그 복구의 tail 재생량. 채택 스냅샷 부재(전량 재생) 시 command_head까지 상승해 크게 튄다. 패널 7 replay_tail_commands·복구 경로와 교차검증.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 50 },
+      "targets": [
+        { "refId": "A", "expr": "exchange_journal_replay_commands_total", "legendFormat": "{{instance}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 0 }, "decimals": 0, "unit": "short" },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max"] } }
     }
   ]
 }

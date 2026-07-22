@@ -4,7 +4,8 @@
 # 정본 infra/ 토폴로지의 Grafana 통합 얼럿이 맡는다(§5-6). 하네스 축약 사유는 README 참조.
 #
 # 원천 메트릭은 전부 서버 실등록분(체결·지연·리더·원장·불변식·페일오버 + 스냅샷 4종
-# exchange_snapshot_{captured,dropped,persist_failed}_total·_last_persisted_seq).
+# exchange_snapshot_{captured,dropped,persist_failed}_total·_last_persisted_seq +
+# 백프레셔·거부 2종 exchange_sequencer_queue_size·exchange_orders_rejected_total{reason}).
 # DuplicateFill(exchange_duplicate_fills_total)은 서버
 # 미등록이라 제외한다. 중복 체결 검출은 exchange_invariant_violations{check_name="TRADE_SEQ_DUP"}
 # (C08)이 DB 원본으로 방어하므로 InvariantViolation 알람이 커버한다.
@@ -93,3 +94,33 @@ groups:
         annotations:
           summary: "스냅샷 영속화 정지(캡처 진행, seq 전진 없음)"
           description: "instance={{ $labels.instance }} last_persisted_seq가 5분 창에서 전진 0회인데 캡처는 큐잉 중. 워커 스레드 정체·영속화 지속 실패. 복구가 저널 전량 재생으로 폴백해 RTO가 저널 크기에 비례한다. 비리더는 캡처 rate 0이라 발화하지 않는다."
+
+      # 시퀀서 백프레셔(§5-2 P4). 라이터 유계 큐 용량은 65536(ArrayBlockingQueue, EngineProperties
+      # 기본값). 큐가 가득 차면 접수가 백프레셔 거부(rate_limited)로 떨어진다. 임계는 용량의 1/8
+      # (8192)로, 포화 전 선행 경보다. 단일 라이터가 정상이면 큐는 2초 스크레이프 간 0 근처로 배수되므로
+      # 1분 평균이 용량 1/8을 지속 초과하면 도착률이 배수율을 앞선다는 뜻이다. 무결성이 아니라 처리량
+      # 저하 신호라 warning. exchange:sequencer_queue:avg1m은 리더 노드 큐의 1분 이동평균(레코딩 규칙).
+      - alert: SequencerQueueBackpressure
+        expr: exchange:sequencer_queue:avg1m > 8192
+        for: 1m
+        labels:
+          severity: warning
+          component: sequencer
+        annotations:
+          summary: "시퀀서 라이터 큐 백프레셔(포화 선행 경보)"
+          description: "sequencer_queue avg1m={{ $value }} > 8192(용량 65536의 1/8). 도착률이 단일 라이터 배수율을 앞선다. 지속되면 큐 포화로 접수가 rate_limited 거부로 폴백한다."
+
+      # 비rate_limited 거부 급증(§5-2 거부율). rate_limited(429)는 폭주 시 설계상 부하 차단 경로라
+      # E3·E6 스파이크(3000/s)에서 정상 발화하므로 과알림 방지 위해 제외한다("거부는 늘어도 무결성은
+      # 방어" 원칙, §5-6). 남는 사유(domain_rejected 422·bad_request 400·forbidden 403·payload 413)의
+      # 급증은 클라이언트·마켓 설정 이상 신호다. 임계 30/s는 캘리브레이션 스파이크 도착률 3000/s의 1%.
+      # exchange:orders_rejected:rate1m은 reason 유지 레코딩 규칙이라 {reason!="rate_limited"}로 거른다.
+      - alert: OrderRejectSpike
+        expr: exchange:orders_rejected:rate1m{reason!~"rate_limited|insufficient_funds|invalid_price|invalid_volume|over_max_order|under_min_order"} > 10
+        for: 2m
+        labels:
+          severity: warning
+          component: order-gateway
+        annotations:
+          summary: "주문 거부 급증(reason={{ $labels.reason }})"
+          description: "reason={{ $labels.reason }} 거부율={{ $value }}/s > 10. 정상 부하 도메인 거부(rate_limited·insufficient_funds·invalid_price·invalid_volume·over/under_max/min_order)는 제외했으므로, 잔여 사유(account_suspended·admin_forbidden·out_of_scope·client_order_id_required·invalid_parameter) 급증은 클라이언트 버그·인증 이상을 시사한다."

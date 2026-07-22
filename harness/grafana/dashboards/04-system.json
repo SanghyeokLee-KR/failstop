@@ -64,13 +64,36 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
     },
     {
+      "id": 5,
+      "type": "timeseries",
+      "title": "WS 동시연결 수(노드별) sum by(instance) exchange_ws_clients",
+      "description": "STOMP 연결 수 게이지(§5-2). 노드당 3000 연결 예산(§3-3). thundering-herd 5000 목표는 2노드 합산 관점. 임계선 3000=노드 예산.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 16 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (instance) (exchange_ws_clients)", "legendFormat": "{{instance}} 총 연결" },
+        { "refId": "B", "expr": "exchange_ws_clients", "legendFormat": "{{instance}} {{channel}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 5 },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 3000 } ] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*총 연결" }, "properties": [ { "id": "custom.lineWidth", "value": 2 } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max"] } }
+    },
+    {
       "id": 4,
       "type": "text",
       "title": "미배선(서버 메트릭 미등록)",
-      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 16 },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 24 },
       "options": {
         "mode": "markdown",
-        "content": "정본 §5-5 ④의 `exchange_ws_clients`·`exchange_orderbook_depth`·Kafka lag은 서버 메트릭 미등록이라 표시하지 않는다. 서버 등록 후 패널을 추가한다."
+        "content": "정본 §5-5 ④의 `exchange_orderbook_depth`·Kafka lag은 서버 메트릭 미등록이라 표시하지 않는다. 서버 등록 후 패널을 추가한다. `exchange_ws_clients`는 위 패널에 배선됨."
       }
     }
   ]

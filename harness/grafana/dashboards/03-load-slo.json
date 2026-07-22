@@ -82,13 +82,52 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
     },
     {
+      "id": 6,
+      "type": "timeseries",
+      "title": "주문 거부율 exchange:orders_rejected:rate1m{reason}",
+      "description": "reason별 거부/초. rate_limited(429)는 폭주 시 설계상 부하 차단 경로(거부는 늘어도 무결성은 방어). 비rate_limited 급증은 OrderRejectSpike 발화(임계 30/s).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [ { "refId": "A", "expr": "exchange:orders_rejected:rate1m", "legendFormat": "{{reason}}" } ],
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "stacking": { "mode": "normal" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "rate_limited" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max"] } }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "시퀀서 큐 깊이 exchange_sequencer_queue_size (백프레셔 P4)",
+      "description": "단일 라이터 유계 큐 깊이. 용량 65536. avg1m이 8192(용량 1/8) 초과 지속 시 SequencerQueueBackpressure 발화. 포화 시 접수가 rate_limited 거부로 폴백.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "refId": "A", "expr": "exchange_sequencer_queue_size", "legendFormat": "{{instance}}" },
+        { "refId": "B", "expr": "exchange:sequencer_queue:avg1m", "legendFormat": "avg1m(리더)" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 5 },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 8192 } ] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "avg1m(리더)" }, "properties": [ { "id": "custom.lineWidth", "value": 2 }, { "id": "custom.fillOpacity", "value": 0 } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max"] } }
+    },
+    {
       "id": 5,
       "type": "text",
-      "title": "미배선(서버 메트릭 미등록)",
-      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 16 },
+      "title": "미배선(부하 원격쓰기·자동계측 대시보드 미병합)",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 24 },
       "options": {
         "mode": "markdown",
-        "content": "정본 §5-5 ③의 429 비율(`exchange_orders_rejected_total`)·백프레셔(`exchange_sequencer_queue_size`)·Resilience4j CB/RateLimiter·k6 Remote Write는 서버 메트릭 미등록 또는 부하 원격쓰기 미배선이라 이 스택에서 표시하지 않는다. 서버 등록 후 패널을 추가한다(무데이터 패널을 증거로 두지 않는 원칙)."
+        "content": "정본 §5-5 ③의 k6 Remote Write 계열(공식 대시보드 19665 병행 임포트)·Resilience4j CB/RateLimiter(`resilience4j_circuitbreaker_state`·`resilience4j_ratelimiter_available_permissions`)는 원격쓰기 미배선·별도 대시보드 소관이라 이 장에 표시하지 않는다. 429 비율·백프레셔는 서버 등록분(`exchange_orders_rejected_total`·`exchange_sequencer_queue_size`)으로 위 패널에 배선됨."
       }
     }
   ]
