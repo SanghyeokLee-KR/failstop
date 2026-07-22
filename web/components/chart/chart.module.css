@@ -3,7 +3,7 @@
 .body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   height: 100%;
   min-height: 0;
 }
@@ -15,33 +15,60 @@
   flex-shrink: 0;
   flex-wrap: wrap;
 }
-.toolbar :global(.dir-text) {
-  font-size: var(--font-caption-size);
-  font-weight: var(--fw-semibold);
-}
 /* 타임프레임 탭은 좌측, 줄바꿈 방지. SegmentedTab(.tab 44px)에 더해 탭 타깃 계약을 명시 고정 */
 .tabs button {
   white-space: nowrap;
   min-height: 44px;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-2);
 }
 
 .controls {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   margin-left: auto;
 }
 
-.readout {
+/* 컨트롤 군집 구분선. 지표 | 그리기 | 초기화의 시각 그룹 경계 */
+.dividerV {
+  width: 1px;
+  height: 20px;
+  background: var(--border-subtle);
+  margin: 0 var(--space-2);
+  flex-shrink: 0;
+}
+
+/* 크로스헤어 판독 1행. min-height 고정 + tabular-nums로 갱신 시 시프트 0 */
+.readoutRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  flex-shrink: 0;
+  min-height: 18px;
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.readoutItem {
   display: inline-flex;
   align-items: baseline;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
-.readoutPrice {
-  font-size: var(--font-body-sm-size);
+.readoutLabel {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+.readoutValue {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
+}
+.readoutChange {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
   font-weight: var(--fw-semibold);
-  color: var(--text-strong);
 }
 
 /* 지표 토글 드롭다운. 네이티브 details로 키보드·포커스 접근 확보 */
@@ -55,13 +82,16 @@
   align-items: center;
   gap: var(--space-1);
   min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border-default);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--surface-default);
+  background: transparent;
   color: var(--text-default);
   font-size: var(--font-caption-size);
   font-weight: var(--fw-medium);
+}
+.menu > summary:hover {
+  background: var(--surface-hover);
 }
 .menu > summary::-webkit-details-marker {
   display: none;
@@ -69,6 +99,19 @@
 .menu[open] > summary {
   border-color: var(--brand-primary);
   color: var(--brand-primary);
+  background: var(--brand-weak-bg);
+}
+/* 활성 지표 수 배지. 라벨 병기라 수 자체가 정보이고 색은 보조 */
+.menuCount {
+  min-width: 16px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--brand-weak-bg);
+  color: var(--text-brand);
+  font-size: var(--font-micro-size);
+  line-height: 16px;
+  font-weight: var(--fw-semibold);
+  text-align: center;
 }
 .menuPanel {
   position: absolute;
@@ -108,24 +151,22 @@
   height: 16px;
 }
 
-.toolBtn {
+/* 아이콘 전용 버튼(그리기 도구·지우기). 탭 타깃 44px 정방형 */
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
   min-height: 44px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border-default);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--surface-default);
-  color: var(--text-default);
-  font-size: var(--font-caption-size);
-  font-weight: var(--fw-medium);
+  background: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
 }
-.toolBtn:hover {
+.iconBtn:hover {
   background: var(--surface-hover);
-}
-.toolBtn[data-active="true"] {
-  border-color: var(--brand-primary);
-  color: var(--brand-primary);
-  background: var(--brand-weak-bg);
+  color: var(--text-default);
 }
 
 .chartArea {
@@ -147,6 +188,33 @@
   color: var(--text-tertiary);
   font-size: var(--font-body-sm-size);
   pointer-events: none;
+}
+
+/* 빈 상태. 재시도 버튼이 있어 overlayState와 달리 포인터를 받는다 */
+.emptyState {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--font-body-sm-size);
+}
+.retryBtn {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-default);
+  color: var(--text-default);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+}
+.retryBtn:hover {
+  background: var(--surface-hover);
 }
 
 .srOnly {

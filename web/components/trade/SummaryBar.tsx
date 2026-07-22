@@ -129,13 +129,18 @@ export default function SummaryBar({ market, meta }: Props) {
       )}
 
       <div className={styles.stats}>
+        {/* 고가·저가 값 색은 보조 단서. 라벨이 의미를 전달하므로 색 단독 아님 */}
         <div className={styles.stat}>
           <span className={styles.statLabel}>고가(24H)</span>
-          <span className={`${styles.statValue} num`}>{ticker ? formatPrice(ticker.high_24h) : "-"}</span>
+          <span className={`${styles.statValue} ${styles.statUp} num`}>
+            {ticker ? formatPrice(ticker.high_24h) : "-"}
+          </span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statLabel}>저가(24H)</span>
-          <span className={`${styles.statValue} num`}>{ticker ? formatPrice(ticker.low_24h) : "-"}</span>
+          <span className={`${styles.statValue} ${styles.statDown} num`}>
+            {ticker ? formatPrice(ticker.low_24h) : "-"}
+          </span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statLabel}>거래대금(24H)</span>

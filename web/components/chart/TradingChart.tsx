@@ -8,11 +8,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { dispose, init, type Chart, type IndicatorCreate } from "klinecharts";
+import { ActionType, dispose, init, type Chart, type IndicatorCreate, type KLineData } from "klinecharts";
 import Skeleton from "@/components/Skeleton";
 import type { CandleUnit } from "@/lib/types";
 import { formatPrice } from "@/lib/format";
 import ChartToolbar from "./ChartToolbar";
+import ChartReadout from "./ChartReadout";
 import { readChartTokens, useChartTheme } from "./useChartTheme";
 import { buildChartStyles, precisionOf, volStyles } from "./chartTheme";
 import { DEFAULT_ACTIVE, specOf, type IndicatorKey, type IndicatorSpec } from "./indicators";
@@ -57,6 +58,11 @@ export default function TradingChart({ market }: { market: string }) {
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
   const [latest, setLatest] = useState<LiveCandle | null>(null);
+  // 크로스헤어가 가리키는 봉. null이면 판독은 최신 봉으로 폴백
+  const [hover, setHover] = useState<LiveCandle | null>(null);
+  const hoverTsRef = useRef<number | null>(null);
+  // 재시도 카운터. 빈 상태의 다시 불러오기가 스트림 effect를 재실행시킨다
+  const [retrySeq, setRetrySeq] = useState(0);
 
   const unitRef = useRef(unit);
   unitRef.current = unit;
@@ -113,11 +119,26 @@ export default function TradingChart({ market }: { market: string }) {
       appliedRef.current.add(key);
     });
 
+    // 크로스헤어 판독. 같은 봉 안의 이동은 무시해 setState 빈도를 봉 단위로 낮춘다
+    const onCrosshair = (data?: { kLineData?: KLineData }) => {
+      const k = data?.kLineData;
+      const ts = k ? k.timestamp : null;
+      if (ts === hoverTsRef.current) return;
+      hoverTsRef.current = ts;
+      setHover(
+        k
+          ? { timestamp: k.timestamp, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume ?? 0 }
+          : null,
+      );
+    };
+    chart.subscribeAction(ActionType.OnCrosshairChange, onCrosshair);
+
     const ro = new ResizeObserver(() => chart.resize());
     ro.observe(el);
 
     return () => {
       ro.disconnect();
+      chart.unsubscribeAction(ActionType.OnCrosshairChange, onCrosshair);
       streamRef.current?.dispose();
       streamRef.current = null;
       dispose(el);
@@ -132,6 +153,8 @@ export default function TradingChart({ market }: { market: string }) {
     setLoading(true);
     setEmpty(false);
     setLatest(null);
+    hoverTsRef.current = null;
+    setHover(null);
     streamRef.current?.dispose();
     streamRef.current = startCandleStream(market, unit, chart, {
       onLoaded: (hasData) => {
@@ -144,7 +167,7 @@ export default function TradingChart({ market }: { market: string }) {
       streamRef.current?.dispose();
       streamRef.current = null;
     };
-  }, [market, unit, handleLatest]);
+  }, [market, unit, retrySeq, handleLatest]);
 
   // 지표 토글: 활성 집합 diff만 반영(전체 재생성 없이)
   useEffect(() => {
@@ -189,6 +212,9 @@ export default function TradingChart({ market }: { market: string }) {
     chartRef.current?.removeOverlay();
   }, []);
 
+  // 크로스헤어가 형성 중 마지막 봉 위에 있으면 스냅샷 대신 실시간 값을 판독한다
+  const readoutCandle = hover ? (latest && hover.timestamp === latest.timestamp ? latest : hover) : latest;
+
   const unitLabel = UNIT_LABEL[unit] ?? unit;
   const ariaLabel = `${market} ${unitLabel} 캔들 차트. 양봉은 빨간색 상승, 음봉은 파란색 하락, 하단은 거래량입니다.`;
   const srSummary = useMemo(() => {
@@ -206,8 +232,8 @@ export default function TradingChart({ market }: { market: string }) {
         onToggleIndicator={onToggleIndicator}
         onDraw={onDraw}
         onClearDrawings={onClearDrawings}
-        latest={latest}
       />
+      <ChartReadout candle={readoutCandle} />
       <div className={styles.chartArea}>
         <div ref={containerRef} className={styles.canvas} role="img" aria-label={ariaLabel} />
         {loading && (
@@ -216,8 +242,11 @@ export default function TradingChart({ market }: { market: string }) {
           </div>
         )}
         {empty && !loading && (
-          <div className={styles.overlayState} role="status">
-            차트 데이터 준비 중
+          <div className={styles.emptyState} role="status">
+            <span>차트 데이터 준비 중</span>
+            <button type="button" className={styles.retryBtn} onClick={() => setRetrySeq((n) => n + 1)}>
+              다시 불러오기
+            </button>
           </div>
         )}
         <p className={styles.srOnly} role="status" aria-live="polite">

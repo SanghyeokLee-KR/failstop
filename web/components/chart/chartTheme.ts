@@ -4,9 +4,9 @@
  * 상승 Red·하락 Blue, 지표선은 브랜드 명도 램프, 방향색·green 미사용(§4.2).
  */
 
-import { CandleType, LineType, TooltipShowRule, TooltipShowType } from "klinecharts";
-import type { DeepPartial, IndicatorStyle, Styles, TooltipLegend } from "klinecharts";
-import { formatPrice, formatQty, toNum } from "@/lib/format";
+import { CandleType, LineType, TooltipShowRule } from "klinecharts";
+import type { DeepPartial, IndicatorStyle, Styles } from "klinecharts";
+import { toNum } from "@/lib/format";
 
 /** 지표별 색 오버라이드. 배열 원소까지 부분 지정하려면 DeepPartial이 필요하다 */
 export type IndicatorStyleOverride = DeepPartial<IndicatorStyle>;
@@ -38,32 +38,6 @@ export interface ChartTokens {
 
 /** 거래량 막대 알파(35%). 방향 토큰 파생, 데이터 내장 색이라 테마 전이 시 재세팅 */
 const VOL_ALPHA_HEX = "59";
-
-/** 종가 대비 시가 등락 병기(색 단독 금지, §4.4). 부호·화살표를 색과 함께 쓴다 */
-function changeLegend(open: number, close: number, t: ChartTokens): TooltipLegend {
-  const diff = close - open;
-  const pct = open !== 0 ? (Math.abs(diff / open) * 100).toFixed(2) : "0.00";
-  if (diff > 0) return { title: { text: "등락", color: t.axisText }, value: { text: `▲ +${formatPrice(diff)} (+${pct}%)`, color: t.upText } };
-  if (diff < 0) return { title: { text: "등락", color: t.axisText }, value: { text: `▼ −${formatPrice(-diff)} (−${pct}%)`, color: t.downText } };
-  return { title: { text: "등락", color: t.axisText }, value: { text: `0 (0.00%)`, color: t.flat } };
-}
-
-/** 크로스헤어 OHLCV 툴팁(설계 §3.6). ko-KR 포맷·부호 병기 */
-function candleTooltip(t: ChartTokens) {
-  return (data: { current: { open: number; high: number; low: number; close: number; volume?: number } }): TooltipLegend[] => {
-    const c = data.current;
-    const label = (text: string): { text: string; color: string } => ({ text, color: t.axisText });
-    const val = (text: string): { text: string; color: string } => ({ text, color: t.textDefault });
-    return [
-      { title: label("시가"), value: val(formatPrice(c.open)) },
-      { title: label("고가"), value: val(formatPrice(c.high)) },
-      { title: label("저가"), value: val(formatPrice(c.low)) },
-      { title: label("종가"), value: val(formatPrice(c.close)) },
-      { title: label("거래량"), value: val(formatQty(c.volume ?? 0, 4)) },
-      changeLegend(c.open, c.close, t),
-    ];
-  };
-}
 
 /**
  * klinecharts 전역 스타일 객체. setStyles·init options.styles로 주입.
@@ -104,12 +78,8 @@ export function buildChartStyles(t: ChartTokens, reducedMotion = false): DeepPar
           text: { color: t.textInverse },
         },
       },
-      tooltip: {
-        showRule: TooltipShowRule.FollowCross,
-        showType: TooltipShowType.Standard,
-        text: { color: t.textSecondary, family: t.font },
-        custom: candleTooltip(t),
-      },
+      // 캔들 OHLCV 판독은 캔버스 툴팁 대신 ChartReadout 고정 행이 담당한다(겹침·소음 제거)
+      tooltip: { showRule: TooltipShowRule.None },
     },
     indicator: {
       // 지표선 계열 구분은 브랜드 명도 램프(§4.2). MA5→10→30→60이 400→700에 대응

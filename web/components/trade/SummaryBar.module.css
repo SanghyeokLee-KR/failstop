@@ -3,7 +3,7 @@
 .root {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-5);
   min-width: 0;
   padding: 0 var(--space-4);
   background: var(--surface-default);
@@ -100,11 +100,12 @@
   transform: translate(-50%, -50%);
 }
 
-/* ===== 중: 현재가 + 등락 ===== */
+/* ===== 중: 현재가 + 등락 =====
+   히어로 아래 등락 2단 스택. 1280px 예산에서 가로 150px를 회수해 1행·무오버플로를 지킨다 */
 .price {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
   flex-shrink: 0;
 }
@@ -119,11 +120,16 @@
 .stats {
   display: flex;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-3);
   margin-left: auto;
   flex-shrink: 0;
 }
 .stat { display: flex; flex-direction: column; align-items: flex-end; }
+/* 스탯 간 구분선. 시각 그룹 경계를 여백 대신 1px 선으로 압축 */
+.stat + .stat {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border-subtle);
+}
 .statLabel {
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
@@ -135,8 +141,12 @@
   font-weight: var(--fw-medium);
   color: var(--text-default);
 }
+/* 고가·저가 방향 톤. 라벨 병기로 색 단독 아님(§0-2) */
+.statUp { color: var(--color-up-text); }
+.statDown { color: var(--color-down-text); }
 
 .star {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -146,12 +156,21 @@
   color: var(--text-secondary);
   flex-shrink: 0;
 }
+/* 시각 32px 유지, 히트영역만 44px 확장(.discuss와 동일 계약) */
+.star::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 44px;
+  min-height: 44px;
+  transform: translate(-50%, -50%);
+}
 .star:hover { background: var(--surface-hover); }
 .star[data-on] { color: var(--color-warning); }
 
-/* §2.3 압축(48px): 간격·현재가 폰트 축소, 1행 유지 */
+/* §2.3 압축(48px): 간격·현재가 폰트 축소, 1행 유지. 스택(28+18=46px)이 48px 안에 든다 */
 @media (max-height: 820px) {
-  .root { gap: var(--space-5); padding: 0 var(--space-3); }
+  .root { gap: var(--space-4); padding: 0 var(--space-3); }
   .cur { font-size: var(--font-title-2-size); line-height: var(--font-title-2-line); }
-  .stats { gap: var(--space-4); }
 }
