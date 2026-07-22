@@ -26,6 +26,20 @@ import { getDataSource } from "./api/datasource";
 const MAX_TRADES = 60;
 
 /**
+ * ticker·orderbook 스토어 교체 전 (epoch, seq) 단조 검사.
+ * 느린 REST 스냅샷·재전달이 이미 반영된 최신 실시간을 낮은 seq로 되돌리지 않게 한다.
+ * epoch 상승은 리더 세대 교체로 seq 도메인이 리셋되므로 무조건 최신으로 본다.
+ */
+function isStaleUpdate(
+  prev: { epoch: number; seq: number } | undefined,
+  next: { epoch: number; seq: number },
+): boolean {
+  if (!prev) return false;
+  if (next.epoch !== prev.epoch) return next.epoch < prev.epoch;
+  return next.seq <= prev.seq;
+}
+
+/**
  * myOrder 메시지로부터 미보유 주문을 스토어에 채우기 위한 최소 Order 합성.
  * 재동기화·타 세션 신규 주문은 openOrders에 없어 유실되므로 즉시 표시용으로 append 한다.
  * 상세 필드(ord_type·수수료·체결금액)는 메시지에 없어 안전 기본값을 두고, 이어지는
@@ -125,10 +139,17 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   apply(msg) {
     switch (msg.type) {
       case "ticker":
-        set((s) => ({ tickers: { ...s.tickers, [msg.market]: msg } }));
+        set((s) => {
+          // 낮은 (epoch, seq)는 stale. 같은 참조 반환으로 리렌더 없이 드롭한다
+          if (isStaleUpdate(s.tickers[msg.market], msg)) return s;
+          return { tickers: { ...s.tickers, [msg.market]: msg } };
+        });
         break;
       case "orderbook":
-        set((s) => ({ orderbooks: { ...s.orderbooks, [msg.market]: msg } }));
+        set((s) => {
+          if (isStaleUpdate(s.orderbooks[msg.market], msg)) return s;
+          return { orderbooks: { ...s.orderbooks, [msg.market]: msg } };
+        });
         break;
       case "trade":
         set((s) => {

@@ -1,8 +1,13 @@
 /**
  * candleStream.ts. DataSource 캔들 배선의 단일 통로(설계 §3.5).
  * 화면 코드는 SimEngine·fetch를 직접 부르지 않고 여기만 통해 데이터에 접근한다.
- * 초기 로드는 getCandles, 실시간은 체결 합성 폴백(현 미니 차트와 동일 경로).
- * 백엔드 캔들 채널이 준비되면 이 파일 내부 교체만으로 캔들 채널 경로로 승격한다.
+ * 초기 로드는 getCandles, 실시간은 체결(trade) 합성이 현재 유일 경로다.
+ *
+ * 배선 현황: 서버 /topic/candle.* 채널은 구독하지 않는다. 실시간 캔들은 trade 채널 구독으로
+ * 클라이언트 합성한다. 따라서 서버 publishCandles·candle seq 계약과 httpDatasource의 candle
+ * 재동기화 분기는 현재 도달 불가한 예약 경로다. 백엔드 캔들 채널 배선 시 이 파일 내부 교체(초기
+ * getCandles 유지 + trade 합성을 candle 구독으로 대체)만으로 승격한다. 라이브 전환은 리스크가
+ * 커 현 단계에서 배제한다.
  */
 
 import type { Chart, KLineData } from "klinecharts";
@@ -11,6 +16,7 @@ import { dest } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
 import { CANDLE_UNIT_MS } from "@/lib/sim/engine";
 import { toNum } from "@/lib/format";
+import { newTradeCursor, isDuplicateTrade, advanceTradeCursor } from "./tradeDedup";
 
 export interface LiveCandle {
   timestamp: number;
@@ -101,8 +107,12 @@ export function startCandleStream(
     });
 
   // 체결 합성 폴백: 같은 버킷이면 high·low·close·volume 갱신, 새 버킷이면 새 봉(§3.5)
+  const tradeCursor = newTradeCursor();
   const unsubscribe = getDataSource().subscribe(dest.trade(market), (msg) => {
     if (disposed || msg.type !== "trade" || !last) return;
+    // 재연결·재동기화 재전달은 같은 체결을 다시 흘린다. (epoch, seq) 커서로 걸러 volume 이중계상을 막는다
+    if (isDuplicateTrade(tradeCursor, msg)) return;
+    advanceTradeCursor(tradeCursor, msg);
     const price = toNum(msg.price);
     const vol = toNum(msg.volume);
     const bucket = Math.floor(Date.parse(msg.timestamp) / unitMs) * unitMs;

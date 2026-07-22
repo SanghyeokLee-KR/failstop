@@ -231,7 +231,10 @@ const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0
 type Listener = (msg: WsMessage) => void;
 
 interface ChannelState {
-  subscribers: Set<Listener>;
+  // 콜백 참조가 아니라 구독 호출 단위로 계수한다. 같은 destination을 같은 콜백(예: store.apply)으로
+  // 이중 구독하면 Set 병합으로 refcount가 소실돼, 한 컴포넌트 언마운트가 살아있는 다른 구독의 STOMP
+  // 구독을 조기 철거한다(사일런트 프리즈). Map<콜백, 참조수>로 마지막 실사용자에서만 teardown 한다.
+  subscribers: Map<Listener, number>;
   stompUnsub: (() => void) | null;
   /** 연속성 기준 seq. null이면 다음 realtime이 기준점(§5-2 비 orderbook 규약) */
   lastSeq: number | null;
@@ -461,10 +464,10 @@ export class HttpStompDataSource implements DataSource {
   subscribe(destination: string, cb: Listener): () => void {
     let ch = this.channels.get(destination);
     if (!ch) {
-      ch = { subscribers: new Set(), stompUnsub: null, lastSeq: null, resyncing: false, buffer: [] };
+      ch = { subscribers: new Map(), stompUnsub: null, lastSeq: null, resyncing: false, buffer: [] };
       this.channels.set(destination, ch);
     }
-    ch.subscribers.add(cb);
+    ch.subscribers.set(cb, (ch.subscribers.get(cb) ?? 0) + 1);
     if (this.stompConnected && !ch.stompUnsub) this.attachStomp(destination, ch);
     if (destination.startsWith("/user/") && !this.authOnConnect) void this.upgradeAuth();
     // 구독 즉시 스냅샷 1건 계약(DataSource 계약). 서버 push는 orderbook 한정이라
@@ -473,7 +476,10 @@ export class HttpStompDataSource implements DataSource {
     return () => {
       const c = this.channels.get(destination);
       if (!c) return;
-      c.subscribers.delete(cb);
+      const refs = c.subscribers.get(cb);
+      if (refs === undefined) return; // 이미 해제된 핸들의 중복 호출은 무시
+      if (refs <= 1) c.subscribers.delete(cb);
+      else c.subscribers.set(cb, refs - 1);
       if (c.subscribers.size === 0) {
         c.stompUnsub?.();
         this.channels.delete(destination);
@@ -766,7 +772,8 @@ export class HttpStompDataSource implements DataSource {
   }
 
   private deliver(ch: ChannelState, msg: WsMessage): void {
-    for (const cb of ch.subscribers) cb(msg);
+    // 콜백 단위로 1회씩 전달한다(refcount는 teardown 계수용, 전달 중복 아님)
+    for (const cb of ch.subscribers.keys()) cb(msg);
   }
 
   private resyncAll(): void {
@@ -835,6 +842,9 @@ export class HttpStompDataSource implements DataSource {
         return;
       }
       case "candle": {
+        // 예약 경로. 프론트는 현재 /topic/candle.* 를 구독하지 않고 candleStream이 체결(trade)로
+        // 캔들을 클라이언트 합성한다. 따라서 이 재동기화 분기와 서버 publishCandles·candle seq
+        // 계약은 현재 도달 불가다. 라이브 캔들 채널 배선 시 candleStream 교체와 함께 활성화한다.
         // candle 채널도 REST와 WS가 동일 event_seq 도메인(§5-2). 최신 캔들 seq를 기준점으로
         // 삼으면 이어지는 실시간 캔들이 단조 검사에 걸리지 않고 이어진다.
         const [c] = await this.getCandles(parsed.market, parsed.unit, 1, signal);
@@ -872,6 +882,10 @@ export class HttpStompDataSource implements DataSource {
         const [t] = await this.getTicker([parsed.market]);
         if (t && alive()) cb(this.tickerToMessage(t, "snapshot"));
       } else if (parsed.kind === "orderbook") {
+        // 연결 상태면 STOMP 구독 즉시 서버 snapshot 1건이 연속성 기준점으로 도착한다(§5-2).
+        // 그때 REST 스냅샷까지 보내면 느린 REST 응답이 이미 반영된 최신 실시간을 stale로 되돌린다.
+        // REST 스냅샷은 미연결 시 초기 표시를 채우는 용도로만 쓴다.
+        if (this.stompConnected) return;
         const snap = await this.getOrderbook(parsed.market);
         if (alive()) cb(snap);
       } else if (parsed.kind === "myAsset") {

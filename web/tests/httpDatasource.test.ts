@@ -454,6 +454,31 @@ test("seq gap 감지 시 REST 재동기화 후 스냅샷 기준으로 재개", a
   assert.equal(received[received.length - 1].seq, 15);
 });
 
+test("같은 콜백 이중 구독: 한쪽 해제해도 STOMP 구독·실시간 전달이 살아있다(refcount)", async () => {
+  const stomp = makeStomp();
+  const { ds } = newDs(
+    {
+      "/api/v1/ticker": () =>
+        jsonRes(200, { schema_version: "1.0", data: [restTicker(9)], pagination: { next_cursor: null, has_more: false } }),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  const cb = (m: WsMessage) => received.push(m); // 같은 콜백 참조(예: store.apply 공유)
+  const off1 = ds.subscribe(dest.ticker("KRW-BTC"), cb);
+  ds.subscribe(dest.ticker("KRW-BTC"), cb); // 이중 구독
+  await settle();
+
+  off1(); // 첫 구독 해제. 생존 구독이 남아 STOMP 구독은 유지돼야 한다
+  assert.ok(stomp.state.subs.has(dest.ticker("KRW-BTC")), "생존 구독이 있어 STOMP 구독 유지");
+  const before = received.length;
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(10));
+  await settle();
+  assert.equal(received.length, before + 1, "생존 구독으로 실시간 1건 전달(사일런트 프리즈 없음)");
+});
+
 test("epoch 변경 감지 시 전 채널 강제 재동기화", async () => {
   const stomp = makeStomp();
   const { ds, count } = newDs(

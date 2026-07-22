@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { newTradeCursor, isDuplicateTrade, advanceTradeCursor } from "./chart/tradeDedup";
 import {
   CandlestickSeries,
   ColorType,
@@ -153,9 +154,13 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
         setLoading(false);
       });
 
-    /* 실시간 체결 → 마지막 캔들 갱신 / 버킷 전환 시 신규 캔들 */
+    /* 실시간 체결 → 마지막 캔들 갱신 / 버킷 전환 시 신규 캔들.
+       재연결·재동기화 재전달을 (epoch,seq) 커서로 걸러 volume 이중계상 차단(candleStream과 동일 경로) */
+    const tradeCursor = newTradeCursor();
     const unsubscribe = getDataSource().subscribe(dest.trade(market), (msg) => {
       if (disposed || msg.type !== "trade" || !last) return;
+      if (isDuplicateTrade(tradeCursor, msg)) return;
+      advanceTradeCursor(tradeCursor, msg);
       const price = toNum(msg.price);
       const vol = toNum(msg.volume);
       const bucketMs = Math.floor(Date.parse(msg.timestamp) / unitMs) * unitMs;

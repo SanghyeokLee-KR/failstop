@@ -64,7 +64,13 @@ const COIN_NAME = new Map(COIN_META.map((c) => [c.market, c.koreanName]));
 const INVARIANT_LABEL = new Map(INVARIANT_DEFS.map((d) => [d.name, d.label]));
 
 interface ErrorEnvelope {
-  error?: { name?: string; message?: string };
+  error?: { name?: string; message?: string; retry_after?: number | null };
+}
+
+/** 429 대기 초 -> 안내 문구. 초를 알면 명시, 모르면 "잠시 후"로 열화 */
+function rateLimitMessage(retryAfter: number | null): string {
+  const when = retryAfter != null && retryAfter > 0 ? `${retryAfter}초 후` : "잠시 후";
+  return `관리 요청이 많습니다. ${when} 다시 시도하세요`;
 }
 
 /** POST /admin/v1/session 와이어 스키마(§3-6, snake_case). issued_at은 서버 미전송 */
@@ -198,14 +204,34 @@ export class HttpAdminApi implements AdminApi {
     // mTLS 클라이언트 인증은 브라우저가 TLS 핸드셰이크에서 처리한다
     const res = await fetch(`${this.base}${path}`, { ...init, headers, credentials: "include" });
     if (!res.ok) {
-      let code = res.status === 401 ? "jwt_verification" : res.status === 403 ? "admin_forbidden" : "server_error";
-      let message = "관리 요청에 실패했습니다";
+      const rateLimited = res.status === 429;
+      let code = rateLimited
+        ? "too_many_requests"
+        : res.status === 401
+          ? "jwt_verification"
+          : res.status === 403
+            ? "admin_forbidden"
+            : "server_error";
+      let retryAfter: number | null = null;
+      let message = rateLimited ? rateLimitMessage(null) : "관리 요청에 실패했습니다";
       try {
         const body = (await res.json()) as ErrorEnvelope;
         if (body.error?.name) code = body.error.name;
+        retryAfter = body.error?.retry_after ?? null;
         if (body.error?.message) message = body.error.message;
       } catch {
         // 비 JSON 응답은 상태코드 기반 기본값 유지
+      }
+      if (retryAfter === null) {
+        // 바디 retry_after 부재 시 HTTP Retry-After 헤더를 폴백으로 읽는다. 초 단위만 취하고
+        // HTTP-date 형식이면 Number가 NaN이라 null 유지(안내는 "잠시 후"로 열화)
+        const header = res.headers?.get("Retry-After");
+        const sec = header != null ? Number(header) : Number.NaN;
+        if (Number.isFinite(sec) && sec >= 0) retryAfter = sec;
+      }
+      // 평면 429는 대기 초를 힌트로 노출한다. 서버 message는 초를 담지 않을 수 있어 힌트를 우선한다
+      if (rateLimited && (code === "too_many_requests" || code === "rate_limited")) {
+        message = rateLimitMessage(retryAfter);
       }
       throw new AdminError(code, message);
     }
