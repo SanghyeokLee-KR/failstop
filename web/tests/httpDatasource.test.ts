@@ -127,6 +127,41 @@ function wsTicker(seq: number, epoch = 1): TickerMessage {
   return { schema_version: "1.0", type: "ticker", epoch, seq, timestamp, ...rest };
 }
 
+function wsTrade(seq: number, epoch = 1): WsMessage {
+  return {
+    schema_version: "1.0",
+    type: "trade",
+    market: "KRW-BTC",
+    epoch,
+    seq,
+    timestamp: "2026-07-21T09:00:01.000Z",
+    trade_id: `t-${seq}`,
+    price: "50005000",
+    volume: "0.1",
+    taker_side: "bid",
+  } as WsMessage;
+}
+
+function wsCandle(seq: number, epoch = 1): WsMessage {
+  return {
+    schema_version: "1.0",
+    type: "candle",
+    unit: "1m",
+    market: "KRW-BTC",
+    epoch,
+    seq,
+    timestamp: "2026-07-21T09:00:00.000Z",
+    candle_time: "2026-07-21T09:00:00.000Z",
+    open: "50000000",
+    high: "50100000",
+    low: "49900000",
+    close: "50050000",
+    volume: "12.34",
+  } as WsMessage;
+}
+
+const emptyList = { schema_version: "1.0", data: [], pagination: { next_cursor: null, has_more: false } };
+
 function newDs(
   routes: Record<string, Route>,
   stompFactory?: StompFactory,
@@ -439,6 +474,65 @@ test("epoch 변경 감지 시 전 채널 강제 재동기화", async () => {
   await settle();
 
   assert.equal(count("/api/v1/ticker"), fetchesBefore + 1, "epoch 변경이 재동기화를 호출");
+});
+
+test("trade: event_seq 비연속 증가(1000·1003·1007)는 전부 적용, 재동기화 없음", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs({ "/api/v1/trades": () => jsonRes(200, emptyList) }, stomp.factory);
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.trade("KRW-BTC"), (m) => received.push(m));
+  await settle();
+
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1000)); // 기준점
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1003)); // event_seq 비연속 증가
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1007));
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1005)); // 되돌이(<=lastSeq) 드롭
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1007)); // 중복 드롭
+  await settle();
+
+  assert.deepEqual(received.map((m) => m.seq), [1000, 1003, 1007]);
+  assert.equal(count("/api/v1/trades"), 0, "비연속 증가는 재동기화를 유발하지 않는다");
+});
+
+test("candle: event_seq 비연속 증가는 전부 적용, 되돌이·중복은 드롭, 재동기화 없음", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs({ "/api/v1/candles/1m": () => jsonRes(200, emptyList) }, stomp.factory);
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.candle("1m", "KRW-BTC"), (m) => received.push(m));
+  await settle();
+
+  stomp.push(dest.candle("1m", "KRW-BTC"), wsCandle(1000));
+  stomp.push(dest.candle("1m", "KRW-BTC"), wsCandle(1003));
+  stomp.push(dest.candle("1m", "KRW-BTC"), wsCandle(1007));
+  stomp.push(dest.candle("1m", "KRW-BTC"), wsCandle(1007)); // 중복 드롭
+  stomp.push(dest.candle("1m", "KRW-BTC"), wsCandle(1002)); // 되돌이 드롭
+  await settle();
+
+  assert.deepEqual(received.map((m) => m.seq), [1000, 1003, 1007]);
+  assert.equal(count("/api/v1/candles"), 0, "비연속 증가는 재동기화를 유발하지 않는다");
+});
+
+test("ticker: +1 조밀 도메인은 비연속 증가를 gap으로 보고 재동기화(trade·candle과 대비)", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs(
+    { "/api/v1/ticker": () => jsonRes(200, { schema_version: "1.0", data: [restTicker(1007)], pagination: { next_cursor: null, has_more: false } }) },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.onConnect();
+  ds.subscribe(dest.ticker("KRW-BTC"), () => {});
+  await settle();
+  const before = count("/api/v1/ticker");
+
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(1000)); // 기준점
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(1003)); // 비연속 증가 → gap
+  await settle();
+
+  assert.equal(count("/api/v1/ticker"), before + 1, "ticker는 비연속 증가에서 재동기화 유지");
 });
 
 test("orderbook: 구독 즉시 snapshot이 연속성 기준점(§5-2)", async () => {

@@ -718,7 +718,8 @@ export class HttpStompDataSource implements DataSource {
 
     // seq 도메인이 없는 채널(§5-3 미분류, 예: config류)은 단조 seq·gap 검사를 우회하고 그대로 전달한다.
     // 이런 채널은 REST 재동기화 대상도 아니라 seq 규약을 적용하면 정상 메시지가 드롭될 수 있다.
-    if (parseDest(destination) === null) {
+    const parsed = parseDest(destination);
+    if (parsed === null) {
       this.deliver(ch, msg);
       return;
     }
@@ -740,6 +741,20 @@ export class HttpStompDataSource implements DataSource {
       this.deliver(ch, msg);
       return;
     }
+
+    // 채널별 seq 게이트 분기(서버 커밋 e4eea73).
+    // trade·candle은 event_seq 도메인(전역 단조·채널당 비연속, 백엔드_API_설계 §4-A-3·§5-2)이라
+    // 채널 관점에서 seq가 +1로 조밀하지 않다. 이 채널에 +1 gap 게이트를 적용하면 정상 증가마다
+    // 재동기화 churn이 난다. 따라서 strictly-increasing만 검사한다: msg.seq > lastSeq면 적용하고
+    // 기준점을 올리고, msg.seq <= lastSeq는 중복·되돌이로 드롭한다. gap 재동기화를 걸지 않는다.
+    if (parsed.kind === "trade" || parsed.kind === "candle") {
+      if (msg.seq <= ch.lastSeq) return; // 중복·되돌이 드롭
+      ch.lastSeq = msg.seq;
+      this.deliver(ch, msg);
+      return;
+    }
+
+    // orderbook·ticker는 채널당 연속(조밀 +1) 도메인이라 gap을 실제 유실로 보고 재동기화한다.
     if (msg.seq <= ch.lastSeq) return; // 중복·역행 드롭
     if (msg.seq === ch.lastSeq + 1) {
       ch.lastSeq = msg.seq;
