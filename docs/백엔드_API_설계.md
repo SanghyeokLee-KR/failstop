@@ -227,6 +227,7 @@ Retry-After: 3                    # 429·503·409(order_in_progress) 시 포함(
 | 관리 API(admin) | 10 | 60 토큰 / 60s (admin 계정). **신규: 관리 평면도 rate limit 적용** |
 
 - **신뢰 프록시(X-Forwarded-For)**: LB(HAProxy/Nginx) IP를 신뢰 프록시 목록에 등록하고, XFF를 **우측부터 신뢰 프록시 홉을 제거한 뒤 남는 첫 IP(rightmost-untrusted)**를 클라이언트 IP로 채택한다. 최좌측 값은 원 클라이언트가 임의 주입 가능하므로 신뢰하지 않는다(최좌측 채택은 폐기). 구현은 forward-headers-strategy(RemoteIpValve)로 이 파생을 컨테이너에 위임하고, 애플리케이션은 getRemoteAddr()만 읽는다(원시 XFF 파싱 금지, 단일 유틸 ClientIp.of). **봇/데모 트래픽은 계정 키 기반 버킷을 우선 적용**(모든 봇이 동일 프록시 IP로 보여 IP 버킷이 마비되는 것 방지). 미인증 공개 조회만 IP 버킷.
+  - **신뢰 경계 핀(배포 불변식)**: `server.tomcat.remoteip.internal-proxies`를 프로파일별로 명시 지정한다. RemoteIpValve 기본 internalProxies(전 RFC1918+loopback)를 그대로 쓰면 사설 소켓피어 배포에서 클라이언트가 보낸 단일 XFF가 rightmost-untrusted로 채택되어 회전 스푸핑으로 IP 버킷을 우회한다. 운영은 LB VIP CIDR만 등록(`EXCHANGE_TRUSTED_PROXIES` 주입, 미주입 시 루프백 전용 fail-closed), 프록시 없는 dev·데모·통합테스트는 루프백 전용으로 좁힌다. 인그레스는 인바운드 XFF를 strip한 뒤 자신을 append하는 것을 배포 전제로 한다.
 - **인증 실패 스로틀(신규)**: 동일 `access_key`/IP의 401 반복이 임계(예: 60s 내 20회) 초과 시 `401 auth_throttled` + 지수 백오프 락아웃 → secret 브루트포스 방어.
 - **418 auto_ban 해제(신규)**: 지속 위반 시 5분 밴. 밴 중 신규 요청은 카운트 미증가, TTL 만료 시 자동 해제. 위반 카운터는 60s 슬라이딩 윈도로 감쇠.
 
