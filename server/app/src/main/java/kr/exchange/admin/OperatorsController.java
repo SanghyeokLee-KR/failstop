@@ -4,8 +4,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 운영자·역할 관리(관리자 설계 §3-1). 조회는 VIEWER, 역할 부여·회수는 SUPER + 2인 승인.
@@ -24,7 +27,15 @@ import java.util.Map;
 @ConditionalOnProperty(prefix = "exchange.admin", name = "enabled", havingValue = "true")
 public class OperatorsController {
 
+    private static final Set<String> OPERATOR_STATUSES = Set.of("ACTIVE", "DISABLED");
+
     public record RoleBody(String action, String role, String approval_token) {
+    }
+
+    public record CreateBody(String operator_id, String display_name, String approval_token) {
+    }
+
+    public record StatusBody(String status, String approval_token) {
     }
 
     private final AdminOperatorDirectory directory;
@@ -51,6 +62,69 @@ public class OperatorsController {
                         "roles", o.roles().stream().map(Enum::name).sorted().toList()))
                 .toList();
         return Map.of("schema_version", "1.0", "data", rows);
+    }
+
+    /**
+     * 운영자 생성(파괴 액션, SUPER + 2인 승인). operator_id는 mTLS CN 유래 신원이며 여기서
+     * 레지스트리에 등록만 한다. 역할 부여는 별도 승인 경로(roles). 중복 신원은 409.
+     */
+    @PostMapping
+    @Transactional
+    public ResponseEntity<Map<String, Object>> create(
+            @RequestBody(required = false) CreateBody body, HttpServletRequest request) {
+        AdminPrincipal principal = AdminRequestContext.principal(request);
+        principal.require(AdminRole.SUPER);
+        if (body == null || body.operator_id() == null || body.operator_id().isBlank()
+                || body.display_name() == null || body.display_name().isBlank()) {
+            throw new ApiException(400, "invalid_parameter", "operator_id와 display_name이 필요합니다.");
+        }
+        String operatorId = body.operator_id().trim();
+        long approvalId = approvals.consume(principal.operatorId(), body.approval_token(),
+                "operators.create", operatorId);
+        // 승인 소각과 같은 트랜잭션에서 중복을 검사해 실패 시 토큰이 롤백·재사용 가능하게 한다.
+        if (directory.find(operatorId).isPresent()) {
+            throw new ApiException(409, "conflict", "이미 존재하는 운영자입니다: " + operatorId);
+        }
+        jdbc.sql("INSERT INTO admin_operators (operator_id, display_name) VALUES (?, ?)")
+                .params(operatorId, body.display_name().trim()).update();
+        audit.record(principal.operatorId(), "operators.create", operatorId,
+                AdminRequestContext.requestId(request), approvalId, "OK",
+                Map.of("display_name", body.display_name().trim()));
+        Map<String, Object> out = Map.of("schema_version", "1.0", "operator_id", operatorId,
+                "status", "ACTIVE", "approval_id", approvalId);
+        return ResponseEntity.status(201).body(out);
+    }
+
+    /**
+     * 운영자 상태 전이(파괴 액션, SUPER + 2인 승인). ACTIVE|DISABLED. DISABLED 운영자는
+     * 인증 필터가 세션 발급·요청을 거절한다(신원 정지). 존재하지 않으면 404.
+     */
+    @PatchMapping("/{operatorId}/status")
+    @Transactional
+    public Map<String, Object> changeStatus(@PathVariable String operatorId,
+                                            @RequestBody(required = false) StatusBody body,
+                                            HttpServletRequest request) {
+        AdminPrincipal principal = AdminRequestContext.principal(request);
+        principal.require(AdminRole.SUPER);
+        if (body == null || body.status() == null) {
+            throw new ApiException(400, "invalid_parameter", "status가 필요합니다.");
+        }
+        String status = body.status().toUpperCase();
+        if (!OPERATOR_STATUSES.contains(status)) {
+            throw new ApiException(400, "invalid_parameter", "status는 ACTIVE 또는 DISABLED여야 합니다.");
+        }
+        long approvalId = approvals.consume(principal.operatorId(), body.approval_token(),
+                "operators.status", operatorId + ":" + status);
+        int affected = jdbc.sql("UPDATE admin_operators SET status = ? WHERE operator_id = ?")
+                .params(status, operatorId).update();
+        if (affected == 0) {
+            throw new ApiException(404, "not_found", "존재하지 않는 운영자입니다: " + operatorId);
+        }
+        audit.record(principal.operatorId(), "operators.status", operatorId,
+                AdminRequestContext.requestId(request), approvalId, "OK",
+                Map.of("status", status));
+        return Map.of("schema_version", "1.0", "operator_id", operatorId,
+                "status", status, "approval_id", approvalId);
     }
 
     @PostMapping("/{operatorId}/roles")

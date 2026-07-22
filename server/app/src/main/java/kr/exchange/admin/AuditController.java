@@ -42,37 +42,47 @@ public class AuditController {
                                      @RequestParam(defaultValue = "100") int limit) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
         int capped = Math.max(1, Math.min(limit, 500));
+        // display_name은 admin_operators LEFT JOIN(인증 실패 감사는 operator_id NULL). 필터는
+        // 애매성 방지를 위해 a. 접두사로 admin_audit_log 컬럼을 명시한다.
         StringBuilder sql = new StringBuilder("""
-                SELECT operator_id, action, target, result, approval_id, created_at
-                FROM admin_audit_log WHERE 1 = 1
+                SELECT a.id, a.operator_id, o.display_name, a.action, a.target, a.request_id,
+                       a.result, a.approval_id, a.created_at
+                FROM admin_audit_log a
+                LEFT JOIN admin_operators o ON o.operator_id = a.operator_id
+                WHERE 1 = 1
                 """);
         List<Object> params = new ArrayList<>();
         if (operator != null && !operator.isBlank()) {
-            sql.append(" AND operator_id = ?");
+            sql.append(" AND a.operator_id = ?");
             params.add(operator);
         }
         if (action != null && !action.isBlank()) {
-            sql.append(" AND action = ?");
+            sql.append(" AND a.action = ?");
             params.add(action);
         }
         if (from != null) {
-            sql.append(" AND created_at >= ?");
+            sql.append(" AND a.created_at >= ?");
             params.add(from);
         }
         if (to != null) {
-            sql.append(" AND created_at <= ?");
+            sql.append(" AND a.created_at <= ?");
             params.add(to);
         }
         // created_at 동률 시 id로 안정 정렬해 LIMIT 절단이 비결정으로 흔들리지 않게 한다.
-        sql.append(" ORDER BY created_at DESC, id DESC LIMIT ?");
+        sql.append(" ORDER BY a.created_at DESC, a.id DESC LIMIT ?");
         params.add(capped);
         List<Map<String, Object>> rows = jdbc.sql(sql.toString())
                 .params(params)
                 .query((rs, n) -> Map.<String, Object>of(
+                        "id", rs.getLong("id"),
                         "operator_id", rs.getString("operator_id") == null
                                 ? "" : rs.getString("operator_id"),
+                        "display_name", rs.getString("display_name") == null
+                                ? "" : rs.getString("display_name"),
                         "action", rs.getString("action"),
                         "target", rs.getString("target") == null ? "" : rs.getString("target"),
+                        "request_id", rs.getString("request_id") == null
+                                ? "" : rs.getString("request_id"),
                         "result", rs.getString("result"),
                         "approval_id", rs.getObject("approval_id") == null
                                 ? "" : rs.getLong("approval_id"),

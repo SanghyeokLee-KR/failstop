@@ -198,6 +198,27 @@ public class BotFleetGovernor {
         return new ScaleResult(applied, clamped);
     }
 
+    public record CreateResult(int existing, int appliedTarget, int fleetTotal, boolean clamped) {
+    }
+
+    /**
+     * 봇 생성 경로(§6-A)의 유형별 목표 대수 원자 증분. read-modify-write를 setScale과 같은
+     * 락 안에서 수행해 동시 생성의 lost-update를 막는다. fleetTotal은 전 마켓 목표 합계다.
+     */
+    public synchronized CreateResult increaseTarget(String market, BotType type, int delta) {
+        MarketState state = state(market);
+        int existing = state.targets.get(type.ordinal());
+        EnumMap<BotType, Integer> targets = new EnumMap<>(BotType.class);
+        targets.put(type, existing + Math.max(0, delta));
+        ScaleResult result = setScale(market, targets);
+        int appliedTarget = result.applied().getOrDefault(type, existing);
+        int fleetTotal = 0;
+        for (MarketState s : markets.values()) {
+            fleetTotal += s.totalTarget();
+        }
+        return new CreateResult(existing, appliedTarget, fleetTotal, result.clamped());
+    }
+
     /** 요청 합이 상한을 넘으면 유형 순서(ordinal) 역순으로 순차 감축한다. 하나라도 줄면 true. */
     private static boolean clampAgainst(EnumMap<BotType, Integer> requested, int cap) {
         int sum = requested.values().stream().mapToInt(Integer::intValue).sum();

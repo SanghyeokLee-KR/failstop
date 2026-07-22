@@ -44,11 +44,19 @@ public class HaMonitoringController {
                         "leader_alive", rs.getBoolean("leader_alive")))
                 .optional()
                 .orElse(Map.of("leader_alive", false));
+        long commandWm = scalar("SELECT COALESCE(max(seq), 0) FROM command_journal");
+        long eventWm = scalar("SELECT COALESCE(max(event_seq), 0) FROM event_journal");
+        // 적용 지연은 command seq 단일 축에서 잰다. 접수된 명령 최대 seq(command_watermark) 대비
+        // 이벤트를 낳은 명령 최대 seq(event_journal.source_cmd_seq)의 격차다. command seq와 event
+        // seq는 별개 채번이라 그 차이는 지연이 아니므로 섞지 않는다.
+        long appliedCmdWm = scalar("SELECT COALESCE(max(source_cmd_seq), 0) FROM event_journal");
         return Map.of(
                 "schema_version", "1.0",
                 "lease", lease,
-                "command_watermark", scalar("SELECT COALESCE(max(seq), 0) FROM command_journal"),
-                "event_watermark", scalar("SELECT COALESCE(max(event_seq), 0) FROM event_journal"),
+                "command_watermark", commandWm,
+                "event_watermark", eventWm,
+                "applied_command_watermark", appliedCmdWm,
+                "apply_lag", Math.max(0, commandWm - appliedCmdWm),
                 "trades_count", scalar("SELECT count(*) FROM trades"));
     }
 

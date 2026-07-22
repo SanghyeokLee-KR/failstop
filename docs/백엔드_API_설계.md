@@ -382,7 +382,7 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
 
 - **네트워크 격리**: `admin.exchange.local` 별도 호스트/포트, 방화벽으로 운영자 네트워크만 접근. **mTLS 필수**(클라이언트 인증서 검증).
 - **서명**: §3의 JWT+canonical+nonce+timestamp를 그대로 재사용하되, `scope=admin` 키 + **별도 `admin_secret`**로 서명. `/admin/v1/**` path가 canonical에 포함되어 거래 서명과 교차 재사용 불가. **중첩 바디(`params`/`seed` 등)를 가진 관리 요청은 §3-3(b) `JCS(body)` canonical 규칙을 상속**하므로 flat 평탄화 불가 문제 없이 서명 대상이 바이트 단위로 확정된다(예시: §3-3 admin 봇 생성).
-- **비가역 액션 이중 승인(v2.3 완결 규정)**: `approval_token` 필수 액션은 다음 **완결 열거**로 확정한다('등'으로 열어두지 않는다): `POST /admin/v1/chaos/kill-node`, `POST /admin/v1/chaos/network`, `DELETE /admin/v1/chaos/network/{toxic}`, `POST /admin/v1/chaos/app`, `PATCH /admin/v1/sim/bots/{id}/params`. **그 외 모든 관리 엔드포인트**(봇 생성/제거, `sim/start|stop|pause`, `scenarios/{name}/activate`, `PUT /sim/rate`, 조회류)는 `operator_id`만 필수이고 approval_token **불요**다(§6-A 봇 생성 예시와 정합. 전 액션 감사 로그 대상은 동일). 필수 액션은 요청 바디에 `operator_id` + `approval_token` 포함, 누락·불일치·만료 시 `403 admin_forbidden`. §6-A/§6-B 표의 **승인 컬럼**이 엔드포인트별 요구 여부의 권위 소스다.
+- **비가역 액션 이중 승인(v2.3 완결 규정, v2.12 config·operators 확장)**: `approval_token` 필수 액션은 다음 **완결 열거**로 확정한다('등'으로 열어두지 않는다): `POST /admin/v1/chaos/kill-node`, `POST /admin/v1/chaos/network`, `DELETE /admin/v1/chaos/network/{toxic}`, `POST /admin/v1/chaos/app`, `PATCH /admin/v1/sim/bots/{id}/params`, `POST /admin/v1/config/markets/{symbol}/halt`, `POST /admin/v1/config/markets/{symbol}/resume`, `PATCH /admin/v1/config/markets/{symbol}/fees`, `POST /admin/v1/operators`, `PATCH /admin/v1/operators/{id}/status`, `POST /admin/v1/operators/{id}/roles`. **그 외 모든 관리 엔드포인트**(봇 생성/제거, `sim/start|stop|pause`, `scenarios/{name}/activate`, `PUT /sim/rate`, 공지 발급·갱신·소프트 삭제, 조회류)는 `operator_id`만 필수이고 approval_token **불요**다(§6-A 봇 생성 예시와 정합. 전 액션 감사 로그 대상은 동일). 필수 액션은 요청 바디에 `operator_id` + `approval_token` 포함, 누락·불일치·만료 시 `403 admin_forbidden`. §6-A/§6-B 표의 **승인 컬럼**이 엔드포인트별 요구 여부의 권위 소스다.
   - **approval_token 수명주기(v2.3)**: 요청 operator와 **다른** operator가 `POST /admin/v1/approvals`(mTLS + `scope=admin` 서명, 2인 승인 절차)로 발급하며, 발급 시 **`action` + 대상 식별자**(`node`/`bot_id`/`toxic` 등)에 바인딩된다. 토큰은 **단회용**(검증 성공 시 즉시 소각)·**TTL 5분**. 바인딩된 action·대상과 다른 요청에의 사용, 만료·기소각 토큰 재사용은 `403 admin_forbidden`. 정적·재사용 가능한 토큰은 금지된다(동일 토큰으로 반복 kill-node 승인 불가. nonce가 막지 못하는 '새 요청+같은 토큰' 경로 차단). 발급·사용·만료·거부는 모두 `admin_audit_log`에 기록.
   - **operator 신원 바인딩(v2.4, 2인 통제의 검증 수단 확정)**: `operator_id`는 바디 자가신고 값으로 판정하지 않는다. 각 admin `access_key`(및 mTLS 클라이언트 인증서)는 발급 시 정확히 **하나의 `operator_id`에 1:1 등록**되며(`api_keys`에 operator_id 바인딩, §7-1), 서버는 **모든 관리 요청과 approvals 발급 각각에서 인증 주체(access_key / 인증서 CN)로부터 operator_id를 도출**해 바디의 `operator_id`와 대조한다. 불일치 시 `403 admin_forbidden`(바디 필드는 가독·감사 편의용이고 권위는 인증 주체 유래 값이다. `admin_audit_log`에도 인증 주체 유래 operator_id를 기록). **2인 승인 판정**: "요청 operator와 다른 operator"는 자가신고 값이 아니라 **approvals 발급 요청의 인증 주체 ≠ approval_token 사용 요청의 인증 주체**로 서버가 검증한다 → 단일 admin 키 보유자가 발급 시 `op-02`, 사용 시 `op-01`로 바꿔 신고해 혼자 2인 승인을 완성하는 경로를 차단한다(발급 시 토큰에 발급 주체 operator를 함께 바인딩).
 - **감사 로그(신규)**: 모든 관리 액션은 `admin_audit_log`(operator_id, action, params, ts, 결과)에 append-only 기록 → Grafana annotation과 상관.
@@ -885,8 +885,9 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 { "operator_id":"op-01","type":"MARKET_MAKER","count":40,"market":"KRW-BTC",
   "params":{"base_spread_bps":"8","quote_size":"0.05","skew_factor":"0.01","lambda":2.0},
   "seed":{"base":"1.0","quote":"50000000"} }
-// 201
-{ "created":40,"bot_ids":["mm-001","..."],"fleet_total":140 }
+// 201 (governor set-point 모델: 이 경로는 유형별 목표 대수를 count만큼 상향한다)
+{ "schema_version":"1.0","created":40,"bot_ids":[],"fleet_total":140,
+  "fleet_present":true,"applied_target":40,"clamped":false }
 
 // GET /admin/v1/sim/status → 200 (schema 1.1, 봇_방향성 §5-5)
 { "schema_version":"1.1", "fleet_present":true, "target_ops":"20",
@@ -900,6 +901,8 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 ```
 **봇 유형**: `MARKET_MAKER`(유동성·재고 스큐) / `TAKER` / `TREND`(모멘텀) / `NOISE`. 가격은 **OU 평균회귀 + 점프 프로세스**로 fair value만 제공, 체결가는 오더북에서 창발.
 
+**`POST /sim/bots` 응답 계약(v2.11, governor set-point 반영)**: 이 경로는 개별 봇 인스턴스를 즉시 기동하지 않고 인메모리 governor의 유형별 목표 대수를 `count`만큼 상향한다(캡 클램프 적용). 실제 인스턴스는 별도 `bots` 프로파일이 목표 대수를 좇아 기동하므로 이 경로는 인스턴스 id를 발급하지 않는다. 따라서 `bot_ids`는 상시 빈 배열이다. `created`는 클램프 후 순증분, `applied_target`은 클램프 후 해당 유형 목표, `fleet_total`은 전 마켓 목표 대수 합계, `clamped`는 캡에 걸렸는지, `fleet_present`는 governor 주입 여부다. governor 부재 배포는 `count`를 그대로 `created`·`applied_target`·`fleet_total`로 보고하고 `fleet_present:false`를 준다. Cluster B는 `created`·`fleet_total`로 결과를 표시하고 `clamped`로 캡 도달을 안내한다.
+
 **set-point 제어(v2.10, 봇_방향성 §5·체결_시각효과 §5-6 정본 반영)**: `PUT /sim/scale`·`/sim/bias`·`/sim/effects`는 개별 봇 생성/제거를 대체하지 않고 그 위에 마켓·유형 단위 목표값을 얹는 상위 제어다. 셋 다 파괴 액션이 아니므로 approval_token 불요이고 감사 로그만 적재한다(§3-6 필수 완결 열거 불변, 신규 필수 액션 없음). `/sim/effects`의 `trade_flash`는 공개 `GET /api/v1/exchange-config`(§4-A-6)에 반영된다. `GET /sim/status`는 schema를 1.1로 올려 마켓별 `target/measured/effective_bias`, `auto_balance`, 유형별 `scale{target,active}`, `fill_ratio`, `trade_flash`를 additive로 더한다(기존 1.0 소비자 무영향).
 
 ### 6-B. 카오스 주입 API
@@ -912,6 +915,10 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 | POST | `/admin/v1/chaos/kill-node` | 매칭 노드 강제 종료(docker kill) | **필수** |
 | GET | `/admin/v1/chaos/experiments` | 진행 중 실험·blast radius | 불요 |
 | POST | `/admin/v1/approvals` | approval_token 발급(요청자와 **다른** operator의 2인 승인, v2.3 §3-6) | 불요(발급 자체) |
+| GET | `/admin/v1/approvals` | 승인 원장 조회(state 필터, VIEWER+). `approval_token`은 응답에서 제외 | 불요(조회) |
+| POST | `/admin/v1/approvals/{id}/reject` | ISSUED 승인 거부(`ISSUED→REJECTED`). 호출 주체는 그 행의 approver 또는 requester여야 한다(소유·반결탁) | 불요(de-escalation) |
+
+승인 라이프사이클(§3-6): `ISSUED → CONSUMED | EXPIRED | REJECTED`. 발급·사용·만료·거부 전이는 모두 admin_audit_log에 기록된다. `GET /approvals`는 원장 프로젝션이며 `approval_token`을 절대 반환하지 않는다(토큰은 발급 응답 단일 경로의 bearer 시크릿). `reject`는 `consume`과 대칭으로 `FOR UPDATE` 행 잠금·소유 검증을 거치고 `consumed_at`을 건드리지 않는다.
 
 ```json
 // POST /admin/v1/chaos/kill-node  (operator_id + approval_token 필수)
@@ -951,6 +958,28 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 ```
 > `rpo_records`의 의미(v2.6): ACK 이후 유실된 저널 레코드 수. 0의 보장 범위는 §7-6 하단과 동일하다. 로컬 fsync는 단일 인스턴스의 프로세스·전원 장애까지 보장하며, failover 포함 0은 §1의 동기복제 운영 요건 충족 시 성립한다.
 **불변식 7종**(모두 SQL로 즉시 증명): ①시퀀스 무결 `max(seq)-min(seq)+1==count(*)`(gapless 전제=`journal_counters` 단일 행 DB 원자 채번, §7-1 v2.6. 복수 worker의 할당·롤백·역순 커밋에서도 영구 결번 없음) ②주문 유실 0(ACK된 client_order_id ⊆ 저널·orders. 보장 범위는 §7-6 하단과 동일: 로컬 fsync는 프로세스·전원 장애까지, failover 포함 무손실은 §1 동기복제 운영 요건 충족 시) ③중복 접수·중복 체결 0(v2.4 두 축 분리·대상 테이블 명기. (i) **주문 중복 접수 0**: `command_journal`의 **주문 생성 커맨드 한정**(§7-1 부분 유니크 축과 동일, v2.5) `(user_id,client_order_id)` 그룹당 1건(=UNIQUE 위반 0), (ii) **중복 체결 0**: `trades` 기준 `trade_id` 단위 중복 행 0 **및** 주문별 `SUM(trades.volume) ≤ orders.volume`. 한 주문의 다건 부분체결(§4-B-1 `trades_count`, §4-B-2)은 정상이며, 위반은 **동일 체결 이벤트의 이중 적용**만을 뜻한다. 원장 측 이중 적용은 `ledger_transactions`의 `UNIQUE(business_event_type, business_event_id)`(§7-1)가 DB 제약으로 선차단하므로 본 불변식 SQL은 그 제약의 사후 감사다) ④**자산 보존** 이중부기 `SUM(delta)`=0(v2.6 범위 명시: 수기 검증으로 확인한 경로는 LIMIT BUY taker 단일 시나리오다. market·best·IOC·FOK·POST_ONLY·부분체결 반올림 잔차를 포함한 전 주문 유형의 커버는 V3 무작위 회귀 테스트, 즉 무작위 가격·수량·부분체결 조합에서 자산별 합 0과 FILLED 주문 락 잔량 0 검증으로 위임한다) ⑤체결 정합(체결가=maker 지정가, `bestBid<bestAsk`, 수량 보존) ⑥재생 결정론(저널 재생 상태 해시==라이브 해시. 해시 입력에 외부 id·executed_at·event_ordinal 포함, §7-2 v2.6 규약으로 ID·시각·이벤트 순서까지 재현 동일) ⑦fencing 무결(split-brain 차단): `event_journal`·`trades`·`snapshots`의 `fencing_epoch`가 커밋 시점의 `leader_lease` 승인 (holder, epoch)와 불일치하는 행 0. 리더 교체 후 구 epoch로 커밋된 자산 변경 행 0. 이 항목이 통과할 때에만 "split-brain 없음"을 주장한다(계약 정의 §7-1).
+
+### 6-D. 마켓 구성·공지·운영자 API (관리자 설계 §3-1)
+
+| 메서드 | 경로 | 기능 | approval_token(§3-6) |
+|---|---|---|---|
+| GET | `/admin/v1/config/markets` | 마켓 상태·수수료 조회(VIEWER+) | 불요 |
+| POST | `/admin/v1/config/markets/{symbol}/halt` | 마켓 정지(`ACTIVE→HALTED`) | **필수** |
+| POST | `/admin/v1/config/markets/{symbol}/resume` | 마켓 재개(`HALTED→ACTIVE`) | **필수** |
+| PATCH | `/admin/v1/config/markets/{symbol}/fees` | 수수료 부분 갱신(`NUMERIC(10,8)` 0~0.1, 스케일 8) | **필수** |
+| GET | `/admin/v1/config/notices` | 공지 목록(active 포함, VIEWER+) | 불요 |
+| POST | `/admin/v1/config/notices` | 공지 발급(SUPER) | 불요 |
+| PATCH | `/admin/v1/config/notices/{id}` | 공지 부분 갱신·active 토글 | 불요 |
+| DELETE | `/admin/v1/config/notices/{id}` | 공지 소프트 삭제(`active=false`) | 불요 |
+| GET | `/admin/v1/operators` | 운영자·역할 목록(VIEWER+) | 불요 |
+| POST | `/admin/v1/operators` | 운영자 생성(SUPER, 중복 409) | **필수** |
+| PATCH | `/admin/v1/operators/{id}/status` | 신원 상태 전이(`ACTIVE\|DISABLED`) | **필수** |
+| POST | `/admin/v1/operators/{id}/roles` | 역할 부여·회수(SUPER) | **필수** |
+| GET | `/admin/v1/chaos/runs` | 카오스 주입 이력 프로젝션(토큰 미노출, VIEWER+) | 불요 |
+
+- 수수료·마켓 상태의 정본은 `markets` 컬럼(`status`·`*_fee_rate`)이다. `DELISTED`는 종국 상태라 halt/resume 대상이 아니다(`409 market_delisted`).
+- 공지 삭제는 소프트 삭제다. `app_role`에 `notices` DELETE 권한이 없어(DB 설계 §3.1, V5 GRANT는 SELECT/INSERT/UPDATE) 하드 DELETE는 운영 롤에서 `42501`로 상시 실패한다. `active=false` UPDATE로 노출만 내리고 게시 원본·감사 이력을 보존한다. 없는 id는 404, 이미 비활성이면 멱등 200.
+- 수수료·마켓 halt/resume·운영자 생성/상태/역할은 approval_token 필수(§3-6 완결 열거). 부재·불일치·만료는 `403 admin_forbidden`. 검증 게이트(스케일·범위·중복·부재)는 승인 소각과 같은 트랜잭션이라 실패 시 토큰이 롤백돼 재사용 가능하다.
 
 ---
 

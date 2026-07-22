@@ -2,6 +2,7 @@ package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,8 +10,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -41,16 +44,51 @@ public class ChaosAdminController {
 
     private final ApprovalService approvals;
     private final AdminAuditService audit;
+    private final JdbcClient jdbc;
 
-    public ChaosAdminController(ApprovalService approvals, AdminAuditService audit) {
+    public ChaosAdminController(ApprovalService approvals, AdminAuditService audit, JdbcClient jdbc) {
         this.approvals = approvals;
         this.audit = audit;
+        this.jdbc = jdbc;
     }
 
     @GetMapping("/experiments")
     public Map<String, Object> experiments(HttpServletRequest request) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
         return Map.of("schema_version", "1.0", "catalog", CATALOG);
+    }
+
+    /**
+     * 카오스 주입·해제 이력(승인 불요, VIEWER+). admin_audit_log의 chaos.* 액션을 투사한다.
+     * experiment_id는 주입 시 detail JSON에 적재되므로 그대로 뽑아 프론트 이력에 노출한다.
+     */
+    @GetMapping("/runs")
+    public Map<String, Object> runs(HttpServletRequest request,
+                                    @RequestParam(defaultValue = "50") int limit) {
+        AdminRequestContext.principal(request).require(AdminRole.VIEWER);
+        int capped = Math.max(1, Math.min(limit, 200));
+        List<Map<String, Object>> rows = jdbc.sql("""
+                        SELECT id, operator_id, action, target, approval_id, result,
+                               detail->>'experiment_id' AS experiment_id, created_at
+                        FROM admin_audit_log
+                        WHERE action LIKE 'chaos.%'
+                        ORDER BY created_at DESC, id DESC LIMIT ?
+                        """)
+                .param(capped)
+                .query((rs, n) -> Map.<String, Object>of(
+                        "id", rs.getLong("id"),
+                        "operator_id", rs.getString("operator_id") == null
+                                ? "" : rs.getString("operator_id"),
+                        "action", rs.getString("action"),
+                        "target", rs.getString("target") == null ? "" : rs.getString("target"),
+                        "approval_id", rs.getObject("approval_id") == null
+                                ? "" : rs.getLong("approval_id"),
+                        "result", rs.getString("result"),
+                        "experiment_id", rs.getString("experiment_id") == null
+                                ? "" : rs.getString("experiment_id"),
+                        "created_at", ts(rs.getObject("created_at", OffsetDateTime.class))))
+                .list();
+        return Map.of("schema_version", "1.0", "data", rows);
     }
 
     @PostMapping("/kill-node")
@@ -105,5 +143,10 @@ public class ChaosAdminController {
 
     private static Map<String, Object> catalog(String id, String label, String action) {
         return Map.of("id", id, "label", label, "action", action, "approval_required", true);
+    }
+
+    // API §2-1 UTC 밀리초 3자리 고정. OffsetDateTime.toString의 가변 소수부를 쓰지 않는다.
+    private static String ts(OffsetDateTime odt) {
+        return odt == null ? "" : kr.exchange.api.common.ApiFormats.time(odt);
     }
 }

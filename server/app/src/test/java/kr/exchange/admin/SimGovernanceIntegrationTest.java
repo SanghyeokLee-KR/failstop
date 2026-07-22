@@ -175,6 +175,48 @@ class SimGovernanceIntegrationTest {
     }
 
     @Test
+    void createBotReturnsGovernorContract() throws Exception {
+        String s = session("op-bot");
+        // 별도 마켓으로 다른 테스트와 목표 대수 간섭을 피한다.
+        ResponseEntity<String> r = post("/admin/v1/sim/bots",
+                "{\"type\":\"MARKET_MAKER\",\"count\":5,\"market\":\"KRW-ETH\"}", "op-bot", s);
+        assertEquals(201, r.getStatusCode().value(), r.getBody());
+        JsonNode body = objectMapper.readTree(r.getBody());
+        assertEquals("1.0", body.path("schema_version").asText());
+        assertEquals(5, body.path("created").asInt());
+        assertTrue(body.path("bot_ids").isArray());
+        assertEquals(0, body.path("bot_ids").size(), "governor 경로는 인스턴스 id를 발급하지 않는다");
+        assertEquals(5, body.path("applied_target").asInt());
+        assertTrue(body.has("fleet_total"), "fleet_total 계약 필드");
+        assertTrue(body.path("fleet_total").asInt() >= 5);
+        assertFalse(body.path("clamped").asBoolean());
+        assertTrue(jdbc.sql("SELECT count(*) FROM admin_audit_log WHERE operator_id='op-bot' "
+                        + "AND action='sim.bots.create' AND approval_id IS NULL")
+                .query(Long.class).single() >= 1);
+    }
+
+    @Test
+    void createBotClampsToTypeCap() throws Exception {
+        String s = session("op-bot");
+        // 타입 캡(30) 초과 요청은 거부가 아니라 클램프 + clamped:true.
+        ResponseEntity<String> r = post("/admin/v1/sim/bots",
+                "{\"type\":\"NOISE\",\"count\":999,\"market\":\"KRW-CLAMP\"}", "op-bot", s);
+        assertEquals(201, r.getStatusCode().value(), r.getBody());
+        JsonNode body = objectMapper.readTree(r.getBody());
+        assertTrue(body.path("clamped").asBoolean(), "캡 초과 clamped");
+        assertEquals(30, body.path("applied_target").asInt());
+        assertEquals(30, body.path("created").asInt());
+    }
+
+    @Test
+    void createBotRejectsUnknownType() throws Exception {
+        String s = session("op-bot");
+        ResponseEntity<String> r = post("/admin/v1/sim/bots",
+                "{\"type\":\"WHALE\",\"count\":1,\"market\":\"KRW-BTC\"}", "op-bot", s);
+        assertEquals(400, r.getStatusCode().value());
+    }
+
+    @Test
     void viewerCannotControlGovernance() throws Exception {
         String s = session("op-view");
         ResponseEntity<String> r = put("/admin/v1/sim/scale",
@@ -198,6 +240,10 @@ class SimGovernanceIntegrationTest {
 
     private ResponseEntity<String> put(String path, String body, String cn, String bearer) {
         return exchange(path, HttpMethod.PUT, body, cn, bearer);
+    }
+
+    private ResponseEntity<String> post(String path, String body, String cn, String bearer) {
+        return exchange(path, HttpMethod.POST, body, cn, bearer);
     }
 
     private ResponseEntity<String> exchange(String path, HttpMethod method, String body,

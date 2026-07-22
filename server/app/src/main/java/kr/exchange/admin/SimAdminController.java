@@ -8,6 +8,7 @@ import kr.exchange.sim.BotType;
 import kr.exchange.sim.OpsGovernor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -57,6 +58,10 @@ public class SimAdminController {
     }
 
     public record ParamsBody(String approval_token, Map<String, Object> params) {
+    }
+
+    public record BotBody(String type, Integer count, String market,
+                          Map<String, Object> params, Map<String, Object> seed) {
     }
 
     private final ObjectProvider<OpsGovernor> opsGovernor;
@@ -223,6 +228,67 @@ public class SimAdminController {
                 AdminRequestContext.requestId(request), null, "OK",
                 Map.of("trade_flash", flash));
         return Map.of("schema_version", "1.1", "trade_flash", flash);
+    }
+
+    /**
+     * 봇 생성(§6-A, 승인 불요). 개별 인스턴스는 별도 bots 프로파일에서 기동하므로 이 경로는
+     * 인메모리 governor의 타입별 목표 대수를 count만큼 상향한다(기존+count, clamp 적용). 개별
+     * 인스턴스 id를 발급하지 않아 bot_ids는 상시 빈 배열이고, fleet_total은 전 마켓 목표 합계다.
+     * governor 부재 배포는 감사만 남기고 count를 그대로 목표·합계로 보고한다.
+     */
+    @PostMapping("/bots")
+    public ResponseEntity<Map<String, Object>> createBot(
+            @RequestBody(required = false) BotBody body, HttpServletRequest request) {
+        AdminPrincipal principal = AdminRequestContext.principal(request);
+        principal.require(AdminRole.BOT_OPS);
+        if (body == null || body.type() == null) {
+            throw new ApiException(400, "invalid_parameter", "type이 필요합니다.");
+        }
+        BotType type;
+        try {
+            type = BotType.valueOf(body.type());
+        } catch (IllegalArgumentException e) {
+            throw new ApiException(400, "invalid_parameter", "알 수 없는 봇 유형: " + body.type());
+        }
+        if (body.count() == null || body.count() < 1) {
+            throw new ApiException(400, "invalid_parameter", "count는 1 이상 정수여야 합니다.");
+        }
+        if (body.market() == null || body.market().isBlank()) {
+            throw new ApiException(400, "invalid_parameter", "market이 필요합니다.");
+        }
+        int count = body.count();
+        String market = body.market();
+        BotFleetGovernor fleet = fleetGovernor.getIfAvailable();
+
+        int appliedTarget;
+        int created;
+        int fleetTotal;
+        boolean clamped;
+        if (fleet != null) {
+            BotFleetGovernor.CreateResult result = fleet.increaseTarget(market, type, count);
+            appliedTarget = result.appliedTarget();
+            created = Math.max(0, result.appliedTarget() - result.existing());
+            fleetTotal = result.fleetTotal();
+            clamped = result.clamped();
+        } else {
+            appliedTarget = count;
+            created = count;
+            fleetTotal = count;
+            clamped = false;
+        }
+        audit.record(principal.operatorId(), "sim.bots.create", market,
+                AdminRequestContext.requestId(request), null, "OK",
+                Map.of("type", type.name(), "count", count, "applied_target", appliedTarget,
+                        "fleet_total", fleetTotal, "clamped", clamped, "fleet_present", fleet != null));
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("schema_version", "1.0");
+        out.put("created", created);
+        out.put("bot_ids", List.of());
+        out.put("fleet_total", fleetTotal);
+        out.put("fleet_present", fleet != null);
+        out.put("applied_target", appliedTarget);
+        out.put("clamped", clamped);
+        return ResponseEntity.status(201).body(out);
     }
 
     @PostMapping("/{command}")

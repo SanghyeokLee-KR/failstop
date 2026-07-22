@@ -31,6 +31,7 @@ import java.util.Base64;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -99,6 +100,10 @@ class AdminPlaneIntegrationTest {
 
     @BeforeAll
     void seed() {
+        // 기본 SimpleClientHttpRequestFactory(HttpURLConnection)는 PATCH를 거부한다. PATCH 계약
+        // 검증을 위해 java.net.http 기반 팩토리로 교체한다(루트 URI 핸들러는 유지, 추가 의존성 없음).
+        rest.getRestTemplate().setRequestFactory(
+                new org.springframework.http.client.JdkClientHttpRequestFactory());
         // 마켓 halt 반영 검증용. dev 자동 시드에 의존하지 않고 자체 시드한다(멱등).
         bootstrap.asset(1, "KRW", "Korean Won", "FIAT", 0);
         bootstrap.asset(2, "BTC", "Bitcoin", "CRYPTO", 8);
@@ -111,6 +116,8 @@ class AdminPlaneIntegrationTest {
         // CHAOS_OPS 단독. §1-2 포함관계(CHAOS_OPS ⊇ BOT_OPS) 회귀 검증용.
         operatorSeeder.ensureOperator("op-04", "데모 카오스",
                 java.util.Set.of(AdminRole.CHAOS_OPS));
+        // 역할 GRANT/REVOKE 왕복 대상. 초기 역할 없음(부여·회수 효과를 고립 검증).
+        operatorSeeder.ensureOperator("op-05", "데모 역할대상", java.util.Set.of());
         customer = bootstrap.user("customer@admin.test");
         // 고객 평면 자격(데모 세션, scope=TRADE). 관리 평면에서 거부되어야 한다.
         customerSession = demoSessions.issue(customer, "customer", DemoSessionService.DEFAULT_TTL);
@@ -350,8 +357,259 @@ class AdminPlaneIntegrationTest {
     }
 
     // ------------------------------------------------------------------
+    // (e) 승인 거부: 비당사자 그리핑 차단·당사자 단회 전이
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(10)
+    void approvalRejectGuardsParties() throws Exception {
+        String op01 = issueSession("op-01");
+        String op02 = issueSession("op-02");
+        String op03 = issueSession("op-03");
+        ResponseEntity<String> issued = adminPost("/admin/v1/approvals",
+                approvalBody("op-01", "config.market.halt", "KRW-BTC"), "op-02", op02);
+        assertEquals(200, issued.getStatusCode().value());
+        long id = objectMapper.readTree(issued.getBody()).path("approval_id").asLong();
+
+        // 비당사자(op-03)의 거부 -> 403 not_party. 상태는 ISSUED 유지.
+        ResponseEntity<String> notParty =
+                adminPost("/admin/v1/approvals/" + id + "/reject", "{}", "op-03", op03);
+        assertEquals(403, notParty.getStatusCode().value());
+        assertEquals("not_party", reason(notParty));
+        assertEquals("ISSUED", jdbc.sql("SELECT state FROM admin_approvals WHERE id = ?")
+                .param(id).query(String.class).single());
+
+        // 당사자(requester op-01)의 거부 -> 200, ISSUED->REJECTED.
+        ResponseEntity<String> rejected =
+                adminPost("/admin/v1/approvals/" + id + "/reject", "{}", "op-01", op01);
+        assertEquals(200, rejected.getStatusCode().value(), rejected.getBody());
+        assertEquals("REJECTED", objectMapper.readTree(rejected.getBody()).path("state").asText());
+        assertEquals("REJECTED", jdbc.sql("SELECT state FROM admin_approvals WHERE id = ?")
+                .param(id).query(String.class).single());
+
+        // 재거부 -> 403 not_open(단회 전이).
+        ResponseEntity<String> again =
+                adminPost("/admin/v1/approvals/" + id + "/reject", "{}", "op-01", op01);
+        assertEquals(403, again.getStatusCode().value());
+        assertEquals("not_open", reason(again));
+    }
+
+    // ------------------------------------------------------------------
+    // (f) 수수료 변경: 검증 게이트·마켓 부재 시 승인 롤백·정상 부분 갱신
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(11)
+    void feesValidationAndApprovalRollback() throws Exception {
+        String op01 = issueSession("op-01");
+        String op02 = issueSession("op-02");
+
+        // 스케일 초과(소수 9자리)는 승인 소비 이전 단계에서 400.
+        ResponseEntity<String> scale = adminPatch("/admin/v1/config/markets/KRW-BTC/fees",
+                "{\"maker_fee\":\"0.000000001\"}", "op-01", op01);
+        assertEquals(400, scale.getStatusCode().value(), scale.getBody());
+
+        // 범위 밖(>0.1)도 400.
+        ResponseEntity<String> range = adminPatch("/admin/v1/config/markets/KRW-BTC/fees",
+                "{\"maker_fee\":\"0.5\"}", "op-01", op01);
+        assertEquals(400, range.getStatusCode().value());
+
+        // 없는 마켓 -> 404. 승인 토큰은 액션과 함께 롤백돼 ISSUED 유지(재사용 가능).
+        String absentToken = issueToken("op-01", "config.market.fees", "KRW-XXX", "op-02", op02);
+        ResponseEntity<String> absent = adminPatch("/admin/v1/config/markets/KRW-XXX/fees",
+                "{\"maker_fee\":\"0.001\",\"approval_token\":\"" + absentToken + "\"}", "op-01", op01);
+        assertEquals(404, absent.getStatusCode().value(), absent.getBody());
+        assertEquals("market_not_found", errorName(absent));
+        assertEquals("ISSUED", jdbc.sql("SELECT state FROM admin_approvals WHERE approval_token = ?")
+                .param(absentToken).query(String.class).single());
+
+        // 정상 부분 갱신: maker만 교체, taker 보존.
+        String okToken = issueToken("op-01", "config.market.fees", "KRW-BTC", "op-02", op02);
+        ResponseEntity<String> ok = adminPatch("/admin/v1/config/markets/KRW-BTC/fees",
+                "{\"maker_fee\":\"0.002\",\"approval_token\":\"" + okToken + "\"}", "op-01", op01);
+        assertEquals(200, ok.getStatusCode().value(), ok.getBody());
+        JsonNode body = objectMapper.readTree(ok.getBody());
+        assertEquals(0, new java.math.BigDecimal(body.path("maker_fee").asText())
+                .compareTo(new java.math.BigDecimal("0.002")));
+        assertEquals(0, new java.math.BigDecimal(body.path("taker_fee").asText())
+                .compareTo(new java.math.BigDecimal("0.0005")), "부분 갱신에서 taker 보존");
+        assertEquals(0, jdbc.sql("SELECT maker_fee_rate FROM markets WHERE symbol = 'KRW-BTC'")
+                .query(java.math.BigDecimal.class).single().compareTo(new java.math.BigDecimal("0.002")));
+    }
+
+    // ------------------------------------------------------------------
+    // (g) 운영자: 중복 생성 409·없는 운영자 상태 전이 404
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(12)
+    void operatorsCreateConflictAndStatusNotFound() throws Exception {
+        String op01 = issueSession("op-01");
+        String op02 = issueSession("op-02");
+
+        // 이미 존재하는 op-01 재생성 -> 409. 승인은 같은 트랜잭션이라 롤백돼 ISSUED 유지.
+        String createToken = issueToken("op-01", "operators.create", "op-01", "op-02", op02);
+        ResponseEntity<String> conflict = adminPost("/admin/v1/operators",
+                "{\"operator_id\":\"op-01\",\"display_name\":\"중복\",\"approval_token\":\""
+                        + createToken + "\"}", "op-01", op01);
+        assertEquals(409, conflict.getStatusCode().value(), conflict.getBody());
+        assertEquals("ISSUED", jdbc.sql("SELECT state FROM admin_approvals WHERE approval_token = ?")
+                .param(createToken).query(String.class).single());
+
+        // 없는 운영자 상태 전이 -> 404.
+        String statusToken = issueToken("op-01", "operators.status", "op-nope:DISABLED",
+                "op-02", op02);
+        ResponseEntity<String> notFound = adminPatch("/admin/v1/operators/op-nope/status",
+                "{\"status\":\"DISABLED\",\"approval_token\":\"" + statusToken + "\"}", "op-01", op01);
+        assertEquals(404, notFound.getStatusCode().value(), notFound.getBody());
+    }
+
+    // ------------------------------------------------------------------
+    // (h) 승인 원장·카오스 이력 프로젝션(VIEWER+, 토큰 미노출)
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(13)
+    void approvalsLedgerAndChaosRunsProject() throws Exception {
+        String op01 = issueSession("op-01");
+
+        ResponseEntity<String> list = adminGet("/admin/v1/approvals?state=REJECTED", "op-01", op01);
+        assertEquals(200, list.getStatusCode().value());
+        JsonNode data = objectMapper.readTree(list.getBody()).path("data");
+        assertTrue(data.isArray() && data.size() >= 1, "order 10에서 REJECTED 1건 이상");
+        for (JsonNode row : data) {
+            assertFalse(row.has("approval_token"), "원장은 approval_token을 노출하지 않는다");
+            assertEquals("REJECTED", row.path("state").asText());
+        }
+
+        // 카오스 이력: 주입 이력이 없어도 200·빈 data 배열.
+        ResponseEntity<String> runs = adminGet("/admin/v1/chaos/runs", "op-01", op01);
+        assertEquals(200, runs.getStatusCode().value());
+        assertTrue(objectMapper.readTree(runs.getBody()).path("data").isArray());
+    }
+
+    // ------------------------------------------------------------------
+    // (i) 공지: 발급(승인 불요)·부분 갱신·severity 어휘 게이트·소프트 삭제
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(14)
+    void noticePublishUpdateDelete() throws Exception {
+        String op01 = issueSession("op-01");
+
+        ResponseEntity<String> created = adminPost("/admin/v1/config/notices",
+                "{\"title\":\"점검 안내\",\"body\":\"03:00 정기 점검\",\"severity\":\"INFO\"}",
+                "op-01", op01);
+        assertEquals(200, created.getStatusCode().value(), created.getBody());
+        long id = objectMapper.readTree(created.getBody()).path("notice_id").asLong();
+
+        // 잘못된 severity -> 400. 상태 불변.
+        ResponseEntity<String> badSeverity = adminPatch("/admin/v1/config/notices/" + id,
+                "{\"severity\":\"URGENT\"}", "op-01", op01);
+        assertEquals(400, badSeverity.getStatusCode().value());
+
+        // 부분 갱신: severity만 교체, title 보존. active는 삭제 멱등 검증을 위해 true 유지.
+        ResponseEntity<String> patched = adminPatch("/admin/v1/config/notices/" + id,
+                "{\"severity\":\"WARNING\"}", "op-01", op01);
+        assertEquals(200, patched.getStatusCode().value(), patched.getBody());
+        assertEquals("점검 안내", jdbc.sql("SELECT title FROM notices WHERE id = ?")
+                .param(id).query(String.class).single());
+        assertEquals("WARNING", jdbc.sql("SELECT severity FROM notices WHERE id = ?")
+                .param(id).query(String.class).single());
+
+        // 없는 공지 갱신 -> 404.
+        ResponseEntity<String> absent = adminPatch("/admin/v1/config/notices/999999",
+                "{\"active\":true}", "op-01", op01);
+        assertEquals(404, absent.getStatusCode().value());
+
+        // 소프트 삭제 -> 200. 행은 보존되고 active=false로 내려간다(하드 DELETE 금지, V5 GRANT 정합).
+        ResponseEntity<String> deleted = adminDelete("/admin/v1/config/notices/" + id, "op-01", op01);
+        assertEquals(200, deleted.getStatusCode().value(), deleted.getBody());
+        assertTrue(objectMapper.readTree(deleted.getBody()).path("deleted").asBoolean());
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM notices WHERE id = ?")
+                .param(id).query(Long.class).single(), "소프트 삭제는 행을 보존한다");
+        assertFalse(jdbc.sql("SELECT active FROM notices WHERE id = ?")
+                .param(id).query(Boolean.class).single());
+
+        // 이미 비활성인 공지 재삭제 -> 멱등 200(행 존재).
+        ResponseEntity<String> again = adminDelete("/admin/v1/config/notices/" + id, "op-01", op01);
+        assertEquals(200, again.getStatusCode().value(), again.getBody());
+        assertTrue(objectMapper.readTree(again.getBody()).path("deleted").asBoolean());
+
+        // 없는 공지 삭제 -> 404.
+        ResponseEntity<String> missing = adminDelete("/admin/v1/config/notices/999999", "op-01", op01);
+        assertEquals(404, missing.getStatusCode().value());
+    }
+
+    // ------------------------------------------------------------------
+    // (j) SUPER write 게이트: 비SUPER(VIEWER)의 수수료 변경 진입 차단
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(15)
+    void viewerCannotUpdateFees() throws Exception {
+        String op03 = issueSession("op-03");
+        // VIEWER는 승인 토큰·본문과 무관하게 역할 게이트에서 403 role_required로 차단된다.
+        ResponseEntity<String> denied = adminPatch("/admin/v1/config/markets/KRW-BTC/fees",
+                "{\"maker_fee\":\"0.001\"}", "op-03", op03);
+        assertEquals(403, denied.getStatusCode().value());
+        assertEquals("role_required", reason(denied));
+    }
+
+    // ------------------------------------------------------------------
+    // (k) 역할 GRANT/REVOKE 왕복. REVOKE는 operator_roles에 하드 DELETE를 실행하므로
+    // app_role의 DELETE 권한 회귀를 잡는다(V9). 효과 행 부여·삭제와 부여 권한 존재를 함께 확인.
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(16)
+    void roleGrantRevokeRoundTrip() throws Exception {
+        String op01 = issueSession("op-01");
+        String op02 = issueSession("op-02");
+
+        // GRANT BOT_OPS: 효과 행 INSERT.
+        String grantToken = issueToken("op-01", "operators.roles", "op-05:GRANT:BOT_OPS",
+                "op-02", op02);
+        ResponseEntity<String> granted = adminPost("/admin/v1/operators/op-05/roles",
+                "{\"action\":\"GRANT\",\"role\":\"BOT_OPS\",\"approval_token\":\""
+                        + grantToken + "\"}", "op-01", op01);
+        assertEquals(200, granted.getStatusCode().value(), granted.getBody());
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM operator_roles "
+                        + "WHERE operator_id = 'op-05' AND role = 'BOT_OPS'")
+                .query(Long.class).single(), "GRANT는 효과 행을 남긴다");
+
+        // REVOKE BOT_OPS: 효과 행 하드 DELETE. app_role DELETE 누락 시 42501로 실패한다.
+        String revokeToken = issueToken("op-01", "operators.roles", "op-05:REVOKE:BOT_OPS",
+                "op-02", op02);
+        ResponseEntity<String> revoked = adminPost("/admin/v1/operators/op-05/roles",
+                "{\"action\":\"REVOKE\",\"role\":\"BOT_OPS\",\"approval_token\":\""
+                        + revokeToken + "\"}", "op-01", op01);
+        assertEquals(200, revoked.getStatusCode().value(), revoked.getBody());
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM operator_roles "
+                        + "WHERE operator_id = 'op-05' AND role = 'BOT_OPS'")
+                .query(Long.class).single(), "REVOKE는 효과 행을 삭제한다");
+
+        // 부여 권한 존재를 직접 단언한다. 컨테이너 슈퍼유저 접속이라 DELETE 실행이 42501을
+        // 내지 않으므로, 권한 회귀는 카탈로그 조회로 잡는다(V9 GRANT 유실 방지).
+        assertTrue(jdbc.sql(
+                        "SELECT has_table_privilege('app_role', 'operator_roles', 'DELETE')")
+                .query(Boolean.class).single(), "app_role은 operator_roles DELETE 권한을 가진다");
+        assertTrue(jdbc.sql(
+                        "SELECT has_table_privilege('app_role', 'idempotency_keys', 'DELETE')")
+                .query(Boolean.class).single(), "app_role은 idempotency_keys DELETE 권한을 가진다");
+    }
+
+    // ------------------------------------------------------------------
     // 헬퍼
     // ------------------------------------------------------------------
+
+    private String issueToken(String requester, String action, String target,
+                             String approverCn, String approverSession) throws Exception {
+        ResponseEntity<String> issued = adminPost("/admin/v1/approvals",
+                approvalBody(requester, action, target), approverCn, approverSession);
+        assertEquals(200, issued.getStatusCode().value(), "승인 발급 실패: " + issued.getBody());
+        return objectMapper.readTree(issued.getBody()).path("approval_token").asText();
+    }
 
     private String issueSession(String operatorCn) throws Exception {
         ResponseEntity<String> issued = adminPost("/admin/v1/session", null, operatorCn, null);
@@ -376,6 +634,15 @@ class AdminPlaneIntegrationTest {
     private ResponseEntity<String> adminPut(String path, String body, String operatorCn,
                                             String bearer) {
         return exchange(path, HttpMethod.PUT, body, operatorCn, bearer);
+    }
+
+    private ResponseEntity<String> adminPatch(String path, String body, String operatorCn,
+                                              String bearer) {
+        return exchange(path, HttpMethod.PATCH, body, operatorCn, bearer);
+    }
+
+    private ResponseEntity<String> adminDelete(String path, String operatorCn, String bearer) {
+        return exchange(path, HttpMethod.DELETE, null, operatorCn, bearer);
     }
 
     private ResponseEntity<String> exchange(String path, HttpMethod method, String body,

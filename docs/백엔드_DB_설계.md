@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.13)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.14)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V6+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -340,7 +340,10 @@ erDiagram
 | V4 | `V4__harness_schema.sql` | 하네스 전용 객체를 `harness` 스키마로 격리(계약 스키마 public 오염 차단) | V1 |
 | V5 | `V5__admin.sql` | 관리 평면(exchange-admin) 스키마: `api_keys.scope`에 `ADMIN` 추가·operator 바인딩, `admin_operators`·`operator_roles`·`admin_sessions`·`admin_approvals`·`system_config`·`notices`(관리자 설계 v1.1 §1-5) | V1 |
 | V6 | `V6__members.sql` | 회원 인증·세션·프로필: `user_credentials`·`user_profiles`·`auth_sessions`·`user_provisioning`(회원_설계.md §2, §3.3). 기존 `users`·`api_keys`·`accounts` 무변경 | V1 |
-| V7+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V7 | `V7__community_board.sql` | M3 종목 토론 게시판 7개 테이블(§9). `app_role`에 게시판 SELECT·INSERT·UPDATE + 좋아요 2테이블 DELETE | V1 |
+| V8 | `V8__trades_order_index_and_partitions.sql` | `trades` order_id 축 조회 인덱스, 시간 파티션 12개월 수동 선생성(§3.1·§3.2) | V1 |
+| V9 | `V9__operator_roles_delete_grant.sql` | `app_role`에 `operator_roles`·`idempotency_keys` DELETE 부여. 두 효과 테이블의 하드 DELETE 런타임 경로가 V5·V1 GRANT 누락으로 운영 롤에서 42501 실패하던 결함 교정 | V5, V1 |
+| V10+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -1314,6 +1317,14 @@ BEGIN
         GRANT SELECT ON ALL TABLES IN SCHEMA public TO harness_role;
     END IF;
 END $$;
+```
+
+위 블록은 V1 시점 상태다. `idempotency_keys`는 이후 `V9`가 DELETE를 추가로 부여한다.
+`OrderGateway.deleteOrphanKey`와 `gc-idem` cron이 하드 DELETE로 정리하는 효과 테이블이라
+V1의 SELECT·INSERT·UPDATE만으로는 운영 롤 경로에서 42501이 나기 때문이다. 관리 평면
+`operator_roles`(V5) DELETE도 같은 이유로 V9가 부여한다(효과 테이블, 소프트 삭제 아님).
+
+```sql
 
 -- SECURITY DEFINER 함수는 PUBLIC 기본 EXECUTE를 회수하고 명시 부여한다.
 REVOKE ALL ON FUNCTION post_ledger_transaction(VARCHAR, BIGINT, JSONB) FROM PUBLIC;
@@ -2395,3 +2406,19 @@ M3 게시판(커뮤니티) 스키마를 §9로 신설하고 마이그레이션 `
 | C3 | 권한 | app_role은 게시판 테이블 SELECT·INSERT·UPDATE + 좋아요 2테이블 DELETE. 원장·잔고 직접 DML 경계(§7)는 불변 |
 
 문서 헤더 버전을 v2.12로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.14 패치 반영 사항
+
+`app_role` GRANT 화이트리스트에서 하드 DELETE 런타임 경로 두 곳의 권한 누락을 교정했다.
+마이그레이션 `V9__operator_roles_delete_grant.sql`로 확정하고 §3 마이그레이션 표에 V7·V8·V9를
+명시했다. Testcontainers 슈퍼유저 접속이 baseline에서 결함을 가렸다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| G1 | operator_roles | `OperatorsController.changeRole` REVOKE가 하드 DELETE를 실행하나 V5:142가 SELECT·INSERT·UPDATE만 부여. 운영 롤에서 42501 상시 실패. V9가 DELETE 부여(효과 테이블, 소프트 삭제 아님) |
+| G2 | idempotency_keys | `OrderGateway.deleteOrphanKey`·`gc-idem` cron이 하드 DELETE로 정리하나 V1:800이 DELETE 누락. 동일 효과 테이블 원칙으로 V9가 DELETE 부여 |
+| G3 | 경계 불변 | 원장·잔고 직접 DML 경계(§9 REVOKE)와 append-only 저널 불변은 무접촉. 소프트 삭제 테이블(notices 등)은 UPDATE 유지, DELETE 미부여 |
+
+문서 헤더 버전을 v2.14로 순증(이전 패치 노트의 역사 서술은 원문 유지).

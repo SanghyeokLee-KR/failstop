@@ -6,7 +6,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -107,6 +111,77 @@ public class ApprovalService {
         jdbc.sql("UPDATE admin_approvals SET state = 'CONSUMED', consumed_at = now() WHERE id = ?")
                 .param(id).update();
         return id;
+    }
+
+    /**
+     * 승인 원장 조회 프로젝션(state 필터·상한 절단). approval_token은 bearer 시크릿이므로
+     * 프로젝션에서 제외한다(VIEWER+ 노출 시 임의 조회자가 소비해 반결탁 붕괴). issued_at DESC,
+     * id DESC 안정 정렬로 LIMIT 절단을 결정화한다.
+     */
+    public List<Map<String, Object>> list(String state, int limit) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT id, action, target, requester_operator_id, approver_operator_id,
+                       state, issued_at, expires_at, consumed_at
+                FROM admin_approvals WHERE 1 = 1
+                """);
+        List<Object> params = new ArrayList<>();
+        if (state != null && !state.isBlank()) {
+            sql.append(" AND state = ?");
+            params.add(state);
+        }
+        sql.append(" ORDER BY issued_at DESC, id DESC LIMIT ?");
+        params.add(limit);
+        return jdbc.sql(sql.toString())
+                .params(params)
+                .query((rs, n) -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("approval_id", rs.getLong("id"));
+                    m.put("action", rs.getString("action"));
+                    m.put("target", rs.getString("target"));
+                    m.put("requester_operator_id", rs.getString("requester_operator_id"));
+                    m.put("approver_operator_id", rs.getString("approver_operator_id"));
+                    m.put("state", rs.getString("state"));
+                    m.put("issued_at", timeOrNull(rs.getObject("issued_at", OffsetDateTime.class)));
+                    m.put("expires_at", timeOrNull(rs.getObject("expires_at", OffsetDateTime.class)));
+                    m.put("consumed_at", timeOrNull(rs.getObject("consumed_at", OffsetDateTime.class)));
+                    return m;
+                })
+                .list();
+    }
+
+    /**
+     * 승인 거부(consume과 대칭). ISSUED 행을 FOR UPDATE로 잠그고 호출 주체가 그 행의 approver
+     * 또는 requester일 때만 REJECTED로 전이한다(당사자만 거부, 임의 운영자 그리핑 차단).
+     * consumed_at은 건드리지 않는다. de-escalation이라 승인 토큰을 소각하지 않는다.
+     */
+    @Transactional
+    public void reject(String callerOperatorId, long id) {
+        var row = jdbc.sql("""
+                        SELECT state, requester_operator_id, approver_operator_id
+                        FROM admin_approvals WHERE id = ?
+                        FOR UPDATE
+                        """)
+                .param(id)
+                .query((rs, n) -> Map.<String, Object>of(
+                        "state", rs.getString("state"),
+                        "requester", rs.getString("requester_operator_id"),
+                        "approver", rs.getString("approver_operator_id")))
+                .optional()
+                .orElseThrow(() -> new ApiException(404, "not_found",
+                        "존재하지 않는 승인입니다.", Map.of("reason", "unknown_approval"), null));
+        if (!"ISSUED".equals(row.get("state"))) {
+            throw forbidden("이미 소각·거부·만료된 승인입니다.", "not_open");
+        }
+        if (!callerOperatorId.equals(row.get("requester"))
+                && !callerOperatorId.equals(row.get("approver"))) {
+            throw forbidden("승인 당사자만 거부할 수 있습니다.", "not_party");
+        }
+        jdbc.sql("UPDATE admin_approvals SET state = 'REJECTED' WHERE id = ?")
+                .param(id).update();
+    }
+
+    private static String timeOrNull(OffsetDateTime odt) {
+        return odt == null ? null : kr.exchange.api.common.ApiFormats.time(odt);
     }
 
     private static String norm(String target) {
