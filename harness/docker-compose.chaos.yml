@@ -46,7 +46,9 @@ services:
     image: *app-image
     container_name: chaos-api-1
     environment: &api-env
-      SPRING_PROFILES_ACTIVE: dev
+      # chaos-monkey 프로파일이 E8 assault 주입기(actuator /chaosmonkey)와 CB 프로브 평면을 로드한다.
+      # 격리 chaos 스택 서빙 노드 한정. 데모(dev,bots)·prod·봇 노드는 이 프로파일을 활성화하지 않는다.
+      SPRING_PROFILES_ACTIVE: dev,chaos-monkey
       SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-toxiproxy:15432/exchange
       SPRING_DATASOURCE_USERNAME: ${CHAOS_PG_USER:-exchange}
       SPRING_DATASOURCE_PASSWORD: ${CHAOS_PG_PASSWORD:-exchange}

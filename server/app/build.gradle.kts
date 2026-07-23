@@ -33,6 +33,11 @@ dependencies {
     implementation("org.bouncycastle:bcprov-jdk18on:1.80")
 
     implementation("io.github.resilience4j:resilience4j-spring-boot3:2.4.0")
+
+    // 카오스 매트릭스 E8 assault 주입기. 자동설정은 ChaosMonkeyCondition으로 chaos-monkey 프로파일
+    // (또는 LOAD_CHAOS_MONKEY 시스템 프로퍼티)에서만 로드된다. dev·prod·bots·데모는 프로파일 미활성이라
+    // 빈·actuator 엔드포인트가 전혀 뜨지 않는다(격리 chaos 스택 한정). SB BOM 미관리라 버전 핀.
+    implementation("de.codecentric:chaos-monkey-spring-boot:3.3.0")
     // RFC 8785(JCS) 정규화. 서명 canonical과 멱등 내용 비교의 공통 원천(API 설계 §3-3(b), §2-4).
     // SB BOM 미관리 항목이라 개별 핀 유지(버전 고정 원칙).
     implementation("io.github.erdtman:java-json-canonicalization:1.1")

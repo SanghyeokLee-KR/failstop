@@ -238,3 +238,63 @@ exchange:
         quote-size: "1"
         qty-step: "0.6"
         base-funding: "100000"
+
+---
+# 카오스 매트릭스 E8 프로파일. 격리 chaos 스택의 서빙 노드만 dev,chaos-monkey로 활성화한다.
+# 이 문서가 dev 문서 뒤에 와 exposure.include를 chaosmonkey 포함으로 재정의한다(last-active-wins).
+# chaos-monkey 자동설정은 ChaosMonkeyCondition으로 이 프로파일에서만 로드되고, 어셀트는 chaos.monkey.enabled
+# (기본 false, 스크립트가 /actuator/chaosmonkey/enable로 무장)와 watcher.beans 단일 대상으로 이중 게이트된다.
+spring:
+  config:
+    activate:
+      on-profile: chaos-monkey
+
+management:
+  endpoint:
+    chaosmonkey:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics, chaosmonkey
+
+chaos:
+  monkey:
+    # 기본 비무장. 로드는 프로파일로 되지만 어셀트 발사는 스크립트가 런타임에 enable한 뒤에만 일어난다.
+    enabled: false
+    watcher:
+      # 광역 스테레오타입 워처는 전부 끈다. 오직 프로브 다운스트림 빈 하나만 위빙해 assault를
+      # 게이트웨이 평면에 국한한다(주문·원장·엔진 write 경로 빈 미접촉).
+      controller: false
+      rest-controller: false
+      service: false
+      repository: false
+      component: false
+      rest-template: false
+      web-client: false
+      beans:
+        - chaosProbeDownstream
+    assaults:
+      # level 1 = 매 호출 주입(결정적 트립). 실제 지연·예외 값은 스크립트가 /assaults로 지정한다.
+      level: 1
+      latency-active: false
+      exceptions-active: false
+      latency-range-start: 1000
+      latency-range-end: 3000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      chaosProbe:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 500ms
+        wait-duration-in-open-state: 5s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        # health indicator를 끈다. CB open이 /actuator/health를 DOWN으로 만들어 컨테이너 헬스체크·
+        # 레디니스에 개입하는 것을 막는다(readiness 그룹은 readinessState 한정이지만 이중 방어).
+        register-health-indicator: false
