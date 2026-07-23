@@ -6,7 +6,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * 운영 기동 시크릿 fail-closed 검증(실서비스_준비도_감사 §시크릿·설정). require-secrets 게이트에서만
- * 활성화된다. 마스터키·페퍼·세션 시드 중 하나라도 blank면 기동을 중단한다.
+ * 활성화된다(RequireSecretsCondition: prod 프로파일 또는 dev 없는 admin 평면 활성). 마스터키·페퍼·
+ * 세션 시드 중 하나라도 blank면 기동을 중단한다.
  *
  * 근거: 미주입 시 세 클래스가 프로세스 한정 랜덤으로 폴백해 부팅은 성공하나 재기동 후 (1) 페퍼
  * 재생성으로 전 회원 해시 검증 불가, (2) 마스터키 재생성으로 api_keys 복호화·HMAC 인증 붕괴,

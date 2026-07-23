@@ -43,6 +43,10 @@ public class MarketMakerBot implements Runnable {
     // 재고 조회 주기(재호가 N회당 1회). 매 주기 서명 GET을 피해 읽기 부하를 억제한다.
     private static final int INV_READ_EVERY = 4;
     private static final long PARK_MS = 400;
+    // 직전 주기 발주가 전량 거부되면 다음 주기부터 지수 백오프로 파킹한다(2,4,...,64주기). 자금·재고
+    // 고갈 봇이 죽은 주문으로 공유 OPS 버킷을 무한 소모하는 것을 막는다.
+    private static final int DEAD_CYCLE_BACKOFF_MAX_CYCLES = 64;
+    private static final int DEAD_CYCLE_SHIFT_CAP = 6;
 
     private final String botId;
     private final String runNonce;
@@ -61,11 +65,16 @@ public class MarketMakerBot implements Runnable {
 
     // 레벨 가격틱 -> 외부 주문 id. 공통 레벨은 유지, 이탈·누락만 교체(r2).
     private final Map<Long, String> resting = new HashMap<>();
+    // 레벨 가격틱 -> 미확정 발주의 client_order_id. 모호·거부 응답 후 같은 레벨을 재발주할 때
+    // 같은 coid를 재사용해 서버가 멱등 처리하게 한다(중복·고아 주문 방지). 접수 확정 시 제거한다.
+    private final Map<Long, String> pendingCoid = new HashMap<>();
     private long fairTicks;
     private long lastQuotedFairTicks = Long.MIN_VALUE;
     private double lastImbalance;
     private long cycle;
     private long coidSeq;
+    private int consecutiveDeadCycles;
+    private long parkUntilCycle;
 
     public MarketMakerBot(String botId, String runNonce, BotApiClient client, long seed,
                           SimProperties props, BigDecimal tick, BigDecimal targetBase,
@@ -183,6 +192,11 @@ public class MarketMakerBot implements Runnable {
                     continue;
                 }
                 cycle++;
+                // 전량 거부 백오프 파킹. acquire 소비 전에 검사해 죽은 주기가 OPS를 태우지 않게 한다.
+                if (cycle < parkUntilCycle) {
+                    Thread.sleep(requoteMs);
+                    continue;
+                }
                 long anchorTicks = fetchAnchorTicks();
                 drift(mm, driftMult(), anchorTicks);
                 long halfTicks = spreadHalfTicks(mm.spreadTicks(), spreadMult());
@@ -202,7 +216,7 @@ public class MarketMakerBot implements Runnable {
 
                 LinkedHashMap<Long, Long> desired = buildLadder(effectiveFairTicks, halfTicks,
                         LEVEL_COUNT, LEVEL_SPACING_TICKS, K_DEPTH);
-                reconcile(desired, effectiveFairTicks, mm.quoteSize());
+                applyBackoff(reconcile(desired, effectiveFairTicks, mm.quoteSize()));
                 lastQuotedFairTicks = effectiveFairTicks;
 
                 if (fleet != null) {
@@ -340,23 +354,50 @@ public class MarketMakerBot implements Runnable {
         return lastImbalance;
     }
 
-    private void reconcile(Map<Long, Long> desired, long effectiveFairTicks, String quoteSize) {
+    private record ReconcileOutcome(int placeAttempts, int placeOk) {
+    }
+
+    private ReconcileOutcome reconcile(Map<Long, Long> desired, long effectiveFairTicks,
+                                       String quoteSize) {
+        // 소멸 레벨의 pending coid를 정리해 맵을 유계로 유지한다(더는 발주하지 않는 레벨).
+        pendingCoid.keySet().retainAll(desired.keySet());
         LadderDiff diff = ladderDiff(desired.keySet(), resting.keySet());
         for (Long priceTicks : diff.toCancel()) {
             if (!governor.acquire(running)) {
-                return;
+                return new ReconcileOutcome(0, 0);
             }
             String orderId = resting.remove(priceTicks);
             if (orderId != null) {
                 client.cancelOrder(orderId);
             }
         }
+        int attempts = 0;
+        int ok = 0;
         for (Long priceTicks : diff.toPlace()) {
             if (!governor.acquire(running)) {
-                return;
+                break;
             }
             String side = priceTicks < effectiveFairTicks ? "bid" : "ask";
-            place(side, priceTicks, desired.get(priceTicks), quoteSize);
+            attempts++;
+            if (place(side, priceTicks, desired.get(priceTicks), quoteSize)) {
+                ok++;
+            }
+        }
+        return new ReconcileOutcome(attempts, ok);
+    }
+
+    /**
+     * 발주 결과로 백오프 상태를 갱신한다. 승인 발주가 하나라도 있으면 리셋하고, 발주를 시도했는데
+     * 전량 거부면 지수 백오프로 다음 주기부터 파킹한다(2,4,...,64주기 상한). 발주 시도 자체가
+     * 없었던 주기(유지·취소만)는 상태를 바꾸지 않는다.
+     */
+    private void applyBackoff(ReconcileOutcome outcome) {
+        if (outcome.placeOk() > 0) {
+            consecutiveDeadCycles = 0;
+        } else if (outcome.placeAttempts() > 0) {
+            consecutiveDeadCycles = Math.min(consecutiveDeadCycles + 1, DEAD_CYCLE_SHIFT_CAP);
+            long backoff = Math.min(DEAD_CYCLE_BACKOFF_MAX_CYCLES, 1L << consecutiveDeadCycles);
+            parkUntilCycle = cycle + backoff;
         }
     }
 
@@ -369,26 +410,55 @@ public class MarketMakerBot implements Runnable {
         return runNonce + "-" + botId + "-" + (++coidSeq);
     }
 
-    private void place(String side, long priceTicks, long quoteMult, String quoteSize) {
+    /**
+     * 발주하고 유효 접수 여부를 반환한다. 2xx라도 주문 status가 REJECTED면(거부 주문 replay)
+     * 유동성 공급 실패이므로 false로 집계한다. 그렇지 않으면 replay-거부 반복이 매 주기 백오프를
+     * 리셋해 파킹이 성립하지 않는다. 모호 응답(타임아웃·5xx)은 pendingCoid를 유지해 재발주가 멱등.
+     */
+    private boolean place(String side, long priceTicks, long quoteMult, String quoteSize) {
         String price = tick.multiply(BigDecimal.valueOf(priceTicks)).toPlainString();
         String volume = new BigDecimal(quoteSize)
                 .multiply(BigDecimal.valueOf(quoteMult)).toPlainString();
+        // 같은 레벨의 미확정 발주는 같은 coid를 재사용한다. 타임아웃(-1)·5xx 등 모호 응답에서 서버가
+        // 실제로 접수했어도 새 coid로 재발주하면 (user, client_order_id) 멱등키가 달라 중복 주문과
+        // 추적 불가 고아가 생긴다(CLAUDE.md: 재시도는 같은 키를 재사용한다).
+        String coid = pendingCoid.computeIfAbsent(priceTicks, k -> coid());
         String body = "{\"market\":\"" + props.market() + "\",\"side\":\"" + side
                 + "\",\"ord_type\":\"limit\",\"price\":\"" + price + "\",\"volume\":\"" + volume
-                + "\",\"client_order_id\":\"" + coid() + "\"}";
+                + "\",\"client_order_id\":\"" + coid + "\"}";
         BotApiClient.Response response = client.placeOrder(body);
         if (response.status() == 201 || response.status() == 200) {
+            // 접수 확정. coid 소비. 이후 같은 레벨 재발주는 새 주문이라 새 coid를 쓴다.
+            pendingCoid.remove(priceTicks);
+            boolean rejected = false;
             try {
                 JsonNode order = mapper.readTree(response.body());
                 String status = order.path("status").asText();
+                rejected = "REJECTED".equals(status);
                 if ("OPEN".equals(status) || "PARTIAL".equals(status)) {
                     resting.put(priceTicks, order.path("id").asText());
                 }
             } catch (Exception e) {
                 log.debug("{} 주문 응답 파싱 실패: {}", botId, e.toString());
             }
-        } else {
-            log.debug("{} 호가 거부 {}: {}", botId, response.status(), response.body());
+            return !rejected;
+        }
+        if (response.status() == 409 && "duplicate_client_order_id".equals(errorName(response))) {
+            // 서버 멱등 계약(requireSameContent)상 이 coid는 다른 내용의 주문에 이미 소비돼
+            // 어떤 재시도도 성공할 수 없는 죽은 키다. 버리고 다음 시도는 새 coid로 낸다.
+            // 같은 409라도 order_in_progress는 재시도가 replay로 수렴하므로 유지한다.
+            pendingCoid.remove(priceTicks);
+        }
+        log.debug("{} 호가 거부 {}: {}", botId, response.status(), response.body());
+        return false;
+    }
+
+    /** 표준 에러 포맷(API 설계 §2-3)의 error.name. 파싱 불가면 빈 문자열. */
+    private String errorName(BotApiClient.Response response) {
+        try {
+            return mapper.readTree(response.body()).path("error").path("name").asText("");
+        } catch (Exception e) {
+            return "";
         }
     }
 
