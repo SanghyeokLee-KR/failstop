@@ -10,7 +10,9 @@ $Global:CHAOS = @{
     Api1Port    = 18080
     Api2Port    = 28080
     LbPort      = 58080
-    ToxiUrl     = 'http://localhost:58474'
+    # 기본 58474. 호스트가 이 포트를 WinNAT 동적 예외로 예약해 게시 불가일 때(Windows) CHAOS_TOXI_URL로
+    # 재지정(예: 포트 리맵 오버라이드). env 미설정 시 기존 동작 불변.
+    ToxiUrl     = $(if ($env:CHAOS_TOXI_URL) { $env:CHAOS_TOXI_URL } else { 'http://localhost:58474' })
     PgUser      = 'exchange'
     PgDb        = 'exchange'
 }
@@ -35,7 +37,9 @@ function Get-LeaseTtlSec {
 function Read-EnvFile {
     param([string] $Path)
     $map = @{}
-    Get-Content $Path | ForEach-Object {
+    # -Encoding UTF8 명시: config는 BOM 없는 UTF-8이다. 미지정 시 Windows PowerShell 5.1이 ANSI(cp949)로
+    # 읽어 한글 인라인 주석의 더블바이트가 줄 경계를 삼켜 특정 키가 통째로 누락된다(pwsh는 무관).
+    Get-Content $Path -Encoding UTF8 | ForEach-Object {
         $line = $_.Trim()
         if ($line -and -not $line.StartsWith('#') -and $line.Contains('=')) {
             $i = $line.IndexOf('=')
@@ -97,19 +101,23 @@ function Record-Failover {
         -ContentType 'application/json' -Body $json -TimeoutSec 10
 }
 
+# Toxiproxy 2.12.0은 DNS 리바인딩 방어로 User-Agent에 'Mozilla'가 있으면 거부(User agent not allowed).
+# PowerShell Invoke-RestMethod 기본 UA가 Mozilla라 전부 비브라우저 UA로 지정한다(5.1/7 공통).
+$Global:CHAOS_UA = 'chaos-harness'
+
 function Add-Toxic {
     param([string] $Proxy, [string] $Name, [string] $Type, [hashtable] $Attributes)
     $body = @{ name = $Name; type = $Type; stream = 'downstream'; attributes = $Attributes } | ConvertTo-Json
     Invoke-RestMethod -Uri "$($Global:CHAOS.ToxiUrl)/proxies/$Proxy/toxics" -Method Post `
-        -ContentType 'application/json' -Body $body -TimeoutSec 10 | Out-Null
+        -ContentType 'application/json' -Body $body -UserAgent $Global:CHAOS_UA -TimeoutSec 10 | Out-Null
 }
 
 function Remove-AllToxics {
     param([string] $Proxy)
     try {
-        $toxics = Invoke-RestMethod -Uri "$($Global:CHAOS.ToxiUrl)/proxies/$Proxy/toxics" -TimeoutSec 10
+        $toxics = Invoke-RestMethod -Uri "$($Global:CHAOS.ToxiUrl)/proxies/$Proxy/toxics" -UserAgent $Global:CHAOS_UA -TimeoutSec 10
         foreach ($t in $toxics) {
-            Invoke-RestMethod -Uri "$($Global:CHAOS.ToxiUrl)/proxies/$Proxy/toxics/$($t.name)" -Method Delete | Out-Null
+            Invoke-RestMethod -Uri "$($Global:CHAOS.ToxiUrl)/proxies/$Proxy/toxics/$($t.name)" -Method Delete -UserAgent $Global:CHAOS_UA | Out-Null
         }
     } catch { }
 }
@@ -222,4 +230,150 @@ function Complete-FailoverExperiment {
     Write-Host '────────────────────────────────────────'
     Invoke-Psql "SELECT id, experiment_id, old_epoch, new_epoch, rto_seconds, rpo_records, verdict FROM harness.failover_runs ORDER BY id DESC LIMIT 3"
     return $verdict
+}
+
+# ── 확장 유틸(E1·E3·E5·E7·E8·E9 전용, 추가만). 레거시 E1~E3 경로는 위 함수만 쓴다. ──
+
+# 엔드포인트 지연 표본(ms) + 실패 카운트. DB 경유 read를 반복 GET한다. E1은 리더 pg 프록시
+# 지연 주입의 p99 상승·복귀를, 실패 표본은 오류율을 준다. status는 leader_lease를 읽어 DB를 탄다.
+function Measure-Latency {
+    param([int] $Port, [string] $Path = '/harness/v1/status', [int] $Count = 100, [int] $GapMs = 50)
+    $samples = New-Object System.Collections.Generic.List[double]
+    $errors = 0
+    for ($i = 0; $i -lt $Count; $i++) {
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        try {
+            Invoke-RestMethod -Uri "http://localhost:$Port$Path" -TimeoutSec 10 | Out-Null
+            $sw.Stop(); $samples.Add($sw.Elapsed.TotalMilliseconds)
+        } catch {
+            $sw.Stop(); $errors++
+        }
+        if ($GapMs -gt 0) { Start-Sleep -Milliseconds $GapMs }
+    }
+    return [pscustomobject]@{ Samples = $samples.ToArray(); Errors = $errors; Total = $Count }
+}
+
+# nearest-rank 백분위수(ms). 표본 부재 시 $null. 정렬은 배열 강제(@)로 단일 표본 스칼라화 방지.
+function Get-Percentile {
+    param([double[]] $Values, [double] $P = 99)
+    if (-not $Values -or $Values.Count -eq 0) { return $null }
+    $sorted = @($Values | Sort-Object)
+    $rank = [int][math]::Ceiling(($P / 100.0) * $sorted.Count)
+    if ($rank -lt 1) { $rank = 1 }
+    if ($rank -gt $sorted.Count) { $rank = $sorted.Count }
+    return [double] $sorted[$rank - 1]
+}
+
+# 컨테이너 실행/존재 여부. E3 redis 전제 검사, E5/E7 대상 확인용. 이름 정확 일치만 참.
+function Test-ContainerRunning {
+    param([string] $Name)
+    $names = & docker ps --format '{{.Names}}' 2>$null
+    return ($names -contains $Name)
+}
+function Test-ContainerExists {
+    param([string] $Name)
+    $names = & docker ps -a --format '{{.Names}}' 2>$null
+    return ($names -contains $Name)
+}
+
+# toxiproxy에 특정 프록시가 배선돼 있는지. E3 redis 프록시 전제 검사용.
+function Test-ToxiproxyProxy {
+    param([string] $Name)
+    try {
+        $proxies = Invoke-RestMethod -Uri "$($Global:CHAOS.ToxiUrl)/proxies" -UserAgent $Global:CHAOS_UA -TimeoutSec 10
+        return ($null -ne $proxies.$Name)
+    } catch { return $false }
+}
+
+# 저널 워터마크. 주입 직후 max(seq)를 잡아 이후 구 epoch append(스테일 쓰기)를 시간 축으로 격리한다.
+function Get-CommandWatermark { [long](Get-Scalar "SELECT COALESCE(max(seq),0) FROM command_journal") }
+function Get-EventWatermark   { [long](Get-Scalar "SELECT COALESCE(max(event_seq),0) FROM event_journal") }
+
+# command_journal에 명령 축 fencing 컬럼(fencing_token)이 있는지(실스키마 대조). 실DDL 정본:
+# command_journal.fencing_token(= epoch 값), event_journal.fencing_epoch. 정본 §4-1 C22 주석은
+# 이를 command_journal.fencing_epoch로 오기(§5-1 T5는 fencing_token으로 정확). 실스키마가 권위다.
+function Test-CommandFencingColumn {
+    $v = Invoke-Psql "SELECT count(*) FROM information_schema.columns WHERE table_name='command_journal' AND column_name='fencing_token'"
+    return ([decimal]$v -gt 0)
+}
+
+# 스테일 쓰기 수: 워터마크 이후 구 epoch로 append된 저널 행. split-brain 반증(E5)·좀비 리더(E7)의
+# 기계 판정. 명령 축(command_journal.fencing_token)이 1차 쓰기 경로라 존재 시 합산, event 축
+# (event_journal.fencing_epoch)은 항상. fencing_token/fencing_epoch 값 = 리더 epoch(실데이터 확인).
+function Get-StaleWriteCount {
+    param([long] $CmdWatermark, [long] $EvtWatermark, [long] $OldEpoch, [bool] $CmdHasFencing)
+    $n = 0
+    if ($CmdHasFencing) {
+        $n += [long](Get-Scalar "SELECT count(*) FROM command_journal WHERE seq > $CmdWatermark AND fencing_token = $OldEpoch")
+    }
+    $n += [long](Get-Scalar "SELECT count(*) FROM event_journal WHERE event_seq > $EvtWatermark AND fencing_epoch = $OldEpoch")
+    return $n
+}
+
+# 승격 후 최초 신규 TRADE의 engine_ts(§5-1 T5). T0 이후·신 epoch 필터. 커밋 가시화 지연과 무관한
+# 체결 재개 시점. 반환: UtcDateTime 또는 $null. Complete-FailoverExperiment와 동일 술어를 인라인용으로 노출.
+function Wait-FirstTradeAfter {
+    param([long] $NewEpoch, [datetime] $T0, [int] $TimeoutSec)
+    $t0Iso = $T0.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fff') + 'Z'
+    $sql = "SELECT min(created_at) AT TIME ZONE 'UTC' " +
+        "FROM event_journal WHERE event_type='TRADE' AND fencing_epoch=$NewEpoch AND created_at > '$t0Iso'"
+    Wait-For { -not [string]::IsNullOrWhiteSpace((Invoke-Psql $sql)) } -TimeoutSec $TimeoutSec -PollSec 0.5 | Out-Null
+    $raw = Invoke-Psql $sql
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
+    return ([datetimeoffset]($raw.Replace(' ', 'T') + 'Z')).UtcDateTime
+}
+
+# 현 리더 컨테이너 판별. 자기 인스턴스 id 노출 엔드포인트가 없어(status는 lease.holder만 반환)
+# 활성(lease alive) holder UUID를 각 노드 로그에서 찾는다. holder UUID는 소유 노드 로그에만
+# 찍히므로 매칭되는 컨테이너가 현 리더다. ASCII UUID만 대조해 콘솔 인코딩 무관(승격/상실 한글
+# 매칭은 5.1 OEM 코드페이지에서 깨져 신뢰 불가). 실패·리더 부재 시 $null.
+# 용도: E5/E7이 팔로워를 잘못 대상 삼아 페일오버 없이 공허 FAIL 나는 것을 막는다(README 리허설 규약).
+function Get-LeaderContainer {
+    param([string[]] $Candidates = @('chaos-api-1', 'chaos-api-2'))
+    $holder = Invoke-Psql "SELECT holder FROM leader_lease WHERE resource='matching-engine' AND lease_until > now()"
+    if ([string]::IsNullOrWhiteSpace($holder)) { return $null }
+    foreach ($c in $Candidates) {
+        # cmd /c로 stderr를 nul에 버려 PowerShell이 네이티브 stderr(JAVA_TOOL_OPTIONS)를
+        # NativeCommandError로 승격시키는 것을 원천 차단한다(2>$null도 Stop에서 터짐, 공용 규약).
+        $lines = & cmd /c "docker logs $c 2>nul" | Select-String -SimpleMatch $holder
+        if ($lines) { return $c }
+    }
+    return $null
+}
+
+# /actuator/prometheus 텍스트에서 메트릭 1개(첫 매치의 캡처그룹 1)를 뽑는다. 부재 시 $null(옵션 지표).
+function Get-AppMetric {
+    param([int] $Port, [string] $Pattern)
+    try {
+        $text = Invoke-RestMethod -Uri "http://localhost:$Port/actuator/prometheus" -TimeoutSec 5
+    } catch { return $null }
+    $m = [regex]::Match(($text | Out-String), $Pattern)
+    if ($m.Success -and $m.Groups.Count -gt 1) { return $m.Groups[1].Value }
+    return $null
+}
+
+# 실험 무결성 판정. CONDITIONAL 스코프 체크(C13a 물질화·C16 ACK·C19 오더북 비교차)를 제외한 나머지가
+# 전부 0행이면 clean. 이 세 체크는 정지 시점/실험 한정(§4-2 ④·§4-3 각주)이라 라이브·부하·지연 중
+# 비동기 창·프로젝션 지연으로 순간 위반해 상시 무결성 판정을 오염시킨다. 권위 run의 criticalClean은
+# 이들을 포함하므로 실험 게이팅에는 이 함수로 ALWAYS 스코프만 본다(C16은 이 스택에서 빈 테이블 0).
+function Test-ExperimentIntegrity {
+    param($Run)
+    $conditional = @('C13A_ORDER_MATERIALIZED', 'C16_ACK_JOURNALED', 'C19_ORDERBOOK_NONCROSS')
+    foreach ($c in $Run.checks) {
+        if ($conditional -contains $c.checkName) { continue }
+        if ([long]$c.violatedRows -ne 0) { return $false }
+    }
+    return $true
+}
+
+# 비페일오버·SKIP 실험의 verdict JSON을 표준 형식으로 stdout에 낸다. failover_runs 적재는 안 한다
+# (epoch 변화 없는 실험을 페일오버 행으로 남기면 증거가 오염된다). E1·E3·E8·E9가 쓴다.
+function Write-Verdict {
+    param([string] $ExperimentId, [string] $Verdict, [hashtable] $Metrics)
+    $obj = [ordered]@{ experimentId = $ExperimentId; verdict = $Verdict; ts = (Now-Iso) }
+    foreach ($k in $Metrics.Keys) { $obj[$k] = $Metrics[$k] }
+    Write-Host ''
+    Write-Host '── verdict(JSON) ───────────────────────' -ForegroundColor Green
+    ([pscustomobject]$obj) | ConvertTo-Json -Depth 6 -Compress | Write-Host
+    Write-Host '────────────────────────────────────────'
 }
