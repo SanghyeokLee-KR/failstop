@@ -450,8 +450,8 @@ class AdminPlaneIntegrationTest {
         // 이미 존재하는 op-01 재생성 -> 409. 승인은 같은 트랜잭션이라 롤백돼 ISSUED 유지.
         String createToken = issueToken("op-01", "operators.create", "op-01", "op-02", op02);
         ResponseEntity<String> conflict = adminPost("/admin/v1/operators",
-                "{\"operator_id\":\"op-01\",\"display_name\":\"중복\",\"approval_token\":\""
-                        + createToken + "\"}", "op-01", op01);
+                "{\"operator_id\":\"op-01\",\"new_operator_id\":\"op-01\",\"display_name\":\"중복\","
+                        + "\"approval_token\":\"" + createToken + "\"}", "op-01", op01);
         assertEquals(409, conflict.getStatusCode().value(), conflict.getBody());
         assertEquals("ISSUED", jdbc.sql("SELECT state FROM admin_approvals WHERE approval_token = ?")
                 .param(createToken).query(String.class).single());

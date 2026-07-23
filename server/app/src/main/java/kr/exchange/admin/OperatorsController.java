@@ -32,7 +32,9 @@ public class OperatorsController {
     public record RoleBody(String action, String role, String approval_token) {
     }
 
-    public record CreateBody(String operator_id, String display_name, String approval_token) {
+    // operator_id는 수행자 공통 필드(§3-6), 생성 대상 신원은 new_operator_id로 분리한다.
+    public record CreateBody(String operator_id, String new_operator_id, String display_name,
+                             String approval_token) {
     }
 
     public record StatusBody(String status, String approval_token) {
@@ -65,8 +67,8 @@ public class OperatorsController {
     }
 
     /**
-     * 운영자 생성(파괴 액션, SUPER + 2인 승인). operator_id는 mTLS CN 유래 신원이며 여기서
-     * 레지스트리에 등록만 한다. 역할 부여는 별도 승인 경로(roles). 중복 신원은 409.
+     * 운영자 생성(파괴 액션, SUPER + 2인 승인). 생성 대상 신원은 new_operator_id다. 여기서는
+     * 레지스트리 등록만 하고 역할은 부여하지 않는다(부여는 roles 별도 승인 경로). 중복 신원은 409.
      */
     @PostMapping
     @Transactional
@@ -74,11 +76,12 @@ public class OperatorsController {
             @RequestBody(required = false) CreateBody body, HttpServletRequest request) {
         AdminPrincipal principal = AdminRequestContext.principal(request);
         principal.require(AdminRole.SUPER);
-        if (body == null || body.operator_id() == null || body.operator_id().isBlank()
+        if (body == null || body.new_operator_id() == null || body.new_operator_id().isBlank()
                 || body.display_name() == null || body.display_name().isBlank()) {
-            throw new ApiException(400, "invalid_parameter", "operator_id와 display_name이 필요합니다.");
+            throw new ApiException(400, "invalid_parameter",
+                    "new_operator_id와 display_name이 필요합니다.");
         }
-        String operatorId = body.operator_id().trim();
+        String operatorId = body.new_operator_id().trim();
         long approvalId = approvals.consume(principal.operatorId(), body.approval_token(),
                 "operators.create", operatorId);
         // 승인 소각과 같은 트랜잭션에서 중복을 검사해 실패 시 토큰이 롤백·재사용 가능하게 한다.

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,7 +29,10 @@ import java.util.UUID;
 @ConditionalOnProperty(prefix = "exchange.admin", name = "enabled", havingValue = "true")
 public class ChaosAdminController {
 
-    public record ChaosBody(String approval_token, String target, Map<String, Object> params) {
+    // 바인딩 target을 엔드포인트 의미 필드에서 취한다(§3-6 확정표). kill-node=node,
+    // network=name, app=assault. 균일 target 단일 필드는 발급 target과 어긋나 403을 유발했다.
+    public record ChaosBody(String approval_token, String node, String method, Boolean expect_failover,
+                            String name, String type, String assault) {
     }
 
     private static final List<Map<String, Object>> CATALOG = List.of(
@@ -95,21 +99,21 @@ public class ChaosAdminController {
     @Transactional
     public Map<String, Object> killNode(@RequestBody(required = false) ChaosBody body,
                                         HttpServletRequest request) {
-        return inject("chaos.kill_node", body, request);
+        return inject("chaos.kill_node", body == null ? null : body.node(), body, request);
     }
 
     @PostMapping("/network")
     @Transactional
     public Map<String, Object> network(@RequestBody(required = false) ChaosBody body,
                                        HttpServletRequest request) {
-        return inject("chaos.network", body, request);
+        return inject("chaos.network", body == null ? null : body.name(), body, request);
     }
 
     @PostMapping("/app")
     @Transactional
     public Map<String, Object> app(@RequestBody(required = false) ChaosBody body,
                                    HttpServletRequest request) {
-        return inject("chaos.app", body, request);
+        return inject("chaos.app", body == null ? null : body.assault(), body, request);
     }
 
     @DeleteMapping("/network/{toxic}")
@@ -126,19 +130,37 @@ public class ChaosAdminController {
         return Map.of("schema_version", "1.0", "toxic", toxic, "approval_id", approvalId);
     }
 
-    private Map<String, Object> inject(String action, ChaosBody body, HttpServletRequest request) {
+    private Map<String, Object> inject(String action, String target, ChaosBody body,
+                                       HttpServletRequest request) {
         AdminPrincipal principal = AdminRequestContext.principal(request);
         principal.require(AdminRole.CHAOS_OPS);
-        String target = body == null || body.target() == null ? "" : body.target();
+        String t = target == null ? "" : target;
         String token = body == null ? null : body.approval_token();
-        long approvalId = approvals.consume(principal.operatorId(), token, action, target);
+        long approvalId = approvals.consume(principal.operatorId(), token, action, t);
         String experimentId = UUID.randomUUID().toString();
-        audit.record(principal.operatorId(), action, target,
+        audit.record(principal.operatorId(), action, t,
                 AdminRequestContext.requestId(request), approvalId, "OK",
-                Map.of("experiment_id", experimentId,
-                        "params", body == null || body.params() == null ? Map.of() : body.params()));
-        return Map.of("schema_version", "1.0", "action", action, "target", target,
+                Map.of("experiment_id", experimentId, "params", chaosParams(body)));
+        return Map.of("schema_version", "1.0", "action", action, "target", t,
                 "experiment_id", experimentId, "approval_id", approvalId);
+    }
+
+    // 의미 필드 중 target 외 서술 필드만 감사 detail에 남긴다(균일 params 맵 폐기 후 관측 보존).
+    private static Map<String, Object> chaosParams(ChaosBody body) {
+        if (body == null) {
+            return Map.of();
+        }
+        Map<String, Object> params = new LinkedHashMap<>();
+        if (body.method() != null) {
+            params.put("method", body.method());
+        }
+        if (body.expect_failover() != null) {
+            params.put("expect_failover", body.expect_failover());
+        }
+        if (body.type() != null) {
+            params.put("type", body.type());
+        }
+        return params;
     }
 
     private static Map<String, Object> catalog(String id, String label, String action) {

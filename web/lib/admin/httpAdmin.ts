@@ -93,9 +93,14 @@ function wireBinding(payload: ApprovalPayload): { action: string; target: string
     case "operators.create":
       return { action: "operators.create", target: payload.operatorId };
     case "operators.status":
-      return { action: "operators.status", target: payload.operatorId };
+      // 전이 스코프까지 바인딩한다. bare operatorId면 상태 토큰이 빠져 backend 복합 target과 어긋난다
+      return { action: "operators.status", target: `${payload.operatorId}:${payload.status.toUpperCase()}` };
     case "operators.roles":
-      return { action: "operators.roles", target: payload.operatorId };
+      // 신원+방향+역할까지 바인딩해 같은 토큰의 다른 역할 변경 재사용을 차단한다
+      return {
+        action: "operators.roles",
+        target: `${payload.operatorId}:${payload.grant.toUpperCase()}:${payload.role.toUpperCase()}`,
+      };
   }
 }
 

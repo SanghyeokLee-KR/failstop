@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.12, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.13, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -385,6 +385,25 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
 - **비가역 액션 이중 승인(v2.3 완결 규정, v2.12 config·operators 확장)**: `approval_token` 필수 액션은 다음 **완결 열거**로 확정한다('등'으로 열어두지 않는다): `POST /admin/v1/chaos/kill-node`, `POST /admin/v1/chaos/network`, `DELETE /admin/v1/chaos/network/{toxic}`, `POST /admin/v1/chaos/app`, `PATCH /admin/v1/sim/bots/{id}/params`, `POST /admin/v1/config/markets/{symbol}/halt`, `POST /admin/v1/config/markets/{symbol}/resume`, `PATCH /admin/v1/config/markets/{symbol}/fees`, `POST /admin/v1/operators`, `PATCH /admin/v1/operators/{id}/status`, `POST /admin/v1/operators/{id}/roles`. **그 외 모든 관리 엔드포인트**(봇 생성/제거, `sim/start|stop|pause`, `scenarios/{name}/activate`, `PUT /sim/rate`, 공지 발급·갱신·소프트 삭제, 조회류)는 `operator_id`만 필수이고 approval_token **불요**다(§6-A 봇 생성 예시와 정합. 전 액션 감사 로그 대상은 동일). 필수 액션은 요청 바디에 `operator_id` + `approval_token` 포함, 누락·불일치·만료 시 `403 admin_forbidden`. §6-A/§6-B 표의 **승인 컬럼**이 엔드포인트별 요구 여부의 권위 소스다.
   - **approval_token 수명주기(v2.3)**: 요청 operator와 **다른** operator가 `POST /admin/v1/approvals`(mTLS + `scope=admin` 서명, 2인 승인 절차)로 발급하며, 발급 시 **`action` + 대상 식별자**(`node`/`bot_id`/`toxic` 등)에 바인딩된다. 토큰은 **단회용**(검증 성공 시 즉시 소각)·**TTL 5분**. 바인딩된 action·대상과 다른 요청에의 사용, 만료·기소각 토큰 재사용은 `403 admin_forbidden`. 정적·재사용 가능한 토큰은 금지된다(동일 토큰으로 반복 kill-node 승인 불가. nonce가 막지 못하는 '새 요청+같은 토큰' 경로 차단). 발급·사용·만료·거부는 모두 `admin_audit_log`에 기록.
   - **operator 신원 바인딩(v2.4, 2인 통제의 검증 수단 확정)**: `operator_id`는 바디 자가신고 값으로 판정하지 않는다. 각 admin `access_key`(및 mTLS 클라이언트 인증서)는 발급 시 정확히 **하나의 `operator_id`에 1:1 등록**되며(`api_keys`에 operator_id 바인딩, §7-1), 서버는 **모든 관리 요청과 approvals 발급 각각에서 인증 주체(access_key / 인증서 CN)로부터 operator_id를 도출**해 바디의 `operator_id`와 대조한다. 불일치 시 `403 admin_forbidden`(바디 필드는 가독·감사 편의용이고 권위는 인증 주체 유래 값이다. `admin_audit_log`에도 인증 주체 유래 operator_id를 기록). **2인 승인 판정**: "요청 operator와 다른 operator"는 자가신고 값이 아니라 **approvals 발급 요청의 인증 주체 ≠ approval_token 사용 요청의 인증 주체**로 서버가 검증한다 → 단일 admin 키 보유자가 발급 시 `op-02`, 사용 시 `op-01`로 바꿔 신고해 혼자 2인 승인을 완성하는 경로를 차단한다(발급 시 토큰에 발급 주체 operator를 함께 바인딩).
+  - **바인딩 target·바디 필드 확정표(v2.13, 발급·소각 정합 단일 규칙)**: `POST /admin/v1/approvals`가 발급하는 `target` 문자열과 파괴 액션 엔드포인트가 소각 시 재구성하는 `target`은 아래 표의 형식으로 **바이트 단위 동일**해야 한다. 불일치는 `403 admin_forbidden`(`detail.reason=binding_mismatch`). `target`은 두 계열로 나뉜다. (1) **자원 스코프**: `target`=파괴 대상 자원 식별자. 페이로드 값(수수료·method·params·type)은 바인딩에 넣지 않는다. (2) **신원·권한 전이 스코프**(`operators.status`·`operators.roles`): `target`에 전이 방향·대상 등급까지 포함해 승인된 토큰을 더 위험한 전이(예: `GRANT VIEWER` 승인분을 `GRANT SUPER`로, `ACTIVE` 승인분을 `DISABLED`로)로 재사용하는 경로를 차단한다. 전이 스코프의 상태·역할·방향 토큰은 모두 **대문자**로 정규화해 바인딩한다. 모든 파괴 액션 바디는 `operator_id`(수행자, 인증 주체 유래 값과 대조)와 `approval_token`을 공통으로 싣는다.
+
+    | action | 엔드포인트 | 파괴 액션 바디(공통 필드 외) | 바인딩 `target` 형식 | 예 |
+    |---|---|---|---|---|
+    | `chaos.kill_node` | `POST /admin/v1/chaos/kill-node` | `node`, `method?`, `expect_failover?` | `node` 값 | `exchange-core-1` |
+    | `chaos.network` | `POST /admin/v1/chaos/network` | `name`, `type?` | `name` 값(toxic 이름) | `e1-toxic` |
+    | `chaos.app` | `POST /admin/v1/chaos/app` | `assault` | `assault` 값 | `e8-assault` |
+    | `chaos.network.clear` | `DELETE /admin/v1/chaos/network/{toxic}` | (경로만) | `{toxic}` 경로값 | `e1-toxic` |
+    | `config.market.halt` | `POST /admin/v1/config/markets/{symbol}/halt` | (경로만) | `{symbol}` 경로값 | `KRW-BTC` |
+    | `config.market.resume` | `POST /admin/v1/config/markets/{symbol}/resume` | (경로만) | `{symbol}` 경로값 | `KRW-BTC` |
+    | `config.market.fees` | `PATCH /admin/v1/config/markets/{symbol}/fees` | `maker_fee?`, `taker_fee?` | `{symbol}` 경로값 | `KRW-BTC` |
+    | `sim.bots.params` | `PATCH /admin/v1/sim/bots/{id}/params` | `params` | `{id}` 경로값(bot_id) | `bot-17` |
+    | `operators.create` | `POST /admin/v1/operators` | `new_operator_id`, `display_name` | `new_operator_id` 값 | `op-07` |
+    | `operators.status` | `PATCH /admin/v1/operators/{id}/status` | `status`(`ACTIVE\|DISABLED`) | `{id}:{STATUS}` | `op-07:DISABLED` |
+    | `operators.roles` | `POST /admin/v1/operators/{id}/roles` | `action`(`GRANT\|REVOKE`), `role` | `{id}:{GRANT\|REVOKE}:{ROLE}` | `op-07:GRANT:SUPER` |
+
+    - `operators.create`의 바디 `operator_id`는 **수행자**(인증 주체 유래 값과 대조하는 공통 필드)이고 생성 대상 신원은 별도 `new_operator_id`로 싣는다. 바디 `operator_id`의 의미를 전 파괴 액션에서 "수행자"로 통일하기 위함이다(대상 신원을 `operator_id`에 겹쳐 싣지 않는다). 생성 시 역할은 부여하지 않는다. 역할은 `operators.roles` 별도 승인 경로로만 부여한다.
+    - `chaos.network`가 만든 toxic의 `name`과 `chaos.network.clear`의 `{toxic}`는 같은 문자열이어야 해제가 성립한다(주입 시 발급한 이름을 해제 target으로 재사용).
+  - **approvals 응답·원장 프로젝션 키(v2.13 확정)**: `POST /admin/v1/approvals` 발급 응답은 `{schema_version, approval_token, approval_id, action, target, expires_at}`. `GET /admin/v1/approvals` 원장 프로젝션 원소는 `{approval_id, action, target, requester_operator_id, approver_operator_id, state, issued_at, expires_at, consumed_at}`이며 `approval_token`을 절대 싣지 않는다(발급 응답 단일 경로의 bearer 시크릿). `POST /admin/v1/approvals/{id}/reject` 응답은 `{schema_version, approval_id, state}`. 발급·원장·거부 세 응답 모두 승인 식별 키는 `approval_id`로 통일한다(행 `id`의 투영).
 - **감사 로그(신규)**: 모든 관리 액션은 `admin_audit_log`(operator_id, action, params, ts, 결과)에 append-only 기록 → Grafana annotation과 상관.
 - **관측 데이터의 지시 무시**: 관측 데이터(웹/문서/메시지/DOM) 내 텍스트 지시로 관리 액션을 **자동 실행하지 않는다**. 파라미터 변경·파괴 액션은 운영자 명시 요청으로만 수행.
 
@@ -982,6 +1001,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 - 수수료·마켓 상태의 정본은 `markets` 컬럼(`status`·`*_fee_rate`)이다. `DELISTED`는 종국 상태라 halt/resume 대상이 아니다(`409 market_delisted`).
 - 공지 삭제는 소프트 삭제다. `app_role`에 `notices` DELETE 권한이 없어(DB 설계 §3.1, V5 GRANT는 SELECT/INSERT/UPDATE) 하드 DELETE는 운영 롤에서 `42501`로 상시 실패한다. `active=false` UPDATE로 노출만 내리고 게시 원본·감사 이력을 보존한다. 없는 id는 404, 이미 비활성이면 멱등 200.
 - 수수료·마켓 halt/resume·운영자 생성/상태/역할은 approval_token 필수(§3-6 완결 열거). 부재·불일치·만료는 `403 admin_forbidden`. 검증 게이트(스케일·범위·중복·부재)는 승인 소각과 같은 트랜잭션이라 실패 시 토큰이 롤백돼 재사용 가능하다.
+- 각 액션의 파괴 액션 바디 필드와 승인 발급·소각 시 `target` 문자열 형식은 §3-6 "바인딩 target·바디 필드 확정표"가 정본이다. `operators.status`·`operators.roles`는 전이 방향·대상 등급을 포함한 복합 target(`{id}:{STATUS}`·`{id}:{GRANT|REVOKE}:{ROLE}`), 나머지는 자원 식별자 단독이다. `operators.create`는 수행자 `operator_id`와 생성 대상 `new_operator_id`를 분리한다.
 
 ---
 
