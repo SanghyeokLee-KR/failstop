@@ -124,6 +124,12 @@ management:
 # 파라미터 근거는 SimProperties 주석. initial-price·quote-size·qty-step은 web 시드가와
 # 마켓 tick/lot/최소주문(5000)에 맞춰 마켓별로 지정한다(markets 리스트 우선, top-level은 폴백).
 exchange:
+  # 데모 봇 플릿은 계정당 다봇 고빈도라 계약 주문 버킷(100토큰/10s÷weight5=20req/10s)에 429로 걸려
+  # MM 백오프가 플릿을 정지시킨다. bots 프로파일에서만 capacity를 상향해 데모 활성을 유지한다.
+  # 운영·통합테스트 프로파일은 기본 100(계약)으로, 레이트리밋 계약·회귀 테스트에 영향이 없다.
+  order:
+    rate-limit:
+      capacity: 100000
   sim:
     base-url: http://localhost:8080
     seed: 42

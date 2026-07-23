@@ -10,6 +10,7 @@ import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.EpochSource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -40,8 +41,10 @@ public class OrderController {
 
     // §2-5 계정 버킷: 주문 생성/취소 100토큰/10s, weight 5. 실효 20req/10s. 단일 라이터 앞 유일
     // 유량 방벽이라 라이터 진입 전에 차감한다. weight를 1로 두면 계약의 5배로 열린다.
+    // capacity는 계약 기본 100. 데모 봇 플릿(다봇 고빈도)은 bots 프로파일에서만 상향해 429 파킹을
+    // 피한다(운영·통합테스트 프로파일은 기본 100 유지 = 계약 실효 20req/10s).
     private static final int ORDER_WEIGHT = 5;
-    private final AccountRateLimiter rateLimiter = new AccountRateLimiter(100, 10_000, "account", "order");
+    private final AccountRateLimiter rateLimiter;
     // §2-5 계좌/주문 조회 버킷: 200토큰/10s, weight 2. /open·/closed 폴링 증폭 방벽.
     // /accounts와 단일 빈을 공유해 '계좌/주문 조회' 범주가 하나의 200토큰 예산을 쓰게 한다.
     private static final int QUERY_WEIGHT = 2;
@@ -56,7 +59,8 @@ public class OrderController {
 
     public OrderController(OrderGateway gateway, OrderQueryService orders,
                            EpochSource epochSource, ObjectMapper objectMapper, JdbcClient jdbc,
-                           OrderRejectionMetrics rejections, AccountRateLimiter accountQueryRateLimiter) {
+                           OrderRejectionMetrics rejections, AccountRateLimiter accountQueryRateLimiter,
+                           @Value("${exchange.order.rate-limit.capacity:100}") int orderCapacity) {
         this.gateway = gateway;
         this.orders = orders;
         this.epochSource = epochSource;
@@ -64,6 +68,7 @@ public class OrderController {
         this.jdbc = jdbc;
         this.rejections = rejections;
         this.queryLimiter = accountQueryRateLimiter;
+        this.rateLimiter = new AccountRateLimiter(orderCapacity, 10_000, "account", "order");
     }
 
     @PostMapping
