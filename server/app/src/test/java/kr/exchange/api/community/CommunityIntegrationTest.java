@@ -184,6 +184,48 @@ class CommunityIntegrationTest {
     }
 
     @Test
+    void ownershipMineComputedFromViewerNotHandle() throws Exception {
+        Member alice = signup();
+        Member bob = signup();
+        String postId = createPost(alice, "KRW-BTC", "소유권 글", "본문");
+        createComment(alice, postId, "내 댓글");
+
+        // 상세: 작성자 mine=true, 타인·비로그인 false. handle이 아니라 뷰어 신원으로 산출한다.
+        assertTrue(json(get("/api/v1/community/posts/" + postId, alice.token)).path("mine").asBoolean(),
+                "작성자에게 mine=true");
+        assertFalse(json(get("/api/v1/community/posts/" + postId, bob.token)).path("mine").asBoolean(),
+                "타인에게 mine=false");
+        assertFalse(json(get("/api/v1/community/posts/" + postId, null)).path("mine").asBoolean(),
+                "비로그인에 mine=false");
+
+        // 무효 토큰은 비로그인으로 강등: 조회 200 유지, mine=false(조회 가용성 보존).
+        ResponseEntity<String> bad = get("/api/v1/community/posts/" + postId, "Bearer not.a.jwt");
+        assertEquals(200, bad.getStatusCode().value());
+        assertFalse(json(bad).path("mine").asBoolean(), "무효 토큰에 mine=false");
+
+        // 목록 항목 mine도 뷰어별로 산출된다.
+        assertTrue(mineOf(json(get("/api/v1/community/boards/KRW-BTC/posts", alice.token)).path("data"),
+                postId), "목록 작성자 mine=true");
+        assertFalse(mineOf(json(get("/api/v1/community/boards/KRW-BTC/posts", bob.token)).path("data"),
+                postId), "목록 타인 mine=false");
+
+        // 댓글 목록 mine.
+        assertTrue(json(get("/api/v1/community/posts/" + postId + "/comments", alice.token))
+                .path("data").get(0).path("mine").asBoolean(), "댓글 작성자 mine=true");
+        assertFalse(json(get("/api/v1/community/posts/" + postId + "/comments", bob.token))
+                .path("data").get(0).path("mine").asBoolean(), "댓글 타인 mine=false");
+    }
+
+    private boolean mineOf(JsonNode data, String postId) {
+        for (JsonNode row : data) {
+            if (postId.equals(row.path("post_id").asText())) {
+                return row.path("mine").asBoolean();
+            }
+        }
+        return false;
+    }
+
+    @Test
     void signupIpBucketUsesRightmostUntrusted() throws Exception {
         // 커뮤니티 진입 전 회원 가입 경로의 IP 스로틀도 rightmost-untrusted를 따른다(§2-5).
         // 다중값 XFF 프리픽스는 원 클라이언트가 주입 가능하므로 무시되고, 우측 비프록시 IP만 버킷 키가

@@ -63,23 +63,23 @@ public class CommunityService {
     // 글 조회(공개)
     // ------------------------------------------------------------------
 
-    public Page listPosts(String market, String sort, String cursor, Integer count) {
+    public Page listPosts(String market, String sort, String cursor, Integer count, Long viewerId) {
         requireMarket(market);
         int limit = clampCount(count);
         if ("popular".equals(sort)) {
-            return listPopular(market, cursor, limit);
+            return listPopular(market, cursor, limit, viewerId);
         }
         if (sort != null && !"latest".equals(sort)) {
             throw new ApiException(400, "invalid_parameter", "sort는 latest 또는 popular입니다.");
         }
-        return listLatest(market, cursor, limit);
+        return listLatest(market, cursor, limit, viewerId);
     }
 
-    private Page listLatest(String market, String cursor, int limit) {
+    private Page listLatest(String market, String cursor, int limit, Long viewerId) {
         CommunityCursors.Latest c = cursor == null ? null : CommunityCursors.decodeLatest(cursor);
         StringBuilder sql = new StringBuilder("""
                 SELECT id, external_id::text AS external_id, market_symbol, title,
-                       author_handle, like_count, comment_count, created_at, updated_at
+                       author_id, author_handle, like_count, comment_count, created_at, updated_at
                 FROM posts
                 WHERE market_symbol = ? AND status = 'VISIBLE'
                 """);
@@ -92,7 +92,7 @@ public class CommunityService {
             spec = spec.param(c.createdAt()).param(c.id());
         }
         List<PostRow> rows = spec.param(limit).query(CommunityService::mapPostRow).list();
-        List<Map<String, Object>> data = rows.stream().map(CommunityService::summaryView).toList();
+        List<Map<String, Object>> data = rows.stream().map(r -> summaryView(r, viewerId)).toList();
         String next = null;
         if (rows.size() == limit) {
             PostRow last = rows.get(rows.size() - 1);
@@ -101,7 +101,7 @@ public class CommunityService {
         return new Page(data, next);
     }
 
-    private Page listPopular(String market, String cursor, int limit) {
+    private Page listPopular(String market, String cursor, int limit, Long viewerId) {
         Long generation;
         CommunityCursors.Popular c = null;
         if (cursor != null) {
@@ -117,8 +117,8 @@ public class CommunityService {
         }
         StringBuilder sql = new StringBuilder("""
                 SELECT p.id, p.external_id::text AS external_id, p.market_symbol, p.title,
-                       p.author_handle, p.like_count, p.comment_count, p.created_at, p.updated_at,
-                       s.rank_score
+                       p.author_id, p.author_handle, p.like_count, p.comment_count,
+                       p.created_at, p.updated_at, s.rank_score
                 FROM post_rank_snapshot s
                 JOIN posts p ON p.id = s.post_id
                 WHERE s.market_symbol = ? AND s.generation = ? AND p.status = 'VISIBLE'
@@ -132,7 +132,7 @@ public class CommunityService {
             spec = spec.param(c.rankScore()).param(c.postId());
         }
         List<PostRow> rows = spec.param(limit).query(CommunityService::mapPostRow).list();
-        List<Map<String, Object>> data = rows.stream().map(CommunityService::summaryView).toList();
+        List<Map<String, Object>> data = rows.stream().map(r -> summaryView(r, viewerId)).toList();
         String next = null;
         if (rows.size() == limit) {
             PostRow last = rows.get(rows.size() - 1);
@@ -141,18 +141,19 @@ public class CommunityService {
         return new Page(data, next);
     }
 
-    public Map<String, Object> getPost(String externalId) {
+    public Map<String, Object> getPost(String externalId, Long viewerId) {
         requireUuid(externalId, "존재하지 않는 글입니다.");
         PostRow row = jdbc.sql("""
                         SELECT id, external_id::text AS external_id, market_symbol, title, body,
-                               author_handle, status, like_count, comment_count, created_at, updated_at
+                               author_id, author_handle, status, like_count, comment_count,
+                               created_at, updated_at
                         FROM posts WHERE external_id = ?::uuid
                         """)
                 .param(externalId)
                 .query(CommunityService::mapPostDetail)
                 .optional()
                 .orElseThrow(() -> notFound("존재하지 않는 글입니다."));
-        return detailView(row);
+        return detailView(row, viewerId);
     }
 
     // ------------------------------------------------------------------
@@ -196,7 +197,7 @@ public class CommunityService {
             jdbc.sql("UPDATE posts SET title = ?, body = ?, updated_at = now() WHERE id = ?")
                     .params(cleanTitle, cleanBody, ref.id())
                     .update();
-            return getPost(externalId);
+            return getPost(externalId, userId);
         });
     }
 
@@ -217,13 +218,13 @@ public class CommunityService {
     // 댓글(회원)
     // ------------------------------------------------------------------
 
-    public Page listComments(String postExternalId, String cursor, Integer count) {
+    public Page listComments(String postExternalId, String cursor, Integer count, Long viewerId) {
         PostRef post = loadPostRef(postExternalId);
         int limit = clampCount(count);
         CommunityCursors.Latest c = cursor == null ? null : CommunityCursors.decodeLatest(cursor);
         StringBuilder sql = new StringBuilder("""
                 SELECT id, external_id::text AS external_id, parent_comment_id, body,
-                       author_handle, status, like_count, created_at
+                       author_id, author_handle, status, like_count, created_at
                 FROM comments
                 WHERE post_id = ? AND status = 'VISIBLE'
                 """);
@@ -236,7 +237,7 @@ public class CommunityService {
             spec = spec.param(c.createdAt()).param(c.id());
         }
         List<CommentRow> rows = spec.param(limit).query(CommunityService::mapCommentRow).list();
-        List<Map<String, Object>> data = rows.stream().map(CommunityService::commentView).toList();
+        List<Map<String, Object>> data = rows.stream().map(r -> commentView(r, viewerId)).toList();
         String next = null;
         if (rows.size() == limit) {
             CommentRow last = rows.get(rows.size() - 1);
@@ -697,17 +698,17 @@ public class CommunityService {
     private static PostRow mapPostRow(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
         int rankScore = hasColumn(rs, "rank_score") ? rs.getInt("rank_score") : 0;
         return new PostRow(rs.getLong("id"), rs.getString("external_id"), rs.getString("market_symbol"),
-                rs.getString("title"), null, rs.getString("author_handle"), "VISIBLE",
-                rs.getInt("like_count"), rs.getInt("comment_count"),
+                rs.getString("title"), null, rs.getLong("author_id"), rs.getString("author_handle"),
+                "VISIBLE", rs.getInt("like_count"), rs.getInt("comment_count"),
                 rs.getObject("created_at", OffsetDateTime.class),
                 rs.getObject("updated_at", OffsetDateTime.class), rankScore);
     }
 
     private static PostRow mapPostDetail(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
         return new PostRow(rs.getLong("id"), rs.getString("external_id"), rs.getString("market_symbol"),
-                rs.getString("title"), rs.getString("body"), rs.getString("author_handle"),
-                rs.getString("status"), rs.getInt("like_count"), rs.getInt("comment_count"),
-                rs.getObject("created_at", OffsetDateTime.class),
+                rs.getString("title"), rs.getString("body"), rs.getLong("author_id"),
+                rs.getString("author_handle"), rs.getString("status"), rs.getInt("like_count"),
+                rs.getInt("comment_count"), rs.getObject("created_at", OffsetDateTime.class),
                 rs.getObject("updated_at", OffsetDateTime.class), 0);
     }
 
@@ -715,8 +716,8 @@ public class CommunityService {
         long parent = rs.getLong("parent_comment_id");
         boolean hasParent = !rs.wasNull();
         return new CommentRow(rs.getLong("id"), rs.getString("external_id"),
-                hasParent ? parent : null, rs.getString("body"), rs.getString("author_handle"),
-                rs.getString("status"), rs.getInt("like_count"),
+                hasParent ? parent : null, rs.getString("body"), rs.getLong("author_id"),
+                rs.getString("author_handle"), rs.getString("status"), rs.getInt("like_count"),
                 rs.getObject("created_at", OffsetDateTime.class));
     }
 
@@ -737,12 +738,13 @@ public class CommunityService {
         return false;
     }
 
-    private static Map<String, Object> summaryView(PostRow r) {
+    private static Map<String, Object> summaryView(PostRow r, Long viewerId) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("post_id", r.externalId());
         row.put("market", r.marketSymbol());
         row.put("title", TextGuard.escape(r.title()));
         row.put("author_handle", TextGuard.escape(r.authorHandle()));
+        row.put("mine", isMine(r.authorId(), viewerId));
         row.put("like_count", r.likeCount());
         row.put("comment_count", r.commentCount());
         row.put("created_at", ApiFormats.time(r.createdAt()));
@@ -750,7 +752,7 @@ public class CommunityService {
         return row;
     }
 
-    private static Map<String, Object> detailView(PostRow r) {
+    private static Map<String, Object> detailView(PostRow r, Long viewerId) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("schema_version", ApiFormats.SCHEMA_VERSION);
         row.put("post_id", r.externalId());
@@ -758,6 +760,7 @@ public class CommunityService {
         row.put("title", TextGuard.escape(maskTitle(r.status(), r.title())));
         row.put("body", TextGuard.escape(maskBody(r.status(), r.body())));
         row.put("author_handle", TextGuard.escape(r.authorHandle()));
+        row.put("mine", isMine(r.authorId(), viewerId));
         row.put("status", r.status());
         row.put("like_count", r.likeCount());
         row.put("comment_count", r.commentCount());
@@ -766,16 +769,22 @@ public class CommunityService {
         return row;
     }
 
-    private static Map<String, Object> commentView(CommentRow r) {
+    private static Map<String, Object> commentView(CommentRow r, Long viewerId) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("comment_id", r.externalId());
         row.put("parent_comment_id", r.parentCommentId() == null ? null : r.parentCommentId());
         row.put("body", TextGuard.escape(maskBody(r.status(), r.body())));
         row.put("author_handle", TextGuard.escape(r.authorHandle()));
+        row.put("mine", isMine(r.authorId(), viewerId));
         row.put("status", r.status());
         row.put("like_count", r.likeCount());
         row.put("created_at", ApiFormats.time(r.createdAt()));
         return row;
+    }
+
+    // 소유권은 작성자 내부 id와 요청자 신원의 대조로만 판정한다(handle 무관). 비로그인·무효 토큰은 false.
+    private static boolean isMine(long authorId, Long viewerId) {
+        return viewerId != null && viewerId == authorId;
     }
 
     private static String maskBody(String status, String body) {
@@ -799,12 +808,13 @@ public class CommunityService {
     }
 
     private record PostRow(long id, String externalId, String marketSymbol, String title, String body,
-                           String authorHandle, String status, int likeCount, int commentCount,
-                           OffsetDateTime createdAt, OffsetDateTime updatedAt, int rankScore) {
+                           long authorId, String authorHandle, String status, int likeCount,
+                           int commentCount, OffsetDateTime createdAt, OffsetDateTime updatedAt,
+                           int rankScore) {
     }
 
     private record CommentRow(long id, String externalId, Long parentCommentId, String body,
-                              String authorHandle, String status, int likeCount,
+                              long authorId, String authorHandle, String status, int likeCount,
                               OffsetDateTime createdAt) {
     }
 

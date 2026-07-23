@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.14, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.15, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -727,21 +727,23 @@ POST /api/v1/orders
 
 ### 4-D. 게시판(커뮤니티) API (M3, `/api/v1/community`)
 
-게시판_설계.md §4 정본. 거래 평면과 aud 클레임으로 경계 분리한다: 읽기(GET)는 무인증, 쓰기는 회원 세션(EdDSA, aud=community, kind=HUMAN)을 CommunityAuthenticator가 자체 검증한다. 거래 평면 인증 필터(ApiAuthFilter)를 통과하지 않는다. 공통 규약(엔벌로프 §2-2, 에러 §2-3, 커서 §2-6)을 상속한다. schema_version "1.0" 고정.
+게시판_설계.md §4 정본. 거래 평면과 aud 클레임으로 경계 분리한다: 읽기(GET)는 무인증 허용(선택 인증 optional-auth: 유효 회원 세션을 동봉하면 응답 항목에 서버 산출 `mine`을 additive로 포함), 쓰기는 회원 세션(EdDSA, aud=community, kind=HUMAN)을 CommunityAuthenticator가 자체 검증한다. 거래 평면 인증 필터(ApiAuthFilter)를 통과하지 않는다. 공통 규약(엔벌로프 §2-2, 에러 §2-3, 커서 §2-6)을 상속한다. schema_version "1.0" 고정.
 
 | 기능 | 메서드·경로 | 인증 | 비고 |
 |---|---|---|---|
-| 글 목록 | `GET /api/v1/community/boards/{market}/posts` | 불필요 | `sort`(latest\|popular), `cursor`, `count`(기본 20, ≤50) |
+| 글 목록 | `GET /api/v1/community/boards/{market}/posts` | 선택 | `sort`(latest\|popular), `cursor`, `count`(기본 20, ≤50). 항목에 `mine` |
 | 글 작성 | `POST /api/v1/community/boards/{market}/posts` | 회원 | `Idempotency-Key` 헤더 선택(1~36자 `[A-Za-z0-9_-]`). 재요청은 200 + `X-Idempotent-Replay: true` |
-| 글 단건 | `GET /api/v1/community/posts/{externalId}` | 불필요 | soft-deleted·hidden은 마스킹 본문 |
+| 글 단건 | `GET /api/v1/community/posts/{externalId}` | 선택 | soft-deleted·hidden은 마스킹 본문. 응답에 `mine` |
 | 글 수정 | `PATCH /api/v1/community/posts/{externalId}` | 회원 | 작성자 본인만 |
 | 글 삭제 | `DELETE /api/v1/community/posts/{externalId}` | 회원 | soft delete, 본인만 |
-| 댓글 목록 | `GET /api/v1/community/posts/{externalId}/comments` | 불필요 | `cursor`, `count`. created_at ASC 커서 |
+| 댓글 목록 | `GET /api/v1/community/posts/{externalId}/comments` | 선택 | `cursor`, `count`. created_at ASC 커서. 항목에 `mine` |
 | 댓글 작성 | `POST /api/v1/community/posts/{externalId}/comments` | 회원 | `parent_comment_id` 선택(1뎁스). 2뎁스는 400 |
 | 댓글 삭제 | `DELETE /api/v1/community/comments/{externalId}` | 회원 | soft delete, 본인만 |
 | 글 좋아요 | `POST` / `DELETE /api/v1/community/posts/{externalId}/like` | 회원 | PK 유니크로 멱등. 응답 `{liked, like_count}` |
 | 댓글 좋아요 | `POST` / `DELETE /api/v1/community/comments/{externalId}/like` | 회원 | 멱등 |
 | 신고 | `POST /api/v1/community/reports` | 회원 | `{target_type, target_id, reason, detail?}`. 대상별 1인 1회. 임계 초과 자동 HIDDEN |
+
+**소유권 표시(mine)**: 공개 GET(글 목록·단건·댓글 목록)은 선택 인증이다. 유효 회원 Bearer가 있으면 응답 각 항목에 `mine`(불리언)을 additive로 싣는다. `mine`은 서버가 토큰 `user_id`와 작성자 내부 id를 대조해 산출하며 요청자가 작성자면 true다. 토큰 부재·무효·만료는 조회를 막지 않고 `mine=false`로 강등한다(조회 가용성 보존). 작성자 식별자(member_external_id/user_id)는 응답에 노출하지 않는다(external_id는 세션 `sub` 재사용 값이라 공개 노출을 배격, 최소 노출 원칙). 프론트 수정·삭제 어포던스는 handle 대조가 아니라 이 `mine`으로 판정한다(동명이인·표시명 변경에 안전). 기존 필드·엔벌로프는 불변이다.
 
 **본문·길이·이스케이프**: 제목 ≤120, 글 본문 ≤4000, 댓글 ≤1000자. 초과·빈 값은 `400 invalid_parameter`. 저장은 원문, 응답 렌더 시 HTML 유의 문자를 엔티티로 이스케이프한다(XSS 방어). 파라미터 바인딩만 사용(인젝션 방어).
 
@@ -1338,3 +1340,16 @@ M3 게시판(커뮤니티) API를 §4-D로 신설했다. 게시판_설계.md §4
 | D2 | §7-2 | 자기 유동성만으로 전량 충족되는 FOK는 `fok_not_filled`로 거부되지 않고 접수되며, 해당 부분은 체결 아닌 STP-DC 소멸(maker·taker 양쪽 `self_trade_prevented` CANCELED)로 종결, taker 잔량 0 도달(무체결 전량 소멸 가능) |
 
 문서 헤더 버전을 v2.12로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.15 패치 반영 사항
+
+§4-D 공개 GET에 소유권 표시(`mine`)를 additive로 신설했다. 웹이 가변·비유일 handle로 소유권을 파생해 동명이인 회원에게 타인 글 수정·삭제 어포던스를 오노출하던 결함(게시판_설계.md §1.1 위반)을 서버 권위로 옮긴 것이다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| E1 | §4-D | 공개 GET(글 목록·단건·댓글 목록)을 optional-auth로 확정. 유효 회원 Bearer 동봉 시 응답 항목에 `mine` 불리언 additive 포함. 토큰 부재·무효·만료는 조회를 막지 않고 `mine=false` 강등 |
+| E2 | §4-D | `mine`은 서버가 토큰 `user_id`와 작성자 내부 id를 대조해 산출. 작성자 식별자(member_external_id=세션 `sub`)는 공개 응답에 노출하지 않음(최소 노출). 소유권 어포던스는 handle 대조가 아니라 `mine` 판정 |
+
+문서 헤더 버전을 v2.15로 순증(이전 패치 노트의 역사 서술은 원문 유지).

@@ -8,6 +8,7 @@ import kr.exchange.api.common.ApiException;
 import kr.exchange.api.member.MemberSessionService;
 
 import java.util.Base64;
+import java.util.OptionalLong;
 
 /**
  * 게시판 쓰기 인증(게시판_설계.md §2.4·§4). 거래 평면과 경계 분리해 aud=community 회원 토큰만
@@ -26,6 +27,28 @@ public class CommunityAuthenticator {
 
     /** 인증 통과 회원 user_id를 반환한다. 실패 시 401. */
     public long requireMember(HttpServletRequest request) {
+        return resolveMember(request);
+    }
+
+    /**
+     * 읽기(GET) 선택 인증. 유효 회원 Bearer면 user_id를, 없거나 검증 실패면 비어 있음을 반환한다.
+     * 읽기는 비로그인 허용(설계 §1.2)이라 토큰 부재·무효가 조회를 막지 않는다. 서버가 이 신원으로
+     * 소유권(mine)을 산출하므로 공개 응답이 작성자 식별자를 노출하지 않는다(설계 §4).
+     */
+    public OptionalLong optionalMember(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            return OptionalLong.empty();
+        }
+        try {
+            return OptionalLong.of(resolveMember(request));
+        } catch (ApiException e) {
+            // 무효·만료 토큰은 비로그인으로 강등해 조회를 계속 성립시킨다(mine=false 안전 측 기본).
+            return OptionalLong.empty();
+        }
+    }
+
+    private long resolveMember(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
             throw unauthorized("Authorization Bearer 회원 세션이 필요합니다.");

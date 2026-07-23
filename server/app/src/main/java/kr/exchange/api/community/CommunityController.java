@@ -62,7 +62,7 @@ public class CommunityController {
                                          @RequestParam(value = "count", required = false) Integer count,
                                          HttpServletRequest request) {
         readThrottle.check(ClientIp.of(request));
-        CommunityService.Page page = community.listPosts(market, sort, cursor, count);
+        CommunityService.Page page = community.listPosts(market, sort, cursor, count, viewer(request));
         return envelope(page);
     }
 
@@ -91,7 +91,7 @@ public class CommunityController {
     @GetMapping("/posts/{externalId}")
     public Map<String, Object> getPost(@PathVariable String externalId, HttpServletRequest request) {
         readThrottle.check(ClientIp.of(request));
-        return community.getPost(externalId);
+        return community.getPost(externalId, viewer(request));
     }
 
     @PatchMapping("/posts/{externalId}")
@@ -122,7 +122,7 @@ public class CommunityController {
                                             @RequestParam(value = "count", required = false) Integer count,
                                             HttpServletRequest request) {
         readThrottle.check(ClientIp.of(request));
-        return envelope(community.listComments(externalId, cursor, count));
+        return envelope(community.listComments(externalId, cursor, count, viewer(request)));
     }
 
     @PostMapping("/posts/{externalId}/comments")
@@ -201,6 +201,12 @@ public class CommunityController {
     // ------------------------------------------------------------------
     // 헬퍼
     // ------------------------------------------------------------------
+
+    // 읽기 경로의 선택 인증 신원. 비로그인·무효 토큰은 null(서버가 mine=false로 산출).
+    private Long viewer(HttpServletRequest request) {
+        java.util.OptionalLong id = auth.optionalMember(request);
+        return id.isPresent() ? id.getAsLong() : null;
+    }
 
     private static String validKey(String key) {
         if (key == null || key.isBlank()) {
