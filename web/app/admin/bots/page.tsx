@@ -70,7 +70,7 @@ export default function BotsPage() {
       toast(ok, "info");
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "처리에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "처리에 실패했습니다", "error");
     }
   };
 
@@ -80,7 +80,7 @@ export default function BotsPage() {
   // http 서버는 start·stop·pause를 감사 적재만 한다(controlApplied=false). 반영을 단정하는
   // 문구는 상태 필이 그대로일 때 운영자 오인을 만들므로 기록 사실만 알린다
   const controlOk = (applied: string) =>
-    api.controlApplied ? applied : "제어 요청을 감사에 기록했어요. 반영 여부는 플릿 상태로 확인하세요";
+    api.controlApplied ? applied : "제어 요청을 감사에 기록했습니다. 반영 여부는 플릿 상태로 확인하세요";
 
   // governor set-point 상향. 응답의 created·fleet_total로 결과를 표기하고 clamped로 캡 도달을 안내한다
   const createBot = async () => {
@@ -89,7 +89,7 @@ export default function BotsPage() {
       toast(`봇 ${r.created}대 생성 · 전체 목표 ${r.fleetTotal}대${r.clamped ? " (캡 도달)" : ""}`, "info");
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "생성에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "생성에 실패했습니다", "error");
     }
   };
 
@@ -169,13 +169,13 @@ export default function BotsPage() {
       <PanelCard title="플릿 제어">
         {!canOps && <PermissionNote>봇 제어 권한(BOT_OPS 이상)이 없어 조회만 가능합니다.</PermissionNote>}
         <div className={styles.controlRow}>
-          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStart(), controlOk("플릿을 시작했어요"))}>
+          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStart(), controlOk("플릿을 시작했습니다"))}>
             시작
           </button>
-          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simPause(), controlOk("일시정지를 전환했어요"))}>
+          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simPause(), controlOk("일시정지를 전환했습니다"))}>
             일시정지 전환
           </button>
-          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStop(), controlOk("플릿을 정지했어요"))}>
+          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStop(), controlOk("플릿을 정지했습니다"))}>
             정지
           </button>
           {sim && (
@@ -198,7 +198,7 @@ export default function BotsPage() {
                 type="button"
                 className={styles.primaryBtn}
                 disabled={!canOps || rateDraft === sim.rate}
-                onClick={() => void run(() => api.simSetRate(rateDraft), `OPS 목표를 ${rateDraft}로 바꿨어요`)}
+                onClick={() => void run(() => api.simSetRate(rateDraft), `OPS 목표를 ${rateDraft}로 바꿨습니다`)}
               >
                 적용
               </button>
@@ -297,7 +297,7 @@ export default function BotsPage() {
             </button>
           )}
         </div>
-        <ApprovalList actions={paramActions} onChange={load} emptyLabel="대기 중인 파라미터 변경 승인이 없어요" />
+        <ApprovalList actions={paramActions} onChange={load} emptyLabel="대기 중인 파라미터 변경 승인이 없습니다" />
       </PanelCard>
     </div>
   );

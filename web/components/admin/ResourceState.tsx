@@ -12,12 +12,12 @@ import styles from "./admin.module.css";
 
 const REASON_COPY: Record<ErrorReason, { title: string; desc: string }> = {
   session: {
-    title: "세션이 만료됐어요",
+    title: "세션이 만료됐습니다",
     desc: "다시 로그인한 뒤 이어서 진행해 주세요.",
   },
   server: {
-    title: "데이터를 불러오지 못했어요",
-    desc: "서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.",
+    title: "데이터를 불러오지 못했습니다",
+    desc: "서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.",
   },
 };
 
@@ -69,7 +69,7 @@ export function StaleBadge({ since }: { since: number | null }) {
       <span aria-hidden="true">
         ▲ 갱신 지연{since != null ? ` · ${formatElapsed(since, now)}` : ""}
       </span>
-      <span className="sr-only">갱신이 지연돼 마지막 값을 표시 중이에요.</span>
+      <span className="sr-only">갱신이 지연돼 마지막 값을 표시 중입니다.</span>
     </span>
   );
 }

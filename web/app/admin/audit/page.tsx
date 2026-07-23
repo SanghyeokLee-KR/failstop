@@ -73,7 +73,7 @@ export default function AuditPage() {
               ariaLabel="관리 감사 로그"
               empty={
                 <div className="empty-state">
-                  <span className="empty-state__title">기록된 액션이 없어요</span>
+                  <span className="empty-state__title">기록된 액션이 없습니다</span>
                 </div>
               }
             />

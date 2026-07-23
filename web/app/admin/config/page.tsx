@@ -77,33 +77,33 @@ export default function ConfigPage() {
     }
     try {
       await getAdminApi().postNotice(title.trim(), body.trim(), severity);
-      toast("공지를 등록했어요", "info");
+      toast("공지를 등록했습니다", "info");
       setTitle("");
       setBody("");
       setSeverity("info");
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "등록에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "등록에 실패했습니다", "error");
     }
   };
 
   const toggleActive = async (n: Notice) => {
     try {
       await getAdminApi().updateNotice(n.id, { active: !n.active });
-      toast(n.active ? "공지를 내렸어요" : "공지를 다시 게시했어요", "info");
+      toast(n.active ? "공지를 내렸습니다" : "공지를 다시 게시했습니다", "info");
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "변경에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "변경에 실패했습니다", "error");
     }
   };
 
   const removeNotice = async (n: Notice) => {
     try {
       await getAdminApi().deleteNotice(n.id);
-      toast("공지를 소프트 삭제했어요", "info");
+      toast("공지를 소프트 삭제했습니다", "info");
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "삭제에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "삭제에 실패했습니다", "error");
     }
   };
 
@@ -244,7 +244,7 @@ export default function ConfigPage() {
       </PanelCard>
 
       <PanelCard title="마켓 제어 승인 대기 · 실행">
-        <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 마켓 제어 승인이 없어요" />
+        <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 마켓 제어 승인이 없습니다" />
       </PanelCard>
 
       <PanelCard title="공지 등록">
@@ -278,7 +278,7 @@ export default function ConfigPage() {
         {!notices ? (
           <Skeleton variant="card" width="100%" height={120} />
         ) : notices.length === 0 ? (
-          <p className={styles.approvalEmpty}>등록된 공지가 없어요</p>
+          <p className={styles.approvalEmpty}>등록된 공지가 없습니다</p>
         ) : (
           <ul className={styles.noticeList}>
             {notices.map((n) => {

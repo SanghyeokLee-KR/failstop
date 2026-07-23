@@ -99,13 +99,13 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
     try {
       const res = await getAdminApi().setFleetScale(market, targets);
       if (!res.fleetPresent) {
-        toast("플릿이 기동되지 않아 목표 대수만 기록했어요", "info");
+        toast("플릿이 기동되지 않아 목표 대수만 기록했습니다", "info");
       } else {
-        toast(res.clamped ? "일부 값이 캡으로 조정되어 적용됐어요" : "봇 대수를 적용했어요", "info");
+        toast(res.clamped ? "일부 값이 캡으로 조정되어 적용됐습니다" : "봇 대수를 적용했습니다", "info");
       }
       onChanged();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "대수 적용에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "대수 적용에 실패했습니다", "error");
     } finally {
       setScaleBusy(false);
     }
@@ -117,13 +117,13 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
       const res = await getAdminApi().setDirectionBias(market, biasNorm(biasDraft), autoDraft, biasNorm(strengthDraft));
       toast(
         res.fleetPresent
-          ? `방향 바이어스를 적용했어요 (effective ${res.effectiveBias})`
-          : `플릿이 기동되지 않아 방향 의도만 기록했어요 (effective ${res.effectiveBias})`,
+          ? `방향 바이어스를 적용했습니다 (effective ${res.effectiveBias})`
+          : `플릿이 기동되지 않아 방향 의도만 기록했습니다 (effective ${res.effectiveBias})`,
         "info",
       );
       onChanged();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "바이어스 적용에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "바이어스 적용에 실패했습니다", "error");
     } finally {
       setBiasBusy(false);
     }
@@ -136,11 +136,11 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
     try {
       const applied = await getAdminApi().setEffectConfig(next);
       setFlash(applied);
-      toast(`효과 강도를 ${FLASH_LABEL[applied]}로 바꿨어요`, "info");
+      toast(`효과 강도를 ${FLASH_LABEL[applied]}로 바꿨습니다`, "info");
       onChanged();
     } catch (e) {
       setFlash(prev); // 직전 값으로 롤백
-      toast(e instanceof Error ? e.message : "효과 강도 변경에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "효과 강도 변경에 실패했습니다", "error");
     } finally {
       flashPending.current = false;
     }

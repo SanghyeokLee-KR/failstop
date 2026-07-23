@@ -90,7 +90,7 @@ export default function ChaosPage() {
 
       <PanelCard title="진행 중 실험">
         {running.length === 0 ? (
-          <p className={styles.approvalEmpty}>주입 중인 실험이 없어요</p>
+          <p className={styles.approvalEmpty}>주입 중인 실험이 없습니다</p>
         ) : (
           <ul className={styles.runningList}>
             {running.map((r) => (
@@ -119,7 +119,7 @@ export default function ChaosPage() {
       </PanelCard>
 
       <PanelCard title="승인 대기 · 실행">
-        <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 카오스 승인이 없어요" />
+        <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 카오스 승인이 없습니다" />
       </PanelCard>
 
       <PanelCard title="실험 이력">
@@ -136,7 +136,7 @@ export default function ChaosPage() {
             ariaLabel="카오스 실험 이력"
             empty={
               <div className="empty-state">
-                <span className="empty-state__title">실행된 실험이 없어요</span>
+                <span className="empty-state__title">실행된 실험이 없습니다</span>
               </div>
             }
           />

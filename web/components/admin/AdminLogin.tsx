@@ -24,7 +24,7 @@ export default function AdminLogin() {
     try {
       await getAdminApi().establishSession(certId);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "세션 확립에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "세션 확립에 실패했습니다", "error");
       setBusy(null);
     }
   };

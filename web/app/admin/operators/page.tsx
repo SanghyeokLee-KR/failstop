@@ -231,7 +231,7 @@ export default function OperatorsPage() {
       </PanelCard>
 
       <PanelCard title="운영자 승인 대기 · 실행">
-        <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 운영자 승인이 없어요" />
+        <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 운영자 승인이 없습니다" />
       </PanelCard>
     </div>
   );

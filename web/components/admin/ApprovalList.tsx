@@ -53,7 +53,7 @@ interface Props {
   emptyLabel?: string;
 }
 
-export default function ApprovalList({ actions, onChange, emptyLabel = "대기 중이거나 실행 가능한 승인이 없어요" }: Props) {
+export default function ApprovalList({ actions, onChange, emptyLabel = "대기 중이거나 실행 가능한 승인이 없습니다" }: Props) {
   const session = useAdminSession();
   const intents = useApprovalVault((s) => s.intents);
   const tokens = useApprovalVault((s) => s.tokens);
@@ -107,7 +107,7 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
       // 옮겨 body 유실을 막는다(§9 키보드 흐름)
       requestAnimationFrame(() => (rowRefs.current[id] ?? listRef.current)?.focus());
     } catch (e) {
-      toast(e instanceof Error ? e.message : "처리에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "처리에 실패했습니다", "error");
     } finally {
       setBusy(null);
     }
@@ -121,7 +121,7 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
         stashToken(issued);
         cancelIntent(intent.key);
       },
-      "승인을 발급했어요. 요청자가 실행할 수 있습니다",
+      "승인을 발급했습니다. 요청자가 실행할 수 있습니다",
     );
 
   const consume = (row: ApprovalRequest) => {
@@ -136,7 +136,7 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
         await getAdminApi().consumeApproval(held);
         dropToken(row.id);
       },
-      "실행했어요",
+      "실행했습니다",
     );
   };
 
@@ -249,7 +249,7 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
                 {phase === "AWAITING_EXECUTION" && mine && !held && <span className={styles.waitNote}>발급 토큰 수신 대기</span>}
                 {phase === "AWAITING_EXECUTION" && !mine && <span className={styles.waitNote}>요청자 실행 대기</span>}
                 {phase === "AWAITING_EXECUTION" && owner && (
-                  <button type="button" className={styles.neutralBtn} disabled={busy === a.id} onClick={() => void act(a.id, () => getAdminApi().rejectApproval(a.id), "거부했어요")}>
+                  <button type="button" className={styles.neutralBtn} disabled={busy === a.id} onClick={() => void act(a.id, () => getAdminApi().rejectApproval(a.id), "거부했습니다")}>
                     거부
                   </button>
                 )}
@@ -261,7 +261,7 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
       {execTarget && (
         <ConfirmDialog
           title="승인된 액션 실행"
-          description="실행하면 되돌릴 수 없어요. 발급 토큰을 소각하며 즉시 반영됩니다."
+          description="실행하면 되돌릴 수 없습니다. 발급 토큰을 소각하며 즉시 반영됩니다."
           target={ACTION_LABEL[execTarget.action]}
           blastRadius={execTarget.targetLabel}
           tone="danger"

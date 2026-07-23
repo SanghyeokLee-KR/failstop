@@ -41,7 +41,7 @@ export default function OperatorBar() {
   const ms = remainMs(session.expiresAt);
   const imminent = ms > 0 && ms <= IMMINENT_SEC * 1000;
   // 낭독 문구는 imminent 불리언에만 의존한다. 매초 바뀌는 잔여 초를 넣지 않아야 polite 리전이 1회만 낭독한다
-  const liveMsg = imminent ? "세션 만료가 1분 이내로 임박했어요. 곧 다시 인증해야 해요." : "";
+  const liveMsg = imminent ? "세션 만료가 1분 이내로 임박했습니다. 곧 다시 인증해야 합니다." : "";
 
   const certs = getAdminApi().listDemoCerts();
 
@@ -49,9 +49,9 @@ export default function OperatorBar() {
     if (certId === session.operatorId) return;
     try {
       await getAdminApi().establishSession(certId);
-      toast(`${certId} 인증서로 세션을 전환했어요`, "info");
+      toast(`${certId} 인증서로 세션을 전환했습니다`, "info");
     } catch (e) {
-      toast(e instanceof Error ? e.message : "세션 전환에 실패했어요", "error");
+      toast(e instanceof Error ? e.message : "세션 전환에 실패했습니다", "error");
     }
   };
 

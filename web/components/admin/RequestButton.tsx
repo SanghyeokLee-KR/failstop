@@ -56,7 +56,7 @@ export default function RequestButton({ action, payload, label, onRequested, con
       targetLabel,
       proposedAt: isoNow(),
     });
-    toast("승인 요청을 등록했어요. 다른 운영자의 발급이 필요합니다", "info");
+    toast("승인 요청을 등록했습니다. 다른 운영자의 발급이 필요합니다", "info");
     setOpen(false);
     onRequested?.();
   };

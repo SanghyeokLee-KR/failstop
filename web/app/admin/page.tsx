@@ -112,7 +112,7 @@ export default function AdminOverviewPage() {
       )}
 
       <PanelCard title="승인 대기 · 실행">
-        <ApprovalList onChange={reload} emptyLabel="대기 중이거나 실행 가능한 승인이 없어요" />
+        <ApprovalList onChange={reload} emptyLabel="대기 중이거나 실행 가능한 승인이 없습니다" />
       </PanelCard>
     </div>
   );
