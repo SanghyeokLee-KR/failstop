@@ -133,7 +133,8 @@ export default function BotsPage() {
           ))}
         </div>
       ) : (
-        <div className={styles.kpiGrid}>
+        // 폴링 실패 시 헤드라인 지표만 opacity로 강등한다. 제어 슬라이더·버튼은 아래 별도 카드라 흐려지지 않는다
+        <div className={`${styles.kpiGrid} ${styles.staleRegion}`} data-stale={res.stale ? "" : undefined}>
           <div className={styles.statTile}>
             <span className={styles.statLabel}>플릿 상태</span>
             <span className={styles.statPillWrap}>

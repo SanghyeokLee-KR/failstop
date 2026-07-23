@@ -66,6 +66,8 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
   // 소각은 되돌릴 수 없어 확인 다이얼로그로 한 번 더 막는다
   const [execTarget, setExecTarget] = useState<ApprovalRequest | null>(null);
   const rowRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  // 액션 후 대상 행이 사라질 때(발급 시 intent 소거, 실행 시 상태 전이) 포커스 폴백 목적지
+  const listRef = useRef<HTMLUListElement>(null);
   // 폴링과 액션 후 refresh가 병행한다. 변이 직전 출발한 폴링 응답이 늦게 도착해 최신 상태를
   // 변이 전 스냅샷으로 되돌리지 않도록, 최신 요청보다 오래된 응답은 폐기한다
   const refreshSeq = useRef(0);
@@ -101,7 +103,9 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
       await refresh();
       onChange?.();
       setExecTarget(null);
-      requestAnimationFrame(() => rowRefs.current[id]?.focus());
+      // 발급은 intent 행을 소거하고 실행은 행 상태를 바꾼다. 남아 있으면 그 행, 아니면 목록으로 포커스를
+      // 옮겨 body 유실을 막는다(§9 키보드 흐름)
+      requestAnimationFrame(() => (rowRefs.current[id] ?? listRef.current)?.focus());
     } catch (e) {
       toast(e instanceof Error ? e.message : "처리에 실패했어요", "error");
     } finally {
@@ -144,7 +148,8 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
 
   return (
     <>
-      <ul className={styles.approvalList}>
+      <ul ref={listRef} className={styles.approvalList} tabIndex={-1} aria-label="승인 목록">
+
         {scopedIntents.map((intent) => {
           const mine = session?.operatorId === intent.requesterId;
           const health = PHASE_HEALTH.REQUESTED;
@@ -189,7 +194,11 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
                   type="button"
                   className={styles.neutralBtn}
                   disabled={busy === id}
-                  onClick={() => cancelIntent(intent.key)}
+                  onClick={() => {
+                    cancelIntent(intent.key);
+                    // 취소로 이 행이 언마운트되므로 목록으로 포커스를 옮겨 body 유실을 막는다
+                    requestAnimationFrame(() => listRef.current?.focus());
+                  }}
                 >
                   취소
                 </button>
