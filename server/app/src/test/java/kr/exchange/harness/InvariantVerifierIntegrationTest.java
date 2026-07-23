@@ -420,6 +420,83 @@ class InvariantVerifierIntegrationTest {
                 "복원 후 C23 clean 미복귀");
     }
 
+    /**
+     * C08 음성 검증. 65585d0이 건 90일 created_at 윈도 안에서 중복 체결 id를 주입해 C08(중복 체결)이
+     * 잡는지 반증한다. clean만 단언하면 항상 통과하는 검증기나 윈도 오축소 회귀를 배제하지 못하므로
+     * C08도 다른 음성 케이스와 같은 표준(주입-검출-정리-clean 복귀)에 편입한다. 레지스트리 트리거가
+     * 같은 seq 재기입을 23505로 막으므로 첫 등록분을 지운 뒤 같은 id를 다른 created_at으로 재삽입해
+     * dup 팔을 만든다. trades는 주입·정리 대상이라 마지막 순서에서 정리 후 잔여 무해.
+     */
+    @Test
+    @Order(9)
+    void scheduledCatchesDuplicateFillWithinWindow() {
+        assertTrue(runScheduledCheck(InvariantCheck.C08_DUP_FILL).ok(), "주입 전 C08이 이미 위반");
+        long dupId = 993001L;
+        jdbc.sql("""
+                INSERT INTO trades (id, market_id, maker_order_id, taker_order_id,
+                                    maker_user_id, taker_user_id, taker_side, price, quantity,
+                                    fencing_epoch, executed_at, created_at)
+                VALUES (?, ?, 999000101, 999000102, 111, 222, 'BUY', 100, 1, 1, now(), now())
+                """).params(dupId, KRW_BTC).update();
+        // 트리거가 dupId를 레지스트리에 등록했으므로 같은 id 재삽입 전에 지운다(23505 회피).
+        jdbc.sql("DELETE FROM trade_seq_registry WHERE seq = ?").params(dupId).update();
+        jdbc.sql("""
+                INSERT INTO trades (id, market_id, maker_order_id, taker_order_id,
+                                    maker_user_id, taker_user_id, taker_side, price, quantity,
+                                    fencing_epoch, executed_at, created_at)
+                VALUES (?, ?, 999000101, 999000102, 111, 222, 'BUY', 100, 1, 1, now(),
+                        now() - interval '1 second')
+                """).params(dupId, KRW_BTC).update();
+        try {
+            InvariantResult dirty = runScheduledCheck(InvariantCheck.C08_DUP_FILL);
+            assertFalse(dirty.ok(), "윈도 내 중복 체결 id를 C08이 놓침");
+            assertTrue(dirty.violatedRows() >= 1, "C08 위반행 계수 0");
+        } finally {
+            jdbc.sql("DELETE FROM trades WHERE id = ?").params(dupId).update();
+            jdbc.sql("DELETE FROM trade_seq_registry WHERE seq = ?").params(dupId).update();
+        }
+        assertTrue(runScheduledCheck(InvariantCheck.C08_DUP_FILL).ok(),
+                "정리 후 C08 clean 미복귀(항상 FAIL·게이지 고착 반증)");
+    }
+
+    /**
+     * C18 음성 검증. 65585d0이 건 90일 윈도 안에서 maker 지정가와 어긋난 체결가를 주입해 C18(체결가=
+     * maker 지정가)이 잡는지 반증한다. 실제 maker 주문(가격 있음)을 참조하므로 봇 정상 체결(t.price=
+     * m.price) 아래 주입 전 C18은 clean이다. trades만 주입·정리하고 마지막 순서라 잔여 무해.
+     */
+    @Test
+    @Order(10)
+    void scheduledCatchesFillPriceMakerMismatchWithinWindow() {
+        long makerId = count("""
+                SELECT m.id FROM orders m
+                JOIN trades t ON t.maker_order_id = m.id
+                WHERE m.price IS NOT NULL AND t.created_at >= now() - interval '90 days'
+                ORDER BY m.id LIMIT 1
+                """);
+        assertTrue(makerId > 0, "가격 있는 maker 주문이 없다(봇 체결 선행 실패)");
+        assertTrue(runScheduledCheck(InvariantCheck.C18_FILL_PRICE_MAKER).ok(),
+                "주입 전 C18이 이미 위반");
+
+        long mismatchId = 994001L;
+        jdbc.sql("""
+                INSERT INTO trades (id, market_id, maker_order_id, taker_order_id,
+                                    maker_user_id, taker_user_id, taker_side, price, quantity,
+                                    fencing_epoch, executed_at, created_at)
+                SELECT ?, ?, m.id, m.id, m.user_id, m.user_id, 'BUY', m.price + 1, 1, 1, now(), now()
+                FROM orders m WHERE m.id = ?
+                """).params(mismatchId, KRW_BTC, makerId).update();
+        try {
+            InvariantResult dirty = runScheduledCheck(InvariantCheck.C18_FILL_PRICE_MAKER);
+            assertFalse(dirty.ok(), "maker 지정가 불일치 체결을 C18이 놓침");
+            assertTrue(dirty.violatedRows() >= 1, "C18 위반행 계수 0");
+        } finally {
+            jdbc.sql("DELETE FROM trades WHERE id = ?").params(mismatchId).update();
+            jdbc.sql("DELETE FROM trade_seq_registry WHERE seq = ?").params(mismatchId).update();
+        }
+        assertTrue(runScheduledCheck(InvariantCheck.C18_FILL_PRICE_MAKER).ok(),
+                "정리 후 C18 clean 미복귀");
+    }
+
     private InvariantResult authoritativeCheck(InvariantCheck target) {
         return verifier.runAuthoritative("gap-itest", "probe").results().stream()
                 .filter(r -> r.check() == target)
