@@ -120,14 +120,14 @@ management:
     web:
       exposure:
         include: health, info, prometheus, metrics
-# 데모용 봇 플릿. 4개 마켓(BTC·ETH·SOL·XRP)에 마켓당 MM 2 + TAKER 1.
+# 데모용 봇 플릿. 12개 마켓(웹 SSG 로스터 동형). 주력 2종(BTC·ETH)은 MM 2, 나머지는 MM 1 + TAKER 1.
 # 파라미터 근거는 SimProperties 주석. initial-price·quote-size·qty-step은 web 시드가와
 # 마켓 tick/lot/최소주문(5000)에 맞춰 마켓별로 지정한다(markets 리스트 우선, top-level은 폴백).
 exchange:
   sim:
     base-url: http://localhost:8080
     seed: 42
-    target-ops: 40
+    target-ops: 60
     market: KRW-BTC
     initial-price: "84320000"
     funding:
@@ -174,3 +174,59 @@ exchange:
         quote-size: "10"
         qty-step: "8"
         base-funding: "10000000"
+      - symbol: KRW-DOGE
+        initial-price: "182"
+        mm-count: 1
+        taker-count: 1
+        quote-size: "40"
+        qty-step: "30"
+        base-funding: "5000000"
+      - symbol: KRW-ADA
+        initial-price: "1084"
+        mm-count: 1
+        taker-count: 1
+        quote-size: "8"
+        qty-step: "5"
+        base-funding: "1000000"
+      - symbol: KRW-TRX
+        initial-price: "385"
+        mm-count: 1
+        taker-count: 1
+        quote-size: "20"
+        qty-step: "14"
+        base-funding: "2500000"
+      - symbol: KRW-LINK
+        initial-price: "28540"
+        mm-count: 1
+        taker-count: 1
+        quote-size: "0.3"
+        qty-step: "0.2"
+        base-funding: "35000"
+      - symbol: KRW-DOT
+        initial-price: "9820"
+        mm-count: 1
+        taker-count: 1
+        quote-size: "1"
+        qty-step: "0.6"
+        base-funding: "100000"
+      - symbol: KRW-MATIC
+        initial-price: "724"
+        mm-count: 1
+        taker-count: 1
+        quote-size: "12"
+        qty-step: "8"
+        base-funding: "1400000"
+      - symbol: KRW-AVAX
+        initial-price: "52430"
+        mm-count: 1
+        taker-count: 1
+        quote-size: "0.2"
+        qty-step: "0.1"
+        base-funding: "20000"
+      - symbol: KRW-ATOM
+        initial-price: "9640"
+        mm-count: 1
+        taker-count: 1
+        quote-size: "1"
+        qty-step: "0.6"
+        base-funding: "100000"
