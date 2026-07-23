@@ -40,7 +40,8 @@ export default function MarketSummaryStrip() {
     const t = tickers[c.market];
     if (!t) continue;
     priced += 1;
-    totalValueWon += scaledIntTrunc(t.acc_trade_price_24h, 0);
+    // 24h 무체결 마켓은 acc_trade_price_24h가 런타임 null이다. 십진 절사 전 "0"으로 강등(크래시 방어)
+    totalValueWon += scaledIntTrunc(t.acc_trade_price_24h ?? "0", 0);
     if (t.change === "RISE") up += 1;
     else if (t.change === "FALL") down += 1;
     else flat += 1;

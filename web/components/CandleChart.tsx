@@ -116,7 +116,19 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
           setLoading(false);
           return;
         }
-        const asc = [...rows].reverse(); // 계약은 시각 내림차순 → 차트는 오름차순
+        // 계약은 시각 내림차순 → 차트는 오름차순. 0·NaN OHLC(결측·미형성 버킷)는 축·색 오염을 막게 배제
+        const asc = [...rows].reverse().filter((c) => {
+          const o = toNum(c.open);
+          const h = toNum(c.high);
+          const l = toNum(c.low);
+          const cl = toNum(c.close);
+          return o > 0 && h > 0 && l > 0 && cl > 0;
+        });
+        if (asc.length === 0) {
+          setEmpty(true);
+          setLoading(false);
+          return;
+        }
         candleData = asc.map((c) => ({
           time: toChartTime(Date.parse(c.candle_time)),
           open: toNum(c.open),
@@ -162,7 +174,9 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
       if (isDuplicateTrade(tradeCursor, msg)) return;
       advanceTradeCursor(tradeCursor, msg);
       const price = toNum(msg.price);
-      const vol = toNum(msg.volume);
+      // 결측·이상 체결가(0·NaN)는 close=0 캔들을 만들어 축을 오염시킨다. 합성에서 배제
+      if (!(price > 0)) return;
+      const vol = Math.max(0, toNum(msg.volume));
       const bucketMs = Math.floor(Date.parse(msg.timestamp) / unitMs) * unitMs;
       if (bucketMs <= last.bucketMs) {
         last.high = Math.max(last.high, price);

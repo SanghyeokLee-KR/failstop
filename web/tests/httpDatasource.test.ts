@@ -871,3 +871,30 @@ test("로그아웃은 서버 폐기 시도 후 세션 해제", async () => {
   assert.equal(ds.getMemberSession(), null);
   assert.ok(count("/api/v1/auth/logout") >= 1, "서버 로그아웃 호출");
 });
+
+test("비로그인 반복 refresh는 서버를 1회만 호출한다(401 루프 억제)", async () => {
+  const { ds, count } = newDs({
+    "/api/v1/auth/refresh": () => jsonRes(401, { error: { name: "session_expired", message: "만료" } }),
+  });
+  const a = await ds.refresh();
+  const b = await ds.refresh();
+  const c = await ds.refresh();
+  assert.equal(a, null);
+  assert.equal(b, null);
+  assert.equal(c, null);
+  assert.equal(count("/api/v1/auth/refresh"), 1, "직전 401 이후 refresh 재요청 억제");
+});
+
+test("재로그인은 refresh 억제를 해제한다", async () => {
+  const memberToken = edJwt(900_000);
+  const { ds, count } = newDs({
+    "/api/v1/auth/refresh": () => jsonRes(401, { error: { name: "session_expired", message: "만료" } }),
+    "/api/v1/auth/login": () => jsonRes(200, { schema_version: "1.0", access_token: memberToken, user: MEMBER_USER }),
+  });
+  await ds.refresh(); // 1회 실패 → 억제 on
+  await ds.refresh(); // 억제됨(요청 없음)
+  assert.equal(count("/api/v1/auth/refresh"), 1);
+  await ds.login({ email: "trader@demo.local", password: "demopass1" }); // setMember → 억제 해제
+  await ds.refresh(); // 재허용 → 서버 왕복(401)
+  assert.equal(count("/api/v1/auth/refresh"), 2, "재로그인 후 refresh 재허용");
+});

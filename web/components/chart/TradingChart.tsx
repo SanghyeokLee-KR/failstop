@@ -21,6 +21,11 @@ import { startCandleStream, type CandleStreamHandle, type LiveCandle } from "./c
 import styles from "./chart.module.css";
 
 const CANDLE_PANE_ID = "candle_pane";
+// 거래량 전용 pane. 캔들 pane에 스택하지 않는다. klinecharts YAxis는 pane에 붙은 모든 지표 figure
+// 값을 축 범위에 포함시켜, 볼륨(≈0~수십)이 캔들 pane에 있으면 가격 축 하한을 0으로 끌어내려 캔들이
+// 상단에 눌린다. 분리 pane는 자체 축을 가져 가격 축이 실제 OHLC 범위에 맞춰 피팅된다.
+const VOLUME_PANE_ID = "volume_pane";
+const VOLUME_PANE_HEIGHT = 78;
 
 /** 모션 킬스위치 판정. init·테마 재주입 시 klinecharts 애니메이션 비활성에 소비(§4.5) */
 function prefersReducedMotion(): boolean {
@@ -140,7 +145,7 @@ export default function TradingChart({ market }: { market: string }) {
     if (!chart) return;
     const tokens = readChartTokens();
     chart.setStyles(buildChartStyles(tokens, prefersReducedMotion()));
-    chart.overrideIndicator({ name: "VOL", styles: volStyles(tokens) as IndicatorCreate["styles"] }, CANDLE_PANE_ID);
+    chart.overrideIndicator({ name: "VOL", styles: volStyles(tokens) as IndicatorCreate["styles"] }, VOLUME_PANE_ID);
     activeRef.current.forEach((key) => {
       const spec = specOf(key);
       if (!spec || !spec.styles) return;
@@ -159,7 +164,7 @@ export default function TradingChart({ market }: { market: string }) {
     if (!chart) return;
     chartRef.current = chart;
     chart.setPriceVolumePrecision(precisionRef.current, 4);
-    chart.createIndicator({ name: "VOL", styles: volStyles(tokens) as IndicatorCreate["styles"] }, true, { id: CANDLE_PANE_ID });
+    chart.createIndicator({ name: "VOL", styles: volStyles(tokens) as IndicatorCreate["styles"] }, false, { id: VOLUME_PANE_ID, height: VOLUME_PANE_HEIGHT });
 
     subPaneRef.current.clear();
     appliedRef.current = new Set();

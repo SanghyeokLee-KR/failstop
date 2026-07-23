@@ -86,14 +86,20 @@ export function startCandleStream(
       }
       // 계약은 시각 내림차순 → 차트는 오름차순
       const asc = [...rows].reverse();
-      const data: KLineData[] = asc.map((c) => ({
-        timestamp: Date.parse(c.candle_time),
-        open: toNum(c.open),
-        high: toNum(c.high),
-        low: toNum(c.low),
-        close: toNum(c.close),
-        volume: toNum(c.volume),
-      }));
+      // 0·NaN OHLC 캔들은 klinecharts 가격 축 범위를 0까지 오염시킨다. 결측·미형성 버킷은 유입 차단
+      const data: KLineData[] = [];
+      for (const c of asc) {
+        const open = toNum(c.open);
+        const high = toNum(c.high);
+        const low = toNum(c.low);
+        const close = toNum(c.close);
+        if (!(open > 0 && high > 0 && low > 0 && close > 0)) continue;
+        data.push({ timestamp: Date.parse(c.candle_time), open, high, low, close, volume: Math.max(0, toNum(c.volume)) });
+      }
+      if (data.length === 0) {
+        cb.onLoaded(false);
+        return;
+      }
       chart.applyNewData(data);
       const latest = data[data.length - 1];
       last = latest ? { ...latest, volume: latest.volume ?? 0 } : null;
@@ -115,7 +121,9 @@ export function startCandleStream(
     if (isDuplicateTrade(tradeCursor, msg)) return;
     advanceTradeCursor(tradeCursor, msg);
     const price = toNum(msg.price);
-    const vol = toNum(msg.volume);
+    // 결측·이상 체결가(0·NaN)는 close=0 캔들을 만들어 축을 오염시킨다. 합성에서 배제
+    if (!(price > 0)) return;
+    const vol = Math.max(0, toNum(msg.volume));
     const bucket = Math.floor(Date.parse(msg.timestamp) / unitMs) * unitMs;
     // 순서 역전 체결(bucket < 현재 봉)은 과거가로 close를 덮어쓰므로 무시. candle_time 단조성 방어
     if (bucket < last.timestamp) return;

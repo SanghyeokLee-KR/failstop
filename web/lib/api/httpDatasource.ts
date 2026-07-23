@@ -271,10 +271,14 @@ export class HttpStompDataSource implements DataSource {
   private member: { user: MemberUser; token: string; expMs: number | null } | null = null;
   private memberListeners = new Set<(s: MemberSession | null) => void>();
   private refreshPromise: Promise<MemberSession | null> | null = null;
+  /** 직전 refresh 실패 후 재로그인(setMember) 전까지 refresh 재요청을 억제한다. 비로그인 401 반복 방지 */
+  private refreshBlocked = false;
   /** 재연결 직렬화 체인. setMember·clearMember 근접 호출의 이중 활성을 막는다 */
   private reconnectChain: Promise<void> = Promise.resolve();
 
   private channels = new Map<string, ChannelState>();
+  /** getMarkets가 캐시하는 백엔드 실제 마켓 집합. 티커 요청을 이 집합으로 좁혀 미등록 마켓 400 소음을 없앤다 */
+  private knownMarkets: Set<string> | null = null;
   private connListeners = new Set<(connected: boolean) => void>();
   /** 리더 세대(§5-2). 변경 감지 시 전 채널 강제 재동기화 */
   private lastEpoch: number | null = null;
@@ -367,12 +371,20 @@ export class HttpStompDataSource implements DataSource {
   /* ===== REST 미러 (§4) ===== */
 
   async getMarkets(): Promise<Market[]> {
-    return unwrapList<Market>(await this.http("/api/v1/markets"), "/markets");
+    const list = unwrapList<Market>(await this.http("/api/v1/markets"), "/markets");
+    // 백엔드 실제 마켓 집합을 캐시한다. COIN_META(269종)와 달리 실서버는 일부만 제공하므로,
+    // 티커 요청을 이 집합으로 좁혀 미등록 마켓의 400 응답을 애초에 발생시키지 않는다
+    this.knownMarkets = new Set(list.map((m) => m.market));
+    return list;
   }
 
   async getTicker(markets: string[], signal?: AbortSignal): Promise<Ticker[]> {
     if (markets.length === 0) return [];
-    const q = new URLSearchParams({ markets: markets.join(",") });
+    // 캐시된 마켓 집합이 있으면 미등록 마켓을 제외한다(400 억제). 미캐시(부트 초기)면 그대로 요청한다
+    const known = this.knownMarkets;
+    const wanted = known ? markets.filter((m) => known.has(m)) : markets;
+    if (wanted.length === 0) return [];
+    const q = new URLSearchParams({ markets: wanted.join(",") });
     return unwrapList<Ticker>(await this.http(`/api/v1/ticker?${q}`, { signal }), "/ticker");
   }
 
@@ -530,6 +542,8 @@ export class HttpStompDataSource implements DataSource {
 
   private setMember(user: MemberUser, token: string): MemberSession {
     this.member = { user, token, expMs: decodeJwtExpMs(token) };
+    // 성공 인증은 새 refresh 쿠키를 확립한다. 이후 만료 시 refresh를 다시 허용한다
+    this.refreshBlocked = false;
     this.emitMember();
     // /user 채널을 회원 Bearer로 다시 열기 위해 재연결(승격)
     this.reconnectWs();
@@ -596,6 +610,9 @@ export class HttpStompDataSource implements DataSource {
   async refresh(): Promise<MemberSession | null> {
     // 동시 401·부트스트랩이 refresh를 중복 호출하지 않도록 단일 프라미스 공유
     if (this.refreshPromise) return this.refreshPromise;
+    // 직전 refresh가 실패했고 재로그인이 없었으면 서버 왕복 없이 즉시 실패로 수렴한다.
+    // 비로그인 상태의 부트스트랩·재구독·게시판 401이 auth/refresh를 반복 POST하던 소음을 없앤다
+    if (this.refreshBlocked) return Promise.resolve(null);
     this.refreshPromise = this.doRefresh().finally(() => {
       this.refreshPromise = null;
     });
@@ -608,14 +625,19 @@ export class HttpStompDataSource implements DataSource {
       const body = await this.authPost("/api/v1/auth/refresh");
       if (!body.access_token) throw new ApiError(0, "invalid_envelope", "갱신 응답에 access_token이 없습니다");
       token = body.access_token;
-    } catch {
-      // 만료·부재·재사용 탐지는 모두 세션 종료로 수렴한다(§3-4)
+    } catch (e) {
+      // 401·403(만료·부재·재사용 탐지)만 세션 종료로 수렴해 재로그인 전까지 재요청을 억제한다(§3-4).
+      // 네트워크·5xx·429 일시 장애는 유효 rt 쿠키를 버리지 않도록 억제하지 않고 다음 트리거에서 재시도한다.
       this.clearMember();
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        this.refreshBlocked = true;
+      }
       return null;
     }
     // refresh 응답은 user를 주지 않으므로 /me로 사용자 로드(§3-8)
     const user = this.member?.user ?? (await this.fetchMe(token));
     if (!user) {
+      // 토큰 회전은 성공했으나 /me 일시 실패. 회전된 유효 쿠키를 버리지 않도록 억제하지 않는다.
       this.clearMember();
       return null;
     }
