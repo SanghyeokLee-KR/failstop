@@ -75,6 +75,9 @@ interface Holding {
   change: ChangeState;
   /** 현재가 티커 도착 여부. 미도착 행은 가격 파생 셀을 '-'로 표기 */
   priced: boolean;
+  /** 매수원가 확보 여부. avg_buy_price<=0(백엔드 스텁)이면 원가 0 기준 전액 수익으로 계산되므로
+   * 매수평균가·평가손익을 '-'로 막는다 */
+  costKnown: boolean;
 }
 
 function changeOf(pnl: string): ChangeState {
@@ -151,6 +154,7 @@ export default function AssetsPage() {
             tickSpec: spec?.tick_size,
             change: changeOf(pnl),
             priced: compareDecimal(price, "0") > 0,
+            costKnown: compareDecimal(buyAmount, "0") > 0,
           };
         })
         .filter((h): h is Holding => h !== null)
@@ -172,6 +176,9 @@ export default function AssetsPage() {
   const totalPnl = subDec(totalValuation, totalBuy);
   const totalChange = changeOf(totalPnl);
   const totalRate = absRate(totalPnl, totalBuy);
+  // 원가 미확보 행이 하나라도 있으면 총매수·평가손익 합계가 가짜 수익으로 오염되므로 '-'로 막는다.
+  // totalBuy>0 판정은 일부만 원가가 있는 혼합 상태를 통과시키고 빈 포트폴리오의 정당한 0원까지 가린다
+  const costTotalKnown = holdings.every((h) => h.costKnown);
 
   /* ===== 보유 비중 (상위 5 + 기타, 가로 막대) ===== */
   const weights = useMemo(() => {
@@ -216,7 +223,7 @@ export default function AssetsPage() {
         width: "minmax(110px, 1fr)",
         align: "right",
         sortValue: (h) => toNum(h.avgBuyPrice),
-        render: (h) => (hidden ? HIDDEN : formatPrice(h.avgBuyPrice, h.tickSpec)),
+        render: (h) => (hidden ? HIDDEN : h.costKnown ? formatPrice(h.avgBuyPrice, h.tickSpec) : "-"),
       },
       {
         key: "valuation",
@@ -237,7 +244,7 @@ export default function AssetsPage() {
         render: (h) =>
           hidden ? (
             HIDDEN
-          ) : !h.priced ? (
+          ) : !h.priced || !h.costKnown ? (
             <span className="num">-</span>
           ) : (
             <span className="dir-text num" data-dir={dirOf(h.change)}>
@@ -284,14 +291,18 @@ export default function AssetsPage() {
             </div>
             <div className={styles.stat}>
               <span className="gauge-plate">총 매수금액</span>
-              <b className={`${styles.statValue} num`}>{hidden ? HIDDEN : formatKRW(totalBuy)}</b>
+              <b className={`${styles.statValue} num`}>
+                {hidden ? HIDDEN : costTotalKnown ? formatKRW(totalBuy) : "-"}
+              </b>
             </div>
             <div className={styles.stat}>
               <span className="gauge-plate">평가손익</span>
               {hidden ? (
                 <b className={`${styles.statValue} num`}>{HIDDEN}</b>
-              ) : (
+              ) : costTotalKnown ? (
                 <PricePill change={totalChange} changeRate={totalRate} amount={totalPnl} variant="pill" />
+              ) : (
+                <b className={`${styles.statValue} num`}>-</b>
               )}
             </div>
             <div className={styles.stat}>
