@@ -39,6 +39,9 @@ $pre = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'pre'
 Write-Host "사전 verdict=$($pre.verdict) 위반합=$($pre.totalViolations) old_epoch=$oldEpoch"
 if ($pre.verdict -ne 'PASS') { Write-Host '경고: 사전 run이 PASS가 아님. 배경 부하 안정 후 재실행 권장' -ForegroundColor Yellow }
 
+# ── 시계 동기 전제조건(#58): 스큐면 주입 없이 SKIP(거짓 FAIL 방지) ─────────
+if (Test-FailoverClockGuard -ExperimentId 'E1') { exit 0 }
+
 # ── ⓑ 주입: 리더 kill(T0) ──────────────────────────────────────────────
 Write-Section 'ⓑ 주입: docker kill'
 $t0 = (Get-Date).ToUniversalTime()

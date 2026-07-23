@@ -42,6 +42,9 @@ $spikeScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>
 Write-Host "스파이크 창 권위 run verdict=$($spikeRun.verdict) 위반합=$spikeViol 스캔체크수=$spikeScans"
 if ($spikeScans -lt 1) { throw '스파이크 창 내 권위 run 미적재(공허 통과 방지 가드)' }
 
+# 시계 동기 전제조건(#58): 스큐면 주입 없이 SKIP(거짓 FAIL 방지). 스파이크는 이미 형성됨.
+if (Test-FailoverClockGuard -ExperimentId 'E3') { exit 0 }
+
 Write-Section 'ⓑ 주입: docker kill (스파이크 plateau 중)'
 $t0 = (Get-Date).ToUniversalTime()
 $tradesAtInject = Get-TradeCount

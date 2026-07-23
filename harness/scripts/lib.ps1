@@ -377,3 +377,58 @@ function Write-Verdict {
     ([pscustomobject]$obj) | ConvertTo-Json -Depth 6 -Compress | Write-Host
     Write-Host '────────────────────────────────────────'
 }
+
+# ── 시계 동기 전제조건 가드(조사 #58). 페일오버 승격 게이트 실험 전용. 추가만. ──
+
+# Docker Desktop VM 시계가 호스트와 비단조로 어긋나면(호스트 슬립발 간헐 스큐) 리스 만료 구동
+# 승격(try_acquire: lease_until < clock_timestamp)이 지연돼 페일오버 실험이 거짓 FAIL 난다.
+# 코드·HA(CP 안전)는 정상. chaos-pg clock_timestamp와 호스트 UTC 차의 절대값(ms)이 임계 초과면 스큐.
+# 임계: CHAOS_CLOCK_SKEW_TOLERANCE_MS(기본 2000). psql 왕복지연을 midpoint로 상쇄해 잔차만 남긴다.
+function Test-ClockSkew {
+    param([int] $ToleranceMs = $(if ($env:CHAOS_CLOCK_SKEW_TOLERANCE_MS) { [int]$env:CHAOS_CLOCK_SKEW_TOLERANCE_MS } else { 2000 }))
+    # 호스트 시각으로 psql 호출을 감싸 before·after 중앙값을 기준점으로 쓴다(NTP식 왕복 상쇄).
+    $before = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $raw = Invoke-Psql "SELECT (extract(epoch from clock_timestamp()) * 1000)::bigint"
+    $after = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $roundTrip = [long]($after - $before)
+    if ([string]::IsNullOrWhiteSpace($raw)) {
+        # PG 미도달은 스큐가 아니라 별개 실패다. 스큐 아님으로 반환하되 도달불가를 표기(호출부 판단).
+        return [pscustomobject]@{ Skewed = $false; SkewMs = $null; ToleranceMs = $ToleranceMs; Reachable = $false; RoundTripMs = $roundTrip }
+    }
+    $pgMs = [long]$raw
+    $hostMid = [long](($before + $after) / 2)
+    $skewMs = [long][math]::Abs($pgMs - $hostMid)
+    return [pscustomobject]@{
+        Skewed = ($skewMs -gt $ToleranceMs); SkewMs = $skewMs; ToleranceMs = $ToleranceMs
+        Reachable = $true; RoundTripMs = $roundTrip; PgEpochMs = $pgMs; HostEpochMs = $hostMid
+    }
+}
+
+# 페일오버 실험 주입 직전 호출. 스큐면 verdict SKIP(스큐값·임계 기록)을 방출하고 $true 반환
+# (호출부가 주입 없이 exit 0으로 조기 종료). 동기·PG미도달이면 $false(정상 진행). 주입이 없어
+# failover_runs 미적재(SKIP은 페일오버 사건 아님). SKIP은 E3 redis·E8 chaosmonkey 부재와 동일 어휘.
+function Test-FailoverClockGuard {
+    param([Parameter(Mandatory = $true)][string] $ExperimentId)
+    $clock = Test-ClockSkew
+    if (-not $clock.Reachable) {
+        # 도달불가는 시계가드 소관 밖. 정상 진행시켜 기존 권위 run·주입 경로가 실패를 드러내게 둔다.
+        Write-Host "시계가드: chaos-pg clock_timestamp 미응답, 스큐 판정 생략(왕복 $($clock.RoundTripMs)ms)." -ForegroundColor Yellow
+        return $false
+    }
+    if (-not $clock.Skewed) {
+        Write-Host ("시계가드 통과: 스큐 {0}ms, 임계 {1}ms, 왕복 {2}ms." -f $clock.SkewMs, $clock.ToleranceMs, $clock.RoundTripMs)
+        return $false
+    }
+    Write-Verdict -ExperimentId $ExperimentId -Verdict 'SKIP' -Metrics @{
+        reason      = 'clock_skew'
+        clockSkewMs = $clock.SkewMs
+        toleranceMs = $clock.ToleranceMs
+        roundTripMs = $clock.RoundTripMs
+        pgEpochMs   = $clock.PgEpochMs
+        hostEpochMs = $clock.HostEpochMs
+        note        = 'Docker VM 시계와 호스트 UTC 스큐가 임계 초과. 장애 미주입(거짓 FAIL 방지, 조사 #58). WSL2/Docker Desktop 시계 재동기(wsl --shutdown 후 재기동) 뒤 재실행.'
+    }
+    Write-Host ''
+    Write-Host ("{0} SKIP: 시계 스큐 {1}ms, 임계 {2}ms 초과. 주입 생략(#58 거짓 FAIL 방지)." -f $ExperimentId, $clock.SkewMs, $clock.ToleranceMs) -ForegroundColor Yellow
+    return $true
+}

@@ -48,6 +48,9 @@ try {
     $pre = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'pre'
     Write-Host "사전 verdict=$($pre.verdict) old_epoch=$oldEpoch cmd_fencing_col=$cmdHasFencing"
 
+    # 시계 동기 전제조건(#58): 스큐면 분할 없이 SKIP. 미분할이라 종료 훅 복귀는 무해.
+    if (Test-FailoverClockGuard -ExperimentId 'E5') { exit 0 }
+
     Write-Section "ⓑ 주입: docker network disconnect $net $target (프로세스 생존)"
     $tradesAtInject = Get-TradeCount
     & docker network disconnect $net $target | Out-Null

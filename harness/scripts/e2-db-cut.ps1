@@ -25,6 +25,9 @@ try {
     $pre = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'pre'
     Write-Host "사전 verdict=$($pre.verdict) old_epoch=$oldEpoch"
 
+    # 시계 동기 전제조건(#58): 스큐면 주입 없이 SKIP. 토식 미주입이라 종료 훅 해제는 무해.
+    if (Test-FailoverClockGuard -ExperimentId 'E2') { exit 0 }
+
     Write-Section "ⓑ 주입: $($cfg['TOXIC_TYPE']) blackhole on $proxy"
     $t0 = (Get-Date).ToUniversalTime()
     $tradesAtInject = Get-TradeCount

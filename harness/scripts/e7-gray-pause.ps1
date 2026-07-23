@@ -44,6 +44,9 @@ try {
     $pre = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'pre'
     Write-Host "사전 verdict=$($pre.verdict) old_epoch=$oldEpoch cmd_fencing_col=$cmdHasFencing"
 
+    # 시계 동기 전제조건(#58): 스큐면 pause 없이 SKIP. 미동결이라 종료 훅 unpause는 무해.
+    if (Test-FailoverClockGuard -ExperimentId 'E7') { exit 0 }
+
     Write-Section "ⓑ 주입: docker pause $target (프로세스 동결)"
     $tradesAtInject = Get-TradeCount
     & docker pause $target | Out-Null
