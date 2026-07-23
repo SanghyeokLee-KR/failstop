@@ -54,34 +54,45 @@ const MarketRow = memo(function MarketRow({
   onNavigate: (market: string) => void;
 }) {
   const d = ticker ? dirOf(ticker.change) : "flat";
+  const navigate = () => {
+    if (!current) onNavigate(meta.market);
+  };
   return (
-    <button
-      type="button"
+    // 표 시맨틱(WCAG 1.3.1): role=row + cell. 네이티브 button role을 덮지 않도록 div+onKeyDown으로
+    // 두고 Enter·Space 활성을 직접 처리한다(RankingTable 패턴)
+    <div
+      role="row"
       className={styles.row}
       data-current={current || undefined}
       aria-current={current ? "page" : undefined}
-      onClick={() => {
-        if (!current) onNavigate(meta.market);
+      tabIndex={0}
+      aria-label={`${meta.koreanName} 거래 화면으로 이동`}
+      onClick={navigate}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          navigate();
+        }
       }}
     >
-      <span className={styles.nameCell}>
+      <span role="cell" className={styles.nameCell}>
         <span className={styles.nameText}>
           <span className={styles.name}>{meta.koreanName}</span>
           <span className={`${styles.sym} num`}>{meta.symbol}/KRW</span>
         </span>
       </span>
-      <span className="dir-text num" data-dir={d}>
+      <span role="cell" className="dir-text num" data-dir={d}>
         {/* 셀별 틱 구독·플래시 비용을 없앤다. 방향은 행 data-dir 색과
             전일대비 부호·화살표가 전달하고, 현재가 히어로가 상세 플래시를 담당한다(§16) */}
         {ticker?.trade_price != null ? formatPrice(ticker.trade_price, tickSpec) : "-"}
       </span>
-      <span className="dir-text num" data-dir={d}>
+      <span role="cell" className="dir-text num" data-dir={d}>
         {ticker ? formatChangeRate(ticker.change_rate, ticker.change) : "-"}
       </span>
-      <span className={`${styles.vol} num`}>
+      <span role="cell" className={`${styles.vol} num`}>
         {ticker ? formatCompactKRW(ticker.acc_trade_price_24h) : "-"}
       </span>
-    </button>
+    </div>
   );
 });
 
@@ -201,43 +212,54 @@ export default function MarketListPanel({ market }: { market: string }) {
           <SegmentedTab items={TABS} value={tab} onChange={setTab} ariaLabel="마켓 목록 구분" />
         </div>
 
-        <div className={styles.head}>
-          {HEADERS.map((h) => {
-            const on = sortKey === h.key;
-            return (
-              <button
-                key={h.key}
-                type="button"
-                className={styles.headBtn}
-                data-on={on || undefined}
-                aria-label={`${h.label} 기준 정렬${on ? (sortDir === "desc" ? " (내림차순)" : " (오름차순)") : ""}`}
-                onClick={() => onSort(h.key)}
-              >
-                {h.label}
-                {on && <span aria-hidden="true">{sortDir === "desc" ? "▼" : "▲"}</span>}
-              </button>
-            );
-          })}
-        </div>
+        <div className={styles.grid} role="table" aria-label="마켓 시세 목록">
+          {/* 정렬 상태는 aria-sort로 전달한다. 정렬 컨트롤은 네이티브 button을 유지하고 columnheader
+              셀이 그 위를 감싸 button role을 덮지 않는다(WCAG 4.1.2) */}
+          <div className={styles.head} role="row">
+            {HEADERS.map((h) => {
+              const on = sortKey === h.key;
+              return (
+                <div
+                  key={h.key}
+                  role="columnheader"
+                  className={styles.headCell}
+                  aria-sort={on ? (sortDir === "desc" ? "descending" : "ascending") : "none"}
+                >
+                  <button
+                    type="button"
+                    className={styles.headBtn}
+                    data-on={on || undefined}
+                    aria-label={`${h.label} 기준 정렬${on ? (sortDir === "desc" ? " (내림차순)" : " (오름차순)") : ""}`}
+                    onClick={() => onSort(h.key)}
+                  >
+                    {h.label}
+                    {on && <span aria-hidden="true">{sortDir === "desc" ? "▼" : "▲"}</span>}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
 
-        <div className={styles.list}>
-          {rows.length === 0 ? (
-            <div className="empty-state">
-              <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-              <span className="empty-state__title">{emptyText}</span>
-            </div>
-          ) : (
-            rows.map((c) => (
-              <MarketRow
-                key={c.market}
-                meta={c}
-                ticker={tickers[c.market]}
-                tickSpec={specMap.get(c.market)}
-                current={c.market === market}
-                onNavigate={onNavigate}
-              />
-            ))
-          )}
+          {/* rowgroup은 row 자식이 필수라 빈 상태에선 role을 내려 ARIA 구조 위반을 피한다 */}
+          <div className={styles.list} role={rows.length > 0 ? "rowgroup" : undefined}>
+            {rows.length === 0 ? (
+              <div className="empty-state">
+                <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+                <span className="empty-state__title">{emptyText}</span>
+              </div>
+            ) : (
+              rows.map((c) => (
+                <MarketRow
+                  key={c.market}
+                  meta={c}
+                  ticker={tickers[c.market]}
+                  tickSpec={specMap.get(c.market)}
+                  current={c.market === market}
+                  onNavigate={onNavigate}
+                />
+              ))
+            )}
+          </div>
         </div>
       </div>
     </PanelCard>

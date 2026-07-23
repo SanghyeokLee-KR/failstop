@@ -10,6 +10,9 @@ export type Health = "success" | "warning" | "danger";
 
 // 색약·모노 변별을 위해 심각도별 형태 분리(success 원·warning 삼각·danger 사각). 색은 보조 채널
 export const HEALTH_ICON: Record<Health, string> = { success: "●", warning: "▲", danger: "■" };
+// 형태·색은 aria-hidden이라 보조기술에 심각도가 안 닿는다. sr-only로 낭독할 라벨
+// 라벨 어휘는 NOTICE_SEVERITY_LABEL·admin 홈 HEALTH_LABEL과 통일(warning=주의)
+const HEALTH_LABEL: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
 
 /** 헬스 상태 필. 항상 아이콘+라벨 병기 */
 export function HealthPill({ health, label }: { health: Health; label: string }) {
@@ -40,6 +43,8 @@ export function StatTile({
   hero?: boolean;
   alarm?: boolean;
 }) {
+  // 색·형태로만 전달되던 심각도를 낭독한다. alarm은 tone 미지정 시 warning 승격과 동일하게 맞춘다
+  const severity = tone ?? (alarm ? "warning" : undefined);
   return (
     <div className={styles.statTile} data-alarm={alarm ? tone ?? "warning" : undefined}>
       <span className={styles.statLabel}>{label}</span>
@@ -49,6 +54,7 @@ export function StatTile({
             {HEALTH_ICON[tone]}
           </span>
         )}
+        {severity && <span className="sr-only">심각도 {HEALTH_LABEL[severity]}</span>}
         {value}
       </span>
       {sub != null && <span className={styles.statSub}>{sub}</span>}
