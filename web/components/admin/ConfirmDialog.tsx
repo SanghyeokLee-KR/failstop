@@ -45,6 +45,10 @@ export default function ConfirmDialog({
   const summaryId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  // onClose 최신 참조를 ref로 잡는다. 호출부가 인라인 화살표를 넘겨 폴링 리렌더마다 참조가 바뀌어도
+  // 포커스 셋업 이펙트가 재실행돼 초기 포커스(취소)로 포커스를 되돌리는 강탈을 막는다
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   // 실제 렌더된 조각만 참조한다. description 없이 target/blastRadius만 있을 때 빈 id 참조를 막는다
   const describedBy =
     [description ? descId : null, target || blastRadius ? summaryId : null].filter(Boolean).join(" ") || undefined;
@@ -54,7 +58,7 @@ export default function ConfirmDialog({
     const dialog = dialogRef.current;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       // 포커스 트랩: Tab이 다이얼로그 밖으로 새지 않게 처음·끝을 순환한다
@@ -89,7 +93,8 @@ export default function ConfirmDialog({
       // 닫힐 때 트리거로 포커스 복귀(키보드 흐름 유지)
       prevFocused?.focus?.();
     };
-  }, [onClose]);
+    // 마운트 1회만. 초기 포커스·트리거 복귀는 열림·닫힘 경계에서만 일어나야 한다(폴링 리렌더 무관)
+  }, []);
 
   // 배경 격리는 포커스 효과 뒤에 선언한다. 정리 역순이라 inert 해제가 포커스 복원보다 먼저 돈다
   useEffect(() => {

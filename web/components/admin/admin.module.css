@@ -823,6 +823,8 @@
 .toggleField input {
   width: 18px;
   height: 18px;
+  /* 슬라이더와 동일하게 브라우저 기본 accent(파랑·green)를 무채로 눌러 크롬 채도 예산을 지킨다 */
+  accent-color: var(--text-strong);
 }
 
 .flashPreview {
@@ -1039,6 +1041,10 @@
   padding: var(--space-3) var(--space-4);
   border-radius: var(--panel-radius);
   background: var(--surface-sunken);
+}
+/* 내려진 공지는 opacity로 강등한다. 상태는 "내림" 라벨 pill이 병기해 색·투명도 단독 신호가 아니다 */
+.noticeItem[data-inactive] {
+  opacity: 0.6;
 }
 .noticeHead {
   display: flex;
