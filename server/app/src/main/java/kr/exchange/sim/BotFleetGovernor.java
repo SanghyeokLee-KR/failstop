@@ -58,6 +58,63 @@ public class BotFleetGovernor {
         }
     }
 
+    /**
+     * 마켓별 레짐 프로파일(설계 §2-6 r14). STANDARD는 기존 전이 행렬·배수를 그대로 쓴다. MEME는
+     * 고변동 밈 자산용으로 TREND/SHOCK 진입·잔류 확률을 올린 전이 행렬과 증폭 배수를 쓴다.
+     * 프로파일은 전이 임계값 해석과 배수 증폭만 바꾼다. 마켓별 PRNG 시드와 controlStep당 소비량
+     * (nextDouble 1회)은 불변이라 rng 순서·결정론이 보존된다. 배수는 봇 의사결정 스칼라라
+     * NUMERIC 산술에 유입되지 않는다.
+     */
+    public enum RegimeProfile {
+        STANDARD(1.0, 1.0, 1.0, 1.0),
+        MEME(1.6, 1.4, 1.3, 1.8);
+
+        private final double driftAmp;
+        private final double spreadAmp;
+        private final double lambdaAmp;
+        private final double pWhaleAmp;
+
+        RegimeProfile(double driftAmp, double spreadAmp, double lambdaAmp, double pWhaleAmp) {
+            this.driftAmp = driftAmp;
+            this.spreadAmp = spreadAmp;
+            this.lambdaAmp = lambdaAmp;
+            this.pWhaleAmp = pWhaleAmp;
+        }
+
+        Regime next(Regime current, double u) {
+            return this == MEME ? nextRegimeMeme(current, u) : nextRegime(current, u);
+        }
+
+        double drift(Regime r) {
+            return r.drift * driftAmp;
+        }
+
+        double spread(Regime r) {
+            return r.spread * spreadAmp;
+        }
+
+        double lambda(Regime r) {
+            return r.lambda * lambdaAmp;
+        }
+
+        double pWhale(Regime r) {
+            return r.pWhale * pWhaleAmp;
+        }
+
+        /** 설정 문자열 파싱. 미지정(null·공백)은 STANDARD 폴백(하위호환). 미지 값은 거부. */
+        public static RegimeProfile parse(String raw) {
+            if (raw == null || raw.isBlank()) {
+                return STANDARD;
+            }
+            return switch (raw.trim().toUpperCase(java.util.Locale.ROOT)) {
+                case "STANDARD" -> STANDARD;
+                case "MEME" -> MEME;
+                default -> throw new IllegalArgumentException(
+                        "regimeProfile은 STANDARD|MEME여야 합니다: " + raw);
+            };
+        }
+    }
+
     private final int typeCap;
     private final int marketCap;
     private final int globalCap;
@@ -104,7 +161,7 @@ public class BotFleetGovernor {
         return h;
     }
 
-    /** 레짐 전이 1스텝(순수). u는 [0,1) 균등. 설계 §5-r5 전이 행렬. */
+    /** 표준 레짐 전이 1스텝(순수). u는 [0,1) 균등. 설계 §5-r5 전이 행렬. */
     static Regime nextRegime(Regime current, double u) {
         return switch (current) {
             case CALM -> u < 0.90 ? Regime.CALM : u < 0.98 ? Regime.TREND : Regime.SHOCK;
@@ -113,25 +170,46 @@ public class BotFleetGovernor {
         };
     }
 
+    /**
+     * MEME 레짐 전이 1스텝(순수, 설계 §2-6 r14). 표준 대비 TREND/SHOCK 진입·잔류 확률을 올려
+     * 고변동을 만든다. u는 [0,1) 균등. 표준과 동일하게 nextDouble 1회만 소비한다.
+     */
+    static Regime nextRegimeMeme(Regime current, double u) {
+        return switch (current) {
+            case CALM -> u < 0.60 ? Regime.CALM : u < 0.85 ? Regime.TREND : Regime.SHOCK;
+            case TREND -> u < 0.10 ? Regime.CALM : u < 0.70 ? Regime.TREND : Regime.SHOCK;
+            case SHOCK -> u < 0.25 ? Regime.CALM : u < 0.55 ? Regime.TREND : Regime.SHOCK;
+        };
+    }
+
     public Regime regime(String market) {
         MarketState state = markets.get(market);
         return state == null ? Regime.CALM : state.regime;
     }
 
+    public RegimeProfile regimeProfile(String market) {
+        MarketState state = markets.get(market);
+        return state == null ? RegimeProfile.STANDARD : state.profile;
+    }
+
     public double regimeDriftMult(String market) {
-        return regime(market).drift;
+        MarketState state = markets.get(market);
+        return state == null ? 1.0 : state.profile.drift(state.regime);
     }
 
     public double regimeSpreadMult(String market) {
-        return regime(market).spread;
+        MarketState state = markets.get(market);
+        return state == null ? 1.0 : state.profile.spread(state.regime);
     }
 
     public double regimeLambdaMult(String market) {
-        return regime(market).lambda;
+        MarketState state = markets.get(market);
+        return state == null ? 1.0 : state.profile.lambda(state.regime);
     }
 
     public double regimePWhaleMult(String market) {
-        return regime(market).pWhale;
+        MarketState state = markets.get(market);
+        return state == null ? 1.0 : state.profile.pWhale(state.regime);
     }
 
     public int poolPerType() {
@@ -145,8 +223,17 @@ public class BotFleetGovernor {
     /** 플릿 기동 시 마켓 등록. referencePrice는 가격 밴드 기준가(±40%)로 고정된다. */
     public void registerMarket(String market, BigDecimal referencePrice,
                                Map<BotType, Integer> initialTargets) {
+        registerMarket(market, referencePrice, initialTargets, RegimeProfile.STANDARD);
+    }
+
+    /**
+     * 레짐 프로파일 지정 등록(설계 §2-6 r14). 프로파일은 마켓 상태 최초 생성 시점에만 고정되므로
+     * 등록은 setScale·setBias보다 먼저 호출한다(BotFleet.start이 이 순서를 지킨다).
+     */
+    public void registerMarket(String market, BigDecimal referencePrice,
+                               Map<BotType, Integer> initialTargets, RegimeProfile profile) {
         MarketState state = markets.computeIfAbsent(market,
-                m -> new MarketState(m, referencePrice));
+                m -> new MarketState(m, referencePrice, profile));
         if (referencePrice != null && state.referencePrice == null) {
             state.referencePrice = referencePrice;
         }
@@ -161,7 +248,8 @@ public class BotFleetGovernor {
     }
 
     private MarketState state(String market) {
-        return markets.computeIfAbsent(market, m -> new MarketState(m, null));
+        return markets.computeIfAbsent(market,
+                m -> new MarketState(m, null, RegimeProfile.STANDARD));
     }
 
     // ----------------------------------------------------------------
@@ -283,8 +371,8 @@ public class BotFleetGovernor {
     public void controlStep() {
         for (MarketState state : markets.values()) {
             // 레짐 전이는 마켓별 시드 PRNG를 controlStep당 정확히 1회 전진시킨다. 같은 시드 +
-            // 같은 호출 횟수 = 같은 레짐 시퀀스. 벽시계 미사용.
-            state.regime = nextRegime(state.regime, state.regimeRng.nextDouble());
+            // 같은 호출 횟수 = 같은 레짐 시퀀스. 프로파일은 임계값 해석만 바꾸고 소비량은 불변.
+            state.regime = state.profile.next(state.regime, state.regimeRng.nextDouble());
             long buy = state.buyAgg.getAndSet(0);
             long sell = state.sellAgg.getAndSet(0);
             long fills = state.fillAgg.getAndSet(0);
@@ -473,14 +561,16 @@ public class BotFleetGovernor {
         private volatile boolean autoBalance;
         private volatile double strength = 0.5;
         private volatile Regime regime = Regime.CALM;
+        private final RegimeProfile profile;
         private final SplittableRandom regimeRng;
         private final AtomicLong buyAgg = new AtomicLong();
         private final AtomicLong sellAgg = new AtomicLong();
         private final AtomicLong fillAgg = new AtomicLong();
 
-        private MarketState(String market, BigDecimal referencePrice) {
+        private MarketState(String market, BigDecimal referencePrice, RegimeProfile profile) {
             this.market = market;
             this.referencePrice = referencePrice;
+            this.profile = profile == null ? RegimeProfile.STANDARD : profile;
             this.regimeRng = new SplittableRandom(regimeSeed ^ stableSalt(market));
         }
 

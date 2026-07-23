@@ -187,6 +187,8 @@ exchange:
         quote-size: "40"
         qty-step: "30"
         base-funding: "5000000"
+        # r14: 고변동 밈 자산. SHOCK/TREND 편향 레짐으로 다른 마켓과 변동성 개성을 구분한다.
+        regime-profile: MEME
       - symbol: KRW-ADA
         initial-price: "1084"
         mm-count: 1

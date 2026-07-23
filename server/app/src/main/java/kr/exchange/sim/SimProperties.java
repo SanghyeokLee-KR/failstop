@@ -34,10 +34,14 @@ public record SimProperties(
      * MM/Taker/Funding 값으로 폴백한다.
      * trendCount·noiseCount는 TREND·NOISE 초기 목표 대수(r4). null이면 BotFleet가 taker 수에서
      * 파생한다. 파킹 게이트·캡으로 경계되므로 값은 활성 상한 힌트일 뿐이다.
+     * regimeProfile은 마켓별 변동성 레짐 프로파일(r14). null·미지정은 STANDARD 폴백(하위호환).
+     * MEME는 고변동 밈 자산용 SHOCK/TREND 편향 전이·증폭 배수. 봇 의사결정 스칼라 전용이라
+     * NUMERIC 산술·엔진 재생에 무관하다.
      */
     public record MarketSpec(String symbol, String initialPrice, Integer mmCount,
                              Integer takerCount, String quoteSize, String qtyStep,
-                             String baseFunding, Integer trendCount, Integer noiseCount) {
+                             String baseFunding, Integer trendCount, Integer noiseCount,
+                             String regimeProfile) {
     }
 
     public record Funding(String quote, String base) {

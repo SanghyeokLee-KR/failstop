@@ -73,8 +73,8 @@ public class BotFleet {
             initialTargets.put(BotType.TAKER, per.taker().count());
             initialTargets.put(BotType.TREND, Math.max(0, trendInit));
             initialTargets.put(BotType.NOISE, Math.max(0, noiseInit));
-            fleet.registerMarket(per.market(),
-                    new BigDecimal(per.initialPrice()), initialTargets);
+            fleet.registerMarket(per.market(), new BigDecimal(per.initialPrice()), initialTargets,
+                    BotFleetGovernor.RegimeProfile.parse(spec.regimeProfile()));
 
             for (int i = 1; i <= pool; i++) {
                 String botId = "mm-" + suffix + "-" + i;
@@ -141,7 +141,7 @@ public class BotFleet {
         return List.of(new SimProperties.MarketSpec(props.market(), props.initialPrice(),
                 props.marketMaker().count(), props.taker().count(),
                 props.marketMaker().quoteSize(), props.taker().qtyStep(), props.funding().base(),
-                null, null));
+                null, null, null));
     }
 
     /** MarketSpec을 마켓별 SimProperties 뷰로 투영한다. 지정 안 된 필드는 top-level 값 유지. */
