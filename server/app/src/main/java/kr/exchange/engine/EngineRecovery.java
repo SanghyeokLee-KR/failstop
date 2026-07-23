@@ -34,6 +34,11 @@ public class EngineRecovery {
     // 시간 기준 renew 사이에도 이 이벤트 수마다 리스를 갱신한다. 명령 하나가 큰 이벤트 배치를
     // 내면(북 스윕) 시간 판정만으로는 renew 간격이 벌어질 수 있어, 누적 이벤트 상한으로 보강한다.
     private static final int RENEW_EVENT_INTERVAL = 10_000;
+    // 부팅 승격 대기 상한·재시도 간격. 강제 종료 직후 재기동은 직전 프로세스의 리스가 TTL 내
+    // 유효해 첫 승격이 실패한다. 만료 전 탈취는 try_acquire_leader가 차단하므로(DB 설계 §5.4)
+    // 재시도는 잔존 리스의 만료 관측일 뿐이다. 상한은 RTO 목표 30초(API §7-4)를 넘지 않는다.
+    private static final java.time.Duration BOOT_PROMOTION_WAIT_CAP = java.time.Duration.ofSeconds(30);
+    private static final java.time.Duration BOOT_PROMOTION_RETRY_INTERVAL = java.time.Duration.ofMillis(250);
 
     private final ReplayService replayService;
     private final SingleWriterLoop.EventSink reappendSink;
@@ -72,6 +77,23 @@ public class EngineRecovery {
      * (MatchingEngineImpl.loadSnapshot 가드).
      */
     public ReplayResult recover(MatchingEngineImpl engine) {
+        return recover(engine, java.time.Duration.ZERO);
+    }
+
+    /**
+     * 부팅 전용 복구. 크래시 창 재적재에 리더 자격이 필요할 때, 직전 프로세스의 잔존 리스가
+     * 만료될 때까지(TTL 1.5배, 상한 30초) 승격을 재시도한다. 무대기 경로(recover 단일 인자)는
+     * 그대로 둔다: 런타임 승격 재생 중 리스 상실은 즉시 실패해야 강등이 지연되지 않는다.
+     */
+    public ReplayResult recoverAtBoot(MatchingEngineImpl engine) {
+        java.time.Duration budget = lease.ttl().multipliedBy(3).dividedBy(2);
+        if (budget.compareTo(BOOT_PROMOTION_WAIT_CAP) > 0) {
+            budget = BOOT_PROMOTION_WAIT_CAP;
+        }
+        return recover(engine, budget);
+    }
+
+    private ReplayResult recover(MatchingEngineImpl engine, java.time.Duration promotionWait) {
         long eventStart = 0;
         if (snapshotSource != null) {
             Optional<SnapshotSource.Loaded> snap = snapshotSource.loadLatestAdoptable();
@@ -92,9 +114,11 @@ public class EngineRecovery {
         // 재적재는 리더 자격이 필요하다. 승격 실패(유효한 타 리더 존재)는 기동 거부로 처리한다.
         // 그 리더가 같은 창을 이미 메웠다면 애초에 pending이 비고, 메우는 중이라면 여기서의
         // 병행 적재는 레지스트리 충돌·fencing으로 어차피 실패해야 맞다(무음 유실 금지).
-        if (!lease.isLeader() && !lease.tryAcquire()) {
+        if (!lease.isLeader() && !acquireLeadership(promotionWait)) {
             throw new IllegalStateException(
-                    "크래시 창 이벤트 " + pending.size() + "건 재적재 불가: 리더 승격 실패");
+                    "크래시 창 이벤트 " + pending.size() + "건 재적재 불가: 리더 승격 실패"
+                            + (promotionWait.isZero() ? ""
+                                    : "(대기 " + promotionWait.toMillis() + "ms 소진)"));
         }
         // EngineConfig 순서상 recover()가 lease.start()보다 먼저 돌아 이 구간엔 스케줄러
         // renew가 없다. 대형 크래시 창 재적재가 TTL을 넘기면 정당 단독 리더가 fencing으로
@@ -132,5 +156,31 @@ public class EngineRecovery {
         log.info("크래시 창 이벤트 재적재·재정산: {}건 (source_cmd_seq {}..{})", pending.size(),
                 pending.get(0).sourceCmdSeq(), pending.get(pending.size() - 1).sourceCmdSeq());
         return result;
+    }
+
+    // 승격 획득만 담당하고 획득 후 로직은 무변경이다. 대기는 부팅 스레드의 블로킹일 뿐
+    // 엔진 결정론·저널·매칭 순서와 무관하다. 인터럽트는 대기 포기로 처리해 기동 실패로 흐른다.
+    private boolean acquireLeadership(java.time.Duration wait) {
+        if (lease.tryAcquire()) {
+            return true;
+        }
+        if (wait.isZero() || wait.isNegative()) {
+            return false;
+        }
+        log.warn("리더 승격 실패(유효한 타 리더 존재). 리스 만료 대기 후 재시도: 상한 {}ms",
+                wait.toMillis());
+        long deadlineNanos = System.nanoTime() + wait.toNanos();
+        while (System.nanoTime() < deadlineNanos) {
+            try {
+                Thread.sleep(BOOT_PROMOTION_RETRY_INTERVAL.toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            if (lease.tryAcquire()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -1134,6 +1134,12 @@ CREATE TABLE leader_lease (
 -- 부트스트랩 시드(v2.4): §5.4의 승격은 조건부 UPDATE 단독이므로 행이 **선재**해야 한다.
 -- 빈 테이블에서는 UPDATE가 항상 0행이고 §5.4 규칙상 0행='타 리더 존재'로 해석되어
 -- 최초 리더 선출이 영구 불가(부트스트랩 교착). 만료 상태로 시드해 첫 승격 UPDATE가 즉시 성립한다.
+-- 부팅 승격 재시도(v2.17): 앱 부팅 lifecycle의 최초 승격은 실패 시 즉시 포기하지 않고 리스
+-- 만료를 lease TTL의 1.5배(상한 30초, API §7-4 RTO 목표)까지 250ms 간격으로 폴링 재시도한다.
+-- 강제 종료 후 TTL 내 재기동 시 구 프로세스의 잔존 리스가 만료되길 기다려 승격을 성사시키므로
+-- 크래시 창의 로그 우선 커밋 명령이 미물질화로 남지 않는다(RPO=0 강화). 승격 규칙 자체(만료
+-- 리스만 조건부 UPDATE 탈취, epoch+1 단조)는 불변이고 대기는 부팅 스레드 스케줄링에만 적용된다.
+-- 런타임 승격(PromotionCoordinator)은 강등 지연 금지를 위해 무대기 즉시 실패를 유지한다.
 INSERT INTO leader_lease (resource, holder, epoch, lease_until)
 VALUES ('matching-engine', '', 0, now() - interval '1 s');
 

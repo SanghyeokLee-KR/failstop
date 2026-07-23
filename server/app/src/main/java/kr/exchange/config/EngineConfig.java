@@ -217,7 +217,9 @@ public class EngineConfig {
             public void start() {
                 // 재생·크래시 창 재적재 실패는 기동 실패다. 검증 안 된 상태로 트래픽을 받지
                 // 않고, pending을 버린 기동은 저널 prefix 성질을 깨므로 금지다(§5.5 ②).
-                recovery.recover(engine);
+                // 강제 종료 직후 재기동은 직전 프로세스 리스가 TTL 내 유효할 수 있어 부팅
+                // 경로는 만료 대기 후 승격을 재시도한다(EngineRecovery.recoverAtBoot).
+                recovery.recoverAtBoot(engine);
                 loop.start();
                 // 부팅 시점에 리더면 즉시 접수 개방, 아니면 팔로워로 게이트를 닫는다. arm 이후의
                 // gain(런타임 승격)만 fresh 엔진 선복원 경로를 탄다(복구 RTO §3-a).
