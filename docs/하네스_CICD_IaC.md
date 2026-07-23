@@ -729,27 +729,33 @@ datasources:
 
 ### 5-6. 불변식 check_name 카탈로그(C-코드) + 알람
 
-**카탈로그 신설(계약 미정의 해소)**: 초안의 "C01~C17"은 어느 계약에도 없는 미정의 분류였다. DB v2.5 §6의 검증 쿼리 ①~⑫(+⑧')·§3.2 DEFAULT 감시를 **1:1 표준 매핑**해 확정한다. 이 표가 `invariant_checks.check_name`·게이지 태그·알람 라우팅의 단일 권위이며, DB 문서 §6에의 역수록을 §8-8로 권고한다:
+**카탈로그 개정(검증설계 §4-1 정합)**: 종전 표는 DB§6 ①~⑫ 직접 매핑의 구 체계(C08/C09 분리, C10=TRADE_SEQ_EVENT_MATCH, C14=BOT_ACK_SUBSET, C90 등)로 검증설계 §4-1 카탈로그·앱 검증기(InvariantCheck enum)와 코드 배정이 어긋났다. §4-1 체계로 개정한다. 단일 권위는 검증설계 §4-1이며, `invariant_checks.check_name`·게이지 태그에는 InvariantCheck enum 상수명이 그대로 실리고 심각도는 게이지 `severity` 라벨로 패스스루된다. DB 문서 §6에의 역수록 권고는 §8-8 유지:
 
-| 코드 | check_name(표준) | DB 원천 | 심각도 | 근거 |
+| 코드 | check_name(표준) | 원천(검증설계 §4-1) | 심각도 | 스코프 |
 |---|---|---|---|---|
-| C01 | `ASSET_CONSERVATION` | §6.1 ① 자산별 원장 총합=0 | **critical** | 자산 보존 = 증명 목표 그 자체 |
-| C02 | `BAL_VS_LEDGER` | §6.1 ② balances vs 원장 재계산 | **critical** | 프로젝션 부정합 = 이중지출 전조 |
-| C03 | `TXN_UNSEALED` | §6.2 ③ 1분 초과 OPEN 거래 | warning | 누수 감지(지연 자체는 복구 가능) |
-| C04 | `TXN_SEALED_UNBALANCED` | §6.2 ④ 봉인+불균형 | **critical** | 트리거 우회 = 회계 위반 |
-| C05 | `CMD_JOURNAL_GAPLESS` | §6.3 ⑤ | **critical** | 유실 0(RPO=0) 증명 축 |
-| C06 | `EVENT_JOURNAL_GAPLESS` | §6.3 ⑥ | **critical** | 동상 |
-| C07 | `DUP_CLIENT_ORDER` | §6.3 ⑦ | **critical** | 멱등 위반 = 중복 접수 |
-| C08 | `TRADE_SEQ_DUP` | §6.4 ⑧ | **critical** | 중복 체결 직접 신호 |
-| C09 | `TRADE_SEQ_REGISTRY` | §6.4 ⑧' 레지스트리 대조 | **critical** | 삽입 누수 |
-| C10 | `TRADE_SEQ_EVENT_MATCH` | §6.4 ⑨ | warning | 파생 대조(원천은 C05/C06이 방어) |
-| C11 | `ORDER_FILL_AGG` | §6.4 ⑩ 체결합=filled_qty | warning | 프로젝션, 재빌드로 자동 수렴 |
-| C12 | `TRADE_ORPHAN` | §6.4 ⑪ | warning | FK-less 논리참조 보완 |
-| C13 | `EVENT_ORPHAN` | §6.4 ⑫ | warning | 동상 |
-| C14 | `BOT_ACK_SUBSET` | §6-3 봇 ACK ⊆ command_journal(E6 판정, §7-4) | **critical** | 외부 관점 유실 0 |
-| C90 | `DEFAULT_PARTITION_{table}` | §3.2 check_default_partitions | warning | 가용성(소진 전조), 무결성 위반 아님 |
+| C01 | `C01_ASSET_CONSERVATION` | 자산별 원장 총합=0 (DB§6.1 ①) | **critical** | 상시 |
+| C02 | `C02_BAL_VS_LEDGER` | balances = 원장 재계산 (②) | **critical** | 상시 |
+| C03 | `C03_TXN_UNSEALED` | 1분 초과 OPEN 거래 (③) | high | 상시 |
+| C04 | (러너 미평가) | SEALED 불균형 (④) | **critical** | DEFERRED CONSTRAINT TRIGGER 하드 강제(V1) |
+| C05 | `C05_CMD_GAPLESS` | command_journal gapless (⑤) | **critical** | 상시 |
+| C06 | `C06_EVT_GAPLESS` | event_journal gapless (⑥) | **critical** | 상시 |
+| C07 | `C07_DUP_ORDER` | 중복 접수 0, 프로젝션 축 (⑦) | **critical** | 상시 |
+| C07' | `C07P_DUP_ORDER_JOURNAL` | 중복 접수 0, 저널 축 | **critical** | 상시 |
+| C08 | `C08_DUP_FILL` | 중복 체결 0 + 레지스트리 1:1 (⑧⑧') | **critical** | 상시 |
+| C09 | `C09_TRADE_SEQ_EVENT_MATCH` | trades ⊆ event_journal(TRADE) (⑨) | high | 상시 |
+| C10 | `C10_ORDER_FILL_AGG` | 체결 합 = filled_qty (⑩) | high | 상시 |
+| C11 | `C11_TRADE_ORPHAN` | 고아 체결 (⑪) | high | 상시 |
+| C12 | `C12_EVENT_ORPHAN` | 고아 이벤트 (⑫) | high | 상시 |
+| C13 | `C13A_ORDER_MATERIALIZED` / `C13B_ORDER_JOURNALED` | NEW 명령 ↔ orders 1:1 | **critical** | a축 권위 run 한정 / b축 상시 |
+| C14 | `C14_LOCKED_RESERVATION` | LOCKED 잔고 = 열린 주문 예약 합 | high | 상시 |
+| C15 | `C15_DEFAULT_PARTITION` | DEFAULT 파티션 유입 0 | warn | 상시(가용성 전조, 무결성 위반 아님) |
+| C16 | `C16_ACK_JOURNALED` | ACK 원장 ⊆ command_journal(RPO=0 외부 증거) | **critical** | 실험 사후 권위 run 한정 |
+| C17 | `C17_REPLAY_DETERMINISM` | 재생 결정론 matched=true | **critical** | 상시 |
+| C18 | `C18_FILL_PRICE_MAKER` | 체결가 = maker 지정가 | **critical** | 상시 |
+| C19 | `C19_ORDERBOOK_NONCROSS` | bestBid < bestAsk | high | 정지 시점 run 한정 |
+| C20 | `C20_ORDER_FEE_MATERIALIZED` | paid_fee·trades_count = fee leg 합 | high | 상시 |
 
-`exchange_invariant_violations{check_name="ASSET_CONSERVATION"}` 형태로 노출된다.
+`exchange_invariant_violations{check_name="C01_ASSET_CONSERVATION", severity="CRITICAL"}` 형태로 노출된다.
 
 **알람, Grafana 통합 얼럿 파일 프로비저닝**(Alertmanager 컨테이너 생략). `provisioning/alerting/rules.yaml`, 그룹 interval 10s, contact point=데모 webhook 1개:
 
@@ -757,7 +763,7 @@ datasources:
 |---|---|---|---|
 | `LedgerImbalance` | `max(abs(exchange_ledger_imbalance))` | `>0` for 0s | **critical**, 자산 보존 위반 즉시 |
 | `DuplicateFill` | `increase(exchange_duplicate_fills_total[5m])` | `>0` | **critical** |
-| `InvariantViolation` | `max by(check_name)(exchange_invariant_violations)` | `>0` for 30s | **위 카탈로그의 심각도 열을 라우팅 기준으로 사용**(critical 그룹=C01·C02·C04~C09·C14 / warning=그 외) |
+| `InvariantViolation` | `max by(check_name)(exchange_invariant_violations)` | `>0` for 30s | **게이지 `severity` 라벨 패스스루로 라우팅**(critical=C01·C02·C05~C08(C07' 포함)·C13·C16~C18 / high=C03·C09~C12·C14·C19·C20 / warn=C15. C04는 DB 트리거 강제라 게이지 미노출) |
 | `OrderP99SloBreach` | `exchange:order_latency:p99_1m` | `>0.5` for 2m | warning |
 | `FailoverRtoExceeded` | `max(exchange_failover_downtime_seconds)` | `>30` | critical |
 | `LeaderAbsent` | `absent(exchange_leader_is_leader == 1)` | for 15s | critical |
@@ -794,7 +800,7 @@ Micrometer Tracing(OTel bridge)→OTLP→Tempo, Logback JSON(trace_id 포함)→
 | E3 예외 폭풍/지연 | admin → api 노드 `POST /actuator/chaosmonkey/**` 릴레이(admin-net, **§5-1 demo 프로파일에서 노출·활성 확인됨**) | CB open, 429/503+Retry-After 규약 |
 | E4 AppKiller/자원 고갈 | Chaos Monkey AppKiller/Memory/CPU + `restart: unless-stopped` | 프로세스 수준 자동 복구(메모리 캡 §3-4 내에서) |
 | E5 노드 kill(핵심) | admin이 **docker-java(Engine API, docker.sock)** 로 `exchange-demo-api-1-1` kill, CLI 미탑재 이미지에서도 실행 가능(구현 방식 확정) | restart→재생→readiness UP→LB 재편입, RTO<30s, epoch+1 |
-| E6 폭주+kill 동시 | k6 spike 중첩 + E5 | 유실 0·중복 0·자산합 0·해시 일치(P6 증거 표) + C14 |
+| E6 폭주+kill 동시 | k6 spike 중첩 + E5 | 유실 0·중복 0·자산합 0·해시 일치(P6 증거 표) + C16 |
 | 보완(그레이 장애) | `docker pause`(freezer), **pause는 restart 정책으로 복구 안 됨 → 실험 타이머가 unpause 자동 종료(필수 훅)** | 헬스체크 vs TCP 생존 괴리, 좀비 리더 fencing |
 | 보완(패킷) | Pumba netem loss/corrupt (`chaos-net`), **사전 검증 필수**: `docker run --rm --cap-add NET_ADMIN alpine sh -c "apk add iproute2 && tc qdisc add dev eth0 root netem loss 10%"` 성공 시에만 활성. WSL2 커널 sch_netem 미탑재 시 **packet loss 실험은 범위 제외로 문서화** | Toxiproxy 공백 전담(조건부) |
 
@@ -802,7 +808,7 @@ Micrometer Tracing(OTel bridge)→OTLP→Tempo, Logback JSON(trace_id 포함)→
 
 ### 6-3. 실험 판정 프로토콜 (불변식 검증기 연계)
 
-① 사전 권위 run(run_id=B, REPEATABLE READ 전량) green + 워터마크 기록, **봇 ACK 기록 시작(§7-4 경로)** → ② 주입(annotation) → ③ R0~R7 자동 복구(격리→승격→스냅샷→검증 재생→tail→catch-up→불변식 권위 run→아웃박스→재개) → ④ 사후 권위 run(run_id=A) + C14(봇 ACK ⊆ command_journal) + `recovery_runs.matched` + `failover_runs.rto_seconds`. **PASS = matched=true ∧ CRITICAL 체크(C-카탈로그) 전부 0행 ∧ rpo_records=0 ∧ rto<30s**, §6-C API·대시보드 ②·`invariant_checks(B/A)`+`failover_runs`가 §4-3의 원천 구조대로 산출된다. 검증 주체는 pg_cron(앱 다운에도 생존)과 앱 스케줄러(@Scheduled+ShedLock, 알람 발화·권위 run)의 이중화.
+① 사전 권위 run(run_id=B, REPEATABLE READ 전량) green + 워터마크 기록, **봇 ACK 기록 시작(§7-4 경로)** → ② 주입(annotation) → ③ R0~R7 자동 복구(격리→승격→스냅샷→검증 재생→tail→catch-up→불변식 권위 run→아웃박스→재개) → ④ 사후 권위 run(run_id=A) + C16(ACK 원장 ⊆ command_journal) + `recovery_runs.matched` + `failover_runs.rto_seconds`. **PASS = matched=true ∧ CRITICAL 체크(C-카탈로그) 전부 0행 ∧ rpo_records=0 ∧ rto<30s**, §6-C API·대시보드 ②·`invariant_checks(B/A)`+`failover_runs`가 §4-3의 원천 구조대로 산출된다. 검증 주체는 pg_cron(앱 다운에도 생존)과 앱 스케줄러(@Scheduled+ShedLock, 알람 발화·권위 run)의 이중화.
 
 ---
 
@@ -851,11 +857,10 @@ Testcontainers도 동일 구조를 재현한다(§2-3). 로컬·CI·데모의 �
 
 `bots`·k6는 seed 완료(`service_completed_successfully`) 후에만 기동하므로 full 프로파일 1커맨드 기동 직후 인증 실패가 구조적으로 없다.
 
-### 7-4. 봇 ACK 기록 경로 (신규, E6/C14 판정 배선)
+### 7-4. 봇 ACK 기록 경로 (E6/C16 판정 배선, 검증설계 §2-5 정합 개정)
 
-- bot-simulator는 ACK 수신마다 `(bot_user_id, client_order_id, acked_order_id, ack_ts)`를 **`sim.bot_ack_log` 테이블에 배치 INSERT**(app_role, 전용 `sim` 스키마, 원장 스키마와 격리, append-only). 파일이 아닌 DB 채택 이유: C14 대조가 `command_journal`과의 **단일 SQL 조인**으로 판정 가능해야 "SQL로 즉시 증명" 원칙(API§6-C)과 정합하고, 봇 컨테이너 재시작에도 기록이 생존한다.
-- C14 판정 SQL: `SELECT a.client_order_id FROM sim.bot_ack_log a LEFT JOIN command_journal c ON c.user_id=a.bot_user_id AND c.client_order_id=a.client_order_id AND c.command_type='NEW' WHERE c.seq IS NULL` → **0행 = ACK된 주문의 저널 유실 0**. 실험 프로토콜 ①에서 기록 시작 워터마크(ack_ts 하한)를 함께 저장해 실험 창만 대조한다.
-- `sim` 스키마는 `V90__observability_ext.sql`에서 생성(원장·저널 무접촉 additive).
+- ACK 원장 정본은 **`harness.loadtest_acks`**(검증설계 §2-5, `source='bot'|'k6'`)다. 초안의 `sim.bot_ack_log` 별도 테이블은 봇·k6 이원 원천으로 C16 판정이 갈라지므로 폐기하고 단일 테이블로 통합한다. 파일이 아닌 DB 채택 이유: C16 대조가 `command_journal`과의 **단일 SQL 조인**으로 판정 가능해야 "SQL로 즉시 증명" 원칙(API§6-C)과 정합하고, 봇 컨테이너 재시작에도 기록이 생존한다.
+- C16 판정 SQL은 검증설계 §4-1 C16 그대로: `harness.loadtest_acks` LEFT JOIN `command_journal`, 0행 = ACK된 주문의 저널 유실 0. 실험 시작 훅의 `TRUNCATE harness.loadtest_acks` 선행이 전제(스테일 오탐 차단, §2-5).
 
 ---
 
@@ -868,7 +873,7 @@ Testcontainers도 동일 구조를 재현한다(§2-3). 로컬·CI·데모의 �
 5. SB 3.5 OSS EOL(2026-06-30) 기도래, §1 트레이드오프 논거 유지, Resilience4j SB4 GA 확인 시 이관 재검토.
 6. `grafana_annotation:"anno-88"`은 Annotations API 정수 id의 접두 표기로 구현(정합), v2.5에서 정수 정리 선택 사항.
 7. **신규(DB v2.6 권고): `failover_runs` 테이블 추가**, `(id, experiment_id VARCHAR, old_leader, new_leader, old_epoch BIGINT, new_epoch BIGINT, last_heartbeat_ts TIMESTAMPTZ, takeover_ts TIMESTAMPTZ, rto_seconds NUMERIC(8,3), rpo_records BIGINT, verdict VARCHAR(8), created_at)`. 현행 recovery_runs에는 RTO/RPO/verdict 컬럼이 없어 §6-C API 응답의 DB 원천이 부재했다(§4-3의 역할 재정렬 근거). 채택 전까지 `V90__observability_ext.sql`로 선반영.
-8. **신규(DB §6 권고): check_name 표준 카탈로그 수록**, §5-6의 C01~C14·C90 표를 DB 문서 §6에 역수록해 `invariant_checks.check_name`·심각도 분류의 계약 권위를 확립(현행은 'ASSET_CONSERVATION' 등 일부만 예시 수준).
+8. **신규(DB §6 권고): check_name 표준 카탈로그 수록**, §5-6의 C코드 표(검증설계 §4-1 체계, C01~C20)를 DB 문서 §6에 역수록해 `invariant_checks.check_name`·심각도 분류의 계약 권위를 확립(현행은 'ASSET_CONSERVATION' 등 일부만 예시 수준).
 9. **신규(API§6-B 권고): `POST /admin/v1/chaos/network` 바디에 `target_node` 축 추가**, 노드별 toxiproxy 배선(§3-2)의 API 표면. approval_token 바인딩 대상 식별자에도 target_node 포함.
 
 ---

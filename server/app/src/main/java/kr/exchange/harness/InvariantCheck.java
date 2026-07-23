@@ -1,7 +1,7 @@
 package kr.exchange.harness;
 
 /**
- * 불변식 검증 카탈로그 C01~C19의 앱 검증기 배선(하네스 검증설계 §4-1). 각 SQL은 위반 행
+ * 불변식 검증 카탈로그 C01~C20의 앱 검증기 배선(하네스 검증설계 §4-1). 각 SQL은 위반 행
  * 수(BIGINT)를 단일 값으로 반환하고, ok는 count=0으로 판정한다. 컬럼명은 DB 설계 정본 실제
  * DDL 기준.
  *
@@ -9,7 +9,8 @@ package kr.exchange.harness;
  * 실환경에서 아무 러너도 평가하지 않았다(고아 체결·미저널 체결 회귀가 페일오버 판정을 그대로
  * 통과). 이를 이 enum에 등록해 runScheduled/runAuthoritative가 실제로 평가하고 위반을
  * exchange_invariant_violations 게이지·invariant_checks에 노출하게 한다(하네스 검증설계 §4-2
- * 실행 분담 개정과 정합). C09~C12는 90일 retention 윈도로 스캔 비용에 상한을 건다(§4-2 ③).
+ * 실행 분담 개정과 정합). C08~C12·C18·C20은 90일 retention 윈도로 스캔 비용에 상한을 건다
+ * (§4-2 ③, detach된 파티션 배제).
  * C04는 DEFERRED CONSTRAINT TRIGGER(V1:350~370)가 하드 강제하므로 여기 없다.
  * runScheduled/runAuthoritative는 이 enum의 values()만 순회하므로 여기 없는 체크는 앱 run에서
  * 평가하지 않는다.
@@ -66,15 +67,19 @@ public enum InvariantCheck {
             """),
 
     // ── 중복 체결(id 중복 0 · 레지스트리 1:1) ────────────────────────────
+    // 90일 윈도는 §4-2 ③ 규약(retention 지평 한정). C09~C12와 동일 패턴으로 detach된
+    // 파티션의 오탐·스캔 비용을 배제한다.
     C08_DUP_FILL(Severity.CRITICAL, Scope.SCHEDULED, """
             SELECT (
                 SELECT count(*) FROM (
-                    SELECT id FROM trades GROUP BY id HAVING count(*) > 1
+                    SELECT id FROM trades
+                    WHERE created_at >= now() - interval '90 days'
+                    GROUP BY id HAVING count(*) > 1
                 ) dup
             ) + (
                 SELECT count(*) FROM trades t
                 LEFT JOIN trade_seq_registry r ON r.seq = t.id
-                WHERE r.seq IS NULL
+                WHERE t.created_at >= now() - interval '90 days' AND r.seq IS NULL
             )
             """),
 
@@ -180,10 +185,12 @@ public enum InvariantCheck {
             "SELECT count(*) FROM recovery_runs WHERE matched = false"),
 
     // ── 체결가 = maker 지정가 ───────────────────────────────────────────
+    // 90일 윈도는 §4-2 ③ 규약(C08과 동일). maker 주문 행은 조인으로만 읽어 별도 윈도 불요.
     C18_FILL_PRICE_MAKER(Severity.CRITICAL, Scope.SCHEDULED, """
             SELECT count(*) FROM trades t
             JOIN orders m ON m.id = t.maker_order_id
-            WHERE m.price IS NOT NULL AND t.price <> m.price
+            WHERE t.created_at >= now() - interval '90 days'
+              AND m.price IS NOT NULL AND t.price <> m.price
             """),
 
     // ── DEFAULT 파티션 유입 0(파티션 지평 소진 전조) ─────────────────────
