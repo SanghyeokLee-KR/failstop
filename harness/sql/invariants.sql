@@ -4,8 +4,8 @@
 -- 컬럼명(server V1__init.sql, trades.id = event_seq)에 맞춰 옮긴다.
 --
 -- 용도: ① 발표 데모 §7의 "DB 원본에 SQL 즉석 실행 → 0행"(검증기 UI보다 강한 증거)
---       ② 앱 InvariantVerifier(enum 부분집합)가 놓치는 pg_cron 분담 체크(C03·C04·
---          C09~C12·C15)의 수동 감사 경로.
+--       ② 앱 검증기 밖에서의 수동 감사 경로. C03·C09~C12·C15는 앱 InvariantVerifier
+--          상시 스케줄로 이관됐고(§4-2 개정), C04는 DB DEFERRED 트리거가 하드 강제한다.
 -- 판정: 각 쿼리는 위반 행만 반환한다. 전 쿼리 0행 = 무결. summary.sql은 같은 술어를
 --       건별 카운트로 집계한 기계 판정용 1화면 요약이다.
 --
@@ -26,7 +26,7 @@ FROM ledger_entries GROUP BY asset_id HAVING SUM(amount) <> 0;
 SELECT account_id, orphan_balance, missing_balance, balance, ledger_sum
 FROM balance_ledger_check WHERE mismatch;
 
-\echo '== C03 TXN_UNSEALED [WARN] 1분 초과 미봉인 거래 =='
+\echo '== C03 TXN_UNSEALED [HIGH] 1분 초과 미봉인 거래 =='
 SELECT id, business_event_type, business_event_id, created_at
 FROM ledger_transactions
 WHERE status = 'OPEN' AND created_at < now() - interval '1 min';

@@ -328,6 +328,46 @@ class InvariantVerifierIntegrationTest {
                 "trades_count 복원 후 C20 clean 미복귀");
     }
 
+    /**
+     * 카오스 스택·Testcontainers에 pg_cron이 없어 C03/C09~C12/C15가 아무 러너도 평가하지 않던
+     * 결함의 회귀 고정. 이제 이들이 InvariantVerifier enum에 배선돼 상시 스케줄이 실제로 평가한다.
+     * 고아 체결(존재하지 않는 주문 참조 + event_journal TRADE 부재) 1건을 주입해 C09·C11이 잡는지
+     * 반증한다. 원장·저널 불변식은 건드리지 않고, 마지막 순서라 정리 후 잔여 무해.
+     */
+    @Test
+    @Order(6)
+    void scheduledEvaluatesCatalogChecksAndCatchesOrphanTrade() {
+        var scheduled = verifier.runScheduled();
+        for (InvariantCheck c : new InvariantCheck[]{
+                InvariantCheck.C03_TXN_UNSEALED, InvariantCheck.C09_TRADE_SEQ_EVENT_MATCH,
+                InvariantCheck.C10_ORDER_FILL_AGG, InvariantCheck.C11_TRADE_ORPHAN,
+                InvariantCheck.C12_EVENT_ORPHAN, InvariantCheck.C15_DEFAULT_PARTITION}) {
+            assertTrue(scheduled.stream().anyMatch(r -> r.check() == c),
+                    c.name() + "가 상시 스케줄 평가에서 누락(러너 미배선)");
+        }
+
+        long orphanId = 990001L;
+        jdbc.sql("""
+                INSERT INTO trades (id, market_id, maker_order_id, taker_order_id,
+                                    maker_user_id, taker_user_id, taker_side, price, quantity,
+                                    fencing_epoch, executed_at, created_at)
+                VALUES (?, ?, 999000001, 999000002, 111, 222, 'BUY', 100, 1, 1, now(), now())
+                """).params(orphanId, KRW_BTC).update();
+        try {
+            assertFalse(runScheduledCheck(InvariantCheck.C11_TRADE_ORPHAN).ok(),
+                    "고아 체결(주문 부재)을 C11이 놓침");
+            assertFalse(runScheduledCheck(InvariantCheck.C09_TRADE_SEQ_EVENT_MATCH).ok(),
+                    "체결 이벤트 부재를 C09가 놓침");
+        } finally {
+            jdbc.sql("DELETE FROM trades WHERE id = ?").params(orphanId).update();
+            jdbc.sql("DELETE FROM trade_seq_registry WHERE seq = ?").params(orphanId).update();
+        }
+        assertTrue(runScheduledCheck(InvariantCheck.C11_TRADE_ORPHAN).ok(),
+                "정리 후 C11 clean 미복귀");
+        assertTrue(runScheduledCheck(InvariantCheck.C09_TRADE_SEQ_EVENT_MATCH).ok(),
+                "정리 후 C09 clean 미복귀");
+    }
+
     private InvariantResult runScheduledCheck(InvariantCheck target) {
         return verifier.runScheduled().stream()
                 .filter(r -> r.check() == target)

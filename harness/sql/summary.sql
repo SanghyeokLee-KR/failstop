@@ -20,7 +20,7 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
                 GROUP BY asset_id HAVING SUM(amount) <> 0) x)
     UNION ALL SELECT 'C02','BAL_VS_LEDGER','CRITICAL','ALWAYS',
            (SELECT count(*) FROM balance_ledger_check WHERE mismatch)
-    UNION ALL SELECT 'C03','TXN_UNSEALED','WARN','ALWAYS',
+    UNION ALL SELECT 'C03','TXN_UNSEALED','HIGH','ALWAYS',
            (SELECT count(*) FROM ledger_transactions
                 WHERE status='OPEN' AND created_at < now() - interval '1 min')
     UNION ALL SELECT 'C04','TXN_SEALED_UNBALANCED','CRITICAL','ALWAYS',

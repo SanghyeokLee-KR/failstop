@@ -1,13 +1,18 @@
 package kr.exchange.harness;
 
 /**
- * 불변식 검증 카탈로그 중 앱 검증기 담당 부분집합(하네스 검증설계 §4-1 C01~C19 전체가
- * 아니다). 각 SQL은 위반 행 수(BIGINT)를 단일 값으로 반환하고, ok는 count=0으로 판정한다.
- * 컬럼명은 DB 설계 정본 실제 DDL 기준.
+ * 불변식 검증 카탈로그 C01~C19의 앱 검증기 배선(하네스 검증설계 §4-1). 각 SQL은 위반 행
+ * 수(BIGINT)를 단일 값으로 반환하고, ok는 count=0으로 판정한다. 컬럼명은 DB 설계 정본 실제
+ * DDL 기준.
  *
- * 미포함 체크의 담당: C03·C09~C12·C15는 pg_cron 분담(§4-2), C04는 DEFERRED CONSTRAINT
- * TRIGGER(V1:350~370)가 하드 강제한다. runScheduled/runAuthoritative는 이 enum의 values()만
- * 순회하므로 여기 없는 체크는 앱 run에서 평가하지 않는다.
+ * C03·C09~C12·C15는 원래 pg_cron 분담이었으나, 카오스 스택·Testcontainers에 pg_cron이 없어
+ * 실환경에서 아무 러너도 평가하지 않았다(고아 체결·미저널 체결 회귀가 페일오버 판정을 그대로
+ * 통과). 이를 이 enum에 등록해 runScheduled/runAuthoritative가 실제로 평가하고 위반을
+ * exchange_invariant_violations 게이지·invariant_checks에 노출하게 한다(하네스 검증설계 §4-2
+ * 실행 분담 개정과 정합). C09~C12는 90일 retention 윈도로 스캔 비용에 상한을 건다(§4-2 ③).
+ * C04는 DEFERRED CONSTRAINT TRIGGER(V1:350~370)가 하드 강제하므로 여기 없다.
+ * runScheduled/runAuthoritative는 이 enum의 values()만 순회하므로 여기 없는 체크는 앱 run에서
+ * 평가하지 않는다.
  *
  * trades의 체결 seq는 컬럼 id다(trade_id = event_seq, DB 설계 §3.1). 설계 문서 §4-1의
  * trades.seq 표기는 실제 컬럼 id로 옮긴다.
@@ -28,6 +33,15 @@ public enum InvariantCheck {
             """),
     C02_BAL_VS_LEDGER(Severity.CRITICAL, Scope.SCHEDULED,
             "SELECT count(*) FROM balance_ledger_check WHERE mismatch"),
+
+    // ── 미봉인 잔존 거래(1분 초과 OPEN) ─────────────────────────────────
+    // post_ledger_transaction은 개설·봉인을 원자 수행하므로 커밋된 OPEN이 1분 넘게 남으면
+    // 정본 게시 경로 우회 신호다(하네스/수퍼유저 우회 삽입 백스톱). 심각도는 §4-1 C03 [HIGH]
+    // 정본을 따른다. in-flight 트랜잭션의 OPEN 행은 커밋 전이라 이 스캔에 보이지 않는다.
+    C03_TXN_UNSEALED(Severity.HIGH, Scope.SCHEDULED, """
+            SELECT count(*) FROM ledger_transactions
+            WHERE status = 'OPEN' AND created_at < now() - interval '1 min'
+            """),
 
     // ── 저널 gapless(유실 0 · RPO=0) ────────────────────────────────────
     C05_CMD_GAPLESS(Severity.CRITICAL, Scope.SCHEDULED,
@@ -62,6 +76,49 @@ public enum InvariantCheck {
                 LEFT JOIN trade_seq_registry r ON r.seq = t.id
                 WHERE r.seq IS NULL
             )
+            """),
+
+    // ── 체결 ⊆ event_journal(TRADE)(유실 체결 이벤트) ────────────────────
+    // trade와 event_journal(TRADE)은 동일 정산 트랜잭션에 기록되고 trades.id=event_seq라
+    // 정상 DB에서 0이다(SCHEDULED 안전). 90일 윈도로 detach된 파티션을 배제한다.
+    C09_TRADE_SEQ_EVENT_MATCH(Severity.HIGH, Scope.SCHEDULED, """
+            SELECT count(*) FROM trades t
+            LEFT JOIN event_journal e ON e.event_seq = t.id AND e.event_type = 'TRADE'
+            WHERE t.created_at >= now() - interval '90 days' AND e.event_seq IS NULL
+            """),
+
+    // ── 체결 합 = filled_qty(수량 기반, 90일 지평) ──────────────────────
+    // filled_qty는 정산이 trade INSERT와 같은 UPDATE에서 누적하는 프로젝션이라 async 창이 없다
+    // (SCHEDULED). market BUY(quantity NULL) 노셔널 주문은 제외한다.
+    C10_ORDER_FILL_AGG(Severity.HIGH, Scope.SCHEDULED, """
+            SELECT count(*) FROM (
+                SELECT o.id
+                FROM orders o
+                LEFT JOIN trades t ON t.maker_order_id = o.id OR t.taker_order_id = o.id
+                WHERE o.quantity IS NOT NULL AND o.created_at >= now() - interval '90 days'
+                GROUP BY o.id, o.filled_qty
+                HAVING o.filled_qty <> COALESCE(SUM(t.quantity), 0)
+            ) x
+            """),
+
+    // ── 고아 체결(maker/taker 주문 부재) ─────────────────────────────────
+    // trades.maker_order_id/taker_order_id는 FK 생략(파티션/핫패스)이라 이 탐지 쿼리가 유일한
+    // 참조 무결성 보증이다(V1:220). botched replay의 고아 체결을 물리 FK가 막지 못한다.
+    C11_TRADE_ORPHAN(Severity.HIGH, Scope.SCHEDULED, """
+            SELECT count(*) FROM trades t
+            WHERE t.created_at >= now() - interval '90 days'
+              AND (NOT EXISTS (SELECT 1 FROM orders o WHERE o.id = t.maker_order_id)
+                OR NOT EXISTS (SELECT 1 FROM orders o WHERE o.id = t.taker_order_id))
+            """),
+
+    // ── 고아 이벤트(source_cmd_seq 부재) ────────────────────────────────
+    // event_journal.source_cmd_seq는 FK 없는 논리 참조(V1:605)라 이 쿼리가 유일한 보증이다.
+    // 명령은 이벤트보다 먼저 append되므로 정상 DB에서 0이다(SCHEDULED 안전). 전량 anti-join의
+    // 무한 성장 상한으로 C09~C11과 동일한 90일 retention 윈도를 건다(§4-2 ③).
+    C12_EVENT_ORPHAN(Severity.HIGH, Scope.SCHEDULED, """
+            SELECT count(*) FROM event_journal e
+            WHERE e.created_at >= now() - interval '90 days'
+              AND NOT EXISTS (SELECT 1 FROM command_journal c WHERE c.seq = e.source_cmd_seq)
             """),
 
     // ── NEW 명령 ↔ orders 물질화(유실·유령 주문) ─────────────────────────
@@ -127,6 +184,17 @@ public enum InvariantCheck {
             SELECT count(*) FROM trades t
             JOIN orders m ON m.id = t.maker_order_id
             WHERE m.price IS NOT NULL AND t.price <> m.price
+            """),
+
+    // ── DEFAULT 파티션 유입 0(파티션 지평 소진 전조) ─────────────────────
+    // 파생 파티션(_pYYYY_MM/_p<start>)이 정상 흡수하면 DEFAULT는 항상 비어야 한다. 유입 행은
+    // 경계 소진 전조다(가용성). WARN: 무결성 위반은 아니다. 위반 행 수 = DEFAULT 유입 행 총합.
+    C15_DEFAULT_PARTITION(Severity.WARN, Scope.SCHEDULED, """
+            SELECT (SELECT count(*) FROM ledger_entries_default)
+                 + (SELECT count(*) FROM command_journal_default)
+                 + (SELECT count(*) FROM event_journal_default)
+                 + (SELECT count(*) FROM trades_default)
+                 + (SELECT count(*) FROM outbox_default)
             """),
 
     // ── RPO=0 외부 증거(실험 한정): ACK 원장 ⊆ command_journal ───────────
