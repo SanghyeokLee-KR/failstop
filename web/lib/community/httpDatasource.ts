@@ -39,6 +39,9 @@ interface ListEnvelope<T> {
   pagination?: { next_cursor?: string | null; has_more?: boolean };
 }
 
+/** 읽기는 optional-auth, 쓰기는 required. optional은 토큰이 있으면 실어 서버 mine 산출을 유도한다(§4-D) */
+type AuthMode = "optional" | "required";
+
 async function toApiError(res: Response): Promise<ApiError> {
   // 비 JSON 게이트웨이 응답도 상태코드로 분류한다. 429를 invalid_parameter로 오분류하지 않는다
   let name = res.status >= 500 ? "server_error" : res.status === 429 ? "too_many_requests" : "invalid_parameter";
@@ -75,20 +78,19 @@ export class HttpCommunityDataSource {
     this.fetchFn = options.fetchFn ?? ((input, init) => fetch(input, init));
   }
 
-  private async request<T>(path: string, init: RequestInit, auth: boolean, retried = false): Promise<T> {
+  private async request<T>(path: string, init: RequestInit, auth: AuthMode, retried = false): Promise<T> {
     // init.headers(멱등키 등)를 보존한다. JSON_HEADERS·Authorization은 이후 병합으로 확정한다
     const headers: Record<string, string> = {
       ...(init.body != null ? JSON_HEADERS : {}),
       ...(init.headers as Record<string, string> | undefined),
     };
-    if (auth) {
-      const me = this.identity();
-      // 미로그인 쓰기는 서버 왕복 전에 로그인 유도로 표면화(§4 인증)
-      if (!me) throw new ApiError(401, "jwt_verification", "로그인이 필요해요");
-      headers.Authorization = `Bearer ${me.token}`;
-    }
+    const me = this.identity();
+    // 쓰기(required)는 미로그인 시 서버 왕복 전에 로그인 유도로 표면화한다(§4 인증). 읽기(optional)는
+    // 토큰이 있으면 실어 서버가 mine을 산출하게 하고, 없으면 그대로 조회해 mine=false로 강등한다(§4-D)
+    if (auth === "required" && !me) throw new ApiError(401, "jwt_verification", "로그인이 필요해요");
+    if (me) headers.Authorization = `Bearer ${me.token}`;
     const res = await this.fetchFn(`${this.apiBase}${BASE}${path}`, { ...init, headers });
-    if (res.status === 401 && auth && !retried && this.refreshIdentity) {
+    if (res.status === 401 && auth === "required" && !retried && this.refreshIdentity) {
       // access 만료·refresh 쿠키 유효 시 거래 어댑터와 대칭으로 1회 갱신 후 재시도.
       // init(멱등키·본문 포함)을 그대로 재전송해 재시도가 중복 생성으로 이어지지 않게 한다
       const fresh = await this.refreshIdentity();
@@ -114,12 +116,13 @@ export class HttpCommunityDataSource {
     };
   }
 
-  // 백엔드 와이어는 식별자를 post_id·comment_id로 싣고(게시판_설계 §3·§4) liked·mine·author_id를
+  // 백엔드 와이어는 식별자를 post_id·comment_id로 싣고(게시판_설계 §3·§4) author_id·liked를
   // 공개 GET에 싣지 않는다. 뷰모델(external_id 기준)로 무매핑 캐스팅하면 상세 이동·좋아요·삭제가
   // 전부 undefined id로 깨진다(sim은 뷰모델 형태라 은폐). 여기서 단일 정규화로 닫는다.
-  // mine은 세션 핸들 대조로 파생한다(서버가 권위 검증하므로 UI 게이트 용도).
+  // mine은 서버가 optional-auth로 산출해 additive로 싣는다(게시판_설계 §4-D). 소유 판정은 서버
+  // 권위이고, 값 부재(비로그인·미제공)는 false로 강등한다. handle 대조 파생은 쓰지 않는다
+  // (동명이인 오노출·표시명 변경 시 소멸 방지).
   private normPost(w: Partial<CommunityPost> & { post_id?: string }): CommunityPost {
-    const me = this.identity();
     return {
       external_id: w.external_id ?? w.post_id ?? "",
       market: w.market ?? "",
@@ -131,14 +134,13 @@ export class HttpCommunityDataSource {
       like_count: w.like_count ?? 0,
       comment_count: w.comment_count ?? 0,
       liked: w.liked ?? false,
-      mine: w.mine ?? (me != null && w.author_handle === me.handle),
+      mine: w.mine ?? false,
       created_at: w.created_at ?? "",
       updated_at: w.updated_at ?? "",
     };
   }
 
   private normComment(w: Partial<CommunityComment> & { comment_id?: string }, postExternalId: string): CommunityComment {
-    const me = this.identity();
     return {
       external_id: w.external_id ?? w.comment_id ?? "",
       post_id: w.post_id ?? postExternalId,
@@ -149,7 +151,7 @@ export class HttpCommunityDataSource {
       status: w.status ?? "VISIBLE",
       like_count: w.like_count ?? 0,
       liked: w.liked ?? false,
-      mine: w.mine ?? (me != null && w.author_handle === me.handle),
+      mine: w.mine ?? false,
       created_at: w.created_at ?? "",
     };
   }
@@ -159,7 +161,7 @@ export class HttpCommunityDataSource {
     if (cursor) q.set("cursor", cursor);
     if (count) q.set("count", String(count));
     const page = this.page<Partial<CommunityPost> & { post_id?: string }>(
-      await this.request(`/boards/${encodeURIComponent(market)}/posts?${q}`, {}, false),
+      await this.request(`/boards/${encodeURIComponent(market)}/posts?${q}`, {}, "optional"),
     );
     return { ...page, items: page.items.map((w) => this.normPost(w)) };
   }
@@ -170,7 +172,7 @@ export class HttpCommunityDataSource {
   async getPost(externalId: string): Promise<CommunityPost> {
     return this.normPost(
       this.unwrap<Partial<CommunityPost> & { post_id?: string }>(
-        await this.request(`/posts/${encodeURIComponent(externalId)}`, {}, false),
+        await this.request(`/posts/${encodeURIComponent(externalId)}`, {}, "optional"),
       ),
     );
   }
@@ -182,7 +184,7 @@ export class HttpCommunityDataSource {
       await this.request(
         `/boards/${encodeURIComponent(market)}/posts`,
         { method: "POST", headers, body: JSON.stringify({ title: input.title, body: input.body }) },
-        true,
+        "required",
       ),
     );
     // 백엔드 생성 응답은 {schema_version, post_id}만 반환해(게시판_설계 §4.1) 상세 필드가 없다.
@@ -197,13 +199,13 @@ export class HttpCommunityDataSource {
   async updatePost(externalId: string, input: UpdatePostInput): Promise<CommunityPost> {
     return this.normPost(
       this.unwrap<Partial<CommunityPost> & { post_id?: string }>(
-        await this.request(`/posts/${encodeURIComponent(externalId)}`, { method: "PATCH", body: JSON.stringify(input) }, true),
+        await this.request(`/posts/${encodeURIComponent(externalId)}`, { method: "PATCH", body: JSON.stringify(input) }, "required"),
       ),
     );
   }
 
   async deletePost(externalId: string): Promise<void> {
-    await this.request(`/posts/${encodeURIComponent(externalId)}`, { method: "DELETE" }, true);
+    await this.request(`/posts/${encodeURIComponent(externalId)}`, { method: "DELETE" }, "required");
   }
 
   async listComments(postExternalId: string, cursor?: string | null, count?: number): Promise<CursorPage<CommunityComment>> {
@@ -211,7 +213,7 @@ export class HttpCommunityDataSource {
     if (cursor) q.set("cursor", cursor);
     if (count) q.set("count", String(count));
     const page = this.page<Partial<CommunityComment> & { comment_id?: string }>(
-      await this.request(`/posts/${encodeURIComponent(postExternalId)}/comments?${q}`, {}, false),
+      await this.request(`/posts/${encodeURIComponent(postExternalId)}/comments?${q}`, {}, "optional"),
     );
     return { ...page, items: page.items.map((w) => this.normComment(w, postExternalId)) };
   }
@@ -222,7 +224,7 @@ export class HttpCommunityDataSource {
     const body: Record<string, unknown> = { body: input.body };
     if (input.parentId) body.parent_comment_id = input.parentId;
     const created = this.unwrap<Partial<CommunityComment> & { comment_id?: string }>(
-      await this.request(`/posts/${encodeURIComponent(postExternalId)}/comments`, { method: "POST", headers, body: JSON.stringify(body) }, true),
+      await this.request(`/posts/${encodeURIComponent(postExternalId)}/comments`, { method: "POST", headers, body: JSON.stringify(body) }, "required"),
     );
     // 백엔드 생성 응답은 {schema_version, comment_id}만 반환하고(게시판_설계 §4.1) 단건 댓글 GET이
     // 계약에 없다(§4 표). 전체 객체를 반환하면 그대로 쓰고, 아니면 요청 본문·회원 신원으로
@@ -247,18 +249,18 @@ export class HttpCommunityDataSource {
   }
 
   async deleteComment(externalId: string): Promise<void> {
-    await this.request(`/comments/${encodeURIComponent(externalId)}`, { method: "DELETE" }, true);
+    await this.request(`/comments/${encodeURIComponent(externalId)}`, { method: "DELETE" }, "required");
   }
 
   async togglePostLike(externalId: string, like: boolean): Promise<LikeResult> {
     return this.unwrap<LikeResult>(
-      await this.request(`/posts/${encodeURIComponent(externalId)}/like`, { method: like ? "POST" : "DELETE" }, true),
+      await this.request(`/posts/${encodeURIComponent(externalId)}/like`, { method: like ? "POST" : "DELETE" }, "required"),
     );
   }
 
   async toggleCommentLike(externalId: string, like: boolean): Promise<LikeResult> {
     return this.unwrap<LikeResult>(
-      await this.request(`/comments/${encodeURIComponent(externalId)}/like`, { method: like ? "POST" : "DELETE" }, true),
+      await this.request(`/comments/${encodeURIComponent(externalId)}/like`, { method: like ? "POST" : "DELETE" }, "required"),
     );
   }
 
@@ -274,7 +276,7 @@ export class HttpCommunityDataSource {
           detail: input.detail ?? null,
         }),
       },
-      true,
+      "required",
     );
   }
 }
