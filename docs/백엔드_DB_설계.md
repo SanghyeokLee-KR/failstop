@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.15)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.16)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V11+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -341,7 +341,7 @@ erDiagram
 | V5 | `V5__admin.sql` | 관리 평면(exchange-admin) 스키마: `api_keys.scope`에 `ADMIN` 추가·operator 바인딩, `admin_operators`·`operator_roles`·`admin_sessions`·`admin_approvals`·`system_config`·`notices`(관리자 설계 v1.1 §1-5) | V1 |
 | V6 | `V6__members.sql` | 회원 인증·세션·프로필: `user_credentials`·`user_profiles`·`auth_sessions`·`user_provisioning`(회원_설계.md §2, §3.3). 기존 `users`·`api_keys`·`accounts` 무변경 | V1 |
 | V7 | `V7__community_board.sql` | M3 종목 토론 게시판 7개 테이블(§9). `app_role`에 게시판 SELECT·INSERT·UPDATE + 좋아요 2테이블 DELETE | V1 |
-| V8 | `V8__trades_order_index_and_partitions.sql` | `trades` order_id 축 조회 인덱스, 시간 파티션 12개월 수동 선생성(§3.1·§3.2) | V1 |
+| V8 | `V8__trades_order_index_and_partitions.sql` | `trades` order_id 축 조회 인덱스, 시간 파티션 12개월 수동 선생성(§3.1·§3.2). 적재 DB 증분 적용 대응(v2.16): DEFAULT에 신규 범위 행이 있으면 파티션 생성이 중단되므로 DETACH → 월 파티션 생성 → 행 재배치 → 재ATTACH로 수행. 재배치 구간은 `DISABLE TRIGGER USER`로 사용자 트리거(레지스트리·봉인 가드)를 우회하고 같은 트랜잭션에서 ENABLE 원복(owner 권한 충분, superuser 불요). 상단 `SET LOCAL statement_timeout/lock_timeout = 0`으로 풀 상속 타임아웃 해제, `SET LOCAL timezone='UTC'` + 명시 오프셋 리터럴로 세션 TZ 독립 | V1 |
 | V9 | `V9__operator_roles_delete_grant.sql` | `app_role`에 `operator_roles`·`idempotency_keys` DELETE 부여. 두 효과 테이블의 하드 DELETE 런타임 경로가 V5·V1 GRANT 누락으로 운영 롤에서 42501 실패하던 결함 교정 | V5, V1 |
 | V10 | `V10__orders_fee_projection.sql` | `orders` 수수료 프로젝션(`paid_fee`·`trades_count`) 물질화. 정산 경로에서 결정론적 누적, 주문 조회 feeStats N+1 재집계 제거 | V1 |
 | V11+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
@@ -624,6 +624,15 @@ CREATE INDEX idx_trades_taker_order ON trades (taker_order_id);
 --   2026-09~2027-08 12개월). partman.create_parent는 pg_partman·pg_cron 전제를 갖춘 환경의
 --   선택 경로이며(§3.2), 이 경우 p_start_partition으로 경계를 정렬해 수동 파티션을 채택하고
 --   이후 사전생성을 전담한다(medium#5). 둘 중 하나만 적용한다.
+--   적재 DB 증분 적용(v2.16): DEFAULT에 신규 범위 행이 존재하면 CREATE ... PARTITION OF가
+--   "default partition would be violated"로 중단되므로, V8은 각 DEFAULT를 DETACH한 뒤 월
+--   파티션을 만들고 잘못 든 행을 정규 파티션으로 재배치(명시 컬럼 리스트 INSERT ... SELECT +
+--   DELETE)한 후 재ATTACH한다. 재배치는 이미 검증·봉인된 행의 물리 이동이므로 신규 쓰기용
+--   가드(trades 레지스트리 트리거, ledger 봉인·무변경 가드, 커밋 시점 제약 트리거)를
+--   DISABLE TRIGGER USER로 구간 한정 우회하고 같은 트랜잭션에서 ENABLE 원복한다. owner
+--   권한으로 충분해 마이그레이션 주체에 superuser를 요구하지 않으며, FK 내부 트리거는 계속
+--   발화하나 재배치 행의 참조가 유효해 통과한다. 상단 SET LOCAL statement_timeout/lock_timeout=0
+--   이 풀 상속 타임아웃(prod connection-init-sql)을 트랜잭션 한정 해제한다.
 CREATE TABLE trades_p2026_07 PARTITION OF trades FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
 CREATE TABLE trades_p2026_08 PARTITION OF trades FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
 CREATE TABLE trades_default PARTITION OF trades DEFAULT;   -- 소진 방어(partman 관리형 DEFAULT로 대체 채택)
@@ -2465,3 +2474,17 @@ M3 게시판(커뮤니티) 스키마를 §9로 신설하고 마이그레이션 `
 | F3 | 백필 | 이미 체결된 주문은 attach된 trades 파티션의 maker/taker leg UNION 집계로 채운다. detach된 파티션은 종전 feeStats도 못 보던 범위라 종전 응답과 동치. V8 order_id 인덱스가 이 백필과 admin 재집계 경로를 받친다 |
 
 문서 헤더 버전을 v2.15로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.16 패치 반영 사항
+
+실배포 환경 감사(2026-07)가 확정한 V8·V10 적용 결함을 재작성으로 교정하고 §3 V8 행·§3.1 주석에 반영했다. 적용 완료본 재작성은 checksum 규약 위반이라 하네스_CICD_IaC §7-2의 재작성 대응 절차(기존 환경 DB 재생성 또는 flyway repair 런북)를 함께 확정했다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| M1 | V8·V10 타임아웃 | prod Hikari connection-init-sql의 statement_timeout=3s/lock_timeout=2s를 Flyway 세션이 상속해 적재 DB에서 57014로 부팅이 막히던 결함. 두 파일 상단 `SET LOCAL ... = 0`으로 트랜잭션 한정 해제 |
+| M2 | V8 DEFAULT 재배치 | DEFAULT에 신규 범위 행 존재 시 파티션 생성 중단 결함. DETACH → 생성 → 재배치(명시 컬럼 INSERT ... SELECT) → 재ATTACH로 재작성. 트리거 우회는 `DISABLE TRIGGER USER`(owner 권한, superuser 불요)로 하고 같은 트랜잭션에서 ENABLE 원복. Testcontainers 회귀(MigrationHardeningTest)가 비superuser·KST 세션·타임아웃 상속 조건에서 실증 |
+| M3 | 세션 TZ | 파티션 경계 리터럴의 세션 TZ 의존 제거: 연결 계층 `SET TIME ZONE 'UTC'` 고정 + V8 경계 리터럴 명시 오프셋(+00). V1은 무변경(신선 적용 전용이라 재작성 실익 없음) |
+
+문서 헤더 버전을 v2.16으로 순증(이전 패치 노트의 역사 서술은 원문 유지).

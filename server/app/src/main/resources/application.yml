@@ -45,6 +45,12 @@ spring:
     url: jdbc:postgresql://localhost:5432/exchange
     username: exchange
     password: exchange
+    hikari:
+      # 세션 TZ를 연결 계층에서 UTC로 고정한다. pgjdbc는 미고정 시 JVM 기본 zone(배포 KST)을
+      # 세션 TimeZone으로 전파하고, Flyway는 이 풀 커넥션을 빌리므로 시간 파티션 경계 리터럴이
+      # 배포 TZ에 의존해 증분 배포에서 overlap으로 부팅이 막힌다. UTC 고정으로 마이그레이션·런타임을
+      # 배포 zone과 무관하게 결정적으로 만든다.
+      connection-init-sql: "SET TIME ZONE 'UTC'"
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -72,9 +78,11 @@ spring:
       maximum-pool-size: 32
       minimum-idle: 8
       connection-timeout: 3000
-      # 장기 잠금 대기·폭주 질의가 스레드·커넥션을 무한 점유하지 못하게 세션 상한을 고정한다.
-      # 초과는 Postgres가 취소하고 게이트웨이가 TransientDataAccessException으로 503 변환한다.
-      connection-init-sql: "SET statement_timeout TO '3000ms'; SET lock_timeout TO '2000ms'"
+      # 세션 TZ를 UTC로 고정(dev와 동일 근거)한 뒤 세션 상한을 건다. 장기 잠금 대기·폭주 질의가
+      # 스레드·커넥션을 무한 점유하지 못하게 하고, 초과는 Postgres가 취소해 게이트웨이가
+      # TransientDataAccessException으로 503 변환한다. 이 상한은 Flyway 마이그레이션 세션에도
+      # 상속되므로, 데이터 무거운 마이그레이션(V8·V10)은 트랜잭션 한정 SET LOCAL로 상한을 해제한다.
+      connection-init-sql: "SET TIME ZONE 'UTC'; SET statement_timeout TO '3000ms'; SET lock_timeout TO '2000ms'"
 
 exchange:
   # 운영 시크릿 fail-fast + WS 오리진 fail-closed 가드를 켜는 이중 스위치. StartupSecretValidator
@@ -104,6 +112,14 @@ spring:
   config:
     activate:
       on-profile: bots
+# 봇 노드도 /actuator/prometheus를 노출한다. 기본 노출은 health·info뿐이라 harness prometheus.yml의
+# chaos-bots 스크레이프 타깃이 상시 404(up=0)였다. bots 노드는 내부 카오스 스택 전용이라 고객 평면과
+# 달리 동일 포트 노출이 안전하다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
 # 데모용 봇 플릿. 4개 마켓(BTC·ETH·SOL·XRP)에 마켓당 MM 2 + TAKER 1.
 # 파라미터 근거는 SimProperties 주석. initial-price·quote-size·qty-step은 web 시드가와
 # 마켓 tick/lot/최소주문(5000)에 맞춰 마켓별로 지정한다(markets 리스트 우선, top-level은 폴백).

@@ -14,7 +14,12 @@
 -- paid_fee는 주문 자기 측 수수료다: 주문이 maker면 maker_fee, taker면 taker_fee.
 -- 한 주문은 한 측이라 단일 자산으로 누적된다(매수=base, 매도=quote).
 -- ============================================================================
-SET timezone = 'UTC';
+-- 이 마이그레이션의 백필 UPDATE는 trades 전 파티션을 풀스캔해 데이터량에 비례한다. prod Hikari
+-- 풀의 connection-init-sql이 심은 statement_timeout=3s를 Flyway가 상속하면 적재 DB에서 57014로
+-- 취소돼 부팅이 막힌다. SET LOCAL로 이 트랜잭션에 한해 상한을 해제한다(풀 무영향).
+SET LOCAL statement_timeout = 0;
+SET LOCAL lock_timeout = 0;
+SET LOCAL timezone = 'UTC';
 
 ALTER TABLE orders
     ADD COLUMN paid_fee     NUMERIC(40,18) NOT NULL DEFAULT 0 CHECK (paid_fee >= 0),

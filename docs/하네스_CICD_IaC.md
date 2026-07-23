@@ -834,6 +834,13 @@ V1/V2는 `CREATE EXTENSION pg_partman/pg_cron`·`REVOKE ... FROM app_role`을 �
 
 Testcontainers도 동일 구조를 재현한다(§2-3). 로컬·CI·데모의 권한 모델이 한 장이어야 T2/T5의 42501 검증이 데모 환경의 실제 방어력을 증명한다.
 
+**적용 완료 마이그레이션 재작성 대응(2026-07 확정)**. 원칙은 재작성 금지다(Flyway checksum 불변, 변경은 신규 버전 추가로만). V8·V10처럼 적용 완료본의 실배포 결함(타임아웃 상속·DEFAULT 재배치·TZ 의존)을 제자리 교정할 수밖에 없었던 경우는 아래 절차로 수습한다.
+
+- 신선 배포(빈 DB): 조치 불요. 재작성본이 그대로 적용된다.
+- 기존 적용 환경: 재작성본과 저장된 checksum이 어긋나 `flyway validate`가 실패한다. 1순위는 DB 재생성. 데모·카오스 DB는 seed 잡(§7-3)으로 재구축 가능한 소모품이라 재생성이 정본 경로다.
+- 보존 데이터가 있는 환경 한정 flyway repair 런북: ① 재작성 diff의 실효 변경이 해당 DB에 이미 반영됐거나 무해함을 확인 ② `flyway repair`로 checksum 재정렬 ③ `flyway validate` 통과 확인 후 배포 재개.
+- chaos 스택: `harness/docker-compose.chaos.yml` down 후 `chaos-pgdata` 볼륨 삭제, 재기동으로 전 체인 재적용.
+
 ### 7-3. 데모 시드/부하 계정 프로비저닝 (신규, 1커맨드 기동 완결)
 
 `seed` 잡(§3-1, `SPRING_PROFILES_ACTIVE=seed`, 실행 후 exit 0, **멱등**, 전 INSERT `ON CONFLICT DO NOTHING` + 기시드 검사):
