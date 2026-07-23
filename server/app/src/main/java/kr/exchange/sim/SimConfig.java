@@ -36,8 +36,9 @@ public class SimConfig {
 
     @Bean
     public BotFleet botFleet(SimProperties props, BotSeeder seeder, OpsGovernor governor,
-                             BotFleetGovernor fleetGovernor) {
-        return new BotFleet(props, seeder, governor, fleetGovernor);
+                             BotFleetGovernor fleetGovernor, JdbcClient jdbc) {
+        return new BotFleet(props, seeder, governor, fleetGovernor,
+                new DbRunOrdinalSource(jdbc));
     }
 
     @Bean

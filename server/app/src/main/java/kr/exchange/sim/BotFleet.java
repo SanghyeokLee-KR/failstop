@@ -22,14 +22,12 @@ public class BotFleet {
 
     private static final Logger log = LoggerFactory.getLogger(BotFleet.class);
     private static final long STOP_JOIN_MS = 5_000;
-    // 프로세스 내 플릿 기동 횟수. start()마다 전진해 run 단위 nonce가 재기동마다 달라지게 한다.
-    private static final java.util.concurrent.atomic.AtomicLong RUN_SEQ =
-            new java.util.concurrent.atomic.AtomicLong();
 
     private final SimProperties props;
     private final BotSeeder seeder;
     private final OpsGovernor governor;
     private final BotFleetGovernor fleet;
+    private final RunOrdinalSource ordinalSource;
     private final ObjectMapper mapper = new ObjectMapper();
     private final List<Thread> threads = new ArrayList<>();
     private Thread balancer;
@@ -38,19 +36,22 @@ public class BotFleet {
     private volatile boolean running;
 
     public BotFleet(SimProperties props, BotSeeder seeder, OpsGovernor governor,
-                    BotFleetGovernor fleet) {
+                    BotFleetGovernor fleet, RunOrdinalSource ordinalSource) {
         this.props = props;
         this.seeder = seeder;
         this.governor = governor;
         this.fleet = fleet;
+        this.ordinalSource = ordinalSource;
     }
 
     public synchronized void start() {
         if (running) {
             return;
         }
+        // 채번이 던지면 running이 참으로 굳어 이후 start()가 조기 반환한다. 플래그 앞에서 뽑는다.
+        String nonce = nextRunNonce(props.seed(), ordinalSource.next());
         running = true;
-        runNonce = nextRunNonce(props.seed());
+        runNonce = nonce;
         BigDecimal quoteFunding = new BigDecimal(props.funding().quote());
         List<SimProperties.MarketSpec> specs = resolveMarkets();
         int pool = fleet.poolPerType();
@@ -163,14 +164,18 @@ public class BotFleet {
     }
 
     /**
-     * run 단위 client_order_id nonce. seed와 프로세스 내 기동 카운터를 섞어 base36 문자열로
-     * 만든다. 같은 (seed, 기동 순번)이면 재현 동일(결정론)하고, 재기동(카운터 전진)마다 접두가
-     * 달라져 직전 run의 coid와 겹치지 않는다. coid는 봇 클라이언트 산물이고 재생 정본은
-     * command_journal이라, run별 nonce 차이는 엔진 재생 결정론에 무관하다.
+     * run 단위 client_order_id nonce. 같은 (seed, ordinal)이면 재현 동일이라 한 run 수명 동안
+     * coid 접두가 고정된다. splitmix64 finalizer가 64비트 전단사라 서로 다른 ordinal은 확률이
+     * 아니라 항상 서로 다른 nonce를 낸다. ordinal의 유일성 요건은 {@link RunOrdinalSource} 참조.
+     * coid는 봇 클라이언트 산물이고 재생 정본은 command_journal이라 run별 nonce 차이는 엔진
+     * 재생 결정론에 무관하다.
      */
-    static String nextRunNonce(long seed) {
-        long mixed = seed * 0x9E3779B97F4A7C15L + RUN_SEQ.incrementAndGet();
-        return Long.toUnsignedString(mixed, 36);
+    static String nextRunNonce(long seed, long runOrdinal) {
+        long z = seed * 0x9E3779B97F4A7C15L + runOrdinal;
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        z = z ^ (z >>> 31);
+        return Long.toUnsignedString(z, 36);
     }
 
     private static String shortName(String symbol) {

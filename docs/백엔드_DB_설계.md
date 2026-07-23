@@ -1,6 +1,6 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.16)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.17)
 
-> 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V11+ 로드맵)
+> 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V12+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
 > 설계 우선순위: **정확성(exactness) > 성능 > 편의성**. DB는 매칭 핫패스가 아니라 "진실의 원천(SoT) + 최종 방어선"이다.
 > 이 제출본은 초안·v2.0 검증에서 지적된 critical/high 결함(파티션 소진, RESERVE amount=0 모순, `user_id=0` 수수료 계정 무효, 파티션 seq 유일성 무력화, 비원자적 fencing, `transaction_id` 권위 부재, RULE 기반 무음 무시)을 **계정 모델 재설계**로 근본 해결한다. (v2.1~v2.15 패치 반영 사항은 문서 말미 참조)
@@ -329,7 +329,7 @@ erDiagram
 
 ## 3. 전체 DDL
 
-정본 마이그레이션은 현재 `V0`~`V10` 11개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V11 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
+정본 마이그레이션은 현재 `V0`~`V11` 12개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V12 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
 
 | 버전 | 파일 | 내용 | 적용 전제 |
 |---|---|---|---|
@@ -344,7 +344,8 @@ erDiagram
 | V8 | `V8__trades_order_index_and_partitions.sql` | `trades` order_id 축 조회 인덱스, 시간 파티션 12개월 수동 선생성(§3.1·§3.2). 적재 DB 증분 적용 대응(v2.16): DEFAULT에 신규 범위 행이 있으면 파티션 생성이 중단되므로 DETACH → 월 파티션 생성 → 행 재배치 → 재ATTACH로 수행. 재배치 구간은 `DISABLE TRIGGER USER`로 사용자 트리거(레지스트리·봉인 가드)를 우회하고 같은 트랜잭션에서 ENABLE 원복(owner 권한 충분, superuser 불요). 상단 `SET LOCAL statement_timeout/lock_timeout = 0`으로 풀 상속 타임아웃 해제, `SET LOCAL timezone='UTC'` + 명시 오프셋 리터럴로 세션 TZ 독립 | V1 |
 | V9 | `V9__operator_roles_delete_grant.sql` | `app_role`에 `operator_roles`·`idempotency_keys` DELETE 부여. 두 효과 테이블의 하드 DELETE 런타임 경로가 V5·V1 GRANT 누락으로 운영 롤에서 42501 실패하던 결함 교정 | V5, V1 |
 | V10 | `V10__orders_fee_projection.sql` | `orders` 수수료 프로젝션(`paid_fee`·`trades_count`) 물질화. 정산 경로에서 결정론적 누적, 주문 조회 feeStats N+1 재집계 제거 | V1 |
-| V11+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V11 | `V11__sim_run_ordinal.sql` | 봇 플릿 run ordinal 채번 시퀀스 `sim_run_ordinal`. 플릿 기동마다 `nextval` 1건으로 `client_order_id` nonce 접두의 JVM 경계 유일성을 보장한다. 종전 인메모리 카운터는 프로세스 재기동마다 0으로 리셋돼 DB 보존 재기동 시 직전 run의 coid 열을 재생성했고, `idempotency_keys` 재충돌로 409 `duplicate_client_order_id`가 폭주했다. 봇 클라이언트측 채번이라 엔진 임계경로·`journal_counters`와 분리 | V0, V1 |
+| V12+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -2495,3 +2496,19 @@ M3 게시판(커뮤니티) 스키마를 §9로 신설하고 마이그레이션 `
 | M3 | 세션 TZ | 파티션 경계 리터럴의 세션 TZ 의존 제거: 연결 계층 `SET TIME ZONE 'UTC'` 고정 + V8 경계 리터럴 명시 오프셋(+00). V1은 무변경(신선 적용 전용이라 재작성 실익 없음) |
 
 문서 헤더 버전을 v2.16으로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.17 패치 반영 사항
+
+봇 플릿 `client_order_id` nonce의 JVM 경계 유일성 결함을 교정하며 `V11__sim_run_ordinal.sql`을 신설하고 §3 표에 반영했다.
+
+| 항목 | 내용 |
+|---|---|
+| 결함 | run nonce가 프로세스 정적 카운터와 고정 seed만 섞어 만들어졌다. 카운터는 JVM 재시작마다 0으로 리셋되므로 DB를 보존한 채 재기동하면 직전 프로세스 첫 run과 같은 nonce가 나왔다. 결정론 봇의 coid 열이 통째로 재생성돼 보존된 `idempotency_keys`와 전면 충돌했고, 실측에서 409 `duplicate_client_order_id` 22,000건 이상에 신규 접수 29건 후 체결이 정지했다 |
+| 교정 | 채번원을 DB 시퀀스 `sim_run_ordinal`로 옮긴다. 시퀀스는 DB에 존속하므로 인메모리 리셋과 무관하게 전진하고, 백업 복원 시 `idempotency_keys`와 같은 스냅샷으로 함께 되감겨 정합이 유지된다. 시퀀스는 비트랜잭션이라 롤백에서 되감기지 않고 크래시에서도 앞으로만 튄다 |
+| 유일성 | nonce는 `(seed, ordinal)`의 순수 함수이며 splitmix64 finalizer가 64비트 전단사라 서로 다른 ordinal은 항상 서로 다른 nonce를 낸다. run 내에서는 접두가 고정이라 재현성이 유지된다 |
+| 범위 | 봇 클라이언트측 채번이라 엔진 임계경로·`journal_counters`에 접촉하지 않는다. 재생 정본은 `command_journal`이므로 run별 nonce 차이는 엔진 재생 결정론에 무관하다. 채번은 플릿 기동당 1회다 |
+| 번호 예약 | 복구_RTO_수정설계 §6-3, 봇_방향성_거버넌스_설계 §7-2가 예약해 둔 "다음 가용 V11"을 V12로 정정했다. 방치하면 `V11__` 파일이 둘이 되어 Flyway 중복 버전으로 부팅이 막힌다 |
+
+문서 헤더 버전을 v2.17로 순증.

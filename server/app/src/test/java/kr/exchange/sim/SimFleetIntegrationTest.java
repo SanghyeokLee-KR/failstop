@@ -91,7 +91,8 @@ class SimFleetIntegrationTest {
         OpsGovernor governor = new OpsGovernor(props.targetOps());
         // 파킹 게이트 검증 겸 시드 비용 억제를 위해 타입당 풀을 작게 잡는다.
         BotFleetGovernor fleetGovernor = new BotFleetGovernor(30, 80, 300, 3);
-        BotFleet fleet = new BotFleet(props, seeder, governor, fleetGovernor);
+        BotFleet fleet = new BotFleet(props, seeder, governor, fleetGovernor,
+                new DbRunOrdinalSource(jdbc));
 
         fleet.start();
         try {
@@ -102,6 +103,22 @@ class SimFleetIntegrationTest {
             fleet.stop();
         }
         assertFalse(fleet.isRunning(), "정지 후 running 플래그 해제");
+
+        // 기동 배선 고정: start()가 기동마다 새 ordinal을 뽑아 coid 접두에 반영한다. 접두가
+        // 상수·캐시로 퇴행하는 회귀를 조립된 경로에서 잡는다. 여기서 덮는 것은 같은 프로세스 내
+        // 재기동까지다(옛 인메모리 카운터도 이 구간은 통과했다). JVM 경계 단조는 채번원의 성질이라
+        // RunOrdinalSourceIntegrationTest가 맡는다.
+        long ordersBeforeRestart = count("SELECT count(*) FROM orders");
+        fleet.start();
+        try {
+            Awaitility.await().atMost(Duration.ofSeconds(40)).until(() ->
+                    count("SELECT count(*) FROM orders") > ordersBeforeRestart);
+        } finally {
+            fleet.stop();
+        }
+        long noncePrefixes = count(
+                "SELECT count(DISTINCT split_part(client_order_id, '-', 1)) FROM orders");
+        assertTrue(noncePrefixes >= 2, "재기동마다 coid 접두가 갈린다: " + noncePrefixes);
 
         // 정지 정상성: 서버측 in-flight 처리 소진 후 저널 증가가 멈춘다(연속 2회 동수 관측).
         long[] previous = {-1};

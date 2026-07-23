@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 실배포 환경 감사가 확정한 마이그레이션 결함의 회귀 고정. MigrationSmokeTest는 빈 DB에 UTC 컨테이너로
- * V0~V10을 단일 패스 적용하므로 아래를 구조적으로 못 잡는다.
+ * V0~V11을 단일 패스 적용하므로 아래를 구조적으로 못 잡는다.
  *
  * 타임아웃 상속: prod Hikari 풀 connection-init-sql의 statement_timeout을 Flyway가 상속해 데이터
  *   무거운 마이그레이션이 57014로 취소되는 결함. V8·V10 상단 SET LOCAL 0으로 상한을 해제한다.
@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   DISABLE TRIGGER USER(owner 권한 충분)로 하고 같은 트랜잭션에서 ENABLE 원복한다.
  * 세션 TZ: 세션 TZ가 배포 JVM zone(KST)에 의존해 파티션 경계가 밀려 overlap으로 부팅이 막히는 결함.
  *   연결 계층 UTC 고정 + V8 명시 오프셋 리터럴로 세션 TZ와 무관하게 정렬된다.
- * 권한 하한: V0~V10 전 체인이 superuser 없이 적용된다. 비superuser(CREATEROLE + DB owner)
+ * 권한 하한: V0~V11 전 체인이 superuser 없이 적용된다. 비superuser(CREATEROLE + DB owner)
  *   migrator 롤로 전 마이그레이션을 실행해 하한을 실증한다(하네스_CICD_IaC §7-2의 전담
  *   flyway-migrate 잡이 superuser일 필요가 없음을 증명).
  *
