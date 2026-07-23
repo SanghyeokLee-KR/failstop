@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 
 /**
  * 계정 키 토큰버킷(§2-5, §3-4 step7). 단일 라이터 매칭 엔진 앞 유일한 계정 단위 유량 방벽이다.
@@ -34,13 +35,20 @@ public class AccountRateLimiter {
     private final String scope;
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
     private final AtomicLong nextSweepAt = new AtomicLong();
+    private final LongSupplier clock;
 
     public AccountRateLimiter(int capacity, long windowMs, String bucket, String scope) {
+        this(capacity, windowMs, bucket, scope, System::currentTimeMillis);
+    }
+
+    // 시계를 주입해 sweep 축출·경합 가드를 결정론적으로 검증한다. 프로덕션은 System 시계 오버로드를 쓴다.
+    AccountRateLimiter(int capacity, long windowMs, String bucket, String scope, LongSupplier clock) {
         this.capacity = capacity;
         this.windowMs = windowMs;
         this.refillPerMs = (double) capacity / windowMs;
         this.bucket = bucket;
         this.scope = scope;
+        this.clock = clock;
     }
 
     /**
@@ -48,7 +56,7 @@ public class AccountRateLimiter {
      * (batch는 원소 전부가 통과하거나 전량 거부되어야 부분 차감 누수가 없다).
      */
     public Decision acquire(String key, int cost) {
-        long now = System.currentTimeMillis();
+        long now = clock.getAsLong();
         sweep(now);
         Bucket b = buckets.computeIfAbsent(key, k -> {
             Bucket fresh = new Bucket();
@@ -151,5 +159,14 @@ public class AccountRateLimiter {
                 }
             }
         });
+    }
+
+    // 축출 발생·미발생을 테스트가 구별하기 위한 읽기 전용 훅. 프로덕션 경로는 호출하지 않는다.
+    int trackedBuckets() {
+        return buckets.size();
+    }
+
+    boolean tracks(String key) {
+        return buckets.containsKey(key);
     }
 }
