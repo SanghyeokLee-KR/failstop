@@ -56,6 +56,10 @@ services:
       EXCHANGE_ENGINE_LEASE_TTL: ${CHAOS_LEASE_TTL:-6s}
       EXCHANGE_ENGINE_LEASE_TICK_INTERVAL: ${CHAOS_LEASE_TICK:-2s}
       EXCHANGE_AUTH_MASTER_KEY_BASE64: ${CHAOS_MASTER_KEY_BASE64}
+      # 서빙 노드는 dev 프로파일이라 주문 버킷이 계약 기본(100토큰/10s=20req/10s)이다. chaos-bots
+      # 플릿은 계정당 다봇 고빈도라 이 한도에 429로 걸려 파킹되고, 카오스 중 부하 생성·자동 복구
+      # 관찰이 무력화된다. 실험 부하 유지를 위해 서빙 노드의 주문 capacity를 상향한다(격리 스택 한정).
+      EXCHANGE_ORDER_RATE_LIMIT_CAPACITY: "100000"
     ports: ["18080:8080"]
     depends_on:
       chaos-pg: { condition: service_healthy }
