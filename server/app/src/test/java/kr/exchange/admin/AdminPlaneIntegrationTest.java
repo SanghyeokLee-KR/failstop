@@ -600,6 +600,72 @@ class AdminPlaneIntegrationTest {
     }
 
     // ------------------------------------------------------------------
+    // (l) 카오스 주입 바인딩: 엔드포인트별 의미 필드(node/name/assault)가 승인 target으로
+    // 소각되고, 승인 target과 다른 필드값은 binding_mismatch로 차단된다(§3-6 확정표, c3efad6).
+    // ------------------------------------------------------------------
+
+    @Test
+    @Order(17)
+    void chaosInjectionBindsSemanticFieldToApprovalTarget() throws Exception {
+        String op01 = issueSession("op-01");
+        String op02 = issueSession("op-02");
+
+        // kill-node: node 필드가 target으로 소각. CHAOS_OPS + 2인 승인.
+        String killToken = issueToken("op-01", "chaos.kill_node", "exchange-core-1", "op-02", op02);
+        ResponseEntity<String> killed = adminPost("/admin/v1/chaos/kill-node",
+                "{\"node\":\"exchange-core-1\",\"approval_token\":\"" + killToken + "\"}",
+                "op-01", op01);
+        assertEquals(200, killed.getStatusCode().value(), killed.getBody());
+        JsonNode killBody = objectMapper.readTree(killed.getBody());
+        assertEquals("chaos.kill_node", killBody.path("action").asText());
+        assertEquals("exchange-core-1", killBody.path("target").asText());
+        assertFalse(killBody.path("experiment_id").asText().isBlank(), "experiment_id 발급");
+        assertTrue(killBody.path("approval_id").asLong() > 0);
+
+        // 감사에 target·approval_id가 소각 경로 그대로 남는다(OK 결과).
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM admin_audit_log "
+                        + "WHERE operator_id = 'op-01' AND action = 'chaos.kill_node' "
+                        + "AND target = 'exchange-core-1' AND approval_id IS NOT NULL "
+                        + "AND result = 'OK'")
+                .query(Long.class).single());
+
+        // network: name 필드가 target으로 소각(동형).
+        String netToken = issueToken("op-01", "chaos.network", "pg-latency", "op-02", op02);
+        ResponseEntity<String> net = adminPost("/admin/v1/chaos/network",
+                "{\"name\":\"pg-latency\",\"type\":\"latency\",\"approval_token\":\""
+                        + netToken + "\"}", "op-01", op01);
+        assertEquals(200, net.getStatusCode().value(), net.getBody());
+        assertEquals("pg-latency", objectMapper.readTree(net.getBody()).path("target").asText());
+
+        // app: assault 필드가 target으로 소각(동형).
+        String appToken = issueToken("op-01", "chaos.app", "latency-assault", "op-02", op02);
+        ResponseEntity<String> app = adminPost("/admin/v1/chaos/app",
+                "{\"assault\":\"latency-assault\",\"approval_token\":\"" + appToken + "\"}",
+                "op-01", op01);
+        assertEquals(200, app.getStatusCode().value(), app.getBody());
+        assertEquals("latency-assault", objectMapper.readTree(app.getBody()).path("target").asText());
+    }
+
+    @Test
+    @Order(18)
+    void chaosFieldMismatchWithApprovalTargetIsRejected() throws Exception {
+        String op01 = issueSession("op-01");
+        String op02 = issueSession("op-02");
+
+        // 승인은 exchange-core-1로 지정했는데 본문 node는 exchange-core-2 → target 불일치.
+        String token = issueToken("op-01", "chaos.kill_node", "exchange-core-1", "op-02", op02);
+        ResponseEntity<String> mismatch = adminPost("/admin/v1/chaos/kill-node",
+                "{\"node\":\"exchange-core-2\",\"approval_token\":\"" + token + "\"}",
+                "op-01", op01);
+        assertEquals(403, mismatch.getStatusCode().value(), mismatch.getBody());
+        assertEquals("binding_mismatch", reason(mismatch));
+
+        // 소각 실패이므로 승인은 ISSUED로 남아 재사용 가능하다(액션과 함께 롤백).
+        assertEquals("ISSUED", jdbc.sql("SELECT state FROM admin_approvals WHERE approval_token = ?")
+                .param(token).query(String.class).single());
+    }
+
+    // ------------------------------------------------------------------
     // 헬퍼
     // ------------------------------------------------------------------
 
