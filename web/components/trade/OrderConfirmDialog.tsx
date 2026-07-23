@@ -51,13 +51,19 @@ export default function OrderConfirmDialog({
   const descId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  // onClose는 ref로 읽는다. 부모(OrderPanel)가 티커 구독으로 매 렌더 새 인라인 핸들러를 넘기므로
+  // deps에 두면 갱신마다 포커스 이펙트가 재실행돼 사용자가 확정에 둔 포커스를 취소로 강탈한다
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     const prevFocused = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       // 포커스 트랩: Tab이 다이얼로그 밖으로 새지 않게 처음·끝을 순환한다
@@ -92,7 +98,8 @@ export default function OrderConfirmDialog({
       document.removeEventListener("keydown", onKey);
       prevFocused?.focus?.();
     };
-  }, [onClose]);
+    // 마운트 1회. 초기 포커스·트랩 등록은 열림 시점에만 수행한다(onClose는 ref 경유)
+  }, []);
 
   // 배경 격리는 포커스 효과 뒤에 선언한다. 정리 역순이라 inert 해제가 포커스 복원보다 먼저 돈다
   useEffect(() => {

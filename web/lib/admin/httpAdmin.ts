@@ -137,9 +137,12 @@ function normMarketState(v: unknown): MarketState {
   return "HALTED";
 }
 
+// 서버 와이어는 대문자(INFO·WARNING·CRITICAL), 프론트 타입은 소문자다. 수신은 소문자 정규화,
+// 송신은 toUpperCase로 맞춘다. 미정규화 시 등록이 400으로 반려되고 조회 위계가 전부 info로 열화된다
 const NOTICE_SEVS: NoticeSeverity[] = ["info", "warning", "critical"];
 function normSeverity(v: unknown): NoticeSeverity {
-  return NOTICE_SEVS.includes(v as NoticeSeverity) ? (v as NoticeSeverity) : "info";
+  const s = String(v ?? "").toLowerCase() as NoticeSeverity;
+  return NOTICE_SEVS.includes(s) ? s : "info";
 }
 
 interface ErrorEnvelope {
@@ -854,6 +857,9 @@ export class HttpAdminApi implements AdminApi {
       const isClear = (r.action ?? "").includes("clear");
       return {
         id: String(r.id ?? `chx-${r.created_at ?? ""}-${i}`),
+        // 해제는 감사 행 id가 아니라 주입 시 발급한 이름(target)을 지칭해야 성립한다(§3-6).
+        // clear 행 target과 inject 행 target이 같은 문자열이라 cleared 접기도 이 키로 닫힌다
+        clearKey: r.target ?? "",
         experimentId: exp,
         label: def?.label ?? exp,
         state: isClear || cleared.has(r.target ?? "") ? "CLEARED" : "RUNNING",
@@ -902,7 +908,7 @@ export class HttpAdminApi implements AdminApi {
     // 서버 응답은 {notice_id}만 준다. 목록 스키마에 맞춰 요청 값과 세션·수신 시각으로 뷰모델을 채운다.
     const res = await this.http<{ notice_id?: number }>("/admin/v1/config/notices", {
       method: "POST",
-      body: JSON.stringify({ operator_id: this.opId(), title, body, severity }),
+      body: JSON.stringify({ operator_id: this.opId(), title, body, severity: severity.toUpperCase() }),
     });
     return {
       id: String(res.notice_id ?? ""),
@@ -923,7 +929,7 @@ export class HttpAdminApi implements AdminApi {
         operator_id: this.opId(),
         title: patch.title,
         body: patch.body,
-        severity: patch.severity,
+        severity: patch.severity?.toUpperCase(),
         active: patch.active,
       }),
     });

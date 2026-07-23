@@ -292,6 +292,9 @@ export interface ChaosExperimentDef {
 /** 진행·이력 실험 원소 */
 export interface ChaosRun {
   id: string;
+  /** 해제 요청 target. 정본 §3-6은 주입 시 발급한 이름(toxic 등)을 해제 target으로 재사용한다.
+   * sim은 run id, http는 감사 행 target(주입 이름)이다. 화면 chaos.clear payload는 id가 아니라 이 값을 쓴다 */
+  clearKey: string;
   experimentId: string;
   label: string;
   state: ChaosState;

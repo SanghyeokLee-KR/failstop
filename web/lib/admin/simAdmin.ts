@@ -454,8 +454,11 @@ export class SimAdminApi implements AdminApi {
       case "chaos.inject": {
         const def = CHAOS_CATALOG.find((d) => d.id === payload.experimentId);
         if (!def) throw new AdminError("invalid_parameter", "알 수 없는 실험");
+        const runId = uid("chx");
         this.chaosRuns.unshift({
-          id: uid("chx"),
+          id: runId,
+          // sim은 별도 toxic 이름이 없어 run id가 곧 해제 키다(clear 매칭도 id 기준)
+          clearKey: runId,
           experimentId: def.id,
           label: def.label,
           state: "RUNNING",

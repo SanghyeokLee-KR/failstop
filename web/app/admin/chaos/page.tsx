@@ -101,7 +101,7 @@ export default function ChaosPage() {
                 <span className={styles.runningBlast}>{r.blastRadius}</span>
                 <RequestButton
                   action="chaos.clear"
-                  payload={{ action: "chaos.clear", runId: r.id }}
+                  payload={{ action: "chaos.clear", runId: r.clearKey }}
                   label="해제 요청"
                   onRequested={load}
                   confirm={{
