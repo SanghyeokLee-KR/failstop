@@ -49,6 +49,24 @@ public class RequestSizeLimitFilter extends OncePerRequestFilter {
             errorRenderer.write(response, e);
             return;
         }
+        // 바디가 있는 요청은 Content-Type을 application/json으로 강제한다(§2-7 415). 바디 없는
+        // 요청(쿠키 기반 logout·refresh 등)은 미디어타입 대상이 아니라 통과시킨다. 컨트롤러가
+        // raw 바이트를 직접 파싱해 프레임워크 미디어타입 협상을 우회하므로 이 필터가 유일 게이트다.
+        if (body.length > 0 && !isJsonContentType(request.getContentType())) {
+            errorRenderer.write(response, new ApiException(415, "unsupported_media_type",
+                    "요청 Content-Type은 application/json이어야 합니다."));
+            return;
+        }
         chain.doFilter(new CachedBodyRequest(request, body), response);
+    }
+
+    private static boolean isJsonContentType(String contentType) {
+        if (contentType == null) {
+            return false;
+        }
+        int semi = contentType.indexOf(';');
+        String base = (semi >= 0 ? contentType.substring(0, semi) : contentType).trim()
+                .toLowerCase(java.util.Locale.ROOT);
+        return base.equals("application/json") || base.endsWith("+json");
     }
 }

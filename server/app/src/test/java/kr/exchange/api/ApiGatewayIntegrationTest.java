@@ -167,6 +167,9 @@ class ApiGatewayIntegrationTest {
                         "GET", "/api/v1/accounts", Map.of()));
         assertEquals(200, ok.getStatusCode().value());
         assertTrue(ok.getBody().contains("\"schema_version\":\"1.0\""));
+        // §2-5 계좌 조회 버킷 배선(item 3): /accounts도 계정 조회 토큰버킷 헤더를 방출한다.
+        assertNotNull(ok.getHeaders().getFirst("X-RateLimit-Limit-account"),
+                "/accounts는 계정 조회 레이트리밋 헤더를 방출해야 한다");
 
         // 다른 path로 서명한 토큰(엔드포인트 치환 리플레이) → invalid_query_payload
         ResponseEntity<String> tampered = get("/api/v1/accounts",
@@ -798,6 +801,38 @@ class ApiGatewayIntegrationTest {
         ResponseEntity<String> response = rest.getForEntity(url, String.class);
         assertEquals(200, response.getStatusCode().value());
         return objectMapper.readTree(response.getBody()).path("data");
+    }
+
+    // ------------------------------------------------------------------
+    // 레이트리밋 weight(§2-5, item 2)
+    // ------------------------------------------------------------------
+
+    /**
+     * 주문 버킷 weight 5 회귀. 격리 사용자로 주문 버킷을 급송 소진한다(다른 테스트 버킷과 무간섭).
+     * 무잔고라 각 주문은 잔고 가드에서 400으로 끊겨 정산·저널이 발생하지 않고, 레이트리밋은 진입부에서
+     * 선차감된다. weight 5면 capacity 100에 20여건만 통과하고 나머지는 429다. weight가 1로 회귀하면
+     * 60건이 capacity 100 미만이라 전부 통과해 429가 0이 되므로 denied>=1이 이를 잡는다.
+     */
+    @Test
+    @Order(50)
+    void orderBucketAppliesWeightFiveNotOne() {
+        long user = bootstrap.user("ratelimit-order@api.test");
+        DemoKeySeeder.IssuedKey key = keySeeder.issue(user, "TRADE", "rl-order");
+        int denied = 0;
+        int passed = 0;
+        for (int i = 0; i < 60; i++) {
+            byte[] body = orderBody("KRW-BTC", "bid", "limit", "50000000", "0.0001", "rl-" + i);
+            ResponseEntity<String> res = post("/api/v1/orders", body,
+                    TestSigner.bearerForBody(key.accessKey(), key.secretKey(),
+                            "POST", "/api/v1/orders", body));
+            if (res.getStatusCode().value() == 429) {
+                denied++;
+            } else {
+                passed++;
+            }
+        }
+        assertTrue(denied >= 1, "weight 5면 60건 급송 중 429가 나야 한다(weight 1 회귀 시 0)");
+        assertTrue(passed <= 40, "통과 수가 weight 5(약 20여건)와 정합해야 한다: " + passed);
     }
 
     // ------------------------------------------------------------------

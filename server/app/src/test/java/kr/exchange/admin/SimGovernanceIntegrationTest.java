@@ -56,6 +56,7 @@ class SimGovernanceIntegrationTest {
                 () -> Base64.getEncoder().encodeToString(new byte[32]));
         registry.add("exchange.admin.enabled", () -> "true");
         registry.add("exchange.admin.mtls.trusted-forwarding", () -> "true");
+        registry.add("exchange.admin.rate-limit.capacity", () -> "1000000");
     }
 
     @TestConfiguration

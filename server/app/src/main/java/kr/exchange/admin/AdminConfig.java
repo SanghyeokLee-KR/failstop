@@ -2,6 +2,7 @@ package kr.exchange.admin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.api.common.ErrorRenderer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -51,9 +52,14 @@ public class AdminConfig {
     @Bean
     public FilterRegistrationBean<AdminAuthFilter> adminAuthFilter(
             AdminMtlsResolver mtlsResolver, AdminSessionService sessions,
-            AdminOperatorDirectory operators, AdminAuditService audit, ErrorRenderer errorRenderer) {
+            AdminOperatorDirectory operators, AdminAuditService audit, ErrorRenderer errorRenderer,
+            @Value("${exchange.admin.rate-limit.capacity:60}") int rateCapacity,
+            @Value("${exchange.admin.rate-limit.window-ms:60000}") long rateWindowMs) {
+        // 기본은 계약값(§2-5 60토큰/60s, weight 10 = 실효 6req/60s). 통합테스트는 다건 관리 호출을
+        // 위해 capacity를 상향 주입한다.
         FilterRegistrationBean<AdminAuthFilter> registration = new FilterRegistrationBean<>(
-                new AdminAuthFilter(mtlsResolver, sessions, operators, audit, errorRenderer));
+                new AdminAuthFilter(mtlsResolver, sessions, operators, audit, errorRenderer,
+                        rateCapacity, rateWindowMs));
         registration.addUrlPatterns("/admin/v1/*");
         registration.setOrder(20);
         return registration;

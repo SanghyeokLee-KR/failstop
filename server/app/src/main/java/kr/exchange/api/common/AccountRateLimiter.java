@@ -130,6 +130,10 @@ public class AccountRateLimiter {
     /**
      * 재방문 없는 키의 버킷이 맵에 잔존해 무한 증가하는 것을 최소 간격으로 정리한다.
      * 리필로 가득 찬(활동 종료) 버킷만 제거하므로 진행 중 버킷은 건드리지 않는다.
+     *
+     * 축출 전에 마지막 리필 이후 windowMs 이상 무접근인지 확인한다(refill 전 lastRefillMs 기준).
+     * acquire가 computeIfAbsent로 갓 등재한 버킷은 lastRefillMs=now라 이 창에서 배제되므로,
+     * '맵 등재 → 차감' 사이에 sweep이 그 버킷을 축출해 첫 차감을 유실시키는 경합이 좁혀진다.
      */
     private void sweep(long now) {
         long due = nextSweepAt.get();
@@ -138,6 +142,9 @@ public class AccountRateLimiter {
         }
         buckets.forEach((key, b) -> {
             synchronized (b) {
+                if (now - b.lastRefillMs < windowMs) {
+                    return;
+                }
                 refill(b, now);
                 if (b.tokens >= capacity) {
                     buckets.remove(key, b);

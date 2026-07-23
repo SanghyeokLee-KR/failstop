@@ -42,8 +42,10 @@ public class EngineConfig {
     @Bean
     public CommandJournalAppender commandJournalAppender(JdbcClient jdbcClient,
                                                          TransactionTemplate transactionTemplate,
-                                                         LeaderLeaseService leaderLeaseService) {
-        return new CommandJournalAppender(jdbcClient, transactionTemplate, leaderLeaseService);
+                                                         LeaderLeaseService leaderLeaseService,
+                                                         MeterRegistry meterRegistry) {
+        return new CommandJournalAppender(jdbcClient, transactionTemplate, leaderLeaseService,
+                meterRegistry);
     }
 
     @Bean

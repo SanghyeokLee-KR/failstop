@@ -43,6 +43,9 @@ public class InvariantVerifier {
 
     private final Map<InvariantCheck, AtomicLong> violationGauges = new ConcurrentHashMap<>();
     private final MultiGauge ledgerImbalance;
+    // MultiGauge.register는 동시 호출에 스레드 안전하지 않다. runScheduled(@Scheduled 스레드)와
+    // runAuthoritative(HTTP 스레드)가 겹칠 때 등록 계량기 집합 손상을 막는다.
+    private final Object imbalanceGaugeLock = new Object();
 
     public InvariantVerifier(JdbcClient jdbc,
                              TransactionTemplate transactionTemplate,
@@ -153,7 +156,9 @@ public class InvariantVerifier {
                     return null;
                 })
                 .list();
-        ledgerImbalance.register(rows, true);
+        synchronized (imbalanceGaugeLock) {
+            ledgerImbalance.register(rows, true);
+        }
     }
 
     private long count(String sql) {

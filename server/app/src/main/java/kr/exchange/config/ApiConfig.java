@@ -170,6 +170,13 @@ public class ApiConfig {
         return new OrderQueryService(jdbc);
     }
 
+    // §2-5 '계좌/주문 조회' 단일 버킷(200토큰/10s, weight 2). OrderController(/open·/closed)와
+    // AccountController(/accounts)가 공유해 이 범주가 하나의 200토큰 예산을 쓰게 한다.
+    @Bean
+    public kr.exchange.api.common.AccountRateLimiter accountQueryRateLimiter() {
+        return new kr.exchange.api.common.AccountRateLimiter(200, 10_000, "account", "query");
+    }
+
     @Bean
     public OrderGateway orderGateway(JdbcClient jdbc, EngineBridge bridge,
                                      MarketDirectory markets, OrderQueryService orders) {

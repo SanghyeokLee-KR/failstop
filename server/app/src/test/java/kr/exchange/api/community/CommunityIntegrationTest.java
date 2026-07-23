@@ -72,6 +72,7 @@ class CommunityIntegrationTest {
                 () -> Base64.getEncoder().encodeToString(new byte[32]));
         registry.add("exchange.admin.enabled", () -> "true");
         registry.add("exchange.admin.mtls.trusted-forwarding", () -> "true");
+        registry.add("exchange.admin.rate-limit.capacity", () -> "1000000");
         // 신고 임계 자동 숨김을 낮춰 단일 신고로 검증 가능하게 한다.
         registry.add("exchange.community.auto-hide-threshold", () -> "2");
     }

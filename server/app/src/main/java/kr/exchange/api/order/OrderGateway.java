@@ -116,6 +116,7 @@ public class OrderGateway {
             }
         }
         boolean journaled = false;
+        boolean replayed = false;
         OrderQueryService.OrderRow row = null;
         long orderId = 0;
         try {
@@ -136,6 +137,7 @@ public class OrderGateway {
                 throw new ApiException(503, "service_unavailable",
                         "페일오버 진행 중입니다. 재조회 후 판단하십시오.", null, 1);
             }
+            replayed = result.replayed();
 
             row = result.replayed()
                     ? awaitRow(() -> orders.byClientOrderId(userId, clientOrderId))
@@ -158,8 +160,7 @@ public class OrderGateway {
                 deleteOrphanKey(userId, clientOrderId, requestHash);
             }
             if (guarded) {
-                if (row != null || !journaled) {
-                    // 정산 관측 완료(available 반영) 또는 저널 미기록 확정. 즉시 해제해도 안전하다.
+                if (releaseImmediately(row != null, journaled, replayed)) {
                     inflight.release(reserveKey, required);
                 } else {
                     // 저널 이후 정산 미관측(프로젝션 타임아웃 등). 즉시 해제는 가드-정산 경합 창을
@@ -168,6 +169,16 @@ public class OrderGateway {
                 }
             }
         }
+    }
+
+    /**
+     * finally 예약 회수 결정. 정산 관측 완료(available 반영)·저널 미기록 확정·멱등 replay 중 하나면
+     * 즉시 해제한다. replay 접수는 자기 명령이 엔진·정산에 도달하지 않아(권위 예약은 원본이 보유)
+     * assignedId로 어떤 orders row도 생기지 않으므로, defer하면 sweep의 주문 row 관측 회수 경로가
+     * 죽어 유령 예약이 TTL(30s)로만 회수되고 후속 주문을 insufficient_funds로 오거부한다.
+     */
+    static boolean releaseImmediately(boolean rowObserved, boolean journaled, boolean replayed) {
+        return rowObserved || !journaled || replayed;
     }
 
     private void requireActiveUser(long userId) {

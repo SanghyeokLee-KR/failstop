@@ -1,9 +1,12 @@
 package kr.exchange.harness;
 
 /**
- * 불변식 검증 카탈로그 C01~C20의 앱 검증기 배선(하네스 검증설계 §4-1). 각 SQL은 위반 행
- * 수(BIGINT)를 단일 값으로 반환하고, ok는 count=0으로 판정한다. 컬럼명은 DB 설계 정본 실제
- * DDL 기준.
+ * 불변식 검증 카탈로그의 앱 검증기 배선(하네스 검증설계 §4-1). 각 SQL은 위반 행 수(BIGINT)를
+ * 단일 값으로 반환하고, ok는 count=0으로 판정한다. 컬럼명은 DB 설계 정본 실제 DDL 기준.
+ *
+ * C21~C23은 DB 설계 §6.4의 감사 카탈로그 ⑮(이벤트 방출 레지스트리 1:1, P0-4)·⑯(fencing 단조,
+ * P0-1)·⑰(채번 카운터 정합, P0-5)이다. §6.5 pg_cron이 실환경(Testcontainers·카오스)에 없어 어떤
+ * 러너도 평가하지 않던 공백을, 고아 체크(C09~C12) 이관과 동일하게 앱 스케줄러로 배선했다.
  *
  * C03·C09~C12·C15는 원래 pg_cron 분담이었으나, 카오스 스택·Testcontainers에 pg_cron이 없어
  * 실환경에서 아무 러너도 평가하지 않았다(고아 체결·미저널 체결 회귀가 페일오버 판정을 그대로
@@ -222,6 +225,48 @@ public enum InvariantCheck {
                 HAVING max(price) FILTER (WHERE side = 'BUY')
                        >= min(price) FILTER (WHERE side = 'SELL')
             ) x
+            """),
+
+    // ── 이벤트 방출 레지스트리 1:1(DB §6.4 ⑮, P0-4) ──────────────────────
+    // event_journal ↔ event_emission_registry 양방향 anti-join. AFTER INSERT 트리거가 방출 시점
+    // 정방향만 강제하므로, 트리거 실패·저널 우회 삽입으로 생기는 드리프트(유실·유령 이벤트)를
+    // event_seq gapless(C06)로는 못 잡는다. 윈도는 event_journal.created_at(engine_ts 파생) 한쪽에만
+    // 걸고 존재 검사측(조인 상대)은 무윈도라, registry.created_at(DEFAULT now())이 달라도 경계
+    // 오탐이 구조적으로 불가능하다. 90일 윈도는 §4-2 ③(C08~C12·C18·C20과 동일 retention 규약).
+    C21_EVENT_EMISSION_REGISTRY(Severity.CRITICAL, Scope.SCHEDULED, """
+            SELECT (
+                SELECT count(*) FROM event_journal e
+                LEFT JOIN event_emission_registry r ON r.event_seq = e.event_seq
+                WHERE e.created_at >= now() - interval '90 days' AND r.event_seq IS NULL
+            ) + (
+                SELECT count(*) FROM event_emission_registry r
+                LEFT JOIN event_journal e ON e.event_seq = r.event_seq
+                WHERE r.created_at >= now() - interval '90 days' AND e.event_seq IS NULL
+            )
+            """),
+
+    // ── fencing_token 단조성(DB §6.4 ⑯, P0-1) ────────────────────────────
+    // 리더 epoch는 seq 오름차순으로 비감소여야 한다(split-brain 부재). assert_current_leader가
+    // 라이브 강제이고 이 감사는 그 백스톱이라 정지 시점 권위 run에서만 평가한다(AUTHORITATIVE_ONLY).
+    C22_FENCING_MONOTONIC(Severity.CRITICAL, Scope.AUTHORITATIVE_ONLY, """
+            SELECT count(*) FROM (
+                SELECT seq, fencing_token,
+                       lag(fencing_token) OVER (ORDER BY seq) AS prev
+                FROM command_journal
+            ) t
+            WHERE t.prev > t.fencing_token
+            """),
+
+    // ── 채번 카운터 정합(DB §6.4 ⑰, P0-5) ────────────────────────────────
+    // next_value가 저널 최대 seq 이하이면 다음 채번이 기존 seq와 충돌한다(재사용). 정상 채번은
+    // 원자적이라 라이브에선 항상 max+1 이상이고, 백업 복원·수동 리시드가 카운터를 저널 아래로
+    // 되돌리는 경우만 위반이다. 정지 시점 권위 run에서 평가한다(AUTHORITATIVE_ONLY).
+    C23_COUNTER_SEQ_CONSISTENCY(Severity.CRITICAL, Scope.AUTHORITATIVE_ONLY, """
+            SELECT count(*) FROM journal_counters c
+            WHERE (c.name = 'command_seq'
+                     AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal))
+               OR (c.name = 'event_seq'
+                     AND c.next_value <= (SELECT COALESCE(max(event_seq), 0) FROM event_journal))
             """);
 
     public enum Severity { CRITICAL, HIGH, WARN }

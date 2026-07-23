@@ -33,18 +33,22 @@ public class AdminAuthFilter extends OncePerRequestFilter {
     private final AdminOperatorDirectory operators;
     private final AdminAuditService audit;
     private final ErrorRenderer errorRenderer;
-    // §2-5 관리 버킷: 60토큰/60s. mTLS 게이트 뒤이나 승인 토큰 브루트포스·감사 로그 폭주 방어선.
+    // §2-5 관리 버킷 weight 10. 기본 capacity 60·window 60s면 실효 6req/60s. mTLS 게이트 뒤이나
+    // 승인 토큰 브루트포스·감사 로그 폭주 방어선. weight를 1로 두면 계약의 10배로 열린다. capacity·window는
+    // 환경 튜닝값이라 주입받는다(운영 기본은 계약값, 통합테스트는 다건 호출을 위해 상향).
     // 노드 로컬 구현이라 다중 노드 실효 한도는 노드 수 배수다(AccountRateLimiter 제약 주석 참조).
-    private final AccountRateLimiter rateLimiter = new AccountRateLimiter(60, 60_000, "admin", "admin");
+    private static final int ADMIN_WEIGHT = 10;
+    private final AccountRateLimiter rateLimiter;
 
     public AdminAuthFilter(AdminMtlsResolver mtlsResolver, AdminSessionService sessions,
                            AdminOperatorDirectory operators, AdminAuditService audit,
-                           ErrorRenderer errorRenderer) {
+                           ErrorRenderer errorRenderer, int rateCapacity, long rateWindowMs) {
         this.mtlsResolver = mtlsResolver;
         this.sessions = sessions;
         this.operators = operators;
         this.audit = audit;
         this.errorRenderer = errorRenderer;
+        this.rateLimiter = new AccountRateLimiter(rateCapacity, rateWindowMs, "admin", "admin");
     }
 
     @Override
@@ -79,7 +83,7 @@ public class AdminAuthFilter extends OncePerRequestFilter {
                 throw forbidden("비활성 운영자입니다.", "operator_disabled");
             }
             // 세션 부트스트랩(POST /session)은 위에서 이미 통과했다. 그 외 관리 요청만 operator 키로 차감.
-            AccountRateLimiter.Decision rate = rateLimiter.acquire(operatorId, 1);
+            AccountRateLimiter.Decision rate = rateLimiter.acquire(operatorId, ADMIN_WEIGHT);
             if (!rate.allowed()) {
                 ApiException tooMany = rateLimiter.rejection(rate);
                 recordDenied(operatorId, action, request.getRequestURI(), requestId, tooMany);

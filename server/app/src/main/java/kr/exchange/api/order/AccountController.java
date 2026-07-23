@@ -1,7 +1,9 @@
 package kr.exchange.api.order;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import kr.exchange.api.auth.AuthPrincipal;
+import kr.exchange.api.common.AccountRateLimiter;
 import kr.exchange.api.common.ApiFormats;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,15 +18,21 @@ import java.util.Map;
 @RestController
 public class AccountController {
 
-    private final JdbcClient jdbc;
+    // §2-5 '계좌/주문 조회' weight 2. OrderController 조회 경로와 단일 빈을 공유한다.
+    private static final int QUERY_WEIGHT = 2;
 
-    public AccountController(JdbcClient jdbc) {
+    private final JdbcClient jdbc;
+    private final AccountRateLimiter queryLimiter;
+
+    public AccountController(JdbcClient jdbc, AccountRateLimiter accountQueryRateLimiter) {
         this.jdbc = jdbc;
+        this.queryLimiter = accountQueryRateLimiter;
     }
 
     @GetMapping("/api/v1/accounts")
-    public Map<String, Object> accounts(HttpServletRequest request) {
+    public Map<String, Object> accounts(HttpServletRequest request, HttpServletResponse response) {
         AuthPrincipal principal = OrderController.principal(request);
+        queryLimiter.enforce(response, String.valueOf(principal.userId()), QUERY_WEIGHT);
         List<Map<String, Object>> data = new ArrayList<>(jdbc.sql("""
                         SELECT a.symbol AS currency, ub.available, ub.locked
                         FROM user_balances ub

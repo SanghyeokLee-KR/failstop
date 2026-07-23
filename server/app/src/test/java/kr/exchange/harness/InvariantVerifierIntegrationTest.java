@@ -368,6 +368,64 @@ class InvariantVerifierIntegrationTest {
                 "정리 후 C09 clean 미복귀");
     }
 
+    /**
+     * DB §6.4 ⑮ 배선 회귀. event_journal↔event_emission_registry 양방향 anti-join(C21)이 어떤
+     * 러너에도 없던 공백을 닫았다. 저널에 없는 레지스트리 행(역방향 드리프트=유령 이벤트)을 주입해
+     * SCHEDULED 스캔이 잡는지 반증한다. event_emission_registry는 append-only 대상이 아니라 주입·정리
+     * 후 원장·저널 불변식에 잔여가 없다. 마지막 순서.
+     */
+    @Test
+    @Order(7)
+    void scheduledCatchesEventEmissionRegistryDrift() {
+        assertTrue(runScheduledCheck(InvariantCheck.C21_EVENT_EMISSION_REGISTRY).ok(),
+                "주입 전 C21이 이미 위반");
+        long ghost = 99_990_001L;
+        jdbc.sql("""
+                INSERT INTO event_emission_registry (source_cmd_seq, event_ordinal, event_seq)
+                VALUES (?, 0, ?)
+                """).params(ghost, ghost).update();
+        try {
+            InvariantResult dirty = runScheduledCheck(InvariantCheck.C21_EVENT_EMISSION_REGISTRY);
+            assertFalse(dirty.ok(), "레지스트리↔저널 드리프트를 C21이 놓침");
+            assertTrue(dirty.violatedRows() >= 1, "C21 위반행 계수 0");
+        } finally {
+            jdbc.sql("DELETE FROM event_emission_registry WHERE event_seq = ?").params(ghost).update();
+        }
+        assertTrue(runScheduledCheck(InvariantCheck.C21_EVENT_EMISSION_REGISTRY).ok(),
+                "정리 후 C21 clean 미복귀(항상 FAIL·게이지 고착 반증)");
+    }
+
+    /**
+     * DB §6.4 ⑰ 배선 회귀. journal_counters.next_value ≤ 저널 최대 seq(C23, 채번 재사용 위험)가
+     * 어떤 러너에도 없던 공백을 닫았다. 카운터를 저널 아래로 되돌려(백업 복원·리시드 모사) 권위 run이
+     * 잡는지 반증한다. journal_counters는 정상 테이블이라 복원 후 잔여 무해. 페일오버 이후라 앱이
+     * command_seq를 채번하지 않아 주입 구간이 안정적이다. 마지막 순서.
+     */
+    @Test
+    @Order(8)
+    void authoritativeCatchesCounterSeqReuseRisk() {
+        long original = count("SELECT next_value FROM journal_counters WHERE name = 'command_seq'");
+        assertTrue(authoritativeCheck(InvariantCheck.C23_COUNTER_SEQ_CONSISTENCY).ok(),
+                "주입 전 C23이 이미 위반");
+        jdbc.sql("UPDATE journal_counters SET next_value = 1 WHERE name = 'command_seq'").update();
+        try {
+            InvariantResult dirty = authoritativeCheck(InvariantCheck.C23_COUNTER_SEQ_CONSISTENCY);
+            assertFalse(dirty.ok(), "카운터 재사용 위험을 C23이 놓침");
+            assertTrue(dirty.violatedRows() >= 1, "C23 위반행 계수 0");
+        } finally {
+            jdbc.sql("UPDATE journal_counters SET next_value = ? WHERE name = 'command_seq'")
+                    .params(original).update();
+        }
+        assertTrue(authoritativeCheck(InvariantCheck.C23_COUNTER_SEQ_CONSISTENCY).ok(),
+                "복원 후 C23 clean 미복귀");
+    }
+
+    private InvariantResult authoritativeCheck(InvariantCheck target) {
+        return verifier.runAuthoritative("gap-itest", "probe").results().stream()
+                .filter(r -> r.check() == target)
+                .findFirst().orElseThrow();
+    }
+
     private InvariantResult runScheduledCheck(InvariantCheck target) {
         return verifier.runScheduled().stream()
                 .filter(r -> r.check() == target)

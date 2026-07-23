@@ -32,7 +32,8 @@ public class HarnessConfig {
     }
 
     @Bean
-    public InvariantScheduler invariantScheduler(InvariantVerifier invariantVerifier) {
-        return new InvariantScheduler(invariantVerifier);
+    public InvariantScheduler invariantScheduler(InvariantVerifier invariantVerifier,
+                                                 kr.exchange.engine.LeaderLeaseService leaderLeaseService) {
+        return new InvariantScheduler(invariantVerifier, leaderLeaseService);
     }
 }

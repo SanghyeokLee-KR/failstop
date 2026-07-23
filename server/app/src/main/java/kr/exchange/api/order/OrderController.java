@@ -38,12 +38,13 @@ public class OrderController {
     // 컨트롤러가 무제한 적재하지 않도록 자체 방어를 둔다.
     private static final int MAX_BODY_BYTES = 64 * 1024;
 
-    // §2-5 계정 버킷: 주문 생성/취소 100토큰/10s. 단일 라이터 앞 유일 유량 방벽이라 라이터 진입 전에 차감한다.
+    // §2-5 계정 버킷: 주문 생성/취소 100토큰/10s, weight 5. 실효 20req/10s. 단일 라이터 앞 유일
+    // 유량 방벽이라 라이터 진입 전에 차감한다. weight를 1로 두면 계약의 5배로 열린다.
+    private static final int ORDER_WEIGHT = 5;
     private final AccountRateLimiter rateLimiter = new AccountRateLimiter(100, 10_000, "account", "order");
     // §2-5 계좌/주문 조회 버킷: 200토큰/10s, weight 2. /open·/closed 폴링 증폭 방벽.
-    // 주문 버킷과 분리해 조회 폴링이 주문 생성 예산을 잠식하지 않게 한다.
+    // /accounts와 단일 빈을 공유해 '계좌/주문 조회' 범주가 하나의 200토큰 예산을 쓰게 한다.
     private static final int QUERY_WEIGHT = 2;
-    private final AccountRateLimiter queryLimiter = new AccountRateLimiter(200, 10_000, "account", "query");
 
     private final OrderGateway gateway;
     private final OrderQueryService orders;
@@ -51,16 +52,18 @@ public class OrderController {
     private final ObjectMapper objectMapper;
     private final JdbcClient jdbc;
     private final OrderRejectionMetrics rejections;
+    private final AccountRateLimiter queryLimiter;
 
     public OrderController(OrderGateway gateway, OrderQueryService orders,
                            EpochSource epochSource, ObjectMapper objectMapper, JdbcClient jdbc,
-                           OrderRejectionMetrics rejections) {
+                           OrderRejectionMetrics rejections, AccountRateLimiter accountQueryRateLimiter) {
         this.gateway = gateway;
         this.orders = orders;
         this.epochSource = epochSource;
         this.objectMapper = objectMapper;
         this.jdbc = jdbc;
         this.rejections = rejections;
+        this.queryLimiter = accountQueryRateLimiter;
     }
 
     @PostMapping
@@ -68,7 +71,7 @@ public class OrderController {
             throws java.io.IOException {
         AuthPrincipal principal = principal(request);
         try {
-            rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
+            rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
             byte[] body = readBoundedBody(request);
             JsonNode json = parse(body);
             OrderGateway.Placement placement = gateway.place(principal.userId(), json, body);
@@ -91,8 +94,8 @@ public class OrderController {
         JsonNode array;
         try {
             array = parseArray(readBoundedBody(request));
-            // 원소 수만큼 차감해 batch 증폭(요청당 최대 20배)을 상쇄한다. 전량 통과하거나 전량 429.
-            rateLimiter.enforce(response, String.valueOf(principal.userId()), array.size());
+            // 원소당 weight 5를 차감해 batch 증폭(요청당 최대 20배)을 상쇄한다. 전량 통과하거나 전량 429.
+            rateLimiter.enforce(response, String.valueOf(principal.userId()), array.size() * ORDER_WEIGHT);
         } catch (ApiException e) {
             // 배열 형식오류·전량 429는 요청 전체 거부라 1건으로 계량한다(per-item 거부와 별도).
             rejections.record(e);
@@ -161,7 +164,7 @@ public class OrderController {
                                          @PathVariable("id") String id) {
         AuthPrincipal principal = principal(request);
         try {
-            rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
+            rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
             UUID externalId;
             try {
                 externalId = UUID.fromString(id);
@@ -182,7 +185,7 @@ public class OrderController {
                                                  @PathVariable("clientOrderId") String clientOrderId) {
         AuthPrincipal principal = principal(request);
         try {
-            rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
+            rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
             OrderGateway.Placement placement =
                     gateway.cancelByClient(principal.userId(), clientOrderId);
             return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
@@ -198,7 +201,7 @@ public class OrderController {
                                          @RequestParam(value = "market", required = false) String market) {
         AuthPrincipal principal = principal(request);
         try {
-            rateLimiter.enforce(response, String.valueOf(principal.userId()), 1);
+            rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
         } catch (ApiException e) {
             rejections.record(e);
             throw e;

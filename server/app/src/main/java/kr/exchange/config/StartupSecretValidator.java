@@ -26,7 +26,8 @@ public class StartupSecretValidator {
             @Value("${exchange.member.password-pepper-base64:}") String pepper,
             @Value("${exchange.member.session-seed-base64:}") String sessionSeed,
             @Value("${server.ssl.key-store:}") String keyStore,
-            @Value("${server.ssl.key-store-password:}") String keyStorePassword) {
+            @Value("${server.ssl.key-store-password:}") String keyStorePassword,
+            @Value("${exchange.admin.mtls.trusted-forwarding:false}") boolean trustedForwarding) {
         requireSecret("exchange.auth.master-key-base64", masterKey);
         requireSecret("exchange.member.password-pepper-base64", pepper);
         requireSecret("exchange.member.session-seed-base64", sessionSeed);
@@ -39,6 +40,15 @@ public class StartupSecretValidator {
                 throw new IllegalStateException(
                         "운영 기동에서 데모 keystore(config/admin-demo)를 사용한다. 운영 PKI로 교체하라.");
             }
+        }
+        // 미핀 trusted-forwarding 차단(RequireSecretsCondition javadoc 계약). 이 게이트가 켜진
+        // 기동에서 trusted-forwarding=true면 앱이 소스 검증 없이 X-Operator-Cn 헤더를 관리 신원으로
+        // 신뢰하므로(AdminMtlsResolver), 게이트웨이 우회·인그레스 미strip 시 mTLS 우회 창이 열린다.
+        // 소스 핀(IP 허용목록·게이트웨이 상호인증) 배선이 없는 현재는 fail-closed로 기동을 막는다.
+        if (trustedForwarding) {
+            throw new IllegalStateException(
+                    "운영 기동에서 exchange.admin.mtls.trusted-forwarding=true다. 소스 핀 없는 헤더 신뢰는 "
+                            + "mTLS 우회 창이므로 false로 두고 Spring SSL client-auth로 X509를 직접 검증하라.");
         }
     }
 

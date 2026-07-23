@@ -2,6 +2,7 @@ package kr.exchange.admin;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import kr.exchange.api.common.ApiException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
@@ -54,11 +55,22 @@ public class AdminSessionService {
                         """)
                 .params(jti, operatorId, exp)
                 .update();
-        String payload = "{\"typ\":\"" + TYP + "\",\"operator_id\":\"" + operatorId
-                + "\",\"scope\":\"" + SCOPE + "\",\"jti\":\"" + jti + "\",\"iat\":" + iat
-                + ",\"exp\":" + exp + "}";
-        String signingInput = HEADER_B64 + "."
-                + base64Url(payload.getBytes(StandardCharsets.UTF_8));
+        // 문자열 접합 대신 Jackson으로 조립해 CN 유래 operator_id의 JSON 메타문자(따옴표·역슬래시)가
+        // payload를 깨거나 클레임을 주입하지 못하게 한다(자매 DemoSessionService·MemberSessionService와 동형).
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("typ", TYP);
+        payload.put("operator_id", operatorId);
+        payload.put("scope", SCOPE);
+        payload.put("jti", jti);
+        payload.put("iat", iat);
+        payload.put("exp", exp);
+        byte[] payloadBytes;
+        try {
+            payloadBytes = objectMapper.writeValueAsBytes(payload);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("세션 payload 직렬화 실패", e);
+        }
+        String signingInput = HEADER_B64 + "." + base64Url(payloadBytes);
         String token = signingInput + "." + Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(hmac(signingInput));
         return new IssuedSession(token, jti, exp);

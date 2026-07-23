@@ -69,6 +69,8 @@ class AdminPlaneIntegrationTest {
                 () -> Base64.getEncoder().encodeToString(new byte[32]));
         registry.add("exchange.admin.enabled", () -> "true");
         registry.add("exchange.admin.mtls.trusted-forwarding", () -> "true");
+        // 다건 관리 호출을 위해 레이트리밋 capacity 상향(운영 기본은 계약값 60, weight 10 = 6req/60s).
+        registry.add("exchange.admin.rate-limit.capacity", () -> "1000000");
     }
 
     @TestConfiguration

@@ -1,5 +1,8 @@
 package kr.exchange.journal;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.LeaderLeaseService;
 import org.springframework.dao.DataAccessException;
@@ -31,17 +34,28 @@ public class CommandJournalAppender {
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
     private final LeaderLeaseService lease;
+    // §5-2 계약 메트릭. requireLeader 이후 tx 커밋(=fsync=ACK) 완료까지의 지연을 잰다(RPO=0 비용).
+    private final Timer appendTimer;
 
+    // 계측 없는 테스트용. 프로덕션은 EngineConfig가 앱 MeterRegistry로 4-인자 생성자를 호출한다.
     public CommandJournalAppender(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease) {
+        this(jdbc, tx, lease, new SimpleMeterRegistry());
+    }
+
+    public CommandJournalAppender(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease,
+                                  MeterRegistry meterRegistry) {
         this.jdbc = jdbc;
         this.tx = tx;
         this.lease = lease;
+        this.appendTimer = Timer.builder("exchange.journal.append")
+                .description("command_journal append fsync 지연(RPO=0 비용, 하네스 CICD §5-2)")
+                .register(meterRegistry);
     }
 
     public AppendResult append(CommandDraft draft) {
         LeaderIdentity leader = lease.requireLeader();
         try {
-            return tx.execute(status -> appendInTx(leader, draft));
+            return appendTimer.record(() -> tx.execute(status -> appendInTx(leader, draft)));
         } catch (StaleLeaderException e) {
             // fencing 확정 거부는 renew 틱을 기다리지 않고 즉시 강등한다(§5.4).
             lease.demote(e.getMessage());
