@@ -16,6 +16,7 @@ scrape_configs:
         labels: { stack: chaos }
 
   # 봇 플릿 텔레메트리. 부하·주문 발행률·재전송을 페일오버 창과 함께 관측한다(§7 데모 재현).
+  # 전제: bots 프로파일이 동일 포트(8080)에 /actuator/prometheus를 노출한다(server application.yml bots 문서).
   - job_name: chaos-bots
     metrics_path: /actuator/prometheus
     static_configs:

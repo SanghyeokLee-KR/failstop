@@ -93,7 +93,9 @@ $ordersLost = Get-CheckRows $post 'C13A_ORDER_MATERIALIZED'
 $rpoRecords = [long]$cmdGap + [long]$evtGap + [long]$ordersLost
 
 $rto = $null; if ($t5) { $rto = ($t5 - $t0).TotalSeconds }
-$downtime = $null; if ($t2) { $downtime = ($t2 - $leaseUntilBefore).TotalSeconds }
+# §5-1 downtime=T2-T1, T1=구 lease_until - 리스 TTL(마지막 heartbeat 역산). lease_until을 T1로
+# 직접 쓰면 한 TTL 과소 보고라 TTL을 더한다. lib.ps1 공용 경로(E2·E3)와 동일 공식.
+$downtime = $null; if ($t2) { $downtime = ($t2 - $leaseUntilBefore).TotalSeconds + (Get-LeaseTtlSec) }
 $rtoRounded = $null; if ($null -ne $rto) { $rtoRounded = [math]::Round($rto, 3) }
 $downtimeRounded = $null; if ($null -ne $downtime) { $downtimeRounded = [math]::Round($downtime, 3) }
 $firstTradeVal = $null; if ($firstTradeTs) { $firstTradeVal = $firstTradeTs }

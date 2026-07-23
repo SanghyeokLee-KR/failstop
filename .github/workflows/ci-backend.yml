@@ -6,11 +6,16 @@ name: ci-backend
 #
 # 정본 §2-2의 paths는 구 모듈명(exchange-*)을 쓰지만 이 리포는 server/ 단일 트리(:engine·:app)라
 # 실제 경로로 옮긴다. 코드가 정본과 어긋나면 정본을 먼저 고치는 원칙에 따라 후속 정본 개정 대상.
+#
+# observability 잡은 하네스 관측 산출물(prometheus 규칙·설정, grafana 대시보드)을 promtool·jq로
+# 검증한다. paths가 워크플로 단위라 관측 산출물만 바뀐 PR도 build-test가 함께 돈다(빈도 낮아 수용).
 on:
   pull_request:
     branches: [main, develop]
     paths:
       - 'server/**'
+      - 'harness/prometheus/**'
+      - 'harness/grafana/dashboards/**'
       - '.github/workflows/ci-backend.yml'
   # main/develop push로도 돈다. cache-read-only가 main에서만 쓰기라, PR 전용 트리거로는 Gradle
   # 캐시가 영영 안 채워져 매 PR이 콜드 빌드가 된다. push(main)가 캐시를 채우고 PR이 읽는다.
@@ -18,6 +23,8 @@ on:
     branches: [main, develop]
     paths:
       - 'server/**'
+      - 'harness/prometheus/**'
+      - 'harness/grafana/dashboards/**'
       - '.github/workflows/ci-backend.yml'
 
 permissions:
@@ -53,3 +60,40 @@ jobs:
       # integration.yml(main)로 분리하려면 server 빌드에 integrationTest sourceSet·task가 선행한다.
       # 그 태스크가 서기 전까지는 build가 통합을 함께 돌려 완료 게이트를 유지한다.
       - run: ./gradlew build
+
+  # 관측 산출물 게이트. 규칙 오타·깨진 대시보드는 빈 패널·불발 알람으로 조용히 실려 나가므로
+  # 병합 전에 기계 검증한다. promtool은 컴포즈와 동일 핀(prom/prometheus:v3.13.0)의 도커
+  # 이미지로 실행해 런타임과 같은 파서로 검사한다.
+  observability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # prometheus.yml의 rule_files가 /etc/prometheus/rules/*.yml 절대경로라, 컴포즈와 동일한
+      # 마운트 형상(/etc/prometheus)으로 검사해야 규칙 파일 해석까지 함께 검증된다.
+      # 이미지 기본 entrypoint가 prometheus 바이너리라 promtool은 entrypoint 교체로 실행한다.
+      - name: promtool check config
+        run: >
+          docker run --rm --entrypoint promtool
+          -v "$PWD/harness/prometheus:/etc/prometheus:ro"
+          prom/prometheus:v3.13.0
+          check config /etc/prometheus/prometheus.yml
+
+      - name: promtool check rules
+        run: >
+          docker run --rm --entrypoint promtool
+          -v "$PWD/harness/prometheus/rules:/etc/prometheus/rules:ro"
+          prom/prometheus:v3.13.0
+          check rules
+          /etc/prometheus/rules/exchange-recording.yml
+          /etc/prometheus/rules/exchange-alerts.yml
+
+      # 대시보드 JSON 최소 sanity: 유효 JSON + 최상위 panels 비어있지 않음. jq는 러너 내장.
+      - name: grafana dashboards sanity
+        run: |
+          for f in harness/grafana/dashboards/*.json; do
+            jq -e '(.panels | type) == "array" and (.panels | length) > 0' "$f" > /dev/null \
+              || { echo "invalid dashboard: $f"; exit 1; }
+            echo "ok: $f"
+          done
