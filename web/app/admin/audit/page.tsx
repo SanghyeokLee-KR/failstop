@@ -26,10 +26,15 @@ const COLUMNS: DataColumn<AuditEntry>[] = [
     key: "result",
     label: "결과",
     width: "90px",
+    // 3분 렌더(OK·DENIED·ERROR). 색 단독 금지라 기호·라벨을 병기한다
     render: (e) =>
       e.result === "OK" ? (
         <span className="status-pill" data-health="success">
           ● 성공
+        </span>
+      ) : e.result === "ERROR" ? (
+        <span className="status-pill" data-health="warning">
+          ▲ 오류
         </span>
       ) : (
         <span className="status-pill" data-health="danger">

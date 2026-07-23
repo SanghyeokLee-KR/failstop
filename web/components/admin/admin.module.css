@@ -559,7 +559,7 @@
 .neutralPill {
   display: inline-flex;
   align-items: center;
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-full);
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);

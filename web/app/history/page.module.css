@@ -73,7 +73,7 @@
   display: inline-flex;
   align-items: center;
   border-radius: var(--radius-full);
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-2);
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   font-weight: var(--fw-semibold);

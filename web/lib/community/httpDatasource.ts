@@ -164,10 +164,13 @@ export class HttpCommunityDataSource {
     return { ...page, items: page.items.map((w) => this.normPost(w)) };
   }
 
+  // id 경로 세그먼트는 전부 encodeURIComponent를 거친다(market과 동일 규약). URL 쿼리 유래
+  // 문자열(?post=..%2F..)이 미인코딩으로 경로에 들어가면 fetch 정규화가 상위 경로로 접어
+  // /api/v1/community 밖 임의 경로 요청이 된다
   async getPost(externalId: string): Promise<CommunityPost> {
     return this.normPost(
       this.unwrap<Partial<CommunityPost> & { post_id?: string }>(
-        await this.request(`/posts/${externalId}`, {}, false),
+        await this.request(`/posts/${encodeURIComponent(externalId)}`, {}, false),
       ),
     );
   }
@@ -194,13 +197,13 @@ export class HttpCommunityDataSource {
   async updatePost(externalId: string, input: UpdatePostInput): Promise<CommunityPost> {
     return this.normPost(
       this.unwrap<Partial<CommunityPost> & { post_id?: string }>(
-        await this.request(`/posts/${externalId}`, { method: "PATCH", body: JSON.stringify(input) }, true),
+        await this.request(`/posts/${encodeURIComponent(externalId)}`, { method: "PATCH", body: JSON.stringify(input) }, true),
       ),
     );
   }
 
   async deletePost(externalId: string): Promise<void> {
-    await this.request(`/posts/${externalId}`, { method: "DELETE" }, true);
+    await this.request(`/posts/${encodeURIComponent(externalId)}`, { method: "DELETE" }, true);
   }
 
   async listComments(postExternalId: string, cursor?: string | null, count?: number): Promise<CursorPage<CommunityComment>> {
@@ -208,7 +211,7 @@ export class HttpCommunityDataSource {
     if (cursor) q.set("cursor", cursor);
     if (count) q.set("count", String(count));
     const page = this.page<Partial<CommunityComment> & { comment_id?: string }>(
-      await this.request(`/posts/${postExternalId}/comments?${q}`, {}, false),
+      await this.request(`/posts/${encodeURIComponent(postExternalId)}/comments?${q}`, {}, false),
     );
     return { ...page, items: page.items.map((w) => this.normComment(w, postExternalId)) };
   }
@@ -219,7 +222,7 @@ export class HttpCommunityDataSource {
     const body: Record<string, unknown> = { body: input.body };
     if (input.parentId) body.parent_comment_id = input.parentId;
     const created = this.unwrap<Partial<CommunityComment> & { comment_id?: string }>(
-      await this.request(`/posts/${postExternalId}/comments`, { method: "POST", headers, body: JSON.stringify(body) }, true),
+      await this.request(`/posts/${encodeURIComponent(postExternalId)}/comments`, { method: "POST", headers, body: JSON.stringify(body) }, true),
     );
     // 백엔드 생성 응답은 {schema_version, comment_id}만 반환하고(게시판_설계 §4.1) 단건 댓글 GET이
     // 계약에 없다(§4 표). 전체 객체를 반환하면 그대로 쓰고, 아니면 요청 본문·회원 신원으로
@@ -244,18 +247,18 @@ export class HttpCommunityDataSource {
   }
 
   async deleteComment(externalId: string): Promise<void> {
-    await this.request(`/comments/${externalId}`, { method: "DELETE" }, true);
+    await this.request(`/comments/${encodeURIComponent(externalId)}`, { method: "DELETE" }, true);
   }
 
   async togglePostLike(externalId: string, like: boolean): Promise<LikeResult> {
     return this.unwrap<LikeResult>(
-      await this.request(`/posts/${externalId}/like`, { method: like ? "POST" : "DELETE" }, true),
+      await this.request(`/posts/${encodeURIComponent(externalId)}/like`, { method: like ? "POST" : "DELETE" }, true),
     );
   }
 
   async toggleCommentLike(externalId: string, like: boolean): Promise<LikeResult> {
     return this.unwrap<LikeResult>(
-      await this.request(`/comments/${externalId}/like`, { method: like ? "POST" : "DELETE" }, true),
+      await this.request(`/comments/${encodeURIComponent(externalId)}/like`, { method: like ? "POST" : "DELETE" }, true),
     );
   }
 

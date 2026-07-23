@@ -85,16 +85,19 @@ export default function CommentSection({ postExternalId, session, commentCount, 
 
   const remove = async (c: CommunityComment) => {
     if (!session) return onRequireLogin();
-    const snapshot = comments;
     patch(c.external_id, { status: "DELETED", body: "삭제된 댓글입니다" });
     onCountChange?.(-1);
     try {
       await ds.deleteComment(c.external_id);
       toast("댓글을 삭제했어요", "info");
     } catch (e) {
-      setComments(snapshot);
+      // 대상 1건만 원값으로 복원한다. 전체 스냅샷 교체는 요청 왕복 중 완료된 다른 낙관
+      // 변경(새 댓글 append·좋아요 반영)까지 클릭 시점 상태로 되돌린다
+      patch(c.external_id, { status: c.status, body: c.body });
       onCountChange?.(1);
-      toast(mapCommunityError(e).message, "error");
+      const m = mapCommunityError(e);
+      if (m.needsLogin) onRequireLogin();
+      else toast(m.message, "error");
     }
   };
 

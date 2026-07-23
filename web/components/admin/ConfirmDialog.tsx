@@ -95,7 +95,10 @@ export default function ConfirmDialog({
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
-    const bg = Array.from(document.body.children).filter((el) => el !== overlay) as HTMLElement[];
+    // 토스트 리전은 격리 대상에서 제외한다. inert에 걸리면 열림 중 토스트 낭독·닫기가 죽는다
+    const bg = Array.from(document.body.children).filter(
+      (el) => el !== overlay && !el.hasAttribute("data-toast-region"),
+    ) as HTMLElement[];
     const prev = bg.map((n) => ({ n, inert: n.hasAttribute("inert") }));
     bg.forEach((n) => n.setAttribute("inert", ""));
     return () => {

@@ -49,6 +49,30 @@ test("diffDestinations: 마켓 전환 시 orderbook·trade만 교체되고 ticke
   assert.deepEqual(r.removed, prev);
 });
 
+test("diffDestinations: next 중복 원소는 added에 1회만 실린다(구독 핸들 덮어쓰기 방지)", () => {
+  const r = diffDestinations([], ["a", "a", "b"]);
+  assert.deepEqual(r.added, ["a", "b"]);
+  assert.deepEqual(r.removed, []);
+  // 중복 유지 집합끼리도 no-op
+  assert.deepEqual(diffDestinations(["a", "b"], ["a", "a", "b"]), { added: [], removed: [] });
+});
+
+test("diffDestinations: 빈 배열 경계(전체 해제·전체 신규·무구독 유지)", () => {
+  assert.deepEqual(diffDestinations(["a", "b"], []), { added: [], removed: ["a", "b"] });
+  assert.deepEqual(diffDestinations([], ["a"]), { added: ["a"], removed: [] });
+  assert.deepEqual(diffDestinations([], []), { added: [], removed: [] });
+});
+
+test("trade apply는 같은 trade_id 재전달을 드롭한다(재연결 재동기화 중복 방어)", () => {
+  useExchangeStore.setState({ trades: {} });
+  const { apply } = useExchangeStore.getState();
+  apply(tradeMsg("t-1", "KRW-BTC", 1));
+  apply(tradeMsg("t-2", "KRW-BTC", 2));
+  apply(tradeMsg("t-1", "KRW-BTC", 1)); // 재동기화 재전달
+  const list = useExchangeStore.getState().trades["KRW-BTC"];
+  assert.deepEqual(list.map((t) => t.trade_id), ["t-2", "t-1"]);
+});
+
 test("trade apply는 transient 구독자에게 선두 trade_id 변화를 통지한다(거버너 표본 경로)", () => {
   useExchangeStore.setState({ trades: {} });
   const seen: string[] = [];

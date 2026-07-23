@@ -260,13 +260,26 @@ export class SimCommunityDataSource implements CommunityDataSource {
       ({ gen, order } = this.snapshotPopular(market, visible));
       index = 0;
     }
-    // 스냅샷 세대 내 불변 순서를 유지하되 그 사이 삭제된 글은 렌더 시 건너뛴다
-    const live = order.map((id) => this.posts.get(id)).filter((p): p is PostRecord => !!p && !p.deleted);
-    const page = live.slice(index, index + size);
-    const hasMore = index + size < live.length;
+    // 커서 축은 불변 order 인덱스다(§1.2 커서 축 고정). 삭제 필터를 거친 가변 배열을 축으로
+    // 쓰면 이미 노출된 구간의 삭제가 배열을 왼쪽으로 당겨 미노출 글이 건너뛰어진다.
+    // 페이지 조립 시 order[i..]를 순회하며 삭제 글만 건너뛰어 size만큼 채운다
+    const page: PostRecord[] = [];
+    let i = index;
+    for (; i < order.length && page.length < size; i += 1) {
+      const p = this.posts.get(order[i]);
+      if (p && !p.deleted) page.push(p);
+    }
+    let hasMore = false;
+    for (let j = i; j < order.length; j += 1) {
+      const p = this.posts.get(order[j]);
+      if (p && !p.deleted) {
+        hasMore = true;
+        break;
+      }
+    }
     return {
       items: page.map((p) => this.toPost(p)),
-      next_cursor: hasMore ? encodeCursor({ s: "popular", g: gen, i: index + size } satisfies PopularCursor) : null,
+      next_cursor: hasMore ? encodeCursor({ s: "popular", g: gen, i } satisfies PopularCursor) : null,
       has_more: hasMore,
     };
   }

@@ -154,6 +154,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
       case "trade":
         set((s) => {
           const prev = s.trades[msg.market] ?? [];
+          // 재연결 재동기화가 기수신 체결을 재전달한다(datasource 기준점 소거). 중복이 60건
+          // 상한을 소모해 고유 체결 표시 수를 줄이지 않도록 trade_id로 드롭한다
+          if (prev.some((t) => t.trade_id === msg.trade_id)) return s;
           return { trades: { ...s.trades, [msg.market]: [msg, ...prev].slice(0, MAX_TRADES) } };
         });
         break;
@@ -269,7 +272,9 @@ export function diffDestinations(
   const prevSet = new Set(prev);
   const nextSet = new Set(next);
   return {
-    added: next.filter((d) => !prevSet.has(d)),
+    // added는 nextSet 기준으로 유일화한다. next 배열의 중복 원소가 added에 두 번 실리면
+    // 훅의 Map.set이 첫 구독 핸들을 덮어써 refcount가 소리 없이 샌다
+    added: [...nextSet].filter((d) => !prevSet.has(d)),
     removed: [...prevSet].filter((d) => !nextSet.has(d)),
   };
 }
@@ -283,7 +288,8 @@ export function diffDestinations(
 export function useLiveChannels(destinations: string[]): void {
   const apply = useExchangeStore((s) => s.apply);
   const key = destinations.join(",");
-  const stable = useMemo(() => destinations, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 중복 destination은 진입 시 제거한다. Map 키 충돌로 구독 핸들이 덮여 해제 시 참조가 새는 것을 막는다
+  const stable = useMemo(() => Array.from(new Set(destinations)), [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const subs = useRef<Map<string, () => void>>(new Map());
   useEffect(() => {
     const ds = getDataSource();

@@ -105,7 +105,11 @@ export default function OrderConfirmDialog({
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
-    const bg = Array.from(document.body.children).filter((el) => el !== overlay) as HTMLElement[];
+    // 토스트 리전은 격리 대상에서 제외한다. inert로 접근성 트리에서 빠지면 열림 중 체결·에러
+    // 토스트가 낭독되지 않고 닫기 버튼도 조작 불가가 된다(z-toast로 시각은 다이얼로그 위)
+    const bg = Array.from(document.body.children).filter(
+      (el) => el !== overlay && !el.hasAttribute("data-toast-region"),
+    ) as HTMLElement[];
     const prev = bg.map((n) => ({ n, inert: n.hasAttribute("inert") }));
     bg.forEach((n) => n.setAttribute("inert", ""));
     return () => {

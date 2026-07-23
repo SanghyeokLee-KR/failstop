@@ -10,6 +10,7 @@ import { COIN_META } from "../sim/engine";
 import type { AdminApi } from "./api";
 import { AdminError } from "./api";
 import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles";
+import { feeRateError } from "./fees";
 import { CHAOS_CATALOG, INVARIANT_DEFS } from "./catalog";
 import type {
   AdminOperator,
@@ -87,6 +88,9 @@ interface BiasState {
 }
 
 export class SimAdminApi implements AdminApi {
+  // sim은 start·stop·pause가 인메모리 플릿 상태에 즉시 반영된다
+  readonly controlApplied = true;
+
   private certs: DemoClientCert[] = [
     { certId: "op-01", operatorId: "op-01", subjectCn: "CN=op-01", issuer: DEMO_CA },
     { certId: "op-02", operatorId: "op-02", subjectCn: "CN=op-02", issuer: DEMO_CA },
@@ -320,9 +324,15 @@ export class SimAdminApi implements AdminApi {
 
   /* ===== 권한·감사 ===== */
 
-  private auth(cap: Capability = "VIEW"): AdminSession {
+  /** 세션 존재만 요구하는 경로용. 역할 요구는 auth()가 담당한다 */
+  private requireSession(): AdminSession {
     const s = this.getSession();
     if (!s) throw new AdminError("jwt_verification", "관리자 세션이 없습니다");
+    return s;
+  }
+
+  private auth(cap: Capability = "VIEW"): AdminSession {
+    const s = this.requireSession();
     if (!can(s.roles, cap)) throw new AdminError("admin_forbidden", "권한이 부족합니다");
     return s;
   }
@@ -363,8 +373,9 @@ export class SimAdminApi implements AdminApi {
   }
 
   issueApproval(requesterId: string, action: DestructiveAction, payload: ApprovalPayload): Promise<IssuedApproval> {
-    // 발급 주체(현재 세션)는 조회 권한이면 되고, 소각 권한은 요청 운영자 기준으로 소각 시점에 본다
-    const approver = this.auth("VIEW");
+    // 발급 주체 요건은 요청 운영자와 다른 mTLS 신원뿐(관리자_설계 §3-6). 서버 ApprovalController.issue와
+    // 동일하게 역할을 요구하지 않는다(무역할 운영자도 발급 가능). 소각 권한은 소각 시점에 본다
+    const approver = this.requireSession();
     const requester = this.operators.find((o) => o.operatorId === requesterId);
     if (!requester || requester.status !== "ACTIVE") {
       return Promise.reject(new AdminError("invalid_parameter", "요청 운영자를 레지스트리에서 찾을 수 없습니다"));
@@ -496,10 +507,20 @@ export class SimAdminApi implements AdminApi {
         break;
       }
       case "config.market.fees": {
+        // 서버 ConfigAdminController와 동일 계약: 검증 실패는 consume 전 반려로 토큰이 보존된다.
+        // 여기서 던지면 consumeApproval의 CONSUMED 전이 전이라 승인 상태기계가 서버와 정렬된다
+        const maker = payload.makerFee.trim();
+        const taker = payload.takerFee.trim();
+        if (maker === "" && taker === "") {
+          throw new AdminError("invalid_parameter", "maker_fee 또는 taker_fee 중 하나가 필요합니다.");
+        }
+        const err = feeRateError(maker, "maker_fee") ?? feeRateError(taker, "taker_fee");
+        if (err) throw new AdminError("invalid_parameter", err);
         const m = this.markets.find((x) => x.symbol === payload.symbol);
         if (m) {
-          m.makerFee = payload.makerFee;
-          m.takerFee = payload.takerFee;
+          // 빈 값은 부분 갱신(서버 parseFee null 대응). 기존 값 유지
+          if (maker !== "") m.makerFee = maker;
+          if (taker !== "") m.takerFee = taker;
         }
         break;
       }
@@ -697,7 +718,12 @@ export class SimAdminApi implements AdminApi {
 
   simSetRate(rate: number): Promise<void> {
     const s = this.auth("BOT_OPS");
-    this.simRate = Math.max(0, Math.round(rate));
+    const next = Math.round(rate);
+    // 서버 SimAdminController.parsePositive와 동일 계약. 0·음수는 정지 버튼 소관이라 반려한다
+    if (next <= 0) {
+      return Promise.reject(new AdminError("invalid_parameter", "target_ops는 양수여야 합니다."));
+    }
+    this.simRate = next;
     this.log(s, "sim.rate", `${this.simRate} OPS`, null, "OK");
     return Promise.resolve();
   }

@@ -351,7 +351,8 @@ export interface NoticePatch {
 
 /* ===== 감사 로그 (§3-1, /admin/v1/audit) ===== */
 
-export type AuditResult = "OK" | "DENIED";
+/** DDL CHECK (result IN ('OK','DENIED','ERROR')) 미러. ERROR는 처리 중 5xx */
+export type AuditResult = "OK" | "DENIED" | "ERROR";
 
 export interface AuditEntry {
   id: string;

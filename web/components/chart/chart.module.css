@@ -109,7 +109,7 @@
   background: var(--brand-weak-bg);
   color: var(--text-brand);
   font-size: var(--font-micro-size);
-  line-height: 16px;
+  line-height: 16px; /* 카운트 배지 박스 메트릭(디자인시스템 §4 예외) */
   font-weight: var(--fw-semibold);
   text-align: center;
 }

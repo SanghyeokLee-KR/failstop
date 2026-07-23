@@ -66,6 +66,9 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
   // 소각은 되돌릴 수 없어 확인 다이얼로그로 한 번 더 막는다
   const [execTarget, setExecTarget] = useState<ApprovalRequest | null>(null);
   const rowRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  // 폴링과 액션 후 refresh가 병행한다. 변이 직전 출발한 폴링 응답이 늦게 도착해 최신 상태를
+  // 변이 전 스냅샷으로 되돌리지 않도록, 최신 요청보다 오래된 응답은 폐기한다
+  const refreshSeq = useRef(0);
 
   const inScope = useCallback(
     (action: DestructiveAction) => !actions || actions.includes(action),
@@ -73,8 +76,10 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
   );
 
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeq.current;
     try {
       const all = await getAdminApi().listApprovals();
+      if (seq !== refreshSeq.current) return; // 더 새 요청이 출발했다. 스테일 응답 폐기
       setRows(all.filter((a) => inScope(a.action)));
     } catch {
       // 세션 만료 등은 레이아웃 게이트가 처리한다

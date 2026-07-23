@@ -58,7 +58,7 @@
    --text-default(grey-800 on red-50 10.83:1 / on azure-50 11.01:1) 사용(tokens §2 틴트 규칙) */
 .qty { color: var(--text-default); }
 .price { font-weight: var(--fw-semibold); }
-.rate { font-size: 12px; }
+.rate { font-size: var(--font-dense-size); }
 
 /* 틴트(-bg) 위 소형 방향 텍스트는 600단계가 아니라 -strong(700)이다(tokens §2 명문 규칙).
    최대 잔량 행은 막대가 가격·등락률 열까지 덮어 red-600 on red-50 4.22:1로 미달한다.
@@ -108,7 +108,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-2) 0;
   border-top: 1px solid var(--border-subtle);
-  font-size: 12px;
+  font-size: var(--font-dense-size);
   flex-shrink: 0;
 }
 .totalItem { display: flex; align-items: baseline; gap: var(--space-1); }

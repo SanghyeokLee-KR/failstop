@@ -13,7 +13,7 @@ import {
   type StompFactoryArgs,
 } from "../lib/api/httpDatasource";
 import { dest } from "../lib/types";
-import type { Ticker, TickerMessage, WsMessage } from "../lib/types";
+import type { OrderbookMessage, Ticker, TickerMessage, WsMessage } from "../lib/types";
 
 /* ===== 테스트 하네스 ===== */
 
@@ -1045,4 +1045,83 @@ test("플랩 재연결: 늦게 끝난 이전 재동기화가 기준점·전달�
     [200, 201],
     "기준점 회귀가 없어 realtime이 이어진다",
   );
+});
+
+/* ===== 네트워크 거부 래핑 (§2-3 한국어 메시지 계약) ===== */
+
+test("authPost·issueSession: fetch 거부는 network_error로 래핑된다", async () => {
+  const failFetch: typeof fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/api/v1/auth/login") || url.includes("/api/v1/demo/session")) {
+      throw new TypeError("Failed to fetch");
+    }
+    return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+  };
+  const ds = new HttpStompDataSource({
+    apiBase: "http://api.test",
+    wsBase: "ws://api.test",
+    fetchFn: failFetch,
+    stompFactory: () => ({ activate: () => {}, deactivate: async () => {}, subscribe: () => () => {} }),
+  });
+  await assert.rejects(ds.login({ email: "a@b.c", password: "pw" }), (e: unknown) => {
+    assert.ok(e instanceof ApiError);
+    assert.equal(e.code, "network_error");
+    assert.equal(e.status, 0);
+    return true;
+  });
+  // 데모 세션 발급(issueSession) 경로. 인증 REST가 세션 확보 단계에서 같은 코드로 수렴한다
+  await assert.rejects(ds.getAccounts(), (e: unknown) => {
+    assert.ok(e instanceof ApiError);
+    assert.equal(e.code, "network_error");
+    return true;
+  });
+});
+
+test("authPost: AbortError는 래핑하지 않고 원형 전파한다", async () => {
+  const abortFetch: typeof fetch = async () => {
+    const err = new Error("중단");
+    err.name = "AbortError";
+    throw err;
+  };
+  const ds = new HttpStompDataSource({
+    apiBase: "http://api.test",
+    wsBase: "ws://api.test",
+    fetchFn: abortFetch,
+    stompFactory: () => ({ activate: () => {}, deactivate: async () => {}, subscribe: () => () => {} }),
+  });
+  await assert.rejects(ds.login({ email: "a@b.c", password: "pw" }), (e: unknown) => {
+    assert.equal((e as Error).name, "AbortError");
+    assert.ok(!(e instanceof ApiError));
+    return true;
+  });
+});
+
+/* ===== §5-4 orderbook totals 폴백 ===== */
+
+test("totals 없는 orderbook 수신 시 orderbook_units 합산으로 채운다(문면 준수 서버 대응)", async () => {
+  const stomp = makeStomp();
+  const { ds } = newDs({}, stomp.factory);
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.orderbook("KRW-BTC"), (m) => received.push(m));
+  await settle();
+  stomp.push(dest.orderbook("KRW-BTC"), {
+    schema_version: "1.0",
+    type: "orderbook",
+    market: "KRW-BTC",
+    stream: "snapshot",
+    epoch: 1,
+    seq: 5,
+    timestamp: "2026-07-21T09:00:01.000Z",
+    orderbook_units: [
+      { ask_price: "50010000", bid_price: "50000000", ask_size: "0.5", bid_size: "1.25" },
+      { ask_price: "50020000", bid_price: "49990000", ask_size: "0.125", bid_size: "2" },
+    ],
+  });
+  await settle();
+  const ob = received.find((m) => m.type === "orderbook") as OrderbookMessage | undefined;
+  assert.ok(ob, "orderbook 메시지 수신");
+  assert.equal(ob.total_ask_size, "0.625");
+  assert.equal(ob.total_bid_size, "3.25");
 });

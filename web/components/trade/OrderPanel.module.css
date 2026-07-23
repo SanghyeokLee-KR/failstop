@@ -21,12 +21,24 @@
   border-radius: var(--radius-sm);
 }
 .typBtn {
+  position: relative;
   flex: 1;
   height: 30px;
   border-radius: calc(var(--radius-sm) - 2px);
   font-size: var(--font-caption-size);
   font-weight: var(--fw-semibold);
   color: var(--text-default);
+}
+/* 시각 30px 유지, 히트영역만 세로 44px 확장(디자인시스템 §678, .star 계약).
+   좌우는 인접 토글과 겹치므로 확장하지 않는다 */
+.typBtn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 44px;
+  transform: translateY(-50%);
 }
 .typBtn[data-on] {
   background: var(--surface-default);
@@ -67,6 +79,7 @@
   flex-shrink: 0;
 }
 .step {
+  position: relative;
   width: 28px;
   height: 28px;
   border-radius: var(--radius-xs);
@@ -75,19 +88,43 @@
   flex-shrink: 0;
 }
 .step:hover { background: var(--surface-hover); }
+/* 시각 28px 유지, 히트영역 44px 확장(§678). 안쪽으로 넓히면 입력 캐럿 클릭이 스테퍼로 새서
+   가격이 바뀌는 오조작이 되므로, 확장 사각형의 안쪽 변을 버튼 안쪽 변에 고정해 바깥·상하로만 넓힌다
+   (A-7 겹침 귀속 규칙과 동일 취지) */
+.step::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+}
+.step:first-child::after { right: 0; }
+.step:last-child::after { left: 0; }
 
 /* 퍼센트 칩 */
 .pct { display: flex; gap: var(--space-1); }
 .pctBtn {
+  position: relative;
   flex: 1;
   height: 28px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: var(--font-dense-size);
   font-weight: var(--fw-medium);
   color: var(--text-default);
 }
 .pctBtn:hover { background: var(--surface-hover); }
+/* 시각 28px 유지, 히트영역만 세로 44px 확장(§678). 좌우는 인접 칩과 겹치므로 확장하지 않는다 */
+.pctBtn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 44px;
+  transform: translateY(-50%);
+}
 .pctBtn[data-on] {
   background: var(--surface-sunken);
   border-color: var(--border-strong);

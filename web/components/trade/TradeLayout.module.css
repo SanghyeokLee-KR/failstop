@@ -12,7 +12,7 @@
   /* 정숙한 이음새(§6.4): 패널 사이로 페이지 배경(--surface-seam)이 12px 채널로 비친다 */
   gap: var(--seam-width);
   padding: var(--space-4);
-  height: calc(100dvh - 56px);
+  height: calc(100dvh - var(--header-h));
   max-width: 1920px;
   margin: 0 auto;
 }
@@ -28,7 +28,7 @@
   grid-area: side;
   display: grid;
   grid-template-rows: auto minmax(160px, 1fr);
-  gap: 12px;
+  gap: var(--seam-width);
   min-width: 0;
   min-height: 0;
 }
@@ -44,6 +44,6 @@
 @media (max-height: 640px) {
   .tradeGrid {
     height: auto;
-    min-height: calc(100dvh - 56px);
+    min-height: calc(100dvh - var(--header-h));
   }
 }

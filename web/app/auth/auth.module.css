@@ -1,7 +1,7 @@
 /* 로그인·가입 공통 셸(§4-3). HeaderNav 아래 480px 중앙 카드, 상단 패딩 64px. 고정형이라 리플로우 없음 */
 
 .page {
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - var(--header-h));
   display: flex;
   justify-content: center;
   padding: var(--space-10) var(--space-4) var(--space-9);

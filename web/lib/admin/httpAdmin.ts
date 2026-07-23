@@ -287,12 +287,15 @@ interface WireOperator {
   roles?: string[];
 }
 interface WireAudit {
+  id?: number | string;
   operator_id?: string;
+  display_name?: string;
   action?: string;
   target?: string;
   result?: string;
   approval_id?: number | string;
   created_at?: string;
+  request_id?: string;
 }
 /** GET /admin/v1/chaos/runs 감사 투영 원소(토큰 미노출). state·blast_radius 없음 */
 interface WireChaosRun {
@@ -307,6 +310,10 @@ interface WireChaosRun {
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 
 export class HttpAdminApi implements AdminApi {
+  // 서버 SimAdminController.control은 start·stop·pause를 감사 적재만 하고 governor를 건드리지
+  // 않는다. 반영을 단정하는 토스트가 운영자 오인을 만들지 않도록 화면에 미반영을 알린다
+  readonly controlApplied = false;
+
   private readonly base: string;
   private session: AdminSession | null = null;
   private listeners = new Set<(s: AdminSession | null) => void>();
@@ -978,21 +985,22 @@ export class HttpAdminApi implements AdminApi {
   }
 
   async getAudit(): Promise<AuditEntry[]> {
-    // 서버는 {data:[...]} 엔벌로프이고 로그 id·표시명·request_id는 프로젝션에 없다. rowKey용
-    // 합성 id를 부여하고 표시명은 operator_id로 대체한다. approval_id는 없으면 null.
+    // 서버 프로젝션은 id·display_name·request_id를 포함한다(AuditController §3-1). 결측 행만
+    // rowKey용 합성 id·operator_id 표기로 폴백한다. result는 DDL 3분값(OK·DENIED·ERROR)을
+    // 그대로 보존한다. ERROR(처리 중 5xx)를 OK로 접으면 감사 판독이 오염된다
     const res = await this.http<WireDataEnvelope<WireAudit>>("/admin/v1/audit");
     return (res.data ?? []).map((e, i) => {
       const approval = e.approval_id;
       return {
-        id: `aud-${e.created_at ?? ""}-${i}`,
+        id: e.id != null && e.id !== "" ? String(e.id) : `aud-${e.created_at ?? ""}-${i}`,
         at: e.created_at ?? "",
         operatorId: e.operator_id ?? "",
-        operatorName: e.operator_id ?? "",
+        operatorName: e.display_name || (e.operator_id ?? ""),
         action: e.action ?? "",
         target: e.target ?? "",
         approvalId: approval == null || approval === "" ? null : String(approval),
-        result: e.result === "DENIED" ? "DENIED" : "OK",
-        requestId: "",
+        result: e.result === "DENIED" ? "DENIED" : e.result === "ERROR" ? "ERROR" : "OK",
+        requestId: e.request_id ?? "",
       };
     });
   }

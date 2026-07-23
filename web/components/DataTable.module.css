@@ -18,7 +18,7 @@
   /* sticky 기준 상단은 스크롤 컨테이너가 소유한다. 기본값 56px는 body 스크롤 + HeaderNav(56px)
      화면(assets·history) 가정이고, 자체 스크롤 컨테이너(관리자 .content 등)는 상속 변수로 0을 지정한다 */
   position: sticky;
-  top: var(--table-sticky-top, 56px);
+  top: var(--table-sticky-top, var(--header-h));
   z-index: 1;
   background: var(--surface-default);
 }
@@ -27,7 +27,7 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--font-dense-size);
   color: var(--text-secondary);
   white-space: nowrap;
 }

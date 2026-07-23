@@ -26,6 +26,13 @@
   animation: toastIn var(--dur-slow) var(--ease-emphasized);
 }
 [data-theme="dark"] .toast { border: 1px solid var(--border-subtle); }
+/* 시스템 자동 다크(토글 미저장 + OS 다크)에도 동일 헤어라인. tokens.css 시스템 다크 블록과 같은 가드.
+   다크는 그림자가 약해 보더가 표면 분리를 담당한다 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .toast {
+    border: 1px solid var(--border-subtle);
+  }
+}
 
 .icon {
   display: flex;

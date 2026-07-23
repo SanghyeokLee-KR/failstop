@@ -1,6 +1,7 @@
 /* ============================================================================
-   tokens.css. 디자인 시스템 v1.1 계약 (docs/프론트_디자인시스템.md §1~5 그대로)
+   tokens.css. 디자인 시스템 v1.4 계약 (docs/프론트_디자인시스템.md §1~5·§5-1)
    색·간격·라운드·모션은 반드시 이 파일의 CSS 변수로만 소비한다.
+   §6 별칭·차트 계열 램프·레이아웃 상수는 정본 §5-1과 §4·§5 개정판에 등재돼 있다.
    ========================================================================== */
 
 /* ===== §1. Primitive 팔레트 (테마 무관) ===== */
@@ -192,6 +193,8 @@
   --font-body-sm-size:14px; --font-body-sm-line:21px; --font-body-sm-weight:400;
   --font-caption-size:13px; --font-caption-line:18px; --font-caption-weight:400;
   --font-micro-size:11px;   --font-micro-line:15px;   --font-micro-weight:500;
+  /* 고밀도 계기 라벨(테이블 헤더·보조 숫자). caption과 micro 사이 밀도 단계(정본 §4 v1.4) */
+  --font-dense-size:12px;   --font-dense-line:16px;   --font-dense-weight:400;
 }
 .num,.price,.pnl{font-variant-numeric:tabular-nums lining-nums;
   font-feature-settings:var(--font-feature-num);}
@@ -204,6 +207,7 @@
   --space-5:20px; --space-6:24px; --space-7:32px; --space-8:40px; --space-9:48px; --space-10:64px;
   --layout-gutter:24px;      /* 화면 좌우 표준 패딩 (초안 --gutter-screen 폐기·통일) */
   --gap-cta-content:32px;    /* 바텀시트 CTA↔본문 */
+  --header-h:56px;           /* 전역 HeaderNav 높이. sticky 오프셋·화면 높이 예산의 단일 소유(§5 v1.4) */
 
   --radius-xs:6px; --radius-sm:8px; --radius-md:12px; --radius-lg:16px;
   --radius-xl:20px; --radius-2xl:24px; --radius-full:999px;

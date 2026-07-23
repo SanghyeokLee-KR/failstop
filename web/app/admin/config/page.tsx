@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
+import { feeRateError } from "@/lib/admin/fees";
 import { useCan } from "@/lib/admin/store";
 import {
   NOTICE_SEVERITIES,
@@ -48,6 +49,13 @@ export default function ConfigPage() {
   const [makerFee, setMakerFee] = useState("0.0005");
   const [takerFee, setTakerFee] = useState("0.0005");
   const actions = useMemo(() => MARKET_ACTIONS, []);
+
+  // 서버 parseFee와 같은 규칙으로 사전 검증한다. 요청·발급을 거친 뒤 실행 단계 400으로
+  // 실패하면 승인 1건이 낭비되므로 입력 단계에서 막는다
+  const makerErr = feeRateError(makerFee, "maker_fee");
+  const takerErr = feeRateError(takerFee, "taker_fee");
+  const feeEmpty = makerFee.trim() === "" && takerFee.trim() === "";
+  const feeError = makerErr ?? takerErr ?? (feeEmpty ? "maker_fee 또는 taker_fee 중 하나가 필요합니다." : null);
 
   const res = useAdminResource(
     async () => {
@@ -190,13 +198,25 @@ export default function ConfigPage() {
           </label>
           <label className={styles.field}>
             <span>maker</span>
-            <input value={makerFee} onChange={(e) => setMakerFee(e.target.value)} inputMode="decimal" aria-label="maker 수수료율" />
+            <input
+              value={makerFee}
+              onChange={(e) => setMakerFee(e.target.value)}
+              inputMode="decimal"
+              aria-label="maker 수수료율"
+              aria-invalid={makerErr ? true : undefined}
+            />
           </label>
           <label className={styles.field}>
             <span>taker</span>
-            <input value={takerFee} onChange={(e) => setTakerFee(e.target.value)} inputMode="decimal" aria-label="taker 수수료율" />
+            <input
+              value={takerFee}
+              onChange={(e) => setTakerFee(e.target.value)}
+              inputMode="decimal"
+              aria-label="taker 수수료율"
+              aria-invalid={takerErr ? true : undefined}
+            />
           </label>
-          {feeSymbol ? (
+          {feeSymbol && feeError === null ? (
             <RequestButton
               action="config.market.fees"
               payload={{ action: "config.market.fees", symbol: feeSymbol, makerFee, takerFee }}
@@ -216,6 +236,11 @@ export default function ConfigPage() {
             </button>
           )}
         </div>
+        {feeError !== null && (
+          <p className={styles.scaleErr} role="alert">
+            {feeError}
+          </p>
+        )}
       </PanelCard>
 
       <PanelCard title="마켓 제어 승인 대기 · 실행">

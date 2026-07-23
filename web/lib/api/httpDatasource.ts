@@ -35,6 +35,7 @@ import type {
   WsMessage,
 } from "../types";
 import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION } from "../types";
+import { decimalsOf, fromScaledInt, scaledIntTrunc } from "../decimal";
 import type { DataSource } from "./datasource";
 
 /** 효과 강도 공개 조회 경로(§4-A-6). 무인증 화이트리스트 조회 */
@@ -74,6 +75,16 @@ export class ApiError extends Error {
 }
 
 const GENERIC_ERROR_MESSAGE = "요청에 실패했어요. 잠시 후 다시 시도해 주세요";
+
+/**
+ * fetch 자체 거부(백엔드 다운·오프라인·CORS) 래핑. 호출측 취소(AbortSignal)는 흐름 제어라
+ * 원형을 보존하고, 그 외에는 브라우저 원문(영문 'Failed to fetch' 등)이 토스트에 노출되지
+ * 않도록 표준 에러로 래핑한다(§2-3 한국어 메시지 계약)
+ */
+function wrapNetworkError(e: unknown): never {
+  if ((e as { name?: string } | null)?.name === "AbortError") throw e;
+  throw new ApiError(0, "network_error", "네트워크에 연결할 수 없어요. 잠시 후 다시 시도해 주세요");
+}
 
 interface ErrorEnvelope {
   error?: { name?: string; message?: string; retry_after?: number | null; detail?: unknown };
@@ -230,6 +241,28 @@ function parseDest(destination: string): ParsedDest {
 // 외부 주문 id는 UUID(§7-1, §4-B-1 v2.7 정정. 이전 판 ULID 표기는 오기). 정규 라우트 판정용
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
+/** 호가 잔량 합산(문자열 십진, float 금지). 최대 소수 자릿수로 스케일을 맞춰 BigInt 누적한다 */
+function sumUnitSizes(units: Array<{ ask_size?: string; bid_size?: string }>, key: "ask_size" | "bid_size"): string {
+  let scale = 0;
+  for (const u of units) scale = Math.max(scale, decimalsOf(u[key] ?? "0"));
+  let acc = 0n;
+  for (const u of units) acc += scaledIntTrunc(u[key] ?? "0", scale);
+  return fromScaledInt(acc, scale);
+}
+
+/**
+ * §5-4 orderbook 채널 문면에는 total_ask_size·total_bid_size가 없다(REST §4-A-2 한정).
+ * 현 서버는 REST 본문 공용으로 WS에도 싣지만, 문면 준수 서버가 생략하면 하단 총잔량 표시가
+ * 0으로 열화된다. 와이어 경계에서 부재 시 orderbook_units 합산으로 채워 계약 밖 의존을 끊는다.
+ */
+function ensureOrderbookTotals(msg: OrderbookMessage): void {
+  const m = msg as OrderbookMessage & { total_ask_size?: string; total_bid_size?: string };
+  if (m.total_ask_size != null && m.total_bid_size != null) return;
+  const units = m.orderbook_units ?? [];
+  if (m.total_ask_size == null) m.total_ask_size = sumUnitSizes(units, "ask_size");
+  if (m.total_bid_size == null) m.total_bid_size = sumUnitSizes(units, "bid_size");
+}
+
 /* ===== 채널 상태 ===== */
 
 type Listener = (msg: WsMessage) => void;
@@ -311,11 +344,7 @@ export class HttpStompDataSource implements DataSource {
       try {
         return await this.fetchFn(`${this.apiBase}${path}`, { ...init, headers });
       } catch (e) {
-        // 호출측 취소(AbortSignal)는 흐름 제어라 원형 보존. 그 외 fetch 자체 거부(백엔드 다운·
-        // 오프라인·CORS)는 브라우저 원문(영문 'Failed to fetch' 등)이 토스트에 노출되지 않도록
-        // 표준 에러로 래핑한다(§2-3 한국어 메시지 계약)
-        if ((e as { name?: string } | null)?.name === "AbortError") throw e;
-        throw new ApiError(0, "network_error", "네트워크에 연결할 수 없어요. 잠시 후 다시 시도해 주세요");
+        wrapNetworkError(e);
       }
     };
     // 토큰 확보. 회원 기원 쓰기는 refresh 실패 시 데모 계정으로 재집행하지 않는다.
@@ -373,10 +402,16 @@ export class HttpStompDataSource implements DataSource {
   }
 
   private async issueSession(): Promise<string> {
-    const res = await this.fetchFn(`${this.apiBase}/api/v1/demo/session`, {
-      method: "POST",
-      headers: JSON_HEADERS,
-    });
+    let res: Response;
+    try {
+      res = await this.fetchFn(`${this.apiBase}/api/v1/demo/session`, {
+        method: "POST",
+        headers: JSON_HEADERS,
+      });
+    } catch (e) {
+      // http()와 동일 계약. 세션 발급 실패도 network_error 코드로 수렴한다
+      wrapNetworkError(e);
+    }
     if (!res.ok) throw await toApiError(res);
     const body = (await res.json()) as DemoSessionResponse;
     if (!body.access_token) throw new ApiError(res.status, "invalid_envelope", "데모 세션 응답에 access_token이 없습니다");
@@ -597,13 +632,19 @@ export class HttpStompDataSource implements DataSource {
   }
 
   private async authPost(path: string, body?: unknown): Promise<AuthResponse> {
-    const res = await this.fetchFn(`${this.apiBase}${path}`, {
-      method: "POST",
-      headers: JSON_HEADERS,
-      // refresh 쿠키 수신·송신을 위해 자격증명 포함(§4-5)
-      credentials: "include",
-      ...(body != null ? { body: JSON.stringify(body) } : {}),
-    });
+    let res: Response;
+    try {
+      res = await this.fetchFn(`${this.apiBase}${path}`, {
+        method: "POST",
+        headers: JSON_HEADERS,
+        // refresh 쿠키 수신·송신을 위해 자격증명 포함(§4-5)
+        credentials: "include",
+        ...(body != null ? { body: JSON.stringify(body) } : {}),
+      });
+    } catch (e) {
+      // http()와 동일 계약. 로그인·가입 실패 토스트에 브라우저 원문이 새지 않게 한다
+      wrapNetworkError(e);
+    }
     if (!res.ok) throw await toApiError(res);
     // 로그아웃은 본문 없는 204가 계약(§3-8). 빈 본문 json() 파싱이 정상 응답을 실패로 만들지 않게 한다
     if (res.status === 204) return {};
@@ -764,6 +805,9 @@ export class HttpStompDataSource implements DataSource {
   private handleMessage(destination: string, msg: WsMessage): void {
     const ch = this.channels.get(destination);
     if (!ch) return;
+
+    // 와이어 경계 정규화. 버퍼링·flush 경로도 이 지점을 지나 한 번만 수행된다
+    if (msg.type === "orderbook") ensureOrderbookTotals(msg);
 
     if (typeof msg.epoch === "number") {
       if (this.lastEpoch === null) {

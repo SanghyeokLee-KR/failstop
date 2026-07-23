@@ -1,7 +1,7 @@
 /* 온보딩 화면. 데스크톱 뷰포트 중앙 정렬, CTA 열은 360px 고정 폭 */
 
 .root {
-  min-height: calc(100dvh - 56px);
+  min-height: calc(100dvh - var(--header-h));
   display: flex;
   flex-direction: column;
   align-items: center;

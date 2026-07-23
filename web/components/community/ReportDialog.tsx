@@ -31,6 +31,10 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
   const [reason, setReason] = useState<ReportReason>("SPAM");
   const [detail, setDetail] = useState("");
   const [busy, setBusy] = useState(false);
+  // 제출 in-flight 중 Escape·오버레이 클릭 닫힘을 막는다. 버튼 disabled와 취소 수단이 모순되지
+  // 않게 하고, 닫힌 뒤 접수 완료·실패가 사용자 인지와 어긋나는 것을 방지한다. 이펙트 deps
+  // 변경 없이 최신 값을 읽도록 ref로 판정한다
+  const busyRef = useRef(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -39,7 +43,7 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
     const dialog = dialogRef.current;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        if (!busyRef.current) onClose();
         return;
       }
       // 모달 포커스 트랩: Tab이 다이얼로그 밖으로 새지 않게 처음·끝을 순환한다
@@ -72,7 +76,10 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
-    const bg = Array.from(document.body.children).filter((el) => el !== overlay) as HTMLElement[];
+    // 토스트 리전은 격리 대상에서 제외한다. inert에 걸리면 열림 중 토스트 낭독·닫기가 죽는다
+    const bg = Array.from(document.body.children).filter(
+      (el) => el !== overlay && !el.hasAttribute("data-toast-region"),
+    ) as HTMLElement[];
     // inert가 접근성 트리에서 이미 제거하므로 aria-hidden은 중복이라 두지 않는다
     const prev = bg.map((n) => ({ n, inert: n.hasAttribute("inert") }));
     bg.forEach((n) => n.setAttribute("inert", ""));
@@ -84,11 +91,13 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
   }, []);
 
   const submit = async () => {
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       await onSubmit(reason, detail.trim());
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
@@ -96,7 +105,13 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
   const label = targetType === "POST" ? "글" : "댓글";
 
   return createPortal(
-    <div ref={overlayRef} className={styles.overlay} onMouseDown={onClose}>
+    <div
+      ref={overlayRef}
+      className={styles.overlay}
+      onMouseDown={() => {
+        if (!busyRef.current) onClose();
+      }}
+    >
       <div
         ref={dialogRef}
         className={styles.dialog}

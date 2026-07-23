@@ -68,17 +68,23 @@ export function useAdminResource<T>(loader: () => Promise<T>, options: Options =
   // 429 백오프 만료 시각(ms). 유예 중 폴링 틱은 서버 왕복 없이 건너뛴다.
   // 백오프 없이 고정 주기를 유지하면 폴러가 버킷 리필을 계속 소진해 상호작용 액션까지 굶긴다
   const pauseUntil = useRef(0);
+  // 폴링 틱과 reload가 병행할 수 있다. 먼저 출발한 요청의 늦은 응답이 최신 데이터를
+  // 이전 스냅샷으로 되돌리지 않도록 최신 요청 seq만 반영한다
+  const runSeq = useRef(0);
 
   const run = useCallback(async () => {
     if (Date.now() < pauseUntil.current) return;
+    const seq = ++runSeq.current;
     try {
       const next = await loaderRef.current();
+      if (seq !== runSeq.current) return; // 스테일 응답 폐기
       setData(next);
       hasData.current = true;
       setError(false);
       setStale(false);
       setLastUpdatedAt(Date.now());
     } catch (e) {
+      if (seq !== runSeq.current) return; // 스테일 실패도 최신 상태를 오염시키지 않는다
       const pauseSec = rateLimitPauseSec(e);
       if (pauseSec !== null) pauseUntil.current = Date.now() + pauseSec * 1000;
       if (hasData.current) {

@@ -77,6 +77,11 @@ export default function BotsPage() {
   const api = getAdminApi();
   const paramActions = useMemo(() => PARAM_ACTIONS, []);
 
+  // http 서버는 start·stop·pause를 감사 적재만 한다(controlApplied=false). 반영을 단정하는
+  // 문구는 상태 필이 그대로일 때 운영자 오인을 만들므로 기록 사실만 알린다
+  const controlOk = (applied: string) =>
+    api.controlApplied ? applied : "제어 요청을 감사에 기록했어요. 반영 여부는 플릿 상태로 확인하세요";
+
   // governor set-point 상향. 응답의 created·fleet_total로 결과를 표기하고 clamped로 캡 도달을 안내한다
   const createBot = async () => {
     try {
@@ -163,13 +168,13 @@ export default function BotsPage() {
       <PanelCard title="플릿 제어">
         {!canOps && <PermissionNote>봇 제어 권한(BOT_OPS 이상)이 없어 조회만 가능합니다.</PermissionNote>}
         <div className={styles.controlRow}>
-          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStart(), "플릿을 시작했어요")}>
+          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStart(), controlOk("플릿을 시작했어요"))}>
             시작
           </button>
-          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simPause(), "일시정지를 전환했어요")}>
+          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simPause(), controlOk("일시정지를 전환했어요"))}>
             일시정지 전환
           </button>
-          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStop(), "플릿을 정지했어요")}>
+          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStop(), controlOk("플릿을 정지했어요"))}>
             정지
           </button>
           {sim && (
@@ -177,7 +182,8 @@ export default function BotsPage() {
               <span>전역 OPS</span>
               <input
                 type="range"
-                min={0}
+                // 서버 parsePositive가 0을 400으로 반려한다(sim도 동일 정렬). 정지는 전용 버튼 소관
+                min={10}
                 max={600}
                 step={10}
                 value={rateDraft}

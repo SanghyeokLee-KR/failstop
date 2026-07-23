@@ -94,6 +94,7 @@
 .nameText { display: flex; flex-direction: column; min-width: 0; }
 .name {
   font-size: var(--font-caption-size);
+  /* 압축 2행 셀 박스 메트릭. 램프 line 값과 의도적으로 다름(디자인시스템 §4 예외) */
   line-height: 16px;
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
@@ -103,8 +104,8 @@
 }
 .sym {
   font-size: var(--font-micro-size);
-  line-height: 13px;
+  line-height: 13px; /* 압축 2행 셀 박스 메트릭(디자인시스템 §4 예외) */
   color: var(--text-secondary);
 }
 
-.vol { color: var(--text-secondary); font-size: 12px; }
+.vol { color: var(--text-secondary); font-size: var(--font-dense-size); }

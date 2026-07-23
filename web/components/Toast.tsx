@@ -52,7 +52,9 @@ export function Toaster() {
   const items = useToastStore((s) => s.items);
   const remove = useToastStore((s) => s.remove);
   return (
-    <div className={styles.region}>
+    // data-toast-region: 모달 다이얼로그의 배경 inert 대상에서 제외하는 식별자.
+    // 토스트는 z-toast로 다이얼로그 위에 그려지므로 열림 중에도 낭독·닫기가 살아야 한다
+    <div className={styles.region} data-toast-region="">
       {items.map((t) => (
         // live 시맨틱은 항목 role에만 둔다. region이 별도 live면 중첩 낭독이 생긴다.
         // status는 암묵 polite, alert는 암묵 assertive라 에러만 즉시 낭독된다
