@@ -10,6 +10,7 @@ import { memo, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PanelCard from "@/components/PanelCard";
 import SegmentedTab from "@/components/SegmentedTab";
+import { StaleBadge } from "@/components/StatusSignals";
 import { useExchangeStore } from "@/lib/store";
 import { COIN_META } from "@/lib/sim/engine";
 import { compareDecimal } from "@/lib/decimal";
@@ -90,6 +91,7 @@ export default function MarketListPanel({ market }: { market: string }) {
   const markets = useExchangeStore((s) => s.markets);
   const favorites = useExchangeStore((s) => s.favorites);
   const assets = useExchangeStore((s) => s.assets);
+  const connected = useExchangeStore((s) => s.connected);
   // 행별 markets.find(커밋당 O(행수×마켓수))를 없애는 Map 조회
   const specMap = useMemo(() => new Map(markets.map((m) => [m.market, m.tick_size])), [markets]);
   const onNavigate = useCallback(
@@ -177,7 +179,12 @@ export default function MarketListPanel({ market }: { market: string }) {
           : "마켓 정보가 없어요";
 
   return (
-    <PanelCard dense title="마켓">
+    <PanelCard
+      dense
+      title="마켓"
+      stale={!connected}
+      actions={!connected ? <StaleBadge label="지연" announce={false} /> : undefined}
+    >
       <div className={styles.wrap}>
         <div className={styles.search}>
           <span aria-hidden="true">⌕</span>

@@ -1,0 +1,44 @@
+/* 실시간 연결·지연 상태 공용 스타일. 모든 값은 tokens.css 소비. 헬스 warning 도메인 한정.
+   관리 평면(admin)과 트레이딩·자산 표면이 같은 배지·감쇠 어휘를 공유한다. */
+
+/* 지연 배지(§5.2·A-5): 깜빡임 금지, 무채 대신 warning 칩 + 경고 형태(▲) 병기로 색 없이도 읽게 한다 */
+.staleBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  white-space: nowrap;
+}
+
+/* 지연 구간 감쇠(A-5): 마지막 값임을 opacity로 알린다. 시프트 0 */
+.staleRegion {
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.staleRegion[data-stale] {
+  opacity: 0.5;
+}
+
+/* 연결 단절 배너(A-5 warning): 상단 전폭 경고 띠. 색 단독 금지라 형태(▲)·문구 병기 */
+.connBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+.connBannerMark {
+  font-size: var(--font-caption-size);
+}

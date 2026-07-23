@@ -14,6 +14,7 @@ import DataTable, { type DataColumn } from "@/components/DataTable";
 import Skeleton from "@/components/Skeleton";
 import PricePill from "@/components/PricePill";
 import SymbolChip from "@/components/SymbolChip";
+import { ConnectionBanner, StaleBadge } from "@/components/StatusSignals";
 import { useExchangeStore, useLiveChannels } from "@/lib/store";
 import { dest, type ChangeState } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
@@ -86,6 +87,7 @@ export default function AssetsPage() {
   const assets = useExchangeStore((s) => s.assets);
   const tickers = useExchangeStore((s) => s.tickers);
   const markets = useExchangeStore((s) => s.markets);
+  const connected = useExchangeStore((s) => s.connected);
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
   const [hidden, setHidden] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -249,6 +251,7 @@ export default function AssetsPage() {
 
   return (
     <main className={styles.page} aria-busy={loading}>
+      <ConnectionBanner />
       {loading ? (
         <div className={styles.loading}>
           <Skeleton variant="card" width="100%" height={120} />
@@ -270,8 +273,11 @@ export default function AssetsPage() {
           {/* ===== 총 보유자산 요약 카드 (전폭) ===== */}
           <section className={`card ${styles.summary}`} aria-label="총 보유자산 요약">
             <div className={styles.statHero}>
-              <span className="gauge-plate">총 평가금액</span>
-              <b className={`${styles.heroValue} num`}>
+              <span className={styles.heroPlate}>
+                <span className="gauge-plate">총 평가금액</span>
+                {!connected && <StaleBadge label="지연" announce={false} />}
+              </span>
+              <b className={`${styles.heroValue} num`} data-stale={!connected ? "" : undefined}>
                 {hidden ? HIDDEN : formatKRW(totalValuation)}
                 <small>원</small>
               </b>

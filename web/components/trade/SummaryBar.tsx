@@ -12,6 +12,7 @@ import SymbolChip from "@/components/SymbolChip";
 import TickCell from "@/components/TickCell";
 import PricePill from "@/components/PricePill";
 import Skeleton from "@/components/Skeleton";
+import { StaleBadge, StaleRegion } from "@/components/StatusSignals";
 import { useExchangeStore } from "@/lib/store";
 import { useEffectIntensity } from "@/lib/useEffectIntensity";
 import { COIN_META } from "@/lib/sim/engine";
@@ -29,6 +30,7 @@ interface Props {
 export default function SummaryBar({ market, meta }: Props) {
   const router = useRouter();
   const ticker = useExchangeStore((s) => s.tickers[market]);
+  const connected = useExchangeStore((s) => s.connected);
   const spec = useExchangeStore((s) => s.markets.find((m) => m.market === market));
   const tickSpec = spec?.tick_size;
   const qtyScale = spec?.qty_scale ?? 8;
@@ -153,8 +155,10 @@ export default function SummaryBar({ market, meta }: Props) {
         토론
       </Link>
 
+      {!connected && <StaleBadge label="지연" announce={false} />}
+
       {ticker ? (
-        <div className={styles.price}>
+        <StaleRegion stale={!connected} className={styles.price}>
           <span className={`${styles.cur} num dir-hero`} data-dir={dir}>
             {ticker.trade_price != null ? (
               <TickCell value={toNum(ticker.trade_price)} valueStr={formatPrice(ticker.trade_price, tickSpec)} format={(v) => formatPrice(v, tickSpec)} level={heroLevel} popCap={gov.popCap} popScope="summary" throttleBonus={gov.throttleBonusMs} />
@@ -163,7 +167,7 @@ export default function SummaryBar({ market, meta }: Props) {
             )}
           </span>
           <PricePill change={ticker.change} changeRate={ticker.change_rate} amount={ticker.change_price} variant="inline" />
-        </div>
+        </StaleRegion>
       ) : (
         <Skeleton variant="text" width={240} height={28} />
       )}

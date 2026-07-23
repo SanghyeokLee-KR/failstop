@@ -29,6 +29,12 @@
   flex-direction: column;
   gap: var(--space-1);
 }
+/* 명판 + 지연 배지 한 줄. 배지는 또렷이 유지하고 값만 감쇠한다(A-5) */
+.heroPlate {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
 
 .heroValue {
   font-size: var(--font-display-md-size);
@@ -37,6 +43,11 @@
   /* 20px 이상 큰 숫자 밀착 (§3.2). 계기 판독감 */
   letter-spacing: -0.01em;
   color: var(--text-strong);
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+/* 연결 단절 시 평가액만 감쇠(A-5). 총매수·보유현금 등 계좌 파생값은 또렷이 남는다. 시프트 0 */
+.heroValue[data-stale] {
+  opacity: 0.5;
 }
 .heroValue small {
   font-size: var(--font-body-lg-size);

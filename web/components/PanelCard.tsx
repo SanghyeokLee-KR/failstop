@@ -14,11 +14,13 @@ interface Props {
   dense?: boolean;
   /** 본문 내부 스크롤 활성 */
   scroll?: boolean;
+  /** 지연 상태. 본문만 opacity 감쇠하고 헤더 배지는 또렷이 유지한다(A-5) */
+  stale?: boolean;
   className?: string;
   children: ReactNode;
 }
 
-export default function PanelCard({ title, actions, dense, scroll, className, children }: Props) {
+export default function PanelCard({ title, actions, dense, scroll, stale, className, children }: Props) {
   return (
     <section className={`${styles.root} ${dense ? styles.dense : ""} ${className ?? ""}`}>
       {(title != null || actions != null) && (
@@ -27,7 +29,12 @@ export default function PanelCard({ title, actions, dense, scroll, className, ch
           {actions != null && <div className={styles.actions}>{actions}</div>}
         </header>
       )}
-      <div className={`${styles.body} ${scroll ? styles.scroll : ""}`}>{children}</div>
+      <div
+        className={`${styles.body} ${scroll ? styles.scroll : ""}`}
+        data-stale={stale ? "" : undefined}
+      >
+        {children}
+      </div>
     </section>
   );
 }

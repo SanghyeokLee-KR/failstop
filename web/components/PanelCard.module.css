@@ -36,6 +36,11 @@
 .body {
   flex: 1;
   min-height: 0;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+/* 연결 단절 시 본문만 감쇠해 마지막 값임을 알린다(A-5). 헤더 배지는 또렷이 남는다. 시프트 0 */
+.body[data-stale] {
+  opacity: 0.5;
 }
 .scroll {
   overflow-y: auto;

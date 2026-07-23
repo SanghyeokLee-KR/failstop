@@ -9,6 +9,8 @@
 import dynamic from "next/dynamic";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
+import { StaleBadge } from "@/components/StatusSignals";
+import { useExchangeStore } from "@/lib/store";
 
 const TradingChart = dynamic(() => import("@/components/chart/TradingChart"), {
   ssr: false,
@@ -16,8 +18,12 @@ const TradingChart = dynamic(() => import("@/components/chart/TradingChart"), {
 });
 
 export default function ChartPanel({ market }: { market: string }) {
+  const connected = useExchangeStore((s) => s.connected);
   return (
-    <PanelCard>
+    <PanelCard
+      stale={!connected}
+      actions={!connected ? <StaleBadge label="지연" announce={false} /> : undefined}
+    >
       <TradingChart market={market} />
     </PanelCard>
   );

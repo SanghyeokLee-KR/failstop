@@ -1,6 +1,16 @@
 /* §2.2 그리드 정의 그대로 + §2.3 세로 높이 브레이크포인트(820·640).
    고정형 정책(§4): 가로 미디어 쿼리 금지, 세로만 둔다. */
 
+/* 높이 소유자. 배너(연결 단절 등)와 그리드를 세로로 쌓아 배너가 그리드를 밀지 않고 가용 높이를
+   나눠 갖게 한다. 배너 없으면 그리드가 전부 차지해 기존 무스크롤 예산과 동일하다 */
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--header-h));
+  max-width: 1920px;
+  margin: 0 auto;
+}
+
 .tradeGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px 320px;
@@ -12,9 +22,8 @@
   /* 정숙한 이음새(§6.4): 패널 사이로 페이지 배경(--surface-seam)이 12px 채널로 비친다 */
   gap: var(--seam-width);
   padding: var(--space-4);
-  height: calc(100dvh - var(--header-h));
-  max-width: 1920px;
-  margin: 0 auto;
+  flex: 1;
+  min-height: 0;
 }
 
 /* 각 영역 셀. display:grid로 단일 자식(패널 카드)을 양축 스트레치 */
@@ -42,7 +51,7 @@
 
 /* §2.3 무스크롤 원칙 해제: 트랙 min값 유지, 페이지 세로 스크롤 허용 */
 @media (max-height: 640px) {
-  .tradeGrid {
+  .shell {
     height: auto;
     min-height: calc(100dvh - var(--header-h));
   }

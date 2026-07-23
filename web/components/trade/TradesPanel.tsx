@@ -12,6 +12,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
+import { StaleBadge } from "@/components/StatusSignals";
 import { useExchangeStore } from "@/lib/store";
 import { useEffectIntensity } from "@/lib/useEffectIntensity";
 import { getDataSource } from "@/lib/api/datasource";
@@ -113,6 +114,7 @@ const TradeRow = memo(function TradeRow({
 export default function TradesPanel({ market }: { market: string }) {
   const liveTrades = useExchangeStore((s) => s.trades[market]);
   const ticker = useExchangeStore((s) => s.tickers[market]);
+  const connected = useExchangeStore((s) => s.connected);
   const spec = useExchangeStore((s) => s.markets.find((m) => m.market === market));
   const tickSpec = spec?.tick_size;
   const qtyScale = spec?.qty_scale ?? 8;
@@ -196,7 +198,13 @@ export default function TradesPanel({ market }: { market: string }) {
   }, [gov.flood, rows]);
 
   return (
-    <PanelCard dense scroll title="체결">
+    <PanelCard
+      dense
+      scroll
+      title="체결"
+      stale={!connected}
+      actions={!connected ? <StaleBadge label="지연" announce={false} /> : undefined}
+    >
       {backfillFailed && rows.length === 0 ? (
         <div className="empty-state" role="alert">
           <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />

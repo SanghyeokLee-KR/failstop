@@ -102,6 +102,7 @@
 
 /* ===== 중: 현재가 + 등락 =====
    히어로 아래 등락 2단 스택. 1280px 예산에서 가로 150px를 회수해 1행·무오버플로를 지킨다 */
+/* 감쇠(opacity)·전환은 StaleRegion 공용이 담당한다. 여기선 히어로 레이아웃만 소유한다 */
 .price {
   display: flex;
   flex-direction: column;

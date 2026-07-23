@@ -11,6 +11,7 @@ import { useEffect, useRef } from "react";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import TickCell from "@/components/TickCell";
+import { StaleBadge } from "@/components/StatusSignals";
 import { useExchangeStore } from "@/lib/store";
 import { useEffectIntensity } from "@/lib/useEffectIntensity";
 import { dirOf, formatChangeRate, formatPrice, formatQty, toNum } from "@/lib/format";
@@ -30,6 +31,7 @@ interface Props {
 export default function OrderbookPanel({ market, onPricePrefill }: Props) {
   const orderbook = useExchangeStore((s) => s.orderbooks[market]);
   const ticker = useExchangeStore((s) => s.tickers[market]);
+  const connected = useExchangeStore((s) => s.connected);
   const spec = useExchangeStore((s) => s.markets.find((m) => m.market === market));
   // 표시 자리수는 마켓 스펙에서 유도한다(호출부 상수 금지). 미로딩 시 폴백
   const tickSpec = spec?.tick_size;
@@ -107,7 +109,12 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
   };
 
   return (
-    <PanelCard dense title="호가">
+    <PanelCard
+      dense
+      title="호가"
+      stale={!connected}
+      actions={!connected ? <StaleBadge label="지연" announce={false} /> : undefined}
+    >
       <div className={styles.wrap}>
         {orderbook ? (
           <>

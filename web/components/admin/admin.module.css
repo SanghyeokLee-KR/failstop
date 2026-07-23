@@ -455,23 +455,8 @@
   white-space: nowrap;
 }
 
-/* 스테일·연결 신호(§5.2): 폴링 실패 지연 배지. 깜빡임 금지, 무채 칩 + 경과.
-   경고 형태(▲)를 병기해 색 없이도 지연을 읽게 한다 */
-.staleBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 3px var(--space-2);
-  border-radius: var(--radius-full);
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  font-weight: var(--fw-semibold);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-warning-text);
-  background: var(--color-warning-bg);
-  white-space: nowrap;
-}
-/* 스테일 구간 갱신 영역 감쇠: 폴링 실패 시 마지막 값임을 opacity로 알린다. 시프트 0 */
+/* 스테일 구간 갱신 영역 감쇠(§5.2): 폴링 실패 시 마지막 값임을 opacity로 알린다. 시프트 0.
+   지연 배지는 공용 StatusSignals로 승격했다(트레이딩·자산과 공유). */
 .staleRegion {
   transition: opacity var(--dur-fast) var(--ease-standard);
 }

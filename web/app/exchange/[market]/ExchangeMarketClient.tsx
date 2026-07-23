@@ -16,6 +16,7 @@ import OrderbookPanel from "@/components/trade/OrderbookPanel";
 import TradesPanel from "@/components/trade/TradesPanel";
 import OrderPanel, { type PricePrefill } from "@/components/trade/OrderPanel";
 import MarketListPanel from "@/components/trade/MarketListPanel";
+import { ConnectionBanner } from "@/components/StatusSignals";
 import { toast } from "@/components/Toast";
 import { useExchangeStore, useLiveChannels, useEffectConfigPolling } from "@/lib/store";
 import { dest, type Side } from "@/lib/types";
@@ -99,6 +100,7 @@ function ExchangeMarketBody() {
   return (
     <main>
       <TradeLayout
+        banner={<ConnectionBanner />}
         summary={<SummaryBar market={market} meta={meta} />}
         chart={<ChartPanel market={market} />}
         book={<OrderbookPanel market={market} onPricePrefill={onPricePrefill} />}
