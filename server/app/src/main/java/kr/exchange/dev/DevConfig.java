@@ -34,7 +34,9 @@ public class DevConfig {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOrigins(List.of("http://localhost:3000"));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        // Idempotency-Key는 게시판 쓰기 멱등 계약(게시판_설계 4.2) 헤더다. 누락 시 브라우저
+        // 프리플라이트가 거부돼 크로스오리진 글·댓글 작성이 전부 실패한다(비브라우저 테스트는 미검출).
+        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key"));
         // 크로스오리진에서 기본 노출되지 않는 레이트리밋·상관추적 헤더를 web 폴백이 읽도록 노출한다.
         cfg.setExposedHeaders(List.of("Retry-After",
                 "X-RateLimit-Limit-account", "X-RateLimit-Limit-admin",
