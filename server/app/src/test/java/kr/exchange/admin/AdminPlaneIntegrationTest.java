@@ -668,6 +668,41 @@ class AdminPlaneIntegrationTest {
     }
 
     // ------------------------------------------------------------------
+    // (m) 시각 표기 §2-1 정합: 감사·불변식 프로젝션의 시각 필드는 UTC 밀리초 3자리 고정
+    // (yyyy-MM-dd'T'HH:mm:ss.SSS'Z')이다. OffsetDateTime.toString의 가변 소수부·오프셋 표기 회귀 차단.
+    // ------------------------------------------------------------------
+
+    private static final String TS_PATTERN = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z";
+
+    @Test
+    @Order(19)
+    void projectionTimestampsFollowMillisUtcContract() throws Exception {
+        String op01 = issueSession("op-01");
+
+        JsonNode audit = objectMapper.readTree(
+                adminGet("/admin/v1/audit?operator=op-01", "op-01", op01).getBody()).path("data");
+        assertTrue(audit.size() >= 1, "선행 테스트에서 op-01 감사 1건 이상");
+        for (JsonNode row : audit) {
+            assertTrue(row.path("created_at").asText().matches(TS_PATTERN),
+                    "audit.created_at 형식: " + row.path("created_at").asText());
+        }
+
+        JsonNode checks = objectMapper.readTree(
+                adminGet("/admin/v1/ha/invariants", "op-01", op01).getBody()).path("checks");
+        assertTrue(checks.size() >= 1, "seed에서 불변식 1건");
+        for (JsonNode row : checks) {
+            assertTrue(row.path("checked_at").asText().matches(TS_PATTERN),
+                    "invariants.checked_at 형식: " + row.path("checked_at").asText());
+        }
+
+        // ha/status lease_until은 V1 부트스트랩 시드('matching-engine' 행)로 상시 존재한다.
+        JsonNode lease = objectMapper.readTree(
+                adminGet("/admin/v1/ha/status", "op-01", op01).getBody()).path("lease");
+        assertTrue(lease.path("lease_until").asText().matches(TS_PATTERN),
+                "status.lease_until 형식: " + lease.path("lease_until").asText());
+    }
+
+    // ------------------------------------------------------------------
     // 헬퍼
     // ------------------------------------------------------------------
 

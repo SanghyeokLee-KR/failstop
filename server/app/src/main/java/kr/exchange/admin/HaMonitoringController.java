@@ -40,7 +40,7 @@ public class HaMonitoringController {
                 .query((rs, n) -> Map.<String, Object>of(
                         "holder", rs.getString("holder") == null ? "" : rs.getString("holder"),
                         "epoch", rs.getLong("epoch"),
-                        "lease_until", String.valueOf(rs.getObject("lease_until", OffsetDateTime.class)),
+                        "lease_until", ts(rs.getObject("lease_until", OffsetDateTime.class)),
                         "leader_alive", rs.getBoolean("leader_alive")))
                 .optional()
                 .orElse(Map.of("leader_alive", false));
@@ -78,7 +78,7 @@ public class HaMonitoringController {
                         "replayed_to_seq", rs.getLong("replayed_to_seq"),
                         "matched", rs.getObject("matched") == null ? "" : rs.getBoolean("matched"),
                         "duration_ms", rs.getObject("duration_ms") == null ? "" : rs.getInt("duration_ms"),
-                        "created_at", String.valueOf(rs.getObject("created_at", OffsetDateTime.class))))
+                        "created_at", ts(rs.getObject("created_at", OffsetDateTime.class))))
                 .list();
         List<Map<String, Object>> failovers = jdbc.sql("""
                         SELECT experiment_id, old_leader, new_leader, rto_seconds, downtime_seconds,
@@ -92,7 +92,7 @@ public class HaMonitoringController {
                         "downtime_seconds", str(rs.getString("downtime_seconds")),
                         "rpo_records", rs.getObject("rpo_records") == null ? "" : rs.getLong("rpo_records"),
                         "verdict", str(rs.getString("verdict")),
-                        "created_at", String.valueOf(rs.getObject("created_at", OffsetDateTime.class))))
+                        "created_at", ts(rs.getObject("created_at", OffsetDateTime.class))))
                 .list();
         return Map.of("schema_version", "1.0", "recovery_runs", recoveries, "failover_runs", failovers);
     }
@@ -111,13 +111,18 @@ public class HaMonitoringController {
                         "check_name", rs.getString("check_name"),
                         "ok", rs.getBoolean("ok"),
                         "violated_rows", rs.getLong("violated_rows"),
-                        "checked_at", String.valueOf(rs.getObject("checked_at", OffsetDateTime.class))))
+                        "checked_at", ts(rs.getObject("checked_at", OffsetDateTime.class))))
                 .list();
         return Map.of("schema_version", "1.0", "checks", checks);
     }
 
     private static String str(String v) {
         return v == null ? "" : v;
+    }
+
+    // API §2-1 UTC 밀리초 3자리 고정. OffsetDateTime.toString의 가변 소수부·오프셋 표기를 쓰지 않는다.
+    private static String ts(OffsetDateTime odt) {
+        return odt == null ? "" : kr.exchange.api.common.ApiFormats.time(odt);
     }
 
     private long scalar(String sql) {

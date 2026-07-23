@@ -86,8 +86,13 @@ public class AuditController {
                         "result", rs.getString("result"),
                         "approval_id", rs.getObject("approval_id") == null
                                 ? "" : rs.getLong("approval_id"),
-                        "created_at", String.valueOf(rs.getObject("created_at", OffsetDateTime.class))))
+                        "created_at", ts(rs.getObject("created_at", OffsetDateTime.class))))
                 .list();
         return Map.of("schema_version", "1.0", "data", rows);
+    }
+
+    // API §2-1 UTC 밀리초 3자리 고정. OffsetDateTime.toString의 가변 소수부·오프셋 표기를 쓰지 않는다.
+    private static String ts(OffsetDateTime odt) {
+        return odt == null ? "" : kr.exchange.api.common.ApiFormats.time(odt);
     }
 }
