@@ -13,8 +13,19 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AdminError } from "@/lib/admin/api";
 
 export type ErrorReason = "session" | "server";
+
+// 429 백오프 기본 유예(초). Retry-After 부재 시 사용. 서버 버킷(60건/60초, 리필 1건/초) 기준
+const RATE_LIMIT_FALLBACK_SEC = 5;
+
+/** 레이트리밋 오류면 유예 초를 돌려준다(Retry-After 우선). 아니면 null */
+function rateLimitPauseSec(e: unknown): number | null {
+  if (!(e instanceof AdminError)) return null;
+  if (e.code !== "too_many_requests" && e.code !== "rate_limited") return null;
+  return e.retryAfter !== null && e.retryAfter > 0 ? e.retryAfter : RATE_LIMIT_FALLBACK_SEC;
+}
 
 export interface AdminResource<T> {
   data: T | null;
@@ -54,8 +65,12 @@ export function useAdminResource<T>(loader: () => Promise<T>, options: Options =
   sessionRef.current = isSessionError;
   // 최초 실패와 폴링 실패 구분용. 성공 이력을 렌더 밖에서 추적한다
   const hasData = useRef(false);
+  // 429 백오프 만료 시각(ms). 유예 중 폴링 틱은 서버 왕복 없이 건너뛴다.
+  // 백오프 없이 고정 주기를 유지하면 폴러가 버킷 리필을 계속 소진해 상호작용 액션까지 굶긴다
+  const pauseUntil = useRef(0);
 
   const run = useCallback(async () => {
+    if (Date.now() < pauseUntil.current) return;
     try {
       const next = await loaderRef.current();
       setData(next);
@@ -64,6 +79,8 @@ export function useAdminResource<T>(loader: () => Promise<T>, options: Options =
       setStale(false);
       setLastUpdatedAt(Date.now());
     } catch (e) {
+      const pauseSec = rateLimitPauseSec(e);
+      if (pauseSec !== null) pauseUntil.current = Date.now() + pauseSec * 1000;
       if (hasData.current) {
         // 폴링 실패는 마지막 값을 유지하고 스테일만 세운다(레이아웃 시프트 0)
         setStale(true);
@@ -83,6 +100,7 @@ export function useAdminResource<T>(loader: () => Promise<T>, options: Options =
 
   const reload = useCallback(() => {
     setError(false);
+    pauseUntil.current = 0; // 수동 재시도는 사용자 의도이므로 백오프를 해제한다
     void run();
   }, [run]);
 

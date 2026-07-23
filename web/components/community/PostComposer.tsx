@@ -60,6 +60,7 @@ export default function PostComposer({
         onChange={setTitle}
         error={titleError}
         placeholder="제목을 입력해 주세요"
+        maxLength={POST_TITLE_MAX}
         disabled={busy}
         autoFocus
       />

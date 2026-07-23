@@ -35,6 +35,7 @@ export default function CommentSection({ postExternalId, session, commentCount, 
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
+  const [loadingMore, setLoadingMore] = useState(false);
   const [reportTarget, setReportTarget] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<string | null>(null);
 
@@ -42,13 +43,18 @@ export default function CommentSection({ postExternalId, session, commentCount, 
     async (reset: boolean) => {
       try {
         if (reset) setPhase("loading");
+        else setLoadingMore(true);
         const page = await ds.listComments(postExternalId, reset ? null : cursor, 20);
         setComments((prev) => (reset ? page.items : [...prev, ...page.items]));
         setCursor(page.next_cursor);
         setHasMore(page.has_more);
         setPhase("ready");
       } catch {
-        setPhase("error");
+        // 추가 로드 실패로 표시 중이던 목록 전체를 에러 화면으로 바꾸지 않는다(BoardListView와 동일 규약)
+        if (reset) setPhase("error");
+        else toast("댓글을 더 불러오지 못했어요", "error");
+      } finally {
+        setLoadingMore(false);
       }
     },
     [ds, postExternalId, cursor],
@@ -211,8 +217,14 @@ export default function CommentSection({ postExternalId, session, commentCount, 
       )}
 
       {phase === "ready" && hasMore && (
-        <button type="button" className={styles.more} onClick={() => void load(false)}>
-          댓글 더 보기
+        <button
+          type="button"
+          className={styles.more}
+          onClick={() => void load(false)}
+          disabled={loadingMore}
+          aria-busy={loadingMore}
+        >
+          {loadingMore ? "불러오는 중" : "댓글 더 보기"}
         </button>
       )}
 

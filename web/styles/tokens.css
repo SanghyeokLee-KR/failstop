@@ -278,6 +278,23 @@
   --price-mark-radius:var(--radius-sm);
   --price-mark-pad-y:var(--space-1);
   --price-mark-pad-x:var(--space-2);
+
+  /* 차트 지표선 계열 램프(차트_기술적분석_설계 §4.2·§7-1). 기간 차이를 브랜드 명도 차로 표현.
+     primitive가 테마 무관이라 §6 무재선언 원칙의 예외로 아래 다크 블록에서 밝은 단계로 미러한다.
+     라이트 on #FFF: 400 3.82 / 500 4.81 / 600 6.31 / 700 8.20 (그래픽 3:1 통과) */
+  --chart-series-1:var(--brand-400);
+  --chart-series-2:var(--brand-500);
+  --chart-series-3:var(--brand-600);
+  --chart-series-4:var(--brand-700);
+}
+/* 지표선 램프 다크 미러. 라이트 램프(600·700)는 다크 surface #171A21 위 2.76·2.12:1로
+   그래픽 최소 3:1(WCAG 1.4.11) 미달. 실측: 200 9.77 / 300 6.73 / 400 4.55 / 500 3.62.
+   §6 :root 선언보다 뒤에 둬야 동일 명시도 캐스케이드에서 다크 값이 이긴다 */
+[data-theme="dark"]{
+  --chart-series-1:var(--brand-200);
+  --chart-series-2:var(--brand-300);
+  --chart-series-3:var(--brand-400);
+  --chart-series-4:var(--brand-500);
 }
 
 /* ============================================================================
@@ -335,5 +352,10 @@
 
     --effect-glow-up:0 0 0 3px rgba(255,93,99,.32);
     --effect-glow-down:0 0 0 3px rgba(53,166,255,.32);
+
+    --chart-series-1:var(--brand-200);
+    --chart-series-2:var(--brand-300);
+    --chart-series-3:var(--brand-400);
+    --chart-series-4:var(--brand-500);
   }
 }

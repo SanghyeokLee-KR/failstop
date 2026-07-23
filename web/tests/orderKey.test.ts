@@ -7,6 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   initOrderKey,
+  isFinalRejectStatus,
   onInputChanged,
   onSubmitAccepted,
   onSubmitFailed,
@@ -82,6 +83,31 @@ test("반복 입력 변경은 dirty 상태를 유지한다", () => {
   const afterFirst = s;
   s = onInputChanged(s); // 이미 dirty면 동일 참조 유지
   assert.equal(s, afterFirst, "이미 새 키 대기면 불필요한 상태 교체가 없어야 한다");
+});
+
+test("종결성 거부(422) 후 동일 내용 재제출은 새 키를 쓴다(REJECTED replay 오인 방지)", () => {
+  const gen = counterGen();
+  let s = resolveKeyForSubmit(initOrderKey(gen), gen);
+  const first = s.key;
+
+  // OrderPanel catch: 4xx 종결 거부는 onInputChanged로 dirty를 세운다.
+  // 같은 키 재시도는 서버가 기존 REJECTED 주문의 멱등 replay(200 + X-Idempotent-Replay)로
+  // 받아 거짓 성공이 되므로, 새 키 발급이 계약이다(§2-4).
+  assert.equal(isFinalRejectStatus(422), true);
+  s = onInputChanged(s);
+  s = resolveKeyForSubmit(s, gen);
+  assert.notEqual(s.key, first, "종결 거부 후 재제출은 새 키여야 한다");
+});
+
+test("isFinalRejectStatus: 4xx 종결만 참, UNKNOWN·진행 중·레이트리밋은 거짓(키 보존)", () => {
+  assert.equal(isFinalRejectStatus(400), true);
+  assert.equal(isFinalRejectStatus(401), true);
+  assert.equal(isFinalRejectStatus(422), true);
+  assert.equal(isFinalRejectStatus(409), false, "order_in_progress는 키 보존");
+  assert.equal(isFinalRejectStatus(429), false, "레이트리밋은 키 보존");
+  assert.equal(isFinalRejectStatus(500), false);
+  assert.equal(isFinalRejectStatus(503), false);
+  assert.equal(isFinalRejectStatus(0), false, "네트워크 실패(status 0)는 UNKNOWN, 키 보존");
 });
 
 test("in-flight 입력 변경 동결 후 5XX 재시도는 동일 키를 재사용한다", () => {

@@ -9,7 +9,7 @@
  * 강도·거버너는 useEffectIntensity·useTradeRateGovernor가 공급한다. 배지는 절대 배치라 시프트 0.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import { useExchangeStore } from "@/lib/store";
@@ -50,6 +50,66 @@ function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/**
+ * 체결 행. memo + 원시값 props로 신규 체결·플래시 커밋이 바뀐 행만 리렌더하게 한다.
+ * memo 없이는 체결 1건당 60행 전부가 rateVsPrevClose(BigInt 경로)·포맷터 4종을 재실행하고,
+ * 플래시 커밋이 그 비용을 한 번 더 반복한다(초당 20+ 체결 구간 상시 부하).
+ */
+const TradeRow = memo(function TradeRow({
+  price,
+  priceStr,
+  volume,
+  side,
+  timestamp,
+  prevClose,
+  tickSpec,
+  qtyScale,
+  isLarge,
+  flashDir,
+}: {
+  price: number;
+  priceStr: string;
+  volume: string;
+  side: Side;
+  timestamp: string;
+  prevClose: string;
+  tickSpec: string | undefined;
+  qtyScale: number;
+  isLarge: boolean;
+  flashDir: "up" | "down" | undefined;
+}) {
+  const { rate, state } = rateVsPrevClose(price, prevClose);
+  const d = dirOf(state);
+  const sideDir = side === "bid" ? "up" : "down";
+  // 거래대금은 원본 문자열 정밀 곱(float 곱 금지). sub-1 KRW 대량 체결 정밀 보존
+  const largeAmount = isLarge ? formatCompactKRW(mulDecimal(priceStr, volume)) : "";
+  return (
+    <tr className={flashDir ? "trade-flash" : undefined} data-flash={flashDir}>
+      <td className={styles.priceCell}>
+        {isLarge && (
+          <span className={styles.largeTag} data-dir={sideDir} title={`대형 체결 ${largeAmount}`} aria-hidden="true">
+            대형 {side === "bid" ? "▲" : "▼"}
+          </span>
+        )}
+        <span
+          className="dir-text"
+          data-dir={sideDir}
+          aria-label={`${side === "bid" ? "매수" : "매도"} 체결 ${formatPrice(priceStr, tickSpec)}원${isLarge ? `, 대형 체결 ${largeAmount}` : ""}`}
+        >
+          {side === "bid" ? "▲" : "▼"} {formatPrice(priceStr, tickSpec)}
+        </span>
+      </td>
+      <td className={styles.qty}>{formatQty(volume, qtyScale)}</td>
+      <td>
+        <span className="dir-text" data-dir={d}>
+          {formatChangeRate(rate, state)}
+        </span>
+      </td>
+      <td className={styles.time}>{formatTimeHMS(timestamp)}</td>
+    </tr>
+  );
+});
+
 export default function TradesPanel({ market }: { market: string }) {
   const liveTrades = useExchangeStore((s) => s.trades[market]);
   const ticker = useExchangeStore((s) => s.tickers[market]);
@@ -57,6 +117,9 @@ export default function TradesPanel({ market }: { market: string }) {
   const tickSpec = spec?.tick_size;
   const qtyScale = spec?.qty_scale ?? 8;
   const [backfill, setBackfill] = useState<Trade[] | null>(null);
+  // 백필 실패를 표면화한다. catch 없으면 미처리 거부 + 라이브 체결 전까지 영구 스켈레톤
+  const [backfillFailed, setBackfillFailed] = useState(false);
+  const [backfillRetry, setBackfillRetry] = useState(0);
 
   const config = useEffectIntensity();
   const gov = useTradeRateGovernor(market);
@@ -65,16 +128,25 @@ export default function TradesPanel({ market }: { market: string }) {
 
   useEffect(() => {
     let alive = true;
+    // 마켓 전환 cleanup이 in-flight 백필을 실제 취소한다(결과 폐기만으로는 요청이 큐에 적체)
+    const controller = new AbortController();
     setBackfill(null);
+    setBackfillFailed(false);
     getDataSource()
-      .getTrades(market, MAX_ROWS)
+      .getTrades(market, MAX_ROWS, controller.signal)
       .then((t) => {
         if (alive) setBackfill(t);
+      })
+      .catch(() => {
+        if (alive) setBackfillFailed(true);
       });
     return () => {
       alive = false;
+      controller.abort();
     };
-  }, [market]);
+  }, [market, backfillRetry]);
+
+  const retryBackfill = useCallback(() => setBackfillRetry((n) => n + 1), []);
 
   const rows: Row[] = useMemo(() => {
     const seen = new Set<string>();
@@ -125,7 +197,15 @@ export default function TradesPanel({ market }: { market: string }) {
 
   return (
     <PanelCard dense scroll title="체결">
-      {backfill === null && rows.length === 0 ? (
+      {backfillFailed && rows.length === 0 ? (
+        <div className="empty-state" role="alert">
+          <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+          <span className="empty-state__title">체결 내역을 불러오지 못했어요</span>
+          <button type="button" className="btn btn--secondary" onClick={retryBackfill}>
+            다시 시도
+          </button>
+        </div>
+      ) : backfill === null && rows.length === 0 ? (
         <Skeleton variant="card" width="100%" height="100%" />
       ) : rows.length === 0 ? (
         <div className="empty-state">
@@ -143,45 +223,21 @@ export default function TradesPanel({ market }: { market: string }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((t) => {
-              const { rate, state } = rateVsPrevClose(t.price, prevClose);
-              const d = dirOf(state);
-              const sideDir = t.side === "bid" ? "up" : "down";
-              const flashing = flash?.id === t.id;
-              const isLarge = large.isLarge(t.volume);
-              // 거래대금은 원본 문자열 정밀 곱(float 곱 금지). sub-1 KRW 대량 체결 정밀 보존
-              const largeAmount = isLarge ? formatCompactKRW(mulDecimal(t.priceStr, t.volume)) : "";
-              return (
-                <tr key={t.id} className={flashing ? "trade-flash" : undefined} data-flash={flashing ? flash?.dir : undefined}>
-                  <td className={styles.priceCell}>
-                    {isLarge && (
-                      <span
-                        className={styles.largeTag}
-                        data-dir={sideDir}
-                        title={`대형 체결 ${largeAmount}`}
-                        aria-hidden="true"
-                      >
-                        대형 {t.side === "bid" ? "▲" : "▼"}
-                      </span>
-                    )}
-                    <span
-                      className="dir-text"
-                      data-dir={sideDir}
-                      aria-label={`${t.side === "bid" ? "매수" : "매도"} 체결 ${formatPrice(t.priceStr, tickSpec)}원${isLarge ? `, 대형 체결 ${largeAmount}` : ""}`}
-                    >
-                      {t.side === "bid" ? "▲" : "▼"} {formatPrice(t.priceStr, tickSpec)}
-                    </span>
-                  </td>
-                  <td className={styles.qty}>{formatQty(t.volume, qtyScale)}</td>
-                  <td>
-                    <span className="dir-text" data-dir={d}>
-                      {formatChangeRate(rate, state)}
-                    </span>
-                  </td>
-                  <td className={styles.time}>{formatTimeHMS(t.timestamp)}</td>
-                </tr>
-              );
-            })}
+            {rows.map((t) => (
+              <TradeRow
+                key={t.id}
+                price={t.price}
+                priceStr={t.priceStr}
+                volume={t.volume}
+                side={t.side}
+                timestamp={t.timestamp}
+                prevClose={prevClose}
+                tickSpec={tickSpec}
+                qtyScale={qtyScale}
+                isLarge={large.isLarge(t.volume)}
+                flashDir={flash?.id === t.id ? flash.dir : undefined}
+              />
+            ))}
           </tbody>
         </table>
       )}

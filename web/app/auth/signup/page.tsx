@@ -144,6 +144,7 @@ export default function SignupPage() {
             onChange={setDisplayName}
             error={fieldErrors.display_name}
             placeholder="데모트레이더"
+            maxLength={32}
             disabled={busy}
           />
 

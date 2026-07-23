@@ -32,6 +32,11 @@ export interface ChartTokens {
   brand500: string;
   brand600: string;
   brand700: string;
+  /* 지표선 계열 램프(--chart-series-1..4). 다크에서 밝은 단계로 미러돼 3:1을 지킨다(§4.2) */
+  series1: string;
+  series2: string;
+  series3: string;
+  series4: string;
   brandPrimary: string;
   font: string;
 }
@@ -82,8 +87,9 @@ export function buildChartStyles(t: ChartTokens, reducedMotion = false): DeepPar
       tooltip: { showRule: TooltipShowRule.None },
     },
     indicator: {
-      // 지표선 계열 구분은 브랜드 명도 램프(§4.2). MA5→10→30→60이 400→700에 대응
-      lines: [{ color: t.brand400 }, { color: t.brand500 }, { color: t.brand600 }, { color: t.brand700 }],
+      // 지표선 계열 구분은 테마 인지 램프(§4.2). primitive 직접 소비는 다크에서 600·700이
+      // 3:1 미달이라 --chart-series-* 토큰(다크 미러 램프)으로 소비한다
+      lines: [{ color: t.series1 }, { color: t.series2 }, { color: t.series3 }, { color: t.series4 }],
       // 히스토그램 up/down은 부호가 막대 위치에 내재해 색 단독이 아님(§4.2)
       bars: [{ upColor: `${t.up}${VOL_ALPHA_HEX}`, downColor: `${t.down}${VOL_ALPHA_HEX}`, noChangeColor: t.flat }],
       lastValueMark: { text: { color: t.textInverse } },
@@ -146,11 +152,11 @@ export function rsiStyles(t: ChartTokens): IndicatorStyleOverride {
   return { lines: [{ color: t.brandPrimary }] };
 }
 
-/** 거래량 막대는 방향 알파색, 이동평균선은 브랜드 램프 유지 */
+/** 거래량 막대는 방향 알파색, 이동평균선은 테마 인지 램프(다크 3:1 확보) */
 export function volStyles(t: ChartTokens): IndicatorStyleOverride {
   return {
     bars: [{ upColor: `${t.up}${VOL_ALPHA_HEX}`, downColor: `${t.down}${VOL_ALPHA_HEX}`, noChangeColor: t.flat }],
-    lines: [{ color: t.brand400 }, { color: t.brand500 }, { color: t.brand600 }],
+    lines: [{ color: t.series1 }, { color: t.series2 }, { color: t.series3 }],
   };
 }
 

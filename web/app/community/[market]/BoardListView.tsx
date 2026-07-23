@@ -48,22 +48,28 @@ export default function BoardListView({ market, meta, session }: Props) {
   const [titleError, setTitleError] = useState<string | null>(null);
   // 멱등키는 컴포즈 세션에 고정한다. 실패 시 유지해 재시도가 같은 키로 중복 작성을 막는다
   const postKeyRef = useRef<string>("");
+  // 목록 세대. 마켓·정렬 전환(reset)마다 올려, 늦게 도착한 이전 세대 응답이 다른 정렬·마켓
+  // 목록 뒤에 append되거나 커서를 이전 스트림 것으로 덮는 오염을 폐기한다
+  const loadGen = useRef(0);
 
   const load = useCallback(
     async (nextSort: PostSort, reset: boolean) => {
+      const gen = reset ? ++loadGen.current : loadGen.current;
       try {
         if (reset) setPhase("loading");
         else setLoadingMore(true);
         const page = await ds.listPosts(market, nextSort, reset ? null : cursor, 20);
+        if (gen !== loadGen.current) return; // stale 응답 폐기
         setPosts((prev) => (reset ? page.items : [...prev, ...page.items]));
         setCursor(page.next_cursor);
         setHasMore(page.has_more);
         setPhase("ready");
       } catch {
+        if (gen !== loadGen.current) return;
         if (reset) setPhase("error");
         else toast("목록을 더 불러오지 못했어요", "error");
       } finally {
-        setLoadingMore(false);
+        if (gen === loadGen.current) setLoadingMore(false);
       }
     },
     [ds, market, cursor],
@@ -130,7 +136,7 @@ export default function BoardListView({ market, meta, session }: Props) {
                 onChange={(v) => setSort(v)}
                 variant="underline"
                 ariaLabel="정렬 방식"
-                disabled={phase === "loading"}
+                disabled={phase === "loading" || loadingMore}
               />
               <button type="button" className="btn btn--primary" onClick={openCompose}>
                 글쓰기

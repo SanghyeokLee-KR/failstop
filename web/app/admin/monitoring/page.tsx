@@ -75,7 +75,8 @@ export default function MonitoringPage() {
     const [ha, rec, inv] = await Promise.all([api.getHaStatus(), api.getRecovery(), api.getInvariants()]);
     return { ha, rec, inv };
   }, []);
-  const { data, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 2000, isSessionError });
+  // GET 3건 합성. 2초 주기(90건/분)는 관리 레이트리밋(60건/분) 초과라 5초로 완화(36건/분)
+  const { data, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 5000, isSessionError });
 
   return (
     <div className={styles.page}>

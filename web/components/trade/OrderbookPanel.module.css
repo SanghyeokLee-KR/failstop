@@ -54,9 +54,22 @@
 .rowBid .depth { background-color: var(--color-up-bg); }
 
 .cell { position: relative; }
-.qty { color: var(--text-secondary); }
+/* 잔량 열은 방향 틴트(-bg) 막대 위에 놓인다. --text-secondary는 라이트 4.16~4.23:1로 미달이라
+   --text-default(grey-800 on red-50 10.83:1 / on azure-50 11.01:1) 사용(tokens §2 틴트 규칙) */
+.qty { color: var(--text-default); }
 .price { font-weight: var(--fw-semibold); }
 .rate { font-size: 12px; }
+
+/* 틴트(-bg) 위 소형 방향 텍스트는 600단계가 아니라 -strong(700)이다(tokens §2 명문 규칙).
+   최대 잔량 행은 막대가 가격·등락률 열까지 덮어 red-600 on red-50 4.22:1로 미달한다.
+   실측: red-700 on red-50 5.53:1 / on azure-50 5.62:1, azure-700 on azure-50 6.73:1 / on red-50 6.62:1.
+   data-dir 셀은 가격·등락률 열뿐이라 .cell(로컬)로 잡는다(전역 .dir-text는 모듈 스코프 밖) */
+.rowAsk .cell[data-dir="up"],
+.rowBid .cell[data-dir="up"] { color: var(--color-up-strong); }
+.rowAsk .cell[data-dir="down"],
+.rowBid .cell[data-dir="down"] { color: var(--color-down-strong); }
+.rowAsk .cell[data-dir="flat"],
+.rowBid .cell[data-dir="flat"] { color: var(--text-default); }
 
 /* 현재가 경계 행. 프라이스 마크 수렴(§6.5): 세 지점(히어로·경계행·차트) 공용 프레임 규격을
    경계행에 적용한다. 방향은 dir-text 색과 ▲▼로만 싣고, 프레임 자체는 무채 계기 슬롯이다. */
@@ -74,10 +87,17 @@
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-bold);
 }
+/* sunken 면 위 14px bold는 large text 예외 밖이라 600단계가 라이트에서 미달한다
+   (red-600 on grey-100 4.33:1). -strong 승격 실측: red-700 5.67:1, azure-700 6.79:1.
+   이중 클래스는 전역 dir-text 규칙(동일 명시도)과의 소스 순서 의존을 없애는 명시도 확보다 */
+.mid.mid[data-dir="up"] { color: var(--color-up-strong); }
+.mid.mid[data-dir="down"] { color: var(--color-down-strong); }
+.mid.mid[data-dir="flat"] { color: var(--text-default); }
 .midCaption {
   font-size: var(--font-micro-size);
   font-weight: var(--fw-medium);
-  color: var(--text-secondary);
+  /* sunken 위 --text-secondary는 라이트 4.27:1 미달(디자인시스템 sunken 트랙 규칙). grey-800 11.11:1 */
+  color: var(--text-default);
 }
 
 /* 하단 매도·매수 총잔량 합계 행 (§2.5), 스크롤 밖 고정 */

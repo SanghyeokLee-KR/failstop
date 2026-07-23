@@ -51,6 +51,9 @@ export function startCandleStream(
   cb: CandleStreamCallbacks,
 ): CandleStreamHandle {
   let disposed = false;
+  // dispose가 in-flight 초기 로드를 실제 취소한다. 결과 폐기(disposed 플래그)만으로는
+  // 빠른 마켓·주기 전환 반복 시 미취소 요청이 커넥션 큐에 적체된다
+  const loadAbort = new AbortController();
   const unitMs = CANDLE_UNIT_MS[unit];
   let last: LiveCandle | null = null;
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -76,7 +79,7 @@ export function startCandleStream(
   }
 
   getDataSource()
-    .getCandles(market, unit, INITIAL_COUNT)
+    .getCandles(market, unit, INITIAL_COUNT, loadAbort.signal)
     .then((rows) => {
       if (disposed) return;
       // 백엔드 미구현·조회 실패는 어댑터가 []로 흡수(§3.7). 빈 상태로 수렴한다.
@@ -147,6 +150,7 @@ export function startCandleStream(
   return {
     dispose: () => {
       disposed = true;
+      loadAbort.abort();
       if (flushTimer) {
         clearTimeout(flushTimer);
         flushTimer = null;

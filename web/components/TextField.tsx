@@ -23,6 +23,8 @@ interface TextFieldProps {
   disabled?: boolean;
   autoFocus?: boolean;
   inputMode?: "text" | "email";
+  /** 입력 단계 길이 상한. 서버 상한 초과 입력이 제출 후에야 실패하지 않게 선차단한다 */
+  maxLength?: number;
 }
 
 export default function TextField({
@@ -37,6 +39,7 @@ export default function TextField({
   disabled,
   autoFocus,
   inputMode,
+  maxLength,
 }: TextFieldProps) {
   const id = useId();
   const errorId = `${id}-error`;
@@ -61,6 +64,7 @@ export default function TextField({
           placeholder={placeholder}
           autoComplete={autoComplete}
           inputMode={inputMode}
+          maxLength={maxLength}
           disabled={disabled}
           autoFocus={autoFocus}
           aria-invalid={error ? true : undefined}

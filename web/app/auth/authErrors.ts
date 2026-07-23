@@ -27,7 +27,11 @@ export function mapAuthError(e: unknown): MappedAuthError {
   const code = codeOf(e);
   switch (code) {
     case "weak_password":
-      return { field: "password", message: "비밀번호는 8자 이상이어야 해요" };
+      // 서버는 8자 미만과 128자 초과를 같은 코드로 거절한다. 하한만 안내하면 상한 위반에 정반대 안내가 된다
+      return { field: "password", message: "비밀번호는 8자 이상 128자 이하여야 해요" };
+    case "invalid_parameter":
+      // 가입 폼의 도달 가능한 invalid_parameter는 표시명 상한(32자)뿐이다(다른 입력은 폼·별도 코드가 선차단)
+      return { field: "display_name", message: "표시명은 최대 32자예요" };
     case "invalid_email":
       return { field: "email", message: "이메일 형식을 확인해 주세요" };
     case "email_taken":

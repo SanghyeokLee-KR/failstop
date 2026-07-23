@@ -35,6 +35,10 @@ export function readChartTokens(): ChartTokens {
     brand500: cssVar("--brand-500"),
     brand600: cssVar("--brand-600"),
     brand700: cssVar("--brand-700"),
+    series1: cssVar("--chart-series-1"),
+    series2: cssVar("--chart-series-2"),
+    series3: cssVar("--chart-series-3"),
+    series4: cssVar("--chart-series-4"),
     brandPrimary: cssVar("--brand-primary"),
     font: cssVar("--font-sans"),
   };

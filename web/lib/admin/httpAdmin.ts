@@ -351,7 +351,7 @@ export class HttpAdminApi implements AdminApi {
       if (rateLimited && (code === "too_many_requests" || code === "rate_limited")) {
         message = rateLimitMessage(retryAfter);
       }
-      throw new AdminError(code, message);
+      throw new AdminError(code, message, retryAfter);
     }
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
@@ -457,6 +457,13 @@ export class HttpAdminApi implements AdminApi {
     return (res.data ?? []).map((a, i) => {
       const wa = a.action ?? "";
       const target = a.target ?? "";
+      // 서버 원장은 소비 시점에만 EXPIRED로 전이하고 list에 만료 스윕이 없다. TTL 경과한
+      // ISSUED를 그대로 두면 실행 대기·대기 카운트가 유지되다 실행 시점에야 403이 난다.
+      // sim 스윕과 표면을 맞춰 표시 계층에서 EXPIRED로 파생한다(원장 상태는 서버 소유 유지)
+      const rawState = normApprovalState(a.state);
+      const expMs = a.expires_at ? Date.parse(a.expires_at) : Number.NaN;
+      const derivedState =
+        rawState === "ISSUED" && Number.isFinite(expMs) && expMs < Date.now() ? "EXPIRED" : rawState;
       return {
         // 원장 프로젝션 키는 approval_id다(발급 응답과 대칭). 합성 apr-N는 키 부재 시 최후 폴백
         id: String(a.approval_id ?? a.id ?? `apr-${i}`),
@@ -468,7 +475,7 @@ export class HttpAdminApi implements AdminApi {
         // 발급형이라 원장 최초 상태부터 approver가 존재한다(발급=승인)
         approverId: a.approver_operator_id ?? "",
         approverName: a.approver_operator_id ?? "",
-        state: normApprovalState(a.state),
+        state: derivedState,
         issuedAt: a.issued_at ?? "",
         expiresAt: a.expires_at ?? "",
         consumedAt: a.consumed_at ?? null,
@@ -843,8 +850,10 @@ export class HttpAdminApi implements AdminApi {
 
   async getChaosRuns(): Promise<ChaosRun[]> {
     // GET /admin/v1/chaos/runs 감사 투영(id·action·target·experiment_id·created_at). state·blast_radius가
-    // 없어 축소 뷰모델로 좁힌다. 활성 여부는 action 스트림(inject vs clear)을 접어 재구성하고,
-    // blast_radius·label은 experiment_id 접두로 정적 카탈로그와 조인한다.
+    // 없어 축소 뷰모델로 좁힌다. 활성 여부는 action 스트림(inject vs clear)을 접어 재구성한다.
+    // experiment_id는 서버가 UUID로 발급해 카탈로그 id(E1~E9)와 직접 조인이 불가하다. 주입 시
+    // wireBinding이 발급한 target 접두(e1-toxic·e8-assault)에서 id를 파생해 조인하고,
+    // 고정 노드명을 쓰는 kill-node류는 action 기반 폴백 라벨을 쓴다.
     const res = await this.http<WireDataEnvelope<WireChaosRun>>("/admin/v1/chaos/runs");
     const rows = res.data ?? [];
     const cleared = new Set<string>();
@@ -853,17 +862,20 @@ export class HttpAdminApi implements AdminApi {
     }
     return rows.map((r, i) => {
       const exp = r.experiment_id ?? "";
-      const def = CHAOS_CATALOG.find((d) => exp.startsWith(d.id));
+      const target = r.target ?? "";
+      const prefix = (target.split("-")[0] ?? "").toUpperCase();
+      const def = CHAOS_CATALOG.find((d) => d.id === prefix);
+      const isKillNode = (r.action ?? "").includes("kill");
       const isClear = (r.action ?? "").includes("clear");
       return {
         id: String(r.id ?? `chx-${r.created_at ?? ""}-${i}`),
         // 해제는 감사 행 id가 아니라 주입 시 발급한 이름(target)을 지칭해야 성립한다(§3-6).
         // clear 행 target과 inject 행 target이 같은 문자열이라 cleared 접기도 이 키로 닫힌다
-        clearKey: r.target ?? "",
+        clearKey: target,
         experimentId: exp,
-        label: def?.label ?? exp,
-        state: isClear || cleared.has(r.target ?? "") ? "CLEARED" : "RUNNING",
-        blastRadius: def?.blastRadius ?? "",
+        label: def?.label ?? (isKillNode ? `리더 노드 kill (${target})` : exp),
+        state: isClear || cleared.has(target) ? "CLEARED" : "RUNNING",
+        blastRadius: def?.blastRadius ?? (isKillNode ? "체결 엔진 leader" : ""),
         grafanaAnnotation: "",
         injectedBy: r.operator_id ?? "",
         startedAt: r.created_at ?? "",

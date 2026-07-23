@@ -83,7 +83,8 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
 
   useEffect(() => {
     void refresh();
-    const iv = setInterval(() => void refresh(), 2000);
+    // 5초 주기(12건/분). 동거 폴러(대시보드·config)와 합산해도 관리 레이트리밋(60건/분) 내 유지
+    const iv = setInterval(() => void refresh(), 5000);
     return () => clearInterval(iv);
   }, [refresh]);
 

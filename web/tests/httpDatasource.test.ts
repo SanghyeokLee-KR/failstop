@@ -898,3 +898,151 @@ test("재로그인은 refresh 억제를 해제한다", async () => {
   await ds.refresh(); // 재허용 → 서버 왕복(401)
   assert.equal(count("/api/v1/auth/refresh"), 2, "재로그인 후 refresh 재허용");
 });
+
+test("refresh 일시 장애(5xx)는 회원 세션을 유지하고 원 오류를 표면화한다", async () => {
+  const memberToken = edJwt(900_000);
+  const { ds, count } = newDs({
+    "/api/v1/auth/login": () => jsonRes(200, { schema_version: "1.0", access_token: memberToken, user: MEMBER_USER }),
+    "/api/v1/auth/refresh": () => jsonRes(503, { error: { name: "server_error", message: "일시 오류" } }),
+  });
+  await ds.login({ email: "trader@demo.local", password: "demopass1" });
+  await assert.rejects(ds.refresh(), (e: ApiError) => e.status === 503);
+  assert.ok(ds.getMemberSession(), "일시 장애로 유효 rt 쿠키 세션을 데모로 강등하지 않는다");
+  // refreshBlocked 미설정: 다음 트리거가 서버를 다시 왕복한다(억제는 401·403 전용)
+  await assert.rejects(ds.refresh());
+  assert.equal(count("/api/v1/auth/refresh"), 2, "일시 장애는 재시도 트리거를 보존");
+});
+
+/* ===== 구독 취소·초기 스냅샷 신선도 ===== */
+
+test("unsubscribe는 in-flight 초기 스냅샷 fetch를 실제 취소한다", async () => {
+  // 클로저 대입은 TS 흐름 분석 밖이라 ref 객체로 관찰한다
+  const captured: { signal: AbortSignal | null } = { signal: null };
+  const fetchFn: typeof fetch = (input, init) => {
+    const url = String(input);
+    if (url.includes("/api/v1/ticker")) {
+      captured.signal = init?.signal ?? null;
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("취소", "AbortError")));
+      });
+    }
+    return Promise.resolve(jsonRes(404, { error: { name: "order_not_found", message: "없음" } }));
+  };
+  const ds = new HttpStompDataSource({
+    apiBase: "http://api.test",
+    wsBase: "ws://api.test",
+    fetchFn,
+    stompFactory: () => ({ activate: () => {}, deactivate: async () => {}, subscribe: () => () => {} }),
+  });
+  const received: WsMessage[] = [];
+  const off = ds.subscribe(dest.ticker("KRW-BTC"), (m) => received.push(m));
+  await settle();
+  assert.ok(captured.signal, "초기 스냅샷 fetch에 signal 전파");
+  off();
+  assert.equal(captured.signal.aborted, true, "구독 해제가 in-flight fetch를 abort");
+  await settle();
+  assert.equal(received.length, 0, "취소된 스냅샷은 전달되지 않는다");
+});
+
+test("myAsset: realtime 기수신이면 늦은 초기 스냅샷 REST를 폐기한다(잔액 역전 방지)", async () => {
+  const stomp = makeStomp();
+  const deferred: { resolveAccounts: ((r: Response) => void) | null } = { resolveAccounts: null };
+  const fetchFn: typeof fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/api/v1/demo/session")) {
+      return jsonRes(200, { access_token: makeJwt(15 * 60_000) });
+    }
+    if (url.includes("/api/v1/accounts")) {
+      return new Promise<Response>((resolve) => {
+        deferred.resolveAccounts = resolve;
+      });
+    }
+    return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+  };
+  const ds = new HttpStompDataSource({ apiBase: "http://api.test", wsBase: "ws://api.test", fetchFn, stompFactory: stomp.factory });
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.myAsset, (m) => received.push(m));
+  await settle();
+
+  // REST 왕복 중 체결 후 잔액이 realtime으로 먼저 도착(기준점 확립)
+  stomp.push(dest.myAsset, {
+    schema_version: "1.0",
+    type: "myAsset",
+    epoch: 1,
+    seq: 7,
+    timestamp: "2026-07-21T09:00:02.000Z",
+    assets: [{ currency: "KRW", balance: "90000", locked: "0" }],
+  });
+  await settle();
+  // 체결 전 잔액을 실은 늦은 REST 응답 도착
+  assert.ok(deferred.resolveAccounts, "초기 스냅샷 REST가 발사됨");
+  deferred.resolveAccounts(
+    jsonRes(200, {
+      schema_version: "1.0",
+      data: [{ currency: "KRW", balance: "100000", locked: "0", avg_buy_price: "0", unit_currency: "KRW" }],
+      pagination: { next_cursor: null, has_more: false },
+    }),
+  );
+  await settle();
+
+  const assetMsgs = received.filter((m) => m.type === "myAsset");
+  assert.equal(assetMsgs.length, 1, "늦은 REST 스냅샷이 배달되면 최신 잔액이 체결 전으로 역전된다");
+  const balance = (assetMsgs[0] as { assets: { balance: string }[] }).assets[0].balance;
+  assert.equal(balance, "90000", "realtime 잔액 유지");
+});
+
+/* ===== 재동기화 세대 가드 ===== */
+
+test("플랩 재연결: 늦게 끝난 이전 재동기화가 기준점·전달을 되돌리지 않는다", async () => {
+  const stomp = makeStomp();
+  const deferred: { resolveFirstResync: ((r: Response) => void) | null } = { resolveFirstResync: null };
+  let tickerHits = 0;
+  const tickerBody = (seq: number) =>
+    jsonRes(200, { schema_version: "1.0", data: [restTicker(seq)], pagination: { next_cursor: null, has_more: false } });
+  const fetchFn: typeof fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/api/v1/ticker")) {
+      tickerHits += 1;
+      if (tickerHits === 1) return tickerBody(50); // 구독 초기 스냅샷
+      if (tickerHits === 2) {
+        // 첫 재연결의 재동기화: 응답 지연(플랩 중 미완)
+        return new Promise<Response>((resolve) => {
+          deferred.resolveFirstResync = resolve;
+        });
+      }
+      return tickerBody(200); // 두 번째 재연결의 재동기화
+    }
+    return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+  };
+  const ds = new HttpStompDataSource({ apiBase: "http://api.test", wsBase: "ws://api.test", fetchFn, stompFactory: stomp.factory });
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.ticker("KRW-BTC"), (m) => received.push(m));
+  await settle();
+  const base = received.length;
+
+  stomp.state.args!.onDisconnect();
+  stomp.state.args!.onConnect(); // 재동기화 1(지연 중)
+  stomp.state.args!.onDisconnect();
+  stomp.state.args!.onConnect(); // 재동기화 2(즉시 완료, 기준점 seq 200)
+  await settle();
+  // 이전 세대의 늦은 응답(오래된 seq 100)이 이제야 도착
+  assert.ok(deferred.resolveFirstResync, "첫 재동기화 fetch 발사됨");
+  deferred.resolveFirstResync(tickerBody(100));
+  await settle();
+
+  // stale 세대의 스냅샷은 배달되지 않고 기준점도 회귀하지 않는다
+  const seqs = received.slice(base).map((m) => m.seq);
+  assert.deepEqual(seqs, [200], "최신 세대 스냅샷만 배달");
+  // 기준점이 200으로 유지됐다면 다음 realtime 201이 gap 재동기화 없이 그대로 전달된다
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(201));
+  await settle();
+  assert.deepEqual(
+    received.slice(base).map((m) => m.seq),
+    [200, 201],
+    "기준점 회귀가 없어 realtime이 이어진다",
+  );
+});

@@ -97,6 +97,9 @@
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+  /* 공개 HeaderNav가 없는 자체 스크롤 컨테이너라 DataTable sticky 헤더 기준 상단은 0이다.
+     기본값 56px를 두면 헤더가 56px 내려앉고 그 위 띠로 데이터 행이 노출된다 */
+  --table-sticky-top: 0px;
 }
 .opbar {
   position: sticky;

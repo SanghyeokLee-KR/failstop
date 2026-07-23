@@ -55,7 +55,8 @@ export default function ConfigPage() {
       const [markets, notices] = await Promise.all([api.getConfigMarkets(), api.getNotices()]);
       return { markets, notices };
     },
-    { intervalMs: 2000, isSessionError },
+    // GET 2건 합성 + 승인 목록 폴링 동거 화면. 2초 주기는 관리 레이트리밋(60건/분) 초과라 5초로 완화
+    { intervalMs: 5000, isSessionError },
   );
   const markets: ConfigMarket[] | null = res.data?.markets ?? null;
   const notices: Notice[] | null = res.data?.notices ?? null;

@@ -15,10 +15,12 @@ import { toast } from "@/components/Toast";
 import { useExchangeStore, useLiveChannels } from "@/lib/store";
 import { dest, type OrderRequest, type Side } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
-import { priceStep } from "@/lib/sim/engine";
+import { ApiError } from "@/lib/api/httpDatasource";
+import { priceStep, SimApiError } from "@/lib/sim/engine";
 import { formatKRW, formatPrice, formatQty, toNum } from "@/lib/format";
 import {
   compareDecimal,
+  decimalsOf,
   fromScaledInt,
   mulDecimal,
   normalizeDecimal,
@@ -27,6 +29,7 @@ import {
 } from "@/lib/decimal";
 import {
   initOrderKey,
+  isFinalRejectStatus,
   onInputChanged,
   onSubmitAccepted,
   onSubmitFailed,
@@ -46,11 +49,10 @@ import {
 } from "./orderMath";
 import styles from "./OrderPanel.module.css";
 
-const FEE_RATE = 0.0005;
-const FEE_RATE_STR = "0.0005";
-// 총액+수수료 = 총액×(1+0.0005). bid 잔고 검증을 문자열 곱 한 번으로 처리한다
-const GROSS_RATE_STR = "1.0005";
-const MIN_ORDER_KRW = 5000;
+// 수수료·최소주문의 권위 소스는 GET /markets 마켓 메타다(§4-A-1, 관리자 런타임 변경 가능).
+// 아래 상수는 메타 미로딩 구간의 표시·검증 폴백일 뿐이다.
+const FALLBACK_FEE_RATE_STR = "0.0005";
+const FALLBACK_MIN_ORDER_KRW = "5000";
 const CONFIRM_TIMEOUT_MS = 3000;
 
 type OrdType = "limit" | "market";
@@ -136,8 +138,13 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     }
   }, [ticker]);
 
+  // armed 라벨용 총액 스냅샷. 시장가 매도의 라이브 파생 총액이 armed 3초 창 동안 계속 바뀌면
+  // aria-live 버튼이 틱마다 확정 문장을 재낭독하고 확정 직전 금액이 흔들린다. arm 시점에 동결한다
+  const [armedTotal, setArmedTotal] = useState<string | null>(null);
+
   const disarm = useCallback(() => {
     setArmed(false);
+    setArmedTotal(null);
     if (armTimer.current) {
       clearTimeout(armTimer.current);
       armTimer.current = null;
@@ -180,6 +187,17 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const qtyScale = marketInfo?.qty_scale ?? 8;
   const curPrice = ticker ? toNum(ticker.trade_price) : 0;
 
+  // 마켓 메타 소비(§4-A-1). taker_fee가 표시·잔고 검증·프리셋 역산의 단일 수수료 기준
+  const feeRateStr = marketInfo?.taker_fee ?? FALLBACK_FEE_RATE_STR;
+  const feeRate = toNum(feeRateStr);
+  // 총액+수수료 = 총액×(1+fee). 문자열 십진으로 1+fee를 만들어 곱 한 번으로 처리
+  const feeScale = decimalsOf(feeRateStr);
+  const grossRateStr = fromScaledInt(10n ** BigInt(feeScale) + scaledIntTrunc(feeRateStr, feeScale), feeScale);
+  // 라벨 % 표기는 수수료율에서 파생(0.0005 -> 0.05)
+  const feePctStr = mulDecimal(feeRateStr, "100");
+  const minOrderStr = marketInfo?.min_order_amount ?? FALLBACK_MIN_ORDER_KRW;
+  const maxOrderStr = marketInfo?.max_order_amount ?? null;
+
   // 가격·퍼센트칩·틱 계산용 number(격자 선택·역산 보조). 총액·수수료·검증·제출은 아래 십진 문자열이 단일 기준.
   const price = ordType === "market" ? curPrice : toNum(priceRaw);
   const isMarketBuy = ordType === "market" && side === "bid";
@@ -204,11 +222,12 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
       ? normalizeDecimal(ticker?.trade_price ?? "0")
       : roundToTick(priceRaw || "0", priceTick);
   const totalStr = isMarketBuy ? amountStr : mulDecimal(priceBasisStr, qtyStr);
-  const feeStr = mulDecimal(totalStr, FEE_RATE_STR);
-  // 원 단위 반올림 총액(BigInt). 최소주문·표시가 서브원 오차 없이 정렬된다
+  const feeStr = mulDecimal(totalStr, feeRateStr);
+  // 원 단위 반올림 총액(BigInt). 시장가 매수 notional·다이얼로그 표시 전용.
+  // 최소주문 판정에 쓰면 [min-0.5, min) 구간이 half-up으로 통과해 서버 정확 비교와 경계가 어긋난다
   const totalWon = scaledIntRound(totalStr, 0);
   // 총액+수수료. bid 잔고 초과 판정 기준
-  const grossStr = mulDecimal(totalStr, GROSS_RATE_STR);
+  const grossStr = mulDecimal(totalStr, grossRateStr);
 
   const availKRWStr = assets.find((a) => a.currency === "KRW")?.balance ?? "0";
   const availCoinStr = assets.find((a) => a.currency === base)?.balance ?? "0";
@@ -217,14 +236,19 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   // 진행 중과 실패를 분리한다. 실패면 영구 로딩 대신 재시도를 노출하고, 잔고 미확정이므로 CTA는 막는다
   const loadingBalance = !accountsFailed && (assets.length === 0 || !ticker);
 
-  /* ===== 검증 (OrderClient 규약 그대로, 문자열 십진 기준) ===== */
-  const minOrder = BigInt(MIN_ORDER_KRW);
+  /* ===== 검증 (OrderClient 규약, 문자열 십진 정확 비교) =====
+     최소·최대는 반올림 총액이 아니라 정확 비교로 판정한다. 서버(게이트웨이 정적 검증 §4-B-1)가
+     NUMERIC 정확 비교라 클라이언트만 반올림하면 경계 구간 주문이 인라인 검증을 통과 후 거부된다 */
+  const totalPositive = compareDecimal(totalStr, "0") > 0;
   let error: string | null = null;
-  if (totalWon > 0n && totalWon < minOrder) error = "최소 주문 금액은 5,000원이에요";
-  else if (side === "bid" && totalWon > 0n && compareDecimal(grossStr, availKRWStr) > 0)
+  if (totalPositive && compareDecimal(totalStr, minOrderStr) < 0)
+    error = `최소 주문 금액은 ${formatKRW(minOrderStr)}원이에요`;
+  else if (totalPositive && maxOrderStr !== null && compareDecimal(totalStr, maxOrderStr) > 0)
+    error = `최대 주문 금액은 ${formatKRW(maxOrderStr)}원이에요`;
+  else if (side === "bid" && totalPositive && compareDecimal(grossStr, availKRWStr) > 0)
     error = "주문 가능 금액을 초과했어요";
   else if (side === "ask" && compareDecimal(qtyStr, availCoinStr) > 0) error = "보유 수량을 초과했어요";
-  const ready = totalWon >= minOrder && error === null && !loadingBalance && !accountsFailed;
+  const ready = totalPositive && error === null && !loadingBalance && !accountsFailed;
 
   // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다(임계 판정은 number로 충분)
   const committedRatio = committedRatioOf(side, toNum(totalStr), toNum(feeStr), availKRW, availCoin, toNum(qtyStr));
@@ -253,7 +277,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   // 수량이 원본, 총액은 파생. 총액 입력은 역산해 수량에 되쓴다.
   const onTotalInput = (v: string) => {
     const t = toNum(v.replace(/[^0-9]/g, "").slice(0, 14));
-    const p = ordType === "market" ? curPrice : price;
+    // 역산 기준가는 검증·제출과 같은 틱 반올림가(priceBasisStr). 원시 입력가 기준이면
+    // 격자 밖 가격에서 역산 수량의 반올림가 총액이 입력 총액과 어긋난다
+    const p = toNum(priceBasisStr);
     const next = qtyFromTotal(t, p, qtyScale);
     if (next !== null) setQtyRaw(next);
     setActivePct(null);
@@ -272,11 +298,14 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
       return;
     }
     if (isMarketBuy) {
-      setAmountRaw(String(Math.floor((availKRW * (pct / 100)) / (1 + FEE_RATE))));
+      setAmountRaw(String(Math.floor((availKRW * (pct / 100)) / (1 + feeRate))));
       return;
     }
-    if (price > 0) {
-      const usable = (availKRW * (pct / 100)) / (price * (1 + FEE_RATE));
+    // 역산 기준가는 검증·제출과 같은 틱 반올림가. 원시 입력가 기준이면 100% 프리셋이
+    // 스스로 채운 수량이 반올림가 총액으로 재검증되며 잔고 초과 에러를 만든다
+    const pb = toNum(priceBasisStr);
+    if (pb > 0) {
+      const usable = (availKRW * (pct / 100)) / (pb * (1 + feeRate));
       setQtyRaw(toPlainString(floorTo(usable, qtyScale), qtyScale));
     }
   };
@@ -312,8 +341,11 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
       setActivePct(null);
       void loadOrders();
     } catch (e) {
-      // 실패는 상태 UNKNOWN. 키를 보존해 동일 키 재전송·재조회 경로를 지킨다(§7-6)
-      keyStateRef.current = onSubmitFailed(keyState());
+      // 종결성 거부(4xx)는 키가 소모됐거나 선차단됐다. 같은 키 재시도는 REJECTED 멱등 replay를
+      // 거짓 성공으로 받으므로 dirty를 세워 다음 제출에 새 키를 쓴다. sim 거부는 전부 키 등록 전
+      // 종결이라 동일 취급. 상태 UNKNOWN(5xx·네트워크·타임아웃)·409·429만 키를 보존한다(§7-6)
+      const finalReject = e instanceof ApiError ? isFinalRejectStatus(e.status) : e instanceof SimApiError;
+      keyStateRef.current = finalReject ? onInputChanged(keyState()) : onSubmitFailed(keyState());
       toast(e instanceof Error ? e.message : "주문에 실패했어요. 잠시 후 다시 시도해 주세요", "error");
     } finally {
       // dirty 동결 해제는 제출 종료 시점. 재전송이 끝날 때까지 확정 키를 고정했다
@@ -332,8 +364,10 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     }
     if (!armed) {
       setArmed(true);
+      setArmedTotal(totalStr); // 확정 라벨 금액 동결(라이브 파생 총액의 armed 중 재낭독 방지)
       armTimer.current = setTimeout(() => {
         setArmed(false);
+        setArmedTotal(null);
         armTimer.current = null;
       }, CONFIRM_TIMEOUT_MS);
       return;
@@ -408,6 +442,10 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
                 value={priceRaw ? formatPriceField(priceRaw) : ""}
                 placeholder={ticker ? formatPrice(curPrice, priceTick) : "0"}
                 onChange={(e) => onPriceInput(e.target.value)}
+                onBlur={() => {
+                  // 격자 밖 입력은 제출 시 반올림가로 나간다. 표시가와 제출가가 다르지 않게 blur에 스냅
+                  if (priceRaw) setPriceRaw(roundToTick(priceRaw, priceTick));
+                }}
                 aria-label="주문 가격(원)"
                 disabled={submitting}
               />
@@ -511,7 +549,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           </div>
         )}
         <div className={styles.sumRow}>
-          <span>예상 수수료 (0.05%)</span>
+          <span>예상 수수료 ({feePctStr}%)</span>
           <b className="num">
             {formatKRW(feeStr)} <span className="unit-suffix">원</span>
           </b>
@@ -557,7 +595,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           {submitting
             ? "접수 중…"
             : armed
-              ? `${formatKRW(totalStr)} KRW ${sideLabel} 확정`
+              ? `${formatKRW(armedTotal ?? totalStr)} KRW ${sideLabel} 확정`
               : `${sideLabel}하기`}
         </button>
       </div>

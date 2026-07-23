@@ -42,3 +42,13 @@ export function onSubmitAccepted(state: OrderKeyState): OrderKeyState {
 export function onSubmitFailed(state: OrderKeyState): OrderKeyState {
   return state;
 }
+
+/**
+ * 종결성 거부 판정(API §2-4). 4xx 거부는 게이트웨이 선차단(키 미소모)이거나 저널 REJECTED
+ * 박제(키 영구 소모)다. 어느 쪽이든 같은 키 재시도는 무의미하거나 멱등 replay 거짓 성공을
+ * 만들므로 다음 제출은 새 키가 안전하다. 키를 보존해야 하는 예외는 상태 UNKNOWN(5xx·
+ * 타임아웃·네트워크 0)과 진행 중(409 order_in_progress)·레이트리밋(429)뿐이다(§7-6).
+ */
+export function isFinalRejectStatus(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 409 && status !== 429;
+}

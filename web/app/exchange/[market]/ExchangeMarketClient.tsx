@@ -64,13 +64,11 @@ function ExchangeMarketBody() {
     });
   }, [loadAccounts]);
 
-  // 실시간 배선: 현재 마켓 orderbook·trade + 마켓 목록용 전 마켓 ticker (§2.5)
-  useLiveChannels(
-    useMemo(
-      () => [dest.orderbook(market), dest.trade(market), ...COIN_META.map((c) => dest.ticker(c.market))],
-      [market],
-    ),
-  );
+  // 실시간 배선 (§2.5). 전 마켓 ticker는 마켓 전환과 무관해 deps 고정 배열로 분리한다.
+  // 한 배열에 담으면 전환마다 무관한 ticker 채널 전부가 철거·재구독되고 http 모드에서
+  // 마켓 수만큼 초기 스냅샷 REST가 재발사된다.
+  useLiveChannels(useMemo(() => COIN_META.map((c) => dest.ticker(c.market)), []));
+  useLiveChannels(useMemo(() => [dest.orderbook(market), dest.trade(market)], [market]));
   // 효과 강도는 WS가 아니라 폴링으로 반영(§4-A-6)
   useEffectConfigPolling();
 

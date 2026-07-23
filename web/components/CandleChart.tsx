@@ -47,6 +47,8 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
     setLoading(true);
     setEmpty(false);
     let disposed = false;
+    // cleanup이 in-flight 초기 로드를 실제 취소한다(결과 폐기만으로는 요청이 큐에 적체)
+    const loadAbort = new AbortController();
 
     const readTokens = () => ({
       up: cssVar("--color-up"),
@@ -104,9 +106,23 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
     }
     let last: LiveCandle | null = null;
     let candleData: CandlestickData<UTCTimestamp>[] = [];
+    // 거래량 원본(시각·값·방향 판정용 open/close). 데이터 내장 색은 setData 시점 토큰 값으로
+    // 굳어 applyOptions로는 안 바뀌므로, 테마 전이 시 색을 재계산해 setData로 재주입한다
+    interface VolPoint {
+      time: UTCTimestamp;
+      value: number;
+      open: number;
+      close: number;
+    }
+    let volPoints: VolPoint[] = [];
+    const volBar = (p: VolPoint): HistogramData<UTCTimestamp> => ({
+      time: p.time,
+      value: p.value,
+      color: volColor(p.open, p.close),
+    });
 
     getDataSource()
-      .getCandles(market, unit, 150)
+      .getCandles(market, unit, 150, loadAbort.signal)
       .then((rows) => {
         if (disposed) return;
         // 백엔드 미구현·일시 오류(어댑터가 []로 흡수)·빈 응답이면 빈 상태를 그린다.
@@ -136,13 +152,14 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
           low: toNum(c.low),
           close: toNum(c.close),
         }));
-        const volData: HistogramData<UTCTimestamp>[] = asc.map((c) => ({
+        volPoints = asc.map((c) => ({
           time: toChartTime(Date.parse(c.candle_time)),
           value: toNum(c.volume),
-          color: volColor(toNum(c.open), toNum(c.close)),
+          open: toNum(c.open),
+          close: toNum(c.close),
         }));
         candleSeries.setData(candleData);
-        volumeSeries.setData(volData);
+        volumeSeries.setData(volPoints.map(volBar));
         const latest = asc[asc.length - 1];
         if (latest) {
           last = {
@@ -195,7 +212,12 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
       }
       const time = toChartTime(last.bucketMs);
       candleSeries.update({ time, open: last.open, high: last.high, low: last.low, close: last.close });
-      volumeSeries.update({ time, value: last.volume, color: volColor(last.open, last.close) });
+      // 원본 배열도 함께 갱신해 테마 전이 재주입이 최신 막대까지 새 색으로 다시 그린다
+      const point: VolPoint = { time, value: last.volume, open: last.open, close: last.close };
+      const tail = volPoints[volPoints.length - 1];
+      if (tail && tail.time === time) volPoints[volPoints.length - 1] = point;
+      else volPoints.push(point);
+      volumeSeries.update(volBar(point));
     });
 
     /* 테마 전환 감지 → 토큰 재주입 (명시 토글 [data-theme] + 시스템 prefers-color-scheme 모두) */
@@ -208,6 +230,9 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
         timeScale: { borderColor: t.grid },
       });
       candleSeries.applyOptions({ upColor: t.up, downColor: t.down, wickUpColor: t.up, wickDownColor: t.down });
+      // 거래량 막대는 데이터 내장 색이라 applyOptions로 안 바뀐다. 새 토큰으로 재계산해 재주입하지
+      // 않으면 기존 막대가 이전 테마 색으로 잔존해 한 차트에 두 테마 색이 섞인다
+      if (volPoints.length > 0) volumeSeries.setData(volPoints.map(volBar));
     };
     const observer = new MutationObserver(applyTheme);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -216,6 +241,7 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
 
     return () => {
       disposed = true;
+      loadAbort.abort();
       unsubscribe();
       observer.disconnect();
       mq.removeEventListener("change", applyTheme);
@@ -245,7 +271,8 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "var(--text-tertiary)",
+            // 빈 상태 문구는 정보 텍스트라 tertiary(라이트 3.03:1) 금지, secondary 4.75:1
+            color: "var(--text-secondary)",
             fontSize: "var(--font-body-sm-size)",
           }}
         >

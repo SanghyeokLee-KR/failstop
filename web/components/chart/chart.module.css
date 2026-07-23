@@ -129,7 +129,8 @@
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-micro-size);
   font-weight: var(--fw-semibold);
-  color: var(--text-tertiary);
+  /* 그룹 분류는 정보 텍스트다. tertiary는 장식·비활성 전용(라이트 3.03:1 미달), secondary 4.75:1 */
+  color: var(--text-secondary);
 }
 .menuItem {
   display: flex;
@@ -185,7 +186,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-tertiary);
+  /* 상태 안내는 정보 텍스트. tertiary(라이트 3.03:1) 금지, secondary 4.75:1 */
+  color: var(--text-secondary);
   font-size: var(--font-body-sm-size);
   pointer-events: none;
 }
@@ -199,7 +201,8 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  color: var(--text-tertiary);
+  /* 빈 상태 문구는 다음 행동(재시도) 판단 지점의 정보 텍스트. tertiary(3.03:1) 금지 */
+  color: var(--text-secondary);
   font-size: var(--font-body-sm-size);
 }
 .retryBtn {

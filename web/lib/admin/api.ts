@@ -40,10 +40,13 @@ import type {
 /** 표준 관리 에러. name에 API §2-3 코드를 노출(jwt_verification·admin_forbidden 등) */
 export class AdminError extends Error {
   readonly code: string;
-  constructor(code: string, message: string) {
+  /** 429 응답의 Retry-After(초). 폴링 백오프 근거. 없으면 null */
+  readonly retryAfter: number | null;
+  constructor(code: string, message: string, retryAfter: number | null = null) {
     super(message);
     this.name = code;
     this.code = code;
+    this.retryAfter = retryAfter;
   }
 }
 

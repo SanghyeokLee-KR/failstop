@@ -22,8 +22,10 @@ const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jw
 
 export default function AdminOverviewPage() {
   const loadOverview = useCallback(() => getAdminApi().getOverview(), []);
+  // getOverview는 1회당 GET 7건 합성이다. 2초 주기는 승인 목록 폴링과 합쳐 분당 240건으로
+  // 서버 관리 레이트리밋(운영자당 60건/60초)을 상시 초과한다. 10초로 완화(42건/분)
   const { data: ov, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(loadOverview, {
-    intervalMs: 2000,
+    intervalMs: 10000,
     isSessionError,
   });
 

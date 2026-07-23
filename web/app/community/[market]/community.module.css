@@ -228,7 +228,9 @@
   flex-direction: column;
   gap: var(--space-4);
   position: sticky;
-  top: var(--space-6);
+  /* body 스크롤 화면이라 sticky 기준에 전역 HeaderNav 높이(56px, sticky top:0)를 더한다.
+     여백만 주면 고정 시 레일 상단이 헤더 아래로 파고들어 첫 카드 제목이 가려진다 */
+  top: calc(56px + var(--space-4));
 }
 .railCard {
   display: flex;

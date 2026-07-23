@@ -6,7 +6,7 @@
  * 화면은 selector로 필요한 조각만 구독한다 (셀 단위 리렌더 최소화).
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { create } from "zustand";
 import type {
   Asset,
@@ -259,18 +259,49 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
 }));
 
 /**
+ * 구독 집합 전이의 차집합. useLiveChannels가 destinations 변경 시 전량 철거·재구독 대신
+ * 추가·제거분만 반영하기 위한 순수 계산(회귀 테스트 대상).
+ */
+export function diffDestinations(
+  prev: Iterable<string>,
+  next: string[],
+): { added: string[]; removed: string[] } {
+  const prevSet = new Set(prev);
+  const nextSet = new Set(next);
+  return {
+    added: next.filter((d) => !prevSet.has(d)),
+    removed: [...prevSet].filter((d) => !nextSet.has(d)),
+  };
+}
+
+/**
  * 채널 구독 훅. 마운트 시 destination들을 구독하고 스토어에 흘려 넣는다.
  * 예: useLiveChannels([dest.ticker("KRW-BTC"), dest.orderbook("KRW-BTC")])
+ * destinations 변경 시 diff 기반으로 추가·제거된 채널만 구독·해제한다. 전량 철거·재구독은
+ * 유지 중인 채널의 STOMP UNSUBSCRIBE/SUBSCRIBE와 채널 수 규모의 초기 스냅샷 REST를 재발사한다.
  */
 export function useLiveChannels(destinations: string[]): void {
   const apply = useExchangeStore((s) => s.apply);
   const key = destinations.join(",");
   const stable = useMemo(() => destinations, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const subs = useRef<Map<string, () => void>>(new Map());
   useEffect(() => {
     const ds = getDataSource();
-    const offs = stable.map((d) => ds.subscribe(d, apply));
-    return () => offs.forEach((off) => off());
+    const { added, removed } = diffDestinations(subs.current.keys(), stable);
+    for (const d of removed) {
+      subs.current.get(d)?.();
+      subs.current.delete(d);
+    }
+    for (const d of added) subs.current.set(d, ds.subscribe(d, apply));
   }, [stable, apply]);
+  // 언마운트 시 전체 해제. StrictMode 이중 마운트에서도 재실행 effect가 빈 맵에서 재구독한다
+  useEffect(
+    () => () => {
+      for (const off of subs.current.values()) off();
+      subs.current.clear();
+    },
+    [],
+  );
 }
 
 // 효과 강도는 실시간 push가 아니라 폴링으로 반영한다(§4-A-6). cosmetic 값이라 저빈도로 충분

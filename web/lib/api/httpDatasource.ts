@@ -9,7 +9,7 @@
  *   만료·401 시 재발급 후 1회 재시도. 비공개 채널은 CONNECT 헤더 Bearer.
  */
 
-import { Client, type IMessage } from "@stomp/stompjs";
+import { Client, TickerStrategy, type IMessage } from "@stomp/stompjs";
 import type {
   Asset,
   Candle,
@@ -181,6 +181,10 @@ function defaultStompFactory(args: StompFactoryArgs): StompHandle {
     reconnectDelay: 2000,
     heartbeatIncoming: 10000,
     heartbeatOutgoing: 10000,
+    // 은닉 탭에서 메인 스레드 setInterval이 스로틀되면 발신 하트비트가 굶어 서버가 연결을
+    // 닫고, 재연결마다 전 채널 REST 재동기화 버스트가 반복된다. 웹워커 타이머는 스로틀
+    // 대상이 아니라 은닉 중 절단 자체를 막는다. Worker 미지원 환경은 라이브러리가 interval로 폴백
+    heartbeatStrategy: TickerStrategy.Worker,
     beforeConnect: () => {
       // 재연결마다 최신 세션 토큰 반영
       client.connectHeaders = args.connectHeaders();
@@ -241,6 +245,10 @@ interface ChannelState {
   resyncing: boolean;
   /** 재동기화 중 도착분. 완료 후 seq 오름차순 flush */
   buffer: WsMessage[];
+  /** 재동기화 세대. 플랩 재연결로 겹친 이전 실행이 기준점·버퍼를 되돌리지 못하게 최신 세대만 반영한다 */
+  resyncGen: number;
+  /** 진행 중 재동기화 REST 취소 핸들. 새 세대 시작 시 이전 in-flight fetch를 끊는다 */
+  resyncAbort: AbortController | null;
 }
 
 export interface HttpDataSourceOptions {
@@ -300,7 +308,15 @@ export class HttpStompDataSource implements DataSource {
         ...(init.body != null ? JSON_HEADERS : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      return this.fetchFn(`${this.apiBase}${path}`, { ...init, headers });
+      try {
+        return await this.fetchFn(`${this.apiBase}${path}`, { ...init, headers });
+      } catch (e) {
+        // 호출측 취소(AbortSignal)는 흐름 제어라 원형 보존. 그 외 fetch 자체 거부(백엔드 다운·
+        // 오프라인·CORS)는 브라우저 원문(영문 'Failed to fetch' 등)이 토스트에 노출되지 않도록
+        // 표준 에러로 래핑한다(§2-3 한국어 메시지 계약)
+        if ((e as { name?: string } | null)?.name === "AbortError") throw e;
+        throw new ApiError(0, "network_error", "네트워크에 연결할 수 없어요. 잠시 후 다시 시도해 주세요");
+      }
     };
     // 토큰 확보. 회원 기원 쓰기는 refresh 실패 시 데모 계정으로 재집행하지 않는다.
     // 데모 폴백은 §4-1 둘러보기(읽기) 연속성 의도다. 회원 주문(placeOrder·cancelOrder)을
@@ -476,16 +492,25 @@ export class HttpStompDataSource implements DataSource {
   subscribe(destination: string, cb: Listener): () => void {
     let ch = this.channels.get(destination);
     if (!ch) {
-      ch = { subscribers: new Map(), stompUnsub: null, lastSeq: null, resyncing: false, buffer: [] };
+      ch = { subscribers: new Map(), stompUnsub: null, lastSeq: null, resyncing: false, buffer: [], resyncGen: 0, resyncAbort: null };
       this.channels.set(destination, ch);
     }
     ch.subscribers.set(cb, (ch.subscribers.get(cb) ?? 0) + 1);
     if (this.stompConnected && !ch.stompUnsub) this.attachStomp(destination, ch);
     if (destination.startsWith("/user/") && !this.authOnConnect) void this.upgradeAuth();
     // 구독 즉시 스냅샷 1건 계약(DataSource 계약). 서버 push는 orderbook 한정이라
-    // ticker·myAsset은 REST로 합성해 신규 구독자에게만 전달한다
-    void this.deliverInitialSnapshot(destination, cb);
+    // ticker·myAsset은 REST로 합성해 신규 구독자에게만 전달한다.
+    // 핸들별 컨트롤러로 unsubscribe가 in-flight 스냅샷 fetch를 실제로 취소한다(결과 폐기만으로는
+    // 빠른 마켓 전환 반복 시 미취소 요청이 커넥션 큐를 점유한다)
+    const snapshotAbort = new AbortController();
+    void this.deliverInitialSnapshot(destination, cb, snapshotAbort.signal);
+    // 핸들은 one-shot. done 없이 감산만 하면 같은 (destination, cb) 구독 2건 상태에서 첫 핸들의
+    // 이중 호출이 살아있는 구독의 참조를 훔쳐 STOMP 구독을 조기 철거한다(사일런트 프리즈)
+    let done = false;
     return () => {
+      if (done) return;
+      done = true;
+      snapshotAbort.abort();
       const c = this.channels.get(destination);
       if (!c) return;
       const refs = c.subscribers.get(cb);
@@ -493,6 +518,7 @@ export class HttpStompDataSource implements DataSource {
       if (refs <= 1) c.subscribers.delete(cb);
       else c.subscribers.set(cb, refs - 1);
       if (c.subscribers.size === 0) {
+        c.resyncAbort?.abort();
         c.stompUnsub?.();
         this.channels.delete(destination);
       }
@@ -579,6 +605,8 @@ export class HttpStompDataSource implements DataSource {
       ...(body != null ? { body: JSON.stringify(body) } : {}),
     });
     if (!res.ok) throw await toApiError(res);
+    // 로그아웃은 본문 없는 204가 계약(§3-8). 빈 본문 json() 파싱이 정상 응답을 실패로 만들지 않게 한다
+    if (res.status === 204) return {};
     return (await res.json()) as AuthResponse;
   }
 
@@ -627,12 +655,15 @@ export class HttpStompDataSource implements DataSource {
       token = body.access_token;
     } catch (e) {
       // 401·403(만료·부재·재사용 탐지)만 세션 종료로 수렴해 재로그인 전까지 재요청을 억제한다(§3-4).
-      // 네트워크·5xx·429 일시 장애는 유효 rt 쿠키를 버리지 않도록 억제하지 않고 다음 트리거에서 재시도한다.
-      this.clearMember();
+      // 네트워크·5xx·429 일시 장애는 member를 해제하면 재시도 트리거(ensureAuthToken·커뮤니티 401
+      // 경로)가 전부 소멸해 유효 rt 쿠키를 갖고도 데모로 강등된다. 세션을 유지한 채 원 오류를
+      // 표면화하고, 다음 트리거에서 자연 재시도한다.
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        this.clearMember();
         this.refreshBlocked = true;
+        return null;
       }
-      return null;
+      throw e;
     }
     // refresh 응답은 user를 주지 않으므로 /me로 사용자 로드(§3-8)
     const user = this.member?.user ?? (await this.fetchMe(token));
@@ -805,19 +836,27 @@ export class HttpStompDataSource implements DataSource {
   }
 
   private startResync(destination: string, ch: ChannelState, pending?: WsMessage): void {
+    // 플랩 재연결(reconnectDelay 2s < REST 상한 8s)은 이전 재동기화가 미완인 채 다음을 시작한다.
+    // 이전 in-flight를 취소하고 세대를 올려, 늦게 끝난 이전 실행이 lastSeq 회귀·버퍼 flush·
+    // resyncing 해제로 최신 실행을 오염시키지 못하게 한다.
+    ch.resyncAbort?.abort();
+    const gen = ++ch.resyncGen;
     ch.resyncing = true;
     ch.buffer = pending ? [pending] : [];
     // REST가 영영 안 끝나면 finally 미실행 → resyncing 잔류 → 채널 영구 정지·버퍼 무한 증가.
     // 타임아웃으로 fetch를 취소해 프라미스를 확정 종료시킨다(catch로 수렴).
     const controller = new AbortController();
+    ch.resyncAbort = controller;
     const timer = setTimeout(() => controller.abort(), RESYNC_TIMEOUT_MS);
-    void this.resyncChannel(destination, ch, controller.signal)
+    void this.resyncChannel(destination, ch, controller.signal, gen)
       .catch(() => {
         // 재동기화 실패·타임아웃 시 스트림 정지 방지: 기준점 초기화 후 realtime 재개
-        ch.lastSeq = null;
+        if (ch.resyncGen === gen) ch.lastSeq = null;
       })
       .finally(() => {
         clearTimeout(timer);
+        if (ch.resyncGen !== gen) return; // 세대 교체됨. flush·상태 정리는 최신 실행 소유
+        ch.resyncAbort = null;
         const buffered = ch.buffer.sort((a, b) => a.seq - b.seq);
         ch.buffer = [];
         ch.resyncing = false;
@@ -829,8 +868,13 @@ export class HttpStompDataSource implements DataSource {
       });
   }
 
-  /** 채널 종류별 REST 스냅샷 재동기화(§5-2 gap 규칙). signal은 타임아웃 취소용 */
-  private async resyncChannel(destination: string, ch: ChannelState, signal?: AbortSignal): Promise<void> {
+  /** 재동기화 실행이 여전히 최신 세대인지. await 재개 지점마다 검사해 stale 실행의 상태 변경을 차단한다 */
+  private resyncFresh(ch: ChannelState, gen: number | undefined): boolean {
+    return gen === undefined || ch.resyncGen === gen;
+  }
+
+  /** 채널 종류별 REST 스냅샷 재동기화(§5-2 gap 규칙). signal은 취소용, gen은 세대 검사용 */
+  private async resyncChannel(destination: string, ch: ChannelState, signal?: AbortSignal, gen?: number): Promise<void> {
     const parsed = parseDest(destination);
     if (!parsed) return;
     const prevSeq = ch.lastSeq;
@@ -838,13 +882,14 @@ export class HttpStompDataSource implements DataSource {
     switch (parsed.kind) {
       case "orderbook": {
         const snap = await this.getOrderbook(parsed.market, signal);
+        if (!this.resyncFresh(ch, gen)) return;
         ch.lastSeq = snap.seq;
         this.deliver(ch, snap);
         return;
       }
       case "ticker": {
         const [t] = await this.getTicker([parsed.market], signal);
-        if (!t) return;
+        if (!t || !this.resyncFresh(ch, gen)) return;
         ch.lastSeq = t.seq;
         this.deliver(ch, this.tickerToMessage(t, "snapshot"));
         return;
@@ -854,6 +899,7 @@ export class HttpStompDataSource implements DataSource {
         // 도메인을 쓴다(백엔드_API_설계 §4-A-3, §5-2). 따라서 prevSeq(WS 기준점)로 이미 본 체결을
         // 거르고, lastSeq를 REST seq로 올려도 이어지는 실시간 seq와 단조성이 유지된다.
         const trades = await this.getTrades(parsed.market, 50, signal);
+        if (!this.resyncFresh(ch, gen)) return;
         const missed = trades
           .filter((t) => prevSeq === null || t.seq > prevSeq)
           .sort((a, b) => a.seq - b.seq);
@@ -870,7 +916,7 @@ export class HttpStompDataSource implements DataSource {
         // candle 채널도 REST와 WS가 동일 event_seq 도메인(§5-2). 최신 캔들 seq를 기준점으로
         // 삼으면 이어지는 실시간 캔들이 단조 검사에 걸리지 않고 이어진다.
         const [c] = await this.getCandles(parsed.market, parsed.unit, 1, signal);
-        if (!c) return;
+        if (!c || !this.resyncFresh(ch, gen)) return;
         ch.lastSeq = c.seq;
         this.deliver(ch, this.candleToMessage(c, parsed.unit));
         return;
@@ -880,6 +926,7 @@ export class HttpStompDataSource implements DataSource {
         // open만 복원하면 gap 구간에 종결된 주문의 종결 통지가 유실된다. closed도 함께
         // 재전달해 스토어가 open→closed 전이를 확정한다(§5-2 myOrder 스냅샷 부재 보완).
         const [open, closed] = await Promise.all([this.getOpenOrders(undefined, signal), this.getClosedOrders(undefined, signal)]);
+        if (!this.resyncFresh(ch, gen)) return;
         ch.lastSeq = null;
         for (const o of open) this.deliver(ch, this.orderToMyOrderMessage(o));
         for (const o of closed) this.deliver(ch, this.orderToMyOrderMessage(o));
@@ -887,6 +934,7 @@ export class HttpStompDataSource implements DataSource {
       }
       case "myAsset": {
         const assets = await this.getAccounts(signal);
+        if (!this.resyncFresh(ch, gen)) return;
         ch.lastSeq = null;
         this.deliver(ch, this.assetsToMessage(assets));
         return;
@@ -894,24 +942,27 @@ export class HttpStompDataSource implements DataSource {
     }
   }
 
-  /** 신규 구독자 1명에게만 초기 스냅샷 전달 (SimDataSource 동작과 동일 계약) */
-  private async deliverInitialSnapshot(destination: string, cb: Listener): Promise<void> {
+  /** 신규 구독자 1명에게만 초기 스냅샷 전달 (SimDataSource 동작과 동일 계약). signal은 구독 핸들 해제 시 취소 */
+  private async deliverInitialSnapshot(destination: string, cb: Listener, signal?: AbortSignal): Promise<void> {
     const parsed = parseDest(destination);
     if (!parsed) return;
     const alive = () => this.channels.get(destination)?.subscribers.has(cb) ?? false;
     try {
       if (parsed.kind === "ticker") {
-        const [t] = await this.getTicker([parsed.market]);
+        const [t] = await this.getTicker([parsed.market], signal);
         if (t && alive()) cb(this.tickerToMessage(t, "snapshot"));
       } else if (parsed.kind === "orderbook") {
         // 연결 상태면 STOMP 구독 즉시 서버 snapshot 1건이 연속성 기준점으로 도착한다(§5-2).
         // 그때 REST 스냅샷까지 보내면 느린 REST 응답이 이미 반영된 최신 실시간을 stale로 되돌린다.
         // REST 스냅샷은 미연결 시 초기 표시를 채우는 용도로만 쓴다.
         if (this.stompConnected) return;
-        const snap = await this.getOrderbook(parsed.market);
+        const snap = await this.getOrderbook(parsed.market, signal);
         if (alive()) cb(snap);
       } else if (parsed.kind === "myAsset") {
-        const assets = await this.getAccounts();
+        const assets = await this.getAccounts(signal);
+        // REST 왕복 중 realtime myAsset이 먼저 도착했으면(lastSeq 확립) 늦은 스냅샷이 체결 후
+        // 잔액을 체결 전으로 되돌린다. store myAsset은 신선도 가드가 없어 여기서 폐기한다
+        if (this.channels.get(destination)?.lastSeq != null) return;
         if (alive()) cb(this.assetsToMessage(assets));
       }
       // trade·candle·myOrder는 스냅샷 없음. 화면이 REST로 초기화(§5-2)

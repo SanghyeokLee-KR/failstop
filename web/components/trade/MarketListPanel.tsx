@@ -6,13 +6,14 @@
  * 데이터: markets + tickers + favorites (+assets, 보유 탭).
  */
 
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PanelCard from "@/components/PanelCard";
 import SegmentedTab from "@/components/SegmentedTab";
 import { useExchangeStore } from "@/lib/store";
 import { COIN_META } from "@/lib/sim/engine";
 import { compareDecimal } from "@/lib/decimal";
+import type { CoinMeta, TickerMessage } from "@/lib/types";
 import { dirOf, formatChangeRate, formatCompactKRW, formatPrice, toNum } from "@/lib/format";
 import styles from "./MarketListPanel.module.css";
 
@@ -33,13 +34,70 @@ const HEADERS: { key: SortKey; label: string }[] = [
   { key: "volume", label: "거래대금" },
 ];
 
+/**
+ * 마켓 행. memo로 해당 마켓 ticker 참조가 바뀐 행만 리렌더한다.
+ * 패널은 전 마켓 ticker를 구독하므로 memo 없이는 임의 마켓 티커 1건마다 전 행이
+ * 포맷터(BigInt 경로 포함)를 재실행한다. props는 전부 원시값·안정 참조로 유지한다.
+ */
+const MarketRow = memo(function MarketRow({
+  meta,
+  ticker,
+  tickSpec,
+  current,
+  onNavigate,
+}: {
+  meta: CoinMeta;
+  ticker: TickerMessage | undefined;
+  tickSpec: string | undefined;
+  current: boolean;
+  onNavigate: (market: string) => void;
+}) {
+  const d = ticker ? dirOf(ticker.change) : "flat";
+  return (
+    <button
+      type="button"
+      className={styles.row}
+      data-current={current || undefined}
+      aria-current={current ? "page" : undefined}
+      onClick={() => {
+        if (!current) onNavigate(meta.market);
+      }}
+    >
+      <span className={styles.nameCell}>
+        <span className={styles.nameText}>
+          <span className={styles.name}>{meta.koreanName}</span>
+          <span className={`${styles.sym} num`}>{meta.symbol}/KRW</span>
+        </span>
+      </span>
+      <span className="dir-text num" data-dir={d}>
+        {/* 셀별 틱 구독·플래시 비용을 없앤다. 방향은 행 data-dir 색과
+            전일대비 부호·화살표가 전달하고, 현재가 히어로가 상세 플래시를 담당한다(§16) */}
+        {ticker?.trade_price != null ? formatPrice(ticker.trade_price, tickSpec) : "-"}
+      </span>
+      <span className="dir-text num" data-dir={d}>
+        {ticker ? formatChangeRate(ticker.change_rate, ticker.change) : "-"}
+      </span>
+      <span className={`${styles.vol} num`}>
+        {ticker ? formatCompactKRW(ticker.acc_trade_price_24h) : "-"}
+      </span>
+    </button>
+  );
+});
+
 export default function MarketListPanel({ market }: { market: string }) {
   const router = useRouter();
   const tickers = useExchangeStore((s) => s.tickers);
   const markets = useExchangeStore((s) => s.markets);
   const favorites = useExchangeStore((s) => s.favorites);
   const assets = useExchangeStore((s) => s.assets);
-  const specOf = (m: string) => markets.find((x) => x.market === m)?.tick_size;
+  // 행별 markets.find(커밋당 O(행수×마켓수))를 없애는 Map 조회
+  const specMap = useMemo(() => new Map(markets.map((m) => [m.market, m.tick_size])), [markets]);
+  const onNavigate = useCallback(
+    (m: string) => {
+      router.push(`/exchange/${m}`);
+    },
+    [router],
+  );
 
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<ListTab>("krw");
@@ -162,41 +220,16 @@ export default function MarketListPanel({ market }: { market: string }) {
               <span className="empty-state__title">{emptyText}</span>
             </div>
           ) : (
-            rows.map((c) => {
-              const t = tickers[c.market];
-              const d = t ? dirOf(t.change) : "flat";
-              const current = c.market === market;
-              return (
-                <button
-                  key={c.market}
-                  type="button"
-                  className={styles.row}
-                  data-current={current || undefined}
-                  aria-current={current ? "page" : undefined}
-                  onClick={() => {
-                    if (!current) router.push(`/exchange/${c.market}`);
-                  }}
-                >
-                  <span className={styles.nameCell}>
-                    <span className={styles.nameText}>
-                      <span className={styles.name}>{c.koreanName}</span>
-                      <span className={`${styles.sym} num`}>{c.symbol}/KRW</span>
-                    </span>
-                  </span>
-                  <span className="dir-text num" data-dir={d}>
-                    {/* 약 269행의 셀별 틱 구독·플래시 비용을 없앤다. 방향은 행 data-dir 색과
-                        전일대비 부호·화살표가 전달하고, 현재가 히어로가 상세 플래시를 담당한다(§16) */}
-                    {t?.trade_price != null ? formatPrice(t.trade_price, specOf(c.market)) : "-"}
-                  </span>
-                  <span className="dir-text num" data-dir={d}>
-                    {t ? formatChangeRate(t.change_rate, t.change) : "-"}
-                  </span>
-                  <span className={`${styles.vol} num`}>
-                    {t ? formatCompactKRW(t.acc_trade_price_24h) : "-"}
-                  </span>
-                </button>
-              );
-            })
+            rows.map((c) => (
+              <MarketRow
+                key={c.market}
+                meta={c}
+                ticker={tickers[c.market]}
+                tickSpec={specMap.get(c.market)}
+                current={c.market === market}
+                onNavigate={onNavigate}
+              />
+            ))
           )}
         </div>
       </div>
