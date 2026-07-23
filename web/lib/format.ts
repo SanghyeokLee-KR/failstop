@@ -202,3 +202,19 @@ export function formatTimeHMS(iso: string): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
+
+/**
+ * 거래내역 시각 표기. 오늘 주문은 시:분:초, 그 외 날짜는 MM.DD 시:분을 병기한다.
+ * 날짜 없는 HH:MM:SS만으로는 어제 이전 주문이 언제인지 구분되지 않는다.
+ */
+export function formatHistoryTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}

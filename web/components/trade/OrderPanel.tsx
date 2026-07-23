@@ -18,6 +18,14 @@ import { getDataSource } from "@/lib/api/datasource";
 import { priceStep } from "@/lib/sim/engine";
 import { formatKRW, formatPrice, formatQty, toNum } from "@/lib/format";
 import {
+  compareDecimal,
+  fromScaledInt,
+  mulDecimal,
+  normalizeDecimal,
+  scaledIntRound,
+  scaledIntTrunc,
+} from "@/lib/decimal";
+import {
   initOrderKey,
   onInputChanged,
   onSubmitAccepted,
@@ -39,6 +47,9 @@ import {
 import styles from "./OrderPanel.module.css";
 
 const FEE_RATE = 0.0005;
+const FEE_RATE_STR = "0.0005";
+// 총액+수수료 = 총액×(1+0.0005). bid 잔고 검증을 문자열 곱 한 번으로 처리한다
+const GROSS_RATE_STR = "1.0005";
 const MIN_ORDER_KRW = 5000;
 const CONFIRM_TIMEOUT_MS = 3000;
 
@@ -169,15 +180,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const qtyScale = marketInfo?.qty_scale ?? 8;
   const curPrice = ticker ? toNum(ticker.trade_price) : 0;
 
+  // 가격·퍼센트칩·틱 계산용 number(격자 선택·역산 보조). 총액·수수료·검증·제출은 아래 십진 문자열이 단일 기준.
   const price = ordType === "market" ? curPrice : toNum(priceRaw);
-  // 수량을 qty_scale 격자로 1회 내림한다. 검증·총액·수수료·최소주문·제출 volume이 단일 기준을 공유해
-  // 경계에서 UI ready인데 서버가 under_min_order·insufficient_funds로 거부하는 불일치를 없앤다. 잔고 안전 위해 반올림이 아닌 내림.
-  const qty = floorTo(toNum(qtyRaw), qtyScale);
-  const amount = toNum(amountRaw);
   const isMarketBuy = ordType === "market" && side === "bid";
-  const total = isMarketBuy ? amount : price * qty;
-  const fee = total * FEE_RATE;
-  const displayTotal = Math.round(total);
 
   // 가격 격자. 마켓 tick_size가 있으면 그것을, 없으면 가격대별 priceStep을 쓴다. 저가·소수틱 마켓 0 강제 방지.
   const priceTick =
@@ -188,21 +193,41 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const tickRef = useRef(priceTick);
   tickRef.current = priceTick;
 
-  const availKRW = toNum(assets.find((a) => a.currency === "KRW")?.balance);
-  const availCoin = toNum(assets.find((a) => a.currency === base)?.balance);
+  // 단일 십진 기준. 수량은 qty_scale 격자로 내림(잔고 안전, 반올림 아님), 가격은 틱 반올림.
+  // 총액·수수료·최소주문·잔고 검증·제출 volume이 같은 문자열 값을 공유해 float 왕복과 경계 불일치를 없앤다.
+  const qtyStr = fromScaledInt(scaledIntTrunc(qtyRaw || "0", qtyScale), qtyScale);
+  const amountStr = amountRaw === "" ? "0" : normalizeDecimal(amountRaw);
+  // 총액 기준가: 지정가는 틱 반올림가, 시장가 매도는 현재가 추정, 시장가 매수는 가격 미사용(총액=금액)
+  const priceBasisStr = isMarketBuy
+    ? "0"
+    : ordType === "market"
+      ? normalizeDecimal(ticker?.trade_price ?? "0")
+      : roundToTick(priceRaw || "0", priceTick);
+  const totalStr = isMarketBuy ? amountStr : mulDecimal(priceBasisStr, qtyStr);
+  const feeStr = mulDecimal(totalStr, FEE_RATE_STR);
+  // 원 단위 반올림 총액(BigInt). 최소주문·표시가 서브원 오차 없이 정렬된다
+  const totalWon = scaledIntRound(totalStr, 0);
+  // 총액+수수료. bid 잔고 초과 판정 기준
+  const grossStr = mulDecimal(totalStr, GROSS_RATE_STR);
+
+  const availKRWStr = assets.find((a) => a.currency === "KRW")?.balance ?? "0";
+  const availCoinStr = assets.find((a) => a.currency === base)?.balance ?? "0";
+  const availKRW = toNum(availKRWStr);
+  const availCoin = toNum(availCoinStr);
   // 진행 중과 실패를 분리한다. 실패면 영구 로딩 대신 재시도를 노출하고, 잔고 미확정이므로 CTA는 막는다
   const loadingBalance = !accountsFailed && (assets.length === 0 || !ticker);
 
-  /* ===== 검증 (OrderClient 규약 그대로) ===== */
+  /* ===== 검증 (OrderClient 규약 그대로, 문자열 십진 기준) ===== */
+  const minOrder = BigInt(MIN_ORDER_KRW);
   let error: string | null = null;
-  // 최소주문 판정을 표시 총액(반올림)과 정렬한다. 역산 내림의 서브원 오차로 '5,000 표시+미달' 모순이 나지 않게 한다
-  if (displayTotal > 0 && displayTotal < MIN_ORDER_KRW) error = "최소 주문 금액은 5,000원이에요";
-  else if (side === "bid" && total > 0 && total + fee > availKRW) error = "주문 가능 금액을 초과했어요";
-  else if (side === "ask" && qty > availCoin) error = "보유 수량을 초과했어요";
-  const ready = displayTotal >= MIN_ORDER_KRW && error === null && !loadingBalance && !accountsFailed;
+  if (totalWon > 0n && totalWon < minOrder) error = "최소 주문 금액은 5,000원이에요";
+  else if (side === "bid" && totalWon > 0n && compareDecimal(grossStr, availKRWStr) > 0)
+    error = "주문 가능 금액을 초과했어요";
+  else if (side === "ask" && compareDecimal(qtyStr, availCoinStr) > 0) error = "보유 수량을 초과했어요";
+  const ready = totalWon >= minOrder && error === null && !loadingBalance && !accountsFailed;
 
-  // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다
-  const committedRatio = committedRatioOf(side, total, fee, availKRW, availCoin, qty);
+  // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다(임계 판정은 number로 충분)
+  const committedRatio = committedRatioOf(side, toNum(totalStr), toNum(feeStr), availKRW, availCoin, toNum(qtyStr));
   const isLargeOrder = computeLargeOrder(ready, committedRatio);
 
   /* ===== 입력 핸들러 ===== */
@@ -270,13 +295,13 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             market,
             side,
             ord_type: "limit",
-            price: roundToTick(priceRaw, priceTick),
-            volume: toPlainString(qty, qtyScale),
+            price: priceBasisStr,
+            volume: qtyStr,
             client_order_id: cid,
           }
         : side === "bid"
-          ? { market, side, ord_type: "market", price: String(Math.round(amount)), client_order_id: cid }
-          : { market, side, ord_type: "market", volume: toPlainString(qty, qtyScale), client_order_id: cid };
+          ? { market, side, ord_type: "market", price: fromScaledInt(totalWon, 0), client_order_id: cid }
+          : { market, side, ord_type: "market", volume: qtyStr, client_order_id: cid };
     try {
       await getDataSource().placeOrder(req);
       // 확정 성공. 다음 주문은 새 키
@@ -327,12 +352,10 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
 
   // 다이얼로그 표시값. 시장가 매수는 체결 수량이 확정 전이라 현재가 기준 추정 수량을 보인다
   const confirmQtyStr = isMarketBuy
-    ? curPrice > 0
-      ? toPlainString(floorTo(amount / curPrice, qtyScale), qtyScale)
-      : "0"
-    : String(qty);
-  const confirmPriceStr = ordType === "limit" ? roundToTick(priceRaw, priceTick) : undefined;
-  const confirmTotalStr = String(Math.round(total));
+    ? (qtyFromTotal(amountStr, normalizeDecimal(ticker?.trade_price ?? "0"), qtyScale) ?? "0")
+    : qtyStr;
+  const confirmPriceStr = ordType === "limit" ? priceBasisStr : undefined;
+  const confirmTotalStr = fromScaledInt(totalWon, 0);
   const ratioPct = Math.round(committedRatio * 100);
 
   return (
@@ -463,7 +486,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           <div className={styles.sumRow}>
             <span>주문총액</span>
             <b className="num">
-              {formatKRW(total)} <span className="unit-suffix">원</span>
+              {formatKRW(totalStr)} <span className="unit-suffix">원</span>
             </b>
           </div>
         ) : (
@@ -477,7 +500,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
                 className="num"
                 inputMode="numeric"
                 autoComplete="off"
-                value={total > 0 ? formatKRW(total) : ""}
+                value={compareDecimal(totalStr, "0") > 0 ? formatKRW(totalStr) : ""}
                 placeholder="0"
                 onChange={(e) => onTotalInput(e.target.value)}
                 aria-label="주문총액(원)"
@@ -490,7 +513,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
         <div className={styles.sumRow}>
           <span>예상 수수료 (0.05%)</span>
           <b className="num">
-            {formatKRW(fee)} <span className="unit-suffix">원</span>
+            {formatKRW(feeStr)} <span className="unit-suffix">원</span>
           </b>
         </div>
         <div className={styles.sumRow}>
@@ -534,7 +557,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           {submitting
             ? "접수 중…"
             : armed
-              ? `${formatKRW(total)} KRW ${sideLabel} 확정`
+              ? `${formatKRW(totalStr)} KRW ${sideLabel} 확정`
               : `${sideLabel}하기`}
         </button>
       </div>

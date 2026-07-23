@@ -501,12 +501,13 @@ export class SimAdminApi implements AdminApi {
         break;
       }
       case "operators.create": {
+        // 생성은 신원만 등록한다. 역할은 operators.roles 별도 승인 경로로만 부여한다(§3-6, 반결탁).
         // 중복 operatorId는 생성하지 않는다(§6-D 409 market 대응)
         if (!this.operators.some((o) => o.operatorId === payload.operatorId)) {
           this.operators.push({
             operatorId: payload.operatorId,
             displayName: payload.displayName,
-            roles: payload.roles.slice(),
+            roles: [],
             status: "ACTIVE",
           });
         }

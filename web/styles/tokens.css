@@ -67,6 +67,9 @@
   --text-inverse:#FFFFFF;
   --text-brand:var(--brand-600);   /* 링크 텍스트 (600으로 대비 확보) */
   --text-on-brand:#FFFFFF;
+  /* 코인 브랜드칩 온-브랜드 텍스트. 배경은 데이터(brandColor)라 앱 테마와 무관하게 고정한다 */
+  --text-on-brand-light:#FFFFFF;   /* 어두운 브랜드 배경 위 */
+  --text-on-brand-dark:#16191F;    /* 밝은 브랜드 배경 위 */
 
   /* ===== Brand / Interactive ===== */
   --brand-primary:var(--brand-600);         /* 텍스트/보더에 안전한 기본 */

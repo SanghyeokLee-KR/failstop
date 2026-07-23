@@ -33,7 +33,6 @@ export default function OperatorsPage() {
   const [targetId, setTargetId] = useState("");
   const [newId, setNewId] = useState("");
   const [newName, setNewName] = useState("");
-  const [newRoles, setNewRoles] = useState<AdminRole[]>(["VIEWER"]);
   const actions = useMemo(() => OP_ACTIONS, []);
 
   const res = useAdminResource<AdminOperator[]>(() => getAdminApi().getOperators(), { intervalMs: 3000, isSessionError });
@@ -47,10 +46,6 @@ export default function OperatorsPage() {
   useEffect(() => {
     if (selected) editorHeadingRef.current?.focus();
   }, [selected?.operatorId]);
-
-  const toggleNewRole = (r: AdminRole) => {
-    setNewRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
-  };
 
   const idValid = OPERATOR_ID_RE.test(newId.trim());
   const idTaken = (ops ?? []).some((o) => o.operatorId === newId.trim());
@@ -208,34 +203,22 @@ export default function OperatorsPage() {
           </div>
           {newId.length > 0 && !idValid && <PermissionNote>operatorId는 소문자·숫자·하이픈 2자 이상입니다.</PermissionNote>}
           {idTaken && <PermissionNote>이미 존재하는 operatorId입니다.</PermissionNote>}
-          <fieldset className={styles.roleFieldset} disabled={!canSuper}>
-            <legend className="sr-only">초기 역할</legend>
-            {ADMIN_ROLES.map((r) => (
-              <label key={r} className={styles.roleCheck}>
-                <input type="checkbox" checked={newRoles.includes(r)} onChange={() => toggleNewRole(r)} />
-                <span className={styles.roleCheckLabel}>
-                  <RoleBadge role={r} />
-                  <small>{ROLE_DESC[r]}</small>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          <PermissionNote>생성은 신원만 등록합니다. 역할은 생성 후 관리 패널에서 건별 2인 승인으로 부여합니다(반결탁).</PermissionNote>
           {createReady ? (
             <RequestButton
               action="operators.create"
-              payload={{ action: "operators.create", operatorId: newId.trim(), displayName: newName.trim(), roles: newRoles }}
+              payload={{ action: "operators.create", operatorId: newId.trim(), displayName: newName.trim() }}
               label="생성 요청"
               onRequested={() => {
                 setNewId("");
                 setNewName("");
-                setNewRoles(["VIEWER"]);
                 load();
               }}
               confirm={{
                 title: "운영자 생성 요청",
                 description: "발급·실행 시 이 운영자가 레지스트리에 추가됩니다.",
                 target: `${newName.trim()} (${newId.trim()})`,
-                blastRadius: newRoles.length > 0 ? `초기 역할 ${newRoles.map((r) => ROLE_LABEL[r]).join(", ")}` : "초기 역할 없음",
+                blastRadius: "신원만 등록 · 역할은 별도 승인으로 부여",
                 confirmLabel: "생성 요청",
               }}
             />

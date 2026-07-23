@@ -79,7 +79,7 @@ export type ApprovalPayload =
   | { action: "config.market.halt"; symbol: string }
   | { action: "config.market.resume"; symbol: string }
   | { action: "config.market.fees"; symbol: string; makerFee: string; takerFee: string }
-  | { action: "operators.create"; operatorId: string; displayName: string; roles: AdminRole[] }
+  | { action: "operators.create"; operatorId: string; displayName: string }
   | { action: "operators.status"; operatorId: string; status: OperatorStatus }
   | { action: "operators.roles"; operatorId: string; grant: RoleGrant; role: AdminRole };
 

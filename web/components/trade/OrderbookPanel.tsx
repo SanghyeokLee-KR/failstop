@@ -79,8 +79,7 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
         />
       );
     }
-    const p = toNum(price);
-    const { rate, state } = rateVsPrevClose(p, prevClose);
+    const { rate, state } = rateVsPrevClose(price, prevClose);
     const d = dirOf(state);
     const sideLabel = side === "ask" ? "매도" : "매수";
     return (
@@ -118,7 +117,7 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
                 .reverse()}
               <div className={`${styles.mid} num dir-text`} data-dir={dir} ref={midRef}>
                 {ticker ? (
-                  <TickCell value={toNum(ticker.trade_price)} format={(v) => formatPrice(v, tickSpec)} level={midLevel} popCap={gov.popCap} popScope="orderbook" throttleBonus={gov.throttleBonusMs} />
+                  <TickCell value={toNum(ticker.trade_price)} valueStr={formatPrice(ticker.trade_price, tickSpec)} format={(v) => formatPrice(v, tickSpec)} level={midLevel} popCap={gov.popCap} popScope="orderbook" throttleBonus={gov.throttleBonusMs} />
                 ) : (
                   "-"
                 )}

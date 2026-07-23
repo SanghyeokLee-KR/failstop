@@ -35,9 +35,14 @@ function clearEffectState(el: HTMLElement, budgeted: { current: boolean }, scope
 }
 
 interface Props {
-  /** 비교 가능한 수치 값 (표시 문자열은 format으로 생성) */
+  /** 틱 방향 판정용 수치 값 (delta 비교 전용, 표시에는 쓰지 않는다) */
   value: number;
   format: (value: number) => string;
+  /**
+   * 표시용 원본 십진 문자열. 주어지면 렌더를 이 문자열로 하고 value는 델타 비교에만 쓴다.
+   * value(number) 왕복이 NUMERIC(40,18) 정밀을 잃는 근접·대형 가격에서 표시 오차를 없앤다.
+   */
+  valueStr?: string;
   className?: string;
   /**
    * 효과 강도(거버너 적용 후 유효 단계). 기본 subtle(배경 플래시만, 팝 없음).
@@ -54,7 +59,7 @@ interface Props {
   throttleBonus?: number;
 }
 
-function TickCell({ value, format, className, level = "subtle", strong = false, popCap = Infinity, popScope = "default", throttleBonus = 0 }: Props) {
+function TickCell({ value, format, valueStr, className, level = "subtle", strong = false, popCap = Infinity, popScope = "default", throttleBonus = 0 }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const prev = useRef<number | null>(null);
   const lastFlash = useRef(0);
@@ -135,7 +140,7 @@ function TickCell({ value, format, className, level = "subtle", strong = false, 
 
   return (
     <span ref={ref} className={`price-cell num ${className ?? ""}`}>
-      {format(value)}
+      {valueStr ?? format(value)}
     </span>
   );
 }

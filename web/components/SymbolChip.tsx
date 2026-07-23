@@ -17,7 +17,7 @@ export default function SymbolChip({ meta, size = "md" }: Props) {
       className={`sym-chip${size === "sm" ? " sym-chip--sm" : ""}`}
       style={{
         background: meta.brandColor,
-        color: meta.brandTextDark ? "#16191F" : "#FFFFFF",
+        color: meta.brandTextDark ? "var(--text-on-brand-dark)" : "var(--text-on-brand-light)",
       }}
       aria-hidden="true"
     >

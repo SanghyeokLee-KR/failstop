@@ -556,7 +556,7 @@ export class HttpAdminApi implements AdminApi {
       case "operators.create":
         await this.http<void>("/admin/v1/operators", {
           method: "POST",
-          body: JSON.stringify({ operator_id: operatorId, approval_token: token, new_operator_id: p.operatorId, display_name: p.displayName, roles: p.roles }),
+          body: JSON.stringify({ operator_id: operatorId, approval_token: token, new_operator_id: p.operatorId, display_name: p.displayName }),
         });
         return;
       case "operators.status":

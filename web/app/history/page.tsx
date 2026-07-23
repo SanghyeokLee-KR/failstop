@@ -17,7 +17,7 @@ import { useExchangeStore, useLiveChannels } from "@/lib/store";
 import { dest, type Order } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
 import { COIN_META } from "@/lib/sim/engine";
-import { formatPrice, formatQty, formatTimeHMS, toNum } from "@/lib/format";
+import { formatHistoryTime, formatPrice, formatQty, toNum } from "@/lib/format";
 import styles from "./page.module.css";
 
 type HistoryTab = "open" | "closed";
@@ -105,9 +105,9 @@ export default function HistoryPage() {
       {
         key: "time",
         label: "시각",
-        width: "84px",
+        width: "104px",
         sortValue: (o) => o.created_at,
-        render: (o) => formatTimeHMS(o.canceled_at ?? o.created_at),
+        render: (o) => formatHistoryTime(o.canceled_at ?? o.created_at),
       },
       {
         key: "market",
