@@ -161,18 +161,25 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
         });
         break;
       case "myAsset":
-        set((s) => ({
-          assets: msg.assets.map((a) => {
-            const prev = s.assets.find((p) => p.currency === a.currency);
-            return {
+        set((s) => {
+          // publishMyAsset은 접촉 마켓의 base·quote만 보내는 델타(§5-2/§5-5). msg.assets로 전체
+          // 교체하면 미접촉 보유코인이 소실돼 자산 화면 행·총평가·가용잔고가 어긋난다. currency
+          // 기준 upsert 병합으로 미접촉분을 보존한다. avg_buy_price는 델타에 없어 기존 값을 유지한다
+          const next = s.assets.slice();
+          for (const a of msg.assets) {
+            const i = next.findIndex((p) => p.currency === a.currency);
+            const merged: Asset = {
               currency: a.currency,
               balance: a.balance,
               locked: a.locked,
-              avg_buy_price: prev?.avg_buy_price ?? "0",
+              avg_buy_price: i >= 0 ? next[i].avg_buy_price : "0",
               unit_currency: "KRW",
             };
-          }),
-        }));
+            if (i >= 0) next[i] = merged;
+            else next.push(merged);
+          }
+          return { assets: next };
+        });
         break;
       case "myOrder": {
         // 미체결↔체결 목록 전이 (§8 화면6 실시간 규약)
@@ -193,9 +200,16 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
               : [synthOrderFromMyOrder(msg), ...openOrders],
           });
         } else {
+          const inClosed = closedOrders.find((o) => o.id === msg.id);
+          // 종결 주문이 openOrders에 없어도(재동기화 재전달·타 세션 종결) closedOrders에서 드롭하지
+          // 않는다. 보유분이 있으면 patch, 없으면 합성해 id upsert 한다(OPEN 분기와 대칭). 재전달이
+          // 중복 행을 만들지 않게 이미 있으면 갱신한다. 이후 loadOrders가 권위 Order로 교체한다
+          const settled = patch(inOpen ?? inClosed ?? synthOrderFromMyOrder(msg));
           set({
             openOrders: openOrders.filter((o) => o.id !== msg.id),
-            closedOrders: inOpen ? [patch(inOpen), ...closedOrders] : closedOrders,
+            closedOrders: inClosed
+              ? closedOrders.map((o) => (o.id === msg.id ? settled : o))
+              : [settled, ...closedOrders],
           });
         }
         break;
