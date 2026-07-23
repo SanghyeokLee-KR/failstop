@@ -9,7 +9,7 @@ import styles from "./admin.module.css";
 export type Health = "success" | "warning" | "danger";
 
 // 색약·모노 변별을 위해 심각도별 형태 분리(success 원·warning 삼각·danger 사각). 색은 보조 채널
-const HEALTH_ICON: Record<Health, string> = { success: "●", warning: "▲", danger: "■" };
+export const HEALTH_ICON: Record<Health, string> = { success: "●", warning: "▲", danger: "■" };
 
 /** 헬스 상태 필. 항상 아이콘+라벨 병기 */
 export function HealthPill({ health, label }: { health: Health; label: string }) {

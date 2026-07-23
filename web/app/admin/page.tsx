@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from "react";
-import { getAdminApi } from "@/lib/admin/api";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import ApprovalList from "@/components/admin/ApprovalList";
@@ -18,10 +18,13 @@ import styles from "@/components/admin/admin.module.css";
 
 const HEALTH_LABEL = { success: "전체 정상", warning: "주의", danger: "장애" } as const;
 
+const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
+
 export default function AdminOverviewPage() {
   const loadOverview = useCallback(() => getAdminApi().getOverview(), []);
-  const { data: ov, loading, error, stale, lastUpdatedAt, reload } = useAdminResource(loadOverview, {
+  const { data: ov, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(loadOverview, {
     intervalMs: 2000,
+    isSessionError,
   });
 
   return (
@@ -39,7 +42,7 @@ export default function AdminOverviewPage() {
           ))}
         </div>
       ) : error || !ov ? (
-        <AdminErrorState onRetry={reload} />
+        <AdminErrorState reason={errorReason} onRetry={reload} />
       ) : (
         <div className={styles.staleRegion} data-stale={stale ? "" : undefined}>
           <div className={styles.kpiGroup}>

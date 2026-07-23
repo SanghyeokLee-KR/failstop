@@ -1,17 +1,18 @@
 "use client";
 
 /**
- * 파괴 액션 요청 버튼(§2-2, §3-2). 명시 클릭으로만 승인 요청을 생성한다.
- * 요구 권한 미충족 시 비활성(관측 데이터가 아무리 임계를 넘어도 자동 실행 없음, §6 안전).
- * 요청은 즉시 실행이 아니라 다른 운영자의 2인 승인 대기로 진입한다.
- * confirm이 주어지면 요청 생성 전에 확인 다이얼로그로 오요청을 막는다(주입·해제·마켓 중지).
+ * 파괴 액션 요청 버튼(§3-6 발급형). 명시 클릭으로만 로컬 요청 의도를 만든다.
+ * 발급형 계약에는 서버측 "요청" 상태가 없어(승인자 발급이 원장 최초 상태) 요청은 이 브라우저
+ * 보관소에 둔다. 다른 운영자가 발급하면 요청자가 토큰을 소각한다(요청->발급->실행).
+ * 요구 권한 미충족 시 비활성(관측 데이터가 임계를 넘어도 자동 실행 없음, §6 안전).
+ * confirm이 주어지면 요청 생성 전에 확인 다이얼로그로 오요청을 막는다.
  */
 
 import { useState } from "react";
-import { getAdminApi } from "@/lib/admin/api";
-import { ACTION_CAP } from "@/lib/admin/roles";
-import { useCan } from "@/lib/admin/store";
+import { ACTION_CAP, approvalConsoleTarget } from "@/lib/admin/roles";
+import { useAdminSession, useApprovalVault, useCan } from "@/lib/admin/store";
 import type { ApprovalPayload, DestructiveAction } from "@/lib/admin/types";
+import { isoNow } from "@/lib/format";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import styles from "./admin.module.css";
@@ -36,21 +37,28 @@ interface Props {
 
 export default function RequestButton({ action, payload, label, onRequested, confirm }: Props) {
   const allowed = useCan(ACTION_CAP[action]);
-  const [busy, setBusy] = useState(false);
+  const session = useAdminSession();
+  const propose = useApprovalVault((s) => s.propose);
   const [open, setOpen] = useState(false);
 
-  const request = async () => {
-    setBusy(true);
-    try {
-      await getAdminApi().requestApproval(action, payload);
-      toast("승인 요청을 등록했어요. 다른 운영자의 승인이 필요합니다", "info");
-      setOpen(false);
-      onRequested?.();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "요청에 실패했어요", "error");
-    } finally {
-      setBusy(false);
+  const request = () => {
+    if (!session) {
+      toast("관리자 세션이 없습니다", "error");
+      return;
     }
+    const { key, label: targetLabel } = approvalConsoleTarget(payload);
+    propose({
+      key,
+      requesterId: session.operatorId,
+      requesterName: session.displayName,
+      action,
+      payload,
+      targetLabel,
+      proposedAt: isoNow(),
+    });
+    toast("승인 요청을 등록했어요. 다른 운영자의 발급이 필요합니다", "info");
+    setOpen(false);
+    onRequested?.();
   };
 
   return (
@@ -58,12 +66,11 @@ export default function RequestButton({ action, payload, label, onRequested, con
       <button
         type="button"
         className={styles.dangerBtn}
-        onClick={() => (confirm ? setOpen(true) : void request())}
-        disabled={!allowed || busy}
-        aria-busy={busy}
+        onClick={() => (confirm ? setOpen(true) : request())}
+        disabled={!allowed}
         title={allowed ? undefined : "권한이 부족합니다"}
       >
-        {busy ? "요청 중" : label}
+        {label}
       </button>
       {open && confirm && (
         <ConfirmDialog
@@ -73,11 +80,9 @@ export default function RequestButton({ action, payload, label, onRequested, con
           blastRadius={confirm.blastRadius}
           tone={confirm.tone ?? "warning"}
           confirmLabel={confirm.confirmLabel ?? label}
-          busy={busy}
-          onConfirm={() => void request()}
-          onClose={() => {
-            if (!busy) setOpen(false);
-          }}
+          busy={false}
+          onConfirm={request}
+          onClose={() => setOpen(false)}
         />
       )}
     </>

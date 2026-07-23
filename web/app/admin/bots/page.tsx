@@ -42,6 +42,7 @@ export default function BotsPage() {
   const canOps = useCan("BOT_OPS");
   const [newType, setNewType] = useState<BotType>("MARKET_MAKER");
   const [newMarket, setNewMarket] = useState(COIN_META[0]?.market ?? "KRW-BTC");
+  const [newCount, setNewCount] = useState(1);
 
   const [paramBotId, setParamBotId] = useState("");
   const [spread, setSpread] = useState("0.0008");
@@ -75,6 +76,17 @@ export default function BotsPage() {
 
   const api = getAdminApi();
   const paramActions = useMemo(() => PARAM_ACTIONS, []);
+
+  // governor set-point 상향. 응답의 created·fleet_total로 결과를 표기하고 clamped로 캡 도달을 안내한다
+  const createBot = async () => {
+    try {
+      const r = await api.createBot(newType, newMarket, newCount);
+      toast(`봇 ${r.created}대 생성 · 전체 목표 ${r.fleetTotal}대${r.clamped ? " (캡 도달)" : ""}`, "info");
+      await load();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "생성에 실패했어요", "error");
+    }
+  };
 
   const botCols: DataColumn<Bot>[] = [
     { key: "id", label: "봇 ID", width: "minmax(140px, 1.2fr)", render: (b) => b.id },
@@ -213,12 +225,19 @@ export default function BotsPage() {
               ))}
             </select>
           </label>
-          <button
-            type="button"
-            className={styles.primaryBtn}
-            disabled={!canOps}
-            onClick={() => void run(() => api.createBot(newType, newMarket), "봇을 생성했어요")}
-          >
+          <label className={styles.field}>
+            <span>대수</span>
+            <input
+              type="number"
+              min={1}
+              max={30}
+              value={newCount}
+              disabled={!canOps}
+              aria-label="생성 대수"
+              onChange={(e) => setNewCount(Math.max(1, Math.round(Number(e.target.value) || 1)))}
+            />
+          </label>
+          <button type="button" className={styles.primaryBtn} disabled={!canOps} onClick={() => void createBot()}>
             생성
           </button>
         </div>

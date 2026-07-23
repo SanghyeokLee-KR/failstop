@@ -11,11 +11,12 @@ import type {
   AdminOverview,
   AdminSession,
   ApprovalRequest,
-  Bot,
+  ApprovalState,
   BotType,
   ChaosExperimentDef,
   ChaosRun,
   ConfigMarket,
+  CreateBotResult,
   DemoClientCert,
   DestructiveAction,
   ApprovalPayload,
@@ -28,7 +29,10 @@ import type {
   HaRecovery,
   HaStatus,
   InvariantCheck,
+  IssuedApproval,
   Notice,
+  NoticePatch,
+  NoticeSeverity,
   SimStatus,
   TradeFlash,
 } from "./types";
@@ -54,13 +58,18 @@ export interface AdminApi {
   /** 세션 변화 통지(로그인·전환·만료). 등록 즉시 현재 상태 1회 통지 */
   onSessionChange(cb: (s: AdminSession | null) => void): () => void;
 
-  /* ===== 이중 승인(§1-4) ===== */
-  requestApproval(action: DestructiveAction, payload: ApprovalPayload): Promise<ApprovalRequest>;
-  approve(approvalId: string): Promise<ApprovalRequest>;
-  reject(approvalId: string): Promise<ApprovalRequest>;
-  /** 요청자 본인이 승인된 토큰을 소각하며 실효 액션 실행 */
-  execute(approvalId: string): Promise<void>;
-  listApprovals(): Promise<ApprovalRequest[]>;
+  /* ===== 이중 승인: 발급형(§3-6) ===== */
+  /**
+   * 승인 발급. 발급 주체(현재 세션)가 요청 운영자(requesterId)와 다를 때만 성립(반결탁).
+   * 액션+대상에 바인딩된 단회 토큰을 반환한다. 토큰은 이 응답에만 실린다(원장 프로젝션 제외).
+   */
+  issueApproval(requesterId: string, action: DestructiveAction, payload: ApprovalPayload): Promise<IssuedApproval>;
+  /** 승인 원장 조회(state 필터). token은 반환하지 않는다 */
+  listApprovals(state?: ApprovalState): Promise<ApprovalRequest[]>;
+  /** ISSUED 승인 거부(ISSUED->REJECTED). 발급 주체 또는 요청 주체만 가능(소유·반결탁) */
+  rejectApproval(approvalId: string): Promise<ApprovalRequest>;
+  /** 요청 운영자 본인이 발급 토큰을 파괴 액션 바디에 실어 소각(실효 액션 실행) */
+  consumeApproval(approval: IssuedApproval): Promise<void>;
 
   /* ===== 모니터링(§2-3, 읽기 전용) ===== */
   getOverview(): Promise<AdminOverview>;
@@ -74,7 +83,10 @@ export interface AdminApi {
   simStop(): Promise<void>;
   simPause(): Promise<void>;
   simSetRate(rate: number): Promise<void>;
-  createBot(type: BotType, market: string): Promise<Bot>;
+  /** 봇 생성(governor set-point 상향). count만큼 유형별 목표 대수를 올린다 */
+  createBot(type: BotType, market: string, count?: number): Promise<CreateBotResult>;
+  /** 봇 제거(DELETE /admin/v1/sim/bots/{id}). 승인 불요 */
+  deleteBot(botId: string): Promise<void>;
 
   /* ===== 시장 생동감(§3-2~3-5). approval 불요, 전량 감사 ===== */
   /** 타입별 목표 대수 set-point. 서버가 현재·목표 차이를 수렴한다 */
@@ -91,7 +103,10 @@ export interface AdminApi {
   /* ===== 마켓 설정(§2, config) ===== */
   getConfigMarkets(): Promise<ConfigMarket[]>;
   getNotices(): Promise<Notice[]>;
-  postNotice(title: string, body: string): Promise<Notice>;
+  postNotice(title: string, body: string, severity?: NoticeSeverity): Promise<Notice>;
+  updateNotice(id: string, patch: NoticePatch): Promise<Notice>;
+  /** 소프트 삭제(active=false). notices DELETE 권한이 없어 하드 삭제하지 않는다(§6-D) */
+  deleteNotice(id: string): Promise<void>;
 
   /* ===== 운영자·감사(§3-1) ===== */
   getOperators(): Promise<AdminOperator[]>;

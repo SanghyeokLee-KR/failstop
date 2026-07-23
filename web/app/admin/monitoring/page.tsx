@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from "react";
-import { getAdminApi } from "@/lib/admin/api";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
 import type { HaRecovery, HaStatus, InvariantCheck } from "@/lib/admin/types";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
@@ -23,6 +23,8 @@ interface MonitoringData {
   rec: HaRecovery;
   inv: InvariantCheck[];
 }
+
+const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
 const NODE_HEALTH: Record<string, Health> = { healthy: "success", degraded: "warning", down: "danger" };
 const NODE_HEALTH_LABEL: Record<string, string> = { healthy: "정상", degraded: "성능 저하", down: "중단" };
@@ -73,7 +75,7 @@ export default function MonitoringPage() {
     const [ha, rec, inv] = await Promise.all([api.getHaStatus(), api.getRecovery(), api.getInvariants()]);
     return { ha, rec, inv };
   }, []);
-  const { data, loading, error, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 2000 });
+  const { data, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 2000, isSessionError });
 
   return (
     <div className={styles.page}>
@@ -90,7 +92,7 @@ export default function MonitoringPage() {
           ))}
         </div>
       ) : error || !data ? (
-        <AdminErrorState onRetry={reload} />
+        <AdminErrorState reason={errorReason} onRetry={reload} />
       ) : (
         <div className={styles.staleRegion} data-stale={stale ? "" : undefined}>
           <div className={styles.kpiGroup}>

@@ -42,8 +42,12 @@ export default function ConfirmDialog({
 }: Props) {
   const titleId = useId();
   const descId = useId();
+  const summaryId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  // 실제 렌더된 조각만 참조한다. description 없이 target/blastRadius만 있을 때 빈 id 참조를 막는다
+  const describedBy =
+    [description ? descId : null, target || blastRadius ? summaryId : null].filter(Boolean).join(" ") || undefined;
 
   useEffect(() => {
     const prevFocused = document.activeElement as HTMLElement | null;
@@ -110,7 +114,7 @@ export default function ConfirmDialog({
         tabIndex={-1}
         aria-modal="true"
         aria-labelledby={titleId}
-        aria-describedby={description || target || blastRadius ? descId : undefined}
+        aria-describedby={describedBy}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <h2 id={titleId} className={styles.title}>
@@ -123,7 +127,7 @@ export default function ConfirmDialog({
         )}
 
         {(target || blastRadius) && (
-          <dl className={styles.summary}>
+          <dl id={summaryId} className={styles.summary}>
             {target && (
               <div className={styles.row}>
                 <dt>대상</dt>

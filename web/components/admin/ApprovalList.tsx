@@ -1,34 +1,32 @@
 "use client";
 
 /**
- * 승인 대기·이력 목록(§1-4). 2인 승인 라이프사이클 UI.
- * 요청(다른 운영자 승인 대기) → 승인(요청자와 다른 운영자) → 실행(요청자 본인 소각).
- * 반결탁: 요청자와 같은 운영자에게는 승인 버튼을 노출하지 않고, 서버도 이중 강제한다.
+ * 발급형 2인 승인 목록(§3-6). 요청->발급->실행을 우회 없이 시연한다.
+ * 요청(로컬 의도) -> 발급(다른 운영자가 POST /approvals로 토큰 발급) -> 실행(요청자가 토큰 소각).
+ * 반결탁: 발급 버튼은 요청 운영자 본인 세션에는 노출하지 않고, 서버도 인증서 CN으로 이중 강제한다.
+ * 로컬 의도와 발급 토큰은 브라우저 보관소(useApprovalVault)가 들고, 원장 상태는 listApprovals가 준다.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAdminApi } from "@/lib/admin/api";
 import { ACTION_LABEL } from "@/lib/admin/roles";
-import { useAdminSession } from "@/lib/admin/store";
+import { useAdminSession, useApprovalVault } from "@/lib/admin/store";
+import type { ApprovalIntent } from "@/lib/admin/store";
 import type { ApprovalRequest, DestructiveAction } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "./ConfirmDialog";
+import { HEALTH_ICON } from "./ui";
 import styles from "./admin.module.css";
 
 /**
- * 표시 단계. 정본 state는 ISSUED|CONSUMED|EXPIRED|REJECTED뿐이라(§7-7),
- * "승인 대기"와 "실행 대기"는 ISSUED + approverId 유무로 파생한다.
+ * 표시 단계. 원장 state는 ISSUED|CONSUMED|EXPIRED|REJECTED뿐이고 발급형이라 ISSUED는 곧 실행 대기다
+ * (발급=승인, approverId 항상 존재). REQUESTED는 서버 상태가 아니라 발급 전 로컬 의도다.
  */
-type ApprovalPhase = "AWAITING_APPROVAL" | "AWAITING_EXECUTION" | "CONSUMED" | "EXPIRED" | "REJECTED";
-
-function phaseOf(a: ApprovalRequest): ApprovalPhase {
-  if (a.state === "ISSUED") return a.approverId ? "AWAITING_EXECUTION" : "AWAITING_APPROVAL";
-  return a.state;
-}
+type ApprovalPhase = "REQUESTED" | "AWAITING_EXECUTION" | "CONSUMED" | "EXPIRED" | "REJECTED";
 
 const PHASE_LABEL: Record<ApprovalPhase, string> = {
-  AWAITING_APPROVAL: "승인 대기",
+  REQUESTED: "발급 대기",
   AWAITING_EXECUTION: "실행 대기",
   CONSUMED: "실행 완료",
   EXPIRED: "만료",
@@ -36,12 +34,16 @@ const PHASE_LABEL: Record<ApprovalPhase, string> = {
 };
 
 const PHASE_HEALTH: Record<ApprovalPhase, "success" | "warning" | "danger" | null> = {
-  AWAITING_APPROVAL: "warning",
+  REQUESTED: "warning",
   AWAITING_EXECUTION: "warning",
   CONSUMED: "success",
   EXPIRED: null,
   REJECTED: "danger",
 };
+
+function ledgerPhase(a: ApprovalRequest): ApprovalPhase {
+  return a.state === "ISSUED" ? "AWAITING_EXECUTION" : a.state;
+}
 
 interface Props {
   /** 이 액션 집합만 표시. 생략 시 전체 */
@@ -51,24 +53,33 @@ interface Props {
   emptyLabel?: string;
 }
 
-export default function ApprovalList({ actions, onChange, emptyLabel = "대기 중인 승인이 없어요" }: Props) {
+export default function ApprovalList({ actions, onChange, emptyLabel = "대기 중이거나 실행 가능한 승인이 없어요" }: Props) {
   const session = useAdminSession();
-  const [items, setItems] = useState<ApprovalRequest[]>([]);
+  const intents = useApprovalVault((s) => s.intents);
+  const tokens = useApprovalVault((s) => s.tokens);
+  const cancelIntent = useApprovalVault((s) => s.cancelIntent);
+  const stashToken = useApprovalVault((s) => s.stashToken);
+  const dropToken = useApprovalVault((s) => s.dropToken);
+
+  const [rows, setRows] = useState<ApprovalRequest[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  // 실행 확인 대상. 승인된 토큰 소각은 되돌릴 수 없어 확인 다이얼로그로 한 번 더 막는다
+  // 소각은 되돌릴 수 없어 확인 다이얼로그로 한 번 더 막는다
   const [execTarget, setExecTarget] = useState<ApprovalRequest | null>(null);
-  // 액션 후 포커스 착지점. 버튼이 사라져도 갱신된 행에 포커스를 남긴다(§9 키보드 흐름)
   const rowRefs = useRef<Record<string, HTMLLIElement | null>>({});
+
+  const inScope = useCallback(
+    (action: DestructiveAction) => !actions || actions.includes(action),
+    [actions],
+  );
 
   const refresh = useCallback(async () => {
     try {
       const all = await getAdminApi().listApprovals();
-      setItems(actions ? all.filter((a) => actions.includes(a.action)) : all);
+      setRows(all.filter((a) => inScope(a.action)));
     } catch {
       // 세션 만료 등은 레이아웃 게이트가 처리한다
     }
-    // actions 배열은 부모가 useMemo로 안정화한다
-  }, [actions]);
+  }, [inScope]);
 
   useEffect(() => {
     void refresh();
@@ -84,7 +95,6 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
       await refresh();
       onChange?.();
       setExecTarget(null);
-      // 다이얼로그 정리(트리거 복귀)가 끝난 다음 프레임에 갱신된 행으로 포커스를 옮긴다
       requestAnimationFrame(() => rowRefs.current[id]?.focus());
     } catch (e) {
       toast(e instanceof Error ? e.message : "처리에 실패했어요", "error");
@@ -93,94 +103,156 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
     }
   };
 
-  const api = getAdminApi();
+  const issue = (intent: ApprovalIntent) =>
+    act(
+      `intent:${intent.key}`,
+      async () => {
+        const issued = await getAdminApi().issueApproval(intent.requesterId, intent.action, intent.payload);
+        stashToken(issued);
+        cancelIntent(intent.key);
+      },
+      "승인을 발급했어요. 요청자가 실행할 수 있습니다",
+    );
 
-  if (items.length === 0) {
+  const consume = (row: ApprovalRequest) => {
+    const held = tokens[row.id];
+    if (!held) {
+      toast("발급 토큰이 이 세션에 없습니다. 발급자에게 요청하세요", "error");
+      return;
+    }
+    return act(
+      row.id,
+      async () => {
+        await getAdminApi().consumeApproval(held);
+        dropToken(row.id);
+      },
+      "실행했어요",
+    );
+  };
+
+  const scopedIntents = intents.filter((i) => inScope(i.action));
+
+  if (scopedIntents.length === 0 && rows.length === 0) {
     return <p className={styles.approvalEmpty}>{emptyLabel}</p>;
   }
 
   return (
     <>
-    <ul className={styles.approvalList}>
-      {items.map((a) => {
-        const mine = session?.operatorId === a.requesterId;
-        const phase = phaseOf(a);
-        const health = PHASE_HEALTH[phase];
-        return (
-          <li
-            key={a.id}
-            className={styles.approvalItem}
-            ref={(el) => {
-              rowRefs.current[a.id] = el;
-            }}
-            tabIndex={-1}
-          >
-            <div className={styles.approvalMain}>
-              <span className={styles.approvalAction}>{ACTION_LABEL[a.action]}</span>
-              <span className={styles.approvalTarget}>{a.targetLabel}</span>
-            </div>
-            <div className={styles.approvalMeta}>
-              <span>
-                요청 {a.requesterName} · {formatTimeHMS(a.issuedAt)}
-              </span>
-              {a.approverName && <span>승인 {a.approverName}</span>}
-            </div>
-            <div className={styles.approvalActions}>
-              {health ? (
-                <span className="status-pill" data-health={health}>
-                  {phase === "CONSUMED" ? "●" : phase === "REJECTED" ? "▲" : "◐"} {PHASE_LABEL[phase]}
+      <ul className={styles.approvalList}>
+        {scopedIntents.map((intent) => {
+          const mine = session?.operatorId === intent.requesterId;
+          const health = PHASE_HEALTH.REQUESTED;
+          const id = `intent:${intent.key}`;
+          return (
+            <li
+              key={id}
+              className={styles.approvalItem}
+              ref={(el) => {
+                rowRefs.current[id] = el;
+              }}
+              tabIndex={-1}
+            >
+              <div className={styles.approvalMain}>
+                <span className={styles.approvalAction}>{ACTION_LABEL[intent.action]}</span>
+                <span className={styles.approvalTarget}>{intent.targetLabel}</span>
+              </div>
+              <div className={styles.approvalMeta}>
+                <span>
+                  요청 {intent.requesterName} · {formatTimeHMS(intent.proposedAt)}
                 </span>
-              ) : (
-                <span className={styles.neutralPill}>{PHASE_LABEL[phase]}</span>
-              )}
-
-              {phase === "AWAITING_APPROVAL" && !mine && (
-                <>
+              </div>
+              <div className={styles.approvalActions}>
+                {health && (
+                  <span className="status-pill" data-health={health}>
+                    {HEALTH_ICON[health]} {PHASE_LABEL.REQUESTED}
+                  </span>
+                )}
+                {mine ? (
+                  <span className={styles.waitNote}>다른 운영자 발급 대기</span>
+                ) : (
                   <button
                     type="button"
                     className={styles.approveBtn}
-                    disabled={busy === a.id}
-                    onClick={() => void act(a.id, () => api.approve(a.id), "승인했어요")}
+                    disabled={busy === id}
+                    onClick={() => void issue(intent)}
                   >
-                    승인
+                    발급
                   </button>
-                  <button
-                    type="button"
-                    className={styles.neutralBtn}
-                    disabled={busy === a.id}
-                    onClick={() => void act(a.id, () => api.reject(a.id), "거부했어요")}
-                  >
-                    거부
-                  </button>
-                </>
-              )}
-              {phase === "AWAITING_APPROVAL" && mine && <span className={styles.waitNote}>다른 운영자 승인 대기</span>}
-              {phase === "AWAITING_EXECUTION" && mine && (
+                )}
                 <button
                   type="button"
-                  className={styles.dangerBtn}
-                  disabled={busy === a.id}
-                  onClick={() => setExecTarget(a)}
+                  className={styles.neutralBtn}
+                  disabled={busy === id}
+                  onClick={() => cancelIntent(intent.key)}
                 >
-                  실행
+                  취소
                 </button>
-              )}
-              {phase === "AWAITING_EXECUTION" && !mine && <span className={styles.waitNote}>요청자 실행 대기</span>}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+              </div>
+            </li>
+          );
+        })}
+
+        {rows.map((a) => {
+          const mine = session?.operatorId === a.requesterId;
+          const phase = ledgerPhase(a);
+          const health = PHASE_HEALTH[phase];
+          const owner = session?.operatorId === a.requesterId || session?.operatorId === a.approverId;
+          const held = Boolean(tokens[a.id]);
+          return (
+            <li
+              key={a.id}
+              className={styles.approvalItem}
+              ref={(el) => {
+                rowRefs.current[a.id] = el;
+              }}
+              tabIndex={-1}
+            >
+              <div className={styles.approvalMain}>
+                <span className={styles.approvalAction}>{ACTION_LABEL[a.action]}</span>
+                <span className={styles.approvalTarget}>{a.targetLabel}</span>
+              </div>
+              <div className={styles.approvalMeta}>
+                <span>
+                  요청 {a.requesterName} · {formatTimeHMS(a.issuedAt)}
+                </span>
+                {a.approverName && <span>발급 {a.approverName}</span>}
+              </div>
+              <div className={styles.approvalActions}>
+                {health ? (
+                  <span className="status-pill" data-health={health}>
+                    {HEALTH_ICON[health]} {PHASE_LABEL[phase]}
+                  </span>
+                ) : (
+                  <span className={styles.neutralPill}>{PHASE_LABEL[phase]}</span>
+                )}
+
+                {phase === "AWAITING_EXECUTION" && mine && held && (
+                  <button type="button" className={styles.dangerBtn} disabled={busy === a.id} onClick={() => setExecTarget(a)}>
+                    실행
+                  </button>
+                )}
+                {phase === "AWAITING_EXECUTION" && mine && !held && <span className={styles.waitNote}>발급 토큰 수신 대기</span>}
+                {phase === "AWAITING_EXECUTION" && !mine && <span className={styles.waitNote}>요청자 실행 대기</span>}
+                {phase === "AWAITING_EXECUTION" && owner && (
+                  <button type="button" className={styles.neutralBtn} disabled={busy === a.id} onClick={() => void act(a.id, () => getAdminApi().rejectApproval(a.id), "거부했어요")}>
+                    거부
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
       {execTarget && (
         <ConfirmDialog
           title="승인된 액션 실행"
-          description="실행하면 되돌릴 수 없어요. 요청 시점 파라미터로 즉시 반영됩니다."
+          description="실행하면 되돌릴 수 없어요. 발급 토큰을 소각하며 즉시 반영됩니다."
           target={ACTION_LABEL[execTarget.action]}
           blastRadius={execTarget.targetLabel}
           tone="danger"
           confirmLabel="실행"
           busy={busy === execTarget.id}
-          onConfirm={() => void act(execTarget.id, () => api.execute(execTarget.id), "실행했어요")}
+          onConfirm={() => void consume(execTarget)}
           onClose={() => {
             if (busy !== execTarget.id) setExecTarget(null);
           }}

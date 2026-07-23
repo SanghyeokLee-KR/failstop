@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from "react";
-import { getAdminApi } from "@/lib/admin/api";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
 import type { AuditEntry } from "@/lib/admin/types";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
@@ -40,9 +40,11 @@ const COLUMNS: DataColumn<AuditEntry>[] = [
   { key: "approval", label: "승인 ID", width: "minmax(120px, 1fr)", render: (e) => e.approvalId ?? "-" },
 ];
 
+const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
+
 export default function AuditPage() {
   const load = useCallback(() => getAdminApi().getAudit(), []);
-  const { data: rows, loading, error, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 3000 });
+  const { data: rows, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 3000, isSessionError });
 
   return (
     <div className={styles.page}>
@@ -55,7 +57,7 @@ export default function AuditPage() {
         {loading ? (
           <Skeleton variant="card" width="100%" height={280} />
         ) : error || !rows ? (
-          <AdminErrorState onRetry={reload} />
+          <AdminErrorState reason={errorReason} onRetry={reload} />
         ) : (
           <div className={styles.staleRegion} data-stale={stale ? "" : undefined}>
             <DataTable

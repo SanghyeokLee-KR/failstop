@@ -1136,6 +1136,43 @@
   color: var(--text-secondary);
 }
 
+/* 상태 토글 행. 좌측 현재 상태, 우측 요청 버튼 */
+.opManageRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--control-radius);
+  background: var(--surface-sunken);
+}
+.opManageLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-body-sm-size);
+  color: var(--text-secondary);
+}
+/* 역할 단건 부여/회수. 좌측 배지·설명, 우측 부여/회수 요청 버튼 */
+.roleGrantList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+}
+.roleGrantRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--control-radius);
+  background: var(--surface-sunken);
+}
+/* 보유 역할 신호는 위치 신호(좌측 인셋 hairline). 색 단독 금지·시프트 0 */
+.roleGrantRow[data-held] {
+  box-shadow: inset 2px 0 0 0 var(--chrome-accent);
+}
+
 /* ===== 감사 ===== */
 .auditAction {
   font-variant-numeric: tabular-nums;

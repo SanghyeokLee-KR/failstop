@@ -15,6 +15,9 @@ export const ADMIN_ROLES: AdminRole[] = ["VIEWER", "BOT_OPS", "CHAOS_OPS", "MEMB
 
 export type OperatorStatus = "ACTIVE" | "DISABLED";
 
+/** 역할 변경 방향. POST /operators/{id}/roles는 부여·회수 단건 모델이다(정본 API §운영자) */
+export type RoleGrant = "GRANT" | "REVOKE";
+
 /** 운영자 레지스트리 원소(V5 admin_operators). mTLS 신원 기반, password_hash 없음 */
 export interface AdminOperator {
   operatorId: string; // 인증서 CN 유래(자가신고 금지)
@@ -44,20 +47,28 @@ export interface AdminSession {
   expiresAt: string;
 }
 
-/* ===== 이중 승인 (§1-4, §3-2) ===== */
+/* ===== 이중 승인: 발급형 (§3-6, §6-B 완결 열거) ===== */
 
+/**
+ * approval_token 필수 파괴 액션(§3-6 완결 열거). 콘솔 의미 액션이며 백엔드 엔드포인트·바인딩
+ * 문자열과는 별도다(httpAdmin.wireBinding이 chaos.inject를 kill_node/network/app로 분해). 신규
+ * 추가: config.market.fees, operators.create, operators.status(v2.12 확장).
+ */
 export type DestructiveAction =
   | "chaos.inject"
   | "chaos.clear"
   | "sim.bots.params"
   | "config.market.halt"
   | "config.market.resume"
+  | "config.market.fees"
+  | "operators.create"
+  | "operators.status"
   | "operators.roles";
 
 /**
- * admin_approvals.state 정본 어휘(V5__admin.sql CHECK). 비정본 PENDING·APPROVED를 폐기하고
- * ISSUED로 수렴한다(관리자 설계 §7-7). "승인 대기"와 "실행 대기"는 별도 상태가 아니라
- * ISSUED + approverId 유무로 파생한다(ApprovalList phaseOf).
+ * admin_approvals.state 정본 어휘(V5__admin.sql CHECK, §6-B). 발급형이라 원장 최초 상태가
+ * ISSUED이고 그 시점에 approverId(발급 주체)가 항상 존재한다. 발급 전 "요청"은 서버 상태가
+ * 아니라 요청 운영자 브라우저의 로컬 의도다(store 보관소). ISSUED -> CONSUMED|EXPIRED|REJECTED.
  */
 export type ApprovalState = "ISSUED" | "CONSUMED" | "EXPIRED" | "REJECTED";
 
@@ -67,26 +78,40 @@ export type ApprovalPayload =
   | { action: "sim.bots.params"; botId: string; params: Record<string, string> }
   | { action: "config.market.halt"; symbol: string }
   | { action: "config.market.resume"; symbol: string }
-  | { action: "operators.roles"; operatorId: string; roles: AdminRole[] };
+  | { action: "config.market.fees"; symbol: string; makerFee: string; takerFee: string }
+  | { action: "operators.create"; operatorId: string; displayName: string; roles: AdminRole[] }
+  | { action: "operators.status"; operatorId: string; status: OperatorStatus }
+  | { action: "operators.roles"; operatorId: string; grant: RoleGrant; role: AdminRole };
 
 /**
- * 승인 토큰 원장(admin_approvals). 단회 소각, TTL 5분, action+대상 바인딩.
- * requesterId <> approverId를 앱·서버 이중 강제(반결탁, §1-3 (a)~(c)).
+ * 승인 원장 프로젝션(GET /admin/v1/approvals). approval_token은 응답에서 제외되므로 여기에 없다.
+ * 발급형이라 approverId(발급 주체)는 항상 존재한다. payload도 원장 프로젝션에 없어(action+target만)
+ * 여기에 두지 않는다. 소각에 필요한 payload·token은 발급 응답(IssuedApproval)에만 실린다.
+ * requesterId <> approverId를 서버가 인증서 CN으로 강제(반결탁, §3-6).
  */
 export interface ApprovalRequest {
   id: string;
   action: DestructiveAction;
-  targetKey: string; // action+대상 바인딩 키
+  targetKey: string; // 콘솔 UI 중복 방지 키(action+대상). 바인딩 target과 다르다
   targetLabel: string;
-  payload: ApprovalPayload;
   requesterId: string;
   requesterName: string;
-  approverId: string | null;
-  approverName: string | null;
+  approverId: string;
+  approverName: string;
   state: ApprovalState;
   issuedAt: string;
   expiresAt: string;
   consumedAt: string | null;
+}
+
+/**
+ * 발급 응답(POST /admin/v1/approvals). 원장에 없는 payload와 단회 bearer 시크릿 token을 싣는다.
+ * 요청 운영자가 파괴 액션 바디에 token을 실어 소각한다. token은 발급 응답 단일 경로로만 노출되므로
+ * 데모(단일 브라우저 운영자 전환)는 store 보관소로 발급자->요청자 전달을 모사한다.
+ */
+export interface IssuedApproval extends ApprovalRequest {
+  payload: ApprovalPayload;
+  token: string;
 }
 
 /* ===== HA 모니터링 (§2-3, /admin/v1/ha/*) ===== */
@@ -169,6 +194,19 @@ export interface Bot {
   active: boolean;
   ops: number;
   params: Record<string, string>; // 문자열 표기(정밀도 보존)
+}
+
+/**
+ * POST /admin/v1/sim/bots 응답 미러(§6-A, governor set-point 모델). 개별 인스턴스 id를 발급하지
+ * 않고 유형별 목표 대수를 count만큼 상향한다. created=클램프 후 순증분, appliedTarget=클램프 후
+ * 해당 유형 목표, fleetTotal=전 마켓 목표 합, clamped=캡 도달, fleetPresent=governor 주입 여부.
+ */
+export interface CreateBotResult {
+  created: number;
+  appliedTarget: number;
+  fleetTotal: number;
+  clamped: boolean;
+  fleetPresent: boolean;
 }
 
 export interface SimStatus {
@@ -266,20 +304,46 @@ export interface ChaosRun {
 
 /* ===== 마켓 설정 (§2, /admin/v1/config/*) ===== */
 
+/**
+ * 마켓 상태 3분(§6-D). markets.status 정본. DELISTED는 종국 상태라 halt/resume 대상이 아니며
+ * (409 market_delisted) 재개 버튼을 노출하지 않는다.
+ */
+export type MarketState = "ACTIVE" | "HALTED" | "DELISTED";
+
 export interface ConfigMarket {
   symbol: string;
   koreanName: string;
-  state: "ACTIVE" | "SUSPENDED";
+  state: MarketState;
   makerFee: string; // 문자열 수수료율
   takerFee: string;
 }
+
+/** 공지 심각도. 배너 위계 구분(§6-D 공지 목록 active 포함) */
+export type NoticeSeverity = "info" | "warning" | "critical";
+
+export const NOTICE_SEVERITIES: NoticeSeverity[] = ["info", "warning", "critical"];
+export const NOTICE_SEVERITY_LABEL: Record<NoticeSeverity, string> = {
+  info: "안내",
+  warning: "주의",
+  critical: "중요",
+};
 
 export interface Notice {
   id: string;
   title: string;
   body: string;
-  createdAt: string;
-  createdBy: string;
+  severity: NoticeSeverity;
+  active: boolean;
+  createdAt: string; // published_at 매핑
+  createdBy: string; // published_by 매핑
+}
+
+/** PATCH /admin/v1/config/notices/{id} 부분 갱신. active 토글·소프트 삭제 공용 */
+export interface NoticePatch {
+  title?: string;
+  body?: string;
+  severity?: NoticeSeverity;
+  active?: boolean;
 }
 
 /* ===== 감사 로그 (§3-1, /admin/v1/audit) ===== */

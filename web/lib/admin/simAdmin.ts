@@ -9,7 +9,7 @@ import { isoNow } from "../format";
 import { COIN_META } from "../sim/engine";
 import type { AdminApi } from "./api";
 import { AdminError } from "./api";
-import { ACTION_CAP, can, type Capability } from "./roles";
+import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles";
 import { CHAOS_CATALOG, INVARIANT_DEFS } from "./catalog";
 import type {
   AdminOperator,
@@ -17,12 +17,14 @@ import type {
   AdminSession,
   ApprovalPayload,
   ApprovalRequest,
+  ApprovalState,
   AuditEntry,
   Bot,
   BotType,
   ChaosExperimentDef,
   ChaosRun,
   ConfigMarket,
+  CreateBotResult,
   DemoClientCert,
   DestructiveAction,
   DirectionBiasResult,
@@ -32,8 +34,12 @@ import type {
   HaRecovery,
   HaStatus,
   InvariantCheck,
+  IssuedApproval,
   MarketSimState,
   Notice,
+  NoticePatch,
+  NoticeSeverity,
+  OperatorStatus,
   RecoveryRun,
   SimStatus,
   TradeFlash,
@@ -94,15 +100,27 @@ export class SimAdminApi implements AdminApi {
   private session: AdminSession | null = null;
   private sessionListeners = new Set<(s: AdminSession | null) => void>();
 
-  private approvals: ApprovalRequest[] = [];
+  // 발급형 원장. token·payload는 내부 보관하고 listApprovals 프로젝션에서 제외한다(§6-B)
+  private approvals: IssuedApproval[] = [];
   private chaosRuns: ChaosRun[] = [];
-  private notices: Notice[] = [];
+  private notices: Notice[] = [
+    {
+      id: uid("not"),
+      title: "정기 점검 안내",
+      body: "매주 화요일 03:00~03:30 무중단 점검을 진행합니다.",
+      severity: "info",
+      active: true,
+      createdAt: isoNow(Date.now() - 86_400_000),
+      createdBy: "op-01",
+    },
+  ];
   private audit: AuditEntry[] = [];
 
-  private markets: ConfigMarket[] = COIN_META.map((c) => ({
+  private markets: ConfigMarket[] = COIN_META.map((c, i) => ({
     symbol: c.market,
     koreanName: c.koreanName,
-    state: "ACTIVE",
+    // 마지막 마켓 1종을 DELISTED로 시드해 3분 상태(ACTIVE/HALTED/DELISTED)를 데모에서 노출한다
+    state: i === COIN_META.length - 1 ? "DELISTED" : "ACTIVE",
     makerFee: "0.0005",
     takerFee: "0.0005",
   }));
@@ -326,104 +344,103 @@ export class SimAdminApi implements AdminApi {
 
   /* ===== 이중 승인 ===== */
 
-  private targetOf(payload: ApprovalPayload): { key: string; label: string } {
-    switch (payload.action) {
-      case "chaos.inject":
-        return { key: `chaos.inject:${payload.experimentId}`, label: `실험 ${payload.experimentId}` };
-      case "chaos.clear":
-        return { key: `chaos.clear:${payload.runId}`, label: `실행 ${payload.runId}` };
-      case "sim.bots.params":
-        return { key: `sim.bots.params:${payload.botId}`, label: `봇 ${payload.botId}` };
-      case "config.market.halt":
-        return { key: `config.market.halt:${payload.symbol}`, label: payload.symbol };
-      case "config.market.resume":
-        return { key: `config.market.resume:${payload.symbol}`, label: payload.symbol };
-      case "operators.roles":
-        return { key: `operators.roles:${payload.operatorId}`, label: `운영자 ${payload.operatorId}` };
-    }
+  /** 원장 프로젝션. token·payload를 제외한 공개 뷰(§6-B) */
+  private projectApproval(a: IssuedApproval): ApprovalRequest {
+    return {
+      id: a.id,
+      action: a.action,
+      targetKey: a.targetKey,
+      targetLabel: a.targetLabel,
+      requesterId: a.requesterId,
+      requesterName: a.requesterName,
+      approverId: a.approverId,
+      approverName: a.approverName,
+      state: a.state,
+      issuedAt: a.issuedAt,
+      expiresAt: a.expiresAt,
+      consumedAt: a.consumedAt,
+    };
   }
 
-  requestApproval(action: DestructiveAction, payload: ApprovalPayload): Promise<ApprovalRequest> {
-    const s = this.auth(ACTION_CAP[action]);
-    const { key, label } = this.targetOf(payload);
+  issueApproval(requesterId: string, action: DestructiveAction, payload: ApprovalPayload): Promise<IssuedApproval> {
+    // 발급 주체(현재 세션)는 조회 권한이면 되고, 소각 권한은 요청 운영자 기준으로 소각 시점에 본다
+    const approver = this.auth("VIEW");
+    const requester = this.operators.find((o) => o.operatorId === requesterId);
+    if (!requester || requester.status !== "ACTIVE") {
+      return Promise.reject(new AdminError("invalid_parameter", "요청 운영자를 레지스트리에서 찾을 수 없습니다"));
+    }
+    // 반결탁: 발급 주체와 요청 주체가 같으면 발급 불가(§3-6)
+    if (approver.operatorId === requesterId) {
+      this.log(approver, `approval.issue.denied:${action}`, requesterId, null, "DENIED");
+      return Promise.reject(new AdminError("admin_forbidden", "발급 주체와 요청 주체가 같은 운영자입니다. 다른 운영자 인증서로 발급하세요"));
+    }
+    const { key, label } = approvalConsoleTarget(payload);
     const now = Date.now();
-    const req: ApprovalRequest = {
+    const issued: IssuedApproval = {
       id: uid("apr"),
       action,
       targetKey: key,
       targetLabel: label,
-      payload,
-      requesterId: s.operatorId,
-      requesterName: s.displayName,
-      approverId: null,
-      approverName: null,
+      requesterId,
+      requesterName: requester.displayName,
+      approverId: approver.operatorId,
+      approverName: approver.displayName,
       state: "ISSUED",
       issuedAt: isoNow(now),
       expiresAt: isoNow(now + APPROVAL_TTL_MS),
       consumedAt: null,
+      payload,
+      token: uid("tok"),
     };
-    this.approvals.unshift(req);
-    this.log(s, `approval.request:${action}`, label, req.id, "OK");
-    return Promise.resolve(req);
+    this.approvals.unshift(issued);
+    this.log(approver, `approval.issue:${action}`, label, issued.id, "OK");
+    return Promise.resolve(issued);
   }
 
   private sweep(): void {
     const now = Date.now();
     for (const a of this.approvals) {
-      // 승인 전(approverId=null)·승인 후(approverId set) 모두 ISSUED. 소각 전이면 만료 대상
       if (a.state === "ISSUED" && now > new Date(a.expiresAt).getTime()) {
         a.state = "EXPIRED";
       }
     }
   }
 
-  approve(approvalId: string): Promise<ApprovalRequest> {
+  rejectApproval(approvalId: string): Promise<ApprovalRequest> {
     const s = this.auth("VIEW");
     this.sweep();
     const a = this.approvals.find((x) => x.id === approvalId);
-    if (!a) return Promise.reject(new AdminError("admin_forbidden", "승인 대상 요청이 없습니다"));
-    if (a.state !== "ISSUED") return Promise.reject(new AdminError("admin_forbidden", `승인 불가 상태(${a.state})`));
-    if (a.approverId !== null) return Promise.reject(new AdminError("admin_forbidden", "이미 승인된 요청입니다"));
-    // 반결탁: 요청자와 승인자는 서로 다른 인증 주체여야 한다(§1-3)
-    if (a.requesterId === s.operatorId) {
-      this.log(s, "approval.approve.denied", a.targetLabel, a.id, "DENIED");
-      return Promise.reject(new AdminError("admin_forbidden", "요청자와 승인자가 같은 운영자입니다. 다른 운영자 인증서로 승인하세요"));
-    }
-    // 승인해도 state는 ISSUED 유지(정본 어휘). approverId로 실행 대기 단계를 파생한다
-    a.approverId = s.operatorId;
-    a.approverName = s.displayName;
-    this.log(s, `approval.approve:${a.action}`, a.targetLabel, a.id, "OK");
-    return Promise.resolve(a);
-  }
-
-  reject(approvalId: string): Promise<ApprovalRequest> {
-    const s = this.auth("VIEW");
-    const a = this.approvals.find((x) => x.id === approvalId);
-    if (!a) return Promise.reject(new AdminError("admin_forbidden", "대상 요청이 없습니다"));
+    if (!a) return Promise.reject(new AdminError("admin_forbidden", "대상 승인이 없습니다"));
     if (a.state !== "ISSUED") return Promise.reject(new AdminError("admin_forbidden", `거부 불가 상태(${a.state})`));
-    if (a.approverId !== null) return Promise.reject(new AdminError("admin_forbidden", "이미 승인된 요청은 거부할 수 없습니다"));
+    // 소유 검증: 발급 주체 또는 요청 주체만 거부(de-escalation, §6-B)
+    if (s.operatorId !== a.approverId && s.operatorId !== a.requesterId) {
+      this.log(s, "approval.reject.denied", a.targetLabel, a.id, "DENIED");
+      return Promise.reject(new AdminError("admin_forbidden", "발급자 또는 요청자만 거부할 수 있습니다"));
+    }
     a.state = "REJECTED";
-    a.approverId = s.operatorId;
-    a.approverName = s.displayName;
     this.log(s, `approval.reject:${a.action}`, a.targetLabel, a.id, "OK");
-    return Promise.resolve(a);
+    return Promise.resolve(this.projectApproval(a));
   }
 
-  execute(approvalId: string): Promise<void> {
+  consumeApproval(approval: IssuedApproval): Promise<void> {
     const s = this.auth("VIEW");
     this.sweep();
-    const a = this.approvals.find((x) => x.id === approvalId);
-    if (!a) return Promise.reject(new AdminError("admin_forbidden", "실행 대상 승인이 없습니다"));
-    // 실행은 승인 완료(ISSUED + approverId) 상태에서만. 승인 전이면 approverId=null
-    if (a.state !== "ISSUED" || a.approverId === null) return Promise.reject(new AdminError("admin_forbidden", `실행 불가 상태(${a.state})`));
-    // 실행 주체는 요청자 본인이어야 한다(토큰 requester 바인딩)
+    const a = this.approvals.find((x) => x.id === approval.id);
+    if (!a) return Promise.reject(new AdminError("admin_forbidden", "소각 대상 승인이 없습니다"));
+    if (a.state !== "ISSUED") return Promise.reject(new AdminError("admin_forbidden", `소각 불가 상태(${a.state})`));
+    // 단회 토큰 대조(발급 응답 bearer 시크릿)
+    if (a.token !== approval.token) {
+      this.log(s, "execute.denied", a.targetLabel, a.id, "DENIED");
+      return Promise.reject(new AdminError("admin_forbidden", "승인 토큰이 일치하지 않습니다"));
+    }
+    // 소각 주체는 토큰이 바인딩된 요청 운영자여야 한다(§3-6)
     if (a.requesterId !== s.operatorId) {
       this.log(s, "execute.denied", a.targetLabel, a.id, "DENIED");
       return Promise.reject(new AdminError("admin_forbidden", "승인 토큰은 요청 운영자만 소각할 수 있습니다"));
     }
-    // 실행 권한 재확인(요청 이후 역할 회수 대비)
+    // 소각 시점 실행 권한 재확인(발급 이후 역할 회수 대비)
     if (!can(s.roles, ACTION_CAP[a.action])) {
-      return Promise.reject(new AdminError("admin_forbidden", "실행 시점 권한이 부족합니다"));
+      return Promise.reject(new AdminError("admin_forbidden", "소각 시점 권한이 부족합니다"));
     }
     this.applyEffect(a.payload, s);
     a.state = "CONSUMED";
@@ -466,17 +483,50 @@ export class SimAdminApi implements AdminApi {
       }
       case "config.market.halt": {
         const m = this.markets.find((x) => x.symbol === payload.symbol);
-        if (m) m.state = "SUSPENDED";
+        // DELISTED는 종국 상태라 halt 대상이 아니다(§6-D)
+        if (m && m.state !== "DELISTED") m.state = "HALTED";
         break;
       }
       case "config.market.resume": {
         const m = this.markets.find((x) => x.symbol === payload.symbol);
-        if (m) m.state = "ACTIVE";
+        if (m && m.state === "HALTED") m.state = "ACTIVE";
+        break;
+      }
+      case "config.market.fees": {
+        const m = this.markets.find((x) => x.symbol === payload.symbol);
+        if (m) {
+          m.makerFee = payload.makerFee;
+          m.takerFee = payload.takerFee;
+        }
+        break;
+      }
+      case "operators.create": {
+        // 중복 operatorId는 생성하지 않는다(§6-D 409 market 대응)
+        if (!this.operators.some((o) => o.operatorId === payload.operatorId)) {
+          this.operators.push({
+            operatorId: payload.operatorId,
+            displayName: payload.displayName,
+            roles: payload.roles.slice(),
+            status: "ACTIVE",
+          });
+        }
+        break;
+      }
+      case "operators.status": {
+        const op = this.operators.find((o) => o.operatorId === payload.operatorId);
+        if (op) op.status = payload.status;
         break;
       }
       case "operators.roles": {
+        // 부여·회수 단건 모델(정본 API). 전체 치환이 아니라 단일 역할만 더하거나 뺀다
         const op = this.operators.find((o) => o.operatorId === payload.operatorId);
-        if (op) op.roles = payload.roles.slice();
+        if (op) {
+          if (payload.grant === "GRANT") {
+            if (!op.roles.includes(payload.role)) op.roles = [...op.roles, payload.role];
+          } else {
+            op.roles = op.roles.filter((r) => r !== payload.role);
+          }
+        }
         // 대상이 현재 세션이면 세션 역할도 갱신
         if (this.session && this.session.operatorId === payload.operatorId && op) {
           this.session = { ...this.session, roles: op.roles.slice() };
@@ -487,10 +537,11 @@ export class SimAdminApi implements AdminApi {
     }
   }
 
-  listApprovals(): Promise<ApprovalRequest[]> {
+  listApprovals(state?: ApprovalState): Promise<ApprovalRequest[]> {
     this.auth("VIEW");
     this.sweep();
-    return Promise.resolve(this.approvals.slice(0, 40));
+    const rows = state ? this.approvals.filter((a) => a.state === state) : this.approvals;
+    return Promise.resolve(rows.slice(0, 40).map((a) => this.projectApproval(a)));
   }
 
   /* ===== 모니터링 ===== */
@@ -516,8 +567,9 @@ export class SimAdminApi implements AdminApi {
       botsActive: this.bots.filter((b) => b.active).length,
       currentOps: this.currentOps(),
       chaosRunning: this.chaosRuns.filter((r) => r.state === "RUNNING").length,
-      pendingApprovals: this.approvals.filter((a) => a.state === "ISSUED" && a.approverId === null).length,
-      suspendedMarkets: this.markets.filter((m) => m.state === "SUSPENDED").length,
+      // 발급형: ISSUED는 소각 대기분(발급=승인). 발급 전 요청은 서버 상태가 아니라 카운트하지 않는다
+      pendingApprovals: this.approvals.filter((a) => a.state === "ISSUED").length,
+      suspendedMarkets: this.markets.filter((m) => m.state === "HALTED").length,
       generatedAt: isoNow(),
     });
   }
@@ -646,19 +698,36 @@ export class SimAdminApi implements AdminApi {
     return Promise.resolve();
   }
 
-  createBot(type: BotType, market: string): Promise<Bot> {
+  createBot(type: BotType, market: string, count = 1): Promise<CreateBotResult> {
     const s = this.auth("BOT_OPS");
-    const bot: Bot = {
-      id: uid("bot"),
-      type,
-      market,
-      active: this.simRunning,
-      ops: Math.round(rand(4, 12)),
-      params: { spread: "0.0008", size: "0.02", ttl_ms: "1500" },
-    };
-    this.bots.push(bot);
-    this.log(s, "sim.bots.create", `${type} ${market}`, null, "OK");
-    return Promise.resolve({ ...bot, params: { ...bot.params } });
+    // governor set-point 모델: count만큼 유형별 목표 대수를 상향하고 캡에서 클램프한다(§6-A)
+    const req = Math.max(0, Math.round(count));
+    const present = this.bots.filter((b) => b.market === market && b.type === type).length;
+    const target = Math.min(FLEET_TYPE_CAP, present + req);
+    const created = Math.max(0, target - present);
+    const clamped = created < req;
+    for (let i = 0; i < created; i += 1) {
+      this.bots.push({
+        id: uid("bot"),
+        type,
+        market,
+        active: this.simRunning && !this.simPaused,
+        ops: Math.round(rand(4, 12)),
+        params: { spread: "0.0008", size: "0.02", ttl_ms: "1500" },
+      });
+    }
+    this.scaleTargets.set(market, { ...(this.scaleTargets.get(market) ?? {}), [type]: target });
+    this.log(s, "sim.bots.create", `${type} ${market} +${created}`, null, "OK");
+    return Promise.resolve({ created, appliedTarget: target, fleetTotal: this.bots.length, clamped, fleetPresent: true });
+  }
+
+  deleteBot(botId: string): Promise<void> {
+    const s = this.auth("BOT_OPS");
+    const before = this.bots.length;
+    this.bots = this.bots.filter((b) => b.id !== botId);
+    if (this.bots.length === before) return Promise.reject(new AdminError("invalid_parameter", "대상 봇이 없습니다"));
+    this.log(s, "sim.bots.delete", botId, null, "OK");
+    return Promise.resolve();
   }
 
   /* ===== 시장 생동감 ===== */
@@ -749,15 +818,36 @@ export class SimAdminApi implements AdminApi {
 
   getNotices(): Promise<Notice[]> {
     this.auth("VIEW");
-    return Promise.resolve(this.notices.slice());
+    return Promise.resolve(this.notices.map((n) => ({ ...n })));
   }
 
-  postNotice(title: string, body: string): Promise<Notice> {
+  postNotice(title: string, body: string, severity: NoticeSeverity = "info"): Promise<Notice> {
     const s = this.auth("SUPER");
-    const notice: Notice = { id: uid("not"), title, body, createdAt: isoNow(), createdBy: s.operatorId };
+    const notice: Notice = { id: uid("not"), title, body, severity, active: true, createdAt: isoNow(), createdBy: s.operatorId };
     this.notices.unshift(notice);
     this.log(s, "config.notice.post", title, null, "OK");
     return Promise.resolve({ ...notice });
+  }
+
+  updateNotice(id: string, patch: NoticePatch): Promise<Notice> {
+    const s = this.auth("SUPER");
+    const n = this.notices.find((x) => x.id === id);
+    if (!n) return Promise.reject(new AdminError("invalid_parameter", "대상 공지가 없습니다"));
+    if (patch.title !== undefined) n.title = patch.title;
+    if (patch.body !== undefined) n.body = patch.body;
+    if (patch.severity !== undefined) n.severity = patch.severity;
+    if (patch.active !== undefined) n.active = patch.active;
+    this.log(s, "config.notice.update", n.title, null, "OK");
+    return Promise.resolve({ ...n });
+  }
+
+  deleteNotice(id: string): Promise<void> {
+    const s = this.auth("SUPER");
+    const n = this.notices.find((x) => x.id === id);
+    // 소프트 삭제(active=false). notices DELETE 권한이 없어 하드 삭제하지 않는다(§6-D). 없는 id는 멱등 통과
+    if (n) n.active = false;
+    this.log(s, "config.notice.delete", id, null, "OK");
+    return Promise.resolve();
   }
 
   /* ===== 운영자·감사 ===== */
