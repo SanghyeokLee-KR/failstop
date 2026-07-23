@@ -38,6 +38,13 @@ function clampDecimals(d: number): number {
   return d > MAX_DISPLAY_DECIMALS ? MAX_DISPLAY_DECIMALS : Math.floor(d);
 }
 
+// 표시 계층 방어. 라이브 데이터의 미제공·미체결 필드(예: 첫 체결 전 마켓의 trade_price·
+// change_rate)는 타입상 문자열이어도 런타임에 null로 도착한다. 표시 포맷터는 이를 0으로
+// 강등해 렌더 크래시를 막는다. 금액 산술(decimal.ts)은 엄격 유지해 계산 경로의 null은 드러낸다.
+function displayValue(v: string | number | null | undefined): string | number {
+  return v == null || v === "" ? 0 : v;
+}
+
 /**
  * 십진 문자열을 고정 소수 자릿수로 반올림해 자리구분 표기.
  * 정수부는 BigInt로 Intl 자리구분(2^53 초과 보존), 소수부는 고정 길이 문자열(후행 0 유지→tabular 정렬).
@@ -45,7 +52,7 @@ function clampDecimals(d: number): number {
  */
 function formatFixed(value: string | number, decimals: number): string {
   const d = clampDecimals(decimals);
-  const scaled = scaledIntRound(value, d);
+  const scaled = scaledIntRound(displayValue(value), d);
   const neg = scaled < 0n;
   const digits = (neg ? -scaled : scaled).toString().padStart(d + 1, "0");
   const cut = digits.length - d;
@@ -74,7 +81,7 @@ function priceDecimalsOf(spec: PriceSpec | undefined, value: string | number): n
 
 /** 절대 비율(예: "0.0234")을 백분율 소수 2자리 문자열("2.34")로. 자리구분 불필요한 소수 비율 */
 function formatPct(rate: string | number): string {
-  const pct = mulDecimal(normalizeDecimal(rate), "100");
+  const pct = mulDecimal(normalizeDecimal(displayValue(rate)), "100");
   const d = 2;
   const scaled = scaledIntRound(absDecimal(pct), d);
   const digits = scaled.toString().padStart(d + 1, "0");
@@ -138,7 +145,7 @@ export function formatDirectionalAmount(
   spec?: PriceSpec,
 ): string {
   const d = priceDecimalsOf(spec, amount);
-  const body = formatFixed(absDecimal(amount), d);
+  const body = formatFixed(absDecimal(displayValue(amount)), d);
   if (change === "RISE") return `▲ +${body}`;
   if (change === "FALL") return `▼ −${body}`;
   return body;
@@ -146,7 +153,7 @@ export function formatDirectionalAmount(
 
 /** KRW 거래대금 축약: "345000000000" → "3,450억", "64000000000" → "640억", 그 미만 → "5,200만" */
 export function formatCompactKRW(value: string | number): string {
-  const won = scaledIntTrunc(value, 0); // won 아래 절사. 억·만 축약에서 sub-won은 무의미
+  const won = scaledIntTrunc(displayValue(value), 0); // won 아래 절사. 억·만 축약에서 sub-won은 무의미
   const neg = won < 0n;
   const a = neg ? -won : won;
   const roundDiv = (n: bigint, unit: bigint) => nfInt.format((n + unit / 2n) / unit);
@@ -163,8 +170,9 @@ export function formatCompactKRW(value: string | number): string {
  * 세션 초반 소액 누적분이 "0"으로 사라지지 않게 한다.
  */
 export function formatCompactQty(value: string | number, qtyScale = 8): string {
-  if (compareDecimal(absDecimal(value), "1") >= 0) return formatFixed(value, 2);
-  return formatFixed(value, qtyScale);
+  const v = displayValue(value);
+  if (compareDecimal(absDecimal(v), "1") >= 0) return formatFixed(v, 2);
+  return formatFixed(v, qtyScale);
 }
 
 /** ChangeState → UI Direction */
