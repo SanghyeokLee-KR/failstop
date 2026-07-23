@@ -167,7 +167,8 @@
 }
 .postAuthor { font-weight: var(--fw-semibold); color: var(--text-default); }
 .postTime { color: var(--text-secondary); }
-.edited { color: var(--text-tertiary); }
+/* 수정 표식은 정보 전달이라 secondary 최소선(§2·§9). 형제 postTime과 동일 톤 */
+.edited { color: var(--text-secondary); }
 
 .postBody {
   font-size: var(--font-body-size);

@@ -121,7 +121,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  color: var(--text-tertiary);
+  /* "또는" 구분 라벨은 정보 전달이라 secondary 최소선(§2·§9). surface-default 위 4.75:1 */
+  color: var(--text-secondary);
   font-size: var(--font-caption-size);
 }
 .divider::before,

@@ -28,7 +28,9 @@
   font-size: var(--font-caption-size);
 }
 .search input:focus { outline: none; box-shadow: none; }
-.search input::placeholder { color: var(--text-tertiary); }
+/* 검색 힌트는 정보 전달이라 4.5:1 필요. sunken 표면(#F1F3F5)에선 secondary가 4.27:1 미달이라
+   default로 올린다(§9 표면별 선택). aria-label이 접근성 이름을 별도 제공한다 */
+.search input::placeholder { color: var(--text-default); }
 
 /* 필터 구분은 공용 SegmentedTab 소비. 래퍼는 세로 압축만 방지 */
 .tabs {

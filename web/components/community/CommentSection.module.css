@@ -67,7 +67,8 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
-.body[data-deleted] { color: var(--text-tertiary); font-style: italic; }
+/* 삭제 안내는 정보 전달이라 secondary 최소선(§2·§9). surface-default 위 4.75:1 */
+.body[data-deleted] { color: var(--text-secondary); font-style: italic; }
 
 .itemActions {
   display: flex;

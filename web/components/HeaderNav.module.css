@@ -84,7 +84,8 @@
   width: 8px;
   height: 8px;
   border-radius: var(--radius-full);
-  background: var(--color-danger);
+  /* 단절은 오류가 아닌 경고라 warning(A-16·§9·§11 disconnected=warning). ConnectionBanner와 정합 */
+  background: var(--color-warning);
   flex-shrink: 0;
   /* 계기 상태등. 연결 전이는 색 전이만, 깜빡임 없음 (§5.2) */
   transition: background-color var(--dur-base) var(--ease-standard);
