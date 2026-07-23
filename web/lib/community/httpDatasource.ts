@@ -114,17 +114,62 @@ export class HttpCommunityDataSource {
     };
   }
 
+  // 백엔드 와이어는 식별자를 post_id·comment_id로 싣고(게시판_설계 §3·§4) liked·mine·author_id를
+  // 공개 GET에 싣지 않는다. 뷰모델(external_id 기준)로 무매핑 캐스팅하면 상세 이동·좋아요·삭제가
+  // 전부 undefined id로 깨진다(sim은 뷰모델 형태라 은폐). 여기서 단일 정규화로 닫는다.
+  // mine은 세션 핸들 대조로 파생한다(서버가 권위 검증하므로 UI 게이트 용도).
+  private normPost(w: Partial<CommunityPost> & { post_id?: string }): CommunityPost {
+    const me = this.identity();
+    return {
+      external_id: w.external_id ?? w.post_id ?? "",
+      market: w.market ?? "",
+      author_id: w.author_id ?? "",
+      author_handle: w.author_handle ?? "",
+      title: w.title ?? "",
+      body: w.body ?? "",
+      status: w.status ?? "VISIBLE",
+      like_count: w.like_count ?? 0,
+      comment_count: w.comment_count ?? 0,
+      liked: w.liked ?? false,
+      mine: w.mine ?? (me != null && w.author_handle === me.handle),
+      created_at: w.created_at ?? "",
+      updated_at: w.updated_at ?? "",
+    };
+  }
+
+  private normComment(w: Partial<CommunityComment> & { comment_id?: string }, postExternalId: string): CommunityComment {
+    const me = this.identity();
+    return {
+      external_id: w.external_id ?? w.comment_id ?? "",
+      post_id: w.post_id ?? postExternalId,
+      parent_id: w.parent_id ?? null,
+      author_id: w.author_id ?? "",
+      author_handle: w.author_handle ?? "",
+      body: w.body ?? "",
+      status: w.status ?? "VISIBLE",
+      like_count: w.like_count ?? 0,
+      liked: w.liked ?? false,
+      mine: w.mine ?? (me != null && w.author_handle === me.handle),
+      created_at: w.created_at ?? "",
+    };
+  }
+
   async listPosts(market: string, sort: PostSort, cursor?: string | null, count?: number): Promise<CursorPage<CommunityPost>> {
     const q = new URLSearchParams({ sort });
     if (cursor) q.set("cursor", cursor);
     if (count) q.set("count", String(count));
-    return this.page<CommunityPost>(
+    const page = this.page<Partial<CommunityPost> & { post_id?: string }>(
       await this.request(`/boards/${encodeURIComponent(market)}/posts?${q}`, {}, false),
     );
+    return { ...page, items: page.items.map((w) => this.normPost(w)) };
   }
 
   async getPost(externalId: string): Promise<CommunityPost> {
-    return this.unwrap<CommunityPost>(await this.request(`/posts/${externalId}`, {}, false));
+    return this.normPost(
+      this.unwrap<Partial<CommunityPost> & { post_id?: string }>(
+        await this.request(`/posts/${externalId}`, {}, false),
+      ),
+    );
   }
 
   async createPost(market: string, input: CreatePostInput): Promise<CommunityPost> {
@@ -147,8 +192,10 @@ export class HttpCommunityDataSource {
   }
 
   async updatePost(externalId: string, input: UpdatePostInput): Promise<CommunityPost> {
-    return this.unwrap<CommunityPost>(
-      await this.request(`/posts/${externalId}`, { method: "PATCH", body: JSON.stringify(input) }, true),
+    return this.normPost(
+      this.unwrap<Partial<CommunityPost> & { post_id?: string }>(
+        await this.request(`/posts/${externalId}`, { method: "PATCH", body: JSON.stringify(input) }, true),
+      ),
     );
   }
 
@@ -160,9 +207,10 @@ export class HttpCommunityDataSource {
     const q = new URLSearchParams();
     if (cursor) q.set("cursor", cursor);
     if (count) q.set("count", String(count));
-    return this.page<CommunityComment>(
+    const page = this.page<Partial<CommunityComment> & { comment_id?: string }>(
       await this.request(`/posts/${postExternalId}/comments?${q}`, {}, false),
     );
+    return { ...page, items: page.items.map((w) => this.normComment(w, postExternalId)) };
   }
 
   async createComment(postExternalId: string, input: CreateCommentInput): Promise<CommunityComment> {
