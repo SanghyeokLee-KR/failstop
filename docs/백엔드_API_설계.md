@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.13, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.14, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -529,6 +529,7 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
   "pagination":{"next_cursor":null,"has_more":false} }
 ```
 > **부호·크기 분리(v2.8)**: `change`(RISE/FALL/EVEN)가 부호 권위이고 `change_rate`·`change_price`는 **절대값**이다(색 단독 표현 금지 규칙의 데이터 근거). `change_price`는 24h 전 종가 대비 절대 금액을 quote scale로 HALF_UP, `change_rate`는 그 비율(절대)이다. `acc_trade_price_24h`는 24h 거래대금(Σ 체결가×수량)을 quote scale로 HALF_UP, `acc_trade_volume_24h`는 24h 체결 수량 합이다. 기준가(24h 전 종가)는 `executed_at ≤ now-24h`의 최근 체결가이며, 없으면 최초 체결가로 폴백한다. 24h 윈도에 체결이 없으면 집계값은 `null`/`"0"`이고 `change`는 `EVEN`이다.
+> **null 경계(v2.14)**: 체결 이력이 전혀 없는 마켓은 `trade_price`가 `null`이다. `high_24h`·`low_24h`는 24h 윈도 무체결 시, `best_bid`·`best_ask`는 해당 사이드 호가 공백 시 `null`. `change`·`change_rate`·`change_price`·`acc_trade_*`는 이때도 `EVEN`·`"0"`으로 non-null 유지. WS ticker(§5-4)도 동일 경계다.
 
 #### 4-A-5. `GET /api/v1/candles/{unit}` · unit ∈ `1s,1m,3m,5m,15m,30m,60m,240m,1d,1w`
 ```json

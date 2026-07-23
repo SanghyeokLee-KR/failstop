@@ -1,6 +1,6 @@
 /**
  * tests/derive.test.ts. 거래 화면 파생 계산 회귀 고정.
- * 대상: 전일종가 역산(RISE 차감·FALL 가산·EVEN), 첫 체결 전 마켓 null 필드 무크래시 강등,
+ * 대상: 전일종가 역산(RISE 차감·FALL 가산·EVEN), 첫 체결 전 마켓 trade_price null 조기 반환,
  * 전일종가 대비 등락률(0 나눗셈 보호·방향), 호가 레벨 실재 판정.
  */
 
@@ -9,19 +9,20 @@ import assert from "node:assert/strict";
 import type { TickerMessage } from "../lib/types";
 import { prevCloseOf, rateVsPrevClose, isPresentLevel } from "../components/trade/derive";
 
-// 런타임 null은 타입(non-null string)을 위반하지만 실백엔드가 첫 체결 전 마켓에 보낸다. 캐스팅으로 재현한다.
-function tk(p: Partial<Record<string, unknown>>): TickerMessage {
-  return { type: "ticker", ...p } as unknown as TickerMessage;
+// 테스트 관심 필드만 채운 부분 티커. 나머지 필드는 prevCloseOf가 읽지 않아 캐스팅으로 생략한다.
+function tk(p: Partial<TickerMessage>): TickerMessage {
+  return { type: "ticker", ...p } as TickerMessage;
 }
 
 test("prevCloseOf: ticker 부재는 0", () => {
   assert.equal(prevCloseOf(undefined), "0");
 });
 
-test("prevCloseOf: 첫 체결 전 null 필드는 크래시 없이 0", () => {
-  assert.equal(prevCloseOf(tk({ trade_price: null, change_price: null, change: "EVEN" })), "0");
-  // change가 RISE/FALL이어도 null 강등으로 0-0
-  assert.equal(prevCloseOf(tk({ trade_price: null, change_price: null, change: "RISE" })), "0");
+test("prevCloseOf: 첫 체결 전 trade_price null은 크래시 없이 0", () => {
+  // §4-A-4 null 경계: trade_price는 null, change_price는 "0"으로 온다
+  assert.equal(prevCloseOf(tk({ trade_price: null, change_price: "0", change: "EVEN" })), "0");
+  // change가 RISE/FALL이어도 기준가 부재 조기 반환
+  assert.equal(prevCloseOf(tk({ trade_price: null, change_price: "0", change: "RISE" })), "0");
 });
 
 test("prevCloseOf: RISE는 현재가에서 등락액 차감, FALL은 가산", () => {

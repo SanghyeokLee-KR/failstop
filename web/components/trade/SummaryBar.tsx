@@ -156,7 +156,11 @@ export default function SummaryBar({ market, meta }: Props) {
       {ticker ? (
         <div className={styles.price}>
           <span className={`${styles.cur} num dir-hero`} data-dir={dir}>
-            <TickCell value={toNum(ticker.trade_price)} format={(v) => formatPrice(v, tickSpec)} level={heroLevel} popCap={gov.popCap} popScope="summary" throttleBonus={gov.throttleBonusMs} />
+            {ticker.trade_price != null ? (
+              <TickCell value={toNum(ticker.trade_price)} valueStr={formatPrice(ticker.trade_price, tickSpec)} format={(v) => formatPrice(v, tickSpec)} level={heroLevel} popCap={gov.popCap} popScope="summary" throttleBonus={gov.throttleBonusMs} />
+            ) : (
+              "-"
+            )}
           </span>
           <PricePill change={ticker.change} changeRate={ticker.change_rate} amount={ticker.change_price} variant="inline" />
         </div>
@@ -169,13 +173,13 @@ export default function SummaryBar({ market, meta }: Props) {
         <div className={styles.stat}>
           <span className={styles.statLabel}>고가(24H)</span>
           <span className={`${styles.statValue} ${styles.statUp} num`}>
-            {ticker ? formatPrice(ticker.high_24h, tickSpec) : "-"}
+            {ticker?.high_24h != null ? formatPrice(ticker.high_24h, tickSpec) : "-"}
           </span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statLabel}>저가(24H)</span>
           <span className={`${styles.statValue} ${styles.statDown} num`}>
-            {ticker ? formatPrice(ticker.low_24h, tickSpec) : "-"}
+            {ticker?.low_24h != null ? formatPrice(ticker.low_24h, tickSpec) : "-"}
           </span>
         </div>
         <div className={styles.stat}>

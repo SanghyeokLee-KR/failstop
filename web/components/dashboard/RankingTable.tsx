@@ -109,7 +109,7 @@ export default function RankingTable() {
                   </span>
                 </span>
                 <span role="cell" className={`${styles.right} num`}>
-                  {t ? <TickCell value={toNum(t.trade_price)} format={(v) => formatPrice(v, specOf(c.market))} /> : "-"}
+                  {t?.trade_price != null ? <TickCell value={toNum(t.trade_price)} valueStr={formatPrice(t.trade_price, specOf(c.market))} format={(v) => formatPrice(v, specOf(c.market))} /> : "-"}
                 </span>
                 <span
                   role="cell"

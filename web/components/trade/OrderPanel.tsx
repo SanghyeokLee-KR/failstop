@@ -127,10 +127,10 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     setActivePct(null);
   }, [prefill]);
 
-  /* 프리필 없이 현재가 수신 시 1회 가격 채움 */
+  /* 프리필 없이 현재가 수신 시 1회 가격 채움. 무체결 마켓(trade_price null)은 채울 값이 없어 대기 */
   const prefilled = useRef(prefill != null);
   useEffect(() => {
-    if (!prefilled.current && ticker) {
+    if (!prefilled.current && ticker?.trade_price != null) {
       prefilled.current = true;
       setPriceRaw(roundToTick(ticker.trade_price, tickRef.current));
     }

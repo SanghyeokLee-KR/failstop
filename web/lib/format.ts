@@ -38,9 +38,9 @@ function clampDecimals(d: number): number {
   return d > MAX_DISPLAY_DECIMALS ? MAX_DISPLAY_DECIMALS : Math.floor(d);
 }
 
-// 표시 계층 방어. 라이브 데이터의 미제공·미체결 필드(예: 첫 체결 전 마켓의 trade_price·
-// change_rate)는 타입상 문자열이어도 런타임에 null로 도착한다. 표시 포맷터는 이를 0으로
-// 강등해 렌더 크래시를 막는다. 금액 산술(decimal.ts)은 엄격 유지해 계산 경로의 null은 드러낸다.
+// 표시 계층 최후 방어. 티커 null 계약(§4-A-4)은 Ticker 타입(string | null)이 소비처에서
+// 컴파일 타임에 강제하는 것이 원칙이고, 여기는 계약 밖 결측(어댑터 이상 등)이 렌더 크래시로
+// 번지는 것만 0 강등으로 막는다. 금액 산술(decimal.ts)은 엄격 유지해 계산 경로의 null은 드러낸다.
 function displayValue(v: string | number | null | undefined): string | number {
   return v == null || v === "" ? 0 : v;
 }

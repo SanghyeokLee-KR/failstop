@@ -63,7 +63,7 @@ export default function SpotlightPanel() {
         </div>
         <div className={styles.figures}>
           <span className={`${styles.price} num dir-hero`} data-dir={dir}>
-            {ticker ? formatPrice(ticker.trade_price, tickSpec) : "-"}
+            {ticker?.trade_price != null ? formatPrice(ticker.trade_price, tickSpec) : "-"}
           </span>
           {ticker && (
             <PricePill
@@ -93,11 +93,11 @@ export default function SpotlightPanel() {
       <div className={styles.summary}>
         <div className={styles.stat}>
           <span className={styles.statLabel}>고가(24H)</span>
-          <span className={`${styles.statValue} num`}>{ticker ? formatPrice(ticker.high_24h, tickSpec) : "-"}</span>
+          <span className={`${styles.statValue} num`}>{ticker?.high_24h != null ? formatPrice(ticker.high_24h, tickSpec) : "-"}</span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statLabel}>저가(24H)</span>
-          <span className={`${styles.statValue} num`}>{ticker ? formatPrice(ticker.low_24h, tickSpec) : "-"}</span>
+          <span className={`${styles.statValue} num`}>{ticker?.low_24h != null ? formatPrice(ticker.low_24h, tickSpec) : "-"}</span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statLabel}>거래량(24H)</span>

@@ -298,6 +298,8 @@ export class SimEngine {
 
   /* ===== 메시지 빌더 ===== */
 
+  // Ticker의 null 허용 필드(trade_price 등, §4-A-4)는 실백엔드 무체결 마켓 전용이다.
+  // 시뮬레이터는 모든 마켓에 시드가를 채우므로 항상 non-null 문자열을 생산한다.
   private tickerOf(market: string): Ticker {
     const st = this.states.get(market)!;
     const diff = st.price - st.prevClose;

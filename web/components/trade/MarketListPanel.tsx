@@ -186,7 +186,7 @@ export default function MarketListPanel({ market }: { market: string }) {
                   <span className="dir-text num" data-dir={d}>
                     {/* 약 269행의 셀별 틱 구독·플래시 비용을 없앤다. 방향은 행 data-dir 색과
                         전일대비 부호·화살표가 전달하고, 현재가 히어로가 상세 플래시를 담당한다(§16) */}
-                    {t ? formatPrice(t.trade_price, specOf(c.market)) : "-"}
+                    {t?.trade_price != null ? formatPrice(t.trade_price, specOf(c.market)) : "-"}
                   </span>
                   <span className="dir-text num" data-dir={d}>
                     {t ? formatChangeRate(t.change_rate, t.change) : "-"}

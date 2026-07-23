@@ -80,7 +80,7 @@ export default function WatchlistSidebar() {
                 </span>
                 <span className={styles.figures}>
                   <span className={`${styles.price} num`}>
-                    {t ? <TickCell value={toNum(t.trade_price)} format={(v) => formatPrice(v, specOf(c.market))} /> : "-"}
+                    {t?.trade_price != null ? <TickCell value={toNum(t.trade_price)} valueStr={formatPrice(t.trade_price, specOf(c.market))} format={(v) => formatPrice(v, specOf(c.market))} /> : "-"}
                   </span>
                   <span
                     className={`${styles.change} num dir-text`}

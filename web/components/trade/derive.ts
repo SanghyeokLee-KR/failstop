@@ -41,11 +41,10 @@ function ratioStr(a: string, b: string): string {
 
 /** 전일종가 = 현재가 ∓ 등락액 (RISE는 차감, FALL은 가산). 문자열 십진으로 정밀 보존 */
 export function prevCloseOf(ticker: TickerMessage | undefined): string {
-  if (!ticker) return "0";
-  // 첫 체결 전 마켓은 trade_price·change_price가 런타임 null로 도착한다. 십진 연산 전에 "0"으로 강등해
-  // normalizeDecimal(null).trim() 크래시를 막는다(표시 계층 방어. 금액 산술 계약은 decimal.ts에서 유지)
-  const cur = normalizeDecimal(ticker.trade_price ?? "0");
-  const chg = normalizeDecimal(ticker.change_price ?? "0");
+  // 첫 체결 전 마켓은 trade_price가 null이다(§4-A-4). 기준가가 없으므로 역산 없이 0으로 조기 반환
+  if (!ticker || ticker.trade_price == null) return "0";
+  const cur = normalizeDecimal(ticker.trade_price);
+  const chg = normalizeDecimal(ticker.change_price);
   if (ticker.change === "RISE") return subDec(cur, chg);
   if (ticker.change === "FALL") return addDec(cur, chg);
   return cur;

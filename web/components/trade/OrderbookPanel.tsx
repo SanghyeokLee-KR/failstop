@@ -116,7 +116,7 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
                 .map((u, i) => renderRow("ask", u?.ask_price ?? "0", u?.ask_size ?? "0", i))
                 .reverse()}
               <div className={`${styles.mid} num dir-text`} data-dir={dir} ref={midRef}>
-                {ticker ? (
+                {ticker?.trade_price != null ? (
                   <TickCell value={toNum(ticker.trade_price)} valueStr={formatPrice(ticker.trade_price, tickSpec)} format={(v) => formatPrice(v, tickSpec)} level={midLevel} popCap={gov.popCap} popScope="orderbook" throttleBonus={gov.throttleBonusMs} />
                 ) : (
                   "-"

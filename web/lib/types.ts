@@ -83,19 +83,24 @@ export interface OrderbookSnapshot {
   orderbook_units: OrderbookUnit[];
 }
 
-/** 티커 (REST GET /ticker 원소 + WS ticker 공통 필드) */
+/**
+ * 티커 (REST GET /ticker 원소 + WS ticker 공통 필드).
+ * null 경계(§4-A-4): 체결 이력이 전혀 없는 마켓은 trade_price가 null, 24h 윈도 무체결이면
+ * high_24h·low_24h가 null, 해당 사이드 호가가 비면 best_bid·best_ask가 null이다.
+ * change 계열·acc_trade_* 는 서버가 EVEN·"0"으로 폴백해 항상 non-null이다.
+ */
 export interface Ticker {
   market: string;
-  trade_price: string;
+  trade_price: string | null;
   change: ChangeState;
-  change_rate: string;     // 절대값 문자열 "0.0123". 부호는 change로 판정
-  change_price: string;    // 전일대비 절대 금액
-  high_24h: string;
-  low_24h: string;
+  change_rate: string;     // 절대값 문자열 "0.0123". 부호는 change로 판정. 무체결 시 "0"
+  change_price: string;    // 전일대비 절대 금액. 무체결 시 "0"
+  high_24h: string | null;
+  low_24h: string | null;
   acc_trade_volume_24h: string;
   acc_trade_price_24h: string; // 거래대금(KRW)
-  best_bid: string;
-  best_ask: string;
+  best_bid: string | null;
+  best_ask: string | null;
   seq: number;
   timestamp: string;
 }
