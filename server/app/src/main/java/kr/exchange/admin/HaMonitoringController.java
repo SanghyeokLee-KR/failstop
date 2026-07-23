@@ -28,20 +28,30 @@ public class HaMonitoringController {
         this.jdbc = jdbc;
     }
 
-    /** 리더십·워터마크(leader_lease DB 직조회가 권위, 노드 무관). */
+    /**
+     * 리더십·워터마크·복구 관측(leader_lease DB 직조회가 권위, 노드 무관). 노출 필드는 전부
+     * DB 실적재분이다. 노드 팔로워 레지스트리·복제 큐 depth·standby readiness는 단일 라이터 +
+     * 저널 재생 복구 구조라 시스템에 실재하지 않으므로 노출하지 않는다(날조 회피). 지연은 저널
+     * head 대비 applied seq(apply_lag)로만 잰다.
+     */
     @GetMapping("/status")
     public Map<String, Object> status(HttpServletRequest request) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
+        // lease_remaining_ms는 리스 신선도 지표다. renew가 lease_until을 now+ttl로 밀므로 잔여는
+        // 마지막 심박 이후 경과의 역상(ttl로 유계)이다. 별도 heartbeat 컬럼이 없어 이 값이 권위다.
         Map<String, Object> lease = jdbc.sql("""
                         SELECT holder, epoch, lease_until, clock_timestamp() AS now,
-                               (lease_until > clock_timestamp()) AS leader_alive
+                               (lease_until > clock_timestamp()) AS leader_alive,
+                               GREATEST(0, EXTRACT(EPOCH FROM (lease_until - clock_timestamp()))
+                                          * 1000)::bigint AS lease_remaining_ms
                         FROM leader_lease WHERE resource = 'matching-engine'
                         """)
                 .query((rs, n) -> Map.<String, Object>of(
                         "holder", rs.getString("holder") == null ? "" : rs.getString("holder"),
                         "epoch", rs.getLong("epoch"),
                         "lease_until", ts(rs.getObject("lease_until", OffsetDateTime.class)),
-                        "leader_alive", rs.getBoolean("leader_alive")))
+                        "leader_alive", rs.getBoolean("leader_alive"),
+                        "lease_remaining_ms", rs.getLong("lease_remaining_ms")))
                 .optional()
                 .orElse(Map.of("leader_alive", false));
         long commandWm = scalar("SELECT COALESCE(max(seq), 0) FROM command_journal");
@@ -50,14 +60,37 @@ public class HaMonitoringController {
         // 이벤트를 낳은 명령 최대 seq(event_journal.source_cmd_seq)의 격차다. command seq와 event
         // seq는 별개 채번이라 그 차이는 지연이 아니므로 섞지 않는다.
         long appliedCmdWm = scalar("SELECT COALESCE(max(source_cmd_seq), 0) FROM event_journal");
-        return Map.of(
-                "schema_version", "1.0",
-                "lease", lease,
-                "command_watermark", commandWm,
-                "event_watermark", eventWm,
-                "applied_command_watermark", appliedCmdWm,
-                "apply_lag", Math.max(0, commandWm - appliedCmdWm),
-                "trades_count", scalar("SELECT count(*) FROM trades"));
+        // 저널 head 대비 스냅샷 워터마크. 마켓별 최신 스냅샷이 담은 last_applied_seq의 전역 최대.
+        long snapshotSeq = scalar("SELECT COALESCE(max(last_applied_seq), 0) FROM snapshots");
+        return Map.ofEntries(
+                Map.entry("schema_version", "1.0"),
+                Map.entry("lease", lease),
+                Map.entry("command_watermark", commandWm),
+                Map.entry("event_watermark", eventWm),
+                Map.entry("applied_command_watermark", appliedCmdWm),
+                Map.entry("apply_lag", Math.max(0, commandWm - appliedCmdWm)),
+                Map.entry("snapshot_seq", snapshotSeq),
+                Map.entry("trades_count", scalar("SELECT count(*) FROM trades")),
+                Map.entry("recovery_runs_count", scalar("SELECT count(*) FROM recovery_runs")),
+                Map.entry("last_failover", lastFailover()));
+    }
+
+    /**
+     * 마지막 failover 측정(harness.failover_runs 최신 1건). 실험 이력이 없으면 빈 객체다.
+     * 다운타임·RTO는 NUMERIC(10,3)을 문자열로 노출한다(금액·수량 외 수치도 문자열 규약 준수).
+     */
+    private Map<String, Object> lastFailover() {
+        return jdbc.sql("""
+                        SELECT downtime_seconds, rto_seconds, verdict, created_at
+                        FROM harness.failover_runs ORDER BY created_at DESC LIMIT 1
+                        """)
+                .query((rs, n) -> Map.<String, Object>of(
+                        "downtime_seconds", str(rs.getString("downtime_seconds")),
+                        "rto_seconds", str(rs.getString("rto_seconds")),
+                        "verdict", str(rs.getString("verdict")),
+                        "at", ts(rs.getObject("created_at", OffsetDateTime.class))))
+                .optional()
+                .orElse(Map.of());
     }
 
     /** 복구 이력: recovery_runs(RTO duration·재생 seq) + failover_runs(RTO/RPO/verdict). */
