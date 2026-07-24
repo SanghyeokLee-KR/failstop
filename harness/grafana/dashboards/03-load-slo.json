@@ -85,7 +85,7 @@
       "id": 6,
       "type": "timeseries",
       "title": "주문 거부율 exchange:orders_rejected:rate1m{reason}",
-      "description": "reason별 거부/초. rate_limited(429)는 폭주 시 설계상 부하 차단 경로(거부는 늘어도 무결성은 방어). 비rate_limited 급증은 OrderRejectSpike 발화(임계 30/s).",
+      "description": "reason별 거부/초. rate_limited(429)는 폭주 시 설계상 부하 차단 경로(거부는 늘어도 무결성은 방어). 비rate_limited 급증은 OrderRejectSpike 발화(임계 10/s).",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
       "targets": [ { "refId": "A", "expr": "exchange:orders_rejected:rate1m", "legendFormat": "{{reason}}" } ],

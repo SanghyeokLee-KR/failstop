@@ -113,7 +113,8 @@ groups:
       # 비rate_limited 거부 급증(§5-2 거부율). rate_limited(429)는 폭주 시 설계상 부하 차단 경로라
       # E3·E6 스파이크(3000/s)에서 정상 발화하므로 과알림 방지 위해 제외한다("거부는 늘어도 무결성은
       # 방어" 원칙, §5-6). 남는 사유(domain_rejected 422·bad_request 400·forbidden 403·payload 413)의
-      # 급증은 클라이언트·마켓 설정 이상 신호다. 임계 30/s는 캘리브레이션 스파이크 도착률 3000/s의 1%.
+      # 급증은 클라이언트·마켓 설정 이상 신호다. 임계 10/s는 캘리브레이션 스파이크 도착률 3000/s의
+      # 0.33%. 잔여 사유는 정상 부하에서 0 근처가 기대값이라 낮은 임계로 조기 검출한다.
       # exchange:orders_rejected:rate1m은 reason 유지 레코딩 규칙이라 {reason!="rate_limited"}로 거른다.
       - alert: OrderRejectSpike
         expr: exchange:orders_rejected:rate1m{reason!~"rate_limited|insufficient_funds|invalid_price|invalid_volume|over_max_order|under_min_order"} > 10
