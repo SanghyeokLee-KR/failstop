@@ -1,18 +1,19 @@
-# E3 폭주 + 리더 kill 복합. 봇 OPS를 10배로 올린 스파이크 plateau 중 리더 kill.
-# 판정: E1 판정 + 스파이크 중 불변식 유지. 런타임 OPS 변경 API 미구현이라 봇 노드를
+# E6 폭주 + 리더 kill 복합(최종 증명, 검증설계 §3 정본 번호. 구 e3-spike-failover, M4 §0-3 개명).
+# 봇 OPS를 10배로 올린 스파이크 plateau 중 리더 kill.
+# 판정: E4 판정 + 스파이크 중 불변식 유지. 런타임 OPS 변경 API 미구현이라 봇 노드를
 # 높은 target-ops로 재기동해 스파이크를 재현한다(축약). 정본 개방루프 스파이크는
 # load/order_flow.js(PROFILE=e6)가 담당.
-param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e3.env'))
+param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e6.env'))
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 $cfg = Read-EnvFile $ConfigPath
-$runId = "E3-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
+$runId = "E6-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
 $target = $cfg['TARGET_NODE']
 
 function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
 
-Write-Section "E3 시작 runId=$runId target=$target"
+Write-Section "E6 시작 runId=$runId target=$target"
 Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
 
 Write-Section 'ⓐ 사전 권위 run'
@@ -43,7 +44,7 @@ Write-Host "스파이크 창 권위 run verdict=$($spikeRun.verdict) 위반합=$
 if ($spikeScans -lt 1) { throw '스파이크 창 내 권위 run 미적재(공허 통과 방지 가드)' }
 
 # 시계 동기 전제조건(#58): 스큐면 주입 없이 SKIP(거짓 FAIL 방지). 스파이크는 이미 형성됨.
-if (Test-FailoverClockGuard -ExperimentId 'E3') { exit 0 }
+if (Test-FailoverClockGuard -ExperimentId 'E6') { exit 0 }
 
 Write-Section 'ⓑ 주입: docker kill (스파이크 plateau 중)'
 $t0 = (Get-Date).ToUniversalTime()
@@ -51,11 +52,11 @@ $tradesAtInject = Get-TradeCount
 & docker kill $target | Out-Null
 Write-Host "T0=$($t0.ToUniversalTime().ToString('o')) trades_at_inject=$tradesAtInject"
 
-$verdict = Complete-FailoverExperiment -ExperimentId 'E3' -RunId $runId `
+$verdict = Complete-FailoverExperiment -ExperimentId 'E6' -RunId $runId `
     -OldEpoch $oldEpoch -OldHolder $oldHolder -LeaseUntilBefore $leaseUntilBefore `
     -TradesAtInject $tradesAtInject -T0 $t0 `
     -ObserveSec ([int]$cfg['POST_KILL_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC'])
 
 Write-Host "스파이크 중 불변식 위반 누계: $spikeViol (0 + 창 내 스캔 $spikeScans 회여야 폭주 중 무결 성립)"
 if ($verdict -ne 'PASS' -or $spikeRun.verdict -ne 'PASS' -or $spikeViol -ne 0) { exit 1 }
-Write-Host 'E3 PASS.' -ForegroundColor Green
+Write-Host 'E6 PASS.' -ForegroundColor Green

@@ -5,7 +5,7 @@
 # 이 스크립트는 SKIP을 내되, 그 SKIP은 미완이 아니라 유효 판정이다: DB-권위 리더십이 Redis 없이
 # 성립함(leaseHolder alive·무결성 clean)을 증거로 남긴다. 라이브 E3는 M2가 Redisson을 실제 조율
 # 경로로 채택한 뒤에만 의미가 있다(그때도 Redis는 권위 아닌 보조). compose 무단 추가 금지.
-# 파일명 유의: 레거시 e3-spike-failover.ps1(=docs E6)과 별개다. docs 번호로 명명.
+# 파일명 유의: 폭주+리더 kill 실험은 e6-spike-failover.ps1(구 e3-spike-failover, M4 §0-3 개명)이다.
 param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e3-redis-outage.env'))
 
 $ErrorActionPreference = 'Stop'

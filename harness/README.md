@@ -1,7 +1,8 @@
 # 안정성 증명 하네스 (M1-6)
 
-격리 다중 노드 카오스 토폴로지와 카오스 실험 E1~E3. 데모 스택(PG 5432·Spring 8080·web
-3000)을 건드리지 않는다. 컨테이너명 `chaos-*`, 포트·볼륨·네트워크 전부 분리.
+격리 다중 노드 카오스 토폴로지와 카오스 실험 E1~E9(실험·스크립트 매핑은 아래 실행 절).
+데모 스택(PG 5432·Spring 8080·web 3000)을 건드리지 않는다. 컨테이너명 `chaos-*`,
+포트·볼륨·네트워크 전부 분리.
 
 정본: `../docs/하네스_검증설계.md`(C01~C19·E1~E9·실험 판정 프로토콜·RTO), `../docs/하네스_CICD_IaC.md`.
 
@@ -14,8 +15,8 @@
 | 변수 | `.env.chaos` | 포트·DB·마스터키·리스 파라미터 |
 | 토식 배선 | `toxiproxy/populate.json` | 노드별 pg 프록시(pg-api1 15432 / pg-api2 25432) |
 | LB | `nginx/nginx.conf` | api-1 1차 / api-2 백업(리더 kill 시 승계) |
-| 실험 설정 | `config/e1.env`,`e2.env`,`e3.env` | 시드·타임라인·판정 임계(재현용) |
-| 스크립트 | `scripts/*.ps1` | up/down + E1~E3 오케스트레이터 + 공용 lib |
+| 실험 설정 | `config/e*.env`(실험별 1:1) | 시드·타임라인·판정 임계(재현용) |
+| 스크립트 | `scripts/*.ps1` | up/down + E1~E9 오케스트레이터 + 공용 lib |
 | k6 부하 | `load/` | 개방루프 SLO 계측 시나리오 + STOMP/서명 라이브러리(§2-2). `load/README.md` 참조 |
 | 검증 SQL | `sql/invariants.sql`,`sql/summary.sql` | 불변식 C01~C19 psql 직조회본(§4-1). 데모 라이브 판정·수동 감사 |
 | 관측 규칙 | `prometheus/rules/*.yml` | 레코딩(§5-3)·알람(§5-6). obs 프로파일 |
@@ -43,12 +44,26 @@ cd C:\dev\exchange\harness
 pwsh -File scripts/up.ps1            # bootJar 빌드 → 이미지 → compose up --wait
 # (관측 스택 포함) pwsh -File scripts/up.ps1 -Obs
 
-pwsh -File scripts/e1-leader-kill.ps1     # E1 실제 실행(파괴적, 격리 스택 한정)
+pwsh -File scripts/e4-leader-kill.ps1     # E4 리더 kill 실제 실행(파괴적, 격리 스택 한정)
 pwsh -File scripts/e2-db-cut.ps1
-pwsh -File scripts/e3-spike-failover.ps1
+pwsh -File scripts/e6-spike-failover.ps1
 
 pwsh -File scripts/down.ps1          # 전체 볼륨 파기(append-only 선별 리셋 금지)
 ```
+
+실험 번호는 `docs/하네스_검증설계.md` §3 정본과 1:1이다(M4 §0-3 개명 완료).
+
+| 실험(docs §3) | 스크립트 | 비고 |
+|---|---|---|
+| E1 PG 지연/지터 | `scripts/e1-pg-latency.ps1` | 비페일오버 |
+| E2 PG 단절·블랙홀 | `scripts/e2-db-cut.ps1` | 페일오버 |
+| E3 Redis 장애 | `scripts/e3-redis-outage.ps1` | SKIP=유효 판정(Redisson 미배선) |
+| E4 매칭 리더 kill(핵심 데모) | `scripts/e4-leader-kill.ps1` | 구 e1-leader-kill |
+| E5 네트워크 분할 | `scripts/e5-net-partition.ps1` | split-brain 반증 |
+| E6 폭주+리더 kill(최종 증명) | `scripts/e6-spike-failover.ps1` | 구 e3-spike-failover |
+| E7 그레이 장애(pause) | `scripts/e7-gray-pause.ps1` | 좀비 리더 반증 |
+| E8 앱 지연·예외 폭풍 | `scripts/e8-app-assault.ps1` | Chaos Monkey assault |
+| E9 커밋 응답 절단 | `scripts/e9-commit-cut.ps1` | 멱등성 증명 |
 
 ## 판정(기계)
 
@@ -63,12 +78,12 @@ pwsh -File scripts/down.ps1          # 전체 볼륨 파기(append-only 선별 �
 
 RTO/RPO/verdict는 `harness.failover_runs`에 적재한다. 정본 `recovery_runs`(V3, DB v2.10)에는
 rto/rpo/verdict 컬럼이 없고 재생 결정론 지문(fp_replay·fp_live·matched) 전용이라 분리한다.
-`recovery_runs`는 승격 시 스냅샷 재생 지문을 적재하는 M4 이후 채워진다. 그전까지 E1 실험의
+`recovery_runs`는 승격 시 스냅샷 재생 지문을 적재하는 M4 이후 채워진다. 그전까지 E4 실험의
 페일오버 증거 원천은 `failover_runs`다.
 
-### 컨테이너 E1 증거 한정
+### 컨테이너 E4 증거 한정
 
-컨테이너 E1의 RPO는 저널 무결(C05/C06 gapless + C13a 물질화 0)로 판정한다. C16(외부 ACK
+컨테이너 E4의 RPO는 저널 무결(C05/C06 gapless + C13a 물질화 0)로 판정한다. C16(외부 ACK
 원장 → command_journal 대조)과 C17(재생 결정론)은 각각 봇 ACK COPY·재생 지문 배선이 M4
 이월이라 이 스택에서는 빈 테이블 대조로 공허 통과한다. 스크립트는 실행 말미에 loadtest_acks·
 recovery_runs 행수를 출력해 공허 통과 여부를 증거에 명시한다. C16 실데이터 교차대조와
@@ -78,7 +93,7 @@ recovery_runs 행수를 출력해 공허 통과 여부를 증거에 명시한다
 
 `server`의 `InvariantVerifierIntegrationTest`가 봇 체결 → 사전 권위 run(C01~C19 green) →
 리더 상실·승격(epoch+1)·스테일 fencing 거부 → 사후 권위 run → `failover_runs` PASS 적재를
-Testcontainers로 재현한다. 컨테이너 E1(스탠바이 실엔진 체결 재개)의 데이터 레벨 절반을
+Testcontainers로 재현한다. 컨테이너 E4(스탠바이 실엔진 체결 재개)의 데이터 레벨 절반을
 CI에 고정한 것. 사전·사후 run이 봇 NEW 명령을 `loadtest_acks`로 적재해 C16 조인을 실데이터로
 평가하므로, 이 경로의 C16은 공허 통과가 아니다.
 
@@ -122,5 +137,5 @@ obs 프로파일(`up.ps1 -Obs`)로 prometheus(59090)·grafana(53001)를 띄운�
   승계에 의존한다. 리더 인지 라우팅은 M4 하드닝 대상.
 - 스냅샷 미구현(README M1-6). 승격 노드는 SingleWriterLoop catch-up으로 저널 전량 재생해
   인메모리 북을 복원한다. 저널 성장 시 재생 시간이 RTO에 선형 반영된다.
-- E3 스파이크는 봇 노드 재기동 기반 축약 재현이다. 정본 개방루프 스파이크(k6
+- E6 스파이크는 봇 노드 재기동 기반 축약 재현이다. 정본 개방루프 스파이크(k6
   `load/order_flow.js` PROFILE=e6)는 별도.

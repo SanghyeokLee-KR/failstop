@@ -143,7 +143,7 @@ function Wait-For {
 }
 
 # 주입(T0) 이후 승격·체결 재개 관찰 → 사후 권위 run → RTO/RPO 판정 → failover_runs 기록.
-# E2·E3가 공용으로 쓴다(E1은 상세 참조본이라 인라인 유지). 개입 금지 구간이므로 관찰만 한다.
+# E2·E6이 공용으로 쓴다(E4는 상세 참조본이라 인라인 유지). 개입 금지 구간이므로 관찰만 한다.
 function Complete-FailoverExperiment {
     param(
         [string] $ExperimentId, [string] $RunId,
@@ -232,7 +232,7 @@ function Complete-FailoverExperiment {
     return $verdict
 }
 
-# ── 확장 유틸(E1·E3·E5·E7·E8·E9 전용, 추가만). 레거시 E1~E3 경로는 위 함수만 쓴다. ──
+# ── 확장 유틸(E1·E3·E5·E7·E8·E9 전용, 추가만). E2·E4·E6(구 E1~E3) 경로는 위 함수만 쓴다. ──
 
 # 엔드포인트 지연 표본(ms) + 실패 카운트. DB 경유 read를 반복 GET한다. E1은 리더 pg 프록시
 # 지연 주입의 p99 상승·복귀를, 실패 표본은 오류율을 준다. status는 leader_lease를 읽어 DB를 탄다.

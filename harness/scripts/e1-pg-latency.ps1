@@ -2,7 +2,7 @@
 # 페일오버 아님. 판정: 오류율 < 0.1% · 무결성 위반 0 · 해제 후 60s 내 p99 기저 복귀 · epoch 불변.
 # 지연 중에도 사전/사후 권위 run으로 무결성을 확인하고, status(DB 경유)를 반복 GET해 p99·오류율을
 # 표본화한다. 개입 금지 구간은 없다(지연은 자동 해제 후 복귀만 관찰).
-# 파일명 유의: 레거시 e1-leader-kill.ps1(=docs E4)과 별개다. docs 번호로 명명.
+# 파일명 유의: 리더 kill 실험은 e4-leader-kill.ps1(구 e1-leader-kill, M4 §0-3 개명)이다.
 param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e1-pg-latency.env'))
 
 $ErrorActionPreference = 'Stop'
