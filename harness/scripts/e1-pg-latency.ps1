@@ -28,10 +28,11 @@ try {
     # 리더의 pg 프록시·노드를 대상 삼는다. HikariCP 대기(§3 E1 기대 동작)는 매칭 리더 경로에서
     # 관찰해야 정본에 충실하다. 판정 자체는 리더 여부에 무관하나 주입·표본을 같은 노드로 일치시킨다.
     $detected = Get-LeaderContainer
+    $standbyPort = $null
     if ($detected) {
-        if ($detected -eq 'chaos-api-1') { $proxy = 'pg-api1'; $port = 18080 }
-        else { $proxy = 'pg-api2'; $port = 28080 }
-        Write-Host "리더 감지: $detected -> proxy=$proxy port=$port"
+        if ($detected -eq 'chaos-api-1') { $proxy = 'pg-api1'; $port = 18080; $standbyPort = 28080 }
+        else { $proxy = 'pg-api2'; $port = 28080; $standbyPort = 18080 }
+        Write-Host "리더 감지: $detected -> proxy=$proxy port=$port standby=$standbyPort"
     } else {
         Write-Host "리더 감지 실패. config LEADER_PROXY=$proxy port=$port 사용."
     }
@@ -52,9 +53,14 @@ try {
     $t0 = (Get-Date).ToUniversalTime()
     Write-Host "T0=$($t0.ToString('o'))"
 
-    # 지연 중 무결성: 상시 스캔 주기와 무관하게 창 내 실제 스캔 1회를 강제(공허 통과 차단).
-    Write-Section 'ⓒ 지연 중 관측(온디맨드 권위 run + 지연 표본)'
-    $injRun = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'inject'
+    # 지연 중 무결성: 상시 스캔 주기와 무관하게 창 내 실제 스캔 1회를 강제(공허 통과 차단). 단 이
+    # 권위 run은 지연이 걸린 리더 DB 경로가 아니라 스탠바이 노드로 돌린다. 무결성은 공유 chaos-pg의
+    # 상태 속성이라 어느 노드에서 조회해도 리더가 만든 위반을 잡는다. 리더로 돌리면 지연 하에서 run이
+    # 60s를 초과할 뿐 아니라 그 부하가 리더 리스 하트비트를 굶겨 비페일오버 전제(epoch 불변)를 스스로
+    # 깬다(실측). 지연 표본은 아래에서 리더 경로로 채취해 열화를 측정한다. 스탠바이 미검출 시 리더 폴백.
+    $injRunPort = if ($standbyPort) { $standbyPort } else { $prePort }
+    Write-Section 'ⓒ 지연 중 관측(온디맨드 권위 run[스탠바이 경로] + 지연 표본[리더 경로])'
+    $injRun = Invoke-InvariantRun -Port $injRunPort -RunId $runId -Window 'inject'
     $injScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='inject'"
     if ($injScans -lt 1) { throw '지연 창 내 권위 run 미적재(공허 통과 방지 가드)' }
     $inj = Measure-Latency -Port $port -Count $sampleN -GapMs $gapMs

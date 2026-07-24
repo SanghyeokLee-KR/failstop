@@ -62,6 +62,12 @@ services:
       # 플릿은 계정당 다봇 고빈도라 이 한도에 429로 걸려 파킹되고, 카오스 중 부하 생성·자동 복구
       # 관찰이 무력화된다. 실험 부하 유지를 위해 서빙 노드의 주문 capacity를 상향한다(격리 스택 한정).
       EXCHANGE_ORDER_RATE_LIMIT_CAPACITY: "100000"
+      # dev 프로파일은 Hikari 풀이 기본 10(prod는 32)이라, E1(pg 지연 200/100 downstream)에서 봇
+      # 부하가 연결을 200ms+씩 점유해 풀을 고갈시키고, 리더 리스 갱신까지 굶겨 비페일오버 전제를
+      # 깬다(실측: baseline 80req/s·활성1이 지연 주입 시 in-flight 17+로 풀 10 초과). 서빙 노드
+      # 풀을 prod급으로 올려 §3 E1 기대(대기 증가·p99 상승·비페일오버)대로 거동시킨다(격리 스택 한정).
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "32"
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "8"
     ports: ["18080:8080"]
     depends_on:
       chaos-pg: { condition: service_healthy }
