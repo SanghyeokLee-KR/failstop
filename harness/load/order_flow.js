@@ -43,7 +43,6 @@ const KEYS = new SharedArray('keys', () => {
 // 수용(2xx) 요청 전용 지연 Trend. 429는 여기 넣지 않아 가용성 지표 오염을 막는다(§2-2).
 const acceptedReqDuration = new Trend('accepted_req_duration', true);
 const rateLimitedTotal = new Counter('rate_limited_total');
-const dupAckOrder = new Counter('dup_ack_order');       // 동일 coid 이중 신규 접수(전역 0)
 const wsSeqGap = new Counter('ws_seq_gap');             // 채널 seq 결번(steady 창 0)
 const wsEpochResyncFail = new Counter('ws_epoch_resync_fail'); // 재동기화 실패(전역 0)
 
@@ -77,7 +76,9 @@ export const options = {
     'checks{check:idempotent_safe}': ['rate==1'],   // UNKNOWN→재조회→재전송 규약 위반 0
     'ws_seq_gap{phase:steady}': ['count==0'],       // 정상 창 seq 결번 0(카오스 창은 phase:chaos 제외)
     'ws_epoch_resync_fail': ['count==0'],           // epoch 변화·gap 후 재동기화 실패 0(전역)
-    'dup_ack_order': ['count==0'],                  // 동일 client_order_id 이중 신규 접수 0(전역)
+    // 이중 신규 접수 0 검증은 서버측 C07'(command_journal NEW 축) 상시 검증이 전담한다(§4-1).
+    // k6는 UNKNOWN 시 재조회만 하고 재전송 경로가 없어 dup를 만들 수 없으므로, 여기에 임계를
+    // 두면 어떤 상태에서도 통과하는 토톨로지가 된다(§2-2).
   },
 };
 
@@ -148,13 +149,9 @@ export function placeOrder() {
   // 5xx/timeout(status 0) = UNKNOWN. 재조회로 안전 판정한다. 재조회 없이 재전송하면 이중 접수.
   if (res.status >= 500 || res.status === 0) {
     const look = lookupByClient(o.clientOrderId, c);
-    // 200=이미 접수(재전송 금지), 404=미접수(안전 재전송 가능). 어느 쪽이든 이중 접수를
-    // 만들지 않으면 규약 준수. 409(내용 상이 충돌)도 재전송 아님이라 safe로 본다.
+    // 200=이미 접수(응답만 유실, 재전송 금지), 404=미접수(안전 재전송 가능). 어느 쪽이든
+    // 이중 접수를 만들지 않으면 규약 준수. 409(내용 상이 충돌)도 재전송 아님이라 safe로 본다.
     const safe = (look === 200 || look === 404 || look === 409);
-    if (look === 200) {
-      // 서버는 접수했는데 응답만 유실된 경우. 여기서 신규 재전송하면 dup. 하지 않으므로 0 유지.
-      dupAckOrder.add(0);
-    }
     check(null, { idempotent_safe: () => safe });
     return;
   }

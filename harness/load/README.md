@@ -55,7 +55,10 @@ PowerShell에서는 각 줄을 `--env KEY=VALUE`로 전개한다.
 | `checks{check:idempotent_safe} == 1` | UNKNOWN→재조회→재전송 규약 위반 0 |
 | `ws_seq_gap{phase:steady} == 0` | 정상 창 채널 seq 결번 0. 카오스 창(phase:chaos)은 제외 |
 | `ws_epoch_resync_fail == 0` | epoch 변화·gap 후 재동기화 실패 0(전역) |
-| `dup_ack_order == 0` | 동일 client_order_id 이중 신규 접수 0(전역) |
+
+이중 신규 접수 0 검증은 서버측 C07'(command_journal NEW 축) 상시 검증이 전담한다(검증설계
+§4-1). k6는 UNKNOWN 시 재조회만 하고 재전송 경로가 없어 dup를 만들 수 없으므로, k6 임계로
+두면 항상 통과하는 토톨로지가 된다(구 dup_ack_order 임계 제거 사유).
 
 ## 카오스 창 제외 규약
 
