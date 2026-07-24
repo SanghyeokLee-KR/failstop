@@ -13,6 +13,7 @@ import kr.exchange.engine.LoopFatalHandler;
 import kr.exchange.engine.PromotionCoordinator;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.SingleWriterLoop;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import kr.exchange.journal.CommandJournalAppender;
@@ -30,13 +31,20 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.sql.DataSource;
+
 @Configuration
 @EnableConfigurationProperties({EngineProperties.class, SnapshotProperties.class})
 public class EngineConfig {
 
     @Bean
-    public LeaderLeaseService leaderLeaseService(JdbcClient jdbcClient, EngineProperties props) {
-        return new LeaderLeaseService(jdbcClient, props.leaseTtl(), props.leaseTickInterval());
+    public LeaderLeaseService leaderLeaseService(
+            @Qualifier("leaseDataSource") DataSource leaseDataSource, EngineProperties props) {
+        // 리스 renew·승격 시도 UPDATE는 전용 소형 풀 커넥션으로만 수행한다. 요청 풀이 포화돼도
+        // 하트비트가 굶지 않게 격리한다(LeaseDataSourceConfig, DB 설계 §5.4). 저널·정산 등 승격
+        // 이후 쓰기 경로는 그대로 기본 풀·트랜잭션을 타므로 fencing 원자성 경계는 불변이다.
+        return new LeaderLeaseService(JdbcClient.create(leaseDataSource),
+                props.leaseTtl(), props.leaseTickInterval());
     }
 
     @Bean

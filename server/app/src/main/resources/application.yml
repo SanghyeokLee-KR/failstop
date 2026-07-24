@@ -55,6 +55,19 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+# 리스 하트비트 전용 풀(§5.4). 접속 좌표는 spring.datasource를 재사용하고 여기서는 크기·타임아웃·
+# 세션 init만 지정한다. 소형 유지가 목적이라 요청 풀 포화와 무관하게 renew가 커넥션을 얻는다.
+# 카오스 스택은 dev 프로파일을 쓰므로 이 블록이 E1 하드닝의 적용점이다.
+exchange:
+  engine:
+    lease-datasource:
+      hikari:
+        maximum-pool-size: 2
+        minimum-idle: 1
+        connection-timeout: 2000
+        pool-name: exchange-lease
+        connection-init-sql: "SET TIME ZONE 'UTC'"
+
 # dev·하네스 chaos 스택은 8080에서 /actuator/prometheus를 스크레이프한다(harness prometheus.yml).
 management:
   endpoints:
@@ -89,6 +102,17 @@ exchange:
   # (마스터키·페퍼·세션시드 미주입 시 기동 중단)와 WebSocketConfig(데모·localhost WS 오리진 차단)가
   # 각각 이 키를 소비한다. server.tomcat.remoteip 블록과 별개 top-level 키로 병기한다.
   require-secrets: true
+  engine:
+    # 리스 하트비트 전용 풀(§5.4). 접속 좌표는 spring.datasource(SPRING_DATASOURCE_* 주입)를
+    # 재사용한다. statement_timeout은 걸지 않는다. 기본 풀과 달리 단일 행 renew가 슬로 윈도에서
+    # 취소돼 리더십을 잃는 것을 막기 위함이다.
+    lease-datasource:
+      hikari:
+        maximum-pool-size: 2
+        minimum-idle: 1
+        connection-timeout: 2000
+        pool-name: exchange-lease
+        connection-init-sql: "SET TIME ZONE 'UTC'"
 
 server:
   tomcat:

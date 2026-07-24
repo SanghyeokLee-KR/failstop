@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.17)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.18)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V12+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -1872,6 +1872,7 @@ FOR SHARE OF l;
 - 권위 참조: 저널 max가 아니라 `leader_lease.epoch` 참조.
 - 부팅 승격 대기: 강제 종료 직후 재기동은 직전 프로세스 리스가 TTL 내 유효하므로, 부팅 복구 경로는 즉시 실패하지 않고 TTL 1.5배(상한 30초)까지 짧은 간격으로 try_acquire_leader를 재시도한 뒤 실패 처리한다(만료 전 탈취 없음, 승격 규칙 불변).
 - 유효 범위: 이 fencing은 동일 primary 접속 앱 사이에서만 성립한다. DB 클러스터 failover의 무손실·단일 primary 보장은 §7.2 요건이 담당한다(P0-6).
+- 리스 전용 커넥션 풀(v2.18): renew_leader_lease heartbeat와 try_acquire_leader 승격 UPDATE는 요청 트래픽용 기본 HikariCP 풀과 분리된 소형 전용 풀(`exchange.engine.lease-datasource`, maximum-pool-size 2·minimum-idle 1·connection-timeout 2000ms·session init UTC)로만 수행한다. 근거: 요청 풀이 pg 지연·부하 급증으로 포화되면 heartbeat가 커넥션을 얻지 못해 TTL 내 갱신에 실패하고, 정당 단독 리더가 스스로 페일오버한다(하네스 검증 §3 E1 라이브 실측: downstream latency가 다중행 쿼리 점유를 폭증시켜 무제한 봇 부하와 겹쳐 풀을 고갈, heartbeat 기아). 전용 풀은 요청 부하와 무관하게 renew에 커넥션을 즉시 내주므로 가용성이 보전된다. 분리 범위는 리스 UPDATE(heartbeat·승격 시도)와 승격 다운타임 관측 SELECT뿐이다. 승격 성사 이후의 재생·저널 append·정산은 기존 기본 풀·트랜잭션 경계를 그대로 타므로(append의 FOR SHARE fencing 원자성 불변) split-brain 차단 성질에는 영향이 없다. statement_timeout은 전용 풀 세션에 걸지 않는다(단일 행 renew가 슬로 윈도에서 취소돼 리더십을 잃는 것을 막음).
 
 ### 5.5 복구: 스냅샷 + tail 재생 + 결정론 검증
 
@@ -2512,3 +2513,16 @@ M3 게시판(커뮤니티) 스키마를 §9로 신설하고 마이그레이션 `
 | 번호 예약 | 복구_RTO_수정설계 §6-3, 봇_방향성_거버넌스_설계 §7-2가 예약해 둔 "다음 가용 V11"을 V12로 정정했다. 방치하면 `V11__` 파일이 둘이 되어 Flyway 중복 버전으로 부팅이 막힌다 |
 
 문서 헤더 버전을 v2.17로 순증.
+
+## v2.18 패치 반영 사항
+
+리더 리스 하트비트를 요청 트래픽용 기본 커넥션 풀에서 분리해 전용 소형 풀로 격리했다(§5.4 마지막 불릿). 스키마·함수(3종)·마이그레이션은 무변경이고 앱 배선·풀 구성만 바뀐다.
+
+| 항목 | 내용 |
+|---|---|
+| 결함 | renew_leader_lease heartbeat가 요청용 HikariCP 풀을 공유했다. 하네스 검증 §3 E1(pg downstream latency + 무제한 봇 부하) 라이브에서 다중행 쿼리가 커넥션을 초 단위로 점유해 풀을 고갈시키고, heartbeat가 커넥션을 얻지 못해 TTL 내 갱신에 실패했다. 정당 단독 리더가 스스로 페일오버(epoch+1)했다. 무결성은 항상 유지(C01~C23 0위반)라 CP 안전성은 정상이나 가용성을 잃었다 |
+| 교정 | renew·try_acquire UPDATE와 승격 다운타임 관측 SELECT를 별도 소형 풀(`exchange.engine.lease-datasource`: maximum-pool-size 2·minimum-idle 1·connection-timeout 2000ms·connection-init-sql UTC)로만 수행한다. 접속 좌표는 spring.datasource를 재사용하고 크기·타임아웃만 분리한다. 기본 풀은 @Primary를 유지해 저널·정산·조회·Flyway 자동배선이 불변이다 |
+| 분리 범위 | 리스 UPDATE와 관측 SELECT에 국한한다. 승격 성사 이후의 재생·저널 append(FOR SHARE fencing)·정산은 기본 풀·기존 트랜잭션 경계를 그대로 타므로 원자성·split-brain 차단 성질이 불변이다. epoch+1 만료 구동 승격·fencing 단조·스테일 append 0행 거부는 함수 정본(§6.6 3종)이 담당하고 이번 변경 대상이 아니다 |
+| statement_timeout | 전용 풀 세션에는 걸지 않는다. 단일 행 renew가 슬로 윈도에서 취소돼 리더십을 잃는 것을 막기 위함이다(운영 기본 풀은 3000ms 유지) |
+
+문서 헤더 버전을 v2.18로 순증(이전 패치 노트의 역사 서술은 원문 유지).
