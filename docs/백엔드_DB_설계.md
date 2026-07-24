@@ -387,7 +387,7 @@ CREATE TABLE markets (
     max_qty        NUMERIC(40,18) NOT NULL CHECK (max_qty > 0),
     maker_fee_rate NUMERIC(10,8)  NOT NULL DEFAULT 0.0005
                    CHECK (maker_fee_rate BETWEEN 0 AND 0.1),           -- 상한 추가(초안 low)
-    taker_fee_rate NUMERIC(10,8)  NOT NULL DEFAULT 0.0005  -- 정본 taker=0.0005(API §4-A-1 권위 소스). 적용 V1__init.sql은 0.0010이라 코드 정합 필요(v2.11 패치 Z1, S2)
+    taker_fee_rate NUMERIC(10,8)  NOT NULL DEFAULT 0.0005  -- 정본 taker=0.0005(API §4-A-1 권위 소스). 적용 V1__init.sql:50-51도 0.0005로 정합 완료(v2.11 Z1 이행)
                    CHECK (taker_fee_rate BETWEEN 0 AND 0.1),
     status         VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE'
                    CHECK (status IN ('ACTIVE','HALTED','DELISTED')),
@@ -2419,7 +2419,7 @@ v2.9 clarity: M1-3 재판정 잔여 반영. 구현 계약을 문서로 명문화
 
 | # | 심각도 | 위치 | 문제 | 수정 |
 |---|---|---|---|---|
-| Z1 | high | §3.1 markets DDL | taker_fee_rate DEFAULT 0.0010이 API §4-A-1 권위 소스(markets taker=0.0005)·UI와 충돌 | 정본값을 taker=0.0005로 확정. 문서 DDL 갱신. 적용 `V1__init.sql:50` taker DEFAULT는 0.0010이라 코드 정합 필요(S2, V1은 첫 배포 전 수정 허용) |
+| Z1 | high | §3.1 markets DDL | taker_fee_rate DEFAULT 0.0010이 API §4-A-1 권위 소스(markets taker=0.0005)·UI와 충돌 | 정본값을 taker=0.0005로 확정. 문서 DDL 갱신. 적용 `V1__init.sql:50-51`은 maker/taker DEFAULT 0.0005로 코드 정합 완료(당초 "정합 필요" 메모는 이행 후 해소, 2026-07-24 확인) |
 | Z2 | medium | §3 로드맵 표 | V2~V4 명칭이 실제 파일과 불일치(partition_automation·ledger_verify·audit_triggers로 표기, 실제는 gateway_counters·observability_tables·harness_schema). V5 부재 | 표를 실제 V0~V5로 정정, V6+를 미배정 로드맵으로 예약. 도입부 "V2 이후 로드맵"을 "V6 이후 로드맵"으로 정정 |
 | Z3 | low | §7 candles DDL | `interval` CHECK `('1m','5m','15m','1h','1d')`가 API §4-A-5 unit 토큰과 어긋남('1h' 대 '60m', '240m'·'3m'·'30m'·'1w'·'1s' 누락) | CHECK 어휘를 API unit과 동일하게 확장. candles는 V6+ 로드맵 DDL이라 적용 코드 없음(신규 마이그레이션 작성 시 반영) |
 

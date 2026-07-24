@@ -1,8 +1,10 @@
 # 고가용성 가상 암호화폐 거래소 CI/CD·IaC·관측성 설계서 (설계 B, v1.1 최종 제출본)
 
-> 전제 계약: `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_DB_설계.md` **v2.5**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 epoch 보존 heartbeat), `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_API_설계.md` **v2.4**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·2인 승인, §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
+> 전제 계약: `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_DB_설계.md` **v2.17**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 epoch 보존 heartbeat), `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_API_설계.md` **v2.15**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·2인 승인, §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
 > 설계 원칙: **정확성(증명 가능성) > 재현성(1커맨드 기동) > 성능 > 편의성**. 인프라의 임무는 두 증명 목표, ① 체결 무결(자산합 0·유실 0·중복 0), ② 자동 복구(재생·페일오버·RTO<30s)를 **CI가 매 커밋, 데모가 실시간으로 데이터로 보여주게 만드는 것**이다.
 > 2026-07-21: 스타일 정리, 내용 무변경.
+> 2026-07-24: §5-6 C-카탈로그에 C21~C23(전부 CRITICAL, InvariantCheck enum 실재분) 수록, InvariantViolation 라우팅 열거 갱신. 단일 권위는 검증설계 §4-1 불변(§5-6은 2차 미러).
+> 2026-07-24 2차: 전제 계약 핀을 실헤더 기준으로 갱신(DB v2.5→v2.17, API v2.4→v2.15). 하네스_검증설계.md 핀(v2.17/v2.15)과 통일. §8 정정 권고 항목은 발견 시점 기록으로 존치.
 
 ---
 
@@ -754,6 +756,9 @@ datasources:
 | C18 | `C18_FILL_PRICE_MAKER` | 체결가 = maker 지정가 | **critical** | 상시 |
 | C19 | `C19_ORDERBOOK_NONCROSS` | bestBid < bestAsk | high | 정지 시점 run 한정 |
 | C20 | `C20_ORDER_FEE_MATERIALIZED` | paid_fee·trades_count = fee leg 합 | high | 상시 |
+| C21 | `C21_EVENT_EMISSION_REGISTRY` | 이벤트 방출 레지스트리 1:1 (DB§6.4 ⑮) | **critical** | 상시 |
+| C22 | `C22_FENCING_MONOTONIC` | fencing_token 단조(split-brain 흔적 0, DB§6.4 ⑯) | **critical** | 권위 run 한정 |
+| C23 | `C23_COUNTER_SEQ_CONSISTENCY` | 채번 카운터 next_value > 저널 최대 seq (DB§6.4 ⑰) | **critical** | 권위 run 한정 |
 
 `exchange_invariant_violations{check_name="C01_ASSET_CONSERVATION", severity="CRITICAL"}` 형태로 노출된다.
 
@@ -763,7 +768,7 @@ datasources:
 |---|---|---|---|
 | `LedgerImbalance` | `max(abs(exchange_ledger_imbalance))` | `>0` for 0s | **critical**, 자산 보존 위반 즉시 |
 | `DuplicateFill` | `increase(exchange_duplicate_fills_total[5m])` | `>0` | **critical** |
-| `InvariantViolation` | `max by(check_name)(exchange_invariant_violations)` | `>0` for 30s | **게이지 `severity` 라벨 패스스루로 라우팅**(critical=C01·C02·C05~C08(C07' 포함)·C13·C16~C18 / high=C03·C09~C12·C14·C19·C20 / warn=C15. C04는 DB 트리거 강제라 게이지 미노출) |
+| `InvariantViolation` | `max by(check_name)(exchange_invariant_violations)` | `>0` for 30s | **게이지 `severity` 라벨 패스스루로 라우팅**(critical=C01·C02·C05~C08(C07' 포함)·C13·C16~C18·C21~C23 / high=C03·C09~C12·C14·C19·C20 / warn=C15. C04는 DB 트리거 강제라 게이지 미노출) |
 | `OrderP99SloBreach` | `exchange:order_latency:p99_1m` | `>0.5` for 2m | warning |
 | `FailoverRtoExceeded` | `max(exchange_failover_downtime_seconds)` | `>30` | critical |
 | `LeaderAbsent` | `absent(exchange_leader_is_leader == 1)` | for 15s | critical |
