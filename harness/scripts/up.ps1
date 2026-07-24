@@ -8,6 +8,17 @@ param([switch] $Obs)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 
+# Windows PowerShell 5.1은 EAP=Stop에서 native exe가 stderr(정상 진행출력)를 내면 NativeCommandError로
+# 승격시켜 종료코드 0에도 throw한다. build·compose 같은 noisy 호출은 이 구간에서만 EAP를 낮추고
+# 종료코드로 판정한다. pwsh 동작·판정 결과는 불변(종료코드 기준 동일).
+function Invoke-Native {
+    param([scriptblock] $Command, [string] $FailMessage)
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $Command } finally { $ErrorActionPreference = $eap }
+    if ($LASTEXITCODE -ne 0) { throw $FailMessage }
+}
+
 $server = Resolve-Path (Join-Path $PSScriptRoot '..\..\server')
 $harness = Resolve-Path (Join-Path $PSScriptRoot '..')
 
@@ -20,8 +31,7 @@ if (-not (Test-Path $Global:CHAOS.EnvFile)) {
 Write-Section '1/3 bootJar 빌드'
 Push-Location $server
 try {
-    & .\gradlew.bat :app:bootJar -q
-    if ($LASTEXITCODE -ne 0) { throw "bootJar 빌드 실패" }
+    Invoke-Native { & .\gradlew.bat :app:bootJar -q } 'bootJar 빌드 실패'
 } finally { Pop-Location }
 
 $jar = Get-ChildItem (Join-Path $server 'app\build\libs') -Filter '*.jar' |
@@ -35,15 +45,14 @@ $env = Read-EnvFile $Global:CHAOS.EnvFile
 $image = $env['CHAOS_APP_IMAGE']
 Push-Location $harness
 try {
-    & docker build -f Dockerfile.app -t $image .
-    if ($LASTEXITCODE -ne 0) { throw '이미지 빌드 실패' }
+    Invoke-Native { & docker build -f Dockerfile.app -t $image . } '이미지 빌드 실패'
 } finally { Pop-Location }
 
 Write-Section '3/3 compose up'
 if ($Obs) {
-    Invoke-Compose --profile obs up -d --wait
+    Invoke-Native { Invoke-Compose --profile obs up -d --wait } 'compose up 실패'
 } else {
-    Invoke-Compose up -d --wait
+    Invoke-Native { Invoke-Compose up -d --wait } 'compose up 실패'
 }
 
 Write-Section '상태'
