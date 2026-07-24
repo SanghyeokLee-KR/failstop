@@ -1,4 +1,4 @@
-# docs §3 E9 커밋 응답 절단(멱등성 증명). 리더 pg 프록시에 reset_peer(또는 limit_data) 주입해
+﻿# docs §3 E9 커밋 응답 절단(멱등성 증명). 리더 pg 프록시에 reset_peer(또는 limit_data) 주입해
 # app<->pg 커밋 응답을 절단한다(in-doubt commit). 클라이언트는 UNKNOWN -> 동일 client_order_id
 # 재조회/재전송 -> uq_orders_client 멱등 replay. 판정: 이중 접수 0(C07/C07') · gapless · 자산합 0 ·
 # 클라 수렴(해제 후 체결 진행). 페일오버 아님. 창은 리스 TTL 미만이라 승격을 유발하지 않으나, 만약

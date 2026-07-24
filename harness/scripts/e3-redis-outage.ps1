@@ -1,4 +1,4 @@
-# docs §3 E3 Redis 장애. 리더십 권위=DB leader_lease(§6.6). Redisson은 후보 조율 보조(부록 A #6)이나
+﻿# docs §3 E3 Redis 장애. 리더십 권위=DB leader_lease(§6.6). Redisson은 후보 조율 보조(부록 A #6)이나
 # 현 런타임에 미배선이다(코드 확인: server 전체에 redis/redisson 의존·클라이언트 빈·spring.data.redis
 # 설정이 전무하고, 코드의 redis 언급은 NonceStore·AccountRateLimiter·WS 팬아웃의 M2 유예 주석뿐).
 # 따라서 Redis 장애가 매칭·리더십·split-brain에 도달할 경로가 없고 chaos-redis 추가는 무의미하다.

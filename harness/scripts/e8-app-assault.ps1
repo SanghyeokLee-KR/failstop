@@ -1,4 +1,4 @@
-# docs §3 E8 앱 내부 지연/예외 폭풍(Chaos Monkey 3.3.0 actuator assault).
+﻿# docs §3 E8 앱 내부 지연/예외 폭풍(Chaos Monkey 3.3.0 actuator assault).
 # 판정: Resilience4j CB open -> fail-fast 503, 매칭 코어 무결성 비전파, 해제 후 CB 자동 복귀.
 # 전제: 서빙 노드가 chaos-monkey 프로파일로 기동해 /actuator/chaosmonkey를 노출하고, CB 프로브 평면
 # (/internal/chaos/probe, resilience4j chaosProbe)이 배선돼 있어야 한다. 미노출이면 SKIP(전제 미충족).

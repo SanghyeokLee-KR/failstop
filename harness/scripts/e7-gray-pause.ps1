@@ -1,4 +1,4 @@
-# docs §3 E7 그레이 장애(행/무응답). docker pause chaos-api-1(freezer cgroup, TCP 생존) -> 45s -> unpause.
+﻿# docs §3 E7 그레이 장애(행/무응답). docker pause chaos-api-1(freezer cgroup, TCP 생존) -> 45s -> unpause.
 # crash와 달리 재기동 없음. lease 갱신 중단 -> 만료 -> 승격. unpause된 좀비 리더의 첫 heartbeat/append는
 # 구 epoch라 fencing 0행 -> self-shutdown. 판정: 승격 정상, 좀비 stale 쓰기 0, epoch 정확히 +1, RTO < 30s.
 # 종료 훅에서 docker unpause를 무조건 실행한다(pause는 restart 정책으로 복구 안 됨, §3).

@@ -1,4 +1,4 @@
-# docs §3 E5 네트워크 분할(split-brain 반증, crown jewel).
+﻿# docs §3 E5 네트워크 분할(split-brain 반증, crown jewel).
 # docker network disconnect chaos-net chaos-api-1(프로세스 생존, 네트워크만 격리) -> 60s -> connect.
 # 정본 §3 주입명은 데모 컨테이너(exchange-demo_default/api-1-1)라 격리 스택 실명으로 정정한다.
 # 판정(§3 E5 합격 기준, 안전성 중심): 이중 쓰기 0(워터마크 이후 구 epoch fencing 저널 행 0) +

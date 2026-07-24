@@ -1,4 +1,4 @@
-# 카오스 실험 공용 유틸. 각 실험 스크립트가 dot-source 한다.
+﻿# 카오스 실험 공용 유틸. 각 실험 스크립트가 dot-source 한다.
 # 포트·컨테이너명은 docker-compose.chaos.yml과 1:1. 판정은 전부 SQL 0행/RTO 임계로 기계화한다.
 
 $ErrorActionPreference = 'Stop'
