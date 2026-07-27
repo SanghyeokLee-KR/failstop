@@ -14,24 +14,32 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
 
 /**
- * 좀비 리더 판정기(DB 설계 §5.4 자발적 강등). 요청용 HikariCP 풀의 고갈과 리더 쓰기 진행성을
+ * 좀비 리더 판정기(DB 설계 §5.4 자발적 강등). 요청용 HikariCP 풀의 고갈과 요청 경로 진행성을
  * 함께 본다.
  *
  * 판정 신호 선택 근거. '느리다'와 '할 일이 없다'와 '일을 못 한다'를 가르는 것이 전부다.
  *  - 요청 풀에서 커넥션을 직접 얻어 보는 능동 프로브는 쓰지 않는다. HikariCP는 대기자를 FIFO로
  *    처리하므로, 과부하로 대기열이 길기만 해도 프로브가 계속 실패한다. 그 신호로 강등하면
  *    992e59b 이전(요청 풀 포화 = 하트비트 기아 = 헛페일오버)으로 회귀한다.
- *  - 대신 세 축의 논리곱을 쓴다. ① 요청 풀 전량 점유(active >= maximumPoolSize). ② 리더 쓰기
- *    시도 발생(표본 사이에 append·정산 트랜잭션 진입이 있었다). ③ 그 시도의 커밋 0.
- *    ①만으로는 조회 부하가 만든 포화와 정지를 구분하지 못하고(가상 스레드라 조회만으로도 풀은
- *    포화된다), ②가 없으면 주문이 없는 정상 리더가 정지로 오판된다. ③이 없으면 지연으로 느려졌을
- *    뿐인 노드가 걸린다. 셋이 동시에 성립하는 상태는 '할 일이 왔는데 하나도 끝내지 못한다'뿐이다.
+ *  - 대신 세 축을 쓴다. ① 요청 풀 전량 점유(active >= maximumPoolSize). ② 쓰기 요청 도착
+ *    (ApiAuthFilter가 DB 접촉 전에 계측). ③ 요청 경로 DB 작업 완료 0(계정 조회 성공·저널 append
+ *    커밋·정산 커밋이 표본 사이에 하나도 없음). ①만으로는 조회 부하가 만든 포화와 정지를 구분하지
+ *    못하고(가상 스레드라 조회만으로도 풀은 포화된다), ②가 없으면 주문이 없는 정상 리더가 정지로
+ *    오판된다. ③이 없으면 지연으로 느려졌을 뿐인 노드가 걸린다.
+ *  - ②의 계측 지점이 도달 가능해야 한다. 대상 장애에서는 인증 필터의 api_keys 조회부터 실패해
+ *    컨트롤러·게이트웨이·저널 append에 도달하지 못하므로, 그 뒤에서 세면 정작 좀비에서 한 번도
+ *    증가하지 않아 판정이 영원히 성립하지 않는다(LeaderWriteProgress 주석).
  *  - 세 축 모두 인메모리 조회다. 판정이 DB를 타면 판정 자체가 굶어 하트비트를 막는다.
  *
- * 임계 근거(standdownAfter). 세 축이 끊김 없이 이 기간 내내 유지돼야 강등한다. 표본 하나라도
- * 정상이면 누적이 초기화된다. 기본 45초는 리스 TTL 기본 10초의 4.5배, 카오스 6초의 7.5배로
- * 정상 갱신 주기와 겹치지 않고, GC·체크포인트급 일시 정지보다 훨씬 길며, 실측 좀비 지속시간
- * (30분 이상)보다는 훨씬 짧다. 총 페일오버 시간은 standdownAfter + TTL이다.
+ * 누적 규칙. ①∧②∧③이 처음 성립하는 표본이 누적 시작점(arm)이다. 이후에는 ②가 없어도 누적을
+ * 유지한다(hold). 이미 정지가 확인된 노드에서 '요청이 더 안 온다'는 건강하다는 증거가 아니다.
+ * LB가 트래픽을 끊으면 수요가 사라지므로, 리셋 조건으로 두면 그 순간 판정이 무력화된다. 누적은
+ * 진행(③ 성립 실패)이나 포화 해소(① 성립 실패)에서만 초기화한다. arm 자체는 ②를 요구하므로
+ * 주문이 오지 않는 유휴 노드는 처음부터 누적을 시작하지 않는다.
+ *
+ * 임계 근거(standdownAfter). 기본 45초는 리스 TTL 기본 10초의 4.5배, 카오스 6초의 7.5배로 정상
+ * 갱신 주기와 겹치지 않고, GC·체크포인트급 일시 정지보다 훨씬 길며, 실측 좀비 지속시간(30분 이상)
+ * 보다는 훨씬 짧다. 총 페일오버 시간은 standdownAfter + TTL이다.
  *
  * 판정 실패는 전부 '강등 없음'으로 흡수한다. 알 수 없는 상태에서 리더십을 내려놓는 쪽이 훨씬
  * 위험하고, 여기서 예외를 흘리면 renew SQL 자체가 실행되지 않아 오히려 비자발적 페일오버가 난다.
@@ -53,7 +61,7 @@ public final class RequestPoolStallDetector implements NodeServiceHealth {
     // 생성 시점 값으로 초기화한다. 센티널을 쓰면 첫 표본의 판정이 '풀이 초기화됐는지'에 따라
     // 갈려(미초기화면 조기 반환이라 스냅샷을 건너뜀) 누적 시작점이 비결정적이 된다.
     private long lastAttempts;
-    private long lastCommits;
+    private long lastCompletions;
     private boolean stalled;
     private long stalledSinceNanos;
     private boolean standdownLogged;
@@ -81,7 +89,7 @@ public final class RequestPoolStallDetector implements NodeServiceHealth {
         }
         this.progress = progress;
         this.lastAttempts = progress.attempts();
-        this.lastCommits = progress.commits();
+        this.lastCompletions = progress.completions();
         this.standdownAfterNanos = standdownAfter.toNanos();
         this.nanoClock = nanoClock;
         this.standdowns = Counter.builder("exchange.leader.standdown")
@@ -95,7 +103,11 @@ public final class RequestPoolStallDetector implements NodeServiceHealth {
     @Override
     public synchronized boolean serviceable() {
         try {
-            return evaluate();
+            boolean ok = evaluate();
+            // 판정이 한 번이라도 정상 완료하면 다음 실패는 다시 남긴다. 한 번 실패했다고 이후
+            // 전부 무음이면 판정 비활성이 관측되지 않는다(standdownLogged와 대칭).
+            probeFailureLogged = false;
+            return ok;
         } catch (RuntimeException e) {
             // 판정 자체의 실패로 리더십을 잃으면 안 된다. 호출자에게 예외를 흘리면 renew SQL이
             // 실행되지 않아 리스가 TTL 만료로 소멸한다(비자발적 페일오버).
@@ -118,24 +130,27 @@ public final class RequestPoolStallDetector implements NodeServiceHealth {
             return true;
         }
         long attempts = progress.attempts();
-        long commits = progress.commits();
+        long completions = progress.completions();
         boolean exhausted = pool.getActiveConnections() >= requestPool.getMaximumPoolSize();
         boolean attempted = attempts != lastAttempts;
-        boolean committed = commits != lastCommits;
+        boolean completed = completions != lastCompletions;
         lastAttempts = attempts;
-        lastCommits = commits;
-        if (!exhausted || !attempted || committed) {
+        lastCompletions = completions;
+        if (!exhausted || completed) {
             resetStreak();
             return true;
         }
-        long now = nanoClock.getAsLong();
         if (!stalled) {
+            if (!attempted) {
+                // 쓰기 수요가 없다. 정지의 증거가 아니므로 누적을 시작하지 않는다.
+                return true;
+            }
             // 첫 정지 표본. 지속 시간 측정 시작점만 잡고 이번 표본은 정상으로 돌려준다.
             stalled = true;
-            stalledSinceNanos = now;
+            stalledSinceNanos = nanoClock.getAsLong();
             return true;
         }
-        long stalledNanos = now - stalledSinceNanos;
+        long stalledNanos = nanoClock.getAsLong() - stalledSinceNanos;
         if (stalledNanos < standdownAfterNanos) {
             return true;
         }
@@ -143,10 +158,9 @@ public final class RequestPoolStallDetector implements NodeServiceHealth {
         if (!standdownLogged) {
             standdownLogged = true;
             standdowns.increment();
-            log.error("서비스 불능 지속 판정: 요청 풀 점유 {}/{}, 대기 {}, 쓰기 시도는 있으나 커밋 0,"
-                            + " 지속 {}ms", pool.getActiveConnections(),
-                    requestPool.getMaximumPoolSize(), pool.getThreadsAwaitingConnection(),
-                    stalledNanos / 1_000_000);
+            log.error("서비스 불능 지속 판정: 요청 풀 점유 {}/{}, 대기 {}, 요청 경로 완료 0, 지속 {}ms",
+                    pool.getActiveConnections(), requestPool.getMaximumPoolSize(),
+                    pool.getThreadsAwaitingConnection(), stalledNanos / 1_000_000);
         }
         return false;
     }

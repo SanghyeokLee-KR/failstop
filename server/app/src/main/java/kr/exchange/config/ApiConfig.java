@@ -28,6 +28,7 @@ import kr.exchange.api.ws.OrderbookSnapshotOnSubscribe;
 import kr.exchange.api.ws.StompAuthInterceptor;
 import kr.exchange.engine.EngineBridge;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.ledger.AccountBootstrap;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
@@ -117,9 +118,10 @@ public class ApiConfig {
 
     @Bean
     public FilterRegistrationBean<ApiAuthFilter> apiAuthFilter(ApiAuthService authService,
-                                                               ErrorRenderer errorRenderer) {
-        FilterRegistrationBean<ApiAuthFilter> registration =
-                new FilterRegistrationBean<>(new ApiAuthFilter(authService, errorRenderer));
+                                                               ErrorRenderer errorRenderer,
+                                                               LeaderWriteProgress writeProgress) {
+        FilterRegistrationBean<ApiAuthFilter> registration = new FilterRegistrationBean<>(
+                new ApiAuthFilter(authService, errorRenderer, writeProgress));
         registration.addUrlPatterns("/api/v1/*");
         registration.setOrder(10);
         return registration;
@@ -179,8 +181,9 @@ public class ApiConfig {
 
     @Bean
     public OrderGateway orderGateway(JdbcClient jdbc, EngineBridge bridge,
-                                     MarketDirectory markets, OrderQueryService orders) {
-        return new OrderGateway(jdbc, bridge, markets, orders);
+                                     MarketDirectory markets, OrderQueryService orders,
+                                     LeaderWriteProgress writeProgress) {
+        return new OrderGateway(jdbc, bridge, markets, orders, writeProgress);
     }
 
     @Bean

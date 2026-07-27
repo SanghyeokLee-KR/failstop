@@ -1,7 +1,10 @@
 package kr.exchange.engine;
 
 import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.availability.ApplicationAvailability;
 import org.springframework.boot.availability.ReadinessState;
@@ -31,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * 본다. 강등(DEMOTED) 노드도 같은 전이를 밟으므로 승격 후 상실 경로까지 함께 고정한다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class FollowerReadinessIntegrationTest {
 
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -78,7 +82,10 @@ class FollowerReadinessIntegrationTest {
     @Autowired
     TestRestTemplate rest;
 
+    // 순서를 고정한다. 강등 테스트가 먼저 돌면 컨텍스트 상태가 이미 REFUSING으로 굳어
+    // 팔로워 기동 판별력이 사라진다(둘 다 통과하지만 아무것도 증명하지 못한다).
     @Test
+    @Order(1)
     void followerIsRefusingTrafficAndProbeReturns503() {
         assertFalse(lease.isLeader(), "선점된 리스가 있는데 이 노드가 리더가 됐다");
 
@@ -89,6 +96,7 @@ class FollowerReadinessIntegrationTest {
     }
 
     @Test
+    @Order(2)
     void demotedNodeReturnsToRefusingAfterAccepting() {
         // 승격으로 접수를 연 상태를 만든 뒤, 실제 강등 콜백(리스 상실)으로 되돌린다.
         haAvailability.accepting();

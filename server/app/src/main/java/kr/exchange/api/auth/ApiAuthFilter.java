@@ -8,6 +8,7 @@ import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.CachedBodyRequest;
 import kr.exchange.api.common.ErrorRenderer;
 import kr.exchange.api.common.RequestBodyLimit;
+import kr.exchange.engine.LeaderWriteProgress;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -24,10 +25,14 @@ public class ApiAuthFilter extends OncePerRequestFilter {
 
     private final ApiAuthService authService;
     private final ErrorRenderer errorRenderer;
+    // 주문 쓰기 수요 계측. 인증보다 앞선 유일한 공통 지점이라 여기서 센다(DB 설계 §5.4).
+    private final LeaderWriteProgress writeProgress;
 
-    public ApiAuthFilter(ApiAuthService authService, ErrorRenderer errorRenderer) {
+    public ApiAuthFilter(ApiAuthService authService, ErrorRenderer errorRenderer,
+                         LeaderWriteProgress writeProgress) {
         this.authService = authService;
         this.errorRenderer = errorRenderer;
+        this.writeProgress = writeProgress;
     }
 
     @Override
@@ -61,6 +66,12 @@ public class ApiAuthFilter extends OncePerRequestFilter {
             String path = request.getRequestURI();
             boolean needsTrade = path.startsWith("/api/v1/orders")
                     && ("POST".equals(method) || "DELETE".equals(method));
+            if (needsTrade) {
+                // 쓰기 수요 계측(DB 설계 §5.4 좀비 리더 판정). 반드시 authService.verify 이전이다.
+                // verify는 api_keys를 조회하므로 요청 풀이 고갈된 좀비 상태에서는 여기서 이미
+                // 실패한다. 계측을 인증 뒤에 두면 정작 대상 장애에서 한 번도 증가하지 않는다.
+                writeProgress.recordAttempt();
+            }
 
             effective = request;
             String canonical;

@@ -5,6 +5,7 @@ import kr.exchange.api.auth.CanonicalRequests;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.engine.EngineBridge;
+import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.engine.OrderIntake;
 import kr.exchange.engine.SubmitResult;
 import kr.exchange.engine.core.OrderCommand;
@@ -44,13 +45,17 @@ public class OrderGateway {
     private final MarketDirectory markets;
     private final OrderQueryService orders;
     private final InflightReserves inflight;
+    // 요청 경로 진행 축(DB 설계 §5.4). 계정 조회가 성공하면 이 노드는 커넥션을 얻어 DB 작업을
+    // 끝낸 것이다. 이후가 도메인 거절로 끝나도 정지가 아니므로 진행으로 센다.
+    private final LeaderWriteProgress writeProgress;
 
     public OrderGateway(JdbcClient jdbc, EngineBridge bridge, MarketDirectory markets,
-                        OrderQueryService orders) {
+                        OrderQueryService orders, LeaderWriteProgress writeProgress) {
         this.jdbc = jdbc;
         this.bridge = bridge;
         this.markets = markets;
         this.orders = orders;
+        this.writeProgress = writeProgress;
         this.inflight = new InflightReserves(
                 orderId -> orders.byInternalId(orderId).isPresent(),
                 System::currentTimeMillis, RESERVE_DEFER_TTL_MS);
@@ -69,6 +74,7 @@ public class OrderGateway {
         // 정지·해지 계정 차단(§3-8 account_suspended). 스테이트리스 액세스 토큰(15분) 무효화 지연을
         // 주문 생성 경로에서 좁힌다. 라이터 스레드 밖의 가벼운 조회다.
         requireActiveUser(userId);
+        writeProgress.recordCompletion();
 
         ParsedOrder parsed = validate(body);
         MarketDirectory.Market market = parsed.market();

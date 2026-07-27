@@ -47,6 +47,13 @@ public class HaAvailability implements AvailabilitySignal,
     private final ApplicationEventPublisher publisher;
     // 중복 발행 억제 기준. 내가 발행한 것이 아니라 실제 관측되는 readiness를 본다. 자기 기록만
     // 믿으면 Spring·타 컴포넌트의 발행을 놓쳐 억제가 잘못 걸린다(팔로워 UP 오보의 직접 원인).
+    //
+    // 이 주입은 배선 편의가 아니라 리스너 순서 계약이다. 정정은 상태 저장소
+    // (ApplicationAvailabilityBean)가 같은 이벤트를 먼저 받은 뒤에 실행돼야 한다. 정정을 먼저
+    // 실행하면 중첩 발행이 끝난 뒤 바깥 디스패치가 저장소에 원래(잘못된) 상태를 다시 기록해
+    // 정정이 덮인다. 두 리스너 모두 Ordered 미구현이라 순서는 등록 순서, 곧 빈 초기화 순서로
+    // 결정되고, 이 생성자 의존이 저장소를 먼저 초기화하도록 강제한다. 의존을 제거하면 순서
+    // 보장이 사라진다. 실제 순서 회귀는 FollowerReadinessIntegrationTest가 잡는다.
     private final ApplicationAvailability availability;
 
     private final AtomicLong leaderEpoch = new AtomicLong(0);

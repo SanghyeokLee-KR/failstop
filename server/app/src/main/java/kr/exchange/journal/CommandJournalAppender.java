@@ -63,13 +63,11 @@ public class CommandJournalAppender {
 
     public AppendResult append(CommandDraft draft) {
         LeaderIdentity leader = lease.requireLeader();
-        // 시도는 진입에서, 커밋은 성공에서만 센다. 둘을 분리해야 '할 일이 없다'와 '막혔다'가
-        // 구분된다(§5.4 좀비 리더 판정).
-        progress.recordAttempt();
         try {
             AppendResult result =
                     appendTimer.record(() -> tx.execute(status -> appendInTx(leader, draft)));
-            progress.recordCommit();
+            // 커밋 성공만 진행으로 센다. 예외 경로는 카운터를 건드리지 않는다(§5.4 좀비 리더 판정).
+            progress.recordCompletion();
             return result;
         } catch (StaleLeaderException e) {
             // fencing 확정 거부는 renew 틱을 기다리지 않고 즉시 강등한다(§5.4).

@@ -28,6 +28,10 @@ class HaAvailabilityTest {
     private final ApplicationAvailabilityBean availabilityBean = new ApplicationAvailabilityBean();
     private HaAvailability ha;
 
+    // 전달 순서는 프로덕션 계약을 그대로 박는다. 상태 저장소가 먼저, 정정이 나중이다. 이 순서는
+    // HaAvailability가 ApplicationAvailability를 생성자로 받아 저장소가 먼저 초기화·등록되는 데서
+    // 온다. 순서가 뒤집히면 정정이 바깥 디스패치에 덮이며, 그 회귀는 실제 컨텍스트를 쓰는
+    // FollowerReadinessIntegrationTest가 잡는다(여기서는 전제로 둔다).
     private final ApplicationEventPublisher publisher = event -> {
         if (event instanceof AvailabilityChangeEvent<?> ace
                 && ace.getState() instanceof ReadinessState state) {

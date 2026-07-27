@@ -97,6 +97,49 @@ class RequestPoolStallDetectorTest {
     }
 
     @Test
+    void stallAccumulationHoldsWhenDemandStops() {
+        HikariDataSource pool = mock(HikariDataSource.class);
+        HikariPoolMXBean mxBean = mock(HikariPoolMXBean.class);
+        when(pool.getHikariPoolMXBean()).thenReturn(mxBean);
+        when(pool.getMaximumPoolSize()).thenReturn(2);
+        when(mxBean.getActiveConnections()).thenReturn(2);
+
+        LeaderWriteProgress progress = new LeaderWriteProgress();
+        AtomicLong clock = new AtomicLong();
+        RequestPoolStallDetector detector = new RequestPoolStallDetector(pool, progress,
+                Duration.ofSeconds(45), new SimpleMeterRegistry(), clock::get);
+
+        // 수요 한 건으로 누적을 시작한 뒤 수요가 끊긴다. LB가 강등 노드로 트래픽을 끊거나 봇이
+        // 파킹되면 실제로 이렇게 된다. 수요 없음을 초기화로 처리하면 그 순간 판정이 무력화된다.
+        progress.recordAttempt();
+        assertTrue(detector.serviceable());
+        clock.addAndGet(Duration.ofSeconds(46).toNanos());
+
+        assertEquals(false, detector.serviceable(), "수요가 끊겼다고 누적이 초기화되면 안 된다");
+    }
+
+    @Test
+    void idleWriteDemandNeverArmsAccumulation() {
+        HikariDataSource pool = mock(HikariDataSource.class);
+        HikariPoolMXBean mxBean = mock(HikariPoolMXBean.class);
+        when(pool.getHikariPoolMXBean()).thenReturn(mxBean);
+        when(pool.getMaximumPoolSize()).thenReturn(2);
+        when(mxBean.getActiveConnections()).thenReturn(2);
+
+        LeaderWriteProgress progress = new LeaderWriteProgress();
+        AtomicLong clock = new AtomicLong();
+        RequestPoolStallDetector detector = new RequestPoolStallDetector(pool, progress,
+                Duration.ofSeconds(45), new SimpleMeterRegistry(), clock::get);
+
+        // 조회 부하로 풀은 전량 점유지만 주문이 한 건도 오지 않는다. 누적 자체가 시작되지 않아야
+        // 한다. hold 규칙이 arm까지 면제하면 무주문 유휴 리더가 영구 강등된다.
+        for (int i = 0; i < 10; i++) {
+            clock.addAndGet(Duration.ofSeconds(45).toNanos());
+            assertTrue(detector.serviceable(), "쓰기 수요 없는 포화에서 강등했다");
+        }
+    }
+
+    @Test
     void sustainedStallWithWriteAttemptsStandsDown() {
         HikariDataSource pool = mock(HikariDataSource.class);
         HikariPoolMXBean mxBean = mock(HikariPoolMXBean.class);
@@ -116,6 +159,7 @@ class RequestPoolStallDetectorTest {
         clock.addAndGet(Duration.ofSeconds(46).toNanos());
 
         assertEquals(false, detector.serviceable(), "임계 초과 정지에서 강등 판정이 나야 한다");
+        assertEquals(0, progress.completions(), "완료가 없어야 성립하는 시나리오다");
         assertEquals(1.0, registry.get("exchange.leader.standdown").counter().count());
         assertEquals(0.0, registry.get("exchange.node.serviceable").gauge().value());
     }
