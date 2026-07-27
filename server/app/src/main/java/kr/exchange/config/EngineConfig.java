@@ -27,6 +27,7 @@ import kr.exchange.ledger.MarketCatalog;
 import kr.exchange.ledger.SettlementService;
 import kr.exchange.snapshot.SnapshotCapture;
 import kr.exchange.snapshot.SnapshotStore;
+import org.springframework.boot.availability.ApplicationAvailability;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
@@ -197,13 +198,15 @@ public class EngineConfig {
     }
 
     // HA 관측 게이지 + readiness 배선. 승격 상태 전이를 AvailabilityChangeEvent로 승격시켜
-    // LB가 팔로워·승격 대기 노드를 제외하게 한다(감사 관측성·복구, 복구 RTO §3-a).
+    // 컨테이너 healthcheck·하네스가 팔로워·강등 노드를 구분하게 한다(감사 관측성·복구 RTO §3-a).
+    // ApplicationAvailability를 주입해 중복 발행 억제를 자기 기록이 아닌 실측 상태로 판단한다.
     @Bean
     public HaAvailability haAvailability(ApplicationEventPublisher publisher,
+                                         ApplicationAvailability applicationAvailability,
                                          MeterRegistry meterRegistry,
                                          @Value("${exchange.node.id:${spring.application.name:exchange}}")
                                          String nodeId) {
-        return new HaAvailability(publisher, meterRegistry, nodeId);
+        return new HaAvailability(publisher, applicationAvailability, meterRegistry, nodeId);
     }
 
     // 승격 재생 조율. 리스 획득·상실 콜백을 여기서 배선한다. 부팅 recover가 도는 lifecycle과

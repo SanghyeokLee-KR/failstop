@@ -4,12 +4,11 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.availability.ApplicationAvailability;
 import org.springframework.boot.availability.AvailabilityChangeEvent;
 import org.springframework.boot.availability.ReadinessState;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationListener;
-import org.springframework.core.Ordered;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -23,23 +22,32 @@ import java.util.concurrent.atomic.AtomicLong;
  *   exchange_failover_downtime_seconds  RTO 게이지 T2-T1(§5-1, FailoverRtoExceeded 원천)
  *
  * readiness: 승격 상태 전이(AvailabilitySignal)를 AvailabilityChangeEvent로 승격시켜
- * /actuator/health/readiness를 ACCEPTING_TRAFFIC·REFUSING_TRAFFIC로 전이. LB가 이 프로브로
- * 팔로워·승격 대기 노드를 제외한다. AcceptGate의 내부 503은 정합 방벽으로 그대로 둔다(이중화).
- * 서비스 불능 지속으로 리스 갱신을 포기한 노드(DB 설계 §5.4 자발적 강등)도 리스 상실 콜백을 타
- * 같은 REFUSING_TRAFFIC 전이를 밟는다. 그 노드가 계속 UP으로 보이면 LB가 승격한 신 리더로
- * 넘어가지 못해, 승격만 되고 체결은 재개되지 않는다. 강등 사유별로 readiness 의미를 나누지
- * 않는 이유다.
+ * /actuator/health/readiness를 ACCEPTING_TRAFFIC·REFUSING_TRAFFIC로 전이한다. 팔로워·승격 대기·
+ * 강등 노드는 REFUSING이라 503을 낸다. 자발적 강등(DB 설계 §5.4)도 리스 상실 콜백을 타 같은
+ * 전이를 밟는다. 강등 사유별로 readiness 의미를 나누지 않는다.
  *
- * ApplicationReadyEvent에서 Spring이 자동 발행하는 ACCEPTING_TRAFFIC를, 팔로워로 기동한
- * 노드가 그대로 UP으로 오보하지 않게 마지막 desired 상태로 되돌린다. 그래서 Ordered 최하위로
- * Spring 기본 리스너 뒤에 실행한다.
+ * 이 프로브의 실제 소비자는 컨테이너 healthcheck와 운영자·하네스 관측이다. 오픈소스 nginx에는
+ * 능동 health_check가 없어 LB는 readiness를 조회하지 않는다(harness/nginx/nginx.conf). LB의
+ * 트래픽 이동은 프록시된 응답의 503이 max_fails에 계상되는 수동 판정으로 일어나고, 그 503은
+ * AcceptGate가 낸다. 두 축이 강등 시 함께 움직여야(REFUSING + 게이트 폐쇄) 승격만 되고 체결은
+ * 재개되지 않는 상태를 피한다.
+ *
+ * Spring은 ApplicationReadyEvent를 **먼저** 발행하고 그 리스너가 전부 반환한 **뒤에**
+ * ACCEPTING_TRAFFIC을 발행한다(EventPublishingRunListener.ready, SB 3.5.16 바이트코드 확인:
+ * publishEvent 다음 줄이 AvailabilityChangeEvent.publish). 따라서 ready 리스너에서 REFUSING을
+ * 되돌려도 곧바로 덮인다. 팔로워로 기동한 노드가 readiness UP으로 오보되던 원인이다.
+ * AvailabilityChangeEvent를 직접 듣고 desired와 어긋난 발행을 되돌리는 방식으로 교체한다.
+ * 되돌린 발행은 desired와 일치하므로 재귀하지 않는다.
  */
 public class HaAvailability implements AvailabilitySignal,
-        ApplicationListener<ApplicationReadyEvent>, Ordered {
+        ApplicationListener<AvailabilityChangeEvent<?>> {
 
     private static final Logger log = LoggerFactory.getLogger(HaAvailability.class);
 
     private final ApplicationEventPublisher publisher;
+    // 중복 발행 억제 기준. 내가 발행한 것이 아니라 실제 관측되는 readiness를 본다. 자기 기록만
+    // 믿으면 Spring·타 컴포넌트의 발행을 놓쳐 억제가 잘못 걸린다(팔로워 UP 오보의 직접 원인).
+    private final ApplicationAvailability availability;
 
     private final AtomicLong leaderEpoch = new AtomicLong(0);
     private final AtomicInteger isLeader = new AtomicInteger(0);
@@ -48,11 +56,11 @@ public class HaAvailability implements AvailabilitySignal,
 
     // 접수 개방 여부 목표치. 팔로워 기동을 기본으로 둔다(리더 확정 전 트래픽 차단).
     private volatile ReadinessState desired = ReadinessState.REFUSING_TRAFFIC;
-    // 마지막으로 발행한 상태. 동일 상태 재발행을 억제한다.
-    private ReadinessState published;
 
-    public HaAvailability(ApplicationEventPublisher publisher, MeterRegistry registry, String node) {
+    public HaAvailability(ApplicationEventPublisher publisher, ApplicationAvailability availability,
+                          MeterRegistry registry, String node) {
         this.publisher = publisher;
+        this.availability = availability;
         Gauge.builder("exchange_leader_epoch", leaderEpoch, AtomicLong::doubleValue)
                 .description("현재 리더 epoch 계단")
                 .tag("node", node)
@@ -84,43 +92,47 @@ public class HaAvailability implements AvailabilitySignal,
         isLeader.set(0);
     }
 
+    /** 현재 목표 readiness. 관측·테스트용이며 상태 변경 진입점이 아니다. */
+    public ReadinessState desired() {
+        return desired;
+    }
+
     @Override
     public synchronized void accepting() {
         desired = ReadinessState.ACCEPTING_TRAFFIC;
-        publish(desired);
+        publishIfNeeded(desired);
     }
 
     @Override
     public synchronized void refusing() {
         desired = ReadinessState.REFUSING_TRAFFIC;
-        publish(desired);
+        publishIfNeeded(desired);
     }
 
+    /**
+     * readiness 발행 감시. 누가 발행했든 desired와 어긋나면 즉시 되돌린다. Spring이 기동 말미에
+     * 자동 발행하는 ACCEPTING_TRAFFIC이 주 대상이다.
+     */
     @Override
-    public void onApplicationEvent(ApplicationReadyEvent event) {
-        // Spring이 ready 시점에 ACCEPTING_TRAFFIC를 자동 발행한다. 팔로워·승격 대기로 기동한
-        // 노드는 그 전이를 되돌려야 readiness 오보(항상 UP)를 막는다.
-        synchronized (this) {
-            if (desired == ReadinessState.REFUSING_TRAFFIC) {
-                published = null;
-                publish(desired);
-            } else {
-                published = ReadinessState.ACCEPTING_TRAFFIC;
-            }
+    public void onApplicationEvent(AvailabilityChangeEvent<?> event) {
+        if (!(event.getState() instanceof ReadinessState published)) {
+            return;
         }
+        ReadinessState target = desired;
+        if (published == target) {
+            return;
+        }
+        // 억제 없이 무조건 발행한다. 이 시점의 ApplicationAvailability는 아직 이 이벤트를
+        // 반영하지 않았을 수 있어(리스너 순서 미보장) 실측 조회로 판단하면 어긋난다.
+        log.warn("readiness 오발행 정정: 발행={}, 목표={}", published, target);
+        AvailabilityChangeEvent.publish(publisher, this, target);
     }
 
-    @Override
-    public int getOrder() {
-        return Ordered.LOWEST_PRECEDENCE;
-    }
-
-    private void publish(ReadinessState state) {
-        if (state == published) {
+    private void publishIfNeeded(ReadinessState state) {
+        if (availability.getReadinessState() == state) {
             return;
         }
         AvailabilityChangeEvent.publish(publisher, this, state);
-        published = state;
         log.info("readiness 전이: {}", state);
     }
 }

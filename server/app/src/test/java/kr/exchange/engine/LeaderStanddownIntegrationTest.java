@@ -103,9 +103,11 @@ class LeaderStanddownIntegrationTest {
 
         try {
             saturateRequestPool();
-            // 진행 축은 여기서부터 고정한다. 커밋이 한 건도 나지 않는 상태의 재현이다.
+            // 쓰기 시도는 계속 들어오는데 커밋이 한 건도 나지 않는 상태의 재현이다.
 
+            progress.recordAttempt();
             assertTrue(zombie.renew(), "정지 첫 표본에서 곧바로 강등하면 안 된다");
+            progress.recordAttempt();
             clock.addAndGet(Duration.ofSeconds(20).toNanos());
             assertTrue(zombie.renew(), "임계 미만 정지에서 강등하면 안 된다");
 
@@ -113,6 +115,7 @@ class LeaderStanddownIntegrationTest {
             String holderBefore = leaseHolder();
             OffsetDateTime leaseUntilBefore = leaseUntil();
 
+            progress.recordAttempt();
             clock.addAndGet(Duration.ofSeconds(30).toNanos());
             assertFalse(zombie.renew(), "서비스 불능이 임계를 넘겼는데 갱신을 계속했다");
 
@@ -123,8 +126,8 @@ class LeaderStanddownIntegrationTest {
             assertEquals(holderBefore, leaseHolder(), "강등이 리스 holder를 건드렸다");
             assertEquals(leaseUntilBefore, leaseUntil(), "강등이 lease_until을 건드렸다");
             assertFalse(zombie.tryAcquire(), "강등된 노드가 재승격되면 안 된다");
-            assertEquals(1.0, registry.get("exchange_leader_standdown").counter().count());
-            assertEquals(0.0, registry.get("exchange_node_serviceable").gauge().value());
+            assertEquals(1.0, registry.get("exchange.leader.standdown").counter().count());
+            assertEquals(0.0, registry.get("exchange.node.serviceable").gauge().value());
 
             LeaderLeaseService standby = new LeaderLeaseService(leaseJdbc,
                     Duration.ofSeconds(30), Duration.ofSeconds(1));
@@ -141,7 +144,7 @@ class LeaderStanddownIntegrationTest {
     }
 
     @Test
-    void transientSaturationAndBriefStallKeepLeadership() throws Exception {
+    void readSaturationWithIdleWritesAndBriefStallKeepLeadership() throws Exception {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         LeaderWriteProgress progress = new LeaderWriteProgress();
         AtomicLong clock = new AtomicLong();
@@ -161,24 +164,37 @@ class LeaderStanddownIntegrationTest {
             // ① 포화가 아무리 오래 가도 커밋이 나면 강등하지 않는다. E1(pg 지연)에서 리더가
             //    느려질 뿐 일은 계속하는 상황이 이 분기다. 임계의 6배를 흘려도 유지돼야 한다.
             for (int i = 0; i < 6; i++) {
+                progress.recordAttempt();
                 progress.recordCommit();
                 clock.addAndGet(Duration.ofSeconds(45).toNanos());
                 assertTrue(leader.renew(), "진행이 있는 포화에서 강등하면 안 된다");
             }
 
-            // ② 커밋이 멈춰도 임계 미만이면 유지한다.
+            // ② 조회 부하만으로 풀이 포화된 무주문 구간. 쓰기 시도가 0이면 '할 일이 없는 것'이라
+            //    정지가 아니다. 시도 축이 없으면 여기서 정상 리더가 영구 강등된다.
+            for (int i = 0; i < 6; i++) {
+                clock.addAndGet(Duration.ofSeconds(45).toNanos());
+                assertTrue(leader.renew(), "쓰기 시도 0(무주문) 구간에서 강등하면 안 된다");
+            }
+
+            // ③ 시도가 있고 커밋이 멈춰도 임계 미만이면 유지한다.
+            progress.recordAttempt();
             clock.addAndGet(Duration.ofSeconds(10).toNanos());
             assertTrue(leader.renew(), "정지 첫 표본에서 강등하면 안 된다");
+            progress.recordAttempt();
             clock.addAndGet(Duration.ofSeconds(40).toNanos());
             assertTrue(leader.renew(), "임계 미만 정지에서 강등하면 안 된다");
 
-            // ③ 포화가 풀리면 누적이 초기화된다. 지속이 아닌 반복 포화로는 강등되지 않는다.
+            // ④ 포화가 풀리면 누적이 초기화된다. 지속이 아닌 반복 포화로는 강등되지 않는다.
             releaseRequestPool();
+            progress.recordAttempt();
             clock.addAndGet(Duration.ofSeconds(1).toNanos());
             assertTrue(leader.renew(), "포화 해소 표본에서 강등하면 안 된다");
 
             saturateRequestPool();
+            progress.recordAttempt();
             assertTrue(leader.renew(), "재포화 첫 표본에서 강등하면 안 된다");
+            progress.recordAttempt();
             clock.addAndGet(Duration.ofSeconds(40).toNanos());
             assertTrue(leader.renew(), "누적이 초기화되지 않아 임계 미만에서 강등했다");
 
@@ -186,8 +202,8 @@ class LeaderStanddownIntegrationTest {
             assertEquals(epoch, leader.requireLeader().epoch(), "유지 중 epoch가 변하면 안 된다");
             assertEquals(epoch, leaseEpoch(), "유지 중 리스 epoch가 변하면 안 된다");
             assertEquals(0, lost.get(), "상실 콜백이 발화하면 안 된다");
-            assertEquals(0.0, registry.get("exchange_leader_standdown").counter().count());
-            assertEquals(1.0, registry.get("exchange_node_serviceable").gauge().value());
+            assertEquals(0.0, registry.get("exchange.leader.standdown").counter().count());
+            assertEquals(1.0, registry.get("exchange.node.serviceable").gauge().value());
         } finally {
             releaseRequestPool();
             leader.close();

@@ -17,20 +17,24 @@ import java.util.function.LongSupplier;
  * 좀비 리더 판정기(DB 설계 §5.4 자발적 강등). 요청용 HikariCP 풀의 고갈과 리더 쓰기 진행성을
  * 함께 본다.
  *
- * 판정 신호 선택 근거. '느리다'와 '일을 못 한다'를 가르는 것이 전부다.
+ * 판정 신호 선택 근거. '느리다'와 '할 일이 없다'와 '일을 못 한다'를 가르는 것이 전부다.
  *  - 요청 풀에서 커넥션을 직접 얻어 보는 능동 프로브는 쓰지 않는다. HikariCP는 대기자를 FIFO로
  *    처리하므로, 과부하로 대기열이 길기만 해도 프로브가 계속 실패한다. 그 신호로 강등하면
  *    992e59b 이전(요청 풀 포화 = 하트비트 기아 = 헛페일오버)으로 회귀한다.
- *  - 대신 두 축의 논리곱을 쓴다. ① 요청 풀 전량 점유(active >= maximumPoolSize): 대기자 유무와
- *    무관한 신호라 LB가 트래픽을 끊은 뒤에도 성립한다. ② 리더 쓰기 커밋 진행 0: 표본 사이에
- *    command_journal append·정산 커밋이 한 건도 없었다. 지연으로 느려졌을 뿐인 노드는 커밋이
- *    계속 나므로 ②에서 걸러지고, 커넥션이 반납되지 않아 얼어붙은 노드만 두 축을 동시에 만족한다.
- *  - 두 축 모두 인메모리 조회다. 판정이 DB를 타면 판정 자체가 굶어 하트비트를 막는다.
+ *  - 대신 세 축의 논리곱을 쓴다. ① 요청 풀 전량 점유(active >= maximumPoolSize). ② 리더 쓰기
+ *    시도 발생(표본 사이에 append·정산 트랜잭션 진입이 있었다). ③ 그 시도의 커밋 0.
+ *    ①만으로는 조회 부하가 만든 포화와 정지를 구분하지 못하고(가상 스레드라 조회만으로도 풀은
+ *    포화된다), ②가 없으면 주문이 없는 정상 리더가 정지로 오판된다. ③이 없으면 지연으로 느려졌을
+ *    뿐인 노드가 걸린다. 셋이 동시에 성립하는 상태는 '할 일이 왔는데 하나도 끝내지 못한다'뿐이다.
+ *  - 세 축 모두 인메모리 조회다. 판정이 DB를 타면 판정 자체가 굶어 하트비트를 막는다.
  *
- * 임계 근거(standdownAfter). 두 축이 끊김 없이 이 기간 내내 유지돼야 강등한다. 표본 하나라도
+ * 임계 근거(standdownAfter). 세 축이 끊김 없이 이 기간 내내 유지돼야 강등한다. 표본 하나라도
  * 정상이면 누적이 초기화된다. 기본 45초는 리스 TTL 기본 10초의 4.5배, 카오스 6초의 7.5배로
  * 정상 갱신 주기와 겹치지 않고, GC·체크포인트급 일시 정지보다 훨씬 길며, 실측 좀비 지속시간
  * (30분 이상)보다는 훨씬 짧다. 총 페일오버 시간은 standdownAfter + TTL이다.
+ *
+ * 판정 실패는 전부 '강등 없음'으로 흡수한다. 알 수 없는 상태에서 리더십을 내려놓는 쪽이 훨씬
+ * 위험하고, 여기서 예외를 흘리면 renew SQL 자체가 실행되지 않아 오히려 비자발적 페일오버가 난다.
  *
  * 강등은 이 판정기가 아니라 LeaderLeaseService가 수행한다. 여기서는 상태를 만들지 않는다.
  */
@@ -46,10 +50,14 @@ public final class RequestPoolStallDetector implements NodeServiceHealth {
     // 1 정상, 0 강등 판정. 하네스가 좀비 판정 시점을 외부에서 관측하는 단일 지표다.
     private final AtomicInteger serviceable = new AtomicInteger(1);
 
-    private long lastCommits = Long.MIN_VALUE;
+    // 생성 시점 값으로 초기화한다. 센티널을 쓰면 첫 표본의 판정이 '풀이 초기화됐는지'에 따라
+    // 갈려(미초기화면 조기 반환이라 스냅샷을 건너뜀) 누적 시작점이 비결정적이 된다.
+    private long lastAttempts;
+    private long lastCommits;
     private boolean stalled;
     private long stalledSinceNanos;
     private boolean standdownLogged;
+    private boolean probeFailureLogged;
 
     public RequestPoolStallDetector(DataSource requestDataSource, LeaderWriteProgress progress,
                                     Duration standdownAfter, MeterRegistry registry) {
@@ -66,25 +74,41 @@ public final class RequestPoolStallDetector implements NodeServiceHealth {
             throw new IllegalArgumentException("standdownAfter는 양수여야 한다");
         }
         // 요청 풀이 Hikari가 아니면 점유 상태를 알 수 없다. 판정 불가는 강등 없음으로 흡수한다.
-        // 알 수 없는 상태에서 리더십을 내려놓는 쪽이 훨씬 위험하다.
         this.requestPool = requestDataSource instanceof HikariDataSource hikari ? hikari : null;
         if (this.requestPool == null) {
             log.warn("요청 DataSource가 HikariDataSource가 아니라 좀비 리더 판정을 비활성화한다: {}",
                     requestDataSource == null ? "null" : requestDataSource.getClass().getName());
         }
         this.progress = progress;
+        this.lastAttempts = progress.attempts();
+        this.lastCommits = progress.commits();
         this.standdownAfterNanos = standdownAfter.toNanos();
         this.nanoClock = nanoClock;
-        this.standdowns = Counter.builder("exchange_leader_standdown")
+        this.standdowns = Counter.builder("exchange.leader.standdown")
                 .description("서비스 불능 지속으로 리스 갱신을 자발적으로 포기한 횟수")
                 .register(registry);
-        Gauge.builder("exchange_node_serviceable", serviceable, AtomicInteger::doubleValue)
+        Gauge.builder("exchange.node.serviceable", serviceable, AtomicInteger::doubleValue)
                 .description("리더 일 수행 가능(1)·서비스 불능 지속(0)")
                 .register(registry);
     }
 
     @Override
     public synchronized boolean serviceable() {
+        try {
+            return evaluate();
+        } catch (RuntimeException e) {
+            // 판정 자체의 실패로 리더십을 잃으면 안 된다. 호출자에게 예외를 흘리면 renew SQL이
+            // 실행되지 않아 리스가 TTL 만료로 소멸한다(비자발적 페일오버).
+            if (!probeFailureLogged) {
+                probeFailureLogged = true;
+                log.warn("좀비 리더 판정 실패, 이번 표본은 정상으로 흡수한다", e);
+            }
+            resetStreak();
+            return true;
+        }
+    }
+
+    private boolean evaluate() {
         if (requestPool == null) {
             return true;
         }
@@ -93,13 +117,15 @@ public final class RequestPoolStallDetector implements NodeServiceHealth {
             // 풀 미초기화 구간. 관측 불가라 판정하지 않는다.
             return true;
         }
+        long attempts = progress.attempts();
         long commits = progress.commits();
         boolean exhausted = pool.getActiveConnections() >= requestPool.getMaximumPoolSize();
-        if (!exhausted || commits != lastCommits) {
-            lastCommits = commits;
-            stalled = false;
-            standdownLogged = false;
-            serviceable.set(1);
+        boolean attempted = attempts != lastAttempts;
+        boolean committed = commits != lastCommits;
+        lastAttempts = attempts;
+        lastCommits = commits;
+        if (!exhausted || !attempted || committed) {
+            resetStreak();
             return true;
         }
         long now = nanoClock.getAsLong();
@@ -117,10 +143,17 @@ public final class RequestPoolStallDetector implements NodeServiceHealth {
         if (!standdownLogged) {
             standdownLogged = true;
             standdowns.increment();
-            log.error("서비스 불능 지속 판정: 요청 풀 점유 {}/{}, 대기 {}, 리더 쓰기 커밋 진행 0, 지속 {}ms",
-                    pool.getActiveConnections(), requestPool.getMaximumPoolSize(),
-                    pool.getThreadsAwaitingConnection(), stalledNanos / 1_000_000);
+            log.error("서비스 불능 지속 판정: 요청 풀 점유 {}/{}, 대기 {}, 쓰기 시도는 있으나 커밋 0,"
+                            + " 지속 {}ms", pool.getActiveConnections(),
+                    requestPool.getMaximumPoolSize(), pool.getThreadsAwaitingConnection(),
+                    stalledNanos / 1_000_000);
         }
         return false;
+    }
+
+    private void resetStreak() {
+        stalled = false;
+        standdownLogged = false;
+        serviceable.set(1);
     }
 }

@@ -639,6 +639,8 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 | `exchange.failover.downtime.seconds` | Gauge | - | `exchange_failover_downtime_seconds` | **RTO(§7-4 확정명)** |
 | `exchange.leader.epoch` | Gauge | `node` | `exchange_leader_epoch` | epoch 계단(42→43) |
 | `exchange.leader.is_leader` | Gauge 0/1 | `node` | `exchange_leader_is_leader` | 리더 소유권 밴드·absent 알람 |
+| `exchange.node.serviceable` | Gauge 0/1 | - | `exchange_node_serviceable` | 리더 일 수행 가능(1)·서비스 불능 지속(0). 좀비 리더 판정(DB§5.4) |
+| `exchange.leader.standdown` | Counter | - | `exchange_leader_standdown_total` | 서비스 불능 지속으로 리스 갱신을 포기한 횟수. E1은 증가 0, E7'은 1 |
 | `exchange.ledger.imbalance` | Gauge | `asset` | `exchange_ledger_imbalance` | **자산 보존(§7-4 확정명)**, 항상 0 |
 | `exchange.invariant.violations` | Gauge | `check_name` | `exchange_invariant_violations` | `invariant_checks.violated_rows` 미러, **check_name은 §5-6 C-카탈로그 표준명** |
 | `exchange.duplicate.fills` | Counter | - | `exchange_duplicate_fills_total` | 중복 체결(§6-C ③), 항상 0 |
