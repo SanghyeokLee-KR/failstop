@@ -1,7 +1,9 @@
 package kr.exchange.api;
 
 import com.zaxxer.hikari.HikariDataSource;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import kr.exchange.api.auth.DemoKeySeeder;
+import kr.exchange.engine.LeaderStallDetector;
 import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.ledger.AccountBootstrap;
 import org.awaitility.Awaitility;
@@ -31,6 +33,7 @@ import java.util.Base64;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -152,6 +155,50 @@ class LeaderWriteDemandReachabilityIntegrationTest {
                 "풀 고갈 상태에서 쓰기 수요가 관측되지 않았다. 계측 지점이 인증·DB 뒤에 있다");
         assertEquals(completionsBefore, writeProgress.completions(),
                 "요청 경로가 아무것도 끝내지 못했는데 완료가 증가했다");
+    }
+
+    /**
+     * 라이브 좀비의 실제 모습(커넥션은 남는데 아무것도 끝나지 않음)을 게이트웨이 계층에서 재현해
+     * 판정기가 강등을 내는지 본다. 풀 포화를 쓰지 않는 것이 요점이다. 카오스 라이브의 좀비는 CPU
+     * 폭주로 죽어 있었고 커넥션은 계속 반납되고 있었다.
+     */
+    @Test
+    void stalledRequestPathStandsDownWithoutPoolExhaustion() throws Exception {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        // 임계만 줄이고 시계는 실제 단조 시계를 쓴다. 판정기 내부 시계 주입은 같은 패키지 전용이라
+        // 여기서는 공개 생성자 그대로, 즉 프로덕션과 동일한 경로로 검증한다.
+        Duration standdownAfter = Duration.ofMillis(600);
+        LeaderStallDetector detector =
+                new LeaderStallDetector(requestPool, writeProgress, standdownAfter, registry);
+
+        // 풀은 멀쩡하다. 판정이 점유율에 걸리면 여기서 강등이 나오지 않는다.
+        assertTrue(requestPool.getHikariPoolMXBean().getActiveConnections()
+                        < requestPool.getMaximumPoolSize(),
+                "풀이 이미 포화라 이 시나리오의 전제가 성립하지 않는다");
+        assertTrue(detector.serviceable(), "기준 표본은 정상이어야 한다");
+
+        // 완료가 나오지 않는 쓰기 요청. 인증 앞 계측이라 수요만 오르고 완료는 오르지 않는다.
+        // 서명을 만들지 않아 verify가 DB 이전에 거절할 수 있으므로, 완료 상쇄를 확실히 없애기
+        // 위해 계측 지점과 동일한 경로(필터 진입)만 타도록 Authorization을 비운다.
+        long completionsBefore = writeProgress.completions();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-Type", "application/json");
+        rest.exchange("/api/v1/orders", HttpMethod.POST,
+                new HttpEntity<>("{}".getBytes(StandardCharsets.UTF_8), headers), String.class);
+        assertEquals(completionsBefore + 1, writeProgress.completions(),
+                "인증 단계 확정 거절은 완료로 상쇄돼야 한다(정상 노드 오탐 방지)");
+
+        // 위 요청의 수요·완료 증분을 한 표본으로 흡수한다. 완료가 있었으니 정상 표본이다.
+        assertTrue(detector.serviceable(), "완료가 있었던 표본에서 강등 판정이 나면 안 된다");
+
+        // 이제 완료가 나오지 않는 상태(요청 경로가 아무것도 끝내지 못하는 노드)를 만든다.
+        writeProgress.recordAttempt();
+        assertTrue(detector.serviceable(), "정지 첫 표본은 누적 시작점일 뿐이다");
+        Thread.sleep(standdownAfter.toMillis() + 200);
+
+        assertFalse(detector.serviceable(),
+                "커넥션이 남아 있어도 완료가 없으면 강등해야 한다");
+        assertEquals(1.0, registry.get("exchange.leader.standdown").counter().count());
     }
 
     @Test

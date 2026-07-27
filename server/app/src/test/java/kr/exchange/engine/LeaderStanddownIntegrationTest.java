@@ -16,8 +16,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.sql.Connection;
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -26,10 +24,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 좀비 리더 자발적 강등(DB 설계 §5.4). 992e59b의 전용 풀 격리로 하트비트 생존성이 서비스
- * 생존성과 분리된 뒤 생긴 결함(요청 경로가 멈춘 노드가 리스만 갱신해 스탠바이 승격을 영구히
- * 막음)을 풀 계층에서 결정적으로 재현하고, 그 반대편(일시 지연·순간 포화에서의 헛페일오버)이
- * 재발하지 않음을 함께 고정한다.
+ * 좀비 리더 자발적 강등의 리스 계층 계약(DB 설계 §5.4).
+ *
+ * 992e59b의 전용 풀 격리로 하트비트 생존성이 서비스 생존성과 분리된 뒤, 요청 경로가 멈춘 노드가
+ * 리스만 갱신해 스탠바이 승격을 영구히 막는 좀비가 생겼다. 여기서 고정하는 것은 그 노드가 갱신을
+ * 포기하는 것, 포기가 리스 행을 건드리지 않는 것, 그리고 승격이 종전대로 만료 구동 epoch+1로만
+ * 성립하는 것이다.
+ *
+ * 정지 재현에 커넥션 풀 포화를 쓰지 않는다. 카오스 라이브의 실제 좀비는 커넥션 대기가 아니라 CPU
+ * 폭주(463%)로 죽어 있었고, 풀 점유를 판정 조건에 넣었던 직전 설계는 그래서 한 번도 발동하지
+ * 않았다. 판정은 원인이 아니라 증상(수요는 오는데 완료가 없다)만 본다.
  *
  * 시간 축은 주입 클럭으로 구동한다. 실제 임계(45s)를 벽시계로 기다리지 않고도 동일한 판정을
  * 재현하려면 표본 사이의 경과 시간이 테스트 통제 아래 있어야 한다.
@@ -53,18 +57,20 @@ class LeaderStanddownIntegrationTest {
     static JdbcClient leaseJdbc;
     static JdbcClient probeJdbc;
 
-    private final List<Connection> held = new ArrayList<>();
-
     @BeforeAll
-    static void setUp() {
+    static void setUp() throws Exception {
         Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration")
                 .load()
                 .migrate();
-        requestPool = pool("request-pool", 2, 1000);
+        requestPool = pool("request-pool", 8, 1000);
+        // 풀을 실제로 초기화해야 MXBean이 생긴다. 점유 0 단언이 관측에 근거하도록 예열한다.
+        try (Connection warmUp = requestPool.getConnection()) {
+            assertTrue(warmUp.isValid(2));
+        }
         leasePool = pool("exchange-lease", 2, 2000);
-        // 리스 조작·검증은 요청 풀 포화와 무관해야 하므로 전용 풀로만 한다.
+        // 리스 조작·검증은 요청 경로 상태와 무관해야 하므로 전용 풀로만 한다.
         leaseJdbc = JdbcClient.create(leasePool);
         probeJdbc = JdbcClient.create(leasePool);
     }
@@ -86,26 +92,27 @@ class LeaderStanddownIntegrationTest {
     }
 
     @Test
-    void stalledNodeStopsRenewingAndStandbyTakesOverWithNextEpoch() throws Exception {
+    void stalledNodeStopsRenewingAndStandbyTakesOverWithNextEpoch() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         LeaderWriteProgress progress = new LeaderWriteProgress();
         AtomicLong clock = new AtomicLong();
         LeaderLeaseService zombie = new LeaderLeaseService(leaseJdbc,
                 Duration.ofSeconds(5), Duration.ofMillis(200),
-                new RequestPoolStallDetector(requestPool, progress, STANDDOWN_AFTER,
+                new LeaderStallDetector(requestPool, progress, STANDDOWN_AFTER,
                         registry, clock::get));
         AtomicInteger lost = new AtomicInteger();
         zombie.onLeadershipLost(lost::incrementAndGet);
 
         assertTrue(zombie.tryAcquire(), "만료 리스 승격 실패");
         long epoch = zombie.requireLeader().epoch();
-        assertTrue(zombie.renew(), "포화 전 하트비트가 실패했다");
+        assertTrue(zombie.renew(), "정지 전 하트비트가 실패했다");
 
         try {
-            saturateRequestPool();
-            // 쓰기 요청은 계속 도착하는데 요청 경로가 아무것도 끝내지 못하는 상태의 재현이다.
+            // 커넥션 풀은 멀쩡하다(점유 0/8). 쓰기 요청은 도착하는데 아무것도 끝나지 않는 상태다.
             // 수요 계측이 실제로 도달 가능한지는 별도로 고정한다
             // (api.LeaderWriteDemandReachabilityIntegrationTest).
+            assertEquals(0, requestPool.getHikariPoolMXBean().getActiveConnections(),
+                    "풀 포화가 강등의 전제로 남아 있으면 CPU 기아형 좀비를 놓친다");
 
             progress.recordAttempt();
             assertTrue(zombie.renew(), "정지 첫 표본에서 곧바로 강등하면 안 된다");
@@ -116,7 +123,8 @@ class LeaderStanddownIntegrationTest {
             String holderBefore = leaseHolder();
             OffsetDateTime leaseUntilBefore = leaseUntil();
 
-            // 수요가 끊겨도 누적은 유지된다(hold). LB가 트래픽을 끊었다고 좀비가 낫는 것이 아니다.
+            // 수요가 끊겨도 누적은 유지된다(hold). LB가 실패한 리더를 업스트림에서 빼면 실제로
+            // 이렇게 되고, 수요 없음을 초기화로 두면 그 순간 판정이 무력화된다.
             clock.addAndGet(Duration.ofSeconds(30).toNanos());
             assertFalse(zombie.renew(), "서비스 불능이 임계를 넘겼는데 갱신을 계속했다");
 
@@ -139,19 +147,18 @@ class LeaderStanddownIntegrationTest {
             assertEquals(epoch + 1, standby.requireLeader().epoch(), "승격은 정확히 epoch +1");
             assertEquals(standby.holder(), leaseHolder());
         } finally {
-            releaseRequestPool();
             zombie.close();
         }
     }
 
     @Test
-    void readSaturationWithIdleWritesAndBriefStallKeepLeadership() throws Exception {
+    void idleAndCompletingNodesKeepLeadership() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         LeaderWriteProgress progress = new LeaderWriteProgress();
         AtomicLong clock = new AtomicLong();
         LeaderLeaseService leader = new LeaderLeaseService(leaseJdbc,
                 Duration.ofSeconds(30), Duration.ofSeconds(1),
-                new RequestPoolStallDetector(requestPool, progress, STANDDOWN_AFTER,
+                new LeaderStallDetector(requestPool, progress, STANDDOWN_AFTER,
                         registry, clock::get));
         AtomicInteger lost = new AtomicInteger();
         leader.onLeadershipLost(lost::incrementAndGet);
@@ -160,46 +167,33 @@ class LeaderStanddownIntegrationTest {
         long epoch = leader.requireLeader().epoch();
 
         try {
-            saturateRequestPool();
-
-            // ① 포화가 아무리 오래 가도 요청 경로가 일을 끝내면 강등하지 않는다. E1(pg 지연)에서
-            //    리더가 느려질 뿐 계속 처리하는 상황이 이 분기다. 임계의 6배를 흘려도 유지된다.
+            // ① 느려도 일을 끝내는 노드는 임계의 6배를 흘려도 유지된다. E1(pg 지연) 전제다.
             for (int i = 0; i < 6; i++) {
                 progress.recordAttempt();
                 progress.recordCompletion();
                 clock.addAndGet(Duration.ofSeconds(45).toNanos());
-                assertTrue(leader.renew(), "진행이 있는 포화에서 강등하면 안 된다");
+                assertTrue(leader.renew(), "완료가 있는 노드에서 강등하면 안 된다");
             }
 
-            // ② 조회 부하만으로 풀이 포화된 무주문 구간. 쓰기 수요가 0이면 '할 일이 없는 것'이라
-            //    정지가 아니다. 수요 축이 없으면 여기서 정상 리더가 영구 강등된다.
+            // ② 주문이 오지 않는 유휴 구간. 수요 축이 없으면 여기서 정상 리더가 영구 강등된다.
             for (int i = 0; i < 6; i++) {
                 clock.addAndGet(Duration.ofSeconds(45).toNanos());
                 assertTrue(leader.renew(), "쓰기 수요 0(무주문) 구간에서 강등하면 안 된다");
             }
 
-            // ③ 수요가 있고 완료가 멈춰도 임계 미만이면 유지한다.
+            // ③ 수요가 있고 완료가 잠시 멈춰도 임계 미만이면 유지한다.
             progress.recordAttempt();
             clock.addAndGet(Duration.ofSeconds(10).toNanos());
             assertTrue(leader.renew(), "정지 첫 표본에서 강등하면 안 된다");
             clock.addAndGet(Duration.ofSeconds(40).toNanos());
             assertTrue(leader.renew(), "임계 미만 정지에서 강등하면 안 된다");
 
-            // ④ 완료가 재개되면 누적이 초기화된다. 지속이 아닌 반복 정지로는 강등되지 않는다.
+            // ④ 완료가 재개되면 누적이 초기화된다. 지속이 아닌 간헐 정지로는 강등되지 않는다.
             progress.recordAttempt();
             progress.recordCompletion();
             clock.addAndGet(Duration.ofSeconds(1).toNanos());
             assertTrue(leader.renew(), "완료 재개 표본에서 강등하면 안 된다");
-
-            // ⑤ 포화 해소도 초기화 조건이다.
-            releaseRequestPool();
             progress.recordAttempt();
-            clock.addAndGet(Duration.ofSeconds(60).toNanos());
-            assertTrue(leader.renew(), "포화 해소 표본에서 강등하면 안 된다");
-
-            saturateRequestPool();
-            progress.recordAttempt();
-            assertTrue(leader.renew(), "재포화 첫 표본에서 강등하면 안 된다");
             clock.addAndGet(Duration.ofSeconds(40).toNanos());
             assertTrue(leader.renew(), "누적이 초기화되지 않아 임계 미만에서 강등했다");
 
@@ -210,26 +204,8 @@ class LeaderStanddownIntegrationTest {
             assertEquals(0.0, registry.get("exchange.leader.standdown").counter().count());
             assertEquals(1.0, registry.get("exchange.node.serviceable").gauge().value());
         } finally {
-            releaseRequestPool();
             leader.close();
         }
-    }
-
-    private void saturateRequestPool() throws Exception {
-        // 실 카오스의 다중행 쿼리 폭주 대신 커넥션을 직접 붙들어 전량 점유를 결정적으로 만든다.
-        for (int i = held.size(); i < requestPool.getMaximumPoolSize(); i++) {
-            held.add(requestPool.getConnection());
-        }
-        assertEquals(requestPool.getMaximumPoolSize(),
-                requestPool.getHikariPoolMXBean().getActiveConnections(),
-                "요청 풀이 포화되지 않았다");
-    }
-
-    private void releaseRequestPool() throws Exception {
-        for (Connection c : held) {
-            c.close();
-        }
-        held.clear();
     }
 
     private static String leaseHolder() {

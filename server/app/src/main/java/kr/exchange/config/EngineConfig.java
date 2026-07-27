@@ -13,7 +13,7 @@ import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.engine.LoopFatalHandler;
 import kr.exchange.engine.NodeServiceHealth;
 import kr.exchange.engine.PromotionCoordinator;
-import kr.exchange.engine.RequestPoolStallDetector;
+import kr.exchange.engine.LeaderStallDetector;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.SingleWriterLoop;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -53,7 +53,7 @@ public class EngineConfig {
                                                LeaderWriteProgress leaderWriteProgress,
                                                EngineProperties props,
                                                MeterRegistry meterRegistry) {
-        return new RequestPoolStallDetector(requestDataSource, leaderWriteProgress,
+        return new LeaderStallDetector(requestDataSource, leaderWriteProgress,
                 props.leaseStanddownAfter(), meterRegistry);
     }
 

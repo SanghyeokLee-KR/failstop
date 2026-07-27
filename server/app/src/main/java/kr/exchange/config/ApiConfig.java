@@ -107,8 +107,10 @@ public class ApiConfig {
     public ApiAuthService apiAuthService(ApiKeyDirectory keys, SecretCipher cipher,
                                          NonceStore nonces, ObjectMapper objectMapper,
                                          DemoSessionService demoSessions,
-                                         MemberSessionService memberSessions) {
-        return new ApiAuthService(keys, cipher, nonces, objectMapper, demoSessions, memberSessions);
+                                         MemberSessionService memberSessions,
+                                         LeaderWriteProgress writeProgress) {
+        return new ApiAuthService(keys, cipher, nonces, objectMapper, demoSessions, memberSessions,
+                writeProgress);
     }
 
     @Bean

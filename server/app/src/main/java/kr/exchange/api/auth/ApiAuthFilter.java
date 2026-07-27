@@ -60,19 +60,18 @@ public class ApiAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
+        String method = request.getMethod();
+        String path = request.getRequestURI();
+        boolean needsTrade = path.startsWith("/api/v1/orders")
+                && ("POST".equals(method) || "DELETE".equals(method));
+        if (needsTrade) {
+            // 쓰기 수요 계측(DB 설계 §5.4 좀비 리더 판정). 반드시 authService.verify 이전이다.
+            // verify는 api_keys를 조회하므로 요청 경로가 죽은 좀비 상태에서는 여기서 이미
+            // 실패한다. 계측을 인증 뒤에 두면 정작 대상 장애에서 한 번도 증가하지 않는다.
+            writeProgress.recordAttempt();
+        }
         HttpServletRequest effective;
         try {
-            String method = request.getMethod();
-            String path = request.getRequestURI();
-            boolean needsTrade = path.startsWith("/api/v1/orders")
-                    && ("POST".equals(method) || "DELETE".equals(method));
-            if (needsTrade) {
-                // 쓰기 수요 계측(DB 설계 §5.4 좀비 리더 판정). 반드시 authService.verify 이전이다.
-                // verify는 api_keys를 조회하므로 요청 풀이 고갈된 좀비 상태에서는 여기서 이미
-                // 실패한다. 계측을 인증 뒤에 두면 정작 대상 장애에서 한 번도 증가하지 않는다.
-                writeProgress.recordAttempt();
-            }
-
             effective = request;
             String canonical;
             if ("GET".equals(method)) {
@@ -92,6 +91,12 @@ public class ApiAuthFilter extends OncePerRequestFilter {
                     request.getHeader("Authorization"), canonical, needsTrade);
             effective.setAttribute(AuthPrincipal.REQUEST_ATTRIBUTE, principal);
         } catch (ApiException e) {
+            // 확정 거절은 노드가 일을 끝낸 것이다. DB에 닿기 전에 끝나는 거절(토큰 형식·만료 등)이
+            // 완료로 잡히지 않으면, 그런 요청만 오는 정상 노드가 [수요 있음 + 완료 0]으로 보여
+            // 오탐 강등된다(§5.4 완료 축 대칭성). 인프라 실패(아래 RuntimeException)는 완료가 아니다.
+            if (needsTrade) {
+                writeProgress.recordCompletion();
+            }
             errorRenderer.write(response, e);
             return;
         } catch (RuntimeException e) {
