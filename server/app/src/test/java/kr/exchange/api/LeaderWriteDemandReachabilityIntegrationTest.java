@@ -94,6 +94,7 @@ class LeaderWriteDemandReachabilityIntegrationTest {
     HikariDataSource requestPool;
 
     DemoKeySeeder.IssuedKey tradeKey;
+    DemoKeySeeder.IssuedKey brokeKey;
 
     private final List<Connection> held = new ArrayList<>();
 
@@ -108,6 +109,11 @@ class LeaderWriteDemandReachabilityIntegrationTest {
         bootstrap.userAccounts(user, BTC);
         bootstrap.deposit(user, KRW, new BigDecimal("1000000000"));
         tradeKey = keySeeder.issue(user, "TRADE", "stall-trade");
+        // 무잔고 계정. 읽기는 전부 통과하고 도메인 사유로만 거절되는 경로를 만든다.
+        long broke = bootstrap.user("broke@api.test");
+        bootstrap.userAccounts(broke, KRW);
+        bootstrap.userAccounts(broke, BTC);
+        brokeKey = keySeeder.issue(broke, "TRADE", "broke-trade");
         // 접수는 리더 확정 후에만 열린다. 승격 전에 주문을 쏘면 503이라 정상 경로 대조가 무의미하다.
         Awaitility.await().atMost(Duration.ofSeconds(20)).until(() ->
                 jdbc.sql("SELECT count(*) FROM leader_lease WHERE resource = 'matching-engine' "
@@ -158,12 +164,15 @@ class LeaderWriteDemandReachabilityIntegrationTest {
     }
 
     /**
-     * 라이브 좀비의 실제 모습(커넥션은 남는데 아무것도 끝나지 않음)을 게이트웨이 계층에서 재현해
-     * 판정기가 강등을 내는지 본다. 풀 포화를 쓰지 않는 것이 요점이다. 카오스 라이브의 좀비는 CPU
-     * 폭주로 죽어 있었고 커넥션은 계속 반납되고 있었다.
+     * 라이브 3차 실패의 재현. 읽기(인증 조회·계정 조회)는 계속 성공하는데 쓰기 커밋만 없는 상태다.
+     * 완료 축이 읽기까지 세던 시절에는 이 상태의 완료율이 1 언저리로 유지돼(실측 1.35) 체결이
+     * 6분에 6건인 노드가 계속 정상으로 판정됐다. 완료를 쓰기 커밋으로 좁혀야 잡힌다.
+     *
+     * 잔고 없는 계정의 주문은 인증·계정 조회·잔고 조회를 모두 통과한 뒤 도메인 사유로 거절되므로
+     * 읽기는 전부 성공하고 저널 append 커밋만 일어나지 않는다. 그 비대칭이 이 테스트의 전부다.
      */
     @Test
-    void stalledRequestPathStandsDownWithoutPoolExhaustion() throws Exception {
+    void readsSucceedButNoWriteCommitStandsDown() throws Exception {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         // 임계만 줄이고 시계는 실제 단조 시계를 쓴다. 판정기 내부 시계 주입은 같은 패키지 전용이라
         // 여기서는 공개 생성자 그대로, 즉 프로덕션과 동일한 경로로 검증한다.
@@ -177,31 +186,37 @@ class LeaderWriteDemandReachabilityIntegrationTest {
                 "풀이 이미 포화라 이 시나리오의 전제가 성립하지 않는다");
         assertTrue(detector.serviceable(), "기준 표본은 정상이어야 한다");
 
-        // 완료가 나오지 않는 쓰기 요청. 인증 앞 계측이라 수요만 오르고 완료는 오르지 않는다.
-        // 서명을 만들지 않아 verify가 DB 이전에 거절할 수 있으므로, 완료 상쇄를 확실히 없애기
-        // 위해 계측 지점과 동일한 경로(필터 진입)만 타도록 Authorization을 비운다.
+        String path = "/api/v1/orders";
+        byte[] body = ("{\"market\":\"KRW-BTC\",\"side\":\"bid\",\"ord_type\":\"limit\","
+                + "\"price\":\"84000000\",\"volume\":\"0.001\","
+                + "\"client_order_id\":\"broke-probe-1\"}").getBytes(StandardCharsets.UTF_8);
+        long attemptsBefore = writeProgress.attempts();
         long completionsBefore = writeProgress.completions();
+
         HttpHeaders headers = new HttpHeaders();
         headers.add("Content-Type", "application/json");
-        rest.exchange("/api/v1/orders", HttpMethod.POST,
-                new HttpEntity<>("{}".getBytes(StandardCharsets.UTF_8), headers), String.class);
-        assertEquals(completionsBefore + 1, writeProgress.completions(),
-                "인증 단계 확정 거절은 완료로 상쇄돼야 한다(정상 노드 오탐 방지)");
+        headers.add("Authorization", TestSigner.bearerForBody(
+                brokeKey.accessKey(), brokeKey.secretKey(), "POST", path, body));
+        ResponseEntity<String> response = rest.exchange(path, HttpMethod.POST,
+                new HttpEntity<>(body, headers), String.class);
 
-        // 위 요청의 수요·완료 증분을 한 표본으로 흡수한다. 완료율이 건강하니 정상 표본이다.
-        assertTrue(detector.serviceable(), "완료가 있었던 표본에서 강등 판정이 나면 안 된다");
+        assertTrue(response.getStatusCode().isError(),
+                "잔고 없는 계정의 주문이 접수됐다: " + response.getStatusCode());
+        assertTrue(writeProgress.attempts() > attemptsBefore, "쓰기 수요가 관측되지 않았다");
+        assertEquals(completionsBefore, writeProgress.completions(),
+                "읽기 성공이 완료로 잡히면 좀비가 정상으로 판정된다(라이브 3차 실패)");
 
-        // 이제 처리율이 붕괴한 상태를 만든다. 완료가 0이 아니라 희박하다는 점이 핵심이다.
+        // 수요 하한을 채운다. 실 좀비에서는 nginx 재시도가 이 역할을 한다.
         for (int i = 0; i < 50; i++) {
             writeProgress.recordAttempt();
         }
-        writeProgress.recordCompletion();
         assertTrue(detector.serviceable(), "붕괴 첫 표본은 누적 시작점일 뿐이다");
         Thread.sleep(standdownAfter.toMillis() + 200);
 
         assertFalse(detector.serviceable(),
-                "커넥션이 남아 있고 완료가 간헐적으로 나와도 완료율이 붕괴하면 강등해야 한다");
+                "읽기는 되고 쓰기 커밋만 없는 상태에서 강등하지 않았다");
         assertEquals(1.0, registry.get("exchange.leader.standdown").counter().count());
+        assertTrue(registry.get("exchange.node.write_completion_ratio").gauge().value() < 0.05);
     }
 
     @Test

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.member.MemberSessionService;
-import kr.exchange.engine.LeaderWriteProgress;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -29,26 +28,16 @@ public class ApiAuthService {
     private final ObjectMapper objectMapper;
     private final DemoSessionService demoSessions;
     private final MemberSessionService memberSessions;
-    // 요청 경로 진행 축(DB 설계 §5.4 좀비 리더 판정).
-    private final LeaderWriteProgress writeProgress;
 
     public ApiAuthService(ApiKeyDirectory keys, SecretCipher cipher, NonceStore nonces,
                           ObjectMapper objectMapper, DemoSessionService demoSessions,
                           MemberSessionService memberSessions) {
-        this(keys, cipher, nonces, objectMapper, demoSessions, memberSessions,
-                new LeaderWriteProgress());
-    }
-
-    public ApiAuthService(ApiKeyDirectory keys, SecretCipher cipher, NonceStore nonces,
-                          ObjectMapper objectMapper, DemoSessionService demoSessions,
-                          MemberSessionService memberSessions, LeaderWriteProgress writeProgress) {
         this.keys = keys;
         this.cipher = cipher;
         this.nonces = nonces;
         this.objectMapper = objectMapper;
         this.demoSessions = demoSessions;
         this.memberSessions = memberSessions;
-        this.writeProgress = writeProgress;
     }
 
     /** canonical은 호출측이 요청 형태(a: 쿼리, b: JCS 바디)에 맞춰 만들어 전달한다. */
@@ -91,15 +80,7 @@ public class ApiAuthService {
         }
 
         // 2. access_key로 secret 복호화 → HMAC-SHA256 재계산
-        java.util.Optional<ApiKeyDirectory.ApiKey> found = keys.findActive(accessKey);
-        if (needsTrade) {
-            // DB 왕복이 끝났다는 사실 자체가 진행 증거다(DB 설계 §5.4 완료 축). 조회 결과는
-            // 무관하고, 이 지점이 인증 실패로 끝나는 요청까지 완료로 상쇄해 정상 노드의 오탐
-            // 강등을 막는다. 수요 축과 대칭이 되도록 주문 쓰기 요청만 센다. 조회 트래픽까지 세면
-            // 읽기는 되고 쓰기만 막힌 노드가 조회 완료에 가려진다.
-            writeProgress.recordCompletion();
-        }
-        ApiKeyDirectory.ApiKey key = found
+        ApiKeyDirectory.ApiKey key = keys.findActive(accessKey)
                 .orElseThrow(() -> unauthorized("jwt_verification", "유효하지 않은 access_key입니다."));
         String secret = cipher.decrypt(key.encSecret());
         byte[] expected = hmacSha256(secret, parts[0] + "." + parts[1]);

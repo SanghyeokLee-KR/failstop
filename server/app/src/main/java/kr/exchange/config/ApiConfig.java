@@ -107,10 +107,8 @@ public class ApiConfig {
     public ApiAuthService apiAuthService(ApiKeyDirectory keys, SecretCipher cipher,
                                          NonceStore nonces, ObjectMapper objectMapper,
                                          DemoSessionService demoSessions,
-                                         MemberSessionService memberSessions,
-                                         LeaderWriteProgress writeProgress) {
-        return new ApiAuthService(keys, cipher, nonces, objectMapper, demoSessions, memberSessions,
-                writeProgress);
+                                         MemberSessionService memberSessions) {
+        return new ApiAuthService(keys, cipher, nonces, objectMapper, demoSessions, memberSessions);
     }
 
     @Bean
@@ -183,9 +181,8 @@ public class ApiConfig {
 
     @Bean
     public OrderGateway orderGateway(JdbcClient jdbc, EngineBridge bridge,
-                                     MarketDirectory markets, OrderQueryService orders,
-                                     LeaderWriteProgress writeProgress) {
-        return new OrderGateway(jdbc, bridge, markets, orders, writeProgress);
+                                     MarketDirectory markets, OrderQueryService orders) {
+        return new OrderGateway(jdbc, bridge, markets, orders);
     }
 
     @Bean

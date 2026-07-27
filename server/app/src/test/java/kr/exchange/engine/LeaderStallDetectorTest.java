@@ -58,6 +58,34 @@ class LeaderStallDetectorTest {
         assertTrue(progress.completions() > 0, "완료가 0이 아닌 상태여야 이번 회귀를 재현한다");
     }
 
+    /**
+     * 라이브 실측 수치 고정. 좀비 구간에서 nginx 재시도가 약 0.5건/s이므로 5분이면 수요 약 150건,
+     * 그 사이 저널 append 커밋은 실측 6건이다. 비율 0.04로 임계 0.05 아래다. 이 여백이 좁으므로
+     * 임계나 완료 축을 건드리면 여기서 먼저 깨진다.
+     */
+    @Test
+    void liveZombieRatioCrossesThreshold() {
+        LeaderWriteProgress progress = new LeaderWriteProgress();
+        AtomicLong clock = new AtomicLong();
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        LeaderStallDetector detector = new LeaderStallDetector(healthyPool(), progress,
+                STANDDOWN_AFTER, registry, clock::get);
+
+        boolean verdict = true;
+        // 5분을 2초 표본으로 나눈다. 표본당 수요 1건, 50표본마다 커밋 1건(총 150:6).
+        for (int i = 0; i < 150 && verdict; i++) {
+            progress.recordAttempt();
+            if (i % 25 == 0) {
+                progress.recordCompletion();
+            }
+            clock.addAndGet(Duration.ofSeconds(2).toNanos());
+            verdict = detector.serviceable();
+        }
+
+        assertFalse(verdict, "라이브 실측 비율(약 0.04)에서 강등하지 않았다");
+        assertTrue(registry.get("exchange.node.write_completion_ratio").gauge().value() < 0.05);
+    }
+
     /** 완료가 아예 없는 상태도 당연히 잡는다. */
     @Test
     void zeroCompletionsStandDown() {

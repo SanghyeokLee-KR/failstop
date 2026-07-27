@@ -91,12 +91,6 @@ public class ApiAuthFilter extends OncePerRequestFilter {
                     request.getHeader("Authorization"), canonical, needsTrade);
             effective.setAttribute(AuthPrincipal.REQUEST_ATTRIBUTE, principal);
         } catch (ApiException e) {
-            // 확정 거절은 노드가 일을 끝낸 것이다. DB에 닿기 전에 끝나는 거절(토큰 형식·만료 등)이
-            // 완료로 잡히지 않으면, 그런 요청만 오는 정상 노드가 [수요 있음 + 완료 0]으로 보여
-            // 오탐 강등된다(§5.4 완료 축 대칭성). 인프라 실패(아래 RuntimeException)는 완료가 아니다.
-            if (needsTrade) {
-                writeProgress.recordCompletion();
-            }
             errorRenderer.write(response, e);
             return;
         } catch (RuntimeException e) {
