@@ -188,16 +188,19 @@ class LeaderWriteDemandReachabilityIntegrationTest {
         assertEquals(completionsBefore + 1, writeProgress.completions(),
                 "인증 단계 확정 거절은 완료로 상쇄돼야 한다(정상 노드 오탐 방지)");
 
-        // 위 요청의 수요·완료 증분을 한 표본으로 흡수한다. 완료가 있었으니 정상 표본이다.
+        // 위 요청의 수요·완료 증분을 한 표본으로 흡수한다. 완료율이 건강하니 정상 표본이다.
         assertTrue(detector.serviceable(), "완료가 있었던 표본에서 강등 판정이 나면 안 된다");
 
-        // 이제 완료가 나오지 않는 상태(요청 경로가 아무것도 끝내지 못하는 노드)를 만든다.
-        writeProgress.recordAttempt();
-        assertTrue(detector.serviceable(), "정지 첫 표본은 누적 시작점일 뿐이다");
+        // 이제 처리율이 붕괴한 상태를 만든다. 완료가 0이 아니라 희박하다는 점이 핵심이다.
+        for (int i = 0; i < 50; i++) {
+            writeProgress.recordAttempt();
+        }
+        writeProgress.recordCompletion();
+        assertTrue(detector.serviceable(), "붕괴 첫 표본은 누적 시작점일 뿐이다");
         Thread.sleep(standdownAfter.toMillis() + 200);
 
         assertFalse(detector.serviceable(),
-                "커넥션이 남아 있어도 완료가 없으면 강등해야 한다");
+                "커넥션이 남아 있고 완료가 간헐적으로 나와도 완료율이 붕괴하면 강등해야 한다");
         assertEquals(1.0, registry.get("exchange.leader.standdown").counter().count());
     }
 

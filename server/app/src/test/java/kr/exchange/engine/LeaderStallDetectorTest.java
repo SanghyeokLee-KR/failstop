@@ -18,34 +18,76 @@ import static org.mockito.Mockito.when;
 /**
  * 좀비 리더 판정 규칙 단위 검증(DB 설계 §5.4). Testcontainers 불요.
  *
- * 판정은 원인을 묻지 않는다. 커넥션 고갈이든 CPU 폭주든 스레드 기아든, 밖에서 보이는 증상은
- * '쓰기 수요는 도착하는데 완료가 없다' 하나다. 요청 풀 점유는 판정 입력이 아니라 진단 정보다.
- * 이 클래스는 그 규칙(원인 불문 발동, 유휴 무발동, 완료 시 초기화, 수요 중단 시 누적 유지)을 고정한다.
+ * 이 장애는 정지가 아니라 처리율 붕괴다. 라이브에서 좀비 노드는 완전히 죽지 않고 5분에 체결 1건을
+ * 냈고(정상은 초당 20건), 그 한 건이 누적을 초기화해 이진 조건 판정이 무력화됐다. 여기서 고정하는
+ * 것은 누적 완료율 판정이다. 희박한 완료로는 회복되지 않을 것, 무주문 유휴는 판정하지 않을 것,
+ * 정상 완료율과 일시 하락은 강등되지 않을 것.
  */
 class LeaderStallDetectorTest {
 
     private static final Duration STANDDOWN_AFTER = Duration.ofSeconds(45);
 
-    /** 풀이 여유로운데도(점유 0/32) 완료가 없으면 강등해야 한다. 라이브 좀비의 실제 모습이다. */
+    /**
+     * 라이브 실패 재현. 수요는 계속 도착하는데 완료가 표본당 1건씩만 나온다(비율 약 0.02).
+     * 완료 1건이 누적을 초기화하던 규칙에서는 영원히 잡히지 않던 상태다.
+     */
     @Test
-    void standsDownWhenNothingCompletesEvenWithIdleConnectionPool() {
+    void sparseCompletionsStillStandDown() {
         LeaderWriteProgress progress = new LeaderWriteProgress();
         AtomicLong clock = new AtomicLong();
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
-        LeaderStallDetector detector =
-                new LeaderStallDetector(healthyPool(), progress, STANDDOWN_AFTER, registry,
-                        clock::get);
+        LeaderStallDetector detector = new LeaderStallDetector(healthyPool(), progress,
+                STANDDOWN_AFTER, registry, clock::get);
 
-        progress.recordAttempt();
-        assertTrue(detector.serviceable(), "정지 첫 표본은 누적 시작점일 뿐이다");
-        progress.recordAttempt();
-        clock.addAndGet(Duration.ofSeconds(46).toNanos());
+        boolean verdict = true;
+        // 표본마다 수요 50건·완료 1건(2%). 임계 45초를 넘길 때까지 흘린다.
+        for (int i = 0; i < 30 && verdict; i++) {
+            for (int r = 0; r < 50; r++) {
+                progress.recordAttempt();
+            }
+            progress.recordCompletion();
+            clock.addAndGet(Duration.ofSeconds(2).toNanos());
+            verdict = detector.serviceable();
+        }
 
-        assertFalse(detector.serviceable(),
-                "풀이 고갈되지 않았다는 이유로 강등이 막히면 CPU·스레드 기아형 좀비를 놓친다");
+        assertFalse(verdict, "희박한 완료가 계속 누적을 초기화하면 라이브 좀비를 영원히 놓친다");
         assertEquals(1.0, registry.get("exchange.leader.standdown").counter().count());
         assertEquals(0.0, registry.get("exchange.node.serviceable").gauge().value());
-        assertEquals(0, progress.completions(), "완료가 없어야 성립하는 시나리오다");
+        assertTrue(registry.get("exchange.node.write_completion_ratio").gauge().value() < 0.05,
+                "완료율 게이지가 붕괴를 반영해야 한다");
+        assertTrue(progress.completions() > 0, "완료가 0이 아닌 상태여야 이번 회귀를 재현한다");
+    }
+
+    /** 완료가 아예 없는 상태도 당연히 잡는다. */
+    @Test
+    void zeroCompletionsStandDown() {
+        LeaderWriteProgress progress = new LeaderWriteProgress();
+        AtomicLong clock = new AtomicLong();
+        LeaderStallDetector detector = new LeaderStallDetector(healthyPool(), progress,
+                STANDDOWN_AFTER, new SimpleMeterRegistry(), clock::get);
+
+        demand(progress, 50);
+        assertTrue(detector.serviceable(), "붕괴 첫 표본은 누적 시작점일 뿐이다");
+        clock.addAndGet(Duration.ofSeconds(46).toNanos());
+
+        assertFalse(detector.serviceable(), "완료 0이 임계를 넘겼는데 강등하지 않았다");
+    }
+
+    /** 커넥션 풀이 여유로워도 강등한다. 병목이 CPU·스레드일 때가 실제 장애다. */
+    @Test
+    void standsDownEvenWithIdleConnectionPool() {
+        HikariDataSource pool = healthyPool();
+        LeaderWriteProgress progress = new LeaderWriteProgress();
+        AtomicLong clock = new AtomicLong();
+        LeaderStallDetector detector = new LeaderStallDetector(pool, progress,
+                STANDDOWN_AFTER, new SimpleMeterRegistry(), clock::get);
+
+        assertEquals(0, pool.getHikariPoolMXBean().getActiveConnections());
+        demand(progress, 50);
+        assertTrue(detector.serviceable());
+        clock.addAndGet(Duration.ofSeconds(46).toNanos());
+
+        assertFalse(detector.serviceable(), "풀 점유가 판정 조건으로 남아 있으면 안 된다");
     }
 
     /** 수요가 끊겨도 누적은 유지한다. LB가 실패한 리더를 업스트림에서 빼면 실제로 이렇게 된다. */
@@ -56,14 +98,15 @@ class LeaderStallDetectorTest {
         LeaderStallDetector detector = new LeaderStallDetector(healthyPool(), progress,
                 STANDDOWN_AFTER, new SimpleMeterRegistry(), clock::get);
 
-        progress.recordAttempt();
-        assertTrue(detector.serviceable());
+        demand(progress, 50);
+        assertTrue(detector.serviceable(), "붕괴 첫 표본은 누적 시작점일 뿐이다");
+        // 이후 수요 0. 붕괴 직후 nginx가 트래픽을 넘긴 뒤의 상황이다.
         clock.addAndGet(Duration.ofSeconds(46).toNanos());
 
         assertFalse(detector.serviceable(), "수요가 끊겼다고 누적이 초기화되면 안 된다");
     }
 
-    /** 주문이 오지 않는 노드는 누적을 시작조차 하지 않는다. */
+    /** 주문이 오지 않는 노드는 판정 자체를 보류한다(수요 하한). */
     @Test
     void idleWriteDemandNeverArmsAccumulation() {
         LeaderWriteProgress progress = new LeaderWriteProgress();
@@ -77,43 +120,65 @@ class LeaderStallDetectorTest {
         }
     }
 
-    /** 느리지만 일은 끝내는 노드(E1 전제)는 임계를 아무리 넘겨도 유지된다. */
+    /** 수요가 하한 미만이면 완료가 0이라도 판정하지 않는다. 비율의 통계적 의미가 없다. */
     @Test
-    void completingNodeNeverStandsDownHoweverSlow() {
+    void demandBelowFloorDoesNotArm() {
+        LeaderWriteProgress progress = new LeaderWriteProgress();
+        AtomicLong clock = new AtomicLong();
+        LeaderStallDetector detector = new LeaderStallDetector(healthyPool(), progress,
+                STANDDOWN_AFTER, new SimpleMeterRegistry(), clock::get);
+
+        // 총 수요 10건(하한 20 미만), 완료 0. 단발 실패로 정상 노드가 강등되면 안 된다.
+        for (int i = 0; i < 10; i++) {
+            progress.recordAttempt();
+            clock.addAndGet(Duration.ofSeconds(45).toNanos());
+            assertTrue(detector.serviceable(), "수요 하한 미만에서 강등했다");
+        }
+    }
+
+    /** 느리지만 완료율이 유지되는 노드(E1 전제)는 임계를 아무리 넘겨도 유지된다. */
+    @Test
+    void healthyCompletionRatioNeverStandsDown() {
         LeaderWriteProgress progress = new LeaderWriteProgress();
         AtomicLong clock = new AtomicLong();
         LeaderStallDetector detector = new LeaderStallDetector(healthyPool(), progress,
                 STANDDOWN_AFTER, new SimpleMeterRegistry(), clock::get);
 
         for (int i = 0; i < 10; i++) {
-            progress.recordAttempt();
-            progress.recordCompletion();
+            // 수요 50건 중 45건 완료(90%). 나머지는 타임아웃·거절로 유실된 상황을 모사한다.
+            demand(progress, 50);
+            for (int c = 0; c < 45; c++) {
+                progress.recordCompletion();
+            }
             clock.addAndGet(Duration.ofSeconds(45).toNanos());
-            assertTrue(detector.serviceable(), "완료가 있는 노드에서 강등했다");
+            assertTrue(detector.serviceable(), "완료율이 건강한 노드에서 강등했다");
         }
     }
 
-    /** 완료가 재개되면 누적이 초기화된다. 지속이 아닌 간헐 정지로는 강등되지 않는다. */
+    /** 완료율이 임계를 회복하면 누적이 초기화된다. 일시 하락으로는 강등되지 않는다. */
     @Test
-    void completionResetsAccumulation() {
+    void ratioRecoveryResetsAccumulation() {
         LeaderWriteProgress progress = new LeaderWriteProgress();
         AtomicLong clock = new AtomicLong();
         LeaderStallDetector detector = new LeaderStallDetector(healthyPool(), progress,
                 STANDDOWN_AFTER, new SimpleMeterRegistry(), clock::get);
 
-        progress.recordAttempt();
-        assertTrue(detector.serviceable());
+        demand(progress, 50);
+        assertTrue(detector.serviceable(), "붕괴 첫 표본은 누적 시작점일 뿐이다");
         clock.addAndGet(Duration.ofSeconds(40).toNanos());
-        assertTrue(detector.serviceable(), "임계 미만 정지에서 강등했다");
+        assertTrue(detector.serviceable(), "임계 미만 붕괴에서 강등했다");
 
-        progress.recordCompletion();
+        // 누적 분모(50)를 임계 위로 끌어올릴 만큼 완료가 재개된다.
+        for (int c = 0; c < 20; c++) {
+            progress.recordCompletion();
+        }
         clock.addAndGet(Duration.ofSeconds(40).toNanos());
-        assertTrue(detector.serviceable(), "완료 표본에서 강등했다");
+        assertTrue(detector.serviceable(), "완료율 회복 표본에서 강등했다");
 
         // 초기화되지 않았다면 시작점이 0s로 남아 이 표본(120s)에서 곧바로 강등된다.
-        progress.recordAttempt();
+        demand(progress, 50);
         clock.addAndGet(Duration.ofSeconds(40).toNanos());
-        assertTrue(detector.serviceable(), "완료 후 누적이 초기화되지 않았다");
+        assertTrue(detector.serviceable(), "회복 후 누적이 초기화되지 않았다");
     }
 
     /** 진단용 풀 조회가 실패해도 판정은 영향을 받지 않는다. 판정 입력은 인메모리 카운터뿐이다. */
@@ -127,7 +192,7 @@ class LeaderStallDetectorTest {
         LeaderStallDetector detector = new LeaderStallDetector(pool, progress,
                 STANDDOWN_AFTER, new SimpleMeterRegistry(), clock::get);
 
-        progress.recordAttempt();
+        demand(progress, 50);
         assertTrue(detector.serviceable());
         clock.addAndGet(Duration.ofSeconds(46).toNanos());
         assertFalse(detector.serviceable(), "진단 실패가 강등 판정을 막았다");
@@ -142,10 +207,16 @@ class LeaderStallDetectorTest {
         LeaderStallDetector detector = new LeaderStallDetector(plain, progress,
                 STANDDOWN_AFTER, new SimpleMeterRegistry(), clock::get);
 
-        progress.recordAttempt();
+        demand(progress, 50);
         assertTrue(detector.serviceable());
         clock.addAndGet(Duration.ofSeconds(46).toNanos());
         assertFalse(detector.serviceable(), "진단 불가가 판정을 막았다");
+    }
+
+    private static void demand(LeaderWriteProgress progress, int count) {
+        for (int i = 0; i < count; i++) {
+            progress.recordAttempt();
+        }
     }
 
     // 커넥션이 넉넉히 남아 있는 정상 풀. 판정이 점유율과 무관함을 드러내기 위한 배경이다.

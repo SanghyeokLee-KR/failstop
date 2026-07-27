@@ -114,10 +114,15 @@ class LeaderStanddownIntegrationTest {
             assertEquals(0, requestPool.getHikariPoolMXBean().getActiveConnections(),
                     "풀 포화가 강등의 전제로 남아 있으면 CPU 기아형 좀비를 놓친다");
 
-            progress.recordAttempt();
-            assertTrue(zombie.renew(), "정지 첫 표본에서 곧바로 강등하면 안 된다");
+            // 완료가 0이 아니라 희박한 상태다. 라이브 좀비는 5분에 체결 1건을 내고 있었고,
+            // 완료 1건이 누적을 초기화하던 규칙은 그래서 무력화됐다.
+            demand(progress, 50);
+            progress.recordCompletion();
+            assertTrue(zombie.renew(), "붕괴 첫 표본에서 곧바로 강등하면 안 된다");
+            demand(progress, 50);
+            progress.recordCompletion();
             clock.addAndGet(Duration.ofSeconds(20).toNanos());
-            assertTrue(zombie.renew(), "임계 미만 정지에서 강등하면 안 된다");
+            assertTrue(zombie.renew(), "임계 미만 붕괴에서 강등하면 안 된다");
 
             long leaseEpochBefore = leaseEpoch();
             String holderBefore = leaseHolder();
@@ -126,7 +131,7 @@ class LeaderStanddownIntegrationTest {
             // 수요가 끊겨도 누적은 유지된다(hold). LB가 실패한 리더를 업스트림에서 빼면 실제로
             // 이렇게 되고, 수요 없음을 초기화로 두면 그 순간 판정이 무력화된다.
             clock.addAndGet(Duration.ofSeconds(30).toNanos());
-            assertFalse(zombie.renew(), "서비스 불능이 임계를 넘겼는데 갱신을 계속했다");
+            assertFalse(zombie.renew(), "처리율 붕괴가 임계를 넘겼는데 갱신을 계속했다");
 
             assertFalse(zombie.isLeader(), "자발적 강등 후에도 리더로 남았다");
             assertEquals(1, lost.get(), "상실 콜백이 정확히 한 번 발화해야 한다");
@@ -167,33 +172,36 @@ class LeaderStanddownIntegrationTest {
         long epoch = leader.requireLeader().epoch();
 
         try {
-            // ① 느려도 일을 끝내는 노드는 임계의 6배를 흘려도 유지된다. E1(pg 지연) 전제다.
+            // ① 느려도 완료율이 유지되는 노드는 임계의 6배를 흘려도 유지된다. E1(pg 지연) 전제다.
             for (int i = 0; i < 6; i++) {
-                progress.recordAttempt();
-                progress.recordCompletion();
+                demand(progress, 50);
+                for (int c = 0; c < 45; c++) {
+                    progress.recordCompletion();
+                }
                 clock.addAndGet(Duration.ofSeconds(45).toNanos());
-                assertTrue(leader.renew(), "완료가 있는 노드에서 강등하면 안 된다");
+                assertTrue(leader.renew(), "완료율이 건강한 노드에서 강등하면 안 된다");
             }
 
-            // ② 주문이 오지 않는 유휴 구간. 수요 축이 없으면 여기서 정상 리더가 영구 강등된다.
+            // ② 주문이 오지 않는 유휴 구간. 수요 하한이 없으면 여기서 정상 리더가 영구 강등된다.
             for (int i = 0; i < 6; i++) {
                 clock.addAndGet(Duration.ofSeconds(45).toNanos());
                 assertTrue(leader.renew(), "쓰기 수요 0(무주문) 구간에서 강등하면 안 된다");
             }
 
-            // ③ 수요가 있고 완료가 잠시 멈춰도 임계 미만이면 유지한다.
-            progress.recordAttempt();
+            // ③ 완료율이 잠시 무너져도 임계 미만이면 유지한다.
+            demand(progress, 50);
             clock.addAndGet(Duration.ofSeconds(10).toNanos());
-            assertTrue(leader.renew(), "정지 첫 표본에서 강등하면 안 된다");
-            clock.addAndGet(Duration.ofSeconds(40).toNanos());
-            assertTrue(leader.renew(), "임계 미만 정지에서 강등하면 안 된다");
+            assertTrue(leader.renew(), "붕괴 첫 표본에서 강등하면 안 된다");
+            clock.addAndGet(Duration.ofSeconds(30).toNanos());
+            assertTrue(leader.renew(), "임계 미만 붕괴에서 강등하면 안 된다");
 
-            // ④ 완료가 재개되면 누적이 초기화된다. 지속이 아닌 간헐 정지로는 강등되지 않는다.
-            progress.recordAttempt();
-            progress.recordCompletion();
+            // ④ 완료율이 임계를 회복하면 누적이 초기화된다. 일시 하락으로는 강등되지 않는다.
+            for (int c = 0; c < 20; c++) {
+                progress.recordCompletion();
+            }
             clock.addAndGet(Duration.ofSeconds(1).toNanos());
-            assertTrue(leader.renew(), "완료 재개 표본에서 강등하면 안 된다");
-            progress.recordAttempt();
+            assertTrue(leader.renew(), "완료율 회복 표본에서 강등하면 안 된다");
+            demand(progress, 50);
             clock.addAndGet(Duration.ofSeconds(40).toNanos());
             assertTrue(leader.renew(), "누적이 초기화되지 않아 임계 미만에서 강등했다");
 
@@ -205,6 +213,12 @@ class LeaderStanddownIntegrationTest {
             assertEquals(1.0, registry.get("exchange.node.serviceable").gauge().value());
         } finally {
             leader.close();
+        }
+    }
+
+    private static void demand(LeaderWriteProgress progress, int count) {
+        for (int i = 0; i < count; i++) {
+            progress.recordAttempt();
         }
     }
 
