@@ -21,6 +21,8 @@ function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
 
 Write-Section "E1(PG 지연) 시작 runId=$runId proxy=$proxy port=$port"
 try {
+    # 실험별 봇 부하 적용(Tier 1). E1은 normal 부하라 저부하로 재기동해 지연 하 요청 풀 포화를 막는다.
+    if ($cfg['BASE_OPS']) { Set-BotOps ([int]$cfg['BASE_OPS']) }
     Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
     $ok = Wait-For { (Get-TradeCount) -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
     if (-not $ok) { throw '체결 미달, 봇 상태 확인' }

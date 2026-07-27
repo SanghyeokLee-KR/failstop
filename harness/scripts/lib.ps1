@@ -22,6 +22,23 @@ function Invoke-Compose {
     & docker compose -f $Global:CHAOS.ComposeFile --env-file $Global:CHAOS.EnvFile @Args
 }
 
+# 실험별 봇 부하 제어. 봇 플릿 target-ops를 지정값으로 재기동한다. 런타임 rate API(PUT /admin/v1/sim/rate)는
+# governor가 봇 노드(bots 프로파일) 전용이라 서빙 노드 호출이 no-op으로 무효다(SimAdminController 주석).
+# 그래서 CHAOS_BOTS_OPS를 바꿔 chaos-bots만 force-recreate하고 새 부하가 실릴 시간을 짧게 준다. E6
+# 스파이크(SPIKE_OPS)도 같은 기제다. 실험은 자기 BASE_OPS로 이 함수를 호출해 부하를 정한다.
+function Set-BotOps {
+    param([int] $Ops, [int] $SettleSec = 5)
+    $env:CHAOS_BOTS_OPS = "$Ops"
+    # cmd /c로 감싸 네이티브 스트림을 nul에 버린다. PowerShell에서 compose를 직접 호출하면 재기동한
+    # 컨테이너가 상속한 출력 핸들 때문에 파이프가 EOF에 도달하지 않아 -d(detach)인데도 반환하지 않고
+    # 매달린다(실측). Get-LeaderContainer의 docker logs와 동일한 공용 우회다. 환경변수는 자식에 상속된다.
+    $compose = "docker compose -f `"$($Global:CHAOS.ComposeFile)`" --env-file `"$($Global:CHAOS.EnvFile)`" up -d --no-deps --force-recreate chaos-bots"
+    & cmd /c "$compose >nul 2>nul"
+    if ($LASTEXITCODE -ne 0) { throw "봇 OPS 적용 실패(chaos-bots 재기동 종료코드 $LASTEXITCODE)" }
+    Write-Host "봇 OPS=$Ops 적용(chaos-bots 재기동, settle ${SettleSec}s)"
+    if ($SettleSec -gt 0) { Start-Sleep -Seconds $SettleSec }
+}
+
 # 리스 TTL(초). §5-1 T1 = 구 lease_until − 리스 TTL(마지막 heartbeat 역산). 카오스 스택은
 # CHAOS_LEASE_TTL로 가속(6s), 값 부재 시 DB§5.4 기본 10s. downtime=T2-T1 산정에 쓴다.
 function Get-LeaseTtlSec {

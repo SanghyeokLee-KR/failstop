@@ -92,8 +92,12 @@ services:
     ports: ["28080:8080"]
     depends_on:
       chaos-api-1: { condition: service_healthy }
+    # 스탠바이는 liveness로 판정한다. 팔로워는 설계상 readiness가 REFUSING_TRAFFIC(503)이라
+    # readiness로 보면 정상 스탠바이가 영구 unhealthy가 되어 compose up --wait가 실패한다.
+    # 컨테이너 기동 여부(프로세스 생존)와 트래픽 수용 여부(리더인가)는 다른 질문이다.
+    # api-1은 readiness를 유지한다. 그 healthy가 flyway 완료·리더 승격을 보장해 api-2 기동을 순서 짓는다.
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/readiness"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/liveness"]
       interval: 3s
       timeout: 3s
       retries: 30
