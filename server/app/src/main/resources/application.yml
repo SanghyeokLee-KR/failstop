@@ -60,6 +60,10 @@ spring:
 # 카오스 스택은 dev 프로파일을 쓰므로 이 블록이 E1 하드닝의 적용점이다.
 exchange:
   engine:
+    # 좀비 리더 자발적 강등 임계(§5.4). 요청 풀 전량 점유와 리더 쓰기 커밋 진행 0이 끊김 없이
+    # 이 기간 유지되면 리스 갱신을 포기한다. 기본 TTL 10s의 4.5배, 카오스 TTL 6s의 7.5배라
+    # 정상 갱신 주기와 겹치지 않고, 일시 지연·순간 포화는 진행 축이 먼저 초기화해 걸리지 않는다.
+    lease-standdown-after: 45s
     lease-datasource:
       hikari:
         maximum-pool-size: 2
@@ -103,6 +107,9 @@ exchange:
   # 각각 이 키를 소비한다. server.tomcat.remoteip 블록과 별개 top-level 키로 병기한다.
   require-secrets: true
   engine:
+    # 좀비 리더 자발적 강등 임계(§5.4). dev와 동일 근거. 총 페일오버 시간은 이 값 + 리스 TTL이며,
+    # 이는 kill·pause 페일오버(RTO<30s 게이트)와 다른 경로다. 판정 기준은 지연이 아니라 정지다.
+    lease-standdown-after: 45s
     # 리스 하트비트 전용 풀(§5.4). 접속 좌표는 spring.datasource(SPRING_DATASOURCE_* 주입)를
     # 재사용한다. statement_timeout은 걸지 않는다. 기본 풀과 달리 단일 행 renew가 슬로 윈도에서
     # 취소돼 리더십을 잃는 것을 막기 위함이다.

@@ -25,6 +25,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * readiness: 승격 상태 전이(AvailabilitySignal)를 AvailabilityChangeEvent로 승격시켜
  * /actuator/health/readiness를 ACCEPTING_TRAFFIC·REFUSING_TRAFFIC로 전이. LB가 이 프로브로
  * 팔로워·승격 대기 노드를 제외한다. AcceptGate의 내부 503은 정합 방벽으로 그대로 둔다(이중화).
+ * 서비스 불능 지속으로 리스 갱신을 포기한 노드(DB 설계 §5.4 자발적 강등)도 리스 상실 콜백을 타
+ * 같은 REFUSING_TRAFFIC 전이를 밟는다. 그 노드가 계속 UP으로 보이면 LB가 승격한 신 리더로
+ * 넘어가지 못해, 승격만 되고 체결은 재개되지 않는다. 강등 사유별로 readiness 의미를 나누지
+ * 않는 이유다.
  *
  * ApplicationReadyEvent에서 Spring이 자동 발행하는 ACCEPTING_TRAFFIC를, 팔로워로 기동한
  * 노드가 그대로 UP으로 오보하지 않게 마지막 desired 상태로 되돌린다. 그래서 Ordered 최하위로

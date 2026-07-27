@@ -30,12 +30,19 @@ public class LeaderLeaseService implements AutoCloseable {
     private final JdbcClient jdbc;
     private final Duration ttl;
     private final Duration tickInterval;
+    // 갱신 직전 서비스 생존성 판정(§5.4 자발적 강등). 하트비트 전용 풀 격리(992e59b) 이후
+    // 하트비트 생존성이 서비스 생존성과 분리돼, 요청 경로가 멈춘 노드도 리스만 갱신하는
+    // 좀비 리더가 성립한다. 이 판정이 그 창을 닫는다.
+    private final NodeServiceHealth serviceHealth;
     private final String holder = UUID.randomUUID().toString();
     // null이면 리더 아님. 값은 획득 시점의 epoch.
     private final AtomicReference<Long> epoch = new AtomicReference<>();
     // 상실 확정 후 재승격 금지(§5.4 self-shutdown). 강등 시점의 엔진 인메모리 상태는 타 리더의
     // 커밋을 반영하지 않은 stale이고 단일 라이터 루프는 halt로 영구 정지라, 리스만 다시 얻으면
     // '접수는 ACK되는데 소비자가 없는' 반쪽 리더가 된다. 복귀는 재생을 포함한 재기동뿐이다.
+    // 자발적 강등(서비스 불능 지속)도 같은 종착 상태다. 강등 사유가 무엇이든 루프가 halt된 뒤의
+    // 재승격은 동일하게 불건전하고, 서비스 불능이 확인된 노드가 리더십을 되찾으려 경쟁하면
+    // 손상 노드 사이의 플래핑이 된다.
     private volatile boolean demoted;
     // 강등 확정(demoted+epoch 클리어)과 승격 커밋(epoch 세팅)을 상호배제한다. 이 락 없이는
     // markLost가 epoch를 비운 직후·demoted 세팅 전 창에서 tick의 tryAcquire가 재승격해
@@ -49,6 +56,14 @@ public class LeaderLeaseService implements AutoCloseable {
     private volatile ScheduledExecutorService scheduler;
 
     public LeaderLeaseService(JdbcClient jdbc, Duration ttl, Duration tickInterval) {
+        this(jdbc, ttl, tickInterval, NodeServiceHealth.ALWAYS_SERVICEABLE);
+    }
+
+    public LeaderLeaseService(JdbcClient jdbc, Duration ttl, Duration tickInterval,
+                              NodeServiceHealth serviceHealth) {
+        if (serviceHealth == null) {
+            throw new IllegalArgumentException("serviceHealth는 필수");
+        }
         if (jdbc == null || ttl == null || tickInterval == null) {
             throw new IllegalArgumentException("jdbc·ttl·tickInterval은 필수");
         }
@@ -62,6 +77,7 @@ public class LeaderLeaseService implements AutoCloseable {
         this.jdbc = jdbc;
         this.ttl = ttl;
         this.tickInterval = tickInterval;
+        this.serviceHealth = serviceHealth;
     }
 
     public String holder() {
@@ -204,10 +220,22 @@ public class LeaderLeaseService implements AutoCloseable {
      * 하트비트. epoch를 보존한 채 lease_until만 연장한다. false는 리더십 상실 확정이며
      * 상실 콜백을 발화한다. DB 접속 오류는 상실로 단정하지 않는다. 만료 여부를 알 수 없고,
      * 실제 쓰기는 fencing이 막아주므로 다음 틱 재시도가 안전하다.
+     *
+     * 갱신 전에 서비스 생존성을 먼저 본다(§5.4 자발적 강등). 하트비트만 살아 있고 요청 경로가
+     * 멈춘 노드가 리스를 계속 연장하면, 스탠바이는 만료를 못 봐 승격하지 못하고 클러스터가
+     * 무기한 정지한다.
      */
     public boolean renew() {
         Long e = epoch.get();
         if (e == null) {
+            return false;
+        }
+        if (!serviceHealth.serviceable()) {
+            // 자발적 강등. 리스 행에는 아무것도 쓰지 않고 갱신만 포기한다. 승격은 종전대로
+            // TTL 만료 후 스탠바이의 try_acquire_leader(epoch +1) 단독 UPDATE로만 일어나므로
+            // 승격 원자성·fencing 단조성·이중 리더 차단 성질이 그대로다. 리스를 즉시 반납하지
+            // 않는 것도 같은 이유다. 만료 구동 승격 규칙을 우회하는 경로를 만들지 않는다.
+            markLost("서비스 불능 지속(요청 풀 고갈 + 리더 쓰기 진행 0)");
             return false;
         }
         Boolean renewed = jdbc.sql("SELECT renew_leader_lease(?, ?, ? * interval '1 millisecond')")

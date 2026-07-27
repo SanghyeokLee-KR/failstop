@@ -9,8 +9,11 @@ import kr.exchange.engine.EngineRecovery;
 import kr.exchange.engine.HaAvailability;
 import kr.exchange.engine.JournalCatchUpSource;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.engine.LoopFatalHandler;
+import kr.exchange.engine.NodeServiceHealth;
 import kr.exchange.engine.PromotionCoordinator;
+import kr.exchange.engine.RequestPoolStallDetector;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.SingleWriterLoop;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -38,22 +41,41 @@ import javax.sql.DataSource;
 public class EngineConfig {
 
     @Bean
+    public LeaderWriteProgress leaderWriteProgress() {
+        return new LeaderWriteProgress();
+    }
+
+    // 좀비 리더 판정(§5.4). 요청 풀 전량 점유와 리더 쓰기 커밋 진행 0이 동시에 지속되면 이 노드는
+    // 일을 못 하는 상태다. 요청 풀을 봐야 하므로 @Primary DataSource를 그대로 받는다.
+    @Bean
+    public NodeServiceHealth nodeServiceHealth(@Qualifier("dataSource") DataSource requestDataSource,
+                                               LeaderWriteProgress leaderWriteProgress,
+                                               EngineProperties props,
+                                               MeterRegistry meterRegistry) {
+        return new RequestPoolStallDetector(requestDataSource, leaderWriteProgress,
+                props.leaseStanddownAfter(), meterRegistry);
+    }
+
+    @Bean
     public LeaderLeaseService leaderLeaseService(
-            @Qualifier("leaseDataSource") DataSource leaseDataSource, EngineProperties props) {
+            @Qualifier("leaseDataSource") DataSource leaseDataSource, EngineProperties props,
+            NodeServiceHealth nodeServiceHealth) {
         // 리스 renew·승격 시도 UPDATE는 전용 소형 풀 커넥션으로만 수행한다. 요청 풀이 포화돼도
         // 하트비트가 굶지 않게 격리한다(LeaseDataSourceConfig, DB 설계 §5.4). 저널·정산 등 승격
         // 이후 쓰기 경로는 그대로 기본 풀·트랜잭션을 타므로 fencing 원자성 경계는 불변이다.
+        // 그 격리로 분리된 '하트비트는 살고 서비스는 죽은' 창은 nodeServiceHealth가 닫는다.
         return new LeaderLeaseService(JdbcClient.create(leaseDataSource),
-                props.leaseTtl(), props.leaseTickInterval());
+                props.leaseTtl(), props.leaseTickInterval(), nodeServiceHealth);
     }
 
     @Bean
     public CommandJournalAppender commandJournalAppender(JdbcClient jdbcClient,
                                                          TransactionTemplate transactionTemplate,
                                                          LeaderLeaseService leaderLeaseService,
-                                                         MeterRegistry meterRegistry) {
+                                                         MeterRegistry meterRegistry,
+                                                         LeaderWriteProgress leaderWriteProgress) {
         return new CommandJournalAppender(jdbcClient, transactionTemplate, leaderLeaseService,
-                meterRegistry);
+                meterRegistry, leaderWriteProgress);
     }
 
     @Bean
@@ -78,9 +100,11 @@ public class EngineConfig {
                                                ObjectMapper objectMapper,
                                                MarketCatalog marketCatalog,
                                                CommandJournalReader commandJournalReader,
-                                               CommandPayloadMapper commandPayloadMapper) {
+                                               CommandPayloadMapper commandPayloadMapper,
+                                               LeaderWriteProgress leaderWriteProgress) {
         return new SettlementService(jdbcClient, transactionTemplate, leaderLeaseService,
-                objectMapper, marketCatalog, commandJournalReader, commandPayloadMapper);
+                objectMapper, marketCatalog, commandJournalReader, commandPayloadMapper,
+                leaderWriteProgress);
     }
 
     @Bean

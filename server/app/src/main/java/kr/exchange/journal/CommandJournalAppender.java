@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.LeaderWriteProgress;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -36,17 +37,25 @@ public class CommandJournalAppender {
     private final LeaderLeaseService lease;
     // §5-2 계약 메트릭. requireLeader 이후 tx 커밋(=fsync=ACK) 완료까지의 지연을 잰다(RPO=0 비용).
     private final Timer appendTimer;
+    // 좀비 리더 판정의 진행 축(§5.4). appendTimer는 실패한 시도도 세므로 진행성 신호로 못 쓴다.
+    private final LeaderWriteProgress progress;
 
-    // 계측 없는 테스트용. 프로덕션은 EngineConfig가 앱 MeterRegistry로 4-인자 생성자를 호출한다.
+    // 계측 없는 테스트용. 프로덕션은 EngineConfig가 앱 MeterRegistry로 다인자 생성자를 호출한다.
     public CommandJournalAppender(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease) {
         this(jdbc, tx, lease, new SimpleMeterRegistry());
     }
 
     public CommandJournalAppender(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease,
                                   MeterRegistry meterRegistry) {
+        this(jdbc, tx, lease, meterRegistry, new LeaderWriteProgress());
+    }
+
+    public CommandJournalAppender(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease,
+                                  MeterRegistry meterRegistry, LeaderWriteProgress progress) {
         this.jdbc = jdbc;
         this.tx = tx;
         this.lease = lease;
+        this.progress = progress;
         this.appendTimer = Timer.builder("exchange.journal.append")
                 .description("command_journal append fsync 지연(RPO=0 비용, 하네스 CICD §5-2)")
                 .register(meterRegistry);
@@ -55,7 +64,11 @@ public class CommandJournalAppender {
     public AppendResult append(CommandDraft draft) {
         LeaderIdentity leader = lease.requireLeader();
         try {
-            return appendTimer.record(() -> tx.execute(status -> appendInTx(leader, draft)));
+            AppendResult result =
+                    appendTimer.record(() -> tx.execute(status -> appendInTx(leader, draft)));
+            // 커밋 성공만 진행으로 센다. 예외 경로는 카운터를 건드리지 않는다.
+            progress.recordCommit();
+            return result;
         } catch (StaleLeaderException e) {
             // fencing 확정 거부는 renew 틱을 기다리지 않고 즉시 강등한다(§5.4).
             lease.demote(e.getMessage());

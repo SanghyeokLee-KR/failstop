@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import kr.exchange.engine.CommandPayloadMapper;
 import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.journal.CommandJournalReader;
@@ -93,6 +94,9 @@ public class SettlementService {
     private final MarketCatalog catalog;
     private final CommandJournalReader commandReader;
     private final CommandPayloadMapper payloadMapper;
+    // 좀비 리더 판정의 진행 축(§5.4). 승격 재생의 크래시 창 재정산도 이 경로를 타므로, 접수가
+    // 닫힌 승격 구간에서도 진행성이 관측돼 오탐 강등이 나지 않는다.
+    private final LeaderWriteProgress progress;
     // 계정 id는 계정 생성 시점에 확정되고 (owner, purpose, asset, shard)당 불변이라 캐시한다.
     // 체결마다 5~6회 왕복하던 매핑 조회를 제거한다. 성공 조회만 저장하고 미스는 캐시하지 않는다.
     private final Map<Short, Long> feeAccountCache = new ConcurrentHashMap<>();
@@ -104,6 +108,14 @@ public class SettlementService {
     public SettlementService(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease,
                              ObjectMapper objectMapper, MarketCatalog catalog,
                              CommandJournalReader commandReader, CommandPayloadMapper payloadMapper) {
+        this(jdbc, tx, lease, objectMapper, catalog, commandReader, payloadMapper,
+                new LeaderWriteProgress());
+    }
+
+    public SettlementService(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease,
+                             ObjectMapper objectMapper, MarketCatalog catalog,
+                             CommandJournalReader commandReader, CommandPayloadMapper payloadMapper,
+                             LeaderWriteProgress progress) {
         this.jdbc = jdbc;
         this.tx = tx;
         this.lease = lease;
@@ -111,6 +123,7 @@ public class SettlementService {
         this.catalog = catalog;
         this.commandReader = commandReader;
         this.payloadMapper = payloadMapper;
+        this.progress = progress;
     }
 
     /** 단일 명령의 방출 배치를 원자 정산하고 event_seq가 부여된 목록을 반환한다. */
@@ -128,7 +141,10 @@ public class SettlementService {
         }
         LeaderIdentity leader = lease.requireLeader();
         try {
-            return tx.execute(status -> settleInTx(leader, cmdSeq, events));
+            List<EngineEvent> settled = tx.execute(status -> settleInTx(leader, cmdSeq, events));
+            // 커밋 성공만 진행으로 센다. 예외 경로는 카운터를 건드리지 않는다.
+            progress.recordCommit();
+            return settled;
         } catch (StaleLeaderException e) {
             // fencing 확정 거부는 renew 틱을 기다리지 않고 즉시 강등한다(§5.4).
             lease.demote(e.getMessage());
