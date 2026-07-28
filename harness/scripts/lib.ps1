@@ -194,8 +194,18 @@ function Complete-FailoverExperiment {
         $t5 = ([datetimeoffset]$firstTradeTs).UtcDateTime
     }
 
-    Write-Section 'ⓓ 사후 권위 run'
-    Start-Sleep -Seconds 3
+    Write-Section 'ⓓ 드레인 + 사후 권위 run'
+    # C13a(NEW 명령 -> orders 물질화)는 append와 정산 커밋 사이 비동기 창 때문에 부하 중에는
+    # 처리 중인 주문을 그대로 유실로 센다. sql/invariants.sql 주석이 "큐 드레인된 권위 run/정지
+    # 상태에서만 유효"라고 규정한 이유다. 실측(E6 400 ops)에서 10~11건이 잡혔고 부하를 낮추자
+    # 0이 됐다. 체크를 게이트에서 빼는 대신 유효 조건을 만들어 RPO 증거를 보존한다.
+    Set-BotOps 1 -SettleSec 0
+    $drainSql = "SELECT count(*) FROM command_journal c WHERE c.command_type='NEW' " +
+        "AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.id = c.assigned_order_id)"
+    $drained = Wait-For { (Get-Scalar $drainSql) -eq 0 } -TimeoutSec 90 -PollSec 2
+    if (-not $drained) {
+        Write-Host "경고: 드레인 미완(잔여 $(Get-Scalar $drainSql)건). C13a가 in-flight를 포함할 수 있다" -ForegroundColor Yellow
+    }
     $postPort = Get-LiveNodePort
     $post = Invoke-InvariantRun -Port $postPort -RunId $RunId -Window 'post'
 
@@ -245,7 +255,10 @@ function Complete-FailoverExperiment {
     Write-Host ("주문 유실(C13a)  : {0}" -f $ordersLost)
     Write-Host ("failover_run_id  : {0}" -f $rec.failover_run_id)
     Write-Host '────────────────────────────────────────'
-    Invoke-Psql "SELECT id, experiment_id, old_epoch, new_epoch, rto_seconds, rpo_records, verdict FROM harness.failover_runs ORDER BY id DESC LIMIT 3"
+    # Write-Host로 감싸지 않으면 Invoke-Psql 반환 문자열이 파이프라인에 섞여 함수가 배열을
+    # 돌려준다. 그러면 호출부의 `$verdict -ne 'PASS'`가 배열 비교가 되어 판정이 PASS여도
+    # 항상 참이 되고 E2·E6가 exit 0을 낼 수 없다(실측).
+    Write-Host (Invoke-Psql "SELECT id, experiment_id, old_epoch, new_epoch, rto_seconds, rpo_records, verdict FROM harness.failover_runs ORDER BY id DESC LIMIT 3")
     return $verdict
 }
 
