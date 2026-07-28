@@ -26,25 +26,33 @@ import java.io.IOException;
  *  - `/actuator/**`(health·readiness·liveness·prometheus)와 `/harness/v1/**`: 이 필터의 URL 패턴
  *    자체가 `/api/v1/*`이라 도달하지 않는다. 노드가 살아 있다는 것은 곧 이 질문들에 답할 수 있다는
  *    뜻이고, LB·docker healthcheck·하네스가 전부 그 응답으로 판단한다. 막히면 생존 판정이 무너진다.
- *  - `GET /api/v1/orders/by-client/{coid}`: §7-6 UNKNOWN 재조회의 유일한 수렴 경로다. 여기가
- *    429가 되면 클라이언트는 접수 여부를 영영 확정하지 못하고, 안전 재전송과 이중 접수 중
- *    하나를 골라야 한다. 멱등 규약이 깨지는 것이라 조회 버킷에서 뺀다. 비용은 인덱스 단건 조회
- *    둘(command_journal·orders)로 시스템에서 가장 싼 질의이고, 유발 조건이 5xx·타임아웃이라
- *    백프레셔의 주 응답인 429는 이 경로를 부르지 않는다(k6·봇 모두 429에 재조회로 반응하지
- *    않는다). 예비분(풀의 20%)이 이 트래픽의 몫이다.
  *  - `OPTIONS`: CORS 프리플라이트는 DB를 건드리지 않는다. 여기서 막으면 브라우저 요청이 본
  *    요청을 보내보지도 못하고 실패한다.
+ *
+ * `GET /api/v1/orders/by-client/{coid}`는 면제가 아니라 **전용 소형 버킷**이다. §7-6 UNKNOWN
+ * 재조회의 유일한 수렴 경로라 429를 줄 수 없어 조회 버킷에 넣을 수 없지만, 완전 면제도 안 된다.
+ * 이 경로는 하필 노드가 굶는 순간에 몰린다. 커넥션 획득 3초 초과가 503을 만들고 클라이언트는
+ * 5xx에 재조회로 반응하므로(k6 order_flow.js) 되먹임 고리가 된다. 상한을 두되 초과분은 거절이
+ * 아니라 판정 보류(409 requery_deferred)로 내보내 수렴을 유지한다.
+ *
+ * 대기를 두지 않는 이유. '짧은 대기 후 무조건 통과'는 상한이 아니라 지연 추가일 뿐이라 동시성이
+ * 다시 무제한이 된다. '짧은 대기 후 거절'은 대기열(= arrival x wait)을 되살리면서 거절도 그대로
+ * 남는다. 세마포어 대기는 가상 스레드를 pin하지 않아 JDBC 블로킹보다 싸지만, 보류 응답 자체가
+ * 이미 비종결·저비용(Retry-After 1s)이라 대기로 성공률을 사는 이득이 크지 않다. 세 버킷 모두
+ * 무대기로 통일한다.
  */
 public class AdmissionFilter extends OncePerRequestFilter {
 
     private final AdmissionControl orderAdmission;
     private final AdmissionControl queryAdmission;
+    private final AdmissionControl requeryAdmission;
     private final ErrorRenderer errorRenderer;
 
     public AdmissionFilter(AdmissionControl orderAdmission, AdmissionControl queryAdmission,
-                           ErrorRenderer errorRenderer) {
+                           AdmissionControl requeryAdmission, ErrorRenderer errorRenderer) {
         this.orderAdmission = orderAdmission;
         this.queryAdmission = queryAdmission;
+        this.requeryAdmission = requeryAdmission;
         this.errorRenderer = errorRenderer;
     }
 
@@ -84,7 +92,7 @@ public class AdmissionFilter extends OncePerRequestFilter {
             return orderAdmission;
         }
         if (isRequeryConvergence(method, path)) {
-            return null;
+            return requeryAdmission;
         }
         return queryAdmission;
     }

@@ -91,6 +91,7 @@ class AdmissionIntegrationTest {
                 () -> Base64.getEncoder().encodeToString(new byte[32]));
         registry.add("exchange.admission.order-in-flight", () -> String.valueOf(LIMIT));
         registry.add("exchange.admission.query-in-flight", () -> String.valueOf(LIMIT));
+        registry.add("exchange.admission.requery-in-flight", () -> String.valueOf(LIMIT));
         // 하네스 status 면제를 실제 엔드포인트로 검증하려면 하네스 평면이 떠 있어야 한다.
         registry.add("exchange.harness.enabled", () -> "true");
     }
@@ -109,6 +110,9 @@ class AdmissionIntegrationTest {
     @Autowired
     @Qualifier("queryAdmissionControl")
     AdmissionControl queryAdmission;
+    @Autowired
+    @Qualifier("requeryAdmissionControl")
+    AdmissionControl requeryAdmission;
     @Autowired
     AdmissionLimits limits;
     @Autowired
@@ -232,12 +236,11 @@ class AdmissionIntegrationTest {
                         path + "가 수용 제한에 막혔다. 노드 생존 판정이 무너진다");
             }
 
-            // §7-6 재조회. 여기가 429가 되면 클라이언트는 접수 여부를 확정하지 못하고 안전
-            // 재전송과 이중 접수 중 하나를 골라야 한다. 멱등 규약이 깨지는 자리다.
-            String requery = "/api/v1/orders/by-client/" + clientOrderId;
-            assertEquals(200, rest.exchange(requery, HttpMethod.GET,
-                            new HttpEntity<>(null, signedQueryHeaders("GET", requery)), String.class)
-                    .getStatusCode().value(), "재조회 수렴 경로가 수용 제한에 막혔다");
+            // §7-6 재조회. 쓰기·조회가 전부 포화여도 전용 버킷이라 정상 판정을 낸다. 여기가
+            // 조회 버킷에 묶여 있었다면 429가 나가고 클라이언트는 접수 여부를 확정하지 못한 채
+            // 안전 재전송과 이중 접수 중 하나를 골라야 한다. 멱등 규약이 깨지는 자리다.
+            assertEquals(200, requery(clientOrderId).getStatusCode().value(),
+                    "재조회 수렴 경로가 다른 버킷의 포화에 막혔다");
         } finally {
             drain(orderAdmission);
             drain(queryAdmission);
@@ -263,8 +266,92 @@ class AdmissionIntegrationTest {
         }
     }
 
+    /**
+     * 성질 (a): UNKNOWN 클라이언트는 접수 여부를 확정할 수 있어야 한다.
+     *
+     * 재조회 버킷이 포화면 429가 아니라 409 `requery_deferred` + Retry-After가 나간다. 429·503은
+     * k6의 안전 집합(200·404·409) 밖이라 백프레셔가 곧 멱등 규약 위반으로 계상되고, 클라이언트는
+     * 안전 재전송과 이중 접수 중 하나를 골라야 한다. 409는 비종결이라 재조회 반복으로 수렴하고,
+     * 슬롯이 풀리면 확정 판정(200 접수됨 / 404 미접수)이 나온다. 그 수렴을 여기서 고정한다.
+     */
     @Test
     @Order(5)
+    void requeryDefersJudgementUnderPressureThenConverges() {
+        String accepted = "admission-converge-1";
+        assertTrue(placeOrder(accepted).getStatusCode().is2xxSuccessful());
+        String neverSent = "admission-converge-absent";
+
+        saturate(requeryAdmission);
+        ResponseEntity<String> deferred;
+        ResponseEntity<String> deferredAbsent;
+        try {
+            deferred = requery(accepted);
+            deferredAbsent = requery(neverSent);
+        } finally {
+            drain(requeryAdmission);
+        }
+
+        for (ResponseEntity<String> response : List.of(deferred, deferredAbsent)) {
+            assertEquals(409, response.getStatusCode().value(),
+                    "재조회 보류가 k6 안전 집합(200·404·409) 밖으로 나갔다: " + response.getBody());
+            assertNotNull(response.getHeaders().getFirst("Retry-After"),
+                    "보류에 재조회 주기가 없다. 클라이언트가 언제 다시 물을지 알 수 없다");
+            String body = response.getBody();
+            assertNotNull(body);
+            assertTrue(body.contains("\"requery_deferred\""),
+                    "보류를 order_in_progress로 내보내면 저널 존재를 거짓 주장하게 된다: " + body);
+            assertTrue(body.contains("\"scope\":\"requery\""), body);
+        }
+
+        // 슬롯이 풀린 뒤에는 확정 판정이 나온다. 접수된 키는 200, 보낸 적 없는 키는 404다.
+        // 404가 곧 '안전 재전송 가능'이므로 이 수렴이 성립해야 멱등 규약이 닫힌다(§7-6).
+        assertEquals(200, requery(accepted).getStatusCode().value(),
+                "보류 후에도 접수 확정을 받지 못했다");
+        assertEquals(404, requery(neverSent).getStatusCode().value(),
+                "보류 후에도 미접수 확정을 받지 못했다");
+    }
+
+    /**
+     * 성질 (b): by-client만으로 노드를 고갈시킬 수 없다.
+     *
+     * 이 경로는 하필 노드가 굶는 순간에 몰린다. 커넥션 획득 3초 초과가 503을 만들고 클라이언트는
+     * 5xx에 재조회로 반응한다(k6 order_flow.js). 완전 면제였다면 그 되먹임이 동시 스레드 수에
+     * 상한 없이 쌓인다. 전용 버킷이 그 고리를 끊는지, 그리고 그 압력이 다른 버킷으로 새지 않는지를 본다.
+     */
+    @Test
+    @Order(6)
+    void requeryFloodStaysBoundedAndDoesNotStarveOtherBuckets() throws Exception {
+        int flood = 60;
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        List<Future<ResponseEntity<String>>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < flood; i++) {
+                futures.add(pool.submit(() -> requery("admission-converge-1")));
+            }
+            for (Future<ResponseEntity<String>> future : futures) {
+                int status = future.get(30, TimeUnit.SECONDS).getStatusCode().value();
+                // 200(확정) 또는 409(보류)뿐이어야 한다. 429·5xx는 수렴 계약 위반이다.
+                assertTrue(status == 200 || status == 409,
+                        "재조회 폭주가 수렴 불가 응답을 냈다: " + status);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        // 동시성이 전용 버킷 상한을 넘지 않았다. 넘었다면 슬롯 회계가 깨진 것이다.
+        assertEquals(0, requeryAdmission.inFlight(), "재조회 폭주 후 permit이 남아 있다");
+        assertTrue(requeryAdmission.limit() <= LIMIT);
+        // 압력이 다른 버킷으로 새지 않았다. 쓰기·조회는 그대로 열려 있어야 한다.
+        assertEquals(0, orderAdmission.inFlight());
+        assertEquals(0, queryAdmission.inFlight());
+        assertTrue(placeOrder("admission-after-flood").getStatusCode().is2xxSuccessful(),
+                "재조회 폭주가 쓰기를 굶겼다");
+        assertEquals(200, rest.getForEntity("/api/v1/orderbook?market=KRW-BTC", String.class)
+                .getStatusCode().value(), "재조회 폭주가 조회를 굶겼다");
+    }
+
+    @Test
+    @Order(7)
     void withinLimitAcceptsEverythingWithZeroRejections() throws Exception {
         double rejectedBefore = rejectedCount("order");
         long journalBefore = count("SELECT count(*) FROM command_journal");
@@ -301,7 +388,7 @@ class AdmissionIntegrationTest {
      * 새면 허용량이 단조 감소해 결국 전 요청이 429가 된다. 그것은 백프레셔가 아니라 정지다.
      */
     @Test
-    @Order(6)
+    @Order(8)
     void permitsRecoverAfterRepeatedFailurePaths() {
         // 각 반환 지점의 계약 코드를 한 번씩 확정한다.
         assertEquals(401, badSignature().getStatusCode().value());
@@ -309,6 +396,7 @@ class AdmissionIntegrationTest {
         assertEquals(400, incompleteBody().getStatusCode().value());
         assertEquals(404, cancelMissing().getStatusCode().value());
         assertEquals(400, badQueryParameter().getStatusCode().value());
+        assertEquals(404, requery("admission-never-sent").getStatusCode().value());
 
         // 반복 구간은 코드를 고정하지 않는다. 계정 토큰버킷(§2-5)이 도중에 429로 전환되는데,
         // 그 429도 수용 게이트를 통과한 뒤 컨트롤러에서 나오므로 반납 경로 검증에는 오히려 유효하다.
@@ -318,14 +406,18 @@ class AdmissionIntegrationTest {
             assertTrue(incompleteBody().getStatusCode().is4xxClientError());
             assertTrue(cancelMissing().getStatusCode().is4xxClientError());
             assertTrue(badQueryParameter().getStatusCode().is4xxClientError());
+            assertTrue(requery("admission-never-sent").getStatusCode().is4xxClientError());
         }
 
         assertEquals(0, orderAdmission.inFlight(), "쓰기 실패 경로에서 permit이 샜다");
         assertEquals(0, queryAdmission.inFlight(), "조회 실패 경로에서 permit이 샜다");
+        assertEquals(0, requeryAdmission.inFlight(), "재조회 실패 경로에서 permit이 샜다");
         saturate(orderAdmission);
         saturate(queryAdmission);
+        saturate(requeryAdmission);
         drain(orderAdmission);
         drain(queryAdmission);
+        drain(requeryAdmission);
     }
 
     /**
@@ -333,13 +425,13 @@ class AdmissionIntegrationTest {
      * 게이트가 없는 시계열을 조회해 공허 통과한다. scope 태그까지 함께 고정한다.
      */
     @Test
-    @Order(7)
+    @Order(9)
     void prometheusExposesContractedMeterNames() {
         ResponseEntity<String> scrape = rest.getForEntity("/actuator/prometheus", String.class);
         assertEquals(200, scrape.getStatusCode().value());
         String body = scrape.getBody();
         assertNotNull(body);
-        for (String scope : new String[]{"order", "query"}) {
+        for (String scope : new String[]{"order", "query", "requery"}) {
             assertTrue(body.contains("exchange_admission_rejected_total{scope=\"" + scope + "\"}"),
                     "거절 카운터 노출명·태그가 §5-2와 다르다: " + scope);
             assertTrue(body.contains("exchange_admission_in_flight{scope=\"" + scope + "\"}"),
@@ -351,10 +443,11 @@ class AdmissionIntegrationTest {
 
     /** 유도 배선이 실제 컨텍스트에서 성립하는지. 상한을 명시한 컨텍스트라 배분 규칙 자체는 단위테스트가 본다. */
     @Test
-    @Order(8)
-    void limitsBeanBacksBothBuckets() {
+    @Order(10)
+    void limitsBeanBacksEveryBucket() {
         assertEquals(limits.write(), orderAdmission.limit());
         assertEquals(limits.query(), queryAdmission.limit());
+        assertEquals(limits.requery(), requeryAdmission.limit());
     }
 
     private void saturate(AdmissionControl admission) {
@@ -420,6 +513,13 @@ class AdmissionIntegrationTest {
     private ResponseEntity<String> badQueryParameter() {
         return rest.getForEntity("/api/v1/candles/1m?market=KRW-BTC&count=notanumber",
                 String.class);
+    }
+
+    /** §7-6 재조회. 전용 버킷을 지난다. */
+    private ResponseEntity<String> requery(String clientOrderId) {
+        String path = "/api/v1/orders/by-client/" + clientOrderId;
+        return rest.exchange(path, HttpMethod.GET,
+                new HttpEntity<>(null, signedQueryHeaders("GET", path)), String.class);
     }
 
     private ResponseEntity<String> placeOrder(String clientOrderId) {

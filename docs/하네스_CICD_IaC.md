@@ -649,9 +649,9 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 | `exchange.journal.replay.commands` | Counter | - | `exchange_journal_replay_commands_total` | 복구 재생 처리량 |
 | `exchange.sequencer.queue.size` | Gauge | - | `exchange_sequencer_queue_size` | 백프레셔(P4) |
 | `exchange.orders.rejected` | Counter | `reason` | `exchange_orders_rejected_total` | 거부율(429/domain_rejected) |
-| `exchange.admission.rejected` | Counter | `scope` | `exchange_admission_rejected_total` | 수용 제한으로 처리 이전에 거절한 요청 수(API §2-5-a). 백프레셔 발동 축 |
+| `exchange.admission.rejected` | Counter | `scope` | `exchange_admission_rejected_total` | 수용 제한으로 처리 이전에 거절·보류한 요청 수(API §2-5-a). 백프레셔 발동 축 |
 | `exchange.admission.in_flight` | Gauge | `scope` | `exchange_admission_in_flight` | 처리 중인 요청 수 |
-| `exchange.admission.limit` | Gauge | `scope` | `exchange_admission_limit` | 동시 처리 상한(요청 풀의 40%, 하한 4). 포화도 = in_flight/limit |
+| `exchange.admission.limit` | Gauge | `scope` | `exchange_admission_limit` | 동시 처리 상한(`order`·`query`는 요청 풀의 40%, `requery`는 10%). 포화도 = in_flight/limit |
 | `exchange.snapshot.captured` | Counter(FunctionCounter) | - | `exchange_snapshot_captured_total` | 큐잉된 스냅샷 캡처 수(SnapshotCapture) |
 | `exchange.snapshot.dropped` | Counter(FunctionCounter) | - | `exchange_snapshot_dropped_total` | 큐 포화·인코딩 실패 드롭, rate>0 알람 |
 | `exchange.snapshot.persist_failed` | Counter(FunctionCounter) | - | `exchange_snapshot_persist_failed_total` | 워커 영속화 실패, rate>0 알람 |
@@ -668,7 +668,7 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 - `exchange.duplicate.fills`: InvariantVerifier의 C-카탈로그 검증(중복 체결 0)이 `exchange_invariant_violations{check_name}`로 이미 커버해 별도 Counter는 중복이라 방출하지 않는다.
 - `exchange.ws.clients`: `channel` 태그는 연결 단위 계량이라 단일 값(`stomp`)만 방출한다. 목적지별 분해는 세션-구독 회계가 필요해 후속.
 - `exchange.orders.rejected`: `reason`은 종결 거부(4xx: 429·422·400·403·413) 에러코드 집합이며 429는 대시보드 PromQL 정합을 위해 `rate_limited`로 정규화한다. 409·503은 재조회 수렴 신호라 거부율에서 제외한다.
-- `exchange.admission.*`: 수용 제한은 인증 이전(AdmissionFilter, order 6)에서 거절하므로 컨트롤러 계층의 `exchange.orders.rejected`에 잡히지 않는다. 의도적 분리다. 후자는 '클라이언트가 요청을 고쳐야 하는 종결 거부'이고 전자는 '같은 요청을 그대로 재시도하면 되는 노드 포화'라 한 시계열에 섞으면 거부율의 의미가 무너진다. `scope`는 `order`·`query` 2값 고정이다. 태그 없이 조회하면 두 시계열이 따로 반환되므로 총량은 `sum(...)`으로 집계한다. 라이브 판독의 핵심 조합은 버킷별 포화도 `exchange_admission_in_flight / exchange_admission_limit`와 거절률 `rate(exchange_admission_rejected_total[1m])`이다.
+- `exchange.admission.*`: 수용 제한은 인증 이전(AdmissionFilter, order 6)에서 거절하므로 컨트롤러 계층의 `exchange.orders.rejected`에 잡히지 않는다. 의도적 분리다. 후자는 '클라이언트가 요청을 고쳐야 하는 종결 거부'이고 전자는 '같은 요청을 그대로 재시도하면 되는 노드 포화'라 한 시계열에 섞으면 거부율의 의미가 무너진다. `scope`는 `order`·`query`·`requery` 3값 고정이다. 태그 없이 조회하면 세 시계열이 따로 반환되므로 총량은 `sum(...)`으로 집계한다. 라이브 판독의 핵심 조합은 버킷별 포화도 `exchange_admission_in_flight / exchange_admission_limit`와 거절률 `rate(exchange_admission_rejected_total[1m])`이다. 판독 주의 둘. (1) `scope=query`는 주문 쓰기가 아닌 쓰기(로그인·게시글 작성)도 포함하므로 순수 조회 지표가 아니다. (2) `scope=requery`의 증가는 HTTP 429가 아니라 `409 requery_deferred`(판정 보류)를 뜻한다. 다른 두 버킷과 달리 종결 거절이 아니며 k6의 `idempotent_safe` 판정에서 안전으로 계상된다.
 
 ### 5-3. Prometheus 구성 (`infra/prometheus/prometheus.yml`)
 

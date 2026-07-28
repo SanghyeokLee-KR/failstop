@@ -26,20 +26,61 @@ public final class AdmissionControl {
     // 재시도 간격. HTTP Retry-After의 최소 유효값이고, 기존 503 경로(NotLeader·NotReady·일시 DB
     // 실패)와 같은 값이라 클라이언트 백오프가 단일하다. permit 회전 시간의 상한은 아니다. dev
     // 프로파일에는 statement_timeout이 없어(prod만 있음) 슬로 윈도에서 한 요청이 이 값보다 오래
-    // 슬롯을 쥘 수 있다. 그때 재시도는 다시 429로 튕기고, 그것이 백프레셔의 정상 동작이다.
+    // 슬롯을 쥘 수 있다. 그때 재시도는 다시 거절로 튕기고, 그것이 백프레셔의 정상 동작이다.
     private static final int RETRY_AFTER_SECONDS = 1;
+
+    /**
+     * 상한 초과 시 내보낼 응답. 버킷마다 다르다. 용량 초과의 기본형은 429지만, 재조회 수렴 경로는
+     * 429가 곧 계약 위반이라 다른 코드를 쓴다.
+     */
+    public record Shed(int status, String name, String message) {
+
+        /**
+         * 용량 초과 기본형. 429인 이유 셋.
+         *  (1) 거절은 처리 이전이라 요청이 저널·원장에 닿지 않는다. 쓰기의 경우 상태가 UNKNOWN이
+         *      아니라 확정 미접수라, 503이 발동시키는 재조회 계약(§2-3·§7-6)은 불필요한 DB 읽기를
+         *      노드가 굶고 있는 순간에 더 얹는다.
+         *  (2) 인그레스가 접수 경로의 503을 노드 장애로 계상한다(harness/nginx: proxy_next_upstream
+         *      http_503, max_fails=1). 백프레셔를 503으로 내면 정상 리더가 업스트림에서 빠지고,
+         *      수요가 끊겨 좀비 판정(DB§5.4)의 분모까지 사라진다. 429는 그 경로를 타지 않는다.
+         *  (3) 클라이언트가 이미 다루는 코드다. k6는 429를 실패로 세지 않고(order_flow.js
+         *      expectedStatuses, readMarket의 ob_ok가 200|429), 봇의 조회는 비200을 캐시값·앵커
+         *      무효로 흡수한다. 주문 거절은 같은 client_order_id로 재시도해 멱등 수렴한다.
+         */
+        public static final Shed CAPACITY = new Shed(429, "too_many_requests",
+                "노드 처리 용량을 초과했습니다. 잠시 후 재시도하십시오.");
+
+        /**
+         * §7-6 재조회 수렴 경로 전용. 429도 503도 쓸 수 없다.
+         *
+         * 이유는 같다. 이 경로의 호출자는 이미 UNKNOWN 상태이고, k6의 규약 판정은 재조회 응답이
+         * 200·404·409일 때만 `idempotent_safe`를 만족한다(order_flow.js). 429·503은 그 집합 밖이라
+         * 백프레셔가 곧 멱등 규약 위반으로 계상된다. 더 근본적으로는 클라이언트가 접수 여부를
+         * 확정하지 못한 채 안전 재전송과 이중 접수 중 하나를 골라야 한다.
+         *
+         * 409를 쓰되 이름은 `order_in_progress`가 아니다. 그 이름은 '저널에는 있으나 프로젝션
+         * 미반영'이라는 확정 사실을 주장하는데(§4-B-4(a)), 슬롯이 없어 조회조차 못 한 상태는 저널을
+         * 보지 못했으므로 그 주장을 할 수 없다. 이중 접수를 부르는 유일한 오답은 잘못된 404(미접수
+         * 확정)이고 판정 보류는 그 반대 방향이라 안전하다. 클라이언트 동작은 동일하다. Retry-After
+         * 후 동일 client_order_id로 재조회를 반복해 수렴한다.
+         */
+        public static final Shed REQUERY_DEFERRED = new Shed(409, "requery_deferred",
+                "지금은 접수 여부를 확정할 수 없습니다. Retry-After 후 동일 client_order_id로 재조회하십시오.");
+    }
 
     private final String scope;
     private final int limit;
+    private final Shed shed;
     private final Semaphore permits;
     private final Counter rejected;
 
-    public AdmissionControl(String scope, int limit, MeterRegistry registry) {
-        if (scope == null || scope.isBlank() || limit <= 0 || registry == null) {
-            throw new IllegalArgumentException("scope·limit·registry는 필수");
+    public AdmissionControl(String scope, int limit, Shed shed, MeterRegistry registry) {
+        if (scope == null || scope.isBlank() || limit <= 0 || shed == null || registry == null) {
+            throw new IllegalArgumentException("scope·limit·shed·registry는 필수");
         }
         this.scope = scope;
         this.limit = limit;
+        this.shed = shed;
         this.permits = new Semaphore(limit);
         this.rejected = Counter.builder("exchange.admission.rejected")
                 .description("수용 제한으로 접수·처리 이전에 거절한 요청 수")
@@ -73,27 +114,13 @@ public final class AdmissionControl {
         permits.release();
     }
 
-    /**
-     * 429다. 503이 아닌 이유는 셋이다.
-     *  (1) 거절은 처리 이전에 일어나 요청이 저널·원장에 닿지 않는다. 쓰기의 경우 상태가 UNKNOWN이
-     *      아니라 확정 미접수라, 503이 발동시키는 재조회 계약(§2-3·§7-6)은 불필요한 DB 읽기를
-     *      노드가 굶고 있는 순간에 더 얹는다.
-     *  (2) 인그레스가 접수 경로의 503을 노드 장애로 계상한다(harness/nginx: proxy_next_upstream
-     *      http_503, max_fails=1). 백프레셔를 503으로 내면 정상 리더가 업스트림에서 빠지고,
-     *      수요가 끊겨 좀비 판정(DB§5.4)의 분모까지 사라진다. 429는 그 경로를 타지 않는다.
-     *  (3) 클라이언트가 이미 다루는 코드다. k6는 429를 실패로 세지 않고(order_flow.js
-     *      expectedStatuses, readMarket의 ob_ok가 200|429), 봇의 조회는 비200을 캐시값·앵커
-     *      무효로 흡수하고 다음 사이클(requote 주기 1초, MM은 지수 백오프)까지 쉰다. 어느 쪽도
-     *      429에 즉시 재시도로 반응하지 않아 거절이 폭주를 만들지 않는다. 주문 거절은 같은
-     *      client_order_id로 재시도해 멱등 수렴한다.
-     * detail은 §2-5 다중버킷 표기를 그대로 쓴다. 계정 버킷과 구분되는 노드 용량 버킷이다.
-     */
+    /** detail은 §2-5 다중버킷 표기를 그대로 쓴다. 계정 버킷과 구분되는 노드 용량 버킷이다. */
     public ApiException rejection() {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("bucket", "node");
         detail.put("scope", scope);
-        return new ApiException(429, "too_many_requests",
-                "노드 처리 용량을 초과했습니다. 잠시 후 재시도하십시오.", detail, RETRY_AFTER_SECONDS);
+        return new ApiException(shed.status(), shed.name(), shed.message(), detail,
+                RETRY_AFTER_SECONDS);
     }
 
     public String scope() {

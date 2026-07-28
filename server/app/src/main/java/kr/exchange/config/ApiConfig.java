@@ -129,7 +129,7 @@ public class ApiConfig {
     /**
      * 수용 제한 상한 배분. 요청 풀 크기에서 유도한다(AdmissionLimits). 카오스 스택이 풀을
      * SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE로 덮으므로 유도가 곧 배포별 추종이다.
-     * exchange.admission.order-in-flight·query-in-flight로 각각 명시 고정할 수 있고 0 이하면 유도값.
+     * exchange.admission.{order,query,requery}-in-flight로 각각 명시 고정할 수 있고 0 이하면 유도값.
      *
      * 기동 로그를 남기는 이유: 유도 결과는 배포마다 다른데 코드에도 설정에도 그 숫자가 없다.
      * 라이브에서 실제 적용값을 확인할 단일 지점이 필요하다.
@@ -138,23 +138,34 @@ public class ApiConfig {
     public AdmissionLimits admissionLimits(
             @Qualifier("dataSource") DataSource requestDataSource,
             @Value("${exchange.admission.order-in-flight:0}") int configuredOrder,
-            @Value("${exchange.admission.query-in-flight:0}") int configuredQuery) {
+            @Value("${exchange.admission.query-in-flight:0}") int configuredQuery,
+            @Value("${exchange.admission.requery-in-flight:0}") int configuredRequery) {
         int poolSize = requestDataSource instanceof HikariDataSource hikari
                 ? hikari.getMaximumPoolSize() : 0;
-        AdmissionLimits limits = AdmissionLimits.resolve(poolSize, configuredOrder, configuredQuery);
-        log.info("수용 제한 상한 해석: 쓰기 {} / 조회 {} / 예비 {} (요청 풀 {})",
-                limits.write(), limits.query(), limits.reserved(), poolSize);
+        AdmissionLimits limits = AdmissionLimits.resolve(poolSize, configuredOrder, configuredQuery,
+                configuredRequery);
+        log.info("수용 제한 상한 해석: 쓰기 {} / 조회 {} / 재조회 {} / 예비 {} (요청 풀 {})",
+                limits.write(), limits.query(), limits.requery(), limits.reserved(), poolSize);
         return limits;
     }
 
     @Bean
     public AdmissionControl orderAdmissionControl(AdmissionLimits limits, MeterRegistry registry) {
-        return new AdmissionControl("order", limits.write(), registry);
+        return new AdmissionControl("order", limits.write(),
+                AdmissionControl.Shed.CAPACITY, registry);
     }
 
     @Bean
     public AdmissionControl queryAdmissionControl(AdmissionLimits limits, MeterRegistry registry) {
-        return new AdmissionControl("query", limits.query(), registry);
+        return new AdmissionControl("query", limits.query(),
+                AdmissionControl.Shed.CAPACITY, registry);
+    }
+
+    /** §7-6 수렴 경로 전용. 상한 초과를 거절이 아니라 판정 보류로 내보낸다(Shed 주석). */
+    @Bean
+    public AdmissionControl requeryAdmissionControl(AdmissionLimits limits, MeterRegistry registry) {
+        return new AdmissionControl("requery", limits.requery(),
+                AdmissionControl.Shed.REQUERY_DEFERRED, registry);
     }
 
     /**
@@ -166,9 +177,11 @@ public class ApiConfig {
     public FilterRegistrationBean<AdmissionFilter> admissionFilter(
             @Qualifier("orderAdmissionControl") AdmissionControl orderAdmission,
             @Qualifier("queryAdmissionControl") AdmissionControl queryAdmission,
+            @Qualifier("requeryAdmissionControl") AdmissionControl requeryAdmission,
             ErrorRenderer errorRenderer) {
         FilterRegistrationBean<AdmissionFilter> registration = new FilterRegistrationBean<>(
-                new AdmissionFilter(orderAdmission, queryAdmission, errorRenderer));
+                new AdmissionFilter(orderAdmission, queryAdmission, requeryAdmission,
+                        errorRenderer));
         registration.addUrlPatterns("/api/v1/*");
         registration.setOrder(6);
         return registration;

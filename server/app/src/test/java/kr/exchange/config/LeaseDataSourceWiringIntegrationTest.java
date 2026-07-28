@@ -62,6 +62,9 @@ class LeaseDataSourceWiringIntegrationTest {
     @Autowired
     @Qualifier("queryAdmissionControl")
     AdmissionControl queryAdmission;
+    @Autowired
+    @Qualifier("requeryAdmissionControl")
+    AdmissionControl requeryAdmission;
 
     @Test
     void leasePoolIsSeparateSmallAndIsolated() {
@@ -78,16 +81,20 @@ class LeaseDataSourceWiringIntegrationTest {
 
     /**
      * 수용 제한 상한 유도의 실배선(API 설계 §2-5-a). 이 컨텍스트는 상한 프로퍼티를 지정하지 않으므로
-     * 두 버킷이 실제 요청 풀 크기에서 유도돼야 한다. 유도값은 코드에도 설정에도 숫자로 남지 않아
+     * 세 버킷이 실제 요청 풀 크기에서 유도돼야 한다. 유도값은 코드에도 설정에도 숫자로 남지 않아
      * 배선이 끊겨도 조용히 굴러갈 수 있는 자리다. 기동 INFO 로그와 함께 이 단언이 그것을 막는다.
      */
     @Test
     void admissionLimitsAreDerivedFromRequestPool() {
-        AdmissionLimits expected = AdmissionLimits.resolve(requestPool.getMaximumPoolSize(), 0, 0);
+        AdmissionLimits expected =
+                AdmissionLimits.resolve(requestPool.getMaximumPoolSize(), 0, 0, 0);
         assertEquals(expected.write(), limits.write(), "쓰기 상한이 풀에서 유도되지 않았다");
         assertEquals(expected.query(), limits.query(), "조회 상한이 풀에서 유도되지 않았다");
+        assertEquals(expected.requery(), limits.requery(), "재조회 상한이 풀에서 유도되지 않았다");
         assertEquals(expected.write(), orderAdmission.limit(), "쓰기 버킷이 유도 상한으로 뜨지 않았다");
         assertEquals(expected.query(), queryAdmission.limit(), "조회 버킷이 유도 상한으로 뜨지 않았다");
+        assertEquals(expected.requery(), requeryAdmission.limit(),
+                "재조회 버킷이 유도 상한으로 뜨지 않았다");
         // 예비분이 있어야 면제 경로·백그라운드가 굶지 않는다(AdmissionLimits 무대기 성질).
         assertTrue(limits.reserved() > 0, "면제 경로 몫이 남지 않았다");
     }
