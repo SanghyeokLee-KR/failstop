@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.CachedBodyRequest;
 import kr.exchange.api.common.ErrorRenderer;
+import kr.exchange.api.common.OrderAdmissionControl;
 import kr.exchange.api.common.RequestBodyLimit;
 import kr.exchange.engine.LeaderWriteProgress;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -27,12 +28,15 @@ public class ApiAuthFilter extends OncePerRequestFilter {
     private final ErrorRenderer errorRenderer;
     // 주문 쓰기 수요 계측. 인증보다 앞선 유일한 공통 지점이라 여기서 센다(DB 설계 §5.4).
     private final LeaderWriteProgress writeProgress;
+    // 주문 쓰기 수용 제한. 인증이 api_keys를 조회하므로 그 앞에서 막아야 실효가 있다.
+    private final OrderAdmissionControl admission;
 
     public ApiAuthFilter(ApiAuthService authService, ErrorRenderer errorRenderer,
-                         LeaderWriteProgress writeProgress) {
+                         LeaderWriteProgress writeProgress, OrderAdmissionControl admission) {
         this.authService = authService;
         this.errorRenderer = errorRenderer;
         this.writeProgress = writeProgress;
+        this.admission = admission;
     }
 
     @Override
@@ -64,42 +68,62 @@ public class ApiAuthFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         boolean needsTrade = path.startsWith("/api/v1/orders")
                 && ("POST".equals(method) || "DELETE".equals(method));
+        boolean admitted = false;
         if (needsTrade) {
-            // 쓰기 수요 계측(DB 설계 §5.4 좀비 리더 판정). 반드시 authService.verify 이전이다.
-            // verify는 api_keys를 조회하므로 요청 경로가 죽은 좀비 상태에서는 여기서 이미
-            // 실패한다. 계측을 인증 뒤에 두면 정작 대상 장애에서 한 번도 증가하지 않는다.
-            writeProgress.recordAttempt();
-        }
-        HttpServletRequest effective;
-        try {
-            effective = request;
-            String canonical;
-            if ("GET".equals(method)) {
-                canonical = CanonicalRequests.forQuery(method, path, request.getParameterMap());
-            } else {
-                // 비 GET은 실제 바이트 존재로 판정한다(§3-3 v2.7 W5). Content-Length 기반 판정은
-                // chunked 전송(길이 헤더 부재)으로 바디 서명을 쿼리 canonical로 우회할 수 있다.
-                byte[] body = RequestBodyLimit.readBounded(request);
-                if (body.length > 0) {
-                    canonical = CanonicalRequests.forBody(method, path, body);
-                    effective = new CachedBodyRequest(request, body);
-                } else {
-                    canonical = CanonicalRequests.forQuery(method, path, request.getParameterMap());
-                }
+            // 수용 판정이 계측·인증보다 앞선다. 거절은 접수 이전이라 저널·원장에 흔적이 없고,
+            // 수요(recordAttempt) 축에도 계상하지 않는다. 거절을 수요로 세면 부하를 흘리는
+            // 건강한 노드가 분모만 키워 완료율이 임계 아래로 떨어지고 헛강등한다(DB 설계 §5.4).
+            if (!admission.tryAcquire()) {
+                errorRenderer.write(response, admission.rejection());
+                return;
             }
-            AuthPrincipal principal = authService.verify(
-                    request.getHeader("Authorization"), canonical, needsTrade);
-            effective.setAttribute(AuthPrincipal.REQUEST_ATTRIBUTE, principal);
-        } catch (ApiException e) {
-            errorRenderer.write(response, e);
-            return;
-        } catch (RuntimeException e) {
-            // 인증 단계에서 던진 비 ApiException(예: HMAC 계산 실패)이 컨테이너 기본 페이지로 새면
-            // 클라이언트가 표준 에러 엔벌로프(§2-3)로 파싱하지 못한다. 500으로 표준화한다.
-            errorRenderer.write(response, new ApiException(500, "server_error", "인증 처리 중 오류가 발생했습니다."));
-            return;
+            admitted = true;
         }
-        // 컨트롤러 다운스트림 예외는 각 어드바이스가 표준화하므로 이 필터가 삼키지 않는다.
-        chain.doFilter(effective, response);
+        try {
+            if (admitted) {
+                // 쓰기 수요 계측(DB 설계 §5.4 좀비 리더 판정). 반드시 authService.verify 이전이다.
+                // verify는 api_keys를 조회하므로 요청 경로가 죽은 좀비 상태에서는 여기서 이미
+                // 실패한다. 계측을 인증 뒤에 두면 정작 대상 장애에서 한 번도 증가하지 않는다.
+                writeProgress.recordAttempt();
+            }
+            HttpServletRequest effective;
+            try {
+                effective = request;
+                String canonical;
+                if ("GET".equals(method)) {
+                    canonical = CanonicalRequests.forQuery(method, path, request.getParameterMap());
+                } else {
+                    // 비 GET은 실제 바이트 존재로 판정한다(§3-3 v2.7 W5). Content-Length 기반 판정은
+                    // chunked 전송(길이 헤더 부재)으로 바디 서명을 쿼리 canonical로 우회할 수 있다.
+                    byte[] body = RequestBodyLimit.readBounded(request);
+                    if (body.length > 0) {
+                        canonical = CanonicalRequests.forBody(method, path, body);
+                        effective = new CachedBodyRequest(request, body);
+                    } else {
+                        canonical = CanonicalRequests.forQuery(method, path, request.getParameterMap());
+                    }
+                }
+                AuthPrincipal principal = authService.verify(
+                        request.getHeader("Authorization"), canonical, needsTrade);
+                effective.setAttribute(AuthPrincipal.REQUEST_ATTRIBUTE, principal);
+            } catch (ApiException e) {
+                errorRenderer.write(response, e);
+                return;
+            } catch (RuntimeException e) {
+                // 인증 단계에서 던진 비 ApiException(예: HMAC 계산 실패)이 컨테이너 기본 페이지로 새면
+                // 클라이언트가 표준 에러 엔벌로프(§2-3)로 파싱하지 못한다. 500으로 표준화한다.
+                errorRenderer.write(response, new ApiException(500, "server_error", "인증 처리 중 오류가 발생했습니다."));
+                return;
+            }
+            // 컨트롤러 다운스트림 예외는 각 어드바이스가 표준화하므로 이 필터가 삼키지 않는다.
+            chain.doFilter(effective, response);
+        } finally {
+            // 정상·거부·예외·에러 전 경로에서 정확히 한 번 반납한다. OncePerRequestFilter라
+            // 요청당 이 메서드가 한 번만 돌고, admitted 플래그가 이중 반납(허용량 인플레)을 막는다.
+            // 주문 쓰기 경로에 비동기 디스패치가 없으므로 반납 시점이 요청 수명과 일치한다.
+            if (admitted) {
+                admission.release();
+            }
+        }
     }
 }

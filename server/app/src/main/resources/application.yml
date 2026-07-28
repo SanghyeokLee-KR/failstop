@@ -46,6 +46,18 @@ spring:
     username: exchange
     password: exchange
     hikari:
+      # 커넥션 획득 대기 상한. 기본값 30초가 E1 라이브에서 리더를 죽인 직접 원인이다. pg 지연
+      # 주입 중 요청마다 가상 스레드가 생겨 30초씩 커넥션을 기다렸고, 대기 스레드가 무한히 쌓여
+      # cpu 463%·전 경로 타임아웃·자력 회복 불가로 이어졌다. 3초는 prod와 동일 값이며 초과분은
+      # CannotGetJdbcConnectionException -> ApiExceptionHandler 503+Retry-After로 신호된다.
+      # 카오스 스택이 dev 프로파일을 쓰므로 이 값이 곧 라이브 적용값이다.
+      connection-timeout: 3000
+      # 풀 크기는 Hikari 기본(10)을 유지한다. 카오스는 SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE로,
+      # 운영은 prod 문서로 32를 준다. dev를 32로 고정하지 않는 이유는 통합테스트가 캐시된 스프링
+      # 컨텍스트마다 풀을 하나씩 띄우는데 Hikari minimumIdle 기본값이 maximumPoolSize와 같아
+      # 컨테이너 max_connections를 압박하기 때문이다. 수용 제한 상한은 실제 풀 크기에서 유도되므로
+      # (OrderAdmissionControl) 배포별 차이를 자동 추종한다.
+      #
       # 세션 TZ를 연결 계층에서 UTC로 고정한다. pgjdbc는 미고정 시 JVM 기본 zone(배포 KST)을
       # 세션 TimeZone으로 전파하고, Flyway는 이 풀 커넥션을 빌리므로 시간 파티션 경계 리터럴이
       # 배포 TZ에 의존해 증분 배포에서 overlap으로 부팅이 막힌다. UTC 고정으로 마이그레이션·런타임을

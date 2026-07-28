@@ -649,6 +649,9 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 | `exchange.journal.replay.commands` | Counter | - | `exchange_journal_replay_commands_total` | 복구 재생 처리량 |
 | `exchange.sequencer.queue.size` | Gauge | - | `exchange_sequencer_queue_size` | 백프레셔(P4) |
 | `exchange.orders.rejected` | Counter | `reason` | `exchange_orders_rejected_total` | 거부율(429/domain_rejected) |
+| `exchange.admission.rejected` | Counter | - | `exchange_admission_rejected_total` | 수용 제한으로 접수 이전에 거절한 주문 쓰기 수(API §2-5-a). 백프레셔 발동 축 |
+| `exchange.admission.in_flight` | Gauge | - | `exchange_admission_in_flight` | 처리 중인 주문 쓰기 요청 수 |
+| `exchange.admission.limit` | Gauge | - | `exchange_admission_limit` | 주문 쓰기 동시 처리 상한(요청 풀의 75%, 하한 4). 포화도 = in_flight/limit |
 | `exchange.snapshot.captured` | Counter(FunctionCounter) | - | `exchange_snapshot_captured_total` | 큐잉된 스냅샷 캡처 수(SnapshotCapture) |
 | `exchange.snapshot.dropped` | Counter(FunctionCounter) | - | `exchange_snapshot_dropped_total` | 큐 포화·인코딩 실패 드롭, rate>0 알람 |
 | `exchange.snapshot.persist_failed` | Counter(FunctionCounter) | - | `exchange_snapshot_persist_failed_total` | 워커 영속화 실패, rate>0 알람 |
@@ -665,6 +668,7 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 - `exchange.duplicate.fills`: InvariantVerifier의 C-카탈로그 검증(중복 체결 0)이 `exchange_invariant_violations{check_name}`로 이미 커버해 별도 Counter는 중복이라 방출하지 않는다.
 - `exchange.ws.clients`: `channel` 태그는 연결 단위 계량이라 단일 값(`stomp`)만 방출한다. 목적지별 분해는 세션-구독 회계가 필요해 후속.
 - `exchange.orders.rejected`: `reason`은 종결 거부(4xx: 429·422·400·403·413) 에러코드 집합이며 429는 대시보드 PromQL 정합을 위해 `rate_limited`로 정규화한다. 409·503은 재조회 수렴 신호라 거부율에서 제외한다.
+- `exchange.admission.*`: 수용 제한은 인증 이전(ApiAuthFilter)에서 거절하므로 컨트롤러 계층의 `exchange.orders.rejected`에 잡히지 않는다. 의도적 분리다. 후자는 '클라이언트가 요청을 고쳐야 하는 종결 거부'이고 전자는 '같은 요청을 그대로 재시도하면 되는 노드 포화'라 한 시계열에 섞으면 거부율의 의미가 무너진다. 태그 없음(단일 스코프 order)이며, 스코프가 늘면 그때 `scope` 태그를 추가한다.
 
 ### 5-3. Prometheus 구성 (`infra/prometheus/prometheus.yml`)
 

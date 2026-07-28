@@ -1,6 +1,7 @@
 package kr.exchange.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zaxxer.hikari.HikariDataSource;
 import kr.exchange.api.auth.ApiAuthFilter;
 import kr.exchange.api.auth.ApiAuthService;
 import kr.exchange.api.auth.ApiKeyDirectory;
@@ -11,6 +12,7 @@ import kr.exchange.api.auth.NonceStore;
 import kr.exchange.api.auth.SecretCipher;
 import kr.exchange.api.common.EpochSource;
 import kr.exchange.api.common.ErrorRenderer;
+import kr.exchange.api.common.OrderAdmissionControl;
 import kr.exchange.api.community.CommunityAuthenticator;
 import kr.exchange.api.community.CommunityRankService;
 import kr.exchange.api.community.CommunityService;
@@ -31,6 +33,7 @@ import kr.exchange.engine.LeaderLeaseService;
 import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.ledger.AccountBootstrap;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.ApplicationContext;
@@ -42,6 +45,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.util.Map;
 
@@ -116,12 +120,27 @@ public class ApiConfig {
         return new ErrorRenderer(objectMapper);
     }
 
+    /**
+     * 주문 쓰기 수용 제한. 상한은 요청 풀 크기에서 유도한다(OrderAdmissionControl). 카오스 스택이
+     * 풀을 SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE로 덮으므로, 유도가 곧 배포별 추종이다.
+     * exchange.admission.order-in-flight로 명시 고정할 수 있고 0 이하면 유도값을 쓴다.
+     */
+    @Bean
+    public OrderAdmissionControl orderAdmissionControl(
+            @Qualifier("dataSource") DataSource requestDataSource, MeterRegistry meterRegistry,
+            @Value("${exchange.admission.order-in-flight:0}") int configuredLimit) {
+        int poolSize = requestDataSource instanceof HikariDataSource hikari
+                ? hikari.getMaximumPoolSize() : 0;
+        return new OrderAdmissionControl(configuredLimit, poolSize, meterRegistry);
+    }
+
     @Bean
     public FilterRegistrationBean<ApiAuthFilter> apiAuthFilter(ApiAuthService authService,
                                                                ErrorRenderer errorRenderer,
-                                                               LeaderWriteProgress writeProgress) {
+                                                               LeaderWriteProgress writeProgress,
+                                                               OrderAdmissionControl admission) {
         FilterRegistrationBean<ApiAuthFilter> registration = new FilterRegistrationBean<>(
-                new ApiAuthFilter(authService, errorRenderer, writeProgress));
+                new ApiAuthFilter(authService, errorRenderer, writeProgress, admission));
         registration.addUrlPatterns("/api/v1/*");
         registration.setOrder(10);
         return registration;

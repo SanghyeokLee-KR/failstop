@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.15, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.16, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -178,7 +178,7 @@ exchange-platform/
 | 413 | `payload_too_large` | **요청 바디 상한 초과(신규, 기본 64KB)** |
 | 415 | `unsupported_media_type` | Content-Type 불일치 |
 | 422 | `domain_rejected` | 도메인 거부(하위 `reject_reason`, §4-B-1) |
-| 429 | `too_many_requests` | rate limit 초과 (+`Retry-After`, +위반 버킷) |
+| 429 | `too_many_requests` | rate limit 초과, 또는 노드 수용 제한 초과 (+`Retry-After`, +위반 버킷 `account`\|`node`, §2-5) |
 | 418 | `auto_banned` | 지속 위반 IP 밴 (+해제 조건, §2-5) |
 | 500 | `server_error` | 일시적 서버 오류 |
 | 503 | `service_unavailable` | 페일오버 중 (주문 상태 `UNKNOWN` → 재조회, **+`Retry-After` 필수**) |
@@ -225,6 +225,20 @@ Retry-After: 3                    # 429·503·409(order_in_progress) 시 포함(
 | 계좌/주문 조회 | 2 | 200 토큰 / 10s (계정) |
 | 주문 생성/취소 | 5 | 100 토큰 / 10s (계정) |
 | 관리 API(admin) | 10 | 60 토큰 / 60s (admin 계정). **신규: 관리 평면도 rate limit 적용** |
+| 주문 쓰기 노드 용량(수용 제한) | - | 동시 처리 요청 수 = 요청 커넥션 풀의 75%(하한 4). **신규 v2.16, 아래 §2-5-a** |
+
+#### 2-5-a. 노드 용량 버킷 (수용 제한, admission control · v2.16 신설)
+
+계정 토큰버킷은 한 계정의 유량을 재고, 노드 용량 버킷은 **이 노드가 동시에 처리 중인 주문 쓰기 요청 수**를 잰다. 둘은 독립이며 계정 버킷을 통과한 요청도 노드가 포화면 거절된다.
+
+- **대상**: `POST /orders`, `POST /orders/batch`, `DELETE /orders*`. **조회는 대상이 아니다**(공개 시장 데이터·계좌/주문 조회·`by-client` 재조회·actuator 전부 무제한). 노드가 죽지 않는다는 것은 곧 조회가 계속 응답한다는 뜻이라, 쓰기만 조인다.
+- **적용 지점은 인증 이전**이다. 인증이 `api_keys`를 조회하므로 인증 뒤에서 막으면 이미 DB를 탄 뒤라 실효가 없다.
+- **거절 응답**: `429 too_many_requests` + `Retry-After: 1` + `detail={"bucket":"node","scope":"order"}`. **대기 없이 즉시** 반환한다. 대기열을 만들면 스레드가 다시 쌓여 죽는 방식만 옮겨진다.
+- **거절은 접수 이전에만 일어난다**. 저널·원장·프로젝션 어디에도 흔적이 없으므로 주문 상태는 `UNKNOWN`이 아니라 **확정 미접수**이며, §7-6 재조회 상태머신의 대상이 아니다. 클라이언트는 동일 `client_order_id`로 그대로 재전송하면 되고 멱등 의미는 불변이다.
+- **503이 아닌 이유**: (a) 503은 §2-3 장애 규약상 `UNKNOWN` 재조회를 유발해, 노드가 이미 굶고 있는 시점에 조회 부하를 더 얹는다. (b) 인그레스는 접수 경로의 503을 노드 장애로 계상한다(하네스 nginx `proxy_next_upstream http_503`, `max_fails=1`). 백프레셔를 503으로 내면 정상 리더가 업스트림에서 빠지고, 수요가 끊겨 좀비 판정(DB §5.4)의 분모까지 사라진다. (c) 429는 클라이언트가 이미 다루는 코드다(k6는 429를 가용성 실패로 세지 않고, 봇은 같은 키로 재시도해 멱등 수렴한다).
+- **상한값 근거**: 요청 커넥션 풀 크기에서 유도한다. 풀보다 크면 초과분이 커넥션 대기로 옮겨갈 뿐이라 유계화가 무의미하고, 풀과 같으면 쓰기가 풀을 전량 점유해 조회가 커넥션을 얻지 못한다. 75%가 남기는 25%가 조회 몫이다(풀 32 -> 쓰기 24·조회 8). 하한 4는 초소형 dev·테스트 풀에서 상한이 0~1로 내려앉는 것을 막는다. `exchange.admission.order-in-flight`로 명시 고정할 수 있다.
+- **batch 1건 = 슬롯 1개**. 보호 대상이 요청이 점유하는 스레드·커넥션이라 원소 수와 무관하다. 원소 증폭은 계정 버킷의 weight 5 x 원소 수가 이미 상쇄한다.
+- **관측**: `exchange_admission_rejected_total`, `exchange_admission_in_flight`, `exchange_admission_limit`(하네스 CICD §5-2).
 
 - **신뢰 프록시(X-Forwarded-For)**: LB(HAProxy/Nginx) IP를 신뢰 프록시 목록에 등록하고, XFF를 **우측부터 신뢰 프록시 홉을 제거한 뒤 남는 첫 IP(rightmost-untrusted)**를 클라이언트 IP로 채택한다. 최좌측 값은 원 클라이언트가 임의 주입 가능하므로 신뢰하지 않는다(최좌측 채택은 폐기). 구현은 forward-headers-strategy(RemoteIpValve)로 이 파생을 컨테이너에 위임하고, 애플리케이션은 getRemoteAddr()만 읽는다(원시 XFF 파싱 금지, 단일 유틸 ClientIp.of). **봇/데모 트래픽은 계정 키 기반 버킷을 우선 적용**(모든 봇이 동일 프록시 IP로 보여 IP 버킷이 마비되는 것 방지). 미인증 공개 조회만 IP 버킷.
   - **신뢰 경계 핀(배포 불변식)**: `server.tomcat.remoteip.internal-proxies`를 프로파일별로 명시 지정한다. RemoteIpValve 기본 internalProxies(전 RFC1918+loopback)를 그대로 쓰면 사설 소켓피어 배포에서 클라이언트가 보낸 단일 XFF가 rightmost-untrusted로 채택되어 회전 스푸핑으로 IP 버킷을 우회한다. 운영은 LB VIP CIDR만 등록(`EXCHANGE_TRUSTED_PROXIES` 주입, 미주입 시 루프백 전용 fail-closed), 프록시 없는 dev·데모·통합테스트는 루프백 전용으로 좁힌다. 인그레스는 인바운드 XFF를 strip한 뒤 자신을 append하는 것을 배포 전제로 한다.
@@ -1353,3 +1367,18 @@ M3 게시판(커뮤니티) API를 §4-D로 신설했다. 게시판_설계.md §4
 | E2 | §4-D | `mine`은 서버가 토큰 `user_id`와 작성자 내부 id를 대조해 산출. 작성자 식별자(member_external_id=세션 `sub`)는 공개 응답에 노출하지 않음(최소 노출). 소유권 어포던스는 handle 대조가 아니라 `mine` 판정 |
 
 문서 헤더 버전을 v2.15로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.16 패치 반영 사항
+
+노드 수용 제한(admission control)을 §2-5-a로 신설했다. DB 지연 하에서 요청이 무한 수용돼 노드가 스스로 죽던 라이브 결함(DB §5.4 v2.20)의 접수 계약 쪽 반영이다. 기존 엔드포인트·스키마·서명 규약은 무변경이며 새 에러코드도 없다(기존 429 재사용).
+
+| # | 위치 | 내용 |
+|---|---|---|
+| F1 | §2-5-a | 계정 버킷과 독립인 **노드 용량 버킷** 신설. 주문 쓰기 동시 처리 수를 요청 풀의 75%(하한 4)로 유계화하고 초과분을 무대기 거절. 조회 경로는 대상 아님 |
+| F2 | §2-3, §2-5-a | 거절은 `429 too_many_requests` + `Retry-After` + `detail.bucket="node"`. 신규 코드를 만들지 않고 기존 429의 위반 버킷 축을 `account`\|`node`로 확장 |
+| F3 | §2-5-a, §7-6 | 수용 거절은 **접수 이전**이라 저널·원장에 흔적이 없다. 상태는 `UNKNOWN`이 아니라 확정 미접수이며 재조회 상태머신 대상이 아니다. 동일 `client_order_id` 재전송으로 수렴 |
+| F4 | §2-5-a | 503을 쓰지 않는 근거 명문화: 503은 `UNKNOWN` 재조회 부하를 굶는 노드에 되먹이고, 인그레스가 접수 경로 503을 노드 장애로 계상해 정상 리더를 업스트림에서 빼며, 그 결과 좀비 판정의 수요 축까지 소멸시킨다 |
+
+문서 헤더 버전을 v2.16으로 순증(이전 패치 노트의 역사 서술은 원문 유지).
