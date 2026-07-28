@@ -124,6 +124,10 @@ public class EngineRecovery {
         // renew가 없다. 대형 크래시 창 재적재가 TTL을 넘기면 정당 단독 리더가 fencing으로
         // 자기-거부한다. 재적재 중 주기 renew로 리스를 살려둔다(§5.5). renew 실패는 실제
         // 상실이므로 이어지는 sink append가 NotLeader/fencing으로 fail-fast한다.
+        // 첫 배치 직전에 한 번 당긴다. 승격 재생은 리스 획득과 첫 fencing 쓰기 사이에 스냅샷
+        // 로드·tail 재생을 통째로 끼우므로, 그 구간에 하트비트가 한 틱만 밀려도 정당한 새 리더의
+        // 첫 정산이 만료 리스로 거부된다(E2 라이브의 assert_current_leader 거부 창).
+        lease.renew();
         long renewIntervalNanos = lease.ttl().dividedBy(3).toNanos();
         long lastRenewNanos = System.nanoTime();
         long eventsSinceRenew = 0;

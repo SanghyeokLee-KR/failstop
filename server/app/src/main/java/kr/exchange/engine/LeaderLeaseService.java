@@ -22,6 +22,17 @@ import java.util.function.Consumer;
  * 구/신 프로세스를 구분하지 못해 fencing이 무력화된다(P0-1).
  * 승격은 try_acquire_leader(만료 리스만 탈취, epoch +1), 유지는 renew_leader_lease
  * (epoch 보존)로만 한다. 정본은 V1 함수 3종이고 여기서는 호출만 한다.
+ *
+ * 강등은 두 종류다(§5.4 강등 사유 분류). 가르는 축은 사유 문구가 아니라 **단일 라이터 루프가
+ * 그 강등으로 정지했는가**다.
+ *  - 종신(markLost): 루프를 halt시키는 강등. 인메모리 오더북이 타 리더의 커밋을 반영하지 못한
+ *    stale이고 소비자가 사라졌으므로 리스만 다시 얻으면 반쪽 리더가 된다. 복귀는 재기동뿐이다.
+ *  - 회복 가능(standDown): 접수를 연 적이 없고 루프를 건드리지도 않은 구간(승격 재생)의 반납.
+ *    이 구간의 엔진은 승격 전 상태 그대로이고 다음 승격은 fresh 엔진 전량 재생으로 다시 시작한다.
+ *    한 번의 일시 실패로 후보를 영구히 잃으면 2노드에서 클러스터가 리더 없이 정지한다
+ *    (E2 라이브 실측: 양 노드 종신 강등 → 체결 영구 정지).
+ * 어느 쪽이든 leader_lease에는 아무것도 쓰지 않는다. 다음 리더는 종전대로 TTL 만료 뒤
+ * try_acquire_leader(epoch +1) 단독 UPDATE로만 정해지므로 이중 리더 차단 성질이 불변이다.
  */
 public class LeaderLeaseService implements AutoCloseable {
 
@@ -44,11 +55,19 @@ public class LeaderLeaseService implements AutoCloseable {
     // 재승격은 동일하게 불건전하고, 서비스 불능이 확인된 노드가 리더십을 되찾으려 경쟁하면
     // 손상 노드 사이의 플래핑이 된다.
     private volatile boolean demoted;
+    // 승격 재생 구간 표식. 이 구간의 상실은 종신이 아니라 회복 가능 반납으로 내린다. 근거는
+    // 구간의 성질이다. PromotionCoordinator는 재생이 성공한 뒤에야 fresh 엔진을 루프에 설치하고
+    // 접수를 열므로, 재생 도중의 루프는 승격 전 상태 그대로이며 게이트가 닫혀 아무것도 소비하지
+    // 않는다. 종신 강등이 전제하는 'stale 엔진 + halt된 루프'가 성립하지 않는다.
+    private volatile boolean promotionReplay;
     // 강등 확정(demoted+epoch 클리어)과 승격 커밋(epoch 세팅)을 상호배제한다. 이 락 없이는
     // markLost가 epoch를 비운 직후·demoted 세팅 전 창에서 tick의 tryAcquire가 재승격해
     // half-leader가 된다(TOCTOU).
     private final Object leadershipLock = new Object();
     private final List<Runnable> lossListeners = new CopyOnWriteArrayList<>();
+    // 사유 불문 '리더십을 놓았다' 통지. 종신 강등과 회복 가능 반납 모두에서 발화한다. 관측
+    // 전용(is_leader 게이지)이라 self-shutdown 부작용을 가진 리스너를 여기 걸면 안 된다.
+    private final List<Runnable> releaseListeners = new CopyOnWriteArrayList<>();
     // 승격 통지. 리스 획득 시점에 발화해 접수 개방 전 인메모리 선복원을 트리거한다(복구 RTO §3-a).
     private final List<Consumer<LeaderIdentity>> gainListeners = new CopyOnWriteArrayList<>();
     // 관측 통지. 승격 시 epoch + 페일오버 다운타임을 함께 넘긴다(하네스 CICD §5-1 단일 계산점).
@@ -107,8 +126,17 @@ public class LeaderLeaseService implements AutoCloseable {
         return new LeaderIdentity(holder, e);
     }
 
+    /**
+     * 종신 강등 통지 등록. self-shutdown 부작용(단일 라이터 halt, 승격 상태기계 DEMOTED)은
+     * 여기에만 건다. 회복 가능 반납에서는 발화하지 않는다.
+     */
     public void onLeadershipLost(Runnable listener) {
         lossListeners.add(listener);
+    }
+
+    /** 리더십 반납 통지 등록(종신·회복 가능 공통). 관측 갱신 전용이다. */
+    public void onLeadershipReleased(Runnable listener) {
+        releaseListeners.add(listener);
     }
 
     /**
@@ -145,6 +173,73 @@ public class LeaderLeaseService implements AutoCloseable {
     }
 
     /**
+     * fencing 거부를 만난 쓰기 경로의 권위 재확인. 거부 즉시 강등하면 정당한 현재 리더가 일시
+     * 원인(리스 만료 직전의 슬로 윈도, DB 시계 비단조성, 하트비트 한 틱 밀림)만으로 영구
+     * 후보에서 빠진다. E2 라이브에서 승격 123ms 뒤의 단 한 번의 거부가 클러스터를 정지시켰다.
+     *
+     * 판정은 renew_leader_lease 한 번이다. 이 함수는 (holder, epoch)가 여전히 리스 행의 값이고
+     * 만료 전일 때만 참이므로, 참이면 이 노드가 정당한 현재 리더임이 DB로 증명된다. 만료 리스를
+     * 대상으로 하는 UPDATE가 아니라 탈취가 불가능하고 epoch도 건드리지 않아, 이 경로가 이중
+     * 리더를 만들 수 없다.
+     *
+     * @return true면 리더십이 증명돼 강등하지 않았다(호출자는 재시도 가능). false면 강등했거나
+     *         (거짓 반환) 증명에 실패했다. DB 왕복 자체가 실패한 경우는 상실로 단정하지 않는다.
+     */
+    public boolean demoteUnlessStillLeader(String reason) {
+        Long e = epoch.get();
+        if (e == null) {
+            return false;
+        }
+        Boolean renewed;
+        try {
+            renewed = jdbc.sql("SELECT renew_leader_lease(?, ?, ? * interval '1 millisecond')")
+                    .params(holder, e, ttl.toMillis())
+                    .query(Boolean.class)
+                    .single();
+        } catch (RuntimeException ex) {
+            // 재확인 왕복 실패는 만료 여부를 알려주지 않는다. renew()와 같은 규칙으로 상실을
+            // 단정하지 않는다. 실제 쓰기는 fencing이 계속 막으므로 안전하고, 판정은 다음 틱 몫이다.
+            log.warn("fencing 거부 후 리더십 재확인 왕복 실패: 사유={}, 오류={}", reason, ex.toString());
+            return false;
+        }
+        if (Boolean.TRUE.equals(renewed)) {
+            log.warn("fencing 거부를 받았으나 리스 권위는 유지된다(강등하지 않음): epoch={}, 사유={}",
+                    e, reason);
+            return true;
+        }
+        markLost(reason);
+        return false;
+    }
+
+    /**
+     * 회복 가능 반납. 승격 재생이 접수 개방 전에 실패했을 때만 쓴다. 리스 행에는 아무것도 쓰지
+     * 않고 갱신만 멈추므로, 다음 리더는 종전대로 TTL 만료 뒤 try_acquire_leader(epoch +1)로만
+     * 정해진다. demoted를 세우지 않아 이 노드도 다시 후보가 된다.
+     */
+    public void standDown(String reason) {
+        Long prev;
+        synchronized (leadershipLock) {
+            prev = epoch.getAndSet(null);
+        }
+        if (prev == null) {
+            return;
+        }
+        log.warn("리더십 반납(회복 가능, 리스 만료 후 재승격 허용): holder={}, epoch={}, 사유={}",
+                holder, prev, reason);
+        notifyReleased();
+    }
+
+    /** 승격 재생 진입. 이 구간의 상실은 회복 가능 반납으로 내린다. */
+    public void beginPromotionReplay() {
+        promotionReplay = true;
+    }
+
+    /** 승격 재생 종료. 접수 개방 전에 반드시 호출해 이후의 상실이 종신으로 돌아오게 한다. */
+    public void endPromotionReplay() {
+        promotionReplay = false;
+    }
+
+    /**
      * 승격 시도. 만료 리스만 탈취 가능하며 성공 시 epoch가 +1 된 값으로 반환된다.
      * 실패(NULL)는 유효한 타 리더 존재를 뜻한다.
      */
@@ -168,10 +263,18 @@ public class LeaderLeaseService implements AutoCloseable {
             if (demoted) {
                 // 취득과 강등이 경합했다. 재승격 금지가 우선한다. 획득한 DB 리스는 갱신하지
                 // 않아 TTL 후 소멸하고 타 노드가 탈취한다(self-shutdown 계약 유지).
+                // 로그를 남기는 이유: 이 경로는 epoch만 올리고 아무도 쓰지 않는 리스를 한 TTL
+                // 동안 남긴다. 무음이면 사후에 'epoch가 왜 올랐는지'를 설명할 수 없다.
+                log.error("승격과 종신 강등이 경합해 획득 리스를 버린다(갱신 없음, TTL 후 소멸): "
+                        + "holder={}, epoch={}", holder, acquired);
                 return false;
             }
             epoch.set(acquired);
         }
+        // 팔로워 구간의 수요·완료 누적은 이 노드의 리더 처리율이 아니다. 승격 시점에 창을
+        // 다시 세우지 않으면 첫 표본이 팔로워 구간 전량을 완료 0과 함께 접어, 갓 승격한 리더가
+        // 임계 시간 뒤 무조건 자발적 강등한다(§5.4 판정의 승격 경계 규칙).
+        serviceHealth.onLeadershipGained();
         log.info("리더 승격: holder={}, epoch={}", holder, acquired);
         LeaderIdentity identity = new LeaderIdentity(holder, acquired);
         for (Consumer<LeaderIdentity> listener : gainListeners) {
@@ -302,6 +405,12 @@ public class LeaderLeaseService implements AutoCloseable {
     }
 
     private void markLost(String reason) {
+        // 승격 재생 구간의 상실은 종신이 아니다. 그 구간에서는 루프가 승격 전 상태 그대로이고
+        // 접수도 열린 적이 없어, self-shutdown이 막으려는 '반쪽 리더'가 성립하지 않는다.
+        if (promotionReplay) {
+            standDown(reason);
+            return;
+        }
         Long prev;
         synchronized (leadershipLock) {
             // demoted를 epoch 클리어와 원자 세팅한다. 순서가 갈리면 tryAcquire가 그 창을
@@ -314,11 +423,22 @@ public class LeaderLeaseService implements AutoCloseable {
         }
         log.warn("리더십 상실(재승격 금지, 복귀는 재기동): holder={}, epoch={}, 사유={}",
                 holder, prev, reason);
+        notifyReleased();
         for (Runnable listener : lossListeners) {
             try {
                 listener.run();
             } catch (RuntimeException e) {
                 log.error("리더십 상실 콜백 실패", e);
+            }
+        }
+    }
+
+    private void notifyReleased() {
+        for (Runnable listener : releaseListeners) {
+            try {
+                listener.run();
+            } catch (RuntimeException e) {
+                log.error("리더십 반납 콜백 실패", e);
             }
         }
     }

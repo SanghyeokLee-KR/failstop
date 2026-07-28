@@ -146,12 +146,14 @@ public class SettlementService {
             progress.recordCompletion();
             return settled;
         } catch (StaleLeaderException e) {
-            // fencing 확정 거부는 renew 틱을 기다리지 않고 즉시 강등한다(§5.4).
-            lease.demote(e.getMessage());
+            // fencing 거부는 리스 권위를 재확인한 뒤에만 강등한다(§5.4 강등 사유 분류). 거부
+            // 즉시 강등하면 정당한 현재 리더가 일시 원인으로 영구 후보에서 빠진다.
+            lease.demoteUnlessStillLeader(e.getMessage());
             throw e;
         } catch (DataAccessException e) {
             if (FencingErrors.isFencingRejection(e)) {
-                lease.demote("assert_current_leader 거부(정산)");
+                lease.demoteUnlessStillLeader(
+                        "assert_current_leader 거부(정산): " + FencingErrors.rejectionDetail(e));
             }
             throw e;
         }

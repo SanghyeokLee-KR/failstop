@@ -225,7 +225,9 @@ public class EngineConfig {
         leaderLeaseService.onLeadershipAcquired(
                 (identity, downtimeSeconds) -> haAvailability.leaderAcquired(
                         identity.epoch(), downtimeSeconds));
-        leaderLeaseService.onLeadershipLost(haAvailability::leaderLost);
+        // 게이지는 종신 강등뿐 아니라 승격 재생 실패의 회복 가능 반납에서도 내려야 한다.
+        // 상실 리스너(halt·DEMOTED)는 회복 가능 반납에서 발화하지 않으므로 반납 축에 건다.
+        leaderLeaseService.onLeadershipReleased(haAvailability::leaderLost);
         return coordinator;
     }
 

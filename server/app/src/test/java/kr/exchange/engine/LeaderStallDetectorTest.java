@@ -209,6 +209,62 @@ class LeaderStallDetectorTest {
         assertTrue(detector.serviceable(), "회복 후 누적이 초기화되지 않았다");
     }
 
+    /**
+     * 승격 경계 회귀. 팔로워는 renew를 하지 않아 serviceable()이 한 번도 불리지 않고, 그동안
+     * 도착한 쓰기 수요는 카운터에만 쌓인다(팔로워는 리더 아님으로 거절하므로 완료는 0이다).
+     * 승격 시 창을 다시 세우지 않으면 첫 표본이 그 전량을 접어, 정상 처리율의 새 리더가 임계
+     * 시간 뒤 확정적으로 자발적 강등한다. E2에서 살아남은 유일한 후보가 그렇게 죽으면 클러스터가
+     * 리더 없이 정지한다.
+     */
+    @Test
+    void promotionResetsWindowSoFollowerBacklogDoesNotStandDownNewLeader() {
+        LeaderWriteProgress progress = new LeaderWriteProgress();
+        AtomicLong clock = new AtomicLong();
+        LeaderStallDetector detector = new LeaderStallDetector(healthyPool(), progress,
+                STANDDOWN_AFTER, new SimpleMeterRegistry(), clock::get);
+
+        // 팔로워 구간: 수요 5000건 도착, 리더 기원 쓰기 커밋 0건. 판정은 한 번도 돌지 않는다.
+        demand(progress, 5000);
+        clock.addAndGet(Duration.ofMinutes(10).toNanos());
+
+        detector.onLeadershipGained();
+
+        // 승격 후 정상 리더. 표본마다 수요 50 대비 완료 45(90%)로 건강하다.
+        for (int i = 0; i < 10; i++) {
+            demand(progress, 50);
+            for (int c = 0; c < 45; c++) {
+                progress.recordCompletion();
+            }
+            clock.addAndGet(Duration.ofSeconds(20).toNanos());
+            assertTrue(detector.serviceable(),
+                    "팔로워 구간 수요가 승격 후 판정에 계상돼 정상 리더가 강등했다");
+        }
+    }
+
+    /** 음성 대조. 승격 경계 초기화가 없으면 같은 입력이 강등으로 간다. */
+    @Test
+    void withoutPromotionResetFollowerBacklogStandsDownNewLeader() {
+        LeaderWriteProgress progress = new LeaderWriteProgress();
+        AtomicLong clock = new AtomicLong();
+        LeaderStallDetector detector = new LeaderStallDetector(healthyPool(), progress,
+                STANDDOWN_AFTER, new SimpleMeterRegistry(), clock::get);
+
+        demand(progress, 5000);
+        clock.addAndGet(Duration.ofMinutes(10).toNanos());
+
+        boolean verdict = true;
+        for (int i = 0; i < 10 && verdict; i++) {
+            demand(progress, 50);
+            for (int c = 0; c < 45; c++) {
+                progress.recordCompletion();
+            }
+            clock.addAndGet(Duration.ofSeconds(20).toNanos());
+            verdict = detector.serviceable();
+        }
+
+        assertFalse(verdict, "초기화 없이는 팔로워 백로그가 새 리더를 강등시킨다(회귀 대조)");
+    }
+
     /** 진단용 풀 조회가 실패해도 판정은 영향을 받지 않는다. 판정 입력은 인메모리 카운터뿐이다. */
     @Test
     void poolDiagnosticsFailureDoesNotAffectVerdict() {

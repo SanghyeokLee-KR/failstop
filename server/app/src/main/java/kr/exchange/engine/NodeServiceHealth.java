@@ -18,4 +18,15 @@ public interface NodeServiceHealth {
 
     /** false면 이 노드는 지속적으로 일을 못 하는 상태다. 리스 갱신을 포기해야 한다. */
     boolean serviceable();
+
+    /**
+     * 승격 통지. 판정 창의 경계다.
+     *
+     * serviceable()은 renew 직전에만 불리고 renew는 리더만 하므로, 팔로워 구간에는 표본이 한 번도
+     * 채취되지 않는다. 그 사이 쌓인 수요는 '리더 일을 못 했다'는 증거가 아니라 '리더가 아니어서
+     * 거절했다'는 기록이다. 승격 시 창을 다시 세우지 않으면 첫 표본이 팔로워 구간 전량을 완료 0과
+     * 함께 접어, 갓 승격한 정상 리더가 임계 시간 뒤 반드시 자발적 강등한다.
+     */
+    default void onLeadershipGained() {
+    }
 }

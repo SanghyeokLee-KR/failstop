@@ -70,12 +70,13 @@ public class CommandJournalAppender {
             progress.recordCompletion();
             return result;
         } catch (StaleLeaderException e) {
-            // fencing 확정 거부는 renew 틱을 기다리지 않고 즉시 강등한다(§5.4).
-            lease.demote(e.getMessage());
+            // fencing 거부는 리스 권위를 재확인한 뒤에만 강등한다(§5.4 강등 사유 분류).
+            lease.demoteUnlessStillLeader(e.getMessage());
             throw e;
         } catch (DataAccessException e) {
             if (FencingErrors.isFencingRejection(e)) {
-                lease.demote("assert_current_leader 거부");
+                lease.demoteUnlessStillLeader(
+                        "assert_current_leader 거부: " + FencingErrors.rejectionDetail(e));
             }
             throw e;
         }

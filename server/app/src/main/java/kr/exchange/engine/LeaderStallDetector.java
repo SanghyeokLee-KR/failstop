@@ -122,6 +122,21 @@ public final class LeaderStallDetector implements NodeServiceHealth {
                 .register(registry);
     }
 
+    /**
+     * 승격 경계에서 창을 다시 세운다(라이브 4차 실패 방지선). 팔로워는 renew를 하지 않아
+     * evaluate가 한 번도 돌지 않으므로 lastAttempts가 기동 시점에 고정된다. 승격 후 첫 표본이
+     * 팔로워 구간 수요 전량을 완료 0과 함께 창에 접고, 비율이 임계를 회복하려면 그 분모의 5%를
+     * 새로 채워야 해서 정상 처리율로도 임계 시간 안에 회복이 불가능하다. 결과는 페일오버
+     * standdownAfter 초 뒤의 확정적 재강등이며, 2노드에서는 곧 클러스터 정지다.
+     */
+    @Override
+    public synchronized void onLeadershipGained() {
+        lastAttempts = progress.attempts();
+        lastCompletions = progress.completions();
+        lastRatio = 1.0;
+        resetWindow();
+    }
+
     @Override
     public synchronized boolean serviceable() {
         try {
