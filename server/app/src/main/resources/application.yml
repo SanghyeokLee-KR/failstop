@@ -48,15 +48,22 @@ spring:
     hikari:
       # 커넥션 획득 대기 상한. 기본값 30초가 E1 라이브에서 리더를 죽인 직접 원인이다. pg 지연
       # 주입 중 요청마다 가상 스레드가 생겨 30초씩 커넥션을 기다렸고, 대기 스레드가 무한히 쌓여
-      # cpu 463%·전 경로 타임아웃·자력 회복 불가로 이어졌다. 3초는 prod와 동일 값이며 초과분은
-      # CannotGetJdbcConnectionException -> ApiExceptionHandler 503+Retry-After로 신호된다.
-      # 카오스 스택이 dev 프로파일을 쓰므로 이 값이 곧 라이브 적용값이다.
+      # cpu 463%·전 경로 타임아웃·자력 회복 불가로 이어졌다. 3초는 prod와 동일 값이다. 초과 시
+      # CannotGetJdbcConnectionException이 나고, 인증 필터(ApiAuthFilter)와 컨트롤러 어드바이스
+      # (ApiExceptionHandler)가 각각 503+Retry-After로 매핑한다. 두 계층 모두 매핑해야 같은 사유가
+      # 경로에 따라 500과 503으로 갈리지 않는다. 카오스 스택이 dev를 쓰므로 곧 라이브 적용값이다.
       connection-timeout: 3000
+      # statement_timeout은 dev에 걸지 않는다(prod 전용). 걸면 수용 슬롯 점유 시간이 유계가 되어
+      # 유리하지만, 같은 풀을 쓰는 Flyway 마이그레이션과 불변식 검증기의 대용량 집계가 슬로 윈도에서
+      # 취소된다. 검증기는 E1의 판정 오라클이라 그것을 지연에 취약하게 만드는 교환은 받지 않는다.
+      # 대신 슬롯 점유가 길어질 수 있음을 전제로 수용 상한의 합을 풀보다 작게 잡아(AdmissionLimits)
+      # 커넥션 대기 자체가 생기지 않게 한다.
+      #
       # 풀 크기는 Hikari 기본(10)을 유지한다. 카오스는 SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE로,
       # 운영은 prod 문서로 32를 준다. dev를 32로 고정하지 않는 이유는 통합테스트가 캐시된 스프링
       # 컨텍스트마다 풀을 하나씩 띄우는데 Hikari minimumIdle 기본값이 maximumPoolSize와 같아
       # 컨테이너 max_connections를 압박하기 때문이다. 수용 제한 상한은 실제 풀 크기에서 유도되므로
-      # (OrderAdmissionControl) 배포별 차이를 자동 추종한다.
+      # (AdmissionLimits) 배포별 차이를 자동 추종한다.
       #
       # 세션 TZ를 연결 계층에서 UTC로 고정한다. pgjdbc는 미고정 시 JVM 기본 zone(배포 KST)을
       # 세션 TimeZone으로 전파하고, Flyway는 이 풀 커넥션을 빌리므로 시간 파티션 경계 리터럴이

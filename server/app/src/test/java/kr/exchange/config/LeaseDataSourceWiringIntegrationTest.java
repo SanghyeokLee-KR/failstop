@@ -1,6 +1,8 @@
 package kr.exchange.config;
 
 import com.zaxxer.hikari.HikariDataSource;
+import kr.exchange.api.common.AdmissionControl;
+import kr.exchange.api.common.AdmissionLimits;
 import kr.exchange.engine.LeaderLeaseService;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,7 @@ import java.util.Base64;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 리스 전용 DataSource 배선 계약(§5.4). 기본 풀과 리스 풀이 서로 다른 인스턴스이고, 리스 풀이
@@ -51,6 +54,14 @@ class LeaseDataSourceWiringIntegrationTest {
     HikariDataSource leasePool;
     @Autowired
     LeaderLeaseService appLease;
+    @Autowired
+    AdmissionLimits limits;
+    @Autowired
+    @Qualifier("orderAdmissionControl")
+    AdmissionControl orderAdmission;
+    @Autowired
+    @Qualifier("queryAdmissionControl")
+    AdmissionControl queryAdmission;
 
     @Test
     void leasePoolIsSeparateSmallAndIsolated() {
@@ -63,5 +74,21 @@ class LeaseDataSourceWiringIntegrationTest {
 
         // 배선된 리스 서비스가 전용 풀로 정상 승격하는지 확인(단일 노드는 시드 만료 리스를 탈취).
         Awaitility.await().atMost(Duration.ofSeconds(15)).until(appLease::isLeader);
+    }
+
+    /**
+     * 수용 제한 상한 유도의 실배선(API 설계 §2-5-a). 이 컨텍스트는 상한 프로퍼티를 지정하지 않으므로
+     * 두 버킷이 실제 요청 풀 크기에서 유도돼야 한다. 유도값은 코드에도 설정에도 숫자로 남지 않아
+     * 배선이 끊겨도 조용히 굴러갈 수 있는 자리다. 기동 INFO 로그와 함께 이 단언이 그것을 막는다.
+     */
+    @Test
+    void admissionLimitsAreDerivedFromRequestPool() {
+        AdmissionLimits expected = AdmissionLimits.resolve(requestPool.getMaximumPoolSize(), 0, 0);
+        assertEquals(expected.write(), limits.write(), "쓰기 상한이 풀에서 유도되지 않았다");
+        assertEquals(expected.query(), limits.query(), "조회 상한이 풀에서 유도되지 않았다");
+        assertEquals(expected.write(), orderAdmission.limit(), "쓰기 버킷이 유도 상한으로 뜨지 않았다");
+        assertEquals(expected.query(), queryAdmission.limit(), "조회 버킷이 유도 상한으로 뜨지 않았다");
+        // 예비분이 있어야 면제 경로·백그라운드가 굶지 않는다(AdmissionLimits 무대기 성질).
+        assertTrue(limits.reserved() > 0, "면제 경로 몫이 남지 않았다");
     }
 }

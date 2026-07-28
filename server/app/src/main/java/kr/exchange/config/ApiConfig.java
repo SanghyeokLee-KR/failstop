@@ -10,9 +10,11 @@ import kr.exchange.api.auth.DemoSessionService;
 import kr.exchange.api.auth.DemoUserProvisioner;
 import kr.exchange.api.auth.NonceStore;
 import kr.exchange.api.auth.SecretCipher;
+import kr.exchange.api.common.AdmissionControl;
+import kr.exchange.api.common.AdmissionFilter;
+import kr.exchange.api.common.AdmissionLimits;
 import kr.exchange.api.common.EpochSource;
 import kr.exchange.api.common.ErrorRenderer;
-import kr.exchange.api.common.OrderAdmissionControl;
 import kr.exchange.api.community.CommunityAuthenticator;
 import kr.exchange.api.community.CommunityRankService;
 import kr.exchange.api.community.CommunityService;
@@ -33,6 +35,8 @@ import kr.exchange.engine.LeaderLeaseService;
 import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.ledger.AccountBootstrap;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -52,6 +56,8 @@ import java.util.Map;
 /** REST/WS 게이트웨이 배선(M1-4). 도메인 계층은 스프링 어노테이션 없이 여기서만 결선한다. */
 @Configuration
 public class ApiConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(ApiConfig.class);
 
     @Bean
     public SecretCipher secretCipher(
@@ -121,26 +127,59 @@ public class ApiConfig {
     }
 
     /**
-     * 주문 쓰기 수용 제한. 상한은 요청 풀 크기에서 유도한다(OrderAdmissionControl). 카오스 스택이
-     * 풀을 SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE로 덮으므로, 유도가 곧 배포별 추종이다.
-     * exchange.admission.order-in-flight로 명시 고정할 수 있고 0 이하면 유도값을 쓴다.
+     * 수용 제한 상한 배분. 요청 풀 크기에서 유도한다(AdmissionLimits). 카오스 스택이 풀을
+     * SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE로 덮으므로 유도가 곧 배포별 추종이다.
+     * exchange.admission.order-in-flight·query-in-flight로 각각 명시 고정할 수 있고 0 이하면 유도값.
+     *
+     * 기동 로그를 남기는 이유: 유도 결과는 배포마다 다른데 코드에도 설정에도 그 숫자가 없다.
+     * 라이브에서 실제 적용값을 확인할 단일 지점이 필요하다.
      */
     @Bean
-    public OrderAdmissionControl orderAdmissionControl(
-            @Qualifier("dataSource") DataSource requestDataSource, MeterRegistry meterRegistry,
-            @Value("${exchange.admission.order-in-flight:0}") int configuredLimit) {
+    public AdmissionLimits admissionLimits(
+            @Qualifier("dataSource") DataSource requestDataSource,
+            @Value("${exchange.admission.order-in-flight:0}") int configuredOrder,
+            @Value("${exchange.admission.query-in-flight:0}") int configuredQuery) {
         int poolSize = requestDataSource instanceof HikariDataSource hikari
                 ? hikari.getMaximumPoolSize() : 0;
-        return new OrderAdmissionControl(configuredLimit, poolSize, meterRegistry);
+        AdmissionLimits limits = AdmissionLimits.resolve(poolSize, configuredOrder, configuredQuery);
+        log.info("수용 제한 상한 해석: 쓰기 {} / 조회 {} / 예비 {} (요청 풀 {})",
+                limits.write(), limits.query(), limits.reserved(), poolSize);
+        return limits;
+    }
+
+    @Bean
+    public AdmissionControl orderAdmissionControl(AdmissionLimits limits, MeterRegistry registry) {
+        return new AdmissionControl("order", limits.write(), registry);
+    }
+
+    @Bean
+    public AdmissionControl queryAdmissionControl(AdmissionLimits limits, MeterRegistry registry) {
+        return new AdmissionControl("query", limits.query(), registry);
+    }
+
+    /**
+     * 수용 게이트는 인증(order 10)보다 앞이고 바디 상한(order 5)보다 뒤다. 인증 뒤에서 막으면
+     * api_keys 조회로 이미 DB를 탄 뒤라 실효가 없고, 바디 상한 앞이면 64KB 초과 요청이 슬롯을
+     * 소비한다. ApiAuthFilter와 별도 필터인 이유는 AdmissionFilter 클래스 주석 참조.
+     */
+    @Bean
+    public FilterRegistrationBean<AdmissionFilter> admissionFilter(
+            @Qualifier("orderAdmissionControl") AdmissionControl orderAdmission,
+            @Qualifier("queryAdmissionControl") AdmissionControl queryAdmission,
+            ErrorRenderer errorRenderer) {
+        FilterRegistrationBean<AdmissionFilter> registration = new FilterRegistrationBean<>(
+                new AdmissionFilter(orderAdmission, queryAdmission, errorRenderer));
+        registration.addUrlPatterns("/api/v1/*");
+        registration.setOrder(6);
+        return registration;
     }
 
     @Bean
     public FilterRegistrationBean<ApiAuthFilter> apiAuthFilter(ApiAuthService authService,
                                                                ErrorRenderer errorRenderer,
-                                                               LeaderWriteProgress writeProgress,
-                                                               OrderAdmissionControl admission) {
+                                                               LeaderWriteProgress writeProgress) {
         FilterRegistrationBean<ApiAuthFilter> registration = new FilterRegistrationBean<>(
-                new ApiAuthFilter(authService, errorRenderer, writeProgress, admission));
+                new ApiAuthFilter(authService, errorRenderer, writeProgress));
         registration.addUrlPatterns("/api/v1/*");
         registration.setOrder(10);
         return registration;
