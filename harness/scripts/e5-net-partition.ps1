@@ -111,7 +111,11 @@ try {
     $ordersLost = $rows['C13A_ORDER_MATERIALIZED']
     $rpo = [long]$cmdGap + [long]$evtGap + [long]$ordersLost
 
-    $epochOk = ($newEpoch -eq $oldEpoch + 1) -and ($finalEpoch -eq $oldEpoch + 1)
+    # 승격 재생 실패는 회복 가능 반납이라 한 페일오버 사건에서 [반납 -> 만료 -> 재승격]이
+    # 반복될 수 있고 그때 epoch가 +2 이상 오른다(DB 설계 §5.4). 정확히 +1을 요구하면 그 정상
+    # 동작을 split-brain 흔적으로 오판한다. split-brain 판정은 아래 staleWrites(구 epoch fencing
+    # 축 저널 행 0)가 전담하므로 epoch는 단조 증가만 본다.
+    $epochOk = ($newEpoch -ge $oldEpoch + 1) -and ($finalEpoch -ge $newEpoch)
     $postClean = Test-ExperimentIntegrity $post
     # §3 E5 합격 기준: 이중 쓰기 0 + 무결성 0. epochOk(신 리더 실제 승격)로 무승격 공허 통과를 막는다.
     # RTO/재합류는 게이팅에서 제외하고 증거로 보고(§3에 RTO 기준 없음, E4/E6 소관).
