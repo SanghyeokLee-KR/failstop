@@ -13,8 +13,19 @@ $target = $cfg['TARGET_NODE']
 
 function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
 
-Write-Section "E6 시작 runId=$runId target=$target"
+Write-Section "E6 시작 runId=$runId"
 Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
+
+# 실 리더를 kill 대상 삼는다. config 기본값(chaos-api-1)은 갓 세운 스택에서만 맞고, 앞선 실험이
+# 리더를 api-2로 남겼으면 팔로워를 죽이게 된다. 그때는 승격이 없어 epoch 불변·RTO n/a로 확정
+# FAIL이 나는데 그 FAIL은 코드 결함이 아니라 판정 결함이다(실측: E2 직후 E6가 이 경로로 FAIL).
+$detected = Get-LeaderContainer
+if (-not $detected) {
+    throw '리더 감지 실패. 실 리더를 특정하지 못한 채 kill하면 판정이 무의미하다. leader_lease holder와 컨테이너 로그를 대조해 확인한 뒤 재실행한다.'
+}
+$target = $detected
+Write-Host "리더 감지: $target (config 기본과 무관하게 실 리더 대상)"
+$standbyPort = if ($detected -eq 'chaos-api-1') { 28080 } else { 18080 }
 
 Write-Section 'ⓐ 사전 권위 run'
 $prePort = Get-LiveNodePort
@@ -62,7 +73,8 @@ Write-Host "T0=$($t0.ToUniversalTime().ToString('o')) trades_at_inject=$tradesAt
 $verdict = Complete-FailoverExperiment -ExperimentId 'E6' -RunId $runId `
     -OldEpoch $oldEpoch -OldHolder $oldHolder -LeaseUntilBefore $leaseUntilBefore `
     -TradesAtInject $tradesAtInject -T0 $t0 `
-    -ObserveSec ([int]$cfg['POST_KILL_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC'])
+    -ObserveSec ([int]$cfg['POST_KILL_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC']) `
+    -StandbyPort $standbyPort
 
 Write-Host "스파이크 중 불변식 위반 누계(ALWAYS 스코프): $spikeViol (0 + 창 내 스캔 $spikeScans 회여야 폭주 중 무결 성립)"
 if ($verdict -ne 'PASS' -or -not $spikeClean -or $spikeViol -ne 0) { exit 1 }

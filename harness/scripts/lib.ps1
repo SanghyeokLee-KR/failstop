@@ -166,9 +166,13 @@ function Complete-FailoverExperiment {
         [string] $ExperimentId, [string] $RunId,
         [long] $OldEpoch, [string] $OldHolder, [datetime] $LeaseUntilBefore,
         [long] $TradesAtInject, [datetime] $T0,
-        [int] $ObserveSec, [int] $RtoTarget
+        [int] $ObserveSec, [int] $RtoTarget,
+        [int] $StandbyPort = 0
     )
-    $standbyPort = $Global:CHAOS.Api2Port
+    # 스탠바이 포트를 api-2로 하드코딩하면 리더가 api-2일 때(앞선 실험이 그렇게 남긴 경우)
+    # 방금 죽인 노드를 폴링하게 되어 승격을 영영 못 보고 RTO가 n/a로 남는다. 호출부가 실제
+    # 스탠바이를 알고 있으면 그것을 쓰고, 없으면 종전 기본값으로 떨어진다.
+    $standbyPort = if ($StandbyPort -gt 0) { $StandbyPort } else { $Global:CHAOS.Api2Port }
 
     Write-Section 'ⓒ 관찰(개입 금지)'
     $t2 = Wait-For {

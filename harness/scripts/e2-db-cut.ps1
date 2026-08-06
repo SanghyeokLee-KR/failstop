@@ -10,9 +10,20 @@ $proxy = $cfg['LEADER_PROXY']
 
 function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
 
-Write-Section "E2 시작 runId=$runId proxy=$proxy"
+Write-Section "E2 시작 runId=$runId"
 try {
     Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
+
+    # 실 리더의 pg 프록시를 차단 대상 삼는다. config 기본값(pg-api1)은 갓 세운 스택에서만 맞고,
+    # 앞선 실험이 리더를 api-2로 남겼으면 팔로워의 DB 경로를 끊게 된다. 그때는 리스 상실이 없어
+    # 승격도 없고 확정 FAIL이 나는데 그 FAIL은 판정 결함이다.
+    $detected = Get-LeaderContainer
+    if (-not $detected) {
+        throw '리더 감지 실패. 실 리더를 특정하지 못한 채 차단하면 판정이 무의미하다. leader_lease holder와 컨테이너 로그를 대조해 확인한 뒤 재실행한다.'
+    }
+    $proxy = if ($detected -eq 'chaos-api-1') { 'pg-api1' } else { 'pg-api2' }
+    Write-Host "리더 감지: $detected -> 차단 프록시 $proxy"
+    $standbyPort = if ($detected -eq 'chaos-api-1') { 28080 } else { 18080 }
     $ok = Wait-For { (Get-TradeCount) -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
     if (-not $ok) { throw '체결 미달, 봇 상태 확인' }
 
@@ -38,7 +49,8 @@ try {
     $verdict = Complete-FailoverExperiment -ExperimentId 'E2' -RunId $runId `
         -OldEpoch $oldEpoch -OldHolder $oldHolder -LeaseUntilBefore $leaseUntilBefore `
         -TradesAtInject $tradesAtInject -T0 $t0 `
-        -ObserveSec ([int]$cfg['POST_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC'])
+        -ObserveSec ([int]$cfg['POST_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC']) `
+        -StandbyPort $standbyPort
 
     # 승격 안정성 게이트. E2 라이브에서 두 노드가 123ms 만에 모두 강등해 클러스터가 리더 없이
     # 영구 정지한 적이 있다(DB 설계 v2.23 §5.4). Complete-FailoverExperiment의 verdict는 승격
@@ -47,7 +59,10 @@ try {
     # 리스가 죽어 있는 표본이 하나라도 있으면 실패로 본다(리더 없는 상태 = 이 실험이 막으려는 것).
     Write-Section 'ⓔ 승격 안정성 관측'
     $stableSec = 30; $stableGapSec = 2
-    $leaseSql = "SELECT epoch||'|'||(lease_until > now()) FROM leader_lease WHERE resource='matching-engine'"
+    # boolean을 문자열로 연결하면 psql 표시 형식 t/f가 아니라 true/false가 나온다. 명시적으로
+    # 't'/'f'를 만들어 표시 형식 가정에 의존하지 않게 한다(실측: ||는 '2|true'를 낸다).
+    $leaseSql = "SELECT epoch||'|'||CASE WHEN lease_until > now() THEN 't' ELSE 'f' END " +
+        "FROM leader_lease WHERE resource='matching-engine'"
     $prevEpoch = $null; $stable = $true; $deadSample = 0; $regressed = 0
     for ($i = 0; $i -lt [int]($stableSec / $stableGapSec); $i++) {
         $raw = (Invoke-Psql $leaseSql).Split('|')
