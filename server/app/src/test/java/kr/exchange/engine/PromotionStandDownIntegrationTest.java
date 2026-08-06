@@ -11,6 +11,7 @@ import kr.exchange.journal.CommandJournalAppender;
 import kr.exchange.journal.CommandJournalReader;
 import kr.exchange.journal.EventJournalAppender;
 import kr.exchange.journal.EventJournalReader;
+import kr.exchange.journal.ReplayResult;
 import kr.exchange.journal.ReplayService;
 import kr.exchange.ledger.MarketCatalog;
 import org.awaitility.Awaitility;
@@ -33,7 +34,9 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -241,6 +244,182 @@ class PromotionStandDownIntegrationTest {
         }
     }
 
+    /**
+     * (D) 재시도 예산은 첫 실패 시각부터 잰다. 승격 진입 시각부터 재면, 크래시 창이 커서 시도
+     * 1회가 예산을 넘기는 순간 첫 실패에서 예산이 이미 소진돼 재시도가 한 번도 돌지 않는다.
+     * 재승격 비용(TTL 대기 + 전량 재생)이 가장 큰 상황에서 정확히 재시도가 사라지는 결함이다.
+     *
+     * 음성 대조: 시도 1회를 예산(5초)보다 길게 잡았으므로, 종전 규칙이면 attempts가 1에서 멈추고
+     * 상태는 FOLLOWER가 된다. attempts 2 + ACCEPTING이 그 규칙과 갈리는 지점이다.
+     */
+    @Test
+    @Order(4)
+    void retryRunsEvenWhenOneReplayExceedsTheRetryBudget() throws Exception {
+        writeCrashWindowCommands();
+        AtomicReference<ScriptedRecovery> script = new AtomicReference<>();
+        Standby standby = new Standby((replay, sink, lease) -> {
+            ScriptedRecovery r = new ScriptedRecovery(replay, sink, lease, 1,
+                    PromotionCoordinator.REPLAY_RETRY_BUDGET_MILLIS + 1_000, () -> new IllegalStateException("일시 실패"));
+            script.set(r);
+            return r;
+        });
+        try {
+            long epoch = takeOver(standby.lease);
+
+            Awaitility.await().atMost(Duration.ofSeconds(60))
+                    .until(() -> standby.coordinator.state() == PromotionCoordinator.State.ACCEPTING);
+
+            assertEquals(2, script.get().attempts(),
+                    "예산을 재생 시간과 합산해 재시도가 사라졌다(큰 재생에서 재시도 0회)");
+            assertTrue(standby.lease.isLeader());
+            assertEquals(epoch, currentEpoch(), "재생 재시도가 재선출을 유발했다(epoch 변동)");
+            assertEquals(commandReader.maxSeq(), journaledEvents(),
+                    "크래시 창 이벤트가 재적재되지 않았다");
+            assertEquals(0, standby.recoverableStandDowns.get(),
+                    "승격에 성공했는데 반납 카운터가 올랐다");
+        } finally {
+            standby.close();
+        }
+    }
+
+    /**
+     * (E) 예산이 무한 재시도를 막는 성질은 유지한다. 예산은 다음 시도의 시작만 막고 진행 중인
+     * 시도를 끊지 않으므로, 재생 1회가 예산보다 긴 경우 시도는 정확히 2회(첫 시도 + 재시도 1회)로
+     * 상한된다. 리스 보유 상한 근거가 이 수치다.
+     */
+    @Test
+    @Order(5)
+    void longReplayGetsExactlyOneRetryBeforeRecoverableStandDown() throws Exception {
+        writeCrashWindowCommands();
+        AtomicReference<ScriptedRecovery> script = new AtomicReference<>();
+        Standby standby = new Standby((replay, sink, lease) -> {
+            ScriptedRecovery r = new ScriptedRecovery(replay, sink, lease, Integer.MAX_VALUE,
+                    PromotionCoordinator.REPLAY_RETRY_BUDGET_MILLIS + 1_000, () -> new IllegalStateException("지속 실패"));
+            script.set(r);
+            return r;
+        });
+        try {
+            long epoch = takeOver(standby.lease);
+
+            Awaitility.await().atMost(Duration.ofSeconds(60))
+                    .until(() -> standby.coordinator.state() == PromotionCoordinator.State.FOLLOWER);
+
+            assertEquals(2, script.get().attempts(),
+                    "예산이 재시도 횟수를 상한하지 못했다(리스 보유 시간 상한 근거가 깨진다)");
+            assertFalse(standby.lease.isLeader());
+            assertTrue(standby.loop.isRunning(), "회복 가능 반납이 단일 라이터를 정지시켰다");
+            assertEquals(1, standby.recoverableStandDowns.get(),
+                    "회복 가능 반납이 관측 축에 잡히지 않는다");
+            assertEquals(epoch, currentEpoch(), "반납은 leader_lease에 아무것도 쓰지 않아야 한다");
+        } finally {
+            standby.close();
+        }
+    }
+
+    /**
+     * (F) VM Error는 재시도 대상이 아니고 종신이다. 회복 가능 등급의 전제는 '같은 재생을 다시
+     * 하면 같은 결과'인데 OOM·StackOverflow는 그 전제 밖이다. 재시도는 전량 재생을 3회 반복해
+     * 상태를 악화시키고, 회복 가능 반납은 TTL마다 그 반복을 재개시킨다.
+     *
+     * 음성 대조는 (G)다. 같은 배선에서 RuntimeException이면 시도가 3회 돌고 후보로 남는다.
+     */
+    @Test
+    @Order(6)
+    void vmErrorDuringReplayIsNeverRetriedAndIsTerminal() throws Exception {
+        writeCrashWindowCommands();
+        AtomicReference<ScriptedRecovery> script = new AtomicReference<>();
+        Standby standby = new Standby((replay, sink, lease) -> {
+            ScriptedRecovery r = new ScriptedRecovery(replay, sink, lease, Integer.MAX_VALUE, 0,
+                    () -> new StackOverflowError("승격 재생 VM Error 주입"));
+            script.set(r);
+            return r;
+        });
+        try {
+            long epoch = takeOver(standby.lease);
+
+            Awaitility.await().atMost(Duration.ofSeconds(30))
+                    .until(() -> standby.coordinator.state() == PromotionCoordinator.State.DEMOTED);
+
+            assertEquals(1, script.get().attempts(), "VM Error에서 전량 재생을 재시도했다");
+            assertFalse(standby.lease.isLeader());
+            assertFalse(standby.coordinator.gate().isAccepting());
+            assertEquals(0, standby.recoverableStandDowns.get(),
+                    "VM Error가 회복 가능 축으로 계상됐다(등급 분리가 무너진다)");
+            assertFalse(standby.loop.isRunning(),
+                    "종신 강등인데 단일 라이터가 살아 있다(분류 축은 루프 정지 여부다)");
+            assertEquals(epoch, currentEpoch(), "종신 강등도 leader_lease에 쓰지 않아야 한다");
+
+            expireLease();
+            assertFalse(standby.lease.tryAcquire(),
+                    "VM Error로 강등한 노드가 재승격했다(복귀는 재기동뿐이다)");
+        } finally {
+            standby.close();
+        }
+    }
+
+    /** (G) (F)의 음성 대조. 같은 실패 횟수라도 Exception이면 시도가 상한까지 돌고 후보로 남는다. */
+    @Test
+    @Order(7)
+    void runtimeFailureRetriesToTheAttemptCapAndStaysRecoverable() throws Exception {
+        writeCrashWindowCommands();
+        AtomicReference<ScriptedRecovery> script = new AtomicReference<>();
+        Standby standby = new Standby((replay, sink, lease) -> {
+            ScriptedRecovery r = new ScriptedRecovery(replay, sink, lease, Integer.MAX_VALUE, 0,
+                    () -> new IllegalStateException("지속 실패"));
+            script.set(r);
+            return r;
+        });
+        try {
+            takeOver(standby.lease);
+
+            Awaitility.await().atMost(Duration.ofSeconds(30))
+                    .until(() -> standby.coordinator.state() == PromotionCoordinator.State.FOLLOWER);
+
+            assertEquals(PromotionCoordinator.REPLAY_ATTEMPTS, script.get().attempts(),
+                    "즉시 실패인데 재시도 상한까지 돌지 않았다");
+            assertTrue(standby.loop.isRunning());
+            assertEquals(1, standby.recoverableStandDowns.get());
+
+            expireLease();
+            assertTrue(standby.lease.tryAcquire(), "일시 실패 노드가 후보에서 영구 제외됐다");
+        } finally {
+            standby.close();
+        }
+    }
+
+    /**
+     * (H) 접수 게이트는 소비자 생존까지 본다. 단일 라이터가 정지한 상태에서 게이트를 열면 저널에
+     * 커밋되고 영원히 체결되지 않는 주문이 생긴다. 루프 정지는 강등 등급 분류의 종신 축 그 자체라
+     * 회복 가능으로 내리면 죽은 루프 위에서 승격과 반납을 무한 반복한다.
+     */
+    @Test
+    @Order(8)
+    void promotionDoesNotOpenTheGateOnAStoppedWriterLoop() throws Exception {
+        writeCrashWindowCommands();
+        Standby standby = new Standby();
+        try {
+            standby.loop.stop();
+            assertFalse(standby.loop.isRunning(), "루프 정지 전제가 성립하지 않았다");
+
+            long epoch = takeOver(standby.lease);
+
+            Awaitility.await().atMost(Duration.ofSeconds(30))
+                    .until(() -> standby.coordinator.state() == PromotionCoordinator.State.DEMOTED);
+
+            assertFalse(standby.coordinator.gate().isAccepting(),
+                    "정지한 루프 위에서 접수가 열렸다");
+            assertFalse(standby.lease.isLeader());
+            assertEquals(0, standby.recoverableStandDowns.get(),
+                    "루프 정지가 회복 가능으로 내려갔다(승격·반납 무한 반복 경로)");
+            assertEquals(epoch, currentEpoch(), "강등이 leader_lease를 건드렸다");
+
+            expireLease();
+            assertFalse(standby.lease.tryAcquire(), "루프가 죽은 노드가 재승격했다");
+        } finally {
+            standby.close();
+        }
+    }
+
     // ── 배선 ────────────────────────────────────────────────────────────
 
     /** 스탠바이 한 대. 접수 게이트가 닫힌 채 리스만 경쟁하다가 승격 재생을 밟는다. */
@@ -248,19 +427,26 @@ class PromotionStandDownIntegrationTest {
         final LeaderLeaseService lease = new LeaderLeaseService(jdbc, LEASE_TTL, LEASE_TICK);
         final SingleWriterLoop loop;
         final PromotionCoordinator coordinator;
+        // 회복 가능 반납 관측 축(하네스 CICD §5-2). 종신 강등에서는 발화하지 않아야 한다.
+        final AtomicInteger recoverableStandDowns = new AtomicInteger();
 
         Standby() {
+            this((replayService, sink, lease) -> new EngineRecovery(replayService, sink, lease));
+        }
+
+        Standby(RecoveryFactory recoveryFactory) {
             EventJournalAppender sink = new EventJournalAppender(jdbc, tx, lease, objectMapper);
             MatchingEngineImpl engine = new MatchingEngineImpl();
             loop = new SingleWriterLoop(4096, engine, sink::append,
                     new JournalCatchUpSource(commandReader, mapper),
                     new AtomicReference<Throwable>()::set);
             coordinator = new PromotionCoordinator(
-                    new EngineRecovery(replayService, sink::append, lease),
+                    recoveryFactory.create(replayService, sink::append, lease),
                     loop, lease, commandReader);
             lease.onLeadershipGained(coordinator::onLeadershipGained);
             lease.onLeadershipLost(coordinator::onLeadershipLost);
             lease.onLeadershipLost(loop::halt);
+            lease.onRecoverableStandDown(recoverableStandDowns::incrementAndGet);
             loop.start();
             coordinator.bootstrap(engine, lease.isLeader());
             coordinator.arm();
@@ -271,6 +457,59 @@ class PromotionStandDownIntegrationTest {
             loop.stop();
             coordinator.close();
             lease.close();
+        }
+    }
+
+    @FunctionalInterface
+    private interface RecoveryFactory {
+        EngineRecovery create(ReplayService replayService, SingleWriterLoop.EventSink sink,
+                              LeaderLeaseService lease);
+    }
+
+    /**
+     * 재생 스크립트. 앞의 failures회를 delayMillis 지연 뒤 실패시키고 그 다음부터는 진짜 재생에
+     * 위임한다. 지연이 필요한 이유는 M3 조건('시도 1회가 재시도 예산을 넘긴다')이 시간 축으로만
+     * 재현되기 때문이다. 실패를 SQL로 주입하면 항상 즉시 실패라 그 조건이 만들어지지 않는다.
+     */
+    private static final class ScriptedRecovery extends EngineRecovery {
+
+        private final int failures;
+        private final long delayMillis;
+        private final Supplier<Throwable> fault;
+        private final AtomicInteger attempts = new AtomicInteger();
+
+        ScriptedRecovery(ReplayService replayService, SingleWriterLoop.EventSink sink,
+                         LeaderLeaseService lease, int failures, long delayMillis,
+                         Supplier<Throwable> fault) {
+            super(replayService, sink, lease);
+            this.failures = failures;
+            this.delayMillis = delayMillis;
+            this.fault = fault;
+        }
+
+        @Override
+        public ReplayResult recover(MatchingEngineImpl engine) {
+            int attempt = attempts.incrementAndGet();
+            if (delayMillis > 0) {
+                try {
+                    Thread.sleep(delayMillis);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("재생 스크립트 지연 중단", e);
+                }
+            }
+            if (attempt > failures) {
+                return super.recover(engine);
+            }
+            Throwable t = fault.get();
+            if (t instanceof Error error) {
+                throw error;
+            }
+            throw (RuntimeException) t;
+        }
+
+        int attempts() {
+            return attempts.get();
         }
     }
 

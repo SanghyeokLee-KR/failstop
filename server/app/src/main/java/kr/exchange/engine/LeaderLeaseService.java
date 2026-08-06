@@ -33,6 +33,10 @@ import java.util.function.Consumer;
  *    (E2 라이브 실측: 양 노드 종신 강등 → 체결 영구 정지).
  * 어느 쪽이든 leader_lease에는 아무것도 쓰지 않는다. 다음 리더는 종전대로 TTL 만료 뒤
  * try_acquire_leader(epoch +1) 단독 UPDATE로만 정해지므로 이중 리더 차단 성질이 불변이다.
+ *
+ * lease_until을 미는 경로는 extendLease 하나뿐이다(§5.4 '연장 직전 생존성 판정'). 하트비트와
+ * fencing 거부 재확인이 같은 UPDATE를 쓰므로, 판정을 호출자별로 두면 하나만 빠져도 좀비 리더가
+ * 그 경로로 리스를 무한 연장한다.
  */
 public class LeaderLeaseService implements AutoCloseable {
 
@@ -59,7 +63,15 @@ public class LeaderLeaseService implements AutoCloseable {
     // 구간의 성질이다. PromotionCoordinator는 재생이 성공한 뒤에야 fresh 엔진을 루프에 설치하고
     // 접수를 열므로, 재생 도중의 루프는 승격 전 상태 그대로이며 게이트가 닫혀 아무것도 소비하지
     // 않는다. 종신 강등이 전제하는 'stale 엔진 + halt된 루프'가 성립하지 않는다.
-    private volatile boolean promotionReplay;
+    //
+    // 불리언이 아니라 토큰인 이유: 회복 가능 반납 도입으로 [재생 실패 -> 반납 -> 만료 -> 같은
+    // 노드가 재승격]이 정상 경로가 됐고, 앞선 시도의 뒤늦은 해제가 새 시도의 표식을 지울 수 있다.
+    // 지워지면 새 시도의 재생 실패가 종신 강등으로 잘못 내려가 후보가 소진된다. 해제는 자기
+    // 토큰에 대해서만 CAS로 성립시킨다. 0은 재생 구간 아님이다.
+    private final java.util.concurrent.atomic.AtomicLong promotionReplayToken =
+            new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong promotionReplaySequence =
+            new java.util.concurrent.atomic.AtomicLong();
     // 강등 확정(demoted+epoch 클리어)과 승격 커밋(epoch 세팅)을 상호배제한다. 이 락 없이는
     // markLost가 epoch를 비운 직후·demoted 세팅 전 창에서 tick의 tryAcquire가 재승격해
     // half-leader가 된다(TOCTOU).
@@ -68,6 +80,8 @@ public class LeaderLeaseService implements AutoCloseable {
     // 사유 불문 '리더십을 놓았다' 통지. 종신 강등과 회복 가능 반납 모두에서 발화한다. 관측
     // 전용(is_leader 게이지)이라 self-shutdown 부작용을 가진 리스너를 여기 걸면 안 된다.
     private final List<Runnable> releaseListeners = new CopyOnWriteArrayList<>();
+    // 회복 가능 반납 전용 통지. 종신 강등에서는 발화하지 않는다. 관측 전용이다.
+    private final List<Runnable> standDownListeners = new CopyOnWriteArrayList<>();
     // 승격 통지. 리스 획득 시점에 발화해 접수 개방 전 인메모리 선복원을 트리거한다(복구 RTO §3-a).
     private final List<Consumer<LeaderIdentity>> gainListeners = new CopyOnWriteArrayList<>();
     // 관측 통지. 승격 시 epoch + 페일오버 다운타임을 함께 넘긴다(하네스 CICD §5-1 단일 계산점).
@@ -140,6 +154,14 @@ public class LeaderLeaseService implements AutoCloseable {
     }
 
     /**
+     * 회복 가능 반납 통지 등록(하네스 CICD §5-2 `exchange.leader.recoverable_standdown`).
+     * 종신 강등과 구분해 세는 축이라 releaseListeners와 분리한다. 관측 전용이다.
+     */
+    public void onRecoverableStandDown(Runnable listener) {
+        standDownListeners.add(listener);
+    }
+
+    /**
      * 승격 통지 등록(markLost 대칭). tryAcquire 성공 시 epoch 세팅 직후 발화한다. 리스너는
      * 리스 스케줄러 스레드에서 짧게 반환해야 한다. 대규모 재생은 별도 워커로 넘겨 renew를
      * 막지 않는다(복구 RTO §3-a 승격 중 리스 유지).
@@ -190,25 +212,32 @@ public class LeaderLeaseService implements AutoCloseable {
         if (e == null) {
             return false;
         }
-        Boolean renewed;
+        LeaseExtension outcome;
         try {
-            renewed = jdbc.sql("SELECT renew_leader_lease(?, ?, ? * interval '1 millisecond')")
-                    .params(holder, e, ttl.toMillis())
-                    .query(Boolean.class)
-                    .single();
+            outcome = extendLease(e);
         } catch (RuntimeException ex) {
             // 재확인 왕복 실패는 만료 여부를 알려주지 않는다. renew()와 같은 규칙으로 상실을
             // 단정하지 않는다. 실제 쓰기는 fencing이 계속 막으므로 안전하고, 판정은 다음 틱 몫이다.
             log.warn("fencing 거부 후 리더십 재확인 왕복 실패: 사유={}, 오류={}", reason, ex.toString());
             return false;
         }
-        if (Boolean.TRUE.equals(renewed)) {
-            log.warn("fencing 거부를 받았으나 리스 권위는 유지된다(강등하지 않음): epoch={}, 사유={}",
-                    e, reason);
-            return true;
+        switch (outcome) {
+            case EXTENDED -> {
+                log.warn("fencing 거부를 받았으나 리스 권위는 유지된다(강등하지 않음): epoch={}, 사유={}",
+                        e, reason);
+                return true;
+            }
+            case UNSERVICEABLE -> {
+                // 재확인은 곧 리스 연장이다. 생존성 판정을 통과하지 못한 노드까지 연장해 주면
+                // §5.4의 '연장 직전 생존성 판정'이 이 경로에서만 무력해진다.
+                markLost("서비스 불능 지속(fencing 거부 재확인): " + reason);
+                return false;
+            }
+            default -> {
+                markLost(reason);
+                return false;
+            }
         }
-        markLost(reason);
-        return false;
     }
 
     /**
@@ -226,17 +255,43 @@ public class LeaderLeaseService implements AutoCloseable {
         }
         log.warn("리더십 반납(회복 가능, 리스 만료 후 재승격 허용): holder={}, epoch={}, 사유={}",
                 holder, prev, reason);
+        // 관측 먼저. 이 등급이 만드는 실패 모드는 [재생 실패 -> 반납 -> 재승격]의 반복이고,
+        // epoch 계단만으로는 정상 페일오버와 구분되지 않는다.
+        for (Runnable listener : standDownListeners) {
+            try {
+                listener.run();
+            } catch (RuntimeException e) {
+                log.error("회복 가능 반납 관측 콜백 실패", e);
+            }
+        }
         notifyReleased();
     }
 
-    /** 승격 재생 진입. 이 구간의 상실은 회복 가능 반납으로 내린다. */
-    public void beginPromotionReplay() {
-        promotionReplay = true;
+    /**
+     * 승격 재생 진입. 이 구간의 상실은 회복 가능 반납으로 내린다. 반환한 토큰은 짝이 되는
+     * endPromotionReplay에 그대로 넘긴다.
+     */
+    public long beginPromotionReplay() {
+        long token = promotionReplaySequence.incrementAndGet();
+        long previous = promotionReplayToken.getAndSet(token);
+        if (previous != 0) {
+            // 승격 재생은 단일 승격 워커에서만 돈다. 겹치면 두 재생이 같은 루프에 엔진을 설치하려
+            // 경쟁하고 강등 등급이 해제 순서에 좌우된다. 안전성이 스레드 수 1에 암묵 의존하던
+            // 자리라 위반을 무음으로 두지 않는다.
+            log.error("승격 재생 구간이 겹쳤다(단일 승격 워커 전제 위반): 이전 토큰={}, 새 토큰={}",
+                    previous, token);
+        }
+        return token;
     }
 
     /** 승격 재생 종료. 접수 개방 전에 반드시 호출해 이후의 상실이 종신으로 돌아오게 한다. */
-    public void endPromotionReplay() {
-        promotionReplay = false;
+    public void endPromotionReplay(long token) {
+        promotionReplayToken.compareAndSet(token, 0);
+    }
+
+    /** 관측·테스트용. 현재 승격 재생 구간이면 참이다. */
+    public boolean inPromotionReplay() {
+        return promotionReplayToken.get() != 0;
     }
 
     /**
@@ -333,23 +388,41 @@ public class LeaderLeaseService implements AutoCloseable {
         if (e == null) {
             return false;
         }
-        if (!serviceHealth.serviceable()) {
-            // 자발적 강등. 리스 행에는 아무것도 쓰지 않고 갱신만 포기한다. 승격은 종전대로
-            // TTL 만료 후 스탠바이의 try_acquire_leader(epoch +1) 단독 UPDATE로만 일어나므로
-            // 승격 원자성·fencing 단조성·이중 리더 차단 성질이 그대로다. 리스를 즉시 반납하지
-            // 않는 것도 같은 이유다. 만료 구동 승격 규칙을 우회하는 경로를 만들지 않는다.
-            markLost("서비스 불능 지속(요청 풀 고갈 + 리더 쓰기 진행 0)");
-            return false;
-        }
-        Boolean renewed = jdbc.sql("SELECT renew_leader_lease(?, ?, ? * interval '1 millisecond')")
-                .params(holder, e, ttl.toMillis())
-                .query(Boolean.class)
-                .single();
-        if (Boolean.TRUE.equals(renewed)) {
+        LeaseExtension outcome = extendLease(e);
+        if (outcome == LeaseExtension.EXTENDED) {
             return true;
         }
-        markLost("renew 거부(만료 또는 탈취됨)");
+        // 자발적 강등. 리스 행에는 아무것도 쓰지 않고 갱신만 포기한다. 승격은 종전대로
+        // TTL 만료 후 스탠바이의 try_acquire_leader(epoch +1) 단독 UPDATE로만 일어나므로
+        // 승격 원자성·fencing 단조성·이중 리더 차단 성질이 그대로다. 리스를 즉시 반납하지
+        // 않는 것도 같은 이유다. 만료 구동 승격 규칙을 우회하는 경로를 만들지 않는다.
+        markLost(outcome == LeaseExtension.UNSERVICEABLE
+                ? "서비스 불능 지속(요청 풀 고갈 + 리더 쓰기 진행 0)"
+                : "renew 거부(만료 또는 탈취됨)");
         return false;
+    }
+
+    /** 리스 연장 결과. UNSERVICEABLE은 DB에 묻지도 않은 상태이며 리스 행은 무변경이다. */
+    private enum LeaseExtension { EXTENDED, REJECTED, UNSERVICEABLE }
+
+    /**
+     * lease_until을 미는 단일 경로(§5.4). renew_leader_lease를 호출하는 코드는 이 메서드뿐이고
+     * 생존성 판정이 그 안에 있으므로, '리스를 연장하는 경로는 모두 생존성 판정을 통과한다'가
+     * 호출 지점 수와 무관하게 성립한다. 판정을 호출자마다 되풀이하면 하나만 빠져도 좀비 리더가
+     * 그 경로로 리스를 무한 연장한다.
+     *
+     * 판정을 renew 틱보다 자주 부르는 것은 무해하다. 누적 창이라 표본이 잘게 쪼개져도 비율과
+     * 초기화 규칙이 같고, 창 초기화는 여전히 누적 비율이 임계를 회복할 때만 일어난다.
+     */
+    private LeaseExtension extendLease(long currentEpoch) {
+        if (!serviceHealth.serviceable()) {
+            return LeaseExtension.UNSERVICEABLE;
+        }
+        Boolean renewed = jdbc.sql("SELECT renew_leader_lease(?, ?, ? * interval '1 millisecond')")
+                .params(holder, currentEpoch, ttl.toMillis())
+                .query(Boolean.class)
+                .single();
+        return Boolean.TRUE.equals(renewed) ? LeaseExtension.EXTENDED : LeaseExtension.REJECTED;
     }
 
     /** 주기 구동: 리더면 갱신, 아니면 승격 시도. 테스트는 이 메서드 대신 개별 호출을 쓴다. */
@@ -407,7 +480,7 @@ public class LeaderLeaseService implements AutoCloseable {
     private void markLost(String reason) {
         // 승격 재생 구간의 상실은 종신이 아니다. 그 구간에서는 루프가 승격 전 상태 그대로이고
         // 접수도 열린 적이 없어, self-shutdown이 막으려는 '반쪽 리더'가 성립하지 않는다.
-        if (promotionReplay) {
+        if (inPromotionReplay()) {
             standDown(reason);
             return;
         }

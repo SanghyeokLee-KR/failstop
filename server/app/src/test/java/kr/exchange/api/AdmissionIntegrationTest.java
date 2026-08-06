@@ -423,6 +423,10 @@ class AdmissionIntegrationTest {
     /**
      * Prometheus 노출명 고정(하네스 CICD §5-2). Micrometer 점 표기와 스크레이프명이 어긋나면
      * 게이트가 없는 시계열을 조회해 공허 통과한다. scope 태그까지 함께 고정한다.
+     *
+     * 수용 제한 축만이 아니라 §5-2 노출명 계약 전반의 단일 고정점이다. 익스포트를 켠 컨텍스트가
+     * 여기뿐이라 검증을 다른 클래스로 나누면 컨텍스트와 Testcontainers 컨테이너가 하나 더 뜨고
+     * (테스트 클래스마다 postgres 1대) 전체 스위트가 자원 한계에서 흔들린다.
      */
     @Test
     @Order(9)
@@ -438,6 +442,19 @@ class AdmissionIntegrationTest {
                     "인플라이트 게이지 노출명·태그가 §5-2와 다르다: " + scope);
             assertTrue(body.contains("exchange_admission_limit{scope=\"" + scope + "\"}"),
                     "상한 게이지 노출명·태그가 §5-2와 다르다: " + scope);
+        }
+        // 리더십 축. 강등 두 등급은 별도 시계열이어야 한다. 합치면 [재생 실패 -> 반납 ->
+        // 재승격] 반복이 자발적 강등 1회와 구분되지 않는다(DB 설계 §5.4).
+        for (String exposed : new String[]{
+                "exchange_leader_recoverable_standdown_total",
+                "exchange_leader_standdown_total",
+                "exchange_node_serviceable",
+                "exchange_node_write_completion_ratio",
+                "exchange_leader_epoch",
+                "exchange_leader_is_leader",
+                "exchange_failover_downtime_seconds"}) {
+            assertTrue(body.contains(exposed),
+                    "§5-2 명세표의 노출명이 스크레이프 본문에 없다: " + exposed);
         }
     }
 

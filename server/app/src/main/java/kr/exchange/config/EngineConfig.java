@@ -60,13 +60,23 @@ public class EngineConfig {
     @Bean
     public LeaderLeaseService leaderLeaseService(
             @Qualifier("leaseDataSource") DataSource leaseDataSource, EngineProperties props,
-            NodeServiceHealth nodeServiceHealth) {
+            NodeServiceHealth nodeServiceHealth, MeterRegistry meterRegistry) {
         // 리스 renew·승격 시도 UPDATE는 전용 소형 풀 커넥션으로만 수행한다. 요청 풀이 포화돼도
         // 하트비트가 굶지 않게 격리한다(LeaseDataSourceConfig, DB 설계 §5.4). 저널·정산 등 승격
         // 이후 쓰기 경로는 그대로 기본 풀·트랜잭션을 타므로 fencing 원자성 경계는 불변이다.
         // 그 격리로 분리된 '하트비트는 살고 서비스는 죽은' 창은 nodeServiceHealth가 닫는다.
-        return new LeaderLeaseService(JdbcClient.create(leaseDataSource),
+        LeaderLeaseService lease = new LeaderLeaseService(JdbcClient.create(leaseDataSource),
                 props.leaseTtl(), props.leaseTickInterval(), nodeServiceHealth);
+        // 회복 가능 반납 카운터(§5-2). 종신 강등 축(exchange.leader.standdown)과 분리한다. 이
+        // 등급이 만드는 실패 모드는 [재생 실패 -> 반납 -> 재승격]의 반복이라, 합산하면 자발적
+        // 강등 1회와 구분되지 않고 epoch 계단만으로는 정상 페일오버와도 구분되지 않는다.
+        io.micrometer.core.instrument.Counter recoverableStandDowns =
+                io.micrometer.core.instrument.Counter
+                        .builder("exchange.leader.recoverable_standdown")
+                        .description("승격 재생 실패로 리더십을 회복 가능하게 반납한 횟수")
+                        .register(meterRegistry);
+        lease.onRecoverableStandDown(recoverableStandDowns::increment);
+        return lease;
     }
 
     @Bean

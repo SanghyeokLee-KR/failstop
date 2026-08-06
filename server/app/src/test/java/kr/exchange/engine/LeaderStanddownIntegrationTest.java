@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -213,6 +214,107 @@ class LeaderStanddownIntegrationTest {
             assertEquals(1.0, registry.get("exchange.node.serviceable").gauge().value());
         } finally {
             leader.close();
+        }
+    }
+
+    /**
+     * 리스를 연장하는 경로는 모두 생존성 판정을 통과한다(§5.4). fencing 거부의 권위 재확인은
+     * renew_leader_lease를 그대로 치므로 lease_until을 미는 연장 효과가 있는데, 그 경로만 판정
+     * 밖에 있으면 좀비 리더가 재확인을 통해 리스를 무한 연장할 수 있다. 노출 자체는 좁지만
+     * (다음 renew 틱이 닫는다) '연장 경로는 모두 판정을 통과한다'가 참이 아니게 된다.
+     *
+     * 판정 축은 원인이 아니라 증상이므로 여기서는 판정 결과만 주입한다. 판정기 내부 규칙은
+     * 위 두 테스트와 LeaderStallDetectorTest가 따로 고정한다.
+     */
+    @Test
+    void fencingRecheckPassesTheSameServiceabilityGateAsRenew() {
+        AtomicInteger probes = new AtomicInteger();
+        AtomicInteger serviceable = new AtomicInteger(1);
+        LeaderLeaseService leader = new LeaderLeaseService(leaseJdbc,
+                Duration.ofSeconds(60), Duration.ofSeconds(1),
+                () -> {
+                    probes.incrementAndGet();
+                    return serviceable.get() == 1;
+                });
+        AtomicInteger lost = new AtomicInteger();
+        leader.onLeadershipLost(lost::incrementAndGet);
+
+        try {
+            assertTrue(leader.tryAcquire(), "만료 리스 승격 실패");
+            long epoch = leader.requireLeader().epoch();
+
+            // ① 건강한 노드. 재확인이 권위를 증명하고 리스를 연장한다(v2.23 오강등 방지 경로).
+            int probesBefore = probes.get();
+            OffsetDateTime healthyBefore = leaseUntil();
+            assertTrue(leader.demoteUnlessStillLeader("fencing 거부 주입"),
+                    "정당한 현재 리더가 fencing 거부 한 번으로 강등됐다");
+            assertTrue(probes.get() > probesBefore, "재확인이 생존성 판정을 건너뛰었다");
+            assertTrue(leaseUntil().isAfter(healthyBefore),
+                    "재확인이 리스를 연장하지 않았다(연장 경로 전제가 성립하지 않는다)");
+
+            // ② 좀비 노드. 같은 재확인이 리스를 연장하면 판정이 이 경로에서만 무력해진다.
+            OffsetDateTime zombieBefore = leaseUntil();
+            serviceable.set(0);
+            assertFalse(leader.demoteUnlessStillLeader("fencing 거부 주입"),
+                    "서비스 불능 노드가 fencing 거부 재확인으로 리더십을 유지했다");
+            assertEquals(zombieBefore, leaseUntil(),
+                    "생존성 판정을 통과하지 못한 경로가 lease_until을 밀었다");
+            assertEquals(epoch, leaseEpoch(), "강등이 리스 epoch를 건드렸다");
+            assertEquals(leader.holder(), leaseHolder(), "강등이 리스 holder를 건드렸다");
+            assertFalse(leader.isLeader(), "자발적 강등 후에도 리더로 남았다");
+            assertEquals(1, lost.get(), "종신 강등 콜백이 정확히 한 번 발화해야 한다");
+            assertFalse(leader.tryAcquire(), "강등된 노드가 재승격되면 안 된다");
+        } finally {
+            leader.close();
+        }
+    }
+
+    /**
+     * 승격 재생 구간 표식은 세대 스코프다. 회복 가능 반납 도입으로 [재생 실패 -> 반납 -> 만료 ->
+     * 같은 노드가 재승격]이 정상 경로가 됐고, 앞선 시도가 뒷정리를 하는 동안 새 시도가 시작될 수
+     * 있다. 낡은 해제가 새 표식을 지우면 새 시도의 재생 실패가 종신으로 잘못 내려가 후보가
+     * 소진된다. 플래그의 안전성이 승격 워커 스레드 수 1에 암묵 의존하던 자리다.
+     *
+     * 표식 자체가 아니라 표식이 만드는 **강등 등급**으로 확인한다. 관측 가능한 계약이 그것이다.
+     */
+    @Test
+    void promotionReplayMarkerIsScopedToItsOwnAttempt() {
+        LeaderLeaseService lease = new LeaderLeaseService(leaseJdbc,
+                Duration.ofSeconds(60), Duration.ofSeconds(1));
+        AtomicInteger recoverable = new AtomicInteger();
+        AtomicInteger terminal = new AtomicInteger();
+        lease.onRecoverableStandDown(recoverable::incrementAndGet);
+        lease.onLeadershipLost(terminal::incrementAndGet);
+
+        try {
+            assertFalse(lease.inPromotionReplay());
+            long stale = lease.beginPromotionReplay();
+            long current = lease.beginPromotionReplay();
+            assertNotEquals(stale, current, "재생 구간 토큰이 시도별로 갈리지 않는다");
+
+            lease.endPromotionReplay(stale);
+            assertTrue(lease.inPromotionReplay(),
+                    "낡은 시도의 뒤늦은 해제가 진행 중 시도의 표식을 지웠다");
+
+            // 표식이 살아 있으므로 이 구간의 상실은 회복 가능 반납이다.
+            assertTrue(lease.tryAcquire(), "만료 리스 승격 실패");
+            lease.demote("재생 실패 모델");
+            assertEquals(1, recoverable.get(), "재생 구간의 상실이 회복 가능으로 내려가지 않았다");
+            assertEquals(0, terminal.get(), "재생 구간의 상실이 종신 강등 콜백을 발화시켰다");
+
+            // 짝이 맞는 해제 뒤에는 같은 상실이 종신으로 돌아온다.
+            lease.endPromotionReplay(current);
+            assertFalse(lease.inPromotionReplay());
+            expireLease();
+            assertTrue(lease.tryAcquire(), "회복 가능 반납 후 재승격이 막혔다");
+            lease.demote("접수 개방 이후 상실 모델");
+            assertEquals(1, recoverable.get(), "종신 강등이 회복 가능 축으로 계상됐다");
+            assertEquals(1, terminal.get(), "표식 해제 후의 상실이 종신으로 내려가지 않았다");
+            // 만료시켜야 '재승격 금지'와 '유효 리스라 탈취 불가'가 갈린다.
+            expireLease();
+            assertFalse(lease.tryAcquire(), "종신 강등 노드의 재승격 금지가 풀렸다");
+        } finally {
+            lease.close();
         }
     }
 
