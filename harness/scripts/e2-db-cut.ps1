@@ -39,6 +39,28 @@ try {
         -OldEpoch $oldEpoch -OldHolder $oldHolder -LeaseUntilBefore $leaseUntilBefore `
         -TradesAtInject $tradesAtInject -T0 $t0 `
         -ObserveSec ([int]$cfg['POST_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC'])
+
+    # 승격 안정성 게이트. E2 라이브에서 두 노드가 123ms 만에 모두 강등해 클러스터가 리더 없이
+    # 영구 정지한 적이 있다(DB 설계 v2.23 §5.4). Complete-FailoverExperiment의 verdict는 승격
+    # 시점만 보므로 그 직후 재강등을 잡지 못한다. 승격한 리더가 창 내내 리스를 유지하는지 본다.
+    # 회복 가능 반납으로 epoch가 더 오르는 것은 정상이므로(같은 절) 단조 증가만 요구하고,
+    # 리스가 죽어 있는 표본이 하나라도 있으면 실패로 본다(리더 없는 상태 = 이 실험이 막으려는 것).
+    Write-Section 'ⓔ 승격 안정성 관측'
+    $stableSec = 30; $stableGapSec = 2
+    $leaseSql = "SELECT epoch||'|'||(lease_until > now()) FROM leader_lease WHERE resource='matching-engine'"
+    $prevEpoch = $null; $stable = $true; $deadSample = 0; $regressed = 0
+    for ($i = 0; $i -lt [int]($stableSec / $stableGapSec); $i++) {
+        $raw = (Invoke-Psql $leaseSql).Split('|')
+        $e = [long]$raw[0]; $alive = ($raw[1] -eq 't')
+        if (-not $alive) { $deadSample++ }
+        if ($null -ne $prevEpoch -and $e -lt $prevEpoch) { $regressed++ }
+        $prevEpoch = $e
+        Start-Sleep -Seconds $stableGapSec
+    }
+    $stable = ($deadSample -eq 0) -and ($regressed -eq 0) -and ($prevEpoch -ge $oldEpoch + 1)
+    Write-Host ("승격 안정성: 리스 사망 표본 {0} / epoch 역행 {1} / 최종 epoch {2} -> {3}" -f `
+        $deadSample, $regressed, $prevEpoch, $(if ($stable) { 'PASS' } else { 'FAIL' }))
+    if (-not $stable) { $verdict = 'FAIL' }
 }
 finally {
     # 종료 훅: 토식 무조건 해제(§3 공통 전제).
