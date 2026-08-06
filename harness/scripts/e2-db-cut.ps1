@@ -76,6 +76,18 @@ try {
     Write-Host ("승격 안정성: 리스 사망 표본 {0} / epoch 역행 {1} / 최종 epoch {2} -> {3}" -f `
         $deadSample, $regressed, $prevEpoch, $(if ($stable) { 'PASS' } else { 'FAIL' }))
     if (-not $stable) { $verdict = 'FAIL' }
+
+    # 회복 가능 반납 축(CICD §5-2: E2 페일오버는 0~1). DB v2.24가 신설했으나 판정에 배선되지
+    # 않아 수동 판독 지침으로만 남아 있었다. 2회 이상이면 승격과 반납을 되풀이한 것이고, 그때는
+    # 마지막 승격만 살아 있어도 위 안정성 게이트를 통과하므로 여기서 따로 잡아야 한다.
+    $sdRaw = Get-AppMetric -Port $standbyPort `
+        -Pattern 'exchange_leader_recoverable_standdown_total(?:\{[^}]*\})?\s+([0-9.eE+-]+)'
+    if ($null -eq $sdRaw) {
+        Write-Host '회복 가능 반납: n/a(메트릭 미노출). 판정에서 제외한다.'
+    } else {
+        Write-Host "회복 가능 반납 누계(승격 노드): $sdRaw (정상 상한 1)"
+        if ([double]$sdRaw -gt 1) { $verdict = 'FAIL' }
+    }
 }
 finally {
     # 종료 훅: 토식 무조건 해제(§3 공통 전제).

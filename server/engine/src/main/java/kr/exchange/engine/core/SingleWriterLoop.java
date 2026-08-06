@@ -163,6 +163,9 @@ public final class SingleWriterLoop {
             try {
                 command = queue.poll(100, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
+                // 소비자가 사라지는 경로 중 여기만 플래그를 안 내렸다. 접수 게이트가
+                // isRunning()을 소비자 생존 근거로 쓰므로 플래그 정확도가 곧 보증 강도다.
+                running.set(false);
                 Thread.currentThread().interrupt();
                 return;
             }

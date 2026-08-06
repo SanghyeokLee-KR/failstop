@@ -420,6 +420,33 @@ class PromotionStandDownIntegrationTest {
         }
     }
 
+    /**
+     * (I) 부팅 개방도 런타임 승격과 같은 조건을 본다. 현 배선은 loop.start()를 bootstrap보다
+     * 먼저 부르므로 도달하지 않지만, 불변이 배선 순서에만 있으면 순서가 바뀌는 순간 무음으로
+     * 깨진다. 기동 실패는 리스 만료를 거쳐 스탠바이 승격으로 수렴하므로 좀비 리더보다 안전하다.
+     */
+    @Test
+    @Order(9)
+    void bootstrapRefusesToOpenTheGateOnAStoppedWriterLoop() {
+        LeaderLeaseService bootLease = new LeaderLeaseService(jdbc, LEASE_TTL, LEASE_TICK);
+        EventJournalAppender sink = new EventJournalAppender(jdbc, tx, bootLease, objectMapper);
+        MatchingEngineImpl engine = new MatchingEngineImpl();
+        SingleWriterLoop stopped = new SingleWriterLoop(4096, engine, sink::append,
+                new JournalCatchUpSource(commandReader, mapper),
+                new AtomicReference<Throwable>()::set);
+        PromotionCoordinator coordinator = new PromotionCoordinator(
+                new EngineRecovery(replayService, sink::append, bootLease),
+                stopped, bootLease, commandReader);
+        try {
+            assertFalse(stopped.isRunning(), "루프 미기동 전제가 성립하지 않았다");
+            assertThrows(IllegalStateException.class, () -> coordinator.bootstrap(engine, true));
+            assertFalse(coordinator.gate().isAccepting(), "부팅 경로가 접수를 열었다");
+        } finally {
+            coordinator.close();
+            bootLease.close();
+        }
+    }
+
     // ── 배선 ────────────────────────────────────────────────────────────
 
     /** 스탠바이 한 대. 접수 게이트가 닫힌 채 리스만 경쟁하다가 승격 재생을 밟는다. */

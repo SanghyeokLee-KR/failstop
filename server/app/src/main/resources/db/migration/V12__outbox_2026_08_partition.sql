@@ -37,6 +37,13 @@ DECLARE
 BEGIN
     -- 재실행 안전: 파티션이 이미 있으면 전체를 건너뛴다.
     IF to_regclass('public.outbox_p2026_08') IS NULL THEN
+        -- 총행 수 가드가 잠금 획득 경계를 가로지르면 안 된다. count 단독으로는 ACCESS SHARE만
+        -- 잡으므로 READ COMMITTED에서 그 사이 커밋된 타 노드의 INSERT가 total_after를 늘려
+        -- 유실이 없는데도 전체가 롤백되고 기동이 막힌다. 롤링 배포에서 살아 있는 노드가
+        -- 정산을 계속하는 상황이 정확히 그 조건이다. 어차피 DETACH가 잡을 잠금을 앞당겨
+        -- 잡아 두 count를 같은 경계 안에 넣는다.
+        LOCK TABLE outbox IN ACCESS EXCLUSIVE MODE;
+
         SELECT count(*) INTO total_before FROM outbox;
 
         SELECT EXISTS (

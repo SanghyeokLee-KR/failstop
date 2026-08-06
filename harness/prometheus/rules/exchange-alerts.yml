@@ -59,6 +59,19 @@ groups:
           summary: "리더 부재 15s 초과"
           description: "exchange_leader_is_leader==1 시계열 소멸. 승격 지연·양쪽 스탠바이 의심."
 
+      # 회복 가능 반납(DB§5.4 강등 등급 분리). 단발은 정상 경로다(재생 실패 -> 반납 -> 만료
+      # 구동 재승격). 반복은 재생 자체가 불가능하다는 데이터 신호이고, 그때는 TTL마다 승격과
+      # 반납만 되풀이해 리더 없는 구간이 누적된다. LeaderAbsent는 그 사이 리더가 잠깐씩
+      # 존재하므로 발화하지 않아 이 축이 따로 필요하다. E2 페일오버 1회의 정상 상한이 1이다.
+      - alert: RecoverableStandDownRepeating
+        expr: increase(exchange_leader_recoverable_standdown_total[5m]) > 2
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "승격 재생 실패 반복(회복 가능 반납 5분 3회 이상)"
+          description: "instance={{ $labels.instance }} 5분 증가={{ $value }}. exchange_leader_epoch 계단과 대조해 승격·반납 루프인지 확인한다."
+
       # 스냅샷 파이프라인 경보(SnapshotCapture, 서버 실등록 4종). 정확성은 무손실이라
       # 무결성 계열(critical)이 아니라 복구 준비도 저하(warning)로 둔다. 지속되면 채택
       # 스냅샷이 낡아 복구가 저널 seq 0 전량 재생으로 폴백하고 RTO가 저널 크기에 비례한다.

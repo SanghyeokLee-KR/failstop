@@ -56,8 +56,12 @@ public class PromotionCoordinator implements AutoCloseable {
      * 리스 보유 상한(TTL 대비). 재생 구간에는 renew 틱이 계속 돌아 리스가 유지되므로, 재시도는
      * 스탠바이 승격을 그만큼 늦춘다. 첫 실패 이후 추가 보유는 [예산 5s + 마지막 백오프 0.5s +
      * 시도 1회]로 상한된다(예산은 다음 시도의 시작만 막고 진행 중인 시도를 끊지 않는다). 재생
-     * 1회가 긴 경우에는 예산이 첫 실패 직후 소진돼 재시도가 정확히 1회로 줄어든다. 총 페일오버는
-     * 이 값 + TTL이므로, TTL 10초 기준 재생 1회가 14초 이내면 RTO 목표 30초(API §7-4) 안이다.
+     * 1회가 긴 경우에는 예산이 첫 실패 직후 소진돼 재시도가 정확히 1회로 줄어든다.
+     *
+     * 이 상한은 재시도가 더하는 지연에만 해당한다. 페일오버 총 벽시계는 [TTL + 첫 시도 + 백오프
+     * + 마지막 시도 + TTL + 다음 리더 재생]이라 이 값보다 크고, SLO로 재는
+     * exchange_failover_downtime_seconds는 승격 시각 - 구 리더 최종 심박이라 재생 구간을
+     * 아예 포함하지 않아 이 값보다 작다. 서로 다른 양이므로 섞어 비교하지 않는다.
      */
     static final long REPLAY_RETRY_BUDGET_MILLIS = 5_000;
 
@@ -128,6 +132,14 @@ public class PromotionCoordinator implements AutoCloseable {
         boolean accept;
         synchronized (stateLock) {
             if (leaderAtBoot) {
+                // 개방 조건은 런타임 승격 경로와 같아야 한다(§5.4). 현 배선은 loop.start()를
+                // 먼저 부르므로 항상 참이지만, 그 순서에 기대는 순간 불변이 배선에만 있게 된다.
+                // 정지한 루프 위에서 리스를 쥔 채 열면 좀비 리더가 되므로 기동을 세운다.
+                // 기동 실패는 리스 만료를 거쳐 스탠바이 승격으로 수렴한다.
+                if (!loop.isRunning()) {
+                    throw new IllegalStateException(
+                            "단일 라이터 정지 상태에서 부팅 접수 개방 금지");
+                }
                 state = State.ACCEPTING;
                 accepting.set(true);
                 accept = true;
