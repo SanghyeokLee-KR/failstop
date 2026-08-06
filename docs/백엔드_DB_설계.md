@@ -1,6 +1,6 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.24)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.25)
 
-> 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V12+ 로드맵)
+> 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V13+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
 > 설계 우선순위: **정확성(exactness) > 성능 > 편의성**. DB는 매칭 핫패스가 아니라 "진실의 원천(SoT) + 최종 방어선"이다.
 > 이 제출본은 초안·v2.0 검증에서 지적된 critical/high 결함(파티션 소진, RESERVE amount=0 모순, `user_id=0` 수수료 계정 무효, 파티션 seq 유일성 무력화, 비원자적 fencing, `transaction_id` 권위 부재, RULE 기반 무음 무시)을 **계정 모델 재설계**로 근본 해결한다. (v2.1~v2.15 패치 반영 사항은 문서 말미 참조)
@@ -329,7 +329,7 @@ erDiagram
 
 ## 3. 전체 DDL
 
-정본 마이그레이션은 현재 `V0`~`V11` 12개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V12 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
+정본 마이그레이션은 현재 `V0`~`V12` 13개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V13 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
 
 | 버전 | 파일 | 내용 | 적용 전제 |
 |---|---|---|---|
@@ -345,7 +345,8 @@ erDiagram
 | V9 | `V9__operator_roles_delete_grant.sql` | `app_role`에 `operator_roles`·`idempotency_keys` DELETE 부여. 두 효과 테이블의 하드 DELETE 런타임 경로가 V5·V1 GRANT 누락으로 운영 롤에서 42501 실패하던 결함 교정 | V5, V1 |
 | V10 | `V10__orders_fee_projection.sql` | `orders` 수수료 프로젝션(`paid_fee`·`trades_count`) 물질화. 정산 경로에서 결정론적 누적, 주문 조회 feeStats N+1 재집계 제거 | V1 |
 | V11 | `V11__sim_run_ordinal.sql` | 봇 플릿 run ordinal 채번 시퀀스 `sim_run_ordinal`. 플릿 기동마다 `nextval` 1건으로 `client_order_id` nonce 접두의 JVM 경계 유일성을 보장한다. 종전 인메모리 카운터는 프로세스 재기동마다 0으로 리셋돼 DB 보존 재기동 시 직전 run의 coid 열을 재생성했고, `idempotency_keys` 재충돌로 409 `duplicate_client_order_id`가 폭주했다. 봇 클라이언트측 채번이라 엔진 임계경로·`journal_counters`와 분리 | V0, V1 |
-| V12+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V12 | `V12__outbox_2026_08_partition.sql` | `outbox` 2026-08 월 파티션 신설. V1이 2026-07까지(상한 2026-08-01), V8이 2026-09부터 만들어 2026-08 한 달이 정규 파티션 없이 남아 있었다(`trades`·`ledger_entries`는 V1이 2026-08까지 만들어 정상). 2026-08 진입과 함께 신규 `outbox` 행이 전부 `outbox_default`로 유입돼 `C15_DEFAULT_PARTITION`이 상시 위반됐다. 절차는 V8과 동일(DETACH → 생성 → 재배치 → 재ATTACH). `outbox`는 사용자 트리거가 없어 트리거 우회 불요, `id`가 IDENTITY라 `OVERRIDING SYSTEM VALUE` 필요. `to_regclass` 가드로 재실행 안전, 이동·삭제 행 수 대칭과 전후 총행 수 일치를 블록 안에서 검증(불일치 시 `RAISE EXCEPTION`) | V1, V8 |
+| V13+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -1104,6 +1105,10 @@ CREATE INDEX idx_outbox_unpublished ON outbox (created_at) WHERE published_at IS
 CREATE UNIQUE INDEX uq_outbox_event ON outbox (event_id, created_at);
 CREATE TABLE outbox_p2026_07 PARTITION OF outbox FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
 CREATE TABLE outbox_default PARTITION OF outbox DEFAULT;   -- 명명 partman 규칙 통일(medium#5)
+-- ※ 결손 교정(v2.25): 위 부트스트랩은 trades·ledger_entries와 달리 2026-08을 만들지 않았고,
+--   V8이 2026-09부터 시작해 2026-08 한 달이 어느 정규 파티션에도 속하지 않았다. V1은 적용
+--   완료라 수정 불가이므로 V12가 같은 경계(2026-08-01T00:00Z ~ 2026-09-01T00:00Z)로 채운다.
+--   신규 파티션 테이블·마이그레이션은 §3.2의 커버리지 규약(현재 시점 + 6개월)을 만족해야 한다.
 
 -- 6.5 소비자 멱등 dedup
 CREATE TABLE processed_events (
@@ -1382,6 +1387,16 @@ END $$;
 초안은 pg_partman을 "권장"만 했다. DEFAULT 파티션은 오류를 흡수하지만 **DEFAULT에 쌓이면 이후 해당 범위 파티션 생성이 불가**하므로 사전 생성이 필수다.
 
 **베이스라인(v2.13): 확장 없는 수동 선생성.** 표준 배포와 통합테스트(Testcontainers `postgres:17`)는 외부 확장(pg_partman/pg_cron) 없이 단독 적용되어야 한다. 따라서 시간 파티션 소진 방어의 1차 수단은 `V8`이 월 파티션을 수동 선생성하는 것이다(trades·ledger_entries·outbox, 2026-09~2027-08 12개월). 이는 이후에도 새 월을 추가하는 마이그레이션으로 연장한다. 아래 partman·pg_cron 배선은 그 전제(shared_preload_libraries, 확장 설치)를 충족하는 환경에서만 채택하는 자동화 경로이며, 수동 선생성과 병용하지 않는다(둘 중 하나).
+
+**커버리지 규약(v2.25).** 수동 선생성 베이스라인에는 지평이 언제 소진되는지 알려주는 장치가 없었고, 지평 사이에 뚫린 구멍(V1 `outbox` 상한 2026-08-01 ↔ V8 시작 2026-09-01)은 그 달이 오기 전까지 어떤 테스트도 건드리지 않았다. 규약을 셋으로 고정한다.
+
+1. **현재 커버리지**: 실행 시점이 속한 구간을 모든 시간 파티션 부모가 정규 파티션으로 담는다. seq 축 저널은 `journal_counters`의 현재 채번값이 정규 파티션에 속한다.
+2. **선행 커버리지**: 실행 시점부터 **6개월 앞**까지 담는다. 마이그레이션 작성·검토·배포 여유다. 현 지평은 2027-09-01이므로 이 단언은 2027-03에 의도적으로 깨지며, 그때 월 파티션을 연장하는 마이그레이션을 추가한다.
+3. **연속성**: 정규 파티션 사슬에 내부 구멍이 없다. 부모별로 "하한이 다른 파티션의 상한과 맞물리는" 파티션 수가 전체보다 정확히 1 작아야 한다. 이 형태는 정렬을 쓰지 않아 시간·정수 경계에 공통 적용된다.
+
+세 규약은 `PartitionCoverageIntegrationTest`가 빈 PG17에 전 마이그레이션을 적용한 뒤 카탈로그(`pg_get_expr(relpartbound)`)로 판정한다. DEFAULT 파티션은 판정에서 제외한다(모든 값을 담아 구멍을 가린다). 위반은 `C15_DEFAULT_PARTITION` 위반보다 **앞서** 잡히므로, 종전처럼 "행이 실제로 DEFAULT에 쌓인 뒤에야" 발견되지 않는다.
+
+**partman 채택과의 관계(v2.25).** V12가 채운 2026-08 경계는 UTC 월 경계라 `p_start_partition := '2026-07-01'` + `'1 month'` 격자와 정확히 정렬된다. 즉 `create_parent`의 채택 경로에 겹침을 만들지 않는다. 오히려 채택 전 필요조건에 가깝다. partman은 등록 시점에 기존 파티션 격자를 자기 간격 격자로 해석하는데, 결손이 있으면 그 달을 자기 소유로 새로 만들려 하고 이때 DEFAULT에 이미 쌓인 그 달 행이 생성을 막는다. 세 시간 테이블(trades·ledger_entries·outbox)의 파티션 경계가 2026-07-01부터 동일해진 것이 채택 전제다.
 
 **채택(adoption) 원칙(medium#5)**: §3.1의 수동 초기 파티션은 partman 명명 규칙(`_pYYYY_MM` / `_p<start_value>`)에 이미 맞춰 두었다. `create_parent`는 **기존 파티션을 등록**하되, `p_start_partition`으로 시작점을 명시해 **겹치는 범위를 새로 만들지 않게** 한다. 관리형 DEFAULT는 partman이 소유하며, 수동 DEFAULT와 이름이 같으면 그대로 채택된다. `create_parent` 직후 첫 `run_maintenance`가 **범위 겹침 없이** 동작하는지는 `V3` 통합테스트로 실증한다.
 
@@ -2655,3 +2670,20 @@ v2.23(강등 등급 분리)의 적대적 검토가 남긴 정합성 결함 5건�
 불변식: `leader_lease` 무접촉(회복 가능 반납·자발적 강등 공통), epoch+1 만료 구동 승격, fencing_token·fencing_epoch 단조(C22), 스테일 append 0행 거부, RPO0, 재생 결정론, `client_order_id` 멱등 전부 무변경. 강등 등급 분리의 판정 축(그 강등이 단일 라이터 루프를 정지시켰는가)도 그대로다. 2·4·5는 강등을 **더 내리는** 방향이라 이중 리더 위험을 늘리지 않는다.
 
 문서 헤더 버전을 v2.24로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+
+## v2.25 패치 반영 사항
+
+`outbox` 시간 파티션의 2026-08 결손을 닫고(V12), 같은 결함이 달력만 바뀌어 재발하지 않도록 §3.2에 커버리지 규약을 신설한다. 스키마 계약(컬럼·제약·함수·권한)은 무변경이고 파티션 1개가 는다.
+
+| # | 심각도 | 위치 | 내용 |
+|---|---|---|---|
+| 1 | high | §3.1 outbox, §3 로드맵 표 | V1이 `outbox`를 2026-07 한 달만 만들고(상한 2026-08-01) V8이 2026-09부터 시작해 2026-08이 비어 있었다. `trades`·`ledger_entries`는 V1이 2026-08까지 만들어 정상이고 `outbox`만 어긋났다. 2026-08 진입 후 신규 행이 전부 `outbox_default`로 유입돼 `C15_DEFAULT_PARTITION`이 상시 위반됐고(실측 위반행 8~10) 카오스 실험의 무결성 게이트를 막았다. V12가 같은 UTC 월 경계로 채운다. V1은 적용 완료라 수정하지 않는다 |
+| 2 | high | §3.2 | 커버리지 규약 신설: 현재 시점 커버리지, 6개월 선행 커버리지, 사슬 연속성. 종전 베이스라인은 "지평을 연장한다"만 적었고 언제·무엇이 그 필요를 알리는지가 없었다. 결함이 달력 구동이라 그 달이 오기 전까지 전 테스트가 green이었던 것이 근본 원인이다. `PartitionCoverageIntegrationTest`가 카탈로그로 판정한다 |
+| 3 | medium | §3.2 | partman 채택 경로와의 무충돌 근거 명시. V12 경계가 `p_start_partition := '2026-07-01'` + `'1 month'` 격자와 정렬되므로 겹침을 만들지 않고, 세 시간 테이블의 경계가 2026-07-01부터 동일해진 것이 오히려 `create_parent` 채택의 전제다 |
+
+전수 점검 결과(V0~V12 적용 후): `trades`·`ledger_entries` 2026-07 ~ 2027-09-01 연속, `outbox` 동일(V12 이후), `command_journal` [0, 2억) 연속, `event_journal` [0, 2억) 연속. 결손은 `outbox` 2026-08 하나였다.
+
+불변식: 원장 합=0, `client_order_id` 멱등, append-only 저널, fencing, RPO0, 재생 결정론 전부 무변경. `outbox`는 append-only 대상이 아니고 사용자 트리거가 없어 재배치가 봉인·레지스트리 가드와 충돌하지 않는다. 재배치는 `id`를 보존하는 물리 이동이라 `uq_outbox_event`(event_id, created_at)와 §5.5 ④ 재발행 경로 의미도 불변이다.
+
+문서 헤더 버전을 v2.25로 순증(이전 패치 노트의 역사 서술은 원문 유지).
