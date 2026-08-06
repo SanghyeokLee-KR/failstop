@@ -168,3 +168,7 @@ finally {
 
 if ($verdict -ne 'PASS') { Write-Host 'E5 FAIL.' -ForegroundColor Red; exit 1 }
 Write-Host 'E5 PASS.' -ForegroundColor Green
+# 명시 exit 0. PowerShell은 스크립트 종료코드로 마지막 네이티브 명령의 $LASTEXITCODE를
+# 쓴다. 종료 훅의 docker unpause는 이미 실행 중인 정상 경우에도 비영을 내므로, 그대로
+# 두면 판정이 PASS인데 종료코드가 1로 새어나간다(실측).
+exit 0
