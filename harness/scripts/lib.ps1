@@ -17,9 +17,13 @@ $Global:CHAOS = @{
     PgDb        = 'exchange'
 }
 
+# param 블록을 두지 않는 이유: [Parameter()]가 붙는 순간 고급 함수가 되고, 그러면 PowerShell이
+# 인자를 먼저 파라미터로 바인딩한다. 단문자 compose 플래그는 공용 파라미터에 접두 일치해
+# 남은 인자 목록에 들어오지 못한다(-v는 -Verbose, -d는 -Debug로 먹힌다). 실측: 'down -v'가
+# 인자 3개만 남겨 볼륨이 지워지지 않았고, down.ps1이 전체 파기를 약속한 채 원장을 존치시켜
+# 이후 실험이 이전 상태를 물려받았다. 자동 변수 $args를 쓰는 단순 함수는 바인딩을 하지 않는다.
 function Invoke-Compose {
-    param([Parameter(ValueFromRemainingArguments = $true)] $Args)
-    & docker compose -f $Global:CHAOS.ComposeFile --env-file $Global:CHAOS.EnvFile @Args
+    & docker compose -f $Global:CHAOS.ComposeFile --env-file $Global:CHAOS.EnvFile @args
 }
 
 # 실험별 봇 부하 제어. 봇 플릿 target-ops를 지정값으로 재기동한다. 런타임 rate API(PUT /admin/v1/sim/rate)는
