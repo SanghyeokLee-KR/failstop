@@ -35,7 +35,9 @@ try {
         else { $targetPort = 28080; $standbyPort = 18080 }
         Write-Host "리더 감지: $target (config 기본과 무관하게 실 리더 대상). standby=$standbyPort"
     } else {
-        Write-Host "리더 감지 실패. config TARGET_NODE=$target 사용(팔로워면 페일오버 미발생 주의)."
+        # config 기본값으로 강행하면 팔로워를 대상 삼을 수 있고, 그때는 승격이 없어 확정 FAIL이
+        # 난다. 그 FAIL은 코드 결함이 아니라 판정 결함이므로 실행 자체를 막는다.
+        throw '리더 감지 실패. 실 리더를 특정하지 못한 채 주입하면 판정이 무의미하다. leader_lease holder와 컨테이너 로그를 대조해 리더를 확인한 뒤 재실행한다.'
     }
 
     Write-Section 'ⓐ 사전 권위 run'
@@ -68,7 +70,7 @@ try {
     } -TimeoutSec $observeSec -PollSec 0.5
     $sAfter = Get-HarnessStatus -Port $standbyPort
     $newEpoch = [long]$sAfter.epoch; $newHolder = $sAfter.holder
-    $t5 = Wait-FirstTradeAfter -NewEpoch $newEpoch -T0 $t0 -TimeoutSec $observeSec
+    $t5 = Wait-FirstTradeAfter -OldEpoch $oldEpoch -T0 $t0 -TimeoutSec $observeSec
     $rto = $null; if ($t5) { $rto = ($t5 - $t0).TotalSeconds }
     $leaseTtl = Get-LeaseTtlSec
     $downtime = $null; if ($t2) { $downtime = ($t2 - $leaseUntilBefore).TotalSeconds + $leaseTtl }
@@ -99,7 +101,9 @@ try {
 
     Write-Section 'ⓔ 사후 권위 run + fencing 판정'
     Start-Sleep -Seconds 3
-    $postPort = Get-LiveNodePort
+    # Get-LiveNodePort는 18080을 선착순으로 잡으므로 방금 재연결된 구 리더가 사후 run·적재 대상이
+    # 될 수 있다. 구 리더는 강등 상태라 판정 대상으로 부적절하다. 승격을 관찰한 스탠바이로 고정한다.
+    $postPort = $standbyPort
     $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
     $staleWrites = Get-StaleWriteCount -CmdWatermark $wCmd -EvtWatermark $wEvt -OldEpoch $oldEpoch -CmdHasFencing $cmdHasFencing
     $finalEpoch = [long](Get-Scalar "SELECT epoch FROM leader_lease WHERE resource='matching-engine'")

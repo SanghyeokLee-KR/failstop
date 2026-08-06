@@ -182,8 +182,9 @@ function Complete-FailoverExperiment {
     # T5 = 페일오버 후 최초 신규 TRADE의 engine_ts(§5-1 정의). created_at은 DB now()가 아니라
     # 엔진 처리 시각이라 커밋 가시화 지연과 무관한 재개 시점을 가리킨다. T0 이후 신 epoch 필터.
     $t0Iso = $T0.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fff') + 'Z'
+    # fencing_epoch 등가 비교는 승격 재생 반납으로 epoch가 더 오른 경우 재개를 놓친다(§5.4).
     $firstTradeSql = "SELECT min(created_at) AT TIME ZONE 'UTC' " +
-        "FROM event_journal WHERE event_type='TRADE' AND fencing_epoch=$newEpoch AND created_at > '$t0Iso'"
+        "FROM event_journal WHERE event_type='TRADE' AND fencing_epoch > $OldEpoch AND created_at > '$t0Iso'"
     $obsResume = Wait-For {
         -not [string]::IsNullOrWhiteSpace((Invoke-Psql $firstTradeSql))
     } -TimeoutSec $ObserveSec -PollSec 0.5
@@ -342,11 +343,15 @@ function Get-StaleWriteCount {
 
 # 승격 후 최초 신규 TRADE의 engine_ts(§5-1 T5). T0 이후·신 epoch 필터. 커밋 가시화 지연과 무관한
 # 체결 재개 시점. 반환: UtcDateTime 또는 $null. Complete-FailoverExperiment와 동일 술어를 인라인용으로 노출.
+# 페일오버 후 최초 신규 TRADE 시각(§5-1 T5). fencing_epoch를 관측 시점 epoch와 등가 비교하면,
+# 승격 재생 반납으로 epoch가 한 번 더 오른 경우(DB 설계 §5.4) 실제 재개 TRADE가 더 큰 epoch로
+# 기록돼 영원히 잡히지 않고 RTO가 n/a로 남는다. 서비스는 정상 재개인데 rtoOk만 거짓이 되는
+# 모순 조합이라, 구 epoch 초과 조건으로 바꿔 재개를 놓치지 않게 한다.
 function Wait-FirstTradeAfter {
-    param([long] $NewEpoch, [datetime] $T0, [int] $TimeoutSec)
+    param([long] $OldEpoch, [datetime] $T0, [int] $TimeoutSec)
     $t0Iso = $T0.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fff') + 'Z'
     $sql = "SELECT min(created_at) AT TIME ZONE 'UTC' " +
-        "FROM event_journal WHERE event_type='TRADE' AND fencing_epoch=$NewEpoch AND created_at > '$t0Iso'"
+        "FROM event_journal WHERE event_type='TRADE' AND fencing_epoch > $OldEpoch AND created_at > '$t0Iso'"
     Wait-For { -not [string]::IsNullOrWhiteSpace((Invoke-Psql $sql)) } -TimeoutSec $TimeoutSec -PollSec 0.5 | Out-Null
     $raw = Invoke-Psql $sql
     if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
@@ -382,15 +387,24 @@ function Get-AppMetric {
     return $null
 }
 
-# 실험 무결성 판정. CONDITIONAL 스코프 체크(C13a 물질화·C16 ACK·C19 오더북 비교차)를 제외한 나머지가
-# 전부 0행이면 clean. 이 세 체크는 정지 시점/실험 한정(§4-2 ④·§4-3 각주)이라 라이브·부하·지연 중
-# 비동기 창·프로젝션 지연으로 순간 위반해 상시 무결성 판정을 오염시킨다. 권위 run의 criticalClean은
-# 이들을 포함하므로 실험 게이팅에는 이 함수로 ALWAYS 스코프만 본다(C16은 이 스택에서 빈 테이블 0).
+# 실험 무결성 판정. 서버가 AUTHORITATIVE_ONLY로 규정한 체크와 WARN 등급을 게이팅에서 뺀 나머지가
+# 전부 0행이면 clean. AUTHORITATIVE_ONLY는 정지 시점·실험 사후 권위 run에서만 유효한 체크라
+# (InvariantCheck.Scope) 라이브·부하·지연 중에는 비동기 창·프로젝션 지연으로 순간 위반해 판정을
+# 오염시킨다. 실측: 400 ops 부하에서 C13a가 10~11건 잡히고 드레인하면 0이 된다.
+# 목록은 서버 카탈로그(InvariantCheck.java의 Scope.AUTHORITATIVE_ONLY)와 1:1이어야 한다.
+# 종전에는 C22·C23이 빠져 있어 부하 중 권위 run에서 위양성이 날 수 있었다. 근본 해법은
+# HarnessController.CheckView에 scope 필드를 실어 스크립트가 서버를 그대로 따르는 것이고,
+# 그 전까지는 이 목록을 서버와 함께 갱신한다.
 function Test-ExperimentIntegrity {
     param($Run)
-    $conditional = @('C13A_ORDER_MATERIALIZED', 'C16_ACK_JOURNALED', 'C19_ORDERBOOK_NONCROSS')
+    $authoritativeOnly = @(
+        'C13A_ORDER_MATERIALIZED', 'C16_ACK_JOURNALED', 'C19_ORDERBOOK_NONCROSS',
+        'C22_FENCING_MONOTONIC', 'C23_COUNTER_SEQ_CONSISTENCY'
+    )
     foreach ($c in $Run.checks) {
-        if ($conditional -contains $c.checkName) { continue }
+        if ($authoritativeOnly -contains $c.checkName) { continue }
+        # WARN은 관측용 등급이라 실험 실패 사유가 아니다(CRITICAL·HIGH만 게이팅).
+        if ($c.severity -eq 'WARN') { continue }
         if ([long]$c.violatedRows -ne 0) { return $false }
     }
     return $true

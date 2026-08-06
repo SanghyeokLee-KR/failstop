@@ -31,7 +31,9 @@ try {
         else { $targetPort = 28080; $standbyPort = 18080 }
         Write-Host "리더 감지: $target (config 기본과 무관하게 실 리더 대상). standby=$standbyPort"
     } else {
-        Write-Host "리더 감지 실패. config TARGET_NODE=$target 사용(팔로워면 페일오버 미발생 주의)."
+        # config 기본값으로 강행하면 팔로워를 대상 삼을 수 있고, 그때는 승격이 없어 확정 FAIL이
+        # 난다. 그 FAIL은 코드 결함이 아니라 판정 결함이므로 실행 자체를 막는다.
+        throw '리더 감지 실패. 실 리더를 특정하지 못한 채 주입하면 판정이 무의미하다. leader_lease holder와 컨테이너 로그를 대조해 리더를 확인한 뒤 재실행한다.'
     }
 
     Write-Section 'ⓐ 사전 권위 run'
@@ -50,6 +52,7 @@ try {
     Write-Section "ⓑ 주입: docker pause $target (프로세스 동결)"
     $tradesAtInject = Get-TradeCount
     & docker pause $target | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "docker pause 실패(종료코드 $LASTEXITCODE). 유령 주입으로 진행하면 확정 위양성이다." }
     $paused = $true
     $t0 = (Get-Date).ToUniversalTime()
     $wCmd = Get-CommandWatermark
@@ -63,7 +66,7 @@ try {
     } -TimeoutSec $observeSec -PollSec 0.5
     $sAfter = Get-HarnessStatus -Port $standbyPort
     $newEpoch = [long]$sAfter.epoch; $newHolder = $sAfter.holder
-    $t5 = Wait-FirstTradeAfter -NewEpoch $newEpoch -T0 $t0 -TimeoutSec $observeSec
+    $t5 = Wait-FirstTradeAfter -OldEpoch $oldEpoch -T0 $t0 -TimeoutSec $observeSec
     $rto = $null; if ($t5) { $rto = ($t5 - $t0).TotalSeconds }
     $leaseTtl = Get-LeaseTtlSec
     $downtime = $null; if ($t2) { $downtime = ($t2 - $leaseUntilBefore).TotalSeconds + $leaseTtl }
@@ -78,7 +81,9 @@ try {
 
     Write-Section "ⓓ 해제: docker unpause $target (좀비 리더 깨어남)"
     & docker unpause $target | Out-Null
-    $paused = $false
+    # 성공을 확인한 뒤에만 플래그를 내린다. 먼저 내리면 실패 시 종료 훅이 재시도하지 않아
+    # 컨테이너가 영구 동결로 남고 이후 전 실험이 무관한 이유로 FAIL한다.
+    if ($LASTEXITCODE -eq 0) { $paused = $false } else { Write-Host "docker unpause 실패(종료코드 $LASTEXITCODE). 종료 훅에서 재시도한다." -ForegroundColor Yellow }
     # 좀비 관찰(soft): unpause된 구 리더는 구 epoch heartbeat/append -> fencing 0행 -> self-shutdown.
     # 재승격 없음(리스 보유자=신 리더, epoch 불변)을 leader_lease 직조회로 확인.
     $zombieOk = Wait-For {
@@ -145,11 +150,14 @@ try {
     Invoke-Psql "SELECT check_name, ok, violated_rows FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='post' ORDER BY ok, check_name"
 }
 finally {
-    # 종료 훅: unpause 무조건 보장. pause 잔존 시 컨테이너가 영구 동결된다.
-    if ($paused) {
-        Write-Section '종료 훅: docker unpause'
-        try { & docker unpause $target | Out-Null } catch { }
-    }
+    # 종료 훅: unpause를 조건 없이 시도한다. $paused 플래그를 신뢰하면 플래그가 먼저 내려간
+    # 실패 경로에서 컨테이너가 영구 동결로 남는다(정본 §3 공통 전제: unpause 무조건 실행).
+    # 이미 실행 중이면 docker가 비영 종료코드를 내지만 무해하므로 결과를 보고만 한다.
+    Write-Section '종료 훅: docker unpause(무조건)'
+    try {
+        & docker unpause $target 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { Write-Host "unpause 종료코드 $LASTEXITCODE (이미 실행 중이면 정상)" -ForegroundColor DarkGray }
+    } catch { Write-Host "unpause 시도 중 예외: $($_.Exception.Message)" -ForegroundColor Yellow }
 }
 
 if ($verdict -ne 'PASS') { Write-Host 'E7 FAIL.' -ForegroundColor Red; exit 1 }

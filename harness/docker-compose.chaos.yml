@@ -14,7 +14,24 @@ services:
       POSTGRES_DB: ${CHAOS_PG_DB:-exchange}
       POSTGRES_USER: ${CHAOS_PG_USER:-exchange}
       POSTGRES_PASSWORD: ${CHAOS_PG_PASSWORD:-exchange}
-    command: ["postgres", "-c", "synchronous_commit=on"]
+    # 좀비 커넥션이 leader_lease 행 잠금을 무한 보유하면 승격이 막힌다. E2 실측: 블랙홀된 구 리더의
+    # 백엔드가 idle in transaction으로 2분 넘게 RowShareLock(FOR SHARE)을 쥐고, 스탠바이의
+    # try_acquire_leader UPDATE가 그 뒤에서 대기해 클러스터가 리더 없이 정지했다. 토식을 풀자 즉시
+    # 승격됐다. docker pause·network disconnect는 RST를 남기지 않아 PG가 클라이언트 사망을 인지하지
+    # 못하고, 기본 idle_in_transaction_session_timeout=0(비활성)이라 회수되지 않는다. keepalive는
+    # 리눅스 기본이 2시간이라 페일오버 시간 척도에 무의미하다. 두 축으로 회수 시간을 유계화한다.
+    command:
+      - "postgres"
+      - "-c"
+      - "synchronous_commit=on"
+      - "-c"
+      - "idle_in_transaction_session_timeout=10s"
+      - "-c"
+      - "tcp_keepalives_idle=5"
+      - "-c"
+      - "tcp_keepalives_interval=2"
+      - "-c"
+      - "tcp_keepalives_count=3"
     ports: ["55432:5432"]
     volumes: ["chaos-pgdata:/var/lib/postgresql/data"]
     healthcheck:
