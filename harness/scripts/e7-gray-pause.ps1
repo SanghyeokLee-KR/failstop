@@ -1,7 +1,13 @@
 ﻿# docs §3 E7 그레이 장애(행/무응답). docker pause chaos-api-1(freezer cgroup, TCP 생존) -> 45s -> unpause.
 # crash와 달리 재기동 없음. lease 갱신 중단 -> 만료 -> 승격. unpause된 좀비 리더의 첫 heartbeat/append는
-# 구 epoch라 fencing 0행 -> self-shutdown. 판정: 승격 정상, 좀비 stale 쓰기 0, epoch 정확히 +1, RTO < 30s.
+# 구 epoch라 fencing 0행 -> self-shutdown. 판정: 승격 정상(epoch 단조 상승 + holder 교체),
+# 좀비 stale 쓰기 0, RTO < 30s.
 # 종료 훅에서 docker unpause를 무조건 실행한다(pause는 restart 정책으로 복구 안 됨, §3).
+#
+# 실행 전제: 승격 가능한 스탠바이가 실재해야 한다. 종신 강등은 프로세스 내 플래그이고 서버에
+# 자기 종료 경로가 없어(restart 정책도 발동하지 않는다) 한 번 태운 노드는 컨테이너를 다시
+# 세우기 전까지 후보로 돌아오지 않는다. E5 직후 이 실험을 돌리면 승격 후보가 0이라 확정
+# 위양성 FAIL이 난다. 실험 사이에 down -v + up으로 스택을 새로 세운다.
 param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e7-gray-pause.env'))
 
 $ErrorActionPreference = 'Stop'
@@ -20,8 +26,12 @@ $paused = $false
 Write-Section "E7(그레이 장애/pause) 시작 runId=$runId"
 try {
     Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
-    $ok = Wait-For { (Get-TradeCount) -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
-    if (-not $ok) { throw '체결 미달, 봇 상태 확인' }
+    # 누적 count가 아니라 증분으로 본다. 누적이면 앞선 실험이 남긴 체결만으로 즉시 통과해
+    # 봇이 죽었거나 1 ops로 파킹된 상태에서도 주입한다. 부하 없이 주입하면 Wait-FirstTradeAfter가
+    # 타임아웃해 RTO n/a로 위양성 FAIL이 난다(E5는 같은 조건에서 공허 PASS로 기운다).
+    $tradesBase = Get-TradeCount
+    $ok = Wait-For { (Get-TradeCount) - $tradesBase -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
+    if (-not $ok) { throw "체결 증분 미달(기준 $($cfg['MIN_TRADES_BEFORE_INJECT'])건). 봇 부하가 실리지 않았다. chaos-bots 상태와 CHAOS_BOTS_OPS를 확인한다." }
 
     # 실 리더를 대상 삼는다. 팔로워를 pause하면 페일오버가 없어 공허 FAIL 난다(README 리허설).
     $detected = Get-LeaderContainer
@@ -51,6 +61,9 @@ try {
 
     Write-Section "ⓑ 주입: docker pause $target (프로세스 동결)"
     $tradesAtInject = Get-TradeCount
+    # T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다. ⓐ 시점 스냅샷을 쓰면
+    # 사전 권위 run과 시계 가드가 도는 동안의 갱신분이 그대로 다운타임에 더해져 과대 산출된다.
+    $leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort).leaseUntil).UtcDateTime
     & docker pause $target | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "docker pause 실패(종료코드 $LASTEXITCODE). 유령 주입으로 진행하면 확정 위양성이다." }
     $paused = $true
@@ -113,11 +126,17 @@ try {
     # 동작을 split-brain 흔적으로 오판한다. split-brain 판정은 아래 staleWrites(구 epoch fencing
     # 축 저널 행 0)가 전담하므로 epoch는 단조 증가만 본다.
     $epochOk = ($newEpoch -ge $oldEpoch + 1) -and ($finalEpoch -ge $newEpoch)
+    # epoch 상승만으로는 "다른 노드가 받았다"가 증명되지 않는다. [반납 -> 만료 -> 같은 노드
+    # 재승격]도 epoch를 올리고, 승격과 종신 강등이 경합하면 아무도 서빙하지 않는데 epoch만 오른다.
+    $holderChanged = (-not [string]::IsNullOrWhiteSpace($newHolder)) -and ($newHolder -ne $oldHolder)
     $rtoOk = ($null -ne $rto -and $rto -lt $rtoTarget)
     $postClean = Test-ExperimentIntegrity $post
     # §3 E7 합격 기준: 승격 정상 + 좀비 stale 쓰기 0 + RTO<30s. 무결성은 ALWAYS 스코프로 본다.
+    # rtoOk가 t5 실재를 요구하므로 서비스 재개는 이미 게이팅된다(E5와 달리 별도 항이 불필요).
     $verdict = 'FAIL'
-    if (($staleWrites -eq 0) -and $epochOk -and $postClean -and $rtoOk) { $verdict = 'PASS' }
+    if (($staleWrites -eq 0) -and $epochOk -and $holderChanged -and $postClean -and $rtoOk) {
+        $verdict = 'PASS'
+    }
 
     $rtoRounded = $null; if ($null -ne $rto) { $rtoRounded = [math]::Round($rto, 3) }
     $downtimeRounded = $null; if ($null -ne $downtime) { $downtimeRounded = [math]::Round($downtime, 3) }
@@ -139,7 +158,8 @@ try {
     Write-Host '── E7 증거(그레이 장애) ─────────────────' -ForegroundColor Green
     Write-Host ("verdict            : {0}" -f $verdict)
     Write-Host ("좀비 stale 쓰기    : {0}  (구 epoch={1} 워터마크 이후 저널 행)" -f $staleWrites, $oldEpoch)
-    Write-Host ("epoch              : {0} -> {1} (final={2}, 정확히 +1={3})" -f $oldEpoch, $newEpoch, $finalEpoch, $epochOk)
+    Write-Host ("epoch              : {0} -> {1} (final={2}, 단조 상승={3})" -f $oldEpoch, $newEpoch, $finalEpoch, $epochOk)
+    Write-Host ("리더 교체          : {0}  ({1} -> {2})" -f $holderChanged, $oldHolder, $newHolder)
     Write-Host ("RTO(체결 재개)     : {0} s (목표 < {1})" -f $rtoEvid, $rtoTarget)
     Write-Host ("무결성(ALWAYS 스코프): {0}" -f $postClean)
     Write-Host ("자산합(C01)        : {0}" -f $assetSum)

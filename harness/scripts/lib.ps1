@@ -236,8 +236,12 @@ function Complete-FailoverExperiment {
     $rtoDisplay = 'n/a'; if ($null -ne $rtoRounded) { $rtoDisplay = $rtoRounded }
     $firstTradeVal = $null; if ($firstTradeTs) { $firstTradeVal = $firstTradeTs }
 
+    # epoch는 단조 상승만 본다. 승격 재생 반납이 도입되면서 한 페일오버 사건에서
+    # [반납 -> 만료 -> 재승격]이 반복될 수 있고 그때 epoch가 +2 이상 오른다(DB 설계 §5.4).
+    # 정확히 +1을 요구하면 그 정상 경로가 FAIL로 뒤집힌다. E5·E7은 이미 -ge로 고쳤는데
+    # 공용 함수만 교정을 못 받아 E2·E6에 남아 있었다. 서비스 재개는 아래 t5·rto가 요구한다.
     $verdict = 'FAIL'
-    if ($post.criticalClean -and $t5 -and ($newEpoch -eq $OldEpoch + 1) -and ($null -ne $rto) -and ($rto -lt $RtoTarget)) {
+    if ($post.criticalClean -and $t5 -and ($newEpoch -ge $OldEpoch + 1) -and ($null -ne $rto) -and ($rto -lt $RtoTarget)) {
         $verdict = 'PASS'
     }
 
@@ -375,11 +379,20 @@ function Get-LeaderContainer {
     param([string[]] $Candidates = @('chaos-api-1', 'chaos-api-2'))
     $holder = Invoke-Psql "SELECT holder FROM leader_lease WHERE resource='matching-engine' AND lease_until > now()"
     if ([string]::IsNullOrWhiteSpace($holder)) { return $null }
+    $matched = @()
     foreach ($c in $Candidates) {
         # cmd /c로 stderr를 nul에 버려 PowerShell이 네이티브 stderr(JAVA_TOOL_OPTIONS)를
         # NativeCommandError로 승격시키는 것을 원천 차단한다(2>$null도 Stop에서 터짐, 공용 규약).
         $lines = & cmd /c "docker logs $c 2>nul" | Select-String -SimpleMatch $holder
-        if ($lines) { return $c }
+        if ($lines) { $matched += $c }
+    }
+    # 첫 매치를 반환하면 안 된다. holder UUID는 소유 노드에만 찍히지 않는다. fencing 거부
+    # 사유 문자열이 현재 리더의 holder를 담고 있어(V1 assert_current_leader) 강등된 구 리더의
+    # 로그에도 신 리더 UUID가 남는다. 그러면 후보 순서상 앞선 팔로워가 리더로 뽑히고, 그
+    # 팔로워를 주입 대상 삼은 실험은 승격이 없어 확정 위양성 FAIL이 난다. 모호하면 멈춘다.
+    if ($matched.Count -eq 1) { return $matched[0] }
+    if ($matched.Count -gt 1) {
+        Write-Host ("리더 판별 모호: holder={0}가 컨테이너 {1}에서 동시 매치. 로그 오염(fencing 거부 사유에 신 리더 holder 포함)일 수 있다." -f $holder, ($matched -join ', ')) -ForegroundColor Yellow
     }
     return $null
 }
