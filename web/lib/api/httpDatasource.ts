@@ -239,7 +239,7 @@ function parseDest(destination: string): ParsedDest {
 }
 
 /**
- * 인메모리 카운터로 실현되는 채널(§5-2 실현 (1)). 두 성질을 함께 갖는다.
+ * 인메모리 카운터로 실현되는 채널(§5-2 seq 도메인 실현·epoch 규칙). 두 성질을 함께 갖는다.
  * 채널당 seq가 +1로 조밀해 결번이 실제 유실이고, 리더 교체 시 카운터가 낮은 값에서 재시작한다.
  * trade·candle은 전역 영속 event_seq 실현이라 채널 관점 비연속이 정상이고 교체로 리셋되지 않는다.
  */
@@ -1028,8 +1028,8 @@ export class HttpStompDataSource implements DataSource {
         if (!this.resyncFresh(ch, gen)) return;
         // 교체 직후 뒤처진 노드가 구 세대 스냅샷을 주면 그것이 새 기준점이 되는 순간 신 리더
         // 실시간이 전부 드롭된다. orderbook REST는 epoch를 싣는다(§4-A-2). 세대가 다르면
-        // 채택하지 않고 다음 realtime이 기준점을 잡게 둔다(ticker REST에는 epoch가 없어
-        // 같은 방어를 할 수 없다)
+        // 채택하지 않고 다음 realtime이 기준점을 잡게 둔다. ticker는 REST 응답 계약(§4-A-4)에
+        // epoch가 없어 같은 방어를 할 수 없다(현 서버는 계약 밖으로 싣지만 의존하지 않는다)
         if (this.lastEpoch !== null && snap.epoch !== this.lastEpoch) return;
         // 기준점은 전진만 한다. REST가 WS보다 뒤처진 노드를 읽으면 기준점이 내려가
         // 이미 보여준 호가가 과거로 되돌고, 이어지는 실시간이 결번으로 재동기화를 부른다
