@@ -162,18 +162,18 @@ export function qtyFromTotal(total: string | number, price: string | number, sca
 }
 
 /**
- * 가용 잔고 대비 주문 비중. bid는 (총액+수수료)/현금, ask는 수량/보유코인.
+ * 가용 잔고 대비 주문 비중. bid는 락/현금, ask는 수량/보유코인.
+ * 예약은 수수료를 포함하지 않으므로(§4-B-5 v2.7) bid 분자에 수수료 항이 없다.
  * 분모가 0 이하면 0. 미확정 잔고에서 임계가 오작동하지 않게 막는다.
  */
 export function committedRatioOf(
   side: Side,
-  total: number,
-  fee: number,
+  lock: number,
   availKRW: number,
   availCoin: number,
   qty: number,
 ): number {
-  if (side === "bid") return availKRW > 0 ? (total + fee) / availKRW : 0;
+  if (side === "bid") return availKRW > 0 ? lock / availKRW : 0;
   return availCoin > 0 ? qty / availCoin : 0;
 }
 

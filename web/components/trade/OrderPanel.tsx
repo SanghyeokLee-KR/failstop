@@ -25,8 +25,9 @@ import {
   mulDecimal,
   normalizeDecimal,
   scaledIntRound,
-  scaledIntTrunc,
+  truncToScale,
 } from "@/lib/decimal";
+import { bidLockAmount, buyFeeBase, marketBidLockAmount, sellFeeQuote } from "@/lib/orderContract";
 import {
   initOrderKey,
   isFinalRejectStatus,
@@ -241,17 +242,16 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
 
   // 마켓 메타 소비(§4-A-1). taker_fee가 표시·잔고 검증·프리셋 역산의 단일 수수료 기준
   const feeRateStr = marketInfo?.taker_fee ?? FALLBACK_FEE_RATE_STR;
-  // 총액+수수료 = 총액×(1+fee). 문자열 십진으로 1+fee를 만들어 곱 한 번으로 처리
-  const feeScale = decimalsOf(feeRateStr);
-  const grossRateStr = fromScaledInt(10n ** BigInt(feeScale) + scaledIntTrunc(feeRateStr, feeScale), feeScale);
   // 라벨 % 표기는 수수료율에서 파생(0.0005 -> 0.05)
   const feePctStr = mulDecimal(feeRateStr, "100");
   const minOrderStr = marketInfo?.min_order_amount ?? FALLBACK_MIN_ORDER_KRW;
   const maxOrderStr = marketInfo?.max_order_amount ?? null;
+  // quote 자산 scale. 락 UP 양자화와 매도 수수료 선양자화의 격자다
+  const priceScale = marketInfo?.price_scale ?? 0;
 
   // 단일 십진 기준. 수량은 qty_scale 격자로 내림(잔고 안전, 반올림 아님), 가격은 틱 반올림.
   // 총액·수수료·최소주문·잔고 검증·제출 volume이 같은 문자열 값을 공유해 float 왕복과 경계 불일치를 없앤다.
-  const qtyStr = fromScaledInt(scaledIntTrunc(qtyRaw || "0", qtyScale), qtyScale);
+  const qtyStr = truncToScale(qtyRaw || "0", qtyScale);
   const amountStr = amountRaw === "" ? "0" : normalizeDecimal(amountRaw);
   // 총액 기준가: 지정가는 틱 반올림가, 시장가 매도는 현재가 추정, 시장가 매수는 가격 미사용(총액=금액)
   const priceBasisStr = isMarketBuy
@@ -260,12 +260,25 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
       ? normalizeDecimal(ticker?.trade_price ?? "0")
       : roundToTick(priceRaw || "0", priceTick);
   const totalStr = isMarketBuy ? amountStr : mulDecimal(priceBasisStr, qtyStr);
-  const feeStr = mulDecimal(totalStr, feeRateStr);
-  // 원 단위 반올림 총액(BigInt). 시장가 매수 notional·다이얼로그 표시 전용.
+  // 원 단위 반올림 총액(BigInt). 시장가 매수 notional 전용.
   // 최소주문 판정에 쓰면 [min-0.5, min) 구간이 half-up으로 통과해 서버 정확 비교와 경계가 어긋난다
   const totalWon = scaledIntRound(totalStr, 0);
-  // 총액+수수료. bid 잔고 초과 판정 기준
-  const grossStr = mulDecimal(totalStr, grossRateStr);
+  // 예약(락)은 수수료를 포함하지 않는다(§4-B-5 v2.7). 대금을 price_scale로 UP 양자화한 값이
+  // 실제로 잡히는 금액이므로 매수 잔고 검증 기준도 이것이다. 구 모델(대금+수수료)로 재면
+  // 서버가 통과시키는 주문을 인라인 검증이 막는다
+  const bidLockStr = isMarketBuy
+    ? marketBidLockAmount(amountStr, priceScale)
+    : bidLockAmount(priceBasisStr, qtyStr, priceScale);
+  // 수수료는 수취 자산 기준이다(§4-B-5 v2.7). 매수는 수취 base 수량 × taker(단위 base),
+  // 매도는 체결대금 × taker(단위 quote). 시장가 매수의 수취 수량은 현재가 기준 추정이다
+  const recvQtyStr = isMarketBuy
+    ? (qtyFromTotal(amountStr, normalizeDecimal(ticker?.trade_price ?? "0"), qtyScale) ?? "0")
+    : qtyStr;
+  const feeStr =
+    side === "bid"
+      ? buyFeeBase(recvQtyStr, feeRateStr, qtyScale)
+      : sellFeeQuote(totalStr, feeRateStr, priceScale);
+  const feeUnit = side === "bid" ? base : "원";
 
   const availKRWStr = assets.find((a) => a.currency === "KRW")?.balance ?? "0";
   const availCoinStr = assets.find((a) => a.currency === base)?.balance ?? "0";
@@ -283,13 +296,14 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     error = `최소 주문 금액은 ${formatKRW(minOrderStr)}원이에요`;
   else if (totalPositive && maxOrderStr !== null && compareDecimal(totalStr, maxOrderStr) > 0)
     error = `최대 주문 금액은 ${formatKRW(maxOrderStr)}원이에요`;
-  else if (side === "bid" && totalPositive && compareDecimal(grossStr, availKRWStr) > 0)
+  else if (side === "bid" && totalPositive && compareDecimal(bidLockStr, availKRWStr) > 0)
     error = "주문 가능 금액을 초과했어요";
   else if (side === "ask" && compareDecimal(qtyStr, availCoinStr) > 0) error = "보유 수량을 초과했어요";
   const ready = totalPositive && error === null && !loadingBalance && !accountsFailed;
 
-  // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다(임계 판정은 number로 충분)
-  const committedRatio = committedRatioOf(side, toNum(totalStr), toNum(feeStr), availKRW, availCoin, toNum(qtyStr));
+  // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다(임계 판정은 number로 충분).
+  // 분자는 실제로 묶이는 금액(락)이다. 수수료를 더하면 v2.7 예약 모델과 어긋난다
+  const committedRatio = committedRatioOf(side, toNum(bidLockStr), availKRW, availCoin, toNum(qtyStr));
   const isLargeOrder = computeLargeOrder(ready, committedRatio);
 
   /* ===== 입력 핸들러 ===== */
@@ -330,8 +344,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   };
 
   /* 퍼센트 프리셋. 전 경로가 문자열 십진이다. float 왕복은 2^53 초과 잔고에서 수량을 위조한다.
-     매수는 예산(가용×pct)을 수수료 포함 단가로 나눠 역산한다. 총액×(1+fee) <= 예산이 되도록
-     단가에 grossRate를 곱해 두면 100% 프리셋이 스스로 채운 수량으로 잔고 초과 에러를 만들지 않는다 */
+     v2.7 예약 모델에서 락은 대금뿐이라 (1+fee) 역산이 없다. 예산을 price_scale로 먼저 절사해
+     두면 대금 <= 예산(정수)이고 UP 양자화한 락도 그 정수를 넘지 않아, 100% 프리셋이 스스로
+     채운 수량으로 잔고 초과 에러를 만들지 않는다 */
   const applyPct = (pct: number) => {
     setActivePct(pct);
     if (side === "ask") {
@@ -339,15 +354,14 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
       return;
     }
     // 예산 자릿수는 잔고 자릿수 + 2. 10·25·50% 나눗셈이 절사 없이 떨어진다
-    const budgetStr = pctOfDecimal(availKRWStr, pct, decimalsOf(availKRWStr) + 2);
+    const budgetStr = truncToScale(pctOfDecimal(availKRWStr, pct, decimalsOf(availKRWStr) + 2), priceScale);
     if (isMarketBuy) {
-      // 시장가 매수 금액은 원 단위 정수. 예산을 1+fee로 나눠 수수료까지 예산 안에 든다
-      setAmountRaw(qtyFromTotal(budgetStr, grossRateStr, 0) ?? "0");
+      setAmountRaw(budgetStr);
       return;
     }
     // 역산 기준가는 검증·제출과 같은 틱 반올림가. 원시 입력가 기준이면 100% 프리셋이
     // 스스로 채운 수량이 반올림가 총액으로 재검증되며 잔고 초과 에러를 만든다
-    const next = qtyFromTotal(budgetStr, mulDecimal(priceBasisStr, grossRateStr), qtyScale);
+    const next = qtyFromTotal(budgetStr, priceBasisStr, qtyScale);
     if (next !== null) setQtyRaw(next);
   };
 
@@ -427,12 +441,11 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const sideLabel = side === "bid" ? "매수" : "매도";
   const btnClass = side === "bid" ? "btn--buy" : "btn--sell";
 
-  // 다이얼로그 표시값. 시장가 매수는 체결 수량이 확정 전이라 현재가 기준 추정 수량을 보인다
-  const confirmQtyStr = isMarketBuy
-    ? (qtyFromTotal(amountStr, normalizeDecimal(ticker?.trade_price ?? "0"), qtyScale) ?? "0")
-    : qtyStr;
+  // 다이얼로그 표시값. 시장가 매수는 체결 수량이 확정 전이라 현재가 기준 추정 수량을 보인다.
+  // 총액은 반올림값이 아니라 패널·제출과 같은 정확 총액이다(표시가와 접수가가 갈리면 안 된다)
+  const confirmQtyStr = recvQtyStr;
   const confirmPriceStr = ordType === "limit" ? priceBasisStr : undefined;
-  const confirmTotalStr = fromScaledInt(totalWon, 0);
+  const confirmTotalStr = totalStr;
   const ratioPct = Math.round(committedRatio * 100);
 
   return (
@@ -594,9 +607,12 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           </div>
         )}
         <div className={styles.sumRow}>
+          {/* 수수료 자산은 수취 자산이다. 매수는 받는 코인에서, 매도는 받는 원화에서 빠진다.
+              단위를 병기하지 않으면 매수 수수료를 원 금액으로 읽는다 */}
           <span>예상 수수료 ({feePctStr}%)</span>
           <b className="num">
-            {formatKRW(feeStr)} <span className="unit-suffix">원</span>
+            {side === "bid" ? formatQty(feeStr, qtyScale) : formatKRW(feeStr)}{" "}
+            <span className="unit-suffix">{feeUnit}</span>
           </b>
         </div>
         <div className={styles.sumRow}>
@@ -657,6 +673,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           qtyStr={confirmQtyStr}
           qtyScale={qtyScale}
           totalStr={confirmTotalStr}
+          feeStr={feeStr}
+          feeUnit={feeUnit}
+          feePctStr={feePctStr}
           ratioPct={ratioPct}
           busy={submitting}
           onConfirm={onConfirmLarge}

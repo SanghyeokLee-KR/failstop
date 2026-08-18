@@ -77,21 +77,20 @@ test("퍼센트 프리셋: 비유한 pct는 0으로 흡수(BigInt 변환 예외 
   assert.equal(pctOfDecimal("1000", Number.POSITIVE_INFINITY, 8), "0");
 });
 
-test("bid 비중: (총액+수수료)/현금", () => {
-  // (700,000 + 350) / 1,000,000
-  assert.equal(committedRatioOf("bid", 700_000, 350, 1_000_000, 0, 0), 0.70035);
+test("bid 비중: 락/현금(수수료 미포함, v2.7 예약 모델)", () => {
+  assert.equal(committedRatioOf("bid", 700_000, 1_000_000, 0, 0), 0.7);
 });
 
 test("bid 비중: 현금 0이면 0(분모 가드)", () => {
-  assert.equal(committedRatioOf("bid", 700_000, 350, 0, 0, 0), 0);
+  assert.equal(committedRatioOf("bid", 700_000, 0, 0, 0), 0);
 });
 
 test("ask 비중: 수량/보유코인", () => {
-  assert.equal(committedRatioOf("ask", 0, 0, 0, 2, 1), 0.5);
+  assert.equal(committedRatioOf("ask", 0, 0, 2, 1), 0.5);
 });
 
 test("ask 비중: 보유코인 0이면 0(분모 가드)", () => {
-  assert.equal(committedRatioOf("ask", 0, 0, 0, 0, 1), 0);
+  assert.equal(committedRatioOf("ask", 0, 0, 0, 1), 0);
 });
 
 test("임계 판정: 0.7 직전은 대형 아님", () => {

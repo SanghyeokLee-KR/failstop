@@ -25,6 +25,12 @@ interface Props {
   qtyStr: string;
   qtyScale: number;
   totalStr: string;
+  /** 수수료 금액. 수취 자산 단위다(매수 base, 매도 quote, §4-B-5 v2.7) */
+  feeStr: string;
+  /** 수수료 단위 라벨. 금액만 보이면 매수 수수료를 원으로 오독한다 */
+  feeUnit: string;
+  /** 수수료율 백분율 표기(0.0005 -> 0.05) */
+  feePctStr: string;
   /** 가용 잔고 대비 주문 비율(퍼센트, 정수 반올림). 큰 비중임을 사용자에게 알린다 */
   ratioPct: number;
   busy: boolean;
@@ -42,6 +48,9 @@ export default function OrderConfirmDialog({
   qtyStr,
   qtyScale,
   totalStr,
+  feeStr,
+  feeUnit,
+  feePctStr,
   ratioPct,
   busy,
   onConfirm,
@@ -162,6 +171,13 @@ export default function OrderConfirmDialog({
             <dt>수량</dt>
             <dd className="num">
               {formatQty(qtyStr, qtyScale)} <span className="unit-suffix">{base}</span>
+            </dd>
+          </div>
+          <div className={styles.row}>
+            <dt>예상 수수료 ({feePctStr}%)</dt>
+            <dd className="num">
+              {feeUnit === "원" ? formatKRW(feeStr) : formatQty(feeStr, qtyScale)}{" "}
+              <span className="unit-suffix">{feeUnit}</span>
             </dd>
           </div>
           <div className={`${styles.row} ${styles.rowTotal}`}>
