@@ -4,11 +4,19 @@
 # 개입 금지 구간(kill 이후)에서 스크립트는 관찰·기록만 한다.
 #
 # 실행 전제: 실험 사이에 down -v + up으로 스택을 새로 세운다. compose가 api-2 기동을 api-1
-# readiness에 종속시키므로 신선한 스택의 리더는 결정적으로 api-1이다. 전제를 생략하면 api-1이
-# restart: unless-stopped라 kill한 노드가 팔로워로 부활하고, 그러면 다음 실행의 리더는 api-2다.
-# 그때 config TARGET_NODE 기본값(chaos-api-1)을 그대로 믿으면 팔로워를 죽이게 되므로 아래에서
-# 실 리더를 감지해 덮어쓴다. E5·E7이 남긴 종신 강등도 프로세스 내 플래그라 재기동 전까지
-# 승격 후보로 돌아오지 않는다(E5 헤더와 같은 규약).
+# readiness에 종속시키므로 신선한 스택의 리더는 결정적으로 api-1이다. 전제를 생략하면 앞선
+# 실행에서 kill한 노드가 죽은 채 남고 리더는 api-2다. 그때 config TARGET_NODE 기본값
+# (chaos-api-1)을 그대로 믿으면 이미 죽은 컨테이너를 대상 삼으므로 아래에서 실 리더를 감지해
+# 덮어쓰고, 주입 전 스탠바이 도달성까지 확인한다. E5·E7이 남긴 종신 강등도 프로세스 내
+# 플래그라 재기동 전까지 승격 후보로 돌아오지 않는다(E5 헤더와 같은 규약).
+#
+# compose의 restart: unless-stopped는 docker kill에 발동하지 않는다. 데몬이 docker kill을 수동
+# 정지로 표시해 재기동 정책을 건너뛴다. 실측(Docker 29.5.2): unless-stopped 컨테이너를
+# docker kill하면 exited·RestartCount 0으로 남고, 같은 정책의 컨테이너가 스스로 비정상 종료하면
+# RestartCount가 오른다. 정책이 죽은 것이 아니라 kill 경로만 면제된다. 라이브 E4에서
+# chaos-api-1이 부활하지 않은 관찰과 일치한다(관찰 1회 + 최소 재현 컨테이너 확인, 대상 컨테이너
+# 자체 재현은 미실시). 따라서 kill한 노드의 자동 부활을 전제로 판정을 짜지 않는다. compose
+# 변경은 실험 설계에 영향을 주므로 여기서 하지 않는다.
 param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e4.env'))
 
 $ErrorActionPreference = 'Stop'

@@ -82,7 +82,12 @@ try {
     $pre = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'pre'
     Write-Host "사전 verdict=$($pre.verdict) old_epoch=$oldEpoch"
 
-    Write-Section "ⓑ 주입: docker kill $redis (restart 정책 재기동)"
+    # redis 토폴로지를 실제로 추가할 때 이 경로의 복귀 전제를 먼저 고쳐야 한다. docker kill은
+    # 데몬이 수동 정지로 표시해 restart 정책을 건너뛴다(E4 헤더 실측, Docker 29.5.2). 아래
+    # $recovered 대기는 자동 부활을 전제하므로 그대로 두면 확정 타임아웃이고, 그 FAIL은 코드
+    # 결함이 아니라 판정 결함이다. 부활을 관측하려면 주입을 프로세스 크래시나 명시 재기동으로
+    # 바꿔야 한다. 현 스택에는 redis가 없어 이 경로가 도달 불가라 여기서는 사실만 남긴다.
+    Write-Section "ⓑ 주입: docker kill $redis"
     $t0 = (Get-Date).ToUniversalTime()
     & docker kill $redis | Out-Null
     Write-Host "T0=$($t0.ToString('o'))"
