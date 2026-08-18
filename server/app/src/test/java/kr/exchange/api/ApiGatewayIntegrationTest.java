@@ -66,7 +66,9 @@ class ApiGatewayIntegrationTest {
 
     private static final int KRW = 1;
     private static final int BTC = 2;
+    private static final int ETH = 3;
     private static final int KRW_BTC = 1;
+    private static final int KRW_ETH = 2;
 
     // PER_CLASS 수명주기에서는 테스트 인스턴스 생성(=스프링 컨텍스트 기동)이 @Testcontainers
     // 확장 beforeAll보다 앞서므로 static 초기화로 컨테이너를 먼저 띄운다. 정리는 ryuk 몫이다.
@@ -800,6 +802,25 @@ class ApiGatewayIntegrationTest {
                         "POST", "/api/v1/orders", buy)).getStatusCode().value());
     }
 
+    /**
+     * 다른 마켓의 내 체결 1건. 마켓 필터가 실제로 좁히는지 양성 판별하기 위한 표본이라
+     * 엔진을 거치지 않고 직접 적재한다. 엔진 경로 밖 id 대역이라 trade_seq_registry 충돌이 없다.
+     */
+    private void seedForeignMarketTrade(long makerUserId, long takerUserId) {
+        bootstrap.asset(ETH, "ETH", "Ethereum", "CRYPTO", 8);
+        bootstrap.market(KRW_ETH, "KRW-ETH", ETH, KRW,
+                new BigDecimal("0.0005"), new BigDecimal("0.0005"));
+        java.time.OffsetDateTime at = java.time.OffsetDateTime.now();
+        jdbc.sql("""
+                        INSERT INTO trades (id, market_id, maker_order_id, taker_order_id,
+                            maker_user_id, taker_user_id, taker_side, price, quantity,
+                            maker_fee, taker_fee, fencing_epoch, executed_at, created_at)
+                        VALUES (?, ?, 0, 0, ?, ?, 'BUY', 3000000, 0.1, 150, 0, 1, ?, ?)
+                        """)
+                .params(9_100_001L, KRW_ETH, makerUserId, takerUserId, at, at)
+                .update();
+    }
+
     private void seedTrade(long id, String isoTime, String price, String qty) {
         java.time.OffsetDateTime at = java.time.OffsetDateTime.parse(isoTime);
         jdbc.sql("""
@@ -941,10 +962,27 @@ class ApiGatewayIntegrationTest {
         }
         assertEquals(expected, joined, "커서 경계에서 누락·중복·역전 없음");
 
-        assertEquals(full.size(),
-                signedData("/api/v1/my/trades", Map.of("market", "KRW-BTC", "count", "50"), aliceKey).size());
+        // 마켓 필터 양성 판별. 같은 사용자에게 다른 마켓 체결을 만들어 두 응답이 갈리게 한다.
+        // 건수 동일만 보면 필터를 통째로 무시하는 구현도 통과한다.
+        seedForeignMarketTrade(alice, bob);
+        JsonNode allMarkets = signedData("/api/v1/my/trades", Map.of("count", "100"), aliceKey);
+        JsonNode krwBtcOnly =
+                signedData("/api/v1/my/trades", Map.of("market", "KRW-BTC", "count", "100"), aliceKey);
+        assertTrue(krwBtcOnly.size() < allMarkets.size(), "마켓 필터가 걸리지 않았다");
+        krwBtcOnly.forEach(t -> assertEquals("KRW-BTC", t.path("market").asText()));
         assertEquals(400, getSigned("/api/v1/my/trades", Map.of("market", "KRW-NOPE"), aliceKey)
                 .getStatusCode().value());
+
+        // 유효 base64 봉투 + 비수치 id. Cursors.decode는 통과하고 커서 id 파싱 분기에 도달한다.
+        // 여기가 500으로 새면 조작 커서가 서버 오류로 나간다(§2-6).
+        String nonNumericId = Cursors.encode(java.time.OffsetDateTime.now(), "01J8ZT-not-a-number");
+        ResponseEntity<String> tampered =
+                getSigned("/api/v1/my/trades", Map.of("cursor", nonNumericId), aliceKey);
+        assertEquals(400, tampered.getStatusCode().value(), tampered.getBody());
+        assertEquals("invalid_parameter", errorName(tampered));
+        ResponseEntity<String> tamperedLedger =
+                getSigned("/api/v1/my/ledger", Map.of("cursor", nonNumericId), aliceKey);
+        assertEquals(400, tamperedLedger.getStatusCode().value(), tamperedLedger.getBody());
         assertEquals(400, getSigned("/api/v1/my/trades", Map.of("count", "201"), aliceKey)
                 .getStatusCode().value(), "count 상한 200(§2-6)");
         assertEquals(400, getSigned("/api/v1/my/trades", Map.of("count", "0"), aliceKey)
