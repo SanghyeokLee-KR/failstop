@@ -7,6 +7,7 @@ package kr.exchange.harness;
  * C21~C23은 DB 설계 §6.4의 감사 카탈로그 ⑮(이벤트 방출 레지스트리 1:1, P0-4)·⑯(fencing 단조,
  * P0-1)·⑰(채번 카운터 정합, P0-5)이다. §6.5 pg_cron이 실환경(Testcontainers·카오스)에 없어 어떤
  * 러너도 평가하지 않던 공백을, 고아 체크(C09~C12) 이관과 동일하게 앱 스케줄러로 배선했다.
+ * C24·C25는 DB 설계 §6.4 ⑱⑲(원가 프로젝션)이며 유일한 WARN·권위 run 조합이다.
  *
  * C03·C09~C12·C15는 원래 pg_cron 분담이었으나, 카오스 스택·Testcontainers에 pg_cron이 없어
  * 실환경에서 아무 러너도 평가하지 않았다(고아 체결·미저널 체결 회귀가 페일오버 판정을 그대로
@@ -267,7 +268,28 @@ public enum InvariantCheck {
                      AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal))
                OR (c.name = 'event_seq'
                      AND c.next_value <= (SELECT COALESCE(max(event_seq), 0) FROM event_journal))
-            """);
+            """),
+
+    // ── 원가 프로젝션 정합(DB §6.4 ⑱⑲, V13) ──────────────────────────────
+    // 술어는 V13이 만든 뷰가 정본이다. SQL 사본을 두면 라이브 산식과 감사 산식이 두 벌이 되어
+    // 갈린다. 여기서는 위반 행 수만 센다.
+    //
+    // WARN인 이유: position_cost는 계층 ③ 파생 프로젝션이라 위반해도 자금·원장은 무손상이고
+    // 조치가 rebuild_position_cost() 재구축이다. CRITICAL로 올리면 §4-3 자동 조치인 거래
+    // 정지까지 유발해 카오스 판정이 자금 무결성과 표시 정합을 같은 등급으로 뭉갠다.
+    //
+    // AUTHORITATIVE_ONLY인 이유: 주입 창에서는 재구축이 아직 안 돈 시점이라 위반이 장애가
+    // 아니라 미반영을 뜻한다. R5·실험 사후 권위 run이 유효 평가점이다(하네스 검증설계 §4-2 ④).
+    //
+    // C24는 항등(cost_qty + unknown_qty = available + locked)이다. 초과는 처분 차감 누락,
+    // 미달은 취득 누산 누락이며 어느 방향이든 위반이다. 단측 부등호로 읽으면 한 방향을
+    // 정상으로 오해석해 실제 위반을 산식 밖으로 흘린다.
+    C24_POSITION_COST_QTY(Severity.WARN, Scope.AUTHORITATIVE_ONLY,
+            "SELECT count(*) FROM position_cost_qty_check"),
+    // C25는 누산기 부호·쌍·워터마크·원가 통화 라벨 5종을 뷰가 분류한다. 테이블 CHECK로 이미
+    // 막히는 항목까지 두는 것은 SECURITY DEFINER 우회·수퍼유저 직접 DML의 회귀 안전망이다.
+    C25_POSITION_COST_SANITY(Severity.WARN, Scope.AUTHORITATIVE_ONLY,
+            "SELECT count(*) FROM position_cost_sanity_check");
 
     public enum Severity { CRITICAL, HIGH, WARN }
 

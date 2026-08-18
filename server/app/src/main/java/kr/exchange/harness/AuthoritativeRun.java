@@ -7,6 +7,10 @@ import java.util.List;
  *
  * verdict PASS = 평가한 전 체크 ok. CRITICAL 위반이 하나라도 있으면 FAIL.
  * runId·window·watermark는 invariant_checks.details와 실험 리포트의 조인 키다.
+ *
+ * pass()는 심각도를 가리지 않으므로 WARN(C15·C24·C25)만 어긋나도 verdict가 FAIL로 나온다.
+ * 실험 게이팅 술어는 pass()가 아니라 criticalClean()이다(하네스 검증설계 §4-3). 스크립트가
+ * 사람에게 찍는 verdict 문자열을 게이팅 판정으로 읽지 않도록 이 구분을 유지한다.
  */
 public record AuthoritativeRun(
         String runId,

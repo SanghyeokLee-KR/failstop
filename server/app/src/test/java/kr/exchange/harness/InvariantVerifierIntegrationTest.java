@@ -499,6 +499,140 @@ class InvariantVerifierIntegrationTest {
                 "정리 후 C18 clean 미복귀");
     }
 
+    /**
+     * C24 음성 검증. 원가 수량 항등(`cost_qty + unknown_qty = available + locked`)을 **양방향**으로
+     * 깨서 권위 run이 둘 다 잡는지 반증한다. 단측 부등호 구현이면 한 방향이 통과해버리므로 초과·미달을
+     * 각각 주입한다. 겸해서 WARN 위반이 criticalClean을 내리지 않는다는 등급 분리도 못박는다. 이게
+     * 깨지면 표시 계층 결함이 §4-3 CRITICAL 자동 조치(거래 정지)를 유발한다.
+     *
+     * position_cost는 계층 ③ 파생이라 주입·복원이 원장·저널에 잔여를 남기지 않는다. 마지막 순서.
+     */
+    @Test
+    @Order(11)
+    void authoritativeCatchesPositionCostQtyDriftBothDirections() {
+        long[] key = costRowKey();
+        assertTrue(authoritativeCheck(InvariantCheck.C24_POSITION_COST_QTY).ok(),
+                "주입 전 C24가 이미 위반");
+
+        // 초과 방향: 처분 차감 누락 모사.
+        updateCost("unknown_qty = unknown_qty + 1", key);
+        try {
+            InvariantResult excess = authoritativeCheck(InvariantCheck.C24_POSITION_COST_QTY);
+            assertFalse(excess.ok(), "보유 초과(처분 차감 누락)를 C24가 놓침");
+            assertTrue(excess.violatedRows() >= 1, "C24 위반행 계수 0");
+        } finally {
+            updateCost("unknown_qty = unknown_qty - 1", key);
+        }
+        assertTrue(authoritativeCheck(InvariantCheck.C24_POSITION_COST_QTY).ok(),
+                "복원 후 C24 clean 미복귀(항상 FAIL 반증)");
+
+        // 미달 방향: 취득 누산 누락 모사. 단측 구현이면 여기서 통과해버린다.
+        BigDecimal unknown = jdbc.sql(
+                        "SELECT unknown_qty FROM position_cost WHERE user_id = ? AND asset_id = ?")
+                .params(key[0], key[1])
+                .query(BigDecimal.class).single();
+        assertTrue(unknown.signum() > 0, "미달 주입 표본에 원가 미상 수량이 없다");
+        updateCost("unknown_qty = 0", key);
+        try {
+            AuthoritativeRun run = verifier.runAuthoritative("cost-neg", "inject");
+            InvariantResult deficit = run.results().stream()
+                    .filter(r -> r.check() == InvariantCheck.C24_POSITION_COST_QTY)
+                    .findFirst().orElseThrow();
+            assertFalse(deficit.ok(), "보유 미달(취득 누산 누락)을 C24가 놓침");
+            // 등급 분리: WARN은 verdict를 내리되 CRITICAL 판정은 건드리지 않는다.
+            assertFalse(run.pass(), "위반이 있는데 verdict PASS");
+            assertTrue(run.criticalClean(),
+                    "WARN 위반이 criticalClean을 내렸다(표시 계층 결함이 거래 정지를 유발한다)");
+            assertEquals(1, count("""
+                    SELECT count(*) FROM invariant_checks
+                    WHERE check_name = 'C24_POSITION_COST_QTY' AND ok = false
+                      AND details->>'run_id' = 'cost-neg'
+                    """), "위반 결과 미적재");
+        } finally {
+            jdbc.sql("UPDATE position_cost SET unknown_qty = ? WHERE user_id = ? AND asset_id = ?")
+                    .params(unknown, key[0], key[1]).update();
+        }
+        assertTrue(authoritativeCheck(InvariantCheck.C24_POSITION_COST_QTY).ok(),
+                "복원 후 C24 clean 미복귀");
+    }
+
+    /**
+     * C25 음성 검증. 뷰가 분류하는 위반 5종 중 테이블 CHECK가 막지 못하는 두 종(워터마크 미래값,
+     * quote 자산에 원가 행)을 주입해 권위 run이 잡는지 반증한다. 부호·쌍 위반은 CHECK가 INSERT
+     * 단계에서 막아 주입 자체가 성립하지 않으므로 이 두 종이 실주입 가능한 표본이다.
+     *
+     * quote 행 주입은 unknown_qty를 실보유와 맞춰 넣어 C24를 건드리지 않는다. 두 체크가 서로의
+     * 위반에 업혀 통과하는 것을 배제하기 위함이다. 마지막 순서.
+     */
+    @Test
+    @Order(12)
+    void authoritativeCatchesPositionCostSanityViolations() {
+        long[] key = costRowKey();
+        assertTrue(authoritativeCheck(InvariantCheck.C25_POSITION_COST_SANITY).ok(),
+                "주입 전 C25가 이미 위반");
+
+        // watermark_ahead: last_txn_id가 원장 최대 id를 앞지른다(백업 복원·수기 리시드 모사).
+        long watermark = costColumn("last_txn_id", key);
+        updateCost("last_txn_id = (SELECT COALESCE(max(id), 0) + 1000 FROM ledger_transactions)",
+                key);
+        try {
+            InvariantResult ahead = authoritativeCheck(InvariantCheck.C25_POSITION_COST_SANITY);
+            assertFalse(ahead.ok(), "워터마크 미래값을 C25가 놓침");
+            assertTrue(ahead.violatedRows() >= 1, "C25 위반행 계수 0");
+        } finally {
+            jdbc.sql("UPDATE position_cost SET last_txn_id = ? WHERE user_id = ? AND asset_id = ?")
+                    .params(watermark, key[0], key[1]).update();
+        }
+        assertTrue(authoritativeCheck(InvariantCheck.C25_POSITION_COST_SANITY).ok(),
+                "복원 후 C25 clean 미복귀(항상 FAIL 반증)");
+
+        // quote_asset_position: 원가 대상이 아닌 quote 자산(KRW)에 원가 행.
+        assertEquals(1, jdbc.sql("""
+                INSERT INTO position_cost (user_id, asset_id, quote_asset_id, unknown_qty,
+                                           last_txn_id)
+                SELECT ub.user_id, ub.asset_id, ub.asset_id, ub.available + ub.locked,
+                       COALESCE((SELECT max(id) FROM ledger_transactions), 0)
+                FROM user_balances ub
+                WHERE ub.user_id = ? AND ub.asset_id = ?
+                """).params(key[0], (long) KRW).update(), "quote 원가 행 주입 실패");
+        try {
+            InvariantResult quoteRow = authoritativeCheck(InvariantCheck.C25_POSITION_COST_SANITY);
+            assertFalse(quoteRow.ok(), "quote 자산 원가 행을 C25가 놓침");
+            assertTrue(authoritativeCheck(InvariantCheck.C24_POSITION_COST_QTY).ok(),
+                    "C25 주입이 C24까지 오염시켰다(두 체크가 서로에 업혀 통과할 수 있다)");
+        } finally {
+            jdbc.sql("DELETE FROM position_cost WHERE user_id = ? AND asset_id = ?")
+                    .params(key[0], (long) KRW).update();
+        }
+        assertTrue(authoritativeCheck(InvariantCheck.C25_POSITION_COST_SANITY).ok(),
+                "정리 후 C25 clean 미복귀");
+    }
+
+    /** 봇 시드·체결이 남긴 원가 행 하나. 표본이 없으면 음성 검증이 공허 통과한다. */
+    private long[] costRowKey() {
+        return jdbc.sql("""
+                        SELECT user_id, asset_id FROM position_cost
+                        WHERE unknown_qty > 0 ORDER BY user_id, asset_id LIMIT 1
+                        """)
+                .query((rs, n) -> new long[]{rs.getLong("user_id"), rs.getLong("asset_id")})
+                .optional()
+                .orElseThrow(() ->
+                        new AssertionError("position_cost 표본이 없다(봇 시드·체결 선행 실패)"));
+    }
+
+    private long costColumn(String column, long[] key) {
+        return jdbc.sql("SELECT " + column + " FROM position_cost "
+                        + "WHERE user_id = ? AND asset_id = ?")
+                .params(key[0], key[1])
+                .query(Long.class).single();
+    }
+
+    private void updateCost(String assignment, long[] key) {
+        assertEquals(1, jdbc.sql("UPDATE position_cost SET " + assignment
+                        + " WHERE user_id = ? AND asset_id = ?")
+                .params(key[0], key[1]).update(), "원가 행 주입·복원이 0행");
+    }
+
     private InvariantResult authoritativeCheck(InvariantCheck target) {
         return verifier.runAuthoritative("gap-itest", "probe").results().stream()
                 .filter(r -> r.check() == target)
