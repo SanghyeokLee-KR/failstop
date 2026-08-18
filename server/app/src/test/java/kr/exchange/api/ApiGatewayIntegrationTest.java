@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -747,6 +748,18 @@ class ApiGatewayIntegrationTest {
         assertEquals("invalid_parameter", errorName(r));
     }
 
+    private JsonNode signedJson(String path, Map<String, String> params,
+                                DemoKeySeeder.IssuedKey key) throws Exception {
+        ResponseEntity<String> response = getSigned(path, params, key);
+        assertEquals(200, response.getStatusCode().value(), response.getBody());
+        return objectMapper.readTree(response.getBody());
+    }
+
+    private JsonNode signedData(String path, Map<String, String> params,
+                                DemoKeySeeder.IssuedKey key) throws Exception {
+        return signedJson(path, params, key).path("data");
+    }
+
     private List<String> closedIds(DemoKeySeeder.IssuedKey key, Map<String, String> params)
             throws Exception {
         ResponseEntity<String> r = getSigned("/api/v1/orders/closed", params, key);
@@ -867,6 +880,143 @@ class ApiGatewayIntegrationTest {
 
         assertEquals(401, rest.getForEntity("/api/v1/orders/chance?market=KRW-BTC", String.class)
                 .getStatusCode().value(), "무인증 접근이 열려 있다");
+    }
+
+    // ------------------------------------------------------------------
+    // 내 체결·원장 내역(§4-C-2, §4-C-3)
+    // ------------------------------------------------------------------
+
+    /**
+     * 같은 체결을 양쪽 사용자가 각자 관점으로 본다. taker는 TAKER·매수·base 수수료, maker는
+     * MAKER·매도·quote 수수료다. 이 투영이 뒤집히면 사용자가 자기 수수료를 반대 자산으로 읽는다.
+     */
+    @Test
+    @Order(21)
+    void myTradesProjectsBothSidesOfTheSameSettlement() throws Exception {
+        assertNotNull(buyOrderId, "alice 체결 선행 필요");
+        JsonNode mine = streamOf(signedData("/api/v1/my/trades", Map.of("count", "50"), aliceKey))
+                .filter(t -> buyOrderId.equals(t.path("order_id").asText()))
+                .findFirst().orElseThrow(() -> new AssertionError("내 체결에 e2e 매수가 없다"));
+        assertEquals("TAKER", mine.path("liquidity_flag").asText());
+        assertEquals("bid", mine.path("side").asText());
+        assertEquals("KRW-BTC", mine.path("market").asText());
+        assertEquals("50000000", mine.path("price").asText());
+        assertEquals("0.01", mine.path("volume").asText());
+        assertEquals("0.000005", mine.path("fee").asText());
+        assertEquals("BTC", mine.path("fee_currency").asText(), "매수 수수료는 수취 자산(base)");
+        assertTrue(mine.path("timestamp").asText().endsWith("Z"));
+
+        String tradeId = mine.path("trade_id").asText();
+        JsonNode counterparty = streamOf(signedData("/api/v1/my/trades", Map.of("count", "50"), bobKey))
+                .filter(t -> tradeId.equals(t.path("trade_id").asText()))
+                .findFirst().orElseThrow(() -> new AssertionError("상대편 체결이 없다"));
+        assertEquals("MAKER", counterparty.path("liquidity_flag").asText());
+        assertEquals("ask", counterparty.path("side").asText());
+        // maker 수수료 = 체결대금 500,000 x 0.0005, quote scale(KRW=0) HALF_UP.
+        assertEquals("250", counterparty.path("fee").asText());
+        assertEquals("KRW", counterparty.path("fee_currency").asText(), "매도 수수료는 수취 자산(quote)");
+
+        // 남의 체결은 보이지 않는다. carol은 체결이 없다.
+        assertEquals(0, signedData("/api/v1/my/trades", Map.of("count", "50"), carolKey).size());
+    }
+
+    /** 목록 계약(§2-2 엔벌로프·§2-6 커서·count 상한)과 필터·권한 경계. */
+    @Test
+    @Order(22)
+    void myTradesFollowsListEnvelopeCursorAndGuards() throws Exception {
+        JsonNode full = signedData("/api/v1/my/trades", Map.of("count", "50"), aliceKey);
+        assertTrue(full.size() >= 3, "커서 검증에 체결 3건 이상 필요: " + full.size());
+
+        JsonNode page1 = signedJson("/api/v1/my/trades", Map.of("count", "2"), aliceKey);
+        assertEquals("1.0", page1.path("schema_version").asText());
+        assertTrue(page1.path("pagination").path("has_more").asBoolean());
+        String cursor = page1.path("pagination").path("next_cursor").asText();
+        JsonNode page2 = signedData("/api/v1/my/trades", Map.of("count", "2", "cursor", cursor), aliceKey);
+        List<String> joined = new ArrayList<>();
+        page1.path("data").forEach(t -> joined.add(t.path("trade_id").asText()));
+        page2.forEach(t -> joined.add(t.path("trade_id").asText()));
+        List<String> expected = new ArrayList<>();
+        for (int i = 0; i < 4 && i < full.size(); i++) {
+            expected.add(full.get(i).path("trade_id").asText());
+        }
+        assertEquals(expected, joined, "커서 경계에서 누락·중복·역전 없음");
+
+        assertEquals(full.size(),
+                signedData("/api/v1/my/trades", Map.of("market", "KRW-BTC", "count", "50"), aliceKey).size());
+        assertEquals(400, getSigned("/api/v1/my/trades", Map.of("market", "KRW-NOPE"), aliceKey)
+                .getStatusCode().value());
+        assertEquals(400, getSigned("/api/v1/my/trades", Map.of("count", "201"), aliceKey)
+                .getStatusCode().value(), "count 상한 200(§2-6)");
+        assertEquals(400, getSigned("/api/v1/my/trades", Map.of("count", "0"), aliceKey)
+                .getStatusCode().value());
+        assertEquals(400, getSigned("/api/v1/my/trades", Map.of("cursor", "not-a-cursor"), aliceKey)
+                .getStatusCode().value());
+        assertEquals(401, rest.getForEntity("/api/v1/my/trades", String.class)
+                .getStatusCode().value(), "무인증 접근이 열려 있다");
+        // 조회 스코프 키로 읽을 수 있어야 한다(§4-C read).
+        assertEquals(200, getSigned("/api/v1/my/trades", Map.of(), aliceReadKey).getStatusCode().value());
+        assertNotNull(getSigned("/api/v1/my/trades", Map.of(), aliceKey)
+                .getHeaders().getFirst("X-RateLimit-Limit-account"));
+    }
+
+    /** 원장 투영(§4-C-3). 어휘는 DB 정본과 같고, 시스템 계정 분개는 사용자 관점에 나오지 않는다. */
+    @Test
+    @Order(23)
+    void myLedgerProjectsUserSideOfDoubleEntry() throws Exception {
+        JsonNode ledger = signedData("/api/v1/my/ledger", Map.of("count", "200"), aliceKey);
+        assertTrue(ledger.size() > 0, "체결·예약이 있었으므로 원장 분개가 있어야 한다");
+        Set<String> vocabulary = Set.of("DEPOSIT", "WITHDRAW", "TRADE", "FEE",
+                "RESERVE", "RELEASE", "GENESIS", "REVERSAL");
+        for (JsonNode entry : ledger) {
+            assertTrue(vocabulary.contains(entry.path("entry_type").asText()),
+                    "DB 정본 밖 entry_type: " + entry);
+            assertTrue(entry.path("entry_id").isTextual());
+            assertTrue(entry.path("amount").isTextual(), "금액은 문자열(§2-1)");
+            assertTrue(entry.path("currency").isTextual());
+            assertTrue(entry.path("ref").path("type").isTextual());
+            assertTrue(entry.path("timestamp").asText().endsWith("Z"));
+        }
+
+        // 수수료 leg는 FEE_INCOME 시스템 계정 귀속이라 사용자 원장에 나오지 않는다(§4-C-3).
+        assertTrue(streamOf(ledger).noneMatch(e -> "FEE".equals(e.path("entry_type").asText())),
+                "시스템 계정 분개가 사용자 투영에 샜다");
+
+        JsonNode trade = streamOf(ledger)
+                .filter(e -> "TRADE".equals(e.path("entry_type").asText()))
+                .findFirst().orElseThrow(() -> new AssertionError("체결 분개가 없다"));
+        assertEquals("TRADE", trade.path("ref").path("type").asText());
+        assertTrue(trade.path("ref").path("trade_id").isTextual());
+
+        // 예약 분개는 내부 주문 PK가 아니라 외부 UUID를 가리킨다(§2-6 내부 PK 미노출).
+        JsonNode reserve = streamOf(ledger)
+                .filter(e -> "RESERVE".equals(e.path("entry_type").asText()))
+                .findFirst().orElseThrow(() -> new AssertionError("예약 분개가 없다"));
+        assertEquals(36, reserve.path("ref").path("order_id").asText().length(),
+                "ref.order_id는 외부 UUID여야 한다: " + reserve);
+
+        JsonNode krwOnly = signedData("/api/v1/my/ledger",
+                Map.of("currency", "KRW", "count", "200"), aliceKey);
+        assertTrue(krwOnly.size() > 0);
+        assertTrue(krwOnly.size() < ledger.size(), "통화 필터가 걸리지 않았다");
+        krwOnly.forEach(e -> assertEquals("KRW", e.path("currency").asText()));
+
+        assertEquals(400, getSigned("/api/v1/my/ledger", Map.of("currency", "NOPE"), aliceKey)
+                .getStatusCode().value());
+        assertEquals(400, getSigned("/api/v1/my/ledger", Map.of("count", "201"), aliceKey)
+                .getStatusCode().value());
+        assertEquals(401, rest.getForEntity("/api/v1/my/ledger", String.class)
+                .getStatusCode().value());
+
+        // 커서 연속성: 페이지 경계에서 시각·id가 단조 감소한다.
+        JsonNode page1 = signedJson("/api/v1/my/ledger", Map.of("count", "2"), aliceKey);
+        assertTrue(page1.path("pagination").path("has_more").asBoolean());
+        JsonNode page2 = signedData("/api/v1/my/ledger",
+                Map.of("count", "2", "cursor", page1.path("pagination").path("next_cursor").asText()),
+                aliceKey);
+        long lastOfPage1 = Long.parseLong(
+                page1.path("data").get(1).path("entry_id").asText());
+        long firstOfPage2 = Long.parseLong(page2.get(0).path("entry_id").asText());
+        assertTrue(firstOfPage2 < lastOfPage1, "다음 페이지가 더 과거가 아니다");
     }
 
     // ------------------------------------------------------------------
