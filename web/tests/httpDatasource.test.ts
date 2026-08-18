@@ -686,6 +686,98 @@ test("flush: 조밀 채널의 결번은 수용하지 않고 재동기화를 다�
   );
 });
 
+test("flush: 스냅샷이 결번을 못 메워도 재동기화가 순환하지 않는다", async () => {
+  const stomp = makeStomp();
+  let tickerHits = 0;
+  const fetchFn: typeof fetch = async (input) => {
+    if (!String(input).includes("/api/v1/ticker")) {
+      return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+    }
+    tickerHits += 1;
+    // REST가 WS보다 뒤처진 노드를 읽는 상태. 스냅샷 seq가 버퍼 head를 영영 못 따라잡는다
+    return jsonRes(200, { schema_version: "1.0", data: [restTicker(19)], pagination: { next_cursor: null, has_more: false } });
+  };
+  const ds = new HttpStompDataSource({ apiBase: "http://api.test", wsBase: "ws://api.test", fetchFn, stompFactory: stomp.factory });
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.ticker("KRW-BTC"), (m) => received.push(m));
+  await settle();
+  const base = received.length;
+
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(10)); // 기준점
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(25)); // gap → 재동기화(스냅샷 19)
+  await settle();
+
+  assert.ok(tickerHits <= 3, `재동기화 순환 없음(실제 ${tickerHits}회)`);
+  assert.equal(
+    received[received.length - 1].seq,
+    25,
+    "상한을 넘긴 결번은 수용해 스트림을 진행시킨다",
+  );
+  assert.ok(received.length - base <= 4, "같은 스냅샷을 반복 전달하지 않는다");
+});
+
+test("flush: 늦은 스냅샷 재전달은 기준점을 되돌리지 않는다", async () => {
+  const stomp = makeStomp();
+  const deferred: { resolve: ((r: Response) => void) | null } = { resolve: null };
+  let obHits = 0;
+  const ob = (seq: number, stream: "snapshot" | "realtime") => ({
+    schema_version: "1.0",
+    type: "orderbook",
+    market: "KRW-BTC",
+    epoch: 1,
+    seq,
+    stream,
+    timestamp: "2026-07-21T09:00:00.200Z",
+    total_ask_size: "1",
+    total_bid_size: "1",
+    orderbook_units: [],
+  });
+  const fetchFn: typeof fetch = async (input) => {
+    if (!String(input).includes("/api/v1/orderbook")) {
+      return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+    }
+    obHits += 1;
+    return new Promise<Response>((resolve) => {
+      deferred.resolve = resolve;
+    });
+  };
+  const ds = new HttpStompDataSource({ apiBase: "http://api.test", wsBase: "ws://api.test", fetchFn, stompFactory: stomp.factory });
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.orderbook("KRW-BTC"), (m) => received.push(m));
+  await settle();
+
+  stomp.push(dest.orderbook("KRW-BTC"), ob(100, "snapshot")); // 기준점
+  stomp.push(dest.orderbook("KRW-BTC"), ob(103, "realtime")); // gap → 재동기화 시작
+  await settle();
+  stomp.push(dest.orderbook("KRW-BTC"), ob(95, "snapshot")); // 재전달된 늦은 스냅샷(버퍼링)
+  await settle();
+  assert.ok(deferred.resolve, "재동기화 fetch 발사됨");
+  deferred.resolve(
+    jsonRes(200, {
+      schema_version: "1.0",
+      market: "KRW-BTC",
+      timestamp: "2026-07-21T09:00:00.300Z",
+      epoch: 1,
+      seq: 102,
+      total_ask_size: "1",
+      total_bid_size: "1",
+      orderbook_units: [],
+    }),
+  );
+  await settle();
+
+  assert.deepEqual(
+    received.map((m) => m.seq),
+    [100, 102, 103],
+    "늦은 스냅샷(95)은 드롭하고 결번 없이 이어진다",
+  );
+  assert.equal(obHits, 1, "스냅샷 재전달이 추가 재동기화를 부르지 않는다");
+});
+
 test("flush: trade 채널은 비연속 증가를 그대로 수용한다(event_seq 도메인)", async () => {
   const stomp = makeStomp();
   const deferred: { resolve: ((r: Response) => void) | null } = { resolve: null };
@@ -853,11 +945,13 @@ test("myOrder 재동기화는 open과 closed를 함께 복원해 종결 통지�
 
 test("만료 토큰 재연결은 비공개 채널 인증 승격을 재발화한다", async () => {
   const stomp = makeStomp();
-  const expired = makeJwt(-1000);
-  const fresh = makeJwt(15 * 60_000);
+  const first = makeJwt(15 * 60_000);
+  let reissued = "";
   const { ds, count } = newDs(
     {
-      "/api/v1/demo/session": (_c, hits) => jsonRes(200, { access_token: hits === 1 ? expired : fresh }),
+      // 두 번째 발급은 시계를 옮긴 뒤 생성해야 그 시점 기준으로 신선하다
+      "/api/v1/demo/session": (_c, hits) =>
+        jsonRes(200, { access_token: hits === 1 ? first : (reissued = makeJwt(15 * 60_000)) }),
       "/api/v1/orders/open": () => jsonRes(200, emptyList),
       "/api/v1/orders/closed": () => jsonRes(200, emptyList),
     },
@@ -869,21 +963,65 @@ test("만료 토큰 재연결은 비공개 채널 인증 승격을 재발화한�
   ds.subscribe(dest.myOrder, () => {});
   await settle();
   assert.equal(stomp.state.deactivations, 1, "구독 시 승격 재연결 1회");
-
-  // 승격으로 받은 토큰이 이미 만료라 재연결도 무인증 CONNECT가 된다
-  stomp.state.args!.connectHeaders();
+  stomp.state.args!.connectHeaders(); // 승격 연결(Bearer first)
   stomp.state.args!.onConnect();
   await settle();
 
-  assert.equal(stomp.state.deactivations, 2, "재연결 경로에서 승격이 다시 발화해야 한다");
-  const headers = stomp.state.args!.connectHeaders();
-  assert.equal(headers["Authorization"], `Bearer ${fresh}`, "승격 후 CONNECT는 Bearer 첨부");
+  // 토큰 만료 시점으로 시계를 옮긴다. 재연결 CONNECT는 무인증이 된다
+  const realNow = Date.now;
+  Date.now = () => realNow() + 20 * 60_000;
+  try {
+    stomp.state.args!.onDisconnect();
+    stomp.state.args!.connectHeaders();
+    stomp.state.args!.onConnect();
+    await settle();
+    assert.equal(stomp.state.deactivations, 2, "재연결 경로에서 승격이 다시 발화해야 한다");
+    const headers = stomp.state.args!.connectHeaders();
+    assert.equal(headers["Authorization"], `Bearer ${reissued}`, "승격 후 CONNECT는 새 Bearer 첨부");
+    stomp.state.args!.onConnect();
+    await settle();
+  } finally {
+    Date.now = realNow;
+  }
 
-  // 승격 연결에서 비공개 채널이 재구독·재동기화된다
-  stomp.state.args!.onConnect();
-  await settle();
   assert.ok(stomp.state.subs.has(dest.myOrder), "승격 연결에서 비공개 채널 재구독");
   assert.ok(count("/api/v1/orders/open") >= 1, "승격 연결에서 비공개 채널 재동기화");
+});
+
+test("승격이 인증 CONNECT를 만들지 못하면 재발화를 멈춘다(자기 재생 차단)", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs(
+    {
+      // 발급 직후에도 만료로 보이는 토큰(시계 스큐). CONNECT는 계속 무인증이 된다
+      "/api/v1/demo/session": () => jsonRes(200, { access_token: makeJwt(-1000) }),
+      "/api/v1/orders/open": () => jsonRes(200, emptyList),
+      "/api/v1/orders/closed": () => jsonRes(200, emptyList),
+      "/api/v1/ticker": () =>
+        jsonRes(200, { schema_version: "1.0", data: [restTicker(5)], pagination: { next_cursor: null, has_more: false } }),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.connectHeaders();
+  stomp.state.args!.onConnect();
+  ds.subscribe(dest.myOrder, () => {});
+  ds.subscribe(dest.ticker("KRW-BTC"), () => {});
+  await settle();
+  assert.equal(stomp.state.deactivations, 1, "승격 시도 1회");
+
+  stomp.state.args!.connectHeaders(); // 승격 연결이지만 여전히 무인증
+  stomp.state.args!.onConnect();
+  await settle();
+  assert.equal(stomp.state.deactivations, 1, "승격 실패 후 재발화 없음");
+
+  const tickerBefore = count("/api/v1/ticker");
+  stomp.state.args!.onDisconnect();
+  stomp.state.args!.connectHeaders();
+  stomp.state.args!.onConnect(); // 이후 재연결에서도 재발화하지 않는다
+  await settle();
+  assert.equal(stomp.state.deactivations, 1, "재연결마다 승격을 반복하지 않는다");
+  assert.ok(stomp.state.subs.has(dest.ticker("KRW-BTC")), "공개 채널은 정상 재구독");
+  assert.equal(count("/api/v1/ticker"), tickerBefore + 1, "공개 채널 재동기화가 멈추지 않는다");
 });
 
 test("승격 세션 발급 실패 시 채널 복원을 포기하지 않는다", async () => {

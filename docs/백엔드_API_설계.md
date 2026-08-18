@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.19, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.20, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -517,10 +517,10 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
 
 | 기능 | 메서드·경로 | weight | 주요 파라미터 |
 |---|---|---|---|
-| 마켓 목록 | `GET /api/v1/markets` | 1 | 없음 |
+| 마켓 목록 | `GET /api/v1/markets` | 2 | 없음 |
 | 호가 | `GET /api/v1/orderbook` | 1 | `market`, `level` |
-| 체결 이력 | `GET /api/v1/trades` | 1 | `market`, `count`(≤200), `cursor`\|`to` |
-| 티커 | `GET /api/v1/ticker` | 1 | `markets`(콤마) |
+| 체결 이력 | `GET /api/v1/trades` | 2 | `market`, `count`(≤200), `cursor`\|`to` |
+| 티커 | `GET /api/v1/ticker` | 2 | `markets`(콤마, 마켓 수와 무관하게 요청 1건 계상) |
 | 캔들 | `GET /api/v1/candles/{unit}` | 2 | `market`, `count`(≤200), `cursor`\|`to` |
 | 거래소 구성 | `GET /api/v1/exchange-config` | 1 | 없음 |
 
@@ -828,7 +828,7 @@ POST /api/v1/orders
 - **비공개 채널의 seq 도메인(v2.2 확정)**: `myOrder`/`myAsset`은 market 차원이 없으므로 **`user × type` 단위 독립 단조 증가**로 정의한다(사용자별·채널별 별도 카운터, 두 채널 간 번호 공유 없음). gap 감지·재동기화도 이 도메인 기준으로 수행한다(불연속 감지 시 REST 스냅샷(주문 `GET /orders/open`·잔고 `GET /accounts`)으로 재동기화).
 - **전역 순서가 필요하면 `global_seq` 병기**(선택). gap 감지는 채널 seq로만 수행.
 - **`epoch`(리더 세대)**: 모든 WS·orderbook REST 페이로드에 포함. 페일오버로 새 리더가 seq 도메인을 재설정하면 epoch 증가. **클라이언트는 epoch 변화 감지 시 무조건 REST 스냅샷 재동기화**(backward/중복 seq 오인 방지).
-- **구독 즉시 계약(v2.4 적용 범위 확정, orderbook 채널 한정)**: **orderbook 채널에 한해** SUBSCRIBE 성공 → 서버가 `stream:"snapshot"` 1건 전송(현재 호가 전체 상태 + 경계 `seq`) → 이후 `stream:"realtime"`. snapshot의 seq가 이후 realtime 연속성의 기준점. **스냅샷·realtime 순서 역전(v2.7)**: 스냅샷 전송과 realtime 게시는 경합할 수 있어 구독 직후 realtime이 스냅샷보다 먼저 도착하거나 `seq <= snapshot.seq`인 realtime이 스냅샷 이후 도착할 수 있다. 클라이언트는 스냅샷 수신 전 도착한 realtime과 `seq <= snapshot.seq`인 realtime을 **폐기**하고, `seq > snapshot.seq`부터 연속성 검사를 시작한다. 서버가 스냅샷 산출과 게시를 직렬화하더라도 이 클라이언트 계약은 유지된다(전달 계층 재정렬 방어). **`stream` 필드는 orderbook 채널 메시지에만 존재**한다. §5-4 trade/ticker/candle 및 §5-5 myOrder/myAsset 스키마에 `stream` 필드가 없는 것이 계약이며, 클라이언트 파서는 해당 채널에서 이 필드를 기대하지 않는다. **여타 채널(trade/ticker/candle/myOrder/myAsset)은 snapshot 메시지를 전송하지 않으며**, 연속성 기준 seq는 **구독 후 첫 realtime 메시지의 seq**다(그 이후의 불연속만 gap으로 판정). 상태 초기값이 필요한 비공개 채널은 구독 직후 REST 스냅샷(주문 `GET /orders/open`·잔고 `GET /accounts`)으로 초기 상태를 확보한다(아래 비공개 도메인 재동기화 규칙과 동일 소스).
+- **구독 즉시 계약(v2.4 적용 범위 확정, orderbook 채널 한정)**: **orderbook 채널에 한해** SUBSCRIBE 성공 → 서버가 `stream:"snapshot"` 1건 전송(현재 호가 전체 상태 + 경계 `seq`) → 이후 `stream:"realtime"`. snapshot의 seq가 이후 realtime 연속성의 기준점. **스냅샷·realtime 순서 역전(v2.7)**: 스냅샷 전송과 realtime 게시는 경합할 수 있어 구독 직후 realtime이 스냅샷보다 먼저 도착하거나 `seq <= snapshot.seq`인 realtime이 스냅샷 이후 도착할 수 있다. 클라이언트는 `seq <= snapshot.seq`인 realtime을 **폐기**하고, `seq > snapshot.seq`부터 연속성 검사를 시작한다. 서버가 스냅샷 산출과 게시를 직렬화하더라도 이 클라이언트 계약은 유지된다(전달 계층 재정렬 방어). **기준점 전진 규칙(v2.20)**: 스냅샷 수신 전에 realtime이 먼저 도착했으면 그 realtime의 seq가 임시 기준점이고, 뒤이어 도착한 스냅샷은 `snapshot.seq > 기준점`일 때만 채택한다. 낮은 seq 스냅샷을 채택하면 이미 표시한 호가가 과거 상태로 되돌고(전체 상태 메시지라 화면이 즉시 역행한다) 이어지는 realtime이 결번 판정을 받아 불필요한 재동기화를 부른다. 기준점은 어느 경로에서도 내려가지 않는다(REST 재동기화 스냅샷도 동일). **`stream` 필드는 orderbook 채널 메시지에만 존재**한다. §5-4 trade/ticker/candle 및 §5-5 myOrder/myAsset 스키마에 `stream` 필드가 없는 것이 계약이며, 클라이언트 파서는 해당 채널에서 이 필드를 기대하지 않는다. **여타 채널(trade/ticker/candle/myOrder/myAsset)은 snapshot 메시지를 전송하지 않으며**, 연속성 기준 seq는 **구독 후 첫 realtime 메시지의 seq**다(그 이후의 불연속만 gap으로 판정). 상태 초기값이 필요한 비공개 채널은 구독 직후 REST 스냅샷(주문 `GET /orders/open`·잔고 `GET /accounts`)으로 초기 상태를 확보한다(아래 비공개 도메인 재동기화 규칙과 동일 소스).
 - **gap 감지 → 재동기화 규칙**: 클라이언트가 `seq` 불연속 감지 시 REST 스냅샷(`GET /orderbook`, epoch 포함)으로 재동기화 후, 스냅샷 `seq` 이후 realtime 재개.
 
 ### 5-3. STOMP 구독 경로
@@ -1462,3 +1462,16 @@ v2.17이 E1 라이브 PASS(errorRate 0, epoch 불변, 주입 중 status 200 유�
 | I5 | §2-5 신뢰 프록시 | "봇/데모는 계정 버킷 우선"이 공개 조회에는 성립하지 않음을 정정. 봇의 시장 데이터 조회는 계정 키를 싣지 않아 정의상 미인증 공개 조회다 |
 
 문서 헤더 버전을 v2.19로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.20 패치 반영 사항
+
+웹 어댑터가 §5-2 기준점 규약을 스냅샷·재동기화 경로까지 적용하면서, 순서 역전 규정이 한 방향으로만 쓰여 있던 공백이 드러났다. 문면대로면 늦게 도착한 낮은 seq 스냅샷이 기준점을 되돌린다. 서버 계약(스키마·전송 규약)은 변경이 없고 클라이언트 규칙만 확정한다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| J1 | §5-2 구독 즉시 계약 | 기준점 전진 규칙 확정: 스냅샷보다 realtime이 먼저 도착했으면 그 seq가 임시 기준점이고, 스냅샷은 기준점보다 클 때만 채택한다. 낮은 seq 스냅샷 채택은 표시 상태를 역행시키고 이어지는 realtime을 결번으로 만든다 |
+| J2 | §5-2 gap 규칙 | 기준점은 어느 경로에서도 내려가지 않음을 명시. REST 재동기화 스냅샷이 WS보다 뒤처진 노드를 읽는 경우가 적용 대상이다 |
+
+문서 헤더 버전을 v2.20으로 순증(이전 패치 노트의 역사 서술은 원문 유지).

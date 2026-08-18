@@ -288,7 +288,12 @@ interface ChannelState {
   resyncGen: number;
   /** 진행 중 재동기화 REST 취소 핸들. 새 세대 시작 시 이전 in-flight fetch를 끊는다 */
   resyncAbort: AbortController | null;
+  /** flush 결번으로 재동기화를 다시 건 횟수. 상한을 넘으면 수용하고 진행해 순환을 끊는다 */
+  gapRearms: number;
 }
+
+/** flush 결번당 재동기화 재기동 상한. 스냅샷이 결번을 못 메우는 상태의 요청 폭주를 막는다 */
+const MAX_GAP_REARMS = 1;
 
 export interface HttpDataSourceOptions {
   apiBase: string;
@@ -310,8 +315,10 @@ export class HttpStompDataSource implements DataSource {
   /** 현재 STOMP 연결이 Bearer 포함 CONNECT였는지. 비공개 구독 시 재연결 판단 근거 */
   private authOnConnect = false;
   private authUpgrading = false;
-  /** handleConnect가 승격에 채널 복원을 위임한 상태. 승격이 재연결을 못 내면 되돌리는 근거 */
-  private restoreDeferred = false;
+  /** 승격 재연결을 발사하고 그 CONNECT를 기다리는 중. 결과 판정 근거 */
+  private authUpgradePending = false;
+  /** 승격 재연결이 인증 CONNECT를 만들지 못했다. 같은 조건의 재발화를 멈춘다(자기 재생 차단) */
+  private authUpgradeGaveUp = false;
 
   private session: { token: string; expMs: number | null } | null = null;
   private sessionPromise: Promise<string> | null = null;
@@ -535,12 +542,21 @@ export class HttpStompDataSource implements DataSource {
   subscribe(destination: string, cb: Listener): () => void {
     let ch = this.channels.get(destination);
     if (!ch) {
-      ch = { subscribers: new Map(), stompUnsub: null, lastSeq: null, resyncing: false, buffer: [], resyncGen: 0, resyncAbort: null };
+      ch = {
+        subscribers: new Map(),
+        stompUnsub: null,
+        lastSeq: null,
+        resyncing: false,
+        buffer: [],
+        resyncGen: 0,
+        resyncAbort: null,
+        gapRearms: 0,
+      };
       this.channels.set(destination, ch);
     }
     ch.subscribers.set(cb, (ch.subscribers.get(cb) ?? 0) + 1);
     if (this.stompConnected && !ch.stompUnsub) this.attachStomp(destination, ch);
-    if (destination.startsWith("/user/") && !this.authOnConnect) void this.upgradeAuth();
+    if (destination.startsWith("/user/") && this.canUpgradeAuth()) void this.upgradeAuth();
     // 구독 즉시 스냅샷 1건 계약(DataSource 계약). 서버 push는 orderbook 한정이라
     // ticker·myAsset은 REST로 합성해 신규 구독자에게만 전달한다.
     // 핸들별 컨트롤러로 unsubscribe가 in-flight 스냅샷 fetch를 실제로 취소한다(결과 폐기만으로는
@@ -613,6 +629,8 @@ export class HttpStompDataSource implements DataSource {
     this.member = { user, token, expMs: decodeJwtExpMs(token) };
     // 성공 인증은 새 refresh 쿠키를 확립한다. 이후 만료 시 refresh를 다시 허용한다
     this.refreshBlocked = false;
+    // 신원이 바뀌면 승격 조건도 바뀐다. 직전 승격 포기를 해제한다
+    this.authUpgradeGaveUp = false;
     this.emitMember();
     // /user 채널을 회원 Bearer로 다시 열기 위해 재연결(승격)
     this.reconnectWs();
@@ -622,6 +640,7 @@ export class HttpStompDataSource implements DataSource {
   private clearMember(): void {
     if (!this.member) return;
     this.member = null;
+    this.authUpgradeGaveUp = false;
     this.emitMember();
     this.reconnectWs();
   }
@@ -762,15 +781,19 @@ export class HttpStompDataSource implements DataSource {
   private handleConnect(): void {
     this.stompConnected = true;
     for (const cb of this.connListeners) cb(true);
-    // 토큰 만료 중 재연결은 무인증 CONNECT로 붙는다. 이 연결에서 비공개 채널을 복원해 봐야
-    // 서버가 거절하므로(§5-6) 승격 재연결에 복원을 위임한다. 승격이 불가·실패하면 그 경로가
-    // restoreChannels로 되돌린다. 승격 트리거가 subscribe에만 있으면 재연결 경로는 영구 무인증이다
-    if (!this.authUpgrading && this.needsAuthUpgrade()) {
-      this.restoreDeferred = true;
-      void this.upgradeAuth();
-      return;
+    if (this.authUpgradePending) {
+      this.authUpgradePending = false;
+      // 승격 재연결인데도 여전히 무인증이면 그 조건에서는 승격이 성립하지 않는다(예: 시계 스큐로
+      // 발급 직후 토큰이 만료로 보임). 재발화를 멈춰 재연결·세션 발급 폭주를 막는다.
+      // 재로그인·로그아웃 등 신원 변화가 있으면 다시 허용한다
+      this.authUpgradeGaveUp = !this.authOnConnect;
     }
+    // 채널 복원은 연결마다 무조건 한다. 승격에 위임하면 승격이 좌초할 때 공개 채널까지
+    // 무증상 정지한다(연결 통지는 이미 true라 배너도 뜨지 않는다)
     this.restoreChannels();
+    // 토큰 만료 중 재연결은 무인증 CONNECT로 붙어 비공개 채널을 서버가 거절한다(§5-6).
+    // 승격 트리거가 subscribe에만 있으면 재연결 경로는 영구 무인증으로 남는다
+    if (this.canUpgradeAuth()) void this.upgradeAuth();
   }
 
   /** 비공개 채널을 구독 중인데 현재 연결이 무인증 CONNECT인지 */
@@ -782,9 +805,13 @@ export class HttpStompDataSource implements DataSource {
     return false;
   }
 
+  /** 승격을 지금 시도해도 되는지. 진행 중·직전 실패는 재발화하지 않는다 */
+  private canUpgradeAuth(): boolean {
+    return !this.authUpgrading && !this.authUpgradeGaveUp && this.needsAuthUpgrade();
+  }
+
   /** 전 채널 재구독 + REST 재동기화(웹_화면명세서 §6.1-3). 연결 단절 구간의 유실을 메운다 */
   private restoreChannels(): void {
-    this.restoreDeferred = false;
     for (const [destination, ch] of this.channels) {
       ch.stompUnsub?.();
       this.attachStomp(destination, ch);
@@ -820,17 +847,16 @@ export class HttpStompDataSource implements DataSource {
       // 회원 세션이 있으면 회원 토큰을, 없으면 데모 세션을 확보(§4-1 병존)
       await this.ensureAuthToken();
       if (this.stomp && this.stompConnected && !this.authOnConnect) {
+        // 다음 CONNECT가 이 승격의 결과다. 인증이 붙지 않으면 재발화를 멈춘다
+        this.authUpgradePending = true;
         await this.stomp.deactivate();
         this.stomp.activate();
-        return; // 승격 연결의 handleConnect가 인증 상태로 전 채널을 복원한다
       }
     } catch {
       // 세션 발급 실패 시 공개 채널은 유지. 비공개 구독은 서버가 거절(§5-6)
     } finally {
       this.authUpgrading = false;
     }
-    // 승격 재연결을 발사하지 못한 경로. handleConnect가 복원을 위임했으면 여기서 되돌린다
-    if (this.restoreDeferred && this.stompConnected) this.restoreChannels();
   }
 
   /* ===== seq/epoch 검사 (§5-2) ===== */
@@ -946,10 +972,15 @@ export class HttpStompDataSource implements DataSource {
         const dense = kind !== undefined && DENSE_KINDS.has(kind);
         for (let i = 0; i < buffered.length; i++) {
           const m = buffered[i];
+          // 스냅샷은 연속성 검사 대상이 아니라 기준점 자체다(§5-2). 조밀 검사에서 제외한다
+          const snapshot = m.type === "orderbook" && m.stream === "snapshot";
           if (ch.lastSeq !== null) {
             if (m.seq <= ch.lastSeq) continue; // 중복·역행 드롭
-            if (dense && m.seq !== ch.lastSeq + 1) {
-              // 결번 확인. 수용을 멈추고 남은 버퍼를 물려 재동기화를 다시 건다
+            if (!snapshot && dense && m.seq !== ch.lastSeq + 1 && ch.gapRearms < MAX_GAP_REARMS) {
+              // 결번 확인. 수용을 멈추고 남은 버퍼를 물려 재동기화를 다시 건다.
+              // 상한을 두는 이유는 스냅샷이 결번을 못 메우는 상태(REST가 다른 노드·캐시)에서
+              // 재기동이 순환하며 요청 폭주를 만들기 때문이다. 상한 초과분은 수용하고 진행한다
+              ch.gapRearms += 1;
               this.startResync(destination, ch, buffered.slice(i));
               return;
             }
@@ -957,6 +988,7 @@ export class HttpStompDataSource implements DataSource {
           ch.lastSeq = m.seq;
           this.deliver(ch, m);
         }
+        ch.gapRearms = 0; // 결번 없이 소진. 다음 gap은 다시 상한만큼 시도한다
       });
   }
 
@@ -975,6 +1007,9 @@ export class HttpStompDataSource implements DataSource {
       case "orderbook": {
         const snap = await this.getOrderbook(parsed.market, signal);
         if (!this.resyncFresh(ch, gen)) return;
+        // 기준점은 전진만 한다. REST가 WS보다 뒤처진 노드를 읽으면 기준점이 내려가
+        // 이미 보여준 호가가 과거로 되돌고, 이어지는 실시간이 결번으로 재동기화를 부른다
+        if (ch.lastSeq !== null && snap.seq <= ch.lastSeq) return;
         ch.lastSeq = snap.seq;
         this.deliver(ch, snap);
         return;
@@ -982,6 +1017,7 @@ export class HttpStompDataSource implements DataSource {
       case "ticker": {
         const [t] = await this.getTicker([parsed.market], signal);
         if (!t || !this.resyncFresh(ch, gen)) return;
+        if (ch.lastSeq !== null && t.seq <= ch.lastSeq) return; // 기준점 전진만
         ch.lastSeq = t.seq;
         this.deliver(ch, this.tickerToMessage(t, "snapshot"));
         return;
@@ -1009,6 +1045,7 @@ export class HttpStompDataSource implements DataSource {
         // 삼으면 이어지는 실시간 캔들이 단조 검사에 걸리지 않고 이어진다.
         const [c] = await this.getCandles(parsed.market, parsed.unit, 1, signal);
         if (!c || !this.resyncFresh(ch, gen)) return;
+        if (ch.lastSeq !== null && c.seq <= ch.lastSeq) return; // 기준점 전진만
         ch.lastSeq = c.seq;
         this.deliver(ch, this.candleToMessage(c, parsed.unit));
         return;
