@@ -331,6 +331,50 @@ test("에러 본문이 JSON이 아니면 상태코드 기반 기본 에러", asy
   await assert.rejects(ds.getMarkets(), (e: ApiError) => e.code === "server_error" && e.status === 502);
 });
 
+/* ===== 원가 필드 (§4-C-1 v2.21) ===== */
+
+test("원가 필드를 내지 않는 서버 응답은 원가 미상으로 읽는다", async () => {
+  const { ds } = newDs({
+    "/api/v1/demo/session": () => jsonRes(200, { access_token: makeJwt(15 * 60_000) }),
+    "/api/v1/accounts": () =>
+      jsonRes(200, {
+        schema_version: "1.0",
+        // v2.20 이하 응답. avg_buy_price만 있고 누산기 쌍이 없다
+        data: [{ currency: "BTC", balance: "0.5", locked: "0", avg_buy_price: "48000000", unit_currency: "KRW" }],
+        pagination: { next_cursor: null, has_more: false },
+      }),
+  });
+  const [btc] = await ds.getAccounts();
+  // 결측을 avg_buy_price 신뢰로 되돌리면 원가 없는 보유가 전액 수익으로 오표시된다
+  assert.equal(btc.cost_basis_qty, "0", "판별자가 0이어야 화면이 산출 불가로 그린다");
+  assert.equal(btc.cost_basis_amount, "0");
+});
+
+test("원가 필드를 내는 서버 응답은 값을 그대로 통과시킨다", async () => {
+  const { ds } = newDs({
+    "/api/v1/demo/session": () => jsonRes(200, { access_token: makeJwt(15 * 60_000) }),
+    "/api/v1/accounts": () =>
+      jsonRes(200, {
+        schema_version: "1.0",
+        data: [
+          {
+            currency: "BTC",
+            balance: "0.493998",
+            locked: "0.01",
+            avg_buy_price: "50025013",
+            unit_currency: "KRW",
+            cost_basis_qty: "0.003998",
+            cost_basis_amount: "200000",
+          },
+        ],
+        pagination: { next_cursor: null, has_more: false },
+      }),
+  });
+  const [btc] = await ds.getAccounts();
+  assert.equal(btc.cost_basis_qty, "0.003998");
+  assert.equal(btc.cost_basis_amount, "200000");
+});
+
 /* ===== 데모 세션 ===== */
 
 test("데모 세션: 최초 인증 요청 전 발급, Bearer 첨부", async () => {

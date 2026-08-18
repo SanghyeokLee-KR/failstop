@@ -280,16 +280,20 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
         set((s) => {
           // publishMyAsset은 접촉 마켓의 base·quote만 보내는 델타(§5-2/§5-5). msg.assets로 전체
           // 교체하면 미접촉 보유코인이 소실돼 자산 화면 행·총평가·가용잔고가 어긋난다. currency
-          // 기준 upsert 병합으로 미접촉분을 보존한다. avg_buy_price는 델타에 없어 기존 값을 유지한다
+          // 기준 upsert 병합으로 미접촉분을 보존한다.
           const next = s.assets.slice();
           for (const a of msg.assets) {
             const i = next.findIndex((p) => p.currency === a.currency);
+            // 원가는 델타가 권위다(v2.21 K5). 직전 값을 보존하면 매수 체결마다 낡은 평단가가
+            // GET /accounts 재적재 전까지 남는다. 미노출 서버는 결측을 원가 미상으로 읽는다
             const merged: Asset = {
               currency: a.currency,
               balance: a.balance,
               locked: a.locked,
-              avg_buy_price: i >= 0 ? next[i].avg_buy_price : "0",
+              avg_buy_price: a.avg_buy_price ?? "0",
               unit_currency: "KRW",
+              cost_basis_qty: a.cost_basis_qty ?? "0",
+              cost_basis_amount: a.cost_basis_amount ?? "0",
             };
             if (i >= 0) next[i] = merged;
             else next.push(merged);

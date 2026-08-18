@@ -177,8 +177,13 @@ export interface Asset {
   currency: string;        // "KRW" | "BTC" | ...
   balance: string;         // available
   locked: string;
+  /** 원가 확보분의 평단가(§4-C-1 v2.21). "0"은 평단가 0원이 아니라 산출 불가다 */
   avg_buy_price: string;
   unit_currency: string;   // "KRW"
+  /** 원가 확보 수량. 0이면 avg_buy_price "0"이 산출 불가라는 판별자다 (v2.21 additive) */
+  cost_basis_qty: string;
+  /** 원가 확보 금액. 총매수는 이 값이며 수량×평단가로 재계산하지 않는다 (v2.21 additive) */
+  cost_basis_amount: string;
 }
 
 /* ===== WS(STOMP) 메시지 (§5-4, §5-5) ===== */
@@ -254,9 +259,13 @@ export interface MyOrderMessage extends WsBase {
 }
 
 /** /user/queue/myAsset */
+/** /user/queue/myAsset. 접촉 자산만 싣는 델타 (§5-5) */
 export interface MyAssetMessage extends WsBase {
   type: "myAsset";
-  assets: Array<Pick<Asset, "currency" | "balance" | "locked">>;
+  /** 원가 필드는 부가가 아니라 계약이다(v2.21 K5). 없으면 매수마다 낡은 평단가가 화면에 남는다 */
+  assets: Array<
+    Pick<Asset, "currency" | "balance" | "locked" | "avg_buy_price" | "cost_basis_qty" | "cost_basis_amount">
+  >;
 }
 
 export type WsMessage =

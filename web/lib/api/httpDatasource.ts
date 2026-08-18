@@ -135,6 +135,16 @@ function unwrapList<T>(json: unknown, path: string): T[] {
   return env.data;
 }
 
+/**
+ * 원가 필드 보정(§4-C-1 v2.21). 미노출 서버(v2.20 이하)를 만나면 원가 미상으로 읽는다.
+ * 결측을 0으로 채우면 원가 확보 수량이 0이라 화면이 손익 산출 불가로 그린다. 이것이 안전한
+ * 열화다. 반대로 avg_buy_price만 믿으면 원가 0 기준 전액 수익으로 오표시된다.
+ */
+function normalizeCostFields(a: Asset): Asset {
+  if (typeof a.cost_basis_qty === "string" && typeof a.cost_basis_amount === "string") return a;
+  return { ...a, cost_basis_qty: a.cost_basis_qty ?? "0", cost_basis_amount: a.cost_basis_amount ?? "0" };
+}
+
 /* ===== 데모 세션 (§3-7) ===== */
 
 interface DemoSessionResponse {
@@ -510,7 +520,8 @@ export class HttpStompDataSource implements DataSource {
   }
 
   async getAccounts(signal?: AbortSignal): Promise<Asset[]> {
-    return unwrapList<Asset>(await this.http("/api/v1/accounts", { signal }, true), "/accounts");
+    const raw = unwrapList<Asset>(await this.http("/api/v1/accounts", { signal }, true), "/accounts");
+    return raw.map(normalizeCostFields);
   }
 
   async getOpenOrders(market?: string, signal?: AbortSignal): Promise<Order[]> {
@@ -1203,7 +1214,14 @@ export class HttpStompDataSource implements DataSource {
       epoch: this.lastEpoch ?? 0,
       seq: 0,
       timestamp: new Date().toISOString(), // UTC ISO 밀리초 3자리(§2-1)와 동일 형태
-      assets: assets.map((a) => ({ currency: a.currency, balance: a.balance, locked: a.locked })),
+      assets: assets.map((a) => ({
+        currency: a.currency,
+        balance: a.balance,
+        locked: a.locked,
+        avg_buy_price: a.avg_buy_price,
+        cost_basis_qty: a.cost_basis_qty,
+        cost_basis_amount: a.cost_basis_amount,
+      })),
     };
   }
 }

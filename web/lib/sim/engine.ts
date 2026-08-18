@@ -29,6 +29,26 @@ import type {
 } from "../types";
 import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION, dest } from "../types";
 import { isoNow } from "../format";
+import {
+  addDecimal,
+  compareDecimal,
+  divDecimal,
+  mulDecimal,
+  normalizeDecimal,
+  subDecimal,
+  truncToScale,
+} from "../decimal";
+import {
+  applyCostDelta,
+  askLockQty,
+  avgBuyPriceOf,
+  bidLockAmount,
+  buyFeeBase,
+  marketBidLockAmount,
+  normalizeCostBasis,
+  sellFeeQuote,
+  type CostBasis,
+} from "../orderContract";
 
 /* ===== 코인 시드 (목업과 동일 시드가) =====
  * sim(프론트) 전용 로스터. 백엔드 미러가 아니라 데모 시세 생성원이다.
@@ -113,9 +133,15 @@ export const CANDLE_UNIT_MS: Record<CandleUnit, number> = {
   "30m": 1_800_000, "60m": 3_600_000, "240m": 14_400_000, "1d": 86_400_000, "1w": 604_800_000,
 };
 
-const FEE_RATE = 0.0005; // 마켓 고정 수수료 (§4-A-1 권위 소스)
+const FEE_RATE = "0.0005"; // 마켓 고정 수수료 (§4-A-1 권위 소스)
 const TICK_INTERVAL_MS = 700;
 const EPOCH = 1;
+/** quote(KRW) 자산 scale. getMarkets의 price_scale과 같은 값이다 (§4-A-1) */
+const PRICE_SCALE = 0;
+/** 잔고 표시 자릿수. KRW는 2, 코인은 qty_scale 상한과 같은 8 */
+const KRW_DISPLAY_SCALE = 2;
+const COIN_DISPLAY_SCALE = 8;
+const MIN_ORDER_AMOUNT = "5000";
 
 interface MarketState {
   seed: SimMarketSeed;
@@ -130,6 +156,23 @@ interface MarketState {
 interface SimOrder extends Order {
   /** 내부 체결 스케줄 타이머 */
   _timer?: ReturnType<typeof setTimeout>;
+  /** 이 주문 기여분의 잔여 락. 체결·취소가 계산값이 아니라 이 실측 잔량을 소비한다(§4-B-5) */
+  _lock: string;
+}
+
+/** 잔고는 금액이라 문자열 십진으로 다룬다. float 왕복은 NUMERIC(40,18) 정밀을 잃는다 */
+interface SimBalance {
+  balance: string;
+  locked: string;
+}
+
+/** 표시 자릿수 고정. fromScaledInt가 후행 0을 지워 잔고 표기가 행마다 흔들리는 것을 막는다 */
+function padScale(v: string, scale: number): string {
+  const s = truncToScale(v, scale);
+  if (scale <= 0) return s;
+  const dot = s.indexOf(".");
+  if (dot < 0) return `${s}.${"0".repeat(scale)}`;
+  return s + "0".repeat(scale - (s.length - dot - 1));
 }
 
 type Listener = (msg: WsMessage) => void;
@@ -174,7 +217,9 @@ export class SimEngine {
   private candleCache = new Map<string, Candle[]>();
 
   /* 내 계좌/주문 (시뮬레이션 시드 자산) */
-  private balances = new Map<string, { balance: number; locked: number; avgBuyPrice: number }>();
+  private balances = new Map<string, SimBalance>();
+  /** 원가 누산기. 평단가는 저장하지 않고 조회 시 산출한다(§4-C-1 v2.21) */
+  private costs = new Map<string, CostBasis>();
   private orders = new Map<string, SimOrder>();
   private ordersByClientId = new Map<string, string>();
 
@@ -191,10 +236,61 @@ export class SimEngine {
         accPrice24h: seed.seedPrice * seed.baseVolume * 2400,
       });
     }
-    // 시드 자산: 현금 1,000만원 + BTC/ETH 일부 보유 (자산 화면 데모용)
-    this.balances.set("KRW", { balance: 10_000_000, locked: 0, avgBuyPrice: 0 });
-    this.balances.set("BTC", { balance: 0.0918, locked: 0, avgBuyPrice: 70_000_000 });
-    this.balances.set("ETH", { balance: 0.69, locked: 0, avgBuyPrice: 4_660_000 });
+    // 시드 자산: 현금 1,000만원 + BTC/ETH 일부 보유 (자산 화면 데모용).
+    // 시드 취득은 매수 상대거래가 없어 원가가 0이 아니라 미상이다(§4-C-1 K4). 서버 GENESIS
+    // 발급과 같은 취급이라, 여기서 가짜 평단가를 심으면 sim만 손익이 나오고 라이브와 갈린다
+    this.seedBalance("KRW", "10000000");
+    this.seedBalance("BTC", "0.0918");
+    this.seedBalance("ETH", "0.69");
+  }
+
+  /** 시드 발급. quote 자산(KRW)은 원가 개념이 없어 누산기를 만들지 않는다(§4-C-1, C25) */
+  private seedBalance(currency: string, amount: string): void {
+    this.balances.set(currency, { balance: amount, locked: "0" });
+    if (currency === "KRW") return;
+    this.costs.set(currency, applyCostDelta({ costQty: "0", costAmount: "0", unknownQty: "0" }, amount, "0"));
+  }
+
+  private balanceOf(currency: string): SimBalance {
+    let b = this.balances.get(currency);
+    if (!b) { b = { balance: "0", locked: "0" }; this.balances.set(currency, b); }
+    return b;
+  }
+
+  private costOf(currency: string): CostBasis {
+    return this.costs.get(currency) ?? { costQty: "0", costAmount: "0", unknownQty: "0" };
+  }
+
+  /** 자산 순델타를 원가 누산기에 반영한다. 계약 전이 함수를 그대로 부른다(sim 사본 없음) */
+  private postCostDelta(currency: string, dBase: string, dQuote: string): void {
+    this.costs.set(currency, normalizeCostBasis(applyCostDelta(this.costOf(currency), dBase, dQuote)));
+  }
+
+  private displayScaleOf(currency: string): number {
+    return currency === "KRW" ? KRW_DISPLAY_SCALE : COIN_DISPLAY_SCALE;
+  }
+
+  /** 마켓 수량 격자. 주문 수량·수수료 선양자화의 근거다 */
+  private qtyScaleOf(market: string): number {
+    return this.states.get(market)?.seed.qtyScale ?? COIN_DISPLAY_SCALE;
+  }
+
+  /** 계약 표기 자산 항목 1건. REST /accounts와 WS myAsset 델타가 같은 함수를 쓴다(§4-C-1/§5-5) */
+  private assetOf(currency: string): Asset {
+    const b = this.balanceOf(currency);
+    const c = this.costOf(currency);
+    const scale = this.displayScaleOf(currency);
+    return {
+      currency,
+      balance: padScale(b.balance, scale),
+      locked: padScale(b.locked, scale),
+      avg_buy_price: avgBuyPriceOf(c.costAmount, c.costQty, PRICE_SCALE),
+      unit_currency: "KRW",
+      // 원가 3필드는 잔고 표기 자릿수를 따르지 않는다. quote 자산 행이 "0.00"이 아니라 "0"이어야
+      // 계약(§4-C-1 C25)과 같은 문자열이 된다
+      cost_basis_qty: c.costQty,
+      cost_basis_amount: c.costAmount,
+    };
   }
 
   /* ===== 수명주기 ===== */
@@ -389,11 +485,11 @@ export class SimEngine {
       epoch: EPOCH,
       seq: this.nextSeq(dest.myAsset),
       timestamp: isoNow(),
-      assets: [...this.balances.entries()].map(([currency, b]) => ({
-        currency,
-        balance: b.balance.toFixed(currency === "KRW" ? 2 : 8),
-        locked: b.locked.toFixed(currency === "KRW" ? 2 : 8),
-      })),
+      // 원가 필드는 델타의 계약이다(§5-5 K5). 빼면 매수마다 낡은 평단가가 화면에 남는다
+      assets: [...this.balances.keys()].map((currency) => {
+        const { unit_currency, ...item } = this.assetOf(currency);
+        return item;
+      }),
     };
   }
 
@@ -491,13 +587,7 @@ export class SimEngine {
   }
 
   getAccounts(): Asset[] {
-    return [...this.balances.entries()].map(([currency, b]) => ({
-      currency,
-      balance: b.balance.toFixed(currency === "KRW" ? 2 : 8),
-      locked: b.locked.toFixed(currency === "KRW" ? 2 : 8),
-      avg_buy_price: String(b.avgBuyPrice),
-      unit_currency: "KRW",
-    }));
+    return [...this.balances.keys()].map((currency) => this.assetOf(currency));
   }
 
   getOrders(open: boolean, market?: string): Order[] {
@@ -506,7 +596,7 @@ export class SimEngine {
       .filter((o) => (open ? o.status === "OPEN" || o.status === "PARTIAL"
                           : o.status === "FILLED" || o.status === "CANCELED" || o.status === "REJECTED"))
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
-      .map(({ _timer, ...o }) => o);
+      .map(({ _timer, _lock, ...o }) => o);
   }
 
   /* ===== 주문 시뮬레이션 (멱등키 client_order_id, §2-4) ===== */
@@ -516,33 +606,53 @@ export class SimEngine {
     // 멱등 replay: 동일 키 → 기존 주문 반환
     const existingId = this.ordersByClientId.get(req.client_order_id);
     if (existingId) {
-      const { _timer, ...o } = this.orders.get(existingId)!;
+      const { _timer, _lock, ...o } = this.orders.get(existingId)!;
       return o;
     }
     const st = this.states.get(req.market);
     if (!st) throw new SimApiError("invalid_parameter", "존재하지 않는 마켓이에요.");
 
     const isMarketBuy = req.ord_type === "market" && req.side === "bid";
-    const price = req.price != null ? parseFloat(req.price) : null;
-    const volume = req.volume != null ? parseFloat(req.volume) : null;
-    const notional = isMarketBuy ? price! : (price ?? st.price) * (volume ?? 0);
-    if (notional < 5000) throw new SimApiError("under_min_order", "최소 주문 금액은 5,000원이에요.");
+    const priceStr = req.price != null ? normalizeDecimal(req.price) : null;
+    const volumeStr = req.volume != null ? normalizeDecimal(req.volume) : "0";
+    // 매수는 대금이 락의 근거라 price가 없으면 산출 자체가 불가하다. 계약 에러로 던지지 않으면
+    // 십진 연산이 TypeError로 죽어 §2-3 에러 매핑을 못 탄다
+    if (req.side === "bid" && priceStr === null) {
+      throw new SimApiError("invalid_parameter", "매수 주문에는 가격이 필요해요.");
+    }
+    // 최소주문 판정은 정확 비교다. 서버 정적 검증이 NUMERIC 비교라 여기서 반올림하면 경계가 갈린다
+    const notionalStr = isMarketBuy
+      ? priceStr!
+      : mulDecimal(priceStr ?? String(st.price), volumeStr);
+    if (compareDecimal(notionalStr, MIN_ORDER_AMOUNT) < 0) {
+      throw new SimApiError("under_min_order", "최소 주문 금액은 5,000원이에요.");
+    }
 
-    // 잔고 락 (bid=KRW 락(대금+수수료), ask=코인 락)
+    // 예약(락)은 수수료를 포함하지 않는다(§4-B-5 v2.7). bid=대금 UP 양자화, ask=base 수량 그대로
     const base = req.market.split("-")[1];
+    const lock = req.side === "bid"
+      ? isMarketBuy
+        ? marketBidLockAmount(notionalStr, PRICE_SCALE)
+        : bidLockAmount(priceStr!, volumeStr, PRICE_SCALE)
+      : askLockQty(volumeStr);
     if (req.side === "bid") {
-      const need = notional * (1 + FEE_RATE);
-      const krw = this.balances.get("KRW")!;
-      if (krw.balance < need) throw new SimApiError("insufficient_funds", "주문 가능 금액이 부족해요.");
-      krw.balance -= need; krw.locked += need;
+      const krw = this.balanceOf("KRW");
+      if (compareDecimal(krw.balance, lock) < 0) {
+        throw new SimApiError("insufficient_funds", "주문 가능 금액이 부족해요.");
+      }
+      krw.balance = subDecimal(krw.balance, lock);
+      krw.locked = addDecimal(krw.locked, lock);
     } else {
-      const coin = this.balances.get(base) ?? { balance: 0, locked: 0, avgBuyPrice: 0 };
-      if (coin.balance < (volume ?? 0)) throw new SimApiError("insufficient_funds", "보유 수량이 부족해요.");
-      coin.balance -= volume!; coin.locked += volume!;
-      this.balances.set(base, coin);
+      const coin = this.balanceOf(base);
+      if (compareDecimal(coin.balance, lock) < 0) {
+        throw new SimApiError("insufficient_funds", "보유 수량이 부족해요.");
+      }
+      coin.balance = subDecimal(coin.balance, lock);
+      coin.locked = addDecimal(coin.locked, lock);
     }
 
     const order: SimOrder = {
+      _lock: lock,
       schema_version: SCHEMA_VERSION,
       id: ulid(),
       client_order_id: req.client_order_id,
@@ -569,12 +679,14 @@ export class SimEngine {
     this.emitMyAsset();
 
     // 시장가: 즉시 체결. 지정가: 현재가와 교차 시 지연 체결, 아니면 OPEN 유지 → 틱마다 재판정
+    // 교차 판정은 시세 격자 비교라 number로 충분하다(금액 산술이 아니다)
+    const limit = priceStr != null ? Number(priceStr) : null;
     if (req.ord_type === "market") {
-      order._timer = setTimeout(() => this.fillOrder(order.id, st.price), 250 + Math.random() * 400);
-    } else if (price != null && this.crosses(req.side, price, st.price)) {
-      order._timer = setTimeout(() => this.fillOrder(order.id, price), 300 + Math.random() * 900);
+      order._timer = setTimeout(() => this.fillOrder(order.id, String(st.price)), 250 + Math.random() * 400);
+    } else if (limit != null && Number.isFinite(limit) && this.crosses(req.side, limit, st.price)) {
+      order._timer = setTimeout(() => this.fillOrder(order.id, priceStr!), 300 + Math.random() * 900);
     }
-    const { _timer, ...pub } = order;
+    const { _timer, _lock, ...pub } = order;
     return pub;
   }
 
@@ -582,33 +694,24 @@ export class SimEngine {
     const id = this.orders.has(idOrClientId) ? idOrClientId : this.ordersByClientId.get(idOrClientId);
     const order = id ? this.orders.get(id) : undefined;
     if (!order) throw new SimApiError("order_not_found", "주문을 찾을 수 없어요.");
-    if (order.status === "CANCELED") { const { _timer, ...o } = order; return o; } // 취소 멱등 (§2-4)
+    if (order.status === "CANCELED") { const { _timer, _lock, ...o } = order; return o; } // 취소 멱등 (§2-4)
     if (order.status === "FILLED") throw new SimApiError("invalid_parameter", "이미 체결 완료된 주문이에요.");
 
     if (order._timer) clearTimeout(order._timer);
-    // 락 해제 (잔여분)
-    const base = order.market.split("-")[1];
-    const remaining = parseFloat(order.remaining_volume);
-    if (order.side === "bid") {
-      const krw = this.balances.get("KRW")!;
-      // 시장가 매수는 수량이 아니라 잔여 대금(remaining_notional)으로 락을 잡는다.
-      // 지정가 경로처럼 price*remaining으로 계산하면 remaining_volume=0이라 환급이 0이 되어 락이 영구 잔존한다.
-      const refund =
-        order.ord_type === "market"
-          ? parseFloat(order.remaining_notional ?? "0") * (1 + FEE_RATE)
-          : (order.price ? parseFloat(order.price) : 0) * remaining * (1 + FEE_RATE);
-      const back = Math.min(krw.locked, refund);
-      krw.locked -= back; krw.balance += back;
-    } else {
-      const coin = this.balances.get(base)!;
-      const back = Math.min(coin.locked, remaining);
-      coin.locked -= back; coin.balance += back;
-    }
+    // 환급은 계산값이 아니라 이 주문 기여분의 실측 잔여 락이다(§4-B-5). price×remaining으로
+    // 재계산하면 시장가 매수(remaining_volume=0)에서 0이 되어 락이 영구 잔존하고, UP 양자화
+    // 잔차만큼 지정가 매수 환급이 모자란다
+    const currency = order.side === "bid" ? "KRW" : order.market.split("-")[1];
+    const acct = this.balanceOf(currency);
+    const back = compareDecimal(acct.locked, order._lock) < 0 ? acct.locked : order._lock;
+    acct.locked = subDecimal(acct.locked, back);
+    acct.balance = addDecimal(acct.balance, back);
+    order._lock = "0";
     order.status = "CANCELED";
     order.canceled_at = isoNow();
     this.emitMyOrder(order, null);
     this.emitMyAsset();
-    const { _timer, ...o } = order;
+    const { _timer, _lock, ...o } = order;
     return o;
   }
 
@@ -621,60 +724,92 @@ export class SimEngine {
       if (order.market !== market || order.ord_type !== "limit") continue;
       if (order.status !== "OPEN" && order.status !== "PARTIAL") continue;
       if (order._timer) continue;
-      const limit = order.price ? parseFloat(order.price) : NaN;
+      const limit = order.price ? Number(order.price) : NaN;
       if (Number.isFinite(limit) && this.crosses(order.side, limit, price)) {
-        order._timer = setTimeout(() => this.fillOrder(order.id, limit), 200 + Math.random() * 700);
+        order._timer = setTimeout(() => this.fillOrder(order.id, order.price!), 200 + Math.random() * 700);
       }
     }
   }
 
-  /** 전량 체결 처리 (지정가=주문가, 시장가=현재가 기준) */
-  private fillOrder(id: string, fillPrice: number): void {
+  /**
+   * 전량 체결 처리 (지정가=주문가, 시장가=현재가 기준).
+   * 수수료·락 소비·원가 적재는 전부 계약 산식 모듈이 정한다(§4-B-5 v2.7, §4-C-1 v2.21).
+   * 수취 자산 기준 수수료라 매수 수수료는 base, 매도 수수료는 quote로 나간다.
+   */
+  private fillOrder(id: string, fillPriceStr: string): void {
     const order = this.orders.get(id);
     if (!order || (order.status !== "OPEN" && order.status !== "PARTIAL")) return;
     order._timer = undefined;
 
-    const st = this.states.get(order.market)!;
     const base = order.market.split("-")[1];
+    const qtyScale = this.qtyScaleOf(order.market);
     const isMarketBuy = order.ord_type === "market" && order.side === "bid";
-    const volume = isMarketBuy
-      ? parseFloat(order.remaining_notional ?? "0") / fillPrice
-      : parseFloat(order.remaining_volume || order.volume || "0");
-    const funds = volume * fillPrice;
-    const fee = funds * FEE_RATE;
+    const fillPrice = normalizeDecimal(fillPriceStr);
 
     if (order.side === "bid") {
-      const krw = this.balances.get("KRW")!;
-      const locked = funds * (1 + FEE_RATE);
-      krw.locked = Math.max(0, krw.locked - locked);
-      const coin = this.balances.get(base) ?? { balance: 0, locked: 0, avgBuyPrice: 0 };
-      const prevQty = coin.balance + coin.locked;
-      coin.avgBuyPrice = prevQty + volume > 0
-        ? (coin.avgBuyPrice * prevQty + fillPrice * volume) / (prevQty + volume)
-        : fillPrice;
-      coin.balance += volume;
-      this.balances.set(base, coin);
-    } else {
-      const coin = this.balances.get(base)!;
-      coin.locked = Math.max(0, coin.locked - volume);
-      const krw = this.balances.get("KRW")!;
-      krw.balance += funds - fee;
+      // 전량 체결은 잔여 락 전액을 소비한다(§4-B-5 최종 체결 규약). 소비액이 실지출 quote이고
+      // 그것이 원가 금액이다. 시장가 매수는 수량 절사로 대금보다 작은 체결이 나오는데, 그 잔차를
+      // 해제하지 않고 소비하는 쪽을 택했다. 서버는 잔차를 자산별 마지막 FEE leg가 흡수해 락 잔량이
+      // 0이 되므로 결과 형태가 같다. 크기는 qty_scale 한 칸 미만이다
+      const spent = order._lock;
+      const volume = isMarketBuy
+        ? (divDecimal(spent, fillPrice, qtyScale, "trunc") ?? "0")
+        : truncToScale(order.remaining_volume || order.volume || "0", qtyScale);
+      const fee = buyFeeBase(volume, FEE_RATE, qtyScale);
+      const net = subDecimal(volume, fee);
+
+      const krw = this.balanceOf("KRW");
+      krw.locked = subDecimal(krw.locked, spent);
+      const coin = this.balanceOf(base);
+      coin.balance = addDecimal(coin.balance, net);
+      // 순델타(수취 순액, 실지출 quote)를 그대로 넘긴다. 수수료 항을 따로 만들지 않는다
+      this.postCostDelta(base, net, subDecimal("0", spent));
+      order._lock = "0";
+
+      this.settleOrder(order, volume, mulDecimal(fillPrice, volume), fee, isMarketBuy, fillPrice);
+      return;
     }
 
+    const volume = order._lock;
+    const funds = mulDecimal(fillPrice, volume);
+    const fee = sellFeeQuote(funds, FEE_RATE, PRICE_SCALE);
+    const net = subDecimal(funds, fee);
+
+    const coin = this.balanceOf(base);
+    coin.locked = subDecimal(coin.locked, volume);
+    const krw = this.balanceOf("KRW");
+    krw.balance = addDecimal(krw.balance, net);
+    this.postCostDelta(base, subDecimal("0", volume), net);
+    order._lock = "0";
+
+    this.settleOrder(order, volume, funds, fee, false, fillPrice);
+  }
+
+  /** 체결 확정 공통부. 주문 필드 갱신과 myOrder·myAsset 발행 */
+  private settleOrder(
+    order: SimOrder,
+    volume: string,
+    funds: string,
+    fee: string,
+    isMarketBuy: boolean,
+    fillPrice: string,
+  ): void {
+    const qtyScale = this.qtyScaleOf(order.market);
     order.status = "FILLED";
-    order.executed_volume = volume.toFixed(st.seed.qtyScale);
+    order.executed_volume = padScale(volume, qtyScale);
     order.remaining_volume = "0";
     order.remaining_notional = isMarketBuy ? "0" : order.remaining_notional;
-    order.executed_funds = funds.toFixed(2);
-    order.paid_fee = fee.toFixed(2);
+    order.executed_funds = padScale(funds, KRW_DISPLAY_SCALE);
+    // 수수료 단위는 수취 자산이다(매수 base, 매도 quote). §4-B-5 v2.7
+    order.paid_fee = fee;
     order.trades_count += 1;
 
     this.emitMyOrder(order, {
       trade_id: ulid(),
-      price: String(roundToStep(fillPrice)),
+      price: String(roundToStep(Number(fillPrice))),
       volume: order.executed_volume,
       liquidity_flag: order.ord_type === "market" ? "TAKER" : "MAKER",
-      fee: fee.toFixed(2),
+      fee,
     });
     this.emitMyAsset();
   }
