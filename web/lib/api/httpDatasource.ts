@@ -304,6 +304,8 @@ export class HttpStompDataSource implements DataSource {
   /** 현재 STOMP 연결이 Bearer 포함 CONNECT였는지. 비공개 구독 시 재연결 판단 근거 */
   private authOnConnect = false;
   private authUpgrading = false;
+  /** handleConnect가 승격에 채널 복원을 위임한 상태. 승격이 재연결을 못 내면 되돌리는 근거 */
+  private restoreDeferred = false;
 
   private session: { token: string; expMs: number | null } | null = null;
   private sessionPromise: Promise<string> | null = null;
@@ -754,7 +756,29 @@ export class HttpStompDataSource implements DataSource {
   private handleConnect(): void {
     this.stompConnected = true;
     for (const cb of this.connListeners) cb(true);
-    // 재연결 시 전 채널 재구독 + REST 재동기화(웹_화면명세서 §6.1-3)
+    // 토큰 만료 중 재연결은 무인증 CONNECT로 붙는다. 이 연결에서 비공개 채널을 복원해 봐야
+    // 서버가 거절하므로(§5-6) 승격 재연결에 복원을 위임한다. 승격이 불가·실패하면 그 경로가
+    // restoreChannels로 되돌린다. 승격 트리거가 subscribe에만 있으면 재연결 경로는 영구 무인증이다
+    if (!this.authUpgrading && this.needsAuthUpgrade()) {
+      this.restoreDeferred = true;
+      void this.upgradeAuth();
+      return;
+    }
+    this.restoreChannels();
+  }
+
+  /** 비공개 채널을 구독 중인데 현재 연결이 무인증 CONNECT인지 */
+  private needsAuthUpgrade(): boolean {
+    if (this.authOnConnect) return false;
+    for (const destination of this.channels.keys()) {
+      if (destination.startsWith("/user/")) return true;
+    }
+    return false;
+  }
+
+  /** 전 채널 재구독 + REST 재동기화(웹_화면명세서 §6.1-3). 연결 단절 구간의 유실을 메운다 */
+  private restoreChannels(): void {
+    this.restoreDeferred = false;
     for (const [destination, ch] of this.channels) {
       ch.stompUnsub?.();
       this.attachStomp(destination, ch);
@@ -792,12 +816,15 @@ export class HttpStompDataSource implements DataSource {
       if (this.stomp && this.stompConnected && !this.authOnConnect) {
         await this.stomp.deactivate();
         this.stomp.activate();
+        return; // 승격 연결의 handleConnect가 인증 상태로 전 채널을 복원한다
       }
     } catch {
       // 세션 발급 실패 시 공개 채널은 유지. 비공개 구독은 서버가 거절(§5-6)
     } finally {
       this.authUpgrading = false;
     }
+    // 승격 재연결을 발사하지 못한 경로. handleConnect가 복원을 위임했으면 여기서 되돌린다
+    if (this.restoreDeferred && this.stompConnected) this.restoreChannels();
   }
 
   /* ===== seq/epoch 검사 (§5-2) ===== */

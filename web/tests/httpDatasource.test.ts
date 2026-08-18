@@ -709,11 +709,18 @@ test("myOrder 재동기화는 open과 closed를 함께 복원해 종결 통지�
   );
   const received: WsMessage[] = [];
   ds.connect();
+  stomp.state.args!.connectHeaders();
   stomp.state.args!.onConnect();
   ds.subscribe(dest.myOrder, (m) => received.push(m));
   await settle();
+  // 구독이 건 인증 승격으로 세션이 확보된 상태. 승격 연결을 성립시킨다(실 클라이언트는
+  // beforeConnect가 항상 CONNECT 직전에 돈다)
+  stomp.state.args!.connectHeaders();
+  stomp.state.args!.onConnect();
+  await settle();
 
   stomp.state.args!.onDisconnect();
+  stomp.state.args!.connectHeaders();
   stomp.state.args!.onConnect(); // 재연결 → myOrder 재동기화
   await settle();
 
@@ -721,6 +728,70 @@ test("myOrder 재동기화는 open과 closed를 함께 복원해 종결 통지�
   const terminal = received.find((m) => m.type === "myOrder" && m.id === closedOrder.id);
   assert.ok(terminal, "종결 주문의 myOrder 통지 전달");
   assert.equal((terminal as { status: string }).status, "FILLED");
+});
+
+/* ===== 비공개 채널 인증 승격 ===== */
+
+test("만료 토큰 재연결은 비공개 채널 인증 승격을 재발화한다", async () => {
+  const stomp = makeStomp();
+  const expired = makeJwt(-1000);
+  const fresh = makeJwt(15 * 60_000);
+  const { ds, count } = newDs(
+    {
+      "/api/v1/demo/session": (_c, hits) => jsonRes(200, { access_token: hits === 1 ? expired : fresh }),
+      "/api/v1/orders/open": () => jsonRes(200, emptyList),
+      "/api/v1/orders/closed": () => jsonRes(200, emptyList),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.connectHeaders(); // 세션 미보유 → 무인증 CONNECT
+  stomp.state.args!.onConnect();
+  ds.subscribe(dest.myOrder, () => {});
+  await settle();
+  assert.equal(stomp.state.deactivations, 1, "구독 시 승격 재연결 1회");
+
+  // 승격으로 받은 토큰이 이미 만료라 재연결도 무인증 CONNECT가 된다
+  stomp.state.args!.connectHeaders();
+  stomp.state.args!.onConnect();
+  await settle();
+
+  assert.equal(stomp.state.deactivations, 2, "재연결 경로에서 승격이 다시 발화해야 한다");
+  const headers = stomp.state.args!.connectHeaders();
+  assert.equal(headers["Authorization"], `Bearer ${fresh}`, "승격 후 CONNECT는 Bearer 첨부");
+
+  // 승격 연결에서 비공개 채널이 재구독·재동기화된다
+  stomp.state.args!.onConnect();
+  await settle();
+  assert.ok(stomp.state.subs.has(dest.myOrder), "승격 연결에서 비공개 채널 재구독");
+  assert.ok(count("/api/v1/orders/open") >= 1, "승격 연결에서 비공개 채널 재동기화");
+});
+
+test("승격 세션 발급 실패 시 채널 복원을 포기하지 않는다", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs(
+    {
+      "/api/v1/demo/session": () => jsonRes(503, { error: { name: "server_error", message: "일시 오류" } }),
+      "/api/v1/ticker": () =>
+        jsonRes(200, { schema_version: "1.0", data: [restTicker(5)], pagination: { next_cursor: null, has_more: false } }),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.connectHeaders();
+  stomp.state.args!.onConnect();
+  ds.subscribe(dest.myOrder, () => {});
+  ds.subscribe(dest.ticker("KRW-BTC"), () => {});
+  await settle();
+  const before = count("/api/v1/ticker");
+
+  stomp.state.args!.onDisconnect();
+  stomp.state.args!.connectHeaders();
+  stomp.state.args!.onConnect(); // 재연결. 승격 시도가 세션 발급 실패로 좌초한다
+  await settle();
+
+  assert.ok(stomp.state.subs.has(dest.ticker("KRW-BTC")), "승격 실패에도 공개 채널은 재구독");
+  assert.equal(count("/api/v1/ticker"), before + 1, "승격 실패에도 재동기화가 돈다");
 });
 
 /* ===== 회원 세션 (§3-8) ===== */
