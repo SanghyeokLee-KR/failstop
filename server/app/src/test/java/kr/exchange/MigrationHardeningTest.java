@@ -29,6 +29,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   DISABLE TRIGGER USER(owner 권한 충분)로 하고 같은 트랜잭션에서 ENABLE 원복한다.
  * 세션 TZ: 세션 TZ가 배포 JVM zone(KST)에 의존해 파티션 경계가 밀려 overlap으로 부팅이 막히는 결함.
  *   연결 계층 UTC 고정 + V8 명시 오프셋 리터럴로 세션 TZ와 무관하게 정렬된다.
+ * 파티션 결손 재배치: 정규 파티션이 없는 달의 행이 DEFAULT에 쌓인 상태에서 그 달의 파티션을
+ *   뒤늦게 만드는 경로(V12 outbox 2026-08). 재배치 경계가 어긋나면 남은 행이 DEFAULT 재ATTACH
+ *   검증에서 마이그레이션 전체를 실패시킨다. 빈 DB 단일 패스로는 분기 자체를 타지 않는다.
  * 권한 하한: V0~V12 전 체인이 superuser 없이 적용된다. 비superuser(CREATEROLE + DB owner)
  *   migrator 롤로 전 마이그레이션을 실행해 하한을 실증한다(하네스_CICD_IaC §7-2의 전담
  *   flyway-migrate 잡이 superuser일 필요가 없음을 증명).
@@ -155,6 +158,71 @@ class MigrationHardeningTest {
     }
 
     // ------------------------------------------------------------------
+    // V11까지 적재된 DB의 outbox_default에 2026-08 경계 행을 심고, 같은 권한·TZ·타임아웃
+    // 조건에서 V12를 적용해도 두 행이 신규 파티션으로 이동하고 default가 빈다.
+    // 목적은 경계 편집의 회귀 고정이다. V12의 재배치 범위는 [2026-08-01T00:00Z, 2026-09-01T00:00Z)
+    // 반개구간이고, 하한 포함성이 깨지거나 상한이 좁아지면 남은 행이 DEFAULT 재ATTACH 검증에서
+    // 마이그레이션 전체를 실패시킨다(빈 DEFAULT로 돌리면 그 실패가 관측되지 않는다). 상한을
+    // 넓히는 편집은 이 테스트가 잡지 못하지만, V8이 2026-09부터 12개월을 이미 만들어 그 구간
+    // 행이 default에 존재할 수 없으므로 고를 행이 없다.
+    // ------------------------------------------------------------------
+
+    @Test
+    void v12RelocatesAugustOutboxRowsUnderNonUtcSessionWithoutSuperuser() throws Exception {
+        try (PostgreSQLContainer<?> pg = container()) {
+            pg.start();
+            createMigratorRole(pg);
+
+            Flyway.configure()
+                    .dataSource(pg.getJdbcUrl(), MIGRATOR, MIGRATOR)
+                    .locations("classpath:db/migration")
+                    .target(MigrationVersion.fromVersion("11"))
+                    .load()
+                    .migrate();
+
+            seedAugustOutboxRows(pg);
+            String contentBefore;
+            long totalBefore;
+            try (Connection c = plain(pg)) {
+                assertEquals(0, count(c,
+                        "SELECT count(*) FROM pg_class WHERE relname = 'outbox_p2026_08'"),
+                        "시드 전제: V12 이전에는 2026-08 파티션이 없다");
+                assertEquals(2, count(c, "SELECT count(*) FROM outbox_default"),
+                        "시드 전제: 2026-08 행이 default로 유입되지 않았다");
+                contentBefore = outboxDigest(c);
+                totalBefore = count(c, "SELECT count(*) FROM outbox");
+            }
+
+            try (HikariDataSource ds = hikari(pg, MIGRATOR, MIGRATOR,
+                    "SET TIME ZONE 'Asia/Seoul'; SET statement_timeout TO '3000ms'; "
+                    + "SET lock_timeout TO '2000ms'")) {
+                var result = Flyway.configure()
+                        .dataSource(ds)
+                        .locations("classpath:db/migration")
+                        .load()
+                        .migrate();
+                // 권한 축은 판별력이 있다(V12가 LOCK·DETACH·CREATE·ATTACH를 하고 migrator는
+                // 비superuser다). KST·타임아웃은 prod 배선을 그대로 재현하기 위한 고정 조건이며,
+                // V12가 SET LOCAL로 자체 방어하므로 이 시드 규모에서는 판별 차원이 아니다.
+                assertTrue(result.success, "비superuser·KST 세션 V12 적용 실패(권한/경계 회귀)");
+            }
+
+            try (Connection c = plain(pg)) {
+                assertEquals(2, count(c, "SELECT count(*) FROM outbox_p2026_08"),
+                        "2026-08 경계 행이 신규 파티션으로 이동하지 않았다");
+                assertEquals(0, count(c, "SELECT count(*) FROM outbox_default"),
+                        "재배치 후에도 default에 2026-08 행이 남았다");
+                assertEquals(totalBefore, count(c, "SELECT count(*) FROM outbox"),
+                        "재배치가 총 행 수를 바꿨다");
+                // id는 GENERATED ALWAYS라 재삽입이 OVERRIDING SYSTEM VALUE 없이는 값이 갈린다.
+                // event_id는 uq_outbox_event의 축이고 payload는 소비자 계약이다.
+                assertEquals(contentBefore, outboxDigest(c),
+                        "id·event_id·payload·created_at이 재배치로 변형됐다");
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
     // 비superuser 마이그레이션 주체. CREATEROLE(V0 롤 부트스트랩용) + DB owner(스키마 소유,
     // trusted 확장 pgcrypto 설치, DISABLE TRIGGER USER)면 전 체인이 적용된다.
     // ------------------------------------------------------------------
@@ -230,9 +298,49 @@ class MigrationHardeningTest {
         }
     }
 
+    /**
+     * 재배치 범위의 양 끝점을 심는다. 하한은 포함, 상한은 배제(다음 파티션의 하한)이므로
+     * 2026-08의 마지막 마이크로초가 마지막 대상 행이다. 경계를 잘못 편집하면 정확히 이 두 행 중
+     * 하나가 default에 남는다. outbox에는 FK도 사용자 트리거도 없어 시드 우회가 필요 없다.
+     */
+    private void seedAugustOutboxRows(PostgreSQLContainer<?> pg) throws SQLException {
+        try (Connection c = plain(pg); Statement st = c.createStatement()) {
+            // 세션 TZ와 무관하게 정렬되도록 명시 오프셋 리터럴을 쓴다(V8·V12와 같은 규칙).
+            st.execute("SET timezone = 'UTC'");
+            // 한 행은 발행 완료로 둔다. published_at이 재배치에서 누락되면 그 행이 미발행으로
+            // 되살아나 idx_outbox_unpublished에 다시 잡히고 소비자가 같은 이벤트를 재수신한다.
+            st.execute("""
+                    INSERT INTO outbox (aggregate_type, aggregate_id, event_type, payload,
+                                        published_at, created_at)
+                    VALUES ('TRADE', '800001', 'TradeExecuted', '{"seq": 800001}',
+                            NULL, TIMESTAMPTZ '2026-08-01 00:00:00+00'),
+                           ('TRADE', '800002', 'TradeExecuted', '{"seq": 800002}',
+                            TIMESTAMPTZ '2026-08-31 12:00:00+00',
+                            TIMESTAMPTZ '2026-08-31 23:59:59.999999+00')
+                    """);
+        }
+    }
+
     // ------------------------------------------------------------------
     // 헬퍼
     // ------------------------------------------------------------------
+
+    /** 재배치 전후 비교용 지문. 세션 TZ에 흔들리지 않도록 UTC로 정규화해 찍는다. */
+    private static String outboxDigest(Connection c) throws SQLException {
+        String sql = """
+                SELECT coalesce(string_agg(
+                           id || '|' || event_id || '|' || payload::text || '|'
+                           || to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS.US')
+                           || '|' || coalesce(to_char(published_at AT TIME ZONE 'UTC',
+                                                      'YYYY-MM-DD HH24:MI:SS.US'), '-'),
+                           ',' ORDER BY id), '')
+                FROM outbox
+                """;
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            rs.next();
+            return rs.getString(1);
+        }
+    }
 
     private static PostgreSQLContainer<?> container() {
         return new PostgreSQLContainer<>(IMAGE)
