@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.20, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.21, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -740,14 +740,35 @@ POST /api/v1/orders
 
 #### 4-C-1. `GET /api/v1/accounts`
 ```json
-{ "data":[
-  { "currency":"KRW","balance":"1000000.000000000000000000","locked":"50000.000000000000000000",
-    "avg_buy_price":"0","unit_currency":"KRW" },
-  { "currency":"BTC","balance":"0.490000000000000000","locked":"0.010000000000000000",
-    "avg_buy_price":"49500000","unit_currency":"KRW" } ],
+{ "schema_version":"1.0",
+  "data":[
+  { "currency":"KRW","balance":"1000000","locked":"50000",
+    "avg_buy_price":"0","unit_currency":"KRW",
+    "cost_basis_qty":"0","cost_basis_amount":"0" },
+  { "currency":"BTC","balance":"0.49","locked":"0.01",
+    "avg_buy_price":"49500000","unit_currency":"KRW",
+    "cost_basis_qty":"0.4","cost_basis_amount":"19800000" } ],
   "pagination":{"next_cursor":null,"has_more":false} }
 ```
 불변식: `balance(=available) + locked = total`, 항상 `available ≥ 0`이고 `locked ≥ 0`(둘 다 DB CHECK).
+
+**원가 산출 규약(v2.21 신설)**. 서버는 평단가를 저장하지 않는다. 원가는 원장 순델타 파생 프로젝션(DB 설계 §6.4 ⑱⑲, `position_cost`)에 **누산기 쌍**으로만 적재되고, 평단가는 조회 시점에 그 쌍에서 산출한다. 평단가를 저장하면 취득마다 나눗셈 반올림이 누적되고 부분 처분이 그 오차를 확대하기 때문이다.
+
+| 필드 | 원천 | 의미 |
+|---|---|---|
+| `cost_basis_qty` | `position_cost.cost_qty` | **원가 확보 수량**. 대가를 지불한 취득분만 누산한다 |
+| `cost_basis_amount` | `position_cost.cost_amount` | **원가 확보 금액**. 그 취득에 실제 지출한 `unit_currency` 총액 |
+| `avg_buy_price` | 산출값 | `cost_basis_amount / cost_basis_qty`를 `unit_currency`의 자산 scale로 **HALF_UP 반올림**. `cost_basis_qty = 0`이면 `"0"` |
+
+- **`avg_buy_price`는 원가 확보분의 평단가이지 보유 전량의 평단가가 아니다.** 두 수는 보유량 전부에 원가가 있을 때만 같다.
+- **원가 미상 수량은 별도 필드를 만들지 않고 클라이언트가 유도한다**: `원가 미상 = balance + locked - cost_basis_qty`. 세 항이 모두 같은 응답 항목 안에 있고 서버가 `cost_qty + unknown_qty = available + locked` 항등을 불변식으로 감사하므로(하네스 C24), 필드를 하나 더 실으면 같은 사실의 두 번째 표현이 생겨 둘이 어긋날 여지만 늘어난다. 유도식이 음수가 되는 응답은 그 자체로 C24 위반이며 클라이언트는 0으로 클램프해 표시한다.
+- **원가 0과 원가 미상은 다르다.** 시드 발행·입금처럼 매수 상대거래가 없는 취득은 원가가 0이 아니라 **미상**이다. 원가 0으로 계상하면 전액이 수익으로 오표시된다. 그래서 그 수량은 `cost_basis_qty`에 들어가지 않고, 해당 자산의 보유 전량이 미상이면 `avg_buy_price`는 `"0"`이 된다. 클라이언트는 이 `"0"`을 "평단가 0원"이 아니라 **"산출 불가"**로 렌더링한다(`cost_basis_qty = 0`이 그 판별자다).
+- **`cost_basis_amount`를 함께 내는 이유**: `avg_buy_price`는 quote scale 반올림값이라 `cost_basis_qty × avg_buy_price`로 총매수를 재계산하면 원 단위로 어긋난다. 위 예시에서 `0.4 × 49500000 = 19800000`은 우연히 맞지만, 반올림이 발생하는 실제 체결 조합에서는 어긋난다. 총매수·평가손익을 정확값으로 계산하려면 나눗셈 이전 원본이 필요하다.
+- **quote 자산 행**(v1은 `KRW`)은 원가 개념이 없어 `avg_buy_price`·`cost_basis_qty`·`cost_basis_amount`가 모두 `"0"`을 유지한다. quote 자산에 원가 행이 생기는 것 자체가 불변식 위반이다(C25 `quote_asset_position`).
+- `unit_currency`는 v1에서 `KRW` 고정이다. 다중 quote 확장은 자산별로 원가 통화가 갈리므로 이 필드의 행별 산출과 `position_cost` PK 확장이 같이 가야 한다.
+- **기존 필드·엔벌로프는 불변이다**(additive only). `cost_basis_qty`·`cost_basis_amount`를 읽지 않는 클라이언트는 종전과 동일하게 동작한다.
+
+> **금액 표기(v2.21 정정)**: 위 예시의 `balance`·`locked`는 종전 판이 `"1000000.000000000000000000"`처럼 18자리를 채워 적었으나, 구현(`ApiFormats.amount`)과 §5-5 myAsset 예시는 후행 0을 제거한 평문 표기다. §2-1의 문자열 표기 계약은 자릿수 고정을 요구하지 않으므로, 정본 표기를 후행 0 제거로 통일하고 §4-C-1 예시를 그에 맞춘다. 저장 타입이 `NUMERIC(40,18)`인 것과 전송 표기는 별개다.
 #### 4-C-2. `GET /api/v1/my/trades` · 체결 내역 (v2.20 보완: 표에만 있고 상세가 한 줄이던 비대칭 해소)
 
 `liquidity_flag`(MAKER/TAKER)·`fee`·해당 체결가를 노출한다(원장 정합성 검증 현실성).
@@ -930,10 +951,15 @@ POST /api/v1/orders
 ```json
 { "schema_version":"1.0","type":"myAsset","epoch":42,"seq":7203,
   "assets":[
-    {"currency":"KRW","balance":"500000","locked":"300000"},
-    {"currency":"BTC","balance":"0.493998","locked":"0.01"}],
+    {"currency":"KRW","balance":"500000","locked":"300000",
+     "avg_buy_price":"0","unit_currency":"KRW",
+     "cost_basis_qty":"0","cost_basis_amount":"0"},
+    {"currency":"BTC","balance":"0.493998","locked":"0.01",
+     "avg_buy_price":"50025013","unit_currency":"KRW",
+     "cost_basis_qty":"0.003998","cost_basis_amount":"200000"}],
   "timestamp":"2026-07-21T09:00:01.061Z" }
 ```
+> **원가 필드(v2.21 신설)**: 항목 스키마가 §4-C-1과 같은 필드 집합을 쓴다. 산출 규약·원가 미상 유도식·`"0"`의 의미는 전부 §4-C-1 정본을 따르며 여기서 다시 정의하지 않는다. **델타에 이 필드를 싣는 것이 계약이다**: 평단가는 매수 체결마다 바뀌는데 델타에 없으면 클라이언트가 직전 값을 보존할 수밖에 없고, 그 보존이 매수마다 낡은 평단가를 화면에 남긴다(`GET /accounts` 재적재 전까지 틀린 값). 위 예시는 초기 BTC 0.49가 전량 원가 미상(시드 취득)이고 이번 bid 체결로 0.003998만 원가를 확보한 상태다. `200000 / 0.003998 = 50025012.506…`을 KRW scale 0으로 HALF_UP 반올림해 `50025013`이며, 원가 미상 수량은 `0.493998 + 0.01 - 0.003998 = 0.5`로 유도된다. 반올림값과 원본 금액이 함께 실리므로 클라이언트는 총매수를 `cost_basis_amount`로 계산한다.
 > v2.7: 위 myOrder(bid) 체결과 **동일 시나리오를 DB 설계 §5.2 모델(수취 자산 수수료, 예약 무수수료)로 재계산한 정합 예시**다. 초기 KRW 1,000,000·BTC 0.49 가정. bid 0.01@50,000,000 접수 시 KRW **500,000 락**(대금만. 수수료는 예약하지 않는다) → balance 500,000. 0.004 체결로 락에서 **200,000 차감**(체결대금) → locked 300,000. **매수 체결 수취는 BTC**이며 taker 수수료 0.000002 BTC(0.004×0.0005)를 차감한 **순액 +0.003998**이 balance에 게시 → 0.493998(bid는 KRW를 락, BTC locked 무변화). BTC locked 0.01은 이 주문과 무관한 기존 매도 주문 락(§4-C-1 기준과 동일). `seq:7203`은 myOrder(51001)와 **독립 도메인**(user × type, §5-2)임을 보이는 예시 번호다. 이 예시는 반올림 잔차가 0인 수치이며, 잔차가 발생하는 부분체결 조합에서는 §4-B-5 규약대로 자산별 마지막 FEE leg가 잔차를 흡수하고 최종 체결이 실제 잔여 락을 소비하므로 FILLED 시 이 주문 기여분의 locked는 정확히 0이 된다.
 
 ### 5-6. STOMP 인증·구독 흐름 (부분 실패는 subscription만 거절)
@@ -1514,3 +1540,22 @@ v2.17이 E1 라이브 PASS(errorRate 0, epoch 불변, 주입 중 status 200 유�
 | J4 | §2-5 공개 조회 weight 표 | v2.19 I2가 확정한 weight 분할(다중행 리스트 2, 단건 1)을 표에 반영. 이 표 수정은 26816d2(서버 IP 토큰버킷)의 문서 짝인데 작업 트리에 함께 있던 탓에 f11f016 커밋에 섞여 들어갔다. 이력이 끊기지 않도록 여기에 기록한다 |
 
 문서 헤더 버전을 v2.20으로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.21 패치 반영 사항
+
+`avg_buy_price`가 계약 필드로만 있고 서버가 상수 `"0"`을 내던 공백을 닫는다. DB 정본 §6.4 ⑱⑲가 원가 프로젝션(`position_cost`)을 등재하면서 원천이 생겼고, 이 판은 그 원천을 API 표면으로 어떻게 내는지를 확정한다. 화면이 평단가·평가손익을 서버 권위로 산출하기 위한 선행 계약이다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| K1 | §4-C-1 | `avg_buy_price` 산출 규약 확정: 서버는 평단가를 저장하지 않고 누산기 쌍(`cost_qty`·`cost_amount`)만 적재하며, 조회 시 `cost_basis_amount / cost_basis_qty`를 `unit_currency` 자산 scale로 HALF_UP 반올림해 산출한다. **원가 확보분의 평단가이지 보유 전량의 평단가가 아님**을 명시 |
+| K2 | §4-C-1 | additive 필드 2개 신설: `cost_basis_qty`(원가 확보 수량), `cost_basis_amount`(원가 확보 금액). 둘 다 내는 이유는 `avg_buy_price`가 quote scale 반올림값이라 `수량 × 평단가`로 총매수를 재구성하면 원 단위로 어긋나기 때문이다. 정확한 총매수·평가손익은 반올림 이전 원본이 있어야 성립한다. 기존 필드·엔벌로프는 불변(additive only, §4-D `mine` 선례와 동일 규율) |
+| K3 | §4-C-1 | **원가 미상 수량은 별도 필드를 만들지 않는다**. 클라이언트가 `balance + locked - cost_basis_qty`로 유도한다. 세 항이 같은 항목 안에 있고 서버가 `cost_qty + unknown_qty = available + locked` 항등을 상시 감사하므로(하네스 C24), 필드를 더하면 같은 사실의 두 번째 표현이 생겨 어긋날 여지만 늘어난다 |
+| K4 | §4-C-1 | 원가 0과 원가 미상의 구분을 계약으로 명시. 시드 발행·입금 취득분은 원가 0이 아니라 미상이라 `cost_basis_qty`에 들어가지 않으며, 보유 전량이 미상이면 `avg_buy_price`는 `"0"`이다. 클라이언트는 이 `"0"`을 "평단가 0원"이 아니라 **산출 불가**로 렌더링하고 판별자는 `cost_basis_qty = 0`이다. quote 자산 행(v1 `KRW`)도 같은 이유로 세 필드가 `"0"` |
+| K5 | §5-5 myAsset | 델타 항목 스키마에 같은 원가 필드 집합을 신설. **부가가 아니라 필수 계약**이다. 평단가는 매수 체결마다 바뀌는데 델타에 없으면 클라이언트가 직전 값을 보존할 수밖에 없고, 그 보존이 매수마다 낡은 평단가를 `GET /accounts` 재적재 시점까지 화면에 남긴다. 예시를 §4-B-5 수취 자산 수수료 모델과 정합하게 재계산(`200000 / 0.003998` → `50025013`, 원가 미상 0.5) |
+| K6 | §4-C-1 | 금액 표기 정정: 예시의 `balance`·`locked`가 18자리를 채운 표기였으나 구현(`ApiFormats.amount`)과 §5-5 예시는 후행 0 제거 평문이다. §2-1 문자열 계약은 자릿수 고정을 요구하지 않으므로 정본 표기를 후행 0 제거로 통일한다(저장 타입 `NUMERIC(40,18)`과 전송 표기는 별개) |
+
+`realized_pnl`·`unknown_proceeds`는 `position_cost`에 적재되지만 이 판에서 API로 노출하지 않는다. 화면 요구가 없는 필드를 계약에 넣으면 검증 표면만 늘어난다. 노출 시점에 별도 판으로 등재한다.
+
+문서 헤더 버전을 v2.21로 순증(이전 패치 노트의 역사 서술은 원문 유지).
