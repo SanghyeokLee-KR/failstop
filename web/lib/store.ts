@@ -21,11 +21,9 @@ import type {
   TradeMessage,
   WsMessage,
 } from "./types";
-import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION } from "./types";
+import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION, TRADE_TAPE_LIMIT } from "./types";
 import { compareDecimal } from "./decimal";
 import { getDataSource } from "./api/datasource";
-
-const MAX_TRADES = 60;
 
 /**
  * ticker·orderbook 스토어 교체 전 (epoch, seq) 단조 검사.
@@ -265,10 +263,17 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
       case "trade":
         set((s) => {
           const prev = s.trades[msg.market] ?? [];
-          // 재연결 재동기화가 기수신 체결을 재전달한다(datasource 기준점 소거). 중복이 60건
+          // 재연결 재동기화가 기수신 체결을 재전달한다(datasource 기준점 소거). 중복이 테이프
           // 상한을 소모해 고유 체결 표시 수를 줄이지 않도록 trade_id로 드롭한다
           if (prev.some((t) => t.trade_id === msg.trade_id)) return s;
-          return { trades: { ...s.trades, [msg.market]: [msg, ...prev].slice(0, MAX_TRADES) } };
+          // seq 내림차순 삽입. 무조건 prepend하면 WS보다 뒤처진 복제본을 읽은 재동기화 꼬리가
+          // 과거 체결을 목록 맨 위에 올려 시각 정렬이 뒤집힌다. trade는 전역 영속 event_seq라
+          // 세대가 바뀌어도 seq 대소가 시간 순서를 그대로 나타낸다(§5-2)
+          const next = prev.slice();
+          let at = 0;
+          while (at < next.length && next[at].seq > msg.seq) at++;
+          next.splice(at, 0, msg);
+          return { trades: { ...s.trades, [msg.market]: next.slice(0, TRADE_TAPE_LIMIT) } };
         });
         break;
       case "myAsset":

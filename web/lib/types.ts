@@ -3,6 +3,7 @@
  * 금액/수량은 계약대로 "문자열 NUMERIC(40,18)" (JSON float 금지, §2-1).
  * WS 메시지는 §5-4/§5-5의 채널 스키마를 그대로 따른다 (ticker/orderbook/trade/candle/myOrder/myAsset).
  * 추후 실제 Spring REST/STOMP 어댑터로 교체 시 이 타입이 그대로 유지된다.
+ * 계약 미러 외에, 스토어와 어댑터가 함께 지켜야 하는 클라이언트 공용 정책 상수도 여기 둔다.
  */
 
 export const SCHEMA_VERSION = "1.0" as const;
@@ -44,6 +45,12 @@ export const DEFAULT_EFFECT_CONFIG: EffectConfig = {
   level: "normal",
   schema_version: SCHEMA_VERSION,
 };
+
+/**
+ * 체결 테이프 보관 상한. 스토어가 마켓별로 이만큼만 들고, 재동기화 재전달도 같은 값을 쓴다.
+ * 재전달 상한이 이보다 작으면 테이프를 가득 유실한 재연결에서 빈 자리가 메워지지 않는다.
+ */
+export const TRADE_TAPE_LIMIT = 60;
 
 /* ===== 시장 데이터 (§4-A) ===== */
 

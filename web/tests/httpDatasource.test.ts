@@ -12,7 +12,7 @@ import {
   type StompFactory,
   type StompFactoryArgs,
 } from "../lib/api/httpDatasource";
-import { dest } from "../lib/types";
+import { dest, TRADE_TAPE_LIMIT } from "../lib/types";
 import type { OrderbookMessage, Ticker, TickerMessage, WsMessage } from "../lib/types";
 
 /* ===== 테스트 하네스 ===== */
@@ -575,6 +575,34 @@ test("epoch 교체 후 trade 채널은 기수신 체결을 재전달하지 않�
     [1000, 1001],
     "기수신 체결(996~1000)이 다시 흐르면 캔들 volume이 이중계상된다",
   );
+});
+
+test("trade 재동기화는 스토어 테이프 상한만큼 재전달을 요청한다", async () => {
+  // 재전달 상한이 테이프 상한보다 작으면 테이프를 가득 유실한 재연결에서 빈 자리가 남는다.
+  // 상한 두 값이 한 상수를 공유하는지 요청 쿼리로 고정한다
+  const stomp = makeStomp();
+  const { ds, calls } = newDs(
+    {
+      "/api/v1/trades": () =>
+        jsonRes(200, { schema_version: "1.0", data: [], pagination: { next_cursor: null, has_more: false } }),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.onConnect();
+  ds.subscribe(dest.trade("KRW-BTC"), () => {});
+  await settle();
+
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1000, 1)); // 기준점
+  await settle();
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1001, 2)); // 리더 교체 감지 → 재동기화
+  await settle();
+
+  const resync = calls.filter((c) => c.url.includes("/api/v1/trades"));
+  assert.ok(resync.length > 0, "재동기화가 trades를 조회해야 한다");
+  for (const c of resync) {
+    assert.equal(new URL(c.url).searchParams.get("count"), String(TRADE_TAPE_LIMIT));
+  }
 });
 
 test("epoch 교체 후 구 세대 REST 스냅샷은 기준점이 되지 않는다", async () => {

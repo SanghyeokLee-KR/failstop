@@ -34,7 +34,7 @@ import type {
   TradeMessage,
   WsMessage,
 } from "../types";
-import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION } from "../types";
+import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION, TRADE_TAPE_LIMIT } from "../types";
 import { decimalsOf, fromScaledInt, scaledIntTrunc } from "../decimal";
 import type { DataSource } from "./datasource";
 
@@ -1050,7 +1050,10 @@ export class HttpStompDataSource implements DataSource {
         // 놓친 체결만 오래된 순으로 재전달. trade 채널은 REST 스냅샷과 WS 실시간이 동일 event_seq
         // 도메인을 쓴다(백엔드_API_설계 §4-A-3, §5-2). 따라서 prevSeq(WS 기준점)로 이미 본 체결을
         // 거르고, lastSeq를 REST seq로 올려도 이어지는 실시간 seq와 단조성이 유지된다.
-        const trades = await this.getTrades(parsed.market, 50, signal);
+        // 재전달 상한은 스토어 테이프 상한과 같은 값이다. 이보다 작으면 테이프를 가득 유실한
+        // 재연결에서 빈 자리가 남는다. 재연결 경로는 restoreChannels가 기준점을 비워 prevSeq가
+        // null이므로 이 건수가 그대로 흐른다. 기수신 중복은 스토어 trade_id와 차트 dedup이 막는다
+        const trades = await this.getTrades(parsed.market, TRADE_TAPE_LIMIT, signal);
         if (!this.resyncFresh(ch, gen)) return;
         const missed = trades
           .filter((t) => prevSeq === null || t.seq > prevSeq)

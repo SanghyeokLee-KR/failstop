@@ -73,6 +73,22 @@ test("trade apply는 같은 trade_id 재전달을 드롭한다(재연결 재동�
   assert.deepEqual(list.map((t) => t.trade_id), ["t-2", "t-1"]);
 });
 
+test("trade apply는 뒤처진 재전달을 seq 자리에 끼운다(정렬 역전 방지)", () => {
+  // REST 재동기화가 WS보다 뒤처진 복제본을 읽으면 재전달 꼬리가 테이프 최소 seq보다 과거다.
+  // 무조건 prepend하면 그 항목이 맨 위에 붙어 최신 체결 목록의 시각 정렬이 뒤집힌다
+  useExchangeStore.setState({ trades: {} });
+  const { apply } = useExchangeStore.getState();
+  apply(tradeMsg("t-10", "KRW-BTC", 10));
+  apply(tradeMsg("t-12", "KRW-BTC", 12));
+  apply(tradeMsg("t-11", "KRW-BTC", 11)); // 뒤처진 재전달
+  apply(tradeMsg("t-9", "KRW-BTC", 9)); // 테이프 최소보다 과거
+  const list = useExchangeStore.getState().trades["KRW-BTC"];
+  assert.deepEqual(
+    list.map((t) => t.trade_id),
+    ["t-12", "t-11", "t-10", "t-9"],
+  );
+});
+
 test("trade apply는 transient 구독자에게 선두 trade_id 변화를 통지한다(거버너 표본 경로)", () => {
   useExchangeStore.setState({ trades: {} });
   const seen: string[] = [];
