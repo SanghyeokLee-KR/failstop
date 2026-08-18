@@ -1,6 +1,6 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.27)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.28)
 
-> 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V13+ 로드맵)
+> 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V14+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
 > 설계 우선순위: **정확성(exactness) > 성능 > 편의성**. DB는 매칭 핫패스가 아니라 "진실의 원천(SoT) + 최종 방어선"이다.
 > 이 제출본은 초안·v2.0 검증에서 지적된 critical/high 결함(파티션 소진, RESERVE amount=0 모순, `user_id=0` 수수료 계정 무효, 파티션 seq 유일성 무력화, 비원자적 fencing, `transaction_id` 권위 부재, RULE 기반 무음 무시)을 **계정 모델 재설계**로 근본 해결한다. (v2.1~v2.15 패치 반영 사항은 문서 말미 참조)
@@ -329,7 +329,7 @@ erDiagram
 
 ## 3. 전체 DDL
 
-정본 마이그레이션은 현재 `V0`~`V12` 13개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V13 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
+정본 마이그레이션은 현재 `V0`~`V13` 14개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V14 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
 
 | 버전 | 파일 | 내용 | 적용 전제 |
 |---|---|---|---|
@@ -346,7 +346,8 @@ erDiagram
 | V10 | `V10__orders_fee_projection.sql` | `orders` 수수료 프로젝션(`paid_fee`·`trades_count`) 물질화. 정산 경로에서 결정론적 누적, 주문 조회 feeStats N+1 재집계 제거 | V1 |
 | V11 | `V11__sim_run_ordinal.sql` | 봇 플릿 run ordinal 채번 시퀀스 `sim_run_ordinal`. 플릿 기동마다 `nextval` 1건으로 `client_order_id` nonce 접두의 JVM 경계 유일성을 보장한다. 종전 인메모리 카운터는 프로세스 재기동마다 0으로 리셋돼 DB 보존 재기동 시 직전 run의 coid 열을 재생성했고, `idempotency_keys` 재충돌로 409 `duplicate_client_order_id`가 폭주했다. 봇 클라이언트측 채번이라 엔진 임계경로·`journal_counters`와 분리 | V0, V1 |
 | V12 | `V12__outbox_2026_08_partition.sql` | `outbox` 2026-08 월 파티션 신설. V1이 2026-07까지(상한 2026-08-01), V8이 2026-09부터 만들어 2026-08 한 달이 정규 파티션 없이 남아 있었다(`trades`·`ledger_entries`는 V1이 2026-08까지 만들어 정상). 2026-08 진입과 함께 신규 `outbox` 행이 전부 `outbox_default`로 유입돼 `C15_DEFAULT_PARTITION`이 상시 위반됐다. 절차는 V8과 동일(DETACH → 생성 → 재배치 → 재ATTACH). `outbox`는 사용자 트리거가 없어 트리거 우회 불요, `id`가 IDENTITY라 `OVERRIDING SYSTEM VALUE` 필요. `to_regclass` 가드로 재실행 안전, 이동·삭제 행 수 대칭과 전후 총행 수 일치를 블록 안에서 검증(불일치 시 `RAISE EXCEPTION`) | V1, V8 |
-| V13+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V13 | `V13__position_cost.sql` | 원가 추적 프로젝션 `position_cost`(PK `(user_id, asset_id)`). 평단가를 저장하지 않고 누산기 쌍(`cost_qty`·`cost_amount`)만 적재해 매수 경로를 덧셈으로만 구성한다(반올림 누적 0). 원가 미상 취득(GENESIS·입금)은 `unknown_qty`로 분리해 원가 0과 구분한다. `apply_position_cost(txn_id)`가 `post_ledger_transaction` 말미에서 1회 호출되며(같은 함수를 `CREATE OR REPLACE`로 재정의), 사용자별 자산 **순델타**만 보므로 RESERVE·RELEASE는 합 0으로 자동 무시되고 매수 수수료는 실수취 base·실지출 quote에 이미 반영돼 별도 항이 없다. `rebuild_position_cost()`가 **같은 함수**를 `ledger_transactions.id` 오름차순으로 재호출해 산식이 한 벌이다. 계층 ③ 파생 프로젝션이라 엔진 state hash·`event_journal` payload 무접촉(재생 결정론 무영향). 함수는 no-RAISE 계약(입력 계열 22·23만 흡수, 잠금·취소·데드락은 상위 전파). 검증 뷰 `position_cost_qty_check`(C24)·`position_cost_sanity_check`(C25). 마이그레이션 안에서 `rebuild_position_cost(NULL)` 1패스 백필 | V1 |
+| V14+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -2089,7 +2090,18 @@ WHERE prev > fencing_token;                                                  -- 
 SELECT name FROM journal_counters c
 WHERE (name='command_seq' AND next_value <= (SELECT COALESCE(max(seq),0)       FROM command_journal))
    OR (name='event_seq'   AND next_value <= (SELECT COALESCE(max(event_seq),0) FROM event_journal)); -- 0행
+-- ⑱ C24 원가 수량 보존(V13): 원가 확보분 + 원가 미상분이 실보유(available+locked)를 넘지 않는다.
+--    넘으면 처분 차감이 누락됐다는 뜻이다. 뷰가 V13에 있어 하네스가 그대로 조회한다.
+SELECT * FROM position_cost_qty_check;                                       -- 0행
+-- ⑲ C25 원가 누산기 정합(V13): 부호(cost_qty·cost_amount·unknown_qty·unknown_proceeds >= 0),
+--    쌍 불변식((cost_qty=0) = (cost_amount=0)), 워터마크 단조(last_txn_id), 통화 라벨 정합.
+--    쌍 불변식이 깨지면 수량 0인데 원가가 남은 유령 손실 또는 그 역이다.
+SELECT * FROM position_cost_sanity_check;                                    -- 0행
 ```
+
+C24·C25는 하네스 불변식 카탈로그 번호다(§6.1~§6.4의 원문 기호 ①~⑰과 별개 축). DB 설계 §6.4가 이미 ⑧~⑩을 쓰고 있어 번호 충돌을 피해 하네스 축으로 배정했다. 두 검사는 계층 ③ 파생 프로젝션 대상이므로 **자산 보존(§6.1)이나 봉인 무결성(§6.2)의 판정을 대체하지 않는다.** 위반 시 조치는 `rebuild_position_cost()` 재구축이며(§5.5 ⑤ 프로젝션 재구성 경로에 `orders`·`balances`와 나란히 놓인다), 자금 경로는 건드리지 않는다.
+
+재구축 실행 조건: `apply_position_cost`가 no-RAISE 계약을 입력 계열(22·23)로만 한정하고 잠금·취소·데드락은 상위로 올리므로, 정산이 가동 중인 상태에서 `rebuild_position_cost()`를 돌리면 라이브 게시가 잠금 타임아웃을 맞고 롤백돼 엔진이 fail-fast한다. **재구축은 정산 정지 창에서 소유자 롤로 실행한다.** V13 안의 백필도 같은 호출이므로, 롤링 배포로 다른 노드가 정산 중일 때 이 마이그레이션을 적용하면 그 노드가 fail-fast한다(운영 규모에서는 테이블·함수만 만들고 백필을 부팅 후 1회 잡으로 분리한다. 백필 전까지 평단가가 비는 것은 무해한 열화다).
 
 ### 6.5 상시 강제 + 위반 대응 (초안 missing)
 
@@ -2718,3 +2730,18 @@ v2.19 readiness 감시가 종료 경로에서 만드는 오보 1건을 §5.4에 
 불변식: `leader_lease` 무접촉, epoch+1 만료 구동 승격, fencing 단조(C22), 스테일 append 0행 거부, RPO0, 재생 결정론, `client_order_id` 멱등, 원장 합=0 전부 무변경. 정정 축소는 readiness를 **덜 올리는** 방향이라 팔로워·강등 노드의 UP 오보 차단(v2.19가 고친 결함)은 그대로 성립한다.
 
 문서 헤더 버전을 v2.27로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+## v2.28 패치 반영 사항
+
+원가 추적 프로젝션 `position_cost`(V13)를 정본에 등재한다. 마이그레이션 번호 선언과 불변식 카탈로그가 실제 파일보다 뒤처져 있던 것을 함께 해소한다.
+
+| # | 심각도 | 위치 | 내용 |
+|---|---|---|---|
+| 1 | high | §3 도입부·마이그레이션 표 | "현재 `V0`~`V12` 13개 파일, V13 이후는 로드맵" 선언이 살아 있어, 다른 역할이 문서만 보고 V13을 다시 집으면 Flyway 중복 버전으로 부팅이 막힌다(`V11__` 중복 사고 재현). `V0`~`V13` 14개로 정정하고 V13 행을 신설, 로드맵 행을 V14+로 이동 |
+| 2 | medium | §6.4 | 원가 프로젝션 검증 C24(수량 보존)·C25(누산기 정합)를 등재. 번호는 §6.4가 이미 ⑧~⑩을 쓰고 있어 하네스 카탈로그 축으로 배정 |
+| 3 | medium | §6.4 | 재구축·백필의 실행 조건을 명문화. `apply_position_cost`가 잠금·취소·데드락을 상위로 올리므로 정산 가동 중 재구축은 라이브 게시를 롤백시켜 엔진을 fail-fast시킨다. 정산 정지 창 전제와 운영 규모의 백필 분리 지침을 함께 기록 |
+| 4 | low | 헤더 | `audit_log` 로드맵 표기를 V13+에서 V14+로 정정 |
+
+불변식: `position_cost`는 계층 ③ 파생 프로젝션이다. 엔진 state hash 입력(`SnapshotCodec.encode` + `stateChecksum`)에 없고 `event_journal` payload 바이트를 바꾸지 않아 **재생 결정론(C17) 무영향**이다. 갱신은 `post_ledger_transaction` 내부 호출이라 원장 분개·잔고와 같은 트랜잭션이며(원장은 있는데 원가가 없는 크래시 창이 구조적으로 불가), 자금 경로에 되먹임되지 않아 **자산 보존 합=0·RPO0·단일 라이터·fencing 단조 전부 무접촉**이다. 라이브와 재구축이 같은 함수를 호출하므로 산식이 한 벌이고 드리프트 가능성이 없다.
+
+문서 헤더 버전을 v2.28로 순증(이전 패치 노트의 역사 서술은 원문 유지).
