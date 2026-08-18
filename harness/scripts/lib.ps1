@@ -425,6 +425,25 @@ function Test-ContainerExists {
     return ($names -contains $Name)
 }
 
+# 컨테이너 헬스 상태. E1 1차 게이트(주입 중·해제 후 unhealthy 표본 0, 정본 §3 E1)의 표본원이다.
+# --format으로 뽑지 않는 이유: healthcheck 미정의 컨테이너에서 .State.Health가 nil이라 포맷이
+# 깨진다. 전체 JSON을 파싱해 헬스 부재('none')와 조회 실패('unknown')를 상태값과 구분한다.
+# 'unknown'은 도커 조회 자체가 실패한 것이라 호출부가 unhealthy와 같은 급으로 다뤄야 한다.
+function Get-ContainerHealth {
+    param([string] $Name)
+    $raw = & cmd /c "docker inspect $Name 2>nul"
+    $json = ($raw | Out-String).Trim()
+    if (-not $json) { return 'unknown' }
+    try {
+        $arr = @($json | ConvertFrom-Json)
+        # 없는 컨테이너는 docker inspect가 빈 배열을 낸다. 이것을 'none'으로 돌려주면 "헬스체크
+        # 미정의"와 구분되지 않아, 죽어서 사라진 노드가 정상 표본으로 계상된다.
+        if ($arr.Count -lt 1 -or $null -eq $arr[0] -or $null -eq $arr[0].State) { return 'unknown' }
+        if ($null -eq $arr[0].State.Health) { return 'none' }
+        return [string]$arr[0].State.Health.Status
+    } catch { return 'unknown' }
+}
+
 # toxiproxy에 특정 프록시가 배선돼 있는지. E3 redis 프록시 전제 검사용.
 function Test-ToxiproxyProxy {
     param([string] $Name)
@@ -504,11 +523,19 @@ function Get-LeaderContainer {
 }
 
 # /actuator/prometheus 텍스트에서 메트릭 1개(첫 매치의 캡처그룹 1)를 뽑는다. 부재 시 $null(옵션 지표).
+# -Required는 스크레이프 도달 실패만 throw한다. 시계열 부재는 그대로 $null이다. 두 사건을 같은
+# $null로 뭉개면 관측 경로 단절이 "메트릭 미노출이라 판정에서 제외"로 조용히 흡수된다(E2 반납
+# 게이트가 그랬다). Invoke-RestMethod는 비2xx에서도 throw하므로 응답 코드 확인을 겸한다.
+# 주의: 서버가 등록하지 않은 지표(E9 exchange_idempotent_replay_total)는 스크레이프가 성공해도
+# 항상 시계열 부재다. 그 축에 -Required를 붙여도 승격되지 않으며, 붙여서도 안 된다.
 function Get-AppMetric {
-    param([int] $Port, [string] $Pattern)
+    param([int] $Port, [string] $Pattern, [switch] $Required)
     try {
         $text = Invoke-RestMethod -Uri "http://localhost:$Port/actuator/prometheus" -TimeoutSec 5
-    } catch { return $null }
+    } catch {
+        if ($Required) { throw "actuator/prometheus 스크레이프 실패(port $Port): $($_.Exception.Message)" }
+        return $null
+    }
     $m = [regex]::Match(($text | Out-String), $Pattern)
     if ($m.Success -and $m.Groups.Count -gt 1) { return $m.Groups[1].Value }
     return $null
