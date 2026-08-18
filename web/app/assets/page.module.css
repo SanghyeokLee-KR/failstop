@@ -66,8 +66,9 @@
 
 /* 필드 라벨은 계기 명판(.gauge-plate)으로 소비. 요약 클러스터를 한 장의 계기 판독으로 묶는다 */
 
-/* 5스탯 위계: hero(총 평가금액)=1차 display. 총 보유자산=2차(body-lg·strong).
-   총 매수금액·보유현금=3차(body·secondary). 색·크기 위계로 계기면 진정 */
+/* 스탯 위계: hero(총 평가금액)=1차 display. 총 보유자산=2차(body-lg·strong).
+   총 매수금액·평가손익·원가 미상·보유현금=3차(body·secondary). 색·크기 위계로 계기면 진정.
+   원가 미상의 사유 한 줄(.statNote)은 micro로 더 낮춘다 */
 .statValue {
   font-size: var(--font-body-size);
   line-height: var(--font-body-line);
@@ -79,6 +80,13 @@
   line-height: var(--font-body-lg-line);
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
+}
+
+/* 원가 미상 스탯의 사유 한 줄. 값만 두면 총평가와 총매수가 안 맞는 이유가 읽히지 않는다 */
+.statNote {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
 }
 
 .hideBtn {
@@ -133,6 +141,28 @@
 .valuation {
   font-weight: var(--fw-semibold);
   color: var(--text-default);
+}
+
+/* 보유수량 셀. 원가 미상 잔량을 둘째 줄로 붙인다(코인 셀과 같은 2줄 리듬, 행 높이 48px 유지) */
+.qtyCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+.qtyNote {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* 원가 미상·산출 불가 표기. 방향값이 아니라 상태라 시세색을 쓰지 않는다(§2.2 색 특권) */
+.unknownMark {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 /* ===== 보유 비중 카드 (가로 막대, 라벨 병기) ===== */

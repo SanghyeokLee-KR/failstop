@@ -27,6 +27,7 @@ import {
   scaledIntTrunc,
   subDecimal,
 } from "@/lib/decimal";
+import { isCostKnown, unknownCostQty } from "@/lib/orderContract";
 import {
   dirOf,
   formatChangeRate,
@@ -67,10 +68,23 @@ interface Holding {
   symbol: string;
   brandColor: string;
   brandTextDark?: boolean;
+  /** 보유 전량(available + locked) */
   qty: string;
+  /** 원가 확보분의 평단가. costKnown이 false면 산출 불가라 표시하지 않는다 */
   avgBuyPrice: string;
+  /** 보유 전량 평가금액 */
   valuation: string;
+  /** 원가 확보 수량 (§4-C-1 cost_basis_qty) */
+  costQty: string;
+  /** 원가 미상 수량. balance + locked - cost_basis_qty 유도값(별도 필드 없음, K3) */
+  unknownQty: string;
+  /** 원가 확보분 평가금액. 손익 분자는 이 값이다 */
+  costValuation: string;
+  /** 원가 미상분 평가금액. 손익 계산에서 제외하고 별도로 보인다 */
+  unknownValuation: string;
+  /** 총매수. cost_basis_amount 그대로다. 수량×평단가로 재계산하면 반올림만큼 어긋난다 */
   buyAmount: string;
+  /** 원가 확보분 한정 평가손익 */
   pnl: string;
   /** 절대값 수익률 문자열 (0.182 = 18.2%) */
   pnlRate: string;
@@ -80,8 +94,7 @@ interface Holding {
   change: ChangeState;
   /** 현재가 티커 도착 여부. 미도착 행은 가격 파생 셀을 '-'로 표기 */
   priced: boolean;
-  /** 매수원가 확보 여부. avg_buy_price<=0(백엔드 스텁)이면 원가 0 기준 전액 수익으로 계산되므로
-   * 매수평균가·평가손익을 '-'로 막는다 */
+  /** 원가 확보 여부. cost_basis_qty = 0이 판별자다(§4-C-1 K4). false면 손익 산출 불가 */
   costKnown: boolean;
 }
 
@@ -139,10 +152,13 @@ export default function AssetsPage() {
           if (!meta || compareDecimal(qty, "0") <= 0) return null;
           const spec = markets.find((m) => m.market === market);
           const price = tickers[market]?.trade_price ?? "0";
-          const avgBuyPrice = a.avg_buy_price;
-          const valuation = mulDecimal(qty, price);
-          const buyAmount = mulDecimal(qty, avgBuyPrice);
-          const pnl = subDecimal(valuation, buyAmount);
+          const costQty = a.cost_basis_qty;
+          const unknownQty = unknownCostQty(a.balance, a.locked, costQty);
+          // 총매수는 서버 원본이다. cost_basis_qty × avg_buy_price로 곱하면 평단가가 quote scale
+          // 반올림값이라 원 단위로 어긋난다(§4-C-1)
+          const buyAmount = a.cost_basis_amount;
+          const costValuation = mulDecimal(costQty, price);
+          const pnl = subDecimal(costValuation, buyAmount);
           return {
             currency: a.currency,
             market,
@@ -151,8 +167,12 @@ export default function AssetsPage() {
             brandColor: meta.brandColor,
             brandTextDark: meta.brandTextDark,
             qty,
-            avgBuyPrice,
-            valuation,
+            avgBuyPrice: a.avg_buy_price,
+            valuation: mulDecimal(qty, price),
+            costQty,
+            unknownQty,
+            costValuation,
+            unknownValuation: mulDecimal(unknownQty, price),
             buyAmount,
             pnl,
             pnlRate: absRate(pnl, buyAmount),
@@ -160,7 +180,7 @@ export default function AssetsPage() {
             tickSpec: spec?.tick_size,
             change: changeOf(pnl),
             priced: compareDecimal(price, "0") > 0,
-            costKnown: compareDecimal(buyAmount, "0") > 0,
+            costKnown: isCostKnown(costQty),
           };
         })
         .filter((h): h is Holding => h !== null)
@@ -177,14 +197,23 @@ export default function AssetsPage() {
   const loading = !loaded;
 
   const totalValuation = holdings.reduce((s, h) => addDecimal(s, h.valuation), "0");
-  const totalBuy = holdings.reduce((s, h) => addDecimal(s, h.buyAmount), "0");
   const totalAsset = addDecimal(cash, totalValuation);
-  const totalPnl = subDecimal(totalValuation, totalBuy);
+  // 손익은 원가 확보분만으로 낸다. 총평가에서 총매수를 빼면 원가 미상분 평가액이 통째로
+  // 수익으로 계상된다. 두 항의 관계는 총평가 = (총매수 + 평가손익) + 원가 미상 평가금액이다.
+  // 티커 미도착 행은 네 합계 모두에서 뺀다. 평가액만 0으로 들어가면 그 행의 매수금액이
+  // 통째로 손실로 그려진다
+  const priced = holdings.filter((h) => h.priced);
+  const totalBuy = priced.reduce((s, h) => addDecimal(s, h.buyAmount), "0");
+  const totalCostValuation = priced.reduce((s, h) => addDecimal(s, h.costValuation), "0");
+  const totalUnknown = priced.reduce((s, h) => addDecimal(s, h.unknownValuation), "0");
+  const totalPnl = subDecimal(totalCostValuation, totalBuy);
   const totalChange = changeOf(totalPnl);
   const totalRate = absRate(totalPnl, totalBuy);
-  // 원가 미확보 행이 하나라도 있으면 총매수·평가손익 합계가 가짜 수익으로 오염되므로 '-'로 막는다.
-  // totalBuy>0 판정은 일부만 원가가 있는 혼합 상태를 통과시키고 빈 포트폴리오의 정당한 0원까지 가린다
-  const costTotalKnown = holdings.every((h) => h.costKnown);
+  // 원가 확보분이 전혀 없으면 총매수도 손익도 산출 대상이 아니다. 0원으로 그리면 전액 수익으로
+  // 읽힌다. 보유가 아예 없는 계정의 정당한 0원은 가리지 않는다
+  const costTotalKnown = holdings.length === 0 || compareDecimal(totalBuy, "0") > 0;
+  // 표시 조건은 수량 기준이다. 평가액 기준으로 걸면 티커 도착 전후로 스탯이 나타나 시프트가 난다
+  const hasUnknownCost = holdings.some((h) => compareDecimal(h.unknownQty, "0") > 0);
 
   /* ===== 보유 비중 (상위 5 + 기타, 가로 막대) ===== */
   const weights = useMemo(() => {
@@ -218,18 +247,37 @@ export default function AssetsPage() {
       {
         key: "qty",
         label: "보유수량",
-        width: "minmax(120px, 1fr)",
+        width: "minmax(140px, 1.1fr)",
         align: "right",
         sortValue: (h) => toNum(h.qty),
-        render: (h) => (hidden ? HIDDEN : `${formatQty(h.qty, h.qtyScale)} ${h.symbol}`),
+        render: (h) =>
+          hidden ? (
+            HIDDEN
+          ) : (
+            <span className={styles.qtyCell}>
+              <span>{`${formatQty(h.qty, h.qtyScale)} ${h.symbol}`}</span>
+              {/* 일부만 원가가 잡힌 보유. 손익 분모에서 빠진 수량을 그 자리에서 밝힌다 */}
+              {h.costKnown && compareDecimal(h.unknownQty, "0") > 0 && (
+                <span className={styles.qtyNote}>원가 미상 {formatQty(h.unknownQty, h.qtyScale)}</span>
+              )}
+            </span>
+          ),
       },
       {
         key: "avg",
         label: "매수평균가",
-        width: "minmax(110px, 1fr)",
+        width: "minmax(120px, 1fr)",
         align: "right",
         sortValue: (h) => toNum(h.avgBuyPrice),
-        render: (h) => (hidden ? HIDDEN : h.costKnown ? formatPrice(h.avgBuyPrice, h.tickSpec) : "-"),
+        // "0"은 평단가 0원이 아니라 산출 불가다. 판별자는 cost_basis_qty = 0 (§4-C-1 K4)
+        render: (h) =>
+          hidden ? (
+            HIDDEN
+          ) : h.costKnown ? (
+            formatPrice(h.avgBuyPrice, h.tickSpec)
+          ) : (
+            <span className={styles.unknownMark}>원가 미상</span>
+          ),
       },
       {
         key: "valuation",
@@ -250,7 +298,10 @@ export default function AssetsPage() {
         render: (h) =>
           hidden ? (
             HIDDEN
-          ) : !h.priced || !h.costKnown ? (
+          ) : !h.costKnown ? (
+            // 원가가 없으면 손익은 계산 대상이 아니다. 빈칸이 아니라 사유를 적는다
+            <span className={styles.unknownMark}>산출 불가 (원가 미상)</span>
+          ) : !h.priced ? (
             <span className="num">-</span>
           ) : (
             <span className="dir-text num" data-dir={dirOf(h.change)}>
@@ -301,7 +352,7 @@ export default function AssetsPage() {
             <div className={styles.stat}>
               <span className="gauge-plate">총 매수금액</span>
               <b className={`${styles.statValue} num`}>
-                {hidden ? HIDDEN : costTotalKnown ? formatKRW(totalBuy) : "-"}
+                {hidden ? HIDDEN : costTotalKnown ? formatKRW(totalBuy) : "산출 불가"}
               </b>
             </div>
             <div className={styles.stat}>
@@ -317,9 +368,18 @@ export default function AssetsPage() {
                   variant="pill"
                 />
               ) : (
-                <b className={`${styles.statValue} num`}>-</b>
+                <b className={styles.statValue}>산출 불가</b>
               )}
             </div>
+            {/* 총평가 = (총매수 + 평가손익) + 원가 미상 평가금액. 이 항이 없으면 세 수가
+                맞지 않는 이유를 읽을 수 없다. 시드·입금 취득분은 원가가 0이 아니라 미상이다 */}
+            {hasUnknownCost && (
+              <div className={styles.stat}>
+                <span className="gauge-plate">원가 미상</span>
+                <b className={`${styles.statValue} num`}>{hidden ? HIDDEN : formatKRW(totalUnknown)}</b>
+                <span className={styles.statNote}>손익 산출 제외</span>
+              </div>
+            )}
             <div className={styles.stat}>
               <span className="gauge-plate">보유현금</span>
               <b className={`${styles.statValue} num`}>{hidden ? HIDDEN : formatKRW(cash)}</b>
