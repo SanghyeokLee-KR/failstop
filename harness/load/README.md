@@ -35,10 +35,10 @@ echo "import { WebSocket } from 'k6/websockets'; export default function(){}" > 
 cp secrets/k6_keys.example.json secrets/k6_keys.json   # 실키로 치환
 
 # 표준 E6(폭주 + 리더 kill 복합). config/e6.env를 -e로 전개
-k6 run $(sed 's/^/-e /' config/e6.env | grep -v '^-e #') order_flow.js
+k6 run $(sed -e 's/[[:space:]]*#.*$//' -e '/^$/d' -e 's/^/-e /' config/e6.env) order_flow.js
 
 # 데모(15분). PROFILE=demo, kill 05:30
-k6 run $(sed 's/^/-e /' config/demo.env | grep -v '^-e #') order_flow.js
+k6 run $(sed -e 's/[[:space:]]*#.*$//' -e '/^$/d' -e 's/^/-e /' config/demo.env) order_flow.js
 
 # thundering-herd(WS 5,000 동시연결)
 k6 run -e WS_TARGET=5000 scenarios/thundering-herd.js
