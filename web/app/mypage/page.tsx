@@ -10,7 +10,8 @@
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { useExchangeStore, useMemberSession } from "@/lib/store";
-import { formatKRW, toNum } from "@/lib/format";
+import { addDecimal, compareDecimal } from "@/lib/decimal";
+import { formatKRW } from "@/lib/format";
 import styles from "./page.module.css";
 
 export default function MyPage() {
@@ -27,13 +28,17 @@ export default function MyPage() {
     void loadOrders();
   }, [session, loadAccounts, loadOrders]);
 
+  // 금액은 문자열 십진으로 다룬다. float 합산은 NUMERIC(40,18) 정밀을 잃고 2^53 상한에 걸린다
   const cash = useMemo(() => {
     const krw = assets.find((a) => a.currency === "KRW");
-    return krw ? toNum(krw.balance) + toNum(krw.locked) : 0;
+    return krw ? addDecimal(krw.balance, krw.locked) : "0";
   }, [assets]);
 
   const holdingsCount = useMemo(
-    () => assets.filter((a) => a.currency !== "KRW" && toNum(a.balance) + toNum(a.locked) > 0).length,
+    () =>
+      assets.filter(
+        (a) => a.currency !== "KRW" && compareDecimal(addDecimal(a.balance, a.locked), "0") > 0,
+      ).length,
     [assets],
   );
 

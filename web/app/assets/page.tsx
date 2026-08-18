@@ -18,7 +18,15 @@ import { ConnectionBanner, StaleBadge } from "@/components/StatusSignals";
 import { useExchangeStore, useLiveChannels, useMarketSpecs } from "@/lib/store";
 import { dest, type ChangeState } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
-import { compareDecimal, decimalsOf, fromScaledInt, mulDecimal, scaledIntTrunc } from "@/lib/decimal";
+import {
+  addDecimal,
+  compareDecimal,
+  decimalsOf,
+  fromScaledInt,
+  mulDecimal,
+  scaledIntTrunc,
+  subDecimal,
+} from "@/lib/decimal";
 import {
   dirOf,
   formatChangeRate,
@@ -32,15 +40,9 @@ import styles from "./page.module.css";
 
 const HIDDEN = "••••••";
 
-// 평가·손익·합산은 문자열 십진 연산으로 처리한다. float 산술은 금액·수량 NUMERIC(40,18) 정밀을 잃는다
-function addDec(a: string, b: string): string {
-  const s = Math.max(decimalsOf(a), decimalsOf(b));
-  return fromScaledInt(scaledIntTrunc(a, s) + scaledIntTrunc(b, s), s);
-}
-function subDec(a: string, b: string): string {
-  const s = Math.max(decimalsOf(a), decimalsOf(b));
-  return fromScaledInt(scaledIntTrunc(a, s) - scaledIntTrunc(b, s), s);
-}
+// 평가·손익·합산은 lib/decimal의 문자열 십진 연산으로 처리한다.
+// float 산술은 금액·수량 NUMERIC(40,18) 정밀을 잃는다
+
 // 수익률 소수부 자리수. 백분율 2자리 표시에 충분한 여유
 const RATE_SCALE = 8;
 // |a| / b 를 고정 자리수 비율 문자열로. b<=0이면 "0"(0 나눗셈·매수금액 0 보호)
@@ -130,14 +132,14 @@ export default function AssetsPage() {
         .map((a): Holding | null => {
           const market = `KRW-${a.currency}`;
           const meta = COIN_META.find((c) => c.market === market);
-          const qty = addDec(a.balance, a.locked);
+          const qty = addDecimal(a.balance, a.locked);
           if (!meta || compareDecimal(qty, "0") <= 0) return null;
           const spec = markets.find((m) => m.market === market);
           const price = tickers[market]?.trade_price ?? "0";
           const avgBuyPrice = a.avg_buy_price;
           const valuation = mulDecimal(qty, price);
           const buyAmount = mulDecimal(qty, avgBuyPrice);
-          const pnl = subDec(valuation, buyAmount);
+          const pnl = subDecimal(valuation, buyAmount);
           return {
             currency: a.currency,
             market,
@@ -165,16 +167,16 @@ export default function AssetsPage() {
 
   const cash = useMemo(() => {
     const krw = assets.find((a) => a.currency === "KRW");
-    return krw ? addDec(krw.balance, krw.locked) : "0";
+    return krw ? addDecimal(krw.balance, krw.locked) : "0";
   }, [assets]);
 
   // 미가격 보유코인은 해당 행만 '-' 처리한다. 개별 티커 지연이 전체 화면을 고착시키지 않도록 !priced 의존을 뺀다
   const loading = !loaded;
 
-  const totalValuation = holdings.reduce((s, h) => addDec(s, h.valuation), "0");
-  const totalBuy = holdings.reduce((s, h) => addDec(s, h.buyAmount), "0");
-  const totalAsset = addDec(cash, totalValuation);
-  const totalPnl = subDec(totalValuation, totalBuy);
+  const totalValuation = holdings.reduce((s, h) => addDecimal(s, h.valuation), "0");
+  const totalBuy = holdings.reduce((s, h) => addDecimal(s, h.buyAmount), "0");
+  const totalAsset = addDecimal(cash, totalValuation);
+  const totalPnl = subDecimal(totalValuation, totalBuy);
   const totalChange = changeOf(totalPnl);
   const totalRate = absRate(totalPnl, totalBuy);
   // 원가 미확보 행이 하나라도 있으면 총매수·평가손익 합계가 가짜 수익으로 오염되므로 '-'로 막는다.
@@ -187,7 +189,7 @@ export default function AssetsPage() {
     const totalNum = toNum(totalValuation);
     if (totalNum <= 0) return [];
     const top = holdings.slice(0, 5).map((h) => ({ label: h.symbol, name: h.koreanName, value: h.valuation }));
-    const rest = holdings.slice(5).reduce((s, h) => addDec(s, h.valuation), "0");
+    const rest = holdings.slice(5).reduce((s, h) => addDecimal(s, h.valuation), "0");
     if (toNum(rest) > 0) top.push({ label: "기타", name: "", value: rest });
     return top.map((seg) => ({ ...seg, pct: (toNum(seg.value) / totalNum) * 100 }));
   }, [holdings, totalValuation]);

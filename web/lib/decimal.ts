@@ -58,6 +58,21 @@ export function fromScaledInt(n: bigint, scale: number): string {
   return (neg ? "-" : "") + intPart + (frac ? "." + frac : "");
 }
 
+/**
+ * 두 십진 문자열의 정확 합. 공통 스케일 BigInt로 더해 float 오차와 2^53 상한을 피한다.
+ * 잔고·평가금액 합산의 단일 출처다(화면마다 지역 구현을 두지 않는다).
+ */
+export function addDecimal(a: string | number, b: string | number): string {
+  const s = Math.max(decimalsOf(a), decimalsOf(b));
+  return fromScaledInt(scaledIntTrunc(a, s) + scaledIntTrunc(b, s), s);
+}
+
+/** 두 십진 문자열의 정확 차. 손익 계산이 음수를 그대로 보존한다 */
+export function subDecimal(a: string | number, b: string | number): string {
+  const s = Math.max(decimalsOf(a), decimalsOf(b));
+  return fromScaledInt(scaledIntTrunc(a, s) - scaledIntTrunc(b, s), s);
+}
+
 /** 두 십진 문자열의 정확 곱. 결과 소수 자릿수는 두 입력의 합(반올림 없음) */
 export function mulDecimal(a: string | number, b: string | number): string {
   const na = normalizeDecimal(a);

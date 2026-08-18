@@ -8,22 +8,14 @@ import type { ChangeState, TickerMessage } from "../../lib/types";
 import { toNum } from "../../lib/format";
 import {
   absDecimal,
+  addDecimal,
   compareDecimal,
   decimalsOf,
   fromScaledInt,
   normalizeDecimal,
   scaledIntTrunc,
+  subDecimal,
 } from "../../lib/decimal";
-
-// 문자열 십진 덧셈·뺄셈. decimal.ts는 곱·비교만 제공한다. 전일종가 역산에서 float 왕복을 없애려 여기서 조인한다.
-function addDec(a: string, b: string): string {
-  const s = Math.max(decimalsOf(a), decimalsOf(b));
-  return fromScaledInt(scaledIntTrunc(a, s) + scaledIntTrunc(b, s), s);
-}
-function subDec(a: string, b: string): string {
-  const s = Math.max(decimalsOf(a), decimalsOf(b));
-  return fromScaledInt(scaledIntTrunc(a, s) - scaledIntTrunc(b, s), s);
-}
 
 // 등락률 소수부 자리수. 백분율 2자리 표시에 충분한 여유
 const RATE_SCALE = 8;
@@ -45,8 +37,8 @@ export function prevCloseOf(ticker: TickerMessage | undefined): string {
   if (!ticker || ticker.trade_price == null) return "0";
   const cur = normalizeDecimal(ticker.trade_price);
   const chg = normalizeDecimal(ticker.change_price);
-  if (ticker.change === "RISE") return subDec(cur, chg);
-  if (ticker.change === "FALL") return addDec(cur, chg);
+  if (ticker.change === "RISE") return subDecimal(cur, chg);
+  if (ticker.change === "FALL") return addDecimal(cur, chg);
   return cur;
 }
 
@@ -70,6 +62,6 @@ export function rateVsPrevClose(price: string | number, prevClose: string): Deri
   const p = normalizeDecimal(price);
   const cmp = compareDecimal(p, prevClose);
   if (cmp === 0) return { rate: "0", state: "EVEN" };
-  const rate = ratioStr(absDecimal(subDec(p, prevClose)), prevClose);
+  const rate = ratioStr(absDecimal(subDecimal(p, prevClose)), prevClose);
   return { rate, state: cmp > 0 ? "RISE" : "FALL" };
 }
