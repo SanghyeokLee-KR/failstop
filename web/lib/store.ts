@@ -15,12 +15,14 @@ import type {
   MemberSession,
   MyOrderMessage,
   Order,
+  OrderStatus,
   OrderbookMessage,
   TickerMessage,
   TradeMessage,
   WsMessage,
 } from "./types";
 import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION } from "./types";
+import { compareDecimal } from "./decimal";
 import { getDataSource } from "./api/datasource";
 
 const MAX_TRADES = 60;
@@ -67,6 +69,109 @@ function synthOrderFromMyOrder(msg: MyOrderMessage): Order {
     seq: msg.seq,
   };
 }
+
+/**
+ * 주문 상태 등급. 수명은 OPEN→PARTIAL→종결(FILLED·CANCELED·REJECTED)로 단조라
+ * 더 낮은 등급은 되돌이(stale)다. ticker·orderbook의 isStaleUpdate와 같은 개념을
+ * 주문 경로에 적용한다. 주문 seq는 REST가 command_journal 도메인, WS 합성이 채널 도메인이라
+ * 서로 비교할 수 없어 단조 기준을 상태 등급으로 잡는다.
+ */
+const STATUS_RANK: Record<OrderStatus, number> = {
+  OPEN: 0,
+  PARTIAL: 1,
+  FILLED: 2,
+  CANCELED: 2,
+  REJECTED: 2,
+};
+
+const TERMINAL_RANK = 2;
+
+function isTerminalOrder(status: OrderStatus): boolean {
+  return STATUS_RANK[status] >= TERMINAL_RANK;
+}
+
+/**
+ * 로컬 주문과 도착 주문 중 더 진행된 쪽을 고른다.
+ * 등급이 같으면 도착분을 채택해 합성 주문에 없는 권위 필드(ord_type·수수료·체결금액)를 채우되,
+ * 로컬 체결 수량이 더 크면 로컬을 유지한다(체결 수량은 비감소).
+ */
+function pickOrder(local: Order | undefined, incoming: Order): Order {
+  if (!local) return incoming;
+  const diff = STATUS_RANK[incoming.status] - STATUS_RANK[local.status];
+  if (diff < 0) return local;
+  if (diff > 0) return incoming;
+  return compareDecimal(local.executed_volume, incoming.executed_volume) > 0 ? local : incoming;
+}
+
+export interface OrderMergeOptions {
+  /** 조회 발사 시점에 스토어가 알던 주문 id. 응답에 없는 이 집합의 주문만 제거한다.
+   * 왕복 중 접수·수신된 주문은 스냅샷에 있을 수 없어 부재를 소멸로 해석하면 안 된다 */
+  known?: ReadonlySet<string>;
+  /** 마켓 한정 조회면 그 마켓만 제거 대상 */
+  market?: string;
+}
+
+/** 목록 순서를 보존하며 id 중복 없이 누적 */
+function collect(into: Map<string, Order>, ids: string[], orders: Order[]): void {
+  for (const o of orders) {
+    if (into.has(o.id)) continue;
+    into.set(o.id, o);
+    ids.push(o.id);
+  }
+}
+
+/**
+ * REST 주문 스냅샷 병합(회귀 테스트 대상). 전량 교체는 왕복 중 확정된 WS 전이를 지연 응답으로
+ * 되돌려 종결 주문을 미체결 탭에 부활시킨다. id 기준 upsert + 상태 단조 가드로 진행된 로컬
+ * 상태를 지키고, 미체결·체결 분류는 병합 결과의 상태로 결정한다.
+ */
+export function mergeOrderSnapshot(
+  prev: { openOrders: Order[]; closedOrders: Order[] },
+  fetched: Order[],
+  options: OrderMergeOptions = {},
+): { openOrders: Order[]; closedOrders: Order[] } {
+  const merged = new Map<string, Order>();
+  const ids: string[] = [];
+  collect(merged, ids, prev.openOrders);
+  collect(merged, ids, prev.closedOrders);
+
+  const fetchedIds = new Set<string>();
+  for (const f of fetched) {
+    fetchedIds.add(f.id);
+    const local = merged.get(f.id);
+    if (local === undefined) ids.push(f.id);
+    merged.set(f.id, pickOrder(local, f));
+  }
+
+  const openOrders: Order[] = [];
+  const closedOrders: Order[] = [];
+  for (const id of ids) {
+    const o = merged.get(id);
+    if (!o) continue;
+    // 조회 범위 안에서 서버가 더는 알지 못하는 주문만 제거한다(타 마켓·신규 접수분 보존)
+    const scoped = options.market === undefined || o.market === options.market;
+    if (!fetchedIds.has(id) && scoped && options.known?.has(id)) continue;
+    if (isTerminalOrder(o.status)) closedOrders.push(o);
+    else openOrders.push(o);
+  }
+  return { openOrders, closedOrders };
+}
+
+function sameOrders(a: Order[], b: Order[]): boolean {
+  return a.length === b.length && a.every((o, i) => o === b[i]);
+}
+
+/** 내용이 그대로면 이전 배열 참조를 유지한다. 무의미한 리렌더를 만들지 않기 위함 */
+function nextOrderLists(
+  prev: { openOrders: Order[]; closedOrders: Order[] },
+  next: { openOrders: Order[]; closedOrders: Order[] },
+): { openOrders: Order[]; closedOrders: Order[] } {
+  return {
+    openOrders: sameOrders(prev.openOrders, next.openOrders) ? prev.openOrders : next.openOrders,
+    closedOrders: sameOrders(prev.closedOrders, next.closedOrders) ? prev.closedOrders : next.closedOrders,
+  };
+}
+
 const FAV_STORAGE_KEY = "exchange.favorites";
 const DEFAULT_FAVORITES = ["KRW-BTC", "KRW-XRP"];
 
@@ -121,7 +226,13 @@ interface ExchangeState {
   loadMarkets(): Promise<void>;
   loadAccounts(): Promise<void>;
   loadOrders(market?: string): Promise<void>;
+  /** REST 주문 응답 1건 반영(POST /orders 201, DELETE /orders 200).
+   * 재조회 왕복을 기다리지 않고 목록을 확정한다. 상태 단조 가드로 역행 응답은 드롭한다 */
+  upsertOrder(order: Order): void;
 }
+
+// loadMarkets 동시 호출 병합. 여러 화면이 같은 프레임에 마운트해도 GET /markets는 1회다
+let marketsInFlight: Promise<void> | null = null;
 
 export const useExchangeStore = create<ExchangeState>((set, get) => ({
   markets: [],
@@ -192,6 +303,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
         });
         const inOpen = openOrders.find((o) => o.id === msg.id);
         if (msg.status === "OPEN" || msg.status === "PARTIAL") {
+          // 재동기화가 재전달한 미체결 스냅샷이 이미 종결된 주문을 미체결로 되돌리지 않게 막는다.
+          // 종결은 흡수 상태라 종결→OPEN 전이는 계약상 존재하지 않는다
+          if (closedOrders.some((o) => o.id === msg.id)) break;
           set({
             // 미보유 OPEN·PARTIAL은 재동기화·타 세션 신규 주문이다. 드롭하지 않고 합성해 append,
             // 이후 loadOrders 전량 조회가 권위 데이터로 교체한다(재연결 유실 방지)
@@ -256,8 +370,17 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   },
 
   async loadMarkets() {
-    const markets = await getDataSource().getMarkets();
-    set({ markets });
+    // 여러 화면이 동시에 마운트해도 조회는 1회. 진행 중이면 같은 프라미스를 공유한다
+    if (marketsInFlight) return marketsInFlight;
+    marketsInFlight = getDataSource()
+      .getMarkets()
+      .then((markets) => {
+        set({ markets });
+      })
+      .finally(() => {
+        marketsInFlight = null;
+      });
+    return marketsInFlight;
   },
 
   async loadAccounts() {
@@ -267,11 +390,16 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
 
   async loadOrders(market) {
     const ds = getDataSource();
-    const [openOrders, closedOrders] = await Promise.all([
-      ds.getOpenOrders(market),
-      ds.getClosedOrders(market),
-    ]);
-    set({ openOrders, closedOrders });
+    // 발사 시점 id 집합을 고정한다. 왕복 중 접수·확정된 주문은 이 스냅샷에 있을 수 없어
+    // 응답 부재를 소멸로 해석하면 방금 낸 주문이 목록에서 사라진다
+    const before = get();
+    const known = new Set([...before.openOrders, ...before.closedOrders].map((o) => o.id));
+    const [open, closed] = await Promise.all([ds.getOpenOrders(market), ds.getClosedOrders(market)]);
+    set((s) => nextOrderLists(s, mergeOrderSnapshot(s, [...open, ...closed], { known, market })));
+  },
+
+  upsertOrder(order) {
+    set((s) => nextOrderLists(s, mergeOrderSnapshot(s, [order])));
   },
 }));
 

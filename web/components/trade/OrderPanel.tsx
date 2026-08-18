@@ -90,6 +90,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const assets = useExchangeStore((s) => s.assets);
   const markets = useExchangeStore((s) => s.markets);
   const loadOrders = useExchangeStore((s) => s.loadOrders);
+  const upsertOrder = useExchangeStore((s) => s.upsertOrder);
   const apply = useExchangeStore((s) => s.apply);
 
   const [side, setSide] = useState<Side>(initialSide);
@@ -332,7 +333,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           ? { market, side, ord_type: "market", price: fromScaledInt(totalWon, 0), client_order_id: cid }
           : { market, side, ord_type: "market", volume: qtyStr, client_order_id: cid };
     try {
-      await getDataSource().placeOrder(req);
+      const placed = await getDataSource().placeOrder(req);
+      // 201 응답이 권위 Order다. 재조회 왕복을 기다리지 않고 목록에 반영한다(§4-B-1)
+      upsertOrder(placed);
       // 확정 성공. 다음 주문은 새 키
       keyStateRef.current = onSubmitAccepted(keyState());
       toast("주문을 접수했어요", "info");

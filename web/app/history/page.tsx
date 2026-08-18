@@ -44,6 +44,7 @@ export default function HistoryPage() {
   const closedOrders = useExchangeStore((s) => s.closedOrders);
   const markets = useExchangeStore((s) => s.markets);
   const loadOrders = useExchangeStore((s) => s.loadOrders);
+  const upsertOrder = useExchangeStore((s) => s.upsertOrder);
 
   const [tab, setTab] = useState<HistoryTab>("open");
   const [marketFilter, setMarketFilter] = useState("all");
@@ -71,7 +72,9 @@ export default function HistoryPage() {
     if (canceling.has(order.id)) return;
     setCanceling((s) => new Set(s).add(order.id));
     try {
-      await getDataSource().cancelOrder(order.id);
+      const canceled = await getDataSource().cancelOrder(order.id);
+      // 200 응답이 권위 Order다. 재조회 왕복 전에 행을 체결·취소 탭으로 확정한다(§4-B-2)
+      upsertOrder(canceled);
       toast("주문을 취소했어요", "info");
       void loadOrders();
     } catch (e) {
