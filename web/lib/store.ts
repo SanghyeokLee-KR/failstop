@@ -369,7 +369,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     set({ favorites: readFavorites() });
   },
 
-  async loadMarkets() {
+  // async를 쓰지 않는다. 래핑 프라미스가 새로 생기면 호출자가 공유 여부를 확인할 수 없다
+  loadMarkets() {
     // 여러 화면이 동시에 마운트해도 조회는 1회. 진행 중이면 같은 프라미스를 공유한다
     if (marketsInFlight) return marketsInFlight;
     marketsInFlight = getDataSource()
@@ -478,6 +479,22 @@ export function useMemberSessionBootstrap(): void {
     void ds.refresh().catch(() => {});
     return off;
   }, [setSession]);
+}
+
+/**
+ * 마켓 메타 보장 훅. tick_size·qty_scale은 표시 자릿수의 유일 근거라 미로드 상태로 그리면
+ * 폴백 자릿수가 실제와 달라 가격·수량 표기가 위조된다(예: tick_size 1000 마켓에 소수 표기).
+ * 마운트 시 로드 여부를 확인하고 미로드면 1회 조회한다. 동시 호출은 loadMarkets가 병합한다.
+ */
+export function useMarketSpecs(): Market[] {
+  const markets = useExchangeStore((s) => s.markets);
+  const loadMarkets = useExchangeStore((s) => s.loadMarkets);
+  useEffect(() => {
+    if (markets.length > 0) return;
+    // 조회 실패는 폴백 자릿수로 열화한다. 화면을 막지 않고 다음 마운트에서 다시 시도한다
+    void loadMarkets().catch(() => {});
+  }, [markets.length, loadMarkets]);
+  return markets;
 }
 
 /** 회원 세션 셀렉터. 화면은 이 셀렉터로 로그인 상태를 구독한다 */

@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import SegmentedTab from "@/components/SegmentedTab";
 import SymbolChip from "@/components/SymbolChip";
 import TickCell from "@/components/TickCell";
+import { StaleBadge } from "@/components/StatusSignals";
 import { useExchangeStore } from "@/lib/store";
 import { COIN_META } from "@/lib/sim/engine";
 import { compareDecimal } from "@/lib/decimal";
@@ -41,6 +42,7 @@ export default function RankingTable() {
   const router = useRouter();
   const tickers = useExchangeStore((s) => s.tickers);
   const markets = useExchangeStore((s) => s.markets);
+  const connected = useExchangeStore((s) => s.connected);
   const specOf = (m: string) => markets.find((x) => x.market === m)?.tick_size;
   const [tab, setTab] = useState<RankTab>("value");
 
@@ -62,7 +64,11 @@ export default function RankingTable() {
   return (
     <section className={`card ${styles.root}`} aria-label="실시간 순위">
       <header className={styles.header}>
-        <h2 className={styles.title}>실시간 순위</h2>
+        <span className={styles.titleRow}>
+          <h2 className={styles.title}>실시간 순위</h2>
+          {/* 낭독은 배너가 화면당 1회. 패널 배지는 시각 표식만 담당한다(A-5) */}
+          {!connected && <StaleBadge label="지연" announce={false} />}
+        </span>
         <SegmentedTab
           items={TABS}
           value={tab}
@@ -72,7 +78,12 @@ export default function RankingTable() {
         />
       </header>
 
-      <div className={styles.table} role="table" aria-label="코인 순위 목록">
+      <div
+        className={styles.table}
+        role="table"
+        aria-label="코인 순위 목록"
+        data-stale={!connected ? "" : undefined}
+      >
         <div className={`${styles.row} ${styles.head}`} role="row">
           <span role="columnheader" className={styles.rank}>#</span>
           <span role="columnheader" className={styles.name}>코인</span>

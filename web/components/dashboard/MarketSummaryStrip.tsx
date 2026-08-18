@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sparkline from "./Sparkline";
+import { StaleBadge } from "@/components/StatusSignals";
 import { useExchangeStore } from "@/lib/store";
 import { getDataSource } from "@/lib/api/datasource";
 import { COIN_META } from "@/lib/sim/engine";
@@ -29,6 +30,7 @@ const REPRESENTATIVES = COIN_META.slice(0, 4);
 
 export default function MarketSummaryStrip() {
   const tickers = useExchangeStore((s) => s.tickers);
+  const connected = useExchangeStore((s) => s.connected);
 
   // 총 거래대금은 won 정수 BigInt로 합산한다. float 합은 2^53 초과·오차 누적으로 금액 정밀을 잃는다
   let totalValueWon = 0n;
@@ -52,8 +54,15 @@ export default function MarketSummaryStrip() {
     <section className={`card ${styles.root}`} aria-label="시장 개관">
       <div className={styles.aggregate}>
         <div className={styles.aggMain}>
-          <span className={styles.aggLabel}>24시간 총 거래대금</span>
-          <b className={`${styles.aggValue} num ${ready ? "" : styles.pending}`}>
+          {/* 배지는 또렷이 유지하고 집계값만 감쇠한다(A-5). 낭독은 배너가 화면당 1회 맡는다 */}
+          <span className={styles.aggPlate}>
+            <span className={styles.aggLabel}>24시간 총 거래대금</span>
+            {!connected && <StaleBadge label="지연" announce={false} />}
+          </span>
+          <b
+            className={`${styles.aggValue} num ${ready ? "" : styles.pending}`}
+            data-stale={!connected ? "" : undefined}
+          >
             {ready ? formatCompactKRW(fromScaledInt(totalValueWon, 0)) : "-"}
           </b>
         </div>

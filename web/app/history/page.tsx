@@ -13,7 +13,7 @@ import SegmentedTab from "@/components/SegmentedTab";
 import Skeleton from "@/components/Skeleton";
 import SymbolChip from "@/components/SymbolChip";
 import { toast } from "@/components/Toast";
-import { useExchangeStore, useLiveChannels } from "@/lib/store";
+import { useExchangeStore, useLiveChannels, useMarketSpecs } from "@/lib/store";
 import { dest, type Order } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
 import { COIN_META } from "@/lib/sim/engine";
@@ -42,7 +42,8 @@ function sideLabel(side: Order["side"]): string {
 export default function HistoryPage() {
   const openOrders = useExchangeStore((s) => s.openOrders);
   const closedOrders = useExchangeStore((s) => s.closedOrders);
-  const markets = useExchangeStore((s) => s.markets);
+  // 주문가격·수량 표시 자릿수는 마켓 스펙에서 유도한다. 미로드면 폴백 자릿수로 위조된다
+  const markets = useMarketSpecs();
   const loadOrders = useExchangeStore((s) => s.loadOrders);
   const upsertOrder = useExchangeStore((s) => s.upsertOrder);
 

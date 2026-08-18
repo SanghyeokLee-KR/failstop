@@ -11,7 +11,8 @@ import MarketSummaryStrip from "@/components/dashboard/MarketSummaryStrip";
 import SpotlightPanel from "@/components/dashboard/SpotlightPanel";
 import RankingTable from "@/components/dashboard/RankingTable";
 import WatchlistSidebar from "@/components/dashboard/WatchlistSidebar";
-import { useExchangeStore, useLiveChannels } from "@/lib/store";
+import { ConnectionBanner } from "@/components/StatusSignals";
+import { useExchangeStore, useLiveChannels, useMarketSpecs } from "@/lib/store";
 import { dest } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
 import styles from "./page.module.css";
@@ -20,6 +21,8 @@ export default function DashboardClient() {
   const hydrateFavorites = useExchangeStore((s) => s.hydrateFavorites);
 
   useLiveChannels(useMemo(() => COIN_META.map((c) => dest.ticker(c.market)), []));
+  // 가격·수량 표시 자릿수의 근거. 미로드면 폴백 자릿수로 위조된 값을 그린다
+  useMarketSpecs();
 
   useEffect(() => {
     hydrateFavorites();
@@ -27,6 +30,7 @@ export default function DashboardClient() {
 
   return (
     <main className={styles.page}>
+      <ConnectionBanner />
       <div className={styles.grid}>
         <div className={styles.summary}>
           <MarketSummaryStrip />

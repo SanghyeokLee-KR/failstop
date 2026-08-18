@@ -15,7 +15,7 @@ import Skeleton from "@/components/Skeleton";
 import PricePill from "@/components/PricePill";
 import SymbolChip from "@/components/SymbolChip";
 import { ConnectionBanner, StaleBadge } from "@/components/StatusSignals";
-import { useExchangeStore, useLiveChannels } from "@/lib/store";
+import { useExchangeStore, useLiveChannels, useMarketSpecs } from "@/lib/store";
 import { dest, type ChangeState } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
 import { compareDecimal, decimalsOf, fromScaledInt, mulDecimal, scaledIntTrunc } from "@/lib/decimal";
@@ -89,7 +89,8 @@ export default function AssetsPage() {
   const router = useRouter();
   const assets = useExchangeStore((s) => s.assets);
   const tickers = useExchangeStore((s) => s.tickers);
-  const markets = useExchangeStore((s) => s.markets);
+  // 보유수량·매수평균가 표시 자릿수는 마켓 스펙에서 유도한다. 미로드면 폴백 자릿수로 위조된다
+  const markets = useMarketSpecs();
   const connected = useExchangeStore((s) => s.connected);
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
   const [hidden, setHidden] = useState(false);

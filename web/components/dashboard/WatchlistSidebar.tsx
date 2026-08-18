@@ -10,6 +10,7 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import SymbolChip from "@/components/SymbolChip";
 import TickCell from "@/components/TickCell";
+import { StaleBadge } from "@/components/StatusSignals";
 import { useExchangeStore } from "@/lib/store";
 import { COIN_META } from "@/lib/sim/engine";
 import { compareDecimal } from "@/lib/decimal";
@@ -29,6 +30,7 @@ export default function WatchlistSidebar() {
   const router = useRouter();
   const tickers = useExchangeStore((s) => s.tickers);
   const markets = useExchangeStore((s) => s.markets);
+  const connected = useExchangeStore((s) => s.connected);
   const specOf = (m: string) => markets.find((x) => x.market === m)?.tick_size;
   const favorites = useExchangeStore((s) => s.favorites);
 
@@ -56,13 +58,15 @@ export default function WatchlistSidebar() {
       <header className={styles.header}>
         <h2 className={styles.title}>{usingFallback ? "인기 코인" : "관심 코인"}</h2>
         <span className={styles.count}>{rows.length}</span>
+        {/* 낭독은 배너가 화면당 1회. 패널 배지는 시각 표식만 담당한다(A-5) */}
+        {!connected && <StaleBadge label="지연" announce={false} />}
       </header>
 
       {usingFallback && (
         <p className={styles.hint}>관심 코인을 등록하면 여기에 모여요</p>
       )}
 
-      <ul className={styles.list}>
+      <ul className={styles.list} data-stale={!connected ? "" : undefined}>
         {rows.map((c) => {
           const t = tickers[c.market];
           const dir = t ? dirOf(t.change) : "flat";

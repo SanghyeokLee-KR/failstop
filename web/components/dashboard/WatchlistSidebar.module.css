@@ -44,6 +44,11 @@
 .list {
   display: flex;
   flex-direction: column;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+/* 연결 단절 시 마지막 시세임을 감쇠로 알린다. 배지는 또렷이 유지, 시프트 0(A-5) */
+.list[data-stale] {
+  opacity: 0.5;
 }
 
 .row {

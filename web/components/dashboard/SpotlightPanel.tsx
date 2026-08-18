@@ -12,6 +12,7 @@ import CandleChart from "@/components/CandleChart";
 import SegmentedTab from "@/components/SegmentedTab";
 import SymbolChip from "@/components/SymbolChip";
 import PricePill from "@/components/PricePill";
+import { StaleBadge } from "@/components/StatusSignals";
 import { useExchangeStore } from "@/lib/store";
 import { COIN_META } from "@/lib/sim/engine";
 import { dirOf, formatCompactQty, formatPrice } from "@/lib/format";
@@ -31,6 +32,7 @@ export default function SpotlightPanel() {
   const [unit, setUnit] = useState<CandleUnit>("60m");
   const meta = COIN_META.find((c) => c.market === market)!;
   const ticker = useExchangeStore((s) => s.tickers[market]);
+  const connected = useExchangeStore((s) => s.connected);
   const spec = useExchangeStore((s) => s.markets.find((m) => m.market === market));
   const tickSpec = spec?.tick_size;
   const qtyScale = spec?.qty_scale ?? 8;
@@ -38,7 +40,10 @@ export default function SpotlightPanel() {
 
   return (
     <section className={`card ${styles.root}`} aria-label="대표 코인">
-      <span className={`gauge-plate ${styles.plate}`}>대표 코인</span>
+      <span className={styles.plate}>
+        <span className="gauge-plate">대표 코인</span>
+        {!connected && <StaleBadge label="지연" announce={false} />}
+      </span>
       <div className={styles.chips} role="tablist" aria-label="대표 코인 선택">
         {CHOICES.map((c) => (
           <button
@@ -61,7 +66,8 @@ export default function SpotlightPanel() {
           <span className={styles.name}>{meta.koreanName}</span>
           <span className={`${styles.sym} num`}>{market}</span>
         </div>
-        <div className={styles.figures}>
+        {/* 단절 구간은 마지막 시세임을 감쇠로 알린다. 배지·명판은 또렷이 유지(A-5) */}
+        <div className={styles.figures} data-stale={!connected ? "" : undefined}>
           <span className={`${styles.price} num dir-hero`} data-dir={dir}>
             {ticker?.trade_price != null ? formatPrice(ticker.trade_price, tickSpec) : "-"}
           </span>

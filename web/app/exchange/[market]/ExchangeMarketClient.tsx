@@ -18,7 +18,7 @@ import OrderPanel, { type PricePrefill } from "@/components/trade/OrderPanel";
 import MarketListPanel from "@/components/trade/MarketListPanel";
 import { ConnectionBanner } from "@/components/StatusSignals";
 import { toast } from "@/components/Toast";
-import { useExchangeStore, useLiveChannels, useEffectConfigPolling } from "@/lib/store";
+import { useExchangeStore, useLiveChannels, useEffectConfigPolling, useMarketSpecs } from "@/lib/store";
 import { dest, type Side } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
 import { writeRecentMarket } from "../recentMarket";
@@ -50,10 +50,8 @@ function ExchangeMarketBody() {
   }, []);
 
   const hydrateFavorites = useExchangeStore((s) => s.hydrateFavorites);
-  const loadMarkets = useExchangeStore((s) => s.loadMarkets);
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
   const loadOrders = useExchangeStore((s) => s.loadOrders);
-  const marketsLoaded = useExchangeStore((s) => s.markets.length > 0);
   const [accountsFailed, setAccountsFailed] = useState(false);
 
   // 계좌 로드 실패를 표면화한다. catch 없으면 assets가 빈 배열로 남아 주문 CTA가 영구 비활성된다
@@ -72,13 +70,14 @@ function ExchangeMarketBody() {
   useLiveChannels(useMemo(() => [dest.orderbook(market), dest.trade(market)], [market]));
   // 효과 강도는 WS가 아니라 폴링으로 반영(§4-A-6)
   useEffectConfigPolling();
+  // 틱·수량 격자의 근거. 주문 검증·표시 자릿수가 이 스펙에서 나온다
+  useMarketSpecs();
 
   useEffect(() => {
     hydrateFavorites();
-    if (!marketsLoaded) void loadMarkets();
     reloadAccounts();
     void loadOrders();
-  }, [hydrateFavorites, loadMarkets, reloadAccounts, loadOrders, marketsLoaded]);
+  }, [hydrateFavorites, reloadAccounts, loadOrders]);
 
   useEffect(() => {
     if (meta) writeRecentMarket(market);

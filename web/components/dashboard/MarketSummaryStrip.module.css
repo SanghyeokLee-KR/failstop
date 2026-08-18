@@ -20,6 +20,12 @@
   flex-direction: column;
   gap: var(--space-1);
 }
+/* 명판 + 지연 배지 한 줄. 배지는 또렷이 유지하고 값만 감쇠한다(A-5) */
+.aggPlate {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
 .aggLabel {
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
@@ -31,6 +37,11 @@
   font-weight: var(--fw-bold);
   color: var(--text-strong);
   letter-spacing: -0.01em; /* 20px 이상 큰 숫자 밀착(§3.2) */
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+/* 연결 단절 시 집계값만 감쇠. 시프트 0 */
+.aggValue[data-stale] {
+  opacity: 0.5;
 }
 /* 데이터 미도착 플래이스홀더. 정지가 기본값이라 애니메이션 없이 무채로 낮춘다(§5.2) */
 .pending {
