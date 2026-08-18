@@ -249,6 +249,27 @@ function Remove-AllToxics {
     } catch { }
 }
 
+# T5(체결 재개) 술어. 정본 §5-1 T5의 검산식 그대로 command_journal.fencing_token 축을 쓴다.
+# event_journal.fencing_epoch를 쓰면 안 된다. 두 컬럼의 의미가 다르다.
+#   command_journal.fencing_token : 그 명령을 "수용한" 리더의 epoch
+#   event_journal.fencing_epoch   : 그 이벤트를 "저널한" 리더의 epoch
+# 승격 재생은 구 리더가 수용한 미처리 명령(token=구 epoch)을 신 리더가 다시 적용해 이벤트를
+# 신 epoch로 append하면서 created_at은 원래 엔진 처리 시각(주입 직후)을 보존한다. 그래서
+# fencing_epoch 축으로 재면 그 재생 산출물이 "재개된 첫 체결"로 잡히고 RTO가 실제보다 훨씬
+# 작게 나온다. 실측(E6 400 ops): 승격은 13:48:08.571인데 fencing_epoch=2 최초 TRADE는
+# 13:48:03.196으로 승격보다 5.4초 앞섰고 RTO가 0.086s로 보고됐다(실제 약 5.5s). 부하가 클수록
+# 재생 백로그가 커져 오차가 커지므로, RTO<30s 게이트가 부하 상황에서 무력화된다.
+# token 축은 구 리더가 수용한 명령을 구조적으로 배제하므로 재생 산출물이 섞이지 않는다.
+# 정본 주석대로 fencing_token은 command_journal에만 있어 반드시 조인 경유다.
+# 등가(=)가 아니라 초과(>)로 두는 이유: 승격 재생 반납으로 epoch가 +2 이상 오를 수 있고(DB §5.4)
+# 그때 등가 비교는 재개를 영영 놓쳐 RTO가 n/a로 남는다.
+function Get-FirstTradeSql {
+    param([long] $OldEpoch, [string] $T0Iso)
+    return "SELECT min(e.created_at) AT TIME ZONE 'UTC' FROM event_journal e " +
+        "JOIN command_journal c ON c.seq = e.source_cmd_seq " +
+        "WHERE e.event_type='TRADE' AND c.fencing_token > $OldEpoch AND e.created_at > '$T0Iso'"
+}
+
 function Write-Section {
     param([string] $Text)
     Write-Host ''
@@ -305,11 +326,9 @@ function Complete-FailoverExperiment {
     $newHolder = $statusAfter.holder
 
     # T5 = 페일오버 후 최초 신규 TRADE의 engine_ts(§5-1 정의). created_at은 DB now()가 아니라
-    # 엔진 처리 시각이라 커밋 가시화 지연과 무관한 재개 시점을 가리킨다. T0 이후 신 epoch 필터.
+    # 엔진 처리 시각이라 커밋 가시화 지연과 무관한 재개 시점을 가리킨다.
     $t0Iso = $T0.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fff') + 'Z'
-    # fencing_epoch 등가 비교는 승격 재생 반납으로 epoch가 더 오른 경우 재개를 놓친다(§5.4).
-    $firstTradeSql = "SELECT min(created_at) AT TIME ZONE 'UTC' " +
-        "FROM event_journal WHERE event_type='TRADE' AND fencing_epoch > $OldEpoch AND created_at > '$t0Iso'"
+    $firstTradeSql = Get-FirstTradeSql -OldEpoch $OldEpoch -T0Iso $t0Iso
     $obsResume = Wait-For {
         -not [string]::IsNullOrWhiteSpace((Invoke-Psql $firstTradeSql))
     } -TimeoutSec $ObserveSec -PollSec 0.5
@@ -529,17 +548,12 @@ function Get-StaleWriteCount {
     return $n
 }
 
-# 승격 후 최초 신규 TRADE의 engine_ts(§5-1 T5). T0 이후·신 epoch 필터. 커밋 가시화 지연과 무관한
-# 체결 재개 시점. 반환: UtcDateTime 또는 $null. Complete-FailoverExperiment와 동일 술어를 인라인용으로 노출.
-# 페일오버 후 최초 신규 TRADE 시각(§5-1 T5). fencing_epoch를 관측 시점 epoch와 등가 비교하면,
-# 승격 재생 반납으로 epoch가 한 번 더 오른 경우(DB 설계 §5.4) 실제 재개 TRADE가 더 큰 epoch로
-# 기록돼 영원히 잡히지 않고 RTO가 n/a로 남는다. 서비스는 정상 재개인데 rtoOk만 거짓이 되는
-# 모순 조합이라, 구 epoch 초과 조건으로 바꿔 재개를 놓치지 않게 한다.
+# 승격 후 최초 신규 TRADE의 engine_ts(§5-1 T5). 커밋 가시화 지연과 무관한 체결 재개 시점.
+# 반환: UtcDateTime 또는 $null. 술어는 Get-FirstTradeSql 공용(재생 산출물 배제 근거는 그 주석).
 function Wait-FirstTradeAfter {
     param([long] $OldEpoch, [datetime] $T0, [int] $TimeoutSec)
     $t0Iso = $T0.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fff') + 'Z'
-    $sql = "SELECT min(created_at) AT TIME ZONE 'UTC' " +
-        "FROM event_journal WHERE event_type='TRADE' AND fencing_epoch > $OldEpoch AND created_at > '$t0Iso'"
+    $sql = Get-FirstTradeSql -OldEpoch $OldEpoch -T0Iso $t0Iso
     Wait-For { -not [string]::IsNullOrWhiteSpace((Invoke-Psql $sql)) } -TimeoutSec $TimeoutSec -PollSec 0.5 | Out-Null
     $raw = Invoke-Psql $sql
     if ([string]::IsNullOrWhiteSpace($raw)) { return $null }

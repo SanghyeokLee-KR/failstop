@@ -105,11 +105,14 @@ $newEpoch = [long]$statusAfter.epoch
 $newHolder = $statusAfter.holder
 Write-Host "T2(승격)=$(if($t2){$t2.ToUniversalTime().ToString('o')}else{'n/a'}) new_epoch=$newEpoch"
 
-# T5 = 페일오버 후 최초 신규 TRADE의 engine_ts(§5-1 정의, T0 이후·신 epoch). created_at은
-# 엔진 처리 시각이라 catch-up 배치의 커밋 가시화 지연과 무관한 재개 시점을 가리킨다.
+# T5 = 페일오버 후 최초 신규 TRADE의 engine_ts(§5-1 정의). created_at은 엔진 처리 시각이라
+# catch-up 배치의 커밋 가시화 지연과 무관한 재개 시점을 가리킨다. 술어는 lib.ps1 공용
+# Get-FirstTradeSql(정본 §5-1 검산식, command_journal.fencing_token 축)을 쓴다. 종전 인라인
+# 사본은 event_journal.fencing_epoch를 관측 epoch와 등가 비교해 두 가지로 틀렸다. 승격 재생
+# 산출물을 재개로 오인해 RTO를 과소 보고했고(그 축의 결함), 승격 재생 반납으로 epoch가 더 오르면
+# 재개를 아예 놓쳐 RTO n/a가 됐다(등가 비교의 결함).
 $t0Iso = $t0.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fff') + 'Z'
-$firstTradeSql = "SELECT min(created_at) AT TIME ZONE 'UTC' " +
-    "FROM event_journal WHERE event_type='TRADE' AND fencing_epoch=$newEpoch AND created_at > '$t0Iso'"
+$firstTradeSql = Get-FirstTradeSql -OldEpoch $oldEpoch -T0Iso $t0Iso
 $obsResume = Wait-For {
     -not [string]::IsNullOrWhiteSpace((Invoke-Psql $firstTradeSql))
 } -TimeoutSec ([int]$cfg['POST_KILL_OBSERVE_SEC']) -PollSec 0.5
