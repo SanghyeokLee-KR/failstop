@@ -43,7 +43,8 @@ export default function RankingTable() {
   const tickers = useExchangeStore((s) => s.tickers);
   const markets = useExchangeStore((s) => s.markets);
   const connected = useExchangeStore((s) => s.connected);
-  const specOf = (m: string) => markets.find((x) => x.market === m)?.tick_size;
+  // 행별 markets.find(커밋당 O(행수×마켓수))를 없애는 Map 조회
+  const specMap = useMemo(() => new Map(markets.map((m) => [m.market, m.tick_size])), [markets]);
   const [tab, setTab] = useState<RankTab>("value");
 
   const rows = useMemo(() => {
@@ -120,7 +121,11 @@ export default function RankingTable() {
                   </span>
                 </span>
                 <span role="cell" className={`${styles.right} num`}>
-                  {t?.trade_price != null ? <TickCell value={toNum(t.trade_price)} valueStr={formatPrice(t.trade_price, specOf(c.market))} format={(v) => formatPrice(v, specOf(c.market))} /> : "-"}
+                  {t?.trade_price != null ? (
+                    <TickCell value={toNum(t.trade_price)} valueStr={formatPrice(t.trade_price, specMap.get(c.market))} />
+                  ) : (
+                    "-"
+                  )}
                 </span>
                 <span
                   role="cell"

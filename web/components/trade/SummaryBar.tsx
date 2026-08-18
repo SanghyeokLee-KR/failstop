@@ -161,7 +161,7 @@ export default function SummaryBar({ market, meta }: Props) {
         <StaleRegion stale={!connected} className={styles.price}>
           <span className={`${styles.cur} num dir-hero`} data-dir={dir}>
             {ticker.trade_price != null ? (
-              <TickCell value={toNum(ticker.trade_price)} valueStr={formatPrice(ticker.trade_price, tickSpec)} format={(v) => formatPrice(v, tickSpec)} level={heroLevel} popCap={gov.popCap} popScope="summary" throttleBonus={gov.throttleBonusMs} />
+              <TickCell value={toNum(ticker.trade_price)} valueStr={formatPrice(ticker.trade_price, tickSpec)} level={heroLevel} popCap={gov.popCap} popScope="summary" throttleBonus={gov.throttleBonusMs} />
             ) : (
               "-"
             )}
