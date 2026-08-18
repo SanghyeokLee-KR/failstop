@@ -7,6 +7,7 @@
 > 2026-07-24 2차: 전제 계약 핀을 실헤더 기준으로 갱신(DB v2.5→v2.17, API v2.4→v2.15). 하네스_검증설계.md 핀(v2.17/v2.15)과 통일. §8 정정 권고 항목은 발견 시점 기록으로 존치.
 > 2026-08-07: §5-2에 `exchange.leader.recoverable_standdown` 등재(DB v2.24 §5.4 회복 가능 반납 관측 축). 종신 강등 축과 합치지 않는 근거와 판독 조합을 미방출 항목 절에 병기.
 > 2026-08-07 2차: `exchange_leader_recoverable_standdown_total`을 §5-6 알람 룰과 E2 실험 판정에 배선. 종전에는 §5-2 등재와 판독 조합 PromQL만 있어 자동 판정이 아니라 수동 판독 지침이었다.
+> 2026-08-18 3차: §5-6 C-카탈로그 미러에 C24·C25(원가 프로젝션 검증 뷰, 전부 warn, R5·실험 사후 권위 run 한정) 수록, InvariantViolation 라우팅 warn 열거 확장. 단일 권위는 검증설계 §4-1이다. 뷰를 제공하는 V13이 병합 전이라 하네스 스크립트 조회는 미가동.
 > 2026-08-18 2차: 전제 계약 핀 상향(DB v2.17->v2.29, API v2.15->v2.20). 검증설계 핀과 통일. 인용 절 번호는 현행 정본 대조로 전건 실재 확인. DB 요약 괄호도 v2.18 이후 순증분(전용 리스 풀·자발적 강등·수용 제한·강등 등급 분리·V13)을 반영해 갱신.
 > 2026-08-18: 헤더의 알람 룰 절 번호를 §5-4에서 §5-6으로 정정하고, §5-6 표에 RecoverableStandDownRepeating 행을 수록(종전에는 룰 파일에만 있어 문서 미러가 비어 있었다). 같은 신호의 임계 셋이 기저가 달라 공존하는 근거를 §5-2 미방출 항목 절과 룰 주석에 명시.
 
@@ -772,6 +773,8 @@ datasources:
 | C21 | `C21_EVENT_EMISSION_REGISTRY` | 이벤트 방출 레지스트리 1:1 (DB§6.4 ⑮) | **critical** | 상시 |
 | C22 | `C22_FENCING_MONOTONIC` | fencing_token 단조(split-brain 흔적 0, DB§6.4 ⑯) | **critical** | 권위 run 한정 |
 | C23 | `C23_COUNTER_SEQ_CONSISTENCY` | 채번 카운터 next_value > 저널 최대 seq (DB§6.4 ⑰) | **critical** | 권위 run 한정 |
+| C24 | `C24_POSITION_COST_QTY` | 원가 수량 보존: cost_qty + unknown_qty = 실보유 (DB§6.4 ⑱, 뷰 `position_cost_qty_check`) | warn | R5·실험 사후 권위 run 한정 |
+| C25 | `C25_POSITION_COST_SANITY` | 원가 누산기 정합: 부호·쌍·워터마크·통화 (DB§6.4 ⑲, 뷰 `position_cost_sanity_check`) | warn | R5·실험 사후 권위 run 한정 |
 
 `exchange_invariant_violations{check_name="C01_ASSET_CONSERVATION", severity="CRITICAL"}` 형태로 노출된다.
 
@@ -781,7 +784,7 @@ datasources:
 |---|---|---|---|
 | `LedgerImbalance` | `max(abs(exchange_ledger_imbalance))` | `>0` for 0s | **critical**, 자산 보존 위반 즉시 |
 | `DuplicateFill` | `increase(exchange_duplicate_fills_total[5m])` | `>0` | **critical** |
-| `InvariantViolation` | `max by(check_name)(exchange_invariant_violations)` | `>0` for 30s | **게이지 `severity` 라벨 패스스루로 라우팅**(critical=C01·C02·C05~C08(C07' 포함)·C13·C16~C18·C21~C23 / high=C03·C09~C12·C14·C19·C20 / warn=C15. C04는 DB 트리거 강제라 게이지 미노출) |
+| `InvariantViolation` | `max by(check_name)(exchange_invariant_violations)` | `>0` for 30s | **게이지 `severity` 라벨 패스스루로 라우팅**(critical=C01·C02·C05~C08(C07' 포함)·C13·C16~C18·C21~C23 / high=C03·C09~C12·C14·C19·C20 / warn=C15·C24·C25. C04는 DB 트리거 강제라 게이지 미노출) |
 | `OrderP99SloBreach` | `exchange:order_latency:p99_1m` | `>0.5` for 2m | warning |
 | `FailoverRtoExceeded` | `max(exchange_failover_downtime_seconds)` | `>30` | critical |
 | `LeaderAbsent` | `absent(exchange_leader_is_leader == 1)` | for 15s | critical |
