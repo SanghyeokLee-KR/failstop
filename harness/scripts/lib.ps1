@@ -263,6 +263,10 @@ function Remove-AllToxics {
 # 정본 주석대로 fencing_token은 command_journal에만 있어 반드시 조인 경유다.
 # 등가(=)가 아니라 초과(>)로 두는 이유: 승격 재생 반납으로 epoch가 +2 이상 오를 수 있고(DB §5.4)
 # 그때 등가 비교는 재개를 영영 놓쳐 RTO가 n/a로 남는다.
+# 조인 전환으로 생긴 결합: 이 측정은 C12(고아 이벤트 0행)에 의존한다. source_cmd_seq는 NOT NULL이라
+# null 탈락은 없지만, 대응 command 행이 없는 TRADE가 생기면 inner join이 그것을 버려 RTO가 n/a가
+# 되고 판정이 FAIL로 떨어진다. fail-closed 방향이라 수용하되, 스냅샷 채택 후 재생 경로가 바뀌어
+# 고아 이벤트가 생길 여지가 나오면 이 측정축이 먼저 무너진다는 것을 알고 있어야 한다.
 function Get-FirstTradeSql {
     param([long] $OldEpoch, [string] $T0Iso)
     return "SELECT min(e.created_at) AT TIME ZONE 'UTC' FROM event_journal e " +
