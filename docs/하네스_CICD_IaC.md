@@ -1,13 +1,13 @@
 # 고가용성 가상 암호화폐 거래소 CI/CD·IaC·관측성 설계서 (설계 B, v1.1 최종 제출본)
 
-> 전제 계약: `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_DB_설계.md` **v2.28**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 epoch 보존 heartbeat), `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_API_설계.md` **v2.20**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·2인 승인, §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
+> 전제 계약: `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_DB_설계.md` **v2.29**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 전용 리스 풀·자발적 강등·강등 등급 분리·표식 해제 지점, §2-5-a 수용 제한, V13 원가 프로젝션), `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_API_설계.md` **v2.20**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·2인 승인, §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
 > 설계 원칙: **정확성(증명 가능성) > 재현성(1커맨드 기동) > 성능 > 편의성**. 인프라의 임무는 두 증명 목표, ① 체결 무결(자산합 0·유실 0·중복 0), ② 자동 복구(재생·페일오버·RTO<30s)를 **CI가 매 커밋, 데모가 실시간으로 데이터로 보여주게 만드는 것**이다.
 > 2026-07-21: 스타일 정리, 내용 무변경.
 > 2026-07-24: §5-6 C-카탈로그에 C21~C23(전부 CRITICAL, InvariantCheck enum 실재분) 수록, InvariantViolation 라우팅 열거 갱신. 단일 권위는 검증설계 §4-1 불변(§5-6은 2차 미러).
 > 2026-07-24 2차: 전제 계약 핀을 실헤더 기준으로 갱신(DB v2.5→v2.17, API v2.4→v2.15). 하네스_검증설계.md 핀(v2.17/v2.15)과 통일. §8 정정 권고 항목은 발견 시점 기록으로 존치.
 > 2026-08-07: §5-2에 `exchange.leader.recoverable_standdown` 등재(DB v2.24 §5.4 회복 가능 반납 관측 축). 종신 강등 축과 합치지 않는 근거와 판독 조합을 미방출 항목 절에 병기.
 > 2026-08-07 2차: `exchange_leader_recoverable_standdown_total`을 §5-6 알람 룰과 E2 실험 판정에 배선. 종전에는 §5-2 등재와 판독 조합 PromQL만 있어 자동 판정이 아니라 수동 판독 지침이었다.
-> 2026-08-18 2차: 전제 계약 핀 상향(DB v2.17->v2.28, API v2.15->v2.20). 검증설계 핀과 통일. 인용 절 번호는 현행 정본 대조로 전건 실재 확인.
+> 2026-08-18 2차: 전제 계약 핀 상향(DB v2.17->v2.29, API v2.15->v2.20). 검증설계 핀과 통일. 인용 절 번호는 현행 정본 대조로 전건 실재 확인. DB 요약 괄호도 v2.18 이후 순증분(전용 리스 풀·자발적 강등·수용 제한·강등 등급 분리·V13)을 반영해 갱신.
 > 2026-08-18: 헤더의 알람 룰 절 번호를 §5-4에서 §5-6으로 정정하고, §5-6 표에 RecoverableStandDownRepeating 행을 수록(종전에는 룰 파일에만 있어 문서 미러가 비어 있었다). 같은 신호의 임계 셋이 기저가 달라 공존하는 근거를 §5-2 미방출 항목 절과 룰 주석에 명시.
 
 ---
@@ -673,7 +673,7 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 - `exchange.duplicate.fills`: InvariantVerifier의 C-카탈로그 검증(중복 체결 0)이 `exchange_invariant_violations{check_name}`로 이미 커버해 별도 Counter는 중복이라 방출하지 않는다.
 - `exchange.ws.clients`: `channel` 태그는 연결 단위 계량이라 단일 값(`stomp`)만 방출한다. 목적지별 분해는 세션-구독 회계가 필요해 후속.
 - `exchange.orders.rejected`: `reason`은 종결 거부(4xx: 429·422·400·403·413) 에러코드 집합이며 429는 대시보드 PromQL 정합을 위해 `rate_limited`로 정규화한다. 409·503은 재조회 수렴 신호라 거부율에서 제외한다.
-- `exchange.leader.standdown` / `exchange.leader.recoverable_standdown`: 두 축을 합치지 않는다. 전자는 종신 강등(복귀는 재기동)이고 후자는 승격 재생 실패의 회복 가능 반납(만료 후 같은 노드 재승격 허용)이라, 합치면 [재생 실패 -> 반납 -> 재승격]의 반복이 자발적 강등 1회와 구분되지 않는다. 반복 자체는 `exchange_leader_epoch` 계단으로도 정상 페일오버와 갈리지 않는다. 라이브 판독 조합은 `increase(exchange_leader_recoverable_standdown_total[5m]) > 1 and exchange_leader_is_leader == 0`이며, 참이면 그 노드의 재생이 결정적으로 실패한다는 뜻이라 데이터 쪽을 본다. **같은 신호에 임계가 셋 공존하는데 기저가 달라서 통일하지 않는다.** 여기 판독 조합과 E2 실험 게이트는 `> 1`이고 §5-6 알람 룰만 `> 2`다. 실험 게이트는 주입 전후 델타, 즉 한 페일오버 사건의 실측 반납 횟수를 세므로 정상 상한 1을 그대로 임계로 쓴다. 알람 룰의 `increase()`는 5분 창의 외삽 추정치이고 카운터가 창 경계에서 1회만 올라도 1을 넘는 소수값이 나올 수 있어, `> 1`로 두면 정상 페일오버 1회가 critical을 발화시킨다. `> 2`의 마진은 그 외삽 오차를 흡수하려는 것이지 정상 상한이 2라는 뜻이 아니다. 판독 조합이 `> 1`인 것은 사람이 `exchange_leader_is_leader == 0` 동반 조건과 함께 읽는 수동 축이라 오탐 비용이 낮기 때문이다. **따라서 일괄 `> 1` 통일은 권장하지 않는다.** 노출명 정합은 `AdmissionIntegrationTest.prometheusExposesContractedMeterNames`가 스크레이프 본문으로 고정한다(익스포트를 켠 컨텍스트가 그것뿐이라 §5-2 노출명 검증의 단일 고정점으로 둔다). 레지스트리 조회만으로는 점 표기와 스크레이프명의 불일치가 잡히지 않아 게이트가 공허 통과한다.
+- `exchange.leader.standdown` / `exchange.leader.recoverable_standdown`: 두 축을 합치지 않는다. 전자는 종신 강등(복귀는 재기동)이고 후자는 승격 재생 실패의 회복 가능 반납(만료 후 같은 노드 재승격 허용)이라, 합치면 [재생 실패 -> 반납 -> 재승격]의 반복이 자발적 강등 1회와 구분되지 않는다. 반복 자체는 `exchange_leader_epoch` 계단으로도 정상 페일오버와 갈리지 않는다. 라이브 판독 조합은 `increase(exchange_leader_recoverable_standdown_total[5m]) > 1 and exchange_leader_is_leader == 0`이며, 참이면 그 노드의 재생이 결정적으로 실패한다는 뜻이라 데이터 쪽을 본다. **같은 신호에 임계가 셋 공존하는데 기저가 달라서 통일하지 않는다.** 여기 판독 조합과 E2 실험 게이트는 `> 1`이고 §5-6 알람 룰만 `> 2`다. 실험 게이트는 주입 전후 델타, 즉 한 페일오버 사건의 실측 반납 횟수를 세므로 정상 상한 1을 그대로 임계로 쓴다. 알람 룰의 `increase()`는 5분 창의 외삽 추정치다. 창 안 첫 표본이 0이 아니고 표본 구간이 창보다 짧으면 증가 위치와 무관하게 계수가 실증분보다 커진다(실측: 1회 증가에 1.0526). `> 1`로 두면 정상 페일오버 1회가 critical을 발화시킨다. `> 2`의 마진은 그 외삽 오차를 흡수하려는 것이지 정상 상한이 2라는 뜻이 아니다. 뒤집어 말하면 이 룰은 실증분 2회에서 발화한다(실측 2.1053). 알람 문구도 그렇게 읽어야 한다. 판독 조합이 `> 1`인 것은 사람이 `exchange_leader_is_leader == 0` 동반 조건과 함께 읽는 수동 축이라 오탐 비용이 낮기 때문이다. **따라서 일괄 `> 1` 통일은 권장하지 않는다.** 노출명 정합은 `AdmissionIntegrationTest.prometheusExposesContractedMeterNames`가 스크레이프 본문으로 고정한다(익스포트를 켠 컨텍스트가 그것뿐이라 §5-2 노출명 검증의 단일 고정점으로 둔다). 레지스트리 조회만으로는 점 표기와 스크레이프명의 불일치가 잡히지 않아 게이트가 공허 통과한다.
 - `exchange.admission.*`: 수용 제한은 인증 이전(AdmissionFilter, order 6)에서 거절하므로 컨트롤러 계층의 `exchange.orders.rejected`에 잡히지 않는다. 의도적 분리다. 후자는 '클라이언트가 요청을 고쳐야 하는 종결 거부'이고 전자는 '같은 요청을 그대로 재시도하면 되는 노드 포화'라 한 시계열에 섞으면 거부율의 의미가 무너진다. `scope`는 `order`·`query`·`requery` 3값 고정이다. 태그 없이 조회하면 세 시계열이 따로 반환되므로 총량은 `sum(...)`으로 집계한다. 라이브 판독의 핵심 조합은 버킷별 포화도 `exchange_admission_in_flight / exchange_admission_limit`와 거절률 `rate(exchange_admission_rejected_total[1m])`이다. 판독 주의 둘. (1) `scope=query`는 주문 쓰기가 아닌 쓰기(로그인·게시글 작성)도 포함하므로 순수 조회 지표가 아니다. (2) `scope=requery`의 증가는 HTTP 429가 아니라 `409 requery_deferred`(판정 보류)를 뜻한다. 다른 두 버킷과 달리 종결 거절이 아니며 k6의 `idempotent_safe` 판정에서 안전으로 계상된다.
 
 ### 5-3. Prometheus 구성 (`infra/prometheus/prometheus.yml`)
@@ -785,7 +785,7 @@ datasources:
 | `OrderP99SloBreach` | `exchange:order_latency:p99_1m` | `>0.5` for 2m | warning |
 | `FailoverRtoExceeded` | `max(exchange_failover_downtime_seconds)` | `>30` | critical |
 | `LeaderAbsent` | `absent(exchange_leader_is_leader == 1)` | for 15s | critical |
-| `RecoverableStandDownRepeating` | `increase(exchange_leader_recoverable_standdown_total[5m])` | `>2` | **critical** |
+| `RecoverableStandDownRepeating` | `increase(exchange_leader_recoverable_standdown_total[5m])` | `>2` for 0s | **critical** |
 | `SnapshotPersistFailed` | `rate(exchange_snapshot_persist_failed_total[5m])` | `>0` for 1m | warning |
 | `SnapshotDropped` | `rate(exchange_snapshot_dropped_total[5m])` | `>0` for 1m | warning |
 | `SnapshotStalled` | `changes(exchange_snapshot_last_persisted_seq[5m])==0 and rate(exchange_snapshot_captured_total[5m])>0` | for 2m | warning |

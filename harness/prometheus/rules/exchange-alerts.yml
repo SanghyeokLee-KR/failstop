@@ -75,8 +75,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "승격 재생 실패 반복(회복 가능 반납 5분 3회 이상)"
-          description: "instance={{ $labels.instance }} 5분 증가={{ $value }}. exchange_leader_epoch 계단과 대조해 승격·반납 루프인지 확인한다."
+          summary: "승격 재생 실패 반복(회복 가능 반납 5분 2회 이상)"
+          description: "instance={{ $labels.instance }} 5분 증가={{ $value }}(외삽 추정치라 실증분보다 크다). exchange_leader_epoch 계단과 대조해 승격·반납 루프인지 확인한다."
 
       # 스냅샷 파이프라인 경보(SnapshotCapture, 서버 실등록 4종). 정확성은 무손실이라
       # 무결성 계열(critical)이 아니라 복구 준비도 저하(warning)로 둔다. 지속되면 채택
