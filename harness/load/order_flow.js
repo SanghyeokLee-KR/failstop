@@ -24,10 +24,26 @@ const MARKET = __ENV.MARKET || 'KRW-BTC';
 const SPIKE_RATE = parseInt(__ENV.SPIKE_RATE || '3000', 10);
 const T0 = parseFloat(__ENV.CHAOS_T0_S || 'Infinity');
 const T1 = parseFloat(__ENV.CHAOS_T1_S || 'Infinity');
-// 페일오버 창 임계 유도용. 창 전체가 RTO 목표만큼 끊겨도 정본상 정상이므로 창 실패율 상한은
-// RTO 목표 / 창 길이다. 임의 상수를 쓰지 않기 위해 오케스트레이터가 준 값에서 계산한다.
-const RTO_TARGET_S = parseFloat(__ENV.RTO_TARGET_S || '30');
+// 창 실패 예산(§2-2). 페일오버 창에만 RTO 유도 상한을 쓴다. 표식이 없으면 비페일오버 주입이라
+// 다운타임 허용이 없고(§3 E1 1차 "주입 중에도 status·readiness 응답 유지") 창에도 정상 상한을 건다.
+const FAILOVER_WINDOW = String(__ENV.FAILOVER_WINDOW || '') === '1';
+const RTO_TARGET_S = parseFloat(__ENV.RTO_TARGET_S || 'NaN');
 const CHAOS_WINDOW_S = T1 - T0;
+const STEADY_FAIL_MAX = 0.001;  // 가용성 99.9%(API§7-4)
+
+// 창은 반쪽으로 설정할 수 없다. T0만 주면 phase()가 T0 이후 전 구간을 chaos로 태깅해
+// phase:steady 임계가 그 뒤로 아무것도 재지 않는다. 창이 정상 임계를 오염시키던 결함을
+// 반대편 무판정으로 옮기는 것이라 설정 오류로 즉시 중단한다(§2-2 창 설정 무결성).
+if (Number.isFinite(T0) !== Number.isFinite(T1)) {
+  throw new Error('CHAOS_T0_S와 CHAOS_T1_S는 함께 설정한다. 한쪽만 주면 T0 이후 전 구간이 phase:chaos가 되어 정상 구간 임계가 무판정이 된다(검증설계 §2-2).');
+}
+if (Number.isFinite(T0) && CHAOS_WINDOW_S <= 0) {
+  throw new Error(`카오스 창 길이가 0 이하다(T0=${T0}, T1=${T1}). T1 = T0 + 60s(RTO 2배 마진)가 정본이다.`);
+}
+// 유도 근거 없는 페일오버 표식은 받지 않는다. 기본값으로 때우면 임의 상수를 쓰는 것과 같다.
+if (FAILOVER_WINDOW && !Number.isFinite(RTO_TARGET_S)) {
+  throw new Error('FAILOVER_WINDOW=1에는 RTO_TARGET_S가 필요하다. 창 실패율 상한을 RTO 목표에서 유도하기 때문이다(검증설계 §2-2).');
+}
 
 const P = {
   e6:   { spikeStart: '10m', plateau: '60s',  total: '13m' },
@@ -62,13 +78,16 @@ const thresholds = {
   // 404는 미접수 확인이라 둘 다 규약상 정상 경로인데, 가용성 임계의 실패 분자로 계상됐다.
   // expectedStatuses에 409를 전역 추가하는 방식은 쓰지 않는다. POST /orders의
   // duplicate_client_order_id·order_in_progress까지 성공으로 계상돼 진짜 거절이 가려진다.
-  'http_req_failed{scenario:orders_steady,name:placeOrder,phase:steady}': ['rate<0.001'], // 가용성 99.9%, 수용 제한 응답 제외
+  'http_req_failed{scenario:orders_steady,name:placeOrder,phase:steady}': [`rate<${STEADY_FAIL_MAX}`], // 가용성 99.9%, 수용 제한 응답 제외
   // 재조회는 별도 임계로 관측을 유지한다. 200·404·409·429를 그 요청에 한해 정상으로 선언했으므로
   // (lookupByClient의 responseCallback) 이 분자에는 5xx·타임아웃만 남는다. 정상 창 한정인 것은
   // 카오스 창에서는 재조회 5xx가 정상 재시도 대상이기 때문이다. 그 창의 규약 위반은 이 임계가
   // 아니라 idempotent_safe가 잡는다(전역 rate==1).
   'http_req_failed{name:lookup,phase:steady}': ['rate<0.001'],
-  'accepted_req_duration{scenario:orders_steady}': ['p(95)<200', 'p(99)<500'], // 수용 요청 SLO(API§7-4)
+  // 지연 SLO도 정상 구간 한정이다. 가용성 축과 같은 결함 클래스라 함께 좁힌다. 창에서는
+  // 성공하되 느린 2xx(E1 지연 주입, E7 그레이 장애, 승격 직후 큐 해소)가 상위 백분위를 점유해
+  // 정상 구간 SLO를 깬다. 창의 지연은 아래 phase:chaos 서브메트릭으로 관측한다.
+  'accepted_req_duration{scenario:orders_steady,phase:steady}': ['p(95)<200', 'p(99)<500'], // 수용 요청 SLO(API§7-4)
   'checks{check:idempotent_safe}': ['rate==1'],   // UNKNOWN→재조회→재전송 규약 위반 0
   'ws_seq_gap{phase:steady}': ['count==0'],       // 정상 창 seq 결번 0(카오스 창은 phase:chaos 제외)
   'ws_epoch_resync_fail': ['count==0'],           // epoch 변화·gap 후 재동기화 실패 0(전역)
@@ -77,12 +96,21 @@ const thresholds = {
   // 두면 어떤 상태에서도 통과하는 토톨로지가 된다(§2-2).
 };
 
-// 페일오버 창 임계. 상한을 RTO 목표에서 유도한다: 창 전체가 RTO 목표만큼 끊겨도 정상이므로
-// 실패율 상한 = RTO 목표 / 창 길이. 창이 RTO 예산보다 짧으면 상한이 1 이상이라 판별력이 없으므로
-// 임계를 걸지 않는다(어떤 값에도 통과하는 토톨로지 방지). 카오스 창 미설정(T0/T1 부재) 시에도
-// 표본이 없어 공허 통과가 되므로 선언하지 않는다.
-if (Number.isFinite(CHAOS_WINDOW_S) && CHAOS_WINDOW_S > 0 && RTO_TARGET_S < CHAOS_WINDOW_S) {
-  const max = (RTO_TARGET_S / CHAOS_WINDOW_S).toFixed(4);
+// 카오스 창 임계. 창이 설정된 run에서는 창도 반드시 판정한다. 창을 정상 구간 임계에서 뺀 것이
+// 창을 안 본다는 뜻이 되면, 종전의 구조적 통과 불가를 구조적 무판정으로 옮기는 것에 불과하다.
+// 상한은 실험 성격에 종속된다(§2-2 창 실패 예산). 페일오버 창은 RTO 목표에서 유도하고,
+// 비페일오버 주입은 다운타임 허용이 없어 정상 구간과 같은 상한을 쓴다.
+if (Number.isFinite(CHAOS_WINDOW_S)) {
+  let max = STEADY_FAIL_MAX;
+  if (FAILOVER_WINDOW) {
+    // 창 전체가 RTO 목표만큼 끊겨도 정본상 정상이므로 상한 = RTO 목표 / 창 길이.
+    // 창이 RTO 예산 이하면 상한이 1 이상이 되어 어떤 값에도 통과하는 토톨로지가 되므로,
+    // 그 설정은 창 길이가 잘못 잡힌 것으로 보고 중단한다(§2-2: T1 = T0 + RTO x 2).
+    if (RTO_TARGET_S >= CHAOS_WINDOW_S) {
+      throw new Error(`카오스 창(${CHAOS_WINDOW_S}s)이 RTO 목표(${RTO_TARGET_S}s) 이하라 창 임계가 토톨로지가 된다. 정본은 T1 = T0 + RTO x 2다(검증설계 §2-2).`);
+    }
+    max = (RTO_TARGET_S / CHAOS_WINDOW_S).toFixed(4);
+  }
   thresholds['http_req_failed{scenario:orders_steady,name:placeOrder,phase:chaos}'] = [`rate<${max}`];
 }
 

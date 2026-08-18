@@ -38,7 +38,7 @@ cp secrets/k6_keys.example.json secrets/k6_keys.json   # 실키로 치환
 k6 run $(sed 's/^/-e /' config/e6.env | grep -v '^-e #') order_flow.js
 
 # 데모(15분). PROFILE=demo, kill 05:30
-k6 run -e PROFILE=demo -e CHAOS_T0_S=330 -e CHAOS_T1_S=390 order_flow.js
+k6 run $(sed 's/^/-e /' config/demo.env | grep -v '^-e #') order_flow.js
 
 # thundering-herd(WS 5,000 동시연결)
 k6 run -e WS_TARGET=5000 scenarios/thundering-herd.js
@@ -50,9 +50,10 @@ PowerShell에서는 각 줄을 `--env KEY=VALUE`로 전개한다.
 
 | threshold | 의미 |
 |---|---|
-| `http_req_failed{scenario:orders_steady,name:placeOrder} < 0.001` | 접수 경로 가용성 99.9%(API§7-4). 수용 제한 응답은 expectedStatuses로 제외 |
+| `http_req_failed{scenario:orders_steady,name:placeOrder,phase:steady} < 0.001` | 정상 구간 접수 가용성 99.9%(API§7-4). 수용 제한 응답은 expectedStatuses로 제외 |
+| `http_req_failed{scenario:orders_steady,name:placeOrder,phase:chaos}` | 카오스 창 접수 가용성. 상한은 창 설정에서 유도(아래 창 실패 예산) |
 | `http_req_failed{name:lookup,phase:steady} < 0.001` | 정상 창 재조회 실패 0. 200·404·409·429는 요청별 responseCallback으로 정상 선언 |
-| `accepted_req_duration{scenario:orders_steady} p95<200 p99<500` | 수용(2xx) 요청 지연 SLO |
+| `accepted_req_duration{scenario:orders_steady,phase:steady} p95<200 p99<500` | 정상 구간 수용(2xx) 요청 지연 SLO. 창의 느린 2xx가 상위 백분위를 점유하지 않게 한정 |
 | `checks{check:idempotent_safe} == 1` | UNKNOWN→재조회→재전송 규약 위반 0 |
 | `ws_seq_gap{phase:steady} == 0` | 정상 창 채널 seq 결번 0. 카오스 창(phase:chaos)은 제외 |
 | `ws_epoch_resync_fail == 0` | epoch 변화·gap 후 재동기화 실패 0(전역) |
@@ -68,6 +69,22 @@ PowerShell에서는 각 줄을 `--env KEY=VALUE`로 전개한다.
 `phase:steady`로 표본을 태깅한다. 카오스 창 내 seq gap은 재동기화 성공(`ws_epoch_resync_fail==0`)
 으로 판정하고, steady 창의 gap만 0을 강제한다. E3의 "gap 감지→재동기화 흡수" 정상 경로가
 FAIL로 오판되지 않는다.
+
+둘은 반드시 함께 준다. T0만 주면 T0 이후 전 구간이 `phase:chaos`가 되어 정상 구간 임계가
+그 뒤로 아무것도 재지 않는다. 한쪽만 설정되면 k6가 init에서 중단한다.
+
+## 창 실패 예산
+
+창을 정상 구간 임계에서 빼는 것이 창을 판정하지 않는다는 뜻은 아니다.
+
+| 창 성격 | 전달 변수 | `phase:chaos` 접수 실패율 상한 |
+|---|---|---|
+| 페일오버(E2·E4·E5·E6·E7) | `FAILOVER_WINDOW=1` + `RTO_TARGET_S` | `RTO_TARGET_S / 창 길이`. 정본 60s·30s에서 `rate<0.5` |
+| 비페일오버(E1·E3·E8·E9) | 표식 없음 | `rate<0.001`(다운타임 허용 없음, 검증설계 §3 E1 1차) |
+
+상한은 임의 상수가 아니라 유도값이다. 창 전체가 RTO 목표만큼 끊겨도 정본상 정상이므로
+상한은 RTO 목표를 창 길이로 나눈 값이다. `FAILOVER_WINDOW=1`인데 `RTO_TARGET_S`가 없으면
+유도 근거가 없어 init에서 중단한다. `chaos_window_5xx_total`은 같은 창의 관측 보조 지표다.
 
 ## 출력
 
