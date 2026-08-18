@@ -97,6 +97,8 @@ class ApiGatewayIntegrationTest {
     DemoKeySeeder keySeeder;
     @Autowired
     ObjectMapper objectMapper;
+    @Autowired
+    org.springframework.context.ApplicationContext context;
     @LocalServerPort
     int port;
 
@@ -833,6 +835,67 @@ class ApiGatewayIntegrationTest {
         }
         assertTrue(denied >= 1, "weight 5면 60건 급송 중 429가 나야 한다(weight 1 회귀 시 0)");
         assertTrue(passed <= 40, "통과 수가 weight 5(약 20여건)와 정합해야 한다: " + passed);
+    }
+
+    /**
+     * 게이트웨이 필터 순서 고정(§2-5, §2-5-a). 수용 게이트 -> IP 버킷 -> 인증이다.
+     *
+     * 이 순서가 곧 계약이라 값으로 못박는다. IP 버킷이 수용 게이트보다 앞이면 백프레셔로 거절한
+     * 요청이 클라이언트 토큰을 갉고, 인증보다 뒤면 미인증 플러드가 이미 api_keys를 조회한 뒤다.
+     * 배선만 보는 테스트로는 순서를 바꿔도 전부 통과한다.
+     */
+    @Test
+    @Order(59)
+    void gatewayFiltersRunAdmissionThenIpBucketThenAuth() {
+        int admission = filterOrder("admissionFilter");
+        int ipBucket = filterOrder("publicRateLimitFilter");
+        int auth = filterOrder("apiAuthFilter");
+        assertTrue(admission < ipBucket,
+                "IP 버킷이 수용 게이트보다 앞이다: " + admission + " vs " + ipBucket);
+        assertTrue(ipBucket < auth,
+                "IP 버킷이 인증보다 뒤다: " + ipBucket + " vs " + auth);
+    }
+
+    private int filterOrder(String beanName) {
+        return context.getBean(beanName, org.springframework.boot.web.servlet.FilterRegistrationBean.class)
+                .getOrder();
+    }
+
+    /**
+     * 공개 조회 IP 버킷 배선(§2-5, rank11). 무인증 §4-A 평면에는 계정 버킷이 붙지 않아 이 필터가
+     * 유일한 유량 방벽이다. 배선이 빠지면 헤더가 없고 폭주가 무제한 통과한다.
+     *
+     * 마지막 순서인 이유: 테스트 클라이언트가 전부 127.0.0.1이라 버킷이 클래스 전역 공유다.
+     * 앞 순서에서 소진하면 뒤 테스트의 공개 조회가 429로 흔들린다. weight·429 본문 계약은
+     * PublicRateLimitFilterTest가 시계 고정으로 별도 검증한다.
+     */
+    @Test
+    @Order(60)
+    void publicMarketDataCarriesIpBucketAndShedsBurst() {
+        ResponseEntity<String> first =
+                rest.getForEntity("/api/v1/trades?market=KRW-BTC&count=1", String.class);
+        assertEquals(200, first.getStatusCode().value());
+        assertEquals("300", first.getHeaders().getFirst("X-RateLimit-Limit-ip"),
+                "공개 조회 IP 한도는 계약값 300이어야 한다");
+        assertNotNull(first.getHeaders().getFirst("X-RateLimit-Remaining-ip"));
+        assertNotNull(first.getHeaders().getFirst("X-RateLimit-Reset"));
+
+        // 다중행 조회 weight 2라 capacity 300은 150여건에서 마른다. weight 1로 회귀하면
+        // 250건 급송으로도 마르지 않아 denied가 0이 된다(리필 30토큰/s는 급송 속도에 못 미친다).
+        ResponseEntity<String> denied = null;
+        for (int i = 0; i < 250 && denied == null; i++) {
+            ResponseEntity<String> response =
+                    rest.getForEntity("/api/v1/trades?market=KRW-BTC&count=1", String.class);
+            if (response.getStatusCode().value() == 429) {
+                denied = response;
+            }
+        }
+        assertNotNull(denied, "공개 조회 급송이 IP 버킷에 전혀 걸리지 않았다");
+        assertNotNull(denied.getHeaders().getFirst("Retry-After"));
+        String body = denied.getBody();
+        assertNotNull(body);
+        assertTrue(body.contains("\"bucket\":\"ip\""), body);
+        assertTrue(body.contains("\"scope\":\"public\""), body);
     }
 
     // ------------------------------------------------------------------

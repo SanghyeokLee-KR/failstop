@@ -187,6 +187,36 @@ public class ApiConfig {
         return registration;
     }
 
+    /**
+     * 공개 조회 IP 버킷(§2-5 표: 300토큰/10s, weight 1~2). 계정 버킷이 붙지 않는 무인증 평면의
+     * 유일한 유량 방벽이다.
+     *
+     * capacity를 설정으로 여는 이유: 봇 플릿·웹이 한 호스트(또는 인그레스 1 IP)로 뭉치는 배포에서
+     * 계약 기본값 300은 정상 폴링을 429로 만든다. 주문 버킷이 bots 프로파일에서만 상향하는 선례와
+     * 같은 구조로, 운영·통합테스트 프로파일은 계약값 300을 그대로 쓴다.
+     */
+    @Bean
+    public kr.exchange.api.common.AccountRateLimiter publicIpRateLimiter(
+            @Value("${exchange.public.rate-limit.capacity:300}") int capacity) {
+        return new kr.exchange.api.common.AccountRateLimiter(capacity, 10_000, "ip", "public");
+    }
+
+    /**
+     * IP 버킷은 수용 게이트(6) 뒤·인증(10) 앞이다. 수용 거절된 요청이 토큰을 소비하면 백프레셔가
+     * 정상 클라이언트의 예산을 깎고, 인증 뒤면 미인증 플러드가 이미 api_keys를 조회한 뒤가 된다.
+     */
+    @Bean
+    public FilterRegistrationBean<kr.exchange.api.common.PublicRateLimitFilter> publicRateLimitFilter(
+            @Qualifier("publicIpRateLimiter") kr.exchange.api.common.AccountRateLimiter limiter,
+            ErrorRenderer errorRenderer) {
+        FilterRegistrationBean<kr.exchange.api.common.PublicRateLimitFilter> registration =
+                new FilterRegistrationBean<>(
+                        new kr.exchange.api.common.PublicRateLimitFilter(limiter, errorRenderer));
+        registration.addUrlPatterns("/api/v1/*");
+        registration.setOrder(7);
+        return registration;
+    }
+
     @Bean
     public FilterRegistrationBean<ApiAuthFilter> apiAuthFilter(ApiAuthService authService,
                                                                ErrorRenderer errorRenderer,

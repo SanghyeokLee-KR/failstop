@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.CachedBodyRequest;
 import kr.exchange.api.common.ErrorRenderer;
+import kr.exchange.api.common.PublicMarketPaths;
 import kr.exchange.api.common.RequestBodyLimit;
 import kr.exchange.engine.LeaderWriteProgress;
 import org.springframework.dao.TransientDataAccessException;
@@ -43,12 +44,9 @@ public class ApiAuthFilter extends OncePerRequestFilter {
         if (!path.startsWith("/api/v1/")) {
             return true;
         }
-        return path.startsWith("/api/v1/markets")
-                || path.startsWith("/api/v1/orderbook")
-                || path.startsWith("/api/v1/trades")
-                || path.startsWith("/api/v1/ticker")
-                || path.startsWith("/api/v1/candles")
-                || path.startsWith("/api/v1/exchange-config")
+        // 공개 시장 데이터 목록은 PublicMarketPaths가 단일 정본이다. 여기와 IP 버킷 필터가
+        // 각자 목록을 들면 한쪽만 늘었을 때 인증도 레이트리밋도 없는 경로가 생긴다.
+        return PublicMarketPaths.isMarketData(path)
                 || path.equals("/api/v1/demo/session")
                 // 게시판 평면(게시판_설계.md §2.4)은 거래 평면과 경계 분리한다. 읽기는 무인증, 쓰기는
                 // aud=community 회원 토큰을 커뮤니티 계층이 자체 검증한다(CommunityAuthenticator).

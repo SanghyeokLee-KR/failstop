@@ -10,6 +10,7 @@ import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.EpochSource;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,7 +60,8 @@ public class OrderController {
 
     public OrderController(OrderGateway gateway, OrderQueryService orders,
                            EpochSource epochSource, ObjectMapper objectMapper, JdbcClient jdbc,
-                           OrderRejectionMetrics rejections, AccountRateLimiter accountQueryRateLimiter,
+                           OrderRejectionMetrics rejections,
+                           @Qualifier("accountQueryRateLimiter") AccountRateLimiter accountQueryRateLimiter,
                            @Value("${exchange.order.rate-limit.capacity:100}") int orderCapacity) {
         this.gateway = gateway;
         this.orders = orders;

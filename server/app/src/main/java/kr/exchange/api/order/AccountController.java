@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import kr.exchange.api.auth.AuthPrincipal;
 import kr.exchange.api.common.AccountRateLimiter;
 import kr.exchange.api.common.ApiFormats;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,7 +25,9 @@ public class AccountController {
     private final JdbcClient jdbc;
     private final AccountRateLimiter queryLimiter;
 
-    public AccountController(JdbcClient jdbc, AccountRateLimiter accountQueryRateLimiter) {
+    public AccountController(JdbcClient jdbc,
+                             @Qualifier("accountQueryRateLimiter")
+                             AccountRateLimiter accountQueryRateLimiter) {
         this.jdbc = jdbc;
         this.queryLimiter = accountQueryRateLimiter;
     }

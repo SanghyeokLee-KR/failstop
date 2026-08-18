@@ -52,6 +52,11 @@ class SimFleetIntegrationTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("exchange.auth.master-key-base64",
                 () -> Base64.getEncoder().encodeToString(new byte[32]));
+        // 봇 플릿은 서버와 같은 호스트라 공개 조회가 전부 127.0.0.1 IP 버킷 하나에 계상된다
+        // (§2-5). 계약 기본값 300토큰/10s는 MM 재호가·taker 도착이 합쳐지면 수 초 만에 마르고,
+        // 그러면 이 테스트가 검증하려는 체결·불변식이 아니라 레이트리밋을 재는 테스트가 된다.
+        // bots 프로파일이 라이브 데모에서 하는 상향을 여기서 동일하게 적용한다.
+        registry.add("exchange.public.rate-limit.capacity", () -> "100000");
     }
 
     @Autowired
