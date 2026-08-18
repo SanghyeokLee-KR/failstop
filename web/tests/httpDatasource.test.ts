@@ -606,6 +606,125 @@ test("orderbook: 구독 즉시 snapshot이 연속성 기준점(§5-2)", async ()
   assert.deepEqual(seqs, [100, 101]);
 });
 
+test("orderbook: 늦게 도착한 스냅샷은 기준점을 되돌리지 않는다", async () => {
+  const stomp = makeStomp();
+  const { ds } = newDs({}, stomp.factory);
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.orderbook("KRW-BTC"), (m) => received.push(m));
+  await settle();
+
+  const ob = (seq: number, stream: "snapshot" | "realtime") => ({
+    schema_version: "1.0",
+    type: "orderbook",
+    market: "KRW-BTC",
+    epoch: 1,
+    seq,
+    stream,
+    timestamp: "2026-07-21T09:00:00.200Z",
+    total_ask_size: "1",
+    total_bid_size: "1",
+    orderbook_units: [],
+  });
+  stomp.push(dest.orderbook("KRW-BTC"), ob(100, "snapshot")); // 기준점
+  stomp.push(dest.orderbook("KRW-BTC"), ob(101, "realtime"));
+  stomp.push(dest.orderbook("KRW-BTC"), ob(90, "snapshot")); // 늦은 스냅샷. 역행 드롭
+  stomp.push(dest.orderbook("KRW-BTC"), ob(102, "realtime"));
+  await settle();
+
+  assert.deepEqual(
+    received.map((m) => m.seq),
+    [100, 101, 102],
+    "늦은 스냅샷을 채택하면 이후 실시간이 기준점 역행으로 드롭된다",
+  );
+});
+
+test("flush: 조밀 채널의 결번은 수용하지 않고 재동기화를 다시 건다", async () => {
+  const stomp = makeStomp();
+  const deferred: { resolve: ((r: Response) => void) | null } = { resolve: null };
+  let tickerHits = 0;
+  const body = (seq: number) =>
+    jsonRes(200, { schema_version: "1.0", data: [restTicker(seq)], pagination: { next_cursor: null, has_more: false } });
+  const fetchFn: typeof fetch = async (input) => {
+    if (!String(input).includes("/api/v1/ticker")) {
+      return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+    }
+    tickerHits += 1;
+    if (tickerHits === 1) return body(9); // 구독 초기 스냅샷
+    if (tickerHits === 2) {
+      return new Promise<Response>((resolve) => {
+        deferred.resolve = resolve;
+      });
+    }
+    return body(30); // 결번 감지 후 재동기화
+  };
+  const ds = new HttpStompDataSource({ apiBase: "http://api.test", wsBase: "ws://api.test", fetchFn, stompFactory: stomp.factory });
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.ticker("KRW-BTC"), (m) => received.push(m));
+  await settle();
+  const base = received.length;
+
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(10)); // 기준점
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(13)); // gap → 재동기화 시작(응답 지연)
+  await settle();
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(20)); // 재동기화 중 버퍼링
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(25)); // 20과 결번
+  await settle();
+
+  assert.ok(deferred.resolve, "재동기화 fetch 발사됨");
+  deferred.resolve(body(19)); // 스냅샷 기준점 19
+  await settle();
+
+  assert.equal(tickerHits, 3, "flush 중 결번이 재동기화를 다시 건다");
+  assert.deepEqual(
+    received.slice(base).map((m) => m.seq),
+    [10, 19, 20, 30],
+    "결번(25)은 수용하지 않고 새 스냅샷(30)으로 이어간다",
+  );
+});
+
+test("flush: trade 채널은 비연속 증가를 그대로 수용한다(event_seq 도메인)", async () => {
+  const stomp = makeStomp();
+  const deferred: { resolve: ((r: Response) => void) | null } = { resolve: null };
+  let hits = 0;
+  const fetchFn: typeof fetch = async (input) => {
+    if (!String(input).includes("/api/v1/trades")) {
+      return jsonRes(404, { error: { name: "order_not_found", message: "없음" } });
+    }
+    hits += 1;
+    return new Promise<Response>((resolve) => {
+      deferred.resolve = resolve;
+    });
+  };
+  const ds = new HttpStompDataSource({ apiBase: "http://api.test", wsBase: "ws://api.test", fetchFn, stompFactory: stomp.factory });
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.trade("KRW-BTC"), (m) => received.push(m));
+  await settle();
+
+  // 재연결이 trade 채널 재동기화를 건다(REST 응답 지연)
+  stomp.state.args!.onDisconnect();
+  stomp.state.args!.onConnect();
+  await settle();
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1000));
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1007)); // 비연속 증가
+  await settle();
+  assert.ok(deferred.resolve, "재동기화 fetch 발사됨");
+  deferred.resolve(jsonRes(200, emptyList));
+  await settle();
+
+  assert.deepEqual(
+    received.map((m) => m.seq),
+    [1000, 1007],
+    "trade는 채널당 비연속이 정상이라 flush에서 결번 검사를 걸지 않는다",
+  );
+  assert.equal(hits, 1, "추가 재동기화 없음");
+});
+
 test("재연결 시 전 채널 재동기화, 연결 상태 통지", async () => {
   const stomp = makeStomp();
   const { ds, count } = newDs(

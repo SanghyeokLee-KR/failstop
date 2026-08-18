@@ -238,6 +238,12 @@ function parseDest(destination: string): ParsedDest {
   return null;
 }
 
+/**
+ * 채널당 seq가 +1로 조밀한 종류(§5-2). 결번은 실제 유실이라 재동기화 대상이다.
+ * trade·candle은 전역 event_seq 도메인이라 채널 관점에서 비연속이 정상이다.
+ */
+const DENSE_KINDS = new Set(["orderbook", "ticker", "myOrder", "myAsset"]);
+
 // 외부 주문 id는 UUID(§7-1, §4-B-1 v2.7 정정. 이전 판 ULID 표기는 오기). 정규 라우트 판정용
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -860,7 +866,10 @@ export class HttpStompDataSource implements DataSource {
     }
 
     if (msg.type === "orderbook" && msg.stream === "snapshot") {
-      // 구독 즉시 snapshot이 연속성 기준점(§5-2, orderbook 한정)
+      // 구독 즉시 snapshot이 연속성 기준점(§5-2, orderbook 한정).
+      // 다만 기준점은 전진만 한다. 늦게 도착한 스냅샷이 기준점을 내리면 이미 반영한 실시간이
+      // 낮은 seq로 되돌아 화면 호가가 과거 상태로 역행한다
+      if (ch.lastSeq !== null && msg.seq <= ch.lastSeq) return;
       ch.lastSeq = msg.seq;
       this.deliver(ch, msg);
       return;
@@ -906,14 +915,14 @@ export class HttpStompDataSource implements DataSource {
     }
   }
 
-  private startResync(destination: string, ch: ChannelState, pending?: WsMessage): void {
+  private startResync(destination: string, ch: ChannelState, pending?: WsMessage | WsMessage[]): void {
     // 플랩 재연결(reconnectDelay 2s < REST 상한 8s)은 이전 재동기화가 미완인 채 다음을 시작한다.
     // 이전 in-flight를 취소하고 세대를 올려, 늦게 끝난 이전 실행이 lastSeq 회귀·버퍼 flush·
     // resyncing 해제로 최신 실행을 오염시키지 못하게 한다.
     ch.resyncAbort?.abort();
     const gen = ++ch.resyncGen;
     ch.resyncing = true;
-    ch.buffer = pending ? [pending] : [];
+    ch.buffer = pending === undefined ? [] : Array.isArray(pending) ? [...pending] : [pending];
     // REST가 영영 안 끝나면 finally 미실행 → resyncing 잔류 → 채널 영구 정지·버퍼 무한 증가.
     // 타임아웃으로 fetch를 취소해 프라미스를 확정 종료시킨다(catch로 수렴).
     const controller = new AbortController();
@@ -931,8 +940,20 @@ export class HttpStompDataSource implements DataSource {
         const buffered = ch.buffer.sort((a, b) => a.seq - b.seq);
         ch.buffer = [];
         ch.resyncing = false;
-        for (const m of buffered) {
-          if (ch.lastSeq !== null && m.seq <= ch.lastSeq) continue;
+        // flush도 실시간 분기와 같은 기준점 규약을 따른다. 조밀 채널에서 결번을 무검사로
+        // 수용하면 재동기화가 메우려던 유실 구간이 그대로 화면에 반영된다
+        const kind = parseDest(destination)?.kind;
+        const dense = kind !== undefined && DENSE_KINDS.has(kind);
+        for (let i = 0; i < buffered.length; i++) {
+          const m = buffered[i];
+          if (ch.lastSeq !== null) {
+            if (m.seq <= ch.lastSeq) continue; // 중복·역행 드롭
+            if (dense && m.seq !== ch.lastSeq + 1) {
+              // 결번 확인. 수용을 멈추고 남은 버퍼를 물려 재동기화를 다시 건다
+              this.startResync(destination, ch, buffered.slice(i));
+              return;
+            }
+          }
           ch.lastSeq = m.seq;
           this.deliver(ch, m);
         }
