@@ -287,7 +287,7 @@ Retry-After: 3                    # 429·503·409(order_in_progress) 시 포함(
   "pagination": { "next_cursor":"eyJ0cyI6IjIwMjYtMDctMjFUMDk6MDA6MDAuMDAwWiIsImlkIjoiMDFKOFpUIn0",
                   "has_more": true } }
 ```
-> 위 커서를 디코딩하면 `{"ts":"2026-07-21T09:00:00.000Z","id":"01J8ZT"}`. 커서의 `id` 축은 **외부 노출 id 문자열**(주문=UUID(v2.7 W3), 체결=event_seq 파생 id. §7-1, §4-B-4 커서 통일)이다. id 발급 규약(order=사전 발급 박제, trade=event_seq 결정론 파생)은 §7-1 타입 규약(v2.6)을 따른다. 내부 BIGINT PK는 커서에 절대 노출하지 않는다(v2.3, 이전 예시의 정수 id `90011`은 문자열 id 통일 규칙 위반이라 교정). **예외 · candles(v2.5)**: candles는 외부 노출 id가 없는 자연키 리소스이므로 커서의 `id` 축으로 **`(candle_time, market)` 자연키를 사용**한다(§4-A-5, 내부 PK 미노출 원칙은 동일 유지).
+> 위 커서를 디코딩하면 `{"ts":"2026-07-21T09:00:00.000Z","id":"01J8ZT"}`. 커서의 `id` 축은 **외부 노출 id 문자열**(주문=UUID(v2.7 W3), 체결=event_seq 파생 id. §7-1, §4-B-4 커서 통일)이다. id 발급 규약(order=사전 발급 박제, trade=event_seq 결정론 파생)은 §7-1 타입 규약(v2.6)을 따른다. 내부 BIGINT PK는 커서에 절대 노출하지 않는다(v2.3, 이전 예시의 정수 id `90011`은 문자열 id 통일 규칙 위반이라 교정). **예외 · candles(v2.5)**: candles는 외부 노출 id가 없는 자연키 리소스이므로 커서의 `id` 축으로 **`(candle_time, market)` 자연키를 사용**한다(§4-A-5, 내부 PK 미노출 원칙은 동일 유지). **예외 · ledger_entries(v2.20 보완)**: 원장 분개도 외부 노출 id가 자연키도 없는 리소스이므로 **`entry_id`(분개 PK 10진 문자열)를 외부 식별자로 계약 지정**하고 커서의 `id` 축으로 쓴다(§4-C-3). 대리키 노출을 허용하는 근거: 원장 분개는 클라이언트가 상호참조하는 대상이 아니라 식별자 유출의 실해가 없고, 조회 범위가 자기 계정 분개로 한정되며, 정산 핫패스(`post_ledger_transaction`)에 분개별 외부 id 발급을 얹는 쓰기 비용이 아무도 참조하지 않는 식별자를 위한 것이 되기 때문이다. 이 예외는 `ledger_entries`에 한정하며 다른 리소스의 내부 PK 노출 근거로 재사용하지 않는다.
 
 ### 2-7. CORS / 표준 HTTP 가드
 
@@ -748,22 +748,59 @@ POST /api/v1/orders
   "pagination":{"next_cursor":null,"has_more":false} }
 ```
 불변식: `balance(=available) + locked = total`, 항상 `available ≥ 0`이고 `locked ≥ 0`(둘 다 DB CHECK).
-#### 4-C-2. `GET /api/v1/my/trades` · `liquidity_flag`(MAKER/TAKER)·`fee`·해당 체결가 노출(원장 정합성 검증 현실성).
+#### 4-C-2. `GET /api/v1/my/trades` · 체결 내역 (v2.20 보완: 표에만 있고 상세가 한 줄이던 비대칭 해소)
+
+`liquidity_flag`(MAKER/TAKER)·`fee`·해당 체결가를 노출한다(원장 정합성 검증 현실성).
+- 파라미터: `market`(선택, 예 `KRW-BTC`), `count`(≤200), `cursor`. §2-6 opaque 커서 규약 동일이며 `id` 축은 `trade_id`(체결 id = event_seq 10진 문자열)다.
+- 응답: §2-2 리스트 엔벌로프. 정렬은 체결 시각 내림차순(`(created_at, trade_id)` DESC), 경계는 exclusive다.
+- 각 항목은 **한 체결의 내 관점 투영**이다. 같은 체결을 maker와 taker가 각자 조회하면 `liquidity_flag`·`side`·`fee`·`fee_currency`가 서로 반대로 나온다.
+
+```json
+{ "schema_version":"1.0",
+  "data":[
+    { "trade_id":"88123601","market":"KRW-BTC","side":"bid",
+      "order_id":"9f2b7a4e-3d1c-4b0e-9a77-5c2f8e1d6a3b",
+      "price":"50000000","volume":"0.01",
+      "liquidity_flag":"TAKER","fee":"0.000005","fee_currency":"BTC",
+      "timestamp":"2026-07-21T09:00:01.060Z" } ],
+  "pagination":{"next_cursor":"eyJ0cyI6IjIwMjYtMDctMjFUMDk6MDA6MDEuMDYwWiIsImlkIjoiODgxMjM2MDEifQ","has_more":true} }
+```
+
+| 필드 | 의미 |
+|---|---|
+| `side` | **내 주문 방향**(`bid`/`ask`). 체결 레코드의 `taker_side`는 taker 관점이므로 내가 maker면 뒤집어 낸다 |
+| `liquidity_flag` | 이 체결에서 내가 maker였으면 `MAKER`, taker였으면 `TAKER` |
+| `fee` | **내 측** 수수료(maker면 maker 수수료). 상대편 수수료는 노출하지 않는다 |
+| `fee_currency` | 수수료 자산. 수수료는 **수취 자산 기준**이라(§4-B-5 v2.7) 매수는 base, 매도는 quote다. 금액만으로는 자산이 확정되지 않아 함께 낸다 |
+| `order_id` | 이 체결을 만든 **내 주문의 외부 UUID**. 내부 주문 PK는 노출하지 않으며, 참조 주문이 조회 범위 밖이면 `null` |
+| `trade_id` | 체결 id(= `event_seq`). `/my/ledger`의 `ref.trade_id`, 공개 `GET /trades`의 `trade_id`와 **같은 값**이다 |
+
+> 자전거래는 STP(§4-B-1 `self_trade_prevented`)가 막으므로 한 체결의 양측이 같은 사용자인 경우는 발생하지 않는다. 그럼에도 성립하면 같은 `trade_id`가 두 행이 되어 커서 `id` 축이 중복되므로 `MAKER` 한 행으로 접는다.
 
 #### 4-C-3. `GET /api/v1/my/ledger` · 거래(원장) 내역 (v2.5 상세 신설, 표에만 있고 상세 절이 없던 비대칭 해소)
 - 파라미터: `currency`(선택, 예 `KRW`), `count`(≤200), `cursor`\|`to`. §2-6 opaque 커서 규약 동일(`(ts,id)`, id 축=외부 노출 id 문자열. 주문 id는 UUID, v2.7 §7-1 정정).
 - 응답: §2-2 리스트 엔벌로프. 각 항목은 복식부기 원장 분개의 사용자 관점 투영이며, `entry_type` 어휘는 DB 설계 문서 `ledger_entries`와 동일(DEPOSIT/WITHDRAW/TRADE/FEE/RESERVE/RELEASE …).
+- 조회 범위는 **자기 계정 분개**다(`owner_type='USER'` 스코프). 수수료 leg는 FEE_INCOME 시스템 계정 귀속이라 사용자 원장에 나타나지 않고, 예약·해제는 자기 LOCKED 계정 분개로 보인다.
 ```json
 { "schema_version":"1.0",
   "data":[
-    { "entry_id":"01J8ZW...","currency":"BTC","amount":"0.003998","entry_type":"TRADE",
-      "ref":{"type":"TRADE","trade_id":"01J8ZT..."},
+    { "entry_id":"45012","currency":"BTC","amount":"0.003998","entry_type":"TRADE",
+      "ref":{"type":"TRADE","trade_id":"88123601"},
       "timestamp":"2026-07-21T09:00:01.060Z" },
-    { "entry_id":"01J8ZV...","currency":"KRW","amount":"-200000","entry_type":"TRADE",
-      "ref":{"type":"TRADE","trade_id":"01J8ZT..."},
+    { "entry_id":"45011","currency":"KRW","amount":"-200000","entry_type":"TRADE",
+      "ref":{"type":"TRADE","trade_id":"88123601"},
       "timestamp":"2026-07-21T09:00:01.060Z" } ],
-  "pagination":{"next_cursor":"eyJ0cyI6IjIwMjYtMDctMjFUMDk6MDA6MDEuMDYwWiIsImlkIjoiMDFKOFpWIn0","has_more":true} }
+  "pagination":{"next_cursor":"eyJ0cyI6IjIwMjYtMDctMjFUMDk6MDA6MDEuMDYwWiIsImlkIjoiNDUwMTEifQ","has_more":true} }
 ```
+> **id 표기(v2.20 보완)**: `entry_id`와 `ref.trade_id`는 **10진 문자열**이다. 이전 판의 ULID 모양 예시(`01J8ZW…`)는 v2.6 이전 표기의 잔존이라 교정한다. `entry_id`는 §2-6의 ledger_entries 예외로 계약 지정된 외부 식별자이고, `trade_id`는 §2-6의 "체결 = event_seq 파생 id" 규정을 그대로 따른다.
+
+**`ref` 형태(v2.20 보완)**. 업무 이벤트 id의 축이 타입마다 달라 키 이름으로 구분한다. 클라이언트는 `type`으로 분기한다.
+
+| `ref.type` | 키 | 값 |
+|---|---|---|
+| `TRADE` | `trade_id` | 체결 id(= `event_seq`) 10진 문자열. §4-C-2 `trade_id`·공개 `GET /trades`의 `trade_id`와 같은 값 |
+| `RESERVE` | `order_id` | 예약을 만든 **주문의 외부 UUID**. 원 업무 이벤트 id는 내부 주문 PK라 그대로 노출하지 않고 치환한다 |
+| `RELEASE` / `GENESIS` / `TRANSFER` / `REVERSAL` | `id` | 업무 이벤트 id 10진 문자열(`RELEASE`는 해제를 유발한 `event_seq`, `GENESIS`는 발행 일련) |
 > 예시 수치는 §5-5 체결 시나리오와 정합(v2.7 재계산: bid 0.004 체결 → 체결대금 200,000 차감 TRADE 분개 + 수취 BTC 순액 0.003998 게시 TRADE 분개, 동일 timestamp 축). taker 수수료 0.000002 BTC의 FEE leg는 FEE_INCOME 시스템 계정 귀속이라 사용자 원장에는 나타나지 않는다(§4-B-5 v2.7 수취 자산 수수료 모델). 동일 체결에서 파생된 분개 묶음은 원장 트랜잭션의 `UNIQUE(business_event_type, business_event_id)`(§7-1)로 멱등이라, 재생·재시도로 같은 업무 이벤트가 다시 적용되어도 중복 분개가 생기지 않는다.
 
 ---
