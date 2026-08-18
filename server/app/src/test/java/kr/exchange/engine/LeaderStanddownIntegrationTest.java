@@ -218,6 +218,69 @@ class LeaderStanddownIntegrationTest {
     }
 
     /**
+     * 승격 경계에서 판정 창을 다시 세우는 배선이 리스 계층에 실제로 걸려 있다(§5.4 승격 경계
+     * 판정 초기화). 판정기 단위 테스트는 onLeadershipGained를 직접 부르므로 그 규칙만 보고,
+     * 리스가 승격 시점에 그것을 부르는지는 어느 테스트도 보지 않았다. 배선 한 줄을 지워도 전
+     * 스위트가 통과하던 자리다.
+     *
+     * 순서가 이 테스트의 전부다. 검출기를 백로그 적재보다 **먼저** 만들어야 한다. 생성자가
+     * 카운터를 스냅샷하므로 뒤에 만들면 백로그가 이미 기준선에 반영돼 초기화 유무가 결과를
+     * 가르지 못하고, 테스트가 조용히 무의미해진다.
+     */
+    @Test
+    void promotionResetsTheStallWindowThroughTheLeaseLayer() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        LeaderWriteProgress progress = new LeaderWriteProgress();
+        AtomicLong clock = new AtomicLong();
+        // ① 검출기 먼저. 이 시점의 카운터가 창의 기준선이 된다.
+        LeaderStallDetector detector = new LeaderStallDetector(requestPool, progress,
+                STANDDOWN_AFTER, registry, clock::get);
+        LeaderLeaseService leader = new LeaderLeaseService(leaseJdbc,
+                Duration.ofSeconds(30), Duration.ofSeconds(1), detector);
+        AtomicInteger lost = new AtomicInteger();
+        leader.onLeadershipLost(lost::incrementAndGet);
+
+        try {
+            // 순서 가드. 백로그가 검출기 기준선에 이미 섞이면 초기화 유무가 결과를 가르지 못해
+            // 이 테스트가 green인 채로 무의미해진다. 리팩터가 순서를 바꾸면 여기서 소리가 난다.
+            assertEquals(0, progress.attempts(), "검출기 기준선이 백로그 이후로 밀렸다");
+
+            // ② 팔로워 구간 백로그. 이 노드가 처리하지 못한 일이 아니라 리더가 아니어서 거절한
+            // 기록이다. 라이브에서는 기동 후 승격까지의 전량이 여기 쌓인다.
+            demand(progress, 5000);
+
+            // ③ 승격. 리스 계층이 판정 창을 다시 세워야 하는 유일한 지점이다.
+            assertTrue(leader.tryAcquire(), "만료 리스 승격 실패");
+            long epoch = leader.requireLeader().epoch();
+
+            // ④ 승격 이후는 완료율 0.9의 건강한 리더다. 창이 초기화되지 않았다면 첫 표본이
+            // 백로그 5000을 완료 45와 함께 접어 비율이 0.009로 시작하고, 두 번째 표본에서
+            // 45초 임계를 넘겨 확정적으로 강등한다(라이브 4차 실패 형태).
+            for (int i = 0; i < 6; i++) {
+                demand(progress, 50);
+                for (int c = 0; c < 45; c++) {
+                    progress.recordCompletion();
+                }
+                clock.addAndGet(Duration.ofSeconds(45).toNanos());
+                assertTrue(leader.renew(),
+                        "승격 경계에서 창이 초기화되지 않아 갓 승격한 리더가 강등했다(표본 " + i + ")");
+                // 갱신 실패는 생존성 판정과 리스 거부 둘 다에서 나온다. 게이지를 함께 봐야
+                // 실패 메시지가 원인을 잘못 단정하지 않는다.
+                assertEquals(1.0, registry.get("exchange.node.serviceable").gauge().value(),
+                        "생존성 판정이 붕괴로 기울었다(표본 " + i + ")");
+            }
+
+            assertTrue(leader.isLeader(), "헛페일오버가 발생했다");
+            assertEquals(epoch, leaseEpoch(), "유지 중 리스 epoch가 변하면 안 된다");
+            assertEquals(0, lost.get(), "상실 콜백이 발화하면 안 된다");
+            assertEquals(0.0, registry.get("exchange.leader.standdown").counter().count());
+            assertEquals(1.0, registry.get("exchange.node.serviceable").gauge().value());
+        } finally {
+            leader.close();
+        }
+    }
+
+    /**
      * 리스를 연장하는 경로는 모두 생존성 판정을 통과한다(§5.4). fencing 거부의 권위 재확인은
      * renew_leader_lease를 그대로 치므로 lease_until을 미는 연장 효과가 있는데, 그 경로만 판정
      * 밖에 있으면 좀비 리더가 재확인을 통해 리스를 무한 연장할 수 있다. 노출 자체는 좁지만
