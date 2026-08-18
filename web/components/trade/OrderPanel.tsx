@@ -36,6 +36,7 @@ import {
   resolveKeyForSubmit,
   type OrderKeyState,
 } from "./orderKey";
+import { shouldAnnounceFill } from "./fillNotice";
 import OrderConfirmDialog from "./OrderConfirmDialog";
 import {
   committedRatioOf,
@@ -115,8 +116,14 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   /* myOrder 수신 시 스토어 반영 + 체결 Toast */
   useEffect(() => {
     return getDataSource().subscribe(dest.myOrder, (msg) => {
+      if (msg.type !== "myOrder") {
+        apply(msg);
+        return;
+      }
+      // 판정은 apply 이전 상태로 한다. apply가 종결 목록에 넣은 뒤에는 신규·재전달을 못 가른다
+      const announce = shouldAnnounceFill(msg, useExchangeStore.getState().closedOrders);
       apply(msg);
-      if (msg.type === "myOrder" && msg.status === "FILLED") toast("주문이 체결됐어요", "success");
+      if (announce) toast("주문이 체결됐어요", "success");
     });
   }, [apply]);
 
