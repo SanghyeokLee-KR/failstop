@@ -39,13 +39,15 @@ import {
 import { shouldAnnounceFill } from "./fillNotice";
 import OrderConfirmDialog from "./OrderConfirmDialog";
 import {
+  autoFillPrice,
   committedRatioOf,
   floorTo,
   formatPriceField,
   isLargeOrder as computeLargeOrder,
   qtyFromTotal,
+  resnapAutoPrice,
   roundToTick,
-  stepToTick,
+  stepAutoPrice,
   toPlainString,
 } from "./orderMath";
 import styles from "./OrderPanel.module.css";
@@ -127,24 +129,71 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     });
   }, [apply]);
 
+  const marketInfo = markets.find((m) => m.market === market);
+  const qtyScale = marketInfo?.qty_scale ?? 8;
+  const curPrice = ticker ? toNum(ticker.trade_price) : 0;
+
+  // 가격·퍼센트칩·틱 계산용 number(격자 선택·역산 보조). 총액·수수료·검증·제출은 아래 십진 문자열이 단일 기준.
+  const price = ordType === "market" ? curPrice : toNum(priceRaw);
+  const isMarketBuy = ordType === "market" && side === "bid";
+
+  // 마켓 스펙 틱(권위). 입력값에 따라 흔들리지 않아 재스냅 트리거로 안전하다
+  const specTick = marketInfo?.tick_size && toNum(marketInfo.tick_size) > 0 ? marketInfo.tick_size : null;
+  // 가격 격자. 스펙이 없으면 가격대별 priceStep을 쓴다. 저가·소수틱 마켓 0 강제 방지
+  const priceTick = specTick ?? String(priceStep(price > 0 ? price : curPrice > 0 ? curPrice : 1));
+
+  // 자동 채움(프리필·현재가·스텝·blur 스냅)이 마지막으로 쓴 값. 사용자가 타이핑 중인 값과 구분해
+  // 스펙 도착 시 재스냅 대상을 격자에 맞춰 둔 값으로만 한정한다
+  const autoPriceRef = useRef("");
+  // 렌더 중 쓰기는 tickRef 계열과 같은 최신값 참조 패턴이다. 이 패널이 transition·Suspense
+  // 안으로 들어가면 폐기된 렌더의 값이 남을 수 있어 그때 재검토 대상이다
+  const priceRawRef = useRef(priceRaw);
+  priceRawRef.current = priceRaw;
+  // 이펙트에서만 읽는다. 콜백 참조를 고정해 스펙 도착이 프리필 재주입을 부르지 않게 한다
+  const specTickRef = useRef(specTick);
+  specTickRef.current = specTick;
+
+  /* 격자에 맞춘 가격을 필드에 쓰고 자동 채움분으로 기록한다 */
+  const setSnappedPrice = useCallback((snapped: string) => {
+    autoPriceRef.current = snapped;
+    setPriceRaw(snapped);
+  }, []);
+  const fillPrice = useCallback(
+    (value: string | number) => {
+      setSnappedPrice(autoFillPrice(value, specTickRef.current, priceStep));
+    },
+    [setSnappedPrice],
+  );
+
   /* 프리필은 가격만 주입, side 유지. 시장가 상태면 가격 입력이 보이도록 지정가 전환.
      제출 in-flight 중에는 보류한다. 동결된 확정 내용을 프리필이 바꾸면 동일 키·다른 내용이 된다 */
   useEffect(() => {
     if (!prefill) return;
     if (submittingRef.current) return;
     setOrdType((t) => (t === "market" ? "limit" : t));
-    setPriceRaw(roundToTick(prefill.price, tickRef.current));
+    fillPrice(prefill.price);
     setActivePct(null);
-  }, [prefill]);
+  }, [prefill, fillPrice]);
 
   /* 프리필 없이 현재가 수신 시 1회 가격 채움. 무체결 마켓(trade_price null)은 채울 값이 없어 대기 */
   const prefilled = useRef(prefill != null);
   useEffect(() => {
     if (!prefilled.current && ticker?.trade_price != null) {
       prefilled.current = true;
-      setPriceRaw(roundToTick(ticker.trade_price, tickRef.current));
+      fillPrice(ticker.trade_price);
     }
-  }, [ticker]);
+  }, [ticker, fillPrice]);
+
+  /* 마켓 스펙은 자동 채움보다 늦게 도착할 수 있다(외부 딥링크 + 콜드 세션). 폴백 격자로 채운
+     값을 그대로 두면 표시가는 폴백 격자, 제출 기준가(priceBasisStr)는 권위 격자로 갈린다.
+     트리거를 priceTick이 아니라 스펙 틱으로 좁힌다. 폴백 priceStep은 입력 자릿수를 따라 흔들려
+     타이핑마다 재스냅이 걸린다. specTick은 한 번 확정되면 다시 바뀌지 않아, in-flight로 건너뛰면
+     트리거가 소실된다. submitting을 deps에 넣어 제출 종료 시 재시도한다 */
+  useEffect(() => {
+    if (submitting) return;
+    const next = resnapAutoPrice(priceRawRef.current, autoPriceRef.current, specTick);
+    if (next !== null) setSnappedPrice(next);
+  }, [specTick, submitting, setSnappedPrice]);
 
   // armed 라벨용 총액 스냅샷. 시장가 매도의 라이브 파생 총액이 armed 3초 창 동안 계속 바뀌면
   // aria-live 버튼이 틱마다 확정 문장을 재낭독하고 확정 직전 금액이 흔들린다. arm 시점에 동결한다
@@ -191,10 +240,6 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     [],
   );
 
-  const marketInfo = markets.find((m) => m.market === market);
-  const qtyScale = marketInfo?.qty_scale ?? 8;
-  const curPrice = ticker ? toNum(ticker.trade_price) : 0;
-
   // 마켓 메타 소비(§4-A-1). taker_fee가 표시·잔고 검증·프리셋 역산의 단일 수수료 기준
   const feeRateStr = marketInfo?.taker_fee ?? FALLBACK_FEE_RATE_STR;
   const feeRate = toNum(feeRateStr);
@@ -205,19 +250,6 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const feePctStr = mulDecimal(feeRateStr, "100");
   const minOrderStr = marketInfo?.min_order_amount ?? FALLBACK_MIN_ORDER_KRW;
   const maxOrderStr = marketInfo?.max_order_amount ?? null;
-
-  // 가격·퍼센트칩·틱 계산용 number(격자 선택·역산 보조). 총액·수수료·검증·제출은 아래 십진 문자열이 단일 기준.
-  const price = ordType === "market" ? curPrice : toNum(priceRaw);
-  const isMarketBuy = ordType === "market" && side === "bid";
-
-  // 가격 격자. 마켓 tick_size가 있으면 그것을, 없으면 가격대별 priceStep을 쓴다. 저가·소수틱 마켓 0 강제 방지.
-  const priceTick =
-    marketInfo?.tick_size && toNum(marketInfo.tick_size) > 0
-      ? marketInfo.tick_size
-      : String(priceStep(price > 0 ? price : curPrice > 0 ? curPrice : 1));
-  // 프리필 이펙트는 marketInfo를 deps에 넣지 않으려 최신 틱을 ref로 참조한다(ticker 변화마다 재주입 방지)
-  const tickRef = useRef(priceTick);
-  tickRef.current = priceTick;
 
   // 단일 십진 기준. 수량은 qty_scale 격자로 내림(잔고 안전, 반올림 아님), 가격은 틱 반올림.
   // 총액·수수료·최소주문·잔고 검증·제출 volume이 같은 문자열 값을 공유해 float 왕복과 경계 불일치를 없앤다.
@@ -295,7 +327,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
 
   const stepPrice = (sign: 1 | -1) => {
     const ref = price > 0 ? price : curPrice;
-    setPriceRaw(stepToTick(ref, priceTick, sign));
+    setSnappedPrice(stepAutoPrice(ref, specTick, priceStep, sign));
     setActivePct(null);
   };
 
@@ -453,8 +485,10 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
                 placeholder={ticker ? formatPrice(curPrice, priceTick) : "0"}
                 onChange={(e) => onPriceInput(e.target.value)}
                 onBlur={() => {
-                  // 격자 밖 입력은 제출 시 반올림가로 나간다. 표시가와 제출가가 다르지 않게 blur에 스냅
-                  if (priceRaw) setPriceRaw(roundToTick(priceRaw, priceTick));
+                  // 격자 밖 입력은 제출 시 반올림가로 나간다. 표시가와 제출가가 다르지 않게 blur에 스냅.
+                  // 스냅 결과를 자동 채움분으로 기록해 스펙이 늦게 와도 재스냅이 갈라짐을 닫는다.
+                  // 격자 선택은 autoFillPrice 한 곳에 둔다. 같은 식을 손으로 재현하면 갈라진다
+                  if (priceRaw) setSnappedPrice(autoFillPrice(priceRaw, specTick, priceStep));
                 }}
                 aria-label="주문 가격(원)"
                 disabled={submitting}

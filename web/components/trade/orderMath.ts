@@ -48,6 +48,64 @@ export function stepToTick(value: string | number, tick: string | number, sign: 
   return fromScaledInt(next, tScale);
 }
 
+/** 값이 속한 밴드의 격자. 마켓 스펙 틱이 있으면 그것이 권위다 */
+function autoTick(
+  value: string | number,
+  specTick: string | null,
+  fallbackTick: (price: number) => number,
+): string {
+  if (specTick !== null) return specTick;
+  const n = toNum(value);
+  return String(fallbackTick(n > 0 ? n : 1));
+}
+
+/**
+ * 자동 채움(프리필·현재가) 가격을 격자에 맞춘다. 폴백 틱은 스냅 대상 값 자체에서 유도한다.
+ * 직전 렌더의 파생 틱을 쓰면 가격 미상 상태(콜드 마운트)의 틱으로 스냅해, 값이 들어간 다음
+ * 렌더의 폴백 구간과 어긋난다. 그 순간부터 표시가와 제출 기준가가 갈린다.
+ */
+export function autoFillPrice(
+  value: string | number,
+  specTick: string | null,
+  fallbackTick: (price: number) => number,
+): string {
+  return roundToTick(value, autoTick(value, specTick, fallbackTick));
+}
+
+/**
+ * 자동 채움 격자 위에서 한 틱 이동. 시작값을 먼저 자기 밴드 격자로 정렬한 뒤 그 밴드 틱으로 민다.
+ * stepToTick에 렌더 시점 틱을 그대로 넘기면 밴드 경계를 넘을 때 결과가 도착 밴드 격자 밖에
+ * 떨어진다(999,999.6에서 한 틱 올리면 1,000,100인데 제출 기준가는 1,000,000).
+ * 정렬이 스텝을 삼켜 시작점으로 되돌아오면 도착 밴드 틱으로 다시 민다.
+ * 스텝은 stepToTick 하한 클램프(최소 한 틱)를 제외하면 항상 값을 바꾼다.
+ */
+export function stepAutoPrice(
+  value: string | number,
+  specTick: string | null,
+  fallbackTick: (price: number) => number,
+  sign: 1 | -1,
+): string {
+  const start = autoFillPrice(value, specTick, fallbackTick);
+  const raw = stepToTick(start, autoTick(start, specTick, fallbackTick), sign);
+  const aligned = autoFillPrice(raw, specTick, fallbackTick);
+  if (aligned !== start) return aligned;
+  // 재정렬을 거치지 않는 유일한 반환. 현 밴드표에서는 하한 클램프(최소 한 틱)에서만 도달하고
+  // 그때 값은 start 그대로라 고정점이 유지된다. 밴드표를 바꾸면 이 경로부터 확인할 것
+  return stepToTick(start, autoTick(raw, specTick, fallbackTick), sign);
+}
+
+/**
+ * 마켓 스펙 도착 후 가격 필드 재스냅 판정.
+ * 스펙이 늦게 오면 폴백 격자로 채운 값이 권위 격자 기준가와 갈리므로 권위 틱으로 다시 스냅한다.
+ * 현재 입력이 자동 채움값과 다르면(사용자가 타이핑 중이면) null을 돌려 입력을 덮어쓰지 않는다.
+ * 스펙 미도착(tick null)·빈 입력·무변화도 null이라 불필요한 상태 갱신을 만들지 않는다.
+ */
+export function resnapAutoPrice(current: string, auto: string, tick: string | null): string | null {
+  if (tick === null || current === "" || current !== auto) return null;
+  const snapped = roundToTick(current, tick);
+  return snapped === current ? null : snapped;
+}
+
 /**
  * 가격 입력 필드 표기. 정수부는 자리 구분, 소수부는 입력 그대로 유지(입력 중 후행 0·소수점 보존).
  * formatKRW는 Math.round로 소수를 버려 저가 마켓 입력을 0으로 만든다. 그 자리를 대체한다.
