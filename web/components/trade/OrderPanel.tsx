@@ -41,14 +41,13 @@ import OrderConfirmDialog from "./OrderConfirmDialog";
 import {
   autoFillPrice,
   committedRatioOf,
-  floorTo,
   formatPriceField,
   isLargeOrder as computeLargeOrder,
+  pctOfDecimal,
   qtyFromTotal,
   resnapAutoPrice,
   roundToTick,
   stepAutoPrice,
-  toPlainString,
 } from "./orderMath";
 import styles from "./OrderPanel.module.css";
 
@@ -242,7 +241,6 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
 
   // 마켓 메타 소비(§4-A-1). taker_fee가 표시·잔고 검증·프리셋 역산의 단일 수수료 기준
   const feeRateStr = marketInfo?.taker_fee ?? FALLBACK_FEE_RATE_STR;
-  const feeRate = toNum(feeRateStr);
   // 총액+수수료 = 총액×(1+fee). 문자열 십진으로 1+fee를 만들어 곱 한 번으로 처리
   const feeScale = decimalsOf(feeRateStr);
   const grossRateStr = fromScaledInt(10n ** BigInt(feeScale) + scaledIntTrunc(feeRateStr, feeScale), feeScale);
@@ -331,23 +329,26 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     setActivePct(null);
   };
 
+  /* 퍼센트 프리셋. 전 경로가 문자열 십진이다. float 왕복은 2^53 초과 잔고에서 수량을 위조한다.
+     매수는 예산(가용×pct)을 수수료 포함 단가로 나눠 역산한다. 총액×(1+fee) <= 예산이 되도록
+     단가에 grossRate를 곱해 두면 100% 프리셋이 스스로 채운 수량으로 잔고 초과 에러를 만들지 않는다 */
   const applyPct = (pct: number) => {
     setActivePct(pct);
     if (side === "ask") {
-      setQtyRaw(toPlainString(floorTo(availCoin * (pct / 100), qtyScale), qtyScale));
+      setQtyRaw(pctOfDecimal(availCoinStr, pct, qtyScale));
       return;
     }
+    // 예산 자릿수는 잔고 자릿수 + 2. 10·25·50% 나눗셈이 절사 없이 떨어진다
+    const budgetStr = pctOfDecimal(availKRWStr, pct, decimalsOf(availKRWStr) + 2);
     if (isMarketBuy) {
-      setAmountRaw(String(Math.floor((availKRW * (pct / 100)) / (1 + feeRate))));
+      // 시장가 매수 금액은 원 단위 정수. 예산을 1+fee로 나눠 수수료까지 예산 안에 든다
+      setAmountRaw(qtyFromTotal(budgetStr, grossRateStr, 0) ?? "0");
       return;
     }
     // 역산 기준가는 검증·제출과 같은 틱 반올림가. 원시 입력가 기준이면 100% 프리셋이
     // 스스로 채운 수량이 반올림가 총액으로 재검증되며 잔고 초과 에러를 만든다
-    const pb = toNum(priceBasisStr);
-    if (pb > 0) {
-      const usable = (availKRW * (pct / 100)) / (pb * (1 + feeRate));
-      setQtyRaw(toPlainString(floorTo(usable, qtyScale), qtyScale));
-    }
+    const next = qtyFromTotal(budgetStr, mulDecimal(priceBasisStr, grossRateStr), qtyScale);
+    if (next !== null) setQtyRaw(next);
   };
 
   /* ===== 제출 (인라인 2단계 확인) ===== */
@@ -608,7 +609,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             </button>
           ) : (
             <span className="num">
-              {side === "bid" ? formatKRW(availKRW) : formatQty(availCoin, qtyScale)}{" "}
+              {/* 표시도 원본 문자열로 넘긴다. number 왕복은 2^53 초과 잔고 표기를 뭉갠다 */}
+              {side === "bid" ? formatKRW(availKRWStr) : formatQty(availCoinStr, qtyScale)}{" "}
               <span className="unit-suffix">{side === "bid" ? "원" : base}</span>
             </span>
           )}

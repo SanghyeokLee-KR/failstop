@@ -124,27 +124,17 @@ export function formatPriceField(raw: string): string {
 }
 
 /**
- * 소수 자릿수 내림. 주문 가능 수량 초과 방지.
- * 부동소수 표현 오차를 절사 직전 흡수하고, scale 상한을 둬 스케일 폭주를 막는다(qty_scale>=15 오버플로 가드).
+ * 십진 문자열의 pct 퍼센트를 scale 자리 내림으로. 잔고 초과를 막으려 반올림하지 않는다.
+ * 스케일드 값이 2^53을 넘는 잔고에서도 정확하도록 BigInt로 계산한다(금액 float 금지).
+ * pct는 0~100 정수로 좁힌다. 비유한 입력은 0으로 흡수한다(BigInt(NaN)은 던진다).
+ * 소수 pct는 내림으로 삼켜진다(33.3 -> 33). 프리셋 칩에 소수 비율을 추가하려면 여기부터 고칠 것.
  */
-export function floorTo(value: number, scale: number): number {
-  if (!Number.isFinite(value)) return 0;
-  const s = Math.min(Math.max(scale, 0), 15);
-  const p = 10 ** s;
-  const scaled = value * p;
-  const eps = Math.abs(scaled) * Number.EPSILON * 4;
-  return Math.floor(scaled + eps) / p;
-}
-
-/**
- * 비지수 문자열화. String()은 1e-6 미만에서 지수표기("1e-8")를 만들어 수량 입력에 노출된다.
- * toFixed(scale)로 고정 소수를 만든 뒤 의미 없는 후행 0을 제거한다.
- */
-export function toPlainString(value: number, scale: number): string {
-  if (!Number.isFinite(value)) return "0";
-  const fixed = value.toFixed(Math.min(Math.max(scale, 0), 100));
-  if (fixed.indexOf(".") < 0) return fixed;
-  return fixed.replace(/0+$/, "").replace(/\.$/, "");
+export function pctOfDecimal(value: string | number, pct: number, scale: number): string {
+  const s = Math.min(Math.max(scale, 0), 30);
+  const v = scaledIntTrunc(normalizeDecimal(value), s);
+  if (v <= 0n || !Number.isFinite(pct)) return "0";
+  const p = BigInt(Math.trunc(Math.min(Math.max(pct, 0), 100)));
+  return fromScaledInt((v * p) / 100n, s);
 }
 
 /**

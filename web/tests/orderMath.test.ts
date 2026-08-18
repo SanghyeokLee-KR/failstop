@@ -9,11 +9,10 @@ import { priceStep } from "../lib/sim/engine";
 import {
   LARGE_ORDER_RATIO,
   autoFillPrice,
-  floorTo,
   formatPriceField,
+  pctOfDecimal,
   roundToTick,
   stepToTick,
-  toPlainString,
   qtyFromTotal,
   resnapAutoPrice,
   stepAutoPrice,
@@ -39,31 +38,43 @@ test("총액 역산: 가격 음수도 null", () => {
   assert.equal(qtyFromTotal(1_000_000, -1, 8), null);
 });
 
-test("비지수 문자열: 1e-6 미만도 지수표기 없이 고정 소수", () => {
-  // String(1e-8) === "1e-8" 회귀 방지
-  assert.equal(toPlainString(1e-8, 8), "0.00000001");
+/* ===== 퍼센트 프리셋 (문자열 십진) ===== */
+
+test("퍼센트 프리셋: scale 자리 내림", () => {
+  assert.equal(pctOfDecimal("0.123456789", 100, 8), "0.12345678");
+  assert.equal(pctOfDecimal("33.33339", 100, 4), "33.3333");
 });
 
-test("비지수 문자열: 후행 0 제거", () => {
-  assert.equal(toPlainString(0.00412, 8), "0.00412");
+test("퍼센트 프리셋: 10·25·50%는 절사 없이 떨어진다", () => {
+  assert.equal(pctOfDecimal("1000", 10, 8), "100");
+  assert.equal(pctOfDecimal("1000", 25, 8), "250");
+  assert.equal(pctOfDecimal("1000", 50, 8), "500");
 });
 
-test("비지수 문자열: 정수는 소수점을 붙이지 않는다", () => {
-  assert.equal(toPlainString(100, 8), "100");
+test("퍼센트 프리셋: 스케일드 2^53 경계에서도 정확", () => {
+  // 9007199254740993 = 2^53 + 1. double이 표현하지 못해 float 경로는 ...992로 뭉갠다
+  const avail = "90071992.54740993";
+  assert.equal(pctOfDecimal(avail, 100, 8), avail);
+  const floatPath = (Math.floor(Number(avail) * 1e8) / 1e8).toFixed(8);
+  assert.notEqual(floatPath, avail, "float 경로였으면 깨지는 값이어야 판별력이 있다");
 });
 
-test("비지수 문자열: 0은 0", () => {
-  assert.equal(toPlainString(0, 8), "0");
+test("퍼센트 프리셋: 2^53 초과 잔고의 절반도 정확", () => {
+  assert.equal(pctOfDecimal("180143985.09481986", 50, 8), "90071992.54740993");
 });
 
-test("비지수 문자열: 비유한 입력은 0으로 방어", () => {
-  assert.equal(toPlainString(Number.NaN, 8), "0");
-  assert.equal(toPlainString(Number.POSITIVE_INFINITY, 8), "0");
+test("퍼센트 프리셋: 잔고 0 이하는 0", () => {
+  assert.equal(pctOfDecimal("0", 100, 8), "0");
+  assert.equal(pctOfDecimal("-5", 100, 8), "0");
 });
 
-test("floorTo: 소수 자릿수 내림", () => {
-  assert.equal(floorTo(0.123456789, 8), 0.12345678);
-  assert.equal(floorTo(33.33339, 4), 33.3333);
+test("퍼센트 프리셋: 지수표기 잔고도 십진으로 받는다", () => {
+  assert.equal(pctOfDecimal(1e-8, 100, 8), "0.00000001");
+});
+
+test("퍼센트 프리셋: 비유한 pct는 0으로 흡수(BigInt 변환 예외 차단)", () => {
+  assert.equal(pctOfDecimal("1000", Number.NaN, 8), "0");
+  assert.equal(pctOfDecimal("1000", Number.POSITIVE_INFINITY, 8), "0");
 });
 
 test("bid 비중: (총액+수수료)/현금", () => {
