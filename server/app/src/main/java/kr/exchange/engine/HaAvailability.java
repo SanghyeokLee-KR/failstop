@@ -38,6 +38,16 @@ import java.util.concurrent.atomic.AtomicLong;
  * 되돌려도 곧바로 덮인다. 팔로워로 기동한 노드가 readiness UP으로 오보되던 원인이다.
  * AvailabilityChangeEvent를 직접 듣고 desired와 어긋난 발행을 되돌리는 방식으로 교체한다.
  * 되돌린 발행은 desired와 일치하므로 재귀하지 않는다.
+ *
+ * 정정은 **비대칭**이다. 되돌리는 대상은 [목표 REFUSING인데 ACCEPTING이 발행됨] 한 방향뿐이고
+ * 반대 방향은 그대로 받아들인다. 근거는 종료 경로다. Spring 종료는
+ * ServletWebServerApplicationContext.doClose가 super.doClose보다 **먼저** REFUSING_TRAFFIC을
+ * 발행하는 것으로 시작하는데, 대칭 정정이면 그것을 desired=ACCEPTING과 불일치로 보고 ACCEPTING을
+ * 재발행한다. 이후 종료 경로에는 refusing()을 부르는 지점이 없어 웹서버가 실제로 닫힐 때까지
+ * readiness가 200 UP으로 남고, 컨테이너 healthcheck·하네스가 종료 중인 리더를 정상 수용 노드로
+ * 관측한다. 수용 방향은 안전측이라(트래픽을 덜 받는 쪽) 그대로 둔다. 수용한 REFUSING이 오발행일
+ * 가능성도 현재는 없다. 앱 안에서 readiness를 발행하는 주체는 이 클래스뿐이고 나머지 원천은
+ * 컨텍스트 close 하나다.
  */
 public class HaAvailability implements AvailabilitySignal,
         ApplicationListener<AvailabilityChangeEvent<?>> {
@@ -117,22 +127,24 @@ public class HaAvailability implements AvailabilitySignal,
     }
 
     /**
-     * readiness 발행 감시. 누가 발행했든 desired와 어긋나면 즉시 되돌린다. Spring이 기동 말미에
-     * 자동 발행하는 ACCEPTING_TRAFFIC이 주 대상이다.
+     * readiness 발행 감시. 목표가 REFUSING인데 ACCEPTING이 발행되면 즉시 되돌린다. Spring이 기동
+     * 말미에 자동 발행하는 ACCEPTING_TRAFFIC이 주 대상이다. 반대 방향(목표 ACCEPTING인데 REFUSING
+     * 발행)은 되돌리지 않는다. 종료 경로가 그 방향으로 발행하고, 되돌리면 종료 중인 노드가 UP으로
+     * 남는다(클래스 주석 비대칭 절).
      */
     @Override
     public void onApplicationEvent(AvailabilityChangeEvent<?> event) {
         if (!(event.getState() instanceof ReadinessState published)) {
             return;
         }
-        ReadinessState target = desired;
-        if (published == target) {
+        if (published != ReadinessState.ACCEPTING_TRAFFIC
+                || desired != ReadinessState.REFUSING_TRAFFIC) {
             return;
         }
         // 억제 없이 무조건 발행한다. 이 시점의 ApplicationAvailability는 아직 이 이벤트를
         // 반영하지 않았을 수 있어(리스너 순서 미보장) 실측 조회로 판단하면 어긋난다.
-        log.warn("readiness 오발행 정정: 발행={}, 목표={}", published, target);
-        AvailabilityChangeEvent.publish(publisher, this, target);
+        log.warn("readiness 오발행 정정: 발행={}, 목표={}", published, ReadinessState.REFUSING_TRAFFIC);
+        AvailabilityChangeEvent.publish(publisher, this, ReadinessState.REFUSING_TRAFFIC);
     }
 
     private void publishIfNeeded(ReadinessState state) {

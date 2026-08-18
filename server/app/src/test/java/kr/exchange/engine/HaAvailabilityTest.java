@@ -159,6 +159,31 @@ class HaAvailabilityTest {
         assertEquals(ReadinessState.ACCEPTING_TRAFFIC, availabilityBean.getReadinessState());
     }
 
+    /**
+     * 정정의 비대칭. 목표가 ACCEPTING인 노드가 외부 REFUSING 발행을 받으면 되돌리지 않는다.
+     *
+     * 이 발행의 실제 출처는 종료다. ServletWebServerApplicationContext.doClose가 웹서버를 내리기
+     * 전에 REFUSING_TRAFFIC을 발행하고, 그 뒤 종료 경로 어디에서도 refusing()이 불리지 않는다.
+     * 대칭 정정이면 여기서 ACCEPTING이 재발행돼 웹서버가 실제로 닫힐 때까지 readiness가 UP으로
+     * 남고, 컨테이너 healthcheck·하네스가 종료 중인 리더를 수용 노드로 관측한다.
+     */
+    @Test
+    void externalRefusingIsAcceptedWhileDesiredIsAccepting() {
+        HaAvailability node = newHa();
+        node.accepting();
+        published.clear();
+
+        AvailabilityChangeEvent.publish(publisher, this, ReadinessState.REFUSING_TRAFFIC);
+
+        assertEquals(List.of(ReadinessState.REFUSING_TRAFFIC), published,
+                "외부 REFUSING을 ACCEPTING으로 되돌렸다(종료 중 노드가 UP으로 남는 경로)");
+        assertEquals(ReadinessState.REFUSING_TRAFFIC, availabilityBean.getReadinessState(),
+                "종료 발행 이후에도 실측 readiness가 UP이다");
+        // 목표는 수용으로 바뀌지 않는다. 수용은 '되돌리지 않는다'까지이고, 목표 전이의 진입점은
+        // accepting()·refusing() 둘뿐이라는 계약을 유지한다.
+        assertEquals(ReadinessState.ACCEPTING_TRAFFIC, node.desired());
+    }
+
     @Test
     void correctionDoesNotRecurse() {
         HaAvailability node = newHa();

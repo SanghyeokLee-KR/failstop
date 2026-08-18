@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.26)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.27)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V13+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -1920,6 +1920,7 @@ FOR SHARE OF l;
   - 원자성·fencing 불변: 자발적 강등은 `leader_lease`에 **아무것도 쓰지 않는다**. 리스를 즉시 반납하지도 않는다. 승격은 종전대로 TTL 만료 후 스탠바이의 `try_acquire_leader`(epoch +1) 단독 UPDATE로만 성립하므로 만료 구동 승격 규칙·epoch 단조·stale append 0행 거부가 모두 불변이다.
   - 강등 후 상태: **종신** 등급이다(위 강등 사유 분류). self-shutdown(단일 라이터 halt + 재승격 금지)이 적용되고 복귀는 재생을 포함한 프로세스 재기동뿐이다. 서비스 불능이 확인된 노드가 리스를 다시 노리면 손상 노드 사이의 리더십 플래핑이 되고, halt된 루프 위의 재승격은 '접수는 ACK되는데 소비자가 없는' 반쪽 리더를 만든다. 회복 가능 등급은 승격 재생 구간에만 적용되며 이 사유에는 해당하지 않는다.
   - readiness 연동: 강등은 리스 상실 콜백을 타 readiness를 REFUSING_TRAFFIC으로 내린다. readiness의 소비자는 컨테이너 healthcheck와 운영자·하네스 관측이다. **LB는 readiness를 조회하지 않는다**(오픈소스 nginx에 능동 health_check가 없다). 트래픽 이동을 만드는 것은 프록시된 응답의 503이 `max_fails`에 계상되는 수동 판정이고, 그 503은 접수 경로가 낸다(리더 아님, 승격 재생 중 AcceptGate 거부, 강등 직후 단일 라이터 정지). 강등 시 두 축(readiness REFUSING, 접수 경로 폐쇄)이 함께 움직여야 '승격은 됐는데 체결은 재개되지 않는' 상태를 피한다. 강등 사유별로 readiness 의미를 나누지 않는다.
+  - readiness 발행 정정은 비대칭이다(v2.27): 승격 상태와 어긋난 발행을 되돌리는 감시(v2.19 도입)의 정정 대상은 **[목표 REFUSING인데 ACCEPTING이 발행됨] 한 방향뿐**이다. 반대 방향(목표 ACCEPTING인데 REFUSING 발행)은 되돌리지 않고 수용한다. 근거는 종료 경로다. Spring의 웹 컨텍스트 close는 웹서버를 내리기 **전에** REFUSING_TRAFFIC을 발행하고, 그 뒤 종료 경로에는 접수 목표를 내리는 지점이 없다. 대칭으로 정정하면 그 발행이 ACCEPTING으로 되돌려져 웹서버가 실제로 닫힐 때까지 `/actuator/health/readiness`가 200 UP을 내고, 컨테이너 healthcheck·하네스·운영자가 종료 중인 리더를 정상 수용 노드로 관측한다(하네스 CICD §4-1 graceful 경로 'readiness=REFUSING_TRAFFIC -> in-flight 완료 -> 종료' 위반). 수용 방향은 안전측이라(트래픽을 덜 받는다) 그대로 둔다. 차단해야 하는 위험 방향인 [readiness UP + 접수 폐쇄]는 종전대로 정정된다. 앱 안에서 readiness를 발행하는 주체는 이 감시를 든 컴포넌트 하나뿐이라, 수용한 REFUSING이 오발행일 가능성은 현재 배선에 없다.
   - 강등 노드의 잔존 오류 바닥: 강등해도 프로세스는 살아 있으므로 nginx primary 슬롯에서 빠지지 않는다. `max_fails=1 fail_timeout=2s` 구성에서 2초마다 1건이 그 노드로 가서 503을 받고, 비멱등 메서드(POST)는 기본적으로 다음 업스트림으로 재시도되지 않아 그대로 클라이언트에 반환된다(약 0.5건/s. 봇 40 ops/s 기준 약 1.25%). 강등 이전의 좀비 상태가 100% 실패였으므로 순개선이지만 0은 아니다. 제거 수단은 세 가지이며 전부 이 변경 범위 밖이다: nginx `non_idempotent` 추가(하네스 소관), 강등 노드를 업스트림에서 내리는 운영 절차, 강등 시 프로세스 종료(self-shutdown 의미를 프로세스 수준으로 확장하는 별도 정책 변경). 하네스 §3 E1·E7' 판정에 이 바닥을 명시한다.
   - 관측: `exchange.leader.standdown`(Prometheus `exchange_leader_standdown_total`, 자발적 강등 횟수), `exchange.node.serviceable`(`exchange_node_serviceable`, 1 정상·0 불능 판정), `exchange.node.write_completion_ratio`(`exchange_node_write_completion_ratio`, 누적 완료율. 붕괴 진행을 실시간으로 좇는 축). 하네스 CICD §5-2 명세표 등재.
 - 회복 가능 반납 관측(v2.24): `exchange.leader.recoverable_standdown`(Prometheus `exchange_leader_recoverable_standdown_total`, 승격 재생 실패로 리더십을 회복 가능하게 반납한 횟수). 자발적 강등 축(`exchange.leader.standdown`)과 **분리한다**. v2.23이 신설한 실패 모드는 [재생 실패 -> 반납 -> 만료 -> 재승격]의 반복이고, 합산하면 자발적 강등 1회와 구분되지 않으며 `exchange_leader_epoch` 계단만으로는 정상 페일오버와도 구분되지 않는다. 두 축의 판정 용법: 반납 카운터가 오르는데 `exchange_leader_is_leader`가 1로 안정되지 않으면 재생 불가 데이터를 의심한다(반복 반납). 하네스 CICD §5-2 명세표 등재.
@@ -2703,3 +2704,17 @@ v2.24·v2.25의 적대적 검토가 남긴 정합성 결함 2건과 방어적 �
 불변식: `leader_lease` 무접촉, epoch+1 만료 구동 승격, fencing 단조(C22), 스테일 append 0행 거부, RPO0, 재생 결정론, `client_order_id` 멱등, 원장 합=0 전부 무변경. 3·4는 접수를 **덜 여는** 방향이고 2는 fail closed를 유지한 채 위양성만 줄이므로 이중 리더·유실 위험을 늘리지 않는다. V12는 카오스 DB에만 적용된 상태였고 그 볼륨을 폐기해 체크섬 이력을 남기지 않는다.
 
 문서 헤더 버전을 v2.26으로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.27 패치 반영 사항
+
+v2.19 readiness 감시가 종료 경로에서 만드는 오보 1건을 §5.4에 반영한다. 스키마·함수·마이그레이션·설정 키·메트릭 전부 무변경이다.
+
+| # | 심각도 | 위치 | 내용 |
+|---|---|---|---|
+| 1 | medium | §5.4 readiness 연동 | 발행 정정을 비대칭으로 좁힌다. v2.19는 정정을 '목표와 어긋난 발행을 되돌린다'로 대칭 서술했는데, 그러면 웹 컨텍스트 close가 종료 첫 단계로 발행하는 REFUSING_TRAFFIC이 ACCEPTING으로 되돌려진다. 종료 경로에는 접수 목표를 내리는 지점이 없어, 웹서버가 실제로 닫힐 때까지 readiness가 200 UP으로 남고 healthcheck·하네스가 종료 중인 리더를 수용 노드로 관측한다. 정정 대상을 [목표 REFUSING + ACCEPTING 발행] 한 방향으로 한정하고 외부 REFUSING 발행은 수용한다 |
+
+불변식: `leader_lease` 무접촉, epoch+1 만료 구동 승격, fencing 단조(C22), 스테일 append 0행 거부, RPO0, 재생 결정론, `client_order_id` 멱등, 원장 합=0 전부 무변경. 정정 축소는 readiness를 **덜 올리는** 방향이라 팔로워·강등 노드의 UP 오보 차단(v2.19가 고친 결함)은 그대로 성립한다.
+
+문서 헤더 버전을 v2.27로 순증(이전 패치 노트의 역사 서술은 원문 유지).
