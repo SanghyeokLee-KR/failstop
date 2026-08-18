@@ -1,12 +1,13 @@
 # 고가용성 가상 암호화폐 거래소 CI/CD·IaC·관측성 설계서 (설계 B, v1.1 최종 제출본)
 
-> 전제 계약: `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_DB_설계.md` **v2.17**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 epoch 보존 heartbeat), `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_API_설계.md` **v2.15**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·2인 승인, §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
+> 전제 계약: `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_DB_설계.md` **v2.28**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 epoch 보존 heartbeat), `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_API_설계.md` **v2.20**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·2인 승인, §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
 > 설계 원칙: **정확성(증명 가능성) > 재현성(1커맨드 기동) > 성능 > 편의성**. 인프라의 임무는 두 증명 목표, ① 체결 무결(자산합 0·유실 0·중복 0), ② 자동 복구(재생·페일오버·RTO<30s)를 **CI가 매 커밋, 데모가 실시간으로 데이터로 보여주게 만드는 것**이다.
 > 2026-07-21: 스타일 정리, 내용 무변경.
 > 2026-07-24: §5-6 C-카탈로그에 C21~C23(전부 CRITICAL, InvariantCheck enum 실재분) 수록, InvariantViolation 라우팅 열거 갱신. 단일 권위는 검증설계 §4-1 불변(§5-6은 2차 미러).
 > 2026-07-24 2차: 전제 계약 핀을 실헤더 기준으로 갱신(DB v2.5→v2.17, API v2.4→v2.15). 하네스_검증설계.md 핀(v2.17/v2.15)과 통일. §8 정정 권고 항목은 발견 시점 기록으로 존치.
-> 2026-08-07: §5-2에 `exchange.leader.recoverable_standdown` 등재(DB v2.24 §5.4 회복 가능 반납 관측 축). 종신 강등 축과 합치지 않는 근거와 판독 조합을 미방출 항목 절에 병기. 전제 계약 핀은 검증설계와 통일 유지를 위해 이번에 건드리지 않는다(DB 실헤더는 v2.26, 핀 갱신은 두 문서 동시 처리 필요).
+> 2026-08-07: §5-2에 `exchange.leader.recoverable_standdown` 등재(DB v2.24 §5.4 회복 가능 반납 관측 축). 종신 강등 축과 합치지 않는 근거와 판독 조합을 미방출 항목 절에 병기.
 > 2026-08-07 2차: `exchange_leader_recoverable_standdown_total`을 §5-6 알람 룰과 E2 실험 판정에 배선. 종전에는 §5-2 등재와 판독 조합 PromQL만 있어 자동 판정이 아니라 수동 판독 지침이었다.
+> 2026-08-18 2차: 전제 계약 핀 상향(DB v2.17->v2.28, API v2.15->v2.20). 검증설계 핀과 통일. 인용 절 번호는 현행 정본 대조로 전건 실재 확인.
 > 2026-08-18: 헤더의 알람 룰 절 번호를 §5-4에서 §5-6으로 정정하고, §5-6 표에 RecoverableStandDownRepeating 행을 수록(종전에는 룰 파일에만 있어 문서 미러가 비어 있었다). 같은 신호의 임계 셋이 기저가 달라 공존하는 근거를 §5-2 미방출 항목 절과 룰 주석에 명시.
 
 ---
