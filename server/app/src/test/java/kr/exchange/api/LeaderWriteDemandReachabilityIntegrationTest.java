@@ -1,5 +1,6 @@
 package kr.exchange.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariDataSource;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import kr.exchange.api.auth.DemoKeySeeder;
@@ -18,6 +19,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -34,6 +36,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -47,6 +50,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 그래서 수동 recordAttempt()가 아니라 실제 HTTP 주문 요청을 포화된 풀에 흘려 계측 지점이
  * 인증·DB보다 앞서는지를 직접 본다. 대조로 완료 축이 증가하지 않음도 함께 고정한다. 둘이 같이
  * 성립해야 [수요 있음 + 완료 0]이라는 정지 판정이 좀비에서 실제로 성립한다.
+ *
+ * 같은 포화 상태가 API §2-3의 일시 DB 실패 매핑(인증 계층·컨트롤러 계층 모두 503
+ * service_unavailable + Retry-After)을 결정적으로 재현하므로 그 계약도 여기서 함께 고정한다.
+ * 이 시나리오가 옮겨지거나 축소되면 §2-3 커버리지가 같이 사라진다는 뜻이기도 하다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -154,13 +161,50 @@ class LeaderWriteDemandReachabilityIntegrationTest {
         ResponseEntity<String> response = rest.exchange(path, HttpMethod.POST,
                 new HttpEntity<>(body, headers), String.class);
 
-        // 요청은 실패해야 한다. 성공했다면 풀이 실제로 고갈되지 않은 것이라 전제가 무너진다.
-        assertTrue(response.getStatusCode().isError(),
-                "포화 상태에서 주문이 성공했다: " + response.getStatusCode());
+        // 코드를 못박는다. isError만 보면 500 server_error로 나가도 통과해, 같은 사유가 경로에
+        // 따라 코드가 갈리던 결함(API §2-3 v2.17 G5)이 되돌아온다. 500과 503은 클라이언트의
+        // UNKNOWN 재조회 트리거로는 같지만(5xx 전체가 트리거다) 그 밖이 전부 다르다. 503만
+        // Retry-After를 싣고, 재시도 가능 신호이며, 알람 등급과 거부율 계상에서 갈린다.
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode(),
+                "풀 고갈이 503이 아닌 코드로 나갔다: " + response.getStatusCode()
+                        + " " + response.getBody());
+        assertErrorName(response, "인증 계층");
+        assertRetryAfter(response, "인증 계층");
         assertEquals(attemptsBefore + 1, writeProgress.attempts(),
                 "풀 고갈 상태에서 쓰기 수요가 관측되지 않았다. 계측 지점이 인증·DB 뒤에 있다");
         assertEquals(completionsBefore, writeProgress.completions(),
                 "요청 경로가 아무것도 끝내지 못했는데 완료가 증가했다");
+
+        // 같은 포화에서 컨트롤러 계층 대조(API §2-3: 두 계층이 같은 사유를 같은 코드로 낸다).
+        // 인증 제외 평면 중 의존이 가장 얇은 공개 시장 데이터를 쓴다. 인증 필터를 타지 않으므로
+        // 커넥션 획득 실패가 컨트롤러 어드바이스에서 매핑된다. 한쪽만 고정하면 나머지 계층이
+        // 조용히 갈린다.
+        ResponseEntity<String> viaController = rest.getForEntity(
+                "/api/v1/trades?market=KRW-BTC", String.class);
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, viaController.getStatusCode(),
+                "컨트롤러 계층이 같은 사유를 다른 코드로 냈다: " + viaController.getStatusCode()
+                        + " " + viaController.getBody());
+        assertErrorName(viaController, "컨트롤러 계층");
+        assertRetryAfter(viaController, "컨트롤러 계층");
+    }
+
+    /** §2-3 표준 엔벌로프의 error.name. 문자열 포함 검사는 message에 섞인 토큰도 통과시킨다. */
+    private static void assertErrorName(ResponseEntity<String> response, String layer)
+            throws Exception {
+        String name = new ObjectMapper().readTree(response.getBody()).path("error").path("name")
+                .asText();
+        assertEquals("service_unavailable", name, layer + " 엔벌로프 name이 §2-3과 다르다");
+    }
+
+    /**
+     * 503은 Retry-After가 필수다(§2-3). 하한 1은 구현이 통일해 둔 값이다(AdmissionControl과
+     * 503 경로 전부 1초). 0을 허용하면 백오프 없는 즉시 재시도라 포화가 스스로를 먹인다.
+     */
+    private static void assertRetryAfter(ResponseEntity<String> response, String layer) {
+        String retryAfter = response.getHeaders().getFirst("Retry-After");
+        assertNotNull(retryAfter, layer + " 503에 Retry-After가 없다");
+        assertTrue(Integer.parseInt(retryAfter) >= 1,
+                layer + " Retry-After가 1초 미만이다: " + retryAfter);
     }
 
     /**
