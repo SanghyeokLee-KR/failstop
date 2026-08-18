@@ -408,22 +408,28 @@ function Get-AppMetric {
     return $null
 }
 
-# 실험 무결성 판정. 서버가 AUTHORITATIVE_ONLY로 규정한 체크와 WARN 등급을 게이팅에서 뺀 나머지가
-# 전부 0행이면 clean. AUTHORITATIVE_ONLY는 정지 시점·실험 사후 권위 run에서만 유효한 체크라
-# (InvariantCheck.Scope) 라이브·부하·지연 중에는 비동기 창·프로젝션 지연으로 순간 위반해 판정을
-# 오염시킨다. 실측: 400 ops 부하에서 C13a가 10~11건 잡히고 드레인하면 0이 된다.
-# 목록은 서버 카탈로그(InvariantCheck.java의 Scope.AUTHORITATIVE_ONLY)와 1:1이어야 한다.
-# 종전에는 C22·C23이 빠져 있어 부하 중 권위 run에서 위양성이 날 수 있었다. 근본 해법은
-# HarnessController.CheckView에 scope 필드를 실어 스크립트가 서버를 그대로 따르는 것이고,
-# 그 전까지는 이 목록을 서버와 함께 갱신한다.
+# 실험 무결성 판정. 게이팅에서 빼는 것은 아래 3건과 WARN 등급뿐이고, 나머지가 전부 0행이면 clean.
+# 면제 사유는 체크마다 다르다. C13a는 append와 정산 커밋 사이의 비동기 물질화 창, C19는 정지 시점
+# 오더북 스냅샷이라 둘 다 큐 드레인을 전제한다(실측: 400 ops에서 C13a 10~11건, 드레인하면 0).
+# C16은 드레인과 무관하다. 스테일 loadtest_acks 오탐이 배제 사유이고 실험 시작 훅의 TRUNCATE와
+# 한 세트다(정본 §4-3 각주). 스테일 ACK 행은 아무리 드레인해도 0이 되지 않는다.
+#
+# C22·C23은 여기 들어가지 않는다. 정본 §4-2 ④·§4-3 각주가 두 체크를 권위 run(REPEATABLE READ
+# 스냅샷) 평가 대상으로 지정하면서 오탐 없음을 명시한다. C23은 채번 UPDATE와 저널 INSERT가 한
+# 트랜잭션이라 스냅샷에서 중간 상태가 보이지 않고, C22는 커밋된 append-only 행만 보므로 역행이
+# 관측되면 그 자체가 split-brain 참양성이다. 두 체크를 빼면 fencing 역행·채번 재사용이라는
+# CRITICAL 위반이 실험 사후 권위 run을 그대로 통과한다.
+#
+# 서버 Scope.AUTHORITATIVE_ONLY(5건)와 이 목록(3건)은 서로 다른 축이다. 전자는 "어느 run에서
+# 평가하는가"이고 후자는 "평가된 결과를 게이팅에 쓰는가"다. 두 목록을 1:1로 맞추면 C22·C23이
+# 게이팅에서 빠진다.
 function Test-ExperimentIntegrity {
     param($Run)
-    $authoritativeOnly = @(
-        'C13A_ORDER_MATERIALIZED', 'C16_ACK_JOURNALED', 'C19_ORDERBOOK_NONCROSS',
-        'C22_FENCING_MONOTONIC', 'C23_COUNTER_SEQ_CONSISTENCY'
+    $gatingExempt = @(
+        'C13A_ORDER_MATERIALIZED', 'C16_ACK_JOURNALED', 'C19_ORDERBOOK_NONCROSS'
     )
     foreach ($c in $Run.checks) {
-        if ($authoritativeOnly -contains $c.checkName) { continue }
+        if ($gatingExempt -contains $c.checkName) { continue }
         # WARN은 관측용 등급이라 실험 실패 사유가 아니다(CRITICAL·HIGH만 게이팅).
         if ($c.severity -eq 'WARN') { continue }
         if ([long]$c.violatedRows -ne 0) { return $false }
