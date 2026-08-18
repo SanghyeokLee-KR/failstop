@@ -65,9 +65,15 @@ if (-not $redisPresent) {
 # 현 스택에서는 위 SKIP으로 빠져 도달하지 않는다. redis 추가 후 재현용.
 Write-Section '라이브 경로: redis 존재'
 try {
+    # 자기 부하를 명시로 세운다. 생략하면 앞선 실험이 남긴 ops를 이월받는다(E6 직후면 400,
+    # 드레인 직후면 정지 상태). 판정 축이 전부 count 기반이라 무부하면 전부 공허 통과한다.
+    if ($cfg['BASE_OPS']) { Set-BotOps ([int]$cfg['BASE_OPS']) }
     Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
-    $ok = Wait-For { (Get-TradeCount) -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
-    if (-not $ok) { throw '체결 미달, 봇 상태 확인' }
+    # 누적이 아니라 증분으로 본다. 누적이면 앞선 실험이 남긴 체결만으로 즉시 통과해 무부하로
+    # 주입하게 되고, 그러면 injClean·postClean·noSplitBrain이 무활동으로 전부 참이 된다.
+    $tradesBase = Get-TradeCount
+    $ok = Wait-For { (Get-TradeCount) - $tradesBase -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
+    if (-not $ok) { throw "체결 증분 미달(기준 $($cfg['MIN_TRADES_BEFORE_INJECT'])건). 봇 부하가 실리지 않았다. chaos-bots 상태와 BASE_OPS를 확인한다." }
 
     Write-Section 'ⓐ 사전 권위 run'
     $prePort = Get-LiveNodePort

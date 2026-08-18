@@ -71,7 +71,16 @@ if (-not $cmAvailable) {
 
 # ── 라이브 경로(actuator 존재 시) ──────────────────────────────────────
 try {
+    # 자기 부하를 명시로 세운다. 생략하면 앞선 실험이 남긴 ops를 이월받는다(E6 직후면 400,
+    # 드레인 직후면 정지 상태). 부하가 무엇인지 모르는 채 assault하면 판정 조건이 실행마다 달라진다.
+    if ($cfg['BASE_OPS']) { Set-BotOps ([int]$cfg['BASE_OPS']) }
     Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
+    # 매칭 경로에 쓰기가 실려 있는지 증분으로 확인한다. E8의 지배 주장은 "assault가 매칭 코어로
+    # 전파되지 않음"인데, 무부하면 injClean·postClean이 무활동으로 참이 되어 그 주장이 공허해진다.
+    # 누적 비교로는 앞선 실험이 남긴 체결만으로 통과하므로 증분으로 본다(E2·E5와 같은 술어).
+    $tradesBase = Get-TradeCount
+    $ok = Wait-For { (Get-TradeCount) - $tradesBase -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
+    if (-not $ok) { throw "체결 증분 미달(기준 $($cfg['MIN_TRADES_BEFORE_INJECT'])건). 봇 부하가 실리지 않았다. chaos-bots 상태와 BASE_OPS를 확인한다." }
 
     Write-Section 'ⓐ 사전 권위 run'
     $prePort = Get-LiveNodePort

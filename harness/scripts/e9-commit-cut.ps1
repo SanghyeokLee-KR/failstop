@@ -17,9 +17,16 @@ function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
 
 Write-Section "E9(커밋 응답 절단) 시작 runId=$runId proxy=$proxy type=$toxicType"
 try {
+    # 자기 부하를 명시로 세운다. 생략하면 앞선 실험이 남긴 ops를 이월받는다(E6 직후면 400,
+    # 드레인 직후면 정지 상태). 커밋 응답 절단은 쓰기가 실려 있어야 in-doubt commit을 만든다.
+    if ($cfg['BASE_OPS']) { Set-BotOps ([int]$cfg['BASE_OPS']) }
     Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
-    $ok = Wait-For { (Get-TradeCount) -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
-    if (-not $ok) { throw '체결 미달, 봇 상태 확인' }
+    # 누적이 아니라 증분으로 본다. 누적이면 앞선 실험이 남긴 체결만으로 즉시 통과해 무부하로
+    # 주입하게 된다. 그러면 dup=0은 멱등 기제의 증거가 아니라 무활동이고, converged도 봇이
+    # 겨우 흘리는 체결로 성립해 공허 통과한다(E2·E5와 같은 술어).
+    $tradesBase = Get-TradeCount
+    $ok = Wait-For { (Get-TradeCount) - $tradesBase -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
+    if (-not $ok) { throw "체결 증분 미달(기준 $($cfg['MIN_TRADES_BEFORE_INJECT'])건). 봇 부하가 실리지 않았다. chaos-bots 상태와 BASE_OPS를 확인한다." }
 
     # 리더의 pg 프록시에 주입해야 커밋 경로가 실제 절단된다. 팔로워 프록시면 dup=0가 자명 성립해
     # 멱등 기제를 시험하지 않고 공허 통과한다(§3 E9 주입점=리더 pg 프록시).

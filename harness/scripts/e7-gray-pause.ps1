@@ -25,13 +25,16 @@ $paused = $false
 
 Write-Section "E7(그레이 장애/pause) 시작 runId=$runId"
 try {
+    # 자기 부하를 명시로 세운다. 생략하면 앞선 실험이 남긴 ops를 이월받는다(E6 직후면 400,
+    # 드레인 직후면 정지 상태). 부하가 무엇인지 모르는 채 동결하면 판정 조건이 실행마다 달라진다.
+    if ($cfg['BASE_OPS']) { Set-BotOps ([int]$cfg['BASE_OPS']) }
     Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
     # 누적 count가 아니라 증분으로 본다. 누적이면 앞선 실험이 남긴 체결만으로 즉시 통과해
     # 봇이 죽었거나 1 ops로 파킹된 상태에서도 주입한다. 부하 없이 주입하면 Wait-FirstTradeAfter가
     # 타임아웃해 RTO n/a로 위양성 FAIL이 난다(E5는 같은 조건에서 공허 PASS로 기운다).
     $tradesBase = Get-TradeCount
     $ok = Wait-For { (Get-TradeCount) - $tradesBase -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
-    if (-not $ok) { throw "체결 증분 미달(기준 $($cfg['MIN_TRADES_BEFORE_INJECT'])건). 봇 부하가 실리지 않았다. chaos-bots 상태와 CHAOS_BOTS_OPS를 확인한다." }
+    if (-not $ok) { throw "체결 증분 미달(기준 $($cfg['MIN_TRADES_BEFORE_INJECT'])건). 봇 부하가 실리지 않았다. chaos-bots 상태와 BASE_OPS를 확인한다." }
 
     # 실 리더를 대상 삼는다. 팔로워를 pause하면 페일오버가 없어 공허 FAIL 난다(README 리허설).
     $detected = Get-LeaderContainer
