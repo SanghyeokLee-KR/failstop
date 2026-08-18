@@ -37,6 +37,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -69,6 +70,11 @@ class ApiGatewayIntegrationTest {
     private static final int ETH = 3;
     private static final int KRW_BTC = 1;
     private static final int KRW_ETH = 2;
+
+    // alice의 bid 0.01@50,000,000 체결 결과. 지출 500,000 KRW, 수취 순액 0.009995 BTC
+    // (taker 수수료 0.000005 BTC 차감). 500000 / 0.009995 = 50025012.5062... 을 KRW scale 0으로
+    // HALF_UP 반올림한 값이다. 부분 매도 뒤에도 이 값이 유지되는 것이 원가 산식의 요지다.
+    private static final String AVG_AFTER_BUY = "50025013";
 
     // PER_CLASS 수명주기에서는 테스트 인스턴스 생성(=스프링 컨텍스트 기동)이 @Testcontainers
     // 확장 beforeAll보다 앞서므로 static 초기화로 컨테이너를 먼저 띄운다. 정리는 ryuk 몫이다.
@@ -336,6 +342,17 @@ class ApiGatewayIntegrationTest {
                 .reduce((a, b) -> b).orElseThrow();
         assertEquals("100.009995", assetField(myAsset, "BTC", "balance"));
 
+        // 원가 필드는 델타에 실려야 한다(§5-5 v2.21 K5). 없으면 클라이언트가 직전 평단가를
+        // 보존해 매수마다 낡은 값이 남는다. 취득 원가 500,000 / 순수취 0.009995의 KRW scale
+        // HALF_UP 반올림이 50025013이다.
+        assertEquals(AVG_AFTER_BUY, assetField(myAsset, "BTC", "avg_buy_price"));
+        assertEquals("0.009995", assetField(myAsset, "BTC", "cost_basis_qty"));
+        assertEquals("500000", assetField(myAsset, "BTC", "cost_basis_amount"));
+        assertEquals("KRW", assetField(myAsset, "BTC", "unit_currency"));
+        // quote 자산은 원가 개념이 없다(C25 quote_asset_position).
+        assertEquals("0", assetField(myAsset, "KRW", "avg_buy_price"));
+        assertEquals("0", assetField(myAsset, "KRW", "cost_basis_qty"));
+
         // REST 반영: closed 목록·계좌
         ResponseEntity<String> closed = get("/api/v1/orders/closed",
                 TestSigner.bearerForQuery(aliceKey.accessKey(), aliceKey.secretKey(),
@@ -353,6 +370,17 @@ class ApiGatewayIntegrationTest {
         assertEquals("999500000", accountField(accountsData, "KRW", "balance"));
         assertEquals("0", accountField(accountsData, "KRW", "locked"));
         assertEquals("100.009995", accountField(accountsData, "BTC", "balance"));
+
+        // §4-C-1 원가 산출. 종전 상수 "0" 스텁이 실측값으로 대체됐다는 회귀 고정이다.
+        assertEquals(AVG_AFTER_BUY, accountField(accountsData, "BTC", "avg_buy_price"));
+        assertEquals("0.009995", accountField(accountsData, "BTC", "cost_basis_qty"));
+        assertEquals("500000", accountField(accountsData, "BTC", "cost_basis_amount"));
+        // 원가 미상 수량은 별도 필드가 아니라 유도값이다(§4-C-1 K3). 시드 100 BTC가 전부 미상.
+        assertEquals(0, unknownQty(accountsData, "BTC").compareTo(new BigDecimal("100")),
+                "원가 미상 유도식이 시드 물량과 어긋난다");
+        assertEquals("0", accountField(accountsData, "KRW", "avg_buy_price"));
+        assertEquals("0", accountField(accountsData, "KRW", "cost_basis_qty"));
+        assertEquals("0", accountField(accountsData, "KRW", "cost_basis_amount"));
 
         // (d) 채널 seq 단조 검증: orderbook 채널 수신 순서대로 strictly increasing
         List<Long> seqs = new ArrayList<>();
@@ -1057,6 +1085,73 @@ class ApiGatewayIntegrationTest {
         assertTrue(firstOfPage2 < lastOfPage1, "다음 페이지가 더 과거가 아니다");
     }
 
+    /**
+     * §4-C-1 원가 규약의 두 경계. (1) 시드 취득만 있는 계정은 원가 0이 아니라 원가 미상이라
+     * cost_basis_qty가 0이고 avg_buy_price가 "0"이다. (2) 부분 매도는 원가 확보분을 비례로
+     * 덜어내므로 평단가가 유지된다. 평단가를 저장하는 구현이면 (2)에서 반올림이 누적돼 값이
+     * 흔들린다. cost_basis_amount는 avg_buy_price의 반올림 이전 원본이므로, 나눗셈을 다시 해도
+     * 서버가 낸 avg_buy_price와 같은 값으로 떨어져야 한다(K2 총매수 재계산 근거).
+     */
+    @Test
+    @Order(24)
+    void costBasisSeparatesUnknownAcquisitionAndSurvivesPartialSell() throws Exception {
+        // (1) 시드 물량만 보유한 계정.
+        long seedOnly = bootstrap.user("seedonly@api.test");
+        bootstrap.userAccounts(seedOnly, KRW);
+        bootstrap.userAccounts(seedOnly, BTC);
+        bootstrap.deposit(seedOnly, BTC, new BigDecimal("5"));
+        DemoKeySeeder.IssuedKey seedKey = keySeeder.issue(seedOnly, "TRADE", "seedonly-trade");
+
+        JsonNode seedAccounts = signedData("/api/v1/accounts", Map.of(), seedKey);
+        assertEquals("5", accountField(seedAccounts, "BTC", "balance"));
+        assertEquals("0", accountField(seedAccounts, "BTC", "avg_buy_price"),
+                "원가 미상은 평단가 산출 불가라 \"0\"이다");
+        assertEquals("0", accountField(seedAccounts, "BTC", "cost_basis_qty"),
+                "시드 취득이 원가 확보분으로 계상되면 전액 수익으로 오표시된다");
+        assertEquals("0", accountField(seedAccounts, "BTC", "cost_basis_amount"));
+        assertEquals(0, unknownQty(seedAccounts, "BTC").compareTo(new BigDecimal("5")),
+                "보유 전량이 원가 미상으로 유도돼야 한다");
+
+        // (2) alice 부분 매도. 기준값은 상수로 박지 않고 매도 직전 응답에서 읽는다. 선행
+        // 캔들 테스트가 alice 매수를 더 쌓아 누적 원가가 이 시점에 달라지기 때문이다.
+        JsonNode before = signedData("/api/v1/accounts", Map.of(), aliceKey);
+        String avgBefore = accountField(before, "BTC", "avg_buy_price");
+        BigDecimal qtyBefore = new BigDecimal(accountField(before, "BTC", "cost_basis_qty"));
+        BigDecimal amountBefore = new BigDecimal(accountField(before, "BTC", "cost_basis_amount"));
+        BigDecimal sold = new BigDecimal("0.005");
+        assertTrue(qtyBefore.compareTo(sold) > 0, "부분 처분이 되려면 원가 확보분이 더 많아야 한다");
+
+        // bob이 maker 매수 호가를 깔고 alice가 taker로 판다.
+        byte[] bid = orderBody("KRW-BTC", "bid", "limit", "50000000", "0.005", "cost-bid-1");
+        assertEquals(201, post("/api/v1/orders", bid,
+                TestSigner.bearerForBody(bobKey.accessKey(), bobKey.secretKey(),
+                        "POST", "/api/v1/orders", bid)).getStatusCode().value());
+        byte[] ask = orderBody("KRW-BTC", "ask", "limit", "50000000", "0.005", "cost-ask-1");
+        ResponseEntity<String> askResponse = post("/api/v1/orders", ask,
+                TestSigner.bearerForBody(aliceKey.accessKey(), aliceKey.secretKey(),
+                        "POST", "/api/v1/orders", ask));
+        assertEquals(201, askResponse.getStatusCode().value());
+        assertEquals("FILLED", objectMapper.readTree(askResponse.getBody())
+                .path("status").asText());
+
+        JsonNode after = signedData("/api/v1/accounts", Map.of(), aliceKey);
+        // 산식이 보장하는 것은 원값 동일이 아니라 quote scale 반올림 후 동일이다. V13의 비례
+        // 차감은 relief를 18자리 DOWN 절사하므로 잔여 원가가 정비례보다 미세하게 크게 남는다.
+        assertEquals(avgBefore, accountField(after, "BTC", "avg_buy_price"),
+                "부분 매도가 평단가를 흔들었다(비례 차감 위반)");
+        // 처분은 원가 확보분을 우선 소진한다(known-first). 원가 미상분은 그대로 남는다.
+        BigDecimal qtyAfter = new BigDecimal(accountField(after, "BTC", "cost_basis_qty"));
+        assertEquals(0, qtyBefore.subtract(sold).compareTo(qtyAfter),
+                "처분 수량이 원가 확보분에서 정확히 빠지지 않았다");
+
+        BigDecimal amountAfter = new BigDecimal(accountField(after, "BTC", "cost_basis_amount"));
+        assertTrue(amountAfter.compareTo(amountBefore) < 0,
+                "매도했는데 원가 확보 금액이 줄지 않았다");
+        assertEquals(avgBefore, amountAfter.divide(qtyAfter, 0, RoundingMode.HALF_UP)
+                        .toPlainString(),
+                "cost_basis_amount 재나눗셈이 서버 avg_buy_price와 어긋난다");
+    }
+
     // ------------------------------------------------------------------
     // 레이트리밋 weight(§2-5, item 2)
     // ------------------------------------------------------------------
@@ -1221,6 +1316,13 @@ class ApiGatewayIntegrationTest {
             }
         }
         throw new AssertionError(currency + " 자산 없음: " + myAsset);
+    }
+
+    /** 원가 미상 수량. 서버가 필드로 내지 않고 클라이언트가 유도하는 값이다(§4-C-1 K3). */
+    private static BigDecimal unknownQty(JsonNode accounts, String currency) {
+        return new BigDecimal(accountField(accounts, currency, "balance"))
+                .add(new BigDecimal(accountField(accounts, currency, "locked")))
+                .subtract(new BigDecimal(accountField(accounts, currency, "cost_basis_qty")));
     }
 
     private static String accountField(JsonNode accounts, String currency, String field) {

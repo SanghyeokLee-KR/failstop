@@ -42,6 +42,24 @@ public class MarketDataPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(MarketDataPublisher.class);
 
+    // §4-C-1과 동일한 원가 산출식. 델타에 평단가를 싣지 않으면 클라이언트가 직전 값을 보존해
+    // 매수마다 낡은 평단가가 남는다(§5-5 v2.21). 조인은 기존 쿼리에 붙여 왕복을 늘리지 않는다.
+    // publishMyAsset은 매칭 단일 라이터 스레드에서 동기 실행되므로 별도 쿼리 추가는 금지다.
+    private static final String MY_ASSET_SQL = """
+            SELECT a.symbol, ub.available, ub.locked,
+                   COALESCE(pc.cost_qty, 0)    AS cost_basis_qty,
+                   COALESCE(pc.cost_amount, 0) AS cost_basis_amount,
+                   COALESCE(CASE WHEN pc.cost_qty > 0
+                                 THEN round(pc.cost_amount / pc.cost_qty, qa.scale::int)
+                            END, 0) AS avg_buy_price
+            FROM user_balances ub
+            JOIN assets a ON a.id = ub.asset_id
+            LEFT JOIN position_cost pc
+                 ON pc.user_id = ub.user_id AND pc.asset_id = ub.asset_id
+            LEFT JOIN assets qa ON qa.id = pc.quote_asset_id
+            WHERE ub.user_id = ? AND ub.asset_id = ?
+            """;
+
     private final SimpMessagingTemplate messaging;
     private final JdbcClient jdbc;
     private final MarketDirectory markets;
@@ -294,17 +312,21 @@ public class MarketDataPublisher {
         }
         java.util.List<Map<String, Object>> assets = new java.util.ArrayList<>();
         for (short assetId : assetIds) {
-            jdbc.sql("""
-                            SELECT a.symbol, ub.available, ub.locked
-                            FROM user_balances ub JOIN assets a ON a.id = ub.asset_id
-                            WHERE ub.user_id = ? AND ub.asset_id = ?
-                            """)
+            jdbc.sql(MY_ASSET_SQL)
                     .params(userId, assetId)
                     .query((rs, rowNum) -> {
                         Map<String, Object> asset = new LinkedHashMap<String, Object>();
                         asset.put("currency", rs.getString("symbol"));
                         asset.put("balance", ApiFormats.amount(rs.getBigDecimal("available")));
                         asset.put("locked", ApiFormats.amount(rs.getBigDecimal("locked")));
+                        asset.put("avg_buy_price",
+                                ApiFormats.amount(rs.getBigDecimal("avg_buy_price")));
+                        // v1 quote 단일(KRW) 전제. §4-C-1 과 같은 이유로 상수다.
+                        asset.put("unit_currency", "KRW");
+                        asset.put("cost_basis_qty",
+                                ApiFormats.amount(rs.getBigDecimal("cost_basis_qty")));
+                        asset.put("cost_basis_amount",
+                                ApiFormats.amount(rs.getBigDecimal("cost_basis_amount")));
                         return asset;
                     })
                     .optional()

@@ -175,6 +175,9 @@ M1-4(REST·WS 게이트웨이) 산출물이 봇·프론트 연동 단계에 넘�
   현행 상태: orders/batch·일괄 취소(DELETE /orders)·by-client 취소 라우트·candles는 이후 구현됨
   (OrderController·MarketController). orders/chance·my/trades·my/ledger·keys rotate·폐기는 미구현 유지.
 - accounts의 avg_buy_price는 "0" 고정이다(평단가 산출 미구현).
+  현행 상태: V13 원가 프로젝션(position_cost) 도입으로 실측 산출한다(§4-C-1). cost_basis_qty
+  ·cost_basis_amount를 함께 노출하고 myAsset WS 델타도 같은 필드 집합을 싣는다. 보유 전량이
+  원가 미상인 자산은 여전히 "0"이며 그 "0"은 평단가 0원이 아니라 산출 불가를 뜻한다.
 
 ## M1-6 인계 (하네스 계약과 잔여 결정)
 
