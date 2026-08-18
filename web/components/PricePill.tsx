@@ -4,7 +4,7 @@
  */
 
 import type { ChangeState } from "@/lib/types";
-import { ariaChangeLabel, dirOf, formatDirectional, formatDirectionalAmount } from "@/lib/format";
+import { ariaChangeLabel, dirOf, formatDirectional, formatDirectionalAmount, type PriceSpec } from "@/lib/format";
 import styles from "./PricePill.module.css";
 
 interface Props {
@@ -13,10 +13,12 @@ interface Props {
   changeRate: string | number;
   /** withAmount: 등락 금액 병기 (코인 상세 헤더) */
   amount?: string | number;
+  /** amount 표시 자릿수 스펙. 가격 델타는 tick_size, KRW 손익 금액은 0을 넘긴다 */
+  amountSpec?: PriceSpec;
   variant?: "pill" | "inline";
 }
 
-export default function PricePill({ change, changeRate, amount, variant = "pill" }: Props) {
+export default function PricePill({ change, changeRate, amount, amountSpec, variant = "pill" }: Props) {
   const dir = dirOf(change);
   return (
     <span
@@ -26,7 +28,7 @@ export default function PricePill({ change, changeRate, amount, variant = "pill"
       aria-label={ariaChangeLabel(changeRate, change)}
     >
       {amount != null && (
-        <span className={styles.amount}>{formatDirectionalAmount(amount, change)}</span>
+        <span className={styles.amount}>{formatDirectionalAmount(amount, change, amountSpec)}</span>
       )}
       {amount != null
         ? formatDirectional(changeRate, change).replace(/^[▲▼]\s/, "")

@@ -130,3 +130,11 @@ test("formatDirectionalAmount: 유효 금액은 스펙 자릿수로 병기", () 
   assert.equal(formatDirectionalAmount("1930000", "RISE", "1000"), `${UP} +1,930,000`);
   assert.equal(formatDirectionalAmount("0.000398", "FALL"), `${DOWN} ${MINUS}0.000398`);
 });
+
+test("formatDirectionalAmount: price_scale 0은 formatKRW와 같은 자릿수", () => {
+  // 자산 평가손익은 KRW 금액이라 평가금액(formatKRW)과 자릿수를 맞춘다.
+  // 스펙을 안 넘기면 소액 구간에서 폴백 자릿수가 붙어 같은 행의 평가금액과 어긋난다
+  assert.equal(formatDirectionalAmount("12.34", "FALL", 0), `${DOWN} ${MINUS}${formatKRW("12.34")}`);
+  assert.equal(formatDirectionalAmount("1234.5678", "RISE", 0), `${UP} +${formatKRW("1234.5678")}`);
+  assert.notEqual(formatDirectionalAmount("12.34", "FALL"), `${DOWN} ${MINUS}${formatKRW("12.34")}`);
+});

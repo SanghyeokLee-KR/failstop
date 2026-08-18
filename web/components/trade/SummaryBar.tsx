@@ -166,7 +166,8 @@ export default function SummaryBar({ market, meta }: Props) {
               "-"
             )}
           </span>
-          <PricePill change={ticker.change} changeRate={ticker.change_rate} amount={ticker.change_price} variant="inline" />
+          {/* change_price는 가격 델타라 자릿수 스펙이 tick_size다. 미전달이면 sub-1 KRW 마켓 델타가 뭉개진다 */}
+          <PricePill change={ticker.change} changeRate={ticker.change_rate} amount={ticker.change_price} amountSpec={tickSpec} variant="inline" />
         </StaleRegion>
       ) : (
         <Skeleton variant="text" width={240} height={28} />

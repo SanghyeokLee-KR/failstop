@@ -40,6 +40,9 @@ import styles from "./page.module.css";
 
 const HIDDEN = "••••••";
 
+// KRW 금액 표시 자릿수. formatKRW와 같은 정책이라 평가금액·평가손익이 같은 자릿수로 정렬된다
+const KRW_DECIMALS = 0;
+
 // 평가·손익·합산은 lib/decimal의 문자열 십진 연산으로 처리한다.
 // float 산술은 금액·수량 NUMERIC(40,18) 정밀을 잃는다
 
@@ -251,7 +254,10 @@ export default function AssetsPage() {
             <span className="num">-</span>
           ) : (
             <span className="dir-text num" data-dir={dirOf(h.change)}>
-              {formatDirectionalAmount(h.pnl, h.change)} ({formatChangeRate(h.pnlRate, h.change)})
+              {/* 평가손익은 코인 가격이 아니라 KRW 금액이다. 자릿수를 tickSpec에서 유도하면
+                  소수틱 마켓 행만 소수부가 붙어 같은 열의 평가금액(formatKRW, 0자리)과 어긋난다.
+                  같은 0자리 정책으로 통일해 열 간 자릿수를 맞춘다 */}
+              {formatDirectionalAmount(h.pnl, h.change, KRW_DECIMALS)} ({formatChangeRate(h.pnlRate, h.change)})
             </span>
           ),
       },
@@ -303,7 +309,13 @@ export default function AssetsPage() {
               {hidden ? (
                 <b className={`${styles.statValue} num`}>{HIDDEN}</b>
               ) : costTotalKnown ? (
-                <PricePill change={totalChange} changeRate={totalRate} amount={totalPnl} variant="pill" />
+                <PricePill
+                  change={totalChange}
+                  changeRate={totalRate}
+                  amount={totalPnl}
+                  amountSpec={KRW_DECIMALS}
+                  variant="pill"
+                />
               ) : (
                 <b className={`${styles.statValue} num`}>-</b>
               )}

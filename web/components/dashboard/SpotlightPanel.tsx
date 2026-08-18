@@ -76,6 +76,7 @@ export default function SpotlightPanel() {
               change={ticker.change}
               changeRate={ticker.change_rate}
               amount={ticker.change_price}
+              amountSpec={tickSpec}
               variant="inline"
             />
           )}
