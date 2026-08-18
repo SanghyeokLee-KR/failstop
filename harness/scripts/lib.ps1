@@ -119,7 +119,14 @@ function Wait-DrainZero {
             $streak = 0
         } elseif ($v -eq 0) {
             $streak++
-            if ($streak -ge $RequiredStreak) { return $true }
+            if ($streak -ge $RequiredStreak) {
+                # 성립한 경우에도 표본 품질을 남긴다. 무응답이 섞인 드레인은 관측 공백 위에서
+                # 성립한 것이라 사후 run의 "정지 상태 판정" 전제가 그만큼 약하다.
+                if ($unreachable -gt 0) {
+                    Write-Host "경고: 드레인 폴링 중 psql 무응답 표본 $unreachable 건(드레인 자체는 성립). 표본 품질 기록" -ForegroundColor Yellow
+                }
+                return $true
+            }
         } else {
             $streak = 0
         }
@@ -251,13 +258,24 @@ function Write-Section {
 function Now-Iso { return (Get-Date).ToUniversalTime().ToString('o') }
 
 # 조건 충족까지 폴링. 반환: 충족 시각(UTC) 또는 $null(타임아웃).
+# 조건식 예외는 미충족으로 흡수한다. 폴링 술어에는 psql·HTTP 조회가 들어가는데(Get-TradeCount는
+# -Required라 무응답에 throw한다) 단발 실패로 실험 전체를 죽이면 Wait-DrainZero가 무응답을
+# 관용하는 것과 규약이 어긋난다. 다만 조용히 삼키지는 않는다. 타임아웃으로 끝났고 예외가 있었으면
+# 마지막 예외를 함께 낸다. 그러지 않으면 호출부의 "봇 부하가 실리지 않았다" 메시지가 실제 원인
+# (관측 경로 단절)을 가린다.
 function Wait-For {
     param([scriptblock] $Condition, [int] $TimeoutSec, [double] $PollSec = 0.5)
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    $errCount = 0; $lastErr = $null
     while ((Get-Date) -lt $deadline) {
+        $met = $false
+        try { $met = [bool](& $Condition) } catch { $errCount++; $lastErr = $_.Exception.Message }
         # UTC로 반환한다. DB engine_ts(UTC)와 뺄셈할 때 로컬 시각이면 오프셋만큼 오차가 난다.
-        if (& $Condition) { return (Get-Date).ToUniversalTime() }
+        if ($met) { return (Get-Date).ToUniversalTime() }
         Start-Sleep -Milliseconds ([int]($PollSec * 1000))
+    }
+    if ($errCount -gt 0) {
+        Write-Host "경고: Wait-For 폴링 중 조건식 예외 $errCount 회(마지막: $lastErr). 타임아웃 원인이 조건 미충족이 아니라 관측 경로 단절일 수 있다" -ForegroundColor Yellow
     }
     return $null
 }

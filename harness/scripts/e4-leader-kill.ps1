@@ -222,12 +222,25 @@ Write-Host '──────────────────────�
 # C17(재생 결정론)은 봇 ACK COPY·스냅샷 재생 지문 배선이 M4 이월이라 이 스택에서 빈 테이블
 # 대조로 공허 통과한다. C16 실데이터 교차대조는 CI InvariantVerifierIntegrationTest가,
 # 검증기 반증(위반 주입 검출)은 동 테스트 verifierCatchesInjectedViolations가 담당한다.
-$c16rows = Get-Scalar "SELECT count(*) FROM harness.loadtest_acks" -Required
-$c17rows = Get-Scalar "SELECT count(*) FROM recovery_runs" -Required
+# 증거 출력 전용이라 -Required를 붙이지 않는다. 이 지점은 판정 확정·failover_runs 적재 이후이고
+# try/finally 밖이라, 여기서 throw하면 verdict가 PASS인 run이 미포획 종료로 exit 1이 된다.
+# 판정 역전을 증거 한 줄 때문에 만들지 않는다. 무응답은 값 대신 표기로 드러낸다.
+$c16rows = Get-Scalar "SELECT count(*) FROM harness.loadtest_acks"
+$c17rows = Get-Scalar "SELECT count(*) FROM recovery_runs"
+$c16disp = 'n/a'; $c16note = 'psql 무응답, 판정 불능'
+if ($null -ne $c16rows) {
+    $c16disp = $c16rows
+    $c16note = if ($c16rows -eq 0) { '공허 통과, ACK 파이프라인 M4 이월' } else { '실데이터 대조' }
+}
+$c17disp = 'n/a'; $c17note = 'psql 무응답, 판정 불능'
+if ($null -ne $c17rows) {
+    $c17disp = $c17rows
+    $c17note = if ($c17rows -eq 0) { '공허 통과, 재생 지문 M4 이월' } else { '실데이터 대조' }
+}
 Write-Host ''
 Write-Host '증거 한정(컨테이너 E4):' -ForegroundColor Yellow
-Write-Host ("  C16 loadtest_acks 행수 : {0} ({1})" -f $c16rows, $(if ([decimal]$c16rows -eq 0) { '공허 통과, ACK 파이프라인 M4 이월' } else { '실데이터 대조' }))
-Write-Host ("  C17 recovery_runs 행수 : {0} ({1})" -f $c17rows, $(if ([decimal]$c17rows -eq 0) { '공허 통과, 재생 지문 M4 이월' } else { '실데이터 대조' }))
+Write-Host ("  C16 loadtest_acks 행수 : {0} ({1})" -f $c16disp, $c16note)
+Write-Host ("  C17 recovery_runs 행수 : {0} ({1})" -f $c17disp, $c17note)
 Write-Host '  RPO=0 판정 근거는 C05·C06·C13a 저널 무결 프록시. C16 실증은 CI 통합테스트 참조.'
 Write-Host ''
 Write-Host 'harness.failover_runs 최근 행:'
