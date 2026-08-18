@@ -43,12 +43,23 @@ export function onSubmitFailed(state: OrderKeyState): OrderKeyState {
   return state;
 }
 
+/** 같은 키가 다른 내용으로 이미 소모됐다는 확정 응답(§2-4). 재시도해도 영구 409다 */
+const DUPLICATE_KEY_CODE = "duplicate_client_order_id";
+
 /**
  * 종결성 거부 판정(API §2-4). 4xx 거부는 게이트웨이 선차단(키 미소모)이거나 저널 REJECTED
  * 박제(키 영구 소모)다. 어느 쪽이든 같은 키 재시도는 무의미하거나 멱등 replay 거짓 성공을
  * 만들므로 다음 제출은 새 키가 안전하다. 키를 보존해야 하는 예외는 상태 UNKNOWN(5xx·
  * 타임아웃·네트워크 0)과 진행 중(409 order_in_progress)·레이트리밋(429)뿐이다(§7-6).
+ *
+ * 409는 상태만으로 가를 수 없어 코드를 함께 본다. duplicate_client_order_id는 키가 다른
+ * 내용으로 소모된 종결이라 새 키가 필요하고, order_in_progress·requery_deferred는 결과
+ * 미확정이라 같은 키 재전송·재조회가 유일한 안전 경로다(§2-5-a). 코드 미상 409는 보존
+ * 쪽으로 판단한다. 미확정 주문에 새 키를 발급하면 이중접수가 되기 때문이다.
  */
-export function isFinalRejectStatus(status: number): boolean {
-  return status >= 400 && status < 500 && status !== 409 && status !== 429;
+export function isFinalRejectStatus(status: number, code?: string): boolean {
+  if (status < 400 || status >= 500) return false;
+  if (status === 429) return false;
+  if (status === 409) return code === DUPLICATE_KEY_CODE;
+  return true;
 }

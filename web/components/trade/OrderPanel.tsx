@@ -353,8 +353,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     } catch (e) {
       // 종결성 거부(4xx)는 키가 소모됐거나 선차단됐다. 같은 키 재시도는 REJECTED 멱등 replay를
       // 거짓 성공으로 받으므로 dirty를 세워 다음 제출에 새 키를 쓴다. sim 거부는 전부 키 등록 전
-      // 종결이라 동일 취급. 상태 UNKNOWN(5xx·네트워크·타임아웃)·409·429만 키를 보존한다(§7-6)
-      const finalReject = e instanceof ApiError ? isFinalRejectStatus(e.status) : e instanceof SimApiError;
+      // 종결이라 동일 취급. 상태 UNKNOWN(5xx·네트워크·타임아웃)·429와 미확정 409만 키를 보존한다(§7-6)
+      const finalReject = e instanceof ApiError ? isFinalRejectStatus(e.status, e.code) : e instanceof SimApiError;
       keyStateRef.current = finalReject ? onInputChanged(keyState()) : onSubmitFailed(keyState());
       toast(e instanceof Error ? e.message : "주문에 실패했어요. 잠시 후 다시 시도해 주세요", "error");
     } finally {
