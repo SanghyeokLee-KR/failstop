@@ -423,15 +423,47 @@ function Get-AppMetric {
 # 서버 Scope.AUTHORITATIVE_ONLY(5건)와 이 목록(3건)은 서로 다른 축이다. 전자는 "어느 run에서
 # 평가하는가"이고 후자는 "평가된 결과를 게이팅에 쓰는가"다. 두 목록을 1:1로 맞추면 C22·C23이
 # 게이팅에서 빠진다.
+#
+# 목록을 전역 상수로 두는 이유: 실험 스크립트가 같은 배열을 인라인으로 복제하면 여기를 고쳐도
+# 사본이 남아 반쪽 교정이 된다(실측: e6가 인라인 사본을 써서 WARN 제외까지 어긋났다).
+$Global:CHAOS_GATING_EXEMPT_CHECKS = @(
+    'C13A_ORDER_MATERIALIZED', 'C16_ACK_JOURNALED', 'C19_ORDERBOOK_NONCROSS'
+)
+
+# 게이팅 대상 체크 하나의 판정 참여 여부. 제외 목록과 WARN 등급이 유일한 면제 사유다.
+# WARN은 관측용 등급이라 실험 실패 사유가 아니다(CRITICAL·HIGH만 게이팅).
+function Test-GatingExempt {
+    param([string] $CheckName, [string] $Severity)
+    if ($Global:CHAOS_GATING_EXEMPT_CHECKS -contains $CheckName) { return $true }
+    if ($Severity -eq 'WARN') { return $true }
+    return $false
+}
+
+# 게이팅 대상 위반 행 합. 판정에 쓰지 말고 보고에만 쓴다(판정은 Test-ExperimentIntegrity 단독).
+# 같은 면제 술어를 소비하므로 정상 페이로드에서는 [합 0] 과 [판정 clean] 이 일치한다. 빈 응답은
+# 예외다. 여기서는 0이 나오고 판정은 거짓이 되는데, 그 비대칭이 의도다(아래 공허 가드).
+# 0 클램프는 서버 AuthoritativeRun과 대칭을 맞춘 것이다. 부호 상쇄로 위반을 가리지 않는다.
+function Get-GatedViolationSum {
+    param($Run)
+    $sum = [long]0
+    foreach ($c in $Run.checks) {
+        if (Test-GatingExempt -CheckName $c.checkName -Severity $c.severity) { continue }
+        $sum += [math]::Max([long]0, [long]$c.violatedRows)
+    }
+    return $sum
+}
+
 function Test-ExperimentIntegrity {
     param($Run)
-    $gatingExempt = @(
-        'C13A_ORDER_MATERIALIZED', 'C16_ACK_JOURNALED', 'C19_ORDERBOOK_NONCROSS'
-    )
+    # 공허 통과 차단. 체크가 하나도 안 돈 run을 통과로 보고하지 않는다(서버 AuthoritativeRun.pass와
+    # 동일 술어). 종전에는 호출부의 위반합 조건이 빈 응답에서 $null을 내는 바람에 이 구멍을 우연히
+    # 막고 있었고, 그 조건을 걷어내면서 가드가 필요해졌다.
+    if (-not $Run.checks -or @($Run.checks).Count -lt 1) { return $false }
     foreach ($c in $Run.checks) {
-        if ($gatingExempt -contains $c.checkName) { continue }
-        # WARN은 관측용 등급이라 실험 실패 사유가 아니다(CRITICAL·HIGH만 게이팅).
-        if ($c.severity -eq 'WARN') { continue }
+        # 형상 가드. checkName이 비면 응답 DTO 필드가 개명된 것이고, 그때는 violatedRows도 못 읽어
+        # 전 행이 0으로 보인다. 위반이 있어도 조용한 PASS가 되므로 판정 불능으로 떨어뜨린다.
+        if ([string]::IsNullOrWhiteSpace($c.checkName)) { return $false }
+        if (Test-GatingExempt -CheckName $c.checkName -Severity $c.severity) { continue }
         if ([long]$c.violatedRows -ne 0) { return $false }
     }
     return $true

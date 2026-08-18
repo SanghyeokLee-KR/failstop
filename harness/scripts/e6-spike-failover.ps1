@@ -49,13 +49,13 @@ Start-Sleep -Seconds ([int]$cfg['KILL_AFTER_SPIKE_SEC'])
 Write-Section '스파이크 중 불변식 관측(plateau 온디맨드 권위 run)'
 $spikePort = Get-LiveNodePort
 $spikeRun = Invoke-InvariantRun -Port $spikePort -RunId $runId -Window 'spike'
-# 스파이크 창은 부하 중 측정이 목적이라 드레인할 수 없다. C13a·C16·C19는 정지 시점 한정 체크라
-# (sql/invariants.sql 주석) 부하 중에는 처리 중인 주문을 유실로 센다. 실측(400 ops)에서 C13a만
-# 11건 잡혔고 드레인하면 0이다. E1과 같은 ALWAYS 스코프 게이팅으로 조건부 체크를 판정에서 뺀다.
+# 스파이크 창은 부하 중 측정이 목적이라 드레인할 수 없다. C13a·C19는 드레인 전제라 부하 중에는
+# in-flight를 위반으로 세고(실측 400 ops에서 C13a 11건, 드레인하면 0), C16은 드레인과 무관하게
+# 스테일 loadtest_acks 오탐이 배제 사유다(sql/invariants.sql 주석). 제외 술어는 lib.ps1 공용
+# 상수 하나를 쓴다. 종전에는 목록을 여기에 복제해 WARN 제외가 빠졌고, 그 결과 $spikeClean은
+# 참인데 C15(WARN) 10행 때문에 exit 1이 났다.
 $spikeClean = Test-ExperimentIntegrity $spikeRun
-$spikeViol = ($spikeRun.checks | Where-Object {
-    $_.checkName -notin @('C13A_ORDER_MATERIALIZED', 'C16_ACK_JOURNALED', 'C19_ORDERBOOK_NONCROSS')
-} | Measure-Object -Property violatedRows -Sum).Sum
+$spikeViol = Get-GatedViolationSum $spikeRun
 # 창 내 실제 스캔 존재 증거: invariant_checks에 window='spike' 적재 확인(공허 통과 차단).
 $spikeScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='spike'"
 Write-Host "스파이크 창 권위 run verdict=$($spikeRun.verdict) 위반합=$spikeViol 스캔체크수=$spikeScans"
@@ -76,6 +76,9 @@ $verdict = Complete-FailoverExperiment -ExperimentId 'E6' -RunId $runId `
     -ObserveSec ([int]$cfg['POST_KILL_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC']) `
     -StandbyPort $standbyPort
 
-Write-Host "스파이크 중 불변식 위반 누계(ALWAYS 스코프): $spikeViol (0 + 창 내 스캔 $spikeScans 회여야 폭주 중 무결 성립)"
-if ($verdict -ne 'PASS' -or -not $spikeClean -or $spikeViol -ne 0) { exit 1 }
+Write-Host "스파이크 중 불변식 위반 합(게이팅 대상, WARN·조건부 스코프 체크 제외): $spikeViol (0 + 창 내 스캔 $spikeScans 회여야 폭주 중 무결 성립)"
+# 게이트는 $spikeClean 단독이다. $spikeViol은 같은 면제 술어에서 나온 표시값이라 조건으로 더해도
+# 정상 페이로드에서는 판정이 바뀌지 않는다. 빈 응답만 두 값이 갈리는데 그 경로는 $spikeClean이
+# 공허 가드로 이미 거짓을 낸다(lib.ps1 Test-ExperimentIntegrity).
+if ($verdict -ne 'PASS' -or -not $spikeClean) { exit 1 }
 Write-Host 'E6 PASS.' -ForegroundColor Green
