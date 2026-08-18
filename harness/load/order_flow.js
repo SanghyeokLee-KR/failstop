@@ -24,6 +24,10 @@ const MARKET = __ENV.MARKET || 'KRW-BTC';
 const SPIKE_RATE = parseInt(__ENV.SPIKE_RATE || '3000', 10);
 const T0 = parseFloat(__ENV.CHAOS_T0_S || 'Infinity');
 const T1 = parseFloat(__ENV.CHAOS_T1_S || 'Infinity');
+// 페일오버 창 임계 유도용. 창 전체가 RTO 목표만큼 끊겨도 정본상 정상이므로 창 실패율 상한은
+// RTO 목표 / 창 길이다. 임의 상수를 쓰지 않기 위해 오케스트레이터가 준 값에서 계산한다.
+const RTO_TARGET_S = parseFloat(__ENV.RTO_TARGET_S || '30');
+const CHAOS_WINDOW_S = T1 - T0;
 
 const P = {
   e6:   { spikeStart: '10m', plateau: '60s',  total: '13m' },
@@ -45,6 +49,42 @@ const acceptedReqDuration = new Trend('accepted_req_duration', true);
 const rateLimitedTotal = new Counter('rate_limited_total');
 const wsSeqGap = new Counter('ws_seq_gap');             // 채널 seq 결번(steady 창 0)
 const wsEpochResyncFail = new Counter('ws_epoch_resync_fail'); // 재동기화 실패(전역 0)
+// 페일오버 창 접수 실패(5xx·타임아웃) 건수. 아래 가용성 임계에서 창을 제외하는 대신 이 축으로
+// 남겨 관측을 잃지 않는다. 창 실패는 페일오버의 정의상 결과라 정상 구간과 같은 분모로 재면 안 된다.
+const chaosWindow5xx = new Counter('chaos_window_5xx_total');
+
+// 정상 구간(phase:steady) 가용성 게이트. 종전에는 phase 필터가 없어 페일오버를 포함하는 run에서
+// 창 안 5xx가 그대로 분자에 들어갔고, 그러면 이 임계는 구조적으로 통과 불가다(RTO가 0이 아닌 한
+// 창 동안 접수는 반드시 실패한다). 창의 판정은 아래 chaos 서브메트릭이 따로 맡는다.
+const thresholds = {
+  // 분자를 접수 요청(POST /orders)으로 좁힌다. 종전 scenario 단독 필터는 같은 시나리오 안에서
+  // 일어나는 by-client 재조회까지 삼켰다. 재조회의 409 requery_deferred는 판정 보류(백프레셔)이고
+  // 404는 미접수 확인이라 둘 다 규약상 정상 경로인데, 가용성 임계의 실패 분자로 계상됐다.
+  // expectedStatuses에 409를 전역 추가하는 방식은 쓰지 않는다. POST /orders의
+  // duplicate_client_order_id·order_in_progress까지 성공으로 계상돼 진짜 거절이 가려진다.
+  'http_req_failed{scenario:orders_steady,name:placeOrder,phase:steady}': ['rate<0.001'], // 가용성 99.9%, 수용 제한 응답 제외
+  // 재조회는 별도 임계로 관측을 유지한다. 200·404·409·429를 그 요청에 한해 정상으로 선언했으므로
+  // (lookupByClient의 responseCallback) 이 분자에는 5xx·타임아웃만 남는다. 정상 창 한정인 것은
+  // 카오스 창에서는 재조회 5xx가 정상 재시도 대상이기 때문이다. 그 창의 규약 위반은 이 임계가
+  // 아니라 idempotent_safe가 잡는다(전역 rate==1).
+  'http_req_failed{name:lookup,phase:steady}': ['rate<0.001'],
+  'accepted_req_duration{scenario:orders_steady}': ['p(95)<200', 'p(99)<500'], // 수용 요청 SLO(API§7-4)
+  'checks{check:idempotent_safe}': ['rate==1'],   // UNKNOWN→재조회→재전송 규약 위반 0
+  'ws_seq_gap{phase:steady}': ['count==0'],       // 정상 창 seq 결번 0(카오스 창은 phase:chaos 제외)
+  'ws_epoch_resync_fail': ['count==0'],           // epoch 변화·gap 후 재동기화 실패 0(전역)
+  // 이중 신규 접수 0 검증은 서버측 C07'(command_journal NEW 축) 상시 검증이 전담한다(§4-1).
+  // k6는 UNKNOWN 시 재조회만 하고 재전송 경로가 없어 dup를 만들 수 없으므로, 여기에 임계를
+  // 두면 어떤 상태에서도 통과하는 토톨로지가 된다(§2-2).
+};
+
+// 페일오버 창 임계. 상한을 RTO 목표에서 유도한다: 창 전체가 RTO 목표만큼 끊겨도 정상이므로
+// 실패율 상한 = RTO 목표 / 창 길이. 창이 RTO 예산보다 짧으면 상한이 1 이상이라 판별력이 없으므로
+// 임계를 걸지 않는다(어떤 값에도 통과하는 토톨로지 방지). 카오스 창 미설정(T0/T1 부재) 시에도
+// 표본이 없어 공허 통과가 되므로 선언하지 않는다.
+if (Number.isFinite(CHAOS_WINDOW_S) && CHAOS_WINDOW_S > 0 && RTO_TARGET_S < CHAOS_WINDOW_S) {
+  const max = (RTO_TARGET_S / CHAOS_WINDOW_S).toFixed(4);
+  thresholds['http_req_failed{scenario:orders_steady,name:placeOrder,phase:chaos}'] = [`rate<${max}`];
+}
 
 export const options = {
   scenarios: {
@@ -70,26 +110,7 @@ export const options = {
       duration: P.total, exec: 'wsSubscribe',
     },
   },
-  thresholds: {
-    // 분자를 접수 요청(POST /orders)으로 좁힌다. 종전 scenario 단독 필터는 같은 시나리오 안에서
-    // 일어나는 by-client 재조회까지 삼켰다. 재조회의 409 requery_deferred는 판정 보류(백프레셔)이고
-    // 404는 미접수 확인이라 둘 다 규약상 정상 경로인데, 가용성 임계의 실패 분자로 계상됐다.
-    // expectedStatuses에 409를 전역 추가하는 방식은 쓰지 않는다. POST /orders의
-    // duplicate_client_order_id·order_in_progress까지 성공으로 계상돼 진짜 거절이 가려진다.
-    'http_req_failed{scenario:orders_steady,name:placeOrder}': ['rate<0.001'], // 가용성 99.9%, 수용 제한 응답 제외
-    // 재조회는 별도 임계로 관측을 유지한다. 200·404·409·429를 그 요청에 한해 정상으로 선언했으므로
-    // (lookupByClient의 responseCallback) 이 분자에는 5xx·타임아웃만 남는다. 정상 창 한정인 것은
-    // 카오스 창에서는 재조회 5xx가 정상 재시도 대상이기 때문이다. 그 창의 규약 위반은 이 임계가
-    // 아니라 idempotent_safe가 잡는다(전역 rate==1).
-    'http_req_failed{name:lookup,phase:steady}': ['rate<0.001'],
-    'accepted_req_duration{scenario:orders_steady}': ['p(95)<200', 'p(99)<500'], // 수용 요청 SLO(API§7-4)
-    'checks{check:idempotent_safe}': ['rate==1'],   // UNKNOWN→재조회→재전송 규약 위반 0
-    'ws_seq_gap{phase:steady}': ['count==0'],       // 정상 창 seq 결번 0(카오스 창은 phase:chaos 제외)
-    'ws_epoch_resync_fail': ['count==0'],           // epoch 변화·gap 후 재동기화 실패 0(전역)
-    // 이중 신규 접수 0 검증은 서버측 C07'(command_journal NEW 축) 상시 검증이 전담한다(§4-1).
-    // k6는 UNKNOWN 시 재조회만 하고 재전송 경로가 없어 dup를 만들 수 없으므로, 여기에 임계를
-    // 두면 어떤 상태에서도 통과하는 토톨로지가 된다(§2-2).
-  },
+  thresholds,
 };
 
 // k6 기본은 429=실패다. 이 선언이 없으면 가용성 지표가 오염된다(§2-2). init 단계 의무.
@@ -167,6 +188,9 @@ export function placeOrder() {
 
   // 5xx/timeout(status 0) = UNKNOWN. 재조회로 안전 판정한다. 재조회 없이 재전송하면 이중 접수.
   if (res.status >= 500 || res.status === 0) {
+    // 페일오버 창 실패는 위 가용성 임계에서 빠지므로 여기에 별도로 남긴다. 창을 제외한다는 것이
+    // 관측을 버린다는 뜻이 되면 안 된다. 창 판정은 phase:chaos 서브메트릭 임계가 맡는다.
+    if (ph === 'chaos') { chaosWindow5xx.add(1); }
     const look = lookupByClient(o.clientOrderId, c, ph);
     // 200=이미 접수(응답만 유실, 재전송 금지), 404=미접수(안전 재전송 가능). 어느 쪽이든
     // 이중 접수를 만들지 않으면 규약 준수. 409(내용 상이 충돌)도 재전송 아님이라 safe로 본다.
