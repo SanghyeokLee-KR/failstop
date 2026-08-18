@@ -8,11 +8,12 @@
 }
 
 /* 계기 명판(§6.3). 헤더 없는 패널의 계측기 명판. 컨트롤(head/tf)과 좌측 정렬.
-   지연 배지를 같은 줄에 둔다(A-5) */
+   지연 배지를 같은 줄에 두고, 배지 높이(micro 15px + 상하 padding 3px)를 미리 비워 시프트 0 */
 .plate {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: 21px;
   padding: 0 var(--space-1);
 }
 

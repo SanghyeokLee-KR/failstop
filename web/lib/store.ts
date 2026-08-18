@@ -488,12 +488,14 @@ export function useMemberSessionBootstrap(): void {
  */
 export function useMarketSpecs(): Market[] {
   const markets = useExchangeStore((s) => s.markets);
+  const connected = useExchangeStore((s) => s.connected);
   const loadMarkets = useExchangeStore((s) => s.loadMarkets);
   useEffect(() => {
     if (markets.length > 0) return;
-    // 조회 실패는 폴백 자릿수로 열화한다. 화면을 막지 않고 다음 마운트에서 다시 시도한다
+    // 조회 실패는 폴백 자릿수로 열화한다. 화면을 막지 않고 연결 전이마다 다시 시도한다.
+    // 재시도 트리거가 없으면 첫 조회 실패가 그 마운트 내내 위조된 자릿수를 고정한다
     void loadMarkets().catch(() => {});
-  }, [markets.length, loadMarkets]);
+  }, [markets.length, connected, loadMarkets]);
   return markets;
 }
 

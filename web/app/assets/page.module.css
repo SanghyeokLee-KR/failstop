@@ -29,11 +29,13 @@
   flex-direction: column;
   gap: var(--space-1);
 }
-/* 명판 + 지연 배지 한 줄. 배지는 또렷이 유지하고 값만 감쇠한다(A-5) */
+/* 명판 + 지연 배지 한 줄. 배지는 또렷이 유지하고 값만 감쇠한다(A-5).
+   배지 높이(micro 15px + 상하 padding 3px)를 미리 비워 단절 전환에 세로 시프트가 없다 */
 .heroPlate {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: 21px;
 }
 
 .heroValue {

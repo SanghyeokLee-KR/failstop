@@ -64,11 +64,11 @@ export default function RankingTable() {
   return (
     <section className={`card ${styles.root}`} aria-label="실시간 순위">
       <header className={styles.header}>
-        <span className={styles.titleRow}>
+        <div className={styles.titleRow}>
           <h2 className={styles.title}>실시간 순위</h2>
           {/* 낭독은 배너가 화면당 1회. 패널 배지는 시각 표식만 담당한다(A-5) */}
           {!connected && <StaleBadge label="지연" announce={false} />}
-        </span>
+        </div>
         <SegmentedTab
           items={TABS}
           value={tab}
