@@ -6,7 +6,8 @@
 > 2026-07-24: §5-6 C-카탈로그에 C21~C23(전부 CRITICAL, InvariantCheck enum 실재분) 수록, InvariantViolation 라우팅 열거 갱신. 단일 권위는 검증설계 §4-1 불변(§5-6은 2차 미러).
 > 2026-07-24 2차: 전제 계약 핀을 실헤더 기준으로 갱신(DB v2.5→v2.17, API v2.4→v2.15). 하네스_검증설계.md 핀(v2.17/v2.15)과 통일. §8 정정 권고 항목은 발견 시점 기록으로 존치.
 > 2026-08-07: §5-2에 `exchange.leader.recoverable_standdown` 등재(DB v2.24 §5.4 회복 가능 반납 관측 축). 종신 강등 축과 합치지 않는 근거와 판독 조합을 미방출 항목 절에 병기. 전제 계약 핀은 검증설계와 통일 유지를 위해 이번에 건드리지 않는다(DB 실헤더는 v2.26, 핀 갱신은 두 문서 동시 처리 필요).
-> 2026-08-07 2차: `exchange_leader_recoverable_standdown_total`을 §5-4 알람 룰과 E2 실험 판정에 배선. 종전에는 §5-2 등재와 판독 조합 PromQL만 있어 자동 판정이 아니라 수동 판독 지침이었다.
+> 2026-08-07 2차: `exchange_leader_recoverable_standdown_total`을 §5-6 알람 룰과 E2 실험 판정에 배선. 종전에는 §5-2 등재와 판독 조합 PromQL만 있어 자동 판정이 아니라 수동 판독 지침이었다.
+> 2026-08-18: 헤더의 알람 룰 절 번호를 §5-4에서 §5-6으로 정정하고, §5-6 표에 RecoverableStandDownRepeating 행을 수록(종전에는 룰 파일에만 있어 문서 미러가 비어 있었다). 같은 신호의 임계 셋이 기저가 달라 공존하는 근거를 §5-2 미방출 항목 절과 룰 주석에 명시.
 
 ---
 
@@ -671,7 +672,7 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 - `exchange.duplicate.fills`: InvariantVerifier의 C-카탈로그 검증(중복 체결 0)이 `exchange_invariant_violations{check_name}`로 이미 커버해 별도 Counter는 중복이라 방출하지 않는다.
 - `exchange.ws.clients`: `channel` 태그는 연결 단위 계량이라 단일 값(`stomp`)만 방출한다. 목적지별 분해는 세션-구독 회계가 필요해 후속.
 - `exchange.orders.rejected`: `reason`은 종결 거부(4xx: 429·422·400·403·413) 에러코드 집합이며 429는 대시보드 PromQL 정합을 위해 `rate_limited`로 정규화한다. 409·503은 재조회 수렴 신호라 거부율에서 제외한다.
-- `exchange.leader.standdown` / `exchange.leader.recoverable_standdown`: 두 축을 합치지 않는다. 전자는 종신 강등(복귀는 재기동)이고 후자는 승격 재생 실패의 회복 가능 반납(만료 후 같은 노드 재승격 허용)이라, 합치면 [재생 실패 -> 반납 -> 재승격]의 반복이 자발적 강등 1회와 구분되지 않는다. 반복 자체는 `exchange_leader_epoch` 계단으로도 정상 페일오버와 갈리지 않는다. 라이브 판독 조합은 `increase(exchange_leader_recoverable_standdown_total[5m]) > 1 and exchange_leader_is_leader == 0`이며, 참이면 그 노드의 재생이 결정적으로 실패한다는 뜻이라 데이터 쪽을 본다. 노출명 정합은 `AdmissionIntegrationTest.prometheusExposesContractedMeterNames`가 스크레이프 본문으로 고정한다(익스포트를 켠 컨텍스트가 그것뿐이라 §5-2 노출명 검증의 단일 고정점으로 둔다). 레지스트리 조회만으로는 점 표기와 스크레이프명의 불일치가 잡히지 않아 게이트가 공허 통과한다.
+- `exchange.leader.standdown` / `exchange.leader.recoverable_standdown`: 두 축을 합치지 않는다. 전자는 종신 강등(복귀는 재기동)이고 후자는 승격 재생 실패의 회복 가능 반납(만료 후 같은 노드 재승격 허용)이라, 합치면 [재생 실패 -> 반납 -> 재승격]의 반복이 자발적 강등 1회와 구분되지 않는다. 반복 자체는 `exchange_leader_epoch` 계단으로도 정상 페일오버와 갈리지 않는다. 라이브 판독 조합은 `increase(exchange_leader_recoverable_standdown_total[5m]) > 1 and exchange_leader_is_leader == 0`이며, 참이면 그 노드의 재생이 결정적으로 실패한다는 뜻이라 데이터 쪽을 본다. **같은 신호에 임계가 셋 공존하는데 기저가 달라서 통일하지 않는다.** 여기 판독 조합과 E2 실험 게이트는 `> 1`이고 §5-6 알람 룰만 `> 2`다. 실험 게이트는 주입 전후 델타, 즉 한 페일오버 사건의 실측 반납 횟수를 세므로 정상 상한 1을 그대로 임계로 쓴다. 알람 룰의 `increase()`는 5분 창의 외삽 추정치이고 카운터가 창 경계에서 1회만 올라도 1을 넘는 소수값이 나올 수 있어, `> 1`로 두면 정상 페일오버 1회가 critical을 발화시킨다. `> 2`의 마진은 그 외삽 오차를 흡수하려는 것이지 정상 상한이 2라는 뜻이 아니다. 판독 조합이 `> 1`인 것은 사람이 `exchange_leader_is_leader == 0` 동반 조건과 함께 읽는 수동 축이라 오탐 비용이 낮기 때문이다. **따라서 일괄 `> 1` 통일은 권장하지 않는다.** 노출명 정합은 `AdmissionIntegrationTest.prometheusExposesContractedMeterNames`가 스크레이프 본문으로 고정한다(익스포트를 켠 컨텍스트가 그것뿐이라 §5-2 노출명 검증의 단일 고정점으로 둔다). 레지스트리 조회만으로는 점 표기와 스크레이프명의 불일치가 잡히지 않아 게이트가 공허 통과한다.
 - `exchange.admission.*`: 수용 제한은 인증 이전(AdmissionFilter, order 6)에서 거절하므로 컨트롤러 계층의 `exchange.orders.rejected`에 잡히지 않는다. 의도적 분리다. 후자는 '클라이언트가 요청을 고쳐야 하는 종결 거부'이고 전자는 '같은 요청을 그대로 재시도하면 되는 노드 포화'라 한 시계열에 섞으면 거부율의 의미가 무너진다. `scope`는 `order`·`query`·`requery` 3값 고정이다. 태그 없이 조회하면 세 시계열이 따로 반환되므로 총량은 `sum(...)`으로 집계한다. 라이브 판독의 핵심 조합은 버킷별 포화도 `exchange_admission_in_flight / exchange_admission_limit`와 거절률 `rate(exchange_admission_rejected_total[1m])`이다. 판독 주의 둘. (1) `scope=query`는 주문 쓰기가 아닌 쓰기(로그인·게시글 작성)도 포함하므로 순수 조회 지표가 아니다. (2) `scope=requery`의 증가는 HTTP 429가 아니라 `409 requery_deferred`(판정 보류)를 뜻한다. 다른 두 버킷과 달리 종결 거절이 아니며 k6의 `idempotent_safe` 판정에서 안전으로 계상된다.
 
 ### 5-3. Prometheus 구성 (`infra/prometheus/prometheus.yml`)
@@ -783,6 +784,7 @@ datasources:
 | `OrderP99SloBreach` | `exchange:order_latency:p99_1m` | `>0.5` for 2m | warning |
 | `FailoverRtoExceeded` | `max(exchange_failover_downtime_seconds)` | `>30` | critical |
 | `LeaderAbsent` | `absent(exchange_leader_is_leader == 1)` | for 15s | critical |
+| `RecoverableStandDownRepeating` | `increase(exchange_leader_recoverable_standdown_total[5m])` | `>2` | **critical** |
 | `SnapshotPersistFailed` | `rate(exchange_snapshot_persist_failed_total[5m])` | `>0` for 1m | warning |
 | `SnapshotDropped` | `rate(exchange_snapshot_dropped_total[5m])` | `>0` for 1m | warning |
 | `SnapshotStalled` | `changes(exchange_snapshot_last_persisted_seq[5m])==0 and rate(exchange_snapshot_captured_total[5m])>0` | for 2m | warning |
