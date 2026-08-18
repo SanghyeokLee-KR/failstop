@@ -2,6 +2,13 @@
 # 실험 판정 프로토콜(사전 권위 run → 주입 → 무개입 관찰 → 사후 권위 run).
 # 판정: 유실 0 · 중복 0 · 자산합 0 · epoch 정확히 +1 · RTO < 30s.
 # 개입 금지 구간(kill 이후)에서 스크립트는 관찰·기록만 한다.
+#
+# 실행 전제: 실험 사이에 down -v + up으로 스택을 새로 세운다. compose가 api-2 기동을 api-1
+# readiness에 종속시키므로 신선한 스택의 리더는 결정적으로 api-1이다. 전제를 생략하면 api-1이
+# restart: unless-stopped라 kill한 노드가 팔로워로 부활하고, 그러면 다음 실행의 리더는 api-2다.
+# 그때 config TARGET_NODE 기본값(chaos-api-1)을 그대로 믿으면 팔로워를 죽이게 되므로 아래에서
+# 실 리더를 감지해 덮어쓴다. E5·E7이 남긴 종신 강등도 프로세스 내 플래그라 재기동 전까지
+# 승격 후보로 돌아오지 않는다(E5 헤더와 같은 규약).
 param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e4.env'))
 
 $ErrorActionPreference = 'Stop'
@@ -17,7 +24,7 @@ function Get-CheckRows { param($Run, [string] $Name)
 }
 function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
 
-Write-Section "E4 시작 runId=$runId target=$target"
+Write-Section "E4 시작 runId=$runId"
 
 # ── 워밍업: 정상 부하로 체결 축적 ──────────────────────────────────────
 Write-Section 'warmup'
@@ -26,6 +33,21 @@ $minTrades = [long]$cfg['MIN_TRADES_BEFORE_KILL']
 $ok = Wait-For { (Get-TradeCount) -ge $minTrades } -TimeoutSec 120 -PollSec 1
 if (-not $ok) { throw "체결 $minTrades 건 미달, 봇 플릿 상태 확인" }
 Write-Host "누적 체결: $(Get-TradeCount)"
+
+# ── 리더 감지: 실 리더를 kill 대상 삼는다 ──────────────────────────────
+# config 기본값은 갓 세운 스택에서만 맞다. 앞선 실험이 리더를 api-2로 남겼으면 팔로워를 죽이게
+# 되고, 그때는 승격이 없어 epoch 불변·RTO n/a로 확정 FAIL이 난다. 그 FAIL은 코드 결함이 아니라
+# 판정 결함이다. Get-LeaderContainer는 다중 매치를 모호로 보고 $null을 돌려주므로 감지 실패는
+# 강행하지 않고 멈춘다(E5·E6와 동형).
+$detected = Get-LeaderContainer
+if (-not $detected) {
+    throw '리더 감지 실패. 실 리더를 특정하지 못한 채 kill하면 판정이 무의미하다. leader_lease holder와 컨테이너 로그를 대조해 확인한 뒤 재실행한다.'
+}
+$target = $detected
+# 승격 관찰처는 감지된 리더의 반대 노드다. api-2로 고정하면 리더가 api-2일 때 방금 죽인 노드를
+# 폴링하게 되어 승격을 영영 못 본다.
+$standbyPort = if ($detected -eq 'chaos-api-1') { $Global:CHAOS.Api2Port } else { $Global:CHAOS.Api1Port }
+Write-Host "리더 감지: $target (config TARGET_NODE와 무관하게 실 리더 대상). standby 포트=$standbyPort"
 
 # ── ⓐ 사전 권위 run ───────────────────────────────────────────────────
 Write-Section 'ⓐ 사전 권위 run'
@@ -43,6 +65,20 @@ if ($pre.verdict -ne 'PASS') { Write-Host '경고: 사전 run이 PASS가 아님.
 # ── 시계 동기 전제조건(#58): 스큐면 주입 없이 SKIP(거짓 FAIL 방지) ─────────
 if (Test-FailoverClockGuard -ExperimentId 'E4') { exit 0 }
 
+# ── 주입 직전 대상 재확인 ──────────────────────────────────────────────
+# 감지(워밍업 직후)와 주입 사이에 사전 권위 run(최대 60s)·시계가드가 들어간다. 카오스 리스 TTL이
+# 6s라 그 창에서 리더가 바뀔 수 있고, 그러면 감지값이 다시 팔로워를 가리켜 이번 실행이 막으려던
+# 위양성이 그대로 재현된다.
+$reDetected = Get-LeaderContainer
+if ($reDetected -ne $target) {
+    $now = if ($reDetected) { $reDetected } else { '판별 불가' }
+    throw "주입 직전 리더 교체 감지(감지 $target -> 현재 $now). 대상이 팔로워가 되므로 주입하지 않는다."
+}
+# 스탠바이 도달성 전제. 승격 후보가 없는 상태에서 리더를 죽이면 두 노드가 모두 죽고, 관찰 루프
+# 다음의 $statusAfter 조회가 예외로 터져 verdict·failover_runs 적재·증거 출력이 통째로 사라진다.
+try { Get-HarnessStatus -Port $standbyPort | Out-Null }
+catch { throw "스탠바이(포트 $standbyPort) 미응답. 승격 후보 없이 kill하면 클러스터가 전멸하고 증거도 남지 않는다. down -v + up으로 스택을 새로 세운 뒤 재실행한다." }
+
 # ── ⓑ 주입: 리더 kill(T0) ──────────────────────────────────────────────
 Write-Section 'ⓑ 주입: docker kill'
 $t0 = (Get-Date).ToUniversalTime()
@@ -52,7 +88,6 @@ Write-Host "T0=$($t0.ToUniversalTime().ToString('o')) killed=$target trades_at_k
 
 # ── ⓒ 무개입 관찰: 승격(epoch+1) → 체결 재개 ───────────────────────────
 Write-Section 'ⓒ 관찰(개입 금지)'
-$standbyPort = $Global:CHAOS.Api2Port
 $t2 = Wait-For {
     try { $s = Get-HarnessStatus -Port $standbyPort; ($s.epoch -gt $oldEpoch) -and $s.leaderAlive }
     catch { $false }
