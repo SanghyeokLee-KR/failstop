@@ -11,5 +11,5 @@
     "noEmit": false,
     "outDir": ".test-dist"
   },
-  "include": ["tests/**/*.ts", "lib/api/**/*.ts", "lib/types.ts", "lib/store.ts", "lib/sim/**/*.ts", "lib/format.ts", "lib/community/**/*.ts", "components/trade/derive.ts", "components/trade/orderKey.ts", "components/trade/orderMath.ts", "components/trade/effectGovernor.ts", "components/chart/tradeDedup.ts"]
+  "include": ["tests/**/*.ts", "lib/api/**/*.ts", "lib/types.ts", "lib/store.ts", "lib/sim/**/*.ts", "lib/format.ts", "lib/entryGate.ts", "lib/community/**/*.ts", "components/trade/derive.ts", "components/trade/orderKey.ts", "components/trade/orderMath.ts", "components/trade/effectGovernor.ts", "components/chart/tradeDedup.ts"]
 }

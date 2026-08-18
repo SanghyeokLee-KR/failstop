@@ -22,6 +22,18 @@ npm run build   # 타입 검사 포함, out/ 정적 산출물 생성
 
 `output: "export"` 설정이라 `next start`는 사용하지 않는다. 빌드 결과 `out/`을 정적 서버로 서빙한다.
 
+dev 서버가 떠 있는 동안 같은 트리에서 빌드하지 않는다. 프로덕션 산출물이 dev 청크를 덮어
+가동 중인 화면이 404·500으로 죽는다. 확인이 필요하면 분리 체크아웃에서 돌린다.
+
+```bash
+git worktree add --detach /tmp/webbuild HEAD
+cmd /c mklink /J /tmp/webbuild/web/node_modules <repo>/web/node_modules  # 의존성만 공유
+cd /tmp/webbuild/web && npm run build
+```
+
+`distDir`로 갈라 쓰는 방법은 통하지 않는다. `output: "export"`에서 `distDir`은 빌드 작업
+디렉터리가 아니라 export 출력 경로라, `.next`는 그대로 덮이고 산출물만 `out/` 밖으로 나간다.
+
 시뮬레이터 상태(주문·자산)는 인메모리. SPA 내비게이션에서는 유지되고 전체 페이지 리로드 시 초기화된다.
 
 ## 라우트
