@@ -622,7 +622,8 @@ function Get-AppMetric {
 # 관측되면 그 자체가 split-brain 참양성이다. 두 체크를 빼면 fencing 역행·채번 재사용이라는
 # CRITICAL 위반이 실험 사후 권위 run을 그대로 통과한다.
 #
-# 서버 Scope.AUTHORITATIVE_ONLY(5건)와 이 목록(3건)은 서로 다른 축이다. 전자는 "어느 run에서
+# 서버 Scope.AUTHORITATIVE_ONLY(7건: C13A·C16·C19·C22·C23·C24·C25)와 이 목록(3건)은 서로 다른
+# 축이다. C24·C25가 늘면서 5건에서 7건이 됐다(V13 원가 프로젝션). 전자는 "어느 run에서
 # 평가하는가"이고 후자는 "평가된 결과를 게이팅에 쓰는가"다. 두 목록을 1:1로 맞추면 C22·C23이
 # 게이팅에서 빠진다.
 #

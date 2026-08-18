@@ -1,7 +1,11 @@
 -- ============================================================================
 -- invariants.sql
--- 불변식 검증 카탈로그 C01~C19의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL
+-- 불변식 검증 카탈로그 C01~C25의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL
 -- 컬럼명(server V1__init.sql, trades.id = event_seq)에 맞춰 옮긴다.
+-- C20~C25는 술어 정본이 앱 InvariantCheck enum이다. 앱은 count(*)로 감싸고 여기서는 같은
+-- 술어의 위반 행을 낸다. 윈도·조인 조건을 바꾸면 두 경로가 갈리므로 축어 이식만 한다.
+-- C24·C25는 V13이 만든 검증 뷰를 그대로 조회한다. 사본 SQL을 두면 라이브 산식과 감사 산식이
+-- 두 벌이 되어 갈린다(앱도 같은 뷰를 조회한다).
 --
 -- 용도: ① 발표 데모 §7의 "DB 원본에 SQL 즉석 실행 → 0행"(검증기 UI보다 강한 증거)
 --       ② 앱 검증기 밖에서의 수동 감사 경로. C03·C09~C12·C15는 앱 InvariantVerifier
@@ -10,9 +14,16 @@
 --       건별 카운트로 집계한 기계 판정용 1화면 요약이다.
 --
 -- 실행: psql -U exchange -d exchange -f invariants.sql
--- 주의: C16(실험 한정)·C19/C13a(정지 시점 한정)는 라이브 프로젝션 지연·스테일
---       loadtest_acks로 오탐할 수 있어 상시 스케줄이 아닌 권위 run/정지 상태에서만
---       유효하다(§4-2 ④, InvariantCheck.Scope.AUTHORITATIVE_ONLY와 동일 규율).
+-- 주의: C16(실험 한정)·C19/C13a(정지 시점 한정)·C22·C23·C24·C25(권위 run 한정)는 라이브
+--       프로젝션 지연·스테일 loadtest_acks·미재구축 원가로 오탐할 수 있어 상시 스케줄이
+--       아닌 권위 run/정지 상태에서만 유효하다(§4-2 ④,
+--       InvariantCheck.Scope.AUTHORITATIVE_ONLY와 동일 규율).
+-- 미정합 1건(기록): C08·C09·C11·C12·C18은 앱 enum에 있는 90일 윈도가 없다. 전량 스캔이라
+--       위반을 놓치지는 않는다. 다만 파티션 축이 서로 다르다(trades=RANGE(created_at),
+--       event_journal=RANGE(event_seq), command_journal=RANGE(seq)). detach를 시작하면 축마다
+--       잘리는 시점이 어긋나 C09·C12가 이미 detach된 상대를 찾으며 거짓 FAIL을 낼 수 있다.
+--       C08·C11·C18은 조인 상대가 비파티션(trade_seq_registry·orders)이라 무관하다.
+--       현재는 detach 운용 전이라 무해하고, detach 도입 시 두 축을 맞춰야 한다.
 -- ============================================================================
 \pset pager off
 \timing off
@@ -146,3 +157,79 @@ WHERE status IN ('OPEN','PARTIAL') AND price IS NOT NULL
 GROUP BY market_id
 HAVING max(price) FILTER (WHERE side = 'BUY')
        >= min(price) FILTER (WHERE side = 'SELL');
+
+\echo '== C20 ORDER_FEE_MATERIALIZED [HIGH] orders 수수료 물질화 = trades 자기측 fee leg 합 =='
+-- paid_fee·trades_count는 trade INSERT와 동일 정산 트랜잭션의 누적 프로젝션(V10). 자기측 fee는
+-- maker면 maker_fee, taker면 taker_fee. 90일 윈도는 §4-2 ③ 규약(주문 생성이 체결보다 앞서므로
+-- 90일 내 주문의 leg는 전부 attached 파티션에 있다).
+SELECT o.id
+FROM orders o
+LEFT JOIN (
+    SELECT maker_order_id AS oid, maker_fee AS fee FROM trades
+    WHERE created_at >= now() - interval '90 days'
+    UNION ALL
+    SELECT taker_order_id AS oid, taker_fee AS fee FROM trades
+    WHERE created_at >= now() - interval '90 days'
+) legs ON legs.oid = o.id
+WHERE o.created_at >= now() - interval '90 days'
+GROUP BY o.id, o.paid_fee, o.trades_count
+HAVING o.paid_fee <> COALESCE(SUM(legs.fee), 0)
+    OR o.trades_count <> COUNT(legs.oid);
+
+\echo '== C21 EVENT_EMISSION_REGISTRY [CRITICAL] event_journal 대 방출 레지스트리 1:1 =='
+-- 양방향 anti-join. AFTER INSERT 트리거가 방출 시점 정방향만 강제하므로, 트리거 실패·저널
+-- 우회 삽입이 만든 유실·유령 이벤트를 event_seq gapless(C06)로는 못 잡는다. 윈도는
+-- event_journal.created_at(engine_ts 파생) 한쪽에만 걸고 존재 검사측은 무윈도라,
+-- registry.created_at(DEFAULT now())이 달라도 경계 오탐이 구조적으로 불가능하다.
+SELECT e.event_seq FROM event_journal e
+LEFT JOIN event_emission_registry r ON r.event_seq = e.event_seq
+WHERE e.created_at >= now() - interval '90 days' AND r.event_seq IS NULL;
+SELECT r.event_seq FROM event_emission_registry r
+LEFT JOIN event_journal e ON e.event_seq = r.event_seq
+WHERE r.created_at >= now() - interval '90 days' AND e.event_seq IS NULL;
+
+\echo '== C22 FENCING_MONOTONIC [CRITICAL, 권위 run 한정] fencing_token 비감소 =='
+-- 리더 epoch는 seq 오름차순으로 비감소여야 한다(split-brain 부재). assert_current_leader가
+-- 라이브 강제이고 이 감사는 그 백스톱이라 정지 시점 권위 run에서만 평가한다.
+SELECT t.seq, t.prev, t.fencing_token FROM (
+    SELECT seq, fencing_token,
+           lag(fencing_token) OVER (ORDER BY seq) AS prev
+    FROM command_journal
+) t
+WHERE t.prev > t.fencing_token;
+
+\echo '== C23 COUNTER_SEQ_CONSISTENCY [CRITICAL, 권위 run 한정] 채번 카운터 > 저널 최대 seq =='
+-- next_value가 저널 최대 seq 이하이면 다음 채번이 기존 seq와 충돌한다(재사용). 정상 채번은
+-- 원자적이라 라이브에선 항상 max+1 이상이고, 백업 복원·수동 리시드가 카운터를 저널 아래로
+-- 되돌리는 경우만 위반이다.
+SELECT c.name, c.next_value FROM journal_counters c
+WHERE (c.name = 'command_seq'
+         AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal))
+   OR (c.name = 'event_seq'
+         AND c.next_value <= (SELECT COALESCE(max(event_seq), 0) FROM event_journal));
+
+-- V13 미적용 DB에서는 아래 두 뷰가 없다. 무조건 조회하면 ON_ERROR_STOP 경로가 C24 이전
+-- 24개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이
+-- 거짓 통과다. 부재 시 SKIP을 크게 찍고 종료 상태를 남긴다.
+SELECT (to_regclass('public.position_cost_qty_check') IS NOT NULL
+        AND to_regclass('public.position_cost_sanity_check') IS NOT NULL) AS has_cost_views \gset
+
+\if :has_cost_views
+\echo '== C24 POSITION_COST_QTY [WARN, 권위 run 한정] 원가 수량 보존 =='
+-- 항등(cost_qty + unknown_qty = available + locked) 위반 행. 초과는 처분 차감 누락, 미달은
+-- 취득 누산 누락이며 어느 방향이든 위반이다. 술어 정본은 V13 뷰다.
+-- WARN인 이유: position_cost는 계층 ③ 파생이라 위반해도 자금·원장은 무손상이고 조치가
+-- rebuild_position_cost() 재구축이다. CRITICAL로 올리면 §4-3 자동 조치인 거래 정지까지 유발한다.
+-- 권위 run 한정인 이유: 주입 창에서는 재구축이 안 돈 시점이라 위반이 장애가 아니라 미반영이다.
+SELECT * FROM position_cost_qty_check;
+
+\echo '== C25 POSITION_COST_SANITY [WARN, 권위 run 한정] 원가 누산기 정합 =='
+-- 뷰가 분류하는 위반 5종: negative_accumulator·cost_pair_broken·watermark_ahead·
+-- quote_asset_position·cost_currency_invalid. 테이블 CHECK로 이미 막히는 항목까지 두는 것은
+-- SECURITY DEFINER 우회·수퍼유저 직접 DML의 회귀 안전망이다.
+SELECT * FROM position_cost_sanity_check;
+\else
+\echo '== C24 POSITION_COST_QTY [WARN] SKIP: V13 미적용(position_cost 검증 뷰 부재) =='
+\echo '== C25 POSITION_COST_SANITY [WARN] SKIP: V13 미적용(position_cost 검증 뷰 부재) =='
+\echo '   원가 프로젝션 미평가. 이 DB에 V13을 적용한 뒤 재실행해야 C24·C25 판정이 성립한다.'
+\endif
