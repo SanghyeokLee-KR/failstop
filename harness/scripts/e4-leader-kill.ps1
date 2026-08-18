@@ -88,6 +88,10 @@ catch { throw "스탠바이(포트 $standbyPort) 미응답. 승격 후보 없이
 
 # ── ⓑ 주입: 리더 kill(T0) ──────────────────────────────────────────────
 Write-Section 'ⓑ 주입: docker kill'
+# T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다(E5·E7과 동형). ⓐ 시점
+# 스냅샷을 쓰면 사전 권위 run·시계가드·리더 재확인이 도는 동안의 갱신분이 그대로
+# 다운타임에 더해져 과대 산출된다.
+$leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort).leaseUntil).UtcDateTime
 $t0 = (Get-Date).ToUniversalTime()
 $tradesAtKill = Get-TradeCount
 & docker kill $target | Out-Null

@@ -56,6 +56,10 @@ try {
     if (Test-FailoverClockGuard -ExperimentId 'E2') { exit 0 }
 
     Write-Section "ⓑ 주입: $($cfg['TOXIC_TYPE']) blackhole on $proxy"
+    # T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다(E5·E7과 동형). ⓐ 시점
+    # 스냅샷을 쓰면 사전 권위 run·메트릭 기저·시계가드가 도는 동안의 갱신분이 그대로
+    # 다운타임에 더해져 과대 산출된다.
+    $leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort).leaseUntil).UtcDateTime
     $t0 = (Get-Date).ToUniversalTime()
     $tradesAtInject = Get-TradeCount
     # timeout=0: 연결 유지·무응답(소켓/풀 타임아웃 검증). 리더 DB 경로만 차단(노드 축 선택성).

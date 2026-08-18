@@ -75,6 +75,11 @@ try {
     if (Test-FailoverClockGuard -ExperimentId 'E6') { exit 0 }
 
     Write-Section 'ⓑ 주입: docker kill (스파이크 plateau 중)'
+    # T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다(E5·E7과 동형). ⓐ 시점
+    # 스냅샷을 쓰면 그 사이의 갱신분이 그대로 다운타임에 더해진다. E6은 ⓐ와 kill 사이에
+    # 스파이크 적용 + KILL_AFTER_SPIKE_SEC(30s) + 스파이크 권위 run + 시계가드가 들어가 그
+    # 편향이 가장 크다(실측: RTO 0.086s인 run이 downtime 38.777s로 보고됐다).
+    $leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort).leaseUntil).UtcDateTime
     $t0 = (Get-Date).ToUniversalTime()
     $tradesAtInject = Get-TradeCount
     & docker kill $target | Out-Null
