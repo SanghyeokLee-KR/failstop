@@ -112,6 +112,11 @@ if (Number.isFinite(CHAOS_WINDOW_S)) {
     max = (RTO_TARGET_S / CHAOS_WINDOW_S).toFixed(4);
   }
   thresholds['http_req_failed{scenario:orders_steady,name:placeOrder,phase:chaos}'] = [`rate<${max}`];
+  console.log(`CHAOS_WINDOW|${JSON.stringify({ t0: T0, t1: T1, windowSec: CHAOS_WINDOW_S, failover: FAILOVER_WINDOW, rtoTargetSec: FAILOVER_WINDOW ? RTO_TARGET_S : null, chaosFailMax: max })}`);
+} else if (FAILOVER_WINDOW) {
+  // 창 없이 표식만 온 경우. 동작은 옳지만(창 표본이 없어 판정 대상이 없다) 조용히 버리면
+  // 오케스트레이터가 창을 빠뜨린 사실이 리포트에 남지 않는다. 무시했다는 것을 기록한다.
+  console.log('CHAOS_WINDOW|{"note":"FAILOVER_WINDOW 표식이 있으나 CHAOS_T0_S/T1_S가 없어 카오스 창 임계를 걸지 않았다. 창 표본이 생기지 않으므로 전 구간이 phase:steady로 판정된다."}');
 }
 
 export const options = {
