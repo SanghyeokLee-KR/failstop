@@ -10,6 +10,7 @@ import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.EpochSource;
+import kr.exchange.api.market.MarketDirectory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -57,10 +58,11 @@ public class OrderController {
     private final JdbcClient jdbc;
     private final OrderRejectionMetrics rejections;
     private final AccountRateLimiter queryLimiter;
+    private final MarketDirectory markets;
 
     public OrderController(OrderGateway gateway, OrderQueryService orders,
                            EpochSource epochSource, ObjectMapper objectMapper, JdbcClient jdbc,
-                           OrderRejectionMetrics rejections,
+                           OrderRejectionMetrics rejections, MarketDirectory markets,
                            @Qualifier("accountQueryRateLimiter") AccountRateLimiter accountQueryRateLimiter,
                            @Value("${exchange.order.rate-limit.capacity:100}") int orderCapacity) {
         this.gateway = gateway;
@@ -69,6 +71,7 @@ public class OrderController {
         this.objectMapper = objectMapper;
         this.jdbc = jdbc;
         this.rejections = rejections;
+        this.markets = markets;
         this.queryLimiter = accountQueryRateLimiter;
         this.rateLimiter = new AccountRateLimiter(orderCapacity, 10_000, "account", "order");
     }
@@ -273,6 +276,60 @@ public class OrderController {
                                       @RequestParam(value = "count", required = false) Integer count,
                                       @RequestParam(value = "cursor", required = false) String cursor) {
         return page(request, response, false, market, count, cursor);
+    }
+
+    /**
+     * 주문 가능 정보(§4-B-5). 페이지네이션 없는 단건 객체라 리스트 엔벌로프를 쓰지 않고
+     * schema_version만 싣는다(§2-2).
+     *
+     * 수수료는 마켓 메타를 그대로 읽는다. `GET /markets`와 같은 행·같은 포맷터를 쓰므로 두 응답의
+     * maker_fee·taker_fee는 구성상 일치한다(§4-B-5 '수수료 권위 소스는 마켓별 고정'). 여기서 별도
+     * 산식을 두는 순간 두 값이 갈라지고, 이전 판의 taker_fee 불일치가 정확히 그 사고였다.
+     */
+    @GetMapping("/chance")
+    public Map<String, Object> chance(HttpServletRequest request, HttpServletResponse response,
+                                      @RequestParam("market") String market) {
+        AuthPrincipal principal = principal(request);
+        queryLimiter.enforce(response, String.valueOf(principal.userId()), QUERY_WEIGHT);
+        MarketDirectory.Market m = markets.bySymbol(market);
+
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("id", m.symbol());
+        meta.put("tick_size", ApiFormats.amount(m.tickSize()));
+        meta.put("min_order_amount", ApiFormats.amount(m.minNotional()));
+        meta.put("max_order_amount", ApiFormats.amount(m.maxNotional()));
+        meta.put("state", m.status());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("schema_version", ApiFormats.SCHEMA_VERSION);
+        body.put("market", meta);
+        body.put("maker_fee", ApiFormats.amount(m.makerFeeRate()));
+        body.put("taker_fee", ApiFormats.amount(m.takerFeeRate()));
+        // bid는 quote(대금)를, ask는 base(수량)를 소비한다.
+        body.put("bid_account", accountView(principal.userId(), m.quoteAssetId()));
+        body.put("ask_account", accountView(principal.userId(), m.baseAssetId()));
+        return body;
+    }
+
+    /** 계좌 행이 없는 자산은 0으로 답한다. 미개설을 이유로 실패하면 첫 주문 화면이 뜨지 않는다. */
+    private Map<String, Object> accountView(long userId, short assetId) {
+        return jdbc.sql("""
+                        SELECT a.symbol AS currency,
+                               COALESCE(ub.available, 0) AS available,
+                               COALESCE(ub.locked, 0)    AS locked
+                        FROM assets a
+                        LEFT JOIN user_balances ub ON ub.asset_id = a.id AND ub.user_id = ?
+                        WHERE a.id = ?
+                        """)
+                .params(userId, assetId)
+                .query((rs, rowNum) -> {
+                    Map<String, Object> row = new LinkedHashMap<String, Object>();
+                    row.put("currency", rs.getString("currency"));
+                    row.put("balance", ApiFormats.amount(rs.getBigDecimal("available")));
+                    row.put("locked", ApiFormats.amount(rs.getBigDecimal("locked")));
+                    return row;
+                })
+                .single();
     }
 
     private Map<String, Object> page(HttpServletRequest request, HttpServletResponse response,

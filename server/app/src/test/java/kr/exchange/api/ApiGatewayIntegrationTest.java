@@ -806,6 +806,70 @@ class ApiGatewayIntegrationTest {
     }
 
     // ------------------------------------------------------------------
+    // 주문 가능 정보(§4-B-5)
+    // ------------------------------------------------------------------
+
+    /**
+     * chance는 마켓 메타·수수료·양측 계좌를 단건 객체로 답한다. 수수료가 /markets와 갈라지면
+     * 화면이 주문 전에 보여주는 예상 수수료와 실제 정산이 어긋난다(§4-B-5 수수료 권위 소스).
+     */
+    @Test
+    @Order(20)
+    void orderChanceMirrorsMarketMetaFeesAndBothAccounts() throws Exception {
+        ResponseEntity<String> response =
+                getSigned("/api/v1/orders/chance", Map.of("market", "KRW-BTC"), aliceKey);
+        assertEquals(200, response.getStatusCode().value(), response.getBody());
+        JsonNode body = objectMapper.readTree(response.getBody());
+        assertEquals("1.0", body.path("schema_version").asText());
+        // 페이지네이션 없는 단건이라 리스트 엔벌로프를 쓰지 않는다(§2-2).
+        assertTrue(body.path("data").isMissingNode());
+        assertTrue(body.path("pagination").isMissingNode());
+        // 계좌/주문 조회 버킷(weight 2) 배선.
+        assertNotNull(response.getHeaders().getFirst("X-RateLimit-Limit-account"));
+
+        JsonNode meta = body.path("market");
+        assertEquals("KRW-BTC", meta.path("id").asText());
+        assertEquals("ACTIVE", meta.path("state").asText());
+        assertEquals("5000", meta.path("min_order_amount").asText());
+        assertTrue(meta.path("tick_size").isTextual());
+        assertTrue(meta.path("max_order_amount").isTextual());
+
+        JsonNode marketsData = objectMapper.readTree(
+                rest.getForEntity("/api/v1/markets", String.class).getBody()).path("data");
+        JsonNode krwBtc = streamOf(marketsData)
+                .filter(m -> "KRW-BTC".equals(m.path("market").asText())).findFirst().orElseThrow();
+        assertEquals(krwBtc.path("maker_fee").asText(), body.path("maker_fee").asText());
+        assertEquals(krwBtc.path("taker_fee").asText(), body.path("taker_fee").asText());
+
+        // bid는 quote(KRW), ask는 base(BTC)다. 뒤집히면 화면이 반대 잔고로 주문 가능 수량을 낸다.
+        assertEquals("KRW", body.path("bid_account").path("currency").asText());
+        assertEquals("BTC", body.path("ask_account").path("currency").asText());
+        assertTrue(body.path("bid_account").path("balance").isTextual(), "잔고는 문자열");
+        assertTrue(body.path("ask_account").path("locked").isTextual());
+
+        // 계좌 미개설 사용자도 0으로 답한다. 여기서 실패하면 신규 사용자의 첫 주문 화면이 뜨지 않는다.
+        long dave = bootstrap.user("dave@api.test");
+        DemoKeySeeder.IssuedKey daveKey = keySeeder.issue(dave, "READ", "dave-read");
+        JsonNode fresh = objectMapper.readTree(
+                getSigned("/api/v1/orders/chance", Map.of("market", "KRW-BTC"), daveKey).getBody());
+        assertEquals("0", fresh.path("bid_account").path("balance").asText());
+        assertEquals("0", fresh.path("ask_account").path("locked").asText());
+
+        // market 누락 → 400. /{id} 라우트로 새면 404 order_not_found가 나온다.
+        ResponseEntity<String> missing = getSigned("/api/v1/orders/chance", Map.of(), aliceKey);
+        assertEquals(400, missing.getStatusCode().value(), missing.getBody());
+        assertEquals("invalid_parameter", errorName(missing));
+
+        ResponseEntity<String> unknown =
+                getSigned("/api/v1/orders/chance", Map.of("market", "KRW-NOPE"), aliceKey);
+        assertEquals(400, unknown.getStatusCode().value());
+        assertEquals("invalid_parameter", errorName(unknown));
+
+        assertEquals(401, rest.getForEntity("/api/v1/orders/chance?market=KRW-BTC", String.class)
+                .getStatusCode().value(), "무인증 접근이 열려 있다");
+    }
+
+    // ------------------------------------------------------------------
     // 레이트리밋 weight(§2-5, item 2)
     // ------------------------------------------------------------------
 
