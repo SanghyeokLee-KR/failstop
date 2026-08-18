@@ -2091,8 +2091,10 @@ WHERE prev > fencing_token;                                                  -- 
 SELECT name FROM journal_counters c
 WHERE (name='command_seq' AND next_value <= (SELECT COALESCE(max(seq),0)       FROM command_journal))
    OR (name='event_seq'   AND next_value <= (SELECT COALESCE(max(event_seq),0) FROM event_journal)); -- 0행
--- ⑱ C24 원가 수량 보존(V13): 원가 확보분 + 원가 미상분이 실보유(available+locked)를 넘지 않는다.
---    넘으면 처분 차감이 누락됐다는 뜻이다. 뷰가 V13에 있어 하네스가 그대로 조회한다.
+-- ⑱ C24 원가 수량 보존(V13): 원가 확보분 + 원가 미상분 = 실보유(available+locked). **항등**이다.
+--    취득·처분이 순델타 그대로 누산되므로 이력이 온전하면 양변이 같다. 초과는 처분 차감 누락,
+--    미달은 취득 누산 누락 또는 apply 의 클램프·강등이 실제로 발동했다는 뜻이라 양방향 모두
+--    위반이다(단측 부등호로 읽으면 미달을 정상으로 오해석한다). 교정 수단은 rebuild_position_cost.
 SELECT * FROM position_cost_qty_check;                                       -- 0행
 -- ⑲ C25 원가 누산기 정합(V13): 부호(cost_qty·cost_amount·unknown_qty·unknown_proceeds >= 0),
 --    쌍 불변식((cost_qty=0) = (cost_amount=0)), 워터마크 단조(last_txn_id), 통화 라벨 정합.
