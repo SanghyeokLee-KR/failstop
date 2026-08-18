@@ -539,6 +539,95 @@ test("epoch 상승 후 새 리더 seq가 끊기지 않고 계속 전달된다", 
   );
 });
 
+test("epoch 교체 후 trade 채널은 기수신 체결을 재전달하지 않는다", async () => {
+  // trade·candle의 event_seq는 전역 영속 도메인이라 리더 교체로 리셋되지 않는다(§5-2).
+  // 기준점을 비우면 재동기화가 기수신 체결을 새 epoch로 재전달하고, 캔들 합성이 이중계상한다
+  const stomp = makeStomp();
+  const restTrades = [996, 997, 998, 999, 1000].map((seq) => ({
+    trade_id: `t-${seq}`,
+    market: "KRW-BTC",
+    price: "50005000",
+    volume: "0.1",
+    taker_side: "bid",
+    timestamp: "2026-07-21T09:00:01.000Z",
+    seq,
+  }));
+  const { ds } = newDs(
+    {
+      "/api/v1/trades": () =>
+        jsonRes(200, { schema_version: "1.0", data: restTrades, pagination: { next_cursor: null, has_more: false } }),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.trade("KRW-BTC"), (m) => received.push(m));
+  await settle();
+
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1000, 1)); // 기준점
+  await settle();
+  stomp.push(dest.trade("KRW-BTC"), wsTrade(1001, 2)); // 리더 교체 감지 → 전 채널 재동기화
+  await settle();
+
+  assert.deepEqual(
+    received.map((m) => m.seq),
+    [1000, 1001],
+    "기수신 체결(996~1000)이 다시 흐르면 캔들 volume이 이중계상된다",
+  );
+});
+
+test("epoch 교체 후 구 세대 REST 스냅샷은 기준점이 되지 않는다", async () => {
+  const stomp = makeStomp();
+  const { ds } = newDs(
+    {
+      // 교체 직후 뒤처진 노드가 응답한다. 구 세대 스냅샷을 채택하면 신 리더 실시간이 전부 드롭된다
+      "/api/v1/orderbook": () =>
+        jsonRes(200, {
+          schema_version: "1.0",
+          market: "KRW-BTC",
+          timestamp: "2026-07-21T09:00:00.123Z",
+          epoch: 1,
+          seq: 900,
+          total_ask_size: "1",
+          total_bid_size: "1",
+          orderbook_units: [],
+        }),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.orderbook("KRW-BTC"), (m) => received.push(m));
+  await settle();
+
+  const ob = (seq: number, stream: "snapshot" | "realtime", epoch: number) => ({
+    schema_version: "1.0",
+    type: "orderbook",
+    market: "KRW-BTC",
+    epoch,
+    seq,
+    stream,
+    timestamp: "2026-07-21T09:00:00.200Z",
+    total_ask_size: "1",
+    total_bid_size: "1",
+    orderbook_units: [],
+  });
+  stomp.push(dest.orderbook("KRW-BTC"), ob(100, "snapshot", 1)); // 구 리더 기준점
+  await settle();
+  stomp.push(dest.orderbook("KRW-BTC"), ob(3, "realtime", 2)); // 리더 교체
+  await settle();
+  stomp.push(dest.orderbook("KRW-BTC"), ob(4, "realtime", 2));
+  await settle();
+
+  assert.deepEqual(
+    received.map((m) => m.seq),
+    [100, 3, 4],
+    "구 세대 스냅샷(seq 900)을 채택하면 신 리더 실시간이 영구 드롭된다",
+  );
+});
+
 test("trade: event_seq 비연속 증가(1000·1003·1007)는 전부 적용, 재동기화 없음", async () => {
   const stomp = makeStomp();
   const { ds, count } = newDs({ "/api/v1/trades": () => jsonRes(200, emptyList) }, stomp.factory);

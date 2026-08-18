@@ -239,8 +239,9 @@ function parseDest(destination: string): ParsedDest {
 }
 
 /**
- * 채널당 seq가 +1로 조밀한 종류(§5-2). 결번은 실제 유실이라 재동기화 대상이다.
- * trade·candle은 전역 event_seq 도메인이라 채널 관점에서 비연속이 정상이다.
+ * 인메모리 카운터로 실현되는 채널(§5-2 실현 (1)). 두 성질을 함께 갖는다.
+ * 채널당 seq가 +1로 조밀해 결번이 실제 유실이고, 리더 교체 시 카운터가 낮은 값에서 재시작한다.
+ * trade·candle은 전역 영속 event_seq 실현이라 채널 관점 비연속이 정상이고 교체로 리셋되지 않는다.
  */
 const DENSE_KINDS = new Set(["orderbook", "ticker", "myOrder", "myAsset"]);
 
@@ -948,10 +949,12 @@ export class HttpStompDataSource implements DataSource {
 
   private resyncAll(): void {
     for (const [destination, ch] of this.channels) {
-      // 리더 교체는 seq 도메인을 리셋한다(서버 카운터가 노드 인메모리). 기준점을 비워야
-      // 새 도메인의 낮은 seq가 전진 가드에 걸려 드롭되지 않는다. 전진 가드는 같은 epoch
-      // 안에서만 성립하고, epoch 규칙이 그 위 상위 규칙이다(§5-2)
-      ch.lastSeq = null;
+      const kind = parseDest(destination)?.kind;
+      // 리더 교체가 리셋하는 것은 인메모리 카운터 실현뿐이다. 그 채널은 기준점을 비워야
+      // 새 도메인의 낮은 seq가 전진 가드에 걸려 드롭되지 않는다(전진 가드는 동일 epoch 한정).
+      // trade·candle은 전역 영속 event_seq라 기준점을 유지한다. 비우면 재동기화가 기수신
+      // 체결을 새 epoch로 재전달해 캔들 합성이 이중계상한다
+      if (kind !== undefined && DENSE_KINDS.has(kind)) ch.lastSeq = null;
       // 진행 중 재동기화도 다시 건다. 구 리더 응답이 새 도메인의 기준점이 되면 안 된다
       this.startResync(destination, ch);
     }
@@ -1023,6 +1026,11 @@ export class HttpStompDataSource implements DataSource {
       case "orderbook": {
         const snap = await this.getOrderbook(parsed.market, signal);
         if (!this.resyncFresh(ch, gen)) return;
+        // 교체 직후 뒤처진 노드가 구 세대 스냅샷을 주면 그것이 새 기준점이 되는 순간 신 리더
+        // 실시간이 전부 드롭된다. orderbook REST는 epoch를 싣는다(§4-A-2). 세대가 다르면
+        // 채택하지 않고 다음 realtime이 기준점을 잡게 둔다(ticker REST에는 epoch가 없어
+        // 같은 방어를 할 수 없다)
+        if (this.lastEpoch !== null && snap.epoch !== this.lastEpoch) return;
         // 기준점은 전진만 한다. REST가 WS보다 뒤처진 노드를 읽으면 기준점이 내려가
         // 이미 보여준 호가가 과거로 되돌고, 이어지는 실시간이 결번으로 재동기화를 부른다
         if (ch.lastSeq !== null && snap.seq <= ch.lastSeq) return;
