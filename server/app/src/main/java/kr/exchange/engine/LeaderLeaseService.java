@@ -284,9 +284,15 @@ public class LeaderLeaseService implements AutoCloseable {
         return token;
     }
 
-    /** 승격 재생 종료. 접수 개방 전에 반드시 호출해 이후의 상실이 종신으로 돌아오게 한다. */
-    public void endPromotionReplay(long token) {
-        promotionReplayToken.compareAndSet(token, 0);
+    /**
+     * 승격 재생 종료. 접수 개방 전에 반드시 호출해 이후의 상실이 종신으로 돌아오게 한다.
+     *
+     * @return 이 호출이 표식을 실제로 걷었으면 참. 낡은 시도의 뒤늦은 해제와 짝이 맞는 중복
+     *         해제는 거짓이다. 호출자가 '아직 안 걷혀 있었다'를 관측해야 안전망 발동을 무음으로
+     *         두지 않는다.
+     */
+    public boolean endPromotionReplay(long token) {
+        return promotionReplayToken.compareAndSet(token, 0);
     }
 
     /** 관측·테스트용. 현재 승격 재생 구간이면 참이다. */

@@ -189,27 +189,49 @@ public class PromotionCoordinator implements AutoCloseable {
 
     private void promote(LeaderIdentity identity, long generation) {
         long t0 = System.nanoTime();
-        Throwable failure;
         // 재생 구간 표식은 접수 개방 전에 반드시 걷는다. 개방 이후의 상실은 루프를 정지시키므로
-        // 종신이어야 한다. finally로 걷은 뒤에만 게이트를 연다. 토큰을 되돌려주는 이유는 낡은
-        // 시도의 뒤늦은 해제가 새 시도의 표식을 지우지 못하게 하기 위해서다.
+        // 종신이어야 한다. 다만 해제 시점은 결과별로 다르고, 일괄 finally로 걷으면 회복 가능
+        // 반납이 표식 없이 실행된다. 그 사이(해제~lease.standDown)에 renew 틱이 거부를 받으면
+        // markLost가 종신으로 내려가 노드가 후보에서 빠진다. 재생 구간에는 renew가 계속 도는
+        // 것이 설계이므로 이 창은 이론적이지 않다. 토큰을 되돌려주는 이유는 낡은 시도의 뒤늦은
+        // 해제가 새 시도의 표식을 지우지 못하게 하기 위해서다.
         long replayToken = lease.beginPromotionReplay();
         try {
-            failure = replayWithRetry(identity, t0, generation);
+            promoteWithReplayMarker(identity, generation, t0, replayToken);
         } finally {
-            lease.endPromotionReplay(replayToken);
+            // 안전망. 아래 세 경로가 모두 제자리에서 해제하므로 정상 흐름에서는 CAS가 실패해
+            // 무동작이다. 예기치 못한 이탈로 표식이 남으면 이후의 모든 종신 상실이 회복 가능으로
+            // 오등급되어, 루프가 죽은 노드가 재승격 후보로 남는다. 발동을 무음으로 두지 않는
+            // 이유: 안전망이 일했다는 것은 등급 판정이 이미 한 번 어긋날 뻔했다는 뜻이다.
+            if (lease.endPromotionReplay(replayToken)) {
+                log.error("승격 경로가 재생 표식을 걷지 않고 이탈했다(안전망 해제): epoch={}",
+                        identity.epoch());
+            }
         }
+    }
+
+    private void promoteWithReplayMarker(LeaderIdentity identity, long generation, long t0,
+                                         long replayToken) {
+        Throwable failure = replayWithRetry(identity, t0, generation);
         if (failure != null) {
-            if (failure instanceof Error) {
+            if (failure instanceof VirtualMachineError) {
                 // VM Error는 회복 가능 등급의 전제(다시 하면 같은 결과)가 성립하지 않는다.
                 // 프로세스가 불건전하다는 신호이고, 회복 가능으로 내리면 TTL마다 재승격해
                 // 전량 재생을 되풀이한다. 재기동으로만 복귀시킨다.
+                //
+                // 표식을 먼저 걷는다. markLost는 재생 구간이면 회복 가능으로 내리므로, 표식을
+                // 쥔 채 demote를 부르면 등급이 그대로 뒤집힌다.
+                lease.endPromotionReplay(replayToken);
                 demoteTerminally(identity, generation, failure, "승격 재생 VM Error");
             } else {
+                // 반납이 끝난 뒤에 걷는다. 반납 자체가 표식이 살아 있어야 회복 가능으로 성립한다.
                 standDown(identity, generation, failure);
+                lease.endPromotionReplay(replayToken);
             }
             return;
         }
+        // 성공 경로는 게이트 개방 전에 걷는다. 개방 이후의 상실은 루프를 정지시키므로 종신이다.
+        lease.endPromotionReplay(replayToken);
         boolean loopDown = false;
         boolean opened = false;
         synchronized (stateLock) {
@@ -264,7 +286,10 @@ public class PromotionCoordinator implements AutoCloseable {
                 }
                 long now = System.nanoTime();
                 long retryingMillis = (now - firstFailureNanos) / 1_000_000;
-                boolean retryable = !(t instanceof Error)
+                // 재시도 제외는 VM Error(OOM·StackOverflow)에 한정한다(§5.4 v2.24 #4). Error
+                // 전체를 술어로 두면 NoClassDefFoundError·AssertionError처럼 '다시 하면 같은
+                // 결과'가 성립하는 오류까지 종신으로 내려가 후보가 소진된다.
+                boolean retryable = !(t instanceof VirtualMachineError)
                         && attempt < REPLAY_ATTEMPTS
                         && retryingMillis < REPLAY_RETRY_BUDGET_MILLIS
                         // 리더십을 이미 놓았으면 재시도는 무의미하고 위험하다. 다음 승격이

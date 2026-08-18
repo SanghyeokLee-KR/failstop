@@ -391,6 +391,9 @@ class PromotionStandDownIntegrationTest {
      * (H) 접수 게이트는 소비자 생존까지 본다. 단일 라이터가 정지한 상태에서 게이트를 열면 저널에
      * 커밋되고 영원히 체결되지 않는 주문이 생긴다. 루프 정지는 강등 등급 분류의 종신 축 그 자체라
      * 회복 가능으로 내리면 죽은 루프 위에서 승격과 반납을 무한 반복한다.
+     *
+     * 성공 경로의 재생 표식 해제 지점(접수 개방 전)도 여기서 함께 고정된다. 해제가 개방 뒤로
+     * 밀리면 이 강등이 표식을 쥔 채 일어나 회복 가능으로 내려가고 반납 카운터 단언이 깨진다.
      */
     @Test
     @Order(8)
@@ -447,21 +450,105 @@ class PromotionStandDownIntegrationTest {
         }
     }
 
+    /**
+     * (J) 회복 가능 반납은 재생 구간 표식을 **쥔 채** 이뤄진다. 표식을 반납보다 먼저 걷으면 그
+     * 사이에 도착한 renew 거부가 markLost의 종신 경로로 내려가 노드가 후보에서 빠진다. 재생
+     * 구간에도 renew 틱이 계속 도는 것이 설계(승격 중 리스 유지)라 이 창은 이론적이지 않다.
+     *
+     * 주입 지점은 lease.standDown 진입 직전이다. 그 시점의 표식 상태가 등급을 가르는 전부이며,
+     * 등급은 두 관측 축(회복 가능·종신 콜백)으로 경합 없이 갈린다.
+     */
+    @Test
+    @Order(10)
+    void renewRejectionRacingTheStandDownStaysRecoverable() throws Exception {
+        writeCrashWindowCommands();
+        RenewRacingLease lease = new RenewRacingLease();
+        Standby standby = new Standby((replay, sink, l) ->
+                new ScriptedRecovery(replay, sink, l, Integer.MAX_VALUE, 0,
+                        () -> new IllegalStateException("지속 실패")), lease);
+        try {
+            long epoch = takeOver(standby.lease);
+
+            Awaitility.await().atMost(Duration.ofSeconds(30)).until(() ->
+                    standby.recoverableStandDowns.get() + standby.terminalLosses.get() > 0);
+
+            assertEquals(1, lease.injections(), "renew 거부 주입이 돌지 않아 창을 재현하지 못했다");
+            assertEquals(0, standby.terminalLosses.get(),
+                    "표식이 반납보다 먼저 걷혀 창에 낀 renew 거부가 종신으로 내려갔다");
+            assertEquals(1, standby.recoverableStandDowns.get(),
+                    "재생 구간의 renew 거부가 회복 가능 축에 잡히지 않았다");
+            assertEquals(PromotionCoordinator.State.FOLLOWER, standby.coordinator.state());
+            assertTrue(standby.loop.isRunning(), "회복 가능 반납이 단일 라이터를 정지시켰다");
+            assertFalse(standby.lease.isLeader());
+            // 주입기가 lease_until을 직접 만료시키므로 여기서 증명되는 것은 epoch 불변까지다.
+            assertEquals(epoch, currentEpoch(), "반납이 epoch를 올렸다");
+
+            assertTrue(standby.lease.tryAcquire(), "창에 낀 거부 한 번으로 후보에서 영구 제외됐다");
+        } finally {
+            standby.close();
+        }
+    }
+
+    /**
+     * (K) 종신 격상은 VM Error에 한정한다(§5.4 v2.24 #4). 술어가 Error 전체면
+     * NoClassDefFoundError처럼 '같은 재생을 다시 하면 같은 결과'가 성립하는 오류까지 종신으로
+     * 내려가, 클래스 적재 일시 실패 하나로 노드가 후보에서 영구히 빠진다. (F)의 경계 대조다.
+     */
+    @Test
+    @Order(11)
+    void nonVmErrorDuringReplayStaysRecoverable() throws Exception {
+        writeCrashWindowCommands();
+        AtomicReference<ScriptedRecovery> script = new AtomicReference<>();
+        Standby standby = new Standby((replay, sink, lease) -> {
+            ScriptedRecovery r = new ScriptedRecovery(replay, sink, lease, Integer.MAX_VALUE, 0,
+                    () -> new NoClassDefFoundError("회복 가능 Error 주입"));
+            script.set(r);
+            return r;
+        });
+        try {
+            long epoch = takeOver(standby.lease);
+
+            Awaitility.await().atMost(Duration.ofSeconds(30)).until(() ->
+                    standby.recoverableStandDowns.get() + standby.terminalLosses.get() > 0);
+
+            assertEquals(0, standby.terminalLosses.get(),
+                    "VM Error가 아닌 Error가 종신으로 내려갔다(후보 소진 경로)");
+            assertEquals(1, standby.recoverableStandDowns.get());
+            assertEquals(PromotionCoordinator.State.FOLLOWER, standby.coordinator.state());
+            assertEquals(PromotionCoordinator.REPLAY_ATTEMPTS, script.get().attempts(),
+                    "회복 가능 Error를 재시도 대상에서 뺐다");
+            assertTrue(standby.loop.isRunning(), "회복 가능 등급인데 단일 라이터가 정지했다");
+            assertEquals(epoch, currentEpoch(), "반납은 leader_lease에 아무것도 쓰지 않아야 한다");
+
+            expireLease();
+            assertTrue(standby.lease.tryAcquire(), "클래스 적재 실패로 후보에서 영구 제외됐다");
+        } finally {
+            standby.close();
+        }
+    }
+
     // ── 배선 ────────────────────────────────────────────────────────────
 
     /** 스탠바이 한 대. 접수 게이트가 닫힌 채 리스만 경쟁하다가 승격 재생을 밟는다. */
     private static final class Standby implements AutoCloseable {
-        final LeaderLeaseService lease = new LeaderLeaseService(jdbc, LEASE_TTL, LEASE_TICK);
+        final LeaderLeaseService lease;
         final SingleWriterLoop loop;
         final PromotionCoordinator coordinator;
         // 회복 가능 반납 관측 축(하네스 CICD §5-2). 종신 강등에서는 발화하지 않아야 한다.
         final AtomicInteger recoverableStandDowns = new AtomicInteger();
+        // 종신 강등 축. 두 축을 같이 세야 '어느 등급으로 내려갔는가'가 경합 없이 관측된다.
+        final AtomicInteger terminalLosses = new AtomicInteger();
 
         Standby() {
             this((replayService, sink, lease) -> new EngineRecovery(replayService, sink, lease));
         }
 
         Standby(RecoveryFactory recoveryFactory) {
+            this(recoveryFactory, new LeaderLeaseService(jdbc, LEASE_TTL, LEASE_TICK));
+        }
+
+        Standby(RecoveryFactory recoveryFactory, LeaderLeaseService lease) {
+            this.lease = lease;
             EventJournalAppender sink = new EventJournalAppender(jdbc, tx, lease, objectMapper);
             MatchingEngineImpl engine = new MatchingEngineImpl();
             loop = new SingleWriterLoop(4096, engine, sink::append,
@@ -473,6 +560,7 @@ class PromotionStandDownIntegrationTest {
             lease.onLeadershipGained(coordinator::onLeadershipGained);
             lease.onLeadershipLost(coordinator::onLeadershipLost);
             lease.onLeadershipLost(loop::halt);
+            lease.onLeadershipLost(terminalLosses::incrementAndGet);
             lease.onRecoverableStandDown(recoverableStandDowns::incrementAndGet);
             loop.start();
             coordinator.bootstrap(engine, lease.isLeader());
@@ -537,6 +625,38 @@ class PromotionStandDownIntegrationTest {
 
         int attempts() {
             return attempts.get();
+        }
+    }
+
+    /**
+     * standDown 진입 직전에 renew 거부를 한 번 주입하는 리스. [표식 해제 -> 반납] 사이의 창을
+     * 재현하는 유일한 지점이 여기다. 리스를 만료시키고 하트비트를 한 번 돌리면 renew_leader_lease가
+     * 거부하고, markLost가 그 시점의 표식 상태로 등급을 정한다.
+     *
+     * 재진입 시 주입하지 않는 이유: markLost가 다시 standDown을 부르므로 무한 재귀가 된다.
+     */
+    private static final class RenewRacingLease extends LeaderLeaseService {
+
+        private final java.util.concurrent.atomic.AtomicBoolean armed =
+                new java.util.concurrent.atomic.AtomicBoolean(true);
+        private final AtomicInteger injections = new AtomicInteger();
+
+        RenewRacingLease() {
+            super(jdbc, LEASE_TTL, LEASE_TICK);
+        }
+
+        @Override
+        public void standDown(String reason) {
+            if (armed.compareAndSet(true, false)) {
+                expireLease();
+                injections.incrementAndGet();
+                renew();
+            }
+            super.standDown(reason);
+        }
+
+        int injections() {
+            return injections.get();
         }
     }
 
