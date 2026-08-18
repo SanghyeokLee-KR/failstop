@@ -71,7 +71,17 @@ export const options = {
     },
   },
   thresholds: {
-    'http_req_failed{scenario:orders_steady}': ['rate<0.001'],                 // 가용성 99.9%, 429 제외
+    // 분자를 접수 요청(POST /orders)으로 좁힌다. 종전 scenario 단독 필터는 같은 시나리오 안에서
+    // 일어나는 by-client 재조회까지 삼켰다. 재조회의 409 requery_deferred는 판정 보류(백프레셔)이고
+    // 404는 미접수 확인이라 둘 다 규약상 정상 경로인데, 가용성 임계의 실패 분자로 계상됐다.
+    // expectedStatuses에 409를 전역 추가하는 방식은 쓰지 않는다. POST /orders의
+    // duplicate_client_order_id·order_in_progress까지 성공으로 계상돼 진짜 거절이 가려진다.
+    'http_req_failed{scenario:orders_steady,name:placeOrder}': ['rate<0.001'], // 가용성 99.9%, 수용 제한 응답 제외
+    // 재조회는 별도 임계로 관측을 유지한다. 200·404·409·429를 그 요청에 한해 정상으로 선언했으므로
+    // (lookupByClient의 responseCallback) 이 분자에는 5xx·타임아웃만 남는다. 정상 창 한정인 것은
+    // 카오스 창에서는 재조회 5xx가 정상 재시도 대상이기 때문이다. 그 창의 규약 위반은 이 임계가
+    // 아니라 idempotent_safe가 잡는다(전역 rate==1).
+    'http_req_failed{name:lookup,phase:steady}': ['rate<0.001'],
     'accepted_req_duration{scenario:orders_steady}': ['p(95)<200', 'p(99)<500'], // 수용 요청 SLO(API§7-4)
     'checks{check:idempotent_safe}': ['rate==1'],   // UNKNOWN→재조회→재전송 규약 위반 0
     'ws_seq_gap{phase:steady}': ['count==0'],       // 정상 창 seq 결번 0(카오스 창은 phase:chaos 제외)
@@ -105,11 +115,20 @@ function orderPayload() {
   };
 }
 
-// by-client 재조회. UNKNOWN 상태머신(API§7-6): 200=존재(재전송 금지), 404=미접수(재전송 허용).
-function lookupByClient(coid, c) {
+// by-client 재조회. UNKNOWN 상태머신(API§7-6): 200=존재(재전송 금지), 404=미접수(재전송 허용),
+// 409 requery_deferred=판정 보류(재조회 버킷 백프레셔). 셋 다 규약상 정상 응답이다.
+// responseCallback을 이 요청에만 붙이는 이유: 전역 expectedStatuses에 409를 넣으면 POST /orders의
+// duplicate_client_order_id·order_in_progress까지 성공으로 계상돼 진짜 거절이 가려진다.
+function lookupByClient(coid, c, ph) {
   const path = `/api/v1/orders/by-client/${coid}`;
   const auth = signRequest('GET', path, '', c.access_key, c.secret);
-  const res = http.get(BASE + path, { headers: { Authorization: auth }, tags: { name: 'lookup' } });
+  const res = http.get(BASE + path, {
+    headers: { Authorization: auth },
+    tags: { name: 'lookup', phase: ph },
+    // 429를 빠뜨리면 안 된다. 이 경로는 수용 게이트 면제지만 계정 토큰버킷(API§2-5) 대상이라
+    // 429가 온다. 전역 콜백이 429를 성공으로 두는 규약(§2-2)을 요청별 콜백이 덮어써서는 안 된다.
+    responseCallback: http.expectedStatuses({ min: 200, max: 399 }, 404, 409, 429),
+  });
   return res.status;
 }
 
@@ -148,7 +167,7 @@ export function placeOrder() {
 
   // 5xx/timeout(status 0) = UNKNOWN. 재조회로 안전 판정한다. 재조회 없이 재전송하면 이중 접수.
   if (res.status >= 500 || res.status === 0) {
-    const look = lookupByClient(o.clientOrderId, c);
+    const look = lookupByClient(o.clientOrderId, c, ph);
     // 200=이미 접수(응답만 유실, 재전송 금지), 404=미접수(안전 재전송 가능). 어느 쪽이든
     // 이중 접수를 만들지 않으면 규약 준수. 409(내용 상이 충돌)도 재전송 아님이라 safe로 본다.
     const safe = (look === 200 || look === 404 || look === 409);

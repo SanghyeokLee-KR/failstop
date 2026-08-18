@@ -50,7 +50,8 @@ PowerShell에서는 각 줄을 `--env KEY=VALUE`로 전개한다.
 
 | threshold | 의미 |
 |---|---|
-| `http_req_failed{scenario:orders_steady} < 0.001` | 가용성 99.9%(API§7-4). 429는 expectedStatuses로 제외 |
+| `http_req_failed{scenario:orders_steady,name:placeOrder} < 0.001` | 접수 경로 가용성 99.9%(API§7-4). 수용 제한 응답은 expectedStatuses로 제외 |
+| `http_req_failed{name:lookup,phase:steady} < 0.001` | 정상 창 재조회 실패 0. 200·404·409·429는 요청별 responseCallback으로 정상 선언 |
 | `accepted_req_duration{scenario:orders_steady} p95<200 p99<500` | 수용(2xx) 요청 지연 SLO |
 | `checks{check:idempotent_safe} == 1` | UNKNOWN→재조회→재전송 규약 위반 0 |
 | `ws_seq_gap{phase:steady} == 0` | 정상 창 채널 seq 결번 0. 카오스 창(phase:chaos)은 제외 |
