@@ -501,6 +501,44 @@ test("epoch 변경 감지 시 전 채널 강제 재동기화", async () => {
   assert.equal(count("/api/v1/ticker"), fetchesBefore + 1, "epoch 변경이 재동기화를 호출");
 });
 
+test("epoch 상승 후 새 리더 seq가 끊기지 않고 계속 전달된다", async () => {
+  // 서버 채널 seq는 노드 인메모리 카운터라 리더가 바뀌면 1부터 다시 센다. 재동기화 스냅샷이
+  // 구 리더 기준점보다 낮다고 버려지면 신 리더 실시간이 전부 드롭돼 채널이 영구 정지한다.
+  // 호출 횟수가 아니라 전달된 seq 목록으로 스트림 재개를 고정한다
+  const stomp = makeStomp();
+  let restSeq = 99;
+  const { ds } = newDs(
+    {
+      "/api/v1/ticker": () =>
+        jsonRes(200, { schema_version: "1.0", data: [restTicker(restSeq)], pagination: { next_cursor: null, has_more: false } }),
+    },
+    stomp.factory,
+  );
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const received: WsMessage[] = [];
+  ds.subscribe(dest.ticker("KRW-BTC"), (m) => received.push(m));
+  await settle();
+  const base = received.length;
+
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(100, 1)); // 구 리더 기준점
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(101, 1));
+  await settle();
+
+  restSeq = 3; // 리더 교체. 새 노드 카운터는 낮은 seq에서 시작한다
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(2, 2)); // epoch 상승 감지 → 전 채널 재동기화
+  await settle();
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(4, 2));
+  stomp.push(dest.ticker("KRW-BTC"), wsTicker(5, 2));
+  await settle();
+
+  assert.deepEqual(
+    received.slice(base).map((m) => m.seq),
+    [100, 101, 3, 4, 5],
+    "epoch 교체 후 새 도메인 스냅샷과 실시간이 이어져야 한다",
+  );
+});
+
 test("trade: event_seq 비연속 증가(1000·1003·1007)는 전부 적용, 재동기화 없음", async () => {
   const stomp = makeStomp();
   const { ds, count } = newDs({ "/api/v1/trades": () => jsonRes(200, emptyList) }, stomp.factory);
@@ -1017,11 +1055,17 @@ test("승격이 인증 CONNECT를 만들지 못하면 재발화를 멈춘다(자
   const tickerBefore = count("/api/v1/ticker");
   stomp.state.args!.onDisconnect();
   stomp.state.args!.connectHeaders();
-  stomp.state.args!.onConnect(); // 이후 재연결에서도 재발화하지 않는다
+  stomp.state.args!.onConnect(); // 외부 요인 재연결. 그동안 세션이 재발급됐다면 1회만 재시도한다
   await settle();
-  assert.equal(stomp.state.deactivations, 1, "재연결마다 승격을 반복하지 않는다");
+  assert.equal(stomp.state.deactivations, 2, "자격증명 갱신당 재시도는 1회로 유계다");
   assert.ok(stomp.state.subs.has(dest.ticker("KRW-BTC")), "공개 채널은 정상 재구독");
   assert.equal(count("/api/v1/ticker"), tickerBefore + 1, "공개 채널 재동기화가 멈추지 않는다");
+
+  // 그 재시도의 결과 CONNECT도 무인증이면 다시 멈춘다. 스스로 재연결을 만들지 않는다
+  stomp.state.args!.connectHeaders();
+  stomp.state.args!.onConnect();
+  await settle();
+  assert.equal(stomp.state.deactivations, 2, "승격 결과 연결이 스스로 다음 승격을 부르지 않는다");
 });
 
 test("승격 세션 발급 실패 시 채널 복원을 포기하지 않는다", async () => {

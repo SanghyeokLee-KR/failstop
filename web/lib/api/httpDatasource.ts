@@ -317,8 +317,10 @@ export class HttpStompDataSource implements DataSource {
   private authUpgrading = false;
   /** 승격 재연결을 발사하고 그 CONNECT를 기다리는 중. 결과 판정 근거 */
   private authUpgradePending = false;
-  /** 승격 재연결이 인증 CONNECT를 만들지 못했다. 같은 조건의 재발화를 멈춘다(자기 재생 차단) */
+  /** 승격 재연결이 인증 CONNECT를 만들지 못했다. 같은 자격증명으로는 재발화하지 않는다(자기 재생 차단) */
   private authUpgradeGaveUp = false;
+  /** 실패한 승격에 쓴 토큰. 다른 토큰을 확보하면 조건이 달라졌다고 보고 1회 더 시도한다 */
+  private authUpgradeToken: string | null = null;
 
   private session: { token: string; expMs: number | null } | null = null;
   private sessionPromise: Promise<string> | null = null;
@@ -431,6 +433,12 @@ export class HttpStompDataSource implements DataSource {
     const body = (await res.json()) as DemoSessionResponse;
     if (!body.access_token) throw new ApiError(res.status, "invalid_envelope", "데모 세션 응답에 access_token이 없습니다");
     this.session = { token: body.access_token, expMs: decodeJwtExpMs(body.access_token) };
+    // 새 자격증명은 승격 조건을 바꾼다. 직전 실패에 쓴 토큰과 다르면 포기 래치를 푼다.
+    // 래치는 승격 결과 판정에서 다시 걸리므로, 재시도는 자격증명 갱신당 1회로 유계다
+    if (this.authUpgradeToken !== null && this.authUpgradeToken !== body.access_token) {
+      this.authUpgradeGaveUp = false;
+      this.authUpgradeToken = null;
+    }
     return body.access_token;
   }
 
@@ -631,6 +639,7 @@ export class HttpStompDataSource implements DataSource {
     this.refreshBlocked = false;
     // 신원이 바뀌면 승격 조건도 바뀐다. 직전 승격 포기를 해제한다
     this.authUpgradeGaveUp = false;
+    this.authUpgradeToken = null;
     this.emitMember();
     // /user 채널을 회원 Bearer로 다시 열기 위해 재연결(승격)
     this.reconnectWs();
@@ -641,6 +650,7 @@ export class HttpStompDataSource implements DataSource {
     if (!this.member) return;
     this.member = null;
     this.authUpgradeGaveUp = false;
+    this.authUpgradeToken = null;
     this.emitMember();
     this.reconnectWs();
   }
@@ -845,10 +855,11 @@ export class HttpStompDataSource implements DataSource {
     this.authUpgrading = true;
     try {
       // 회원 세션이 있으면 회원 토큰을, 없으면 데모 세션을 확보(§4-1 병존)
-      await this.ensureAuthToken();
+      const token = await this.ensureAuthToken();
       if (this.stomp && this.stompConnected && !this.authOnConnect) {
         // 다음 CONNECT가 이 승격의 결과다. 인증이 붙지 않으면 재발화를 멈춘다
         this.authUpgradePending = true;
+        this.authUpgradeToken = token;
         await this.stomp.deactivate();
         this.stomp.activate();
       }
@@ -937,7 +948,12 @@ export class HttpStompDataSource implements DataSource {
 
   private resyncAll(): void {
     for (const [destination, ch] of this.channels) {
-      if (!ch.resyncing) this.startResync(destination, ch);
+      // 리더 교체는 seq 도메인을 리셋한다(서버 카운터가 노드 인메모리). 기준점을 비워야
+      // 새 도메인의 낮은 seq가 전진 가드에 걸려 드롭되지 않는다. 전진 가드는 같은 epoch
+      // 안에서만 성립하고, epoch 규칙이 그 위 상위 규칙이다(§5-2)
+      ch.lastSeq = null;
+      // 진행 중 재동기화도 다시 건다. 구 리더 응답이 새 도메인의 기준점이 되면 안 된다
+      this.startResync(destination, ch);
     }
   }
 
