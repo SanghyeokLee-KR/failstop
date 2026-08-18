@@ -101,3 +101,66 @@ export function absDecimal(v: string | number): string {
   const s = normalizeDecimal(v);
   return s.startsWith("-") ? s.slice(1) : s;
 }
+
+/**
+ * 십진 문자열 → 10^scale 스케일드 BigInt. scale 자리에서 0 반대 방향 올림(Java RoundingMode.UP).
+ * 락 산식(§4-B-5 v2.7)이 UP 양자화를 요구한다. 내림·반올림으로 잡으면 락이 실제 대금보다
+ * 작아져 체결 시점에 모자란다.
+ */
+export function scaledIntCeil(v: string | number, scale: number): bigint {
+  const raw = normalizeDecimal(v);
+  const neg = raw.startsWith("-");
+  const s = (neg ? raw.slice(1) : raw) || "0";
+  const [intPart, fracPart = ""] = s.split(".");
+  const keep = (fracPart + "0".repeat(scale)).slice(0, scale);
+  const rest = fracPart.slice(scale);
+  let n = BigInt((intPart || "0") + keep);
+  if (/[1-9]/.test(rest)) n += 1n;
+  return neg ? -n : n;
+}
+
+/** scale 자리 UP 양자화(0 반대 방향 올림) 십진 문자열 */
+export function ceilToScale(v: string | number, scale: number): string {
+  const s = Math.min(Math.max(scale, 0), 30);
+  return fromScaledInt(scaledIntCeil(v, s), s);
+}
+
+/** scale 자리 HALF_UP 반올림 십진 문자열 */
+export function roundToScale(v: string | number, scale: number): string {
+  const s = Math.min(Math.max(scale, 0), 30);
+  return fromScaledInt(scaledIntRound(v, s), s);
+}
+
+/** scale 자리 절사(0 방향) 십진 문자열 */
+export function truncToScale(v: string | number, scale: number): string {
+  const s = Math.min(Math.max(scale, 0), 30);
+  return fromScaledInt(scaledIntTrunc(v, s), s);
+}
+
+/**
+ * 십진 나눗셈. scale 자리에서 HALF_UP 또는 절사. 제수가 0 이하면 null(호출자가 판정한다).
+ * 평단가 산출(§4-C-1)과 원가 처분 안분이 같은 나눗셈을 쓰도록 단일 출처로 둔다.
+ */
+export function divDecimal(
+  a: string | number,
+  b: string | number,
+  scale: number,
+  mode: "half-up" | "trunc" = "half-up",
+): string | null {
+  const s = Math.min(Math.max(scale, 0), 30);
+  const na = normalizeDecimal(a);
+  const nb = normalizeDecimal(b);
+  const da = decimalsOf(na);
+  const db = decimalsOf(nb);
+  const den = scaledIntTrunc(nb, db);
+  if (den <= 0n) return null;
+  const neg = na.startsWith("-");
+  let num = scaledIntTrunc(na, da);
+  if (num < 0n) num = -num;
+  // guard 자리를 하나 더 계산해 HALF_UP 판정을 정수 나눗셈만으로 끝낸다
+  const guardExp = mode === "half-up" ? 1 : 0;
+  const scaled = (num * 10n ** BigInt(db + s + guardExp)) / (den * 10n ** BigInt(da));
+  let out = mode === "half-up" ? scaled / 10n + (scaled % 10n >= 5n ? 1n : 0n) : scaled;
+  if (neg) out = -out;
+  return fromScaledInt(out, s);
+}
