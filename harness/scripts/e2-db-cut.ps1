@@ -8,7 +8,7 @@ $cfg = Read-EnvFile $ConfigPath
 $runId = "E2-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
 $proxy = $cfg['LEADER_PROXY']
 
-function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
+function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
 Write-Section "E2 시작 runId=$runId"
 try {

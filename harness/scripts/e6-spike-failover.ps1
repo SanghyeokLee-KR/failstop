@@ -11,7 +11,7 @@ $cfg = Read-EnvFile $ConfigPath
 $runId = "E6-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
 $target = $cfg['TARGET_NODE']
 
-function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
+function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
 Write-Section "E6 시작 runId=$runId"
 # 기저 부하를 명시로 세운다. 종전에는 SPIKE_OPS만 적용해 BASE_OPS가 표시 문구에만 쓰였고, 기저는
@@ -67,7 +67,7 @@ try {
     $spikeClean = Test-ExperimentIntegrity $spikeRun
     $spikeViol = Get-GatedViolationSum $spikeRun
     # 창 내 실제 스캔 존재 증거: invariant_checks에 window='spike' 적재 확인(공허 통과 차단).
-    $spikeScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='spike'"
+    $spikeScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='spike'" -Required
     Write-Host "스파이크 창 권위 run verdict=$($spikeRun.verdict) 위반합=$spikeViol 스캔체크수=$spikeScans"
     if ($spikeScans -lt 1) { throw '스파이크 창 내 권위 run 미적재(공허 통과 방지 가드)' }
 

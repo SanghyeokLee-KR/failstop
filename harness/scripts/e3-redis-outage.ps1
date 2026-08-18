@@ -15,7 +15,7 @@ $runId = "E3-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
 $redis = $cfg['REDIS_CONTAINER']
 $redisProxy = $cfg['REDIS_PROXY']
 
-function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
+function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
 Write-Section "E3(Redis 장애) 시작 runId=$runId redis=$redis"
 
@@ -90,7 +90,7 @@ try {
     # redis 죽는 동안 무결성 유지(온디맨드 권위 run) 관측.
     Write-Section 'ⓒ Redis 부재 중 무결성 관측'
     $injRun = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'inject'
-    $injScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='inject'"
+    $injScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='inject'" -Required
     if ($injScans -lt 1) { throw 'inject 창 내 권위 run 미적재(공허 통과 방지 가드)' }
 
     # redis 복귀 대기.

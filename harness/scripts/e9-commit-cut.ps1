@@ -13,7 +13,7 @@ $proxy = $cfg['LEADER_PROXY']
 $port = [int]$cfg['LEADER_PORT']
 $toxicType = $cfg['TOXIC_TYPE']
 
-function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
+function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
 Write-Section "E9(커밋 응답 절단) 시작 runId=$runId proxy=$proxy type=$toxicType"
 try {

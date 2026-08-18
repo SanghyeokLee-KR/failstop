@@ -14,7 +14,7 @@ $port = [int]$cfg['ASSAULT_PORT']
 $cmBase = "http://localhost:$port/actuator/chaosmonkey"
 $probeUrl = "http://localhost:$port/internal/chaos/probe"
 
-function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
+function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
 # chaosProbe CB의 현재 상태. resilience4j micrometer가 state 라벨별로 현재=1을 낸다. 부재 시 $null.
 # 라벨은 알파벳 정렬(application,name,state)이라 name 뒤 state 순으로 매칭한다.
@@ -127,7 +127,7 @@ try {
 
     # assault 활성 상태에서 권위 run. watcher.beans 격리로 매칭 경로는 assault를 받지 않아야 한다.
     $injRun = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'inject'
-    $injScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='inject'"
+    $injScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='inject'" -Required
     if ($injScans -lt 1) { throw 'inject 창 내 권위 run 미적재(공허 통과 방지 가드)' }
 
     Write-Section 'ⓓ 해제 + CB 복귀(half-open -> closed)'

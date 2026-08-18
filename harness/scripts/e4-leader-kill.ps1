@@ -22,7 +22,7 @@ $rtoTarget = [int] $cfg['RTO_TARGET_SEC']
 function Get-CheckRows { param($Run, [string] $Name)
     ($Run.checks | Where-Object { $_.checkName -eq $Name } | Select-Object -First 1).violatedRows
 }
-function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
+function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
 Write-Section "E4 시작 runId=$runId"
 
@@ -134,7 +134,9 @@ try {
     $requiredStreak = if ($botsStopped) { 1 } else { 2 }
     $drained = Wait-DrainZero -Sql $Global:CHAOS_DRAIN_SQL -TimeoutSec 90 -RequiredStreak $requiredStreak
     if (-not $drained) {
-        Write-Host "경고: 드레인 미완(잔여 $(Get-Scalar $Global:CHAOS_DRAIN_SQL)건). C13a가 in-flight를 포함할 수 있다" -ForegroundColor Yellow
+        $residual = Get-Scalar $Global:CHAOS_DRAIN_SQL
+        $residualDisp = 'n/a(psql 무응답)'; if ($null -ne $residual) { $residualDisp = $residual }
+        Write-Host "경고: 드레인 미완(잔여 $residualDisp 건). C13a가 in-flight를 포함할 수 있다" -ForegroundColor Yellow
     }
     $postPort = Get-LiveNodePort
     $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
@@ -172,9 +174,13 @@ if (-not $drainValid) {
 # 정지 실패 경로 최소 방어(lib 공용 경로와 동형). run 직후 같은 술어를 다시 재서 표본이 in-flight를
 # 물었는지 가른다. 판정은 건드리지 않고 원인 귀속 근거로만 남긴다.
 if (-not $botsStopped) {
-    $c13aRecheck = [long](Get-Scalar $Global:CHAOS_DRAIN_SQL)
-    if ($c13aRecheck -ne [long]$ordersLost) {
-        Write-Host "경고: C13a 재측정 불일치(run $ordersLost -> 직후 $c13aRecheck). 부하 중 표본이라 RPO 증거로 쓸 수 없다. 봇 정지 원인 해소 후 재실행" -ForegroundColor Yellow
+    # 여기서 throw하면 아래 판정·기록·증거 출력이 통째로 사라진다. 재측정은 원인 귀속 보조라
+    # 무응답을 별도로 알리고 넘어간다. 무응답을 0으로 읽어 "불일치 없음"으로 보고하지는 않는다.
+    $c13aRecheckRaw = Get-Scalar $Global:CHAOS_DRAIN_SQL
+    if ($null -eq $c13aRecheckRaw) {
+        Write-Host '경고: C13a 재측정 실패(psql 무응답). run 표본이 in-flight를 물었는지 가르지 못했다' -ForegroundColor Yellow
+    } elseif ([long]$c13aRecheckRaw -ne [long]$ordersLost) {
+        Write-Host "경고: C13a 재측정 불일치(run $ordersLost -> 직후 $c13aRecheckRaw). 부하 중 표본이라 RPO 증거로 쓸 수 없다. 봇 정지 원인 해소 후 재실행" -ForegroundColor Yellow
     }
 }
 
@@ -216,8 +222,8 @@ Write-Host '──────────────────────�
 # C17(재생 결정론)은 봇 ACK COPY·스냅샷 재생 지문 배선이 M4 이월이라 이 스택에서 빈 테이블
 # 대조로 공허 통과한다. C16 실데이터 교차대조는 CI InvariantVerifierIntegrationTest가,
 # 검증기 반증(위반 주입 검출)은 동 테스트 verifierCatchesInjectedViolations가 담당한다.
-$c16rows = Get-Scalar "SELECT count(*) FROM harness.loadtest_acks"
-$c17rows = Get-Scalar "SELECT count(*) FROM recovery_runs"
+$c16rows = Get-Scalar "SELECT count(*) FROM harness.loadtest_acks" -Required
+$c17rows = Get-Scalar "SELECT count(*) FROM recovery_runs" -Required
 Write-Host ''
 Write-Host '증거 한정(컨테이너 E4):' -ForegroundColor Yellow
 Write-Host ("  C16 loadtest_acks 행수 : {0} ({1})" -f $c16rows, $(if ([decimal]$c16rows -eq 0) { '공허 통과, ACK 파이프라인 M4 이월' } else { '실데이터 대조' }))

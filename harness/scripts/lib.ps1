@@ -103,18 +103,30 @@ $Global:CHAOS_DRAIN_SQL = "SELECT count(*) FROM command_journal c WHERE c.comman
 
 # 드레인 0 확인. RequiredStreak 회 연속으로 0이어야 완료로 본다. 쓰기를 끊지 못한 경로에서는
 # 단발 0이 드레인이 아니라 다음 명령이 도착하기 직전의 우연일 수 있어 연속 표본을 요구한다.
+# psql 무응답 표본은 0으로 세지 않는다. 무응답을 0으로 읽으면 관측 실패가 드레인 완료로
+# 둔갑하고, 그 위에서 도는 사후 권위 run이 "정지 상태 판정"이라는 전제를 잃는다. 여기서
+# throw하지 않는 이유는 단발 무응답으로 실험 전체를 죽이지 않기 위해서다. 연속 표본을 끊고
+# 다시 재며, 창 내내 무응답이면 자연히 타임아웃해 드레인 미완으로 떨어진다(fail-closed).
 function Wait-DrainZero {
     param([string] $Sql, [int] $TimeoutSec, [int] $RequiredStreak = 1, [double] $PollSec = 2)
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
     $streak = 0
+    $unreachable = 0
     while ((Get-Date) -lt $deadline) {
-        if ((Get-Scalar $Sql) -eq 0) {
+        $v = Get-Scalar $Sql
+        if ($null -eq $v) {
+            $unreachable++
+            $streak = 0
+        } elseif ($v -eq 0) {
             $streak++
             if ($streak -ge $RequiredStreak) { return $true }
         } else {
             $streak = 0
         }
         Start-Sleep -Milliseconds ([int]($PollSec * 1000))
+    }
+    if ($unreachable -gt 0) {
+        Write-Host "경고: 드레인 폴링 중 psql 무응답 표본 $unreachable 건. 드레인 미완으로 처리한다" -ForegroundColor Yellow
     }
     return $false
 }
@@ -158,10 +170,21 @@ function Invoke-Psql {
     return ($out | Out-String).Trim()
 }
 
+# 스칼라 조회. 빈 결과를 0으로 폴백하지 않는다. Invoke-Psql은 stderr를 버리므로 psql 무응답·
+# 연결 실패·구문 오류가 전부 빈 문자열로 돌아오는데, 그것을 0으로 읽으면 "드레인 0건",
+# "스테일 쓰기 0건" 같은 통과 신호가 관측 실패로부터 만들어진다. 무응답과 진짜 0을 가른다.
+#   -Required : 빈 결과를 throw(집계·count 질의처럼 행이 반드시 나오는 축). 기본 선택지다.
+#   기본      : 빈 결과를 $null로 반환. 행 부재가 정상 상태인 질의(leader_lease 행 부재)에서만
+#               쓰고, 호출부가 $null을 명시로 판정해야 한다. [long]$null은 0이 되므로 캐스팅
+#               전에 반드시 null 검사를 둔다.
+# Get-AppMetric의 -Required와 같은 어휘다(도달 실패는 throw, 부재는 $null).
 function Get-Scalar {
-    param([string] $Sql)
+    param([string] $Sql, [switch] $Required)
     $v = Invoke-Psql $Sql
-    if ([string]::IsNullOrWhiteSpace($v)) { return 0 }
+    if ([string]::IsNullOrWhiteSpace($v)) {
+        if ($Required) { throw "psql 스칼라 조회가 빈 결과를 냈다(무응답 또는 질의 실패). SQL: $Sql" }
+        return $null
+    }
     return [decimal] $v
 }
 
@@ -295,7 +318,9 @@ function Complete-FailoverExperiment {
         $requiredStreak = if ($botsStopped) { 1 } else { 2 }
         $drained = Wait-DrainZero -Sql $Global:CHAOS_DRAIN_SQL -TimeoutSec 90 -RequiredStreak $requiredStreak
         if (-not $drained) {
-            Write-Host "경고: 드레인 미완(잔여 $(Get-Scalar $Global:CHAOS_DRAIN_SQL)건). C13a가 in-flight를 포함할 수 있다" -ForegroundColor Yellow
+            $residual = Get-Scalar $Global:CHAOS_DRAIN_SQL
+            $residualDisp = 'n/a(psql 무응답)'; if ($null -ne $residual) { $residualDisp = $residual }
+            Write-Host "경고: 드레인 미완(잔여 $residualDisp 건). C13a가 in-flight를 포함할 수 있다" -ForegroundColor Yellow
         }
         $postPort = Get-LiveNodePort
         $post = Invoke-InvariantRun -Port $postPort -RunId $RunId -Window 'post'
@@ -325,9 +350,13 @@ function Complete-FailoverExperiment {
     # 값이 줄었으면 run 시점 표본에 처리 중 주문이 섞여 있었다는 뜻이라 그 run은 정지 상태 판정이
     # 아니다. 판정은 건드리지 않고 원인 귀속 근거로만 남긴다(재실행이 해소 경로).
     if (-not $botsStopped) {
-        $c13aRecheck = [long](Get-Scalar $Global:CHAOS_DRAIN_SQL)
-        if ($c13aRecheck -ne $ordersLost) {
-            Write-Host "경고: C13a 재측정 불일치(run $ordersLost -> 직후 $c13aRecheck). 부하 중 표본이라 RPO 증거로 쓸 수 없다. 봇 정지 원인 해소 후 재실행" -ForegroundColor Yellow
+        # 여기서 throw하면 판정·증거 출력이 통째로 사라진다. 재측정은 원인 귀속 보조라 무응답을
+        # 별도로 알리고 넘어간다. 무응답을 0으로 읽어 "불일치 없음"으로 보고하지는 않는다.
+        $c13aRecheckRaw = Get-Scalar $Global:CHAOS_DRAIN_SQL
+        if ($null -eq $c13aRecheckRaw) {
+            Write-Host '경고: C13a 재측정 실패(psql 무응답). run 표본이 in-flight를 물었는지 가르지 못했다' -ForegroundColor Yellow
+        } elseif ([long]$c13aRecheckRaw -ne $ordersLost) {
+            Write-Host "경고: C13a 재측정 불일치(run $ordersLost -> 직후 $c13aRecheckRaw). 부하 중 표본이라 RPO 증거로 쓸 수 없다. 봇 정지 원인 해소 후 재실행" -ForegroundColor Yellow
         }
     }
 
@@ -350,7 +379,7 @@ function Complete-FailoverExperiment {
         $verdict = 'PASS'
     }
 
-    $tradesAfter = [long](Get-Scalar "SELECT count(*) FROM trades")
+    $tradesAfter = [long](Get-Scalar "SELECT count(*) FROM trades" -Required)
     $body = @{
         experimentId = $ExperimentId; oldLeader = $OldHolder; newLeader = $newHolder
         oldEpoch = $OldEpoch; newEpoch = $newEpoch; firstTradeTs = $firstTradeVal
@@ -454,8 +483,10 @@ function Test-ToxiproxyProxy {
 }
 
 # 저널 워터마크. 주입 직후 max(seq)를 잡아 이후 구 epoch append(스테일 쓰기)를 시간 축으로 격리한다.
-function Get-CommandWatermark { [long](Get-Scalar "SELECT COALESCE(max(seq),0) FROM command_journal") }
-function Get-EventWatermark   { [long](Get-Scalar "SELECT COALESCE(max(event_seq),0) FROM event_journal") }
+# COALESCE로 빈 테이블에서도 행이 나오므로 빈 결과는 곧 psql 무응답이다. 그것을 0으로 읽으면
+# 워터마크가 0이 되어 이후 스테일 쓰기 질의가 저널 전량을 대상으로 삼는다(판정 무효).
+function Get-CommandWatermark { [long](Get-Scalar "SELECT COALESCE(max(seq),0) FROM command_journal" -Required) }
+function Get-EventWatermark   { [long](Get-Scalar "SELECT COALESCE(max(event_seq),0) FROM event_journal" -Required) }
 
 # command_journal에 명령 축 fencing 컬럼(fencing_token)이 있는지(실스키마 대조). 실DDL 정본:
 # command_journal.fencing_token(= epoch 값), event_journal.fencing_epoch. 정본 §4-1 C22 주석은
@@ -470,11 +501,13 @@ function Test-CommandFencingColumn {
 # (event_journal.fencing_epoch)은 항상. fencing_token/fencing_epoch 값 = 리더 epoch(실데이터 확인).
 function Get-StaleWriteCount {
     param([long] $CmdWatermark, [long] $EvtWatermark, [long] $OldEpoch, [bool] $CmdHasFencing)
+    # -Required 필수. 이 두 count가 E5·E7의 지배 증거(split-brain 반증)라, 빈 결과를 0으로 읽으면
+    # psql 무응답이 그대로 "이중 쓰기 0"이 되어 확정 위양성 PASS를 만든다.
     $n = 0
     if ($CmdHasFencing) {
-        $n += [long](Get-Scalar "SELECT count(*) FROM command_journal WHERE seq > $CmdWatermark AND fencing_token = $OldEpoch")
+        $n += [long](Get-Scalar "SELECT count(*) FROM command_journal WHERE seq > $CmdWatermark AND fencing_token = $OldEpoch" -Required)
     }
-    $n += [long](Get-Scalar "SELECT count(*) FROM event_journal WHERE event_seq > $EvtWatermark AND fencing_epoch = $OldEpoch")
+    $n += [long](Get-Scalar "SELECT count(*) FROM event_journal WHERE event_seq > $EvtWatermark AND fencing_epoch = $OldEpoch" -Required)
     return $n
 }
 

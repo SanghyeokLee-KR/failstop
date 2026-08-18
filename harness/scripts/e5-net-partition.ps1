@@ -25,7 +25,7 @@ $standbyPort = [int]$cfg['STANDBY_PORT']
 $rtoTarget = [int]$cfg['RTO_TARGET_SEC']
 $observeSec = [int]$cfg['POST_OBSERVE_SEC']
 
-function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
+function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 $connected = $true
 
 Write-Section "E5(네트워크 분할) 시작 runId=$runId net=$net"
@@ -116,9 +116,10 @@ try {
             $reachable = $false
             try { Get-HarnessStatus -Port $targetPort | Out-Null; $reachable = $true } catch { $reachable = $false }
             $holder = Invoke-Psql "SELECT holder FROM leader_lease WHERE resource='matching-engine'"
-            $epochNow = [long](Get-Scalar "SELECT epoch FROM leader_lease WHERE resource='matching-engine'")
+            $epochNow = Get-Scalar "SELECT epoch FROM leader_lease WHERE resource='matching-engine'"
             # 팔로워 재합류 = 대상 노드 도달 가능 + 리스 보유자가 신 리더(구 리더 아님) + epoch 불변.
-            $reachable -and ($holder -eq $newHolder) -and ($epochNow -eq $newEpoch)
+            # 리스 행 부재·psql 무응답은 $null이다. 캐스팅해 0으로 비교하지 않고 미확인으로 둔다.
+            $reachable -and ($holder -eq $newHolder) -and ($null -ne $epochNow) -and ([long]$epochNow -eq $newEpoch)
         } catch { $false }
     } -TimeoutSec ([int]$cfg['REJOIN_OBSERVE_SEC']) -PollSec 1
 
@@ -129,7 +130,11 @@ try {
     $postPort = $standbyPort
     $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
     $staleWrites = Get-StaleWriteCount -CmdWatermark $wCmd -EvtWatermark $wEvt -OldEpoch $oldEpoch -CmdHasFencing $cmdHasFencing
-    $finalEpoch = [long](Get-Scalar "SELECT epoch FROM leader_lease WHERE resource='matching-engine'")
+    # 리스 행 부재는 리더 부재라 정상 상태가 아니지만 질의로는 0행이 나올 수 있다. 0으로 폴백하면
+    # final=0이 되어 아래 단조 상승 판정이 우연히 거짓이 되는 것에 기대게 된다. 명시로 가른다.
+    $finalEpochRaw = Get-Scalar "SELECT epoch FROM leader_lease WHERE resource='matching-engine'"
+    $finalEpoch = $null; if ($null -ne $finalEpochRaw) { $finalEpoch = [long]$finalEpochRaw }
+    $finalEpochDisp = 'n/a(리스 행 부재)'; if ($null -ne $finalEpoch) { $finalEpochDisp = $finalEpoch }
 
     $rows = @{}
     foreach ($c in $post.checks) { $rows[$c.checkName] = [long]$c.violatedRows }
@@ -142,7 +147,7 @@ try {
     # 반복될 수 있고 그때 epoch가 +2 이상 오른다(DB 설계 §5.4). 정확히 +1을 요구하면 그 정상
     # 동작을 split-brain 흔적으로 오판한다. split-brain 판정은 아래 staleWrites(구 epoch fencing
     # 축 저널 행 0)가 전담하므로 epoch는 단조 증가만 본다.
-    $epochOk = ($newEpoch -ge $oldEpoch + 1) -and ($finalEpoch -ge $newEpoch)
+    $epochOk = ($newEpoch -ge $oldEpoch + 1) -and ($null -ne $finalEpoch) -and ($finalEpoch -ge $newEpoch)
     # epoch 상승만으로는 "다른 노드가 받았다"가 증명되지 않는다. [반납 -> 만료 -> 같은 노드
     # 재승격]도 epoch를 올리고, 승격과 종신 강등이 경합하면 아무도 서빙하지 않는데 epoch만 오른다.
     $holderChanged = (-not [string]::IsNullOrWhiteSpace($newHolder)) -and ($newHolder -ne $oldHolder)
@@ -171,7 +176,7 @@ try {
         oldEpoch = $oldEpoch; newEpoch = $newEpoch; firstTradeTs = $firstTradeVal
         rtoSeconds = $rtoRounded; downtimeSeconds = $downtimeRounded
         rpoRecords = $rpo; verdict = $verdict
-        details = @{ runId = $runId; staleWrites = "$staleWrites"; finalEpoch = "$finalEpoch";
+        details = @{ runId = $runId; staleWrites = "$staleWrites"; finalEpoch = "$finalEpochDisp";
                      rejoin = "$([bool]$rejoin)"; assetSum = "$assetSum"; cmdGap = "$cmdGap";
                      evtGap = "$evtGap"; tradesBefore = "$tradesAtInject"; tradesAfter = "$tradesAfter" }
     }
@@ -180,7 +185,7 @@ try {
     Write-Host '── E5 증거(split-brain 반증) ────────────' -ForegroundColor Green
     Write-Host ("verdict            : {0}" -f $verdict)
     Write-Host ("이중 쓰기(stale)   : {0}  (구 epoch={1} 워터마크 이후 저널 행)" -f $staleWrites, $oldEpoch)
-    Write-Host ("epoch              : {0} -> {1} (final={2}, 단조 상승={3})" -f $oldEpoch, $newEpoch, $finalEpoch, $epochOk)
+    Write-Host ("epoch              : {0} -> {1} (final={2}, 단조 상승={3})" -f $oldEpoch, $newEpoch, $finalEpochDisp, $epochOk)
     Write-Host ("리더 교체          : {0}  ({1} -> {2})" -f $holderChanged, $oldHolder, $newHolder)
     Write-Host ("서비스 재개        : {0}  (체결 {1} -> {2})" -f $serviceResumed, $tradesAtInject, $tradesAfter)
     Write-Host ("RTO(체결 재개)     : {0} s (목표 < {1}, 증거만)" -f $rtoEvid, $rtoTarget)

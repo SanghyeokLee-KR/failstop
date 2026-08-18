@@ -21,7 +21,7 @@ $errMax = [double]$cfg['ERROR_RATE_MAX']
 $recSec = [int]$cfg['P99_RECOVERY_SEC']
 $recMargin = [double]$cfg['P99_RECOVERY_MARGIN']
 
-function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
+function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
 Write-Section "E1(PG 지연) 시작 runId=$runId proxy=$proxy port=$port"
 try {
@@ -85,7 +85,7 @@ try {
     Write-Section 'ⓒ 지연 중 관측(온디맨드 권위 run[스탠바이 경로] + 지연 표본[리더 경로])'
     $injRun = Invoke-InvariantRun -Port $injRunPort -RunId $runId -Window 'inject'
     $injHealth.Add((Get-ContainerHealth $leaderContainer))
-    $injScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='inject'"
+    $injScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='inject'" -Required
     if ($injScans -lt 1) { throw '지연 창 내 권위 run 미적재(공허 통과 방지 가드)' }
     $inj = Measure-Latency -Port $port -Count $sampleN -GapMs $gapMs
     $injHealth.Add((Get-ContainerHealth $leaderContainer))
