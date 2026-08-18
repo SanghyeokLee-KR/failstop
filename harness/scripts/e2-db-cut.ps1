@@ -43,6 +43,15 @@ try {
     $pre = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'pre'
     Write-Host "사전 verdict=$($pre.verdict) old_epoch=$oldEpoch"
 
+    # 회복 가능 반납은 프로세스 수명 누계 카운터다. 사후 절대값으로 게이팅하면 앞선 실험이 남긴
+    # 반납까지 세어 이번 페일오버의 반납 횟수를 과대 계상한다. 주입 전 기저를 잡아 델타로 판정한다.
+    # 여기서 -Required인 이유: 관측 경로가 끊긴 채로 주입하면 이 축을 판정할 수 없다. 주입 전에 멈춘다.
+    $sdPattern = 'exchange_leader_recoverable_standdown_total(?:\{[^}]*\})?\s+([0-9.eE+-]+)'
+    $sdBaseRaw = Get-AppMetric -Port $standbyPort -Pattern $sdPattern -Required
+    $sdBase = 0.0; if ($null -ne $sdBaseRaw) { $sdBase = [double]$sdBaseRaw }
+    $sdBaseDisp = 'n/a(시계열 부재)'; if ($null -ne $sdBaseRaw) { $sdBaseDisp = $sdBaseRaw }
+    Write-Host "회복 가능 반납 기저(승격 예정 노드): $sdBaseDisp"
+
     # 시계 동기 전제조건(#58): 스큐면 주입 없이 SKIP. 토식 미주입이라 종료 훅 해제는 무해.
     if (Test-FailoverClockGuard -ExperimentId 'E2') { exit 0 }
 
@@ -87,13 +96,28 @@ try {
     # 회복 가능 반납 축(CICD §5-2: E2 페일오버는 0~1). DB v2.24가 신설했으나 판정에 배선되지
     # 않아 수동 판독 지침으로만 남아 있었다. 2회 이상이면 승격과 반납을 되풀이한 것이고, 그때는
     # 마지막 승격만 살아 있어도 위 안정성 게이트를 통과하므로 여기서 따로 잡아야 한다.
-    $sdRaw = Get-AppMetric -Port $standbyPort `
-        -Pattern 'exchange_leader_recoverable_standdown_total(?:\{[^}]*\})?\s+([0-9.eE+-]+)'
-    if ($null -eq $sdRaw) {
-        Write-Host '회복 가능 반납: n/a(메트릭 미노출). 판정에서 제외한다.'
-    } else {
-        Write-Host "회복 가능 반납 누계(승격 노드): $sdRaw (정상 상한 1)"
-        if ([double]$sdRaw -gt 1) { $verdict = 'FAIL' }
+    $sdScrapeOk = $true
+    $sdAfterRaw = $null
+    try { $sdAfterRaw = Get-AppMetric -Port $standbyPort -Pattern $sdPattern -Required }
+    catch {
+        $sdScrapeOk = $false
+        Write-Host "회복 가능 반납: 스크레이프 실패($($_.Exception.Message)). 관측 경로 단절은 판정 제외 사유가 아니라 실패다" -ForegroundColor Red
+        $verdict = 'FAIL'
+    }
+    if ($sdScrapeOk) {
+        if ($null -eq $sdAfterRaw) {
+            Write-Host '회복 가능 반납: n/a(스크레이프는 성공, 시계열 부재). 서버 미등록 축이라 판정에서 제외한다.'
+        } else {
+            $sdDelta = [double]$sdAfterRaw - $sdBase
+            # 승격 노드가 재기동되면 카운터가 0부터 다시 시작해 델타가 음수가 된다. 그때는 사후
+            # 절대값 자체가 이번 사건 이후의 반납 횟수다.
+            if ($sdDelta -lt 0) {
+                Write-Host "회복 가능 반납: 델타 음수(기저 $sdBase -> 사후 $sdAfterRaw). 노드 재기동으로 보고 사후 절대값으로 클램프" -ForegroundColor Yellow
+                $sdDelta = [double]$sdAfterRaw
+            }
+            Write-Host "회복 가능 반납 델타(이번 페일오버): $sdDelta (기저 $sdBase, 사후 $sdAfterRaw, 정상 상한 1)"
+            if ($sdDelta -gt 1) { $verdict = 'FAIL' }
+        }
     }
 }
 finally {
