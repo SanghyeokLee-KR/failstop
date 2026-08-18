@@ -12,6 +12,9 @@ function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades") }
 
 Write-Section "E2 시작 runId=$runId"
 try {
+    # 자기 부하를 명시로 세운다. 생략하면 앞선 실험이 남긴 ops를 이월받는다(E6 직후면 400,
+    # 드레인 직후면 정지 상태). 부하가 무엇인지 모르는 채 주입하면 판정 조건이 실행마다 달라진다.
+    if ($cfg['BASE_OPS']) { Set-BotOps ([int]$cfg['BASE_OPS']) }
     Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
 
     # 실 리더의 pg 프록시를 차단 대상 삼는다. config 기본값(pg-api1)은 갓 세운 스택에서만 맞고,
@@ -24,8 +27,12 @@ try {
     $proxy = if ($detected -eq 'chaos-api-1') { 'pg-api1' } else { 'pg-api2' }
     Write-Host "리더 감지: $detected -> 차단 프록시 $proxy"
     $standbyPort = if ($detected -eq 'chaos-api-1') { 28080 } else { 18080 }
-    $ok = Wait-For { (Get-TradeCount) -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
-    if (-not $ok) { throw '체결 미달, 봇 상태 확인' }
+    # 누적이 아니라 증분으로 본다. 누적이면 앞선 실험이 남긴 체결만으로 즉시 통과해, 봇이 죽었거나
+    # 정지된 상태에서도 주입한다. 부하 없이 주입하면 승격 후 재개를 관측할 수 없고 그 FAIL은
+    # 코드 결함이 아니라 판정 결함이다(E5와 같은 술어).
+    $tradesBase = Get-TradeCount
+    $ok = Wait-For { (Get-TradeCount) - $tradesBase -ge [long]$cfg['MIN_TRADES_BEFORE_INJECT'] } -TimeoutSec 120 -PollSec 1
+    if (-not $ok) { throw "체결 증분 미달(기준 $($cfg['MIN_TRADES_BEFORE_INJECT'])건). 봇 부하가 실리지 않았다. chaos-bots 상태와 BASE_OPS를 확인한다." }
 
     Write-Section 'ⓐ 사전 권위 run'
     $prePort = Get-LiveNodePort
@@ -50,7 +57,7 @@ try {
         -OldEpoch $oldEpoch -OldHolder $oldHolder -LeaseUntilBefore $leaseUntilBefore `
         -TradesAtInject $tradesAtInject -T0 $t0 `
         -ObserveSec ([int]$cfg['POST_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC']) `
-        -StandbyPort $standbyPort
+        -StandbyPort $standbyPort -RestoreOps ([int]$cfg['BASE_OPS'])
 
     # 승격 안정성 게이트. E2 라이브에서 두 노드가 123ms 만에 모두 강등해 클러스터가 리더 없이
     # 영구 정지한 적이 있다(DB 설계 v2.23 §5.4). Complete-FailoverExperiment의 verdict는 승격
@@ -97,3 +104,5 @@ finally {
 
 if ($verdict -ne 'PASS') { exit 1 }
 Write-Host 'E2 PASS.' -ForegroundColor Green
+# 명시 종료코드. 앞선 네이티브 호출($LASTEXITCODE)이 프로세스 종료코드로 새면 PASS가 exit 1이 된다.
+exit 0

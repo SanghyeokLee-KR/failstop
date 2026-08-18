@@ -26,21 +26,97 @@ function Invoke-Compose {
     & docker compose -f $Global:CHAOS.ComposeFile --env-file $Global:CHAOS.EnvFile @args
 }
 
+# 네이티브 호출 공용 래퍼. cmd /c로 감싸 스트림을 nul에 버린다. PowerShell에서 compose를 직접
+# 호출하면 재기동한 컨테이너가 상속한 출력 핸들 때문에 파이프가 EOF에 도달하지 않아 -d(detach)
+# 인데도 반환하지 않고 매달린다(실측). Get-LeaderContainer의 docker logs와 동일한 공용 우회다.
+# 반환은 종료코드다. 호출부는 반드시 변수에 받는다. 미포획이면 상위 함수의 반환값에 섞여 배열이 된다.
+function Invoke-ComposeQuiet {
+    param([string] $ComposeArgs)
+    $cmd = "docker compose -f `"$($Global:CHAOS.ComposeFile)`" --env-file `"$($Global:CHAOS.EnvFile)`" $ComposeArgs"
+    & cmd /c "$cmd >nul 2>nul"
+    return $LASTEXITCODE
+}
+
+# compose가 아니라 docker CLI 직접 호출. 의존 그래프를 타지 않는 것이 목적이다(Stop/Restore-BotLoad 참조).
+function Invoke-DockerQuiet {
+    param([string] $DockerArgs)
+    & cmd /c "docker $DockerArgs >nul 2>nul"
+    return $LASTEXITCODE
+}
+
 # 실험별 봇 부하 제어. 봇 플릿 target-ops를 지정값으로 재기동한다. 런타임 rate API(PUT /admin/v1/sim/rate)는
 # governor가 봇 노드(bots 프로파일) 전용이라 서빙 노드 호출이 no-op으로 무효다(SimAdminController 주석).
 # 그래서 CHAOS_BOTS_OPS를 바꿔 chaos-bots만 force-recreate하고 새 부하가 실릴 시간을 짧게 준다. E6
 # 스파이크(SPIKE_OPS)도 같은 기제다. 실험은 자기 BASE_OPS로 이 함수를 호출해 부하를 정한다.
 function Set-BotOps {
     param([int] $Ops, [int] $SettleSec = 5)
+    # 환경변수는 자식에 상속된다. force-recreate라야 새 값이 컨테이너 env에 박힌다.
     $env:CHAOS_BOTS_OPS = "$Ops"
-    # cmd /c로 감싸 네이티브 스트림을 nul에 버린다. PowerShell에서 compose를 직접 호출하면 재기동한
-    # 컨테이너가 상속한 출력 핸들 때문에 파이프가 EOF에 도달하지 않아 -d(detach)인데도 반환하지 않고
-    # 매달린다(실측). Get-LeaderContainer의 docker logs와 동일한 공용 우회다. 환경변수는 자식에 상속된다.
-    $compose = "docker compose -f `"$($Global:CHAOS.ComposeFile)`" --env-file `"$($Global:CHAOS.EnvFile)`" up -d --no-deps --force-recreate chaos-bots"
-    & cmd /c "$compose >nul 2>nul"
-    if ($LASTEXITCODE -ne 0) { throw "봇 OPS 적용 실패(chaos-bots 재기동 종료코드 $LASTEXITCODE)" }
+    # --no-deps라 의존 게이트를 건너뛴다. Restore-BotLoad가 compose를 못 쓰는 것과 대비되는 지점이다.
+    $code = Invoke-ComposeQuiet 'up -d --no-deps --force-recreate chaos-bots'
+    if ($code -ne 0) { throw "봇 OPS 적용 실패(chaos-bots 재기동 종료코드 $code)" }
     Write-Host "봇 OPS=$Ops 적용(chaos-bots 재기동, settle ${SettleSec}s)"
     if ($SettleSec -gt 0) { Start-Sleep -Seconds $SettleSec }
+}
+
+# 드레인 전제 만들기. 봇 쓰기를 끊는다. Set-BotOps 1로 낮추는 것으로는 부족하다. 1 ops도 쓰기라
+# 새 NEW 명령이 계속 들어와 C13a가 in-flight를 유실로 세고, 재기동한 봇이 그 부하로 남아 다음
+# 실험이 무부하를 이월받는다. 반환은 정지 성공 여부(호출부가 판정 유효성 판단에 쓴다).
+function Stop-BotLoad {
+    $code = Invoke-DockerQuiet 'stop chaos-bots'
+    if ($code -ne 0) {
+        Write-Host "경고: chaos-bots 정지 실패(종료코드 $code). 부하가 계속되는 상태로 드레인한다" -ForegroundColor Yellow
+        return $false
+    }
+    Write-Host '봇 정지(docker stop chaos-bots). 드레인 창 동안 신규 쓰기 없음'
+    return $true
+}
+
+# 정지 전 ops로 복원. compose가 아니라 docker start인 이유: chaos-bots는 chaos-api-1의
+# service_healthy에 종속되는데 그 헬스체크가 readiness이고 팔로워 readiness는 설계상 503이다.
+# 그래서 페일오버 직후 compose start는 의존 게이트에서 무한 대기하거나 dependency unhealthy로
+# exit 1을 낸다(실측). 그러면 봇이 정지된 채 남아 다음 실험이 0 ops를 이월받는다. docker start는
+# 의존 그래프를 타지 않고 컨테이너 env를 보존하므로 정지 전 ops가 그대로 돌아온다.
+# 복원 실패는 경고만 남긴다. finally에서 throw하면 앞선 return이 취소되고 판정이 예외로 뒤집힌다.
+function Restore-BotLoad {
+    param([bool] $WasStopped, [int] $Ops = 0)
+    if (-not $WasStopped) { return }
+    # Ops가 주어지면 그 값으로 되돌린다. docker start는 정지 시점 env를 복원하는데, 스파이크
+    # 실험은 정지 시점 ops가 SPIKE_OPS(400)라 그대로 되살리면 폭주 부하가 다음 실험으로 이월된다.
+    # force-recreate 경로는 --no-deps라 의존이 unhealthy여도 통과한다(실측).
+    try {
+        if ($Ops -gt 0) {
+            Set-BotOps $Ops -SettleSec 0
+            return
+        }
+        $code = Invoke-DockerQuiet 'start chaos-bots'
+        if ($code -eq 0) { Write-Host '봇 재개(docker start chaos-bots, 정지 전 ops 그대로)' }
+        else { Write-Host "경고: chaos-bots 재개 실패(종료코드 $code). 다음 실험 전 수동 확인" -ForegroundColor Yellow }
+    } catch {
+        Write-Host "경고: chaos-bots 재개 실패($($_.Exception.Message)). 다음 실험 전 수동 확인" -ForegroundColor Yellow
+    }
+}
+
+# 드레인 대상 술어(C13A_ORDER_MATERIALIZED와 동일 anti-join). 물질화되지 않은 NEW 명령 수.
+$Global:CHAOS_DRAIN_SQL = "SELECT count(*) FROM command_journal c WHERE c.command_type='NEW' " +
+    "AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.id = c.assigned_order_id)"
+
+# 드레인 0 확인. RequiredStreak 회 연속으로 0이어야 완료로 본다. 쓰기를 끊지 못한 경로에서는
+# 단발 0이 드레인이 아니라 다음 명령이 도착하기 직전의 우연일 수 있어 연속 표본을 요구한다.
+function Wait-DrainZero {
+    param([string] $Sql, [int] $TimeoutSec, [int] $RequiredStreak = 1, [double] $PollSec = 2)
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    $streak = 0
+    while ((Get-Date) -lt $deadline) {
+        if ((Get-Scalar $Sql) -eq 0) {
+            $streak++
+            if ($streak -ge $RequiredStreak) { return $true }
+        } else {
+            $streak = 0
+        }
+        Start-Sleep -Milliseconds ([int]($PollSec * 1000))
+    }
+    return $false
 }
 
 # 리스 TTL(초). §5-1 T1 = 구 lease_until − 리스 TTL(마지막 heartbeat 역산). 카오스 스택은
@@ -171,7 +247,7 @@ function Complete-FailoverExperiment {
         [long] $OldEpoch, [string] $OldHolder, [datetime] $LeaseUntilBefore,
         [long] $TradesAtInject, [datetime] $T0,
         [int] $ObserveSec, [int] $RtoTarget,
-        [int] $StandbyPort = 0
+        [int] $StandbyPort = 0, [int] $RestoreOps = 0
     )
     # 스탠바이 포트를 api-2로 하드코딩하면 리더가 api-2일 때(앞선 실험이 그렇게 남긴 경우)
     # 방금 죽인 노드를 폴링하게 되어 승격을 영영 못 보고 RTO가 n/a로 남는다. 호출부가 실제
@@ -208,15 +284,25 @@ function Complete-FailoverExperiment {
     # 처리 중인 주문을 그대로 유실로 센다. sql/invariants.sql 주석이 "큐 드레인된 권위 run/정지
     # 상태에서만 유효"라고 규정한 이유다. 실측(E6 400 ops)에서 10~11건이 잡혔고 부하를 낮추자
     # 0이 됐다. 체크를 게이트에서 빼는 대신 유효 조건을 만들어 RPO 증거를 보존한다.
-    Set-BotOps 1 -SettleSec 0
-    $drainSql = "SELECT count(*) FROM command_journal c WHERE c.command_type='NEW' " +
-        "AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.id = c.assigned_order_id)"
-    $drained = Wait-For { (Get-Scalar $drainSql) -eq 0 } -TimeoutSec 90 -PollSec 2
-    if (-not $drained) {
-        Write-Host "경고: 드레인 미완(잔여 $(Get-Scalar $drainSql)건). C13a가 in-flight를 포함할 수 있다" -ForegroundColor Yellow
+    #
+    # try 범위를 [정지 -> 드레인 -> 사후 run]으로 좁힌 이유: 이후 구간(기록·출력)은 봇이 돌아도
+    # 무해하고, 복원을 함수 말미로 미루면 마지막 네이티브 명령이 docker start가 되어 그 종료코드가
+    # 실험 프로세스 종료코드로 샌다(E5·E7이 같은 사고를 낸 전례).
+    $botsStopped = Stop-BotLoad
+    $drained = $false
+    try {
+        # 정지 실패 시 최소 방어: 연속 2회 0을 요구해 단발 0을 드레인으로 오인하지 않는다.
+        $requiredStreak = if ($botsStopped) { 1 } else { 2 }
+        $drained = Wait-DrainZero -Sql $Global:CHAOS_DRAIN_SQL -TimeoutSec 90 -RequiredStreak $requiredStreak
+        if (-not $drained) {
+            Write-Host "경고: 드레인 미완(잔여 $(Get-Scalar $Global:CHAOS_DRAIN_SQL)건). C13a가 in-flight를 포함할 수 있다" -ForegroundColor Yellow
+        }
+        $postPort = Get-LiveNodePort
+        $post = Invoke-InvariantRun -Port $postPort -RunId $RunId -Window 'post'
     }
-    $postPort = Get-LiveNodePort
-    $post = Invoke-InvariantRun -Port $postPort -RunId $RunId -Window 'post'
+    finally {
+        Restore-BotLoad -WasStopped $botsStopped -Ops $RestoreOps
+    }
 
     $rows = @{}
     foreach ($c in $post.checks) { $rows[$c.checkName] = [long]$c.violatedRows }
@@ -225,6 +311,25 @@ function Complete-FailoverExperiment {
     $dupOrder = $rows['C07_DUP_ORDER'] + $rows['C07P_DUP_ORDER_JOURNAL']
     $dupFill = $rows['C08_DUP_FILL']; $ordersLost = $rows['C13A_ORDER_MATERIALIZED']
     $rpo = $cmdGap + $evtGap + $ordersLost
+
+    # 드레인 성립 여부는 증거 품질 표기이지 판정 완화 사유가 아니다. 판정은 드레인 성패와 무관하게
+    # criticalClean(C13a 포함)을 쓴다. 드레인 실패 시 C13a를 빼면 자기무력화가 된다. Wait-DrainZero의
+    # 술어가 C13a와 같은 anti-join이라 "드레인 실패"는 곧 "C13a 위반"이고, 그때 C13a를 빼는 것은
+    # 진짜 주문 유실을 PASS로 뒤집는 짓이다. 정본 PASS 식은 CRITICAL 전량 0행 ∧ rpo_records=0이다
+    # (CICD §6 R7·검증설계 §5-3). 봇 정지 실패는 아래 재측정 경고로만 드러낸다.
+    $drainValid = $botsStopped -and $drained
+    if (-not $drainValid) {
+        Write-Host "경고: 드레인 미성립(정지=$botsStopped, 드레인=$drained). C13a=$ordersLost가 실유실인지 in-flight인지 아래 재측정으로 가른다" -ForegroundColor Yellow
+    }
+    # 정지 실패 경로 최소 방어: run 직후 같은 술어를 다시 재서 표본이 in-flight를 물었는지 본다.
+    # 값이 줄었으면 run 시점 표본에 처리 중 주문이 섞여 있었다는 뜻이라 그 run은 정지 상태 판정이
+    # 아니다. 판정은 건드리지 않고 원인 귀속 근거로만 남긴다(재실행이 해소 경로).
+    if (-not $botsStopped) {
+        $c13aRecheck = [long](Get-Scalar $Global:CHAOS_DRAIN_SQL)
+        if ($c13aRecheck -ne $ordersLost) {
+            Write-Host "경고: C13a 재측정 불일치(run $ordersLost -> 직후 $c13aRecheck). 부하 중 표본이라 RPO 증거로 쓸 수 없다. 봇 정지 원인 해소 후 재실행" -ForegroundColor Yellow
+        }
+    }
 
     $rto = $null; if ($t5) { $rto = ($t5 - $T0).TotalSeconds }
     # §5-1 정의: downtime(exchange_failover_downtime_seconds)=T2-T1. T1은 마지막 heartbeat이며
@@ -253,7 +358,8 @@ function Complete-FailoverExperiment {
         rpoRecords = $rpo; verdict = $verdict
         details = @{ runId = $RunId; assetSum = "$assetSum"; dupOrder = "$dupOrder";
                      dupFill = "$dupFill"; cmdGap = "$cmdGap"; evtGap = "$evtGap";
-                     tradesBefore = "$TradesAtInject"; tradesAfter = "$tradesAfter" }
+                     tradesBefore = "$TradesAtInject"; tradesAfter = "$tradesAfter";
+                     drainValid = "$drainValid" }
     }
     $rec = Record-Failover -Port $postPort -Body $body
 
@@ -265,7 +371,7 @@ function Complete-FailoverExperiment {
     Write-Host ("자산합(C01)      : {0}" -f $assetSum)
     Write-Host ("중복 접수/체결   : {0} / {1}" -f $dupOrder, $dupFill)
     Write-Host ("저널 gap C05/C06 : {0} / {1}" -f $cmdGap, $evtGap)
-    Write-Host ("주문 유실(C13a)  : {0}" -f $ordersLost)
+    Write-Host ("주문 유실(C13a)  : {0} (드레인 성립={1})" -f $ordersLost, $drainValid)
     Write-Host ("failover_run_id  : {0}" -f $rec.failover_run_id)
     Write-Host '────────────────────────────────────────'
     # Write-Host로 감싸지 않으면 Invoke-Psql 반환 문자열이 파이프라인에 섞여 함수가 배열을

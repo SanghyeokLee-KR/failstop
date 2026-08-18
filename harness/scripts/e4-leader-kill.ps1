@@ -28,11 +28,18 @@ Write-Section "E4 시작 runId=$runId"
 
 # ── 워밍업: 정상 부하로 체결 축적 ──────────────────────────────────────
 Write-Section 'warmup'
+# 자기 부하를 명시로 세운다. 생략하면 앞선 실험이 남긴 ops를 이월받는다(E6 직후면 400, 드레인
+# 직후면 정지 상태). 부하가 무엇인지 모르는 채 kill하면 판정 조건이 실행마다 달라진다.
+if ($cfg['BASE_OPS']) { Set-BotOps ([int]$cfg['BASE_OPS']) }
 Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
 $minTrades = [long]$cfg['MIN_TRADES_BEFORE_KILL']
-$ok = Wait-For { (Get-TradeCount) -ge $minTrades } -TimeoutSec 120 -PollSec 1
-if (-not $ok) { throw "체결 $minTrades 건 미달, 봇 플릿 상태 확인" }
-Write-Host "누적 체결: $(Get-TradeCount)"
+# 누적이 아니라 증분으로 본다. 누적이면 앞선 실험이 남긴 체결만으로 즉시 통과해, 봇이 죽었거나
+# 정지된 상태에서도 kill한다. 부하 없이 죽이면 승격 후 재개를 관측할 수 없고 그 FAIL은 코드
+# 결함이 아니라 판정 결함이다(E5와 같은 술어).
+$tradesBase = Get-TradeCount
+$ok = Wait-For { (Get-TradeCount) - $tradesBase -ge $minTrades } -TimeoutSec 120 -PollSec 1
+if (-not $ok) { throw "체결 증분 $minTrades 건 미달. 봇 부하가 실리지 않았다. chaos-bots 상태와 BASE_OPS를 확인한다." }
+Write-Host "체결 증분: $((Get-TradeCount) - $tradesBase) (누적 $(Get-TradeCount))"
 
 # ── 리더 감지: 실 리더를 kill 대상 삼는다 ──────────────────────────────
 # config 기본값은 갓 세운 스택에서만 맞다. 앞선 실험이 리더를 api-2로 남겼으면 팔로워를 죽이게
@@ -115,12 +122,27 @@ if ($firstTradeRaw) {
 $t5Disp = 'n/a'; if ($t5) { $t5Disp = $t5.ToString('o') }
 Write-Host "T5(체결 재개)=$t5Disp first_trade_at=$firstTradeTs"
 
-# ── ⓓ 사후 권위 run + 측정 ─────────────────────────────────────────────
-Write-Section 'ⓓ 사후 권위 run'
-# 저널 안정(in-flight 소진) 대기
-Start-Sleep -Seconds 3
-$postPort = Get-LiveNodePort
-$post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
+# ── ⓓ 드레인 + 사후 권위 run + 측정 ────────────────────────────────────
+Write-Section 'ⓓ 드레인 + 사후 권위 run'
+# 종전에는 3초만 쉬고 쟀다. E4 판정은 $post.criticalClean을 쓰는데 C13a가 CRITICAL이라, 부하가
+# 도는 상태에서 재면 in-flight가 유실로 계상돼 위양성 FAIL이 난다(E2·E6에서 실측된 것과 같은
+# 기제). 봇 쓰기를 끊고 물질화가 끝난 뒤 잰다. try 범위는 사후 run까지만 두고 이후 기록·출력은
+# 봇이 돌아온 뒤에 한다(마지막 네이티브 명령이 docker start가 되면 종료코드가 샌다).
+$botsStopped = Stop-BotLoad
+$drained = $false
+try {
+    $requiredStreak = if ($botsStopped) { 1 } else { 2 }
+    $drained = Wait-DrainZero -Sql $Global:CHAOS_DRAIN_SQL -TimeoutSec 90 -RequiredStreak $requiredStreak
+    if (-not $drained) {
+        Write-Host "경고: 드레인 미완(잔여 $(Get-Scalar $Global:CHAOS_DRAIN_SQL)건). C13a가 in-flight를 포함할 수 있다" -ForegroundColor Yellow
+    }
+    $postPort = Get-LiveNodePort
+    $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
+}
+finally {
+    $restoreOps = 0; if ($cfg['BASE_OPS']) { $restoreOps = [int]$cfg['BASE_OPS'] }
+    Restore-BotLoad -WasStopped $botsStopped -Ops $restoreOps
+}
 
 $assetSum = Get-CheckRows $post 'C01_ASSET_CONSERVATION'
 $cmdGap   = Get-CheckRows $post 'C05_CMD_GAPLESS'
@@ -140,6 +162,22 @@ $downtimeRounded = $null; if ($null -ne $downtime) { $downtimeRounded = [math]::
 $firstTradeVal = $null; if ($firstTradeTs) { $firstTradeVal = $firstTradeTs }
 $rtoDisplay = 'n/a'; if ($null -ne $rtoRounded) { $rtoDisplay = $rtoRounded }
 
+# 드레인 성립 여부는 증거 품질 표기이지 판정 완화 사유가 아니다. Wait-DrainZero의 술어가 C13a와
+# 같은 anti-join이라 "드레인 실패"는 곧 "C13a 위반"이고, 그때 C13a를 게이팅에서 빼면 진짜 주문
+# 유실이 PASS로 뒤집힌다. 정본 PASS 식은 CRITICAL 전량 0행 ∧ rpo_records=0이다(§5-3 R7).
+$drainValid = $botsStopped -and $drained
+if (-not $drainValid) {
+    Write-Host "경고: 드레인 미성립(정지=$botsStopped, 드레인=$drained). C13a=$ordersLost의 증거 품질이 낮다" -ForegroundColor Yellow
+}
+# 정지 실패 경로 최소 방어(lib 공용 경로와 동형). run 직후 같은 술어를 다시 재서 표본이 in-flight를
+# 물었는지 가른다. 판정은 건드리지 않고 원인 귀속 근거로만 남긴다.
+if (-not $botsStopped) {
+    $c13aRecheck = [long](Get-Scalar $Global:CHAOS_DRAIN_SQL)
+    if ($c13aRecheck -ne [long]$ordersLost) {
+        Write-Host "경고: C13a 재측정 불일치(run $ordersLost -> 직후 $c13aRecheck). 부하 중 표본이라 RPO 증거로 쓸 수 없다. 봇 정지 원인 해소 후 재실행" -ForegroundColor Yellow
+    }
+}
+
 $verdict = 'FAIL'
 if ($post.criticalClean -and $t5 -and ($newEpoch -eq $oldEpoch + 1) -and ($null -ne $rto) -and ($rto -lt $rtoTarget)) {
     $verdict = 'PASS'
@@ -157,7 +195,7 @@ $body = @{
     rpoRecords = $rpoRecords; verdict = $verdict
     details = @{ runId = $runId; assetSum = "$assetSum"; dupOrder = "$dupOrder"; dupFill = "$dupFill";
                  cmdGap = "$cmdGap"; evtGap = "$evtGap"; tradesBefore = "$tradesBefore";
-                 tradesAfter = "$tradesAfter" }
+                 tradesAfter = "$tradesAfter"; drainValid = "$drainValid" }
 }
 $rec = Record-Failover -Port $postPort -Body $body
 
@@ -170,7 +208,7 @@ Write-Host ("자산합 위반(C01)   : {0}" -f $assetSum)
 Write-Host ("중복 접수(C07/C07')  : {0}" -f $dupOrder)
 Write-Host ("중복 체결(C08)     : {0}" -f $dupFill)
 Write-Host ("저널 gap(C05/C06)  : {0} / {1}" -f $cmdGap, $evtGap)
-Write-Host ("주문 유실(C13a)    : {0}" -f $ordersLost)
+Write-Host ("주문 유실(C13a)    : {0} (드레인 성립={1})" -f $ordersLost, $drainValid)
 Write-Host ("RPO records        : {0}" -f $rpoRecords)
 Write-Host ("failover_run_id    : {0}" -f $rec.failover_run_id)
 Write-Host '────────────────────────────────────────'
@@ -199,3 +237,5 @@ if ($verdict -ne 'PASS') {
 }
 Write-Host ''
 Write-Host 'E4 PASS.' -ForegroundColor Green
+# 명시 종료코드. 앞선 네이티브 호출($LASTEXITCODE)이 프로세스 종료코드로 새면 PASS가 exit 1이 된다.
+exit 0
