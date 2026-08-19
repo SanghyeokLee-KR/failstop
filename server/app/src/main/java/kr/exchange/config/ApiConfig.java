@@ -23,6 +23,8 @@ import kr.exchange.api.member.MemberSessionService;
 import kr.exchange.api.member.PasswordHasher;
 import kr.exchange.api.market.MarketDataService;
 import kr.exchange.api.market.MarketDirectory;
+import kr.exchange.api.order.AccountRepository;
+import kr.exchange.api.order.MyHistoryRepository;
 import kr.exchange.api.order.OrderGateway;
 import kr.exchange.api.order.OrderQueryService;
 import kr.exchange.api.ws.CandleSubscriptions;
@@ -271,6 +273,16 @@ public class ApiConfig {
     @Bean
     public OrderQueryService orderQueryService(JdbcClient jdbc) {
         return new OrderQueryService(jdbc);
+    }
+
+    @Bean
+    public AccountRepository accountRepository(JdbcClient jdbc) {
+        return new AccountRepository(jdbc);
+    }
+
+    @Bean
+    public MyHistoryRepository myHistoryRepository(JdbcClient jdbc) {
+        return new MyHistoryRepository(jdbc);
     }
 
     // §2-5 '계좌/주문 조회' 단일 버킷(200토큰/10s, weight 2). OrderController(/open·/closed)와

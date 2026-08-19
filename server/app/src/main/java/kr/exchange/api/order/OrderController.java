@@ -11,11 +11,15 @@ import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.EpochSource;
 import kr.exchange.api.market.MarketDirectory;
+import kr.exchange.api.order.dto.BatchResponse;
+import kr.exchange.api.order.dto.CancelAllResponse;
+import kr.exchange.api.order.dto.ChanceResponse;
+import kr.exchange.api.order.dto.OrderResponse;
+import kr.exchange.api.order.dto.PageResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,9 +29,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /** 주문 REST(§4-B). 인증 컨텍스트는 ApiAuthFilter가 request attribute로 주입한다. */
@@ -55,13 +57,14 @@ public class OrderController {
     private final OrderQueryService orders;
     private final EpochSource epochSource;
     private final ObjectMapper objectMapper;
-    private final JdbcClient jdbc;
+    private final AccountRepository accounts;
     private final OrderRejectionMetrics rejections;
     private final AccountRateLimiter queryLimiter;
     private final MarketDirectory markets;
 
     public OrderController(OrderGateway gateway, OrderQueryService orders,
-                           EpochSource epochSource, ObjectMapper objectMapper, JdbcClient jdbc,
+                           EpochSource epochSource, ObjectMapper objectMapper,
+                           AccountRepository accounts,
                            OrderRejectionMetrics rejections, MarketDirectory markets,
                            @Qualifier("accountQueryRateLimiter") AccountRateLimiter accountQueryRateLimiter,
                            @Value("${exchange.order.rate-limit.capacity:100}") int orderCapacity) {
@@ -69,7 +72,7 @@ public class OrderController {
         this.orders = orders;
         this.epochSource = epochSource;
         this.objectMapper = objectMapper;
-        this.jdbc = jdbc;
+        this.accounts = accounts;
         this.rejections = rejections;
         this.markets = markets;
         this.queryLimiter = accountQueryRateLimiter;
@@ -77,7 +80,8 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<Object> create(HttpServletRequest request, HttpServletResponse response)
+    public ResponseEntity<OrderResponse> create(HttpServletRequest request,
+                                                HttpServletResponse response)
             throws java.io.IOException {
         AuthPrincipal principal = principal(request);
         try {
@@ -85,7 +89,7 @@ public class OrderController {
             byte[] body = readBoundedBody(request);
             JsonNode json = parse(body);
             OrderGateway.Placement placement = gateway.place(principal.userId(), json, body);
-            Map<String, Object> view = orders.view(placement.row(), placement.epoch());
+            OrderResponse view = orders.view(placement.row(), placement.epoch());
             if (placement.replayed()) {
                 return ResponseEntity.ok().header("X-Idempotent-Replay", "true").body(view);
             }
@@ -98,7 +102,7 @@ public class OrderController {
 
     /** 일괄 주문(§4-B-6). 비원자·per-item 계약. 요청 자체가 유효하면 부분 성패라도 200. */
     @PostMapping("/batch")
-    public Map<String, Object> batch(HttpServletRequest request, HttpServletResponse response)
+    public BatchResponse batch(HttpServletRequest request, HttpServletResponse response)
             throws java.io.IOException {
         AuthPrincipal principal = principal(request);
         JsonNode array;
@@ -111,17 +115,15 @@ public class OrderController {
             rejections.record(e);
             throw e;
         }
-        List<Map<String, Object>> results = new ArrayList<>();
+        List<BatchResponse.Item> results = new ArrayList<>();
         int accepted = 0;
         int rejected = 0;
         int replayed = 0;
         int inProgress = 0;
         for (int i = 0; i < array.size(); i++) {
             JsonNode element = array.get(i);
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("index", i);
-            item.put("client_order_id", element.hasNonNull("client_order_id")
-                    ? element.get("client_order_id").asText() : null);
+            String clientOrderId = element.hasNonNull("client_order_id")
+                    ? element.get("client_order_id").asText() : null;
             try {
                 if (!element.isObject()) {
                     throw new ApiException(400, "invalid_parameter", "주문 원소는 객체여야 합니다.");
@@ -130,48 +132,39 @@ public class OrderController {
                 byte[] itemBody = objectMapper.writeValueAsBytes(element);
                 OrderGateway.Placement placement =
                         gateway.place(principal.userId(), element, itemBody);
+                OrderResponse order = orders.view(placement.row(), placement.epoch());
                 if (placement.replayed()) {
-                    item.put("status", "replayed");
-                    item.put("idempotent_replay", true);
+                    results.add(new BatchResponse.Item(i, clientOrderId, "replayed", true, order,
+                            null));
                     replayed++;
                 } else {
-                    item.put("status", "accepted");
+                    results.add(new BatchResponse.Item(i, clientOrderId, "accepted", null, order,
+                            null));
                     accepted++;
                 }
-                item.put("order", orders.view(placement.row(), placement.epoch()));
             } catch (ApiException e) {
                 if (e.retryAfter() != null) {
                     // 비종결(in-flight·페일오버). 재시도 대상이라 rejected와 구분한다.
-                    item.put("status", "in_progress");
-                    item.put("error", inProgressError(e));
+                    results.add(new BatchResponse.Item(i, clientOrderId, "in_progress", null, null,
+                            new BatchResponse.InProgressError(e.name(), e.retryAfter())));
                     inProgress++;
                 } else {
-                    item.put("status", "rejected");
-                    item.put("error", rejectedError(e));
+                    results.add(new BatchResponse.Item(i, clientOrderId, "rejected", null, null,
+                            new BatchResponse.RejectedError(e.name(), e.getMessage(), e.detail())));
                     rejections.record(e);
                     rejected++;
                 }
             }
-            results.add(item);
         }
-        Map<String, Object> summary = new LinkedHashMap<>();
-        summary.put("accepted", accepted);
-        summary.put("rejected", rejected);
-        summary.put("replayed", replayed);
-        if (inProgress > 0) {
-            summary.put("in_progress", inProgress);
-        }
-        summary.put("total", array.size());
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("schema_version", ApiFormats.SCHEMA_VERSION);
-        body.put("results", results);
-        body.put("summary", summary);
-        return body;
+        BatchResponse.Summary summary = new BatchResponse.Summary(accepted, rejected, replayed,
+                inProgress > 0 ? inProgress : null, array.size());
+        return new BatchResponse(ApiFormats.SCHEMA_VERSION, results, summary);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Object> cancel(HttpServletRequest request, HttpServletResponse response,
-                                         @PathVariable("id") String id) {
+    public ResponseEntity<OrderResponse> cancel(HttpServletRequest request,
+                                                HttpServletResponse response,
+                                                @PathVariable("id") String id) {
         AuthPrincipal principal = principal(request);
         try {
             rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
@@ -191,8 +184,9 @@ public class OrderController {
 
     /** by-client 취소(§4-B-2). 재조회 계약과 동일한 저널 권위로 404·409를 판정한다. */
     @DeleteMapping("/by-client/{clientOrderId}")
-    public ResponseEntity<Object> cancelByClient(HttpServletRequest request, HttpServletResponse response,
-                                                 @PathVariable("clientOrderId") String clientOrderId) {
+    public ResponseEntity<OrderResponse> cancelByClient(HttpServletRequest request,
+                                                        HttpServletResponse response,
+                                                        @PathVariable("clientOrderId") String clientOrderId) {
         AuthPrincipal principal = principal(request);
         try {
             rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
@@ -207,8 +201,8 @@ public class OrderController {
 
     /** 일괄 취소(§4-B-3). market 미지정 시 전체 미체결 취소. */
     @DeleteMapping
-    public Map<String, Object> cancelAll(HttpServletRequest request, HttpServletResponse response,
-                                         @RequestParam(value = "market", required = false) String market) {
+    public CancelAllResponse cancelAll(HttpServletRequest request, HttpServletResponse response,
+                                       @RequestParam(value = "market", required = false) String market) {
         AuthPrincipal principal = principal(request);
         try {
             rateLimiter.enforce(response, String.valueOf(principal.userId()), ORDER_WEIGHT);
@@ -217,16 +211,12 @@ public class OrderController {
             throw e;
         }
         OrderGateway.BulkCancelResult result = gateway.cancelAll(principal.userId(), market);
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("schema_version", ApiFormats.SCHEMA_VERSION);
-        body.put("canceled_count", result.canceledIds().size());
-        body.put("canceled_ids", result.canceledIds());
-        body.put("failed", result.failed());
-        return body;
+        return new CancelAllResponse(ApiFormats.SCHEMA_VERSION, result.canceledIds().size(),
+                result.canceledIds(), result.failed());
     }
 
     @GetMapping("/{id}")
-    public Map<String, Object> byId(HttpServletRequest request, @PathVariable("id") String id) {
+    public OrderResponse byId(HttpServletRequest request, @PathVariable("id") String id) {
         AuthPrincipal principal = principal(request);
         UUID externalId;
         try {
@@ -242,17 +232,10 @@ public class OrderController {
 
     /** 재조회 계약(§4-B-4(a), §7-6): 판정 권위는 command_journal이다. */
     @GetMapping("/by-client/{clientOrderId}")
-    public Map<String, Object> byClient(HttpServletRequest request,
-                                        @PathVariable("clientOrderId") String clientOrderId) {
+    public OrderResponse byClient(HttpServletRequest request,
+                                  @PathVariable("clientOrderId") String clientOrderId) {
         AuthPrincipal principal = principal(request);
-        Long journaled = jdbc.sql("""
-                        SELECT count(*) FROM command_journal
-                        WHERE command_type = 'NEW' AND user_id = ? AND client_order_id = ?
-                        """)
-                .params(principal.userId(), clientOrderId)
-                .query(Long.class)
-                .single();
-        if (journaled == 0) {
+        if (!orders.commandJournaled(principal.userId(), clientOrderId)) {
             // 저널에 없음 = 미접수. 클라이언트는 안전 재전송이 가능하다.
             throw new ApiException(404, "order_not_found", "접수된 주문이 없습니다.");
         }
@@ -263,18 +246,18 @@ public class OrderController {
     }
 
     @GetMapping("/open")
-    public Map<String, Object> open(HttpServletRequest request, HttpServletResponse response,
-                                    @RequestParam(value = "market", required = false) String market,
-                                    @RequestParam(value = "count", required = false) Integer count,
-                                    @RequestParam(value = "cursor", required = false) String cursor) {
+    public PageResponse<OrderResponse> open(HttpServletRequest request, HttpServletResponse response,
+                                            @RequestParam(value = "market", required = false) String market,
+                                            @RequestParam(value = "count", required = false) Integer count,
+                                            @RequestParam(value = "cursor", required = false) String cursor) {
         return page(request, response, true, market, count, cursor);
     }
 
     @GetMapping("/closed")
-    public Map<String, Object> closed(HttpServletRequest request, HttpServletResponse response,
-                                      @RequestParam(value = "market", required = false) String market,
-                                      @RequestParam(value = "count", required = false) Integer count,
-                                      @RequestParam(value = "cursor", required = false) String cursor) {
+    public PageResponse<OrderResponse> closed(HttpServletRequest request, HttpServletResponse response,
+                                              @RequestParam(value = "market", required = false) String market,
+                                              @RequestParam(value = "count", required = false) Integer count,
+                                              @RequestParam(value = "cursor", required = false) String cursor) {
         return page(request, response, false, market, count, cursor);
     }
 
@@ -287,53 +270,37 @@ public class OrderController {
      * 산식을 두는 순간 두 값이 갈라지고, 이전 판의 taker_fee 불일치가 정확히 그 사고였다.
      */
     @GetMapping("/chance")
-    public Map<String, Object> chance(HttpServletRequest request, HttpServletResponse response,
-                                      @RequestParam("market") String market) {
+    public ChanceResponse chance(HttpServletRequest request, HttpServletResponse response,
+                                 @RequestParam("market") String market) {
         AuthPrincipal principal = principal(request);
         queryLimiter.enforce(response, String.valueOf(principal.userId()), QUERY_WEIGHT);
         MarketDirectory.Market m = markets.bySymbol(market);
-
-        Map<String, Object> meta = new LinkedHashMap<>();
-        meta.put("id", m.symbol());
-        meta.put("tick_size", ApiFormats.amount(m.tickSize()));
-        meta.put("min_order_amount", ApiFormats.amount(m.minNotional()));
-        meta.put("max_order_amount", ApiFormats.amount(m.maxNotional()));
-        meta.put("state", m.status());
-
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("schema_version", ApiFormats.SCHEMA_VERSION);
-        body.put("market", meta);
-        body.put("maker_fee", ApiFormats.amount(m.makerFeeRate()));
-        body.put("taker_fee", ApiFormats.amount(m.takerFeeRate()));
-        // bid는 quote(대금)를, ask는 base(수량)를 소비한다.
-        body.put("bid_account", accountView(principal.userId(), m.quoteAssetId()));
-        body.put("ask_account", accountView(principal.userId(), m.baseAssetId()));
-        return body;
+        ChanceResponse.MarketInfo meta = new ChanceResponse.MarketInfo(
+                m.symbol(),
+                ApiFormats.amount(m.tickSize()),
+                ApiFormats.amount(m.minNotional()),
+                ApiFormats.amount(m.maxNotional()),
+                m.status());
+        return new ChanceResponse(
+                ApiFormats.SCHEMA_VERSION,
+                meta,
+                ApiFormats.amount(m.makerFeeRate()),
+                ApiFormats.amount(m.takerFeeRate()),
+                // bid는 quote(대금)를, ask는 base(수량)를 소비한다.
+                accountBalance(principal.userId(), m.quoteAssetId()),
+                accountBalance(principal.userId(), m.baseAssetId()));
     }
 
-    /** 계좌 행이 없는 자산은 0으로 답한다. 미개설을 이유로 실패하면 첫 주문 화면이 뜨지 않는다. */
-    private Map<String, Object> accountView(long userId, short assetId) {
-        return jdbc.sql("""
-                        SELECT a.symbol AS currency,
-                               COALESCE(ub.available, 0) AS available,
-                               COALESCE(ub.locked, 0)    AS locked
-                        FROM assets a
-                        LEFT JOIN user_balances ub ON ub.asset_id = a.id AND ub.user_id = ?
-                        WHERE a.id = ?
-                        """)
-                .params(userId, assetId)
-                .query((rs, rowNum) -> {
-                    Map<String, Object> row = new LinkedHashMap<String, Object>();
-                    row.put("currency", rs.getString("currency"));
-                    row.put("balance", ApiFormats.amount(rs.getBigDecimal("available")));
-                    row.put("locked", ApiFormats.amount(rs.getBigDecimal("locked")));
-                    return row;
-                })
-                .single();
+    private ChanceResponse.AccountBalance accountBalance(long userId, short assetId) {
+        AccountRepository.AssetBalanceRow row = accounts.assetBalance(userId, assetId);
+        return new ChanceResponse.AccountBalance(row.currency(),
+                ApiFormats.amount(row.available()), ApiFormats.amount(row.locked()));
     }
 
-    private Map<String, Object> page(HttpServletRequest request, HttpServletResponse response,
-                                     boolean open, String market, Integer count, String cursor) {
+    private PageResponse<OrderResponse> page(HttpServletRequest request,
+                                             HttpServletResponse response,
+                                             boolean open, String market, Integer count,
+                                             String cursor) {
         AuthPrincipal principal = principal(request);
         queryLimiter.enforce(response, String.valueOf(principal.userId()), QUERY_WEIGHT);
         int limit = count == null ? 100 : count;
@@ -344,7 +311,7 @@ public class OrderController {
         List<OrderQueryService.OrderRow> rows =
                 orders.page(principal.userId(), open, market, decoded, limit);
         long epoch = epochSource.epoch();
-        List<Map<String, Object>> data = new ArrayList<>();
+        List<OrderResponse> data = new ArrayList<>();
         for (OrderQueryService.OrderRow row : rows) {
             data.add(orders.view(row, epoch));
         }
@@ -353,14 +320,8 @@ public class OrderController {
             OrderQueryService.OrderRow last = rows.get(rows.size() - 1);
             nextCursor = Cursors.encode(last.createdAt(), last.externalId().toString());
         }
-        Map<String, Object> pagination = new LinkedHashMap<>();
-        pagination.put("next_cursor", nextCursor);
-        pagination.put("has_more", nextCursor != null);
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("schema_version", ApiFormats.SCHEMA_VERSION);
-        body.put("data", data);
-        body.put("pagination", pagination);
-        return body;
+        return new PageResponse<>(ApiFormats.SCHEMA_VERSION, data,
+                new PageResponse.Pagination(nextCursor, nextCursor != null));
     }
 
     /** 상한을 넘으면 전량 적재하지 않고 413으로 끊는다(§2-7). 실제 읽기에서 상한+1로 chunked 우회도 차단. */
@@ -413,25 +374,6 @@ public class OrderController {
             throw new ApiException(400, "invalid_parameter", "일괄 주문은 최대 " + MAX_BATCH + "건입니다.");
         }
         return node;
-    }
-
-    private static Map<String, Object> rejectedError(ApiException e) {
-        Map<String, Object> error = new LinkedHashMap<>();
-        error.put("name", e.name());
-        error.put("message", e.getMessage());
-        if (e.detail() != null) {
-            error.put("detail", e.detail());
-        }
-        return error;
-    }
-
-    private static Map<String, Object> inProgressError(ApiException e) {
-        Map<String, Object> error = new LinkedHashMap<>();
-        error.put("name", e.name());
-        if (e.retryAfter() != null) {
-            error.put("retry_after", e.retryAfter());
-        }
-        return error;
     }
 
     static AuthPrincipal principal(HttpServletRequest request) {

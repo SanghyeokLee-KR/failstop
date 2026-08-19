@@ -3,6 +3,7 @@ package kr.exchange.api.order;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
 import kr.exchange.api.common.Cursors;
+import kr.exchange.api.order.dto.OrderResponse;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.math.BigDecimal;
@@ -10,9 +11,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -121,34 +120,45 @@ public class OrderQueryService {
     }
 
     /** §4-B-1 단건 응답 본문. epoch·seq는 호출측이 채운다(도메인이 다르다). */
-    public Map<String, Object> view(OrderRow row, long epoch) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("schema_version", ApiFormats.SCHEMA_VERSION);
-        body.put("id", row.externalId().toString());
-        body.put("client_order_id", row.clientOrderId());
-        body.put("market", row.marketSymbol());
-        body.put("side", "BUY".equals(row.side()) ? "bid" : "ask");
-        body.put("ord_type", row.ordType().toLowerCase(java.util.Locale.ROOT));
-        body.put("status", row.status());
-        body.put("price", row.price() != null ? ApiFormats.amount(row.price())
-                : row.notional() ? ApiFormats.amount(row.quoteOrderQty()) : null);
-        body.put("volume", ApiFormats.amount(row.quantity()));
-        body.put("remaining_volume", ApiFormats.amount(row.remainingQty()));
-        body.put("executed_volume", ApiFormats.amount(row.filledQty()));
-        body.put("executed_funds", ApiFormats.amount(row.executedQuote()));
-        body.put("remaining_notional", row.notional() ? ApiFormats.amount(row.lockedAmount()) : null);
-        // paid_fee·trades_count는 orders에 물질화된 프로젝션(V10). 조회마다 trades를 재집계하지
-        // 않는다. 정산 체결 경로가 결정론적으로 누적하고 재생 시 재구성한다(DB 설계 §5.2).
-        body.put("paid_fee", ApiFormats.amount(row.paidFee()));
-        body.put("trades_count", row.tradesCount());
-        body.put("reject_reason", row.rejectReason());
-        body.put("created_at", ApiFormats.time(row.createdAt()));
-        if ("CANCELED".equals(row.status())) {
-            body.put("canceled_at", ApiFormats.time(row.updatedAt()));
-        }
-        body.put("epoch", epoch);
-        body.put("seq", row.commandSeq());
-        return body;
+    public OrderResponse view(OrderRow row, long epoch) {
+        return new OrderResponse(
+                ApiFormats.SCHEMA_VERSION,
+                row.externalId().toString(),
+                row.clientOrderId(),
+                row.marketSymbol(),
+                "BUY".equals(row.side()) ? "bid" : "ask",
+                row.ordType().toLowerCase(java.util.Locale.ROOT),
+                row.status(),
+                // MARKET BUY(notional)는 price 자리에 quote_order_qty를 싣는다(§4-B-1).
+                row.price() != null ? ApiFormats.amount(row.price())
+                        : row.notional() ? ApiFormats.amount(row.quoteOrderQty()) : null,
+                ApiFormats.amount(row.quantity()),
+                ApiFormats.amount(row.remainingQty()),
+                ApiFormats.amount(row.filledQty()),
+                ApiFormats.amount(row.executedQuote()),
+                row.notional() ? ApiFormats.amount(row.lockedAmount()) : null,
+                // paid_fee·trades_count는 orders에 물질화된 프로젝션(V10). 조회마다 trades를
+                // 재집계하지 않는다. 정산 체결 경로가 결정론적으로 누적하고 재생 시 재구성한다
+                // (DB 설계 §5.2).
+                ApiFormats.amount(row.paidFee()),
+                row.tradesCount(),
+                row.rejectReason(),
+                ApiFormats.time(row.createdAt()),
+                "CANCELED".equals(row.status()) ? ApiFormats.time(row.updatedAt()) : null,
+                epoch,
+                row.commandSeq());
+    }
+
+    /** 재조회 계약(§4-B-4-a, §7-6)의 판정 권위. 프로젝션이 아니라 command_journal을 본다. */
+    public boolean commandJournaled(long userId, String clientOrderId) {
+        Long journaled = jdbc.sql("""
+                        SELECT count(*) FROM command_journal
+                        WHERE command_type = 'NEW' AND user_id = ? AND client_order_id = ?
+                        """)
+                .params(userId, clientOrderId)
+                .query(Long.class)
+                .single();
+        return journaled > 0;
     }
 
     private OrderRow map(ResultSet rs, int rowNum) throws SQLException {

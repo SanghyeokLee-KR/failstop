@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import kr.exchange.api.auth.CanonicalRequests;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.market.MarketDirectory;
+import kr.exchange.api.order.dto.CancelAllResponse;
 import kr.exchange.engine.EngineBridge;
 import kr.exchange.engine.OrderIntake;
 import kr.exchange.engine.SubmitResult;
@@ -15,7 +16,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -85,7 +85,7 @@ public class OrderGateway {
         boolean guardApplies;
         if (stored.isPresent()) {
             requireSameContent(stored.get(), requestHash);
-            guardApplies = !commandJournaled(userId, clientOrderId);
+            guardApplies = !orders.commandJournaled(userId, clientOrderId);
         } else {
             guardApplies = true;
         }
@@ -192,17 +192,6 @@ public class OrderGateway {
         }
     }
 
-    private boolean commandJournaled(long userId, String clientOrderId) {
-        Long journaled = jdbc.sql("""
-                        SELECT count(*) FROM command_journal
-                        WHERE command_type = 'NEW' AND user_id = ? AND client_order_id = ?
-                        """)
-                .params(userId, clientOrderId)
-                .query(Long.class)
-                .single();
-        return journaled > 0;
-    }
-
     private void deleteOrphanKey(long userId, String clientOrderId, String requestHash) {
         try {
             jdbc.sql("""
@@ -260,27 +249,21 @@ public class OrderGateway {
         if (row.isPresent()) {
             return cancel(userId, row.get().externalId());
         }
-        Long journaled = jdbc.sql("""
-                        SELECT count(*) FROM command_journal
-                        WHERE command_type = 'NEW' AND user_id = ? AND client_order_id = ?
-                        """)
-                .params(userId, clientOrderId)
-                .query(Long.class)
-                .single();
-        if (journaled == 0) {
+        if (!orders.commandJournaled(userId, clientOrderId)) {
             throw new ApiException(404, "order_not_found", "주문이 없습니다.");
         }
         throw new ApiException(409, "order_in_progress",
                 "주문이 처리 중입니다. 재조회하십시오.", null, 1);
     }
 
-    public record BulkCancelResult(List<String> canceledIds, List<Map<String, Object>> failed) {
+    public record BulkCancelResult(List<String> canceledIds,
+                                   List<CancelAllResponse.Failure> failed) {
     }
 
     /** 일괄 취소(§4-B-3). 미체결(OPEN·PARTIAL) 전량을 개별 취소하고 성패를 per-item 집계한다. */
     public BulkCancelResult cancelAll(long userId, String market) {
         List<String> canceled = new ArrayList<>();
-        List<Map<String, Object>> failed = new ArrayList<>();
+        List<CancelAllResponse.Failure> failed = new ArrayList<>();
         for (UUID externalId : orders.openOrderIds(userId, market)) {
             try {
                 Placement placement = cancel(userId, externalId);
@@ -288,20 +271,14 @@ public class OrderGateway {
                     canceled.add(externalId.toString());
                 } else {
                     // 나열과 취소 사이에 체결·종결된 경합 분. 취소 대상이 아니라 실패로 집계한다.
-                    failed.add(failure(externalId, placement.row().status().toLowerCase(Locale.ROOT)));
+                    failed.add(new CancelAllResponse.Failure(externalId.toString(),
+                            placement.row().status().toLowerCase(Locale.ROOT)));
                 }
             } catch (ApiException e) {
-                failed.add(failure(externalId, e.name()));
+                failed.add(new CancelAllResponse.Failure(externalId.toString(), e.name()));
             }
         }
         return new BulkCancelResult(canceled, failed);
-    }
-
-    private static Map<String, Object> failure(UUID externalId, String reason) {
-        Map<String, Object> entry = new LinkedHashMap<>();
-        entry.put("id", externalId.toString());
-        entry.put("reason", reason);
-        return entry;
     }
 
     private long currentEpoch() {
