@@ -141,7 +141,7 @@ M1-4(REST·WS 게이트웨이) 산출물이 봇·프론트 연동 단계에 넘�
 - 인증 왕복 레퍼런스: 클라이언트 서명 규약은 CanonicalRequests(JCS RFC 8785, method+path
   바인딩)가 정본이고 테스트 서명기 TestSigner가 왕복 검증된 참조 구현이다. 봇은 동일
   규약으로 서명한다. 키 발급은 DemoKeySeeder.issue(사용자, scope, label). 마스터키는
-  EXCHANGE_MASTER_KEY_BASE64(base64 32바이트) 주입이 전제이며 미주입 시 프로세스 한정
+  EXCHANGE_AUTH_MASTER_KEY_BASE64(base64 32바이트) 주입이 전제이며 미주입 시 프로세스 한정
   임시 키로 동작한다(재기동 후 기존 키 무효).
 - candles(M1-5 인계 시점 미구현, 결정 필요): GET /api/v1/candles/{unit}와 /topic/candle.{unit}.{market}
   채널이 없었다. trades 실시간 집계(쿼리·머티리얼라이즈드 뷰) vs 별도 candles 테이블
