@@ -4,7 +4,7 @@
  */
 
 import type { ChangeState } from "@/lib/types";
-import { ariaChangeLabel, dirOf, formatDirectional, formatDirectionalAmount, type PriceSpec } from "@/lib/format";
+import { ariaChangeLabel, dirOf, formatChangeRate, formatDirectional, formatDirectionalAmount, type PriceSpec } from "@/lib/format";
 import styles from "./PricePill.module.css";
 
 interface Props {
@@ -30,8 +30,11 @@ export default function PricePill({ change, changeRate, amount, amountSpec, vari
       {amount != null && (
         <span className={styles.amount}>{formatDirectionalAmount(amount, change, amountSpec)}</span>
       )}
+      {/* 금액을 병기할 때는 화살표가 금액 앞에 이미 붙어 중복된다. formatDirectional 출력에서
+          정규식으로 벗기면 포맷터의 접두 형식(기호·공백)이 바뀔 때 조용히 깨지므로, 화살표 없는
+          본문 포맷터를 직접 쓴다. */}
       {amount != null
-        ? formatDirectional(changeRate, change).replace(/^[▲▼]\s/, "")
+        ? formatChangeRate(changeRate, change)
         : formatDirectional(changeRate, change)}
     </span>
   );

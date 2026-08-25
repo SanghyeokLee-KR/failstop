@@ -318,6 +318,9 @@ export default function AssetsPage() {
 
   return (
     <main className={styles.page} aria-busy={loading}>
+      {/* 페이지 레벨 h1. 화면에 제목 자리가 없어 sr-only로 둔다. 없으면 heading 계층이
+          h2("보유 비중")에서 시작해 스크린리더 문서 개요가 끊긴다(WCAG 2.4.6) */}
+      <h1 className="sr-only">자산</h1>
       <ConnectionBanner />
       {loading ? (
         <div className={styles.loading}>
