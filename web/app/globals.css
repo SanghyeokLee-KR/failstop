@@ -294,3 +294,19 @@ a { color: inherit; text-decoration: none; }
     transparent var(--rule-tick-gap)
   );
 }
+
+/* ===== 라우트 이동 대기 =====
+   정적 export라 서버 redirect가 불가해 일부 경로는 클라이언트 replace로 이동한다. 그동안 null을
+   반환하면 백지가 보이고, 스크립트가 죽으면 영구 백지가 된다. 이동 중임을 알리는 최소 화면. */
+.route-transition {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  padding: var(--space-10) var(--layout-gutter);
+}
+.route-transition__text {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  color: var(--text-secondary);
+}

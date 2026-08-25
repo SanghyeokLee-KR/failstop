@@ -4,6 +4,7 @@ import "@/styles/tokens.css";
 import "./globals.css";
 import { Toaster } from "@/components/Toast";
 import HeaderNav from "@/components/HeaderNav";
+import GlobalErrorReporter from "@/components/GlobalErrorReporter";
 
 export const metadata: Metadata = {
   title: {
@@ -13,8 +14,12 @@ export const metadata: Metadata = {
   description: "고가용성 가상 암호화폐 거래소, 완전 시뮬레이션 캡스톤 데모",
 };
 
+// 고정형 데스크톱 전용이다(데스크톱_레이아웃설계 §4: 반응형 리플로우 없음, 모바일 미지원).
+// width=device-width는 좁은 화면에 레이아웃을 맞추라는 지시라 이 정책과 정면으로 어긋난다.
+// 그리드 기준 폭을 그대로 알려 좁은 화면에서는 축소해 보이게 한다. 데스크톱 브라우저는
+// 이 값을 무시하므로 실제 대상 환경의 렌더는 달라지지 않는다.
 export const viewport: Viewport = {
-  width: "device-width",
+  width: 1280,
   initialScale: 1,
   viewportFit: "cover",
 };
@@ -38,6 +43,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </div>
         <Toaster />
+        {/* 아무도 잡지 않은 Promise rejection을 토스트로 통지한다. 렌더 예외는 error.tsx 담당 */}
+        <GlobalErrorReporter />
       </body>
     </html>
   );
