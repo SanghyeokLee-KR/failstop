@@ -83,8 +83,12 @@ public class OrderGateway {
         String reserveKey = userId + ":" + reserveAsset;
         BigDecimal required = parsed.reserve();
         boolean guardApplies;
+        // 이 요청의 내용이 기존 키의 내용과 같음을 실제로 대조했는지. 저널 멱등 replay를 200으로
+        // 돌려줘도 되는지 가르는 유일한 근거다(아래 replay 판정 참조).
+        boolean contentVerified = false;
         if (stored.isPresent()) {
             requireSameContent(stored.get(), requestHash);
+            contentVerified = true;
             guardApplies = !orders.commandJournaled(userId, clientOrderId);
         } else {
             guardApplies = true;
@@ -110,6 +114,7 @@ public class OrderGateway {
                     // 동시 도착 경합에서 진 쪽. 내용 비교 후 저널 멱등 판정으로 수렴한다(§2-4).
                     requireSameContent(storedRequestHash(userId, clientOrderId).orElse(requestHash),
                             requestHash);
+                    contentVerified = true;
                 } else {
                     insertedKey = true;
                 }
@@ -117,6 +122,8 @@ public class OrderGateway {
         }
         boolean journaled = false;
         boolean replayed = false;
+        // 저널 기록 여부와 무관하게 이번에 넣은 키 행을 폐기해야 하는 경우(대조 불가 재사용 거절)
+        boolean discardKey = false;
         OrderQueryService.OrderRow row = null;
         long orderId = 0;
         try {
@@ -139,6 +146,21 @@ public class OrderGateway {
             }
             replayed = result.replayed();
 
+            // 저널이 같은 client_order_id를 이미 갖고 있는데(replay) 내용 대조를 한 번도 못 했다면
+            // 200으로 원 주문을 돌려줄 근거가 없다. idempotency_keys가 비어 있었다는 뜻이고, 그
+            // 원인은 보존 기간 경과 삭제다(DB 설계: pg_cron이 7일 지난 행을 지운다. API 설계는
+            // client_order_id 재사용을 무기한 금지하고 UNIQUE 권위를 command_journal에 둔다).
+            // 이 상태에서 내용이 다른 재사용을 replay로 흡수하면 요청과 무관한 주문을 200으로
+            // 돌려주게 되어 멱등 계약이 깨진다. 대조 불가일 때는 재사용으로 보고 거절한다.
+            // 데모 마이그레이션에는 아직 퍼지가 배선돼 있지 않아 현재는 도달하지 않는 방어선이다.
+            if (replayed && !contentVerified) {
+                // 이번 요청 해시로 넣은 키 행은 원 주문 내용과 무관하다. 남겨두면 다음 재시도가
+                // 그 해시로 대조에 성공해 같은 결함이 그대로 재현된다. 정리 대상으로 표시한다.
+                discardKey = true;
+                throw new ApiException(409, "duplicate_client_order_id",
+                        "이미 사용한 client_order_id입니다. 새 키로 요청하십시오.");
+            }
+
             row = result.replayed()
                     ? awaitRow(() -> orders.byClientOrderId(userId, clientOrderId))
                     : awaitRow(() -> orders.byInternalId(assignedId));
@@ -153,10 +175,12 @@ public class OrderGateway {
             }
             return new Placement(row, result.replayed(), result.epoch());
         } finally {
-            if (insertedKey && !journaled) {
-                // 저널 미기록 확정(페일오버 창 submit 실패 등). 선삽입한 고아 멱등 키를 정리해
+            if (insertedKey && (!journaled || discardKey)) {
+                // 저널 미기록 확정(페일오버 창 submit 실패 등)이면 선삽입한 고아 멱등 키를 정리해
                 // 다음 재시도가 잔고 가드를 재적용하게 한다. 정리 실패해도 재시도 경로의
                 // command_journal 실재 확인이 backstop이라 가드 무력화로 이어지지 않는다.
+                // discardKey는 저널에는 있으나 내용 대조가 불가해 재사용으로 거절한 경우다. 이번
+                // 요청 해시가 남으면 다음 재시도가 그 해시로 대조에 성공해 거절이 무력화된다.
                 deleteOrphanKey(userId, clientOrderId, requestHash);
             }
             if (guarded) {

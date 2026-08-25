@@ -422,6 +422,47 @@ class ApiGatewayIntegrationTest {
                 .params(alice).query(Long.class).single());
     }
 
+    /**
+     * 보존 기간이 지나 idempotency_keys 행이 삭제된 뒤의 키 재사용.
+     *
+     * DB 설계는 pg_cron이 7일 지난 idempotency_keys 행을 지우도록 규정하고, API 설계는
+     * client_order_id 재사용을 무기한 금지하며 UNIQUE 권위를 command_journal에 둔다. 두 규정이
+     * 겹치는 구간에서 대조할 해시가 사라진다. 이때 저널 replay를 그대로 200으로 흡수하면 요청과
+     * 내용이 다른 원 주문을 멱등 응답으로 위장하게 된다. 대조 불가는 재사용으로 보고 거절해야 한다.
+     *
+     * 데모 마이그레이션에는 아직 퍼지가 배선돼 있지 않아 삭제를 직접 수행해 그 상태를 만든다.
+     *
+     * 순서: e2e-buy-1 주문이 저널에 있어야 하므로 그 주문을 만드는 앞 테스트 뒤에 와야 한다.
+     * 동일 @Order 값은 상대 순서가 보장되지 않아 멱등 절(4)이 아니라 빈 값 12를 쓴다.
+     * 이 테스트는 e2e-buy-1의 키 행을 지운 상태로 끝내므로 그 키를 다시 쓰는 테스트를 두지 않는다.
+     */
+    @Test
+    @Order(12)
+    void purgedIdempotencyKeyRejectsReuseInsteadOfReplaying() throws Exception {
+        jdbc.sql("DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = 'e2e-buy-1'")
+                .params(alice).update();
+
+        byte[] altered = orderBody("KRW-BTC", "bid", "limit", "50000000", "0.03", "e2e-buy-1");
+        ResponseEntity<String> reused = post("/api/v1/orders", altered,
+                TestSigner.bearerForBody(aliceKey.accessKey(), aliceKey.secretKey(),
+                        "POST", "/api/v1/orders", altered));
+
+        assertEquals(409, reused.getStatusCode().value(),
+                "대조 불가 재사용을 200 replay로 흡수하면 요청과 무관한 주문을 돌려준다");
+        assertEquals("duplicate_client_order_id", errorName(reused));
+
+        // 거절하면서 넣은 키 행이 남으면 다음 재시도가 그 해시로 대조에 성공해 거절이 무력화된다
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM idempotency_keys "
+                        + "WHERE user_id = ? AND idem_key = 'e2e-buy-1'")
+                .params(alice).query(Long.class).single(),
+                "거절 경로가 자기 해시를 남기면 같은 결함이 한 번의 재시도 뒤 재현된다");
+
+        // 저널은 여전히 최초 1건. 거절이 새 명령을 만들지 않는다
+        assertEquals(1, jdbc.sql("SELECT count(*) FROM command_journal "
+                        + "WHERE command_type = 'NEW' AND user_id = ? AND client_order_id = 'e2e-buy-1'")
+                .params(alice).query(Long.class).single());
+    }
+
     // ------------------------------------------------------------------
     // 취소 멱등
     // ------------------------------------------------------------------
