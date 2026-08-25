@@ -5,7 +5,7 @@
  * 데이터: 전 마켓 tickers. 행 클릭 시 /exchange/[market]. 현재가는 TickCell 플래시.
  */
 
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import SegmentedTab from "@/components/SegmentedTab";
 import SymbolChip from "@/components/SymbolChip";
@@ -38,6 +38,78 @@ function signedRate(t: { change: string; change_rate: string } | undefined): num
   return t.change === "FALL" ? -r : t.change === "RISE" ? r : 0;
 }
 
+/**
+ * 순위 행. memo + 원시값 props로 값이 바뀐 행만 리렌더한다.
+ *
+ * 정렬 기준이 전 마켓 tickers라 부모는 틱마다 재계산할 수밖에 없다. memo 없이는 그때마다 12행
+ * 전부가 포맷터 4종(formatPrice·formatDirectional·formatCompactKRW·ariaChangeLabel)과 SymbolChip을
+ * 다시 실행한다. 봇이 초당 15건씩 체결을 내는 구간에서는 이 비용이 상시로 깔린다.
+ * TradesPanel의 TradeRow와 같은 패턴이다.
+ */
+interface RankingRowProps {
+  rank: number;
+  market: string;
+  koreanName: string;
+  symbol: string;
+  meta: (typeof COIN_META)[number];
+  tickSpec: string | undefined;
+  tradePrice: string | null | undefined;
+  change: string | undefined;
+  changeRate: string | undefined;
+  accTradePrice24h: string | undefined;
+  onOpen: (market: string) => void;
+}
+
+const RankingRow = memo(function RankingRow({
+  rank, market, koreanName, symbol, meta, tickSpec,
+  tradePrice, change, changeRate, accTradePrice24h, onOpen,
+}: RankingRowProps) {
+  const has = change !== undefined && changeRate !== undefined;
+  const dir = has ? dirOf(change) : "flat";
+  return (
+    <div
+      role="row"
+      className={styles.row}
+      tabIndex={0}
+      aria-label={`${koreanName} 거래 화면으로 이동`}
+      onClick={() => onOpen(market)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(market);
+        }
+      }}
+    >
+      <span role="cell" className={`${styles.rank} num`}>{rank}</span>
+      <span role="cell" className={styles.name}>
+        <SymbolChip meta={meta} size="sm" />
+        <span className={styles.nameText}>
+          <span className={styles.nameKo}>{koreanName}</span>
+          <span className={`${styles.nameSym} num`}>{symbol}/KRW</span>
+        </span>
+      </span>
+      <span role="cell" className={`${styles.right} num`}>
+        {tradePrice != null ? (
+          <TickCell value={toNum(tradePrice)} valueStr={formatPrice(tradePrice, tickSpec)} />
+        ) : (
+          "-"
+        )}
+      </span>
+      <span
+        role="cell"
+        className={`${styles.right} num dir-text`}
+        data-dir={dir}
+        aria-label={has ? ariaChangeLabel(changeRate, change) : undefined}
+      >
+        {has ? formatDirectional(changeRate, change) : "-"}
+      </span>
+      <span role="cell" className={`${styles.right} ${styles.vol} num`}>
+        {accTradePrice24h !== undefined ? formatCompactKRW(accTradePrice24h) : "-"}
+      </span>
+    </div>
+  );
+});
+
 export default function RankingTable() {
   const router = useRouter();
   const tickers = useExchangeStore((s) => s.tickers);
@@ -45,6 +117,8 @@ export default function RankingTable() {
   const connected = useExchangeStore((s) => s.connected);
   // 행별 markets.find(커밋당 O(행수×마켓수))를 없애는 Map 조회
   const specMap = useMemo(() => new Map(markets.map((m) => [m.market, m.tick_size])), [markets]);
+  // 행 memo가 깨지지 않도록 콜백 참조를 고정한다. 인라인 화살표를 넘기면 매 틱 새 함수라 memo가 무효다
+  const openMarket = useCallback((market: string) => router.push(`/exchange/${market}`), [router]);
   const [tab, setTab] = useState<RankTab>("value");
 
   const rows = useMemo(() => {
@@ -96,49 +170,21 @@ export default function RankingTable() {
         <div role="rowgroup">
           {rows.map((c, i) => {
             const t = tickers[c.market];
-            const dir = t ? dirOf(t.change) : "flat";
             return (
-              <div
+              <RankingRow
                 key={c.market}
-                role="row"
-                className={styles.row}
-                tabIndex={0}
-                aria-label={`${c.koreanName} 거래 화면으로 이동`}
-                onClick={() => router.push(`/exchange/${c.market}`)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    router.push(`/exchange/${c.market}`);
-                  }
-                }}
-              >
-                <span role="cell" className={`${styles.rank} num`}>{i + 1}</span>
-                <span role="cell" className={styles.name}>
-                  <SymbolChip meta={c} size="sm" />
-                  <span className={styles.nameText}>
-                    <span className={styles.nameKo}>{c.koreanName}</span>
-                    <span className={`${styles.nameSym} num`}>{c.symbol}/KRW</span>
-                  </span>
-                </span>
-                <span role="cell" className={`${styles.right} num`}>
-                  {t?.trade_price != null ? (
-                    <TickCell value={toNum(t.trade_price)} valueStr={formatPrice(t.trade_price, specMap.get(c.market))} />
-                  ) : (
-                    "-"
-                  )}
-                </span>
-                <span
-                  role="cell"
-                  className={`${styles.right} num dir-text`}
-                  data-dir={dir}
-                  aria-label={t ? ariaChangeLabel(t.change_rate, t.change) : undefined}
-                >
-                  {t ? formatDirectional(t.change_rate, t.change) : "-"}
-                </span>
-                <span role="cell" className={`${styles.right} ${styles.vol} num`}>
-                  {t ? formatCompactKRW(t.acc_trade_price_24h) : "-"}
-                </span>
-              </div>
+                rank={i + 1}
+                market={c.market}
+                koreanName={c.koreanName}
+                symbol={c.symbol}
+                meta={c}
+                tickSpec={specMap.get(c.market)}
+                tradePrice={t?.trade_price}
+                change={t?.change}
+                changeRate={t?.change_rate}
+                accTradePrice24h={t?.acc_trade_price_24h}
+                onOpen={openMarket}
+              />
             );
           })}
         </div>
