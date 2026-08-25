@@ -31,6 +31,7 @@ import { prevCloseOf, rateVsPrevClose } from "./derive";
 import { useTradeRateGovernor } from "./useTradeRateGovernor";
 import { useLargeTradeThreshold } from "./useLargeTradeThreshold";
 import { effectiveLevel } from "./effectGovernor";
+import { prefersReducedMotion } from "@/lib/reducedMotion";
 import styles from "./TradesPanel.module.css";
 
 const MAX_ROWS = 60;
@@ -47,9 +48,7 @@ interface Row {
   timestamp: string;
 }
 
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
+// reduced-motion 판정은 lib/reducedMotion의 단일 질의 객체를 쓴다(틱마다 재할당 방지)
 
 /**
  * 체결 행. memo + 원시값 props로 신규 체결·플래시 커밋이 바뀐 행만 리렌더하게 한다.

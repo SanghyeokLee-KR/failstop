@@ -32,6 +32,12 @@
 .book    { grid-area: book;    display: grid; min-width: 0; min-height: 0; }
 .trades  { grid-area: trades;  display: grid; min-width: 0; min-height: 0; }
 
+/* 셀 안의 패널 카드도 그리드 아이템이라 기본 min-width가 auto(콘텐츠 폭)다. 차트 패널은 판독 행이
+   nowrap이라 콘텐츠 폭이 칸보다 커지면 카드가 칸을 넘치고, 그때 생겼다 사라지는 스크롤바 때문에
+   차트 컨테이너 폭이 진동한다. 그 사이 보조 pane 캔버스가 이전 폭으로 남아 캔들과 x가 어긋난다.
+   카드가 칸 안에서 줄어들 수 있게 해 넘침 자체를 없앤다. */
+.summary > *, .chart > *, .book > *, .trades > * { min-width: 0; }
+
 /* side 내부 세로 2분할. OrderPanel auto(내용 기준) + MarketListPanel minmax(160px, 1fr) (§2.2) */
 .side {
   grid-area: side;

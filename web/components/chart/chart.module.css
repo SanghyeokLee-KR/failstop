@@ -48,6 +48,10 @@
   padding: 0 var(--space-1);
   white-space: nowrap;
   overflow: hidden;
+  /* flex 아이템 기본 min-width는 auto(콘텐츠 폭)라 위 overflow가 발동하지 못하고 이 행이 패널을
+     그리드 칸보다 넓게 밀어낸다. 그러면 패널에 스크롤바가 생겼다 사라지기를 반복해 차트 컨테이너
+     폭이 진동하고, 그 사이 보조 pane 캔버스가 이전 폭으로 남아 캔들과 x가 어긋난다. */
+  min-width: 0;
 }
 .readoutItem {
   display: inline-flex;

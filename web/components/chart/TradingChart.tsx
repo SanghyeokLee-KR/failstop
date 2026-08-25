@@ -18,7 +18,12 @@ import { readChartTokens, useChartTheme } from "./useChartTheme";
 import { buildChartStyles, precisionOf, volStyles } from "./chartTheme";
 import { DEFAULT_ACTIVE, specOf, type IndicatorKey, type IndicatorSpec } from "./indicators";
 import { startCandleStream, type CandleStreamHandle, type LiveCandle } from "./candleStream";
+import { registerMatchedVolume } from "./volIndicator";
+import { prefersReducedMotion } from "@/lib/reducedMotion";
 import styles from "./chart.module.css";
+
+// 내장 VOL을 막대 폭이 캔들과 같은 구현으로 교체한다. 모듈 로드 시 1회(등록은 이름 기준 덮어쓰기).
+registerMatchedVolume();
 
 const CANDLE_PANE_ID = "candle_pane";
 // 거래량 전용 pane. 캔들 pane에 스택하지 않는다. klinecharts YAxis는 pane에 붙은 모든 지표 figure
@@ -27,10 +32,16 @@ const CANDLE_PANE_ID = "candle_pane";
 const VOLUME_PANE_ID = "volume_pane";
 const VOLUME_PANE_HEIGHT = 78;
 
-/** 모션 킬스위치 판정. init·테마 재주입 시 klinecharts 애니메이션 비활성에 소비(§4.5) */
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
+// 데이터 로드 후 뷰포트 API(setBarSpace·setOffsetRightDistance·scrollToRealTime)를 호출하지 않는다.
+// 봉이 적을 때 왼쪽을 채우려고 시도했으나, 라이브 실측에서 호출 조합·주기마다 캔들 pane과 거래량
+// pane이 서로 다른 봉 간격·다른 렌더 범위로 갈라지는 것이 반복 재현됐다(거래량만 왼쪽 2~3봉에서
+// 멈추거나, 반대로 거래량만 새 간격으로 그려지고 캔들이 이전 간격에 남는 식). 캔버스 폭과 지표
+// 계산값은 정상이었으므로 원인은 pane별 뷰포트 상태 반영 시점이다. 호출을 두지 않으면 두 pane이
+// 항상 같은 간격·같은 위치로 함께 갱신된다. 왼쪽 채움이 필요하면 라이브러리 갱신이나 init 시점
+// 설정으로 접근해야 하며, 로드 후 보정으로는 해결되지 않는다.
+
+// 모션 킬스위치 판정(§4.5)은 lib/reducedMotion의 단일 질의 객체를 쓴다. init·테마 재주입 시
+// klinecharts 애니메이션 비활성에 소비한다.
 
 const UNIT_LABEL: Record<string, string> = {
   "1m": "1분", "5m": "5분", "15m": "15분", "60m": "1시간", "240m": "4시간", "1d": "1일",
@@ -197,7 +208,18 @@ export default function TradingChart({ market }: { market: string }) {
     const ro = new ResizeObserver(() => chart.resize());
     ro.observe(el);
 
+    // 보조 페인은 init 직후 생성돼 레이아웃 확정 전 폭으로 캔버스가 잡힐 수 있다. 그러면 거래량
+    // 페인만 백킹 스토어(width 속성)보다 좁은 style.width를 갖고, 봉이 가로로 압축돼 위 캔들과
+    // x가 어긋난다. ResizeObserver는 컨테이너 크기가 실제로 변할 때만 깨어나 이 상태를 못 고치므로
+    // 레이아웃 확정 직후 한 번 강제로 재계산한다(rAF 2회: 스타일 적용과 리플로우 이후를 보장).
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => chart.resize());
+    });
+
     return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
       ro.disconnect();
       chart.unsubscribeAction(ActionType.OnCrosshairChange, onCrosshair);
       streamRef.current?.dispose();
@@ -205,7 +227,12 @@ export default function TradingChart({ market }: { market: string }) {
       dispose(el);
       chartRef.current = null;
     };
-  }, [market]);
+    // unit도 의존에 넣어 주기 전환 시 차트를 새로 만든다. 인스턴스를 유지한 채 데이터만 교체하면
+    // 거래량 pane이 직전 주기의 봉·간격을 그대로 들고 있는 상태가 실측으로 반복 재현됐다(캔들 17봉
+    // 대 거래량 78봉 등). 지표 재계산 강제(overrideIndicator calcParams)·resize·뷰포트 API 어느
+    // 조합으로도 해소되지 않았고, 신규 마운트에서는 항상 두 pane이 일치했다. 주기 전환은 사용자
+    // 조작이라 빈도가 낮으므로 재생성 비용을 받아들이고 상태 이월을 원천 차단한다.
+  }, [market, unit]);
 
   // 캔들 스트림: market·unit 조합마다 재배선. 초기 로드 + 체결 합성 폴백
   useEffect(() => {

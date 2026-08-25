@@ -13,6 +13,7 @@
 import { memo, useEffect, useRef } from "react";
 import type { EffectLevel } from "@/lib/types";
 import { acquirePop, releasePop } from "@/components/trade/popBudget";
+import { prefersReducedMotion } from "@/lib/reducedMotion";
 
 const FLASH_MS = 260; // --dur-flash(220ms)·--dur-pop(220ms) + 여유
 // 강도별 셀 스로틀(설계 §2-2). off는 팝·플래시 없음
@@ -91,7 +92,7 @@ function TickCell({ value, valueStr, className, level = "subtle", strong = false
     if (delta === 0) return; // flat 틱은 플래시 생략
 
     // reduced-motion: 값 갱신만, 토글 스킵
-    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (prefersReducedMotion()) return;
 
     const lvl = levelRef.current;
     if (lvl === "off") return; // 표식만 모드: 색·부호·값은 유지, 모션·플래시 끔

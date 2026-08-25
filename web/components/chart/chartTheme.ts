@@ -45,6 +45,18 @@ export interface ChartTokens {
 const VOL_ALPHA_HEX = "59";
 
 /**
+ * 방향색에 거래량 막대 알파를 입힌다.
+ *
+ * 토큰은 getComputedStyle 해석값이라 현재는 #RRGGBB로 오지만, 형식이 rgb()·oklch() 등으로 바뀌면
+ * 접미 결합이 깨진 색 문자열을 만든다(무음 실패). 6자리 hex일 때만 접미하고, 아니면 color-mix로
+ * 알파를 얹는다. color-mix도 못 쓰는 환경이면 불투명 원색으로 떨어뜨려 최소한 막대는 보이게 한다.
+ */
+function volumeBarColor(color: string): string {
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) return `${color}${VOL_ALPHA_HEX}`;
+  return `color-mix(in srgb, ${color} 35%, transparent)`;
+}
+
+/**
  * klinecharts 전역 스타일 객체. setStyles·init options.styles로 주입.
  * reduced-motion: 마지막 가격 포인트 리플 애니메이션을 끈다(디자인시스템 §5 킬스위치 동형, §4.5).
  */
@@ -91,7 +103,7 @@ export function buildChartStyles(t: ChartTokens, reducedMotion = false): DeepPar
       // 3:1 미달이라 --chart-series-* 토큰(다크 미러 램프)으로 소비한다
       lines: [{ color: t.series1 }, { color: t.series2 }, { color: t.series3 }, { color: t.series4 }],
       // 히스토그램 up/down은 부호가 막대 위치에 내재해 색 단독이 아님(§4.2)
-      bars: [{ upColor: `${t.up}${VOL_ALPHA_HEX}`, downColor: `${t.down}${VOL_ALPHA_HEX}`, noChangeColor: t.flat }],
+      bars: [{ upColor: volumeBarColor(t.up), downColor: volumeBarColor(t.down), noChangeColor: t.flat }],
       lastValueMark: { text: { color: t.textInverse } },
       tooltip: { text: { color: t.textSecondary, family: t.font }, showName: true, showParams: true },
     },
@@ -155,7 +167,7 @@ export function rsiStyles(t: ChartTokens): IndicatorStyleOverride {
 /** 거래량 막대는 방향 알파색, 이동평균선은 테마 인지 램프(다크 3:1 확보) */
 export function volStyles(t: ChartTokens): IndicatorStyleOverride {
   return {
-    bars: [{ upColor: `${t.up}${VOL_ALPHA_HEX}`, downColor: `${t.down}${VOL_ALPHA_HEX}`, noChangeColor: t.flat }],
+    bars: [{ upColor: volumeBarColor(t.up), downColor: volumeBarColor(t.down), noChangeColor: t.flat }],
     lines: [{ color: t.series1 }, { color: t.series2 }, { color: t.series3 }],
   };
 }
