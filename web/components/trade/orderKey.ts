@@ -43,6 +43,21 @@ export function onSubmitFailed(state: OrderKeyState): OrderKeyState {
   return state;
 }
 
+/**
+ * 입력 변경을 dirty에 반영할지 판정한다.
+ *
+ * 제출 중(in-flight)에는 보류한다. 확정 대상이 바뀌어도 키를 새로 발급하면 5XX 재시도가
+ * 이중접수가 되기 때문이다. 보류할 때 서명을 갱신하지 않는 것이 핵심이다. 제출이 끝나 다시
+ * 평가될 때 그 변경이 정확히 한 번 반영된다.
+ *
+ * 제출 종료 자체로도 재평가가 걸리므로, 서명이 같으면 반영하지 않는다. 입력이 그대로인
+ * 5XX 재시도까지 dirty로 만들면 새 키가 나가 막으려던 이중접수가 그대로 일어난다.
+ */
+export function shouldApplyInputChange(sig: string, lastSig: string | null, submitting: boolean): boolean {
+  if (submitting) return false;
+  return sig !== lastSig;
+}
+
 /** 같은 키가 다른 내용으로 이미 소모됐다는 확정 응답(§2-4). 재시도해도 영구 409다 */
 const DUPLICATE_KEY_CODE = "duplicate_client_order_id";
 

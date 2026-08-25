@@ -35,6 +35,7 @@ import {
   onSubmitAccepted,
   onSubmitFailed,
   resolveKeyForSubmit,
+  shouldApplyInputChange,
   type OrderKeyState,
 } from "./orderKey";
 import { shouldAnnounceFill } from "./fillNotice";
@@ -110,6 +111,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const keyState = (): OrderKeyState => (keyStateRef.current ??= initOrderKey(newClientOrderId));
   // 제출 중 dirty 전이 동결. state 갱신 지연에 걸리지 않도록 ref로 동기 판정
   const submittingRef = useRef(false);
+  // 마지막으로 dirty에 반영한 입력 서명. 제출 종료로 재실행될 때 실제 변경만 가려내는 기준이다
+  const lastInputSigRef = useRef<string | null>(null);
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ctaRef = useRef<HTMLButtonElement>(null);
 
@@ -226,12 +229,24 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   }, [armed, disarm]);
 
   /* 입력·방향·유형 변경 시 확인 상태 원복 + 다음 제출은 새 멱등키. 확정 대상이 달라졌기 때문.
-     단 제출 중(in-flight)에는 dirty 전이를 동결한다. 5XX 재시도가 새 키를 발급하면 이중접수 위험(§7-6) */
+     단 제출 중(in-flight)에는 dirty 전이를 동결한다. 5XX 재시도가 새 키를 발급하면 이중접수 위험(§7-6).
+
+     동결만 하고 끝내면 in-flight 중의 입력 변경이 영구 소실된다. 상태 UNKNOWN으로 키를 보존한
+     실패 뒤 재제출이 같은 키에 바뀐 내용을 실어 보내고, 서버는 409 duplicate_client_order_id로
+     막지만 사용자에게는 원인 불명 오류로 보인다. 그래서 submitting을 deps에 넣어 제출 종료 시
+     한 번 더 평가한다.
+
+     이때 submitting 변화만으로 onInputChanged를 적용하면 안 된다. 입력이 그대로인 5XX 재시도까지
+     dirty로 만들어 새 키를 발급하고, 그것이 바로 막으려던 이중접수다. 마지막으로 반영한 입력
+     서명과 비교해 실제로 달라졌을 때만 적용한다. 동결 구간에서는 서명을 갱신하지 않으므로
+     제출이 끝난 뒤 그 변경이 정확히 한 번 반영된다. */
   useEffect(() => {
-    if (submittingRef.current) return;
+    const sig = [side, ordType, priceRaw, qtyRaw, amountRaw, market].join("|");
+    if (!shouldApplyInputChange(sig, lastInputSigRef.current, submitting)) return;
+    lastInputSigRef.current = sig;
     disarm();
     keyStateRef.current = onInputChanged(keyState());
-  }, [side, ordType, priceRaw, qtyRaw, amountRaw, market, disarm]);
+  }, [side, ordType, priceRaw, qtyRaw, amountRaw, market, submitting, disarm]);
 
   useEffect(
     () => () => {

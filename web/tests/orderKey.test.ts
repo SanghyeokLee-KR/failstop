@@ -12,6 +12,7 @@ import {
   onSubmitAccepted,
   onSubmitFailed,
   resolveKeyForSubmit,
+  shouldApplyInputChange,
 } from "../components/trade/orderKey";
 
 /** 결정론 키 생성기. 호출마다 k1, k2, ... */
@@ -152,4 +153,42 @@ test("in-flight 입력 변경 동결 후 5XX 재시도는 동일 키를 재사�
   s = onSubmitFailed(s); // 5XX. 상태 UNKNOWN, 키 보존
   s = resolveKeyForSubmit(s, gen); // 동일 내용 재전송
   assert.equal(s.key, inflight, "in-flight 편집을 동결했으니 재시도는 확정 키를 그대로 써야 한다");
+});
+
+/* 아래 4건은 in-flight 입력 변경 게이트(shouldApplyInputChange) 계약이다.
+   동결만 하고 끝내면 변경이 소실되고, 제출 종료만으로 반영하면 5XX 재시도가 새 키를 얻는다.
+   두 실패 모드를 동시에 막는 것이 이 게이트의 존재 이유다. */
+
+test("제출 중에는 입력 변경을 dirty에 반영하지 않는다", () => {
+  assert.equal(shouldApplyInputChange("bid|limit|100|1||KRW-BTC", "bid|limit|90|1||KRW-BTC", true), false);
+});
+
+test("제출 종료로 재평가돼도 서명이 같으면 반영하지 않는다", () => {
+  const sig = "bid|limit|100|1||KRW-BTC";
+  assert.equal(
+    shouldApplyInputChange(sig, sig, false),
+    false,
+    "입력이 그대로인 5XX 재시도에 새 키를 발급하면 이중접수다",
+  );
+});
+
+test("서명이 달라지면 반영한다", () => {
+  assert.equal(shouldApplyInputChange("bid|limit|200|1||KRW-BTC", "bid|limit|100|1||KRW-BTC", false), true);
+});
+
+test("in-flight 중 바뀐 입력은 제출 종료 후 정확히 한 번 반영된다", () => {
+  const before = "bid|limit|100|1||KRW-BTC";
+  const after = "bid|limit|200|1||KRW-BTC";
+  let lastSig: string | null = before;
+
+  // 제출 중 편집: 보류하고 서명도 갱신하지 않는다
+  assert.equal(shouldApplyInputChange(after, lastSig, true), false);
+  assert.equal(lastSig, before, "동결 구간에서 서명을 갱신하면 변경이 소실된다");
+
+  // 제출 종료: 서명이 달라 반영된다
+  assert.equal(shouldApplyInputChange(after, lastSig, false), true);
+  lastSig = after;
+
+  // 반영 뒤 재평가는 항등
+  assert.equal(shouldApplyInputChange(after, lastSig, false), false);
 });
