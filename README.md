@@ -38,15 +38,15 @@ npm run dev        # http://localhost:3000
 npm run build      # 정적 export, out/ 산출
 ```
 
-백엔드 빌드·테스트. 한글 경로에서 Gradle 테스트가 깨지므로 ASCII 정션에서 실행한다(server/README.md 참조).
+백엔드 빌드·테스트. 프로젝트 경로에 한글이 들어가면 Gradle 테스트가 깨진다(server/README.md 참조).
 
 ```
-cd C:\dev\exchange\server   # C:\dev\exchange 는 프로젝트 폴더 정션
+cd D:\dev\exchange\server
 .\gradlew.bat build
 .\gradlew.bat test          # 통합테스트는 Docker(Testcontainers) 필요
 ```
 
-검증 셸은 PowerShell을 쓴다. 통합테스트는 PostgreSQL 17 컨테이너를 띄운다.
+통합테스트는 PostgreSQL 17 컨테이너를 띄운다.
 
 ## 규칙
 

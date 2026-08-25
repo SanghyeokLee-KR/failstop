@@ -1,7 +1,7 @@
 name: ci-backend
 
 # 백엔드 PR 게이트(하네스_CICD_IaC.md §2-2). ubuntu-latest는 Docker 내장이라 Testcontainers
-# 무설정이고, ASCII 경로라 Windows 정션(비ASCII 물리 경로) + cp949 워커의 클래스패스 손상과
+# 무설정이고, ASCII 경로라 비ASCII 경로 + cp949 워커의 클래스패스 손상과
 # 무관하게 gradlew build/test를 재현한다. 완료 게이트(gradlew build)의 재현 가능한 원천.
 #
 # 정본 §2-2의 paths는 구 모듈명(exchange-*)을 쓰지만 이 리포는 server/ 단일 트리(:engine·:app)라

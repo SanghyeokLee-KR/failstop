@@ -174,7 +174,7 @@ orrery나 escapement의 낮은 점수는 이름이 엉뚱한 분야를 가리켜
 - Prometheus 메트릭 `exchange_*` 20종 이상(`exchange_leader_epoch`, `exchange_ledger_imbalance`, `exchange_failover_downtime_seconds`, `exchange_journal_replay_commands_total`, `exchange_invariant_violations` 등). 룰 파일 `exchange-alerts.yml`·`exchange-recording.yml`, Grafana 대시보드 4종이 이 이름을 참조.
 - 웹 라우트 `/exchange/[market]`.
 - README H1: `# 고가용성 가상 암호화폐 거래소`.
-- 로컬 폴더명: `프로젝트`(한글). 별도로 gradle 빌드용 정션 `C:\dev\exchange`.
+- 로컬 폴더명: `exchange`(ASCII, `D:\dev\exchange`). 과거의 한글 폴더명 + gradle 빌드용 정션 `C:\dev\exchange` 조합은 폐지됐다.
 
 ### 5.2 판단: 공개 표면만 바꾸고 내부 식별자 `exchange`는 유지한다
 
@@ -189,7 +189,7 @@ orrery나 escapement의 낮은 점수는 이름이 엉뚱한 분야를 가리켜
 ### 5.3 즉시 바꿀 것 (공개 표면)
 
 1. GitHub 저장소 이름. 새 이름으로 변경. GitHub가 리다이렉트를 유지하므로 기존 clone은 깨지지 않는다.
-2. 로컬 폴더명 `프로젝트` → 새 이름(ASCII). 부수 효과가 크다. 한글 경로 때문에 gradle 빌드에서 가짜 ClassNotFound가 나던 문제와, 그것을 우회하려고 만든 정션 `C:\dev\exchange` 의존이 함께 사라진다. 리네임 작업 중 유일하게 기술 부채를 갚는 항목이다.
+2. 로컬 폴더명 `프로젝트` → 새 이름(ASCII). **완료**: `D:\dev\exchange`로 옮겼다. 한글 경로 때문에 gradle 빌드에서 가짜 ClassNotFound가 나던 문제와, 그것을 우회하려고 만든 정션 `C:\dev\exchange` 의존이 함께 사라졌다. 리네임 작업 중 유일하게 기술 부채를 갚는 항목이었다.
 3. `README.md` H1과 첫 문단. 현재 첫 줄이 "고가용성 가상 암호화폐 거래소"라 이름을 바꾼 효과가 그 자리에서 상쇄된다. 재배열 원칙은 성취를 앞에, 워크로드를 뒤에 놓는 것이다. 재생 결정론, 페일오버 정확성(stale 쓰기 0, RTO 5~14초), 원장 불변식 25종을 먼저 쓰고, 거래소는 "그것을 증명하려고 고른 워크로드"로 한 문장에 넣는다. 완전 시뮬레이션 고지는 유지한다.
 4. 저장소 description과 토픽. 토픽 후보: `distributed-systems`, `chaos-engineering`, `event-sourcing`, `fault-injection`, `leader-election`, `double-entry-ledger`. `cryptocurrency`, `trading` 계열 토픽은 붙이지 않는다.
 5. `docs/README.md`와 각 정본 문서 헤더의 프로젝트 지칭. 문서 본문의 도메인 서술(주문, 체결, 마켓)은 손대지 않는다.

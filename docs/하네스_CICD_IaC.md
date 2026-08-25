@@ -1,6 +1,6 @@
 # 고가용성 가상 암호화폐 거래소 CI/CD·IaC·관측성 설계서 (설계 B, v1.1 최종 제출본)
 
-> 전제 계약: `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_DB_설계.md` **v2.29**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 전용 리스 풀·자발적 강등·강등 등급 분리·표식 해제 지점, §2-5-a 수용 제한, V13 원가 프로젝션), `C:\Users\DEV-PC\Desktop\프로젝트\docs\백엔드_API_설계.md` **v2.20**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·2인 승인, §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
+> 전제 계약: `docs/백엔드_DB_설계.md` **v2.29**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 전용 리스 풀·자발적 강등·강등 등급 분리·표식 해제 지점, §2-5-a 수용 제한, V13 원가 프로젝션), `docs/백엔드_API_설계.md` **v2.20**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·2인 승인, §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
 > 설계 원칙: **정확성(증명 가능성) > 재현성(1커맨드 기동) > 성능 > 편의성**. 인프라의 임무는 두 증명 목표, ① 체결 무결(자산합 0·유실 0·중복 0), ② 자동 복구(재생·페일오버·RTO<30s)를 **CI가 매 커밋, 데모가 실시간으로 데이터로 보여주게 만드는 것**이다.
 > 2026-07-21: 스타일 정리, 내용 무변경.
 > 2026-07-24: §5-6 C-카탈로그에 C21~C23(전부 CRITICAL, InvariantCheck enum 실재분) 수록, InvariantViolation 라우팅 열거 갱신. 단일 권위는 검증설계 §4-1 불변(§5-6은 2차 미러).

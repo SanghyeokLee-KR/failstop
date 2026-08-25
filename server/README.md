@@ -5,29 +5,32 @@
 ## 요구 환경
 
 - JDK 21 (Temurin 권장)
-- Gradle 8.14. wrapper 생성 완료, `gradlew` 사용. (배포판 위치: C:\Users\DEV-PC\tools\gradle-8.14)
+- Gradle 8.14. wrapper 생성 완료, `gradlew` 사용. (배포판은 wrapper가 `~/.gradle/wrapper/dists`에 자동 설치한다)
 - PostgreSQL 17 이상. 파티션드 테이블의 `GENERATED ... AS IDENTITY`가 PG17 의존이다(DB 설계 v2.8 전제). 16으로는 V1 마이그레이션이 실패한다.
 - 통합테스트는 Docker(Testcontainers) 필요
 
-## 주의: 한글 경로에서 테스트 실패
+## 주의: 프로젝트 경로에 한글을 넣지 않는다
 
-프로젝트가 한글 경로(Desktop\프로젝트)에 있으면 `gradlew test`가 ClassNotFoundException으로 실패한다.
+프로젝트가 한글 경로에 있으면 `gradlew test`가 ClassNotFoundException으로 실패한다.
 Gradle이 긴 클래스패스를 매니페스트 jar로 전달할 때 비ASCII 프로젝트 경로가 깨지는 Windows 이슈다.
 컴파일은 되고 테스트 워커만 클래스를 못 찾는 증상이면 이 문제다.
 
-해결: ASCII 정션을 만들어 그 경로에서 빌드한다. 이 머신에는 이미 생성돼 있다.
+Gradle 옵션으로는 우회되지 않는다. `gradle.properties`의 `org.gradle.jvmargs`는 데몬에만 걸리고,
+테스트 워커에 `-Dsun.jnu.encoding=UTF-8`을 직접 주입해도 그대로 실패한다. Windows JDK는 이 값을
+VM 초기화 시점에 OS 코드페이지에서 정하므로 명령줄로 덮이지 않는다(이 머신 기본값 MS949).
+
+해결: 프로젝트를 ASCII 경로에 둔다. 현재 위치는 `D:\dev\exchange`다.
 
 ```
-New-Item -ItemType Junction -Path C:\dev\exchange -Target C:\Users\DEV-PC\Desktop\프로젝트
-cd C:\dev\exchange\server
+cd D:\dev\exchange\server
 .\gradlew.bat test
 ```
 
-IDE도 C:\dev\exchange\server 로 여는 것을 권장한다.
+IDE도 D:\dev\exchange\server 로 여는 것을 권장한다.
 
-검증 셸은 PowerShell을 쓴다. 정션 경로에서도 Git Bash에서는 테스트 워커가
-전 클래스 ClassNotFoundException으로 실패하는 사례가 재현됐다(로케일·인코딩 추정).
-PowerShell에서는 동일 명령이 정상 통과한다. CI 러너는 ASCII 경로라 영향 없다.
+ASCII 경로에서는 PowerShell과 Git Bash 둘 다 정상 통과한다. 과거 정션을 쓰던 시기에는 Git Bash에서
+정션이 한글 경로로 canonicalize돼 실패했으나, 실제 ASCII 경로로 옮긴 뒤로는 해당 없다.
+CI 러너는 ASCII 경로라 영향 없다.
 
 ## 모듈 구조
 

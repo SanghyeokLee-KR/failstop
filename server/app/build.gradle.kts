@@ -52,9 +52,10 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-    // 워크스페이스가 비ASCII 물리 경로(정션 대상: ...\프로젝트)일 때 Windows 기본 코드페이지
-    // (cp949)로 기동한 테스트 워커가 @argfile 클래스패스를 잘못 디코딩해 ClassNotFoundException을
-    // 낸다. 워커 파일·경로 인코딩을 UTF-8로 고정해 콘솔 코드페이지와 무관하게 재현되게 한다.
+    // 테스트 워커의 파일·경로 인코딩을 UTF-8로 고정해 콘솔 코드페이지와 무관하게 재현되게 한다.
+    // 다만 이 설정으로 비ASCII 프로젝트 경로가 구제되지는 않는다. 워커가 @argfile 클래스패스를
+    // cp949로 디코딩해 ClassNotFoundException을 내는 문제는 프로젝트를 ASCII 경로에 두어야만
+    // 해결된다(server/README.md). 한글 경로 실측에서 이 블록이 있는 :app:test도 전량 실패했다.
     defaultCharacterEncoding = "UTF-8"
     jvmArgs("-Dfile.encoding=UTF-8", "-Dsun.jnu.encoding=UTF-8")
 }
