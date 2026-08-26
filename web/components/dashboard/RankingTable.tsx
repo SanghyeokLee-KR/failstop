@@ -12,6 +12,7 @@ import SymbolChip from "@/components/SymbolChip";
 import TickCell from "@/components/TickCell";
 import { StaleBadge } from "@/components/StatusSignals";
 import { useExchangeStore } from "@/lib/store";
+import type { ChangeState } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
 import { compareDecimal } from "@/lib/decimal";
 import {
@@ -54,7 +55,7 @@ interface RankingRowProps {
   meta: (typeof COIN_META)[number];
   tickSpec: string | undefined;
   tradePrice: string | null | undefined;
-  change: string | undefined;
+  change: ChangeState | undefined;
   changeRate: string | undefined;
   accTradePrice24h: string | undefined;
   onOpen: (market: string) => void;
