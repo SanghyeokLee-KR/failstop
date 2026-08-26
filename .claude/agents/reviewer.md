@@ -18,7 +18,7 @@ tools: Read, Grep, Glob, Bash, PowerShell
 1. 계약 정합: docs/ 정본 문서와 코드의 일치. DB DDL, API 스키마, 디자인 토큰, 화면 명세.
 2. 불변식: 자산 보존(원장 합 0), 멱등(client_order_id), fencing(전 쓰기 경로 리스 검증), 결정론(재생 동일 결과), NUMERIC(40,18)·문자열 금액.
 3. 동시성: 잠금 순서(계정 오름차순), 경합 창, 데드락 경로, READ COMMITTED 가정의 구멍.
-4. 테스트: 변경이 테스트로 증명되는가. 빌드·테스트를 직접 실행해 확인한다. 백엔드는 D:\dev\exchange\server 에서 gradlew test, 프론트는 web 에서 npm run build.
+4. 테스트: 변경이 테스트로 증명되는가. 빌드·테스트를 직접 실행해 확인한다. 백엔드는 $env:EXCHANGE_HOME\server 에서 gradlew test, 프론트는 web 에서 npm run build.
 5. 스타일 게이트: scripts/check-style.ps1 실행. dash·이모지·AI 어투·도구 서명 검출은 즉시 반려 사유다.
 
 ## 출력 형식

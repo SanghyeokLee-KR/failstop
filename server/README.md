@@ -19,14 +19,14 @@ Gradle 옵션으로는 우회되지 않는다. `gradle.properties`의 `org.gradl
 테스트 워커에 `-Dsun.jnu.encoding=UTF-8`을 직접 주입해도 그대로 실패한다. Windows JDK는 이 값을
 VM 초기화 시점에 OS 코드페이지에서 정하므로 명령줄로 덮이지 않는다(이 머신 기본값 MS949).
 
-해결: 프로젝트를 ASCII 경로에 둔다. 현재 위치는 `D:\dev\exchange`다.
+해결: 프로젝트를 ASCII 경로에 둔다. 현재 위치는 `$env:EXCHANGE_HOME`다.
 
 ```
-cd D:\dev\exchange\server
+cd $env:EXCHANGE_HOME\server
 .\gradlew.bat test
 ```
 
-IDE도 D:\dev\exchange\server 로 여는 것을 권장한다.
+IDE도 $env:EXCHANGE_HOME\server 로 여는 것을 권장한다.
 
 ASCII 경로에서는 PowerShell과 Git Bash 둘 다 정상 통과한다. 과거 정션을 쓰던 시기에는 Git Bash에서
 정션이 한글 경로로 canonicalize돼 실패했으나, 실제 ASCII 경로로 옮긴 뒤로는 해당 없다.

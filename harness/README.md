@@ -40,7 +40,7 @@
 PowerShell에서 실행한다.
 
 ```powershell
-cd D:\dev\exchange\harness
+cd $env:EXCHANGE_HOME\harness
 pwsh -File scripts/up.ps1            # bootJar 빌드 → 이미지 → compose up --wait
 # (관측 스택 포함) pwsh -File scripts/up.ps1 -Obs
 
@@ -104,7 +104,7 @@ recovery_runs에 `matched=false` 1건 → C17 검출·제거 후 clean 복귀, l
 
 CI 재현 게이트는 `.github/workflows/ci-backend.yml`(ubuntu-latest, `./gradlew build`)이다.
 ubuntu 러너는 ASCII 경로라 비ASCII 경로 + cp949 워커의 클래스패스 손상과 무관하게 green을
-재현한다. 로컬 Windows도 프로젝트를 ASCII 경로(`D:\dev\exchange`)에 두면 동일하게 통과한다.
+재현한다. 로컬 Windows도 프로젝트를 ASCII 경로(`$env:EXCHANGE_HOME`)에 두면 동일하게 통과한다.
 
 ## 관측성 배선
 

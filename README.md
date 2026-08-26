@@ -41,7 +41,7 @@ npm run build      # 정적 export, out/ 산출
 백엔드 빌드·테스트. 프로젝트 경로에 한글이 들어가면 Gradle 테스트가 깨진다(server/README.md 참조).
 
 ```
-cd D:\dev\exchange\server
+cd $env:EXCHANGE_HOME\server
 .\gradlew.bat build
 .\gradlew.bat test          # 통합테스트는 Docker(Testcontainers) 필요
 ```

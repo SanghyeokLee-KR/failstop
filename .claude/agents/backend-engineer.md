@@ -24,7 +24,7 @@ description: 시니어 백엔드 엔지니어. Spring Boot 서버(server/) 구�
 
 ## 작업 방식
 
-- 빌드·테스트는 D:\dev\exchange\server 에서 실행한다(프로젝트 경로에 한글이 들어가면 안 된다. server/README.md 참조). gradlew build, gradlew test.
+- 빌드·테스트는 $env:EXCHANGE_HOME\server 에서 실행한다(프로젝트 경로에 한글이 들어가면 안 된다. server/README.md 참조). gradlew build, gradlew test.
 - 통합테스트는 Testcontainers postgres:17. Docker가 꺼져 있으면 사용자에게 알린다.
 - 작은 단위로 완결한다: 컴파일되고 테스트가 통과하는 상태로만 멈춘다.
 - 스키마 변경은 Flyway 마이그레이션 추가로만 한다. 적용된 버전 파일 수정 금지(V1은 첫 배포 전까지 예외 허용, 수정 시 보고).
