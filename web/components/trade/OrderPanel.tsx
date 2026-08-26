@@ -39,6 +39,7 @@ import {
   type OrderKeyState,
 } from "./orderKey";
 import { shouldAnnounceFill } from "./fillNotice";
+import type { PricePrefill } from "./prefill";
 import OrderConfirmDialog from "./OrderConfirmDialog";
 import {
   autoFillPrice,
@@ -55,22 +56,18 @@ import styles from "./OrderPanel.module.css";
 
 // 수수료·최소주문의 권위 소스는 GET /markets 마켓 메타다(§4-A-1, 관리자 런타임 변경 가능).
 // 아래 상수는 메타 미로딩 구간의 표시·검증 폴백일 뿐이다.
-const FALLBACK_FEE_RATE_STR = "0.0005";
+// 프리렌더 골격(OrderPanelSkeleton)이 콜드 마운트 표기를 그대로 재현하려고 같은 상수를 읽는다.
+export const FALLBACK_FEE_RATE_STR = "0.0005";
 const FALLBACK_MIN_ORDER_KRW = "5000";
 const CONFIRM_TIMEOUT_MS = 3000;
 
 type OrdType = "limit" | "market";
 
-const SIDE_ITEMS = [
+// 프리렌더 골격이 같은 배열로 방향 탭을 그린다. 라벨·톤이 갈리면 하이드레이션 순간 탭이 바뀐다
+export const SIDE_ITEMS = [
   { value: "bid" as Side, label: "매수", tone: "buy" as const },
   { value: "ask" as Side, label: "매도", tone: "sell" as const },
 ];
-
-export interface PricePrefill {
-  price: string;
-  /** 동일 가격 재클릭도 재주입되도록 하는 시퀀스 */
-  seq: number;
-}
 
 interface Props {
   market: string;

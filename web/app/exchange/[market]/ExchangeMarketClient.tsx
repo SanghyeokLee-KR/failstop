@@ -4,6 +4,7 @@
  * 거래 화면 본체 (§2). TradeLayout 그리드에 패널 6종 조립.
  * useLiveChannels로 ticker(전 마켓)·orderbook·trade(현재 마켓) 구독을 배선하고,
  * /order 리다이렉트 쿼리(side·price)와 호가 클릭 프리필을 OrderPanel로 전달한다.
+ * 쿼리를 읽는 주문 슬롯만 Suspense 경계에 두어 나머지 패널은 정적 export HTML에 프리렌더된다.
  */
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
@@ -14,28 +15,68 @@ import SummaryBar from "@/components/trade/SummaryBar";
 import ChartPanel from "@/components/trade/ChartPanel";
 import OrderbookPanel from "@/components/trade/OrderbookPanel";
 import TradesPanel from "@/components/trade/TradesPanel";
-import OrderPanel, { type PricePrefill } from "@/components/trade/OrderPanel";
+import OrderPanel from "@/components/trade/OrderPanel";
+import OrderPanelSkeleton from "@/components/trade/OrderPanelSkeleton";
+import {
+  effectivePrefill,
+  nextClickPrefill,
+  prefillSideOf,
+  queryPrefillOf,
+  type PricePrefill,
+} from "@/components/trade/prefill";
 import MarketListPanel from "@/components/trade/MarketListPanel";
 import { ConnectionBanner } from "@/components/StatusSignals";
 import { toast } from "@/components/Toast";
 import { useExchangeStore, useLiveChannels, useEffectConfigPolling, useMarketSpecs } from "@/lib/store";
-import { dest, type Side } from "@/lib/types";
+import { dest } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
 import { writeRecentMarket } from "../recentMarket";
+
+interface OrderSlotProps {
+  market: string;
+  /** 호가 클릭 프리필(부모 소유). 쿼리 승계분보다 항상 최신이다 */
+  prefill: PricePrefill | null;
+  accountsFailed: boolean;
+  onRetryAccounts: () => void;
+}
+
+/**
+ * /order/[market]?side=...&price=... 리다이렉트 쿼리 승계 (§1.2).
+ * useSearchParams는 정적 export 프리렌더를 CSR로 떨어뜨리므로 이 슬롯만 Suspense 경계에 넣는다.
+ * 쿼리 읽기를 화면 본체에 두면 호가·체결·차트까지 통째로 바일아웃해 HTML이 빈 셸이 된다.
+ */
+function OrderPanelSlot({ market, prefill, accountsFailed, onRetryAccounts }: OrderSlotProps) {
+  const search = useSearchParams();
+  const initialSide = prefillSideOf(search.get("side"));
+
+  // 쿼리 프리필은 마운트 1회 승계다. 이후 호가 클릭이 들어오면 그쪽이 최신이라 우선한다
+  const [queryPrefill, setQueryPrefill] = useState<PricePrefill | null>(() =>
+    queryPrefillOf(search.get("price")),
+  );
+  const [queryMarket, setQueryMarket] = useState(market);
+  if (queryMarket !== market) {
+    setQueryMarket(market);
+    setQueryPrefill(null);
+  }
+
+  return (
+    <OrderPanel
+      key={market}
+      market={market}
+      initialSide={initialSide}
+      prefill={effectivePrefill(prefill, queryPrefill)}
+      accountsFailed={accountsFailed}
+      onRetryAccounts={onRetryAccounts}
+    />
+  );
+}
 
 function ExchangeMarketBody() {
   const params = useParams<{ market: string }>();
   const market = decodeURIComponent(params.market);
   const meta = COIN_META.find((c) => c.market === market);
 
-  // /order/[market]?side=...&price=... 리다이렉트 쿼리 승계 (§1.2)
-  const search = useSearchParams();
-  const initialSide: Side = search.get("side") === "ask" ? "ask" : "bid";
-  const initialPrice = search.get("price");
-
-  const [prefill, setPrefill] = useState<PricePrefill | null>(
-    initialPrice ? { price: initialPrice, seq: 0 } : null,
-  );
+  const [prefill, setPrefill] = useState<PricePrefill | null>(null);
 
   // 마켓 전환 시 이전 마켓 가격 프리필 파기 (렌더 중 파생 상태 리셋)
   const [prefillMarket, setPrefillMarket] = useState(market);
@@ -46,7 +87,7 @@ function ExchangeMarketBody() {
 
   // 호가 클릭 → 가격만 주입 (side 유지, §2.5 데스크톱 규약)
   const onPricePrefill = useCallback((price: string) => {
-    setPrefill((p) => ({ price, seq: (p?.seq ?? 0) + 1 }));
+    setPrefill((p) => nextClickPrefill(p, price));
   }, []);
 
   const hydrateFavorites = useExchangeStore((s) => s.hydrateFavorites);
@@ -105,14 +146,15 @@ function ExchangeMarketBody() {
         book={<OrderbookPanel market={market} onPricePrefill={onPricePrefill} />}
         trades={<TradesPanel market={market} />}
         order={
-          <OrderPanel
-            key={market}
-            market={market}
-            initialSide={initialSide}
-            prefill={prefill}
-            accountsFailed={accountsFailed}
-            onRetryAccounts={reloadAccounts}
-          />
+          // fallback은 콜드 마운트 주문 패널과 같은 높이다. 다르면 아래 마켓 목록이 밀린다
+          <Suspense fallback={<OrderPanelSkeleton market={market} />}>
+            <OrderPanelSlot
+              market={market}
+              prefill={prefill}
+              accountsFailed={accountsFailed}
+              onRetryAccounts={reloadAccounts}
+            />
+          </Suspense>
         }
         marketList={<MarketListPanel market={market} />}
       />
@@ -121,10 +163,5 @@ function ExchangeMarketBody() {
 }
 
 export default function ExchangeMarketClient() {
-  // useSearchParams는 정적 export 프리렌더에서 Suspense 경계 필수
-  return (
-    <Suspense fallback={null}>
-      <ExchangeMarketBody />
-    </Suspense>
-  );
+  return <ExchangeMarketBody />;
 }
