@@ -191,6 +191,10 @@
 .sessionTtl[data-imminent] b {
   color: var(--color-warning-text);
 }
+/* 만료는 임박보다 상위 단계다. 형태(■)·라벨 병기는 마크업이 담당한다 */
+.sessionTtl[data-expired] {
+  color: var(--color-danger);
+}
 .sessionWarn {
   font-weight: var(--fw-semibold);
 }
@@ -731,16 +735,18 @@
 .approveBtn:hover:not(:disabled) {
   background: var(--brand-primary-hover);
 }
+/* 컨트롤 면을 쓴다. sunken을 쓰면 sunken 행(chaos 주입 요청·operators 관리) 위에서
+   버튼 형태가 사라지고, hover가 같은 값이라 반응도 없다 */
 .primaryBtn,
 .controlBtn,
 .neutralBtn {
-  background: var(--surface-sunken);
+  background: var(--surface-control);
   color: var(--text-strong);
 }
 .primaryBtn:hover:not(:disabled),
 .controlBtn:hover:not(:disabled),
 .neutralBtn:hover:not(:disabled) {
-  background: var(--surface-hover);
+  background: var(--surface-control-hover);
 }
 .dangerBtn {
   min-height: 36px;
@@ -786,6 +792,14 @@
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-3);
+}
+/* 가역 조작과 파괴 조작 사이 물리적 간격. 오조작은 거리로 막는다 */
+.controlSep {
+  align-self: center;
+  width: 1px;
+  height: 20px;
+  margin-inline: var(--space-2);
+  background: var(--border-default);
 }
 .field {
   display: flex;
@@ -1628,9 +1642,12 @@
   display: inline-flex;
   gap: var(--space-1);
 }
+/* 선택 상태를 명도차에 걸지 않는다. 밑줄 레일과 굵기를 병기해야 선택이 보인다 */
 .auditSeg .neutralBtn[aria-pressed="true"] {
-  background: var(--surface-hover);
+  background: var(--surface-control-hover);
   color: var(--text-strong);
+  font-weight: var(--fw-bold);
+  box-shadow: inset 0 -2px 0 var(--chrome-accent);
 }
 .auditFilterCount {
   margin-left: auto;

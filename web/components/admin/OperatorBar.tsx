@@ -40,9 +40,15 @@ export default function OperatorBar() {
   if (!session) return null;
 
   const ms = remainMs(session.expiresAt);
-  const imminent = ms > 0 && ms <= IMMINENT_SEC * 1000;
-  // 낭독 문구는 imminent 불리언에만 의존한다. 매초 바뀌는 잔여 초를 넣지 않아야 polite 리전이 1회만 낭독한다
-  const liveMsg = imminent ? "세션 만료가 1분 이내로 임박했습니다. 곧 다시 인증해야 합니다." : "";
+  const expired = ms === 0;
+  const imminent = !expired && ms <= IMMINENT_SEC * 1000;
+  // 낭독 문구는 불리언에만 의존한다. 매초 바뀌는 잔여 초를 넣지 않아야 polite 리전이 전이마다 1회만 낭독한다.
+  // 만료 문구가 없으면 임박 경고 뒤 정작 만료 순간에 낭독이 멎는다
+  const liveMsg = expired
+    ? "세션이 만료됐습니다. 다시 인증해야 합니다."
+    : imminent
+      ? "세션 만료가 1분 이내로 임박했습니다. 곧 다시 인증해야 합니다."
+      : "";
 
   const certs = getAdminApi().listDemoCerts();
 
@@ -70,9 +76,21 @@ export default function OperatorBar() {
         <span className={styles.opbarDivider} aria-hidden="true" />
         <span className={styles.opbarSeg}>
           {/* 매초 바뀌는 카운트다운은 낭독 대상에서 제외(aria-hidden). 임박 시 아래 polite 리전이 1회만 고지한다 */}
-          <span className={styles.sessionTtl} data-imminent={imminent ? "" : undefined} aria-hidden="true">
-            {imminent && <span className={styles.sessionWarn}>▲ 만료 임박</span>}
-            세션 <b className="num">{mmss(ms)}</b>
+          <span
+            className={styles.sessionTtl}
+            data-imminent={imminent ? "" : undefined}
+            data-expired={expired ? "" : undefined}
+            aria-hidden="true"
+          >
+            {expired ? (
+              // 만료 후 00:00 카운트다운을 계속 보여주면 살아 있는 세션으로 읽힌다
+              <span className={styles.sessionWarn}>■ 세션 만료</span>
+            ) : (
+              <>
+                {imminent && <span className={styles.sessionWarn}>▲ 만료 임박</span>}
+                세션 <b className="num">{mmss(ms)}</b>
+              </>
+            )}
           </span>
           <span className="sr-only" role="status" aria-live="polite">
             {liveMsg}

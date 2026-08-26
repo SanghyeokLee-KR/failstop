@@ -15,6 +15,7 @@ import { formatCount } from "@/lib/format";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
 import LivelinessSection from "@/components/admin/LivelinessSection";
@@ -46,6 +47,9 @@ export default function BotsPage() {
   const [newType, setNewType] = useState<BotType>("MARKET_MAKER");
   const [newMarket, setNewMarket] = useState(COIN_META[0]?.market ?? "KRW-BTC");
   const [newCount, setNewCount] = useState(1);
+
+  // 정지는 가역이라 2인 승인까지는 불필요하지만, 파급이 전 마켓이라 확인은 받는다
+  const [stopOpen, setStopOpen] = useState(false);
 
   const [paramBotId, setParamBotId] = useState("");
   const [spread, setSpread] = useState("0.0008");
@@ -177,7 +181,10 @@ export default function BotsPage() {
           <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simPause(), controlOk("일시정지를 전환했습니다"))}>
             일시정지 전환
           </button>
-          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStop(), controlOk("플릿을 정지했습니다"))}>
+          {/* 정지만 나머지 둘과 갈라 놓는다. 같은 무채 알약으로 붙여 두면
+              일시정지 전환을 겨냥하다 한 칸 빗나가 전 마켓 호가 공급이 끊긴다 */}
+          <span className={styles.controlSep} aria-hidden="true" />
+          <button type="button" className={styles.dangerBtn} disabled={!canOps} onClick={() => setStopOpen(true)}>
             정지
           </button>
           {sim && (
@@ -207,6 +214,21 @@ export default function BotsPage() {
             </div>
           )}
         </div>
+        {stopOpen && (
+          <ConfirmDialog
+            title="봇 플릿 정지"
+            description="전 마켓 호가 공급이 즉시 끊깁니다. 시작 버튼으로 되돌릴 수 있습니다."
+            target="전체 플릿"
+            blastRadius="전 마켓 호가·체결 생성 중단"
+            confirmLabel="정지"
+            tone="danger"
+            onConfirm={() => {
+              setStopOpen(false);
+              void run(() => api.simStop(), controlOk("플릿을 정지했습니다"));
+            }}
+            onClose={() => setStopOpen(false)}
+          />
+        )}
       </PanelCard>
 
       <LivelinessSection sim={sim} canOps={canOps} onChanged={load} />

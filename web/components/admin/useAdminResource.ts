@@ -10,6 +10,7 @@
  * - error: 최초 로드 실패(데이터 없음). empty-state role=alert + 재시도.
  * - stale: 폴링 실패로 마지막 값 유지 중. 지연 배지 + 갱신 영역 opacity 저하.
  * 최초 실패와 폴링 실패는 데이터 유무로 가른다. 세션 사유 구분은 isSessionError로 주입한다.
+ * 단 세션 만료만은 데이터 유무보다 우선해 error로 승격한다(스테일로 흡수 금지).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -87,11 +88,16 @@ export function useAdminResource<T>(loader: () => Promise<T>, options: Options =
       if (seq !== runSeq.current) return; // 스테일 실패도 최신 상태를 오염시키지 않는다
       const pauseSec = rateLimitPauseSec(e);
       if (pauseSec !== null) pauseUntil.current = Date.now() + pauseSec * 1000;
-      if (hasData.current) {
+      // 세션 만료는 데이터 유무와 무관하게 에러로 승격한다. 스테일로 흡수하면
+      // 로그아웃된 콘솔이 얼어붙은 값으로 정상을 계속 주장한다(관제 도구가 내면 안 되는 오보)
+      if (sessionRef.current?.(e)) {
+        setErrorReason("session");
+        setError(true);
+      } else if (hasData.current) {
         // 폴링 실패는 마지막 값을 유지하고 스테일만 세운다(레이아웃 시프트 0)
         setStale(true);
       } else {
-        setErrorReason(sessionRef.current?.(e) ? "session" : "server");
+        setErrorReason("server");
         setError(true);
       }
     }
