@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ size }: { size?: "sm" }) {
   const [theme, setTheme] = useState<"light" | "dark" | null>(null);
 
   useEffect(() => {
@@ -28,6 +28,7 @@ export default function ThemeToggle() {
     <button
       type="button"
       className="icon-btn"
+      data-size={size}
       onClick={toggle}
       aria-label={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
     >

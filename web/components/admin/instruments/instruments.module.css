@@ -1,0 +1,148 @@
+/* ============================================================================
+   instruments.module.css. 관리 평면 계기 프리미티브(MeterRail·BiasReadout).
+   모든 값은 tokens.css 변수 소비. 색은 무채 기본, 유채는 헬스 도메인만.
+   ========================================================================== */
+
+/* ===== MeterRail ===== */
+/* 레일 12px 안에 트랙 6px를 중앙 배치. 마커·기준선 돌출 공간을 상시 예약해 시프트 0 */
+.rail {
+  position: relative;
+  height: 12px;
+}
+.track {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  /* 계측 눈금(§6.2): 색이 아니라 위치로 값을 읽게 하는 무채 hairline */
+  background:
+    repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
+    var(--surface-sunken);
+}
+.fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--text-secondary);
+  transition: width var(--dur-base) var(--ease-standard);
+}
+/* 600 원색은 면·그래픽 전용 허용 대역(tokens.css §2). 소형 텍스트가 아니다 */
+.fill[data-tone="success"] {
+  background: var(--color-success);
+}
+.fill[data-tone="warning"] {
+  background: var(--color-warning);
+}
+.fill[data-tone="danger"] {
+  background: var(--color-danger);
+}
+/* 기준선은 레일 전고 관통 2px. 마커(1px)와 두께·명도로 구분한다 */
+.threshold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--text-strong);
+}
+.mark {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--border-strong);
+}
+/* 마커 2종 병기 시 의도(드래프트) 마커 변별. 무채 굵기·명도 차만, 기준선(전고 관통)과는 높이로 구분 */
+.mark[data-emphasis] {
+  width: 2px;
+  background: var(--text-strong);
+}
+
+/* ===== BiasReadout ===== */
+/* 방향 바이어스 판독 레일. 마커 3종은 전부 무채·형태 구분(▽ 목표·▲ 실측·바 유효).
+   상·하 마커 존과 눈금 라벨 높이를 상시 예약해 시프트 0 */
+.biasReadout {
+  position: relative;
+  height: 44px;
+}
+.biasRail {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background:
+    repeating-linear-gradient(90deg, var(--rule-tick) 0, var(--rule-tick) 1px, transparent 1px, transparent var(--rule-tick-gap)),
+    var(--surface-sunken);
+}
+.biasTick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--border-strong);
+}
+/* 중앙 0 기준선만 2px strong으로 승격해 좌우 대칭의 원점을 고정한다 */
+.biasTick[data-center] {
+  width: 2px;
+  background: var(--text-strong);
+}
+.biasMarkTarget,
+.biasMarkMeasured {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 9px;
+  line-height: 1;
+  pointer-events: none;
+  transition: left var(--dur-base) var(--ease-standard);
+}
+/* 목표(의도)는 레일 위 속빈 삼각, secondary 잉크로 실측과 명도차를 둔다 */
+.biasMarkTarget {
+  top: 0;
+  color: var(--text-secondary);
+}
+/* 실측은 레일 아래 채운 삼각 */
+.biasMarkMeasured {
+  top: 18px;
+  color: var(--text-strong);
+}
+/* 유효값은 레일(6px) 관통 세로 바 2px. 레일 내부 절대배치라 상하 2px씩 돌출한다 */
+.biasMarkEffective {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 10px;
+  transform: translateX(-50%);
+  background: var(--text-strong);
+  pointer-events: none;
+  transition: left var(--dur-base) var(--ease-standard);
+}
+.biasScale {
+  position: absolute;
+  top: 30px;
+  left: 0;
+  right: 0;
+  height: var(--font-micro-line);
+}
+/* 눈금 수치는 장식 채널(값은 biasMeta 텍스트가 주 채널)이라 tertiary 허용 */
+.biasScaleLabel {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+.biasScaleLabel[data-edge="start"] {
+  transform: none;
+}
+.biasScaleLabel[data-edge="end"] {
+  transform: translateX(-100%);
+}

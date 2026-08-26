@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * 모니터링(/admin/monitoring). 불변식·복구(RTO 추이)·노드·지표. 읽기 전용(§2-3).
+ * 모니터링(/admin/monitoring). 핵심 안전 검사·복구·노드·지표. 읽기 전용(§2-3).
  * 파괴 액션 버튼을 노출하지 않는다(§6 안전). 헬스 색 도메인만 사용, 시세색 차용 금지.
+ * 배치: 검사 릴레이(1층) → 고가용성 KPI → 원장·처리량 → 노드 토폴로지 → 복구 이력.
  */
 
 import { useCallback } from "react";
@@ -12,7 +13,9 @@ import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import { HealthPill, PageHeader, StatTile } from "@/components/admin/ui";
-import type { Health } from "@/components/admin/ui";
+import InvariantRelayStrip from "@/components/admin/InvariantRelayStrip";
+import NodeTopologyRail from "@/components/admin/NodeTopologyRail";
+import RtoSpark from "@/components/admin/RtoSpark";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
 import { formatKRW, formatTimeHMS } from "@/lib/format";
@@ -26,39 +29,37 @@ interface MonitoringData {
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
-const NODE_HEALTH: Record<string, Health> = { healthy: "success", degraded: "warning", down: "danger" };
-const NODE_HEALTH_LABEL: Record<string, string> = { healthy: "정상", degraded: "성능 저하", down: "중단" };
+// KPI 경보 임계. tone 판정과 미터 기준선이 같은 상수를 소비한다
+const QUEUE_WARN = 200;
+const P99_WARN_MS = 60;
 
-const NODE_COLUMNS: DataColumn<HaStatus["nodes"][number]>[] = [
-  { key: "id", label: "노드", width: "minmax(120px, 1fr)", render: (n) => n.id },
-  { key: "role", label: "역할", width: "90px", render: (n) => (n.role === "leader" ? "leader" : "follower") },
-  { key: "epoch", label: "epoch", width: "80px", align: "right", render: (n) => n.epoch },
-  { key: "seq", label: "seq", width: "minmax(100px, 1fr)", align: "right", render: (n) => formatKRW(n.seq) },
-  { key: "lag", label: "follower lag", width: "110px", align: "right", render: (n) => `${n.followerLagMs}ms` },
-  {
-    key: "health",
-    label: "상태",
-    width: "110px",
-    render: (n) => <HealthPill health={NODE_HEALTH[n.health]} label={NODE_HEALTH_LABEL[n.health]} />,
-  },
-];
-
+// DataColumn.label이 문자열이라 헤더에 title을 실을 수 없어 원어 gloss는 셀 값 title로 싣는다
 const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
   { key: "startedAt", label: "시각", width: "90px", render: (r) => formatTimeHMS(r.startedAt) },
-  { key: "rto", label: "RTO", width: "90px", align: "right", render: (r) => `${(r.durationMs / 1000).toFixed(1)}초` },
-  { key: "rpo", label: "RPO", width: "80px", align: "right", render: (r) => `${r.rpoMs}ms` },
+  {
+    key: "rto",
+    label: "복구 시간",
+    width: "90px",
+    align: "right",
+    render: (r) => <span title="RTO">{(r.durationMs / 1000).toFixed(1)}초</span>,
+  },
+  { key: "rpo", label: "유실", width: "80px", align: "right", render: (r) => <span title="RPO">{r.rpoMs}ms</span> },
   {
     key: "seq",
-    label: "재현 구간(seq)",
+    label: "재현 구간(순번)",
     width: "minmax(150px, 1fr)",
     align: "right",
-    render: (r) => `${formatKRW(r.replayedFromSeq)} → ${formatKRW(r.replayedToSeq)}`,
+    render: (r) => <span title="seq">{`${formatKRW(r.replayedFromSeq)} → ${formatKRW(r.replayedToSeq)}`}</span>,
   },
   {
     key: "matched",
-    label: "지문",
+    label: "재현 검증",
     width: "96px",
-    render: (r) => (r.matched ? <HealthPill health="success" label="일치" /> : <HealthPill health="danger" label="불일치" />),
+    render: (r) => (
+      <span title="journal fingerprint">
+        {r.matched ? <HealthPill health="success" label="일치" /> : <HealthPill health="danger" label="불일치" />}
+      </span>
+    ),
   },
   {
     key: "verdict",
@@ -80,78 +81,88 @@ export default function MonitoringPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="모니터링"
-        desc="고가용성 상태·불변식·복구 이력. 읽기 전용."
-        actions={stale ? <StaleBadge since={lastUpdatedAt} /> : undefined}
-      />
+      <PageHeader title="모니터링" actions={stale ? <StaleBadge since={lastUpdatedAt} /> : undefined} />
 
       {loading ? (
-        <div className={styles.kpiGrid}>
-          {Array.from({ length: 6 }, (_, i) => (
-            <Skeleton key={i} variant="card" width="100%" height={96} />
-          ))}
+        <div className={styles.pageStack}>
+          {/* 실측: 릴레이 존 89(명판 15+간격 8+셀 40+간격 8+발화선 18), 미터 타일 122(보더 2+패딩 32+라벨 18+값 28+보조 18+미터 12+간격 12), 원장 행 106(미터 없는 타일 실측) */}
+          <Skeleton variant="card" width="100%" height={89} />
+          <div className={styles.kpiGroup}>
+            <Skeleton width={72} height={15} />
+            <div className={styles.kpiGrid} data-cols="3">
+              {Array.from({ length: 3 }, (_, i) => (
+                <Skeleton key={i} variant="card" width="100%" height={122} />
+              ))}
+            </div>
+          </div>
+          <div className={styles.kpiGroup}>
+            <Skeleton width={96} height={15} />
+            <div className={styles.kpiGrid} data-cols="3">
+              {Array.from({ length: 3 }, (_, i) => (
+                <Skeleton key={i} variant="card" width="100%" height={106} />
+              ))}
+            </div>
+          </div>
+          {/* 하단 패널 2장(노드 상태·복구 이력)도 미러해 로드 완료 시 화면 전체 골격이 유지된다 */}
+          <Skeleton variant="card" width="100%" height={240} />
+          <Skeleton variant="card" width="100%" height={240} />
         </div>
       ) : error || !data ? (
         <AdminErrorState reason={errorReason} onRetry={reload} />
       ) : (
-        <div className={styles.staleRegion} data-stale={stale ? "" : undefined}>
+        <div className={`${styles.pageStack} ${styles.staleRegion}`} data-stale={stale ? "" : undefined}>
+          <InvariantRelayStrip checks={data.inv} />
+
           <div className={styles.kpiGroup}>
             <span className={styles.kpiGroupLabel}>고가용성</span>
-            <div className={styles.kpiGrid}>
-              <StatTile label="리더" value={data.ha.leaderNodeId} sub={`epoch ${data.ha.epoch}`} />
+            <div className={styles.kpiGrid} data-cols="3">
               <StatTile
-                label="시퀀서 큐"
-                value={formatKRW(data.ha.sequencerQueueSize)}
-                sub="대기 커맨드"
-                tone={data.ha.sequencerQueueSize > 200 ? "warning" : undefined}
-                alarm={data.ha.sequencerQueueSize > 200}
+                label="매칭 리더"
+                value={data.ha.leaderNodeId}
+                sub={<span title="epoch">선출 세대 {data.ha.epoch}</span>}
               />
               <StatTile
-                label="주문 지연 p99"
-                value={`${data.ha.orderLatencyP99Ms}ms`}
-                tone={data.ha.orderLatencyP99Ms > 60 ? "warning" : "success"}
-                alarm={data.ha.orderLatencyP99Ms > 60}
+                label="주문 처리 대기"
+                title="sequencer queue"
+                value={formatKRW(data.ha.sequencerQueueSize)}
+                sub={`임계 ${formatKRW(QUEUE_WARN)}`}
+                tone={data.ha.sequencerQueueSize > QUEUE_WARN ? "warning" : undefined}
+                alarm={data.ha.sequencerQueueSize > QUEUE_WARN}
+                meter={{ value: data.ha.sequencerQueueSize, max: QUEUE_WARN * 2, threshold: QUEUE_WARN }}
+              />
+              <StatTile
+                label="주문 지연(상위 1%)"
+                value={data.ha.orderLatencyP99Ms}
+                unit="ms"
+                sub={`임계 ${P99_WARN_MS}ms`}
+                tone={data.ha.orderLatencyP99Ms > P99_WARN_MS ? "warning" : undefined}
+                alarm={data.ha.orderLatencyP99Ms > P99_WARN_MS}
+                meter={{ value: data.ha.orderLatencyP99Ms, max: P99_WARN_MS * 2, threshold: P99_WARN_MS }}
               />
             </div>
           </div>
 
           <div className={styles.kpiGroup}>
             <span className={styles.kpiGroupLabel}>원장 · 처리량</span>
-            <div className={styles.kpiGrid}>
+            <div className={styles.kpiGrid} data-cols="3">
               <StatTile
                 label="원장 불균형"
                 value={data.ha.ledgerImbalance}
-                sub="자산 보존 0"
-                tone={data.ha.ledgerImbalance === "0" ? "success" : "danger"}
+                sub="0이어야 정상"
+                tone={data.ha.ledgerImbalance === "0" ? undefined : "danger"}
                 alarm={data.ha.ledgerImbalance !== "0"}
                 hero
               />
-              <StatTile label="Hikari 대기" value={data.ha.hikariPending} sub="커넥션 대기" />
-              <StatTile label="누적 체결" value={formatKRW(data.ha.tradesTotal)} sub="trades_total" />
+              <StatTile label="DB 연결 대기" title="HikariCP pending" value={data.ha.hikariPending} />
+              <StatTile label="누적 체결" value={formatKRW(data.ha.tradesTotal)} unit="건" />
             </div>
           </div>
 
           <PanelCard title="노드 상태">
-            <DataTable columns={NODE_COLUMNS} rows={data.ha.nodes} rowKey={(n) => n.id} rowHeight={44} ariaLabel="HA 노드 상태" />
+            <NodeTopologyRail nodes={data.ha.nodes} />
           </PanelCard>
 
-          <PanelCard title="불변식 7종">
-            <ul className={styles.invGrid}>
-              {data.inv.map((i) => (
-                <li key={i.name} className={styles.invItem}>
-                  <span className={styles.invLabel}>{i.label}</span>
-                  {i.ok ? (
-                    <HealthPill health="success" label="정상" />
-                  ) : (
-                    <HealthPill health="danger" label={`위반 ${i.violatedRows}행`} />
-                  )}
-                </li>
-              ))}
-            </ul>
-          </PanelCard>
-
-          <PanelCard title="복구 이력 · RTO 추이">
+          <PanelCard title="복구 이력" actions={<RtoSpark runs={data.rec.runs} />}>
             <DataTable
               columns={RECOVERY_COLUMNS}
               rows={data.rec.runs}

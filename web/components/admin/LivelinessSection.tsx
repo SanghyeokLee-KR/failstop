@@ -16,6 +16,8 @@ import { formatCount } from "@/lib/format";
 import PanelCard from "@/components/PanelCard";
 import SegmentedTab from "@/components/SegmentedTab";
 import { PermissionNote } from "@/components/admin/ui";
+import { MeterRail } from "@/components/admin/instruments/MeterRail";
+import { BiasReadout } from "@/components/admin/instruments/BiasReadout";
 import { toast } from "@/components/Toast";
 import styles from "@/components/admin/admin.module.css";
 
@@ -149,10 +151,6 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
   return (
     <PanelCard title="시장 생동감">
       {!canOps && <PermissionNote>생동감 제어 권한(BOT_OPS 이상)이 없어 조회만 가능합니다.</PermissionNote>}
-      <p className={styles.livelinessNote}>
-        방향·대수·자동균형·효과 강도는 가역 연출 파라미터입니다. 2인 승인 없이 즉시 반영되며 모든 변경은 감사 로그(admin_audit_log)에 남습니다.
-      </p>
-
       <label className={styles.field}>
         <span>대상 마켓</span>
         <select value={market} onChange={(e) => setMarket(e.target.value)} aria-label="생동감 대상 마켓">
@@ -168,9 +166,7 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
       <div className={styles.livelinessBlock}>
         <div className={styles.livelinessHead}>
           <h3 className={styles.livelinessTitle}>봇 타입별 대수</h3>
-          <span className={styles.livelinessHint}>
-            목표 대수(set-point). 서버가 현재 대수와 차이를 생성·제거로 수렴합니다.
-          </span>
+          <span className={styles.livelinessHint}>서버가 목표 대수로 자동 수렴 · 적용 버튼으로 반영</span>
         </div>
         <div className={styles.scaleGrid}>
           {BOT_TYPES.map((t) => {
@@ -200,6 +196,15 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
           <span className={styles.scaleSum} data-over={scaleOver || undefined}>
             합계 <b className="num">{formatCount(scaleSum)}</b> / 캡 {formatCount(FLEET_MARKET_CAP)}
           </span>
+          <span className={styles.scaleSumRailSlot}>
+            {/* 합계·캡 수치는 좌측 텍스트가 낭독하므로 레일은 aria-hidden */}
+            <MeterRail
+              value={scaleSum}
+              max={FLEET_MARKET_CAP}
+              threshold={FLEET_MARKET_CAP}
+              tone={scaleOver ? "danger" : undefined}
+            />
+          </span>
           {scaleOver && (
             <span className={styles.scaleErr} role="alert">
               마켓 합계 상한을 넘습니다. 조정 후 적용하세요.
@@ -215,7 +220,7 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
       <div className={styles.livelinessBlock}>
         <div className={styles.livelinessHead}>
           <h3 className={styles.livelinessTitle}>방향 바이어스</h3>
-          <span className={styles.livelinessHint}>양전(▲ 상승 압력)~중립~음전(▼ 하락 압력). 실측·유효값으로 수렴을 확인합니다.</span>
+          <span className={styles.livelinessHint}>적용 버튼으로 반영 · 실측·유효로 수렴 확인</span>
         </div>
         <div className={styles.biasRow}>
           <input
@@ -232,13 +237,24 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
           <span className={`${styles.biasValue} num`} data-dir={label.dir}>
             {label.text}
           </span>
+          {/* 판독 레일. 마커 형태는 아래 biasMeta 라벨의 형태 문자가 범례를 겸한다 */}
+          <div className={styles.biasReadoutSlot}>
+            <BiasReadout
+              target={state?.targetNetBias ?? "0.00"}
+              measured={state?.measuredNetBias ?? "0.00"}
+              effective={state?.effectiveBias ?? "0.00"}
+            />
+          </div>
         </div>
         <div className={styles.biasMeta}>
           <span>
-            실측 <b className="num">{state?.measuredNetBias ?? "0.00"}</b>
+            ▽ 목표 <b className="num">{state?.targetNetBias ?? "0.00"}</b>
           </span>
           <span>
-            유효 <b className="num">{state?.effectiveBias ?? "0.00"}</b>
+            ▲ 실측 <b className="num">{state?.measuredNetBias ?? "0.00"}</b>
+          </span>
+          <span>
+            | 유효 <b className="num">{state?.effectiveBias ?? "0.00"}</b>
           </span>
           <span>
             체결률 <b className="num">{state?.fillRatio ?? "0.00"}</b>
@@ -272,7 +288,7 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
       <div className={styles.livelinessBlock}>
         <div className={styles.livelinessHead}>
           <h3 className={styles.livelinessTitle}>체결 시각효과 강도</h3>
-          <span className={styles.livelinessHint}>트레이딩 화면 팝·플래시 강도. 자동은 체결률 거버너가 상한을 하향 조절합니다.</span>
+          <span className={styles.livelinessHint}>선택 즉시 반영 · 자동은 체결률에 따라 상한 조절</span>
         </div>
         <SegmentedTab
           items={TRADE_FLASH_VALUES.map((v) => ({ value: v, label: FLASH_LABEL[v] }))}
@@ -284,14 +300,17 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
         />
         <div className={styles.flashPreview} aria-hidden="true" data-level={flash}>
           <span className={styles.flashCell} data-dir="up">
-            ▲ +0.42%
+            <span className={styles.flashTint} />
+            <span className={styles.flashText}>▲ +0.42%</span>
           </span>
           <span className={styles.flashCell} data-dir="down">
-            ▼ −0.31%
+            <span className={styles.flashTint} />
+            <span className={styles.flashText}>▼ −0.31%</span>
           </span>
           <span className={styles.flashCell} data-dir="flat">
-            0.00%
+            <span className={styles.flashText}>0.00%</span>
           </span>
+          <span className={styles.flashAutoNote}>자동</span>
         </div>
       </div>
     </PanelCard>

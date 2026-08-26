@@ -20,7 +20,7 @@ import ApprovalList from "@/components/admin/ApprovalList";
 import LivelinessSection from "@/components/admin/LivelinessSection";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
-import { HealthPill, PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
 import type { Health } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
 import styles from "@/components/admin/admin.module.css";
@@ -29,11 +29,14 @@ const PARAM_ACTIONS: DestructiveAction[] = ["sim.bots.params"];
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
-// 성공률 톤 임계. 99% 이상 정상, 95% 미만 위험, 사이는 주의. 하드코딩 tone 제거 근거
+// 전역 OPS 상한. 슬라이더와 현재 OPS 미터가 같은 눈금을 소비한다(서버 rate 클램프와 정렬)
+const OPS_MAX = 600;
+
+// 성공률 톤 임계. 99% 이상은 정상이라 잉크(무톤), 95% 미만 위험, 사이는 주의
 const SUCCESS_RATE_OK = 0.99;
 const SUCCESS_RATE_WARN = 0.95;
-function successRateTone(rate: number): Health {
-  if (rate >= SUCCESS_RATE_OK) return "success";
+function successRateTone(rate: number): Health | undefined {
+  if (rate >= SUCCESS_RATE_OK) return undefined;
   if (rate >= SUCCESS_RATE_WARN) return "warning";
   return "danger";
 }
@@ -101,7 +104,8 @@ export default function BotsPage() {
       key: "active",
       label: "상태",
       width: "96px",
-      render: (b) => (b.active ? <HealthPill health="success" label="가동" /> : <span className={styles.neutralPill}>정지</span>),
+      // 정상(가동)은 잉크, 정지만 pill로 세운다
+      render: (b) => (b.active ? <span className={styles.stateText}>가동</span> : <span className={styles.neutralPill}>정지</span>),
     },
     { key: "ops", label: "OPS", width: "80px", align: "right", render: (b) => b.ops },
     {
@@ -109,7 +113,7 @@ export default function BotsPage() {
       label: "파라미터",
       width: "minmax(160px, 1fr)",
       render: (b) => (
-        <span className={styles.paramCell}>
+        <span className={styles.paramCell} title="spread 호가 간격 · size 주문 수량 · ttl_ms 주문 수명">
           spread {b.params.spread} · size {b.params.size} · ttl {b.params.ttl_ms}
         </span>
       ),
@@ -118,50 +122,48 @@ export default function BotsPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="봇 플릿"
-        desc="시뮬레이션 봇 제어. 파라미터 변경은 2인 승인이 필요합니다."
-        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
-      />
+      <PageHeader title="봇 플릿" actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined} />
 
       {res.error ? (
         <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
       ) : !sim ? (
-        <div className={styles.kpiGrid}>
-          {Array.from({ length: 6 }, (_, i) => (
-            <Skeleton key={i} variant="card" width="100%" height={96} />
+        <div className={styles.kpiGrid} data-cols="3">
+          {/* 실측: 1행은 미터 타일 기준 122(보더 2+패딩 32+라벨 18+값 28+보조 18+미터 12+간격 12), 2행은 보조행 타일 기준 106 */}
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} variant="card" width="100%" height={122} />
+          ))}
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} variant="card" width="100%" height={106} />
           ))}
         </div>
       ) : (
         // 폴링 실패 시 헤드라인 지표만 opacity로 강등한다. 제어 슬라이더·버튼은 아래 별도 카드라 흐려지지 않는다
-        <div className={`${styles.kpiGrid} ${styles.staleRegion}`} data-stale={res.stale ? "" : undefined}>
-          <div className={styles.statTile}>
-            <span className={styles.statLabel}>플릿 상태</span>
-            <span className={styles.statPillWrap}>
-              {sim.running ? (
-                sim.paused ? (
-                  <HealthPill health="warning" label="일시정지" />
-                ) : (
-                  <HealthPill health="success" label="가동 중" />
-                )
-              ) : (
-                <span className={styles.neutralPill}>정지</span>
-              )}
-            </span>
-          </div>
-          <StatTile label="현재 OPS · 목표" value={formatCount(sim.currentOps)} sub={`목표 ${formatCount(sim.rate)}`} />
-          <StatTile label="활성 봇" value={`${sim.activeBots} / ${sim.botCount}`} sub="활성 / 전체" />
+        <div className={`${styles.kpiGrid} ${styles.staleRegion}`} data-cols="3" data-stale={res.stale ? "" : undefined}>
+          <StatTile
+            label="플릿 상태"
+            value={sim.running ? (sim.paused ? "일시정지" : "가동 중") : "정지"}
+            tone={sim.running && sim.paused ? "warning" : undefined}
+          />
+          <StatTile
+            label="초당 주문 수"
+            title="OPS"
+            value={formatCount(sim.currentOps)}
+            sub={`목표 ${formatCount(sim.rate)}`}
+            meter={{ value: sim.currentOps, max: OPS_MAX, marks: [{ at: sim.rate, label: "목표" }] }}
+          />
+          <StatTile label="활성 봇" value={`${sim.activeBots} / ${sim.botCount}`} />
           <StatTile
             label="성공률"
-            value={`${(Number(sim.successRate) * 100).toFixed(2)}%`}
+            value={(Number(sim.successRate) * 100).toFixed(2)}
+            unit="%"
             tone={successRateTone(Number(sim.successRate))}
           />
-          <StatTile label="평균 지연" value={`${sim.avgLatencyMs}ms`} />
+          <StatTile label="평균 지연" value={sim.avgLatencyMs} unit="ms" />
           <StatTile
             label="중복 체결"
             value={sim.duplicateFillTotal}
-            sub="duplicate_fill_total"
-            tone={sim.duplicateFillTotal === 0 ? "success" : "danger"}
+            sub="0이어야 정상"
+            tone={sim.duplicateFillTotal === 0 ? undefined : "danger"}
           />
         </div>
       )}
@@ -185,7 +187,7 @@ export default function BotsPage() {
                 type="range"
                 // 서버 parsePositive가 0을 400으로 반려한다(sim도 동일 정렬). 정지는 전용 버튼 소관
                 min={10}
-                max={600}
+                max={OPS_MAX}
                 step={10}
                 value={rateDraft}
                 disabled={!canOps}
@@ -258,7 +260,7 @@ export default function BotsPage() {
         )}
       </PanelCard>
 
-      <PanelCard title="파라미터 변경 요청 (2인 승인)">
+      <PanelCard title="파라미터 변경 요청" actions={<span className={styles.panelMeta}>2인 승인</span>}>
         <PermissionNote>실행 중 파라미터 변경은 파괴 액션입니다. 요청 후 다른 운영자의 승인과 요청자 실행이 필요합니다.</PermissionNote>
         <div className={styles.formRow}>
           <label className={styles.field}>
@@ -273,16 +275,16 @@ export default function BotsPage() {
             </select>
           </label>
           <label className={styles.field}>
-            <span>spread</span>
-            <input value={spread} onChange={(e) => setSpread(e.target.value)} inputMode="decimal" aria-label="spread" />
+            <span>호가 간격(spread)</span>
+            <input value={spread} onChange={(e) => setSpread(e.target.value)} inputMode="decimal" aria-label="호가 간격(spread)" />
           </label>
           <label className={styles.field}>
-            <span>size</span>
-            <input value={size} onChange={(e) => setSize(e.target.value)} inputMode="decimal" aria-label="size" />
+            <span>주문 수량(size)</span>
+            <input value={size} onChange={(e) => setSize(e.target.value)} inputMode="decimal" aria-label="주문 수량(size)" />
           </label>
           <label className={styles.field}>
-            <span>ttl_ms</span>
-            <input value={ttl} onChange={(e) => setTtl(e.target.value)} inputMode="numeric" aria-label="ttl_ms" />
+            <span>주문 수명 ms(ttl_ms)</span>
+            <input value={ttl} onChange={(e) => setTtl(e.target.value)} inputMode="numeric" aria-label="주문 수명 ms(ttl_ms)" />
           </label>
           {paramBotId ? (
             <RequestButton
@@ -292,7 +294,7 @@ export default function BotsPage() {
               onRequested={load}
             />
           ) : (
-            <button type="button" className={styles.dangerBtn} disabled>
+            <button type="button" className={styles.neutralBtn} disabled>
               변경 요청
             </button>
           )}

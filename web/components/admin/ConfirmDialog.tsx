@@ -168,7 +168,15 @@ export default function ConfirmDialog({
             disabled={busy}
             aria-busy={busy}
           >
-            {busy ? "처리 중…" : confirmLabel}
+            {/* §7.6 부호·라벨 병기를 중앙에서 강제한다. 호출부가 부호를 잊을 수 없다 */}
+            {busy ? (
+              "처리 중…"
+            ) : (
+              <>
+                {tone === "danger" && <span aria-hidden="true">■ </span>}
+                {confirmLabel}
+              </>
+            )}
           </button>
         </div>
       </div>

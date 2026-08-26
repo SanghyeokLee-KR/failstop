@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * 관리 평면 공용 UI 조각. 헬스 색 도메인(success/warning/danger)만 쓰고 시세색을 차용하지 않는다.
  * 상태 표현은 색 단독 금지: 아이콘·라벨을 병기한다(§4-3).
@@ -5,6 +7,8 @@
 
 import type { ReactNode } from "react";
 import styles from "./admin.module.css";
+import { MeterRail, type MeterMark } from "./instruments/MeterRail";
+import { useHealthTransition } from "./useHealthTransition";
 
 export type Health = "success" | "warning" | "danger";
 
@@ -14,19 +18,39 @@ export const HEALTH_ICON: Record<Health, string> = { success: "●", warning: "�
 // 라벨 어휘는 NOTICE_SEVERITY_LABEL·admin 홈 HEALTH_LABEL과 통일(warning=주의)
 const HEALTH_LABEL: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
 
-/** 헬스 상태 필. 항상 아이콘+라벨 병기 */
-export function HealthPill({ health, label }: { health: Health; label: string }) {
+/** 헬스 상태 필. 항상 아이콘+라벨 병기. flashOnChange는 전이 순간 배경 플래시 옵트인 */
+export function HealthPill({
+  health,
+  label,
+  flashOnChange,
+}: {
+  health: Health;
+  label: string;
+  flashOnChange?: boolean;
+}) {
+  // 정지가 기본값이라 플래시는 옵트인. 시각 규칙은 globals.css [data-transition]이 소유한다
+  const flash = useHealthTransition(flashOnChange ? health : null);
   return (
-    <span className="status-pill" data-health={health}>
+    <span className="status-pill" data-health={health} data-transition={flash ?? undefined}>
       {HEALTH_ICON[health]} {label}
     </span>
   );
+}
+
+/** StatTile 보조 게이지. tone은 별도 필드 없이 타일 tone을 상속한다 */
+export interface StatTileMeter {
+  value: number;
+  max: number;
+  min?: number;
+  threshold?: number;
+  marks?: MeterMark[];
 }
 
 /**
  * 지표 타일. 헬스 톤은 값 강조에만 쓴다. hero는 화면당 단일 대표 지표에만(700 승격).
  * 색 단독 금지라 tone이 있으면 값 옆에 심각도 형태(●/▲/■)를 병기한다.
  * alarm은 위험 타일을 톤 보더 + 좌측 상태 레일로 승격해 균일 격자에서 경보를 도드라지게 한다.
+ * meter는 지정 시에만 렌더하되 고정 높이 프리미티브라 갱신 시프트 0.
  */
 export function StatTile({
   label,
@@ -35,6 +59,10 @@ export function StatTile({
   tone,
   hero,
   alarm,
+  unit,
+  meter,
+  compact,
+  title,
 }: {
   label: string;
   value: ReactNode;
@@ -42,11 +70,21 @@ export function StatTile({
   tone?: Health;
   hero?: boolean;
   alarm?: boolean;
+  unit?: string;
+  meter?: StatTileMeter;
+  compact?: boolean;
+  /** 라벨 원어 gloss. 평이한 한국어 라벨 뒤로 강등된 기술 용어를 싣는다 */
+  title?: string;
 }) {
   // 색·형태로만 전달되던 심각도를 낭독한다. alarm은 tone 미지정 시 warning 승격과 동일하게 맞춘다
   const severity = tone ?? (alarm ? "warning" : undefined);
   return (
-    <div className={styles.statTile} data-alarm={alarm ? tone ?? "warning" : undefined}>
+    <div
+      className={styles.statTile}
+      data-alarm={alarm ? tone ?? "warning" : undefined}
+      data-compact={compact ? "" : undefined}
+      title={title}
+    >
       <span className={styles.statLabel}>{label}</span>
       <span className={`${styles.statValue} num`} data-tone={tone ?? undefined} data-hero={hero ? "" : undefined}>
         {tone && (
@@ -56,8 +94,24 @@ export function StatTile({
         )}
         {severity && <span className="sr-only">심각도 {HEALTH_LABEL[severity]}</span>}
         {value}
+        {unit && <span className="unit-suffix">{unit}</span>}
       </span>
-      {sub != null && <span className={styles.statSub}>{sub}</span>}
+      {sub != null && (
+        <span className={styles.statAux}>
+          <span className={styles.statSub}>{sub}</span>
+        </span>
+      )}
+      {meter && (
+        // 값·라벨 텍스트가 이미 낭독되므로 레일은 aria-hidden(ariaLabel 미지정)
+        <MeterRail
+          value={meter.value}
+          max={meter.max}
+          min={meter.min}
+          threshold={meter.threshold}
+          marks={meter.marks}
+          tone={tone}
+        />
+      )}
     </div>
   );
 }

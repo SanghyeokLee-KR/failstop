@@ -32,11 +32,17 @@ export default function AdminLogin() {
   return (
     <main className={styles.login}>
       <section className={`card ${styles.loginCard}`} aria-label="관리 평면 접속">
+        {/* 제도 도면 타이틀 블록: 마크 + 평면 식별 명판 + hairline */}
+        <div className={styles.loginPlate}>
+          <span className={styles.loginPlateMark} aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 30 30">
+              <rect x="6" y="6" width="18" height="18" rx="5" transform="rotate(45 15 15)" fill="currentColor" />
+            </svg>
+          </span>
+          <span className={styles.loginPlateText}>관리 평면 · admin.exchange.local</span>
+        </div>
         <h1 className={styles.loginTitle}>관리 평면 접속</h1>
-        <p className={styles.loginDesc}>
-          운영자 mTLS 클라이언트 인증서로 1차 인증한 뒤, 그 신원에 묶인 단기 관리자 세션을 발급합니다. 세션 신원은
-          인증서 CN에서 유래하며 자가신고할 수 없습니다.
-        </p>
+        <p className={styles.loginDesc}>운영자 인증서 신원으로 접속합니다. 세션은 단기 발급됩니다.</p>
 
         {certs.length === 0 && IS_HTTP ? (
           <>
@@ -84,10 +90,6 @@ export default function AdminLogin() {
                 </li>
               ))}
             </ul>
-            <p className={styles.loginHint}>
-              파괴 액션(카오스·마켓 중지·봇 파라미터·운영자 관리)은 서로 다른 두 운영자의 인증서가 필요합니다. 데모는
-              상단 바에서 인증서를 전환해 2인 승인을 시연할 수 있습니다.
-            </p>
           </>
         )}
       </section>

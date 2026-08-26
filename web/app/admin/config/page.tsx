@@ -114,17 +114,19 @@ export default function ConfigPage() {
       key: "state",
       label: "상태",
       width: "110px",
+      // 정상(거래 중)은 잉크, 이탈 상태만 발화한다
       render: (m) =>
         m.state === "ACTIVE" ? (
-          <HealthPill health="success" label="거래 중" />
+          <span className={styles.stateText}>거래 중</span>
         ) : m.state === "HALTED" ? (
-          <HealthPill health="danger" label="중지" />
+          <HealthPill health="warning" label="중지" />
         ) : (
           <span className={styles.neutralPill}>상장폐지</span>
         ),
     },
-    { key: "maker", label: "maker", width: "90px", align: "right", render: (m) => m.makerFee },
-    { key: "taker", label: "taker", width: "90px", align: "right", render: (m) => m.takerFee },
+    // 수수료 도메인 관용어라 번역하지 않고 음차한다. API 필드(maker_fee 등) 문구는 계약값이라 불변
+    { key: "maker", label: "메이커", width: "90px", align: "right", render: (m) => m.makerFee },
+    { key: "taker", label: "테이커", width: "90px", align: "right", render: (m) => m.takerFee },
     {
       key: "action",
       label: "제어",
@@ -142,6 +144,7 @@ export default function ConfigPage() {
               description: "발급·실행 시 이 마켓의 신규 주문이 차단됩니다.",
               target: `${m.koreanName} (${m.symbol})`,
               blastRadius: "단일 마켓 · 미체결 주문 유지",
+              tone: "danger",
               confirmLabel: "중지 요청",
             }}
           />
@@ -151,10 +154,17 @@ export default function ConfigPage() {
             payload={{ action: "config.market.resume", symbol: m.symbol }}
             label="재개 요청"
             onRequested={load}
+            confirm={{
+              title: "마켓 거래 재개 요청",
+              description: "발급·실행 시 이 마켓의 신규 주문이 다시 허용됩니다.",
+              target: `${m.koreanName} (${m.symbol})`,
+              blastRadius: "단일 마켓",
+              confirmLabel: "재개 요청",
+            }}
           />
         ) : (
           // DELISTED는 종국 상태라 재개 대상이 아니다(§6-D 409). 버튼을 노출하지 않는다
-          <span className={styles.neutralPill}>재개 불가</span>
+          <span className={styles.stateTextDim}>재개 불가</span>
         ),
     },
   ];
@@ -163,7 +173,7 @@ export default function ConfigPage() {
     <div className={styles.page}>
       <PageHeader
         title="마켓·공지"
-        desc="마켓 중지·재개·수수료는 SUPER + 2인 승인. 공지는 즉시 등록·소프트 삭제."
+        desc="중지·재개·수수료 변경은 2인 승인"
         actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
       />
 
@@ -180,7 +190,7 @@ export default function ConfigPage() {
         )}
       </PanelCard>
 
-      <PanelCard title="수수료 변경 요청 (2인 승인)">
+      <PanelCard title="수수료 변경 요청" actions={<span className={styles.panelMeta}>2인 승인</span>}>
         {!canSuper && <PermissionNote>수수료 변경 권한(SUPER)이 없습니다.</PermissionNote>}
         <div className={styles.formRow}>
           <label className={styles.field}>
@@ -197,22 +207,22 @@ export default function ConfigPage() {
             </select>
           </label>
           <label className={styles.field}>
-            <span>maker</span>
+            <span>메이커</span>
             <input
               value={makerFee}
               onChange={(e) => setMakerFee(e.target.value)}
               inputMode="decimal"
-              aria-label="maker 수수료율"
+              aria-label="메이커 수수료율"
               aria-invalid={makerErr ? true : undefined}
             />
           </label>
           <label className={styles.field}>
-            <span>taker</span>
+            <span>테이커</span>
             <input
               value={takerFee}
               onChange={(e) => setTakerFee(e.target.value)}
               inputMode="decimal"
-              aria-label="taker 수수료율"
+              aria-label="테이커 수수료율"
               aria-invalid={takerErr ? true : undefined}
             />
           </label>
@@ -231,7 +241,7 @@ export default function ConfigPage() {
               }}
             />
           ) : (
-            <button type="button" className={styles.dangerBtn} disabled>
+            <button type="button" className={styles.neutralBtn} disabled>
               변경 요청
             </button>
           )}
@@ -243,7 +253,7 @@ export default function ConfigPage() {
         )}
       </PanelCard>
 
-      <PanelCard title="마켓 제어 승인 대기 · 실행">
+      <PanelCard title="마켓 제어 승인 대기">
         <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 마켓 제어 승인이 없습니다" />
       </PanelCard>
 

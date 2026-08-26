@@ -55,7 +55,7 @@ export default function OperatorsPage() {
     <div className={styles.page}>
       <PageHeader
         title="운영자·역할"
-        desc="생성·비활성·역할 부여/회수는 SUPER + 2인 승인. 신원은 mTLS 인증서 CN에서 유래합니다."
+        desc="생성·상태·역할 변경은 2인 승인"
         actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
       />
 
@@ -99,7 +99,7 @@ export default function OperatorsPage() {
         )}
       </PanelCard>
 
-      <PanelCard title="운영자 관리 (2인 승인)">
+      <PanelCard title="운영자 관리" actions={<span className={styles.panelMeta}>2인 승인</span>}>
         {!canSuper && <PermissionNote>운영자 관리 권한(SUPER)이 없어 조회만 가능합니다.</PermissionNote>}
         {selected ? (
           <div className={styles.roleEditor}>
@@ -181,7 +181,7 @@ export default function OperatorsPage() {
         )}
       </PanelCard>
 
-      <PanelCard title="운영자 생성 요청 (2인 승인)">
+      <PanelCard title="운영자 생성 요청" actions={<span className={styles.panelMeta}>2인 승인</span>}>
         {!canSuper && <PermissionNote>운영자 생성 권한(SUPER)이 없습니다.</PermissionNote>}
         <div className={styles.roleEditor}>
           <div className={styles.formRow}>
@@ -223,14 +223,14 @@ export default function OperatorsPage() {
               }}
             />
           ) : (
-            <button type="button" className={styles.dangerBtn} disabled>
+            <button type="button" className={styles.neutralBtn} disabled>
               생성 요청
             </button>
           )}
         </div>
       </PanelCard>
 
-      <PanelCard title="운영자 승인 대기 · 실행">
+      <PanelCard title="운영자 승인 대기">
         <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 운영자 승인이 없습니다" />
       </PanelCard>
     </div>

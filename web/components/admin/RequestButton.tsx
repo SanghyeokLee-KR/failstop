@@ -65,7 +65,8 @@ export default function RequestButton({ action, payload, label, onRequested, con
     <>
       <button
         type="button"
-        className={styles.dangerBtn}
+        // 반복 트리거는 무채(디자인_방향 §7.6). danger는 확정 지점 전용이고 파괴 의미는 동사 라벨이 전달한다
+        className={styles.neutralBtn}
         onClick={() => (confirm ? setOpen(true) : request())}
         disabled={!allowed}
         title={allowed ? undefined : "권한이 부족합니다"}

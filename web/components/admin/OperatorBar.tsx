@@ -3,6 +3,7 @@
 /**
  * 관리 평면 상단 운영자 바(§4-1). 운영자명·역할 배지·세션 만료 카운트다운·인증서 전환·로그아웃.
  * 인증서 전환은 mTLS 신원 재제시를 모사한다. 2인 승인 시연에 필요하다(다른 운영자로 승인).
+ * 운영자 ID는 인증서 select가 표시하므로 신원 행은 표시 이름만 남긴다.
  */
 
 import { useEffect, useState } from "react";
@@ -57,45 +58,49 @@ export default function OperatorBar() {
 
   return (
     <header className={styles.opbar}>
-      <span className={styles.opbarPlane}>관리 평면 · admin.exchange.local</span>
       <div className={styles.opbarRight}>
-        <span className={styles.opIdentity}>
+        <span className={styles.opbarSeg}>
           <span className={styles.opName}>{session.displayName}</span>
-          <span className={styles.opId}>{session.operatorId}</span>
+          <span className={styles.roleRow}>
+            {session.roles.map((r) => (
+              <RoleBadge key={r} role={r} />
+            ))}
+          </span>
         </span>
-        <span className={styles.roleRow}>
-          {session.roles.map((r) => (
-            <RoleBadge key={r} role={r} />
-          ))}
+        <span className={styles.opbarDivider} aria-hidden="true" />
+        <span className={styles.opbarSeg}>
+          {/* 매초 바뀌는 카운트다운은 낭독 대상에서 제외(aria-hidden). 임박 시 아래 polite 리전이 1회만 고지한다 */}
+          <span className={styles.sessionTtl} data-imminent={imminent ? "" : undefined} aria-hidden="true">
+            {imminent && <span className={styles.sessionWarn}>▲ 만료 임박</span>}
+            세션 <b className="num">{mmss(ms)}</b>
+          </span>
+          <span className="sr-only" role="status" aria-live="polite">
+            {liveMsg}
+          </span>
+          {certs.length > 0 && (
+            <label className={styles.certSwitch}>
+              <span className="sr-only">인증서 전환</span>
+              <select
+                value={session.operatorId}
+                onChange={(e) => void switchCert(e.target.value)}
+                aria-label="mTLS 인증서 전환"
+              >
+                {certs.map((c) => (
+                  <option key={c.certId} value={c.certId}>
+                    {c.certId} 인증서
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </span>
-        {/* 매초 바뀌는 카운트다운은 낭독 대상에서 제외(aria-hidden). 임박 시 아래 polite 리전이 1회만 고지한다 */}
-        <span className={styles.sessionTtl} data-imminent={imminent ? "" : undefined} aria-hidden="true">
-          {imminent && <span className={styles.sessionWarn}>▲ 만료 임박</span>}
-          세션 <b className="num">{mmss(ms)}</b>
+        <span className={styles.opbarDivider} aria-hidden="true" />
+        <span className={styles.opbarSeg}>
+          <ThemeToggle size="sm" />
+          <button type="button" className={styles.logout} onClick={() => getAdminApi().endSession()}>
+            세션 종료
+          </button>
         </span>
-        <span className="sr-only" role="status" aria-live="polite">
-          {liveMsg}
-        </span>
-        {certs.length > 0 && (
-          <label className={styles.certSwitch}>
-            <span className="sr-only">인증서 전환</span>
-            <select
-              value={session.operatorId}
-              onChange={(e) => void switchCert(e.target.value)}
-              aria-label="mTLS 인증서 전환"
-            >
-              {certs.map((c) => (
-                <option key={c.certId} value={c.certId}>
-                  {c.certId} 인증서
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <ThemeToggle />
-        <button type="button" className={styles.logout} onClick={() => getAdminApi().endSession()}>
-          세션 종료
-        </button>
       </div>
     </header>
   );
