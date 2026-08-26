@@ -103,7 +103,7 @@ export default function PostComposer({
           {busy ? busyLabel : submitLabel}
         </button>
       </div>
-      <span className="sr-only">제목은 최대 {POST_TITLE_MAX}자예요</span>
+      <span className="sr-only">제목 최대 {POST_TITLE_MAX}자</span>
     </form>
   );
 }

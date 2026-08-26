@@ -273,14 +273,17 @@ export default function AssetsPage() {
         width: "minmax(120px, 1fr)",
         align: "right",
         sortValue: (h) => toNum(h.avgBuyPrice),
-        // "0"은 평단가 0원이 아니라 산출 불가다. 판별자는 cost_basis_qty = 0 (§4-C-1 K4)
+        // "0"은 평단가 0원이 아니라 산출 불가다. 판별자는 cost_basis_qty = 0 (§4-C-1 K4).
+        // 사유는 표 하단 각주가 1회 전달한다. 셀마다 반복하면 주사 존이 문장으로 막힌다
         render: (h) =>
           hidden ? (
             HIDDEN
           ) : h.costKnown ? (
             formatPrice(h.avgBuyPrice, h.tickSpec)
           ) : (
-            <span className={styles.unknownMark}>원가 미상</span>
+            <span className={styles.unknownMark}>
+              -<span className="sr-only">원가 미상</span>
+            </span>
           ),
       },
       {
@@ -303,8 +306,10 @@ export default function AssetsPage() {
           hidden ? (
             HIDDEN
           ) : !h.costKnown ? (
-            // 원가가 없으면 손익은 계산 대상이 아니다. 빈칸이 아니라 사유를 적는다
-            <span className={styles.unknownMark}>산출 불가 (원가 미상)</span>
+            // 원가가 없으면 손익은 계산 대상이 아니다. 사유는 표 하단 각주 1회로 통합
+            <span className={styles.unknownMark}>
+              -<span className="sr-only">원가 미상으로 손익 산출 제외</span>
+            </span>
           ) : !h.priced ? (
             <span className="num">-</span>
           ) : (
@@ -431,10 +436,18 @@ export default function AssetsPage() {
                   </div>
                 }
               />
+              {/* 원가 미상 사유를 표 하단 1회로 통합한다. 셀마다 반복하면 열이 문장으로 막힌다 */}
+              {!hidden && holdings.some((h) => !h.costKnown) && (
+                <p className={styles.tableNote}>
+                  회색 대시(-)는 원가 미상 보유분. 시드·입금 취득분은 매수 상대거래가 없어 평단가와 손익을 산출하지 않는다.
+                </p>
+              )}
             </section>
 
             <section className={`card ${styles.weightCard}`} aria-label="보유 비중">
-              <h2 className={`${styles.weightTitle} gauge-plate`}>보유 비중</h2>
+              {/* 분모가 총평가금액(현금 제외)이라 명시한다. 총자산 기준으로 읽히면 같은 71.3%가
+                  37%가 돼 숫자 신뢰가 흔들린다 */}
+              <h2 className={`${styles.weightTitle} gauge-plate`}>보유 비중 · 평가금액 기준</h2>
               {weights.length === 0 ? (
                 <div className="empty-state">
                   <span className="empty-state__mark" aria-hidden="true" />

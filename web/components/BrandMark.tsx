@@ -6,9 +6,11 @@
 
 export default function BrandMark({ size = 20 }: { size?: number }) {
   return (
+    // stroke를 쓰면 획이 각 변을 바깥으로 밀어 2.4유닛 이음매가 0.4유닛으로 줄고
+    // 20px 렌더에서 0.27px가 돼 분할이 사라진다. fill만 써서 이음매를 그대로 남긴다
     <svg width={size} height={size} viewBox="0 0 30 30" fill="currentColor" aria-hidden="true">
-      <path d="M15 3.2 L25.6 13.8 L4.4 13.8 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M4.4 16.2 L25.6 16.2 L15 26.8 Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M15 2.4 L26.4 13.2 L3.6 13.2 Z" />
+      <path d="M3.6 16.8 L26.4 16.8 L15 27.6 Z" />
     </svg>
   );
 }

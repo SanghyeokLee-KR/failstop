@@ -10,14 +10,16 @@
   gap: var(--space-4);
 }
 
-/* 요약(전폭) + 대표/순위(좌) + 관심(우 2행 관통) */
+/* 요약(전폭) + 대표(좌)·관심(우) + 순위(전폭).
+   관심 레일을 2행 관통시키면 목록이 짧을 때 페이지 하단에 대면적 공백이 남는다.
+   레일은 높은 차트 옆 1행으로 두고, 6열 순위표는 전폭으로 넓혀 열 여유를 준다 */
 .grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   grid-template-areas:
     "summary   summary"
     "spotlight watch"
-    "ranking   watch";
+    "ranking   ranking";
   /* 이음새 채널(§6.4). 패널 사이로 bg-muted가 12px 폭으로 비쳐 한 장의 계기판으로 읽힌다 */
   gap: var(--seam-width);
   align-items: start;

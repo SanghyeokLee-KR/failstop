@@ -63,8 +63,8 @@ interface RankingRowProps {
 
 const RankingRow = memo(function RankingRow({
   rank, market, koreanName, symbol, meta, tickSpec,
-  tradePrice, change, changeRate, accTradePrice24h, onOpen,
-}: RankingRowProps) {
+  tradePrice, change, changeRate, accTradePrice24h, sharePct, onOpen,
+}: RankingRowProps & { sharePct: number }) {
   const has = change !== undefined && changeRate !== undefined;
   const dir = has ? dirOf(change) : "flat";
   return (
@@ -87,6 +87,14 @@ const RankingRow = memo(function RankingRow({
         <span className={styles.nameText}>
           <span className={styles.nameKo}>{koreanName}</span>
           <span className={`${styles.nameSym} num`}>{symbol}/KRW</span>
+        </span>
+      </span>
+      {/* 이름과 숫자 사이 슬랙을 정보로 채운다. 거래대금 점유는 이미 가진 값이라 신규 조회 0.
+          막대는 보조 채널이고 판독의 주 채널은 우측 거래대금 텍스트다 */}
+      <span role="cell" className={styles.shareCell} aria-hidden="true">
+        <span className={styles.shareTrack}>
+          {/* 값 없음(티커 미도착)은 fill 없이 트랙만. 최소 폭을 강제하면 없는 규모를 그린다 */}
+          {sharePct > 0 && <span className={styles.shareFill} style={{ width: `${sharePct}%` }} />}
         </span>
       </span>
       <span role="cell" className={`${styles.right} num`}>
@@ -137,6 +145,12 @@ export default function RankingTable() {
     return list;
   }, [tab, tickers]);
 
+  // 점유 막대 기준. 1위 대비 상대값이라 절대 규모가 아니라 분포를 보여준다
+  const maxAcc = useMemo(
+    () => Math.max(0, ...COIN_META.map((c) => toNum(tickers[c.market]?.acc_trade_price_24h ?? "0"))),
+    [tickers],
+  );
+
   return (
     <section className={`card ${styles.root}`} aria-label="실시간 순위">
       <header className={styles.header}>
@@ -163,6 +177,7 @@ export default function RankingTable() {
         <div className={`${styles.row} ${styles.head}`} role="row">
           <span role="columnheader" className={styles.rank}>#</span>
           <span role="columnheader" className={styles.name}>코인</span>
+          <span role="columnheader" className={styles.shareCell} aria-hidden="true" />
           <span role="columnheader" className={styles.right}>현재가</span>
           <span role="columnheader" className={styles.right}>전일대비</span>
           <span role="columnheader" className={styles.right}>거래대금</span>
@@ -184,6 +199,8 @@ export default function RankingTable() {
                 change={t?.change}
                 changeRate={t?.change_rate}
                 accTradePrice24h={t?.acc_trade_price_24h}
+                // 정수 버킷으로 양자화한다. 분모가 전 마켓 최대라 소수 그대로면 1위 체결마다 12행이 리렌더된다
+                sharePct={maxAcc > 0 ? Math.round((toNum(t?.acc_trade_price_24h ?? "0") / maxAcc) * 100) : 0}
                 onOpen={openMarket}
               />
             );

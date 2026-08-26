@@ -28,12 +28,8 @@ export default function LiveTitle({ market }: { market: string }) {
     document.title = `${symbol} ${formatPrice(ticker.trade_price, spec?.tick_size)} ${arrow}${sign}${rate}% · 페일스톱`;
   }, [ticker, market, spec?.tick_size]);
 
-  // 마켓 이탈 시 기본 제목 복원(다른 화면 제목 오염 방지)
-  useEffect(() => {
-    return () => {
-      document.title = "페일스톱 · 모의 거래소";
-    };
-  }, []);
+  // 이탈 시 제목 복원을 두지 않는다. 패시브 cleanup이 라우터의 metadata 교체보다 늦게 돌아
+  // 목적지 제목(홈·토론 등)을 기본값으로 덮어쓴다. 복원은 라우터와 usePageTitle이 이미 한다
 
   return null;
 }

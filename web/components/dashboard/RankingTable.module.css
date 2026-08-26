@@ -37,16 +37,41 @@
   opacity: 0.5;
 }
 
-/* 5열: 순위 · 코인 · 현재가(1fr) · 전일대비 · 거래대금.
-   슬랙을 이름 열에 주면 이름과 숫자 사이 수백 px 공백이 생긴다. 우측 정렬 숫자 열이 흡수한다 */
+/* 6열: 순위 · 코인 · 점유 막대(슬랙 흡수) · 현재가 · 전일대비 · 거래대금.
+   숫자 열에 슬랙을 주면 우측 정렬이라 공백이 왼쪽으로 밀려 이름과 수 사이가 벌어진다.
+   가운데를 정보(거래대금 점유)로 채워 시선이 안내 없이 건너는 구간을 없앤다 */
 .row {
   display: grid;
-  grid-template-columns: 36px minmax(180px, 300px) minmax(132px, 1fr) 128px 120px;
+  grid-template-columns: 36px minmax(180px, 260px) minmax(80px, 1fr) 160px 128px 120px;
   align-items: center;
   gap: var(--space-3);
   min-height: 46px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
+  /* 가로 추적선. 6열을 눈으로 잇는다. 헤더는 자체 border-bottom을 쓰고 마지막 행은 걷는다 */
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+.head,
+.row:last-child {
+  box-shadow: none;
+}
+.shareCell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.shareTrack {
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+/* 무채 fill. 방향색을 쓰면 등락 문법과 충돌한다(규모는 방향이 아니다) */
+.shareFill {
+  display: block;
+  height: 100%;
+  background: var(--border-strong);
 }
 
 .head {

@@ -63,6 +63,10 @@
 
   /* ===== Border ===== */
   --border-subtle:var(--grey-200); --border-default:var(--grey-300); --border-strong:var(--grey-400);
+  /* secondary 버튼 경계. 라이트는 sunken 면(#F1F3F5)이 카드(#FFF)와 명도로 이미 갈려 경계가
+     형태 보조 역할이라 default(1.41:1)로 둔다. 다크는 면 대비가 1.06:1이라 버튼이 사라지므로
+     경계가 유일한 식별 채널이고, 3:1(1.4.11)을 넘는 전용값을 쓴다(border-strong은 2.07:1로 부족) */
+  --btn-secondary-border:var(--border-default);
 
   /* ===== Text ===== */
   --text-strong:var(--grey-900);   /* 제목·큰 숫자 */
@@ -138,6 +142,7 @@
   --select-chevron:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'><path d='M2.5 4.5 6 8l3.5-3.5' stroke='%23A8B2BE' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
 
   --border-subtle:#262B35; --border-default:#333A46; --border-strong:#454E5C;
+  --btn-secondary-border:#697485;   /* on surface 3.68:1 / elevated 3.12:1 / bg 3.99:1 */
 
   --text-strong:#F2F4F6; --text-default:#E4E8ED;
   --text-secondary:#A8B2BE;   /* 상향 → ≈4.7:1 (정보 전달용 최소선) */
@@ -327,6 +332,7 @@
     --select-chevron:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'><path d='M2.5 4.5 6 8l3.5-3.5' stroke='%23A8B2BE' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
 
     --border-subtle:#262B35; --border-default:#333A46; --border-strong:#454E5C;
+    --btn-secondary-border:#697485;
 
     --text-strong:#F2F4F6; --text-default:#E4E8ED;
     --text-secondary:#A8B2BE;

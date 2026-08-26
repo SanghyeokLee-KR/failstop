@@ -52,7 +52,7 @@ export default function MyPage() {
             회원 전용 페이지
           </h1>
           <p className={styles.gateDesc}>
-            지금은 둘러보기 모드. 회원 가입하면 개인 자산과 주문 이력을 이 페이지에서 관리.
+            지금은 둘러보기 모드. 회원 가입하면 개인 자산과 주문 이력을 이 페이지에서 관리 가능.
           </p>
           <div className={styles.gateCta}>
             <Link href="/auth/signup" className="btn btn--primary btn--full btn--xl">

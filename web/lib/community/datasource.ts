@@ -180,7 +180,7 @@ export class SimCommunityDataSource implements CommunityDataSource {
       market: rec.market,
       author_id: rec.author_id,
       author_handle: rec.author_handle,
-      title: rec.deleted ? "삭제된 글" : rec.title,
+      title: rec.deleted ? "삭제된 글입니다" : rec.title,
       body: rec.deleted ? DELETED_POST_BODY : rec.body,
       status: rec.deleted ? "DELETED" : "VISIBLE",
       like_count: rec.likers.size,

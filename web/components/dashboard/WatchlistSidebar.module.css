@@ -101,3 +101,16 @@
   line-height: var(--font-micro-line);
   font-weight: var(--fw-semibold);
 }
+
+/* 채움 구간 명판. 관심 목록과 거래대금 상위를 시각으로 가른다 */
+.groupLabel {
+  display: block;
+  margin: var(--space-3) 0 var(--space-1);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}

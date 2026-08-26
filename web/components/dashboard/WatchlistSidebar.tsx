@@ -25,6 +25,9 @@ import type { CoinMeta } from "@/lib/types";
 import styles from "./WatchlistSidebar.module.css";
 
 const FALLBACK_COUNT = 6;
+/* 레일 최소 행수. 관심 목록이 짧으면 홈 첫 화면 우측에 큰 빈 배경이 남는다.
+   모자란 만큼 거래대금 상위로 채워 레일이 항상 정보로 서 있게 한다 */
+const RAIL_MIN_ROWS = 6;
 
 export default function WatchlistSidebar() {
   const router = useRouter();
@@ -42,17 +45,28 @@ export default function WatchlistSidebar() {
 
   const usingFallback = favMetas.length === 0;
 
-  const rows = useMemo(() => {
-    if (!usingFallback) return favMetas;
-    return [...COIN_META]
-      .sort((a, b) =>
+  const byVolume = useMemo(
+    () =>
+      [...COIN_META].sort((a, b) =>
         compareDecimal(
           tickers[b.market]?.acc_trade_price_24h ?? "0",
           tickers[a.market]?.acc_trade_price_24h ?? "0",
         ),
-      )
-      .slice(0, FALLBACK_COUNT);
-  }, [usingFallback, favMetas, tickers]);
+      ),
+    [tickers],
+  );
+
+  const rows = useMemo(
+    () => (usingFallback ? byVolume.slice(0, FALLBACK_COUNT) : favMetas),
+    [usingFallback, favMetas, byVolume],
+  );
+
+  // 관심 목록이 최소 행수에 못 미치면 비관심 상위 거래대금으로 잔여를 채운다
+  const filler = useMemo(() => {
+    if (usingFallback || rows.length >= RAIL_MIN_ROWS) return [];
+    const owned = new Set(rows.map((c) => c.market));
+    return byVolume.filter((c) => !owned.has(c.market)).slice(0, RAIL_MIN_ROWS - rows.length);
+  }, [usingFallback, rows, byVolume]);
 
   return (
     <section className={`card ${styles.root}`} aria-label="관심 코인">
@@ -68,11 +82,16 @@ export default function WatchlistSidebar() {
       )}
 
       <ul className={styles.list} data-stale={!connected ? "" : undefined}>
-        {rows.map((c) => {
+        {rows.concat(filler).map((c, i) => {
           const t = tickers[c.market];
+          const fillerStart = filler.length > 0 && i === rows.length;
           const dir = t ? dirOf(t.change) : "flat";
           return (
-            <li key={c.market}>
+            /* data-filler는 채움 구간 스타일 훅이다. 배경·패딩을 걸 때는 명판이 같은 li 안에
+               있다는 점에 주의한다(첫 채움 행만 명판까지 그 면을 먹는다) */
+            <li key={c.market} data-filler={i >= rows.length ? "" : undefined}>
+              {/* 관심과 채움을 명판으로 가른다. 섞이면 관심 목록이 부풀어 보인다 */}
+              {fillerStart && <span className={styles.groupLabel}>거래대금 상위</span>}
               <button
                 type="button"
                 className={styles.row}

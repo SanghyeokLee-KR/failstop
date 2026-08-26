@@ -280,7 +280,12 @@ a { color: inherit; text-decoration: none; }
 .btn--xl { min-height: 56px; }
 .btn--primary { background: var(--brand-primary-fill); color: var(--text-on-brand); }
 .btn--primary:active { background: var(--brand-primary-pressed); }
-.btn--secondary { background: var(--surface-sunken); color: var(--text-strong); }
+/* 다크에서 sunken 면이 카드와 1.06:1이라 버튼이 사라진다. 경계를 토큰으로 보장한다(1.4.11 3:1) */
+.btn--secondary {
+  background: var(--surface-sunken);
+  color: var(--text-strong);
+  border: 1px solid var(--btn-secondary-border);
+}
 .btn--buy { background: var(--color-buy); color: var(--text-inverse); }
 .btn--buy:active { background: var(--color-buy-pressed); }
 .btn--sell { background: var(--color-sell); color: var(--text-inverse); }

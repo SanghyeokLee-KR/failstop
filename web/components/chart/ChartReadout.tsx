@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * ChartReadout. 크로스헤어 위치(없으면 최신 봉)의 시·고·저·종·거래량 인라인 판독 1행.
+ * ChartReadout. 크로스헤어 위치(없으면 최신 봉)의 시·고·저·종 인라인 판독 1행.
+ * 거래량은 볼륨 pane 범례가 소유한다(1280 폭에서 등락 절단을 막기 위해 이 행에서 제외).
  * 캔버스 내장 툴팁 대신 고정 행으로 노출해 지표 범례와의 겹침·시각 소음을 없앤다.
  * 고정 min-height + tabular-nums로 값 갱신 시 레이아웃 시프트 0을 지킨다.
  * 형성봉 300ms 스트림의 시각 전용 싱크다. 낭독은 TradingChart status 리전이 롤오버·크로스헤어로
@@ -9,17 +10,18 @@
  */
 
 import { memo } from "react";
-import { formatPrice, formatQty } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import type { LiveCandle } from "./candleStream";
 import styles from "./chart.module.css";
 
 function ChartReadout({ candle }: { candle: LiveCandle | null }) {
+  // 거래량은 바로 아래 볼륨 pane 범례가 이미 같은 값을 표시한다. 1280에서 이 행이
+  // 등락 숫자를 말줄임 없이 자르던 원인이라 중복 항목을 걷어 약 110px를 회수한다
   const items: { label: string; value: string }[] = [
     { label: "시", value: candle ? formatPrice(candle.open) : "-" },
     { label: "고", value: candle ? formatPrice(candle.high) : "-" },
     { label: "저", value: candle ? formatPrice(candle.low) : "-" },
     { label: "종", value: candle ? formatPrice(candle.close) : "-" },
-    { label: "거래량", value: candle ? formatQty(candle.volume, 4) : "-" },
   ];
 
   const diff = candle ? candle.close - candle.open : 0;

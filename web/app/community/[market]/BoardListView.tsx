@@ -138,8 +138,10 @@ export default function BoardListView({ market, meta, session }: Props) {
                 ariaLabel="정렬 방식"
                 disabled={phase === "loading" || loadingMore}
               />
+              {/* 게이트 어휘를 레일과 통일한다. 활성 글쓰기를 눌러야 로그인 요구가 뜨면
+                  버튼이 약속을 어긴다 */}
               <button type="button" className="btn btn--primary" onClick={openCompose}>
-                글쓰기
+                {session ? "글쓰기" : "로그인하고 글쓰기"}
               </button>
             </div>
 
@@ -167,7 +169,7 @@ export default function BoardListView({ market, meta, session }: Props) {
                 <span className="empty-state__mark" aria-hidden="true" />
                 <p className="empty-state__title">아직 글 없음</p>
                 <button type="button" className="btn btn--primary" onClick={openCompose}>
-                  글쓰기
+                  {session ? "글쓰기" : "로그인하고 글쓰기"}
                 </button>
               </div>
             )}

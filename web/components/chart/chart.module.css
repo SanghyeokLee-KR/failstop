@@ -53,10 +53,13 @@
      폭이 진동하고, 그 사이 보조 pane 캔버스가 이전 폭으로 남아 캔들과 x가 어긋난다. */
   min-width: 0;
 }
+/* 폭이 모자라면 등락이 아니라 앞쪽 OHLC가 먼저 줄어야 한다.
+   text-overflow는 block container에만 걸리므로 말줄임은 값 노드가 소유한다 */
 .readoutItem {
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-1);
+  min-width: 0;
 }
 .readoutLabel {
   font-size: var(--font-micro-size);
@@ -68,11 +71,19 @@
   line-height: var(--font-caption-line);
   font-weight: var(--fw-medium);
   color: var(--text-default);
+  /* 잘림 가시화는 텍스트를 직접 담는 이 노드가 소유한다(block container 필요) */
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .readoutChange {
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   font-weight: var(--fw-semibold);
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* 지표 토글 드롭다운. 네이티브 details로 키보드·포커스 접근 확보 */

@@ -1,10 +1,17 @@
 /* TradesPanel: 4열 테이블, sticky 헤더 + 내부 스크롤 (§2.5) */
 
+/* 자동 배분은 최광폭 열(체결가)에 잉여 폭을 몰아줘 셀 좌측에 죽은 거터를 만든다.
+   고정 배분으로 네 열이 실제 내용 비율을 갖게 한다 */
 .table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--font-caption-size);
 }
+.table th:nth-child(1), .table td:nth-child(1) { width: 32%; }
+.table th:nth-child(2), .table td:nth-child(2) { width: 26%; }
+.table th:nth-child(3), .table td:nth-child(3) { width: 21%; }
+.table th:nth-child(4), .table td:nth-child(4) { width: 21%; }
 
 .table th {
   position: sticky;

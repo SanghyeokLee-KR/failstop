@@ -2,7 +2,7 @@
 
 /**
  * TradesPanel: 최근 체결 4열 테이블 (§2.5).
- * 체결가(방향색) · 체결량 · 등락률(전일종가 역산) · 시각, sticky 헤더 + 내부 스크롤.
+ * 체결가(직전 체결 대비 틱 방향) · 체결량 · 전일대비(전일종가 역산) · 시각, sticky 헤더 + 내부 스크롤.
  * 데이터: 스토어 trades[market](MAX 60) + REST 백필.
  *
  * 체결 시각효과(설계 §2): 신규 체결 도착 시 첫 행 방향색 플래시 1회 + 대형 체결 정적 배지 오버레이.
@@ -94,8 +94,8 @@ const TradeRow = memo(function TradeRow({
             대형
           </span>
         )}
-        {/* 같은 행의 등락률 화살표와 같은 문법: 가격 방향. 보합은 무채·무화살표.
-            테이커 방향은 시각 채널에서 빼고 낭독으로만 남긴다 */}
+        {/* 체결가 화살표는 직전 체결 대비 틱 방향, 우측 전일대비 열은 전일 종가 기준이다.
+            둘은 기준이 다르므로 같은 행에서 부호가 갈릴 수 있다. 보합은 무채·무화살표 */}
         <span
           className="dir-text"
           data-dir={tickDir}
@@ -236,7 +236,7 @@ export default function TradesPanel({ market }: { market: string }) {
             <tr>
               <th scope="col">체결가</th>
               <th scope="col">체결량</th>
-              <th scope="col">등락률</th>
+              <th scope="col">전일대비</th>
               <th scope="col">시각</th>
             </tr>
           </thead>

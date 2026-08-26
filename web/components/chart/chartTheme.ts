@@ -84,8 +84,10 @@ export function buildChartStyles(t: ChartTokens, reducedMotion = false): DeepPar
         noChangeWickColor: t.flat,
       },
       priceMark: {
-        high: { color: t.axisText },
-        low: { color: t.axisText },
+        // 가시 구간 극값이라 24H 통계가 아니다. 뷰포트 폭·확대에 따라 값이 변해
+        // 요약 바의 고가·저가(24H)와 상시 어긋난다. 24H 고저는 SummaryBar가 단독 소유한다
+        high: { show: false, color: t.axisText },
+        low: { show: false, color: t.axisText },
         last: {
           show: true,
           upColor: t.up,

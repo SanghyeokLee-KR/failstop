@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- 파비콘은 토큰을 소비할 수 없어 브랜드 원색(brand-primary #2E6BE6)을 자산 데이터로 고정한다 -->
+  <!-- 파비콘은 토큰을 소비할 수 없어 브랜드 원색(brand-primary #2E6BE6)을 자산 데이터로 고정한다.
+       이음매 3.8유닛: 16px 렌더에서도 1.9px라 분할이 남는다(stroke는 이음매를 먹으므로 fill만) -->
   <rect width="32" height="32" rx="7" fill="#2E6BE6"/>
-  <g fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round">
-    <path d="M16 5.6 L25.2 14.8 L6.8 14.8 Z"/>
-    <path d="M6.8 17.2 L25.2 17.2 L16 26.4 Z"/>
+  <g fill="#FFFFFF">
+    <path d="M16 4.4 L27.6 14.1 L4.4 14.1 Z"/>
+    <path d="M4.4 17.9 L27.6 17.9 L16 27.6 Z"/>
   </g>
 </svg>
