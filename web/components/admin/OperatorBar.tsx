@@ -3,10 +3,10 @@
 /**
  * 관리 평면 상단 운영자 바(§4-1). 운영자명·역할 배지·세션 만료 카운트다운·인증서 전환·로그아웃.
  * 인증서 전환은 mTLS 신원 재제시를 모사한다. 2인 승인 시연에 필요하다(다른 운영자로 승인).
- * 운영자 ID는 인증서 select가 표시하므로 신원 행은 표시 이름만 남긴다.
+ * 운영자 ID는 인증서 트리거가 표시하므로 신원 행은 표시 이름만 남긴다.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getAdminApi } from "@/lib/admin/api";
 import { useAdminSession } from "@/lib/admin/store";
 import { toast } from "@/components/Toast";
@@ -31,11 +31,33 @@ function mmss(ms: number): string {
 export default function OperatorBar() {
   const session = useAdminSession();
   const [, tick] = useState(0);
+  const [certOpen, setCertOpen] = useState(false);
+  const certRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const iv = setInterval(() => tick((n) => n + 1), 1000);
     return () => clearInterval(iv);
   }, []);
+
+  // 팝오버 닫힘: 바깥 클릭·Escape. Escape는 트리거로 포커스를 되돌린다
+  useEffect(() => {
+    if (!certOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (certRef.current && !certRef.current.contains(e.target as Node)) setCertOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setCertOpen(false);
+        certRef.current?.querySelector("button")?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [certOpen]);
 
   if (!session) return null;
 
@@ -53,6 +75,7 @@ export default function OperatorBar() {
   const certs = getAdminApi().listDemoCerts();
 
   const switchCert = async (certId: string) => {
+    setCertOpen(false);
     if (certId === session.operatorId) return;
     try {
       await getAdminApi().establishSession(certId);
@@ -96,20 +119,39 @@ export default function OperatorBar() {
             {liveMsg}
           </span>
           {certs.length > 0 && (
-            <label className={styles.certSwitch}>
-              <span className="sr-only">인증서 전환</span>
-              <select
-                value={session.operatorId}
-                onChange={(e) => void switchCert(e.target.value)}
+            // select 금지: 포커스 상태에서 화살표 키가 스치기만 해도 감사상 신원이 바뀐다.
+            // 전환은 열기·선택 2클릭의 명시 행위로 만든다(신원 전환이라 확인 다이얼로그 대신 거리로 충분)
+            <div className={styles.certSwitch} ref={certRef}>
+              <button
+                type="button"
+                className={styles.certBtn}
+                aria-haspopup="true"
+                aria-expanded={certOpen}
                 aria-label="mTLS 인증서 전환"
+                onClick={() => setCertOpen((v) => !v)}
               >
-                {certs.map((c) => (
-                  <option key={c.certId} value={c.certId}>
-                    {c.certId} 인증서
-                  </option>
-                ))}
-              </select>
-            </label>
+                {session.operatorId} 인증서
+              </button>
+              {certOpen && (
+                <div className={styles.certMenu} role="group" aria-label="전환할 인증서">
+                  {certs.map((c) => {
+                    const current = c.certId === session.operatorId;
+                    return (
+                      <button
+                        key={c.certId}
+                        type="button"
+                        className={styles.certMenuItem}
+                        disabled={current}
+                        onClick={() => void switchCert(c.certId)}
+                      >
+                        {c.certId} 인증서
+                        <span className={styles.certMenuMeta}>{current ? "현재 신원" : c.subjectCn}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </span>
         <span className={styles.opbarDivider} aria-hidden="true" />

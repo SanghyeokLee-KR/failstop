@@ -135,20 +135,26 @@ export class SimAdminApi implements AdminApi {
     { id: "engine-03", role: "follower", epoch: 7, seq: 148_230, followerLagMs: 18, ownedMarkets: [], health: "healthy" },
   ];
   private epoch = 7;
+  // 하네스 실측 분포(9~24s)를 미러한 시드 6건. 단건 시드는 RtoSpark가 표본 부족으로 접힌다
   private recovery: RecoveryRun[] = [
-    {
-      id: uid("rec"),
-      startedAt: isoNow(Date.now() - 3_600_000),
-      durationMs: 17_400,
-      rpoMs: 0,
-      replayedFromSeq: 148_001,
-      replayedToSeq: 148_120,
-      fpReplay: "9f2c...a17",
-      fpLive: "9f2c...a17",
-      matched: true,
-      verdict: "PASS",
-    },
-  ];
+    { hoursAgo: 1, durationMs: 17_400, from: 148_001, to: 148_120 },
+    { hoursAgo: 5, durationMs: 12_050, from: 147_410, to: 147_512 },
+    { hoursAgo: 11, durationMs: 21_800, from: 146_770, to: 146_931 },
+    { hoursAgo: 19, durationMs: 9_640, from: 146_102, to: 146_188 },
+    { hoursAgo: 27, durationMs: 14_320, from: 145_488, to: 145_601 },
+    { hoursAgo: 38, durationMs: 23_110, from: 144_820, to: 144_997 },
+  ].map((r) => ({
+    id: uid("rec"),
+    startedAt: isoNow(Date.now() - r.hoursAgo * 3_600_000),
+    durationMs: r.durationMs,
+    rpoMs: 0,
+    replayedFromSeq: r.from,
+    replayedToSeq: r.to,
+    fpReplay: "9f2c...a17",
+    fpLive: "9f2c...a17",
+    matched: true,
+    verdict: "PASS" as const,
+  }));
   private invariants: InvariantCheck[] = INVARIANT_DEFS.map((d) => ({
     name: d.name,
     label: d.label,
@@ -205,19 +211,24 @@ export class SimAdminApi implements AdminApi {
   }
 
   private tick(): void {
-    // HA seq 단조 증가 + follower lag 요동
+    // HA seq 단조 증가 + follower lag 요동. 진행 중 실험은 팔로워 lag를 밀어 올린다
+    const chaosLag = this.chaosActive() ? Math.round(rand(60, 160)) : 0;
     for (const n of this.nodes) {
       if (n.role === "leader" && n.health !== "down") n.seq += Math.round(rand(3, 9));
       if (n.role === "follower") {
+        // 중단 노드는 복제가 멎는다. seq·lag를 재추첨하면 죽은 노드가 산 노드보다 빠른 역전이 생긴다
+        if (n.health === "down") continue;
         n.seq = Math.min(n.seq + Math.round(rand(3, 9)), this.leader().seq);
-        n.followerLagMs = Math.max(0, Math.round(rand(5, 40) + (n.health === "degraded" ? 120 : 0)));
+        n.followerLagMs = Math.max(0, Math.round(rand(5, 40) + (n.health === "degraded" ? 120 : 0) + chaosLag));
       }
     }
     this.tradesTotal += Math.round(rand(20, 90) * (this.simPaused ? 0 : 1));
 
-    // 드물게 리더 degraded → 자동 failover → 복구 run 적재(§2-3)
+    // 리더 사망(E4·E6 주입)은 즉시, 드문 자연 degraded는 확률적으로 failover → 복구 run 적재(§2-3)
     const leader = this.leader();
-    if (leader.health === "healthy" && Math.random() < 0.008) {
+    if (leader.health === "down") {
+      this.failover();
+    } else if (leader.health === "healthy" && Math.random() < 0.008) {
       leader.health = "degraded";
     } else if (leader.health === "degraded" && Math.random() < 0.4) {
       this.failover();
@@ -238,16 +249,56 @@ export class SimAdminApi implements AdminApi {
     return this.nodes.find((n) => n.role === "leader") ?? this.nodes[0];
   }
 
+  private chaosActive(): boolean {
+    return this.chaosRuns.some((r) => r.state === "RUNNING");
+  }
+
+  private chaosRunningIds(): Set<string> {
+    return new Set(this.chaosRuns.filter((r) => r.state === "RUNNING").map((r) => r.experimentId));
+  }
+
+  /**
+   * 실험이 노드 헬스에 남기는 효과(§2-2 데모 결합). 주입이 화면에 보이지 않으면
+   * 카오스 콘솔이 상태 기계 없는 목록으로 전락한다.
+   * E4·E6: 리더 사망 → tick이 failover를 일으키고 죽은 노드는 해제 전까지 중단.
+   * E5·E7: 성능 저하(분할·일시 정지) → 팔로워 또는 리더 degraded.
+   * 나머지(E1·E2·E3·E8·E9)는 노드가 아니라 지표 압력으로만 나타난다(getHaStatus).
+   */
+  private applyChaosNodeEffect(experimentId: string): void {
+    if (experimentId === "E4" || experimentId === "E6") {
+      this.leader().health = "down";
+    } else if (experimentId === "E5") {
+      const f = this.nodes.find((n) => n.role === "follower" && n.health === "healthy");
+      if (f) f.health = "degraded";
+    } else if (experimentId === "E7") {
+      this.leader().health = "degraded";
+    }
+  }
+
+  /** 해제 시 잔여 효과 회수. 같은 계열 실험이 아직 돌고 있으면 남긴다 */
+  private clearChaosNodeEffect(): void {
+    const running = this.chaosRunningIds();
+    const killActive = running.has("E4") || running.has("E6");
+    const degradeActive = running.has("E5") || running.has("E7");
+    for (const n of this.nodes) {
+      if (n.health === "down" && !killActive) n.health = "healthy";
+      if (n.health === "degraded" && !degradeActive) n.health = "healthy";
+    }
+  }
+
   private failover(): void {
     const old = this.leader();
     const next = this.nodes.find((n) => n.role === "follower" && n.health !== "down");
     if (!next) {
-      old.health = "healthy";
+      if (old.health === "degraded") old.health = "healthy";
       return;
     }
     this.epoch += 1;
     old.role = "follower";
-    old.health = "healthy";
+    // E4로 죽은 노드는 해제 전까지 중단, E7(일시 정지)로 저하된 노드는 해제 전까지 저하를
+    // 유지한다. 자연 발생 degraded만 승격과 함께 회복
+    const e7Active = this.chaosRunningIds().has("E7");
+    old.health = old.health === "down" ? "down" : e7Active ? "degraded" : "healthy";
     old.ownedMarkets = [];
     old.followerLagMs = 20;
     next.role = "leader";
@@ -480,6 +531,7 @@ export class SimAdminApi implements AdminApi {
           clearedAt: null,
         });
         this.chaosRuns = this.chaosRuns.slice(0, 40);
+        this.applyChaosNodeEffect(def.id);
         break;
       }
       case "chaos.clear": {
@@ -487,6 +539,7 @@ export class SimAdminApi implements AdminApi {
         if (run && run.state === "RUNNING") {
           run.state = "CLEARED";
           run.clearedAt = isoNow();
+          this.clearChaosNodeEffect();
         }
         break;
       }
@@ -573,7 +626,10 @@ export class SimAdminApi implements AdminApi {
 
   private overallHealth(): "success" | "warning" | "danger" {
     if (this.nodes.some((n) => n.health === "down")) return "danger";
-    if (this.nodes.some((n) => n.health === "degraded") || this.invariants.some((i) => !i.ok)) return "warning";
+    // 진행 중 실험은 지표 압력을 만들므로(getHaStatus) 종합도 최소 주의로 내린다
+    if (this.nodes.some((n) => n.health === "degraded") || this.invariants.some((i) => !i.ok) || this.chaosActive()) {
+      return "warning";
+    }
     return "success";
   }
 
@@ -601,7 +657,8 @@ export class SimAdminApi implements AdminApi {
 
   getHaStatus(): Promise<HaStatus> {
     this.auth("VIEW");
-    const degraded = this.nodes.some((n) => n.health !== "healthy");
+    // 노드 이상뿐 아니라 진행 중 실험(E1 지연·E8 예외 폭풍 등)도 지표 압력으로 나타난다
+    const degraded = this.nodes.some((n) => n.health !== "healthy") || this.chaosActive();
     return Promise.resolve({
       epoch: this.epoch,
       leaderNodeId: this.leader().id,

@@ -33,6 +33,17 @@ const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jw
 const QUEUE_WARN = 200;
 const P99_WARN_MS = 60;
 
+/**
+ * 미터 창. 고정 임계x2 창은 기준선이 모든 레일의 정확히 50%에 박혀 위치가 정보를 나르지 못했다.
+ * 연속 자동 스케일(value 배수)은 경보 구간에서 fill을 80% 상수에 앉혀 절대 악화를 지운다.
+ * 임계 배수의 이산 단계 창: 같은 단계 안에서 fill이 절대값으로 움직이고 단계 전환이 악화 신호다.
+ */
+const METER_WINDOW_STEPS = [1.2, 2, 4, 8];
+function meterWindow(value: number, warn: number): number {
+  const w = METER_WINDOW_STEPS.map((m) => Math.ceil(warn * m)).find((cap) => value <= cap * 0.95);
+  return w ?? Math.ceil(warn * METER_WINDOW_STEPS[METER_WINDOW_STEPS.length - 1]);
+}
+
 // DataColumn.label이 문자열이라 헤더에 title을 실을 수 없어 원어 gloss는 셀 값 title로 싣는다
 const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
   { key: "startedAt", label: "시각", width: "90px", render: (r) => formatTimeHMS(r.startedAt) },
@@ -47,7 +58,8 @@ const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
   {
     key: "seq",
     label: "재현 구간(순번)",
-    width: "minmax(150px, 1fr)",
+    // 1fr로 두면 이 열이 슬랙을 전량 흡수해 행 한가운데 수백 px 공백이 생긴다. 슬랙은 마지막 열로
+    width: "190px",
     align: "right",
     render: (r) => <span title="seq">{`${formatKRW(r.replayedFromSeq)} → ${formatKRW(r.replayedToSeq)}`}</span>,
   },
@@ -64,7 +76,7 @@ const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
   {
     key: "verdict",
     label: "판정",
-    width: "96px",
+    width: "minmax(96px, 1fr)",
     render: (r) =>
       r.verdict === "PASS" ? <HealthPill health="success" label="PASS" /> : <HealthPill health="danger" label="FAIL" />,
   },
@@ -128,7 +140,7 @@ export default function MonitoringPage() {
                 sub={`임계 ${formatKRW(QUEUE_WARN)}`}
                 tone={data.ha.sequencerQueueSize > QUEUE_WARN ? "warning" : undefined}
                 alarm={data.ha.sequencerQueueSize > QUEUE_WARN}
-                meter={{ value: data.ha.sequencerQueueSize, max: QUEUE_WARN * 2, threshold: QUEUE_WARN }}
+                meter={{ value: data.ha.sequencerQueueSize, max: meterWindow(data.ha.sequencerQueueSize, QUEUE_WARN), threshold: QUEUE_WARN }}
               />
               <StatTile
                 label="주문 지연(상위 1%)"
@@ -137,18 +149,20 @@ export default function MonitoringPage() {
                 sub={`임계 ${P99_WARN_MS}ms`}
                 tone={data.ha.orderLatencyP99Ms > P99_WARN_MS ? "warning" : undefined}
                 alarm={data.ha.orderLatencyP99Ms > P99_WARN_MS}
-                meter={{ value: data.ha.orderLatencyP99Ms, max: P99_WARN_MS * 2, threshold: P99_WARN_MS }}
+                meter={{ value: data.ha.orderLatencyP99Ms, max: meterWindow(data.ha.orderLatencyP99Ms, P99_WARN_MS), threshold: P99_WARN_MS }}
               />
             </div>
           </div>
 
           <div className={styles.kpiGroup}>
             <span className={styles.kpiGroupLabel}>원장 · 처리량</span>
-            <div className={styles.kpiGrid} data-cols="3">
+            {/* 비대칭 1.6:1:1. 돈의 소실을 말하는 유일한 지표가 누적 카운터와 같은 폭이면 안 된다.
+                정의 캡션("0이어야 정상")은 정보가 아니라 걷어내고, 위반 시에만 행동 지시가 발화한다 */}
+            <div className={styles.kpiGrid} data-cols="ledger">
               <StatTile
                 label="원장 불균형"
                 value={data.ha.ledgerImbalance}
-                sub="0이어야 정상"
+                sub={data.ha.ledgerImbalance === "0" ? undefined : "즉시 원장 대조 필요"}
                 tone={data.ha.ledgerImbalance === "0" ? undefined : "danger"}
                 alarm={data.ha.ledgerImbalance !== "0"}
                 hero

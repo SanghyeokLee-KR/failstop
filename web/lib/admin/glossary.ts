@@ -21,6 +21,19 @@ export const ACTION_GLOSS: Record<string, string> = {
   "operators.status": "운영자 상태 변경",
   "operators.roles": "역할 변경",
   "members.close": "회원 폐쇄",
+  // 합성 코드(head:tail)의 head 주해. 감사 화면이 "실행 · 카오스 주입"처럼 이어 붙인다
+  "approval.issue": "승인 발급",
+  "approval.reject": "승인 거부",
+  execute: "실행",
+  "sim.start": "봇 플릿 시작",
+  "sim.stop": "봇 플릿 정지",
+  "sim.pause": "봇 일시정지 전환",
+  "sim.rate": "OPS 목표 변경",
+  "sim.scale": "봇 대수 변경",
+  "sim.bias": "방향 바이어스 변경",
+  "sim.effects": "체결 효과 변경",
+  "sim.bots.create": "봇 생성",
+  "sim.bots.delete": "봇 제거",
 };
 
 /** 액션 코드 네임스페이스(첫 점 앞) -> 한국어. 감사 필터의 액션 select가 병기한다 */

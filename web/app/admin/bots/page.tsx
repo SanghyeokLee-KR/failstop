@@ -163,11 +163,13 @@ export default function BotsPage() {
             tone={successRateTone(Number(sim.successRate))}
           />
           <StatTile label="평균 지연" value={sim.avgLatencyMs} unit="ms" />
+          {/* 정의 캡션("0이어야 정상")은 걷는다. 정상은 침묵, 위반 시에만 행동 지시가 발화한다 */}
           <StatTile
             label="중복 체결"
             value={sim.duplicateFillTotal}
-            sub="0이어야 정상"
+            sub={sim.duplicateFillTotal === 0 ? undefined : "멱등 위반 · 원장 대조 필요"}
             tone={sim.duplicateFillTotal === 0 ? undefined : "danger"}
+            alarm={sim.duplicateFillTotal !== 0}
           />
         </div>
       )}
@@ -231,6 +233,15 @@ export default function BotsPage() {
         )}
       </PanelCard>
 
+      {/* 조회 빈도 순서: 목록이 튜닝·생성보다 위. 당직자는 봇이 뭘 하는지부터 본다 */}
+      <PanelCard title="봇 목록">
+        {!sim ? (
+          <Skeleton variant="card" width="100%" height={200} />
+        ) : (
+          <DataTable columns={botCols} rows={sim.bots} rowKey={(b) => b.id} rowHeight={44} ariaLabel="봇 목록" />
+        )}
+      </PanelCard>
+
       <LivelinessSection sim={sim} canOps={canOps} onChanged={load} />
 
       <PanelCard title="봇 생성">
@@ -274,16 +285,9 @@ export default function BotsPage() {
         </div>
       </PanelCard>
 
-      <PanelCard title="봇 목록">
-        {!sim ? (
-          <Skeleton variant="card" width="100%" height={200} />
-        ) : (
-          <DataTable columns={botCols} rows={sim.bots} rowKey={(b) => b.id} rowHeight={44} ariaLabel="봇 목록" />
-        )}
-      </PanelCard>
-
       <PanelCard title="파라미터 변경 요청" actions={<span className={styles.panelMeta}>2인 승인</span>}>
-        <PermissionNote>실행 중 파라미터 변경은 파괴 액션입니다. 요청 후 다른 운영자의 승인과 요청자 실행이 필요합니다.</PermissionNote>
+        {/* 정상 절차 설명은 경보면이 아니라 무채 각주. 경보색은 권한 부족 등 이탈 전용 */}
+        <p className={styles.formHelp}>실행 중 파라미터 변경은 파괴 액션이라 다른 운영자의 승인과 요청자 실행을 거칩니다.</p>
         <div className={styles.formRow}>
           <label className={styles.field}>
             <span>대상 봇</span>
@@ -321,7 +325,12 @@ export default function BotsPage() {
             </button>
           )}
         </div>
-        <ApprovalList actions={paramActions} onChange={load} emptyLabel="대기 중인 파라미터 변경 승인이 없습니다" />
+        <ApprovalList
+          actions={paramActions}
+          onChange={load}
+          emptyLabel="대기 중인 파라미터 변경 승인이 없습니다"
+          emptyDesc="위 폼에서 요청하면 여기에서 발급·실행합니다"
+        />
       </PanelCard>
     </div>
   );

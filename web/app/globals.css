@@ -68,13 +68,17 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-strong);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-2);
   font-size: var(--font-body-sm-size);
   line-height: var(--font-body-sm-line);
   font-weight: var(--fw-semibold);
   transform: translateY(calc(-100% - var(--space-4)));
+  /* 화면 밖으로 밀어도 그림자는 뷰포트로 샌다. 그림자는 노출 시에만 */
+  box-shadow: none;
 }
-.skip-link:focus-visible { transform: translateY(0); }
+.skip-link:focus-visible {
+  transform: translateY(0);
+  box-shadow: var(--shadow-2);
+}
 @media (prefers-reduced-motion: no-preference) {
   .skip-link { transition: transform var(--dur-fast) var(--ease-standard); }
 }
@@ -206,20 +210,30 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: var(--space-3);
   padding: var(--space-10) var(--layout-gutter);
   text-align: center;
 }
+/* 짧은 패널 안에서는 space-10 상하 여백이 패널을 부풀린다. 밀도 변형 */
+.empty-state--compact {
+  padding: var(--space-6) var(--layout-gutter);
+}
+/* 한글 중앙 정렬 문구는 어절 중간 개행("쌓입/니다")이 고아 줄로 도드라진다. keep-all로 어절 단위 개행 */
 .empty-state__title {
   font-size: var(--font-body-size);
   line-height: var(--font-body-line);
   font-weight: var(--fw-semibold);
   color: var(--text-secondary);
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 .empty-state__desc {
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   color: var(--text-secondary); /* 안내 문구=정보 전달, tertiary 금지 (§2) */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 /* 빈 상태 계기 마크. 눈금만 새겨진 무채 판독판 = '아직 표시할 값 없음'. 장식 아닌 계기 어휘.
    assets·history 로컬 .emptyMark를 공용 승격(표준=64x40, 소형=48x30) */

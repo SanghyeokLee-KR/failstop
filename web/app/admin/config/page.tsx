@@ -109,7 +109,8 @@ export default function ConfigPage() {
 
   const marketCols: DataColumn<ConfigMarket>[] = [
     { key: "symbol", label: "마켓", width: "120px", render: (m) => m.symbol },
-    { key: "name", label: "이름", width: "minmax(120px, 1fr)", render: (m) => m.koreanName },
+    // 이름 열을 1fr로 두면 슬랙을 전량 흡수해 행 한가운데 공백이 생긴다. 슬랙은 우측 제어 열로
+    { key: "name", label: "이름", width: "200px", render: (m) => m.koreanName },
     {
       key: "state",
       label: "상태",
@@ -130,7 +131,7 @@ export default function ConfigPage() {
     {
       key: "action",
       label: "제어",
-      width: "130px",
+      width: "minmax(130px, 1fr)",
       align: "right",
       render: (m) =>
         m.state === "ACTIVE" ? (
@@ -254,7 +255,12 @@ export default function ConfigPage() {
       </PanelCard>
 
       <PanelCard title="마켓 제어 승인 대기">
-        <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 마켓 제어 승인이 없습니다" />
+        <ApprovalList
+          actions={actions}
+          onChange={load}
+          emptyLabel="대기 중인 마켓 제어 승인이 없습니다"
+          emptyDesc="중지·재개·수수료 요청이 들어오면 여기에서 발급·실행합니다"
+        />
       </PanelCard>
 
       <PanelCard title="공지 등록">
@@ -288,7 +294,11 @@ export default function ConfigPage() {
         {!notices ? (
           <Skeleton variant="card" width="100%" height={120} />
         ) : notices.length === 0 ? (
-          <p className={styles.approvalEmpty}>등록된 공지가 없습니다</p>
+          <div className="empty-state empty-state--compact">
+            <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+            <span className="empty-state__title">등록된 공지가 없습니다</span>
+            <span className="empty-state__desc">위 공지 등록 폼에서 게시하면 거래 화면 배너에 노출됩니다</span>
+          </div>
         ) : (
           <ul className={styles.noticeList}>
             {notices.map((n) => {

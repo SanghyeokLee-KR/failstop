@@ -177,7 +177,11 @@ export default function OperatorsPage() {
             </div>
           </div>
         ) : (
-          <p className={styles.approvalEmpty}>운영자 목록에서 관리할 대상을 선택하세요</p>
+          <div className="empty-state empty-state--compact">
+            <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+            <span className="empty-state__title">관리할 운영자를 선택하세요</span>
+            <span className="empty-state__desc">상태 변경과 역할 부여·회수는 건마다 다른 운영자의 승인을 거칩니다</span>
+          </div>
         )}
       </PanelCard>
 
@@ -203,7 +207,8 @@ export default function OperatorsPage() {
           </div>
           {newId.length > 0 && !idValid && <PermissionNote>operatorId는 소문자·숫자·하이픈 2자 이상입니다.</PermissionNote>}
           {idTaken && <PermissionNote>이미 존재하는 operatorId입니다.</PermissionNote>}
-          <PermissionNote>생성은 신원만 등록합니다. 역할은 생성 후 관리 패널에서 건별 2인 승인으로 부여합니다(반결탁).</PermissionNote>
+          {/* 정상 절차 설명은 경보면이 아니라 무채 각주. 이 화면의 유채는 실제 이탈에만 남긴다 */}
+          <p className={styles.formHelp}>생성은 신원 등록만 합니다. 역할은 생성 후 관리 패널에서 다른 운영자의 승인으로 부여합니다.</p>
           {createReady ? (
             <RequestButton
               action="operators.create"
@@ -231,7 +236,12 @@ export default function OperatorsPage() {
       </PanelCard>
 
       <PanelCard title="운영자 승인 대기">
-        <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 운영자 승인이 없습니다" />
+        <ApprovalList
+          actions={actions}
+          onChange={load}
+          emptyLabel="대기 중인 운영자 승인이 없습니다"
+          emptyDesc="생성·상태·역할 요청이 들어오면 여기에서 발급·실행합니다"
+        />
       </PanelCard>
     </div>
   );

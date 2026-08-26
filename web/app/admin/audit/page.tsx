@@ -43,8 +43,23 @@ function renderActionCode(action: string) {
   );
 }
 
+/* .denied 접미는 결과(거부)의 흔적이고 결과 열이 이미 전달한다. 주해 조회에서만 벗긴다 */
+function glossOf(code: string): string | undefined {
+  return ACTION_GLOSS[code] ?? ACTION_GLOSS[code.replace(/\.denied$/, "")];
+}
+
 function renderAction(e: AuditEntry) {
-  const gloss = ACTION_GLOSS[e.action];
+  // 합성 코드(approval.issue:chaos.inject, execute:...)는 head·tail을 각각 주해해 이어 붙인다.
+  // 원문만 남기면 세션 행(주해 병기)과 열 질감이 갈라진다
+  const colon = e.action.indexOf(":");
+  const gloss =
+    colon === -1
+      ? glossOf(e.action)
+      : (() => {
+          const head = glossOf(e.action.slice(0, colon));
+          const tail = glossOf(e.action.slice(colon + 1));
+          return head && tail ? `${head} · ${tail}` : head ?? tail;
+        })();
   // 미등재 코드는 원문 단독 폴백(억지 번역 금지)
   if (!gloss) return <span className={styles.auditAction}>{renderActionCode(e.action)}</span>;
   return (
@@ -114,7 +129,9 @@ const RESULT_SEGMENTS: { value: "" | AuditResult; label: string }[] = [
 
 export default function AuditPage() {
   const load = useCallback(() => getAdminApi().getAudit(), []);
-  const { data: rows, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 3000, isSessionError });
+  // 감사는 append-only 전량 응답이라 3초 폴링이면 단조 증가 테이블을 계속 재수신한다.
+  // 판독 용도에 15초면 충분하고 레이트리밋 예산도 아낀다
+  const { data: rows, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 15000, isSessionError });
 
   const [opFilter, setOpFilter] = useState("");
   const [nsFilter, setNsFilter] = useState("");
@@ -190,6 +207,15 @@ export default function AuditPage() {
                   ))}
                 </select>
               </label>
+              {/* 동종 컨트롤(셀렉트 3종)을 붙이고 세그먼트는 뒤로. 기간만 세그먼트 너머에 고립되지 않게 한다 */}
+              <label className={styles.field}>
+                <select value={String(periodMin)} onChange={(e) => setPeriodMin(Number(e.target.value))} aria-label="기간 필터">
+                  <option value="0">전체 기간</option>
+                  <option value="5">최근 5분</option>
+                  <option value="15">최근 15분</option>
+                  <option value="30">최근 30분</option>
+                </select>
+              </label>
               <div className={styles.auditSeg} role="group" aria-label="결과 필터">
                 {RESULT_SEGMENTS.map((seg) => (
                   <button
@@ -203,41 +229,36 @@ export default function AuditPage() {
                   </button>
                 ))}
               </div>
-              <label className={styles.field}>
-                <select value={String(periodMin)} onChange={(e) => setPeriodMin(Number(e.target.value))} aria-label="기간 필터">
-                  <option value="0">전체 기간</option>
-                  <option value="5">최근 5분</option>
-                  <option value="15">최근 15분</option>
-                  <option value="30">최근 30분</option>
-                </select>
-              </label>
               {/* 클라이언트 필터의 범위 한계(로드분 한정)를 상시 고지한다. 등장·소멸 시프트 없음 */}
               <span className={`${styles.auditFilterCount} num`}>
                 표시 {formatKRW(filtered.length)}건 · 불러온 {formatKRW(rows.length)}건 기준
               </span>
             </div>
-            <DataTable
-              columns={COLUMNS}
-              rows={filtered}
-              rowKey={(e) => e.id}
-              // 비인터랙티브 판독 행이라 36px 밀도로 주사 존을 좁힌다(44px 히트 타깃 규칙은 조작 요소 대상)
-              rowHeight={36}
-              ariaLabel="관리 감사 로그"
-              empty={
-                hasFilter && rows.length > 0 ? (
-                  <div className="empty-state">
-                    <span className="empty-state__title">조건에 맞는 기록이 없습니다</span>
-                    <button type="button" className={styles.neutralBtn} onClick={resetFilters}>
-                      필터 초기화
-                    </button>
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    <span className="empty-state__title">기록된 액션이 없습니다</span>
-                  </div>
-                )
-              }
-            />
+            <div className={styles.auditTableReserve}>
+              <DataTable
+                columns={COLUMNS}
+                rows={filtered}
+                rowKey={(e) => e.id}
+                // 비인터랙티브 판독 행이라 36px 밀도로 주사 존을 좁힌다(44px 히트 타깃 규칙은 조작 요소 대상)
+                rowHeight={36}
+                ariaLabel="관리 감사 로그"
+                empty={
+                  hasFilter && rows.length > 0 ? (
+                    <div className="empty-state">
+                      <span className="empty-state__title">조건에 맞는 기록이 없습니다</span>
+                      <button type="button" className={styles.neutralBtn} onClick={resetFilters}>
+                        필터 초기화
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="empty-state">
+                      <span className="empty-state__title">기록된 액션이 없습니다</span>
+                      <span className="empty-state__desc">콘솔에서 일어나는 모든 관리 액션이 자동으로 적재됩니다</span>
+                    </div>
+                  )
+                }
+              />
+            </div>
           </div>
         )}
       </PanelCard>

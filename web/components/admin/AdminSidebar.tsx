@@ -60,10 +60,7 @@ export default function AdminSidebar() {
             <rect x="6" y="6" width="18" height="18" rx="5" transform="rotate(45 15 15)" fill="currentColor" />
           </svg>
         </span>
-        <span className={styles.brandText}>
-          관리 콘솔
-          <small className={styles.brandSub}>admin plane</small>
-        </span>
+        <span className={styles.brandText}>관리 콘솔</span>
       </div>
       <nav className={styles.nav} aria-label="관리 화면">
         {NAV_GROUPS.map((g) => (

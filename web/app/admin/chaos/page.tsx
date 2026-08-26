@@ -57,65 +57,87 @@ export default function ChaosPage() {
         actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
       />
 
-      <PanelCard title="진행 중 실험">
-        {running.length === 0 ? (
-          <p className={styles.approvalEmpty}>주입 중인 실험이 없습니다</p>
-        ) : (
-          <ul className={styles.runningList}>
-            {running.map((r) => (
-              <li key={r.id} className={styles.runningItem}>
-                <span className={styles.runningLabel}>
-                  {r.experimentId} · {r.label}
-                </span>
-                <span className={styles.runningBlast}>{r.blastRadius}</span>
-                <RequestButton
-                  action="chaos.clear"
-                  payload={{ action: "chaos.clear", runId: r.clearKey }}
-                  label="해제 요청"
-                  onRequested={load}
-                  confirm={{
-                    title: "카오스 실험 해제 요청",
-                    description: "승인·실행 시 주입 중인 장애가 걷힙니다.",
-                    target: `${r.experimentId} · ${r.label}`,
-                    blastRadius: r.blastRadius,
-                    confirmLabel: "해제 요청",
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </PanelCard>
+      {/* 진행 중·승인 대기는 짧은 상태 패널이라 2열로 눕혀 카탈로그를 첫 화면으로 올린다 */}
+      <div className={styles.pairGrid}>
+        <PanelCard title="진행 중 실험" className={styles.stretchCard}>
+          {running.length === 0 ? (
+            <div className="empty-state empty-state--compact">
+              <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+              <span className="empty-state__title">주입 중인 실험이 없습니다</span>
+              <span className="empty-state__desc">카탈로그에서 주입을 요청하고 다른 운영자 승인을 받으면 시작됩니다</span>
+            </div>
+          ) : (
+            <ul className={styles.runningList}>
+              {running.map((r) => (
+                <li key={r.id} className={styles.runningItem}>
+                  <span className={styles.runningLabel}>
+                    {r.experimentId} · {r.label}
+                  </span>
+                  <span className={styles.runningBlast}>{r.blastRadius}</span>
+                  <RequestButton
+                    action="chaos.clear"
+                    payload={{ action: "chaos.clear", runId: r.clearKey }}
+                    label="해제 요청"
+                    onRequested={load}
+                    confirm={{
+                      title: "카오스 실험 해제 요청",
+                      description: "승인·실행 시 주입 중인 장애가 걷힙니다.",
+                      target: `${r.experimentId} · ${r.label}`,
+                      blastRadius: r.blastRadius,
+                      confirmLabel: "해제 요청",
+                    }}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </PanelCard>
 
-      <PanelCard title="승인 대기">
-        <ApprovalList actions={actions} onChange={load} emptyLabel="대기 중인 카오스 승인이 없습니다" />
-      </PanelCard>
+        <PanelCard title="승인 대기" className={styles.stretchCard}>
+          <ApprovalList
+            actions={actions}
+            onChange={load}
+            emptyLabel="대기 중인 카오스 승인이 없습니다"
+            emptyDesc="주입·해제 요청이 들어오면 여기에서 발급·실행합니다"
+          />
+        </PanelCard>
+      </div>
 
       <PanelCard title="실험 카탈로그" actions={<span className={styles.panelMeta}>전 실험 2인 승인</span>}>
         {!canChaos && <PermissionNote>카오스 권한(CHAOS_OPS 이상)이 없어 주입 요청을 만들 수 없습니다.</PermissionNote>}
         <ul className={styles.chaosList}>
-          {catalog.map((e) => (
-            // 상세 설명은 행에서 걷고 title·주입 확인 다이얼로그로 강등한다
-            <li key={e.id} className={styles.chaosRow} title={e.description}>
-              <span className={styles.chaosId}>{e.id}</span>
-              <span className={styles.chaosLabel}>{e.label}</span>
-              <span className={styles.chaosBlast}>{e.blastRadius}</span>
-              <RequestButton
-                action="chaos.inject"
-                payload={{ action: "chaos.inject", experimentId: e.id }}
-                label="주입 요청"
-                onRequested={load}
-                confirm={{
-                  title: "카오스 실험 주입 요청",
-                  description: "승인·실행 뒤 실제 장애가 주입됩니다. 해제하려면 별도 요청이 필요합니다.",
-                  target: `${e.id} · ${e.label}`,
-                  blastRadius: e.blastRadius,
-                  tone: "danger",
-                  confirmLabel: "주입 요청",
-                }}
-              />
-            </li>
-          ))}
+          {catalog.map((e) => {
+            const isRunning = running.some((r) => r.experimentId === e.id);
+            return (
+              // 상세 설명은 행에서 걷고 title·주입 확인 다이얼로그로 강등한다
+              <li key={e.id} className={styles.chaosRow} title={e.description}>
+                <span className={styles.chaosId}>{e.id}</span>
+                <span className={styles.chaosLabel}>{e.label}</span>
+                <span className={styles.chaosBlast}>{e.blastRadius}</span>
+                {isRunning ? (
+                  // 진행 중 실험에 주입 요청 버튼을 남기면 상단 해제 카드와 어포던스가 상반된다
+                  <span className="status-pill" data-health="warning">
+                    ▲ 주입 중
+                  </span>
+                ) : (
+                  <RequestButton
+                    action="chaos.inject"
+                    payload={{ action: "chaos.inject", experimentId: e.id }}
+                    label="주입 요청"
+                    onRequested={load}
+                    confirm={{
+                      title: "카오스 실험 주입 요청",
+                      description: "승인·실행 뒤 실제 장애가 주입됩니다. 해제하려면 별도 요청이 필요합니다.",
+                      target: `${e.id} · ${e.label}`,
+                      blastRadius: e.blastRadius,
+                      tone: "danger",
+                      confirmLabel: "주입 요청",
+                    }}
+                  />
+                )}
+              </li>
+            );
+          })}
         </ul>
       </PanelCard>
 

@@ -58,6 +58,8 @@
   /* 컨트롤 면. sunken 행 위에 얹혀도 형태가 남도록 sunken보다 한 단계 진하게 잡는다.
      surface-hover와 같은 값을 쓰면 라이트에서 버튼이 배경에 묻히고 hover가 no-op가 된다 */
   --surface-control:var(--grey-200); --surface-control-hover:var(--grey-300);
+  /* select 자체 셰브런. OS 크롬 화살표를 appearance:none으로 걷어낸 자리(색은 grey-600) */
+  --select-chevron:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'><path d='M2.5 4.5 6 8l3.5-3.5' stroke='%236A7480' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
 
   /* ===== Border ===== */
   --border-subtle:var(--grey-200); --border-default:var(--grey-300); --border-strong:var(--grey-400);
@@ -65,7 +67,8 @@
   /* ===== Text ===== */
   --text-strong:var(--grey-900);   /* 제목·큰 숫자 */
   --text-default:var(--grey-800);  /* 본문 */
-  --text-secondary:var(--grey-600);/* 정보 전달용 캡션/라벨 최소선 (≈4.75:1) */
+  --text-secondary:var(--grey-600);/* 정보 전달용 캡션/라벨 최소선. 흰 배경 4.75:1.
+     grey-100 위에서는 4.27:1로 미달이라 secondary 텍스트를 얹는 행 배경은 bg-muted까지만 쓴다 */
   --text-tertiary:var(--grey-500); /* 장식/비활성만. 정보 전달 금지 */
   --text-disabled:var(--grey-400);
   --text-inverse:#FFFFFF;
@@ -132,6 +135,7 @@
   --surface-default:#171A21; --surface-sunken:#12141A;
   --surface-hover:#1E222B; --surface-elevated:#232833;
   --surface-control:#232833; --surface-control-hover:#2E3540;
+  --select-chevron:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'><path d='M2.5 4.5 6 8l3.5-3.5' stroke='%23A8B2BE' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
 
   --border-subtle:#262B35; --border-default:#333A46; --border-strong:#454E5C;
 
@@ -317,6 +321,7 @@
     --surface-default:#171A21; --surface-sunken:#12141A;
     --surface-hover:#1E222B; --surface-elevated:#232833;
     --surface-control:#232833; --surface-control-hover:#2E3540;
+    --select-chevron:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'><path d='M2.5 4.5 6 8l3.5-3.5' stroke='%23A8B2BE' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
 
     --border-subtle:#262B35; --border-default:#333A46; --border-strong:#454E5C;
 

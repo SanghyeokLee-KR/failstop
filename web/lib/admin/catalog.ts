@@ -24,7 +24,7 @@ export const INVARIANT_DEFS: { name: string; label: string; gloss?: string }[] =
   { name: "no_duplicate_fill", label: "중복 체결 없음", gloss: "멱등" },
   { name: "sequence_continuity", label: "처리 순번 연속", gloss: "seq 연속성" },
   { name: "order_journal_monotonic", label: "주문 기록 순증", gloss: "저널 단조 증가" },
-  { name: "price_time_priority", label: "가격·시간 우선순위" },
-  { name: "orderbook_consistency", label: "호가 정합성" },
+  { name: "price_time_priority", label: "가격·시간 우선순위", gloss: "price-time priority" },
+  { name: "orderbook_consistency", label: "호가 정합성", gloss: "orderbook consistency" },
   { name: "journal_replay_match", label: "재현 검증 일치", gloss: "저널 재현 지문" },
 ];

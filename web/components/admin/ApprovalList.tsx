@@ -51,9 +51,16 @@ interface Props {
   /** 실행·상태 변화 후 부모가 관련 데이터를 다시 읽도록 통지 */
   onChange?: () => void;
   emptyLabel?: string;
+  /** 빈 상태 보조 안내(다음 행동·유입 경로). 생략 시 제목만 */
+  emptyDesc?: string;
 }
 
-export default function ApprovalList({ actions, onChange, emptyLabel = "대기 중이거나 실행 가능한 승인이 없습니다" }: Props) {
+export default function ApprovalList({
+  actions,
+  onChange,
+  emptyLabel = "대기 중이거나 실행 가능한 승인이 없습니다",
+  emptyDesc,
+}: Props) {
   const session = useAdminSession();
   const intents = useApprovalVault((s) => s.intents);
   const tokens = useApprovalVault((s) => s.tokens);
@@ -66,8 +73,10 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
   // 소각은 되돌릴 수 없어 확인 다이얼로그로 한 번 더 막는다
   const [execTarget, setExecTarget] = useState<ApprovalRequest | null>(null);
   const rowRefs = useRef<Record<string, HTMLLIElement | null>>({});
-  // 액션 후 대상 행이 사라질 때(발급 시 intent 소거, 실행 시 상태 전이) 포커스 폴백 목적지
+  // 액션 후 대상 행이 사라질 때(발급 시 intent 소거, 실행 시 상태 전이) 포커스 폴백 목적지.
+  // 목록 ul이 언마운트되는 경로(마지막 대기 행 종결)는 빈 상태 컨테이너가 받는다
   const listRef = useRef<HTMLUListElement>(null);
+  const emptyRef = useRef<HTMLDivElement>(null);
   // 폴링과 액션 후 refresh가 병행한다. 변이 직전 출발한 폴링 응답이 늦게 도착해 최신 상태를
   // 변이 전 스냅샷으로 되돌리지 않도록, 최신 요청보다 오래된 응답은 폐기한다
   const refreshSeq = useRef(0);
@@ -103,9 +112,10 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
       await refresh();
       onChange?.();
       setExecTarget(null);
-      // 발급은 intent 행을 소거하고 실행은 행 상태를 바꾼다. 남아 있으면 그 행, 아니면 목록으로 포커스를
-      // 옮겨 body 유실을 막는다(§9 키보드 흐름)
-      requestAnimationFrame(() => (rowRefs.current[id] ?? listRef.current)?.focus());
+      // 발급은 intent 행을 소거하고 실행은 행 상태를 바꾼다. 남아 있으면 그 행, 아니면 목록으로.
+      // 마지막 대기 행이 종결로 넘어가면 목록 ul 자체가 언마운트되므로 빈 상태 컨테이너까지
+      // 폴백해 body 유실을 막는다(§9 키보드 흐름)
+      requestAnimationFrame(() => (rowRefs.current[id] ?? listRef.current ?? emptyRef.current)?.focus());
     } catch (e) {
       toast(e instanceof Error ? e.message : "처리에 실패했습니다", "error");
     } finally {
@@ -141,13 +151,30 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
   };
 
   const scopedIntents = intents.filter((i) => inScope(i.action));
+  // 대기(발급 대기·실행 대기)와 종결(실행 완료·만료·거부)을 가른다. 종결 카드가 "대기" 아래
+  // 섞이면 대기 0건 화면이 일하는 화면처럼 읽힌다
+  const activeRows = rows.filter((a) => a.state === "ISSUED");
+  const doneRows = rows.filter((a) => a.state !== "ISSUED").slice(0, 6);
 
-  if (scopedIntents.length === 0 && rows.length === 0) {
-    return <p className={styles.approvalEmpty}>{emptyLabel}</p>;
+  const emptyActive = scopedIntents.length === 0 && activeRows.length === 0;
+
+  // 빈 상태 문법 통일: 좌측 캡션이 아니라 중앙 계기형. 다음 행동(요청 유입 경로)을 desc가 안내한다
+  const emptyState = (
+    <div className="empty-state empty-state--compact" ref={emptyRef} tabIndex={-1}>
+      <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+      <span className="empty-state__title">{emptyLabel}</span>
+      {emptyDesc && <span className="empty-state__desc">{emptyDesc}</span>}
+    </div>
+  );
+
+  if (emptyActive && doneRows.length === 0) {
+    return emptyState;
   }
 
   return (
     <>
+      {emptyActive && emptyState}
+      {!emptyActive && (
       <ul ref={listRef} className={styles.approvalList} tabIndex={-1} aria-label="승인 목록">
 
         {scopedIntents.map((intent) => {
@@ -207,7 +234,7 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
           );
         })}
 
-        {rows.map((a) => {
+        {activeRows.map((a) => {
           const mine = session?.operatorId === a.requesterId;
           const phase = ledgerPhase(a);
           const health = PHASE_HEALTH[phase];
@@ -258,6 +285,42 @@ export default function ApprovalList({ actions, onChange, emptyLabel = "대기 �
           );
         })}
       </ul>
+      )}
+      {doneRows.length > 0 && (
+        // 종결분은 대기와 분리해 이력으로만 남긴다. 버튼 없는 판독 전용 행
+        <div className={styles.approvalDoneGroup}>
+          <span className={styles.kpiGroupLabel}>최근 처리</span>
+          <ul className={styles.approvalList} aria-label="최근 처리된 승인">
+            {doneRows.map((a) => {
+              const phase = ledgerPhase(a);
+              const health = PHASE_HEALTH[phase];
+              return (
+                <li key={a.id} className={styles.approvalItem} data-done="">
+                  <div className={styles.approvalMain}>
+                    <span className={styles.approvalAction}>{ACTION_LABEL[a.action]}</span>
+                    <span className={styles.approvalTarget}>{a.targetLabel}</span>
+                  </div>
+                  <div className={styles.approvalMeta}>
+                    <span>
+                      요청 {a.requesterName} · {formatTimeHMS(a.issuedAt)}
+                    </span>
+                    {a.approverName && <span>발급 {a.approverName}</span>}
+                  </div>
+                  <div className={styles.approvalActions}>
+                    {health ? (
+                      <span className="status-pill" data-health={health}>
+                        {HEALTH_ICON[health]} {PHASE_LABEL[phase]}
+                      </span>
+                    ) : (
+                      <span className={styles.neutralPill}>{PHASE_LABEL[phase]}</span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       {execTarget && (
         <ConfirmDialog
           title="승인된 액션 실행"

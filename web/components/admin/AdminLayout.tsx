@@ -26,10 +26,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className={styles.shell}>
+      {/* 전역 #main은 셸 전체를 감싸는 앵커라 관리 평면에서는 아무것도 건너뛰지 못한다.
+          자체 앵커를 두되 전역 링크와 문구를 갈라 두 링크가 구분 낭독되게 한다 */}
+      <a href="#admin-main" className="skip-link">
+        관리 본문 바로가기
+      </a>
       <AdminSidebar />
       <div className={styles.main}>
         <OperatorBar />
-        <div className={styles.content}>{children}</div>
+        <main id="admin-main" tabIndex={-1} className={styles.content}>
+          {children}
+        </main>
       </div>
     </div>
   );

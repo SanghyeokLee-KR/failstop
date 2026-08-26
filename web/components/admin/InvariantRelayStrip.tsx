@@ -41,7 +41,8 @@ function RelayCell({ inv }: { inv: InvariantCheck }) {
       <span className={styles.relayLamp} aria-hidden="true">
         {inv.ok ? "●" : "■"}
       </span>
-      <span className={styles.relayLabel} title={gloss}>
+      {/* gloss 부재 시에도 title이 전문을 보존한다(협폭에서 라벨이 잘릴 수 있다) */}
+      <span className={styles.relayLabel} title={gloss ?? label}>
         {label}
       </span>
       {inv.ok ? (
