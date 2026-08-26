@@ -17,7 +17,7 @@ export default function ExchangeIndexPage() {
   return (
     <main className="route-transition" aria-busy="true">
       <h1 className="sr-only">거래소</h1>
-      <p className="route-transition__text">거래 화면으로 이동하고 있어요</p>
+      <p className="route-transition__text">거래 화면으로 이동 중</p>
     </main>
   );
 }

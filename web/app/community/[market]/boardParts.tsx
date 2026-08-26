@@ -79,7 +79,7 @@ export function PostRail({ market, meta, session, onWrite, onRequireLogin }: Rai
       <section className={`card ${styles.railCard}`}>
         <h2 className={styles.railTitle}>{meta.koreanName} 토론방</h2>
         <p className={styles.railText}>
-          종목에 대한 의견을 자유롭게 나누는 공간이에요. 서로 존중하는 표현을 지켜주세요. 투자 권유나 허위 정보는 신고 대상이에요.
+          종목 의견을 자유롭게 나누는 공간. 서로 존중하는 표현 유지, 투자 권유·허위 정보는 신고 대상.
         </p>
       </section>
 
@@ -87,7 +87,7 @@ export function PostRail({ market, meta, session, onWrite, onRequireLogin }: Rai
         {session ? (
           <>
             <p className={styles.railText}>
-              <b className={styles.railName}>{session.user.display_name}</b>님으로 참여 중이에요
+              <b className={styles.railName}>{session.user.display_name}</b>님으로 참여 중
             </p>
             <button type="button" className="btn btn--primary btn--full" onClick={onWrite}>
               글쓰기
@@ -95,7 +95,7 @@ export function PostRail({ market, meta, session, onWrite, onRequireLogin }: Rai
           </>
         ) : (
           <>
-            <p className={styles.railText}>로그인하면 글과 댓글을 남길 수 있어요</p>
+            <p className={styles.railText}>로그인하면 글과 댓글 작성 가능</p>
             <div className={styles.railCta}>
               <button type="button" className="btn btn--primary btn--full" onClick={onRequireLogin}>
                 로그인

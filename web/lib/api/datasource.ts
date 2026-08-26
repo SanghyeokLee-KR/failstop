@@ -80,9 +80,9 @@ const MAX_PASSWORD_LEN = 128;
 const MAX_DISPLAY_NAME_LEN = 32;
 
 function validateCredentials(email: string, password: string): void {
-  if (!EMAIL_RE.test(email)) throw new ApiError(400, "invalid_email", "이메일 형식을 확인해 주세요");
+  if (!EMAIL_RE.test(email)) throw new ApiError(400, "invalid_email", "이메일 형식 확인 필요");
   if (password.length < MIN_PASSWORD_LEN || password.length > MAX_PASSWORD_LEN) {
-    throw new ApiError(400, "weak_password", "비밀번호는 8자 이상 128자 이하여야 해요");
+    throw new ApiError(400, "weak_password", "비밀번호는 8자 이상 128자 이하");
   }
 }
 
@@ -113,10 +113,10 @@ export class SimDataSource implements DataSource {
     validateCredentials(input.email, input.password);
     // 서버(MemberAuthService)와 동일한 표시명 상한. sim에서만 성공하는 입력을 만들지 않는다
     if (input.display_name.trim().length > MAX_DISPLAY_NAME_LEN) {
-      throw new ApiError(400, "invalid_parameter", "표시명은 최대 32자예요");
+      throw new ApiError(400, "invalid_parameter", "표시명은 최대 32자");
     }
     const email = input.email.toLowerCase();
-    if (this.members.has(email)) throw new ApiError(409, "email_taken", "이미 가입된 이메일이에요");
+    if (this.members.has(email)) throw new ApiError(409, "email_taken", "이미 가입된 이메일");
     const user: MemberUser = {
       external_id: crypto.randomUUID(),
       email,
@@ -132,7 +132,7 @@ export class SimDataSource implements DataSource {
     const found = this.members.get(email);
     // 존재 여부 비노출: 미가입·오비밀번호를 동일 코드로 처리(§3-4)
     if (!found || found.password !== input.password) {
-      throw new ApiError(401, "invalid_credentials", "이메일 또는 비밀번호를 확인해 주세요");
+      throw new ApiError(401, "invalid_credentials", "이메일 또는 비밀번호 확인 필요");
     }
     return this.establish(found.user);
   }
@@ -147,7 +147,7 @@ export class SimDataSource implements DataSource {
   }
 
   async getMe(): Promise<MemberUser> {
-    if (!this.memberSession) throw new ApiError(401, "session_expired", "세션이 만료됐어요");
+    if (!this.memberSession) throw new ApiError(401, "session_expired", "세션 만료. 다시 로그인 필요");
     return this.memberSession.user;
   }
 

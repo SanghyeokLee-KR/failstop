@@ -4,6 +4,7 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import RedirectShell from "@/components/RedirectShell";
 
 export default function CoinRedirect() {
   const params = useParams<{ market: string }>();
@@ -13,5 +14,5 @@ export default function CoinRedirect() {
     router.replace(`/exchange/${decodeURIComponent(params.market)}`);
   }, [params.market, router]);
 
-  return null;
+  return <RedirectShell />;
 }

@@ -168,7 +168,7 @@ export class SimCommunityDataSource implements CommunityDataSource {
 
   private requireMe(): MemberIdentity {
     const id = this.me();
-    if (!id) throw new ApiError(401, "jwt_verification", "로그인이 필요해요");
+    if (!id) throw new ApiError(401, "jwt_verification", "로그인 필요");
     return id;
   }
 
@@ -295,7 +295,7 @@ export class SimCommunityDataSource implements CommunityDataSource {
 
   async getPost(externalId: string): Promise<CommunityPost> {
     const rec = this.posts.get(externalId);
-    if (!rec) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글이에요");
+    if (!rec) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글");
     return this.toPost(rec);
   }
 
@@ -331,8 +331,8 @@ export class SimCommunityDataSource implements CommunityDataSource {
   async updatePost(externalId: string, input: UpdatePostInput): Promise<CommunityPost> {
     const me = this.requireMe();
     const rec = this.posts.get(externalId);
-    if (!rec || rec.deleted) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글이에요");
-    if (rec.author_id !== me.externalId) throw new ApiError(403, "out_of_scope", "본인 글만 수정할 수 있어요");
+    if (!rec || rec.deleted) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글");
+    if (rec.author_id !== me.externalId) throw new ApiError(403, "out_of_scope", "본인 글만 수정 가능");
     const title = input.title.trim();
     const body = input.body.trim();
     assertLen(title, 1, POST_TITLE_MAX, "title", "제목");
@@ -346,14 +346,14 @@ export class SimCommunityDataSource implements CommunityDataSource {
   async deletePost(externalId: string): Promise<void> {
     const me = this.requireMe();
     const rec = this.posts.get(externalId);
-    if (!rec || rec.deleted) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글이에요");
-    if (rec.author_id !== me.externalId) throw new ApiError(403, "out_of_scope", "본인 글만 삭제할 수 있어요");
+    if (!rec || rec.deleted) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글");
+    if (rec.author_id !== me.externalId) throw new ApiError(403, "out_of_scope", "본인 글만 삭제 가능");
     rec.deleted = true;
   }
 
   async listComments(postExternalId: string, cursor?: string | null, count?: number): Promise<CursorPage<CommunityComment>> {
     const post = this.posts.get(postExternalId);
-    if (!post) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글이에요");
+    if (!post) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글");
     const size = clampCount(count);
     // 삭제 댓글은 트리 유지를 위해 마스킹으로 노출한다(§1.3). created_at ASC, n ASC
     const all = [...this.comments.values()].filter((c) => c.post_n === post.n).sort((a, b) => a.n - b.n);
@@ -376,13 +376,13 @@ export class SimCommunityDataSource implements CommunityDataSource {
   async createComment(postExternalId: string, input: CreateCommentInput): Promise<CommunityComment> {
     const me = this.requireMe();
     const post = this.posts.get(postExternalId);
-    if (!post || post.deleted) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글이에요");
+    if (!post || post.deleted) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글");
     const body = input.body.trim();
     assertLen(body, 1, COMMENT_BODY_MAX, "body", "댓글");
     let parentId: string | null = null;
     if (input.parentId) {
       const parent = this.comments.get(input.parentId);
-      if (!parent || parent.deleted) throw new ApiError(404, "comment_not_found", "이미 삭제된 댓글이에요");
+      if (!parent || parent.deleted) throw new ApiError(404, "comment_not_found", "이미 삭제된 댓글");
       // 1뎁스 강제: 부모가 이미 대댓글이면 그 부모로 올려붙인다(깊이 제한, §1.1)
       parentId = parent.parent_id ?? parent.external_id;
     }
@@ -405,15 +405,15 @@ export class SimCommunityDataSource implements CommunityDataSource {
   async deleteComment(externalId: string): Promise<void> {
     const me = this.requireMe();
     const rec = this.comments.get(externalId);
-    if (!rec || rec.deleted) throw new ApiError(404, "comment_not_found", "이미 삭제된 댓글이에요");
-    if (rec.author_id !== me.externalId) throw new ApiError(403, "out_of_scope", "본인 댓글만 삭제할 수 있어요");
+    if (!rec || rec.deleted) throw new ApiError(404, "comment_not_found", "이미 삭제된 댓글");
+    if (rec.author_id !== me.externalId) throw new ApiError(403, "out_of_scope", "본인 댓글만 삭제 가능");
     rec.deleted = true;
   }
 
   async togglePostLike(externalId: string, like: boolean): Promise<LikeResult> {
     const me = this.requireMe();
     const rec = this.posts.get(externalId);
-    if (!rec || rec.deleted) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글이에요");
+    if (!rec || rec.deleted) throw new ApiError(404, "post_not_found", "이미 삭제됐거나 없는 글");
     if (like) rec.likers.add(me.externalId);
     else rec.likers.delete(me.externalId);
     return { like_count: rec.likers.size, liked: rec.likers.has(me.externalId) };
@@ -422,7 +422,7 @@ export class SimCommunityDataSource implements CommunityDataSource {
   async toggleCommentLike(externalId: string, like: boolean): Promise<LikeResult> {
     const me = this.requireMe();
     const rec = this.comments.get(externalId);
-    if (!rec || rec.deleted) throw new ApiError(404, "comment_not_found", "이미 삭제된 댓글이에요");
+    if (!rec || rec.deleted) throw new ApiError(404, "comment_not_found", "이미 삭제된 댓글");
     if (like) rec.likers.add(me.externalId);
     else rec.likers.delete(me.externalId);
     return { like_count: rec.likers.size, liked: rec.likers.has(me.externalId) };
@@ -431,19 +431,19 @@ export class SimCommunityDataSource implements CommunityDataSource {
   async report(input: ReportInput): Promise<void> {
     const me = this.requireMe();
     if (input.detail && input.detail.length > REPORT_DETAIL_MAX) {
-      throw new ApiError(400, "invalid_parameter", "신고 사유 설명이 너무 길어요");
+      throw new ApiError(400, "invalid_parameter", "신고 사유 설명 길이 초과");
     }
     const key = `${input.targetType}:${input.targetId}:${me.externalId}`;
-    if (this.reports.has(key)) throw new ApiError(409, "duplicate_report", "이미 신고한 대상이에요");
+    if (this.reports.has(key)) throw new ApiError(409, "duplicate_report", "이미 신고한 대상");
     this.reports.add(key);
   }
 }
 
 function assertLen(v: string, min: number, max: number, field: "title" | "body", label: string): void {
-  if (v.length < min) throw new ApiError(400, "invalid_parameter", `${label}을 입력해 주세요`);
+  if (v.length < min) throw new ApiError(400, "invalid_parameter", `${label} 입력 필요`);
   if (v.length > max) {
     const code = field === "title" ? "title_too_long" : "body_too_long";
-    throw new ApiError(400, code, `${label}이 너무 길어요`);
+    throw new ApiError(400, code, `${label} 길이 초과`);
   }
 }
 

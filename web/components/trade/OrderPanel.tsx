@@ -12,7 +12,7 @@ import PanelCard from "@/components/PanelCard";
 import SegmentedTab from "@/components/SegmentedTab";
 import Skeleton from "@/components/Skeleton";
 import { toast } from "@/components/Toast";
-import { useExchangeStore, useLiveChannels } from "@/lib/store";
+import { useExchangeStore, useLiveChannels, useMemberSession } from "@/lib/store";
 import { dest, type OrderRequest, type Side } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
 import { ApiError } from "@/lib/api/httpDatasource";
@@ -94,6 +94,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const upsertOrder = useExchangeStore((s) => s.upsertOrder);
   const apply = useExchangeStore((s) => s.apply);
 
+  // 게스트(데모 둘러보기) 잔고 표식용. 회원 세션이 서면 배지를 내린다
+  const isGuest = useMemberSession() === null;
+
   const [side, setSide] = useState<Side>(initialSide);
   const [ordType, setOrdType] = useState<OrdType>("limit");
   const [priceRaw, setPriceRaw] = useState<string>("");
@@ -125,7 +128,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
       // 판정은 apply 이전 상태로 한다. apply가 종결 목록에 넣은 뒤에는 신규·재전달을 못 가른다
       const announce = shouldAnnounceFill(msg, useExchangeStore.getState().closedOrders);
       apply(msg);
-      if (announce) toast("주문이 체결됐어요", "success");
+      if (announce) toast("주문 체결 완료", "success");
     });
   }, [apply]);
 
@@ -305,12 +308,12 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const totalPositive = compareDecimal(totalStr, "0") > 0;
   let error: string | null = null;
   if (totalPositive && compareDecimal(totalStr, minOrderStr) < 0)
-    error = `최소 주문 금액은 ${formatKRW(minOrderStr)}원이에요`;
+    error = `최소 주문 금액은 ${formatKRW(minOrderStr)}원`;
   else if (totalPositive && maxOrderStr !== null && compareDecimal(totalStr, maxOrderStr) > 0)
-    error = `최대 주문 금액은 ${formatKRW(maxOrderStr)}원이에요`;
+    error = `최대 주문 금액은 ${formatKRW(maxOrderStr)}원`;
   else if (side === "bid" && totalPositive && compareDecimal(bidLockStr, availKRWStr) > 0)
-    error = "주문 가능 금액을 초과했어요";
-  else if (side === "ask" && compareDecimal(qtyStr, availCoinStr) > 0) error = "보유 수량을 초과했어요";
+    error = "주문 가능 금액 초과";
+  else if (side === "ask" && compareDecimal(qtyStr, availCoinStr) > 0) error = "보유 수량 초과";
   const ready = totalPositive && error === null && !loadingBalance && !accountsFailed;
 
   // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다(임계 판정은 number로 충분).
@@ -404,7 +407,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
       upsertOrder(placed);
       // 확정 성공. 다음 주문은 새 키
       keyStateRef.current = onSubmitAccepted(keyState());
-      toast("주문을 접수했어요", "info");
+      toast("주문 접수 완료", "info");
       setQtyRaw("");
       setAmountRaw("");
       setActivePct(null);
@@ -415,7 +418,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
       // 종결이라 동일 취급. 상태 UNKNOWN(5xx·네트워크·타임아웃)·429와 미확정 409만 키를 보존한다(§7-6)
       const finalReject = e instanceof ApiError ? isFinalRejectStatus(e.status, e.code) : e instanceof SimApiError;
       keyStateRef.current = finalReject ? onInputChanged(keyState()) : onSubmitFailed(keyState());
-      toast(e instanceof Error ? e.message : "주문에 실패했어요. 잠시 후 다시 시도해 주세요", "error");
+      toast(e instanceof Error ? e.message : "주문 실패. 잠시 후 다시 시도 필요", "error");
     } finally {
       // dirty 동결 해제는 제출 종료 시점. 재전송이 끝날 때까지 확정 키를 고정했다
       submittingRef.current = false;
@@ -553,7 +556,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             <label className={styles.label} htmlFor="panel-ord-qty">
               수량
             </label>
-            <div className={styles.inp} data-error={error === "보유 수량을 초과했어요" || undefined}>
+            <div className={styles.inp} data-error={error === "보유 수량 초과" || undefined}>
               <input
                 id="panel-ord-qty"
                 className="num"
@@ -628,7 +631,11 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           </b>
         </div>
         <div className={styles.sumRow}>
-          <span>주문가능</span>
+          <span className={styles.availLabel}>
+            주문가능
+            {/* 게스트 데모 잔고 표식. 숫자가 실자산으로 읽히지 않게 한다. 화면당 1곳 */}
+            {isGuest && <span className={`status-pill ${styles.demoBadge}`}>데모 자산</span>}
+          </span>
           {loadingBalance ? (
             <Skeleton variant="text" width={110} height={16} />
           ) : accountsFailed ? (
@@ -646,7 +653,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
 
         {accountsFailed && (
           <p className={styles.error} role="alert">
-            잔고를 불러오지 못해 주문할 수 없어요. 다시 시도해 주세요
+            잔고 조회 실패로 주문 불가. 다시 시도 필요
           </p>
         )}
 

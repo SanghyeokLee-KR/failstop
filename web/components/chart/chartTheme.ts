@@ -100,8 +100,14 @@ export function buildChartStyles(t: ChartTokens, reducedMotion = false): DeepPar
     },
     indicator: {
       // 지표선 계열 구분은 테마 인지 램프(§4.2). primitive 직접 소비는 다크에서 600·700이
-      // 3:1 미달이라 --chart-series-* 토큰(다크 미러 램프)으로 소비한다
-      lines: [{ color: t.series1 }, { color: t.series2 }, { color: t.series3 }, { color: t.series4 }],
+      // 3:1 미달이라 --chart-series-* 토큰(다크 미러 램프)으로 소비한다.
+      // 명도만으로는 4선 상호 식별이 어려워 굵기·점선을 병행한다(색 단독 금지의 선 버전)
+      lines: [
+        { color: t.series1, size: 1 },
+        { color: t.series2, size: 2 },
+        { color: t.series3, size: 1, style: LineType.Dashed, dashedValue: [4, 3] },
+        { color: t.series4, size: 2, style: LineType.Dashed, dashedValue: [4, 3] },
+      ],
       // 히스토그램 up/down은 부호가 막대 위치에 내재해 색 단독이 아님(§4.2)
       bars: [{ upColor: volumeBarColor(t.up), downColor: volumeBarColor(t.down), noChangeColor: t.flat }],
       lastValueMark: { text: { color: t.textInverse } },
@@ -164,11 +170,15 @@ export function rsiStyles(t: ChartTokens): IndicatorStyleOverride {
   return { lines: [{ color: t.brandPrimary }] };
 }
 
-/** 거래량 막대는 방향 알파색, 이동평균선은 테마 인지 램프(다크 3:1 확보) */
+/** 거래량 막대는 방향 알파색, 이동평균선은 테마 인지 램프(다크 3:1 확보) + 굵기·점선 차등 */
 export function volStyles(t: ChartTokens): IndicatorStyleOverride {
   return {
     bars: [{ upColor: volumeBarColor(t.up), downColor: volumeBarColor(t.down), noChangeColor: t.flat }],
-    lines: [{ color: t.series1 }, { color: t.series2 }, { color: t.series3 }],
+    lines: [
+      { color: t.series1, size: 1 },
+      { color: t.series2, size: 2 },
+      { color: t.series3, size: 1, style: LineType.Dashed, dashedValue: [4, 3] },
+    ],
   };
 }
 

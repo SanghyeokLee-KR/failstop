@@ -1,0 +1,90 @@
+/* OpenOrdersMini: 주문 패널 하단 미체결 미니 리스트.
+   side 열 auto 트랙 안이라 카드 높이를 캡하고 본문만 내부 스크롤(PanelCard scroll)한다.
+   행 수가 늘어도 마켓 목록 트랙(§2.2 min 160px)을 밀지 않기 위함이다 */
+
+/* .order 슬롯은 gap이 없어 주문 폼 카드와의 이음새를 마진으로 만든다.
+   max-height 상수는 side 열 나머지 합(헤더 56 + 그리드 패딩 32 + 주문 폼 약 430 +
+   이음새 24 + 마켓 목록 최소 160)에서 유도했다. 폼 높이가 바뀌면 함께 갱신할 것 */
+.card {
+  margin-top: var(--seam-width);
+  max-height: clamp(88px, calc(100dvh - 712px), 264px);
+}
+
+.empty {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+.row:first-child {
+  padding-top: 0;
+}
+.row + .row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.price {
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+
+.qty {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 취소 버튼은 거래내역 화면 cancelBtn 관례(32px 시각, sunken 면) */
+.cancelBtn {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.cancelBtn:hover {
+  background: var(--surface-hover);
+}
+.cancelBtn:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+
+/* §2.3 압축: 주문 폼이 약 400px로 줄어든 만큼 캡 기준도 함께 당긴다 */
+@media (max-height: 820px) {
+  .card {
+    max-height: clamp(88px, calc(100dvh - 680px), 264px);
+  }
+}

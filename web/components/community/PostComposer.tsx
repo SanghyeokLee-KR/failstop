@@ -59,7 +59,7 @@ export default function PostComposer({
         value={title}
         onChange={setTitle}
         error={titleError}
-        placeholder="제목을 입력해 주세요"
+        placeholder="제목 입력"
         maxLength={POST_TITLE_MAX}
         disabled={busy}
         autoFocus
@@ -76,7 +76,7 @@ export default function PostComposer({
           rows={8}
           maxLength={POST_BODY_MAX}
           disabled={busy}
-          placeholder="종목에 대한 생각을 자유롭게 남겨보세요"
+          placeholder="종목에 대한 생각을 자유롭게 입력"
           aria-invalid={bodyError ? true : undefined}
           aria-describedby={bodyDescId}
           data-invalid={bodyError ? true : undefined}

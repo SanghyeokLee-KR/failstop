@@ -9,6 +9,7 @@ import java.util.function.BooleanSupplier;
 public class OpsGovernor {
 
     private volatile double targetOps;
+    private volatile boolean paused;
     private double tokens;
     private long lastRefillNanos;
 
@@ -29,10 +30,25 @@ public class OpsGovernor {
         return targetOps;
     }
 
-    /** 토큰 확보까지 대기한다. running이 꺼지면 false로 반환해 봇 루프를 종료시킨다. */
+    /**
+     * 일시정지 게이트(POST /admin/v1/sim/pause). 발행 경로가 전부 이 버킷을 지나므로
+     * 봇 스레드를 죽이지 않고 주문·취소 발행만 멈춘다. 해제는 start 또는 pause 재토글.
+     */
+    public void setPaused(boolean paused) {
+        this.paused = paused;
+    }
+
+    public boolean paused() {
+        return paused;
+    }
+
+    /**
+     * 토큰 확보까지 대기한다. running이 꺼지면 false로 반환해 봇 루프를 종료시킨다.
+     * 일시정지 중에는 토큰을 소비하지 않고 대기만 하므로 스레드가 유지된다.
+     */
     public boolean acquire(BooleanSupplier running) {
         while (running.getAsBoolean()) {
-            if (tryAcquire()) {
+            if (!paused && tryAcquire()) {
                 return true;
             }
             try {

@@ -37,10 +37,11 @@
   opacity: 0.5;
 }
 
-/* 5열: 순위 · 코인(1fr) · 현재가 · 전일대비 · 거래대금 */
+/* 5열: 순위 · 코인 · 현재가(1fr) · 전일대비 · 거래대금.
+   슬랙을 이름 열에 주면 이름과 숫자 사이 수백 px 공백이 생긴다. 우측 정렬 숫자 열이 흡수한다 */
 .row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 132px 128px 120px;
+  grid-template-columns: 36px minmax(180px, 300px) minmax(132px, 1fr) 128px 120px;
   align-items: center;
   gap: var(--space-3);
   min-height: 46px;

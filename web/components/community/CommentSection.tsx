@@ -52,7 +52,7 @@ export default function CommentSection({ postExternalId, session, commentCount, 
       } catch {
         // 추가 로드 실패로 표시 중이던 목록 전체를 에러 화면으로 바꾸지 않는다(BoardListView와 동일 규약)
         if (reset) setPhase("error");
-        else toast("댓글을 더 불러오지 못했어요", "error");
+        else toast("댓글을 더 불러오지 못함", "error");
       } finally {
         setLoadingMore(false);
       }
@@ -89,7 +89,7 @@ export default function CommentSection({ postExternalId, session, commentCount, 
     onCountChange?.(-1);
     try {
       await ds.deleteComment(c.external_id);
-      toast("댓글을 삭제했어요", "info");
+      toast("댓글 삭제 완료", "info");
     } catch (e) {
       // 대상 1건만 원값으로 복원한다. 전체 스냅샷 교체는 요청 왕복 중 완료된 다른 낙관
       // 변경(새 댓글 append·좋아요 반영)까지 클릭 시점 상태로 되돌린다
@@ -104,7 +104,7 @@ export default function CommentSection({ postExternalId, session, commentCount, 
   const submitReport = async (targetId: string, reason: ReportReason, detail: string) => {
     try {
       await ds.report({ targetType: "COMMENT", targetId, reason, detail });
-      toast("신고를 접수했어요", "success");
+      toast("신고 접수 완료", "success");
       setReportTarget(null);
     } catch (e) {
       const m = mapCommunityError(e);
@@ -149,7 +149,7 @@ export default function CommentSection({ postExternalId, session, commentCount, 
         />
       ) : (
         <button type="button" className={styles.loginPrompt} onClick={onRequireLogin}>
-          로그인하고 댓글을 남겨보세요
+          로그인하고 댓글 남기기
         </button>
       )}
 
@@ -162,7 +162,7 @@ export default function CommentSection({ postExternalId, session, commentCount, 
 
       {phase === "error" && (
         <div className={styles.inlineError} role="alert">
-          <span>댓글을 불러오지 못했어요</span>
+          <span>댓글을 불러오지 못함</span>
           <button type="button" className={styles.retry} onClick={() => void load(true)}>
             다시 시도
           </button>
@@ -172,7 +172,7 @@ export default function CommentSection({ postExternalId, session, commentCount, 
       {phase === "ready" && roots.length === 0 && (
         <div className={styles.empty}>
           <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-          <p>아직 댓글이 없어요. 첫 댓글을 남겨보세요</p>
+          <p>아직 댓글 없음</p>
         </div>
       )}
 
@@ -330,7 +330,7 @@ function CommentComposer({ postExternalId, parentId, onCreated, onRequireLogin, 
         rows={compact ? 2 : 3}
         maxLength={COMMENT_BODY_MAX}
         disabled={busy}
-        placeholder={parentId ? "답글을 입력해 주세요" : "댓글을 입력해 주세요"}
+        placeholder={parentId ? "답글 입력" : "댓글 입력"}
         aria-label={parentId ? "답글 입력" : "댓글 입력"}
         onChange={(e) => setBody(e.target.value)}
       />

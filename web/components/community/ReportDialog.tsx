@@ -124,7 +124,7 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
         <h2 id={titleId} className={styles.title}>
           {label} 신고
         </h2>
-        <p id={descId} className={styles.desc}>신고 사유를 선택해 주세요. 접수 후 운영 검토를 거쳐요.</p>
+        <p id={descId} className={styles.desc}>신고 사유 선택. 접수 후 운영 검토 진행.</p>
 
         <fieldset className={styles.reasons}>
           <legend className="sr-only">신고 사유</legend>
@@ -151,7 +151,7 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
           value={detail}
           maxLength={REPORT_DETAIL_MAX}
           rows={3}
-          placeholder="추가로 알려줄 내용이 있으면 적어주세요"
+          placeholder="추가로 알릴 내용 입력"
           onChange={(e) => setDetail(e.target.value)}
         />
 

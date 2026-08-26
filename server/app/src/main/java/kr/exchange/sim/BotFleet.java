@@ -46,6 +46,8 @@ public class BotFleet {
 
     public synchronized void start() {
         if (running) {
+            // start는 재기동 요청이 아니라 일시정지 해제로 수렴한다(§6-A 전체 제어).
+            governor.setPaused(false);
             return;
         }
         // 채번이 던지면 running이 참으로 굳어 이후 start()가 조기 반환한다. 플래그 앞에서 뽑는다.
@@ -187,11 +189,29 @@ public class BotFleet {
         return running;
     }
 
+    public boolean isPaused() {
+        return governor.paused();
+    }
+
+    /**
+     * 일시정지 토글(§6-A pause). 발행 게이트만 닫아 스레드·시드·오더북 상태를 유지한다.
+     * 미기동 플릿은 멈출 발행이 없으므로 토글하지 않고 false를 반환한다(applied 판정 입력).
+     */
+    public synchronized boolean togglePause() {
+        if (!running) {
+            return false;
+        }
+        governor.setPaused(!governor.paused());
+        return true;
+    }
+
     public synchronized void stop() {
         if (!running) {
             return;
         }
         running = false;
+        // 정지 상태에 pause 잔류를 남기지 않는다. 다음 start는 항상 발행 가능 상태로 뜬다.
+        governor.setPaused(false);
         if (balancer != null) {
             balancer.interrupt();
         }

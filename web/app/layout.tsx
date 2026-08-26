@@ -8,10 +8,10 @@ import GlobalErrorReporter from "@/components/GlobalErrorReporter";
 
 export const metadata: Metadata = {
   title: {
-    default: "가상 암호화폐 거래소",
-    template: "%s · 가상 암호화폐 거래소",
+    default: "페일스톱 · 모의 거래소",
+    template: "%s · 페일스톱",
   },
-  description: "고가용성 가상 암호화폐 거래소, 완전 시뮬레이션 캡스톤 데모",
+  description: "장애를 견디는 모의 암호화폐 거래소 페일스톱. 고가용성 캡스톤 데모",
 };
 
 // 고정형 데스크톱 전용이다(데스크톱_레이아웃설계 §4: 반응형 리플로우 없음, 모바일 미지원).

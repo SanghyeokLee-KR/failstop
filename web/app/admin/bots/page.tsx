@@ -84,8 +84,8 @@ export default function BotsPage() {
   const api = getAdminApi();
   const paramActions = useMemo(() => PARAM_ACTIONS, []);
 
-  // http 서버는 start·stop·pause를 감사 적재만 한다(controlApplied=false). 반영을 단정하는
-  // 문구는 상태 필이 그대로일 때 운영자 오인을 만들므로 기록 사실만 알린다
+  // v2.22부터 sim·http 모두 실반영(controlApplied=true). 분기는 미래의 미반영 어댑터 대비로
+  // 남긴다. 플릿 부재 등 반영 실패는 어댑터가 에러로 던져 아래 run()의 에러 토스트를 탄다
   const controlOk = (applied: string) =>
     api.controlApplied ? applied : "제어 요청을 감사에 기록했습니다. 반영 여부는 플릿 상태로 확인하세요";
 

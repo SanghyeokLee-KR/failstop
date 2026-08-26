@@ -7,7 +7,7 @@
 /** 동일 메시지 재통지 억제 창. 재시도 루프가 토스트를 도배하는 것을 막는다 */
 export const DEDUPE_MS = 5000;
 
-const FALLBACK_MESSAGE = "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요";
+const FALLBACK_MESSAGE = "요청을 처리하지 못함. 잠시 후 다시 시도 필요";
 
 /** rejection 사유에서 사용자에게 보여줄 문장을 고른다. 비정형 사유는 기본 문구로 수렴시킨다 */
 export function messageOf(reason: unknown): string {

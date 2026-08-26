@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.21, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.22, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -1002,13 +1002,13 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 | POST | `/admin/v1/sim/bots` | 봇 생성(유형·수·파라미터) | 불요 |
 | DELETE | `/admin/v1/sim/bots/{id}` | 봇 제거 | 불요 |
 | PATCH | `/admin/v1/sim/bots/{id}/params` | 실행 중 파라미터 변경(operator 승인) | **필수** |
-| POST | `/admin/v1/sim/start` \| `/stop` \| `/pause` | 전체 제어 | 불요 |
+| POST | `/admin/v1/sim/start` \| `/stop` \| `/pause` | 전체 제어(기동·정지·발행 일시정지 토글, v2.22) | 불요 |
 | POST | `/admin/v1/sim/scenarios/{name}/activate` | 프리셋(steady/volatile/spike/ramp/thundering-herd) | 불요 |
 | PUT | `/admin/v1/sim/rate` | 전역 목표 OPS | 불요 |
 | PUT | `/admin/v1/sim/scale` | 마켓·유형별 봇 대수 set-point(count 증감 상위 제어) | 불요 |
 | PUT | `/admin/v1/sim/bias` | 마켓별 목표 net bias(-1~+1)·자동균형 강도 | 불요 |
 | PUT | `/admin/v1/sim/effects` | 체결 시각효과 강도(`trade_flash`)·공개 config 반영 | 불요 |
-| GET | `/admin/v1/sim/status` | 봇 수·OPS·성공률·평균지연·마켓별 bias·대수(schema 1.1) | 불요 |
+| GET | `/admin/v1/sim/status` | 봇 수·OPS·성공률·평균지연·마켓별 bias·대수·수명주기(schema 1.2) | 불요 |
 | WS | `/admin/v1/ws/sim/telemetry` | 실시간 텔레메트리 | 불요 |
 
 ```json
@@ -1020,9 +1020,9 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 { "schema_version":"1.0","created":40,"bot_ids":[],"fleet_total":140,
   "fleet_present":true,"applied_target":40,"clamped":false }
 
-// GET /admin/v1/sim/status → 200 (schema 1.1, 봇_방향성 §5-5)
-{ "schema_version":"1.1", "fleet_present":true, "target_ops":"20",
-  "trade_flash":"normal",
+// GET /admin/v1/sim/status → 200 (schema 1.2, 봇_방향성 §5-5)
+{ "schema_version":"1.2", "fleet_present":true, "running":true, "paused":false,
+  "target_ops":"20", "trade_flash":"normal",
   "markets":[
     { "market":"KRW-BTC",
       "target_net_bias":"0.30", "measured_net_bias":"0.22", "effective_bias":"0.24",
@@ -1035,6 +1035,8 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 **`POST /sim/bots` 응답 계약(v2.11, governor set-point 반영)**: 이 경로는 개별 봇 인스턴스를 즉시 기동하지 않고 인메모리 governor의 유형별 목표 대수를 `count`만큼 상향한다(캡 클램프 적용). 실제 인스턴스는 별도 `bots` 프로파일이 목표 대수를 좇아 기동하므로 이 경로는 인스턴스 id를 발급하지 않는다. 따라서 `bot_ids`는 상시 빈 배열이다. `created`는 클램프 후 순증분, `applied_target`은 클램프 후 해당 유형 목표, `fleet_total`은 전 마켓 목표 대수 합계, `clamped`는 캡에 걸렸는지, `fleet_present`는 governor 주입 여부다. governor 부재 배포는 `count`를 그대로 `created`·`applied_target`·`fleet_total`로 보고하고 `fleet_present:false`를 준다. Cluster B는 `created`·`fleet_total`로 결과를 표시하고 `clamped`로 캡 도달을 안내한다.
 
 **set-point 제어(v2.10, 봇_방향성 §5·체결_시각효과 §5-6 정본 반영)**: `PUT /sim/scale`·`/sim/bias`·`/sim/effects`는 개별 봇 생성/제거를 대체하지 않고 그 위에 마켓·유형 단위 목표값을 얹는 상위 제어다. 셋 다 파괴 액션이 아니므로 approval_token 불요이고 감사 로그만 적재한다(§3-6 필수 완결 열거 불변, 신규 필수 액션 없음). `/sim/effects`의 `trade_flash`는 공개 `GET /api/v1/exchange-config`(§4-A-6)에 반영된다. `GET /sim/status`는 schema를 1.1로 올려 마켓별 `target/measured/effective_bias`, `auto_balance`, 유형별 `scale{target,active}`, `fill_ratio`, `trade_flash`를 additive로 더한다(기존 1.0 소비자 무영향).
+
+**전체 제어(v2.22, `POST /sim/start|stop|pause` 계약 확정)**: 세 명령은 봇 플릿 수명주기를 실제로 움직인다. `start`는 미기동이면 기동, 일시정지 상태면 해제(재기동 아님). `stop`은 플릿 정지(스레드 종료, pause 잔류 없음). `pause`는 토글이며 봇 스레드·시드·오더북 상태를 유지한 채 발행 게이트(전역 OPS 버킷)만 닫아 주문·취소 발행을 멈춘다. 셋 다 멱등 수렴형이라 approval_token 불요·감사 적재는 불변이다. 응답은 schema 1.1: `{ "schema_version":"1.1","command":"pause","applied":true,"running":true,"paused":true,"fleet_present":true }`. `applied`는 명령이 플릿에 반영됐는지(수명주기 플릿 빈 부재 배포는 항상 false, 미기동 플릿에의 `pause`도 false), `running`·`paused`는 실행 후 상태, `fleet_present`는 수명주기 플릿 빈 주입 여부다. `GET /sim/status`는 schema를 1.2로 올려 top-level `running`·`paused`를 additive로 더한다(기존 1.1 소비자 무영향). status의 `fleet_present`는 종전대로 governor 주입 여부이고 제어 응답의 `fleet_present`는 수명주기 빈 기준이므로, 봇 프로파일이 켜진 정상 배포에서 둘은 일치한다.
 
 ### 6-B. 카오스 주입 API
 
@@ -1561,3 +1563,17 @@ v2.17이 E1 라이브 PASS(errorRate 0, epoch 불변, 주입 중 status 200 유�
 `realized_pnl`·`unknown_proceeds`는 `position_cost`에 적재되지만 이 판에서 API로 노출하지 않는다. 화면 요구가 없는 필드를 계약에 넣으면 검증 표면만 늘어난다. 노출 시점에 별도 판으로 등재한다.
 
 문서 헤더 버전을 v2.21로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.22 패치 반영 사항
+
+§6-A 표가 `POST /sim/start|stop|pause`를 "전체 제어"로만 두고 의미·응답을 미정의해, 구현이 감사 적재만 하고 플릿을 건드리지 않아도 문면 위반이 아니었다. 실제 서버가 그 상태였고 웹 콘솔은 미반영을 자인하는 안내로 버텼다. 제어 의미와 응답 계약을 확정해 공백을 닫는다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| L1 | §6-A | 전체 제어 의미 확정: `start`=미기동 기동·일시정지 해제, `stop`=정지(pause 잔류 없음), `pause`=발행 일시정지 토글. pause는 봇 스레드·시드·오더북 상태를 유지하고 전역 OPS 게이트만 닫는다(재개 시 워밍업 없이 즉시 발행 재개). 스레드 재생성 없는 게이트 방식이라 토글 반복이 시드·저널에 흔적을 남기지 않는다 |
+| L2 | §6-A | 제어 응답 schema 1.1 등재: `command`·`applied`·`running`·`paused`·`fleet_present`. 종전 1.0(`command`뿐)은 반영 여부를 알 수 없어 콘솔이 성공 토스트를 단정할 근거가 없었다. 수명주기 플릿 빈 부재 배포는 `applied:false`로 미반영을 정직하게 보고한다(§6-A `fleet_present` 선례). 미기동 플릿에의 `pause`도 멈출 발행이 없으므로 `applied:false` |
+| L3 | §6-A | `GET /sim/status` schema 1.2: top-level `running`·`paused` additive 추가(기존 1.1 소비자 무영향). 웹 콘솔이 `fleet_present`를 running으로 오독해 쓰던 임시 매핑을 실제 수명주기 상태로 대체하기 위한 원천이다 |
+
+문서 헤더 버전을 v2.22로 순증(이전 패치 노트의 역사 서술은 원문 유지).

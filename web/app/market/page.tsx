@@ -4,11 +4,12 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import RedirectShell from "@/components/RedirectShell";
 
 export default function MarketPage() {
   const router = useRouter();
   useEffect(() => {
     router.replace("/exchange");
   }, [router]);
-  return null;
+  return <RedirectShell />;
 }

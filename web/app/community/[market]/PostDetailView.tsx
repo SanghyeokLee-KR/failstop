@@ -61,7 +61,7 @@ export default function PostDetailView({ market, meta, postId, session }: Props)
   }, [ds, postId]);
 
   const requireLogin = () => {
-    toast("로그인이 필요해요", "info");
+    toast("로그인 필요", "info");
     router.push("/auth/login");
   };
 
@@ -92,7 +92,7 @@ export default function PostDetailView({ market, meta, postId, session }: Props)
       const updated = await ds.updatePost(post.external_id, { title, body });
       setPost(updated);
       setEditing(false);
-      toast("글을 수정했어요", "success");
+      toast("글 수정 완료", "success");
     } catch (e) {
       const m = mapCommunityError(e);
       if (m.needsLogin) requireLogin();
@@ -106,7 +106,7 @@ export default function PostDetailView({ market, meta, postId, session }: Props)
     if (!post) return;
     try {
       await ds.deletePost(post.external_id);
-      toast("글을 삭제했어요", "info");
+      toast("글 삭제 완료", "info");
       router.push(backHref);
     } catch (e) {
       setConfirming(false);
@@ -120,7 +120,7 @@ export default function PostDetailView({ market, meta, postId, session }: Props)
     if (!post) return;
     try {
       await ds.report({ targetType: "POST", targetId: post.external_id, reason, detail });
-      toast("신고를 접수했어요", "success");
+      toast("신고 접수 완료", "success");
       setReporting(false);
     } catch (e) {
       const m = mapCommunityError(e);
@@ -154,7 +154,7 @@ export default function PostDetailView({ market, meta, postId, session }: Props)
 
         {phase === "notfound" && (
           <div className="empty-state">
-            <p className="empty-state__title">이미 삭제됐거나 없는 글이에요</p>
+            <p className="empty-state__title">이미 삭제됐거나 없는 글</p>
             <Link href={backHref} className="btn btn--secondary">
               목록으로
             </Link>
@@ -163,7 +163,7 @@ export default function PostDetailView({ market, meta, postId, session }: Props)
 
         {phase === "error" && (
           <div className="empty-state" role="alert">
-            <p className="empty-state__title">글을 불러오지 못했어요</p>
+            <p className="empty-state__title">글을 불러오지 못함</p>
             <Link href={backHref} className="btn btn--secondary">
               목록으로
             </Link>
@@ -260,7 +260,7 @@ export default function PostDetailView({ market, meta, postId, session }: Props)
         <section className={`card ${styles.railCard}`}>
           <h2 className={styles.railTitle}>{meta.koreanName} 토론방</h2>
           <p className={styles.railText}>
-            서로 존중하는 표현을 지켜주세요. 투자 권유나 허위 정보는 신고 대상이에요.
+            서로 존중하는 표현 유지, 투자 권유·허위 정보는 신고 대상.
           </p>
           <Link href={backHref} className="btn btn--secondary btn--full">
             목록 전체 보기

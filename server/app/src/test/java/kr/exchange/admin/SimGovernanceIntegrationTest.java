@@ -31,8 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 봇 방향성·거버넌스 관리 API 검증(설계 §5). BOT_OPS 역할로 대수 스케일·방향·효과 강도를
- * 반영하고, 캡 클램프·감사 적재·상태 1.1 additive·공개 exchange-config 화이트리스트,
+ * 반영하고, 캡 클램프·감사 적재·상태 1.2 additive·공개 exchange-config 화이트리스트,
  * VIEWER 인가 거부를 확인한다. approval 불요 경로임을 감사 approval_id NULL로 검증한다.
+ * BotFleet 빈이 없는 컨텍스트라 전체 제어는 applied:false 폴백을 검증한다(실반영은
+ * SimControlIntegrationTest).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -153,7 +155,7 @@ class SimGovernanceIntegrationTest {
     }
 
     @Test
-    void statusIsSchema11Additive() throws Exception {
+    void statusIsSchema12Additive() throws Exception {
         String s = session("op-bot");
         // 마켓 상태를 남긴다.
         put("/admin/v1/sim/scale", "{\"market\":\"KRW-BTC\",\"targets\":{\"TAKER\":3}}",
@@ -161,9 +163,12 @@ class SimGovernanceIntegrationTest {
         ResponseEntity<String> r = get("/admin/v1/sim/status", "op-bot", s);
         assertEquals(200, r.getStatusCode().value());
         JsonNode body = objectMapper.readTree(r.getBody());
-        assertEquals("1.1", body.path("schema_version").asText());
+        assertEquals("1.2", body.path("schema_version").asText());
         assertTrue(body.path("fleet_present").asBoolean());
         assertTrue(body.has("target_ops"), "기존 1.0 필드 보존(additive)");
+        // 1.2 additive: 플릿 수명주기. 이 컨텍스트는 BotFleet 빈이 없어 둘 다 false다.
+        assertFalse(body.path("running").asBoolean());
+        assertFalse(body.path("paused").asBoolean());
         JsonNode markets = body.path("markets");
         assertTrue(markets.isArray() && markets.size() >= 1);
         JsonNode btc = markets.get(0);
@@ -215,6 +220,21 @@ class SimGovernanceIntegrationTest {
         ResponseEntity<String> r = post("/admin/v1/sim/bots",
                 "{\"type\":\"WHALE\",\"count\":1,\"market\":\"KRW-BTC\"}", "op-bot", s);
         assertEquals(400, r.getStatusCode().value());
+    }
+
+    @Test
+    void controlWithoutFleetReportsNotApplied() throws Exception {
+        String s = session("op-bot");
+        ResponseEntity<String> r = post("/admin/v1/sim/start", null, "op-bot", s);
+        assertEquals(200, r.getStatusCode().value(), r.getBody());
+        JsonNode body = objectMapper.readTree(r.getBody());
+        assertEquals("1.1", body.path("schema_version").asText());
+        assertEquals("start", body.path("command").asText());
+        assertFalse(body.path("applied").asBoolean(), "플릿 부재는 미반영을 정직하게 보고");
+        assertFalse(body.path("fleet_present").asBoolean());
+        assertFalse(body.path("running").asBoolean());
+        assertTrue(jdbc.sql("SELECT count(*) FROM admin_audit_log WHERE operator_id='op-bot' "
+                        + "AND action='sim.start'").query(Long.class).single() >= 1);
     }
 
     @Test

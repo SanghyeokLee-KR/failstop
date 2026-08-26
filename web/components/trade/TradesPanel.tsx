@@ -66,6 +66,7 @@ const TradeRow = memo(function TradeRow({
   qtyScale,
   isLarge,
   flashDir,
+  tickDir,
 }: {
   price: number;
   priceStr: string;
@@ -77,26 +78,31 @@ const TradeRow = memo(function TradeRow({
   qtyScale: number;
   isLarge: boolean;
   flashDir: "up" | "down" | undefined;
+  /** 직전 체결 대비 틱 방향. 화살표·색의 유일한 의미다(테이커 방향 인코딩 금지) */
+  tickDir: "up" | "down" | "flat";
 }) {
   const { rate, state } = rateVsPrevClose(price, prevClose);
   const d = dirOf(state);
-  const sideDir = side === "bid" ? "up" : "down";
   // 거래대금은 원본 문자열 정밀 곱(float 곱 금지). sub-1 KRW 대량 체결 정밀 보존
   const largeAmount = isLarge ? formatCompactKRW(mulDecimal(priceStr, volume)) : "";
   return (
     <tr className={flashDir ? "trade-flash" : undefined} data-flash={flashDir}>
       <td className={styles.priceCell}>
         {isLarge && (
-          <span className={styles.largeTag} data-dir={sideDir} title={`대형 체결 ${largeAmount}`} aria-hidden="true">
-            대형 {side === "bid" ? "▲" : "▼"}
+          // 대형 태그는 규모 신호다. 방향색을 섞으면 화살표 문법이 다시 이중 의미가 된다
+          <span className={styles.largeTag} title={`대형 체결 ${largeAmount}`} aria-hidden="true">
+            대형
           </span>
         )}
+        {/* 같은 행의 등락률 화살표와 같은 문법: 가격 방향. 보합은 무채·무화살표.
+            테이커 방향은 시각 채널에서 빼고 낭독으로만 남긴다 */}
         <span
           className="dir-text"
-          data-dir={sideDir}
+          data-dir={tickDir}
           aria-label={`${side === "bid" ? "매수" : "매도"} 체결 ${formatPrice(priceStr, tickSpec)}원${isLarge ? `, 대형 체결 ${largeAmount}` : ""}`}
         >
-          {side === "bid" ? "▲" : "▼"} {formatPrice(priceStr, tickSpec)}
+          {tickDir === "up" ? "▲ " : tickDir === "down" ? "▼ " : ""}
+          {formatPrice(priceStr, tickSpec)}
         </span>
       </td>
       <td className={styles.qty}>{formatQty(volume, qtyScale)}</td>
@@ -172,7 +178,11 @@ export default function TradesPanel({ market }: { market: string }) {
     const isInitial = lastTopId.current === null; // 백필 첫 렌더는 플래시 생략
     lastTopId.current = top.id;
     if (isInitial || level === "off" || gov.flood || prefersReducedMotion()) return;
-    setFlash({ id: top.id, dir: top.side === "bid" ? "up" : "down" });
+    // 플래시도 가격 틱 방향. 보합·비교 불가는 생략한다. 행이 무채인데 배경만 방향색으로
+    // 점멸하면 행 문법(보합 무채·무화살표)과 자기모순이 된다
+    const prev = rows[1];
+    if (!prev || top.price === prev.price) return;
+    setFlash({ id: top.id, dir: top.price < prev.price ? "down" : "up" });
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), FLASH_MS);
   }, [rows, level, gov.flood]);
@@ -184,16 +194,17 @@ export default function TradesPanel({ market }: { market: string }) {
   );
 
   const prevClose = prevCloseOf(ticker);
-  // 홍수 모드: 개별 팝·플래시 대신 패널 방향 히트 틴트(최근 창 우세 방향).
+  // 홍수 모드: 개별 팝·플래시 대신 패널 방향 히트 틴트(최근 창의 가격 흐름 방향).
   // reduced-motion이면 배경 틴트도 끈다(정적 수렴). rows[0] 단건 구동은 red↔blue 점멸을 유발하므로
-  // 최근 창(HIT_WINDOW) 집계로 우세 방향을 판정한다.
+  // 창 양끝 가격 비교로 판정한다. 테이커 우세로 칠하면 행 화살표(가격 방향)와 의미가 갈린다.
   const hitDir = useMemo<"up" | "down" | undefined>(() => {
     if (!gov.flood || prefersReducedMotion()) return undefined;
     const window = rows.slice(0, HIT_WINDOW);
-    if (window.length === 0) return undefined;
-    let bid = 0;
-    for (const r of window) if (r.side === "bid") bid += 1;
-    return bid * 2 >= window.length ? "up" : "down";
+    if (window.length < 2) return undefined;
+    const newest = window[0].price;
+    const oldest = window[window.length - 1].price;
+    if (newest === oldest) return undefined;
+    return newest > oldest ? "up" : "down";
   }, [gov.flood, rows]);
 
   return (
@@ -207,7 +218,7 @@ export default function TradesPanel({ market }: { market: string }) {
       {backfillFailed && rows.length === 0 ? (
         <div className="empty-state" role="alert">
           <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-          <span className="empty-state__title">체결 내역을 불러오지 못했어요</span>
+          <span className="empty-state__title">체결 내역 불러오기 실패</span>
           <button type="button" className="btn btn--secondary" onClick={retryBackfill}>
             다시 시도
           </button>
@@ -217,7 +228,7 @@ export default function TradesPanel({ market }: { market: string }) {
       ) : rows.length === 0 ? (
         <div className="empty-state">
           <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-          <span className="empty-state__title">아직 체결 내역이 없어요</span>
+          <span className="empty-state__title">체결 내역 없음</span>
         </div>
       ) : (
         <table className={`${styles.table} num ${hitDir ? "hit-tint" : ""}`} data-hit={hitDir}>
@@ -230,21 +241,28 @@ export default function TradesPanel({ market }: { market: string }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((t) => (
-              <TradeRow
-                key={t.id}
-                price={t.price}
-                priceStr={t.priceStr}
-                volume={t.volume}
-                side={t.side}
-                timestamp={t.timestamp}
-                prevClose={prevClose}
-                tickSpec={tickSpec}
-                qtyScale={qtyScale}
-                isLarge={large.isLarge(t.volume)}
-                flashDir={flash?.id === t.id ? flash.dir : undefined}
-              />
-            ))}
+            {rows.map((t, i) => {
+              // 직전 체결 = 시각상 바로 앞 행(목록은 내림차순). 마지막 행은 비교 대상이 없어 보합 처리
+              const prev = rows[i + 1];
+              const tickDir: "up" | "down" | "flat" =
+                !prev || t.price === prev.price ? "flat" : t.price > prev.price ? "up" : "down";
+              return (
+                <TradeRow
+                  key={t.id}
+                  price={t.price}
+                  priceStr={t.priceStr}
+                  volume={t.volume}
+                  side={t.side}
+                  timestamp={t.timestamp}
+                  prevClose={prevClose}
+                  tickSpec={tickSpec}
+                  qtyScale={qtyScale}
+                  isLarge={large.isLarge(t.volume)}
+                  flashDir={flash?.id === t.id ? flash.dir : undefined}
+                  tickDir={tickDir}
+                />
+              );
+            })}
           </tbody>
         </table>
       )}

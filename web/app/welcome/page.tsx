@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import BrandMark from "@/components/BrandMark";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = { title: "시작하기" };
@@ -13,17 +14,15 @@ export default function WelcomePage() {
   return (
     <main className={styles.root}>
       <section className={styles.hero}>
-        <div className={styles.mark} aria-hidden="true">
-          <svg width="30" height="30" viewBox="0 0 30 30">
-            <rect x="4" y="4" width="22" height="22" rx="6" transform="rotate(45 15 15)" fill="var(--brand-primary)" />
-          </svg>
+        <div className={styles.mark} aria-hidden="true" style={{ color: "var(--brand-primary)" }}>
+          <BrandMark size={30} />
         </div>
         <h1 className={styles.title}>
-          암호화폐를
+          장애가 나도
           <br />
-          실시간으로 거래
+          멈추지 않는 거래
         </h1>
-        <p className={styles.sub}>호가와 체결이 살아 있는 모의 거래소</p>
+        <p className={styles.sub}>페일스톱 · 호가와 체결이 살아 있는 모의 거래소</p>
       </section>
 
       <div className={styles.cta}>

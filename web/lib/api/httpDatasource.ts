@@ -74,7 +74,7 @@ export class ApiError extends Error {
   }
 }
 
-const GENERIC_ERROR_MESSAGE = "요청에 실패했어요. 잠시 후 다시 시도해 주세요";
+const GENERIC_ERROR_MESSAGE = "요청 실패. 잠시 후 다시 시도 필요";
 
 /**
  * fetch 자체 거부(백엔드 다운·오프라인·CORS) 래핑. 호출측 취소(AbortSignal)는 흐름 제어라
@@ -83,7 +83,7 @@ const GENERIC_ERROR_MESSAGE = "요청에 실패했어요. 잠시 후 다시 시�
  */
 function wrapNetworkError(e: unknown): never {
   if ((e as { name?: string } | null)?.name === "AbortError") throw e;
-  throw new ApiError(0, "network_error", "네트워크에 연결할 수 없어요. 잠시 후 다시 시도해 주세요");
+  throw new ApiError(0, "network_error", "네트워크 연결 실패. 잠시 후 다시 시도 필요");
 }
 
 interface ErrorEnvelope {
@@ -384,7 +384,7 @@ export class HttpStompDataSource implements DataSource {
       const wasMember = this.member !== null;
       const token = await this.ensureAuthToken(force);
       if (isWrite && wasMember && !this.member) {
-        throw new ApiError(401, "session_expired", "세션이 만료됐어요. 다시 로그인해 주세요");
+        throw new ApiError(401, "session_expired", "세션 만료. 다시 로그인 필요");
       }
       return token;
     };
@@ -782,7 +782,7 @@ export class HttpStompDataSource implements DataSource {
   async getMe(): Promise<MemberUser> {
     const token = await this.ensureAuthToken();
     const user = await this.fetchMe(token);
-    if (!user) throw new ApiError(401, "session_expired", "세션이 만료됐어요");
+    if (!user) throw new ApiError(401, "session_expired", "세션 만료. 다시 로그인 필요");
     return user;
   }
 

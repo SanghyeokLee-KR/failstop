@@ -209,6 +209,9 @@ interface WireMarketState {
 interface WireSimStatus {
   schema_version?: string;
   fleet_present?: boolean;
+  /** status 1.2(v2.22)부터 실제 플릿 상태. 구 서버는 부재라 fleet_present 폴백 */
+  running?: boolean;
+  paused?: boolean;
   target_ops?: string;
   trade_flash?: TradeFlash;
   markets?: WireMarketState[];
@@ -310,9 +313,9 @@ interface WireChaosRun {
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 
 export class HttpAdminApi implements AdminApi {
-  // 서버 SimAdminController.control은 start·stop·pause를 감사 적재만 하고 governor를 건드리지
-  // 않는다. 반영을 단정하는 토스트가 운영자 오인을 만들지 않도록 화면에 미반영을 알린다
-  readonly controlApplied = false;
+  // v2.22부터 서버 control이 플릿 수명주기를 실반영한다(start 기동·pause 발행 게이트·stop 정지).
+  // 반영 여부는 응답 applied와 status 1.2의 running·paused가 원천이다
+  readonly controlApplied = true;
 
   private readonly base: string;
   private session: AdminSession | null = null;
@@ -725,8 +728,9 @@ export class HttpAdminApi implements AdminApi {
     }
     const rate = num(raw.target_ops);
     return {
-      running: raw.fleet_present === true,
-      paused: false,
+      // status 1.2의 실제 플릿 상태. fleet_present는 빈 존재 여부일 뿐 가동 여부가 아니다
+      running: raw.running ?? raw.fleet_present === true,
+      paused: raw.paused ?? false,
       rate,
       currentOps: rate,
       botCount,
@@ -807,16 +811,28 @@ export class HttpAdminApi implements AdminApi {
     return res.trade_flash ?? tradeFlash;
   }
 
+  /** control 1.1의 applied:false(플릿 빈 부재 등)는 성공 응답이지만 미반영이다.
+   * 삼키면 콘솔이 반영을 단정하므로 에러로 승격해 화면 에러 토스트를 태운다 */
+  private async simControl(command: "start" | "stop" | "pause"): Promise<void> {
+    const res = await this.http<{ applied?: boolean }>(`/admin/v1/sim/${command}`, {
+      method: "POST",
+      body: JSON.stringify({ operator_id: this.sessionOpId() }),
+    });
+    if (res && res.applied === false) {
+      throw new AdminError("control_not_applied", "봇 플릿 부재로 반영되지 않음. 서버 프로파일 확인 필요");
+    }
+  }
+
   simStart(): Promise<void> {
-    return this.http<void>("/admin/v1/sim/start", { method: "POST", body: JSON.stringify({ operator_id: this.sessionOpId() }) });
+    return this.simControl("start");
   }
 
   simStop(): Promise<void> {
-    return this.http<void>("/admin/v1/sim/stop", { method: "POST", body: JSON.stringify({ operator_id: this.sessionOpId() }) });
+    return this.simControl("stop");
   }
 
   simPause(): Promise<void> {
-    return this.http<void>("/admin/v1/sim/pause", { method: "POST", body: JSON.stringify({ operator_id: this.sessionOpId() }) });
+    return this.simControl("pause");
   }
 
   simSetRate(rate: number): Promise<void> {

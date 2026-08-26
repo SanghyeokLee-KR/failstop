@@ -67,7 +67,7 @@ export default function BoardListView({ market, meta, session }: Props) {
       } catch {
         if (gen !== loadGen.current) return;
         if (reset) setPhase("error");
-        else toast("목록을 더 불러오지 못했어요", "error");
+        else toast("목록을 더 불러오지 못함", "error");
       } finally {
         if (gen === loadGen.current) setLoadingMore(false);
       }
@@ -81,7 +81,7 @@ export default function BoardListView({ market, meta, session }: Props) {
   }, [market, sort]);
 
   const requireLogin = () => {
-    toast("로그인이 필요해요", "info");
+    toast("로그인 필요", "info");
     router.push("/auth/login");
   };
 
@@ -100,7 +100,7 @@ export default function BoardListView({ market, meta, session }: Props) {
     try {
       const post = await ds.createPost(market, { title, body, clientKey: postKeyRef.current });
       postKeyRef.current = "";
-      toast("글을 등록했어요", "success");
+      toast("글 등록 완료", "success");
       setComposing(false);
       router.push(`/community/${market}?post=${post.external_id}`);
     } catch (e) {
@@ -154,8 +154,8 @@ export default function BoardListView({ market, meta, session }: Props) {
             {phase === "error" && (
               <div className="empty-state" role="alert">
                 <span className="empty-state__mark" aria-hidden="true" />
-                <p className="empty-state__title">글을 불러오지 못했어요</p>
-                <p className="empty-state__desc">잠시 후 다시 시도해 주세요</p>
+                <p className="empty-state__title">글을 불러오지 못함</p>
+                <p className="empty-state__desc">잠시 후 다시 시도 필요</p>
                 <button type="button" className="btn btn--secondary" onClick={() => void load(sort, true)}>
                   다시 시도
                 </button>
@@ -165,7 +165,7 @@ export default function BoardListView({ market, meta, session }: Props) {
             {phase === "ready" && posts.length === 0 && (
               <div className="empty-state">
                 <span className="empty-state__mark" aria-hidden="true" />
-                <p className="empty-state__title">아직 글이 없어요. 첫 글을 남겨보세요</p>
+                <p className="empty-state__title">아직 글 없음</p>
                 <button type="button" className="btn btn--primary" onClick={openCompose}>
                   글쓰기
                 </button>

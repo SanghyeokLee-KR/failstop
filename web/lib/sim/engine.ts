@@ -68,18 +68,18 @@ interface SimMarketSeed {
 }
 
 const SEEDS: SimMarketSeed[] = [
-  { market: "KRW-BTC",  koreanName: "비트코인", symbol: "BTC",  brandColor: "#F7931A", seedPrice: 84_320_000, seedChangeRate: +0.0234, sigma: 0.00045, qtyScale: 8, baseVolume: 0.02 },
-  { market: "KRW-ETH",  koreanName: "이더리움", symbol: "ETH",  brandColor: "#627EEA", seedPrice: 4_512_000,  seedChangeRate: -0.0108, sigma: 0.00055, qtyScale: 8, baseVolume: 0.4 },
-  { market: "KRW-SOL",  koreanName: "솔라나",   symbol: "SOL",  brandColor: "#66F9A1", brandTextDark: true, seedPrice: 246_800, seedChangeRate: 0, sigma: 0.0007, qtyScale: 6, baseVolume: 6 },
-  { market: "KRW-XRP",  koreanName: "리플",     symbol: "XRP",  brandColor: "#23292F", seedPrice: 742,  seedChangeRate: +0.0512, sigma: 0.0008, qtyScale: 2, baseVolume: 1800 },
-  { market: "KRW-DOGE", koreanName: "도지코인", symbol: "DOGE", brandColor: "#C2A633", seedPrice: 182,  seedChangeRate: -0.0055, sigma: 0.0009, qtyScale: 2, baseVolume: 7000 },
-  { market: "KRW-ADA",  koreanName: "에이다",   symbol: "ADA",  brandColor: "#0033AD", seedPrice: 1_084, seedChangeRate: +0.0087, sigma: 0.0007, qtyScale: 2, baseVolume: 1200 },
-  { market: "KRW-TRX",  koreanName: "트론",     symbol: "TRX",  brandColor: "#EB0029", seedPrice: 385,     seedChangeRate: +0.0321, sigma: 0.0008, qtyScale: 2, baseVolume: 5200 },
-  { market: "KRW-LINK", koreanName: "체인링크", symbol: "LINK", brandColor: "#2A5ADA", seedPrice: 28_540,  seedChangeRate: +0.0142, sigma: 0.0006, qtyScale: 4, baseVolume: 62 },
-  { market: "KRW-DOT",  koreanName: "폴카닷",   symbol: "DOT",  brandColor: "#E6007A", seedPrice: 9_820,   seedChangeRate: -0.0231, sigma: 0.0007, qtyScale: 4, baseVolume: 210 },
-  { market: "KRW-MATIC",koreanName: "폴리곤",   symbol: "MATIC",brandColor: "#8247E5", seedPrice: 724,     seedChangeRate: -0.0176, sigma: 0.0009, qtyScale: 2, baseVolume: 2600 },
-  { market: "KRW-AVAX", koreanName: "아발란체", symbol: "AVAX", brandColor: "#E84142", seedPrice: 52_430,  seedChangeRate: +0.0405, sigma: 0.0008, qtyScale: 4, baseVolume: 38 },
-  { market: "KRW-ATOM", koreanName: "코스모스", symbol: "ATOM", brandColor: "#2E3148", seedPrice: 9_640,   seedChangeRate: +0.0067, sigma: 0.0006, qtyScale: 4, baseVolume: 150 },
+  { market: "KRW-BTC",  koreanName: "비트코인", symbol: "BTC",  brandColor: "#F7931A", seedPrice: 84_320_000, seedChangeRate: +0.0234, sigma: 0.00045, qtyScale: 8, baseVolume: 0.06 },
+  { market: "KRW-ETH",  koreanName: "이더리움", symbol: "ETH",  brandColor: "#627EEA", seedPrice: 4_512_000,  seedChangeRate: -0.0108, sigma: 0.00055, qtyScale: 8, baseVolume: 0.55 },
+  { market: "KRW-SOL",  koreanName: "솔라나",   symbol: "SOL",  brandColor: "#66F9A1", brandTextDark: true, seedPrice: 246_800, seedChangeRate: 0, sigma: 0.0007, qtyScale: 6, baseVolume: 5.6 },
+  { market: "KRW-XRP",  koreanName: "리플",     symbol: "XRP",  brandColor: "#23292F", seedPrice: 742,  seedChangeRate: +0.0512, sigma: 0.0008, qtyScale: 2, baseVolume: 2100 },
+  { market: "KRW-DOGE", koreanName: "도지코인", symbol: "DOGE", brandColor: "#C2A633", seedPrice: 182,  seedChangeRate: -0.0055, sigma: 0.0009, qtyScale: 2, baseVolume: 940 },
+  { market: "KRW-ADA",  koreanName: "에이다",   symbol: "ADA",  brandColor: "#0033AD", seedPrice: 1_084, seedChangeRate: +0.0087, sigma: 0.0007, qtyScale: 2, baseVolume: 500 },
+  { market: "KRW-TRX",  koreanName: "트론",     symbol: "TRX",  brandColor: "#EB0029", seedPrice: 385,     seedChangeRate: +0.0321, sigma: 0.0008, qtyScale: 2, baseVolume: 1050 },
+  { market: "KRW-LINK", koreanName: "체인링크", symbol: "LINK", brandColor: "#2A5ADA", seedPrice: 28_540,  seedChangeRate: +0.0142, sigma: 0.0006, qtyScale: 4, baseVolume: 31 },
+  { market: "KRW-DOT",  koreanName: "폴카닷",   symbol: "DOT",  brandColor: "#E6007A", seedPrice: 9_820,   seedChangeRate: -0.0231, sigma: 0.0007, qtyScale: 4, baseVolume: 72 },
+  { market: "KRW-MATIC",koreanName: "폴리곤",   symbol: "MATIC",brandColor: "#8247E5", seedPrice: 724,     seedChangeRate: -0.0176, sigma: 0.0009, qtyScale: 2, baseVolume: 420 },
+  { market: "KRW-AVAX", koreanName: "아발란체", symbol: "AVAX", brandColor: "#E84142", seedPrice: 52_430,  seedChangeRate: +0.0405, sigma: 0.0008, qtyScale: 4, baseVolume: 21 },
+  { market: "KRW-ATOM", koreanName: "코스모스", symbol: "ATOM", brandColor: "#2E3148", seedPrice: 9_640,   seedChangeRate: +0.0067, sigma: 0.0006, qtyScale: 4, baseVolume: 24 },
 ];
 
 export const COIN_META: CoinMeta[] = SEEDS.map((s) => ({
@@ -110,6 +110,13 @@ function roundToStep(price: number): number {
   return Math.round(price / step) * step;
 }
 
+/** 마켓 문자열 시드(djb2). 기존 length 기반 시드는 같은 길이 마켓끼리 경로가 겹쳤다 */
+function hashStr(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
+
 /** 시드 가능한 PRNG (mulberry32). 캔들 백필 재현성 확보 */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -135,6 +142,10 @@ export const CANDLE_UNIT_MS: Record<CandleUnit, number> = {
 
 const FEE_RATE = "0.0005"; // 마켓 고정 수수료 (§4-A-1 권위 소스)
 const TICK_INTERVAL_MS = 700;
+/** 기준 경로 총 길이(분). 8.5일: 1m~60m 캔들 200개가 전부 한 경로 안에 들어 단위 간 어긋남이 없다 */
+const BASE_MIN = 12_240;
+/** 기준 경로 끝의 브리지 구간(분). 전일 종가(24h 전)에서 현재가로 이어지는 창 */
+const BRIDGE_MIN = 1_440;
 const EPOCH = 1;
 /** quote(KRW) 자산 scale. getMarkets의 price_scale과 같은 값이다 (§4-A-1) */
 const PRICE_SCALE = 0;
@@ -215,6 +226,10 @@ export class SimEngine {
   private timer: ReturnType<typeof setInterval> | null = null;
   private rand = mulberry32(20260721);
   private candleCache = new Map<string, Candle[]>();
+  /** 마켓별 분 단위 기준 경로(과거->현재). 전 캔들 단위가 이 하나를 집계 소비한다 */
+  private basePaths = new Map<string, Float64Array>();
+  /** 기준 경로의 마지막 분 버킷. 캔들 버킷 계산도 이 앵커를 쓴다(경로·캔들 시각 정렬) */
+  private pathAnchorMs = Math.floor(Date.now() / 60_000) * 60_000;
 
   /* 내 계좌/주문 (시뮬레이션 시드 자산) */
   private balances = new Map<string, SimBalance>();
@@ -226,12 +241,22 @@ export class SimEngine {
   constructor() {
     for (const seed of SEEDS) {
       const prevClose = roundToStep(seed.seedPrice / (1 + seed.seedChangeRate));
+      const path = this.buildBasePath(seed, prevClose);
+      this.basePaths.set(seed.market, path);
+      // 24H 고저는 별도 상수 부풀림이 아니라 기준 경로의 최근 24h 극값에서 파생한다.
+      // 차트 주석 고점과 요약 바 고가(24H)가 같은 사실을 말해야 한다
+      let hi = seed.seedPrice;
+      let lo = seed.seedPrice;
+      for (let i = path.length - 1 - BRIDGE_MIN; i < path.length; i++) {
+        if (path[i] > hi) hi = path[i];
+        if (path[i] < lo) lo = path[i];
+      }
       this.states.set(seed.market, {
         seed,
         price: seed.seedPrice,
         prevClose,
-        high24h: Math.max(seed.seedPrice, prevClose) * 1.008,
-        low24h: Math.min(seed.seedPrice, prevClose) * 0.985,
+        high24h: hi,
+        low24h: lo,
         accVolume24h: seed.baseVolume * 2400,
         accPrice24h: seed.seedPrice * seed.baseVolume * 2400,
       });
@@ -242,6 +267,37 @@ export class SimEngine {
     this.seedBalance("KRW", "10000000");
     this.seedBalance("BTC", "0.0918");
     this.seedBalance("ETH", "0.69");
+  }
+
+  /**
+   * 분 단위 기준 경로. 끝 24h는 전일 종가 -> 현재가 로그 브라운 브리지, 그 앞은 역방향 GBM.
+   * 브리지라서 차트의 24h 창이 전일 종가·현재가·등락률과 하나의 사실을 말한다.
+   * 역방향 백필을 단위마다 따로 돌리던 구조는 차트 극값이 24H 통계와 어긋났다.
+   */
+  private buildBasePath(seed: SimMarketSeed, prevClose: number): Float64Array {
+    const rand = mulberry32(hashStr(seed.market) ^ 0x9e3779b9);
+    const sigmaMin = seed.sigma * Math.sqrt(60_000 / TICK_INTERVAL_MS) * 0.35;
+    const closes = new Float64Array(BASE_MIN);
+    const idx24 = BASE_MIN - 1 - BRIDGE_MIN;
+    // 브리지: 누적 위너 경로를 선형 보정해 양 끝점을 고정한다
+    const w = new Float64Array(BRIDGE_MIN + 1);
+    for (let i = 1; i <= BRIDGE_MIN; i++) w[i] = w[i - 1] + gauss(rand);
+    const lnPrev = Math.log(prevClose);
+    const lnNow = Math.log(seed.seedPrice);
+    for (let i = 0; i <= BRIDGE_MIN; i++) {
+      const f = i / BRIDGE_MIN;
+      const ln = lnPrev + f * (lnNow - lnPrev) + sigmaMin * (w[i] - f * w[BRIDGE_MIN]);
+      closes[idx24 + i] = roundToStep(Math.exp(ln));
+    }
+    // 라운딩이 끝점을 흔들지 않게 고정한다
+    closes[idx24] = prevClose;
+    closes[BASE_MIN - 1] = seed.seedPrice;
+    let p = prevClose;
+    for (let i = idx24 - 1; i >= 0; i--) {
+      p = roundToStep(p * Math.exp(-(sigmaMin * sigmaMin) / 2 + sigmaMin * gauss(rand)));
+      closes[i] = p;
+    }
+    return closes;
   }
 
   /** 시드 발급. quote 자산(KRW)은 원가 개념이 없어 누산기를 만들지 않는다(§4-C-1, C25) */
@@ -554,36 +610,84 @@ export class SimEngine {
     if (!st) return [];
     const key = `${market}|${unit}`;
     let cached = this.candleCache.get(key);
-    const unitMs = CANDLE_UNIT_MS[unit];
-    const nowBucket = Math.floor(Date.now() / unitMs) * unitMs;
     if (!cached || cached.length < count) {
-      // 현재가에서 역방향 GBM 백필. 시드 PRNG로 재현성 확보
-      const rand = mulberry32(20260721 ^ market.length * 7919 ^ unitMs % 104729);
-      const sigmaU = st.seed.sigma * Math.sqrt(unitMs / TICK_INTERVAL_MS) * 0.35;
-      const candles: Candle[] = [];
-      let close = st.price;
-      for (let i = 0; i < Math.max(count, 200); i++) {
-        const t = nowBucket - i * unitMs;
-        const open = roundToStep(close * Math.exp(-((-sigmaU * sigmaU) / 2 + sigmaU * gauss(rand))));
-        const hi = Math.max(open, close) * (1 + Math.abs(gauss(rand)) * sigmaU * 0.5);
-        const lo = Math.min(open, close) * (1 - Math.abs(gauss(rand)) * sigmaU * 0.5);
-        candles.push({
-          market,
-          candle_time: isoNow(t),
-          open: String(open),
-          high: String(roundToStep(hi)),
-          low: String(roundToStep(lo)),
-          close: String(close),
-          volume: (st.seed.baseVolume * (10 + rand() * 90)).toFixed(4),
-          trade_count: Math.floor(50 + rand() * 400),
-          seq: 0,
-        });
-        close = open;
-      }
-      cached = candles; // 시각 내림차순
+      cached = this.buildCandles(st, unit, Math.max(count, 200)); // 시각 내림차순
       this.candleCache.set(key, cached);
     }
     return cached.slice(0, count);
+  }
+
+  /**
+   * 기준 경로(분) 집계로 캔들을 만든다. 경로 창 안에서는 전 단위가 같은 경로를 읽어
+   * 15분·1시간 차트가 서로 어긋나지 않고, 24h 창 극값이 고가·저가(24H)와 일치한다.
+   * 경로보다 오래된 버킷과 분 미만 단위만 단위별 GBM으로 잇되 24H 통계와 무관한 구간이다.
+   */
+  private buildCandles(st: MarketState, unit: CandleUnit, count: number): Candle[] {
+    const market = st.seed.market;
+    const unitMs = CANDLE_UNIT_MS[unit];
+    const path = this.basePaths.get(market)!;
+    const startMs = this.pathAnchorMs - (BASE_MIN - 1) * 60_000;
+    const rand = mulberry32(hashStr(`${market}|${unit}`)); // 거래량·심지·연속 구간 전용
+    const sigmaU = st.seed.sigma * Math.sqrt(unitMs / TICK_INTERVAL_MS) * 0.35;
+    const nowBucket = Math.floor(this.pathAnchorMs / unitMs) * unitMs;
+    const out: Candle[] = [];
+
+    const push = (t: number, open: number, high: number, low: number, close: number) => {
+      out.push({
+        market,
+        candle_time: isoNow(t),
+        open: String(roundToStep(open)),
+        high: String(roundToStep(high)),
+        low: String(roundToStep(low)),
+        close: String(roundToStep(close)),
+        volume: (st.seed.baseVolume * (10 + rand() * 90)).toFixed(4),
+        trade_count: Math.floor(50 + rand() * 400),
+        seq: 0,
+      });
+    };
+
+    // 분 미만 단위는 경로 해상도 밖. 24H 대역 안에 눌러 통계 모순만 막는다
+    if (unitMs < 60_000) {
+      let close = st.price;
+      for (let b = 0; b < count; b++) {
+        const t = nowBucket - b * unitMs;
+        const open = roundToStep(close * Math.exp(-(sigmaU * sigmaU) / 2 + sigmaU * gauss(rand)));
+        const hi = Math.min(st.high24h, Math.max(open, close) * (1 + Math.abs(gauss(rand)) * sigmaU * 0.5));
+        const lo = Math.max(st.low24h, Math.min(open, close) * (1 - Math.abs(gauss(rand)) * sigmaU * 0.5));
+        push(t, open, hi, lo, close);
+        close = open;
+      }
+      return out;
+    }
+
+    let contOpen: number | null = null; // 경로 이전 연속 구간의 이어지는 시가
+    for (let b = 0; b < count; b++) {
+      const t = nowBucket - b * unitMs;
+      const i0 = Math.max(0, Math.ceil((t - startMs) / 60_000));
+      const i1 = Math.min(BASE_MIN - 1, Math.floor((t + unitMs - 60_000 - startMs) / 60_000));
+      if (contOpen === null && i1 >= i0 && i1 >= 0) {
+        // 경로 창 안: 버킷 구간 극값으로 집계. 시가는 직전 분 종가(캔들 연속성)
+        const open = path[Math.max(0, i0 - 1)];
+        const close = path[i1];
+        let hi = Math.max(open, close);
+        let lo = Math.min(open, close);
+        for (let i = i0; i <= i1; i++) {
+          if (path[i] > hi) hi = path[i];
+          if (path[i] < lo) lo = path[i];
+        }
+        push(t, open, hi, lo, close);
+        if (i0 === 0) contOpen = path[0];
+      } else {
+        // 경로보다 오래된 버킷: 마지막 경로값에서 역방향 GBM 연속
+        const close = contOpen ?? path[0];
+        const open = roundToStep(close * Math.exp(-(sigmaU * sigmaU) / 2 + sigmaU * gauss(rand)));
+        const hi = Math.max(open, close) * (1 + Math.abs(gauss(rand)) * sigmaU * 0.5);
+        const lo = Math.min(open, close) * (1 - Math.abs(gauss(rand)) * sigmaU * 0.5);
+        push(t, open, hi, lo, close);
+        contOpen = open;
+      }
+    }
+    return out;
   }
 
   getAccounts(): Asset[] {
@@ -602,7 +706,7 @@ export class SimEngine {
   /* ===== 주문 시뮬레이션 (멱등키 client_order_id, §2-4) ===== */
 
   placeOrder(req: OrderRequest): Order {
-    if (!req.client_order_id) throw new SimApiError("client_order_id_required", "client_order_id가 필요해요.");
+    if (!req.client_order_id) throw new SimApiError("client_order_id_required", "client_order_id 필요");
     // 멱등 replay: 동일 키 → 기존 주문 반환
     const existingId = this.ordersByClientId.get(req.client_order_id);
     if (existingId) {
@@ -610,7 +714,7 @@ export class SimEngine {
       return o;
     }
     const st = this.states.get(req.market);
-    if (!st) throw new SimApiError("invalid_parameter", "존재하지 않는 마켓이에요.");
+    if (!st) throw new SimApiError("invalid_parameter", "존재하지 않는 마켓");
 
     const isMarketBuy = req.ord_type === "market" && req.side === "bid";
     const priceStr = req.price != null ? normalizeDecimal(req.price) : null;
@@ -618,14 +722,14 @@ export class SimEngine {
     // 매수는 대금이 락의 근거라 price가 없으면 산출 자체가 불가하다. 계약 에러로 던지지 않으면
     // 십진 연산이 TypeError로 죽어 §2-3 에러 매핑을 못 탄다
     if (req.side === "bid" && priceStr === null) {
-      throw new SimApiError("invalid_parameter", "매수 주문에는 가격이 필요해요.");
+      throw new SimApiError("invalid_parameter", "매수 주문에는 가격 필요");
     }
     // 최소주문 판정은 정확 비교다. 서버 정적 검증이 NUMERIC 비교라 여기서 반올림하면 경계가 갈린다
     const notionalStr = isMarketBuy
       ? priceStr!
       : mulDecimal(priceStr ?? String(st.price), volumeStr);
     if (compareDecimal(notionalStr, MIN_ORDER_AMOUNT) < 0) {
-      throw new SimApiError("under_min_order", "최소 주문 금액은 5,000원이에요.");
+      throw new SimApiError("under_min_order", "최소 주문 금액은 5,000원");
     }
 
     // 예약(락)은 수수료를 포함하지 않는다(§4-B-5 v2.7). bid=대금 UP 양자화, ask=base 수량 그대로
@@ -638,14 +742,14 @@ export class SimEngine {
     if (req.side === "bid") {
       const krw = this.balanceOf("KRW");
       if (compareDecimal(krw.balance, lock) < 0) {
-        throw new SimApiError("insufficient_funds", "주문 가능 금액이 부족해요.");
+        throw new SimApiError("insufficient_funds", "주문 가능 금액 부족");
       }
       krw.balance = subDecimal(krw.balance, lock);
       krw.locked = addDecimal(krw.locked, lock);
     } else {
       const coin = this.balanceOf(base);
       if (compareDecimal(coin.balance, lock) < 0) {
-        throw new SimApiError("insufficient_funds", "보유 수량이 부족해요.");
+        throw new SimApiError("insufficient_funds", "보유 수량 부족");
       }
       coin.balance = subDecimal(coin.balance, lock);
       coin.locked = addDecimal(coin.locked, lock);
@@ -693,9 +797,9 @@ export class SimEngine {
   cancelOrder(idOrClientId: string): Order {
     const id = this.orders.has(idOrClientId) ? idOrClientId : this.ordersByClientId.get(idOrClientId);
     const order = id ? this.orders.get(id) : undefined;
-    if (!order) throw new SimApiError("order_not_found", "주문을 찾을 수 없어요.");
+    if (!order) throw new SimApiError("order_not_found", "주문을 찾을 수 없음");
     if (order.status === "CANCELED") { const { _timer, _lock, ...o } = order; return o; } // 취소 멱등 (§2-4)
-    if (order.status === "FILLED") throw new SimApiError("invalid_parameter", "이미 체결 완료된 주문이에요.");
+    if (order.status === "FILLED") throw new SimApiError("invalid_parameter", "이미 체결 완료된 주문");
 
     if (order._timer) clearTimeout(order._timer);
     // 환급은 계산값이 아니라 이 주문 기여분의 실측 잔여 락이다(§4-B-5). price×remaining으로

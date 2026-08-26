@@ -15,7 +15,7 @@ import Skeleton from "@/components/Skeleton";
 import PricePill from "@/components/PricePill";
 import SymbolChip from "@/components/SymbolChip";
 import { ConnectionBanner, StaleBadge } from "@/components/StatusSignals";
-import { useExchangeStore, useLiveChannels, useMarketSpecs } from "@/lib/store";
+import { useExchangeStore, useLiveChannels, useMarketSpecs, useMemberSession } from "@/lib/store";
 import { dest, type ChangeState } from "@/lib/types";
 import { COIN_META } from "@/lib/sim/engine";
 import {
@@ -38,6 +38,7 @@ import {
   toNum,
 } from "@/lib/format";
 import styles from "./page.module.css";
+import { usePageTitle } from "@/components/PageTitle";
 
 const HIDDEN = "••••••";
 
@@ -104,6 +105,7 @@ function changeOf(pnl: string): ChangeState {
 }
 
 export default function AssetsPage() {
+  usePageTitle("자산");
   const router = useRouter();
   const assets = useExchangeStore((s) => s.assets);
   const tickers = useExchangeStore((s) => s.tickers);
@@ -111,6 +113,8 @@ export default function AssetsPage() {
   const markets = useMarketSpecs();
   const connected = useExchangeStore((s) => s.connected);
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
+  // 게스트(데모 둘러보기) 자산 표식용. 회원 세션이 서면 배지를 내린다
+  const isGuest = useMemberSession() === null;
   const [hidden, setHidden] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -331,8 +335,8 @@ export default function AssetsPage() {
         <section className="card" aria-label="자산 로드 실패">
           <div className="empty-state" role="alert">
             <span className="empty-state__mark" aria-hidden="true" />
-            <span className="empty-state__title">자산을 불러오지 못했어요</span>
-            <span className="empty-state__desc">서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요</span>
+            <span className="empty-state__title">자산을 불러오지 못함</span>
+            <span className="empty-state__desc">서버 연결 실패. 잠시 후 다시 시도 필요</span>
             <button type="button" className="btn btn--secondary" onClick={load}>
               다시 시도
             </button>
@@ -345,6 +349,8 @@ export default function AssetsPage() {
             <div className={styles.statHero}>
               <span className={styles.heroPlate}>
                 <span className="gauge-plate">총 평가금액</span>
+                {/* 게스트 데모 자산 표식. 요약 숫자가 실자산으로 읽히지 않게 한다. 화면당 1곳 */}
+                {isGuest && <span className={`status-pill ${styles.demoBadge}`}>데모 자산</span>}
                 {!connected && <StaleBadge label="지연" announce={false} />}
               </span>
               <b className={`${styles.heroValue} num`} data-stale={!connected ? "" : undefined}>
@@ -417,8 +423,8 @@ export default function AssetsPage() {
                 empty={
                   <div className="empty-state">
                     <span className="empty-state__mark" aria-hidden="true" />
-                    <span className="empty-state__title">아직 보유한 코인이 없어요</span>
-                    <span className="empty-state__desc">첫 코인을 담아 포트폴리오를 시작해 보세요</span>
+                    <span className="empty-state__title">아직 보유한 코인 없음</span>
+                    <span className="empty-state__desc">첫 코인을 담아 포트폴리오 시작</span>
                     <Link href="/exchange" className="btn btn--secondary">
                       거래소 가기
                     </Link>
@@ -432,7 +438,7 @@ export default function AssetsPage() {
               {weights.length === 0 ? (
                 <div className="empty-state">
                   <span className="empty-state__mark" aria-hidden="true" />
-                  <span className="empty-state__title">보유 자산이 없어요</span>
+                  <span className="empty-state__title">보유 자산 없음</span>
                 </div>
               ) : (
                 <ul className={styles.weightList}>

@@ -37,6 +37,13 @@
   gap: var(--space-2);
   min-height: 21px;
 }
+/* 게스트 데모 자산 표식. 전역 .status-pill 형태에 무채 틴트만 얹는다.
+   sunken 위 정보 라벨은 --text-default(§9 v1.3, secondary는 라이트 대비 미달).
+   하위 선택자로 명시도를 올려 전역 색 기본값을 가져오기 순서와 무관하게 덮는다 */
+.heroPlate .demoBadge {
+  color: var(--text-default);
+  background: var(--surface-sunken);
+}
 
 .heroValue {
   font-size: var(--font-display-md-size);

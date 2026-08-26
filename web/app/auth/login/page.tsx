@@ -15,8 +15,10 @@ import { getDataSource } from "@/lib/api/datasource";
 import { useMemberSession } from "@/lib/store";
 import { mapAuthError } from "../authErrors";
 import styles from "../auth.module.css";
+import { usePageTitle } from "@/components/PageTitle";
 
 export default function LoginPage() {
+  usePageTitle("로그인");
   const router = useRouter();
   const session = useMemberSession();
   const [email, setEmail] = useState("");
@@ -33,7 +35,7 @@ export default function LoginPage() {
     setFormError(null);
     try {
       await getDataSource().login({ email: email.trim(), password });
-      toast("로그인했어요", "success");
+      toast("로그인 완료", "success");
       router.push("/exchange");
     } catch (err) {
       const mapped = mapAuthError(err);

@@ -28,7 +28,7 @@ export interface HttpCommunityOptions {
 
 const BASE = "/api/v1/community";
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
-const GENERIC_MESSAGE = "요청에 실패했어요. 잠시 후 다시 시도해 주세요";
+const GENERIC_MESSAGE = "요청 실패. 잠시 후 다시 시도 필요";
 
 interface ErrorEnvelope {
   error?: { name?: string; message?: string; retry_after?: number | null; detail?: unknown };
@@ -87,7 +87,7 @@ export class HttpCommunityDataSource {
     const me = this.identity();
     // 쓰기(required)는 미로그인 시 서버 왕복 전에 로그인 유도로 표면화한다(§4 인증). 읽기(optional)는
     // 토큰이 있으면 실어 서버가 mine을 산출하게 하고, 없으면 그대로 조회해 mine=false로 강등한다(§4-D)
-    if (auth === "required" && !me) throw new ApiError(401, "jwt_verification", "로그인이 필요해요");
+    if (auth === "required" && !me) throw new ApiError(401, "jwt_verification", "로그인 필요");
     if (me) headers.Authorization = `Bearer ${me.token}`;
     const res = await this.fetchFn(`${this.apiBase}${BASE}${path}`, { ...init, headers });
     if (res.status === 401 && auth === "required" && !retried && this.refreshIdentity) {

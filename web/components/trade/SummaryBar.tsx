@@ -174,16 +174,16 @@ export default function SummaryBar({ market, meta }: Props) {
       )}
 
       <div className={styles.stats}>
-        {/* 고가·저가 값 색은 보조 단서. 라벨이 의미를 전달하므로 색 단독 아님 */}
+        {/* 고저는 통계값이지 방향이 아니다. 방향색을 입히면 상승·하락 문법이 희석된다(무채 유지) */}
         <div className={styles.stat}>
           <span className={styles.statLabel}>고가(24H)</span>
-          <span className={`${styles.statValue} ${styles.statUp} num`}>
+          <span className={`${styles.statValue} num`}>
             {ticker?.high_24h != null ? formatPrice(ticker.high_24h, tickSpec) : "-"}
           </span>
         </div>
         <div className={styles.stat}>
           <span className={styles.statLabel}>저가(24H)</span>
-          <span className={`${styles.statValue} ${styles.statDown} num`}>
+          <span className={`${styles.statValue} num`}>
             {ticker?.low_24h != null ? formatPrice(ticker.low_24h, tickSpec) : "-"}
           </span>
         </div>

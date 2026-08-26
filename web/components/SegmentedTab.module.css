@@ -13,9 +13,13 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+/* basis 0(flex:1) 균등 분할은 긴 라벨("거래대금순")을 어절 중간에서 꺾는다.
+   내용 폭 기준으로 잡고 남는 공간만 균등 분배해 어떤 라벨도 줄바꿈되지 않게 한다 */
 .tab {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 44px; /* 탭타깃 ≥44px */
+  padding: 0 var(--space-3);
+  white-space: nowrap;
   border-radius: calc(var(--radius-md) - 3px);
   font-size: var(--font-body-sm-size);
   line-height: var(--font-body-sm-line);

@@ -17,6 +17,7 @@ import OrderbookPanel from "@/components/trade/OrderbookPanel";
 import TradesPanel from "@/components/trade/TradesPanel";
 import OrderPanel from "@/components/trade/OrderPanel";
 import OrderPanelSkeleton from "@/components/trade/OrderPanelSkeleton";
+import OpenOrdersMini from "@/components/trade/OpenOrdersMini";
 import {
   effectivePrefill,
   nextClickPrefill,
@@ -100,7 +101,7 @@ function ExchangeMarketBody() {
     setAccountsFailed(false);
     loadAccounts().catch(() => {
       setAccountsFailed(true);
-      toast("잔고를 불러오지 못했어요. 다시 시도해 주세요", "error");
+      toast("잔고 조회 실패. 다시 시도 필요", "error");
     });
   }, [loadAccounts]);
 
@@ -128,7 +129,7 @@ function ExchangeMarketBody() {
     return (
       <main>
         <div className="empty-state">
-          <span className="empty-state__title">존재하지 않는 마켓이에요</span>
+          <span className="empty-state__title">존재하지 않는 마켓</span>
           <Link href="/exchange" className="link">
             거래소로 돌아가기
           </Link>
@@ -146,15 +147,19 @@ function ExchangeMarketBody() {
         book={<OrderbookPanel market={market} onPricePrefill={onPricePrefill} />}
         trades={<TradesPanel market={market} />}
         order={
-          // fallback은 콜드 마운트 주문 패널과 같은 높이다. 다르면 아래 마켓 목록이 밀린다
-          <Suspense fallback={<OrderPanelSkeleton market={market} />}>
-            <OrderPanelSlot
-              market={market}
-              prefill={prefill}
-              accountsFailed={accountsFailed}
-              onRetryAccounts={reloadAccounts}
-            />
-          </Suspense>
+          <>
+            {/* fallback은 콜드 마운트 주문 패널과 같은 높이다. 다르면 아래 마켓 목록이 밀린다 */}
+            <Suspense fallback={<OrderPanelSkeleton market={market} />}>
+              <OrderPanelSlot
+                market={market}
+                prefill={prefill}
+                accountsFailed={accountsFailed}
+                onRetryAccounts={reloadAccounts}
+              />
+            </Suspense>
+            {/* Suspense 밖: 미체결 목록은 쿼리와 무관해 프리렌더에 남고 스켈레톤 높이 계약도 안 건드린다 */}
+            <OpenOrdersMini market={market} />
+          </>
         }
         marketList={<MarketListPanel market={market} />}
       />

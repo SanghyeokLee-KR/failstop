@@ -276,7 +276,7 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
             fontSize: "var(--font-body-sm-size)",
           }}
         >
-          표시할 차트 데이터가 없어요
+          표시할 차트 데이터 없음
         </div>
       )}
     </div>

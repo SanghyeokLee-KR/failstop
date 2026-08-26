@@ -11,6 +11,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import BrandMark from "./BrandMark";
 import ThemeToggle from "./ThemeToggle";
 import { toast } from "./Toast";
 import { useExchangeStore, useMemberSession, useMemberSessionBootstrap } from "@/lib/store";
@@ -104,10 +105,10 @@ function MemberMenu({ displayName }: { displayName: string }) {
     setOpen(false);
     try {
       await getDataSource().logout();
-      toast("로그아웃했어요", "info");
+      toast("로그아웃 완료", "info");
       router.push("/exchange");
     } catch {
-      toast("로그아웃에 실패했어요. 잠시 후 다시 시도해 주세요", "error");
+      toast("로그아웃 실패. 잠시 후 다시 시도 필요", "error");
     }
   };
 
@@ -190,11 +191,9 @@ export default function HeaderNav() {
       <div className={styles.inner}>
         <Link href="/home" className={styles.logo} aria-label="홈으로 이동">
           <span className={styles.logoMark} aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 30 30">
-              <rect x="6" y="6" width="18" height="18" rx="5" transform="rotate(45 15 15)" fill="currentColor" />
-            </svg>
+            <BrandMark size={20} />
           </span>
-          <span className={styles.logoText}>가상거래소</span>
+          <span className={styles.logoText}>페일스톱</span>
         </Link>
 
         <nav className={styles.nav} aria-label="주요 메뉴">

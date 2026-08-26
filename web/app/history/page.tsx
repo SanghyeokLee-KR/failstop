@@ -19,6 +19,7 @@ import { getDataSource } from "@/lib/api/datasource";
 import { COIN_META } from "@/lib/sim/engine";
 import { formatHistoryTime, formatPrice, formatQty, toNum } from "@/lib/format";
 import styles from "./page.module.css";
+import { usePageTitle } from "@/components/PageTitle";
 
 type HistoryTab = "open" | "closed";
 type Period = "all" | "1d" | "1w" | "1m";
@@ -40,6 +41,7 @@ function sideLabel(side: Order["side"]): string {
 }
 
 export default function HistoryPage() {
+  usePageTitle("거래내역");
   const openOrders = useExchangeStore((s) => s.openOrders);
   const closedOrders = useExchangeStore((s) => s.closedOrders);
   // 주문가격·수량 표시 자릿수는 마켓 스펙에서 유도한다. 미로드면 폴백 자릿수로 위조된다
@@ -76,10 +78,10 @@ export default function HistoryPage() {
       const canceled = await getDataSource().cancelOrder(order.id);
       // 200 응답이 권위 Order다. 재조회 왕복 전에 행을 체결·취소 탭으로 확정한다(§4-B-2)
       upsertOrder(canceled);
-      toast("주문을 취소했어요", "info");
+      toast("주문 취소 완료", "info");
       void loadOrders();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "취소에 실패했어요. 잠시 후 다시 시도해 주세요", "error");
+      toast(e instanceof Error ? e.message : "취소 실패. 잠시 후 다시 시도 필요", "error");
     } finally {
       setCanceling((s) => {
         const next = new Set(s);
@@ -254,8 +256,8 @@ export default function HistoryPage() {
         <section className={`card ${styles.tableCard}`} aria-label="주문 목록">
           <div className="empty-state" role="alert">
             <span className="empty-state__mark" aria-hidden="true" />
-            <span className="empty-state__title">거래내역을 불러오지 못했어요</span>
-            <span className="empty-state__desc">서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요</span>
+            <span className="empty-state__title">거래내역을 불러오지 못함</span>
+            <span className="empty-state__desc">서버 연결 실패. 잠시 후 다시 시도 필요</span>
             <button type="button" className="btn btn--secondary" onClick={load}>
               다시 시도
             </button>
@@ -274,9 +276,9 @@ export default function HistoryPage() {
               <div className="empty-state">
                 <span className="empty-state__mark" aria-hidden="true" />
                 <span className="empty-state__title">
-                  {tab === "open" ? "대기 중인 주문이 없어요" : "거래내역이 없어요"}
+                  {tab === "open" ? "대기 중인 주문 없음" : "거래내역 없음"}
                 </span>
-                <span className="empty-state__desc">주문을 접수하면 여기에서 확인할 수 있어요</span>
+                <span className="empty-state__desc">주문을 접수하면 여기에서 확인 가능</span>
                 <Link href="/exchange" className="btn btn--secondary">
                   거래소 가기
                 </Link>

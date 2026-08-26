@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import { COIN_META } from "@/lib/sim/engine";
 import CommunityClient from "./CommunityClient";
 
+export const metadata = { title: "토론" };
+
 export function generateStaticParams() {
   return COIN_META.map((c) => ({ market: c.market }));
 }

@@ -77,6 +77,23 @@ test("관리 429: 대기 초 미상이면 잠시 후로 열화한다", async () 
   });
 });
 
+test("control 1.1: applied false는 미반영 에러로 승격한다(성공 응답 삼킴 방지)", async () => {
+  const res = fakeRes({ status: 200, body: { schema_version: "1.1", command: "start", applied: false } });
+  await withFetch(res, async () => {
+    const api = new HttpAdminApi("http://admin.test");
+    const e = await expectAdminError(() => api.simStart());
+    assert.equal(e.code, "control_not_applied");
+  });
+});
+
+test("control 1.0: applied 부재는 구 서버 하위호환으로 통과한다", async () => {
+  const res = fakeRes({ status: 200, body: { schema_version: "1.0", command: "start" } });
+  await withFetch(res, async () => {
+    const api = new HttpAdminApi("http://admin.test");
+    await api.simStart();
+  });
+});
+
 test("관리 403: forbidden 코드로 매핑하고 429 안내를 붙이지 않는다", async () => {
   const res = fakeRes({ status: 403, body: { error: { name: "admin_forbidden", message: "권한이 없습니다" } } });
   await withFetch(res, async () => {

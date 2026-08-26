@@ -80,7 +80,7 @@ export function ConnectionBanner() {
       <span className={styles.connBannerMark} aria-hidden="true">
         ▲
       </span>
-      <span>실시간 연결이 끊겨 마지막 시세를 표시하고 있어요. 자동으로 다시 연결하고 있어요.</span>
+      <span>실시간 연결 끊김. 마지막 시세를 표시하며 자동 재연결 중.</span>
     </div>
   );
 }

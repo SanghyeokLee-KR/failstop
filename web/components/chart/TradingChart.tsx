@@ -333,7 +333,7 @@ export default function TradingChart({ market }: { market: string }) {
         )}
         {empty && !loading && (
           <div className={styles.emptyState} role="status">
-            <span>표시할 차트 데이터가 없어요</span>
+            <span>표시할 차트 데이터 없음</span>
             <button type="button" className={styles.retryBtn} onClick={() => setRetrySeq((n) => n + 1)}>
               다시 불러오기
             </button>

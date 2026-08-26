@@ -182,12 +182,12 @@ export default function MarketListPanel({ market }: { market: string }) {
 
   const emptyText =
     query.trim() !== ""
-      ? "검색 결과가 없어요"
+      ? "검색 결과 없음"
       : tab === "fav"
-        ? "관심 코인이 없어요"
+        ? "관심 코인 없음"
         : tab === "held"
-          ? "보유 코인이 없어요"
-          : "마켓 정보가 없어요";
+          ? "보유 코인 없음"
+          : "마켓 정보 없음";
 
   return (
     <PanelCard

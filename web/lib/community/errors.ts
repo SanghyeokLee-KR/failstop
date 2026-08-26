@@ -33,34 +33,34 @@ export function mapCommunityError(e: unknown): MappedCommunityError {
     case "jwt_verification":
     case "session_expired":
     case "refresh_reuse":
-      return { field: null, message: "로그인이 필요해요", retryAfter, needsLogin: true };
+      return { field: null, message: "로그인 필요", retryAfter, needsLogin: true };
     case "out_of_scope":
-      return { field: null, message: "본인 글·댓글만 수정하거나 삭제할 수 있어요", retryAfter, needsLogin: false };
+      return { field: null, message: "본인 글·댓글만 수정·삭제 가능", retryAfter, needsLogin: false };
     case "not_found":
-      return { field: null, message: "이미 삭제됐거나 없는 대상이에요", retryAfter, needsLogin: false };
+      return { field: null, message: "이미 삭제됐거나 없는 대상", retryAfter, needsLogin: false };
     case "post_not_found":
-      return { field: null, message: "이미 삭제됐거나 없는 글이에요", retryAfter, needsLogin: false };
+      return { field: null, message: "이미 삭제됐거나 없는 글", retryAfter, needsLogin: false };
     case "comment_not_found":
-      return { field: null, message: "이미 삭제됐거나 없는 댓글이에요", retryAfter, needsLogin: false };
+      return { field: null, message: "이미 삭제됐거나 없는 댓글", retryAfter, needsLogin: false };
     case "board_not_found":
-      return { field: null, message: "존재하지 않는 종목 게시판이에요", retryAfter, needsLogin: false };
+      return { field: null, message: "존재하지 않는 종목 게시판", retryAfter, needsLogin: false };
     case "duplicate_report":
     case "conflict":
-      return { field: null, message: "이미 신고한 대상이에요", retryAfter, needsLogin: false };
+      return { field: null, message: "이미 신고한 대상", retryAfter, needsLogin: false };
     case "title_too_long":
-      return { field: "title", message: "제목이 너무 길어요", retryAfter, needsLogin: false };
+      return { field: "title", message: "제목 길이 초과", retryAfter, needsLogin: false };
     case "body_too_long":
-      return { field: "body", message: "본문이 너무 길어요", retryAfter, needsLogin: false };
+      return { field: "body", message: "본문 길이 초과", retryAfter, needsLogin: false };
     case "invalid_parameter": {
       // 길이·형식 위반은 백엔드 세부 코드가 없으면 본문 필드로 귀속(작성 폼 최다 케이스)
-      return { field: "body", message: "입력한 내용을 다시 확인해 주세요", retryAfter, needsLogin: false };
+      return { field: "body", message: "입력 내용 확인 필요", retryAfter, needsLogin: false };
     }
     case "too_many_requests":
     case "rate_limited": {
       const when = retryAfter && retryAfter > 0 ? `${retryAfter}초 후` : "잠시 후";
-      return { field: null, message: `요청이 많아요. ${when} 다시 시도해 주세요`, retryAfter, needsLogin: false };
+      return { field: null, message: `요청 과다. ${when} 다시 시도 필요`, retryAfter, needsLogin: false };
     }
     default:
-      return { field: null, message: "요청에 실패했어요. 잠시 후 다시 시도해 주세요", retryAfter, needsLogin: false };
+      return { field: null, message: "요청 실패. 잠시 후 다시 시도 필요", retryAfter, needsLogin: false };
   }
 }

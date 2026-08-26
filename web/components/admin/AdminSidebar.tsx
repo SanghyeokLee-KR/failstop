@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import BrandMark from "@/components/BrandMark";
 import { AdminIcon, type AdminIconName } from "./icons";
 import styles from "./admin.module.css";
 
@@ -56,9 +57,7 @@ export default function AdminSidebar() {
     <aside className={styles.sidebar} aria-label="관리 메뉴">
       <div className={styles.brand}>
         <span className={styles.brandMark} aria-hidden="true">
-          <svg width="18" height="18" viewBox="0 0 30 30">
-            <rect x="6" y="6" width="18" height="18" rx="5" transform="rotate(45 15 15)" fill="currentColor" />
-          </svg>
+          <BrandMark size={18} />
         </span>
         <span className={styles.brandText}>관리 콘솔</span>
       </div>

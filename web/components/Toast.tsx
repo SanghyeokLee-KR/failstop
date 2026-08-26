@@ -3,7 +3,7 @@
 /**
  * A-14. Toast. 체결·액션 결과·에러. live 시맨틱은 항목 role(status/alert)에만 둬 중첩 낭독을 피한다.
  * success는 시스템 성공(green) 도메인. 가격 방향과 별개 (§0-3).
- * 사용: toast("주문을 접수했어요", "success") / 레이아웃에 <Toaster /> 1회 장착.
+ * 사용: toast("주문 접수 완료", "success") / 레이아웃에 <Toaster /> 1회 장착.
  */
 
 import { create } from "zustand";

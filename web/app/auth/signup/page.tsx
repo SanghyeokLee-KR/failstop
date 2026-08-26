@@ -15,8 +15,10 @@ import { getDataSource } from "@/lib/api/datasource";
 import { useMemberSession } from "@/lib/store";
 import { mapAuthError } from "../authErrors";
 import styles from "../auth.module.css";
+import { usePageTitle } from "@/components/PageTitle";
 
 export default function SignupPage() {
+  usePageTitle("회원 가입");
   const router = useRouter();
   const session = useMemberSession();
   const [email, setEmail] = useState("");
@@ -37,7 +39,7 @@ export default function SignupPage() {
     setFieldErrors({});
     setFormError(null);
     if (displayName.trim().length === 0) {
-      setFieldErrors({ display_name: "표시명을 입력해 주세요" });
+      setFieldErrors({ display_name: "표시명 입력 필요" });
       setBusy(false);
       return;
     }
@@ -47,7 +49,7 @@ export default function SignupPage() {
         password,
         display_name: displayName.trim(),
       });
-      toast("가입했어요. 데모 자산 1억이 지급됐어요", "success");
+      toast("가입 완료. 데모 자산 1억 지급", "success");
       router.push("/exchange");
     } catch (err) {
       const mapped = mapAuthError(err);

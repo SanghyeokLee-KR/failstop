@@ -13,8 +13,10 @@ import { useExchangeStore, useMemberSession } from "@/lib/store";
 import { addDecimal, compareDecimal } from "@/lib/decimal";
 import { formatKRW } from "@/lib/format";
 import styles from "./page.module.css";
+import { usePageTitle } from "@/components/PageTitle";
 
 export default function MyPage() {
+  usePageTitle("마이페이지");
   const session = useMemberSession();
   const assets = useExchangeStore((s) => s.assets);
   const openOrders = useExchangeStore((s) => s.openOrders);
@@ -47,10 +49,10 @@ export default function MyPage() {
       <main className={styles.page}>
         <section className={`card ${styles.gate}`} aria-labelledby="gate-title">
           <h1 id="gate-title" className={styles.gateTitle}>
-            회원 전용 페이지예요
+            회원 전용 페이지
           </h1>
           <p className={styles.gateDesc}>
-            지금은 둘러보기 중이에요. 회원 가입하면 개인 자산과 주문 이력을 이 페이지에서 관리할 수 있어요.
+            지금은 둘러보기 모드. 회원 가입하면 개인 자산과 주문 이력을 이 페이지에서 관리.
           </p>
           <div className={styles.gateCta}>
             <Link href="/auth/signup" className="btn btn--primary btn--full btn--xl">

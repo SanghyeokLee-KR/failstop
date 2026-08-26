@@ -52,5 +52,8 @@
   font-weight: var(--fw-bold);
   pointer-events: none;
 }
-.largeTag[data-dir="up"] { color: var(--color-up-strong); background: var(--color-up-bg); }
-.largeTag[data-dir="down"] { color: var(--color-down-strong); background: var(--color-down-bg); }
+/* 규모 신호는 무채. 방향색을 섞으면 화살표 문법이 이중 의미가 된다 */
+.largeTag {
+  color: var(--text-default);
+  background: var(--surface-sunken);
+}

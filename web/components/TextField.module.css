@@ -42,6 +42,12 @@
   font-size: var(--font-body-size);
   line-height: var(--font-body-line);
 }
+/* 포커스 표현은 래퍼(.control:focus-within)가 단독 소유한다. 내부 input까지 링을 그리면
+   autoFocus 첫 화면에서 링이 3중으로 겹친다 */
+.input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 .input::placeholder {
   color: var(--text-tertiary);
 }

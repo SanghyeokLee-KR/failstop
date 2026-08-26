@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- 파비콘은 토큰을 소비할 수 없어 브랜드 원색(brand-primary #2E6BE6)을 자산 데이터로 고정한다 -->
+  <rect width="32" height="32" rx="7" fill="#2E6BE6"/>
+  <g fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M16 5.6 L25.2 14.8 L6.8 14.8 Z"/>
+    <path d="M6.8 17.2 L25.2 17.2 L16 26.4 Z"/>
+  </g>
+</svg>

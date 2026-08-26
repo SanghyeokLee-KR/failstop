@@ -129,7 +129,8 @@ a { color: inherit; text-decoration: none; }
 [data-dir="flat"].dir-text { color: var(--color-flat); }
 [data-dir="up"].dir-hero { color: var(--color-up); }
 [data-dir="down"].dir-hero { color: var(--color-down); }
-[data-dir="flat"].dir-hero { color: var(--text-strong); }
+/* 보합은 히어로도 무채 보합 토큰. text-strong을 쓰면 보합 추세선이 제목 잉크로 위장한다 */
+[data-dir="flat"].dir-hero { color: var(--color-flat); }
 
 /* ===== 카드 공용 (§6). 정숙 계기: 그림자 대신 헤어라인, 라운드 12 ===== */
 .card {

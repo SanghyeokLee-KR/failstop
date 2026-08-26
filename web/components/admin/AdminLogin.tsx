@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { getAdminApi } from "@/lib/admin/api";
+import BrandMark from "@/components/BrandMark";
 import { toast } from "@/components/Toast";
 import styles from "./admin.module.css";
 
@@ -35,11 +36,9 @@ export default function AdminLogin() {
         {/* 제도 도면 타이틀 블록: 마크 + 평면 식별 명판 + hairline */}
         <div className={styles.loginPlate}>
           <span className={styles.loginPlateMark} aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 30 30">
-              <rect x="6" y="6" width="18" height="18" rx="5" transform="rotate(45 15 15)" fill="currentColor" />
-            </svg>
+            <BrandMark size={18} />
           </span>
-          <span className={styles.loginPlateText}>관리 평면 · admin.exchange.local</span>
+          <span className={styles.loginPlateText}>페일스톱 관리 평면 · admin.exchange.local</span>
         </div>
         <h1 className={styles.loginTitle}>관리 평면 접속</h1>
         <p className={styles.loginDesc}>운영자 인증서 신원으로 접속합니다. 세션은 단기 발급됩니다.</p>

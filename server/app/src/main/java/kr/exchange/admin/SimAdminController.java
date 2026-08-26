@@ -3,6 +3,7 @@ package kr.exchange.admin;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
+import kr.exchange.sim.BotFleet;
 import kr.exchange.sim.BotFleetGovernor;
 import kr.exchange.sim.BotType;
 import kr.exchange.sim.OpsGovernor;
@@ -66,6 +67,7 @@ public class SimAdminController {
 
     private final ObjectProvider<OpsGovernor> opsGovernor;
     private final ObjectProvider<BotFleetGovernor> fleetGovernor;
+    private final ObjectProvider<BotFleet> botFleet;
     private final ApprovalService approvals;
     private final AdminAuditService audit;
     private final JdbcClient jdbc;
@@ -73,10 +75,12 @@ public class SimAdminController {
 
     public SimAdminController(ObjectProvider<OpsGovernor> opsGovernor,
                              ObjectProvider<BotFleetGovernor> fleetGovernor,
+                             ObjectProvider<BotFleet> botFleet,
                              ApprovalService approvals, AdminAuditService audit,
                              JdbcClient jdbc, ObjectMapper objectMapper) {
         this.opsGovernor = opsGovernor;
         this.fleetGovernor = fleetGovernor;
+        this.botFleet = botFleet;
         this.approvals = approvals;
         this.audit = audit;
         this.jdbc = jdbc;
@@ -88,10 +92,13 @@ public class SimAdminController {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
         OpsGovernor governor = opsGovernor.getIfAvailable();
         BotFleetGovernor fleet = fleetGovernor.getIfAvailable();
+        BotFleet lifecycle = botFleet.getIfAvailable();
         String flash = readTradeFlash();
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("schema_version", "1.1");
+        body.put("schema_version", "1.2");
         body.put("fleet_present", governor != null || fleet != null);
+        body.put("running", lifecycle != null && lifecycle.isRunning());
+        body.put("paused", lifecycle != null && lifecycle.isPaused());
         body.put("target_ops", governor == null ? "0" : String.valueOf(governor.targetOps()));
         body.put("trade_flash", flash);
         body.put("markets", fleet == null ? List.of() : marketRows(fleet, flash));
@@ -291,6 +298,11 @@ public class SimAdminController {
         return ResponseEntity.status(201).body(out);
     }
 
+    /**
+     * 전체 제어(§6-A v2.22). start는 미기동 기동·일시정지 해제, stop은 정지, pause는 발행
+     * 게이트 토글(스레드 유지)이다. 플릿 부재 배포(bots 프로파일 꺼짐)는 감사만 남기고
+     * applied:false로 미반영을 정직하게 보고한다(fleet_present 패턴).
+     */
     @PostMapping("/{command}")
     public Map<String, Object> control(@PathVariable String command, HttpServletRequest request) {
         AdminPrincipal principal = AdminRequestContext.principal(request);
@@ -298,9 +310,35 @@ public class SimAdminController {
         if (!command.equals("start") && !command.equals("stop") && !command.equals("pause")) {
             throw new ApiException(404, "not_found", "알 수 없는 제어 명령입니다: " + command);
         }
+        BotFleet fleet = botFleet.getIfAvailable();
+        boolean applied = false;
+        if (fleet != null) {
+            switch (command) {
+                case "start" -> {
+                    fleet.start();
+                    applied = true;
+                }
+                case "stop" -> {
+                    fleet.stop();
+                    applied = true;
+                }
+                default -> applied = fleet.togglePause();
+            }
+        }
+        boolean running = fleet != null && fleet.isRunning();
+        boolean paused = fleet != null && fleet.isPaused();
         audit.record(principal.operatorId(), "sim." + command, null,
-                AdminRequestContext.requestId(request), null, "OK", Map.of());
-        return Map.of("schema_version", "1.0", "command", command);
+                AdminRequestContext.requestId(request), null, "OK",
+                Map.of("applied", applied, "running", running, "paused", paused,
+                        "fleet_present", fleet != null));
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("schema_version", "1.1");
+        out.put("command", command);
+        out.put("applied", applied);
+        out.put("running", running);
+        out.put("paused", paused);
+        out.put("fleet_present", fleet != null);
+        return out;
     }
 
     @PatchMapping("/bots/{id}/params")

@@ -147,7 +147,7 @@ export default function OrderConfirmDialog({
           {sideLabel} 주문 확인
         </h2>
         <p id={descId} className={styles.desc}>
-          가용 잔고의 약 {ratioPct}% 규모예요. 내용을 확인하고 진행해 주세요.
+          가용 잔고의 약 {ratioPct}% 규모. 내용 확인 후 진행 필요.
         </p>
 
         <dl className={styles.summary}>

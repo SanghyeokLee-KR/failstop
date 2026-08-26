@@ -13,8 +13,8 @@ export default function NotFound() {
     <main className={styles.shell}>
       <div className={styles.panel}>
         <span className={styles.code}>404</span>
-        <h1 className={styles.title}>페이지를 찾을 수 없어요</h1>
-        <p className={styles.desc}>주소가 바뀌었거나 삭제된 페이지예요. 거래소로 돌아가 주세요.</p>
+        <h1 className={styles.title}>페이지를 찾을 수 없음</h1>
+        <p className={styles.desc}>주소가 바뀌었거나 삭제된 페이지. 거래소로 돌아가기.</p>
         <div className={styles.actions}>
           <Link href="/exchange" className="btn btn--primary">
             거래소 가기

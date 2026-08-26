@@ -5,6 +5,7 @@
 
 import { Suspense, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import RedirectShell from "@/components/RedirectShell";
 
 function OrderRedirectBody() {
   const params = useParams<{ market: string }>();
@@ -22,7 +23,7 @@ function OrderRedirectBody() {
     router.replace(`/exchange/${market}${suffix ? `?${suffix}` : ""}`);
   }, [params.market, router, search]);
 
-  return null;
+  return <RedirectShell />;
 }
 
 export default function OrderRedirect() {

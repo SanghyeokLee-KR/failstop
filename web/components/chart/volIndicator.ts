@@ -103,7 +103,8 @@ export function registerMatchedVolume(): void {
       MA_KEYS.forEach((key, idx) => {
         const styleLine = (indicator.styles?.lines ?? [])[idx] ?? defaultStyles.lines[idx];
         ctx.beginPath();
-        ctx.strokeStyle = String(styleLine?.color ?? "#888888");
+        // 스타일 결측 폴백도 토큰 잉크를 따른다. 하드코딩 hex는 테마 전환에서 이물이 된다
+        ctx.strokeStyle = String(styleLine?.color ?? defaultStyles.lines[idx]?.color ?? "currentColor");
         ctx.lineWidth = Number(styleLine?.size ?? 1);
         let started = false;
         for (let i = from; i < to; i++) {

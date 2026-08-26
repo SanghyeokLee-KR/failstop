@@ -81,9 +81,9 @@ export interface AdminApi {
   getInvariants(): Promise<InvariantCheck[]>;
 
   /* ===== 봇 플릿(§2-1) ===== */
-  /** start·stop·pause가 플릿 상태에 즉시 반영되는지. http 서버는 해당 명령을 감사 적재만
-   * 하고 governor를 건드리지 않아 false다. 화면은 이 값으로 성공 토스트 문구를 가른다
-   * (반영을 단정하는 문구가 운영자 오인을 만든다) */
+  /** start·stop·pause가 플릿 상태에 즉시 반영되는지. sim·http(v2.22 실반영) 모두 true다.
+   * 반영 불가 케이스(플릿 빈 부재)는 어댑터가 응답 applied:false를 에러로 승격해 전달한다.
+   * false를 반환하는 어댑터는 화면이 기록 사실만 알리는 문구로 강등한다 */
   readonly controlApplied: boolean;
   getSimStatus(): Promise<SimStatus>;
   simStart(): Promise<void>;
