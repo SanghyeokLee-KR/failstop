@@ -9,6 +9,11 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   /* 고정형 데스크톱 전용 (§4): 1280px 미만 뷰포트는 리플로우 없이 가로 스크롤 */
   min-width: 1280px;
+  /* 패널 내부 스크롤바를 계기 어휘로 낮춘다. scrollbar-color는 상속이라 하위 컨테이너에 전부 닿는다.
+     scrollbar-width는 비상속이라 스크롤 컨테이너가 각자 선언한다.
+     html이 아니라 body에 거는 이유: 뷰포트 스크롤바는 루트 값을 쓰므로 기본값으로 남는다.
+     1280px 미만에서 뜨는 페이지 가로 스크롤바는 "창이 최소 폭보다 좁다"는 신호라 또렷해야 한다 */
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   background: var(--bg-muted);
   color: var(--text-default);
   font-family: var(--font-sans);

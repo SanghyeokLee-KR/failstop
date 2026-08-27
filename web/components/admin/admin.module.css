@@ -128,6 +128,11 @@
   flex: 1;
   min-width: 0;
   overflow-y: auto;
+  /* OS별 스크롤바 표현 차이(Windows 상시 15px vs macOS 오버레이)가 콘텐츠 폭을 갈라
+     고정형 1280px 예산을 흔든다. 자리를 항상 예약해 어느 OS에서나 같은 폭을 쓴다 */
+  /* 비상속 속성이라 컨테이너가 직접 선언한다 */
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
   /* 공개 HeaderNav가 없는 자체 스크롤 컨테이너라 DataTable sticky 헤더 기준 상단은 0이다.
      기본값 56px를 두면 헤더가 56px 내려앉고 그 위 띠로 데이터 행이 노출된다 */
   --table-sticky-top: 0px;

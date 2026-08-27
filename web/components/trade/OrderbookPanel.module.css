@@ -11,6 +11,11 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* OS별 스크롤바 표현 차이(Windows 상시 15px vs macOS 오버레이)가 콘텐츠 폭을 갈라
+     고정형 1280px 예산을 흔든다. 자리를 항상 예약해 어느 OS에서나 같은 폭을 쓴다 */
+  /* 비상속 속성이라 컨테이너가 직접 선언한다 */
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
 }
 
