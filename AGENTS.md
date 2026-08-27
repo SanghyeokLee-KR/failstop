@@ -27,7 +27,7 @@ AI 도구 사용은 허용하되, 산출물에서 AI가 작성한 티가 나면 
 4. 문서와 주석은 개조식 평서문으로 쓴다. 존댓말 금지. 같은 결론을 반복하지 않는다.
 5. 주석은 이유(why)만 적는다. 코드를 다시 설명하는 주석은 금지.
 6. 커밋 메시지에 도구 서명 금지. "Generated with", "Co-Authored-By: Codex" 등 일체 넣지 않는다.
-7. 커밋 제목은 `type: 요약` 형식(feat, fix, refactor, docs, test, chore, perf). 50자 이내 명령형. 본문에는 이유와 영향만.
+7. 커밋 제목은 `type: 요약` 형식(feat, fix, refactor, docs, test, chore, perf). 50자 이내, 명사형 종결(교정·고침·통일·추가·제거). 본문에는 이유와 영향만.
 8. 짧고 근거 있게, 필요한 말만 쓴다.
 
 스타일 게이트: PR 변경분과 커밋 메시지를 CI(.github/workflows/style.yml)가 검사한다.
