@@ -464,7 +464,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const ratioPct = Math.round(committedRatio * 100);
 
   return (
-    <PanelCard className={styles.card}>
+    <PanelCard srTitle="주문" className={styles.card}>
       <div className={styles.form}>
         <SegmentedTab
           items={SIDE_ITEMS}

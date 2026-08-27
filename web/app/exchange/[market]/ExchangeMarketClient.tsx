@@ -140,6 +140,8 @@ function ExchangeMarketBody() {
 
   return (
     <main>
+      {/* 마켓별로 다른 문서라 심볼까지 라벨에 싣는다. 멀티 탭 감시 시 탭 제목과 같은 판독 단위 */}
+      <h1 className="sr-only">{`${meta.koreanName} ${market} 거래`}</h1>
       <TradeLayout
         banner={<ConnectionBanner />}
         summary={<SummaryBar market={market} meta={meta} />}

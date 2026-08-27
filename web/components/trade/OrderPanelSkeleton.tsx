@@ -21,7 +21,7 @@ export default function OrderPanelSkeleton({ market }: { market: string }) {
   const feePctStr = mulDecimal(FALLBACK_FEE_RATE_STR, "100");
 
   return (
-    <PanelCard className={styles.card}>
+    <PanelCard srTitle="주문" className={styles.card}>
       {/* inert: 스크립트 도착 전에는 조작할 수 없는 자리표시다. 포커스·접근성 트리에서 함께 빠진다 */}
       <div className={styles.form} inert>
         <SegmentedTab

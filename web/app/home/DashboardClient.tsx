@@ -30,6 +30,8 @@ export default function DashboardClient() {
 
   return (
     <main className={styles.page}>
+      {/* 히어로·랭킹·관심은 전부 h2다. 문서 최상위 라벨이 없으면 헤딩 목록이 h2에서 시작한다 */}
+      <h1 className="sr-only">홈</h1>
       <ConnectionBanner />
       <div className={styles.grid}>
         <div className={styles.summary}>

@@ -21,6 +21,7 @@ export default function ChartPanel({ market }: { market: string }) {
   const connected = useExchangeStore((s) => s.connected);
   return (
     <PanelCard
+      srTitle="차트"
       stale={!connected}
       actions={!connected ? <StaleBadge label="지연" announce={false} /> : undefined}
     >
