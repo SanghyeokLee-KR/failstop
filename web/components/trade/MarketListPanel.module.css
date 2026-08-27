@@ -50,7 +50,7 @@
 /* 정렬 가능 헤더 */
 .head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 84px 56px 60px;
+  grid-template-columns: minmax(0, 1fr) 76px 66px 52px;
   gap: var(--space-1);
   padding: 0 var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
@@ -89,7 +89,11 @@
 
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 84px 56px 60px;
+  grid-template-columns: minmax(0, 1fr) 76px 66px 52px;
+  /* 전일대비에 화살표를 병기하며 56px로는 "▲ +2.35%"(63px)가 2줄로 감겨 40px 행을 넘쳤다.
+     실측 필요폭(현재가 71·전일대비 64·거래대금 33)에 맞춰 재배분한다. 남는 폭은 이름 열이 가져가
+     말줄임이 줄어든다. nowrap은 값이 길어져도 다시 감기지 않게 하는 가드다 */
+  white-space: nowrap;
   gap: var(--space-1);
   align-items: center;
   width: 100%;
