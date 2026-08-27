@@ -77,7 +77,7 @@ export default function BotsPage() {
       toast(ok, "info");
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "처리에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "처리 실패", "error");
     }
   };
 
@@ -87,7 +87,7 @@ export default function BotsPage() {
   // v2.22부터 sim·http 모두 실반영(controlApplied=true). 분기는 미래의 미반영 어댑터 대비로
   // 남긴다. 플릿 부재 등 반영 실패는 어댑터가 에러로 던져 아래 run()의 에러 토스트를 탄다
   const controlOk = (applied: string) =>
-    api.controlApplied ? applied : "제어 요청을 감사에 기록했습니다. 반영 여부는 플릿 상태로 확인하세요";
+    api.controlApplied ? applied : "제어 요청을 감사에 기록. 반영 여부는 플릿 상태로 확인";
 
   // governor set-point 상향. 응답의 created·fleet_total로 결과를 표기하고 clamped로 캡 도달을 안내한다
   const createBot = async () => {
@@ -96,7 +96,7 @@ export default function BotsPage() {
       toast(`봇 ${r.created}대 생성 · 전체 목표 ${r.fleetTotal}대${r.clamped ? " (캡 도달)" : ""}`, "info");
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "생성에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "생성 실패", "error");
     }
   };
 
@@ -175,12 +175,12 @@ export default function BotsPage() {
       )}
 
       <PanelCard title="플릿 제어">
-        {!canOps && <PermissionNote>봇 제어 권한(BOT_OPS 이상)이 없어 조회만 가능합니다.</PermissionNote>}
+        {!canOps && <PermissionNote>봇 제어 권한(BOT_OPS 이상) 없음. 조회만 가능</PermissionNote>}
         <div className={styles.controlRow}>
-          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStart(), controlOk("플릿을 시작했습니다"))}>
+          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simStart(), controlOk("플릿 시작 완료"))}>
             시작
           </button>
-          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simPause(), controlOk("일시정지를 전환했습니다"))}>
+          <button type="button" className={styles.controlBtn} disabled={!canOps} onClick={() => void run(() => api.simPause(), controlOk("일시정지 전환 완료"))}>
             일시정지 전환
           </button>
           {/* 정지만 나머지 둘과 갈라 놓는다. 같은 무채 알약으로 붙여 두면
@@ -219,14 +219,14 @@ export default function BotsPage() {
         {stopOpen && (
           <ConfirmDialog
             title="봇 플릿 정지"
-            description="전 마켓 호가 공급이 즉시 끊깁니다. 시작 버튼으로 되돌릴 수 있습니다."
+            description="전 마켓 호가 공급 즉시 중단. 시작 버튼으로 복구 가능"
             target="전체 플릿"
             blastRadius="전 마켓 호가·체결 생성 중단"
             confirmLabel="정지"
             tone="danger"
             onConfirm={() => {
               setStopOpen(false);
-              void run(() => api.simStop(), controlOk("플릿을 정지했습니다"));
+              void run(() => api.simStop(), controlOk("플릿 정지 완료"));
             }}
             onClose={() => setStopOpen(false)}
           />
@@ -245,7 +245,7 @@ export default function BotsPage() {
       <LivelinessSection sim={sim} canOps={canOps} onChanged={load} />
 
       <PanelCard title="봇 생성">
-        {!canOps && <PermissionNote>봇 생성 권한(BOT_OPS 이상)이 없습니다.</PermissionNote>}
+        {!canOps && <PermissionNote>봇 생성 권한(BOT_OPS 이상) 없음</PermissionNote>}
         <div className={styles.formRow}>
           <label className={styles.field}>
             <span>유형</span>
@@ -328,8 +328,8 @@ export default function BotsPage() {
         <ApprovalList
           actions={paramActions}
           onChange={load}
-          emptyLabel="대기 중인 파라미터 변경 승인이 없습니다"
-          emptyDesc="위 폼에서 요청하면 여기에서 발급·실행합니다"
+          emptyLabel="대기 중인 파라미터 변경 승인 없음"
+          emptyDesc="위 폼에서 요청하면 여기에서 발급·실행"
         />
       </PanelCard>
     </div>

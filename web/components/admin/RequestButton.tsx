@@ -43,7 +43,7 @@ export default function RequestButton({ action, payload, label, onRequested, con
 
   const request = () => {
     if (!session) {
-      toast("관리자 세션이 없습니다", "error");
+      toast("관리자 세션 없음", "error");
       return;
     }
     const { key, label: targetLabel } = approvalConsoleTarget(payload);
@@ -56,7 +56,7 @@ export default function RequestButton({ action, payload, label, onRequested, con
       targetLabel,
       proposedAt: isoNow(),
     });
-    toast("승인 요청을 등록했습니다. 다른 운영자의 발급이 필요합니다", "info");
+    toast("승인 요청 등록 완료. 다른 운영자의 발급 필요", "info");
     setOpen(false);
     onRequested?.();
   };
@@ -69,7 +69,7 @@ export default function RequestButton({ action, payload, label, onRequested, con
         className={styles.neutralBtn}
         onClick={() => (confirm ? setOpen(true) : request())}
         disabled={!allowed}
-        title={allowed ? undefined : "권한이 부족합니다"}
+        title={allowed ? undefined : "권한 부족"}
       >
         {label}
       </button>

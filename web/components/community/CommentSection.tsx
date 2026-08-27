@@ -85,7 +85,7 @@ export default function CommentSection({ postExternalId, session, commentCount, 
 
   const remove = async (c: CommunityComment) => {
     if (!session) return onRequireLogin();
-    patch(c.external_id, { status: "DELETED", body: "삭제된 댓글입니다" });
+    patch(c.external_id, { status: "DELETED", body: "삭제된 댓글" });
     onCountChange?.(-1);
     try {
       await ds.deleteComment(c.external_id);

@@ -101,13 +101,13 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
     try {
       const res = await getAdminApi().setFleetScale(market, targets);
       if (!res.fleetPresent) {
-        toast("플릿이 기동되지 않아 목표 대수만 기록했습니다", "info");
+        toast("플릿 미기동. 목표 대수만 기록", "info");
       } else {
-        toast(res.clamped ? "일부 값이 캡으로 조정되어 적용됐습니다" : "봇 대수를 적용했습니다", "info");
+        toast(res.clamped ? "일부 값이 캡으로 조정돼 적용됨" : "봇 대수 적용 완료", "info");
       }
       onChanged();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "대수 적용에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "대수 적용 실패", "error");
     } finally {
       setScaleBusy(false);
     }
@@ -125,7 +125,7 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
       );
       onChanged();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "바이어스 적용에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "바이어스 적용 실패", "error");
     } finally {
       setBiasBusy(false);
     }
@@ -142,7 +142,7 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
       onChanged();
     } catch (e) {
       setFlash(prev); // 직전 값으로 롤백
-      toast(e instanceof Error ? e.message : "효과 강도 변경에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "효과 강도 변경 실패", "error");
     } finally {
       flashPending.current = false;
     }
@@ -150,7 +150,7 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
 
   return (
     <PanelCard title="시장 생동감">
-      {!canOps && <PermissionNote>생동감 제어 권한(BOT_OPS 이상)이 없어 조회만 가능합니다.</PermissionNote>}
+      {!canOps && <PermissionNote>생동감 제어 권한(BOT_OPS 이상) 없음. 조회만 가능</PermissionNote>}
       <label className={styles.field}>
         <span>대상 마켓</span>
         <select value={market} onChange={(e) => setMarket(e.target.value)} aria-label="생동감 대상 마켓">

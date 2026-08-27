@@ -245,15 +245,15 @@ export default function AuditPage() {
                 empty={
                   hasFilter && rows.length > 0 ? (
                     <div className="empty-state">
-                      <span className="empty-state__title">조건에 맞는 기록이 없습니다</span>
+                      <span className="empty-state__title">조건에 맞는 기록 없음</span>
                       <button type="button" className={styles.neutralBtn} onClick={resetFilters}>
                         필터 초기화
                       </button>
                     </div>
                   ) : (
                     <div className="empty-state">
-                      <span className="empty-state__title">기록된 액션이 없습니다</span>
-                      <span className="empty-state__desc">콘솔에서 일어나는 모든 관리 액션이 자동으로 적재됩니다</span>
+                      <span className="empty-state__title">기록된 액션 없음</span>
+                      <span className="empty-state__desc">콘솔에서 일어나는 모든 관리 액션을 자동 적재</span>
                     </div>
                   )
                 }

@@ -55,7 +55,7 @@ export default function ConfigPage() {
   const makerErr = feeRateError(makerFee, "maker_fee");
   const takerErr = feeRateError(takerFee, "taker_fee");
   const feeEmpty = makerFee.trim() === "" && takerFee.trim() === "";
-  const feeError = makerErr ?? takerErr ?? (feeEmpty ? "maker_fee 또는 taker_fee 중 하나가 필요합니다." : null);
+  const feeError = makerErr ?? takerErr ?? (feeEmpty ? "maker_fee 또는 taker_fee 중 하나 필요" : null);
 
   const res = useAdminResource(
     async () => {
@@ -72,38 +72,38 @@ export default function ConfigPage() {
 
   const postNotice = async () => {
     if (!title.trim() || !body.trim()) {
-      toast("제목과 내용을 입력하세요", "error");
+      toast("제목과 내용 입력 필요", "error");
       return;
     }
     try {
       await getAdminApi().postNotice(title.trim(), body.trim(), severity);
-      toast("공지를 등록했습니다", "info");
+      toast("공지 등록 완료", "info");
       setTitle("");
       setBody("");
       setSeverity("info");
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "등록에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "등록 실패", "error");
     }
   };
 
   const toggleActive = async (n: Notice) => {
     try {
       await getAdminApi().updateNotice(n.id, { active: !n.active });
-      toast(n.active ? "공지를 내렸습니다" : "공지를 다시 게시했습니다", "info");
+      toast(n.active ? "공지 내림 완료" : "공지 재게시 완료", "info");
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "변경에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "변경 실패", "error");
     }
   };
 
   const removeNotice = async (n: Notice) => {
     try {
       await getAdminApi().deleteNotice(n.id);
-      toast("공지를 소프트 삭제했습니다", "info");
+      toast("공지 소프트 삭제 완료", "info");
       await load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "삭제에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "삭제 실패", "error");
     }
   };
 
@@ -142,7 +142,7 @@ export default function ConfigPage() {
             onRequested={load}
             confirm={{
               title: "마켓 거래 중지 요청",
-              description: "발급·실행 시 이 마켓의 신규 주문이 차단됩니다.",
+              description: "발급·실행 시 이 마켓의 신규 주문 차단",
               target: `${m.koreanName} (${m.symbol})`,
               blastRadius: "단일 마켓 · 미체결 주문 유지",
               tone: "danger",
@@ -157,7 +157,7 @@ export default function ConfigPage() {
             onRequested={load}
             confirm={{
               title: "마켓 거래 재개 요청",
-              description: "발급·실행 시 이 마켓의 신규 주문이 다시 허용됩니다.",
+              description: "발급·실행 시 이 마켓의 신규 주문 재허용",
               target: `${m.koreanName} (${m.symbol})`,
               blastRadius: "단일 마켓",
               confirmLabel: "재개 요청",
@@ -179,7 +179,7 @@ export default function ConfigPage() {
       />
 
       <PanelCard title="마켓 상태·수수료">
-        {!canSuper && <PermissionNote>마켓 제어 권한(SUPER)이 없어 조회만 가능합니다.</PermissionNote>}
+        {!canSuper && <PermissionNote>마켓 제어 권한(SUPER) 없음. 조회만 가능</PermissionNote>}
         {res.error ? (
           <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
         ) : !markets ? (
@@ -192,7 +192,7 @@ export default function ConfigPage() {
       </PanelCard>
 
       <PanelCard title="수수료 변경 요청" actions={<span className={styles.panelMeta}>2인 승인</span>}>
-        {!canSuper && <PermissionNote>수수료 변경 권한(SUPER)이 없습니다.</PermissionNote>}
+        {!canSuper && <PermissionNote>수수료 변경 권한(SUPER) 없음</PermissionNote>}
         <div className={styles.formRow}>
           <label className={styles.field}>
             <span>마켓</span>
@@ -235,7 +235,7 @@ export default function ConfigPage() {
               onRequested={load}
               confirm={{
                 title: "수수료 변경 요청",
-                description: "발급·실행 시 이 마켓의 maker·taker 수수료율이 갱신됩니다.",
+                description: "발급·실행 시 이 마켓의 maker·taker 수수료율 갱신",
                 target: feeSymbol,
                 blastRadius: `maker ${makerFee} · taker ${takerFee}`,
                 confirmLabel: "변경 요청",
@@ -258,13 +258,13 @@ export default function ConfigPage() {
         <ApprovalList
           actions={actions}
           onChange={load}
-          emptyLabel="대기 중인 마켓 제어 승인이 없습니다"
-          emptyDesc="중지·재개·수수료 요청이 들어오면 여기에서 발급·실행합니다"
+          emptyLabel="대기 중인 마켓 제어 승인 없음"
+          emptyDesc="중지·재개·수수료 요청이 들어오면 여기에서 발급·실행"
         />
       </PanelCard>
 
       <PanelCard title="공지 등록">
-        {!canSuper && <PermissionNote>공지 등록 권한(SUPER)이 없습니다.</PermissionNote>}
+        {!canSuper && <PermissionNote>공지 등록 권한(SUPER) 없음</PermissionNote>}
         <div className={styles.noticeForm}>
           <label className={styles.field}>
             <span>제목</span>
@@ -296,8 +296,8 @@ export default function ConfigPage() {
         ) : notices.length === 0 ? (
           <div className="empty-state empty-state--compact">
             <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-            <span className="empty-state__title">등록된 공지가 없습니다</span>
-            <span className="empty-state__desc">위 공지 등록 폼에서 게시하면 거래 화면 배너에 노출됩니다</span>
+            <span className="empty-state__title">등록된 공지 없음</span>
+            <span className="empty-state__desc">위 공지 등록 폼에서 게시하면 거래 화면 배너에 노출</span>
           </div>
         ) : (
           <ul className={styles.noticeList}>

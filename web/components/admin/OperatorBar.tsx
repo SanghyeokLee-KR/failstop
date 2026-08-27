@@ -67,9 +67,9 @@ export default function OperatorBar() {
   // 낭독 문구는 불리언에만 의존한다. 매초 바뀌는 잔여 초를 넣지 않아야 polite 리전이 전이마다 1회만 낭독한다.
   // 만료 문구가 없으면 임박 경고 뒤 정작 만료 순간에 낭독이 멎는다
   const liveMsg = expired
-    ? "세션이 만료됐습니다. 다시 인증해야 합니다."
+    ? "세션 만료. 재인증 필요"
     : imminent
-      ? "세션 만료가 1분 이내로 임박했습니다. 곧 다시 인증해야 합니다."
+      ? "세션 만료 1분 이내. 곧 재인증 필요"
       : "";
 
   const certs = getAdminApi().listDemoCerts();
@@ -81,7 +81,7 @@ export default function OperatorBar() {
       await getAdminApi().establishSession(certId);
       toast(`${certId} 인증서로 세션을 전환했습니다`, "info");
     } catch (e) {
-      toast(e instanceof Error ? e.message : "세션 전환에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "세션 전환 실패", "error");
     }
   };
 

@@ -48,8 +48,8 @@ export interface CommunityDataSource {
 
 const DEFAULT_COUNT = 20;
 const MAX_COUNT = 50;
-const DELETED_POST_BODY = "삭제된 글입니다";
-const DELETED_COMMENT_BODY = "삭제된 댓글입니다";
+const DELETED_POST_BODY = "삭제된 글";
+const DELETED_COMMENT_BODY = "삭제된 댓글";
 
 function clampCount(count?: number): number {
   if (!count || count < 1) return DEFAULT_COUNT;
@@ -180,7 +180,7 @@ export class SimCommunityDataSource implements CommunityDataSource {
       market: rec.market,
       author_id: rec.author_id,
       author_handle: rec.author_handle,
-      title: rec.deleted ? "삭제된 글입니다" : rec.title,
+      title: rec.deleted ? "삭제된 글" : rec.title,
       body: rec.deleted ? DELETED_POST_BODY : rec.body,
       status: rec.deleted ? "DELETED" : "VISIBLE",
       like_count: rec.likers.size,

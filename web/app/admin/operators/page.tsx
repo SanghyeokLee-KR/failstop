@@ -100,7 +100,7 @@ export default function OperatorsPage() {
       </PanelCard>
 
       <PanelCard title="운영자 관리" actions={<span className={styles.panelMeta}>2인 승인</span>}>
-        {!canSuper && <PermissionNote>운영자 관리 권한(SUPER)이 없어 조회만 가능합니다.</PermissionNote>}
+        {!canSuper && <PermissionNote>운영자 관리 권한(SUPER) 없음. 조회만 가능</PermissionNote>}
         {selected ? (
           <div className={styles.roleEditor}>
             <span className={styles.roleEditorTarget} ref={editorHeadingRef} tabIndex={-1}>
@@ -124,7 +124,7 @@ export default function OperatorsPage() {
                   onRequested={load}
                   confirm={{
                     title: "운영자 비활성화 요청",
-                    description: "발급·실행 시 이 운영자의 세션 확립이 차단됩니다.",
+                    description: "발급·실행 시 이 운영자의 세션 확립 차단",
                     target: `${selected.displayName} (${selected.operatorId})`,
                     blastRadius: "단일 운영자 · 기존 세션 만료 시 재확립 불가",
                     confirmLabel: "비활성화 요청",
@@ -138,7 +138,7 @@ export default function OperatorsPage() {
                   onRequested={load}
                   confirm={{
                     title: "운영자 활성화 요청",
-                    description: "발급·실행 시 이 운영자가 다시 세션을 확립할 수 있습니다.",
+                    description: "발급·실행 시 이 운영자의 세션 확립 재허용",
                     target: `${selected.displayName} (${selected.operatorId})`,
                     blastRadius: "단일 운영자",
                     tone: "warning",
@@ -164,7 +164,7 @@ export default function OperatorsPage() {
                       onRequested={load}
                       confirm={{
                         title: held ? "역할 회수 요청" : "역할 부여 요청",
-                        description: "발급·실행 시 대상 운영자의 역할 집합이 갱신됩니다.",
+                        description: "발급·실행 시 대상 운영자의 역할 집합 갱신",
                         target: `${selected.displayName} (${selected.operatorId})`,
                         blastRadius: `${ROLE_LABEL[r]} ${held ? "회수" : "부여"}`,
                         tone: held ? "danger" : "warning",
@@ -179,14 +179,14 @@ export default function OperatorsPage() {
         ) : (
           <div className="empty-state empty-state--compact">
             <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-            <span className="empty-state__title">관리할 운영자를 선택하세요</span>
+            <span className="empty-state__title">관리할 운영자 선택 필요</span>
             <span className="empty-state__desc">상태 변경과 역할 부여·회수는 건마다 다른 운영자의 승인을 거칩니다</span>
           </div>
         )}
       </PanelCard>
 
       <PanelCard title="운영자 생성 요청" actions={<span className={styles.panelMeta}>2인 승인</span>}>
-        {!canSuper && <PermissionNote>운영자 생성 권한(SUPER)이 없습니다.</PermissionNote>}
+        {!canSuper && <PermissionNote>운영자 생성 권한(SUPER) 없음</PermissionNote>}
         <div className={styles.roleEditor}>
           <div className={styles.formRow}>
             <label className={styles.field}>
@@ -205,10 +205,10 @@ export default function OperatorsPage() {
               <input value={newName} onChange={(e) => setNewName(e.target.value)} disabled={!canSuper} aria-label="신규 운영자 표시 이름" />
             </label>
           </div>
-          {newId.length > 0 && !idValid && <PermissionNote>operatorId는 소문자·숫자·하이픈 2자 이상입니다.</PermissionNote>}
-          {idTaken && <PermissionNote>이미 존재하는 operatorId입니다.</PermissionNote>}
+          {newId.length > 0 && !idValid && <PermissionNote>operatorId는 소문자·숫자·하이픈 2자 이상</PermissionNote>}
+          {idTaken && <PermissionNote>이미 존재하는 operatorId</PermissionNote>}
           {/* 정상 절차 설명은 경보면이 아니라 무채 각주. 이 화면의 유채는 실제 이탈에만 남긴다 */}
-          <p className={styles.formHelp}>생성은 신원 등록만 합니다. 역할은 생성 후 관리 패널에서 다른 운영자의 승인으로 부여합니다.</p>
+          <p className={styles.formHelp}>생성은 신원 등록만 수행. 역할은 생성 후 관리 패널에서 다른 운영자의 승인으로 부여</p>
           {createReady ? (
             <RequestButton
               action="operators.create"
@@ -221,7 +221,7 @@ export default function OperatorsPage() {
               }}
               confirm={{
                 title: "운영자 생성 요청",
-                description: "발급·실행 시 이 운영자가 레지스트리에 추가됩니다.",
+                description: "발급·실행 시 이 운영자를 레지스트리에 추가",
                 target: `${newName.trim()} (${newId.trim()})`,
                 blastRadius: "신원만 등록 · 역할은 별도 승인으로 부여",
                 confirmLabel: "생성 요청",
@@ -239,8 +239,8 @@ export default function OperatorsPage() {
         <ApprovalList
           actions={actions}
           onChange={load}
-          emptyLabel="대기 중인 운영자 승인이 없습니다"
-          emptyDesc="생성·상태·역할 요청이 들어오면 여기에서 발급·실행합니다"
+          emptyLabel="대기 중인 운영자 승인 없음"
+          emptyDesc="생성·상태·역할 요청이 들어오면 여기에서 발급·실행"
         />
       </PanelCard>
     </div>

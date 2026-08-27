@@ -105,7 +105,7 @@ test("본인 글 삭제는 목록·상세에서 제외·마스킹된다", async 
 
   const detail = await ds.getPost(post.external_id);
   assert.equal(detail.status, "DELETED");
-  assert.equal(detail.body, "삭제된 글입니다");
+  assert.equal(detail.body, "삭제된 글");
 });
 
 test("동일 대상 중복 신고는 duplicate_report로 거부한다", async () => {

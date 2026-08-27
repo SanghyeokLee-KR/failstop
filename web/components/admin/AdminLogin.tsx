@@ -25,7 +25,7 @@ export default function AdminLogin() {
     try {
       await getAdminApi().establishSession(certId);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "세션 확립에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "세션 확립 실패", "error");
       setBusy(null);
     }
   };
@@ -41,7 +41,7 @@ export default function AdminLogin() {
           <span className={styles.loginPlateText}>페일스톱 관리 평면 · admin.exchange.local</span>
         </div>
         <h1 className={styles.loginTitle}>관리 평면 접속</h1>
-        <p className={styles.loginDesc}>운영자 인증서 신원으로 접속합니다. 세션은 단기 발급됩니다.</p>
+        <p className={styles.loginDesc}>운영자 인증서 신원으로 접속. 세션은 단기 발급</p>
 
         {certs.length === 0 && IS_HTTP ? (
           <>
@@ -63,7 +63,7 @@ export default function AdminLogin() {
           </>
         ) : certs.length === 0 ? (
           <div className={styles.loginNoCert} role="alert">
-            <span className={styles.loginNoCertTitle}>클라이언트 인증서를 찾지 못했습니다</span>
+            <span className={styles.loginNoCertTitle}>클라이언트 인증서 없음</span>
             <span className={styles.loginNoCertDesc}>
               운영자 네트워크에서 브라우저 인증서 저장소에 설치된 운영자 인증서로 접속하세요. 인증서 없이는 관리 평면에
               접근할 수 없습니다.

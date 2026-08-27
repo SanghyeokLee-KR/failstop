@@ -47,7 +47,7 @@ export function StaleBadge({
         {label}
         {showElapsed ? ` · ${formatElapsed(since, now)}` : ""}
       </span>
-      {announce && <span className="sr-only">갱신이 지연돼 마지막 값을 표시 중입니다.</span>}
+      {announce && <span className="sr-only">갱신이 지연돼 마지막 값 표시 중</span>}
     </span>
   );
 }

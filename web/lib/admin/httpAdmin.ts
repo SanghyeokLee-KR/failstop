@@ -342,7 +342,7 @@ export class HttpAdminApi implements AdminApi {
             ? "admin_forbidden"
             : "server_error";
       let retryAfter: number | null = null;
-      let message = rateLimited ? rateLimitMessage(null) : "관리 요청에 실패했습니다";
+      let message = rateLimited ? rateLimitMessage(null) : "관리 요청 실패";
       try {
         const body = (await res.json()) as ErrorEnvelope;
         if (body.error?.name) code = body.error.name;
@@ -369,7 +369,7 @@ export class HttpAdminApi implements AdminApi {
 
   private opId(): string {
     const s = this.getSession();
-    if (!s) throw new AdminError("jwt_verification", "관리자 세션이 없습니다");
+    if (!s) throw new AdminError("jwt_verification", "관리자 세션 없음");
     return s.operatorId;
   }
 
@@ -434,7 +434,7 @@ export class HttpAdminApi implements AdminApi {
 
   async issueApproval(requesterId: string, action: DestructiveAction, payload: ApprovalPayload): Promise<IssuedApproval> {
     const approver = this.getSession();
-    if (!approver) throw new AdminError("jwt_verification", "관리자 세션이 없습니다");
+    if (!approver) throw new AdminError("jwt_verification", "관리자 세션 없음");
     const bind = wireBinding(payload);
     const { key, label } = approvalConsoleTarget(payload);
     // 발급 주체(현재 mTLS 세션)와 요청 주체 분리는 서버가 인증서 CN으로 강제한다(반결탁)

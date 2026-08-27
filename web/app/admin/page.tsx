@@ -131,8 +131,8 @@ export default function AdminOverviewPage() {
             <PanelCard title="승인 대기" className={styles.stretchCard}>
               <ApprovalList
                 onChange={reload}
-                emptyLabel="대기 중이거나 실행 가능한 승인이 없습니다"
-                emptyDesc="카오스·마켓·운영자 화면에서 파괴 액션을 요청하면 여기에 쌓입니다"
+                emptyLabel="대기 중이거나 실행 가능한 승인 없음"
+                emptyDesc="카오스·마켓·운영자 화면에서 파괴 액션을 요청하면 여기에 적재"
               />
             </PanelCard>
           </div>

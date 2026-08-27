@@ -123,7 +123,7 @@ export interface AdminApi {
 /** 화면이 소비할 때 세션이 필요함을 알린다(요청 요구 권한과 별개) */
 export function requireSession(api: AdminApi): AdminSession {
   const s = api.getSession();
-  if (!s) throw new AdminError("jwt_verification", "관리자 세션이 없습니다. mTLS 인증서로 접속하세요");
+  if (!s) throw new AdminError("jwt_verification", "관리자 세션 없음. mTLS 인증서로 접속 필요");
   return s;
 }
 

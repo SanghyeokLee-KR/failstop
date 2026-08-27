@@ -63,8 +63,8 @@ export default function ChaosPage() {
           {running.length === 0 ? (
             <div className="empty-state empty-state--compact">
               <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-              <span className="empty-state__title">주입 중인 실험이 없습니다</span>
-              <span className="empty-state__desc">카탈로그에서 주입을 요청하고 다른 운영자 승인을 받으면 시작됩니다</span>
+              <span className="empty-state__title">주입 중인 실험 없음</span>
+              <span className="empty-state__desc">카탈로그에서 주입을 요청하고 다른 운영자 승인을 받으면 시작</span>
             </div>
           ) : (
             <ul className={styles.runningList}>
@@ -97,14 +97,14 @@ export default function ChaosPage() {
           <ApprovalList
             actions={actions}
             onChange={load}
-            emptyLabel="대기 중인 카오스 승인이 없습니다"
-            emptyDesc="주입·해제 요청이 들어오면 여기에서 발급·실행합니다"
+            emptyLabel="대기 중인 카오스 승인 없음"
+            emptyDesc="주입·해제 요청이 들어오면 여기에서 발급·실행"
           />
         </PanelCard>
       </div>
 
       <PanelCard title="실험 카탈로그" actions={<span className={styles.panelMeta}>전 실험 2인 승인</span>}>
-        {!canChaos && <PermissionNote>카오스 권한(CHAOS_OPS 이상)이 없어 주입 요청을 만들 수 없습니다.</PermissionNote>}
+        {!canChaos && <PermissionNote>카오스 권한(CHAOS_OPS 이상) 없음. 주입 요청 불가</PermissionNote>}
         <ul className={styles.chaosList}>
           {catalog.map((e) => {
             const isRunning = running.some((r) => r.experimentId === e.id);
@@ -127,7 +127,7 @@ export default function ChaosPage() {
                     onRequested={load}
                     confirm={{
                       title: "카오스 실험 주입 요청",
-                      description: "승인·실행 뒤 실제 장애가 주입됩니다. 해제하려면 별도 요청이 필요합니다.",
+                      description: "승인·실행 뒤 실제 장애 주입. 해제는 별도 요청 필요",
                       target: `${e.id} · ${e.label}`,
                       blastRadius: e.blastRadius,
                       tone: "danger",
@@ -155,7 +155,7 @@ export default function ChaosPage() {
             ariaLabel="카오스 실험 이력"
             empty={
               <div className="empty-state">
-                <span className="empty-state__title">실행된 실험이 없습니다</span>
+                <span className="empty-state__title">실행된 실험 없음</span>
               </div>
             }
           />

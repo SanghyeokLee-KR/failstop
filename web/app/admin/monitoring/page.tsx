@@ -185,7 +185,7 @@ export default function MonitoringPage() {
               ariaLabel="복구 실행 이력"
               empty={
                 <div className="empty-state">
-                  <span className="empty-state__title">복구 이력이 없습니다</span>
+                  <span className="empty-state__title">복구 이력 없음</span>
                 </div>
               }
             />

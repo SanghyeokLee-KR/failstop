@@ -330,10 +330,10 @@ export class SimAdminApi implements AdminApi {
 
   establishSession(certId: string): Promise<AdminSession> {
     const cert = this.certs.find((c) => c.certId === certId);
-    if (!cert) return Promise.reject(new AdminError("jwt_verification", "제시한 클라이언트 인증서를 신뢰 앵커로 검증하지 못했습니다"));
+    if (!cert) return Promise.reject(new AdminError("jwt_verification", "제시한 클라이언트 인증서를 신뢰 앵커로 검증 실패"));
     const op = this.operators.find((o) => o.operatorId === cert.operatorId);
     if (!op || op.status !== "ACTIVE") {
-      return Promise.reject(new AdminError("admin_forbidden", "비활성 운영자이거나 레지스트리에 없습니다"));
+      return Promise.reject(new AdminError("admin_forbidden", "비활성 운영자이거나 레지스트리에 없음"));
     }
     const now = Date.now();
     // 세션 신원은 인증서 CN에서 유래한다(자가신고 금지)
@@ -378,13 +378,13 @@ export class SimAdminApi implements AdminApi {
   /** 세션 존재만 요구하는 경로용. 역할 요구는 auth()가 담당한다 */
   private requireSession(): AdminSession {
     const s = this.getSession();
-    if (!s) throw new AdminError("jwt_verification", "관리자 세션이 없습니다");
+    if (!s) throw new AdminError("jwt_verification", "관리자 세션 없음");
     return s;
   }
 
   private auth(cap: Capability = "VIEW"): AdminSession {
     const s = this.requireSession();
-    if (!can(s.roles, cap)) throw new AdminError("admin_forbidden", "권한이 부족합니다");
+    if (!can(s.roles, cap)) throw new AdminError("admin_forbidden", "권한 부족");
     return s;
   }
 
@@ -429,12 +429,12 @@ export class SimAdminApi implements AdminApi {
     const approver = this.requireSession();
     const requester = this.operators.find((o) => o.operatorId === requesterId);
     if (!requester || requester.status !== "ACTIVE") {
-      return Promise.reject(new AdminError("invalid_parameter", "요청 운영자를 레지스트리에서 찾을 수 없습니다"));
+      return Promise.reject(new AdminError("invalid_parameter", "요청 운영자를 레지스트리에서 찾을 수 없음"));
     }
     // 반결탁: 발급 주체와 요청 주체가 같으면 발급 불가(§3-6)
     if (approver.operatorId === requesterId) {
       this.log(approver, `approval.issue.denied:${action}`, requesterId, null, "DENIED");
-      return Promise.reject(new AdminError("admin_forbidden", "발급 주체와 요청 주체가 같은 운영자입니다. 다른 운영자 인증서로 발급하세요"));
+      return Promise.reject(new AdminError("admin_forbidden", "발급 주체와 요청 주체가 같은 운영자. 다른 운영자 인증서로 발급 필요"));
     }
     const { key, label } = approvalConsoleTarget(payload);
     const now = Date.now();
@@ -472,12 +472,12 @@ export class SimAdminApi implements AdminApi {
     const s = this.auth("VIEW");
     this.sweep();
     const a = this.approvals.find((x) => x.id === approvalId);
-    if (!a) return Promise.reject(new AdminError("admin_forbidden", "대상 승인이 없습니다"));
+    if (!a) return Promise.reject(new AdminError("admin_forbidden", "대상 승인 없음"));
     if (a.state !== "ISSUED") return Promise.reject(new AdminError("admin_forbidden", `거부 불가 상태(${a.state})`));
     // 소유 검증: 발급 주체 또는 요청 주체만 거부(de-escalation, §6-B)
     if (s.operatorId !== a.approverId && s.operatorId !== a.requesterId) {
       this.log(s, "approval.reject.denied", a.targetLabel, a.id, "DENIED");
-      return Promise.reject(new AdminError("admin_forbidden", "발급자 또는 요청자만 거부할 수 있습니다"));
+      return Promise.reject(new AdminError("admin_forbidden", "발급자 또는 요청자만 거부 가능"));
     }
     a.state = "REJECTED";
     this.log(s, `approval.reject:${a.action}`, a.targetLabel, a.id, "OK");
@@ -488,21 +488,21 @@ export class SimAdminApi implements AdminApi {
     const s = this.auth("VIEW");
     this.sweep();
     const a = this.approvals.find((x) => x.id === approval.id);
-    if (!a) return Promise.reject(new AdminError("admin_forbidden", "소각 대상 승인이 없습니다"));
+    if (!a) return Promise.reject(new AdminError("admin_forbidden", "소각 대상 승인 없음"));
     if (a.state !== "ISSUED") return Promise.reject(new AdminError("admin_forbidden", `소각 불가 상태(${a.state})`));
     // 단회 토큰 대조(발급 응답 bearer 시크릿)
     if (a.token !== approval.token) {
       this.log(s, "execute.denied", a.targetLabel, a.id, "DENIED");
-      return Promise.reject(new AdminError("admin_forbidden", "승인 토큰이 일치하지 않습니다"));
+      return Promise.reject(new AdminError("admin_forbidden", "승인 토큰 불일치"));
     }
     // 소각 주체는 토큰이 바인딩된 요청 운영자여야 한다(§3-6)
     if (a.requesterId !== s.operatorId) {
       this.log(s, "execute.denied", a.targetLabel, a.id, "DENIED");
-      return Promise.reject(new AdminError("admin_forbidden", "승인 토큰은 요청 운영자만 소각할 수 있습니다"));
+      return Promise.reject(new AdminError("admin_forbidden", "승인 토큰은 요청 운영자만 소각 가능"));
     }
     // 소각 시점 실행 권한 재확인(발급 이후 역할 회수 대비)
     if (!can(s.roles, ACTION_CAP[a.action])) {
-      return Promise.reject(new AdminError("admin_forbidden", "소각 시점 권한이 부족합니다"));
+      return Promise.reject(new AdminError("admin_forbidden", "소각 시점 권한 부족"));
     }
     this.applyEffect(a.payload, s);
     a.state = "CONSUMED";
@@ -565,7 +565,7 @@ export class SimAdminApi implements AdminApi {
         const maker = payload.makerFee.trim();
         const taker = payload.takerFee.trim();
         if (maker === "" && taker === "") {
-          throw new AdminError("invalid_parameter", "maker_fee 또는 taker_fee 중 하나가 필요합니다.");
+          throw new AdminError("invalid_parameter", "maker_fee 또는 taker_fee 중 하나 필요");
         }
         const err = feeRateError(maker, "maker_fee") ?? feeRateError(taker, "taker_fee");
         if (err) throw new AdminError("invalid_parameter", err);
@@ -812,7 +812,7 @@ export class SimAdminApi implements AdminApi {
     const s = this.auth("BOT_OPS");
     const before = this.bots.length;
     this.bots = this.bots.filter((b) => b.id !== botId);
-    if (this.bots.length === before) return Promise.reject(new AdminError("invalid_parameter", "대상 봇이 없습니다"));
+    if (this.bots.length === before) return Promise.reject(new AdminError("invalid_parameter", "대상 봇 없음"));
     this.log(s, "sim.bots.delete", botId, null, "OK");
     return Promise.resolve();
   }
@@ -862,7 +862,7 @@ export class SimAdminApi implements AdminApi {
     const target = clampBias(Number(targetNetBias));
     const st = clampUnit(Number(strength));
     if (!Number.isFinite(target) || !Number.isFinite(st)) {
-      return Promise.reject(new AdminError("invalid_parameter", "바이어스·강도 값이 올바르지 않습니다"));
+      return Promise.reject(new AdminError("invalid_parameter", "바이어스·강도 값 오류"));
     }
     const effective = clampEffective(target);
     const prev = this.biasStates.get(market);
@@ -919,7 +919,7 @@ export class SimAdminApi implements AdminApi {
   updateNotice(id: string, patch: NoticePatch): Promise<Notice> {
     const s = this.auth("SUPER");
     const n = this.notices.find((x) => x.id === id);
-    if (!n) return Promise.reject(new AdminError("invalid_parameter", "대상 공지가 없습니다"));
+    if (!n) return Promise.reject(new AdminError("invalid_parameter", "대상 공지 없음"));
     if (patch.title !== undefined) n.title = patch.title;
     if (patch.body !== undefined) n.body = patch.body;
     if (patch.severity !== undefined) n.severity = patch.severity;

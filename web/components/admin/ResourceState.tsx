@@ -12,12 +12,12 @@ export { StaleBadge } from "@/components/StatusSignals";
 
 const REASON_COPY: Record<ErrorReason, { title: string; desc: string }> = {
   session: {
-    title: "세션이 만료됐습니다",
-    desc: "다시 로그인한 뒤 이어서 진행해 주세요.",
+    title: "세션 만료",
+    desc: "다시 로그인한 뒤 이어서 진행",
   },
   server: {
-    title: "데이터를 불러오지 못했습니다",
-    desc: "서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    title: "데이터 불러오기 실패",
+    desc: "서버 연결 실패. 잠시 후 다시 시도 필요",
   },
 };
 

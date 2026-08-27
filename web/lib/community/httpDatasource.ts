@@ -192,7 +192,7 @@ export class HttpCommunityDataSource {
     // 백엔드가 이미 전체 객체를 반환하면(추후 계약 확정) 재조회 없이 그대로 쓴다.
     if (created.external_id && typeof created.body === "string") return created as CommunityPost;
     const id = created.external_id ?? created.post_id;
-    if (!id) throw new ApiError(0, "invalid_envelope", "글 생성 응답에 식별자가 없습니다");
+    if (!id) throw new ApiError(0, "invalid_envelope", "글 생성 응답에 식별자 없음");
     return this.getPost(id);
   }
 
@@ -232,7 +232,7 @@ export class HttpCommunityDataSource {
     if (created.external_id && typeof created.body === "string") return created as CommunityComment;
     const id = created.external_id ?? created.comment_id;
     const me = this.identity();
-    if (!id || !me) throw new ApiError(0, "invalid_envelope", "댓글 생성 응답에 식별자가 없습니다");
+    if (!id || !me) throw new ApiError(0, "invalid_envelope", "댓글 생성 응답에 식별자 없음");
     return {
       external_id: id,
       post_id: postExternalId,

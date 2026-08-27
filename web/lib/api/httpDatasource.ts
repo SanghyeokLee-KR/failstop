@@ -442,7 +442,7 @@ export class HttpStompDataSource implements DataSource {
     }
     if (!res.ok) throw await toApiError(res);
     const body = (await res.json()) as DemoSessionResponse;
-    if (!body.access_token) throw new ApiError(res.status, "invalid_envelope", "데모 세션 응답에 access_token이 없습니다");
+    if (!body.access_token) throw new ApiError(res.status, "invalid_envelope", "데모 세션 응답에 access_token 없음");
     this.session = { token: body.access_token, expMs: decodeJwtExpMs(body.access_token) };
     // 새 자격증명은 승격 조건을 바꾼다. 직전 실패에 쓴 토큰과 다르면 포기 래치를 푼다.
     // 래치는 승격 결과 판정에서 다시 걸리므로, 재시도는 자격증명 갱신당 1회로 유계다
@@ -703,7 +703,7 @@ export class HttpStompDataSource implements DataSource {
   async signup(input: SignupInput): Promise<MemberSession> {
     const body = await this.authPost("/api/v1/auth/signup", input);
     if (!body.access_token || !body.user) {
-      throw new ApiError(0, "invalid_envelope", "가입 응답에 세션 정보가 없습니다");
+      throw new ApiError(0, "invalid_envelope", "가입 응답에 세션 정보 없음");
     }
     return this.setMember(body.user, body.access_token);
   }
@@ -711,7 +711,7 @@ export class HttpStompDataSource implements DataSource {
   async login(input: LoginInput): Promise<MemberSession> {
     const body = await this.authPost("/api/v1/auth/login", input);
     if (!body.access_token || !body.user) {
-      throw new ApiError(0, "invalid_envelope", "로그인 응답에 세션 정보가 없습니다");
+      throw new ApiError(0, "invalid_envelope", "로그인 응답에 세션 정보 없음");
     }
     return this.setMember(body.user, body.access_token);
   }
@@ -741,7 +741,7 @@ export class HttpStompDataSource implements DataSource {
     let token: string;
     try {
       const body = await this.authPost("/api/v1/auth/refresh");
-      if (!body.access_token) throw new ApiError(0, "invalid_envelope", "갱신 응답에 access_token이 없습니다");
+      if (!body.access_token) throw new ApiError(0, "invalid_envelope", "갱신 응답에 access_token 없음");
       token = body.access_token;
     } catch (e) {
       // 401·403(만료·부재·재사용 탐지)만 세션 종료로 수렴해 재로그인 전까지 재요청을 억제한다(§3-4).

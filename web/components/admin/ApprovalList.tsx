@@ -58,7 +58,7 @@ interface Props {
 export default function ApprovalList({
   actions,
   onChange,
-  emptyLabel = "대기 중이거나 실행 가능한 승인이 없습니다",
+  emptyLabel = "대기 중이거나 실행 가능한 승인 없음",
   emptyDesc,
 }: Props) {
   const session = useAdminSession();
@@ -117,7 +117,7 @@ export default function ApprovalList({
       // 폴백해 body 유실을 막는다(§9 키보드 흐름)
       requestAnimationFrame(() => (rowRefs.current[id] ?? listRef.current ?? emptyRef.current)?.focus());
     } catch (e) {
-      toast(e instanceof Error ? e.message : "처리에 실패했습니다", "error");
+      toast(e instanceof Error ? e.message : "처리 실패", "error");
     } finally {
       setBusy(null);
     }
@@ -131,13 +131,13 @@ export default function ApprovalList({
         stashToken(issued);
         cancelIntent(intent.key);
       },
-      "승인을 발급했습니다. 요청자가 실행할 수 있습니다",
+      "승인 발급 완료. 요청자가 실행 가능",
     );
 
   const consume = (row: ApprovalRequest) => {
     const held = tokens[row.id];
     if (!held) {
-      toast("발급 토큰이 이 세션에 없습니다. 발급자에게 요청하세요", "error");
+      toast("발급 토큰이 이 세션에 없음. 발급자에게 요청 필요", "error");
       return;
     }
     return act(
@@ -146,7 +146,7 @@ export default function ApprovalList({
         await getAdminApi().consumeApproval(held);
         dropToken(row.id);
       },
-      "실행했습니다",
+      "실행 완료",
     );
   };
 
@@ -276,7 +276,7 @@ export default function ApprovalList({
                 {phase === "AWAITING_EXECUTION" && mine && !held && <span className={styles.waitNote}>발급 토큰 수신 대기</span>}
                 {phase === "AWAITING_EXECUTION" && !mine && <span className={styles.waitNote}>요청자 실행 대기</span>}
                 {phase === "AWAITING_EXECUTION" && owner && (
-                  <button type="button" className={styles.neutralBtn} disabled={busy === a.id} onClick={() => void act(a.id, () => getAdminApi().rejectApproval(a.id), "거부했습니다")}>
+                  <button type="button" className={styles.neutralBtn} disabled={busy === a.id} onClick={() => void act(a.id, () => getAdminApi().rejectApproval(a.id), "거부 완료")}>
                     거부
                   </button>
                 )}
@@ -324,7 +324,7 @@ export default function ApprovalList({
       {execTarget && (
         <ConfirmDialog
           title="승인된 액션 실행"
-          description="실행하면 되돌릴 수 없습니다. 발급 토큰을 소각하며 즉시 반영됩니다."
+          description="실행하면 되돌릴 수 없음. 발급 토큰을 소각하고 즉시 반영"
           target={ACTION_LABEL[execTarget.action]}
           blastRadius={execTarget.targetLabel}
           tone="danger"
