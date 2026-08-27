@@ -51,8 +51,11 @@
 :root{
   color-scheme:light;
 
-  /* ===== Background / Surface (4단계) ===== */
-  --bg-base:#FFFFFF; --bg-muted:var(--grey-50);
+  /* ===== Background / Surface =====
+     페이지 바닥은 bg-muted 하나다. §6.4가 --surface-seam:var(--bg-muted)로 패널 사이 이음새를
+     같은 면에 맡기면서 별도 --bg-base가 설 자리가 없어졌다(라이트에서 surface-default와 동값이라
+     패널 경계도 못 만든다). 소비처 0으로 남아 있던 선언을 걷어낸다 */
+  --bg-muted:var(--grey-50);
   --surface-default:#FFFFFF; --surface-sunken:var(--grey-100);
   --surface-hover:var(--grey-100); --surface-elevated:#FFFFFF;
   /* 컨트롤 면. sunken 행 위에 얹혀도 형태가 남도록 sunken보다 한 단계 진하게 잡는다.

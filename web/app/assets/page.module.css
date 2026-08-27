@@ -46,8 +46,9 @@
 }
 
 .heroValue {
-  font-size: var(--font-display-md-size);
-  line-height: var(--font-display-md-line);
+  /* 페이지 단일 대표 수치. 문서 A-11 BalanceCard 총자산 규격(--font-display-lg 700 tabular) */
+  font-size: var(--font-display-lg-size);
+  line-height: var(--font-display-lg-line);
   font-weight: var(--fw-bold);
   /* 20px 이상 큰 숫자 밀착 (§3.2). 계기 판독감 */
   letter-spacing: -0.01em;
