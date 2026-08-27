@@ -40,8 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * M1-5 데모 세션(§3-7 v2.7) 검증:
- * (a) 무인증 발급 → Bearer 단독으로 계좌·주문 E2E,
+ * M1-5 데모 세션(§3-7) 검증:
+ * (a) 무인증 발급 → Bearer 단독 조회 + 쓰기 차단(v2.12 읽기 전용 계약),
  * (b) 만료 토큰·위조 서명 거부, 비데모(§3 서명) 경로 무영향,
  * (c) 게이트웨이 가드 보강 회귀: chunked 바디 canonical 우회 차단(W5),
  *     MARKET BUY notional scale 초과 400(W4).
@@ -136,29 +136,43 @@ class DemoSessionIntegrationTest {
         assertEquals(200, get("/api/v1/accounts", demoBearer).getStatusCode().value());
     }
 
+    /**
+     * 데모 세션 읽기 전용 계약(§3-7 v2.12)과 봇 무영향을 한 테스트에서 본다.
+     * 둘을 나누면 "데모를 막았다"만 남고 "막으면서 봇을 안 건드렸다"가 증명되지 않는다.
+     * 봇 경로가 같이 막히면 하네스 부하와 라이브 데모가 통째로 죽으므로 회귀 대상이다.
+     */
     @Test
     @Order(2)
-    void bearerOnlyOrderEndToEnd() throws Exception {
-        // maker는 외부 클라이언트 규약(§3 서명) 그대로 매도 호가 게시
+    void demoSessionIsReadOnlyWhileApiKeyStillTrades() throws Exception {
+        JsonNode before = objectMapper.readTree(get("/api/v1/accounts", demoBearer).getBody())
+                .path("data");
+
+        // 데모 세션 주문 생성 → 403. 봇과 같은 바디·같은 마켓이라 차이는 인증 주체뿐이다
+        byte[] buy = orderBody("bid", "limit", "50000000", "0.01", "demo-buy-1");
+        ResponseEntity<String> blocked = post("/api/v1/orders", buy, demoBearer);
+        assertEquals(403, blocked.getStatusCode().value());
+        assertEquals("member_session_required", errorName(blocked));
+
+        // 취소도 막힌다. 필터가 핸들러 앞에서 끊으므로 없는 주문 번호여도 404가 아니라 403이다.
+        // 이것이 경로별 등재가 아니라 메서드 기반 판정이라는 증거다
+        ResponseEntity<String> cancel = rest.exchange("/api/v1/orders/00000000-0000-0000-0000-000000000000",
+                HttpMethod.DELETE, new HttpEntity<>(bearerHeaders(demoBearer)), String.class);
+        assertEquals(403, cancel.getStatusCode().value());
+        assertEquals("member_session_required", errorName(cancel));
+
+        // 차단이 부작용을 남기지 않았다
+        JsonNode after = objectMapper.readTree(get("/api/v1/accounts", demoBearer).getBody())
+                .path("data");
+        assertEquals(field(before, "KRW", "balance"), field(after, "KRW", "balance"));
+        assertEquals(field(before, "BTC", "balance"), field(after, "BTC", "balance"));
+
+        // 봇(§3 서명)은 같은 필터를 지나면서 그대로 거래한다
         byte[] sell = orderBody("ask", "limit", "50000000", "0.01", "demo-maker-1");
         ResponseEntity<String> posted = post("/api/v1/orders", sell,
                 TestSigner.bearerForBody(makerKey.accessKey(), makerKey.secretKey(),
                         "POST", "/api/v1/orders", sell));
         assertEquals(201, posted.getStatusCode().value());
-
-        // 데모 세션은 Bearer만으로 매수 → 체결
-        byte[] buy = orderBody("bid", "limit", "50000000", "0.01", "demo-buy-1");
-        ResponseEntity<String> bought = post("/api/v1/orders", buy, demoBearer);
-        assertEquals(201, bought.getStatusCode().value());
-        JsonNode order = objectMapper.readTree(bought.getBody());
-        assertEquals("FILLED", order.path("status").asText());
-        assertEquals("0.01", order.path("executed_volume").asText());
-
-        // 체결 반영: 수취 BTC 순액(수수료 0.000005 차감) 잔고 확인
-        ResponseEntity<String> accounts = get("/api/v1/accounts", demoBearer);
-        JsonNode data = objectMapper.readTree(accounts.getBody()).path("data");
-        assertEquals("10.009995", field(data, "BTC", "balance"));
-        assertEquals("99500000", field(data, "KRW", "balance"));
+        assertEquals("OPEN", objectMapper.readTree(posted.getBody()).path("status").asText());
     }
 
     @Test
@@ -243,15 +257,19 @@ class DemoSessionIntegrationTest {
         return connection;
     }
 
-    private ResponseEntity<String> get(String path, String bearer) {
+    private static HttpHeaders bearerHeaders(String bearer) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", bearer);
-        return rest.exchange(path, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        return headers;
+    }
+
+    private ResponseEntity<String> get(String path, String bearer) {
+        return rest.exchange(path, HttpMethod.GET,
+                new HttpEntity<>(bearerHeaders(bearer)), String.class);
     }
 
     private ResponseEntity<String> post(String path, byte[] body, String bearer) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", bearer);
+        HttpHeaders headers = bearerHeaders(bearer);
         headers.setContentType(MediaType.APPLICATION_JSON);
         return rest.exchange(path, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
     }

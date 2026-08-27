@@ -14,6 +14,7 @@ import { toast } from "@/components/Toast";
 import { getDataSource } from "@/lib/api/datasource";
 import { useMemberSession } from "@/lib/store";
 import { mapAuthError } from "../authErrors";
+import { nextFromLocation } from "@/lib/auth/nextPath";
 import styles from "../auth.module.css";
 import { usePageTitle } from "@/components/PageTitle";
 
@@ -50,7 +51,7 @@ export default function SignupPage() {
         display_name: displayName.trim(),
       });
       toast("가입 완료. 데모 자산 1억 지급", "success");
-      router.push("/exchange");
+      router.push(nextFromLocation());
     } catch (err) {
       const mapped = mapAuthError(err);
       if (mapped.field) {

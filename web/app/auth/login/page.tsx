@@ -2,7 +2,7 @@
 
 /**
  * 로그인 화면(§4-3). 이메일·비밀번호 + 둘러보기(데모 세션) 링크.
- * 성공 시 세션은 DataSource가 확립하고 store는 구독으로 갱신된다. 이동은 /exchange.
+ * 성공 시 세션은 DataSource가 확립하고 store는 구독으로 갱신된다. 이동은 `?next=` 복귀 경로, 없으면 /exchange.
  * 비밀번호는 상위 상태로만 다루고 저장·로깅하지 않는다.
  */
 
@@ -14,6 +14,7 @@ import { toast } from "@/components/Toast";
 import { getDataSource } from "@/lib/api/datasource";
 import { useMemberSession } from "@/lib/store";
 import { mapAuthError } from "../authErrors";
+import { nextFromLocation } from "@/lib/auth/nextPath";
 import styles from "../auth.module.css";
 import { usePageTitle } from "@/components/PageTitle";
 
@@ -36,7 +37,7 @@ export default function LoginPage() {
     try {
       await getDataSource().login({ email: email.trim(), password });
       toast("로그인 완료", "success");
-      router.push("/exchange");
+      router.push(nextFromLocation());
     } catch (err) {
       const mapped = mapAuthError(err);
       if (mapped.field === "email" || mapped.field === "password") {

@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import PanelCard from "@/components/PanelCard";
 import SegmentedTab from "@/components/SegmentedTab";
 import Skeleton from "@/components/Skeleton";
@@ -15,6 +16,7 @@ import { toast } from "@/components/Toast";
 import { useExchangeStore, useLiveChannels, useMemberSession } from "@/lib/store";
 import { dest, type OrderRequest, type Side } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
+import { loginHref } from "@/lib/auth/nextPath";
 import { ApiError } from "@/lib/api/httpDatasource";
 import { priceStep, SimApiError } from "@/lib/sim/engine";
 import { formatKRW, formatPrice, formatQty, toNum } from "@/lib/format";
@@ -474,6 +476,15 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   };
 
   const sideLabel = side === "bid" ? "매수" : "매도";
+
+  /* 로그인 후 돌아올 자리. 지금 고른 마켓·방향·가격을 쿼리로 실어 입력을 잃지 않게 한다.
+     가격은 표시 문자열이 아니라 원본(priceRaw)이다. 쉼표가 낀 값은 프리필이 못 읽는다.
+     window를 렌더에서 읽으면 프리렌더가 깨지므로 경로는 이미 아는 market으로 조립한다 */
+  const guestReturnPath = useMemo(() => {
+    const query = new URLSearchParams({ side });
+    if (priceRaw) query.set("price", priceRaw);
+    return `/exchange/${market}?${query.toString()}`;
+  }, [market, side, priceRaw]);
   const btnClass = side === "bid" ? "btn--buy" : "btn--sell";
 
   // 다이얼로그 표시값. 시장가 매수는 체결 수량이 확정 전이라 현재가 기준 추정 수량을 보인다.
@@ -683,24 +694,36 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           </p>
         )}
 
-        {/* 인라인 2단계 확인 CTA. armed 시 확인 라벨, 재클릭 확정 (§2.5) */}
-        <button
-          ref={ctaRef}
-          type="button"
-          className={`btn ${btnClass} btn--full ${styles.cta}`}
-          disabled={!ready || submitting}
-          aria-busy={submitting}
-          aria-live="polite"
-          onClick={onCta}
-        >
-          {submitting
-            ? "접수 중…"
-            : armed
-              ? `${formatKRW(armedTotal ?? totalStr)} KRW ${sideLabel} 확정`
-              : totalPositive
-                ? `${sideLabel}하기`
-                : needLabel}
-        </button>
+        {/* 둘러보기 중에는 주문 자리가 로그인 자리다(회원_설계 §0 읽기 전용 계약).
+            비활성 버튼으로 두면 "왜 안 눌리는지"만 남고 다음 행동이 없다. 입력은 그대로 두어
+            값을 채워본 뒤 로그인할 수 있게 하고, 복귀 경로에 현재 쿼리까지 실어 자리를 지킨다 */}
+        {isGuest ? (
+          <Link
+            href={loginHref(guestReturnPath)}
+            className={`btn ${btnClass} btn--full ${styles.cta}`}
+          >
+            로그인하고 {sideLabel}
+          </Link>
+        ) : (
+          /* 인라인 2단계 확인 CTA. armed 시 확인 라벨, 재클릭 확정 (§2.5) */
+          <button
+            ref={ctaRef}
+            type="button"
+            className={`btn ${btnClass} btn--full ${styles.cta}`}
+            disabled={!ready || submitting}
+            aria-busy={submitting}
+            aria-live="polite"
+            onClick={onCta}
+          >
+            {submitting
+              ? "접수 중…"
+              : armed
+                ? `${formatKRW(armedTotal ?? totalStr)} KRW ${sideLabel} 확정`
+                : totalPositive
+                  ? `${sideLabel}하기`
+                  : needLabel}
+          </button>
+        )}
       </div>
 
       {confirmOpen && (

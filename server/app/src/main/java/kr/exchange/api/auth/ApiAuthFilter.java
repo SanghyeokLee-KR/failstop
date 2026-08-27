@@ -93,6 +93,13 @@ public class ApiAuthFilter extends OncePerRequestFilter {
             }
             AuthPrincipal principal = authService.verify(
                     request.getHeader("Authorization"), canonical, needsTrade);
+            // 데모 세션은 읽기 전용이다(API 설계 §3-7 v2.12). 판정을 경로 목록이 아니라 메서드로
+            // 두는 이유는, 목록 방식은 새 쓰기 엔드포인트가 등재에서 빠진 채 열리기 때문이다.
+            // 이 경계는 자금 이동이라 빠뜨렸을 때 닫히는 쪽으로 기울여야 한다.
+            if (AuthPrincipal.KIND_DEMO.equals(principal.kind()) && isWrite(method)) {
+                throw new ApiException(403, "member_session_required",
+                        "둘러보기 중에는 주문할 수 없습니다. 로그인 후 이용하십시오.");
+            }
             effective.setAttribute(AuthPrincipal.REQUEST_ATTRIBUTE, principal);
         } catch (ApiException e) {
             errorRenderer.write(response, e);
@@ -113,5 +120,10 @@ public class ApiAuthFilter extends OncePerRequestFilter {
         }
         // 컨트롤러 다운스트림 예외는 각 어드바이스가 표준화하므로 이 필터가 삼키지 않는다.
         chain.doFilter(effective, response);
+    }
+
+    /** 상태를 바꾸지 않는 메서드만 열거한다. 목록 밖은 전부 쓰기로 본다(미상 메서드도 닫힘) */
+    private static boolean isWrite(String method) {
+        return !"GET".equals(method) && !"HEAD".equals(method) && !"OPTIONS".equals(method);
     }
 }
