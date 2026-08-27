@@ -127,15 +127,25 @@
   --overlay-dim:rgba(15,23,42,.55);
   --pressed-layer:var(--grey-alpha-100);
   --skeleton-base:var(--grey-100); --skeleton-shine:var(--grey-50);
-  /* 이중 포커스 링: 안쪽 surface 오프셋 + 바깥 불투명 브랜드 (≥3:1, 비색 단서 병행) */
-  --focus-ring:0 0 0 2px var(--surface-default), 0 0 0 4px var(--brand-600);
+  /* 이중 포커스 링(v1.7). 바깥 링은 outline, 안쪽 헤어라인은 inset box-shadow.
+     초안은 양쪽 다 box-shadow였으나 스크롤 컨테이너(호가·마켓·자산 리스트) overflow 경계에서
+     바깥 링이 잘렸다. outline은 클리핑되지 않고 offset 간격이 surface 분리 역할을 한다.
+     안쪽 헤어라인은 유색·틴트 fill 위에서도 링 분리를 유지하며 레이아웃 시프트 0.
+     브랜드 아닌 링(오류 등)은 --focus-outline-color만 덮어쓴다.
+     outline 축약형을 여기서 조립하지 않는다. var() 치환은 선언 지점에서 끝나 :root에 조립해 두면
+     색이 브랜드로 굳고, 하위에서 --focus-outline-color를 덮어도 반영되지 않는다.
+     폭·색을 따로 두고 조립은 소비 규칙(globals.css)이 한다 */
+  --focus-outline-width:2px;
+  --focus-outline-color:var(--brand-primary);
+  --focus-outline-offset:2px;
+  --focus-inner:inset 0 0 0 1px var(--surface-default);
 }
 
 /* ===== §3. 시맨틱 토큰·다크 ([data-theme="dark"]) ===== */
 [data-theme="dark"]{
   color-scheme:dark;
 
-  --bg-base:#0F1115; --bg-muted:#14161C;
+  --bg-muted:#14161C;
   --surface-default:#171A21; --surface-sunken:#12141A;
   --surface-hover:#1E222B; --surface-elevated:#232833;
   --surface-control:#232833; --surface-control-hover:#2E3540;
@@ -186,7 +196,6 @@
   --overlay-dim:rgba(0,0,0,.60);
   --pressed-layer:rgba(255,255,255,.06);
   --skeleton-base:#1E222B; --skeleton-shine:#262B35;
-  --focus-ring:0 0 0 2px var(--surface-default), 0 0 0 4px #6B9DF7;
 }
 
 /* ===== §4. 타이포그래피 (Pretendard)·단일 네이밍 체계 ===== */
@@ -211,8 +220,6 @@
 }
 .num,.price,.pnl{font-variant-numeric:tabular-nums lining-nums;
   font-feature-settings:var(--font-feature-num);}
-.price-hero{font-size:var(--font-display-lg-size);line-height:var(--font-display-lg-line);
-  font-weight:var(--fw-bold);font-variant-numeric:tabular-nums lining-nums;}
 
 /* ===== §5. Spacing · Radius · Shadow · Motion · z-index ===== */
 :root{
@@ -230,7 +237,6 @@
   --shadow-2:0 4px 12px rgba(16,25,40,.08);
   --shadow-3:0 -6px 24px rgba(16,25,40,.12);
   --shadow-4:0 8px 32px rgba(16,25,40,.16);
-  --shadow-focus:var(--focus-ring);   /* 별칭 통일: 초안 --shadow-focus == --focus-ring */
 
   --dur-instant:0ms; --dur-fast:120ms; --dur-base:200ms; --dur-slow:320ms;
   --dur-slower:480ms; --dur-flash:220ms;
@@ -325,7 +331,7 @@
   :root:not([data-theme="light"]):not([data-theme="dark"]){
     color-scheme:dark;
 
-    --bg-base:#0F1115; --bg-muted:#14161C;
+    --bg-muted:#14161C;
     --surface-default:#171A21; --surface-sunken:#12141A;
     --surface-hover:#1E222B; --surface-elevated:#232833;
     --surface-control:#232833; --surface-control-hover:#2E3540;
@@ -368,7 +374,6 @@
     --overlay-dim:rgba(0,0,0,.60);
     --pressed-layer:rgba(255,255,255,.06);
     --skeleton-base:#1E222B; --skeleton-shine:#262B35;
-    --focus-ring:0 0 0 2px var(--surface-default), 0 0 0 4px #6B9DF7;
 
     --shadow-1:0 1px 2px rgba(0,0,0,.4);  --shadow-2:0 4px 12px rgba(0,0,0,.5);
     --shadow-3:0 -6px 24px rgba(0,0,0,.5);--shadow-4:0 8px 32px rgba(0,0,0,.6);

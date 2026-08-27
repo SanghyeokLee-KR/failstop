@@ -197,7 +197,7 @@ export default function MarketListPanel({ market }: { market: string }) {
       actions={!connected ? <StaleBadge label="지연" announce={false} /> : undefined}
     >
       <div className={styles.wrap}>
-        <div className={styles.search}>
+        <div className={`focus-ring-owner ${styles.search}`}>
           <span aria-hidden="true">⌕</span>
           <input
             type="text"

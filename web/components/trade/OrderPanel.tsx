@@ -501,7 +501,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             <label className={styles.label} htmlFor="panel-ord-price">
               가격
             </label>
-            <div className={styles.inp}>
+            <div className={`focus-ring-owner ${styles.inp}`}>
               <button type="button" className={styles.step} aria-label="가격 한 호가 내리기" onClick={() => stepPrice(-1)} disabled={submitting}>
                 −
               </button>
@@ -536,7 +536,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             <label className={styles.label} htmlFor="panel-ord-amount">
               주문 금액
             </label>
-            <div className={styles.inp}>
+            <div className={`focus-ring-owner ${styles.inp}`}>
               <input
                 id="panel-ord-amount"
                 className="num"
@@ -556,7 +556,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             <label className={styles.label} htmlFor="panel-ord-qty">
               수량
             </label>
-            <div className={styles.inp} data-error={error === "보유 수량 초과" || undefined}>
+            <div className={`focus-ring-owner ${styles.inp}`} data-error={error === "보유 수량 초과" || undefined}>
               <input
                 id="panel-ord-qty"
                 className="num"
@@ -605,7 +605,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             <label className={styles.label} htmlFor="panel-ord-total">
               주문총액
             </label>
-            <div className={styles.inp}>
+            <div className={`focus-ring-owner ${styles.inp}`}>
               <input
                 id="panel-ord-total"
                 className="num"

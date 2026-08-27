@@ -55,7 +55,7 @@ export default function TextField({
       <label className={styles.label} htmlFor={id}>
         {label}
       </label>
-      <div className={styles.control} data-invalid={error ? true : undefined}>
+      <div className={`focus-ring-owner ${styles.control}`} data-invalid={error ? true : undefined}>
         <input
           id={id}
           className={styles.input}

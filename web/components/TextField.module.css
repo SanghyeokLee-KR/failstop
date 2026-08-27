@@ -21,15 +21,16 @@
   border: 1px solid var(--border-default);
   border-radius: var(--control-radius);
 }
+/* 링 자체는 전역 .focus-ring-owner가 그린다. 여기서는 보더 색 단서만 얹는다 */
 .control:focus-within {
   border-color: var(--brand-primary);
-  box-shadow: var(--focus-ring);
 }
 .control[data-invalid] {
   border-color: var(--color-danger);
 }
+/* 오류 상태는 링 색만 danger로 갈아끼운다. 두께·오프셋은 전역 규격을 그대로 쓴다 */
 .control[data-invalid]:focus-within {
-  box-shadow: 0 0 0 2px var(--surface-default), 0 0 0 4px var(--color-danger);
+  --focus-outline-color: var(--color-danger);
 }
 
 .input {

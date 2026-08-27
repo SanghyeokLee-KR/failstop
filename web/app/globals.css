@@ -39,10 +39,18 @@ a { color: inherit; text-decoration: none; }
    overflow 경계에서 잘렸다. outline은 클리핑되지 않고 outline-offset 간격이 surface 분리 역할을 한다.
    안쪽 헤어라인은 inset box-shadow라 유색·틴트 fill 위에서도 링 분리를 유지하며 레이아웃 시프트 0. */
 :focus { outline: none; }
+/* outline 축약형은 여기서 조립한다. 토큰에 조립해 두면 색이 선언 지점에서 굳어
+   오류 링(--focus-outline-color 덮어쓰기)이 먹지 않는다 */
 :focus-visible {
-  outline: 2px solid var(--brand-primary);
-  outline-offset: 2px;
-  box-shadow: inset 0 0 0 1px var(--surface-default);
+  outline: var(--focus-outline-width) solid var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset);
+  box-shadow: var(--focus-inner);
+}
+/* 래퍼가 포커스를 소유하는 입력(TextField·주문 입력·마켓 검색)은 내부 input의 링을 끄고
+   이 클래스로 같은 링을 래퍼에 건다. 링 어휘가 한 벌이어야 폼을 탭으로 훑을 때 모양이 안 바뀐다 */
+.focus-ring-owner:focus-within {
+  outline: var(--focus-outline-width) solid var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset);
 }
 
 /* ===== 스크린리더 전용 ===== */
