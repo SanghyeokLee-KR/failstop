@@ -183,6 +183,13 @@
   min-height: 44px;
   font-size: var(--font-body-sm-size);
 }
+/* 비활성 라벨이 "무엇이 필요한지"를 싣는다. 장식 전용인 --text-disabled로는 그 안내가
+   읽히지 않는다(다크 sunken 위 2.30:1). 정보 텍스트라 sunken 승격 규칙대로 default를 쓴다
+   (grey-800 on grey-100 11.11:1). 면은 무채 sunken 그대로 둬서 방향색 없음이 비활성을 말한다.
+   클래스 중복은 전역 .btn:disabled와 동일 명시도라 가져오기 순서 의존을 없애는 장치다 */
+.cta.cta:disabled {
+  color: var(--text-default);
+}
 
 /* §2.3 압축: 패딩·행 간격 축소로 약 400px */
 @media (max-height: 820px) {

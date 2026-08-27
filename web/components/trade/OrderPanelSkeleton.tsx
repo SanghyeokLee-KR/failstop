@@ -11,7 +11,7 @@ import SegmentedTab from "@/components/SegmentedTab";
 import Skeleton from "@/components/Skeleton";
 import { mulDecimal } from "@/lib/decimal";
 import { formatQty } from "@/lib/format";
-import { FALLBACK_FEE_RATE_STR, SIDE_ITEMS } from "./OrderPanel";
+import { FALLBACK_FEE_RATE_STR, COLD_CTA_LABEL, SIDE_ITEMS } from "./OrderPanel";
 import styles from "./OrderPanel.module.css";
 
 const noop = () => {};
@@ -94,7 +94,7 @@ export default function OrderPanelSkeleton({ market }: { market: string }) {
         </div>
 
         <button type="button" className={`btn btn--buy btn--full ${styles.cta}`} disabled>
-          매수하기
+          {COLD_CTA_LABEL}
         </button>
       </div>
     </PanelCard>

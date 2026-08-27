@@ -58,6 +58,9 @@ import styles from "./OrderPanel.module.css";
 // 아래 상수는 메타 미로딩 구간의 표시·검증 폴백일 뿐이다.
 // 프리렌더 골격(OrderPanelSkeleton)이 콜드 마운트 표기를 그대로 재현하려고 같은 상수를 읽는다.
 export const FALLBACK_FEE_RATE_STR = "0.0005";
+/* 콜드 마운트 CTA 라벨. 프리렌더 골격과 실제 패널의 첫 라벨을 맞춰 하이드레이션 순간
+   라벨이 튀지 않게 한다. 이 시점은 지정가·가격 미입력이라 필요한 것이 가격이다 */
+export const COLD_CTA_LABEL = "가격 입력";
 const FALLBACK_MIN_ORDER_KRW = "5000";
 const CONFIRM_TIMEOUT_MS = 3000;
 
@@ -315,6 +318,16 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     error = "주문 가능 금액 초과";
   else if (side === "ask" && compareDecimal(qtyStr, availCoinStr) > 0) error = "보유 수량 초과";
   const ready = totalPositive && error === null && !loadingBalance && !accountsFailed;
+
+  /* 비활성 사유를 CTA 라벨이 말한다.
+     error 4종은 인라인 문구가 있지만 가장 흔한 비활성 사유(아직 아무것도 입력 안 함)에는 안내가
+     없었다. 비활성 CTA는 대비 기준 면제라 흐린 게 맞고, 그래서 "누를 수 없다"만 남고 "무엇이
+     필요한지"가 비었다. 별도 안내 행을 더하면 스켈레톤과의 높이 계약이 깨지므로 라벨로 싣는다. */
+  const needLabel = ordType === "limit" && !(price > 0)
+    ? COLD_CTA_LABEL
+    : isMarketBuy
+      ? "금액 입력"
+      : "수량 입력";
 
   // 가용 대비 큰 비중이면 인라인 확인 대신 다이얼로그로 오발주를 막는다(임계 판정은 number로 충분).
   // 분자는 실제로 묶이는 금액(락)이다. 수수료를 더하면 v2.7 예약 모델과 어긋난다
@@ -677,7 +690,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             ? "접수 중…"
             : armed
               ? `${formatKRW(armedTotal ?? totalStr)} KRW ${sideLabel} 확정`
-              : `${sideLabel}하기`}
+              : totalPositive
+                ? `${sideLabel}하기`
+                : needLabel}
         </button>
       </div>
 
