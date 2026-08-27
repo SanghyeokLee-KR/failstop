@@ -97,6 +97,11 @@
   /* 면·히어로(large-text ≥24px/700 또는 배경 틴트) 전용 */
   --color-up:var(--red-500);        --color-down:var(--azure-500);
   --color-up-bg:var(--red-50);      --color-down-bg:var(--azure-50);
+  /* 호가 잔량 막대 전용 틴트. -bg(칩·pill 공용)보다 진하다. 막대는 면적이라 칩과 요구가 다르다.
+     상한은 막대 위에 얹히는 텍스트가 정한다. 실측(라이트): 0.26에서 red-700 on 막대 4.37:1 미달,
+     0.22에서 4.63:1. 막대 자체는 면 대비 1.31~1.36:1에 그치므로 길이 판독은 종단선이 담당한다 */
+  --depth-up-bg:rgba(242,54,69,.22);   /* red-500 #F23645 파생 */
+  --depth-down-bg:rgba(28,130,232,.22);/* azure-500 #1C82E8 파생 */
   --color-up-flash:rgba(242,54,69,.10);   /* #F23645 파생. 값 통일 */
   --color-down-flash:rgba(28,130,232,.10);/* #1C82E8 파생. 값 통일 */
   /* 소형 텍스트(캡션/바디/미세 숫자) 전용. 흰/기본 surface 기준 4.5:1 이상.
@@ -183,6 +188,8 @@
      수정: down을 cyan-lean(#35A6FF, hue↓)으로 이동해 라이트와 동등한 ΔHue 확보. */
   --color-up:#FF5D63;         --color-down:#35A6FF;
   --color-up-bg:rgba(255,93,99,.14);   --color-down-bg:rgba(53,166,255,.14);
+  /* 다크 상한 실측: 0.38에서 azure-700 on 막대 4.23:1 미달, 0.32에서 4.80:1 */
+  --depth-up-bg:rgba(255,93,99,.32);   --depth-down-bg:rgba(53,166,255,.32);
   --color-up-flash:rgba(255,93,99,.16);--color-down-flash:rgba(53,166,255,.16);
   --color-up-text:#FF8086;    --color-down-text:#5CB6FF;   /* 다크 surface 위 ≥4.5:1 */
   --color-up-strong:#FF9A9E;  --color-down-strong:#82C6FF;
@@ -366,6 +373,7 @@
 
     --color-up:#FF5D63;         --color-down:#35A6FF;
     --color-up-bg:rgba(255,93,99,.14);   --color-down-bg:rgba(53,166,255,.14);
+    --depth-up-bg:rgba(255,93,99,.32);   --depth-down-bg:rgba(53,166,255,.32);
     --color-up-flash:rgba(255,93,99,.16);--color-down-flash:rgba(53,166,255,.16);
     --color-up-text:#FF8086;    --color-down-text:#5CB6FF;
     --color-up-strong:#FF9A9E;  --color-down-strong:#82C6FF;
