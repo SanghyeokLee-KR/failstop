@@ -324,6 +324,4 @@ export interface CoinMeta {
   koreanName: string;
   /** 코인 브랜드 로고색 (하드코딩 hex 예외 허용 대상) */
   brandColor: string;
-  /** 어두운 배경색 위 텍스트가 어두워야 하는 경우 */
-  brandTextDark?: boolean;
 }

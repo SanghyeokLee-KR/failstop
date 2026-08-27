@@ -68,7 +68,6 @@ interface Holding {
   koreanName: string;
   symbol: string;
   brandColor: string;
-  brandTextDark?: boolean;
   /** 보유 전량(available + locked) */
   qty: string;
   /** 원가 확보분의 평단가. costKnown이 false면 산출 불가라 표시하지 않는다 */
@@ -169,7 +168,6 @@ export default function AssetsPage() {
             koreanName: meta.koreanName,
             symbol: meta.symbol,
             brandColor: meta.brandColor,
-            brandTextDark: meta.brandTextDark,
             qty,
             avgBuyPrice: a.avg_buy_price,
             valuation: mulDecimal(qty, price),

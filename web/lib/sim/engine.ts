@@ -59,7 +59,6 @@ interface SimMarketSeed {
   koreanName: string;
   symbol: string;
   brandColor: string;
-  brandTextDark?: boolean;
   seedPrice: number;      // 목업 표기 현재가
   seedChangeRate: number; // 목업 표기 전일대비 (부호 포함)
   sigma: number;          // 틱당 변동성 (GBM)
@@ -70,7 +69,7 @@ interface SimMarketSeed {
 const SEEDS: SimMarketSeed[] = [
   { market: "KRW-BTC",  koreanName: "비트코인", symbol: "BTC",  brandColor: "#F7931A", seedPrice: 84_320_000, seedChangeRate: +0.0234, sigma: 0.00045, qtyScale: 8, baseVolume: 0.06 },
   { market: "KRW-ETH",  koreanName: "이더리움", symbol: "ETH",  brandColor: "#627EEA", seedPrice: 4_512_000,  seedChangeRate: -0.0108, sigma: 0.00055, qtyScale: 8, baseVolume: 0.55 },
-  { market: "KRW-SOL",  koreanName: "솔라나",   symbol: "SOL",  brandColor: "#66F9A1", brandTextDark: true, seedPrice: 246_800, seedChangeRate: 0, sigma: 0.0007, qtyScale: 6, baseVolume: 5.6 },
+  { market: "KRW-SOL",  koreanName: "솔라나",   symbol: "SOL",  brandColor: "#66F9A1", seedPrice: 246_800, seedChangeRate: 0, sigma: 0.0007, qtyScale: 6, baseVolume: 5.6 },
   { market: "KRW-XRP",  koreanName: "리플",     symbol: "XRP",  brandColor: "#23292F", seedPrice: 742,  seedChangeRate: +0.0512, sigma: 0.0008, qtyScale: 2, baseVolume: 2100 },
   { market: "KRW-DOGE", koreanName: "도지코인", symbol: "DOGE", brandColor: "#C2A633", seedPrice: 182,  seedChangeRate: -0.0055, sigma: 0.0009, qtyScale: 2, baseVolume: 940 },
   { market: "KRW-ADA",  koreanName: "에이다",   symbol: "ADA",  brandColor: "#0033AD", seedPrice: 1_084, seedChangeRate: +0.0087, sigma: 0.0007, qtyScale: 2, baseVolume: 500 },
@@ -87,7 +86,6 @@ export const COIN_META: CoinMeta[] = SEEDS.map((s) => ({
   symbol: s.symbol,
   koreanName: s.koreanName,
   brandColor: s.brandColor,
-  brandTextDark: s.brandTextDark,
 }));
 
 /** 호가 가격 단위 (Upbit 관례 축약). 저가 구간은 소수 틱으로 격자를 유지한다(sub-1 KRW 마켓 0 강제 방지) */
