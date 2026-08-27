@@ -78,3 +78,28 @@ jobs:
           node-version: "22"
       - name: check design tokens
         run: node scripts/check-tokens.mjs
+
+  # 브라우저 게이트는 계산된 스타일과 배치를 본다. 토큰 게이트가 값과 소비 규칙을 정적으로
+  # 지키는 동안에도 통과해버린 회귀가 있었다. 실제 렌더가 아니면 안 보이는 종류다.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # playwright 설치 훅이 chromium·firefox·webkit을 전부 받는다. 게이트는 chromium만 쓰므로
+      # 훅을 끄고 다음 단계에서 하나만 받는다
+      - name: install deps
+        working-directory: web
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci
+      - name: install chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      # 스크립트가 dev 서버를 직접 띄우고 끝나면 죽인다. 별도 기동 단계가 필요 없다
+      - name: check browser invariants
+        run: node scripts/check-browser.mjs

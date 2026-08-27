@@ -116,7 +116,9 @@
 .repSym {
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
-  color: var(--text-secondary);
+  /* .rep이 sunken 면이라 --text-secondary는 라이트 4.27:1로 미달(tokens §2 sunken 규칙).
+     grey-800 on grey-100 11.11:1 */
+  color: var(--text-default);
   flex-shrink: 0;
 }
 
@@ -143,3 +145,10 @@
   line-height: var(--font-caption-line);
   font-weight: var(--fw-semibold);
 }
+/* sunken 면 위 소형 방향 텍스트는 600단계가 아니라 -strong(700)이다(tokens §2).
+   호가 경계행이 같은 조합에서 같은 값을 냈다: red-600 on grey-100 4.33:1.
+   승격 실측: red-700 5.67:1 / azure-700 6.79:1. flat은 --color-flat이 secondary라 4.27:1 미달.
+   이중 클래스는 전역 dir-text 규칙(동일 명시도)과의 소스 순서 의존을 없애는 명시도 확보다 */
+.repChange.repChange[data-dir="up"] { color: var(--color-up-strong); }
+.repChange.repChange[data-dir="down"] { color: var(--color-down-strong); }
+.repChange.repChange[data-dir="flat"] { color: var(--text-default); }

@@ -49,8 +49,9 @@
   outline: none;
   box-shadow: none;
 }
+/* 플레이스홀더는 1.4.3상 텍스트다. tertiary는 장식 대역이라 미달한다 */
 .input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-placeholder);
 }
 .input:disabled {
   color: var(--text-disabled);

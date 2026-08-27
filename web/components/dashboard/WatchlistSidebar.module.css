@@ -31,7 +31,8 @@
   background: var(--surface-sunken);
   font-size: var(--font-micro-size);
   font-weight: var(--fw-semibold);
-  color: var(--text-secondary);
+  /* sunken 면 위 --text-secondary는 라이트 4.27:1로 미달(tokens §2). grey-800 11.11:1 */
+  color: var(--text-default);
 }
 
 .hint {

@@ -76,7 +76,19 @@
   --text-default:var(--grey-800);  /* 본문 */
   --text-secondary:var(--grey-600);/* 정보 전달용 캡션/라벨 최소선. 흰 배경 4.75:1.
      grey-100 위에서는 4.27:1로 미달이라 secondary 텍스트를 얹는 행 배경은 bg-muted까지만 쓴다 */
-  --text-tertiary:var(--grey-500); /* 장식/비활성만. 정보 전달 금지 */
+  /* 장식/비활성만. 정보 전달 금지.
+     grey-500(#8C95A1)은 흰 카드에서만 3:1을 넘고(3.03) 페이지 bg-muted 2.89 / sunken 2.72로
+     미달했다. 장식이어도 눈에 보이면 1.4.11의 3:1은 지켜야 하므로 라이트 3면 전부에서
+     여유를 갖는 전용값을 쓴다. 실측: bg-muted 3.43:1 / white 3.59:1 / sunken 3.23:1.
+     램프 밖 값인 이유는 grey-600이 secondary와 같아 단계가 무너지기 때문이다 */
+  --text-tertiary:#7E8895;
+  /* 플레이스홀더 전용 단계. 두 제약을 동시에 받는다. 1.4.3상 텍스트라 4.5:1이 필요하고,
+     입력된 값과 구별돼야 한다. secondary는 sunken 위 4.27:1로 첫째를 못 지키고, sunken 면이
+     secondary를 default로 재매핑하므로(주문 패널 .inp) 그대로 쓰면 값과 같은 잉크가 돼
+     둘째를 못 지킨다. 금액 칸에서 채워진 것처럼 보이는 건 대비 미달보다 나쁘다.
+     실측 라이트: default·elevated 7.56 / muted 7.22 / sunken·hover 6.79.
+     같은 면에서 입력값(--text-default)은 10.16이라 잉크 단계가 갈린다 */
+  --text-placeholder:var(--grey-700);
   --text-disabled:var(--grey-400);
   --text-inverse:#FFFFFF;
   --text-brand:var(--brand-600);   /* 링크 텍스트 (600으로 대비 확보) */
@@ -173,6 +185,9 @@
   --text-strong:#F2F4F6; --text-default:#E4E8ED;
   --text-secondary:#A8B2BE;   /* 상향 → ≈4.7:1 (정보 전달용 최소선) */
   --text-tertiary:#8A94A3;    /* 상향 → ≈4.5:1 (초안 #6B7684 3.78 실패 해소) */
+  /* 다크는 secondary 값이 sunken 위 8.57:1이라 대비 제약을 이미 넘는다. 값(#E4E8ED)과도
+     명도가 갈려 그대로 쓴다. 실측: default 8.11 / elevated 6.87 / muted 8.42 / sunken 8.57 / hover 7.41 */
+  --text-placeholder:#A8B2BE;
   --text-disabled:#4B5563;
   --text-inverse:#16191F;
   --text-brand:#8FB4FF; --text-on-brand:#FFFFFF;
@@ -370,6 +385,7 @@
     --text-strong:#F2F4F6; --text-default:#E4E8ED;
     --text-secondary:#A8B2BE;
     --text-tertiary:#8A94A3;
+    --text-placeholder:#A8B2BE;
     --text-disabled:#4B5563;
     --text-inverse:#16191F;
     --text-brand:#8FB4FF; --text-on-brand:#FFFFFF;

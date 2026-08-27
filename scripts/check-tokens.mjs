@@ -10,7 +10,7 @@
  * 규칙을 사람이 기억하는 대신 검사로 고정한다.
  *
  * 한계: 정적 검사는 "이 요소가 어느 면 위에 놓이는가"를 모른다. 요소 단위 실측 대비는
- * scripts/sweep-contrast.js를 브라우저에서 돌려야 한다. 이 파일은 토큰 값 자체와
+ * scripts/check-browser.mjs를 돌려야 한다. 이 파일은 토큰 값 자체와
  * 소비 규칙만 본다.
  */
 
@@ -72,6 +72,12 @@ const CONTRACT = [
   ),
   /* secondary는 sunken·hover 위에서 4.27:1이라 계약에서 뺀다. 그 면에는 default를 쓴다 */
   ...TEXT_SURFACES.map((s) => ["--text-secondary", s, 4.5]),
+  /* 플레이스홀더는 1.4.3상 텍스트라 면을 가리지 않고 4.5:1이다. secondary와 달리 sunken도 포함한다.
+     주문 패널 가격 칸이 sunken이고 거기 플레이스홀더가 놓인다 */
+  ...[...TEXT_SURFACES, ...SUNKEN_SURFACES].map((s) => ["--text-placeholder", s, 4.5]),
+  /* 장식 대역도 눈에 보이면 1.4.11의 3:1은 받는다. 계약이 없던 동안 라이트 grey-500이
+     bg-muted 2.89:1로 미달한 채 남아 있었고 브라우저 게이트가 먼저 잡았다 */
+  ...[...TEXT_SURFACES, ...SUNKEN_SURFACES].map((s) => ["--text-tertiary", s, 3]),
   ["--color-up-text", "--surface-default", 4.5],
   ["--color-down-text", "--surface-default", 4.5],
   /* 틴트·sunken 위 소형 방향 텍스트는 -strong(700) */

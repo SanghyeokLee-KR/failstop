@@ -78,6 +78,9 @@
   font-size: var(--font-body-sm-size);
 }
 .inp input:focus { outline: none; box-shadow: none; }
+/* 규칙이 없어 브라우저 기본 회색이 그려지고 있었다(라이트 4.14:1 / 다크 4.00:1 미달).
+   가격 칸 플레이스홀더는 현재가를 힌트로 띄우므로 정보 텍스트다 */
+.inp input::placeholder { color: var(--text-placeholder); }
 /* 값 뒤 단위. 타이포·색은 공용 .unit-suffix(micro/tertiary)가 소유, 여기선 레이아웃만 */
 .unit {
   flex-shrink: 0;
