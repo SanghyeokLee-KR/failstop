@@ -19,6 +19,7 @@ import kr.exchange.api.community.CommunityAuthenticator;
 import kr.exchange.api.community.CommunityRankService;
 import kr.exchange.api.community.CommunityService;
 import kr.exchange.api.member.MemberAuthService;
+import kr.exchange.api.support.SupportService;
 import kr.exchange.api.transfer.TransferService;
 import kr.exchange.api.member.MemberSessionService;
 import kr.exchange.api.member.PasswordHasher;
@@ -114,6 +115,11 @@ public class ApiConfig {
                                                AccountBootstrap bootstrap) {
         return new MemberAuthService(jdbc, new TransactionTemplate(txManager), hasher, sessions,
                 bootstrap);
+    }
+
+    @Bean
+    public SupportService supportService(JdbcClient jdbc, PlatformTransactionManager txManager) {
+        return new SupportService(jdbc, new TransactionTemplate(txManager));
     }
 
     @Bean

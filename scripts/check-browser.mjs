@@ -57,10 +57,10 @@ const NO_SCROLL = [/^\/exchange\//];
 const SCREENS = [
   "/", "/home", "/welcome", "/market", "/exchange", "/exchange/KRW-BTC",
   "/order/KRW-BTC", "/coin/KRW-BTC", "/community/KRW-BTC",
-  "/assets", "/transfers", "/history", "/notices", "/mypage", "/system",
+  "/assets", "/transfers", "/history", "/notices", "/support", "/mypage", "/system",
   "/auth/login", "/auth/signup",
   "/admin", "/admin/audit", "/admin/bots", "/admin/chaos",
-  "/admin/config", "/admin/monitoring", "/admin/operators", "/admin/transfers",
+  "/admin/config", "/admin/monitoring", "/admin/operators", "/admin/transfers", "/admin/support",
 ];
 
 /* ---------- 페이지 안에서 도는 프로브 ---------- */

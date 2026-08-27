@@ -51,6 +51,7 @@ import type {
   RecoveryRun,
   SimStatus,
   TradeFlash,
+  AdminInquiry,
   AdminTransfer,
   AdminTransferStatus,
 } from "./types";
@@ -225,6 +226,34 @@ interface WireCreateBot {
   fleet_total?: number;
   clamped?: boolean;
   fleet_present?: boolean;
+}
+
+/** GET·POST /admin/v1/support 와이어(§4-G, snake_case) */
+interface AdminInquiryWire {
+  external_id?: string;
+  category?: string;
+  title?: string;
+  body?: string;
+  status?: string;
+  answer?: string | null;
+  answered_at?: number | null;
+  user_email?: string;
+  created_at?: number;
+}
+
+function toAdminInquiry(w: AdminInquiryWire): AdminInquiry {
+  const at = (v: unknown) => (typeof v === "number" ? v : Number(v ?? 0) || 0);
+  return {
+    externalId: w.external_id ?? "",
+    category: (w.category as AdminInquiry["category"]) ?? "ETC",
+    title: w.title ?? "",
+    body: w.body ?? "",
+    status: w.status === "ANSWERED" ? "ANSWERED" : "OPEN",
+    answer: w.answer ?? null,
+    answeredAt: w.answered_at == null ? null : at(w.answered_at),
+    userEmail: w.user_email ?? "",
+    createdAt: at(w.created_at),
+  };
 }
 
 /** GET·POST /admin/v1/transfers 와이어(§4-E, snake_case) */
@@ -969,6 +998,23 @@ export class HttpAdminApi implements AdminApi {
       createdAt: n.published_at ?? "",
       createdBy: n.published_by ?? "",
     }));
+  }
+
+  /* ===== 문의 답변 큐 (§4-G) ===== */
+
+  async getInquiries(status: "OPEN" | "ANSWERED" = "OPEN"): Promise<AdminInquiry[]> {
+    const res = await this.http<{ data?: AdminInquiryWire[] }>(
+      `/admin/v1/support?status=${status}&limit=200`,
+    );
+    return (res.data ?? []).map(toAdminInquiry);
+  }
+
+  async answerInquiry(externalId: string, answer: string): Promise<AdminInquiry> {
+    const res = await this.http<AdminInquiryWire>(
+      `/admin/v1/support/${encodeURIComponent(externalId)}/answer`,
+      { method: "POST", body: JSON.stringify({ answer }) },
+    );
+    return toAdminInquiry(res);
   }
 
   /* ===== 출금 승인 큐 (§4-E) ===== */

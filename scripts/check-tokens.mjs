@@ -31,8 +31,10 @@ const SKIP_DIRS = new Set(["node_modules", ".next", "out", ".test-dist"]);
    렌더는 var(--text-on-brand-*)가 담당한다(brandChip.ts 주석) */
 const COLOR_LITERAL_EXEMPT = ["lib/sim/engine.ts", "lib/brandChip.ts", "styles/tokens.css"];
 
-/* 시드 게시글·댓글은 사용자 작성물이라 UI 카피 규칙 대상이 아니다 */
-const COPY_TONE_EXEMPT = ["lib/community/datasource.ts"];
+/* 사용자가 쓴 글을 흉내 낸 시드 데이터는 UI 카피 규칙 대상이 아니다. 게시글·댓글과
+   문의 본문이 여기 해당한다. 제품이 사용자에게 하는 말이 아니라 사용자가 한 말이다.
+   같은 파일의 실제 UI 문구(에러 메시지 등)까지 면제되는 것은 이 방식의 대가다 */
+const COPY_TONE_EXEMPT = ["lib/community/datasource.ts", "lib/admin/simAdmin.ts"];
 
 /* 척도(scale)는 미사용 단계가 있어도 결함이 아니다. 완결성이 곧 계약이라 중간 단계를
    빼면 소비처가 임의값을 쓴다. 팔레트 램프, 타이포 램프, 간격·라운드·그림자·모션·z 척도가 해당한다.

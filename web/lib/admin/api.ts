@@ -35,6 +35,7 @@ import type {
   NoticeSeverity,
   SimStatus,
   TradeFlash,
+  AdminInquiry,
   AdminTransfer,
   AdminTransferStatus,
 } from "./types";
@@ -122,6 +123,10 @@ export interface AdminApi {
   getTransfers(status?: AdminTransferStatus): Promise<AdminTransfer[]>;
   approveTransfer(externalId: string): Promise<AdminTransfer>;
   rejectTransfer(externalId: string, reason: string): Promise<AdminTransfer>;
+
+  /* 문의 답변 큐(§4-G). 목록은 VIEWER, 답변은 MEMBER_MOD */
+  getInquiries(status?: "OPEN" | "ANSWERED"): Promise<AdminInquiry[]>;
+  answerInquiry(externalId: string, answer: string): Promise<AdminInquiry>;
 
   getOperators(): Promise<AdminOperator[]>;
   getAudit(): Promise<AuditEntry[]>;

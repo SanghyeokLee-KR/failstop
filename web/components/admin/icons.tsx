@@ -13,6 +13,7 @@ export type AdminIconName =
   | "chaos"
   | "config"
   | "transfers"
+  | "support"
   | "operators"
   | "audit";
 
@@ -69,6 +70,13 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
       <path d="M9.25 3.25 L11.5 5.25 L9.25 7.25" />
       <path d="M12.75 10.75 H4.5" />
       <path d="M6.75 8.75 L4.5 10.75 L6.75 12.75" />
+    </>
+  ),
+  // 말풍선: 묻고 답하는 자리. 꼬리 방향이 아래라 들어온 말을 뜻한다
+  support: (
+    <>
+      <path d="M2.75 4.25 H13.25 V10.75 H7.25 L4.75 13.25 V10.75 H2.75 Z" />
+      <path d="M5.5 7.5 H10.5" />
     </>
   ),
   // 인장 카드: 인물 원 + 정보 줄

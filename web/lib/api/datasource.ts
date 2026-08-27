@@ -21,6 +21,8 @@ import type {
   Ticker,
   Trade,
   PublicNotice,
+  SupportInput,
+  SupportInquiry,
   TransferInput,
   TransferRequest,
   WsMessage,
@@ -47,6 +49,13 @@ export interface DataSource {
 
   /** 공지 목록(§4-F). 무인증 읽기. active인 공지만, 최신순 */
   getNotices(): Promise<PublicNotice[]>;
+
+  /* ===== 문의 (§4-G). 회원 세션 전용 ===== */
+
+  /** 문의 등록 */
+  createInquiry(input: SupportInput): Promise<SupportInquiry>;
+  /** 내 문의 목록. 최신순 */
+  listInquiries(limit?: number): Promise<SupportInquiry[]>;
 
   /** 효과 강도 조회(§4-A-6). WS push 아님. 갱신은 폴링(useEffectConfigPolling). 실패는 어댑터가 폴백 흡수 */
   getEffectConfig(): Promise<EffectConfig>;
@@ -245,6 +254,37 @@ export class SimDataSource implements DataSource {
         published_at: now - 1000 * 60 * 60 * 30,
       },
     ];
+  }
+
+  /* ===== 문의 (§4-G) ===== */
+
+  /** 로컬 저장소. sim에는 운영자가 없어 답변은 관리 어댑터가 따로 든다(경계를 흐리지 않는다) */
+  private inquiries: SupportInquiry[] = [];
+
+  async createInquiry(input: SupportInput): Promise<SupportInquiry> {
+    if (!this.memberSession) {
+      throw new ApiError(403, "out_of_scope", "회원 세션 전용");
+    }
+    const title = String(input.title ?? "").replace(/s+/g, " ").trim();
+    const body = String(input.body ?? "").trim();
+    if (!title) throw new ApiError(400, "invalid_support_input", "제목 필요");
+    if (body.length < 5) throw new ApiError(400, "invalid_support_input", "내용은 최소 5자");
+    const row: SupportInquiry = {
+      external_id: `sim-q-${Date.now().toString(36)}-${this.inquiries.length}`,
+      category: input.category,
+      title,
+      body,
+      status: "OPEN",
+      answer: null,
+      answered_at: null,
+      created_at: Date.now(),
+    };
+    this.inquiries.unshift(row);
+    return { ...row };
+  }
+
+  async listInquiries(limit = 50): Promise<SupportInquiry[]> {
+    return this.inquiries.slice(0, limit).map((r) => ({ ...r }));
   }
 
   /* ===== 입출금 (§4-E) ===== */

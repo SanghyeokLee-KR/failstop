@@ -1,0 +1,218 @@
+/* 문의하기(§4-G). 왼쪽에 쓰고 오른쪽에서 읽는다 */
+
+.page {
+  /* 입출금과 같은 폭. 회원 기능 화면들이 가장자리를 공유한다 */
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-7) var(--layout-gutter) var(--space-9);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.formCard,
+.listCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.title {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.fieldLabel {
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+
+.textarea {
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border: 1px solid transparent;
+  border-radius: var(--control-radius);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-line);
+  color: var(--text-default);
+  resize: vertical;
+  /* sunken 면이라 secondary는 라이트 4.27:1로 미달이다(tokens §2) */
+  --text-secondary: var(--text-default);
+}
+.textarea::placeholder { color: var(--text-placeholder); }
+.textarea:focus-within,
+.textarea:focus { border-color: var(--brand-primary); }
+.textarea[aria-invalid] { border-color: var(--color-danger); }
+
+/* 안내와 글자 수를 한 줄에 둔다. 오류가 나면 안내 자리를 오류가 대신한다.
+   둘을 함께 띄우면 같은 자리에서 두 가지를 읽어야 한다 */
+.counter {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--font-caption-size);
+}
+.hint { color: var(--text-secondary); }
+.fieldError { color: var(--color-danger); }
+.count { color: var(--text-secondary); flex-shrink: 0; }
+
+.note {
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border-radius: var(--control-radius);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+  word-break: keep-all;
+}
+
+/* ===== 내 문의 ===== */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+}
+
+.itemMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.categoryBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+
+/* 대기는 아직 끝나지 않았다는 신호라 잉크를 살리고, 완료는 지나간 일이라 낮춘다.
+   danger를 쓰지 않는 이유는 답변 대기가 사고가 아니기 때문이다 */
+.statusText {
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-medium);
+}
+.statusText[data-status="OPEN"] { color: var(--color-warning-text); }
+.statusText[data-status="ANSWERED"] { color: var(--text-secondary); }
+
+.itemTime {
+  margin-left: auto;
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}
+
+.itemTitle {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  word-break: keep-all;
+}
+
+.itemBody {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-line);
+  color: var(--text-default);
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 답변은 질문에 이어 붙는다. 들여쓰기와 면으로 발화자가 갈린다.
+   별도 카드로 띄우면 어느 질문의 답인지 다시 찾아야 한다 */
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  margin-left: var(--space-4);
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border-left: 2px solid var(--chrome-accent);
+  border-radius: 0 var(--control-radius) var(--control-radius) 0;
+}
+.answerLabel {
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-semibold);
+  /* sunken 면 규칙(tokens §2) */
+  color: var(--text-default);
+}
+.answerBody {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-line);
+  color: var(--text-default);
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* ===== 비회원 유도 ===== */
+
+.gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-10) var(--layout-gutter);
+  text-align: center;
+}
+.gateTitle {
+  font-size: var(--font-title-2-size);
+  line-height: var(--font-title-2-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.gateDesc {
+  max-width: 46ch;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  color: var(--text-secondary);
+  word-break: keep-all;
+}
+.gateActions {
+  display: flex;
+  gap: var(--space-3);
+}

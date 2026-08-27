@@ -44,6 +44,7 @@ import type {
   RecoveryRun,
   SimStatus,
   TradeFlash,
+  AdminInquiry,
   AdminTransfer,
   AdminTransferStatus,
 } from "./types";
@@ -903,6 +904,56 @@ export class SimAdminApi implements AdminApi {
   getConfigMarkets(): Promise<ConfigMarket[]> {
     this.auth("VIEW");
     return Promise.resolve(this.markets.map((m) => ({ ...m })));
+  }
+
+  /* ===== 문의 답변 큐 (§4-G) =====
+   * 회원 어댑터(SimDataSource)와 다른 객체라 실제 문의를 공유하지 못한다. 답변 흐름의
+   * 화면·권한·상태 전이를 확인할 수 있도록 씨앗 행을 둔다. */
+  private inquiries: AdminInquiry[] = [
+    {
+      externalId: "sim-q-1",
+      category: "TRADE",
+      title: "지정가 주문이 체결되지 않습니다",
+      // 줄바꿈이 든 문의로 둔다. 관리 화면이 여러 줄 본문을 제대로 그리는지 확인 대상이다
+      body: ["84,000,000원에 매수 주문을 넣었는데 30분째 미체결입니다.", "현재가는 83,900,000원입니다."].join("\n"),
+      status: "OPEN",
+      answer: null,
+      answeredAt: null,
+      userEmail: "trader@demo.local",
+      createdAt: Date.now() - 1000 * 60 * 25,
+    },
+    {
+      externalId: "sim-q-2",
+      category: "TRANSFER",
+      title: "출금 승인이 언제 되나요",
+      body: "어제 출금 요청했는데 아직 대기 중입니다.",
+      status: "OPEN",
+      answer: null,
+      answeredAt: null,
+      userEmail: "whale@demo.local",
+      createdAt: Date.now() - 1000 * 60 * 5,
+    },
+  ];
+
+  getInquiries(status: "OPEN" | "ANSWERED" = "OPEN"): Promise<AdminInquiry[]> {
+    this.auth("VIEW");
+    return Promise.resolve(this.inquiries.filter((q) => q.status === status).map((q) => ({ ...q })));
+  }
+
+  answerInquiry(externalId: string, answer: string): Promise<AdminInquiry> {
+    const s = this.auth("MEMBER_MOD");
+    const text = String(answer ?? "").trim();
+    if (!text) return Promise.reject(new AdminError("invalid_support_input", "답변 내용 필요"));
+    const row = this.inquiries.find((q) => q.externalId === externalId);
+    if (!row) return Promise.reject(new AdminError("not_found", "문의 없음"));
+    if (row.status !== "OPEN") {
+      return Promise.reject(new AdminError("support_already_answered", "이미 답변된 문의"));
+    }
+    row.status = "ANSWERED";
+    row.answer = text;
+    row.answeredAt = Date.now();
+    this.log(s, "support.answer", externalId, null, "OK");
+    return Promise.resolve({ ...row });
   }
 
   /* ===== 출금 승인 큐 (§4-E) =====

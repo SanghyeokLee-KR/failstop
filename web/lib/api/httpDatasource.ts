@@ -34,6 +34,8 @@ import type {
   TradeMessage,
   WsMessage,
   PublicNotice,
+  SupportInput,
+  SupportInquiry,
   TransferInput,
   TransferRequest,
 } from "../types";
@@ -792,6 +794,25 @@ export class HttpStompDataSource implements DataSource {
   /** 공지(§4-F). 무인증 경로라 Bearer를 붙이지 않는다 */
   async getNotices(): Promise<PublicNotice[]> {
     const body = await this.http<{ data?: PublicNotice[] }>("/api/v1/notices");
+    return body.data ?? [];
+  }
+
+  /* ===== 문의 (§4-G) ===== */
+
+  async createInquiry(input: SupportInput): Promise<SupportInquiry> {
+    return this.http<SupportInquiry>(
+      "/api/v1/support",
+      { method: "POST", body: JSON.stringify(input) },
+      true,
+    );
+  }
+
+  async listInquiries(limit = 50): Promise<SupportInquiry[]> {
+    const body = await this.http<{ data?: SupportInquiry[] }>(
+      `/api/v1/support?limit=${limit}`,
+      {},
+      true,
+    );
     return body.data ?? [];
   }
 

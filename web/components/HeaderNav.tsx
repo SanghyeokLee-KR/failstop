@@ -41,6 +41,7 @@ const MENU_LINKS = [
   { href: "/assets", label: "자산" },
   { href: "/transfers", label: "입출금" },
   { href: "/history", label: "거래내역" },
+  { href: "/support", label: "문의하기" },
 ];
 
 function MemberMenu({ displayName }: { displayName: string }) {

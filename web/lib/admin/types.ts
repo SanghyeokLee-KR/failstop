@@ -348,6 +348,20 @@ export interface AdminTransfer {
   updatedAt: number;
 }
 
+/* ===== 문의 답변 큐 (§4-G) ===== */
+
+export interface AdminInquiry {
+  externalId: string;
+  category: "TRADE" | "TRANSFER" | "ACCOUNT" | "ETC";
+  title: string;
+  body: string;
+  status: "OPEN" | "ANSWERED";
+  answer: string | null;
+  answeredAt: number | null;
+  userEmail: string;
+  createdAt: number;
+}
+
 export interface Notice {
   id: string;
   title: string;

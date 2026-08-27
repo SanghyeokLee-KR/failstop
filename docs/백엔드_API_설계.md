@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.25, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.26, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -168,6 +168,8 @@ exchange-platform/
 | 400 | `invalid_transfer_amount` | **입출금 금액이 0 이하·소수점·한도 초과·자릿수 위반(신규, §4-E)** |
 | 403 | `transfer_not_owned` | **타인의 입출금 요청 조작 시도(신규, §4-E)** |
 | 409 | `transfer_not_pending` | **이미 확정·취소된 입출금 요청의 재처리(신규, §4-E)** |
+| 400 | `invalid_support_input` | **문의 분류 어휘 위반 또는 제목·본문 길이 위반(신규, §4-G)** |
+| 409 | `support_already_answered` | **답변된 문의에 재답변 시도(신규, §4-G)** |
 | 400 | `weak_password` | **회원 비밀번호 최소 길이(8자) 미달(신규, §3-8)** |
 | 400 | `invalid_email` | **회원 이메일 형식 오류(신규, §3-8)** |
 | 401 | `invalid_credentials` | **로그인 이메일·비밀번호 불일치. 존재 여부 비노출(미가입도 동일 코드·메시지·유사 지연) (신규, §3-8)** |
@@ -830,6 +832,45 @@ POST /api/v1/orders
 | `RESERVE` | `order_id` | 예약을 만든 **주문의 외부 UUID**. 원 업무 이벤트 id는 내부 주문 PK라 그대로 노출하지 않고 치환한다 |
 | `RELEASE` / `GENESIS` / `TRANSFER` / `REVERSAL` | `id` | 업무 이벤트 id 10진 문자열(`RELEASE`는 해제를 유발한 `event_seq`, `GENESIS`는 발행 일련) |
 > 예시 수치는 §5-5 체결 시나리오와 정합(v2.7 재계산: bid 0.004 체결 → 체결대금 200,000 차감 TRADE 분개 + 수취 BTC 순액 0.003998 게시 TRADE 분개, 동일 timestamp 축). taker 수수료 0.000002 BTC의 FEE leg는 FEE_INCOME 시스템 계정 귀속이라 사용자 원장에는 나타나지 않는다(§4-B-5 v2.7 수취 자산 수수료 모델). 동일 체결에서 파생된 분개 묶음은 원장 트랜잭션의 `UNIQUE(business_event_type, business_event_id)`(§7-1)로 멱등이라, 재생·재시도로 같은 업무 이벤트가 다시 적용되어도 중복 분개가 생기지 않는다.
+
+---
+
+### 4-G. 문의 API (V15 신설, `/api/v1/support`)
+
+사용자가 운영자에게 묻고 운영자가 답한다. 공지(§4-F)가 운영자에서 전체로 가는 단방향이라면 문의는 개인 대 운영자다.
+
+**회원 세션 전용이다.** 무인증 문의를 받지 않는 이유는 답을 전할 방법이 없기 때문이다. 런타임 외부 API 의존 금지 규칙상 메일 발송이 불가능하므로 답변은 앱 안에서만 읽힌다. 계정 없이 받으면 답을 쓰고도 전달할 수 없는 문의가 쌓인다. 화면은 비회원에게 이 사실을 그대로 말하고 로그인으로 보낸다.
+
+| 기능 | 메서드·경로 | 인증 | rate limit |
+|---|---|---|---|
+| 문의 등록 | `POST /api/v1/support` | 회원 세션 | 회원당 10회/1h |
+| 내 문의 목록 | `GET /api/v1/support` | 회원 세션 | 표준 |
+| 대기 큐 조회 | `GET /admin/v1/support` | 관리 세션(VIEWER) | 표준 |
+| 답변 등록 | `POST /admin/v1/support/{external_id}/answer` | 관리 세션(MEMBER_MOD) | 표준 |
+
+```json
+// POST /api/v1/support
+{ "category":"TRADE", "title":"체결이 안 됩니다", "body":"지정가 주문이 30분째 미체결입니다" }
+
+// 201
+{ "schema_version":"1.0",
+  "external_id":"7c1a...", "category":"TRADE", "title":"체결이 안 됩니다",
+  "body":"...", "status":"OPEN", "answer":null, "answered_at":null,
+  "created_at":1756300000000 }
+```
+
+**분류**: `TRADE`·`TRANSFER`·`ACCOUNT`·`ETC` 넷. 운영자 분류 작업을 사용자에게 미루는 것이 아니라, 넷 중 하나를 고르는 비용이 자유 서술보다 낮고 큐 정렬에 바로 쓰이기 때문이다. 다섯 개를 넘기면 고르는 것 자체가 일이 된다.
+
+**상태**: `OPEN` → `ANSWERED`. 둘뿐이다. 사용자 관점에서 답이 왔는지 아닌지 말고 알아야 할 상태가 없다. `IN_PROGRESS` 같은 중간 상태는 운영자 내부 사정이라 사용자 화면에서 기다림의 성격을 바꾸지 않는다.
+
+**후속 문의**: 스레드를 만들지 않는다. 답변이 불충분하면 새 문의를 등록한다. 스레드는 알림·읽음·정렬이 모두 따라붙는 별도 기능이고, 데모 규모에서 한 번의 문답이 감당하지 못하는 사례가 드물다.
+
+**신규 에러코드**(§2-3 확장).
+
+| HTTP | name | 의미 |
+|---|---|---|
+| 400 | `invalid_support_input` | 분류 어휘 위반, 제목·본문 길이 위반 |
+| 409 | `support_already_answered` | 답변된 문의에 재답변 시도 |
 
 ---
 

@@ -334,6 +334,29 @@ export interface PublicNotice {
   published_at: number | null;
 }
 
+/* ===== 문의 (§4-G 미러) ===== */
+
+export type SupportCategory = "TRADE" | "TRANSFER" | "ACCOUNT" | "ETC";
+/** OPEN과 ANSWERED뿐이다. 사용자 관점에서 답이 왔는지 말고 알아야 할 상태가 없다 */
+export type SupportStatus = "OPEN" | "ANSWERED";
+
+export interface SupportInput {
+  category: SupportCategory;
+  title: string;
+  body: string;
+}
+
+export interface SupportInquiry {
+  external_id: string;
+  category: SupportCategory;
+  title: string;
+  body: string;
+  status: SupportStatus;
+  answer: string | null;
+  answered_at: number | null;
+  created_at: number;
+}
+
 /* ===== 입출금 (§4-E 미러) ===== */
 
 export type TransferDirection = "DEPOSIT" | "WITHDRAW";
