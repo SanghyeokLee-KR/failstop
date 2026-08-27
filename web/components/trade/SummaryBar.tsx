@@ -27,6 +27,19 @@ interface Props {
   meta: CoinMeta;
 }
 
+/** 트리거와 메뉴 사이 간격. absolute 시절 top: calc(100% + 6px)의 6px */
+const MENU_GAP = 6;
+/** 메뉴 하단과 뷰포트 사이 여백 */
+const MENU_EDGE = 12;
+/** 아무리 좁아도 항목 몇 개는 보여야 스크롤 손잡이가 생긴다 */
+const MENU_MIN_HEIGHT = 160;
+
+interface MenuPos {
+  top: number;
+  left: number;
+  maxHeight: number;
+}
+
 export default function SummaryBar({ market, meta }: Props) {
   const router = useRouter();
   const ticker = useExchangeStore((s) => s.tickers[market]);
@@ -38,9 +51,28 @@ export default function SummaryBar({ market, meta }: Props) {
   const toggleFavorite = useExchangeStore((s) => s.toggleFavorite);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
   const identRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  // 메뉴는 fixed라 좌표를 직접 잡는다. absolute 시절 기준(ident 좌하단 + 6px)을 그대로 재현한다
+  useEffect(() => {
+    if (!menuOpen) {
+      setMenuPos(null);
+      return;
+    }
+    const place = () => {
+      const r = identRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const top = r.bottom + MENU_GAP;
+      // 12종이 뷰포트를 넘기면 잘리는 대신 메뉴 안에서 스크롤한다
+      setMenuPos({ top, left: r.left, maxHeight: Math.max(MENU_MIN_HEIGHT, window.innerHeight - top - MENU_EDGE) });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -112,8 +144,14 @@ export default function SummaryBar({ market, meta }: Props) {
             ▾
           </span>
         </button>
-        {menuOpen && (
-          <div className={styles.menu} role="menu" aria-label="마켓 목록" onKeyDown={onMenuKeyDown}>
+        {menuOpen && menuPos && (
+          <div
+            className={styles.menu}
+            role="menu"
+            aria-label="마켓 목록"
+            onKeyDown={onMenuKeyDown}
+            style={{ top: menuPos.top, left: menuPos.left, maxHeight: menuPos.maxHeight }}
+          >
             {COIN_META.map((c, i) => (
               <button
                 key={c.market}

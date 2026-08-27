@@ -39,10 +39,13 @@
   color: var(--text-secondary);
 }
 
+/* .root는 64px 1행을 지키려 overflow:hidden이다(§2.5). absolute 메뉴는 그 클립 박스에 갇혀
+   12항목 중 첫 항목만 보였다. overflow는 한 축만 visible로 둘 수 없어 가드를 유지한 채
+   메뉴만 빼내려면 컨테이닝 블록을 뷰포트로 올려야 한다. fixed는 조상 overflow에 잘리지 않는다
+   (조상에 transform·filter·contain이 없음을 전제. 현재 거래 화면 조상 체인은 비어 있다).
+   좌표는 트리거 rect에서 계산해 인라인으로 넣는다 */
 .menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+  position: fixed;
   z-index: var(--z-dropdown);
   min-width: 220px;
   padding: var(--space-1);
@@ -50,6 +53,9 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-2);
+  /* 높이 상한은 인라인(뷰포트 잔여). 넘치면 잘리는 대신 메뉴 안에서 스크롤한다 */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .menuItem {
   display: flex;
