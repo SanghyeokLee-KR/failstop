@@ -78,6 +78,10 @@ export interface ChartTokens {
   series4: string;
   brandPrimary: string;
   font: string;
+  /* 프라이스 마크 공용 규격(§6.5). 캔버스라 px 수로 넘긴다 */
+  priceMarkRadius: number;
+  priceMarkPadY: number;
+  priceMarkPadX: number;
 }
 
 /** 거래량 막대 알파(35%). 방향 토큰 파생, 데이터 내장 색이라 테마 전이 시 재세팅 */
@@ -133,7 +137,16 @@ export function buildChartStyles(t: ChartTokens, reducedMotion = false): DeepPar
           downColor: t.down,
           noChangeColor: t.flat,
           line: { show: true, ...dashed },
-          text: { color: t.textInverse },
+          /* 프라이스 마크 3지점 중 차트 태그. 히어로·호가 경계행과 같은 프레임 규격을 쓴다(§6.5).
+             같은 슬롯 형태가 세 지점에 반복돼야 "가격 판독 자리"로 학습된다 */
+          text: {
+            color: t.textInverse,
+            borderRadius: t.priceMarkRadius,
+            paddingTop: t.priceMarkPadY,
+            paddingBottom: t.priceMarkPadY,
+            paddingLeft: t.priceMarkPadX,
+            paddingRight: t.priceMarkPadX,
+          },
         },
       },
       // 캔들 OHLCV 판독은 캔버스 툴팁 대신 ChartReadout 고정 행이 담당한다(겹침·소음 제거)

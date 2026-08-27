@@ -26,6 +26,7 @@ const TOKENS: ChartTokens = {
   brand400: "#4E7DEE", brand500: "#2E6BE6", brand600: "#1F58CC", brand700: "#1848AC",
   series1: "#EBF1FE", series2: "#A9C2FA", series3: "#7B9FF5", series4: "#4E7DEE",
   brandPrimary: "#6B9DF7", font: "Pretendard",
+  priceMarkRadius: 8, priceMarkPadY: 4, priceMarkPadX: 8,
 };
 
 const OVERRIDES: Array<[string, (t: ChartTokens) => { lines?: unknown }]> = [

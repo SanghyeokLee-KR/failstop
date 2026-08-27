@@ -93,7 +93,8 @@
   gap: var(--space-2);
   height: 36px;
   margin: 2px 0;
-  padding: 0 var(--space-2);
+  /* 프라이스 마크 공용 규격(§6.5). 히어로·경계행·차트 태그가 같은 프레임을 쓴다 */
+  padding: var(--price-mark-pad-y) var(--price-mark-pad-x);
   background: var(--surface-sunken);
   border: 1px solid var(--border-subtle);
   border-radius: var(--price-mark-radius);

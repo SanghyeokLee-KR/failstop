@@ -246,7 +246,6 @@
   --space-0:0; --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
   --space-5:20px; --space-6:24px; --space-7:32px; --space-8:40px; --space-9:48px; --space-10:64px;
   --layout-gutter:24px;      /* 화면 좌우 표준 패딩 (초안 --gutter-screen 폐기·통일) */
-  --gap-cta-content:32px;    /* 바텀시트 CTA↔본문 */
   --header-h:56px;           /* 전역 HeaderNav 높이. sticky 오프셋·화면 높이 예산의 단일 소유(§5 v1.4) */
 
   --radius-xs:6px; --radius-sm:8px; --radius-md:12px; --radius-lg:16px;
@@ -314,8 +313,12 @@
   /* 표면 라운드. 패널 12, 인풋·칩 8(§4.3). 16 이상은 오버레이·시트 전용 */
   --panel-radius:var(--radius-md);
   --control-radius:var(--radius-sm);
-  /* 계측 눈금 hairline(§6.2). 무채, 색이 아니라 위치로 값을 더한다 */
-  --rule-tick:var(--border-subtle);
+  /* 계측 눈금 hairline(§6.2). 무채, 색이 아니라 위치로 값을 더한다.
+     border-subtle(라이트 1.21:1 / 다크 1.23:1)은 면과 구분이 안 돼 눈금이 없는 것과 같았다.
+     호가 잔량·관리 게이지·미터 레일이 전부 이 토큰을 쓰는데 그 계기 어휘가 화면에서 사라졌다.
+     반복 텍스처라 단일 그래픽 객체 기준(3:1)이 아니라 "지각되되 데이터에 종속"이 목표다.
+     border-strong 실측: 라이트 1.92:1 / 다크 2.07:1 */
+  --rule-tick:var(--border-strong);
   --rule-tick-gap:var(--space-4);
   /* 프라이스 마크 3지점 공용 규격(§6.5). 형태만 소유, 방향색은 소비처가 결정 */
   --price-mark-radius:var(--radius-sm);

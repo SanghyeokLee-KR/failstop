@@ -13,6 +13,11 @@ function cssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+/** px 토큰을 캔버스용 수로 바꾼다. 해석값은 "8px" 형태라 단위를 뗀다 */
+function pxVar(name: string): number {
+  return parseFloat(cssVar(name)) || 0;
+}
+
 /** 현재 테마의 토큰 해석값. 차트 init·테마 전환 재주입에서 소비 */
 export function readChartTokens(): ChartTokens {
   return {
@@ -41,6 +46,11 @@ export function readChartTokens(): ChartTokens {
     series4: cssVar("--chart-series-4"),
     brandPrimary: cssVar("--brand-primary"),
     font: cssVar("--font-sans"),
+    /* 프라이스 마크 공용 규격(§6.5). 히어로·호가 경계행과 같은 프레임을 차트 태그에도 준다.
+       캔버스라 px 수가 필요해 토큰 해석값에서 단위를 뗀다 */
+    priceMarkRadius: pxVar("--price-mark-radius"),
+    priceMarkPadY: pxVar("--price-mark-pad-y"),
+    priceMarkPadX: pxVar("--price-mark-pad-x"),
   };
 }
 

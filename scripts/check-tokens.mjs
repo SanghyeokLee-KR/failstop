@@ -34,8 +34,32 @@ const COLOR_LITERAL_EXEMPT = ["lib/sim/engine.ts", "lib/brandChip.ts", "styles/t
 /* 시드 게시글·댓글은 사용자 작성물이라 UI 카피 규칙 대상이 아니다 */
 const COPY_TONE_EXEMPT = ["lib/community/datasource.ts"];
 
-/* 팔레트 램프는 미사용 단계가 있어도 결함이 아니다. 시맨틱·별칭 토큰만 소비를 강제한다 */
-const PRIMITIVE = /^--(grey|brand|red|azure|green|orange|crimson)-(\d+|alpha-\d+)$/;
+/* 척도(scale)는 미사용 단계가 있어도 결함이 아니다. 완결성이 곧 계약이라 중간 단계를
+   빼면 소비처가 임의값을 쓴다. 팔레트 램프, 타이포 램프, 간격·라운드·그림자·모션·z 척도가 해당한다.
+   시맨틱 토큰과 §6 별칭만 소비를 강제한다 */
+const SCALE = [
+  /^--(grey|brand|red|azure|green|orange|crimson)-(\d+|alpha-\d+)$/,
+  /^--font-[a-z0-9-]+-(size|line|weight)$/,
+  /^--fw-[a-z]+$/,
+  /^--space-\d+$/,
+  /^--radius-[a-z0-9]+$/,
+  /^--shadow-\d+$/,
+  /^--dur-[a-z]+$/,
+  /^--ease-[a-z]+$/,
+  /^--z-[a-z]+$/,
+  /^--effect-pop-scale-[a-z]+$/,
+];
+const isScale = (tok) => SCALE.some((re) => re.test(tok));
+
+/**
+ * JS가 값을 미러링하는 토큰. CSS 소비처는 없지만 계약은 살아 있다.
+ * 미러 위치를 적어 두 값이 갈릴 때 어디를 봐야 하는지 남긴다.
+ */
+const JS_MIRRORED = {
+  "--flash-throttle": "components/TickCell.tsx THROTTLE_FOR.normal",
+  "--toast-duration": "components/Toast.tsx 자동 소거 타이머",
+  "--toast-duration-action": "components/Toast.tsx 액션 토스트 타이머",
+};
 
 /* ===== 대비 계약 =====
    tokens.css 주석이 근거로 든 조합을 실행 가능한 단정으로 옮긴다.
@@ -117,22 +141,44 @@ function parseTokens() {
   const src = stripComments(readFileSync(TOKENS, "utf8"), true);
   const light = new Map();
   const dark = new Map();
-  /* 다크 선언 구간: [data-theme="dark"] 블록과 시스템 다크 미디어 블록.
-     둘의 값이 같다는 전제이므로 어느 쪽을 읽어도 결과가 같다 */
-  const darkStarts = [...src.matchAll(/\[data-theme="dark"\]\s*\{|@media\s*\(prefers-color-scheme:\s*dark\)/g)];
-  const decl = /(--[a-z0-9-]+)\s*:\s*([^;]+);/gi;
-  let m;
-  while ((m = decl.exec(src)) !== null) {
-    const [, name, raw] = m;
-    const value = raw.trim();
-    const inDark = darkStarts.some((d) => m.index > d.index);
-    if (!inDark) {
-      if (!light.has(name)) light.set(name, value);
-    } else if (!dark.has(name)) dark.set(name, value);
+  /* 위치 기반 판정은 못 쓴다. tokens.css는 다크 블록 뒤에도 :root{}를 연다(§5 간격, §6 별칭).
+     "첫 다크 블록 이후는 전부 다크"로 보면 그 구간이 통째로 오분류돼 검사에서 빠진다.
+     중괄호 깊이를 따라가며 블록마다 선택자를 보고 판정한다 */
+  /* 1단계: 시스템 다크 미디어 블록의 문자 범위를 중괄호 짝맞춤으로 구한다 */
+  const darkMediaRanges = [];
+  const mediaRe = /@media[^{]*prefers-color-scheme:\s*dark[^{]*\{/g;
+  let mm;
+  while ((mm = mediaRe.exec(src)) !== null) {
+    let depth = 1;
+    let j = mm.index + mm[0].length;
+    while (j < src.length && depth > 0) {
+      if (src[j] === "{") depth++;
+      else if (src[j] === "}") depth--;
+      j++;
+    }
+    darkMediaRanges.push([mm.index, j]);
+  }
+  const inDarkMedia = (idx) => darkMediaRanges.some(([a, b]) => idx > a && idx < b);
+
+  /* 2단계: 선언 블록(중첩 없는 SELECTOR{...})을 훑어 선택자로 테마를 가른다.
+     커스텀 프로퍼티 블록은 중첩되지 않으므로 본문에 중괄호가 없다 */
+  const blockRe = /([^{}]*)\{([^{}]*)\}/g;
+  let b;
+  while ((b = blockRe.exec(src)) !== null) {
+    const selector = b[1];
+    const body = b[2];
+    if (!body.includes("--")) continue;
+    const isDark = /\[data-theme="dark"\]/.test(selector) || inDarkMedia(b.index);
+    const target = isDark ? dark : light;
+    const decl = /(--[a-z0-9-]+)\s*:\s*([^;]+);/gi;
+    let d;
+    while ((d = decl.exec(body)) !== null) {
+      if (!target.has(d[1])) target.set(d[1], d[2].trim());
+    }
   }
   const darkFull = new Map(light);
   for (const [k, v] of dark) darkFull.set(k, v);
-  return { light, dark: darkFull, declared: new Set(light.keys()), src };
+  return { light, dark: darkFull, declared: new Set([...light.keys(), ...dark.keys()]), src };
 }
 
 /** var() 사슬을 풀어 색 리터럴까지 내려간다 */
@@ -243,7 +289,7 @@ function checkFiles(tokens, files) {
     if (!declaredAnywhere.has(tok)) fail("undefined-token", "-", `${tok} 선언 없음`);
   }
   for (const tok of tokens.declared) {
-    if (PRIMITIVE.test(tok)) continue;
+    if (isScale(tok) || tok in JS_MIRRORED) continue;
     if (!referenced.has(tok)) fail("dead-token", "styles/tokens.css", `${tok} 소비처 0`);
   }
 
@@ -301,8 +347,8 @@ for (const p of problems) {
 }
 for (const [rule, list] of byRule) {
   console.log(`\n[${rule}] ${list.length}건`);
-  for (const p of list.slice(0, 20)) console.log(`  ${p.where}: ${p.msg}`);
-  if (list.length > 20) console.log(`  ... 외 ${list.length - 20}건`);
+  for (const p of list.slice(0, 40)) console.log(`  ${p.where}: ${p.msg}`);
+  if (list.length > 40) console.log(`  ... 외 ${list.length - 40}건`);
 }
 console.log(`\n토큰 게이트 실패. 총 ${problems.length}건.`);
 process.exit(1);
