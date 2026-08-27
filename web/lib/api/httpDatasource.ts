@@ -33,6 +33,7 @@ import type {
   Trade,
   TradeMessage,
   WsMessage,
+  PublicNotice,
   TransferInput,
   TransferRequest,
 } from "../types";
@@ -786,6 +787,12 @@ export class HttpStompDataSource implements DataSource {
     const user = await this.fetchMe(token);
     if (!user) throw new ApiError(401, "session_expired", "세션 만료. 다시 로그인 필요");
     return user;
+  }
+
+  /** 공지(§4-F). 무인증 경로라 Bearer를 붙이지 않는다 */
+  async getNotices(): Promise<PublicNotice[]> {
+    const body = await this.http<{ data?: PublicNotice[] }>("/api/v1/notices");
+    return body.data ?? [];
   }
 
   /* ===== 입출금 (§4-E) ===== */

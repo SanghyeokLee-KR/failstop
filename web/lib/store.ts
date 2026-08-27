@@ -17,6 +17,7 @@ import type {
   Order,
   OrderStatus,
   OrderbookMessage,
+  PublicNotice,
   TickerMessage,
   TradeMessage,
   WsMessage,
@@ -200,6 +201,16 @@ interface ExchangeState {
   orderbooks: Record<string, OrderbookMessage>;
   trades: Record<string, TradeMessage[]>;
   assets: Asset[];
+  /* 공지(§4-F). 배너와 목록이 같은 원천을 본다. 두 곳이 각자 조회하면 배너에는 떴는데
+     목록에는 없는 상태가 생긴다 */
+  notices: PublicNotice[];
+  /* 빈 배열과 미로딩을 구분한다. 하나로 두면 첫 프레임에 "등록된 공지 없음"이 스친 뒤
+     목록이 나타난다. 사용자는 그 깜빡임을 오류로 읽는다 */
+  noticesLoaded: boolean;
+  /** 사용자가 닫은 공지 id. CRITICAL은 이 목록을 무시한다(lib/notices) */
+  dismissedNoticeIds: string[];
+  /** 마지막으로 공지 목록을 본 시각. 진입점 표식 판정용(lib/notices.hasUnread) */
+  lastSeenNoticeAt: number | null;
   openOrders: Order[];
   closedOrders: Order[];
   favorites: string[];
@@ -223,6 +234,9 @@ interface ExchangeState {
   hydrateFavorites(): void;
   loadMarkets(): Promise<void>;
   loadAccounts(): Promise<void>;
+  loadNotices(): Promise<void>;
+  dismissNotice(id: string): void;
+  markNoticesSeen(): void;
   loadOrders(market?: string): Promise<void>;
   /** REST 주문 응답 1건 반영(POST /orders 201, DELETE /orders 200).
    * 재조회 왕복을 기다리지 않고 목록을 확정한다. 상태 단조 가드로 역행 응답은 드롭한다 */
@@ -238,6 +252,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   orderbooks: {},
   trades: {},
   assets: [],
+  notices: [],
+  noticesLoaded: false,
+  dismissedNoticeIds: [],
+  lastSeenNoticeAt: null,
   openOrders: [],
   closedOrders: [],
   favorites: DEFAULT_FAVORITES,
@@ -391,6 +409,34 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
         marketsInFlight = null;
       });
     return marketsInFlight;
+  },
+
+  /* 실패해도 조용히 넘긴다. 공지는 보조 정보라 못 불러왔다고 화면을 막을 이유가 없다.
+     연결 배너와 달리 부재 자체가 사용자에게 전달할 사실이 아니다 */
+  async loadNotices() {
+    try {
+      set({ notices: await getDataSource().getNotices(), noticesLoaded: true });
+    } catch {
+      /* 이전에 받은 공지는 그대로 둔다. 다만 loaded는 세운다. 실패를 미로딩으로 두면
+         스켈레톤이 영원히 돈다. 그건 지켜지지 않는 약속이다(상태 설계 감사에서 같은
+         실패 모드를 호가·체결 패널에서 두 번 고쳤다) */
+      set({ noticesLoaded: true });
+    }
+  },
+
+  /* 목록을 본 시점을 기록한다. 가장 최근 공지의 발행 시각을 기준으로 두는 이유는
+     now()를 쓰면 조회 직후 발행된 공지가 읽은 것으로 잘못 표시되기 때문이다 */
+  markNoticesSeen() {
+    const latest = get().notices.reduce((mx, n) => Math.max(mx, n.published_at ?? 0), 0);
+    if (latest > 0) set({ lastSeenNoticeAt: latest });
+  },
+
+  dismissNotice(id) {
+    set((state) =>
+      state.dismissedNoticeIds.includes(id)
+        ? state
+        : { dismissedNoticeIds: [...state.dismissedNoticeIds, id] },
+    );
   },
 
   async loadAccounts() {

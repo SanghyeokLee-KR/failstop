@@ -232,8 +232,12 @@ export default function MarketListPanel({ market }: { market: string }) {
                     aria-label={`${h.label} 기준 정렬${on ? (sortDir === "desc" ? " (내림차순)" : " (오름차순)") : ""}`}
                     onClick={() => onSort(h.key)}
                   >
-                    {h.label}
-                    {on && <span aria-hidden="true">{sortDir === "desc" ? "▼" : "▲"}</span>}
+                    <span className={styles.headLabel}>{h.label}</span>
+                    {on && (
+                      <span className={styles.sortMark} aria-hidden="true">
+                        {sortDir === "desc" ? "▼" : "▲"}
+                      </span>
+                    )}
                   </button>
                 </div>
               );

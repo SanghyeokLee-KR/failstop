@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.24, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.25, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -830,6 +830,39 @@ POST /api/v1/orders
 | `RESERVE` | `order_id` | 예약을 만든 **주문의 외부 UUID**. 원 업무 이벤트 id는 내부 주문 PK라 그대로 노출하지 않고 치환한다 |
 | `RELEASE` / `GENESIS` / `TRANSFER` / `REVERSAL` | `id` | 업무 이벤트 id 10진 문자열(`RELEASE`는 해제를 유발한 `event_seq`, `GENESIS`는 발행 일련) |
 > 예시 수치는 §5-5 체결 시나리오와 정합(v2.7 재계산: bid 0.004 체결 → 체결대금 200,000 차감 TRADE 분개 + 수취 BTC 순액 0.003998 게시 TRADE 분개, 동일 timestamp 축). taker 수수료 0.000002 BTC의 FEE leg는 FEE_INCOME 시스템 계정 귀속이라 사용자 원장에는 나타나지 않는다(§4-B-5 v2.7 수취 자산 수수료 모델). 동일 체결에서 파생된 분개 묶음은 원장 트랜잭션의 `UNIQUE(business_event_type, business_event_id)`(§7-1)로 멱등이라, 재생·재시도로 같은 업무 이벤트가 다시 적용되어도 중복 분개가 생기지 않는다.
+
+---
+
+### 4-F. 공지 조회 API (V14 신설, `/api/v1/notices`)
+
+관리 평면이 발행한 공지를 사용자에게 노출한다. 쓰기는 §3-6 관리 평면(`/admin/v1/config/notices`)이 단독으로 갖고, 여기는 읽기만이다.
+
+| 기능 | 메서드·경로 | 인증 | rate limit |
+|---|---|---|---|
+| 공지 목록 | `GET /api/v1/notices` | 없음 | IP 60회/60s(자체 스로틀) |
+
+무인증이지만 `PublicMarketPaths`에는 넣지 않는다. 그 목록은 §4-A 시장 데이터 전용이고 weight 규칙이 시장 데이터 응답 모양을 전제한다. 공지는 시장 데이터가 아니므로 데모 세션·게시판·회원 인증 평면과 같이 자기 `SlidingWindowThrottle`을 든다(그 클래스 주석의 명문 규칙).
+
+```json
+// GET /api/v1/notices
+{ "schema_version":"1.0",
+  "data":[
+    { "id":"12", "title":"정기 점검 안내", "body":"08-28 02:00~04:00 주문 접수 중단",
+      "severity":"CRITICAL", "published_at":1756300000000 }
+  ] }
+```
+
+**노출 범위**: `active = true`인 공지만 반환한다. 관리자가 내린 공지(`active=false`)는 철회된 것이지 보관된 것이 아니다. 발행자·수정 이력은 운영 정보라 사용자 응답에 싣지 않는다.
+
+**심각도 계약**: `INFO`·`WARNING`·`CRITICAL`. 이 값은 색이 아니라 **전달 채널**을 정한다.
+
+| severity | 전달 | 근거 |
+|---|---|---|
+| `CRITICAL` | 전역 배너, 닫기 불가 | 거래 중단·점검처럼 모르면 손해를 보는 내용 |
+| `WARNING` | 전역 배너, 닫기 가능 | 알아야 하지만 조작을 막지는 않는 내용 |
+| `INFO` | 목록과 진입점 표식만 | 배너로 끼어들면 소음이 된다 |
+
+배너는 화면당 하나다. 연결 끊김 배너가 공지 배너보다 우선한다. 연결이 끊긴 상태에서는 어떤 조작도 성립하지 않으므로 그 사실이 먼저 읽혀야 한다. 두 배너를 쌓으면 둘 다 안 읽힌다.
 
 ---
 

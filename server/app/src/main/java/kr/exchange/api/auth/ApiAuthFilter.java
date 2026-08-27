@@ -54,7 +54,10 @@ public class ApiAuthFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/v1/community/")
                 // 회원 인증 엔드포인트는 무인증(가입·로그인) 또는 쿠키 rt(갱신·로그아웃)라
                 // Bearer 서명 검증 대상이 아니다. me·keys는 여기서 제외되지 않아 회원 세션을 통과한다.
-                || path.startsWith("/api/v1/auth/");
+                || path.startsWith("/api/v1/auth/")
+                // 공지 조회는 무인증 읽기다(§4-F). 시장 데이터가 아니라 PublicMarketPaths가
+                // 아니라 NoticeController가 자기 스로틀을 든다. 쓰기는 관리 평면 단독이다.
+                || path.equals("/api/v1/notices");
     }
 
     @Override

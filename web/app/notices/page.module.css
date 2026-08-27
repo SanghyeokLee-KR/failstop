@@ -1,0 +1,120 @@
+/* 공지 목록(§4-F). 읽는 화면이라 좁은 단, 시간순 */
+
+.page {
+  /* 본문 읽기 폭. 자산·입출금의 1200px는 표를 훑는 폭이고 여기는 문장을 읽는 폭이다.
+     같은 폭을 쓰면 한 줄이 100자를 넘어 눈이 다음 줄 첫 글자를 못 찾는다 */
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-7) var(--layout-gutter) var(--space-9);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.title {
+  font-size: var(--font-title-1-size);
+  line-height: var(--font-title-1-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.desc {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-secondary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* 항목은 카드가 아니라 이음매로 나눈다. 카드 12개가 쌓이면 그림자 12겹이 되고
+   공지 하나하나가 독립된 물건처럼 보인다. 실제로는 한 흐름의 시간 목록이다 */
+.item {
+  position: relative;
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-4) var(--space-4) 0;
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  overflow: hidden;
+}
+
+/* 등급 레일. 색 단독 표현이 아니다. 옆 badge가 같은 뜻을 글자로 말한다 */
+.rail {
+  flex-shrink: 0;
+  width: 4px;
+  align-self: stretch;
+  background: var(--border-default);
+}
+.item[data-severity="CRITICAL"] .rail { background: var(--color-danger); }
+.item[data-severity="WARNING"] .rail { background: var(--color-warning-text); }
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-semibold);
+  /* sunken 면이라 secondary는 라이트 4.27:1로 미달이다(tokens §2) */
+  color: var(--text-default);
+}
+/* 등급 색은 배지에만 싣는다. 제목·본문 잉크는 등급과 무관하게 같다.
+   등급으로 본문을 흐리면 INFO 공지가 읽기 어려워지는데, 등급이 낮다는 것은
+   덜 중요하다는 뜻이지 덜 읽어도 된다는 뜻이 아니다 */
+.item[data-severity="CRITICAL"] .badge {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+.item[data-severity="WARNING"] .badge {
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+}
+
+.time {
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}
+
+.itemTitle {
+  font-size: var(--font-body-lg-size);
+  line-height: var(--font-body-lg-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  word-break: keep-all;
+}
+
+.itemBody {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  color: var(--text-default);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  /* 줄바꿈을 살린다. 관리자가 여러 줄로 쓴 점검 안내가 한 문단으로 뭉치면
+     시간대와 영향 범위가 붙어 읽힌다 */
+  white-space: pre-wrap;
+}

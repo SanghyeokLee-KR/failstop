@@ -20,6 +20,7 @@ import type {
   SignupInput,
   Ticker,
   Trade,
+  PublicNotice,
   TransferInput,
   TransferRequest,
   WsMessage,
@@ -43,6 +44,9 @@ export interface DataSource {
   getClosedOrders(market?: string, signal?: AbortSignal): Promise<Order[]>;
   placeOrder(req: OrderRequest): Promise<Order>;
   cancelOrder(idOrClientId: string): Promise<Order>;
+
+  /** 공지 목록(§4-F). 무인증 읽기. active인 공지만, 최신순 */
+  getNotices(): Promise<PublicNotice[]>;
 
   /** 효과 강도 조회(§4-A-6). WS push 아님. 갱신은 폴링(useEffectConfigPolling). 실패는 어댑터가 폴백 흡수 */
   getEffectConfig(): Promise<EffectConfig>;
@@ -211,6 +215,36 @@ export class SimDataSource implements DataSource {
     this.memberListeners.add(cb);
     cb(this.memberSession);
     return () => this.memberListeners.delete(cb);
+  }
+
+  /* ===== 공지 (§4-F) ===== */
+
+  /** 데모 공지 3종. 심각도별 전달 채널을 화면에서 확인할 수 있게 각 단계를 하나씩 둔다 */
+  async getNotices(): Promise<PublicNotice[]> {
+    const now = Date.now();
+    return [
+      {
+        id: "sim-n1",
+        title: "정기 점검 안내",
+        body: "08-28 02:00~04:00 주문 접수 중단. 조회는 정상 동작",
+        severity: "CRITICAL",
+        published_at: now - 1000 * 60 * 40,
+      },
+      {
+        id: "sim-n2",
+        title: "체결 지연 가능성",
+        body: "일부 구간에서 체결 반영이 수 초 지연될 수 있음. 주문은 정상 접수",
+        severity: "WARNING",
+        published_at: now - 1000 * 60 * 60 * 6,
+      },
+      {
+        id: "sim-n3",
+        title: "차트 지표 추가",
+        body: "볼린저 밴드와 스토캐스틱을 차트 지표 메뉴에 추가",
+        severity: "INFO",
+        published_at: now - 1000 * 60 * 60 * 30,
+      },
+    ];
   }
 
   /* ===== 입출금 (§4-E) ===== */

@@ -9,7 +9,9 @@
  */
 
 import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useExchangeStore } from "@/lib/store";
+import { bannerNotice, isDismissible } from "@/lib/notices";
 import styles from "./StatusSignals.module.css";
 
 function formatElapsed(sinceMs: number, nowMs: number): string {
@@ -69,18 +71,61 @@ export function StaleRegion({
 }
 
 /**
- * 연결 단절 배너. store.connected를 직접 구독한다(단일 원천). sim 기본은 connected=true라
- * 렌더되지 않으므로 데모 표시는 무변경. http 모드에서 WS 단절 시에만 나타난다.
+ * 화면 상단 배너. 연결 단절과 공지를 한 자리에서 판정한다.
+ *
+ * 이름은 ConnectionBanner로 둔다. 이미 5개 화면이 이 자리를 쓰고 있고, 새 컴포넌트를
+ * 옆에 세우면 두 배너가 쌓일 수 있는 구조가 된다. 자리를 하나로 유지하는 것이 규칙을
+ * 코드로 강제하는 방법이다.
+ *
+ * 우선순위는 연결 단절이 먼저다. 연결이 끊기면 어떤 조작도 성립하지 않으므로 그 사실이
+ * 먼저 읽혀야 한다. 점검 공지를 먼저 보여줘도 사용자는 그 상태에서 아무것도 못 한다.
+ *
+ * 공지는 CRITICAL·WARNING만 오른다(§4-F). INFO는 목록에만 둔다.
  */
 export function ConnectionBanner() {
   const connected = useExchangeStore((s) => s.connected);
-  if (connected) return null;
+  const notices = useExchangeStore((s) => s.notices);
+  const dismissed = useExchangeStore((s) => s.dismissedNoticeIds);
+  const dismissNotice = useExchangeStore((s) => s.dismissNotice);
+
+  if (!connected) {
+    return (
+      <div className={styles.connBanner} role="status">
+        <span className={styles.connBannerMark} aria-hidden="true">
+          ▲
+        </span>
+        <span>실시간 연결 끊김. 마지막 시세를 표시하며 자동 재연결 중.</span>
+      </div>
+    );
+  }
+
+  const notice = bannerNotice(notices, dismissed);
+  if (!notice) return null;
+  const critical = notice.severity === "CRITICAL";
   return (
-    <div className={styles.connBanner} role="status">
+    /* CRITICAL은 alert(즉시 낭독)이다. 점검·중단은 사용자가 다음 조작을 하기 전에 알아야
+       한다. WARNING은 status(polite)라 진행 중인 낭독을 끊지 않는다 */
+    <div className={styles.noticeBanner} data-severity={notice.severity} role={critical ? "alert" : "status"}>
       <span className={styles.connBannerMark} aria-hidden="true">
-        ▲
+        {critical ? "■" : "▲"}
       </span>
-      <span>실시간 연결 끊김. 마지막 시세를 표시하며 자동 재연결 중.</span>
+      <span className={styles.noticeBannerTitle}>{notice.title}</span>
+      {notice.body && <span className={styles.noticeBannerBody}>{notice.body}</span>}
+      <Link href="/notices" className={styles.noticeBannerLink}>
+        공지 전체
+      </Link>
+      {isDismissible(notice.severity) && (
+        <button
+          type="button"
+          className={styles.noticeBannerClose}
+          onClick={() => dismissNotice(notice.id)}
+          aria-label="이 공지 닫기"
+        >
+          {/* 곱셈 기호(U+00D7). U+2715 계열은 스타일 게이트의 기호 범위에 걸리고
+              알파벳 x는 글자로 읽혀 닫기 아이콘으로 안 읽힌다 */}
+          ×
+        </button>
+      )}
     </div>
   );
 }

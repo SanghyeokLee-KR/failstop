@@ -42,3 +42,65 @@
 .connBannerMark {
   font-size: var(--font-caption-size);
 }
+
+/* ===== 공지 배너 (§4-F) =====
+   연결 배너와 같은 자리, 같은 높이 문법을 쓴다. 두 배너가 형태로 갈리면 사용자는
+   같은 슬롯에서 두 종류의 규칙을 배워야 한다. 다른 것은 심각도 색과 닫기 버튼뿐이다 */
+.noticeBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+/* CRITICAL은 danger 대역이다. 거래가 멈추는 사건이라 warning과 같은 톤이면 구분이 없다 */
+.noticeBanner[data-severity="CRITICAL"] {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+.noticeBanner[data-severity="WARNING"] {
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+}
+
+.noticeBannerTitle {
+  font-weight: var(--fw-semibold);
+  flex-shrink: 0;
+}
+/* 본문은 배너에서 잘린다. 전문은 목록에 있고 여기서는 무슨 일인지만 전달한다 */
+.noticeBannerBody {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+.noticeBannerLink {
+  margin-left: auto;
+  flex-shrink: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: var(--fw-semibold);
+}
+.noticeBannerClose {
+  flex-shrink: 0;
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font-size: var(--font-micro-size);
+}
+/* 시각 밀도는 24px로 두고 타깃만 44px로 넓힌다(디자인시스템 §6) */
+.noticeBannerClose::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}

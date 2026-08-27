@@ -224,3 +224,42 @@
 .menuLogout:hover { background: var(--color-danger-bg); }
 
 /* 고정형 정책(§4): 가로 미디어 쿼리·축소 변형 없음 */
+
+/* ===== 공지 진입점 (§4-F) =====
+   연결 표시·테마 토글과 같은 우측 보조 대역이다. 주 네비와 잉크를 맞추지 않는다 */
+.noticeLink {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  min-height: 32px;
+  border-radius: var(--control-radius);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.noticeLink:hover {
+  color: var(--text-default);
+  background: var(--surface-hover);
+}
+/* 시각 밀도는 32px, 타깃은 44px(디자인시스템 §6) */
+.noticeLink::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+/* 안 읽음 표식. 개수를 쓰지 않는다. 3건과 5건의 차이가 행동을 바꾸지 않는다 */
+.noticeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  flex-shrink: 0;
+}

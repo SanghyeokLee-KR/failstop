@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import BrandMark from "./BrandMark";
 import ThemeToggle from "./ThemeToggle";
 import { toast } from "./Toast";
+import { hasUnread } from "@/lib/notices";
 import { useExchangeStore, useMemberSession, useMemberSessionBootstrap } from "@/lib/store";
 import { getDataSource } from "@/lib/api/datasource";
 import styles from "./HeaderNav.module.css";
@@ -173,6 +174,38 @@ function MemberMenu({ displayName }: { displayName: string }) {
   );
 }
 
+/**
+ * 공지 진입점. 주 네비를 늘리지 않는 이유는 그 줄이 거래 동선이기 때문이다.
+ * 홈·거래소·자산·입출금·거래내역은 "무엇을 하러 가는가"이고 공지는 "무슨 일이 있었나"다.
+ * 성격이 다른 것을 같은 줄에 넣으면 다섯 개가 여섯 개로 늘기만 하고 위계는 안 생긴다.
+ *
+ * 안 읽은 공지가 있으면 표식을 띄운다. 숫자를 쓰지 않는 이유는 공지 3건과 5건의 차이가
+ * 사용자 행동을 바꾸지 않기 때문이다. 바뀌는 것은 "볼 게 있다" 하나뿐이다.
+ */
+function NoticeLink() {
+  const notices = useExchangeStore((s) => s.notices);
+  const lastSeenAt = useExchangeStore((s) => s.lastSeenNoticeAt);
+  const loadNotices = useExchangeStore((s) => s.loadNotices);
+
+  useEffect(() => {
+    void loadNotices();
+  }, [loadNotices]);
+
+  const unread = hasUnread(notices, lastSeenAt);
+  return (
+    <Link href="/notices" className={styles.noticeLink}>
+      공지
+      {unread && (
+        <>
+          <span className={styles.noticeDot} aria-hidden="true" />
+          {/* 점은 장식이라 낭독되지 않는다. 같은 사실을 글자로 한 번 더 말한다 */}
+          <span className="sr-only">읽지 않은 공지 있음</span>
+        </>
+      )}
+    </Link>
+  );
+}
+
 export default function HeaderNav() {
   const pathname = usePathname();
   const connected = useExchangeStore((s) => s.connected);
@@ -226,6 +259,7 @@ export default function HeaderNav() {
         </nav>
 
         <div className={styles.right}>
+          <NoticeLink />
           {session ? (
             <MemberMenu displayName={session.user.display_name} />
           ) : (

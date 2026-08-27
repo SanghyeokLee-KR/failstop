@@ -316,6 +316,24 @@ export interface LoginInput {
   password: string;
 }
 
+/* ===== 공지 (§4-F 미러) ===== */
+
+/**
+ * 심각도는 색이 아니라 전달 채널을 정한다.
+ *   CRITICAL 전역 배너, 닫기 불가
+ *   WARNING  전역 배너, 닫기 가능
+ *   INFO     목록과 진입점 표식만
+ */
+export type NoticeSeverity = "INFO" | "WARNING" | "CRITICAL";
+
+export interface PublicNotice {
+  id: string;
+  title: string;
+  body: string;
+  severity: NoticeSeverity;
+  published_at: number | null;
+}
+
 /* ===== 입출금 (§4-E 미러) ===== */
 
 export type TransferDirection = "DEPOSIT" | "WITHDRAW";
