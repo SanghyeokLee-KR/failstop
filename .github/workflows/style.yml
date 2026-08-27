@@ -66,3 +66,15 @@ jobs:
             echo "커밋 메시지에 AI 어투 또는 도구 서명."
             exit 1
           fi
+
+  # 토큰 게이트는 diff가 아니라 전체 상태를 본다. 드리프트는 추가된 줄이 아니라
+  # "선언과 소비가 어긋난 현재 상태"라서 범위가 다르다.
+  tokens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: check design tokens
+        run: node scripts/check-tokens.mjs

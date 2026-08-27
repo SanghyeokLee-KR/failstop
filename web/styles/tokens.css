@@ -125,7 +125,7 @@
   --color-warning:var(--orange-600); --color-warning-bg:var(--orange-50);
   --color-warning-text:var(--orange-800);  /* on #FFF 6.50:1 / on orange-50 5.98:1 (orange-700은 틴트 위 4.18:1 미달) */
   --color-danger:var(--crimson-600); --color-danger-bg:rgba(194,48,76,.08);
-  --color-info:var(--brand-600);     --color-info-bg:var(--brand-50);
+  --color-info:var(--brand-600);
   /* 시스템 헬스 상태 전이 플래시(화면7 전용). 시세 플래시(--color-up/down-flash)와 도메인 분리, 차용 금지 */
   --color-health-flash-success:rgba(11,140,93,.10);  /* green-600 #0B8C5D 파생 */
   --color-health-flash-warning:rgba(219,122,0,.10);  /* orange-600 #DB7A00 파생 */
@@ -206,7 +206,7 @@
   --color-warning:#FFAA2B;  --color-warning-bg:rgba(255,170,43,.14);
   --color-warning-text:#FFAA2B;   /* on surface #171A21 9.15:1 */
   --color-danger:#FF7A93;   --color-danger-bg:rgba(255,122,147,.14);
-  --color-info:#6B9DF7;     --color-info-bg:rgba(107,157,247,.14); /* info 자기값 파생. 폐기값 #4E88F5 잔재 제거(v1.2) */
+  --color-info:#6B9DF7;
   --color-health-flash-success:rgba(45,209,150,.16); /* #2DD196 파생 */
   --color-health-flash-warning:rgba(255,170,43,.16); /* #FFAA2B 파생 */
   --color-health-flash-danger:rgba(255,122,147,.16); /* #FF7A93 파생 */
@@ -387,7 +387,7 @@
     --color-warning:#FFAA2B;  --color-warning-bg:rgba(255,170,43,.14);
     --color-warning-text:#FFAA2B;
     --color-danger:#FF7A93;   --color-danger-bg:rgba(255,122,147,.14);
-    --color-info:#6B9DF7;     --color-info-bg:rgba(107,157,247,.14);
+    --color-info:#6B9DF7;
     --color-health-flash-success:rgba(45,209,150,.16);
     --color-health-flash-warning:rgba(255,170,43,.16);
     --color-health-flash-danger:rgba(255,122,147,.16);

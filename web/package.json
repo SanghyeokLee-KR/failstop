@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "tsc -p tsconfig.test.json && node --test \".test-dist/tests/**/*.test.js\""
+    "test": "tsc -p tsconfig.test.json && node --test \".test-dist/tests/**/*.test.js\"",
+    "check:tokens": "node ../scripts/check-tokens.mjs"
   },
   "dependencies": {
     "@stomp/stompjs": "^7.3.0",

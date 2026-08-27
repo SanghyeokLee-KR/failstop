@@ -19,7 +19,7 @@ $e1 = [char]0x2600; $e2 = [char]0x27BF; $vs = [char]0xFE0F
 $emojiPattern = "[\uD83C-\uD83E][\uDC00-\uDFFF]|[$e1-$e2]|$vs"
 $phrasePattern = "Generated with|Co-Authored-By: Claude|물론입니다|해 드리겠습니다|드리겠습니다!|Here is the (completed|finalized|final) document|Now writing the completed|I hope this helps|Let me know if you|Certainly!"
 
-$exts = @(".java", ".kt", ".kts", ".ts", ".tsx", ".css", ".sql", ".yml", ".yaml", ".md", ".ps1", ".json", ".gradle")
+$exts = @(".java", ".kt", ".kts", ".ts", ".tsx", ".js", ".mjs", ".css", ".sql", ".yml", ".yaml", ".md", ".ps1", ".json", ".gradle")
 $violations = 0
 
 # 규칙 정의 파일은 금지 문구를 예시로 인용하므로 문구 검사만 면제한다. 대시·이모지 검사는 그대로 적용.

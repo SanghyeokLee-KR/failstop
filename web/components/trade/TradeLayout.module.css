@@ -19,7 +19,9 @@
     "summary summary side"
     "chart   book    side"
     "trades  book    side";
-  /* 정숙한 이음새(§6.4): 패널 사이로 페이지 배경(--surface-seam)이 12px 채널로 비친다 */
+  /* 정숙한 이음새(§6.4): 패널 사이로 이 면이 12px 채널로 비친다. 페이지 배경과 같은 값이지만
+     명시 소비해야 이음새가 "우연히 같은 색"이 아니라 계약이 된다 */
+  background: var(--surface-seam);
   gap: var(--seam-width);
   padding: var(--space-4);
   flex: 1;
