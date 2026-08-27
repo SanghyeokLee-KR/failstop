@@ -8,6 +8,7 @@ import kr.exchange.admin.AdminRequestContext;
 import kr.exchange.admin.AdminRole;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,6 +29,10 @@ import java.util.Set;
  * 관심사이고 그 내용은 support_inquiries에 이미 남는다.
  */
 @RestController
+/* 관리 평면은 exchange.admin.enabled=true일 때만 켜진다. 이 조건이 없으면 컨트롤러가 항상
+   스캔돼 AdminAuditService를 못 찾고 컨텍스트 로드가 통째로 실패한다. 거래 평면 테스트가
+   관리 빈에 묶이면 안 된다. kr.exchange.admin 패키지의 컨트롤러들과 같은 규약이다 */
+@ConditionalOnProperty(prefix = "exchange.admin", name = "enabled", havingValue = "true")
 @RequestMapping("/admin/v1/support")
 public class SupportAdminController {
 
