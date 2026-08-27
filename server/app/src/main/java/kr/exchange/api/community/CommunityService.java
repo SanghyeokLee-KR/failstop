@@ -487,11 +487,11 @@ public class CommunityService {
         // DELETED는 종료 상태다. 회원 자가삭제 대상에 HIDE→UNHIDE 2단계로 본문 마스킹을 푸는 부활을 막기 위해
         // 모든 모더레이션 전이를 거부한다(감사 D).
         if ("DELETED".equals(currentStatus)) {
-            throw new ApiException(400, "invalid_parameter", "이미 삭제된 대상은 모더레이션할 수 없습니다.");
+            throw new ApiException(400, "invalid_parameter", "이미 삭제된 대상은 모더레이션 불가");
         }
         // UNHIDE는 직전 HIDDEN만 복구한다.
         if ("UNHIDE".equals(act) && !"HIDDEN".equals(currentStatus)) {
-            throw new ApiException(400, "invalid_parameter", "숨김 상태의 대상만 복구할 수 있습니다.");
+            throw new ApiException(400, "invalid_parameter", "숨김 상태 대상만 복구 가능");
         }
         String setDeleted = "DELETE".equals(act) ? ", deleted_at = now()" : "";
         jdbc.sql("UPDATE " + table + " SET status = ?" + setDeleted + " WHERE id = ?")
@@ -637,7 +637,7 @@ public class CommunityService {
 
     private static void requireOwner(long authorId, long userId) {
         if (authorId != userId) {
-            throw new ApiException(403, "out_of_scope", "작성자 본인만 수행할 수 있습니다.");
+            throw new ApiException(403, "out_of_scope", "작성자 본인만 가능");
         }
     }
 

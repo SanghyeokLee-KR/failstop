@@ -98,7 +98,7 @@ public class ApiAuthFilter extends OncePerRequestFilter {
             // 이 경계는 자금 이동이라 빠뜨렸을 때 닫히는 쪽으로 기울여야 한다.
             if (AuthPrincipal.KIND_DEMO.equals(principal.kind()) && isWrite(method)) {
                 throw new ApiException(403, "member_session_required",
-                        "둘러보기 중에는 주문할 수 없습니다. 로그인 후 이용하십시오.");
+                        "둘러보기 중에는 주문 불가. 로그인 필요");
             }
             effective.setAttribute(AuthPrincipal.REQUEST_ATTRIBUTE, principal);
         } catch (ApiException e) {
@@ -110,12 +110,12 @@ public class ApiAuthFilter extends OncePerRequestFilter {
             // catch-all에 맡기면 재시도 가능한 일시 실패가 500 server_error로 나가, 같은 사유를
             // 503으로 매핑하는 컨트롤러 계층(ApiExceptionHandler)과 코드가 갈린다.
             errorRenderer.write(response, new ApiException(503, "service_unavailable",
-                    "일시적으로 요청을 처리할 수 없습니다. 잠시 후 재시도하십시오.", null, 1));
+                    "일시적 처리 불가. 잠시 후 재시도 필요", null, 1));
             return;
         } catch (RuntimeException e) {
             // 인증 단계에서 던진 비 ApiException(예: HMAC 계산 실패)이 컨테이너 기본 페이지로 새면
             // 클라이언트가 표준 에러 엔벌로프(§2-3)로 파싱하지 못한다. 500으로 표준화한다.
-            errorRenderer.write(response, new ApiException(500, "server_error", "인증 처리 중 오류가 발생했습니다."));
+            errorRenderer.write(response, new ApiException(500, "server_error", "인증 처리 중 오류"));
             return;
         }
         // 컨트롤러 다운스트림 예외는 각 어드바이스가 표준화하므로 이 필터가 삼키지 않는다.

@@ -218,7 +218,7 @@ export default function TradesPanel({ market }: { market: string }) {
       {backfillFailed && rows.length === 0 ? (
         <div className="empty-state" role="alert">
           <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-          <span className="empty-state__title">체결 내역 불러오기 실패</span>
+          <span className="empty-state__title">체결 내역을 불러오지 못함</span>
           <button type="button" className="btn btn--secondary" onClick={retryBackfill}>
             다시 시도
           </button>

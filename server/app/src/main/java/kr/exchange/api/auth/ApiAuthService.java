@@ -114,7 +114,7 @@ public class ApiAuthService {
 
         // 6. scope
         if (needsTrade && !"TRADE".equals(key.scope())) {
-            throw new ApiException(403, "out_of_scope", "이 API 키에는 주문 권한이 없습니다.");
+            throw new ApiException(403, "out_of_scope", "이 API 키에 주문 권한 없음");
         }
         return new AuthPrincipal(key.userId(), key.accessKey(), key.scope(),
                 AuthPrincipal.KIND_API_KEY);
@@ -132,7 +132,7 @@ public class ApiAuthService {
         try {
             return Base64.getUrlDecoder().decode(value);
         } catch (IllegalArgumentException e) {
-            throw new ApiException(401, "jwt_verification", "JWT 인코딩이 올바르지 않습니다.");
+            throw new ApiException(401, "jwt_verification", "JWT 인코딩 오류");
         }
     }
 

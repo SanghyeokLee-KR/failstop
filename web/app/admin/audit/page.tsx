@@ -105,7 +105,14 @@ const COLUMNS: DataColumn<AuditEntry>[] = [
     label: "승인 ID",
     width: "minmax(120px, 1fr)",
     // 부재 플레이스홀더만 tertiary(비정보 장식). 실값은 기본 잉크 유지
-    render: (e) => e.approvalId ?? <span className={styles.auditNil}>-</span>,
+    // 하이픈은 빈 칸을 메우는 장식이다. 낭독하면 "하이픈"이라는 소음만 남고 부재는
+    // 빈 셀로 이미 전달된다. aria-hidden으로 빼면 대비 기준도 장식 기준(3:1)이 맞는다
+    render: (e) =>
+      e.approvalId ?? (
+        <span className={styles.auditNil} aria-hidden="true">
+          -
+        </span>
+      ),
   },
 ];
 

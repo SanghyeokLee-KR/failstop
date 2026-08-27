@@ -674,9 +674,11 @@
 .stateText {
   color: var(--text-secondary);
 }
-/* 행위 불가 각주 성격의 상태. 비정보 장식 대역 */
+/* 행위 불가 상태. 상태어는 정보라 장식 대역(tertiary)을 쓸 수 없다.
+   흰 배경에서 tertiary는 3.59:1로 1.4.3의 4.5:1에 미달한다. secondary는 4.75:1.
+   버튼 자리에 놓이는 각주라 잉크는 한 단계 낮추되 판독 기준은 텍스트 기준을 받는다 */
 .stateTextDim {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 /* 스테일 구간 갱신 영역 감쇠(§5.2): 폴링 실패 시 마지막 값임을 opacity로 알린다. 시프트 0.

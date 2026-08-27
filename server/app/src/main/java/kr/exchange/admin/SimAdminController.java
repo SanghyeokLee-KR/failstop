@@ -423,7 +423,7 @@ public class SimAdminController {
         try {
             return BotFleetGovernor.parseBias(raw);
         } catch (RuntimeException e) {
-            throw new ApiException(400, "invalid_parameter", "target_net_bias가 올바르지 않습니다.");
+            throw new ApiException(400, "invalid_parameter", "target_net_bias 값 오류");
         }
     }
 
@@ -431,7 +431,7 @@ public class SimAdminController {
         try {
             return BotFleetGovernor.parseStrength(raw);
         } catch (RuntimeException e) {
-            throw new ApiException(400, "invalid_parameter", "strength가 올바르지 않습니다.");
+            throw new ApiException(400, "invalid_parameter", "strength 값 오류");
         }
     }
 
@@ -443,7 +443,7 @@ public class SimAdminController {
         try {
             v = Double.parseDouble(raw.trim());
         } catch (NumberFormatException e) {
-            throw new ApiException(400, "invalid_parameter", "target_ops 형식이 올바르지 않습니다.");
+            throw new ApiException(400, "invalid_parameter", "target_ops 형식 오류");
         }
         // Infinity·1e400은 POSITIVE_INFINITY로 파싱돼 v<=0을 통과, setTargetOps(Inf)로
         // 토큰버킷 상시 허용(rate limit 해제)을 유발한다. NaN도 여기서 함께 차단한다.

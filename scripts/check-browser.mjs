@@ -116,7 +116,11 @@ function probeContrast() {
     const text = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).join("");
     if (!text) continue;
     const cs = getComputedStyle(el);
-    if (cs.visibility === "hidden" || cs.display === "none" || parseFloat(cs.opacity) === 0) continue;
+    /* display·visibility만 보면 닫힌 details·dialog 안의 내용이 "보이는 것"으로 잡힌다.
+       그 요소들은 자신도 조상도 none이 아니고 rect까지 갖는다. 감사 중에 지표 메뉴
+       체크박스를 실제로 그렇게 오판했다. checkVisibility가 그 판정을 대신한다 */
+    if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+    if (parseFloat(cs.opacity) === 0) continue;
     if (el.classList.contains("sr-only")) continue;
     if (el.disabled || el.closest("button[disabled],fieldset[disabled]")) continue;
     const box = el.getBoundingClientRect();
@@ -210,8 +214,8 @@ function probeWrap() {
     if (el.closest("nextjs-portal")) continue;
     if (el.classList.contains("sr-only")) continue;
     if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
-    const cs = getComputedStyle(el);
-    if (cs.display === "none" || cs.visibility === "hidden") continue;
+    // 닫힌 details·dialog 안의 텍스트도 줄 상자를 갖는다. 대비 프로브와 같은 판정을 쓴다
+    if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
 
     range.selectNodeContents(el);
     const rects = [...range.getClientRects()].filter((r) => r.width > 0.5 && r.height > 0.5);

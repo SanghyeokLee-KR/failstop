@@ -14,7 +14,7 @@ public final class AdminRequestContext {
         if (p instanceof AdminPrincipal ap) {
             return ap;
         }
-        throw new ApiException(401, "jwt_verification", "인증 컨텍스트가 없습니다.");
+        throw new ApiException(401, "jwt_verification", "인증 컨텍스트 없음");
     }
 
     public static String certOperator(HttpServletRequest request) {

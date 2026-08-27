@@ -136,7 +136,10 @@
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
+  /* 눈금 라벨은 값을 읽는 데 쓰는 정보다. 구분자 글리프가 아니다.
+     스케일이 aria-hidden이라 낭독 대체가 없고, 그래서 시각 판독이 유일한 통로다.
+     장식 대역(tertiary 3.59:1)이 아니라 텍스트 기준(secondary 4.75:1)을 받는다 */
+  color: var(--text-secondary);
 }
 .biasScaleLabel[data-edge="start"] {
   transform: none;

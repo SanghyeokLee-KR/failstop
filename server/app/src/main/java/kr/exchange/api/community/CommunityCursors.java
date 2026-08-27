@@ -88,6 +88,6 @@ final class CommunityCursors {
     }
 
     private static ApiException badCursor() {
-        return new ApiException(400, "invalid_parameter", "커서 형식이 올바르지 않습니다.");
+        return new ApiException(400, "invalid_parameter", "커서 형식 오류");
     }
 }

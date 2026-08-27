@@ -41,7 +41,7 @@ public class SlidingWindowThrottle {
                 detail.put("bucket", bucket);
                 int retryAfter = (int) ((windowMs - (now - window.peekFirst())) / 1000) + 1;
                 throw new ApiException(429, "too_many_requests",
-                        "요청 한도를 초과했습니다.", detail, retryAfter);
+                        "요청 한도 초과", detail, retryAfter);
             }
             window.addLast(now);
         }

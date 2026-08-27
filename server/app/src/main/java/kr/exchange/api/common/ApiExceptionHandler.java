@@ -48,7 +48,7 @@ public class ApiExceptionHandler {
                                                HttpServletResponse response) {
         // count=abc 같은 타입 불일치. 노출 지점은 전부 멱등 GET이라 §2-3 400으로 정규화한다.
         return render(new ApiException(400, "invalid_parameter",
-                "파라미터 형식이 올바르지 않습니다: " + e.getName()), response);
+                "파라미터 형식 오류: " + e.getName()), response);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -61,14 +61,14 @@ public class ApiExceptionHandler {
     public ResponseEntity<Object> notLeader(NotLeaderException e, HttpServletResponse response) {
         // 페일오버 창. 클라이언트는 UNKNOWN 처리 후 재조회 계약(§7-6)으로 수렴한다.
         return render(new ApiException(503, "service_unavailable",
-                "페일오버 진행 중입니다. 재조회 후 판단하십시오.", null, 1), response);
+                "페일오버 진행 중. 재조회 후 판단 필요", null, 1), response);
     }
 
     @ExceptionHandler(NotReadyException.class)
     public ResponseEntity<Object> notReady(NotReadyException e, HttpServletResponse response) {
         // 승격 재생 중. 리더 인지 LB는 readiness DOWN으로 이미 제외하나, 경합 창 접수는 여기서 흡수.
         return render(new ApiException(503, "service_unavailable",
-                "승격 준비 중입니다. 잠시 후 재시도하십시오.", null, 1), response);
+                "승격 준비 중. 잠시 후 재시도 필요", null, 1), response);
     }
 
     @ExceptionHandler(IllegalStateException.class)
@@ -76,7 +76,7 @@ public class ApiExceptionHandler {
         String requestId = resolveRequestId(response);
         log.error("게이트웨이 내부 상태 오류 request_id={}", requestId, e);
         return render(new ApiException(503, "service_unavailable",
-                "일시적으로 요청을 처리할 수 없습니다.", null, 1), response, requestId);
+                "일시적 처리 불가", null, 1), response, requestId);
     }
 
     @ExceptionHandler({TransientDataAccessException.class, CannotGetJdbcConnectionException.class})
@@ -87,7 +87,7 @@ public class ApiExceptionHandler {
         String requestId = resolveRequestId(response);
         log.warn("일시적 DB 접근 실패 request_id={}: {}", requestId, e.getMessage());
         return render(new ApiException(503, "service_unavailable",
-                "일시적으로 요청을 처리할 수 없습니다. 잠시 후 재시도하십시오.", null, 1), response, requestId);
+                "일시적 처리 불가. 잠시 후 재시도 필요", null, 1), response, requestId);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

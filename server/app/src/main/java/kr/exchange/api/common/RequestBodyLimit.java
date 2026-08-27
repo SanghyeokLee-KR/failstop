@@ -41,6 +41,6 @@ public final class RequestBodyLimit {
     }
 
     public static ApiException payloadTooLarge() {
-        return new ApiException(413, "payload_too_large", "요청 바디가 64KB 상한을 초과했습니다.");
+        return new ApiException(413, "payload_too_large", "요청 바디 64KB 상한 초과");
     }
 }

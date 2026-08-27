@@ -315,9 +315,53 @@ function checkFiles(tokens, files) {
 /* ===== 실행 ===== */
 
 const tokens = parseTokens();
+/**
+ * 서버 사용자 노출 메시지 어투 검사.
+ *
+ * 카피 톤 규칙은 web/만 보고 있었다. 그런데 사용자가 읽는 문구의 절반은 server/에서 온다.
+ * ApiError.message가 서버 본문의 문장을 그대로 담고, 주문 패널과 관리 콘솔 11곳이 그걸
+ * 토스트에 붓는다. 그래서 같은 토스트 자리에 "주문 접수 완료"(명사형)와
+ * "주문 가능 잔고가 부족합니다."(존댓말)가 번갈아 떴다. 규칙이 있는데 경계 밖에서 샜다.
+ *
+ * 코드만 매핑해 프론트 문구로 대체하는 방법은 택하지 않았다. invalid_parameter 하나에
+ * 메시지가 52종이라, 코드로 접으면 "가격 단위 오류"와 "최대 주문 금액 초과"의 구분이
+ * 통째로 사라진다. 정보는 서버 메시지에 있으므로 어투만 제품 목소리에 맞춘다.
+ *
+ * 한계: ApiException 생성자만 본다. 문자열 결합으로 만든 메시지는 앞 리터럴만 검사한다.
+ */
+function checkServerCopy() {
+  const JAVA_ROOT = join(ROOT, "server", "app", "src", "main", "java");
+  let javaFiles = [];
+  try {
+    javaFiles = walkJava(JAVA_ROOT);
+  } catch {
+    return; // 서버 소스가 없는 체크아웃에서는 건너뛴다
+  }
+  for (const file of javaFiles) {
+    const code = stripComments(readFileSync(file, "utf8"), false);
+    const rel = relative(ROOT, file).split(sep).join("/");
+    for (const m of code.matchAll(/new ApiException\(\s*\d+\s*,\s*"[a-z_]+"\s*,\s*"([^"\n]+)"/g)) {
+      const text = m[1];
+      if (/(습니다|하세요|하십시오|십시오|해 주세요|해주세요)/.test(text)) {
+        fail("copy-tone", rel, `존댓말 종결 "${text.slice(0, 40)}". 사용자에게 그대로 노출된다`);
+      }
+    }
+  }
+}
+
+function walkJava(dir, out = []) {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) walkJava(p, out);
+    else if (name.endsWith(".java")) out.push(p);
+  }
+  return out;
+}
+
 const files = SCAN_DIRS.flatMap((d) => walk(d));
 checkContract(tokens);
 checkFiles(tokens, files);
+checkServerCopy();
 
 if (process.argv.includes("--matrix")) {
   console.log("대비 행렬 (텍스트 토큰 x 면 토큰)\n");

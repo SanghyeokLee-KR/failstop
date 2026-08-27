@@ -28,7 +28,7 @@ public class MeController {
         AuthPrincipal principal =
                 (AuthPrincipal) request.getAttribute(AuthPrincipal.REQUEST_ATTRIBUTE);
         if (principal == null) {
-            throw new ApiException(401, "jwt_verification", "인증 컨텍스트가 없습니다.");
+            throw new ApiException(401, "jwt_verification", "인증 컨텍스트 없음");
         }
         // 회원 세션 전용(§3-1). 데모·API 키 주체는 user_profiles 행이 없어 조회가 깨진다.
         // 여기서 물리 차단해 EmptyResultDataAccessException 500 오분류를 막고 403으로 명시한다.

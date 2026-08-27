@@ -147,7 +147,7 @@ public class MyController {
         try {
             return Long.parseLong(id);
         } catch (NumberFormatException e) {
-            throw new ApiException(400, "invalid_parameter", "커서 형식이 올바르지 않습니다.");
+            throw new ApiException(400, "invalid_parameter", "커서 형식 오류");
         }
     }
 

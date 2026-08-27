@@ -172,7 +172,7 @@ public class OrderController {
             try {
                 externalId = UUID.fromString(id);
             } catch (IllegalArgumentException e) {
-                throw new ApiException(404, "order_not_found", "주문이 없습니다.");
+                throw new ApiException(404, "order_not_found", "주문 없음");
             }
             OrderGateway.Placement placement = gateway.cancel(principal.userId(), externalId);
             return ResponseEntity.ok(orders.view(placement.row(), placement.epoch()));
@@ -222,11 +222,11 @@ public class OrderController {
         try {
             externalId = UUID.fromString(id);
         } catch (IllegalArgumentException e) {
-            throw new ApiException(404, "order_not_found", "주문이 없습니다.");
+            throw new ApiException(404, "order_not_found", "주문 없음");
         }
         OrderQueryService.OrderRow row = orders.byExternalId(externalId)
                 .filter(r -> r.userId() == principal.userId())
-                .orElseThrow(() -> new ApiException(404, "order_not_found", "주문이 없습니다."));
+                .orElseThrow(() -> new ApiException(404, "order_not_found", "주문 없음"));
         return orders.view(row, epochSource.epoch());
     }
 
@@ -237,12 +237,12 @@ public class OrderController {
         AuthPrincipal principal = principal(request);
         if (!orders.commandJournaled(principal.userId(), clientOrderId)) {
             // 저널에 없음 = 미접수. 클라이언트는 안전 재전송이 가능하다.
-            throw new ApiException(404, "order_not_found", "접수된 주문이 없습니다.");
+            throw new ApiException(404, "order_not_found", "접수된 주문 없음");
         }
         return orders.byClientOrderId(principal.userId(), clientOrderId)
                 .map(row -> orders.view(row, epochSource.epoch()))
                 .orElseThrow(() -> new ApiException(409, "order_in_progress",
-                        "저널에는 있으나 프로젝션 미반영입니다. 재조회하십시오.", null, 1));
+                        "저널에는 있으나 프로젝션 미반영. 재조회 필요", null, 1));
     }
 
     @GetMapping("/open")
@@ -328,7 +328,7 @@ public class OrderController {
     private static byte[] readBoundedBody(HttpServletRequest request) throws java.io.IOException {
         long declared = request.getContentLengthLong();
         if (declared > MAX_BODY_BYTES) {
-            throw new ApiException(413, "payload_too_large", "요청 바디가 64KB 상한을 초과했습니다.");
+            throw new ApiException(413, "payload_too_large", "요청 바디 64KB 상한 초과");
         }
         java.io.InputStream in = request.getInputStream();
         byte[] buffer = new byte[MAX_BODY_BYTES + 1];
@@ -338,7 +338,7 @@ public class OrderController {
             total += read;
         }
         if (total > MAX_BODY_BYTES) {
-            throw new ApiException(413, "payload_too_large", "요청 바디가 64KB 상한을 초과했습니다.");
+            throw new ApiException(413, "payload_too_large", "요청 바디 64KB 상한 초과");
         }
         byte[] body = new byte[total];
         System.arraycopy(buffer, 0, body, 0, total);
@@ -368,7 +368,7 @@ public class OrderController {
             throw new ApiException(400, "invalid_parameter", "주문 배열 바디가 필요합니다.");
         }
         if (node.isEmpty()) {
-            throw new ApiException(400, "invalid_parameter", "주문 배열이 비어 있습니다.");
+            throw new ApiException(400, "invalid_parameter", "주문 배열 비어 있음");
         }
         if (node.size() > MAX_BATCH) {
             throw new ApiException(400, "invalid_parameter", "일괄 주문은 최대 " + MAX_BATCH + "건입니다.");
@@ -380,7 +380,7 @@ public class OrderController {
         AuthPrincipal principal =
                 (AuthPrincipal) request.getAttribute(AuthPrincipal.REQUEST_ATTRIBUTE);
         if (principal == null) {
-            throw new ApiException(401, "jwt_verification", "인증 컨텍스트가 없습니다.");
+            throw new ApiException(401, "jwt_verification", "인증 컨텍스트 없음");
         }
         return principal;
     }

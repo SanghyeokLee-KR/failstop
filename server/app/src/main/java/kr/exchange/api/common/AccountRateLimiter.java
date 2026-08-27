@@ -101,7 +101,7 @@ public class AccountRateLimiter {
         detail.put("bucket", d.bucket());
         detail.put("scope", d.scope());
         return new ApiException(429, "too_many_requests",
-                "요청 한도를 초과했습니다.", detail, d.retryAfterSeconds());
+                "요청 한도 초과", detail, d.retryAfterSeconds());
     }
 
     private void refill(Bucket b, long now) {

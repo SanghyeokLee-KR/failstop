@@ -142,7 +142,7 @@ public class OrderGateway {
             } catch (IllegalStateException e) {
                 // 루프 정지(리더십 상실 창). 저널 커밋 전 거부이므로 재조회 계약으로 수렴시킨다.
                 throw new ApiException(503, "service_unavailable",
-                        "페일오버 진행 중입니다. 재조회 후 판단하십시오.", null, 1);
+                        "페일오버 진행 중. 재조회 후 판단 필요", null, 1);
             }
             replayed = result.replayed();
 
@@ -158,7 +158,7 @@ public class OrderGateway {
                 // 그 해시로 대조에 성공해 같은 결함이 그대로 재현된다. 정리 대상으로 표시한다.
                 discardKey = true;
                 throw new ApiException(409, "duplicate_client_order_id",
-                        "이미 사용한 client_order_id입니다. 새 키로 요청하십시오.");
+                        "이미 사용한 client_order_id. 새 키 필요");
             }
 
             row = result.replayed()
@@ -166,10 +166,10 @@ public class OrderGateway {
                     : awaitRow(() -> orders.byInternalId(assignedId));
             if (row == null) {
                 throw new ApiException(409, "order_in_progress",
-                        "주문이 처리 중입니다. 재조회하십시오.", null, 1);
+                        "주문 처리 중. 재조회 필요", null, 1);
             }
             if (!result.replayed() && "REJECTED".equals(row.status())) {
-                throw new ApiException(422, "domain_rejected", "도메인 검증에서 거부되었습니다.",
+                throw new ApiException(422, "domain_rejected", "도메인 검증에서 거부됨",
                         Map.of("reject_reason", row.rejectReason() == null ? "rejected"
                                 : row.rejectReason()), null);
             }
@@ -246,7 +246,7 @@ public class OrderGateway {
     public Placement cancel(long userId, UUID externalId) {
         OrderQueryService.OrderRow row = orders.byExternalId(externalId)
                 .filter(r -> r.userId() == userId)
-                .orElseThrow(() -> new ApiException(404, "order_not_found", "주문이 없습니다."));
+                .orElseThrow(() -> new ApiException(404, "order_not_found", "주문 없음"));
         if (row.terminal()) {
             // 재취소 멱등(§2-4): 이미 종결이면 현재 상태를 그대로 반환한다.
             return new Placement(row, true, currentEpoch());
@@ -262,7 +262,7 @@ public class OrderGateway {
                 orders.byInternalId(row.id()).filter(OrderQueryService.OrderRow::terminal));
         if (settled == null) {
             throw new ApiException(409, "order_in_progress",
-                    "취소가 처리 중입니다. 재조회하십시오.", null, 1);
+                    "취소 처리 중. 재조회 필요", null, 1);
         }
         return new Placement(settled, false, result.epoch());
     }
@@ -274,10 +274,10 @@ public class OrderGateway {
             return cancel(userId, row.get().externalId());
         }
         if (!orders.commandJournaled(userId, clientOrderId)) {
-            throw new ApiException(404, "order_not_found", "주문이 없습니다.");
+            throw new ApiException(404, "order_not_found", "주문 없음");
         }
         throw new ApiException(409, "order_in_progress",
-                "주문이 처리 중입니다. 재조회하십시오.", null, 1);
+                "주문 처리 중. 재조회 필요", null, 1);
     }
 
     public record BulkCancelResult(List<String> canceledIds,
@@ -317,7 +317,7 @@ public class OrderGateway {
         } catch (IllegalStateException e) {
             // 루프 정지(리더십 상실 창). 저널 커밋 전 거부이므로 재조회 계약으로 수렴시킨다.
             throw new ApiException(503, "service_unavailable",
-                    "페일오버 진행 중입니다. 재조회 후 판단하십시오.", null, 1);
+                    "페일오버 진행 중. 재조회 후 판단 필요", null, 1);
         }
     }
 
@@ -439,17 +439,17 @@ public class OrderGateway {
         // 수치·마켓 규칙 가드
         if (price != null) {
             if (price.signum() <= 0 || price.remainder(market.tickSize()).signum() != 0) {
-                throw new ApiException(400, "invalid_price", "가격 단위(tick)가 올바르지 않습니다.",
+                throw new ApiException(400, "invalid_price", "가격 단위(tick) 오류",
                         Map.of("tick", market.tickSize().stripTrailingZeros().toPlainString()), null);
             }
         }
         if (quantity != null) {
             if (quantity.signum() <= 0 || quantity.remainder(market.lotSize()).signum() != 0) {
-                throw new ApiException(400, "invalid_volume", "수량 단위(lot)가 올바르지 않습니다.",
+                throw new ApiException(400, "invalid_volume", "수량 단위(lot) 오류",
                         Map.of("lot", market.lotSize().stripTrailingZeros().toPlainString()), null);
             }
             if (quantity.compareTo(market.maxQty()) > 0) {
-                throw new ApiException(400, "over_max_order", "최대 주문 수량을 초과했습니다.");
+                throw new ApiException(400, "over_max_order", "최대 주문 수량 초과");
             }
         }
         if (quoteOrderQty != null) {
@@ -474,7 +474,7 @@ public class OrderGateway {
                         Map.of("min", market.minNotional().stripTrailingZeros().toPlainString()), null);
             }
             if (notional.compareTo(market.maxNotional()) > 0) {
-                throw new ApiException(400, "over_max_order", "최대 주문 금액을 초과했습니다.");
+                throw new ApiException(400, "over_max_order", "최대 주문 금액 초과");
             }
         }
         return new ParsedOrder(market, side, ordType, tif, price, quantity, quoteOrderQty);
@@ -495,7 +495,7 @@ public class OrderGateway {
     }
 
     private static ApiException invalid(String constraint) {
-        return new ApiException(400, "invalid_parameter", "파라미터 조합이 올바르지 않습니다.",
+        return new ApiException(400, "invalid_parameter", "파라미터 조합 오류",
                 Map.of("constraint", constraint), null);
     }
 

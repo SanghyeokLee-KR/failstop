@@ -83,7 +83,7 @@ public class OrderQueryService {
                     .params(userId, cursorId)
                     .query((rs, rn) -> new CursorAnchor(rs.getObject("created_at", OffsetDateTime.class), rs.getLong("id")))
                     .optional()
-                    .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서가 유효하지 않습니다."));
+                    .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서 형식 오류"));
             sql.append(" AND (o.created_at, o.id) < (?, ?)");
             params.add(anchor.createdAt());
             params.add(anchor.id());
@@ -101,7 +101,7 @@ public class OrderQueryService {
         try {
             return UUID.fromString(id);
         } catch (IllegalArgumentException e) {
-            throw new ApiException(400, "invalid_parameter", "커서 형식이 올바르지 않습니다.");
+            throw new ApiException(400, "invalid_parameter", "커서 형식 오류");
         }
     }
 

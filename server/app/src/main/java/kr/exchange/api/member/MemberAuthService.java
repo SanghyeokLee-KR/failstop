@@ -237,7 +237,7 @@ public class MemberAuthService {
         if (row.burned() || row.revoked()) {
             // 소각·폐기된 토큰 재제출은 도난 신호다. family 전체를 폐기하고 재사용으로 판정한다(§1-3).
             revokeFamily(row.familyId());
-            throw new ApiException(401, "refresh_reuse", "재사용된 세션입니다. 다시 로그인하십시오.");
+            throw new ApiException(401, "refresh_reuse", "재사용된 세션. 다시 로그인 필요");
         }
         if (!row.expiresAt().isAfter(Instant.now())) {
             throw sessionExpired();
@@ -271,7 +271,7 @@ public class MemberAuthService {
         } catch (RotationRaceException e) {
             // 회전 소각·삽입은 롤백됐다. family 폐기는 별도 커밋으로 확정한다.
             revokeFamily(row.familyId());
-            throw new ApiException(401, "refresh_reuse", "재사용된 세션입니다. 다시 로그인하십시오.");
+            throw new ApiException(401, "refresh_reuse", "재사용된 세션. 다시 로그인 필요");
         }
 
         String userExternalId = externalId(row.userId());
@@ -388,11 +388,11 @@ public class MemberAuthService {
 
 
     private static ApiException invalidCredentials() {
-        return new ApiException(401, "invalid_credentials", "이메일 또는 비밀번호를 확인해 주세요.");
+        return new ApiException(401, "invalid_credentials", "이메일 또는 비밀번호 확인 필요");
     }
 
     private static ApiException sessionExpired() {
-        return new ApiException(401, "session_expired", "세션이 만료되었습니다. 다시 로그인하십시오.");
+        return new ApiException(401, "session_expired", "세션 만료. 다시 로그인 필요");
     }
 
     private static ApiException accountLocked(Instant lockedUntil, Instant now) {
@@ -400,7 +400,7 @@ public class MemberAuthService {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("retry_after_seconds", retryAfter);
         return new ApiException(423, "account_locked",
-                "로그인 실패가 누적되어 계정이 일시 잠금되었습니다.", detail, retryAfter);
+                "로그인 실패 누적으로 계정 일시 잠금", detail, retryAfter);
     }
 
     private static String sha256Hex(String value) {

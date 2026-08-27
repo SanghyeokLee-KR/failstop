@@ -27,7 +27,7 @@ export default function GlobalError({ error, reset }: Props) {
         <main className={styles.shell}>
           <div className={styles.panel} role="alert">
             <span className={styles.mark} aria-hidden="true" />
-            <h1 className={styles.title}>앱 불러오기 실패</h1>
+            <h1 className={styles.title}>앱을 불러오지 못함</h1>
             <p className={styles.desc}>일시적 문제 발생. 다시 시도하거나 새로고침.</p>
             <div className={styles.actions}>
               <button type="button" className="btn btn--primary" onClick={() => reset()}>

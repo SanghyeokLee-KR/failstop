@@ -106,7 +106,7 @@ public class ConfigAdminController {
         }
         if ("DELISTED".equals(current)) {
             throw new ApiException(409, "market_delisted",
-                    "상장폐지된 마켓은 상태를 전이할 수 없습니다: " + symbol);
+                    "상장폐지 마켓은 상태 전이 불가: " + symbol);
         }
         jdbc.sql("UPDATE markets SET status = ?, updated_at = now() WHERE symbol = ?")
                 .params(targetStatus, symbol).update();

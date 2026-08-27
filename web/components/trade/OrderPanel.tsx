@@ -670,8 +670,10 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           {loadingBalance ? (
             <Skeleton variant="text" width={110} height={16} />
           ) : accountsFailed ? (
+            // 버튼은 행동만 맡는다. 실패 사실과 결과는 바로 아래 경고문이 이미 말하므로
+            // 여기서 되풀이하면 한 화면에서 같은 사건을 두 번 듣는다
             <button type="button" className={styles.retry} onClick={() => onRetryAccounts?.()}>
-              불러오기 실패, 다시 시도
+              다시 시도
             </button>
           ) : (
             <span className="num">

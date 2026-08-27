@@ -16,7 +16,7 @@ const REASON_COPY: Record<ErrorReason, { title: string; desc: string }> = {
     desc: "다시 로그인한 뒤 이어서 진행",
   },
   server: {
-    title: "데이터 불러오기 실패",
+    title: "데이터를 불러오지 못함",
     desc: "서버 연결 실패. 잠시 후 다시 시도 필요",
   },
 };

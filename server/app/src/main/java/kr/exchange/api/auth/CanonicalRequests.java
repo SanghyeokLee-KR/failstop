@@ -35,7 +35,7 @@ public final class CanonicalRequests {
         for (Map.Entry<String, String[]> e : params.entrySet()) {
             if (e.getValue() != null && e.getValue().length > 1) {
                 throw new ApiException(400, "invalid_parameter",
-                        "중복 쿼리 키는 허용되지 않습니다: " + e.getKey());
+                        "중복 쿼리 키 불가: " + e.getKey());
             }
             sorted.put(e.getKey(),
                     e.getValue() == null || e.getValue().length == 0 ? "" : e.getValue()[0]);

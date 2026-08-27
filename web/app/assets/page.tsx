@@ -447,9 +447,12 @@ export default function AssetsPage() {
                   37%가 돼 숫자 신뢰가 흔들린다 */}
               <h2 className={`${styles.weightTitle} gauge-plate`}>보유 비중 · 평가금액 기준</h2>
               {weights.length === 0 ? (
-                <div className="empty-state">
-                  <span className="empty-state__mark" aria-hidden="true" />
-                  <span className="empty-state__title">보유 자산 없음</span>
+                /* 같은 조건에서 위 표가 이미 "아직 보유한 코인 없음"과 다음 행동을 말한다.
+                   여기서 같은 사실을 다시 말하면 한 화면에서 두 번 듣는다. 이 패널이 못 그리는
+                   이유만 짧게 남기고 안내는 표에 맡긴다 */
+                <div className="empty-state empty-state--compact">
+                  <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+                  <span className="empty-state__desc">그릴 비중 없음</span>
                 </div>
               ) : (
                 <ul className={styles.weightList}>
