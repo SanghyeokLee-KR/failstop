@@ -15,7 +15,7 @@ import { useExchangeStore } from "@/lib/store";
 import { COIN_META } from "@/lib/sim/engine";
 import { compareDecimal } from "@/lib/decimal";
 import type { CoinMeta, TickerMessage } from "@/lib/types";
-import { dirOf, formatChangeRate, formatCompactKRW, formatPrice, toNum } from "@/lib/format";
+import { dirOf, formatCompactKRW, formatDirectional, formatPrice, toNum } from "@/lib/format";
 import styles from "./MarketListPanel.module.css";
 
 type ListTab = "krw" | "fav" | "held";
@@ -87,7 +87,7 @@ const MarketRow = memo(function MarketRow({
         {ticker?.trade_price != null ? formatPrice(ticker.trade_price, tickSpec) : "-"}
       </span>
       <span role="cell" className="dir-text num" data-dir={d}>
-        {ticker ? formatChangeRate(ticker.change_rate, ticker.change) : "-"}
+        {ticker ? formatDirectional(ticker.change_rate, ticker.change) : "-"}
       </span>
       <span role="cell" className={`${styles.vol} num`}>
         {ticker ? formatCompactKRW(ticker.acc_trade_price_24h) : "-"}
