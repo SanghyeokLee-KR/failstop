@@ -31,9 +31,19 @@ export default function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    setBusy(true);
     setFieldErrors({});
     setFormError(null);
+    /* 로그인은 형식을 보지 않는다. 서버도 조회용 정규화만 한다(MemberInputs.normalizeEmailForLookup).
+       규칙이 엄해질 때마다 이전 규칙으로 가입한 계정이 로그인 자체를 잃기 때문이다.
+       빈값만 막아 무의미한 왕복 한 번을 없앤다 */
+    if (email.trim().length === 0 || password.length === 0) {
+      setFieldErrors({
+        ...(email.trim().length === 0 ? { email: "이메일 입력 필요" } : {}),
+        ...(password.length === 0 ? { password: "비밀번호 입력 필요" } : {}),
+      });
+      return;
+    }
+    setBusy(true);
     try {
       await getDataSource().login({ email: email.trim(), password });
       toast("로그인 완료", "success");

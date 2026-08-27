@@ -13,6 +13,8 @@ interface TextFieldProps {
   label: string;
   value: string;
   onChange(value: string): void;
+  /** 포커스 이탈 시 호출. 폼 검증을 타이핑 중이 아니라 입력을 마친 시점에 걸기 위한 훅이다 */
+  onBlur?(): void;
   type?: "text" | "email" | "password";
   placeholder?: string;
   autoComplete?: string;
@@ -31,6 +33,7 @@ export default function TextField({
   label,
   value,
   onChange,
+  onBlur,
   type = "text",
   placeholder,
   autoComplete,
@@ -70,6 +73,7 @@ export default function TextField({
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
         />
         {isPassword && (
           <button

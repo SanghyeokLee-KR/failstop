@@ -63,9 +63,9 @@ public class MemberAuthService {
 
     public SessionResult signup(String email, String password, String displayName,
                                 String ip, String userAgent) {
-        String normalizedEmail = validateEmail(email);
+        String normalizedEmail = MemberInputs.email(email);
         validatePassword(password);
-        String name = validateDisplayName(displayName);
+        String name = MemberInputs.displayName(displayName);
         String passwordHash = hasher.hash(password);
 
         long userId;
@@ -141,8 +141,10 @@ public class MemberAuthService {
     }
 
     public SessionResult login(String email, String password, String ip, String userAgent) {
-        String normalizedEmail = validateEmail(email);
-        if (password == null || password.isEmpty()) {
+        // 로그인은 조회다. 형식 규칙을 여기서 다시 걸면 규칙이 엄해질 때마다 이전 규칙으로
+        // 가입한 계정이 로그인을 잃는다(MemberInputs.normalizeEmailForLookup 주석)
+        String normalizedEmail = MemberInputs.normalizeEmailForLookup(email);
+        if (normalizedEmail == null || password == null || password.isEmpty()) {
             throw invalidCredentials();
         }
         Optional<Credential> found = jdbc.sql("""
@@ -372,21 +374,6 @@ public class MemberAuthService {
         return value.length() <= max ? value : value.substring(0, max);
     }
 
-    private String validateEmail(String email) {
-        if (email == null) {
-            throw new ApiException(400, "invalid_email", "이메일이 필요합니다.");
-        }
-        String trimmed = email.trim();
-        // 형식 검증만 한다. 런타임 외부 API 의존 금지로 실제 소유 검증(메일 발송)은 하지 않는다.
-        int at = trimmed.indexOf('@');
-        int lastAt = trimmed.lastIndexOf('@');
-        int dot = trimmed.lastIndexOf('.');
-        if (at <= 0 || at != lastAt || dot < at + 2 || dot >= trimmed.length() - 1
-                || trimmed.length() > 255 || trimmed.chars().anyMatch(Character::isWhitespace)) {
-            throw new ApiException(400, "invalid_email", "이메일 형식이 올바르지 않습니다.");
-        }
-        return trimmed.toLowerCase();
-    }
 
     private void validatePassword(String password) {
         if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
@@ -399,16 +386,6 @@ public class MemberAuthService {
         }
     }
 
-    private String validateDisplayName(String displayName) {
-        if (displayName == null || displayName.isBlank()) {
-            throw new ApiException(400, "invalid_parameter", "표시명이 필요합니다.");
-        }
-        String trimmed = displayName.trim();
-        if (trimmed.length() > 32) {
-            throw new ApiException(400, "invalid_parameter", "표시명은 최대 32자입니다.");
-        }
-        return trimmed;
-    }
 
     private static ApiException invalidCredentials() {
         return new ApiException(401, "invalid_credentials", "이메일 또는 비밀번호를 확인해 주세요.");

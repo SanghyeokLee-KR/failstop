@@ -15,6 +15,7 @@ import { getDataSource } from "@/lib/api/datasource";
 import { useMemberSession } from "@/lib/store";
 import { mapAuthError } from "../authErrors";
 import { nextFromLocation } from "@/lib/auth/nextPath";
+import { displayNameError, emailError, passwordError } from "@/lib/auth/memberInputs";
 import styles from "../auth.module.css";
 import { usePageTitle } from "@/components/PageTitle";
 
@@ -32,18 +33,33 @@ export default function SignupPage() {
   }>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /* 검증 시점 판정자. 타이핑 두 글자에 빨간 글씨를 띄우면 폼이 내내 오류 상태로 보인다.
+     입력을 마친 시점(blur)과 제출 시점에만 사유를 드러낸다 */
+  const [touched, setTouched] = useState<{ email?: true; password?: true; display_name?: true }>({});
+
+  /* 서버와 같은 규칙(lib/auth/memberInputs, 서버 MemberInputs.java의 미러).
+     제출 전에 사유를 말해 왕복 한 번을 없앤다. 서버 검증은 그대로 둔다.
+     브라우저 검증은 우회 가능하고 가입은 무인증 공개 경로다 */
+  const localErrors = {
+    email: emailError(email),
+    password: passwordError(password),
+    display_name: displayNameError(displayName),
+  };
+  const shown = (f: "email" | "password" | "display_name") =>
+    fieldErrors[f] ?? (touched[f] ? localErrors[f] ?? undefined : undefined);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    setBusy(true);
     setFieldErrors({});
     setFormError(null);
-    if (displayName.trim().length === 0) {
-      setFieldErrors({ display_name: "표시명 입력 필요" });
-      setBusy(false);
+    // 제출은 세 필드를 모두 드러낸다. 첫 오류에서 멈추면 고치고 누르기를 반복하게 된다
+    const first = localErrors.email ?? localErrors.password ?? localErrors.display_name;
+    if (first) {
+      setTouched({ email: true, password: true, display_name: true });
       return;
     }
+    setBusy(true);
     try {
       await getDataSource().signup({
         email: email.trim(),
@@ -124,7 +140,8 @@ export default function SignupPage() {
             autoComplete="email"
             value={email}
             onChange={setEmail}
-            error={fieldErrors.email}
+            onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+            error={shown("email")}
             placeholder="trader@demo.local"
             disabled={busy}
             autoFocus
@@ -135,7 +152,8 @@ export default function SignupPage() {
             autoComplete="new-password"
             value={password}
             onChange={setPassword}
-            error={fieldErrors.password}
+            onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+            error={shown("password")}
             hint="8자 이상. 데모 전용, 실제 비밀번호 사용 금지"
             disabled={busy}
           />
@@ -145,7 +163,8 @@ export default function SignupPage() {
             autoComplete="nickname"
             value={displayName}
             onChange={setDisplayName}
-            error={fieldErrors.display_name}
+            onBlur={() => setTouched((t) => ({ ...t, display_name: true }))}
+            error={shown("display_name")}
             placeholder="데모트레이더"
             maxLength={32}
             disabled={busy}
