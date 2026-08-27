@@ -45,6 +45,10 @@
   left: 2px;
   top: 4px;
   bottom: 4px;
+  /* 폭은 잔량 비율(인라인 %)이고 기준은 행 패딩 박스다. 100% 행이 left 2px만큼 오른쪽으로 밀려
+     컨테이너를 2px 넘겼다. 가로 스크롤바는 안 그려지지만 트랙패드 가로 제스처로 호가가 밀린다.
+     좌우 인셋을 대칭으로 맞춰 넘침을 없앤다 */
+  max-width: calc(100% - 4px);
   border-radius: 3px;
   pointer-events: none;
   background-image: repeating-linear-gradient(

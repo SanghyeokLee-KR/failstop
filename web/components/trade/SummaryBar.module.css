@@ -55,6 +55,9 @@
   box-shadow: var(--shadow-2);
   /* 높이 상한은 인라인(뷰포트 잔여). 넘치면 잘리는 대신 메뉴 안에서 스크롤한다 */
   overflow-y: auto;
+  /* 비상속 속성이라 컨테이너가 직접 선언한다. gutter는 걸지 않는다. 그리드 예산 밖 오버레이라
+     OS별 폭 차이가 레이아웃을 흔들지 않고, 짧은 뷰포트에서만 스크롤해 상시 예약이 낭비다 */
+  scrollbar-width: thin;
   overscroll-behavior: contain;
 }
 .menuItem {
