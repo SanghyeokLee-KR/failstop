@@ -91,38 +91,38 @@ public class AdminSessionService {
         String token = authorizationHeader.substring("Bearer ".length()).trim();
         String[] parts = token.split("\\.");
         if (parts.length != 3) {
-            throw unauthorized("세션 토큰 형식이 올바르지 않습니다.");
+            throw unauthorized("세션 토큰 형식 오류");
         }
         String signingInput = parts[0] + "." + parts[1];
         byte[] provided;
         try {
             provided = Base64.getUrlDecoder().decode(parts[2]);
         } catch (IllegalArgumentException e) {
-            throw unauthorized("세션 토큰 인코딩이 올바르지 않습니다.");
+            throw unauthorized("세션 토큰 인코딩 오류");
         }
         if (!MessageDigest.isEqual(hmac(signingInput), provided)) {
-            throw unauthorized("세션 서명 검증에 실패했습니다.");
+            throw unauthorized("세션 서명 검증 실패");
         }
         JsonNode payload;
         try {
             payload = objectMapper.readTree(Base64.getUrlDecoder().decode(parts[1]));
         } catch (Exception e) {
-            throw unauthorized("세션 토큰 디코딩에 실패했습니다.");
+            throw unauthorized("세션 토큰 디코딩 실패");
         }
         if (!isAdminSession(payload) || !SCOPE.equals(payload.path("scope").asText())) {
             throw unauthorized("관리 세션 토큰이 아닙니다.");
         }
         if (payload.path("exp").asLong(0) <= System.currentTimeMillis() / 1000) {
-            throw unauthorized("세션이 만료되었습니다. 다시 발급받으십시오.");
+            throw unauthorized("세션 만료. 다시 발급 필요");
         }
         String operatorId = payload.path("operator_id").asText(null);
         String jti = payload.path("jti").asText(null);
         if (operatorId == null || jti == null) {
-            throw unauthorized("세션 클레임이 누락되었습니다.");
+            throw unauthorized("세션 클레임 누락");
         }
         // mTLS 신원 재대조: 세션 operator는 현재 인증서 CN과 같아야 한다(§3-6 자가신고 금지).
         if (!operatorId.equals(certOperatorId)) {
-            throw unauthorized("세션 신원이 mTLS 인증서와 일치하지 않습니다.");
+            throw unauthorized("세션 신원이 mTLS 인증서와 불일치");
         }
         boolean live = jdbc.sql("""
                         SELECT count(*) FROM admin_sessions
@@ -131,7 +131,7 @@ public class AdminSessionService {
                 .param(jti)
                 .query(Long.class).single() > 0;
         if (!live) {
-            throw unauthorized("세션이 폐기되었거나 만료되었습니다.");
+            throw unauthorized("폐기 또는 만료된 세션");
         }
         return operatorId;
     }

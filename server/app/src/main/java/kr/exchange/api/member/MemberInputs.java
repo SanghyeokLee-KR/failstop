@@ -45,25 +45,25 @@ public final class MemberInputs {
      */
     public static String email(String raw) {
         if (raw == null) {
-            throw invalidEmail("이메일이 필요합니다.");
+            throw invalidEmail("이메일 필요");
         }
         String value = raw.trim();
         if (value.isEmpty()) {
-            throw invalidEmail("이메일이 필요합니다.");
+            throw invalidEmail("이메일 필요");
         }
         if (value.length() > MAX_EMAIL_LENGTH) {
-            throw invalidEmail("이메일이 너무 깁니다.");
+            throw invalidEmail("이메일이 너무 김");
         }
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
             // trim이 U+0020 이하만 걷어내므로 그 밖의 공백·제어문자는 여기서 잡는다
             if (c <= ' ' || Character.isWhitespace(c) || Character.isISOControl(c)) {
-                throw invalidEmail("이메일에 공백을 쓸 수 없습니다.");
+                throw invalidEmail("이메일에 공백 불가");
             }
         }
         int at = value.indexOf('@');
         if (at < 0 || at != value.lastIndexOf('@')) {
-            throw invalidEmail("이메일 형식이 올바르지 않습니다.");
+            throw invalidEmail("이메일 형식 오류");
         }
         checkLocalPart(value.substring(0, at));
         checkDomain(value.substring(at + 1));
@@ -96,20 +96,20 @@ public final class MemberInputs {
 
     private static void checkLocalPart(String local) {
         if (local.isEmpty() || local.length() > MAX_LOCAL_LENGTH) {
-            throw invalidEmail("이메일 형식이 올바르지 않습니다.");
+            throw invalidEmail("이메일 형식 오류");
         }
         if (local.charAt(0) == '.' || local.charAt(local.length() - 1) == '.') {
-            throw invalidEmail("이메일의 점 위치가 올바르지 않습니다.");
+            throw invalidEmail("이메일의 점 위치 오류");
         }
         char prev = 0;
         for (int i = 0; i < local.length(); i++) {
             char c = local.charAt(i);
             boolean ok = isAsciiAlnum(c) || LOCAL_SPECIALS.indexOf(c) >= 0;
             if (!ok) {
-                throw invalidEmail("이메일에 쓸 수 없는 문자가 있습니다.");
+                throw invalidEmail("이메일에 쓸 수 없는 문자 있음");
             }
             if (c == '.' && prev == '.') {
-                throw invalidEmail("이메일에 점이 연속될 수 없습니다.");
+                throw invalidEmail("이메일에 점 연속 불가");
             }
             prev = c;
         }
@@ -117,38 +117,38 @@ public final class MemberInputs {
 
     private static void checkDomain(String domain) {
         if (domain.isEmpty() || domain.length() > MAX_EMAIL_LENGTH - 2) {
-            throw invalidEmail("이메일 형식이 올바르지 않습니다.");
+            throw invalidEmail("이메일 형식 오류");
         }
         if (domain.charAt(0) == '.' || domain.charAt(domain.length() - 1) == '.') {
-            throw invalidEmail("이메일의 점 위치가 올바르지 않습니다.");
+            throw invalidEmail("이메일의 점 위치 오류");
         }
         String[] labels = domain.split("\\.", -1);
         // 점 없는 도메인(localhost)은 거절한다. 데모 계정 식별자로 쓰이므로 형태를 좁혀둔다
         if (labels.length < 2) {
-            throw invalidEmail("이메일 도메인 형식이 올바르지 않습니다.");
+            throw invalidEmail("이메일 도메인 형식 오류");
         }
         for (String label : labels) {
             if (label.isEmpty() || label.length() > MAX_LABEL_LENGTH) {
-                throw invalidEmail("이메일 도메인 형식이 올바르지 않습니다.");
+                throw invalidEmail("이메일 도메인 형식 오류");
             }
             if (label.charAt(0) == '-' || label.charAt(label.length() - 1) == '-') {
-                throw invalidEmail("이메일 도메인에 하이픈 위치가 올바르지 않습니다.");
+                throw invalidEmail("이메일 도메인의 하이픈 위치 오류");
             }
             for (int i = 0; i < label.length(); i++) {
                 char c = label.charAt(i);
                 if (!isAsciiAlnum(c) && c != '-') {
-                    throw invalidEmail("이메일 도메인에 쓸 수 없는 문자가 있습니다.");
+                    throw invalidEmail("이메일 도메인에 쓸 수 없는 문자 있음");
                 }
             }
         }
         String tld = labels[labels.length - 1];
         if (tld.length() < 2) {
-            throw invalidEmail("이메일 도메인 형식이 올바르지 않습니다.");
+            throw invalidEmail("이메일 도메인 형식 오류");
         }
         for (int i = 0; i < tld.length(); i++) {
             // 숫자·하이픈만인 최상위 라벨은 실재하지 않는다. IP 리터럴 형태를 여기서 막는다
             if (!isAsciiLetter(tld.charAt(i))) {
-                throw invalidEmail("이메일 도메인 형식이 올바르지 않습니다.");
+                throw invalidEmail("이메일 도메인 형식 오류");
             }
         }
     }
@@ -166,12 +166,12 @@ public final class MemberInputs {
      */
     public static String displayName(String raw) {
         if (raw == null) {
-            throw invalidName("표시명이 필요합니다.");
+            throw invalidName("표시명 필요");
         }
         String value = Normalizer.normalize(raw, Normalizer.Form.NFC);
         value = collapseWhitespace(value);
         if (value.isEmpty()) {
-            throw invalidName("표시명이 필요합니다.");
+            throw invalidName("표시명 필요");
         }
         int i = 0;
         while (i < value.length()) {
@@ -181,13 +181,13 @@ public final class MemberInputs {
                     || type == Character.PRIVATE_USE || type == Character.SURROGATE
                     || type == Character.UNASSIGNED
                     || type == Character.LINE_SEPARATOR || type == Character.PARAGRAPH_SEPARATOR) {
-                throw invalidName("표시명에 보이지 않는 문자를 쓸 수 없습니다.");
+                throw invalidName("표시명에 보이지 않는 문자 불가");
             }
             i += Character.charCount(cp);
         }
         int length = value.codePointCount(0, value.length());
         if (length > MAX_DISPLAY_NAME) {
-            throw invalidName("표시명은 최대 " + MAX_DISPLAY_NAME + "자입니다.");
+            throw invalidName("표시명 최대 " + MAX_DISPLAY_NAME + "자");
         }
         return value;
     }

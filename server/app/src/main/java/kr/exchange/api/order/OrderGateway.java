@@ -518,7 +518,7 @@ public class OrderGateway {
         try {
             return new BigDecimal(body.get(field).asText());
         } catch (NumberFormatException e) {
-            throw new ApiException(400, "invalid_parameter", field + " 수치 형식이 올바르지 않습니다.");
+            throw new ApiException(400, "invalid_parameter", field + " 수치 형식 오류");
         }
     }
 }

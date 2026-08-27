@@ -34,7 +34,7 @@ public record AdminPrincipal(String operatorId, String sessionJti, Set<AdminRole
     public void require(AdminRole role) {
         if (!has(role)) {
             throw new ApiException(403, "admin_forbidden",
-                    "이 액션에는 " + role + " 역할이 필요합니다.",
+                    "필요한 역할: " + role,
                     java.util.Map.of("reason", "role_required", "required_role", role.name()),
                     null);
         }

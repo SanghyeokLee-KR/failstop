@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.23, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.24, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -164,6 +164,10 @@ exchange-platform/
 | 403 | `out_of_scope` | API Key 권한 부족(조회키로 주문 등), 또는 세션 종류가 리소스 요구와 불일치(데모·API 키로 회원 전용 `/me` 접근, §3-8) |
 | 403 | `admin_forbidden` | **관리 스코프/승인 부족(신규, §3-6)** |
 | 403 | `member_session_required` | **데모 세션으로 쓰기 시도(신규, §3-7 읽기 전용 계약). 봇·회원은 해당 없음** |
+| 400 | `invalid_transfer_asset` | **KRW 외 자산 입출금 요청(신규, §4-E)** |
+| 400 | `invalid_transfer_amount` | **입출금 금액이 0 이하·소수점·한도 초과·자릿수 위반(신규, §4-E)** |
+| 403 | `transfer_not_owned` | **타인의 입출금 요청 조작 시도(신규, §4-E)** |
+| 409 | `transfer_not_pending` | **이미 확정·취소된 입출금 요청의 재처리(신규, §4-E)** |
 | 400 | `weak_password` | **회원 비밀번호 최소 길이(8자) 미달(신규, §3-8)** |
 | 400 | `invalid_email` | **회원 이메일 형식 오류(신규, §3-8)** |
 | 401 | `invalid_credentials` | **로그인 이메일·비밀번호 불일치. 존재 여부 비노출(미가입도 동일 코드·메시지·유사 지연) (신규, §3-8)** |
@@ -826,6 +830,53 @@ POST /api/v1/orders
 | `RESERVE` | `order_id` | 예약을 만든 **주문의 외부 UUID**. 원 업무 이벤트 id는 내부 주문 PK라 그대로 노출하지 않고 치환한다 |
 | `RELEASE` / `GENESIS` / `TRANSFER` / `REVERSAL` | `id` | 업무 이벤트 id 10진 문자열(`RELEASE`는 해제를 유발한 `event_seq`, `GENESIS`는 발행 일련) |
 > 예시 수치는 §5-5 체결 시나리오와 정합(v2.7 재계산: bid 0.004 체결 → 체결대금 200,000 차감 TRADE 분개 + 수취 BTC 순액 0.003998 게시 TRADE 분개, 동일 timestamp 축). taker 수수료 0.000002 BTC의 FEE leg는 FEE_INCOME 시스템 계정 귀속이라 사용자 원장에는 나타나지 않는다(§4-B-5 v2.7 수취 자산 수수료 모델). 동일 체결에서 파생된 분개 묶음은 원장 트랜잭션의 `UNIQUE(business_event_type, business_event_id)`(§7-1)로 멱등이라, 재생·재시도로 같은 업무 이벤트가 다시 적용되어도 중복 분개가 생기지 않는다.
+
+---
+
+### 4-E. 입출금 API (V14 신설, `/api/v1/transfers`)
+
+원화 입출금. 시뮬레이션이며 실제 은행 연동은 없다. 계좌번호·카드번호 등 실금융정보는 어떤 필드로도 받지 않는다(회원_설계 §6 계승).
+
+**자산 제한**: KRW 전용이다. 코인 입출금은 V14 범위 밖이며 근거는 DB 설계의 `position_cost` 계층 논증이다(비엔진 게시자와 정산이 같은 사용자·비quote 자산을 동시에 건드리면 원가 프로젝션 적용 순서가 갈린다).
+
+**처리 방식**: 입금은 즉시 확정, 출금은 운영자 승인 큐를 지난다. 출금 요청 시점에 금액을 LOCKED로 잠근다. 잠그지 않으면 요청 후 승인 전에 그 돈으로 거래할 수 있고, 승인 시점에 잔고가 모자라 확정이 실패한다.
+
+| 기능 | 메서드·경로 | 인증 | 비고 |
+|---|---|---|---|
+| 입출금 요청 | `POST /api/v1/transfers` | 회원 세션 | `Idempotency-Key` 헤더 필수 |
+| 내 입출금 내역 | `GET /api/v1/transfers` | 회원 세션 | 커서 페이지네이션(§2-6) |
+| 출금 요청 취소 | `DELETE /api/v1/transfers/{external_id}` | 회원 세션 | REQUESTED 상태만. 잠금 해제 |
+| 대기 큐 조회 | `GET /admin/v1/transfers` | 관리 세션 | `status=REQUESTED` 기본 |
+| 출금 승인 | `POST /admin/v1/transfers/{external_id}/approve` | 관리 세션 | LOCKED to GATEWAY 확정 |
+| 출금 거절 | `POST /admin/v1/transfers/{external_id}/reject` | 관리 세션 | 잠금 해제, 사유 기록 |
+
+요청·응답.
+```json
+// POST /api/v1/transfers   Idempotency-Key: web-1a2b3c
+{ "direction":"DEPOSIT", "asset":"KRW", "amount":"1000000" }
+
+// 201
+{ "schema_version":"1.0",
+  "external_id":"3f9a...", "direction":"DEPOSIT", "asset":"KRW",
+  "amount":"1000000", "status":"COMPLETED",
+  "created_at":"2026-08-27T09:00:00.000Z", "updated_at":"2026-08-27T09:00:00.000Z" }
+```
+
+출금은 같은 스키마에 `direction:"WITHDRAW"`, 응답 `status:"REQUESTED"`다. 승인 후 `COMPLETED`, 거절·취소 후 `CANCELED`가 된다. `PENDING`·`FAILED`는 스키마에 있으나 V14 흐름에서는 만들지 않는다.
+
+**멱등**: `Idempotency-Key`는 `transfer_requests.UNIQUE(user_id, idem_key)`로 물리 강제한다. 같은 키 재요청은 기존 리소스를 `200` + `X-Idempotent-Replay: true`로 반환한다. 주문의 `client_order_id`(§2-4)와 같은 사상이며 자금 이동이라 필수다.
+
+**금액 규약**: 문자열 NUMERIC(40,18). KRW는 `price_scale`로 양자화하고 소수점 이하를 허용하지 않는다. 1회 한도는 데모 가드로 `MAX_TRANSFER_KRW`(1억)이다. 실제 한도 정책이 아니라 표시·입력 파손을 막는 상한이다.
+
+**신규 에러코드**(§2-3 확장).
+
+| HTTP | name | 의미 |
+|---|---|---|
+| 400 | `invalid_transfer_asset` | KRW 외 자산 요청 |
+| 400 | `invalid_transfer_amount` | 0 이하, 소수점, 한도 초과, 자릿수 위반 |
+| 403 | `transfer_not_owned` | 타인의 요청 조작 시도 |
+| 409 | `transfer_not_pending` | 이미 확정·취소된 요청의 재처리 |
+| 422 | `insufficient_funds` | 출금 요청 시 가용 잔고 부족(기존 코드 재사용) |
 
 ---
 

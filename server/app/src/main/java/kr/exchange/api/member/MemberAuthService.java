@@ -82,7 +82,7 @@ public class MemberAuthService {
                     .optional()
                     .isPresent();
             if (emailExists) {
-                throw new ApiException(409, "email_taken", "이미 가입된 이메일입니다.");
+                throw new ApiException(409, "email_taken", "이미 가입된 이메일");
             }
             throw e;
         }
@@ -378,11 +378,11 @@ public class MemberAuthService {
     private void validatePassword(String password) {
         if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
             throw new ApiException(400, "weak_password",
-                    "비밀번호는 최소 " + MIN_PASSWORD_LENGTH + "자입니다.");
+                    "비밀번호 최소 " + MIN_PASSWORD_LENGTH + "자");
         }
         if (password.length() > MAX_PASSWORD_LENGTH) {
             throw new ApiException(400, "weak_password",
-                    "비밀번호는 최대 " + MAX_PASSWORD_LENGTH + "자입니다.");
+                    "비밀번호 최대 " + MAX_PASSWORD_LENGTH + "자");
         }
     }
 

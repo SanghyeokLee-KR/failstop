@@ -49,7 +49,7 @@ public class ApiAuthService {
         String token = authorizationHeader.substring("Bearer ".length()).trim();
         String[] parts = token.split("\\.");
         if (parts.length != 3) {
-            throw unauthorized("jwt_verification", "JWT 형식이 올바르지 않습니다.");
+            throw unauthorized("jwt_verification", "JWT 형식 오류");
         }
         JsonNode header = decodeJson(parts[0]);
         JsonNode payload = decodeJson(parts[1]);
@@ -72,7 +72,7 @@ public class ApiAuthService {
         String queryHash = payload.path("query_hash").asText(null);
         if (accessKey == null || nonce == null || queryHash == null
                 || !payload.hasNonNull("timestamp")) {
-            throw unauthorized("jwt_verification", "필수 클레임이 누락되었습니다.");
+            throw unauthorized("jwt_verification", "필수 클레임 누락");
         }
         if (payload.has("query_hash_alg")
                 && !"SHA512".equals(payload.path("query_hash_alg").asText())) {
@@ -86,7 +86,7 @@ public class ApiAuthService {
         byte[] expected = hmacSha256(secret, parts[0] + "." + parts[1]);
         byte[] provided = base64UrlDecode(parts[2]);
         if (!MessageDigest.isEqual(expected, provided)) {
-            throw unauthorized("jwt_verification", "서명 검증에 실패했습니다.");
+            throw unauthorized("jwt_verification", "서명 검증 실패");
         }
 
         // 3. timestamp 단방향 창: now - recvWindow <= ts <= now + skew
@@ -109,7 +109,7 @@ public class ApiAuthService {
         // 5. canonical(query_hash) 대조: method + path 바인딩 포함
         String recomputed = CanonicalRequests.sha512Hex(canonical);
         if (!recomputed.equalsIgnoreCase(queryHash)) {
-            throw unauthorized("invalid_query_payload", "canonical 서명이 일치하지 않습니다.");
+            throw unauthorized("invalid_query_payload", "canonical 서명 불일치");
         }
 
         // 6. scope
@@ -124,7 +124,7 @@ public class ApiAuthService {
         try {
             return objectMapper.readTree(base64UrlDecode(base64Url));
         } catch (Exception e) {
-            throw unauthorized("jwt_verification", "JWT 디코딩에 실패했습니다.");
+            throw unauthorized("jwt_verification", "JWT 디코딩 실패");
         }
     }
 

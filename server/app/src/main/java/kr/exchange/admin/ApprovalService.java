@@ -39,7 +39,7 @@ public class ApprovalService {
     public Issued issue(String approverOperatorId, String requesterOperatorId,
                         String action, String target) {
         if (approverOperatorId.equals(requesterOperatorId)) {
-            throw forbidden("approvals 발급 주체와 요청 주체가 같을 수 없습니다.", "same_operator");
+            throw forbidden("approvals 발급 주체와 요청 주체 동일 불가", "same_operator");
         }
         String token = "APV" + randomToken(40);
         long exp = System.currentTimeMillis() / 1000 + ttl.toSeconds();
@@ -106,7 +106,7 @@ public class ApprovalService {
         }
         // 반결탁 최종 방어선: 사용 주체는 발급 주체와 달라야 한다(§3-6).
         if (requesterOperatorId.equals(row.get("approver"))) {
-            throw forbidden("approval_token 사용 주체가 발급 주체와 같습니다.", "same_operator");
+            throw forbidden("approval_token 사용 주체가 발급 주체와 동일", "same_operator");
         }
         jdbc.sql("UPDATE admin_approvals SET state = 'CONSUMED', consumed_at = now() WHERE id = ?")
                 .param(id).update();
@@ -174,7 +174,7 @@ public class ApprovalService {
         }
         if (!callerOperatorId.equals(row.get("requester"))
                 && !callerOperatorId.equals(row.get("approver"))) {
-            throw forbidden("승인 당사자만 거부할 수 있습니다.", "not_party");
+            throw forbidden("승인 당사자만 거부 가능", "not_party");
         }
         jdbc.sql("UPDATE admin_approvals SET state = 'REJECTED' WHERE id = ?")
                 .param(id).update();

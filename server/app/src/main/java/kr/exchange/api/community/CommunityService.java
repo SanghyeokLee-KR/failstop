@@ -643,11 +643,11 @@ public class CommunityService {
 
     private static String requireText(String value, int max, String label) {
         if (value == null || value.isBlank()) {
-            throw new ApiException(400, "invalid_parameter", label + "을(를) 입력하세요.");
+            throw new ApiException(400, "invalid_parameter", label + " 입력 필요");
         }
         String trimmed = value.strip();
         if (trimmed.length() > max) {
-            throw new ApiException(400, "invalid_parameter", label + "은(는) 최대 " + max + "자입니다.");
+            throw new ApiException(400, "invalid_parameter", label + "은(는) 최대 " + max + "자");
         }
         return trimmed;
     }

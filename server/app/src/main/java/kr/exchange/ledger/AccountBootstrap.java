@@ -33,6 +33,11 @@ public class AccountBootstrap {
                 .update();
         systemAccount("FEE_INCOME", id);
         systemAccount("GENESIS", id);
+        // 입출금 상대 계정(V14). GENESIS와 나누는 이유는 두 계정이 다른 사건을 뜻하기 때문이다.
+        // GENESIS는 이 거래소가 세상에 없던 돈을 발행한 자리이고, GATEWAY는 이미 있는 돈이
+        // 바깥과 드나든 자리다. 한 계정에 섞으면 "발행량"과 "순유입"을 다시 못 가른다.
+        // 둘 다 allow_negative라 소스계정으로서 음수 잔고가 정상이다(§6.1 ①).
+        systemAccount("GATEWAY", id);
     }
 
     public void market(int id, String symbol, int baseAssetId, int quoteAssetId,

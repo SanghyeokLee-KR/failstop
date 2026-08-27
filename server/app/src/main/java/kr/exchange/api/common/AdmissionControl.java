@@ -48,7 +48,7 @@ public final class AdmissionControl {
          *      무효로 흡수한다. 주문 거절은 같은 client_order_id로 재시도해 멱등 수렴한다.
          */
         public static final Shed CAPACITY = new Shed(429, "too_many_requests",
-                "노드 처리 용량을 초과했습니다. 잠시 후 재시도하십시오.");
+                "노드 처리 용량 초과. 잠시 후 재시도 필요");
 
         /**
          * §7-6 재조회 수렴 경로 전용. 429도 503도 쓸 수 없다.
@@ -65,7 +65,7 @@ public final class AdmissionControl {
          * 후 동일 client_order_id로 재조회를 반복해 수렴한다.
          */
         public static final Shed REQUERY_DEFERRED = new Shed(409, "requery_deferred",
-                "지금은 접수 여부를 확정할 수 없습니다. Retry-After 후 동일 client_order_id로 재조회하십시오.");
+                "접수 여부 확정 불가. Retry-After 후 동일 client_order_id로 재조회 필요");
     }
 
     private final String scope;

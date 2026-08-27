@@ -97,20 +97,20 @@ public class MemberSessionService {
         try {
             provided = Base64.getUrlDecoder().decode(tokenParts[2]);
         } catch (IllegalArgumentException e) {
-            throw unauthorized("세션 토큰 인코딩이 올바르지 않습니다.");
+            throw unauthorized("세션 토큰 인코딩 오류");
         }
         if (!verifySignature(signingInput.getBytes(StandardCharsets.UTF_8), provided)) {
-            throw unauthorized("세션 서명 검증에 실패했습니다.");
+            throw unauthorized("세션 서명 검증 실패");
         }
         if (!TYP.equals(payload.path("typ").asText())) {
-            throw unauthorized("세션 토큰 유형이 올바르지 않습니다.");
+            throw unauthorized("세션 토큰 유형 오류");
         }
         long exp = payload.path("exp").asLong(0);
         if (exp <= System.currentTimeMillis() / 1000) {
-            throw unauthorized("세션이 만료되었습니다. 다시 로그인하십시오.");
+            throw unauthorized("세션 만료. 다시 로그인 필요");
         }
         if (!payload.hasNonNull("user_id") || !"TRADE".equals(payload.path("scope").asText())) {
-            throw unauthorized("세션 클레임이 올바르지 않습니다.");
+            throw unauthorized("세션 클레임 오류");
         }
         // verifyCommunity와 대칭으로 kind=HUMAN을 강제한다. 비 HUMAN 종류 토큰이 발급되어도
         // 거래 평면을 무검증 통과하지 못하게 막는다(KIND_MEMBER 고정 스탬프의 무결성 보강).
@@ -135,16 +135,16 @@ public class MemberSessionService {
         try {
             provided = Base64.getUrlDecoder().decode(tokenParts[2]);
         } catch (IllegalArgumentException e) {
-            throw unauthorized("세션 토큰 인코딩이 올바르지 않습니다.");
+            throw unauthorized("세션 토큰 인코딩 오류");
         }
         if (!verifySignature(signingInput.getBytes(StandardCharsets.UTF_8), provided)) {
-            throw unauthorized("세션 서명 검증에 실패했습니다.");
+            throw unauthorized("세션 서명 검증 실패");
         }
         if (!TYP.equals(payload.path("typ").asText())) {
-            throw unauthorized("세션 토큰 유형이 올바르지 않습니다.");
+            throw unauthorized("세션 토큰 유형 오류");
         }
         if (payload.path("exp").asLong(0) <= System.currentTimeMillis() / 1000) {
-            throw unauthorized("세션이 만료되었습니다. 다시 로그인하십시오.");
+            throw unauthorized("세션 만료. 다시 로그인 필요");
         }
         if (!"HUMAN".equals(payload.path("kind").asText()) || !payload.hasNonNull("user_id")) {
             throw unauthorized("회원 세션이 아닙니다.");

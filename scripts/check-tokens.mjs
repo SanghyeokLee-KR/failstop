@@ -327,8 +327,16 @@ const tokens = parseTokens();
  * 메시지가 52종이라, 코드로 접으면 "가격 단위 오류"와 "최대 주문 금액 초과"의 구분이
  * 통째로 사라진다. 정보는 서버 메시지에 있으므로 어투만 제품 목소리에 맞춘다.
  *
- * 한계: ApiException 생성자만 본다. 문자열 결합으로 만든 메시지는 앞 리터럴만 검사한다.
+ * 검사 범위는 서버 java의 한국어 문자열 리터럴 전부다. ApiException 생성자만 보던 첫 판은
+ * 절반을 놓쳤다. 메시지가 변수 결합("이 액션에는 " + role + " 역할이 필요합니다.")이거나
+ * 헬퍼를 거치면 생성자 인자 자리에 리터럴이 없다. 실제로 그 규칙을 통과한 뒤 같은 파일에
+ * 51건이 남아 있었고, 그중 15건은 규칙을 만든 다음 날 내가 새로 쓴 검증기였다.
+ *
+ * 서버 java의 한국어 리터럴은 사실상 전부 사용자 노출 메시지다. 로그·내부 문구는 영문이라
+ * 이 규칙에 걸리지 않는다. 예외가 생기면 SERVER_COPY_EXEMPT에 이유와 함께 적는다.
  */
+const SERVER_COPY_EXEMPT = [];
+
 function checkServerCopy() {
   const JAVA_ROOT = join(ROOT, "server", "app", "src", "main", "java");
   let javaFiles = [];
@@ -338,9 +346,10 @@ function checkServerCopy() {
     return; // 서버 소스가 없는 체크아웃에서는 건너뛴다
   }
   for (const file of javaFiles) {
-    const code = stripComments(readFileSync(file, "utf8"), false);
     const rel = relative(ROOT, file).split(sep).join("/");
-    for (const m of code.matchAll(/new ApiException\(\s*\d+\s*,\s*"[a-z_]+"\s*,\s*"([^"\n]+)"/g)) {
+    if (SERVER_COPY_EXEMPT.includes(rel)) continue;
+    const code = stripComments(readFileSync(file, "utf8"), false);
+    for (const m of code.matchAll(/"([^"\n]*[가-힣][^"\n]*)"/g)) {
       const text = m[1];
       if (/(습니다|하세요|하십시오|십시오|해 주세요|해주세요)/.test(text)) {
         fail("copy-tone", rel, `존댓말 종결 "${text.slice(0, 40)}". 사용자에게 그대로 노출된다`);

@@ -175,7 +175,7 @@ public class ConfigAdminController {
         try {
             value = new BigDecimal(raw.trim());
         } catch (NumberFormatException e) {
-            throw new ApiException(400, "invalid_parameter", field + " 형식이 올바르지 않습니다.");
+            throw new ApiException(400, "invalid_parameter", field + " 형식 오류");
         }
         if (value.scale() > FEE_SCALE) {
             throw new ApiException(400, "invalid_parameter",

@@ -55,7 +55,7 @@ public class CommunityAuthenticator {
         }
         String[] parts = header.substring("Bearer ".length()).trim().split("\\.");
         if (parts.length != 3) {
-            throw unauthorized("세션 토큰 형식이 올바르지 않습니다.");
+            throw unauthorized("세션 토큰 형식 오류");
         }
         JsonNode headerNode = decode(parts[0]);
         if (!"EdDSA".equals(headerNode.path("alg").asText())) {
@@ -71,7 +71,7 @@ public class CommunityAuthenticator {
         try {
             return objectMapper.readTree(Base64.getUrlDecoder().decode(base64Url));
         } catch (Exception e) {
-            throw unauthorized("세션 토큰 디코딩에 실패했습니다.");
+            throw unauthorized("세션 토큰 디코딩 실패");
         }
     }
 

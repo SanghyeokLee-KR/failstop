@@ -70,17 +70,17 @@ public class DemoSessionService {
         try {
             provided = Base64.getUrlDecoder().decode(tokenParts[2]);
         } catch (IllegalArgumentException e) {
-            throw unauthorized("세션 토큰 인코딩이 올바르지 않습니다.");
+            throw unauthorized("세션 토큰 인코딩 오류");
         }
         if (!MessageDigest.isEqual(hmac(signingInput), provided)) {
-            throw unauthorized("세션 서명 검증에 실패했습니다.");
+            throw unauthorized("세션 서명 검증 실패");
         }
         long exp = payload.path("exp").asLong(0);
         if (exp <= System.currentTimeMillis() / 1000) {
-            throw unauthorized("세션이 만료되었습니다. 다시 발급받으십시오.");
+            throw unauthorized("세션 만료. 다시 발급 필요");
         }
         if (!payload.hasNonNull("user_id") || !"TRADE".equals(payload.path("scope").asText())) {
-            throw unauthorized("세션 클레임이 올바르지 않습니다.");
+            throw unauthorized("세션 클레임 오류");
         }
         return new AuthPrincipal(payload.get("user_id").asLong(), "demo-session", "TRADE",
                 AuthPrincipal.KIND_DEMO);

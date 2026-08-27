@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.29)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.30)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V14+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -933,8 +933,10 @@ CREATE TRIGGER trg_ledger_txn_notrunc BEFORE TRUNCATE ON ledger_transactions
 
 -- ────────────────────────────────────────────────────────────────
 -- 5. 입출금 요청 수명주기 (게이트웨이 요청 + 멱등성)
---    ※ V1 범위 외. 로드맵(V2~) 예정 DDL (v2.6. V1 헤더의 제외 목록: transfer_requests,
---      candles, audit_log, invariant_checks, recovery_runs, shedlock)
+--    ※ V14로 승격 적용됨. 상태 전이는 입금 즉시(REQUESTED->COMPLETED),
+--      출금 승인 큐(REQUESTED->COMPLETED|CANCELED)다. PENDING은 미사용으로 남긴다.
+--      (V1 헤더의 제외 목록 중 candles, audit_log, invariant_checks, recovery_runs,
+--       shedlock은 여전히 별도 범위)
 -- ────────────────────────────────────────────────────────────────
 CREATE TABLE transfer_requests (
     id            BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1572,6 +1574,26 @@ CREATE TABLE user_provisioning (
 - **시드 GENESIS**: `business_event_id ∈ [1, SEED_GENESIS_MAX]`. `SEED_GENESIS_MAX = 1_000_000_000`(코드: `AccountBootstrap.SEED_GENESIS_MAX`). 시드 입금의 `max+1` 채번은 `WHERE business_event_id <= SEED_GENESIS_MAX`로 이 범위에 갇혀 회원 범위로 진입하지 않는다.
 - **회원 프로비저닝**: `genesis_event_id = PROVISION_GENESIS_BASE + user_id`. `PROVISION_GENESIS_BASE = 1_000_000_000_000`(코드: `MemberAuthService.PROVISION_GENESIS_BASE`), `SEED_GENESIS_MAX`를 넘는 예약 상수. `user_id`가 BIGINT 양수 identity라 두 범위는 서로소이고 프로비저닝 내부 유일성도 성립한다.
 - 대안(`business_event_type`에 `PROVISION` 전용 타입 추가)은 CHECK 변경이라 더 무겁다. 예약 오프셋을 정본으로 채택한다.
+
+#### 입출금 `business_event_id` 네임스페이스 예약 (V14)
+
+입출금은 세 종류의 원장 게시를 만든다. 게시 타입별로 기존 발급원과의 충돌 여부가 다르다.
+
+| 게시 | 타입 | `business_event_id` | 충돌 |
+|---|---|---|---|
+| 입금 확정, 출금 확정 | `TRANSFER` | `transfer_requests.id` | 없음. `TRANSFER` 타입의 유일 발급원이다 |
+| 출금 요청 시 잠금 | `RESERVE` | `TRANSFER_LOCK_BASE + transfer_requests.id` | 주문 예약이 `orders.id`를 쓴다 |
+| 출금 거절 시 해제 | `RELEASE` | `TRANSFER_UNLOCK_BASE + transfer_requests.id` | 체결 해제가 `event_seq`를 쓴다 |
+
+`TRANSFER_LOCK_BASE = 2_000_000_000_000`, `TRANSFER_UNLOCK_BASE = 3_000_000_000_000`(코드: `TransferService`). `orders.id`와 `event_seq`가 각각 2e12·3e12에 도달하려면 그 수만큼의 주문·이벤트가 필요하므로 데모 규모에서 서로소다. GENESIS와 같은 오프셋 예약 방식을 쓴다.
+
+#### 입출금 자산 제한: KRW 전용 (V14)
+
+`transfer_requests.asset_id`는 스키마상 임의 자산을 허용하나, 구현은 KRW만 받는다. 근거는 V13 `position_cost` 계층 논증이다.
+
+`position_cost`는 `post_ledger_transaction` 내부에서 갱신되는 파생 프로젝션이고, 라이브 게시 순서와 `rebuild_position_cost`의 `ledger_transactions.id` 순서가 같아야 결과가 같다. 비엔진 게시자와 정산이 같은 (사용자, 비quote 자산)을 동시에 건드리면 두 순서가 갈릴 수 있다. 현재 비엔진 게시자가 그 조건에 걸리지 않는 이유는 전부 KRW 단독이거나 해당 사용자의 첫 자금 발급이기 때문이다.
+
+코인 입출금을 열면 이 조건이 깨진다. 사용자가 BTC를 입금하는 동안 같은 사용자의 BTC 체결이 정산되면 두 게시가 경합한다. 코인 입출금은 정산과의 직렬화를 먼저 설계해야 하며 V14 범위 밖이다. KRW는 quote 자산이라 `apply_position_cost`가 무동작이므로 이 제약과 무관하다.
 
 ---
 
