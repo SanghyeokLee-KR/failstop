@@ -33,9 +33,12 @@
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
 }
+/* 홈의 1차 지표다. 문서 위계는 요약 스트립 > 스포트라이트 > 랭킹인데 크기가 뒤집혀 있었다.
+   집계가 title-2(20px)이고 2차인 스포트라이트 시세가 title-1(24px)이었다.
+   display-md로 올려 위계와 크기를 같은 방향으로 세운다(28 > 24 > 13) */
 .aggValue {
-  font-size: var(--font-title-2-size);
-  line-height: var(--font-title-2-line);
+  font-size: var(--font-display-md-size);
+  line-height: var(--font-display-md-line);
   font-weight: var(--fw-bold);
   color: var(--text-strong);
   letter-spacing: -0.01em; /* 20px 이상 큰 숫자 밀착(§3.2) */

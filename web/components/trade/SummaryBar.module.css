@@ -4,7 +4,10 @@
 .root {
   display: flex;
   align-items: center;
-  gap: var(--space-5);
+  /* 1280px에서 그룹 4개 + 간격 3 + 패딩이 정확히 914px로 딱 맞아 여유가 0이었다.
+     현재가를 1차 지표로 올리며 4px이 넘쳤다. 가로 미디어 쿼리는 고정형 정책상 못 쓰므로
+     간격에서 영구히 12px을 회수한다. 그룹 간 16 vs 스탯 내부 12라 묶임은 그대로 읽힌다 */
+  gap: var(--space-4);
   min-width: 0;
   padding: 0 var(--space-4);
   background: var(--surface-default);
@@ -119,11 +122,15 @@
   min-width: 0;
   flex-shrink: 0;
 }
-/* 방향색 대형 규격: 24px/700 → --color-up/down 허용 영역 (§2.5).
+/* 화면의 1차 지표다. title-1(24px)은 주변 본문(13px) 대비 1.85배라 "먼저 읽히는 값"이 안 된다.
+   홈 스포트라이트의 2차 시세와도 같은 크기였다. display-md로 올려 2.15배를 만든다.
+   상한은 64px 요약 바다. 38(행 높이) + 18(등락 행) = 56이라 여유 8px이 남는다. display-lg는
+   44 + 18 = 62로 패딩이 사라진다.
+   방향색 대형 규격: 24px/700 이상은 --color-up/down 허용 영역 (§2.5).
    §3.2 큰 숫자 밀착: 20px 이상은 자간 -0.01em으로 계기 판독감을 준다 */
 .cur {
-  font-size: var(--font-title-1-size);
-  line-height: var(--font-title-1-line);
+  font-size: var(--font-display-md-size);
+  line-height: var(--font-display-md-line);
   font-weight: var(--fw-bold);
   letter-spacing: -0.01em;
 }
@@ -184,6 +191,6 @@
 
 /* §2.3 압축(48px): 간격·현재가 폰트 축소, 1행 유지. 스택(28+18=46px)이 48px 안에 든다 */
 @media (max-height: 820px) {
-  .root { gap: var(--space-4); padding: 0 var(--space-3); }
+  .root { padding: 0 var(--space-3); }
   .cur { font-size: var(--font-title-2-size); line-height: var(--font-title-2-line); }
 }
