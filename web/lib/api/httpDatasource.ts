@@ -33,6 +33,8 @@ import type {
   Trade,
   TradeMessage,
   WsMessage,
+  TransferInput,
+  TransferRequest,
 } from "../types";
 import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION, TRADE_TAPE_LIMIT } from "../types";
 import { decimalsOf, fromScaledInt, scaledIntTrunc } from "../decimal";
@@ -784,6 +786,38 @@ export class HttpStompDataSource implements DataSource {
     const user = await this.fetchMe(token);
     if (!user) throw new ApiError(401, "session_expired", "세션 만료. 다시 로그인 필요");
     return user;
+  }
+
+  /* ===== 입출금 (§4-E) ===== */
+
+  /**
+   * 요청. Idempotency-Key는 호출부가 소유한다. 재시도 시 같은 키를 재사용해야 서버
+   * UNIQUE(user_id, idem_key)가 중복 요청을 하나로 접는다. 여기서 키를 만들면 재시도마다
+   * 새 키가 되어 멱등이 무의미해진다(주문 client_order_id와 같은 소유 규칙, §2-4).
+   */
+  async requestTransfer(input: TransferInput, idemKey: string): Promise<TransferRequest> {
+    return this.http<TransferRequest>(
+      "/api/v1/transfers",
+      { method: "POST", body: JSON.stringify(input), headers: { "Idempotency-Key": idemKey } },
+      true,
+    );
+  }
+
+  async listTransfers(limit = 50): Promise<TransferRequest[]> {
+    const body = await this.http<{ data: TransferRequest[] }>(
+      `/api/v1/transfers?limit=${limit}`,
+      {},
+      true,
+    );
+    return body.data ?? [];
+  }
+
+  async cancelTransfer(externalId: string): Promise<TransferRequest> {
+    return this.http<TransferRequest>(
+      `/api/v1/transfers/${encodeURIComponent(externalId)}`,
+      { method: "DELETE" },
+      true,
+    );
   }
 
   getMemberSession(): MemberSession | null {

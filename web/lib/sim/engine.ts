@@ -692,6 +692,33 @@ export class SimEngine {
     return [...this.balances.keys()].map((currency) => this.assetOf(currency));
   }
 
+  /* ===== 입출금 시뮬레이션 (§4-E) ===== */
+
+  /**
+   * 원화 잔고를 옮긴다. 서버가 원장 함수로 하는 일을 sim에서는 잔고 맵으로 흉내낸다.
+   * dBalance는 가용, dLocked는 잠금 델타다. 입금은 가용 증가, 출금 요청은 가용에서
+   * 잠금으로, 승인은 잠금 소멸, 취소는 잠금에서 가용으로 돌아온다.
+   *
+   * 원가 누산기는 건드리지 않는다. KRW는 quote라 코인 원가와 무관하고, 서버도 같은
+   * 이유로 apply_position_cost가 무동작이다.
+   */
+  moveKrw(dBalance: string, dLocked: string): void {
+    const b = this.balanceOf("KRW");
+    const nextBalance = addDecimal(b.balance, dBalance);
+    const nextLocked = addDecimal(b.locked, dLocked);
+    if (compareDecimal(nextBalance, "0") < 0 || compareDecimal(nextLocked, "0") < 0) {
+      throw new SimApiError("insufficient_funds", "가용 잔고 부족");
+    }
+    b.balance = nextBalance;
+    b.locked = nextLocked;
+    this.publish(dest.myAsset, this.myAssetMessage());
+  }
+
+  /** 현재 원화 가용 잔고. 출금 요청 전 선판정용 */
+  availableKrw(): string {
+    return this.balanceOf("KRW").balance;
+  }
+
   getOrders(open: boolean, market?: string): Order[] {
     return [...this.orders.values()]
       .filter((o) => (market ? o.market === market : true))

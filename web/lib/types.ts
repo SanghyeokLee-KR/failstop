@@ -316,6 +316,33 @@ export interface LoginInput {
   password: string;
 }
 
+/* ===== 입출금 (§4-E 미러) ===== */
+
+export type TransferDirection = "DEPOSIT" | "WITHDRAW";
+/** PENDING·FAILED는 스키마에 있으나 현재 흐름이 만들지 않는다(§4-E) */
+export type TransferStatus = "REQUESTED" | "PENDING" | "COMPLETED" | "FAILED" | "CANCELED";
+
+/** POST /api/v1/transfers 요청. 금액은 문자열(NUMERIC(40,18) 규약) */
+export interface TransferInput {
+  direction: TransferDirection;
+  /** 생략 시 KRW. 현재 KRW만 지원한다 */
+  asset?: string;
+  amount: string;
+}
+
+/** 입출금 요청 한 건. 내부 PK와 처리자는 노출되지 않는다 */
+export interface TransferRequest {
+  external_id: string;
+  direction: TransferDirection;
+  asset: string;
+  amount: string;
+  status: TransferStatus;
+  /** 거절·취소 사유. 없으면 null */
+  reason: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
 /* ===== UI 보조 (데이터성 색상. 코인 브랜드색은 토큰 예외 허용) ===== */
 
 export interface CoinMeta {

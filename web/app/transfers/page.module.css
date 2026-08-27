@@ -1,0 +1,231 @@
+/* 입출금 화면(§4-E). 고정형 데스크톱, 폼과 내역 2열 */
+
+.page {
+  /* 자산 화면과 같은 폭. 두 화면을 오가며 콘텐츠 가장자리가 흔들리지 않게 한다 */
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-7) var(--layout-gutter) var(--space-9);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* 폼은 읽고 채우는 좁은 열, 내역은 훑는 넓은 열. 두 작업의 시선 폭이 다르다 */
+.grid {
+  display: grid;
+  grid-template-columns: 380px minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.formCard,
+.historyCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.title {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+
+/* 출금 가능액. 금액을 정하기 전에 읽는 값이라 폼 위에 둔다 */
+.availRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-sunken);
+  border-radius: var(--control-radius);
+  /* sunken 면이라 secondary는 라이트 4.27:1로 미달이다(tokens §2). 면이 규칙을 소유한다 */
+  --text-secondary: var(--text-default);
+}
+.availLabel {
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}
+.availValue {
+  font-size: var(--font-body-lg-size);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+
+/* 입금·출금 전환. 방향색을 쓰지 않는 이유는 이것이 등락이 아니기 때문이다.
+   같은 Red를 매수와 입금에 함께 쓰면 색의 뜻이 두 개가 된다 */
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+  padding: 3px;
+  background: var(--surface-sunken);
+  border-radius: var(--panel-radius);
+}
+.tab {
+  min-height: 44px;
+  border-radius: calc(var(--panel-radius) - 3px);
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+.tab[data-on] {
+  background: var(--surface-default);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-1);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.quickBtn {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--btn-secondary-border);
+  border-radius: var(--control-radius);
+  background: var(--surface-default);
+  font-size: var(--font-caption-size);
+  color: var(--text-default);
+}
+.quickBtn:hover { background: var(--surface-hover); }
+/* 44px 히트 확장. 시각 밀도는 36px로 두고 타깃만 넓힌다(디자인시스템 §6) */
+.quickBtn {
+  position: relative;
+}
+.quickBtn::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+/* 요청 후 무엇이 일어나는지 미리 말하는 자리. 경고가 아니라 안내라 danger 톤을 쓰지 않는다 */
+.note {
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border-radius: var(--control-radius);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  /* sunken 면 규칙 */
+  color: var(--text-default);
+  word-break: keep-all;
+}
+
+/* ===== 내역 ===== */
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 80px 92px 88px;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-body-sm-size);
+  white-space: nowrap;
+}
+.row:last-child { border-bottom: 0; }
+
+/* 입금·출금은 방향이 아니라 종류다. 부호 대신 라벨과 면으로 가른다 */
+.rowDir {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+
+.rowAmount {
+  text-align: right;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+
+.rowStatus {
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+/* 대기는 아직 끝나지 않았다는 신호라 잉크를 살린다. 완료·취소는 지나간 일이라 낮춘다 */
+.rowStatus[data-status="REQUESTED"],
+.rowStatus[data-status="PENDING"] { color: var(--color-warning-text); }
+.rowStatus[data-status="COMPLETED"] { color: var(--text-default); }
+.rowStatus[data-status="FAILED"] { color: var(--color-danger); }
+
+.rowTime {
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.rowAction {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--btn-secondary-border);
+  border-radius: var(--control-radius);
+  font-size: var(--font-caption-size);
+  color: var(--text-default);
+}
+.rowAction:hover { background: var(--surface-hover); }
+
+/* 거절 사유. 없으면 빈 자리로 두어 행 격자가 흔들리지 않게 한다 */
+.rowReason {
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== 비회원 유도 ===== */
+
+.gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-10) var(--layout-gutter);
+  text-align: center;
+}
+.gateTitle {
+  font-size: var(--font-title-2-size);
+  line-height: var(--font-title-2-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.gateDesc {
+  max-width: 46ch;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  color: var(--text-secondary);
+  word-break: keep-all;
+}
+.gateActions {
+  display: flex;
+  gap: var(--space-3);
+}

@@ -20,9 +20,13 @@ import type {
   SignupInput,
   Ticker,
   Trade,
+  TransferInput,
+  TransferRequest,
   WsMessage,
 } from "../types";
 import { SimEngine } from "../sim/engine";
+import { emailError, passwordError } from "../auth/memberInputs";
+import { compareDecimal } from "../decimal";
 import { ApiError, HttpStompDataSource } from "./httpDatasource";
 
 export interface DataSource {
@@ -71,20 +75,66 @@ export interface DataSource {
   getMemberSession(): MemberSession | null;
   /** 세션 변화 통지(로그인·갱신·로그아웃). 등록 즉시 현재 상태 1회 통지 */
   onMemberSessionChange(cb: (s: MemberSession | null) => void): () => void;
+
+  /* ===== 입출금 (§4-E) =====
+   * 회원 세션 전용이다. 데모 세션은 쓰기 자체가 막혀 있다(§3-7 읽기 전용). */
+
+  /** 입출금 요청. idemKey는 재시도 시 같은 값을 재사용한다(주문 client_order_id 동형) */
+  requestTransfer(input: TransferInput, idemKey: string): Promise<TransferRequest>;
+  /** 내 입출금 내역. 최신순 */
+  listTransfers(limit?: number): Promise<TransferRequest[]>;
+  /** 출금 요청 취소. REQUESTED 상태만 가능하고 잠금이 풀린다 */
+  cancelTransfer(externalId: string): Promise<TransferRequest>;
 }
 
-/** 데모 회원 로컬 흐름용 이메일·비밀번호 검증. 서버 MemberAuthService와 동일 경계(8~128자, 표시명 32자) */
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LEN = 8;
-const MAX_PASSWORD_LEN = 128;
+/**
+ * 데모 회원 로컬 흐름용 검증.
+ *
+ * 자체 정규식을 두지 않고 lib/auth/memberInputs를 경유한다. 그 파일은 서버
+ * MemberInputs.java의 미러다. sim이 느슨한 자체 규칙을 들면 sim에서 가입되는 계정이
+ * http에서는 거절돼 데이터 소스만 바꿔도 동작이 갈린다. 여기 있던
+ * /^[^\s@]+@[^\s@]+\.[^\s@]+$/는 실제로 a..b@x.com과 .a@x.com을 통과시켰다.
+ */
 const MAX_DISPLAY_NAME_LEN = 32;
 
 function validateCredentials(email: string, password: string): void {
-  if (!EMAIL_RE.test(email)) throw new ApiError(400, "invalid_email", "이메일 형식 확인 필요");
-  if (password.length < MIN_PASSWORD_LEN || password.length > MAX_PASSWORD_LEN) {
-    throw new ApiError(400, "weak_password", "비밀번호는 8자 이상 128자 이하");
-  }
+  const emailFail = emailError(email);
+  if (emailFail) throw new ApiError(400, "invalid_email", emailFail);
+  const passwordFail = passwordError(password);
+  if (passwordFail) throw new ApiError(400, "weak_password", passwordFail);
 }
+
+/** sim 전용 입출금 행. __idem은 멱등 재생용이라 응답에서 뺀다 */
+interface SimTransfer extends TransferRequest {
+  __idem: string;
+}
+
+function stripIdem(row: SimTransfer): TransferRequest {
+  const { __idem, ...rest } = row;
+  return rest;
+}
+
+/**
+ * sim 금액 검증. 서버 TransferInputs와 같은 규칙이다.
+ * 여기가 느슨하면 sim에서 되는 입금이 http에서 400으로 막힌다.
+ */
+function normalizeTransferAmount(raw: string): string {
+  const text = String(raw ?? "").trim();
+  if (!text || !/^\d+(\.0+)?$/.test(text)) {
+    throw new ApiError(400, "invalid_transfer_amount", "원화는 소수점 불가");
+  }
+  const whole = text.split(".")[0].replace(/^0+(?=\d)/, "");
+  if (compareDecimal(whole, "0") <= 0) {
+    throw new ApiError(400, "invalid_transfer_amount", "금액은 0보다 커야 함");
+  }
+  if (compareDecimal(whole, MAX_TRANSFER_KRW) > 0) {
+    throw new ApiError(400, "invalid_transfer_amount", `1회 한도 ${MAX_TRANSFER_KRW}원 초과`);
+  }
+  return whole;
+}
+
+/** 서버 TransferInputs.MAX_TRANSFER_KRW 미러 */
+export const MAX_TRANSFER_KRW = "100000000";
 
 /** 시뮬레이터 기반 구현. 런타임 외부 의존 0 */
 export class SimDataSource implements DataSource {
@@ -96,6 +146,8 @@ export class SimDataSource implements DataSource {
    * 레지스트리·세션이 함께 소멸한다(데모 한계, §4-5). */
   private members = new Map<string, { password: string; user: MemberUser }>();
   private memberSession: MemberSession | null = null;
+  /** 입출금 요청 로컬 저장소. 새로고침하면 사라진다(sim은 메모리 전용) */
+  private transfers: SimTransfer[] = [];
   private memberListeners = new Set<(s: MemberSession | null) => void>();
 
   private emitMember(): void {
@@ -159,6 +211,66 @@ export class SimDataSource implements DataSource {
     this.memberListeners.add(cb);
     cb(this.memberSession);
     return () => this.memberListeners.delete(cb);
+  }
+
+  /* ===== 입출금 (§4-E) ===== */
+
+  /**
+   * 서버 상태 기계를 로컬에서 그대로 재현한다. 입금은 즉시 COMPLETED, 출금은 잠근 뒤
+   * REQUESTED로 남는다. sim에는 운영자가 없으므로 출금 승인은 화면에서 확인할 수 없고,
+   * 요청·잠금·취소까지가 재현 범위다. 그 경계를 흐리지 않으려고 자동 승인은 넣지 않는다.
+   */
+  async requestTransfer(input: TransferInput, idemKey: string): Promise<TransferRequest> {
+    const key = String(idemKey ?? "").trim();
+    if (!key) throw new ApiError(400, "invalid_parameter", "Idempotency-Key 필요");
+    const replay = this.transfers.find((t) => t.__idem === key);
+    if (replay) return stripIdem(replay);
+
+    if (input.asset && input.asset !== "KRW") {
+      throw new ApiError(400, "invalid_transfer_asset", "원화 입출금만 지원");
+    }
+    const amount = normalizeTransferAmount(input.amount);
+    const now = Date.now();
+    if (input.direction === "DEPOSIT") {
+      this.engine.moveKrw(amount, "0");
+    } else {
+      if (compareDecimal(this.engine.availableKrw(), amount) < 0) {
+        throw new ApiError(422, "insufficient_funds", "주문 가능 금액 초과");
+      }
+      // 가용에서 빼서 잠금으로. 서버 reserve_funds와 같은 이동이다
+      this.engine.moveKrw(`-${amount}`, amount);
+    }
+    const row: SimTransfer = {
+      __idem: key,
+      external_id: `sim-${now.toString(36)}-${this.transfers.length}`,
+      direction: input.direction,
+      asset: "KRW",
+      amount,
+      status: input.direction === "DEPOSIT" ? "COMPLETED" : "REQUESTED",
+      reason: null,
+      created_at: now,
+      updated_at: now,
+    };
+    this.transfers.unshift(row);
+    return stripIdem(row);
+  }
+
+  async listTransfers(limit = 50): Promise<TransferRequest[]> {
+    return this.transfers.slice(0, limit).map(stripIdem);
+  }
+
+  async cancelTransfer(externalId: string): Promise<TransferRequest> {
+    const row = this.transfers.find((t) => t.external_id === externalId);
+    if (!row) throw new ApiError(404, "not_found", "입출금 요청 없음");
+    if (row.status !== "REQUESTED") {
+      throw new ApiError(409, "transfer_not_pending", `이미 처리된 요청: ${row.status}`);
+    }
+    // 잠금에서 가용으로. 서버 release_funds와 같은 이동이다
+    this.engine.moveKrw(row.amount, `-${row.amount}`);
+    row.status = "CANCELED";
+    row.reason = "사용자 취소";
+    row.updated_at = Date.now();
+    return stripIdem(row);
   }
 
   async getMarkets(): Promise<Market[]> { return this.engine.getMarkets(); }

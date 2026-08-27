@@ -30,6 +30,7 @@ const LINKS: NavLink[] = [
   { href: "/home", label: "홈", match: ["/home"] },
   { href: "/exchange", label: "거래소", match: ["/exchange", "/market", "/coin", "/order"] },
   { href: "/assets", label: "자산", match: ["/assets"] },
+  { href: "/transfers", label: "입출금", match: ["/transfers"] },
   { href: "/history", label: "거래내역", match: ["/history"] },
 ];
 
@@ -37,6 +38,7 @@ const LINKS: NavLink[] = [
 const MENU_LINKS = [
   { href: "/mypage", label: "마이페이지" },
   { href: "/assets", label: "자산" },
+  { href: "/transfers", label: "입출금" },
   { href: "/history", label: "거래내역" },
 ];
 

@@ -57,7 +57,7 @@ const NO_SCROLL = [/^\/exchange\//];
 const SCREENS = [
   "/", "/home", "/welcome", "/market", "/exchange", "/exchange/KRW-BTC",
   "/order/KRW-BTC", "/coin/KRW-BTC", "/community/KRW-BTC",
-  "/assets", "/history", "/mypage", "/system",
+  "/assets", "/transfers", "/history", "/mypage", "/system",
   "/auth/login", "/auth/signup",
   "/admin", "/admin/audit", "/admin/bots", "/admin/chaos",
   "/admin/config", "/admin/monitoring", "/admin/operators",
