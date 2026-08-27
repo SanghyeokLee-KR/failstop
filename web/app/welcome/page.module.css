@@ -1,7 +1,8 @@
 /* 온보딩 화면. 데스크톱 뷰포트 중앙 정렬, CTA 열은 360px 고정 폭 */
 
 .root {
-  min-height: calc(100dvh - var(--header-h));
+  /* 온보딩 헤더는 흐름에서 빠진 투명 바다. 헤더 높이를 빼면 그만큼 중앙이 위로 밀린다 */
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -37,8 +38,10 @@
 }
 
 .title {
-  font-size: var(--font-title-1-size);
-  line-height: var(--font-title-1-line);
+  /* 제품의 단 하나뿐인 첫 문장이다. title-1(24px)은 모바일 히어로 기준이라 1280px 화면에서
+     CTA 라벨(17px) 대비 위계가 안 선다. 램프 최상단을 쓴다(문서 §8 화면1 v1.7) */
+  font-size: var(--font-display-lg-size);
+  line-height: var(--font-display-lg-line);
   font-weight: var(--fw-bold);
   color: var(--text-strong);
   /* 큰 텍스트 밀착이 계기 판독감을 만든다 (§3.2) */

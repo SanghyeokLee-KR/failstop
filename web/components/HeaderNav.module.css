@@ -17,6 +17,20 @@
   padding: 0 var(--space-4);
 }
 
+/* 온보딩 전용 투명 바. 면·헤어라인 없이 토글만 띄운다. 문서 흐름에서 빼 히어로가 뷰포트
+   세로 중앙을 그대로 쓰게 한다(웰컴 .root가 100dvh 기준으로 중앙 정렬) */
+.bare {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: var(--z-nav);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: var(--header-h);
+  padding: 0 var(--space-4);
+}
+
 .logo {
   display: inline-flex;
   align-items: center;

@@ -183,6 +183,16 @@ export default function HeaderNav() {
   // 관리 평면은 자체 셸(AdminLayout)을 쓴다. 공개 HeaderNav를 렌더하지 않는다(§4-1)
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return null;
 
+  // 온보딩은 진입 게이트다. 내비가 홈·거래소를 열면 게이트를 우회하고, 로그인·가입 링크는
+  // 본문 CTA와 중복된다. 브랜드도 히어로 명판이 이미 세운다. 테마 토글만 남긴다(§8 화면1 v1.7)
+  if (pathname === "/welcome") {
+    return (
+      <header className={styles.bare}>
+        <ThemeToggle />
+      </header>
+    );
+  }
+
   const isActive = (link: NavLink) =>
     link.match.some((m) => pathname === m || pathname.startsWith(`${m}/`));
 
