@@ -6,6 +6,9 @@
 import type { ReactNode } from "react";
 import styles from "./TradeLayout.module.css";
 
+/** 주문 슬롯 앵커. 스킵 링크가 같은 값을 참조한다 */
+export const ORDER_SLOT_ID = "trade-order";
+
 interface Props {
   /** 그리드 위 전폭 배너 슬롯(연결 단절 등). 없으면 그리드가 가용 높이를 전부 차지한다 */
   banner?: ReactNode;
@@ -27,7 +30,11 @@ export default function TradeLayout({ banner, summary, chart, book, trades, orde
         <div className={styles.book}>{book}</div>
         <div className={styles.trades}>{trades}</div>
         <div className={styles.side}>
-          <div className={styles.order}>{order}</div>
+          {/* 주문 스킵 링크 대상. 읽기 순서상 주문 폼 앞에 호가 20행이 있어
+              키보드로 닿으려면 48탭이 걸린다(§조작 효율) */}
+          <div className={styles.order} id={ORDER_SLOT_ID} tabIndex={-1}>
+            {order}
+          </div>
           <div className={styles.marketList}>{marketList}</div>
         </div>
       </div>

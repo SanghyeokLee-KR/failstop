@@ -10,7 +10,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import TradeLayout from "@/components/trade/TradeLayout";
+import TradeLayout, { ORDER_SLOT_ID } from "@/components/trade/TradeLayout";
 import SummaryBar from "@/components/trade/SummaryBar";
 import ChartPanel from "@/components/trade/ChartPanel";
 import OrderbookPanel from "@/components/trade/OrderbookPanel";
@@ -140,6 +140,11 @@ function ExchangeMarketBody() {
 
   return (
     <main>
+      {/* 읽기 순서는 시각 배치를 따르지만 그 탓에 주문 폼 앞에 호가 20행이 놓인다.
+          화면의 주 행동에 48탭을 요구하지 않도록 우회로를 연다 */}
+      <a href={`#${ORDER_SLOT_ID}`} className="skip-link">
+        주문으로 바로가기
+      </a>
       {/* 마켓별로 다른 문서라 심볼까지 라벨에 싣는다. 멀티 탭 감시 시 탭 제목과 같은 판독 단위 */}
       <h1 className="sr-only">{`${meta.koreanName} ${market} 거래`}</h1>
       <TradeLayout

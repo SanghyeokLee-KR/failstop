@@ -47,7 +47,9 @@
   min-width: 0;
   min-height: 0;
 }
+/* 스킵 링크 대상이라 tabindex -1로 포커스를 받는다. 링은 실제 주문 패널이 그리므로 여기선 끈다 */
 .order      { display: grid; min-width: 0; min-height: 0; }
+.order:focus { outline: none; }
 .marketList { display: grid; min-width: 0; min-height: 0; }
 
 /* §2.3 압축 스펙: 요약 64→48, 차트 min 380→300, 체결 260→180 */
