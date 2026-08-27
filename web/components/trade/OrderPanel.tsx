@@ -179,6 +179,13 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     setOrdType((t) => (t === "market" ? "limit" : t));
     fillPrice(prefill.price);
     setActivePct(null);
+    /* 가격을 골랐으면 다음 조작은 수량이다. 읽기 순서상 호가 첫 행에서 수량 입력까지 27탭이라
+       키보드로는 그 흐름이 끊긴다. seq는 출처 판별자다. 0은 마운트 시 쿼리 승계라 포커스를
+       뺏으면 진입하자마자 화면이 튀고, 1 이상은 사용자가 방금 누른 호가라 이어주는 게 맞다.
+       프리필은 항상 지정가로 되돌리므로 대상은 수량 입력으로 고정이다 */
+    if (prefill.seq > 0) {
+      document.getElementById("panel-ord-qty")?.focus();
+    }
   }, [prefill, fillPrice]);
 
   /* 프리필 없이 현재가 수신 시 1회 가격 채움. 무체결 마켓(trade_price null)은 채울 값이 없어 대기 */
