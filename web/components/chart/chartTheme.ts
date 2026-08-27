@@ -78,7 +78,7 @@ export interface ChartTokens {
   series4: string;
   brandPrimary: string;
   font: string;
-  /* 프라이스 마크 공용 규격(§6.5). 캔버스라 px 수로 넘긴다 */
+  /* 프라이스 마크 공용 프레임(§6.5). 캔버스라 px 수로 넘긴다 */
   priceMarkRadius: number;
   priceMarkPadY: number;
   priceMarkPadX: number;
@@ -137,8 +137,8 @@ export function buildChartStyles(t: ChartTokens, reducedMotion = false): DeepPar
           downColor: t.down,
           noChangeColor: t.flat,
           line: { show: true, ...dashed },
-          /* 프라이스 마크 3지점 중 차트 태그. 히어로·호가 경계행과 같은 프레임 규격을 쓴다(§6.5).
-             같은 슬롯 형태가 세 지점에 반복돼야 "가격 판독 자리"로 학습된다 */
+          /* 프라이스 마크 공용 프레임(§6.5). 호가 경계행과 같은 radius·padding을 쓴다.
+             둘 다 축 위의 위치 표식이라 같은 슬롯 형태가 반복되면 "가격 판독 자리"로 학습된다 */
           text: {
             color: t.textInverse,
             borderRadius: t.priceMarkRadius,

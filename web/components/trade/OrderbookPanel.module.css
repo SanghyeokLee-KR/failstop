@@ -84,8 +84,9 @@
 .rowAsk .cell[data-dir="flat"],
 .rowBid .cell[data-dir="flat"] { color: var(--text-default); }
 
-/* 현재가 경계 행. 프라이스 마크 수렴(§6.5): 세 지점(히어로·경계행·차트) 공용 프레임 규격을
-   경계행에 적용한다. 방향은 dir-text 색과 ▲▼로만 싣고, 프레임 자체는 무채 계기 슬롯이다. */
+/* 현재가 경계 행. 프라이스 마크 공용 프레임(§6.5)을 차트 마지막가 태그와 나눠 쓴다.
+   둘 다 축 위의 위치 표식이라 같은 슬롯 형태가 반복되면 "가격 판독 자리"로 학습된다.
+   방향은 dir-text 색과 ▲▼로만 싣고, 프레임 자체는 무채 계기 슬롯이다. */
 .mid {
   display: flex;
   align-items: center;
@@ -93,7 +94,7 @@
   gap: var(--space-2);
   height: 36px;
   margin: 2px 0;
-  /* 프라이스 마크 공용 규격(§6.5). 히어로·경계행·차트 태그가 같은 프레임을 쓴다 */
+  /* 공용 프레임 규격(§6.5). 차트 태그와 같은 radius·padding */
   padding: var(--price-mark-pad-y) var(--price-mark-pad-x);
   background: var(--surface-sunken);
   border: 1px solid var(--border-subtle);

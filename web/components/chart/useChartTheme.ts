@@ -46,7 +46,7 @@ export function readChartTokens(): ChartTokens {
     series4: cssVar("--chart-series-4"),
     brandPrimary: cssVar("--brand-primary"),
     font: cssVar("--font-sans"),
-    /* 프라이스 마크 공용 규격(§6.5). 히어로·호가 경계행과 같은 프레임을 차트 태그에도 준다.
+    /* 프라이스 마크 공용 프레임(§6.5). 호가 경계행과 같은 규격을 차트 태그에도 준다.
        캔버스라 px 수가 필요해 토큰 해석값에서 단위를 뗀다 */
     priceMarkRadius: pxVar("--price-mark-radius"),
     priceMarkPadY: pxVar("--price-mark-pad-y"),
