@@ -331,6 +331,23 @@ export const NOTICE_SEVERITY_LABEL: Record<NoticeSeverity, string> = {
   critical: "중요",
 };
 
+/* ===== 출금 승인 큐 (API 설계 §4-E) ===== */
+
+export type AdminTransferStatus = "REQUESTED" | "PENDING" | "COMPLETED" | "FAILED" | "CANCELED";
+
+/** GET /admin/v1/transfers 항목. 사용자 응답과 달리 요청자 이메일이 붙는다 */
+export interface AdminTransfer {
+  externalId: string;
+  direction: "DEPOSIT" | "WITHDRAW";
+  asset: string;
+  amount: string;
+  status: AdminTransferStatus;
+  reason: string | null;
+  userEmail: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Notice {
   id: string;
   title: string;

@@ -12,6 +12,7 @@ export type AdminIconName =
   | "bots"
   | "chaos"
   | "config"
+  | "transfers"
   | "operators"
   | "audit";
 
@@ -58,6 +59,16 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
       <path d="M2.5 10.75 H8" />
       <path d="M11.5 10.75 H13.5" />
       <circle cx="9.75" cy="10.75" r="1.75" />
+    </>
+  ),
+  // 양방향 이동: 들어오는 화살표와 나가는 화살표. 입출금은 방향이 둘이라 한쪽만 그리면
+  // 절반만 뜻하게 된다. 같은 제도 어휘(직선 + 45도 촉)로 맞춘다
+  transfers: (
+    <>
+      <path d="M3.25 5.25 H11.5" />
+      <path d="M9.25 3.25 L11.5 5.25 L9.25 7.25" />
+      <path d="M12.75 10.75 H4.5" />
+      <path d="M6.75 8.75 L4.5 10.75 L6.75 12.75" />
     </>
   ),
   // 인장 카드: 인물 원 + 정보 줄

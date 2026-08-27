@@ -38,6 +38,7 @@ const NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/bots", label: "봇 플릿", icon: "bots" },
       { href: "/admin/chaos", label: "카오스", icon: "chaos" },
       { href: "/admin/config", label: "마켓·공지", icon: "config" },
+      { href: "/admin/transfers", label: "출금 승인", icon: "transfers" },
     ],
   },
   {

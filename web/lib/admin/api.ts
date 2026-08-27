@@ -35,6 +35,8 @@ import type {
   NoticeSeverity,
   SimStatus,
   TradeFlash,
+  AdminTransfer,
+  AdminTransferStatus,
 } from "./types";
 
 /** 표준 관리 에러. name에 API §2-3 코드를 노출(jwt_verification·admin_forbidden 등) */
@@ -116,6 +118,11 @@ export interface AdminApi {
   deleteNotice(id: string): Promise<void>;
 
   /* ===== 운영자·감사(§3-1) ===== */
+  /* 출금 승인 큐(§4-E). 목록은 VIEWER, 처리는 MEMBER_MOD */
+  getTransfers(status?: AdminTransferStatus): Promise<AdminTransfer[]>;
+  approveTransfer(externalId: string): Promise<AdminTransfer>;
+  rejectTransfer(externalId: string, reason: string): Promise<AdminTransfer>;
+
   getOperators(): Promise<AdminOperator[]>;
   getAudit(): Promise<AuditEntry[]>;
 }

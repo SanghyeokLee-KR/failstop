@@ -7,7 +7,7 @@
  * 위계는 색 단독 금지: 취소=중립 fill, 확정=color-danger 보더 + 라벨.
  */
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styles from "./ConfirmDialog.module.css";
 
@@ -26,6 +26,8 @@ interface Props {
   busy?: boolean;
   onConfirm(): void;
   onClose(): void;
+  /** 확정 전에 받아야 할 입력(거절 사유 등). 요약과 액션 사이에 놓인다 */
+  children?: ReactNode;
 }
 
 export default function ConfirmDialog({
@@ -39,6 +41,7 @@ export default function ConfirmDialog({
   busy = false,
   onConfirm,
   onClose,
+  children,
 }: Props) {
   const titleId = useId();
   const descId = useId();
@@ -63,8 +66,10 @@ export default function ConfirmDialog({
       }
       // 포커스 트랩: Tab이 다이얼로그 밖으로 새지 않게 처음·끝을 순환한다
       if (e.key === "Tab" && dialog) {
+        /* 입력을 빼면 children으로 받은 사유 입력이 Tab 순환에서 사라진다. 트랩 안에
+           있는데 키보드로 못 닿는 컨트롤이 생기므로 폼 요소를 함께 잡는다 */
         const focusables = dialog.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         );
         // busy 구간엔 취소·확정 모두 disabled라 focusable이 0이 된다. 루트에 고정해 Tab 유출을 막는다
         if (focusables.length === 0) {
@@ -150,6 +155,8 @@ export default function ConfirmDialog({
             )}
           </dl>
         )}
+
+        {children}
 
         <div className={styles.actions}>
           <button

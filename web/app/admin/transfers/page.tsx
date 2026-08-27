@@ -1,0 +1,247 @@
+"use client";
+
+/**
+ * 출금 승인 큐(/admin/transfers). API 설계 §4-E.
+ *
+ * 사용자 요청을 운영자가 처리하는 작업 큐다. 2인 승인(approval_token)을 걸지 않는 이유는
+ * 그 장치가 운영자끼리의 상호 견제용이고 여기서는 요청 주체가 운영자가 아니기 때문이다.
+ * 대신 처리 전 확인 다이얼로그로 금액과 대상을 다시 보여주고, 처리 결과는 감사에 남는다.
+ *
+ * 승인은 되돌릴 수 없다. 잠긴 금액이 GATEWAY로 빠져나가고 그 시점에 사용자 잔고에서
+ * 사라진다. 그래서 확인 단계를 건너뛰지 않는다. 거절은 사유가 필수다. 사유 없이 거절하면
+ * 사용자는 무엇을 고쳐 다시 요청해야 하는지 알 수 없다.
+ */
+
+import { useCallback, useMemo, useState } from "react";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
+import type { AdminTransfer, AdminTransferStatus } from "@/lib/admin/types";
+import PanelCard from "@/components/PanelCard";
+import Skeleton from "@/components/Skeleton";
+import DataTable, { type DataColumn } from "@/components/DataTable";
+import SegmentedTab from "@/components/SegmentedTab";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import { PageHeader } from "@/components/admin/ui";
+import { useAdminResource } from "@/components/admin/useAdminResource";
+import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { toast } from "@/components/Toast";
+import { formatKRW, formatTimeHMS } from "@/lib/format";
+import styles from "@/components/admin/admin.module.css";
+
+const TABS = [
+  { value: "REQUESTED" as AdminTransferStatus, label: "대기" },
+  { value: "COMPLETED" as AdminTransferStatus, label: "완료" },
+  { value: "CANCELED" as AdminTransferStatus, label: "거절·취소" },
+];
+
+/** 이 금액을 넘으면 확인 다이얼로그가 주의 톤으로 바뀐다. 한 건의 손해 상한을 눈에 띄게 한다 */
+const HIGH_AMOUNT = "10000000";
+
+const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
+
+export default function AdminTransfersPage() {
+  const [status, setStatus] = useState<AdminTransferStatus>("REQUESTED");
+  const [pending, setPending] = useState<{ row: AdminTransfer; action: "approve" | "reject" } | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const loader = useCallback(() => getAdminApi().getTransfers(status), [status]);
+  const res = useAdminResource<AdminTransfer[]>(loader, { intervalMs: 15000, isSessionError });
+  const rows = res.data ?? [];
+
+  const close = () => {
+    if (busy) return;
+    setPending(null);
+    setReason("");
+  };
+
+  const confirm = async () => {
+    if (!pending || busy) return;
+    if (pending.action === "reject" && !reason.trim()) return;
+    setBusy(true);
+    try {
+      if (pending.action === "approve") {
+        await getAdminApi().approveTransfer(pending.row.externalId);
+        toast("출금 승인 완료", "success");
+      } else {
+        await getAdminApi().rejectTransfer(pending.row.externalId, reason.trim());
+        toast("출금 거절 처리", "info");
+      }
+      setPending(null);
+      setReason("");
+      void res.reload();
+    } catch (e) {
+      toast(transferAdminErrorCopy(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const columns = useMemo<DataColumn<AdminTransfer>[]>(
+    () => [
+      {
+        key: "user",
+        label: "요청자",
+        width: "minmax(0, 1.2fr)",
+        sortValue: (r) => r.userEmail,
+        render: (r) => <span className={styles.auditNs}>{r.userEmail || "-"}</span>,
+      },
+      {
+        key: "amount",
+        label: "금액",
+        width: "160px",
+        align: "right",
+        sortValue: (r) => Number(r.amount),
+        firstDir: "desc",
+        render: (r) => (
+          <span className="num">
+            <b>{formatKRW(r.amount)}</b> <span className="unit-suffix">원</span>
+          </span>
+        ),
+      },
+      {
+        key: "created",
+        label: "요청 시각",
+        width: "120px",
+        align: "right",
+        sortValue: (r) => r.createdAt,
+        firstDir: "desc",
+        render: (r) => <span className="num">{formatTimeHMS(new Date(r.createdAt).toISOString())}</span>,
+      },
+      {
+        key: "status",
+        label: "상태",
+        width: "110px",
+        render: (r) =>
+          r.status === "REQUESTED" ? (
+            <span className="status-pill" data-health="warning">
+              대기
+            </span>
+          ) : r.status === "COMPLETED" ? (
+            <span className="status-pill" data-health="success">
+              완료
+            </span>
+          ) : (
+            /* 거절·취소는 실패가 아니라 종결이다. danger를 쓰면 사고로 읽힌다 */
+            <span className={styles.stateText}>{r.reason ?? "취소"}</span>
+          ),
+      },
+      {
+        key: "action",
+        label: "처리",
+        width: "168px",
+        render: (r) =>
+          r.status === "REQUESTED" ? (
+            <div className={styles.rowActions}>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => setPending({ row: r, action: "approve" })}
+              >
+                승인
+              </button>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => setPending({ row: r, action: "reject" })}
+              >
+                거절
+              </button>
+            </div>
+          ) : (
+            <span className={styles.stateTextDim}>처리 완료</span>
+          ),
+      },
+    ],
+    [],
+  );
+
+  return (
+    <div className={styles.page}>
+      <PageHeader
+        title="출금 승인"
+        desc="회원 원화 출금 요청. 승인하면 잠긴 금액이 빠져나가고 되돌릴 수 없다"
+        actions={res.stale ? <StaleBadge /> : undefined}
+      />
+
+      {/* 상태 3종은 배타 선택이라 세그먼트가 맞다. 새 칩 어휘를 만들지 않는다 */}
+      <div className={styles.transferTabs}>
+        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" />
+      </div>
+
+      <PanelCard title="요청 목록">
+        {res.error ? (
+          <AdminErrorState reason={res.errorReason} onRetry={() => void res.reload()} />
+        ) : res.data === null ? (
+          <Skeleton variant="card" width="100%" height={240} />
+        ) : rows.length === 0 ? (
+          <div className="empty-state empty-state--compact">
+            <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+            <span className="empty-state__title">
+              {status === "REQUESTED" ? "대기 중인 출금 없음" : "해당 상태의 요청 없음"}
+            </span>
+          </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey={(r) => r.externalId}
+            ariaLabel="출금 요청 목록"
+          />
+        )}
+      </PanelCard>
+
+      {pending && (
+        <ConfirmDialog
+          title={pending.action === "approve" ? "출금 승인" : "출금 거절"}
+          description={
+            pending.action === "approve"
+              ? "잠긴 금액이 즉시 빠져나간다. 되돌릴 수 없다"
+              : "잠금이 풀려 요청자 가용 잔고로 돌아간다"
+          }
+          target={`${pending.row.userEmail} · ${formatKRW(pending.row.amount)}원`}
+          blastRadius="요청자 1명"
+          confirmLabel={pending.action === "approve" ? "승인 확정" : "거절 확정"}
+          tone={
+            pending.action === "approve" && Number(pending.row.amount) >= Number(HIGH_AMOUNT)
+              ? "danger"
+              : "warning"
+          }
+          busy={busy}
+          onConfirm={confirm}
+          onClose={close}
+        >
+          {pending.action === "reject" && (
+            <label className={styles.reasonField}>
+              <span className={styles.reasonLabel}>거절 사유</span>
+              <input
+                className={styles.reasonInput}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                maxLength={200}
+                placeholder="요청자에게 그대로 표시됨"
+                autoFocus
+              />
+            </label>
+          )}
+        </ConfirmDialog>
+      )}
+    </div>
+  );
+}
+
+/** 서버 문장을 그대로 띄우지 않는다. 코드를 화면 어휘로 옮긴다 */
+function transferAdminErrorCopy(e: unknown): string {
+  const code = e instanceof AdminError ? e.code : "";
+  switch (code) {
+    case "transfer_not_pending":
+      return "이미 처리된 요청. 목록 새로고침 필요";
+    case "admin_forbidden":
+      return "권한 부족. MEMBER_MOD 필요";
+    case "invalid_parameter":
+      return "거절 사유 필요";
+    case "not_found":
+      return "대상 요청 없음";
+    default:
+      return "처리 실패. 잠시 후 다시 시도 필요";
+  }
+}

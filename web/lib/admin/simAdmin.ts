@@ -44,6 +44,8 @@ import type {
   RecoveryRun,
   SimStatus,
   TradeFlash,
+  AdminTransfer,
+  AdminTransferStatus,
 } from "./types";
 import { FLEET_TYPE_CAP } from "./types";
 
@@ -901,6 +903,71 @@ export class SimAdminApi implements AdminApi {
   getConfigMarkets(): Promise<ConfigMarket[]> {
     this.auth("VIEW");
     return Promise.resolve(this.markets.map((m) => ({ ...m })));
+  }
+
+  /* ===== 출금 승인 큐 (§4-E) =====
+   * sim 관리 어댑터는 회원 어댑터(SimDataSource)와 다른 객체라 실제 요청 목록을 공유하지
+   * 못한다. 승인 흐름의 화면·권한·상태 전이를 확인할 수 있도록 씨앗 행을 들고 있는다.
+   * 자금은 여기서 움직이지 않는다. 실제 원장 이동은 http 경로에서만 일어난다. */
+  private transfers: AdminTransfer[] = [
+    {
+      externalId: "sim-tr-1",
+      direction: "WITHDRAW",
+      asset: "KRW",
+      amount: "3000000",
+      status: "REQUESTED",
+      reason: null,
+      userEmail: "trader@demo.local",
+      createdAt: Date.now() - 1000 * 60 * 12,
+      updatedAt: Date.now() - 1000 * 60 * 12,
+    },
+    {
+      externalId: "sim-tr-2",
+      direction: "WITHDRAW",
+      asset: "KRW",
+      amount: "12000000",
+      status: "REQUESTED",
+      reason: null,
+      userEmail: "whale@demo.local",
+      createdAt: Date.now() - 1000 * 60 * 3,
+      updatedAt: Date.now() - 1000 * 60 * 3,
+    },
+  ];
+
+  getTransfers(status: AdminTransferStatus = "REQUESTED"): Promise<AdminTransfer[]> {
+    this.auth("VIEW");
+    return Promise.resolve(this.transfers.filter((t) => t.status === status).map((t) => ({ ...t })));
+  }
+
+  approveTransfer(externalId: string): Promise<AdminTransfer> {
+    const s = this.auth("MEMBER_MOD");
+    const row = this.pendingTransfer(externalId);
+    row.status = "COMPLETED";
+    row.updatedAt = Date.now();
+    this.log(s, "transfer.approve", externalId, null, "OK");
+    return Promise.resolve({ ...row });
+  }
+
+  rejectTransfer(externalId: string, reason: string): Promise<AdminTransfer> {
+    const s = this.auth("MEMBER_MOD");
+    if (!reason || !reason.trim()) {
+      return Promise.reject(new AdminError("invalid_parameter", "거절 사유 필요"));
+    }
+    const row = this.pendingTransfer(externalId);
+    row.status = "CANCELED";
+    row.reason = reason.trim();
+    row.updatedAt = Date.now();
+    this.log(s, "transfer.reject", externalId, null, "OK");
+    return Promise.resolve({ ...row });
+  }
+
+  private pendingTransfer(externalId: string): AdminTransfer {
+    const row = this.transfers.find((t) => t.externalId === externalId);
+    if (!row) throw new AdminError("not_found", "대상 요청 없음");
+    if (row.status !== "REQUESTED") {
+      throw new AdminError("transfer_not_pending", `이미 처리된 요청: ${row.status}`);
+    }
+    return row;
   }
 
   getNotices(): Promise<Notice[]> {

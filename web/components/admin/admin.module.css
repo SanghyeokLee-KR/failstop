@@ -1892,3 +1892,44 @@
 .auditTableReserve > * {
   flex: 1;
 }
+
+/* ===== 출금 승인 큐(/admin/transfers) ===== */
+
+/* 세그먼트는 목록 폭 전체를 먹을 이유가 없다. 선택지 3개 크기로 묶어 왼쪽에 세운다 */
+.transferTabs {
+  max-width: 320px;
+}
+
+/* 행 안의 승인·거절. 두 버튼의 무게를 같게 둔다. 승인만 강조하면 훑는 손이
+   확인 없이 승인으로 간다. 확정 위계는 다이얼로그가 진다 */
+.rowActions {
+  display: flex;
+  gap: var(--space-2);
+}
+.rowActions .btn {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-caption-size);
+}
+
+/* 거절 사유. 다이얼로그 안이라 카드 면(elevated) 위에 놓인다 */
+.reasonField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.reasonLabel {
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.reasonInput {
+  height: 44px;
+  padding: 0 var(--space-3);
+  background: var(--surface-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius);
+  font-size: var(--font-body-sm-size);
+  color: var(--text-default);
+}

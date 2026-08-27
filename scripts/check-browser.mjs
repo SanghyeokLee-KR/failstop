@@ -60,7 +60,7 @@ const SCREENS = [
   "/assets", "/transfers", "/history", "/mypage", "/system",
   "/auth/login", "/auth/signup",
   "/admin", "/admin/audit", "/admin/bots", "/admin/chaos",
-  "/admin/config", "/admin/monitoring", "/admin/operators",
+  "/admin/config", "/admin/monitoring", "/admin/operators", "/admin/transfers",
 ];
 
 /* ---------- 페이지 안에서 도는 프로브 ---------- */

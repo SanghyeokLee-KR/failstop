@@ -51,6 +51,8 @@ import type {
   RecoveryRun,
   SimStatus,
   TradeFlash,
+  AdminTransfer,
+  AdminTransferStatus,
 } from "./types";
 
 /** 마켓 심볼 -> 한글명. 서버 config/markets는 한글명을 싣지 않아 표시용으로만 조인한다 */
@@ -223,6 +225,36 @@ interface WireCreateBot {
   fleet_total?: number;
   clamped?: boolean;
   fleet_present?: boolean;
+}
+
+/** GET·POST /admin/v1/transfers 와이어(§4-E, snake_case) */
+interface AdminTransferWire {
+  external_id?: string;
+  direction?: string;
+  asset?: string;
+  amount?: string;
+  status?: string;
+  reason?: string | null;
+  user_email?: string;
+  created_at?: number;
+  updated_at?: number;
+}
+
+/** 서버 시각은 epoch ms 숫자다. 문자열로 오면 숫자로 눕혀 정렬 축을 하나로 유지한다 */
+function toAdminTransfer(w: AdminTransferWire): AdminTransfer {
+  const at = (v: unknown) => (typeof v === "number" ? v : Number(v ?? 0) || 0);
+  return {
+    externalId: w.external_id ?? "",
+    direction: w.direction === "DEPOSIT" ? "DEPOSIT" : "WITHDRAW",
+    asset: w.asset ?? "KRW",
+    amount: w.amount ?? "0",
+    status: (w.status as AdminTransfer["status"]) ?? "REQUESTED",
+    reason: w.reason ?? null,
+    // 사용자 응답에는 없는 필드다. 목록 밖 경로(승인·거절 응답)에서는 비어 온다
+    userEmail: w.user_email ?? "",
+    createdAt: at(w.created_at),
+    updatedAt: at(w.updated_at),
+  };
 }
 
 /* ===== 관리 읽기 엔벌로프 와이어 스키마(snake_case 원본). 언랩·매핑 대상 ===== */
@@ -937,6 +969,31 @@ export class HttpAdminApi implements AdminApi {
       createdAt: n.published_at ?? "",
       createdBy: n.published_by ?? "",
     }));
+  }
+
+  /* ===== 출금 승인 큐 (§4-E) ===== */
+
+  async getTransfers(status: AdminTransferStatus = "REQUESTED"): Promise<AdminTransfer[]> {
+    const res = await this.http<{ data?: AdminTransferWire[] }>(
+      `/admin/v1/transfers?status=${status}&limit=200`,
+    );
+    return (res.data ?? []).map(toAdminTransfer);
+  }
+
+  async approveTransfer(externalId: string): Promise<AdminTransfer> {
+    const res = await this.http<AdminTransferWire>(
+      `/admin/v1/transfers/${encodeURIComponent(externalId)}/approve`,
+      { method: "POST" },
+    );
+    return toAdminTransfer(res);
+  }
+
+  async rejectTransfer(externalId: string, reason: string): Promise<AdminTransfer> {
+    const res = await this.http<AdminTransferWire>(
+      `/admin/v1/transfers/${encodeURIComponent(externalId)}/reject`,
+      { method: "POST", body: JSON.stringify({ reason }) },
+    );
+    return toAdminTransfer(res);
   }
 
   async postNotice(title: string, body: string, severity: NoticeSeverity = "info"): Promise<Notice> {
