@@ -62,6 +62,10 @@
   background: var(--surface-sunken);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
+  /* sunken 면이라 라이트에서 grey-100이 깔린다. 그 위 secondary는 4.27:1로 미달이다.
+     면이 규칙을 소유해 스테퍼·단위 접미사가 각자 색을 들고 있지 않게 한다(MarketListPanel 동형).
+     실측: grey-800 on grey-100 11.11:1 */
+  --text-secondary: var(--text-default);
 }
 .inp:focus-within { border-color: var(--brand-primary); }
 .inp[data-error] { border-color: var(--color-danger); }

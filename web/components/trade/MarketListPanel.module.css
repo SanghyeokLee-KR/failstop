@@ -104,6 +104,18 @@
   box-shadow: inset 0 0 0 1px var(--chrome-accent);
 }
 
+/* 호버·현재 행은 라이트에서 grey-100 면이 된다. 그 위에서 secondary는 4.27:1, 방향 600단계는
+   4.33:1로 미달한다(tokens §2 표면별 선택). 셀마다 색을 갈아끼우면 새 셀이 추가될 때 또 샌다.
+   면이 규칙을 소유하고 하위 토큰을 승격해 소비처가 규칙을 기억하지 않게 한다.
+   승격은 이 두 상태에서만 걸려 나머지 행의 3단 위계(name/sym/vol)는 그대로 남는다.
+   실측: grey-800 on grey-100 11.11:1 / red-700 5.67:1 / azure-700 6.79:1 */
+.row:hover,
+.row[data-current] {
+  --text-secondary: var(--text-default);
+  --color-up-text: var(--color-up-strong);
+  --color-down-text: var(--color-down-strong);
+}
+
 .nameCell {
   display: flex;
   align-items: center;
