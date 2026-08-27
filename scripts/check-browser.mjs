@@ -18,7 +18,7 @@
  *   node scripts/check-browser.mjs --headed        브라우저를 띄워서 본다
  */
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -299,10 +299,12 @@ async function startDev() {
     proc.on("exit", (c) => rej(new Error(`dev 서버가 코드 ${c}로 종료`)));
   });
   /* Windows에서 proc.kill()은 shell 래퍼만 죽이고 그 아래 next 프로세스는 남는다.
-     게이트를 돌릴 때마다 dev 서버가 하나씩 쌓여 포트와 CPU를 먹는다. 트리째 죽인다 */
+     게이트를 돌릴 때마다 dev 서버가 하나씩 쌓여 포트와 CPU를 먹는다. 트리째 죽인다.
+     동기로 부르는 이유는 stop() 직후 프로세스가 끝나기 때문이다. 비동기로 띄우면
+     taskkill이 실제로 도는지 확인할 틈 없이 부모가 빠져나가 정리가 안 된 채 남는다 */
   const stop = () => {
     if (process.platform === "win32") {
-      spawn("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore" });
+      spawnSync("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore" });
     } else {
       proc.kill();
     }
