@@ -148,8 +148,17 @@ export default function OrderbookPanel({ market, onPricePrefill }: Props) {
               </span>
             </div>
           </>
-        ) : (
+        ) : connected ? (
           <Skeleton variant="card" width="100%" height="100%" />
+        ) : (
+          /* 스켈레톤은 "곧 온다"는 약속이다. 연결이 끊긴 뒤에도 돌리면 영원히 지켜지지 않는다
+             (체결 패널이 같은 실패 모드를 먼저 잡았다). 호가는 구독 채널이라 수동 재시도 경로가
+             없고 배너가 자동 재연결을 이미 알리므로, 버튼 대신 상태만 말한다 */
+          <div className="empty-state empty-state--compact" role="status">
+            <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+            <span className="empty-state__title">호가를 불러오지 못함</span>
+            <span className="empty-state__desc">연결이 복구되면 자동으로 표시</span>
+          </div>
         )}
       </div>
     </PanelCard>

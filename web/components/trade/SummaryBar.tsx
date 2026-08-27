@@ -207,8 +207,12 @@ export default function SummaryBar({ market, meta }: Props) {
           {/* change_price는 가격 델타라 자릿수 스펙이 tick_size다. 미전달이면 sub-1 KRW 마켓 델타가 뭉개진다 */}
           <PricePill change={ticker.change} changeRate={ticker.change_rate} amount={ticker.change_price} amountSpec={tickSpec} variant="inline" />
         </StaleRegion>
-      ) : (
+      ) : connected ? (
         <Skeleton variant="text" width={240} height={28} />
+      ) : (
+        /* 연결이 끊긴 뒤에도 스켈레톤을 돌리면 영원히 안 끝나는 로딩이 된다. 옆 24H 스탯이
+           이미 "-"를 쓰므로 같은 표기로 맞춘다. 여기에 에러 블록을 넣으면 64px 예산이 깨진다 */
+        <span className={`${styles.cur} num`}>-</span>
       )}
 
       <div className={styles.stats}>
