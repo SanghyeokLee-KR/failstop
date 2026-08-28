@@ -1,6 +1,7 @@
 package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
+import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.ApiException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -12,10 +13,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -188,6 +192,29 @@ public class ConfigAdminController {
         return value;
     }
 
+    /** notices.title VARCHAR(200). 검증 없이 넘기면 DB가 22001로 던져 400이 아니라 500이 된다 */
+    private static final int MAX_NOTICE_TITLE = 200;
+    /**
+     * 본문은 TEXT지만 상한을 둔다. 무제한 공지는 목록 한 건이 화면을 덮고, 배너로 올라가면
+     * 읽을 수 없는 벽이 된다(SupportInputs.MAX_BODY와 같은 근거·같은 값).
+     */
+    private static final int MAX_NOTICE_BODY = 2000;
+
+    /** null은 통과시킨다. PATCH의 부분 갱신에서 미지정 필드다 */
+    private static void checkNoticeTitle(String title) {
+        if (title != null && title.codePointCount(0, title.length()) > MAX_NOTICE_TITLE) {
+            throw new ApiException(400, "invalid_parameter",
+                    "공지 제목은 최대 " + MAX_NOTICE_TITLE + "자입니다.");
+        }
+    }
+
+    private static void checkNoticeBody(String body) {
+        if (body != null && body.codePointCount(0, body.length()) > MAX_NOTICE_BODY) {
+            throw new ApiException(400, "invalid_parameter",
+                    "공지 본문은 최대 " + MAX_NOTICE_BODY + "자입니다.");
+        }
+    }
+
     @PostMapping("/notices")
     public Map<String, Object> publishNotice(@RequestBody NoticeBody body, HttpServletRequest request) {
         AdminPrincipal principal = AdminRequestContext.principal(request);
@@ -195,6 +222,8 @@ public class ConfigAdminController {
         if (body == null || body.title() == null || body.title().isBlank()) {
             throw new ApiException(400, "invalid_parameter", "공지 제목이 필요합니다.");
         }
+        checkNoticeTitle(body.title());
+        checkNoticeBody(body.body());
         String severity = body.severity() == null ? "INFO" : body.severity();
         if (!NOTICE_SEVERITIES.contains(severity)) {
             throw new ApiException(400, "invalid_parameter",
@@ -212,13 +241,39 @@ public class ConfigAdminController {
         return Map.of("schema_version", "1.0", "notice_id", id);
     }
 
+    /**
+     * 공지 목록(VIEWER). 철회분까지 전부 보여준다. 운영자는 "내린 공지가 무엇이었나"를
+     * 봐야 하고, DELETE 권한이 없어(V5 §7) 행은 계속 쌓인다. LIMIT 100 고정은 101번째
+     * 공지를 존재하지도 않는 것처럼 지웠다. 커서로 끝까지 따라갈 수 있게 한다.
+     */
     @GetMapping("/notices")
-    public Map<String, Object> notices(HttpServletRequest request) {
+    public Map<String, Object> notices(HttpServletRequest request,
+                                       @RequestParam(required = false) String cursor,
+                                       @RequestParam(defaultValue = "100") int limit) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
-        List<Map<String, Object>> rows = jdbc.sql("""
-                        SELECT id, title, body, severity, active, published_by, published_at
-                        FROM notices ORDER BY published_at DESC LIMIT 100
-                        """)
+        int capped = Math.max(1, Math.min(limit, 200));
+        Cursors.Cursor decoded = cursor == null || cursor.isBlank() ? null : Cursors.decode(cursor);
+        StringBuilder sql = new StringBuilder("""
+                SELECT id, title, body, severity, active, published_by, published_at
+                FROM notices
+                """);
+        List<Object> params = new ArrayList<>();
+        if (decoded != null) {
+            long anchorId = noticeCursorId(decoded.id());
+            OffsetDateTime anchorAt = jdbc.sql("SELECT published_at FROM notices WHERE id = ?")
+                    .param(anchorId)
+                    .query((rs, n) -> rs.getObject("published_at", OffsetDateTime.class))
+                    .optional()
+                    .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서 형식 오류"));
+            sql.append(" WHERE (published_at, id) < (?, ?)");
+            params.add(anchorAt);
+            params.add(anchorId);
+        }
+        // 한 건 더 읽어 다음 쪽 존재를 판단한다
+        sql.append(" ORDER BY published_at DESC, id DESC LIMIT ?");
+        params.add(capped + 1);
+        List<Map<String, Object>> all = jdbc.sql(sql.toString())
+                .params(params)
                 .query((rs, n) -> Map.<String, Object>of(
                         "id", rs.getLong("id"),
                         "title", rs.getString("title"),
@@ -229,7 +284,35 @@ public class ConfigAdminController {
                                 ? "" : rs.getString("published_by"),
                         "published_at", ts(rs.getObject("published_at", OffsetDateTime.class))))
                 .list();
-        return Map.of("schema_version", "1.0", "data", rows);
+        boolean hasMore = all.size() > capped;
+        List<Map<String, Object>> rows = hasMore ? all.subList(0, capped) : all;
+        String nextCursor = null;
+        if (hasMore) {
+            Map<String, Object> last = rows.get(rows.size() - 1);
+            Long at = (Long) last.get("published_at");
+            nextCursor = Cursors.encode(
+                    java.time.Instant.ofEpochMilli(at == null ? 0L : at).atOffset(java.time.ZoneOffset.UTC),
+                    String.valueOf(last.get("id")));
+        }
+        return Map.of("schema_version", "1.0", "data", rows,
+                "pagination", pagination(nextCursor, hasMore));
+    }
+
+    /** §2-2. 페이지네이션이 없는 리스트도 필드는 리터럴로 존재한다 */
+    private static Map<String, Object> pagination(String nextCursor, boolean hasMore) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("next_cursor", nextCursor);
+        p.put("has_more", hasMore);
+        return p;
+    }
+
+    /** 조작 커서 방어(§2-6). 비숫자는 500이 아니라 400으로 정규화한다 */
+    private static long noticeCursorId(String id) {
+        try {
+            return Long.parseLong(id);
+        } catch (NumberFormatException e) {
+            throw new ApiException(400, "invalid_parameter", "커서 형식 오류");
+        }
     }
 
     /**
@@ -251,6 +334,8 @@ public class ConfigAdminController {
             throw new ApiException(400, "invalid_parameter",
                     "severity는 INFO|WARNING|CRITICAL 중 하나여야 합니다.");
         }
+        checkNoticeTitle(body.title());
+        checkNoticeBody(body.body());
         Boolean exists = jdbc.sql("SELECT true FROM notices WHERE id = ? FOR UPDATE")
                 .param(id).query(Boolean.class).optional().orElse(null);
         if (exists == null) {

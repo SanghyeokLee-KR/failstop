@@ -6,6 +6,18 @@
 
 export const ADMIN_SCHEMA_VERSION = "1.0" as const;
 
+/**
+ * 커서 페이지 한 쪽(API 설계 §2-6).
+ *
+ * 고객 평면 Page<T>와 필드명이 다르다. 그쪽은 와이어 이름을 그대로 쓰고 여기는 관리
+ * 도메인 타입 관례(카멜)를 따른다. 두 평면은 타입을 공유하지 않는다(이 파일 머리말).
+ */
+export interface AdminPage<T> {
+  data: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 /* ===== 인증·운영자 (§1-2, §1-3) ===== */
 
 /** 정본 5역할. 임의 축약 금지 */

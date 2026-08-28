@@ -20,6 +20,7 @@ import { CHAOS_CATALOG, INVARIANT_DEFS } from "./catalog";
 import { isoNow } from "../format";
 import { COIN_META } from "../sim/engine";
 import type {
+  AdminPage,
   AdminOperator,
   AdminOverview,
   AdminRole,
@@ -986,10 +987,14 @@ export class HttpAdminApi implements AdminApi {
     });
   }
 
-  async getNotices(): Promise<Notice[]> {
-    // 서버는 {data:[...]} 엔벌로프(active 포함). body·published_at·severity·active를 매핑한다.
-    const res = await this.http<WireDataEnvelope<WireNotice>>("/admin/v1/config/notices");
-    return (res.data ?? []).map((n) => ({
+  async getNotices(opts: { cursor?: string | null; limit?: number } = {}): Promise<AdminPage<Notice>> {
+    // 서버는 {data:[...], pagination:{...}} 엔벌로프(active 포함).
+    const q = new URLSearchParams({ limit: String(opts.limit ?? 100) });
+    if (opts.cursor) q.set("cursor", opts.cursor);
+    const res = await this.http<
+      WireDataEnvelope<WireNotice> & { pagination?: { next_cursor?: string | null; has_more?: boolean } }
+    >(`/admin/v1/config/notices?${q}`);
+    const rows = (res.data ?? []).map((n) => ({
       id: String(n.id ?? ""),
       title: n.title ?? "",
       body: n.body ?? "",
@@ -998,6 +1003,11 @@ export class HttpAdminApi implements AdminApi {
       createdAt: n.published_at ?? "",
       createdBy: n.published_by ?? "",
     }));
+    return {
+      data: rows,
+      nextCursor: res.pagination?.next_cursor ?? null,
+      hasMore: !!res.pagination?.has_more,
+    };
   }
 
   /* ===== 문의 답변 큐 (§4-G) ===== */

@@ -8,6 +8,7 @@
 import { SimAdminApi } from "./simAdmin";
 import { HttpAdminApi } from "./httpAdmin";
 import type {
+  AdminPage,
   AdminOverview,
   AdminSession,
   ApprovalRequest,
@@ -112,7 +113,13 @@ export interface AdminApi {
 
   /* ===== 마켓 설정(§2, config) ===== */
   getConfigMarkets(): Promise<ConfigMarket[]>;
-  getNotices(): Promise<Notice[]>;
+  /**
+   * 공지 목록 한 쪽. 철회분 포함. 커서는 §2-6 opaque.
+   *
+   * 공지는 DELETE 권한이 없어(V5 §7) 철회만 되고 행은 계속 쌓인다. 고정 상한으로
+   * 자르면 오래된 공지가 운영자에게도 안 보인다.
+   */
+  getNotices(opts?: { cursor?: string | null; limit?: number }): Promise<AdminPage<Notice>>;
   postNotice(title: string, body: string, severity?: NoticeSeverity): Promise<Notice>;
   updateNotice(id: string, patch: NoticePatch): Promise<Notice>;
   /** 소프트 삭제(active=false). notices DELETE 권한이 없어 하드 삭제하지 않는다(§6-D) */

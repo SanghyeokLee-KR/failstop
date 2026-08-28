@@ -13,6 +13,7 @@ import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles
 import { feeRateError } from "./fees";
 import { CHAOS_CATALOG, INVARIANT_DEFS } from "./catalog";
 import type {
+  AdminPage,
   AdminOperator,
   AdminOverview,
   AdminSession,
@@ -1021,9 +1022,24 @@ export class SimAdminApi implements AdminApi {
     return row;
   }
 
-  getNotices(): Promise<Notice[]> {
+  getNotices(opts: { cursor?: string | null; limit?: number } = {}): Promise<AdminPage<Notice>> {
     this.auth("VIEW");
-    return Promise.resolve(this.notices.map((n) => ({ ...n })));
+    const limit = Math.max(1, Math.min(opts.limit ?? 100, 200));
+    let start = 0;
+    if (opts.cursor) {
+      const at = this.notices.findIndex((n) => n.id === opts.cursor);
+      // 서버 규칙(없는 커서=400)을 sim에서도 지킨다. 조용히 첫 쪽으로 되돌리면
+      // sim에서만 통과하는 화면 코드가 생긴다
+      if (at < 0) return Promise.reject(new Error("커서 형식 오류"));
+      start = at + 1;
+    }
+    const slice = this.notices.slice(start, start + limit);
+    const hasMore = this.notices.length > start + limit;
+    return Promise.resolve({
+      data: slice.map((n) => ({ ...n })),
+      nextCursor: hasMore && slice.length > 0 ? slice[slice.length - 1].id : null,
+      hasMore,
+    });
   }
 
   postNotice(title: string, body: string, severity: NoticeSeverity = "info"): Promise<Notice> {

@@ -48,8 +48,13 @@ export interface DataSource {
   placeOrder(req: OrderRequest): Promise<Order>;
   cancelOrder(idOrClientId: string): Promise<Order>;
 
-  /** 공지 목록(§4-F). 무인증 읽기. active인 공지만, 최신순 */
-  getNotices(): Promise<PublicNotice[]>;
+  /**
+   * 공지 한 쪽(§4-F). 무인증 읽기. active인 공지만, 최신순. 커서는 §2-6 opaque.
+   *
+   * 배너·미읽음 표식은 첫 쪽만 쓰고, 목록 화면만 커서를 따라간다. 전역 상태가 아카이브
+   * 전체를 들고 있을 이유가 없다.
+   */
+  getNotices(opts?: { cursor?: string | null; limit?: number }): Promise<Page<PublicNotice>>;
 
   /* ===== 문의 (§4-G). 회원 세션 전용 ===== */
 
@@ -229,8 +234,31 @@ export class SimDataSource implements DataSource {
 
   /* ===== 공지 (§4-F) ===== */
 
+  async getNotices(opts: { cursor?: string | null; limit?: number } = {}): Promise<Page<PublicNotice>> {
+    const limit = Math.max(1, Math.min(opts.limit ?? 50, 200));
+    /* 서버는 (published_at DESC, id DESC)로 정렬해 내려준다. sim이 배열 순서를 그대로
+       내면 시드를 손으로 정렬해 둔 동안에만 우연히 맞고, 시드가 늘면 sim에서만 순서가
+       다른 화면이 된다. 같은 축으로 정렬해 내려보낸다 */
+    const all = [...this.noticeSeed()].sort(
+      (a, b) => (b.published_at ?? 0) - (a.published_at ?? 0) || (a.id < b.id ? 1 : -1),
+    );
+    let start = 0;
+    if (opts.cursor) {
+      const at = all.findIndex((n) => n.id === opts.cursor);
+      if (at < 0) throw new ApiError(400, "invalid_parameter", "커서 형식 오류");
+      start = at + 1;
+    }
+    const slice = all.slice(start, start + limit);
+    const hasMore = all.length > start + limit;
+    return {
+      data: slice,
+      next_cursor: hasMore && slice.length > 0 ? slice[slice.length - 1].id : null,
+      has_more: hasMore,
+    };
+  }
+
   /** 데모 공지 3종. 심각도별 전달 채널을 화면에서 확인할 수 있게 각 단계를 하나씩 둔다 */
-  async getNotices(): Promise<PublicNotice[]> {
+  private noticeSeed(): PublicNotice[] {
     const now = Date.now();
     return [
       {

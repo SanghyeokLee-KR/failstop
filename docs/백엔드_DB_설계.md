@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.32)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.33)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V14+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -998,6 +998,32 @@ CREATE INDEX idx_support_user_keyset ON support_inquiries (user_id, created_at D
 CREATE INDEX idx_support_user_external ON support_inquiries (user_id, external_id);
 -- DELETE 권한을 주지 않는다. 철회를 삭제로 처리하면 "물어본 적이 있다"는 사실이 사라져
 -- 같은 질문이 반복될 때 운영자가 이력을 못 본다
+
+-- 5.10 공지 (V5 신설, API 설계 §4-F·§3-6)
+-- 관리 평면이 발행하고 사용자 평면이 읽는다. 쓰기 입구는 하나(ConfigAdminController)다.
+-- 같은 표에 인증 강도가 다른 두 입구를 두지 않는다.
+-- 삭제하지 않는다. 철회는 active = false이며 app_role에 DELETE를 주지 않는다(§7). 감사
+-- 이력과 게시 원본을 보존해야 "무엇을 언제 알렸나"가 사후에 성립한다.
+CREATE TABLE notices (
+    id           BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    -- 길이 검증은 애플리케이션이 선행한다. 컬럼 상한에만 맡기면 초과 입력이 22001로
+    -- 터져 400이 아니라 500이 된다(API 설계 v2.29 #4)
+    title        VARCHAR(200) NOT NULL,
+    body         TEXT         NOT NULL DEFAULT '',
+    -- 색이 아니라 전달 채널을 정한다. CRITICAL=닫기 불가 배너, WARNING=닫기 가능 배너,
+    -- INFO=목록과 진입점 표식만 (API 설계 §4-F 심각도 계약)
+    severity     VARCHAR(16)  NOT NULL DEFAULT 'INFO'
+                 CHECK (severity IN ('INFO','WARNING','CRITICAL')),
+    active       BOOLEAN      NOT NULL DEFAULT true,
+    published_by VARCHAR(64),
+    published_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+-- 공지 목록 커서 페이지네이션(API 설계 §2-6). 축은 (published_at DESC, id DESC)다.
+-- published_at은 유일하지 않아 단독으로는 쪽 경계가 정해지지 않는다. 공개 경로는
+-- active = true 전용이라 부분 인덱스로 두고, 철회분까지 보는 관리 경로가 전체용을 쓴다 (V18)
+CREATE INDEX idx_notice_active_keyset ON notices (published_at DESC, id DESC)
+    WHERE active = true;
+CREATE INDEX idx_notice_keyset ON notices (published_at DESC, id DESC);
 
 -- ────────────────────────────────────────────────────────────────
 -- 6. HA / 복구
@@ -2861,3 +2887,19 @@ V15 `support_inquiries`가 정본에 없이 마이그레이션만 나가 있었�
 구 인덱스 `idx_support_user`는 새 인덱스가 `(user_id)` 접두를 포함하므로 제거한다. 코어 격리(원장·매칭·저널 무접촉)는 무변경이다.
 
 문서 헤더 버전을 v2.32로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.33 패치 반영 사항
+
+V5 `notices`가 정본에 없이 마이그레이션만 나가 있었다(v2.32 §5.9 `support_inquiries`와 같은 누락). 표를 §5.10으로 등재하고, 커서 페이지네이션 정렬 축을 함께 고친다(V18).
+
+| # | 심각도 | 위치 | 내용 |
+|---|---|---|---|
+| 1 | medium | §5.10 등재 | V5 DDL이 정본에 없어 "문서가 DDL 정본"이라는 규약이 그 표에 대해서만 성립하지 않았다. 표·CHECK·소프트 삭제 규약을 마이그레이션과 1:1로 옮긴다. 스키마 변경이 아니라 누락 기재의 보충이다 |
+| 2 | medium | §5.10 인덱스 | V5는 `(active, published_at DESC)`로 잡았다. `published_at`은 유일하지 않으므로 그것만으로는 커서 경계가 정해지지 않는다. 같은 시각에 발행된 두 공지가 있으면 쪽을 넘길 때 하나가 두 번 나오거나 빠진다. 축을 `(published_at DESC, id DESC)`로 확정한다 |
+| 3 | low | §5.10 인덱스 분리 | 공개 경로는 `active = true` 전용이고 관리 경로는 철회분까지 본다. 조건만 다르고 축은 같아 공개용을 부분 인덱스로, 관리용을 전체 인덱스로 나눈다 |
+
+구 인덱스 `idx_notice_active`는 두 신규 인덱스가 각 경로를 덮으므로 제거한다. `active = false`만 따로 훑는 경로는 없다. 공지는 원장·매칭·저널에 닿지 않으므로 코어 불변식과 무관하다.
+
+문서 헤더 버전을 v2.33으로 순증(이전 패치 노트의 역사 서술은 원문 유지).

@@ -543,6 +543,45 @@ class AdminPlaneIntegrationTest {
         assertEquals(404, missing.getStatusCode().value());
     }
 
+    /**
+     * 공지 길이 게이트(API 설계 v2.29 #4).
+     *
+     * 종전에는 검증이 없어 200자를 넘는 제목이 title VARCHAR(200)에서 DB 예외로 터졌다.
+     * 사용자 입력 문제가 500으로 나오면 운영자는 서버가 고장난 것으로 읽는다. 본문은
+     * 상한 자체가 없어 공지 한 건이 목록과 배너를 덮을 수 있었다.
+     */
+    @Test
+    @Order(15)
+    void noticeLengthGate() throws Exception {
+        String op01 = issueSession("op-01");
+
+        String longTitle = "가".repeat(201);
+        ResponseEntity<String> badTitle = adminPost("/admin/v1/config/notices",
+                "{\"title\":\"" + longTitle + "\",\"body\":\"본문\"}", "op-01", op01);
+        assertEquals(400, badTitle.getStatusCode().value(), badTitle.getBody());
+        assertEquals("invalid_parameter",
+                objectMapper.readTree(badTitle.getBody()).path("error").path("name").asText());
+
+        String longBody = "나".repeat(2001);
+        ResponseEntity<String> badBody = adminPost("/admin/v1/config/notices",
+                "{\"title\":\"정상 제목\",\"body\":\"" + longBody + "\"}", "op-01", op01);
+        assertEquals(400, badBody.getStatusCode().value(), badBody.getBody());
+
+        // 경계값은 통과한다. 200자·2000자는 유효 입력이다
+        ResponseEntity<String> ok = adminPost("/admin/v1/config/notices",
+                "{\"title\":\"" + "다".repeat(200) + "\",\"body\":\"" + "라".repeat(2000) + "\"}",
+                "op-01", op01);
+        assertEquals(200, ok.getStatusCode().value(), ok.getBody());
+        long id = objectMapper.readTree(ok.getBody()).path("notice_id").asLong();
+
+        // PATCH도 같은 게이트를 지난다. 발행만 막고 수정을 열어두면 우회로가 된다
+        ResponseEntity<String> patchLong = adminPatch("/admin/v1/config/notices/" + id,
+                "{\"body\":\"" + "마".repeat(2001) + "\"}", "op-01", op01);
+        assertEquals(400, patchLong.getStatusCode().value(), patchLong.getBody());
+        assertEquals(2000, jdbc.sql("SELECT length(body) FROM notices WHERE id = ?")
+                .param(id).query(Integer.class).single(), "거절된 수정이 행을 건드렸다");
+    }
+
     // ------------------------------------------------------------------
     // (j) SUPER write 게이트: 비SUPER(VIEWER)의 수수료 변경 진입 차단
     // ------------------------------------------------------------------

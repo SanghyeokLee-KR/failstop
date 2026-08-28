@@ -201,8 +201,10 @@ interface ExchangeState {
   orderbooks: Record<string, OrderbookMessage>;
   trades: Record<string, TradeMessage[]>;
   assets: Asset[];
-  /* 공지(§4-F). 배너와 목록이 같은 원천을 본다. 두 곳이 각자 조회하면 배너에는 떴는데
-     목록에는 없는 상태가 생긴다 */
+  /* 공지 첫 쪽(§4-F). 배너와 진입점 미읽음 표식이 쓴다.
+     목록 화면은 여기를 보지 않고 자기 커서로 아카이브를 따라간다. 종전에는 이 배열이
+     목록의 원천이기도 했는데, 그래서 목록이 서버의 LIMIT 50에 묶여 51번째 공지를
+     볼 방법이 없었다. 원천을 나눈 지금은 배너가 가리키는 공지도 목록에서 반드시 닿는다 */
   notices: PublicNotice[];
   /* 빈 배열과 미로딩을 구분한다. 하나로 두면 첫 프레임에 "등록된 공지 없음"이 스친 뒤
      목록이 나타난다. 사용자는 그 깜빡임을 오류로 읽는다 */
@@ -245,6 +247,16 @@ interface ExchangeState {
 
 // loadMarkets 동시 호출 병합. 여러 화면이 같은 프레임에 마운트해도 GET /markets는 1회다
 let marketsInFlight: Promise<void> | null = null;
+
+/**
+ * 전역이 드는 공지 수.
+ *
+ * 배너는 이 안에서 최신 경보 한 건을 고른다. 활성 경보보다 새 공지가 이 수를 넘게 쌓이면
+ * 배너가 그 경보를 놓친다. 종전 서버 고정 상한(50)과 같은 값을 유지해 그 경계를 넓히지도
+ * 좁히지도 않는다. 그 상황은 운영자가 활성 공지 50건을 방치했다는 뜻이라 배너 이전에
+ * 공지 운영이 먼저 깨진 상태다.
+ */
+const NOTICE_HEAD = 50;
 
 export const useExchangeStore = create<ExchangeState>((set, get) => ({
   markets: [],
@@ -412,10 +424,16 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   },
 
   /* 실패해도 조용히 넘긴다. 공지는 보조 정보라 못 불러왔다고 화면을 막을 이유가 없다.
-     연결 배너와 달리 부재 자체가 사용자에게 전달할 사실이 아니다 */
+     연결 배너와 달리 부재 자체가 사용자에게 전달할 사실이 아니다.
+
+     전역 상태가 드는 것은 첫 쪽뿐이다. 여기를 소비하는 것은 배너(bannerNotice)와 진입점
+     미읽음 표식(hasUnread) 둘이고, 배너는 최신 경보 한 건, 표식은 가장 최근 발행 시각만
+     본다. 아카이브 전체는 목록 화면이 자기 커서로 따라간다. 전역에 전부 들고 있으면
+     공지가 쌓일수록 모든 화면의 첫 요청이 같이 무거워진다 */
   async loadNotices() {
     try {
-      set({ notices: await getDataSource().getNotices(), noticesLoaded: true });
+      const page = await getDataSource().getNotices({ limit: NOTICE_HEAD });
+      set({ notices: page.data, noticesLoaded: true });
     } catch {
       /* 이전에 받은 공지는 그대로 둔다. 다만 loaded는 세운다. 실패를 미로딩으로 두면
          스켈레톤이 영원히 돈다. 그건 지켜지지 않는 약속이다(상태 설계 감사에서 같은

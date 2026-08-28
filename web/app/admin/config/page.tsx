@@ -5,7 +5,7 @@
  * DELISTED는 종국 상태라 재개 대상이 아니다. 공지 발급은 SUPER 즉시(가역), 소프트 삭제·active 토글 제공.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { feeRateError } from "@/lib/admin/fees";
 import { useCan } from "@/lib/admin/store";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
 import PanelCard from "@/components/PanelCard";
+import Pager from "@/components/Pager";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import RequestButton from "@/components/admin/RequestButton";
@@ -40,6 +41,10 @@ const SEVERITY_HEALTH: Record<NoticeSeverity, "warning" | "danger" | null> = {
   critical: "danger",
 };
 
+/* 한 쪽 20건. 운영자 화면이라 한 번에 훑는 양이 사용자 화면보다 크지만, 폴링이 5초마다
+   같은 쪽을 다시 읽으므로 쪽이 커지면 그 비용이 계속 나간다 */
+const NOTICE_PAGE_SIZE = 20;
+
 export default function ConfigPage() {
   const canSuper = useCan("SUPER");
   const [title, setTitle] = useState("");
@@ -57,18 +62,46 @@ export default function ConfigPage() {
   const feeEmpty = makerFee.trim() === "" && takerFee.trim() === "";
   const feeError = makerErr ?? takerErr ?? (feeEmpty ? "maker_fee 또는 taker_fee 중 하나 필요" : null);
 
+  /* 공지는 철회만 되고 삭제되지 않아(V5 §7) 계속 쌓인다. 한 쪽씩 끊어 읽는다.
+     i번째 칸이 i쪽을 여는 커서고 첫 쪽은 null이다(§2-6은 앞으로만 커서를 발급한다).
+     loader가 ref로 잡히므로 폴링 틱도 보고 있는 쪽을 그대로 다시 읽는다 */
+  const [noticePage, setNoticePage] = useState(0);
+  const noticeCursors = useRef<(string | null)[]>([null]);
+
   const res = useAdminResource(
     async () => {
       const api = getAdminApi();
-      const [markets, notices] = await Promise.all([api.getConfigMarkets(), api.getNotices()]);
-      return { markets, notices };
+      const [markets, noticePageData] = await Promise.all([
+        api.getConfigMarkets(),
+        api.getNotices({ cursor: noticeCursors.current[noticePage] ?? null, limit: NOTICE_PAGE_SIZE }),
+      ]);
+      noticeCursors.current[noticePage + 1] = noticePageData.nextCursor;
+      return { markets, notices: noticePageData };
     },
     // GET 2건 합성 + 승인 목록 폴링 동거 화면. 2초 주기는 관리 레이트리밋(60건/분) 초과라 5초로 완화
     { intervalMs: 5000, isSessionError },
   );
   const markets: ConfigMarket[] | null = res.data?.markets ?? null;
-  const notices: Notice[] | null = res.data?.notices ?? null;
+  const notices: Notice[] | null = res.data?.notices.data ?? null;
+  const noticeHasMore = res.data?.notices.hasMore ?? false;
   const load = res.reload;
+
+  /* 쪽을 옮기고 곧바로 다시 읽는다. loader가 최신 noticePage를 보도록 상태를 먼저 세운다 */
+  const moveNoticePage = (target: number) => {
+    setNoticePage(target);
+  };
+  useEffect(() => {
+    void load();
+    // load는 useAdminResource가 안정 참조로 준다. noticePage 변화에만 반응한다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noticePage]);
+
+  /* 새 공지는 목록 맨 위에 낀다. 지나온 쪽 경계가 밀리므로 커서를 버리고 첫 쪽부터 다시 센다 */
+  const reloadNoticesFromFirst = () => {
+    noticeCursors.current = [null];
+    if (noticePage === 0) void load();
+    else setNoticePage(0);
+  };
 
   const postNotice = async () => {
     if (!title.trim() || !body.trim()) {
@@ -81,7 +114,7 @@ export default function ConfigPage() {
       setTitle("");
       setBody("");
       setSeverity("info");
-      await load();
+      reloadNoticesFromFirst();
     } catch (e) {
       toast(e instanceof Error ? e.message : "등록 실패", "error");
     }
@@ -337,6 +370,13 @@ export default function ConfigPage() {
             })}
           </ul>
         )}
+
+        <Pager
+          page={noticePage}
+          hasMore={noticeHasMore}
+          onMove={moveNoticePage}
+          ariaLabel="공지 목록 쪽 이동"
+        />
       </PanelCard>
     </div>
   );

@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.28, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.29, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -880,7 +880,7 @@ POST /api/v1/orders
 
 | 기능 | 메서드·경로 | 인증 | rate limit |
 |---|---|---|---|
-| 공지 목록 | `GET /api/v1/notices` | 없음 | IP 60회/60s(자체 스로틀) |
+| 공지 목록 | `GET /api/v1/notices` | 없음 | IP 60회/60s(자체 스로틀). 커서 페이지네이션(§2-6) |
 
 무인증이지만 `PublicMarketPaths`에는 넣지 않는다. 그 목록은 §4-A 시장 데이터 전용이고 weight 규칙이 시장 데이터 응답 모양을 전제한다. 공지는 시장 데이터가 아니므로 데모 세션·게시판·회원 인증 평면과 같이 자기 `SlidingWindowThrottle`을 든다(그 클래스 주석의 명문 규칙).
 
@@ -890,8 +890,11 @@ POST /api/v1/orders
   "data":[
     { "id":"12", "title":"정기 점검 안내", "body":"08-28 02:00~04:00 주문 접수 중단",
       "severity":"CRITICAL", "published_at":1756300000000 }
-  ] }
+  ],
+  "pagination":{ "next_cursor":null, "has_more":false } }
 ```
+
+**목록 페이지네이션**: `cursor`(§2-6 opaque) + `limit`(기본 50, ≤200). 정렬 축은 `(published_at DESC, id DESC)`다. `published_at`은 유일하지 않아 그것만으로는 쪽 경계가 정해지지 않는다(동시각 발행 두 건이 중복되거나 빠진다). 커서의 id 축은 `notices.id`, 곧 내부 BIGINT PK다. §2-6의 "내부 PK 미노출"에 대한 예외이며 근거는 이 경로가 이미 같은 값을 `data[].id`로 내보내고 있다는 점이다. 공지는 사용자별로 갈리지 않는 전역 공개 자원이라 id가 새어도 남의 것을 세거나 정렬 위치를 캐는 표면이 없다(주문·입출금·문의와 다르다). 커서 앵커는 `active` 조건 없이 되짚는다. 읽는 도중 운영자가 한 건을 철회해도 나머지 쪽이 통째로 400이 되면 안 된다.
 
 **노출 범위**: `active = true`인 공지만 반환한다. 관리자가 내린 공지(`active=false`)는 철회된 것이지 보관된 것이 아니다. 발행자·수정 이력은 운영 정보라 사용자 응답에 싣지 않는다.
 
@@ -1739,3 +1742,20 @@ v2.17이 E1 라이브 PASS(errorRate 0, epoch 불변, 주입 중 status 200 유�
 `limit`은 기본 50, ≤100을 유지한다. 등록·답변 경로와 rate limit은 무변경이다.
 
 문서 헤더 버전을 v2.28로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.29 패치 반영 사항
+
+§4-F 공지 목록의 조용한 절단을 닫는다. 공지는 삭제되지 않고 철회만 되므로(DB 설계 §7, `app_role`에 DELETE 미부여) 활성 공지가 상한을 넘는 상태가 실제로 온다. 관리 평면 발행 경로의 길이 미검증도 함께 고친다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| 1 | §4-F 목록 | `LIMIT 50` 고정을 `cursor` + `limit`(기본 50, ≤200)으로 바꾸고 `pagination:{next_cursor, has_more}`를 싣는다. 종전에는 51번째 공지가 존재하는데도 어떤 클라이언트도 도달할 수 없었고, 잘렸다는 표시조차 없었다. `pagination` 부재 자체가 §2-2 위반이기도 하다 |
+| 2 | §4-F 목록 | 정렬 축을 `(published_at DESC, id DESC)`로 확정한다. `published_at`은 유일하지 않아 단독으로는 쪽 경계가 정해지지 않는다. 동시각 발행 두 건이 쪽을 넘길 때 중복되거나 빠진다. DB 설계 v2.33 `idx_notice_active_keyset`이 이 축을 덮는다 |
+| 3 | §3-6 `GET /admin/v1/config/notices` | 같은 결함이다. `LIMIT 100` 고정을 커서로 바꾸고 `pagination`을 싣는다. 관리 목록은 철회분까지 보여주므로 공개 목록보다 빨리 쌓인다 |
+| 4 | §3-6 `POST`·`PATCH /admin/v1/config/notices` | 제목·본문 길이 검증을 세운다. 종전에는 검증이 없어 200자를 넘는 제목이 `title VARCHAR(200)`에서 DB 예외로 터져 400이 아니라 500이 됐고, 본문은 상한 자체가 없어 공지 한 건이 화면을 덮을 수 있었다. 제목 200자, 본문 2000자(`SupportInputs.MAX_BODY`와 같은 근거·같은 값), 위반은 `invalid_parameter` |
+
+커서의 id 축이 내부 BIGINT PK인 것은 §2-6 "내부 PK 미노출"의 명시 예외다. 근거는 §4-F 본문에 적었다. 심각도 계약·배너 규칙·노출 범위(`active = true`)는 무변경이다.
+
+문서 헤더 버전을 v2.29로 순증(이전 패치 노트의 역사 서술은 원문 유지).

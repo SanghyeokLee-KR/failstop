@@ -793,9 +793,13 @@ export class HttpStompDataSource implements DataSource {
   }
 
   /** 공지(§4-F). 무인증 경로라 Bearer를 붙이지 않는다 */
-  async getNotices(): Promise<PublicNotice[]> {
-    const body = await this.http<{ data?: PublicNotice[] }>("/api/v1/notices");
-    return body.data ?? [];
+  async getNotices(opts: { cursor?: string | null; limit?: number } = {}): Promise<Page<PublicNotice>> {
+    const q = new URLSearchParams({ limit: String(opts.limit ?? 50) });
+    if (opts.cursor) q.set("cursor", opts.cursor);
+    const body = await this.http<Page<PublicNotice> & { data: PublicNotice[] | null }>(
+      `/api/v1/notices?${q}`,
+    );
+    return { data: body.data ?? [], next_cursor: body.next_cursor ?? null, has_more: !!body.has_more };
   }
 
   /* ===== 문의 (§4-G) ===== */
