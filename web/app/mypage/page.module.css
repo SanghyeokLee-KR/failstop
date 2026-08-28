@@ -129,3 +129,11 @@
   font-weight: var(--fw-medium);
   color: var(--text-secondary);
 }
+
+/* 계정 종류. 상태가 아니라 사실이라 잉크로만 적는다 */
+.accountKind {
+  margin-left: auto;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}

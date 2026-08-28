@@ -14,6 +14,7 @@ import { addDecimal, compareDecimal } from "@/lib/decimal";
 import { formatKRW } from "@/lib/format";
 import styles from "./page.module.css";
 import { usePageTitle } from "@/components/PageTitle";
+import { ConnectionBanner } from "@/components/StatusSignals";
 import Skeleton from "@/components/Skeleton";
 
 export default function MyPage() {
@@ -56,6 +57,9 @@ export default function MyPage() {
   if (!session) {
     return (
       <main className={styles.page}>
+        {/* 연결 끊김은 전역 상태다. 화면마다 알려주다 말면 사용자는 배너 없음을 정상으로
+            읽는다. 이 화면은 주문 취소·잔고 판독이 걸려 있어 특히 그렇다 */}
+        <ConnectionBanner />
         <section className={`card ${styles.gate}`} aria-labelledby="gate-title">
           <h1 id="gate-title" className={styles.gateTitle}>
             회원 전용 페이지
@@ -90,9 +94,10 @@ export default function MyPage() {
           <b className={styles.displayName}>{user.display_name}</b>
           <span className={styles.email}>{user.email}</span>
         </div>
-        <span className="status-pill" data-health="success">
-          ● 회원 계정
-        </span>
+        {/* 초록 배지를 쓰지 않는다. 이 화면은 회원 세션에서만 열리므로 값이 항상 같고,
+            정보량이 0인 표식에 성공색을 쓰면 "정상은 잉크" 규칙이 무너진다. 무엇이
+            정상인지 색으로 말하기 시작하면 진짜 경보가 묻힌다. 계정 종류는 잉크로 적는다 */}
+        <span className={styles.accountKind}>회원 계정</span>
       </section>
 
       {/* ===== 요약 카드 2열 ===== */}

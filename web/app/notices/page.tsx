@@ -87,7 +87,9 @@ export default function NoticesPage() {
 
   return (
     <main className={styles.page}>
-      <ConnectionBanner />
+      {/* 공지 배너는 끈다. 이 화면의 목록이 같은 공지를 이미 첫 항목으로 보여준다.
+          연결 배너는 남긴다. 연결 끊김은 목록이 대신 말해주지 않는 사실이다 */}
+      <ConnectionBanner showNotice={false} />
       <header className={styles.head}>
         <span className="gauge-plate">거래소</span>
         <h1 className={styles.title}>공지사항</h1>

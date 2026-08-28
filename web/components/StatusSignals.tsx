@@ -82,7 +82,15 @@ export function StaleRegion({
  *
  * 공지는 CRITICAL·WARNING만 오른다(§4-F). INFO는 목록에만 둔다.
  */
-export function ConnectionBanner() {
+/**
+ * 배너는 화면당 하나다(§4-F). 연결 끊김이 공지보다 우선한다. 연결이 끊긴 상태에서는
+ * 어떤 조작도 성립하지 않으므로 그 사실이 먼저 읽혀야 한다.
+ *
+ * showNotice=false는 공지 목록 화면용이다. 그 화면은 목록이 이미 공지를 전부 보여주므로
+ * 같은 공지를 배너로 한 번 더 띄우면 첫 항목과 글자까지 겹친다. 연결 배너는 그대로 둔다.
+ * 연결 끊김은 어느 화면에서든 알려야 할 사실이다.
+ */
+export function ConnectionBanner({ showNotice = true }: { showNotice?: boolean } = {}) {
   const connected = useExchangeStore((s) => s.connected);
   const notices = useExchangeStore((s) => s.notices);
   const dismissed = useExchangeStore((s) => s.dismissedNoticeIds);
@@ -99,6 +107,7 @@ export function ConnectionBanner() {
     );
   }
 
+  if (!showNotice) return null;
   const notice = bannerNotice(notices, dismissed);
   if (!notice) return null;
   const critical = notice.severity === "CRITICAL";

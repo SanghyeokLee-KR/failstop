@@ -40,17 +40,35 @@
    카드가 칸 안에서 줄어들 수 있게 해 넘침 자체를 없앤다. */
 .summary > *, .chart > *, .book > *, .trades > * { min-width: 0; }
 
-/* side 내부 세로 2분할. OrderPanel auto(내용 기준) + MarketListPanel minmax(160px, 1fr) (§2.2) */
+/* side 내부 세로 2분할. OrderPanel auto(내용 기준) + MarketListPanel minmax (§2.2)
+
+   최소값을 160px에서 320px로 올린다. 160px은 마켓 패널의 자체 크롬(카드 머리 53 + 검색 32
+   + 필터 탭 44 + 정렬 헤더 32 + gap 24 = 185px)보다 작아서, 주문 패널이 auto로 남은 높이를
+   전부 가져가면 목록에 0px가 남았다. 실측 결과 세 뷰포트 전부 목록 높이 0, 보이는 행 0이었다.
+   문서 높이는 뷰포트와 같아 무스크롤 게이트도 통과했다. 320px면 크롬 위에 40px 행 3개가 선다.
+
+   주문 패널이 그만큼 눌리므로 .order에 내부 스크롤을 준다. 안 주면 주문 버튼이 잘린다 */
 .side {
   grid-area: side;
   display: grid;
-  grid-template-rows: auto minmax(160px, 1fr);
+  grid-template-rows: auto minmax(320px, 1fr);
   gap: var(--seam-width);
   min-width: 0;
   min-height: 0;
 }
 /* 스킵 링크 대상이라 tabindex -1로 포커스를 받는다. 링은 실제 주문 패널이 그리므로 여기선 끈다 */
-.order      { display: grid; min-width: 0; min-height: 0; }
+/* 주문 폼과 미체결 미니 두 형제를 세로로 쌓는다. 스크롤은 이 칸이 아니라 주문 카드가
+   안에서 갖는다. 여기서 스크롤하면 미체결까지 같이 밀려 CTA가 그 위에 겹친다 */
+.order {
+  display: flex;
+  flex-direction: column;
+  gap: var(--seam-width);
+  min-width: 0;
+  min-height: 0;
+}
+/* 주문 카드가 남는 높이를 갖고 안에서 스크롤한다. 미체결은 자기 높이를 지킨다 */
+.order > :first-child { flex: 1 1 0; min-height: 0; }
+.order > :last-child  { flex: 0 0 auto; }
 .order:focus { outline: none; }
 .marketList { display: grid; min-width: 0; min-height: 0; }
 

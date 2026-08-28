@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DataTable, { type DataColumn } from "@/components/DataTable";
+import { ConnectionBanner } from "@/components/StatusSignals";
 import Pager from "@/components/Pager";
 import SegmentedTab from "@/components/SegmentedTab";
 import Skeleton from "@/components/Skeleton";
@@ -269,6 +270,9 @@ export default function HistoryPage() {
 
   return (
     <main className={styles.page} aria-busy={!loaded}>
+      {/* 연결 끊김은 전역 상태다. 화면마다 알려주다 말면 사용자는 배너 없음을 정상으로
+          읽는다. 이 화면은 미체결 주문 취소가 걸려 있어 특히 그렇다 */}
+      <ConnectionBanner />
       {/* 페이지 레벨 h1. 화면에는 필터 바가 먼저 오고 제목 자리가 없어 sr-only로 둔다.
           없으면 heading 계층이 h2에서 시작해 스크린리더 문서 개요가 끊긴다(WCAG 2.4.6) */}
       <h1 className="sr-only">거래내역</h1>
