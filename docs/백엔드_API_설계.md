@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.27, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.28, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -844,7 +844,7 @@ POST /api/v1/orders
 | 기능 | 메서드·경로 | 인증 | rate limit |
 |---|---|---|---|
 | 문의 등록 | `POST /api/v1/support` | 회원 세션 | 회원당 10회/1h |
-| 내 문의 목록 | `GET /api/v1/support` | 회원 세션 | 표준 |
+| 내 문의 목록 | `GET /api/v1/support` | 회원 세션 | 표준. 커서 페이지네이션(§2-6) |
 | 대기 큐 조회 | `GET /admin/v1/support` | 관리 세션(VIEWER) | 표준 |
 | 답변 등록 | `POST /admin/v1/support/{external_id}/answer` | 관리 세션(MEMBER_MOD) | 표준 |
 
@@ -1723,3 +1723,19 @@ v2.17이 E1 라이브 PASS(errorRate 0, epoch 불변, 주입 중 status 200 유�
 파라미터는 `limit`(기본 50, ≤100)을 유지한다(§2-6의 `count`와 이름이 다르나 종전 계약 보존). 엔벌로프·에러코드·멱등·금액 규약은 무변경이다.
 
 문서 헤더 버전을 v2.27로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.28 패치 반영 사항
+
+§4-G `GET /api/v1/support`에 커서 페이지네이션을 붙인다. v2.27이 입출금에서 연 것과 같은 규약이며, 문의 목록만 `pagination` 없이 `data`만 내려 §2-2의 "페이지네이션이 없는 리스트도 리터럴로 존재한다"에도 어긋나 있었다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| 1 | §4-G 목록 | `cursor` 파라미터와 `pagination:{next_cursor, has_more}` 엔벌로프를 추가한다. 종전에는 `limit`만 있어 상한 밖의 문의를 볼 방법이 없었고, 응답에 `pagination` 자체가 없었다 |
+| 2 | §4-G 목록 | 커서는 §2-6 opaque `(created_at, external_id)` base64url이고 정렬 축은 `(created_at DESC, id DESC)`다. DB 설계 v2.32 `idx_support_user_keyset`이 이 축을 덮는다 |
+| 3 | §4-G 목록 | 커서 앵커를 `user_id` 스코프로 되짚는다. 부재·위조 커서는 `invalid_parameter`(400)로 정규화한다. §4-E와 동일하다 |
+
+`limit`은 기본 50, ≤100을 유지한다. 등록·답변 경로와 rate limit은 무변경이다.
+
+문서 헤더 버전을 v2.28로 순증(이전 패치 노트의 역사 서술은 원문 유지).

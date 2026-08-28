@@ -12,8 +12,9 @@
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectionBanner } from "@/components/StatusSignals";
+import Pager from "@/components/Pager";
 import Skeleton from "@/components/Skeleton";
 import TextField from "@/components/TextField";
 import SegmentedTab from "@/components/SegmentedTab";
@@ -40,6 +41,16 @@ const CATEGORY_LABEL: Record<SupportCategory, string> = {
   ETC: "기타",
 };
 
+/* 한 쪽 5건. 입출금(8건)보다 적은 이유는 항목이 문답 한 쌍이라 세로가 크고 편차도 크기
+   때문이다. 훑는 목록이 아니라 읽는 목록이라 한 화면에 담기는 수도 그만큼 적다 */
+const PAGE_SIZE = 5;
+
+/* 본문 접기 기준. 이보다 길면 목록에서 3줄로 접고 펼치기를 붙인다. 실측 대신 글자수로
+   판정한다. 줄 수를 재려면 항목마다 ref와 ResizeObserver가 붙는데, 그 정확도를 위해
+   지불하기에는 비싸다. 경계에서 한두 건이 불필요하게 펼치기를 다는 정도의 오차다 */
+const CLAMP_CHARS = 160;
+const CLAMP_LINES = 3;
+
 const MAX_TITLE = 120;
 const MAX_BODY = 2000;
 const MIN_BODY = 5;
@@ -55,21 +66,46 @@ export default function SupportPage() {
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<SupportInquiry[] | null>(null);
   const [listFailed, setListFailed] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  /* 커서는 앞으로만 발급된다(§2-6). 뒤로 가려면 지나온 쪽의 시작 커서를 들고 있어야 한다.
+     i번째 칸이 i쪽을 여는 커서고 첫 쪽은 null이다. 화면에 그리지 않으므로 ref로 둔다 */
+  const cursorsRef = useRef<(string | null)[]>([null]);
+  /* 펼친 문의. 쪽을 넘기면 비운다. 다른 쪽의 항목이 펼친 채로 남아 있을 이유가 없고,
+     external_id를 계속 들고 있으면 오래 머문 세션에서 집합만 커진다 */
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (target = 0) => {
     if (!session) return;
     setListFailed(false);
     try {
-      setRows(await getDataSource().listInquiries(50));
+      const res = await getDataSource().listInquiries({
+        cursor: cursorsRef.current[target] ?? null,
+        limit: PAGE_SIZE,
+      });
+      // 다음 쪽 커서는 이번 쪽을 읽어야 알 수 있다. 읽은 자리에 채워 다음 이동에 쓴다
+      cursorsRef.current[target + 1] = res.next_cursor;
+      setRows(res.data);
+      setHasMore(res.has_more);
+      setPage(target);
+      setExpanded(new Set());
     } catch {
       setRows(null);
       setListFailed(true);
     }
   }, [session]);
 
-  useEffect(() => {
-    void load();
+  /* 새 문의가 목록 맨 위에 끼면 지나온 쪽 경계가 한 칸씩 밀린다. 들고 있던 커서는 그
+     밀림을 모르므로 버리고 첫 쪽부터 다시 센다. 답변은 행이 제자리에서 상태만 바뀌므로
+     커서가 그대로 유효하지만, 이 화면에서 답변을 다는 주체는 운영자라 갱신 계기가 없다 */
+  const reload = useCallback(() => {
+    cursorsRef.current = [null];
+    return load(0);
   }, [load]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   /* 서버와 같은 규칙이다. 여기가 느슨하면 제출을 눌러 왕복한 뒤에야 길이 위반을 안다 */
   const titleError = useMemo(() => {
@@ -86,6 +122,13 @@ export default function SupportPage() {
     return null;
   }, [body]);
 
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
@@ -98,7 +141,7 @@ export default function SupportPage() {
       setBody("");
       setTouched(false);
       toast("문의 접수. 답변이 등록되면 이 화면에 표시", "success");
-      void load();
+      void reload();
     } catch (err) {
       toast(supportErrorCopy(err), "error");
     } finally {
@@ -231,7 +274,7 @@ export default function SupportPage() {
             <div className="empty-state empty-state--compact" role="alert">
               <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
               <span className="empty-state__title">문의를 불러오지 못함</span>
-              <button type="button" className="btn btn--secondary" onClick={() => void load()}>
+              <button type="button" className="btn btn--secondary" onClick={() => void load(page)}>
                 다시 시도
               </button>
             </div>
@@ -257,7 +300,25 @@ export default function SupportPage() {
                     </time>
                   </div>
                   <h3 className={styles.itemTitle}>{row.title}</h3>
-                  <p className={styles.itemBody}>{row.body}</p>
+                  {/* 질문은 접고 답변은 접지 않는다. 본문은 사용자가 쓴 글이라 목록에서는
+                      어느 문의인지 알아보는 용도고, 답변은 이 화면에 다시 온 이유다.
+                      둘을 같이 접으면 찾아온 목적이 한 번 더 클릭 뒤로 밀린다 */}
+                  <p
+                    className={styles.itemBody}
+                    data-clamped={clampable(row.body) && !expanded.has(row.external_id)}
+                  >
+                    {row.body}
+                  </p>
+                  {clampable(row.body) && (
+                    <button
+                      type="button"
+                      className={styles.itemMore}
+                      aria-expanded={expanded.has(row.external_id)}
+                      onClick={() => toggle(row.external_id)}
+                    >
+                      {expanded.has(row.external_id) ? "접기" : "전체 보기"}
+                    </button>
+                  )}
                   {row.answer && (
                     /* 답변은 질문에 이어 붙는다. 별도 카드로 띄우면 어느 질문의 답인지
                        다시 찾아야 한다. 왼쪽 들여쓰기와 면으로 발화자가 갈린다 */
@@ -270,6 +331,13 @@ export default function SupportPage() {
               ))}
             </ol>
           )}
+
+          <Pager
+            page={page}
+            hasMore={hasMore}
+            onMove={(target) => void load(target)}
+            ariaLabel="문의 목록 쪽 이동"
+          />
         </section>
       </div>
     </main>
@@ -290,6 +358,25 @@ function supportErrorCopy(err: unknown): string {
     default:
       return "등록 실패. 잠시 후 다시 시도 필요";
   }
+}
+
+/**
+ * 목록에서 접을 만큼 긴 본문인지.
+ *
+ * 글자수와 줄바꿈 수를 함께 본다. 줄바꿈만 여럿인 짧은 글도 pre-wrap에서는 세로를
+ * 그대로 차지하므로 글자수만으로는 놓친다.
+ */
+function clampable(body: string): boolean {
+  return body.length > CLAMP_CHARS || countLines(body) > CLAMP_LINES;
+}
+
+/** 줄바꿈 문자를 세어 줄 수를 낸다. 정규식 리터럴 없이 코드포인트로 비교한다 */
+function countLines(body: string): number {
+  let n = 1;
+  for (const ch of body) {
+    if (ch.charCodeAt(0) === 10) n += 1;
+  }
+  return n;
 }
 
 function formatStamp(ms: number): string {

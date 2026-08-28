@@ -14,6 +14,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConnectionBanner } from "@/components/StatusSignals";
+import Pager from "@/components/Pager";
 import Skeleton from "@/components/Skeleton";
 import TextField from "@/components/TextField";
 import { toast } from "@/components/Toast";
@@ -345,33 +346,12 @@ export default function TransfersPage() {
             </ul>
           )}
 
-          {/* 갈 곳이 있을 때만 나온다. 첫 쪽뿐인 사용자에게 비활성 버튼 두 개를 보여줄
-              이유가 없다. 카드 높이는 왼쪽 폼에 잠겨 있어 나타나고 사라져도 흔들리지 않는다.
-              커서 페이지네이션이라 총 쪽수를 모른다. 전체 대비 위치를 지어내지 않고
-              지금 몇 쪽인지만 말한다 */}
-          {(page > 0 || hasMore) && (
-            <nav className={styles.pager} aria-label="입출금 내역 쪽 이동">
-              <button
-                type="button"
-                className="btn btn--secondary"
-                onClick={() => void load(page - 1)}
-                disabled={page === 0}
-              >
-                이전
-              </button>
-              <span className={`${styles.pagerAt} num`} aria-live="polite">
-                {page + 1}쪽
-              </span>
-              <button
-                type="button"
-                className="btn btn--secondary"
-                onClick={() => void load(page + 1)}
-                disabled={!hasMore}
-              >
-                다음
-              </button>
-            </nav>
-          )}
+          <Pager
+            page={page}
+            hasMore={hasMore}
+            onMove={(target) => void load(target)}
+            ariaLabel="입출금 내역 쪽 이동"
+          />
         </section>
       </div>
     </main>

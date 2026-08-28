@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.31)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.32)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V14+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -961,6 +961,43 @@ CREATE INDEX idx_transfer_pending ON transfer_requests (status, created_at)
 CREATE INDEX idx_transfer_user_keyset ON transfer_requests (user_id, created_at DESC, id DESC);
 -- 커서 앵커 되짚기. 사용자 스코프를 필터가 아니라 인덱스로 확인한다 (V16)
 CREATE INDEX idx_transfer_user_external ON transfer_requests (user_id, external_id);
+
+-- 5.9 문의 (V15 신설, API 설계 §4-G)
+-- 한 행이 문답 한 쌍을 들고 있다. 스레드를 두지 않는 이유는 답변이 컬럼으로 충분하기
+-- 때문이다. 별도 메시지 테이블은 정렬·읽음·알림을 데리고 오는데, 그 셋은 문답 한 번으로
+-- 끝나는 사례를 위해 지불하기에 비싸다. 답변이 불충분하면 새 문의를 등록한다.
+-- 코어 격리: 원장·매칭·저널 어디에도 닿지 않는다. 손실돼도 코어 복구 RTO에 기여하지 않는다.
+CREATE TABLE support_inquiries (
+    id           BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    external_id  UUID         NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+    user_id      BIGINT       NOT NULL REFERENCES users(id),
+    category     VARCHAR(16)  NOT NULL
+                 CHECK (category IN ('TRADE','TRANSFER','ACCOUNT','ETC')),
+    title        VARCHAR(120) NOT NULL,
+    body         TEXT         NOT NULL,
+    -- OPEN과 ANSWERED뿐이다. 사용자 관점에서 답이 왔는지 아닌지 말고 알아야 할 상태가 없다
+    status       VARCHAR(12)  NOT NULL DEFAULT 'OPEN'
+                 CHECK (status IN ('OPEN','ANSWERED')),
+    answer       TEXT,
+    answered_by  VARCHAR(64),
+    answered_at  TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    -- 답변 3필드는 함께 있거나 함께 없다. 셋 중 하나만 남은 행은 화면에서 해석 불가다
+    CONSTRAINT chk_support_answer CHECK (
+        (status = 'ANSWERED') = (answer IS NOT NULL)
+        AND (answer IS NULL) = (answered_at IS NULL)
+        AND (answer IS NULL) = (answered_by IS NULL)
+    )
+);
+-- 운영자 대기 큐. 부분 인덱스라 답변 완료분이 인덱스를 키우지 않는다
+CREATE INDEX idx_support_open ON support_inquiries (created_at)
+    WHERE status = 'OPEN';
+-- 사용자 목록 커서 페이지네이션(§2-6). 축은 입출금과 동일 (V17)
+CREATE INDEX idx_support_user_keyset ON support_inquiries (user_id, created_at DESC, id DESC);
+-- 커서 앵커 되짚기 (V17)
+CREATE INDEX idx_support_user_external ON support_inquiries (user_id, external_id);
+-- DELETE 권한을 주지 않는다. 철회를 삭제로 처리하면 "물어본 적이 있다"는 사실이 사라져
+-- 같은 질문이 반복될 때 운영자가 이력을 못 본다
 
 -- ────────────────────────────────────────────────────────────────
 -- 6. HA / 복구
@@ -2808,3 +2845,19 @@ v2.23·v2.24 강등 등급 분리의 적대적 검토가 남긴 정합성 결함
 구 인덱스 `idx_transfer_user`는 새 인덱스가 `(user_id)` 접두를 포함하므로 제거한다. 원장 합=0, 단일 자금 경로(`post_ledger_transaction`·`reserve_funds`·`release_funds`), `business_event_id` 네임스페이스는 무변경이다.
 
 문서 헤더 버전을 v2.31로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.32 패치 반영 사항
+
+V15 `support_inquiries`가 정본에 없이 마이그레이션만 나가 있었다. 표를 §5.9로 등재하고, 입출금과 같은 정렬 축 결함을 함께 고친다(V17).
+
+| # | 심각도 | 위치 | 내용 |
+|---|---|---|---|
+| 1 | medium | §5.9 등재 | V15 DDL이 정본에 없어 "문서가 DDL 정본"이라는 규약이 그 표에 대해서만 성립하지 않았다. 표·제약·권한 경계를 마이그레이션과 1:1로 옮긴다. 스키마 변경이 아니라 누락 기재의 보충이다 |
+| 2 | medium | §5.9 인덱스 | V15는 `(user_id, id DESC)`로 잡고 목록도 `id DESC`로 정렬했다. v2.31 #1과 동일한 결함이다. 정렬을 `(created_at DESC, id DESC)`로 옮기고 `idx_support_user_keyset`을 같은 축으로 만든다 |
+| 3 | low | §5.9 커서 앵커 | 앵커를 `(user_id, external_id)`로 되짚는다. 타인의 `external_id`를 커서로 넘기는 조회가 사용자 스코프를 인덱스로 확인하도록 `idx_support_user_external`을 둔다 |
+
+구 인덱스 `idx_support_user`는 새 인덱스가 `(user_id)` 접두를 포함하므로 제거한다. 코어 격리(원장·매칭·저널 무접촉)는 무변경이다.
+
+문서 헤더 버전을 v2.32로 순증(이전 패치 노트의 역사 서술은 원문 유지).

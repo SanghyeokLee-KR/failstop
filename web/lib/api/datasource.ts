@@ -55,8 +55,8 @@ export interface DataSource {
 
   /** 문의 등록 */
   createInquiry(input: SupportInput): Promise<SupportInquiry>;
-  /** 내 문의 목록. 최신순 */
-  listInquiries(limit?: number): Promise<SupportInquiry[]>;
+  /** 내 문의 한 쪽. (created_at, id) 내림차순. 커서는 §2-6 opaque */
+  listInquiries(opts?: { cursor?: string | null; limit?: number }): Promise<Page<SupportInquiry>>;
 
   /** 효과 강도 조회(§4-A-6). WS push 아님. 갱신은 폴링(useEffectConfigPolling). 실패는 어댑터가 폴백 흡수 */
   getEffectConfig(): Promise<EffectConfig>;
@@ -284,8 +284,24 @@ export class SimDataSource implements DataSource {
     return { ...row };
   }
 
-  async listInquiries(limit = 50): Promise<SupportInquiry[]> {
-    return this.inquiries.slice(0, limit).map((r) => ({ ...r }));
+  async listInquiries(opts: { cursor?: string | null; limit?: number } = {}): Promise<Page<SupportInquiry>> {
+    const limit = Math.max(1, Math.min(opts.limit ?? 50, 100));
+    // sim 커서는 서버와 같은 의미를 갖되 인코딩만 단순하다. 마지막으로 본 external_id다.
+    // 서버 규칙(없는 커서=400)을 여기서도 지킨다. 조용히 첫 쪽으로 되돌리면 sim에서만
+    // 통과하는 화면 코드가 생긴다(listTransfers 동형)
+    let start = 0;
+    if (opts.cursor) {
+      const at = this.inquiries.findIndex((r) => r.external_id === opts.cursor);
+      if (at < 0) throw new ApiError(400, "invalid_parameter", "커서 형식 오류");
+      start = at + 1;
+    }
+    const slice = this.inquiries.slice(start, start + limit);
+    const hasMore = this.inquiries.length > start + limit;
+    return {
+      data: slice.map((r) => ({ ...r })),
+      next_cursor: hasMore && slice.length > 0 ? slice[slice.length - 1].external_id : null,
+      has_more: hasMore,
+    };
   }
 
   /* ===== 입출금 (§4-E) ===== */

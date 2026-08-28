@@ -808,13 +808,15 @@ export class HttpStompDataSource implements DataSource {
     );
   }
 
-  async listInquiries(limit = 50): Promise<SupportInquiry[]> {
-    const body = await this.http<{ data?: SupportInquiry[] }>(
-      `/api/v1/support?limit=${limit}`,
+  async listInquiries(opts: { cursor?: string | null; limit?: number } = {}): Promise<Page<SupportInquiry>> {
+    const q = new URLSearchParams({ limit: String(opts.limit ?? 50) });
+    if (opts.cursor) q.set("cursor", opts.cursor);
+    const body = await this.http<Page<SupportInquiry> & { data: SupportInquiry[] | null }>(
+      `/api/v1/support?${q}`,
       {},
       true,
     );
-    return body.data ?? [];
+    return { data: body.data ?? [], next_cursor: body.next_cursor ?? null, has_more: !!body.has_more };
   }
 
   /* ===== 입출금 (§4-E) ===== */

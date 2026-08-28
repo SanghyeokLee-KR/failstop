@@ -1,0 +1,23 @@
+/* 카드 바닥에 붙는다. 목록이 짧아도 위로 따라 올라오면 카드마다 다른 높이에 앉아
+   쪽을 넘길 때마다 표적이 움직인다. margin-top:auto로 자리를 고정한다.
+   가운데에 둔다. 이전과 다음은 같은 무게의 두 방향이라 축이 가운데인 편이 관계가
+   그대로 보이고, 넓은 목록 카드에서 한쪽으로 쏠리지 않는다 */
+.pager {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* 총 쪽수를 모르므로 위치가 아니라 현재값이다. 버튼 사이에서 눈금 역할만 한다 */
+.at {
+  min-width: 4ch;
+  text-align: center;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}

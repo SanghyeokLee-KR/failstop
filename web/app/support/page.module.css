@@ -182,6 +182,44 @@
   overflow-wrap: break-word;
 }
 
+/* 본문 상한이 2000자다. 한 건이 서른 줄을 넘게 차지하면 쪽을 나눠도 카드 높이가 잡히지
+   않는다. 목록에서는 어느 문의인지 알아볼 만큼만 남기고 나머지는 펼치기 뒤로 둔다.
+   line-clamp 표준 속성을 함께 적어 -webkit- 접두만 보는 구현에 묶이지 않는다 */
+.itemBody[data-clamped="true"] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+/* 본문 왼쪽 끝에 맞춰 이어 읽히게 두고, 링크가 아니라 같은 자리에서 여닫는 조작이라
+   밑줄은 쓰지 않는다. 시각 높이를 키우지 않는 이유는 이 버튼이 항목마다 붙어 목록
+   전체의 세로를 좌우하기 때문이다. 히트 44px는 ::after 확장이 맡는다(icon-btn 관례) */
+.itemMore {
+  position: relative;
+  align-self: flex-start;
+  padding: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+}
+.itemMore::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  min-width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+.itemMore:hover {
+  color: var(--text-strong);
+}
+
 /* 답변은 질문에 이어 붙는다. 들여쓰기와 면으로 발화자가 갈린다.
    별도 카드로 띄우면 어느 질문의 답인지 다시 찾아야 한다 */
 .answer {
