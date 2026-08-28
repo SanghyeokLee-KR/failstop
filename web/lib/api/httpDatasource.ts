@@ -11,6 +11,7 @@
 
 import { Client, TickerStrategy, type IMessage } from "@stomp/stompjs";
 import type {
+  Page,
   Asset,
   Candle,
   CandleUnit,
@@ -831,13 +832,15 @@ export class HttpStompDataSource implements DataSource {
     );
   }
 
-  async listTransfers(limit = 50): Promise<TransferRequest[]> {
-    const body = await this.http<{ data: TransferRequest[] }>(
-      `/api/v1/transfers?limit=${limit}`,
+  async listTransfers(opts: { cursor?: string | null; limit?: number } = {}): Promise<Page<TransferRequest>> {
+    const q = new URLSearchParams({ limit: String(opts.limit ?? 50) });
+    if (opts.cursor) q.set("cursor", opts.cursor);
+    const body = await this.http<Page<TransferRequest> & { data: TransferRequest[] | null }>(
+      `/api/v1/transfers?${q}`,
       {},
       true,
     );
-    return body.data ?? [];
+    return { data: body.data ?? [], next_cursor: body.next_cursor ?? null, has_more: !!body.has_more };
   }
 
   async cancelTransfer(externalId: string): Promise<TransferRequest> {

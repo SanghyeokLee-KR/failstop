@@ -36,6 +36,11 @@ const DIRECTIONS: { value: TransferDirection; label: string }[] = [
 /** 자주 쓰는 금액. 매번 0을 여섯 번 누르게 하지 않는다 */
 const QUICK_AMOUNTS = ["100000", "1000000", "10000000"];
 
+/* 한 쪽 8건. 내역 카드는 왼쪽 폼 높이에 맞춰 늘어나므로, 가득 찬 쪽이 그 높이를 넘지
+   않아야 쪽을 넘겨도 카드가 흔들리지 않는다. 8건 + 머리글 + 페이저가 폼 높이 안에 든다.
+   서버 상한은 100이고 여기서는 화면이 정한다 */
+const PAGE_SIZE = 8;
+
 const STATUS_LABEL: Record<string, string> = {
   REQUESTED: "승인 대기",
   PENDING: "처리 중",
@@ -57,6 +62,11 @@ export default function TransfersPage() {
   const [amount, setAmount] = useState("");
   const [rows, setRows] = useState<TransferRequest[] | null>(null);
   const [listFailed, setListFailed] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  /* 커서는 앞으로만 발급된다(§2-6). 뒤로 가려면 지나온 쪽의 시작 커서를 들고 있어야 한다.
+     i번째 칸이 i쪽을 여는 커서고 첫 쪽은 null이다. 화면에 그리지 않으므로 ref로 둔다 */
+  const cursorsRef = useRef<(string | null)[]>([null]);
   const [busy, setBusy] = useState(false);
   const [touched, setTouched] = useState(false);
   /* 멱등 키는 제출 단위로 고정한다. 재시도마다 새로 만들면 서버 UNIQUE(user_id, idem_key)가
@@ -74,20 +84,36 @@ export default function TransfersPage() {
   const krw = assets.find((a) => a.currency === "KRW");
   const availableKrw = krw?.balance ?? "0";
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (target = 0) => {
     if (!session) return;
     setListFailed(false);
     try {
-      setRows(await getDataSource().listTransfers(50));
+      const res = await getDataSource().listTransfers({
+        cursor: cursorsRef.current[target] ?? null,
+        limit: PAGE_SIZE,
+      });
+      // 다음 쪽 커서는 이번 쪽을 읽어야 알 수 있다. 읽은 자리에 채워 다음 이동에 쓴다
+      cursorsRef.current[target + 1] = res.next_cursor;
+      setRows(res.data);
+      setHasMore(res.has_more);
+      setPage(target);
     } catch {
       setRows(null);
       setListFailed(true);
     }
   }, [session]);
 
-  useEffect(() => {
-    void load();
+  /* 새 요청이 목록 맨 위에 끼면 지나온 쪽 경계가 한 칸씩 밀린다. 들고 있던 커서는
+     그 밀림을 모르므로 버리고 첫 쪽부터 다시 센다. 취소는 행이 제자리에서 상태만
+     바뀌므로 커서가 그대로 유효하고, 보던 쪽에 머무른다 */
+  const reload = useCallback(() => {
+    cursorsRef.current = [null];
+    return load(0);
   }, [load]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   const amountError = useMemo(() => {
     if (!amount) return "금액 입력 필요";
@@ -121,7 +147,7 @@ export default function TransfersPage() {
         row.status === "COMPLETED" ? "입금 완료" : "출금 요청 접수. 승인 대기",
         row.status === "COMPLETED" ? "success" : "info",
       );
-      void load();
+      void reload();
       void loadAccounts();
     } catch (err) {
       // 서버가 코드를 주면 그걸 쓰고, 아니면 일반 문구로 떨어뜨린다. 서버 문장을 그대로
@@ -136,7 +162,7 @@ export default function TransfersPage() {
     try {
       await getDataSource().cancelTransfer(row.external_id);
       toast("출금 요청 취소", "info");
-      void load();
+      void load(page);
       void loadAccounts();
     } catch (err) {
       toast(transferErrorCopy(err), "error");
@@ -149,7 +175,10 @@ export default function TransfersPage() {
         <h1 className="sr-only">입출금</h1>
         <ConnectionBanner />
         <section className={`card ${styles.gate}`} aria-labelledby="gate-title">
-          <span className="empty-state__mark" aria-hidden="true" />
+          {/* 빈 상태 표식을 두지 않는다. 여기는 비어 있는 화면이 아니라 막혀 있는
+              화면이다. 데이터가 0건이라 보여줄 것이 없는 것과, 자격이 없어 못 보는 것은
+              사용자가 할 일이 다르다. 같은 회색 블록을 쓰면 두 상황이 한 종류로 읽힌다.
+              문장 하나와 갈 곳 두 개면 충분하다 */}
           <h2 id="gate-title" className={styles.gateTitle}>
             로그인 후 이용
           </h2>
@@ -272,20 +301,21 @@ export default function TransfersPage() {
           </div>
 
           {rows === null && !listFailed ? (
-            <Skeleton variant="card" width="100%" height={220} />
+            <Skeleton variant="card" width="100%" height={220} className={styles.skeletonFill} />
           ) : listFailed ? (
             <div className="empty-state empty-state--compact" role="alert">
               <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
               <span className="empty-state__title">내역을 불러오지 못함</span>
-              <button type="button" className="btn btn--secondary" onClick={() => void load()}>
+              <button type="button" className="btn btn--secondary" onClick={() => void load(page)}>
                 다시 시도
               </button>
             </div>
           ) : rows && rows.length === 0 ? (
             <div className="empty-state empty-state--compact">
               <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+              {/* 입금 폼이 왼쪽에 있다. "첫 입금으로 시작"은 그 폼이 이미 하는 권유다.
+                  다음 행동이 화면 밖에 있을 때만 빈 상태가 그것을 말한다 */}
               <span className="empty-state__title">입출금 내역 없음</span>
-              <span className="empty-state__desc">첫 입금으로 시작</span>
             </div>
           ) : (
             <ul className={styles.list}>
@@ -313,6 +343,34 @@ export default function TransfersPage() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {/* 갈 곳이 있을 때만 나온다. 첫 쪽뿐인 사용자에게 비활성 버튼 두 개를 보여줄
+              이유가 없다. 카드 높이는 왼쪽 폼에 잠겨 있어 나타나고 사라져도 흔들리지 않는다.
+              커서 페이지네이션이라 총 쪽수를 모른다. 전체 대비 위치를 지어내지 않고
+              지금 몇 쪽인지만 말한다 */}
+          {(page > 0 || hasMore) && (
+            <nav className={styles.pager} aria-label="입출금 내역 쪽 이동">
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => void load(page - 1)}
+                disabled={page === 0}
+              >
+                이전
+              </button>
+              <span className={`${styles.pagerAt} num`} aria-live="polite">
+                {page + 1}쪽
+              </span>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => void load(page + 1)}
+                disabled={!hasMore}
+              >
+                다음
+              </button>
+            </nav>
           )}
         </section>
       </div>

@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.26, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.27, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -942,6 +942,8 @@ POST /api/v1/orders
 
 **금액 규약**: 문자열 NUMERIC(40,18). KRW는 `price_scale`로 양자화하고 소수점 이하를 허용하지 않는다. 1회 한도는 데모 가드로 `MAX_TRANSFER_KRW`(1억)이다. 실제 한도 정책이 아니라 표시·입력 파손을 막는 상한이다.
 
+**목록 페이지네이션**: `GET /api/v1/transfers`는 §2-6 opaque 커서를 그대로 따른다. 정렬 축은 `(created_at DESC, id DESC)`이고 커서는 `(created_at, external_id)`를 base64url JSON으로 감싼 값이다(`Cursors`). 내부 BIGINT PK는 노출하지 않는다. `count` 대신 `limit`(기본 50, ≤100)을 쓰며 서버는 한 건을 더 읽어 `has_more`를 판정한다. 마지막 쪽의 `next_cursor`는 `null`이다. 커서 행은 `user_id` 스코프로 되짚으므로 타인의 `external_id`를 커서로 넘기면 `invalid_parameter`다(정렬 위치 탐침 차단). V16 인덱스 `idx_transfer_user_keyset`이 이 축을 커버한다.
+
 **신규 에러코드**(§2-3 확장).
 
 | HTTP | name | 의미 |
@@ -1704,3 +1706,20 @@ v2.17이 E1 라이브 PASS(errorRate 0, epoch 불변, 주입 중 status 200 유�
 | L3 | §6-A | `GET /sim/status` schema 1.2: top-level `running`·`paused` additive 추가(기존 1.1 소비자 무영향). 웹 콘솔이 `fleet_present`를 running으로 오독해 쓰던 임시 매핑을 실제 수명주기 상태로 대체하기 위한 원천이다 |
 
 문서 헤더 버전을 v2.22로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.27 패치 반영 사항
+
+§4-E `GET /api/v1/transfers`가 `cursor`를 받으면서 `next_cursor`를 항상 `null`로 내려, 표에 "커서 페이지네이션(§2-6)"이라 적힌 리스트를 클라이언트가 2쪽으로 넘길 수 없었다. 발급 경로를 열고 커서 형식을 §2-6 정본에 맞춘다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| 1 | §4-E 목록 | `has_more`가 참이면 `next_cursor`를 발급한다. 종전에는 리터럴 `null` 고정이라 문서상 커서 리스트가 실제로는 첫 쪽 전용이었다 |
+| 2 | §4-E 목록 | 커서를 내부 BIGINT PK의 10진 문자열에서 §2-6 opaque `(created_at, external_id)` base64url로 교체한다(공용 `Cursors`). 종전 형식은 §2-6의 "내부 BIGINT PK 미노출"에 어긋났고 행 개수·채번 속도를 유추할 여지를 뒀다 |
+| 3 | §4-E 목록 | 정렬 축을 `(created_at DESC, id DESC)`로 옮긴다. `id` 단독 축은 겹친 트랜잭션에서 시각 순서와 갈려 요청 축과 응답 축이 어긋난다(§2-6). DB 설계 v2.31 `idx_transfer_user_keyset`이 이 축을 덮는다 |
+| 4 | §4-E 목록 | 커서 앵커를 `user_id` 스코프로 되짚는다. 타인의 `external_id`를 커서로 넘겨 남의 정렬 위치를 캐던 무경계 조회를 막고, 부재·위조 커서는 형식 오류와 같은 `invalid_parameter`(400)로 정규화한다. 조용한 빈 쪽은 목록의 끝으로 오독된다. 주문 목록(§4-B)의 선례와 동일하다 |
+
+파라미터는 `limit`(기본 50, ≤100)을 유지한다(§2-6의 `count`와 이름이 다르나 종전 계약 보존). 엔벌로프·에러코드·멱등·금액 규약은 무변경이다.
+
+문서 헤더 버전을 v2.27로 순증(이전 패치 노트의 역사 서술은 원문 유지).

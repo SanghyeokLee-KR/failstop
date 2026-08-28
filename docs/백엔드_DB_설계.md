@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.30)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.31)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V14+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -955,6 +955,12 @@ CREATE TABLE transfer_requests (
 );
 CREATE INDEX idx_transfer_pending ON transfer_requests (status, created_at)
     WHERE status IN ('REQUESTED','PENDING');
+-- 사용자 내역 커서 페이지네이션(API 설계 §2-6). 정렬 축은 (created_at DESC, id DESC)다.
+-- id 단독 축은 겹친 트랜잭션에서 시각 순서와 어긋나 페이지 경계가 화면 정렬과 갈린다.
+-- 주문 목록과 같은 축을 쓴다 (V16)
+CREATE INDEX idx_transfer_user_keyset ON transfer_requests (user_id, created_at DESC, id DESC);
+-- 커서 앵커 되짚기. 사용자 스코프를 필터가 아니라 인덱스로 확인한다 (V16)
+CREATE INDEX idx_transfer_user_external ON transfer_requests (user_id, external_id);
 
 -- ────────────────────────────────────────────────────────────────
 -- 6. HA / 복구
@@ -2787,3 +2793,18 @@ v2.23·v2.24 강등 등급 분리의 적대적 검토가 남긴 정합성 결함
 불변식: `leader_lease` 무접촉, epoch+1 만료 구동 승격, fencing 단조(C22), 스테일 append 0행 거부, RPO0, 재생 결정론, `client_order_id` 멱등, 원장 합=0 전부 무변경. 1·2 모두 강등을 **덜 내리는** 방향이지만 접수 개방 조건은 그대로라 열린 게이트 위의 상실은 종전대로 종신이다. 곧 이중 리더·반쪽 리더 위험을 늘리지 않는다.
 
 문서 헤더 버전을 v2.29로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.31 패치 반영 사항
+
+입출금 내역 커서 페이지네이션의 정렬 축을 교정한다(V16). 테이블·컬럼·함수·제약은 무변경이고 인덱스만 바뀐다.
+
+| # | 심각도 | 위치 | 내용 |
+|---|---|---|---|
+| 1 | medium | `transfer_requests` 인덱스 | V14는 `(user_id, id DESC)`로 잡고 목록도 `id DESC`로 정렬했다. `id`는 IDENTITY라 유일하지만 `created_at` 순서와 항상 같지는 않다. 겹친 트랜잭션에서 늦게 시작해 먼저 커밋한 요청이 더 작은 id를 받으므로 화면의 시각 정렬과 쪽 경계가 갈린다. 그 상태로 커서를 `(created_at, external_id)`로 발급하면 요청 축과 응답 축이 어긋난다(API 설계 §2-6). 정렬을 `(created_at DESC, id DESC)`로 옮기고 `idx_transfer_user_keyset`을 같은 축으로 만든다. 주문 목록이 쓰는 축과 동일하다 |
+| 2 | low | `transfer_requests` 커서 앵커 | 커서 앵커를 `(user_id, external_id)`로 되짚는다. `external_id` UNIQUE만으로도 찾히지만 그 경로는 사용자 스코프를 인덱스가 아니라 필터로 확인한다. 타인의 `external_id`를 커서로 넘기는 조회가 정상 트래픽과 같은 비용을 쓰지 않도록 `idx_transfer_user_external`을 둔다 |
+
+구 인덱스 `idx_transfer_user`는 새 인덱스가 `(user_id)` 접두를 포함하므로 제거한다. 원장 합=0, 단일 자금 경로(`post_ledger_transaction`·`reserve_funds`·`release_funds`), `business_event_id` 네임스페이스는 무변경이다.
+
+문서 헤더 버전을 v2.31로 순증(이전 패치 노트의 역사 서술은 원문 유지).

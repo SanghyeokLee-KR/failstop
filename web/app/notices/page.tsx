@@ -61,8 +61,9 @@ export default function NoticesPage() {
         <section className="card">
           <div className="empty-state empty-state--compact">
             <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+            {/* 헤더가 이미 "점검·장애·기능 변경 안내"라고 말했다. 빈 목록 아래에서
+                같은 말을 반복하면 두 번 읽히기만 하고 새로 아는 것이 없다 */}
             <span className="empty-state__title">등록된 공지 없음</span>
-            <span className="empty-state__desc">점검·장애 안내가 있으면 여기에 표시</span>
           </div>
         </section>
       ) : (

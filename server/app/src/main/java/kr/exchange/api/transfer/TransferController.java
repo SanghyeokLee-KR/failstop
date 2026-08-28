@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.auth.AuthPrincipal;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.Cursors;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -68,17 +69,22 @@ public class TransferController {
                                     @RequestParam(defaultValue = "50") int limit) {
         long userId = memberId(request);
         int capped = Math.max(1, Math.min(limit, MAX_LIMIT));
-        long beforeId = parseCursor(cursor);
+        Cursors.Cursor decoded = cursor == null || cursor.isBlank() ? null : Cursors.decode(cursor);
         // 한 건 더 읽어 다음 쪽 존재를 판단한다. 총 개수 질의는 페이지마다 전 범위를 세므로 쓰지 않는다
-        List<Map<String, Object>> rows = transfers.listMine(userId, beforeId, capped + 1);
+        List<TransferService.Row> rows = transfers.listMine(userId, decoded, capped + 1);
         boolean hasMore = rows.size() > capped;
-        List<Map<String, Object>> data = hasMore ? rows.subList(0, capped) : rows;
+        List<TransferService.Row> page = hasMore ? rows.subList(0, capped) : rows;
+        String nextCursor = null;
+        if (hasMore) {
+            TransferService.Row last = page.get(page.size() - 1);
+            nextCursor = Cursors.encode(last.createdAt(), last.externalId());
+        }
         Map<String, Object> pagination = new LinkedHashMap<>();
-        pagination.put("next_cursor", null);
+        pagination.put("next_cursor", nextCursor);
         pagination.put("has_more", hasMore);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("schema_version", ApiFormats.SCHEMA_VERSION);
-        out.put("data", data);
+        out.put("data", page.stream().map(TransferService.Row::view).toList());
         out.put("pagination", pagination);
         return out;
     }
@@ -97,21 +103,6 @@ public class TransferController {
         return out;
     }
 
-    /** 커서는 마지막으로 본 내부 id다. 형식이 깨지면 첫 쪽으로 되돌리지 않고 거절한다 */
-    private static long parseCursor(String cursor) {
-        if (cursor == null || cursor.isBlank()) {
-            return 0L;
-        }
-        try {
-            long v = Long.parseLong(cursor.trim());
-            if (v <= 0) {
-                throw new NumberFormatException();
-            }
-            return v;
-        } catch (NumberFormatException e) {
-            throw new ApiException(400, "invalid_parameter", "커서 형식 오류");
-        }
-    }
 
     private static String text(JsonNode body, String field) {
         JsonNode node = body.get(field);

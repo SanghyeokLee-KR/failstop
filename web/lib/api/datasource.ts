@@ -6,6 +6,7 @@
  */
 
 import type {
+  Page,
   Asset,
   Candle,
   CandleUnit,
@@ -94,8 +95,8 @@ export interface DataSource {
 
   /** 입출금 요청. idemKey는 재시도 시 같은 값을 재사용한다(주문 client_order_id 동형) */
   requestTransfer(input: TransferInput, idemKey: string): Promise<TransferRequest>;
-  /** 내 입출금 내역. 최신순 */
-  listTransfers(limit?: number): Promise<TransferRequest[]>;
+  /** 내 입출금 내역 한 쪽. (created_at, id) 내림차순. 커서는 §2-6 opaque */
+  listTransfers(opts?: { cursor?: string | null; limit?: number }): Promise<Page<TransferRequest>>;
   /** 출금 요청 취소. REQUESTED 상태만 가능하고 잠금이 풀린다 */
   cancelTransfer(externalId: string): Promise<TransferRequest>;
 }
@@ -329,8 +330,24 @@ export class SimDataSource implements DataSource {
     return stripIdem(row);
   }
 
-  async listTransfers(limit = 50): Promise<TransferRequest[]> {
-    return this.transfers.slice(0, limit).map(stripIdem);
+  async listTransfers(opts: { cursor?: string | null; limit?: number } = {}): Promise<Page<TransferRequest>> {
+    const limit = Math.max(1, Math.min(opts.limit ?? 50, 100));
+    // sim 커서는 서버와 같은 의미를 갖되 인코딩만 단순하다. 마지막으로 본 external_id다.
+    // 서버 규칙(없는 커서=400)을 여기서도 지킨다. 조용히 첫 쪽으로 되돌리면 sim에서만
+    // 통과하는 화면 코드가 생긴다
+    let start = 0;
+    if (opts.cursor) {
+      const at = this.transfers.findIndex((t) => t.external_id === opts.cursor);
+      if (at < 0) throw new ApiError(400, "invalid_parameter", "커서 형식 오류");
+      start = at + 1;
+    }
+    const slice = this.transfers.slice(start, start + limit);
+    const hasMore = this.transfers.length > start + limit;
+    return {
+      data: slice.map(stripIdem),
+      next_cursor: hasMore && slice.length > 0 ? slice[slice.length - 1].external_id : null,
+      has_more: hasMore,
+    };
   }
 
   async cancelTransfer(externalId: string): Promise<TransferRequest> {

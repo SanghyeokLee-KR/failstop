@@ -10,12 +10,32 @@
   gap: var(--space-5);
 }
 
-/* 폼은 읽고 채우는 좁은 열, 내역은 훑는 넓은 열. 두 작업의 시선 폭이 다르다 */
+/* 폼은 읽고 채우는 좁은 열, 내역은 훑는 넓은 열. 두 작업의 시선 폭이 다르다.
+   높이는 stretch다. start로 두면 내역이 비었을 때 오른쪽 카드가 227px로 주저앉아
+   폼(547px) 옆에서 만들다 만 화면으로 읽힌다. 두 열은 한 덩어리로 보여야 한다.
+   대신 폼만 align-self로 빼둔다. 내역이 길어져 행이 커질 때 폼까지 늘어나면
+   짧은 폼 아래로 빈 카드가 길게 남는다. 늘어나는 쪽은 목록이지 폼이 아니다 */
 .grid {
   display: grid;
   grid-template-columns: 380px minmax(0, 1fr);
   gap: var(--space-5);
-  align-items: start;
+  align-items: stretch;
+}
+.formCard { align-self: start; }
+
+/* 늘어난 카드 안에서 빈 상태가 세로 중앙에 선다. 위에 붙어 있으면 카드가 커질수록
+   아래 여백만 늘어 빈 것이 아니라 잘린 것처럼 보인다 */
+.historyCard > :global(.empty-state) {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 로딩 자리는 채워질 자리와 같은 크기여야 한다. 220px로 고정하면 늘어난 카드 아래가
+   비어, 다 불러온 뒤 목록이 그 빈 곳까지 차오르는 것처럼 두 번 움직인다.
+   Skeleton은 인라인 height를 쓰므로 flex-basis로 덮는다 */
+.skeletonFill {
+  flex: 1;
+  min-height: 0;
 }
 
 .formCard,
@@ -204,12 +224,18 @@
 
 /* ===== 비회원 유도 ===== */
 
+/* 막힌 화면은 로그인으로 이어지는 순간이다. 인증 카드(§4-3)와 같은 480px 규격을 써서
+   같은 순간으로 읽히게 한다. 1200px 카드에 세 줄을 담으면 읽는 폭과 카드 폭이 세 배
+   벌어져 빈 띠가 된다. 세로도 위에서 조금 내려 시선 높이에 둔다 */
 .gate {
+  width: 100%;
+  max-width: 480px;
+  margin: var(--space-10) auto 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-10) var(--layout-gutter);
+  padding: var(--space-8) var(--space-7);
   text-align: center;
 }
 .gateTitle {
@@ -219,13 +245,41 @@
   color: var(--text-strong);
 }
 .gateDesc {
-  max-width: 46ch;
   font-size: var(--font-body-size);
   line-height: var(--font-body-line);
   color: var(--text-secondary);
+  text-wrap: balance;
   word-break: keep-all;
 }
 .gateActions {
   display: flex;
   gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.gateActions > * { flex: 1; }
+
+/* 페이저는 카드 바닥에 붙는다. 목록이 짧아도 위로 따라 올라오면 카드마다 다른 높이에
+   앉아 쪽을 넘길 때마다 표적이 움직인다. margin-top:auto로 자리를 고정한다.
+   가운데에 둔다. 목록 카드가 752px로 넓어 오른쪽에 몰면 바닥이 한쪽으로 쏠리고,
+   이전과 다음은 같은 무게의 두 방향이라 축이 가운데인 편이 관계가 그대로 보인다 */
+.pager {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* 총 쪽수를 모르므로 위치가 아니라 현재값이다. 버튼 사이에서 눈금 역할만 한다 */
+.pagerAt {
+  min-width: 4ch;
+  text-align: center;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }

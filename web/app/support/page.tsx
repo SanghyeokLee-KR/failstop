@@ -112,7 +112,10 @@ export default function SupportPage() {
         <h1 className="sr-only">문의하기</h1>
         <ConnectionBanner />
         <section className={`card ${styles.gate}`} aria-labelledby="support-gate-title">
-          <span className="empty-state__mark" aria-hidden="true" />
+          {/* 빈 상태 표식을 두지 않는다. 여기는 비어 있는 화면이 아니라 막혀 있는
+              화면이다. 데이터가 0건이라 보여줄 것이 없는 것과, 자격이 없어 못 보는 것은
+              사용자가 할 일이 다르다. 같은 회색 블록을 쓰면 두 상황이 한 종류로 읽힌다.
+              문장 하나와 갈 곳 두 개면 충분하다 */}
           <h2 id="support-gate-title" className={styles.gateTitle}>
             로그인 후 이용
           </h2>
@@ -197,10 +200,11 @@ export default function SupportPage() {
               </span>
             </label>
 
-            {/* 기다림의 성격을 제출 전에 말한다. 데모라 시간 약속은 못 하지만
-                어디서 답을 읽는지는 확정 사실이다 */}
+            {/* 기다림의 성격을 제출 전에 말한다. 데모라 시간 약속은 못 하지만 알림이
+                없다는 것과 어디서 읽는지는 확정 사실이다. 목록의 화면상 위치는 빼고
+                "이 화면"으로 둔다. 옆에 보이는 것을 글자로 가리키지 않는다 */}
             <p className={styles.note} role="note">
-              운영자가 확인 후 답변. 등록되면 오른쪽 목록에 표시. 별도 알림 발송 없음
+              운영자가 확인 후 답변. 별도 알림 없이 이 화면에 표시
             </p>
 
             <button
@@ -222,7 +226,7 @@ export default function SupportPage() {
           </div>
 
           {rows === null && !listFailed ? (
-            <Skeleton variant="card" width="100%" height={240} />
+            <Skeleton variant="card" width="100%" height={240} className={styles.skeletonFill} />
           ) : listFailed ? (
             <div className="empty-state empty-state--compact" role="alert">
               <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
@@ -234,8 +238,10 @@ export default function SupportPage() {
           ) : rows && rows.length === 0 ? (
             <div className="empty-state empty-state--compact">
               <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+              {/* 설명을 붙이지 않는다. 문의 폼이 같은 화면 왼쪽에 그대로 보이므로
+                  "왼쪽 폼으로 등록"은 화면에 있는 것을 글자로 다시 가리키는 말이다.
+                  답변이 오는 방식도 폼 안내문이 이미 말한다. 사실만 남긴다 */}
               <span className="empty-state__title">문의 내역 없음</span>
-              <span className="empty-state__desc">왼쪽 폼으로 문의 등록</span>
             </div>
           ) : (
             <ol className={styles.list}>

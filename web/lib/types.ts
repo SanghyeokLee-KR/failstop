@@ -372,6 +372,18 @@ export interface TransferInput {
 }
 
 /** 입출금 요청 한 건. 내부 PK와 처리자는 노출되지 않는다 */
+/**
+ * 커서 페이지 한 쪽(API 설계 §2-6).
+ *
+ * 와이어 필드명을 그대로 쓴다. http 데이터소스가 응답을 재조립하지 않아야 sim과 http가
+ * 같은 모양을 돌려주는지 눈으로 대조된다. next_cursor는 마지막 쪽에서 null이다.
+ */
+export interface Page<T> {
+  data: T[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
 export interface TransferRequest {
   external_id: string;
   direction: TransferDirection;

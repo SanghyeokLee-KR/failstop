@@ -1,6 +1,7 @@
 package kr.exchange.api.transfer;
 
 import kr.exchange.api.common.ApiException;
+import kr.exchange.api.common.Cursors;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -8,10 +9,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * 원화 입출금(API 설계 §4-E).
@@ -169,19 +172,72 @@ public class TransferService {
 
     /* ===== 조회 ===== */
 
-    public List<Map<String, Object>> listMine(long userId, long beforeId, int limit) {
-        return jdbc.sql("""
-                        SELECT t.*, a.symbol AS asset_symbol FROM transfer_requests t
-                        JOIN assets a ON a.id = t.asset_id
-                        WHERE t.user_id = ? AND (? = 0 OR t.id < ?)
-                        ORDER BY t.id DESC LIMIT ?
-                        """)
-                .params(userId, beforeId, beforeId, limit)
+    /**
+     * 내 입출금 내역 한 쪽(§2-6).
+     *
+     * 정렬 축은 (created_at, id)다. id 단독 내림차순은 겹친 트랜잭션에서 created_at 순서와
+     * 어긋난다. 늦게 시작해 먼저 커밋한 요청이 작은 id를 받으므로 화면의 시각 정렬과
+     * 페이지 경계가 갈린다. 주문 목록(OrderQueryService.page)이 같은 이유로 같은 축을 쓴다.
+     *
+     * 커서 행은 user_id 스코프로 되짚는다. 남의 external_id를 커서로 넘겨 정렬 위치를 캐는
+     * 경로를 막는다. 커서가 가리키는 행이 없으면 형식 오류와 같은 400이다. 조용한 빈 쪽을
+     * 돌려주면 클라이언트는 목록의 끝으로 오해한다.
+     */
+    public List<Row> listMine(long userId, Cursors.Cursor cursor, int limit) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT t.*, a.symbol AS asset_symbol FROM transfer_requests t
+                JOIN assets a ON a.id = t.asset_id
+                WHERE t.user_id = ?
+                """);
+        List<Object> params = new ArrayList<>(List.of(userId));
+        if (cursor != null) {
+            // 커서의 ts를 그대로 바인딩하지 않는다. Cursors가 보존하는 정밀도와 컬럼 정밀도가
+            // 어긋나면 같은 시각 경계 행이 다음 쪽에서 사라진다. 실제 행 값을 다시 읽어 쓴다
+            Anchor anchor = jdbc.sql(
+                            "SELECT created_at, id FROM transfer_requests WHERE user_id = ? AND external_id = ?")
+                    .params(userId, parseCursorId(cursor.id()))
+                    .query((rs, rn) -> new Anchor(
+                            rs.getObject("created_at", OffsetDateTime.class), rs.getLong("id")))
+                    .optional()
+                    .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서 형식 오류"));
+            sql.append(" AND (t.created_at, t.id) < (?, ?)");
+            params.add(anchor.createdAt());
+            params.add(anchor.id());
+        }
+        sql.append(" ORDER BY t.created_at DESC, t.id DESC LIMIT ?");
+        params.add(limit);
+        return jdbc.sql(sql.toString())
+                .params(params)
                 .query()
                 .listOfRows()
                 .stream()
-                .map(this::view)
+                .map(row -> new Row(
+                        view(row),
+                        offsetDateTime(row.get("created_at")),
+                        String.valueOf(row.get("external_id"))))
                 .toList();
+    }
+
+    /**
+     * 한 행의 표시용 뷰와 커서 재료.
+     *
+     * created_at을 뷰의 epoch millis에서 되돌려 쓰지 않는다. 뷰는 밀리초로 절단하는데
+     * 컬럼은 마이크로초라, 절단값으로 커서를 만들면 같은 밀리초 안의 행이 다음 쪽에서
+     * 누락된다(Cursors.encode 주석과 같은 함정).
+     */
+    public record Row(Map<String, Object> view, OffsetDateTime createdAt, String externalId) {
+    }
+
+    private record Anchor(OffsetDateTime createdAt, long id) {
+    }
+
+    /** 조작 커서 방어(§2-6). 비UUID는 500이 아니라 400으로 정규화한다 */
+    private static UUID parseCursorId(String id) {
+        try {
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw new ApiException(400, "invalid_parameter", "커서 형식 오류");
+        }
     }
 
     public List<Map<String, Object>> listQueue(String statusFilter, int limit) {
@@ -341,6 +397,25 @@ public class TransferService {
         v.put("created_at", epochMillis(row.get("created_at")));
         v.put("updated_at", epochMillis(row.get("updated_at")));
         return v;
+    }
+
+    /**
+     * listOfRows()는 컬럼 타입을 드라이버가 정하는 대로 담는다. TIMESTAMPTZ가
+     * java.sql.Timestamp로 오는 경로가 있어 OffsetDateTime 직캐스팅은 500이 된다.
+     * epochMillis가 같은 이유로 세 타입을 받는다. 커서 재료는 시간대까지 필요하므로
+     * Timestamp는 시스템 기본대가 아니라 UTC로 올린다(커서는 순서용이라 절대시각만 맞으면 된다).
+     */
+    private static OffsetDateTime offsetDateTime(Object value) {
+        if (value instanceof OffsetDateTime odt) {
+            return odt;
+        }
+        if (value instanceof Instant instant) {
+            return instant.atOffset(java.time.ZoneOffset.UTC);
+        }
+        if (value instanceof java.sql.Timestamp ts) {
+            return ts.toInstant().atOffset(java.time.ZoneOffset.UTC);
+        }
+        throw new IllegalStateException("created_at 타입 미지원: " + value);
     }
 
     private static Long epochMillis(Object value) {

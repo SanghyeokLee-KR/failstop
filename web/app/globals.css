@@ -239,12 +239,16 @@ a { color: inherit; text-decoration: none; }
 .empty-state--compact {
   padding: var(--space-6) var(--layout-gutter);
 }
-/* 한글 중앙 정렬 문구는 어절 중간 개행("쌓입/니다")이 고아 줄로 도드라진다. keep-all로 어절 단위 개행 */
+/* 한글 중앙 정렬 문구는 어절 중간 개행("쌓입/니다")이 고아 줄로 도드라진다. keep-all로 어절 단위 개행.
+   keep-all은 어절을 쪼개는 것만 막는다. 마지막 어절 하나가 다음 줄로 떨어지는 고아 줄은 따로 남는다
+   (게이트 실측 414px / 26px). balance가 줄 길이를 고르게 나눠 그 잔여를 없앤다. 미지원 브라우저는
+   기존 개행으로 되돌아갈 뿐이라 안전하다 */
 .empty-state__title {
   font-size: var(--font-body-size);
   line-height: var(--font-body-line);
   font-weight: var(--fw-semibold);
   color: var(--text-secondary);
+  text-wrap: balance;
   word-break: keep-all;
   overflow-wrap: break-word;
 }
@@ -252,6 +256,7 @@ a { color: inherit; text-decoration: none; }
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   color: var(--text-secondary); /* 안내 문구=정보 전달, tertiary 금지 (§2) */
+  text-wrap: balance;
   word-break: keep-all;
   overflow-wrap: break-word;
 }
