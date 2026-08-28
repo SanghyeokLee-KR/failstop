@@ -1,0 +1,304 @@
+"use client";
+
+/**
+ * 회원 운영(/admin/members). API 설계 §6-E, 관리자_설계 §2-4.
+ *
+ * 정지·복구는 가역이라 즉시 실행하고, 폐쇄는 비가역이라 2인 승인을 거친다. 그 차이가
+ * 화면에서도 보여야 한다. 앞의 둘은 행 안의 버튼이고, 폐쇄는 요청을 만들어 승인 목록으로
+ * 보낸다(RequestButton 경로).
+ *
+ * 선택한 회원의 상세를 옆에 세우는 이유는 폐쇄 판단에 미체결 주문 수가 필요해서다. 목록
+ * 행에는 그 값이 없고, 없이 폐쇄하면 무엇이 함께 취소되는지 모른 채 누르게 된다.
+ */
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
+import type {
+  AdminMember,
+  AdminMemberDetail,
+  AdminPage,
+  MemberStatus,
+} from "@/lib/admin/types";
+import Pager from "@/components/Pager";
+import PanelCard from "@/components/PanelCard";
+import Skeleton from "@/components/Skeleton";
+import SegmentedTab from "@/components/SegmentedTab";
+import DataTable, { type DataColumn } from "@/components/DataTable";
+import RequestButton from "@/components/admin/RequestButton";
+import ApprovalList from "@/components/admin/ApprovalList";
+import { PageHeader, PermissionNote } from "@/components/admin/ui";
+import { useAdminResource } from "@/components/admin/useAdminResource";
+import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { useCan } from "@/lib/admin/store";
+import { toast } from "@/components/Toast";
+import { formatCount, formatHistoryTime } from "@/lib/format";
+import type { DestructiveAction } from "@/lib/admin/types";
+import styles from "@/components/admin/admin.module.css";
+
+const TABS = [
+  { value: "ALL" as const, label: "전체" },
+  { value: "ACTIVE" as const, label: "정상" },
+  { value: "SUSPENDED" as const, label: "정지" },
+  { value: "CLOSED" as const, label: "폐쇄" },
+];
+
+const STATUS_LABEL: Record<MemberStatus, string> = {
+  ACTIVE: "정상",
+  SUSPENDED: "정지",
+  CLOSED: "폐쇄",
+};
+
+const CLOSE_ACTIONS: DestructiveAction[] = ["members.close"];
+
+const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
+
+const PAGE_SIZE = 50;
+
+export default function AdminMembersPage() {
+  const canMod = useCan("MEMBER_MOD");
+  const [filter, setFilter] = useState<MemberStatus | "ALL">("ALL");
+  const [selected, setSelected] = useState<string | null>(null);
+  const [detail, setDetail] = useState<AdminMemberDetail | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const [page, setPage] = useState(0);
+  const cursors = useRef<(string | null)[]>([null]);
+  const loader = useCallback(async () => {
+    const r = await getAdminApi().getMembers(filter === "ALL" ? undefined : filter, {
+      cursor: cursors.current[page] ?? null,
+      limit: PAGE_SIZE,
+    });
+    cursors.current[page + 1] = r.nextCursor;
+    return r;
+  }, [filter, page]);
+  const res = useAdminResource<AdminPage<AdminMember>>(loader, { intervalMs: 30000, isSessionError });
+  const rows = res.data?.data ?? [];
+
+  useEffect(() => {
+    void res.reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, page]);
+
+  const changeFilter = (next: MemberStatus | "ALL") => {
+    cursors.current = [null];
+    setPage(0);
+    setFilter(next);
+  };
+
+  /* 상세는 선택할 때만 읽는다. 목록 폴링에 얹으면 안 보는 회원까지 매 주기 조회한다 */
+  const loadDetail = useCallback(async (externalId: string) => {
+    try {
+      setDetail(await getAdminApi().getMember(externalId));
+    } catch (e) {
+      setDetail(null);
+      toast(e instanceof Error ? e.message : "상세 조회 실패", "error");
+    }
+  }, []);
+
+  const select = (externalId: string) => {
+    setSelected(externalId);
+    setDetail(null);
+    void loadDetail(externalId);
+  };
+
+  const transition = async (externalId: string, to: "SUSPENDED" | "ACTIVE") => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const api = getAdminApi();
+      const t = to === "SUSPENDED"
+        ? await api.suspendMember(externalId)
+        : await api.reinstateMember(externalId);
+      // 무엇이 함께 정리됐는지 되돌려 준다. 세션 폐기는 화면에 보이지 않는 부수 효과다
+      const extra = t.revokedSessions > 0 ? ` · 세션 ${t.revokedSessions}건 폐기` : "";
+      toast(`${STATUS_LABEL[t.status]} 처리 완료${extra}`, "success");
+      void res.reload();
+      if (selected === externalId) void loadDetail(externalId);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "처리 실패", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cols: DataColumn<AdminMember>[] = [
+    {
+      key: "email",
+      label: "이메일",
+      width: "minmax(200px, 1.4fr)",
+      render: (m) => (
+        <button
+          type="button"
+          className={styles.linkCell}
+          onClick={() => select(m.externalId)}
+          aria-pressed={selected === m.externalId}
+        >
+          {m.email}
+        </button>
+      ),
+    },
+    { key: "displayName", label: "표시명", width: "minmax(110px, 1fr)", render: (m) => m.displayName ?? "-" },
+    {
+      key: "status",
+      label: "상태",
+      width: "88px",
+      // 정상은 잉크로 적는다. 이탈(정지·폐쇄)만 알약으로 세운다
+      render: (m) =>
+        m.status === "ACTIVE" ? (
+          <span className={styles.stateText}>정상</span>
+        ) : (
+          <span className={styles.neutralPill}>{STATUS_LABEL[m.status]}</span>
+        ),
+    },
+    {
+      key: "createdAt",
+      label: "가입",
+      width: "150px",
+      render: (m) => <span className="num">{formatHistoryTime(new Date(m.createdAt).toISOString())}</span>,
+    },
+    {
+      key: "actions",
+      label: "조치",
+      width: "180px",
+      render: (m) => {
+        if (m.status === "CLOSED") return <span className={styles.auditNil}>종결</span>;
+        return (
+          <div className={styles.rowActions}>
+            {m.status === "ACTIVE" ? (
+              <button
+                type="button"
+                className={styles.neutralBtn}
+                disabled={!canMod || busy}
+                onClick={() => void transition(m.externalId, "SUSPENDED")}
+              >
+                정지
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.neutralBtn}
+                disabled={!canMod || busy}
+                onClick={() => void transition(m.externalId, "ACTIVE")}
+              >
+                복구
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
+  return (
+    <div className={styles.page}>
+      <PageHeader
+        title="회원 운영"
+        desc="정지·복구는 즉시 반영, 폐쇄는 비가역이라 2인 승인"
+        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
+      />
+
+      {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}
+
+      <div className={styles.transferTabs}>
+        <SegmentedTab items={TABS} value={filter} onChange={changeFilter} ariaLabel="회원 상태 필터" />
+      </div>
+
+      <PanelCard title="회원 목록">
+        {res.error ? (
+          <AdminErrorState reason={res.errorReason} onRetry={() => void res.reload()} />
+        ) : res.data === null ? (
+          <Skeleton variant="card" width="100%" height={240} />
+        ) : rows.length === 0 ? (
+          <div className="empty-state empty-state--compact">
+            <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+            <span className="empty-state__title">해당 상태의 회원 없음</span>
+          </div>
+        ) : (
+          <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={44} ariaLabel="회원 목록" />
+        )}
+        <Pager
+          page={page}
+          hasMore={res.data?.hasMore ?? false}
+          onMove={setPage}
+          ariaLabel="회원 목록 쪽 이동"
+          busy={busy}
+        />
+      </PanelCard>
+
+      {selected && (
+        <PanelCard
+          title="선택 회원"
+          actions={<span className={styles.panelMeta}>폐쇄는 2인 승인</span>}
+        >
+          {!detail ? (
+            <Skeleton variant="card" width="100%" height={120} />
+          ) : (
+            <>
+              <div className={styles.readoutRow}>
+                <span className={styles.readoutItem}>
+                  <span className={styles.readoutKey}>이메일</span>
+                  <b className={styles.readoutValue}>{detail.email}</b>
+                </span>
+                <span className={styles.readoutItem}>
+                  <span className={styles.readoutKey}>상태</span>
+                  <b className={styles.readoutValue}>{STATUS_LABEL[detail.status]}</b>
+                </span>
+                {/* 폐쇄가 무엇을 함께 취소하는지 여기서 읽고 누른다 */}
+                <span className={styles.readoutItem}>
+                  <span className={styles.readoutKey}>미체결 주문</span>
+                  <b className={`${styles.readoutValue} num`}>{formatCount(detail.openOrderCount)}</b>
+                </span>
+                <span className={styles.readoutItem}>
+                  <span className={styles.readoutKey}>보유 자산</span>
+                  <b className={`${styles.readoutValue} num`}>{formatCount(detail.assetKinds)}</b>
+                </span>
+                <span className={styles.readoutItem}>
+                  <span className={styles.readoutKey}>최근 주문</span>
+                  <b className={styles.readoutValue}>
+                    {detail.lastOrderAt
+                      ? formatHistoryTime(new Date(detail.lastOrderAt).toISOString())
+                      : "없음"}
+                  </b>
+                </span>
+              </div>
+
+              {detail.status === "CLOSED" ? (
+                <p className={styles.formHelp}>폐쇄된 계정이다. 되돌아오는 전이는 없다.</p>
+              ) : (
+                <div className={styles.controlRow}>
+                  <p className={styles.formHelp}>
+                    폐쇄는 미체결 주문 {formatCount(detail.openOrderCount)}건을 전량 취소하고 세션을 끊는다.
+                    되돌릴 수 없다.
+                  </p>
+                  <RequestButton
+                    action="members.close"
+                    payload={{ action: "members.close", externalId: detail.externalId, email: detail.email }}
+                    label="폐쇄 요청"
+                    confirm={{
+                      title: "회원 폐쇄 요청",
+                      description: "승인·실행 뒤 되돌릴 수 없다. 미체결 주문이 전량 취소된다",
+                      target: detail.email,
+                      blastRadius: `미체결 ${detail.openOrderCount}건 취소 · 세션 전량 폐기`,
+                      tone: "danger",
+                      confirmLabel: "폐쇄 요청",
+                    }}
+                    onRequested={() => void res.reload()}
+                  />
+                </div>
+              )}
+            </>
+          )}
+          <ApprovalList
+            actions={CLOSE_ACTIONS}
+            onChange={() => {
+              void res.reload();
+              if (selected) void loadDetail(selected);
+            }}
+            emptyLabel="대기 중인 폐쇄 승인 없음"
+            emptyDesc="위에서 요청하면 여기에서 발급·실행"
+          />
+        </PanelCard>
+      )}
+    </div>
+  );
+}
