@@ -666,6 +666,38 @@ class AdminPlaneIntegrationTest {
         assertEquals("exchange-core-1", killBody.path("target").asText());
         assertFalse(killBody.path("experiment_id").asText().isBlank(), "experiment_id 발급");
         assertTrue(killBody.path("approval_id").asLong() > 0);
+        assertEquals("PENDING", killBody.path("state").asText(), "소비기가 집기 전 상태");
+
+        // 대상 이름은 소비기에서 셸 문자열로 보간돼 docker 명령이 된다. 메타문자가 통과하면
+        // 운영자 워크스테이션에서 임의 명령이 돈다. 승인 앞에서 400으로 끊는다.
+        String evilTarget = "chaos-api-1 & echo pwned";
+        String evilToken = issueToken("op-01", "chaos.kill_node", evilTarget, "op-02", op02);
+        ResponseEntity<String> evil = adminPost("/admin/v1/chaos/kill-node",
+                "{\"node\":\"" + evilTarget + "\",\"approval_token\":\"" + evilToken + "\"}",
+                "op-01", op01);
+        assertEquals(400, evil.getStatusCode().value(), evil.getBody());
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM chaos_commands WHERE target LIKE '%&%'")
+                .query(Long.class).single(), "메타문자 대상이 큐에 적재되면 안 된다");
+
+        // 지시가 큐에 적재된다(V21). 이 행이 없으면 승인은 탔는데 아무도 주입하지 않는다.
+        String expId = killBody.path("experiment_id").asText();
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM chaos_commands "
+                        + "WHERE experiment_id = ?::uuid AND action = 'chaos.kill_node' "
+                        + "AND target = 'exchange-core-1' AND state = 'PENDING' "
+                        + "AND requested_by = 'op-01' AND approval_id IS NOT NULL")
+                .param(expId).query(Long.class).single(), "명령 큐 적재");
+
+        // 이력 조회가 집행 여부를 함께 낸다. 소비기 미가동이면 PENDING에 머문다.
+        JsonNode runs = objectMapper.readTree(
+                adminGet("/admin/v1/chaos/runs?limit=50", "op-01", op01).getBody()).path("data");
+        boolean seen = false;
+        for (JsonNode r : runs) {
+            if (expId.equals(r.path("experiment_id").asText())) {
+                assertEquals("PENDING", r.path("exec_state").asText());
+                seen = true;
+            }
+        }
+        assertTrue(seen, "이력에 방금 지시가 없다");
 
         // 감사에 target·approval_id가 소각 경로 그대로 남는다(OK 결과).
         assertEquals(1L, jdbc.sql("SELECT count(*) FROM admin_audit_log "

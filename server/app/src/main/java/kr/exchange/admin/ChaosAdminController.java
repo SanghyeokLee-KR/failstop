@@ -1,5 +1,6 @@
 package kr.exchange.admin;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.CursorPages;
@@ -36,7 +37,7 @@ public class ChaosAdminController {
     // 바인딩 target을 엔드포인트 의미 필드에서 취한다(§3-6 확정표). kill-node=node,
     // network=name, app=assault. 균일 target 단일 필드는 발급 target과 어긋나 403을 유발했다.
     public record ChaosBody(String approval_token, String node, String method, Boolean expect_failover,
-                            String name, String type, String assault) {
+                            String name, String type, String assault, String experiment) {
     }
 
     private static final List<Map<String, Object>> CATALOG = List.of(
@@ -53,11 +54,14 @@ public class ChaosAdminController {
     private final ApprovalService approvals;
     private final AdminAuditService audit;
     private final JdbcClient jdbc;
+    private final ObjectMapper objectMapper;
 
-    public ChaosAdminController(ApprovalService approvals, AdminAuditService audit, JdbcClient jdbc) {
+    public ChaosAdminController(ApprovalService approvals, AdminAuditService audit,
+                                JdbcClient jdbc, ObjectMapper objectMapper) {
         this.approvals = approvals;
         this.audit = audit;
         this.jdbc = jdbc;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping("/experiments")
@@ -78,10 +82,13 @@ public class ChaosAdminController {
         int capped = CursorPages.cap(limit, 200);
         Cursors.Cursor decoded = CursorPages.decode(cursor);
         StringBuilder sql = new StringBuilder("""
-                SELECT id, operator_id, action, target, approval_id, result,
-                       detail->>'experiment_id' AS experiment_id, created_at
-                FROM admin_audit_log
-                WHERE action LIKE 'chaos.%'
+                SELECT a.id, a.operator_id, a.action, a.target, a.approval_id, a.result,
+                       a.detail->>'experiment_id' AS experiment_id, a.created_at,
+                       c.state AS exec_state, c.result AS exec_result
+                FROM admin_audit_log a
+                LEFT JOIN chaos_commands c
+                       ON c.experiment_id::text = a.detail->>'experiment_id'
+                WHERE a.action LIKE 'chaos.%'
                 """);
         List<Object> params = new ArrayList<>();
         if (decoded != null) {
@@ -91,29 +98,37 @@ public class ChaosAdminController {
                     .query((rs, n) -> rs.getObject("created_at", OffsetDateTime.class))
                     .optional()
                     .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서 형식 오류"));
-            sql.append(" AND (created_at, id) < (?, ?)");
+            sql.append(" AND (a.created_at, a.id) < (?, ?)");
             params.add(anchorAt);
             params.add(anchorId);
         }
         // 실험 이력은 감사 로그에 영구 누적된다. 한 건 더 읽어 다음 쪽 존재를 판단한다
-        sql.append(" ORDER BY created_at DESC, id DESC LIMIT ?");
+        sql.append(" ORDER BY a.created_at DESC, a.id DESC LIMIT ?");
         params.add(capped + 1);
         List<CursorPages.Row<Map<String, Object>>> fetched = jdbc.sql(sql.toString())
                 .params(params)
-                .query((rs, n) -> new CursorPages.Row<Map<String, Object>>(Map.<String, Object>of(
-                        "id", rs.getLong("id"),
-                        "operator_id", rs.getString("operator_id") == null
-                                ? "" : rs.getString("operator_id"),
-                        "action", rs.getString("action"),
-                        "target", rs.getString("target") == null ? "" : rs.getString("target"),
-                        "approval_id", rs.getObject("approval_id") == null
-                                ? "" : rs.getLong("approval_id"),
-                        "result", rs.getString("result"),
-                        "experiment_id", rs.getString("experiment_id") == null
-                                ? "" : rs.getString("experiment_id"),
-                        "created_at", ts(rs.getObject("created_at", OffsetDateTime.class))),
-                        rs.getObject("created_at", OffsetDateTime.class),
-                        String.valueOf(rs.getLong("id"))))
+                .query((rs, n) -> {
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("id", rs.getLong("id"));
+                    row.put("operator_id", rs.getString("operator_id") == null
+                            ? "" : rs.getString("operator_id"));
+                    row.put("action", rs.getString("action"));
+                    row.put("target", rs.getString("target") == null ? "" : rs.getString("target"));
+                    row.put("approval_id", rs.getObject("approval_id") == null
+                            ? "" : rs.getLong("approval_id"));
+                    row.put("result", rs.getString("result"));
+                    row.put("experiment_id", rs.getString("experiment_id") == null
+                            ? "" : rs.getString("experiment_id"));
+                    // 지시가 실제로 집행됐는지. 소비기 미가동 배포는 PENDING에 머문다
+                    row.put("exec_state", rs.getString("exec_state") == null
+                            ? "" : rs.getString("exec_state"));
+                    row.put("exec_result", rs.getString("exec_result") == null
+                            ? "" : rs.getString("exec_result"));
+                    row.put("created_at", ts(rs.getObject("created_at", OffsetDateTime.class)));
+                    return new CursorPages.Row<Map<String, Object>>(row,
+                            rs.getObject("created_at", OffsetDateTime.class),
+                            String.valueOf(rs.getLong("id")));
+                })
                 .list();
         CursorPages.Page<Map<String, Object>> page = CursorPages.slice(fetched, capped);
         return Map.of("schema_version", "1.0", "data", page.data(),
@@ -149,25 +164,88 @@ public class ChaosAdminController {
         AdminPrincipal principal = AdminRequestContext.principal(request);
         principal.require(AdminRole.CHAOS_OPS);
         String token = body == null ? null : body.approval_token();
-        long approvalId = approvals.consume(principal.operatorId(), token, "chaos.network.clear", toxic);
+        String safeToxic = requireSafeTarget(toxic);
+        long approvalId = approvals.consume(principal.operatorId(), token,
+                "chaos.network.clear", safeToxic);
+        String experimentId = UUID.randomUUID().toString();
         audit.record(principal.operatorId(), "chaos.network.clear", toxic,
-                AdminRequestContext.requestId(request), approvalId, "OK", Map.of());
-        return Map.of("schema_version", "1.0", "toxic", toxic, "approval_id", approvalId);
+                AdminRequestContext.requestId(request), approvalId, "OK",
+                Map.of("experiment_id", experimentId));
+        enqueue(experimentId, "chaos.network.clear", safeToxic,
+                body == null ? null : body.experiment(), Map.of(),
+                principal.operatorId(), approvalId);
+        return Map.of("schema_version", "1.0", "toxic", toxic, "approval_id", approvalId,
+                "experiment_id", experimentId, "state", "PENDING");
     }
 
     private Map<String, Object> inject(String action, String target, ChaosBody body,
                                        HttpServletRequest request) {
         AdminPrincipal principal = AdminRequestContext.principal(request);
         principal.require(AdminRole.CHAOS_OPS);
-        String t = target == null ? "" : target;
+        String t = requireSafeTarget(target);
         String token = body == null ? null : body.approval_token();
         long approvalId = approvals.consume(principal.operatorId(), token, action, t);
         String experimentId = UUID.randomUUID().toString();
         audit.record(principal.operatorId(), action, t,
                 AdminRequestContext.requestId(request), approvalId, "OK",
                 Map.of("experiment_id", experimentId, "params", chaosParams(body)));
+        enqueue(experimentId, action, t, body == null ? null : body.experiment(),
+                chaosParams(body), principal.operatorId(), approvalId);
         return Map.of("schema_version", "1.0", "action", action, "target", t,
-                "experiment_id", experimentId, "approval_id", approvalId);
+                "experiment_id", experimentId, "approval_id", approvalId,
+                "state", "PENDING");
+    }
+
+    /**
+     * 명령을 큐에 적재한다(V21). 이 서버는 주입을 수행하지 않고 지시만 남긴다. 실제 주입은
+     * 하네스 소비기가 이 행을 점유해 수행하고 결과를 되쓴다(하네스 CICD §6-2).
+     *
+     * 감사 로그가 아니라 별도 표인 이유는 감사가 append-only라 "처리됨"을 적을 자리가 없고,
+     * 자리가 없으면 소비기 재시작이 같은 지시를 다시 읽어 리더를 두 번 죽이기 때문이다.
+     *
+     * 이 서버는 외부 부수효과를 내지 않으므로 승인 소각과 같은 트랜잭션에 묶는 것이 맞다.
+     * 소각만 커밋되고 지시가 유실되면 승인은 탔는데 아무 일도 안 일어난다.
+     */
+    private void enqueue(String experimentId, String action, String target, String experiment,
+                         Map<String, Object> params, String operatorId, long approvalId) {
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(params == null ? Map.of() : params);
+        } catch (Exception e) {
+            json = "{}";
+        }
+        jdbc.sql("""
+                        INSERT INTO chaos_commands
+                            (experiment_id, action, target, experiment, params,
+                             requested_by, approval_id)
+                        VALUES (?::uuid, ?, ?, ?, ?::jsonb, ?, ?)
+                        """)
+                .params(experimentId, action, target, normExperiment(experiment), json,
+                        operatorId, approvalId)
+                .update();
+    }
+
+    /**
+     * 대상 자원명 검증. 이 값은 소비기에서 셸 문자열로 보간돼 docker 명령이 되므로,
+     * 셸 메타문자가 통과하면 소비기 호스트에서 임의 명령이 실행된다. 컨테이너·toxic·assault
+     * 이름은 전부 영숫자와 -_. 뿐이라 여기서 좁히는 것이 손실이 없다.
+     */
+    private static String requireSafeTarget(String target) {
+        String t = target == null ? "" : target.trim();
+        if (!t.matches("^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")) {
+            throw new ApiException(400, "invalid_parameter",
+                    "대상 이름은 영숫자와 -_. 만 허용");
+        }
+        return t;
+    }
+
+    /** 카탈로그 식별자만 받는다. 소비기가 이 값으로 주입 경로를 가르므로 임의 문자열을 막는다 */
+    private static String normExperiment(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String v = raw.trim().toUpperCase(java.util.Locale.ROOT);
+        return v.matches("E[1-9]") ? v : null;
     }
 
     // 의미 필드 중 target 외 서술 필드만 감사 detail에 남긴다(균일 params 맵 폐기 후 관측 보존).

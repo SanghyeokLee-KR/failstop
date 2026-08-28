@@ -24,6 +24,8 @@ export const ACTION_GLOSS: Record<string, string> = {
   "operators.create": "운영자 생성",
   "operators.status": "운영자 상태 변경",
   "operators.roles": "역할 변경",
+  "members.suspend": "회원 정지",
+  "members.reinstate": "회원 복구",
   "members.close": "회원 폐쇄",
   // 합성 코드(head:tail)의 head 주해. 감사 화면이 "실행 · 카오스 주입"처럼 이어 붙인다
   "approval.issue": "승인 발급",

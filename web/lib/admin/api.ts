@@ -41,7 +41,11 @@ import type {
   TradeFlash,
   AdminInquiry,
   AdminTransfer,
+  AdminMember,
+  AdminMemberDetail,
   CommunityReport,
+  MemberStatus,
+  MemberTransition,
   ModerationAction,
   ReportResolution,
   ReportStatus,
@@ -151,6 +155,17 @@ export interface AdminApi {
   /** 문의 큐 한 쪽. ANSWERED는 답변 뒤에도 남는다 */
   getInquiries(status?: "OPEN" | "ANSWERED", opts?: PageOpts): Promise<AdminPage<AdminInquiry>>;
   answerInquiry(externalId: string, answer: string): Promise<AdminInquiry>;
+
+  /* 회원 운영(§6-E). 조회는 VIEWER, 전이는 MEMBER_MOD */
+  /** 회원 목록 한 쪽. 가입 역순. 봇 계정은 제외된다 */
+  getMembers(status?: MemberStatus, opts?: PageOpts): Promise<AdminPage<AdminMember>>;
+  /** 회원 상세. 활동 요약으로 폐쇄 전 남은 주문을 본다 */
+  getMember(externalId: string): Promise<AdminMemberDetail>;
+  /** 정지. 세션만 끊고 미체결 주문은 남긴다(가역) */
+  suspendMember(externalId: string): Promise<MemberTransition>;
+  /** 복구. 상태만 되돌린다. 세션은 복구하지 않는다 */
+  reinstateMember(externalId: string): Promise<MemberTransition>;
+  /* 폐쇄는 승인 필수라 별도 메서드가 없다. RequestButton -> 발급 -> consumeApproval 경로다 */
 
   /* 커뮤니티 운영 큐(§6-D). 목록·처리 전부 MEMBER_MOD */
   /** 신고 큐 한 쪽. 기본 PENDING. 처리 뒤에도 종결 상태로 남아 누적된다 */

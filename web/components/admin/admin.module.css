@@ -2168,3 +2168,58 @@
   flex: 1;
   min-height: 0;
 }
+
+/* ===== 회원 운영 ===== */
+/* 목록에서 상세를 여는 셀. 링크가 아니라 선택이라 밑줄을 두지 않고 잉크만 승격한다 */
+.linkCell {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0;
+  background: none;
+  color: var(--text-strong);
+  font-size: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linkCell:hover {
+  text-decoration: underline;
+}
+/* 선택 상태는 색이 아니라 위치 신호다. 무채 하드라인으로 표시한다(§6.6 엣지 규약) */
+.linkCell[aria-pressed="true"] {
+  box-shadow: inset 0 -1px 0 var(--chrome-accent);
+}
+
+/* 선택 회원 판독. 폐쇄 판단에 필요한 값을 한 줄로 세운다 */
+.readoutRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-3);
+}
+.readoutItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.readoutKey {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.readoutValue {
+  display: block;
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

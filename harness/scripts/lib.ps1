@@ -173,7 +173,11 @@ function Read-EnvFile {
 # DB 직조회(권위 판정). -t -A로 헤더·정렬 제거한 raw 값만 반환한다.
 function Invoke-Psql {
     param([string] $Sql)
-    $out = & docker exec $Global:CHAOS.Pg psql -U $Global:CHAOS.PgUser -d $Global:CHAOS.PgDb -t -A -c $Sql 2>$null
+    # -q가 없으면 psql이 명령 완료 태그를 함께 낸다. -t -A는 질의 결과의 헤더·푸터만 죽이고
+    # UPDATE·INSERT의 "UPDATE 0" 같은 상태 줄은 남긴다. 그 줄이 빈 결과 판정과 필드 분해를
+    # 통째로 망가뜨린다(빈 큐 폴이 "UPDATE 0"을 반환해 [long] 캐스팅에서 종료 오류).
+    # 기존 호출부는 전부 SELECT라 -q가 튜플 출력을 바꾸지 않는다.
+    $out = & docker exec $Global:CHAOS.Pg psql -U $Global:CHAOS.PgUser -d $Global:CHAOS.PgDb -q -t -A -c $Sql 2>$null
     return ($out | Out-String).Trim()
 }
 

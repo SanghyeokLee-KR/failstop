@@ -49,8 +49,12 @@ import type {
   AdminInquiry,
   AdminTransfer,
   AdminTransferStatus,
+  AdminMember,
+  AdminMemberDetail,
   CommunityReport,
   ContentStatus,
+  MemberStatus,
+  MemberTransition,
   ModerationAction,
   ReportResolution,
   ReportStatus,
@@ -656,6 +660,9 @@ export class SimAdminApi implements AdminApi {
         }
         break;
       }
+      case "members.close":
+        this.closeMember(payload.externalId);
+        break;
     }
   }
 
@@ -1070,6 +1077,95 @@ export class SimAdminApi implements AdminApi {
     row.answeredAt = Date.now();
     this.log(s, "support.answer", externalId, null, "OK");
     return Promise.resolve({ ...row });
+  }
+
+  /* ===== 회원 운영 (§6-E) =====
+   * 회원 도메인은 고객 어댑터 소관이라 관리 어댑터가 실제 계정을 들고 있지 않다. 전이의
+   * 화면·권한·부수 효과 표기를 확인할 수 있도록 씨앗 행을 둔다. 자금은 여기서 안 움직인다. */
+  private members: (AdminMemberDetail & { sessions: number })[] = [
+    {
+      externalId: "11111111-1111-4111-8111-111111111111",
+      email: "trader@demo.local", displayName: "김트레이더", status: "ACTIVE",
+      createdAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
+      updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
+      // 폐쇄가 무엇을 취소하는지 화면에서 보이게 미체결을 들고 있는 계정을 하나 둔다
+      openOrderCount: 3, lastOrderAt: Date.now() - 1000 * 60 * 8, assetKinds: 4, sessions: 2,
+    },
+    {
+      externalId: "22222222-2222-4222-8222-222222222222",
+      email: "quiet@demo.local", displayName: "이조용", status: "ACTIVE",
+      createdAt: Date.now() - 1000 * 60 * 60 * 24 * 12,
+      updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 12,
+      openOrderCount: 0, lastOrderAt: null, assetKinds: 1, sessions: 1,
+    },
+    {
+      externalId: "33333333-3333-4333-8333-333333333333",
+      email: "spammer@demo.local", displayName: "정지된계정", status: "SUSPENDED",
+      createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
+      updatedAt: Date.now() - 1000 * 60 * 60 * 2,
+      openOrderCount: 1, lastOrderAt: Date.now() - 1000 * 60 * 60 * 5, assetKinds: 2, sessions: 0,
+    },
+  ];
+
+  getMembers(status?: MemberStatus, opts: PageOpts = {}): Promise<AdminPage<AdminMember>> {
+    this.auth("VIEW");
+    // 가입 역순. 최근 가입이 위다
+    const rows = this.members
+      .filter((m) => !status || m.status === status)
+      .sort((a, b) => b.createdAt - a.createdAt);
+    return Promise.resolve(simPage(rows, opts, (m) => m.externalId, (m) => ({
+      externalId: m.externalId, email: m.email, displayName: m.displayName,
+      status: m.status, createdAt: m.createdAt,
+    })));
+  }
+
+  getMember(externalId: string): Promise<AdminMemberDetail> {
+    this.auth("VIEW");
+    const m = this.members.find((x) => x.externalId === externalId);
+    if (!m) return Promise.reject(new AdminError("not_found", "회원을 찾을 수 없습니다."));
+    const { sessions: _sessions, ...detail } = m;
+    return Promise.resolve({ ...detail });
+  }
+
+  suspendMember(externalId: string): Promise<MemberTransition> {
+    return this.transitionMember(externalId, "SUSPENDED", "members.suspend", false);
+  }
+
+  reinstateMember(externalId: string): Promise<MemberTransition> {
+    return this.transitionMember(externalId, "ACTIVE", "members.reinstate", false);
+  }
+
+  /** 폐쇄는 승인 소각 경로(consumeApproval)가 부른다. 직접 호출 경로는 없다 */
+  private closeMember(externalId: string): MemberTransition {
+    return this.transitionMember0(externalId, "CLOSED", "members.close", true);
+  }
+
+  private transitionMember(externalId: string, target: MemberStatus, action: string,
+                           cancelOrders: boolean): Promise<MemberTransition> {
+    try {
+      return Promise.resolve(this.transitionMember0(externalId, target, action, cancelOrders));
+    } catch (e) {
+      return Promise.reject(e);
+    }
+  }
+
+  private transitionMember0(externalId: string, target: MemberStatus, action: string,
+                            cancelOrders: boolean): MemberTransition {
+    const s = this.auth("MEMBER_MOD");
+    const m = this.members.find((x) => x.externalId === externalId);
+    if (!m) throw new AdminError("not_found", "회원을 찾을 수 없습니다.");
+    if (m.status === "CLOSED" && target !== "CLOSED") {
+      throw new AdminError("member_closed", "폐쇄된 계정은 되돌릴 수 없습니다.");
+    }
+    // 정지는 가역이라 주문을 남긴다. 폐쇄만 정리한다(서버 MemberAdminService와 같은 규율)
+    const canceled = cancelOrders ? m.openOrderCount : 0;
+    if (cancelOrders) m.openOrderCount = 0;
+    const revoked = target === "ACTIVE" ? 0 : m.sessions;
+    if (target !== "ACTIVE") m.sessions = 0;
+    m.status = target;
+    m.updatedAt = Date.now();
+    this.log(s, action, externalId, null, "OK");
+    return { externalId, status: target, canceledOrders: canceled, revokedSessions: revoked };
   }
 
   /* ===== 커뮤니티 운영 큐 (§6-D) =====

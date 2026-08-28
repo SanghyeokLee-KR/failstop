@@ -55,6 +55,7 @@ export const ACTION_CAP: Record<DestructiveAction, Capability> = {
   "operators.create": "SUPER",
   "operators.status": "SUPER",
   "operators.roles": "SUPER",
+  "members.close": "MEMBER_MOD",
 };
 
 export const ACTION_LABEL: Record<DestructiveAction, string> = {
@@ -67,6 +68,7 @@ export const ACTION_LABEL: Record<DestructiveAction, string> = {
   "operators.create": "운영자 생성",
   "operators.status": "운영자 상태 변경",
   "operators.roles": "운영자 역할 변경",
+  "members.close": "회원 폐쇄",
 };
 
 /** 요청 권한 충족 여부 */
@@ -101,6 +103,12 @@ export function approvalConsoleTarget(payload: ApprovalPayload): { key: string; 
         // 같은 운영자의 서로 다른 역할 변경이 하나로 뭉개지지 않게 role·방향까지 키에 넣는다
         key: `operators.roles:${payload.operatorId}:${payload.grant}:${payload.role}`,
         label: `운영자 ${payload.operatorId} · ${ROLE_LABEL[payload.role]} ${payload.grant === "GRANT" ? "부여" : "회수"}`,
+      };
+    case "members.close":
+      return {
+        key: `members.close:${payload.externalId}`,
+        // 식별자는 UUID라 눈으로 못 읽는다. 운영자가 보는 손잡이는 이메일이다
+        label: `회원 ${payload.email} 폐쇄`,
       };
   }
 }

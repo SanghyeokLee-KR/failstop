@@ -432,14 +432,14 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
 
 - **네트워크 격리**: `admin.exchange.local` 별도 호스트/포트, 방화벽으로 운영자 네트워크만 접근. **mTLS 필수**(클라이언트 인증서 검증).
 - **서명**: §3의 JWT+canonical+nonce+timestamp를 그대로 재사용하되, `scope=admin` 키 + **별도 `admin_secret`**로 서명. `/admin/v1/**` path가 canonical에 포함되어 거래 서명과 교차 재사용 불가. **중첩 바디(`params`/`seed` 등)를 가진 관리 요청은 §3-3(b) `JCS(body)` canonical 규칙을 상속**하므로 flat 평탄화 불가 문제 없이 서명 대상이 바이트 단위로 확정된다(예시: §3-3 admin 봇 생성).
-- **비가역 액션 이중 승인(v2.3 완결 규정, v2.12 config·operators 확장)**: `approval_token` 필수 액션은 다음 **완결 열거**로 확정한다('등'으로 열어두지 않는다): `POST /admin/v1/chaos/kill-node`, `POST /admin/v1/chaos/network`, `DELETE /admin/v1/chaos/network/{toxic}`, `POST /admin/v1/chaos/app`, `PATCH /admin/v1/sim/bots/{id}/params`, `POST /admin/v1/config/markets/{symbol}/halt`, `POST /admin/v1/config/markets/{symbol}/resume`, `PATCH /admin/v1/config/markets/{symbol}/fees`, `POST /admin/v1/operators`, `PATCH /admin/v1/operators/{id}/status`, `POST /admin/v1/operators/{id}/roles`. **그 외 모든 관리 엔드포인트**(봇 생성/제거, `sim/start|stop|pause`, `scenarios/{name}/activate`, `PUT /sim/rate`, 공지 발급·갱신·소프트 삭제, 조회류)는 `operator_id`만 필수이고 approval_token **불요**다(§6-A 봇 생성 예시와 정합. 전 액션 감사 로그 대상은 동일). 필수 액션은 요청 바디에 `operator_id` + `approval_token` 포함, 누락·불일치·만료 시 `403 admin_forbidden`. §6-A/§6-B 표의 **승인 컬럼**이 엔드포인트별 요구 여부의 권위 소스다.
+- **비가역 액션 이중 승인(v2.3 완결 규정, v2.12 config·operators 확장)**: `approval_token` 필수 액션은 다음 **완결 열거**로 확정한다('등'으로 열어두지 않는다): `POST /admin/v1/chaos/kill-node`, `POST /admin/v1/chaos/network`, `DELETE /admin/v1/chaos/network/{toxic}`, `POST /admin/v1/chaos/app`, `PATCH /admin/v1/sim/bots/{id}/params`, `POST /admin/v1/config/markets/{symbol}/halt`, `POST /admin/v1/config/markets/{symbol}/resume`, `PATCH /admin/v1/config/markets/{symbol}/fees`, `POST /admin/v1/operators`, `PATCH /admin/v1/operators/{id}/status`, `POST /admin/v1/operators/{id}/roles`, `POST /admin/v1/members/{external_id}/close`(v2.32). **그 외 모든 관리 엔드포인트**(봇 생성/제거, `sim/start|stop|pause`, `scenarios/{name}/activate`, `PUT /sim/rate`, 공지 발급·갱신·소프트 삭제, 조회류)는 `operator_id`만 필수이고 approval_token **불요**다(§6-A 봇 생성 예시와 정합. 전 액션 감사 로그 대상은 동일). 필수 액션은 요청 바디에 `operator_id` + `approval_token` 포함, 누락·불일치·만료 시 `403 admin_forbidden`. §6-A/§6-B 표의 **승인 컬럼**이 엔드포인트별 요구 여부의 권위 소스다.
   - **approval_token 수명주기(v2.3)**: 요청 operator와 **다른** operator가 `POST /admin/v1/approvals`(mTLS + `scope=admin` 서명, 2인 승인 절차)로 발급하며, 발급 시 **`action` + 대상 식별자**(`node`/`bot_id`/`toxic` 등)에 바인딩된다. 토큰은 **단회용**(검증 성공 시 즉시 소각)·**TTL 5분**. 바인딩된 action·대상과 다른 요청에의 사용, 만료·기소각 토큰 재사용은 `403 admin_forbidden`. 정적·재사용 가능한 토큰은 금지된다(동일 토큰으로 반복 kill-node 승인 불가. nonce가 막지 못하는 '새 요청+같은 토큰' 경로 차단). 발급·사용·만료·거부는 모두 `admin_audit_log`에 기록.
   - **operator 신원 바인딩(v2.4, 2인 통제의 검증 수단 확정)**: `operator_id`는 바디 자가신고 값으로 판정하지 않는다. 각 admin `access_key`(및 mTLS 클라이언트 인증서)는 발급 시 정확히 **하나의 `operator_id`에 1:1 등록**되며(`api_keys`에 operator_id 바인딩, §7-1), 서버는 **모든 관리 요청과 approvals 발급 각각에서 인증 주체(access_key / 인증서 CN)로부터 operator_id를 도출**해 바디의 `operator_id`와 대조한다. 불일치 시 `403 admin_forbidden`(바디 필드는 가독·감사 편의용이고 권위는 인증 주체 유래 값이다. `admin_audit_log`에도 인증 주체 유래 operator_id를 기록). **2인 승인 판정**: "요청 operator와 다른 operator"는 자가신고 값이 아니라 **approvals 발급 요청의 인증 주체 ≠ approval_token 사용 요청의 인증 주체**로 서버가 검증한다 → 단일 admin 키 보유자가 발급 시 `op-02`, 사용 시 `op-01`로 바꿔 신고해 혼자 2인 승인을 완성하는 경로를 차단한다(발급 시 토큰에 발급 주체 operator를 함께 바인딩).
   - **바인딩 target·바디 필드 확정표(v2.13, 발급·소각 정합 단일 규칙)**: `POST /admin/v1/approvals`가 발급하는 `target` 문자열과 파괴 액션 엔드포인트가 소각 시 재구성하는 `target`은 아래 표의 형식으로 **바이트 단위 동일**해야 한다. 불일치는 `403 admin_forbidden`(`detail.reason=binding_mismatch`). `target`은 두 계열로 나뉜다. (1) **자원 스코프**: `target`=파괴 대상 자원 식별자. 페이로드 값(수수료·method·params·type)은 바인딩에 넣지 않는다. (2) **신원·권한 전이 스코프**(`operators.status`·`operators.roles`): `target`에 전이 방향·대상 등급까지 포함해 승인된 토큰을 더 위험한 전이(예: `GRANT VIEWER` 승인분을 `GRANT SUPER`로, `ACTIVE` 승인분을 `DISABLED`로)로 재사용하는 경로를 차단한다. 전이 스코프의 상태·역할·방향 토큰은 모두 **대문자**로 정규화해 바인딩한다. 모든 파괴 액션 바디는 `operator_id`(수행자, 인증 주체 유래 값과 대조)와 `approval_token`을 공통으로 싣는다.
 
     | action | 엔드포인트 | 파괴 액션 바디(공통 필드 외) | 바인딩 `target` 형식 | 예 |
     |---|---|---|---|---|
-    | `chaos.kill_node` | `POST /admin/v1/chaos/kill-node` | `node`, `method?`, `expect_failover?` | `node` 값 | `exchange-core-1` |
+    | `chaos.kill_node` | `POST /admin/v1/chaos/kill-node` | `node`, `method?`, `expect_failover?` | `node` 값 | `chaos-api-1` |
     | `chaos.network` | `POST /admin/v1/chaos/network` | `name`, `type?` | `name` 값(toxic 이름) | `e1-toxic` |
     | `chaos.app` | `POST /admin/v1/chaos/app` | `assault` | `assault` 값 | `e8-assault` |
     | `chaos.network.clear` | `DELETE /admin/v1/chaos/network/{toxic}` | (경로만) | `{toxic}` 경로값 | `e1-toxic` |
@@ -1235,9 +1235,9 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 
 ```json
 // POST /admin/v1/chaos/kill-node  (operator_id + approval_token 필수)
-// approval_token은 단회용·TTL 5분·(action=kill-node, node=exchange-core-1) 바인딩 발급분(§3-6, POST /admin/v1/approvals)
+// approval_token은 단회용·TTL 5분·(action=kill-node, node=chaos-api-1) 바인딩 발급분(§3-6, POST /admin/v1/approvals)
 { "operator_id":"op-01","approval_token":"apv-8842",
-  "node":"exchange-core-1","method":"docker_kill","expect_failover":true }
+  "node":"chaos-api-1","method":"docker_kill","expect_failover":true }
 // 202
 { "experiment_id":"E5-2026-0721-01","killed_at":"2026-07-21T09:05:00.000Z",
   "grafana_annotation":"anno-88" }
@@ -1256,13 +1256,13 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 
 ```json
 // GET /admin/v1/ha/status → 200
-{ "role":"LEADER","node":"exchange-core-1","epoch":42,
+{ "role":"LEADER","node":"chaos-api-1","epoch":42,
   "last_applied_seq":88123606,"follower_lag_seq":3,"snapshot_seq":88100000,
-  "matching_market_owner":{"KRW-BTC":"exchange-core-1"} }
+  "matching_market_owner":{"KRW-BTC":"chaos-api-1"} }
 
 // GET /admin/v1/ha/recovery → 200
 { "last_experiment":"E5-2026-0721-01","rto_seconds":3.2,"rpo_records":0,
-  "failover":{"old_leader":"exchange-core-1","new_leader":"exchange-core-2",
+  "failover":{"old_leader":"chaos-api-1","new_leader":"chaos-api-2",
               "old_epoch":42,"new_epoch":43},
   "invariants":{"sequence_gapless":true,"orders_lost":0,"duplicate_fills":0,
                 "asset_conservation":true,"fill_integrity":true,"replay_state_hash_match":true,
@@ -1300,6 +1300,46 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 ---
 
 <a name="7"></a>
+### 6-E. 회원 운영 API (관리자 설계 §2-4·§3-1, v2.32 신설)
+
+관리자_설계 §3-1이 규정한 회원 운영 5경로를 정본에 등재한다. §7-1 절차대로 이 문서가 먼저 개정돼야 코드가 승인 요구를 반영할 수 있다.
+
+| 메서드 | 경로 | 기능 | 역할 | approval_token(§3-6) |
+|---|---|---|---|---|
+| GET | `/admin/v1/members` | 회원 목록(상태 필터, opaque 커서) | VIEWER | 불요 |
+| GET | `/admin/v1/members/{external_id}` | 회원 상세(계정·상태·활동 요약) | VIEWER | 불요 |
+| POST | `/admin/v1/members/{external_id}/suspend` | 정지(`SUSPENDED`) | MEMBER_MOD | 불요 |
+| POST | `/admin/v1/members/{external_id}/reinstate` | 복구(`ACTIVE`) | MEMBER_MOD | 불요 |
+| POST | `/admin/v1/members/{external_id}/close` | 폐쇄(`CLOSED`, 비가역) | MEMBER_MOD | **필수** |
+
+`users.status`는 V1부터 `CHECK (status IN ('ACTIVE','SUSPENDED','CLOSED'))`라 신규 컬럼이 없다. 상태 게이트도 이미 산다. 로그인·갱신은 `MemberAuthService`가, 주문 생성은 `OrderGateway.requireActiveUser`가 `403 account_suspended`로 막는다(§3-8).
+
+**정지와 폐쇄의 차이(v2.32 확정)**. 관리자_설계가 가역·비가역만 규정하고 부수 효과를 비워 뒀다. 아래로 확정한다.
+
+- `suspend`: 세션 전량 폐기 + 상태 전이. **미체결 주문은 남긴다.** 정지는 되돌리는 조치라 주문까지 취소하면 복구해도 원상태가 아니다. 새 주문은 게이트가 막고 기존 주문은 체결될 수 있다.
+- `close`: 미체결 주문 전량 취소 + 세션 전량 폐기 + 상태 전이. 비가역이라 남은 주문이 체결되면 폐쇄 계정에 체결이 생긴다. 취소는 예약 잔고를 되돌릴 뿐이라 자산 합 0 불변식을 건드리지 않는다(기존 `OrderGateway.cancelAll` 경유).
+- `reinstate`: 상태 전이만. 세션은 복구하지 않는다. 회원이 다시 로그인한다.
+- 세션 폐기는 `auth_sessions.revoked_at`을 채운다. 액세스 토큰은 스테이트리스 15분이라 조회가 그 창만큼 남지만, 주문 생성은 `requireActiveUser`가 즉시 막는다.
+- 같은 상태로의 재전이는 멱등 성공이다(정지된 계정 재정지). 상태 기계가 아니라 set-point로 다룬다. 단 `CLOSED`에서 나가는 전이는 없다. `suspend`·`reinstate`를 폐쇄 계정에 부르면 `409 member_closed`.
+
+**목록·상세 계약**.
+
+- 목록은 `status` 필터(미지정 시 전체)와 §2-6 opaque 커서. 정렬 축은 가입 역순(`created_at DESC, id DESC`)이라 최근 가입이 위다. 커서 키셋 인덱스는 DB 설계 v2.35가 추가한다.
+- `kind='BOT'` 행은 목록에서 제외한다. 봇 시더가 만든 계정이라 운영 대상이 아니다.
+- 행 필드: `external_id`, `email`, `display_name`, `status`, `created_at`. 데모 계정이라 실명·실금융정보가 없고, `email`은 운영자가 회원을 지목하는 유일한 손잡이라 그대로 싣는다(관리자_설계 §3-3 노출 한계와 정합).
+- 상세는 행 필드 + `updated_at` + 활동 요약 `open_order_count`·`last_order_at`·`asset_kinds`. 폐쇄 전에 남은 주문이 있는지 운영자가 이 값으로 본다.
+
+**승인 바인딩**. `members.close`를 §3-6 완결 열거에 더한다. 자원 스코프이므로 `target`은 대상 회원의 `external_id`다. 바디는 `operator_id` + `approval_token`.
+
+```json
+// POST /admin/v1/members/{external_id}/close  (operator_id + approval_token 필수)
+{ "operator_id":"op-01","approval_token":"apv-9910" }
+// 200
+{ "schema_version":"1.0","external_id":"9f2c-...","status":"CLOSED",
+  "canceled_orders":3,"revoked_sessions":1,"approval_id":8842 }
+```
+
+
 ## 7. 부록
 
 ### 7-1. 핵심 DB 스키마 (복구·정합성)

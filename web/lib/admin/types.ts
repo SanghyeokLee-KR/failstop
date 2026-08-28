@@ -81,7 +81,8 @@ export type DestructiveAction =
   | "config.market.fees"
   | "operators.create"
   | "operators.status"
-  | "operators.roles";
+  | "operators.roles"
+  | "members.close";
 
 /**
  * admin_approvals.state 정본 어휘(V5__admin.sql CHECK, §6-B). 발급형이라 원장 최초 상태가
@@ -99,7 +100,8 @@ export type ApprovalPayload =
   | { action: "config.market.fees"; symbol: string; makerFee: string; takerFee: string }
   | { action: "operators.create"; operatorId: string; displayName: string }
   | { action: "operators.status"; operatorId: string; status: OperatorStatus }
-  | { action: "operators.roles"; operatorId: string; grant: RoleGrant; role: AdminRole };
+  | { action: "operators.roles"; operatorId: string; grant: RoleGrant; role: AdminRole }
+  | { action: "members.close"; externalId: string; email: string };
 
 /**
  * 승인 원장 프로젝션(GET /admin/v1/approvals). approval_token은 응답에서 제외되므로 여기에 없다.
@@ -338,6 +340,13 @@ export interface ChaosExperimentDef {
    * high: 체결 경로가 멈춘다 / medium: 의존 계층이 끊긴다 / low: 지연이 낀다
    */
   severity: "high" | "medium" | "low";
+  /**
+   * kill-node 계열의 주입 원시연산. E7은 pause라 kill과 파괴 강도가 다르다.
+   * 콘솔이 상수로 박으면 운영자가 고른 것보다 파괴적인 연산이 나간다.
+   */
+  method?: "docker_kill" | "docker_pause";
+  /** network 계열 toxic 종류. 실험마다 다르고 상수로 접으면 화면 라벨과 실제가 갈린다 */
+  toxicType?: "latency" | "timeout" | "reset_peer";
 }
 
 /** 진행·이력 실험 원소 */
@@ -411,6 +420,38 @@ export interface AdminInquiry {
   answeredAt: number | null;
   userEmail: string;
   createdAt: number;
+}
+
+/* ===== 회원 운영 (§6-E, /admin/v1/members/*) ===== */
+
+/** users.status CHECK 어휘. CLOSED에서 나가는 전이는 없다 */
+export type MemberStatus = "ACTIVE" | "SUSPENDED" | "CLOSED";
+
+export interface AdminMember {
+  externalId: string;
+  email: string;
+  displayName: string | null;
+  status: MemberStatus;
+  createdAt: number;
+}
+
+/**
+ * 회원 상세(§6-E). 활동 요약은 폐쇄 전 판단 근거다. openOrderCount가 0이 아니면
+ * 폐쇄가 그 주문들을 취소한다.
+ */
+export interface AdminMemberDetail extends AdminMember {
+  updatedAt: number;
+  openOrderCount: number;
+  lastOrderAt: number | null;
+  assetKinds: number;
+}
+
+/** 전이 결과. 무엇이 함께 정리됐는지 운영자에게 되돌려 준다 */
+export interface MemberTransition {
+  externalId: string;
+  status: MemberStatus;
+  canceledOrders: number;
+  revokedSessions: number;
 }
 
 /* ===== 커뮤니티 운영 (§6-D, /admin/v1/community/*) ===== */

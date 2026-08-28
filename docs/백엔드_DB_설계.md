@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.34)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.36)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V14+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -2921,3 +2921,39 @@ V5 `notices`가 정본에 없이 마이그레이션만 나가 있었다(v2.32 §
 원장 합=0, 단일 자금 경로, append-only 저널, `business_event_id` 네임스페이스는 전부 무접촉이다.
 
 문서 헤더 버전을 v2.34로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.35 패치 반영 사항
+
+회원 운영 목록(API §6-E)이 쓰는 정렬 축을 연다(V20). 표·컬럼·제약·함수는 무변경이고 인덱스만 추가한다.
+
+| # | 심각도 | 대상 | 내용 |
+|---|---|---|---|
+| 1 | medium | `users` | PK와 `external_id`·`email` 유니크뿐이라 관리 목록 축을 덮는 인덱스가 없다. 목록은 가입 역순 `(created_at DESC, id DESC)`이고 상태 필터가 얹힌다. 상태 선행 복합과 필터 없는 전체 훑기용 둘을 함께 둔다 |
+
+두 인덱스 모두 `WHERE kind = 'HUMAN'` 부분 인덱스다. 조회 술어와 일치시켜 봇 시더가 만든 `kind='BOT'` 행이 인덱스를 부풀리지 않게 한다. 회원 상세·전이는 `external_id`로 행을 집으므로 기존 UNIQUE 인덱스를 쓰고 추가하지 않는다.
+
+`users.status`는 V1부터 `CHECK (status IN ('ACTIVE','SUSPENDED','CLOSED'))`라 신규 컬럼이 없다. 상태 전이는 `app_role`의 기존 `UPDATE ON users` 권한(V1)으로 충분하다.
+
+문서 헤더 버전을 v2.35로 순증.
+
+---
+
+## v2.36 패치 반영 사항
+
+카오스 명령 큐를 신설한다(V21). 승인된 주입 지시를 하네스 소비기가 집어 가는 표다.
+
+| # | 심각도 | 대상 | 내용 |
+|---|---|---|---|
+| 1 | high | `chaos_commands`(신설) | 관리 API가 승인 토큰을 소각하고 `PENDING` 행을 적재하면 소비기가 점유해 실제 주입을 수행하고 결과를 되쓴다. `experiment_id` UNIQUE가 콘솔·감사와 이 행을 잇는다 |
+
+감사 로그를 큐로 쓰지 않는 이유가 둘이다. `admin_audit_log`는 append-only라 V5 `forbid_mutation` 트리거가 UPDATE·DELETE를 막으므로 "처리됨" 표시를 적을 자리가 없다. 자리가 없으면 소비기 재시작이 같은 지시를 다시 읽어 리더를 두 번 죽인다. 기록(무엇이 일어났나)과 작업 지시(무엇을 할 차례인가)는 다른 것이다.
+
+at-most-once는 애플리케이션이 아니라 표가 보장한다. 소비기는 `UPDATE ... WHERE id = (SELECT id ... FOR UPDATE SKIP LOCKED LIMIT 1)`로 한 건을 점유하므로 소비기가 둘이어도 같은 행을 두 번 집지 못한다.
+
+`chk_chaos_finished`가 종결 상태와 `finished_at`을 양방향으로 묶는다. 종결인데 끝난 시각이 없거나 미종결인데 있는 조합을 표가 거부한다.
+
+이 표는 append-only가 아니라 상태 표라 `forbid_mutation` 트리거를 걸지 않고 `app_role`에 `UPDATE`를 준다. 원장 합=0, 단일 자금 경로, append-only 저널은 무접촉이다.
+
+문서 헤더 버전을 v2.36으로 순증.

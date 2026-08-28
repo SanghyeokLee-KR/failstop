@@ -131,7 +131,7 @@ export default function AdminCommunityPage() {
     try {
       if (d.moderation) {
         if (!row.targetExternalId) {
-          throw new AdminError("not_found", "대상 식별자가 없어 상태를 바꿀 수 없습니다");
+          throw new AdminError("not_found", "대상 식별자 없음. 상태 변경 불가");
         }
         await api.moderateCommunityTarget(row.targetType, row.targetExternalId, d.moderation);
         moderated = true;

@@ -57,8 +57,12 @@ import type {
   TradeFlash,
   AdminInquiry,
   AdminTransfer,
+  AdminMember,
+  AdminMemberDetail,
   CommunityReport,
   ContentStatus,
+  MemberStatus,
+  MemberTransition,
   ModerationAction,
   ReportReason,
   ReportResolution,
@@ -70,8 +74,13 @@ import type {
 const COIN_NAME = new Map(COIN_META.map((c) => [c.market, c.koreanName]));
 /** 불변식 check_name -> 라벨. 서버 invariants는 라벨을 싣지 않는다 */
 const INVARIANT_LABEL = new Map(INVARIANT_DEFS.map((d) => [d.name, d.label]));
-/** kill-node 대상 노드 데모 기본값(단일 리더 토폴로지) */
-const CHAOS_NODE = "exchange-core-1";
+/**
+ * kill-node 대상 컨테이너 기본값. harness/docker-compose.chaos.yml의 실제 이름이다.
+ * 종전 값(exchange-core-1)은 어느 컨테이너와도 매칭되지 않아 소비기가 100% "No such
+ * container"로 실패했다. 실 리더가 api-2인 경우는 소비기가 아니라 실험 스크립트가
+ * Get-LeaderContainer로 판별한다(콘솔은 기본 대상만 제시).
+ */
+const CHAOS_NODE = "chaos-api-1";
 
 /** 유한수만 취하고 아니면 기본값(무검사 캐스팅의 NaN 렌더 방지) */
 
@@ -137,6 +146,9 @@ function wireBinding(payload: ApprovalPayload): { action: string; target: string
         action: "operators.roles",
         target: `${payload.operatorId}:${payload.grant.toUpperCase()}:${payload.role.toUpperCase()}`,
       };
+    case "members.close":
+      // 자원 스코프다. target은 대상 회원의 external_id(§6-E 바인딩)
+      return { action: "members.close", target: payload.externalId };
   }
 }
 
@@ -156,6 +168,7 @@ function consoleAction(wireAction: string): DestructiveAction {
     case "operators.create":
     case "operators.status":
     case "operators.roles":
+    case "members.close":
       return wireAction;
     default:
       return "chaos.inject";
@@ -179,6 +192,32 @@ const NOTICE_SEVS: NoticeSeverity[] = ["info", "warning", "critical"];
 function normSeverity(v: unknown): NoticeSeverity {
   const s = String(v ?? "").toLowerCase() as NoticeSeverity;
   return NOTICE_SEVS.includes(s) ? s : "info";
+}
+
+/** GET /admin/v1/members data 원소 */
+interface WireMember {
+  external_id?: string;
+  email?: string;
+  display_name?: string | null;
+  status?: string;
+  created_at?: string;
+}
+
+const MEMBER_STATUSES: MemberStatus[] = ["ACTIVE", "SUSPENDED", "CLOSED"];
+
+/** CHECK 밖 값은 화면이 깨지지 않게 ACTIVE로 좁힌다(전이 버튼은 상태로 갈린다) */
+function normMemberStatus(v: unknown): MemberStatus {
+  return MEMBER_STATUSES.includes(v as MemberStatus) ? (v as MemberStatus) : "ACTIVE";
+}
+
+function toMember(w: WireMember): AdminMember {
+  return {
+    externalId: w.external_id ?? "",
+    email: w.email ?? "",
+    displayName: w.display_name ?? null,
+    status: normMemberStatus(w.status),
+    createdAt: Date.parse(w.created_at ?? "") || 0,
+  };
 }
 
 /** GET /admin/v1/community/reports data 원소. 대상 요약은 조인 실패 시 null이다 */
@@ -665,20 +704,24 @@ export class HttpAdminApi implements AdminApi {
         const def = CHAOS_CATALOG.find((d) => d.id === p.experimentId);
         const path = def?.injectPath ?? "/admin/v1/chaos/network";
         const bind = wireBinding(p);
+        // 주입 파라미터는 카탈로그에서 온다. 상수로 박으면 E7(pause)이 kill로 나가고
+        // network 계열이 전부 지연이 돼 화면 라벨과 실제 주입이 갈린다.
+        // experiment는 소비기가 주입 경로·범위 제외(E3)를 가르는 열쇠라 반드시 싣는다.
+        const common = { operator_id: operatorId, approval_token: token, experiment: p.experimentId };
         if (path.endsWith("kill-node")) {
           await this.http<void>(path, {
             method: "POST",
-            body: JSON.stringify({ operator_id: operatorId, approval_token: token, node: bind.target, method: "docker_kill", expect_failover: true }),
+            body: JSON.stringify({ ...common, node: bind.target, method: def?.method ?? "docker_kill", expect_failover: true }),
           });
         } else if (path.endsWith("app")) {
           await this.http<void>(path, {
             method: "POST",
-            body: JSON.stringify({ operator_id: operatorId, approval_token: token, assault: bind.target }),
+            body: JSON.stringify({ ...common, assault: bind.target }),
           });
         } else {
           await this.http<void>(path, {
             method: "POST",
-            body: JSON.stringify({ operator_id: operatorId, approval_token: token, name: bind.target, type: "latency" }),
+            body: JSON.stringify({ ...common, name: bind.target, type: def?.toxicType ?? "latency" }),
           });
         }
         return;
@@ -730,6 +773,12 @@ export class HttpAdminApi implements AdminApi {
         await this.http<void>(`/admin/v1/operators/${encodeURIComponent(p.operatorId)}/roles`, {
           method: "POST",
           body: JSON.stringify({ operator_id: operatorId, approval_token: token, action: p.grant, role: p.role }),
+        });
+        return;
+      case "members.close":
+        await this.http<void>(`/admin/v1/members/${encodeURIComponent(p.externalId)}/close`, {
+          method: "POST",
+          body: JSON.stringify({ operator_id: operatorId, approval_token: token }),
         });
         return;
     }
@@ -1145,6 +1194,54 @@ export class HttpAdminApi implements AdminApi {
       { method: "POST", body: JSON.stringify({ answer }) },
     );
     return toAdminInquiry(res);
+  }
+
+  /* ===== 회원 운영 (§6-E) ===== */
+
+  async getMembers(status?: MemberStatus, opts: PageOpts = {}): Promise<AdminPage<AdminMember>> {
+    const extra: Record<string, string> = status ? { status } : {};
+    const res = await this.http<PagedEnvelope<WireMember>>(
+      `/admin/v1/members${pageQuery(opts, extra)}`,
+    );
+    return toPage((res.data ?? []).map(toMember), res);
+  }
+
+  async getMember(externalId: string): Promise<AdminMemberDetail> {
+    const res = await this.http<WireMember & {
+      updated_at?: string; open_order_count?: number | string;
+      last_order_at?: string | null; asset_kinds?: number | string;
+    }>(`/admin/v1/members/${encodeURIComponent(externalId)}`);
+    return {
+      ...toMember(res),
+      updatedAt: Date.parse(res.updated_at ?? "") || 0,
+      openOrderCount: num(res.open_order_count),
+      lastOrderAt: res.last_order_at ? Date.parse(res.last_order_at) || null : null,
+      assetKinds: num(res.asset_kinds),
+    };
+  }
+
+  suspendMember(externalId: string): Promise<MemberTransition> {
+    return this.transitionMember(externalId, "suspend");
+  }
+
+  reinstateMember(externalId: string): Promise<MemberTransition> {
+    return this.transitionMember(externalId, "reinstate");
+  }
+
+  private async transitionMember(externalId: string, verb: string): Promise<MemberTransition> {
+    const res = await this.http<{
+      external_id?: string; status?: string;
+      canceled_orders?: number | string; revoked_sessions?: number | string;
+    }>(`/admin/v1/members/${encodeURIComponent(externalId)}/${verb}`, {
+      method: "POST",
+      body: JSON.stringify({ operator_id: this.sessionOpId() }),
+    });
+    return {
+      externalId: res.external_id ?? externalId,
+      status: normMemberStatus(res.status),
+      canceledOrders: num(res.canceled_orders),
+      revokedSessions: num(res.revoked_sessions),
+    };
   }
 
   /* ===== 커뮤니티 운영 큐 (§6-D) ===== */

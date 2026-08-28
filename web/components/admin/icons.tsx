@@ -15,6 +15,7 @@ export type AdminIconName =
   | "transfers"
   | "support"
   | "community"
+  | "members"
   | "operators"
   | "audit";
 
@@ -65,6 +66,13 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   ),
   // 양방향 이동: 들어오는 화살표와 나가는 화살표. 입출금은 방향이 둘이라 한쪽만 그리면
   // 절반만 뜻하게 된다. 같은 제도 어휘(직선 + 45도 촉)로 맞춘다
+  // 사람 실루엣. 운영자(operators)와 구분되게 단수 형태로 둔다
+  members: (
+    <>
+      <circle cx="8" cy="5.75" r="2.75" />
+      <path d="M2.75 13.25 A5.25 5.25 0 0 1 13.25 13.25" />
+    </>
+  ),
   // 말풍선 + 신고 표식. 게시판 운영은 대화면 위의 판정이다
   community: (
     <>

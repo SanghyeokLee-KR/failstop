@@ -171,7 +171,7 @@ function issued(payload: ApprovalPayload, token = "apv-burn"): IssuedApproval {
 
 test("발급 바인딩: 자원·전이 스코프 target을 v2.13 표대로 approvals 바디에 싣는다", async () => {
   const cases: { payload: ApprovalPayload; action: string; target: string }[] = [
-    { payload: { action: "chaos.inject", experimentId: "E4" }, action: "chaos.kill_node", target: "exchange-core-1" },
+    { payload: { action: "chaos.inject", experimentId: "E4" }, action: "chaos.kill_node", target: "chaos-api-1" },
     { payload: { action: "chaos.inject", experimentId: "E1" }, action: "chaos.network", target: "e1-toxic" },
     { payload: { action: "chaos.inject", experimentId: "E8" }, action: "chaos.app", target: "e8-assault" },
     { payload: { action: "chaos.clear", runId: "e1-toxic" }, action: "chaos.network.clear", target: "e1-toxic" },
@@ -196,9 +196,36 @@ test("발급 바인딩: 자원·전이 스코프 target을 v2.13 표대로 appro
   }
 });
 
+/**
+ * 카오스 주입 바디가 카탈로그에서 파생되는지 본다. 상수로 박으면 E7(리더 일시 정지)이
+ * docker_kill로 나가 운영자가 고른 것보다 파괴적인 연산이 2인 승인을 통과한다.
+ * experiment가 빠지면 소비기가 범위 제외(E3)를 가르지 못해 SKIPPED 경로가 사문이 된다.
+ */
+test("카오스 주입 바디는 실험별 카탈로그 값을 싣는다", async () => {
+  const cases: { id: string; path: string; field: string; value: string }[] = [
+    { id: "E4", path: "/admin/v1/chaos/kill-node", field: "method", value: "docker_kill" },
+    // E7은 pause다. 상수로 박으면 운영자가 고른 것보다 파괴적인 연산이 승인을 통과한다
+    { id: "E7", path: "/admin/v1/chaos/kill-node", field: "method", value: "docker_pause" },
+    { id: "E1", path: "/admin/v1/chaos/network", field: "type", value: "latency" },
+    { id: "E2", path: "/admin/v1/chaos/network", field: "type", value: "timeout" },
+    { id: "E9", path: "/admin/v1/chaos/network", field: "type", value: "reset_peer" },
+  ];
+  for (const c of cases) {
+    await withCapture(async (calls, api) => {
+      await api.establishSession();
+      await api.consumeApproval(issued({ action: "chaos.inject", experimentId: c.id }));
+      const call = calls[calls.length - 1];
+      assert.ok(call.url.endsWith(c.path), `${c.id} 경로: ${call.url}`);
+      assert.equal(call.body?.[c.field], c.value, `${c.id} ${c.field}`);
+      // 소비기가 이 값으로 주입 경로와 범위 제외(E3)를 가른다. 빠지면 SKIPPED가 사문이다
+      assert.equal(call.body?.experiment, c.id, `${c.id} experiment 전달`);
+    });
+  }
+});
+
 test("소각 바디: 파괴 액션별 바디 필드를 v2.13 표대로 싣는다", async () => {
   const cases: { payload: ApprovalPayload; method: string; path: string; fields: Record<string, unknown> }[] = [
-    { payload: { action: "chaos.inject", experimentId: "E4" }, method: "POST", path: "/admin/v1/chaos/kill-node", fields: { node: "exchange-core-1", method: "docker_kill", expect_failover: true } },
+    { payload: { action: "chaos.inject", experimentId: "E4" }, method: "POST", path: "/admin/v1/chaos/kill-node", fields: { node: "chaos-api-1", method: "docker_kill", expect_failover: true } },
     { payload: { action: "chaos.inject", experimentId: "E1" }, method: "POST", path: "/admin/v1/chaos/network", fields: { name: "e1-toxic", type: "latency" } },
     { payload: { action: "chaos.inject", experimentId: "E8" }, method: "POST", path: "/admin/v1/chaos/app", fields: { assault: "e8-assault" } },
     { payload: { action: "chaos.clear", runId: "e1-toxic" }, method: "DELETE", path: "/admin/v1/chaos/network/e1-toxic", fields: {} },

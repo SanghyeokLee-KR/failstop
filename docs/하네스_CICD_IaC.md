@@ -210,7 +210,7 @@ ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75"
 ENTRYPOINT ["java","-jar","app.jar"]
 ```
 
-`exchange-admin/Dockerfile`만 예외적으로 **docker-cli 패키지를 추가하지 않는다**. E5 kill-node는 CLI가 아니라 **docker-java 라이브러리(Docker Engine API, unix socket)** 로 구현한다(§6-2, 이미지 순수성 유지). Next.js는 `output:'standalone'` 3-스테이지(deps/builder/runner, non-root, `HOSTNAME=0.0.0.0`).
+`exchange-admin/Dockerfile`만 예외적으로 **docker-cli 패키지를 추가하지 않는다**. 관리 서비스는 Docker를 조작하지 않기 때문이다(§6-2 명령 소비기 모델). 거래·관리 프로세스에 docker.sock을 주면 그 프로세스의 원격 코드 실행 하나가 호스트 장악이 되고, 리더 kill 실험에서는 명령을 받은 프로세스가 그 명령으로 사라져 결과를 기록할 주체가 없어진다. 주입은 별도 소비기가 수행한다. Next.js는 `output:'standalone'` 3-스테이지(deps/builder/runner, non-root, `HOSTNAME=0.0.0.0`).
 
 ### 2-5. `nightly-slo.yml`, k6 SLO 게이트 (API§1 "Thresholds→exit code" 계약 이행)
 
@@ -816,13 +816,19 @@ Micrometer Tracing(OTel bridge)→OTLP→Tempo, Logback JSON(trace_id 포함)→
 
 ### 6-2. 카오스 도구 배선, 실험 카탈로그 E1~E6 매핑 (API§6-B)
 
+**실행 경로(v2.36 확정)**. 관리 API는 주입을 수행하지 않고 지시만 남긴다. `POST /admin/v1/chaos/*`가 승인 토큰을 소각하고 `chaos_commands`(V21)에 `PENDING` 행을 적재하면, 하네스 소비기가 `FOR UPDATE SKIP LOCKED`로 한 건을 점유해 실제 주입을 수행하고 컨테이너 id·상태를 `result`에 되쓴다. 콘솔은 `GET /admin/v1/chaos/runs`의 `exec_state`로 지시가 집행됐는지 본다.
+
+감사 로그를 큐로 쓰지 않는 이유가 둘이다. `admin_audit_log`는 append-only라(V5 `forbid_mutation`) 처리 표시를 적을 자리가 없고, 자리가 없으면 소비기 재시작이 같은 지시를 다시 읽어 리더를 두 번 죽인다. 기록과 작업 지시는 다른 것이다.
+
+소비기가 별도 프로세스인 것이 E4·E5의 전제다. 대상이 죽어도 소비기는 살아서 증빙을 남긴다. 소비기는 주입 원시연산만 수행하고, 실험 전체 프로토콜(사전 권위 run → 주입 → 무개입 관찰 → 사후 판정)은 `e1`~`e9` 스크립트가 계속 담당한다.
+
 | 실험 | 주입 수단(인프라 경로) | 관찰 판정 |
 |---|---|---|
 | E1 DB 지연/단절 | admin → toxiproxy(admin-net 내부), `pg-api1`/`pg-api2` **노드 선택** latency/timeout=0/reset_peer/down | Hikari pending↑, p99, 무결성 유지 |
 | E2 Redis 장애(리더 한정) | **`redis-api{리더}` 프록시만** toxic, 스탠바이의 Redis 경로는 생존 | 리더만 Redisson 리스 만료 → **스탠바이 fencing 승격**, 구 리더 append 0행 |
 | E3 예외 폭풍/지연 | admin → api 노드 `POST /actuator/chaosmonkey/**` 릴레이(admin-net, **§5-1 demo 프로파일에서 노출·활성 확인됨**) | CB open, 429/503+Retry-After 규약 |
 | E4 AppKiller/자원 고갈 | Chaos Monkey AppKiller/Memory/CPU + `restart: unless-stopped` | 프로세스 수준 자동 복구(메모리 캡 §3-4 내에서) |
-| E5 노드 kill(핵심) | admin이 **docker-java(Engine API, docker.sock)** 로 `exchange-demo-api-1-1` kill, CLI 미탑재 이미지에서도 실행 가능(구현 방식 확정) | restart→재생→readiness UP→LB 재편입, RTO<30s, epoch+1 |
+| E5 노드 kill(핵심) | admin이 `chaos_commands`에 지시를 적재하고 **하네스 소비기**(`scripts/chaos-consumer.ps1`)가 점유해 `docker kill chaos-api-1` 수행. 관리 프로세스는 Docker에 닿지 않는다 | restart→재생→readiness UP→LB 재편입, RTO<30s, epoch+1 |
 | E6 폭주+kill 동시 | k6 spike 중첩 + E5 | 유실 0·중복 0·자산합 0·해시 일치(P6 증거 표) + C16 |
 | 보완(그레이 장애) | `docker pause`(freezer), **pause는 restart 정책으로 복구 안 됨 → 실험 타이머가 unpause 자동 종료(필수 훅)** | 헬스체크 vs TCP 생존 괴리, 좀비 리더 fencing |
 | 보완(패킷) | Pumba netem loss/corrupt (`chaos-net`), **사전 검증 필수**: `docker run --rm --cap-add NET_ADMIN alpine sh -c "apk add iproute2 && tc qdisc add dev eth0 root netem loss 10%"` 성공 시에만 활성. WSL2 커널 sch_netem 미탑재 시 **packet loss 실험은 범위 제외로 문서화** | Toxiproxy 공백 전담(조건부) |
