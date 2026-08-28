@@ -3,6 +3,8 @@ package kr.exchange.admin;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.sim.BotFleetGovernor;
+import kr.exchange.sim.BotType;
+import kr.exchange.sim.OpsGovernor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -21,8 +23,10 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,6 +43,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SimGovernanceIntegrationTest {
+
+    /** 프리셋 전용 마켓. 전 마켓에 적용되므로 다른 테스트와 기준선을 섞지 않는다. */
+    private static final String SCENARIO_MARKET = "KRW-SCN";
 
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("exchange")
@@ -67,12 +74,22 @@ class SimGovernanceIntegrationTest {
         BotFleetGovernor botFleetGovernor() {
             return new BotFleetGovernor(30, 80, 300, 8);
         }
+
+        /** 프리셋 OPS 배수의 기준선을 만든다(§6-A v2.31). 20 OPS가 데모 기본값이다. */
+        @Bean
+        OpsGovernor opsGovernor() {
+            return new OpsGovernor(20.0);
+        }
     }
 
     @Autowired
     TestRestTemplate rest;
     @Autowired
     JdbcClient jdbc;
+    @Autowired
+    BotFleetGovernor fleetGovernor;
+    @Autowired
+    OpsGovernor opsGovernor;
     @Autowired
     AdminOperatorSeeder operatorSeeder;
     @Autowired
@@ -235,6 +252,98 @@ class SimGovernanceIntegrationTest {
         assertFalse(body.path("running").asBoolean());
         assertTrue(jdbc.sql("SELECT count(*) FROM admin_audit_log WHERE operator_id='op-bot' "
                         + "AND action='sim.start'").query(Long.class).single() >= 1);
+    }
+
+    /**
+     * 프리셋 활성화(§6-A v2.31). 기준선 배수·감사·복귀 경로를 한 흐름으로 본다.
+     * 마켓명은 KRW-BTC 뒤로 정렬되는 것을 쓴다. status 테스트가 markets[0]을 KRW-BTC로 단정한다.
+     */
+    @Test
+    void scenarioAppliesBaselineMultiplesAndAudits() throws Exception {
+        String s = session("op-bot");
+        Map<BotType, Integer> baseline = Map.of(BotType.MARKET_MAKER, 10, BotType.TAKER, 10,
+                BotType.TREND, 4, BotType.NOISE, 5);
+        fleetGovernor.registerMarket(SCENARIO_MARKET, new BigDecimal("50000000"), baseline);
+
+        ResponseEntity<String> r = post("/admin/v1/sim/scenarios/spike/activate",
+                "{\"operator_id\":\"op-bot\"}", "op-bot", s);
+        assertEquals(200, r.getStatusCode().value(), r.getBody());
+        JsonNode body = objectMapper.readTree(r.getBody());
+        assertEquals("1.0", body.path("schema_version").asText());
+        assertEquals("spike", body.path("scenario").asText());
+        assertEquals("20.0", body.path("base_ops").asText());
+        assertEquals("200.0", body.path("target_ops").asText(), "spike는 기저의 10배");
+        assertEquals(200.0, opsGovernor.targetOps(), 1e-9, "버킷에 실반영");
+        assertFalse(body.path("auto_balance").asBoolean());
+        assertEquals("0.60", body.path("target_net_bias").asText());
+        assertTrue(body.path("fleet_present").asBoolean());
+
+        // 하네스 §2-1이 spike를 "동일 플릿"으로 규정한다. 대수를 건드리지 않는 이유다.
+        JsonNode row = marketRow(body, SCENARIO_MARKET);
+        assertTrue(row.path("scale_applied").asBoolean());
+        assertEquals(10, row.path("applied").path("MARKET_MAKER").asInt());
+        assertEquals(10, row.path("applied").path("TAKER").asInt());
+        assertEquals(4, row.path("applied").path("TREND").asInt());
+        assertEquals(5, row.path("applied").path("NOISE").asInt());
+        assertEquals("0.60", row.path("effective_bias").asText(), "auto off는 즉시 반영");
+
+        assertTrue(jdbc.sql("SELECT count(*) FROM admin_audit_log WHERE operator_id='op-bot' "
+                        + "AND action='sim.scenario' AND target='spike' AND approval_id IS NULL")
+                .query(Long.class).single() >= 1);
+
+        // 구성을 바꾸는 국면은 volatile이다(MM 0.6 / TAKER 1.3 / TREND 1.5 / NOISE 1.2).
+        JsonNode vol = objectMapper.readTree(
+                post("/admin/v1/sim/scenarios/volatile/activate", "{\"operator_id\":\"op-bot\"}",
+                        "op-bot", s).getBody());
+        assertEquals("30.0", vol.path("target_ops").asText());
+        JsonNode volRow = marketRow(vol, SCENARIO_MARKET);
+        assertEquals(6, volRow.path("applied").path("MARKET_MAKER").asInt());
+        assertEquals(13, volRow.path("applied").path("TAKER").asInt());
+        assertEquals(6, volRow.path("applied").path("TREND").asInt());
+        assertEquals(6, volRow.path("applied").path("NOISE").asInt());
+
+        // 재활성화는 누적되지 않는다. 현재값을 곱하면 MM이 6에서 4로 또 줄어든다.
+        JsonNode again = objectMapper.readTree(
+                post("/admin/v1/sim/scenarios/volatile/activate", "{\"operator_id\":\"op-bot\"}",
+                        "op-bot", s).getBody());
+        assertEquals(6, marketRow(again, SCENARIO_MARKET).path("applied").path("MARKET_MAKER").asInt());
+
+        // steady가 기준선 복귀 경로다.
+        JsonNode back = objectMapper.readTree(
+                post("/admin/v1/sim/scenarios/steady/activate", "{\"operator_id\":\"op-bot\"}",
+                        "op-bot", s).getBody());
+        assertEquals("20.0", back.path("target_ops").asText());
+        assertEquals(10, marketRow(back, SCENARIO_MARKET).path("applied").path("MARKET_MAKER").asInt());
+        assertEquals(4, marketRow(back, SCENARIO_MARKET).path("applied").path("TREND").asInt());
+    }
+
+    @Test
+    void unknownScenarioIsNotFound() throws Exception {
+        String s = session("op-bot");
+        ResponseEntity<String> r = post("/admin/v1/sim/scenarios/meltdown/activate",
+                "{\"operator_id\":\"op-bot\"}", "op-bot", s);
+        assertEquals(404, r.getStatusCode().value(), r.getBody());
+        assertEquals("not_found", objectMapper.readTree(r.getBody())
+                .path("error").path("name").asText());
+    }
+
+    @Test
+    void viewerCannotActivateScenario() throws Exception {
+        String s = session("op-view");
+        ResponseEntity<String> r = post("/admin/v1/sim/scenarios/steady/activate",
+                "{\"operator_id\":\"op-view\"}", "op-view", s);
+        assertEquals(403, r.getStatusCode().value());
+        assertEquals("role_required", objectMapper.readTree(r.getBody())
+                .path("error").path("detail").path("reason").asText());
+    }
+
+    private JsonNode marketRow(JsonNode body, String market) {
+        for (JsonNode m : body.path("markets")) {
+            if (market.equals(m.path("market").asText())) {
+                return m;
+            }
+        }
+        throw new AssertionError("마켓 행 없음: " + market);
     }
 
     @Test

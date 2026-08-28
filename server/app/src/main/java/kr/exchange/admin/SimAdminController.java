@@ -7,6 +7,7 @@ import kr.exchange.sim.BotFleet;
 import kr.exchange.sim.BotFleetGovernor;
 import kr.exchange.sim.BotType;
 import kr.exchange.sim.OpsGovernor;
+import kr.exchange.sim.SimScenario;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
@@ -338,6 +339,74 @@ public class SimAdminController {
         out.put("running", running);
         out.put("paused", paused);
         out.put("fleet_present", fleet != null);
+        return out;
+    }
+
+    /**
+     * 시나리오 프리셋 활성화(§6-A v2.31, 승인 불요). 전역 OPS·유형별 대수·bias를 국면 하나로
+     * 동시에 얹는다. rate·scale·bias 세 경로로 도달 가능한 상태만 만들어 새 위험을 만들지 않는다.
+     * 값이 기준선 대비 배수라 같은 프리셋을 두 번 눌러도 결과가 같다(멱등). steady가 복귀 경로다.
+     * 경로가 3세그먼트라 1세그먼트를 받는 /{command} 제어와 겹치지 않는다.
+     */
+    @PostMapping("/scenarios/{name}/activate")
+    public Map<String, Object> activateScenario(@PathVariable String name,
+                                                HttpServletRequest request) {
+        AdminPrincipal principal = AdminRequestContext.principal(request);
+        principal.require(AdminRole.BOT_OPS);
+        SimScenario scenario;
+        try {
+            scenario = SimScenario.parse(name);
+        } catch (IllegalArgumentException e) {
+            throw new ApiException(404, "not_found", "알 수 없는 시나리오 프리셋입니다: " + name);
+        }
+        OpsGovernor governor = opsGovernor.getIfAvailable();
+        BotFleetGovernor fleet = fleetGovernor.getIfAvailable();
+
+        double baseOps = governor == null ? 0.0 : governor.baseTargetOps();
+        double targetOps = scenario.scaledOps(baseOps);
+        if (governor != null) {
+            governor.setTargetOps(targetOps);
+        }
+        List<BotFleetGovernor.ScenarioMarketResult> results =
+                fleet == null ? List.of() : fleet.applyScenario(scenario);
+
+        boolean clamped = false;
+        List<Map<String, Object>> markets = new ArrayList<>();
+        for (BotFleetGovernor.ScenarioMarketResult r : results) {
+            clamped |= r.clamped();
+            Map<String, Object> applied = new LinkedHashMap<>();
+            for (Map.Entry<BotType, Integer> e : r.applied().entrySet()) {
+                applied.put(e.getKey().name(), e.getValue());
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("market", r.market());
+            row.put("scale_applied", r.scaleApplied());
+            row.put("applied", applied);
+            row.put("effective_bias", bias(r.effectiveBias()));
+            markets.add(row);
+        }
+        boolean present = governor != null || fleet != null;
+
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("scenario", scenario.wireName());
+        detail.put("target_ops", String.valueOf(targetOps));
+        detail.put("base_ops", String.valueOf(baseOps));
+        detail.put("markets", markets);
+        detail.put("clamped", clamped);
+        detail.put("fleet_present", present);
+        audit.record(principal.operatorId(), "sim.scenario", scenario.wireName(),
+                AdminRequestContext.requestId(request), null, "OK", detail);
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("schema_version", "1.0");
+        out.put("scenario", scenario.wireName());
+        out.put("target_ops", String.valueOf(targetOps));
+        out.put("base_ops", String.valueOf(baseOps));
+        out.put("auto_balance", scenario.autoBalance());
+        out.put("target_net_bias", bias(scenario.targetBias()));
+        out.put("markets", markets);
+        out.put("clamped", clamped);
+        out.put("fleet_present", present);
         return out;
     }
 

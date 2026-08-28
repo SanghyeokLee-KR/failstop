@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.30, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.31, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -1169,6 +1169,47 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 **set-point 제어(v2.10, 봇_방향성 §5·체결_시각효과 §5-6 정본 반영)**: `PUT /sim/scale`·`/sim/bias`·`/sim/effects`는 개별 봇 생성/제거를 대체하지 않고 그 위에 마켓·유형 단위 목표값을 얹는 상위 제어다. 셋 다 파괴 액션이 아니므로 approval_token 불요이고 감사 로그만 적재한다(§3-6 필수 완결 열거 불변, 신규 필수 액션 없음). `/sim/effects`의 `trade_flash`는 공개 `GET /api/v1/exchange-config`(§4-A-6)에 반영된다. `GET /sim/status`는 schema를 1.1로 올려 마켓별 `target/measured/effective_bias`, `auto_balance`, 유형별 `scale{target,active}`, `fill_ratio`, `trade_flash`를 additive로 더한다(기존 1.0 소비자 무영향).
 
 **전체 제어(v2.22, `POST /sim/start|stop|pause` 계약 확정)**: 세 명령은 봇 플릿 수명주기를 실제로 움직인다. `start`는 미기동이면 기동, 일시정지 상태면 해제(재기동 아님). `stop`은 플릿 정지(스레드 종료, pause 잔류 없음). `pause`는 토글이며 봇 스레드·시드·오더북 상태를 유지한 채 발행 게이트(전역 OPS 버킷)만 닫아 주문·취소 발행을 멈춘다. 셋 다 멱등 수렴형이라 approval_token 불요·감사 적재는 불변이다. 응답은 schema 1.1: `{ "schema_version":"1.1","command":"pause","applied":true,"running":true,"paused":true,"fleet_present":true }`. `applied`는 명령이 플릿에 반영됐는지(수명주기 플릿 빈 부재 배포는 항상 false, 미기동 플릿에의 `pause`도 false), `running`·`paused`는 실행 후 상태, `fleet_present`는 수명주기 플릿 빈 주입 여부다. `GET /sim/status`는 schema를 1.2로 올려 top-level `running`·`paused`를 additive로 더한다(기존 1.1 소비자 무영향). status의 `fleet_present`는 종전대로 governor 주입 여부이고 제어 응답의 `fleet_present`는 수명주기 빈 기준이므로, 봇 프로파일이 켜진 정상 배포에서 둘은 일치한다.
+
+**시나리오 프리셋(v2.31, `POST /sim/scenarios/{name}/activate` 계약 확정)**: 프리셋은 시장 국면 하나를 전역 OPS·마켓별 유형 대수·마켓별 bias에 동시에 얹는 상위 set-point다. 기존 `/sim/rate`·`/sim/scale`·`/sim/bias`를 한 번에 호출하는 것과 같고, 그 셋으로 도달할 수 없는 상태는 만들지 않는다. 따라서 파괴 액션이 아니며 approval_token 불요·감사 적재다(§3-6 완결 열거 불변).
+
+- **기준선 상대값**: 프리셋 값은 절대 수치가 아니라 **기준선 대비 배수**다. 기준선은 봇 플릿 기동 시 `registerMarket`이 등록한 유형별 대수와 `OpsGovernor` 생성 시 목표 OPS다. 배포마다 기준 규모가 다르므로(하네스 normal 140봇 대 데모 소규모) 절대값을 못 박으면 한쪽에서 무의미해진다.
+- **멱등**: 기준선은 등록 시점 값으로 고정되고 활성화 시점의 현재 값을 쓰지 않는다. 같은 프리셋을 두 번 활성화한 결과는 한 번과 같다. 활성화가 누적되면 `spike` 3회가 기준선 OPS의 1000배가 되어 제어면이 아니라 폭주기가 된다.
+- **복귀 경로**: `steady`가 전 배수 1.0이라 기준선 복귀 명령을 겸한다. 발표 중 어느 프리셋에서든 `steady`로 되돌린다.
+- **레짐 불간섭**: 프리셋은 변동성 레짐(CALM/TREND/SHOCK)을 건드리지 않는다. 레짐 시퀀스는 마켓별 시드 PRNG가 `controlStep`당 정확히 1회 전진시키는 재생 결정론의 일부다. 외부 강제는 같은 시드가 같은 시퀀스를 낳는다는 계약을 깬다.
+- **적용 범위**: 등록된 전 마켓에 적용한다. 대수는 `PUT /sim/scale`과 동일하게 유형·마켓·전역 캡으로 클램프하며, 한 마켓이라도 걸리면 응답 `clamped:true`다. 기준선이 등록되지 않은 마켓은 대수를 건드리지 않고 bias만 적용해 `scale_applied:false`로 보고한다(기준선 0을 곱해 봇을 조용히 0으로 만드는 것을 막는다).
+
+| 프리셋 | OPS | MARKET_MAKER | TAKER | TREND | NOISE | target_net_bias | auto_balance | strength | 국면 |
+|---|---|---|---|---|---|---|---|---|---|
+| `steady` | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 0.00 | on | 0.5 | 기준선. 평상 운영이자 복귀 경로 |
+| `volatile` | 1.5 | 0.6 | 1.3 | 1.5 | 1.2 | 0.00 | on | 0.15 | 방향 없는 진폭. 호가를 얇게 해 같은 주문이 더 큰 이동을 만든다. 균형 제어는 살아 있되 느슨 |
+| `ramp` | 2.0 | 1.0 | 1.4 | 2.0 | 1.0 | +0.35 | on | 0.3 | 완만한 추세. 균형 제어가 붙어 있어 서서히 오른다 |
+| `spike` | 10.0 | 1.0 | 1.0 | 1.0 | 1.0 | +0.60 | off | 0.5 | 급등·폭주. 하네스 `spike 10x`의 OPS 축과 같은 크기 |
+| `thundering-herd` | 12.0 | 1.0 | 1.0 | 1.0 | 1.0 | +0.70 | off | 0.5 | 전 봇이 한 방향으로 몰리는 순간 버스트 |
+
+- **부하 국면은 대수를 건드리지 않는다**. `spike`·`thundering-herd`의 대수 배수가 전부 1.0인 것은 하네스_검증설계 §2-1 프로파일표가 두 국면을 각각 "동일 플릿"·"전 봇"으로 규정하기 때문이다. 대수를 만지면 하네스가 고정한 플릿을 흔든다. 구성으로 국면을 만드는 것은 하네스 표에 없는 `volatile`·`ramp`가 맡는다.
+- **OPS 축만 구현했다(λ 축 미구현)**. §2-1 spike 행은 크기를 두 축으로 준다. 전역 목표 OPS 기저의 10배, 그리고 "TAKER λ 10배". 프리셋은 앞의 축만 집행한다. λ는 현재 레짐이 소유하는 스칼라이고(`BotFleetGovernor.regimeLambdaMult`, 봇 도착 간격 `TakerBot.interarrivalMs`의 입력), 레짐은 마켓별 시드 PRNG가 `controlStep`당 1회 전진시키는 재생 결정론의 일부다. 프리셋이 λ를 밀면 그 계약을 깨거나 레짐과 무관한 두 번째 λ 노브를 신설해야 하고, 둘 다 이 절의 범위 밖이다.
+- **OPS 배수는 상한이지 수요가 아니다**. 전역 버킷(`OpsGovernor.acquire`)은 발행을 막는 게이트다. 실제 발행량은 `min(봇 수요, target_ops)`이고 봇 수요는 λ와 MM requote 주기가 정한다. 수요가 이미 상한 아래인 구성에서는 배수를 올려도 관측 처리량이 그만큼 오르지 않는다. 배수 10.0·12.0이 실제로 구속력을 갖는지는 배포의 봇 구성에 달렸고, 데모 규모에서는 구속력이 없을 수 있다. 따라서 λ 축이 붙기 전까지 `spike`와 `thundering-herd`의 관측 가능한 차이는 처리량이 아니라 방향(bias 0.60 대 0.70)이다. 활성화 응답의 `target_ops`는 설정된 상한을 보고하는 것이지 달성 처리량의 약속이 아니다.
+
+- `steady`는 OPS·대수를 즉시 기준선으로 되돌리고, bias는 균형 루프가 다음 주기부터 0으로 수렴시킨다(auto on 계약, 봇_방향성 §4-5). 방향이 뚝 끊기지 않고 잦아든다. 반대로 `spike`·`thundering-herd`는 auto off라 목표 bias가 즉시 반영된다.
+- `ramp`는 k6 stage의 요청률 램프업과 이름이 겹치나 뜻이 다르다. 여기서는 시장 국면의 완만한 추세이고, 부하 램프업은 하네스가 담당한다.
+- bias 부호는 매수 쏠림이 양수다(상승·매수 Red 규약과 정합). `auto_balance:off` 행의 `strength`는 저장되지만 균형 루프가 돌지 않아 무효다.
+- 대수 배수는 기준선에 곱해 반올림한다. 기준선이 0인 유형은 0으로 남는다.
+- OPS 상한을 따로 두지 않는다. 최대 배수 12.0이 만드는 값은 `PUT /sim/rate`로 이미 도달 가능하므로 프리셋이 새 위험을 만들지 않는다. 수용 제한(§2-5 토큰버킷·백프레셔)이 폭주 국면의 방어선이고, 그 발동을 보는 것이 `spike`의 목적이다.
+
+```json
+// POST /admin/v1/sim/scenarios/spike/activate  (operator_id 필수, approval_token 불요)
+{ "operator_id":"op-02" }
+// 200
+{ "schema_version":"1.0", "scenario":"spike",
+  "target_ops":"300.0", "base_ops":"30.0",
+  "auto_balance":false, "target_net_bias":"0.60",
+  "markets":[
+    { "market":"KRW-BTC", "scale_applied":true,
+      "applied":{"MARKET_MAKER":40,"TAKER":30,"TREND":20,"NOISE":50},
+      "effective_bias":"0.60" } ],
+  "clamped":false, "fleet_present":true }
+```
+알 수 없는 프리셋 이름은 `404 not_found`다(`/sim/{command}`의 미지 명령과 동일 규약).
 
 ### 6-B. 카오스 주입 API
 

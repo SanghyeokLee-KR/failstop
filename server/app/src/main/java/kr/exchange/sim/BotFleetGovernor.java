@@ -244,7 +244,81 @@ public class BotFleetGovernor {
                     state.targets.set(type.ordinal(), clampType(t));
                 }
             }
+            // 기준선은 최초 등록분만 잡는다. 활성화 시점 현재값을 기준으로 삼으면 같은
+            // 프리셋 재활성화가 누적돼 배수가 거듭제곱으로 커진다(§6-A v2.31 멱등).
+            if (!state.baselineSet) {
+                for (int i = 0; i < TYPE_COUNT; i++) {
+                    state.baseline.set(i, state.targets.get(i));
+                }
+                state.baselineSet = true;
+            }
         }
+    }
+
+    /** 프리셋 배수 기준선. 미등록이면 null이고, 호출측은 대수를 건드리지 않는다. */
+    public Map<BotType, Integer> baseline(String market) {
+        MarketState state = markets.get(market);
+        if (state == null || !state.baselineSet) {
+            return null;
+        }
+        EnumMap<BotType, Integer> out = new EnumMap<>(BotType.class);
+        for (BotType type : BotType.values()) {
+            out.put(type, state.baseline.get(type.ordinal()));
+        }
+        return out;
+    }
+
+    /** 등록된 마켓명 정렬 목록. 프리셋 적용 순서를 고정해 클램프 결과를 재현 가능하게 한다. */
+    public List<String> marketNames() {
+        List<String> keys = new ArrayList<>(markets.keySet());
+        keys.sort(String::compareTo);
+        return keys;
+    }
+
+    private EnumMap<BotType, Integer> currentTargets(String market) {
+        MarketState state = state(market);
+        EnumMap<BotType, Integer> out = new EnumMap<>(BotType.class);
+        for (BotType type : BotType.values()) {
+            out.put(type, state.targets.get(type.ordinal()));
+        }
+        return out;
+    }
+
+    public record ScenarioMarketResult(String market, boolean scaleApplied,
+                                       Map<BotType, Integer> applied, double effectiveBias,
+                                       boolean clamped) {
+    }
+
+    /**
+     * 프리셋을 전 등록 마켓에 적용한다(§6-A v2.31). 대수는 기준선 배수를 setScale로 흘려
+     * 기존 캡 클램프를 그대로 태우고, bias는 프리셋 고정값이다. 기준선 미등록 마켓은 대수를
+     * 건드리지 않고 bias만 적용한다. 기준선 0을 곱해 봇을 조용히 0으로 만드는 경로를 막는다.
+     * setScale과 같은 모니터를 잡아 배치 중간에 다른 대수 변경이 끼어들지 않게 한다.
+     * 전역 캡 잔여는 마켓 순서대로 소진되므로 상향 국면에서 뒤 마켓이 먼저 클램프된다.
+     */
+    public synchronized List<ScenarioMarketResult> applyScenario(SimScenario scenario) {
+        List<ScenarioMarketResult> out = new ArrayList<>();
+        for (String market : marketNames()) {
+            Map<BotType, Integer> base = baseline(market);
+            Map<BotType, Integer> applied;
+            boolean clamped = false;
+            if (base == null) {
+                applied = currentTargets(market);
+            } else {
+                EnumMap<BotType, Integer> targets = new EnumMap<>(BotType.class);
+                for (BotType type : BotType.values()) {
+                    targets.put(type, scenario.scaled(type, base.get(type)));
+                }
+                ScaleResult result = setScale(market, targets);
+                applied = result.applied();
+                clamped = result.clamped();
+            }
+            BiasResult bias = setBias(market, scenario.targetBias(), scenario.autoBalance(),
+                    scenario.strength());
+            out.add(new ScenarioMarketResult(market, base != null, applied,
+                    bias.effectiveBias(), clamped));
+        }
+        return out;
     }
 
     private MarketState state(String market) {
@@ -554,6 +628,8 @@ public class BotFleetGovernor {
         private volatile BigDecimal referencePrice;
         private volatile BigDecimal currentPrice;
         private final AtomicIntegerArray targets = new AtomicIntegerArray(TYPE_COUNT);
+        private final AtomicIntegerArray baseline = new AtomicIntegerArray(TYPE_COUNT);
+        private volatile boolean baselineSet;
         private volatile double targetBias;
         private volatile double effectiveBias;
         private volatile double measuredBias;

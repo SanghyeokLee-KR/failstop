@@ -8,15 +8,26 @@ import java.util.function.BooleanSupplier;
  */
 public class OpsGovernor {
 
+    private final double baseOps;
     private volatile double targetOps;
     private volatile boolean paused;
     private double tokens;
     private long lastRefillNanos;
 
     public OpsGovernor(double targetOps) {
+        this.baseOps = targetOps;
         this.targetOps = targetOps;
         this.tokens = 0;
         this.lastRefillNanos = System.nanoTime();
+    }
+
+    /**
+     * 기동 시점 목표 OPS. 시나리오 프리셋(§6-A v2.31)의 배수 기준선이다. 현재값을 기준으로
+     * 삼으면 같은 프리셋 재활성화가 누적돼 배수가 거듭제곱으로 커진다.
+     * 구성값이 비정상이면 현재값으로 물러선다(프리셋이 조용히 무효화되지 않게).
+     */
+    public double baseTargetOps() {
+        return baseOps > 0 ? baseOps : targetOps;
     }
 
     /** 런타임 변경 훅. 관리 평면(PUT /admin/v1/sim/rate) 연동 지점. */
