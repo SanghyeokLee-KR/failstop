@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SimScenarioTest {
 
     private static final String BTC = "KRW-BTC";
+    /** 레짐 배수가 1.0이 아닌 마켓. 합성 검증에서 레짐 인자를 드러낸다 */
+    private static final String MEME = "KRW-DOGE";
     private static final BigDecimal REF = new BigDecimal("50000000");
 
     private static BotFleetGovernor governor() {
@@ -65,18 +67,27 @@ class SimScenarioTest {
     /** API §6-A v2.31 배수표 5x8 전체를 못 박는다. 표와 코드가 갈라지면 여기서 깨진다. */
     @Test
     void presetTableMatchesCanonicalContract() {
-        assertPreset(SimScenario.STEADY, 1.0, 1.0, 1.0, 1.0, 1.0, 0.00, true, 0.5);
-        assertPreset(SimScenario.VOLATILE, 1.5, 0.6, 1.3, 1.5, 1.2, 0.00, true, 0.15);
-        assertPreset(SimScenario.RAMP, 2.0, 1.0, 1.4, 2.0, 1.0, 0.35, true, 0.3);
-        assertPreset(SimScenario.SPIKE, 10.0, 1.0, 1.0, 1.0, 1.0, 0.60, false, 0.5);
-        assertPreset(SimScenario.THUNDERING_HERD, 12.0, 1.0, 1.0, 1.0, 1.0, 0.70, false, 0.5);
+        assertPreset(SimScenario.STEADY, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.00, true, 0.5);
+        assertPreset(SimScenario.VOLATILE, 1.5, 1.5, 0.6, 1.3, 1.5, 1.2, 0.00, true, 0.15);
+        assertPreset(SimScenario.RAMP, 2.0, 2.0, 1.0, 1.4, 2.0, 1.0, 0.35, true, 0.3);
+        assertPreset(SimScenario.SPIKE, 10.0, 10.0, 1.0, 1.0, 1.0, 1.0, 0.60, false, 0.5);
+        assertPreset(SimScenario.THUNDERING_HERD, 12.0, 12.0, 1.0, 1.0, 1.0, 1.0, 0.70, false, 0.5);
     }
 
-    private static void assertPreset(SimScenario s, double ops, double mm, double taker,
-                                     double trend, double noise, double bias, boolean auto,
-                                     double strength) {
+    /** 상한과 수요를 함께 올려야 어느 한쪽이 무의미해지지 않는다(§6-A v2.31) */
+    @Test
+    void lambdaMultTracksOpsMult() {
+        for (SimScenario s : SimScenario.values()) {
+            assertEquals(s.opsMult(), s.lambdaMult(), 1e-9, s.wireName() + " λ와 OPS 배수");
+        }
+    }
+
+    private static void assertPreset(SimScenario s, double ops, double lambda, double mm,
+                                     double taker, double trend, double noise, double bias,
+                                     boolean auto, double strength) {
         String n = s.wireName();
         assertEquals(ops, s.opsMult(), 1e-9, n + " OPS");
+        assertEquals(lambda, s.lambdaMult(), 1e-9, n + " TAKER λ");
         assertEquals(mm, s.mult(BotType.MARKET_MAKER), 1e-9, n + " MARKET_MAKER");
         assertEquals(taker, s.mult(BotType.TAKER), 1e-9, n + " TAKER");
         assertEquals(trend, s.mult(BotType.TREND), 1e-9, n + " TREND");
@@ -215,6 +226,58 @@ class SimScenarioTest {
                     s.wireName() + "는 대수를 건드리지 않는다");
             assertTrue(s.opsMult() >= 10.0, s.wireName() + "의 크기는 전역 OPS 축이 준다");
         }
+    }
+
+    @Test
+    void scenarioLambdaDefaultsToOneAndFollowsPreset() {
+        BotFleetGovernor g = governor();
+        g.registerMarket(BTC, REF, targets(10, 10, 4, 5));
+        // 프리셋 미적용 배포의 봇 거동이 바뀌지 않는다는 안전 성질
+        assertEquals(1.0, g.scenarioLambdaMult(BTC), 1e-9);
+        assertEquals(1.0, g.scenarioLambdaMult("KRW-없음"), 1e-9, "미등록 마켓도 1.0");
+
+        g.applyScenario(SimScenario.SPIKE);
+        assertEquals(10.0, g.scenarioLambdaMult(BTC), 1e-9);
+        // 레짐 배수와 곱해 쓰는 별도 스칼라라 레짐 쪽은 그대로다
+        assertEquals(1.0, g.regimeLambdaMult(BTC), 1e-9, "CALM 기준 레짐 배수 불변");
+
+        g.applyScenario(SimScenario.STEADY);
+        assertEquals(1.0, g.scenarioLambdaMult(BTC), 1e-9, "steady가 도착률도 되돌린다");
+    }
+
+    /**
+     * 도착 간격이 실제로 곱하는 값. 합성이 끊기면 프리셋이 수요에 닿지 않는다.
+     * MEME 마켓을 함께 본다. STANDARD는 CALM에서 레짐 배수가 1.0이라 기대식이 국면 단독값으로
+     * 축약돼, 레짐 인자를 지운 변이체도 통과한다. MEME(lambdaAmp 1.3)이 그 축약을 깬다.
+     */
+    @Test
+    void takerArrivalMultIsRegimeTimesScenario() {
+        BotFleetGovernor g = governor();
+        g.registerMarket(BTC, REF, targets(10, 10, 4, 5));
+        g.registerMarket(MEME, REF, targets(10, 10, 4, 5), BotFleetGovernor.RegimeProfile.MEME);
+        assertEquals(1.0, g.takerArrivalMult(BTC), 1e-9, "기본은 레짐 1.0 x 국면 1.0");
+        assertEquals(1.0, g.takerArrivalMult("KRW-없음"), 1e-9, "미등록 마켓도 1.0");
+        assertEquals(1.3, g.regimeLambdaMult(MEME), 1e-9, "MEME은 CALM에서도 1.3이다");
+
+        for (SimScenario s : SimScenario.values()) {
+            g.applyScenario(s);
+            assertEquals(s.lambdaMult(), g.takerArrivalMult(BTC), 1e-9,
+                    s.wireName() + " STANDARD 도착률 배수");
+            // 레짐 인자를 떨어뜨리면 여기서만 갈린다(spike 기준 13.0 대 10.0)
+            assertEquals(1.3 * s.lambdaMult(), g.takerArrivalMult(MEME), 1e-9,
+                    s.wireName() + " MEME 도착률 배수");
+        }
+    }
+
+    @Test
+    void scenarioLambdaReachesMarketsWithoutBaseline() {
+        BotFleetGovernor g = governor();
+        g.registerMarket(BTC, REF, targets(10, 10, 4, 5));
+        g.setScale("KRW-XRP", targets(0, 7, 0, 0));
+
+        g.applyScenario(SimScenario.SPIKE);
+        // 도착률은 대수 기준선과 무관하다. 대수를 못 건드리는 마켓도 국면을 따른다
+        assertEquals(10.0, g.scenarioLambdaMult("KRW-XRP"), 1e-9);
     }
 
     @Test

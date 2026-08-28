@@ -207,6 +207,26 @@ public class BotFleetGovernor {
         return state == null ? 1.0 : state.profile.lambda(state.regime);
     }
 
+    /**
+     * 국면 프리셋 도착률 배수(§6-A v2.31). 레짐 배수와 곱해 쓴다. 미등록·미적용은 1.0이라
+     * 프리셋을 쓰지 않는 배포의 봇 거동이 바뀌지 않는다.
+     */
+    public double scenarioLambdaMult(String market) {
+        MarketState state = markets.get(market);
+        return state == null ? 1.0 : state.scenarioLambda;
+    }
+
+    /**
+     * 테이커 도착 간격에 곱할 최종 배수. 레짐과 국면 두 스칼라의 곱이며 합성 규칙을 봇이
+     * 아니라 여기에 둔다. 한 MarketState 참조에서 두 필드를 읽어 마켓이 뒤섞인 조합은 막지만
+     * 두 읽기가 원자적이지는 않다. 부하 셰이핑 스칼라라 문제되지 않는다.
+     * 버스트 확률은 이 값을 쓰지 않는다(레짐 단독).
+     */
+    public double takerArrivalMult(String market) {
+        MarketState state = markets.get(market);
+        return state == null ? 1.0 : state.profile.lambda(state.regime) * state.scenarioLambda;
+    }
+
     public double regimePWhaleMult(String market) {
         MarketState state = markets.get(market);
         return state == null ? 1.0 : state.profile.pWhale(state.regime);
@@ -315,6 +335,8 @@ public class BotFleetGovernor {
             }
             BiasResult bias = setBias(market, scenario.targetBias(), scenario.autoBalance(),
                     scenario.strength());
+            // 도착률은 대수 기준선과 무관하다. 기준선 없는 마켓도 국면을 따른다
+            state(market).scenarioLambda = scenario.lambdaMult();
             out.add(new ScenarioMarketResult(market, base != null, applied,
                     bias.effectiveBias(), clamped));
         }
@@ -637,6 +659,9 @@ public class BotFleetGovernor {
         private volatile boolean autoBalance;
         private volatile double strength = 0.5;
         private volatile Regime regime = Regime.CALM;
+        /* 국면 프리셋의 도착률 배수. 레짐 소유 스칼라를 덮지 않고 곱해진다. 기본 1.0이라
+           프리셋 미적용 배포는 기존과 동일하다(§6-A v2.31) */
+        private volatile double scenarioLambda = 1.0;
         private final RegimeProfile profile;
         private final SplittableRandom regimeRng;
         private final AtomicLong buyAgg = new AtomicLong();

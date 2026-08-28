@@ -159,8 +159,13 @@ public class TakerBot implements Runnable {
                     Thread.sleep(PARK_MS);
                     continue;
                 }
-                double lambdaMult = fleet == null ? 1.0 : fleet.regimeLambdaMult(props.market());
-                Thread.sleep(interarrivalMs(taker.lambda() * lambdaMult));
+                // 버스트 확률은 레짐 단독 신호로 둔다. 상한이 0.5인데 국면 10배를 곱하면
+                // 즉시 상한에 붙어 레짐의 동적 범위가 사라진다(레짐 최대치는 2.34).
+                double burstMult = fleet == null ? 1.0 : fleet.regimeLambdaMult(props.market());
+                // 도착률만 국면 배수를 태운다(레짐 x 국면). interarrivalMs는 λ 값과 무관하게
+                // 난수를 1회 소비하므로 배수를 바꿔도 결정 열은 불변이다.
+                double arrivalMult = fleet == null ? 1.0 : fleet.takerArrivalMult(props.market());
+                Thread.sleep(interarrivalMs(taker.lambda() * arrivalMult));
                 JsonNode best = bestOfBook();
                 if (best == null) {
                     continue;
@@ -169,7 +174,7 @@ public class TakerBot implements Runnable {
                 boolean buy = rng.nextDouble() < buyProbability(d, kDir);
                 double pWhale = Math.min(MULT_PROB_CAP,
                         P_WHALE * (fleet == null ? 1.0 : fleet.regimePWhaleMult(props.market())));
-                double pBurst = Math.min(MULT_PROB_CAP, P_BURST * lambdaMult);
+                double pBurst = Math.min(MULT_PROB_CAP, P_BURST * burstMult);
                 int burst = burstCount(rng, pBurst, MAX_BURST);
 
                 for (int b = 0; b < burst && running.getAsBoolean(); b++) {

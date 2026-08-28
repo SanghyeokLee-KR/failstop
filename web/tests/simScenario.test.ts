@@ -13,13 +13,13 @@ import { AdminError } from "../lib/admin/api";
 import { SCENARIO_CATALOG, scenarioDef } from "../lib/admin/catalog";
 import type { ScenarioMarketResult, ScenarioName } from "../lib/admin/types";
 
-const CANONICAL: Record<ScenarioName, [number, number, number, number, number, string, boolean, string]> = {
-  // [opsMult, MM, TAKER, TREND, NOISE, targetBias, autoBalance, strength]
-  steady: [1.0, 1.0, 1.0, 1.0, 1.0, "0.00", true, "0.5"],
-  volatile: [1.5, 0.6, 1.3, 1.5, 1.2, "0.00", true, "0.15"],
-  ramp: [2.0, 1.0, 1.4, 2.0, 1.0, "0.35", true, "0.3"],
-  spike: [10.0, 1.0, 1.0, 1.0, 1.0, "0.60", false, "0.5"],
-  "thundering-herd": [12.0, 1.0, 1.0, 1.0, 1.0, "0.70", false, "0.5"],
+const CANONICAL: Record<ScenarioName, [number, number, number, number, number, number, string, boolean, string]> = {
+  // [opsMult, lambdaMult, MM, TAKER, TREND, NOISE, targetBias, autoBalance, strength]
+  steady: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, "0.00", true, "0.5"],
+  volatile: [1.5, 1.5, 0.6, 1.3, 1.5, 1.2, "0.00", true, "0.15"],
+  ramp: [2.0, 2.0, 1.0, 1.4, 2.0, 1.0, "0.35", true, "0.3"],
+  spike: [10.0, 10.0, 1.0, 1.0, 1.0, 1.0, "0.60", false, "0.5"],
+  "thundering-herd": [12.0, 12.0, 1.0, 1.0, 1.0, 1.0, "0.70", false, "0.5"],
 };
 
 async function botOps(): Promise<SimAdminApi> {
@@ -40,13 +40,14 @@ test("카탈로그가 정본 배수표와 일치한다", () => {
     const want = CANONICAL[def.name];
     assert.ok(want, `정본에 없는 프리셋: ${def.name}`);
     assert.equal(def.opsMult, want[0], `${def.name} OPS`);
-    assert.equal(def.scale.MARKET_MAKER, want[1], `${def.name} MARKET_MAKER`);
-    assert.equal(def.scale.TAKER, want[2], `${def.name} TAKER`);
-    assert.equal(def.scale.TREND, want[3], `${def.name} TREND`);
-    assert.equal(def.scale.NOISE, want[4], `${def.name} NOISE`);
-    assert.equal(def.targetBias, want[5], `${def.name} target_net_bias`);
-    assert.equal(def.autoBalance, want[6], `${def.name} auto_balance`);
-    assert.equal(def.strength, want[7], `${def.name} strength`);
+    assert.equal(def.lambdaMult, want[1], `${def.name} TAKER λ`);
+    assert.equal(def.scale.MARKET_MAKER, want[2], `${def.name} MARKET_MAKER`);
+    assert.equal(def.scale.TAKER, want[3], `${def.name} TAKER`);
+    assert.equal(def.scale.TREND, want[4], `${def.name} TREND`);
+    assert.equal(def.scale.NOISE, want[5], `${def.name} NOISE`);
+    assert.equal(def.targetBias, want[6], `${def.name} target_net_bias`);
+    assert.equal(def.autoBalance, want[7], `${def.name} auto_balance`);
+    assert.equal(def.strength, want[8], `${def.name} strength`);
   }
 });
 
@@ -56,6 +57,13 @@ test("부하 국면은 대수를 건드리지 않는다", () => {
     const def = scenarioDef(name);
     for (const v of Object.values(def.scale)) assert.equal(v, 1.0, `${name} 대수 배수`);
     assert.ok(def.opsMult >= 10, `${name} 크기는 전역 OPS 축이 준다`);
+  }
+});
+
+test("도착률 배수는 OPS 배수를 따라간다", () => {
+  // 상한과 수요를 함께 올려야 어느 한쪽이 무의미해지지 않는다
+  for (const def of SCENARIO_CATALOG) {
+    assert.equal(def.lambdaMult, def.opsMult, `${def.name} λ와 OPS 배수`);
   }
 });
 

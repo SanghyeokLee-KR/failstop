@@ -24,6 +24,9 @@ export interface ScenarioDef {
   /** 한국어 평이어 1차 표기(§4-2 표시층). 원어는 name·title 채널이 전달한다 */
   label: string;
   opsMult: number;
+  /** 테이커 경로 도착률 배수(§2-1 "TAKER λ 10배"). opsMult와 같다. 한쪽만 올리면 배수가
+      그대로 안 나온다. TREND·NOISE도 TakerBot 프리셋이라 같은 배수를 받는다 */
+  lambdaMult: number;
   scale: Record<BotType, number>;
   /** 분수 파라미터는 문자열 표기(float 금지 계약 상속) */
   targetBias: string;
@@ -38,35 +41,34 @@ export interface ScenarioDef {
 }
 
 /* spike·thundering-herd의 대수 배수가 1.0인 것은 하네스 §2-1이 두 국면을 동일 플릿·전 봇으로
-   규정해서다. 같은 행의 TAKER 람다 10배 축은 레짐 소유라 서버가 미구현으로 남겼고, 그래서
-   OPS 배수는 상한 조정이지 달성 처리량이 아니다(§6-A v2.31). */
+   규정해서다. 크기는 OPS 상한과 TAKER 도착률 두 축이 함께 낸다(§6-A v2.31). */
 export const SCENARIO_CATALOG: ScenarioDef[] = [
   {
-    name: "steady", label: "평상", opsMult: 1.0,
+    name: "steady", label: "평상", opsMult: 1.0, lambdaMult: 1.0,
     scale: { MARKET_MAKER: 1.0, TAKER: 1.0, TREND: 1.0, NOISE: 1.0 },
     targetBias: "0.00", autoBalance: true, strength: "0.5", intensity: "calm",
     note: "기준선 복귀. 다른 국면에서 되돌아오는 경로",
   },
   {
-    name: "volatile", label: "변동 확대", opsMult: 1.5,
+    name: "volatile", label: "변동 확대", opsMult: 1.5, lambdaMult: 1.5,
     scale: { MARKET_MAKER: 0.6, TAKER: 1.3, TREND: 1.5, NOISE: 1.2 },
     targetBias: "0.00", autoBalance: true, strength: "0.15", intensity: "calm",
     note: "호가를 얇게 해 같은 주문이 더 큰 이동을 만든다. 방향은 없다",
   },
   {
-    name: "ramp", label: "완만한 상승", opsMult: 2.0,
+    name: "ramp", label: "완만한 상승", opsMult: 2.0, lambdaMult: 2.0,
     scale: { MARKET_MAKER: 1.0, TAKER: 1.4, TREND: 2.0, NOISE: 1.0 },
     targetBias: "0.35", autoBalance: true, strength: "0.3", intensity: "calm",
     note: "균형 제어가 붙어 있어 서서히 오른다",
   },
   {
-    name: "spike", label: "급등 폭주", opsMult: 10.0,
+    name: "spike", label: "급등 폭주", opsMult: 10.0, lambdaMult: 10.0,
     scale: { MARKET_MAKER: 1.0, TAKER: 1.0, TREND: 1.0, NOISE: 1.0 },
     targetBias: "0.60", autoBalance: false, strength: "0.5", intensity: "surge",
     note: "균형 제어를 끄고 목표 방향을 직접 넣는다. 대수는 그대로",
   },
   {
-    name: "thundering-herd", label: "일제 쏠림", opsMult: 12.0,
+    name: "thundering-herd", label: "일제 쏠림", opsMult: 12.0, lambdaMult: 12.0,
     scale: { MARKET_MAKER: 1.0, TAKER: 1.0, TREND: 1.0, NOISE: 1.0 },
     targetBias: "0.70", autoBalance: false, strength: "0.5", intensity: "surge",
     note: "전 봇이 한 방향으로 몰리는 순간 버스트",
