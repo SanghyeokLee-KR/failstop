@@ -46,11 +46,15 @@
 /* ===== 공지 배너 (§4-F) =====
    연결 배너와 같은 자리, 같은 높이 문법을 쓴다. 두 배너가 형태로 갈리면 사용자는
    같은 슬롯에서 두 종류의 규칙을 배워야 한다. 다른 것은 심각도 색과 닫기 버튼뿐이다 */
+/* 배너 안에 44px 히트를 담아야 한다(디자인시스템 §10-2). 종전 상하 8px 패딩이면 배너가
+   34px라 "공지 전체" 링크의 히트가 배너 밖으로 5px씩 넘치고, 그 위가 헤더 우측 컨트롤이라
+   클릭을 훔친다. 규정이 금지하는 겹침이다. 최소 높이를 히트에 맞춘다 */
 .noticeBanner {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
+  min-height: 44px;
   padding: var(--space-2) var(--space-4);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
@@ -78,7 +82,16 @@
   white-space: nowrap;
   opacity: 0.9;
 }
+/* 히트는 배너 높이를 채우고 폭은 라벨을 따른다. 배너 우측 끝이라 가로로 넓힐 여백이 없다 */
 .noticeBannerLink {
+  /* stretch만으로는 배너 패딩(8px)만큼 모자라 28px가 된다. 히트가 패딩까지 먹도록
+     세로 마진을 되돌려 배너 높이를 그대로 쓴다 */
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: calc(-1 * var(--space-2));
+  margin-bottom: calc(-1 * var(--space-2));
   margin-left: auto;
   flex-shrink: 0;
   text-decoration: underline;

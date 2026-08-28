@@ -19,13 +19,26 @@
 
 /* ===== 좌: 종목 식별 + 마켓 전환 드롭다운 ===== */
 .ident { position: relative; flex-shrink: 0; }
+/* 시각 38px를 유지하고 히트만 44px로 넓힌다(§10-2). 시각을 44로 올리면 요약 바가 6px
+   커져 거래 화면의 무스크롤 예산(1440x820에서 827px)을 넘긴다. 규정이 32~40px 구간에
+   ::after 확장을 둔 이유가 이 경우다 */
 .identBtn {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
   margin-left: calc(-1 * var(--space-2));
   border-radius: var(--radius-sm);
+}
+.identBtn::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
 }
 .identBtn:hover { background: var(--surface-hover); }
 .name {

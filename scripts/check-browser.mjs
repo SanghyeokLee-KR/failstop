@@ -267,6 +267,71 @@ function probeViewport(noScroll) {
   return out;
 }
 
+
+/**
+ * 탭 타깃(디자인시스템 §10-2). 단발 조작 요소는 히트 ≥44x44, 조작 버튼 시각 높이 ≥32px.
+ *
+ * 히트는 투명 ::after 확장을 합산한다. 시각 크기를 키우지 않고 히트만 넓히는 것이 규정된
+ * 방식이라, 상자만 재면 규정을 지킨 구현이 전부 위반으로 잡힌다.
+ *
+ * 래퍼가 포커스와 시각을 소유하는 입력(.focus-ring-owner)은 래퍼가 실제 타깃이다.
+ * 안쪽 input을 재면 래퍼가 44px여도 위반으로 잡힌다.
+ *
+ * 밀도 예외는 §10-2가 명시한 것만 통과시킨다. 목록에 없는 것을 밀도라는 이유로
+ * 통과시키면 예외가 규칙을 삼킨다.
+ *   상시: 호가 행, 체결 테이프 행, 감사 로그 행
+ *   높이 예산(max-height: 820px)에서만: 주문 패널 입력·CTA(§2.3 압축)
+ * 후자는 뷰포트 높이로 스스로 경계를 판정한다. 예산이 풀린 높이에서는 44px를 그대로 본다.
+ */
+function probeTapTarget() {
+  const DENSE = [/OrderbookPanel_row/, /TradesPanel_/, /audit_row/, /auditRow/];
+  const budget = window.innerHeight <= 820;
+  const BUDGET_DENSE = [/OrderPanel_/, /OrderPanel_cta/];
+  const out = [];
+  const sel = "button, a[href], input:not([type=hidden]), select, textarea,"
+    + " [role=button], [role=tab], [role=menuitem]";
+  for (const el of document.querySelectorAll(sel)) {
+    if (el.disabled) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === "none" || cs.visibility === "hidden") continue;
+    const cls = String(el.className || el.tagName);
+    if (DENSE.some((re) => re.test(cls))) continue;
+    if (budget && (BUDGET_DENSE.some((re) => re.test(cls))
+        || (el.closest("[class*=OrderPanel_]") !== null))) continue;
+
+    /* 두 후보 중 큰 쪽이 실제 히트다. 요소가 스스로 ::after로 넓힌 경우(OrderPanel .step)와
+       래퍼가 시각·포커스를 소유하는 경우(.focus-ring-owner 입력)가 둘 다 있어서,
+       한쪽만 보면 규정을 지킨 구현이 위반으로 잡힌다 */
+    const expanded = (node) => {
+      const r = node.getBoundingClientRect();
+      let w = r.width;
+      let h = r.height;
+      const after = getComputedStyle(node, "::after");
+      if (after.content !== "none" && after.position === "absolute") {
+        const aw = parseFloat(after.width);
+        const ah = parseFloat(after.height);
+        if (!Number.isNaN(aw)) w = Math.max(w, aw);
+        if (!Number.isNaN(ah)) h = Math.max(h, ah);
+      }
+      return { w, h };
+    };
+    const own = expanded(el);
+    const owner = el.closest(".focus-ring-owner, label");
+    const via = owner && owner.contains(el) ? expanded(owner) : { w: 0, h: 0 };
+    const w = Math.max(own.w, via.w);
+    const h = Math.max(own.h, via.h);
+    if (w === 0 || h === 0) continue;
+    if (w >= 44 && h >= 44) continue;
+    out.push({
+      kind: "탭타깃",
+      where: cls.replace(/__[A-Za-z0-9_-]+/g, "").trim().slice(0, 44) || el.tagName,
+      detail: `히트 ${Math.round(w)}x${Math.round(h)} < 44x44`,
+      key: `tap|${cls}|${Math.round(w)}x${Math.round(h)}`,
+    });
+  }
+  return out;
+}
+
 /* ---------- 구동 ---------- */
 
 const freePort = () =>
@@ -360,6 +425,7 @@ async function main() {
             ...(await page.evaluate(probePlaceholder)),
             ...(await page.evaluate(probeWrap)),
             ...(await page.evaluate(probeViewport, noScroll)),
+            ...(await page.evaluate(probeTapTarget)),
           ];
           checks += 1;
           for (const f of dedupe(found)) findings.push({ ...f, route, vp: vp.name, theme });

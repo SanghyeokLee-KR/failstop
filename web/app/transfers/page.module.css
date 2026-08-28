@@ -84,7 +84,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-1);
-  padding: 3px;
+  padding: var(--space-1);
   background: var(--surface-sunken);
   border-radius: var(--panel-radius);
 }

@@ -78,6 +78,10 @@ a { color: inherit; text-decoration: none; }
 /* ===== 본문 바로가기(skip link) =====
    평소 화면 밖, 키보드 포커스 시에만 좌상단 노출. 스티키 헤더 위로 떠야 하므로 z-toast. */
 .skip-link {
+  /* 히트 ≥44px (디자인시스템 §10-2). 밀도 예외 대상이 아니다 */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   position: fixed;
   top: var(--space-2);
   left: var(--space-2);
@@ -223,6 +227,41 @@ a { color: inherit; text-decoration: none; }
   width: 44px;
   height: 44px;
   transform: translate(-50%, -50%);
+}
+
+/* 히트 확장 유틸(디자인시스템 §10-2). 시각 크기를 키우지 않고 히트만 44px로 넓힌다.
+   icon-btn[data-size=sm]이 쓰던 방식을 공용으로 올린 것이다. 같은 규정을 지켜야 하는
+   컨트롤이 헤더·인증·배너·표 머리글에 흩어져 있는데 각자 다시 만들 이유가 없다.
+
+   인접 gap 안에서만 쓴다. 겹치면 옆 컨트롤의 클릭을 훔치고, 그건 규정이 금지하는 상태다.
+   min-* 대신 width/height를 계산식으로 두는 이유는 원래 상자가 44px보다 큰 축에서
+   확장이 상자를 되레 줄이면 안 되기 때문이다 */
+.hit-44 {
+  position: relative;
+}
+.hit-44::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
+/* 세로만 모자란 인라인 링크용. 가로는 글줄을 따르므로 넓히지 않는다.
+   문장 안의 링크를 가로로 넓히면 옆 글자 위에 히트가 얹힌다 */
+.hit-44-y {
+  position: relative;
+}
+.hit-44-y::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: max(100%, 44px);
+  transform: translateY(-50%);
 }
 
 /* ===== EmptyState ===== */

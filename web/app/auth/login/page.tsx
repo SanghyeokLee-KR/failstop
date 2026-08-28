@@ -137,7 +137,7 @@ export default function LoginPage() {
 
         <div className={styles.foot}>
           <span>아직 회원이 아니신가요?</span>
-          <Link href="/auth/signup" className={styles.footLink}>
+          <Link href="/auth/signup" className={`hit-44-y ${styles.footLink}`}>
             회원 가입
           </Link>
         </div>

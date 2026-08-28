@@ -34,7 +34,7 @@ export default function WelcomePage() {
         </Link>
         <p className={styles.terms}>
           이미 회원이신가요?{" "}
-          <Link href="/auth/login" className={styles.termsLink}>
+          <Link href="/auth/login" className={`hit-44-y ${styles.termsLink}`}>
             로그인
           </Link>
         </p>

@@ -14,6 +14,7 @@ import { addDecimal, compareDecimal } from "@/lib/decimal";
 import { formatKRW } from "@/lib/format";
 import styles from "./page.module.css";
 import { usePageTitle } from "@/components/PageTitle";
+import Skeleton from "@/components/Skeleton";
 
 export default function MyPage() {
   usePageTitle("마이페이지");
@@ -24,6 +25,11 @@ export default function MyPage() {
   /* 전역이 드는 것은 체결 목록 첫 쪽이다. 그 길이를 총계로 말하면 100건이 넘는 사용자에게
      틀린 수를 사실로 보여준다. 잘렸을 때는 하한만 말하고 정확한 수는 거래내역이 센다 */
   const closedTruncated = useExchangeStore((s) => s.closedOrdersTruncated);
+  /* 0은 빈 상태가 아니라 아직 모르는 값이다. 구분 없이 그리면 콜드 진입 첫 프레임에
+     "0원 0종목 0건"을 사실로 표시하고 값이 튄다. 사용자는 그 깜빡임을 오류로 읽는다
+     (스토어 noticesLoaded 주석과 같은 실패 모드) */
+  const accountsLoaded = useExchangeStore((s) => s.accountsLoaded);
+  const ordersLoaded = useExchangeStore((s) => s.ordersLoaded);
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
   const loadOrders = useExchangeStore((s) => s.loadOrders);
 
@@ -100,14 +106,22 @@ export default function MyPage() {
           </div>
           <div className={styles.stat}>
             <span className={styles.statLabel}>보유현금</span>
-            <b className={`${styles.statValue} num`}>
-              {formatKRW(cash)}
-              <small>원</small>
-            </b>
+            {accountsLoaded ? (
+              <b className={`${styles.statValue} num`}>
+                {formatKRW(cash)}
+                <small>원</small>
+              </b>
+            ) : (
+              <Skeleton variant="text" width={116} height={22} />
+            )}
           </div>
           <div className={styles.stat}>
             <span className={styles.statLabel}>보유 코인</span>
-            <b className={`${styles.statValue} num`}>{holdingsCount}종목</b>
+            {accountsLoaded ? (
+              <b className={`${styles.statValue} num`}>{holdingsCount}종목</b>
+            ) : (
+              <Skeleton variant="text" width={56} height={22} />
+            )}
           </div>
         </section>
 
@@ -120,13 +134,21 @@ export default function MyPage() {
           </div>
           <div className={styles.stat}>
             <span className={styles.statLabel}>미체결</span>
-            <b className={`${styles.statValue} num`}>{openOrders.length}건</b>
+            {ordersLoaded ? (
+              <b className={`${styles.statValue} num`}>{openOrders.length}건</b>
+            ) : (
+              <Skeleton variant="text" width={44} height={22} />
+            )}
           </div>
           <div className={styles.stat}>
             <span className={styles.statLabel}>체결·취소</span>
-            <b className={`${styles.statValue} num`}>
-              {closedOrders.length}건{closedTruncated ? " 이상" : ""}
-            </b>
+            {ordersLoaded ? (
+              <b className={`${styles.statValue} num`}>
+                {closedOrders.length}건{closedTruncated ? " 이상" : ""}
+              </b>
+            ) : (
+              <Skeleton variant="text" width={64} height={22} />
+            )}
           </div>
         </section>
       </div>

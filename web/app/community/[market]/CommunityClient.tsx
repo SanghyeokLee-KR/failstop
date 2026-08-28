@@ -40,7 +40,7 @@ export default function CommunityClient() {
   return (
     <main className={styles.page}>
       <nav className={styles.crumb} aria-label="이동 경로">
-        <Link href={`/exchange/${market}`} className={styles.crumbLink}>
+        <Link href={`/exchange/${market}`} className={`hit-44-y ${styles.crumbLink}`}>
           {meta.koreanName} 거래
         </Link>
         <span className={styles.crumbSep} aria-hidden="true">

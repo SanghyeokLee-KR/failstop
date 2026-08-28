@@ -182,7 +182,7 @@ export default function SignupPage() {
 
         <div className={styles.foot}>
           <span>이미 회원이신가요?</span>
-          <Link href="/auth/login" className={styles.footLink}>
+          <Link href="/auth/login" className={`hit-44-y ${styles.footLink}`}>
             로그인
           </Link>
         </div>

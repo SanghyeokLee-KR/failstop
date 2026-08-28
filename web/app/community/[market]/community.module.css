@@ -269,6 +269,8 @@
   gap: var(--space-3);
   padding: var(--space-2);
   border-radius: var(--radius-sm);
+  /* 조작 요소 히트 ≥44px (§10-2) */
+  min-height: 44px;
 }
 .railItem:hover { background: var(--surface-hover); }
 /* 순위 숫자는 무채. 색은 데이터 특권이므로 서열 표기에 브랜드색을 쓰지 않는다(§2, §7.5) */

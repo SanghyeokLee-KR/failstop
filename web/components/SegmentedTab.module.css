@@ -18,6 +18,9 @@
 .tab {
   flex: 1 1 auto;
   min-height: 44px; /* 탭타깃 ≥44px */
+  /* 짧은 라벨("1분")에서 폭이 35px까지 좁아졌다. 높이만 44면 규정의 절반만 지킨 것이다.
+     트랙이 그만큼 넓어지지만 세그먼트는 서로 붙어 있어 이웃을 침범하지 않는다 */
+  min-width: 44px;
   padding: 0 var(--space-3);
   white-space: nowrap;
   border-radius: calc(var(--radius-md) - 3px);

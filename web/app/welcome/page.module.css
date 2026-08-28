@@ -70,6 +70,13 @@
   margin-top: var(--space-1);
 }
 .termsLink {
+  /* 문장 옆 인라인이라 가로로 넓히면 앞 글자 위에 히트가 얹힌다. 좌우 패딩으로 자기 폭을
+     벌어 44px를 만든다 (§10-2, auth footLink와 같은 처리) */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 0 var(--space-2);
   color: var(--text-brand);
   font-weight: var(--fw-semibold);
   /* 링크는 색 단독 금지, 밑줄 비색 단서 병행 (§8) */

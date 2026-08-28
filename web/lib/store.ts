@@ -211,6 +211,11 @@ interface ExchangeState {
   noticesLoaded: boolean;
   /** 체결 목록 첫 쪽이 잘렸는지. 요약이 부분 집계를 총계로 말하지 않게 한다 */
   closedOrdersTruncated: boolean;
+  /* 빈 배열과 미로딩을 구분한다. noticesLoaded와 같은 이유이며 대상만 다르다.
+     구분이 없으면 요약 화면이 첫 프레임에 "0원 0종목 0건"을 사실로 표시하고 값이 튄다.
+     0은 빈 상태가 아니라 아직 모르는 값이다 */
+  accountsLoaded: boolean;
+  ordersLoaded: boolean;
   /** 사용자가 닫은 공지 id. CRITICAL은 이 목록을 무시한다(lib/notices) */
   dismissedNoticeIds: string[];
   /** 마지막으로 공지 목록을 본 시각. 진입점 표식 판정용(lib/notices.hasUnread) */
@@ -269,6 +274,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   notices: [],
   noticesLoaded: false,
   closedOrdersTruncated: false,
+  accountsLoaded: false,
+  ordersLoaded: false,
   dismissedNoticeIds: [],
   lastSeenNoticeAt: null,
   openOrders: [],
@@ -461,8 +468,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   },
 
   async loadAccounts() {
-    const assets = await getDataSource().getAccounts();
-    set({ assets });
+    try {
+      set({ assets: await getDataSource().getAccounts() });
+    } finally {
+      // 실패해도 세운다. 미로딩으로 두면 스켈레톤이 영원히 돈다(loadNotices와 같은 규약)
+      set({ accountsLoaded: true });
+    }
   },
 
   async loadOrders(market) {
@@ -471,12 +482,17 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     // 응답 부재를 소멸로 해석하면 방금 낸 주문이 목록에서 사라진다
     const before = get();
     const known = new Set([...before.openOrders, ...before.closedOrders].map((o) => o.id));
-    const [open, closed] = await Promise.all([ds.getOpenOrders(market), ds.getClosedOrders({ market })]);
-    set((s) => nextOrderLists(s, mergeOrderSnapshot(s, [...open, ...closed.data], { known, market })));
-    /* 전역이 드는 체결 목록은 첫 쪽뿐이다. 여기를 소비하는 것은 체결 통지 중복 판정
-       (OrderPanel.shouldAnnounceFill)과 마이페이지 요약이고 둘 다 최근 것만 본다.
-       아카이브 전체는 거래내역 화면이 자기 커서로 따라간다 */
-    set({ closedOrdersTruncated: closed.has_more });
+    try {
+      /* 전역이 드는 체결 목록은 첫 쪽뿐이다. 여기를 소비하는 것은 체결 통지 중복 판정
+         (OrderPanel.shouldAnnounceFill)과 마이페이지 요약이고 둘 다 최근 것만 본다.
+         아카이브 전체는 거래내역 화면이 자기 커서로 따라간다 */
+      const [open, closed] = await Promise.all([ds.getOpenOrders(market), ds.getClosedOrders({ market })]);
+      set((s) => nextOrderLists(s, mergeOrderSnapshot(s, [...open, ...closed.data], { known, market })));
+      set({ closedOrdersTruncated: closed.has_more });
+    } finally {
+      // 실패해도 세운다. 미로딩으로 두면 스켈레톤이 영원히 돈다(loadNotices와 같은 규약)
+      set({ ordersLoaded: true });
+    }
   },
 
   upsertOrder(order) {

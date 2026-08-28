@@ -12,7 +12,9 @@
   display: grid;
   gap: var(--space-2);
   align-items: center;
-  height: 36px;
+  /* 정렬 버튼이 행을 채우므로 행 높이가 곧 히트 높이다(§10-2 ≥44). 종전 36px에서 버튼에만
+     ::after를 씌우면 6px씩 첫 데이터 행을 덮어 그 행의 클릭을 훔친다. 행을 올린다 */
+  height: 44px;
   padding: 0 var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
   /* sticky 기준 상단은 스크롤 컨테이너가 소유한다. 기본값 56px는 body 스크롤 + HeaderNav(56px)
@@ -34,11 +36,17 @@
 .hcell[data-align="right"] { justify-content: flex-end; }
 .hcell[data-align="center"] { justify-content: center; }
 
+/* 시각 높이 하한 32px, 히트 폭은 열 폭이다(디자인시스템 §10-2). 종전 28px는 하한 밖이고,
+   내용 폭이라 "코인" 같은 두 글자 열에서 히트가 21px까지 좁아졌다. 셀을 채우면 히트가
+   열 폭을 따르므로 ::after로 이웃 셀을 침범하지 않고도 규정을 지킨다.
+   정렬은 셀이 정한다. 버튼이 스스로 정하면 우측 정렬 열에서 라벨이 왼쪽으로 튄다 */
 .sortBtn {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: inherit;
   gap: 2px;
-  min-height: 28px;
+  width: 100%;
+  min-height: 44px;
   font-size: inherit;
   color: inherit;
   white-space: nowrap;

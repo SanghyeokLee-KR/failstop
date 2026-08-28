@@ -25,6 +25,8 @@
   background: var(--surface-default);
   font-size: var(--font-caption-size);
   color: var(--text-default);
+  /* 폼 컨트롤 히트 ≥44px (§10-2) */
+  min-height: 44px;
 }
 
 .chips {

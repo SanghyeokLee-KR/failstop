@@ -59,6 +59,10 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  /* 높이는 헤더가 56px를 준다. 폭이 짧은 라벨("홈")에서 36px까지 좁아져 히트가 모자랐다.
+     이웃 링크와는 padding으로 떨어져 있어 침범하지 않는다 (§10-2) */
+  min-width: 44px;
+  justify-content: center;
   padding: 0 var(--space-3);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
@@ -231,9 +235,12 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1);
   padding: 0 var(--space-2);
-  min-height: 32px;
+  /* 히트 44x44 (§10-2). 종전 38x44라 가로가 모자랐다 */
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--control-radius);
   font-size: var(--font-caption-size);
   font-weight: var(--fw-medium);
