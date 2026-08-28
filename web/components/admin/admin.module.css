@@ -2043,3 +2043,84 @@
   white-space: pre-wrap;
   word-break: keep-all;
 }
+
+/* ===== 국면 프리셋 ===== */
+/* 이름과 효과를 한 타일에 싣는다. 국면 선택은 값 조정이 아니라 장면 전환이라
+   버튼 문구만으로는 무엇이 바뀌는지 안 보인다 */
+.presetBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--panel-radius);
+  background: var(--surface-control);
+  color: var(--text-strong);
+  text-align: left;
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+.presetBtn:hover:not(:disabled) {
+  background: var(--surface-control-hover);
+}
+.presetBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.presetLabel {
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+}
+.presetMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  /* 컨트롤 면은 흰 배경보다 어둡다. tertiary는 여기서 2.98:1로 미달이고 secondary도 3.93:1이라
+     11px 소형 텍스트 기준(4.5:1)을 못 넘는다. 위계는 크기·무게가 지고 색은 default로 올린다 */
+  color: var(--text-default);
+}
+/* 방향은 시세 도메인이라 유채가 허용된다. 색 단독이 아니라 방향어·화살표·부호 병기다.
+   틴트 위 소형 텍스트라 -text가 아니라 -strong을 쓴다(디자인시스템 §8). -text는 흰 배경
+   기준값이라 컨트롤 면에서 3.99:1로 떨어진다 */
+.presetBias[data-dir="up"] {
+  color: var(--color-up-strong);
+}
+.presetBias[data-dir="down"] {
+  color: var(--color-down-strong);
+}
+
+/* 적용 결과 판독. 서버가 활성 국면을 보고하지 않으므로 선택 상태가 아니라 행위 기록이다 */
+.presetReadout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}
+.presetReadout b {
+  color: var(--text-strong);
+}
+/* tertiary는 이 콘솔에서 비정보 장식 전용이다. 이 라벨은 정보라 secondary가 하한이고,
+   11px에서 tertiary는 흰 배경 3.59:1로 미달이기도 하다. 위계는 크기·자간이 진다 */
+.presetReadoutKey {
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.presetClamp {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-micro-size);
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+}

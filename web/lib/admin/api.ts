@@ -35,6 +35,8 @@ import type {
   Notice,
   NoticePatch,
   NoticeSeverity,
+  ScenarioName,
+  ScenarioResult,
   SimStatus,
   TradeFlash,
   AdminInquiry,
@@ -108,6 +110,12 @@ export interface AdminApi {
   setDirectionBias(market: string, targetNetBias: string, autoBalance: boolean, strength: string): Promise<DirectionBiasResult>;
   /** 체결 시각효과 강도 저장(system_config). 트레이딩 UI가 공개 조회로 읽는다 */
   setEffectConfig(tradeFlash: TradeFlash): Promise<TradeFlash>;
+  /**
+   * 시장 국면 프리셋 활성화(§6-A v2.31). 전역 OPS·유형별 대수·bias를 한 번에 얹는다.
+   * rate·scale·bias 세 경로로 도달 가능한 상태만 만들므로 승인 불요다.
+   * 값은 기준선 대비 배수라 같은 프리셋을 두 번 눌러도 결과가 같다. steady가 복귀 경로다.
+   */
+  activateScenario(name: ScenarioName): Promise<ScenarioResult>;
 
   /* ===== 카오스(§2-2) ===== */
   getChaosCatalog(): ChaosExperimentDef[];

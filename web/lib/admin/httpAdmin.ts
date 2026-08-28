@@ -51,6 +51,8 @@ import type {
   NoticePatch,
   NoticeSeverity,
   RecoveryRun,
+  ScenarioName,
+  ScenarioResult,
   SimStatus,
   TradeFlash,
   AdminInquiry,
@@ -889,6 +891,44 @@ export class HttpAdminApi implements AdminApi {
       autoBalance: res.auto_balance === true,
       strength: res.strength ?? strength,
       effectiveBias: res.effective_bias ?? "0.00",
+      fleetPresent: res.fleet_present === true,
+    };
+  }
+
+  /**
+   * 프리셋 활성화(§6-A v2.31). operator_id는 감사 편의 필드이고 권위는 Bearer 세션이다.
+   * fleet_present:false는 성공 응답이지만 미반영이라 control과 같은 규약으로 에러 승격한다.
+   */
+  async activateScenario(name: ScenarioName): Promise<ScenarioResult> {
+    const res = await this.http<{
+      scenario?: string;
+      target_ops?: string;
+      base_ops?: string;
+      auto_balance?: boolean;
+      target_net_bias?: string;
+      markets?: { market: string; scale_applied?: boolean; applied?: FleetScaleTargets; effective_bias?: string }[];
+      clamped?: boolean;
+      fleet_present?: boolean;
+    }>(`/admin/v1/sim/scenarios/${encodeURIComponent(name)}/activate`, {
+      method: "POST",
+      body: JSON.stringify({ operator_id: this.sessionOpId() }),
+    });
+    if (res && res.fleet_present === false) {
+      throw new AdminError("control_not_applied", "봇 플릿 부재로 반영되지 않음. 서버 프로파일 확인 필요");
+    }
+    return {
+      scenario: (res.scenario as ScenarioName) ?? name,
+      targetOps: res.target_ops ?? "0",
+      baseOps: res.base_ops ?? "0",
+      autoBalance: res.auto_balance === true,
+      targetNetBias: res.target_net_bias ?? "0.00",
+      markets: (res.markets ?? []).map((m) => ({
+        market: m.market,
+        scaleApplied: m.scale_applied === true,
+        applied: m.applied ?? {},
+        effectiveBias: m.effective_bias ?? "0.00",
+      })),
+      clamped: res.clamped === true,
       fleetPresent: res.fleet_present === true,
     };
   }

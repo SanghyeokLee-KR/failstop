@@ -11,7 +11,7 @@ import type { AdminApi } from "./api";
 import { AdminError } from "./api";
 import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles";
 import { feeRateError } from "./fees";
-import { CHAOS_CATALOG, INVARIANT_DEFS } from "./catalog";
+import { CHAOS_CATALOG, INVARIANT_DEFS, scenarioDef } from "./catalog";
 import type {
   AdminPage,
   PageOpts,
@@ -49,6 +49,9 @@ import type {
   AdminInquiry,
   AdminTransfer,
   AdminTransferStatus,
+  ScenarioName,
+  ScenarioResult,
+  ScenarioMarketResult,
 } from "./types";
 import { FLEET_TYPE_CAP } from "./types";
 
@@ -198,6 +201,13 @@ export class SimAdminApi implements AdminApi {
   private simPaused = false;
   private duplicateFillTotal = 0;
   private bots: Bot[] = this.seedBots();
+
+  /**
+   * 프리셋 배수 기준선(§6-A v2.31). 시드 플릿과 초기 OPS를 한 번만 잡는다. 활성화 시점
+   * 현재값을 곱하면 재활성화가 누적돼 spike 3회가 기준선 OPS의 1000배가 된다.
+   */
+  private readonly baseRate = this.simRate;
+  private readonly scenarioBaseline = this.captureBaseline();
 
   // 시장 생동감 상태(인메모리, 봇_방향성 §7-1 volatile 규율과 동형). 외부 의존 0
   private scaleTargets = new Map<string, FleetScaleTargets>();
@@ -903,6 +913,80 @@ export class SimAdminApi implements AdminApi {
       autoBalance,
       strength: biasStr(st),
       effectiveBias: biasStr(effective),
+      fleetPresent: true,
+    });
+  }
+
+  private captureBaseline(): Map<string, FleetScaleTargets> {
+    const out = new Map<string, FleetScaleTargets>();
+    for (const b of this.bots) {
+      const cur = out.get(b.market) ?? {};
+      cur[b.type] = (cur[b.type] ?? 0) + 1;
+      out.set(b.market, cur);
+    }
+    return out;
+  }
+
+  /**
+   * 국면 프리셋 활성화(§6-A v2.31). 기준선 대비 배수로 OPS·대수·방향을 한 번에 얹는다.
+   * 기준선이 고정이라 같은 프리셋 재활성화가 누적되지 않고 steady가 복귀 경로가 된다.
+   */
+  activateScenario(name: ScenarioName): Promise<ScenarioResult> {
+    const s = this.auth("BOT_OPS");
+    const def = scenarioDef(name);
+    this.simRate = Math.max(1, Math.round(this.baseRate * def.opsMult));
+
+    const universe = new Set<string>([
+      ...this.scenarioBaseline.keys(),
+      ...this.biasStates.keys(),
+      ...this.scaleTargets.keys(),
+    ]);
+    const markets: ScenarioMarketResult[] = [];
+    let clamped = false;
+    for (const market of [...universe].sort((a, b) => a.localeCompare(b))) {
+      const base = this.scenarioBaseline.get(market);
+      const applied: FleetScaleTargets = {};
+      if (base) {
+        for (const type of BOT_TYPES) {
+          const seeded = base[type];
+          if (seeded == null) continue;
+          const raw = Math.round(seeded * def.scale[type]);
+          const t = Math.max(0, Math.min(FLEET_TYPE_CAP, raw));
+          if (t !== raw) clamped = true;
+          applied[type] = t;
+          this.convergeScale(market, type, t);
+        }
+        this.scaleTargets.set(market, { ...(this.scaleTargets.get(market) ?? {}), ...applied });
+      } else {
+        // 기준선 없는 마켓은 대수를 건드리지 않는다. 0을 곱해 봇을 조용히 없애는 경로를 막는다
+        Object.assign(applied, this.scaleTargets.get(market) ?? {});
+      }
+
+      // sim의 균형 루프는 measured가 effective를 좇는다(서버는 effective가 target을 좇는다).
+      // 여기서는 effective가 구동값이라 auto 여부와 무관하게 목표를 싣는다. 안 그러면
+      // steady를 눌러도 방향이 되돌아오지 않는다.
+      const target = clampBias(Number(def.targetBias));
+      const effective = clampEffective(target);
+      const prev = this.biasStates.get(market);
+      this.biasStates.set(market, {
+        target,
+        measured: prev?.measured ?? 0,
+        effective,
+        auto: def.autoBalance,
+        strength: clampUnit(Number(def.strength)),
+      });
+      markets.push({ market, scaleApplied: base != null, applied, effectiveBias: biasStr(effective) });
+    }
+
+    this.log(s, "sim.scenario", name, null, "OK");
+    return Promise.resolve({
+      scenario: name,
+      targetOps: String(this.simRate),
+      baseOps: String(this.baseRate),
+      autoBalance: def.autoBalance,
+      targetNetBias: def.targetBias,
+      markets,
+      clamped,
       fleetPresent: true,
     });
   }

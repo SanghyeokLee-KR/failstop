@@ -12,7 +12,7 @@ import { getAdminApi } from "@/lib/admin/api";
 import { BOT_TYPES, BOT_TYPE_LABEL, FLEET_TYPE_CAP, FLEET_MARKET_CAP, TRADE_FLASH_VALUES } from "@/lib/admin/types";
 import type { BotType, FleetScaleTargets, MarketSimState, SimStatus, TradeFlash } from "@/lib/admin/types";
 import { COIN_META } from "@/lib/sim/engine";
-import { formatCount } from "@/lib/format";
+import { formatCount, formatNetBias } from "@/lib/format";
 import PanelCard from "@/components/PanelCard";
 import SegmentedTab from "@/components/SegmentedTab";
 import { PermissionNote } from "@/components/admin/ui";
@@ -33,15 +33,6 @@ interface Props {
   sim: SimStatus | null;
   canOps: boolean;
   onChanged: () => void;
-}
-
-/** net bias 표기: 색 단독 금지 → 방향어·화살표·부호·수치 병기 */
-function biasLabel(v: string): { text: string; dir: "up" | "down" | "flat" } {
-  const n = Number(v);
-  const mag = (Math.round(Math.abs(n) * 100) / 100).toFixed(2);
-  if (n > 0.0001) return { text: `양전 ▲ +${mag}`, dir: "up" };
-  if (n < -0.0001) return { text: `음전 ▼ −${mag}`, dir: "down" };
-  return { text: `중립 ${mag}`, dir: "flat" };
 }
 
 function biasNorm(raw: string): string {
@@ -92,7 +83,7 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
 
   const scaleSum = BOT_TYPES.reduce((n, t) => n + (scaleDraft[t] ?? 0), 0);
   const scaleOver = scaleSum > FLEET_MARKET_CAP;
-  const label = biasLabel(biasDraft);
+  const label = formatNetBias(biasDraft);
 
   const applyScale = async () => {
     if (scaleOver) return;

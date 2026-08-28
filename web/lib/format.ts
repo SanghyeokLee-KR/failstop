@@ -191,6 +191,19 @@ export function dirOfPrices(prev: string | number, next: string | number): Direc
   return c > 0 ? "up" : c < 0 ? "down" : "flat";
 }
 
+/**
+ * net bias 표기. 색 단독 금지라 방향어·화살표·부호·수치를 함께 낸다.
+ * 입력은 분수 문자열이고 Number 변환은 방향 판정과 자리 맞춤에만 쓴다.
+ */
+export function formatNetBias(v: string | number): { text: string; dir: Direction } {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return { text: "중립 0.00", dir: "flat" };
+  const mag = (Math.round(Math.abs(n) * 100) / 100).toFixed(2);
+  if (n > 0.0001) return { text: `양전 ▲ +${mag}`, dir: "up" };
+  if (n < -0.0001) return { text: `음전 ▼ −${mag}`, dir: "down" };
+  return { text: `중립 ${mag}`, dir: "flat" };
+}
+
 /** 접근성 라벨: "상승 2.34퍼센트" (A-6 계약) */
 export function ariaChangeLabel(changeRate: string | number, change: ChangeState): string {
   const pct = formatPct(changeRate);

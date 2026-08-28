@@ -9,6 +9,7 @@ export const ACTION_GLOSS: Record<string, string> = {
   "chaos.inject": "카오스 주입",
   "chaos.clear": "카오스 해제",
   "sim.bots.params": "봇 파라미터 변경",
+  "sim.scenario": "국면 프리셋 적용",
   "config.market.halt": "마켓 중지",
   "config.market.resume": "마켓 재개",
   "config.market.fees": "수수료 변경",

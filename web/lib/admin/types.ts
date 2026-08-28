@@ -282,6 +282,33 @@ export interface DirectionBiasResult {
   fleetPresent: boolean;
 }
 
+/** 시나리오 프리셋 이름(§6-A v2.31). 정본 표기는 하이픈이다 */
+export type ScenarioName = "steady" | "volatile" | "ramp" | "spike" | "thundering-herd";
+
+/** POST /admin/v1/sim/scenarios/{name}/activate 응답의 markets[] 원소 */
+export interface ScenarioMarketResult {
+  market: string;
+  /** 기준선 미등록 마켓은 대수를 건드리지 않고 bias만 받는다 */
+  scaleApplied: boolean;
+  applied: FleetScaleTargets;
+  effectiveBias: string;
+}
+
+/**
+ * 프리셋 활성화 응답 미러(§6-A v2.31). targetOps·baseOps는 문자열이다(서버가 문자열로 준다).
+ * targetOps는 설정된 상한이고 달성 처리량이 아니다. 실제 발행량은 min(봇 수요, targetOps)다.
+ */
+export interface ScenarioResult {
+  scenario: ScenarioName;
+  targetOps: string;
+  baseOps: string;
+  autoBalance: boolean;
+  targetNetBias: string;
+  markets: ScenarioMarketResult[];
+  clamped: boolean;
+  fleetPresent: boolean;
+}
+
 /** SimStatus.markets[] 원소(§5-5). 방향 측정치와 타입별 target/active 대수 */
 export interface MarketSimState {
   market: string;

@@ -19,6 +19,7 @@ import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
 import LivelinessSection from "@/components/admin/LivelinessSection";
+import ScenarioSection from "@/components/admin/ScenarioSection";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
 import { PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
@@ -232,6 +233,10 @@ export default function BotsPage() {
           />
         )}
       </PanelCard>
+
+      {/* 국면은 OPS·대수·방향을 한 번에 얹는 상위 제어라 개별 튜닝(생동감)보다 위에 둔다.
+          당직자의 순서가 장면 전환 다음 미세 조정이다 */}
+      <ScenarioSection canOps={canOps} onChanged={load} />
 
       {/* 조회 빈도 순서: 목록이 튜닝·생성보다 위. 당직자는 봇이 뭘 하는지부터 본다 */}
       <PanelCard title="봇 목록">
