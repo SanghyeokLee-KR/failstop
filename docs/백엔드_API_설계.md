@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.29, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.30, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -1759,3 +1759,39 @@ v2.17이 E1 라이브 PASS(errorRate 0, epoch 불변, 주입 중 status 200 유�
 커서의 id 축이 내부 BIGINT PK인 것은 §2-6 "내부 PK 미노출"의 명시 예외다. 근거는 §4-F 본문에 적었다. 심각도 계약·배너 규칙·노출 범위(`active = true`)는 무변경이다.
 
 문서 헤더 버전을 v2.29로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.30 패치 반영 사항
+
+목록 전수 점검에서 §2-6 커서 규약과 §2-2 엔벌로프를 소비하지 않는 곳 9건이 나왔다. 규약은 문서에 있고 공용 코덱(`Cursors`)도 있는데 커뮤니티·주문 조회만 쓰고 나머지가 각자 고정 `LIMIT`을 다시 만든 상태였다. 조립 로직을 `CursorPages`로 모으고 아홉 곳을 그 위로 옮긴다.
+
+**A. 조용한 절단** (도달 불가 데이터)
+
+| # | 위치 | 종전 | 내용 |
+|---|---|---|---|
+| 1 | `GET /admin/v1/audit` | `LIMIT 500` | 감사 로그는 append-only 영구 누적인데 상한 밖 기록에 도달할 방법이 없었고 잘렸다는 표시도 없었다. 사고 조사가 목적인 기능에서 "기록이 없다"와 "기록을 못 본다"가 구분되지 않았다 |
+| 2 | `GET /api/v1/orders/closed` | 서버는 커서 완비 | 프론트가 `pagination`을 버려 기본 100건 밖의 주문을 볼 수 없었다. 서버 무변경, 소비 측 결함 |
+| 3 | `GET /admin/v1/approvals` | `LIMIT 500` | 승인 이력은 소비·만료 뒤에도 남아 누적된다 |
+| 4 | `GET /admin/v1/chaos/runs` | `LIMIT 200` | 감사 로그 파생이라 같이 누적된다 |
+| 5 | `GET /admin/v1/support`, `GET /admin/v1/transfers` | `LIMIT 200` | `ANSWERED`·`COMPLETED`·`CANCELED` 조회는 처리 뒤에도 남는다 |
+
+**B. 비유일 정렬 축**
+
+| # | 위치 | 종전 | 내용 |
+|---|---|---|---|
+| 6 | 문의 큐 | `ORDER BY s.created_at` | `id` 보조 축이 없어 같은 시각 두 건 중 어느 쪽이 상한에 잘릴지 비결정이다. 운영자가 새로고침할 때마다 큐 끝이 바뀐다 |
+| 7 | 출금 큐 | `ORDER BY t.created_at` | 동일. `AuditController`가 같은 이유로 `id` 보조 축을 이미 명문화해두고 있었다 |
+
+**C. §2-2 엔벌로프 부재**
+
+| # | 위치 | 내용 |
+|---|---|---|
+| 8 | `GET /admin/v1/community/reports` | `LIMIT 200`이 SQL에 박혀 파라미터로도 못 넘겼다. 커서 + 엔벌로프를 붙인다 |
+| 9 | `GET /admin/v1/operators`, `GET /admin/v1/config/markets` | 조직 규모·카탈로그로 유계라 커서는 발급하지 않되 `pagination:{null,false}`를 리터럴로 채운다 |
+
+**부수 교정**: `GET /api/v1/my/trades`·`/my/ledger`가 다음 쪽 존재를 "쪽이 꽉 찼으면 더 있다"로 추정하고 있었다. 마지막 쪽이 정확히 `count`와 같은 수로 끝나면 더 있다고 보고해, 클라이언트가 빈 쪽을 한 번 더 읽고서야 끝을 안다. 화면에서는 눌러도 아무것도 안 나오는 "다음"이었다. 전 목록을 한 건 더 읽는 탐침으로 통일한다.
+
+관리 평면 목록의 커서 id 축은 대상 표의 외부 식별자를 쓰되, 내부 BIGINT를 공개 식별자로 이미 쓰는 표(`admin_audit_log`·`admin_approvals`·`reports`·`notices`)는 그 값을 그대로 쓴다. 관리 평면은 mTLS + 관리 세션 뒤라 사용자 스코프 탐침 표면이 없다. DB 설계 v2.34가 정렬 축 인덱스를 맞춘다.
+
+문서 헤더 버전을 v2.30으로 순증(이전 패치 노트의 역사 서술은 원문 유지).

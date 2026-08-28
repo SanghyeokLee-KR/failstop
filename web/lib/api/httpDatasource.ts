@@ -535,9 +535,19 @@ export class HttpStompDataSource implements DataSource {
     return unwrapList<Order>(await this.http(`/api/v1/orders/open${q}`, { signal }, true), "/orders/open");
   }
 
-  async getClosedOrders(market?: string, signal?: AbortSignal): Promise<Order[]> {
-    const q = market ? `?${new URLSearchParams({ market })}` : "";
-    return unwrapList<Order>(await this.http(`/api/v1/orders/closed${q}`, { signal }, true), "/orders/closed");
+  async getClosedOrders(opts: { market?: string; cursor?: string | null; limit?: number } = {},
+                        signal?: AbortSignal): Promise<Page<Order>> {
+    const q = new URLSearchParams();
+    if (opts.market) q.set("market", opts.market);
+    if (opts.limit) q.set("count", String(opts.limit));
+    if (opts.cursor) q.set("cursor", opts.cursor);
+    const qs = q.toString();
+    const body = await this.http<Page<Order> & { data: Order[] | null }>(
+      `/api/v1/orders/closed${qs ? `?${qs}` : ""}`,
+      { signal },
+      true,
+    );
+    return { data: body.data ?? [], next_cursor: body.next_cursor ?? null, has_more: !!body.has_more };
   }
 
   async placeOrder(req: OrderRequest): Promise<Order> {
@@ -1163,11 +1173,16 @@ export class HttpStompDataSource implements DataSource {
         // 채널 seq 도메인(user×type)은 REST에 없음 → 상태만 복원, 기준점은 다음 realtime.
         // open만 복원하면 gap 구간에 종결된 주문의 종결 통지가 유실된다. closed도 함께
         // 재전달해 스토어가 open→closed 전이를 확정한다(§5-2 myOrder 스냅샷 부재 보완).
-        const [open, closed] = await Promise.all([this.getOpenOrders(undefined, signal), this.getClosedOrders(undefined, signal)]);
+        // 재동기는 끊긴 구간을 메우는 것이라 첫 쪽이면 충분하다. 아카이브 전체를 다시
+        // 흘려보내면 gap이 길수록 재연결 비용이 커지고, 오래된 종결 통지는 이미 반영돼 있다
+        const [open, closed] = await Promise.all([
+          this.getOpenOrders(undefined, signal),
+          this.getClosedOrders({}, signal),
+        ]);
         if (!this.resyncFresh(ch, gen)) return;
         ch.lastSeq = null;
         for (const o of open) this.deliver(ch, this.orderToMyOrderMessage(o));
-        for (const o of closed) this.deliver(ch, this.orderToMyOrderMessage(o));
+        for (const o of closed.data) this.deliver(ch, this.orderToMyOrderMessage(o));
         return;
       }
       case "myAsset": {

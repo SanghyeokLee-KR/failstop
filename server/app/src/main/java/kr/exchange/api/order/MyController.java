@@ -6,6 +6,7 @@ import kr.exchange.api.auth.AuthPrincipal;
 import kr.exchange.api.common.AccountRateLimiter;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.dto.LedgerEntryResponse;
@@ -63,10 +64,10 @@ public class MyController {
         Cursors.Cursor decoded = cursor == null ? null : Cursors.decode(cursor);
 
         Map<Integer, MarketDirectory.Market> directory = marketsById();
-        List<Cursored<TradeResponse>> rows = new ArrayList<>();
+        List<CursorPages.Row<TradeResponse>> rows = new ArrayList<>();
         for (MyHistoryRepository.TradeRow r : history.trades(userId, marketId,
                 decoded == null ? null : decoded.ts(),
-                decoded == null ? null : numericCursorId(decoded.id()), limit)) {
+                decoded == null ? null : numericCursorId(decoded.id()), limit + 1)) {
             MarketDirectory.Market m = directory.get(r.marketId());
             // taker_side는 taker 관점이다. 내가 maker면 내 방향은 그 반대다.
             boolean takerBuy = "BUY".equals(r.takerSide());
@@ -84,7 +85,7 @@ public class MyController {
                     // 금액만 주면 어느 자산인지 응답에서 확정되지 않는다.
                     m == null ? null : (mineBuy ? m.baseSymbol() : m.quoteSymbol()),
                     ApiFormats.time(r.createdAt()));
-            rows.add(new Cursored<>(row, r.createdAt(), row.tradeId()));
+            rows.add(new CursorPages.Row<>(row, r.createdAt(), row.tradeId()));
         }
         return envelope(rows, limit);
     }
@@ -101,10 +102,10 @@ public class MyController {
                         "invalid_parameter", "존재하지 않는 통화입니다: " + currency));
         Cursors.Cursor decoded = cursor == null ? null : Cursors.decode(cursor);
 
-        List<Cursored<LedgerEntryResponse>> rows = new ArrayList<>();
+        List<CursorPages.Row<LedgerEntryResponse>> rows = new ArrayList<>();
         for (MyHistoryRepository.LedgerRow r : history.ledger(principal.userId(), assetId,
                 decoded == null ? null : decoded.ts(),
-                decoded == null ? null : numericCursorId(decoded.id()), limit)) {
+                decoded == null ? null : numericCursorId(decoded.id()), limit + 1)) {
             LedgerEntryResponse row = new LedgerEntryResponse(
                     String.valueOf(r.id()),
                     r.currency(),
@@ -113,7 +114,7 @@ public class MyController {
                     LedgerEntryResponse.ref(r.businessEventType(), r.businessEventId(),
                             r.orderId()),
                     ApiFormats.time(r.createdAt()));
-            rows.add(new Cursored<>(row, r.createdAt(), row.entryId()));
+            rows.add(new CursorPages.Row<>(row, r.createdAt(), row.entryId()));
         }
         return envelope(rows, limit);
     }
@@ -151,24 +152,17 @@ public class MyController {
         }
     }
 
-    /**
-     * 커서 축(created_at 원본·id)을 응답 밖에서 보존한다. 표시용 timestamp는 밀리초 절단이라
-     * 커서 재료로 쓰면 같은 밀리초 경계 행이 다음 페이지에서 소실된다(Cursors.encode 주석).
-     */
-    private record Cursored<T>(T row, OffsetDateTime ts, String id) {
-    }
 
-    private static <T> PageResponse<T> envelope(List<Cursored<T>> rows, int limit) {
-        String nextCursor = null;
-        if (rows.size() == limit && !rows.isEmpty()) {
-            Cursored<T> last = rows.get(rows.size() - 1);
-            nextCursor = Cursors.encode(last.ts(), last.id());
-        }
-        List<T> data = new ArrayList<>();
-        for (Cursored<T> row : rows) {
-            data.add(row.row());
-        }
-        return new PageResponse<>(ApiFormats.SCHEMA_VERSION, data,
-                new PageResponse.Pagination(nextCursor, nextCursor != null));
+    /**
+     * 다음 쪽 판정을 한 건 더 읽어서 한다.
+     *
+     * 종전에는 "쪽이 꽉 찼으면 더 있다"로 추정했다. 마지막 쪽이 정확히 count와 같은 수로
+     * 끝나면 더 있다고 보고해, 클라이언트가 빈 쪽을 한 번 더 읽고 그제서야 끝을 안다.
+     * 화면에서는 눌러도 아무것도 안 나오는 "다음"으로 보인다.
+     */
+    private static <T> PageResponse<T> envelope(List<CursorPages.Row<T>> rows, int limit) {
+        CursorPages.Page<T> page = CursorPages.slice(rows, limit);
+        return new PageResponse<>(ApiFormats.SCHEMA_VERSION, page.data(),
+                new PageResponse.Pagination(page.nextCursor(), page.hasMore()));
     }
 }

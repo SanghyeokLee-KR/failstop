@@ -1,6 +1,8 @@
 package kr.exchange.admin;
 
 import kr.exchange.api.common.ApiException;
+import kr.exchange.api.common.CursorPages;
+import kr.exchange.api.common.Cursors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -118,7 +120,7 @@ public class ApprovalService {
      * 프로젝션에서 제외한다(VIEWER+ 노출 시 임의 조회자가 소비해 반결탁 붕괴). issued_at DESC,
      * id DESC 안정 정렬로 LIMIT 절단을 결정화한다.
      */
-    public List<Map<String, Object>> list(String state, int limit) {
+    public List<CursorPages.Row<Map<String, Object>>> list(String state, Cursors.Cursor cursor, int limit) {
         StringBuilder sql = new StringBuilder("""
                 SELECT id, action, target, requester_operator_id, approver_operator_id,
                        state, issued_at, expires_at, consumed_at
@@ -129,6 +131,20 @@ public class ApprovalService {
             sql.append(" AND state = ?");
             params.add(state);
         }
+        if (cursor != null) {
+            // 커서 행의 실제 issued_at을 다시 읽어 바인딩한다. 절단된 ts를 쓰면 같은 시각
+            // 경계 행이 다음 쪽에서 사라진다(Cursors.encode 주석)
+            long anchorId = CursorPages.numericId(cursor.id());
+            OffsetDateTime anchorAt = jdbc.sql("SELECT issued_at FROM admin_approvals WHERE id = ?")
+                    .param(anchorId)
+                    .query((rs, n) -> rs.getObject("issued_at", OffsetDateTime.class))
+                    .optional()
+                    .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서 형식 오류"));
+            sql.append(" AND (issued_at, id) < (?, ?)");
+            params.add(anchorAt);
+            params.add(anchorId);
+        }
+        // 한 건 더 읽어 다음 쪽 존재를 판단한다(호출부가 limit + 1을 넘긴다)
         sql.append(" ORDER BY issued_at DESC, id DESC LIMIT ?");
         params.add(limit);
         return jdbc.sql(sql.toString())
@@ -144,7 +160,9 @@ public class ApprovalService {
                     m.put("issued_at", timeOrNull(rs.getObject("issued_at", OffsetDateTime.class)));
                     m.put("expires_at", timeOrNull(rs.getObject("expires_at", OffsetDateTime.class)));
                     m.put("consumed_at", timeOrNull(rs.getObject("consumed_at", OffsetDateTime.class)));
-                    return m;
+                    return new CursorPages.Row<>(m,
+                            rs.getObject("issued_at", OffsetDateTime.class),
+                            String.valueOf(rs.getLong("id")));
                 })
                 .list();
     }

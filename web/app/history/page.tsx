@@ -7,8 +7,9 @@
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DataTable, { type DataColumn } from "@/components/DataTable";
+import Pager from "@/components/Pager";
 import SegmentedTab from "@/components/SegmentedTab";
 import Skeleton from "@/components/Skeleton";
 import SymbolChip from "@/components/SymbolChip";
@@ -40,10 +41,13 @@ function sideLabel(side: Order["side"]): string {
   return side === "bid" ? "매수" : "매도";
 }
 
+/* 한 쪽 50건. 표를 훑는 화면이라 목록·문의보다 크게 잡는다. 서버 상한은 200이고
+   여기서는 화면이 정한다 */
+const CLOSED_PAGE_SIZE = 50;
+
 export default function HistoryPage() {
   usePageTitle("거래내역");
   const openOrders = useExchangeStore((s) => s.openOrders);
-  const closedOrders = useExchangeStore((s) => s.closedOrders);
   // 주문가격·수량 표시 자릿수는 마켓 스펙에서 유도한다. 미로드면 폴백 자릿수로 위조된다
   const markets = useMarketSpecs();
   const loadOrders = useExchangeStore((s) => s.loadOrders);
@@ -56,6 +60,14 @@ export default function HistoryPage() {
   const [failed, setFailed] = useState(false);
   const [canceling, setCanceling] = useState<Set<string>>(new Set());
 
+  /* 체결 탭은 스토어를 보지 않는다. 전역이 드는 것은 첫 쪽이고 이 화면은 아카이브라
+     커서로 끝까지 따라가야 한다. 미체결 탭은 반대다. 지금 걸어둔 주문 전부를 보고 취소를
+     판단하는 작업 집합이라 쪽을 나누지 않고 WS 갱신이 바로 반영되는 스토어를 쓴다 */
+  const [closedPage, setClosedPage] = useState<Order[] | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const cursorsRef = useRef<(string | null)[]>([null]);
+
   useLiveChannels(useMemo(() => [dest.myOrder], []));
 
   // loaded는 성공·실패 모두 확정한다. catch 없으면 REST 실패 시 스켈레톤이 영구 고착된다
@@ -67,9 +79,39 @@ export default function HistoryPage() {
       .finally(() => setLoaded(true));
   }, [loadOrders]);
 
+  /* 마켓 필터는 서버로 넘긴다. 한 쪽을 받아 화면에서 거르면 "전체 기간 BTC"가 실제로는
+     "최근 100건 중 BTC"가 되고, 그 차이가 화면에 드러나지 않는다 */
+  const loadClosed = useCallback(async (target = 0) => {
+    setFailed(false);
+    try {
+      const res = await getDataSource().getClosedOrders({
+        market: marketFilter === "all" ? undefined : marketFilter,
+        cursor: cursorsRef.current[target] ?? null,
+        limit: CLOSED_PAGE_SIZE,
+      });
+      cursorsRef.current[target + 1] = res.next_cursor;
+      setClosedPage(res.data);
+      setHasMore(res.has_more);
+      setPage(target);
+    } catch {
+      setClosedPage(null);
+      setFailed(true);
+    } finally {
+      setLoaded(true);
+    }
+  }, [marketFilter]);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  /* 탭 전환과 마켓 필터 변경은 쪽 경계를 새로 만든다. 들고 있던 커서는 이전 조건의
+     것이라 버리고 첫 쪽부터 다시 센다 */
+  useEffect(() => {
+    if (tab !== "closed") return;
+    cursorsRef.current = [null];
+    void loadClosed(0);
+  }, [tab, loadClosed]);
 
   const cancel = async (order: Order) => {
     if (canceling.has(order.id)) return;
@@ -95,16 +137,29 @@ export default function HistoryPage() {
   // 표시 자리수는 주문 마켓 스펙에서 유도한다(호출부 상수 금지). 미로딩 시 폴백
   const specOf = (market: string) => markets.find((m) => m.market === market);
 
+  const cutoff = useMemo(
+    () => (period === "all" ? 0 : Date.now() - (PERIODS.find((p) => p.value === period)?.ms ?? 0)),
+    [period],
+  );
+
   const rows = useMemo(() => {
-    const base = tab === "open" ? openOrders : closedOrders;
-    const cutoff =
-      period === "all" ? 0 : Date.now() - (PERIODS.find((p) => p.value === period)?.ms ?? 0);
+    // 체결 탭은 서버가 마켓을 이미 걸렀다. 기간만 화면에서 자른다
+    const base = tab === "open" ? openOrders : (closedPage ?? []);
     return base.filter((o) => {
-      if (marketFilter !== "all" && o.market !== marketFilter) return false;
+      if (tab === "open" && marketFilter !== "all" && o.market !== marketFilter) return false;
       if (cutoff > 0 && new Date(o.created_at).getTime() < cutoff) return false;
       return true;
     });
-  }, [tab, openOrders, closedOrders, marketFilter, period]);
+  }, [tab, openOrders, closedPage, marketFilter, cutoff]);
+
+  /* 목록은 최신순이라 기간 필터는 앞쪽만 남기는 절단이다. 이번 쪽 마지막 행이 이미 기간
+     밖이면 다음 쪽은 전부 기간 밖이라 볼 것이 없다. 그때 "다음"을 살려두면 눌러서 빈 쪽을
+     보고서야 끝을 안다 */
+  const periodExhausted =
+    cutoff > 0 &&
+    closedPage !== null &&
+    closedPage.length > 0 &&
+    new Date(closedPage[closedPage.length - 1].created_at).getTime() < cutoff;
 
   const columns: DataColumn<Order>[] = useMemo(() => {
     const cols: DataColumn<Order>[] = [
@@ -285,6 +340,16 @@ export default function HistoryPage() {
               </div>
             }
           />
+
+          {/* 미체결은 작업 집합이라 쪽이 없다. 체결 아카이브만 쪽을 넘긴다 */}
+          {tab === "closed" && (
+            <Pager
+              page={page}
+              hasMore={hasMore && !periodExhausted}
+              onMove={(target) => void loadClosed(target)}
+              ariaLabel="체결·취소 주문 쪽 이동"
+            />
+          )}
         </section>
       )}
     </main>

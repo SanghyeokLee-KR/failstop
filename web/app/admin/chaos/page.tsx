@@ -5,11 +5,12 @@
  * 정적 카탈로그를 제시하고, 주입은 명시 클릭 + 승인 + 요청자 실행 3단계. 자동 주입 없음(§6).
  */
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { useCan } from "@/lib/admin/store";
-import type { ChaosExperimentDef, ChaosRun, DestructiveAction } from "@/lib/admin/types";
+import type { AdminPage, ChaosExperimentDef, ChaosRun, DestructiveAction } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
+import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
@@ -39,12 +40,29 @@ const RUN_COLUMNS: DataColumn<ChaosRun>[] = [
   },
 ];
 
+/* 한 쪽 50건. 폴링이 같은 쪽을 다시 읽으므로 쪽이 커지면 그 비용이 계속 나간다 */
+const PAGE_SIZE = 50;
+
 export default function ChaosPage() {
   const canChaos = useCan("CHAOS_OPS");
   const catalog: ChaosExperimentDef[] = getAdminApi().getChaosCatalog();
-  const res = useAdminResource<ChaosRun[]>(() => getAdminApi().getChaosRuns(), { intervalMs: 2000, isSessionError });
-  const runs = res.data;
+  /* 실험 이력은 감사 로그에 영구 누적된다. 종전 고정 상한 200 밖의 실험은 볼 방법이 없었다 */
+  const [page, setPage] = useState(0);
+  const cursors = useRef<(string | null)[]>([null]);
+  const loader = useCallback(async () => {
+    const r = await getAdminApi().getChaosRuns({ cursor: cursors.current[page] ?? null, limit: PAGE_SIZE });
+    cursors.current[page + 1] = r.nextCursor;
+    return r;
+  }, [page]);
+  const res = useAdminResource<AdminPage<ChaosRun>>(loader, { intervalMs: 2000, isSessionError });
+  const runs = res.data?.data ?? null;
+  const hasMore = res.data?.hasMore ?? false;
   const load = res.reload;
+  useEffect(() => {
+    void load();
+    // load는 안정 참조다. 쪽 변화에만 반응한다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
   const actions = useMemo(() => CHAOS_ACTIONS, []);
 
   const running = (runs ?? []).filter((r) => r.state === "RUNNING");
@@ -160,6 +178,8 @@ export default function ChaosPage() {
             }
           />
         )}
+
+        <Pager page={page} hasMore={hasMore} onMove={setPage} ariaLabel="실험 이력 쪽 이동" />
       </PanelCard>
     </div>
   );

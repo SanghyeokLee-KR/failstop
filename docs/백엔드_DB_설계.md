@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.33)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.34)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V14+ 로드맵)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -2903,3 +2903,21 @@ V5 `notices`가 정본에 없이 마이그레이션만 나가 있었다(v2.32 §
 구 인덱스 `idx_notice_active`는 두 신규 인덱스가 각 경로를 덮으므로 제거한다. `active = false`만 따로 훑는 경로는 없다. 공지는 원장·매칭·저널에 닿지 않으므로 코어 불변식과 무관하다.
 
 문서 헤더 버전을 v2.33으로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.34 패치 반영 사항
+
+목록 6곳에 커서 페이지네이션을 열면서 정렬 축을 (시각, id)로 확정한다(V19). 표·컬럼·제약·함수는 무변경이고 인덱스만 추가한다.
+
+| # | 심각도 | 대상 | 내용 |
+|---|---|---|---|
+| 1 | medium | `admin_audit_log` | 필터 없는 전체 훑기가 기본 경로인데 기존 `idx_audit_operator`·`idx_audit_action`은 필터가 있을 때만 쓰이고 `id` 보조 축도 없다. `idx_audit_keyset`을 추가한다. 카오스 이력은 `action LIKE 'chaos.%'` 부분 인덱스로 분리해 감사 로그 전체를 키우지 않는다 |
+| 2 | medium | `admin_approvals` | `state` 필터가 선택이라 축만으로도 훑을 수 있어야 한다. 전체용과 `state` 선행 복합을 함께 둔다 |
+| 3 | medium | `reports`·`transfer_requests`·`support_inquiries` | 큐는 오래된 것부터 처리하므로 오름차순 축이다. 기존 부분 인덱스(`idx_reports_pending`·`idx_transfer_pending`·`idx_support_open`)는 대기 상태만 덮어 처리 완료 상태 조회를 받지 못하고 `id` 보조 축도 없다. `(status, created_at, id)` 복합을 추가한다 |
+
+`id` 보조 축은 성능만의 문제가 아니다. 시각 컬럼은 유일하지 않아 단독 축으로는 쪽 경계가 정해지지 않는다. 같은 시각 두 행이 쪽을 넘길 때 하나가 두 번 나오거나 빠진다. 커서 앵커는 각 표의 기존 UNIQUE 인덱스를 쓰므로 추가하지 않는다.
+
+원장 합=0, 단일 자금 경로, append-only 저널, `business_event_id` 네임스페이스는 전부 무접촉이다.
+
+문서 헤더 버전을 v2.34로 순증(이전 패치 노트의 역사 서술은 원문 유지).

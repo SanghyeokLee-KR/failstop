@@ -2,12 +2,15 @@ package kr.exchange.api.community;
 
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.CursorPages;
+import kr.exchange.api.common.Cursors;
 import kr.exchange.api.market.MarketDirectory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -516,14 +519,38 @@ public class CommunityService {
                 .update();
     }
 
-    public List<Map<String, Object>> listReports(String status) {
+    /**
+     * 신고 큐 한 쪽. 오래된 신고부터 처리한다.
+     *
+     * LIMIT 200이 SQL에 박혀 있어 파라미터로도 넘길 수 없었다. PENDING만 보므로 처리하면
+     * 빠지지만, 신고가 몰리면 201번째부터 운영자에게 보이지 않고 잘렸다는 표시도 없었다.
+     * status=REVIEWED 등 처리된 상태 조회는 영구 누적이다.
+     */
+    public List<CursorPages.Row<Map<String, Object>>> listReports(String status,
+                                                                  Cursors.Cursor cursor, int limit) {
         String filter = status == null ? "PENDING" : status.toUpperCase();
-        return jdbc.sql("""
-                        SELECT id, target_type, target_id, reporter_id, reason, detail, status,
-                               created_at
-                        FROM reports WHERE status = ? ORDER BY created_at ASC, id ASC LIMIT 200
-                        """)
-                .param(filter)
+        StringBuilder sql = new StringBuilder("""
+                SELECT id, target_type, target_id, reporter_id, reason, detail, status,
+                       created_at
+                FROM reports WHERE status = ?
+                """);
+        List<Object> params = new ArrayList<>(List.of(filter));
+        if (cursor != null) {
+            long anchorId = CursorPages.numericId(cursor.id());
+            OffsetDateTime anchorAt = jdbc.sql("SELECT created_at FROM reports WHERE id = ?")
+                    .param(anchorId)
+                    .query((rs, n) -> rs.getObject("created_at", OffsetDateTime.class))
+                    .optional()
+                    .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서 형식 오류"));
+            // 큐는 오름차순이라 경계 비교도 반대 방향이다
+            sql.append(" AND (created_at, id) > (?, ?)");
+            params.add(anchorAt);
+            params.add(anchorId);
+        }
+        sql.append(" ORDER BY created_at ASC, id ASC LIMIT ?");
+        params.add(limit);
+        return jdbc.sql(sql.toString())
+                .params(params)
                 .query((rs, n) -> {
                     Map<String, Object> row = new LinkedHashMap<>();
                     row.put("report_id", rs.getLong("id"));
@@ -534,7 +561,9 @@ public class CommunityService {
                     row.put("detail", TextGuard.escape(rs.getString("detail")));
                     row.put("status", rs.getString("status"));
                     row.put("created_at", ApiFormats.time(rs.getObject("created_at", OffsetDateTime.class)));
-                    return row;
+                    return new CursorPages.Row<>(row,
+                            rs.getObject("created_at", OffsetDateTime.class),
+                            String.valueOf(rs.getLong("id")));
                 })
                 .list();
     }

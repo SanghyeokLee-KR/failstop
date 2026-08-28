@@ -1,6 +1,7 @@
 package kr.exchange.api.transfer;
 
 import kr.exchange.api.common.ApiException;
+import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.Cursors;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -183,7 +184,7 @@ public class TransferService {
      * 경로를 막는다. 커서가 가리키는 행이 없으면 형식 오류와 같은 400이다. 조용한 빈 쪽을
      * 돌려주면 클라이언트는 목록의 끝으로 오해한다.
      */
-    public List<Row> listMine(long userId, Cursors.Cursor cursor, int limit) {
+    public List<CursorPages.Row<Map<String, Object>>> listMine(long userId, Cursors.Cursor cursor, int limit) {
         StringBuilder sql = new StringBuilder("""
                 SELECT t.*, a.symbol AS asset_symbol FROM transfer_requests t
                 JOIN assets a ON a.id = t.asset_id
@@ -211,22 +212,13 @@ public class TransferService {
                 .query()
                 .listOfRows()
                 .stream()
-                .map(row -> new Row(
+                .map(row -> new CursorPages.Row<>(
                         view(row),
-                        offsetDateTime(row.get("created_at")),
+                        CursorPages.at(row.get("created_at")),
                         String.valueOf(row.get("external_id"))))
                 .toList();
     }
 
-    /**
-     * 한 행의 표시용 뷰와 커서 재료.
-     *
-     * created_at을 뷰의 epoch millis에서 되돌려 쓰지 않는다. 뷰는 밀리초로 절단하는데
-     * 컬럼은 마이크로초라, 절단값으로 커서를 만들면 같은 밀리초 안의 행이 다음 쪽에서
-     * 누락된다(Cursors.encode 주석과 같은 함정).
-     */
-    public record Row(Map<String, Object> view, OffsetDateTime createdAt, String externalId) {
-    }
 
     private record Anchor(OffsetDateTime createdAt, long id) {
     }
@@ -240,16 +232,43 @@ public class TransferService {
         }
     }
 
-    public List<Map<String, Object>> listQueue(String statusFilter, int limit) {
-        return jdbc.sql("""
-                        SELECT t.*, a.symbol AS asset_symbol, u.email AS user_email
-                        FROM transfer_requests t
-                        JOIN assets a ON a.id = t.asset_id
-                        JOIN users u ON u.id = t.user_id
-                        WHERE t.status = ?
-                        ORDER BY t.created_at LIMIT ?
-                        """)
-                .params(statusFilter, limit)
+    /**
+     * 운영자 큐 한 쪽. 오래된 요청부터 처리한다.
+     *
+     * 정렬 축은 (created_at, id) 오름차순이다. created_at 단독은 유일하지 않아 같은 시각
+     * 요청 둘 중 어느 쪽이 상한에 잘릴지 비결정이고, 운영자가 새로고침할 때마다 큐 끝이
+     * 바뀐다. AuditController가 같은 이유로 id 보조 축을 명문화해뒀다.
+     *
+     * COMPLETED·CANCELED 조회는 처리 뒤에도 남아 영구 누적이다. 고정 상한으로 자르면
+     * 그 밖의 이력에 도달할 방법이 없다.
+     */
+    public List<CursorPages.Row<Map<String, Object>>> listQueue(String statusFilter,
+                                                                Cursors.Cursor cursor, int limit) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT t.*, a.symbol AS asset_symbol, u.email AS user_email
+                FROM transfer_requests t
+                JOIN assets a ON a.id = t.asset_id
+                JOIN users u ON u.id = t.user_id
+                WHERE t.status = ?
+                """);
+        List<Object> params = new ArrayList<>(List.of(statusFilter));
+        if (cursor != null) {
+            // 큐는 오름차순이라 경계 비교도 반대 방향이다
+            Anchor anchor = jdbc.sql(
+                            "SELECT created_at, id FROM transfer_requests WHERE external_id = ?")
+                    .params(parseCursorId(cursor.id()))
+                    .query((rs, rn) -> new Anchor(
+                            rs.getObject("created_at", OffsetDateTime.class), rs.getLong("id")))
+                    .optional()
+                    .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서 형식 오류"));
+            sql.append(" AND (t.created_at, t.id) > (?, ?)");
+            params.add(anchor.createdAt());
+            params.add(anchor.id());
+        }
+        sql.append(" ORDER BY t.created_at, t.id LIMIT ?");
+        params.add(limit);
+        return jdbc.sql(sql.toString())
+                .params(params)
                 .query()
                 .listOfRows()
                 .stream()
@@ -257,7 +276,8 @@ public class TransferService {
                     Map<String, Object> v = view(row);
                     // 운영자는 누구의 요청인지 알아야 판단할 수 있다. 사용자 응답에는 넣지 않는다
                     v.put("user_email", row.get("user_email"));
-                    return v;
+                    return new CursorPages.Row<>(v, CursorPages.at(row.get("created_at")),
+                            String.valueOf(row.get("external_id")));
                 })
                 .toList();
     }
@@ -399,24 +419,6 @@ public class TransferService {
         return v;
     }
 
-    /**
-     * listOfRows()는 컬럼 타입을 드라이버가 정하는 대로 담는다. TIMESTAMPTZ가
-     * java.sql.Timestamp로 오는 경로가 있어 OffsetDateTime 직캐스팅은 500이 된다.
-     * epochMillis가 같은 이유로 세 타입을 받는다. 커서 재료는 시간대까지 필요하므로
-     * Timestamp는 시스템 기본대가 아니라 UTC로 올린다(커서는 순서용이라 절대시각만 맞으면 된다).
-     */
-    private static OffsetDateTime offsetDateTime(Object value) {
-        if (value instanceof OffsetDateTime odt) {
-            return odt;
-        }
-        if (value instanceof Instant instant) {
-            return instant.atOffset(java.time.ZoneOffset.UTC);
-        }
-        if (value instanceof java.sql.Timestamp ts) {
-            return ts.toInstant().atOffset(java.time.ZoneOffset.UTC);
-        }
-        throw new IllegalStateException("created_at 타입 미지원: " + value);
-    }
 
     private static Long epochMillis(Object value) {
         if (value instanceof OffsetDateTime odt) {

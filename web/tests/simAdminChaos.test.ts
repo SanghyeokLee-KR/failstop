@@ -45,7 +45,7 @@ test("해제 실행은 주입 효과를 회수한다", async () => {
   const api = new SimAdminApi();
   await approveAndRun(api, { action: "chaos.inject", experimentId: "E4" });
   const runs = await api.getChaosRuns();
-  const run = runs.find((r) => r.state === "RUNNING");
+  const run = runs.data.find((r) => r.state === "RUNNING");
   assert.ok(run);
 
   await approveAndRun(api, { action: "chaos.clear", runId: run.clearKey });

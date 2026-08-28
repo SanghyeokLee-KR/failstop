@@ -3,6 +3,7 @@ package kr.exchange.api.notice;
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.ClientIp;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.SlidingWindowThrottle;
@@ -48,8 +49,8 @@ public class NoticeController {
                                        @RequestParam(required = false) String cursor,
                                        @RequestParam(defaultValue = "50") int limit) {
         throttle.check(ClientIp.of(request));
-        int capped = Math.max(1, Math.min(limit, MAX_LIMIT));
-        Cursors.Cursor decoded = cursor == null || cursor.isBlank() ? null : Cursors.decode(cursor);
+        int capped = CursorPages.cap(limit, MAX_LIMIT);
+        Cursors.Cursor decoded = CursorPages.decode(cursor);
 
         StringBuilder sql = new StringBuilder("""
                 SELECT id, title, body, severity, published_at
@@ -64,7 +65,7 @@ public class NoticeController {
                그 지점부터 이어 읽는 것이 맞기 때문이다. 읽던 중 운영자가 한 건을 내렸다고
                목록의 나머지가 통째로 400이 되면 안 된다 */
             Anchor anchor = jdbc.sql("SELECT published_at, id FROM notices WHERE id = ?")
-                    .params(parseCursorId(decoded.id()))
+                    .params(CursorPages.numericId(decoded.id()))
                     .query((rs, n) -> new Anchor(
                             rs.getObject("published_at", OffsetDateTime.class), rs.getLong("id")))
                     .optional()
@@ -82,7 +83,7 @@ public class NoticeController {
         /* active = false는 철회다. 보관이 아니므로 사용자에게 내보내지 않는다.
            published_by는 운영 정보라 싣지 않는다. 누가 썼는지는 사용자 관심사가 아니고,
            운영자 식별자가 공개 경로로 새면 관리 평면 표면이 넓어진다 */
-        List<Row> rows = jdbc.sql(sql.toString())
+        List<CursorPages.Row<Map<String, Object>>> fetched = jdbc.sql(sql.toString())
                 .params(params)
                 .query((rs, n) -> {
                     Map<String, Object> row = new LinkedHashMap<>();
@@ -92,47 +93,22 @@ public class NoticeController {
                     row.put("severity", rs.getString("severity"));
                     OffsetDateTime at = rs.getObject("published_at", OffsetDateTime.class);
                     row.put("published_at", at == null ? null : at.toInstant().toEpochMilli());
-                    return new Row(row, at, String.valueOf(rs.getLong("id")));
+                    return new CursorPages.Row<>(row, at, String.valueOf(rs.getLong("id")));
                 })
                 .list();
 
-        boolean hasMore = rows.size() > capped;
-        List<Row> page = hasMore ? rows.subList(0, capped) : rows;
-        String nextCursor = null;
-        if (hasMore) {
-            Row last = page.get(page.size() - 1);
-            nextCursor = Cursors.encode(last.publishedAt(), last.id());
-        }
-        Map<String, Object> pagination = new LinkedHashMap<>();
-        pagination.put("next_cursor", nextCursor);
-        pagination.put("has_more", hasMore);
+        CursorPages.Page<Map<String, Object>> page = CursorPages.slice(fetched, capped);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("schema_version", ApiFormats.SCHEMA_VERSION);
-        body.put("data", page.stream().map(Row::view).toList());
-        body.put("pagination", pagination);
+        body.put("data", page.data());
+        body.put("pagination", CursorPages.pagination(page));
         return body;
     }
 
-    /**
-     * 한 행의 표시용 뷰와 커서 재료.
-     *
-     * 커서의 id 축은 notices.id, 곧 내부 BIGINT PK다. Cursors의 "내부 PK 미노출" 원칙에
-     * 대한 예외인 이유는 이 경로가 이미 같은 값을 data[].id로 내보내고 있기 때문이다.
-     * 공지는 사용자별로 갈리지 않는 전역 공개 자원이라 id가 새어도 남의 것을 세거나
-     * 정렬 위치를 캐는 표면이 없다. 사용자 스코프가 있는 주문·입출금·문의와 다르다.
-     */
-    private record Row(Map<String, Object> view, OffsetDateTime publishedAt, String id) {
-    }
+    /* 커서의 id 축이 내부 BIGINT PK인 근거는 §4-F 본문에 있다. 이 경로가 이미 같은 값을
+       data[].id로 내보내고, 공지는 사용자별로 갈리지 않는 전역 공개 자원이라 id가 새어도
+       남의 것을 세거나 정렬 위치를 캐는 표면이 없다 */
 
     private record Anchor(OffsetDateTime publishedAt, long id) {
-    }
-
-    /** 조작 커서 방어(§2-6). 비숫자는 500이 아니라 400으로 정규화한다 */
-    private static long parseCursorId(String id) {
-        try {
-            return Long.parseLong(id);
-        } catch (NumberFormatException e) {
-            throw new ApiException(400, "invalid_parameter", "커서 형식 오류");
-        }
     }
 }

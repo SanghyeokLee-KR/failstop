@@ -9,6 +9,7 @@ import { SimAdminApi } from "./simAdmin";
 import { HttpAdminApi } from "./httpAdmin";
 import type {
   AdminPage,
+  PageOpts,
   AdminOverview,
   AdminSession,
   ApprovalRequest,
@@ -72,7 +73,8 @@ export interface AdminApi {
    */
   issueApproval(requesterId: string, action: DestructiveAction, payload: ApprovalPayload): Promise<IssuedApproval>;
   /** 승인 원장 조회(state 필터). token은 반환하지 않는다 */
-  listApprovals(state?: ApprovalState): Promise<ApprovalRequest[]>;
+  /** 승인 이력 한 쪽. 소비·만료 뒤에도 남아 누적된다 */
+  listApprovals(state?: ApprovalState, opts?: PageOpts): Promise<AdminPage<ApprovalRequest>>;
   /** ISSUED 승인 거부(ISSUED->REJECTED). 발급 주체 또는 요청 주체만 가능(소유·반결탁) */
   rejectApproval(approvalId: string): Promise<ApprovalRequest>;
   /** 요청 운영자 본인이 발급 토큰을 파괴 액션 바디에 실어 소각(실효 액션 실행) */
@@ -109,7 +111,8 @@ export interface AdminApi {
 
   /* ===== 카오스(§2-2) ===== */
   getChaosCatalog(): ChaosExperimentDef[];
-  getChaosRuns(): Promise<ChaosRun[]>;
+  /** 실험 이력 한 쪽. 감사 로그에 영구 누적된다 */
+  getChaosRuns(opts?: PageOpts): Promise<AdminPage<ChaosRun>>;
 
   /* ===== 마켓 설정(§2, config) ===== */
   getConfigMarkets(): Promise<ConfigMarket[]>;
@@ -127,16 +130,19 @@ export interface AdminApi {
 
   /* ===== 운영자·감사(§3-1) ===== */
   /* 출금 승인 큐(§4-E). 목록은 VIEWER, 처리는 MEMBER_MOD */
-  getTransfers(status?: AdminTransferStatus): Promise<AdminTransfer[]>;
+  /** 출금 큐 한 쪽. COMPLETED·CANCELED는 처리 뒤에도 남는다 */
+  getTransfers(status?: AdminTransferStatus, opts?: PageOpts): Promise<AdminPage<AdminTransfer>>;
   approveTransfer(externalId: string): Promise<AdminTransfer>;
   rejectTransfer(externalId: string, reason: string): Promise<AdminTransfer>;
 
   /* 문의 답변 큐(§4-G). 목록은 VIEWER, 답변은 MEMBER_MOD */
-  getInquiries(status?: "OPEN" | "ANSWERED"): Promise<AdminInquiry[]>;
+  /** 문의 큐 한 쪽. ANSWERED는 답변 뒤에도 남는다 */
+  getInquiries(status?: "OPEN" | "ANSWERED", opts?: PageOpts): Promise<AdminPage<AdminInquiry>>;
   answerInquiry(externalId: string, answer: string): Promise<AdminInquiry>;
 
   getOperators(): Promise<AdminOperator[]>;
-  getAudit(): Promise<AuditEntry[]>;
+  /** 감사 로그 한 쪽. append-only라 영구 누적이다 */
+  getAudit(opts?: PageOpts): Promise<AdminPage<AuditEntry>>;
 }
 
 /** 화면이 소비할 때 세션이 필요함을 알린다(요청 요구 권한과 별개) */

@@ -43,8 +43,21 @@ export interface DataSource {
   getTrades(market: string, count?: number, signal?: AbortSignal): Promise<Trade[]>;
   getCandles(market: string, unit: CandleUnit, count?: number, signal?: AbortSignal): Promise<Candle[]>;
   getAccounts(signal?: AbortSignal): Promise<Asset[]>;
+  /**
+   * 미체결 주문. 페이지를 나누지 않는다.
+   *
+   * 이것은 아카이브가 아니라 작업 집합이다. 사용자가 지금 걸어둔 주문 전부를 보고 취소를
+   * 판단하는 목록이라 일부만 보여주면 목적을 잃는다. 수도 자본으로 유계다.
+   */
   getOpenOrders(market?: string, signal?: AbortSignal): Promise<Order[]>;
-  getClosedOrders(market?: string, signal?: AbortSignal): Promise<Order[]>;
+  /**
+   * 체결·취소 주문 한 쪽. 커서는 §2-6 opaque.
+   *
+   * 미체결과 달리 체결마다 영구히 쌓이는 아카이브다. 서버는 커서를 발급하는데 종전 프론트가
+   * unwrapList로 pagination을 버려, 기본 100건 밖의 주문에 도달할 방법이 없었다.
+   */
+  getClosedOrders(opts?: { market?: string; cursor?: string | null; limit?: number },
+                  signal?: AbortSignal): Promise<Page<Order>>;
   placeOrder(req: OrderRequest): Promise<Order>;
   cancelOrder(idOrClientId: string): Promise<Order>;
 
@@ -417,7 +430,24 @@ export class SimDataSource implements DataSource {
   }
   async getAccounts(): Promise<Asset[]> { return this.engine.getAccounts(); }
   async getOpenOrders(market?: string): Promise<Order[]> { return this.engine.getOrders(true, market); }
-  async getClosedOrders(market?: string): Promise<Order[]> { return this.engine.getOrders(false, market); }
+  async getClosedOrders(opts: { market?: string; cursor?: string | null; limit?: number } = {}): Promise<Page<Order>> {
+    const limit = Math.max(1, Math.min(opts.limit ?? 100, 200));
+    const all = this.engine.getOrders(false, opts.market);
+    let start = 0;
+    if (opts.cursor) {
+      const at = all.findIndex((o) => o.id === opts.cursor);
+      // 서버 규칙(없는 커서=400)을 sim에서도 지킨다
+      if (at < 0) throw new ApiError(400, "invalid_parameter", "커서 형식 오류");
+      start = at + 1;
+    }
+    const slice = all.slice(start, start + limit);
+    const hasMore = all.length > start + limit;
+    return {
+      data: slice,
+      next_cursor: hasMore && slice.length > 0 ? slice[slice.length - 1].id : null,
+      has_more: hasMore,
+    };
+  }
   async placeOrder(req: OrderRequest): Promise<Order> { return this.engine.placeOrder(req); }
   async cancelOrder(idOrClientId: string): Promise<Order> { return this.engine.cancelOrder(idOrClientId); }
   async getEffectConfig(): Promise<EffectConfig> { return this.engine.getEffectConfig(); }

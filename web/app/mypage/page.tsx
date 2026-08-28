@@ -21,6 +21,9 @@ export default function MyPage() {
   const assets = useExchangeStore((s) => s.assets);
   const openOrders = useExchangeStore((s) => s.openOrders);
   const closedOrders = useExchangeStore((s) => s.closedOrders);
+  /* 전역이 드는 것은 체결 목록 첫 쪽이다. 그 길이를 총계로 말하면 100건이 넘는 사용자에게
+     틀린 수를 사실로 보여준다. 잘렸을 때는 하한만 말하고 정확한 수는 거래내역이 센다 */
+  const closedTruncated = useExchangeStore((s) => s.closedOrdersTruncated);
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
   const loadOrders = useExchangeStore((s) => s.loadOrders);
 
@@ -121,7 +124,9 @@ export default function MyPage() {
           </div>
           <div className={styles.stat}>
             <span className={styles.statLabel}>체결·취소</span>
-            <b className={`${styles.statValue} num`}>{closedOrders.length}건</b>
+            <b className={`${styles.statValue} num`}>
+              {closedOrders.length}건{closedTruncated ? " 이상" : ""}
+            </b>
           </div>
         </section>
       </div>

@@ -8,6 +8,7 @@ import kr.exchange.admin.AdminRequestContext;
 import kr.exchange.admin.AdminRole;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.CursorPages;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,16 +54,22 @@ public class TransferAdminController {
     @GetMapping
     public Map<String, Object> list(HttpServletRequest request,
                                     @RequestParam(defaultValue = "REQUESTED") String status,
+                                    @RequestParam(required = false) String cursor,
                                     @RequestParam(defaultValue = "100") int limit) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
         if (!QUEUE_STATUS.contains(status)) {
             throw new ApiException(400, "invalid_parameter",
                     "status는 REQUESTED, COMPLETED, CANCELED 중 하나");
         }
-        int capped = Math.max(1, Math.min(limit, MAX_LIMIT));
+        int capped = CursorPages.cap(limit, MAX_LIMIT);
+        // 한 건 더 읽어 다음 쪽 존재를 판단한다. COMPLETED·CANCELED는 처리 뒤에도 남아
+        // 영구 누적이라 고정 상한으로 자르면 그 밖의 이력에 도달할 방법이 없다
+        CursorPages.Page<Map<String, Object>> page = CursorPages.slice(
+                transfers.listQueue(status, CursorPages.decode(cursor), capped + 1), capped);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("schema_version", ApiFormats.SCHEMA_VERSION);
-        out.put("data", transfers.listQueue(status, capped));
+        out.put("data", page.data());
+        out.put("pagination", CursorPages.pagination(page));
         return out;
     }
 

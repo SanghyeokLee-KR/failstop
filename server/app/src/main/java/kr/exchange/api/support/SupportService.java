@@ -1,6 +1,7 @@
 package kr.exchange.api.support;
 
 import kr.exchange.api.common.ApiException;
+import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.Cursors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -59,7 +60,7 @@ public class SupportService {
      * 커서 행은 user_id 스코프로 되짚는다. 남의 external_id를 커서로 넘겨 정렬 위치를
      * 캐는 경로를 막는다. 커서가 가리키는 행이 없으면 형식 오류와 같은 400이다.
      */
-    public List<Row> listMine(long userId, Cursors.Cursor cursor, int limit) {
+    public List<CursorPages.Row<Map<String, Object>>> listMine(long userId, Cursors.Cursor cursor, int limit) {
         StringBuilder sql = new StringBuilder("SELECT * FROM support_inquiries WHERE user_id = ?");
         List<Object> params = new ArrayList<>(List.of(userId));
         if (cursor != null) {
@@ -83,22 +84,13 @@ public class SupportService {
                 .query()
                 .listOfRows()
                 .stream()
-                .map(row -> new Row(
+                .map(row -> new CursorPages.Row<>(
                         view(row, false),
-                        offsetDateTime(row.get("created_at")),
+                        CursorPages.at(row.get("created_at")),
                         String.valueOf(row.get("external_id"))))
                 .toList();
     }
 
-    /**
-     * 한 행의 표시용 뷰와 커서 재료.
-     *
-     * created_at을 뷰의 epoch millis에서 되돌려 쓰지 않는다. 뷰는 밀리초로 절단하는데
-     * 컬럼은 마이크로초라, 절단값으로 커서를 만들면 같은 밀리초 안의 행이 다음 쪽에서
-     * 누락된다(Cursors.encode 주석과 같은 함정).
-     */
-    public record Row(Map<String, Object> view, OffsetDateTime createdAt, String externalId) {
-    }
 
     private record Anchor(OffsetDateTime createdAt, long id) {
     }
@@ -112,36 +104,44 @@ public class SupportService {
         }
     }
 
-    /**
-     * listOfRows()는 컬럼 타입을 드라이버가 정하는 대로 담는다. TIMESTAMPTZ가
-     * java.sql.Timestamp로 오는 경로가 있어 OffsetDateTime 직캐스팅은 500이 된다.
-     */
-    private static OffsetDateTime offsetDateTime(Object value) {
-        if (value instanceof OffsetDateTime odt) {
-            return odt;
-        }
-        if (value instanceof Instant instant) {
-            return instant.atOffset(java.time.ZoneOffset.UTC);
-        }
-        if (value instanceof java.sql.Timestamp ts) {
-            return ts.toInstant().atOffset(java.time.ZoneOffset.UTC);
-        }
-        throw new IllegalStateException("created_at 타입 미지원: " + value);
-    }
 
     /* ===== 운영자 ===== */
 
-    public List<Map<String, Object>> listQueue(String status, int limit) {
-        int capped = Math.max(1, Math.min(limit, MAX_LIMIT * 2));
-        return jdbc.sql("""
-                        SELECT s.*, u.email AS user_email
-                        FROM support_inquiries s
-                        JOIN users u ON u.id = s.user_id
-                        WHERE s.status = ?
-                        ORDER BY s.created_at
-                        LIMIT ?
-                        """)
-                .params(status, capped)
+    /**
+     * 운영자 큐 한 쪽. 오래된 문의부터 처리한다.
+     *
+     * 정렬 축은 (created_at, id) 오름차순이다. created_at 단독은 유일하지 않아 같은 시각
+     * 문의 둘 중 어느 쪽이 상한에 잘릴지 비결정이고, 운영자가 새로고침할 때마다 큐 끝이
+     * 바뀐다. AuditController가 같은 이유로 id 보조 축을 명문화해뒀다.
+     *
+     * status=ANSWERED 조회는 답변 뒤에도 남아 영구 누적이다.
+     */
+    public List<CursorPages.Row<Map<String, Object>>> listQueue(String status,
+                                                                Cursors.Cursor cursor, int limit) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT s.*, u.email AS user_email
+                FROM support_inquiries s
+                JOIN users u ON u.id = s.user_id
+                WHERE s.status = ?
+                """);
+        List<Object> params = new ArrayList<>(List.of(status));
+        if (cursor != null) {
+            // 큐는 오름차순이라 경계 비교도 반대 방향이다
+            Anchor anchor = jdbc.sql(
+                            "SELECT created_at, id FROM support_inquiries WHERE external_id = ?")
+                    .params(parseCursorId(cursor.id()))
+                    .query((rs, rn) -> new Anchor(
+                            rs.getObject("created_at", OffsetDateTime.class), rs.getLong("id")))
+                    .optional()
+                    .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서 형식 오류"));
+            sql.append(" AND (s.created_at, s.id) > (?, ?)");
+            params.add(anchor.createdAt());
+            params.add(anchor.id());
+        }
+        sql.append(" ORDER BY s.created_at, s.id LIMIT ?");
+        params.add(limit);
+        return jdbc.sql(sql.toString())
+                .params(params)
                 .query()
                 .listOfRows()
                 .stream()
@@ -149,7 +149,8 @@ public class SupportService {
                     Map<String, Object> v = view(row, true);
                     // 운영자는 누구의 문의인지 알아야 이력을 본다. 사용자 응답에는 넣지 않는다
                     v.put("user_email", row.get("user_email"));
-                    return v;
+                    return new CursorPages.Row<>(v, CursorPages.at(row.get("created_at")),
+                            String.valueOf(row.get("external_id")));
                 })
                 .toList();
     }

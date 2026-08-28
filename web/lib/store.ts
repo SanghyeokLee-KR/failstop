@@ -209,6 +209,8 @@ interface ExchangeState {
   /* 빈 배열과 미로딩을 구분한다. 하나로 두면 첫 프레임에 "등록된 공지 없음"이 스친 뒤
      목록이 나타난다. 사용자는 그 깜빡임을 오류로 읽는다 */
   noticesLoaded: boolean;
+  /** 체결 목록 첫 쪽이 잘렸는지. 요약이 부분 집계를 총계로 말하지 않게 한다 */
+  closedOrdersTruncated: boolean;
   /** 사용자가 닫은 공지 id. CRITICAL은 이 목록을 무시한다(lib/notices) */
   dismissedNoticeIds: string[];
   /** 마지막으로 공지 목록을 본 시각. 진입점 표식 판정용(lib/notices.hasUnread) */
@@ -266,6 +268,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   assets: [],
   notices: [],
   noticesLoaded: false,
+  closedOrdersTruncated: false,
   dismissedNoticeIds: [],
   lastSeenNoticeAt: null,
   openOrders: [],
@@ -468,8 +471,12 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     // 응답 부재를 소멸로 해석하면 방금 낸 주문이 목록에서 사라진다
     const before = get();
     const known = new Set([...before.openOrders, ...before.closedOrders].map((o) => o.id));
-    const [open, closed] = await Promise.all([ds.getOpenOrders(market), ds.getClosedOrders(market)]);
-    set((s) => nextOrderLists(s, mergeOrderSnapshot(s, [...open, ...closed], { known, market })));
+    const [open, closed] = await Promise.all([ds.getOpenOrders(market), ds.getClosedOrders({ market })]);
+    set((s) => nextOrderLists(s, mergeOrderSnapshot(s, [...open, ...closed.data], { known, market })));
+    /* 전역이 드는 체결 목록은 첫 쪽뿐이다. 여기를 소비하는 것은 체결 통지 중복 판정
+       (OrderPanel.shouldAnnounceFill)과 마이페이지 요약이고 둘 다 최근 것만 본다.
+       아카이브 전체는 거래내역 화면이 자기 커서로 따라간다 */
+    set({ closedOrdersTruncated: closed.has_more });
   },
 
   upsertOrder(order) {

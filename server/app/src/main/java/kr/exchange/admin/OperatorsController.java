@@ -1,6 +1,7 @@
 package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
+import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.ApiException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -63,7 +64,9 @@ public class OperatorsController {
                         "status", o.status(),
                         "roles", o.roles().stream().map(Enum::name).sorted().toList()))
                 .toList();
-        return Map.of("schema_version", "1.0", "data", rows);
+        // 운영자 수는 조직 규모로 유계라 커서를 발급하지 않는다. §2-2대로 필드는 리터럴로 채운다
+        return Map.of("schema_version", "1.0", "data", rows,
+                "pagination", CursorPages.noPagination());
     }
 
     /**

@@ -8,6 +8,7 @@ import kr.exchange.admin.AdminRequestContext;
 import kr.exchange.admin.AdminRole;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.CursorPages;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,14 +50,20 @@ public class SupportAdminController {
     @GetMapping
     public Map<String, Object> list(HttpServletRequest request,
                                     @RequestParam(defaultValue = "OPEN") String status,
+                                    @RequestParam(required = false) String cursor,
                                     @RequestParam(defaultValue = "100") int limit) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
         if (!QUEUE_STATUS.contains(status)) {
             throw new ApiException(400, "invalid_parameter", "status는 OPEN 또는 ANSWERED");
         }
+        int capped = CursorPages.cap(limit, SupportService.MAX_LIMIT * 2);
+        // 한 건 더 읽어 다음 쪽 존재를 판단한다. ANSWERED는 답변 뒤에도 남아 누적된다
+        CursorPages.Page<Map<String, Object>> page = CursorPages.slice(
+                support.listQueue(status, CursorPages.decode(cursor), capped + 1), capped);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("schema_version", ApiFormats.SCHEMA_VERSION);
-        out.put("data", support.listQueue(status, limit));
+        out.put("data", page.data());
+        out.put("pagination", CursorPages.pagination(page));
         return out;
     }
 

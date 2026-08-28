@@ -2,6 +2,7 @@ package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
+import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.ApiFormats;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -69,15 +70,20 @@ public class ApprovalController {
     @GetMapping("/approvals")
     public Map<String, Object> list(HttpServletRequest request,
                                     @RequestParam(required = false) String state,
+                                    @RequestParam(required = false) String cursor,
                                     @RequestParam(defaultValue = "100") int limit) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
         if (state != null && !state.isBlank() && !STATES.contains(state)) {
             throw new ApiException(400, "invalid_parameter",
                     "state는 ISSUED, CONSUMED, EXPIRED, REJECTED 중 하나입니다.");
         }
-        int capped = Math.max(1, Math.min(limit, 500));
-        List<Map<String, Object>> data = approvals.list(state, capped);
-        return Map.of("schema_version", "1.0", "data", data);
+        int capped = CursorPages.cap(limit, 500);
+        // 승인 이력은 소비·만료 뒤에도 남는다. 고정 상한으로 자르면 그 밖의 이력에
+        // 도달할 방법이 없다. 한 건 더 읽어 다음 쪽 존재를 판단한다
+        CursorPages.Page<Map<String, Object>> page = CursorPages.slice(
+                approvals.list(state, CursorPages.decode(cursor), capped + 1), capped);
+        return Map.of("schema_version", "1.0", "data", page.data(),
+                "pagination", CursorPages.pagination(page));
     }
 
     /**

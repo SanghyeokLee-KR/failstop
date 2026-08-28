@@ -1,6 +1,9 @@
 package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
+import kr.exchange.api.common.ApiException;
+import kr.exchange.api.common.CursorPages;
+import kr.exchange.api.common.Cursors;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,18 +72,35 @@ public class ChaosAdminController {
      */
     @GetMapping("/runs")
     public Map<String, Object> runs(HttpServletRequest request,
+                                    @RequestParam(required = false) String cursor,
                                     @RequestParam(defaultValue = "50") int limit) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
-        int capped = Math.max(1, Math.min(limit, 200));
-        List<Map<String, Object>> rows = jdbc.sql("""
-                        SELECT id, operator_id, action, target, approval_id, result,
-                               detail->>'experiment_id' AS experiment_id, created_at
-                        FROM admin_audit_log
-                        WHERE action LIKE 'chaos.%'
-                        ORDER BY created_at DESC, id DESC LIMIT ?
-                        """)
-                .param(capped)
-                .query((rs, n) -> Map.<String, Object>of(
+        int capped = CursorPages.cap(limit, 200);
+        Cursors.Cursor decoded = CursorPages.decode(cursor);
+        StringBuilder sql = new StringBuilder("""
+                SELECT id, operator_id, action, target, approval_id, result,
+                       detail->>'experiment_id' AS experiment_id, created_at
+                FROM admin_audit_log
+                WHERE action LIKE 'chaos.%'
+                """);
+        List<Object> params = new ArrayList<>();
+        if (decoded != null) {
+            long anchorId = CursorPages.numericId(decoded.id());
+            OffsetDateTime anchorAt = jdbc.sql("SELECT created_at FROM admin_audit_log WHERE id = ?")
+                    .param(anchorId)
+                    .query((rs, n) -> rs.getObject("created_at", OffsetDateTime.class))
+                    .optional()
+                    .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서 형식 오류"));
+            sql.append(" AND (created_at, id) < (?, ?)");
+            params.add(anchorAt);
+            params.add(anchorId);
+        }
+        // 실험 이력은 감사 로그에 영구 누적된다. 한 건 더 읽어 다음 쪽 존재를 판단한다
+        sql.append(" ORDER BY created_at DESC, id DESC LIMIT ?");
+        params.add(capped + 1);
+        List<CursorPages.Row<Map<String, Object>>> fetched = jdbc.sql(sql.toString())
+                .params(params)
+                .query((rs, n) -> new CursorPages.Row<Map<String, Object>>(Map.<String, Object>of(
                         "id", rs.getLong("id"),
                         "operator_id", rs.getString("operator_id") == null
                                 ? "" : rs.getString("operator_id"),
@@ -90,9 +111,13 @@ public class ChaosAdminController {
                         "result", rs.getString("result"),
                         "experiment_id", rs.getString("experiment_id") == null
                                 ? "" : rs.getString("experiment_id"),
-                        "created_at", ts(rs.getObject("created_at", OffsetDateTime.class))))
+                        "created_at", ts(rs.getObject("created_at", OffsetDateTime.class))),
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        String.valueOf(rs.getLong("id"))))
                 .list();
-        return Map.of("schema_version", "1.0", "data", rows);
+        CursorPages.Page<Map<String, Object>> page = CursorPages.slice(fetched, capped);
+        return Map.of("schema_version", "1.0", "data", page.data(),
+                "pagination", CursorPages.pagination(page));
     }
 
     @PostMapping("/kill-node")

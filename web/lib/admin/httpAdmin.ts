@@ -21,6 +21,7 @@ import { isoNow } from "../format";
 import { COIN_META } from "../sim/engine";
 import type {
   AdminPage,
+  PageOpts,
   AdminOperator,
   AdminOverview,
   AdminRole,
@@ -65,6 +66,29 @@ const INVARIANT_LABEL = new Map(INVARIANT_DEFS.map((d) => [d.name, d.label]));
 const CHAOS_NODE = "exchange-core-1";
 
 /** 유한수만 취하고 아니면 기본값(무검사 캐스팅의 NaN 렌더 방지) */
+
+/** 커서 쪽 요청 질의문자열. 빈 값은 붙이지 않아 URL이 조건마다 달라지지 않는다 */
+function pageQuery(opts: PageOpts, extra: Record<string, string> = {}): string {
+  const q = new URLSearchParams(extra);
+  if (opts.limit) q.set("limit", String(opts.limit));
+  if (opts.cursor) q.set("cursor", opts.cursor);
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
+/** 서버 스네이크 엔벌로프를 관리 도메인 카멜 페이지로 옮긴다 */
+function toPage<T>(data: T[], res: { pagination?: { next_cursor?: string | null; has_more?: boolean } }): AdminPage<T> {
+  return {
+    data,
+    nextCursor: res.pagination?.next_cursor ?? null,
+    hasMore: !!res.pagination?.has_more,
+  };
+}
+
+type PagedEnvelope<T> = WireDataEnvelope<T> & {
+  pagination?: { next_cursor?: string | null; has_more?: boolean };
+};
+
 function num(v: unknown, fallback = 0): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
@@ -523,10 +547,11 @@ export class HttpAdminApi implements AdminApi {
     };
   }
 
-  async listApprovals(state?: ApprovalState): Promise<ApprovalRequest[]> {
-    const q = state ? `?state=${encodeURIComponent(state)}` : "";
-    const res = await this.http<WireDataEnvelope<WireApproval>>(`/admin/v1/approvals${q}`);
-    return (res.data ?? []).map((a, i) => {
+  async listApprovals(state?: ApprovalState, opts: PageOpts = {}): Promise<AdminPage<ApprovalRequest>> {
+    const res = await this.http<PagedEnvelope<WireApproval>>(
+      `/admin/v1/approvals${pageQuery(opts, state ? { state } : {})}`,
+    );
+    const rows = (res.data ?? []).map((a, i) => {
       const wa = a.action ?? "";
       const target = a.target ?? "";
       // 서버 원장은 소비 시점에만 EXPIRED로 전이하고 list에 만료 스윕이 없다. TTL 경과한
@@ -553,6 +578,7 @@ export class HttpAdminApi implements AdminApi {
         consumedAt: a.consumed_at ?? null,
       };
     });
+    return toPage(rows, res);
   }
 
   async rejectApproval(approvalId: string): Promise<ApprovalRequest> {
@@ -668,7 +694,9 @@ export class HttpAdminApi implements AdminApi {
       this.getChaosRuns(),
       this.getConfigMarkets(),
       this.getRecovery(),
-      this.listApprovals("ISSUED").then((r) => r.length),
+      // 종합 상태의 대기 건수는 첫 쪽 기준이다. 500건을 넘겨 대기 중인 승인은 이미
+      // 종합 카드가 아니라 승인 화면에서 다뤄야 할 상태다
+      this.listApprovals("ISSUED").then((r) => r.data.length),
     ]);
     const okCount = inv.filter((i) => i.ok).length;
     const health: "success" | "warning" | "danger" = ha.nodes.some((n) => n.health === "down")
@@ -686,7 +714,7 @@ export class HttpAdminApi implements AdminApi {
       lastVerdict: rec.lastVerdict,
       botsActive: sim.activeBots,
       currentOps: sim.currentOps,
-      chaosRunning: chaos.filter((r) => r.state === "RUNNING").length,
+      chaosRunning: chaos.data.filter((r) => r.state === "RUNNING").length,
       pendingApprovals: pending,
       suspendedMarkets: markets.filter((m) => m.state === "HALTED").length,
       generatedAt: ha.generatedAt,
@@ -933,19 +961,19 @@ export class HttpAdminApi implements AdminApi {
     return CHAOS_CATALOG.slice();
   }
 
-  async getChaosRuns(): Promise<ChaosRun[]> {
+  async getChaosRuns(opts: PageOpts = {}): Promise<AdminPage<ChaosRun>> {
     // GET /admin/v1/chaos/runs 감사 투영(id·action·target·experiment_id·created_at). state·blast_radius가
     // 없어 축소 뷰모델로 좁힌다. 활성 여부는 action 스트림(inject vs clear)을 접어 재구성한다.
     // experiment_id는 서버가 UUID로 발급해 카탈로그 id(E1~E9)와 직접 조인이 불가하다. 주입 시
     // wireBinding이 발급한 target 접두(e1-toxic·e8-assault)에서 id를 파생해 조인하고,
     // 고정 노드명을 쓰는 kill-node류는 action 기반 폴백 라벨을 쓴다.
-    const res = await this.http<WireDataEnvelope<WireChaosRun>>("/admin/v1/chaos/runs");
-    const rows = res.data ?? [];
+    const res = await this.http<PagedEnvelope<WireChaosRun>>(`/admin/v1/chaos/runs${pageQuery(opts)}`);
+    const raw = res.data ?? [];
     const cleared = new Set<string>();
-    for (const r of rows) {
+    for (const r of raw) {
       if ((r.action ?? "").includes("clear")) cleared.add(r.target ?? "");
     }
-    return rows.map((r, i) => {
+    const rows: ChaosRun[] = raw.map((r, i) => {
       const exp = r.experiment_id ?? "";
       const target = r.target ?? "";
       const prefix = (target.split("-")[0] ?? "").toUpperCase();
@@ -967,6 +995,7 @@ export class HttpAdminApi implements AdminApi {
         clearedAt: null,
       };
     });
+    return toPage(rows, res);
   }
 
   /* ===== 마켓 설정 ===== */
@@ -1012,11 +1041,12 @@ export class HttpAdminApi implements AdminApi {
 
   /* ===== 문의 답변 큐 (§4-G) ===== */
 
-  async getInquiries(status: "OPEN" | "ANSWERED" = "OPEN"): Promise<AdminInquiry[]> {
-    const res = await this.http<{ data?: AdminInquiryWire[] }>(
-      `/admin/v1/support?status=${status}&limit=200`,
+  async getInquiries(status: "OPEN" | "ANSWERED" = "OPEN",
+                     opts: PageOpts = {}): Promise<AdminPage<AdminInquiry>> {
+    const res = await this.http<PagedEnvelope<AdminInquiryWire>>(
+      `/admin/v1/support${pageQuery(opts, { status })}`,
     );
-    return (res.data ?? []).map(toAdminInquiry);
+    return toPage((res.data ?? []).map(toAdminInquiry), res);
   }
 
   async answerInquiry(externalId: string, answer: string): Promise<AdminInquiry> {
@@ -1029,11 +1059,12 @@ export class HttpAdminApi implements AdminApi {
 
   /* ===== 출금 승인 큐 (§4-E) ===== */
 
-  async getTransfers(status: AdminTransferStatus = "REQUESTED"): Promise<AdminTransfer[]> {
-    const res = await this.http<{ data?: AdminTransferWire[] }>(
-      `/admin/v1/transfers?status=${status}&limit=200`,
+  async getTransfers(status: AdminTransferStatus = "REQUESTED",
+                     opts: PageOpts = {}): Promise<AdminPage<AdminTransfer>> {
+    const res = await this.http<PagedEnvelope<AdminTransferWire>>(
+      `/admin/v1/transfers${pageQuery(opts, { status })}`,
     );
-    return (res.data ?? []).map(toAdminTransfer);
+    return toPage((res.data ?? []).map(toAdminTransfer), res);
   }
 
   async approveTransfer(externalId: string): Promise<AdminTransfer> {
@@ -1113,12 +1144,12 @@ export class HttpAdminApi implements AdminApi {
     }));
   }
 
-  async getAudit(): Promise<AuditEntry[]> {
+  async getAudit(opts: PageOpts = {}): Promise<AdminPage<AuditEntry>> {
     // 서버 프로젝션은 id·display_name·request_id를 포함한다(AuditController §3-1). 결측 행만
     // rowKey용 합성 id·operator_id 표기로 폴백한다. result는 DDL 3분값(OK·DENIED·ERROR)을
     // 그대로 보존한다. ERROR(처리 중 5xx)를 OK로 접으면 감사 판독이 오염된다
-    const res = await this.http<WireDataEnvelope<WireAudit>>("/admin/v1/audit");
-    return (res.data ?? []).map((e, i) => {
+    const res = await this.http<PagedEnvelope<WireAudit>>(`/admin/v1/audit${pageQuery(opts)}`);
+    const rows: AuditEntry[] = (res.data ?? []).map((e, i) => {
       const approval = e.approval_id;
       return {
         id: e.id != null && e.id !== "" ? String(e.id) : `aud-${e.created_at ?? ""}-${i}`,
@@ -1132,5 +1163,6 @@ export class HttpAdminApi implements AdminApi {
         requestId: e.request_id ?? "",
       };
     });
+    return toPage(rows, res);
   }
 }

@@ -12,9 +12,10 @@
  * 사용자는 무엇을 고쳐 다시 요청해야 하는지 알 수 없다.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
-import type { AdminTransfer, AdminTransferStatus } from "@/lib/admin/types";
+import type { AdminPage, AdminTransfer, AdminTransferStatus } from "@/lib/admin/types";
+import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
@@ -38,15 +39,45 @@ const HIGH_AMOUNT = "10000000";
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
+/* 한 쪽 50건. 폴링이 같은 쪽을 다시 읽으므로 쪽이 커지면 그 비용이 계속 나간다 */
+const PAGE_SIZE = 50;
+
 export default function AdminTransfersPage() {
   const [status, setStatus] = useState<AdminTransferStatus>("REQUESTED");
   const [pending, setPending] = useState<{ row: AdminTransfer; action: "approve" | "reject" } | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const loader = useCallback(() => getAdminApi().getTransfers(status), [status]);
-  const res = useAdminResource<AdminTransfer[]>(loader, { intervalMs: 15000, isSessionError });
-  const rows = res.data ?? [];
+  /* COMPLETED·CANCELED는 처리 뒤에도 남아 누적된다. 종전 고정 상한 200 밖의 요청은 볼
+     방법이 없었다. status가 바뀌면 쪽 경계가 새로 생기므로 커서를 버리고 첫 쪽부터 센다 */
+  const [page, setPage] = useState(0);
+  const cursors = useRef<(string | null)[]>([null]);
+  const loader = useCallback(async () => {
+    const r = await getAdminApi().getTransfers(status, {
+      cursor: cursors.current[page] ?? null,
+      limit: PAGE_SIZE,
+    });
+    cursors.current[page + 1] = r.nextCursor;
+    return r;
+  }, [status, page]);
+  const res = useAdminResource<AdminPage<AdminTransfer>>(loader, { intervalMs: 15000, isSessionError });
+  const rows = res.data?.data ?? [];
+  const hasMore = res.data?.hasMore ?? false;
+  /* 상태와 쪽을 한 효과로 묶는다. 둘로 나누면 쪽이 이미 0일 때 상태만 바뀌는 경우
+     setPage(0)이 무동작이라 재조회가 걸리지 않고, 이전 필터의 결과가 새 탭 아래 남는다
+     (다음 폴링 틱까지). 상태 변경은 커서를 먼저 버리므로 순서도 맞는다 */
+  useEffect(() => {
+    void res.reload();
+    // reload는 안정 참조다. 상태·쪽 변화에만 반응한다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, page]);
+
+  /* 상태가 바뀌면 쪽 경계가 새로 생긴다. 들고 있던 커서는 이전 조건의 것이라 버린다 */
+  const changeStatus = (next: AdminTransferStatus) => {
+    cursors.current = [null];
+    setPage(0);
+    setStatus(next);
+  };
 
   const close = () => {
     if (busy) return;
@@ -165,7 +196,7 @@ export default function AdminTransfersPage() {
 
       {/* 상태 3종은 배타 선택이라 세그먼트가 맞다. 새 칩 어휘를 만들지 않는다 */}
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" />
+        <SegmentedTab items={TABS} value={status} onChange={changeStatus} ariaLabel="상태 필터" />
       </div>
 
       <PanelCard title="요청 목록">
@@ -188,6 +219,8 @@ export default function AdminTransfersPage() {
             ariaLabel="출금 요청 목록"
           />
         )}
+
+        <Pager page={page} hasMore={hasMore} onMove={setPage} ariaLabel="출금 큐 쪽 이동" />
       </PanelCard>
 
       {pending && (

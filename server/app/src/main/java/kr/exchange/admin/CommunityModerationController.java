@@ -1,6 +1,7 @@
 package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
+import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.community.CommunityService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -70,13 +71,20 @@ public class CommunityModerationController {
 
     @GetMapping("/reports")
     public Map<String, Object> reports(@RequestParam(value = "status", required = false) String status,
+                                       @RequestParam(value = "cursor", required = false) String cursor,
+                                       @RequestParam(value = "limit", defaultValue = "100") int limit,
                                        HttpServletRequest request) {
         AdminPrincipal principal = AdminRequestContext.principal(request);
         principal.require(AdminRole.MEMBER_MOD);
-        List<Map<String, Object>> rows = community.listReports(status);
+        int capped = CursorPages.cap(limit, 200);
+        // 한 건 더 읽어 다음 쪽 존재를 판단한다. 종전에는 LIMIT 200이 SQL에 박혀 있어
+        // 신고가 몰리면 201번째부터 운영자에게 보이지 않았다
+        CursorPages.Page<Map<String, Object>> page = CursorPages.slice(
+                community.listReports(status, CursorPages.decode(cursor), capped + 1), capped);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("schema_version", "1.0");
-        body.put("data", rows);
+        body.put("data", page.data());
+        body.put("pagination", CursorPages.pagination(page));
         return body;
     }
 

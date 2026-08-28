@@ -26,9 +26,13 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -762,6 +766,67 @@ class AdminPlaneIntegrationTest {
     private String approvalBody(String requester, String action, String target) {
         return "{\"requester_operator_id\":\"" + requester + "\",\"action\":\"" + action
                 + "\",\"target\":\"" + target + "\"}";
+    }
+
+    /**
+     * 관리 평면 목록 전수 점검(API 설계 v2.30).
+     *
+     * 아홉 곳이 고정 LIMIT으로 잘리거나 pagination 엔벌로프가 없었다. 여기서는 두 가지를
+     * 본다. (a) 모든 목록이 §2-2 엔벌로프를 리터럴로 싣는가, (b) 상한을 넘는 목록이 커서로
+     * 끝까지 읽히는가. 감사 로그는 이 클래스가 지금까지 남긴 행이 이미 여럿이라 재료로 쓴다.
+     */
+    @Test
+    @Order(16)
+    void adminListsCarryPaginationAndFollowCursor() throws Exception {
+        String op01 = issueSession("op-01");
+
+        // (a) 목록마다 pagination이 리터럴로 존재한다. 유계 목록도 예외가 아니다
+        for (String path : List.of("/admin/v1/audit", "/admin/v1/approvals",
+                "/admin/v1/chaos/runs", "/admin/v1/operators", "/admin/v1/config/markets",
+                "/admin/v1/config/notices", "/admin/v1/transfers?status=REQUESTED",
+                "/admin/v1/support?status=OPEN")) {
+            ResponseEntity<String> res = adminGet(path, "op-01", op01);
+            assertEquals(200, res.getStatusCode().value(), path + " -> " + res.getBody());
+            JsonNode pagination = objectMapper.readTree(res.getBody()).path("pagination");
+            assertFalse(pagination.isMissingNode(), path + "에 pagination이 없다");
+            assertTrue(pagination.has("next_cursor"), path + "에 next_cursor가 없다");
+            assertTrue(pagination.has("has_more"), path + "에 has_more가 없다");
+        }
+
+        // (b) 감사 로그를 쪽 크기 2로 훑어 중복·누락 없이 끝까지 도달한다
+        long total = jdbc.sql("SELECT count(*) FROM admin_audit_log").query(Long.class).single();
+        assertTrue(total > 4, "감사 행이 부족해 페이징을 검증할 수 없다: " + total);
+
+        Set<String> seen = new HashSet<>();
+        String cursor = null;
+        int pages = 0;
+        while (true) {
+            String path = "/admin/v1/audit?limit=2"
+                    + (cursor == null ? "" : "&cursor=" + URLEncoder.encode(cursor, StandardCharsets.UTF_8));
+            JsonNode body = objectMapper.readTree(adminGet(path, "op-01", op01).getBody());
+            pages++;
+            for (JsonNode row : body.path("data")) {
+                assertTrue(seen.add(row.path("id").asText()), "쪽 경계에서 감사 행이 중복됐다");
+            }
+            if (!body.path("pagination").path("has_more").asBoolean()) {
+                assertTrue(body.path("pagination").path("next_cursor").isNull(),
+                        "마지막 쪽인데 next_cursor가 남아 있다");
+                break;
+            }
+            assertEquals(2, body.path("data").size(), "다음 쪽이 있는데 쪽이 덜 찼다");
+            cursor = body.path("pagination").path("next_cursor").asText();
+            assertTrue(pages <= total, "커서가 끝나지 않는다");
+        }
+        // 종전 LIMIT 500 고정이면 여기까지 오지 못하는 것이 아니라, 500을 넘는 순간부터
+        // 조용히 잘렸다. 여기서는 전량 도달만 확인한다
+        assertEquals(total, seen.size(), "누락 또는 중복으로 전체 건수가 어긋난다");
+
+        // 위조 커서는 조용히 첫 쪽으로 되돌리지 않고 거절한다
+        String forged = Base64.getUrlEncoder().withoutPadding().encodeToString(
+                "{\"ts\":\"2026-08-28T00:00:00Z\",\"id\":\"999999999\"}".getBytes(StandardCharsets.UTF_8));
+        ResponseEntity<String> bad = adminGet("/admin/v1/audit?limit=2&cursor="
+                + URLEncoder.encode(forged, StandardCharsets.UTF_8), "op-01", op01);
+        assertEquals(400, bad.getStatusCode().value(), bad.getBody());
     }
 
     private ResponseEntity<String> adminGet(String path, String operatorCn, String bearer) {

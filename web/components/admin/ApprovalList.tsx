@@ -89,9 +89,11 @@ export default function ApprovalList({
   const refresh = useCallback(async () => {
     const seq = ++refreshSeq.current;
     try {
-      const all = await getAdminApi().listApprovals();
+      /* 실행 대기 목록이라 ISSUED만 본다. 상태 없이 부르면 소비·만료된 이력까지 받아
+         화면에서 다시 걸러야 하고, 이력이 쌓일수록 첫 쪽이 처리 대상이 아닌 행으로 찬다 */
+      const all = await getAdminApi().listApprovals("ISSUED");
       if (seq !== refreshSeq.current) return; // 더 새 요청이 출발했다. 스테일 응답 폐기
-      setRows(all.filter((a) => inScope(a.action)));
+      setRows(all.data.filter((a) => inScope(a.action)));
     } catch {
       // 세션 만료 등은 레이아웃 게이트가 처리한다
     }

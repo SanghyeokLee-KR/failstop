@@ -1,6 +1,7 @@
 package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
+import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.ApiException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -76,7 +77,9 @@ public class ConfigAdminController {
                         "maker_fee", rs.getString("maker_fee"),
                         "taker_fee", rs.getString("taker_fee")))
                 .list();
-        return Map.of("schema_version", "1.0", "data", rows);
+        // 마켓 수는 카탈로그로 유계라 커서를 발급하지 않는다. §2-2대로 필드는 리터럴로 채운다
+        return Map.of("schema_version", "1.0", "data", rows,
+                "pagination", CursorPages.noPagination());
     }
 
     @PostMapping("/markets/{symbol}/halt")
@@ -251,15 +254,15 @@ public class ConfigAdminController {
                                        @RequestParam(required = false) String cursor,
                                        @RequestParam(defaultValue = "100") int limit) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
-        int capped = Math.max(1, Math.min(limit, 200));
-        Cursors.Cursor decoded = cursor == null || cursor.isBlank() ? null : Cursors.decode(cursor);
+        int capped = CursorPages.cap(limit, 200);
+        Cursors.Cursor decoded = CursorPages.decode(cursor);
         StringBuilder sql = new StringBuilder("""
                 SELECT id, title, body, severity, active, published_by, published_at
                 FROM notices
                 """);
         List<Object> params = new ArrayList<>();
         if (decoded != null) {
-            long anchorId = noticeCursorId(decoded.id());
+            long anchorId = CursorPages.numericId(decoded.id());
             OffsetDateTime anchorAt = jdbc.sql("SELECT published_at FROM notices WHERE id = ?")
                     .param(anchorId)
                     .query((rs, n) -> rs.getObject("published_at", OffsetDateTime.class))
@@ -295,24 +298,7 @@ public class ConfigAdminController {
                     String.valueOf(last.get("id")));
         }
         return Map.of("schema_version", "1.0", "data", rows,
-                "pagination", pagination(nextCursor, hasMore));
-    }
-
-    /** §2-2. 페이지네이션이 없는 리스트도 필드는 리터럴로 존재한다 */
-    private static Map<String, Object> pagination(String nextCursor, boolean hasMore) {
-        Map<String, Object> p = new LinkedHashMap<>();
-        p.put("next_cursor", nextCursor);
-        p.put("has_more", hasMore);
-        return p;
-    }
-
-    /** 조작 커서 방어(§2-6). 비숫자는 500이 아니라 400으로 정규화한다 */
-    private static long noticeCursorId(String id) {
-        try {
-            return Long.parseLong(id);
-        } catch (NumberFormatException e) {
-            throw new ApiException(400, "invalid_parameter", "커서 형식 오류");
-        }
+                "pagination", CursorPages.pagination(nextCursor, hasMore));
     }
 
     /**

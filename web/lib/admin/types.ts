@@ -12,6 +12,12 @@ export const ADMIN_SCHEMA_VERSION = "1.0" as const;
  * 고객 평면 Page<T>와 필드명이 다르다. 그쪽은 와이어 이름을 그대로 쓰고 여기는 관리
  * 도메인 타입 관례(카멜)를 따른다. 두 평면은 타입을 공유하지 않는다(이 파일 머리말).
  */
+/** 쪽 요청. cursor 없으면 첫 쪽이다 */
+export interface PageOpts {
+  cursor?: string | null;
+  limit?: number;
+}
+
 export interface AdminPage<T> {
   data: T[];
   nextCursor: string | null;

@@ -7,10 +7,11 @@
  * 필터는 로드된 rows의 클라이언트 파생만 쓴다(신규 API·쿼리 파라미터 없음). 범위 한계는 캡션이 고지한다.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { ACTION_GLOSS, NS_GLOSS } from "@/lib/admin/glossary";
 import type { AuditEntry, AuditResult } from "@/lib/admin/types";
+import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
@@ -134,11 +135,37 @@ const RESULT_SEGMENTS: { value: "" | AuditResult; label: string }[] = [
   { value: "DENIED", label: "거부(DENIED)" },
 ];
 
+/* 한 쪽 200건. 감사는 표를 훑는 화면이고 15초 폴링이 같은 쪽을 다시 읽으므로,
+   쪽이 커지면 그 비용이 계속 나간다. 서버 상한은 500이다 */
+const PAGE_SIZE = 200;
+
 export default function AuditPage() {
-  const load = useCallback(() => getAdminApi().getAudit(), []);
-  // 감사는 append-only 전량 응답이라 3초 폴링이면 단조 증가 테이블을 계속 재수신한다.
+  /* 감사 로그는 append-only라 영구 누적이다. 종전에는 고정 상한 500으로 잘려, 그보다
+     오래된 기록에 도달할 방법이 없고 잘렸다는 표시도 없었다. 사고 조사가 목적인 화면에서
+     "기록이 없다"와 "기록을 못 본다"를 운영자가 구분할 수 없는 상태였다.
+     i번째 칸이 i쪽을 여는 커서고 첫 쪽은 null이다(§2-6은 앞으로만 커서를 발급한다) */
+  const [page, setPage] = useState(0);
+  const cursors = useRef<(string | null)[]>([null]);
+
+  const load = useCallback(async () => {
+    const res = await getAdminApi().getAudit({
+      cursor: cursors.current[page] ?? null,
+      limit: PAGE_SIZE,
+    });
+    cursors.current[page + 1] = res.nextCursor;
+    return res;
+  }, [page]);
+  // 감사는 append-only라 3초 폴링이면 단조 증가 테이블을 계속 재수신한다.
   // 판독 용도에 15초면 충분하고 레이트리밋 예산도 아낀다
-  const { data: rows, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 15000, isSessionError });
+  const { data: pageData, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 15000, isSessionError });
+  const rows = pageData?.data ?? null;
+  const hasMore = pageData?.hasMore ?? false;
+
+  useEffect(() => {
+    void reload();
+    // reload는 안정 참조다. 쪽 변화에만 반응한다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const [opFilter, setOpFilter] = useState("");
   const [nsFilter, setNsFilter] = useState("");
@@ -266,6 +293,15 @@ export default function AuditPage() {
                 }
               />
             </div>
+
+            {/* 필터는 이번 쪽 안에서만 거른다. 조건에 맞는 기록이 뒤쪽에 더 있을 수 있어
+                필터가 걸려 있어도 쪽 이동은 살려둔다 */}
+            <Pager
+              page={page}
+              hasMore={hasMore}
+              onMove={setPage}
+              ariaLabel="감사 기록 쪽 이동"
+            />
           </div>
         )}
       </PanelCard>

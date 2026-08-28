@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.auth.AuthPrincipal;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.ApiFormats;
+import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.Cursors;
 import kr.exchange.api.common.SlidingWindowThrottle;
 import org.springframework.http.ResponseEntity;
@@ -63,24 +64,14 @@ public class SupportController {
                                     @RequestParam(required = false) String cursor,
                                     @RequestParam(defaultValue = "50") int limit) {
         long userId = memberId(request);
-        int capped = Math.max(1, Math.min(limit, SupportService.MAX_LIMIT));
-        Cursors.Cursor decoded = cursor == null || cursor.isBlank() ? null : Cursors.decode(cursor);
+        int capped = CursorPages.cap(limit, SupportService.MAX_LIMIT);
         // 한 건 더 읽어 다음 쪽 존재를 판단한다. 총 개수 질의는 페이지마다 전 범위를 세므로 쓰지 않는다
-        List<SupportService.Row> rows = support.listMine(userId, decoded, capped + 1);
-        boolean hasMore = rows.size() > capped;
-        List<SupportService.Row> page = hasMore ? rows.subList(0, capped) : rows;
-        String nextCursor = null;
-        if (hasMore) {
-            SupportService.Row last = page.get(page.size() - 1);
-            nextCursor = Cursors.encode(last.createdAt(), last.externalId());
-        }
-        Map<String, Object> pagination = new LinkedHashMap<>();
-        pagination.put("next_cursor", nextCursor);
-        pagination.put("has_more", hasMore);
+        CursorPages.Page<Map<String, Object>> page = CursorPages.slice(
+                support.listMine(userId, CursorPages.decode(cursor), capped + 1), capped);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("schema_version", ApiFormats.SCHEMA_VERSION);
-        out.put("data", page.stream().map(SupportService.Row::view).toList());
-        out.put("pagination", pagination);
+        out.put("data", page.data());
+        out.put("pagination", CursorPages.pagination(page));
         return out;
     }
 

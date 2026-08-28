@@ -14,6 +14,7 @@ import { feeRateError } from "./fees";
 import { CHAOS_CATALOG, INVARIANT_DEFS } from "./catalog";
 import type {
   AdminPage,
+  PageOpts,
   AdminOperator,
   AdminOverview,
   AdminSession,
@@ -89,6 +90,30 @@ interface BiasState {
   effective: number;
   auto: boolean;
   strength: number;
+}
+
+/**
+ * sim 커서 페이지. 서버와 같은 의미를 갖되 인코딩만 단순하다. 마지막으로 본 항목의 id다.
+ *
+ * 없는 커서를 조용히 첫 쪽으로 되돌리지 않는다. 서버는 400을 주므로, 여기서 관대하면
+ * sim에서만 통과하는 화면 코드가 생긴다.
+ */
+function simPage<T, R>(rows: T[], opts: PageOpts, idOf: (row: T) => string,
+                       project: (row: T) => R): AdminPage<R> {
+  const limit = Math.max(1, Math.min(opts.limit ?? 100, 200));
+  let start = 0;
+  if (opts.cursor) {
+    const at = rows.findIndex((r) => idOf(r) === opts.cursor);
+    if (at < 0) throw new Error("커서 형식 오류");
+    start = at + 1;
+  }
+  const slice = rows.slice(start, start + limit);
+  const hasMore = rows.length > start + limit;
+  return {
+    data: slice.map(project),
+    nextCursor: hasMore && slice.length > 0 ? idOf(slice[slice.length - 1]) : null,
+    hasMore,
+  };
 }
 
 export class SimAdminApi implements AdminApi {
@@ -619,11 +644,11 @@ export class SimAdminApi implements AdminApi {
     }
   }
 
-  listApprovals(state?: ApprovalState): Promise<ApprovalRequest[]> {
+  listApprovals(state?: ApprovalState, opts: PageOpts = {}): Promise<AdminPage<ApprovalRequest>> {
     this.auth("VIEW");
     this.sweep();
     const rows = state ? this.approvals.filter((a) => a.state === state) : this.approvals;
-    return Promise.resolve(rows.slice(0, 40).map((a) => this.projectApproval(a)));
+    return Promise.resolve(simPage(rows, opts, (a) => a.id, (a) => this.projectApproval(a)));
   }
 
   /* ===== 모니터링 ===== */
@@ -895,9 +920,9 @@ export class SimAdminApi implements AdminApi {
     return CHAOS_CATALOG.slice();
   }
 
-  getChaosRuns(): Promise<ChaosRun[]> {
+  getChaosRuns(opts: PageOpts = {}): Promise<AdminPage<ChaosRun>> {
     this.auth("VIEW");
-    return Promise.resolve(this.chaosRuns.slice());
+    return Promise.resolve(simPage(this.chaosRuns, opts, (r) => r.id, (r) => ({ ...r })));
   }
 
   /* ===== 마켓 설정 ===== */
@@ -936,9 +961,10 @@ export class SimAdminApi implements AdminApi {
     },
   ];
 
-  getInquiries(status: "OPEN" | "ANSWERED" = "OPEN"): Promise<AdminInquiry[]> {
+  getInquiries(status: "OPEN" | "ANSWERED" = "OPEN", opts: PageOpts = {}): Promise<AdminPage<AdminInquiry>> {
     this.auth("VIEW");
-    return Promise.resolve(this.inquiries.filter((q) => q.status === status).map((q) => ({ ...q })));
+    const rows = this.inquiries.filter((q) => q.status === status);
+    return Promise.resolve(simPage(rows, opts, (q) => q.externalId, (q) => ({ ...q })));
   }
 
   answerInquiry(externalId: string, answer: string): Promise<AdminInquiry> {
@@ -986,9 +1012,11 @@ export class SimAdminApi implements AdminApi {
     },
   ];
 
-  getTransfers(status: AdminTransferStatus = "REQUESTED"): Promise<AdminTransfer[]> {
+  getTransfers(status: AdminTransferStatus = "REQUESTED",
+               opts: PageOpts = {}): Promise<AdminPage<AdminTransfer>> {
     this.auth("VIEW");
-    return Promise.resolve(this.transfers.filter((t) => t.status === status).map((t) => ({ ...t })));
+    const rows = this.transfers.filter((t) => t.status === status);
+    return Promise.resolve(simPage(rows, opts, (t) => t.externalId, (t) => ({ ...t })));
   }
 
   approveTransfer(externalId: string): Promise<AdminTransfer> {
@@ -1078,8 +1106,8 @@ export class SimAdminApi implements AdminApi {
     return Promise.resolve(this.operators.map((o) => ({ ...o, roles: o.roles.slice() })));
   }
 
-  getAudit(): Promise<AuditEntry[]> {
+  getAudit(opts: PageOpts = {}): Promise<AdminPage<AuditEntry>> {
     this.auth("VIEW");
-    return Promise.resolve(this.audit.slice());
+    return Promise.resolve(simPage(this.audit, opts, (e) => e.id, (e) => ({ ...e })));
   }
 }
