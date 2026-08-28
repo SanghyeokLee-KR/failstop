@@ -10,11 +10,6 @@
   max-height: clamp(88px, calc(100dvh - 712px), 264px);
 }
 
-.empty {
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  color: var(--text-secondary);
-}
 
 .list {
   display: flex;

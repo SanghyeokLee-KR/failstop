@@ -174,6 +174,17 @@ export default function TradingChart({ market }: { market: string }) {
     const chart = init(el, { styles: buildChartStyles(tokens, prefersReducedMotion()) });
     if (!chart) return;
     chartRef.current = chart;
+
+    /* klinecharts가 캔버스 래퍼에 tabIndex = 1을 심는다(dist 확인). 양수 tabindex는
+       tabindex=0인 요소 전부보다 먼저 포커스되므로 문서 탭 순서가 통째로 뒤틀린다.
+       실측하면 거래 화면 첫 Tab이 차트가 되고 스킵 링크가 두 번째로 밀렸다.
+
+       -1로 내린다. 이 컨테이너는 role="img"로 선언돼 있고 그리기·지표는 전부 툴바 버튼이
+       담당하므로 캔버스 자체에 키보드 조작이 없다. 0으로 두면 이름도 조작도 없는 정지점이
+       탭 경로에 남아, 키보드 사용자는 아무것도 안 읽히는 자리를 한 번 밟고 지나간다 */
+    for (const positive of el.querySelectorAll('[tabindex="1"]')) {
+      positive.setAttribute("tabindex", "-1");
+    }
     chart.setPriceVolumePrecision(precisionRef.current, 4);
     chart.createIndicator({ name: "VOL", styles: volStyles(tokens) as IndicatorCreate["styles"] }, false, { id: VOLUME_PANE_ID, height: VOLUME_PANE_HEIGHT });
 

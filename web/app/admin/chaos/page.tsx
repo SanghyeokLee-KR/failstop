@@ -43,6 +43,13 @@ const RUN_COLUMNS: DataColumn<ChaosRun>[] = [
 /* 한 쪽 50건. 폴링이 같은 쪽을 다시 읽으므로 쪽이 커지면 그 비용이 계속 나간다 */
 const PAGE_SIZE = 50;
 
+/* 등급 어휘. 멈추는 범위를 말한다. "위험/주의" 같은 감정어 대신 무엇이 멈추는지를 적는다 */
+const SEVERITY_LABEL: Record<"high" | "medium" | "low", string> = {
+  high: "체결 중단",
+  medium: "계층 차단",
+  low: "지연 주입",
+};
+
 export default function ChaosPage() {
   const canChaos = useCan("CHAOS_OPS");
   const catalog: ChaosExperimentDef[] = getAdminApi().getChaosCatalog();
@@ -131,7 +138,14 @@ export default function ChaosPage() {
               <li key={e.id} className={styles.chaosRow} title={e.description}>
                 <span className={styles.chaosId}>{e.id}</span>
                 <span className={styles.chaosLabel}>{e.label}</span>
-                <span className={styles.chaosBlast}>{e.blastRadius}</span>
+                {/* 등급을 글자로도 싣는다. 버튼 형태만으로 가르면 색 단독 표현이 된다.
+                    "무엇이 깨지나"(blastRadius)와 "얼마나 깨지나"(등급)는 다른 질문이다 */}
+                <span className={styles.chaosBlast}>
+                  {e.blastRadius}
+                  <span className={styles.chaosSeverity} data-severity={e.severity}>
+                    {SEVERITY_LABEL[e.severity]}
+                  </span>
+                </span>
                 {isRunning ? (
                   // 진행 중 실험에 주입 요청 버튼을 남기면 상단 해제 카드와 어포던스가 상반된다
                   <span className="status-pill" data-health="warning">
@@ -142,6 +156,7 @@ export default function ChaosPage() {
                     action="chaos.inject"
                     payload={{ action: "chaos.inject", experimentId: e.id }}
                     label="주입 요청"
+                    tone={e.severity === "high" ? "destructive" : "neutral"}
                     onRequested={load}
                     confirm={{
                       title: "카오스 실험 주입 요청",

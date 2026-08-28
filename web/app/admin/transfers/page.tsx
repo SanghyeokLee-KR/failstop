@@ -148,9 +148,9 @@ export default function AdminTransfersPage() {
               대기
             </span>
           ) : r.status === "COMPLETED" ? (
-            <span className="status-pill" data-health="success">
-              완료
-            </span>
+            /* 완료는 조치가 끝난 행이다. 운영자가 볼 곳은 대기뿐이라 완료까지 색을 쓰면
+               큐에서 처리 대상을 골라내는 일이 오히려 어려워진다 */
+            <span className={styles.stateText}>완료</span>
           ) : (
             /* 거절·취소는 실패가 아니라 종결이다. danger를 쓰면 사고로 읽힌다 */
             <span className={styles.stateText}>{r.reason ?? "취소"}</span>

@@ -18,7 +18,14 @@ export const HEALTH_ICON: Record<Health, string> = { success: "●", warning: "�
 // 라벨 어휘는 NOTICE_SEVERITY_LABEL·admin 홈 HEALTH_LABEL과 통일(warning=주의)
 const HEALTH_LABEL: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
 
-/** 헬스 상태 필. 항상 아이콘+라벨 병기. flashOnChange는 전이 순간 배경 플래시 옵트인 */
+/**
+ * 헬스 상태 표시. 항상 아이콘+라벨 병기. flashOnChange는 전이 순간 배경 플래시 옵트인.
+ *
+ * 정상은 필을 세우지 않고 잉크로만 적는다. 이 콘솔은 대부분의 시간에 전부 정상이라,
+ * 정상까지 색을 쓰면 화면이 초록으로 덮이고 그 안에서 빨강 하나를 찾아야 한다. 색은
+ * 이탈을 발화하는 채널이지 평시를 칠하는 채널이 아니다.
+ * 같은 판단이 HealthHero·audit·bots 주석에 이미 적혀 있는데 이 공용 컴포넌트만 밖에 있었다.
+ */
 export function HealthPill({
   health,
   label,
@@ -30,6 +37,13 @@ export function HealthPill({
 }) {
   // 정지가 기본값이라 플래시는 옵트인. 시각 규칙은 globals.css [data-transition]이 소유한다
   const flash = useHealthTransition(flashOnChange ? health : null);
+  if (health === "success") {
+    return (
+      <span className={styles.healthInk}>
+        <span aria-hidden="true">{HEALTH_ICON[health]}</span> {label}
+      </span>
+    );
+  }
   return (
     <span className="status-pill" data-health={health} data-transition={flash ?? undefined}>
       {HEALTH_ICON[health]} {label}

@@ -33,9 +33,16 @@ interface Props {
   label: string;
   onRequested?: () => void;
   confirm?: RequestConfirm;
+  /**
+   * 파괴 강도. 기본은 무채고, destructive는 디자인_방향 §7.6 등급 예외를 만족하는
+   * 호출측에서만 넘긴다. 등급이 데이터 필드로 정의돼 있고, 등급 어휘가 같은 행에
+   * 글자로 보이고, 최상위 1단계뿐이고, 그 행이 목록의 과반이 아닐 때다.
+   * 등급이 균일한 목록(대상만 다른 반복 액션)은 예외 대상이 아니다.
+   */
+  tone?: "neutral" | "destructive";
 }
 
-export default function RequestButton({ action, payload, label, onRequested, confirm }: Props) {
+export default function RequestButton({ action, payload, label, onRequested, confirm, tone = "neutral" }: Props) {
   const allowed = useCan(ACTION_CAP[action]);
   const session = useAdminSession();
   const propose = useApprovalVault((s) => s.propose);
@@ -65,8 +72,8 @@ export default function RequestButton({ action, payload, label, onRequested, con
     <>
       <button
         type="button"
-        // 반복 트리거는 무채(디자인_방향 §7.6). danger는 확정 지점 전용이고 파괴 의미는 동사 라벨이 전달한다
-        className={styles.neutralBtn}
+        // 무채가 기본이다. 파괴 의미는 동사 라벨과 확인 단계가 전달하고, 형태 차이는 등급 예외에서만 쓴다
+        className={tone === "destructive" ? styles.dangerBtn : styles.neutralBtn}
         onClick={() => (confirm ? setOpen(true) : request())}
         disabled={!allowed}
         title={allowed ? undefined : "권한 부족"}

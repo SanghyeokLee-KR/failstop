@@ -804,8 +804,10 @@
   font-weight: var(--fw-bold);
   letter-spacing: -0.01em;
 }
+/* 정상은 잉크다. 이 문구는 화면에서 가장 큰 활자라 초록으로 칠하면 "괜찮다"가 아니라
+   "여기를 보라"가 된다. 볼 곳은 이탈이 생겼을 때만 있어야 한다 */
 .heroWord[data-health="success"] {
-  color: var(--color-success-text);
+  color: var(--text-strong);
 }
 .heroWord[data-health="warning"] {
   color: var(--color-warning-text);
@@ -1337,8 +1339,10 @@
   font-size: 10px;
   line-height: 1;
 }
+/* 검사 7종이 평시에 전부 통과다. 램프까지 초록이면 스트립 전체가 초록 띠가 되고
+   위반 하나가 그 안에 묻힌다. 통과 램프는 잉크, 위반만 색으로 발화한다 */
 .relayCell[data-health="success"] .relayLamp {
-  color: var(--color-success-text);
+  color: var(--text-secondary);
 }
 .relayCell[data-health="danger"] .relayLamp {
   color: var(--color-danger);
@@ -2123,4 +2127,44 @@
   font-size: var(--font-micro-size);
   color: var(--color-warning-text);
   background: var(--color-warning-bg);
+}
+
+/* 정상 상태 표기. 필을 세우지 않고 잉크로만 적는다(ui.tsx HealthPill 주석) */
+.healthInk {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+/* 카오스 등급. 영향 대상 옆에 붙어 "얼마나 깨지나"를 글자로 말한다.
+   버튼 형태(dangerBtn)와 짝을 이뤄 색 단독 표현을 피한다 */
+.chaosSeverity {
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+/* 체결이 실제로 끊기는 등급만 발화한다. 나머지는 잉크다(정상은 잉크와 같은 규율) */
+.chaosSeverity[data-severity="high"] {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* 빈 상태가 늘어난 카드 안에서 세로 중앙에 선다. stretchCard는 왼쪽 열 높이를 흡수하려고
+   늘어나는데, 그 안의 빈 상태가 위에 붙어 있으면 아래 여백만 길어져 비어 있는 것이 아니라
+   잘린 것처럼 보인다(고객 평면 목록과 같은 규약) */
+.stretchCard :global(.panel-body) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.stretchCard :global(.empty-state) {
+  flex: 1;
+  min-height: 0;
 }

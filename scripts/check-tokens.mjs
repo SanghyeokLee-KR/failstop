@@ -95,6 +95,11 @@ const CONTRACT = [
   ["--text-inverse", "--color-buy", 4.5],
   ["--text-inverse", "--color-sell", 4.5],
   ["--text-on-brand", "--brand-primary-fill", 4.5],
+  /* 차트 지표선 4종. klinecharts 범례가 선 색을 그대로 텍스트에 쓴다(chartTheme tooltip).
+     선만 보면 1.4.11의 3:1이지만 같은 색이 범례 글자가 되므로 1.4.3의 4.5:1을 받는다.
+     이 계약이 없던 동안 라이트 series-1이 brand-400(3.82:1)으로 미달한 채 남아 있었고
+     캔버스 안이라 브라우저 게이트도 못 봤다. 정적 계약이 유일한 방어선이다 */
+  ...[1, 2, 3, 4].map((n) => [`--chart-series-${n}`, "--surface-default", 4.5]),
   /* 비텍스트(1.4.11): 포커스 링·스크롤바 썸 */
   ["--focus-outline-color", "--surface-default", 3],
   ["--scrollbar-thumb", "--surface-default", 3],

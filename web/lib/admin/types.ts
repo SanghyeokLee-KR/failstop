@@ -332,6 +332,12 @@ export interface ChaosExperimentDef {
   injectPath: string;
   blastRadius: string;
   description: string;
+  /**
+   * 폭발 반경 등급. 경로(injectPath)에서 유추하지 않는다. 같은 network 주입이라도 응답
+   * 지연(E1)과 노드 간 분할(E5)은 멈추는 범위가 다르다. 위험은 실험의 성질이다.
+   * high: 체결 경로가 멈춘다 / medium: 의존 계층이 끊긴다 / low: 지연이 낀다
+   */
+  severity: "high" | "medium" | "low";
 }
 
 /** 진행·이력 실험 원소 */

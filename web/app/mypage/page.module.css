@@ -1,9 +1,14 @@
+/* 카드 세 장이 내용의 전부다. 프로필과 두 요약은 늘어나지 않으므로 높이가 고정이고,
+   위에 붙여두면 900px 화면에서 아래 520px가 남아 만들다 만 화면으로 읽힌다.
+   세로 가운데에 두면 짧은 것이 의도로 읽힌다. 요약을 늘리려고 없는 내용을 지어내지 않는다 */
 .page {
   max-width: 900px;
   margin: 0 auto;
   padding: var(--space-8) var(--space-4);
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  min-height: calc(100vh - var(--header-h));
   gap: var(--space-5);
 }
 
