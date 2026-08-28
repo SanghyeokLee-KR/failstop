@@ -529,6 +529,15 @@ class CommunityIntegrationTest {
         assertTrue(pending.size() >= 1, "대기 신고 없음");
         long reportId = pending.get(0).path("report_id").asLong();
 
+        // 대상 요약(v2.32). reports.target_id는 내부 BIGINT라 이 필드가 없으면 운영자가
+        // 모더레이션을 부를 수단이 없다. 조인이 실제 DB에서 성립하는지 여기서 본다.
+        JsonNode row = pending.get(0);
+        assertEquals(postId, row.path("target_external_id").asText(),
+                "처리 액션이 받는 external_id");
+        assertEquals("VISIBLE", row.path("target_status").asText(), "복구 직후라 노출 중");
+        assertTrue(row.path("target_excerpt").asText().length() > 0, "대상 원문 요약");
+        assertTrue(row.path("target_author").asText().length() > 0, "대상 작성자");
+
         ResponseEntity<String> resolve = adminPost(
                 "/admin/v1/community/reports/" + reportId + "/resolve",
                 "{\"resolution\":\"DISMISSED\"}", "op-mod", modToken);

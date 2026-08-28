@@ -413,6 +413,44 @@ export interface AdminInquiry {
   createdAt: number;
 }
 
+/* ===== 커뮤니티 운영 (§6-D, /admin/v1/community/*) ===== */
+
+/** reports.status CHECK 어휘. PENDING만 처리 대기고 나머지 셋은 종결이다 */
+export type ReportStatus = "PENDING" | "REVIEWED" | "ACTIONED" | "DISMISSED";
+
+/** 신고 처리 결과. PENDING에서만 전이한다 */
+export type ReportResolution = "REVIEWED" | "ACTIONED" | "DISMISSED";
+
+/** reports.reason CHECK 어휘 */
+export type ReportReason = "SPAM" | "ABUSE" | "ILLEGAL" | "ETC";
+
+/** posts·comments.status CHECK 어휘. DELETED는 종료 상태라 되돌리지 못한다 */
+export type ContentStatus = "VISIBLE" | "HIDDEN" | "DELETED";
+
+/** 모더레이션 액션. DELETE는 비가역이다(게시판_설계 §4.1) */
+export type ModerationAction = "HIDE" | "UNHIDE" | "DELETE";
+
+/**
+ * 신고 큐 한 행(GET /admin/v1/community/reports).
+ * targetExternalId는 처리 액션이 받는 식별자다. reportId·targetId는 내부 BIGINT이고
+ * 관리 평면 커서 축으로만 쓴다(§2-6 각주: 내부 id를 이미 공개 식별자로 쓰는 표).
+ * 대상이 조인되지 않으면 요약 필드가 null이다.
+ */
+export interface CommunityReport {
+  reportId: number;
+  targetType: "POST" | "COMMENT";
+  targetId: number;
+  targetExternalId: string | null;
+  targetStatus: ContentStatus | null;
+  targetExcerpt: string | null;
+  targetAuthor: string | null;
+  reporterId: number;
+  reason: ReportReason;
+  detail: string | null;
+  status: ReportStatus;
+  createdAt: number;
+}
+
 export interface Notice {
   id: string;
   title: string;

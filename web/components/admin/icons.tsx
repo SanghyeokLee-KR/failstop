@@ -14,6 +14,7 @@ export type AdminIconName =
   | "config"
   | "transfers"
   | "support"
+  | "community"
   | "operators"
   | "audit";
 
@@ -64,6 +65,14 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   ),
   // 양방향 이동: 들어오는 화살표와 나가는 화살표. 입출금은 방향이 둘이라 한쪽만 그리면
   // 절반만 뜻하게 된다. 같은 제도 어휘(직선 + 45도 촉)로 맞춘다
+  // 말풍선 + 신고 표식. 게시판 운영은 대화면 위의 판정이다
+  community: (
+    <>
+      <path d="M2.25 4.25 A1.5 1.5 0 0 1 3.75 2.75 H12.25 A1.5 1.5 0 0 1 13.75 4.25 V9.75 A1.5 1.5 0 0 1 12.25 11.25 H6.5 L3.75 13.5 V11.25 A1.5 1.5 0 0 1 2.25 9.75 Z" />
+      <path d="M8 5 V7.5" />
+      <path d="M8 9.1 V9.2" />
+    </>
+  ),
   transfers: (
     <>
       <path d="M3.25 5.25 H11.5" />

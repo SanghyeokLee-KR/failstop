@@ -57,6 +57,12 @@ import type {
   TradeFlash,
   AdminInquiry,
   AdminTransfer,
+  CommunityReport,
+  ContentStatus,
+  ModerationAction,
+  ReportReason,
+  ReportResolution,
+  ReportStatus,
   AdminTransferStatus,
 } from "./types";
 
@@ -173,6 +179,50 @@ const NOTICE_SEVS: NoticeSeverity[] = ["info", "warning", "critical"];
 function normSeverity(v: unknown): NoticeSeverity {
   const s = String(v ?? "").toLowerCase() as NoticeSeverity;
   return NOTICE_SEVS.includes(s) ? s : "info";
+}
+
+/** GET /admin/v1/community/reports data 원소. 대상 요약은 조인 실패 시 null이다 */
+interface WireReport {
+  report_id?: number | string;
+  target_type?: string;
+  target_id?: number | string;
+  target_external_id?: string | null;
+  target_status?: string | null;
+  target_excerpt?: string | null;
+  target_author?: string | null;
+  reporter_id?: number | string;
+  reason?: string;
+  detail?: string | null;
+  status?: string;
+  created_at?: string;
+}
+
+const REPORT_STATUSES: ReportStatus[] = ["PENDING", "REVIEWED", "ACTIONED", "DISMISSED"];
+const REPORT_REASONS: ReportReason[] = ["SPAM", "ABUSE", "ILLEGAL", "ETC"];
+const CONTENT_STATUSES: ContentStatus[] = ["VISIBLE", "HIDDEN", "DELETED"];
+
+/** 미지 어휘는 정본 CHECK 밖이라 좁히지 않고 마지막 값으로 떨어뜨린다(ETC·DISMISSED) */
+function toCommunityReport(w: WireReport): CommunityReport {
+  const status = REPORT_STATUSES.includes(w.status as ReportStatus)
+    ? (w.status as ReportStatus) : "PENDING";
+  const reason = REPORT_REASONS.includes(w.reason as ReportReason)
+    ? (w.reason as ReportReason) : "ETC";
+  const targetStatus = CONTENT_STATUSES.includes(w.target_status as ContentStatus)
+    ? (w.target_status as ContentStatus) : null;
+  return {
+    reportId: num(w.report_id),
+    targetType: w.target_type === "COMMENT" ? "COMMENT" : "POST",
+    targetId: num(w.target_id),
+    targetExternalId: w.target_external_id ?? null,
+    targetStatus,
+    targetExcerpt: w.target_excerpt ?? null,
+    targetAuthor: w.target_author ?? null,
+    reporterId: num(w.reporter_id),
+    reason,
+    detail: w.detail ?? null,
+    status,
+    createdAt: Date.parse(w.created_at ?? "") || 0,
+  };
 }
 
 interface ErrorEnvelope {
@@ -1095,6 +1145,33 @@ export class HttpAdminApi implements AdminApi {
       { method: "POST", body: JSON.stringify({ answer }) },
     );
     return toAdminInquiry(res);
+  }
+
+  /* ===== 커뮤니티 운영 큐 (§6-D) ===== */
+
+  async getCommunityReports(status: ReportStatus = "PENDING",
+                            opts: PageOpts = {}): Promise<AdminPage<CommunityReport>> {
+    const res = await this.http<PagedEnvelope<WireReport>>(
+      `/admin/v1/community/reports${pageQuery(opts, { status })}`,
+    );
+    return toPage((res.data ?? []).map(toCommunityReport), res);
+  }
+
+  async resolveCommunityReport(reportId: number, resolution: ReportResolution,
+                               note?: string): Promise<void> {
+    await this.http<unknown>(
+      `/admin/v1/community/reports/${encodeURIComponent(String(reportId))}/resolve`,
+      { method: "POST", body: JSON.stringify({ resolution, note: note ?? null }) },
+    );
+  }
+
+  async moderateCommunityTarget(targetType: "POST" | "COMMENT", externalId: string,
+                                action: ModerationAction, note?: string): Promise<void> {
+    const seg = targetType === "POST" ? "posts" : "comments";
+    await this.http<unknown>(
+      `/admin/v1/community/${seg}/${encodeURIComponent(externalId)}/moderate`,
+      { method: "POST", body: JSON.stringify({ action, note: note ?? null }) },
+    );
   }
 
   /* ===== 출금 승인 큐 (§4-E) ===== */

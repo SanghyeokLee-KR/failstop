@@ -41,6 +41,10 @@ import type {
   TradeFlash,
   AdminInquiry,
   AdminTransfer,
+  CommunityReport,
+  ModerationAction,
+  ReportResolution,
+  ReportStatus,
   AdminTransferStatus,
 } from "./types";
 
@@ -147,6 +151,22 @@ export interface AdminApi {
   /** 문의 큐 한 쪽. ANSWERED는 답변 뒤에도 남는다 */
   getInquiries(status?: "OPEN" | "ANSWERED", opts?: PageOpts): Promise<AdminPage<AdminInquiry>>;
   answerInquiry(externalId: string, answer: string): Promise<AdminInquiry>;
+
+  /* 커뮤니티 운영 큐(§6-D). 목록·처리 전부 MEMBER_MOD */
+  /** 신고 큐 한 쪽. 기본 PENDING. 처리 뒤에도 종결 상태로 남아 누적된다 */
+  getCommunityReports(status?: ReportStatus, opts?: PageOpts): Promise<AdminPage<CommunityReport>>;
+  /** 신고 종결. PENDING에서만 전이하고 대상 자체는 건드리지 않는다 */
+  resolveCommunityReport(reportId: number, resolution: ReportResolution, note?: string): Promise<void>;
+  /**
+   * 게시글·댓글 상태 전이. externalId를 받는다(내부 id 비공개 규약).
+   * DELETE는 종료 상태라 UNHIDE로 되돌아오지 않는다.
+   */
+  moderateCommunityTarget(
+    targetType: "POST" | "COMMENT",
+    externalId: string,
+    action: ModerationAction,
+    note?: string,
+  ): Promise<void>;
 
   getOperators(): Promise<AdminOperator[]>;
   /** 감사 로그 한 쪽. append-only라 영구 누적이다 */

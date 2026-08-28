@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.31, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.32, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -985,13 +985,17 @@ POST /api/v1/orders
 
 **에러 코드**(§2-3 재사용 + 게시판 추가): `400 invalid_parameter`(길이·sort·커서), `401 jwt_verification`(미인증·비회원 토큰 쓰기), `403 out_of_scope`(작성자 불일치), `404 not_found`(board/post/comment 미존재), `409 duplicate_report`(중복 신고), `429 too_many_requests`.
 
+**신고 큐 행 계약(v2.32)**: `reports` 행만으로는 운영자가 아무것도 못 한다. 처리 액션이 대상의 `external_id`를 받는데 `reports.target_id`는 내부 BIGINT이고, 게시판_설계 §5가 "프론트는 내부 수치 id를 알지 못한다"를 규정하기 때문이다. 그래서 목록 행에 대상 요약 4개를 additive로 더한다. `target_external_id`(처리 액션 인자), `target_status`(VISIBLE·HIDDEN·DELETED), `target_excerpt`(게시글은 제목, 댓글은 본문 앞 120자), `target_author`. 대상 조인이 실패하면 넷 다 null이고 화면은 종결만 허용한다. 신고 사유만 보여주고 원문을 감추면 운영자가 눈 감고 처리하게 된다.
+
+**처리 단위 주의**: 대상 상태 전이(`/posts|comments/{external_id}/moderate`)와 신고 종결(`/reports/{id}/resolve`)은 별개 호출이고 원자적이지 않다. 콘솔은 둘을 한 판단으로 묶어 부르되 앞이 되고 뒤가 실패한 경우를 구분해 알린다. `HIDE`는 같은 상태로 다시 써도 안전해 재시도가 가능하고, `DELETE`는 종료 상태라 재시도 시 400이다.
+
 **운영(모더레이션, 관리 평면 MEMBER_MOD, `/admin/v1/community`)**: 숨김·복구·삭제·신고 처리는 배포 단위 C(exchange-admin)가 받아 커뮤니티 서비스에 위임한다. 관리자 조작은 게시판 도메인(posts·comments·reports) 밖(원장·저널)에 닿지 않고 admin_audit_log에 적재된다.
 
 | 기능 | 메서드·경로 | 역할 |
 |---|---|---|
 | 글 모더레이션 | `POST /admin/v1/community/posts/{externalId}/moderate` | MEMBER_MOD, `{action(HIDE\|UNHIDE\|DELETE), note?}` |
 | 댓글 모더레이션 | `POST /admin/v1/community/comments/{externalId}/moderate` | MEMBER_MOD |
-| 신고 목록 | `GET /admin/v1/community/reports?status=` | MEMBER_MOD |
+| 신고 목록 | `GET /admin/v1/community/reports?status=&cursor=&limit=` | MEMBER_MOD. 기본 `PENDING`, 오래된 신고부터. 행에 대상 요약을 함께 싣는다(v2.32) |
 | 신고 처리 | `POST /admin/v1/community/reports/{reportId}/resolve` | MEMBER_MOD, `{resolution(REVIEWED\|ACTIONED\|DISMISSED), note?}` |
 
 ---

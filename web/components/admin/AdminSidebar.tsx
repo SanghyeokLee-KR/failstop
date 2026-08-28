@@ -40,6 +40,7 @@ const NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/config", label: "마켓·공지", icon: "config" },
       { href: "/admin/transfers", label: "출금 승인", icon: "transfers" },
       { href: "/admin/support", label: "문의 답변", icon: "support" },
+      { href: "/admin/community", label: "커뮤니티 신고", icon: "community" },
     ],
   },
   {

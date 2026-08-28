@@ -28,6 +28,8 @@ public class CommunityService {
     private static final int TITLE_MAX = 120;
     private static final int BODY_MAX = 4000;
     private static final int COMMENT_MAX = 1000;
+    /** 신고 큐 한 줄 폭 예산. 제목 최대치(120)와 같게 둬 게시글은 잘리지 않는다 */
+    private static final int EXCERPT_MAX = 120;
     private static final int DEFAULT_COUNT = 20;
     private static final int MAX_COUNT = 50;
     private static final int IDEMPOTENCY_CACHE_MAX = 4096;
@@ -529,10 +531,20 @@ public class CommunityService {
     public List<CursorPages.Row<Map<String, Object>>> listReports(String status,
                                                                   Cursors.Cursor cursor, int limit) {
         String filter = status == null ? "PENDING" : status.toUpperCase();
+        // 대상 요약을 함께 싣는다. 신고 사유만으로는 무엇을 숨길지 판단할 수 없고, 처리 액션이
+        // external_id를 받는데 reports.target_id는 내부 BIGINT라 운영자가 그 값으로는 아무것도
+        // 못 부른다(게시판_설계 §5 "프론트는 내부 수치 id를 알지 못한다").
         StringBuilder sql = new StringBuilder("""
-                SELECT id, target_type, target_id, reporter_id, reason, detail, status,
-                       created_at
-                FROM reports WHERE status = ?
+                SELECT r.id, r.target_type, r.target_id, r.reporter_id, r.reason, r.detail,
+                       r.status, r.created_at,
+                       COALESCE(p.external_id::text, c.external_id::text) AS target_external_id,
+                       COALESCE(p.status, c.status)                       AS target_status,
+                       COALESCE(p.title, c.body)                          AS target_excerpt,
+                       COALESCE(p.author_handle, c.author_handle)         AS target_author
+                FROM reports r
+                LEFT JOIN posts    p ON r.target_type = 'POST'    AND p.id = r.target_id
+                LEFT JOIN comments c ON r.target_type = 'COMMENT' AND c.id = r.target_id
+                WHERE r.status = ?
                 """);
         List<Object> params = new ArrayList<>(List.of(filter));
         if (cursor != null) {
@@ -543,11 +555,11 @@ public class CommunityService {
                     .optional()
                     .orElseThrow(() -> new ApiException(400, "invalid_parameter", "커서 형식 오류"));
             // 큐는 오름차순이라 경계 비교도 반대 방향이다
-            sql.append(" AND (created_at, id) > (?, ?)");
+            sql.append(" AND (r.created_at, r.id) > (?, ?)");
             params.add(anchorAt);
             params.add(anchorId);
         }
-        sql.append(" ORDER BY created_at ASC, id ASC LIMIT ?");
+        sql.append(" ORDER BY r.created_at ASC, r.id ASC LIMIT ?");
         params.add(limit);
         return jdbc.sql(sql.toString())
                 .params(params)
@@ -560,12 +572,26 @@ public class CommunityService {
                     row.put("reason", rs.getString("reason"));
                     row.put("detail", TextGuard.escape(rs.getString("detail")));
                     row.put("status", rs.getString("status"));
+                    // 대상이 하드 삭제되는 경로는 없으나 조인 실패를 null로 정직하게 흘린다
+                    row.put("target_external_id", rs.getString("target_external_id"));
+                    row.put("target_status", rs.getString("target_status"));
+                    row.put("target_excerpt", excerpt(rs.getString("target_excerpt")));
+                    row.put("target_author", rs.getString("target_author"));
                     row.put("created_at", ApiFormats.time(rs.getObject("created_at", OffsetDateTime.class)));
                     return new CursorPages.Row<>(row,
                             rs.getObject("created_at", OffsetDateTime.class),
                             String.valueOf(rs.getLong("id")));
                 })
                 .list();
+    }
+
+    /** 신고 큐 한 줄에 들어갈 길이로 자른다. 본문 전체는 운영 판단에 필요 없고 행만 밀어낸다 */
+    private static String excerpt(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String flat = TextGuard.escape(raw).replaceAll("\\s+", " ").trim();
+        return flat.length() <= EXCERPT_MAX ? flat : flat.substring(0, EXCERPT_MAX) + "...";
     }
 
     public void resolveReport(String operatorId, long reportId, String resolution, String note) {

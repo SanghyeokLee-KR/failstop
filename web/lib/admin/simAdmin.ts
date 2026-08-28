@@ -49,6 +49,11 @@ import type {
   AdminInquiry,
   AdminTransfer,
   AdminTransferStatus,
+  CommunityReport,
+  ContentStatus,
+  ModerationAction,
+  ReportResolution,
+  ReportStatus,
   ScenarioName,
   ScenarioResult,
   ScenarioMarketResult,
@@ -1065,6 +1070,97 @@ export class SimAdminApi implements AdminApi {
     row.answeredAt = Date.now();
     this.log(s, "support.answer", externalId, null, "OK");
     return Promise.resolve({ ...row });
+  }
+
+  /* ===== 커뮤니티 운영 큐 (§6-D) =====
+   * 게시판 도메인은 회원 어댑터 소관이라 관리 어댑터가 실제 글을 들고 있지 않다. 신고 큐의
+   * 화면·권한·상태 전이를 확인할 수 있도록 씨앗 행과 대상 상태만 따로 둔다. */
+  private reports: CommunityReport[] = [
+    {
+      reportId: 41,
+      targetType: "POST",
+      targetId: 1207,
+      targetExternalId: "sim-post-1207",
+      targetStatus: "VISIBLE",
+      targetExcerpt: "이 코인 지금 안 사면 평생 후회합니다. 링크 타고 오시면 수익 인증",
+      targetAuthor: "코인왕",
+      reporterId: 88,
+      reason: "SPAM",
+      detail: "외부 링크 유도 반복 게시",
+      status: "PENDING",
+      createdAt: Date.now() - 1000 * 60 * 12,
+    },
+    {
+      reportId: 42,
+      targetType: "COMMENT",
+      targetId: 3391,
+      targetExternalId: "sim-comment-3391",
+      // 임계 초과 자동 숨김을 이미 받은 대상. 운영자는 확정만 하면 된다
+      targetStatus: "HIDDEN",
+      targetExcerpt: "작성자 신상 털어서 올린다",
+      targetAuthor: "익명이용자",
+      reporterId: 91,
+      reason: "ABUSE",
+      detail: null,
+      status: "PENDING",
+      createdAt: Date.now() - 1000 * 60 * 40,
+    },
+    {
+      reportId: 39,
+      targetType: "POST",
+      targetId: 1180,
+      targetExternalId: "sim-post-1180",
+      targetStatus: "VISIBLE",
+      targetExcerpt: "오늘 장 정리해봤습니다. 각자 판단하시길",
+      targetAuthor: "차트분석가",
+      reporterId: 77,
+      reason: "ETC",
+      detail: "그냥 마음에 안 듦",
+      status: "DISMISSED",
+      createdAt: Date.now() - 1000 * 60 * 60 * 3,
+    },
+  ];
+
+  getCommunityReports(status: ReportStatus = "PENDING",
+                      opts: PageOpts = {}): Promise<AdminPage<CommunityReport>> {
+    this.auth("MEMBER_MOD");
+    // 큐는 오래된 것부터다. 처리 순서가 신고 순서여야 밀린 건이 뒤로 밀리지 않는다
+    const rows = this.reports
+      .filter((r) => r.status === status)
+      .sort((a, b) => a.createdAt - b.createdAt);
+    return Promise.resolve(simPage(rows, opts, (r) => String(r.reportId), (r) => ({ ...r })));
+  }
+
+  resolveCommunityReport(reportId: number, resolution: ReportResolution,
+                         note?: string): Promise<void> {
+    const s = this.auth("MEMBER_MOD");
+    const row = this.reports.find((r) => r.reportId === reportId);
+    if (!row) return Promise.reject(new AdminError("not_found", "신고 없음"));
+    if (row.status !== "PENDING") {
+      return Promise.reject(new AdminError("invalid_parameter", "처리 대기 중인 신고가 아닙니다."));
+    }
+    row.status = resolution;
+    this.log(s, "community.report.resolve", String(reportId), null, "OK");
+    void note;
+    return Promise.resolve();
+  }
+
+  moderateCommunityTarget(targetType: "POST" | "COMMENT", externalId: string,
+                          action: ModerationAction, note?: string): Promise<void> {
+    const s = this.auth("MEMBER_MOD");
+    const rows = this.reports.filter((r) => r.targetExternalId === externalId);
+    if (rows.length === 0) return Promise.reject(new AdminError("not_found", "대상 없음"));
+    // DELETED는 종료 상태다. 서버 applyModeration과 같은 규율로 되살아나는 경로를 막는다
+    if (rows.some((r) => r.targetStatus === "DELETED")) {
+      return Promise.reject(new AdminError("invalid_parameter", "이미 삭제된 대상입니다."));
+    }
+    const next: ContentStatus =
+      action === "HIDE" ? "HIDDEN" : action === "UNHIDE" ? "VISIBLE" : "DELETED";
+    for (const r of rows) r.targetStatus = next;
+    const ns = targetType === "POST" ? "community.post.moderate" : "community.comment.moderate";
+    this.log(s, ns, externalId, null, "OK");
+    void note;
+    return Promise.resolve();
   }
 
   /* ===== 출금 승인 큐 (§4-E) =====
