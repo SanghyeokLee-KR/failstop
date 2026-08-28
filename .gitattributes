@@ -1,0 +1,28 @@
+* text=auto eol=lf
+
+# Windows 전용 실행 경로. 체크아웃 시 CRLF로 복원한다.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 인증서·키는 바이트를 보존한다. mTLS 테스트와 데모가 이 파일을 그대로 읽는다.
+*.crt -text
+*.pem -text
+*.key -text
+
+# 제출 도면은 바이트 고정. PNG 재생성 경로가 따로 있어 SVG를 임의로 건드리지 않는다.
+제출_20260901/diagram/** -text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.pptx binary
+*.xlsx binary
+*.docx binary
+*.zip binary
+*.jar binary
+*.p12 binary
+*.woff binary
+*.woff2 binary
