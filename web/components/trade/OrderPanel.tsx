@@ -652,80 +652,85 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
             </div>
           </div>
         )}
-        <div className={styles.sumRow}>
-          {/* 수수료 자산은 수취 자산이다. 매수는 받는 코인에서, 매도는 받는 원화에서 빠진다.
-              단위를 병기하지 않으면 매수 수수료를 원 금액으로 읽는다 */}
-          <span>예상 수수료 ({feePctStr}%)</span>
-          <b className="num">
-            {side === "bid" ? formatQty(feeStr, qtyScale) : formatKRW(feeStr)}{" "}
-            <span className="unit-suffix">{feeUnit}</span>
-          </b>
-        </div>
-        <div className={styles.sumRow}>
-          <span className={styles.availLabel}>
-            주문가능
-            {/* 게스트 데모 잔고 표식. 숫자가 실자산으로 읽히지 않게 한다. 화면당 1곳 */}
-            {isGuest && <span className={`status-pill ${styles.demoBadge}`}>데모 자산</span>}
-          </span>
-          {loadingBalance ? (
-            <Skeleton variant="text" width={110} height={16} />
-          ) : accountsFailed ? (
-            // 버튼은 행동만 맡는다. 실패 사실과 결과는 바로 아래 경고문이 이미 말하므로
-            // 여기서 되풀이하면 한 화면에서 같은 사건을 두 번 듣는다
-            <button type="button" className={styles.retry} onClick={() => onRetryAccounts?.()}>
-              다시 시도
-            </button>
-          ) : (
-            <span className="num">
-              {/* 표시도 원본 문자열로 넘긴다. number 왕복은 2^53 초과 잔고 표기를 뭉갠다 */}
-              {side === "bid" ? formatKRW(availKRWStr) : formatQty(availCoinStr, qtyScale)}{" "}
-              <span className="unit-suffix">{side === "bid" ? "원" : base}</span>
+        {/* 행동과 그 근거를 한 덩어리로 묶는다. 폼이 안에서 접힐 때 수수료와 주문가능이
+            먼저 밀려나면 얼마까지 살 수 있는지 모르는 채 수량을 넣고 버튼만 누르게 된다.
+            결정에 쓰는 값은 결정 지점 옆에 있어야 한다 */}
+        <div className={styles.foot}>
+          <div className={styles.sumRow}>
+            {/* 수수료 자산은 수취 자산이다. 매수는 받는 코인에서, 매도는 받는 원화에서 빠진다.
+                단위를 병기하지 않으면 매수 수수료를 원 금액으로 읽는다 */}
+            <span>예상 수수료 ({feePctStr}%)</span>
+            <b className="num">
+              {side === "bid" ? formatQty(feeStr, qtyScale) : formatKRW(feeStr)}{" "}
+              <span className="unit-suffix">{feeUnit}</span>
+            </b>
+          </div>
+          <div className={styles.sumRow}>
+            <span className={styles.availLabel}>
+              주문가능
+              {/* 게스트 데모 잔고 표식. 숫자가 실자산으로 읽히지 않게 한다. 화면당 1곳 */}
+              {isGuest && <span className={`status-pill ${styles.demoBadge}`}>데모 자산</span>}
             </span>
+            {loadingBalance ? (
+              <Skeleton variant="text" width={110} height={16} />
+            ) : accountsFailed ? (
+              // 버튼은 행동만 맡는다. 실패 사실과 결과는 바로 아래 경고문이 이미 말하므로
+              // 여기서 되풀이하면 한 화면에서 같은 사건을 두 번 듣는다
+              <button type="button" className={styles.retry} onClick={() => onRetryAccounts?.()}>
+                다시 시도
+              </button>
+            ) : (
+              <span className="num">
+                {/* 표시도 원본 문자열로 넘긴다. number 왕복은 2^53 초과 잔고 표기를 뭉갠다 */}
+                {side === "bid" ? formatKRW(availKRWStr) : formatQty(availCoinStr, qtyScale)}{" "}
+                <span className="unit-suffix">{side === "bid" ? "원" : base}</span>
+              </span>
+            )}
+          </div>
+
+          {accountsFailed && (
+            <p className={styles.error} role="alert">
+              잔고 조회 실패로 주문 불가. 다시 시도 필요
+            </p>
+          )}
+
+          {error && (
+            <p className={styles.error} role="alert">
+              {error}
+            </p>
+          )}
+
+          {/* 둘러보기 중에는 주문 자리가 로그인 자리다(회원_설계 §0 읽기 전용 계약).
+              비활성 버튼으로 두면 "왜 안 눌리는지"만 남고 다음 행동이 없다. 입력은 그대로 두어
+              값을 채워본 뒤 로그인할 수 있게 하고, 복귀 경로에 현재 쿼리까지 실어 자리를 지킨다 */}
+          {isGuest ? (
+            <Link
+              href={loginHref(guestReturnPath)}
+              className={`btn ${btnClass} btn--full ${styles.cta}`}
+            >
+              로그인하고 {sideLabel}
+            </Link>
+          ) : (
+            /* 인라인 2단계 확인 CTA. armed 시 확인 라벨, 재클릭 확정 (§2.5) */
+            <button
+              ref={ctaRef}
+              type="button"
+              className={`btn ${btnClass} btn--full ${styles.cta}`}
+              disabled={!ready || submitting}
+              aria-busy={submitting}
+              aria-live="polite"
+              onClick={onCta}
+            >
+              {submitting
+                ? "접수 중…"
+                : armed
+                  ? `${formatKRW(armedTotal ?? totalStr)} KRW ${sideLabel} 확정`
+                  : totalPositive
+                    ? `${sideLabel}하기`
+                    : needLabel}
+            </button>
           )}
         </div>
-
-        {accountsFailed && (
-          <p className={styles.error} role="alert">
-            잔고 조회 실패로 주문 불가. 다시 시도 필요
-          </p>
-        )}
-
-        {error && (
-          <p className={styles.error} role="alert">
-            {error}
-          </p>
-        )}
-
-        {/* 둘러보기 중에는 주문 자리가 로그인 자리다(회원_설계 §0 읽기 전용 계약).
-            비활성 버튼으로 두면 "왜 안 눌리는지"만 남고 다음 행동이 없다. 입력은 그대로 두어
-            값을 채워본 뒤 로그인할 수 있게 하고, 복귀 경로에 현재 쿼리까지 실어 자리를 지킨다 */}
-        {isGuest ? (
-          <Link
-            href={loginHref(guestReturnPath)}
-            className={`btn ${btnClass} btn--full ${styles.cta}`}
-          >
-            로그인하고 {sideLabel}
-          </Link>
-        ) : (
-          /* 인라인 2단계 확인 CTA. armed 시 확인 라벨, 재클릭 확정 (§2.5) */
-          <button
-            ref={ctaRef}
-            type="button"
-            className={`btn ${btnClass} btn--full ${styles.cta}`}
-            disabled={!ready || submitting}
-            aria-busy={submitting}
-            aria-live="polite"
-            onClick={onCta}
-          >
-            {submitting
-              ? "접수 중…"
-              : armed
-                ? `${formatKRW(armedTotal ?? totalStr)} KRW ${sideLabel} 확정`
-                : totalPositive
-                  ? `${sideLabel}하기`
-                  : needLabel}
-          </button>
-        )}
       </div>
 
       {confirmOpen && (

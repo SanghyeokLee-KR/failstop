@@ -189,10 +189,14 @@ export default function MarketListPanel({ market }: { market: string }) {
           ? "보유 코인 없음"
           : "마켓 정보 없음";
 
+  // 가시 헤더를 srTitle로 내린다. PanelCard 주석이 이미 적어둔 선택이다. 헤더 53px가 그대로
+  // 목록 행에서 빠지는데, "마켓"이라는 한 단어는 검색 placeholder와 필터 탭, 정렬 머리글이
+  // 이미 말한다. 지연 배지는 actions로 남아 끊겼을 때는 헤더가 다시 선다. 그 상황에서는
+  // 한 행보다 지연 사실이 먼저다
   return (
     <PanelCard
       dense
-      title="마켓"
+      srTitle="마켓"
       stale={!connected}
       actions={!connected ? <StaleBadge label="지연" announce={false} /> : undefined}
     >

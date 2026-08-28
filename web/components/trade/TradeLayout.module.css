@@ -42,7 +42,7 @@
 
 /* side 내부 세로 2분할. OrderPanel auto(내용 기준) + MarketListPanel minmax (§2.2)
 
-   최소값을 160px에서 320px로 올린다. 160px은 마켓 패널의 자체 크롬(카드 머리 53 + 검색 32
+   최소값을 160px에서 272px로 올린다. 160px은 마켓 패널의 자체 크롬(카드 머리 53 + 검색 32
    + 필터 탭 44 + 정렬 헤더 32 + gap 24 = 185px)보다 작아서, 주문 패널이 auto로 남은 높이를
    전부 가져가면 목록에 0px가 남았다. 실측 결과 세 뷰포트 전부 목록 높이 0, 보이는 행 0이었다.
    문서 높이는 뷰포트와 같아 무스크롤 게이트도 통과했다. 320px면 크롬 위에 40px 행 3개가 선다.
@@ -51,7 +51,7 @@
 .side {
   grid-area: side;
   display: grid;
-  grid-template-rows: auto minmax(320px, 1fr);
+  grid-template-rows: auto minmax(272px, 1fr);
   gap: var(--seam-width);
   min-width: 0;
   min-height: 0;

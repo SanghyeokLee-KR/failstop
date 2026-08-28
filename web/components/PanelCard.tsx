@@ -39,8 +39,11 @@ export default function PanelCard({ title, srTitle, actions, dense, scroll, stal
           {actions != null && <div className={styles.actions}>{actions}</div>}
         </header>
       )}
+      {/* panel-body는 소비처가 본문 슬롯만 지목할 수 있게 두는 전역 훅이다. 모듈 클래스는
+          해시가 붙어 밖에서 가리킬 수 없고, .card > *로 잡으면 sr-only h2와 header까지
+          걸려 나중에 title을 넘기는 순간 헤더 배치가 바뀐다 */}
       <div
-        className={`${styles.body} ${scroll ? styles.scroll : ""}`}
+        className={`panel-body ${styles.body} ${scroll ? styles.scroll : ""}`}
         data-stale={stale ? "" : undefined}
       >
         {children}

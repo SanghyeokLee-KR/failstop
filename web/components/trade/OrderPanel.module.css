@@ -6,17 +6,19 @@
   padding: var(--space-5);
 }
 
-/* 세로가 모자라면 폼이 안에서 스크롤한다. side 열은 768px인데 주문 카드가 자연 높이
-   520px, 미체결 71px, 마켓 목록 최소 320px를 요구해 합이 열보다 크다. 어느 하나를 0으로
-   만들 수 없으므로 가장 긴 것이 안에서 접힌다 */
 /* PanelCard의 body 래퍼는 block이라 안쪽 폼이 높이 제약을 못 받는다. 주문 카드에서만
-   세로 흐름으로 바꿔 폼이 남는 높이를 갖게 한다. 공용 PanelCard는 건드리지 않는다 */
-.card > * {
+   세로 흐름으로 바꿔 폼이 남는 높이를 갖게 한다.
+   자식 전체(.card > *)를 잡지 않는다. PanelCard는 srTitle이 있으면 sr-only h2를, title이
+   있으면 header를 같은 자리에 낸다. 그것들까지 세로 flex가 되면 나중에 title을 넘기는 순간
+   헤더 배치가 조용히 바뀐다. 본문 슬롯만 지목한다 */
+.card > :global(.panel-body) {
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
+/* 세로가 모자라면 폼이 안에서 접힌다. side 열은 768px인데 주문 카드 자연 높이만 520px이고
+   여기에 미체결 미니와 마켓 목록이 같은 열을 쓴다. 셋 다 자연 높이로는 열에 안 들어간다 */
 .form {
   display: flex;
   flex-direction: column;
@@ -26,6 +28,21 @@
   overflow-y: auto;
 }
 
+/* 요약 두 줄과 CTA를 폼 바닥에 고정한다. 접히는 것은 위쪽 입력부고 이 덩어리는 남는다.
+   수수료와 주문가능은 "얼마를 쓸 수 있나"를 말하는 값이라 버튼과 떨어지면 안 된다.
+   면을 깔지 않으면 스크롤되는 입력이 이 아래로 비쳐 지나간다 */
+.foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  margin-top: auto;
+  background: var(--surface-default);
+  box-shadow: 0 -1px 0 var(--border-subtle);
+}
 
 /* 지정가/시장가 소형 토글 */
 .typRow {
@@ -199,16 +216,7 @@
 }
 
 /* CTA 인라인 2단계 확인: armed 시 라벨 전환 (§2.5) */
-/* 주 조작을 패널 바닥에 붙인다.
-   side 열은 768px인데 주문 영역이 자연 높이 596px, 마켓 목록이 최소 320px를 요구해 합이
-   열보다 크다. 어느 쪽도 0으로 만들 수 없어 주문 영역이 안에서 스크롤한다. 그때 CTA가
-   접히면 주문 자체가 막히므로 바닥에 고정해 스크롤 위치와 무관하게 손에 닿게 한다 */
 .cta {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
-  /* 스크롤되는 입력이 버튼 좌우 여백으로 비친다. 카드 면을 버튼 뒤에 깔아 가린다 */
-  box-shadow: 0 0 0 var(--space-3) var(--surface-default);
   min-height: 44px;
   font-size: var(--font-body-sm-size);
 }
