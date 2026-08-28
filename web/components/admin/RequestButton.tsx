@@ -33,9 +33,15 @@ interface Props {
   label: string;
   onRequested?: () => void;
   confirm?: RequestConfirm;
+  /**
+   * 파괴 강도. 같은 "요청" 버튼이라도 멈추는 범위가 다르면 형태가 달라야 한다.
+   * 봇 플릿에서 정지만 테두리로 세운 것과 같은 규약이다. 색 단독이 아니라 옆 열의
+   * 등급 글자와 병기해서 쓴다.
+   */
+  tone?: "neutral" | "destructive";
 }
 
-export default function RequestButton({ action, payload, label, onRequested, confirm }: Props) {
+export default function RequestButton({ action, payload, label, onRequested, confirm, tone = "neutral" }: Props) {
   const allowed = useCan(ACTION_CAP[action]);
   const session = useAdminSession();
   const propose = useApprovalVault((s) => s.propose);
@@ -66,7 +72,7 @@ export default function RequestButton({ action, payload, label, onRequested, con
       <button
         type="button"
         // 반복 트리거는 무채(디자인_방향 §7.6). danger는 확정 지점 전용이고 파괴 의미는 동사 라벨이 전달한다
-        className={styles.neutralBtn}
+        className={tone === "destructive" ? styles.dangerBtn : styles.neutralBtn}
         onClick={() => (confirm ? setOpen(true) : request())}
         disabled={!allowed}
         title={allowed ? undefined : "권한 부족"}

@@ -63,6 +63,12 @@ export default function OpenOrdersMini({ market }: { market: string }) {
     }
   };
 
+  /* 볼 것이 없으면 자리를 차지하지 않는다. side 열은 주문 카드·미체결·마켓 목록이 768px을
+     나눠 쓰는데 셋의 자연 높이 합이 열보다 크다. 미체결 0건일 때 이 카드는 "미체결 없음"
+     한 줄을 위해 71px을 쓰고, 그만큼 주문 폼이 접히거나 마켓 행이 줄어든다.
+     주문이 생기면 그때 자리를 내주는 것이 맞다. 그 시점에는 그 정보가 실제로 필요하다 */
+  if (rows.length === 0) return null;
+
   return (
     <PanelCard
       dense
@@ -74,10 +80,7 @@ export default function OpenOrdersMini({ market }: { market: string }) {
         </>
       }
     >
-      {rows.length === 0 ? (
-        <p className={styles.empty}>미체결 없음</p>
-      ) : (
-        <ul className={styles.list}>
+      <ul className={styles.list}>
           {rows.map((o) => {
             const busy = canceling.has(o.id);
             const priceText = o.price ? `${formatPrice(o.price, spec?.tick_size)}원` : "시장가";
@@ -108,8 +111,7 @@ export default function OpenOrdersMini({ market }: { market: string }) {
               </li>
             );
           })}
-        </ul>
-      )}
+      </ul>
     </PanelCard>
   );
 }

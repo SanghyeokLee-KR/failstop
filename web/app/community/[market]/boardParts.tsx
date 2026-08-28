@@ -58,11 +58,14 @@ interface RailProps {
 export function PostRail({ market, meta, session, onWrite, onRequireLogin }: RailProps) {
   const ds = getCommunityDataSource();
   const [popular, setPopular] = useState<CommunityPost[]>([]);
+  /* 순위는 뽑을 것이 있을 때만 정보다. 글이 몇 개뿐이면 본문 목록에 그 전부가 이미 보이고,
+     레일은 같은 글을 순위만 바꿔 되풀이한다. 읽는 사람이 새로 아는 것이 없다 */
+  const POPULAR_MIN = 6;
 
   useEffect(() => {
     let alive = true;
     void ds
-      .listPosts(market, "popular", null, 5)
+      .listPosts(market, "popular", null, POPULAR_MIN)
       .then((page) => {
         if (alive) setPopular(page.items);
       })
@@ -108,7 +111,7 @@ export function PostRail({ market, meta, session, onWrite, onRequireLogin }: Rai
         )}
       </section>
 
-      {popular.length > 0 && (
+      {popular.length >= POPULAR_MIN && (
         <section className={`card ${styles.railCard}`}>
           <h2 className={styles.railTitle}>인기 글</h2>
           <ol className={styles.railList}>

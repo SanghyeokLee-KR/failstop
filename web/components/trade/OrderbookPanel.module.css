@@ -42,7 +42,6 @@
    색이 아니라 위치로 값을 더하므로 색 단독 표현과 무관하다. */
 .depth {
   position: absolute;
-  left: 2px;
   top: 4px;
   bottom: 4px;
   /* 폭은 잔량 비율(인라인 %)이고 기준은 행 패딩 박스다. 100% 행이 left 2px만큼 오른쪽으로 밀려
@@ -63,8 +62,20 @@
    면 대비 1.3~1.8:1까지밖에 못 올라가므로, 길이 판독은 방향색 1px 종단선이 담당한다.
    종단선은 면 위라 텍스트 제약을 안 받는다. 실측(면 대비): 라이트 red-500 4.0:1 / azure-500 4.2:1.
    box-sizing이 border-box라 폭 계산과 넘침에 영향이 없다 */
-.rowAsk .depth { background-color: var(--depth-down-bg); border-right: 1px solid var(--color-down); }
-.rowBid .depth { background-color: var(--depth-up-bg); border-right: 1px solid var(--color-up); }
+/* 채움 방향은 좌우 대칭이다(디자인시스템 §A-7 ask 좌 채움·bid 우 채움). 종전에는 둘 다
+   left 고정 + border-right라 매수·매도가 같은 방향으로 자랐고, 그러면 매수벽과 매도벽의
+   불균형이 형태로 드러나지 않는다. 호가창을 보는 이유의 절반이 그 비대칭이다.
+   종단선도 자라는 끝에 붙는다. 캘리퍼는 채움이 아니라 끝점으로 읽는다 */
+.rowAsk .depth {
+  left: 2px;
+  background-color: var(--depth-down-bg);
+  border-right: 1px solid var(--color-down);
+}
+.rowBid .depth {
+  right: 2px;
+  background-color: var(--depth-up-bg);
+  border-left: 1px solid var(--color-up);
+}
 
 .cell { position: relative; }
 /* 잔량 열은 방향 틴트(-bg) 막대 위에 놓인다. --text-secondary는 라이트 4.16~4.23:1로 미달이라

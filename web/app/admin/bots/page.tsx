@@ -100,10 +100,12 @@ export default function BotsPage() {
     }
   };
 
+  /* 시선이 시작하는 첫 열은 판단에 쓰는 값이어야 한다. 종전에는 bot-mtcuysng-8 같은
+     기계 식별자가 첫 열이라, 운영자가 "어느 마켓 무슨 봇인가"를 읽으려면 두 열을 건너뛰었다.
+     식별자는 개별 봇을 지목할 때만 필요하므로 뒤로 보낸다 */
   const botCols: DataColumn<Bot>[] = [
-    { key: "id", label: "봇 ID", width: "minmax(140px, 1.2fr)", render: (b) => b.id },
-    { key: "type", label: "유형", width: "110px", render: (b) => BOT_TYPE_LABEL[b.type] },
     { key: "market", label: "마켓", width: "110px", render: (b) => b.market },
+    { key: "type", label: "유형", width: "110px", render: (b) => BOT_TYPE_LABEL[b.type] },
     {
       key: "active",
       label: "상태",
@@ -111,6 +113,7 @@ export default function BotsPage() {
       // 정상(가동)은 잉크, 정지만 pill로 세운다
       render: (b) => (b.active ? <span className={styles.stateText}>가동</span> : <span className={styles.neutralPill}>정지</span>),
     },
+    { key: "id", label: "봇 ID", width: "minmax(140px, 1.2fr)", render: (b) => b.id },
     { key: "ops", label: "OPS", width: "80px", align: "right", render: (b) => b.ops },
     {
       key: "params",
@@ -158,7 +161,9 @@ export default function BotsPage() {
           <StatTile label="활성 봇" value={`${sim.activeBots} / ${sim.botCount}`} />
           <StatTile
             label="성공률"
-            value={(Number(sim.successRate) * 100).toFixed(2)}
+            /* 소수 둘째 자리는 운영 판단에 안 쓰인다. 자릿수가 많으면 변화를 못 읽는다.
+               임계 이탈은 아래 tone이 잡고, 정밀한 수치가 필요하면 감사·지표에서 본다 */
+            value={(Number(sim.successRate) * 100).toFixed(1)}
             unit="%"
             tone={successRateTone(Number(sim.successRate))}
           />
