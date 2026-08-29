@@ -113,16 +113,19 @@ class SimFleetIntegrationTest {
         // 상수·캐시로 퇴행하는 회귀를 조립된 경로에서 잡는다. 여기서 덮는 것은 같은 프로세스 내
         // 재기동까지다(옛 인메모리 카운터도 이 구간은 통과했다). JVM 경계 단조는 채번원의 성질이라
         // RunOrdinalSourceIntegrationTest가 맡는다.
-        long ordersBeforeRestart = count("SELECT count(*) FROM orders");
+        // 대기 조건이 목표와 같아야 한다. "주문이 하나라도 늘었나"로 기다리면 1차 실행에서
+        // in-flight이던 주문이 그 조건을 만족시켜, 2차 접두가 생기기 전에 정지할 수 있다.
+        // stop()이 발행 중 주문을 드레인하지 않으므로 실측으로 재현된다(3회 중 1회 실패).
+        String distinctPrefixes =
+                "SELECT count(DISTINCT split_part(client_order_id, '-', 1)) FROM orders";
         fleet.start();
         try {
             Awaitility.await().atMost(Duration.ofSeconds(40)).until(() ->
-                    count("SELECT count(*) FROM orders") > ordersBeforeRestart);
+                    count(distinctPrefixes) >= 2);
         } finally {
             fleet.stop();
         }
-        long noncePrefixes = count(
-                "SELECT count(DISTINCT split_part(client_order_id, '-', 1)) FROM orders");
+        long noncePrefixes = count(distinctPrefixes);
         assertTrue(noncePrefixes >= 2, "재기동마다 coid 접두가 갈린다: " + noncePrefixes);
 
         // 정지 정상성: 서버측 in-flight 처리 소진 후 저널 증가가 멈춘다(연속 2회 동수 관측).
