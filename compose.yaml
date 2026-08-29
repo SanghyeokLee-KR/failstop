@@ -99,7 +99,11 @@ services:
       K6_PROMETHEUS_RW_SERVER_URL: http://chaos-prometheus:9090/api/v1/write
       K6_WEB_DASHBOARD: "true"
       K6_WEB_DASHBOARD_EXPORT: /artifacts/demo-report.html
-      DEMO_API: http://chaos-lb:8080
+      # 스크립트가 읽는 이름은 BASE_URL이다(order_flow.js:20). DEMO_API는 대본 변수라
+      # 여기서 쓰면 조용히 기본값(localhost:58080)으로 떨어져 컨테이너에서 아무 데도 못 간다.
+      BASE_URL: http://chaos-lb:8080
+      # 서명 대상 Host 헤더. LB가 이 이름으로 라우팅한다(order_flow.js:22)
+      API_HOST: api.exchange.local
     volumes:
       - ./harness/load:/load:ro
       - ./harness/load/artifacts:/artifacts

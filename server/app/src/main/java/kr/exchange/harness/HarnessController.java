@@ -31,12 +31,14 @@ public class HarnessController {
     private final JdbcClient jdbc;
     private final InvariantVerifier verifier;
     private final FailoverRecorder failoverRecorder;
+    private final LoadKeySeeder loadKeys;
 
     public HarnessController(JdbcClient jdbc, InvariantVerifier verifier,
-                             FailoverRecorder failoverRecorder) {
+                             FailoverRecorder failoverRecorder, LoadKeySeeder loadKeys) {
         this.jdbc = jdbc;
         this.verifier = verifier;
         this.failoverRecorder = failoverRecorder;
+        this.loadKeys = loadKeys;
     }
 
     /** 리더십·워터마크·체결 관측(leader_lease DB 직조회가 권위, 노드 무관). */
@@ -78,6 +80,21 @@ public class HarnessController {
     public Map<String, Object> resetLoadtestAcks() {
         jdbc.sql("TRUNCATE harness.loadtest_acks").update();
         return Map.of("truncated", "harness.loadtest_acks");
+    }
+
+    /**
+     * k6 부하 계정 발급(§7-3 seed 잡). 응답을 그대로 load/secrets/k6_keys.json에 넣는다.
+     *
+     * 시크릿은 발급 시점에만 평문이라 이 응답이 유일한 통로다. DB의 enc_secret은 마스터
+     * 키로 암호화돼 있어 나중에 뒤져서 얻을 수 없다.
+     */
+    @PostMapping("/loadtest-keys")
+    public List<Map<String, String>> issueLoadKeys(
+            @RequestParam(defaultValue = "KRW-BTC") String market,
+            @RequestParam(defaultValue = "4") int count,
+            @RequestParam(defaultValue = "1000000000") String quote,
+            @RequestParam(defaultValue = "100") String base) {
+        return loadKeys.seed(market, count, new BigDecimal(quote), new BigDecimal(base));
     }
 
     /** 페일오버 측정 적재(오케스트레이터가 RTO/RPO/verdict 계산 후 호출). */

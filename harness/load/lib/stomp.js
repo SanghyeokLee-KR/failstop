@@ -1,10 +1,11 @@
 // STOMP 1.2 프레임을 k6 WebSocket 위에 순수 JS로 구현한다(확장 빌드 0, 검증설계 §6-1).
 // 필요한 프레임만: CONNECT / SUBSCRIBE / 수신 MESSAGE·CONNECTED 파싱 / 0x00 종단.
 //
-// 모듈 경로: 안정 k6/websockets를 쓴다. 부재 시(사전 게이트 실패) import를 아래
-// 'k6/experimental/websockets'로 교체한다(§0 폴백 규약). 두 모듈의 WebSocket API는
+// 모듈 경로: §0 폴백 적용 상태다. 핀 이미지(grafana/k6:1.4.0)에 안정 k6/websockets가 없고
+// 자동 확장 프로비저닝도 실패한다(실측: unknown dependency : k6/websockets).
+// experimental 경로는 같은 이미지에서 그대로 로드된다(실측 확인). 두 모듈의 WebSocket API는
 // 동일 형태라 이 파일 나머지는 무변경이다.
-import { WebSocket } from 'k6/websockets';
+import { WebSocket } from 'k6/experimental/websockets';
 
 // STOMP 프레임 종단은 널 옥텟(0x00)이다. 소스에 보이지 않는 제어문자를 박지 않으려고
 // 코드포인트로 생성한다.
