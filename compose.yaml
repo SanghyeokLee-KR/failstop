@@ -1,0 +1,110 @@
+name: exchange-chaos
+
+# 통합 데모 스택(하네스 CICD §1-2 demo-full, 15분 대본 0-3 진입 조건).
+#
+# 검증된 카오스 토폴로지를 그대로 들이고(include) 발표에 필요한 세 가지를 얹는다.
+# 웹·관리 평면·k6다. 종전에는 이 셋이 compose 밖에 있어 스택을 한 명령으로 못 세웠고,
+# 관리 API는 호스트 JVM으로 따로 띄워야 했다.
+#
+# name을 exchange-chaos로 맞춘 이유. 데모 대본과 하네스 스크립트가 chaos-pg·chaos-api-1
+# 같은 컨테이너명과 55432·58080 포트를 이미 권위로 쓴다. 프로젝트명을 바꾸면 네트워크·
+# 볼륨 이름이 갈려 e1~e9 실험이 통째로 다른 스택을 보게 된다. 실험 자산을 살리는 쪽을 택했다.
+#
+# 기동:
+#   docker compose --profile full up -d --wait     발표용 전체
+#   docker compose up -d --wait                    카오스 실험용 코어(종전과 동일)
+#   docker compose --profile load run --rm chaos-k6   부하 주입(별도 실행, 상시 기동 아님)
+#
+# 사전 조건은 harness/scripts/up.ps1이 하던 것과 같다. app.jar를 harness/에 복사하고
+# CHAOS_MASTER_KEY_BASE64를 채운다. 웹은 web/out(정적 export)이 있어야 한다.
+include:
+  - harness/docker-compose.chaos.yml
+
+services:
+  # 관측 스택을 full에도 편입한다. 종전에는 obs 전용이라 --profile full 한 번으로
+  # 대시보드가 뜨지 않았다. obs를 남겨 카오스 실험이 관측만 따로 켜는 경로를 보존한다.
+  chaos-prometheus:
+    profiles: [obs, full]
+
+  chaos-grafana:
+    profiles: [obs, full]
+
+  # 거래 웹. Next.js 정적 export라 런타임이 필요 없다. nginx가 out/을 그대로 서빙한다.
+  # 정적 파일이므로 API는 브라우저가 직접 부른다(NEXT_PUBLIC_API_BASE는 빌드 시점 값).
+  chaos-web:
+    image: nginx:1.29
+    container_name: chaos-web
+    volumes:
+      - ./web/out:/usr/share/nginx/html:ro
+      - ./harness/nginx/web.conf:/etc/nginx/conf.d/default.conf:ro
+    ports: ["53000:80"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    profiles: [full, web]
+    networks: [chaos-net]
+
+  # 관리 평면. 고객 평면과 물리 분리된 배포 단위라 별도 컨테이너다(관리자 설계 §0).
+  # 같은 앱 이미지에 admin 프로파일만 얹는다. 엔진을 끄는 이유는 봇 노드와 같다.
+  # 리더 경쟁에 끼면 관리 평면이 승격 주체가 되어 페일오버 관찰이 오염된다.
+  chaos-admin:
+    image: ${CHAOS_APP_IMAGE:-exchange-chaos-app:local}
+    container_name: chaos-admin
+    environment:
+      SPRING_PROFILES_ACTIVE: dev,admin
+      # 관리 평면은 토식을 지나지 않는다. 카오스 주입 중에도 승인·감사가 살아 있어야
+      # 실험을 통제할 수 있다. 주입 대상은 서빙 노드지 관리 평면이 아니다.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-pg:5432/exchange
+      SPRING_DATASOURCE_USERNAME: ${CHAOS_PG_USER:-exchange}
+      SPRING_DATASOURCE_PASSWORD: ${CHAOS_PG_PASSWORD:-exchange}
+      SPRING_FLYWAY_ENABLED: "false"     # 스키마는 api-1이 확정한다
+      EXCHANGE_ENGINE_ENABLED: "false"   # 리더 경쟁에서 빠진다
+      EXCHANGE_AUTH_MASTER_KEY_BASE64: ${CHAOS_MASTER_KEY_BASE64}
+      # 데모 mTLS 자산 경로. 이미지에 굽지 않고 마운트한다(운영 PKI 교체 지점을 남긴다).
+      SERVER_SSL_KEY_STORE: "file:/pki/admin-server.p12"
+      SERVER_SSL_TRUST_STORE: "file:/pki/truststore.p12"
+    volumes:
+      - ./server/config/admin-demo:/pki:ro
+    ports: ["8443:8443"]
+    depends_on:
+      chaos-api-1: { condition: service_healthy }
+    # liveness로 판정한다. 엔진을 끈 노드라 readiness가 설계상 REFUSING_TRAFFIC(503)이고,
+    # readiness로 보면 정상 관리 평면이 영구 unhealthy가 되어 up --wait가 실패한다(실측 확인:
+    # readiness=503, liveness=200). 컨테이너 기동 여부와 거래 트래픽 수용 여부는 다른 질문이다.
+    # chaos-api-2가 같은 이유로 같은 규약을 쓴다.
+    #
+    # mTLS라 curl이 클라이언트 인증서를 내야 한다. -k는 데모 자가서명 CA 때문이고
+    # 운영 PKI에서는 --cacert로 바꾼다.
+    healthcheck:
+      test: ["CMD-SHELL",
+             "curl -fsS -k --cert-type P12 --cert /pki/op-01.p12:changeit https://localhost:8443/actuator/health/liveness || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    restart: unless-stopped
+    deploy: { resources: { limits: { memory: 768m } } }
+    profiles: [full, admin]
+    networks: [chaos-net]
+
+  # k6 부하. 상시 기동이 아니라 run으로 한 번 돌리는 서비스다. up --wait가 기다리지
+  # 않도록 load 프로파일로 격리한다(full에 넣으면 콜드 스타트가 부하 종료를 기다린다).
+  chaos-k6:
+    image: grafana/k6:1.4.0
+    container_name: chaos-k6
+    environment:
+      K6_PROMETHEUS_RW_SERVER_URL: http://chaos-prometheus:9090/api/v1/write
+      K6_WEB_DASHBOARD: "true"
+      K6_WEB_DASHBOARD_EXPORT: /artifacts/demo-report.html
+      DEMO_API: http://chaos-lb:8080
+    volumes:
+      - ./harness/load:/load:ro
+      - ./harness/load/artifacts:/artifacts
+    working_dir: /load
+    entrypoint: ["k6"]
+    command: ["run", "-e", "PROFILE=demo", "order_flow.js"]
+    profiles: [load]
+    networks: [chaos-net]
