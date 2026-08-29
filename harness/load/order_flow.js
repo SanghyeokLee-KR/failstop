@@ -21,7 +21,36 @@ const BASE = __ENV.BASE_URL || 'http://localhost:58080';
 const WS_URL = __ENV.WS_URL || BASE.replace(/^http/, 'ws') + '/ws/v1';
 const HOST = __ENV.API_HOST || 'api.exchange.local';
 const MARKET = __ENV.MARKET || 'KRW-BTC';
-const SPIKE_RATE = parseInt(__ENV.SPIKE_RATE || '3000', 10);
+
+// 외부 주입 레이트(k6 축). 봇 거버너 축(EXCHANGE_SIM_TARGET_OPS, harness/config/*.env의
+// BASE_OPS·SPIKE_OPS)과 다른 축이다. 두 축을 같은 값으로 맞출 이유가 없고, 섞으면 이미
+// PASS한 카오스 실험의 전제가 바뀐다.
+// 기본값은 2026-08-29 캘리브레이션 확정치(harness.calibration_runs id=1).
+//   STEADY_RATE 10  확정 기저. 30분 확정 주행에서 주문 p95 29.1ms(목표 200ms), 429 0.
+//   READ_RATE   17  기저 x 1.667. 정본 주문:조회 = 300:500 비를 확정 기저로 옮긴 값.
+//   SPIKE_RATE  100 기저 x 10. 실측 확정(검증설계 §2-4, calibration_runs id=8).
+// 종전 명목치(steady 300, spike 3,000, read 500)는 근거 없는 목표치인 데다 하드코딩이라
+// 확정 기저로 주행할 수단 자체가 없었다.
+function positiveRate(name, raw, fallback) {
+  const v = parseInt(raw || fallback, 10);
+  // 0·음수·NaN은 k6가 뒤늦게 모호한 오류를 내거나 아무것도 발행하지 않는다. 발행량 0인
+  // 주행은 모든 임계를 표본 없이 통과하므로 설정 오류 단계에서 끊는다.
+  if (!Number.isInteger(v) || v <= 0) {
+    throw new Error(`${name}는 1 이상의 정수여야 한다(받은 값: ${String(raw)}).`);
+  }
+  return v;
+}
+const STEADY_RATE = positiveRate('STEADY_RATE', __ENV.STEADY_RATE, '10');
+const READ_RATE = positiveRate('READ_RATE', __ENV.READ_RATE, '17');
+const SPIKE_RATE = positiveRate('SPIKE_RATE', __ENV.SPIKE_RATE, '100');
+// orders_spike는 STEADY_RATE에서 출발해 SPIKE_RATE까지 올라갔다 STEADY_RATE로 돌아온다.
+// 두 값이 역전되면 "스파이크" 시나리오가 실제로는 램프다운이 되고, 부하가 줄어든 주행이
+// 폭주 실험 결과로 보고된다. 종전처럼 startRate가 300에 하드코딩된 채 SPIKE_RATE만
+// 확정치 100으로 내리면 정확히 그 상태가 된다.
+if (SPIKE_RATE < STEADY_RATE) {
+  throw new Error(`SPIKE_RATE(${SPIKE_RATE})가 STEADY_RATE(${STEADY_RATE})보다 작다. orders_spike가 램프업이 아니라 램프다운이 되어 폭주 주입이 부하 감소 주행이 된다.`);
+}
+
 const T0 = parseFloat(__ENV.CHAOS_T0_S || 'Infinity');
 const T1 = parseFloat(__ENV.CHAOS_T1_S || 'Infinity');
 // 창 실패 예산(§2-2). 페일오버 창에만 RTO 유도 상한을 쓴다. 표식이 없으면 비페일오버 주입이라
@@ -63,8 +92,31 @@ const KEYS = new SharedArray('keys', () => {
 // 수용(2xx) 요청 전용 지연 Trend. 429는 여기 넣지 않아 가용성 지표 오염을 막는다(§2-2).
 const acceptedReqDuration = new Trend('accepted_req_duration', true);
 const rateLimitedTotal = new Counter('rate_limited_total');
-const wsSeqGap = new Counter('ws_seq_gap');             // 채널 seq 결번(steady 창 0)
-const wsEpochResyncFail = new Counter('ws_epoch_resync_fail'); // 재동기화 실패(전역 0)
+// 접수 건수. 주문 축의 양성 증거다. accepted_req_duration은 Trend라 count 임계를 못 걸고
+// (k6: unsupported aggregation method count on metric of type trend) 지연 임계도
+// http_req_failed도 표본 0에서 통과한다. 별도 Counter로 하한을 건다.
+const acceptedTotal = new Counter('accepted_total');
+// 구독 경계에서 폐기한 메시지 수(API§5-2 기준점 규칙). 실패가 아니라 관측이다.
+// 채택한 seq 수. 양성 증거 축이다. 위 세 임계가 전부 단측(count==0·count<200)이라
+// 메시지가 한 건도 안 오면 전건 통과한다. 즉 관측 실패가 통과 신호가 된다. 실측:
+// 존재하지 않는 마켓을 구독하면 MESSAGE 0건인데 세 임계가 다 통과하고 exit 0이었다.
+// cleanup.js가 같은 실패 클래스를 cleanup_accounts_done count>=N으로 막은 것과 같은 규약.
+const wsSeqObserved = new Counter('ws_seq_observed');
+const wsStaleDiscarded = new Counter('ws_stale_discarded');
+const wsSeqGap = new Counter('ws_seq_gap');             // 채널 seq 결번. dest 태그로 채널을 가른다
+
+// destination을 채널 종류로 접는다. 마켓별로 태그가 갈리면 임계 키가 마켓 수만큼 늘어
+// 계약이 고정 문자열로 서지 않는다.
+function destKind(dest) {
+  if (dest.indexOf('/topic/orderbook') === 0) return 'orderbook';
+  if (dest.indexOf('/topic/trade') === 0) return 'trade';
+  return 'other';
+}
+// WS 연결 오류. 이름은 재동기화 실패지만 실제 증가 지점은 onerror 하나뿐이고 카오스 창은
+// 게이트로 뺀다. 즉 재동기화 성패를 재지 않는다. API§5-2의 gap 감지 후 REST 스냅샷
+// 재동기화는 미구현이다(하네스는 계측기라 흡수하지 않고 실패로 계상하는 설계다).
+// 이름과 계측 대상이 어긋난 자리이며 검증설계 §2-2에 미해소로 등재했다.
+const wsEpochResyncFail = new Counter('ws_epoch_resync_fail');
 // 페일오버 창 접수 실패(5xx·타임아웃) 건수. 아래 가용성 임계에서 창을 제외하는 대신 이 축으로
 // 남겨 관측을 잃지 않는다. 창 실패는 페일오버의 정의상 결과라 정상 구간과 같은 분모로 재면 안 된다.
 const chaosWindow5xx = new Counter('chaos_window_5xx_total');
@@ -87,10 +139,44 @@ const thresholds = {
   // 지연 SLO도 정상 구간 한정이다. 가용성 축과 같은 결함 클래스라 함께 좁힌다. 창에서는
   // 성공하되 느린 2xx(E1 지연 주입, E7 그레이 장애, 승격 직후 큐 해소)가 상위 백분위를 점유해
   // 정상 구간 SLO를 깬다. 창의 지연은 아래 phase:chaos 서브메트릭으로 관측한다.
-  'accepted_req_duration{scenario:orders_steady,phase:steady}': ['p(95)<200', 'p(99)<500'], // 수용 요청 SLO(API§7-4)
+  'accepted_req_duration{scenario:orders_steady,phase:steady}': ['p(95)<200', 'p(99)<500'],
+  // 양성 증거. 위 지연 임계도 http_req_failed도 표본 0에서 통과한다. 429는 전역
+  // responseCallback이 정상으로 선언하고 429 분기가 accepted_req_duration도
+  // idempotent_safe도 남기지 않으므로, 정상 구간 주문이 전량 429인 주행이 HTTP 축
+  // 전건을 통과한다(실측: 접수 0건·rate_limited 1050건에 4축 전부 통과, exit 0).
+  // 하한은 STEADY_RATE와 주행 길이에서 유도한다. 데모 프로파일 기준 steady 15분에
+  // 10 OPS면 9,000건이라 그 10%인 900을 하한으로 둔다. 짧은 프로파일도 통과하도록
+  // 보수적으로 잡았다.
+  'accepted_total{phase:steady,replay:false}': ['count>900'], // 수용 요청 SLO(API§7-4)
   'checks{check:idempotent_safe}': ['rate==1'],   // UNKNOWN→재조회→재전송 규약 위반 0
-  'ws_seq_gap{phase:steady}': ['count==0'],       // 정상 창 seq 결번 0(카오스 창은 phase:chaos 제외)
-  'ws_epoch_resync_fail': ['count==0'],           // epoch 변화·gap 후 재동기화 실패 0(전역)
+  // API§5-2(v2.11)가 seq 도메인의 두 실현을 나눈다. orderbook은 노드 인메모리 조밀 카운터라
+  // 연속성 판정이 직전 +1이고, trade는 event_seq(전역 gapless)라 채널 내에서 sparse 단조
+  // 증가다. 계약이 후자에 대해 "조밀 +1을 요구하지 않는다"고 명시한다. 종전 임계는 두
+  // 실현에 같은 기준을 걸어 계약상 정상인 거동을 실패로 계상했다.
+  // orderbook 채널만 결번 0을 요구한다. 이 채널은 seq가 채널별 연속이라 결번이 곧 유실이다.
+  // trade 채널은 전역 체결 번호를 실어 단일 마켓 구독자에게 결번이 정상이므로 제외한다.
+  // 종전에는 destination 구분 없이 한 축으로 세어 임계가 상시 실패했다(§2-4 WS 항).
+  'ws_seq_gap{phase:steady,dest:orderbook}': ['count==0'],
+  // 폐기율. 계약은 seq <= 기준점을 두 채널 모두 폐기하라고 하므로 폐기 자체는 실패가 아니다.
+  // 다만 정상이면 구독 경계에서 드물게만 일어난다. 상시 폐기는 전달 계층 재정렬 신호다.
+  // 채널별로 가른다. orderbook은 구독 경계 폐기가 계약상 정상이라 기저가 있고(실측 구독
+  // 2,000회에서 30건), trade는 실측 기저가 0이다. 예산을 섞으면 trade 이상이 orderbook
+  // 정상분에 흡수된다. 변이 검증: trade seq를 전량 기준점-1로 강제하면 종전 합산 임계는
+  // 통과했고 채널별 임계는 실패한다.
+  'ws_stale_discarded{phase:steady,dest:orderbook}': ['count<200'],
+  'ws_stale_discarded{phase:steady,dest:trade}': ['count<10'],
+  // 양성 증거. 위 임계가 전부 단측이라 표본 0이면 전건 통과한다. 채널이 죽어도 초록이 된다.
+  // 실패 축과 같은 dest로 가른다. 안 가르면 trade만 살아 있어도 숫자가 채워져 orderbook
+  // 전면 사망이 전건 통과한다(실측: orderbook 프레임 소실 변이에서 5축 전부 통과, exit 0).
+  // stream:realtime 한정인 이유는 구독마다 스냅샷 1건이 별도 경로로 오기 때문이다.
+  // 스냅샷을 세면 realtime 발행이 죽어도 구독 수만큼 채워져 하한이 무의미해진다.
+  // 하한 유도. 실측(2026-08-29): 1VU가 20초 구독에서 57건을 관측했다(1.42/s). 판정
+  // 프로파일은 WS_VUS 300에 주행 13분 이상이라 구독 1건이 40초만 살아도 100을 넘는다.
+  // 즉 하한 100은 정상 주행을 깨지 않으면서 관측 0(채널 사망)을 잡는 값이다. 두 방향을
+  // 다 봐야 한다. 너무 높으면 정상 주행이 깨지고 너무 낮으면 미탐이 남는다.
+  'ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}': ['count>100'],
+  'ws_seq_observed{phase:steady,dest:trade}': ['count>10'],
+  'ws_epoch_resync_fail': ['count==0'],           // 카오스 창 밖 WS 연결 오류 0. 이름과 달리 재동기화 성패를 재지 않는다(위 선언부 주석)
   // 이중 신규 접수 0 검증은 서버측 C07'(command_journal NEW 축) 상시 검증이 전담한다(§4-1).
   // k6는 UNKNOWN 시 재조회만 하고 재전송 경로가 없어 dup를 만들 수 없으므로, 여기에 임계를
   // 두면 어떤 상태에서도 통과하는 토톨로지가 된다(§2-2).
@@ -119,25 +205,40 @@ if (Number.isFinite(CHAOS_WINDOW_S)) {
   console.log('CHAOS_WINDOW|{"note":"FAILOVER_WINDOW 표식이 있으나 CHAOS_T0_S/T1_S가 없어 카오스 창 임계를 걸지 않았다. 창 표본이 생기지 않으므로 전 구간이 phase:steady로 판정된다."}');
 }
 
+// 개방 루프에서 VU가 모자라면 dropped_iterations가 뜨고, 그 순간 재는 대상이 서버가 아니라
+// 부하기가 된다. 반대로 maxVUs < preAllocatedVUs면 k6가 기동 자체를 거부한다(실측: 종료코드
+// 104. 낮은 OPS에서 상수 하한과 배수가 역전되며 주행이 통째로 실패했다). 두 값을 한 곳에서
+// 함께 내 그 역전을 구조적으로 막는다. 하한·배수는 calibrate.js와 같다. 확정치를 낸 30분
+// 주행이 그 부하기 구성으로 통과했으므로 정본 부하도 같은 구성을 쓴다.
+function loaderVus(peakRate, floor, headroom) {
+  const pre = Math.max(floor, peakRate);
+  return { preAllocatedVUs: pre, maxVUs: Math.max(pre, peakRate * headroom) };
+}
+
 export const options = {
   scenarios: {
-    orders_steady: {
-      executor: 'constant-arrival-rate', rate: 300, timeUnit: '1s',
-      duration: P.total, preAllocatedVUs: 200, exec: 'placeOrder',
-    },
-    orders_spike: {
-      executor: 'ramping-arrival-rate', startRate: 300, timeUnit: '1s', preAllocatedVUs: 1500,
+    orders_steady: Object.assign({
+      executor: 'constant-arrival-rate', rate: STEADY_RATE, timeUnit: '1s',
+      duration: P.total, exec: 'placeOrder',
+    }, loaderVus(STEADY_RATE, 50, 6)),
+    // startRate와 마지막 복귀 target은 STEADY_RATE에 묶는다. 이 시나리오는 orders_steady
+    // 위에 겹쳐 주입되므로 램프 방향이 기저 대비 상승이어야 스파이크가 성립한다. 두 값을
+    // 상수로 따로 두면 STEADY_RATE만 내렸을 때 옛 명목치가 남아 램프다운이 된다.
+    // plateau 배수는 SPIKE_RATE / STEADY_RATE로 결정된다(확정 기본값 기준 10x).
+    // 동시 주입이라 스파이크 밖 구간의 외부 발행량은 STEADY_RATE x 2다.
+    orders_spike: Object.assign({
+      executor: 'ramping-arrival-rate', startRate: STEADY_RATE, timeUnit: '1s',
       stages: [
-        { target: SPIKE_RATE, duration: '30s' },     // 10x 램프업(상한 = §2-4 캘리브레이션)
+        { target: SPIKE_RATE, duration: '30s' },
         { target: SPIKE_RATE, duration: P.plateau },  // 폭주 plateau, 이 창에 리더 kill 중첩
-        { target: 300, duration: '30s' },
+        { target: STEADY_RATE, duration: '30s' },
       ],
       exec: 'placeOrder', startTime: P.spikeStart,
-    },
-    market_reads: {
-      executor: 'constant-arrival-rate', rate: 500, timeUnit: '1s',
-      duration: P.total, preAllocatedVUs: 100, exec: 'readMarket',
-    },
+    }, loaderVus(SPIKE_RATE, 50, 6)),
+    market_reads: Object.assign({
+      executor: 'constant-arrival-rate', rate: READ_RATE, timeUnit: '1s',
+      duration: P.total, exec: 'readMarket',
+    }, loaderVus(READ_RATE, 30, 3)),
     ws_stomp: {
       executor: 'constant-vus', vus: parseInt(__ENV.WS_VUS || '300', 10),
       duration: P.total, exec: 'wsSubscribe',
@@ -158,20 +259,33 @@ function creds() {
   return KEYS[(exec.vu.idInTest - 1) % KEYS.length];
 }
 
-// 주행 식별자. VU 번호와 반복 카운터는 주행마다 1·0부터 다시 시작하므로 이것 없이
+// 주행 식별자. 필수다. VU 번호와 반복 카운터는 주행마다 1·0부터 다시 시작하므로 이것 없이
 // client_order_id를 만들면 재주행이 이전 주행과 같은 키를 낸다. 서버는 그것을 멱등
 // 재생으로 처리해 201이 아니라 200을 돌려주고(API§7-6, OrderController X-Idempotent-Replay),
 // 그 요청은 엔진을 거치지 않는다. 즉 재주행일수록 부하가 실재하지 않는다.
 // 실측(2026-08-29): 30 OPS 2분 주행에서 주문 3,600건 중 신규 201은 797건, 나머지 2,799건이
 // 재생이었다. 78%가 엔진 미도달 상태로 "429 없음"이 나와 용량 판정이 통과로 뒤집혔다.
+// 기본값을 두지 않는 이유: 미주입이 조용히 고정 키 공간으로 떨어지면 그 오염이 리포트
+// 어디에도 남지 않는다. 설정 오류는 CHAOS_T0_S/T1_S와 같이 주행 전에 중단시킨다.
 // 주행 안에서는 여전히 고정이라 재시도 멱등(같은 키 재사용) 규약은 그대로다.
-const RUN_ID = __ENV.RUN_ID || 'r0';
+const RUN_ID = __ENV.RUN_ID;
+if (!RUN_ID) {
+  throw new Error('RUN_ID는 필수다. 없으면 재주행이 이전 주행의 client_order_id를 재사용하고, 서버가 그것을 멱등 재생(200)으로 처리해 요청이 엔진에 닿지 않는다(실측 78%). 주행마다 새 값을 준다.');
+}
+// 서버는 client_order_id를 [A-Za-z0-9_-]{1,36}으로 검증한다(OrderGateway.java:64). 허용 문자를
+// 벗어난 RUN_ID는 주문 전량이 400 invalid_parameter가 되고, 그것은 부하 주행이 아니라 거절
+// 주행이다. 길이 16 상한 근거: 'k6-' 3자 + RUN_ID 16자 + 구분자 2자 = 21자 고정. 남는 15자가
+// VU 번호와 반복 카운터 몫이라 둘이 각각 7자리(9,999,999)여도 36자 안에 든다. 실제 주행은
+// VU 3자리·반복 5자리 수준이다.
+if (!/^[A-Za-z0-9_-]{1,16}$/.test(RUN_ID)) {
+  throw new Error(`RUN_ID 형식 오류: "${RUN_ID}". [A-Za-z0-9_-] 1~16자여야 한다. 벗어나면 client_order_id가 서버 검증(OrderGateway [A-Za-z0-9_-]{1,36})에 걸려 주문 전량이 400이 된다.`);
+}
 
 // 결정론 없이 가격·수량만 변주. 체결 여부는 무결성 판정과 무관하므로 부하 형성만 목적.
 function orderPayload() {
   const side = (exec.vu.iterationInInstance % 2 === 0) ? 'bid' : 'ask';
   const price = side === 'bid' ? '49900000' : '50100000';
-  // VARCHAR(36) 상한. RUN_ID는 짧게 유지한다.
+  // VARCHAR(36) 상한. RUN_ID 16자 가드가 이 조립의 최악 길이를 36자 안에 묶는다(위 참조).
   const coid = `k6-${RUN_ID}-${exec.vu.idInTest}-${exec.vu.iterationInInstance}`;
   return {
     clientOrderId: coid, market: MARKET, ordType: 'limit',
@@ -212,6 +326,10 @@ export function placeOrder() {
     acceptedReqDuration.add(res.timings.duration, { phase: ph });
     // 멱등 replay(200 + X-Idempotent-Replay)는 신규 접수가 아니므로 dup 계상 제외.
     const replay = String(res.headers['X-Idempotent-Replay'] || '').toLowerCase() === 'true';
+    // replay를 태그로 가른다. 2xx 전체를 세면 RUN_ID를 재사용한 주행이 전량 재생 200이
+    // 되는데도 양성 증거가 채워진다. 그 요청은 엔진에 닿지 않으므로 용량을 증명하지
+    // 못한다(§2-4 C7이 규정한 실패 클래스). 임계는 replay:false로 건다.
+    acceptedTotal.add(1, { phase: ph, replay: replay ? 'true' : 'false' });
     let oid = '';
     try { oid = JSON.parse(res.body).id || ''; } catch (e) { oid = ''; }
     if (!replay) {
@@ -255,7 +373,7 @@ export function readMarket() {
 }
 
 // STOMP 공개 채널 구독 후 seq 결번·epoch 변화를 계측한다. 카오스 창 gap은 재동기화로
-// 흡수(ws_epoch_resync_fail==0으로 판정), steady 창 gap은 0이어야 한다(§2-2).
+// 흡수(ws_epoch_resync_fail==0으로 판정), steady 창 결번은 orderbook 채널만 0이어야 한다(§2-2, API§5-2 seq 도메인 두 실현).
 export function wsSubscribe() {
   const seen = {};        // destination → 마지막 seq
   let lastEpoch = null;
@@ -290,15 +408,57 @@ export function wsSubscribe() {
 
       if (msg.seq !== undefined) {
         const prev = seen[dest];
+        // 구독 즉시 계약(API§5-2). orderbook은 SUBSCRIBE 직후 stream:"snapshot" 1건이 오고 그
+        // seq가 이후 realtime 연속성의 기준점이다. 스냅샷 전송과 realtime 게시가 경합해 순서가
+        // 역전될 수 있는데(v2.7) 계약은 그것을 정상으로 규정하고 클라이언트에 폐기 의무를 준다.
+        // 기준점 전진 규칙(v2.20, 동일 epoch 내 한정)이 기준점을 snapshot 전용이 아니라
+        // "마지막으로 채택한 seq"로 정의한다. 스냅샷보다 먼저 온 realtime이 있으면 그 realtime의
+        // seq가 임시 기준점이고, 뒤이어 온 스냅샷도 seq > 기준점일 때만 채택한다. seen[dest]가
+        // 그 기준점이고 epoch 변화 시 비우므로 "동일 epoch 내" 한정도 만족한다.
+        // 낮은 seq 스냅샷을 채택하면 이미 표시한 호가가 옛 상태로 되돌아가고, 이어지는 realtime이
+        // 전부 결번으로 보여 불필요한 재동기화를 부른다는 것이 계약이 든 이유다.
+        // 이 규칙을 구현하지 않으면 정상 역전이 역행 1건으로 계상되고, 낮은 스냅샷을 기준점으로
+        // 받아들인 탓에 이어지는 realtime이 결번으로 계상된다. 실측(2026-08-29): 구독 2,000회에서
+        // 역행 61건이 전량 orderbook이고 그 직후 결번 18건이 뒤따랐다.
+        const kind = destKind(dest);
+        if (prev !== undefined && msg.seq <= prev) {
+          // 계약이 두 채널 모두에 폐기를 지시한다. orderbook은 구독 즉시 계약(v2.7·v2.20)이
+          // 순서 역전을 정상으로 규정하며 "seq <= 기준점인 realtime을 폐기"라 적고, trade는
+          // seq 도메인 두 실현(v2.11)이 "seq <= 기준은 중복·역행 폐기, seq > 기준은 순서대로
+          // 수용"이라 적는다. 즉 클라이언트 규약은 실패 계상이 아니라 폐기다.
+          //
+          // 기준점을 전진시키지 않는 것도 계약이다. 뒤처진 값을 기준으로 삼으면 이미 표시한
+          // 상태가 되돌아가고 이어지는 메시지가 전부 결번으로 보인다(v2.20이 든 이유).
+          //
+          // 폐기를 실패로 세지 않는 대신 비율을 본다. 정상이면 폐기는 구독 경계에서 드물게만
+          // 일어난다. 폐기가 흔하면 재정렬이 상시라는 뜻이고 그것은 전달 계층 문제다.
+          // 실패로 계상하면 두 가지가 깨진다. 계약이 정상이라 규정한 거동을 실패로 만들고,
+          // 재정렬로 큰 seq가 먼저 온 뒤에는 이후 정상 메시지가 전부 실패로 계상된다
+          // (검증: 100,150,101,102,103 입력에서 뒤 세 건이 모두 실패).
+          wsStaleDiscarded.add(1, { phase: ph, stream: msg.stream || 'unknown', dest: kind });
+          continue;
+        }
         if (prev !== undefined && msg.seq > prev + 1) {
           if (ph === 'chaos') {
-            // 카오스 창 gap은 재동기화로 흡수. 기준선만 전진시키고 실패로 계상하지 않는다.
+            // 카오스 창 gap은 무계상이다. 기준선만 전진시킨다. 그 창의 WS 판정 축은
+            // 현재 없다(검증설계 §2-4 미해소 항). 재동기화로 흡수된다는 종전 서술은
+            // ws_epoch_resync_fail이 재동기화를 재지 않으므로 성립하지 않는다.
             // 재동기화조차 실패하면(구현상 후속 gap 연속) 아래 resync fail 경로가 잡는다.
           } else {
-            wsSeqGap.add(1, { phase: ph });
+            // destination을 태그로 붙여야 채널별 판정이 선다. 두 채널의 seq 도메인이 다르다.
+            // orderbook은 sequences.next(channel)로 채널별 연속이라 결번이 곧 유실이다.
+            // trade는 event.eventSeq(), 즉 전역 체결 번호라(MarketDataPublisher:155) 다른 마켓
+            // 체결이 번호를 소비한다. 단일 마켓 구독자에게는 결번이 정상 거동이고, 그것을
+            // 한 축으로 세면 임계가 상시 실패한다. 실측(2026-08-29): 20초 구독에서 결번이
+            // 전부 /topic/trade이고 /topic/orderbook은 0건이었다.
+            wsSeqGap.add(1, { phase: ph, dest: kind });
           }
         }
         seen[dest] = msg.seq;
+        // stream 태그를 함께 싣는다. 구독마다 orderbook 스냅샷 1건이 별도 경로로 오므로
+        // (OrderbookSnapshotOnSubscribe) realtime 발행이 죽어도 스냅샷만으로 하한이 채워진다.
+        // 양성 증거는 realtime 한정으로 세야 채널 사망을 잡는다.
+        wsSeqObserved.add(1, { phase: ph, dest: kind, stream: msg.stream || 'realtime' });
       }
     }
   };
@@ -311,5 +471,13 @@ export function wsSubscribe() {
   };
 
   // VU 수명 동안 구독 유지. 채널 이벤트를 관찰하고 종료한다.
-  ws.setTimeout(() => { ws.close(); }, 30000);
+  // 전역 setTimeout을 쓴다. k6/experimental/websockets의 WebSocket에는 setTimeout이 없다
+  // (k6/ws의 socket.setTimeout과 다르다). ws.setTimeout을 부르면 첫 호출에서
+  // TypeError: Object has no member 'setTimeout'이 나 iteration이 즉시 중단된다.
+  // 그러면 onmessage가 한 번도 돌지 않아 ws_seq_gap·ws_epoch_resync_fail에 표본이
+  // 남지 않고, count==0 임계 둘이 어떤 상태에서도 통과한다. 관측 실패가 통과 신호가 된다.
+  // 기본 30초는 정본 부하의 상주 구독 모델이다. 구독 경계 경합(API§5-2 기준점 규칙)을
+  // 재현하려면 수명을 줄여 구독 횟수를 늘려야 하므로 환경변수로 연다. 판정 주행에서는
+  // 기본값을 쓴다. 짧은 수명은 구독 폭주 시나리오라 정상 상태 지표와 성격이 다르다.
+  setTimeout(() => { ws.close(); }, parseInt(__ENV.WS_HOLD_MS || '30000', 10));
 }

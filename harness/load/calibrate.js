@@ -1,8 +1,7 @@
 // 용량 캘리브레이션 계측(검증설계 §2-4). 기저 OPS를 확정해 스파이크 상한을 유도한다.
 //
 // order_flow.js의 placeOrder·readMarket을 그대로 import한다. 별도 요청 코드를 쓰면 서명 비용·
-// 페이로드 크기가 달라져 "정본 부하의 기저"가 아니라 다른 부하를 재게 된다. §2-4 3항이
-// 서명 비용을 캘리브레이션 항목으로 못 박은 이유도 같다.
+// 페이로드 크기가 달라져 "정본 부하의 기저"가 아니라 다른 부하를 재게 된다.
 //
 // 스파이크 시나리오는 뺀다. 이 실행의 목적은 폭주 견딤이 아니라 기저에서 호스트·부하기가
 // 포화되지 않는지 보는 것이다. 포화된 상태로 잰 10배는 서버 백프레셔가 아니라 호스트
@@ -20,6 +19,10 @@ const DURATION = __ENV.CAL_DURATION || '30m';
 
 export const options = {
   discardResponseBodies: false,
+  // p(99)는 k6 기본 집계에 없다(기본은 avg·min·med·max·p(90)·p(95)). 선언하지 않으면
+  // handleSummary에서 undefined가 나오고, 그것을 판정에 쓰면 측정 실패가 판정 실패로
+  // 둔갑한다. §2-3 spike 열이 p99를 요구하므로 반드시 있어야 한다.
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   scenarios: {
     cal_orders: {
       executor: 'constant-arrival-rate',
@@ -42,8 +45,11 @@ export const options = {
   },
   // 캘리브레이션은 판정이 아니라 계측이다. 임계로 조기 종료하지 않는다.
   // 빈 배열은 임계가 아니라 서브메트릭 생성 지시다. k6는 thresholds에 언급된 태그
-  // 조합만 집계하므로, 주문 경로(서명 있음)와 조회 경로(서명 없음)를 갈라 보려면
-  // 이렇게 선언해야 한다. §2-4 3항이 서명 비용을 별도 항목으로 두기 때문에 필요하다.
+  // 조합만 집계한다. 주문 경로와 조회 경로는 iteration 구성이 달라(서명, 응답 본문 파싱,
+  // ACK 로그) 합쳐 보면 어느 쪽이 계측을 오염시키는지 가리지 못하므로 갈라 선언한다.
+  // 서브메트릭 키는 여기 적은 문자열 그대로 data.metrics의 키가 된다. 태그 순서가 다른
+  // 같은 조합은 새 키를 만들지 않고 먼저 등록된 이름으로 접히므로(k6 1.4.0 실측),
+  // handleSummary의 조회 문자열은 아래와 한 글자도 달라서는 안 된다.
   thresholds: {
     'iteration_duration{scenario:cal_orders}': [],
     'http_req_duration{scenario:cal_orders}': [],
@@ -55,12 +61,27 @@ export const options = {
     'http_reqs{status:400}': [], 'http_reqs{status:401}': [],
     'http_reqs{status:409}': [], 'http_reqs{status:429}': [],
     'http_reqs{status:502}': [], 'http_reqs{status:503}': [],
-    // 주문 경로만의 접수·거절. 조회의 429가 섞이면 수용 판정이 흐려진다.
-    'http_reqs{scenario:cal_orders,status:201}': [],
-    'http_reqs{scenario:cal_orders,status:429}': [],
+    // 접수 요청(POST /orders)만의 접수·거절. scenario 단독 필터는 같은 시나리오 안에서
+    // 일어나는 by-client 재조회를 함께 삼킨다. lookupByClient는 tags {name:'lookup'}만 붙일 뿐
+    // 시스템 태그 scenario는 cal_orders 그대로라, 재조회의 200(이미 접수 확인)이 멱등 재생으로,
+    // 429(재조회 버킷 백프레셔)가 수용 거절로 계상됐다. order_flow.js의 가용성 임계가 같은
+    // 결함을 name 태그로 교정한 선례를 승계한다.
+    'http_reqs{scenario:cal_orders,name:placeOrder,status:201}': [],
+    'http_reqs{scenario:cal_orders,name:placeOrder,status:429}': [],
     // 200은 멱등 재생이다(API§7-6). 엔진을 거치지 않으므로 부하로 계상하면 안 된다.
     // 이 값이 크면 client_order_id 공간이 이전 주행과 겹쳤다는 뜻이다(RUN_ID 확인).
-    'http_reqs{scenario:cal_orders,status:200}': [],
+    'http_reqs{scenario:cal_orders,name:placeOrder,status:200}': [],
+    // 400은 도메인 거절이라 엔진에 닿지 않은 요청이다. 잔고 소진(insufficient_funds)과
+    // client_order_id 형식 위반(invalid_parameter)이 여기 들어온다. 접수·거절·재생 어느 축에도
+    // 안 잡혀 제공 부하와 계상 합이 말없이 어긋나던 자리다. calibrate.ps1 C8이 이 축을 쓴다.
+    'http_reqs{scenario:cal_orders,name:placeOrder,status:400}': [],
+    // 수용(201) 전용 지연. 전체 축(order_http_p95_ms)은 429가 모집단의 대부분이라
+    // 거절 응답의 빠른 지연이 백분위를 끌어내린다. §2-3 spike 열이 요구하는 것은
+    // "수용(2xx) 요청 기준 p99<500ms"이므로 그 축을 따로 내야 판정이 성립한다.
+    'http_req_duration{scenario:cal_orders,name:placeOrder,status:201}': [],
+    // 재조회를 주문 축에서 뺀 것이 관측을 버린다는 뜻이 되면 안 되므로 별도 축으로 남긴다.
+    // 캘리브레이션에서 이 값이 0이 아니면 주문 경로에 5xx·타임아웃이 있었다는 뜻이다.
+    'http_reqs{name:lookup}': [],
   },
 };
 
@@ -73,7 +94,7 @@ export function handleSummary(data) {
   };
   const iterMed = m('iteration_duration', 'med');
   const httpMed = m('http_req_duration', 'med');
-  // 서명이 붙는 주문 경로만 따로 본다. 조회와 섞으면 서명 비용이 중앙값에 묻힌다.
+  // 주문 경로와 조회 경로를 갈라 본다. 합치면 iteration 구성이 다른 둘이 한 중앙값에 묻힌다.
   const ordIter = m('iteration_duration{scenario:cal_orders}', 'med');
   const ordHttp = m('http_req_duration{scenario:cal_orders}', 'med');
   const rdIter = m('iteration_duration{scenario:cal_reads}', 'med');
@@ -84,12 +105,18 @@ export function handleSummary(data) {
     duration: DURATION,
     // 부하기 내부 지연 기여. 이 값이 크면 계측이 서버가 아니라 k6를 재고 있다는 뜻이다.
     k6_overhead_ms: diff(iterMed, httpMed),
-    // 주문 오버헤드에서 조회 오버헤드를 빼면 서명·정규화가 더한 몫만 남는다.
     k6_overhead_orders_ms: diff(ordIter, ordHttp),
     k6_overhead_reads_ms: diff(rdIter, rdHttp),
-    sign_cost_ms: diff(diff(ordIter, ordHttp), diff(rdIter, rdHttp)),
+    // 주문 iteration 오버헤드 빼기 조회 iteration 오버헤드. 서명 몫이 아니다. 주문 경로에만
+    // 있는 응답 본문 JSON.parse와 접수 1건당 ACK console.log가 이 차이에 함께 들어간다
+    // (order_flow.js placeOrder). 조회 readMarket에는 둘 다 없다.
+    // §2-4 3항(서명 비용이 k6 CPU의 지배 항목이 아닐 것)은 이 축으로도 k6_overhead_orders_ms로도
+    // 판정되지 않는다. C1~C7 어디도 참조하지 않으므로 현재 미판정 항목이다.
+    order_path_overhead_ms: diff(diff(ordIter, ordHttp), diff(rdIter, rdHttp)),
     order_http_med_ms: ordHttp,
     order_http_p95_ms: m('http_req_duration{scenario:cal_orders}', 'p(95)'),
+    accepted_p95_ms: m('http_req_duration{scenario:cal_orders,name:placeOrder,status:201}', 'p(95)'),
+    accepted_p99_ms: m('http_req_duration{scenario:cal_orders,name:placeOrder,status:201}', 'p(99)'),
     iteration_duration_med_ms: iterMed,
     http_req_duration_med_ms: httpMed,
     http_req_duration_p95_ms: m('http_req_duration', 'p(95)'),
@@ -99,9 +126,13 @@ export function handleSummary(data) {
     // 개방 루프에서 VU가 모자라 발행하지 못한 반복. 부하기 포화의 직접 증거다.
     dropped_iterations: m('dropped_iterations', 'count') || 0,
     vus_max: m('vus_max', 'value'),
-    order_accepted: m('http_reqs{scenario:cal_orders,status:201}', 'count') || 0,
-    order_throttled: m('http_reqs{scenario:cal_orders,status:429}', 'count') || 0,
-    order_replayed: m('http_reqs{scenario:cal_orders,status:200}', 'count') || 0,
+    order_accepted: m('http_reqs{scenario:cal_orders,name:placeOrder,status:201}', 'count') || 0,
+    order_throttled: m('http_reqs{scenario:cal_orders,name:placeOrder,status:429}', 'count') || 0,
+    order_replayed: m('http_reqs{scenario:cal_orders,name:placeOrder,status:200}', 'count') || 0,
+    // 엔진 미도달 거절. 접수·거절·재생 합이 제공 부하에 못 미치면 여기부터 본다.
+    order_rejected: m('http_reqs{scenario:cal_orders,name:placeOrder,status:400}', 'count') || 0,
+    // 주문 경로 5xx·타임아웃 뒤에 붙는 재조회. 0이 아니면 주문 축 수치를 그대로 믿으면 안 된다.
+    order_lookup: m('http_reqs{name:lookup}', 'count') || 0,
     status: [200, 201, 400, 401, 409, 429, 502, 503].reduce((a, c) => {
       const n = m('http_reqs{status:' + c + '}', 'count');
       if (n) a[c] = n;

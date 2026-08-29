@@ -130,17 +130,26 @@ groups:
           description: "sequencer_queue avg1m={{ $value }} > 8192(용량 65536의 1/8). 도착률이 단일 라이터 배수율을 앞선다. 지속되면 큐 포화로 접수가 rate_limited 거부로 폴백한다."
 
       # 비rate_limited 거부 급증(§5-2 거부율). rate_limited(429)는 폭주 시 설계상 부하 차단 경로라
-      # E3·E6 스파이크(3000/s)에서 정상 발화하므로 과알림 방지 위해 제외한다("거부는 늘어도 무결성은
-      # 방어" 원칙, §5-6). 남는 사유(domain_rejected 422·bad_request 400·forbidden 403·payload 413)의
-      # 급증은 클라이언트·마켓 설정 이상 신호다. 임계 10/s는 캘리브레이션 스파이크 도착률 3000/s의
-      # 0.33%. 잔여 사유는 정상 부하에서 0 근처가 기대값이라 낮은 임계로 조기 검출한다.
+      # 제외한다("거부는 늘어도 무결성은 방어" 원칙, §5-6). 외부 k6 주입 스파이크 상한이 100 req/s
+      # (검증설계 §2-4 확정)인데 노드 주문 커맨드 수용 천장이 약 40~42/s라, 폭주 창에서는 초과분이
+      # 설계대로 전량 429가 된다. 제외 근거가 확정치에서 더 강해졌다. 봇 거버너 축
+      # (harness/config/e6.env SPIKE_OPS)은 별개 축이고 이 임계와 무관하다.
+      #
+      # 임계 재산정(2026-08-29). 종전 10/s는 명목 스파이크 3000/s의 0.33%로 유도한 값이었다.
+      # 상한이 100/s로 확정된 지금 같은 10/s는 스파이크 도착률의 10%, 노드 수용 천장 40/s의 25%다.
+      # 잔여 사유 하나가 그 비율에 도달했다면 이미 접수 트래픽의 1/4이 그 사유로 실패한 뒤라
+      # 조기 경보가 아니라 사후 확인이 된다. 유도 근거가 무효이므로 값을 함께 내린다.
+      # 새 임계 1/s = 확정 스파이크 상한 100 req/s의 1%. 잔여 사유의 정상 기대값이 0이므로
+      # 임계의 역할은 상한 배분이 아니라 노이즈 바닥 위에 선을 긋는 것이다. rate1m에서 단발 1건은
+      # 1/60 = 0.017/s라 1/s는 그 60배이고, for:2m과 겹쳐 1분 60건이 2분 지속돼야 발화한다.
+      # 일회성 오타·재시도 한 건으로는 뜨지 않고 클라이언트 버그·인증 이상만 남는다.
       # exchange:orders_rejected:rate1m은 reason 유지 레코딩 규칙이라 {reason!="rate_limited"}로 거른다.
       - alert: OrderRejectSpike
-        expr: exchange:orders_rejected:rate1m{reason!~"rate_limited|insufficient_funds|invalid_price|invalid_volume|over_max_order|under_min_order"} > 10
+        expr: exchange:orders_rejected:rate1m{reason!~"rate_limited|insufficient_funds|invalid_price|invalid_volume|over_max_order|under_min_order"} > 1
         for: 2m
         labels:
           severity: warning
           component: order-gateway
         annotations:
           summary: "주문 거부 급증(reason={{ $labels.reason }})"
-          description: "reason={{ $labels.reason }} 거부율={{ $value }}/s > 10. 정상 부하 도메인 거부(rate_limited·insufficient_funds·invalid_price·invalid_volume·over/under_max/min_order)는 제외했으므로, 잔여 사유(account_suspended·admin_forbidden·out_of_scope·client_order_id_required·invalid_parameter) 급증은 클라이언트 버그·인증 이상을 시사한다."
+          description: "reason={{ $labels.reason }} 거부율={{ $value }}/s > 1(확정 스파이크 상한 100 req/s의 1%). 정상 부하 도메인 거부(rate_limited·insufficient_funds·invalid_price·invalid_volume·over/under_max/min_order)는 제외했으므로, 잔여 사유(account_suspended·admin_forbidden·out_of_scope·client_order_id_required·invalid_parameter) 급증은 클라이언트 버그·인증 이상을 시사한다."

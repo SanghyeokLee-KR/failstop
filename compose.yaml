@@ -13,12 +13,50 @@ name: exchange-chaos
 # 기동:
 #   docker compose --profile full up -d --wait     발표용 전체
 #   docker compose up -d --wait                    카오스 실험용 코어(종전과 동일)
+#   $env:RUN_ID = (Get-Date).ToString('yyyyMMdd-HHmmss')
 #   docker compose --profile load run --rm chaos-k6   부하 주입(별도 실행, 상시 기동 아님)
+#
+# 부하 주입만 RUN_ID를 요구한다. 주행마다 유일해야 하는데 compose 변수 치환은 매 주행 다른
+# 값을 만들지 못하므로 기동 셸이 준다. 미설정이면 빈 값이 들어가고 order_flow.js가 즉시
+# 중단한다. 상수 폴백을 두면 재주행이 이전 주행의 client_order_id를 재사용해 서버가 멱등
+# 재생(200)으로 처리하고, 그 요청은 엔진에 닿지 않는다(실측 2026-08-29: 30 OPS 주행의 78%).
+# 필수 변수 문법(${RUN_ID:?})은 쓰지 않는다. 치환이 프로파일보다 먼저라 RUN_ID가 필요 없는
+# --profile full up까지 통째로 막는다(검증: config 단계에서 required variable 오류).
 #
 # 사전 조건은 harness/scripts/up.ps1이 하던 것과 같다. app.jar를 harness/에 복사하고
 # CHAOS_MASTER_KEY_BASE64를 채운다. 웹은 web/out(정적 export)이 있어야 한다.
 include:
   - harness/docker-compose.chaos.yml
+
+# 게이트(chaos-preflight)와 주행(chaos-k6)이 같은 값을 봐야 한다. 두 곳에 따로 적으면 갈리고,
+# 주행이 실제로 쓰지 않는 경로·식별자를 검증하는 게이트는 통과 자체가 무의미해진다.
+x-k6-run-env: &k6-run-env
+  # 스크립트가 읽는 이름은 BASE_URL이다(order_flow.js·preflight.js의 __ENV.BASE_URL).
+  # DEMO_API는 대본 변수라 여기서 쓰면 조용히 기본값(localhost:58080)으로 떨어져
+  # 컨테이너에서 아무 데도 못 간다.
+  BASE_URL: http://chaos-lb:8080
+  # STOMP CONNECT 프레임의 host 헤더다(order_flow.js의 connectFrame(HOST)). HTTP 라우팅·
+  # 서명 대상이 아니다. nginx.conf에 server_name이 없고 서명 canonical은 METHOD+PATH+body다
+  # (lib/sign.js signRequest). preflight.js는 아직 소비처가 없으나 갈라두지 않는다.
+  API_HOST: api.exchange.local
+  # 프리플라이트 잔고 검사의 소요 헤드룸 산정 입력. 주행이 잠글 금액은 [OPS x 초 x 잠금단가]라
+  # 주행 규모를 모르면 검사가 실제 소요와 무관해진다. 게이트와 주행이 같은 값을 봐야 하므로
+  # 앵커에 둔다. 기본은 정본 데모 프로파일 기준이고, 다른 프로파일로 돌릴 때 함께 준다.
+  # 기본값은 PROFILE=demo의 실효 발행률이다. steady 10/s x 900s = 9,000건에
+  # orders_spike가 겹쳐 27,300건을 더해 36,300건이고, 900초로 나누면 40.3 OPS다.
+  # STEADY_RATE(10)를 그대로 넣으면 헤드룸을 4배 낮게 잡는다. preflight.js가 그것을
+  # 금지한다. 다른 프로파일로 돌리면 그 프로파일의 실효 발행률을 함께 준다.
+  CHECK_OPS: ${CHECK_OPS:-40.3}
+  CHECK_DURATION_SEC: ${CHECK_DURATION_SEC:-900}
+  # 주행 식별자. client_order_id 접두라 주행마다 달라야 한다(order_flow.js의 RUN_ID).
+  # 게이트도 같은 값을 받아야 한다. preflight.js는 이 값으로 최악 길이 coid를 조립해
+  # 서버 규칙(36자·[A-Za-z0-9_-]) 통과를 검사하고 자기 주문 coid도 k6-<RUN_ID>-pf-<i>로
+  # 낸다. 값이 갈리면 게이트가 본 주행이 보내지 않을 문자열을 검사하고 통과시킨다.
+  # command가 아니라 environment에 두는 이유. 데모 대본 §0-6이 run 뒤에 인자를 붙여
+  # command를 통째로 덮어쓰므로 command 안의 -e 플래그는 정본 호출 경로에서 사라진다.
+  # k6는 컨테이너 환경변수를 __ENV로 노출한다(검증: -e RUN_ID=probe-123 주입 시
+  # __ENV.RUN_ID=probe-123). 값의 출처와 미설정 시 거동은 파일 머리 주석에 있다.
+  RUN_ID: ${RUN_ID:-}
 
 services:
   # 관측 스택을 full에도 편입한다. 종전에는 obs 전용이라 --profile full 한 번으로
@@ -90,25 +128,60 @@ services:
     profiles: [full, admin]
     networks: [chaos-net]
 
+  # 부하 주행 전 사전 점검(검증설계 §2-4 5항). 정본이 "부하 주행 전 필수"로 규정했는데
+  # 저장소에 호출 경로가 하나도 없었다. 같은 저장소 nginx.conf가 이미 적었듯이 사람이
+  # 기억해야 하는 설계는 카오스 실험 중에 반드시 샌다. 게이트 자신이 그 형태였다.
+  # 그래서 chaos-k6가 이 서비스의 정상 완료를 조건으로 걸어 주행마다 자동으로 앞선다.
+  # 판정은 preflight.js의 checks rate==1.0 임계가 낸 종료코드가 한다. 비영이면 compose가
+  # chaos-k6를 기동하지 않고 자신도 비영으로 끝난다(검증: 게이트 exit 7 -> compose exit 1,
+  # 본체 미실행). 완료 컨테이너는 다음 run에서 다시 실행되므로 지난 통과가 재사용되지 않는다.
+  # 부하 잔여 회수. 정본 부하는 GTC라 미체결분이 영구 잔류하고 잠금 잔고와 호가 벽을 만든다.
+  # LB를 지나지 않는다. cancelAll이 계정 전 미체결을 한 요청에서 순회해 수 분이 걸리는데
+  # nginx proxy_read_timeout이 10초다. 상시 기동이 아니라 run으로 한 번 돌리는 서비스다.
+  chaos-cleanup:
+    image: grafana/k6:1.4.0
+    container_name: chaos-cleanup
+    environment:
+      CLEANUP_BASE: http://chaos-api-1:8080
+    volumes:
+      - ./harness/load:/load:ro
+    working_dir: /load
+    entrypoint: ["k6"]
+    command: ["run", "--quiet", "--no-color", "cleanup.js"]
+    restart: "no"
+    profiles: [load]
+    networks: [chaos-net]
+
+  chaos-preflight:
+    image: grafana/k6:1.4.0
+    container_name: chaos-preflight
+    environment: *k6-run-env
+    volumes:
+      - ./harness/load:/load:ro
+    working_dir: /load
+    entrypoint: ["k6"]
+    command: ["run", "--quiet", "--no-color", "preflight.js"]
+    restart: "no"
+    profiles: [load]
+    networks: [chaos-net]
+
   # k6 부하. 상시 기동이 아니라 run으로 한 번 돌리는 서비스다. up --wait가 기다리지
   # 않도록 load 프로파일로 격리한다(full에 넣으면 콜드 스타트가 부하 종료를 기다린다).
   chaos-k6:
     image: grafana/k6:1.4.0
     container_name: chaos-k6
     environment:
+      <<: *k6-run-env
       K6_PROMETHEUS_RW_SERVER_URL: http://chaos-prometheus:9090/api/v1/write
       K6_WEB_DASHBOARD: "true"
       K6_WEB_DASHBOARD_EXPORT: /artifacts/demo-report.html
-      # 스크립트가 읽는 이름은 BASE_URL이다(order_flow.js:20). DEMO_API는 대본 변수라
-      # 여기서 쓰면 조용히 기본값(localhost:58080)으로 떨어져 컨테이너에서 아무 데도 못 간다.
-      BASE_URL: http://chaos-lb:8080
-      # 서명 대상 Host 헤더. LB가 이 이름으로 라우팅한다(order_flow.js:22)
-      API_HOST: api.exchange.local
     volumes:
       - ./harness/load:/load:ro
       - ./harness/load/artifacts:/artifacts
     working_dir: /load
     entrypoint: ["k6"]
     command: ["run", "-e", "PROFILE=demo", "order_flow.js"]
+    depends_on:
+      chaos-preflight: { condition: service_completed_successfully }
     profiles: [load]
     networks: [chaos-net]

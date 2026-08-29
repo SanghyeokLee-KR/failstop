@@ -152,7 +152,13 @@ services:
       EXCHANGE_ENGINE_ENABLED: "false"   # 봇 노드는 리더 경쟁에서 빠진다(승격 주체 오염 방지)
       EXCHANGE_AUTH_MASTER_KEY_BASE64: ${CHAOS_MASTER_KEY_BASE64}
       EXCHANGE_SIM_BASE_URL: http://chaos-lb:8080
-      EXCHANGE_SIM_TARGET_OPS: ${CHAOS_BOTS_OPS:-40}
+      # 기본 10인 이유(2026-08-29 캘리브레이션 확정, harness.calibration_runs id=1). 노드의 주문
+      # 커맨드 수용 천장이 약 40~42/s인데 봇 40 OPS는 단독 실측이 주문 32.7/s·취소 10.5/s로 합
+      # 약 43/s라 봇만으로 천장에 닿는다. 그 상태에서는 외부 주입이 전량 429가 되어 확정치
+      # 자체가 성립하지 않는다. 봇 10 OPS일 때 외부 10 OPS가 429 0·주문 p95 29.1ms로 통과했다.
+      # 이 값은 봇 거버너 축이다. 카오스 실험 config/*.env의 BASE_OPS·SPIKE_OPS와 같은 축이고,
+      # 외부 k6 주입 축(load/config/*.env의 STEADY_RATE·SPIKE_RATE)과는 별개다.
+      EXCHANGE_SIM_TARGET_OPS: ${CHAOS_BOTS_OPS:-10}
     depends_on:
       chaos-api-1: { condition: service_healthy }
       chaos-lb: { condition: service_started }

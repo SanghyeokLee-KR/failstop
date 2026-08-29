@@ -639,7 +639,7 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 | Micrometer 이름 | 타입 | 태그 | Prometheus 노출명 | 용도 |
 |---|---|---|---|---|
 | `exchange.trades` | Counter | `market` | `exchange_trades_total` | 체결/초, "체결 곡선 부활" 증명 |
-| `exchange.order.latency` | Timer(+hist) | `market`,`outcome` | `exchange_order_latency_seconds_*` | 접수→체결확정 p95/p99 (SLI) |
+| `exchange.order.latency` | Timer(+hist) | `market`,`outcome` | `exchange_order_latency_seconds_*` | 접수에서 체결확정 발행까지의 전파 지연. **§2-3 주문 API SLO의 판정 축이 아니다**(그것은 k6 `accepted_req_duration`, 검증설계 §2-3 각주). 이름이 비슷해 혼동을 부른 자리다 |
 | `exchange.orderbook.depth` | MultiGauge | `market`,`side` | `exchange_orderbook_depth` | 호가 잔량 |
 | `exchange.ws.clients` | Gauge | `channel` | `exchange_ws_clients` | STOMP 연결 수(§3-3 예산 관찰) |
 | `exchange.failover.downtime.seconds` | Gauge | - | `exchange_failover_downtime_seconds` | **RTO(§7-4 확정명)** |
@@ -786,7 +786,7 @@ datasources:
 | `LedgerImbalance` | `max(abs(exchange_ledger_imbalance))` | `>0` for 0s | **critical**, 자산 보존 위반 즉시 |
 | `DuplicateFill` | `increase(exchange_duplicate_fills_total[5m])` | `>0` | **critical** |
 | `InvariantViolation` | `max by(check_name)(exchange_invariant_violations)` | `>0` for 30s | **게이지 `severity` 라벨 패스스루로 라우팅**(critical=C01·C02·C05~C08(C07' 포함)·C13·C16~C18·C21~C23 / high=C03·C09~C12·C14·C19·C20 / warn=C15·C24·C25. C04는 DB 트리거 강제라 게이지 미노출) |
-| `OrderP99SloBreach` | `exchange:order_latency:p99_1m` | `>0.5` for 2m | warning |
+| `OrderP99SloBreach` | `exchange:order_latency:p99_1m` | `>0.5` for 2m | warning 체결 전파 지연 경보다. §2-3 주문 API SLO 판정과 다른 축이므로 이 경보 발화가 곧 SLO 위반은 아니다 |
 | `FailoverRtoExceeded` | `max(exchange_failover_downtime_seconds)` | `>30` | critical |
 | `LeaderAbsent` | `absent(exchange_leader_is_leader == 1)` | for 15s | critical |
 | `RecoverableStandDownRepeating` | `increase(exchange_leader_recoverable_standdown_total[5m])` | `>2` for 0s | **critical** |

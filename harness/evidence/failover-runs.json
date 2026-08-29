@@ -1,0 +1,27 @@
+{
+    "id": 1,
+    "details": {
+        "runId": "E4-20260829-121235",
+        "cmdGap": "0",
+        "evtGap": "0",
+        "dupFill": "0",
+        "assetSum": "0",
+        "dupOrder": "0",
+        "drainValid": "True",
+        "tradesAfter": "790",
+        "tradesBefore": "754"
+    },
+    "verdict": "PASS",
+    "new_epoch": 2,
+    "old_epoch": 1,
+    "created_at": "2026-08-29T03:13:28.551009+00:00",
+    "new_leader": "d945970f-aa48-4eeb-ac44-dcb70caaac07",
+    "old_leader": "53cd1d5b-8b6f-4d4e-b4a1-ad59d5150f9d",
+    "rpo_records": 0,
+    "rto_seconds": 6.688,
+    "takeover_ts": null,
+    "experiment_id": "E4",
+    "first_trade_ts": "2026-08-29T03:13:22.881+00:00",
+    "downtime_seconds": 7.723,
+    "last_heartbeat_ts": null
+}

@@ -34,11 +34,16 @@ echo "import { WebSocket } from 'k6/websockets'; export default function(){}" > 
 # 부하 계정 키 준비(seed 잡 산출물을 복사)
 cp secrets/k6_keys.example.json secrets/k6_keys.json   # 실키로 치환
 
+# RUN_ID는 주행마다 유일해야 한다. config/*.env에 고정하지 않는 이유가 그것이다.
+# 값이 겹치면 client_order_id가 겹치고 서버가 멱등 재생 200을 내며 그 요청은 엔진에 닿지
+# 않는다. 실측 78%. order_flow.js는 미주입이면 init에서 중단한다(조용한 오염을 막는다).
+RUN_ID=$(date +%y%m%d%H%M%S)
+
 # 표준 E6(폭주 + 리더 kill 복합). config/e6.env를 -e로 전개
-k6 run $(sed -e 's/[[:space:]]*#.*$//' -e '/^$/d' -e 's/^/-e /' config/e6.env) order_flow.js
+k6 run -e RUN_ID=$RUN_ID $(sed -e 's/[[:space:]]*#.*$//' -e '/^$/d' -e 's/^/-e /' config/e6.env) order_flow.js
 
 # 데모(15분). PROFILE=demo, kill 05:30
-k6 run $(sed -e 's/[[:space:]]*#.*$//' -e '/^$/d' -e 's/^/-e /' config/demo.env) order_flow.js
+k6 run -e RUN_ID=$RUN_ID $(sed -e 's/[[:space:]]*#.*$//' -e '/^$/d' -e 's/^/-e /' config/demo.env) order_flow.js
 
 # thundering-herd(WS 5,000 동시연결)
 k6 run -e WS_TARGET=5000 scenarios/thundering-herd.js
@@ -54,9 +59,14 @@ PowerShell에서는 각 줄을 `--env KEY=VALUE`로 전개한다.
 | `http_req_failed{scenario:orders_steady,name:placeOrder,phase:chaos}` | 카오스 창 접수 가용성. 상한은 창 설정에서 유도(아래 창 실패 예산) |
 | `http_req_failed{name:lookup,phase:steady} < 0.001` | 정상 창 재조회 실패 0. 200·404·409·429는 요청별 responseCallback으로 정상 선언 |
 | `accepted_req_duration{scenario:orders_steady,phase:steady} p95<200 p99<500` | 정상 구간 수용(2xx) 요청 지연 SLO. 창의 느린 2xx가 상위 백분위를 점유하지 않게 한정 |
+| `accepted_total{phase:steady} > 900` | 양성 증거. 지연 임계도 실패율도 표본 0에서 통과한다. 429는 정상 선언이라 전량 거절 주행이 HTTP 축 전건을 통과한다 |
 | `checks{check:idempotent_safe} == 1` | UNKNOWN→재조회→재전송 규약 위반 0 |
-| `ws_seq_gap{phase:steady} == 0` | 정상 창 채널 seq 결번 0. 카오스 창(phase:chaos)은 제외 |
-| `ws_epoch_resync_fail == 0` | epoch 변화·gap 후 재동기화 실패 0(전역) |
+| `ws_seq_gap{phase:steady,dest:orderbook} == 0` | orderbook은 채널별 조밀 seq라 결번이 곧 유실. 카오스 창(phase:chaos)은 제외 |
+| `ws_stale_discarded{phase:steady,dest:orderbook} < 200` | 계약(API§5-2)이 `seq <= 기준점`을 두 채널 모두 폐기하라 하므로 폐기는 실패가 아니다. 구독 경계 폐기는 정상이라 기저가 있다 |
+| `ws_stale_discarded{phase:steady,dest:trade} < 10` | trade는 실측 기저 0. orderbook 예산과 섞으면 이상이 흡수된다 |
+| `ws_seq_observed{phase:steady,dest:orderbook,stream:realtime} > 100` | 양성 증거. 위 임계가 전부 단측이라 표본 0이면 전건 통과한다(채널이 죽어도 초록). realtime 한정인 이유는 구독마다 스냅샷 1건이 별도 경로로 오기 때문이다 |
+| `ws_seq_observed{phase:steady,dest:trade} > 10` | 같은 이유. 채널별로 가르지 않으면 한쪽만 살아도 통과한다 |
+| `ws_epoch_resync_fail == 0` | 카오스 창 밖 WS 연결 오류 0. 이름과 달리 재동기화 성패를 재지 않는다(검증설계 §2-4 미해소 항) |
 
 이중 신규 접수 0 검증은 서버측 C07'(command_journal NEW 축) 상시 검증이 전담한다(검증설계
 §4-1). k6는 UNKNOWN 시 재조회만 하고 재전송 경로가 없어 dup를 만들 수 없으므로, k6 임계로
@@ -66,8 +76,8 @@ PowerShell에서는 각 줄을 `--env KEY=VALUE`로 전개한다.
 
 오케스트레이터가 `CHAOS_T0_S`(주입 시각 초)·`CHAOS_T1_S`(T0+60s)를 k6와 카오스 주입에
 동일 타임라인으로 주입한다. 스크립트는 경과 시간이 창 안이면 `phase:chaos`, 밖이면
-`phase:steady`로 표본을 태깅한다. 카오스 창 내 seq gap은 재동기화 성공(`ws_epoch_resync_fail==0`)
-으로 판정하고, steady 창의 gap만 0을 강제한다. E3의 "gap 감지→재동기화 흡수" 정상 경로가
+`phase:steady`로 표본을 태깅한다. 카오스 창 내 seq gap은 무계상이고 현행 계측 대상은 카오스 창 밖 WS 연결 오류이며 카오스 창 WS 판정 축은 부재다(검증설계 §2-4 미해소 항)라 재동기화 성공(`ws_epoch_resync_fail==0`)
+으로 판정하고, steady 창의 결번은 orderbook 채널만 0을 강제한다(trade는 sparse 도메인이라 역행만 본다, API§5-2). E3의 "gap 감지→재동기화 흡수" 정상 경로가
 FAIL로 오판되지 않는다.
 
 둘은 반드시 함께 준다. T0만 주면 T0 이후 전 구간이 `phase:chaos`가 되어 정상 구간 임계가
