@@ -158,11 +158,21 @@ function creds() {
   return KEYS[(exec.vu.idInTest - 1) % KEYS.length];
 }
 
+// 주행 식별자. VU 번호와 반복 카운터는 주행마다 1·0부터 다시 시작하므로 이것 없이
+// client_order_id를 만들면 재주행이 이전 주행과 같은 키를 낸다. 서버는 그것을 멱등
+// 재생으로 처리해 201이 아니라 200을 돌려주고(API§7-6, OrderController X-Idempotent-Replay),
+// 그 요청은 엔진을 거치지 않는다. 즉 재주행일수록 부하가 실재하지 않는다.
+// 실측(2026-08-29): 30 OPS 2분 주행에서 주문 3,600건 중 신규 201은 797건, 나머지 2,799건이
+// 재생이었다. 78%가 엔진 미도달 상태로 "429 없음"이 나와 용량 판정이 통과로 뒤집혔다.
+// 주행 안에서는 여전히 고정이라 재시도 멱등(같은 키 재사용) 규약은 그대로다.
+const RUN_ID = __ENV.RUN_ID || 'r0';
+
 // 결정론 없이 가격·수량만 변주. 체결 여부는 무결성 판정과 무관하므로 부하 형성만 목적.
 function orderPayload() {
   const side = (exec.vu.iterationInInstance % 2 === 0) ? 'bid' : 'ask';
   const price = side === 'bid' ? '49900000' : '50100000';
-  const coid = `k6-${exec.vu.idInTest}-${exec.vu.iterationInInstance}`;
+  // VARCHAR(36) 상한. RUN_ID는 짧게 유지한다.
+  const coid = `k6-${RUN_ID}-${exec.vu.idInTest}-${exec.vu.iterationInInstance}`;
   return {
     clientOrderId: coid, market: MARKET, ordType: 'limit',
     price, side, timeInForce: 'GTC', volume: '0.0010',
