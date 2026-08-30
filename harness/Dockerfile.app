@@ -11,5 +11,9 @@ WORKDIR /app
 COPY app.jar app.jar
 # compose deploy.limits.memory 1g 기준 힙 산정
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75"
+# 마스터키 blank 기동 차단. 이미지에 굽는 이유는 compose 인자를 빼먹어도 살아야 하기
+# 때문이다. 실측 사고(2026-08-30): --env-file 없이 부분 재기동해 키가 빈 값이 됐고,
+# 부팅과 헬스체크는 통과한 채 인증이 3시간 49분간 100% 500이었다. 절차로 막히지 않는다.
+ENV EXCHANGE_AUTH_REQUIRE_MASTER_KEY=true
 EXPOSE 8080
 ENTRYPOINT ["java","-jar","app.jar"]

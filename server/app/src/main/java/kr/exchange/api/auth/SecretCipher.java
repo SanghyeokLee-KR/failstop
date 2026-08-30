@@ -29,9 +29,16 @@ public class SecretCipher {
         if (masterKeyBase64 == null || masterKeyBase64.isBlank()) {
             // dev 편의 경로. 프로세스 생존 동안만 유효한 임시 키라 재기동 후 기존 enc_secret은
             // 복호화 불가다. 운영·데모 구동은 EXCHANGE_AUTH_MASTER_KEY_BASE64 주입이 전제다.
+            //
+            // ERROR로 낸다. 이 상태는 경고가 아니라 고장이다. 부팅과 헬스체크는 통과하지만
+            // 기존 API 키로 오는 요청이 전건 500이 된다. WARN이면 기동 로그에 묻혀 4시간 뒤
+            // 원인을 찾을 때 보이지 않는다(실측). 데모·운영은 StartupMasterKeyValidator가
+            // 여기 오기 전에 끊으므로, 이 경로에 도달했다는 것은 그 게이트가 꺼져 있다는 뜻이다.
             key = new byte[32];
             random.nextBytes(key);
-            log.warn("마스터키 미주입: 프로세스 한정 임시 키로 동작한다. 재기동 시 기존 API 키는 무효.");
+            log.error("마스터키 미주입: 프로세스 한정 임시 키로 동작한다. "
+                    + "기존 enc_secret 복호화가 전건 실패해 인증이 500으로 끝난다. "
+                    + "EXCHANGE_AUTH_MASTER_KEY_BASE64를 주입하라.");
         } else {
             try {
                 key = Base64.getDecoder().decode(masterKeyBase64);
