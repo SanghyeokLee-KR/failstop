@@ -1,0 +1,45 @@
+기준 커밋 c39cef8 (2026-08-31)
+추적 파일 999
+
+== 트리별 산출 ==
+server (java)                  274 파일    41789 행
+web (tsx)                      103 파일    14652 행
+web (ts)                        86 파일    17146 행
+harness                         57 파일     6613 행
+scripts                          4 파일     1164 행
+.github                          6 파일      506 행
+deploy                           7 파일      392 행
+
+== 세부 분해 (파일 수) ==
+  server main java      204
+  server test java      70
+  Flyway 마이그레이션   26
+  web page.tsx          29
+  web components        61
+  web css               45
+
+== 커밋 축 ==
+  (전체)         329
+  web          130
+  server       103
+  docs         157
+  harness       69
+  scripts       17
+  deploy         3
+
+== 단독 트리 커밋 ==
+  전체 329 / 단독 186 / 복수 141 / 빈 커밋 2
+    web                    79
+    server                 32
+    docs                   31
+    harness                30
+    ?쒖텧_20260901            6
+    .gitignore              3
+    deploy                  2
+    .claude                 1
+    CLAUDE.md               1
+    scripts                 1
+
+== 권한 분리 ==
+  tools 선언: .claude/agents/reviewer.md:4:tools: Read, Grep, Glob, Bash, PowerShell
+  정의 미러: 없음. 정본 하나
