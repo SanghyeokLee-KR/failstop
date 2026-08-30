@@ -1,0 +1,61 @@
+# PostgreSQL 1개분. 상시면 core에 앱과 함께 얹거나 전용 노드로 분리한다.
+#
+# RDS를 쓰지 않는 이유는 기획안 §6.2다. 장애 주입에 OS 셸이 필요하고, RDS를 채택하면
+# DB 계층 전체가 증명 범위 밖으로 나가 남는 명제가 앱 계층 페일오버로 축소된다.
+# 그 대가로 백업·PITR·페일오버를 직접 만든다.
+#
+# 카오스 스택과 다른 점.
+#   1. 포트를 호스트에 노출하지 않는다. 프라이빗 서브넷 안이고 sg-data가 sg-app만 허용한다.
+#      55432 노출은 로컬 실험 편의였다.
+#   2. 커널 keepalive 튜닝은 그대로 둔다. 좀비 커넥션 회수가 E2·E7 계열의 원천이라
+#      상시면과 증명면이 같은 값을 써야 실험 결과가 이관된다.
+#
+# 미검증이다. 실제 다중 호스트에서 기동한 적이 없다.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-exchange}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    command:
+      - "postgres"
+      # RPO=0의 전제다. 끄면 커밋 응답 후 유실 창이 생겨 §7-3 P6 주장이 무너진다.
+      - "-c"
+      - "synchronous_commit=on"
+      # 유휴 트랜잭션이 잠금을 붙든 채 남는 것을 끊는다. 카오스 창에서 좀비가 생기는 경로다.
+      - "-c"
+      - "idle_in_transaction_session_timeout=10s"
+      # 네트워크 분단에서 죽은 커넥션을 빨리 회수한다. 기본값은 2시간이라 분단 실험이
+      # 커넥션 고갈로 끝난다(E2 실측).
+      - "-c"
+      - "tcp_keepalives_idle=5"
+      - "-c"
+      - "tcp_keepalives_interval=2"
+      - "-c"
+      - "tcp_keepalives_count=3"
+      # WAL 아카이빙. 값이 비면 비활성이라 기본 동작이 바뀌지 않는다.
+      - "-c"
+      - "archive_mode=${ARCHIVE_MODE:-off}"
+      - "-c"
+      - "archive_command=${ARCHIVE_COMMAND:-/bin/true}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME:-exchange}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${DB_MEMORY:-1600m}
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+volumes:
+  pgdata:

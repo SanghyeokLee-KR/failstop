@@ -1,0 +1,51 @@
+# 앱 노드 1개분. 상시면 core 또는 증명면 app-2에 얹는다.
+#
+# 현행 compose.yaml과 다른 점 셋이다.
+#   1. container_name을 쓰지 않는다. 고정하면 같은 호스트에서 청록 배포가 불가능하다.
+#   2. DB 주소를 서비스명이 아니라 변수로 받는다. 로컬은 compose 서비스명, 클라우드는
+#      프라이빗 IP를 같은 변수에 넣는다. 이 변수화가 다중 호스트 이식의 핵심이다.
+#   3. 이미지를 digest로 고정한다. 태그는 재푸시로 내용이 바뀌어 롤백 대상이 확정되지 않는다.
+#
+# 미검증이다. 실제 다중 호스트에서 기동한 적이 없다.
+services:
+  app:
+    image: ${APP_IMAGE}
+    environment:
+      # 상시면은 prod. 관리 포트가 8081로 분리된다(application.yml:127).
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME:-exchange}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      # 스키마 확정은 한 노드만 한다. 두 노드가 동시에 Flyway를 돌리면 잠금 경합이 난다.
+      # 롤링 배포에서 먼저 뜨는 노드가 true를 받는다.
+      SPRING_FLYWAY_ENABLED: ${FLYWAY_ENABLED:-false}
+      EXCHANGE_AUTH_MASTER_KEY_BASE64: ${MASTER_KEY_BASE64}
+      EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64: ${PASSWORD_PEPPER_BASE64}
+      EXCHANGE_MEMBER_SESSION_SEED_BASE64: ${SESSION_SEED_BASE64}
+      # 하네스 API는 상시면에 등록하지 않는다. 증명면에서만 true다.
+      EXCHANGE_HARNESS_ENABLED: ${HARNESS_ENABLED:-false}
+    ports:
+      # 고객 평면과 관리 포트를 분리해 노출한다. 8081은 edge에서만 스크레이프한다.
+      - "${APP_PORT:-8080}:8080"
+      - "${MGMT_PORT:-8081}:8081"
+    healthcheck:
+      # liveness로 판정한다. readiness는 팔로워에서 설계상 503(REFUSING_TRAFFIC)이라
+      # 정상 팔로워가 영구 unhealthy가 된다. 컨테이너 기동 여부와 트래픽 수용 여부는
+      # 다른 질문이다.
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health/liveness || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          # JVM 힙은 이 값의 75%다(Dockerfile.app -XX:MaxRAMPercentage=75).
+          memory: ${APP_MEMORY:-1g}
+    logging:
+      # 노드 디스크가 로그로 차는 것을 막는다. 상시면은 재기동이 드물어 무한 증가한다.
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"

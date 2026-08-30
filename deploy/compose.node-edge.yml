@@ -1,0 +1,51 @@
+# 엣지 노드. TLS 종단, 앱 분산, 관측 수집.
+#
+# 퍼블릭 서브넷에 있는 유일한 노드다. sg-edge가 CloudFront 관리형 프리픽스와 관리자
+# 고정 IP만 443으로 받고, 80은 Let's Encrypt HTTP-01 한정이다(기획안 §6.4).
+#
+# 미검증이다. 실제 EC2에서 기동한 적이 없다.
+services:
+  edge:
+    image: nginx:1.29
+    environment:
+      # 템플릿 치환용. nginx 이미지가 /etc/nginx/templates/*.template를 envsubst한다.
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+      APP_1_HOST: ${APP_1_HOST}
+      APP_2_HOST: ${APP_2_HOST}
+    volumes:
+      - ./nginx-edge.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./proxy-common.conf:/etc/nginx/conf.d/proxy-common.conf:ro
+      # 사이드카가 갱신한다. 부트스트랩이 빈 파일이라도 만들어야 nginx가 기동한다.
+      - leader-conf:/etc/nginx/conf.d/leader
+      - certbot-conf:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost/.well-known/acme-challenge/ || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    # 12시간마다 갱신을 시도한다. 만료 30일 전부터 실제 갱신이 일어난다.
+    # 갱신 실패가 서비스 중단으로 이어지지 않는 이유는 CloudFront가 ACM 자동 갱신을
+    # 쓰기 때문이다. 오리진 인증서가 만료되면 사용자에게는 502로 나타난다.
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
+    restart: unless-stopped
+
+volumes:
+  leader-conf:
+  certbot-conf:
+  certbot-www:
