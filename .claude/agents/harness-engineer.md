@@ -50,10 +50,10 @@ description: 시스템 검증과 운영 기반 전담. 배포, CI/CD, IaC, 관�
 
 기본 정본.
 
-- `docs/하네스_검증설계.md`
-- `docs/하네스_CICD_IaC.md`
+- `docs/contracts/하네스_검증설계.md`
+- `docs/contracts/하네스_CICD_IaC.md`
 
-DB 검증은 `docs/백엔드_DB_설계.md`. API 검증은 `docs/백엔드_API_설계.md`.
+DB 검증은 `docs/contracts/백엔드_DB_설계.md`. API 검증은 `docs/contracts/백엔드_API_설계.md`.
 
 클라우드 배포는 `제출_20260901/기획안_원본.md §6`.
 
@@ -159,7 +159,7 @@ N/A로 처리할 때도 그 사실을 증거로 남긴다. 의존 경로가 없�
 - RTO
 - 장애 제거 후 복구
 
-실제 기준과 수치는 `docs/하네스_검증설계.md`를 따른다.
+실제 기준과 수치는 `docs/contracts/하네스_검증설계.md`를 따른다.
 
 ## 부하 검증
 

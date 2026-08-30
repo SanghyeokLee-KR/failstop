@@ -1,6 +1,6 @@
 -- ============================================================================
 -- V8__trades_order_index_and_partitions.sql
--- 원천: docs/백엔드_DB_설계.md v2.16 §3.1(trades 인덱스), §3.2(파티션 유지관리).
+-- 원천: docs/contracts/백엔드_DB_설계.md v2.16 §3.1(trades 인덱스), §3.2(파티션 유지관리).
 -- 목적:
 --   (1) trades order_id 축 조회 인덱스. OrderQueryService.feeStats가
 --       maker_order_id/taker_order_id로 집계하나 해당 축 인덱스가 없어 전 파티션

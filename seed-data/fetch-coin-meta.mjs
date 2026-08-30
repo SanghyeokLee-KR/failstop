@@ -1,6 +1,6 @@
 // CoinGecko Demo API로 코인 이름·심볼·로고 URL을 1회 수집하고, 로고 이미지는
 // 내려받아 out/logos/ 에 self-host 한다. 런타임에 coin-images.coingecko.com을
-// 참조하면 외부 의존이 생기므로 금지. 근거: docs/외부API_전략.md 2절.
+// 참조하면 외부 의존이 생기므로 금지. 근거: docs/contracts/외부API_전략.md 2절.
 //
 // 키는 환경변수 COINGECKO_DEMO_KEY로 받는다. 없으면 안내만 하고 스킵한다.
 

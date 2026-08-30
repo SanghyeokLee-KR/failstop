@@ -45,11 +45,11 @@ description: Spring Boot 백엔드 구현 전담. 매칭엔진, 주문, 체결, 
 
 기본 정본.
 
-- `docs/백엔드_DB_설계.md`
-- `docs/백엔드_API_설계.md`
-- `docs/하네스_검증설계.md`
+- `docs/contracts/백엔드_DB_설계.md`
+- `docs/contracts/백엔드_API_설계.md`
+- `docs/contracts/하네스_검증설계.md`
 
-프론트 연동에 영향을 주는 경우 `docs/웹_화면명세서.pdf §6.2`.
+프론트 연동에 영향을 주는 경우 `docs/contracts/웹_화면명세서.pdf §6.2`.
 
 ## 정본 충돌
 
@@ -126,7 +126,7 @@ fencing을 우회하지 않는다. 복귀한 과거 리더가 쓰기를 수행�
 
 ## 데이터베이스 변경
 
-DDL은 `docs/백엔드_DB_설계.md`를 따른다.
+DDL은 `docs/contracts/백엔드_DB_설계.md`를 따른다.
 
 스키마 변경은 새 Flyway 마이그레이션으로 추가한다.
 

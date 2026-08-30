@@ -1,6 +1,6 @@
 -- ============================================================================
 -- V1__init.sql
--- 원천: docs/백엔드_DB_설계.md v2.6 §3.1.
+-- 원천: docs/contracts/백엔드_DB_설계.md v2.6 §3.1.
 -- 전제: PostgreSQL 17+(파티션드 테이블 IDENTITY 필요), 확장 pgcrypto, 세션 TZ=UTC.
 --       빈 PG17에서 단독 적용 가능해야 한다. 외부 확장(pg_partman/pg_cron) 의존 금지.
 -- 범위: assets, markets, users, api_keys, accounts, balances, orders, trades,

@@ -8,26 +8,26 @@
 
 학교 공지의 필수 조건은 "반드시 배포하여 외부에서 접속 가능한 상태로 서비스할 것"이다(`제출_20260901/기획안_원본.md:340`). 종전 정본은 그 반대를 전제로 서 있었다.
 
-- `docs/하네스_CICD_IaC.md:495` §3-4 표제가 "리소스 계획 (Windows 11 + WSL2 단일 PC), compose 캡과 1:1 정합"이다. 메모리 캡 배분 전체가 한 대의 PC를 나누는 계산이다.
-- 같은 문서 §7-1 시크릿 표에 "Vault는 단일 PC 과설계, 계약 §0-2 허용 범위"가 근거로 적혀 있다(`docs/하네스_CICD_IaC.md:852`).
-- 0dbadb5 직전 판 §7-1 마지막 문단의 첫 문장은 "비채택(근거): 클라우드 OIDC(클라우드 미사용), Vault 서버, Sealed Secrets(GitOps 컨트롤러 부재)."였다(`git show '0dbadb5^:docs/하네스_CICD_IaC.md' | sed -n '857p'`). 클라우드를 쓰지 않는다는 사실이 OIDC 비채택의 유일한 근거였다.
+- `docs/contracts/하네스_CICD_IaC.md:495` §3-4 표제가 "리소스 계획 (Windows 11 + WSL2 단일 PC), compose 캡과 1:1 정합"이다. 메모리 캡 배분 전체가 한 대의 PC를 나누는 계산이다.
+- 같은 문서 §7-1 시크릿 표에 "Vault는 단일 PC 과설계, 계약 §0-2 허용 범위"가 근거로 적혀 있다(`docs/contracts/하네스_CICD_IaC.md:852`).
+- 0dbadb5 직전 판 §7-1 마지막 문단의 첫 문장은 "비채택(근거): 클라우드 OIDC(클라우드 미사용), Vault 서버, Sealed Secrets(GitOps 컨트롤러 부재)."였다(`git show '0dbadb5^:docs/contracts/하네스_CICD_IaC.md' | sed -n '857p'`). 클라우드를 쓰지 않는다는 사실이 OIDC 비채택의 유일한 근거였다.
 
 공지 조건이 그 전제를 무효로 만들면서 요구가 정면 충돌한다. 기획안 §6.1 표가 다섯 축으로 정리한다(`제출_20260901/기획안_원본.md:342-348`). R1 외부 도메인 상시 접속과 R2 커널 계층 장애 주입(tc netem, nftables, SIGSTOP), R3 노드 간 실제 분단, R4 발표 노트북 RAM 8GB, R5 비용 상한이다. R1과 R2·R3는 같은 호스트에서 성립하지 않고, R1과 R5도 서로 민다.
 
 비용 축은 실측 단가로 이미 닫혀 있었다. 상한은 월 100,000원(VAT 포함)이고 단가 원천은 AWS Price List Bulk API 서울 리전 판본 20260824193147이다(§9.1, `:845-846`). 증명면 4노드를 상시 구동하면 730시간에 253,620원이라 상한을 단독으로 2.5배 넘긴다. 65시간 창 구동은 22,583원이다. 11.2배 차다(§9.5, `:917-921`).
 
-이미지 축에는 배포 시점에야 드러날 결함이 있었다. 목표 아키텍처의 노드가 t4g.micro·t4g.medium·c7g.large·t4g.small, 전부 Graviton 계열인데(§6.3, `:408`·`:415`·`:420`) 이미지 빌드 플랫폼 규약은 `linux/amd64` 단독이었다(`docs/하네스_CICD_IaC.md` §0 확정 스택 버전표 이미지 빌드 행, 개정 전 `:23`). 문서가 인용하던 액션 버전 `setup-buildx-action@v4` / `build-push-action@v7` / `metadata-action@v6`은 `image.yml` 실사용값 `@v3` / `@v6` / `@v5`와 어긋나 있었다(`image.yml:70`·`:87`·`:79`). 관리 포트는 9404로 계약돼 있었고 코드 실값은 8081이었다(`server/app/src/main/resources/application.yml:165`).
+이미지 축에는 배포 시점에야 드러날 결함이 있었다. 목표 아키텍처의 노드가 t4g.micro·t4g.medium·c7g.large·t4g.small, 전부 Graviton 계열인데(§6.3, `:408`·`:415`·`:420`) 이미지 빌드 플랫폼 규약은 `linux/amd64` 단독이었다(`docs/contracts/하네스_CICD_IaC.md` §0 확정 스택 버전표 이미지 빌드 행, 개정 전 `:23`). 문서가 인용하던 액션 버전 `setup-buildx-action@v4` / `build-push-action@v7` / `metadata-action@v6`은 `image.yml` 실사용값 `@v3` / `@v6` / `@v5`와 어긋나 있었다(`image.yml:70`·`:87`·`:79`). 관리 포트는 9404로 계약돼 있었고 코드 실값은 8081이었다(`server/app/src/main/resources/application.yml:165`).
 
 ## 결정
 
-1. 클라우드 배포를 채택한다. §7-1의 클라우드 OIDC 비채택을 철회한다(`docs/하네스_CICD_IaC.md:857`).
+1. 클라우드 배포를 채택한다. §7-1의 클라우드 OIDC 비채택을 철회한다(`docs/contracts/하네스_CICD_IaC.md:857`).
 2. 평면을 둘로 나눈다. 상시면은 24시간 가동하고 비파괴 실험만 허용한다. 증명면은 실험·발표 창에서만 세우고 창이 끝나면 파기한다(§6.1 평면 분리 표, `:352-355`). 도면이 그 수단을 `terraform apply` / `destroy`로 적는다(§6.3, `:419`). 다만 Terraform은 §4.4 인프라 스택 표 `:282`에서 선택 칸이 "Terraform (스트레치)"이고 사유 칸이 "예비 시간 조건 충족 시에만 착수"다. 이 결정이 확정하는 것은 창 구동이지 도구가 아니다.
 3. 파괴 실험은 로컬 Rocky VM에서 수렴시키고 확정 회차만 AWS에서 재현한다(§6.1, `:357`). AWS는 리허설 장소가 아니라 본실행 장소다.
 4. GitHub Actions가 AWS에 붙는 경로는 OIDC 페더레이션이다. 장기 액세스 키를 발급하지 않는다(§4.4 `:281`, §7-1 `:857`).
 5. GHCR 이미지는 `image.yml`이 만든다(0dbadb5로 신설). `workflow_run`으로 ci-backend에 잇고(`.github/workflows/image.yml:15-18`), `conclusion == 'success'`를 게이트로 건다(`:37`). 체크아웃 ref와 이미지 태그에 `workflow_run.head_sha`를 명시한다(`:44`, `:83`). 게이트는 `workflow_run` 경로에만 걸린다. `:36`의 `workflow_dispatch` 분기가 ci-backend 결과를 보지 않고 통과시키며, `:19-20`이 그 용도를 수동 재빌드로 한정한다. 수동 디스패치로는 검증 실패 커밋도 이미지가 되고 그 위험은 디스패치를 누르는 사람이 진다.
 6. 플랫폼은 `linux/amd64,linux/arm64` 둘이다(`:91`). 푸시 후 매니페스트에 두 아키텍처가 실제로 들어갔는지 확인하는 단계를 붙인다(`:109-123`).
 7. 배포 대상은 태그가 아니라 digest로 고정한다(`:98-105`).
-8. Vault 서버와 Sealed Secrets는 비채택을 유지하되 Vault의 근거를 교체한다(`docs/하네스_CICD_IaC.md:857`). 같은 문서 `:852`가 아직 "Vault는 단일 PC 과설계"를 근거로 적고 있는데 아래 근거 절 첫 항 규칙에 걸려 무효다. 남는 근거는 시크릿 수 대비 운영면이다.
+8. Vault 서버와 Sealed Secrets는 비채택을 유지하되 Vault의 근거를 교체한다(`docs/contracts/하네스_CICD_IaC.md:857`). 같은 문서 `:852`가 아직 "Vault는 단일 PC 과설계"를 근거로 적고 있는데 아래 근거 절 첫 항 규칙에 걸려 무효다. 남는 근거는 시크릿 수 대비 운영면이다.
 
 ## 근거
 
@@ -56,17 +56,17 @@
 
 ## 영향
 
-- 정본 개정은 세 축이다(0dbadb5). §0 확정 스택 버전표 이미지 빌드 행(`:23`)의 플랫폼과 액션 버전, §7-1 시크릿 계층의 OIDC 판정(`:857`), 관리 포트 9404를 8081로 문서 9곳(치환 10건) 전수 치환이다. 개정 전 판이 9행이고(`git show '0dbadb5^:docs/하네스_CICD_IaC.md' | grep -c '9404'` -> 9), prometheus 타깃 한 행에 api-1·api-2 둘이 있어 치환 건수는 10이다(`git show 0dbadb5 -- "docs/하네스_CICD_IaC.md" | grep '^-.*9404' | grep -o '9404' | wc -l` -> 10). 전수 여부는 `git show '0dbadb5:docs/하네스_CICD_IaC.md' | grep -c '9404'` -> 0이 증명한다. 0dbadb5 커밋 메시지 본문의 "문서 8곳"은 오기다.
+- 정본 개정은 세 축이다(0dbadb5). §0 확정 스택 버전표 이미지 빌드 행(`:23`)의 플랫폼과 액션 버전, §7-1 시크릿 계층의 OIDC 판정(`:857`), 관리 포트 9404를 8081로 문서 9곳(치환 10건) 전수 치환이다. 개정 전 판이 9행이고(`git show '0dbadb5^:docs/contracts/하네스_CICD_IaC.md' | grep -c '9404'` -> 9), prometheus 타깃 한 행에 api-1·api-2 둘이 있어 치환 건수는 10이다(`git show 0dbadb5 -- "docs/contracts/하네스_CICD_IaC.md" | grep '^-.*9404' | grep -o '9404' | wc -l` -> 10). 전수 여부는 `git show '0dbadb5:docs/contracts/하네스_CICD_IaC.md' | grep -c '9404'` -> 0이 증명한다. 0dbadb5 커밋 메시지 본문의 "문서 8곳"은 오기다.
 - `deploy/` 오버레이는 미검증이다. 실제 다중 호스트에서 기동한 적이 없고, 검증 전까지 "배포 가능"으로 읽지 않는다(`deploy/README.md:36-39`).
 - 오버레이 파일 2건이 결손이다. 정본 §6.9 파일 트리가 `compose.base.yml`(`:549`)과 `compose.local.yml`(`:550`)을 규정하는데(`제출_20260901/기획안_원본.md:548-554`) `git ls-files deploy/`에 둘 다 없다. `deploy/README.md:11`은 `compose.base.yml`만 표에 올리고 있어 `compose.local.yml` 결손은 README에서도 드러나지 않는다. 골격을 완성하는 쪽이 기본이다. 표에서 내리는 선택지는 정본 §6.9 개정을 동반해야 성립한다.
 - prod 프로파일은 배포 당일 처음 켜진다. 저장소 전체에서 prod를 활성화하는 지점이 0이었다. 부팅 중단 조건 5건을 실측했고 다섯 변수를 채워야 뜬다(`deploy/README.md:59-77`).
 - `prod,admin` 조합은 운영 PKI 실물 없이 기동하지 않는다. 상시면에 관리 평면을 함께 올리려면 인증서 발급이 선행돼야 한다(`deploy/README.md:79-82`).
 - 도메인 `sang.it.kr`의 A 레코드가 미설정이다. 웹 빌드 파라미터 3종이 도메인 확정에 묶여 있고, 그중 값이 도메인에 직접 종속되는 것은 `NEXT_PUBLIC_WS_BASE=wss://sang.it.kr` 1종이다. 나머지 둘은 `NEXT_PUBLIC_API_BASE=""`와 `NEXT_PUBLIC_DATASOURCE=http`로 도메인과 무관한 상수다(`deploy/README.md:28-34`, 정본 §6.7 `:514-516`).
 - `deploy.yml`은 아직 없다. 현재 워크플로는 ci-backend, ci-web, image, style 4종이다(`git ls-files .github/workflows/` -> 4). 기획안 §6.10이 요구하는 배포 워크플로와 무중단 롤링 10단계가 미착수 잔여다(`:557-590`).
-- 정본 개정 잔여 4건이 남는다. 0dbadb5가 고친 파일은 `image.yml`, `deploy/README.md`, `docs/하네스_CICD_IaC.md` 3건뿐이라(`git show 0dbadb5 --stat`) 아래는 손대지 않았다.
+- 정본 개정 잔여 4건이 남는다. 0dbadb5가 고친 파일은 `image.yml`, `deploy/README.md`, `docs/contracts/하네스_CICD_IaC.md` 3건뿐이라(`git show 0dbadb5 --stat`) 아래는 손대지 않았다.
   - 기획안 `:559` "현행 워크플로 3종은 빌드 검증에서 끝난다. 2종을 추가한다"는 `image.yml` 신설 전 상태다. 4종·1종 추가로 고친다.
   - 기획안 `:563`이 `image.yml` 트리거를 "main push (server/**)"로 계약하는데 실제는 `workflow_run`(ci-backend completed) + `workflow_dispatch`다(`image.yml:14-20`). 앞 항과 이 항은 CLAUDE.md `:45` "정본 문서. 코드가 문서와 어긋나면 문서를 먼저 고치고 코드를 맞춘다."에 걸린다.
-  - `docs/하네스_CICD_IaC.md:852`의 Vault 비채택 근거 "단일 PC 과설계"를 결정 8의 근거로 교체한다. 코드와의 불일치가 아니라 폐기된 전제가 근거로 남은 경우다.
+  - `docs/contracts/하네스_CICD_IaC.md:852`의 Vault 비채택 근거 "단일 PC 과설계"를 결정 8의 근거로 교체한다. 코드와의 불일치가 아니라 폐기된 전제가 근거로 남은 경우다.
   - 같은 문서 `:23` §0 확정 스택 버전표 이미지 빌드 행이 "종전 v4/v7/v6은 실재하지 않는 태그였다"로 적고 있는데 사실이 아니다. 2026-08-30 조회로 `gh api repos/docker/setup-buildx-action/tags --paginate --jq '.[].name' | grep -cx v4` -> 1이고 `build-push-action`의 `v7`, `metadata-action`의 `v6`도 각각 1이다. 세 태그 모두 실재한다. "실사용값과 불일치"로 낮춘다. 0dbadb5 커밋 메시지 본문에도 같은 문장이 있으나 이력이라 고치지 않는다.
 - Terraform이 §4.4 `:282`에서 스트레치로 남아 있는데 정본에 증명면 생성·파기의 대체 수단이 없다(`grep -n 'Terraform\|terraform' "제출_20260901/기획안_원본.md"` -> `:282`, `:419`, `:1216` 셋뿐). 예비 시간 조건 미충족 시 무엇으로 세울지가 미정 잔여다.
 - OIDC 신뢰 관계 설정은 AWS 계정 측 작업이라 저장소만으로 완결되지 않는다. IAM 역할과 신뢰 정책의 리포지토리·브랜치 조건이 후속이다.

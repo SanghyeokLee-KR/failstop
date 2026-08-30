@@ -1,7 +1,7 @@
 // Upbit Open API(공개 Quotation, 키 불필요)로 시드 데이터를 1회 수집한다.
 // 원본 시세는 저작권이 Upbit에 있어 재배포하지 않는다. 마켓 목록과 일 캔들에서
 // 시뮬레이션 초기값(시드가)과 통계 파라미터(변동성·드리프트·유동성)만 추출해 저장한다.
-// 근거: docs/외부API_전략.md 1절.
+// 근거: docs/contracts/외부API_전략.md 1절.
 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

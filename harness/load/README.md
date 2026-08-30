@@ -2,7 +2,7 @@
 
 시스템 완전 외부에서 개방 루프(ramping-arrival-rate)로 주문·조회를 주입하고,
 coordinated-omission 없는 p99를 계측한다. thresholds 위반 시 non-zero exit로 실험/CI를
-FAIL 판정한다. 정본: `../../docs/하네스_검증설계.md` §2-2·§6, `../../docs/하네스_CICD_IaC.md` §6-1.
+FAIL 판정한다. 정본: `../../docs/contracts/하네스_검증설계.md` §2-2·§6, `../../docs/contracts/하네스_CICD_IaC.md` §6-1.
 
 봇 플릿(시장 형성·배경 부하)과 직교한다. 봇은 폐쇄 루프로 시장을 만들고, k6는 그 위에
 개방 루프 스파이크를 중첩해 외부 관점 SLO·다운타임을 계측한다.

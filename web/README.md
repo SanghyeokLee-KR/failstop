@@ -4,7 +4,7 @@
 
 ## 화면 정책 (고정형 데스크톱 전용)
 
-docs/데스크톱_레이아웃설계.md §4가 정본.
+docs/contracts/데스크톱_레이아웃설계.md §4가 정본.
 
 - 최소 지원 폭 1280px. body에 `min-width: 1280px`, 더 좁은 뷰포트는 레이아웃을 접지 않고 가로 스크롤로 열람만 가능하다.
 - 반응형 리플로우 없음, 모바일 미지원. 가로 미디어 쿼리를 두지 않는다.
@@ -50,7 +50,7 @@ cd /tmp/webbuild/web && npm run build
 | `/system` | 구 공개 시스템 상태. 관리 평면 이관 안내로 대체(내부 지표 미노출) | 없음 |
 | `/market`, `/coin/[market]`, `/order/[market]` | 구 경로. `/exchange`로 클라이언트 리다이렉트(딥링크 보존, `/order`는 side·price 쿼리 승계) | 없음 |
 
-관리 평면(`/admin`, 거래 UI와 분리된 AdminLayout · 공개 HeaderNav 미사용). 정본 `../docs/관리자_설계.md`.
+관리 평면(`/admin`, 거래 UI와 분리된 AdminLayout · 공개 HeaderNav 미사용). 정본 `../docs/product/관리자_설계.md`.
 
 | 라우트 | 화면 | 권한·승인 |
 |---|---|---|
@@ -67,7 +67,7 @@ cd /tmp/webbuild/web && npm run build
 - 색 도메인: 관리 평면은 헬스 색(success/warning/danger)만 쓰고 시세색(up/down)을 차용하지 않는다. 상태는 색 단독 금지, 아이콘·라벨 병기.
 - 시스템 내부 상태는 관리 평면으로 이관했다. 공개 HeaderNav의 "시스템 상태" 링크를 제거하고 `/admin/*`에서는 HeaderNav를 렌더하지 않는다.
 
-홈 대시보드 상세는 ../docs/대시보드_설계.md. HeaderNav 첫 항목·로고가 `/home`을 가리킨다.
+홈 대시보드 상세는 ../docs/product/대시보드_설계.md. HeaderNav 첫 항목·로고가 `/home`을 가리킨다.
 
 동적 라우트는 `generateStaticParams`로 마켓 12종(KRW-BTC, ETH, SOL, XRP, DOGE, ADA, TRX, LINK, DOT, MATIC, AVAX, ATOM)을 사전 생성한다. 뒤 6종은 대시보드 순위·집계를 채우기 위한 sim 전용 확장이며 백엔드와 무관하다(http 모드는 백엔드 마켓만 노출). 마켓 추가는 `lib/sim/engine.ts`의 `SEEDS` 수정으로 끝난다.
 
@@ -119,21 +119,21 @@ web/
 │  ├─ admin/             # 관리 평면 셸·조각(AdminLayout·AdminSidebar·OperatorBar·AdminLogin·RoleBadge·RequestButton·ApprovalList·ui + admin.module.css)
 │  └─ SymbolChip / ThemeToggle
 ├─ lib/
-│  ├─ types.ts           # 백엔드 API 계약(docs/백엔드_API_설계.md) 타입·채널 스키마 미러 + dest() 헬퍼
+│  ├─ types.ts           # 백엔드 API 계약(docs/contracts/백엔드_API_설계.md) 타입·채널 스키마 미러 + dest() 헬퍼
 │  ├─ api/datasource.ts  # 고객 평면 DataSource 인터페이스 + SimDataSource + getDataSource() 싱글턴
 │  ├─ admin/             # 관리 평면 계약. api.ts(AdminApi)+simAdmin·httpAdmin+types·roles·catalog·store. 고객 평면과 분리
 │  ├─ sim/engine.ts      # 클라이언트 시뮬레이터(GBM 가격 모델, 호가/체결/주문 매칭)
 │  ├─ store.ts           # zustand 스토어 + useLiveChannels 구독 훅
 │  └─ format.ts          # Intl.NumberFormat('ko-KR') 포매터
 ├─ styles/tokens.css     # 디자인 계약 §1~5. 글자 그대로 소비, 수정 금지
-└─ docs 참조: ../docs/프론트_디자인시스템.md, ../docs/데스크톱_레이아웃설계.md
+└─ docs 참조: ../docs/contracts/프론트_디자인시스템.md, ../docs/contracts/데스크톱_레이아웃설계.md
 ```
 
 의존성: `next` `react` `react-dom` `typescript` `pretendard`(self-host) `lightweight-charts` `klinecharts` `zustand`. 이외 추가 금지.
 
-차트 이원화(설계 `../docs/차트_기술적분석_설계.md`). 메인 거래 화면 차트는 `klinecharts`(지표·그리기 내장, 순수 canvas, 런타임 외부 호출 0)로 `components/chart/TradingChart`에서 렌더하고 `ChartPanel`이 `next/dynamic` `ssr:false`로 로드해 코드 스플릿한다. 대시보드 미니 캔들·스팟라이트는 기존 `lightweight-charts`(`CandleChart`)를 유지한다. 두 라이브러리는 화면별로 격리돼 서로의 청크를 내려받지 않는다. 캔들은 지금 체결(trade) 합성 폴백으로 생성하며 백엔드 캔들 채널이 준비되면 `candleStream.ts` 내부 교체로 승격한다.
+차트 이원화(설계 `../docs/product/차트_기술적분석_설계.md`). 메인 거래 화면 차트는 `klinecharts`(지표·그리기 내장, 순수 canvas, 런타임 외부 호출 0)로 `components/chart/TradingChart`에서 렌더하고 `ChartPanel`이 `next/dynamic` `ssr:false`로 로드해 코드 스플릿한다. 대시보드 미니 캔들·스팟라이트는 기존 `lightweight-charts`(`CandleChart`)를 유지한다. 두 라이브러리는 화면별로 격리돼 서로의 청크를 내려받지 않는다. 캔들은 지금 체결(trade) 합성 폴백으로 생성하며 백엔드 캔들 채널이 준비되면 `candleStream.ts` 내부 교체로 승격한다.
 
-## 디자인 계약 요약 (../docs/프론트_디자인시스템.md)
+## 디자인 계약 요약 (../docs/contracts/프론트_디자인시스템.md)
 
 - 상승/매수 = Red, 하락/매도 = Blue(한국 관례, 반전 금지). 방향은 색 단독 금지, 항상 색 + 부호(+/−) + 화살표(▲▼) 병기.
 - green은 시스템 성공 전용(체결완료·헬스 정상). 가격 방향 사용 금지. 시스템 장애는 `--color-danger`(crimson, up-red와 hue 분리).
@@ -150,7 +150,7 @@ web/
 모든 화면은 `lib/api/datasource.ts`의 `DataSource` 인터페이스만 소비한다. 백엔드가 준비되면 `SimDataSource`를 REST/STOMP 어댑터로 교체한다. 화면·스토어 코드 수정 불필요.
 
 1. 어댑터 구현: `lib/api/http-stomp.ts`(신규)에 `class HttpStompDataSource implements DataSource`.
-   - REST 메서드(`getMarkets`/`getTicker`/`getOrderbook`/`getTrades`/`getCandles`/`getAccounts`/`getOpenOrders`/`getClosedOrders`/`placeOrder`/`cancelOrder`)는 `fetch`로 `docs/백엔드_API_설계.md` §4 엔드포인트 호출. 응답 타입은 `lib/types.ts`가 계약을 미러하므로 그대로 사용.
+   - REST 메서드(`getMarkets`/`getTicker`/`getOrderbook`/`getTrades`/`getCandles`/`getAccounts`/`getOpenOrders`/`getClosedOrders`/`placeOrder`/`cancelOrder`)는 `fetch`로 `docs/contracts/백엔드_API_설계.md` §4 엔드포인트 호출. 응답 타입은 `lib/types.ts`가 계약을 미러하므로 그대로 사용.
    - `subscribe(destination, cb)`는 STOMP 클라이언트(`@stomp/stompjs` 추가 필요)로 동일 destination(`lib/types.ts`의 `dest` 헬퍼가 §5-3 경로 생성)을 구독하고 unsubscribe 함수를 반환. 구독 즉시 snapshot 1건 수신(§5-2) 계약을 서버가 보장해야 화면 로딩 로직이 그대로 동작한다.
    - `onConnectionChange(cb)`는 STOMP 세션 연결/단절을 통지. HeaderNav 연결 점의 데이터 소스.
    - `connect`/`disconnect`는 STOMP 세션 수립/해제. orderbook은 `seq` gap 감지 시 `getOrderbook` 재스냅샷.

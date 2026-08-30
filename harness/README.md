@@ -4,7 +4,7 @@
 데모 스택(PG 5432·Spring 8080·web 3000)을 건드리지 않는다. 컨테이너명 `chaos-*`,
 포트·볼륨·네트워크 전부 분리.
 
-정본: `../docs/하네스_검증설계.md`(C01~C25·E1~E9·실험 판정 프로토콜·RTO), `../docs/하네스_CICD_IaC.md`.
+정본: `../docs/contracts/하네스_검증설계.md`(C01~C25·E1~E9·실험 판정 프로토콜·RTO), `../docs/contracts/하네스_CICD_IaC.md`.
 
 ## 구성
 
@@ -51,7 +51,7 @@ pwsh -File scripts/e6-spike-failover.ps1
 pwsh -File scripts/down.ps1          # 전체 볼륨 파기(append-only 선별 리셋 금지)
 ```
 
-실험 번호는 `docs/하네스_검증설계.md` §3 정본과 1:1이다(M4 §0-3 개명 완료).
+실험 번호는 `docs/contracts/하네스_검증설계.md` §3 정본과 1:1이다(M4 §0-3 개명 완료).
 
 | 실험(docs §3) | 스크립트 | 비고 |
 |---|---|---|

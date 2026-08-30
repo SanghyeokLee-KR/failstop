@@ -1,5 +1,5 @@
 /**
- * lib/admin/types.ts. 관리 평면 도메인 타입 (docs/관리자_설계.md v1.1 + 백엔드 admin 계약 미러).
+ * lib/admin/types.ts. 관리 평면 도메인 타입 (docs/product/관리자_설계.md v1.1 + 백엔드 admin 계약 미러).
  * 고객 평면(lib/types.ts)과 자격·세션·색 도메인을 공유하지 않는다.
  * 금액·수수료·수량·파라미터는 문자열(NUMERIC(40,18) 정밀도 보존), float 금지.
  */
