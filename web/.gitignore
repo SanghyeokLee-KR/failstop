@@ -19,6 +19,9 @@ yarn-error.log*
 
 # env files
 .env*
+# 프로덕션 기본값은 추적한다. 이 값이 없으면 배포 번들이 시뮬레이터로 굳는데
+# 빌드도 기동도 성공해 검출 지점이 없다. 값에 비밀이 없어 공개해도 안전하다.
+!.env.production
 
 # typescript
 *.tsbuildinfo

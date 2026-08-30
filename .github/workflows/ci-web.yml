@@ -47,6 +47,36 @@ jobs:
       # next build가 권위 타입 검사 + 정적 export를 겸한다. output:'export'라 별도 export 단계 불요.
       - run: npm run build
 
+      # 데이터소스가 배포 번들에 http로 굳었는지 확인한다.
+      #
+      # NEXT_PUBLIC_DATASOURCE는 빌드 타임에 인라인된다. 값이 없거나 sim이면 어댑터가
+      # 클라이언트 시뮬레이터로 굳어 승인·HA·복구 화면이 전부 가짜 데이터가 된다.
+      # 빌드도 기동도 성공하고 화면도 그럴듯해서 검출 지점이 없다. 종전에는 이 설정이
+      # .gitignore 대상인 .env.local에만 있어 CI와 새 체크아웃에서 sim으로 빌드됐다.
+      #
+      # 심볼 대조는 성립하지 않는다. createDataSource가 두 어댑터를 정적 임포트하므로
+      # 조건이 인라인돼도 양쪽 코드가 번들에 남는다(실측: sim 시드와 STOMP 목적지가
+      # 동시에 존재). 클래스명은 난독화돼 이름으로도 못 가른다.
+      #
+      # 그래서 원천을 본다. 이 파일이 빌드 입력이고 값이 이것 하나뿐이다.
+      - name: verify datasource source of truth
+        working-directory: web
+        run: |
+          set -e
+          test -f .env.production || {
+            echo "::error::web/.env.production이 없다. 배포 번들이 시뮬레이터로 굳는다."
+            exit 1
+          }
+          grep -qx 'NEXT_PUBLIC_DATASOURCE=http' .env.production || {
+            echo "::error::.env.production의 NEXT_PUBLIC_DATASOURCE가 http가 아니다."
+            cat .env.production
+            exit 1
+          }
+          git ls-files --error-unmatch .env.production >/dev/null 2>&1 || {
+            echo "::error::.env.production이 추적되지 않는다. .gitignore의 !.env.production 예외를 확인하라."
+            exit 1
+          }
+
       # 정적 export 산출물 확인. out/ 비었거나 index.html 부재면 완료 게이트 미달로 실패시킨다.
       - name: verify static export
         run: |
