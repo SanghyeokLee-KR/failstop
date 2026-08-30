@@ -28,6 +28,8 @@ python -c "from docx2pdf import convert; convert('기획안.docx', '기획안.pd
 Pop-Location
 
 Step '4/4 요약 pptx'
+# pptxgenjs 는 전역 설치라 Node 가 기본 경로로 못 찾는다
+$env:NODE_PATH = Join-Path $env:APPDATA 'npm/node_modules'
 # deck.js 는 도면 PNG 를 상대 경로로 읽는다. diagram 에서 실행해야 찾는다
 Push-Location $Diagram
 node (Join-Path $Build 'deck.js')

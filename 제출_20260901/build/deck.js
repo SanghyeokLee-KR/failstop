@@ -162,29 +162,32 @@ s.addNotes('운영과 보안은 설정했다는 말로는 증거가 되지 않�
 
 /* ---------- 7 검증 계획 ---------- */
 s = P.addSlide(); s.background={color:PAPER};
-head(s,7,'검증 계획','지금까지의 네트워크 실험은 전부 프록시 모사이고 커널 주입이 아니다');
-const EX=[['E1','PG 지연','PASS'],['E2','DB 단절','PASS'],['E3','Redis 장애','SKIP 유효'],
- ['E4','리더 kill','재측정'],['E5','네트워크 분단','PASS'],['E6','폭주+kill','PASS'],
- ['E7','그레이 장애','PASS'],['E8','앱 assault','배선'],['E9','커밋 단절','PASS'],['E10','tc netem','신규']];
-EX.forEach((e,i)=>{ const x=M+(i%5)*(CW/5), y=1.78+Math.floor(i/5)*1.12, w=CW/5-0.16;
-  const st=e[2], fill = st==='PASS'?'E4EDE8' : st==='신규'?'F6E9E7' : PANEL;
-  const col = st==='PASS'?OK : st==='신규'?RED : MUTE;
-  card(s,x,y,w,0.92,fill);
-  s.addText(e[0],{x:x+0.14,y:y+0.08,w:w-0.28,h:0.28,fontFace:KO,fontSize:13,bold:true,color:INK,margin:0});
-  s.addText(e[1],{x:x+0.14,y:y+0.36,w:w-0.28,h:0.26,fontFace:KO,fontSize:10,color:BODY,margin:0});
-  s.addText(st,{x:x+0.14,y:y+0.6,w:w-0.28,h:0.26,fontFace:KO,fontSize:10,bold:true,color:col,margin:0});
-});
-['사전 권위 run','장애 주입','무개입 관찰','사후 권위 run'].forEach((t,i)=>{
-  const x=M+i*(CW/4), w=CW/4-0.3;
-  s.addShape(P.ShapeType.roundRect,{x,y:4.28,w,h:0.46,rectRadius:0.08,fill:{color:DARK}});
-  s.addText(t,{x,y:4.28,w,h:0.46,fontFace:KO,fontSize:11.5,bold:true,color:PAPER,align:'center',valign:'middle',margin:0});
-  if(i<3) s.addShape(P.ShapeType.line,{x:x+w+0.04,y:4.51,w:0.22,h:0,line:{color:MUTE,width:1.25,endArrowType:'triangle'}});
-});
-bullets(s,['라이브 PASS 5건. E5·E7은 C01~C23 전건 0위반',
-  'E10 tc netem 커널 주입을 신규 추가한다',
-  'k6 시나리오 4종은 실재하나 실행 배선 0건이라 이번에 닫는다',
-  '실험 산출물을 파일로 보존해 증거 휘발을 막는다'], M, 5.22, CW, 13);
-s.addNotes('실험 9종이 이미 배선돼 있고 라이브 통과가 5건입니다. 다만 지금까지의 네트워크 실험은 프록시 레벨 모사이지 커널 주입이 아닙니다. 그래서 tc netem으로 실제 커널에 지연과 손실을 넣는 E10을 새로 추가합니다. 판정은 주입 전후로 권위 검증을 한 번씩 돌려 대조하는 방식입니다.');
+head(s,7,'검증 계획','장애를 일부러 내고 데이터가 맞는지 확인한다. 예상과 실측을 같은 행에서 대조한다');
+// 카드 격자를 표로 바꾼다. 격자는 상태만 보이고 무엇을 확인했는지가 안 보인다
+const EX=[
+ ['E1','시스템을 일부러 느리게 해도 멈추지 않고 빠르게 정상화되는지 확인','PASS · 2.06초 만에 복구','ok'],
+ ['E2','저장소 연결이 끊겨도 데이터 유실 없이 새 대표가 정상 전환되는지 확인','PASS · 약 13.9초 만에 복구','ok'],
+ ['E3','Redis가 중단돼도 핵심 서비스에 영향이 없는지 확인','정상 SKIP · 실제 의존 관계 없음','na'],
+ ['E4','대표 서버가 갑자기 죽어도 30초 안에 자동 복구되는지 확인','미확인 · 기준 변경 후 재시험 필요','todo'],
+ ['E5','대표 서버의 네트워크가 끊겨도 새 대표로 안전하게 전환되는지 확인','PASS · 약 12초 만에 복구, 오류 0건','ok'],
+ ['E6','높은 부하 중 대표 서버가 죽어도 서비스가 계속 유지되는지 확인','PASS · 0.107초 만에 복구','ok'],
+ ['E7','대표 서버가 멈췄다가 다시 살아나도 잘못된 처리가 발생하지 않는지 확인','PASS · 약 10초 만에 복구, 오류 0건','ok'],
+ ['E8','앱 내부에 오류를 일부러 발생시켜도 정상 복구되는지 확인','준비 완료 · 라이브 기록 아직 없음','na'],
+ ['E9','처리 완료 후 응답만 끊겨도 중복 처리가 발생하지 않는지 확인','PASS · 다만 증거 신뢰도는 낮음','ok'],
+ ['E10','실제 네트워크 장애를 만들어도 데이터 오류 없이 원인을 확인할 수 있는지 검증','미실시 · 09-30 ~ 10-06 목표','todo'],
+];
+const CLR={ok:OK, na:MUTE, todo:RED};
+const th7=['항목','한 줄 요약','결과'].map(t=>({text:t,options:{bold:true,color:PAPER,fill:{color:DARK},fontSize:10.5}}));
+const rows7=EX.map(e=>[
+  {text:e[0],options:{bold:true,color:INK,fontSize:10.5,align:'center'}},
+  {text:e[1],options:{color:BODY,fontSize:10}},
+  {text:e[2],options:{bold:true,color:CLR[e[3]],fontSize:10}},
+]);
+s.addTable([th7,...rows7],{x:M,y:1.62,w:CW,colW:[0.78,7.55,3.76],fontFace:KO,
+  border:{type:'solid',color:LINE,pt:0.5},rowH:0.33,valign:'middle',margin:[3,7,3,7]});
+bullets(s,['라이브 PASS 6건. E5·E7은 불변식 C01~C23 전건 0위반이었다',
+  'E1~E9는 전부 프록시 모사다. 커널에 직접 넣는 것은 E10이 처음이다'], M, 5.42, CW, 12.5);
+s.addNotes('실험 열 종입니다. 왼쪽이 무엇을 확인하는 실험인지, 오른쪽이 실제로 나온 결과입니다. 라이브 통과가 여섯 건이고 그중 E5와 E7은 불변식 스물세 개가 전건 0위반이었습니다. 복구됐다는 사실과 데이터가 맞다는 사실을 같은 실행 안에서 함께 판정했다는 뜻입니다. 빨간 두 줄이 남은 일입니다. E4는 리더 킬인데 측정 기준이 8월 18일에 바뀐 뒤 재측정을 안 했습니다. 옛 숫자를 그대로 쓰면 거짓이 되므로 이 계획서에 수치로 적지 않았습니다. E10은 지금까지와 층위가 다릅니다. E1부터 E9까지는 전부 프록시가 느린 척 끊긴 척한 모사이고, tc netem 은 리눅스 커널 큐에 직접 지연과 손실을 넣습니다. 그게 실제 네트워크 장애와 같은 층위입니다.');
 
 /* ---------- 8 일정 ---------- */
 s = P.addSlide(); s.background={color:DARK};
