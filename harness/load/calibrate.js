@@ -12,7 +12,10 @@
 //   http_req_duration                            = 서버 응답 시간
 import { placeOrder, readMarket } from './order_flow.js';
 
-const BASE_OPS = parseInt(__ENV.BASE_OPS || '300', 10);
+// 기본값을 확정 기저로 둔다. 종전 300은 §2-4가 실측으로 치환하기 전의 명목치다.
+// 엔진 직렬 처리율이 40~42/s라 300은 30배 초과 주입이고, BASE_OPS를 빼먹은 주행이
+// 계측이 아니라 포화 시험이 된다. 상한 탐색은 명시 인자로 한다.
+const BASE_OPS = parseInt(__ENV.BASE_OPS || '10', 10);
 // 조회는 주문의 배수로 함께 움직인다. 정본 시나리오 비(주문 300 : 조회 500)를 유지한다.
 const READ_RATIO = parseFloat(__ENV.READ_RATIO || '1.667');
 const DURATION = __ENV.CAL_DURATION || '30m';
@@ -66,7 +69,10 @@ export const options = {
     // 시스템 태그 scenario는 cal_orders 그대로라, 재조회의 200(이미 접수 확인)이 멱등 재생으로,
     // 429(재조회 버킷 백프레셔)가 수용 거절로 계상됐다. order_flow.js의 가용성 임계가 같은
     // 결함을 name 태그로 교정한 선례를 승계한다.
-    'http_reqs{scenario:cal_orders,name:placeOrder,status:201}': [],
+    // 접수가 한 건도 없으면 제공 부하가 전부 거절됐다는 뜻이다. 상한 탐색에서도
+    // 접수 0은 용량이 아니라 고장이다. C0b가 비율을 보고 이 축은 존재를 본다.
+    // 같은 키를 아래에 다시 선언하면 뒤가 앞을 덮는다(JS 객체 리터럴). 여기에 직접 건다.
+    'http_reqs{scenario:cal_orders,name:placeOrder,status:201}': ['count>0'],
     'http_reqs{scenario:cal_orders,name:placeOrder,status:429}': [],
     // 200은 멱등 재생이다(API§7-6). 엔진을 거치지 않으므로 부하로 계상하면 안 된다.
     // 이 값이 크면 client_order_id 공간이 이전 주행과 겹쳤다는 뜻이다(RUN_ID 확인).
@@ -82,6 +88,19 @@ export const options = {
     // 재조회를 주문 축에서 뺀 것이 관측을 버린다는 뜻이 되면 안 되므로 별도 축으로 남긴다.
     // 캘리브레이션에서 이 값이 0이 아니면 주문 경로에 5xx·타임아웃이 있었다는 뜻이다.
     'http_reqs{name:lookup}': [],
+
+    // 여기부터는 실제 임계다. 위 빈 배열은 서브메트릭 생성 지시일 뿐이라 k6가 어떤
+    // 상태에서도 종료코드 0을 낸다. calibrate.ps1의 C0가 그 종료코드를 보므로, 계측
+    // 주행 자체가 헛돌아도 C0는 통과했다. 판정 대상이 없는데 판정이 통과하는 상태다.
+    //
+    // 계측 주행에 SLO를 걸지 않는다. 상한을 찾는 것이 목적이라 느린 것은 결과지 실패가
+    // 아니다. 대신 "이 주행이 실제로 돌았는가"만 양성 증거로 건다.
+    //
+    // 주문 경로가 한 번도 안 돈 주행은 계측이 아니다. 시나리오 미기동·인증 실패·
+    // 키 파일 손상이 여기 걸린다. 하한은 최소 주행(1분 x 최저 기저)에서도 넘도록 낮게
+    // 두되 0보다는 커야 한다. 0으로 두면 k6가 표본 0을 통과로 처리해 축이 무의미해진다.
+    'http_reqs{scenario:cal_orders,name:placeOrder}': ['count>0'],
+    'http_reqs{scenario:cal_reads}': ['count>0'],
   },
 };
 
