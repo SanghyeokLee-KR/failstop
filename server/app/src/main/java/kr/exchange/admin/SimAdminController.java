@@ -386,8 +386,25 @@ public class SimAdminController {
             markets.add(row);
         }
         boolean present = governor != null || fleet != null;
+        // 거버너가 없으면 이 JVM에서는 적용할 대상이 없다. 봇은 별도 프로파일 JVM이고
+        // 관리 평면은 물리 분리돼 있어(관리자 설계 §0) 그 빈이 없기 때문이다. 종전에는
+        // 감사 로그와 fleet_present:false만 남고 봇이 그대로였다. 실측(2026-08-29):
+        // spike 프리셋 활성화가 아무 효과도 내지 못했다.
+        // sim_commands(V22)에 의도를 남기면 봇 JVM의 SimCommandConsumer가 집어 적용한다.
+        // chaos_commands가 같은 평면 분리 문제를 푼 방식과 같다.
+        long queuedId = 0;
+        if (!present) {
+            queuedId = jdbc.sql("""
+                            INSERT INTO sim_commands (action, payload, requested_by)
+                            VALUES ('scenario', ?, ?)
+                            RETURNING id
+                            """)
+                    .params(scenario.wireName(), principal.operatorId())
+                    .query(Long.class).single();
+        }
 
         Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("queued_command_id", queuedId);
         detail.put("scenario", scenario.wireName());
         detail.put("target_ops", String.valueOf(targetOps));
         detail.put("base_ops", String.valueOf(baseOps));
@@ -407,6 +424,9 @@ public class SimAdminController {
         out.put("markets", markets);
         out.put("clamped", clamped);
         out.put("fleet_present", present);
+        // 거버너 부재 시 큐에 남긴 명령 id. 호출자가 이 값으로 적용 여부를 추적한다.
+        // 0이면 이 JVM이 직접 적용했다는 뜻이다.
+        out.put("queued_command_id", queuedId);
         return out;
     }
 

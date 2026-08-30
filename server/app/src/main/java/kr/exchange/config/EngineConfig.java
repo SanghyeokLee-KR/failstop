@@ -152,16 +152,23 @@ public class EngineConfig {
                                          LeaderLeaseService leaderLeaseService,
                                          SnapshotStore snapshotStore,
                                          SnapshotProperties snapshotProps,
-                                         MeterRegistry meterRegistry) {
+                                         MeterRegistry meterRegistry,
+                                         JdbcClient jdbcClient) {
         // 크래시 창 재적재는 라이브 sink와 동일한 append+정산 원자 경로를 쓴다(§5.5 ②).
         // 스냅샷 활성 시 로드 후 tail 재생으로 복구·승격 재생량을 상한한다(§3-b).
         // 재생 명령 수 Counter(§5-2). 부팅 복구·승격 재생 모두 recover를 거치므로 단일 관측점이다.
         io.micrometer.core.instrument.Counter replayCommands = io.micrometer.core.instrument.Counter
                 .builder("exchange.journal.replay.commands")
                 .description("복구·승격 재생으로 재적용한 명령 수").register(meterRegistry);
-        return new EngineRecovery(replayService, settlementService::appendAndSettle,
+        EngineRecovery recovery = new EngineRecovery(replayService,
+                settlementService::appendAndSettle,
                 leaderLeaseService, snapshotProps.enabled() ? snapshotStore : null,
                 replayCommands::increment);
+        // C17(재생 결정론) 원천. 이 기록자가 없으면 recovery_runs가 늘 0행이라 판정 SQL이
+        // 빈 테이블 대조로 공허 통과한다. 검증은 ReplayService가 이미 하고 여기서는 그
+        // 결과를 표로 남길 뿐이다.
+        recovery.setRecoveryRecorder(new kr.exchange.harness.RecoveryRunRecorder(jdbcClient));
+        return recovery;
     }
 
     // 주기 스냅샷 캡처. 라이터 명령 경계 훅으로 인코딩하고 별도 워커가 영속화한다(§3-b).

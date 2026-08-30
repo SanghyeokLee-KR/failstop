@@ -88,7 +88,27 @@ public class LoadKeySeeder {
             bootstrap.deposit(userId, baseAsset, baseAmount);
         }
 
+        // 기존 활성 키를 먼저 회수한다. uq_apikey_active가 (user_id, label) 활성 유일이라
+        // 회수 없이 재발급하면 duplicate key로 500이 난다. 실측(2026-08-30): 재호출이
+        // 500을 냈고 호출자가 응답 본문으로 키 파일을 덮어써 시크릿을 잃었다. 시크릿은
+        // 발급 시점에만 평문이라 복구 경로가 없다.
+        // 회수 후 재발급이 옳은 이유. 이 경로는 하네스 전용이고 호출 의도가 "지금 쓸 수 있는
+        // 키를 달라"이다. 기존 키를 돌려줄 수는 없다(enc_secret은 마스터 키로 암호화).
+        jdbc.sql("UPDATE api_keys SET deleted_at = now() "
+                        + "WHERE user_id = ? AND label = 'k6-load' AND deleted_at IS NULL")
+                .params(userId).update();
         DemoKeySeeder.IssuedKey key = keys.issue(userId, "TRADE", "k6-load");
+        // harness.loadtest_accounts 매핑을 함께 적재한다(검증설계 §2-5). C16(ACK 원장이
+        // command_journal의 부분집합인가)은 k6 stdout의 ACK 라인을 loadtest_acks로 넣어야
+        // 성립하는데, 그 적재가 access_key를 user_id로 바꾸는 단계를 거친다. 이 표가 비면
+        // 변환이 불가능해 loadtest_acks가 0행이 되고, C16 조인이 빈 테이블 대조로 공허
+        // 통과한다. 판정이 통과했는데 판정 대상이 없는 상태다.
+        jdbc.sql("""
+                        INSERT INTO harness.loadtest_accounts (access_key, user_id)
+                        VALUES (?, ?)
+                        ON CONFLICT (access_key) DO UPDATE SET user_id = EXCLUDED.user_id
+                        """)
+                .params(key.accessKey(), userId).update();
         Map<String, String> row = new LinkedHashMap<>();
         row.put("access_key", key.accessKey());
         row.put("secret", key.secretKey());

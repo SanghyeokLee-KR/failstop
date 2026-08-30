@@ -15,6 +15,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  */
 @Configuration
 @Profile("bots")
+// SimCommandConsumer.poll이 @Scheduled다. 스케줄링은 HarnessConfig에만 켜져 있고 그것은
+// exchange.harness.enabled 조건이라 봇 노드에서 꺼져 있을 수 있다. 여기서 직접 켠다.
+// 중복 활성은 무해하다(스프링이 TaskScheduler를 한 번만 만든다).
+@org.springframework.scheduling.annotation.EnableScheduling
 @EnableConfigurationProperties(SimProperties.class)
 public class SimConfig {
 
@@ -32,6 +36,17 @@ public class SimConfig {
     public BotFleetGovernor botFleetGovernor(SimProperties props) {
         // 레짐 시퀀스 재현을 위해 봇 시드를 레짐 PRNG에 주입한다.
         return BotFleetGovernor.defaults(props.seed());
+    }
+
+    /**
+     * 관리 평면이 남긴 제어 의도를 이 JVM이 집어 적용한다(V22 sim_commands). 거버너가
+     * 인메모리라 별도 컨테이너인 관리 평면이 직접 못 건드리는 것을 메운다.
+     */
+    @Bean
+    public SimCommandConsumer simCommandConsumer(JdbcClient jdbc, OpsGovernor governor,
+                                                 BotFleetGovernor fleetGovernor) {
+        return new SimCommandConsumer(jdbc, governor, fleetGovernor,
+                "bots-" + java.util.UUID.randomUUID().toString().substring(0, 8));
     }
 
     @Bean

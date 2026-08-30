@@ -47,6 +47,9 @@ public class EngineRecovery {
     private final SnapshotSource snapshotSource;
     // 재생 명령 수 관측(§5-2 exchange.journal.replay.commands). 기본 no-op이라 테스트 경로는 무변경.
     private final java.util.function.LongConsumer replayObserver;
+    // 재생 결과를 recovery_runs에 남긴다(C17 원천). null이면 기록하지 않는다. 테스트
+    // 경로와 DB 없는 구성이 그대로 돌아야 하므로 선택적 협력자로 둔다.
+    private kr.exchange.harness.RecoveryRunRecorder recoveryRecorder;
 
     public EngineRecovery(ReplayService replayService, SingleWriterLoop.EventSink reappendSink,
                           LeaderLeaseService lease) {
@@ -67,6 +70,11 @@ public class EngineRecovery {
         this.lease = lease;
         this.snapshotSource = snapshotSource;
         this.replayObserver = replayObserver;
+    }
+
+    /** C17 원천 기록자 주입. 설정에서 DB가 있을 때만 붙인다. */
+    public void setRecoveryRecorder(kr.exchange.harness.RecoveryRunRecorder recorder) {
+        this.recoveryRecorder = recorder;
     }
 
     /**
@@ -105,7 +113,25 @@ public class EngineRecovery {
                         snapSeq, eventStart, snap.get().books().size());
             }
         }
-        ReplayResult result = replayService.rebuild(engine, eventStart);
+        long replayFrom = engine.lastAppliedSeq();
+        long replayStartedNs = System.nanoTime();
+        ReplayResult result;
+        try {
+            result = replayService.rebuild(engine, eventStart);
+        } catch (RuntimeException e) {
+            // 불일치를 남기고 다시 던진다. 이 행이 C17이 검출하는 대상이다. 예외만 던지고
+            // 기록을 안 남기면 재생이 깨진 사건이 표에 없어 C17이 통과한다.
+            if (recoveryRecorder != null) {
+                recoveryRecorder.recordMismatch(replayFrom, engine.lastAppliedSeq(),
+                        e.getClass().getSimpleName() + ": " + e.getMessage(),
+                        (System.nanoTime() - replayStartedNs) / 1_000_000L);
+            }
+            throw e;
+        }
+        if (recoveryRecorder != null) {
+            recoveryRecorder.recordSuccess(replayFrom, result.lastAppliedSeq(),
+                    result.verifiedEvents(), (System.nanoTime() - replayStartedNs) / 1_000_000L);
+        }
         replayObserver.accept(result.replayedCommands());
         List<EngineEvent> pending = result.pendingEvents();
         if (pending.isEmpty()) {
