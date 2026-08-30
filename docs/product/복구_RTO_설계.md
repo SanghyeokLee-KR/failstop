@@ -1,6 +1,6 @@
-# 복구 RTO 수정 설계 (승격 재생 병목 해소)
+# 복구 RTO 설계 (승격 재생 병목 해소)
 
-> 정본 계약: `백엔드_DB_설계.md`(§5.4 리스·§5.5 복구·§6.3 스냅샷), `하네스_검증설계.md`(§5-1 RTO 체인·§3 E4/E6·§4-1 C13), `M4_하드닝설계.md`(§3-3(d) 승격 재생 병목·§1 심각도 카탈로그). 코드 정본은 `server/`. 컬럼·라인은 실제 파일 인용, 추측 금지.
+> 정본 계약: `docs/contracts/백엔드_DB_설계.md`(§5.4 리스·§5.5 복구·§6.3 스냅샷), `docs/contracts/하네스_검증설계.md`(§5-1 RTO 체인·§3 E4/E6·§4-1 C13), `docs/architecture/M4_하드닝설계.md`(§3-3(d) 승격 재생 병목·§1 심각도 카탈로그). 코드 정본은 `server/`. 컬럼·라인은 실제 파일 인용, 추측 금지.
 > 판정 원칙: SQL 위반 행 0, 메트릭 임계, 벽시계 RTO. 본 문서는 설계 확정이며 코드 구현은 관리자 워크플로 완료 후 별도로 한다.
 > 스타일: 개조식 평서문. em dash·en dash·이모지·도구 서명 금지. 완료 전 `scripts/check-style.ps1`.
 
@@ -10,7 +10,7 @@
 
 ### 1-1. 확정 사실(무결성)
 
-15분 데모 카오스(스파이크 중첩 리더 kill, `하네스_검증설계.md` §7 데모 프로파일)에서 무결성은 증명됐다.
+15분 데모 카오스(스파이크 중첩 리더 kill, `docs/contracts/하네스_검증설계.md` §7 데모 프로파일)에서 무결성은 증명됐다.
 
 - RPO=0: ACK 명령 전량 `command_journal` 존재(C16 0행).
 - 자산합 0: `ledger_entries` 자산별 합 0(C01 0행).
@@ -22,9 +22,9 @@
 
 | 축 | 값 | 근거 |
 |---|---|---|
-| metric RTO | 약 11.289s | `하네스_검증설계.md` §5-1 T5: `min(created_at) FROM event_journal WHERE event_seq > W_event AND event_type='TRADE'` |
+| metric RTO | 약 11.289s | `docs/contracts/하네스_검증설계.md` §5-1 T5: `min(created_at) FROM event_journal WHERE event_seq > W_event AND event_type='TRADE'` |
 | 실제 가시 체결 재개 | 약 4~8분 | 승격 후 신규 명령의 체결 커밋·WS 게시가 실제로 관측된 벽시계 시각 |
-| 목표 | < 30s | `M4_하드닝설계.md` §3-2, API §7-4 |
+| 목표 | < 30s | `docs/architecture/M4_하드닝설계.md` §3-2, API §7-4 |
 
 metric RTO가 실측을 은폐한다. 근인은 T5의 `created_at`이 벽시계 커밋 시각이 아니라 `engine_ts` 파생 논리 시각이라는 점이다(§2-4). 판정 = FAIL(실제 30s 초과).
 
@@ -60,7 +60,7 @@ metric RTO가 실측을 은폐한다. 근인은 T5의 `created_at`이 벽시계 
   - `assert_current_leader(holder, epoch)`(SettlementService.java:134~137)
   - `leader_lease FOR SHARE` epoch 확인(:139~147, `SELECT_EPOCH_SQL` :51~56)
   - `event_emission_registry` count로 멱등 판정(:149~157). 이미 적재분이면 `registered == events.size()`로 전량 스킵.
-  - BEGIN·COMMIT(`tx.execute`, :120). PG는 주문당 fsync 구성(`하네스_검증설계.md` §2-4).
+  - BEGIN·COMMIT(`tx.execute`, :120). PG는 주문당 fsync 구성(`docs/contracts/하네스_검증설계.md` §2-4).
 
 catch-up 배치가 27k건이면 27k개의 직렬 원격 트랜잭션이 toxiproxy 경유로 순차 커밋된다. 전부 멱등 스킵이라 상태를 바꾸지 않지만, 각 트랜잭션이 다중 왕복 + fsync 커밋이다. RTO = O(저널 크기) × 정산 왕복 지연. 이것이 4~8분의 정체다.
 
@@ -106,7 +106,7 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplaySer
 
 - 현재 접수는 `EngineBridge.submit`이 `loop.isRunning()`만 검사하고(EngineBridge.java:33) append는 `lease.requireLeader()`로 리더십만 본다(CommandJournalAppender.java:42). 승격 즉시 epoch가 세팅되므로 rebuild 완료 전에도 append·offer가 통과해 결함 경로가 재발한다.
 - 접수 개방 여부를 리더십과 분리한 명시 게이트로 둔다. `isLeader() == true`여도 `acceptingCommands == false`인 PROMOTING 구간을 만든다. `EngineBridge.submit`(과 append 진입점)이 이 게이트를 확인해 미개방 시 503(NotLeaderException 계열 재사용 또는 신규 NotReadyException)으로 거부한다. 봇·k6는 503을 재시도로 흡수한다(`SimConfig` 주석, 접수 보류 계약).
-- Spring readiness 상태와 연동한다. PROMOTING = `REFUSING_TRAFFIC`, ACCEPTING = `ACCEPTING_TRAFFIC`. 리더 인지 LB(`M4_하드닝설계.md` §3-4)가 readiness DOWN 노드를 제외하므로 rebuild 중 외부 트래픽 유입을 원천 차단한다.
+- Spring readiness 상태와 연동한다. PROMOTING = `REFUSING_TRAFFIC`, ACCEPTING = `ACCEPTING_TRAFFIC`. 리더 인지 LB(`docs/architecture/M4_하드닝설계.md` §3-4)가 readiness DOWN 노드를 제외하므로 rebuild 중 외부 트래픽 유입을 원천 차단한다.
 
 #### 승격 중 리스 유지
 
@@ -122,8 +122,8 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplaySer
 
 3-a의 인메모리 rebuild는 스파이크(27k)에서는 빠르지만 장기 soak(수백만 명령)에서는 다시 O(저널)로 커진다. 스냅샷이 tail 재생량을 상한한다.
 
-- 저장소: 기존 `snapshots` 테이블(DB 설계 §6.3, `백엔드_DB_설계.md`:1032~1050). 신규 DDL 불필요. 컬럼: `last_applied_seq`, `state`(BYTEA), `state_checksum`, `engine_version`, `config_hash`, `format_version`, `fencing_epoch`, `created_at`. append-only(트리거+REVOKE, :1047~1050).
-- 주기·트리거: 리더가 N 명령마다 또는 T초마다(둘 중 먼저) 스냅샷 1건 기록. 정산 핫패스를 블록하지 않도록 매칭 코어 밖 별도 스레드가 특정 seq 경계의 엔진 상태를 직렬화한다. 경계 seq에서의 인메모리 상태 정합은 단일 라이터라 자연 확보된다(그 seq까지 apply 완료 시점 캡처). 정확 주기 값은 캘리브레이션에서 확정(`M4_하드닝설계.md` §3-3(d) 연계).
+- 저장소: 기존 `snapshots` 테이블(DB 설계 §6.3, `docs/contracts/백엔드_DB_설계.md`:1032~1050). 신규 DDL 불필요. 컬럼: `last_applied_seq`, `state`(BYTEA), `state_checksum`, `engine_version`, `config_hash`, `format_version`, `fencing_epoch`, `created_at`. append-only(트리거+REVOKE, :1047~1050).
+- 주기·트리거: 리더가 N 명령마다 또는 T초마다(둘 중 먼저) 스냅샷 1건 기록. 정산 핫패스를 블록하지 않도록 매칭 코어 밖 별도 스레드가 특정 seq 경계의 엔진 상태를 직렬화한다. 경계 seq에서의 인메모리 상태 정합은 단일 라이터라 자연 확보된다(그 seq까지 apply 완료 시점 캡처). 정확 주기 값은 캘리브레이션에서 확정(`docs/architecture/M4_하드닝설계.md` §3-3(d) 연계).
 - 직렬화: `MatchingEngineImpl`의 마켓별 `OrderBookImpl`(bids·asks·ordersById TreeMap, `OrderBookImpl.java:37~41`)을 결정론 바이트로 인코딩하는 codec 신설. 순회 순서가 정의된 자료구조만 쓰므로(TreeMap·ArrayDeque, 코어 순수성 T3-A) 인코딩이 결정론이다. `state_checksum`은 기존 `stateChecksum()`(MatchingEngineImpl.java:38~44)과 동일 규약으로 병기해 로드 시 무결 검증한다.
 - 복원(스냅샷 + 델타): 승격 rebuild가 최신 유효 스냅샷을 로드(DB 설계 §5.5 STEP1, :1753~1755)해 fresh 엔진에 역직렬화한 뒤, `command_journal`에서 `seq > snapshot.last_applied_seq`만 tail 재생한다(STEP2, :1757~1767).
   - 이벤트 커서 정렬: `ReplayService`의 이벤트 커서는 현재 event_seq 0부터다. 스냅샷 로드 시 커서를 `source_cmd_seq > snapshot.last_applied_seq`의 첫 이벤트 event_seq부터 시작하도록 확장한다. 스냅샷이 대응 event 워터마크를 함께 기록하거나(권장), 로드 시 `SELECT min(event_seq) FROM event_journal WHERE source_cmd_seq > :snap_seq`로 유도한다. 이 확장이 스냅샷 지원의 유일한 `ReplayService` 변경점이다.
@@ -136,8 +136,8 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplaySer
 - 오탐 메커니즘: NEW 명령은 append 시점에 커밋되지만, `orders` 행은 이후 정산 sink가 ACCEPTED 이벤트를 처리할 때 INSERT된다(SettlementService.java:225~240 `settleAccepted`). append와 정산 커밋 사이의 비동기 창에서 명령은 있으나 주문 행이 없다. 라이브 부하·스파이크에서 큐 백로그가 이 창을 키워 C13A가 대량 위반으로 오탐한다.
 - 수정: `C13A_ORDER_MATERIALIZED`를 `Scope.AUTHORITATIVE_ONLY`로 변경(1행). 상시 스케줄·soak에서 제외하고, 정지 시점·실험 사후 권위 run(큐 드레인 상태)에서만 평가한다. 근거는 기존 C16·C19의 AUTHORITATIVE_ONLY 사유와 동일하다("라이브 프로젝션 지연 오탐 차단", InvariantCheck.java:12~13).
 - 커버리지 손실 없음: 역방향 C13B(orders → command_journal, InvariantCheck.java:68~72)는 정산 이후에만 orders가 존재하므로 프로젝션 지연 오탐이 없다. C13B는 `SCHEDULED` 유지. 유실 주문(NEW without order)은 큐 드레인된 권위 run에서 C13A가 잡는다.
-- E3(구 번호, 정본 E6) 스파이크 게이트의 스퍼리어스 FAIL: 동일 근인이다. 스파이크 창에서 상시 C13A가 프로젝션 지연을 위반으로 집계해 게이트를 오탈락시킨다. C13A를 AUTHORITATIVE_ONLY로 옮기면 스파이크 게이트도 정리된다. 데모 15분 스택은 구 잠정 번호 E3 = 정본 E6(스파이크+kill 복합, `M4_하드닝설계.md` §0-3)을 가리킨다.
-- 문서 동기화(구현 시 함께): `M4_하드닝설계.md` §1(CRITICAL·SCHEDULED 열거)·§2-2(soak SQL의 `check_name IN` 목록)·§4-2(알람 라우팅 critical 열거)가 C13A를 SCHEDULED로 나열한다. C13A를 CRITICAL·AUTHORITATIVE_ONLY로 이동해 정정한다. 정본이 문서이므로 코드 변경과 문서 정정을 한 커밋으로 묶는다.
+- E3(구 번호, 정본 E6) 스파이크 게이트의 스퍼리어스 FAIL: 동일 근인이다. 스파이크 창에서 상시 C13A가 프로젝션 지연을 위반으로 집계해 게이트를 오탈락시킨다. C13A를 AUTHORITATIVE_ONLY로 옮기면 스파이크 게이트도 정리된다. 데모 15분 스택은 구 잠정 번호 E3 = 정본 E6(스파이크+kill 복합, `docs/architecture/M4_하드닝설계.md` §0-3)을 가리킨다.
+- 문서 동기화(구현 시 함께): `docs/architecture/M4_하드닝설계.md` §1(CRITICAL·SCHEDULED 열거)·§2-2(soak SQL의 `check_name IN` 목록)·§4-2(알람 라우팅 critical 열거)가 C13A를 SCHEDULED로 나열한다. C13A를 CRITICAL·AUTHORITATIVE_ONLY로 이동해 정정한다. 정본이 문서이므로 코드 변경과 문서 정정을 한 커밋으로 묶는다.
 
 ### 3-d. 핫 스탠바이(연속 적용) 검토·판정
 
@@ -173,11 +173,11 @@ CI 사각: 어느 통합테스트도 "빈(또는 stale) 엔진 + 대규모 gap�
 - 측정점(택1 또는 병행):
   - 서버 벽시계 프로브: 테스트가 승격 후 신규 주문을 넣고, 그 주문의 TRADE 정산 커밋(또는 WS 게시)이 관측된 `System.nanoTime` 벽시계를 T5_wall로 기록. Awaitility로 대기.
   - 외부 관측: k6 마지막 2xx~최초 체결 응답 갭(§5-1 T4·T5 외부 관측 병기). 데모·E6에서 3원 대조.
-- 기존 SQL은 논리 교차검증으로만 유지한다. `event_journal`에 커밋 벽시계 컬럼이 없으므로(append-only 핫패스 오염 회피 위해 추가하지 않음), 정본 판정은 관측 벽시계다. `하네스_검증설계.md` §5-1 T5의 정의를 "created_at 기준"에서 "관측 벽시계 기준(created_at은 논리 교차검증)"으로 정정 권고한다.
+- 기존 SQL은 논리 교차검증으로만 유지한다. `event_journal`에 커밋 벽시계 컬럼이 없으므로(append-only 핫패스 오염 회피 위해 추가하지 않음), 정본 판정은 관측 벽시계다. `docs/contracts/하네스_검증설계.md` §5-1 T5의 정의를 "created_at 기준"에서 "관측 벽시계 기준(created_at은 논리 교차검증)"으로 정정 권고한다.
 
 ### 4-3. 편입
 
-- `M4_하드닝설계.md` §1-2 E4·E6 회귀 연계에 본 테스트를 추가한다. E4 판정 RTO<30s·`recovery_runs.matched=true`가 이 경로를 실제로 밟도록 게이트한다.
+- `docs/architecture/M4_하드닝설계.md` §1-2 E4·E6 회귀 연계에 본 테스트를 추가한다. E4 판정 RTO<30s·`recovery_runs.matched=true`가 이 경로를 실제로 밟도록 게이트한다.
 
 ---
 

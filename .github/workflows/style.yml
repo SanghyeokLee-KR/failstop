@@ -67,6 +67,16 @@ jobs:
             exit 1
           fi
 
+  # 문서 링크 게이트도 전체 상태를 본다. 이동으로 깨진 인용은 추가된 줄이 아니라
+  # "인용과 실재가 어긋난 현재 상태"다. 규약은 하네스_CICD_IaC.md 부록 U.
+  doclinks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # 로컬 검사와 같은 호출로 고정한다. -File은 스크립트 종료코드를 그대로 넘긴다.
+      - name: check doc links
+        run: pwsh -NoProfile -File scripts/check-doclinks.ps1
+
   # 토큰 게이트는 diff가 아니라 전체 상태를 본다. 드리프트는 추가된 줄이 아니라
   # "선언과 소비가 어긋난 현재 상태"라서 범위가 다르다.
   tokens:
