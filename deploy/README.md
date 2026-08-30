@@ -37,3 +37,21 @@
 
 미검증이다. 이 파일들은 아직 실제 다중 호스트에서 기동한 적이 없다. 검증 전까지
 "배포 가능"으로 읽지 않는다.
+
+## arm64 매니페스트 실측 (2026-08-30)
+
+배포 대상이 t4g·c7g 계열(AWS Graviton, ARM64)이다. 쓰는 이미지 8종이 전부 arm64를
+내는지 확인했다. 하나라도 없으면 인스턴스 계열을 전면 재선정하고 비용표를 다시 짜야 한다.
+
+| 이미지 | arm64 | 출처 |
+|---|---|---|
+| `postgres:17-alpine` | 있음 | `harness/docker-compose.chaos.yml` |
+| `ghcr.io/shopify/toxiproxy:2.12.0` | 있음 | 같은 파일 |
+| `curlimages/curl:8.11.0` | 있음 | 같은 파일 |
+| `nginx:1.29` | 있음 | 같은 파일 |
+| `prom/prometheus:v3.13.0` | 있음 | 같은 파일 |
+| `grafana/grafana:13.1.0` | 있음 | 같은 파일 |
+| `grafana/k6:1.4.0` | 있음 | `compose.yaml` |
+| `eclipse-temurin:21-jre` | 있음 | `harness/Dockerfile.app` |
+
+전건 통과다. `docker manifest inspect`로 확인했고 기획안 §9 비용표를 재산정할 이유가 없다.

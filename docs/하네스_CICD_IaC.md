@@ -20,7 +20,7 @@
 |---|---|---|---|
 | CI | GitHub Actions (public repo) | `checkout@v6` / `setup-java@v5`(temurin 21) / `gradle/actions/setup-gradle@v6` / `setup-node@v6`(Node 22) | ubuntu-latest = Docker 내장 → Testcontainers 무설정 |
 | 레지스트리 | GHCR | `ghcr.io` + `GITHUB_TOKEN` | 별도 시크릿 불요 |
-| 이미지 빌드 | buildx | `setup-buildx-action@v4` / `build-push-action@v7` / `metadata-action@v6`, 캐시 `type=gha`(scope=모듈별) | `linux/amd64` 단일 플랫폼만 |
+| 이미지 빌드 | buildx | `setup-buildx-action@v3` / `build-push-action@v6` / `metadata-action@v5`, 캐시 `type=gha` | `linux/amd64,linux/arm64` 둘. **v2.x 개정(2026-08-30)**: 배포 대상이 t4g 계열(AWS Graviton, ARM64)이라 amd64 단독이면 EC2에서 exec format error로 컨테이너가 뜨지 않는다. app.jar는 아키텍처 독립이라 차이는 베이스 레이어뿐이다. 액션 버전도 실제 사용값으로 정정한다(종전 v4/v7/v6은 실재하지 않는 태그였다) |
 | DB | PostgreSQL | **`postgres:17.6-bookworm` 기반 커스텀 이미지**를 CI가 빌드해 **GHCR digest로 배포**(`infra/pg/Dockerfile`: `postgresql-17-partman=5.*`·`postgresql-17-cron` apt 버전 핀) | **PG18 금지**(PGDATA 경로 변경·계약 PG17+). V2가 `CREATE EXTENSION pg_partman/pg_cron` 요구 → 순정 이미지로는 Flyway 실패. 베이스 `postgres:17`(유동 태그) 직접 사용 금지. TC·compose·CI가 **동일 GHCR digest를 공용 pull**해 드리프트 봉쇄(§1-2) |
 | 캐시/브로커 | Redis / Kafka / RabbitMQ | `redis:8` / `apache/kafka:4.0.0`(KRaft 단일노드) / `rabbitmq:4-management`(+`enabled_plugins` 파일 마운트로 **rabbitmq_stomp 명시 활성**, 기본 비활성) | **Bitnami 이미지 전면 금지**(카탈로그 폐지). RabbitMQ = API§5-1 `/user/queue/**` 크로스노드 릴레이 계약상 필수 |
 | LB | Nginx | `nginx:1.29` | readiness 기반 제외(API§0-2), WS 스케일 파라미터 §3-3 |
@@ -271,7 +271,7 @@ x-api-common: &api-common
     REDIS_HOST: toxiproxy
     KAFKA_BOOTSTRAP: kafka:9092
     STOMP_RELAY_HOST: rabbitmq
-    MANAGEMENT_SERVER_PORT: "9404"
+    MANAGEMENT_SERVER_PORT: "8081"
   depends_on:
     flyway-migrate: { condition: service_completed_successfully }   # 마이그레이션 선행(§7-2)
     postgres:       { condition: service_healthy }
@@ -280,7 +280,7 @@ x-api-common: &api-common
     kafka:          { condition: service_started }
     rabbitmq:       { condition: service_started }
   healthcheck:
-    test: ["CMD","wget","-qO-","http://localhost:9404/actuator/health/readiness"]
+    test: ["CMD","wget","-qO-","http://localhost:8081/actuator/health/readiness"]
     interval: 5s
     timeout: 3s
     retries: 12
@@ -486,7 +486,7 @@ server {
                      proxy_http_version 1.1;
                      proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection $connection_upgrade;
                      proxy_read_timeout 70s; }      # STOMP heart-beat 10s 대비 여유
-    # /actuator·/admin은 공개 LB에 라우팅하지 않는다(관리 포트 9404/9090 분리, API§3-6 정합)
+    # /actuator·/admin은 공개 LB에 라우팅하지 않는다(관리 포트 8081/9090 분리, API§3-6 정합)
 }
 ```
 
@@ -591,8 +591,8 @@ spec:
         - name: api
           image: ghcr.io/<org>/exchange-platform/exchange-api:sha-<pin>
           resources: { limits: { memory: 1Gi } }      # compose 캡과 동일 예산
-          readinessProbe: { httpGet: { path: /actuator/health/readiness, port: 9404 }, periodSeconds: 3 }
-          livenessProbe:  { httpGet: { path: /actuator/health/liveness,  port: 9404 } }
+          readinessProbe: { httpGet: { path: /actuator/health/readiness, port: 8081 }, periodSeconds: 3 }
+          livenessProbe:  { httpGet: { path: /actuator/health/liveness,  port: 8081 } }
           lifecycle: { preStop: { exec: { command: ["sh","-c","sleep 5"] } } }   # 엔드포인트 제거 전파 대기
 ```
 
@@ -606,7 +606,7 @@ spec:
 
 ```yaml
 management:
-  server: { port: 9404 }                    # 관리 포트 분리, 공개 LB 미노출
+  server: { port: 8081 }                    # 관리 포트 분리(코드 실값 application.yml:165), 공개 LB 미노출
   endpoints: { web: { exposure: { include: health,info,prometheus,metrics } } }
   endpoint:
     health: { probes: { enabled: true }, show-details: never }   # /health/liveness|readiness 분리
@@ -630,7 +630,7 @@ chaos:
 management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosmonkey
 ```
 
-**E3 배선 정합(수정)**: admin의 `POST /admin/v1/chaos/app` 릴레이 대상인 `POST /actuator/chaosmonkey/**`가 위 demo 프로파일 문서로 **실제 노출·활성**된다(기본 노출 목록만으로는 404였음). 관리 포트 9404는 공개 LB에 라우팅되지 않고(§3-3) chaosmonkey 릴레이는 admin-net 내부에서만 이뤄지므로 §3-6 격리 원칙과 정합. `local`/CI 프로파일에서는 chaos.monkey 미활성.
+**E3 배선 정합(수정)**: admin의 `POST /admin/v1/chaos/app` 릴레이 대상인 `POST /actuator/chaosmonkey/**`가 위 demo 프로파일 문서로 **실제 노출·활성**된다(기본 노출 목록만으로는 404였음). 관리 포트 8081는 공개 LB에 라우팅되지 않고(§3-3) chaosmonkey 릴레이는 admin-net 내부에서만 이뤄지므로 §3-6 격리 원칙과 정합. `local`/CI 프로파일에서는 chaos.monkey 미활성.
 
 원칙: **classic 히스토그램 + SLO 경계 버킷**이 기본(`le="0.5"` 직독 = 보간 없는 500ms 판정). `publishPercentiles`(클라이언트 계산)는 다노드 집계 불가, 서버측 `histogram_quantile`만 권위. exemplar(OTel bridge)로 지연 스파이크 점 → Tempo 트레이스 점프(권장). liveness 그룹에 의존성 체크 금지(재시작 루프 방지), 의존성은 readiness에만.
 
@@ -686,10 +686,10 @@ scrape_configs:
   - job_name: exchange-api
     metrics_path: /actuator/prometheus
     scrape_interval: 2s                 # 핵심 잡 고해상도, 페일오버 창을 2초 격자로 포착
-    static_configs: [{ targets: ['api-1:9404','api-2:9404'] }]
+    static_configs: [{ targets: ['api-1:8081','api-2:8081'] }]
   - job_name: exchange-admin
     metrics_path: /actuator/prometheus
-    static_configs: [{ targets: ['admin:9404'] }]
+    static_configs: [{ targets: ['admin:8081'] }]
 rule_files: ["rules/*.yml"]
 ```
 
@@ -854,7 +854,7 @@ Micrometer Tracing(OTel bridge)→OTLP→Tempo, Logback JSON(trace_id 포함)→
 | 유출 방지 | gitleaks pre-commit + CI 스캔, `secrets/` `.gitignore`+`.dockerignore` 동시 등재 | seed 산출물(`k6_keys.json`)도 동일 경로 |
 | (선택) 팀 공유 | SOPS+age | 필요 시에만 |
 
-비채택(근거): 클라우드 OIDC(클라우드 미사용), Vault 서버, Sealed Secrets(GitOps 컨트롤러 부재). admin 평면 시크릿(mTLS 인증서, admin_secret)은 admin-net 내에서만 마운트.
+**클라우드 OIDC는 채택으로 이전한다(2026-08-30).** 학교 공지의 필수 조건이 "반드시 배포하여 외부에서 접속 가능한 상태로 서비스할 것"이라 클라우드 미사용 전제가 성립하지 않는다. GitHub Actions가 AWS에 붙는 경로는 OIDC 페더레이션이고 장기 액세스 키를 발급하지 않는다. 비채택(근거): Vault 서버, Sealed Secrets(GitOps 컨트롤러 부재). admin 평면 시크릿(mTLS 인증서, admin_secret)은 admin-net 내에서만 마운트.
 
 ### 7-2. Flyway 실행 주체·DB 롤 분리 (신규, V2 권한 요건 충족)
 
