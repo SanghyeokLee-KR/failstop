@@ -127,7 +127,50 @@ public class HaMonitoringController {
                         "verdict", str(rs.getString("verdict")),
                         "created_at", ts(rs.getObject("created_at", OffsetDateTime.class))))
                 .list();
-        return Map.of("schema_version", "1.0", "recovery_runs", recoveries, "failover_runs", failovers);
+        // 판정 객체. 종전에는 배열 둘만 반환해 화면이 행을 보여줄 뿐 통과 여부를 말하지
+        // 못했다. 대본이 "복구 성공"을 선언하는데 그 근거를 사람이 눈으로 세야 했다.
+        // 기준은 계약이다. RTO<30s, RPO=0(API§7-3 P6), 재생 결정론 matched=false 0(C17).
+        // 표가 비면 통과가 아니라 미판정이다. 0행 대조로 통과를 내면 그것이 공허 통과다.
+        Map<String, Object> verdict = new java.util.LinkedHashMap<>();
+        long replayTotal = recoveries.size();
+        long replayMismatched = recoveries.stream()
+                .filter(r -> Boolean.FALSE.equals(r.get("matched"))).count();
+        verdict.put("replay_runs", replayTotal);
+        verdict.put("replay_mismatched", replayMismatched);
+        verdict.put("replay_deterministic",
+                replayTotal == 0 ? "UNKNOWN" : (replayMismatched == 0 ? "PASS" : "FAIL"));
+
+        long foTotal = failovers.size();
+        long rtoBreach = failovers.stream().filter(f -> {
+            try {
+                String v = String.valueOf(f.get("rto_seconds"));
+                return !v.isEmpty() && Double.parseDouble(v) >= 30.0;
+            } catch (NumberFormatException e) {
+                // 파싱 불가는 통과로 세지 않는다. 값을 못 읽은 것과 기준을 지킨 것은 다르다.
+                return true;
+            }
+        }).count();
+        long rpoBreach = failovers.stream().filter(f -> {
+            Object v = f.get("rpo_records");
+            return !(v instanceof Number) || ((Number) v).longValue() != 0L;
+        }).count();
+        verdict.put("failover_runs", foTotal);
+        verdict.put("rto_breach", rtoBreach);
+        verdict.put("rpo_breach", rpoBreach);
+        verdict.put("rto_target_seconds", 30);
+        verdict.put("failover_ok",
+                foTotal == 0 ? "UNKNOWN" : (rtoBreach == 0 && rpoBreach == 0 ? "PASS" : "FAIL"));
+
+        boolean anyUnknown = replayTotal == 0 || foTotal == 0;
+        boolean anyFail = replayMismatched > 0 || rtoBreach > 0 || rpoBreach > 0;
+        verdict.put("overall", anyFail ? "FAIL" : (anyUnknown ? "UNKNOWN" : "PASS"));
+
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("schema_version", "1.1");
+        out.put("verdict", verdict);
+        out.put("recovery_runs", recoveries);
+        out.put("failover_runs", failovers);
+        return out;
     }
 
     /** 불변식 최신 상태: check_name별 최근 1건(ok·violated_rows). */
