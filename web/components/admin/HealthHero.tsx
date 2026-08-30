@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * 종합 헬스 히어로(/admin 1층). 화면 단일 대표 지표라 상태어만 display-md로 승격한다.
- * 색 단독 금지: 램프(●▲■)·상태어·sr-only 낭독을 병기한다.
- * 정지가 기본값이고 헬스 전이 순간에만 밴드 배경이 플래시한다(reduced-motion 명시 킬).
- * 내부는 비대칭 3열: 상태어 존 > 핵심 안전 검사 > 키·값 캡션 칼럼.
+ * 화면 단일 대표 지표라 상태어만 display-md로 승격한다.
+ * 색 단독 금지라 램프(●▲■)·상태어·sr-only 낭독을 병기하고, 헬스 전이 순간에만 플래시한다.
  */
 
 import type { AdminOverview } from "@/lib/admin/types";

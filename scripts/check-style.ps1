@@ -40,7 +40,6 @@ function Test-File([string]$file) {
     }
 }
 
-# 기본 브랜치 해석. origin 우선, 로컬 폴백. 하나도 없으면 $null.
 function Resolve-BaseRef {
     foreach ($ref in @('origin/main', 'main', 'origin/develop', 'develop')) {
         & git rev-parse --verify --quiet $ref *> $null

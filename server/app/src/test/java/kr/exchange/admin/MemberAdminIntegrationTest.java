@@ -28,11 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 회원 운영 API 검증(§6-E). 상태 전이와 그 부수 효과가 계약대로인지 본다.
- *
- * 핵심은 정지와 폐쇄의 차이다. 정지는 되돌리는 조치라 미체결 주문을 남기고 세션만 끊는다.
- * 폐쇄는 비가역이라 주문까지 정리하고, 승인 토큰을 요구하며, 되돌아오는 전이가 없다.
- * 인가(VIEWER는 조회만)와 폐쇄의 승인 강제도 함께 고정한다.
+ * 회원 운영 API 검증(§6-E). 정지는 가역이라 미체결 주문을 남기고 세션만 끊고, 폐쇄는 비가역이라
+ * 주문까지 정리하고 승인 토큰을 요구하며 되돌아오는 전이가 없다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -74,8 +71,6 @@ class MemberAdminIntegrationTest {
         operatorSeeder.ensureOperator("op-two", "승인자", Set.of(AdminRole.MEMBER_MOD));
         operatorSeeder.ensureOperator("op-view", "뷰어", Set.of(AdminRole.VIEWER));
     }
-
-    // ------------------------------------------------------------------
 
     @Test
     void listExcludesBotsAndCarriesEnvelope() throws Exception {
@@ -170,7 +165,7 @@ class MemberAdminIntegrationTest {
         seedSession(userId(ext));
         String modSession = session("op-mod");
 
-        // 토큰 없이는 403. 폐쇄는 §3-6 완결 열거의 필수 액션이다(v2.32 등재)
+        // 토큰 없이는 403. 폐쇄는 §3-6 완결 열거의 필수 액션이다
         assertEquals(403, post("/admin/v1/members/" + ext + "/close", "{}", "op-mod", modSession)
                 .getStatusCode().value());
 
@@ -225,10 +220,6 @@ class MemberAdminIntegrationTest {
                         + "AND target = ? AND approval_id IS NULL")
                 .param(ext).query(Long.class).single() >= 1);
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private String newMember(String email) {
         return jdbc.sql("INSERT INTO users (email, kind) VALUES (?, 'HUMAN') "

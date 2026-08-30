@@ -1,29 +1,17 @@
 -- ============================================================================
 -- invariants.sql
--- 불변식 검증 카탈로그 C01~C25의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL
--- 컬럼명(server V1__init.sql, trades.id = event_seq)에 맞춰 옮긴다.
--- C20~C25는 술어 정본이 앱 InvariantCheck enum이다. 앱은 count(*)로 감싸고 여기서는 같은
--- 술어의 위반 행을 낸다. 윈도·조인 조건을 바꾸면 두 경로가 갈리므로 축어 이식만 한다.
--- C24·C25는 V13이 만든 검증 뷰를 그대로 조회한다. 사본 SQL을 두면 라이브 산식과 감사 산식이
--- 두 벌이 되어 갈린다(앱도 같은 뷰를 조회한다).
---
--- 용도: ① 발표 데모 §7의 "DB 원본에 SQL 즉석 실행 → 0행"(검증기 UI보다 강한 증거)
---       ② 앱 검증기 밖에서의 수동 감사 경로. C03·C09~C12·C15는 앱 InvariantVerifier
---          상시 스케줄로 이관됐고(§4-2 개정), C04는 DB DEFERRED 트리거가 하드 강제한다.
--- 판정: 각 쿼리는 위반 행만 반환한다. 전 쿼리 0행 = 무결. summary.sql은 같은 술어를
---       건별 카운트로 집계한 기계 판정용 1화면 요약이다.
---
+-- 불변식 카탈로그 C01~C25의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
+-- (server V1__init.sql, trades.id = event_seq).
 -- 실행: psql -U exchange -d exchange -f invariants.sql
--- 주의: C16(실험 한정)·C19/C13a(정지 시점 한정)·C22·C23·C24·C25(권위 run 한정)는 라이브
---       프로젝션 지연·스테일 loadtest_acks·미재구축 원가로 오탐할 수 있어 상시 스케줄이
---       아닌 권위 run/정지 상태에서만 유효하다(§4-2 ④,
---       InvariantCheck.Scope.AUTHORITATIVE_ONLY와 동일 규율).
--- 미정합 1건(기록): C08·C09·C11·C12·C18은 앱 enum에 있는 90일 윈도가 없다. 전량 스캔이라
---       위반을 놓치지는 않는다. 다만 파티션 축이 서로 다르다(trades=RANGE(created_at),
---       event_journal=RANGE(event_seq), command_journal=RANGE(seq)). detach를 시작하면 축마다
---       잘리는 시점이 어긋나 C09·C12가 이미 detach된 상대를 찾으며 거짓 FAIL을 낼 수 있다.
---       C08·C11·C18은 조인 상대가 비파티션(trade_seq_registry·orders)이라 무관하다.
---       현재는 detach 운용 전이라 무해하고, detach 도입 시 두 축을 맞춰야 한다.
+-- 판정: 각 쿼리는 위반 행만 낸다. 전 쿼리 0행 = 무결. summary.sql이 같은 술어의 건별 카운트다.
+-- C20~C25의 술어 정본은 앱 InvariantCheck enum이고 C24·C25는 V13 검증 뷰다. 사본 산식을 두면
+-- 라이브와 감사가 두 벌로 갈리므로 축어 이식만 한다.
+-- C16·C19·C13a·C22~C25는 권위 run/정지 상태에서만 유효하다. 라이브 프로젝션 지연·스테일
+-- loadtest_acks·미재구축 원가가 오탐을 만든다(§4-2 ④, InvariantCheck.Scope.AUTHORITATIVE_ONLY).
+-- C08·C09·C11·C12·C18에는 앱 enum의 90일 윈도가 없다. 전량 스캔이라 위반을 놓치지는 않지만
+-- 파티션 축이 서로 달라(trades=created_at, event_journal=event_seq, command_journal=seq)
+-- detach를 시작하면 C09·C12가 이미 detach된 상대를 찾으며 거짓 FAIL을 낸다.
+-- detach 운용 전까지만 무해하다.
 -- ============================================================================
 \pset pager off
 \timing off
@@ -177,10 +165,9 @@ HAVING o.paid_fee <> COALESCE(SUM(legs.fee), 0)
     OR o.trades_count <> COUNT(legs.oid);
 
 \echo '== C21 EVENT_EMISSION_REGISTRY [CRITICAL] event_journal 대 방출 레지스트리 1:1 =='
--- 양방향 anti-join. AFTER INSERT 트리거가 방출 시점 정방향만 강제하므로, 트리거 실패·저널
--- 우회 삽입이 만든 유실·유령 이벤트를 event_seq gapless(C06)로는 못 잡는다. 윈도는
--- event_journal.created_at(engine_ts 파생) 한쪽에만 걸고 존재 검사측은 무윈도라,
--- registry.created_at(DEFAULT now())이 달라도 경계 오탐이 구조적으로 불가능하다.
+-- 양방향 anti-join. 트리거가 방출 시점 정방향만 강제하므로 트리거 실패·저널 우회 삽입이 만든
+-- 유실·유령 이벤트는 C06 gapless로 못 잡는다. 윈도를 event_journal.created_at 한쪽에만 걸어
+-- registry.created_at(DEFAULT now())과 어긋나도 경계 오탐이 생기지 않게 한다.
 SELECT e.event_seq FROM event_journal e
 LEFT JOIN event_emission_registry r ON r.event_seq = e.event_seq
 WHERE e.created_at >= now() - interval '90 days' AND r.event_seq IS NULL;
@@ -216,11 +203,10 @@ SELECT (to_regclass('public.position_cost_qty_check') IS NOT NULL
 
 \if :has_cost_views
 \echo '== C24 POSITION_COST_QTY [WARN, 권위 run 한정] 원가 수량 보존 =='
--- 항등(cost_qty + unknown_qty = available + locked) 위반 행. 초과는 처분 차감 누락, 미달은
--- 취득 누산 누락이며 어느 방향이든 위반이다. 술어 정본은 V13 뷰다.
--- WARN인 이유: position_cost는 계층 ③ 파생이라 위반해도 자금·원장은 무손상이고 조치가
--- rebuild_position_cost() 재구축이다. CRITICAL로 올리면 §4-3 자동 조치인 거래 정지까지 유발한다.
--- 권위 run 한정인 이유: 주입 창에서는 재구축이 안 돈 시점이라 위반이 장애가 아니라 미반영이다.
+-- 항등(cost_qty + unknown_qty = available + locked) 위반 행. 술어 정본은 V13 뷰다.
+-- WARN 등급인 이유는 계층 ③ 파생이라 자금·원장이 무손상이고 조치가 rebuild_position_cost()
+-- 재구축이기 때문이다. CRITICAL로 올리면 §4-3 자동 조치인 거래 정지까지 유발한다.
+-- 주입 창에서는 재구축 전 미반영이 위반으로 보여 권위 run에서만 유효하다.
 SELECT * FROM position_cost_qty_check;
 
 \echo '== C25 POSITION_COST_SANITY [WARN, 권위 run 한정] 원가 누산기 정합 =='

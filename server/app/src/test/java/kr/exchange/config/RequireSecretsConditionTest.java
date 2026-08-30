@@ -118,8 +118,6 @@ class RequireSecretsConditionTest {
         assertFalse(matches(env));
     }
 
-    // ── 헬퍼 ────────────────────────────────────────────────────────────
-
     private static boolean matches(Environment env) {
         return new RequireSecretsCondition().matches(context(env), null);
     }

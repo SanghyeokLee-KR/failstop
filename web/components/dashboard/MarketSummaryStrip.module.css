@@ -33,9 +33,8 @@
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
 }
-/* 홈의 1차 지표다. 문서 위계는 요약 스트립 > 스포트라이트 > 랭킹인데 크기가 뒤집혀 있었다.
-   집계가 title-2(20px)이고 2차인 스포트라이트 시세가 title-1(24px)이었다.
-   display-md로 올려 위계와 크기를 같은 방향으로 세운다(28 > 24 > 13) */
+/* 홈의 1차 지표다. 문서 위계가 요약 스트립 > 스포트라이트 > 랭킹이므로 크기도 같은 방향으로
+   세운다(28 > 24 > 13) */
 .aggValue {
   font-size: var(--font-display-md-size);
   line-height: var(--font-display-md-line);
@@ -145,9 +144,8 @@
   line-height: var(--font-caption-line);
   font-weight: var(--fw-semibold);
 }
-/* sunken 면 위 소형 방향 텍스트는 600단계가 아니라 -strong(700)이다(tokens §2).
-   호가 경계행이 같은 조합에서 같은 값을 냈다: red-600 on grey-100 4.33:1.
-   승격 실측: red-700 5.67:1 / azure-700 6.79:1. flat은 --color-flat이 secondary라 4.27:1 미달.
+/* sunken 면 위 소형 방향 텍스트는 600단계가 아니라 -strong(700)이다(tokens §2). 600단계는
+   grey-100 위에서 4.5:1에 미달하고 flat도 --color-flat이 secondary라 미달이다.
    이중 클래스는 전역 dir-text 규칙(동일 명시도)과의 소스 순서 의존을 없애는 명시도 확보다 */
 .repChange.repChange[data-dir="up"] { color: var(--color-up-strong); }
 .repChange.repChange[data-dir="down"] { color: var(--color-down-strong); }

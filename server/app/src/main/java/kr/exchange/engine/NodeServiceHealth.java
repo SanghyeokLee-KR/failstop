@@ -13,7 +13,7 @@ package kr.exchange.engine;
 @FunctionalInterface
 public interface NodeServiceHealth {
 
-    /** 계측 미배선 기본값. 판정을 하지 않으므로 종전 거동(무조건 갱신)과 동일하다. */
+    /** 계측 미배선 기본값. 생존성 판정을 하지 않으므로 갱신을 막지 않는다. */
     NodeServiceHealth ALWAYS_SERVICEABLE = () -> true;
 
     /** false면 이 노드는 지속적으로 일을 못 하는 상태다. 리스 갱신을 포기해야 한다. */

@@ -11,29 +11,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 승격 재생 조율(복구 RTO 설계 §3-a). 리더 획득 시 접수 개방 전에 fresh 엔진을 head까지
- * 인메모리 선복원한 뒤 단일 라이터 루프에 핸드오프하고, 그때서야 접수를 연다.
+ * 승격 재생 조율(복구 RTO 설계 §3-a, DB 설계 §5.4 승격 재생 재시도). 리더 획득 시 접수 개방 전에
+ * fresh 엔진을 head까지 선복원한 뒤 루프에 핸드오프하고 그때서야 접수를 연다. 상태기계는
+ * FOLLOWER -> PROMOTING -> ACCEPTING이고 리스 상실은 DEMOTED다.
  *
- * 상태기계: FOLLOWER -(gain)-> PROMOTING -(rebuild 완료)-> ACCEPTING. 리스 상실은 DEMOTED.
- * 접수 게이트를 리더십과 분리한다. 리더여도 PROMOTING이면 게이트가 닫혀 있어 catch-up이
- * 대규모 delta를 정산 sink로 태우는 결함 경로가 재발하지 않는다.
- *
- * stale 엔진 재rebuild 금지(§3-a): 승격 재생은 반드시 새 MatchingEngineImpl에 대해 0(또는
- * 스냅샷 seq)부터 수행한다. 설치된 엔진이 이미 head면 재생을 생략하고 게이트만 연다.
- *
- * 승격 중 리스 유지: gain 콜백은 리스 스케줄러 스레드에서 짧게 반환하고 실제 재생은 별도
- * 승격 워커에서 돌린다. renew 틱이 rebuild 동안 계속 돌아 만료·플래핑을 막는다.
- *
- * 재생 실패는 종신 강등이 아니다(§5.4 강등 사유 분류). 재생은 fresh 엔진에 대해 스냅샷 로드 →
- * tail 재생 → 크래시 창 재정산을 처음부터 다시 하므로 몇 번을 반복해도 결과가 같고, 성공 전에는
- * 루프에 설치되지도 게이트가 열리지도 않는다. 따라서 (1) 일시 실패는 같은 리스를 쥔 채 재시도하고
- * (2) 예산을 소진하면 리더십을 회복 가능하게 반납해 다음 만료 구동 승격의 후보로 남는다.
- * 한 번의 실패로 후보에서 빠지면 2노드에서 양쪽이 그렇게 되어 클러스터가 리더 없이 영구 정지한다
- * (E2 라이브 실측). 재생 정확성은 완화하지 않는다. 성공하지 못한 재생으로는 접수를 열지 않는다.
- *
- * 회복 가능 등급의 전제는 '같은 재생을 다시 하면 같은 결과'다. VM Error(OOM·StackOverflow)는 그
- * 전제 밖이라 재시도 대상에서 빼고 종신으로 올린다. 재시도는 전량 재생을 3회 반복해 상태를 더
- * 악화시키고, 회복 가능 반납은 TTL마다 그 반복을 재개시킨다.
+ * 접수 게이트를 리더십과 분리해야 catch-up의 대규모 delta가 정산 sink로 새지 않는다. gain 콜백은
+ * 리스 스레드에서 짧게 반환하고 재생은 승격 워커에서 돌아야 renew 틱이 rebuild 중에도 이어진다.
+ * 재생 실패의 강등 등급과 VM Error 예외는 §5.4가 정한다. 성공 못 한 재생으로 접수를 열지 않는다.
  */
 public class PromotionCoordinator implements AutoCloseable {
 
@@ -48,20 +32,13 @@ public class PromotionCoordinator implements AutoCloseable {
     static final int REPLAY_ATTEMPTS = 3;
     private static final long REPLAY_RETRY_BASE_MILLIS = 250;
     /**
-     * 재시도 예산. **첫 실패 시각부터** 재며 재생 자체의 소요는 포함하지 않는다. 승격 진입 시각부터
-     * 재면 크래시 창이 커서 시도 1회가 예산을 넘기는 경우에 첫 실패에서 곧바로 예산이 소진돼
-     * 재시도가 한 번도 돌지 않는다. 곧 재승격 비용(TTL 대기 + 전량 재생)이 가장 큰 상황에서
+     * 재시도 예산. 첫 실패 시각부터 재며 재생 소요는 포함하지 않는다. 승격 진입 시각부터 재면
+     * 시도 1회가 예산을 넘기는 경우에 재시도가 한 번도 돌지 않아, 재승격 비용이 가장 큰 상황에서
      * 정확히 재시도가 사라진다.
      *
-     * 리스 보유 상한(TTL 대비). 재생 구간에는 renew 틱이 계속 돌아 리스가 유지되므로, 재시도는
-     * 스탠바이 승격을 그만큼 늦춘다. 첫 실패 이후 추가 보유는 [예산 5s + 마지막 백오프 0.5s +
-     * 시도 1회]로 상한된다(예산은 다음 시도의 시작만 막고 진행 중인 시도를 끊지 않는다). 재생
-     * 1회가 긴 경우에는 예산이 첫 실패 직후 소진돼 재시도가 정확히 1회로 줄어든다.
-     *
-     * 이 상한은 재시도가 더하는 지연에만 해당한다. 페일오버 총 벽시계는 [TTL + 첫 시도 + 백오프
-     * + 마지막 시도 + TTL + 다음 리더 재생]이라 이 값보다 크고, SLO로 재는
-     * exchange_failover_downtime_seconds는 승격 시각 - 구 리더 최종 심박이라 재생 구간을
-     * 아예 포함하지 않아 이 값보다 작다. 서로 다른 양이므로 섞어 비교하지 않는다.
+     * 예산은 다음 시도의 시작만 막고 진행 중인 시도를 끊지 않는다. 여기서 재는 양은 재시도가
+     * 더하는 지연뿐이라 페일오버 총 벽시계나 exchange_failover_downtime_seconds와 섞어 비교하지
+     * 않는다.
      */
     static final long REPLAY_RETRY_BUDGET_MILLIS = 5_000;
 
@@ -236,7 +213,7 @@ public class PromotionCoordinator implements AutoCloseable {
         boolean opened = false;
         synchronized (stateLock) {
             // 재생 도중 리스를 잃었으면(onLeadershipLost가 DEMOTED로 전환, 또는 리스 만료)
-            // ACCEPTING으로 되돌리지 않는다. zombie ACCEPTING 방지(감사 Low 경합 항목).
+            // ACCEPTING으로 되돌리지 않는다. zombie ACCEPTING 방지.
             if (promotionGeneration.get() != generation
                     || state != State.PROMOTING || !lease.isLeader()) {
                 log.warn("승격 완료 시점에 리더 아님. ACCEPTING 전환 취소: epoch={}, state={}",

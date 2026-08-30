@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * A-8. ChartPanel(candle): lightweight-charts v5.
- * 규약(§7 A-8): 라이브러리 기본값(up=green) 금지 → getComputedStyle로 토큰(--color-up/--color-down) 주입,
- * 테마 변경 시 applyOptions 재적용. 양봉=Red / 음봉=Blue (한국 관례, §0-1).
- * 실시간: 시뮬레이터 trade 채널을 구독해 마지막 캔들을 series.update로 갱신.
+ * 라이브러리 기본값(up=green)을 금지하고 토큰(--color-up/--color-down)을 주입한다(§7 A-8).
+ * 양봉=Red, 음봉=Blue(§0-1). 테마 변경 시 applyOptions로 재적용한다.
  */
 
 import { useEffect, useRef, useState } from "react";

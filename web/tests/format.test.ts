@@ -1,13 +1,7 @@
 /**
- * tests/format.test.ts. 표시 포맷터 결측 방어·정상 포맷 회귀 고정.
- * displayValue(null·undefined·"" -> 0 강등, format.ts:44)는 어댑터 이상이 렌더 크래시로 번지는 것을
- * 막는 표시 계층 최후 방어인데 무테스트였다. derive.test.ts는 산술 경로만 덮어 표시 경로가 비어 있었다.
- * 대상: formatFixed(공개 래퍼 formatKRW·formatCount·formatPrice·formatQty 경유),
- *       formatPct(공개 래퍼 formatChangeRate·formatDirectional 경유),
- *       formatCompactKRW·formatCompactQty·formatDirectionalAmount.
- * formatFixed·formatPct는 비공개라 displayValue 강등 경로를 이들 공개 진입점으로 구동한다.
- * 각 함수에 null·undefined·"" 강등이 크래시 없이 규약 표기로 내려앉음을 단언하고,
- * 유효 입력의 정상 포맷도 최소 1건 고정해 토톨로지(모두 0)로 통과하는 것을 막는다.
+ * 표시 포맷터 결측 방어·정상 포맷 회귀 고정.
+ * displayValue의 null·undefined·"" 강등은 어댑터 이상이 렌더 크래시로 번지는 것을 막는 최후 방어다.
+ * 유효 입력의 정상 포맷도 함께 고정해 전부 0으로 통과하는 토톨로지를 막는다.
  */
 
 import { test } from "node:test";

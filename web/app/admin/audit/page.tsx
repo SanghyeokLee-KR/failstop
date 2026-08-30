@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * 감사 로그(/admin/audit). append-only 조회. 전 관리 액션이 적재 대상(§3-2).
- * admin_audit_log는 forbid_mutation 트리거로 수정·삭제가 차단된다(읽기만 제공).
- * 표시층은 액션 코드에 한국어 주해를 병기하되 원문 코드를 상시 노출한다(§4-2). 기록 원문은 불변.
- * 필터는 로드된 rows의 클라이언트 파생만 쓴다(신규 API·쿼리 파라미터 없음). 범위 한계는 캡션이 고지한다.
+ * admin_audit_log는 forbid_mutation 트리거로 수정·삭제가 막혀 읽기만 제공한다(§3-2).
+ * 필터는 로드된 rows의 클라이언트 파생이라 범위 한계는 캡션이 고지한다.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -140,10 +138,8 @@ const RESULT_SEGMENTS: { value: "" | AuditResult; label: string }[] = [
 const PAGE_SIZE = 200;
 
 export default function AuditPage() {
-  /* 감사 로그는 append-only라 영구 누적이다. 종전에는 고정 상한 500으로 잘려, 그보다
-     오래된 기록에 도달할 방법이 없고 잘렸다는 표시도 없었다. 사고 조사가 목적인 화면에서
-     "기록이 없다"와 "기록을 못 본다"를 운영자가 구분할 수 없는 상태였다.
-     i번째 칸이 i쪽을 여는 커서고 첫 쪽은 null이다(§2-6은 앞으로만 커서를 발급한다) */
+  /* 감사 로그는 append-only라 영구 누적이다. i번째 칸이 i쪽을 여는 커서고
+     첫 쪽은 null이다(§2-6은 앞으로만 커서를 발급한다) */
   const [page, setPage] = useState(0);
   const cursors = useRef<(string | null)[]>([null]);
 

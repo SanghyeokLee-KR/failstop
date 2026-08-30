@@ -19,33 +19,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 실배포 환경 감사가 확정한 마이그레이션 결함의 회귀 고정. MigrationSmokeTest는 빈 DB에 UTC 컨테이너로
- * V0~V12를 단일 패스 적용하므로 아래를 구조적으로 못 잡는다.
- *
- * 타임아웃 상속: prod Hikari 풀 connection-init-sql의 statement_timeout을 Flyway가 상속해 데이터
- *   무거운 마이그레이션이 57014로 취소되는 결함. V8·V10 상단 SET LOCAL 0으로 상한을 해제한다.
- * DEFAULT 재배치: DEFAULT 파티션에 신규 범위 행이 있으면 CREATE ... PARTITION OF가 중단되는 결함.
- *   V8이 DETACH, 신규 파티션 생성, 행 재배치, 재ATTACH로 회피한다. 재배치 구간의 트리거 우회는
- *   DISABLE TRIGGER USER(owner 권한 충분)로 하고 같은 트랜잭션에서 ENABLE 원복한다.
- * 세션 TZ: 세션 TZ가 배포 JVM zone(KST)에 의존해 파티션 경계가 밀려 overlap으로 부팅이 막히는 결함.
- *   연결 계층 UTC 고정 + V8 명시 오프셋 리터럴로 세션 TZ와 무관하게 정렬된다.
- * 파티션 결손 재배치: 정규 파티션이 없는 달의 행이 DEFAULT에 쌓인 상태에서 그 달의 파티션을
- *   뒤늦게 만드는 경로(V12 outbox 2026-08). 재배치 경계가 어긋나면 남은 행이 DEFAULT 재ATTACH
- *   검증에서 마이그레이션 전체를 실패시킨다. 빈 DB 단일 패스로는 분기 자체를 타지 않는다.
- * 권한 하한: V0~V12 전 체인이 superuser 없이 적용된다. 비superuser(CREATEROLE + DB owner)
- *   migrator 롤로 전 마이그레이션을 실행해 하한을 실증한다(하네스_CICD_IaC §7-2의 전담
- *   flyway-migrate 잡이 superuser일 필요가 없음을 증명).
- *
- * 각 테스트는 격리 위해 신규 컨테이너를 기동한다.
+ * 증분 적용 회귀 고정. 빈 DB 단일 패스 스모크는 타임아웃 상속·DEFAULT 재배치·세션 TZ·권한 하한 분기를 타지 않는다.
+ * 각 테스트는 격리를 위해 신규 컨테이너를 기동한다. 결함별 근거는 docs/contracts/백엔드_DB_설계.md §3 로드맵 표.
  */
 class MigrationHardeningTest {
 
     private static final String IMAGE = "postgres:17-alpine";
     private static final String MIGRATOR = "migrator";
-
-    // ------------------------------------------------------------------
-    // 상속된 statement_timeout을 V8·V10 패턴(SET LOCAL 0)이 해제한다.
-    // ------------------------------------------------------------------
 
     @Test
     void setLocalTimeoutZeroLetsSlowStatementRunUnderInheritedCap() throws Exception {
@@ -78,12 +58,7 @@ class MigrationHardeningTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // V7까지 적재된 DB에 DEFAULT 범위 행을 심고, 비superuser migrator + KST 세션 + prod
-    // 타임아웃으로 V8~V10을 증분 적용해도 통과하며 행이 정규 파티션으로 재배치된다.
-    // 재배치 후 사용자 트리거(레지스트리·봉인 가드)가 전부 원복됐는지도 검증한다.
-    // ------------------------------------------------------------------
-
+    // 재배치 구간에서 끈 사용자 트리거가 전부 원복되는지도 함께 본다.
     @Test
     void incrementalDeployRelocatesDefaultRowsUnderNonUtcSessionWithoutSuperuser() throws Exception {
         try (PostgreSQLContainer<?> pg = container()) {
@@ -120,7 +95,6 @@ class MigrationHardeningTest {
             }
 
             try (Connection c = plain(pg)) {
-                // DEFAULT 범위 행이 정규 2026-09 파티션으로 이동하고 default가 비었다.
                 assertEquals(0, count(c, "SELECT count(*) FROM trades_default"), "trades default 미정리");
                 assertEquals(1, count(c, "SELECT count(*) FROM trades_p2026_09"), "trades 재배치 실패");
                 assertEquals(0, count(c, "SELECT count(*) FROM outbox_default"), "outbox default 미정리");
@@ -157,16 +131,8 @@ class MigrationHardeningTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // V11까지 적재된 DB의 outbox_default에 2026-08 경계 행을 심고, 같은 권한·TZ·타임아웃
-    // 조건에서 V12를 적용해도 두 행이 신규 파티션으로 이동하고 default가 빈다.
-    // 목적은 경계 편집의 회귀 고정이다. V12의 재배치 범위는 [2026-08-01T00:00Z, 2026-09-01T00:00Z)
-    // 반개구간이고, 하한 포함성이 깨지거나 상한이 좁아지면 남은 행이 DEFAULT 재ATTACH 검증에서
-    // 마이그레이션 전체를 실패시킨다(빈 DEFAULT로 돌리면 그 실패가 관측되지 않는다). 상한을
-    // 넓히는 편집은 이 테스트가 잡지 못하지만, V8이 2026-09부터 12개월을 이미 만들어 그 구간
-    // 행이 default에 존재할 수 없으므로 고를 행이 없다.
-    // ------------------------------------------------------------------
-
+    // V12 재배치 범위는 [2026-08-01T00:00Z, 2026-09-01T00:00Z) 반개구간이다.
+    // 하한 포함성이 깨지면 남은 행이 DEFAULT 재ATTACH 검증에서 마이그레이션 전체를 실패시킨다.
     @Test
     void v12RelocatesAugustOutboxRowsUnderNonUtcSessionWithoutSuperuser() throws Exception {
         try (PostgreSQLContainer<?> pg = container()) {
@@ -201,9 +167,8 @@ class MigrationHardeningTest {
                         .locations("classpath:db/migration")
                         .load()
                         .migrate();
-                // 권한 축은 판별력이 있다(V12가 LOCK·DETACH·CREATE·ATTACH를 하고 migrator는
-                // 비superuser다). KST·타임아웃은 prod 배선을 그대로 재현하기 위한 고정 조건이며,
-                // V12가 SET LOCAL로 자체 방어하므로 이 시드 규모에서는 판별 차원이 아니다.
+                // 판별력은 권한 축에만 있다. KST·타임아웃은 prod 배선 재현용 고정 조건이고,
+                // V12가 SET LOCAL로 자체 방어하므로 이 시드 규모에서는 판정을 가르지 않는다.
                 assertTrue(result.success, "비superuser·KST 세션 V12 적용 실패(권한/경계 회귀)");
             }
 
@@ -222,11 +187,7 @@ class MigrationHardeningTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // 비superuser 마이그레이션 주체. CREATEROLE(V0 롤 부트스트랩용) + DB owner(스키마 소유,
-    // trusted 확장 pgcrypto 설치, DISABLE TRIGGER USER)면 전 체인이 적용된다.
-    // ------------------------------------------------------------------
-
+    // 비superuser 주체. CREATEROLE + DB owner면 전 체인이 적용된다.
     private void createMigratorRole(PostgreSQLContainer<?> pg) throws SQLException {
         try (Connection c = plain(pg); Statement st = c.createStatement()) {
             st.execute("CREATE ROLE " + MIGRATOR + " LOGIN PASSWORD '" + MIGRATOR + "' CREATEROLE");
@@ -241,10 +202,6 @@ class MigrationHardeningTest {
                     "전제 위배: migrator 롤 미생성");
         }
     }
-
-    // ------------------------------------------------------------------
-    // 시드: to-be-created 범위(2026-09)의 행을 각 DEFAULT 파티션에 심는다.
-    // ------------------------------------------------------------------
 
     private void seedDefaultRows(PostgreSQLContainer<?> pg) throws SQLException {
         try (Connection c = plain(pg); Statement st = c.createStatement()) {
@@ -275,10 +232,8 @@ class MigrationHardeningTest {
                     VALUES ('TRADE', '700001', 'TradeExecuted', '{}',
                             TIMESTAMPTZ '2026-09-15 00:00:00+00')
                     """);
-            // ledger_entries: 정상 경로(post_ledger_transaction)는 created_at=now()라 2026-09를 만들 수
-            // 없고, 봉인 가드·DEFERRED 균형 제약이 직접 삽입을 막는다. 기존 커밋 데이터를 흉내 내려고
-            // 트리거·FK·제약 트리거를 replica로 우회해 SEALED·2026-09 분개를 심는다(superuser 시드
-            // 한정. 마이그레이션 본문은 이 우회를 쓰지 않는다).
+            // 정상 경로는 created_at=now()라 2026-09를 만들 수 없고 봉인 가드가 직접 삽입을 막는다.
+            // replica 우회는 시드 한정이다. 마이그레이션 본문은 이 우회를 쓰지 않는다.
             st.execute("INSERT INTO accounts (owner_type, owner_id, purpose, asset_id, shard) "
                     + "VALUES ('USER', 900, 'AVAILABLE', 1, 0)");
             long acct = queryLong(c, "SELECT id FROM accounts WHERE owner_id = 900 AND asset_id = 1");
@@ -299,9 +254,8 @@ class MigrationHardeningTest {
     }
 
     /**
-     * 재배치 범위의 양 끝점을 심는다. 하한은 포함, 상한은 배제(다음 파티션의 하한)이므로
-     * 2026-08의 마지막 마이크로초가 마지막 대상 행이다. 경계를 잘못 편집하면 정확히 이 두 행 중
-     * 하나가 default에 남는다. outbox에는 FK도 사용자 트리거도 없어 시드 우회가 필요 없다.
+     * 재배치 범위의 양 끝점을 심는다. 하한은 포함, 상한은 배제이므로 2026-08의 마지막 마이크로초가
+     * 마지막 대상 행이고, 경계를 잘못 편집하면 이 두 행 중 하나가 default에 남는다.
      */
     private void seedAugustOutboxRows(PostgreSQLContainer<?> pg) throws SQLException {
         try (Connection c = plain(pg); Statement st = c.createStatement()) {
@@ -320,10 +274,6 @@ class MigrationHardeningTest {
                     """);
         }
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     /** 재배치 전후 비교용 지문. 세션 TZ에 흔들리지 않도록 UTC로 정규화해 찍는다. */
     private static String outboxDigest(Connection c) throws SQLException {

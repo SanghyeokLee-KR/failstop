@@ -98,10 +98,6 @@ class CommandJournalIntegrationTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (b) 동시 append + 강제 롤백 교차 후 영구 결번 0 (T6-E)
-    // ------------------------------------------------------------------
-
     @Test
     @Order(1)
     void concurrentAppendsWithRollbacksLeaveNoPermanentGap() throws Exception {
@@ -146,10 +142,6 @@ class CommandJournalIntegrationTest {
                 "롤백 채번이 카운터에서 회수되지 않았다");
     }
 
-    // ------------------------------------------------------------------
-    // (c) 동일 client_order_id NEW 재전송 멱등
-    // ------------------------------------------------------------------
-
     @Test
     @Order(2)
     void duplicateNewCommandReturnsExistingWithoutInsert() throws Exception {
@@ -189,10 +181,6 @@ class CommandJournalIntegrationTest {
         assertEquals(1, queryLong(
                 "SELECT count(*) FROM command_journal WHERE client_order_id = 'idem-race'"));
     }
-
-    // ------------------------------------------------------------------
-    // (d) fencing: 구 epoch·비리더 append 거부, 커밋 0건 (T4-2 축)
-    // ------------------------------------------------------------------
 
     @Test
     @Order(3)
@@ -251,10 +239,6 @@ class CommandJournalIntegrationTest {
         takeOver(lease);
     }
 
-    // ------------------------------------------------------------------
-    // (e) catch-up: lastAppliedSeq 초과분 순서 조회
-    // ------------------------------------------------------------------
-
     @Test
     @Order(4)
     void readerReturnsCommandsAfterSeqInOrder() {
@@ -291,9 +275,7 @@ class CommandJournalIntegrationTest {
         assertEquals(seqs.subList(2, 4), page.stream().map(JournalEntry::seq).toList());
     }
 
-    // ------------------------------------------------------------------
-    // 배선: append ACK 후 단일 라이터 큐 공급, replay는 재투입하지 않음
-    // ------------------------------------------------------------------
+    // append ACK 후에만 단일 라이터 큐로 공급하고, replay는 큐에 재투입하지 않는다.
 
     @Test
     @Order(5)
@@ -332,10 +314,6 @@ class CommandJournalIntegrationTest {
             loop.stop();
         }
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private static CommandDraft newDraft(String clientOrderId, long assignedOrderId) {
         return new CommandDraft(1, CommandDraft.CommandType.NEW, 7, clientOrderId,

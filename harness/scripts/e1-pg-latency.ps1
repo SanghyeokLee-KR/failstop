@@ -1,12 +1,6 @@
-﻿# docs §3 E1 PG 지연/지터. 리더 pg 프록시에 latency=200/jitter=100(downstream) 주입, 120s 유지.
-# 페일오버 아님. 판정은 정본 §3 E1 합격 기준의 1차·2차 구조를 그대로 따른다.
-#   1차(필수): 무결성 위반 0 · epoch 불변 · exchange_leader_standdown_total 증가 0 ·
-#              주입 중·해제 후 컨테이너 unhealthy 표본 0 · 체결 정지 0(느려지되 멈추지 않음) ·
-#              해제 후 자력 회복(체결 재개 + 60s 내 p99 기저 복귀)
-#   2차: 오류율 < 0.1%. 백프레셔 429는 정상 동작이라 이 축은 경고 보고로만 낸다.
-# 지연 중에도 사전/사후 권위 run으로 무결성을 확인하고, status(DB 경유)를 반복 GET해 p99·오류율을
-# 표본화한다. 개입 금지 구간은 없다(지연은 자동 해제 후 복귀만 관찰).
-# 파일명 유의: 리더 kill 실험은 e4-leader-kill.ps1(구 e1-leader-kill, M4 §0-3 개명)이다.
+﻿# docs §3 E1 PG 지연/지터. 리더 pg 프록시에 latency/jitter 주입. 페일오버가 아니다.
+# 판정은 정본 §3 E1 합격 기준의 1차·2차 구조를 그대로 따른다. 2차 오류율은 백프레셔 429가
+# 정상 동작이라 경고 보고로만 낸다. 개입 금지 구간은 없다.
 param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e1-pg-latency.env'))
 
 $ErrorActionPreference = 'Stop'
@@ -92,8 +86,8 @@ try {
     $injP99 = Get-Percentile -Values $inj.Samples -P 99
     $errRate = if ($inj.Total -gt 0) { [double]$inj.Errors / $inj.Total } else { 0 }
     Write-Host ("지연 중 p99={0}ms 오류율={1} 무결성위반={2}" -f ([math]::Round($injP99, 1)), $errRate, $injRun.totalViolations)
-    # 잔여 창 소진. 단순 대기 대신 헬스를 표본화해 1차 게이트(주입 중 unhealthy 0)의 증거를 창
-    # 전체에서 모은다. 종전에는 이 구간이 그냥 Start-Sleep이라 지연 중 노드 상태를 아무도 안 봤다.
+    # 잔여 창 소진. 단순 대기 대신 헬스를 표본화해 1차 게이트(주입 중 unhealthy 0)의 증거를
+    # 창 전체에서 모은다.
     $elapsed = ((Get-Date).ToUniversalTime() - $t0).TotalSeconds
     $remain = [int]$cfg['INJECT_DURATION_SEC'] - [int]$elapsed
     while ($remain -gt 0) {
@@ -176,11 +170,9 @@ try {
     # 강등하면 1차 요구가 조용히 사라진다.
     $statusRespOk = ($errRate -lt $errMax)
 
-    # 정본 §3 E1 합격 기준 1차. 종전 판정은 1차 중 강등 0·체결 정지 0·unhealthy 0을 하나도
-    # 평가하지 않아, 리더가 좀비가 되어 체결이 멈추고 컨테이너가 unhealthy여도 PASS가 나올 수 있었다.
-    # 컨테이너 헬스는 단독으로는 둔감하다(healthcheck interval 3s x retries 30 = 90s 연속 실패라야
-    # unhealthy, start_period 40s는 실패해도 starting). 그래서 $statusRespOk와 체결 흐름이 함께 있어야
-    # 좀비 구간이 잡힌다. 셋을 모두 1차에 두는 이유다.
+    # 정본 §3 E1 합격 기준 1차. 컨테이너 헬스는 단독으로는 둔감하다(3s x 30회 연속 실패라야
+    # unhealthy, start_period 40s는 실패해도 starting). $statusRespOk와 체결 흐름이 함께 있어야
+    # 좀비 구간이 잡히므로 셋을 모두 1차에 둔다.
     $primaryOk = $injClean -and $postClean -and $epochStable -and $standdownOk -and `
                  $healthOk -and $tradesFlowing -and $recovered -and $statusRespOk
     $verdict = 'FAIL'

@@ -53,7 +53,7 @@ const SEVERITY_LABEL: Record<"high" | "medium" | "low", string> = {
 export default function ChaosPage() {
   const canChaos = useCan("CHAOS_OPS");
   const catalog: ChaosExperimentDef[] = getAdminApi().getChaosCatalog();
-  /* 실험 이력은 감사 로그에 영구 누적된다. 종전 고정 상한 200 밖의 실험은 볼 방법이 없었다 */
+  /* 실험 이력은 감사 로그에 영구 누적된다. 고정 상한으로 자르면 그 밖의 실험에 도달할 방법이 없다 */
   const [page, setPage] = useState(0);
   const cursors = useRef<(string | null)[]>([null]);
   const loader = useCallback(async () => {

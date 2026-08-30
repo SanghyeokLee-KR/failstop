@@ -1,11 +1,7 @@
 /**
- * lib/orderContract.ts. 락·수수료·원가 계약 산식의 단일 출처.
- * 정본은 API 설계 §4-B-5(v2.7 수취 자산 수수료·예약 무수수료)와 §4-C-1(v2.21 원가 산출 규약),
+ * 락·수수료·원가 계약 산식의 단일 출처. 정본은 API 설계 §4-B-5·§4-C-1이고,
  * 원가 전이는 DB 설계 §6.4 ⑱⑲(position_cost) 함수와 같은 분기다.
- *
- * 화면(OrderPanel·자산)과 시뮬레이터가 같은 함수를 부른다. 산식 사본을 두면 sim 이 라이브와
- * 갈리고, 그 갈림이 라이브 결함을 은폐한다(이 프로젝트가 반복 확인한 사항).
- * components/ 가 아니라 lib/ 에 두는 이유는 lib/sim 이 소비 주체이기 때문이다.
+ * 산식 사본을 두면 sim이 라이브와 갈리고, 그 갈림이 라이브 결함을 은폐한다.
  */
 
 import {
@@ -97,8 +93,7 @@ export const EMPTY_COST_BASIS: CostBasis = { costQty: "0", costAmount: "0", unkn
 
 /**
  * 사용자별 자산 순델타 한 벌을 원가 누산기에 반영한다. 서버 apply_position_cost와 같은 분기다.
- * `dBase`는 실수취·실지출 반영 후의 순델타이고 `dQuote`는 같은 트랜잭션의 quote 순델타다.
- * RESERVE·RELEASE는 순델타 0이라 호출자가 거르거나 여기서 무동작으로 흡수된다.
+ * dBase는 실수취·실지출 반영 후의 순델타이고, RESERVE·RELEASE는 순델타 0이라 무동작으로 흡수된다.
  */
 export function applyCostDelta(prev: CostBasis, dBase: string, dQuote: string): CostBasis {
   const dir = compareDecimal(dBase, "0");

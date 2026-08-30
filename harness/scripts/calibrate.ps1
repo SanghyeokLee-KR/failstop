@@ -47,9 +47,8 @@ harness.calibration_runs.k6_host에 남길 부하기 호스트명. 기본은 현
 #>
 [CmdletBinding()]
 param(
-    # 2026-08-29 확정치가 통과시킨 대역이다(외부 주입 기저 10 OPS, 데모 구성). 종전 기본값
-    # @(300,200,150,100)은 실측상 전 구간 실패 대역이라, 무인자 실행이 사다리 넷을 다 태우고
-    # exit 1로만 끝났다.
+    # 2026-08-29 확정치가 통과시킨 대역이다(외부 주입 기저 10 OPS, 데모 구성).
+    # 이보다 높은 기본값은 전 구간 실패 대역이라 무인자 실행이 사다리만 태우고 끝난다.
     [int[]]$Ops = @(30, 20, 15, 10),
     [string]$Duration = '3m',
     [switch]$Record,
@@ -72,11 +71,11 @@ $LIMIT_K6_CORES = 1.0    # 코어
 $LIMIT_OVERHEAD = 5.0    # ms, 부하기 내부 지연 기여 중앙값
 $LIMIT_PENDING  = 1.0    # HikariCP pending 스레드 표본 평균
 $LIMIT_WAL_MS   = 10.0   # ms, WAL fsync 건당 대기
-$LIMIT_429_RATE = 0.01   # 주문 수용 거절(429) 비율
+$LIMIT_429_RATE = 0.01
 $LIMIT_REPLAY   = 0.01   # 멱등 재생(200) 비율
 $LIMIT_400_RATE = 0.01
 # 스파이크 주행의 접수 처리율 하한. 확정 기저 10 OPS의 2배(§2-4 실측 id=8 54.8/s)
-$SPIKE_MIN_ACCEPT_OPS = [double]($env:SPIKE_MIN_ACCEPT_OPS | ForEach-Object { if ($_) { $_ } else { 20 } })   # 주문 도메인 거절(400) 비율
+$SPIKE_MIN_ACCEPT_OPS = [double]($env:SPIKE_MIN_ACCEPT_OPS | ForEach-Object { if ($_) { $_ } else { 20 } })
 # 코어, 스택 밖 프로세스 허용치(§2-4 2항 부하기 격리). 1.0인 이유는 주행을 구동하는
 # 프로세스(셸·에이전트·터미널) 자체가 스택 밖으로 계상되기 때문이다. 같은 호스트에서
 # 돌리는 한 이 몫은 없앨 수 없어 0.5로는 어떤 유휴 호스트도 통과하지 못한다.
@@ -100,12 +99,9 @@ $mountLoad = ($loadDir -replace '\\', '/')
 $mountArt = ($artifacts -replace '\\', '/')
 
 # ── 네이티브 호출 규약 ────────────────────────────────────────────────
-# PowerShell은 EAP=Stop에서 네이티브 stderr를 NativeCommandError로 승격시킨다. 5.1에서는
-# 2>$null로도 막히지 않아, 컨테이너 부재라는 매 첫 주행의 정상 상태에서 docker rm -f가 그대로
-# throw한다(실측: PS5.1 + EAP=Stop). 같은 이유로 종전의 LASTEXITCODE 가드는 5.1에서 도달조차
-# 하지 못하는 죽은 코드였다. lib.ps1:582-584 공용 규약대로 cmd /c로 감싸 스트림을 nul에 버린다.
-# 인용 규약: docker 인자 중 값에 공백·중괄호가 들어가는 것만 큰따옴표로 감싼다. 큰따옴표 안에서는
-# cmd가 파이프·괄호를 특수문자로 보지 않으므로 SQL의 || 와 '|' 가 그대로 전달된다(실측 확인).
+# PS5.1은 EAP=Stop에서 네이티브 stderr를 NativeCommandError로 승격시키고 2>$null로도 막히지
+# 않는다. lib.ps1 공용 규약대로 cmd /c로 감싸 스트림을 nul에 버린다. 값에 공백·중괄호가 든
+# 인자만 큰따옴표로 감싸면 cmd가 파이프를 특수문자로 보지 않아 SQL의 || 가 그대로 전달된다.
 function Invoke-DockerQuiet {
     param([string] $DockerArgs)
     & cmd /c "docker $DockerArgs >nul 2>nul"
@@ -200,9 +196,8 @@ function Get-ExternalCores([int]$Seconds = 8) {
 }
 
 function ConvertTo-DurationSeconds([string]$Dur) {
-    # k6 duration 표기를 초로 푼다. 복합 표기(1m30s·2h30m)를 포함한다. 파싱 실패는 throw다.
-    # 종전 default 1은 '1m30s'·'30'·''를 전부 1초로 읽었고, 그 값이 AcceptedRate의 분모라
-    # 접수 처리율이 주행 길이 배수만큼 부풀려진 채 harness.calibration_runs에 확정치로 들어갔다.
+    # k6 duration 표기를 초로 푼다. 복합 표기(1m30s·2h30m)를 포함하고 파싱 실패는 throw다.
+    # 이 값이 AcceptedRate의 분모라 잘못 읽으면 처리율이 부풀려진 채 확정치로 적재된다.
     $s = "$Dur".Trim()
     $parts = [regex]::Matches($s, '(\d+(?:\.\d+)?)(ms|h|m|s)')
     # 부분 매치를 통과시키면 '1m30x'가 60초로 조용히 읽힌다. 전량 소비를 요구한다.
@@ -515,23 +510,12 @@ function Test-Criteria($r) {
     # WAL 스냅샷을 못 뜬 주행이 "fsync 정상"으로 통과하면 판정이 계측 실패에서 나온 것이 된다.
     $c['C4 fsync·pending정상'] = ($null -ne $r.PendingAvg -and $r.PendingAvg -lt $LIMIT_PENDING -and
         $null -ne $r.WalMsPerSync -and $r.WalMsPerSync -lt $LIMIT_WAL_MS)
-    # C0 주행 완주. 나머지 기준이 전부 "무엇이 없다"를 보는 단측이라 주행이 조기에
-    # 끝나면 표본이 적은 채로 전건 통과한다. 관측 실패가 확정치가 되는 경로다.
-    # K6Exit는 결과 객체와 DB details에 담기면서 판정에는 안 쓰였다. 여기서 건다.
+    # C0 주행 완주. 나머지 기준이 전부 단측이라 주행이 조기에 끝나면 표본이 적은 채로
+    # 전건 통과한다. 관측 실패가 확정치가 되는 경로다.
     $c['C0 주행 완주(k6 exit=0)'] = ($null -ne $r.K6Exit -and $r.K6Exit -eq 0)
-    # C0b 발행량. 완주해도 부하가 안 실리면 같은 문제다. 스파이크 주행은 거절이 정상이라
-    # S2가 대신 본다.
-    #
-    # 하한 90%. 종전 50%는 접수 51% 주행도 통과시켰다. 그 값을 고를 근거가 없었고
-    # 실측이 그것을 반박한다. id=1(기저 10 OPS, 30분)은 제공 18,000에 접수 18,001로
-    # 100.0%다. 시나리오가 constant-arrival-rate라 램프가 없어 앞뒤 손실도 없다.
-    # 엔진 직렬 상한이 40~42/s이므로 기저 10 OPS에는 4배 여유가 있고 백프레셔가 없다
-    # (같은 주행 429 비율 0.0). 정상 주행의 기대치는 100%지 50%가 아니다.
-    #
-    # 10%를 마진으로 남긴다. 이 축이 잡는 것은 429나 5xx가 아니라(각각 C6·C0c가 본다)
-    # "완주했는데 부하가 안 실린" 경우, 즉 시나리오 미기동이나 VU 부족이다. 그 상태는
-    # 부분 손실이 아니라 대폭 미달로 나타나므로 90%가 정상 주행을 깨지 않는다.
-    # BaseOpsForRun 상대값이라 느린 기계에서 기저를 다시 확정하면 축이 함께 내려간다.
+    # C0b 발행량. 완주해도 부하가 안 실리면 같은 문제다. 스파이크 주행은 거절이 정상이라 S2가 본다.
+    # 하한 90%. 이 축이 잡는 것은 429나 5xx가 아니라(C6·C0c 소관) 시나리오 미기동·VU 부족이고,
+    # 그 상태는 부분 손실이 아니라 대폭 미달로 나타난다. 실측 근거는 검증설계 §2-4에 둔다.
     if (-not $SpikeCheck) {
         $expected = [double]$BaseOpsForRun * $durSec
         $c['C0b 접수 발행(제공의 90% 이상)'] = ($null -ne $r.OrderAccepted -and
@@ -547,15 +531,11 @@ function Test-Criteria($r) {
     # §2-3이 steady에 요구하는 "429 비율 ~0". 수용 제한(in-flight 12)을 넘는 제공 부하는
     # 초과분이 전량 429가 되고, 그 상태의 p95·처리율은 엔진 용량이 아니라 거절 비용이다.
     if ($SpikeCheck) {
-        # 스파이크 확인 주행은 429가 정상이다. §2-4 머리말이 요구하는 것은 무거절이 아니라
-        # "기저 대비 10배 폭주에서의 백프레셔 증명"이다. 429가 나야 백프레셔가 발동한 것이고,
-        # 그때 노드가 살아 있고 부하가 실재했는지가 판정 대상이다. C6을 그대로 걸면 목적과
-        # 반대로 "거절이 없어야 통과"가 되어 스파이크를 영영 기록할 수 없다.
+        # 스파이크 확인 주행은 429가 정상이다. 요구는 무거절이 아니라 기저 대비 10배 폭주에서의
+        # 백프레셔 증명이라, C6을 그대로 걸면 스파이크를 영영 기록할 수 없다.
         $c['S1 백프레셔 발동(429>10%)'] = ($null -ne $r.Order429Rate -and $r.Order429Rate -gt 0.10)
-            # S2 접수 하한. >0은 접수 1건 주행도 통과시켜 발행량 판정을 승계하지 못한다.
-        # 스파이크는 거절이 정상이라 제공량 비율로 잡으면 성립하지 않으므로 확정 기저
-        # 대비로 잡는다. 실측 id=8은 접수 54.8/s이고 최악이던 id=7(잔여 11.6만 건)도
-        # 24.4/s였다. 확정 기저 10 OPS의 2배를 하한으로 두면 정상 주행을 깨지 않는다.
+        # S2 접수 하한. >0은 접수 1건 주행도 통과시켜 발행량 판정을 승계하지 못한다.
+        # 스파이크는 거절이 정상이라 제공량 비율로는 성립하지 않아 확정 기저 대비로 잡는다.
         $c['S2 접수 지속(기저 2배 이상)'] = ($null -ne $r.AcceptedRate -and
             $r.AcceptedRate -ge ($SPIKE_MIN_ACCEPT_OPS))
         # §2-3 spike 열이 상한에서 요구하는 지연 SLO. 백프레셔가 발동해도 수용분은

@@ -73,6 +73,16 @@ pwsh -File scripts/down.ps1          # 전체 볼륨 파기(append-only 선별 �
 - 사전·사후 권위 run: `POST /harness/v1/invariants/run`(REPEATABLE READ READ ONLY, C01~C19).
 - 결과 적재: `invariant_checks`(체크별 ok·위반행·details), `harness.failover_runs`(RTO/RPO/verdict).
 - 판정 원천: SQL 위반 행 수 0, epoch 단조 +1, RTO 임계. 사람 눈 판정 없음.
+- 수동 게이트(`sql/summary.sql` 출력 파싱). 등급 CRITICAL·HIGH이고 verdict=FAIL인 행이 0이어야
+  한다. 아래 명령의 출력이 비면 통과다.
+
+```powershell
+psql -Atq -f summary.sql |
+  Where-Object { $_ -match '^(?!C13A\||C16\||C19\|).*\|(CRITICAL|HIGH)\|.*\|FAIL$' }
+```
+
+  `-q`가 없으면 `\pset` 알림이 stdout 첫 줄에 섞여 `-At` 파싱을 깬다. 면제 3종(C13A·C16·C19)의
+  정본 목록은 `scripts/lib.ps1`의 `CHAOS_GATING_EXEMPT_CHECKS`다.
 
 ### 결과 적재 위치(산출물 5 정정)
 

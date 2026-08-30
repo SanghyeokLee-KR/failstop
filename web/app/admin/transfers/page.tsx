@@ -1,15 +1,8 @@
 "use client";
 
 /**
- * 출금 승인 큐(/admin/transfers). API 설계 §4-E.
- *
- * 사용자 요청을 운영자가 처리하는 작업 큐다. 2인 승인(approval_token)을 걸지 않는 이유는
- * 그 장치가 운영자끼리의 상호 견제용이고 여기서는 요청 주체가 운영자가 아니기 때문이다.
- * 대신 처리 전 확인 다이얼로그로 금액과 대상을 다시 보여주고, 처리 결과는 감사에 남는다.
- *
- * 승인은 되돌릴 수 없다. 잠긴 금액이 GATEWAY로 빠져나가고 그 시점에 사용자 잔고에서
- * 사라진다. 그래서 확인 단계를 건너뛰지 않는다. 거절은 사유가 필수다. 사유 없이 거절하면
- * 사용자는 무엇을 고쳐 다시 요청해야 하는지 알 수 없다.
+ * 요청 주체가 운영자가 아니라 2인 승인을 걸지 않고 확인 다이얼로그로 대체한다(§4-E).
+ * 승인은 잠긴 금액이 GATEWAY로 빠져나가 비가역이고, 거절은 사유가 필수다.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -48,8 +41,8 @@ export default function AdminTransfersPage() {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
 
-  /* COMPLETED·CANCELED는 처리 뒤에도 남아 누적된다. 종전 고정 상한 200 밖의 요청은 볼
-     방법이 없었다. status가 바뀌면 쪽 경계가 새로 생기므로 커서를 버리고 첫 쪽부터 센다 */
+  /* COMPLETED·CANCELED는 처리 뒤에도 누적된다. status가 바뀌면 쪽 경계가 새로
+     생기므로 커서를 버리고 첫 쪽부터 센다 */
   const [page, setPage] = useState(0);
   const cursors = useRef<(string | null)[]>([null]);
   const loader = useCallback(async () => {

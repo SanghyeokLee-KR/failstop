@@ -42,7 +42,6 @@ public class ApiAuthService {
 
     /** canonical은 호출측이 요청 형태(a: 쿼리, b: JCS 바디)에 맞춰 만들어 전달한다. */
     public AuthPrincipal verify(String authorizationHeader, String canonical, boolean needsTrade) {
-        // 1. JWT 파싱
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
             throw unauthorized("jwt_verification", "Authorization Bearer JWT가 필요합니다.");
         }
@@ -79,7 +78,6 @@ public class ApiAuthService {
             throw unauthorized("jwt_verification", "지원하지 않는 query_hash_alg입니다.");
         }
 
-        // 2. access_key로 secret 복호화 → HMAC-SHA256 재계산
         ApiKeyDirectory.ApiKey key = keys.findActive(accessKey)
                 .orElseThrow(() -> unauthorized("jwt_verification", "유효하지 않은 access_key입니다."));
         String secret = cipher.decrypt(key.encSecret());
@@ -89,7 +87,6 @@ public class ApiAuthService {
             throw unauthorized("jwt_verification", "서명 검증 실패");
         }
 
-        // 3. timestamp 단방향 창: now - recvWindow <= ts <= now + skew
         // 음수 recvWindow는 하한을 반전시켜 과거 timestamp를 무한 허용하므로 0으로 클램프한다.
         long recvWindow = Math.max(0, Math.min(
                 payload.hasNonNull("recvWindow") ? payload.get("recvWindow").asLong()
@@ -101,18 +98,17 @@ public class ApiAuthService {
             throw unauthorized("timestamp_out_of_window", "timestamp가 허용창 밖입니다.");
         }
 
-        // 4. nonce 중복 차단. TTL은 허용창 전체(recvWindow + skew)를 덮는다.
+        // nonce TTL은 허용창 전체(recvWindow + skew)를 덮는다.
         if (!nonces.register(accessKey + ":" + nonce, recvWindow + CLOCK_SKEW_MS)) {
             throw unauthorized("nonce_used", "재사용된 nonce입니다.");
         }
 
-        // 5. canonical(query_hash) 대조: method + path 바인딩 포함
+        // query_hash 대조. canonical에 method·path가 바인딩된다.
         String recomputed = CanonicalRequests.sha512Hex(canonical);
         if (!recomputed.equalsIgnoreCase(queryHash)) {
             throw unauthorized("invalid_query_payload", "canonical 서명 불일치");
         }
 
-        // 6. scope
         if (needsTrade && !"TRADE".equals(key.scope())) {
             throw new ApiException(403, "out_of_scope", "이 API 키에 주문 권한 없음");
         }

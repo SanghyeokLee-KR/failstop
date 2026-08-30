@@ -1,13 +1,8 @@
 "use client";
 
 /**
- * useTradeRateGovernor. 마켓별 체결 도착률 EWMA로 유효 밀도 밴드를 산출한다(설계 §2-3).
- * 지역 상태만 쓴다(전역 스토어 오염 금지). 관리 OPS 값에 의존하지 않고 클라이언트가 실측하므로
- * Sim·Http 양쪽에서 동일 동작한다. 밴드가 바뀔 때만 리렌더한다.
- *
- * 표본 수집은 zustand transient 구독으로 한다. 셀렉터 구독은 trade_id가 체결마다 바뀌어
- * 호출 컴포넌트(SummaryBar·OrderbookPanel 등)를 표본 1건 넣자고 통째로 리렌더시킨다.
- * transient 구독은 리렌더 없이 스토어 변경만 관찰하고, setResult는 밴드 전이 시에만 호출된다.
+ * 표본 수집은 zustand transient 구독으로 한다(설계 §2-3). 셀렉터 구독은 trade_id가 체결마다 바뀌어
+ * 호출 컴포넌트를 표본 1건 넣자고 통째로 리렌더시킨다.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";

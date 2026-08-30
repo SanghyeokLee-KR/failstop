@@ -681,8 +681,7 @@
   color: var(--text-secondary);
 }
 
-/* 스테일 구간 갱신 영역 감쇠(§5.2): 폴링 실패 시 마지막 값임을 opacity로 알린다. 시프트 0.
-   지연 배지는 공용 StatusSignals로 승격했다(트레이딩·자산과 공유). */
+/* 스테일 구간 갱신 영역 감쇠(§5.2): 폴링 실패 시 마지막 값임을 opacity로 알린다. 시프트 0 */
 .staleRegion {
   transition: opacity var(--dur-fast) var(--ease-standard);
 }

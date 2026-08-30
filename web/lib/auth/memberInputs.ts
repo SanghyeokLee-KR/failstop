@@ -1,13 +1,7 @@
 /**
- * 가입 입력 검증. 서버 MemberInputs.java의 미러다.
- *
- * 왜 미러가 필요한가. 서버 검증만 두면 사용자는 제출을 눌러 왕복을 기다린 뒤에야 오타를
- * 안다. 왜 서버를 지우면 안 되는가. 브라우저 검증은 우회 가능하고 API는 무인증 공개
- * 경로다. 그래서 둘 다 둔다. 대신 규칙이 갈리면 "폼은 통과하는데 서버가 거절"이라는
- * 최악의 조합이 나오므로, 판정 순서와 거절 사유를 서버와 같은 순서로 맞춘다.
- *
- * 서버가 정본이다. 규칙을 바꿀 때는 MemberInputs.java를 먼저 고치고 여기를 맞춘다.
- * tests/memberInputs.test.ts가 두 구현이 같은 입력에 같은 답을 내는지 본다.
+ * 가입 입력 검증. 서버 MemberInputs.java의 미러이고 서버가 정본이다.
+ * 규칙이 갈리면 폼은 통과하는데 서버가 거절하므로 판정 순서와 거절 사유를 서버와 맞춘다.
+ * 규칙을 바꿀 때는 MemberInputs.java를 먼저 고친다(tests/memberInputs.test.ts가 두 답을 대조한다).
  */
 
 /** RFC 5321 경로 상한 */
@@ -88,12 +82,8 @@ export function emailError(raw: string): string | null {
 }
 
 /**
- * 서버 collapseWhitespace 미러. 공백류를 U+0020 하나로 접고 양끝을 자른다.
- *
- * 정규식 `\s`를 쓰면 안 된다. ECMAScript의 WhiteSpace에는 U+FEFF(BOM)가 포함되지만
- * Java의 isWhitespace·isSpaceChar에는 없다. `\s`로 접으면 프론트는 BOM을 공백으로 바꿔
- * 통과시키고 서버는 보이지 않는 문자로 거절한다. 폼은 통과하는데 가입이 실패한다.
- * Java와 같은 집합(Zs·Zl·Zp + 탭·개행류 + U+001C~001F)만 접는다.
+ * 서버 collapseWhitespace 미러. ECMAScript의 \s는 U+FEFF(BOM)를 포함하지만 Java에는 없어,
+ * \s로 접으면 프론트는 BOM을 통과시키고 서버는 거절한다. Java와 같은 집합만 접는다.
  */
 const SEPARATORS = /[\p{Zs}\p{Zl}\p{Zp}]/u;
 
@@ -140,9 +130,8 @@ export function displayNameError(raw: string): string | null {
 }
 
 /**
- * 복잡도 규칙(특수문자·대소문자 혼용)은 두지 않는다. 정본이 "연극적 규칙"으로 명시적으로
- * 배제했고(회원_설계 §1-1), 데모 전용 비밀번호라 강제할 실익도 없다. 상한은 보안이 아니라
- * Argon2가 임의 길이 입력을 해싱하지 않게 하는 방어다.
+ * 복잡도 규칙(특수문자·대소문자 혼용)은 정본이 "연극적 규칙"으로 배제했다(회원_설계 §1-1).
+ * 상한은 보안이 아니라 Argon2가 임의 길이 입력을 해싱하지 않게 하는 방어다.
  *
  * @returns 오류 문구. 통과면 null
  */

@@ -52,7 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *  (B) rebuild 후 설치 엔진이 head + 초기 리더 체크섬과 일치한다.
  *  (C) 접수 게이트 순서: 재생 완료 전 submit은 NotReady, 완료 후 신규 명령은 통과.
  *  (D) 벽시계 RTO: 승격 트리거~가시 첫 체결(TRADE 커밋) < 예산. engine_ts 파생값을 쓰지 않는다.
- * 별도로 runLoop Error 주입 시 fatal 경로·demote를 단언한다(전문가 감사 high).
+ * 별도로 runLoop Error 주입 시 fatal 경로·demote를 단언한다.
  */
 @Testcontainers
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -206,9 +206,8 @@ class PromotionRecoveryIntegrationTest {
     /**
      * C17 원천이 실제 복구에서 채워지는지 본다(검증설계 C17 REPLAY_DETERMINISM).
      *
-     * 종전에는 recovery_runs에 쓰는 코드가 없어 표가 늘 0행이었고 판정이 빈 테이블 대조로
-     * 공허 통과했다. 배선했지만 그 배선을 증명하는 테스트가 없었다. 배선 주장 자체가 같은
-     * 상태였다. 픽스처 INSERT로 판정 SQL만 보는 테스트는 이 결함을 못 잡는다.
+     * recovery_runs에 쓰는 코드가 없으면 표가 늘 0행이라 판정이 빈 테이블 대조로 공허 통과한다.
+     * 픽스처 INSERT로 판정 SQL만 보는 테스트는 그 상태를 구분하지 못하므로 배선 자체를 건다.
      */
     @Test
     @Order(3)
@@ -239,7 +238,7 @@ class PromotionRecoveryIntegrationTest {
         // leaderHead는 클래스 셋업 시점 값이다. 앞선 테스트가 명령을 더 넣으므로 지금 head를
         // 읽는다. 고정 상수와 비교하면 실행 순서에 따라 깨진다(실측: 1000 대 1002).
         assertEquals(commandReader.maxSeq(), to, "재생 종점이 저널 head다");
-        // fp는 재생 창 식별자다(DB§5.5 v2.37). 형식이 계약이라 형식을 건다.
+        // fp는 재생 창 식별자다(DB§5.5). 형식이 계약이라 형식을 건다.
         String fp = String.valueOf(row.get("fp_replay"));
         String prefix = "seq:" + from + "-" + to + ":ev:";
         assertTrue(fp.startsWith(prefix),
@@ -332,8 +331,6 @@ class PromotionRecoveryIntegrationTest {
         assertFalse(lease.tryAcquire(), "강등 후 재승격 금지");
         lease.close();
     }
-
-    // ── 헬퍼 ────────────────────────────────────────────────────────────
 
     private static boolean tradeCommitted(long sourceCmdSeq) {
         return jdbc.sql("SELECT count(*) FROM event_journal "

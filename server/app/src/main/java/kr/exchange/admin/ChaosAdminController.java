@@ -35,7 +35,7 @@ import java.util.UUID;
 public class ChaosAdminController {
 
     // 바인딩 target을 엔드포인트 의미 필드에서 취한다(§3-6 확정표). kill-node=node,
-    // network=name, app=assault. 균일 target 단일 필드는 발급 target과 어긋나 403을 유발했다.
+    // network=name, app=assault. 균일 target 단일 필드는 발급 target과 어긋나 403이 된다.
     public record ChaosBody(String approval_token, String node, String method, Boolean expect_failover,
                             String name, String type, String assault, String experiment) {
     }
@@ -248,7 +248,7 @@ public class ChaosAdminController {
         return v.matches("E[1-9]") ? v : null;
     }
 
-    // 의미 필드 중 target 외 서술 필드만 감사 detail에 남긴다(균일 params 맵 폐기 후 관측 보존).
+    // 의미 필드 중 target 외 서술 필드만 감사 detail에 남긴다.
     private static Map<String, Object> chaosParams(ChaosBody body) {
         if (body == null) {
             return Map.of();

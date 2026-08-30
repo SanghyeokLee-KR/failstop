@@ -1,8 +1,6 @@
 /**
- * lib/sim/engine.ts. 클라이언트 시뮬레이터 (런타임 외부 의존 0).
- * GBM(기하 브라운 운동) 틱 엔진 + 호가 10단계 + 체결 스트림 + 내 주문/자산 시뮬레이션.
- * 발행 메시지는 API 계약(§5-4/§5-5)의 WS 스키마를 그대로 미러한다.
- * seq는 채널(destination) 단위 독립 단조 증가, epoch는 리더 세대(§5-2).
+ * 클라이언트 시뮬레이터(런타임 외부 의존 0). GBM 틱 엔진 + 호가 10단계 + 체결·주문·자산 시뮬레이션.
+ * 발행 메시지는 §5-4·§5-5 WS 스키마를 미러하고, seq는 채널 단위 단조·epoch는 리더 세대다(§5-2).
  */
 
 import type {
@@ -191,9 +189,8 @@ const EFFECT_LEVELS: EffectLevel[] = ["off", "subtle", "normal", "strong"];
 const EFFECT_MODES: EffectMode[] = ["auto", "manual"];
 
 /**
- * 데모 공유 저장소(localStorage)에서 효과 강도를 읽는다.
- * 관리·고객 sim 싱글턴 분리를 넘어 즉시 반영이 필요할 때의 읽기 소스(§4-2). 미설정·손상 시 안전 폴백.
- * 런타임 외부 의존이 아니다(브라우저 로컬 저장소).
+ * 데모 공유 저장소(localStorage)에서 효과 강도를 읽는다. 관리·고객 sim 싱글턴 분리를 넘어
+ * 즉시 반영이 필요할 때의 읽기 소스다(§4-2). 브라우저 로컬이라 런타임 외부 의존이 아니다.
  */
 function readEffectConfig(): EffectConfig {
   if (typeof window === "undefined") return DEFAULT_EFFECT_CONFIG;
@@ -268,9 +265,8 @@ export class SimEngine {
   }
 
   /**
-   * 분 단위 기준 경로. 끝 24h는 전일 종가 -> 현재가 로그 브라운 브리지, 그 앞은 역방향 GBM.
+   * 분 단위 기준 경로. 끝 24h는 전일 종가에서 현재가로 가는 로그 브라운 브리지, 그 앞은 역방향 GBM.
    * 브리지라서 차트의 24h 창이 전일 종가·현재가·등락률과 하나의 사실을 말한다.
-   * 역방향 백필을 단위마다 따로 돌리던 구조는 차트 극값이 24H 통계와 어긋났다.
    */
   private buildBasePath(seed: SimMarketSeed, prevClose: number): Float64Array {
     const rand = mulberry32(hashStr(seed.market) ^ 0x9e3779b9);
@@ -346,8 +342,6 @@ export class SimEngine {
       cost_basis_amount: c.costAmount,
     };
   }
-
-  /* ===== 수명주기 ===== */
 
   start(): void {
     if (this.timer) return;
@@ -445,8 +439,6 @@ export class SimEngine {
     // 미체결 지정가 주문 체결 판정
     this.matchOpenOrders(market, price);
   }
-
-  /* ===== 메시지 빌더 ===== */
 
   // Ticker의 null 허용 필드(trade_price 등, §4-A-4)는 실백엔드 무체결 마켓 전용이다.
   // 시뮬레이터는 모든 마켓에 시드가를 채우므로 항상 non-null 문자열을 생산한다.
@@ -617,8 +609,7 @@ export class SimEngine {
 
   /**
    * 기준 경로(분) 집계로 캔들을 만든다. 경로 창 안에서는 전 단위가 같은 경로를 읽어
-   * 15분·1시간 차트가 서로 어긋나지 않고, 24h 창 극값이 고가·저가(24H)와 일치한다.
-   * 경로보다 오래된 버킷과 분 미만 단위만 단위별 GBM으로 잇되 24H 통계와 무관한 구간이다.
+   * 15분·1시간 차트가 어긋나지 않고, 24h 창 극값이 고가·저가(24H)와 일치한다.
    */
   private buildCandles(st: MarketState, unit: CandleUnit, count: number): Candle[] {
     const market = st.seed.market;
@@ -695,12 +686,8 @@ export class SimEngine {
   /* ===== 입출금 시뮬레이션 (§4-E) ===== */
 
   /**
-   * 원화 잔고를 옮긴다. 서버가 원장 함수로 하는 일을 sim에서는 잔고 맵으로 흉내낸다.
-   * dBalance는 가용, dLocked는 잠금 델타다. 입금은 가용 증가, 출금 요청은 가용에서
-   * 잠금으로, 승인은 잠금 소멸, 취소는 잠금에서 가용으로 돌아온다.
-   *
-   * 원가 누산기는 건드리지 않는다. KRW는 quote라 코인 원가와 무관하고, 서버도 같은
-   * 이유로 apply_position_cost가 무동작이다.
+   * 원화 잔고를 옮긴다. dBalance는 가용, dLocked는 잠금 델타다.
+   * 원가 누산기는 건드리지 않는다. KRW는 quote라 코인 원가와 무관하고, 서버 apply_position_cost도 무동작이다.
    */
   moveKrw(dBalance: string, dLocked: string): void {
     const b = this.balanceOf("KRW");
@@ -861,9 +848,8 @@ export class SimEngine {
   }
 
   /**
-   * 전량 체결 처리 (지정가=주문가, 시장가=현재가 기준).
-   * 수수료·락 소비·원가 적재는 전부 계약 산식 모듈이 정한다(§4-B-5 v2.7, §4-C-1 v2.21).
-   * 수취 자산 기준 수수료라 매수 수수료는 base, 매도 수수료는 quote로 나간다.
+   * 전량 체결 처리(지정가=주문가, 시장가=현재가 기준).
+   * 수수료·락 소비·원가 적재는 계약 산식 모듈이 정한다(§4-B-5, §4-C-1). 수수료는 수취 자산 기준이다.
    */
   private fillOrder(id: string, fillPriceStr: string): void {
     const order = this.orders.get(id);
@@ -876,10 +862,8 @@ export class SimEngine {
     const fillPrice = normalizeDecimal(fillPriceStr);
 
     if (order.side === "bid") {
-      // 전량 체결은 잔여 락 전액을 소비한다(§4-B-5 최종 체결 규약). 소비액이 실지출 quote이고
-      // 그것이 원가 금액이다. 시장가 매수는 수량 절사로 대금보다 작은 체결이 나오는데, 그 잔차를
-      // 해제하지 않고 소비하는 쪽을 택했다. 서버는 잔차를 자산별 마지막 FEE leg가 흡수해 락 잔량이
-      // 0이 되므로 결과 형태가 같다. 크기는 qty_scale 한 칸 미만이다
+      // 전량 체결은 잔여 락 전액을 소비한다(§4-B-5 최종 체결 규약). 소비액이 실지출 quote이고 그것이 원가 금액이다.
+      // 시장가 매수 수량 절사로 생기는 잔차는 해제하지 않고 소비한다. 서버는 마지막 FEE leg가 흡수해 결과 형태가 같다
       const spent = order._lock;
       const volume = isMarketBuy
         ? (divDecimal(spent, fillPrice, qtyScale, "trunc") ?? "0")

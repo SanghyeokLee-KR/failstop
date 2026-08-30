@@ -108,10 +108,6 @@ class CommunityIntegrationTest {
         operatorSeeder.ensureOperator("op-view", "뷰어", Set.of(AdminRole.VIEWER));
     }
 
-    // ------------------------------------------------------------------
-    // (a) 목록·작성·상세·수정·삭제, 본인 강제, 비회원 거부
-    // ------------------------------------------------------------------
-
     @Test
     void postLifecycleAndOwnershipEnforced() throws Exception {
         Member alice = signup();
@@ -256,10 +252,6 @@ class CommunityIntegrationTest {
         assertEquals(400, post("/api/v1/community/boards/KRW-BTC/posts",
                 "{\"title\":\"t\",\"body\":\"" + tooLong + "\"}", m.token).getStatusCode().value());
     }
-
-    // ------------------------------------------------------------------
-    // (b) 댓글, 좋아요, 신고
-    // ------------------------------------------------------------------
 
     @Test
     void commentsRepliesAndDepthGuard() throws Exception {
@@ -427,10 +419,6 @@ class CommunityIntegrationTest {
         assertEquals("duplicate_report", errorName(dup));
     }
 
-    // ------------------------------------------------------------------
-    // (c) XSS 이스케이프, 페이지네이션
-    // ------------------------------------------------------------------
-
     @Test
     void bodyEscapedOnRender() throws Exception {
         Member m = signup();
@@ -477,10 +465,6 @@ class CommunityIntegrationTest {
 
         assertEquals(total, seen.size(), "전 글이 페이지네이션으로 커버되지 않음");
     }
-
-    // ------------------------------------------------------------------
-    // (d) 관리 평면 MEMBER_MOD 모더레이션
-    // ------------------------------------------------------------------
 
     @Test
     void memberModCanHideAndResolveReports() throws Exception {
@@ -529,7 +513,7 @@ class CommunityIntegrationTest {
         assertTrue(pending.size() >= 1, "대기 신고 없음");
         long reportId = pending.get(0).path("report_id").asLong();
 
-        // 대상 요약(v2.32). reports.target_id는 내부 BIGINT라 이 필드가 없으면 운영자가
+        // 대상 요약. reports.target_id는 내부 BIGINT라 이 필드가 없으면 운영자가
         // 모더레이션을 부를 수단이 없다. 조인이 실제 DB에서 성립하는지 여기서 본다.
         JsonNode row = pending.get(0);
         assertEquals(postId, row.path("target_external_id").asText(),
@@ -548,10 +532,6 @@ class CommunityIntegrationTest {
                         + "WHERE operator_id = 'op-mod' AND action = 'HIDE'")
                 .query(Long.class).single() >= 1);
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private record Member(String token, String email) {
     }

@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 산출식 nextRunNonce의 단사성·재현성 고정(rank11). nonce는 (seed, ordinal)의 순수 함수라
+ * 산출식 nextRunNonce의 단사성·재현성 고정. nonce는 (seed, ordinal)의 순수 함수라
  * DB 없이 검증한다. ordinal 공급측 성질은 RunOrdinalSourceIntegrationTest, 기동 배선은
  * SimFleetIntegrationTest가 맡는다.
  *

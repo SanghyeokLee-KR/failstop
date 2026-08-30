@@ -102,8 +102,7 @@ export default function BotsPage() {
   };
   const paramActions = useMemo(() => PARAM_ACTIONS, []);
 
-  // v2.22부터 sim·http 모두 실반영(controlApplied=true). 분기는 미래의 미반영 어댑터 대비로
-  // 남긴다. 플릿 부재 등 반영 실패는 어댑터가 에러로 던져 아래 run()의 에러 토스트를 탄다
+  // 분기는 미반영 어댑터 대비다. 반영 실패는 어댑터가 에러로 던져 아래 run()의 에러 토스트를 탄다
   const controlOk = (applied: string) =>
     api.controlApplied ? applied : "제어 요청을 감사에 기록. 반영 여부는 플릿 상태로 확인";
 
@@ -118,9 +117,7 @@ export default function BotsPage() {
     }
   };
 
-  /* 시선이 시작하는 첫 열은 판단에 쓰는 값이어야 한다. 종전에는 bot-mtcuysng-8 같은
-     기계 식별자가 첫 열이라, 운영자가 "어느 마켓 무슨 봇인가"를 읽으려면 두 열을 건너뛰었다.
-     식별자는 개별 봇을 지목할 때만 필요하므로 뒤로 보낸다 */
+  /* 첫 열은 판단에 쓰는 값이어야 한다. 기계 식별자는 개별 봇을 지목할 때만 필요해 뒤로 보낸다 */
   const botCols: DataColumn<Bot>[] = [
     { key: "market", label: "마켓", width: "110px", render: (b) => b.market },
     { key: "type", label: "유형", width: "110px", render: (b) => BOT_TYPE_LABEL[b.type] },
@@ -153,7 +150,7 @@ export default function BotsPage() {
         <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
       ) : !sim ? (
         <div className={styles.kpiGrid} data-cols="3">
-          {/* 실측: 1행은 미터 타일 기준 122(보더 2+패딩 32+라벨 18+값 28+보조 18+미터 12+간격 12), 2행은 보조행 타일 기준 106 */}
+          {/* 미터 타일·보조행 타일 실측 높이와 같은 값이라 로드 후 시프트 0 */}
           {Array.from({ length: 3 }, (_, i) => (
             <Skeleton key={i} variant="card" width="100%" height={122} />
           ))}

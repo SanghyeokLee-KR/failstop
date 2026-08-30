@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * 거래 화면 본체 (§2). TradeLayout 그리드에 패널 6종 조립.
- * useLiveChannels로 ticker(전 마켓)·orderbook·trade(현재 마켓) 구독을 배선하고,
- * /order 리다이렉트 쿼리(side·price)와 호가 클릭 프리필을 OrderPanel로 전달한다.
- * 쿼리를 읽는 주문 슬롯만 Suspense 경계에 두어 나머지 패널은 정적 export HTML에 프리렌더된다.
+ * 쿼리를 읽는 주문 슬롯만 Suspense 경계에 둔다(§2).
+ * 그래야 나머지 패널이 정적 export HTML에 프리렌더된다.
  */
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";

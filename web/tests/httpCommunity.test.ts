@@ -1,8 +1,7 @@
 /**
- * tests/httpCommunity.test.ts. HttpCommunityDataSource 소유권(mine) 소비 계약 검증.
- * 공개 GET은 optional-auth다(게시판_설계 §4-D). 세션이 있으면 Bearer를 실어 서버가 mine을 산출하고,
- * web은 서버 산출 mine을 직접 소비한다. handle 대조 파생을 쓰지 않아 동명이인 오노출·표시명 변경
- * 소멸이 발생하지 않는다. 서버 mine=true/false/미제공 3분기와 optional-auth 헤더 규약을 고정한다.
+ * HttpCommunityDataSource 소유권(mine) 소비 계약 검증. 공개 GET은 optional-auth다(게시판_설계 §4-D).
+ * 서버 산출 mine을 직접 소비하고 handle 대조 파생을 쓰지 않는다(동명이인 오노출·표시명 변경 소멸 방지).
+ * 서버 mine=true/false/미제공 3분기와 optional-auth 헤더 규약을 고정한다.
  */
 
 import { test } from "node:test";

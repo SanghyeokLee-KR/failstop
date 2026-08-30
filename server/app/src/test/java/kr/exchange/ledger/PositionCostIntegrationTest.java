@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * V13 원가 프로젝션(position_cost) 통합 검증. 병합 조건 7건을 증명한다.
+ * V13 원가 프로젝션(position_cost) 통합 검증. 일곱 가지를 증명한다.
  * (1) no-RAISE: 형태 이탈 입력에서도 게시 트랜잭션이 커밋되고 가입 경로가 산다,
  * (2) 재구축 = 라이브 비트동일, (3) 부분 처분 후 평단가 유지·전량 처분 시 정확히 0,
  * (4) 원가 미상 분리, (5) 동일 txn 재적용 무동작, (6) 가격개선 환급 시 실지출 반영,
@@ -149,10 +149,6 @@ class PositionCostIntegrationTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (1) 시드 형태: KRW 단독 GENESIS 무동작, 코인 GENESIS 는 원가 미상
-    // ------------------------------------------------------------------
-
     @Test
     @Order(1)
     void krwOnlyGenesisIsNoopAndSeedCoinIsUnknownCost() {
@@ -181,9 +177,7 @@ class PositionCostIntegrationTest {
         assertDecimal("100000000", userBalance(eve, KRW, "available"));
     }
 
-    // ------------------------------------------------------------------
-    // (2) 형태 이탈 전부 no-RAISE. 원가 미상 강등으로 흡수한다.
-    // ------------------------------------------------------------------
+    // 형태 이탈은 RAISE하지 않고 원가 미상 강등으로 흡수한다.
 
     @Test
     @Order(2)
@@ -223,9 +217,7 @@ class PositionCostIntegrationTest {
         assertLedgerInvariants();
     }
 
-    // ------------------------------------------------------------------
-    // (4) 원가 미상 분리: 시드 물량 매도는 unknown_proceeds 로 간다
-    // ------------------------------------------------------------------
+    // 시드 물량 매도의 수취액은 realized_pnl 이 아니라 unknown_proceeds 로 간다.
 
     @Test
     @Order(3)
@@ -248,10 +240,6 @@ class PositionCostIntegrationTest {
         assertDecimal("0", cost(carol, BTC, "unknown_qty"));
         assertLedgerInvariants();
     }
-
-    // ------------------------------------------------------------------
-    // (3) 부분 처분 후 평단가 유지, 전량 처분 시 두 값 정확히 0
-    // ------------------------------------------------------------------
 
     @Test
     @Order(4)
@@ -281,10 +269,6 @@ class PositionCostIntegrationTest {
         assertLedgerInvariants();
     }
 
-    // ------------------------------------------------------------------
-    // (6) 가격개선 환급: 원가는 락 금액이 아니라 실지출을 반영한다
-    // ------------------------------------------------------------------
-
     @Test
     @Order(5)
     void costUsesActualSpendNotLockedAmount() {
@@ -308,10 +292,6 @@ class PositionCostIntegrationTest {
         assertLedgerInvariants();
     }
 
-    // ------------------------------------------------------------------
-    // (5) 멱등: 같은 txn_id 재적용은 무동작
-    // ------------------------------------------------------------------
-
     @Test
     @Order(6)
     void reapplyingSameTransactionIsNoop() {
@@ -326,10 +306,6 @@ class PositionCostIntegrationTest {
                 .listOfRows();
         assertEquals(before, costSnapshot());
     }
-
-    // ------------------------------------------------------------------
-    // (2) 재구축 = 라이브 비트동일
-    // ------------------------------------------------------------------
 
     @Test
     @Order(7)
@@ -351,10 +327,6 @@ class PositionCostIntegrationTest {
         assertTrue(queryLong("SELECT rebuild_position_cost(" + carol + ")") > 0);
         assertEquals(live, costSnapshot());
     }
-
-    // ------------------------------------------------------------------
-    // (1) 예외 핸들러 실발동: 행 하나가 실패해도 원장과 형제 행은 산다
-    // ------------------------------------------------------------------
 
     @Test
     @Order(8)
@@ -393,9 +365,7 @@ class PositionCostIntegrationTest {
         assertDecimal("0", cost(eve, XRP, "realized_pnl"));
     }
 
-    // ------------------------------------------------------------------
-    // (3) 비례차감이 DOWN 절사인지 판별한다. round 로 바꾸면 이 단언이 깨진다.
-    // ------------------------------------------------------------------
+    // 비례차감은 DOWN 절사다. round 로 바꾸면 이 단언이 깨진다.
 
     @Test
     @Order(9)
@@ -425,9 +395,7 @@ class PositionCostIntegrationTest {
         assertDecimal("-0.999999999999999999", cost(eve, ETH, "realized_pnl"));
     }
 
-    // ------------------------------------------------------------------
-    // 권한 경계(필수수정 5): app_role 은 읽기만. 게시 경로는 재정의 후에도 살아 있어야 한다.
-    // ------------------------------------------------------------------
+    // app_role 은 읽기만 가능하고, 게시 경로는 함수 재정의 후에도 살아 있어야 한다.
 
     @Test
     @Order(10)
@@ -470,10 +438,6 @@ class PositionCostIntegrationTest {
         assertDecimal(before.add(new BigDecimal("3")).toPlainString(), cost(eve, XRP, "unknown_qty"));
     }
 
-    // ------------------------------------------------------------------
-    // (7) 기존 원장 불변식 무손상
-    // ------------------------------------------------------------------
-
     @Test
     @Order(11)
     void ledgerInvariantsSurviveProjection() {
@@ -488,10 +452,6 @@ class PositionCostIntegrationTest {
         assertEquals(0, queryLong("SELECT count(*) FROM position_cost "
                 + "WHERE cost_qty = 0 AND cost_amount <> 0"));
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     /** 권한 위반은 42501(insufficient_privilege)이어야 한다. 다른 실패는 검사 자체가 무효다. */
     private static void assertDenied(Statement st, String sql) {

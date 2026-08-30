@@ -20,10 +20,6 @@ class MatchingEngineImplTest {
     private final MatchingEngineImpl engine = new MatchingEngineImpl();
     private long seq;
 
-    // ------------------------------------------------------------------
-    // 가격·시간 우선, 체결가 = maker 지정가
-    // ------------------------------------------------------------------
-
     @Test
     void matchesByPriceThenFifoAndTradesAtMakerPrice() {
         engine.apply(limitSell(1, 1, "100", "1"));
@@ -73,10 +69,6 @@ class MatchingEngineImplTest {
         assertDecimal("100", book.bestBid());
         assertNull(book.bestAsk());
     }
-
-    // ------------------------------------------------------------------
-    // 시장가
-    // ------------------------------------------------------------------
 
     @Test
     void marketSellCancelsRemainderWhenBookExhausted() {
@@ -173,10 +165,6 @@ class MatchingEngineImplTest {
         assertDecimal("3.666666666666666667", engine.orderBook(1).openQuantity(1));
     }
 
-    // ------------------------------------------------------------------
-    // 자전거래 방지 (Decrement & Cancel)
-    // ------------------------------------------------------------------
-
     @Test
     void selfTradeDecrementsBothAndCancelsExhaustedSide() {
         engine.apply(limitSell(1, 1, "100", "2"));
@@ -221,10 +209,6 @@ class MatchingEngineImplTest {
         assertDecimal("1", trades.get(0).quantity());
     }
 
-    // ------------------------------------------------------------------
-    // POST_ONLY
-    // ------------------------------------------------------------------
-
     @Test
     void postOnlyRestsWhenNonCrossing() {
         engine.apply(limitSell(1, 1, "101", "1"));
@@ -252,10 +236,6 @@ class MatchingEngineImplTest {
         assertNull(engine.orderBook(1).openQuantity(2));
         assertEquals(before, engine.stateChecksum());
     }
-
-    // ------------------------------------------------------------------
-    // IOC
-    // ------------------------------------------------------------------
 
     @Test
     void iocPartialFillsThenCancelsRemainder() {
@@ -299,10 +279,6 @@ class MatchingEngineImplTest {
         assertDecimal("1", events.get(1).quantity());
         assertNull(engine.orderBook(1).openQuantity(2));
     }
-
-    // ------------------------------------------------------------------
-    // FOK
-    // ------------------------------------------------------------------
 
     @Test
     void fokRejectedWhenNotFullyFillableAndBookUnchanged() {
@@ -357,10 +333,6 @@ class MatchingEngineImplTest {
         assertDecimal("1", engine.orderBook(1).openQuantity(1));
     }
 
-    // ------------------------------------------------------------------
-    // BEST (최유리, 매도 전용)
-    // ------------------------------------------------------------------
-
     @Test
     void bestSellConsumesOnlyBestLevelThenCancels() {
         // 서로 다른 두 매수 레벨. best는 최우선(100) 한 레벨만 소비한다.
@@ -414,10 +386,6 @@ class MatchingEngineImplTest {
         assertEquals(OrderBookImpl.REASON_INVALID_PARAMETERS, events.get(0).reason());
     }
 
-    // ------------------------------------------------------------------
-    // 검증 거부
-    // ------------------------------------------------------------------
-
     @Test
     void invalidParameterCombinationsAreRejected() {
         // LIMIT인데 가격 없음
@@ -434,10 +402,6 @@ class MatchingEngineImplTest {
                 null, dec("100"), dec("0.0000000000000000001"), null),
                 OrderBookImpl.REASON_INVALID_PARAMETERS);
     }
-
-    // ------------------------------------------------------------------
-    // 취소
-    // ------------------------------------------------------------------
 
     @Test
     void cancelReleasesRemainingAndRepeatIsRejected() {
@@ -463,10 +427,6 @@ class MatchingEngineImplTest {
         assertEquals(OrderBookImpl.REASON_ORDER_NOT_FOUND, events.get(0).reason());
         assertDecimal("2", engine.orderBook(1).openQuantity(1));
     }
-
-    // ------------------------------------------------------------------
-    // ordinal·중복 적용·체크섬
-    // ------------------------------------------------------------------
 
     @Test
     void eventOrdinalsAreMonotonicFromZeroPerCommand() {
@@ -508,10 +468,6 @@ class MatchingEngineImplTest {
         other.apply(cancel(2, 3, commands.size() + 1));
         assertNotEquals(engine.stateChecksum(), other.stateChecksum());
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private long nextSeq() {
         return ++seq;

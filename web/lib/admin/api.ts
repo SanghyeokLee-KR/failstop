@@ -1,8 +1,6 @@
 /**
- * lib/admin/api.ts. 관리 평면 데이터 접근 추상화.
- * 고객 평면 DataSource(lib/api/datasource.ts)와 분리된 인터페이스·싱글턴이다.
+ * 고객 평면 DataSource와 분리된 인터페이스·싱글턴이다.
  * 화면은 이 인터페이스만 소비하고 시뮬레이터나 fetch를 직접 부르지 않는다.
- * 구현: SimAdminApi(데모, 기본)와 HttpAdminApi(Spring /admin/v1/* 어댑터).
  */
 
 import { SimAdminApi } from "./simAdmin";
@@ -120,9 +118,8 @@ export interface AdminApi {
   /** 체결 시각효과 강도 저장(system_config). 트레이딩 UI가 공개 조회로 읽는다 */
   setEffectConfig(tradeFlash: TradeFlash): Promise<TradeFlash>;
   /**
-   * 시장 국면 프리셋 활성화(§6-A v2.31). 전역 OPS·유형별 대수·bias를 한 번에 얹는다.
-   * rate·scale·bias 세 경로로 도달 가능한 상태만 만들므로 승인 불요다.
-   * 값은 기준선 대비 배수라 같은 프리셋을 두 번 눌러도 결과가 같다. steady가 복귀 경로다.
+   * rate·scale·bias 세 경로로 도달 가능한 상태만 만들어 승인이 불요다(§6-A).
+   * 값이 기준선 대비 배수라 같은 프리셋을 두 번 눌러도 결과가 같고, steady가 복귀 경로다.
    */
   activateScenario(name: ScenarioName): Promise<ScenarioResult>;
 
@@ -134,10 +131,8 @@ export interface AdminApi {
   /* ===== 마켓 설정(§2, config) ===== */
   getConfigMarkets(): Promise<ConfigMarket[]>;
   /**
-   * 공지 목록 한 쪽. 철회분 포함. 커서는 §2-6 opaque.
-   *
-   * 공지는 DELETE 권한이 없어(V5 §7) 철회만 되고 행은 계속 쌓인다. 고정 상한으로
-   * 자르면 오래된 공지가 운영자에게도 안 보인다.
+   * 공지 목록 한 쪽. 철회분 포함이고 커서는 §2-6 opaque.
+   * 공지는 DELETE 권한이 없어 철회만 되고 행이 계속 쌓이므로 고정 상한으로 자르지 않는다(V5 §7).
    */
   getNotices(opts?: { cursor?: string | null; limit?: number }): Promise<AdminPage<Notice>>;
   postNotice(title: string, body: string, severity?: NoticeSeverity): Promise<Notice>;
@@ -195,8 +190,6 @@ export function requireSession(api: AdminApi): AdminSession {
   if (!s) throw new AdminError("jwt_verification", "관리자 세션 없음. mTLS 인증서로 접속 필요");
   return s;
 }
-
-/* ===== 싱글턴 ===== */
 
 let singleton: AdminApi | null = null;
 

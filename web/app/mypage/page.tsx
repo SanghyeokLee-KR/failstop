@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * 마이페이지(§4-4). 회원 세션 허브: 프로필 + 자산 요약 + 주문 요약.
- * 자산·주문 본체는 /assets·/history로 딥링크한다(레이아웃 재사용, 별도 신규 레이아웃 없음).
- * 데이터는 DataSource가 회원 세션 Bearer로 조회한다(store loadAccounts·loadOrders).
- * 미로그인(데모 둘러보기) 상태에서는 가입 유도 카드만 노출한다(§4-1 보호 규약).
+ * 자산·주문 본체는 /assets·/history로 딥링크한다(§4-4).
+ * 미로그인 상태에서는 가입 유도 카드만 노출한다(§4-1 보호 규약).
  */
 
 import Link from "next/link";
@@ -85,7 +83,6 @@ export default function MyPage() {
 
   return (
     <main className={styles.page}>
-      {/* ===== 프로필 카드 ===== */}
       <section className={`card ${styles.profile}`} aria-label="프로필">
         <span className={styles.avatar} aria-hidden="true">
           {initial}
@@ -100,7 +97,6 @@ export default function MyPage() {
         <span className={styles.accountKind}>회원 계정</span>
       </section>
 
-      {/* ===== 요약 카드 2열 ===== */}
       <div className={styles.grid}>
         <section className={`card ${styles.summary}`} aria-label="자산 요약">
           <div className={styles.summaryHead}>

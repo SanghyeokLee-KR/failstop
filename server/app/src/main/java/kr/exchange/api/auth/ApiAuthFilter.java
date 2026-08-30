@@ -122,10 +122,9 @@ public class ApiAuthFilter extends OncePerRequestFilter {
             // 인증 단계에서 던진 비 ApiException(예: HMAC 계산 실패)이 컨테이너 기본 페이지로 새면
             // 클라이언트가 표준 에러 엔벌로프(§2-3)로 파싱하지 못한다. 500으로 표준화한다.
             //
-            // 로그를 남긴다. 종전에는 무로깅이라 이 경로가 100% 발화해도 서버가 조용했다.
-            // 실측 사고(2026-08-30): 마스터키 미주입으로 enc_secret 복호화가 전건 실패해
-            // POST /orders가 3시간 49분간 전부 500이었는데 로그 한 줄이 없었다. 표준화가
-            // 원인 은폐가 되면 안 된다. 클라이언트에는 계속 내부를 감춘다(메시지 불변).
+            // 로그를 남긴다. 표준화가 원인 은폐가 되면 안 된다. 마스터키 미주입(--env-file 누락)이면
+            // enc_secret 복호화가 전건 실패해 POST /orders가 전부 500인데, 무로깅이면 그 상태가
+            // 서버 쪽에서 보이지 않는다. 클라이언트에는 계속 내부를 감춘다(메시지 불변).
             log.error("인증 처리 실패로 500 반환: {} {}", request.getMethod(), e.toString(), e);
             errorRenderer.write(response, new ApiException(500, "server_error", "인증 처리 중 오류"));
             return;

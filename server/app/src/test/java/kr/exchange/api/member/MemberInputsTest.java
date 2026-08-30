@@ -10,8 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 가입 입력 검증(회원_설계 §1-1, §3-4).
  *
- * 이전 구현은 @ 개수와 마지막 점 위치만 봐서 a..b@x.com, .a@x.com, a@-x.com, a@x..com이
- * 전부 통과했다. 그 구멍이 다시 열리는지 본다.
+ * @ 개수와 마지막 점 위치만 보는 규칙은 a..b@x.com, .a@x.com, a@-x.com, a@x..com을 전부
+ * 통과시킨다. 그 구멍이 다시 열리는지 본다.
  *
  * DB도 Spring 컨텍스트도 안 쓴다. 이 규칙이 순수 함수라서 그렇고, Testcontainers에 묶이면
  * Docker 없는 환경에서 회귀 검증이 통째로 멈춘다.
@@ -36,7 +36,7 @@ class MemberInputsTest {
 
     @Test
     void regressionHolesOfPreviousCheckAreClosed() {
-        // 회귀 방지 본체. 넷 다 옛 규칙(@ 개수 + 마지막 점 위치)으로는 통과했다
+        // 회귀 방지 본체. 넷 다 @ 개수 + 마지막 점 위치 규칙으로는 통과한다
         assertEquals("invalid_email", emailError("a..b@demo.local"));
         assertEquals("invalid_email", emailError(".a@demo.local"));
         assertEquals("invalid_email", emailError("a@-demo.local"));
@@ -90,7 +90,7 @@ class MemberInputsTest {
 
     @Test
     void loginLookupSkipsFormatRules() {
-        // 옛 규칙으로 가입한 계정이 규칙 강화로 로그인을 잃으면 안 된다
+        // 완화된 규칙으로 가입한 계정이 규칙 강화로 로그인을 잃으면 안 된다
         assertEquals("a..b@demo.local", MemberInputs.normalizeEmailForLookup("A..B@Demo.Local"));
         assertEquals("trader@demo.local", MemberInputs.normalizeEmailForLookup(" Trader@Demo.Local "));
     }

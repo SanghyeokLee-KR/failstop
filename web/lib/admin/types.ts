@@ -1,16 +1,13 @@
 /**
- * lib/admin/types.ts. 관리 평면 도메인 타입 (docs/product/관리자_설계.md v1.1 + 백엔드 admin 계약 미러).
- * 고객 평면(lib/types.ts)과 자격·세션·색 도메인을 공유하지 않는다.
- * 금액·수수료·수량·파라미터는 문자열(NUMERIC(40,18) 정밀도 보존), float 금지.
+ * 관리 평면 도메인 타입. 고객 평면(lib/types.ts)과 자격·세션·색 도메인을 공유하지 않는다.
+ * 금액·수수료·수량·파라미터는 문자열이다(NUMERIC(40,18) 정밀도 보존, float 금지).
  */
 
 export const ADMIN_SCHEMA_VERSION = "1.0" as const;
 
 /**
- * 커서 페이지 한 쪽(API 설계 §2-6).
- *
- * 고객 평면 Page<T>와 필드명이 다르다. 그쪽은 와이어 이름을 그대로 쓰고 여기는 관리
- * 도메인 타입 관례(카멜)를 따른다. 두 평면은 타입을 공유하지 않는다(이 파일 머리말).
+ * 커서 페이지 한 쪽(API 설계 §2-6). 고객 평면 Page<T>와 필드명이 다르다.
+ * 그쪽은 와이어 이름을 그대로 쓰고 여기는 관리 도메인 관례(카멜)를 따른다.
  */
 /** 쪽 요청. cursor 없으면 첫 쪽이다 */
 export interface PageOpts {
@@ -68,9 +65,8 @@ export interface AdminSession {
 /* ===== 이중 승인: 발급형 (§3-6, §6-B 완결 열거) ===== */
 
 /**
- * approval_token 필수 파괴 액션(§3-6 완결 열거). 콘솔 의미 액션이며 백엔드 엔드포인트·바인딩
- * 문자열과는 별도다(httpAdmin.wireBinding이 chaos.inject를 kill_node/network/app로 분해). 신규
- * 추가: config.market.fees, operators.create, operators.status(v2.12 확장).
+ * approval_token 필수 파괴 액션(§3-6 완결 열거).
+ * 콘솔 의미 액션이라 백엔드 바인딩 문자열과 별도다(wireBinding이 chaos.inject를 분해한다).
  */
 export type DestructiveAction =
   | "chaos.inject"
@@ -85,9 +81,8 @@ export type DestructiveAction =
   | "members.close";
 
 /**
- * admin_approvals.state 정본 어휘(V5__admin.sql CHECK, §6-B). 발급형이라 원장 최초 상태가
- * ISSUED이고 그 시점에 approverId(발급 주체)가 항상 존재한다. 발급 전 "요청"은 서버 상태가
- * 아니라 요청 운영자 브라우저의 로컬 의도다(store 보관소). ISSUED -> CONSUMED|EXPIRED|REJECTED.
+ * admin_approvals.state 정본 어휘(V5__admin.sql CHECK, §6-B). 원장 최초 상태가 ISSUED이고
+ * 그 시점에 approverId가 항상 존재한다. 발급 전 "요청"은 서버 상태가 아니라 브라우저 로컬 의도다.
  */
 export type ApprovalState = "ISSUED" | "CONSUMED" | "EXPIRED" | "REJECTED";
 
@@ -104,10 +99,8 @@ export type ApprovalPayload =
   | { action: "members.close"; externalId: string; email: string };
 
 /**
- * 승인 원장 프로젝션(GET /admin/v1/approvals). approval_token은 응답에서 제외되므로 여기에 없다.
- * 발급형이라 approverId(발급 주체)는 항상 존재한다. payload도 원장 프로젝션에 없어(action+target만)
- * 여기에 두지 않는다. 소각에 필요한 payload·token은 발급 응답(IssuedApproval)에만 실린다.
- * requesterId <> approverId를 서버가 인증서 CN으로 강제(반결탁, §3-6).
+ * 승인 원장 프로젝션(GET /admin/v1/approvals). token과 payload는 응답에 없어 여기에도 없다.
+ * 소각에 필요한 값은 발급 응답에만 실리고, requesterId <> approverId는 서버가 인증서 CN으로 강제한다(§3-6).
  */
 export interface ApprovalRequest {
   id: string;
@@ -126,8 +119,7 @@ export interface ApprovalRequest {
 
 /**
  * 발급 응답(POST /admin/v1/approvals). 원장에 없는 payload와 단회 bearer 시크릿 token을 싣는다.
- * 요청 운영자가 파괴 액션 바디에 token을 실어 소각한다. token은 발급 응답 단일 경로로만 노출되므로
- * 데모(단일 브라우저 운영자 전환)는 store 보관소로 발급자->요청자 전달을 모사한다.
+ * token은 이 응답 단일 경로로만 노출되므로 데모는 store 보관소로 발급자에서 요청자 전달을 모사한다.
  */
 export interface IssuedApproval extends ApprovalRequest {
   payload: ApprovalPayload;
@@ -179,9 +171,8 @@ export interface InvariantCheck {
 export type RecoveryVerdict = "PASS" | "FAIL" | "UNKNOWN";
 
 /**
- * 주행 한 건의 판정. 집계와 달리 미판정이 없다. 재생은 예외 없이 끝났거나 아니거나
- * 둘 중 하나이고, 표가 비었는지는 행 단위에서 물을 수 없는 질문이기 때문이다.
- * 이 별칭이 없으면 렌더가 UNKNOWN을 받을 수 있는 타입인데 이진으로 칠한다.
+ * 주행 한 건의 판정. 집계와 달리 미판정이 없다. 표가 비었는지는 행 단위에서 물을 수 없다.
+ * 이 별칭이 없으면 렌더가 UNKNOWN을 받을 수 있는 타입을 이진으로 칠한다.
  */
 export type RunVerdict = "PASS" | "FAIL";
 
@@ -205,9 +196,8 @@ export interface HaRecovery {
   runs: RecoveryRun[];
   lastRtoMs: number | null;
   /**
-   * 서버 verdict.overall. 표 전체(또는 since 창) 집계다. 종전에는 failover_runs 최신
-   * 1행으로 화면 판정을 만들어, 과거 FAIL과 최신 PASS가 함께 있으면 서버는 FAIL인데
-   * 화면은 통과를 표시했다. 서버가 없앤 "창 안만 보는 판정"이 화면에 남아 있었다.
+   * 서버 verdict.overall. 표 전체(또는 since 창) 집계다.
+   * 창 안 최신 1행만 보는 판정은 과거 FAIL과 최신 PASS가 함께 있을 때 통과로 보인다.
    */
   lastVerdict: RecoveryVerdict | null;
   /** 판정 범위. 창을 주지 않으면 all이다 */
@@ -221,10 +211,8 @@ export interface HaRecovery {
 /* ===== 봇 플릿 (§2-1, /admin/v1/sim/*) ===== */
 
 /**
- * 봇 제어 조작의 반영 경로(API§6-A `apply_path`). `queued`는 실패가 아니라 지연이다.
- * 관리 평면과 봇 JVM이 물리 분리된 배치에서 서버가 sim_commands에 의도를 적재하고
- * 봇이 폴링해 적용한다. 화면이 이것을 즉시 완료로 단정하면 봇이 죽어 명령이 PENDING으로
- * 남은 상태에서도 성공을 표시한다.
+ * 봇 제어 조작의 반영 경로(API §6-A apply_path). queued는 실패가 아니라 지연이다.
+ * 즉시 완료로 단정하면 봇이 죽어 명령이 PENDING인 상태에서도 성공을 표시한다.
  */
 export interface ControlApply {
   applyPath: "local" | "queued";
@@ -512,9 +500,8 @@ export type ContentStatus = "VISIBLE" | "HIDDEN" | "DELETED";
 export type ModerationAction = "HIDE" | "UNHIDE" | "DELETE";
 
 /**
- * 신고 큐 한 행(GET /admin/v1/community/reports).
- * targetExternalId는 처리 액션이 받는 식별자다. reportId·targetId는 내부 BIGINT이고
- * 관리 평면 커서 축으로만 쓴다(§2-6 각주: 내부 id를 이미 공개 식별자로 쓰는 표).
+ * 신고 큐 한 행(GET /admin/v1/community/reports). targetExternalId는 처리 액션이 받는 식별자다.
+ * reportId·targetId는 내부 BIGINT이고 관리 평면 커서 축으로만 쓴다(§2-6 각주).
  * 대상이 조인되지 않으면 요약 필드가 null이다.
  */
 export interface CommunityReport {

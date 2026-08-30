@@ -1,17 +1,6 @@
 /**
- * 거래량 지표(VOL) 재정의. klinecharts 내장 VOL을 같은 이름으로 덮어쓴다.
- *
- * 이유는 막대 폭 하나다. 내장 렌더러는 지표 막대를 `Math.max(1, halfGapBar * 2)`로 그리는데,
- * klinecharts는 `gapBar`를 항상 홀수로 강제하므로 이 값은 언제나 `gapBar - 1`이 된다. 캔들 몸통은
- * `gapBar`로 그려지므로 거래량 막대만 1px 좁아진다(실측: 캔들 7px, 거래량 6px). 막대 폭은 스타일로
- * 노출되지 않아 override로는 맞출 수 없다.
- *
- * 그래서 draw 콜백에서 직접 그린다. draw가 true를 반환하면 기본 도형 렌더링이 통째로 대체된다.
- * 막대는 캔들 몸통과 같은 기하(x - halfGapBar, 폭 gapBar)를 쓰고, MA 선도 같은 콜백에서 그린다.
- * figures 정의는 내장과 동일하게 두어 범례(VOL(5,10,20) MA5/MA10/MA20/VOLUME)가 그대로 나온다.
- * 범례는 draw와 무관한 별도 뷰가 figures와 result로 만든다.
- *
- * 계산부(calc)는 내장 구현과 동일한 누적합 방식이다. 값이 달라지면 안 되므로 로직을 바꾸지 않았다.
+ * 내장 VOL은 막대를 gapBar-1로 그려 캔들 몸통보다 1px 좁고, 막대 폭은 스타일로 노출되지 않는다.
+ * draw 콜백에서 캔들과 같은 기하로 직접 그리되, calc는 내장과 같은 누적합을 유지한다.
  */
 
 import { IndicatorSeries, registerIndicator, type IndicatorFigureStylesCallbackData, type KLineData } from "klinecharts";

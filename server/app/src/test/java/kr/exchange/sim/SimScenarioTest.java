@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 시나리오 프리셋 계약 검증(API §6-A v2.31). Spring·DB 없이 도는 순수 검증이다.
+ * 시나리오 프리셋 계약 검증(API §6-A). Spring·DB 없이 도는 순수 검증이다.
  * 핵심은 멱등성이다. 프리셋이 활성화 시점 현재값을 기준으로 곱하면 재활성화가 누적돼
  * 제어면이 폭주기가 되므로, 등록 시점 기준선을 쓴다는 것을 반복 활성화로 못박는다.
  */
@@ -64,7 +64,7 @@ class SimScenarioTest {
         }
     }
 
-    /** API §6-A v2.31 배수표 5x8 전체를 못 박는다. 표와 코드가 갈라지면 여기서 깨진다. */
+    /** API §6-A 배수표 5x8 전체를 못 박는다. 표와 코드가 갈라지면 여기서 깨진다. */
     @Test
     void presetTableMatchesCanonicalContract() {
         assertPreset(SimScenario.STEADY, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.00, true, 0.5);
@@ -74,7 +74,7 @@ class SimScenarioTest {
         assertPreset(SimScenario.THUNDERING_HERD, 12.0, 12.0, 1.0, 1.0, 1.0, 1.0, 0.70, false, 0.5);
     }
 
-    /** 상한과 수요를 함께 올려야 어느 한쪽이 무의미해지지 않는다(§6-A v2.31) */
+    /** 상한과 수요를 함께 올려야 어느 한쪽이 무의미해지지 않는다(§6-A) */
     @Test
     void lambdaMultTracksOpsMult() {
         for (SimScenario s : SimScenario.values()) {

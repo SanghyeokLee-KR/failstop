@@ -17,8 +17,6 @@ import {
 /** 가용 잔고 대비 이 비율 이상이면 인라인 확인 대신 확인 다이얼로그로 오발주를 막는다 */
 export const LARGE_ORDER_RATIO = 0.7;
 
-/* ===== 격자(틱) 반올림 · 총액 역산 (십진 연산은 lib/decimal 공유) ===== */
-
 /**
  * 가격을 마켓 틱 격자에 반올림한 십진 문자열. 저가·소수틱(0.1, 0.001, 0.000398 등)에서 0으로 강제되지 않게 한다.
  * 틱이 0 이하면 격자 없이 틱 스케일로 문자열화만 한다.
@@ -74,10 +72,7 @@ export function autoFillPrice(
 
 /**
  * 자동 채움 격자 위에서 한 틱 이동. 시작값을 먼저 자기 밴드 격자로 정렬한 뒤 그 밴드 틱으로 민다.
- * stepToTick에 렌더 시점 틱을 그대로 넘기면 밴드 경계를 넘을 때 결과가 도착 밴드 격자 밖에
- * 떨어진다(999,999.6에서 한 틱 올리면 1,000,100인데 제출 기준가는 1,000,000).
- * 정렬이 스텝을 삼켜 시작점으로 되돌아오면 도착 밴드 틱으로 다시 민다.
- * 스텝은 stepToTick 하한 클램프(최소 한 틱)를 제외하면 항상 값을 바꾼다.
+ * 렌더 시점 틱을 그대로 넘기면 밴드 경계에서 결과가 도착 밴드 격자 밖에 떨어진다.
  */
 export function stepAutoPrice(
   value: string | number,
@@ -95,10 +90,8 @@ export function stepAutoPrice(
 }
 
 /**
- * 마켓 스펙 도착 후 가격 필드 재스냅 판정.
- * 스펙이 늦게 오면 폴백 격자로 채운 값이 권위 격자 기준가와 갈리므로 권위 틱으로 다시 스냅한다.
- * 현재 입력이 자동 채움값과 다르면(사용자가 타이핑 중이면) null을 돌려 입력을 덮어쓰지 않는다.
- * 스펙 미도착(tick null)·빈 입력·무변화도 null이라 불필요한 상태 갱신을 만들지 않는다.
+ * 스펙이 늦게 오면 폴백 격자로 채운 값이 권위 기준가와 갈리므로 권위 틱으로 다시 스냅한다.
+ * 사용자가 타이핑 중이면 null을 돌려 입력을 덮어쓰지 않는다.
  */
 export function resnapAutoPrice(current: string, auto: string, tick: string | null): string | null {
   if (tick === null || current === "" || current !== auto) return null;
@@ -124,10 +117,8 @@ export function formatPriceField(raw: string): string {
 }
 
 /**
- * 십진 문자열의 pct 퍼센트를 scale 자리 내림으로. 잔고 초과를 막으려 반올림하지 않는다.
- * 스케일드 값이 2^53을 넘는 잔고에서도 정확하도록 BigInt로 계산한다(금액 float 금지).
- * pct는 0~100 정수로 좁힌다. 비유한 입력은 0으로 흡수한다(BigInt(NaN)은 던진다).
- * 소수 pct는 내림으로 삼켜진다(33.3 -> 33). 프리셋 칩에 소수 비율을 추가하려면 여기부터 고칠 것.
+ * 잔고 초과를 막으려 반올림하지 않고 내림한다. 2^53 초과 잔고에서도 정확하도록 BigInt로 계산한다.
+ * pct는 0~100 정수로 좁히고, 소수 pct는 내림으로 삼켜진다(33.3 -> 33).
  */
 export function pctOfDecimal(value: string | number, pct: number, scale: number): string {
   const s = Math.min(Math.max(scale, 0), 30);
@@ -152,9 +143,7 @@ export function qtyFromTotal(total: string | number, price: string | number, sca
   const totalInt = scaledIntTrunc(totalStr, st);
   const priceInt = scaledIntTrunc(priceStr, sp);
   if (priceInt <= 0n) return null;
-  // qty = floor(total/price, s)
-  //     = floor( (totalInt/10^st) / (priceInt/10^sp) * 10^s ) / 10^s
-  //     = floor( totalInt * 10^(sp+s) / (priceInt * 10^st) ) / 10^s
+  // qty = floor(totalInt * 10^(sp+s) / (priceInt * 10^st)) / 10^s
   const num = totalInt * 10n ** BigInt(sp + s);
   const den = priceInt * 10n ** BigInt(st);
   const qtyScaled = num / den; // 양수 BigInt 나눗셈은 내림

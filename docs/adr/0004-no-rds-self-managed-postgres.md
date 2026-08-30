@@ -7,7 +7,7 @@
 ## 배경
 
 카오스 실험 E2에서 클러스터가 리더 없이 정지한 사건이 이 결정의 출발점이다.
-`harness/docker-compose.chaos.yml:17-22`가 사건을 기록한다. 백엔드가 idle in transaction
+`harness/docker-compose.chaos.yml`의 `chaos-pg` 주석이 사건을 가리키고, 전말은 여기 적는다. 백엔드가 idle in transaction
 상태로 2분 넘게 RowShareLock(FOR SHARE)을 쥐었고, 스탠바이의 `try_acquire_leader` UPDATE가
 그 뒤에서 대기했다. `docker pause`와 network disconnect는 RST를 남기지 않아 PostgreSQL이
 클라이언트 사망을 인지하지 못했다. 기본값이 `idle_in_transaction_session_timeout=0`이고
@@ -15,8 +15,8 @@
 
 해소 수단은 전부 PG 서버 파라미터다. `idle_in_transaction_session_timeout=10s`,
 `tcp_keepalives_idle=5`, `tcp_keepalives_interval=2`, `tcp_keepalives_count=3`
-(`harness/docker-compose.chaos.yml:28-34`, command 블록 전체는 `:23-34`). 같은 파일 21~22행
-주석이 이 둘을 회수 시간 유계화의 두 축으로 규정한다. 현재 E2는 RTO 13.882초, E7은 9.983초, E5는 11.99초로
+(`harness/docker-compose.chaos.yml`의 `chaos-pg` command 블록). 같은 서비스의 주석이
+이 둘을 회수 시간 유계화의 두 축으로 규정한다. 현재 E2는 RTO 13.882초, E7은 9.983초, E5는 11.99초로
 라이브 PASS다(`제출_20260901/기획안_원본.md` §10.1).
 
 AWS 이관 설계에서 DB 계층을 관리형으로 올릴지 판단해야 했다. 이 축의 요구는 §6.1의
@@ -38,8 +38,8 @@ DB 계층을 EC2 자체 운영 PostgreSQL 17로 둔다. RDS를 채택하지 않�
 - 증명 명제가 장애 아래에서의 무결과 복구다. §6.2:371이 결론을 적는다. RDS를 채택하면
   DB 계층 전체가 증명 범위 밖으로 나가고 남는 명제는 앱 계층 페일오버로 축소된다.
 - 인용 가능한 실측이 그 축 위에 있다. §10.1의 E2·E5·E7은 각각 단절·분단·pause 실험이고,
-  `harness/docker-compose.chaos.yml:20-21`이 disconnect·pause 둘 다 RST를 남기지 않아 기본값
-  아래에서는 회수되지 않는다고 적는다. 주입 권한이 없으면 이 세 수치를 AWS에서 재현할 수 없다.
+  `harness/docker-compose.chaos.yml`의 `chaos-pg` 주석이 disconnect·pause 둘 다 RST를 남기지
+  않아 기본값 아래에서는 회수되지 않는다고 적는다. 주입 권한이 없으면 이 세 수치를 AWS에서 재현할 수 없다.
 - 비용이 반대 방향으로 걸리지 않는다. §6.2:369는 RDS Multi-AZ 최소 등급 약 USD 85 대
   EC2 2대 + 80GiB 약 USD 53으로 자체 운영이 저렴하다고 적는다.
 - 로컬과 클라우드의 동형화 계약과 맞는다. §6.9 표의 DB 이미지 행이 로컬·클라우드 모두

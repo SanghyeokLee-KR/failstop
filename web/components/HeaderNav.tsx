@@ -1,11 +1,8 @@
 "use client";
 
 /**
- * HeaderNav. 전 화면 공통 상단 내비 (§1.1).
- * 로고 + 링크 4개 + 회원 인증 상태 + WS 연결 상태 + 테마 토글.
- * 고정형 정책(§4)에 따라 축소 변형 없음. 전 해상도 동일 구성.
- * 연결 상태는 스토어 connected가 원천이며 DataSource.onConnectionChange로만 갱신된다.
- * 회원 세션은 useMemberSessionBootstrap이 DataSource 구독으로 반영한다(§4-2).
+ * 고정형 정책(§4)에 따라 축소 변형이 없다.
+ * 연결 상태는 스토어 connected가 원천이고 DataSource.onConnectionChange로만 갱신된다.
  */
 
 import Link from "next/link";
@@ -176,12 +173,8 @@ function MemberMenu({ displayName }: { displayName: string }) {
 }
 
 /**
- * 공지 진입점. 주 네비를 늘리지 않는 이유는 그 줄이 거래 동선이기 때문이다.
- * 홈·거래소·자산·입출금·거래내역은 "무엇을 하러 가는가"이고 공지는 "무슨 일이 있었나"다.
- * 성격이 다른 것을 같은 줄에 넣으면 다섯 개가 여섯 개로 늘기만 하고 위계는 안 생긴다.
- *
- * 안 읽은 공지가 있으면 표식을 띄운다. 숫자를 쓰지 않는 이유는 공지 3건과 5건의 차이가
- * 사용자 행동을 바꾸지 않기 때문이다. 바뀌는 것은 "볼 게 있다" 하나뿐이다.
+ * 공지는 거래 동선이 아니라 주 네비에 넣지 않는다.
+ * 숫자 대신 표식만 쓰는 이유는 건수가 사용자 행동을 바꾸지 않기 때문이다.
  */
 function NoticeLink() {
   const notices = useExchangeStore((s) => s.notices);

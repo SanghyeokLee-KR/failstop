@@ -1,13 +1,6 @@
 /**
- * candleStream.ts. DataSource 캔들 배선의 단일 통로(설계 §3.5).
- * 화면 코드는 SimEngine·fetch를 직접 부르지 않고 여기만 통해 데이터에 접근한다.
- * 초기 로드는 getCandles, 실시간은 체결(trade) 합성이 현재 유일 경로다.
- *
- * 배선 현황: 서버 /topic/candle.* 채널은 구독하지 않는다. 실시간 캔들은 trade 채널 구독으로
- * 클라이언트 합성한다. 따라서 서버 publishCandles·candle seq 계약과 httpDatasource의 candle
- * 재동기화 분기는 현재 도달 불가한 예약 경로다. 백엔드 캔들 채널 배선 시 이 파일 내부 교체(초기
- * getCandles 유지 + trade 합성을 candle 구독으로 대체)만으로 승격한다. 라이브 전환은 리스크가
- * 커 현 단계에서 배제한다.
+ * 화면 코드는 SimEngine·fetch를 직접 부르지 않고 여기만 통해 캔들에 접근한다(설계 §3.5).
+ * 서버 /topic/candle.*는 구독하지 않고 trade 합성이라, candle seq 계약은 도달 불가한 예약 경로다.
  */
 
 import type { Chart, KLineData } from "klinecharts";

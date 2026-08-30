@@ -86,7 +86,6 @@ try {
     $prePort = Get-LiveNodePort
     $pre = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'pre'
     Write-Host "사전 verdict=$($pre.verdict)"
-    # 사전 프로브 정상 확인(CB closed, downstream ok).
     $preProbe = Invoke-ProbeOnce
     Write-Host "사전 프로브=$preProbe CB=$(Get-CbState)"
 
@@ -117,7 +116,7 @@ try {
         if (-not $cbOpenedAt) {
             if (Test-CircuitOpen) { $cbOpenedAt = (Get-Date).ToUniversalTime(); Write-Host "CB open 확인 t=$($cbOpenedAt.ToString('o'))" }
         } else {
-            # open 확인 후 fail-fast 503 몇 건으로 안정 확인 뒤 종료(불필요한 지속 부하 방지).
+            # 안정 확인 뒤 종료해 불필요한 지속 부하를 만들지 않는다.
             if ($one -eq 'unavailable') { $failFastAfterOpen++ }
             if ($failFastAfterOpen -ge 5) { break }
         }

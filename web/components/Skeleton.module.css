@@ -14,7 +14,7 @@
   animation: shimmer 1.4s var(--ease-linear) infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .base::after { animation: none; } /* static */
+  .base::after { animation: none; }
 }
 @keyframes shimmer {
   100% { transform: translateX(100%); }

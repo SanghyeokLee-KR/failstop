@@ -1,7 +1,6 @@
 /**
- * lib/community/httpDatasource.ts. community-api 실서버 어댑터(게시판_설계 §4).
- * 경로 접두 /api/v1/community. 거래 어댑터와 별개 배포 단위 D를 호출한다(§2.1, §2.5).
- * 엔벌로프·에러·커서는 API 공통 규약 상속(§2-2/§2-3/§2-6). 쓰기는 회원 Bearer 필수.
+ * community-api 실서버 어댑터(게시판_설계 §4). 거래 어댑터와 별개 배포 단위 D를 호출한다(§2.1, §2.5).
+ * 엔벌로프·에러·커서는 API 공통 규약을 상속하고, 쓰기는 회원 Bearer가 필수다.
  */
 
 import { ApiError } from "../api/httpDatasource";
@@ -116,12 +115,9 @@ export class HttpCommunityDataSource {
     };
   }
 
-  // 백엔드 와이어는 식별자를 post_id·comment_id로 싣고(게시판_설계 §3·§4) author_id·liked를
-  // 공개 GET에 싣지 않는다. 뷰모델(external_id 기준)로 무매핑 캐스팅하면 상세 이동·좋아요·삭제가
-  // 전부 undefined id로 깨진다(sim은 뷰모델 형태라 은폐). 여기서 단일 정규화로 닫는다.
-  // mine은 서버가 optional-auth로 산출해 additive로 싣는다(게시판_설계 §4-D). 소유 판정은 서버
-  // 권위이고, 값 부재(비로그인·미제공)는 false로 강등한다. handle 대조 파생은 쓰지 않는다
-  // (동명이인 오노출·표시명 변경 시 소멸 방지).
+  // 백엔드 와이어는 식별자를 post_id·comment_id로 싣고 author_id·liked를 공개 GET에 싣지 않아,
+  // 무매핑 캐스팅하면 상세 이동·좋아요·삭제가 undefined id로 깨진다(sim은 뷰모델 형태라 은폐).
+  // mine은 서버 권위라 값 부재는 false로 강등하고, handle 대조 파생은 쓰지 않는다(동명이인 오노출).
   private normPost(w: Partial<CommunityPost> & { post_id?: string }): CommunityPost {
     return {
       external_id: w.external_id ?? w.post_id ?? "",

@@ -197,9 +197,8 @@ public class HaMonitoringController {
                         """)
                 .params(floor, capped)
                 .query((rs, n) -> {
-                    // SELECT하고 버리는 컬럼을 두지 않는다. 뽑았다는 것은 쓰려고 했다는 뜻이고,
-                    // 버리면 화면이 왜 그 값을 못 보는지 코드가 말하지 않는다. epoch 단조는
-                    // 페일오버 판정의 축이라 행에 있으면 낸다(fp 두 컬럼과 같은 교정).
+                    // epoch 단조는 페일오버 판정의 축이라 행에 있으면 응답에 낸다.
+                    // SELECT하고 버리는 컬럼을 두지 않는다.
                     Map<String, Object> row = new java.util.LinkedHashMap<>();
                     row.put("experiment_id", str(rs.getString("experiment_id")));
                     row.put("old_leader", str(rs.getString("old_leader")));
@@ -215,9 +214,7 @@ public class HaMonitoringController {
                     return row;
                 })
                 .list();
-        // 판정 객체. 종전에는 배열 둘만 반환해 화면이 행을 보여줄 뿐 통과 여부를 말하지
-        // 못했다. 대본이 "복구 성공"을 선언하는데 그 근거를 사람이 눈으로 세야 했다.
-        // 기준은 계약이다. RTO<30s, RPO=0(API§7-3 P6), 재생 결정론 matched=false 0(C17).
+        // 판정 객체. 기준은 계약이다. RTO<30s, RPO=0(API§7-3 P6), 재생 결정론 matched=false 0(C17).
         // 표가 비면 통과가 아니라 미판정이다. 0행 대조로 통과를 내면 그것이 공허 통과다.
         //
         // 집계는 표 전체에서 한다. 위 배열은 limit로 자른 창이라 그것을 세면 창 밖 실패가
@@ -287,9 +284,6 @@ public class HaMonitoringController {
         verdict.put("overall", anyFail ? "FAIL" : (anyUnknown ? "UNKNOWN" : "PASS"));
 
         Map<String, Object> out = new java.util.LinkedHashMap<>();
-        // 1.0에서 1.2 순증. verdict 객체 자체가 신설이고 그 안이 판정 셋과 계수 필드다.
-        // 두 단계를 올린 이유는 sim 두 엔드포인트가 같은 라운드에서 1.0에서 1.1로 갔고
-        // 이쪽이 더 큰 변화라 같은 폭이면 규칙이 서지 않기 때문이다.
         out.put("schema_version", "1.2");
         out.put("verdict", verdict);
         out.put("recovery_runs", recoveries);

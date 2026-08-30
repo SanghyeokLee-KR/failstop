@@ -1,18 +1,7 @@
 /**
- * lib/format.ts. KRW/가격/수량/등락 표시 포맷터.
- * 규약
- * - 숫자는 tabular-nums + Intl.NumberFormat('ko-KR'), 방향은 색 단독 금지(부호+화살표 병기).
- * - 금액·수량은 문자열로 다룬다. 표시 반올림·자리구분을 BigInt 십진 경로로 처리해 NUMERIC(40,18) 정밀을 보존한다.
- *   parseFloat·Math.round 기반 float 왕복을 표시 계층에서 제거한다.
- * - 표시 소수 자릿수는 마켓 스펙에서 유도한다. 가격은 tick_size(문자열) 또는 price_scale(숫자),
- *   수량은 qty_scale(숫자). 고정 자릿수로 tabular 정렬을 보존한다(유효숫자 가변 아님).
- *   스펙 미전달 시 가격대별 안전 폴백으로 sub-1 KRW가 "0"으로 뭉개지지 않게 한다.
- *
- * 소비처 규약(마켓 스펙 전달)
- * - 가격류: formatPrice(value, market.tick_size) 또는 formatPrice(value, market.price_scale).
- * - 수량류: formatQty(value, market.qty_scale).
- * - 등락액: formatDirectionalAmount(change_price, change, market.tick_size).
- * - 스펙을 못 넘기는 경로만 인자 생략(폴백). 스펙이 있으면 반드시 전달한다.
+ * KRW·가격·수량·등락 표시 포맷터. 금액·수량은 문자열로 다루고 표시 반올림·자리구분을 BigInt 십진 경로로 처리한다.
+ * 표시 소수 자릿수는 마켓 스펙(tick_size·price_scale·qty_scale)에서 유도하며, 스펙이 있으면 반드시 넘긴다.
+ * 스펙 미전달 시 가격대별 안전 폴백으로 sub-1 KRW가 "0"으로 뭉개지지 않게 한다.
  */
 
 import type { ChangeState, Direction } from "./types";
@@ -46,9 +35,8 @@ function displayValue(v: string | number | null | undefined): string | number {
 }
 
 /**
- * 십진 문자열을 고정 소수 자릿수로 반올림해 자리구분 표기.
- * 정수부는 BigInt로 Intl 자리구분(2^53 초과 보존), 소수부는 고정 길이 문자열(후행 0 유지→tabular 정렬).
- * 음수는 U+2212로 표기. parseFloat·Math.round를 경유하지 않는다.
+ * 십진 문자열을 고정 소수 자릿수로 반올림해 자리구분 표기. 음수는 U+2212로 적는다.
+ * 정수부는 BigInt로 2^53 초과를 보존하고, 소수부는 후행 0을 유지해 tabular 정렬을 지킨다.
  */
 function formatFixed(value: string | number, decimals: number): string {
   const d = clampDecimals(decimals);
@@ -165,9 +153,8 @@ export function formatCompactKRW(value: string | number): string {
 }
 
 /**
- * 코인 수량 축약. KRW 축약과 달리 통화 단위·정수 강제가 없다.
- * 1 이상은 소수 2자리로 압축(3.75→"3.75", 7000→"7,000.00"), 1 미만은 qty_scale까지 보존해
- * 세션 초반 소액 누적분이 "0"으로 사라지지 않게 한다.
+ * 코인 수량 축약. 1 이상은 소수 2자리로 압축하고,
+ * 1 미만은 qty_scale까지 보존해 세션 초반 소액 누적분이 "0"으로 사라지지 않게 한다.
  */
 export function formatCompactQty(value: string | number, qtyScale = 8): string {
   const v = displayValue(value);

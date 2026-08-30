@@ -35,9 +35,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 공지 목록 커서 페이지네이션(API 설계 §2-6, §4-F) 실 DB 검증.
  *
- * 종전 구현은 LIMIT 50 고정에 pagination 엔벌로프도 없었다. 공지는 삭제되지 않고 철회만
- * 되므로(V5 §7 DELETE 미부여) 활성 공지가 상한을 넘는 상태가 실제로 온다. 그때 51번째
- * 공지는 존재하는데도 어떤 클라이언트도 도달할 수 없었고 잘렸다는 표시조차 없었다.
+ * 공지는 삭제되지 않고 철회만 되므로(V5 §7 DELETE 미부여) 활성 공지가 고정 상한을 넘는 상태가
+ * 실제로 온다. 상한 밖 공지는 존재해도 어떤 클라이언트도 도달하지 못하고 잘렸다는 표시도 없다.
  *
  * 여기서 보는 것: (a) 상한을 넘는 공지를 커서로 전부 따라가는가, (b) 같은 시각에 발행된
  * 공지가 쪽 경계에서 중복·누락되지 않는가(published_at 단독 축의 실패 모드), (c) 철회분이
@@ -49,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class NoticePaginationIntegrationTest {
 
-    /** 종전 고정 상한(50)을 넘겨 심는다. 그 경계 밖이 실제로 읽히는지가 이 테스트의 요점이다 */
+    /** 고정 상한(50)을 넘겨 심는다. 그 경계 밖이 실제로 읽히는지가 이 테스트의 요점이다 */
     private static final int TOTAL = 57;
     private static final int PAGE = 10;
 
@@ -141,7 +140,6 @@ class NoticePaginationIntegrationTest {
             assertTrue(pages <= TOTAL, "커서가 끝나지 않는다");
         }
 
-        // 종전 LIMIT 50이면 여기서 50에서 멈췄다
         assertEquals(TOTAL, walked.size(), "고정 상한 밖 공지에 도달하지 못했다");
         assertEquals(activeNewestFirst, walked, "정렬이 (published_at DESC, id DESC)가 아니다");
         assertEquals((TOTAL + PAGE - 1) / PAGE, pages);
@@ -169,7 +167,7 @@ class NoticePaginationIntegrationTest {
 
     @Test
     void firstPageAlwaysCarriesPaginationEnvelope() throws Exception {
-        // §2-2. 한 쪽으로 끝나도 필드는 리터럴로 존재한다. 종전 응답에는 이 필드가 없었다
+        // §2-2. 한 쪽으로 끝나도 필드는 리터럴로 존재한다
         JsonNode body = list(null, 500);
         assertTrue(body.path("pagination").has("next_cursor"));
         assertTrue(body.path("pagination").has("has_more"));
@@ -211,8 +209,6 @@ class NoticePaginationIntegrationTest {
                 + URLEncoder.encode(cursor, StandardCharsets.UTF_8));
         assertEquals(200, res.getStatusCode().value(), res.getBody());
     }
-
-    /* ===== 보조 ===== */
 
     private JsonNode list(String cursor, int limit) throws Exception {
         String path = "/api/v1/notices?limit=" + limit

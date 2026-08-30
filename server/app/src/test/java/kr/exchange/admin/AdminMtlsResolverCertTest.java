@@ -12,9 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 실 데모 mTLS 클라이언트 인증서(op-01.p12)에서 operator_id(=CN)를 도출하는 경로 검증.
- * 게이트웨이 헤더가 아니라 Spring SSL client-auth가 채우는 X509 속성 경로를 실 인증서로 태운다.
- * 데모 자산이 CN=op-01로 발급됐고 리졸버가 그 CN을 뽑는지 확인한다(§1-6 반결탁 정합 전제).
+ * 게이트웨이 헤더가 아니라 Spring SSL client-auth가 채우는 X509 속성 경로를 실 인증서(op-01.p12)로
+ * 태운다. 데모 자산이 CN=op-01로 발급됐고 리졸버가 그 CN을 뽑는지 확인한다(§1-6 반결탁 전제).
  */
 class AdminMtlsResolverCertTest {
 

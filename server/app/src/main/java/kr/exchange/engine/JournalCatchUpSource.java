@@ -24,7 +24,7 @@ public class JournalCatchUpSource implements SingleWriterLoop.CatchUpSource {
     @Override
     public List<OrderCommand> readAfter(long lastAppliedSeq, int limit) {
         // 라이브 루프 공급 전 체크섬 검증. 재생 경로와 단일 지점을 공유한다. 검증 없이
-        // 적용하면 변조 행이 event_journal에 비가역 방출된다(정밀감사 2차 결함).
+        // 적용하면 변조 행이 event_journal에 비가역 방출된다.
         return reader.readAfter(lastAppliedSeq, limit).stream()
                 .map(entry -> {
                     JournalChecksum.verify(entry);

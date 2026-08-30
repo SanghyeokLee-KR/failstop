@@ -15,8 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * DTO 직렬화가 §4-B·§4-C의 키 이름·순서·null 표기 계약을 지키는지 회귀 검증. record 전환 전에는
- * LinkedHashMap 삽입 순서가 계약을 보장했고, 전환 후에는 컴포넌트 선언 순서가 그 자리를 대신한다.
+ * DTO 직렬화가 §4-B·§4-C의 키 이름·순서·null 표기 계약을 지키는지 회귀 검증.
+ * 키 순서 계약은 record 컴포넌트 선언 순서가 진다.
  */
 class OrderDtoSerializationTest {
 

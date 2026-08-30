@@ -1,7 +1,6 @@
 /**
- * 심볼칩. 코인 브랜드 로고색 칩 (하드코딩 hex 예외가 허용되는 유일한 "데이터성 색상").
- * 색은 lib/sim/engine의 COIN_META(brandColor)에서 주입한다.
- * 라벨 명암과 대비 미달 시 배경 보정은 resolveChipStyle이 계산한다(수기 플래그 폐기).
+ * 심볼칩. 코인 브랜드 로고색 칩(하드코딩 hex 예외가 허용되는 유일한 데이터성 색상).
+ * 색은 COIN_META(brandColor)에서 주입하고, 라벨 명암과 배경 보정은 resolveChipStyle이 계산한다.
  */
 
 import { useMemo } from "react";

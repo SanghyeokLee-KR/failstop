@@ -1,8 +1,6 @@
 /**
- * lib/decimal.ts. 문자열 NUMERIC(40,18) 십진 연산.
- * 계약: 금액·수량은 문자열로 다루고 float(parseFloat·JS number 산술)을 쓰지 않는다.
- * 곱·비교·스케일 변환을 BigInt로 처리해 2^53 초과 거래대금·근접 가격의 순서 역전과 정밀 손실을 막는다.
- * format.ts(표시), orderMath.ts(주문 격자)가 이 단일 출처를 공유한다.
+ * 문자열 NUMERIC(40,18) 십진 연산. 금액·수량은 문자열로 다루고 float을 쓰지 않는다.
+ * BigInt로 처리해 2^53 초과 거래대금·근접 가격의 순서 역전과 정밀 손실을 막는다.
  */
 
 /** 지수표기를 고정 소수 문자열로 환산. 십진 연산은 지수표기를 입력으로 받지 않는다 */
@@ -103,9 +101,8 @@ export function absDecimal(v: string | number): string {
 }
 
 /**
- * 십진 문자열 → 10^scale 스케일드 BigInt. scale 자리에서 0 반대 방향 올림(Java RoundingMode.UP).
- * 락 산식(§4-B-5 v2.7)이 UP 양자화를 요구한다. 내림·반올림으로 잡으면 락이 실제 대금보다
- * 작아져 체결 시점에 모자란다.
+ * 십진 문자열을 10^scale 스케일드 BigInt로. scale 자리에서 0 반대 방향 올림(Java RoundingMode.UP).
+ * 락 산식(§4-B-5)이 UP 양자화를 요구한다. 내림·반올림이면 락이 실제 대금보다 작아 체결 시점에 모자란다.
  */
 export function scaledIntCeil(v: string | number, scale: number): bigint {
   const raw = normalizeDecimal(v);

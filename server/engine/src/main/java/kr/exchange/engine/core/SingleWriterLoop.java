@@ -176,9 +176,8 @@ public final class SingleWriterLoop {
                 process(command);
             } catch (Throwable t) {
                 // Exception뿐 아니라 Error(OOM·AssertionError·NoClassDefFoundError 등)도 잡는다.
-                // Error를 흘리면 라이터 스레드만 조용히 죽고 running=true가 남아 isRunning()이
-                // 계속 참을 반환한다. 그러면 접수는 ACK되는데 소비자가 없는 반쪽 리더가 되고
-                // demote도 발화하지 않는다(전문가 감사 high). 통지·정지를 먼저 강제한다.
+                // Error를 흘리면 라이터 스레드만 조용히 죽고 running=true가 남아, 접수는
+                // ACK되는데 소비자가 없는 반쪽 리더가 되고 demote도 발화하지 않는다.
                 queue.clear();
                 try {
                     fatalHandler.accept(t);

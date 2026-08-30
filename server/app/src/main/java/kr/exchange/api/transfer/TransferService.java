@@ -20,13 +20,9 @@ import java.util.UUID;
 /**
  * 원화 입출금(API 설계 §4-E).
  *
- * 자금 이동은 이 클래스가 직접 하지 않는다. 전부 기존 단일 경로를 지난다.
- *   입금 확정   post_ledger_transaction('TRANSFER', ...)   GATEWAY to AVAILABLE
- *   출금 잠금   reserve_funds(...)                          AVAILABLE to LOCKED
- *   출금 확정   post_ledger_transaction('TRANSFER', ...)   LOCKED to GATEWAY
- *   출금 해제   release_funds(...)                          LOCKED to AVAILABLE
- * 이 함수들이 balances를 account_id 오름차순으로 잠그므로 전역 잠금 순서가 하나로 유지되고,
- * 자산별 원장 합=0도 분개 페어로 성립한다. 새 자금 경로를 만들지 않는 것이 요점이다.
+ * 자금 이동은 이 클래스가 직접 하지 않는다. post_ledger_transaction·reserve_funds·release_funds
+ * 단일 경로만 지난다. 그 함수들이 balances를 account_id 오름차순으로 잠가 전역 잠금 순서가 하나로
+ * 유지되고 자산별 원장 합=0도 분개 페어로 성립한다. 새 자금 경로를 만들지 않는 것이 요점이다.
  *
  * 출금 요청 시점에 잠그는 이유는 요청과 승인 사이의 이중 사용 때문이다. 잠그지 않으면
  * 사용자가 전액 출금을 요청한 뒤 그 돈으로 거래할 수 있고, 승인 시점에는 잔고가 없어

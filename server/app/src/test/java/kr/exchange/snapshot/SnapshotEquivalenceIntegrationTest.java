@@ -48,23 +48,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 스냅샷 배선 결정론 등가성(복구 RTO 설계 §3-b, 하네스 T3-A 재생 결정론).
+ * 스냅샷 배선 결정론 등가성(복구 RTO 설계 §3-b, 하네스 T3-A). 저널 전량 재생과 [스냅샷 K 로드 +
+ * K+1부터 tail 재생]이 바이트 동일해야 한다. 여러 K에서 반복한다.
  *
- * 다시장·부분체결·전량체결·시장가 IOC·취소·거부가 섞인 저널을 라이브로 만들고, 엔진 최종
- * 상태를 두 방식으로 재구성해 바이트 동일함을 단언한다.
- *  (A) seq 0부터 전량 재생.
- *  (B) 중간 seq K에서 스냅샷을 로드하고 K+1부터 tail 재생.
- * 여러 K(초반·중반·경계·head)에서 반복한다. 바이트 동일 판정은 SnapshotCodec.encode의
- * 정준 직렬화(마켓 → 가격 레벨 → 레벨 내 FIFO, orderId·userId·side·price·remaining)를
- * 마켓별로 비교하고, 전 마켓 stateChecksum·markets·lastAppliedSeq를 함께 대조한다.
+ * 바이트 판정은 SnapshotCodec.encode의 정준 직렬화를 마켓별로 비교하고 stateChecksum·markets·
+ * lastAppliedSeq를 함께 본다. 스냅샷이 재생의 압축 프리픽스이므로 tail 명령 수는 head - K로
+ * 상한된다.
  *
- * 스냅샷은 저널 재생의 압축 프리픽스여야 하므로 (B)의 tail 재생 명령 수가 정확히 head - K로
- * 상한되고 pending이 없어야 한다. 무결성 폴백(engine_version·config_hash·state_checksum
- * 불일치 시 세트 폐기 후 더 낮은 유효 프리픽스 또는 전량 재생)도 실제 채택 게이트로 검증한다.
- *
- * 범위 한정: 계정 잔고(available·locked)는 매칭엔진이 소유하지 않고 정산 계층(원장)의 durable
- * DB 상태다. 재생은 이벤트를 재방출·대조만 하고 잔고를 다시 쓰지 않으므로 (A)·(B)가 같은 DB를
- * 공유한다. 여기서 재구성되는(=버그로 갈릴 수 있는) 상태는 엔진 오더북이며 그것을 바이트로 고정한다.
+ * 범위 한정: 계정 잔고는 엔진이 아니라 정산 계층의 durable DB 상태라 두 경로가 같은 DB를
+ * 공유한다. 여기서 버그로 갈릴 수 있는 상태는 엔진 오더북이고 그것만 바이트로 고정한다.
  */
 @Testcontainers
 class SnapshotEquivalenceIntegrationTest {
@@ -249,10 +241,6 @@ class SnapshotEquivalenceIntegrationTest {
         assertEquals(leaderHead, byConfig.replayedCommands());
     }
 
-    // ------------------------------------------------------------------
-    // 재구성·비교 헬퍼
-    // ------------------------------------------------------------------
-
     private MatchingEngineImpl fullReplay() {
         MatchingEngineImpl engine = new MatchingEngineImpl();
         replayService.rebuild(engine, 0);
@@ -303,10 +291,6 @@ class SnapshotEquivalenceIntegrationTest {
         }
         return markets;
     }
-
-    // ------------------------------------------------------------------
-    // 명령 스크립트(다시장·부분체결·전량체결·시장가·취소·거부)
-    // ------------------------------------------------------------------
 
     private static List<OrderIntake> script() {
         List<OrderIntake> s = new ArrayList<>();

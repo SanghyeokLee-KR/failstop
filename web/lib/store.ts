@@ -1,9 +1,7 @@
 "use client";
 
 /**
- * lib/store.ts. zustand 전역 스토어.
- * WS 메시지(ticker/orderbook/trade/myOrder/myAsset)를 apply()로 흡수하고,
- * 화면은 selector로 필요한 조각만 구독한다 (셀 단위 리렌더 최소화).
+ * zustand 전역 스토어. WS 메시지를 apply()로 흡수하고, 화면은 selector로 필요한 조각만 구독한다.
  */
 
 import { useEffect, useMemo, useRef } from "react";
@@ -27,9 +25,8 @@ import { compareDecimal } from "./decimal";
 import { getDataSource } from "./api/datasource";
 
 /**
- * ticker·orderbook 스토어 교체 전 (epoch, seq) 단조 검사.
- * 느린 REST 스냅샷·재전달이 이미 반영된 최신 실시간을 낮은 seq로 되돌리지 않게 한다.
- * epoch 상승은 리더 세대 교체로 seq 도메인이 리셋되므로 무조건 최신으로 본다.
+ * ticker·orderbook 스토어 교체 전 (epoch, seq) 단조 검사. 느린 REST 스냅샷·재전달이
+ * 이미 반영된 최신 실시간을 되돌리지 않게 한다. epoch 상승은 seq 도메인 리셋이라 최신으로 본다.
  */
 function isStaleUpdate(
   prev: { epoch: number; seq: number } | undefined,
@@ -41,10 +38,8 @@ function isStaleUpdate(
 }
 
 /**
- * myOrder 메시지로부터 미보유 주문을 스토어에 채우기 위한 최소 Order 합성.
- * 재동기화·타 세션 신규 주문은 openOrders에 없어 유실되므로 즉시 표시용으로 append 한다.
- * 상세 필드(ord_type·수수료·체결금액)는 메시지에 없어 안전 기본값을 두고, 이어지는
- * loadOrders 전량 조회가 권위 있는 Order로 교체한다. amount는 문자열 규약을 지켜 산술하지 않는다.
+ * myOrder 메시지로 미보유 주문을 즉시 표시용으로 합성한다. 재동기화·타 세션 신규 주문은
+ * openOrders에 없어 유실된다. 상세 필드는 메시지에 없어 안전 기본값을 두고 loadOrders가 교체한다.
  */
 function synthOrderFromMyOrder(msg: MyOrderMessage): Order {
   return {
@@ -70,10 +65,8 @@ function synthOrderFromMyOrder(msg: MyOrderMessage): Order {
 }
 
 /**
- * 주문 상태 등급. 수명은 OPEN→PARTIAL→종결(FILLED·CANCELED·REJECTED)로 단조라
- * 더 낮은 등급은 되돌이(stale)다. ticker·orderbook의 isStaleUpdate와 같은 개념을
- * 주문 경로에 적용한다. 주문 seq는 REST가 command_journal 도메인, WS 합성이 채널 도메인이라
- * 서로 비교할 수 없어 단조 기준을 상태 등급으로 잡는다.
+ * 주문 상태 등급. 수명이 OPEN에서 PARTIAL, 종결로 단조라 더 낮은 등급은 되돌이(stale)다.
+ * 주문 seq는 REST가 command_journal 도메인, WS 합성이 채널 도메인이라 비교할 수 없어 등급으로 잡는다.
  */
 const STATUS_RANK: Record<OrderStatus, number> = {
   OPEN: 0,
@@ -91,8 +84,7 @@ function isTerminalOrder(status: OrderStatus): boolean {
 
 /**
  * 로컬 주문과 도착 주문 중 더 진행된 쪽을 고른다.
- * 등급이 같으면 도착분을 채택해 합성 주문에 없는 권위 필드(ord_type·수수료·체결금액)를 채우되,
- * 로컬 체결 수량이 더 크면 로컬을 유지한다(체결 수량은 비감소).
+ * 등급이 같으면 도착분을 채택해 권위 필드를 채우되, 로컬 체결 수량이 더 크면 로컬을 유지한다.
  */
 function pickOrder(local: Order | undefined, incoming: Order): Order {
   if (!local) return incoming;
@@ -120,9 +112,8 @@ function collect(into: Map<string, Order>, ids: string[], orders: Order[]): void
 }
 
 /**
- * REST 주문 스냅샷 병합(회귀 테스트 대상). 전량 교체는 왕복 중 확정된 WS 전이를 지연 응답으로
- * 되돌려 종결 주문을 미체결 탭에 부활시킨다. id 기준 upsert + 상태 단조 가드로 진행된 로컬
- * 상태를 지키고, 미체결·체결 분류는 병합 결과의 상태로 결정한다.
+ * REST 주문 스냅샷 병합. 전량 교체는 왕복 중 확정된 WS 전이를 되돌려 종결 주문을 미체결 탭에 부활시킨다.
+ * id 기준 upsert + 상태 단조 가드로 진행된 로컬 상태를 지키고, 분류는 병합 결과의 상태로 결정한다.
  */
 export function mergeOrderSnapshot(
   prev: { openOrders: Order[]; closedOrders: Order[] },
@@ -202,9 +193,7 @@ interface ExchangeState {
   trades: Record<string, TradeMessage[]>;
   assets: Asset[];
   /* 공지 첫 쪽(§4-F). 배너와 진입점 미읽음 표식이 쓴다.
-     목록 화면은 여기를 보지 않고 자기 커서로 아카이브를 따라간다. 종전에는 이 배열이
-     목록의 원천이기도 했는데, 그래서 목록이 서버의 LIMIT 50에 묶여 51번째 공지를
-     볼 방법이 없었다. 원천을 나눈 지금은 배너가 가리키는 공지도 목록에서 반드시 닿는다 */
+     목록 화면은 여기를 보지 않고 자기 커서로 아카이브를 따라간다 */
   notices: PublicNotice[];
   /* 빈 배열과 미로딩을 구분한다. 하나로 두면 첫 프레임에 "등록된 공지 없음"이 스친 뒤
      목록이 나타난다. 사용자는 그 깜빡임을 오류로 읽는다 */
@@ -256,12 +245,8 @@ interface ExchangeState {
 let marketsInFlight: Promise<void> | null = null;
 
 /**
- * 전역이 드는 공지 수.
- *
- * 배너는 이 안에서 최신 경보 한 건을 고른다. 활성 경보보다 새 공지가 이 수를 넘게 쌓이면
- * 배너가 그 경보를 놓친다. 종전 서버 고정 상한(50)과 같은 값을 유지해 그 경계를 넓히지도
- * 좁히지도 않는다. 그 상황은 운영자가 활성 공지 50건을 방치했다는 뜻이라 배너 이전에
- * 공지 운영이 먼저 깨진 상태다.
+ * 전역이 드는 공지 수. 배너는 이 안에서 최신 경보 한 건을 고른다.
+ * 활성 경보보다 새 공지가 이 수를 넘게 쌓이면 배너가 그 경보를 놓치는데, 그 상황은 공지 운영이 먼저 깨진 상태다.
  */
 const NOTICE_HEAD = 50;
 
@@ -433,21 +418,15 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     return marketsInFlight;
   },
 
-  /* 실패해도 조용히 넘긴다. 공지는 보조 정보라 못 불러왔다고 화면을 막을 이유가 없다.
-     연결 배너와 달리 부재 자체가 사용자에게 전달할 사실이 아니다.
-
-     전역 상태가 드는 것은 첫 쪽뿐이다. 여기를 소비하는 것은 배너(bannerNotice)와 진입점
-     미읽음 표식(hasUnread) 둘이고, 배너는 최신 경보 한 건, 표식은 가장 최근 발행 시각만
-     본다. 아카이브 전체는 목록 화면이 자기 커서로 따라간다. 전역에 전부 들고 있으면
-     공지가 쌓일수록 모든 화면의 첫 요청이 같이 무거워진다 */
+  /* 실패해도 조용히 넘긴다. 공지는 보조 정보라 부재 자체가 사용자에게 전달할 사실이 아니다.
+     전역이 드는 것은 첫 쪽뿐이다. 아카이브 전체를 들면 공지가 쌓일수록 모든 화면의 첫 요청이 무거워진다 */
   async loadNotices() {
     try {
       const page = await getDataSource().getNotices({ limit: NOTICE_HEAD });
       set({ notices: page.data, noticesLoaded: true });
     } catch {
-      /* 이전에 받은 공지는 그대로 둔다. 다만 loaded는 세운다. 실패를 미로딩으로 두면
-         스켈레톤이 영원히 돈다. 그건 지켜지지 않는 약속이다(상태 설계 감사에서 같은
-         실패 모드를 호가·체결 패널에서 두 번 고쳤다) */
+      /* 받아 둔 공지는 유지하되 loaded는 세운다. 실패를 미로딩으로 두면 스켈레톤이 영원히
+         돌고, 그것은 지켜지지 않는 약속이다 */
       set({ noticesLoaded: true });
     }
   },
@@ -519,10 +498,8 @@ export function diffDestinations(
 }
 
 /**
- * 채널 구독 훅. 마운트 시 destination들을 구독하고 스토어에 흘려 넣는다.
- * 예: useLiveChannels([dest.ticker("KRW-BTC"), dest.orderbook("KRW-BTC")])
- * destinations 변경 시 diff 기반으로 추가·제거된 채널만 구독·해제한다. 전량 철거·재구독은
- * 유지 중인 채널의 STOMP UNSUBSCRIBE/SUBSCRIBE와 채널 수 규모의 초기 스냅샷 REST를 재발사한다.
+ * 채널 구독 훅. destinations 변경 시 diff로 추가·제거된 채널만 구독·해제한다.
+ * 전량 철거·재구독은 유지 중인 채널의 UNSUBSCRIBE/SUBSCRIBE와 채널 수 규모의 스냅샷 REST를 재발사한다.
  */
 export function useLiveChannels(destinations: string[]): void {
   const apply = useExchangeStore((s) => s.apply);
@@ -579,8 +556,7 @@ export function useMemberSessionBootstrap(): void {
 
 /**
  * 마켓 메타 보장 훅. tick_size·qty_scale은 표시 자릿수의 유일 근거라 미로드 상태로 그리면
- * 폴백 자릿수가 실제와 달라 가격·수량 표기가 위조된다(예: tick_size 1000 마켓에 소수 표기).
- * 마운트 시 로드 여부를 확인하고 미로드면 1회 조회한다. 동시 호출은 loadMarkets가 병합한다.
+ * 폴백 자릿수가 실제와 달라 가격·수량 표기가 위조된다. 동시 호출은 loadMarkets가 병합한다.
  */
 export function useMarketSpecs(): Market[] {
   const markets = useExchangeStore((s) => s.markets);

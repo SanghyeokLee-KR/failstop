@@ -276,7 +276,6 @@ export default function HistoryPage() {
       {/* 페이지 레벨 h1. 화면에는 필터 바가 먼저 오고 제목 자리가 없어 sr-only로 둔다.
           없으면 heading 계층이 h2에서 시작해 스크린리더 문서 개요가 끊긴다(WCAG 2.4.6) */}
       <h1 className="sr-only">거래내역</h1>
-      {/* ===== 필터 바 (48px) ===== */}
       <div className={styles.filterBar}>
         <SegmentedTab items={TAB_ITEMS} value={tab} onChange={setTab} variant="neutral" ariaLabel="거래내역 구분" />
         <select
@@ -308,7 +307,6 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {/* ===== 본문 테이블 카드 ===== */}
       {!loaded ? (
         <Skeleton variant="card" width="100%" height={320} />
       ) : failed ? (

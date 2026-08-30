@@ -148,10 +148,6 @@ class SettlementIntegrationTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (a) 접수 예약 + 사용자 취소 해제
-    // ------------------------------------------------------------------
-
     @Test
     @Order(1)
     void acceptReservesAndCancelReleases() throws Exception {
@@ -190,10 +186,6 @@ class SettlementIntegrationTest {
         assertDecimal("0", userBalance(alice, KRW, "locked"));
     }
 
-    // ------------------------------------------------------------------
-    // (b) 단일 체결: §5.2 시나리오 재현
-    // ------------------------------------------------------------------
-
     @Test
     @Order(2)
     void singleFillSettlesPerSection52() {
@@ -204,7 +196,7 @@ class SettlementIntegrationTest {
         submit(limit(KRW_BTC, carol, takerOid, OrderCommand.Side.BUY,
                 "50000000", "0.01", RATE_5BP, RATE_5BP));
 
-        // trade_id = event_seq(P0-4), 수수료는 §4-B-5 양자화: maker 100 KRW, taker 0.000002 BTC
+        // trade_id = event_seq, 수수료는 §4-B-5 양자화: maker 100 KRW, taker 0.000002 BTC
         assertEquals(1, queryLong("SELECT count(*) FROM trades WHERE taker_order_id = " + takerOid));
         assertDecimal("100", queryDecimal(
                 "SELECT maker_fee FROM trades WHERE taker_order_id = " + takerOid));
@@ -252,10 +244,6 @@ class SettlementIntegrationTest {
         assertDecimal("0", userBalance(carol, KRW, "locked"));
     }
 
-    // ------------------------------------------------------------------
-    // (c) 부분 체결 연쇄 + FILLED: 잔차 흡수와 실잔여 락 전량 소비
-    // ------------------------------------------------------------------
-
     @Test
     @Order(3)
     void partialFillChainConsumesEntireLockOnFill() {
@@ -294,14 +282,10 @@ class SettlementIntegrationTest {
         assertEquals(0, lockedMismatchCount());
     }
 
-    // ------------------------------------------------------------------
-    // (d) STP 감액 + 무작위 시퀀스: 자산합 0, FILLED locked=0 (T-C 상당)
-    // ------------------------------------------------------------------
-
     @Test
     @Order(4)
     void stpAndRandomSequencePreserveAssets() {
-        // 결정적 STP 케이스 1: 부분 감액으로 열린 주문에 canceled_qty가 쌓인다(v2.8 보존식).
+        // 결정적 STP 케이스 1: 부분 감액으로 열린 주문에 canceled_qty가 쌓인다(보존식).
         long resting = nextOrderId++;
         long incoming = nextOrderId++;
         submit(limit(T_MARKET, alice, resting, OrderCommand.Side.SELL, "100", "1", RATE_5BP, RATE_10BP));
@@ -317,7 +301,7 @@ class SettlementIntegrationTest {
         submit(cancel(T_MARKET, alice, resting));
         assertDecimal("0", userBalance(alice, TBASE, "locked"));
 
-        // 결정적 STP 케이스 2: 시장가 매수 taker의 감액은 quote 금액 단위다(§5.3 (0) v2.8 정정).
+        // 결정적 STP 케이스 2: 시장가 매수 taker의 감액은 quote 금액 단위다(§5.3 (0)).
         long ownAsk = nextOrderId++;
         long ownBuy = nextOrderId++;
         BigDecimal quoteBefore = userBalance(bob, TQUOTE, "available");
@@ -369,10 +353,6 @@ class SettlementIntegrationTest {
         assertEquals(engine.stateChecksum(), replayed.stateChecksum());
     }
 
-    // ------------------------------------------------------------------
-    // (e) 크래시 창: 이벤트 커밋 전 정지 → 재적재+재정산 → 멱등
-    // ------------------------------------------------------------------
-
     @Test
     @Order(5)
     void crashWindowIsResettledIdempotently() {
@@ -412,10 +392,6 @@ class SettlementIntegrationTest {
         assertEquals(recovered.stateChecksum(), engine.stateChecksum());
     }
 
-    // ------------------------------------------------------------------
-    // (f) 동일 배치 재정산: 레지스트리 판정 스킵, 잔고 불변
-    // ------------------------------------------------------------------
-
     @Test
     @Order(6)
     void duplicateSettlementIsSkipped() {
@@ -441,10 +417,6 @@ class SettlementIntegrationTest {
         assertEquals(balancesBefore, balanceSnapshot());
         assertInvariants();
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private static void assertInvariants() {
         // C01 자산 보존

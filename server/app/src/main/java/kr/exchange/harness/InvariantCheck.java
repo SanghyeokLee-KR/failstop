@@ -1,31 +1,17 @@
 package kr.exchange.harness;
 
 /**
- * 불변식 검증 카탈로그의 앱 검증기 배선(하네스 검증설계 §4-1). 각 SQL은 위반 행 수(BIGINT)를
- * 단일 값으로 반환하고, ok는 count=0으로 판정한다. 컬럼명은 DB 설계 정본 실제 DDL 기준.
- *
- * C21~C23은 DB 설계 §6.4의 감사 카탈로그 ⑮(이벤트 방출 레지스트리 1:1, P0-4)·⑯(fencing 단조,
- * P0-1)·⑰(채번 카운터 정합, P0-5)이다. §6.5 pg_cron이 실환경(Testcontainers·카오스)에 없어 어떤
- * 러너도 평가하지 않던 공백을, 고아 체크(C09~C12) 이관과 동일하게 앱 스케줄러로 배선했다.
- * C24·C25는 DB 설계 §6.4 ⑱⑲(원가 프로젝션)이며 유일한 WARN·권위 run 조합이다.
- *
- * C03·C09~C12·C15는 원래 pg_cron 분담이었으나, 카오스 스택·Testcontainers에 pg_cron이 없어
- * 실환경에서 아무 러너도 평가하지 않았다(고아 체결·미저널 체결 회귀가 페일오버 판정을 그대로
- * 통과). 이를 이 enum에 등록해 runScheduled/runAuthoritative가 실제로 평가하고 위반을
- * exchange_invariant_violations 게이지·invariant_checks에 노출하게 한다(하네스 검증설계 §4-2
- * 실행 분담 개정과 정합). C08~C12·C18·C20은 90일 retention 윈도로 스캔 비용에 상한을 건다
- * (§4-2 ③, detach된 파티션 배제).
- * C04는 DEFERRED CONSTRAINT TRIGGER(V1:350~370)가 하드 강제하므로 여기 없다.
- * runScheduled/runAuthoritative는 이 enum의 values()만 순회하므로 여기 없는 체크는 앱 run에서
- * 평가하지 않는다.
- *
- * trades의 체결 seq는 컬럼 id다(trade_id = event_seq, DB 설계 §3.1). 설계 문서 §4-1의
- * trades.seq 표기는 실제 컬럼 id로 옮긴다.
+ * 불변식 검증 카탈로그의 앱 검증기 배선(하네스 검증설계 §4-1). 각 SQL은 위반 행 수를 단일 값으로
+ * 반환하고 ok는 count=0이다. 문서상 pg_cron 분담인 체크도 여기 등록한다. 카오스 스택과
+ * Testcontainers에 pg_cron이 없어, 빠지면 고아 체결·미저널 체결이 페일오버 판정을 그대로 통과한다.
+ * runScheduled/runAuthoritative는 values()만 순회하므로 여기 없는 체크는 앱 run이 평가하지 않는다
+ * (C04만 예외다. DEFERRED CONSTRAINT TRIGGER가 하드 강제한다). 체크별 근거는 §4-1·§4-2와
+ * DB 설계 §6.4에 둔다.
  *
  * Scope:
  *   SCHEDULED          상시 스케줄 + 권위 run 모두에서 평가.
- *   AUTHORITATIVE_ONLY 정지 시점·실험 사후 권위 run에서만 평가(C16 실험 한정, C13A·C19 정지 한정).
- *                      상시 스케줄에서 제외(라이브 프로젝션 지연 오탐·스테일 loadtest_acks 오탐 차단).
+ *   AUTHORITATIVE_ONLY 정지 시점·실험 사후 권위 run에서만 평가. 상시 스케줄에서 빼는 이유는
+ *                      라이브 프로젝션 지연과 스테일 loadtest_acks가 오탐을 만들기 때문이다.
  */
 public enum InvariantCheck {
 

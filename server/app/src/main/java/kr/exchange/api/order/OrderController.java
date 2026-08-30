@@ -267,7 +267,7 @@ public class OrderController {
      *
      * 수수료는 마켓 메타를 그대로 읽는다. `GET /markets`와 같은 행·같은 포맷터를 쓰므로 두 응답의
      * maker_fee·taker_fee는 구성상 일치한다(§4-B-5 '수수료 권위 소스는 마켓별 고정'). 여기서 별도
-     * 산식을 두는 순간 두 값이 갈라지고, 이전 판의 taker_fee 불일치가 정확히 그 사고였다.
+     * 산식을 두는 순간 두 값이 갈라진다.
      */
     @GetMapping("/chance")
     public ChanceResponse chance(HttpServletRequest request, HttpServletResponse response,

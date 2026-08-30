@@ -40,10 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 내 문의 목록 커서 페이지네이션(API 설계 §2-6, §4-G) 실 DB 검증.
  *
- * V15는 커서 파라미터도 pagination 엔벌로프도 없이 limit만 받아, 상한 밖의 문의를 볼
- * 방법이 없었다. 입출금(TransferPaginationIntegrationTest)과 같은 항목을 본다.
- * (a) 커서 발급·추종, (b) 쪽 경계 무중복·무누락, (c) opaque라 내부 PK 미노출,
- * (d) 타인 external_id 커서 거부.
+ * 입출금(TransferPaginationIntegrationTest)과 같은 항목을 본다. (a) 커서 발급·추종,
+ * (b) 쪽 경계 무중복·무누락, (c) opaque라 내부 PK 미노출, (d) 타인 external_id 커서 거부.
  *
  * 문의 등록은 회원당 10회/1h rate limit이 걸려 있다(§4-G). 한 계정이 그 상한을 넘지
  * 않도록 전체 건수를 9로 두고, 상한 자체는 이 테스트의 관심사가 아니다.
@@ -197,7 +195,7 @@ class SupportPaginationIntegrationTest {
         String token = signup();
         JsonNode body = list(token, null, PAGE);
         assertEquals(0, body.path("data").size());
-        // §2-2: 페이지네이션이 없는 리스트도 필드는 리터럴로 존재한다. V15는 이 필드가 없었다
+        // §2-2: 페이지네이션이 없는 리스트도 필드는 리터럴로 존재한다
         assertTrue(body.path("pagination").has("next_cursor"));
         assertTrue(body.path("pagination").path("next_cursor").isNull());
         assertFalse(body.path("pagination").path("has_more").asBoolean());
@@ -214,8 +212,6 @@ class SupportPaginationIntegrationTest {
         assertFalse(body.path("pagination").path("has_more").asBoolean());
         assertTrue(body.path("pagination").path("next_cursor").isNull());
     }
-
-    /* ===== 보조 ===== */
 
     private String signup() throws Exception {
         int n = seq.incrementAndGet();

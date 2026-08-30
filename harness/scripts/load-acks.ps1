@@ -8,9 +8,6 @@ C16(BOT_ACK_SUBSET)은 "클라이언트가 접수 응답을 받은 주문이 전
 LEFT JOIN이라 그 표가 비면 0행이 나오고 위반 0으로 통과한다. 판정이 통과했는데 판정
 대상이 없는 상태다. 실측(2026-08-30): 두 표 모두 0행이었다.
 
-파이프라인이 종전에는 README의 셸 예시로만 있었다. 발표 중에 grep·sed·csv 변환을
-손으로 하는 절차라 실제로 쓰이지 않았다. 도구로 만든다.
-
 ACK 라인 형식은 order_flow.js가 낸다.
   ACK|{"ak":"<access_key>","coid":"<client_order_id>","oid":"<uuid>","t":<epoch_ms>}
 

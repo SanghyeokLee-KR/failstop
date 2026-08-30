@@ -154,11 +154,8 @@ public class MyController {
 
 
     /**
-     * 다음 쪽 판정을 한 건 더 읽어서 한다.
-     *
-     * 종전에는 "쪽이 꽉 찼으면 더 있다"로 추정했다. 마지막 쪽이 정확히 count와 같은 수로
-     * 끝나면 더 있다고 보고해, 클라이언트가 빈 쪽을 한 번 더 읽고 그제서야 끝을 안다.
-     * 화면에서는 눌러도 아무것도 안 나오는 "다음"으로 보인다.
+     * 다음 쪽 판정을 한 건 더 읽어서 한다. "쪽이 꽉 찼으면 더 있다" 추정은 마지막 쪽이
+     * 정확히 count와 같을 때 클라이언트가 빈 쪽을 한 번 더 읽게 만든다.
      */
     private static <T> PageResponse<T> envelope(List<CursorPages.Row<T>> rows, int limit) {
         CursorPages.Page<T> page = CursorPages.slice(rows, limit);

@@ -40,12 +40,8 @@ function signedRate(t: { change: string; change_rate: string } | undefined): num
 }
 
 /**
- * 순위 행. memo + 원시값 props로 값이 바뀐 행만 리렌더한다.
- *
- * 정렬 기준이 전 마켓 tickers라 부모는 틱마다 재계산할 수밖에 없다. memo 없이는 그때마다 12행
- * 전부가 포맷터 4종(formatPrice·formatDirectional·formatCompactKRW·ariaChangeLabel)과 SymbolChip을
- * 다시 실행한다. 봇이 초당 15건씩 체결을 내는 구간에서는 이 비용이 상시로 깔린다.
- * TradesPanel의 TradeRow와 같은 패턴이다.
+ * 정렬 기준이 전 마켓 tickers라 부모가 틱마다 재계산한다.
+ * memo 없이는 매 틱 12행이 포맷터 4종과 SymbolChip을 다시 실행한다.
  */
 interface RankingRowProps {
   rank: number;

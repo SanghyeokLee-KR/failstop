@@ -1,19 +1,8 @@
 "use client";
 
 /**
- * 공지 목록(§4-F).
- *
- * 배너가 전하는 것은 "지금 무슨 일이 있다"이고, 여기가 전하는 것은 "무엇이 언제 있었나"다.
- * 그래서 배너는 한 건만, 목록은 전부 시간순이다. 심각도로 정렬하지 않는다. 사람은 공지를
- * 읽을 때 시간 축으로 읽고, 등급으로 묶으면 "어제 일과 오늘 일" 관계가 사라진다.
- *
- * 등급은 정렬이 아니라 형태로 드러낸다. 왼쪽 표식 막대의 색과 라벨이 등급을 지고,
- * 본문 잉크는 등급과 무관하게 같다. 등급으로 본문 색까지 바꾸면 INFO 공지가 읽기 어려운
- * 흐린 글씨가 되고, 그건 등급이 낮다는 뜻이지 덜 읽어도 된다는 뜻이 아니다.
- *
- * 전역 스토어의 notices를 읽지 않는다. 그쪽은 배너와 진입점 표식이 쓰는 첫 쪽이고, 여기는
- * 아카이브라 커서로 끝까지 따라가야 한다. 한 배열이 두 역할을 겸하던 동안 목록은 서버의
- * 고정 상한에 묶여 그보다 오래된 공지를 볼 방법이 없었다.
+ * 목록은 심각도가 아니라 시간순이고, 등급은 표식 막대만 지고 본문 잉크는 등급과 무관하다(§4-F).
+ * 전역 스토어 notices는 배너용 첫 쪽이라 아카이브인 이 화면은 자기 커서를 쓴다.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -74,11 +63,8 @@ export default function NoticesPage() {
     void loadNotices();
   }, [load, loadNotices]);
 
-  /* 목록에 들어온 시점이 읽은 시점이다. 개별 공지를 펼쳐야 읽음 처리하는 방식은
-     전문이 이미 목록에 다 보이는 구조에서 의미가 없다.
-
-     첫 쪽에서만 표식을 내린다. 읽음 기준은 스토어가 든 최신 발행 시각이고, 뒤쪽을
-     넘겨보는 것은 과거를 읽는 행위라 최신 공지를 읽었다는 근거가 되지 않는다 */
+  /* 목록에 들어온 시점이 읽은 시점이다. 뒤쪽 쪽을 넘겨보는 것은 과거를 읽는 행위라
+     첫 쪽에서만 표식을 내린다 */
   useEffect(() => {
     if (page === 0 && rows && rows.length > 0) markNoticesSeen();
   }, [page, rows, markNoticesSeen]);
@@ -99,8 +85,7 @@ export default function NoticesPage() {
       {sorted === null && !failed ? (
         <Skeleton variant="card" width="100%" height={200} />
       ) : failed ? (
-        /* 종전에는 스토어가 실패를 삼켜 빈 목록으로 보였다. 화면이 직접 읽는 지금은
-           "없다"와 "못 읽었다"를 구분해 말한다. 둘은 사용자가 할 일이 다르다 */
+        /* 화면이 직접 읽어 "없다"와 "못 읽었다"를 구분해 말한다. 둘은 사용자가 할 일이 다르다 */
         <section className="card">
           <div className="empty-state empty-state--compact" role="alert">
             <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />

@@ -298,7 +298,7 @@ public class CommunityService {
     public void deleteComment(long userId, String externalId) {
         tx.executeWithoutResult(status -> {
             // FOR UPDATE로 행을 잠가 동시 삭제·자동숨김·모더레이션과 직렬화한다. 락 없이 읽은 stale status로
-            // 감산하면 두 경로가 각자 감산해 comment_count가 이중으로 줄어든다(감사 C).
+            // 감산하면 두 경로가 각자 감산해 comment_count가 이중으로 줄어든다.
             CommentRef ref = lockCommentRef(externalId);
             requireOwner(ref.authorId(), userId);
             if ("DELETED".equals(ref.status())) {
@@ -477,7 +477,7 @@ public class CommunityService {
 
     /**
      * 대상 행을 FOR UPDATE로 잠근 caller 트랜잭션 안에서만 호출한다. currentStatus는 락 이후 재조회한 값이라
-     * 회원 자가삭제·자동숨김과 교차해도 stale하지 않다(감사 C·D). 상태 판정·전이·감산·감사를 한 트랜잭션에 묶는다.
+     * 회원 자가삭제·자동숨김과 교차해도 stale하지 않다. 상태 판정·전이·감산·감사를 한 트랜잭션에 묶는다.
      */
     private void applyModeration(String type, String table, long targetId, long postId,
                                  String currentStatus, String operatorId, String action, String note) {
@@ -490,7 +490,7 @@ public class CommunityService {
                     "action은 HIDE, UNHIDE, DELETE입니다.");
         };
         // DELETED는 종료 상태다. 회원 자가삭제 대상에 HIDE→UNHIDE 2단계로 본문 마스킹을 푸는 부활을 막기 위해
-        // 모든 모더레이션 전이를 거부한다(감사 D).
+        // 모든 모더레이션 전이를 거부한다.
         if ("DELETED".equals(currentStatus)) {
             throw new ApiException(400, "invalid_parameter", "이미 삭제된 대상은 모더레이션 불가");
         }
@@ -522,11 +522,8 @@ public class CommunityService {
     }
 
     /**
-     * 신고 큐 한 쪽. 오래된 신고부터 처리한다.
-     *
-     * LIMIT 200이 SQL에 박혀 있어 파라미터로도 넘길 수 없었다. PENDING만 보므로 처리하면
-     * 빠지지만, 신고가 몰리면 201번째부터 운영자에게 보이지 않고 잘렸다는 표시도 없었다.
-     * status=REVIEWED 등 처리된 상태 조회는 영구 누적이다.
+     * 신고 큐 한 쪽. 오래된 신고부터 처리한다. status=REVIEWED 등 처리된 상태 조회는 영구
+     * 누적이라 고정 상한으로 자르면 그 밖의 행에 도달할 방법이 없다.
      */
     public List<CursorPages.Row<Map<String, Object>>> listReports(String status,
                                                                   Cursors.Cursor cursor, int limit) {
@@ -630,7 +627,7 @@ public class CommunityService {
     }
 
     // 상태 전이(삭제·모더레이션) 경로 전용. 대상 행을 FOR UPDATE로 잠가 read-modify-write를 한 트랜잭션·행잠금에
-    // 모아 stale status·이중 감산을 차단한다(감사 C·D). caller 트랜잭션 안에서만 호출한다.
+    // 모아 stale status·이중 감산을 차단한다. caller 트랜잭션 안에서만 호출한다.
     private PostRef lockPostRef(String externalId) {
         requireUuid(externalId, "존재하지 않는 글입니다.");
         return jdbc.sql("SELECT id, author_id, status FROM posts WHERE external_id = ?::uuid FOR UPDATE")

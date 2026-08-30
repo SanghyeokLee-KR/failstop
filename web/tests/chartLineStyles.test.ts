@@ -1,12 +1,7 @@
 /**
- * tests/chartLineStyles.test.ts. 지표 선 스타일 오버라이드 완전성 검증.
- *
- * klinecharts는 지표 인스턴스의 styles.lines를 기본값과 병합하지 않고 통째로 대체한다
- * (eachFigures -> formatValue(styles, 'lines', defaultStyles.lines)).
- * color만 담은 오버라이드를 넘기면 dashedValue가 사라지고, 선분 병합 비교가
- * styles.dashedValue[0]을 읽다가 TypeError로 렌더 루프를 죽인다. 그 시점부터 차트가
- * 스크롤·드래그에 반응하지 않는다(볼린저를 켜면 차트가 멈추던 결함).
- * 새 지표를 추가할 때 색만 지정하고 끝내는 실수를 막는다.
+ * 지표 선 스타일 오버라이드 완전성 검증.
+ * klinecharts는 styles.lines를 병합하지 않고 통째로 대체해, color만 넘기면 dashedValue가
+ * 사라지고 렌더 루프가 TypeError로 죽는다. 새 지표를 색만 지정하고 끝내는 실수를 막는다.
  */
 
 import { test } from "node:test";

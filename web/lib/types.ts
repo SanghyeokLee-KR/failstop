@@ -1,14 +1,10 @@
 /**
- * lib/types.ts. API 계약(docs/contracts/백엔드_API_설계.md v2.3)의 스키마 미러.
- * 금액/수량은 계약대로 "문자열 NUMERIC(40,18)" (JSON float 금지, §2-1).
- * WS 메시지는 §5-4/§5-5의 채널 스키마를 그대로 따른다 (ticker/orderbook/trade/candle/myOrder/myAsset).
- * 추후 실제 Spring REST/STOMP 어댑터로 교체 시 이 타입이 그대로 유지된다.
- * 계약 미러 외에, 스토어와 어댑터가 함께 지켜야 하는 클라이언트 공용 정책 상수도 여기 둔다.
+ * API 계약 스키마 미러. 금액·수량은 계약대로 문자열 NUMERIC(40,18)이다(JSON float 금지, §2-1).
+ * WS 메시지는 §5-4·§5-5 채널 스키마를 그대로 따른다.
+ * 계약 미러 외에 스토어와 어댑터가 함께 지키는 클라이언트 공용 정책 상수도 여기 둔다.
  */
 
 export const SCHEMA_VERSION = "1.0" as const;
-
-/* ===== 공통 ===== */
 
 export type Side = "bid" | "ask"; // bid=매수, ask=매도
 export type OrdType = "limit" | "market" | "best";
@@ -91,10 +87,8 @@ export interface OrderbookSnapshot {
 }
 
 /**
- * 티커 (REST GET /ticker 원소 + WS ticker 공통 필드).
- * null 경계(§4-A-4): 체결 이력이 전혀 없는 마켓은 trade_price가 null, 24h 윈도 무체결이면
- * high_24h·low_24h가 null, 해당 사이드 호가가 비면 best_bid·best_ask가 null이다.
- * change 계열·acc_trade_* 는 서버가 EVEN·"0"으로 폴백해 항상 non-null이다.
+ * 티커(REST GET /ticker 원소 + WS ticker 공통 필드).
+ * null 경계(§4-A-4): 무체결 마켓은 trade_price, 24h 무체결은 high_24h·low_24h, 빈 사이드는 best_bid·best_ask가 null이다.
  */
 export interface Ticker {
   market: string;
@@ -320,9 +314,7 @@ export interface LoginInput {
 
 /**
  * 심각도는 색이 아니라 전달 채널을 정한다.
- *   CRITICAL 전역 배너, 닫기 불가
- *   WARNING  전역 배너, 닫기 가능
- *   INFO     목록과 진입점 표식만
+ * CRITICAL은 닫기 불가 배너, WARNING은 닫기 가능 배너, INFO는 목록과 진입점 표식만이다.
  */
 export type NoticeSeverity = "INFO" | "WARNING" | "CRITICAL";
 
@@ -371,12 +363,9 @@ export interface TransferInput {
   amount: string;
 }
 
-/** 입출금 요청 한 건. 내부 PK와 처리자는 노출되지 않는다 */
 /**
- * 커서 페이지 한 쪽(API 설계 §2-6).
- *
- * 와이어 필드명을 그대로 쓴다. http 데이터소스가 응답을 재조립하지 않아야 sim과 http가
- * 같은 모양을 돌려주는지 눈으로 대조된다. next_cursor는 마지막 쪽에서 null이다.
+ * 커서 페이지 한 쪽(API 설계 §2-6). 와이어 필드명을 그대로 쓴다.
+ * http 데이터소스가 응답을 재조립하지 않아야 sim과 http가 같은 모양인지 눈으로 대조된다.
  */
 export interface Page<T> {
   data: T[];

@@ -253,11 +253,8 @@ test("소각 바디: 파괴 액션별 바디 필드를 v2.13 표대로 싣는다
 });
 
 /**
- * 복구 판정은 서버 verdict 객체가 정본이다(API§6-C 스키마 1.2).
- *
- * 종전에는 failover_runs 최신 1행으로 화면 판정을 만들었다. 배열은 limit로 자른 창이라
- * 과거 FAIL과 최신 PASS가 함께 있으면 서버는 FAIL인데 화면은 통과를 표시했다. 서버가
- * 없앤 "창 안만 보는 판정"이 화면에 남아 있던 것이다.
+ * 복구 판정은 서버 verdict 객체가 정본이다(API §6-C 스키마 1.2).
+ * 배열은 limit로 자른 창이라, 창 안 최신 1행으로 판정하면 서버가 FAIL인데 화면이 통과를 표시한다.
  */
 test("복구 판정은 배열이 아니라 서버 verdict를 따른다", async () => {
   const api = new HttpAdminApi("");
@@ -354,8 +351,8 @@ test("복구 판정 집계는 전체를 보고 UNKNOWN을 통과로 치지 않�
 });
 
 /**
- * failover_runs가 비고 recovery_runs만 있는 상태. 종전에는 `runs[0]?.durationMs`로 폴백해
- * 재생 소요가 "최근 복구 시간(RTO)"으로 둔갑했다. 두 축은 다른 것을 잰다.
+ * failover_runs가 비고 recovery_runs만 있는 상태.
+ * runs[0].durationMs로 폴백하면 재생 소요가 "최근 복구 시간(RTO)"으로 둔갑한다. 두 축은 다른 것을 잰다.
  */
 test("failover 표가 비면 RTO는 미측정이다", async () => {
   const api = new HttpAdminApi("");

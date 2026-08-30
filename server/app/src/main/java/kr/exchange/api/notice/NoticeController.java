@@ -74,9 +74,8 @@ public class NoticeController {
             params.add(anchor.publishedAt());
             params.add(anchor.id());
         }
-        // 한 건 더 읽어 다음 쪽 존재를 판단한다. LIMIT 50 고정은 51번째 공지를 존재하지도
-        // 않는 것처럼 지웠다. 공지는 삭제되지 않고 철회만 되므로(V5 §7 DELETE 미부여)
-        // 활성 공지가 상한을 넘는 상태가 실제로 온다
+        // 한 건 더 읽어 다음 쪽 존재를 판단한다. 공지는 철회만 되고 삭제되지 않아
+        // (V5 §7 DELETE 미부여) 활성 공지가 고정 상한을 넘는 상태가 실제로 온다
         sql.append(" ORDER BY published_at DESC, id DESC LIMIT ?");
         params.add(capped + 1);
 

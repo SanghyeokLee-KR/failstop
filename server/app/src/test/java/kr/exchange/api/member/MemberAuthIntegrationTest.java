@@ -217,7 +217,7 @@ class MemberAuthIntegrationTest {
 
     @Test
     void revokedFamilyCannotBeResurrectedByRotation() throws Exception {
-        // 회전 소각 UPDATE는 revoked_at을 검사해 폐기 family 부활을 물리 차단한다(감사 high).
+        // 회전 소각 UPDATE는 revoked_at을 검사해 폐기 family 부활을 물리 차단한다.
         // 초기 SELECT와 소각 사이에 revokeFamily가 커밋된 상태(revoked_at 세팅, used_at NULL)를 직접 구성해
         // 가드가 적용된 소각이 0행임을 확인하고, 서비스 경로가 재사용으로 판정하는지 본다.
         String email = uniqueEmail();
@@ -343,10 +343,6 @@ class MemberAuthIntegrationTest {
         assertEquals("out_of_scope",
                 objectMapper.readTree(me.getBody()).path("error").path("name").asText());
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private ResponseEntity<String> signupFromIp(String email, String ip) {
         return signupWithXff(email, ip);

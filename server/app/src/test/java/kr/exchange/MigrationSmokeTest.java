@@ -22,9 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Flyway V0+V1이 실 PostgreSQL에서 끝까지 적용되고, 외부 검토 P0의 핵심 계약이
- * DB 계층에서 실제로 강제되는지 검증한다.
- * 파티션드 테이블 IDENTITY가 PG17 의존이라 이미지도 17로 고정한다(DB 설계 v2.5 전제).
+ * Flyway V0+V1이 실 PostgreSQL에서 끝까지 적용되고 핵심 계약이 DB 계층에서 강제되는지 검증한다.
+ * 파티션드 테이블 IDENTITY가 PG17 의존이라 이미지도 17로 고정한다.
  */
 @Testcontainers
 class MigrationSmokeTest {
@@ -42,14 +41,10 @@ class MigrationSmokeTest {
             "command_journal", "event_journal", "event_emission_registry",
             "snapshots", "journal_counters",
             "outbox", "processed_events", "idempotency_keys", "leader_lease",
-            // V3 관측 테이블
             "invariant_checks", "recovery_runs",
-            // V5 관리 평면 테이블
             "admin_operators", "operator_roles", "admin_sessions", "admin_approvals",
             "admin_audit_log", "system_config", "notices",
-            // V6 회원 테이블
             "user_credentials", "user_profiles", "auth_sessions", "user_provisioning",
-            // V7 게시판 테이블
             "posts", "comments", "post_likes", "comment_likes", "post_rank_snapshot",
             "reports", "community_moderation_log");
 
@@ -72,10 +67,6 @@ class MigrationSmokeTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // 스키마 존재 + 권한 경계
-    // ------------------------------------------------------------------
-
     @Test
     void coreTablesRolesAndSeedsExist() throws Exception {
         try (Connection conn = open()) {
@@ -83,7 +74,6 @@ class MigrationSmokeTest {
                 assertTrue(tableExists(conn, table), "missing table: " + table);
             }
             assertEquals(1, countRows(conn, "leader_lease"), "leader_lease bootstrap seed missing");
-            // V1 command_seq·event_seq + V2 order_id
             assertEquals(3, countRows(conn, "journal_counters"), "journal_counters seeds missing");
             assertTrue(tableExists(conn, "trades_default"), "trades DEFAULT partition missing");
             assertTrue(tableExists(conn, "command_journal_default"), "command_journal DEFAULT partition missing");
@@ -93,7 +83,7 @@ class MigrationSmokeTest {
             assertTrue(queryBool(conn, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='harness_role')"),
                     "harness_role missing (V0)");
 
-            // P0-2: 앱 롤은 원장/잔고 직접 DML 불가, 게시 함수 EXECUTE만 가능
+            // 앱 롤은 원장·잔고 직접 DML 불가, 게시 함수 EXECUTE만 가능.
             for (String t : List.of("ledger_transactions", "ledger_entries", "balances")) {
                 assertTrue(!queryBool(conn,
                                 "SELECT has_table_privilege('app_role', '" + t + "', 'INSERT')"),
@@ -107,9 +97,7 @@ class MigrationSmokeTest {
                         'post_ledger_transaction(character varying, bigint, jsonb)', 'EXECUTE')
                     """), "app_role must EXECUTE post_ledger_transaction");
 
-            // 제어 명령 큐(V21·V22). 롤을 분리하는 순간 GRANT 누락이 기능을 통째로 죽이는데
-            // 예외가 권한 오류라 원인 추적이 한 단계 멀어진다. V22가 실제로 이 GRANT를
-            // 빠뜨렸고 V23으로 메웠다. 회귀 가드를 둔다.
+            // 롤을 분리하면 GRANT 누락이 권한 오류로만 드러나 원인 추적이 한 단계 멀어진다.
             for (String t : List.of("sim_commands", "chaos_commands")) {
                 for (String priv : List.of("SELECT", "INSERT", "UPDATE")) {
                     assertTrue(queryBool(conn,
@@ -124,10 +112,6 @@ class MigrationSmokeTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // V3/V4: 관측·하네스 스키마가 빈 PG17에 단독 적용된다
-    // ------------------------------------------------------------------
-
     @Test
     void observabilityAndHarnessObjectsExist() throws Exception {
         try (Connection conn = open()) {
@@ -139,7 +123,6 @@ class MigrationSmokeTest {
             assertTrue(columnExists(conn, "public", "recovery_runs", "matched"),
                     "recovery_runs.matched missing");
 
-            // V4 harness 스키마 + 테이블
             assertTrue(queryBool(conn,
                             "SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname='harness')"),
                     "harness schema missing (V4)");
@@ -167,20 +150,14 @@ class MigrationSmokeTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // V5: 관리 평면 스키마가 빈 PG17에 단독 적용되고 핵심 제약이 강제된다
-    // ------------------------------------------------------------------
-
     @Test
     void adminSchemaEnforcesOperatorAndApprovalContracts() throws Exception {
         try (Connection conn = open(); Statement st = conn.createStatement()) {
-            // 운영자 2명 + 역할
             st.execute("INSERT INTO admin_operators (operator_id, display_name) "
                     + "VALUES ('op-01','운영자1'),('op-02','운영자2') ON CONFLICT DO NOTHING");
             st.execute("INSERT INTO operator_roles (operator_id, role) "
                     + "VALUES ('op-01','SUPER') ON CONFLICT DO NOTHING");
 
-            // api_keys.scope ADMIN 어휘 확장 + operator 1:1 바인딩
             long uid = queryLong(conn, "INSERT INTO users (email) "
                     + "VALUES ('op1@admin.test') RETURNING id");
             try (PreparedStatement ps = conn.prepareStatement(
@@ -209,7 +186,6 @@ class MigrationSmokeTest {
                     """));
             assertEquals("23514", selfApprove.getSQLState(),
                     "자가승인은 CHECK 위반이어야 한다: " + selfApprove.getMessage());
-            // 서로 다른 운영자는 통과
             st.execute("""
                     INSERT INTO admin_approvals
                         (approval_token, action, requester_operator_id, approver_operator_id, expires_at)
@@ -226,10 +202,6 @@ class MigrationSmokeTest {
             assertTrue(noDel.getMessage().contains("append-only"), noDel.getMessage());
         }
     }
-
-    // ------------------------------------------------------------------
-    // V6: 회원 스키마가 빈 PG17에 단독 적용되고 핵심 제약이 강제된다
-    // ------------------------------------------------------------------
 
     @Test
     void memberSchemaEnforcesCredentialAndSessionContracts() throws Exception {
@@ -276,10 +248,6 @@ class MigrationSmokeTest {
             assertEquals("23505", dupGenesis.getSQLState(), dupGenesis.getMessage());
         }
     }
-
-    // ------------------------------------------------------------------
-    // V7: 게시판 스키마가 빈 PG17에 단독 적용되고 핵심 제약이 강제된다
-    // ------------------------------------------------------------------
 
     @Test
     void communitySchemaEnforcesBoardContracts() throws Exception {
@@ -332,10 +300,6 @@ class MigrationSmokeTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (a) 균형 분개 게시 성공 + balances 갱신 + SEALED
-    // ------------------------------------------------------------------
-
     @Test
     void postLedgerTransactionUpdatesBalancesAndSeals() throws Exception {
         try (Connection conn = open()) {
@@ -370,10 +334,6 @@ class MigrationSmokeTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (b) 불균형 entries는 예외 + 전체 롤백
-    // ------------------------------------------------------------------
-
     @Test
     void unbalancedEntriesRejected() throws Exception {
         try (Connection conn = open()) {
@@ -394,10 +354,6 @@ class MigrationSmokeTest {
                     "failed post must not touch balances");
         }
     }
-
-    // ------------------------------------------------------------------
-    // (c) SEALED 거래에 직접 INSERT는 트리거 예외
-    // ------------------------------------------------------------------
 
     @Test
     void sealedTransactionRejectsDirectEntryInsert() throws Exception {
@@ -424,10 +380,6 @@ class MigrationSmokeTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (d) fencing: 잘못된 epoch/holder/만료 리스는 예외
-    // ------------------------------------------------------------------
-
     @Test
     void assertCurrentLeaderEnforcesFencing() throws Exception {
         try (Connection conn = open(); Statement st = conn.createStatement()) {
@@ -438,19 +390,15 @@ class MigrationSmokeTest {
                     WHERE resource = 'matching-engine'
                     """);
 
-            // 정상: 현재 holder+epoch
             st.execute("SELECT assert_current_leader('proc-uuid-1', 7)");
 
-            // 구식 epoch
             SQLException stale = assertThrows(SQLException.class,
                     () -> st.execute("SELECT assert_current_leader('proc-uuid-1', 6)"));
             assertTrue(stale.getMessage().contains("fencing"), stale.getMessage());
 
-            // 다른 holder
             assertThrows(SQLException.class,
                     () -> st.execute("SELECT assert_current_leader('proc-uuid-2', 7)"));
 
-            // 만료 리스
             st.execute("""
                     UPDATE leader_lease
                     SET lease_until = clock_timestamp() - interval '1 second'
@@ -468,10 +416,6 @@ class MigrationSmokeTest {
             }
         }
     }
-
-    // ------------------------------------------------------------------
-    // (e) journal_counters UPDATE RETURNING 채번
-    // ------------------------------------------------------------------
 
     @Test
     void journalCountersAllocateAtomically() throws Exception {
@@ -495,10 +439,6 @@ class MigrationSmokeTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (f) 동일 business_event 중복 게시는 유일 제약 위반(23505)
-    // ------------------------------------------------------------------
-
     @Test
     void duplicateBusinessEventRejected() throws Exception {
         try (Connection conn = open()) {
@@ -515,10 +455,6 @@ class MigrationSmokeTest {
             assertEquals("23505", ex.getSQLState(), "expected unique_violation, got: " + ex.getMessage());
         }
     }
-
-    // ------------------------------------------------------------------
-    // (g) 결정론 이벤트 모델: 레지스트리 트리거가 중복 방출/중복 trade_id를 물리 차단
-    // ------------------------------------------------------------------
 
     @Test
     void duplicateEventOrdinalAndTradeIdRejectedByRegistryTriggers() throws Exception {
@@ -576,10 +512,6 @@ class MigrationSmokeTest {
             }
         }
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private static Connection open() throws SQLException {
         return DriverManager.getConnection(

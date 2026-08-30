@@ -84,11 +84,9 @@ export function scenarioDef(name: ScenarioName): ScenarioDef {
 }
 
 /**
- * label은 릴레이 셀 폭 예산 내 단문. 도메인 원어는 gloss로 강등해 title 채널이 전달한다.
- *
- * name은 서버 `invariant_checks.check_name`과 정확히 같아야 한다. 종전 이름 7개
- * (ledger_imbalance 등)는 서버 값과 교집합이 0이라 라벨 조인이 전건 폴백했고, 화면이
- * 한국어 대신 C 코드를 그대로 띄웠다. 실측 26종에 맞춘다(검증설계 §4).
+ * label은 릴레이 셀 폭 예산 내 단문이고, 도메인 원어는 gloss로 강등해 title 채널이 전달한다.
+ * name은 서버 invariant_checks.check_name과 정확히 같아야 한다. 다르면 라벨 조인이 전건
+ * 폴백해 화면이 한국어 대신 C 코드를 그대로 띄운다(검증설계 §4).
  */
 export const INVARIANT_DEFS: { name: string; label: string; gloss?: string }[] = [
   { name: "C01_ASSET_CONSERVATION", label: "자산 보존", gloss: "자산별 원장 합 0" },

@@ -1,11 +1,8 @@
 "use client";
 
 /**
- * 실시간 연결·지연 상태 표현 공용 조각. 관리 평면 폴링 지연과 트레이딩 WS 단절이 같은 어휘를 쓴다.
- * - StaleBadge: 지연 배지. 깜빡임 없이 경과만 갱신, 시프트 0. 관리 평면은 경과·낭독을, 트레이딩은
- *   경과 없는 시각 표식을 쓴다(패널마다 낭독하면 live 영역이 겹쳐 소음이 되므로 announce로 분리).
- * - StaleRegion: 지연 구간 감쇠 래퍼. 마지막 값임을 opacity로 알린다. 시프트 0(A-5).
- * - ConnectionBanner: 연결 단절 시 상단 경고 배너. 화면당 낭독 1회의 권위 고지(A-5 warning).
+ * 관리 평면 폴링 지연과 트레이딩 WS 단절이 같은 어휘를 쓴다.
+ * 패널마다 낭독하면 live 영역이 겹쳐 소음이 되므로 낭독은 announce로 분리한다.
  */
 
 import { useEffect, useState, type ReactNode } from "react";
@@ -71,24 +68,8 @@ export function StaleRegion({
 }
 
 /**
- * 화면 상단 배너. 연결 단절과 공지를 한 자리에서 판정한다.
- *
- * 이름은 ConnectionBanner로 둔다. 이미 5개 화면이 이 자리를 쓰고 있고, 새 컴포넌트를
- * 옆에 세우면 두 배너가 쌓일 수 있는 구조가 된다. 자리를 하나로 유지하는 것이 규칙을
- * 코드로 강제하는 방법이다.
- *
- * 우선순위는 연결 단절이 먼저다. 연결이 끊기면 어떤 조작도 성립하지 않으므로 그 사실이
- * 먼저 읽혀야 한다. 점검 공지를 먼저 보여줘도 사용자는 그 상태에서 아무것도 못 한다.
- *
- * 공지는 CRITICAL·WARNING만 오른다(§4-F). INFO는 목록에만 둔다.
- */
-/**
- * 배너는 화면당 하나다(§4-F). 연결 끊김이 공지보다 우선한다. 연결이 끊긴 상태에서는
- * 어떤 조작도 성립하지 않으므로 그 사실이 먼저 읽혀야 한다.
- *
- * showNotice=false는 공지 목록 화면용이다. 그 화면은 목록이 이미 공지를 전부 보여주므로
- * 같은 공지를 배너로 한 번 더 띄우면 첫 항목과 글자까지 겹친다. 연결 배너는 그대로 둔다.
- * 연결 끊김은 어느 화면에서든 알려야 할 사실이다.
+ * 배너 자리는 화면당 하나이고 연결 단절이 공지보다 먼저다. 끊긴 상태에서는 어떤 조작도 성립하지 않는다.
+ * 공지는 CRITICAL·WARNING만 오르며, showNotice=false는 목록이 이미 공지를 보여주는 공지 화면용이다(§4-F).
  */
 export function ConnectionBanner({ showNotice = true }: { showNotice?: boolean } = {}) {
   const connected = useExchangeStore((s) => s.connected);

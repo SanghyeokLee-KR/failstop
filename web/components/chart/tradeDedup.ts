@@ -1,11 +1,6 @@
 /**
- * tradeDedup.ts. 체결 스트림 중복 판정. trade_id 1차, (epoch, seq) 커서 2차.
- * 재연결·재동기화는 이미 본 체결을 다시 흘린다(restoreChannels가 기준점을 비운 뒤 REST 재전달).
- * candleStream이 이를 그대로 합성하면 같은 체결의 volume이 이중계상된다.
- *
- * (epoch, seq) 커서만으로는 부족하다. 어댑터가 재전달 메시지에 채널 전역 lastEpoch를 찍기 때문에,
- * ticker·orderbook이 먼저 새 세대를 알린 뒤 trade 기준점이 비워지면 기수신 체결이 새 epoch를 달고
- * 돌아와 epoch 상승 분기를 통과한다. trade_id는 세대와 무관한 식별자라 그 구멍을 막는다.
+ * 재연결·재동기화가 이미 본 체결을 다시 흘려 candleStream 합성에서 volume이 이중계상된다.
+ * 어댑터가 재전달에 채널 전역 lastEpoch를 찍어 (epoch, seq) 커서만으로는 통과하므로 trade_id를 1차 방어로 쓴다.
  */
 
 import { TRADE_TAPE_LIMIT } from "../../lib/types";
@@ -36,10 +31,8 @@ interface TradeKey {
 }
 
 /**
- * 이미 반영한 체결이면 true.
- * 같은 trade_id를 이미 반영했으면 세대·seq와 무관하게 중복이다.
- * epoch 상승은 리더 세대 교체로 seq 도메인이 리셋되므로 통과시킨다.
- * 같은 epoch에서 seq가 커서 이하면 중복·되돌이(재전달)로 본다.
+ * 같은 trade_id면 세대·seq와 무관하게 중복이다.
+ * epoch 상승은 리더 세대 교체로 seq 도메인이 리셋되므로 통과시키고, 같은 epoch에서 seq가 커서 이하면 재전달로 본다.
  */
 export function isDuplicateTrade(cursor: TradeCursor, msg: TradeKey): boolean {
   if (cursor.seen.has(msg.trade_id)) return true;

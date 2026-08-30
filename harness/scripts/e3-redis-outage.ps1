@@ -1,11 +1,7 @@
-﻿# docs §3 E3 Redis 장애. 리더십 권위=DB leader_lease(§6.6). Redisson은 후보 조율 보조(부록 A #6)이나
-# 현 런타임에 미배선이다(코드 확인: server 전체에 redis/redisson 의존·클라이언트 빈·spring.data.redis
-# 설정이 전무하고, 코드의 redis 언급은 NonceStore·AccountRateLimiter·WS 팬아웃의 M2 유예 주석뿐).
-# 따라서 Redis 장애가 매칭·리더십·split-brain에 도달할 경로가 없고 chaos-redis 추가는 무의미하다.
-# 이 스크립트는 SKIP을 내되, 그 SKIP은 미완이 아니라 유효 판정이다: DB-권위 리더십이 Redis 없이
-# 성립함(leaseHolder alive·무결성 clean)을 증거로 남긴다. 라이브 E3는 M2가 Redisson을 실제 조율
-# 경로로 채택한 뒤에만 의미가 있다(그때도 Redis는 권위 아닌 보조). compose 무단 추가 금지.
-# 파일명 유의: 폭주+리더 kill 실험은 e6-spike-failover.ps1(구 e3-spike-failover, M4 §0-3 개명)이다.
+﻿# docs §3 E3 Redis 장애. 리더십 권위는 DB leader_lease(§6.6)다. Redisson은 현 런타임에
+# 미배선이라 Redis 장애가 매칭·리더십·split-brain에 도달할 경로가 없다.
+# 이 스크립트의 SKIP은 미완이 아니라 유효 판정이다. DB-권위 리더십이 Redis 없이 성립함을
+# 증거로 남긴다. 라이브 E3는 M2 채택 후에만 의미가 있다(chaos-redis 무단 추가 금지).
 param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e3-redis-outage.env'))
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +15,6 @@ function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Requi
 
 Write-Section "E3(Redis 장애) 시작 runId=$runId redis=$redis"
 
-# ── 전제 검사: redis 토폴로지 존재 여부 ────────────────────────────────
 $redisPresent = Test-ContainerExists $redis
 $redisProxyPresent = Test-ToxiproxyProxy $redisProxy
 
@@ -92,13 +87,11 @@ try {
     & docker kill $redis | Out-Null
     Write-Host "T0=$($t0.ToString('o'))"
 
-    # redis 죽는 동안 무결성 유지(온디맨드 권위 run) 관측.
     Write-Section 'ⓒ Redis 부재 중 무결성 관측'
     $injRun = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'inject'
     $injScans = Get-Scalar "SELECT count(*) FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='inject'" -Required
     if ($injScans -lt 1) { throw 'inject 창 내 권위 run 미적재(공허 통과 방지 가드)' }
 
-    # redis 복귀 대기.
     $recovered = Wait-For { Test-ContainerRunning $redis } -TimeoutSec ([int]$cfg['RECOVERY_SEC']) -PollSec 1
     Start-Sleep -Seconds ([int]$cfg['POST_OBSERVE_SEC'])
 

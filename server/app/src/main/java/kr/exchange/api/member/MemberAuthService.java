@@ -253,9 +253,9 @@ public class MemberAuthService {
         String rawNext = randomToken();
         try {
             tx.executeWithoutResult(txStatus -> {
-                // revoked_at IS NULL을 조건에 포함해 폐기 family의 되살아남을 물리 차단한다. 초기 SELECT(:229)와
-                // 소각 사이에 revokeFamily(로그아웃·재사용 탐지)가 커밋되면 소각이 0행이 되어 새 tip을 INSERT하지
-                // 못한다. used_at IS NULL만 검사하면 폐기된 family에 살아있는 세션이 재생성된다(high).
+                // revoked_at IS NULL을 조건에 포함해 폐기 family가 되살아나는 것을 물리 차단한다. 초기 SELECT와
+                // 소각 사이에 revokeFamily가 커밋되면 소각이 0행이라 새 tip을 INSERT하지 못한다.
+                // used_at IS NULL만 검사하면 폐기된 family에 살아있는 세션이 재생성된다.
                 int burned = jdbc.sql("""
                                 UPDATE auth_sessions SET used_at = now()
                                 WHERE id = ? AND used_at IS NULL AND revoked_at IS NULL

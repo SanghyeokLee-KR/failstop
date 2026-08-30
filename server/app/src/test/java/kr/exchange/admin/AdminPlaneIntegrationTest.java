@@ -40,15 +40,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 관리 평면 통합 검증(관리자 설계 v1.1 §1-3·§3-6):
- * (a) mTLS 신원 → 세션 발급, 인증서 없는 접근 거부,
- * (b) 평면 격리(고객 토큰의 /admin 거부, 관리 세션의 /api 거부),
- * (c) 파괴 액션 단독 시도 거부 · 2인 승인 시 성공 · 요청=승인 동일 운영자 거부(반결탁),
- * (d) 감사 적재, 모니터링 조회, 봇 OPS·마켓 halt 반영.
+ * 관리 평면 통합 검증(관리자 설계 §1-3·§3-6).
  *
- * mTLS는 게이트웨이 종단 토폴로지로 검증한다(trusted-forwarding). 게이트웨이가 실은 검증된
- * 인증서 CN을 X-Operator-Cn 헤더로 전달한다. 실 X509 인증서 파싱은 AdminMtlsResolverCertTest가
- * 데모 op-01.p12로 별도 검증한다.
+ * mTLS는 게이트웨이 종단 토폴로지로 검증한다(trusted-forwarding). 게이트웨이가 검증된 인증서 CN을
+ * X-Operator-Cn 헤더로 전달한다. 실 X509 파싱은 AdminMtlsResolverCertTest가 맡는다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -132,10 +127,6 @@ class AdminPlaneIntegrationTest {
                 + "VALUES ('C01_ASSET_CONSERVATION', true, 0)").update();
     }
 
-    // ------------------------------------------------------------------
-    // (a) mTLS 신원 → 세션, 인증서 없는 접근 거부
-    // ------------------------------------------------------------------
-
     @Test
     @Order(1)
     void mtlsIdentityIssuesSessionAndMissingCertIsRejected() throws Exception {
@@ -164,10 +155,6 @@ class AdminPlaneIntegrationTest {
         assertEquals("admin_forbidden", errorName(unknown));
     }
 
-    // ------------------------------------------------------------------
-    // (a') 세션 신원과 mTLS 신원 불일치 거부(자가신고 금지)
-    // ------------------------------------------------------------------
-
     @Test
     @Order(2)
     void sessionBoundToMtlsIdentityIsRebound() throws Exception {
@@ -177,10 +164,6 @@ class AdminPlaneIntegrationTest {
         assertEquals(401, mismatch.getStatusCode().value());
         assertEquals("jwt_verification", errorName(mismatch));
     }
-
-    // ------------------------------------------------------------------
-    // (b) 평면 격리
-    // ------------------------------------------------------------------
 
     @Test
     @Order(3)
@@ -199,10 +182,6 @@ class AdminPlaneIntegrationTest {
                 new HttpEntity<>(headers), String.class);
         assertEquals(401, adminOnApi.getStatusCode().value());
     }
-
-    // ------------------------------------------------------------------
-    // (c) 파괴 액션 2인 승인(마켓 halt) · 반결탁
-    // ------------------------------------------------------------------
 
     @Test
     @Order(4)
@@ -252,10 +231,6 @@ class AdminPlaneIntegrationTest {
         assertEquals(200, resumed.getStatusCode().value());
     }
 
-    // ------------------------------------------------------------------
-    // (c') approval_token 사용 주체가 승인 지정 요청자와 다르면 거부
-    // ------------------------------------------------------------------
-
     @Test
     @Order(5)
     void approvalBoundToRequester() throws Exception {
@@ -271,10 +246,6 @@ class AdminPlaneIntegrationTest {
         assertEquals(403, wrongUser.getStatusCode().value());
         assertEquals("requester_mismatch", reason(wrongUser));
     }
-
-    // ------------------------------------------------------------------
-    // (d) RBAC: VIEWER는 파괴 액션 거부
-    // ------------------------------------------------------------------
 
     @Test
     @Order(6)
@@ -293,10 +264,6 @@ class AdminPlaneIntegrationTest {
                         ORDER BY id DESC LIMIT 1
                         """).query(String.class).single());
     }
-
-    // ------------------------------------------------------------------
-    // (d) 봇 OPS 반영 + 감사 적재 + 모니터링 조회
-    // ------------------------------------------------------------------
 
     @Test
     @Order(7)
@@ -330,10 +297,6 @@ class AdminPlaneIntegrationTest {
         assertTrue(objectMapper.readTree(audit.getBody()).path("data").size() >= 1);
     }
 
-    // ------------------------------------------------------------------
-    // (d) RBAC 포함관계: CHAOS_OPS ⊇ BOT_OPS, 운영 역할은 조회 가능(§1-2)
-    // ------------------------------------------------------------------
-
     @Test
     @Order(8)
     void chaosOpsIncludesBotControl() throws Exception {
@@ -361,10 +324,6 @@ class AdminPlaneIntegrationTest {
         assertEquals(403, rate.getStatusCode().value());
         assertEquals("role_required", reason(rate));
     }
-
-    // ------------------------------------------------------------------
-    // (e) 승인 거부: 비당사자 그리핑 차단·당사자 단회 전이
-    // ------------------------------------------------------------------
 
     @Test
     @Order(10)
@@ -399,10 +358,6 @@ class AdminPlaneIntegrationTest {
         assertEquals(403, again.getStatusCode().value());
         assertEquals("not_open", reason(again));
     }
-
-    // ------------------------------------------------------------------
-    // (f) 수수료 변경: 검증 게이트·마켓 부재 시 승인 롤백·정상 부분 갱신
-    // ------------------------------------------------------------------
 
     @Test
     @Order(11)
@@ -443,10 +398,6 @@ class AdminPlaneIntegrationTest {
                 .query(java.math.BigDecimal.class).single().compareTo(new java.math.BigDecimal("0.002")));
     }
 
-    // ------------------------------------------------------------------
-    // (g) 운영자: 중복 생성 409·없는 운영자 상태 전이 404
-    // ------------------------------------------------------------------
-
     @Test
     @Order(12)
     void operatorsCreateConflictAndStatusNotFound() throws Exception {
@@ -470,10 +421,6 @@ class AdminPlaneIntegrationTest {
         assertEquals(404, notFound.getStatusCode().value(), notFound.getBody());
     }
 
-    // ------------------------------------------------------------------
-    // (h) 승인 원장·카오스 이력 프로젝션(VIEWER+, 토큰 미노출)
-    // ------------------------------------------------------------------
-
     @Test
     @Order(13)
     void approvalsLedgerAndChaosRunsProject() throws Exception {
@@ -493,10 +440,6 @@ class AdminPlaneIntegrationTest {
         assertEquals(200, runs.getStatusCode().value());
         assertTrue(objectMapper.readTree(runs.getBody()).path("data").isArray());
     }
-
-    // ------------------------------------------------------------------
-    // (i) 공지: 발급(승인 불요)·부분 갱신·severity 어휘 게이트·소프트 삭제
-    // ------------------------------------------------------------------
 
     @Test
     @Order(14)
@@ -548,11 +491,8 @@ class AdminPlaneIntegrationTest {
     }
 
     /**
-     * 공지 길이 게이트(API 설계 v2.29 #4).
-     *
-     * 종전에는 검증이 없어 200자를 넘는 제목이 title VARCHAR(200)에서 DB 예외로 터졌다.
-     * 사용자 입력 문제가 500으로 나오면 운영자는 서버가 고장난 것으로 읽는다. 본문은
-     * 상한 자체가 없어 공지 한 건이 목록과 배너를 덮을 수 있었다.
+     * 공지 길이 게이트. 컬럼 폭 초과를 DB 예외로 흘리면 입력 문제가 500으로 나가 운영자가
+     * 서버 고장으로 읽는다. 본문 상한이 없으면 공지 한 건이 목록과 배너를 덮는다.
      */
     @Test
     @Order(15)
@@ -586,10 +526,6 @@ class AdminPlaneIntegrationTest {
                 .param(id).query(Integer.class).single(), "거절된 수정이 행을 건드렸다");
     }
 
-    // ------------------------------------------------------------------
-    // (j) SUPER write 게이트: 비SUPER(VIEWER)의 수수료 변경 진입 차단
-    // ------------------------------------------------------------------
-
     @Test
     @Order(15)
     void viewerCannotUpdateFees() throws Exception {
@@ -601,10 +537,7 @@ class AdminPlaneIntegrationTest {
         assertEquals("role_required", reason(denied));
     }
 
-    // ------------------------------------------------------------------
-    // (k) 역할 GRANT/REVOKE 왕복. REVOKE는 operator_roles에 하드 DELETE를 실행하므로
-    // app_role의 DELETE 권한 회귀를 잡는다(V9). 효과 행 부여·삭제와 부여 권한 존재를 함께 확인.
-    // ------------------------------------------------------------------
+    // REVOKE는 operator_roles에 하드 DELETE를 실행하므로 app_role의 DELETE 권한 회귀를 잡는다.
 
     @Test
     @Order(16)
@@ -644,10 +577,8 @@ class AdminPlaneIntegrationTest {
                 .query(Boolean.class).single(), "app_role은 idempotency_keys DELETE 권한을 가진다");
     }
 
-    // ------------------------------------------------------------------
-    // (l) 카오스 주입 바인딩: 엔드포인트별 의미 필드(node/name/assault)가 승인 target으로
-    // 소각되고, 승인 target과 다른 필드값은 binding_mismatch로 차단된다(§3-6 확정표, c3efad6).
-    // ------------------------------------------------------------------
+    // 엔드포인트별 의미 필드(node/name/assault)가 승인 target으로 소각되고, 다른 값은
+    // binding_mismatch로 차단된다(§3-6).
 
     @Test
     @Order(17)
@@ -742,10 +673,8 @@ class AdminPlaneIntegrationTest {
                 .param(token).query(String.class).single());
     }
 
-    // ------------------------------------------------------------------
-    // (m) 시각 표기 §2-1 정합: 감사·불변식 프로젝션의 시각 필드는 UTC 밀리초 3자리 고정
-    // (yyyy-MM-dd'T'HH:mm:ss.SSS'Z')이다. OffsetDateTime.toString의 가변 소수부·오프셋 표기 회귀 차단.
-    // ------------------------------------------------------------------
+    // 시각 필드는 UTC 밀리초 3자리 고정이다(§2-1). OffsetDateTime.toString의 가변 소수부·오프셋
+    // 표기가 회귀 대상이다.
 
     private static final String TS_PATTERN = "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z";
 
@@ -777,10 +706,6 @@ class AdminPlaneIntegrationTest {
                 "status.lease_until 형식: " + lease.path("lease_until").asText());
     }
 
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
-
     private String issueToken(String requester, String action, String target,
                              String approverCn, String approverSession) throws Exception {
         ResponseEntity<String> issued = adminPost("/admin/v1/approvals",
@@ -801,11 +726,8 @@ class AdminPlaneIntegrationTest {
     }
 
     /**
-     * 관리 평면 목록 전수 점검(API 설계 v2.30).
-     *
-     * 아홉 곳이 고정 LIMIT으로 잘리거나 pagination 엔벌로프가 없었다. 여기서는 두 가지를
-     * 본다. (a) 모든 목록이 §2-2 엔벌로프를 리터럴로 싣는가, (b) 상한을 넘는 목록이 커서로
-     * 끝까지 읽히는가. 감사 로그는 이 클래스가 지금까지 남긴 행이 이미 여럿이라 재료로 쓴다.
+     * 관리 평면 목록 전수 점검. 모든 목록이 §2-2 엔벌로프를 리터럴로 싣는지, 상한을 넘는 목록이
+     * 커서로 끝까지 읽히는지 본다. 감사 로그는 이 클래스가 남긴 행이 여럿이라 재료로 쓴다.
      */
     @Test
     @Order(16)
@@ -849,8 +771,7 @@ class AdminPlaneIntegrationTest {
             cursor = body.path("pagination").path("next_cursor").asText();
             assertTrue(pages <= total, "커서가 끝나지 않는다");
         }
-        // 종전 LIMIT 500 고정이면 여기까지 오지 못하는 것이 아니라, 500을 넘는 순간부터
-        // 조용히 잘렸다. 여기서는 전량 도달만 확인한다
+        // 고정 LIMIT이면 그 경계를 넘는 순간부터 조용히 잘린다. 여기서는 전량 도달만 확인한다
         assertEquals(total, seen.size(), "누락 또는 중복으로 전체 건수가 어긋난다");
 
         // 위조 커서는 조용히 첫 쪽으로 되돌리지 않고 거절한다

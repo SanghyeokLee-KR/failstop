@@ -44,23 +44,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 승격 재생 실패의 강등 등급 회귀(DB 설계 §5.4 강등 사유 분류, 하네스 검증 §3 E2).
+ * 승격 재생 실패의 강등 등급 회귀(DB 설계 §5.4 강등 사유 분류, 하네스 검증 §3 E2). 재현 대상은
+ * 한 번의 fencing 거부가 종신 강등을 불러 양 노드가 후보에서 빠진 E2 라이브 실측이다.
  *
- * 재현 대상은 E2 라이브 실측이다. 스탠바이가 epoch 2를 정상 획득한 123ms 뒤 승격 재생의 정산이
- * assert_current_leader 거부를 받았고, 그 한 번으로 종신 강등해 구 리더와 함께 양 노드가 후보에서
- * 빠지면서 클러스터가 리더 없이 영구 정지했다.
+ * 거부는 assert_current_leader를 SQL 계층에서 래핑해 앞의 N회만 실패시키고 leader_lease 행은
+ * 건드리지 않는다. 리스 권위상 정당한 리더인데 assert만 거부하는 상태가 라이브에서 관측된 형태다.
+ * nextval은 롤백되지 않으므로 거부 횟수가 정확히 N으로 고정된다.
  *
- * 거부는 SQL 계층에서 주입한다. assert_current_leader를 래핑해 앞의 N회를 'fencing 위반'으로
- * 거부시키되 leader_lease 행은 건드리지 않는다. 곧 **리스 권위상으로는 정당한 현재 리더인데
- * assert만 거부하는** 상태이며, 이것이 라이브에서 관측된 형태다. nextval은 롤백되지 않으므로
- * 거부 횟수가 정확히 N으로 고정된다.
- *
- * 고정하는 계약:
- *  (A) 리스 권위가 유지되는 동안의 fencing 거부는 강등 사유가 아니다. 재생을 재시도해 승격을 마친다.
- *  (B) 재생이 예산을 소진해도 노드는 FOLLOWER로 남아 다음 만료 구동 승격의 후보가 된다.
- *      종신 강등한 구 리더가 있어도 클러스터가 리더 없는 상태로 수렴하지 않는다.
- *  (C) 그 회복 경로가 이중 리더·스테일 쓰기를 열지 않는다. 반납은 리스 행에 아무것도 쓰지 않으므로
- *      다음 리더는 종전대로 만료 후 epoch +1 단독 UPDATE로만 정해지고 구 epoch는 계속 거부된다.
+ * 고정하는 계약. (A) 리스 권위가 유지되는 동안의 fencing 거부는 강등 사유가 아니다. (B) 예산을
+ * 소진해도 노드는 FOLLOWER로 남아 다음 만료 구동 승격의 후보가 된다. (C) 반납이 리스 행에 쓰지
+ * 않으므로 그 회복 경로가 이중 리더·스테일 쓰기를 열지 않는다.
  */
 @Testcontainers
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -249,7 +242,7 @@ class PromotionStandDownIntegrationTest {
      * 1회가 예산을 넘기는 순간 첫 실패에서 예산이 이미 소진돼 재시도가 한 번도 돌지 않는다.
      * 재승격 비용(TTL 대기 + 전량 재생)이 가장 큰 상황에서 정확히 재시도가 사라지는 결함이다.
      *
-     * 음성 대조: 시도 1회를 예산(5초)보다 길게 잡았으므로, 종전 규칙이면 attempts가 1에서 멈추고
+     * 음성 대조: 시도 1회를 예산(5초)보다 길게 잡았으므로, 진입 시각 기준 규칙이면 attempts가 1에서 멈추고
      * 상태는 FOLLOWER가 된다. attempts 2 + ACCEPTING이 그 규칙과 갈리는 지점이다.
      */
     @Test
@@ -490,7 +483,7 @@ class PromotionStandDownIntegrationTest {
     }
 
     /**
-     * (K) 종신 격상은 VM Error에 한정한다(§5.4 v2.24 #4). 술어가 Error 전체면
+     * (K) 종신 격상은 VM Error에 한정한다(§5.4). 술어가 Error 전체면
      * NoClassDefFoundError처럼 '같은 재생을 다시 하면 같은 결과'가 성립하는 오류까지 종신으로
      * 내려가, 클래스 적재 일시 실패 하나로 노드가 후보에서 영구히 빠진다. (F)의 경계 대조다.
      */
@@ -526,8 +519,6 @@ class PromotionStandDownIntegrationTest {
             standby.close();
         }
     }
-
-    // ── 배선 ────────────────────────────────────────────────────────────
 
     /** 스탠바이 한 대. 접수 게이트가 닫힌 채 리스만 경쟁하다가 승격 재생을 밟는다. */
     private static final class Standby implements AutoCloseable {
@@ -697,8 +688,6 @@ class PromotionStandDownIntegrationTest {
                 new BigDecimal("1"), null,
                 UUID.nameUUIDFromBytes(("sd-sell-" + orderId).getBytes()), null, null);
     }
-
-    // ── 주입·조회 ───────────────────────────────────────────────────────
 
     /**
      * assert_current_leader 앞의 N회 호출을 fencing 거부로 만든다. 원본은 이름만 바꿔 보존하고

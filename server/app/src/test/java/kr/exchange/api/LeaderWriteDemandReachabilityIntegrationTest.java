@@ -40,20 +40,16 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 리더 쓰기 수요 계측의 도달 가능성 고정(DB 설계 §5.4 좀비 리더 판정 ② 축).
+ * 리더 쓰기 수요 계측의 도달 가능성 고정(DB 설계 §5.4 좀비 리더 판정 ② 축). 판정의 전제는
+ * 요청 풀이 고갈된 상태에서도 쓰기 수요가 관측된다는 것이고, 깨지면 판정이 매 표본 초기화돼
+ * 강등이 영원히 발동하지 않는다. 계측이 인증·게이트웨이 뒤에 있으면 좀비 상태에서 그 앞이 먼저
+ * 커넥션을 얻지 못해 계측 지점에 도달조차 하지 못한다.
  *
- * 판정의 전제는 '요청 풀이 고갈된 상태에서도 쓰기 수요가 관측된다'는 것이다. 이 전제가 깨지면
- * 판정이 매 표본 초기화돼 강등이 영원히 발동하지 않는다. 그 함정이 실제로 있었다. 계측을 저널
- * append에 두면, 좀비 상태에서는 그 앞의 인증 필터(api_keys 조회)·게이트웨이(users 조회)가 먼저
- * 커넥션을 얻지 못해 실패하므로 append에 도달조차 하지 못한다.
+ * 그래서 수동 recordAttempt()가 아니라 실제 HTTP 주문을 포화된 풀에 흘린다. 대조로 완료 축이
+ * 증가하지 않음도 함께 고정해야 [수요 있음 + 완료 0]이라는 정지 판정이 성립한다.
  *
- * 그래서 수동 recordAttempt()가 아니라 실제 HTTP 주문 요청을 포화된 풀에 흘려 계측 지점이
- * 인증·DB보다 앞서는지를 직접 본다. 대조로 완료 축이 증가하지 않음도 함께 고정한다. 둘이 같이
- * 성립해야 [수요 있음 + 완료 0]이라는 정지 판정이 좀비에서 실제로 성립한다.
- *
- * 같은 포화 상태가 API §2-3의 일시 DB 실패 매핑(인증 계층·컨트롤러 계층 모두 503
- * service_unavailable + Retry-After)을 결정적으로 재현하므로 그 계약도 여기서 함께 고정한다.
- * 이 시나리오가 옮겨지거나 축소되면 §2-3 커버리지가 같이 사라진다는 뜻이기도 하다.
+ * 같은 포화 상태가 API §2-3의 일시 DB 실패 매핑(503 + Retry-After)을 결정적으로 재현하므로 그
+ * 계약도 여기서 고정한다. 이 시나리오가 축소되면 §2-3 커버리지가 같이 사라진다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -162,7 +158,7 @@ class LeaderWriteDemandReachabilityIntegrationTest {
                 new HttpEntity<>(body, headers), String.class);
 
         // 코드를 못박는다. isError만 보면 500 server_error로 나가도 통과해, 같은 사유가 경로에
-        // 따라 코드가 갈리던 결함(API §2-3 v2.17 G5)이 되돌아온다. 500과 503은 클라이언트의
+        // 따라 코드가 갈리는 결함(API §2-3)이 되돌아온다. 500과 503은 클라이언트의
         // UNKNOWN 재조회 트리거로는 같지만(5xx 전체가 트리거다) 그 밖이 전부 다르다. 503만
         // Retry-After를 싣고, 재시도 가능 신호이며, 알람 등급과 거부율 계상에서 갈린다.
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode(),

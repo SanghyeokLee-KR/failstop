@@ -6,8 +6,8 @@ package kr.exchange.api.common;
  * 불변식은 '인증 제외 경로는 반드시 어떤 유량 방벽 하나에 속한다'이다. ApiAuthFilter의 인증
  * 제외 목록은 여기에 데모 세션·게시판·회원 인증 평면을 더한 상위 집합이고, 그 셋은 각자
  * SlidingWindowThrottle을 들고 있다(DemoSessionController·CommunityController·MemberAuthController).
- * 시장 데이터만 방벽이 없어 rank11로 지적됐고, 그 부분집합을 여기서 한 곳에 모은다. 목록을 두
- * 곳에 두면 한쪽만 늘었을 때 인증도 레이트리밋도 없는 경로가 생긴다.
+ * 시장 데이터만 자체 방벽이 없어 그 부분집합을 여기 한 곳에 모은다. 목록을 두 곳에 두면
+ * 한쪽만 늘었을 때 인증도 레이트리밋도 없는 경로가 생긴다.
  *
  * 신규 무인증 경로를 추가할 때: 시장 데이터가 아니면 여기 넣지 말고 자기 방벽을 붙인다.
  * 아래 weight 규칙이 시장 데이터 응답 모양을 전제하기 때문이다.

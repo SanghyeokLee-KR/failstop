@@ -13,8 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * k6 부하 계정 발급(하네스 검증설계 §7-3 seed 잡). load/README가 "seed 잡이 발급"이라고
- * 규정한 자리인데 그 잡이 없어 k6를 돌릴 키가 없었다.
+ * k6 부하 계정 발급(하네스 검증설계 §7-3 seed 잡). load/README가 규정한 seed 잡의 구현이다.
  *
  * 키 시크릿은 발급 시점에만 평문으로 존재한다(api_keys.enc_secret은 마스터 키로 암호화).
  * 그래서 DB를 나중에 뒤져 얻을 수 없고 발급 응답이 유일한 통로다. k6는 이 응답을
@@ -89,11 +88,8 @@ public class LoadKeySeeder {
         }
 
         // 기존 활성 키를 먼저 회수한다. uq_apikey_active가 (user_id, label) 활성 유일이라
-        // 회수 없이 재발급하면 duplicate key로 500이 난다. 실측(2026-08-30): 재호출이
-        // 500을 냈고 호출자가 응답 본문으로 키 파일을 덮어써 시크릿을 잃었다. 시크릿은
-        // 발급 시점에만 평문이라 복구 경로가 없다.
-        // 회수 후 재발급이 옳은 이유. 이 경로는 하네스 전용이고 호출 의도가 "지금 쓸 수 있는
-        // 키를 달라"이다. 기존 키를 돌려줄 수는 없다(enc_secret은 마스터 키로 암호화).
+        // 회수 없이 재발급하면 duplicate key로 500이고, 그 500 본문이 키 파일을 덮어쓰면
+        // 시크릿은 발급 시점에만 평문이라 복구 경로가 없다.
         jdbc.sql("UPDATE api_keys SET deleted_at = now() "
                         + "WHERE user_id = ? AND label = 'k6-load' AND deleted_at IS NULL")
                 .params(userId).update();

@@ -77,8 +77,8 @@ public class CommunityModerationController {
         AdminPrincipal principal = AdminRequestContext.principal(request);
         principal.require(AdminRole.MEMBER_MOD);
         int capped = CursorPages.cap(limit, 200);
-        // 한 건 더 읽어 다음 쪽 존재를 판단한다. 종전에는 LIMIT 200이 SQL에 박혀 있어
-        // 신고가 몰리면 201번째부터 운영자에게 보이지 않았다
+        // 한 건 더 읽어 다음 쪽 존재를 판단한다. 고정 상한으로 자르면 신고가 몰릴 때
+        // 그 밖의 행에 도달할 방법이 없다
         CursorPages.Page<Map<String, Object>> page = CursorPages.slice(
                 community.listReports(status, CursorPages.decode(cursor), capped + 1), capped);
         Map<String, Object> body = new LinkedHashMap<>();

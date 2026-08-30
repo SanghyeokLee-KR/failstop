@@ -1,22 +1,9 @@
-﻿# E4 매칭 리더 kill(핵심 데모, 검증설계 §3 정본 번호. 구 e1-leader-kill, M4 §0-3 개명).
-# 실험 판정 프로토콜(사전 권위 run → 주입 → 무개입 관찰 → 사후 권위 run).
-# 판정: 유실 0 · 중복 0 · 자산합 0 · epoch 정확히 +1 · RTO < 30s.
-# 개입 금지 구간(kill 이후)에서 스크립트는 관찰·기록만 한다.
-#
-# 실행 전제: 실험 사이에 down -v + up으로 스택을 새로 세운다. compose가 api-2 기동을 api-1
-# readiness에 종속시키므로 신선한 스택의 리더는 결정적으로 api-1이다. 전제를 생략하면 앞선
-# 실행에서 kill한 노드가 죽은 채 남고 리더는 api-2다. 그때 config TARGET_NODE 기본값
-# (chaos-api-1)을 그대로 믿으면 이미 죽은 컨테이너를 대상 삼으므로 아래에서 실 리더를 감지해
-# 덮어쓰고, 주입 전 스탠바이 도달성까지 확인한다. E5·E7이 남긴 종신 강등도 프로세스 내
-# 플래그라 재기동 전까지 승격 후보로 돌아오지 않는다(E5 헤더와 같은 규약).
-#
-# compose의 restart: unless-stopped는 docker kill에 발동하지 않는다. 데몬이 docker kill을 수동
-# 정지로 표시해 재기동 정책을 건너뛴다. 실측(Docker 29.5.2): unless-stopped 컨테이너를
-# docker kill하면 exited·RestartCount 0으로 남고, 같은 정책의 컨테이너가 스스로 비정상 종료하면
-# RestartCount가 오른다. 정책이 죽은 것이 아니라 kill 경로만 면제된다. 라이브 E4에서
-# chaos-api-1이 부활하지 않은 관찰과 일치한다(관찰 1회 + 최소 재현 컨테이너 확인, 대상 컨테이너
-# 자체 재현은 미실시). 따라서 kill한 노드의 자동 부활을 전제로 판정을 짜지 않는다. compose
-# 변경은 실험 설계에 영향을 주므로 여기서 하지 않는다.
+﻿# E4 매칭 리더 kill(핵심 데모, 검증설계 §3). 판정: 유실 0 · 중복 0 · 자산합 0 · epoch 정확히 +1 ·
+# RTO < 30s. kill 이후는 개입 금지 구간이라 관찰·기록만 한다.
+# 실행 전제: 실험 사이에 down -v + up으로 스택을 새로 세운다. compose가 api-2를 api-1 readiness에
+# 종속시켜 신선한 스택의 리더가 결정적으로 api-1이 된다. 생략하면 앞선 실행이 죽인 노드를 대상
+# 삼게 되므로 아래에서 실 리더를 다시 감지한다.
+# docker kill은 restart 정책을 건너뛰므로(실측 Docker 29.5.2) 자동 부활을 전제로 판정하지 않는다.
 param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e4.env'))
 
 $ErrorActionPreference = 'Stop'
@@ -34,7 +21,6 @@ function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Requi
 
 Write-Section "E4 시작 runId=$runId"
 
-# ── 워밍업: 정상 부하로 체결 축적 ──────────────────────────────────────
 Write-Section 'warmup'
 # 자기 부하를 명시로 세운다. 생략하면 앞선 실험이 남긴 ops를 이월받는다(E6 직후면 400, 드레인
 # 직후면 정지 상태). 부하가 무엇인지 모르는 채 kill하면 판정 조건이 실행마다 달라진다.
@@ -64,7 +50,6 @@ $target = $detected
 $standbyPort = if ($detected -eq 'chaos-api-1') { $Global:CHAOS.Api2Port } else { $Global:CHAOS.Api1Port }
 Write-Host "리더 감지: $target (config TARGET_NODE와 무관하게 실 리더 대상). standby 포트=$standbyPort"
 
-# ── ⓐ 사전 권위 run ───────────────────────────────────────────────────
 Write-Section 'ⓐ 사전 권위 run'
 $prePort = Get-LiveNodePort
 Reset-LoadtestAcks -Port $prePort
@@ -94,7 +79,6 @@ if ($reDetected -ne $target) {
 try { Get-HarnessStatus -Port $standbyPort | Out-Null }
 catch { throw "스탠바이(포트 $standbyPort) 미응답. 승격 후보 없이 kill하면 클러스터가 전멸하고 증거도 남지 않는다. down -v + up으로 스택을 새로 세운 뒤 재실행한다." }
 
-# ── ⓑ 주입: 리더 kill(T0) ──────────────────────────────────────────────
 Write-Section 'ⓑ 주입: docker kill'
 # T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다(E5·E7과 동형). ⓐ 시점
 # 스냅샷을 쓰면 사전 권위 run·시계가드·리더 재확인이 도는 동안의 갱신분이 그대로
@@ -105,7 +89,6 @@ $tradesAtKill = Get-TradeCount
 & docker kill $target | Out-Null
 Write-Host "T0=$($t0.ToUniversalTime().ToString('o')) killed=$target trades_at_kill=$tradesAtKill"
 
-# ── ⓒ 무개입 관찰: 승격(epoch+1) → 체결 재개 ───────────────────────────
 Write-Section 'ⓒ 관찰(개입 금지)'
 $t2 = Wait-For {
     try { $s = Get-HarnessStatus -Port $standbyPort; ($s.epoch -gt $oldEpoch) -and $s.leaderAlive }
@@ -119,10 +102,7 @@ Write-Host "T2(승격)=$(if($t2){$t2.ToUniversalTime().ToString('o')}else{'n/a'}
 
 # T5 = 페일오버 후 최초 신규 TRADE의 engine_ts(§5-1 정의). created_at은 엔진 처리 시각이라
 # catch-up 배치의 커밋 가시화 지연과 무관한 재개 시점을 가리킨다. 술어는 lib.ps1 공용
-# Get-FirstTradeSql(정본 §5-1 검산식, command_journal.fencing_token 축)을 쓴다. 종전 인라인
-# 사본은 event_journal.fencing_epoch를 관측 epoch와 등가 비교해 두 가지로 틀렸다. 승격 재생
-# 산출물을 재개로 오인해 RTO를 과소 보고했고(그 축의 결함), 승격 재생 반납으로 epoch가 더 오르면
-# 재개를 아예 놓쳐 RTO n/a가 됐다(등가 비교의 결함).
+# Get-FirstTradeSql(정본 §5-1 검산식, command_journal.fencing_token 축)을 쓴다.
 $t0Iso = $t0.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fff') + 'Z'
 $firstTradeSql = Get-FirstTradeSql -OldEpoch $oldEpoch -T0Iso $t0Iso
 $obsResume = Wait-For {
@@ -137,12 +117,9 @@ if ($firstTradeRaw) {
 $t5Disp = 'n/a'; if ($t5) { $t5Disp = $t5.ToString('o') }
 Write-Host "T5(체결 재개)=$t5Disp first_trade_at=$firstTradeTs"
 
-# ── ⓓ 드레인 + 사후 권위 run + 측정 ────────────────────────────────────
 Write-Section 'ⓓ 드레인 + 사후 권위 run'
-# 종전에는 3초만 쉬고 쟀다. E4 판정은 $post.criticalClean을 쓰는데 C13a가 CRITICAL이라, 부하가
-# 도는 상태에서 재면 in-flight가 유실로 계상돼 위양성 FAIL이 난다(E2·E6에서 실측된 것과 같은
-# 기제). 봇 쓰기를 끊고 물질화가 끝난 뒤 잰다. try 범위는 사후 run까지만 두고 이후 기록·출력은
-# 봇이 돌아온 뒤에 한다(마지막 네이티브 명령이 docker start가 되면 종료코드가 샌다).
+# C13a가 CRITICAL이라 부하 중에 재면 in-flight가 유실로 계상돼 위양성 FAIL이 난다.
+# 봇 쓰기를 끊고 물질화가 끝난 뒤 잰다. try 범위는 사후 run까지만 둔다(종료코드 누출 방지).
 $botsStopped = Stop-BotLoad
 $drained = $false
 try {
@@ -204,7 +181,6 @@ if ($post.criticalClean -and $t5 -and ($newEpoch -eq $oldEpoch + 1) -and ($null 
     $verdict = 'PASS'
 }
 
-# ── ⓔ 기록 + 증거 출력 ─────────────────────────────────────────────────
 Write-Section 'ⓔ 판정·기록'
 $tradesAfter = Get-TradeCount
 $body = @{
@@ -233,13 +209,10 @@ Write-Host ("주문 유실(C13a)    : {0} (드레인 성립={1})" -f $ordersLost
 Write-Host ("RPO records        : {0}" -f $rpoRecords)
 Write-Host ("failover_run_id    : {0}" -f $rec.failover_run_id)
 Write-Host '────────────────────────────────────────'
-# 한정 표기: 컨테이너 E4의 RPO 판정은 저널 무결(C05·C06·C13a) 프록시다. C16·C17의 원천은
-# 2026-08-30에 배선했다. 0행은 미배선이 아니라 그 주행에 판정 대상이 없었다는 뜻이다.
-# C16 실데이터 교차대조는 CI InvariantVerifierIntegrationTest가,
-# 검증기 반증(위반 주입 검출)은 동 테스트 verifierCatchesInjectedViolations가 담당한다.
-# 증거 출력 전용이라 -Required를 붙이지 않는다. 이 지점은 판정 확정·failover_runs 적재 이후이고
-# try/finally 밖이라, 여기서 throw하면 verdict가 PASS인 run이 미포획 종료로 exit 1이 된다.
-# 판정 역전을 증거 한 줄 때문에 만들지 않는다. 무응답은 값 대신 표기로 드러낸다.
+# 한정 표기: 컨테이너 E4의 RPO 판정은 저널 무결(C05·C06·C13a) 프록시다. 0행은 미배선이 아니라
+# 그 주행에 판정 대상이 없었다는 뜻이다. C16 실데이터 대조와 검증기 반증은 CI 통합테스트가 맡는다.
+# 증거 출력 전용이고 판정 확정 이후·try/finally 밖이라 -Required를 붙이지 않는다. 여기서 throw하면
+# verdict가 PASS인 run이 exit 1이 된다.
 $c16rows = Get-Scalar "SELECT count(*) FROM harness.loadtest_acks"
 $c17rows = Get-Scalar "SELECT count(*) FROM recovery_runs"
 $c16disp = 'n/a'; $c16note = 'psql 무응답, 판정 불능'

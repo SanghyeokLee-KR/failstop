@@ -331,8 +331,8 @@ class InvariantVerifierIntegrationTest {
     }
 
     /**
-     * 카오스 스택·Testcontainers에 pg_cron이 없어 C03/C09~C12/C15가 아무 러너도 평가하지 않던
-     * 결함의 회귀 고정. 이제 이들이 InvariantVerifier enum에 배선돼 상시 스케줄이 실제로 평가한다.
+     * 카오스 스택·Testcontainers에 pg_cron이 없으면 C03/C09~C12/C15를 아무 러너도 평가하지 않는다.
+     * 이들은 InvariantVerifier enum에 배선돼 상시 스케줄이 평가한다.
      * 고아 체결(존재하지 않는 주문 참조 + event_journal TRADE 부재) 1건을 주입해 C09·C11이 잡는지
      * 반증한다. 원장·저널 불변식은 건드리지 않고, 마지막 순서라 정리 후 잔여 무해.
      */
@@ -371,8 +371,8 @@ class InvariantVerifierIntegrationTest {
     }
 
     /**
-     * DB §6.4 ⑮ 배선 회귀. event_journal↔event_emission_registry 양방향 anti-join(C21)이 어떤
-     * 러너에도 없던 공백을 닫았다. 저널에 없는 레지스트리 행(역방향 드리프트=유령 이벤트)을 주입해
+     * DB §6.4 ⑮ 배선 회귀. event_journal↔event_emission_registry 양방향 anti-join(C21)은 어떤
+     * 러너에도 없으면 공백이 된다. 저널에 없는 레지스트리 행(역방향 드리프트=유령 이벤트)을 주입해
      * SCHEDULED 스캔이 잡는지 반증한다. event_emission_registry는 append-only 대상이 아니라 주입·정리
      * 후 원장·저널 불변식에 잔여가 없다. 마지막 순서.
      */
@@ -398,8 +398,8 @@ class InvariantVerifierIntegrationTest {
     }
 
     /**
-     * DB §6.4 ⑰ 배선 회귀. journal_counters.next_value ≤ 저널 최대 seq(C23, 채번 재사용 위험)가
-     * 어떤 러너에도 없던 공백을 닫았다. 카운터를 저널 아래로 되돌려(백업 복원·리시드 모사) 권위 run이
+     * DB §6.4 ⑰ 배선 회귀. journal_counters.next_value ≤ 저널 최대 seq(C23, 채번 재사용 위험)는
+     * 어떤 러너에도 없으면 공백이 된다. 카운터를 저널 아래로 되돌려(백업 복원·리시드 모사) 권위 run이
      * 잡는지 반증한다. journal_counters는 정상 테이블이라 복원 후 잔여 무해. 페일오버 이후라 앱이
      * command_seq를 채번하지 않아 주입 구간이 안정적이다. 마지막 순서.
      */
@@ -423,7 +423,7 @@ class InvariantVerifierIntegrationTest {
     }
 
     /**
-     * C08 음성 검증. 65585d0이 건 90일 created_at 윈도 안에서 중복 체결 id를 주입해 C08(중복 체결)이
+     * C08 음성 검증. 90일 created_at 윈도 안에서 중복 체결 id를 주입해 C08(중복 체결)이
      * 잡는지 반증한다. clean만 단언하면 항상 통과하는 검증기나 윈도 오축소 회귀를 배제하지 못하므로
      * C08도 다른 음성 케이스와 같은 표준(주입-검출-정리-clean 복귀)에 편입한다. 레지스트리 트리거가
      * 같은 seq 재기입을 23505로 막으므로 첫 등록분을 지운 뒤 같은 id를 다른 created_at으로 재삽입해
@@ -462,7 +462,7 @@ class InvariantVerifierIntegrationTest {
     }
 
     /**
-     * C18 음성 검증. 65585d0이 건 90일 윈도 안에서 maker 지정가와 어긋난 체결가를 주입해 C18(체결가=
+     * C18 음성 검증. 90일 윈도 안에서 maker 지정가와 어긋난 체결가를 주입해 C18(체결가=
      * maker 지정가)이 잡는지 반증한다. 실제 maker 주문(가격 있음)을 참조하므로 봇 정상 체결(t.price=
      * m.price) 아래 주입 전 C18은 clean이다. trades만 주입·정리하고 마지막 순서라 잔여 무해.
      */

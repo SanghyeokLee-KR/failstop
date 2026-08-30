@@ -44,11 +44,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 전체 제어 실반영 검증(§6-A v2.22). POST /admin/v1/sim/{command}가 실제 BotFleet
- * 수명주기를 움직이는지 확인한다: start는 기동(봇 기원 명령 발생), pause 토글은 스레드를
- * 유지한 채 발행 중단·재개, stop은 정지. status 1.2의 running·paused가 같은 상태를
- * 비추는 것까지 본다. 플릿 빈은 SimConfig(bots 프로파일)와 동일 조립이되 랜덤 포트를 알아야
- * 해서 지연 생성한다.
+ * 제어 명령이 실제 BotFleet 수명주기를 움직이는지 확인한다(§6-A). pause 토글은 스레드를 유지한 채
+ * 발행만 끊고, status의 running·paused가 같은 상태를 비춘다.
+ * 플릿 빈은 SimConfig와 동일 조립이되 랜덤 포트를 알아야 해서 지연 생성한다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -207,8 +205,6 @@ class SimControlIntegrationTest {
                     .params(action).query(Long.class).single() >= 1, action + " 감사");
         }
     }
-
-    // ------------------------------------------------------------------
 
     private JsonNode control(String command, String bearer) throws Exception {
         ResponseEntity<String> r = exchange("/admin/v1/sim/" + command, HttpMethod.POST,

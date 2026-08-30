@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * 시장 생동감 제어(/admin/bots, 체결_시각효과 §3·봇_방향성 §5). 대수 set-point·방향 바이어스·
- * 자동균형·효과 강도를 한 벌로 튜닝한다. 전부 approval 불요·전량 감사(가역 연출 파라미터).
- * 값은 문자열로 다룬다(바이어스·강도는 분수라 float 표기 금지). 색은 시세 도메인(양전 Red·음전 Blue),
- * 색 단독 금지라 부호·화살표·수치를 병기한다.
+ * 전부 approval 불요·전량 감사인 가역 연출 파라미터다.
+ * 값은 문자열로 다룬다(바이어스·강도는 분수라 float 표기 금지). 색은 시세 도메인에 부호·화살표를 병기한다.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -153,7 +151,6 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
         </select>
       </label>
 
-      {/* ===== 봇 타입별 대수 ===== */}
       <div className={styles.livelinessBlock}>
         <div className={styles.livelinessHead}>
           <h3 className={styles.livelinessTitle}>봇 타입별 대수</h3>
@@ -207,7 +204,6 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
         </div>
       </div>
 
-      {/* ===== 방향 바이어스 ===== */}
       <div className={styles.livelinessBlock}>
         <div className={styles.livelinessHead}>
           <h3 className={styles.livelinessTitle}>방향 바이어스</h3>
@@ -275,7 +271,6 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
         </div>
       </div>
 
-      {/* ===== 효과 강도 ===== */}
       <div className={styles.livelinessBlock}>
         <div className={styles.livelinessHead}>
           <h3 className={styles.livelinessTitle}>체결 시각효과 강도</h3>

@@ -54,11 +54,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * M1-4 통합 검증(웹 화면명세 §6.2 수용 기준 축):
- * (a) 서명 왕복과 변조·재전송·시계창 401, (b) 주문 E2E(체결·조회·비공개 채널 수신),
- * (c) client_order_id 멱등 replay와 내용 상이 409, (d) WS 구독 즉시 스냅샷·seq 단조,
- * (e) 게이트웨이 사전 가드(잔고·최소 주문, 저널 미기록).
- * 저널·시퀀스가 전역 공유 자원이라 순서를 고정한다.
+ * M1-4 통합 검증(웹 화면명세 §6.2 수용 기준 축).
+ * 저널·시퀀스가 전역 공유 자원이라 @Order로 순서를 고정한다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -71,9 +68,7 @@ class ApiGatewayIntegrationTest {
     private static final int KRW_BTC = 1;
     private static final int KRW_ETH = 2;
 
-    // alice의 bid 0.01@50,000,000 체결 결과. 지출 500,000 KRW, 수취 순액 0.009995 BTC
-    // (taker 수수료 0.000005 BTC 차감). 500000 / 0.009995 = 50025012.5062... 을 KRW scale 0으로
-    // HALF_UP 반올림한 값이다. 부분 매도 뒤에도 이 값이 유지되는 것이 원가 산식의 요지다.
+    // 취득 원가를 순수취 수량으로 나눈 평단가. 부분 매도 뒤에도 이 값이 유지되는 것이 원가 산식의 요지다.
     private static final String AVG_AFTER_BUY = "50025013";
 
     // PER_CLASS 수명주기에서는 테스트 인스턴스 생성(=스프링 컨텍스트 기동)이 @Testcontainers
@@ -165,10 +160,6 @@ class ApiGatewayIntegrationTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (a) 서명 왕복
-    // ------------------------------------------------------------------
-
     @Test
     @Order(1)
     void signatureRoundtripAndTamperRejection() {
@@ -178,7 +169,7 @@ class ApiGatewayIntegrationTest {
                         "GET", "/api/v1/accounts", Map.of()));
         assertEquals(200, ok.getStatusCode().value());
         assertTrue(ok.getBody().contains("\"schema_version\":\"1.0\""));
-        // §2-5 계좌 조회 버킷 배선(item 3): /accounts도 계정 조회 토큰버킷 헤더를 방출한다.
+        // /accounts도 계정 조회 토큰버킷 헤더를 방출한다(§2-5).
         assertNotNull(ok.getHeaders().getFirst("X-RateLimit-Limit-account"),
                 "/accounts는 계정 조회 레이트리밋 헤더를 방출해야 한다");
 
@@ -230,9 +221,7 @@ class ApiGatewayIntegrationTest {
         assertEquals("out_of_scope", errorName(outOfScope));
     }
 
-    // ------------------------------------------------------------------
-    // (d) WS 구독 즉시 스냅샷 (구독을 주문보다 먼저 열어 realtime 순서를 관찰한다)
-    // ------------------------------------------------------------------
+    // 구독을 주문보다 먼저 열어 realtime 순서를 관찰한다.
 
     @Test
     @Order(2)
@@ -256,7 +245,7 @@ class ApiGatewayIntegrationTest {
         subscribe(wsSession, "/user/queue/myOrder", myOrderMessages);
         subscribe(wsSession, "/user/queue/myAsset", myAssetMessages);
 
-        // 구독 즉시 스냅샷 1건(orderbook 채널 한정, §5-2 v2.4)
+        // 구독 즉시 스냅샷 1건(orderbook 채널 한정, §5-2)
         Awaitility.await().atMost(Duration.ofSeconds(10))
                 .until(() -> !orderbookMessages.isEmpty());
         JsonNode first = orderbookMessages.peek();
@@ -267,10 +256,6 @@ class ApiGatewayIntegrationTest {
         assertTrue(first.has("seq"));
         assertEquals(1, orderbookMessages.size(), "스냅샷은 정확히 1건이어야 한다");
     }
-
-    // ------------------------------------------------------------------
-    // (b) 주문 E2E
-    // ------------------------------------------------------------------
 
     @Test
     @Order(3)
@@ -342,9 +327,8 @@ class ApiGatewayIntegrationTest {
                 .reduce((a, b) -> b).orElseThrow();
         assertEquals("100.009995", assetField(myAsset, "BTC", "balance"));
 
-        // 원가 필드는 델타에 실려야 한다(§5-5 v2.21 K5). 없으면 클라이언트가 직전 평단가를
-        // 보존해 매수마다 낡은 값이 남는다. 취득 원가 500,000 / 순수취 0.009995의 KRW scale
-        // HALF_UP 반올림이 50025013이다.
+        // 원가 필드는 델타에 실려야 한다(§5-5 K5). 없으면 클라이언트가 직전 평단가를 보존해
+        // 매수마다 낡은 값이 남는다.
         assertEquals(AVG_AFTER_BUY, assetField(myAsset, "BTC", "avg_buy_price"));
         assertEquals("0.009995", assetField(myAsset, "BTC", "cost_basis_qty"));
         assertEquals("500000", assetField(myAsset, "BTC", "cost_basis_amount"));
@@ -371,7 +355,7 @@ class ApiGatewayIntegrationTest {
         assertEquals("0", accountField(accountsData, "KRW", "locked"));
         assertEquals("100.009995", accountField(accountsData, "BTC", "balance"));
 
-        // §4-C-1 원가 산출. 종전 상수 "0" 스텁이 실측값으로 대체됐다는 회귀 고정이다.
+        // §4-C-1 원가 산출. 상수 스텁으로 퇴행하면 여기서 깨진다.
         assertEquals(AVG_AFTER_BUY, accountField(accountsData, "BTC", "avg_buy_price"));
         assertEquals("0.009995", accountField(accountsData, "BTC", "cost_basis_qty"));
         assertEquals("500000", accountField(accountsData, "BTC", "cost_basis_amount"));
@@ -390,10 +374,6 @@ class ApiGatewayIntegrationTest {
                     "orderbook seq 역전: " + seqs.get(i - 1) + " -> " + seqs.get(i));
         }
     }
-
-    // ------------------------------------------------------------------
-    // (c) 멱등
-    // ------------------------------------------------------------------
 
     @Test
     @Order(4)
@@ -423,18 +403,9 @@ class ApiGatewayIntegrationTest {
     }
 
     /**
-     * 보존 기간이 지나 idempotency_keys 행이 삭제된 뒤의 키 재사용.
-     *
-     * DB 설계는 pg_cron이 7일 지난 idempotency_keys 행을 지우도록 규정하고, API 설계는
-     * client_order_id 재사용을 무기한 금지하며 UNIQUE 권위를 command_journal에 둔다. 두 규정이
-     * 겹치는 구간에서 대조할 해시가 사라진다. 이때 저널 replay를 그대로 200으로 흡수하면 요청과
-     * 내용이 다른 원 주문을 멱등 응답으로 위장하게 된다. 대조 불가는 재사용으로 보고 거절해야 한다.
-     *
-     * 데모 마이그레이션에는 아직 퍼지가 배선돼 있지 않아 삭제를 직접 수행해 그 상태를 만든다.
-     *
-     * 순서: e2e-buy-1 주문이 저널에 있어야 하므로 그 주문을 만드는 앞 테스트 뒤에 와야 한다.
-     * 동일 @Order 값은 상대 순서가 보장되지 않아 멱등 절(4)이 아니라 빈 값 12를 쓴다.
-     * 이 테스트는 e2e-buy-1의 키 행을 지운 상태로 끝내므로 그 키를 다시 쓰는 테스트를 두지 않는다.
+     * 보존 기간 경과로 idempotency_keys 행이 사라지면 대조할 해시가 없다. 대조 불가는 재사용으로 보고
+     * 거절해야 요청과 내용이 다른 원 주문을 멱등 응답으로 위장하지 않는다. 퍼지가 배선되지 않아
+     * 삭제를 직접 수행한다. e2e-buy-1의 키 행을 지운 채 끝나므로 그 키를 다시 쓰는 테스트를 두지 않는다.
      */
     @Test
     @Order(12)
@@ -462,10 +433,6 @@ class ApiGatewayIntegrationTest {
                         + "WHERE command_type = 'NEW' AND user_id = ? AND client_order_id = 'e2e-buy-1'")
                 .params(alice).query(Long.class).single());
     }
-
-    // ------------------------------------------------------------------
-    // 취소 멱등
-    // ------------------------------------------------------------------
 
     @Test
     @Order(5)
@@ -499,10 +466,6 @@ class ApiGatewayIntegrationTest {
         assertEquals(404, notFound.getStatusCode().value());
         assertEquals("order_not_found", errorName(notFound));
     }
-
-    // ------------------------------------------------------------------
-    // (e) 사전 가드
-    // ------------------------------------------------------------------
 
     @Test
     @Order(6)
@@ -549,10 +512,6 @@ class ApiGatewayIntegrationTest {
         assertEquals("invalid_parameter", errorName(comboViolation));
     }
 
-    // ------------------------------------------------------------------
-    // 공개 시장 데이터 스모크(엔벌로프·문자열 표기)
-    // ------------------------------------------------------------------
-
     @Test
     @Order(7)
     void publicMarketDataContract() throws Exception {
@@ -586,7 +545,7 @@ class ApiGatewayIntegrationTest {
         JsonNode tickerBody = objectMapper.readTree(ticker.getBody());
         JsonNode t = tickerBody.path("data").get(0);
         assertEquals("50000000", t.path("trade_price").asText());
-        // 24h 집계·부호분리 필드 계약(§4-A-4 v2.9). 체결이 있으므로 대금·수량은 0 초과다.
+        // 24h 집계·부호분리 필드 계약(§4-A-4). 체결이 있으므로 대금·수량은 0 초과다.
         assertTrue(t.path("acc_trade_price_24h").isTextual(), "거래대금은 문자열");
         assertTrue(new java.math.BigDecimal(t.path("acc_trade_price_24h").asText()).signum() > 0);
         assertTrue(new java.math.BigDecimal(t.path("acc_trade_volume_24h").asText()).signum() > 0);
@@ -615,10 +574,6 @@ class ApiGatewayIntegrationTest {
                 rest.getForEntity("/api/v1/candles/2m?market=KRW-BTC", String.class);
         assertEquals(400, badUnit.getStatusCode().value());
     }
-
-    // ------------------------------------------------------------------
-    // 캔들 집계 정확성(§4-A-5): 구간 경계·OHLC·volume 합·sparse·결정론·커서
-    // ------------------------------------------------------------------
 
     @Test
     @Order(8)
@@ -681,10 +636,6 @@ class ApiGatewayIntegrationTest {
         assertTrue(firstP2.compareTo(lastP1) < 0, "다음 페이지는 더 과거 캔들(candle_time DESC)");
     }
 
-    // ------------------------------------------------------------------
-    // WS 형성 캔들 값 진화 + 미구독 unit 미방출(§5-3, §5-4)
-    // ------------------------------------------------------------------
-
     @Test
     @Order(9)
     void wsFormingCandleEvolvesAndUnsubscribedUnitsStaySilent() throws Exception {
@@ -716,11 +667,8 @@ class ApiGatewayIntegrationTest {
         }), "구독하지 않은 unit의 candle이 방출됐다");
     }
 
-    // ------------------------------------------------------------------
-    // trade·candle 재동기화 seq 도메인 고정(감사 High, §5-2 (2)). ticker와 별도.
-    // WS 라이브 seq와 REST 스냅샷 seq가 같은 event_seq 도메인이어야 재연결 재동기화 후
-    // 라이브가 도메인 불일치로 드롭되지 않는다. 도메인이 다시 갈라지면 이 테스트가 깨진다.
-    // ------------------------------------------------------------------
+    // WS 라이브 seq와 REST 스냅샷 seq가 같은 event_seq 도메인이어야 재연결 재동기화 후 라이브가
+    // 도메인 불일치로 드롭되지 않는다(§5-2).
 
     @Test
     @Order(10)
@@ -769,10 +717,7 @@ class ApiGatewayIntegrationTest {
                 "REST candle seq는 WS candle seq와 동일 event_seq 도메인(단조)이어야 한다");
     }
 
-    // ------------------------------------------------------------------
-    // 커서 조작 방어(§2-6) + 정상 next_cursor 연속성(감사·reviewer 지적)
-    // 조작 커서는 조용한 빈 페이지가 아니라 400 invalid_parameter로 정규화돼야 한다.
-    // ------------------------------------------------------------------
+    // 조작 커서는 조용한 빈 페이지가 아니라 400 invalid_parameter로 정규화돼야 한다(§2-6).
 
     @Test
     @Order(11)
@@ -908,10 +853,6 @@ class ApiGatewayIntegrationTest {
         return objectMapper.readTree(response.getBody()).path("data");
     }
 
-    // ------------------------------------------------------------------
-    // 주문 가능 정보(§4-B-5)
-    // ------------------------------------------------------------------
-
     /**
      * chance는 마켓 메타·수수료·양측 계좌를 단건 객체로 답한다. 수수료가 /markets와 갈라지면
      * 화면이 주문 전에 보여주는 예상 수수료와 실제 정산이 어긋난다(§4-B-5 수수료 권위 소스).
@@ -971,10 +912,6 @@ class ApiGatewayIntegrationTest {
         assertEquals(401, rest.getForEntity("/api/v1/orders/chance?market=KRW-BTC", String.class)
                 .getStatusCode().value(), "무인증 접근이 열려 있다");
     }
-
-    // ------------------------------------------------------------------
-    // 내 체결·원장 내역(§4-C-2, §4-C-3)
-    // ------------------------------------------------------------------
 
     /**
      * 같은 체결을 양쪽 사용자가 각자 관점으로 본다. taker는 TAKER·매수·base 수수료, maker는
@@ -1127,11 +1064,9 @@ class ApiGatewayIntegrationTest {
     }
 
     /**
-     * §4-C-1 원가 규약의 두 경계. (1) 시드 취득만 있는 계정은 원가 0이 아니라 원가 미상이라
-     * cost_basis_qty가 0이고 avg_buy_price가 "0"이다. (2) 부분 매도는 원가 확보분을 비례로
-     * 덜어내므로 평단가가 유지된다. 평단가를 저장하는 구현이면 (2)에서 반올림이 누적돼 값이
-     * 흔들린다. cost_basis_amount는 avg_buy_price의 반올림 이전 원본이므로, 나눗셈을 다시 해도
-     * 서버가 낸 avg_buy_price와 같은 값으로 떨어져야 한다(K2 총매수 재계산 근거).
+     * §4-C-1 원가 규약의 두 경계. 시드 취득만 있는 계정은 원가 0이 아니라 원가 미상이고, 부분 매도는
+     * 원가 확보분을 비례로 덜어내 평단가가 유지된다. 평단가를 저장하는 구현이면 부분 매도에서
+     * 반올림이 누적돼 값이 흔들린다.
      */
     @Test
     @Order(24)
@@ -1193,15 +1128,9 @@ class ApiGatewayIntegrationTest {
                 "cost_basis_amount 재나눗셈이 서버 avg_buy_price와 어긋난다");
     }
 
-    // ------------------------------------------------------------------
-    // 레이트리밋 weight(§2-5, item 2)
-    // ------------------------------------------------------------------
-
     /**
-     * 주문 버킷 weight 5 회귀. 격리 사용자로 주문 버킷을 급송 소진한다(다른 테스트 버킷과 무간섭).
-     * 무잔고라 각 주문은 잔고 가드에서 400으로 끊겨 정산·저널이 발생하지 않고, 레이트리밋은 진입부에서
-     * 선차감된다. weight 5면 capacity 100에 20여건만 통과하고 나머지는 429다. weight가 1로 회귀하면
-     * 60건이 capacity 100 미만이라 전부 통과해 429가 0이 되므로 denied>=1이 이를 잡는다.
+     * 주문 버킷 weight 5 회귀. 무잔고라 각 주문은 잔고 가드에서 끊기고 레이트리밋만 진입부에서
+     * 선차감된다. weight가 1로 회귀하면 전량 통과해 429가 0이 되므로 denied>=1이 그것을 잡는다.
      */
     @Test
     @Order(50)
@@ -1250,7 +1179,7 @@ class ApiGatewayIntegrationTest {
     }
 
     /**
-     * 공개 조회 IP 버킷 배선(§2-5, rank11). 무인증 §4-A 평면에는 계정 버킷이 붙지 않아 이 필터가
+     * 공개 조회 IP 버킷 배선(§2-5). 무인증 §4-A 평면에는 계정 버킷이 붙지 않아 이 필터가
      * 유일한 유량 방벽이다. 배선이 빠지면 헤더가 없고 폭주가 무제한 통과한다.
      *
      * 마지막 순서인 이유: 테스트 클라이언트가 전부 127.0.0.1이라 버킷이 클래스 전역 공유다.
@@ -1285,10 +1214,6 @@ class ApiGatewayIntegrationTest {
         assertTrue(body.contains("\"bucket\":\"ip\""), body);
         assertTrue(body.contains("\"scope\":\"public\""), body);
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private void subscribe(StompSession session, String destination,
                            ConcurrentLinkedQueue<JsonNode> sink) {

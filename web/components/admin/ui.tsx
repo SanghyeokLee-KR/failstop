@@ -19,12 +19,8 @@ export const HEALTH_ICON: Record<Health, string> = { success: "●", warning: "�
 const HEALTH_LABEL: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
 
 /**
- * 헬스 상태 표시. 항상 아이콘+라벨 병기. flashOnChange는 전이 순간 배경 플래시 옵트인.
- *
- * 정상은 필을 세우지 않고 잉크로만 적는다. 이 콘솔은 대부분의 시간에 전부 정상이라,
- * 정상까지 색을 쓰면 화면이 초록으로 덮이고 그 안에서 빨강 하나를 찾아야 한다. 색은
- * 이탈을 발화하는 채널이지 평시를 칠하는 채널이 아니다.
- * 같은 판단이 HealthHero·audit·bots 주석에 이미 적혀 있는데 이 공용 컴포넌트만 밖에 있었다.
+ * 헬스 상태 표시. 정상은 필을 세우지 않고 잉크로만 적는다.
+ * 이 콘솔은 대부분 정상이라, 정상까지 색을 쓰면 초록으로 덮인 화면에서 빨강 하나를 찾아야 한다.
  */
 export function HealthPill({
   health,
@@ -61,10 +57,8 @@ export interface StatTileMeter {
 }
 
 /**
- * 지표 타일. 헬스 톤은 값 강조에만 쓴다. hero는 화면당 단일 대표 지표에만(700 승격).
  * 색 단독 금지라 tone이 있으면 값 옆에 심각도 형태(●/▲/■)를 병기한다.
- * alarm은 위험 타일을 톤 보더 + 좌측 상태 레일로 승격해 균일 격자에서 경보를 도드라지게 한다.
- * meter는 지정 시에만 렌더하되 고정 높이 프리미티브라 갱신 시프트 0.
+ * hero는 화면당 단일 대표 지표에만 쓰고, meter는 고정 높이 프리미티브라 갱신 시프트 0이다.
  */
 export function StatTile({
   label,

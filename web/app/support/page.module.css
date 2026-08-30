@@ -10,10 +10,8 @@
   gap: var(--space-5);
 }
 
-/* 높이는 stretch다. start로 두면 문의가 없을 때 오른쪽 카드가 110px로 주저앉아
-   폼(555px) 옆에서 만들다 만 화면으로 읽힌다. 두 열은 한 덩어리로 보여야 한다.
-   폼만 align-self로 빼둔다. 문의가 쌓여 행이 커질 때 폼까지 늘어나면 짧은 폼 아래로
-   빈 카드가 길게 남는다. 늘어나는 쪽은 목록이지 폼이 아니다 */
+/* 높이는 stretch다. start로 두면 문의가 없을 때 오른쪽 카드가 주저앉아 폼 옆에서 만들다 만
+   화면이 된다. 폼만 align-self로 뺀다. 늘어나는 쪽은 목록이지 폼이 아니다 */
 .grid {
   display: grid;
   grid-template-columns: 420px minmax(0, 1fr);

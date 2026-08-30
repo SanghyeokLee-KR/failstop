@@ -122,10 +122,6 @@ class EngineDeterminismPropertyTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // 주문 타입 확장(POST_ONLY/IOC/FOK/BEST): 결정론 + 보존 + 비게시 종단
-    // ------------------------------------------------------------------
-
     @Property(tries = 300)
     void typedOrdersPreserveDeterminismConservationAndNonResting(
             @ForAll("typedCommandSequences") List<OrderCommand> commands) {

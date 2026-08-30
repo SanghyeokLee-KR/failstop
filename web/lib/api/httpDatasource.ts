@@ -1,12 +1,7 @@
 /**
- * lib/api/httpDatasource.ts. Spring 실서버 어댑터 (REST fetch + STOMP).
- * DataSource 인터페이스 구현. 화면 코드 무수정 원칙(웹_화면명세서 §6).
- * - REST: 엔벌로프 {data, pagination}(API §2-2), 표준 에러 {error:{name,...}}(§2-3) 파싱.
- *   금액·수량은 문자열 그대로 통과(NUMERIC(40,18), parseFloat 금지).
- * - STOMP: /ws/v1, 채널별 seq 단조 검사. gap 시 REST 재동기화, epoch 변경 시 전 채널
- *   강제 재동기화(§5-2). orderbook은 구독 즉시 서버 snapshot 1건이 연속성 기준점.
- * - 인증: 데모 세션(POST /api/v1/demo/session, §3-7) 단기 JWT를 메모리에만 보관.
- *   만료·401 시 재발급 후 1회 재시도. 비공개 채널은 CONNECT 헤더 Bearer.
+ * Spring 실서버 어댑터(REST fetch + STOMP). 금액·수량은 문자열 그대로 통과한다(parseFloat 금지).
+ * 채널별 seq 단조 검사에서 gap이면 REST 재동기화, epoch 변경이면 전 채널 강제 재동기화다(§5-2).
+ * 데모 세션 단기 JWT는 메모리에만 두고 만료·401 시 재발급 후 1회 재시도한다(§3-7).
  */
 
 import { Client, TickerStrategy, type IMessage } from "@stomp/stompjs";
@@ -49,9 +44,8 @@ const EFFECT_CONFIG_PATH = "/api/v1/exchange-config";
 const EFFECT_LEVELS: EffectLevel[] = ["off", "subtle", "normal", "strong"];
 
 /**
- * §4-A-6 응답 {schema_version, trade_flash}을 EffectConfig로 좁힌다.
- * trade_flash=auto는 UI 자체 관측 파생 지시(mode:auto), 그 외 열거값은 관리자 고정 강도(mode:manual).
- * 누락·비정상 값은 안전 폴백(DEFAULT_EFFECT_CONFIG).
+ * trade_flash=auto는 UI 자체 관측 파생 지시이고, 그 외 열거값은 관리자 고정 강도다(§4-A-6).
+ * 누락·비정상 값은 DEFAULT_EFFECT_CONFIG로 폴백한다.
  */
 function coerceEffectConfig(json: unknown): EffectConfig {
   const flash = (json as { trade_flash?: unknown } | null | undefined)?.trade_flash;
@@ -83,9 +77,8 @@ export class ApiError extends Error {
 const GENERIC_ERROR_MESSAGE = "요청 실패. 잠시 후 다시 시도 필요";
 
 /**
- * fetch 자체 거부(백엔드 다운·오프라인·CORS) 래핑. 호출측 취소(AbortSignal)는 흐름 제어라
- * 원형을 보존하고, 그 외에는 브라우저 원문(영문 'Failed to fetch' 등)이 토스트에 노출되지
- * 않도록 표준 에러로 래핑한다(§2-3 한국어 메시지 계약)
+ * 호출측 취소(AbortSignal)는 흐름 제어라 원형을 보존한다.
+ * 그 외에는 브라우저 원문이 토스트에 노출되지 않도록 표준 에러로 래핑한다(§2-3 한국어 메시지 계약).
  */
 function wrapNetworkError(e: unknown): never {
   if ((e as { name?: string } | null)?.name === "AbortError") throw e;
@@ -142,9 +135,8 @@ function unwrapList<T>(json: unknown, path: string): T[] {
 }
 
 /**
- * 원가 필드 보정(§4-C-1 v2.21). 미노출 서버(v2.20 이하)를 만나면 원가 미상으로 읽는다.
- * 결측을 0으로 채우면 원가 확보 수량이 0이라 화면이 손익 산출 불가로 그린다. 이것이 안전한
- * 열화다. 반대로 avg_buy_price만 믿으면 원가 0 기준 전액 수익으로 오표시된다.
+ * 원가 필드 미노출 서버를 만나면 원가 미상으로 읽는다(§4-C-1). 결측을 0으로 채우면 화면이
+ * 손익 산출 불가로 그리는 안전한 열화지만, avg_buy_price만 믿으면 전액 수익으로 오표시된다.
  */
 function normalizeCostFields(a: Asset): Asset {
   if (typeof a.cost_basis_qty === "string" && typeof a.cost_basis_amount === "string") return a;
@@ -255,9 +247,8 @@ function parseDest(destination: string): ParsedDest {
 }
 
 /**
- * 인메모리 카운터로 실현되는 채널(§5-2 seq 도메인 실현·epoch 규칙). 두 성질을 함께 갖는다.
- * 채널당 seq가 +1로 조밀해 결번이 실제 유실이고, 리더 교체 시 카운터가 낮은 값에서 재시작한다.
- * trade·candle은 전역 영속 event_seq 실현이라 채널 관점 비연속이 정상이고 교체로 리셋되지 않는다.
+ * 인메모리 카운터로 실현되는 채널(§5-2). seq가 +1로 조밀해 결번이 실제 유실이고,
+ * 리더 교체 시 카운터가 낮은 값에서 재시작한다. trade·candle은 전역 영속 event_seq라 여기 없다.
  */
 const DENSE_KINDS = new Set(["orderbook", "ticker", "myOrder", "myAsset"]);
 
@@ -274,9 +265,8 @@ function sumUnitSizes(units: Array<{ ask_size?: string; bid_size?: string }>, ke
 }
 
 /**
- * §5-4 orderbook 채널 문면에는 total_ask_size·total_bid_size가 없다(REST §4-A-2 한정).
- * 현 서버는 REST 본문 공용으로 WS에도 싣지만, 문면 준수 서버가 생략하면 하단 총잔량 표시가
- * 0으로 열화된다. 와이어 경계에서 부재 시 orderbook_units 합산으로 채워 계약 밖 의존을 끊는다.
+ * §5-4 orderbook 문면에는 total_ask_size·total_bid_size가 없다(REST §4-A-2 한정).
+ * 문면 준수 서버가 생략하면 총잔량이 0으로 열화되므로 와이어 경계에서 orderbook_units 합산으로 채운다.
  */
 function ensureOrderbookTotals(msg: OrderbookMessage): void {
   const m = msg as OrderbookMessage & { total_ask_size?: string; total_bid_size?: string };
@@ -285,8 +275,6 @@ function ensureOrderbookTotals(msg: OrderbookMessage): void {
   if (m.total_ask_size == null) m.total_ask_size = sumUnitSizes(units, "ask_size");
   if (m.total_bid_size == null) m.total_bid_size = sumUnitSizes(units, "bid_size");
 }
-
-/* ===== 채널 상태 ===== */
 
 type Listener = (msg: WsMessage) => void;
 
@@ -366,8 +354,6 @@ export class HttpStompDataSource implements DataSource {
     this.stompFactory = options.stompFactory ?? defaultStompFactory;
   }
 
-  /* ===== REST 코어 ===== */
-
   private async http<T>(path: string, init: RequestInit = {}, auth = false): Promise<T> {
     const isWrite = (init.method ?? "GET").toUpperCase() !== "GET";
     const run = async (token: string | null) => {
@@ -381,11 +367,9 @@ export class HttpStompDataSource implements DataSource {
         wrapNetworkError(e);
       }
     };
-    // 토큰 확보. 회원 기원 쓰기는 refresh 실패 시 데모 계정으로 재집행하지 않는다.
-    // 데모 폴백은 §4-1 둘러보기(읽기) 연속성 의도다. 회원 주문(placeOrder·cancelOrder)을
-    // 데모 계정 Bearer로 실행하면 사용자 의도와 다른 계정 집행이라 계약 위반이다.
-    // 회원이 있었는데 토큰 확보 후 사라졌으면(refresh 실패로 clearMember) 데모로 강등된 것이므로,
-    // 쓰기는 요청을 보내지 않고 session_expired로 표면화해 재로그인을 유도한다.
+    // 회원 기원 쓰기는 refresh 실패 시 데모 계정으로 재집행하지 않는다. 데모 폴백은 §4-1
+    // 둘러보기(읽기) 연속성 의도라, 회원 주문을 데모 Bearer로 집행하면 계약 위반이다.
+    // 토큰 확보 후 회원이 사라졌으면 데모로 강등된 것이므로 session_expired로 표면화한다.
     const authorize = async (force: boolean): Promise<string> => {
       const wasMember = this.member !== null;
       const token = await this.ensureAuthToken(force);
@@ -507,11 +491,9 @@ export class HttpStompDataSource implements DataSource {
     try {
       return unwrapList<Candle>(await this.http(`/api/v1/candles/${unit}?${q}`, { signal }), "/candles");
     } catch (e) {
-      // 캔들은 표시 전용 피드다. 미구현·조회 실패(4xx/5xx)·비정상 엔벌로프는 빈 배열로
-      // 흡수해 화면이 에러 대신 빈 상태를 그리게 한다. 구현되면 정상 데이터로 전환된다.
-      // 무진단 흡수는 지속 5xx·스키마 드리프트를 흔적 없이 묻으므로 흡수 지점에 진단
-      // 로그를 남긴다(UX는 빈 상태 유지). invalid_envelope는 백엔드 스키마 결함이라
-      // 예상 범위인 조회 실패와 분리해 error로 올린다.
+      // 캔들은 표시 전용 피드라 조회 실패를 빈 배열로 흡수해 화면이 빈 상태를 그리게 한다.
+      // 무진단 흡수는 지속 5xx·스키마 드리프트를 묻으므로 흡수 지점에 진단 로그를 남기고,
+      // invalid_envelope는 백엔드 스키마 결함이라 예상 범위인 조회 실패와 분리해 error로 올린다.
       if (e instanceof ApiError) {
         const where = `candles ${unit} ${market}`;
         if (e.code === "invalid_envelope") {
@@ -593,10 +575,8 @@ export class HttpStompDataSource implements DataSource {
     ch.subscribers.set(cb, (ch.subscribers.get(cb) ?? 0) + 1);
     if (this.stompConnected && !ch.stompUnsub) this.attachStomp(destination, ch);
     if (destination.startsWith("/user/") && this.canUpgradeAuth()) void this.upgradeAuth();
-    // 구독 즉시 스냅샷 1건 계약(DataSource 계약). 서버 push는 orderbook 한정이라
-    // ticker·myAsset은 REST로 합성해 신규 구독자에게만 전달한다.
-    // 핸들별 컨트롤러로 unsubscribe가 in-flight 스냅샷 fetch를 실제로 취소한다(결과 폐기만으로는
-    // 빠른 마켓 전환 반복 시 미취소 요청이 커넥션 큐를 점유한다)
+    // 구독 즉시 스냅샷 1건 계약. 서버 push는 orderbook 한정이라 ticker·myAsset은 REST로 합성한다.
+    // 핸들별 컨트롤러로 unsubscribe가 in-flight 스냅샷 fetch를 실제로 취소한다(결과 폐기만으로는 요청이 큐를 점유한다)
     const snapshotAbort = new AbortController();
     void this.deliverInitialSnapshot(destination, cb, snapshotAbort.signal);
     // 핸들은 one-shot. done 없이 감산만 하면 같은 (destination, cb) 구독 2건 상태에서 첫 핸들의
@@ -760,10 +740,8 @@ export class HttpStompDataSource implements DataSource {
       if (!body.access_token) throw new ApiError(0, "invalid_envelope", "갱신 응답에 access_token 없음");
       token = body.access_token;
     } catch (e) {
-      // 401·403(만료·부재·재사용 탐지)만 세션 종료로 수렴해 재로그인 전까지 재요청을 억제한다(§3-4).
-      // 네트워크·5xx·429 일시 장애는 member를 해제하면 재시도 트리거(ensureAuthToken·커뮤니티 401
-      // 경로)가 전부 소멸해 유효 rt 쿠키를 갖고도 데모로 강등된다. 세션을 유지한 채 원 오류를
-      // 표면화하고, 다음 트리거에서 자연 재시도한다.
+      // 401·403만 세션 종료로 수렴해 재로그인 전까지 재요청을 억제한다(§3-4).
+      // 네트워크·5xx·429에서 member를 해제하면 유효 rt 쿠키를 갖고도 데모로 강등되므로 세션을 유지한다.
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         this.clearMember();
         this.refreshBlocked = true;
@@ -836,9 +814,8 @@ export class HttpStompDataSource implements DataSource {
   /* ===== 입출금 (§4-E) ===== */
 
   /**
-   * 요청. Idempotency-Key는 호출부가 소유한다. 재시도 시 같은 키를 재사용해야 서버
-   * UNIQUE(user_id, idem_key)가 중복 요청을 하나로 접는다. 여기서 키를 만들면 재시도마다
-   * 새 키가 되어 멱등이 무의미해진다(주문 client_order_id와 같은 소유 규칙, §2-4).
+   * Idempotency-Key는 호출부가 소유한다. 재시도 시 같은 키를 재사용해야 서버
+   * UNIQUE(user_id, idem_key)가 중복 요청을 하나로 접는다(주문 client_order_id와 같은 소유 규칙, §2-4).
    */
   async requestTransfer(input: TransferInput, idemKey: string): Promise<TransferRequest> {
     return this.http<TransferRequest>(
@@ -878,8 +855,6 @@ export class HttpStompDataSource implements DataSource {
       this.memberListeners.delete(cb);
     };
   }
-
-  /* ===== STOMP 내부 ===== */
 
   private handleConnect(): void {
     this.stompConnected = true;
@@ -1011,11 +986,8 @@ export class HttpStompDataSource implements DataSource {
       return;
     }
 
-    // 채널별 seq 게이트 분기(서버 커밋 e4eea73).
-    // trade·candle은 event_seq 도메인(전역 단조·채널당 비연속, 백엔드_API_설계 §4-A-3·§5-2)이라
-    // 채널 관점에서 seq가 +1로 조밀하지 않다. 이 채널에 +1 gap 게이트를 적용하면 정상 증가마다
-    // 재동기화 churn이 난다. 따라서 strictly-increasing만 검사한다: msg.seq > lastSeq면 적용하고
-    // 기준점을 올리고, msg.seq <= lastSeq는 중복·되돌이로 드롭한다. gap 재동기화를 걸지 않는다.
+    // trade·candle은 event_seq 도메인이라 채널 관점에서 seq가 +1로 조밀하지 않다(§4-A-3, §5-2).
+    // +1 gap 게이트를 걸면 정상 증가마다 재동기화 churn이 나므로 strictly-increasing만 검사한다.
     if (parsed.kind === "trade" || parsed.kind === "candle") {
       if (msg.seq <= ch.lastSeq) return; // 중복·되돌이 드롭
       ch.lastSeq = msg.seq;
@@ -1042,10 +1014,8 @@ export class HttpStompDataSource implements DataSource {
   private resyncAll(): void {
     for (const [destination, ch] of this.channels) {
       const kind = parseDest(destination)?.kind;
-      // 리더 교체가 리셋하는 것은 인메모리 카운터 실현뿐이다. 그 채널은 기준점을 비워야
-      // 새 도메인의 낮은 seq가 전진 가드에 걸려 드롭되지 않는다(전진 가드는 동일 epoch 한정).
-      // trade·candle은 전역 영속 event_seq라 기준점을 유지한다. 비우면 재동기화가 기수신
-      // 체결을 새 epoch로 재전달해 캔들 합성이 이중계상한다
+      // 리더 교체가 리셋하는 것은 인메모리 카운터 실현뿐이라 그 채널만 기준점을 비운다
+      // (전진 가드는 동일 epoch 한정). trade·candle은 비우면 재동기화가 기수신 체결을 이중계상한다
       if (kind !== undefined && DENSE_KINDS.has(kind)) ch.lastSeq = null;
       // 진행 중 재동기화도 다시 건다. 구 리더 응답이 새 도메인의 기준점이 되면 안 된다
       this.startResync(destination, ch);
@@ -1118,10 +1088,8 @@ export class HttpStompDataSource implements DataSource {
       case "orderbook": {
         const snap = await this.getOrderbook(parsed.market, signal);
         if (!this.resyncFresh(ch, gen)) return;
-        // 교체 직후 뒤처진 노드가 구 세대 스냅샷을 주면 그것이 새 기준점이 되는 순간 신 리더
-        // 실시간이 전부 드롭된다. orderbook REST는 epoch를 싣는다(§4-A-2). 세대가 다르면
-        // 채택하지 않고 다음 realtime이 기준점을 잡게 둔다. ticker는 REST 응답 계약(§4-A-4)에
-        // epoch가 없어 같은 방어를 할 수 없다(현 서버는 계약 밖으로 싣지만 의존하지 않는다)
+        // 교체 직후 뒤처진 노드의 구 세대 스냅샷이 기준점이 되면 신 리더 실시간이 전부 드롭된다.
+        // orderbook REST는 epoch를 싣는다(§4-A-2). ticker는 REST 계약(§4-A-4)에 epoch가 없어 같은 방어를 못 한다
         if (this.lastEpoch !== null && snap.epoch !== this.lastEpoch) return;
         // 기준점은 전진만 한다. REST가 WS보다 뒤처진 노드를 읽으면 기준점이 내려가
         // 이미 보여준 호가가 과거로 되돌고, 이어지는 실시간이 결번으로 재동기화를 부른다
@@ -1139,12 +1107,9 @@ export class HttpStompDataSource implements DataSource {
         return;
       }
       case "trade": {
-        // 놓친 체결만 오래된 순으로 재전달. trade 채널은 REST 스냅샷과 WS 실시간이 동일 event_seq
-        // 도메인을 쓴다(백엔드_API_설계 §4-A-3, §5-2). 따라서 prevSeq(WS 기준점)로 이미 본 체결을
-        // 거르고, lastSeq를 REST seq로 올려도 이어지는 실시간 seq와 단조성이 유지된다.
-        // 재전달 상한은 스토어 테이프 상한과 같은 값이다. 이보다 작으면 테이프를 가득 유실한
-        // 재연결에서 빈 자리가 남는다. 재연결 경로는 restoreChannels가 기준점을 비워 prevSeq가
-        // null이므로 이 건수가 그대로 흐른다. 기수신 중복은 스토어 trade_id와 차트 dedup이 막는다
+        // trade는 REST 스냅샷과 WS 실시간이 같은 event_seq 도메인이라(§4-A-3, §5-2) prevSeq로 이미 본
+        // 체결을 거르고 lastSeq를 REST seq로 올려도 단조성이 유지된다. 재전달 상한은 스토어 테이프
+        // 상한과 같은 값이다. 이보다 작으면 테이프를 가득 유실한 재연결에서 빈 자리가 남는다
         const trades = await this.getTrades(parsed.market, TRADE_TAPE_LIMIT, signal);
         if (!this.resyncFresh(ch, gen)) return;
         const missed = trades
@@ -1157,11 +1122,8 @@ export class HttpStompDataSource implements DataSource {
         return;
       }
       case "candle": {
-        // 예약 경로. 프론트는 현재 /topic/candle.* 를 구독하지 않고 candleStream이 체결(trade)로
-        // 캔들을 클라이언트 합성한다. 따라서 이 재동기화 분기와 서버 publishCandles·candle seq
-        // 계약은 현재 도달 불가다. 라이브 캔들 채널 배선 시 candleStream 교체와 함께 활성화한다.
-        // candle 채널도 REST와 WS가 동일 event_seq 도메인(§5-2). 최신 캔들 seq를 기준점으로
-        // 삼으면 이어지는 실시간 캔들이 단조 검사에 걸리지 않고 이어진다.
+        // 예약 경로. 프론트는 /topic/candle.*를 구독하지 않고 candleStream이 체결로 캔들을 합성한다.
+        // candle도 REST와 WS가 같은 event_seq 도메인이라(§5-2) 최신 캔들 seq를 기준점으로 삼는다.
         const [c] = await this.getCandles(parsed.market, parsed.unit, 1, signal);
         if (!c || !this.resyncFresh(ch, gen)) return;
         if (ch.lastSeq !== null && c.seq <= ch.lastSeq) return; // 기준점 전진만
@@ -1170,11 +1132,9 @@ export class HttpStompDataSource implements DataSource {
         return;
       }
       case "myOrder": {
-        // 채널 seq 도메인(user×type)은 REST에 없음 → 상태만 복원, 기준점은 다음 realtime.
-        // open만 복원하면 gap 구간에 종결된 주문의 종결 통지가 유실된다. closed도 함께
-        // 재전달해 스토어가 open→closed 전이를 확정한다(§5-2 myOrder 스냅샷 부재 보완).
-        // 재동기는 끊긴 구간을 메우는 것이라 첫 쪽이면 충분하다. 아카이브 전체를 다시
-        // 흘려보내면 gap이 길수록 재연결 비용이 커지고, 오래된 종결 통지는 이미 반영돼 있다
+        // myOrder 채널 seq 도메인은 REST에 없어 상태만 복원하고 기준점은 다음 realtime이 잡는다.
+        // open만 복원하면 gap 구간 종결 통지가 유실되므로 closed도 재전달한다(§5-2 스냅샷 부재 보완).
+        // 재동기는 끊긴 구간을 메우는 것이라 첫 쪽이면 충분하다
         const [open, closed] = await Promise.all([
           this.getOpenOrders(undefined, signal),
           this.getClosedOrders({}, signal),
@@ -1224,8 +1184,6 @@ export class HttpStompDataSource implements DataSource {
       // 초기 스냅샷 실패는 realtime 수신으로 수렴
     }
   }
-
-  /* ===== 메시지 합성 ===== */
 
   private tickerToMessage(t: Ticker, stream: "snapshot" | "realtime"): TickerMessage {
     const { seq, timestamp, ...rest } = t;

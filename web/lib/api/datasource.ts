@@ -1,8 +1,6 @@
 /**
- * lib/api/datasource.ts. 데이터 소스 추상화.
- * 구현은 SimDataSource(클라이언트 시뮬레이터)와 HttpStompDataSource(Spring REST/STOMP) 둘.
- * NEXT_PUBLIC_DATASOURCE 환경 변수로 선택하며 기본은 sim(데모 안정성).
- * 메서드·채널 시그니처는 API 계약(§4, §5)을 그대로 미러한다.
+ * 데이터 소스 추상화. 구현은 SimDataSource와 HttpStompDataSource 둘이고
+ * NEXT_PUBLIC_DATASOURCE로 고른다(기본 sim). 시그니처는 API 계약(§4, §5)을 그대로 미러한다.
  */
 
 import type {
@@ -44,17 +42,13 @@ export interface DataSource {
   getCandles(market: string, unit: CandleUnit, count?: number, signal?: AbortSignal): Promise<Candle[]>;
   getAccounts(signal?: AbortSignal): Promise<Asset[]>;
   /**
-   * 미체결 주문. 페이지를 나누지 않는다.
-   *
-   * 이것은 아카이브가 아니라 작업 집합이다. 사용자가 지금 걸어둔 주문 전부를 보고 취소를
-   * 판단하는 목록이라 일부만 보여주면 목적을 잃는다. 수도 자본으로 유계다.
+   * 미체결 주문. 아카이브가 아니라 작업 집합이라 페이지를 나누지 않는다.
+   * 지금 걸어둔 주문 전부를 보고 취소를 판단하는 목록이고, 수는 자본으로 유계다.
    */
   getOpenOrders(market?: string, signal?: AbortSignal): Promise<Order[]>;
   /**
    * 체결·취소 주문 한 쪽. 커서는 §2-6 opaque.
-   *
-   * 미체결과 달리 체결마다 영구히 쌓이는 아카이브다. 서버는 커서를 발급하는데 종전 프론트가
-   * unwrapList로 pagination을 버려, 기본 100건 밖의 주문에 도달할 방법이 없었다.
+   * 미체결과 달리 영구히 쌓이는 아카이브라, pagination을 버리면 기본 100건 밖에 도달할 수 없다.
    */
   getClosedOrders(opts?: { market?: string; cursor?: string | null; limit?: number },
                   signal?: AbortSignal): Promise<Page<Order>>;
@@ -62,10 +56,8 @@ export interface DataSource {
   cancelOrder(idOrClientId: string): Promise<Order>;
 
   /**
-   * 공지 한 쪽(§4-F). 무인증 읽기. active인 공지만, 최신순. 커서는 §2-6 opaque.
-   *
-   * 배너·미읽음 표식은 첫 쪽만 쓰고, 목록 화면만 커서를 따라간다. 전역 상태가 아카이브
-   * 전체를 들고 있을 이유가 없다.
+   * 공지 한 쪽(§4-F). 무인증 읽기, active만, 최신순. 커서는 §2-6 opaque.
+   * 배너·미읽음 표식은 첫 쪽만 쓰고 목록 화면만 커서를 따라간다.
    */
   getNotices(opts?: { cursor?: string | null; limit?: number }): Promise<Page<PublicNotice>>;
 
@@ -120,12 +112,8 @@ export interface DataSource {
 }
 
 /**
- * 데모 회원 로컬 흐름용 검증.
- *
- * 자체 정규식을 두지 않고 lib/auth/memberInputs를 경유한다. 그 파일은 서버
- * MemberInputs.java의 미러다. sim이 느슨한 자체 규칙을 들면 sim에서 가입되는 계정이
- * http에서는 거절돼 데이터 소스만 바꿔도 동작이 갈린다. 여기 있던
- * /^[^\s@]+@[^\s@]+\.[^\s@]+$/는 실제로 a..b@x.com과 .a@x.com을 통과시켰다.
+ * 자체 정규식을 두지 않고 lib/auth/memberInputs를 경유한다. 그 파일은 서버 MemberInputs.java의
+ * 미러라, sim이 느슨한 자체 규칙을 들면 sim에서 가입되는 계정이 http에서 거절된다.
  */
 const MAX_DISPLAY_NAME_LEN = 32;
 
@@ -173,9 +161,8 @@ export class SimDataSource implements DataSource {
   constructor(private engine: SimEngine) {}
 
   /* ===== 회원 세션(데모 로컬 흐름) =====
-   * 인메모리 레지스트리. 비밀번호는 저장소·로그로 나가지 않고 이 datasource 싱글턴 수명 동안만
-   * 메모리에 둔다(로그아웃해도 members는 잔존, 재로그인 검증용). 새로고침 시 싱글턴이 재생성돼
-   * 레지스트리·세션이 함께 소멸한다(데모 한계, §4-5). */
+   * 인메모리 레지스트리. 비밀번호는 저장소·로그로 나가지 않고 싱글턴 수명 동안만 메모리에 둔다.
+   * 새로고침으로 싱글턴이 재생성되면 레지스트리·세션이 함께 소멸한다(데모 한계, §4-5). */
   private members = new Map<string, { password: string; user: MemberUser }>();
   private memberSession: MemberSession | null = null;
   /** 입출금 요청 로컬 저장소. 새로고침하면 사라진다(sim은 메모리 전용) */
@@ -348,9 +335,8 @@ export class SimDataSource implements DataSource {
   /* ===== 입출금 (§4-E) ===== */
 
   /**
-   * 서버 상태 기계를 로컬에서 그대로 재현한다. 입금은 즉시 COMPLETED, 출금은 잠근 뒤
-   * REQUESTED로 남는다. sim에는 운영자가 없으므로 출금 승인은 화면에서 확인할 수 없고,
-   * 요청·잠금·취소까지가 재현 범위다. 그 경계를 흐리지 않으려고 자동 승인은 넣지 않는다.
+   * 서버 상태 기계를 로컬에서 재현한다. 입금은 즉시 COMPLETED, 출금은 잠근 뒤 REQUESTED로 남는다.
+   * sim에는 운영자가 없어 재현 범위는 요청·잠금·취소까지고, 경계를 흐리지 않으려 자동 승인을 넣지 않는다.
    */
   async requestTransfer(input: TransferInput, idemKey: string): Promise<TransferRequest> {
     const key = String(idemKey ?? "").trim();

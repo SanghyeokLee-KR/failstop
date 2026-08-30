@@ -268,13 +268,10 @@ public class MarketDataService {
     public List<Map<String, Object>> candles(MarketDirectory.Market market, String unit,
                                              int count, Cursors.Cursor cursor) {
         long sec = UNIT_SECONDS.get(unit);
-        // 첫 페이지는 시각 하한을 두지 않는다. 하한(count 창의 배수)은 밀도 낮은 마켓의 sparse
-        // 이력을 잘라 count 미만이 반환되고 has_more가 조기 false로 떨어져 페이지네이션이 조기
-        // 종료됐다. 정확성(페이지 완결) > 성능이라 첫 페이지는 마켓 이력 전체를 버킷 집계한다.
-        // 커서가 있으면(더 과거 페이지) 스캔에 created_at 상한을 준다. 상한은 cursor.ts + 한
-        // 버킷이라 넘겨 담기는 체결은 전부 HAVING이 버리는 버킷(candle_time >= cursor.ts)에만
-        // 속해 유지 버킷 집계를 바꾸지 않는다. 결과 불변 + created_at 파티션 프루닝으로 깊은
-        // 페이지의 스캔 범위를 좁힌다. created_at 축은 파티션 키·인덱스.
+        // 첫 페이지는 시각 하한을 두지 않는다. 하한을 두면 밀도 낮은 마켓의 sparse 이력이 잘려
+        // has_more가 조기 false가 된다. 커서가 있으면 상한(cursor.ts + 한 버킷)을 줘 created_at
+        // 파티션 프루닝을 붙인다. 넘겨 담기는 체결은 전부 HAVING이 버리는 버킷에만 속해 결과가
+        // 불변이다.
         List<Object> params = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
                 "WITH bucketed AS (\n"

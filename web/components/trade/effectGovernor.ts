@@ -6,8 +6,6 @@
 
 import type { EffectLevel } from "../../lib/types";
 
-/* ===== 강도 단계 순서 ===== */
-
 export const LEVEL_ORDER: EffectLevel[] = ["off", "subtle", "normal", "strong"];
 
 export function levelIndex(level: EffectLevel): number {
@@ -24,8 +22,6 @@ export function levelFromIndex(index: number): EffectLevel {
 export function downgradeLevel(level: EffectLevel, steps: number): EffectLevel {
   return levelFromIndex(levelIndex(level) - Math.max(0, steps));
 }
-
-/* ===== 체결률 EWMA ===== */
 
 export interface RateState {
   /** 체결 간격 EWMA(ms). null이면 미측정 */
@@ -59,8 +55,6 @@ export function currentRate(state: RateState, now: number): number {
   const effectiveInterval = Math.max(state.ewmaInterval, now - state.lastTs);
   return effectiveInterval > 0 ? 1000 / effectiveInterval : 0;
 }
-
-/* ===== 밀도 밴드(히스테리시스) ===== */
 
 // 상향 진입 임계(초당 건수). 밴드 k에서 이 값을 넘으면 k+1로 진입
 export const BAND_UP = [5, 20, 60];
@@ -106,8 +100,6 @@ export function effectiveLevel(configLevel: EffectLevel, gov: GovernorResult): E
   if (gov.flood) return "off";
   return downgradeLevel(configLevel, gov.downgradeSteps);
 }
-
-/* ===== 대형 체결 중앙값 판정 ===== */
 
 /** 오름차순 정렬 배열의 중앙값. 빈 배열은 0 */
 export function medianOf(sortedAsc: number[]): number {

@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * 대형 주문 확인 다이얼로그 (§2.5 오발주 방지).
- * 임계 이상 주문에서만 뜬다. 임계 미만은 OrderPanel의 인라인 2단계 흐름을 그대로 쓴다.
- * 포커스 관리는 ReportDialog 규약 재사용: 포커스 트랩·Escape·배경 inert·복귀.
- * 방향은 색 단독 금지. 라벨 텍스트(매수/매도)와 버튼 톤을 병기한다.
+ * 임계 이상 주문에서만 뜨고, 임계 미만은 OrderPanel의 인라인 2단계 흐름을 쓴다(§2.5).
+ * 포커스 트랩·Escape·배경 inert·복귀는 ReportDialog 규약을 재사용하고, 방향은 라벨과 톤을 병기한다.
  */
 
 import { useEffect, useId, useRef } from "react";

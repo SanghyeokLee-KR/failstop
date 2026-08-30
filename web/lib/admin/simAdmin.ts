@@ -1,8 +1,6 @@
 /**
- * lib/admin/simAdmin.ts. 관리 평면 데모 시뮬레이터. 런타임 외부 의존 0.
- * mTLS 세션·2인 승인·HA/불변식/복구 모니터링·봇·카오스·설정·감사를 인메모리로 재현한다.
- * 데모 인증서 2종(op-01, op-02)으로 반결탁을 실제로 시연한다.
- * 요청 운영자와 승인 운영자가 같으면 승인이 반려된다(§1-3 (a)~(c)).
+ * 관리 평면 데모 시뮬레이터. 런타임 외부 의존 0.
+ * 데모 인증서 2종(op-01, op-02)으로 반결탁을 시연한다. 요청자와 승인자가 같으면 반려된다(§1-3).
  */
 
 import { isoNow } from "../format";
@@ -107,10 +105,8 @@ interface BiasState {
 }
 
 /**
- * sim 커서 페이지. 서버와 같은 의미를 갖되 인코딩만 단순하다. 마지막으로 본 항목의 id다.
- *
- * 없는 커서를 조용히 첫 쪽으로 되돌리지 않는다. 서버는 400을 주므로, 여기서 관대하면
- * sim에서만 통과하는 화면 코드가 생긴다.
+ * sim 커서는 마지막으로 본 항목의 id다. 없는 커서를 조용히 첫 쪽으로 되돌리지 않는다.
+ * 서버는 400을 주므로, 여기서 관대하면 sim에서만 통과하는 화면 코드가 생긴다.
  */
 function simPage<T, R>(rows: T[], opts: PageOpts, idOf: (row: T) => string,
                        project: (row: T) => R): AdminPage<R> {
@@ -131,11 +127,9 @@ function simPage<T, R>(rows: T[], opts: PageOpts, idOf: (row: T) => string,
 }
 
 /**
- * 복구 이력에서 전체 판정을 낸다. 서버 verdict와 같은 규칙이다(API§6-C).
- *
- * 표가 비면 UNKNOWN이다. 판정 대상이 없는데 통과를 내면 공허 통과다. 하나라도 비PASS면
- * FAIL이고, 이때 창을 좁혀 최신 1행만 보면 과거 실패가 화면에서 사라진다. 그것이 서버가
- * 전역 집계로 바꾼 이유이고 화면도 같은 규칙이어야 두 축이 갈리지 않는다.
+ * 복구 이력에서 전체 판정을 낸다. 서버 verdict와 같은 규칙이다(API §6-C).
+ * 표가 비면 UNKNOWN이다. 판정 대상이 없는데 통과를 내면 공허 통과다.
+ * 하나라도 비PASS면 FAIL이다. 창을 좁혀 최신 1행만 보면 과거 실패가 화면에서 사라진다.
  */
 export function aggregateVerdict(runs: readonly RecoveryRun[]): RecoveryVerdict {
   if (runs.length === 0) {
@@ -193,7 +187,7 @@ export class SimAdminApi implements AdminApi {
   ];
   private epoch = 7;
   // 재생 소요 실측 분포(2026-08-30, n=34: min 40 · p50 73 · max 159ms)를 미러한 시드 6건.
-  // 종전 값 9~24초는 페일오버 RTO 대역이라 다른 축이었다. 단건 시드는 RtoSpark가 접힌다
+  // 초 단위 페일오버 RTO 대역은 다른 축이다. 단건 시드는 RtoSpark가 접힌다
   private recovery: RecoveryRun[] = [
     { hoursAgo: 1, durationMs: 159, from: 148_001, to: 148_120 },
     { hoursAgo: 5, durationMs: 73, from: 147_410, to: 147_512 },
@@ -325,11 +319,8 @@ export class SimAdminApi implements AdminApi {
   }
 
   /**
-   * 실험이 노드 헬스에 남기는 효과(§2-2 데모 결합). 주입이 화면에 보이지 않으면
-   * 카오스 콘솔이 상태 기계 없는 목록으로 전락한다.
-   * E4·E6: 리더 사망 → tick이 failover를 일으키고 죽은 노드는 해제 전까지 중단.
-   * E5·E7: 성능 저하(분할·일시 정지) → 팔로워 또는 리더 degraded.
-   * 나머지(E1·E2·E3·E8·E9)는 노드가 아니라 지표 압력으로만 나타난다(getHaStatus).
+   * 실험이 노드 헬스에 남기는 효과(§2-2 데모 결합).
+   * 주입이 화면에 보이지 않으면 카오스 콘솔이 상태 기계 없는 목록으로 전락한다.
    */
   private applyChaosNodeEffect(experimentId: string): void {
     if (experimentId === "E4" || experimentId === "E6") {
@@ -391,8 +382,6 @@ export class SimAdminApi implements AdminApi {
     this.recovery = this.recovery.slice(0, 20);
   }
 
-  /* ===== 인증 ===== */
-
   listDemoCerts(): DemoClientCert[] {
     return this.certs.slice();
   }
@@ -442,8 +431,6 @@ export class SimAdminApi implements AdminApi {
     for (const cb of this.sessionListeners) cb(this.session);
   }
 
-  /* ===== 권한·감사 ===== */
-
   /** 세션 존재만 요구하는 경로용. 역할 요구는 auth()가 담당한다 */
   private requireSession(): AdminSession {
     const s = this.getSession();
@@ -471,8 +458,6 @@ export class SimAdminApi implements AdminApi {
     });
     this.audit = this.audit.slice(0, 200);
   }
-
-  /* ===== 이중 승인 ===== */
 
   /** 원장 프로젝션. token·payload를 제외한 공개 뷰(§6-B) */
   private projectApproval(a: IssuedApproval): ApprovalRequest {
@@ -694,8 +679,6 @@ export class SimAdminApi implements AdminApi {
     return Promise.resolve(simPage(rows, opts, (a) => a.id, (a) => this.projectApproval(a)));
   }
 
-  /* ===== 모니터링 ===== */
-
   private overallHealth(): "success" | "warning" | "danger" {
     if (this.nodes.some((n) => n.health === "down")) return "danger";
     // 진행 중 실험은 지표 압력을 만들므로(getHaStatus) 종합도 최소 주의로 내린다
@@ -766,8 +749,6 @@ export class SimAdminApi implements AdminApi {
     this.auth("VIEW");
     return Promise.resolve(this.invariants.map((i) => ({ ...i })));
   }
-
-  /* ===== 봇 플릿 ===== */
 
   private currentOps(): number {
     if (!this.simRunning || this.simPaused) return 0;
@@ -898,8 +879,6 @@ export class SimAdminApi implements AdminApi {
     this.log(s, "sim.bots.delete", botId, null, "OK");
     return Promise.resolve();
   }
-
-  /* ===== 시장 생동감 ===== */
 
   setFleetScale(market: string, targets: FleetScaleTargets): Promise<FleetScaleResult> {
     const s = this.auth("BOT_OPS");
@@ -1045,8 +1024,6 @@ export class SimAdminApi implements AdminApi {
     return Promise.resolve(tradeFlash);
   }
 
-  /* ===== 카오스 ===== */
-
   getChaosCatalog(): ChaosExperimentDef[] {
     return CHAOS_CATALOG.slice();
   }
@@ -1055,8 +1032,6 @@ export class SimAdminApi implements AdminApi {
     this.auth("VIEW");
     return Promise.resolve(simPage(this.chaosRuns, opts, (r) => r.id, (r) => ({ ...r })));
   }
-
-  /* ===== 마켓 설정 ===== */
 
   getConfigMarkets(): Promise<ConfigMarket[]> {
     this.auth("VIEW");
@@ -1295,9 +1270,8 @@ export class SimAdminApi implements AdminApi {
   }
 
   /* ===== 출금 승인 큐 (§4-E) =====
-   * sim 관리 어댑터는 회원 어댑터(SimDataSource)와 다른 객체라 실제 요청 목록을 공유하지
-   * 못한다. 승인 흐름의 화면·권한·상태 전이를 확인할 수 있도록 씨앗 행을 들고 있는다.
-   * 자금은 여기서 움직이지 않는다. 실제 원장 이동은 http 경로에서만 일어난다. */
+   * 관리 어댑터는 회원 어댑터와 다른 객체라 실제 요청 목록을 공유하지 못한다. 승인 흐름의
+   * 화면·권한·상태 전이 확인용 씨앗 행이고, 실제 원장 이동은 http 경로에서만 일어난다. */
   private transfers: AdminTransfer[] = [
     {
       externalId: "sim-tr-1",
@@ -1409,8 +1383,6 @@ export class SimAdminApi implements AdminApi {
     this.log(s, "config.notice.delete", id, null, "OK");
     return Promise.resolve();
   }
-
-  /* ===== 운영자·감사 ===== */
 
   getOperators(): Promise<AdminOperator[]> {
     this.auth("VIEW");

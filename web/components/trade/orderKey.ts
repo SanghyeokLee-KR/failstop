@@ -1,10 +1,6 @@
 /**
- * 주문 멱등키(client_order_id) 수명주기 (API §2-4, §7-6).
- * 계약: 재시도는 동일 키 재사용, 내용 변경만 새 키, 확정 성공 후 다음 주문은 새 키.
- * 제출 실패(5XX·네트워크·타임아웃)는 키를 보존한다. 상태가 UNKNOWN이므로 동일 키
- * 재전송(또는 by-client 재조회)이 유일한 안전 경로이고, 새 키 발급은 이중접수를 부르는 우회로다.
- * 발급 시점을 arm(1차 확인)이 아니라 제출 확정으로 두어, 실패 후 재확인이 새 키를
- * 발급하던 결함을 차단한다.
+ * 재시도는 동일 키 재사용, 내용 변경만 새 키다(API §2-4, §7-6).
+ * 제출 실패는 상태 UNKNOWN이라 키를 보존하고, 발급 시점은 arm이 아니라 제출 확정이다.
  */
 
 export interface OrderKeyState {
@@ -44,14 +40,8 @@ export function onSubmitFailed(state: OrderKeyState): OrderKeyState {
 }
 
 /**
- * 입력 변경을 dirty에 반영할지 판정한다.
- *
- * 제출 중(in-flight)에는 보류한다. 확정 대상이 바뀌어도 키를 새로 발급하면 5XX 재시도가
- * 이중접수가 되기 때문이다. 보류할 때 서명을 갱신하지 않는 것이 핵심이다. 제출이 끝나 다시
- * 평가될 때 그 변경이 정확히 한 번 반영된다.
- *
- * 제출 종료 자체로도 재평가가 걸리므로, 서명이 같으면 반영하지 않는다. 입력이 그대로인
- * 5XX 재시도까지 dirty로 만들면 새 키가 나가 막으려던 이중접수가 그대로 일어난다.
+ * 제출 중에는 보류하되 서명을 갱신하지 않아, 제출 종료 뒤 그 변경이 정확히 한 번 반영된다.
+ * 서명이 같으면 반영하지 않는다. 입력이 그대로인 5XX 재시도가 새 키를 얻으면 이중접수다.
  */
 export function shouldApplyInputChange(sig: string, lastSig: string | null, submitting: boolean): boolean {
   if (submitting) return false;
@@ -62,15 +52,9 @@ export function shouldApplyInputChange(sig: string, lastSig: string | null, subm
 const DUPLICATE_KEY_CODE = "duplicate_client_order_id";
 
 /**
- * 종결성 거부 판정(API §2-4). 4xx 거부는 게이트웨이 선차단(키 미소모)이거나 저널 REJECTED
- * 박제(키 영구 소모)다. 어느 쪽이든 같은 키 재시도는 무의미하거나 멱등 replay 거짓 성공을
- * 만들므로 다음 제출은 새 키가 안전하다. 키를 보존해야 하는 예외는 상태 UNKNOWN(5xx·
- * 타임아웃·네트워크 0)과 진행 중(409 order_in_progress)·레이트리밋(429)뿐이다(§7-6).
- *
- * 409는 상태만으로 가를 수 없어 코드를 함께 본다. duplicate_client_order_id는 키가 다른
- * 내용으로 소모된 종결이라 새 키가 필요하고, order_in_progress·requery_deferred는 결과
- * 미확정이라 같은 키 재전송·재조회가 유일한 안전 경로다(§2-5-a). 코드 미상 409는 보존
- * 쪽으로 판단한다. 미확정 주문에 새 키를 발급하면 이중접수가 되기 때문이다.
+ * 4xx 거부는 게이트웨이 선차단이거나 저널 REJECTED 박제라 다음 제출은 새 키가 안전하다(§2-4).
+ * 키를 보존하는 예외는 상태 UNKNOWN(5xx·타임아웃·네트워크 0), 409 order_in_progress·requery_deferred, 429뿐이다(§7-6).
+ * 코드 미상 409는 보존 쪽으로 판단한다. 미확정 주문에 새 키를 발급하면 이중접수가 된다.
  */
 export function isFinalRejectStatus(status: number, code?: string): boolean {
   if (status < 400 || status >= 500) return false;

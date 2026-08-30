@@ -1,8 +1,7 @@
 /**
- * tests/simScenario.test.ts. 국면 프리셋 계약 검증(API §6-A v2.31).
- * 카탈로그가 정본 배수표와 같은지, sim 어댑터가 기준선 배수·멱등·복귀 경로를 지키는지,
- * http 어댑터가 와이어를 뷰모델로 옮기고 미반영을 삼키지 않는지 본다.
- * 서버 SimScenarioTest와 같은 값을 단정한다. 한쪽만 바뀌면 여기서 갈라진다.
+ * 국면 프리셋 계약 검증(API §6-A). 카탈로그가 정본 배수표와 같은지, sim이 기준선 배수·멱등·복귀를
+ * 지키는지, http가 와이어를 뷰모델로 옮기고 미반영을 삼키지 않는지 본다.
+ * 서버 SimScenarioTest와 같은 값을 단정해 한쪽만 바뀌면 여기서 갈라진다.
  */
 
 import { test } from "node:test";
@@ -208,9 +207,8 @@ test("플릿 부재 응답은 성공으로 삼키지 않는다", async () => {
 
 test("queued 응답은 실패가 아니다", async () => {
   const api = new HttpAdminApi("");
-  // 관리 평면과 봇 JVM이 물리 분리된 배치의 정상 응답이다. 서버가 sim_commands에
-  // 의도를 적재하고 봇이 1초 안에 집어 적용한다(API§6-A). 종전에는 fleet_present:false만
-  // 보고 예외를 던져, 실제로 적용된 조작을 화면이 빨간 토스트로 표시했다.
+  // 관리 평면과 봇 JVM이 물리 분리된 배치의 정상 응답이다. 서버가 sim_commands에 의도를 적재하고
+  // 봇이 1초 안에 집어 적용한다(API §6-A). fleet_present:false만 보고 예외를 던지면 적용된 조작이 오류로 보인다.
   await withFetch(
     okRes({
       schema_version: "1.1",

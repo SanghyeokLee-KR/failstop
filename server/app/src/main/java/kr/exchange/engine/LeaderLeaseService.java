@@ -16,27 +16,18 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
- * leader_lease 단일 라이터 리스 관리(DB 설계 v2.9 §3.1 6.6, §5.4).
+ * leader_lease 단일 라이터 리스 관리(DB 설계 §3.1·§6.6·§5.4). 승격은 try_acquire_leader(만료 리스만
+ * 탈취, epoch +1), 유지는 renew_leader_lease로만 한다. 정본은 V1 함수 3종이고 여기서는 호출만 한다.
  *
- * holder는 프로세스 기동마다 새로 발급하는 UUID다. 호스트명을 쓰면 같은 호스트의
- * 구/신 프로세스를 구분하지 못해 fencing이 무력화된다(P0-1).
- * 승격은 try_acquire_leader(만료 리스만 탈취, epoch +1), 유지는 renew_leader_lease
- * (epoch 보존)로만 한다. 정본은 V1 함수 3종이고 여기서는 호출만 한다.
+ * holder는 프로세스 기동마다 새로 발급하는 UUID다. 호스트명을 쓰면 같은 호스트의 구·신 프로세스를
+ * 구분하지 못해 fencing이 무력화된다(P0-1).
  *
- * 강등은 두 종류다(§5.4 강등 사유 분류). 가르는 축은 사유 문구가 아니라 **단일 라이터 루프가
- * 그 강등으로 정지했는가**다.
- *  - 종신(markLost): 루프를 halt시키는 강등. 인메모리 오더북이 타 리더의 커밋을 반영하지 못한
- *    stale이고 소비자가 사라졌으므로 리스만 다시 얻으면 반쪽 리더가 된다. 복귀는 재기동뿐이다.
- *  - 회복 가능(standDown): 접수를 연 적이 없고 루프를 건드리지도 않은 구간(승격 재생)의 반납.
- *    이 구간의 엔진은 승격 전 상태 그대로이고 다음 승격은 fresh 엔진 전량 재생으로 다시 시작한다.
- *    한 번의 일시 실패로 후보를 영구히 잃으면 2노드에서 클러스터가 리더 없이 정지한다
- *    (E2 라이브 실측: 양 노드 종신 강등 → 체결 영구 정지).
- * 어느 쪽이든 leader_lease에는 아무것도 쓰지 않는다. 다음 리더는 종전대로 TTL 만료 뒤
- * try_acquire_leader(epoch +1) 단독 UPDATE로만 정해지므로 이중 리더 차단 성질이 불변이다.
+ * 강등은 종신(markLost)과 회복 가능(standDown) 두 등급이고, 가르는 축은 그 강등이 단일 라이터 루프를
+ * 정지시켰는가다(§5.4 강등 사유 분류). 어느 쪽이든 leader_lease에는 아무것도 쓰지 않아 다음 리더는
+ * TTL 만료 뒤 try_acquire_leader 단독 UPDATE로만 정해지고, 이중 리더 차단 성질이 불변이다.
  *
- * lease_until을 미는 경로는 extendLease 하나뿐이다(§5.4 '연장 직전 생존성 판정'). 하트비트와
- * fencing 거부 재확인이 같은 UPDATE를 쓰므로, 판정을 호출자별로 두면 하나만 빠져도 좀비 리더가
- * 그 경로로 리스를 무한 연장한다.
+ * lease_until을 미는 경로는 extendLease 하나뿐이다(§5.4 연장 직전 생존성 판정). 하트비트와 fencing
+ * 거부 재확인이 같은 UPDATE를 쓰므로, 판정을 호출자별로 두면 좀비 리더가 리스를 무한 연장한다.
  */
 public class LeaderLeaseService implements AutoCloseable {
 
@@ -45,9 +36,8 @@ public class LeaderLeaseService implements AutoCloseable {
     private final JdbcClient jdbc;
     private final Duration ttl;
     private final Duration tickInterval;
-    // 갱신 직전 서비스 생존성 판정(§5.4 자발적 강등). 하트비트 전용 풀 격리(992e59b) 이후
-    // 하트비트 생존성이 서비스 생존성과 분리돼, 요청 경로가 멈춘 노드도 리스만 갱신하는
-    // 좀비 리더가 성립한다. 이 판정이 그 창을 닫는다.
+    // 갱신 직전 서비스 생존성 판정(§5.4 자발적 강등). 하트비트가 전용 풀로 격리돼 서비스
+    // 생존성과 분리되므로, 요청 경로가 멈춘 노드도 리스만 갱신하는 좀비 리더가 성립한다.
     private final NodeServiceHealth serviceHealth;
     private final String holder = UUID.randomUUID().toString();
     // null이면 리더 아님. 값은 획득 시점의 epoch.
@@ -242,7 +232,7 @@ public class LeaderLeaseService implements AutoCloseable {
 
     /**
      * 회복 가능 반납. 승격 재생이 접수 개방 전에 실패했을 때만 쓴다. 리스 행에는 아무것도 쓰지
-     * 않고 갱신만 멈추므로, 다음 리더는 종전대로 TTL 만료 뒤 try_acquire_leader(epoch +1)로만
+     * 않고 갱신만 멈추므로, 다음 리더는 TTL 만료 뒤 try_acquire_leader(epoch +1)로만
      * 정해진다. demoted를 세우지 않아 이 노드도 다시 후보가 된다.
      */
     public void standDown(String reason) {
@@ -398,10 +388,8 @@ public class LeaderLeaseService implements AutoCloseable {
         if (outcome == LeaseExtension.EXTENDED) {
             return true;
         }
-        // 자발적 강등. 리스 행에는 아무것도 쓰지 않고 갱신만 포기한다. 승격은 종전대로
-        // TTL 만료 후 스탠바이의 try_acquire_leader(epoch +1) 단독 UPDATE로만 일어나므로
-        // 승격 원자성·fencing 단조성·이중 리더 차단 성질이 그대로다. 리스를 즉시 반납하지
-        // 않는 것도 같은 이유다. 만료 구동 승격 규칙을 우회하는 경로를 만들지 않는다.
+        // 자발적 강등. 리스 행에는 쓰지 않고 갱신만 포기해 승격을 만료 구동으로만 남긴다.
+        // 즉시 반납은 그 규칙을 우회하는 경로가 되므로 하지 않는다.
         markLost(outcome == LeaseExtension.UNSERVICEABLE
                 ? "서비스 불능 지속(요청 풀 고갈 + 리더 쓰기 진행 0)"
                 : "renew 거부(만료 또는 탈취됨)");

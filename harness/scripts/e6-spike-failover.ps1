@@ -1,8 +1,6 @@
-﻿# E6 폭주 + 리더 kill 복합(최종 증명, 검증설계 §3 정본 번호. 구 e3-spike-failover, M4 §0-3 개명).
-# 봇 OPS를 10배로 올린 스파이크 plateau 중 리더 kill.
-# 판정: E4 판정 + 스파이크 중 불변식 유지. 런타임 OPS 변경 API 미구현이라 봇 노드를
-# 높은 target-ops로 재기동해 스파이크를 재현한다(축약). 정본 개방루프 스파이크는
-# load/order_flow.js(PROFILE=e6)가 담당.
+﻿# E6 폭주 + 리더 kill 복합(최종 증명, 검증설계 §3). 스파이크 plateau 중 리더를 kill한다.
+# 판정은 E4 판정 + 스파이크 중 불변식 유지다. 런타임 OPS 변경 API가 없어 봇 노드를 높은
+# target-ops로 재기동해 스파이크를 재현한다. 정본 개방루프 스파이크는 order_flow.js 소관이다.
 param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e6.env'))
 
 $ErrorActionPreference = 'Stop'
@@ -14,8 +12,8 @@ $target = $cfg['TARGET_NODE']
 function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
 Write-Section "E6 시작 runId=$runId"
-# 기저 부하를 명시로 세운다. 종전에는 SPIKE_OPS만 적용해 BASE_OPS가 표시 문구에만 쓰였고, 기저는
-# 앞선 실험이 남긴 값이었다. 스파이크 배수(10x)가 실행마다 달라지면 §2-4 캘리브레이션 전제가 깨진다.
+# 기저 부하를 명시로 세운다. 앞선 실험이 남긴 값을 이월받으면 스파이크 배수가 실행마다
+# 달라져 §2-4 캘리브레이션 전제가 깨진다.
 if ($cfg['BASE_OPS']) { Set-BotOps ([int]$cfg['BASE_OPS']) }
 Start-Sleep -Seconds ([int]$cfg['WARMUP_SEC'])
 
@@ -50,7 +48,6 @@ try {
     # -d인데도 반환하지 않고 매달린다(실측). 같은 우회를 담은 공용 Set-BotOps를 쓴다.
     Set-BotOps ([int]$cfg['SPIKE_OPS']) -SettleSec 0
     $spikeApplied = $true
-    # 스파이크 plateau 진입 대기
     Start-Sleep -Seconds ([int]$cfg['KILL_AFTER_SPIKE_SEC'])
 
     # 스파이크 중 불변식 유지 확인. 상시 스캔(fixedDelay 5분)에만 의존하면 60s plateau 창에
@@ -59,11 +56,9 @@ try {
     Write-Section '스파이크 중 불변식 관측(plateau 온디맨드 권위 run)'
     $spikePort = Get-LiveNodePort
     $spikeRun = Invoke-InvariantRun -Port $spikePort -RunId $runId -Window 'spike'
-    # 스파이크 창은 부하 중 측정이 목적이라 드레인할 수 없다. C13a·C19는 드레인 전제라 부하 중에는
-    # in-flight를 위반으로 세고(실측 400 ops에서 C13a 11건, 드레인하면 0), C16은 드레인과 무관하게
-    # 스테일 loadtest_acks 오탐이 배제 사유다(sql/invariants.sql 주석). 제외 술어는 lib.ps1 공용
-    # 상수 하나를 쓴다. 종전에는 목록을 여기에 복제해 WARN 제외가 빠졌고, 그 결과 $spikeClean은
-    # 참인데 C15(WARN) 10행 때문에 exit 1이 났다.
+    # 스파이크 창은 부하 중 측정이 목적이라 드레인할 수 없다. C13a·C19는 드레인 전제라 부하
+    # 중에는 in-flight를 위반으로 세고, C16은 스테일 loadtest_acks 오탐이 배제 사유다.
+    # 제외 술어는 lib.ps1 공용 상수 하나를 쓴다. 인라인 사본은 WARN 제외를 어긋나게 한다.
     $spikeClean = Test-ExperimentIntegrity $spikeRun
     $spikeViol = Get-GatedViolationSum $spikeRun
     # 창 내 실제 스캔 존재 증거: invariant_checks에 window='spike' 적재 확인(공허 통과 차단).
@@ -90,7 +85,7 @@ try {
         -TradesAtInject $tradesAtInject -T0 $t0 `
         -ObserveSec ([int]$cfg['POST_KILL_OBSERVE_SEC']) -RtoTarget ([int]$cfg['RTO_TARGET_SEC']) `
         -StandbyPort $standbyPort -RestoreOps ([int]$cfg['BASE_OPS'])
-    # 정상 경로 복원 완료 표시. 이 뒤의 finally는 아무것도 하지 않는다.
+    # Complete-FailoverExperiment가 이미 BASE_OPS로 되돌렸다. 이중 재기동 방지.
     $spikeApplied = $false
 }
 finally {

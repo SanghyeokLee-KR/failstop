@@ -1,7 +1,6 @@
 /**
- * 페일스톱 브랜드 마크. 수평 이음매로 갈라진 다이아몬드: 위가 멈춰도 아래가 잇는다
- * (fail-stop 후 failover). 색은 currentColor 상속만 받아 소비처 잉크를 따른다.
- * 무연고 장식이던 단일 다이아를 도메인 모티프로 교체한 v1.6 마크.
+ * 수평 이음매로 갈라진 다이아몬드. 위가 멈춰도 아래가 잇는다(fail-stop 후 failover).
+ * 색은 currentColor 상속만 받아 소비처 잉크를 따른다.
  */
 
 export default function BrandMark({ size = 20 }: { size?: number }) {

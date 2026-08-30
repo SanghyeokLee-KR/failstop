@@ -4,9 +4,9 @@
 .root {
   display: flex;
   align-items: center;
-  /* 1280px에서 그룹 4개 + 간격 3 + 패딩이 정확히 914px로 딱 맞아 여유가 0이었다.
-     현재가를 1차 지표로 올리며 4px이 넘쳤다. 가로 미디어 쿼리는 고정형 정책상 못 쓰므로
-     간격에서 영구히 12px을 회수한다. 그룹 간 16 vs 스탯 내부 12라 묶임은 그대로 읽힌다 */
+  /* 1280px에서 그룹 4개 + 간격 + 패딩이 폭을 정확히 채워 여유가 없다. 가로 미디어 쿼리는
+     고정형 정책상 못 쓰므로 간격에서 12px을 회수한다. 그룹 간 16 vs 스탯 내부 12라
+     묶임은 그대로 읽힌다 */
   gap: var(--space-4);
   min-width: 0;
   padding: 0 var(--space-4);
@@ -55,11 +55,9 @@
   color: var(--text-secondary);
 }
 
-/* .root는 64px 1행을 지키려 overflow:hidden이다(§2.5). absolute 메뉴는 그 클립 박스에 갇혀
-   12항목 중 첫 항목만 보였다. overflow는 한 축만 visible로 둘 수 없어 가드를 유지한 채
-   메뉴만 빼내려면 컨테이닝 블록을 뷰포트로 올려야 한다. fixed는 조상 overflow에 잘리지 않는다
-   (조상에 transform·filter·contain이 없음을 전제. 현재 거래 화면 조상 체인은 비어 있다).
-   좌표는 트리거 rect에서 계산해 인라인으로 넣는다 */
+/* .root는 64px 1행을 지키려 overflow:hidden이다(§2.5). absolute 메뉴는 그 클립 박스에 갇히고
+   overflow는 한 축만 visible로 둘 수 없어 fixed로 컨테이닝 블록을 뷰포트로 올린다(조상에
+   transform·filter·contain이 없음을 전제). 좌표는 트리거 rect에서 계산해 인라인으로 넣는다 */
 .menu {
   position: fixed;
   z-index: var(--z-dropdown);
@@ -135,12 +133,9 @@
   min-width: 0;
   flex-shrink: 0;
 }
-/* 화면의 1차 지표다. title-1(24px)은 주변 본문(13px) 대비 1.85배라 "먼저 읽히는 값"이 안 된다.
-   홈 스포트라이트의 2차 시세와도 같은 크기였다. display-md로 올려 2.15배를 만든다.
-   상한은 64px 요약 바다. 38(행 높이) + 18(등락 행) = 56이라 여유 8px이 남는다. display-lg는
-   44 + 18 = 62로 패딩이 사라진다.
-   방향색 대형 규격: 24px/700 이상은 --color-up/down 허용 영역 (§2.5).
-   §3.2 큰 숫자 밀착: 20px 이상은 자간 -0.01em으로 계기 판독감을 준다 */
+/* 화면의 1차 지표라 주변 본문(13px) 대비 2배 이상을 만든다. 상한은 64px 요약 바다.
+   display-lg는 44 + 18로 패딩이 사라진다.
+   방향색 대형 규격(§2.5): 24px/700 이상은 --color-up/down 허용. §3.2 큰 숫자 밀착 자간 -0.01em */
 .cur {
   font-size: var(--font-display-md-size);
   line-height: var(--font-display-md-line);

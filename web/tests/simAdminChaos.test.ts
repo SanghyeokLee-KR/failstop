@@ -1,8 +1,7 @@
 /**
- * tests/simAdminChaos.test.ts. SimAdminApi 카오스·헬스 결합 검증.
- * 주입 효과(E4 리더 사망, E1 지표 압력)와 해제 회수가 2인 승인 경로를 통해서만 도달하는지,
- * 복구 이력 시드가 RtoSpark 게이트(n>=3)와 정합한지 본다. 타이머(tick)는 브라우저 전용이라
- * 노드 환경에서는 돌지 않으므로 주입 직후의 동기 상태만 단정한다.
+ * SimAdminApi 카오스·헬스 결합 검증. 주입 효과와 해제 회수가 2인 승인 경로로만 도달하는지,
+ * 복구 이력 시드가 RtoSpark 게이트(n>=3)와 정합한지 본다.
+ * 타이머(tick)는 브라우저 전용이라 노드 환경에서는 주입 직후의 동기 상태만 단정한다.
  */
 
 import { test } from "node:test";
@@ -28,7 +27,7 @@ test("복구 이력 시드는 스파크 게이트(n>=3)를 채우고 최신순�
     assert.ok(rec.runs[i - 1].startedAt >= rec.runs[i].startedAt);
   }
   // lastRtoMs는 페일오버 RTO다. 목에 그 주행 표가 없으므로 null이어야 한다.
-  // 종전에는 recovery_runs.duration_ms(재생 소요)를 실어 축 혼동을 계약으로 굳혔다.
+  // 재생 소요(recovery_runs.duration_ms)를 여기 실으면 축 혼동을 계약으로 굳힌다.
   assert.equal(rec.lastRtoMs, null, "없는 축을 지어내지 않는다");
   assert.ok(rec.runs[0].durationMs > 0, "재생 소요는 그 자리에 남는다");
 });

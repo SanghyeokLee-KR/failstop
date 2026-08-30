@@ -1,17 +1,7 @@
 /**
- * lib/admin/httpAdmin.ts. Spring 관리 평면(/admin/v1/*) REST 어댑터.
- * 전송 계층 mTLS는 브라우저 클라이언트 인증서가 담당하고(fetch에 투명), 앱 계층은 mTLS
- * 신원에서 유래한 단기 세션 토큰을 Bearer로 싣는다(§1-3). 세션 토큰은 메모리에만 둔다.
- * 데모 기본은 SimAdminApi이며 이 어댑터는 NEXT_PUBLIC_DATASOURCE=http에서만 활성이다.
- *
- * 승인은 발급형(§3-6)이다. 승인자가 POST /admin/v1/approvals에 {requester_operator_id, action,
- * target}을 실어 approval_token을 발급하고, 요청자가 파괴 액션 엔드포인트 바디에 approval_token을
- * 실어 소각한다. 콘솔 의미 액션(chaos.inject 등)은 wireBinding으로 백엔드 바인딩 문자열
- * (chaos.kill_node/network/app 등)과 대상으로 분해한다. targetKey(콘솔 UI 키)는 바인딩 target과 다르다.
- *
- * 읽기 응답은 서버 엔벌로프(data·checks·catalog·lease 등)를 언랩하고 snake_case를 도메인 뷰모델로
- * 매핑한다. 무검사 캐스팅은 배열 기대 지점에서 TypeError(콘솔 진입 크래시)를 유발하므로 쓰지 않는다.
- * 서버 미노출 필드(HA 노드 토폴로지·큐·지연, 감사 로그 id 등)는 안전 기본값으로 좁힌다.
+ * 앱 계층은 mTLS 신원에서 유래한 단기 세션 토큰을 Bearer로 싣고 메모리에만 둔다(§1-3).
+ * 승인은 발급형이라 승인자가 approval_token을 발급하고 요청자가 액션 바디에 실어 소각한다(§3-6).
+ * 읽기 응답은 무검사 캐스팅 없이 언랩·매핑하고, 서버 미노출 필드는 안전 기본값으로 좁힌다.
  */
 
 import { AdminError, type AdminApi } from "./api";
@@ -77,14 +67,10 @@ const COIN_NAME = new Map(COIN_META.map((c) => [c.market, c.koreanName]));
 /** 불변식 check_name -> 라벨. 서버 invariants는 라벨을 싣지 않는다 */
 const INVARIANT_LABEL = new Map(INVARIANT_DEFS.map((d) => [d.name, d.label]));
 /**
- * kill-node 대상 컨테이너 기본값. harness/docker-compose.chaos.yml의 실제 이름이다.
- * 종전 값(exchange-core-1)은 어느 컨테이너와도 매칭되지 않아 소비기가 100% "No such
- * container"로 실패했다. 실 리더가 api-2인 경우는 소비기가 아니라 실험 스크립트가
- * Get-LeaderContainer로 판별한다(콘솔은 기본 대상만 제시).
+ * harness/docker-compose.chaos.yml의 실제 컨테이너 이름이다. 이름이 어긋나면 소비기가 전건
+ * "No such container"로 실패한다. 실 리더 판별은 콘솔이 아니라 실험 스크립트가 한다.
  */
 const CHAOS_NODE = "chaos-api-1";
-
-/** 유한수만 취하고 아니면 기본값(무검사 캐스팅의 NaN 렌더 방지) */
 
 /** 커서 쪽 요청 질의문자열. 빈 값은 붙이지 않아 URL이 조건마다 달라지지 않는다 */
 function pageQuery(opts: PageOpts, extra: Record<string, string> = {}): string {
@@ -114,9 +100,8 @@ function num(v: unknown, fallback = 0): number {
 }
 
 /**
- * 콘솔 액션·payload -> 백엔드 승인 바인딩(action + 대상). POST /admin/v1/approvals와 소각 엔드포인트가
- * 공유하는 (action, target) 바인딩이다. chaos.inject는 실험 injectPath로 kill_node/network/app를 가른다.
- * 콘솔 targetKey와 달리 여기 target은 실제 자원(node·toxic·symbol·operatorId)이다(재사용 금지 규율).
+ * 콘솔 액션·payload를 백엔드 승인 바인딩(action + 대상)으로 분해한다.
+ * 콘솔 targetKey와 달리 여기 target은 실제 자원(node·toxic·symbol·operatorId)이라 재사용하지 않는다.
  */
 function wireBinding(payload: ApprovalPayload): { action: string; target: string } {
   switch (payload.action) {
@@ -507,7 +492,6 @@ function verdictOf(v: string | undefined): RecoveryVerdict | null {
 }
 
 export class HttpAdminApi implements AdminApi {
-  // v2.22부터 서버 control이 플릿 수명주기를 실반영한다(start 기동·pause 발행 게이트·stop 정지).
   // 반영 여부는 응답 applied와 status 1.2의 running·paused가 원천이다
   readonly controlApplied = true;
 
@@ -572,8 +556,6 @@ export class HttpAdminApi implements AdminApi {
   private sessionOpId(): string {
     return this.getSession()?.operatorId ?? "";
   }
-
-  /* ===== 인증 ===== */
 
   listDemoCerts(): DemoClientCert[] {
     // 운영 mTLS는 OS·브라우저 인증서 저장소를 쓴다. 앱이 인증서를 열거하지 않는다
@@ -801,8 +783,6 @@ export class HttpAdminApi implements AdminApi {
     }
   }
 
-  /* ===== 모니터링 ===== */
-
   async getOverview(): Promise<AdminOverview> {
     // 종합 요약은 개별 모니터링 엔드포인트를 합성한다(전용 엔드포인트 없음).
     const [ha, inv, sim, chaos, markets, rec, pending] = await Promise.all([
@@ -882,15 +862,12 @@ export class HttpAdminApi implements AdminApi {
         id: `rec-${r.created_at ?? ""}-${i}`,
         startedAt: r.created_at ?? "",
         durationMs: num(r.duration_ms),
-        // RPO는 recovery_runs에 컬럼이 없다. 원천은 harness.failover_runs.rpo_records다.
-        // 종전에는 0을 박아 화면이 "유실 0"을 단정했다. 같은 파일 activateScenario가
-        // "없는 값을 0으로 채우지 않는다"를 규율로 적었는데 여기만 어겼다. RPO=0은
-        // 수용 기준의 헤드라인 주장이라 더 나쁘다.
+        // RPO 원천은 harness.failover_runs.rpo_records다. 없는 값을 0으로 채우면 화면이 유실
+        // 없음을 단정한다. RPO=0은 수용 기준의 헤드라인 주장이라 더 나쁘다.
         rpoMs: null,
         replayedFromSeq: num(r.replayed_from_seq),
         replayedToSeq: num(r.replayed_to_seq),
-        // 서버가 스키마 1.2부터 낸다. 재생 0건과 실재 재생을 이 값으로 가른다
-        // (fp에 verified_events가 실린다). 종전에는 빈 문자열로 덮어 구분이 사라졌다.
+        // 서버가 스키마 1.2부터 낸다. 재생 0건과 실재 재생을 이 값으로 가른다(fp에 verified_events가 실린다)
         fpReplay: r.fp_replay ?? "",
         fpLive: r.fp_live ?? "",
         matched,
@@ -902,11 +879,9 @@ export class HttpAdminApi implements AdminApi {
     // failover_runs가 비면 미측정이다. recovery_runs.duration_ms로 폴백하면 재생 소요가
     // "최근 복구 시간(RTO)"으로 둔갑한다. 두 축은 다른 것을 잰다.
     const lastRtoMs = drill && Number.isFinite(drillRto) ? Math.round(drillRto * 1000) : null;
-    // 판정은 서버 verdict를 쓴다. 종전에는 failover_runs 최신 1행으로 화면 판정을 만들어,
-    // 과거 FAIL과 최신 PASS가 함께 있으면 서버가 FAIL인데 화면은 통과를 표시했다.
-    // 배열은 limit로 자른 창이라 그것으로 결론을 내면 창 밖 위반이 안 보인다.
+    // 판정은 서버 verdict를 쓴다. 배열은 limit로 자른 창이라 그것으로 결론을 내면 창 밖 위반이 안 보인다.
     const v = res.verdict;
-    // 스키마 1.0 서버는 verdict가 없다. 그때만 종전 경로로 떨어진다.
+    // 스키마 1.0 서버는 verdict가 없다. 그때만 폴백 경로로 떨어진다.
     const legacy = drill?.verdict === "PASS" || drill?.verdict === "FAIL" ? drill.verdict : null;
     return {
       runs,
@@ -935,8 +910,6 @@ export class HttpAdminApi implements AdminApi {
       };
     });
   }
-
-  /* ===== 봇 플릿 ===== */
 
   async getSimStatus(): Promise<SimStatus> {
     // 서버 /status 1.1은 {schema_version, fleet_present, target_ops, trade_flash, markets[]}만 준다.
@@ -1050,10 +1023,8 @@ export class HttpAdminApi implements AdminApi {
       method: "POST",
       body: JSON.stringify({ operator_id: this.sessionOpId() }),
     });
-    // apply_path=queued는 성공이다. 관리 평면과 봇 JVM이 물리 분리된 배치에서 서버가
-    // sim_commands에 의도를 적재하고 봇이 1초 안에 집어 적용한다(API§6-A). 종전에는
-    // fleet_present:false만 보고 예외를 던져 실제로 적용된 조작을 빨간 토스트로 표시했다.
-    // 큐 경로가 없던 시절에는 fleet_present:false가 곧 미적용이라 그 판단이 맞았다.
+    // apply_path=queued는 성공이다. 서버가 sim_commands에 의도를 적재하고 봇이 1초 안에 집어
+    // 적용한다(API §6-A). fleet_present:false만 보고 예외를 던지면 적용된 조작이 오류로 보인다.
     const path = res?.apply_path === "queued" ? "queued" : "local";
     if (res && res.fleet_present === false && res.apply_path === undefined) {
       throw new AdminError("control_not_applied", "봇 플릿 부재로 반영되지 않음. 서버 프로파일 확인 필요");
@@ -1114,10 +1085,8 @@ export class HttpAdminApi implements AdminApi {
   }
 
   async simSetRate(rate: number): Promise<ControlApply> {
-    // 백엔드 RateBody 키는 target_ops이며 문자열로 파싱한다(NUMERIC 정밀도 계약)
-    // 응답을 버리지 않는다. 종전에는 void로 읽어 봇에 닿았는지와 무관하게 화면이 완료를
-    // 단정했다. 큐 경로를 넣은 지금은 그 단정이 최대 1초 이른 거짓이 된다.
-    // 프리셋은 같은 부류를 반영 대기로 고쳤는데 이 경로만 빠져 있었다.
+    // 백엔드 RateBody 키는 target_ops이며 문자열로 파싱한다(NUMERIC 정밀도 계약).
+    // 응답을 버리지 않는다. 큐 경로에서는 완료 단정이 최대 1초 이른 거짓이 된다.
     const res = await this.http<{ apply_path?: string; queued_command_id?: number }>(
       "/admin/v1/sim/rate",
       {
@@ -1153,18 +1122,13 @@ export class HttpAdminApi implements AdminApi {
     });
   }
 
-  /* ===== 카오스 ===== */
-
   getChaosCatalog(): ChaosExperimentDef[] {
     return CHAOS_CATALOG.slice();
   }
 
   async getChaosRuns(opts: PageOpts = {}): Promise<AdminPage<ChaosRun>> {
-    // GET /admin/v1/chaos/runs 감사 투영(id·action·target·experiment_id·created_at). state·blast_radius가
-    // 없어 축소 뷰모델로 좁힌다. 활성 여부는 action 스트림(inject vs clear)을 접어 재구성한다.
-    // experiment_id는 서버가 UUID로 발급해 카탈로그 id(E1~E9)와 직접 조인이 불가하다. 주입 시
-    // wireBinding이 발급한 target 접두(e1-toxic·e8-assault)에서 id를 파생해 조인하고,
-    // 고정 노드명을 쓰는 kill-node류는 action 기반 폴백 라벨을 쓴다.
+    // 서버 감사 투영에 state·blast_radius가 없어 축소 뷰모델로 좁히고, 활성 여부는 action 스트림을 접어 재구성한다.
+    // experiment_id가 UUID라 카탈로그 id와 직접 조인이 불가해 target 접두에서 파생하고, kill-node류는 action 폴백 라벨을 쓴다.
     const res = await this.http<PagedEnvelope<WireChaosRun>>(`/admin/v1/chaos/runs${pageQuery(opts)}`);
     const raw = res.data ?? [];
     const cleared = new Set<string>();
@@ -1195,8 +1159,6 @@ export class HttpAdminApi implements AdminApi {
     });
     return toPage(rows, res);
   }
-
-  /* ===== 마켓 설정 ===== */
 
   async getConfigMarkets(): Promise<ConfigMarket[]> {
     // 서버는 {data:[{market,status,maker_fee,taker_fee}]}. status는 ACTIVE·HALTED·DELISTED 3분.
@@ -1403,8 +1365,6 @@ export class HttpAdminApi implements AdminApi {
       body: JSON.stringify({ operator_id: this.opId() }),
     });
   }
-
-  /* ===== 운영자·감사 ===== */
 
   async getOperators(): Promise<AdminOperator[]> {
     // 서버는 {data:[{operator_id,display_name,status,roles}]}. roles는 이미 정본 역할 enum 이름이다.

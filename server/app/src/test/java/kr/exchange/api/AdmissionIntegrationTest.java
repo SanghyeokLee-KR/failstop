@@ -48,16 +48,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 수용 제한의 계약 고정(API 설계 §2-5-a). 쓰기·조회 두 버킷과 면제 경로를 함께 본다.
  *
- * 증명 대상.
- *  (1) 두 버킷 각각 상한 초과 시 429 + Retry-After + scope 구분. 쓰기 거절은 저널·원장·수요 축에
- *      흔적이 없다. 흔적이 남으면 '거절했는데 접수됨'이라 RPO0 계약의 반대편이 된다.
- *  (2) 두 버킷이 모두 포화여도 생존 신호(actuator readiness·health·prometheus)와 하네스 status,
- *      그리고 §7-6 재조회(by-client)는 200을 유지한다. 이것이 설계의 핵심 제약이다. 라이브 1차
- *      실패가 정확히 여기였다. 쓰기만 유계화하니 남은 커넥션을 조회가 전부 먹고 노드가 죽었다.
- *  (3) 두 버킷은 서로를 굶기지 않는다. 한 버킷으로 합치면 쓰기가 조회에 밀리거나 그 반대가 된다.
- *  (4) 실패 경로를 반복해도 허용량이 전량 회복된다. permit 누수는 서서히 전면 정지로 수렴한다.
- *
- * 상한을 2/2로 고정해 고갈을 결정적으로 만든다. 실 배포는 요청 풀에서 유도한다(풀 32 -> 12/12).
+ * 두 버킷이 모두 포화여도 생존 신호와 §7-6 재조회는 200을 유지해야 한다. 쓰기만 유계화하면 남은
+ * 커넥션을 조회가 전부 먹고 노드가 죽는다. 상한을 2/2로 고정해 고갈을 결정적으로 만든다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -188,7 +180,7 @@ class AdmissionIntegrationTest {
         assertEquals(0, orderAdmission.inFlight());
     }
 
-    /** 라이브 1차 실패의 교정 지점. 조회가 무제한이면 쓰기를 아무리 잘라도 노드가 죽는다. */
+    /** 조회가 무제한이면 쓰기를 아무리 잘라도 노드가 죽는다. */
     @Test
     @Order(2)
     void queryBucketRejectsPublicMarketReadsBeyondLimit() {

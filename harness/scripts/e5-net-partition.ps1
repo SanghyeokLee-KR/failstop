@@ -98,7 +98,7 @@ try {
     $rtoDisp = 'n/a'; if ($null -ne $rto) { $rtoDisp = [math]::Round($rto, 3) }
     Write-Host ("T2(승격)={0} new_epoch={1} RTO={2}s" -f $t2Disp, $newEpoch, $rtoDisp)
 
-    # 격리 유지: PARTITION_SEC까지(T0 기준). 이 창 동안 구 리더는 PG 도달 불가라 쓰기 0.
+    # 이 창 동안 구 리더는 PG 도달 불가라 쓰기가 0이다.
     $held = ((Get-Date).ToUniversalTime() - $t0).TotalSeconds
     $remain = [int]$cfg['PARTITION_SEC'] - [int]$held
     if ($remain -gt 0) { Start-Sleep -Seconds $remain }
@@ -153,10 +153,8 @@ try {
     $holderChanged = (-not [string]::IsNullOrWhiteSpace($newHolder)) -and ($newHolder -ne $oldHolder)
     $postClean = Test-ExperimentIntegrity $post
     $tradesAfter = Get-TradeCount
-    # 서비스 재개는 안전성 판정의 전제다. 쓰기가 0이면 "이중 쓰기 0"은 증거가 아니라 무활동이다.
-    # 종전 게이트는 [stale 0 + epoch 상승 + 무결성 0]뿐이라 페일오버 후 매칭이 영영 재개되지
-    # 않아도 전부 참이 됐다. 무결성 체크가 전부 count 기반이라 빈 결과도 0위반이기 때문이다.
-    # RTO 임계는 E4/E6 소관이라 여전히 빼되, 재개 자체는 존재 명제로 요구한다.
+    # 서비스 재개는 안전성 판정의 전제다. 쓰기가 0이면 이중 쓰기 0은 증거가 아니라 무활동이다.
+    # 무결성 체크가 전부 count 기반이라 빈 결과도 0위반이 된다. RTO 임계는 E4/E6 소관이라 뺀다.
     $serviceResumed = ($null -ne $t5) -and ($tradesAfter -gt $tradesAtInject)
     # §3 E5 합격 기준: 이중 쓰기 0 + 무결성 0. 여기에 실제 승격(epoch·holder)과 서비스 재개를
     # 더해 공허 통과를 막는다. RTO 임계·재합류는 게이팅 제외, 증거로만 보고한다.
@@ -211,7 +209,6 @@ finally {
 
 if ($verdict -ne 'PASS') { Write-Host 'E5 FAIL.' -ForegroundColor Red; exit 1 }
 Write-Host 'E5 PASS.' -ForegroundColor Green
-# 명시 exit 0. PowerShell은 스크립트 종료코드로 마지막 네이티브 명령의 $LASTEXITCODE를
-# 쓴다. 종료 훅의 docker unpause는 이미 실행 중인 정상 경우에도 비영을 내므로, 그대로
-# 두면 판정이 PASS인데 종료코드가 1로 새어나간다(실측).
+# 명시 exit 0. 종료 훅의 docker network connect가 이미 연결된 정상 경우에도 비영을 내므로
+# 그대로 두면 판정이 PASS인데 종료코드가 1로 샌다(실측).
 exit 0

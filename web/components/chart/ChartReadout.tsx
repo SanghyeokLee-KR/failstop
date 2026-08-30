@@ -1,12 +1,8 @@
 "use client";
 
 /**
- * ChartReadout. 크로스헤어 위치(없으면 최신 봉)의 시·고·저·종 인라인 판독 1행.
- * 거래량은 볼륨 pane 범례가 소유한다(1280 폭에서 등락 절단을 막기 위해 이 행에서 제외).
- * 캔버스 내장 툴팁 대신 고정 행으로 노출해 지표 범례와의 겹침·시각 소음을 없앤다.
  * 고정 min-height + tabular-nums로 값 갱신 시 레이아웃 시프트 0을 지킨다.
- * 형성봉 300ms 스트림의 시각 전용 싱크다. 낭독은 TradingChart status 리전이 롤오버·크로스헤어로
- * 별도 게이팅하므로 이 행은 aria-hidden으로 두어 SR 낭독 큐 폭주를 막는다.
+ * 낭독은 TradingChart status 리전이 전담하므로 이 행은 aria-hidden으로 둬 SR 낭독 큐 폭주를 막는다.
  */
 
 import { memo } from "react";

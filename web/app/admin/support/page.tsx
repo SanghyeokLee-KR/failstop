@@ -1,13 +1,8 @@
 "use client";
 
 /**
- * 문의 답변 큐(/admin/support). API 설계 §4-G.
- *
- * 출금 승인 큐와 달리 확인 다이얼로그를 두지 않는다. 그 화면은 자금을 움직이는 되돌릴 수
- * 없는 결정이라 한 번 더 물었고, 여기는 글을 쓰는 일이다. 다이얼로그에 긴 답변을 쓰게 하면
- * 원문을 가린 채 답을 쓰게 된다. 질문과 답을 같은 화면에 나란히 둔다.
- *
- * 표가 아니라 목록인 이유도 같다. 답변에 필요한 것은 정렬·비교가 아니라 원문 읽기다.
+ * 다이얼로그를 두지 않는 이유는 긴 답변을 쓰는 동안 원문이 가려지기 때문이다(§4-G).
+ * 질문과 답을 같은 화면에 나란히 둔다.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -50,8 +45,8 @@ export default function AdminSupportPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  /* ANSWERED는 답변 뒤에도 남아 누적된다. 종전 고정 상한 200 밖의 문의는 볼 방법이 없었다.
-     status가 바뀌면 쪽 경계가 새로 생기므로 커서를 버리고 첫 쪽부터 다시 센다 */
+  /* ANSWERED는 답변 뒤에도 누적된다. status가 바뀌면 쪽 경계가 새로 생기므로
+     커서를 버리고 첫 쪽부터 다시 센다 */
   const [page, setPage] = useState(0);
   const cursors = useRef<(string | null)[]>([null]);
   const loader = useCallback(async () => {

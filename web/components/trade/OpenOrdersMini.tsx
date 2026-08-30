@@ -1,11 +1,8 @@
 "use client";
 
 /**
- * OpenOrdersMini: 주문 패널 하단 미체결 미니 리스트.
- * 지정가 접수 후 잔량 확인·취소가 거래내역 화면 이탈 없이 되도록 현재 마켓의 OPEN·PARTIAL만 보인다.
- * 데이터·갱신은 기존 리듬 재사용: 목록은 store.openOrders(마운트 시 loadOrders는 ExchangeMarketClient,
- * 실시간 전이는 OrderPanel의 myOrder 구독이 apply), 취소는 거래내역 화면과 같은
- * cancelOrder→upsertOrder→loadOrders 경로다. 신규 폴러·구독 없음.
+ * 현재 마켓의 OPEN·PARTIAL만 보여 거래내역 화면 이탈 없이 잔량 확인·취소를 끝낸다.
+ * 신규 폴러·구독 없이 기존 스토어·구독·취소 경로를 그대로 재사용한다.
  */
 
 import { useMemo, useState } from "react";
@@ -63,10 +60,8 @@ export default function OpenOrdersMini({ market }: { market: string }) {
     }
   };
 
-  /* 볼 것이 없으면 자리를 차지하지 않는다. side 열은 주문 카드·미체결·마켓 목록이 768px을
-     나눠 쓰는데 셋의 자연 높이 합이 열보다 크다. 미체결 0건일 때 이 카드는 "미체결 없음"
-     한 줄을 위해 71px을 쓰고, 그만큼 주문 폼이 접히거나 마켓 행이 줄어든다.
-     주문이 생기면 그때 자리를 내주는 것이 맞다. 그 시점에는 그 정보가 실제로 필요하다 */
+  /* 볼 것이 없으면 자리를 차지하지 않는다. 미체결 0건에 71px을 쓰면 그만큼 주문 폼이 접히거나
+     마켓 행이 줄어든다. 주문이 생겨 그 정보가 실제로 필요할 때 자리를 내준다 */
   if (rows.length === 0) return null;
 
   return (

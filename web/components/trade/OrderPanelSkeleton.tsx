@@ -1,9 +1,6 @@
 /**
- * OrderPanel의 프리렌더 골격. 주문 패널이 useSearchParams로 CSR 바일아웃하는 동안 자리를 지킨다.
- * 콜드 마운트 상태(지정가·매수·마켓메타 미도착·잔고 미도착)의 DOM을 같은 요소·같은 클래스로 재현한다.
- * side 열이 auto 트랙이라 높이가 어긋나면 아래 마켓 목록이 밀린다(시프트 0 규약).
- * 표기값은 지어내지 않고 OrderPanel과 같은 폴백 상수·포매터에서 뽑는다.
- * OrderPanel의 초기 렌더 구조를 바꾸면 이 파일을 함께 고칠 것.
+ * 콜드 마운트 상태의 DOM을 같은 요소·같은 클래스로 재현한다. side 열이 auto 트랙이라
+ * 높이가 어긋나면 아래 마켓 목록이 밀린다. 표기값은 OrderPanel과 같은 폴백 상수에서 뽑는다.
  */
 
 import PanelCard from "@/components/PanelCard";

@@ -36,7 +36,7 @@ function Sql-Lit {
     return "'" + ($Value -replace "'", "''") + "'"
 }
 
-# 한 건 점유. 다른 소비기가 잡은 행은 건너뛰고(SKIP LOCKED) 대기분 중 가장 오래된 것을 집는다.
+# 한 건 점유. 소비기를 둘 띄워도 같은 지시를 두 번 집지 않는다.
 function Claim-Command {
     $sql = @"
 UPDATE chaos_commands SET state='CLAIMED', claimed_by=$(Sql-Lit $consumerId), claimed_at=now()

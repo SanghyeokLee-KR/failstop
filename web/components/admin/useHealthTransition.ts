@@ -1,11 +1,8 @@
 "use client";
 
 /**
- * 헬스 상태 전이 감지 훅. 전이 순간에만 해당 헬스값을 holdMs 동안 돌려준다.
- * 소비처가 반환값을 data-transition 속성에 바인딩하면 globals.css의
- * .status-pill[data-transition] 계열 플래시 규칙이 발화한다(시각 규칙은 CSS 소유).
- * 정지가 기본값(디자인_방향 §5)이라 최초 마운트와 데이터 도착·소실(null 경계)은
- * 전이로 치지 않는다. 실제 헬스 간 이동만 사건이다.
+ * 시각 규칙은 CSS가 소유하고, 훅은 전이 순간의 헬스값만 holdMs 동안 돌려준다.
+ * 정지가 기본값(디자인_방향 §5)이라 최초 마운트와 null 경계는 전이로 치지 않는다.
  */
 
 import { useEffect, useRef, useState } from "react";

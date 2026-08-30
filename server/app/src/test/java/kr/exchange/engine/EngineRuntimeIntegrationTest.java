@@ -119,10 +119,6 @@ class EngineRuntimeIntegrationTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (b) 라이브 소비 후 전체 재생: 이벤트 스트림 완전 동일 + 체크섬 일치
-    // ------------------------------------------------------------------
-
     @Test
     @Order(1)
     void replayReproducesIdenticalEventStream() throws Exception {
@@ -188,10 +184,6 @@ class EngineRuntimeIntegrationTest {
         assertEquals(replayed.stateChecksum(), again.stateChecksum());
     }
 
-    // ------------------------------------------------------------------
-    // (d) seq 갭 주입 → fail-fast 감지 + catch-up 회복
-    // ------------------------------------------------------------------
-
     @Test
     @Order(2)
     void seqGapIsRecoveredByCatchUp() {
@@ -224,10 +216,6 @@ class EngineRuntimeIntegrationTest {
         assertTrue(runningLoop.isRunning());
     }
 
-    // ------------------------------------------------------------------
-    // (d) fencing 확정 거부 → demote + 루프 정지(self-shutdown)
-    // ------------------------------------------------------------------
-
     @Test
     @Order(3)
     void fencingRejectionDemotesAndHaltsLoop() {
@@ -253,10 +241,6 @@ class EngineRuntimeIntegrationTest {
         assertEquals(0, jdbc.sql("SELECT count(*) FROM event_journal WHERE source_cmd_seq = ?")
                 .params(fenceSeq).query(Long.class).single());
     }
-
-    // ------------------------------------------------------------------
-    // 크래시 창 복구: pending 재적재 → 신규 명령 → 재기동 재생 성공(벽돌 방지)
-    // ------------------------------------------------------------------
 
     @Test
     @Order(4)
@@ -306,10 +290,6 @@ class EngineRuntimeIntegrationTest {
         assertEquals(engine.stateChecksum(), rebuilt.stateChecksum());
     }
 
-    // ------------------------------------------------------------------
-    // 비 fencing sink 실패: 리더십 반납 + 접수 차단(반쪽 리더 금지)
-    // ------------------------------------------------------------------
-
     @Test
     @Order(5)
     void nonFencingSinkFailureReleasesLeadershipAndBlocksIntake() {
@@ -353,10 +333,6 @@ class EngineRuntimeIntegrationTest {
         assertFalse(healed.pendingEvents().isEmpty());
         assertTrue(recovery.recover(new MatchingEngineImpl()).pendingEvents().isEmpty());
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private static SingleWriterLoop newLoop(MatchingEngineImpl engine, AtomicReference<Throwable> fatal) {
         return new SingleWriterLoop(1024, engine, eventAppender::append,

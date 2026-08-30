@@ -38,8 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 신규 주문 타입(POST_ONLY·IOC·FOK·BEST)이 정산 경로(SettlementService)를 실제 구동해
- * DB 원장까지 사유·타입 불가지론적으로 처리됨을 실증한다. 기존 SettlementIntegrationTest는
- * LIMIT/MARKET만 덮어 신규 타입의 예약·해제·거절 정산이 추론에 의존했다(reviewer 지적 갭).
+ * DB 원장까지 사유·타입 불가지론적으로 처리됨을 실증한다. SettlementIntegrationTest는
+ * LIMIT/MARKET만 덮는다.
  *
  * SettlementIntegrationTest와 저널·시퀀스를 공유하지 않도록 전용 컨테이너를 쓴다. FOK-reject의
  * "원장 무변경" 단언이 다른 테스트의 커밋에 오염되지 않아야 하기 때문이다. 각 케이스는 잔여
@@ -129,10 +129,6 @@ class OrderTypeSettlementIntegrationTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (A) BEST-sell-IOC: base 락 → best 레벨 1건만 부분체결 → 잔량 IOC RELEASE
-    // ------------------------------------------------------------------
-
     @Test
     @Order(1)
     void bestSellIocPartialFillReleasesRemainder() {
@@ -185,10 +181,6 @@ class OrderTypeSettlementIntegrationTest {
         submit(cancel(carol, deepBid));
     }
 
-    // ------------------------------------------------------------------
-    // (B) FOK 미충족: 접수 없이 거절. reserve_funds 미호출 = 락 없음 + 원장 무변경.
-    // ------------------------------------------------------------------
-
     @Test
     @Order(2)
     void fokNotFilledRejectsWithoutReserveOrLedger() {
@@ -226,10 +218,6 @@ class OrderTypeSettlementIntegrationTest {
         submit(cancel(bob, maker));
     }
 
-    // ------------------------------------------------------------------
-    // (C) FOK 전량 충족: 정상 정산 + 자산합 0.
-    // ------------------------------------------------------------------
-
     @Test
     @Order(3)
     void fokFullyFillsAndSettles() {
@@ -265,10 +253,6 @@ class OrderTypeSettlementIntegrationTest {
         assertInvariants();
         submit(cancel(bob, maker));
     }
-
-    // ------------------------------------------------------------------
-    // (D) POST_ONLY: 크로스면 거절(락 없음), 비크로스면 게시 후 taker가 체결.
-    // ------------------------------------------------------------------
 
     @Test
     @Order(4)
@@ -319,10 +303,6 @@ class OrderTypeSettlementIntegrationTest {
         assertInvariants();
     }
 
-    // ------------------------------------------------------------------
-    // (E) IOC 부분체결: 체결분 정산 + 잔량 ioc_partial_canceled 락 해제.
-    // ------------------------------------------------------------------
-
     @Test
     @Order(5)
     void iocPartialFillSettlesFilledAndCancelsRemainder() {
@@ -358,10 +338,6 @@ class OrderTypeSettlementIntegrationTest {
         assertEquals("FILLED", queryString("SELECT status FROM orders WHERE id = " + maker));
         assertInvariants();
     }
-
-    // ------------------------------------------------------------------
-    // 불변식
-    // ------------------------------------------------------------------
 
     private static void assertInvariants() {
         // C01 자산 보존: 자산별 원장 합 0.
@@ -403,9 +379,7 @@ class OrderTypeSettlementIntegrationTest {
                 """);
     }
 
-    // ------------------------------------------------------------------
-    // 동기 구동 (단일 라이터와 동일 순서: append → 미적용 저널 전량 적용·정산)
-    // ------------------------------------------------------------------
+    // 단일 라이터와 같은 순서로 돈다: append 후 미적용 저널을 전량 적용·정산한다.
 
     private static AppendResult append(OrderIntake intake) {
         return commandAppender.append(new CommandDraft(
@@ -433,10 +407,6 @@ class OrderTypeSettlementIntegrationTest {
             }
         }
     }
-
-    // ------------------------------------------------------------------
-    // 명령 빌더
-    // ------------------------------------------------------------------
 
     private static OrderIntake limit(long userId, long orderId, OrderCommand.Side side,
                                      String price, String qty) {
@@ -475,10 +445,6 @@ class OrderTypeSettlementIntegrationTest {
                 .update();
         assertTrue(svc.tryAcquire(), "테스트 리더 승격 실패");
     }
-
-    // ------------------------------------------------------------------
-    // 조회 헬퍼
-    // ------------------------------------------------------------------
 
     private static BigDecimal userBalance(long userId, int assetId, String column) {
         return jdbc.sql("SELECT " + column + " FROM user_balances "

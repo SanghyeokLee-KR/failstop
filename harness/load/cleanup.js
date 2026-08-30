@@ -1,19 +1,7 @@
-// 부하 잔여 회수. 부하 계정의 미체결 주문을 전부 취소해 잠금 잔고와 호가 벽을 푼다.
-//
-// 있는 이유. 정본 부하는 GTC로 주문을 내고 미체결분은 영구 잔류한다. 취소하지 않으면
-// 주행마다 잔여가 쌓여 두 가지가 깨진다. 첫째, 잠금 잔고가 늘어 결국 400 insufficient_funds가
-// 나는데 그것은 엔진에 닿지 않은 요청이라 접수·429 어느 축에도 안 잡히고 처리율만 조용히
-// 내려간다. 둘째, 공개 호가창 한 레벨에 벽이 서서 데모 화면의 시장이 굳는다.
-// 실측(2026-08-29): 잔여 OPEN 115,876건, 매수 잠금 3,056,923,900 KRW·매도 잠금 54.6 BTC,
-// 매도 1레벨에 54.62 BTC가 서서 가격 상단이 4시간 고정됐다.
-//
-// LB를 지나지 않고 노드에 직접 붙는다. DELETE /api/v1/orders는 계정의 전 미체결을 한 요청
-// 안에서 순차 취소하므로(OrderGateway.cancelAll) 잔여가 많으면 수 분이 걸리는데,
-// nginx proxy_read_timeout이 10초라 LB 경유로는 끊긴다.
-//
-// 비용. 취소도 엔진 커맨드 1건이다. 실측 천장 약 40 cmd/s라 11.6만 건이면 약 48분이다.
-// 짧게 끝내려면 볼륨 초기화가 현실적이나 그 경우 harness.calibration_runs가 함께 사라진다
-// (검증설계 §2-4 확정치의 원천). 회수 전에 harness/evidence/로 덤프해 둔다.
+// 부하 잔여 회수. GTC 미체결분이 쌓이면 잠금 잔고가 400 insufficient_funds를 만들고
+// 호가창에 벽이 선다. 둘 다 접수·429 어느 축에도 안 잡혀 처리율만 조용히 내려간다.
+// LB를 지나지 않는 이유는 cancelAll이 수 분 걸리는데 proxy_read_timeout이 10초라서다.
+// 대안인 볼륨 초기화는 harness.calibration_runs(§2-4 확정치의 원천)도 함께 지운다.
 import http from 'k6/http';
 import { check } from 'k6';
 import { Counter } from 'k6/metrics';
@@ -36,8 +24,8 @@ const MAX_ROUNDS = parseInt(__ENV.CLEANUP_ROUNDS || '5', 10);
 // 계정당 상한. cancelAll이 동기 순회라 잔여에 비례해 길어진다.
 const REQ_TIMEOUT = __ENV.CLEANUP_TIMEOUT || '30m';
 
-// cancelAll이 주문당 커맨드 1건이라 잔여에 비례해 길어진다. 실측 천장 약 40 cmd/s라
-// 11.6만 건이면 약 48분이다. 기본 maxDuration 10분으로는 중간에 끊긴다.
+// cancelAll은 주문당 커맨드 1건이라(실측 천장 약 40 cmd/s) 10만 건 규모면 시간 단위다.
+// k6 기본 maxDuration 10분으로는 중간에 끊긴다.
 const MAX_DURATION = __ENV.CLEANUP_MAX_DURATION || '3h';
 
 export const options = {
@@ -113,7 +101,6 @@ export default function () {
       }
       canceled += n;
       console.log(`${tag} 라운드${round} 취소 ${n}건 (누적 ${canceled})`);
-      // 더 지울 것이 없으면 라운드를 더 돌 이유가 없다.
       if (n === 0) break;
     }
 

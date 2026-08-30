@@ -1,8 +1,7 @@
 /**
- * lib/community/datasource.ts. 게시판 데이터 소스 추상화(게시판_설계 §5 CommunityDataSource).
- * 거래용 DataSource·zustand 스토어와 독립이다. 게시판 요청 실패가 시세 스토어·WS에 전파되지 않는다.
- * 구현은 SimCommunityDataSource(데모 인메모리)와 HttpCommunityDataSource(실 API) 둘.
- * 회원 신원은 단방향 소비만 한다(§0). identityProvider로 주입받아 작성자를 확정하고 Bearer를 첨부한다.
+ * 게시판 데이터 소스 추상화(게시판_설계 §5). 거래용 DataSource·스토어와 독립이라
+ * 게시판 요청 실패가 시세 스토어·WS에 전파되지 않는다.
+ * 회원 신원은 identityProvider로 주입받아 단방향 소비만 한다(§0).
  */
 
 import { ApiError } from "../api/httpDatasource";
@@ -108,9 +107,8 @@ interface PopularCursor {
 }
 
 /**
- * 시뮬레이터 기반 구현. 런타임 외부 의존 0.
- * 새로고침 시 싱글턴 재생성으로 게시판 상태가 소멸한다(데모 한계). 인기순은 세대 스냅샷으로
- * 커서 축을 가변 like_count에서 분리한다(§1.2).
+ * 시뮬레이터 기반 구현. 런타임 외부 의존 0이고 새로고침으로 게시판 상태가 소멸한다(데모 한계).
+ * 인기순은 세대 스냅샷으로 커서 축을 가변 like_count에서 분리한다(§1.2).
  */
 export class SimCommunityDataSource implements CommunityDataSource {
   private posts = new Map<string, PostRecord>();

@@ -245,9 +245,8 @@ public class ConfigAdminController {
     }
 
     /**
-     * 공지 목록(VIEWER). 철회분까지 전부 보여준다. 운영자는 "내린 공지가 무엇이었나"를
-     * 봐야 하고, DELETE 권한이 없어(V5 §7) 행은 계속 쌓인다. LIMIT 100 고정은 101번째
-     * 공지를 존재하지도 않는 것처럼 지웠다. 커서로 끝까지 따라갈 수 있게 한다.
+     * 공지 목록(VIEWER). 철회분까지 전부 보여준다. DELETE 권한이 없어(V5 §7) 행은 계속
+     * 쌓이므로 고정 상한이 아니라 커서로 끝까지 따라간다.
      */
     @GetMapping("/notices")
     public Map<String, Object> notices(HttpServletRequest request,

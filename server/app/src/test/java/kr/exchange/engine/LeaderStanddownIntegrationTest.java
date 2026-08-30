@@ -27,9 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 좀비 리더 자발적 강등의 리스 계층 계약(DB 설계 §5.4).
  *
- * 992e59b의 전용 풀 격리로 하트비트 생존성이 서비스 생존성과 분리된 뒤, 요청 경로가 멈춘 노드가
+ * 전용 풀 격리로 하트비트 생존성이 서비스 생존성과 분리되면서, 요청 경로가 멈춘 노드가
  * 리스만 갱신해 스탠바이 승격을 영구히 막는 좀비가 생겼다. 여기서 고정하는 것은 그 노드가 갱신을
- * 포기하는 것, 포기가 리스 행을 건드리지 않는 것, 그리고 승격이 종전대로 만료 구동 epoch+1로만
+ * 포기하는 것, 포기가 리스 행을 건드리지 않는 것, 그리고 승격이 그대로 만료 구동 epoch+1로만
  * 성립하는 것이다.
  *
  * 정지 재현에 커넥션 풀 포화를 쓰지 않는다. 카오스 라이브의 실제 좀비는 커넥션 대기가 아니라 CPU
@@ -115,8 +115,8 @@ class LeaderStanddownIntegrationTest {
             assertEquals(0, requestPool.getHikariPoolMXBean().getActiveConnections(),
                     "풀 포화가 강등의 전제로 남아 있으면 CPU 기아형 좀비를 놓친다");
 
-            // 완료가 0이 아니라 희박한 상태다. 라이브 좀비는 5분에 체결 1건을 내고 있었고,
-            // 완료 1건이 누적을 초기화하던 규칙은 그래서 무력화됐다.
+            // 라이브 좀비는 5분에 체결 1건을 내므로 완료가 희박할 뿐 0은 아니다.
+            // 완료 1건으로 누적을 초기화하면 그 좀비를 영영 못 잡는다.
             demand(progress, 50);
             progress.recordCompletion();
             assertTrue(zombie.renew(), "붕괴 첫 표본에서 곧바로 강등하면 안 된다");
@@ -136,7 +136,7 @@ class LeaderStanddownIntegrationTest {
 
             assertFalse(zombie.isLeader(), "자발적 강등 후에도 리더로 남았다");
             assertEquals(1, lost.get(), "상실 콜백이 정확히 한 번 발화해야 한다");
-            // 자발적 중단은 리스 행에 쓰지 않는다. 승격은 종전대로 만료가 구동한다.
+            // 자발적 중단은 리스 행에 쓰지 않는다. 승격은 그대로 만료가 구동한다.
             assertEquals(leaseEpochBefore, leaseEpoch(), "강등이 리스 epoch를 건드렸다");
             assertEquals(holderBefore, leaseHolder(), "강등이 리스 holder를 건드렸다");
             assertEquals(leaseUntilBefore, leaseUntil(), "강등이 lease_until을 건드렸다");
@@ -218,14 +218,11 @@ class LeaderStanddownIntegrationTest {
     }
 
     /**
-     * 승격 경계에서 판정 창을 다시 세우는 배선이 리스 계층에 실제로 걸려 있다(§5.4 승격 경계
-     * 판정 초기화). 판정기 단위 테스트는 onLeadershipGained를 직접 부르므로 그 규칙만 보고,
-     * 리스가 승격 시점에 그것을 부르는지는 어느 테스트도 보지 않았다. 배선 한 줄을 지워도 전
-     * 스위트가 통과하던 자리다.
+     * 판정 창 초기화 배선이 리스 계층에 실제로 걸려 있는지 본다(§5.4 승격 경계 판정 초기화).
+     * 판정기 단위 테스트는 onLeadershipGained를 직접 부르므로 이 배선을 덮지 못한다.
      *
-     * 순서가 이 테스트의 전부다. 검출기를 백로그 적재보다 **먼저** 만들어야 한다. 생성자가
-     * 카운터를 스냅샷하므로 뒤에 만들면 백로그가 이미 기준선에 반영돼 초기화 유무가 결과를
-     * 가르지 못하고, 테스트가 조용히 무의미해진다.
+     * 검출기를 백로그 적재보다 먼저 만들어야 한다. 생성자가 카운터를 스냅샷하므로 뒤에 만들면
+     * 백로그가 이미 기준선에 반영돼 초기화 유무가 결과를 가르지 못한다.
      */
     @Test
     void promotionResetsTheStallWindowThroughTheLeaseLayer() {
@@ -306,7 +303,7 @@ class LeaderStanddownIntegrationTest {
             assertTrue(leader.tryAcquire(), "만료 리스 승격 실패");
             long epoch = leader.requireLeader().epoch();
 
-            // ① 건강한 노드. 재확인이 권위를 증명하고 리스를 연장한다(v2.23 오강등 방지 경로).
+            // ① 건강한 노드. 재확인이 권위를 증명하고 리스를 연장한다(오강등 방지 경로).
             int probesBefore = probes.get();
             OffsetDateTime healthyBefore = leaseUntil();
             assertTrue(leader.demoteUnlessStillLeader("fencing 거부 주입"),
@@ -333,12 +330,10 @@ class LeaderStanddownIntegrationTest {
     }
 
     /**
-     * 승격 재생 구간 표식은 세대 스코프다. 회복 가능 반납 도입으로 [재생 실패 -> 반납 -> 만료 ->
-     * 같은 노드가 재승격]이 정상 경로가 됐고, 앞선 시도가 뒷정리를 하는 동안 새 시도가 시작될 수
-     * 있다. 낡은 해제가 새 표식을 지우면 새 시도의 재생 실패가 종신으로 잘못 내려가 후보가
-     * 소진된다. 플래그의 안전성이 승격 워커 스레드 수 1에 암묵 의존하던 자리다.
-     *
-     * 표식 자체가 아니라 표식이 만드는 **강등 등급**으로 확인한다. 관측 가능한 계약이 그것이다.
+     * 승격 재생 구간 표식은 세대 스코프다. [재생 실패 -> 반납 -> 만료 -> 같은 노드가 재승격]이
+     * 정상 경로라 앞선 시도의 뒷정리와 새 시도가 겹칠 수 있고, 낡은 해제가 새 표식을 지우면
+     * 새 시도의 재생 실패가 종신 강등으로 내려가 후보가 소진된다. 확인은 표식 자체가 아니라
+     * 표식이 만드는 강등 등급으로 한다. 관측 가능한 계약이 그것이다.
      */
     @Test
     void promotionReplayMarkerIsScopedToItsOwnAttempt() {

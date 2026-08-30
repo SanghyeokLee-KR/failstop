@@ -5,13 +5,9 @@
 /* ===== 리셋 ===== */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
-/* 스크롤바를 계기 어휘로 낮춘다. 루트에 걸어 뷰포트 스크롤바까지 포함한다.
-   홈·거래내역·토론·인증은 문서가 스크롤돼 뷰포트 스크롤바가 상시 보인다. 패널만 조용하고
-   페이지는 OS 기본이면 처리가 반쪽이 된다. 두 속성은 축을 나눌 수 없어 1280px 미만의 가로
-   스크롤바도 같이 얇아지지만, 창이 좁다는 건 레이아웃이 뷰포트를 넘치는 것으로 이미 드러난다.
-   scrollbar-color는 상속이라 하위 컨테이너에 전부 닿고, 비상속인 scrollbar-width는
-   스크롤 컨테이너가 각자 선언한다. 루트에 gutter는 걸지 않는다. 뷰포트가 정확히 1280px일 때
-   예약분이 body min-width를 밀어내 없던 가로 스크롤을 만든다 */
+/* 스크롤바를 계기 어휘로 낮춘다. 루트에 걸어 뷰포트 스크롤바까지 포함한다. 상속되는 것은
+   scrollbar-color뿐이라 비상속 scrollbar-width는 스크롤 컨테이너가 각자 선언한다.
+   gutter는 걸지 않는다. 정확히 1280px일 때 예약분이 body min-width를 밀어 가로 스크롤을 만든다 */
 html {
   -webkit-text-size-adjust: 100%;
   scrollbar-width: thin;
@@ -46,9 +42,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ===== 포커스 (이중 링, ≥3:1) =====
-   바깥 링은 outline(offset)로 그린다. box-shadow 링은 스크롤 컨테이너(호가·마켓·자산 리스트)
-   overflow 경계에서 잘렸다. outline은 클리핑되지 않고 outline-offset 간격이 surface 분리 역할을 한다.
-   안쪽 헤어라인은 inset box-shadow라 유색·틴트 fill 위에서도 링 분리를 유지하며 레이아웃 시프트 0. */
+   바깥 링은 outline이다. box-shadow는 스크롤 컨테이너 overflow 경계에서 잘린다.
+   안쪽 헤어라인은 inset box-shadow라 유색 fill 위에서도 링이 분리되고 시프트가 0이다. */
 :focus { outline: none; }
 /* outline 축약형은 여기서 조립한다. 토큰에 조립해 두면 색이 선언 지점에서 굳어
    오류 링(--focus-outline-color 덮어쓰기)이 먹지 않는다 */
@@ -138,8 +133,7 @@ a { color: inherit; text-decoration: none; }
 .hit-tint[data-hit="up"] { background: var(--color-up-flash); }
 .hit-tint[data-hit="down"] { background: var(--color-down-flash); }
 /* 히트 틴트는 260ms 플래시와 달리 홍수 구간 내내 지속되는 상태라 일시 예외가 아니다.
-   틴트 블렌드(#FEEBEC·#E8F3FD) 위 600단계·secondary는 라이트 4.14~4.28:1로 미달.
-   -strong·default 승격 실측: red-700 5.50:1, azure-700 6.59:1, grey-800 10.77:1 이상 */
+   틴트 블렌드 위에서 600단계·secondary가 4.5:1에 미달해 -strong·default로 승격한다 */
 .hit-tint[data-hit] [data-dir="up"].dir-text { color: var(--color-up-strong); }
 .hit-tint[data-hit] [data-dir="down"].dir-text { color: var(--color-down-strong); }
 .hit-tint[data-hit] [data-dir="flat"].dir-text { color: var(--text-default); }
@@ -230,12 +224,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* 히트 확장 유틸(디자인시스템 §10-2). 시각 크기를 키우지 않고 히트만 44px로 넓힌다.
-   icon-btn[data-size=sm]이 쓰던 방식을 공용으로 올린 것이다. 같은 규정을 지켜야 하는
-   컨트롤이 헤더·인증·배너·표 머리글에 흩어져 있는데 각자 다시 만들 이유가 없다.
-
-   인접 gap 안에서만 쓴다. 겹치면 옆 컨트롤의 클릭을 훔치고, 그건 규정이 금지하는 상태다.
-   min-* 대신 width/height를 계산식으로 두는 이유는 원래 상자가 44px보다 큰 축에서
-   확장이 상자를 되레 줄이면 안 되기 때문이다 */
+   인접 gap 안에서만 쓴다. 겹치면 옆 컨트롤의 클릭을 훔쳐 규정 위반이 된다.
+   min-* 대신 계산식 width/height인 이유는 44px보다 큰 축에서 상자가 되레 줄면 안 되기 때문이다 */
 .hit-44 {
   position: relative;
 }
@@ -278,10 +268,9 @@ a { color: inherit; text-decoration: none; }
 .empty-state--compact {
   padding: var(--space-6) var(--layout-gutter);
 }
-/* 한글 중앙 정렬 문구는 어절 중간 개행("쌓입/니다")이 고아 줄로 도드라진다. keep-all로 어절 단위 개행.
-   keep-all은 어절을 쪼개는 것만 막는다. 마지막 어절 하나가 다음 줄로 떨어지는 고아 줄은 따로 남는다
-   (게이트 실측 414px / 26px). balance가 줄 길이를 고르게 나눠 그 잔여를 없앤다. 미지원 브라우저는
-   기존 개행으로 되돌아갈 뿐이라 안전하다 */
+/* 한글 중앙 정렬 문구는 어절 중간 개행("쌓입/니다")이 고아 줄로 도드라진다. keep-all은 어절만
+   지키고 마지막 어절이 떨어지는 고아 줄은 balance가 없앤다. 미지원 브라우저는 기본 개행으로
+   되돌아갈 뿐이라 안전하다 */
 .empty-state__title {
   font-size: var(--font-body-size);
   line-height: var(--font-body-line);

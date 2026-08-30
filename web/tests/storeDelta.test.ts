@@ -1,8 +1,7 @@
 /**
- * tests/storeDelta.test.ts. myAsset 델타 병합·myOrder 종결 upsert 검증.
- * 서버가 접촉 마켓만 보내는 델타를 전체 교체로 흡수해 미접촉 보유가 소실되던 회귀와,
- * 종결 주문이 openOrders에 없을 때 체결 탭에서 유실되던 회귀를 고정한다.
- * v2.21부터 원가는 델타가 권위다(K5). 직전 값 보존이 낡은 평단가를 남기던 것도 함께 고정한다.
+ * myAsset 델타 병합·myOrder 종결 upsert 검증.
+ * 접촉 마켓만 오는 델타를 전체 교체로 흡수하면 미접촉 보유가 소실되고, 종결 주문이 openOrders에
+ * 없으면 체결 탭에서 유실된다. 원가는 델타가 권위다(K5).
  */
 
 import { test } from "node:test";

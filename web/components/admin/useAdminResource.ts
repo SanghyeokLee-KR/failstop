@@ -1,16 +1,8 @@
 "use client";
 
 /**
- * 관리 평면 폴링 리소스 상태 머신(§5.2, 감사 error/rows 패턴 승격).
- * 로딩·빈·에러 삼분과 스테일 신호를 한곳에서 관리한다.
- * 페칭 자체(loader 본문)는 화면·어댑터 소유. 이 훅은 상태만 다룬다.
- *
- * 상태 구분:
- * - loading: 최초 로드 진행 중(데이터 없음). Skeleton.
- * - error: 최초 로드 실패(데이터 없음). empty-state role=alert + 재시도.
- * - stale: 폴링 실패로 마지막 값 유지 중. 지연 배지 + 갱신 영역 opacity 저하.
- * 최초 실패와 폴링 실패는 데이터 유무로 가른다. 세션 사유 구분은 isSessionError로 주입한다.
- * 단 세션 만료만은 데이터 유무보다 우선해 error로 승격한다(스테일로 흡수 금지).
+ * 최초 로드 실패(error)와 폴링 실패(stale)는 데이터 유무로 가른다.
+ * 세션 만료만 데이터 유무보다 우선해 error로 승격한다(스테일로 흡수 금지).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";

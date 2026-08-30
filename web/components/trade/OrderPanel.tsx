@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * OrderPanel: 인라인 주문 폼 (§2.5). OrderClient의 검증·제출 로직 이식.
- * 확인 단계는 인라인 2단계. 1차 클릭 시 CTA가 확인 라벨로 전환, 3초 내 재클릭 확정,
- * Esc·외부 클릭·3초 경과·입력 변경으로 원복. 모달·바텀시트 없음.
- * 프리필: /order 리다이렉트 쿼리(side+price) 승계 + 호가 클릭(가격만, side 유지).
+ * 확인은 인라인 2단계다(§2.5). 1차 클릭에 CTA가 확인 라벨로 바뀌고 3초 내 재클릭이 확정,
+ * Esc·외부 클릭·3초 경과·입력 변경으로 원복한다. 모달·바텀시트는 쓰지 않는다.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -181,10 +179,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     setOrdType((t) => (t === "market" ? "limit" : t));
     fillPrice(prefill.price);
     setActivePct(null);
-    /* 가격을 골랐으면 다음 조작은 수량이다. 읽기 순서상 호가 첫 행에서 수량 입력까지 27탭이라
-       키보드로는 그 흐름이 끊긴다. seq는 출처 판별자다. 0은 마운트 시 쿼리 승계라 포커스를
-       뺏으면 진입하자마자 화면이 튀고, 1 이상은 사용자가 방금 누른 호가라 이어주는 게 맞다.
-       프리필은 항상 지정가로 되돌리므로 대상은 수량 입력으로 고정이다 */
+    /* seq는 프리필 출처 판별자다. 0은 마운트 시 쿼리 승계라 포커스를 뺏으면 화면이 튀고,
+       1 이상은 사용자가 방금 누른 호가라 수량 입력으로 이어준다(호가 첫 행에서 수량까지 27탭) */
     if (prefill.seq > 0) {
       document.getElementById("panel-ord-qty")?.focus();
     }
@@ -199,11 +195,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     }
   }, [ticker, fillPrice]);
 
-  /* 마켓 스펙은 자동 채움보다 늦게 도착할 수 있다(외부 딥링크 + 콜드 세션). 폴백 격자로 채운
-     값을 그대로 두면 표시가는 폴백 격자, 제출 기준가(priceBasisStr)는 권위 격자로 갈린다.
-     트리거를 priceTick이 아니라 스펙 틱으로 좁힌다. 폴백 priceStep은 입력 자릿수를 따라 흔들려
-     타이핑마다 재스냅이 걸린다. specTick은 한 번 확정되면 다시 바뀌지 않아, in-flight로 건너뛰면
-     트리거가 소실된다. submitting을 deps에 넣어 제출 종료 시 재시도한다 */
+  /* 폴백 격자로 채운 값을 그대로 두면 표시가와 제출 기준가가 갈린다. 트리거를 스펙 틱으로
+     좁히고, submitting을 deps에 넣어 in-flight로 건너뛴 재스냅을 제출 종료 시 재시도한다 */
   useEffect(() => {
     if (submitting) return;
     const next = resnapAutoPrice(priceRawRef.current, autoPriceRef.current, specTick);
@@ -240,18 +233,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     };
   }, [armed, disarm]);
 
-  /* 입력·방향·유형 변경 시 확인 상태 원복 + 다음 제출은 새 멱등키. 확정 대상이 달라졌기 때문.
-     단 제출 중(in-flight)에는 dirty 전이를 동결한다. 5XX 재시도가 새 키를 발급하면 이중접수 위험(§7-6).
-
-     동결만 하고 끝내면 in-flight 중의 입력 변경이 영구 소실된다. 상태 UNKNOWN으로 키를 보존한
-     실패 뒤 재제출이 같은 키에 바뀐 내용을 실어 보내고, 서버는 409 duplicate_client_order_id로
-     막지만 사용자에게는 원인 불명 오류로 보인다. 그래서 submitting을 deps에 넣어 제출 종료 시
-     한 번 더 평가한다.
-
-     이때 submitting 변화만으로 onInputChanged를 적용하면 안 된다. 입력이 그대로인 5XX 재시도까지
-     dirty로 만들어 새 키를 발급하고, 그것이 바로 막으려던 이중접수다. 마지막으로 반영한 입력
-     서명과 비교해 실제로 달라졌을 때만 적용한다. 동결 구간에서는 서명을 갱신하지 않으므로
-     제출이 끝난 뒤 그 변경이 정확히 한 번 반영된다. */
+  /* 제출 중에는 dirty 전이를 동결한다. 5XX 재시도가 새 키를 발급하면 이중접수다(§7-6).
+     입력 서명을 비교해 실제로 달라졌을 때만, 제출 종료 뒤 정확히 한 번 반영한다 */
   useEffect(() => {
     const sig = [side, ordType, priceRaw, qtyRaw, amountRaw, market].join("|");
     if (!shouldApplyInputChange(sig, lastInputSigRef.current, submitting)) return;
@@ -314,9 +297,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   // 진행 중과 실패를 분리한다. 실패면 영구 로딩 대신 재시도를 노출하고, 잔고 미확정이므로 CTA는 막는다
   const loadingBalance = !accountsFailed && (assets.length === 0 || !ticker);
 
-  /* ===== 검증 (OrderClient 규약, 문자열 십진 정확 비교) =====
-     최소·최대는 반올림 총액이 아니라 정확 비교로 판정한다. 서버(게이트웨이 정적 검증 §4-B-1)가
-     NUMERIC 정확 비교라 클라이언트만 반올림하면 경계 구간 주문이 인라인 검증을 통과 후 거부된다 */
+  /* 최소·최대는 반올림 총액이 아니라 문자열 십진 정확 비교로 판정한다. 서버가 NUMERIC 정확
+     비교라 클라이언트만 반올림하면 경계 구간 주문이 인라인 검증을 통과한 뒤 거부된다(§4-B-1) */
   const totalPositive = compareDecimal(totalStr, "0") > 0;
   let error: string | null = null;
   if (totalPositive && compareDecimal(totalStr, minOrderStr) < 0)
@@ -328,10 +310,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   else if (side === "ask" && compareDecimal(qtyStr, availCoinStr) > 0) error = "보유 수량 초과";
   const ready = totalPositive && error === null && !loadingBalance && !accountsFailed;
 
-  /* 비활성 사유를 CTA 라벨이 말한다.
-     error 4종은 인라인 문구가 있지만 가장 흔한 비활성 사유(아직 아무것도 입력 안 함)에는 안내가
-     없었다. 비활성 CTA는 대비 기준 면제라 흐린 게 맞고, 그래서 "누를 수 없다"만 남고 "무엇이
-     필요한지"가 비었다. 별도 안내 행을 더하면 스켈레톤과의 높이 계약이 깨지므로 라벨로 싣는다. */
+  /* 비활성 사유를 CTA 라벨이 말한다. 별도 안내 행을 더하면 스켈레톤과의 높이 계약이 깨진다 */
   const needLabel = ordType === "limit" && !(price > 0)
     ? COLD_CTA_LABEL
     : isMarketBuy
@@ -343,7 +322,6 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const committedRatio = committedRatioOf(side, toNum(bidLockStr), availKRW, availCoin, toNum(qtyStr));
   const isLargeOrder = computeLargeOrder(ready, committedRatio);
 
-  /* ===== 입력 핸들러 ===== */
   const onPriceInput = (v: string) => {
     // 소수 허용(저가·소수틱 마켓). 숫자와 소수점 1개만 남긴다
     let cleaned = v.replace(/[^0-9.]/g, "");
@@ -380,10 +358,8 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     setActivePct(null);
   };
 
-  /* 퍼센트 프리셋. 전 경로가 문자열 십진이다. float 왕복은 2^53 초과 잔고에서 수량을 위조한다.
-     v2.7 예약 모델에서 락은 대금뿐이라 (1+fee) 역산이 없다. 예산을 price_scale로 먼저 절사해
-     두면 대금 <= 예산(정수)이고 UP 양자화한 락도 그 정수를 넘지 않아, 100% 프리셋이 스스로
-     채운 수량으로 잔고 초과 에러를 만들지 않는다 */
+  /* 퍼센트 프리셋. float 왕복은 2^53 초과 잔고에서 수량을 위조한다. 예산을 price_scale로 먼저
+     절사해야 UP 양자화한 락도 그 정수를 넘지 않아 100% 프리셋이 잔고 초과를 만들지 않는다(§4-B-5) */
   const applyPct = (pct: number) => {
     setActivePct(pct);
     if (side === "ask") {
@@ -402,7 +378,6 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
     if (next !== null) setQtyRaw(next);
   };
 
-  /* ===== 제출 (인라인 2단계 확인) ===== */
   const submit = async () => {
     if (submittingRef.current) return;
     submittingRef.current = true;

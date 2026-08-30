@@ -80,11 +80,10 @@ try {
     $assetSum = $rows['C01_ASSET_CONSERVATION']
     $cmdGap = $rows['C05_CMD_GAPLESS']; $evtGap = $rows['C06_EVT_GAPLESS']
 
-    # 클라 수렴: 해제 후 체결이 다시 진행(무한 UNKNOWN 없음). 사후 체결이 주입 시점보다 증가.
+    # 클라 수렴: 해제 후 체결이 다시 진행(무한 UNKNOWN 없음).
     $tradesAfter = Get-TradeCount
     $converged = ($tradesAfter -gt $tradesAtInject)
 
-    # 멱등 replay 델타(옵션): 두 스냅샷 다 있으면 계산, 아니면 n/a.
     $replayDelta = 'n/a'
     if ($null -ne $replayBefore -and $null -ne $replayAfter) {
         $replayDelta = [double]$replayAfter - [double]$replayBefore

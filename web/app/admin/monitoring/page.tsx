@@ -91,9 +91,7 @@ const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
     // 이벤트 0건과 실재 재생을 이 값으로 가른다. 서버가 스키마 1.2부터 낸다.
     key: "fp",
     label: "재생 창",
-    // 실측 fp가 23자다(seq:717847-717886:ev:70). seq 자릿수가 늘면 넘치는데 .cell에
-    // overflow 처리가 없어 하이픈 뒤에서 줄바꿈이 나 44px 행이 2줄이 된다. 폭을 늘리고
-    // 넘치면 말줄임으로 접는다. 원문은 title이 보존한다.
+    // .cell에 overflow 처리가 없어 fp가 넘치면 44px 행이 2줄이 된다. 말줄임으로 접고 원문은 title이 보존한다
     width: "200px",
     render: (r) => (
       <span
@@ -137,7 +135,7 @@ export default function MonitoringPage() {
 
       {loading ? (
         <div className={styles.pageStack}>
-          {/* 실측: 릴레이 존 89(명판 15+간격 8+셀 40+간격 8+발화선 18), 미터 타일 122(보더 2+패딩 32+라벨 18+값 28+보조 18+미터 12+간격 12), 원장 행 106(미터 없는 타일 실측) */}
+          {/* 릴레이 존·미터 타일·원장 행 실측 높이와 같은 값이라 로드 후 시프트 0 */}
           <Skeleton variant="card" width="100%" height={89} />
           <div className={styles.kpiGroup}>
             <Skeleton width={72} height={15} />

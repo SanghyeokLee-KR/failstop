@@ -24,14 +24,8 @@ const DASH_SOLID: [number, number] = [2, 2];
 const DASH_DASHED: [number, number] = [4, 3];
 
 /**
- * 완전한 지표 선 스타일 1개.
- *
- * klinecharts는 지표 인스턴스의 styles.lines를 기본값과 병합하지 않고 통째로 대체한다
- * (eachFigures -> formatValue(styles, 'lines', defaultStyles.lines)).
- * color만 넘기면 dashedValue가 사라지고, 선분 병합 비교가 styles.dashedValue[0]을 읽다가
- * TypeError로 렌더 루프를 죽인다. 그때부터 차트가 스크롤·드래그에 반응하지 않는다.
- * 그래서 오버라이드는 항상 전 속성을 채운다. 전역 styles는 깊은 병합이라 무해하고,
- * 같은 헬퍼를 쓰면 전역·지표별 선 어휘가 한 곳에서 갈린다.
+ * klinecharts는 지표 인스턴스의 styles.lines를 병합하지 않고 통째로 대체한다.
+ * color만 넘기면 dashedValue가 사라져 렌더 루프가 TypeError로 죽으므로 오버라이드는 전 속성을 채운다.
  */
 function line(color: string, opts?: { size?: number; dashed?: boolean }): {
   color: string;
@@ -88,11 +82,8 @@ export interface ChartTokens {
 const VOL_ALPHA_HEX = "59";
 
 /**
- * 방향색에 거래량 막대 알파를 입힌다.
- *
- * 토큰은 getComputedStyle 해석값이라 현재는 #RRGGBB로 오지만, 형식이 rgb()·oklch() 등으로 바뀌면
- * 접미 결합이 깨진 색 문자열을 만든다(무음 실패). 6자리 hex일 때만 접미하고, 아니면 color-mix로
- * 알파를 얹는다. color-mix도 못 쓰는 환경이면 불투명 원색으로 떨어뜨려 최소한 막대는 보이게 한다.
+ * 토큰이 6자리 hex일 때만 알파를 접미하고 아니면 color-mix로 얹는다.
+ * 형식이 rgb()·oklch()로 바뀌면 접미 결합이 깨진 색 문자열을 무음으로 만든다.
  */
 function volumeBarColor(color: string): string {
   if (/^#[0-9a-fA-F]{6}$/.test(color)) return `${color}${VOL_ALPHA_HEX}`;

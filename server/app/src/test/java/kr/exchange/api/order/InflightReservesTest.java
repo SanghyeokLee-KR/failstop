@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 잔고 사전 가드 in-flight 누계 회귀(M1-4 재판정 #4).
+ * 잔고 사전 가드 in-flight 누계 회귀.
  * 핵심 계약: 타임아웃(defer) 경로는 즉시 해제하지 않고, 주문 row 관측 또는 TTL 만료
  * 시점에만 누계에서 회수된다. 즉시 해제하면 가드-정산 경합 창이 다시 열린다.
  */

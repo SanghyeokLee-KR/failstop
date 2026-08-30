@@ -155,10 +155,8 @@ public class SimAdminController {
                 Map.of("target_ops", String.valueOf(target), "apply_path", applyPath,
                         "queued_command_id", queuedId));
         // applied는 "지금 이 순간 봇에 반영됐는가"다. 큐 발행은 아직 아니다.
-        // 값 자체는 종전과 같은 governor != null이다. 바뀐 것은 그 뜻이 계약에 없어
-        // 소비자가 "요청이 접수됐는가"로 읽을 수 있었다는 점이고, apply_path와 짝지어
-        // 뜻을 확정했다. 큐 경로가 생기기 전에는 false가 곧 미적용이었으나 이제는
-        // 아니라서, 이 필드만 보고 실패를 단정하면 성공 경로를 실패로 표시한다.
+        // 큐 경로에서는 false가 미적용이 아니므로 이 필드 단독으로 실패를 단정하면 안 된다.
+        // 접수 여부는 apply_path와 함께 읽는다.
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("schema_version", "1.1");
         out.put("target_ops", String.valueOf(target));
@@ -409,12 +407,9 @@ public class SimAdminController {
             markets.add(row);
         }
         boolean present = governor != null || fleet != null;
-        // 거버너가 없으면 이 JVM에서는 적용할 대상이 없다. 봇은 별도 프로파일 JVM이고
-        // 관리 평면은 물리 분리돼 있어(관리자 설계 §0) 그 빈이 없기 때문이다. 종전에는
-        // 감사 로그와 fleet_present:false만 남고 봇이 그대로였다. 실측(2026-08-29):
-        // spike 프리셋 활성화가 아무 효과도 내지 못했다.
-        // sim_commands(V22)에 의도를 남기면 봇 JVM의 SimCommandConsumer가 집어 적용한다.
-        // chaos_commands가 같은 평면 분리 문제를 푼 방식과 같다.
+        // 봇은 별도 프로파일 JVM이고 관리 평면은 물리 분리돼(관리자 설계 §0) 이 JVM에
+        // 거버너가 없다. sim_commands(V22)에 의도를 남겨야 봇 JVM의 SimCommandConsumer가
+        // 집어 적용한다. 남기지 않으면 콘솔 조작이 감사 로그만 남기고 봇은 그대로다.
         long queuedId = 0;
         if (!present) {
             queuedId = jdbc.sql("""
@@ -426,10 +421,9 @@ public class SimAdminController {
                     .query(Long.class).single();
         }
 
-        // 거버너 부재 경로에서는 수치를 내지 않는다. baseOps가 0.0으로 고정돼 targetOps도
-        // 0.0이 되는데 봇 JVM이 실제로 적용하는 값은 다르다(실측: 응답 0.0, 실제 base 10.0
-        // target 100.0). 그 0.0을 응답과 감사에 실으면 기록이 실제와 어긋난다.
-        // 실제 값은 sim_commands.result에 남으므로 그 쪽을 원천으로 둔다.
+        // 거버너 부재 경로에서는 수치를 내지 않는다. 이 JVM은 봇 JVM이 실제로 적용하는
+        // 값을 알 수 없어 ops·markets·clamped가 전부 근거 없는 주장이 된다. 실제 값의
+        // 원천은 sim_commands.result다.
         String applyPath = present ? "local" : "queued";
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("apply_path", applyPath);
@@ -439,10 +433,6 @@ public class SimAdminController {
             detail.put("target_ops", String.valueOf(targetOps));
             detail.put("base_ops", String.valueOf(baseOps));
         }
-        // markets·clamped도 같은 이유로 뺀다. 큐 경로에서 이 둘은 각각 빈 배열과 false로
-        // 고정되는데, 빈 배열은 "0개 마켓에 적용했다"는 주장이고 clamped:false는
-        // "캡에 걸리지 않았다"는 주장이다. 둘 다 관리 평면이 알 수 없다. 봇 JVM이 12개
-        // 마켓에 적용하고 캡에 걸려도 이 응답은 아니라고 말한다.
         if (present) {
             detail.put("markets", markets);
             detail.put("clamped", clamped);

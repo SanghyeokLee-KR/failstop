@@ -21,22 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 파티션 지평 회귀 고정. outbox는 V1이 2026-07까지, V8이 2026-09부터 만들어 2026-08 한 달이
- * 어느 정규 파티션에도 속하지 않았고, 2026-08이 되자 신규 outbox 행이 전부 outbox_default로
- * 유입되어 C15_DEFAULT_PARTITION이 상시 위반됐다. V12가 그 구멍을 닫는다.
- *
- * 결함의 성격이 달력 구동이라 "그 달이 오기 전에는 전 테스트가 green"이었다. 특정 월을 박아
- * 두는 단언은 같은 결함을 다시 놓치므로, 아래는 시각을 실행 시점에서 얻어 판정한다.
- *   (1) 지금 이 순간이 정규 파티션에 속한다: 오늘 만들어지는 행이 DEFAULT로 가지 않는다.
- *   (2) 앞으로 {@value #LOOKAHEAD_MONTHS}개월도 속한다: 지평 소진 전에 실패해 선생성을 강제한다.
- *       이 단언은 수동 선생성 지평(현재 2027-09-01)을 6개월 앞두고 의도적으로 깨진다.
- *       깨지면 월 파티션을 연장하는 마이그레이션을 추가한다(DB 설계 §3.2).
- *   (3) 정규 파티션 사슬에 내부 구멍이 없다: V1과 V8 사이처럼 경계가 어긋난 조합을 잡는다.
- * seq 축 저널은 달력과 무관하므로 (3)과 현재 채번값 커버리지로 판정한다.
- *
- * 파티션 경계는 pg_get_expr(relpartbound)로 읽는다. 출력은 timestamptz·bigint 모두
- * FOR VALUES FROM ('...') TO ('...') 형태의 인용 리터럴이고, timestamptz는 오프셋을 포함해
- * 렌더링되므로 같은 세션에서 되캐스팅하면 무손실이다.
+ * 파티션 지평 회귀 고정. 달력 구동 결함이라 월을 상수로 박으면 같은 결함을 다시 놓친다. 판정 시각은
+ * 실행 시점에서 얻고, 지평은 {@value #LOOKAHEAD_MONTHS}개월 앞서 깨져 선생성을 강제한다(DB 설계 §3.2).
+ * 경계는 pg_get_expr(relpartbound)로 읽는다. timestamptz 리터럴이 오프셋을 포함해 렌더링되므로
+ * 같은 세션에서 되캐스팅하면 무손실이다.
  */
 @Testcontainers
 class PartitionCoverageIntegrationTest {
@@ -140,10 +128,6 @@ class PartitionCoverageIntegrationTest {
         assertTrue(result.success, "Flyway migration failed");
     }
 
-    // ------------------------------------------------------------------
-    // (1)(2) 시간 축: 지금과 향후 N개월이 정규 파티션에 속한다
-    // ------------------------------------------------------------------
-
     @Test
     void timePartitionsCoverNowAndLookaheadMonths() throws Exception {
         try (Connection conn = open()) {
@@ -220,10 +204,6 @@ class PartitionCoverageIntegrationTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // (3) 전 파티션 테이블: 정규 파티션 사슬에 내부 구멍이 없다
-    // ------------------------------------------------------------------
-
     @Test
     void noInteriorGapInAnyPartitionChain() throws Exception {
         try (Connection conn = open()) {
@@ -246,10 +226,6 @@ class PartitionCoverageIntegrationTest {
         }
     }
 
-    // ------------------------------------------------------------------
-    // seq 축: 현재 채번값이 정규 파티션에 속한다
-    // ------------------------------------------------------------------
-
     @Test
     void seqJournalsCoverCurrentCounterValue() throws Exception {
         try (Connection conn = open()) {
@@ -259,10 +235,6 @@ class PartitionCoverageIntegrationTest {
                     "event_journal이 현재 event_seq 채번값을 담는 정규 파티션을 갖지 않음");
         }
     }
-
-    // ------------------------------------------------------------------
-    // C15 직결: 지금 만든 outbox 행이 DEFAULT로 가지 않는다
-    // ------------------------------------------------------------------
 
     @Test
     void outboxRowCreatedNowRoutesAwayFromDefaultPartition() throws Exception {
@@ -287,10 +259,6 @@ class PartitionCoverageIntegrationTest {
             st.execute("DELETE FROM outbox WHERE aggregate_id = 'coverage-probe'");
         }
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private static Connection open() throws SQLException {
         return DriverManager.getConnection(

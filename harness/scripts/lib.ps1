@@ -170,13 +170,13 @@ function Read-EnvFile {
     return $map
 }
 
-# DB 직조회(권위 판정). -t -A로 헤더·정렬 제거한 raw 값만 반환한다.
+# DB 직조회(권위 판정).
 function Invoke-Psql {
     param([string] $Sql)
     # -q가 없으면 psql이 명령 완료 태그를 함께 낸다. -t -A는 질의 결과의 헤더·푸터만 죽이고
     # UPDATE·INSERT의 "UPDATE 0" 같은 상태 줄은 남긴다. 그 줄이 빈 결과 판정과 필드 분해를
     # 통째로 망가뜨린다(빈 큐 폴이 "UPDATE 0"을 반환해 [long] 캐스팅에서 종료 오류).
-    # 기존 호출부는 전부 SELECT라 -q가 튜플 출력을 바꾸지 않는다.
+    # 현 호출부는 전부 SELECT라 -q가 튜플 출력을 바꾸지 않는다.
     $out = & docker exec $Global:CHAOS.Pg psql -U $Global:CHAOS.PgUser -d $Global:CHAOS.PgDb -q -t -A -c $Sql 2>$null
     return ($out | Out-String).Trim()
 }
@@ -254,23 +254,10 @@ function Remove-AllToxics {
 }
 
 # T5(체결 재개) 술어. 정본 §5-1 T5의 검산식 그대로 command_journal.fencing_token 축을 쓴다.
-# event_journal.fencing_epoch를 쓰면 안 된다. 두 컬럼의 의미가 다르다.
-#   command_journal.fencing_token : 그 명령을 "수용한" 리더의 epoch
-#   event_journal.fencing_epoch   : 그 이벤트를 "저널한" 리더의 epoch
-# 승격 재생은 구 리더가 수용한 미처리 명령(token=구 epoch)을 신 리더가 다시 적용해 이벤트를
-# 신 epoch로 append하면서 created_at은 원래 엔진 처리 시각(주입 직후)을 보존한다. 그래서
-# fencing_epoch 축으로 재면 그 재생 산출물이 "재개된 첫 체결"로 잡히고 RTO가 실제보다 훨씬
-# 작게 나온다. 실측(E6 400 ops): 승격은 13:48:08.571인데 fencing_epoch=2 최초 TRADE는
-# 13:48:03.196으로 승격보다 5.4초 앞섰고 RTO가 0.086s로 보고됐다(실제 약 5.5s). 부하가 클수록
-# 재생 백로그가 커져 오차가 커지므로, RTO<30s 게이트가 부하 상황에서 무력화된다.
-# token 축은 구 리더가 수용한 명령을 구조적으로 배제하므로 재생 산출물이 섞이지 않는다.
-# 정본 주석대로 fencing_token은 command_journal에만 있어 반드시 조인 경유다.
-# 등가(=)가 아니라 초과(>)로 두는 이유: 승격 재생 반납으로 epoch가 +2 이상 오를 수 있고(DB §5.4)
-# 그때 등가 비교는 재개를 영영 놓쳐 RTO가 n/a로 남는다.
-# 조인 전환으로 생긴 결합: 이 측정은 C12(고아 이벤트 0행)에 의존한다. source_cmd_seq는 NOT NULL이라
-# null 탈락은 없지만, 대응 command 행이 없는 TRADE가 생기면 inner join이 그것을 버려 RTO가 n/a가
-# 되고 판정이 FAIL로 떨어진다. fail-closed 방향이라 수용하되, 스냅샷 채택 후 재생 경로가 바뀌어
-# 고아 이벤트가 생길 여지가 나오면 이 측정축이 먼저 무너진다는 것을 알고 있어야 한다.
+# event_journal.fencing_epoch 축은 승격 재생 산출물을 재개로 집어 RTO를 과소 보고한다. 폐기 술어
+# 둘과 실측 대조, 등가(=)가 아니라 초과(>)를 쓰는 이유는 모두 그 절에 있다.
+# 조인 전환으로 생긴 결합: 이 측정은 C12(고아 이벤트 0행)에 의존한다. 대응 command 행이 없는
+# TRADE가 생기면 inner join이 그것을 버려 RTO가 n/a가 되고 판정이 FAIL로 떨어진다(fail-closed).
 function Get-FirstTradeSql {
     param([long] $OldEpoch, [string] $T0Iso)
     return "SELECT min(e.created_at) AT TIME ZONE 'UTC' FROM event_journal e " +
@@ -321,7 +308,7 @@ function Complete-FailoverExperiment {
     )
     # 스탠바이 포트를 api-2로 하드코딩하면 리더가 api-2일 때(앞선 실험이 그렇게 남긴 경우)
     # 방금 죽인 노드를 폴링하게 되어 승격을 영영 못 보고 RTO가 n/a로 남는다. 호출부가 실제
-    # 스탠바이를 알고 있으면 그것을 쓰고, 없으면 종전 기본값으로 떨어진다.
+    # 스탠바이를 알고 있으면 그것을 쓰고, 없으면 기본 api-2 포트로 떨어진다.
     $standbyPort = if ($StandbyPort -gt 0) { $StandbyPort } else { $Global:CHAOS.Api2Port }
 
     Write-Section 'ⓒ 관찰(개입 금지)'
@@ -415,10 +402,8 @@ function Complete-FailoverExperiment {
     $rtoDisplay = 'n/a'; if ($null -ne $rtoRounded) { $rtoDisplay = $rtoRounded }
     $firstTradeVal = $null; if ($firstTradeTs) { $firstTradeVal = $firstTradeTs }
 
-    # epoch는 단조 상승만 본다. 승격 재생 반납이 도입되면서 한 페일오버 사건에서
-    # [반납 -> 만료 -> 재승격]이 반복될 수 있고 그때 epoch가 +2 이상 오른다(DB 설계 §5.4).
-    # 정확히 +1을 요구하면 그 정상 경로가 FAIL로 뒤집힌다. E5·E7은 이미 -ge로 고쳤는데
-    # 공용 함수만 교정을 못 받아 E2·E6에 남아 있었다. 서비스 재개는 아래 t5·rto가 요구한다.
+    # epoch는 단조 상승만 본다. 승격 재생 반납으로 한 사건에서 epoch가 +2 이상 오를 수 있어
+    # (DB 설계 §5.4) 정확히 +1을 요구하면 정상 경로가 FAIL로 뒤집힌다.
     $verdict = 'FAIL'
     if ($post.criticalClean -and $t5 -and ($newEpoch -ge $OldEpoch + 1) -and ($null -ne $rto) -and ($rto -lt $RtoTarget)) {
         $verdict = 'PASS'
@@ -455,7 +440,7 @@ function Complete-FailoverExperiment {
     return $verdict
 }
 
-# ── 확장 유틸(E1·E3·E5·E7·E8·E9 전용, 추가만). E2·E4·E6(구 E1~E3) 경로는 위 함수만 쓴다. ──
+# ── 확장 유틸(E1·E3·E5·E7·E8·E9 전용). E2·E4·E6은 위 함수만 쓴다. ──
 
 # 엔드포인트 지연 표본(ms) + 실패 카운트. DB 경유 read를 반복 GET한다. E1은 리더 pg 프록시
 # 지연 주입의 p99 상승·복귀를, 실패 표본은 오류율을 준다. status는 leader_lease를 읽어 DB를 탄다.
@@ -476,7 +461,7 @@ function Measure-Latency {
     return [pscustomobject]@{ Samples = $samples.ToArray(); Errors = $errors; Total = $Count }
 }
 
-# nearest-rank 백분위수(ms). 표본 부재 시 $null. 정렬은 배열 강제(@)로 단일 표본 스칼라화 방지.
+# 정렬은 배열 강제(@)로 단일 표본이 스칼라가 되는 것을 막는다.
 function Get-Percentile {
     param([double[]] $Values, [double] $P = 99)
     if (-not $Values -or $Values.Count -eq 0) { return $null }
@@ -487,7 +472,6 @@ function Get-Percentile {
     return [double] $sorted[$rank - 1]
 }
 
-# 컨테이너 실행/존재 여부. E3 redis 전제 검사, E5/E7 대상 확인용. 이름 정확 일치만 참.
 function Test-ContainerRunning {
     param([string] $Name)
     $names = & docker ps --format '{{.Names}}' 2>$null
@@ -618,21 +602,14 @@ function Get-AppMetric {
 # 면제 사유는 체크마다 다르다. C13a는 append와 정산 커밋 사이의 비동기 물질화 창, C19는 정지 시점
 # 오더북 스냅샷이라 둘 다 큐 드레인을 전제한다(실측: 400 ops에서 C13a 10~11건, 드레인하면 0).
 # C16은 드레인과 무관하다. 스테일 loadtest_acks 오탐이 배제 사유이고 실험 시작 훅의 TRUNCATE와
-# 한 세트다(정본 §4-3 각주). 스테일 ACK 행은 아무리 드레인해도 0이 되지 않는다.
+# 한 세트다(정본 §4-3 각주).
 #
-# C22·C23은 여기 들어가지 않는다. 정본 §4-2 ④·§4-3 각주가 두 체크를 권위 run(REPEATABLE READ
-# 스냅샷) 평가 대상으로 지정하면서 오탐 없음을 명시한다. C23은 채번 UPDATE와 저널 INSERT가 한
-# 트랜잭션이라 스냅샷에서 중간 상태가 보이지 않고, C22는 커밋된 append-only 행만 보므로 역행이
-# 관측되면 그 자체가 split-brain 참양성이다. 두 체크를 빼면 fencing 역행·채번 재사용이라는
-# CRITICAL 위반이 실험 사후 권위 run을 그대로 통과한다.
+# C22·C23은 면제가 아니라 게이팅 대상이다. 빼면 fencing 역행·채번 재사용이라는 CRITICAL 위반이
+# 실험 사후 권위 run을 그대로 통과한다. 권위 run에서 오탐이 없는 근거는 §4-2 ④·§4-3 각주.
+# 서버 Scope.AUTHORITATIVE_ONLY와 이 목록은 축이 다르다(어느 run에서 평가하는가 대 평가된 결과를
+# 게이팅에 쓰는가). 1:1로 맞추면 C22·C23이 게이팅에서 빠진다.
 #
-# 서버 Scope.AUTHORITATIVE_ONLY(7건: C13A·C16·C19·C22·C23·C24·C25)와 이 목록(3건)은 서로 다른
-# 축이다. C24·C25가 늘면서 5건에서 7건이 됐다(V13 원가 프로젝션). 전자는 "어느 run에서
-# 평가하는가"이고 후자는 "평가된 결과를 게이팅에 쓰는가"다. 두 목록을 1:1로 맞추면 C22·C23이
-# 게이팅에서 빠진다.
-#
-# 목록을 전역 상수로 두는 이유: 실험 스크립트가 같은 배열을 인라인으로 복제하면 여기를 고쳐도
-# 사본이 남아 반쪽 교정이 된다(실측: e6가 인라인 사본을 써서 WARN 제외까지 어긋났다).
+# 목록을 전역 상수로 두는 이유는 인라인 사본이 반쪽 교정을 만들기 때문이다.
 $Global:CHAOS_GATING_EXEMPT_CHECKS = @(
     'C13A_ORDER_MATERIALIZED', 'C16_ACK_JOURNALED', 'C19_ORDERBOOK_NONCROSS'
 )
@@ -662,9 +639,8 @@ function Get-GatedViolationSum {
 
 function Test-ExperimentIntegrity {
     param($Run)
-    # 공허 통과 차단. 체크가 하나도 안 돈 run을 통과로 보고하지 않는다(서버 AuthoritativeRun.pass와
-    # 동일 술어). 종전에는 호출부의 위반합 조건이 빈 응답에서 $null을 내는 바람에 이 구멍을 우연히
-    # 막고 있었고, 그 조건을 걷어내면서 가드가 필요해졌다.
+    # 공허 통과 차단. 체크가 하나도 안 돈 run을 통과로 보고하지 않는다(서버
+    # AuthoritativeRun.pass와 동일 술어).
     if (-not $Run.checks -or @($Run.checks).Count -lt 1) { return $false }
     foreach ($c in $Run.checks) {
         # 형상 가드. checkName이 비면 응답 DTO 필드가 개명된 것이고, 그때는 violatedRows도 못 읽어
@@ -688,7 +664,7 @@ function Write-Verdict {
     Write-Host '────────────────────────────────────────'
 }
 
-# ── 시계 동기 전제조건 가드(조사 #58). 페일오버 승격 게이트 실험 전용. 추가만. ──
+# ── 시계 동기 전제조건 가드(조사 #58). 페일오버 승격 게이트 실험 전용. ──
 
 # Docker Desktop VM 시계가 호스트와 비단조로 어긋나면(호스트 슬립발 간헐 스큐) 리스 만료 구동
 # 승격(try_acquire: lease_until < clock_timestamp)이 지연돼 페일오버 실험이 거짓 FAIL 난다.

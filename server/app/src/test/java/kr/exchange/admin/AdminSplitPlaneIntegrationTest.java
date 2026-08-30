@@ -27,12 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 관리 평면이 봇 거버너와 물리 분리된 배치를 재현한다(관리자 설계 §0).
- *
- * SimGovernanceIntegrationTest가 거버너 빈을 @TestConfiguration으로 주입해 동거 배치를
- * 보는 것과 짝이다. 여기서는 그 빈을 두지 않으므로 컨트롤러가 큐 경로를 탄다. 실배치가
- * 이쪽인데 테스트가 동거만 보고 있어서 큐 배선과 복구 판정이 전부 무커버리지였다.
- * 라이브 수동 확인은 CI에서 재생되지 않는다.
+ * 관리 평면이 봇 거버너와 물리 분리된 실배치를 재현한다(관리자 설계 §0). 거버너 빈을 두지 않으므로
+ * 컨트롤러가 큐 경로를 탄다. 동거 배치는 SimGovernanceIntegrationTest가 본다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -101,8 +97,7 @@ class AdminSplitPlaneIntegrationTest {
 
         assertEquals("queued", body.path("apply_path").asText());
         assertTrue(body.path("queued_command_id").asLong() > 0);
-        // 종전에는 baseOps=0.0에서 파생한 target_ops=0.0을 응답과 감사에 남겼다. 봇이 실제로
-        // 적용하는 값은 다르다(실측 base 10.0 target 100.0). 없는 값은 비운다.
+        // 거버너가 없는 배치에서 파생한 OPS는 봇이 실제로 적용하는 값과 다르다. 없는 값은 비운다.
         assertTrue(body.path("target_ops").isMissingNode(), "모르는 값을 내지 않는다");
         assertTrue(body.path("base_ops").isMissingNode(), "모르는 값을 내지 않는다");
         assertTrue(body.path("markets").isMissingNode(), "빈 배열도 0개 적용이라는 주장이다");
@@ -133,7 +128,6 @@ class AdminSplitPlaneIntegrationTest {
         assertEquals("UNKNOWN", clean.path("overall").asText());
 
         // 창 밖 위반. limit=1이면 배열에는 이 행이 안 나오지만 판정은 표 전체를 센다.
-        // 종전 코드는 응답 배열을 세서 이 상황을 PASS로 냈다.
         insertRun(false, "bad");
         for (int i = 0; i < 3; i++) {
             insertRun(true, "after-" + i);
@@ -172,8 +166,8 @@ class AdminSplitPlaneIntegrationTest {
         assertEquals(1, scoped.path("replay_runs").asInt());
         assertEquals(0, scoped.path("replay_mismatched").asInt(), "창 이전 실패는 제외된다");
 
-        // 창은 배열에도 걸린다. 집계만 좁히면 판정은 UNKNOWN인데 표에는 창 밖 실패 행이
-        // 그대로 떠서 화면과 판정이 갈린다. 이번 라운드가 없앤 결함이 형태만 바꿔 남는다.
+        // 창은 배열에도 걸린다. 집계만 좁히면 판정은 UNKNOWN인데 표에는 창 밖 실패 행이 떠서
+        // 화면과 판정이 갈린다.
         JsonNode rows = bodySince(s, cut).path("recovery_runs");
         assertEquals(1, rows.size(), "배열도 창을 따라야 한다");
         assertEquals("new-ok", rows.path(0).path("fp_replay").asText());

@@ -14,40 +14,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * HA 관측 게이지 + 접수 가용성 배선(감사 관측성·복구, 하네스 CICD §5-2, 복구 RTO §3-a).
- *
- * 게이지(라이터 스레드 밖, 리스 스케줄러 스레드에서 갱신):
- *   exchange_leader_epoch{node}         승격 시 epoch 계단(§5-2)
- *   exchange_leader_is_leader{node}     리더 소유권 밴드·absent 알람(§5-2)
- *   exchange_failover_downtime_seconds  RTO 게이지 T2-T1(§5-1, FailoverRtoExceeded 원천)
- *
- * readiness: 승격 상태 전이(AvailabilitySignal)를 AvailabilityChangeEvent로 승격시켜
- * /actuator/health/readiness를 ACCEPTING_TRAFFIC·REFUSING_TRAFFIC로 전이한다. 팔로워·승격 대기·
- * 강등 노드는 REFUSING이라 503을 낸다. 자발적 강등(DB 설계 §5.4)도 리스 상실 콜백을 타 같은
- * 전이를 밟는다. 강등 사유별로 readiness 의미를 나누지 않는다.
- *
- * 이 프로브의 실제 소비자는 컨테이너 healthcheck와 운영자·하네스 관측이다. 오픈소스 nginx에는
- * 능동 health_check가 없어 LB는 readiness를 조회하지 않는다(harness/nginx/nginx.conf). LB의
- * 트래픽 이동은 프록시된 응답의 503이 max_fails에 계상되는 수동 판정으로 일어나고, 그 503은
- * AcceptGate가 낸다. 두 축이 강등 시 함께 움직여야(REFUSING + 게이트 폐쇄) 승격만 되고 체결은
- * 재개되지 않는 상태를 피한다.
- *
- * Spring은 ApplicationReadyEvent를 **먼저** 발행하고 그 리스너가 전부 반환한 **뒤에**
- * ACCEPTING_TRAFFIC을 발행한다(EventPublishingRunListener.ready, SB 3.5.16 바이트코드 확인:
- * publishEvent 다음 줄이 AvailabilityChangeEvent.publish). 따라서 ready 리스너에서 REFUSING을
- * 되돌려도 곧바로 덮인다. 팔로워로 기동한 노드가 readiness UP으로 오보되던 원인이다.
- * AvailabilityChangeEvent를 직접 듣고 desired와 어긋난 발행을 되돌리는 방식으로 교체한다.
- * 되돌린 발행은 desired와 일치하므로 재귀하지 않는다.
- *
- * 정정은 **비대칭**이다. 되돌리는 대상은 [목표 REFUSING인데 ACCEPTING이 발행됨] 한 방향뿐이고
- * 반대 방향은 그대로 받아들인다. 근거는 종료 경로다. Spring 종료는
- * ServletWebServerApplicationContext.doClose가 super.doClose보다 **먼저** REFUSING_TRAFFIC을
- * 발행하는 것으로 시작하는데, 대칭 정정이면 그것을 desired=ACCEPTING과 불일치로 보고 ACCEPTING을
- * 재발행한다. 이후 종료 경로에는 refusing()을 부르는 지점이 없어 웹서버가 실제로 닫힐 때까지
- * readiness가 200 UP으로 남고, 컨테이너 healthcheck·하네스가 종료 중인 리더를 정상 수용 노드로
- * 관측한다. 수용 방향은 안전측이라(트래픽을 덜 받는 쪽) 그대로 둔다. 수용한 REFUSING이 오발행일
- * 가능성도 현재는 없다. 앱 안에서 readiness를 발행하는 주체는 이 클래스뿐이고 나머지 원천은
- * 컨텍스트 close 하나다.
+ * HA 관측 게이지(epoch·is_leader·failover_downtime_seconds)와 readiness 배선(DB 설계 §5.4
+ * readiness 연동, 하네스 CICD §5-2). 팔로워·승격 대기·강등 노드는 REFUSING이라 503을 낸다.
+ * 발행 정정을 한 방향으로만 두는 근거는 §5.4 v2.27. 대칭이면 종료 중 노드가 UP으로 남는다.
  */
 public class HaAvailability implements AvailabilitySignal,
         ApplicationListener<AvailabilityChangeEvent<?>> {

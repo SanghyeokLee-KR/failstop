@@ -34,10 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 봇 방향성·거버넌스 관리 API 검증(설계 §5). BOT_OPS 역할로 대수 스케일·방향·효과 강도를
- * 반영하고, 캡 클램프·감사 적재·상태 1.2 additive·공개 exchange-config 화이트리스트,
- * VIEWER 인가 거부를 확인한다. approval 불요 경로임을 감사 approval_id NULL로 검증한다.
- * BotFleet 빈이 없는 컨텍스트라 전체 제어는 applied:false 폴백을 검증한다(실반영은
+ * 봇 거버넌스 관리 API 검증(설계 §5). approval 불요 경로임을 감사 approval_id NULL로 확인한다.
+ * BotFleet 빈이 없는 컨텍스트라 전체 제어는 applied:false 폴백만 본다(실반영은
  * SimControlIntegrationTest).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -75,7 +73,7 @@ class SimGovernanceIntegrationTest {
             return new BotFleetGovernor(30, 80, 300, 8);
         }
 
-        /** 프리셋 OPS 배수의 기준선을 만든다(§6-A v2.31). 20 OPS가 데모 기본값이다. */
+        /** 프리셋 OPS 배수의 기준선을 만든다(§6-A). 20 OPS가 데모 기본값이다. */
         @Bean
         OpsGovernor opsGovernor() {
             return new OpsGovernor(20.0);
@@ -174,7 +172,6 @@ class SimGovernanceIntegrationTest {
     @Test
     void statusIsSchema12Additive() throws Exception {
         String s = session("op-bot");
-        // 마켓 상태를 남긴다.
         put("/admin/v1/sim/scale", "{\"market\":\"KRW-BTC\",\"targets\":{\"TAKER\":3}}",
                 "op-bot", s);
         ResponseEntity<String> r = get("/admin/v1/sim/status", "op-bot", s);
@@ -255,7 +252,7 @@ class SimGovernanceIntegrationTest {
     }
 
     /**
-     * 프리셋 활성화(§6-A v2.31). 기준선 배수·감사·복귀 경로를 한 흐름으로 본다.
+     * 프리셋 활성화(§6-A). 기준선 배수·감사·복귀 경로를 한 흐름으로 본다.
      * 마켓명은 KRW-BTC 뒤로 정렬되는 것을 쓴다. status 테스트가 markets[0]을 KRW-BTC로 단정한다.
      */
     @Test
@@ -357,8 +354,6 @@ class SimGovernanceIntegrationTest {
         assertEquals("role_required", objectMapper.readTree(r.getBody())
                 .path("error").path("detail").path("reason").asText());
     }
-
-    // ------------------------------------------------------------------
 
     private String session(String cn) throws Exception {
         ResponseEntity<String> issued = exchange("/admin/v1/session", HttpMethod.POST, null, cn, null);

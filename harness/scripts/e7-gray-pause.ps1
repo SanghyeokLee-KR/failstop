@@ -90,7 +90,6 @@ try {
     $rtoDisp = 'n/a'; if ($null -ne $rto) { $rtoDisp = [math]::Round($rto, 3) }
     Write-Host ("T2(승격)={0} new_epoch={1} RTO={2}s" -f $t2Disp, $newEpoch, $rtoDisp)
 
-    # 동결 유지: PAUSE_SEC까지(T0 기준).
     $held = ((Get-Date).ToUniversalTime() - $t0).TotalSeconds
     $remain = [int]$cfg['PAUSE_SEC'] - [int]$held
     if ($remain -gt 0) { Start-Sleep -Seconds $remain }

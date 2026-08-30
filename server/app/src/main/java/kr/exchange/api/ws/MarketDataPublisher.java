@@ -263,7 +263,7 @@ public class MarketDataPublisher {
     }
 
     private BigDecimal tradeFee(long tradeId, boolean maker, long engineTs) {
-        // trades PK가 (id, created_at)라 id 단독은 파티션 프루닝이 안 붙어 전 파티션 프로브였다.
+        // trades PK가 (id, created_at)라 id 단독으로는 파티션 프루닝이 안 붙어 전 파티션 프로브가 된다.
         // created_at = engine_ts 파생 불변식이라 같은 값을 동반해 대상 파티션·PK로 직접 프로브한다.
         OffsetDateTime createdAt = OffsetDateTime.ofInstant(
                 Instant.ofEpochMilli(engineTs), ZoneOffset.UTC);

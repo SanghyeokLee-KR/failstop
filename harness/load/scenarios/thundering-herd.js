@@ -22,7 +22,6 @@ export const options = {
     herd: {
       executor: 'ramping-vus',
       startVUs: 0,
-      // 30s 순간 버스트로 5,000 동시 연결까지 밀어 올린 뒤 유지.
       stages: [
         { target: TARGET, duration: '30s' },
         { target: TARGET, duration: '60s' },

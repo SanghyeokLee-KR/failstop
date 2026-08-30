@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * TradingChart. 메인 풀 TA 차트(klinecharts, 설계 §3.1).
- * init·resize·dispose 수명주기, 캔들·실시간 배선(candleStream), 테마 반영을 담당한다.
- * 클라이언트 전용. ChartPanel이 next/dynamic ssr:false로 로드한다(코드 스플릿).
- * 데이터 접근은 candleStream(단일 통로)만 쓰고 화면 코드는 DataSource를 직접 부르지 않는다.
+ * 클라이언트 전용이라 ChartPanel이 next/dynamic ssr:false로 로드한다(설계 §3.1).
+ * 데이터 접근은 candleStream 단일 통로만 쓰고 DataSource를 직접 부르지 않는다.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -32,13 +30,8 @@ const CANDLE_PANE_ID = "candle_pane";
 const VOLUME_PANE_ID = "volume_pane";
 const VOLUME_PANE_HEIGHT = 78;
 
-// 데이터 로드 후 뷰포트 API(setBarSpace·setOffsetRightDistance·scrollToRealTime)를 호출하지 않는다.
-// 봉이 적을 때 왼쪽을 채우려고 시도했으나, 라이브 실측에서 호출 조합·주기마다 캔들 pane과 거래량
-// pane이 서로 다른 봉 간격·다른 렌더 범위로 갈라지는 것이 반복 재현됐다(거래량만 왼쪽 2~3봉에서
-// 멈추거나, 반대로 거래량만 새 간격으로 그려지고 캔들이 이전 간격에 남는 식). 캔버스 폭과 지표
-// 계산값은 정상이었으므로 원인은 pane별 뷰포트 상태 반영 시점이다. 호출을 두지 않으면 두 pane이
-// 항상 같은 간격·같은 위치로 함께 갱신된다. 왼쪽 채움이 필요하면 라이브러리 갱신이나 init 시점
-// 설정으로 접근해야 하며, 로드 후 보정으로는 해결되지 않는다.
+// 데이터 로드 후 뷰포트 API를 호출하지 않는다. 호출 조합·주기마다 캔들 pane과 거래량 pane이
+// 서로 다른 봉 간격·렌더 범위로 갈라진다(로드 후 보정으로는 해결되지 않는다).
 
 // 모션 킬스위치 판정(§4.5)은 lib/reducedMotion의 단일 질의 객체를 쓴다. init·테마 재주입 시
 // klinecharts 애니메이션 비활성에 소비한다.
@@ -175,13 +168,8 @@ export default function TradingChart({ market }: { market: string }) {
     if (!chart) return;
     chartRef.current = chart;
 
-    /* klinecharts가 캔버스 래퍼에 tabIndex = 1을 심는다(dist 확인). 양수 tabindex는
-       tabindex=0인 요소 전부보다 먼저 포커스되므로 문서 탭 순서가 통째로 뒤틀린다.
-       실측하면 거래 화면 첫 Tab이 차트가 되고 스킵 링크가 두 번째로 밀렸다.
-
-       -1로 내린다. 이 컨테이너는 role="img"로 선언돼 있고 그리기·지표는 전부 툴바 버튼이
-       담당하므로 캔버스 자체에 키보드 조작이 없다. 0으로 두면 이름도 조작도 없는 정지점이
-       탭 경로에 남아, 키보드 사용자는 아무것도 안 읽히는 자리를 한 번 밟고 지나간다 */
+    /* klinecharts가 캔버스 래퍼에 tabIndex=1을 심어 문서 탭 순서를 통째로 앞지른다.
+       role="img"이고 조작은 전부 툴바 버튼이라 -1로 내려 이름 없는 정지점을 없앤다 */
     for (const positive of el.querySelectorAll('[tabindex="1"]')) {
       positive.setAttribute("tabindex", "-1");
     }
@@ -219,10 +207,8 @@ export default function TradingChart({ market }: { market: string }) {
     const ro = new ResizeObserver(() => chart.resize());
     ro.observe(el);
 
-    // 보조 페인은 init 직후 생성돼 레이아웃 확정 전 폭으로 캔버스가 잡힐 수 있다. 그러면 거래량
-    // 페인만 백킹 스토어(width 속성)보다 좁은 style.width를 갖고, 봉이 가로로 압축돼 위 캔들과
-    // x가 어긋난다. ResizeObserver는 컨테이너 크기가 실제로 변할 때만 깨어나 이 상태를 못 고치므로
-    // 레이아웃 확정 직후 한 번 강제로 재계산한다(rAF 2회: 스타일 적용과 리플로우 이후를 보장).
+    // 보조 pane은 레이아웃 확정 전 폭으로 캔버스가 잡혀 봉이 가로로 압축될 수 있다.
+    // ResizeObserver는 컨테이너 크기가 변할 때만 깨어나므로 rAF 2회 뒤 한 번 강제 재계산한다.
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => chart.resize());
@@ -238,11 +224,8 @@ export default function TradingChart({ market }: { market: string }) {
       dispose(el);
       chartRef.current = null;
     };
-    // unit도 의존에 넣어 주기 전환 시 차트를 새로 만든다. 인스턴스를 유지한 채 데이터만 교체하면
-    // 거래량 pane이 직전 주기의 봉·간격을 그대로 들고 있는 상태가 실측으로 반복 재현됐다(캔들 17봉
-    // 대 거래량 78봉 등). 지표 재계산 강제(overrideIndicator calcParams)·resize·뷰포트 API 어느
-    // 조합으로도 해소되지 않았고, 신규 마운트에서는 항상 두 pane이 일치했다. 주기 전환은 사용자
-    // 조작이라 빈도가 낮으므로 재생성 비용을 받아들이고 상태 이월을 원천 차단한다.
+    // unit을 의존에 넣어 주기 전환마다 차트를 새로 만든다. 인스턴스를 유지하면 거래량 pane이
+    // 직전 주기의 봉·간격을 그대로 들고 있다(지표 재계산·resize·뷰포트 API로 해소되지 않는다).
   }, [market, unit]);
 
   // 캔들 스트림: market·unit 조합마다 재배선. 초기 로드 + 체결 합성 폴백

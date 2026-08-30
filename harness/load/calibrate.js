@@ -1,20 +1,11 @@
 // 용량 캘리브레이션 계측(검증설계 §2-4). 기저 OPS를 확정해 스파이크 상한을 유도한다.
-//
-// order_flow.js의 placeOrder·readMarket을 그대로 import한다. 별도 요청 코드를 쓰면 서명 비용·
-// 페이로드 크기가 달라져 "정본 부하의 기저"가 아니라 다른 부하를 재게 된다.
-//
-// 스파이크 시나리오는 뺀다. 이 실행의 목적은 폭주 견딤이 아니라 기저에서 호스트·부하기가
-// 포화되지 않는지 보는 것이다. 포화된 상태로 잰 10배는 서버 백프레셔가 아니라 호스트
-// 포화를 측정한 값이 된다(§2-4 머리말).
-//
-// 판정에 쓰는 k6측 지표 둘을 handleSummary로 JSON에 낸다.
-//   iteration_duration - http_req_duration 중앙값 = 부하기 내부 지연 기여(<5ms 기준)
-//   http_req_duration                            = 서버 응답 시간
+// order_flow.js의 placeOrder·readMarket을 그대로 쓴다. 별도 요청 코드를 쓰면 서명 비용과
+// 페이로드가 달라져 정본 부하의 기저가 아니게 된다. 스파이크는 뺀다. 포화 상태에서 잰
+// 10배는 서버 백프레셔가 아니라 호스트 포화를 재는 값이다.
 import { placeOrder, readMarket } from './order_flow.js';
 
-// 기본값을 확정 기저로 둔다. 종전 300은 §2-4가 실측으로 치환하기 전의 명목치다.
-// 엔진 직렬 처리율이 40~42/s라 300은 천장의 7배 초과 주입이고, BASE_OPS를 빼먹은 주행이
-// 계측이 아니라 포화 시험이 된다. 상한 탐색은 명시 인자로 한다.
+// 기본값은 확정 기저다. 엔진 직렬 처리율이 40~42/s라 이보다 큰 기본값은 BASE_OPS를
+// 빼먹은 주행을 계측이 아니라 포화 시험으로 만든다. 상한 탐색은 명시 인자로 한다.
 const BASE_OPS = parseInt(__ENV.BASE_OPS || '10', 10);
 // 조회는 주문의 배수로 함께 움직인다. 정본 시나리오 비(주문 300 : 조회 500)를 유지한다.
 const READ_RATIO = parseFloat(__ENV.READ_RATIO || '1.667');
@@ -64,14 +55,9 @@ export const options = {
     'http_reqs{status:400}': [], 'http_reqs{status:401}': [],
     'http_reqs{status:409}': [], 'http_reqs{status:429}': [],
     'http_reqs{status:502}': [], 'http_reqs{status:503}': [],
-    // 접수 요청(POST /orders)만의 접수·거절. scenario 단독 필터는 같은 시나리오 안에서
-    // 일어나는 by-client 재조회를 함께 삼킨다. lookupByClient는 tags {name:'lookup'}만 붙일 뿐
-    // 시스템 태그 scenario는 cal_orders 그대로라, 재조회의 200(이미 접수 확인)이 멱등 재생으로,
-    // 429(재조회 버킷 백프레셔)가 수용 거절로 계상됐다. order_flow.js의 가용성 임계가 같은
-    // 결함을 name 태그로 교정한 선례를 승계한다.
-    // 접수가 한 건도 없으면 제공 부하가 전부 거절됐다는 뜻이다. 상한 탐색에서도
-    // 접수 0은 용량이 아니라 고장이다. C0b가 비율을 보고 이 축은 존재를 본다.
-    // 같은 키를 아래에 다시 선언하면 뒤가 앞을 덮는다(JS 객체 리터럴). 여기에 직접 건다.
+    // 접수 요청(POST /orders)만의 접수·거절. scenario 단독 필터는 같은 시나리오의 by-client
+    // 재조회까지 삼켜 재조회의 200·429가 재생·수용 거절로 계상된다. 접수 0은 용량이 아니라
+    // 고장이므로 비율 축(C0b)과 별도로 존재 축을 둔다.
     'http_reqs{scenario:cal_orders,name:placeOrder,status:201}': ['count>0'],
     'http_reqs{scenario:cal_orders,name:placeOrder,status:429}': [],
     // 200은 멱등 재생이다(API§7-6). 엔진을 거치지 않으므로 부하로 계상하면 안 된다.

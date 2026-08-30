@@ -1,12 +1,8 @@
 "use client";
 
 /**
- * TradesPanel: 최근 체결 4열 테이블 (§2.5).
- * 체결가(직전 체결 대비 틱 방향) · 체결량 · 전일대비(전일종가 역산) · 시각, sticky 헤더 + 내부 스크롤.
- * 데이터: 스토어 trades[market](MAX 60) + REST 백필.
- *
- * 체결 시각효과(설계 §2): 신규 체결 도착 시 첫 행 방향색 플래시 1회 + 대형 체결 정적 배지 오버레이.
- * 강도·거버너는 useEffectIntensity·useTradeRateGovernor가 공급한다. 배지는 절대 배치라 시프트 0.
+ * 스토어 trades[market](MAX 60) + REST 백필(§2.5).
+ * 신규 체결 도착 시 첫 행이 방향색으로 1회 플래시하고, 대형 배지는 절대 배치라 시프트 0이다.
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";

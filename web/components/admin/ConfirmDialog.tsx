@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * 관리 평면 공용 위험 액션 확인 다이얼로그(§7.6). 실행·주입 요청·해제·마켓 중지 등 파괴 액션 앞단.
- * 포커스 관리는 OrderConfirmDialog/ReportDialog 규약 재사용: 포커스 트랩·Escape·배경 inert·트리거 복귀.
- * 오발주 방지가 목적이라 초기 포커스는 취소에 둔다. 확정은 의도적 이동을 요구한다.
- * 위계는 색 단독 금지: 취소=중립 fill, 확정=color-danger 보더 + 라벨.
+ * 오발주 방지가 목적이라 초기 포커스는 취소에 둔다(§7.6).
+ * 색 단독 금지라 확정에 danger 보더와 라벨을 병기한다.
  */
 
 import { useEffect, useId, useRef, type ReactNode } from "react";

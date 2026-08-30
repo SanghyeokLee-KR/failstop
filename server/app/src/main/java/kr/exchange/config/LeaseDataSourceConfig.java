@@ -32,12 +32,10 @@ public class LeaseDataSourceConfig {
         return properties.initializeDataSourceBuilder().type(HikariDataSource.class).build();
     }
 
-    // 리스 전용 소형 풀. 접속 좌표(url·계정)는 기본 풀과 동일 원천(spring.datasource)을
-    // 재사용하고, 풀 크기·타임아웃·세션 init만 exchange.engine.lease-datasource.hikari로 별도
-    // 지정한다. 코드 기본값은 프로파일에 블록이 없어도 풀이 항상 소형·UTC로 뜨게 하는 안전망이고,
-    // yml 값이 있으면 그것이 이긴다(바인딩이 반환 후 적용). connection-init-sql UTC를 고정하는
-    // 이유는 기본 풀과 동일(세션 TZ를 배포 zone과 무관하게 결정적으로 둠). statement_timeout은
-    // 걸지 않는다. 단일 행 renew가 슬로 윈도에서 취소돼 리더십을 잃는 것을 막는다.
+    // 리스 전용 소형 풀. 접속 좌표는 기본 풀과 같은 원천을 쓰고 풀 크기·타임아웃·세션 init만
+    // 별도 지정한다. 코드 기본값은 프로파일에 블록이 없어도 소형·UTC로 뜨게 하는 안전망이고,
+    // yml 값이 있으면 그것이 이긴다(바인딩이 반환 후 적용). statement_timeout은 걸지 않는다.
+    // 단일 행 renew가 슬로 윈도에서 취소되면 리더십을 잃는다.
     @Bean
     @ConfigurationProperties("exchange.engine.lease-datasource.hikari")
     public HikariDataSource leaseDataSource(DataSourceProperties properties) {

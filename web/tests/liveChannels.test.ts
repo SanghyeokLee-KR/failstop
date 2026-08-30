@@ -1,8 +1,6 @@
 /**
- * tests/liveChannels.test.ts. 구독 diff 계산과 transient 스토어 관찰 경로 검증.
- * 회귀 방지 대상:
- * - useLiveChannels가 destinations 전이에서 유지 채널을 철거·재구독하지 않는다(diffDestinations).
- * - useTradeRateGovernor 표본 수집이 셀렉터 리렌더 없이 zustand subscribe로 동작한다.
+ * 구독 diff 계산과 transient 스토어 관찰 경로 검증.
+ * useLiveChannels가 유지 채널을 철거·재구독하지 않는지, 표본 수집이 셀렉터 리렌더 없이 도는지 본다.
  */
 
 import { test } from "node:test";

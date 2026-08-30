@@ -1,15 +1,10 @@
 /**
  * check-browser.mjs. 실제 브라우저에서 재는 불변식 게이트.
  *
- * check-tokens.mjs는 토큰 값과 소비 규칙을 정적으로 본다. 하지만 "이 텍스트가 실제로
- * 어느 면 위에 놓이는가", "이 셀이 행 높이 안에 들어가는가"는 계산된 스타일과 배치가
- * 있어야 안다. 정적 게이트를 통과한 회귀가 두 번 나왔고 둘 다 이 종류였다.
- *
- *   마켓 목록 등락률 2줄 감김: 행 40px에 내용 46px. 값은 전부 정상이라 정적으로 안 보인다.
- *   sunken 면 위 secondary 4.27:1: 면과 글자색이 다른 파일에 있어 짝을 정적으로 못 짓는다.
- *
- * 픽셀 비교를 쓰지 않는 이유: 시세가 초당 바뀐다. 시간·엔진을 동결해도 캔버스 렌더와
- * 폰트 힌팅이 흔들려 오탐이 상시로 난다. 재는 대상을 픽셀이 아니라 기하로 바꾼다.
+ * 정적 게이트(check-tokens.mjs)는 "이 텍스트가 어느 면 위에 놓이는가", "이 셀이 행 높이 안에
+ * 들어가는가"를 판정할 수 없다. 계산된 스타일과 배치가 있어야 알 수 있고, 정적 게이트를 통과한
+ * 회귀 둘이 정확히 그 종류였다. 픽셀 비교는 시세·캔버스 렌더·폰트 힌팅이 흔들려 오탐이 상시로
+ * 나므로 재는 대상을 픽셀이 아니라 기하로 둔다.
  *
  * 사용:
  *   node scripts/check-browser.mjs                 dev 서버를 직접 띄우고 전 화면 검사
@@ -116,9 +111,8 @@ function probeContrast() {
     const text = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).join("");
     if (!text) continue;
     const cs = getComputedStyle(el);
-    /* display·visibility만 보면 닫힌 details·dialog 안의 내용이 "보이는 것"으로 잡힌다.
-       그 요소들은 자신도 조상도 none이 아니고 rect까지 갖는다. 감사 중에 지표 메뉴
-       체크박스를 실제로 그렇게 오판했다. checkVisibility가 그 판정을 대신한다 */
+    /* display·visibility만 보면 닫힌 details·dialog 안의 내용이 보이는 것으로 잡힌다.
+       그 요소들은 자신도 조상도 none이 아니고 rect까지 갖는다. checkVisibility가 그것을 가른다 */
     if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
     if (parseFloat(cs.opacity) === 0) continue;
     if (el.classList.contains("sr-only")) continue;

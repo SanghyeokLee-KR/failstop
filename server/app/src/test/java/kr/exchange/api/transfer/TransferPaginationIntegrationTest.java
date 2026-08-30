@@ -40,10 +40,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 내 입출금 내역 커서 페이지네이션(API 설계 §2-6, §4-E) 실 DB 검증.
  *
- * V14는 커서 파라미터를 받기만 하고 next_cursor를 항상 null로 내려 2쪽으로 갈 방법이
- * 없었다. 여기서 검증하는 것은 (a) 커서가 실제로 발급되고 추종되는지, (b) 쪽 경계에서
- * 행이 겹치거나 빠지지 않는지, (c) 커서가 opaque라 내부 PK를 노출하지 않는지,
- * (d) 타인의 external_id를 커서로 넘겨 남의 정렬 위치를 캘 수 없는지다.
+ * 검증 대상은 (a) 커서가 실제로 발급되고 추종되는지, (b) 쪽 경계에서 행이 겹치거나 빠지지
+ * 않는지, (c) 커서가 opaque라 내부 PK를 노출하지 않는지, (d) 타인의 external_id를 커서로
+ * 넘겨 남의 정렬 위치를 캘 수 없는지다.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -202,8 +201,6 @@ class TransferPaginationIntegrationTest {
         assertTrue(body.path("pagination").path("next_cursor").isNull());
         assertFalse(body.path("pagination").path("has_more").asBoolean());
     }
-
-    /* ===== 보조 ===== */
 
     private String signup() throws Exception {
         int n = seq.incrementAndGet();

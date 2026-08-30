@@ -1,7 +1,6 @@
 /**
- * lib/admin/fees.ts. 수수료율 문자열 검증(서버 ConfigAdminController.parseFee 미러).
- * 화면 사전 검증과 sim 적용 검증이 같은 규칙을 공유해 데이터소스별 결과 분기
- * (sim 무검증 적용·http 400 반려)를 없앤다. 값은 문자열로만 다룬다(float 금지).
+ * 서버 ConfigAdminController.parseFee를 미러한다. 화면 사전 검증과 sim 적용 검증이 같은 규칙을
+ * 공유해야 데이터소스별로 결과가 갈리지 않는다. 값은 문자열로만 다룬다(float 금지).
  */
 
 import { compareDecimal, decimalsOf } from "../decimal";

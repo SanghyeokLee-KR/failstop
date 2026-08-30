@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * 자산 화면, §3.1 와이드 레이아웃.
- * 총 보유자산 요약 카드(전폭) + 보유 자산 테이블(1fr) + 보유 비중 카드(320px).
- * 실시간: ticker 채널로 평가금액·손익·수익률 재계산. 평가손익=(현재가-매수평균가)x수량.
- * 고정형 정책(§4): 가로 미디어 쿼리 없음, 열 접힘 없음.
+ * 평가손익=(현재가-매수평균가)x수량이고 ticker 채널로 재계산한다(§3.1).
+ * 고정형 정책이라 가로 미디어 쿼리와 열 접힘이 없다(§4).
  */
 
 import Link from "next/link";
@@ -200,10 +198,8 @@ export default function AssetsPage() {
 
   const totalValuation = holdings.reduce((s, h) => addDecimal(s, h.valuation), "0");
   const totalAsset = addDecimal(cash, totalValuation);
-  // 손익은 원가 확보분만으로 낸다. 총평가에서 총매수를 빼면 원가 미상분 평가액이 통째로
-  // 수익으로 계상된다. 두 항의 관계는 총평가 = (총매수 + 평가손익) + 원가 미상 평가금액이다.
-  // 티커 미도착 행은 네 합계 모두에서 뺀다. 평가액만 0으로 들어가면 그 행의 매수금액이
-  // 통째로 손실로 그려진다
+  // 손익은 원가 확보분만으로 낸다. 총평가에서 총매수를 빼면 원가 미상분이 통째로 수익이 되고,
+  // 티커 미도착 행을 0으로 넣으면 그 행 매수금액이 통째로 손실로 그려진다
   const priced = holdings.filter((h) => h.priced);
   const totalBuy = priced.reduce((s, h) => addDecimal(s, h.buyAmount), "0");
   const totalCostValuation = priced.reduce((s, h) => addDecimal(s, h.costValuation), "0");
@@ -217,7 +213,6 @@ export default function AssetsPage() {
   // 표시 조건은 수량 기준이다. 평가액 기준으로 걸면 티커 도착 전후로 스탯이 나타나 시프트가 난다
   const hasUnknownCost = holdings.some((h) => compareDecimal(h.unknownQty, "0") > 0);
 
-  /* ===== 보유 비중 (상위 5 + 기타, 가로 막대) ===== */
   const weights = useMemo(() => {
     // 비중은 화면 막대 폭·aria 값이라 비율 number로 계산한다(금액 값이 아님)
     const totalNum = toNum(totalValuation);
@@ -347,7 +342,6 @@ export default function AssetsPage() {
         </section>
       ) : (
         <>
-          {/* ===== 총 보유자산 요약 카드 (전폭) ===== */}
           <section className={`card ${styles.summary}`} aria-label="총 보유자산 요약">
             <div className={styles.statHero}>
               <span className={styles.heroPlate}>
@@ -411,7 +405,6 @@ export default function AssetsPage() {
             </button>
           </section>
 
-          {/* ===== 보유 자산 테이블 + 보유 비중 카드 (1fr 320px 고정 2열) ===== */}
           <div className={styles.grid}>
             <section className={`card ${styles.tableCard}`} aria-label="보유 자산 목록">
               <DataTable

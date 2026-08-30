@@ -41,10 +41,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * M1-5 데모 세션(§3-7) 검증:
- * (a) 무인증 발급 → Bearer 단독 조회 + 쓰기 차단(v2.12 읽기 전용 계약),
+ * (a) 무인증 발급 → Bearer 단독 조회 + 쓰기 차단(읽기 전용 계약),
  * (b) 만료 토큰·위조 서명 거부, 비데모(§3 서명) 경로 무영향,
- * (c) 게이트웨이 가드 보강 회귀: chunked 바디 canonical 우회 차단(W5),
- *     MARKET BUY notional scale 초과 400(W4).
+ * (c) 게이트웨이 가드: chunked 바디 canonical 우회 차단, MARKET BUY notional scale 초과 400.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -137,7 +136,7 @@ class DemoSessionIntegrationTest {
     }
 
     /**
-     * 데모 세션 읽기 전용 계약(§3-7 v2.12)과 봇 무영향을 한 테스트에서 본다.
+     * 데모 세션 읽기 전용 계약(§3-7)과 봇 무영향을 한 테스트에서 본다.
      * 둘을 나누면 "데모를 막았다"만 남고 "막으면서 봇을 안 건드렸다"가 증명되지 않는다.
      * 봇 경로가 같이 막히면 하네스 부하와 라이브 데모가 통째로 죽으므로 회귀 대상이다.
      */
@@ -226,7 +225,7 @@ class DemoSessionIntegrationTest {
     @Test
     @Order(5)
     void marketBuyNotionalScaleGuard() throws Exception {
-        // 소수 19자리 notional은 scale 18 표현 불가 → 400 invalid_parameter(§1.4 v2.10)
+        // 소수 19자리 notional은 scale 18 표현 불가 → 400 invalid_parameter(§1.4)
         byte[] body = ("{\"market\":\"KRW-BTC\",\"side\":\"bid\",\"ord_type\":\"market\","
                 + "\"price\":\"10000.0000000000000000001\",\"client_order_id\":\"scale-1\"}")
                 .getBytes(StandardCharsets.UTF_8);
@@ -237,10 +236,6 @@ class DemoSessionIntegrationTest {
         assertEquals("invalid_parameter", errorName(response));
         assertTrue(response.getBody().contains("notional_scale_exceeded"));
     }
-
-    // ------------------------------------------------------------------
-    // 헬퍼
-    // ------------------------------------------------------------------
 
     private HttpURLConnection openChunkedPost(String path, String bearer, byte[] body)
             throws Exception {
