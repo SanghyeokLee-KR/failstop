@@ -22,6 +22,11 @@ services:
       EXCHANGE_AUTH_MASTER_KEY_BASE64: ${MASTER_KEY_BASE64}
       EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64: ${PASSWORD_PEPPER_BASE64}
       EXCHANGE_MEMBER_SESSION_SEED_BASE64: ${SESSION_SEED_BASE64}
+      # prod 부팅 필수. 실측(2026-08-30)으로 확인했다. 미지정이면 prodCorsFilter
+      # 생성이 실패하고 WS는 기본 오리진이면 중단한다. prod가 저장소에서 한 번도
+      # 켜진 적이 없어 배포 당일 처음 발견될 자리였다.
+      EXCHANGE_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      APP_WS_ALLOWED_ORIGINS: ${WS_ALLOWED_ORIGINS}
       # 하네스 API는 상시면에 등록하지 않는다. 증명면에서만 true다.
       EXCHANGE_HARNESS_ENABLED: ${HARNESS_ENABLED:-false}
     ports:

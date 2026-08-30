@@ -55,3 +55,32 @@
 | `eclipse-temurin:21-jre` | 있음 | `harness/Dockerfile.app` |
 
 전건 통과다. `docker manifest inspect`로 확인했고 기획안 §9 비용표를 재산정할 이유가 없다.
+
+## prod 프로파일 부팅 실측 (2026-08-30)
+
+저장소 전체에서 `prod`를 활성화하는 지점이 **0이었다**. 실제 값은 `dev,admin`
+(`compose.yaml:95`), `dev,chaos-monkey`, `bots`뿐이다. 배포 당일 처음 켜지는
+프로파일이므로 부팅 중단 지점을 미리 실측했다.
+
+실제로 컨테이너를 띄워 중단 지점을 하나씩 확인했다. 순서는 아래와 같다.
+
+| # | 중단 조건 | 주입 변수 | 실측 |
+|---|---|---|---|
+| 1 | CORS 오리진 미지정 | `EXCHANGE_CORS_ALLOWED_ORIGINS` | 중단 확인 |
+| 2 | password pepper 미주입 | `EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64` | 중단 확인 |
+| 3 | session seed 미주입 | `EXCHANGE_MEMBER_SESSION_SEED_BASE64` | 중단 확인 |
+| 4 | master key 미주입 | `EXCHANGE_AUTH_MASTER_KEY_BASE64` | `StartupMasterKeyValidator`가 먼저 잡는다 |
+| 5 | WS 오리진 기본값 | `APP_WS_ALLOWED_ORIGINS` | 주입해 통과 |
+
+다섯을 채우면 부팅이 성공하고 **Tomcat이 8080과 8081 둘에 뜬다**. 관리 포트 분리가
+prod에서 실제로 동작한다(`application.yml:165`). 종전 정본이 9404로 계약하고 있었고
+그것을 8081로 정정했다.
+
+**관리 평면 keystore는 별도 축이다.** `application-admin.yml:18-19`의 실제 값이
+`config/admin-demo/admin-server.p12`와 `changeit`인데, `StartupSecretValidator:35-41`이
+그 둘을 각각 중단 조건으로 건다. 즉 `prod,admin` 조합은 운영 PKI 실물 없이는 뜨지
+않는다. 상시면에서 관리 평면을 함께 띄우려면 PKI 발급이 선행돼야 한다.
+
+부팅 통과 후 리더 리스 경합에서 멈추는 것은 정상이다. 기존 스택이 리더를 잡고 있으면
+신규 노드가 승격에 실패하고 크래시 창 재적재를 못 해 중단한다. 단일 라이터 구조의
+설계된 거동이다.
