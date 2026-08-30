@@ -1,6 +1,11 @@
 # AWS 아키텍처 다이어그램. 공식 그룹 표기 규약(테두리 색·선종)을 따른다.
 # 좌표는 10 단위 격자에 맞추고 같은 행의 아이콘은 기준선을 공유한다.
 # 캔버스 비율 2.1:1 은 16:9 슬라이드에서 제목을 뺀 본문 영역 비율이다.
+#
+# 그리는 대상은 기획안 6.3 목표 아키텍처다. 문서가 정본이고 이 파일은 그 파생이다.
+# 문서가 명시적으로 기각한 관리형 서비스(ALB·NAT Gateway·RDS·CloudWatch·WAF)는
+# 그리지 않는다. 9.10 이 IAM Deny 로 생성 자체를 막으므로 도면에 있으면 거짓이 된다.
+# 대신 비채택 사유와 절감액을 별도 블록으로 낸다. 안 쓴 것도 설계 결정이다.
 import base64, glob, io, os, sys
 
 # 슬라이드용은 도면 제목을 뺀다. 슬라이드 제목과 중복되기 때문이다
@@ -9,21 +14,16 @@ SLIDE = '--slide' in sys.argv
 ICON = r'C:\Users\DEV-PC\AppData\Local\Programs\Python\Python314\Lib\site-packages\resources'
 I = {
     'user': 'aws/general/user.png', 'users': 'aws/general/users.png',
-    'srv': 'aws/general/traditional-server.png',
-    'route53': 'aws/network/route-53.png', 'waf': 'aws/security/waf.png',
-    'cloudfront': 'aws/network/cloudfront.png', 'acm': 'aws/security/certificate-manager.png',
+    'route53': 'aws/network/route-53.png', 'cloudfront': 'aws/network/cloudfront.png',
+    'acm': 'aws/security/certificate-manager.png',
     's3': 'aws/storage/simple-storage-service-s3.png', 'igw': 'aws/network/internet-gateway.png',
-    'alb': 'aws/network/elb-application-load-balancer.png', 'nat': 'aws/network/nat-gateway.png',
-    'rt': 'aws/network/route-table.png', 'ssm': 'aws/management/systems-manager.png',
-    'cw': 'aws/management/cloudwatch.png', 'vgw': 'aws/network/site-to-site-vpn.png',
-    'cgw': 'aws/network/vpc-customer-gateway.png', 'ec2': 'aws/compute/ec2-instance.png',
+    'ssm': 'aws/management/systems-manager.png', 'ec2': 'aws/compute/ec2-instance.png',
     'nginx': 'onprem/network/nginx.png', 'spring': 'programming/framework/spring.png',
-    'pg': 'onprem/database/postgresql.png', 'docker': 'onprem/container/docker.png',
-    'vmware': 'generic/virtualization/vmware.png', 'linux': 'generic/os/linux-general.png',
-    'switch': 'generic/network/switch.png', 'store': 'generic/storage/storage.png',
-    'dns': 'onprem/dns/coredns.png', 'zabbix': 'onprem/monitoring/zabbix.png',
-    'prom': 'onprem/monitoring/prometheus.png', 'grafana': 'onprem/monitoring/grafana.png',
-    'fw': 'generic/network/firewall.png',
+    'pg': 'onprem/database/postgresql.png', 'prom': 'onprem/monitoring/prometheus.png',
+    'grafana': 'onprem/monitoring/grafana.png', 'loki': 'onprem/logging/loki.png',
+    'k3s': 'onprem/container/k3s.png', 'docker': 'onprem/container/docker.png',
+    'vpn': 'generic/network/vpn.png', 'fw': 'generic/network/firewall.png',
+    'linux': 'generic/os/red-hat.png',
 }
 _c = {}
 def icon(k):
@@ -38,6 +38,7 @@ def icon(k):
 # AWS 공식 그룹 색. 채움은 거의 무채색으로 눌러 아이콘 색이 튀지 않게 한다
 CLOUD, REGION, VPCC = '#232F3E', '#00A4A6', '#8C4FFF'
 PUB, PRV, CORP, SG = '#7AA116', '#00A4A6', '#5A6B75', '#C7392E'
+PROOF = '#B8730A'
 INK, BODY, MUTE, HAIR = '#16191F', '#4A545B', '#8C979C', '#E3E8EA'
 FLOW = '#404B54'
 KO = "'Malgun Gothic','맑은 고딕',sans-serif"
@@ -74,138 +75,150 @@ def step(cx, cy, n, c=FLOW):
 def txt(x, y, s, size=10, c=BODY, w='400', an='start'):
     add(f'<text x="{x}" y="{y}" font-family="{KO}" font-size="{size}" font-weight="{w}" fill="{c}" text-anchor="{an}">{s}</text>')
 
+def chip(cx, cy, w, h, t1, t2, c):
+    add(f'<rect x="{cx-w/2}" y="{cy-h/2}" width="{w}" height="{h}" rx="3" fill="#FFFFFF" stroke="{c}" stroke-width="1.1"/>')
+    txt(cx, cy - 2, t1, 10, c, '700', 'middle')
+    txt(cx, cy + 13, t2, 8.6, MUTE, '400', 'middle')
+
 add(f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{W}" height="{H}" viewBox="0 0 {W} {H}"><rect width="{W}" height="{H}" fill="#FFFFFF"/><defs>')
-for c in [FLOW, VPCC, SG, PUB, CORP]:
+for c in [FLOW, VPCC, SG, PUB, CORP, PROOF]:
     add(f'<marker id="h{c[1:]}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1.2 L9,5 L0,8.8 z" fill="{c}"/></marker>')
 add('</defs>')
 add(f'<g transform="translate(0,{-SHIFT})">')
 
-# 행 기준선
-R_EDGE, R_TOP, R_PUB, R_PRV, R_MGMT = 180, 300, 420, 560, 690
+R_EDGE, R_PUB, R_C1, R_C2 = 195, 418, 610, 728
 
 if not SLIDE:
-    txt(24, 36, '고가용성 가상 암호화폐 거래소  ·  시스템 아키텍처', 19, INK, '700')
-    txt(24, 55, 'AWS ap-northeast-2   |   온프레미스 IDC   |   IPsec Site-to-Site VPN', 10.5, MUTE)
+    txt(24, 36, '고가용성 가상 암호화폐 거래소  ·  목표 아키텍처', 19, INK, '700')
+    txt(24, 55, 'AWS ap-northeast-2 상시면 · 증명면   |   온프레미스 검증면(로컬 Rocky Linux 10)   |   WireGuard 터널', 10.5, MUTE)
 
 node(58, R_EDGE, 'users', '사용자', None, 36)
-node(58, R_PRV, 'user', '운영자', None, 32)
 
 # ================= AWS Cloud =================
-CX, CY, CW, CH = 110, 76, 1040, 690
+CX, CY, CW, CH = 110, 76, 1090, 800
 group(CX, CY, CW, CH, 'AWS Cloud', CLOUD, '#FFFFFF', lw=2)
 group(CX+16, CY+32, CW-32, CH-48, 'Region  ap-northeast-2', REGION, 'none', '6 4', 1.4)
+txt(CX+CW-14, CY+21, '상시면 USD 54.01 /월   ·   증명면 USD 0.2256 /hr (창 구동)', 9.6, MUTE, '600', 'end')
 
-for i, (k, a) in enumerate([('route53', 'Route 53'), ('waf', 'AWS WAF'), ('cloudfront', 'CloudFront'),
-                            ('acm', 'ACM'), ('s3', 'Amazon S3')]):
-    node(CX+110+i*180, R_EDGE, k, a, None, 34)
-for i in range(4):
-    ln([(CX+128+i*180, R_EDGE), (CX+272+i*180, R_EDGE)], FLOW, 1.5, '4 3' if i == 3 else None)
-ln([(80, R_EDGE), (CX+92, R_EDGE)], FLOW, 1.5)
-step(CX+92, R_EDGE-36, '1'); step(CX+452, R_EDGE-36, '2'); step(CX+812, R_EDGE-36, '3')
+node(220, R_EDGE, 'route53', 'Route 53', 'sang.it.kr', 34)
+node(400, R_EDGE, 'cloudfront', 'CloudFront', None, 34)
+node(400, 122, 'acm', 'ACM', 'us-east-1', 26)
+node(680, R_EDGE, 's3', 'Amazon S3', 'OAC · 정적 66페이지', 34)
 
-VX, VY, VW, VH = CX+34, 232, CW-68, 512
-group(VX, VY, VW, VH, 'VPC  10.0.0.0/16', VPCC, '#FFFFFF')
-node(VX+80, R_TOP, 'igw', 'Internet gateway', None, 30)
-node(VX+250, R_TOP, 'alb', 'Application Load Balancer', None, 30)
-node(VX+VW-80, R_TOP, 'vgw', 'Virtual private gateway', None, 30)
-ln([(VX+96, R_TOP), (VX+234, R_TOP)], FLOW, 1.5)
+ln([(80, R_EDGE), (202, R_EDGE)], FLOW, 1.5)
+ln([(238, R_EDGE), (382, R_EDGE)], FLOW, 1.5)
+ln([(418, R_EDGE), (662, R_EDGE)], FLOW, 1.5)
+ln([(400, 136), (400, R_EDGE-20)], MUTE, 1.2, '4 3', head=False)
+txt(540, R_EDGE-9, '/*   CachingOptimized', 8.8, MUTE, '400', 'middle')
+step(202, R_EDGE-40, '1'); step(418, R_EDGE-40, '2')
 
-for j in range(2):
-    ax = VX + 22 + j*470
-    group(ax, 342, 450, 288, f'가용영역  ap-northeast-2{"ac"[j]}', REGION, 'none', '6 4', 1.3)
-    group(ax+14, 372, 422, 96, f'퍼블릭 서브넷  10.0.{j*2}.0/24', PUB, '#FBFCF7', lw=1.4, badge=False)
-    node(ax+130, R_PUB, 'nat', 'NAT gateway', None, 28)
-    node(ax+300, R_PUB, 'nginx', 'nginx', 'TLS 종단', 28)
-    group(ax+14, 490, 422, 130, f'프라이빗 서브넷  10.0.{j*2+1}.0/24', PRV, '#F8FBFB', lw=1.4, badge=False)
-    node(ax+110, R_PRV, 'spring', f'app-{j+1}', 'Spring Boot', 30)
-    node(ax+230, R_PRV, 'pg', 'PostgreSQL 17', 'primary' if j == 0 else 'replica', 30)
-    node(ax+350, R_PRV, 'ec2', 'Bastion', None, 26)
-    ln([(ax+126, R_PRV), (ax+212, R_PRV)], FLOW, 1.4)
-    if j == 0: step(ax+300, 392, '4')
+# /api /ws 오리진 분기. CloudFront 아래로 내려 VPC 엣지로 들어간다
+ln([(400, R_EDGE+22), (400, 248), (268, 248), (268, 356)], FLOW, 1.6)
+txt(410, 243, '/api/*   /ws/*    CachingDisabled · AllViewer', 9, FLOW, '600')
+step(268, 306, '3')
 
-# ALB 에서 두 AZ 로 가는 분기. 수평 버스 뒤 수직으로 내려 라벨 관통을 피한다
-ln([(VX+266, R_TOP), (VX+792, R_TOP)], FLOW, 1.4, head=False)
-ln([(VX+322, R_TOP), (VX+322, R_PUB-16)], FLOW, 1.4)
-ln([(VX+792, R_TOP), (VX+792, R_PUB-16)], FLOW, 1.4)
+# ================= VPC =================
+VX, VY, VW, VH = 146, 262, 1020, 592
+group(VX, VY, VW, VH, 'VPC  10.20.0.0/16', VPCC, '#FFFFFF')
+node(1120, 296, 'igw', None, None, 26)
+txt(1102, 300, 'Internet gateway', 9.4, BODY, '400', 'end')
 
-ln([(VX+252, R_PRV+22), (VX+252, 640), (VX+722, 640), (VX+722, R_PRV+22)], PUB, 1.5, '6 4')
-txt(VX+487, 634, '스트리밍 복제', 9.5, PUB, '600', 'middle')
-step(VX+340, 640, '5', PUB)
+group(166, 326, 980, 168, '퍼블릭 서브넷  public-a  10.20.0.0/24', PUB, '#FBFCF7', lw=1.4, badge=False)
+group(190, 356, 900, 124, 'edge  ·  t4g.micro', CORP, '#FFFFFF', '4 3', 1.2, badge=False)
+for i, (k, a, b) in enumerate([('nginx', 'nginx', 'TLS 종단 · 리더 인지'), ('fw', 'nftables', 'masquerade(NAT)'),
+                               ('vpn', 'WireGuard', '터널 종단'), ('prom', 'exporters', 'node · blackbox'),
+                               ('ssm', 'SSM', '배스천')]):
+    node(268 + i*168, R_PUB, k, a, b, 28)
 
-group(VX+22, 664, 920, 54, None, HAIR, '#FCFDFD', lw=1.2, badge=False)
-for i, (k, a) in enumerate([('rt', 'Route tables'), ('ssm', 'Systems Manager'), ('cw', 'CloudWatch')]):
-    node(VX+150+i*300, R_MGMT+1, k, None, None, 24)
-    txt(VX+170+i*300, R_MGMT+5, a, 9.5, BODY)
+group(166, 510, 980, 330, '프라이빗 서브넷  private-a  10.20.10.0/24', PRV, '#F8FBFB', lw=1.4, badge=False)
 
-# ================= VPN =================
-TX = CX + CW + 8
-ln([(VX+VW-64, R_TOP), (TX+52, R_TOP)], VPCC, 1.9, '7 4')
-txt(TX+52, R_TOP-34, 'IPsec Site-to-Site', 9.5, VPCC, '700', 'middle')
-txt(TX+52, R_TOP-21, 'IKEv2 · AES-256 · PFS 14', 8.4, MUTE, '400', 'middle')
-add(f'<line x1="{TX+8}" y1="{R_TOP+22}" x2="{TX+96}" y2="{R_TOP+22}" stroke="{PUB}" stroke-width="2.2"/>')
-txt(TX+52, R_TOP+35, '터널 1  Active', 8.4, PUB, '600', 'middle')
-add(f'<line x1="{TX+8}" y1="{R_TOP+50}" x2="{TX+96}" y2="{R_TOP+50}" stroke="{MUTE}" stroke-width="2.2" stroke-dasharray="5 3"/>')
-txt(TX+52, R_TOP+63, '터널 2  Standby', 8.4, MUTE, '600', 'middle')
-step(TX+52, R_TOP-52, '6', VPCC)
+group(190, 542, 452, 282, 'core  ·  t4g.medium  ·  상시 구동', CORP, '#FFFFFF', '4 3', 1.2, badge=False)
+node(280, R_C1, 'spring', 'exchange-app', '리더 · 8080 / 8081', 30)
+node(440, R_C1, 'pg', 'PostgreSQL 17', 'primary', 30)
+ln([(298, R_C1), (422, R_C1)], FLOW, 1.4)
+for i, (k, a) in enumerate([('prom', 'Prometheus'), ('loki', 'Loki'), ('grafana', 'Grafana')]):
+    node(280 + i*130, R_C2, k, a, None, 26)
+txt(410, R_C2 + 48, '레코딩 룰 9 · 알람 11 · 대시보드 4종', 8.6, MUTE, '400', 'middle')
 
-# ================= Corporate data center =================
-DX = TX + 104
-DW = W - DX - 24
-group(DX, CY, DW, CH, 'Corporate data center  ·  온프레미스 IDC', CORP, '#FFFFFF', lw=2)
-node(DX+56, R_EDGE, 'cgw', 'Customer gateway', None, 30)
-node(DX+56, R_TOP, 'fw', '방화벽', 'nftables', 28)
-ln([(DX+22, R_TOP), (DX+40, R_EDGE+8)], CORP, 1.5)
-ln([(DX+56, R_EDGE+24), (DX+56, R_TOP-20)], CORP, 1.4)
+group(666, 542, 456, 282, '증명면  ·  terraform apply / destroy  ·  창 구동 후 파기', PROOF, '#FEFBF6', '6 4', 1.4, badge=False)
+for i, (k, a, b) in enumerate([('ec2', 'app-2', 'c7g.large'), ('pg', 'pg-standby', 't4g.small'),
+                               ('prom', 'obs', 't4g.medium'), ('ec2', 'load', 'c7g.large')]):
+    node(766 + (i % 2)*226, R_C1 + (i // 2)*118, k, a, b, 28)
+step(1098, 542, '5', PROOF)
+txt(894, 806, 'AMI 에서 매 회차 생성 · 정지가 아니라 파기 · 상시 전환 시 11.2배', 8.8, MUTE, '400', 'middle')
 
-group(DX+108, CY+34, DW-132, 268, 'VMware vSphere  ·  ESXi', CORP, '#FCFDFD', lw=1.4)
-node(DX+168, CY+102, 'vmware', 'vCenter', None, 28)
-node(DX+168, CY+216, 'srv', 'ESXi host', 'esxi-01', 28)
-group(DX+228, CY+66, 186, 96, '업링크 vmnic', CORP, '#FFFFFF', '4 3', 1.1, badge=False)
-node(DX+282, CY+122, 'switch', 'vmnic0', None, 22)
-node(DX+362, CY+122, 'switch', 'vmnic1', None, 22)
-group(DX+228, CY+176, 186, 96, '분산 포트 그룹', CORP, '#FFFFFF', '4 3', 1.1, badge=False)
-node(DX+282, CY+232, 'switch', 'VM 망', None, 22)
-node(DX+362, CY+232, 'switch', '관리 망', None, 22)
-group(DX+430, CY+66, DW-462, 206, 'Rocky Linux 10  ·  Docker', CORP, '#FFFFFF', '4 3', 1.1, badge=False)
-for i, (k, a, b) in enumerate([('docker', 'exch-node1', 'app + LB'), ('docker', 'exch-node2', 'app'),
-                               ('pg', 'PostgreSQL', 'standby')]):
-    node(DX+500+i*110, CY+118, k, a, b, 28)
-for i, (k, a, b) in enumerate([('dns', 'DNS', None), ('store', 'NFS', 'DataStore'), ('linux', 'Bastion', None)]):
-    node(DX+500+i*110, CY+212, k, a, b, 26)
-ln([(DX+186, CY+216), (DX+240, CY+232)], CORP, 1.3)
-ln([(DX+414, CY+122), (DX+482, CY+118)], CORP, 1.3)
+ln([(268, 480), (268, 542)], FLOW, 1.4)
+ln([(1090, 418), (1120, 418), (1120, 316)], FLOW, 1.3)
+step(1120, 370, '4')
 
-group(DX+108, 400, DW-132, 104, '장애 주입 지점  (실험 창 한정)', SG, '#FDF7F6', '5 3', 1.4, badge=False)
+# ================= WireGuard 터널 =================
+TX = 1250
+ln([(1166, 418), (TX-30, 418)], VPCC, 1.9, '7 4', head=False)
+ln([(TX+30, 418), (1300, 418)], VPCC, 1.9, '7 4')
+node(TX, 418, 'vpn', None, None, 30)
+txt(TX, 366, 'WireGuard 터널', 9.5, VPCC, '700', 'middle')
+txt(TX, 379, 'IPsec S2S 대체 · 비용 0', 8.4, MUTE, '400', 'middle')
+step(TX, 470, '6', VPCC)
+
+# ================= 온프레미스 검증면 =================
+DX, DW = 1300, 776
+group(DX, CY, DW, 470, '온프레미스 검증면  ·  로컬 Rocky Linux 10 (VMware)', CORP, '#FFFFFF', lw=2)
+node(DX+52, 152, 'linux', 'Rocky 10', None, 28)
+txt(DX+96, 142, '동일 배포판. nftables · SELinux 거동이 클라우드와 같다', 9.4, BODY)
+txt(DX+96, 158, '앱 이미지는 GHCR 동일 digest 를 내려받는다. 로컬 빌드본을 올리지 않는다', 9.4, MUTE)
+
+group(DX+24, 186, DW-48, 132, 'k3s 클러스터', CORP, '#FCFDFD', '4 3', 1.2, badge=False)
+node(DX+96, 252, 'k3s', 'k3s server', 'control-plane', 28)
+for i in range(2):
+    node(DX+236 + i*104, 252, 'docker', f'agent-{i+1}', 'containerd', 26)
+node(DX+488, 252, 'pg', 'PostgreSQL 17', '동일 태그 고정', 26)
+node(DX+600, 252, 'prom', '관측', 'Prom · Loki', 26)
+ln([(DX+114, 252), (DX+218, 252)], CORP, 1.3)
+
+group(DX+24, 336, DW-48, 118, '장애 주입 지점  ·  커널 계층까지 도달한다', SG, '#FDF7F6', '5 3', 1.4, badge=False)
 for i, (a, b) in enumerate([('tc netem', 'L3  지연 · 손실'), ('nftables', 'L4  drop · reject'),
                             ('앱 지연 · kill', 'L7  예외 주입')]):
-    cx = DX + 230 + i*200
-    add(f'<rect x="{cx-88}" y="428" width="176" height="44" rx="3" fill="#FFFFFF" stroke="{SG}" stroke-width="1.1"/>')
-    txt(cx, 446, a, 10, SG, '700', 'middle')
-    txt(cx, 461, b, 8.6, MUTE, '400', 'middle')
-step(DX+128, 400, '8', SG)
+    chip(DX + 152 + i*236, 410, 208, 46, a, b, SG)
+step(DX+44, 336, '7', SG)
 
-group(DX+108, 530, DW-132, 186, '관제', CORP, '#FCFDFD', lw=1.4)
-for i, (k, a, b) in enumerate([('zabbix', 'Zabbix', 'SNMP'), ('prom', 'Prometheus', None),
-                               ('grafana', 'Grafana', None)]):
-    node(DX+170+i*112, 604, k, a, b, 30)
-for i, (a, b) in enumerate([('Zabbix', '장비 · VM · 인터페이스 · VPN 터널'),
-                            ('Prometheus', '애플리케이션 메트릭 · 불변식'),
-                            ('Grafana', '대시보드 4종 · 알람 11')]):
-    txt(DX+490, 582+i*24, a, 9.5, INK, '700')
-    txt(DX+582, 582+i*24, b, 9.5, BODY)
-step(DX+128, 530, '7', CORP)
+# ================= 비채택 =================
+group(DX, 570, DW, 160, '비채택 관리형 서비스  ·  IAM Deny 로 생성 차단(9.10)', MUTE, '#FAFBFB', lw=1.4)
+for i, (a, b) in enumerate([('ALB', '22.27'), ('NAT Gateway x2', '86.14'), ('RDS Multi-AZ', '74.46'),
+                            ('CloudWatch', '약 190'), ('WAF', '증거 얇음'), ('EKS', '73.00')]):
+    x = DX + 40 + (i % 3)*248
+    y = 616 + (i // 3)*44
+    add(f'<rect x="{x}" y="{y}" width="222" height="32" rx="3" fill="#FFFFFF" stroke="{HAIR}" stroke-width="1.1"/>')
+    add(f'<line x1="{x+10}" y1="{y+16}" x2="{x+118}" y2="{y+16}" stroke="{SG}" stroke-width="1.3"/>')
+    txt(x + 12, y + 13, a, 9.6, MUTE, '600')
+    txt(x + 212, y + 21, f'USD {b} /월', 9, BODY, '400', 'end')
+txt(DX + 40, 718, '관리형을 쓰면 페일오버 내부가 닫혀 복제 링크에 tc netem 을 걸 수 없다. 비용 회피가 아니라 증명 범위의 문제다.', 9.2, BODY)
 
-# ================= 흐름 범례 =================
-LY = 796
+# ================= 접속 경로 =================
+group(DX, 754, DW, 122, '운영자 접속  ·  SSH 22 전 노드 미개방', CORP, '#FCFDFD', lw=1.4)
+node(DX+48, 820, 'user', '운영자', None, 26)
+node(DX+156, 820, 'ssm', 'SSM', 'Session Manager', 26)
+ln([(DX+66, 820), (DX+138, 820)], CORP, 1.4)
+for i, (a, b) in enumerate([('관리 평면 8443', 'mTLS client-auth'), ('Prometheus 9090', '포트 포워딩'),
+                            ('Grafana 3000', '포트 포워딩')]):
+    chip(DX + 320 + i*160, 818, 150, 42, a, b, CORP)
+ln([(DX+174, 820), (DX+244, 820)], CORP, 1.4)
+step(DX+744, 772, '8', CORP)
+
+# ================= 범례 =================
+LY = 892
 add(f'<line x1="24" y1="{LY}" x2="{W-24}" y2="{LY}" stroke="{HAIR}" stroke-width="1.2"/>')
-for i, (n, d) in enumerate([('1', 'Route 53 DNS 질의'), ('2', 'WAF 필터 후 CloudFront 캐시'),
-                            ('3', 'S3 정적 콘텐츠 반환'), ('4', 'ALB 가 두 AZ 의 nginx 로 분산'),
-                            ('5', 'PostgreSQL 스트리밍 복제'), ('6', 'IPsec 터널로 IDC 연결'),
-                            ('7', 'Zabbix 와 Prometheus 가 각각 수집'), ('8', '실험 창에만 커널 계층 장애 주입')]):
+for i, (n, d) in enumerate([('1', 'Route 53 가 도메인을 CloudFront 로 보낸다'),
+                            ('2', '기본 경로는 S3 정적 66페이지. EC2 전멸에도 웹은 200'),
+                            ('3', 'API·WS 만 오리진으로. same-origin 이라 CORS 가 0이다'),
+                            ('4', 'edge 의 nftables masquerade 가 NAT Gateway 를 대신한다'),
+                            ('5', '증명면은 실험 창에만 생성하고 볼륨까지 파기한다'),
+                            ('6', 'WireGuard 로 클라우드와 온프레미스를 잇는다'),
+                            ('7', '커널 계층 주입은 검증면에서만. 상시면은 비파괴 실험만'),
+                            ('8', 'SSH 미개방. 관리 평면은 SSM 포트 포워딩으로만 닿는다')]):
     x = 40 + (i % 4)*520
-    y = LY + 36 + (i // 4)*34
+    y = LY + 32 + (i // 4)*32
     step(x, y-4, n)
-    txt(x+18, y, d, 10.5, BODY)
+    txt(x+18, y, d, 10.2, BODY)
 
 add('</g>')
 add('</svg>')
