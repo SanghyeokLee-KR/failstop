@@ -60,7 +60,10 @@ function Test-Diff {
     $mergeBase = (& git merge-base $base HEAD).Trim()
     if ([string]::IsNullOrWhiteSpace($mergeBase)) { $mergeBase = $base }
     $excludes = @('.', ':!*.html', ':!*.pdf', ':!*.svg', ':!*.lock', ':!*.jar',
-                  ':!package-lock.json', ':!**/node_modules/**', ':!web/out/**', ':!web/.next/**')
+                  ':!package-lock.json', ':!**/node_modules/**', ':!web/out/**', ':!web/.next/**',
+                  # 폐기 문서는 시점 기록이라 축어 보존한다. 규칙을 인용한 줄이 그 규칙에
+                  # 걸리는 자기참조를 피한다. 구현 근거로 인용하지 않으므로 무해하다.
+                  ':!docs/archive/**')
     $diff = & git diff --unified=0 $mergeBase -- @excludes
     $file = $null
     $checkPhrase = $true

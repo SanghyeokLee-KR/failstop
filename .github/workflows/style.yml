@@ -22,7 +22,7 @@ jobs:
         run: |
           git diff --unified=0 "origin/${{ github.base_ref }}...HEAD" \
             -- . ':!*.html' ':!*.pdf' ':!*.svg' ':!*.lock' ':!*.jar' ':!package-lock.json' \
-               ':!**/node_modules/**' ':!web/out/**' ':!web/.next/**' \
+               ':!**/node_modules/**' ':!web/out/**' ':!web/.next/**' ':!docs/archive/**' \
             | grep '^+' | grep -v '^+++' > added.txt || true
           wc -l added.txt
 
@@ -45,7 +45,7 @@ jobs:
           # 규칙 정의 파일은 금지 문구를 예시로 인용하므로 이 단계에서만 제외한다.
           git diff --unified=0 "origin/${{ github.base_ref }}...HEAD" \
             -- . ':!*.html' ':!*.pdf' ':!*.svg' ':!*.lock' ':!*.jar' ':!package-lock.json' \
-               ':!**/node_modules/**' ':!web/out/**' ':!web/.next/**' \
+               ':!**/node_modules/**' ':!web/out/**' ':!web/.next/**' ':!docs/archive/**' \
                ':!CLAUDE.md' ':!.github/CONTRIBUTING.md' ':!.github/PULL_REQUEST_TEMPLATE.md' \
                ':!.github/workflows/style.yml' ':!scripts/check-style.ps1' \
             | grep '^+' | grep -v '^+++' > added_phrase.txt || true
