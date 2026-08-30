@@ -1,0 +1,16 @@
+-- sim_commands 권한 부여. V22에서 누락했다.
+--
+-- 왜 별도 마이그레이션인가. V22가 이미 적용된 DB가 있어 그 파일을 고치면 Flyway
+-- 체크섬이 어긋나 기동이 막힌다. 적용된 마이그레이션은 수정하지 않는다.
+--
+-- 왜 필요한가. V21이 chaos_commands에 같은 GRANT를 두고 V9가 운영 롤 분리를 세웠다.
+-- 현재 데모는 소유자 계정(exchange)으로 접속해 권한 검사에 걸리지 않지만, app_role로
+-- 분리하는 순간 봇 노드의 SimCommandConsumer가 SELECT·UPDATE를 못 해 시나리오 프리셋이
+-- 조용히 멈춘다. 관리 평면은 INSERT를 못 한다. 기능이 통째로 죽는데 예외 메시지는
+-- 권한 오류라 원인 추적이 한 단계 멀어진다.
+--
+-- DELETE는 주지 않는다. 이 표는 제어 이력이라 지우는 경로가 없어야 감사가 성립한다.
+-- chaos_commands와 같은 규율이다.
+-- IDENTITY 컬럼은 시퀀스 권한을 따로 요구하지 않는다. V21도 테이블 GRANT만 두고
+-- 정상 동작한다. 선례를 따른다.
+GRANT SELECT, INSERT, UPDATE ON sim_commands TO app_role;

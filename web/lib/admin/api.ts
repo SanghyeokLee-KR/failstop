@@ -28,6 +28,7 @@ import type {
   DirectionBiasResult,
   FleetScaleResult,
   FleetScaleTargets,
+  ControlApply,
   HaRecovery,
   HaStatus,
   InvariantCheck,
@@ -105,7 +106,7 @@ export interface AdminApi {
   simStart(): Promise<void>;
   simStop(): Promise<void>;
   simPause(): Promise<void>;
-  simSetRate(rate: number): Promise<void>;
+  simSetRate(rate: number): Promise<ControlApply>;
   /** 봇 생성(governor set-point 상향). count만큼 유형별 목표 대수를 올린다 */
   createBot(type: BotType, market: string, count?: number): Promise<CreateBotResult>;
   /** 봇 제거(DELETE /admin/v1/sim/bots/{id}). 승인 불요 */

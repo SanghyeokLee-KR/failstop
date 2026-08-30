@@ -269,8 +269,10 @@ class SimGovernanceIntegrationTest {
                 "{\"operator_id\":\"op-bot\"}", "op-bot", s);
         assertEquals(200, r.getStatusCode().value(), r.getBody());
         JsonNode body = objectMapper.readTree(r.getBody());
-        assertEquals("1.0", body.path("schema_version").asText());
+        assertEquals("1.1", body.path("schema_version").asText(),
+                "apply_path 신설로 순증(API§6-A)");
         assertEquals("spike", body.path("scenario").asText());
+        assertEquals("local", body.path("apply_path").asText(), "거버너 동거 시 즉시 적용");
         assertEquals("20.0", body.path("base_ops").asText());
         assertEquals("200.0", body.path("target_ops").asText(), "spike는 기저의 10배");
         assertEquals(200.0, opsGovernor.targetOps(), 1e-9, "버킷에 실반영");

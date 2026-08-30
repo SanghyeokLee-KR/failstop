@@ -834,7 +834,7 @@
 .heroGaugeValue[data-tone="danger"] {
   color: var(--color-danger);
 }
-/* 우측 키·값 칼럼. 잔여 정보는 계기 승격 없이 캡션 2행으로만 남긴다 */
+/* 우측 키·값 칼럼. 잔여 정보는 계기 승격 없이 캡션 3행으로만 남긴다 */
 .heroKv {
   display: flex;
   flex-direction: column;
@@ -1303,7 +1303,7 @@
 }
 
 /* ===== 핵심 안전 검사 릴레이(모니터링 1층) =====
-   7종 검사를 릴레이 램프 스트립으로 병렬 판독한다. 정상은 램프·라벨만(잉크),
+   불변식 검사를 릴레이 램프 스트립으로 병렬 판독한다. 정상은 램프·라벨만(잉크),
    위반 셀만 danger 면·상단 레일·위반 텍스트로 발화하고 전이 순간 셀 단위 플래시. */
 .relayGroup {
   display: flex;
@@ -1339,7 +1339,7 @@
   font-size: 10px;
   line-height: 1;
 }
-/* 검사 7종이 평시에 전부 통과다. 램프까지 초록이면 스트립 전체가 초록 띠가 되고
+/* 검사 항목이 평시에 전부 통과다. 램프까지 초록이면 스트립 전체가 초록 띠가 되고
    위반 하나가 그 안에 묻힌다. 통과 램프는 잉크, 위반만 색으로 발화한다 */
 .relayCell[data-health="success"] .relayLamp {
   color: var(--text-secondary);
@@ -1502,19 +1502,13 @@
   color: var(--text-secondary);
 }
 
-/* ===== 복구 RTO 미니 막대(복구 이력 헤더 계기) ===== */
+/* ===== 재생 소요 미니 막대(복구 이력 헤더 계기) ===== */
 .rtoSpark {
   display: block;
 }
 .rtoBase {
   stroke: var(--border-strong);
   stroke-width: 1;
-}
-/* RTO 목표선(30s). 막대가 이 선을 넘으면 목표 위반이다 */
-.rtoTarget {
-  stroke: var(--border-strong);
-  stroke-width: 1;
-  stroke-dasharray: 2 3;
 }
 .rtoBar {
   fill: var(--text-secondary);
@@ -2219,6 +2213,24 @@
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 판정 범위 표기. 표는 창이고 판정은 전체라 그 구분을 헤더가 말한다 */
+.verdictScope {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--font-caption-weight);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* 표 셀 말줄임. 재생 창 식별자는 seq 자릿수에 따라 길어지는데 .cell에 overflow 처리가
+   없어 하이픈 뒤에서 줄바꿈이 나 행 높이가 무너진다. 원문은 title이 보존한다 */
+.cellEllipsis {
+  display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

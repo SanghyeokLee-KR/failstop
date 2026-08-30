@@ -570,7 +570,7 @@ docker compose ps
 ### 4-3. RTO 측정 정의, 원천 재정렬 (계약 정합 수정)
 
 - `RTO = (신 리더 takeover_ts) − (구 리더 last_heartbeat_ts)`. 신 리더가 리더십 획득 콜백에서 **1회 계산**하고, 그 단일 계산값을 ① 게이지 `exchange_failover_downtime_seconds` set, ② `GET /admin/v1/ha/recovery`의 `rto_seconds`(API§6-C) 응답에 사용한다. **"화면 숫자 = API 숫자"의 동일 원천은 이 단일 계산점**이다.
-- **DB 적재의 계약 정합(정정)**: DB v2.5의 `recovery_runs` 컬럼은 `market_id/snapshot_id/replayed_from·to_seq/fp_replay/fp_live/matched/duration_ms/created_at`뿐. **rto_seconds·rpo_records·verdict를 적재할 컬럼이 없다**. 따라서 역할을 재정렬한다: `recovery_runs` = **재생 결정론 증거**(fp 대조·matched·재생 소요)의 원천, RTO/RPO/판정 = **신규 `failover_runs` 테이블**(experiment_id, old/new_leader, old/new_epoch, last_heartbeat_ts, takeover_ts, rto_seconds, rpo_records, verdict), DB 계약 v2.6 추가를 §8-7로 정식 권고하고, 채택 전까지는 additive 관측 마이그레이션(`V90__observability_ext.sql`, 원장·저널 무접촉)으로 선반영한다. 대시보드 ②의 Table 2장(recovery_runs=재생 지문, failover_runs=RTO 이력)과 §6-C API가 각각 자기 원천을 갖는 구조로 "3중 산출물" 서사를 재정렬한다.
+- **DB 적재의 계약 정합(정정)**: DB v2.37의 `recovery_runs` 컬럼은 `market_id/snapshot_id/replayed_from·to_seq/fp_replay/fp_live/matched/duration_ms/created_at`뿐. **rto_seconds·rpo_records·verdict를 적재할 컬럼이 없다**. 따라서 역할을 재정렬한다: `recovery_runs` = **재생 결정론 증거**(`matched`·재생 창·재생 소요)의 원천. 판정은 `ReplayService.rebuild`의 이벤트 단위 대조이고 fp 두 컬럼은 창 식별자다(DB§5.5 v2.37), RTO/RPO/판정 = **신규 `failover_runs` 테이블**(experiment_id, old/new_leader, old/new_epoch, last_heartbeat_ts, takeover_ts, rto_seconds, rpo_records, verdict), DB 계약 v2.37 추가를 §8-7로 정식 권고하고, 채택 전까지는 additive 관측 마이그레이션(`V90__observability_ext.sql`, 원장·저널 무접촉)으로 선반영한다. 대시보드 ②의 Table 2장(recovery_runs=재생 결정론 `matched`, failover_runs=RTO 이력)과 §6-C API가 각각 자기 원천을 갖는 구조로 "3중 산출물" 서사를 재정렬한다.
 - 목표 분해: 인프라 재기동(restart 정책, ~수 초) + 앱 재생(snapshot+tail replay) 합산 < 30s(API§7-4). 외부 관점 RTO는 k6가 `exchange:trades_per_second:rate1m` 곡선 단절 폭으로 교차 검증(§5-3 레코딩 규칙명과 통일).
 
 ### 4-4. (선택 가산점 트랙) k3d rolling 무중단
@@ -738,7 +738,7 @@ datasources:
 | # | 대시보드 | 핵심 패널 (원천) |
 |---|---|---|
 | ① | **체결 무결성 증명** | Stat `max(abs(exchange_ledger_imbalance))`(0=녹/≠0=적) · 자산별 imbalance 수평선 Timeseries · Stat 3연(중복 체결 0·유실 0·시퀀스 갭 0, pg-proof SQL 직조회) · Table `SELECT check_name, ok, violated_rows, checked_at FROM invariant_checks ORDER BY checked_at DESC LIMIT 20`(**DB 원본이 메트릭 미러보다 강한 증거**), 카오스 음영 위에서 전부 무결 |
-| ② | **자동 복구 증명** | Gauge `exchange_failover_downtime_seconds` vs 임계 30s · State-timeline `exchange_leader_is_leader{node}`(kill 시점 리더 밴드 교대) · `exchange_leader_epoch` 계단 + kill annotation 수직선 정렬 · `exchange:trades_per_second:rate1m` 곡선 사멸→수초 부활 · **Table 2장: `recovery_runs`(fp_replay=fp_live, matched=true, 재생 결정론) + `failover_runs`(rto_seconds·rpo_records·verdict 이력, §6-C API와 동일 계산점, §4-3)** · replay rate · **복구 경로 구분(pg-proof): snapshot_head=0이면 `FULL_REPLAY_FROM_0`(적)/아니면 `SNAPSHOT_TAIL`(녹), replay_tail=command_head-snapshot_head 재생 명령 수 · 채택 가능 스냅샷 재고(버전 튜플별, 드리프트 무음 폴백 노출) · 스냅샷 캡처 파이프라인 rate(captured/dropped/persist_failed) · `exchange_snapshot_last_persisted_seq` 진행 계단** |
+| ② | **자동 복구 증명** | Gauge `exchange_failover_downtime_seconds` vs 임계 30s · State-timeline `exchange_leader_is_leader{node}`(kill 시점 리더 밴드 교대) · `exchange_leader_epoch` 계단 + kill annotation 수직선 정렬 · `exchange:trades_per_second:rate1m` 곡선 사멸→수초 부활 · **Table 2장: `recovery_runs`(matched=true. 결정론 판정은 ReplayService가 재생 이벤트를 event_journal 행과 하나씩 대조한 결과다. fp_replay·fp_live는 재생 창 식별자이지 대조 대상이 아니다. 기록자가 성공 경로에서 두 값을 같게 적으므로 그 비교로는 항상 참이다) + `failover_runs`(rto_seconds·rpo_records·verdict 이력, §6-C API와 동일 계산점, §4-3)** · replay rate · **복구 경로 구분(pg-proof): snapshot_head=0이면 `FULL_REPLAY_FROM_0`(적)/아니면 `SNAPSHOT_TAIL`(녹), replay_tail=command_head-snapshot_head 재생 명령 수 · 채택 가능 스냅샷 재고(버전 튜플별, 드리프트 무음 폴백 노출) · 스냅샷 캡처 파이프라인 rate(captured/dropped/persist_failed) · `exchange_snapshot_last_persisted_seq` 진행 계단** |
 | ③ | **부하·SLO** | k6 Remote Write 계열(공식 대시보드 19665 병행 임포트) · `exchange:slo_500ms_ratio_1m` · p95/p99 · 429 비율(`exchange_orders_rejected_total{reason="rate_limited"}`) · `exchange_sequencer_queue_size` · Resilience4j CB/RateLimiter, "거부는 늘어도 p99·무결성은 방어" 장 |
 | ④ | **시스템** | HikariCP active/pending · JVM heap/GC · `exchange_ws_clients` · orderbook depth · Kafka lag · `up`/readiness |
 
@@ -829,7 +829,7 @@ Micrometer Tracing(OTel bridge)→OTLP→Tempo, Logback JSON(trace_id 포함)→
 | E3 예외 폭풍/지연 | admin → api 노드 `POST /actuator/chaosmonkey/**` 릴레이(admin-net, **§5-1 demo 프로파일에서 노출·활성 확인됨**) | CB open, 429/503+Retry-After 규약 |
 | E4 AppKiller/자원 고갈 | Chaos Monkey AppKiller/Memory/CPU + `restart: unless-stopped` | 프로세스 수준 자동 복구(메모리 캡 §3-4 내에서) |
 | E5 노드 kill(핵심) | admin이 `chaos_commands`에 지시를 적재하고 **하네스 소비기**(`scripts/chaos-consumer.ps1`)가 점유해 `docker kill chaos-api-1` 수행. 관리 프로세스는 Docker에 닿지 않는다 | restart→재생→readiness UP→LB 재편입, RTO<30s, epoch+1 |
-| E6 폭주+kill 동시 | k6 spike 중첩 + E5 | 유실 0·중복 0·자산합 0·해시 일치(P6 증거 표) + C16 |
+| E6 폭주+kill 동시 | k6 spike 중첩 + E5 | 유실 0·중복 0·자산합 0·재생 결정론 `matched=true`(P6 증거 표) + C16 |
 | 보완(그레이 장애) | `docker pause`(freezer), **pause는 restart 정책으로 복구 안 됨 → 실험 타이머가 unpause 자동 종료(필수 훅)** | 헬스체크 vs TCP 생존 괴리, 좀비 리더 fencing |
 | 보완(패킷) | Pumba netem loss/corrupt (`chaos-net`), **사전 검증 필수**: `docker run --rm --cap-add NET_ADMIN alpine sh -c "apk add iproute2 && tc qdisc add dev eth0 root netem loss 10%"` 성공 시에만 활성. WSL2 커널 sch_netem 미탑재 시 **packet loss 실험은 범위 제외로 문서화** | Toxiproxy 공백 전담(조건부) |
 

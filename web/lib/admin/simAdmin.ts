@@ -34,6 +34,7 @@ import type {
   FleetScaleResult,
   FleetScaleTargets,
   HaNode,
+  ControlApply,
   HaRecovery,
   HaStatus,
   InvariantCheck,
@@ -44,6 +45,7 @@ import type {
   NoticeSeverity,
   OperatorStatus,
   RecoveryRun,
+  RecoveryVerdict,
   SimStatus,
   TradeFlash,
   AdminInquiry,
@@ -128,6 +130,20 @@ function simPage<T, R>(rows: T[], opts: PageOpts, idOf: (row: T) => string,
   };
 }
 
+/**
+ * 복구 이력에서 전체 판정을 낸다. 서버 verdict와 같은 규칙이다(API§6-C).
+ *
+ * 표가 비면 UNKNOWN이다. 판정 대상이 없는데 통과를 내면 공허 통과다. 하나라도 비PASS면
+ * FAIL이고, 이때 창을 좁혀 최신 1행만 보면 과거 실패가 화면에서 사라진다. 그것이 서버가
+ * 전역 집계로 바꾼 이유이고 화면도 같은 규칙이어야 두 축이 갈리지 않는다.
+ */
+export function aggregateVerdict(runs: readonly RecoveryRun[]): RecoveryVerdict {
+  if (runs.length === 0) {
+    return "UNKNOWN";
+  }
+  return runs.some((r) => r.verdict !== "PASS") ? "FAIL" : "PASS";
+}
+
 export class SimAdminApi implements AdminApi {
   // sim은 start·stop·pause가 인메모리 플릿 상태에 즉시 반영된다
   readonly controlApplied = true;
@@ -176,23 +192,26 @@ export class SimAdminApi implements AdminApi {
     { id: "engine-03", role: "follower", epoch: 7, seq: 148_230, followerLagMs: 18, ownedMarkets: [], health: "healthy" },
   ];
   private epoch = 7;
-  // 하네스 실측 분포(9~24s)를 미러한 시드 6건. 단건 시드는 RtoSpark가 표본 부족으로 접힌다
+  // 재생 소요 실측 분포(2026-08-30, n=34: min 40 · p50 73 · max 159ms)를 미러한 시드 6건.
+  // 종전 값 9~24초는 페일오버 RTO 대역이라 다른 축이었다. 단건 시드는 RtoSpark가 접힌다
   private recovery: RecoveryRun[] = [
-    { hoursAgo: 1, durationMs: 17_400, from: 148_001, to: 148_120 },
-    { hoursAgo: 5, durationMs: 12_050, from: 147_410, to: 147_512 },
-    { hoursAgo: 11, durationMs: 21_800, from: 146_770, to: 146_931 },
-    { hoursAgo: 19, durationMs: 9_640, from: 146_102, to: 146_188 },
-    { hoursAgo: 27, durationMs: 14_320, from: 145_488, to: 145_601 },
-    { hoursAgo: 38, durationMs: 23_110, from: 144_820, to: 144_997 },
+    { hoursAgo: 1, durationMs: 159, from: 148_001, to: 148_120 },
+    { hoursAgo: 5, durationMs: 73, from: 147_410, to: 147_512 },
+    { hoursAgo: 11, durationMs: 121, from: 146_770, to: 146_931 },
+    { hoursAgo: 19, durationMs: 40, from: 146_102, to: 146_188 },
+    { hoursAgo: 27, durationMs: 88, from: 145_488, to: 145_601 },
+    { hoursAgo: 38, durationMs: 147, from: 144_820, to: 144_997 },
   ].map((r) => ({
     id: uid("rec"),
     startedAt: isoNow(Date.now() - r.hoursAgo * 3_600_000),
     durationMs: r.durationMs,
-    rpoMs: 0,
+    rpoMs: null,
     replayedFromSeq: r.from,
     replayedToSeq: r.to,
-    fpReplay: "9f2c...a17",
-    fpLive: "9f2c...a17",
+    // 서버 RecoveryRunRecorder가 만드는 포맷과 같게 둔다. 가짜 해시를 두면 열이 밝힌
+    // 목적(재생 0건과 실재 재생을 가른다)을 데모 데이터가 배반한다.
+    fpReplay: `seq:${r.from}-${r.to}:ev:${r.to - r.from}`,
+    fpLive: `seq:${r.from}-${r.to}:ev:${r.to - r.from}`,
     matched: true,
     verdict: "PASS" as const,
   }));
@@ -354,16 +373,18 @@ export class SimAdminApi implements AdminApi {
     next.ownedMarkets = this.markets.map((m) => m.symbol);
     next.followerLagMs = 0;
     for (const n of this.nodes) n.epoch = this.epoch;
-    const rto = Math.round(rand(9_000, 24_000));
+    // 재생 소요다. 페일오버 RTO가 아니다(실측 40~159ms).
+    const replayMs = Math.round(rand(40, 160));
+    const replayFrom = next.seq - Math.round(rand(80, 180));
     this.recovery.unshift({
       id: uid("rec"),
       startedAt: isoNow(),
-      durationMs: rto,
-      rpoMs: 0,
-      replayedFromSeq: next.seq - Math.round(rand(80, 180)),
+      durationMs: replayMs,
+      rpoMs: null,
+      replayedFromSeq: replayFrom,
       replayedToSeq: next.seq,
-      fpReplay: "9f2c...a17",
-      fpLive: "9f2c...a17",
+      fpReplay: `seq:${replayFrom}-${next.seq}:ev:${next.seq - replayFrom}`,
+      fpLive: `seq:${replayFrom}-${next.seq}:ev:${next.seq - replayFrom}`,
       matched: true,
       verdict: "PASS",
     });
@@ -694,8 +715,10 @@ export class SimAdminApi implements AdminApi {
       leaderNodeId: this.leader().id,
       invariantsOk: okCount,
       invariantsTotal: this.invariants.length,
-      lastRtoMs: this.recovery[0]?.durationMs ?? null,
-      lastVerdict: this.recovery[0]?.verdict ?? null,
+      // 목에 페일오버 주행 표가 없다. 재생 소요를 RTO로 실으면 없는 축을 지어낸다.
+      lastRtoMs: null,
+      // getRecovery와 같은 함수다. 두 화면이 다른 결론을 내면 안 된다.
+      lastVerdict: aggregateVerdict(this.recovery),
       botsActive: this.bots.filter((b) => b.active).length,
       currentOps: this.currentOps(),
       chaosRunning: this.chaosRuns.filter((r) => r.state === "RUNNING").length,
@@ -725,10 +748,17 @@ export class SimAdminApi implements AdminApi {
 
   getRecovery(): Promise<HaRecovery> {
     this.auth("VIEW");
+    const overall = aggregateVerdict(this.recovery);
     return Promise.resolve({
       runs: this.recovery.slice(),
-      lastRtoMs: this.recovery[0]?.durationMs ?? null,
-      lastVerdict: this.recovery[0]?.verdict ?? null,
+      // 목에 페일오버 주행 표가 없다. 재생 소요를 RTO로 실으면 없는 축을 지어낸다.
+      lastRtoMs: null,
+      lastVerdict: overall,
+      verdictScope: "all" as const,
+      replayVerdict: overall,
+      // 목 어댑터에 페일오버 주행 표가 없다. 재생 축 결론을 복사하면 없는 축을 지어낸다.
+      // 미추적 필드 날조 회피는 서버 응답과 같은 규율이다.
+      failoverVerdict: null,
     });
   }
 
@@ -824,7 +854,7 @@ export class SimAdminApi implements AdminApi {
     return Promise.resolve();
   }
 
-  simSetRate(rate: number): Promise<void> {
+  simSetRate(rate: number): Promise<ControlApply> {
     const s = this.auth("BOT_OPS");
     const next = Math.round(rate);
     // 서버 SimAdminController.parsePositive와 동일 계약. 0·음수는 정지 버튼 소관이라 반려한다
@@ -833,7 +863,8 @@ export class SimAdminApi implements AdminApi {
     }
     this.simRate = next;
     this.log(s, "sim.rate", `${this.simRate} OPS`, null, "OK");
-    return Promise.resolve();
+    // 목 어댑터는 거버너와 한 프로세스라 항상 즉시 적용이다.
+    return Promise.resolve({ applyPath: "local" as const, queuedCommandId: 0 });
   }
 
   createBot(type: BotType, market: string, count = 1): Promise<CreateBotResult> {
@@ -993,6 +1024,10 @@ export class SimAdminApi implements AdminApi {
     this.log(s, "sim.scenario", name, null, "OK");
     return Promise.resolve({
       scenario: name,
+      // 목 어댑터는 거버너와 한 프로세스라 항상 즉시 적용이다. 큐 경로는 서버 배치의
+      // 물리 분리에서만 나오므로 여기서 재현할 대상이 아니다.
+      applyPath: "local" as const,
+      queuedCommandId: 0,
       targetOps: String(this.simRate),
       baseOps: String(this.baseRate),
       autoBalance: def.autoBalance,

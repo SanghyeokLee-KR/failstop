@@ -1,7 +1,9 @@
 "use client";
 
 /**
- * 핵심 안전 검사 릴레이 스트립(모니터링 1층). 7종 검사를 고정 7트랙 램프 1행으로 병렬 판독한다.
+ * 핵심 안전 검사 릴레이 스트립(모니터링 1층). 서버가 내는 불변식 검사를 램프 그리드로 병렬
+ * 판독한다. 개수는 서버 응답이 정한다(실측 26종). 종전 주석의 "7종 고정 7트랙"은 수용 기준
+ * §6.2의 개념 축 7종을 화면 트랙 수로 오독한 것이고, 실제 검사 항목은 C01~C25다.
  * 정상은 잉크(램프·라벨만, 상태는 sr-only 낭독). 위반 셀은 danger 면 + '위반 N행' 인라인으로 발화한다.
  * 위반 원인 상세는 스트립 아래 상시 발화선 1행이 전담한다(정상·위반 모두 1행 점유, 전이 시프트 0).
  * 색 단독 금지: 램프 형태(●=정상, ■=위반)·위반 텍스트 병기. 셀 단위 전이 플래시.
@@ -69,7 +71,7 @@ export default function InvariantRelayStrip({ checks }: { checks: InvariantCheck
       .join(" / ");
   return (
     <div className={styles.relayGroup}>
-      <span className={styles.kpiGroupLabel} title="불변식 7종">
+      <span className={styles.kpiGroupLabel} title="invariant_checks 최신 행. 수용 기준 7종은 검증설계 §4-4가 이 항목들로 해석한다">
         핵심 안전 검사
       </span>
       <ul className={styles.relayStrip} aria-label="핵심 안전 검사 현황">

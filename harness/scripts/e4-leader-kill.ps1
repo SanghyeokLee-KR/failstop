@@ -233,9 +233,9 @@ Write-Host ("주문 유실(C13a)    : {0} (드레인 성립={1})" -f $ordersLost
 Write-Host ("RPO records        : {0}" -f $rpoRecords)
 Write-Host ("failover_run_id    : {0}" -f $rec.failover_run_id)
 Write-Host '────────────────────────────────────────'
-# 한정 표기: 컨테이너 E4의 RPO 판정은 저널 무결(C05·C06·C13a) 프록시다. C16(ACK 원장 대조)과
-# C17(재생 결정론)은 봇 ACK COPY·스냅샷 재생 지문 배선이 M4 이월이라 이 스택에서 빈 테이블
-# 대조로 공허 통과한다. C16 실데이터 교차대조는 CI InvariantVerifierIntegrationTest가,
+# 한정 표기: 컨테이너 E4의 RPO 판정은 저널 무결(C05·C06·C13a) 프록시다. C16·C17의 원천은
+# 2026-08-30에 배선했다. 0행은 미배선이 아니라 그 주행에 판정 대상이 없었다는 뜻이다.
+# C16 실데이터 교차대조는 CI InvariantVerifierIntegrationTest가,
 # 검증기 반증(위반 주입 검출)은 동 테스트 verifierCatchesInjectedViolations가 담당한다.
 # 증거 출력 전용이라 -Required를 붙이지 않는다. 이 지점은 판정 확정·failover_runs 적재 이후이고
 # try/finally 밖이라, 여기서 throw하면 verdict가 PASS인 run이 미포획 종료로 exit 1이 된다.
@@ -245,12 +245,12 @@ $c17rows = Get-Scalar "SELECT count(*) FROM recovery_runs"
 $c16disp = 'n/a'; $c16note = 'psql 무응답, 판정 불능'
 if ($null -ne $c16rows) {
     $c16disp = $c16rows
-    $c16note = if ($c16rows -eq 0) { '공허 통과, ACK 파이프라인 M4 이월' } else { '실데이터 대조' }
+    $c16note = if ($c16rows -eq 0) { '판정 대상 없음(이 주행 ACK 미적재). load-acks.ps1로 적재 후 재판정' } else { '실데이터 대조' }
 }
 $c17disp = 'n/a'; $c17note = 'psql 무응답, 판정 불능'
 if ($null -ne $c17rows) {
     $c17disp = $c17rows
-    $c17note = if ($c17rows -eq 0) { '공허 통과, 재생 지문 M4 이월' } else { '실데이터 대조' }
+    $c17note = if ($c17rows -eq 0) { '판정 대상 없음(이 주행 재생 미발생)' } else { '실데이터 대조' }
 }
 Write-Host ''
 Write-Host '증거 한정(컨테이너 E4):' -ForegroundColor Yellow

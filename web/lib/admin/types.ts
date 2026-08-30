@@ -162,7 +162,7 @@ export interface HaStatus {
   generatedAt: string;
 }
 
-/** invariant_checks 원소(불변식 7종) */
+/** invariant_checks 원소. 항목 수는 서버가 정한다(실측 26종) */
 export interface InvariantCheck {
   name: string;
   label: string;
@@ -172,29 +172,64 @@ export interface InvariantCheck {
   checkedAt: string;
 }
 
-export type RecoveryVerdict = "PASS" | "FAIL";
+/**
+ * 복구 판정. UNKNOWN은 통과가 아니다. 표가 비었거나 계측값이 NULL이면 판정 대상이
+ * 없다는 뜻이고, 그것을 통과로 표시하면 공허 통과가 화면에 통과로 뜬다(API§6-C).
+ */
+export type RecoveryVerdict = "PASS" | "FAIL" | "UNKNOWN";
 
-/** recovery_runs 원소(RTO·RPO·failover·재현 판정) */
+/**
+ * 주행 한 건의 판정. 집계와 달리 미판정이 없다. 재생은 예외 없이 끝났거나 아니거나
+ * 둘 중 하나이고, 표가 비었는지는 행 단위에서 물을 수 없는 질문이기 때문이다.
+ * 이 별칭이 없으면 렌더가 UNKNOWN을 받을 수 있는 타입인데 이진으로 칠한다.
+ */
+export type RunVerdict = "PASS" | "FAIL";
+
+/** recovery_runs 원소(재생 창·재생 소요·재현 판정). RTO·RPO는 이 표에 없다 */
 export interface RecoveryRun {
   id: string;
   startedAt: string;
-  durationMs: number; // RTO
-  rpoMs: number;
+  /** 재생 소요. 페일오버 RTO가 아니다(원천 harness.failover_runs.rto_seconds) */
+  durationMs: number;
+  /** RPO는 recovery_runs에 없다. 원천은 harness.failover_runs라 이 행에서는 미측정이다 */
+  rpoMs: number | null;
   replayedFromSeq: number;
   replayedToSeq: number;
   fpReplay: string;
   fpLive: string;
   matched: boolean;
-  verdict: RecoveryVerdict;
+  verdict: RunVerdict;
 }
 
 export interface HaRecovery {
   runs: RecoveryRun[];
   lastRtoMs: number | null;
+  /**
+   * 서버 verdict.overall. 표 전체(또는 since 창) 집계다. 종전에는 failover_runs 최신
+   * 1행으로 화면 판정을 만들어, 과거 FAIL과 최신 PASS가 함께 있으면 서버는 FAIL인데
+   * 화면은 통과를 표시했다. 서버가 없앤 "창 안만 보는 판정"이 화면에 남아 있었다.
+   */
   lastVerdict: RecoveryVerdict | null;
+  /** 판정 범위. 창을 주지 않으면 all이다 */
+  verdictScope: "all" | "since";
+  /** 재생 축 판정. overall과 갈릴 수 있어 복구 이력 패널 헤더에 따로 띄운다 */
+  replayVerdict: RecoveryVerdict | null;
+  /** 페일오버 축 판정 */
+  failoverVerdict: RecoveryVerdict | null;
 }
 
 /* ===== 봇 플릿 (§2-1, /admin/v1/sim/*) ===== */
+
+/**
+ * 봇 제어 조작의 반영 경로(API§6-A `apply_path`). `queued`는 실패가 아니라 지연이다.
+ * 관리 평면과 봇 JVM이 물리 분리된 배치에서 서버가 sim_commands에 의도를 적재하고
+ * 봇이 폴링해 적용한다. 화면이 이것을 즉시 완료로 단정하면 봇이 죽어 명령이 PENDING으로
+ * 남은 상태에서도 성공을 표시한다.
+ */
+export interface ControlApply {
+  applyPath: "local" | "queued";
+  queuedCommandId: number;
+}
 
 export type BotType = "MARKET_MAKER" | "TAKER" | "TREND" | "NOISE";
 
@@ -302,12 +337,17 @@ export interface ScenarioMarketResult {
  */
 export interface ScenarioResult {
   scenario: ScenarioName;
-  targetOps: string;
-  baseOps: string;
+  /** 봇 거버너가 이 노드에 있으면 즉시 적용, 없으면 명령 큐를 거친다(API§6-A apply_path) */
+  applyPath: "local" | "queued";
+  /** queued일 때 sim_commands 행 id. local이면 0 */
+  queuedCommandId: number;
+  /** queued 경로에서는 관리 평면이 모르는 값이라 서버가 내지 않는다 */
+  targetOps: string | null;
+  baseOps: string | null;
   autoBalance: boolean;
   targetNetBias: string;
-  markets: ScenarioMarketResult[];
-  clamped: boolean;
+  markets: ScenarioMarketResult[] | null;
+  clamped: boolean | null;
   fleetPresent: boolean;
 }
 

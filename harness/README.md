@@ -77,17 +77,23 @@ pwsh -File scripts/down.ps1          # 전체 볼륨 파기(append-only 선별 �
 ### 결과 적재 위치(산출물 5 정정)
 
 RTO/RPO/verdict는 `harness.failover_runs`에 적재한다. 정본 `recovery_runs`(V3, DB v2.10)에는
-rto/rpo/verdict 컬럼이 없고 재생 결정론 지문(fp_replay·fp_live·matched) 전용이라 분리한다.
-`recovery_runs`는 승격 시 스냅샷 재생 지문을 적재하는 M4 이후 채워진다. 그전까지 E4 실험의
-페일오버 증거 원천은 `failover_runs`다.
+rto/rpo/verdict 컬럼이 없고 재생 결정론(`matched`)과 재생 창 식별자(`fp_replay`·`fp_live`)
+전용이라 분리한다. `recovery_runs`는 `EngineRecovery`가 승격·재기동마다 적재한다(2026-08-30
+배선, 실측 15행). E4 실험의 페일오버 증거 원천은 그대로 `failover_runs`다.
 
 ### 컨테이너 E4 증거 한정
 
 컨테이너 E4의 RPO는 저널 무결(C05/C06 gapless + C13a 물질화 0)로 판정한다. C16(외부 ACK
-원장 → command_journal 대조)과 C17(재생 결정론)은 각각 봇 ACK COPY·재생 지문 배선이 M4
-이월이라 이 스택에서는 빈 테이블 대조로 공허 통과한다. 스크립트는 실행 말미에 loadtest_acks·
-recovery_runs 행수를 출력해 공허 통과 여부를 증거에 명시한다. C16 실데이터 교차대조와
-검증기 반증(위반 주입 검출)은 서버측 통합테스트가 별도 실증한다(아래).
+원장 → command_journal 대조)과 C17(재생 결정론)의 원천은 **2026-08-30에 배선했다**. 종전에는
+쓰는 코드가 없어 두 표가 늘 0행이었고 빈 테이블 대조로 공허 통과했다. 실측: `loadtest_acks`
+6,065행, `recovery_runs` 15행. 스크립트는 실행 말미에 두 행수를 출력하므로 0이면 그 주행에서
+판정 대상이 없었다는 뜻이지 미배선이 아니다. C16 실데이터 교차대조와 검증기 반증(위반 주입
+검출)은 서버측 통합테스트가 별도 실증한다(아래).
+
+C17의 판정력 한계를 밝힌다. 결정론 판정은 `ReplayService.rebuild`가 재생 이벤트를
+`event_journal` 행과 하나씩 대조해 내고 `matched`는 그 결과다. `fp_replay`·`fp_live`는 재생 창
+식별자이지 대조 대상이 아니며, 기록자가 성공 경로에서 두 값을 같게 적으므로 그 비교로는
+`matched`가 항상 참이다. 실질 판정력은 불일치 기록 경로가 도달하는가에 있다.
 
 ## 데이터 레벨 증거(CI 재현)
 

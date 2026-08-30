@@ -106,6 +106,21 @@ class MigrationSmokeTest {
                     SELECT has_function_privilege('app_role',
                         'post_ledger_transaction(character varying, bigint, jsonb)', 'EXECUTE')
                     """), "app_role must EXECUTE post_ledger_transaction");
+
+            // 제어 명령 큐(V21·V22). 롤을 분리하는 순간 GRANT 누락이 기능을 통째로 죽이는데
+            // 예외가 권한 오류라 원인 추적이 한 단계 멀어진다. V22가 실제로 이 GRANT를
+            // 빠뜨렸고 V23으로 메웠다. 회귀 가드를 둔다.
+            for (String t : List.of("sim_commands", "chaos_commands")) {
+                for (String priv : List.of("SELECT", "INSERT", "UPDATE")) {
+                    assertTrue(queryBool(conn,
+                                    "SELECT has_table_privilege('app_role', '" + t + "', '" + priv + "')"),
+                            "app_role must " + priv + " on " + t);
+                }
+                // 제어 이력이라 지우는 경로가 없어야 감사가 성립한다.
+                assertTrue(!queryBool(conn,
+                                "SELECT has_table_privilege('app_role', '" + t + "', 'DELETE')"),
+                        "app_role must not DELETE on " + t);
+            }
         }
     }
 

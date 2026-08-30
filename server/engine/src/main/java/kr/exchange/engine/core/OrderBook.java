@@ -22,6 +22,6 @@ public interface OrderBook {
     /** 열린 최우선 매도 호가. 없으면 null. */
     BigDecimal bestAsk();
 
-    /** 스냅샷 직렬화 대상 상태의 체크섬. 재생 결정론 비교(fp_replay/fp_live)에 쓰인다. */
+    /** 스냅샷 직렬화 대상 상태의 체크섬. 스냅샷 무결 검증과 결정론 속성 테스트에 쓰인다. */
     long stateChecksum();
 }

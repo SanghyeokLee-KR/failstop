@@ -72,10 +72,17 @@ export default function BotsPage() {
     }
   }, [sim]);
 
-  const run = async (fn: () => Promise<unknown>, ok: string) => {
+  const run = async <T,>(
+    fn: () => Promise<T>,
+    ok: string,
+    // 결과에 따라 문구를 바꾸는 경로가 있다. null이면 기본 문구를 쓴다.
+    // 제네릭이라 호출부가 캐스팅 없이 결과 타입을 그대로 받는다. unknown으로 두면
+    // 어댑터가 void를 돌려줘도 컴파일이 통과하고 런타임에서 터진다.
+    okOf?: (result: T) => string | null,
+  ) => {
     try {
-      await fn();
-      toast(ok, "info");
+      const result = await fn();
+      toast(okOf?.(result) ?? ok, "info");
       await load();
     } catch (e) {
       toast(e instanceof Error ? e.message : "처리 실패", "error");
@@ -83,6 +90,16 @@ export default function BotsPage() {
   };
 
   const api = getAdminApi();
+
+  // 큐 경로는 성공이지만 완료는 아니다. 프리셋과 같은 어휘를 쓴다. 즉시 완료로 단정하면
+  // 봇 JVM이 죽어 명령이 PENDING으로 남은 상태에서도 화면이 반영을 주장한다.
+  const applyRate = async () => {
+    const target = rateDraft;
+    await run(() => api.simSetRate(target), `OPS 목표를 ${target}로 바꿨습니다`, (r) =>
+      r.applyPath === "queued"
+        ? `OPS 목표 ${target}를 봇 노드에 전달했습니다. 반영까지 최대 1초 걸립니다`
+        : null);
+  };
   const paramActions = useMemo(() => PARAM_ACTIONS, []);
 
   // v2.22부터 sim·http 모두 실반영(controlApplied=true). 분기는 미래의 미반영 어댑터 대비로
@@ -215,7 +232,7 @@ export default function BotsPage() {
                 type="button"
                 className={styles.primaryBtn}
                 disabled={!canOps || rateDraft === sim.rate}
-                onClick={() => void run(() => api.simSetRate(rateDraft), `OPS 목표를 ${rateDraft}로 바꿨습니다`)}
+                onClick={() => void applyRate()}
               >
                 적용
               </button>

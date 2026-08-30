@@ -16,6 +16,6 @@ public interface MatchingEngine {
     /** 마지막으로 적용한 command seq. 재생 시 seq > lastAppliedSeq만 적용해 이중 적용을 막는다. */
     long lastAppliedSeq();
 
-    /** 전 마켓 정준 상태 해시. 재생 결정론 비교(fp_replay/fp_live)의 입력이다. */
+    /** 전 마켓 정준 상태 해시. 스냅샷 무결 검증과 결정론 속성 테스트의 비교 축이다. */
     long stateChecksum();
 }

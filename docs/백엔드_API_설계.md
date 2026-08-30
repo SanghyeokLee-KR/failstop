@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.32, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.33, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -1207,16 +1207,41 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 // POST /admin/v1/sim/scenarios/spike/activate  (operator_id 필수, approval_token 불요)
 { "operator_id":"op-02" }
 // 200
-{ "schema_version":"1.0", "scenario":"spike",
+{ "schema_version":"1.1", "scenario":"spike", "apply_path":"local",
   "target_ops":"300.0", "base_ops":"30.0",
   "auto_balance":false, "target_net_bias":"0.60",
   "markets":[
     { "market":"KRW-BTC", "scale_applied":true,
       "applied":{"MARKET_MAKER":40,"TAKER":30,"TREND":20,"NOISE":50},
       "effective_bias":"0.60" } ],
-  "clamped":false, "fleet_present":true }
+  "clamped":false, "fleet_present":true, "queued_command_id":0 }
+// 200, 관리 평면에 봇 거버너가 없을 때(물리 분리 배치)
+{ "schema_version":"1.1", "scenario":"spike", "apply_path":"queued",
+  "auto_balance":false, "target_net_bias":"0.60",
+  "fleet_present":false, "queued_command_id":7 }
 ```
 알 수 없는 프리셋 이름은 `404 not_found`다(`/sim/{command}`의 미지 명령과 동일 규약).
+
+**`apply_path`(v2.33 신설)**: 봇 거버너는 bots 프로파일 JVM의 인메모리 상태이고 관리 평면은
+별도 컨테이너다(관리자 설계 §0 물리 분리). 같은 JVM이면 `local`로 즉시 반영하고, 아니면
+`sim_commands`(DB§V22)에 의도를 적재하고 `queued`를 낸다. 봇 JVM이 폴링해 적용하므로
+반영까지 최대 1초 지연된다.
+
+**이 절의 생략 규정은 `POST /sim/scenarios/{name}/activate` 한정이다.** `queued`에서
+`target_ops`·`base_ops`·`markets`·`clamped`를 **내지 않는다**. 그 값들은 기저 OPS와 마켓별
+기준선에서 파생하므로 봇 거버너만 계산할 수 있고 관리 평면이 아는 값이 없다. 종전에는
+`base_ops`가 `0.0`으로 고정돼 거기서 나온 `target_ops` `0.0`을 응답과 감사에 남겼고, 봇이
+실제로 적용한 값과 달랐다. 빈 배열도 "0개 마켓에 적용했다"는 주장이고 `clamped:false`도
+"캡에 걸리지 않았다"는 주장이다. 없는 값은 비운다.
+
+`auto_balance`·`target_net_bias`는 `queued`에서도 낸다. 이 둘은 프리셋 정의값이라
+거버너 없이도 정확하다. 요청한 프리셋이 무엇인가의 서술이지 적용 결과가 아니다.
+
+`PUT /sim/rate`는 `apply_path` 규약만 같고 생략 규정은 다르다. 응답은
+`{schema_version:"1.1", target_ops, applied, apply_path, queued_command_id}`이고 `target_ops`를
+`queued`에서도 낸다. 그 값은 요청 바디의 에코라 관리 평면이 아는 값이기 때문이다. 파생값이
+아니므로 생략할 이유가 없다. `applied`는 "이 응답 시점에 봇에 반영됐는가"라 `queued`면
+`false`다.
 
 ### 6-B. 카오스 주입 API
 
@@ -1251,8 +1276,8 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 | GET | `/actuator/health/liveness` | 생존 프로브 |
 | GET | `/actuator/health/readiness` | 준비 프로브(페일오버 시 `REFUSING_TRAFFIC` → LB가 제외) |
 | GET | `/admin/v1/ha/status` | 리더/팔로워·epoch·seq 정합 |
-| GET | `/admin/v1/ha/recovery` | 최근 복구 RTO/RPO·불변식 결과 |
-| GET | `/admin/v1/ha/invariants` | 불변식 7종 실시간 검증 |
+| GET | `/admin/v1/ha/recovery` | 복구 판정 객체 + `recovery_runs[]` + `failover_runs[]`(불변식은 방출하지 않는다. 아래 실제 방출 문단 참조) |
+| GET | `/admin/v1/ha/invariants` | `invariant_checks`의 `check_name`별 최신 행(`ok`·`violated_rows`·`checked_at`). 저장 행 조회이지 호출 시점 재검증이 아니다 |
 
 ```json
 // GET /admin/v1/ha/status → 200
@@ -1260,7 +1285,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
   "last_applied_seq":88123606,"follower_lag_seq":3,"snapshot_seq":88100000,
   "matching_market_owner":{"KRW-BTC":"chaos-api-1"} }
 
-// GET /admin/v1/ha/recovery → 200
+// GET /admin/v1/ha/recovery → 200 (이상형. 실제 방출은 아래 대조 문단이 정본)
 { "last_experiment":"E5-2026-0721-01","rto_seconds":3.2,"rpo_records":0,
   "failover":{"old_leader":"chaos-api-1","new_leader":"chaos-api-2",
               "old_epoch":42,"new_epoch":43},
@@ -1271,8 +1296,18 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 ```
 > `/admin/v1/ha/status` 실제 방출(단일 라이터 데모, 관리자 §2-3 읽기 전용): `schema_version`, `lease{holder,epoch,lease_until,leader_alive,lease_remaining_ms}`, `command_watermark`, `event_watermark`, `applied_command_watermark`, `apply_lag`(저널 head 대비 applied seq 지연), `snapshot_seq`, `trades_count`, `recovery_runs_count`, `last_failover{downtime_seconds,rto_seconds,verdict,at}`. 전부 DB 실적재분이고 시각은 §2-1 밀리초 UTC다. 이상형 예시의 `role`·`node`·`follower_lag_seq`·`matching_market_owner`는 노드 팔로워 레지스트리·복제 큐가 실재해야 하나 본 구조(단일 라이터 + 저널 재생 복구)에 없어 방출하지 않는다(미추적 필드 날조 회피). 리더 권위는 `leader_lease` DB 직조회다. 확장은 기존 필드 불변의 additive만 한다.
 
+> `/admin/v1/ha/recovery` 실제 방출(v2.33, 스키마 1.2): `schema_version`, `verdict{...}`, `recovery_runs[]`, `failover_runs[]`. 이상형 예시의 `last_experiment`·`failover`·`invariants`는 실험 메타와 불변식 결과를 한 응답에 합친 형태이나, 그 둘은 각각 `GET /admin/v1/chaos/runs`와 하네스 `invariant_checks`가 원천이라 여기서 방출하지 않는다(미추적 필드 날조 회피).
+
+> `verdict`는 **문자열이 아니라 객체**다. 이상형 예시의 `"verdict":"PASS"`는 단일 실험의 결론이고, 실제 방출은 표 전체(또는 `since` 창) 집계다. 필드는 다음과 같다. `scope`(`all`\|`since`), `since`(창 하한. `all`이면 빈 문자열), `replay_runs`, `replay_mismatched`, `replay_deterministic`, `failover_runs`, `rto_breach`, `rto_missing`, `rpo_breach`, `rpo_missing`, `row_verdict_fail`, `rto_target_seconds`(문자열 `"30.000"`. 같은 응답의 `rto_seconds`와 형을 맞춘다), `failover_ok`, `overall`. 판정 필드 셋(`replay_deterministic`·`failover_ok`·`overall`)은 `PASS`\|`FAIL`\|`UNKNOWN`이다. `failover_runs[]` 행의 `verdict` 컬럼은 그대로 문자열이며 하네스가 적재한 주행별 결론이다.
+
+> **`UNKNOWN`은 통과가 아니다.** 표가 비었거나 `rto_seconds`·`rpo_records`가 NULL이면 `UNKNOWN`이다. 0행 대조로 통과를 내면 판정 대상이 없는데 판정이 통과한 상태이고, NULL을 통과로 세면 계측 실패가 성공으로 보인다. `FAIL`이 `UNKNOWN`을 이긴다.
+
+> **집계는 배열이 아니라 표에서 한다.** `limit`은 `recovery_runs[]`·`failover_runs[]` 배열의 크기만 정한다. 배열을 세면 창 밖 위반이 안 보인다(기본 20에서 21번째 실패 행이 `PASS`가 된다). `since`(ISO-8601 순간)를 주면 그 시각 이후로 집계 범위를 좁히고 `scope`가 `since`가 된다. **`since`는 배열에도 걸린다.** 집계만 좁히면 판정은 `UNKNOWN`인데 표에는 창 밖 실패 행이 그대로 떠서 화면과 판정이 갈린다. `limit`은 창 안에서 몇 행을 보일지만 정한다. 파싱 실패는 `400 invalid_parameter`다. 조용히 전체 창으로 떨어뜨리면 오타 하나가 판정 범위를 넓히는데 응답은 그 사실을 말하지 않는다.
+
+> **`since`가 필요한 이유**: `harness.failover_runs`는 append-only 누적이고 비우는 훅이 없다. 카오스 실험이 한 번 `verdict='FAIL'`을 적재하면 그 뒤로 `overall`이 영구히 `FAIL`이다. 창이 없으면 수동 DB 삭제 외에 복귀 수단이 없다. 기본값을 두지 않는 이유는 기본 창이 판정 범위를 조용히 정하기 때문이다. 좁히는 것은 호출자의 명시 선택이다.
+
 > `rpo_records`의 의미(v2.6): ACK 이후 유실된 저널 레코드 수. 0의 보장 범위는 §7-6 하단과 동일하다. 로컬 fsync는 단일 인스턴스의 프로세스·전원 장애까지 보장하며, failover 포함 0은 §1의 동기복제 운영 요건 충족 시 성립한다.
-**불변식 7종**(모두 SQL로 즉시 증명): ①시퀀스 무결 `max(seq)-min(seq)+1==count(*)`(gapless 전제=`journal_counters` 단일 행 DB 원자 채번, §7-1 v2.6. 복수 worker의 할당·롤백·역순 커밋에서도 영구 결번 없음) ②주문 유실 0(ACK된 client_order_id ⊆ 저널·orders. 보장 범위는 §7-6 하단과 동일: 로컬 fsync는 프로세스·전원 장애까지, failover 포함 무손실은 §1 동기복제 운영 요건 충족 시) ③중복 접수·중복 체결 0(v2.4 두 축 분리·대상 테이블 명기. (i) **주문 중복 접수 0**: `command_journal`의 **주문 생성 커맨드 한정**(§7-1 부분 유니크 축과 동일, v2.5) `(user_id,client_order_id)` 그룹당 1건(=UNIQUE 위반 0), (ii) **중복 체결 0**: `trades` 기준 `trade_id` 단위 중복 행 0 **및** 주문별 `SUM(trades.volume) ≤ orders.volume`. 한 주문의 다건 부분체결(§4-B-1 `trades_count`, §4-B-2)은 정상이며, 위반은 **동일 체결 이벤트의 이중 적용**만을 뜻한다. 원장 측 이중 적용은 `ledger_transactions`의 `UNIQUE(business_event_type, business_event_id)`(§7-1)가 DB 제약으로 선차단하므로 본 불변식 SQL은 그 제약의 사후 감사다) ④**자산 보존** 이중부기 `SUM(delta)`=0(v2.6 범위 명시: 수기 검증으로 확인한 경로는 LIMIT BUY taker 단일 시나리오다. market·best·IOC·FOK·POST_ONLY·부분체결 반올림 잔차를 포함한 전 주문 유형의 커버는 V3 무작위 회귀 테스트, 즉 무작위 가격·수량·부분체결 조합에서 자산별 합 0과 FILLED 주문 락 잔량 0 검증으로 위임한다) ⑤체결 정합(체결가=maker 지정가, `bestBid<bestAsk`, 수량 보존) ⑥재생 결정론(저널 재생 상태 해시==라이브 해시. 해시 입력에 외부 id·executed_at·event_ordinal 포함, §7-2 v2.6 규약으로 ID·시각·이벤트 순서까지 재현 동일) ⑦fencing 무결(split-brain 차단): `event_journal`·`trades`·`snapshots`의 `fencing_epoch`가 커밋 시점의 `leader_lease` 승인 (holder, epoch)와 불일치하는 행 0. 리더 교체 후 구 epoch로 커밋된 자산 변경 행 0. 이 항목이 통과할 때에만 "split-brain 없음"을 주장한다(계약 정의 §7-1).
+**불변식 7종**(모두 SQL로 즉시 증명): ①시퀀스 무결 `max(seq)-min(seq)+1==count(*)`(gapless 전제=`journal_counters` 단일 행 DB 원자 채번, §7-1 v2.6. 복수 worker의 할당·롤백·역순 커밋에서도 영구 결번 없음) ②주문 유실 0(ACK된 client_order_id ⊆ 저널·orders. 보장 범위는 §7-6 하단과 동일: 로컬 fsync는 프로세스·전원 장애까지, failover 포함 무손실은 §1 동기복제 운영 요건 충족 시) ③중복 접수·중복 체결 0(v2.4 두 축 분리·대상 테이블 명기. (i) **주문 중복 접수 0**: `command_journal`의 **주문 생성 커맨드 한정**(§7-1 부분 유니크 축과 동일, v2.5) `(user_id,client_order_id)` 그룹당 1건(=UNIQUE 위반 0), (ii) **중복 체결 0**: `trades` 기준 `trade_id` 단위 중복 행 0 **및** 주문별 `SUM(trades.volume) ≤ orders.volume`. 한 주문의 다건 부분체결(§4-B-1 `trades_count`, §4-B-2)은 정상이며, 위반은 **동일 체결 이벤트의 이중 적용**만을 뜻한다. 원장 측 이중 적용은 `ledger_transactions`의 `UNIQUE(business_event_type, business_event_id)`(§7-1)가 DB 제약으로 선차단하므로 본 불변식 SQL은 그 제약의 사후 감사다) ④**자산 보존** 이중부기 `SUM(delta)`=0(v2.6 범위 명시: 수기 검증으로 확인한 경로는 LIMIT BUY taker 단일 시나리오다. market·best·IOC·FOK·POST_ONLY·부분체결 반올림 잔차를 포함한 전 주문 유형의 커버는 V3 무작위 회귀 테스트, 즉 무작위 가격·수량·부분체결 조합에서 자산별 합 0과 FILLED 주문 락 잔량 0 검증으로 위임한다) ⑤체결 정합(체결가=maker 지정가, `bestBid<bestAsk`, 수량 보존) ⑥재생 결정론(`recovery_runs.matched=true`. **v2.33에서 판정 축을 확정한다.** 판정 주체는 `ReplayService.rebuild`이고 재생이 만든 이벤트를 `event_journal` 행과 하나씩 대조해 어긋나면 예외를 던진다. 대조 범위는 §7-2 v2.6 규약대로 외부 id·executed_at·event_ordinal까지다. 종전 정의였던 "저널 재생 상태 해시==라이브 해시"는 구현되지 않았고 앞으로도 두지 않는다. 대조가 두 벌이면 둘이 어긋날 때 어느 쪽이 정본인지 규정할 자리가 없어지고, 이벤트 단위 대조가 이미 더 촘촘하다. 상태 해시는 스냅샷 로드 무결 검증 전용이다(DB§5.5 v2.37). §4-4 매핑 표의 축 이름 `replay_state_hash_match`는 역사 표기다) ⑦fencing 무결(split-brain 차단): `event_journal`·`trades`·`snapshots`의 `fencing_epoch`가 커밋 시점의 `leader_lease` 승인 (holder, epoch)와 불일치하는 행 0. 리더 교체 후 구 epoch로 커밋된 자산 변경 행 0. 이 항목이 통과할 때에만 "split-brain 없음"을 주장한다(계약 정의 §7-1).
 
 ### 6-D. 마켓 구성·공지·운영자 API (관리자 설계 §3-1)
 
@@ -1376,13 +1411,13 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 
 | 단계 | 목표 | 증거 |
 |---|---|---|
-| P0 | 순수 Java 단일스레드 매칭 코어 + command_journal(WAL) + Log-first + 재생 복구 | 로컬 장애 RPO=0(프로세스·전원 장애 범위, §7-6), 재생 해시 일치 |
+| P0 | 순수 Java 단일스레드 매칭 코어 + command_journal(WAL) + Log-first + 재생 복구 | 로컬 장애 RPO=0(프로세스·전원 장애 범위, §7-6), 재생 결정론 `matched=true` |
 | P1 | 스냅샷 + 핫 스탠바이 재생 | RTO 단축 측정 |
 | P2 | Redisson 리더선출 + 전 쓰기 경로 fencing(`assert_current_leader`, epoch, §7-1) + Patroni 동기복제 | 구 리더 쓰기 0행(fencing 계약 하 split-brain 차단, 하네스 V3) |
 | P3 | 트랜잭셔널 아웃박스 + Kafka + 이중부기 + 불변식 배치 | 자산 보존 그래프 |
 | P4 | 봇 부하 + 백프레셔(유계 큐·토큰버킷) | 폭주 하 p99·거부율 |
 | P5 | (벤치 후 이득 확인 시) Disruptor 파이프라인 | 처리량 벤치, zero-alloc |
-| P6 | Toxiproxy/Chaos Monkey/kill 자동화 + property-based test | "유실 0·중복 0·자산합 0·해시 일치·fencing 위반 0" 표 |
+| P6 | Toxiproxy/Chaos Monkey/kill 자동화 + property-based test | "유실 0·중복 0·자산합 0·재생 결정론 `matched=true`·fencing 위반 0" 표 |
 
 ### 7-4. SLO
 
@@ -1883,3 +1918,33 @@ v2.17이 E1 라이브 PASS(errorRate 0, epoch 불변, 주입 중 status 200 유�
 관리 평면 목록의 커서 id 축은 대상 표의 외부 식별자를 쓰되, 내부 BIGINT를 공개 식별자로 이미 쓰는 표(`admin_audit_log`·`admin_approvals`·`reports`·`notices`)는 그 값을 그대로 쓴다. 관리 평면은 mTLS + 관리 세션 뒤라 사용자 스코프 탐침 표면이 없다. DB 설계 v2.34가 정렬 축 인덱스를 맞춘다.
 
 문서 헤더 버전을 v2.30으로 순증(이전 패치 노트의 역사 서술은 원문 유지).
+
+---
+
+## v2.33 패치 반영 사항
+
+관리 평면의 시뮬레이션 제어가 봇에 닿지 않던 것을 고친다. 실측(2026-08-29): `spike` 프리셋 활성화가 200과 감사 적재를 남기고 `fleet_present:false`로 끝났으며 봇 발행량은 그대로였다.
+
+원인은 배치다. 봇 거버너는 bots 프로파일 JVM의 인메모리 상태이고 관리 평면은 별도 컨테이너다(관리자 설계 §0). 관리 노드에는 그 빈이 없다.
+
+| # | 심각도 | 대상 | 내용 |
+|---|---|---|---|
+| 1 | high | `POST /sim/scenarios/{name}/activate`, `PUT /sim/rate` | 거버너 부재 시 `sim_commands`(DB§V22)에 의도를 적재하고 봇 JVM이 폴링해 적용한다. 응답에 `apply_path`(`local`\|`queued`)와 `queued_command_id` 순증 |
+| 2 | high | `POST /sim/scenarios/{name}/activate` 응답 | `queued`에서 `target_ops`·`base_ops`·`markets`·`clamped`를 내지 않는다. 종전에는 `base_ops`가 `0.0`으로 고정돼 거기서 나온 파생값을 응답과 감사에 남겼고 봇의 실제 적용값과 달랐다. `PUT /sim/rate`의 `target_ops`는 요청 에코라 해당 없다 |
+| 3 | med | `PUT /sim/rate`의 `applied` | 뜻을 "이 응답 시점에 봇에 반영됐는가"로 계약에 명시한다. 값 자체는 종전과 같은 "거버너가 이 JVM에 있는가"다. 큐 경로가 생기기 전에는 `false`가 곧 미적용이었으나 이제는 아니라서, 이 필드만 보고 실패를 단정하면 성공 경로를 실패로 표시한다 |
+| 4 | high | `GET /admin/v1/ha/recovery` | `verdict` 객체 순증(스키마 1.0에서 1.2). 배열만 반환해 통과 여부를 사람이 눈으로 세야 했다 |
+| 5 | high | 같은 엔드포인트 | 판정 집계를 응답 배열이 아니라 표 전체에서 한다. `since` 창으로 좁힐 수 있고 그 창은 배열에도 걸린다. 배열을 세면 창 밖 위반이 안 보였고, 창을 집계에만 걸면 판정과 표시가 갈렸다 |
+| 6 | med | 같은 엔드포인트 | `fp_replay`·`fp_live`를 방출한다. SELECT하고 매퍼가 버려 재생 0건과 실재 재생을 API 응답에서 가를 수 없었다. fp에 `verified_events`가 실려 그 구분이 선다 |
+| 7 | med | 같은 엔드포인트 `failover_runs[]` | `old_leader`·`new_leader`·`old_epoch`·`new_epoch`를 방출한다. 앞의 둘은 SELECT하고 버렸고 epoch 둘은 SELECT도 없었다. epoch 단조는 페일오버 판정의 축이라 행에 있으면 낸다 |
+
+`verdict`의 판정 기준은 계약이다. RTO<30s, RPO=0(§7-3 P6), 재생 `matched=false` 0건(검증설계 C17), 그리고 `failover_runs.verdict` 행 판정 `PASS` 전건이다. 넷째 축을 두는 이유는 하네스가 RTO·RPO 외에도 무결성 clean·epoch 단조·체결 재개를 함께 보고 그 결론을 행에 박기 때문이다. 그것을 버리면 RTO만 정상인 실패 주행이 통과한다.
+
+NULL 취급이 축마다 다르다. `rto_seconds`·`rpo_records`의 NULL은 `UNKNOWN`이고, `recovery_runs.matched`와 `failover_runs.verdict`의 NULL은 `FAIL`이다. 앞의 둘은 계측값이고 뒤의 둘은 결론값이다.
+
+`matched` NULL을 불일치로 세는 것은 검증설계 C17 SQL(`matched = false`만 본다)과 다르다. 이 응답이 더 엄격하다. 기록자가 값을 못 넣은 것은 재생이 정상 종료하지 않았다는 뜻이고, 그것을 통과로 세면 계측 실패가 성공으로 보인다. C17 SQL은 위반 행을 세는 축이라 NULL을 위반으로 올리면 미기록을 결함으로 신고한다. 두 축의 목적이 달라 규칙이 갈린다. 앞의 둘은 계측값이라 못 잰 것과 위반이 다르지만, 행 판정은 하네스가 반드시 채우는 결론값이라 비어 있다는 것 자체가 정상 종료하지 않은 주행이다. 현재 하네스는 항상 `PASS`나 `FAIL`을 넣으므로 이 경로는 도달하지 않는다.
+
+`verdict`는 세 값을 낸다. `PASS`·`FAIL`·`UNKNOWN`이다. 표가 비었거나 `rto_seconds`·`rpo_records`가 NULL이면 `UNKNOWN`이다. 0행 대조로 통과를 내면 공허 통과이고, NULL을 통과로 세면 계측 실패가 성공으로 보인다. `FAIL`이 `UNKNOWN`을 이긴다.
+
+`verdict.scope`는 창 미지정이면 `all`, `since`를 주면 `since`다. 집계는 어느 쪽이든 배열이 아니라 표에서 한다. 배열은 `limit`로 자른 화면 표시용이라 그것을 세면 창 밖 위반이 안 보인다(기본 20에서 21번째 실패 행이 `PASS`가 된다).
+
+문서 헤더 버전을 v2.33으로 순증.

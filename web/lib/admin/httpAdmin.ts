@@ -50,7 +50,9 @@ import type {
   Notice,
   NoticePatch,
   NoticeSeverity,
+  ControlApply,
   RecoveryRun,
+  RecoveryVerdict,
   ScenarioName,
   ScenarioResult,
   SimStatus,
@@ -418,9 +420,18 @@ interface WireRecoveryRun {
   market_id?: number;
   replayed_from_seq?: number;
   replayed_to_seq?: number;
+  fp_replay?: string;
+  fp_live?: string;
   matched?: boolean | string;
   duration_ms?: number | string;
   created_at?: string;
+}
+/** API§6-C 스키마 1.2. 판정 셋은 PASS|FAIL|UNKNOWN이다 */
+interface WireVerdict {
+  scope?: string;
+  replay_deterministic?: string;
+  failover_ok?: string;
+  overall?: string;
 }
 interface WireFailoverRun {
   experiment_id?: string;
@@ -431,6 +442,7 @@ interface WireFailoverRun {
   created_at?: string;
 }
 interface WireRecovery {
+  verdict?: WireVerdict;
   recovery_runs?: WireRecoveryRun[];
   failover_runs?: WireFailoverRun[];
 }
@@ -488,6 +500,11 @@ interface WireChaosRun {
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
+
+/** 서버 판정 문자열을 좁힌다. 미지값은 null이고 그것을 통과로 읽지 않는다. */
+function verdictOf(v: string | undefined): RecoveryVerdict | null {
+  return v === "PASS" || v === "FAIL" || v === "UNKNOWN" ? v : null;
+}
 
 export class HttpAdminApi implements AdminApi {
   // v2.22부터 서버 control이 플릿 수명주기를 실반영한다(start 기동·pause 발행 게이트·stop 정지).
@@ -856,7 +873,8 @@ export class HttpAdminApi implements AdminApi {
 
   async getRecovery(): Promise<HaRecovery> {
     // 서버는 결정적 재현(recovery_runs)과 장애조치 드릴(failover_runs)을 분리한다. 복구 표는
-    // recovery_runs를 행으로 매핑하고, 대시보드 RTO·판정은 권위값 failover_runs 최신을 우선한다.
+    // recovery_runs를 행으로 매핑하고, RTO 수치는 failover_runs 최신 1건을 쓴다. 판정은 다르다.
+    // 서버 verdict 객체가 표 전체 집계라 그것을 읽는다(아래).
     const res = await this.http<WireRecovery>("/admin/v1/ha/recovery");
     const runs: RecoveryRun[] = (res.recovery_runs ?? []).map((r, i) => {
       const matched = r.matched === true;
@@ -864,22 +882,40 @@ export class HttpAdminApi implements AdminApi {
         id: `rec-${r.created_at ?? ""}-${i}`,
         startedAt: r.created_at ?? "",
         durationMs: num(r.duration_ms),
-        // recovery_runs는 결정적 재현이라 RPO 0. 서버 프로젝션에 fp_replay·fp_live는 없다
-        rpoMs: 0,
+        // RPO는 recovery_runs에 컬럼이 없다. 원천은 harness.failover_runs.rpo_records다.
+        // 종전에는 0을 박아 화면이 "유실 0"을 단정했다. 같은 파일 activateScenario가
+        // "없는 값을 0으로 채우지 않는다"를 규율로 적었는데 여기만 어겼다. RPO=0은
+        // 수용 기준의 헤드라인 주장이라 더 나쁘다.
+        rpoMs: null,
         replayedFromSeq: num(r.replayed_from_seq),
         replayedToSeq: num(r.replayed_to_seq),
-        fpReplay: "",
-        fpLive: "",
+        // 서버가 스키마 1.2부터 낸다. 재생 0건과 실재 재생을 이 값으로 가른다
+        // (fp에 verified_events가 실린다). 종전에는 빈 문자열로 덮어 구분이 사라졌다.
+        fpReplay: r.fp_replay ?? "",
+        fpLive: r.fp_live ?? "",
         matched,
         verdict: matched ? "PASS" : "FAIL",
       };
     });
     const drill = (res.failover_runs ?? [])[0];
     const drillRto = drill ? Number(drill.rto_seconds) : Number.NaN;
-    const lastRtoMs = drill && Number.isFinite(drillRto) ? Math.round(drillRto * 1000) : runs[0]?.durationMs ?? null;
-    const drillVerdict = drill?.verdict === "PASS" || drill?.verdict === "FAIL" ? drill.verdict : null;
-    const lastVerdict = drillVerdict ?? runs[0]?.verdict ?? null;
-    return { runs, lastRtoMs, lastVerdict };
+    // failover_runs가 비면 미측정이다. recovery_runs.duration_ms로 폴백하면 재생 소요가
+    // "최근 복구 시간(RTO)"으로 둔갑한다. 두 축은 다른 것을 잰다.
+    const lastRtoMs = drill && Number.isFinite(drillRto) ? Math.round(drillRto * 1000) : null;
+    // 판정은 서버 verdict를 쓴다. 종전에는 failover_runs 최신 1행으로 화면 판정을 만들어,
+    // 과거 FAIL과 최신 PASS가 함께 있으면 서버가 FAIL인데 화면은 통과를 표시했다.
+    // 배열은 limit로 자른 창이라 그것으로 결론을 내면 창 밖 위반이 안 보인다.
+    const v = res.verdict;
+    // 스키마 1.0 서버는 verdict가 없다. 그때만 종전 경로로 떨어진다.
+    const legacy = drill?.verdict === "PASS" || drill?.verdict === "FAIL" ? drill.verdict : null;
+    return {
+      runs,
+      lastRtoMs,
+      lastVerdict: verdictOf(v?.overall) ?? legacy ?? runs[0]?.verdict ?? null,
+      verdictScope: v?.scope === "since" ? "since" : "all",
+      replayVerdict: verdictOf(v?.replay_deterministic),
+      failoverVerdict: verdictOf(v?.failover_ok),
+    };
   }
 
   async getInvariants(): Promise<InvariantCheck[]> {
@@ -1001,6 +1037,8 @@ export class HttpAdminApi implements AdminApi {
   async activateScenario(name: ScenarioName): Promise<ScenarioResult> {
     const res = await this.http<{
       scenario?: string;
+      apply_path?: string;
+      queued_command_id?: number;
       target_ops?: string;
       base_ops?: string;
       auto_balance?: boolean;
@@ -1012,22 +1050,33 @@ export class HttpAdminApi implements AdminApi {
       method: "POST",
       body: JSON.stringify({ operator_id: this.sessionOpId() }),
     });
-    if (res && res.fleet_present === false) {
+    // apply_path=queued는 성공이다. 관리 평면과 봇 JVM이 물리 분리된 배치에서 서버가
+    // sim_commands에 의도를 적재하고 봇이 1초 안에 집어 적용한다(API§6-A). 종전에는
+    // fleet_present:false만 보고 예외를 던져 실제로 적용된 조작을 빨간 토스트로 표시했다.
+    // 큐 경로가 없던 시절에는 fleet_present:false가 곧 미적용이라 그 판단이 맞았다.
+    const path = res?.apply_path === "queued" ? "queued" : "local";
+    if (res && res.fleet_present === false && res.apply_path === undefined) {
       throw new AdminError("control_not_applied", "봇 플릿 부재로 반영되지 않음. 서버 프로파일 확인 필요");
     }
     return {
       scenario: (res.scenario as ScenarioName) ?? name,
-      targetOps: res.target_ops ?? "0",
-      baseOps: res.base_ops ?? "0",
+      applyPath: path,
+      queuedCommandId: res.queued_command_id ?? 0,
+      // 없는 값을 0으로 채우지 않는다. 서버가 안 낸 이유가 모르기 때문이고,
+      // 0을 채우면 화면이 실제와 다른 수를 단정한다.
+      targetOps: res.target_ops ?? null,
+      baseOps: res.base_ops ?? null,
       autoBalance: res.auto_balance === true,
       targetNetBias: res.target_net_bias ?? "0.00",
-      markets: (res.markets ?? []).map((m) => ({
-        market: m.market,
-        scaleApplied: m.scale_applied === true,
-        applied: m.applied ?? {},
-        effectiveBias: m.effective_bias ?? "0.00",
-      })),
-      clamped: res.clamped === true,
+      markets: res.markets
+        ? res.markets.map((m) => ({
+            market: m.market,
+            scaleApplied: m.scale_applied === true,
+            applied: m.applied ?? {},
+            effectiveBias: m.effective_bias ?? "0.00",
+          }))
+        : null,
+      clamped: res.clamped ?? null,
       fleetPresent: res.fleet_present === true,
     };
   }
@@ -1064,12 +1113,22 @@ export class HttpAdminApi implements AdminApi {
     return this.simControl("pause");
   }
 
-  simSetRate(rate: number): Promise<void> {
+  async simSetRate(rate: number): Promise<ControlApply> {
     // 백엔드 RateBody 키는 target_ops이며 문자열로 파싱한다(NUMERIC 정밀도 계약)
-    return this.http<void>("/admin/v1/sim/rate", {
-      method: "PUT",
-      body: JSON.stringify({ operator_id: this.sessionOpId(), target_ops: String(rate) }),
-    });
+    // 응답을 버리지 않는다. 종전에는 void로 읽어 봇에 닿았는지와 무관하게 화면이 완료를
+    // 단정했다. 큐 경로를 넣은 지금은 그 단정이 최대 1초 이른 거짓이 된다.
+    // 프리셋은 같은 부류를 반영 대기로 고쳤는데 이 경로만 빠져 있었다.
+    const res = await this.http<{ apply_path?: string; queued_command_id?: number }>(
+      "/admin/v1/sim/rate",
+      {
+        method: "PUT",
+        body: JSON.stringify({ operator_id: this.sessionOpId(), target_ops: String(rate) }),
+      },
+    );
+    return {
+      applyPath: res?.apply_path === "queued" ? "queued" : "local",
+      queuedCommandId: res?.queued_command_id ?? 0,
+    };
   }
 
   async createBot(type: BotType, market: string, count = 1): Promise<CreateBotResult> {

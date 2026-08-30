@@ -27,7 +27,10 @@ test("복구 이력 시드는 스파크 게이트(n>=3)를 채우고 최신순�
   for (let i = 1; i < rec.runs.length; i += 1) {
     assert.ok(rec.runs[i - 1].startedAt >= rec.runs[i].startedAt);
   }
-  assert.equal(rec.lastRtoMs, rec.runs[0].durationMs);
+  // lastRtoMs는 페일오버 RTO다. 목에 그 주행 표가 없으므로 null이어야 한다.
+  // 종전에는 recovery_runs.duration_ms(재생 소요)를 실어 축 혼동을 계약으로 굳혔다.
+  assert.equal(rec.lastRtoMs, null, "없는 축을 지어내지 않는다");
+  assert.ok(rec.runs[0].durationMs > 0, "재생 소요는 그 자리에 남는다");
 });
 
 test("E4 주입은 리더를 중단시키고 종합 헬스를 danger로 내린다", async () => {

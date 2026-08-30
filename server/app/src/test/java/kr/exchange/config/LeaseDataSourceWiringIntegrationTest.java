@@ -47,6 +47,9 @@ class LeaseDataSourceWiringIntegrationTest {
     }
 
     @Autowired
+    kr.exchange.engine.EngineRecovery engineRecovery;
+
+    @Autowired
     @Qualifier("dataSource")
     HikariDataSource requestPool;
     @Autowired
@@ -97,5 +100,18 @@ class LeaseDataSourceWiringIntegrationTest {
                 "재조회 버킷이 유도 상한으로 뜨지 않았다");
         // 예비분이 있어야 면제 경로·백그라운드가 굶지 않는다(AdmissionLimits 무대기 성질).
         assertTrue(limits.reserved() > 0, "면제 경로 몫이 남지 않았다");
+    }
+
+    /**
+     * C17 원천 기록자가 스프링 컨텍스트에서 실제로 배선되는가.
+     *
+     * EngineConfig의 setRecoveryRecorder 한 줄이 사라지면 recovery_runs가 영구 0행이 되고
+     * C17이 빈 표 대조로 다시 공허 통과한다. 그런데 recovery_runs를 만지는 테스트는 전부
+     * 표를 먼저 비우거나 픽스처를 넣으므로 그 상태를 구분하지 못한다. 배선 자체를 건다.
+     */
+    @Test
+    void engineRecoveryHasC17RecorderWired() {
+        assertTrue(engineRecovery.hasRecoveryRecorder(),
+                "EngineConfig가 RecoveryRunRecorder를 안 붙였다. recovery_runs가 영구 0행이 된다");
     }
 }

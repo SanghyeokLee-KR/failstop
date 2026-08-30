@@ -78,6 +78,15 @@ public class EngineRecovery {
     }
 
     /**
+     * 기록자 배선 여부. 테스트가 이 값을 단언해 EngineConfig의 주입 한 줄을 지우는 회귀를
+     * 잡는다. 그 한 줄이 사라지면 recovery_runs가 영구 0행이 되고 C17이 빈 표 대조로 다시
+     * 공허 통과하는데, 표를 비우고 시작하는 테스트만으로는 그 상태를 구분하지 못한다.
+     */
+    public boolean hasRecoveryRecorder() {
+        return recoveryRecorder != null;
+    }
+
+    /**
      * 스냅샷 로드 후 tail 재생(복구 RTO 설계 §3-b). fresh 엔진에 최신 채택 스냅샷을 적재하고
      * seq > snapshot.last_applied_seq만 재생해 tail을 상한한다. 채택 게이트를 통과하는 스냅샷이
      * 없으면 eventStart=0으로 seq 0 전량 재생(폴백)한다. 버전·설정·checksum 불일치는 게이트가

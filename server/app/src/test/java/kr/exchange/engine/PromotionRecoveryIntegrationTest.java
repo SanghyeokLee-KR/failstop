@@ -31,6 +31,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -200,6 +201,94 @@ class PromotionRecoveryIntegrationTest {
             coordinator.close();
             standbyLease.close();
         }
+    }
+
+    /**
+     * C17 원천이 실제 복구에서 채워지는지 본다(검증설계 C17 REPLAY_DETERMINISM).
+     *
+     * 종전에는 recovery_runs에 쓰는 코드가 없어 표가 늘 0행이었고 판정이 빈 테이블 대조로
+     * 공허 통과했다. 배선했지만 그 배선을 증명하는 테스트가 없었다. 배선 주장 자체가 같은
+     * 상태였다. 픽스처 INSERT로 판정 SQL만 보는 테스트는 이 결함을 못 잡는다.
+     */
+    @Test
+    @Order(3)
+    void recoveryWritesRunRowWithReplayWindowFingerprint() {
+        jdbc.sql("DELETE FROM recovery_runs").update();
+        LeaderLeaseService lease = new LeaderLeaseService(jdbc, Duration.ofSeconds(120),
+                Duration.ofSeconds(1));
+        EngineRecovery recovery = new EngineRecovery(replayService,
+                events -> {
+                }, lease);
+        recovery.setRecoveryRecorder(new kr.exchange.harness.RecoveryRunRecorder(jdbc));
+        takeOver(lease);
+
+        MatchingEngineImpl fresh = new MatchingEngineImpl();
+        recovery.recover(fresh);
+
+        Map<String, Object> row = jdbc.sql("""
+                        SELECT market_id, replayed_from_seq, replayed_to_seq,
+                               fp_replay, fp_live, matched
+                        FROM recovery_runs ORDER BY id DESC LIMIT 1
+                        """).query().singleRow();
+        assertEquals(true, row.get("matched"), "예외 없이 끝난 재생은 matched=true다");
+        // 전 마켓 통합 재생이라 마켓별 분해가 원천에 없다(DB§3.1 센티널 0).
+        assertEquals(0, ((Number) row.get("market_id")).intValue());
+        long from = ((Number) row.get("replayed_from_seq")).longValue();
+        long to = ((Number) row.get("replayed_to_seq")).longValue();
+        assertEquals(0L, from, "fresh 엔진이라 재생 시작이 0이다");
+        // leaderHead는 클래스 셋업 시점 값이다. 앞선 테스트가 명령을 더 넣으므로 지금 head를
+        // 읽는다. 고정 상수와 비교하면 실행 순서에 따라 깨진다(실측: 1000 대 1002).
+        assertEquals(commandReader.maxSeq(), to, "재생 종점이 저널 head다");
+        // fp는 재생 창 식별자다(DB§5.5 v2.37). 형식이 계약이라 형식을 건다.
+        String fp = String.valueOf(row.get("fp_replay"));
+        String prefix = "seq:" + from + "-" + to + ":ev:";
+        assertTrue(fp.startsWith(prefix),
+                "fp_replay가 재생 창 식별자 형식이 아니다: " + fp);
+        assertEquals(fp, row.get("fp_live"), "성공 경로는 두 값이 같다");
+        // 재생 0건이 통과로 보이지 않도록 검증 이벤트 수가 fp에 실린다.
+        long events = Long.parseLong(fp.substring(prefix.length()));
+        assertTrue(events > 0, "저널에 명령이 있는데 검증 이벤트가 0이면 재생이 안 돈 것이다");
+    }
+
+    /**
+     * 재생이 예외로 끝나면 matched=false가 남는가. C17의 실질 판정력이 이 경로에 있다.
+     *
+     * fp 두 컬럼은 성공 경로에서 같은 값이라 그 비교로는 matched가 항상 참이다. 즉 fp 대조가
+     * 판정이 아니다. 판정은 이 경로가 도달하는가에 달렸다.
+     */
+    @Test
+    @Order(4)
+    void replayFailureRecordsMismatchAndRethrows() {
+        jdbc.sql("DELETE FROM recovery_runs").update();
+        LeaderLeaseService lease = new LeaderLeaseService(jdbc, Duration.ofSeconds(120),
+                Duration.ofSeconds(1));
+        // ReplayService는 클래스라 서브클래싱으로 실패를 주입한다. rebuild가 예외를 던지는
+        // 상황이 곧 재생 결정론 위반이고, 그때 기록 경로가 도는지가 이 테스트의 대상이다.
+        ReplayService failing = new ReplayService(commandReader, eventReader, mapper,
+                objectMapper, new MarketCatalog(jdbc)) {
+            @Override
+            public kr.exchange.journal.ReplayResult rebuild(
+                    kr.exchange.engine.core.MatchingEngine engine, long eventStartSeq) {
+                throw new IllegalStateException("주입 결함: 재생 불일치");
+            }
+        };
+        EngineRecovery recovery = new EngineRecovery(failing, events -> {
+        }, lease);
+        recovery.setRecoveryRecorder(new kr.exchange.harness.RecoveryRunRecorder(jdbc));
+        takeOver(lease);
+
+        assertThrows(IllegalStateException.class,
+                () -> recovery.recover(new MatchingEngineImpl()),
+                "기록만 남기고 삼키면 승격이 깨진 상태로 진행된다");
+
+        Map<String, Object> row = jdbc.sql("""
+                        SELECT fp_replay, fp_live, matched
+                        FROM recovery_runs ORDER BY id DESC LIMIT 1
+                        """).query().singleRow();
+        assertEquals(false, row.get("matched"), "이 행이 C17이 검출하는 대상이다");
+        assertEquals("MISMATCH", row.get("fp_replay"));
+        assertTrue(String.valueOf(row.get("fp_live")).contains("주입 결함"),
+                "fp_live에 원인이 남아야 사후에 무엇이 어긋났는지 안다");
     }
 
     @Test

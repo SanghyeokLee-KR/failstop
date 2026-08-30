@@ -8,7 +8,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { HttpAdminApi } from "../lib/admin/httpAdmin";
 import { AdminError } from "../lib/admin/api";
-import type { ApprovalPayload, IssuedApproval } from "../lib/admin/types";
+import { aggregateVerdict } from "../lib/admin/simAdmin";
+import type { ApprovalPayload, IssuedApproval, RecoveryRun } from "../lib/admin/types";
 
 interface FakeResInit {
   status: number;
@@ -248,5 +249,143 @@ test("소각 바디: 파괴 액션별 바디 필드를 v2.13 표대로 싣는다
         assert.deepEqual(call.body?.[k], v, `${c.payload.action} 바디 ${k}`);
       }
     });
+  }
+});
+
+/**
+ * 복구 판정은 서버 verdict 객체가 정본이다(API§6-C 스키마 1.2).
+ *
+ * 종전에는 failover_runs 최신 1행으로 화면 판정을 만들었다. 배열은 limit로 자른 창이라
+ * 과거 FAIL과 최신 PASS가 함께 있으면 서버는 FAIL인데 화면은 통과를 표시했다. 서버가
+ * 없앤 "창 안만 보는 판정"이 화면에 남아 있던 것이다.
+ */
+test("복구 판정은 배열이 아니라 서버 verdict를 따른다", async () => {
+  const api = new HttpAdminApi("");
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    fakeRes({
+      status: 200,
+      body: {
+        schema_version: "1.2",
+        verdict: {
+          scope: "all",
+          replay_deterministic: "FAIL",
+          failover_ok: "PASS",
+          overall: "FAIL",
+        },
+        // 배열에는 통과 행만 보인다. 위반은 창 밖에 있다.
+        recovery_runs: [
+          {
+            replayed_from_seq: 1,
+            replayed_to_seq: 2,
+            fp_replay: "seq:1-2:ev:5",
+            fp_live: "seq:1-2:ev:5",
+            matched: true,
+            duration_ms: 12,
+            created_at: "2026-08-30T00:00:00.000Z",
+          },
+        ],
+        failover_runs: [{ rto_seconds: "3.200", verdict: "PASS", created_at: "2026-08-30T00:00:00.000Z" }],
+      },
+    })) as typeof fetch;
+  try {
+    const r = await api.getRecovery();
+    assert.equal(r.lastVerdict, "FAIL", "창 밖 위반을 화면이 놓치면 안 된다");
+    assert.equal(r.replayVerdict, "FAIL");
+    assert.equal(r.failoverVerdict, "PASS");
+    assert.equal(r.verdictScope, "all");
+    // RTO는 failover_runs가 원천이다. 이 픽스처는 두 배열이 다 차 있으므로 우선순위
+    // 역전을 잡는다. 진짜 폴백은 아래 별 케이스가 건다.
+    assert.equal(r.lastRtoMs, 3200, "RTO 원천은 failover_runs.rto_seconds");
+    // fp를 빈 문자열로 덮으면 재생 0건과 실재 재생을 화면에서 가를 수 없다.
+    assert.equal(r.runs[0].fpReplay, "seq:1-2:ev:5");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("UNKNOWN을 통과로 옮기지 않는다", async () => {
+  const api = new HttpAdminApi("");
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    fakeRes({
+      status: 200,
+      body: {
+        schema_version: "1.2",
+        // 표가 비면 판정 대상이 없다. 0행 대조로 통과를 내면 그것이 공허 통과다.
+        verdict: { scope: "since", replay_deterministic: "UNKNOWN", failover_ok: "UNKNOWN", overall: "UNKNOWN" },
+        recovery_runs: [],
+        failover_runs: [],
+      },
+    })) as typeof fetch;
+  try {
+    const r = await api.getRecovery();
+    assert.equal(r.lastVerdict, "UNKNOWN");
+    assert.equal(r.verdictScope, "since");
+    assert.equal(r.runs.length, 0);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+/**
+ * 목 어댑터의 복구 판정 규칙. 시드가 전건 PASS라 어댑터를 통째로 부르면 FAIL·UNKNOWN
+ * 분기가 실행되지 않는다. 규칙을 순수 함수로 뽑아 직접 때린다.
+ */
+test("복구 판정 집계는 전체를 보고 UNKNOWN을 통과로 치지 않는다", () => {
+  const run = (verdict: "PASS" | "FAIL"): RecoveryRun => ({
+    id: `r-${verdict}`,
+    startedAt: "2026-08-30T00:00:00.000Z",
+    durationMs: 1,
+    // recovery_runs에 RPO 컬럼이 없다. 이 축은 이 행에서 미측정이다.
+    rpoMs: null,
+    replayedFromSeq: 1,
+    replayedToSeq: 2,
+    fpReplay: "",
+    fpLive: "",
+    matched: verdict === "PASS",
+    verdict,
+  });
+  assert.equal(aggregateVerdict([]), "UNKNOWN", "표가 비면 미판정이다");
+  assert.equal(aggregateVerdict([run("PASS"), run("PASS")]), "PASS");
+  // 최신 1행만 보면 과거 실패가 사라진다. 순서를 바꿔도 결론이 같아야 한다.
+  assert.equal(aggregateVerdict([run("PASS"), run("FAIL")]), "FAIL");
+  assert.equal(aggregateVerdict([run("FAIL"), run("PASS")]), "FAIL");
+});
+
+/**
+ * failover_runs가 비고 recovery_runs만 있는 상태. 종전에는 `runs[0]?.durationMs`로 폴백해
+ * 재생 소요가 "최근 복구 시간(RTO)"으로 둔갑했다. 두 축은 다른 것을 잰다.
+ */
+test("failover 표가 비면 RTO는 미측정이다", async () => {
+  const api = new HttpAdminApi("");
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    fakeRes({
+      status: 200,
+      body: {
+        schema_version: "1.2",
+        verdict: { scope: "all", replay_deterministic: "PASS", failover_ok: "UNKNOWN", overall: "UNKNOWN" },
+        recovery_runs: [
+          {
+            replayed_from_seq: 1,
+            replayed_to_seq: 2,
+            fp_replay: "seq:1-2:ev:5",
+            fp_live: "seq:1-2:ev:5",
+            matched: true,
+            duration_ms: 12,
+            created_at: "2026-08-30T00:00:00.000Z",
+          },
+        ],
+        failover_runs: [],
+      },
+    })) as typeof fetch;
+  try {
+    const r = await api.getRecovery();
+    assert.equal(r.lastRtoMs, null, "재생 소요를 RTO로 싣지 않는다");
+    assert.equal(r.runs[0].durationMs, 12, "재생 소요는 그 자리에 남는다");
+    assert.equal(r.failoverVerdict, "UNKNOWN");
+  } finally {
+    globalThis.fetch = original;
   }
 });

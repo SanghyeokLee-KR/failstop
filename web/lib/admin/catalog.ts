@@ -1,5 +1,5 @@
 /**
- * lib/admin/catalog.ts. 정적 카탈로그(카오스 실험 E1~E9, 불변식 7종).
+ * lib/admin/catalog.ts. 정적 카탈로그(카오스 실험 E1~E9, 불변식 검사 항목).
  * 관측 값과 무관한 상수라 sim·http 구현이 공유한다(§2-2 정적 데이터 제시).
  */
 
@@ -83,13 +83,38 @@ export function scenarioDef(name: ScenarioName): ScenarioDef {
   return found;
 }
 
-/* label은 릴레이 7등분 1행 셀 폭 예산 내 단문. 도메인 원어는 gloss로 강등해 title 채널이 전달한다 */
+/**
+ * label은 릴레이 셀 폭 예산 내 단문. 도메인 원어는 gloss로 강등해 title 채널이 전달한다.
+ *
+ * name은 서버 `invariant_checks.check_name`과 정확히 같아야 한다. 종전 이름 7개
+ * (ledger_imbalance 등)는 서버 값과 교집합이 0이라 라벨 조인이 전건 폴백했고, 화면이
+ * 한국어 대신 C 코드를 그대로 띄웠다. 실측 26종에 맞춘다(검증설계 §4).
+ */
 export const INVARIANT_DEFS: { name: string; label: string; gloss?: string }[] = [
-  { name: "ledger_imbalance", label: "자산 보존", gloss: "원장 균형" },
-  { name: "no_duplicate_fill", label: "중복 체결 없음", gloss: "멱등" },
-  { name: "sequence_continuity", label: "처리 순번 연속", gloss: "seq 연속성" },
-  { name: "order_journal_monotonic", label: "주문 기록 순증", gloss: "저널 단조 증가" },
-  { name: "price_time_priority", label: "가격·시간 우선순위", gloss: "price-time priority" },
-  { name: "orderbook_consistency", label: "호가 정합성", gloss: "orderbook consistency" },
-  { name: "journal_replay_match", label: "재현 검증 일치", gloss: "저널 재현 지문" },
+  { name: "C01_ASSET_CONSERVATION", label: "자산 보존", gloss: "자산별 원장 합 0" },
+  { name: "C02_BAL_VS_LEDGER", label: "잔고 대조", gloss: "balances 대 원장 집계" },
+  { name: "C03_TXN_UNSEALED", label: "미봉인 거래", gloss: "ledger_transactions 미완결" },
+  { name: "C05_CMD_GAPLESS", label: "명령 순번 연속", gloss: "command_journal gapless" },
+  { name: "C06_EVT_GAPLESS", label: "이벤트 순번 연속", gloss: "event_journal gapless" },
+  { name: "C07_DUP_ORDER", label: "중복 주문 없음", gloss: "client_order_id 멱등" },
+  { name: "C07P_DUP_ORDER_JOURNAL", label: "저널 중복 주문 없음", gloss: "주문 생성 커맨드 유일" },
+  { name: "C08_DUP_FILL", label: "중복 체결 없음", gloss: "trade_id 유일" },
+  { name: "C09_TRADE_SEQ_EVENT_MATCH", label: "체결 순번 정합", gloss: "trade_id 대 event_seq" },
+  { name: "C10_ORDER_FILL_AGG", label: "체결 합 정합", gloss: "SUM(volume) <= 주문 수량" },
+  { name: "C11_TRADE_ORPHAN", label: "고아 체결 없음", gloss: "주문 없는 trades" },
+  { name: "C12_EVENT_ORPHAN", label: "고아 이벤트 없음", gloss: "명령 없는 event_journal" },
+  { name: "C13A_ORDER_MATERIALIZED", label: "주문 물질화", gloss: "저널 대 orders" },
+  { name: "C13B_ORDER_JOURNALED", label: "주문 저널화", gloss: "orders 대 저널" },
+  { name: "C14_LOCKED_RESERVATION", label: "잠금 잔고 정합", gloss: "locked_amount 대 미체결" },
+  { name: "C15_DEFAULT_PARTITION", label: "기본 파티션 공백", gloss: "파티션 누락 적재 0" },
+  { name: "C16_ACK_JOURNALED", label: "ACK 저널화", gloss: "외부 ACK 대 명령 저널" },
+  { name: "C17_REPLAY_DETERMINISM", label: "재생 결정론", gloss: "recovery_runs matched" },
+  { name: "C18_FILL_PRICE_MAKER", label: "체결가 정합", gloss: "체결가 = maker 지정가" },
+  { name: "C19_ORDERBOOK_NONCROSS", label: "호가 비교차", gloss: "bestBid < bestAsk" },
+  { name: "C20_ORDER_FEE_MATERIALIZED", label: "수수료 물질화", gloss: "체결 대 수수료 원장" },
+  { name: "C21_EVENT_EMISSION_REGISTRY", label: "방출 레지스트리", gloss: "이벤트 이중 방출 차단" },
+  { name: "C22_FENCING_MONOTONIC", label: "fencing 단조", gloss: "epoch 역행 커밋 0" },
+  { name: "C23_COUNTER_SEQ_CONSISTENCY", label: "채번 카운터 정합", gloss: "journal_counters 대 실적재" },
+  { name: "C24_POSITION_COST_QTY", label: "보유 수량 정합", gloss: "포지션 대 잔고" },
+  { name: "C25_POSITION_COST_SANITY", label: "원가 건전성", gloss: "평단가 범위" },
 ];

@@ -24,8 +24,7 @@
       "id": 1,
       "type": "timeseries",
       "title": "주문 지연 p95/p99 (체결 전파 지연, SLO 판정 축 아님)",
-      "description": "이 축은 접수에서 체결확정 발행까지의 전파 지연이다(MarketDataPublisher.recordTradeMetrics). §2-3 주문 API SLO의 판정 축이 아니다. 그 판정은 k6 accepted_req_duration이 한다. 폭주 구간에서 이 값이 500ms를 넘어도 SLO 위반이 아니다(실측 2026-08-29: 상한 100 OPS 창에서 서버 축 619.9ms, 같은 창 k6 수용 p99 416.1ms).",
-      "description": "exchange:order_latency:p95_1m·p99_1m. SLO 경계 500ms 임계선.",
+      "description": "이 축은 접수에서 체결확정 발행까지의 전파 지연이다(MarketDataPublisher.recordTradeMetrics). §2-3 주문 API SLO의 판정 축이 아니다. 그 판정은 k6 accepted_req_duration이 한다. 폭주 구간에서 이 값이 500ms를 넘어도 SLO 위반이 아니다(실측 2026-08-29: 상한 100 OPS 창에서 서버 축 619.9ms, 같은 창 k6 수용 p99 416.1ms). 패널의 500ms 기준선은 이 축을 눈으로 재는 참고선이고 판정선이 아니다. SLO 판정선은 옆 패널의 exchange:slo_500ms_ratio_1m이다.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 16, "x": 0, "y": 0 },
       "targets": [

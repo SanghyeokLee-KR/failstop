@@ -28,7 +28,10 @@ async function botOps(): Promise<SimAdminApi> {
   return api;
 }
 
-function marketRow(markets: ScenarioMarketResult[], market: string): ScenarioMarketResult {
+// markets는 queued 경로에서 null이다(관리 평면이 마켓별 결과를 모른다). 목 어댑터는
+// 항상 local이라 null이 나오면 그 자체가 회귀다. 단언으로 좁힌다.
+function marketRow(markets: ScenarioMarketResult[] | null, market: string): ScenarioMarketResult {
+  assert.ok(markets, "markets가 null이다. 목 어댑터는 local 경로라 값이 있어야 한다");
   const found = markets.find((m) => m.market === market);
   assert.ok(found, `마켓 행 없음: ${market}`);
   return found;
@@ -181,6 +184,8 @@ test("http 어댑터가 와이어를 뷰모델로 옮긴다", async () => {
       assert.equal(r.targetOps, "300.0");
       assert.equal(r.baseOps, "30.0");
       assert.equal(r.autoBalance, false);
+      assert.equal(r.applyPath, "local");
+      assert.ok(r.markets, "local 경로는 마켓 결과를 낸다");
       assert.equal(r.markets[0].market, "KRW-BTC");
       assert.equal(r.markets[0].scaleApplied, true);
       assert.equal(r.markets[0].applied.TAKER, 30);
@@ -191,10 +196,43 @@ test("http 어댑터가 와이어를 뷰모델로 옮긴다", async () => {
 
 test("플릿 부재 응답은 성공으로 삼키지 않는다", async () => {
   const api = new HttpAdminApi("");
+  // apply_path가 없는 응답은 큐 경로가 없던 구 서버다. 그때는 fleet_present:false가
+  // 곧 미적용이라 예외가 맞다.
   await withFetch(okRes({ scenario: "steady", fleet_present: false }), async () => {
     await assert.rejects(
       api.activateScenario("steady"),
       (e: unknown) => e instanceof AdminError && e.code === "control_not_applied",
     );
   });
+});
+
+test("queued 응답은 실패가 아니다", async () => {
+  const api = new HttpAdminApi("");
+  // 관리 평면과 봇 JVM이 물리 분리된 배치의 정상 응답이다. 서버가 sim_commands에
+  // 의도를 적재하고 봇이 1초 안에 집어 적용한다(API§6-A). 종전에는 fleet_present:false만
+  // 보고 예외를 던져, 실제로 적용된 조작을 화면이 빨간 토스트로 표시했다.
+  await withFetch(
+    okRes({
+      schema_version: "1.1",
+      scenario: "spike",
+      apply_path: "queued",
+      queued_command_id: 7,
+      auto_balance: false,
+      target_net_bias: "0.60",
+      fleet_present: false,
+    }),
+    async () => {
+      const r = await api.activateScenario("spike");
+      assert.equal(r.applyPath, "queued");
+      assert.equal(r.queuedCommandId, 7);
+      // 서버가 안 낸 값을 0이나 빈 배열로 채우지 않는다. 채우면 화면이 거짓을 단정한다.
+      assert.equal(r.targetOps, null);
+      assert.equal(r.baseOps, null);
+      assert.equal(r.markets, null);
+      assert.equal(r.clamped, null);
+      // 프리셋 정의값은 거버너 없이도 정확하다.
+      assert.equal(r.autoBalance, false);
+      assert.equal(r.targetNetBias, "0.60");
+    },
+  );
 });

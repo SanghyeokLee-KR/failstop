@@ -97,3 +97,27 @@ jobs:
               || { echo "invalid dashboard: $f"; exit 1; }
             echo "ok: $f"
           done
+
+      # 중복 키 검출. jq는 중복을 마지막 값으로 조용히 접어 위 검사를 통과시킨다. 실측
+      # (2026-08-30): 패널 설명을 고치면서 옛 키를 지우지 않아 새 설명이 런타임에서
+      # 버려졌는데 jq 검사와 Grafana 적재 모두 통과했다. 무음 소실이라 화면을 봐야만
+      # 드러난다. 파서 수준에서 막는다.
+      - name: grafana dashboards duplicate keys
+        run: |
+          python3 - <<'PY'
+          import collections, glob, json, sys
+          bad = 0
+          def no_dup(pairs):
+              dups = [k for k, n in collections.Counter(k for k, _ in pairs).items() if n > 1]
+              if dups:
+                  raise ValueError('duplicate keys: ' + ', '.join(dups))
+              return dict(pairs)
+          for f in sorted(glob.glob('harness/grafana/dashboards/*.json')):
+              try:
+                  json.load(open(f, encoding='utf-8'), object_pairs_hook=no_dup)
+                  print('ok:', f)
+              except ValueError as e:
+                  print('FAIL:', f, e)
+                  bad = 1
+          sys.exit(bad)
+          PY

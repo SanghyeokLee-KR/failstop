@@ -8,7 +8,7 @@
 
 import { useCallback } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
-import type { HaRecovery, HaStatus, InvariantCheck } from "@/lib/admin/types";
+import type { HaRecovery, HaStatus, InvariantCheck, RecoveryVerdict } from "@/lib/admin/types";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
@@ -48,13 +48,26 @@ function meterWindow(value: number, warn: number): number {
 const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
   { key: "startedAt", label: "시각", width: "90px", render: (r) => formatTimeHMS(r.startedAt) },
   {
-    key: "rto",
-    label: "복구 시간",
+    key: "replay_ms",
+    label: "재생 소요",
     width: "90px",
     align: "right",
-    render: (r) => <span title="RTO">{(r.durationMs / 1000).toFixed(1)}초</span>,
+    // recovery_runs.duration_ms다. 페일오버 RTO가 아니다. 두 축은 다른 것을 잰다.
+    // 실측 대역이 수십에서 수백 ms라 초 고정 표기는 전건 0.0초가 된다.
+    render: (r) => (
+      <span title="recovery_runs.duration_ms. 페일오버 RTO는 failover_runs가 원천">
+        {r.durationMs < 1000 ? `${r.durationMs}ms` : `${(r.durationMs / 1000).toFixed(1)}초`}
+      </span>
+    ),
   },
-  { key: "rpo", label: "유실", width: "80px", align: "right", render: (r) => <span title="RPO">{r.rpoMs}ms</span> },
+    {
+    key: "rpo",
+    label: "유실",
+    width: "80px",
+    align: "right",
+    // recovery_runs에 RPO 컬럼이 없다. 0을 채우면 화면이 유실 없음을 단정한다.
+    render: (r) => <span title="RPO. 원천은 harness.failover_runs">{r.rpoMs === null ? "미측정" : `${r.rpoMs}ms`}</span>,
+  },
   {
     key: "seq",
     label: "재현 구간(순번)",
@@ -68,8 +81,26 @@ const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
     label: "재현 검증",
     width: "96px",
     render: (r) => (
-      <span title="journal fingerprint">
+      <span title="ReplayService의 이벤트 단위 대조 결과. fp 비교가 아니다">
         {r.matched ? <HealthPill health="success" label="일치" /> : <HealthPill health="danger" label="불일치" />}
+      </span>
+    ),
+  },
+  {
+    // 재생 창 식별자다. 대조 대상이 아니라 무엇을 얼마나 재생했는지의 기록이고, 검증
+    // 이벤트 0건과 실재 재생을 이 값으로 가른다. 서버가 스키마 1.2부터 낸다.
+    key: "fp",
+    label: "재생 창",
+    // 실측 fp가 23자다(seq:717847-717886:ev:70). seq 자릿수가 늘면 넘치는데 .cell에
+    // overflow 처리가 없어 하이픈 뒤에서 줄바꿈이 나 44px 행이 2줄이 된다. 폭을 늘리고
+    // 넘치면 말줄임으로 접는다. 원문은 title이 보존한다.
+    width: "200px",
+    render: (r) => (
+      <span
+        className={`num ${styles.cellEllipsis}`}
+        title={r.fpReplay ? `fp_replay ${r.fpReplay} / fp_live ${r.fpLive}` : "미기록"}
+      >
+        {r.fpReplay || "-"}
       </span>
     ),
   },
@@ -81,6 +112,15 @@ const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
       r.verdict === "PASS" ? <HealthPill health="success" label="PASS" /> : <HealthPill health="danger" label="FAIL" />,
   },
 ];
+
+/** 판정 셋을 같은 어휘로 칠한다. UNKNOWN은 통과도 실패도 아니라 별도 색이다. */
+function verdictPill(label: string, v: RecoveryVerdict | null) {
+  if (v === null) {
+    return null;
+  }
+  const health = v === "PASS" ? "success" : v === "FAIL" ? "danger" : "warning";
+  return <HealthPill health={health} label={`${label} ${v === "UNKNOWN" ? "미판정" : v}`} />;
+}
 
 export default function MonitoringPage() {
   const load = useCallback(async (): Promise<MonitoringData> => {
@@ -176,7 +216,21 @@ export default function MonitoringPage() {
             <NodeTopologyRail nodes={data.ha.nodes} />
           </PanelCard>
 
-          <PanelCard title="복구 이력" actions={<RtoSpark runs={data.rec.runs} />}>
+          {/* 표는 limit로 자른 창이고 판정은 표 전체(또는 since 창) 집계다. 두 축을 함께
+              띄우지 않으면 창 밖 위반을 화면이 보지 못한다(API§6-C). */}
+          <PanelCard
+            title="복구 이력"
+            actions={
+              <>
+                <span className={styles.verdictScope}>
+                  판정 범위 {data.rec.verdictScope === "since" ? "지정 창" : "전체"}
+                </span>
+                {verdictPill("재생", data.rec.replayVerdict)}
+                {verdictPill("페일오버", data.rec.failoverVerdict)}
+                <RtoSpark runs={data.rec.runs} />
+              </>
+            }
+          >
             <DataTable
               columns={RECOVERY_COLUMNS}
               rows={data.rec.runs}

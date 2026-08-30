@@ -125,7 +125,7 @@
       "id": 6,
       "type": "table",
       "title": "recovery_runs 재생 결정론(DB 원본)",
-      "description": "fp_replay=fp_live, matched=true면 재생 결정론. M4 이후 채워진다(빈 표=미배선).",
+      "description": "matched=true면 재생 결정론이 성립한다. 판정은 ReplayService가 재생 이벤트를 event_journal 행과 하나씩 대조해 내고 recovery_runs는 그 결과를 담는다. fp_replay는 재생 창 식별자이며 seq 구간과 검증 이벤트 수를 실어, 재생 0건과 실재 재생을 가른다. 대조 대상이 아니다.",
       "datasource": { "type": "postgres", "uid": "pg-proof" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
       "targets": [

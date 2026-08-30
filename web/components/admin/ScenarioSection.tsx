@@ -38,7 +38,13 @@ export default function ScenarioSection({ canOps, onChanged }: Props) {
     try {
       const r = await getAdminApi().activateScenario(def.name);
       setLast(r);
-      toast(`${def.label} 국면 적용 · 목표 OPS ${formatCount(r.targetOps)}`, "info");
+      // queued는 관리 평면이 목표 OPS를 모른다. 서버가 안 낸 값을 화면이 지어내지 않는다.
+      toast(
+        r.applyPath === "queued"
+          ? `${def.label} 국면을 봇 노드에 전달했습니다. 반영까지 최대 1초 걸립니다`
+          : `${def.label} 국면 적용 · 목표 OPS ${formatCount(r.targetOps ?? "0")}`,
+        "info",
+      );
       onChanged();
     } catch (e) {
       toast(e instanceof Error ? e.message : "국면 적용 실패", "error");
@@ -93,14 +99,24 @@ export default function ScenarioSection({ canOps, onChanged }: Props) {
           <span className={styles.presetReadoutKey}>마지막 적용</span>
           <b>{SCENARIO_CATALOG.find((d) => d.name === last.scenario)?.label ?? last.scenario}</b>
           <span aria-hidden="true">·</span>
-          <span>
-            목표 OPS <b className="num">{formatCount(last.targetOps)}</b> (기준 {formatCount(last.baseOps)})
-          </span>
+          {last.targetOps !== null && last.baseOps !== null ? (
+            <span>
+              목표 OPS <b className="num">{formatCount(last.targetOps)}</b> (기준 {formatCount(last.baseOps)})
+            </span>
+          ) : (
+            // 큐 경로에서는 관리 평면이 목표 OPS를 계산하지 못한다. 빈칸이 아니라
+            // 모른다고 적는다. 0을 채우면 화면이 거짓을 단정한다.
+            <span>봇 노드 반영 대기 (명령 #{last.queuedCommandId})</span>
+          )}
           <span aria-hidden="true">·</span>
           <span>균형 제어 {last.autoBalance ? "켬" : "끔"}</span>
-          <span aria-hidden="true">·</span>
-          <span>{last.markets.length}개 마켓</span>
-          {last.clamped && <span className={styles.presetClamp}>대수 캡 도달</span>}
+          {last.markets !== null && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{last.markets.length}개 마켓</span>
+            </>
+          )}
+          {last.clamped === true && <span className={styles.presetClamp}>대수 캡 도달</span>}
         </div>
       )}
     </PanelCard>

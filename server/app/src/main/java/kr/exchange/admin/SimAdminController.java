@@ -135,14 +135,37 @@ public class SimAdminController {
         principal.require(AdminRole.BOT_OPS);
         double target = parsePositive(body == null ? null : body.target_ops());
         OpsGovernor governor = opsGovernor.getIfAvailable();
+        long queuedId = 0;
         if (governor != null) {
             governor.setTargetOps(target);
+        } else {
+            // 시나리오 활성화와 같은 이유다. 거버너는 봇 JVM 인메모리라 관리 평면에 없다.
+            // 여기만 큐 발행을 빠뜨리면 콘솔의 OPS 직접 설정이 조용히 무시된다.
+            queuedId = jdbc.sql("""
+                            INSERT INTO sim_commands (action, payload, requested_by)
+                            VALUES ('target_ops', ?, ?)
+                            RETURNING id
+                            """)
+                    .params(String.valueOf(target), principal.operatorId())
+                    .query(Long.class).single();
         }
+        String applyPath = governor != null ? "local" : "queued";
         audit.record(principal.operatorId(), "sim.rate", null,
                 AdminRequestContext.requestId(request), null, "OK",
-                Map.of("target_ops", String.valueOf(target), "applied", governor != null));
-        return Map.of("schema_version", "1.0", "target_ops", String.valueOf(target),
-                "applied", governor != null);
+                Map.of("target_ops", String.valueOf(target), "apply_path", applyPath,
+                        "queued_command_id", queuedId));
+        // applied는 "지금 이 순간 봇에 반영됐는가"다. 큐 발행은 아직 아니다.
+        // 값 자체는 종전과 같은 governor != null이다. 바뀐 것은 그 뜻이 계약에 없어
+        // 소비자가 "요청이 접수됐는가"로 읽을 수 있었다는 점이고, apply_path와 짝지어
+        // 뜻을 확정했다. 큐 경로가 생기기 전에는 false가 곧 미적용이었으나 이제는
+        // 아니라서, 이 필드만 보고 실패를 단정하면 성공 경로를 실패로 표시한다.
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("schema_version", "1.1");
+        out.put("target_ops", String.valueOf(target));
+        out.put("applied", governor != null);
+        out.put("apply_path", applyPath);
+        out.put("queued_command_id", queuedId);
+        return out;
     }
 
     @PutMapping("/scale")
@@ -403,26 +426,49 @@ public class SimAdminController {
                     .query(Long.class).single();
         }
 
+        // 거버너 부재 경로에서는 수치를 내지 않는다. baseOps가 0.0으로 고정돼 targetOps도
+        // 0.0이 되는데 봇 JVM이 실제로 적용하는 값은 다르다(실측: 응답 0.0, 실제 base 10.0
+        // target 100.0). 그 0.0을 응답과 감사에 실으면 기록이 실제와 어긋난다.
+        // 실제 값은 sim_commands.result에 남으므로 그 쪽을 원천으로 둔다.
+        String applyPath = present ? "local" : "queued";
         Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("apply_path", applyPath);
         detail.put("queued_command_id", queuedId);
         detail.put("scenario", scenario.wireName());
-        detail.put("target_ops", String.valueOf(targetOps));
-        detail.put("base_ops", String.valueOf(baseOps));
-        detail.put("markets", markets);
-        detail.put("clamped", clamped);
+        if (present) {
+            detail.put("target_ops", String.valueOf(targetOps));
+            detail.put("base_ops", String.valueOf(baseOps));
+        }
+        // markets·clamped도 같은 이유로 뺀다. 큐 경로에서 이 둘은 각각 빈 배열과 false로
+        // 고정되는데, 빈 배열은 "0개 마켓에 적용했다"는 주장이고 clamped:false는
+        // "캡에 걸리지 않았다"는 주장이다. 둘 다 관리 평면이 알 수 없다. 봇 JVM이 12개
+        // 마켓에 적용하고 캡에 걸려도 이 응답은 아니라고 말한다.
+        if (present) {
+            detail.put("markets", markets);
+            detail.put("clamped", clamped);
+        }
         detail.put("fleet_present", present);
         audit.record(principal.operatorId(), "sim.scenario", scenario.wireName(),
                 AdminRequestContext.requestId(request), null, "OK", detail);
 
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("schema_version", "1.0");
+        out.put("schema_version", "1.1");
         out.put("scenario", scenario.wireName());
-        out.put("target_ops", String.valueOf(targetOps));
-        out.put("base_ops", String.valueOf(baseOps));
+        // 적용 경로. local이면 이 JVM이 직접 적용했고 수치가 실측이다. queued면 봇 JVM이
+        // 적용하므로 실제 값은 sim_commands.result에서 읽는다.
+        out.put("apply_path", applyPath);
+        if (present) {
+            out.put("target_ops", String.valueOf(targetOps));
+            out.put("base_ops", String.valueOf(baseOps));
+        }
+        // auto_balance·target_net_bias는 프리셋 정의값이라 거버너 없이도 정확하다.
+        // 이 둘은 요청한 프리셋이 무엇인가의 서술이지 적용 결과가 아니다.
         out.put("auto_balance", scenario.autoBalance());
         out.put("target_net_bias", bias(scenario.targetBias()));
-        out.put("markets", markets);
-        out.put("clamped", clamped);
+        if (present) {
+            out.put("markets", markets);
+            out.put("clamped", clamped);
+        }
         out.put("fleet_present", present);
         // 거버너 부재 시 큐에 남긴 명령 id. 호출자가 이 값으로 적용 여부를 추적한다.
         // 0이면 이 JVM이 직접 적용했다는 뜻이다.
