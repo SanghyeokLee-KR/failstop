@@ -1347,13 +1347,15 @@ CREATE TABLE recovery_runs (
     market_id        SMALLINT    NOT NULL,   -- 0 = 전 마켓 통합 재생. 단일 라이터가 전 마켓을
                                              -- 한 저널로 재생하므로 마켓별 분해가 원천에 없다.
                                              -- FK가 아니다. markets.id로 조인하지 않는다.
-    snapshot_id      BIGINT,
+    snapshot_id      BIGINT,                 -- 현행 기록자는 항상 NULL. 전 마켓 통합 재생이라
+                                             -- 스냅샷 단위 분해가 원천에 없다(§5.5)
     replayed_from_seq BIGINT     NOT NULL,
     replayed_to_seq  BIGINT      NOT NULL,
     fp_replay        VARCHAR(64) NOT NULL,   -- 성공 시 재생 창 식별자, 불일치 시 리터럴 MISMATCH (§5.5)
     fp_live          VARCHAR(64),            -- 성공 시 fp_replay와 같은 값, 불일치 시 예외 요약(절단)
     matched          BOOLEAN,
-    duration_ms      INT,
+    duration_ms      INT,                    -- 재생 소요 ms. 페일오버 RTO가 아니다.
+                                             -- RTO 원천은 harness.failover_runs.rto_seconds다
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -2988,6 +2990,7 @@ at-most-once는 애플리케이션이 아니라 표가 보장한다. 소비기�
 | 1 | high | `sim_commands`(신설, V22) | 관리 API가 `PENDING` 행을 적재하면 봇 JVM이 점유해 시나리오·목표 OPS를 적용하고 결과를 되쓴다 |
 | 2 | high | `sim_commands` GRANT(V23) | V22가 `app_role` 부여를 빠뜨렸다. V21 `chaos_commands`에는 있다 |
 | 3 | med | `recovery_runs` 컬럼 주석(V24) | V3 테이블 주석이 fp 두 컬럼을 상태 해시 대조로 서술하는데 구현은 재생 창 식별자다. V3에 `COMMENT ON`이 없어 DB 쪽 주석이 부재했다. V24가 신설한다 |
+| 4 | med | 같은 표 나머지 컬럼(V25) | V24가 넷만 세우고 `duration_ms`·`snapshot_id`·`replayed_from/to_seq`를 빠뜨렸다. `duration_ms`는 재생 소요이고 페일오버 RTO가 아닌데 프론트 타입과 정본이 한때 RTO로 적었다. DB가 축을 말한다 |
 
 왜 큐인가. 봇 거버너는 bots 프로파일 JVM의 인메모리 상태이고 관리 평면은 별도 컨테이너다(관리자 설계 §0 물리 분리). 관리 노드에 그 빈이 없어 콘솔 조작이 감사 로그만 남기고 봇은 그대로였다. 실측(2026-08-29): `spike` 프리셋이 반영되지 않았다.
 
