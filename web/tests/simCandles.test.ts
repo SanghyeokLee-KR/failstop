@@ -36,12 +36,17 @@ test("단위가 달라도 같은 시각 구간의 종가는 같은 경로를 읽
   const eng = new SimEngine();
   const m15 = eng.getCandles("KRW-BTC", "15m", 8);
   const h1 = eng.getCandles("KRW-BTC", "60m", 2);
-  // 1시간 캔들 종가는 그 시각을 덮는 15분 캔들 종가와 같은 분 경로 값이다
-  const h1Close = num(h1[0].close);
-  const covering = m15.find((c) => c.candle_time <= h1[0].candle_time);
-  assert.ok(covering);
-  // 완전 일치는 버킷 경계에 따라 다를 수 있어 현재가 기준 0.5% 이내 정합만 요구한다
-  assert.ok(Math.abs(h1Close - num(covering.close)) / h1Close < 0.005);
+  // 한 시간 캔들의 종가는 그 시간대의 **마지막** 15분 캔들 종가와 같은 분 경로 값이다.
+  // 종전에는 `candle_time <= h1[0].candle_time`으로 그 시간대의 첫 15분 캔들을 골랐다.
+  // 두 버킷의 종가 인덱스가 최대 45분 벌어져 GBM 드리프트가 허용치를 넘었고, 그것을
+  // 0.5% 허용치로 덮고 있었다. 실측: 앵커가 매시 46분일 때 실패(300표본 5건, 1.7%).
+  // 올바른 짝을 고르면 두 종가가 같은 경로 인덱스를 읽으므로 정확히 같다
+  // (300표본 최대 괴리 0.000000%). 허용치가 잘못된 비교를 가리고 있었다.
+  //
+  // 두 배열 모두 시각 내림차순이고 앵커를 포함하는 버킷이 0번이라, h1[0]과 m15[0]은
+  // 같은 시간대다. 그래서 선택이 아니라 인덱스로 짝을 짓는다.
+  assert.equal(m15[0].close, h1[0].close);
+  assert.ok(m15[0].candle_time >= h1[0].candle_time, "15분 버킷이 시간 버킷 안에 있다");
 });
 
 test("최신 캔들 종가는 현재가, 24h 창 시가는 전일 종가와 정합한다", () => {
