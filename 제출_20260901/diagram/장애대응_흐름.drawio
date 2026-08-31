@@ -4,10 +4,10 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="2" value="장애 대응 흐름 · 탐지에서 Incident 종료까지" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=22;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="2" value="Figure 3 · Incident Response and Recovery Flow" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=22;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="14" width="900" height="32" as="geometry"/>
         </mxCell>
-        <mxCell id="3" value="계획서 7.4 소거 절차 · 7.11 심각도 · 7.12 자동화 계층에서 파생. 색은 손이 닿는 정도를 뜻한다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="3" value="Detection -&gt; Classification -&gt; Recovery -&gt; Data Validation  ·  계획서 7.4 · 7.11 · 7.12 에서 파생. 색은 손이 닿는 정도를 뜻한다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="44" width="1100" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="4" value="알람" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
@@ -58,7 +58,7 @@
         <mxCell id="19" value="메트릭 임계 이탈" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="34" y="166" width="220" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="20" value="자동" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#0E7C66;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="20" value="AUTO · 자동" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#0E7C66;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="34" y="186" width="220" height="16" as="geometry"/>
         </mxCell>
         <mxCell id="21" value="통지 경로 없음" style="rounded=0;html=1;fillColor=#FDF2F1;strokeColor=#C0392B;strokeWidth=0.9;fontSize=9.5;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;align=left;spacingLeft=6;" vertex="1" parent="1">
@@ -85,7 +85,7 @@
         <mxCell id="27" value="S1 · S2 · S3" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="292" y="166" width="220" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="28" value="사람" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="28" value="OPERATOR · 사람" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="292" y="186" width="220" height="16" as="geometry"/>
         </mxCell>
         <mxCell id="29" value="어휘 두 갈래" style="rounded=0;html=1;fillColor=#FDF2F1;strokeColor=#C0392B;strokeWidth=0.9;fontSize=9.5;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;align=left;spacingLeft=6;" vertex="1" parent="1">
@@ -112,7 +112,7 @@
         <mxCell id="35" value="ICMP -&gt; TCP -&gt; HTTP" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="550" y="166" width="220" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="36" value="사람" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="36" value="OPERATOR · assisted" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="550" y="186" width="220" height="16" as="geometry"/>
         </mxCell>
         <mxCell id="37" value="프로브 0건" style="rounded=0;html=1;fillColor=#FDF2F1;strokeColor=#C0392B;strokeWidth=0.9;fontSize=9.5;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;align=left;spacingLeft=6;" vertex="1" parent="1">
@@ -139,7 +139,7 @@
         <mxCell id="43" value="계층별 Runbook" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="808" y="166" width="220" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="44" value="층에 따라" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#B8730A;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="44" value="자동화 층에 따라 다름" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#B8730A;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="808" y="186" width="220" height="16" as="geometry"/>
         </mxCell>
         <mxCell id="45" value="런북 0건" style="rounded=0;html=1;fillColor=#FDF2F1;strokeColor=#C0392B;strokeWidth=0.9;fontSize=9.5;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;align=left;spacingLeft=6;" vertex="1" parent="1">
@@ -166,7 +166,7 @@
         <mxCell id="51" value="프로브와 API 응답" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1066" y="166" width="220" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="52" value="자동" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#0E7C66;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="52" value="AUTO · 자동" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#0E7C66;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1066" y="186" width="220" height="16" as="geometry"/>
         </mxCell>
         <mxCell id="53" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#16191F;strokeWidth=1.4;dashed=0;endArrow=blockThin;endFill=1;" edge="1" parent="1">
@@ -190,7 +190,7 @@
         <mxCell id="58" value="불변식 권위 run" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1324" y="166" width="220" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="59" value="자동" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#0E7C66;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="59" value="AUTO · 자동" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#0E7C66;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1324" y="186" width="220" height="16" as="geometry"/>
         </mxCell>
         <mxCell id="60" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#16191F;strokeWidth=1.4;dashed=0;endArrow=blockThin;endFill=1;" edge="1" parent="1">
@@ -214,7 +214,7 @@
         <mxCell id="65" value="verdict 아카이브" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1582" y="166" width="220" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="66" value="사람" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="66" value="OPERATOR · 사람" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1582" y="186" width="220" height="16" as="geometry"/>
         </mxCell>
         <mxCell id="67" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#5C6B75;strokeWidth=1.4;dashed=1;endArrow=none;endFill=1;" edge="1" parent="1">
@@ -397,10 +397,10 @@
         <mxCell id="123" value="원장 불일치는 왜 자동으로 고치지 않는가" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="40" y="734" width="600" height="24" as="geometry"/>
         </mxCell>
-        <mxCell id="124" value="보정 자체가 새 쓰기다. 잘못된 보정은 원래 상태로 돌아갈 근거를 없앤다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="124" value="Ledger invariant violation = S1. 자동 보정하지 않는다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="40" y="764" width="860" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="125" value="긴급하다는 것과 자동으로 고쳐도 된다는 것은 다른 판단이다. S1 이면서 4층인 유일한 자리다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="125" value="잘못된 보정은 원인 분석 근거와 원래 상태를 함께 훼손한다. S1 이면서 4층 수동인 유일한 자리다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="40" y="786" width="860" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="126" value="계약 위반은 조용히 보정하기보다 명확하게 실패시키는 것을 우선한다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
@@ -468,6 +468,9 @@
         </mxCell>
         <mxCell id="147" value="이 도면은 설계다. 5단계와 6단계 외에는 아직 실행 기록이 없다. 알람 통지 경로와 계층 프로브와 런북이 남은 작업이고 그 셋이 1번 2번 3번 4번 정거장을 막고 있다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="940" width="1600" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="148" value="Figure 3 · Metadata   As of: 2026-08-31   Status: Partial Automation   Ref: 기획안 7.11 · 7.12 · 7.15 · 7.16" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="20" y="964" width="1400" height="18" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>

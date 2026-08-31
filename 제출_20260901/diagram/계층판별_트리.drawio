@@ -4,10 +4,10 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <mxCell id="2" value="계층 판별 · 안 돼요를 계층으로 번역한다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=22;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="2" value="Figure 2 · Fault Isolation and Troubleshooting Flow" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=22;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="14" width="900" height="32" as="geometry"/>
         </mxCell>
-        <mxCell id="3" value="계획서 7.4 2단계에서 파생. 프로브 셋의 전이 시점이 갈리는 지점에서 계층이 결정된다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="3" value="L3 / L4 / L7 / 애플리케이션 / DB 장애 계층 판별  ·  운영 목표. 서비스가 안 된다는 현상을 실제 장애 계층으로 구체화한다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="44" width="1100" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="4" value="계층 프로브" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
@@ -391,7 +391,7 @@
         <mxCell id="121" value="지연 · 손실 · 재정렬" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1320" y="398" width="210" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="122" value="커널. 검증면 전용" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="122" value="Kernel-level Injection · 검증면 전용" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1540" y="398" width="330" height="22" as="geometry"/>
         </mxCell>
         <mxCell id="123" value="L4" style="rounded=1;arcSize=20;html=1;fillColor=#0972D3;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;fontFamily=Malgun Gothic;verticalAlign=middle;align=center;" vertex="1" parent="1">
@@ -403,7 +403,7 @@
         <mxCell id="125" value="DROP · REJECT" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1320" y="432" width="210" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="126" value="커널. 검증면 전용" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="126" value="Kernel-level Injection · 검증면 전용" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1540" y="432" width="330" height="22" as="geometry"/>
         </mxCell>
         <mxCell id="127" value="L7" style="rounded=1;arcSize=20;html=1;fillColor=#0E7C66;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;fontFamily=Malgun Gothic;verticalAlign=middle;align=center;" vertex="1" parent="1">
@@ -412,10 +412,10 @@
         <mxCell id="128" value="process kill · Toxiproxy" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1114" y="466" width="200" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="129" value="SIGTERM · 프록시 모사" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="129" value="SIGTERM · Proxy Simulation" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1320" y="466" width="210" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="130" value="프록시 모사는 커널 큐를 재현하지 않는다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="130" value="Proxy-level Simulation 은 커널 큐를 재현하지 않는다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1540" y="466" width="330" height="22" as="geometry"/>
         </mxCell>
         <mxCell id="131" value="실측 사례" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
@@ -445,58 +445,103 @@
         <mxCell id="139" value="다만 같은 창 5xx 147건은 미규명이라 이 교정이 5xx 를 0으로 만든다고 주장하지 않는다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1078" y="664" width="780" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="140" value="" style="rounded=0;html=1;fillColor=#FDF9F9;strokeColor=#C0392B;strokeWidth=1.4;dashed=0;" vertex="1" parent="1">
-          <mxGeometry x="20" y="740" width="1860" height="120" as="geometry"/>
+        <mxCell id="140" value="" style="rounded=0;html=1;fillColor=none;strokeColor=#D0D7DC;strokeWidth=1;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="20" y="740" width="1340" height="130" as="geometry"/>
         </mxCell>
-        <mxCell id="141" value="이 도면은 설계다. 분기의 5단계 중 셋이 지금 실행 불가다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
-          <mxGeometry x="40" y="754" width="900" height="24" as="geometry"/>
+        <mxCell id="141" value="Current Status" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="40" y="750" width="400" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="142" value="ICMP · TCP · HTTP 프로브가 0건이라 위 트리의 첫 세 분기를 지금은 탈 수 없다. 계층 프로브 배선이 이 축의 선행 작업이고," style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
-          <mxGeometry x="40" y="782" width="1800" height="20" as="geometry"/>
+        <mxCell id="142" value="판별 로직" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="40" y="776" width="220" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="143" value="그것이 되기 전까지 계층 판별은 로그 상관 조회와 패킷 캡처에 의존한다. 판별 소요를 재는 지표도 그 뒤에 생긴다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
-          <mxGeometry x="40" y="804" width="1800" height="20" as="geometry"/>
+        <mxCell id="143" value="Designed" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="270" y="776" width="150" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="144" value="실측 사례 둘은 프로브 없이 사후 분석으로 밝힌 것이다. 사후 분석이 가능하다는 것과 장애 중에 좁힐 수 있다는 것은 다르다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
-          <mxGeometry x="40" y="830" width="1800" height="20" as="geometry"/>
+        <mxCell id="144" value="7.14 분기 트리와 조합 판정표" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="430" y="776" width="900" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="145" value="" style="line;html=1;strokeColor=#D0D7DC;strokeWidth=1;" vertex="1" parent="1">
+        <mxCell id="145" value="L3 / L4 / L7 프로브 배선" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="40" y="796" width="220" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="146" value="BLOCKED · pending" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="270" y="796" width="150" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="147" value="11.4 A2 · W2. 배선 전까지 첫 세 분기를 탈 수 없다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="430" y="796" width="900" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="148" value="클라우드 검증" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="40" y="816" width="220" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="149" value="NOT RUN" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="270" y="816" width="150" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="150" value="배포 0건" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="430" y="816" width="900" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="151" value="로컬 참조 사례" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="40" y="836" width="220" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="152" value="Available" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="270" y="836" width="150" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="153" value="nginx upstream 실측. 프로브 없이 사후 분석으로 밝힌 것이다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="430" y="836" width="900" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="154" value="사후 분석이 가능하다는 것과 장애 중에 좁힐 수 있다는 것은 다르다. 배선 전까지 판별은 로그 상관 조회와 패킷 캡처에 의존한다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="40" y="856" width="1300" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="155" value="" style="rounded=0;html=1;fillColor=none;strokeColor=#D0D7DC;strokeWidth=1;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="740" width="500" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="156" value="Figure 2 · Metadata" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="1398" y="750" width="300" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="157" value="As of: 2026-08-31" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="1398" y="774" width="460" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="158" value="Status: Design Complete · Probe Wiring Pending" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="1398" y="794" width="460" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="159" value="Ref: 기획안 2.5 · 7.4 · 7.14 · 10.3" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="1398" y="814" width="460" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="160" value="" style="line;html=1;strokeColor=#D0D7DC;strokeWidth=1;" vertex="1" parent="1">
           <mxGeometry x="20" y="886" width="1860" height="8" as="geometry"/>
         </mxCell>
-        <mxCell id="146" value="범례" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10.5;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="161" value="범례" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10.5;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="900" width="60" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="147" value="" style="rounded=0;html=1;fillColor=#8C4FFF;strokeColor=none;" vertex="1" parent="1">
+        <mxCell id="162" value="" style="rounded=0;html=1;fillColor=#8C4FFF;strokeColor=none;" vertex="1" parent="1">
           <mxGeometry x="100" y="902" width="24" height="12" as="geometry"/>
         </mxCell>
-        <mxCell id="148" value="L3 도달" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="163" value="L3 도달" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="132" y="896" width="140" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="149" value="" style="rounded=0;html=1;fillColor=#0972D3;strokeColor=none;" vertex="1" parent="1">
+        <mxCell id="164" value="" style="rounded=0;html=1;fillColor=#0972D3;strokeColor=none;" vertex="1" parent="1">
           <mxGeometry x="280" y="902" width="24" height="12" as="geometry"/>
         </mxCell>
-        <mxCell id="150" value="L4 연결" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="165" value="L4 연결" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="312" y="896" width="140" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="151" value="" style="rounded=0;html=1;fillColor=#0E7C66;strokeColor=none;" vertex="1" parent="1">
+        <mxCell id="166" value="" style="rounded=0;html=1;fillColor=#0E7C66;strokeColor=none;" vertex="1" parent="1">
           <mxGeometry x="460" y="902" width="24" height="12" as="geometry"/>
         </mxCell>
-        <mxCell id="152" value="L7 응답" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="167" value="L7 응답" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="492" y="896" width="140" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="153" value="" style="rounded=0;html=1;fillColor=#B8730A;strokeColor=none;" vertex="1" parent="1">
+        <mxCell id="168" value="" style="rounded=0;html=1;fillColor=#B8730A;strokeColor=none;" vertex="1" parent="1">
           <mxGeometry x="640" y="902" width="24" height="12" as="geometry"/>
         </mxCell>
-        <mxCell id="154" value="데이터" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="169" value="데이터" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="672" y="896" width="140" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="155" value="판정표의 원은 프로브 응답이다. 초록이 성공, 빨강이 실패다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="170" value="판정표의 원은 프로브 응답이다. 초록이 성공, 빨강이 실패다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="926" width="1800" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="156" value="마지막 행이 중요하다. 프로브가 전부 정상인데 느린 경우가 있고 그때는 계층 문제가 아니다. 수요가 줄었을 수도 있고 DB 가 느릴 수도 있다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="171" value="마지막 행이 중요하다. 프로브가 전부 정상인데 느린 경우가 있고 그때는 계층 문제가 아니다. 수요가 줄었을 수도 있고 DB 가 느릴 수도 있다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="948" width="1800" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="157" value="수치 출처. 실패율 대조는 2026-08-29 LB 배선 회차 실측이고 계획서 하네스 검증설계 3절이 원본이다. 계층 프로브 0건은 저장소 전수 확인 결과다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="172" value="수치 출처. 실패율 대조는 2026-08-29 LB 배선 회차 실측이고 계획서 하네스 검증설계 3절이 원본이다. 계층 프로브 0건은 저장소 전수 확인 결과다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="970" width="1800" height="18" as="geometry"/>
         </mxCell>
       </root>

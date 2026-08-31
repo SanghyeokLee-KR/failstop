@@ -16,6 +16,7 @@
 import { Canvas, C, writeSvg } from './lib/draw.mjs'
 import {
   LAYER_COLOR, TIER_COLOR, TRIAGE_KPI, TRIAGE_NODES, TRIAGE_TABLE, INJECT_TOOLS,
+  TRIAGE_STATUS, FIG_META,
 } from './lib/content.mjs'
 
 const SLIDE = process.argv.includes('--slide')
@@ -39,8 +40,10 @@ function box(x, y, w, h, { stroke = LINE, fill = 'none', dash = null, sw = 1 } =
 }
 
 /* ===================== 제목 밴드 ===================== */
-d.txt(40, 46, '계층 판별  ·  안 돼요를 계층으로 번역한다', 25, INK, '700')
-d.txt(40, 72, '계획서 7.4 2단계에서 파생. 프로브 셋의 전이 시점이 갈리는 지점에서 계층이 결정된다', 12.5, MUTE)
+const MT = FIG_META.triage
+d.txt(40, 42, `${MT.no}  ·  ${MT.title}`, 23, INK, '700')
+d.txt(40, 64, `${MT.sub}  ·  계획서 7.4 2단계에서 파생`, 11.5, MUTE)
+d.txt(40, 84, `${MT.goal}. 프로브 셋의 전이 시점이 갈리는 지점에서 계층이 결정된다`, 9.5, BODY)
 
 const KPI = TRIAGE_KPI
 KPI.forEach(([k, v, bad], i) => {
@@ -115,6 +118,9 @@ ROWS.forEach((r, i) => {
   })
   d.txt(x, y, r[3], 11.4, r[4], '700')
   x += CW[3]
+  // AWS 관련 분기에만 아이콘을 단다. L2 라우팅은 igw, L4 는 ec2, L7 은 alb
+  const IC = { 0: 'igw', 1: 'ec2', 2: 'alb' }
+  if (IC[i] !== undefined) { d.node(x - 16, y - 4, IC[i], null, null, 14); }
   d.txt(x, y, r[5], 10.4, BODY)
   if (i < ROWS.length - 1) d.add(`<line x1="${TX + 18}" y1="${y + 12}" x2="${TX + 862}" y2="${y + 12}" stroke="${LINE}" stroke-width="1"/>`)
 })
@@ -134,8 +140,8 @@ INJECT_TOOLS.map(([a,b,c,k,e]) => [a,b,c,LAYER_COLOR[k],e]).forEach(([lv, tool, 
 })
 
 /* ===================== 실측 사례 ===================== */
-d.txt(1180, 638, '실측 사례', 14, INK, '700')
-d.txt(1288, 638, '둘 다 화면으로는 애플리케이션 장애와 구분되지 않았다', 11, MUTE)
+d.txt(1180, 638, '실측 사례 · Observed Case', 14, INK, '700')
+d.txt(1414, 638, '둘 다 화면으로는 애플리케이션 장애와 구분되지 않았다', 11, MUTE)
 
 box(1180, 660, 880, 150, { stroke: L7, sw: 1.3, fill: '#FCFDFD' })
 d.txt(1202, 690, 'nginx 백업 업스트림 max_fails 기본값', 12.4, INK, '700')
@@ -147,12 +153,20 @@ d.txt(1202, 758, 'nginx resolve 미설정', 12.4, INK, '700')
 d.txt(1202, 782, '컨테이너 재생성 후 죽은 IP 지속 타격 · 502 응답 10,239건. 교정 후 주소 변경을 추종한다', 10.8, BODY)
 d.txt(1202, 800, '다만 같은 창 5xx 147건은 미규명이라 이 교정이 5xx 를 0으로 만든다고 주장하지 않는다', 9.8, MUTE)
 
-/* ===================== 현재 상태 ===================== */
-box(40, 848, 2020, 130, { stroke: GAP, sw: 1.4, fill: '#FDF9F9' })
-d.txt(62, 878, '이 도면은 설계다. 분기의 5단계 중 셋이 지금 실행 불가다', 14, GAP, '700')
-d.txt(62, 906, 'ICMP · TCP · HTTP 프로브가 0건이라 위 트리의 첫 세 분기를 지금은 탈 수 없다. 계층 프로브 배선이 이 축의 선행 작업이고,', 11.4, BODY)
-d.txt(62, 928, '그것이 되기 전까지 계층 판별은 로그 상관 조회와 패킷 캡처에 의존한다. 판별 소요를 재는 지표도 그 뒤에 생긴다.', 11.4, BODY)
-d.txt(62, 958, '실측 사례 둘은 프로브 없이 사후 분석으로 밝힌 것이다. 사후 분석이 가능하다는 것과 장애 중에 좁힐 수 있다는 것은 다르다', 10.6, MUTE, '700')
+/* ===================== 현재 상태와 메타 ===================== */
+box(40, 848, 1372, 148, { stroke: MUTE, sw: 1.1 })
+d.txt(62, 874, TRIAGE_STATUS.title, 13, INK, '700')
+TRIAGE_STATUS.items.forEach(([what, st, det], i) => {
+  const y = 900 + i * 20
+  d.txt(78, y, what, 10, INK, '700')
+  d.txt(300, y, st, 10, st.includes('BLOCKED') || st.includes('NOT RUN') ? GAP : st === 'Available' ? L7 : MUTE, '700')
+  d.txt(452, y, det, 9.5, BODY)
+})
+d.txt(62, 984, TRIAGE_STATUS.foot, 9.5, MUTE, '700')
+
+box(1428, 848, 632, 148, { stroke: LINE })
+d.txt(1444, 874, `${MT.no} · Metadata`, 10, MUTE, '700')
+MT.meta.forEach((t, i) => d.txt(1444, 898 + i * 20, t, 9.5, MUTE))
 
 /* ===================== 하단 범례 ===================== */
 if (!SLIDE) {

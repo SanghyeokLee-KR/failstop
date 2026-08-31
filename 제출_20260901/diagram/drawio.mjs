@@ -13,7 +13,7 @@ import { writeFileSync } from 'node:fs'
 import {
   TIER_COLOR, LAYER_COLOR,
   FLOW_KPI, STATIONS, SEV, SEV_NOTE, TIERS, TIER_NOTE, NOAUTO, LEDGER_WHY, SAFE_COND,
-  TRIAGE_KPI, TRIAGE_NODES, TRIAGE_TABLE, INJECT_TOOLS, TRIAGE_CASES, TRIAGE_GAP,
+  TRIAGE_KPI, TRIAGE_NODES, TRIAGE_TABLE, INJECT_TOOLS, TRIAGE_CASES, TRIAGE_STATUS, FIG_META,
 } from './lib/content.mjs'
 
 const INK = '#16191F'
@@ -108,8 +108,9 @@ function header(d, title, sub, kpi, W) {
 function incidentFlow() {
   const W = 1900, H = 1080
   const d = new Dio()
-  header(d, '장애 대응 흐름 · 탐지에서 Incident 종료까지',
-    '계획서 7.4 소거 절차 · 7.11 심각도 · 7.12 자동화 계층에서 파생. 색은 손이 닿는 정도를 뜻한다',
+  const MF = FIG_META.flow
+  header(d, `${MF.no} · ${MF.title}`,
+    `${MF.sub}  ·  계획서 7.4 · 7.11 · 7.12 에서 파생. 색은 손이 닿는 정도를 뜻한다`,
     FLOW_KPI, W)
 
   // 운영 루프
@@ -213,6 +214,8 @@ function incidentFlow() {
   d.txt('이 도면은 설계다. 5단계와 6단계 외에는 아직 실행 기록이 없다. 알람 통지 경로와 계층 프로브와 런북이 남은 작업이고 그 셋이 1번 2번 3번 4번 정거장을 막고 있다.',
     20, 940, 1600, 18, { size: 9.5, color: MUTE })
 
+  d.txt(`${MF.no} · Metadata   ${MF.meta.join('   ')}`, 20, 964, 1400, 18, { size: 9, color: MUTE })
+
   return { xml: d.toString('장애 대응 흐름', W, H), out: '장애대응_흐름.drawio', W, H }
 }
 
@@ -220,8 +223,9 @@ function incidentFlow() {
 function layerTriage() {
   const W = 1900, H = 1100
   const d = new Dio()
-  header(d, '계층 판별 · 안 돼요를 계층으로 번역한다',
-    '계획서 7.4 2단계에서 파생. 프로브 셋의 전이 시점이 갈리는 지점에서 계층이 결정된다',
+  const MT = FIG_META.triage
+  header(d, `${MT.no} · ${MT.title}`,
+    `${MT.sub}  ·  ${MT.goal}`,
     TRIAGE_KPI, W)
 
   // 트리
@@ -311,11 +315,21 @@ function layerTriage() {
     cy += 6
   })
 
-  // 현재 상태
-  d.box(20, 740, 1860, 120, { stroke: TIER_COLOR.GAP, sw: 1.4, fill: '#FDF9F9' })
-  d.txt(TRIAGE_GAP.head, 40, 754, 900, 24, { size: 13, color: TIER_COLOR.GAP, bold: true })
-  TRIAGE_GAP.body.forEach((t, i) => d.txt(t, 40, 782 + i * 22, 1800, 20, { size: 11, color: BODY }))
-  d.txt(TRIAGE_GAP.foot, 40, 830, 1800, 20, { size: 10, color: MUTE, bold: true })
+  // 현재 상태와 메타. 경고문이 아니라 검토 상태다
+  d.box(20, 740, 1340, 130)
+  d.txt(TRIAGE_STATUS.title, 40, 750, 400, 22, { size: 13, color: INK, bold: true })
+  TRIAGE_STATUS.items.forEach(([what, st, det], i) => {
+    const y = 776 + i * 20
+    const bad = st.includes('BLOCKED') || st.includes('NOT RUN')
+    d.txt(what, 40, y, 220, 18, { size: 10, color: INK, bold: true })
+    d.txt(st, 270, y, 150, 18, { size: 10, color: bad ? TIER_COLOR.GAP : MUTE, bold: true })
+    d.txt(det, 430, y, 900, 18, { size: 9.5, color: BODY })
+  })
+  d.txt(TRIAGE_STATUS.foot, 40, 856, 1300, 18, { size: 9.5, color: MUTE, bold: true })
+
+  d.box(1380, 740, 500, 130)
+  d.txt(`${MT.no} · Metadata`, 1398, 750, 300, 20, { size: 10, color: MUTE, bold: true })
+  MT.meta.forEach((t, i) => d.txt(t, 1398, 774 + i * 20, 460, 18, { size: 9.5, color: MUTE }))
 
   // 범례
   d.cell('', `line;html=1;strokeColor=${LINE};strokeWidth=1;`, 20, 886, W - 40, 8)

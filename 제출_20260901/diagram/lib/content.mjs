@@ -33,13 +33,13 @@ export const FLOW_KPI = [
 ]
 
 export const STATIONS = [
-  { n: '1', t: '감지', s: '메트릭 임계 이탈', tier: 'AUTO', tl: '자동', gap: '통지 경로 없음' },
-  { n: '2', t: '심각도 판정', s: 'S1 · S2 · S3', tier: 'HAND', tl: '사람', gap: '어휘 두 갈래' },
-  { n: '3', t: '계층 소거', s: 'ICMP -> TCP -> HTTP', tier: 'HAND', tl: '사람', gap: '프로브 0건' },
-  { n: '4', t: '조치', s: '계층별 Runbook', tier: 'APPR', tl: '층에 따라', gap: '런북 0건' },
-  { n: '5', t: '복구 확인', s: '프로브와 API 응답', tier: 'AUTO', tl: '자동', gap: null },
-  { n: '6', t: '데이터 판정', s: '불변식 권위 run', tier: 'AUTO', tl: '자동', gap: null },
-  { n: '7', t: '종료', s: 'verdict 아카이브', tier: 'HAND', tl: '사람', gap: null },
+  { n: '1', t: '감지', s: '메트릭 임계 이탈', tier: 'AUTO', tl: 'AUTO · 자동', gap: '통지 경로 없음' },
+  { n: '2', t: '심각도 판정', s: 'S1 · S2 · S3', tier: 'HAND', tl: 'OPERATOR · 사람', gap: '어휘 두 갈래' },
+  { n: '3', t: '계층 소거', s: 'ICMP -> TCP -> HTTP', tier: 'HAND', tl: 'OPERATOR · assisted', gap: '프로브 0건' },
+  { n: '4', t: '조치', s: '계층별 Runbook', tier: 'APPR', tl: '자동화 층에 따라 다름', gap: '런북 0건' },
+  { n: '5', t: '복구 확인', s: '프로브와 API 응답', tier: 'AUTO', tl: 'AUTO · 자동', gap: null },
+  { n: '6', t: '데이터 판정', s: '불변식 권위 run', tier: 'AUTO', tl: 'AUTO · 자동', gap: null },
+  { n: '7', t: '종료', s: 'verdict 아카이브', tier: 'HAND', tl: 'OPERATOR · 사람', gap: null },
 ]
 
 export const SEV = [
@@ -68,8 +68,8 @@ export const NOAUTO = [
 ]
 
 export const LEDGER_WHY = [
-  '보정 자체가 새 쓰기다. 잘못된 보정은 원래 상태로 돌아갈 근거를 없앤다.',
-  '긴급하다는 것과 자동으로 고쳐도 된다는 것은 다른 판단이다. S1 이면서 4층인 유일한 자리다.',
+  'Ledger invariant violation = S1. 자동 보정하지 않는다.',
+  '잘못된 보정은 원인 분석 근거와 원래 상태를 함께 훼손한다. S1 이면서 4층 수동인 유일한 자리다.',
 ]
 
 export const SAFE_COND = [
@@ -106,9 +106,9 @@ export const TRIAGE_TABLE = [
 ]
 
 export const INJECT_TOOLS = [
-  ['L3', 'tc netem', '지연 · 손실 · 재정렬', 'L3', '커널. 검증면 전용'],
-  ['L4', 'nftables', 'DROP · REJECT', 'L4', '커널. 검증면 전용'],
-  ['L7', 'process kill · Toxiproxy', 'SIGTERM · 프록시 모사', 'L7', '프록시 모사는 커널 큐를 재현하지 않는다'],
+  ['L3', 'tc netem', '지연 · 손실 · 재정렬', 'L3', 'Kernel-level Injection · 검증면 전용'],
+  ['L4', 'nftables', 'DROP · REJECT', 'L4', 'Kernel-level Injection · 검증면 전용'],
+  ['L7', 'process kill · Toxiproxy', 'SIGTERM · Proxy Simulation', 'L7', 'Proxy-level Simulation 은 커널 큐를 재현하지 않는다'],
 ]
 
 export const TRIAGE_CASES = [
@@ -126,11 +126,53 @@ export const TRIAGE_CASES = [
   },
 ]
 
-export const TRIAGE_GAP = {
-  head: '이 도면은 설계다. 분기의 5단계 중 셋이 지금 실행 불가다',
-  body: [
-    'ICMP · TCP · HTTP 프로브가 0건이라 위 트리의 첫 세 분기를 지금은 탈 수 없다. 계층 프로브 배선이 이 축의 선행 작업이고,',
-    '그것이 되기 전까지 계층 판별은 로그 상관 조회와 패킷 캡처에 의존한다. 판별 소요를 재는 지표도 그 뒤에 생긴다.',
+export const TRIAGE_STATUS = {
+  title: 'Current Status',
+  items: [
+    ['판별 로직', 'Designed', '7.14 분기 트리와 조합 판정표'],
+    ['L3 / L4 / L7 프로브 배선', 'BLOCKED · pending', '11.4 A2 · W2. 배선 전까지 첫 세 분기를 탈 수 없다'],
+    ['클라우드 검증', 'NOT RUN', '배포 0건'],
+    ['로컬 참조 사례', 'Available', 'nginx upstream 실측. 프로브 없이 사후 분석으로 밝힌 것이다'],
   ],
-  foot: '실측 사례 둘은 프로브 없이 사후 분석으로 밝힌 것이다. 사후 분석이 가능하다는 것과 장애 중에 좁힐 수 있다는 것은 다르다',
+  foot: '사후 분석이 가능하다는 것과 장애 중에 좁힐 수 있다는 것은 다르다. 배선 전까지 판별은 로그 상관 조회와 패킷 캡처에 의존한다',
+}
+
+/* ========== 도면 공통 메타 ========== */
+// 제목과 메타데이터 블록. SVG 판과 draw.io 판이 여기서 읽어 제목이 갈리지 않는다.
+// Ref 는 실재하는 계획서 절만 적는다. 없는 절 번호를 만들지 않는다.
+
+export const FIG_META = {
+  arch: {
+    no: 'Figure 1',
+    title: 'Service Architecture Overview',
+    sub: 'Application 2AZ  ·  Single Writer  ·  PostgreSQL Streaming Replication',
+    meta: [
+      'As of: 2026-08-31',
+      'Scope: Steady + Proof Environment',
+      'Status: Partially Implemented · Cloud NOT RUN',
+      'Source: 저장소 실측 + 기획안 6절',
+      'Ref: 기획안 6절 인프라 · 10절 검증 · 12.7 Scorecard',
+    ],
+  },
+  triage: {
+    no: 'Figure 2',
+    title: 'Fault Isolation and Troubleshooting Flow',
+    sub: 'L3 / L4 / L7 / 애플리케이션 / DB 장애 계층 판별',
+    goal: '운영 목표. 서비스가 안 된다는 현상을 실제 장애 계층으로 구체화한다',
+    meta: [
+      'As of: 2026-08-31',
+      'Status: Design Complete · Probe Wiring Pending',
+      'Ref: 기획안 2.5 · 7.4 · 7.14 · 10.3',
+    ],
+  },
+  flow: {
+    no: 'Figure 3',
+    title: 'Incident Response and Recovery Flow',
+    sub: 'Detection -> Classification -> Recovery -> Data Validation',
+    meta: [
+      'As of: 2026-08-31',
+      'Status: Partial Automation',
+      'Ref: 기획안 7.11 · 7.12 · 7.15 · 7.16',
+    ],
+  },
 }

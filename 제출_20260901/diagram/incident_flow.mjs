@@ -17,7 +17,7 @@
 import { Canvas, C, writeSvg } from './lib/draw.mjs'
 import {
   TIER_COLOR, FLOW_KPI, STATIONS as ST_DATA, SEV as SEV_DATA, SEV_NOTE,
-  TIERS as TIER_DATA, TIER_NOTE, NOAUTO, LEDGER_WHY, SAFE_COND,
+  TIERS as TIER_DATA, TIER_NOTE, NOAUTO, LEDGER_WHY, SAFE_COND, FIG_META,
 } from './lib/content.mjs'
 
 const SLIDE = process.argv.includes('--slide')
@@ -41,8 +41,10 @@ function box(x, y, w, h, { stroke = LINE, fill = 'none', dash = null, sw = 1 } =
 }
 
 /* ===================== 제목 밴드 ===================== */
-d.txt(40, 46, '장애 대응 흐름  ·  탐지에서 Incident 종료까지', 25, INK, '700')
-d.txt(40, 72, '계획서 7.4 소거 절차 · 7.11 심각도 · 7.12 자동화 계층에서 파생. 색은 손이 닿는 정도를 뜻한다', 12.5, MUTE)
+const MF = FIG_META.flow
+d.txt(40, 42, `${MF.no}  ·  ${MF.title}`, 23, INK, '700')
+d.txt(40, 64, MF.sub, 11.5, MUTE)
+d.txt(40, 84, '계획서 7.4 소거 절차 · 7.11 심각도 · 7.12 자동화 계층에서 파생 · 색은 손이 닿는 정도를 뜻한다', 9.5, BODY)
 
 const KPI = FLOW_KPI
 KPI.forEach(([k, v, bad], i) => {
@@ -116,7 +118,7 @@ TIERS.forEach(([lv, nm, how, col, items], i) => {
   d.txt(1310, y + 2, items, 9.8, BODY)
   if (i < 3) d.add(`<line x1="1092" y1="${y + 16}" x2="2042" y2="${y + 16}" stroke="${LINE}" stroke-width="1"/>`)
 })
-d.txt(1092, GY + 210, TIER_NOTE, 10.6, MUTE)
+d.txt(1092, GY + 210, TIER_NOTE + ' · 1층 대표 사례는 리더 kill(E4 로컬 실측)', 10.6, MUTE)
 
 /* ===================== 일부러 자동화하지 않은 것 ===================== */
 const NY = 626
@@ -160,6 +162,8 @@ if (!SLIDE) {
   })
   d.txt(40, H_MAIN + 108, '이 도면은 설계다. 5단계와 6단계 외에는 아직 실행 기록이 없다. 알람 통지 경로와 계층 프로브와 런북이 남은 작업이고 그 셋이 1번 2번 3번 4번 정거장을 막고 있다.', 9.8, MUTE)
 }
+
+d.txt(W - 40, H_MAIN - 14, `${MF.no} · Metadata   ${MF.meta.join('   ')}`, 8.8, MUTE, '400', 'end')
 
 const out = SLIDE ? 'incident_flow_slide.svg' : 'incident_flow.svg'
 writeSvg(new URL(out, import.meta.url), d)
