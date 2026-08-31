@@ -2,8 +2,9 @@
 
 시드 타임 1회 수집 스크립트. "런타임 외부 의존 0" 원칙(docs/contracts/외부API_전략.md)의 실제 구현이다.
 
-외부 API는 여기서 단 한 번 호출한다. 결과(파생 통계 JSON, 코인 메타, self-host 로고)를 저장소에 커밋하고,
-서버·웹 런타임은 이 산출물만 읽는다. 런타임에는 어떤 외부 네트워크도 참조하지 않는다.
+외부 API는 여기서 단 한 번 호출한다. 결과(파생 통계 JSON, 코인 메타, self-host 로고)를 저장소에 커밋한다.
+런타임에는 어떤 외부 네트워크도 참조하지 않는다. 다만 런타임이 `out/`을 읽는 배선은 아직 없다.
+현재 성립 근거는 아래 소비 배선 절에 적는다.
 
 ## 흐름
 
@@ -14,8 +15,10 @@
 seed-data/out/  (markets.json, candles/*.json, coin-meta.json, logos/*)
    |  저장소에 커밋
    v
-런타임 (server 시드 적재 / web 정적 에셋)  <- 여기서는 out/ 만 읽는다
+런타임 (server 시드 적재 / web 정적 에셋)   <- 계획. 현재 미배선
 ```
+
+마지막 단계만 계획이다. 앞 두 단계는 성립한다.
 
 ## 요구 사항
 
@@ -55,8 +58,7 @@ out/
 ```
 
 현재 저장소에 내재화된 범위는 `markets.json`과 `candles/*.json`(269종)이다. CoinGecko 경로
-(`coin-meta.json`·로고)는 Demo 키가 있어야 수집되며 아직 미수집이라 커밋물에 없다. 소비 배선도
-markets·candles 기준이다.
+(`coin-meta.json`·로고)는 Demo 키가 있어야 수집되며 아직 미수집이라 커밋물에 없다.
 
 캔들 파일에 담기는 것은 원본 OHLC 시계열이 아니라 파생 통계다.
 
@@ -66,6 +68,24 @@ markets·candles 기준이다.
 - `liquidity`: 일 거래대금·거래량 평균.
 
 금액·수량은 전부 문자열이다(정본 규칙: float 금지).
+
+## 소비 배선 (미배선)
+
+`out/`을 읽는 런타임 코드가 없다. `server` `web` `harness` `compose.yaml` `scripts` 전체에서
+`seed-data`·`markets.json`·`candles/KRW` 참조가 0건이다.
+
+현재 런타임 마켓 원천은 하드코딩 12종이고 두 곳에 각각 있다.
+
+- `server/app/src/main/java/kr/exchange/dev/DevDataSeeder.java`
+- `web/lib/sim/engine.ts` 의 SEEDS
+
+배선 전에 매핑을 먼저 정해야 한다. 하드코딩 12종 중 `KRW-MATIC`이 `out/candles/`에 없다.
+수집 시점 업비트 목록에 있는 것은 `KRW-POL`이다(MATIC이 POL로 개명). 하드코딩 목록이 수집
+시점 시장과 이미 어긋나 있으므로, 소비 배선은 개명 종목 대응을 포함해야 한다.
+
+"런타임 외부 의존 0" 원칙 자체는 성립한다. 런타임 코드에 외부 호스트 참조가 없다.
+성립 근거가 `out/` 소비가 아니라 하드코딩 시드라는 점만 다르다. 이 절을 두는 이유는
+설계가 문서에 있다는 이유로 완료로 판정하지 않기 때문이다(`CLAUDE.md` 2절·32절).
 
 ## 스로틀
 

@@ -1,0 +1,11 @@
+# 생성기 의존성. package-lock.json 은 추적한다.
+node_modules/
+
+# 생성기 중간 산출물. build.ps1 이 arch_aws.svg 를 시스템_아키텍처.svg 로 옮기고
+# 슬라이드용 SVG 는 PNG 를 구운 뒤 지운다. 커밋 대상은 옮겨진 결과물이다.
+arch_aws.svg
+arch_aws_slide.svg
+
+# 확인용 축소본
+preview.png
+crop.png

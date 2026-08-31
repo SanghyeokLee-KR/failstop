@@ -9,13 +9,16 @@
 | `기획안.docx` | `기획안_원본.md` | `md2docx.py` |
 | `기획안.pdf` | `기획안.docx` | `docx2pdf`(Word COM) |
 | `기획안_요약.pptx` | `deck.js` 안에 인라인 | `deck.js`(pptxgenjs) |
-| `diagram/시스템_아키텍처.png` | `diagram/arch_aws.py` | `arch_aws.py` + `render.mjs` |
+| `diagram/시스템_아키텍처.png` | `diagram/arch_aws.mjs` | `arch_aws.mjs` + `render.mjs` |
 
 ## 실행
 
 ```powershell
-pwsh -NoProfile -File 제출_20260901/build/build.ps1
+powershell -NoProfile -File 제출_20260901/build/build.ps1
 ```
+
+`pwsh` 로도 돈다. 스크립트가 UTF-8 BOM 이라 Windows PowerShell 5.1 에서도 한글이 깨지지 않는다.
+BOM 을 빼면 5.1 이 스크립트를 cp949 로 읽어 파서 오류가 난다.
 
 개별 실행은 `build.ps1` 본문의 각 단계를 그대로 떼어 쓴다.
 
@@ -24,10 +27,19 @@ pwsh -NoProfile -File 제출_20260901/build/build.ps1
 | 항목 | 확인 |
 |---|---|
 | `python-docx` | `python -c "import docx"` |
-| `docx2pdf` | `python -c "import docx2pdf"`. Word 가 설치돼 있어야 한다 |
+| PDF 변환기 | LibreOffice 또는 `docx2pdf`. 아래 참조 |
 | `pptxgenjs` | 전역 설치. `npm ls -g pptxgenjs` |
-| `sharp` | `web/node_modules/sharp`. 웹 의존성에 이미 있다 |
-| AWS 아이콘 | `diagrams` 파이썬 패키지의 `resources` 디렉터리. `arch_aws.py` 상단 `ICON` 이 경로를 잡는다 |
+| `sharp` | `제출_20260901/diagram/node_modules`. 그 폴더에서 `npm install` 한 번 |
+
+PDF 는 둘 중 있는 것을 쓴다. `build.ps1` 이 순서대로 찾는다.
+
+| 변환기 | 요구 | 비고 |
+|---|---|---|
+| LibreOffice | 없음 | `soffice --headless --convert-to pdf`. Word 없이 돈다. 전용 프로필로 실행해 창이 떠 있어도 변환된다 |
+| `docx2pdf` | Microsoft Word | Word COM 이라 Word 가 깔린 PC 에서만 돈다. LibreOffice 가 없을 때만 쓴다 |
+
+AWS 아이콘은 더 이상 외부 패키지에 의존하지 않는다. `diagram/icons/` 에 21종이 들어 있고
+`diagram/lib/draw.mjs` 가 그것을 읽는다. 파이썬 `diagrams` 패키지는 필요 없다.
 
 ## 주의
 
