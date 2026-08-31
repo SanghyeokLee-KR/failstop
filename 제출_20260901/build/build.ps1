@@ -24,12 +24,21 @@ Push-Location $Diagram
 # 생성기는 Node 다. 종전 파이썬판은 diagrams 패키지 리소스 경로를 절대경로로 박아
 # 그 패키지가 깔린 PC 에서만 돌았다. 아이콘을 diagram/icons/ 로 뽑아 그 의존을 끊었다.
 if (-not (Test-Path 'node_modules')) { npm install }
-node arch_aws.mjs | Out-Null
-node arch_aws.mjs --slide | Out-Null
+# 도면 셋을 전부 굽는다. 하나만 돌리면 나머지는 이전 SVG 가 남아 낡은 PNG 가 제출본에 섞인다
+$Gen = @('arch_aws', 'incident_flow', 'layer_triage')
+foreach ($g in $Gen) {
+    node "$g.mjs" | Out-Null
+    node "$g.mjs" --slide | Out-Null
+}
 node render.mjs
+# draw.io 판은 손으로 고치는 편집본이다. 내용 원천은 lib/content.mjs 하나다
+node drawio.mjs
 # SVG 는 편집 가능한 원본으로 남긴다. 슬라이드용 SVG 는 PNG 만 쓰므로 지운다
-Move-Item -Force 'arch_aws.svg' '시스템_아키텍처.svg'
-Remove-Item -Force 'arch_aws_slide.svg' -ErrorAction SilentlyContinue
+$Keep = @{ 'arch_aws' = '시스템_아키텍처.svg'; 'incident_flow' = '장애대응_흐름.svg'; 'layer_triage' = '계층판별_트리.svg' }
+foreach ($g in $Gen) {
+    Move-Item -Force "$g.svg" $Keep[$g]
+    Remove-Item -Force "${g}_slide.svg" -ErrorAction SilentlyContinue
+}
 Pop-Location
 
 Step '2/4 기획안 docx'

@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="2100" height="1280" viewBox="0 0 2100 1280"><rect width="2100" height="1280" fill="#FFFFFF"/><defs>
+<marker id="h16191F" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1.2 L9,5 L0,8.8 z" fill="#16191F"/></marker>
+<marker id="h5C6B75" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1.2 L9,5 L0,8.8 z" fill="#5C6B75"/></marker>
+<marker id="h8C4FFF" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1.2 L9,5 L0,8.8 z" fill="#8C4FFF"/></marker>
+<marker id="h0972D3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1.2 L9,5 L0,8.8 z" fill="#0972D3"/></marker>
+<marker id="h0E7C66" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1.2 L9,5 L0,8.8 z" fill="#0E7C66"/></marker>
+<marker id="hB8730A" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1.2 L9,5 L0,8.8 z" fill="#B8730A"/></marker>
+</defs>
+<g transform="translate(0,0)">
+<text x="40" y="46" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="25" font-weight="700" fill="#16191F" text-anchor="start">계층 판별  ·  안 돼요를 계층으로 번역한다</text>
+<text x="40" y="72" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.5" font-weight="400" fill="#5C6B75" text-anchor="start">계획서 7.4 2단계에서 파생. 프로브 셋의 전이 시점이 갈리는 지점에서 계층이 결정된다</text>
+<line x1="1644" y1="26" x2="1644" y2="76" stroke="#D0D7DC" stroke-width="1"/>
+<text x="1660" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">계층 프로브</text>
+<text x="1660" y="66" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="17" font-weight="700" fill="#C0392B" text-anchor="start">0건</text>
+<line x1="1792" y1="26" x2="1792" y2="76" stroke="#D0D7DC" stroke-width="1"/>
+<text x="1808" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">판별 소요 실측</text>
+<text x="1808" y="66" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="17" font-weight="700" fill="#C0392B" text-anchor="start">없음</text>
+<line x1="1940" y1="26" x2="1940" y2="76" stroke="#D0D7DC" stroke-width="1"/>
+<text x="1956" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">대조군 있는 사례</text>
+<text x="1956" y="66" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="17" font-weight="700" fill="#16191F" text-anchor="start">1건</text>
+<line x1="40" y1="98" x2="2060" y2="98" stroke="#D0D7DC" stroke-width="1.2"/>
+<text x="40" y="136" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">소거 순서</text>
+<text x="140" y="136" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">위에서 아래로 내려가며 후보를 지운다. 먼저 끊기는 프로브가 계층을 지목한다</text>
+<rect x="40" y="158" width="300" height="66" rx="2" fill="none" stroke="#16191F" stroke-width="1.4"/>
+<text x="58" y="186" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13" font-weight="700" fill="#16191F" text-anchor="start">증상 진입</text>
+<text x="58" y="208" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="400" fill="#3C4750" text-anchor="start">API 지연 · 오류 증가 · 체결 감소</text>
+<polyline points="190,224 190,254" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="40" y="254" width="300" height="66" rx="2" fill="none" stroke="#5C6B75" stroke-width="1"/>
+<text x="58" y="282" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.4" font-weight="700" fill="#16191F" text-anchor="start">ICMP 응답하는가</text>
+<text x="58" y="304" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">예 이면 다음 단계로</text>
+<polyline points="340,287 470,287" fill="none" stroke="#8C4FFF" stroke-width="1.6" marker-end="url(#h8C4FFF)"/>
+<text x="392" y="279" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#8C4FFF" text-anchor="middle">실패</text>
+<rect x="470" y="254" width="250" height="66" rx="2" fill="#FCFDFD" stroke="#8C4FFF" stroke-width="1.5"/>
+<rect x="470" y="254" width="4" height="66" rx="2" fill="#8C4FFF"/>
+<text x="492" y="282" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13.5" font-weight="700" fill="#8C4FFF" text-anchor="start">L3 도달</text>
+<text x="492" y="304" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">네트워크 담당</text>
+<text x="748" y="282" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.2" font-weight="400" fill="#3C4750" text-anchor="start">라우팅 · 보안그룹 · 인스턴스 정지</text>
+<text x="748" y="304" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">RUNBOOK 카드로 이동</text>
+<polyline points="190,320 190,384" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="40" y="384" width="300" height="66" rx="2" fill="none" stroke="#5C6B75" stroke-width="1"/>
+<text x="58" y="412" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.4" font-weight="700" fill="#16191F" text-anchor="start">TCP 연결 성립하는가</text>
+<text x="58" y="434" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">예 이면 다음 단계로</text>
+<polyline points="340,417 470,417" fill="none" stroke="#0972D3" stroke-width="1.6" marker-end="url(#h0972D3)"/>
+<text x="392" y="409" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#0972D3" text-anchor="middle">실패</text>
+<rect x="470" y="384" width="250" height="66" rx="2" fill="#FCFDFD" stroke="#0972D3" stroke-width="1.5"/>
+<rect x="470" y="384" width="4" height="66" rx="2" fill="#0972D3"/>
+<text x="492" y="412" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13.5" font-weight="700" fill="#0972D3" text-anchor="start">L4 연결</text>
+<text x="492" y="434" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">인프라 담당</text>
+<text x="748" y="412" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.2" font-weight="400" fill="#3C4750" text-anchor="start">프로세스 정지 · 방화벽 · 백로그 포화</text>
+<text x="748" y="434" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">RUNBOOK 카드로 이동</text>
+<polyline points="190,450 190,514" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="40" y="514" width="300" height="66" rx="2" fill="none" stroke="#5C6B75" stroke-width="1"/>
+<text x="58" y="542" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.4" font-weight="700" fill="#16191F" text-anchor="start">HTTP 2xx 인가</text>
+<text x="58" y="564" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">예 이면 다음 단계로</text>
+<polyline points="340,547 470,547" fill="none" stroke="#0E7C66" stroke-width="1.6" marker-end="url(#h0E7C66)"/>
+<text x="392" y="539" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#0E7C66" text-anchor="middle">5xx · timeout</text>
+<rect x="470" y="514" width="250" height="66" rx="2" fill="#FCFDFD" stroke="#0E7C66" stroke-width="1.5"/>
+<rect x="470" y="514" width="4" height="66" rx="2" fill="#0E7C66"/>
+<text x="492" y="542" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13.5" font-weight="700" fill="#0E7C66" text-anchor="start">L7 응답</text>
+<text x="492" y="564" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">개발 담당</text>
+<text x="748" y="542" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.2" font-weight="400" fill="#3C4750" text-anchor="start">프록시 설정 · 앱 내부 · 타겟그룹 unhealthy</text>
+<text x="748" y="564" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">RUNBOOK 카드로 이동</text>
+<polyline points="190,580 190,644" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="40" y="644" width="300" height="66" rx="2" fill="none" stroke="#5C6B75" stroke-width="1"/>
+<text x="58" y="672" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.4" font-weight="700" fill="#16191F" text-anchor="start">DB 커넥션과 질의가 정상인가</text>
+<text x="58" y="694" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">예 이면 다음 단계로</text>
+<polyline points="340,677 470,677" fill="none" stroke="#B8730A" stroke-width="1.6" marker-end="url(#hB8730A)"/>
+<text x="392" y="669" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#B8730A" text-anchor="middle">포화 · 지연</text>
+<rect x="470" y="644" width="250" height="66" rx="2" fill="#FCFDFD" stroke="#B8730A" stroke-width="1.5"/>
+<rect x="470" y="644" width="4" height="66" rx="2" fill="#B8730A"/>
+<text x="492" y="672" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13.5" font-weight="700" fill="#B8730A" text-anchor="start">데이터</text>
+<text x="492" y="694" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">개발 담당</text>
+<text x="748" y="672" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.2" font-weight="400" fill="#3C4750" text-anchor="start">커넥션 누수 · 장기 트랜잭션 · 잠금 경합</text>
+<text x="748" y="694" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">RUNBOOK 카드로 이동</text>
+<polyline points="190,710 190,748" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="40" y="748" width="680" height="62" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1" stroke-dasharray="5 4"/>
+<text x="58" y="776" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.4" font-weight="700" fill="#16191F" text-anchor="start">프로브 전부 정상인데 지연만 높다</text>
+<text x="58" y="798" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">RTT 와 재전송을 확인하고 정상이면 수요 축을 본다. 요청 유입이 줄었는지, 봇이 멈췄는지</text>
+<text x="1180" y="136" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">조합 판정표</text>
+<text x="1310" y="136" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">실무에서 읽는 것은 이 표다</text>
+<rect x="1180" y="158" width="880" height="232" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<text x="1198" y="186" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="700" fill="#5C6B75" text-anchor="start">ICMP</text>
+<text x="1290" y="186" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="700" fill="#5C6B75" text-anchor="start">TCP</text>
+<text x="1382" y="186" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="700" fill="#5C6B75" text-anchor="start">HTTP</text>
+<text x="1490" y="186" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="700" fill="#5C6B75" text-anchor="start">확정 계층</text>
+<text x="1638" y="186" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="700" fill="#5C6B75" text-anchor="start">먼저 볼 것</text>
+<line x1="1198" y1="198" x2="2042" y2="198" stroke="#D0D7DC" stroke-width="1"/>
+<circle cx="1205" cy="222" r="4.5" fill="#C0392B"/>
+<text x="1218" y="226" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">실패</text>
+<circle cx="1297" cy="222" r="4.5" fill="#C0392B"/>
+<text x="1310" y="226" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">실패</text>
+<circle cx="1389" cy="222" r="4.5" fill="#C0392B"/>
+<text x="1402" y="226" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">실패</text>
+<text x="1490" y="226" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="700" fill="#8C4FFF" text-anchor="start">L3 도달</text>
+<text x="1638" y="226" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">라우팅 테이블과 보안그룹</text>
+<line x1="1198" y1="238" x2="2042" y2="238" stroke="#D0D7DC" stroke-width="1"/>
+<circle cx="1205" cy="256" r="4.5" fill="#0E7C66"/>
+<text x="1218" y="260" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">성공</text>
+<circle cx="1297" cy="256" r="4.5" fill="#C0392B"/>
+<text x="1310" y="260" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">실패</text>
+<circle cx="1389" cy="256" r="4.5" fill="#C0392B"/>
+<text x="1402" y="260" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">실패</text>
+<text x="1490" y="260" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="700" fill="#0972D3" text-anchor="start">L4 연결</text>
+<text x="1638" y="260" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">프로세스 생존과 리스닝 포트</text>
+<line x1="1198" y1="272" x2="2042" y2="272" stroke="#D0D7DC" stroke-width="1"/>
+<circle cx="1205" cy="290" r="4.5" fill="#0E7C66"/>
+<text x="1218" y="294" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">성공</text>
+<circle cx="1297" cy="290" r="4.5" fill="#0E7C66"/>
+<text x="1310" y="294" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">성공</text>
+<circle cx="1389" cy="290" r="4.5" fill="#C0392B"/>
+<text x="1402" y="294" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">5xx</text>
+<text x="1490" y="294" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="700" fill="#0E7C66" text-anchor="start">L7 응답</text>
+<text x="1638" y="294" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">ALB 타겟그룹 상태와 앱 로그</text>
+<line x1="1198" y1="306" x2="2042" y2="306" stroke="#D0D7DC" stroke-width="1"/>
+<circle cx="1205" cy="324" r="4.5" fill="#0E7C66"/>
+<text x="1218" y="328" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">성공</text>
+<circle cx="1297" cy="324" r="4.5" fill="#0E7C66"/>
+<text x="1310" y="328" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">성공</text>
+<circle cx="1389" cy="324" r="4.5" fill="#C0392B"/>
+<text x="1402" y="328" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">timeout</text>
+<text x="1490" y="328" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="700" fill="#0E7C66" text-anchor="start">L7 무응답</text>
+<text x="1638" y="328" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">스레드 덤프와 요청 풀</text>
+<line x1="1198" y1="340" x2="2042" y2="340" stroke="#D0D7DC" stroke-width="1"/>
+<circle cx="1205" cy="358" r="4.5" fill="#0E7C66"/>
+<text x="1218" y="362" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">성공</text>
+<circle cx="1297" cy="358" r="4.5" fill="#0E7C66"/>
+<text x="1310" y="362" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">성공</text>
+<circle cx="1389" cy="358" r="4.5" fill="#C0392B"/>
+<text x="1402" y="362" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">2xx</text>
+<text x="1490" y="362" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="700" fill="#B8730A" text-anchor="start">계층 아님</text>
+<text x="1638" y="362" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">DB 지연과 수요 축</text>
+<text x="1180" y="438" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">주입 도구와 계층</text>
+<text x="1320" y="438" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">판별이 맞는지는 아는 계층에 넣어 확인한다</text>
+<rect x="1180" y="460" width="880" height="130" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="1198" y="477" width="30" height="22" rx="3" fill="#8C4FFF"/>
+<text x="1213" y="492" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="700" fill="#FFFFFF" text-anchor="middle">L3</text>
+<text x="1242" y="492" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.2" font-weight="700" fill="#16191F" text-anchor="start">tc netem</text>
+<text x="1440" y="492" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">지연 · 손실 · 재정렬</text>
+<text x="1660" y="492" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">커널. 검증면 전용</text>
+<rect x="1198" y="511" width="30" height="22" rx="3" fill="#0972D3"/>
+<text x="1213" y="526" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="700" fill="#FFFFFF" text-anchor="middle">L4</text>
+<text x="1242" y="526" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.2" font-weight="700" fill="#16191F" text-anchor="start">nftables</text>
+<text x="1440" y="526" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">DROP · REJECT</text>
+<text x="1660" y="526" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">커널. 검증면 전용</text>
+<rect x="1198" y="545" width="30" height="22" rx="3" fill="#0E7C66"/>
+<text x="1213" y="560" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="700" fill="#FFFFFF" text-anchor="middle">L7</text>
+<text x="1242" y="560" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.2" font-weight="700" fill="#16191F" text-anchor="start">process kill · Toxiproxy</text>
+<text x="1440" y="560" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">SIGTERM · 프록시 모사</text>
+<text x="1660" y="560" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">프록시 모사는 커널 큐를 재현하지 않는다</text>
+<text x="1180" y="638" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">실측 사례</text>
+<text x="1288" y="638" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">둘 다 화면으로는 애플리케이션 장애와 구분되지 않았다</text>
+<rect x="1180" y="660" width="880" height="150" rx="2" fill="#FCFDFD" stroke="#0E7C66" stroke-width="1.3"/>
+<text x="1202" y="690" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.4" font-weight="700" fill="#16191F" text-anchor="start">nginx 백업 업스트림 max_fails 기본값</text>
+<text x="1202" y="714" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.8" font-weight="400" fill="#C0392B" text-anchor="start">no live upstreams 44,050건 · 실패율 9.61%</text>
+<polyline points="1690,709 1730,709" fill="none" stroke="#5C6B75" stroke-width="1.3" marker-end="url(#h5C6B75)"/>
+<text x="1744" y="714" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.8" font-weight="700" fill="#0E7C66" text-anchor="start">max_fails=0 에서 568건 · 0.89%</text>
+<line x1="1202" y1="732" x2="2038" y2="732" stroke="#D0D7DC" stroke-width="1"/>
+<text x="1202" y="758" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.4" font-weight="700" fill="#16191F" text-anchor="start">nginx resolve 미설정</text>
+<text x="1202" y="782" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.8" font-weight="400" fill="#3C4750" text-anchor="start">컨테이너 재생성 후 죽은 IP 지속 타격 · 502 응답 10,239건. 교정 후 주소 변경을 추종한다</text>
+<text x="1202" y="800" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">다만 같은 창 5xx 147건은 미규명이라 이 교정이 5xx 를 0으로 만든다고 주장하지 않는다</text>
+<rect x="40" y="848" width="2020" height="130" rx="2" fill="#FDF9F9" stroke="#C0392B" stroke-width="1.4"/>
+<text x="62" y="878" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#C0392B" text-anchor="start">이 도면은 설계다. 분기의 5단계 중 셋이 지금 실행 불가다</text>
+<text x="62" y="906" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="400" fill="#3C4750" text-anchor="start">ICMP · TCP · HTTP 프로브가 0건이라 위 트리의 첫 세 분기를 지금은 탈 수 없다. 계층 프로브 배선이 이 축의 선행 작업이고,</text>
+<text x="62" y="928" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="400" fill="#3C4750" text-anchor="start">그것이 되기 전까지 계층 판별은 로그 상관 조회와 패킷 캡처에 의존한다. 판별 소요를 재는 지표도 그 뒤에 생긴다.</text>
+<text x="62" y="958" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="700" fill="#5C6B75" text-anchor="start">실측 사례 둘은 프로브 없이 사후 분석으로 밝힌 것이다. 사후 분석이 가능하다는 것과 장애 중에 좁힐 수 있다는 것은 다르다</text>
+<line x1="40" y1="1058" x2="2060" y2="1058" stroke="#D0D7DC" stroke-width="1.2"/>
+<text x="40" y="1088" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#16191F" text-anchor="start">범례</text>
+<rect x="140" y="1078" width="26" height="12" rx="2" fill="#8C4FFF"/>
+<text x="176" y="1088" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">L3 도달</text>
+<rect x="340" y="1078" width="26" height="12" rx="2" fill="#0972D3"/>
+<text x="376" y="1088" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">L4 연결</text>
+<rect x="540" y="1078" width="26" height="12" rx="2" fill="#0E7C66"/>
+<text x="576" y="1088" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">L7 응답</text>
+<rect x="740" y="1078" width="26" height="12" rx="2" fill="#B8730A"/>
+<text x="776" y="1088" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">데이터</text>
+<text x="40" y="1118" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">판정표의 원은 프로브 응답이다. 초록이 성공, 빨강이 실패다.</text>
+<text x="40" y="1142" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">마지막 행이 중요하다. 프로브가 전부 정상인데 느린 경우가 있고 그때는 계층 문제가 아니다. 수요가 줄었을 수도 있고 DB 가 느릴 수도 있다.</text>
+<text x="40" y="1166" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">그 구분이 없으면 정상 유휴 구간을 장애로 오인한다. 저부하 침묵 판정이 계획서 7.9 다.</text>
+<text x="40" y="1202" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">수치 출처. 실패율 대조는 2026-08-29 LB 배선 회차 실측이고 계획서 하네스 검증설계 3절이 원본이다.</text>
+<text x="40" y="1226" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">502 10,239건은 같은 회차의 교정 전 계수다. 계층 프로브 0건은 저장소 전수 확인 결과다.</text>
+</g>
+</svg>

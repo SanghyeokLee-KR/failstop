@@ -20,6 +20,10 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const JOBS = [
   { name: 'arch_aws', src: 'arch_aws.svg', out: '시스템_아키텍처.png' },
   { name: 'arch_aws_slide', src: 'arch_aws_slide.svg', out: '시스템_아키텍처_슬라이드용.png' },
+  { name: 'incident_flow', src: 'incident_flow.svg', out: '장애대응_흐름.png' },
+  { name: 'incident_flow_slide', src: 'incident_flow_slide.svg', out: '장애대응_흐름_슬라이드용.png' },
+  { name: 'layer_triage', src: 'layer_triage.svg', out: '계층판별_트리.png' },
+  { name: 'layer_triage_slide', src: 'layer_triage_slide.svg', out: '계층판별_트리_슬라이드용.png' },
 ]
 
 /** viewBox 에서 폭과 높이를 읽는다. 없으면 width/height 속성으로 물러선다. */

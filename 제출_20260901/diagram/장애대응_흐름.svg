@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="2100" height="1138" viewBox="0 0 2100 1138"><rect width="2100" height="1138" fill="#FFFFFF"/><defs>
+<marker id="h16191F" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1.2 L9,5 L0,8.8 z" fill="#16191F"/></marker>
+<marker id="h5C6B75" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1.2 L9,5 L0,8.8 z" fill="#5C6B75"/></marker>
+<marker id="h0E7C66" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1.2 L9,5 L0,8.8 z" fill="#0E7C66"/></marker>
+</defs>
+<g transform="translate(0,0)">
+<text x="40" y="46" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="25" font-weight="700" fill="#16191F" text-anchor="start">장애 대응 흐름  ·  탐지에서 Incident 종료까지</text>
+<text x="40" y="72" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.5" font-weight="400" fill="#5C6B75" text-anchor="start">계획서 7.4 소거 절차 · 7.11 심각도 · 7.12 자동화 계층에서 파생. 색은 손이 닿는 정도를 뜻한다</text>
+<line x1="1484" y1="26" x2="1484" y2="76" stroke="#D0D7DC" stroke-width="1"/>
+<text x="1500" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">알람</text>
+<text x="1500" y="66" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="17" font-weight="700" fill="#16191F" text-anchor="start">11종</text>
+<line x1="1636" y1="26" x2="1636" y2="76" stroke="#D0D7DC" stroke-width="1"/>
+<text x="1652" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">통지 경로</text>
+<text x="1652" y="66" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="17" font-weight="700" fill="#C0392B" text-anchor="start">0종</text>
+<line x1="1788" y1="26" x2="1788" y2="76" stroke="#D0D7DC" stroke-width="1"/>
+<text x="1804" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">자동 복구 실측</text>
+<text x="1804" y="66" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="17" font-weight="700" fill="#16191F" text-anchor="start">E4 1회</text>
+<line x1="1940" y1="26" x2="1940" y2="76" stroke="#D0D7DC" stroke-width="1"/>
+<text x="1956" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">수동 잔여</text>
+<text x="1956" y="66" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="17" font-weight="700" fill="#16191F" text-anchor="start">4층 7항목</text>
+<line x1="40" y1="98" x2="2060" y2="98" stroke="#D0D7DC" stroke-width="1.2"/>
+<text x="40" y="136" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">운영 루프</text>
+<text x="122" y="136" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">시작과 끝이 같은 정의를 쓴다. 복구 판정이 정상 상태로 돌아왔는가이므로 정상 상태 정의가 곧 복구 기준이다</text>
+<rect x="40" y="170" width="274" height="128" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="40" y="170" width="4" height="128" rx="2" fill="#0E7C66"/>
+<circle cx="66" cy="196" r="9" fill="#FFFFFF" stroke="#16191F" stroke-width="1.5"/>
+<text x="66" y="199.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#16191F" text-anchor="middle">1</text>
+<text x="86" y="201" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14.5" font-weight="700" fill="#16191F" text-anchor="start">감지</text>
+<text x="58" y="230" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#3C4750" text-anchor="start">메트릭 임계 이탈</text>
+<text x="58" y="254" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.5" font-weight="700" fill="#0E7C66" text-anchor="start">자동</text>
+<rect x="58" y="266" width="238" height="20" rx="2" fill="#FDF2F1" stroke="#C0392B" stroke-width="0.9"/>
+<text x="66" y="280" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#C0392B" text-anchor="start">통지 경로 없음</text>
+<polyline points="315,234 325,234" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="326" y="170" width="274" height="128" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="326" y="170" width="4" height="128" rx="2" fill="#5C6B75"/>
+<circle cx="352" cy="196" r="9" fill="#FFFFFF" stroke="#16191F" stroke-width="1.5"/>
+<text x="352" y="199.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#16191F" text-anchor="middle">2</text>
+<text x="372" y="201" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14.5" font-weight="700" fill="#16191F" text-anchor="start">심각도 판정</text>
+<text x="344" y="230" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#3C4750" text-anchor="start">S1 · S2 · S3</text>
+<text x="344" y="254" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.5" font-weight="700" fill="#5C6B75" text-anchor="start">사람</text>
+<rect x="344" y="266" width="238" height="20" rx="2" fill="#FDF2F1" stroke="#C0392B" stroke-width="0.9"/>
+<text x="352" y="280" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#C0392B" text-anchor="start">어휘 두 갈래</text>
+<polyline points="601,234 611,234" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="612" y="170" width="274" height="128" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="612" y="170" width="4" height="128" rx="2" fill="#5C6B75"/>
+<circle cx="638" cy="196" r="9" fill="#FFFFFF" stroke="#16191F" stroke-width="1.5"/>
+<text x="638" y="199.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#16191F" text-anchor="middle">3</text>
+<text x="658" y="201" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14.5" font-weight="700" fill="#16191F" text-anchor="start">계층 소거</text>
+<text x="630" y="230" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#3C4750" text-anchor="start">ICMP -> TCP -> HTTP</text>
+<text x="630" y="254" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.5" font-weight="700" fill="#5C6B75" text-anchor="start">사람</text>
+<rect x="630" y="266" width="238" height="20" rx="2" fill="#FDF2F1" stroke="#C0392B" stroke-width="0.9"/>
+<text x="638" y="280" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#C0392B" text-anchor="start">프로브 0건</text>
+<polyline points="887,234 897,234" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="898" y="170" width="274" height="128" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="898" y="170" width="4" height="128" rx="2" fill="#B8730A"/>
+<circle cx="924" cy="196" r="9" fill="#FFFFFF" stroke="#16191F" stroke-width="1.5"/>
+<text x="924" y="199.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#16191F" text-anchor="middle">4</text>
+<text x="944" y="201" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14.5" font-weight="700" fill="#16191F" text-anchor="start">조치</text>
+<text x="916" y="230" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#3C4750" text-anchor="start">계층별 Runbook</text>
+<text x="916" y="254" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.5" font-weight="700" fill="#B8730A" text-anchor="start">층에 따라</text>
+<rect x="916" y="266" width="238" height="20" rx="2" fill="#FDF2F1" stroke="#C0392B" stroke-width="0.9"/>
+<text x="924" y="280" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#C0392B" text-anchor="start">런북 0건</text>
+<polyline points="1173,234 1183,234" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="1184" y="170" width="274" height="128" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="1184" y="170" width="4" height="128" rx="2" fill="#0E7C66"/>
+<circle cx="1210" cy="196" r="9" fill="#FFFFFF" stroke="#16191F" stroke-width="1.5"/>
+<text x="1210" y="199.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#16191F" text-anchor="middle">5</text>
+<text x="1230" y="201" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14.5" font-weight="700" fill="#16191F" text-anchor="start">복구 확인</text>
+<text x="1202" y="230" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#3C4750" text-anchor="start">프로브와 API 응답</text>
+<text x="1202" y="254" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.5" font-weight="700" fill="#0E7C66" text-anchor="start">자동</text>
+<polyline points="1459,234 1469,234" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="1470" y="170" width="274" height="128" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="1470" y="170" width="4" height="128" rx="2" fill="#0E7C66"/>
+<circle cx="1496" cy="196" r="9" fill="#FFFFFF" stroke="#16191F" stroke-width="1.5"/>
+<text x="1496" y="199.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#16191F" text-anchor="middle">6</text>
+<text x="1516" y="201" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14.5" font-weight="700" fill="#16191F" text-anchor="start">데이터 판정</text>
+<text x="1488" y="230" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#3C4750" text-anchor="start">불변식 권위 run</text>
+<text x="1488" y="254" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.5" font-weight="700" fill="#0E7C66" text-anchor="start">자동</text>
+<polyline points="1745,234 1755,234" fill="none" stroke="#16191F" stroke-width="1.4" marker-end="url(#h16191F)"/>
+<rect x="1756" y="170" width="274" height="128" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="1756" y="170" width="4" height="128" rx="2" fill="#5C6B75"/>
+<circle cx="1782" cy="196" r="9" fill="#FFFFFF" stroke="#16191F" stroke-width="1.5"/>
+<text x="1782" y="199.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#16191F" text-anchor="middle">7</text>
+<text x="1802" y="201" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14.5" font-weight="700" fill="#16191F" text-anchor="start">종료</text>
+<text x="1774" y="230" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#3C4750" text-anchor="start">verdict 아카이브</text>
+<text x="1774" y="254" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.5" font-weight="700" fill="#5C6B75" text-anchor="start">사람</text>
+<polyline points="1893,298 1893,328 177,328 177,300" fill="none" stroke="#5C6B75" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#h5C6B75)"/>
+<text x="197" y="320" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">정상 상태 재확인 후 루프로 복귀</text>
+<text x="40" y="380" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">심각도와 대응 시점</text>
+<text x="214" y="380" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">7.11. 알람은 경로가 있을 때만 알람이다</text>
+<rect x="40" y="396" width="1000" height="176" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="58" y="408" width="42" height="26" rx="3" fill="#C0392B"/>
+<text x="79" y="426" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">S1</text>
+<text x="116" y="426" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.5" font-weight="700" fill="#16191F" text-anchor="start">즉시 호출</text>
+<text x="272" y="426" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">LedgerImbalance · 불변식 CRITICAL · FailoverRtoExceeded · LeaderAbsent · RecoverableStandDownRepeating</text>
+<line x1="58" y1="448" x2="1022" y2="448" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="58" y="464" width="42" height="26" rx="3" fill="#B8730A"/>
+<text x="79" y="482" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">S2</text>
+<text x="116" y="482" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.5" font-weight="700" fill="#16191F" text-anchor="start">당일 근무 시간</text>
+<text x="272" y="482" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">불변식 HIGH · SequencerQueueBackpressure · OrderRejectSpike</text>
+<line x1="58" y1="504" x2="1022" y2="504" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="58" y="520" width="42" height="26" rx="3" fill="#5C6B75"/>
+<text x="79" y="538" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">S3</text>
+<text x="116" y="538" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12.5" font-weight="700" fill="#16191F" text-anchor="start">다음 영업일</text>
+<text x="272" y="538" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">불변식 WARN · 스냅샷 3종 · 체결 전파 지연 초과</text>
+<text x="58" y="590" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="700" fill="#C0392B" text-anchor="start">11종 전부 통지 경로가 없어 무음이다. 사람이 화면을 열기 전까지 장애를 모른다</text>
+<text x="1074" y="380" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">자동화 계층</text>
+<text x="1186" y="380" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">7.12. 사람 손이 어디서 끊기고 어디서 붙는가</text>
+<rect x="1074" y="396" width="986" height="176" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="1092" y="409" width="34" height="24" rx="3" fill="#0E7C66"/>
+<text x="1109" y="426" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">1층</text>
+<text x="1136" y="426" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12" font-weight="700" fill="#16191F" text-anchor="start">자가 복구</text>
+<text x="1218" y="426" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="700" fill="#0E7C66" text-anchor="start">개입 0</text>
+<text x="1310" y="426" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">리스 만료 후 무개입 승격 · readiness 503 자동 배제 · 쓰기 fencing · 좀비 리더 자발적 강등 · 백프레셔 무대기 거절</text>
+<line x1="1092" y1="440" x2="2042" y2="440" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="1092" y="449" width="34" height="24" rx="3" fill="#B8730A"/>
+<text x="1109" y="466" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">2층</text>
+<text x="1136" y="466" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12" font-weight="700" fill="#16191F" text-anchor="start">자동 완화</text>
+<text x="1218" y="466" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="700" fill="#B8730A" text-anchor="start">승인 필요</text>
+<text x="1310" y="466" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">승인 명령 소비기 · 2인 승인 토큰 단회 소각</text>
+<line x1="1092" y1="480" x2="2042" y2="480" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="1092" y="489" width="34" height="24" rx="3" fill="#5C6B75"/>
+<text x="1109" y="506" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">3층</text>
+<text x="1136" y="506" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12" font-weight="700" fill="#16191F" text-anchor="start">자동 진단</text>
+<text x="1218" y="506" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="700" fill="#5C6B75" text-anchor="start">사람이 판단</text>
+<text x="1310" y="506" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">불변식 스캔 · 권위 run 판정 · 카오스 종료코드 9종 · CI 관측 게이트</text>
+<line x1="1092" y1="520" x2="2042" y2="520" stroke="#D0D7DC" stroke-width="1"/>
+<rect x="1092" y="529" width="34" height="24" rx="3" fill="#C0392B"/>
+<text x="1109" y="546" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">4층</text>
+<text x="1136" y="546" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="12" font-weight="700" fill="#16191F" text-anchor="start">수동</text>
+<text x="1218" y="546" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="700" fill="#C0392B" text-anchor="start">남은 작업</text>
+<text x="1310" y="546" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">DB primary 승격 · 롤백 · 시크릿 주입 · 이미지 digest 반영 · 비용 확인</text>
+<text x="1092" y="590" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="400" fill="#5C6B75" text-anchor="start">4층이 남은 작업의 목록이다. Patroni 설정 파일 0건이라 DB 승격이 현재 수동이다</text>
+<text x="40" y="626" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">일부러 자동화하지 않은 것</text>
+<text x="268" y="626" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">무분별한 자동화는 사고를 키운다. 자동화의 안전 조건을 만족하지 못하는 것을 이름으로 적는다</text>
+<rect x="40" y="642" width="2020" height="152" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<circle cx="66" cy="666" r="4.5" fill="none" stroke="#5C6B75" stroke-width="1.4"/>
+<line x1="63" y1="663" x2="69" y2="669" stroke="#5C6B75" stroke-width="1.4"/>
+<text x="84" y="670" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="700" fill="#16191F" text-anchor="start">알람에 자동 액션 연결</text>
+<text x="430" y="670" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">알람 11개의 실제 발화 확인 건수가 0이다. 정확도 미검증 신호에 롤백을 걸면 오탐이 곧 사고다</text>
+<circle cx="66" cy="692" r="4.5" fill="none" stroke="#5C6B75" stroke-width="1.4"/>
+<line x1="63" y1="689" x2="69" y2="695" stroke="#5C6B75" stroke-width="1.4"/>
+<text x="84" y="696" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="700" fill="#16191F" text-anchor="start">파괴 액션을 서버가 직접 수행</text>
+<text x="430" y="696" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">리더를 죽이는 명령을 받은 프로세스가 그 명령으로 사라지면 기록할 주체가 없다</text>
+<circle cx="66" cy="718" r="4.5" fill="none" stroke="#5C6B75" stroke-width="1.4"/>
+<line x1="63" y1="715" x2="69" y2="721" stroke="#5C6B75" stroke-width="1.4"/>
+<text x="84" y="722" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="700" fill="#16191F" text-anchor="start">종신 강등 노드의 자동 재승격</text>
+<text x="430" y="722" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">재생 불가 노드가 자동 복귀하면 승격과 반납이 반복돼 서비스가 계속 끊긴다</text>
+<circle cx="66" cy="744" r="4.5" fill="none" stroke="#5C6B75" stroke-width="1.4"/>
+<line x1="63" y1="741" x2="69" y2="747" stroke="#5C6B75" stroke-width="1.4"/>
+<text x="84" y="748" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="700" fill="#16191F" text-anchor="start">수용 제한 대기열</text>
+<text x="430" y="748" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">큐를 두면 노드를 죽인 대기 스레드가 다시 쌓인다</text>
+<circle cx="66" cy="770" r="4.5" fill="none" stroke="#5C6B75" stroke-width="1.4"/>
+<line x1="63" y1="767" x2="69" y2="773" stroke="#5C6B75" stroke-width="1.4"/>
+<text x="84" y="774" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="700" fill="#16191F" text-anchor="start">시계 스큐 초과 시 실험 강행</text>
+<text x="430" y="774" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">거짓 FAIL 이 남는다. 자동화가 판단을 내리지 않고 판단 불가를 선언한다</text>
+<rect x="40" y="826" width="1000" height="146" rx="2" fill="none" stroke="#5C6B75" stroke-width="1.4"/>
+<text x="62" y="856" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">원장 불일치는 왜 자동으로 고치지 않는가</text>
+<text x="62" y="884" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="400" fill="#3C4750" text-anchor="start">보정 자체가 새 쓰기다. 잘못된 보정은 원래 상태로 돌아갈 근거를 없앤다.</text>
+<text x="62" y="906" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.4" font-weight="400" fill="#3C4750" text-anchor="start">긴급하다는 것과 자동으로 고쳐도 된다는 것은 다른 판단이다. S1 이면서 4층인 유일한 자리다.</text>
+<text x="62" y="942" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="700" fill="#5C6B75" text-anchor="start">계약 위반은 조용히 보정하기보다 명확하게 실패시키는 것을 우선한다</text>
+<rect x="1074" y="826" width="986" height="146" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
+<text x="1096" y="856" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">자동화의 안전 조건 셋</text>
+<circle cx="1108" cy="880" r="3" fill="#0E7C66"/>
+<text x="1122" y="884" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.2" font-weight="400" fill="#3C4750" text-anchor="start">조치 대상이 상태를 갖지 않거나 되돌릴 수 있는가</text>
+<circle cx="1108" cy="904" r="3" fill="#0E7C66"/>
+<text x="1122" y="908" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.2" font-weight="400" fill="#3C4750" text-anchor="start">오작동했을 때 영향 범위가 조치 전보다 넓어지지 않는가</text>
+<circle cx="1108" cy="928" r="3" fill="#0E7C66"/>
+<text x="1122" y="932" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.2" font-weight="400" fill="#3C4750" text-anchor="start">조치가 들었는지를 기계가 판정할 수 있는가</text>
+<text x="1096" y="960" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="700" fill="#5C6B75" text-anchor="start">셋 중 하나라도 아니면 자동화하지 않고 알림까지만 자동으로 둔다</text>
+<line x1="40" y1="1034" x2="2060" y2="1034" stroke="#D0D7DC" stroke-width="1.2"/>
+<text x="40" y="1064" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#16191F" text-anchor="start">범례</text>
+<text x="40" y="1086" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">색은 손이 닿는 정도다. 도면 1의 색은 노드 상태를 뜻하므로 두 도면에서 같은 색이 다른 축이다.</text>
+<rect x="700" y="1056" width="26" height="12" rx="2" fill="#0E7C66"/>
+<text x="736" y="1066" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">자동. 개입 0</text>
+<rect x="920" y="1056" width="26" height="12" rx="2" fill="#B8730A"/>
+<text x="956" y="1066" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">승인 필요</text>
+<rect x="1140" y="1056" width="26" height="12" rx="2" fill="#5C6B75"/>
+<text x="1176" y="1066" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">사람이 판단</text>
+<rect x="1360" y="1056" width="26" height="12" rx="2" fill="#C0392B"/>
+<text x="1396" y="1066" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">현재 결손</text>
+<text x="40" y="1114" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">이 도면은 설계다. 5단계와 6단계 외에는 아직 실행 기록이 없다. 알람 통지 경로와 계층 프로브와 런북이 남은 작업이고 그 셋이 1번 2번 3번 4번 정거장을 막고 있다.</text>
+</g>
+</svg>

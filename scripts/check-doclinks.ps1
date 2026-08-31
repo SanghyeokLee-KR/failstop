@@ -23,8 +23,11 @@ $exts = @(".md", ".ps1", ".java", ".ts", ".tsx", ".yml", ".yaml", ".sql", ".js",
 # 제출_20260901/build/까지 함께 잘리므로 경로 고정형으로 지정한다. 이름 기준은
 # 어느 위치에 있어도 원천이 아닌 둘만 남긴다.
 $skipNames = @("node_modules", ".git")
+# .claude/worktrees/ 는 다른 커밋을 체크아웃한 저장소 사본이라 그 시점의 인용을 그대로 갖는다.
+# 문서를 옮긴 뒤 사본이 남아 있으면 이미 고친 인용이 깨진 것으로 다시 잡힌다.
 $skipPaths = @("server/build", "server/*/build", "server/.gradle",
-               "web/.next", "web/.test-dist", "web/out", "seed-data/out")
+               "web/.next", "web/.test-dist", "web/out", "seed-data/out",
+               ".claude/worktrees")
 $skipFiles = @("package-lock.json")
 # 폐기 문서 발신은 판정 대상이 아니다. 스타일 게이트의 archive 면제와 같은 규약이다.
 $archivePrefix = "docs/archive/"
