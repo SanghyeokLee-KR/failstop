@@ -113,7 +113,6 @@ export default function AdminTransfersPage() {
         key: "amount",
         label: "금액",
         width: "160px",
-        align: "right",
         sortValue: (r) => Number(r.amount),
         firstDir: "desc",
         render: (r) => (
@@ -126,7 +125,6 @@ export default function AdminTransfersPage() {
         key: "created",
         label: "요청 시각",
         width: "120px",
-        align: "right",
         sortValue: (r) => r.createdAt,
         firstDir: "desc",
         render: (r) => <span className="num">{formatTimeHMS(new Date(r.createdAt).toISOString())}</span>,
@@ -210,6 +208,7 @@ export default function AdminTransfersPage() {
             rows={rows}
             rowKey={(r) => r.externalId}
             ariaLabel="출금 요청 목록"
+            defaultAlign="center"
           />
         )}
 

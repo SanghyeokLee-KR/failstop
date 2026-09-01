@@ -131,7 +131,7 @@ export default function AdminMembersPage() {
         </button>
       ),
     },
-    { key: "displayName", label: "표시명", width: "minmax(110px, 1fr)", render: (m) => m.displayName ?? "-" },
+    { key: "displayName", label: "표시명", width: "minmax(110px, 0.9fr)", render: (m) => m.displayName ?? "-" },
     {
       key: "status",
       label: "상태",
@@ -144,16 +144,53 @@ export default function AdminMembersPage() {
           <span className={styles.neutralPill}>{STATUS_LABEL[m.status]}</span>
         ),
     },
+    /* 활동 요약 3열(§6-E v2.35). 상세를 열어야 보이던 값을 목록으로 올린다.
+       정지·폐쇄 대상을 고르는 곳이 목록이고, 폐쇄는 미체결을 전량 취소하므로
+       그 수는 조치 전에 보여야 한다. 0은 잉크를 낮춰 남은 건이 있는 행이 먼저 눈에 들게 한다 */
+    {
+      key: "openOrders",
+      label: "미체결",
+      width: "88px",
+      render: (m) =>
+        m.openOrderCount > 0 ? (
+          <span className="num">{formatCount(m.openOrderCount)}</span>
+        ) : (
+          <span className={styles.stateText}>0</span>
+        ),
+    },
+    {
+      key: "assetKinds",
+      label: "보유 종류",
+      width: "96px",
+      render: (m) =>
+        m.assetKinds > 0 ? (
+          <span className="num">{formatCount(m.assetKinds)}</span>
+        ) : (
+          <span className={styles.stateText}>0</span>
+        ),
+    },
+    {
+      key: "lastOrderAt",
+      label: "최근 주문",
+      width: "116px",
+      // 주문 이력이 없으면 시각이 아니라 없음이다. 0시로 채우면 1970년이 뜬다
+      render: (m) =>
+        m.lastOrderAt ? (
+          <span className="num">{formatHistoryTime(new Date(m.lastOrderAt).toISOString())}</span>
+        ) : (
+          <span className={styles.stateText}>-</span>
+        ),
+    },
     {
       key: "createdAt",
       label: "가입",
-      width: "150px",
+      width: "116px",
       render: (m) => <span className="num">{formatHistoryTime(new Date(m.createdAt).toISOString())}</span>,
     },
     {
       key: "actions",
       label: "조치",
-      width: "180px",
+      width: "150px",
       render: (m) => {
         if (m.status === "CLOSED") return <span className={styles.auditNil}>종결</span>;
         return (
@@ -208,7 +245,7 @@ export default function AdminMembersPage() {
             <span className="empty-state__title">해당 상태의 회원 없음</span>
           </div>
         ) : (
-          <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={44} ariaLabel="회원 목록" />
+          <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={44} ariaLabel="회원 목록" defaultAlign="center" />
         )}
         <Pager
           page={page}

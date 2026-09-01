@@ -38,6 +38,12 @@ interface Props<T> {
   rowAriaLabel?: (row: T) => string;
   ariaLabel: string;
   empty?: ReactNode;
+  /**
+   * 열이 align을 지정하지 않았을 때의 기본 정렬. 기본 left.
+   * 관리 콘솔 표는 center로 통일한다. 열마다 align을 손으로 적으면 표 하나가 빠져도
+   * 화면에서만 드러나고, 새 열이 추가될 때 조용히 좌측으로 돌아간다.
+   */
+  defaultAlign?: "left" | "right" | "center";
 }
 
 export default function DataTable<T>({
@@ -50,6 +56,7 @@ export default function DataTable<T>({
   rowAriaLabel,
   ariaLabel,
   empty,
+  defaultAlign = "left",
 }: Props<T>) {
   const [sort, setSort] = useState<SortState | null>(defaultSort ?? null);
 
@@ -96,7 +103,7 @@ export default function DataTable<T>({
               key={c.key}
               role="columnheader"
               className={styles.hcell}
-              data-align={c.align ?? "left"}
+              data-align={c.align ?? defaultAlign}
               aria-sort={on ? (sort.dir === "desc" ? "descending" : "ascending") : undefined}
             >
               {c.sortValue ? (
@@ -139,7 +146,7 @@ export default function DataTable<T>({
                   key={c.key}
                   role="cell"
                   className={styles.cell}
-                  data-align={c.align ?? "left"}
+                  data-align={c.align ?? defaultAlign}
                 >
                   {c.render(row)}
                 </span>

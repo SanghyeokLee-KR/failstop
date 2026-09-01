@@ -70,6 +70,17 @@ export const SCENARIO_CATALOG: ScenarioDef[] = [
     note: "균형 제어를 끄고 목표 방향을 직접 넣는다. 대수는 그대로",
   },
   {
+    /* spike 의 방향 대칭. 부하 축(OPS·λ·대수)이 spike 와 같고 bias 부호만 반대다.
+       부하와 방향은 직교하는 축이라 백프레셔 관찰은 어느 방향에서든 같은 것을 잰다.
+       두는 이유는 재현이다. 거래소 사고는 상승보다 급락에서 나는데(투매·일방 호가·손절 연쇄)
+       프리셋이 전부 양전이면 콘솔이 한쪽 국면만 재현할 수 있다. spike 바로 뒤에 놓아
+       두 국면이 같은 부하의 앞뒷면이라는 것을 배치로 보인다 */
+    name: "selloff", label: "급락 투매", opsMult: 10.0, lambdaMult: 10.0,
+    scale: { MARKET_MAKER: 1.0, TAKER: 1.0, TREND: 1.0, NOISE: 1.0 },
+    targetBias: "-0.60", autoBalance: false, strength: "0.5", intensity: "surge",
+    note: "급등 폭주의 방향 대칭. 부하는 같고 방향만 반대",
+  },
+  {
     name: "thundering-herd", label: "일제 쏠림", opsMult: 12.0, lambdaMult: 12.0,
     scale: { MARKET_MAKER: 1.0, TAKER: 1.0, TREND: 1.0, NOISE: 1.0 },
     targetBias: "0.70", autoBalance: false, strength: "0.5", intensity: "surge",

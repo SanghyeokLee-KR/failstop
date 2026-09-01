@@ -36,7 +36,11 @@ public class DevConfig {
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         // Idempotency-Key는 게시판 쓰기 멱등 계약(게시판_설계 4.2) 헤더다. 누락 시 브라우저
         // 프리플라이트가 거부돼 크로스오리진 글·댓글 작성이 전부 실패한다(비브라우저 테스트는 미검출).
-        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key"));
+        // X-Operator-Cn은 관리 평면 신원 헤더다(exchange.admin.mtls.forward-header). dev는
+        // mTLS 종단 게이트웨이가 없어 브라우저가 직접 싣는다. 누락 시 프리플라이트가 거부돼
+        // 관리 콘솔 세션 발급이 전부 실패한다.
+        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key",
+                "X-Operator-Cn"));
         // 크로스오리진에서 기본 노출되지 않는 레이트리밋·상관추적 헤더를 web 폴백이 읽도록 노출한다.
         cfg.setExposedHeaders(List.of("Retry-After",
                 "X-RateLimit-Limit-account", "X-RateLimit-Limit-admin",
@@ -47,6 +51,10 @@ public class DevConfig {
         cfg.setMaxAge(1800L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/v1/**", cfg);
+        // 관리 평면도 같은 계약으로 연다. 이 경로가 실제로 존재하는 것은 admin-local 프로파일을
+        // 명시 활성한 기동뿐이고(exchange.admin.enabled), 없는 기동에서는 매핑만 있고 가리킬
+        // 핸들러가 없어 무해하다. 운영은 이 클래스 자체가 로드되지 않는다
+        source.registerCorsConfiguration("/admin/v1/**", cfg);
         FilterRegistrationBean<CorsFilter> registration =
                 new FilterRegistrationBean<>(new CorsFilter(source));
         registration.setOrder(0);

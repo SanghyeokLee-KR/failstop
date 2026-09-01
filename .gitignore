@@ -49,3 +49,7 @@ tmp/
 harness/load/artifacts/
 # 부하 계정 키. 발급 시점 평문 시크릿이라 저장소에 두지 않는다(README 규약).
 harness/load/secrets/k6_keys.json
+
+# drawio 편집 중 잠금·백업 파일. 앱이 열어둔 동안만 생기고 닫으면 사라진다
+.$*.drawio.bkp
+.$*.drawio.dtmp

@@ -86,11 +86,6 @@ export default function ScenarioSection({ canOps, onChanged }: Props) {
         <span className={styles.controlSep} aria-hidden="true" />
         {surge.map(tile)}
       </div>
-      <p className={styles.formHelp}>
-        기준선 대비 배수라 같은 국면을 두 번 눌러도 결과가 같습니다. 평상이 복귀 경로입니다. 발행 상한과
-        테이커 도착률을 함께 올리므로 주문량이 따라 오릅니다. 마켓메이커 호가 주기는 그대로라 폭주 국면에서는
-        호가가 먹히는 속도가 공급을 앞질러 스프레드가 벌어집니다.
-      </p>
       {last && (
         <div className={styles.presetReadout}>
           <span className={styles.presetReadoutKey}>마지막 적용</span>

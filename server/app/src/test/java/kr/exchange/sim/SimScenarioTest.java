@@ -54,23 +54,24 @@ class SimScenarioTest {
     }
 
     @Test
-    void wireNamesAreFiveAndUnique() {
-        assertEquals(5, SimScenario.values().length);
+    void wireNamesAreSixAndUnique() {
+        assertEquals(6, SimScenario.values().length);
         long distinct = java.util.Arrays.stream(SimScenario.values())
                 .map(SimScenario::wireName).distinct().count();
-        assertEquals(5, distinct);
+        assertEquals(6, distinct);
         for (SimScenario s : SimScenario.values()) {
             assertEquals(s, SimScenario.parse(s.wireName()));
         }
     }
 
-    /** API §6-A 배수표 5x8 전체를 못 박는다. 표와 코드가 갈라지면 여기서 깨진다. */
+    /** API §6-A 배수표 6x8 전체를 못 박는다. 표와 코드가 갈라지면 여기서 깨진다. */
     @Test
     void presetTableMatchesCanonicalContract() {
         assertPreset(SimScenario.STEADY, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.00, true, 0.5);
         assertPreset(SimScenario.VOLATILE, 1.5, 1.5, 0.6, 1.3, 1.5, 1.2, 0.00, true, 0.15);
         assertPreset(SimScenario.RAMP, 2.0, 2.0, 1.0, 1.4, 2.0, 1.0, 0.35, true, 0.3);
         assertPreset(SimScenario.SPIKE, 10.0, 10.0, 1.0, 1.0, 1.0, 1.0, 0.60, false, 0.5);
+        assertPreset(SimScenario.SELLOFF, 10.0, 10.0, 1.0, 1.0, 1.0, 1.0, -0.60, false, 0.5);
         assertPreset(SimScenario.THUNDERING_HERD, 12.0, 12.0, 1.0, 1.0, 1.0, 1.0, 0.70, false, 0.5);
     }
 
@@ -298,6 +299,23 @@ class SimScenarioTest {
         // 하네스 §2-3 목표표 normal 300 -> spike 10x = 3,000 명목. 상한이지 달성치가 아니다
         assertEquals(3000.0, SimScenario.SPIKE.scaledOps(300.0), 1e-9);
         assertEquals(3600.0, SimScenario.THUNDERING_HERD.scaledOps(300.0), 1e-9);
+        // 방향 대칭은 부하 축을 건드리지 않는다. selloff의 OPS는 spike와 같다
+        assertEquals(3000.0, SimScenario.SELLOFF.scaledOps(300.0), 1e-9);
+    }
+
+    /** 부하와 방향은 직교한다. selloff는 spike의 부하 축을 그대로 두고 부호만 뒤집는다 */
+    @Test
+    void selloffMirrorsSpikeOnLoadAxis() {
+        SimScenario a = SimScenario.SPIKE;
+        SimScenario b = SimScenario.SELLOFF;
+        assertEquals(a.opsMult(), b.opsMult(), 1e-9, "OPS 배수");
+        assertEquals(a.lambdaMult(), b.lambdaMult(), 1e-9, "λ 배수");
+        for (BotType t : BotType.values()) {
+            assertEquals(a.scaled(t, 7), b.scaled(t, 7), t + " 대수 배수");
+        }
+        assertEquals(-a.targetBias(), b.targetBias(), 1e-9, "방향만 반대");
+        assertEquals(a.autoBalance(), b.autoBalance(), "둘 다 균형 제어 없이 직접 민다");
+        assertEquals(a.strength(), b.strength(), 1e-9, "강도");
     }
 
     @Test

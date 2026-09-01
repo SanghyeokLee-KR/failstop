@@ -88,6 +88,14 @@ export interface AdminApi {
   rejectApproval(approvalId: string): Promise<ApprovalRequest>;
   /** 요청 운영자 본인이 발급 토큰을 파괴 액션 바디에 실어 소각(실효 액션 실행) */
   consumeApproval(approval: IssuedApproval): Promise<void>;
+  /**
+   * 승인 없이 즉시 실행한다(§3-6 v2.34 카오스 승인 완화).
+   *
+   * 카오스 4종만 서버가 approval_token 을 불요로 열었다. 2인 승인은 발급 주체와 사용 주체가
+   * 서로 달라야 성립하는데(반결탁) 이 배포의 실행 주체는 1인이라 그 조건을 만족시킬 방법이 없다.
+   * 나머지 파괴 액션은 필수 열거에 그대로 남아 있어 이 경로로 부르면 서버가 반려한다.
+   */
+  executeDirect(payload: ApprovalPayload): Promise<void>;
 
   /* ===== 모니터링(§2-3, 읽기 전용) ===== */
   getOverview(): Promise<AdminOverview>;
@@ -193,8 +201,29 @@ export function requireSession(api: AdminApi): AdminSession {
 
 let singleton: AdminApi | null = null;
 
+/**
+ * 관리 평면 어댑터 판정. 고객 평면과 따로 정한다.
+ *
+ * 왜 따로인가. 관리 평면은 고객 평면과 같은 프로세스가 아니다. 별도 배포단위이고 포트도
+ * 8443이며 mTLS 클라이언트 인증서를 강제한다(관리자 설계 §0, §4-1). 즉 고객 백엔드가 떠
+ * 있다는 사실이 관리 백엔드도 떠 있다는 뜻이 아니다. 그런데 종전에는 스위치가 하나뿐이라
+ * 고객 평면을 실서버에 붙이는 순간 관리 화면도 8443을 찾아갔고, 그 쪽을 안 띄웠으면
+ * 로그인 화면에서 더 나아갈 수 없었다. 두 평면이 물리 분리라는 사실이 설정에도 있어야 한다.
+ *
+ * 값을 안 주면 고객 평면 설정을 따른다. 종전 동작이 기본값이라 배포 빌드는 바뀌지 않는다.
+ * NEXT_PUBLIC_*는 빌드 타임 인라인이라 두 이름 모두 리터럴로 적어야 치환된다.
+ */
+function adminMode(): string {
+  return process.env.NEXT_PUBLIC_ADMIN_DATASOURCE || process.env.NEXT_PUBLIC_DATASOURCE || "sim";
+}
+
+/** 관리 화면이 실서버(mTLS 평면)를 보고 있는가. 로그인 화면의 인증서 열거 분기와 공유한다 */
+export function isAdminHttp(): boolean {
+  return adminMode() === "http";
+}
+
 function createAdminApi(): AdminApi {
-  if (process.env.NEXT_PUBLIC_DATASOURCE === "http") {
+  if (isAdminHttp()) {
     return new HttpAdminApi(process.env.NEXT_PUBLIC_ADMIN_BASE ?? "");
   }
   return new SimAdminApi();

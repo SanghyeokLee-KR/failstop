@@ -9,9 +9,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { useCan } from "@/lib/admin/store";
 import { BOT_TYPES, BOT_TYPE_LABEL } from "@/lib/admin/types";
-import type { Bot, BotType, DestructiveAction, SimStatus } from "@/lib/admin/types";
+import type { BotType, DestructiveAction, MarketSimState, SimStatus } from "@/lib/admin/types";
 import { COIN_META } from "@/lib/sim/engine";
-import { formatCount } from "@/lib/format";
+import { formatCount, formatNetBias } from "@/lib/format";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
@@ -118,27 +118,88 @@ export default function BotsPage() {
   };
 
   /* 첫 열은 판단에 쓰는 값이어야 한다. 기계 식별자는 개별 봇을 지목할 때만 필요해 뒤로 보낸다 */
-  const botCols: DataColumn<Bot>[] = [
-    { key: "market", label: "마켓", width: "110px", render: (b) => b.market },
-    { key: "type", label: "유형", width: "110px", render: (b) => BOT_TYPE_LABEL[b.type] },
-    {
-      key: "active",
-      label: "상태",
-      width: "96px",
-      // 정상(가동)은 잉크, 정지만 pill로 세운다
-      render: (b) => (b.active ? <span className={styles.stateText}>가동</span> : <span className={styles.neutralPill}>정지</span>),
+  /* 플릿 인벤토리 한 행. 마켓 x 유형이 단위다.
+     종전에는 봇 인스턴스 한 마리가 한 행이었는데, 그건 sim 어댑터에만 있는 모델이었다.
+     실제 플릿은 이름 붙은 인스턴스를 두지 않는다. 유형별 최대 풀을 미리 띄워 두고 인덱스가
+     현재 목표 이하인 봇만 활성으로 두는 파킹 방식이라(BotFleet), 서버가 내려주는 것은
+     markets[].scale[유형].{target, active}뿐이고 bots 배열은 비어 온다.
+     그래서 실서버에 붙이면 표가 머리글만 남고 비었다. 화면이 데이터를 못 받은 것처럼 보였다.
+     양쪽 어댑터가 모두 채우는 scale 을 단위로 삼아 한 표로 맞춘다. */
+  const fleetRows = useMemo(() => sim?.markets ?? [], [sim]);
+
+  type FleetRow = MarketSimState;
+
+  /* 이름 붙은 봇 인스턴스. 파라미터 변경은 봇 id 를 대상으로 받는 계약이라 이 목록이 있어야
+     대상을 고를 수 있다. 실제 플릿은 파킹 풀이라 id 를 내지 않아 여기가 빈다(status 의 bots 가 빈 배열).
+     빈 채로 select 만 두면 "봇 선택"이 열리는데 안이 비어 고장으로 읽히므로 사유를 적는다 */
+  const namedBots = sim?.bots ?? [];
+
+  /* 마켓이 행, 유형이 열이다. 서버가 주는 scale 이 원래 마켓 x 유형 행렬이라 그 모양 그대로 둔다.
+     종전에는 이것을 12행으로 폈는데, 세로를 세 배로 쓰면서 가로는 800px 를 비워 놨다.
+     행렬로 두면 마켓 하나가 한 줄이라 세 마켓을 한눈에 견주고, 남는 가로에 마켓 단위 관측치
+     (체결률·실측 방향)가 들어간다. 그 둘은 지금 시장 생동감에서 한 번에 한 마켓씩만 보인다 */
+  const typeCol = (t: BotType): DataColumn<FleetRow> => ({
+    key: t,
+    label: BOT_TYPE_LABEL[t],
+    width: "110px",
+    align: "center",
+    render: (m) => {
+      const s = m.scale[t];
+      // 미등록 유형은 0 이 아니라 없음이다. 0 을 적으면 목표를 0 으로 내린 것과 구분되지 않는다
+      if (!s) return <span className={styles.stateTextDim}>-</span>;
+      // 수렴 중일 때만 목표를 병기한다. 늘 적으면 12칸이 전부 "1 / 1" 이라 어긋난 칸이 안 보인다
+      return s.active === s.target ? <>{s.active}</> : <>{s.active} / {s.target}</>;
     },
-    { key: "id", label: "봇 ID", width: "minmax(140px, 1.2fr)", render: (b) => b.id },
-    { key: "ops", label: "OPS", width: "80px", align: "right", render: (b) => b.ops },
+  });
+
+  const botCols: DataColumn<FleetRow>[] = [
+    { key: "market", label: "마켓", width: "130px", align: "center", render: (m) => m.market },
+    ...BOT_TYPES.map(typeCol),
     {
-      key: "params",
-      label: "파라미터",
-      width: "minmax(160px, 1fr)",
-      render: (b) => (
-        <span className={styles.paramCell} title="spread 호가 간격 · size 주문 수량 · ttl_ms 주문 수명">
-          spread {b.params.spread} · size {b.params.size} · ttl {b.params.ttl_ms}
-        </span>
-      ),
+      key: "sum",
+      label: "합계",
+      width: "90px",
+      align: "center",
+      render: (m) => BOT_TYPES.reduce((n, t) => n + (m.scale[t]?.active ?? 0), 0),
+    },
+    {
+      key: "fill",
+      label: "체결률",
+      width: "96px",
+      align: "center",
+      render: (m) => m.fillRatio,
+    },
+    {
+      key: "bias",
+      label: "실측 방향",
+      width: "130px",
+      align: "center",
+      // 프리셋 타일과 같은 표기다. 같은 값을 두 곳에서 다른 모양으로 적지 않는다
+      render: (m) => {
+        const b = formatNetBias(m.measuredNetBias);
+        return <span className={styles.presetBias} data-dir={b.dir}>{b.text}</span>;
+      },
+    },
+    {
+      key: "state",
+      label: "가동",
+      // 전 열 중앙 정렬이다. 한 자리 수가 넓은 머리글 아래 우측에 붙어 있으면 제 이름표에서
+      // 떨어져 보이고, 자릿수가 모두 같아 우측 정렬로 얻는 자리 맞춤도 없다.
+      // 남는 폭은 이 열이 받는다
+      width: "minmax(140px, 1fr)",
+      align: "center",
+      /* 이 열이 답하는 것은 "이 봇들이 지금 일하고 있는가"다. 대수가 목표에 닿았다는 뜻의
+         "목표 도달"은 작업이 끝났다는 뜻으로 읽혔다. 봇은 끝나는 일이 아니라 계속 호가를 낸다.
+         더 나쁜 것은 플릿을 정지시켜도 그 표기가 남았다는 점이다. active 는 파킹 풀의 설정
+         대수라 running 을 반영하지 않는다. 그래서 플릿 수명주기를 먼저 본다.
+         정상(거래 중)은 잉크, 이탈만 pill 로 세운다 */
+      render: (m) => {
+        if (!sim?.running) return <span className={styles.neutralPill}>플릿 정지</span>;
+        if (sim.paused) return <span className={styles.neutralPill}>일시정지</span>;
+        const off = BOT_TYPES.filter((t) => m.scale[t] && m.scale[t]!.active !== m.scale[t]!.target).length;
+        if (off > 0) return <span className={styles.neutralPill}>수렴 중 {off}개 유형</span>;
+        return <span className={styles.stateText}>거래 중</span>;
+      },
     },
   ];
 
@@ -173,7 +234,14 @@ export default function BotsPage() {
             sub={`목표 ${formatCount(sim.rate)}`}
             meter={{ value: sim.currentOps, max: OPS_MAX, marks: [{ at: sim.rate, label: "목표" }] }}
           />
-          <StatTile label="활성 봇" value={`${sim.activeBots} / ${sim.botCount}`} />
+          {/* 정지 중에도 대수는 그대로 뜬다. active 는 파킹 풀의 설정 대수라 수명주기와 무관하다.
+              숫자만 두면 "14대가 돌고 있다"로 읽히므로 정지·일시정지일 때 사유를 병기한다 */}
+          <StatTile
+            label="활성 봇"
+            value={`${sim.activeBots} / ${sim.botCount}`}
+            sub={sim.running ? (sim.paused ? "일시정지 중 · 발행 없음" : undefined) : "플릿 정지 중 · 발행 없음"}
+            tone={sim.running && !sim.paused ? undefined : "warning"}
+          />
           <StatTile
             label="성공률"
             /* 소수 둘째 자리는 운영 판단에 안 쓰인다. 자릿수가 많으면 변화를 못 읽는다.
@@ -258,11 +326,25 @@ export default function BotsPage() {
       <ScenarioSection canOps={canOps} onChanged={load} />
 
       {/* 조회 빈도 순서: 목록이 튜닝·생성보다 위. 당직자는 봇이 뭘 하는지부터 본다 */}
-      <PanelCard title="봇 목록">
+      <PanelCard title="플릿 인벤토리" actions={<span className={styles.panelMeta}>마켓 x 유형</span>}>
         {!sim ? (
           <Skeleton variant="card" width="100%" height={200} />
         ) : (
-          <DataTable columns={botCols} rows={sim.bots} rowKey={(b) => b.id} rowHeight={44} ariaLabel="봇 목록" />
+          <DataTable
+            columns={botCols}
+            rows={fleetRows}
+            rowKey={(m) => m.market}
+            rowHeight={44}
+            ariaLabel="플릿 인벤토리"
+            defaultAlign="center"
+            /* 빈 표를 머리글만 남기고 두지 않는다. 종전에는 empty 를 주지 않아 실서버에서
+               행 없는 표가 그대로 떴고, 데이터를 못 받은 화면과 구분되지 않았다 */
+            empty={
+              <p className={styles.formHelp}>
+                등록된 마켓 없음. 아래 봇 타입별 대수에서 목표를 올리면 서버가 수렴시킵니다
+              </p>
+            }
+          />
         )}
       </PanelCard>
 
@@ -312,12 +394,23 @@ export default function BotsPage() {
       <PanelCard title="파라미터 변경 요청" actions={<span className={styles.panelMeta}>2인 승인</span>}>
         {/* 정상 절차 설명은 경보면이 아니라 무채 각주. 경보색은 권한 부족 등 이탈 전용 */}
         <p className={styles.formHelp}>실행 중 파라미터 변경은 파괴 액션이라 다른 운영자의 승인과 요청자 실행을 거칩니다.</p>
+        {sim && namedBots.length === 0 && (
+          <p className={styles.formHelp}>
+            기동 중인 플릿은 봇 id를 발행하지 않습니다(유형별 파킹 풀). 대상 지정이 필요한 이 경로는
+            id를 내는 플릿에서만 씁니다. 대수·방향·OPS는 위 제어로 바꿉니다
+          </p>
+        )}
         <div className={styles.formRow}>
           <label className={styles.field}>
             <span>대상 봇</span>
-            <select value={paramBotId} onChange={(e) => setParamBotId(e.target.value)} aria-label="대상 봇">
-              <option value="">봇 선택</option>
-              {sim?.bots.map((b) => (
+            <select
+              value={paramBotId}
+              onChange={(e) => setParamBotId(e.target.value)}
+              aria-label="대상 봇"
+              disabled={namedBots.length === 0}
+            >
+              <option value="">{namedBots.length === 0 ? "대상 없음" : "봇 선택"}</option>
+              {namedBots.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.id} · {BOT_TYPE_LABEL[b.type]} {b.market}
                 </option>

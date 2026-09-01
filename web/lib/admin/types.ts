@@ -308,7 +308,7 @@ export interface DirectionBiasResult {
 }
 
 /** 시나리오 프리셋 이름(§6-A v2.31). 정본 표기는 하이픈이다 */
-export type ScenarioName = "steady" | "volatile" | "ramp" | "spike" | "thundering-herd";
+export type ScenarioName = "steady" | "volatile" | "ramp" | "spike" | "selloff" | "thundering-herd";
 
 /** POST /admin/v1/sim/scenarios/{name}/activate 응답의 markets[] 원소 */
 export interface ScenarioMarketResult {
@@ -407,6 +407,9 @@ export interface ConfigMarket {
   state: MarketState;
   makerFee: string; // 문자열 수수료율
   takerFee: string;
+  /** 주문 규칙(§2 v2.35). 호가 격자와 최소 주문 금액. NUMERIC 문자열 그대로 */
+  tickSize: string;
+  minNotional: string;
 }
 
 /** 공지 심각도. 배너 위계 구분(§6-D 공지 목록 active 포함) */
@@ -461,6 +464,12 @@ export interface AdminMember {
   displayName: string | null;
   status: MemberStatus;
   createdAt: number;
+  /* 활동 요약(§6-E v2.35). 상세와 같은 정의를 목록 행이 함께 싣는다.
+     정지·폐쇄 대상을 고르는 곳이 목록이고, 폐쇄는 미체결을 전량 취소하므로
+     그 수는 조치 전에 보여야 한다 */
+  openOrderCount: number;
+  lastOrderAt: number | null;
+  assetKinds: number;
 }
 
 /**
@@ -469,9 +478,6 @@ export interface AdminMember {
  */
 export interface AdminMemberDetail extends AdminMember {
   updatedAt: number;
-  openOrderCount: number;
-  lastOrderAt: number | null;
-  assetKinds: number;
 }
 
 /** 전이 결과. 무엇이 함께 정리됐는지 운영자에게 되돌려 준다 */

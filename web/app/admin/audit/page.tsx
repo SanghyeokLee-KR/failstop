@@ -272,6 +272,7 @@ export default function AuditPage() {
                 // 비인터랙티브 판독 행이라 36px 밀도로 주사 존을 좁힌다(44px 히트 타깃 규칙은 조작 요소 대상)
                 rowHeight={36}
                 ariaLabel="관리 감사 로그"
+                defaultAlign="center"
                 empty={
                   hasFilter && rows.length > 0 ? (
                     <div className="empty-state">

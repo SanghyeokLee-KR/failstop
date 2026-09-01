@@ -59,9 +59,23 @@ public class MemberAdminService {
      */
     public List<CursorPages.Row<Map<String, Object>>> list(String status, Cursors.Cursor cursor,
                                                            int limit) {
+        /* 활동 요약 3열은 상세와 같은 정의다(§6-E v2.35). 상관 서브쿼리로 한 왕복에 담는다.
+           행마다 상세를 부르면 N+1이 되고 그 비용이 화면 폴링 주기마다 나간다.
+           open_order_count·last_order_at은 idx_orders_user(user_id, status, created_at DESC)를,
+           asset_kinds는 accounts UNIQUE(owner_type, owner_id, ...) 접두를 탄다.
+           한 쪽 상한이 200행이라 서브쿼리 수는 유계다. */
         StringBuilder sql = new StringBuilder("""
                 SELECT u.id, u.external_id::text AS external_id, u.email, u.status,
-                       u.created_at, p.display_name
+                       u.created_at, p.display_name,
+                       (SELECT count(*) FROM orders o
+                         WHERE o.user_id = u.id
+                           AND o.status IN ('OPEN','PARTIAL')) AS open_order_count,
+                       (SELECT max(o.created_at) FROM orders o
+                         WHERE o.user_id = u.id) AS last_order_at,
+                       (SELECT count(DISTINCT a.asset_id)
+                          FROM accounts a JOIN balances b ON b.account_id = a.id
+                         WHERE a.owner_type = 'USER' AND a.owner_id = u.id
+                           AND b.balance <> 0) AS asset_kinds
                 FROM users u
                 LEFT JOIN user_profiles p ON p.user_id = u.id
                 WHERE u.kind = 'HUMAN'
@@ -94,6 +108,11 @@ public class MemberAdminService {
                     row.put("display_name", rs.getString("display_name"));
                     row.put("status", rs.getString("status"));
                     row.put("created_at", ApiFormats.time(at));
+                    row.put("open_order_count", rs.getLong("open_order_count"));
+                    // 주문이 없으면 max()가 null이다. ApiFormats.time(null)은 NPE라 값을 먼저 본다
+                    OffsetDateTime lastOrder = rs.getObject("last_order_at", OffsetDateTime.class);
+                    row.put("last_order_at", lastOrder == null ? null : ApiFormats.time(lastOrder));
+                    row.put("asset_kinds", rs.getLong("asset_kinds"));
                     return new CursorPages.Row<>(row, at, String.valueOf(rs.getLong("id")));
                 })
                 .list();

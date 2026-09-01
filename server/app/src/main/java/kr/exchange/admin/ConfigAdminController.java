@@ -68,14 +68,20 @@ public class ConfigAdminController {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
         List<Map<String, Object>> rows = jdbc.sql("""
                         SELECT symbol, status, maker_fee_rate::text AS maker_fee,
-                               taker_fee_rate::text AS taker_fee
+                               taker_fee_rate::text AS taker_fee,
+                               tick_size::text AS tick_size,
+                               min_notional::text AS min_notional
                         FROM markets ORDER BY id
                         """)
                 .query((rs, n) -> Map.<String, Object>of(
                         "market", rs.getString("symbol"),
                         "status", rs.getString("status"),
                         "maker_fee", rs.getString("maker_fee"),
-                        "taker_fee", rs.getString("taker_fee")))
+                        "taker_fee", rs.getString("taker_fee"),
+                        // 주문 규칙(§2 v2.35). markets 가 이미 드는 값이라 조인이 없다.
+                        // 정지·수수료 판단에서 같이 읽히는데 종전에는 고객 평면에만 있었다
+                        "tick_size", rs.getString("tick_size"),
+                        "min_notional", rs.getString("min_notional")))
                 .list();
         // 마켓 수는 카탈로그로 유계라 커서를 발급하지 않는다. §2-2대로 필드는 리터럴로 채운다
         return Map.of("schema_version", "1.0", "data", rows,

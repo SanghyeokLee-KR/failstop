@@ -66,11 +66,32 @@
 .row[data-clickable] { cursor: pointer; }
 .row[data-clickable]:hover { background: var(--surface-hover); }
 
+/* 셀은 제 열 폭 안에서 끝난다. nowrap 과 overflow 가 없으면 긴 값(UUID 같은 하이픈 포함
+   문자열)이 줄바꿈해 고정 rowHeight 를 넘고, 넘친 줄이 아래 행 위에 겹쳐 그려진다.
+   카오스 실험 이력의 experiment_id 가 정확히 그 경우였다.
+   자르는 쪽을 택한 이유는 행 높이가 고정이라서다. 늘리면 표의 밀도 계약이 행마다 달라진다 */
 .cell {
   display: flex;
   align-items: center;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
   font-variant-numeric: tabular-nums lining-nums;
+}
+/* 말줄임은 요소 자식에만 걸린다. 익명 플렉스 아이템(맨 텍스트)은 위 overflow 가 잘라만 준다 */
+.cell > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cell[data-align="right"] { justify-content: flex-end; text-align: right; }
 .cell[data-align="center"] { justify-content: center; }
+
+/* 우측 정렬 열 바로 뒤에 좌측 정렬 열이 오면 숫자 끝과 글자 시작이 gap 8px 사이로 붙어
+   한 덩어리로 읽힌다. 봇 목록의 "6 spread 0.0008"이 그 경우다. 숫자가 뒷 열의 접두사처럼
+   보이면 그 열이 무슨 수치인지 다시 헤더를 올려다봐야 한다.
+   경계에만 여백을 더한다. 열 폭을 키우면 격자 자체가 흔들려 다른 열 정렬이 따라 움직인다 */
+.cell[data-align="right"] + .cell[data-align="left"],
+.hcell[data-align="right"] + .hcell[data-align="left"] {
+  padding-left: var(--space-3);
+}

@@ -18,6 +18,8 @@ const CANONICAL: Record<ScenarioName, [number, number, number, number, number, n
   volatile: [1.5, 1.5, 0.6, 1.3, 1.5, 1.2, "0.00", true, "0.15"],
   ramp: [2.0, 2.0, 1.0, 1.4, 2.0, 1.0, "0.35", true, "0.3"],
   spike: [10.0, 10.0, 1.0, 1.0, 1.0, 1.0, "0.60", false, "0.5"],
+  // spike 의 방향 대칭. 부하 축은 같고 부호만 반대다
+  selloff: [10.0, 10.0, 1.0, 1.0, 1.0, 1.0, "-0.60", false, "0.5"],
   "thundering-herd": [12.0, 12.0, 1.0, 1.0, 1.0, 1.0, "0.70", false, "0.5"],
 };
 
@@ -37,7 +39,7 @@ function marketRow(markets: ScenarioMarketResult[] | null, market: string): Scen
 }
 
 test("카탈로그가 정본 배수표와 일치한다", () => {
-  assert.equal(SCENARIO_CATALOG.length, 5);
+  assert.equal(SCENARIO_CATALOG.length, 6);
   for (const def of SCENARIO_CATALOG) {
     const want = CANONICAL[def.name];
     assert.ok(want, `정본에 없는 프리셋: ${def.name}`);

@@ -14,6 +14,11 @@ import java.util.Locale;
  * 한쪽만 올리면 배수가 나오지 않는다. λ 배수는 테이커 경로 전체에 걸린다(TREND·NOISE도 같은
  * taker.lambda()를 읽는다). 유형별로 갈리는 것은 확신 게인과 크기 배수뿐이다.
  *
+ * selloff는 spike의 방향 대칭이다(v2.33). 부하 축(OPS·λ·대수)이 spike와 같고 bias 부호만 반대다.
+ * 부하와 방향은 직교하는 축이라 백프레셔·rate limit 관찰은 어느 방향에서든 같은 것을 잰다.
+ * 그래서 새 부하 프로파일이 아니고 검증설계 §2-1 표에 행을 더하지 않는다. 두는 이유는 재현이다.
+ * 거래소 사고는 상승보다 급락에서 나는데 프리셋이 전부 양전이면 한쪽 국면만 재현할 수 있다.
+ *
  * 레짐(CALM/TREND/SHOCK)은 건드리지 않는다. 레짐 시퀀스는 재생 결정론의 일부다.
  */
 public enum SimScenario {
@@ -22,6 +27,7 @@ public enum SimScenario {
     VOLATILE("volatile", 1.5, 1.5, 0.6, 1.3, 1.5, 1.2, 0.00, true, 0.15),
     RAMP("ramp", 2.0, 2.0, 1.0, 1.4, 2.0, 1.0, 0.35, true, 0.3),
     SPIKE("spike", 10.0, 10.0, 1.0, 1.0, 1.0, 1.0, 0.60, false, 0.5),
+    SELLOFF("selloff", 10.0, 10.0, 1.0, 1.0, 1.0, 1.0, -0.60, false, 0.5),
     THUNDERING_HERD("thundering-herd", 12.0, 12.0, 1.0, 1.0, 1.0, 1.0, 0.70, false, 0.5);
 
     private final String wireName;

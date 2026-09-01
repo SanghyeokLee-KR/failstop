@@ -188,6 +188,10 @@ interface WireMember {
   display_name?: string | null;
   status?: string;
   created_at?: string;
+  /* 활동 요약(§6-E v2.35). 목록·상세가 같은 필드로 낸다 */
+  open_order_count?: number | string;
+  last_order_at?: string | null;
+  asset_kinds?: number | string;
 }
 
 const MEMBER_STATUSES: MemberStatus[] = ["ACTIVE", "SUSPENDED", "CLOSED"];
@@ -204,6 +208,10 @@ function toMember(w: WireMember): AdminMember {
     displayName: w.display_name ?? null,
     status: normMemberStatus(w.status),
     createdAt: Date.parse(w.created_at ?? "") || 0,
+    // 활동 요약은 목록·상세가 같은 필드명으로 온다(§6-E v2.35). 한 자리에서 옮긴다
+    openOrderCount: num(w.open_order_count),
+    lastOrderAt: w.last_order_at ? Date.parse(w.last_order_at) || null : null,
+    assetKinds: num(w.asset_kinds),
   };
 }
 
@@ -446,6 +454,9 @@ interface WireConfigMarket {
   status?: string;
   maker_fee?: string;
   taker_fee?: string;
+  /* 주문 규칙(§2 v2.35) */
+  tick_size?: string;
+  min_notional?: string;
 }
 /** GET /admin/v1/config/notices data 원소(active 포함). body·published_at·severity 포함 */
 interface WireNotice {
@@ -491,6 +502,31 @@ function verdictOf(v: string | undefined): RecoveryVerdict | null {
   return v === "PASS" || v === "FAIL" || v === "UNKNOWN" ? v : null;
 }
 
+/**
+ * dev 전용 운영자 CN 목록. 값이 있으면 로컬 서버가 mTLS 종단 게이트웨이 토폴로지
+ * (exchange.admin.mtls.trusted-forwarding=true)로 떠 있다는 뜻이고, 그 게이트웨이가 없으므로
+ * 브라우저가 X-Operator-Cn 을 직접 싣는다.
+ *
+ * 이 값이 비면 운영 경로다. 헤더를 싣지 않고 신원은 TLS 핸드셰이크의 클라이언트 인증서에서만
+ * 나온다. 즉 이 상수가 비어 있는 빌드에는 헤더 신원 경로가 존재하지 않는다.
+ * 서버 쪽 짝은 두 겹으로 막혀 있다. 설정이 on-profile: dev 아래에 있고,
+ * StartupSecretValidator 가 운영 기동에서 trusted-forwarding=true 를 보면 기동을 중단한다.
+ */
+const DEV_OPERATOR_CNS: string[] = (process.env.NEXT_PUBLIC_ADMIN_DEV_CN ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+/** 카탈로그 조인 실패 시 쓰는 액션 유래 문구. UUID 를 이름 자리에 흘리지 않기 위한 것이다 */
+function chaosActionLabel(action: string | undefined, target: string): string {
+  const a = action ?? "";
+  if (a.includes("clear")) return `주입 해제 (${target})`;
+  if (a.includes("kill")) return `리더 노드 kill (${target})`;
+  if (a.includes("app")) return `앱 계층 주입 (${target})`;
+  if (a.includes("network")) return `네트워크 주입 (${target})`;
+  return target || "알 수 없는 주입";
+}
+
 export class HttpAdminApi implements AdminApi {
   // 반영 여부는 응답 applied와 status 1.2의 running·paused가 원천이다
   readonly controlApplied = true;
@@ -498,6 +534,8 @@ export class HttpAdminApi implements AdminApi {
   private readonly base: string;
   private session: AdminSession | null = null;
   private listeners = new Set<(s: AdminSession | null) => void>();
+  /** 헤더로 실을 운영자 CN. dev 게이트웨이 모드에서만 채워진다 */
+  private forwardCn: string | null = null;
 
   constructor(base: string) {
     this.base = base.replace(/\/+$/, "");
@@ -507,6 +545,9 @@ export class HttpAdminApi implements AdminApi {
     const headers: Record<string, string> = {
       ...(init.body != null ? JSON_HEADERS : {}),
       ...(this.session ? { Authorization: `Bearer ${this.session.token}` } : {}),
+      // 세션 발급 후에도 매 요청에 싣는다. AdminAuthFilter 가 세션 operator 를 현재 mTLS
+      // 신원과 재대조하므로(관리자 설계 §3-6 4단계) 발급 때만 실으면 다음 요청이 401 이다
+      ...(this.forwardCn ? { "X-Operator-Cn": this.forwardCn } : {}),
     };
     // mTLS 클라이언트 인증은 브라우저가 TLS 핸드셰이크에서 처리한다
     const res = await fetch(`${this.base}${path}`, { ...init, headers, credentials: "include" });
@@ -558,11 +599,20 @@ export class HttpAdminApi implements AdminApi {
   }
 
   listDemoCerts(): DemoClientCert[] {
-    // 운영 mTLS는 OS·브라우저 인증서 저장소를 쓴다. 앱이 인증서를 열거하지 않는다
-    return [];
+    // 운영 mTLS는 OS·브라우저 인증서 저장소를 쓴다. 앱이 인증서를 열거하지 않는다.
+    // dev 게이트웨이 모드에서만 선택지를 세운다. 2인 승인은 서로 다른 두 운영자를 요구하므로
+    // (반결탁) 신원을 하나로 고정하면 승인 경로를 화면에서 검증할 수 없다
+    return DEV_OPERATOR_CNS.map((cn) => ({
+      certId: cn,
+      subjectCn: `CN=${cn}`,
+      issuer: "dev 전달 헤더 (미검증 신원)",
+      operatorId: cn,
+    }));
   }
 
-  async establishSession(): Promise<AdminSession> {
+  async establishSession(certId?: string): Promise<AdminSession> {
+    // dev 게이트웨이 모드는 고른 CN을 신원으로 싣는다. 운영은 인자를 무시하고 TLS 신원만 쓴다
+    this.forwardCn = DEV_OPERATOR_CNS.includes(certId ?? "") ? (certId ?? null) : null;
     // 서버 세션 응답은 snake_case. camelCase 도메인으로 명시 매핑한다. issued_at은 수신 시각으로 파생.
     const raw = await this.http<WireSession>("/admin/v1/session", { method: "POST" });
     const s: AdminSession = {
@@ -593,6 +643,7 @@ export class HttpAdminApi implements AdminApi {
 
   endSession(): void {
     this.session = null;
+    this.forwardCn = null;
     this.emit();
   }
 
@@ -695,9 +746,25 @@ export class HttpAdminApi implements AdminApi {
 
   async consumeApproval(approval: IssuedApproval): Promise<void> {
     // 요청 운영자(현재 세션)가 발급 토큰을 파괴 액션 바디에 실어 소각한다(§3-6)
+    return this.perform(approval.payload, approval.token);
+  }
+
+  /**
+   * 승인 없이 즉시 실행한다(§3-6 v2.34 카오스 승인 완화).
+   *
+   * 카오스 4종만 서버가 approval_token 을 불요로 열었다. 나머지 파괴 액션은 열거에 그대로
+   * 남아 있어 토큰 없이 부르면 서버가 403 approval_required 로 반려한다. 여기서 미리 막지
+   * 않는 이유는 판정 권위가 서버라서다. 클라이언트가 목록을 따로 들면 두 곳이 갈린다.
+   */
+  async executeDirect(payload: ApprovalPayload): Promise<void> {
+    return this.perform(payload, null);
+  }
+
+  /** token 이 null 이면 approval_token 을 싣지 않는다. 그 외 바디는 승인 경로와 같다 */
+  private async perform(p: ApprovalPayload, token: string | null): Promise<void> {
     const operatorId = this.opId();
-    const token = approval.token;
-    const p = approval.payload;
+    // 키 자체를 빼야 한다. approval_token: null 은 서버 파싱에서 빈 문자열과 같지 않다
+    const approval: Record<string, string> = token ? { approval_token: token } : {};
     switch (p.action) {
       case "chaos.inject": {
         const def = CHAOS_CATALOG.find((d) => d.id === p.experimentId);
@@ -706,7 +773,7 @@ export class HttpAdminApi implements AdminApi {
         // 주입 파라미터는 카탈로그에서 온다. 상수로 박으면 E7(pause)이 kill로 나가고
         // network 계열이 전부 지연이 돼 화면 라벨과 실제 주입이 갈린다.
         // experiment는 소비기가 주입 경로·범위 제외(E3)를 가르는 열쇠라 반드시 싣는다.
-        const common = { operator_id: operatorId, approval_token: token, experiment: p.experimentId };
+        const common = { operator_id: operatorId, ...approval, experiment: p.experimentId };
         if (path.endsWith("kill-node")) {
           await this.http<void>(path, {
             method: "POST",
@@ -728,56 +795,56 @@ export class HttpAdminApi implements AdminApi {
       case "chaos.clear":
         await this.http<void>(`/admin/v1/chaos/network/${encodeURIComponent(wireBinding(p).target)}`, {
           method: "DELETE",
-          body: JSON.stringify({ operator_id: operatorId, approval_token: token }),
+          body: JSON.stringify({ operator_id: operatorId, ...approval }),
         });
         return;
       case "sim.bots.params":
         await this.http<void>(`/admin/v1/sim/bots/${encodeURIComponent(p.botId)}/params`, {
           method: "PATCH",
-          body: JSON.stringify({ operator_id: operatorId, approval_token: token, params: p.params }),
+          body: JSON.stringify({ operator_id: operatorId, ...approval, params: p.params }),
         });
         return;
       case "config.market.halt":
         await this.http<void>(`/admin/v1/config/markets/${encodeURIComponent(p.symbol)}/halt`, {
           method: "POST",
-          body: JSON.stringify({ operator_id: operatorId, approval_token: token }),
+          body: JSON.stringify({ operator_id: operatorId, ...approval }),
         });
         return;
       case "config.market.resume":
         await this.http<void>(`/admin/v1/config/markets/${encodeURIComponent(p.symbol)}/resume`, {
           method: "POST",
-          body: JSON.stringify({ operator_id: operatorId, approval_token: token }),
+          body: JSON.stringify({ operator_id: operatorId, ...approval }),
         });
         return;
       case "config.market.fees":
         await this.http<void>(`/admin/v1/config/markets/${encodeURIComponent(p.symbol)}/fees`, {
           method: "PATCH",
-          body: JSON.stringify({ operator_id: operatorId, approval_token: token, maker_fee: p.makerFee, taker_fee: p.takerFee }),
+          body: JSON.stringify({ operator_id: operatorId, ...approval, maker_fee: p.makerFee, taker_fee: p.takerFee }),
         });
         return;
       case "operators.create":
         await this.http<void>("/admin/v1/operators", {
           method: "POST",
-          body: JSON.stringify({ operator_id: operatorId, approval_token: token, new_operator_id: p.operatorId, display_name: p.displayName }),
+          body: JSON.stringify({ operator_id: operatorId, ...approval, new_operator_id: p.operatorId, display_name: p.displayName }),
         });
         return;
       case "operators.status":
         await this.http<void>(`/admin/v1/operators/${encodeURIComponent(p.operatorId)}/status`, {
           method: "PATCH",
-          body: JSON.stringify({ operator_id: operatorId, approval_token: token, status: p.status }),
+          body: JSON.stringify({ operator_id: operatorId, ...approval, status: p.status }),
         });
         return;
       case "operators.roles":
         // 부여·회수 단건 모델(정본 API). 백엔드는 {action: GRANT|REVOKE, role}을 읽는다
         await this.http<void>(`/admin/v1/operators/${encodeURIComponent(p.operatorId)}/roles`, {
           method: "POST",
-          body: JSON.stringify({ operator_id: operatorId, approval_token: token, action: p.grant, role: p.role }),
+          body: JSON.stringify({ operator_id: operatorId, ...approval, action: p.grant, role: p.role }),
         });
         return;
       case "members.close":
         await this.http<void>(`/admin/v1/members/${encodeURIComponent(p.externalId)}/close`, {
           method: "POST",
-          body: JSON.stringify({ operator_id: operatorId, approval_token: token }),
+          body: JSON.stringify({ operator_id: operatorId, ...approval }),
         });
         return;
     }
@@ -1148,7 +1215,9 @@ export class HttpAdminApi implements AdminApi {
         // clear 행 target과 inject 행 target이 같은 문자열이라 cleared 접기도 이 키로 닫힌다
         clearKey: target,
         experimentId: exp,
-        label: def?.label ?? (isKillNode ? `리더 노드 kill (${target})` : exp),
+        // 카탈로그 조인이 안 되면 액션에서 문구를 만든다. exp 를 그대로 흘리면 화면에
+        // UUID 36자가 뜨는데, 그것은 이름이 아니라 상관추적 키라 읽을 것이 없다
+        label: def?.label ?? chaosActionLabel(r.action, target),
         state: isClear || cleared.has(target) ? "CLEARED" : "RUNNING",
         blastRadius: def?.blastRadius ?? (isKillNode ? "체결 엔진 leader" : ""),
         grafanaAnnotation: "",
@@ -1172,6 +1241,8 @@ export class HttpAdminApi implements AdminApi {
         state: normMarketState(m.status),
         makerFee: m.maker_fee ?? "0",
         takerFee: m.taker_fee ?? "0",
+        tickSize: m.tick_size ?? "0",
+        minNotional: m.min_notional ?? "0",
       };
     });
   }
@@ -1228,17 +1299,11 @@ export class HttpAdminApi implements AdminApi {
   }
 
   async getMember(externalId: string): Promise<AdminMemberDetail> {
-    const res = await this.http<WireMember & {
-      updated_at?: string; open_order_count?: number | string;
-      last_order_at?: string | null; asset_kinds?: number | string;
-    }>(`/admin/v1/members/${encodeURIComponent(externalId)}`);
-    return {
-      ...toMember(res),
-      updatedAt: Date.parse(res.updated_at ?? "") || 0,
-      openOrderCount: num(res.open_order_count),
-      lastOrderAt: res.last_order_at ? Date.parse(res.last_order_at) || null : null,
-      assetKinds: num(res.asset_kinds),
-    };
+    const res = await this.http<WireMember & { updated_at?: string }>(
+      `/admin/v1/members/${encodeURIComponent(externalId)}`,
+    );
+    // 활동 요약 3필드는 toMember가 옮긴다. 상세와 목록의 계약이 같아졌다
+    return { ...toMember(res), updatedAt: Date.parse(res.updated_at ?? "") || 0 };
   }
 
   suspendMember(externalId: string): Promise<MemberTransition> {

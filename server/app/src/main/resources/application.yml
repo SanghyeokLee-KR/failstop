@@ -225,6 +225,10 @@ exchange:
       max-steps: 5
       market-ratio: 0.2
     markets:
+      # 상시면 활성 마켓은 3종이다. 스키마의 12종은 그대로 두고 봇이 매매하는 마켓만 줄인다.
+      # 근거 셋. WebSocket 팬아웃과 메모리가 4분의 1로 내려가 pg-standby 동거가 성립하고,
+      # C01 자산 보존 판정이 KRW 포함 4자산에 걸려 판별력을 유지하며, 되돌리기가 이 목록 한 곳이다.
+      # KRW-MATIC 은 수집 시점 이후 KRW-POL 로 개명돼 seed-data 산출물과 어긋나 활성 목록에서 뺀다.
       - symbol: KRW-BTC
         initial-price: "84320000"
         mm-count: 2
@@ -239,13 +243,6 @@ exchange:
         quote-size: "0.05"
         qty-step: "0.01"
         base-funding: "5000"
-      - symbol: KRW-SOL
-        initial-price: "246800"
-        mm-count: 1
-        taker-count: 1
-        quote-size: "0.5"
-        qty-step: "0.1"
-        base-funding: "100000"
       - symbol: KRW-XRP
         initial-price: "742"
         mm-count: 1
@@ -253,64 +250,6 @@ exchange:
         quote-size: "10"
         qty-step: "8"
         base-funding: "10000000"
-      - symbol: KRW-DOGE
-        initial-price: "182"
-        mm-count: 1
-        taker-count: 1
-        quote-size: "40"
-        qty-step: "30"
-        base-funding: "5000000"
-        # r14: 고변동 밈 자산. SHOCK/TREND 편향 레짐으로 다른 마켓과 변동성 개성을 구분한다.
-        regime-profile: MEME
-      - symbol: KRW-ADA
-        initial-price: "1084"
-        mm-count: 1
-        taker-count: 1
-        quote-size: "8"
-        qty-step: "5"
-        base-funding: "1000000"
-      - symbol: KRW-TRX
-        initial-price: "385"
-        mm-count: 1
-        taker-count: 1
-        quote-size: "20"
-        qty-step: "14"
-        base-funding: "2500000"
-      - symbol: KRW-LINK
-        initial-price: "28540"
-        mm-count: 1
-        taker-count: 1
-        quote-size: "0.3"
-        qty-step: "0.2"
-        base-funding: "35000"
-      - symbol: KRW-DOT
-        initial-price: "9820"
-        mm-count: 1
-        taker-count: 1
-        quote-size: "1"
-        qty-step: "0.6"
-        base-funding: "100000"
-      - symbol: KRW-MATIC
-        initial-price: "724"
-        mm-count: 1
-        taker-count: 1
-        quote-size: "12"
-        qty-step: "8"
-        base-funding: "1400000"
-      - symbol: KRW-AVAX
-        initial-price: "52430"
-        mm-count: 1
-        taker-count: 1
-        quote-size: "0.2"
-        qty-step: "0.1"
-        base-funding: "20000"
-      - symbol: KRW-ATOM
-        initial-price: "9640"
-        mm-count: 1
-        taker-count: 1
-        quote-size: "1"
-        qty-step: "0.6"
-        base-funding: "100000"
 
 ---
 # 카오스 매트릭스 E8 프로파일. 격리 chaos 스택의 서빙 노드만 dev,chaos-monkey로 활성화한다.
@@ -371,3 +310,40 @@ resilience4j:
         # health indicator를 끈다. CB open이 /actuator/health를 DOWN으로 만들어 컨테이너 헬스체크·
         # 레디니스에 개입하는 것을 막는다(readiness 그룹은 readinessState 한정이지만 이중 방어).
         register-health-indicator: false
+
+---
+# 관리 평면 로컬 동거 프로파일. 명시 활성(--spring.profiles.active=dev,bots,admin-local)이 전제다.
+#
+# 왜 dev 블록이 아니라 별도 프로파일인가. spring.profiles.default가 dev라 프로파일을 지정하지
+# 않는 기동은 전부 dev 블록을 읽는다. 통합테스트가 그 경우다. dev에 관리 평면을 켜 두면
+# 관리 평면이 없다고 전제한 테스트(AdminSplitPlaneIntegrationTest의 큐 경로 단언 등)가
+# 의도치 않게 다른 배선을 보게 된다. 켜는 쪽이 명시하도록 문을 좁힌다.
+#
+# 왜 필요한가. SimAdminController의 start·stop·pause는 같은 JVM의 BotFleet 빈에만 닿는다
+# (botFleet.getIfAvailable()). 플릿이 없는 JVM이면 applied:false로 정직하게 미반영을 보고하고
+# 끝이라, 관리 평면을 별도 프로세스로 띄우면 정지 버튼이 실제 호가 공급을 못 멈춘다.
+# bots와 같은 프로세스에 올려야 apply_path=local이 되어 즉시 반영된다.
+#
+# trusted-forwarding은 mTLS 종단을 게이트웨이가 하는 토폴로지용 스위치다(관리자 설계 §1-3).
+# 로컬에는 그 게이트웨이가 없으므로 브라우저가 직접 X-Operator-Cn을 싣는다. 즉 이 기동에서
+# 관리 신원은 검증된 것이 아니라 자가신고다. 8080에 닿을 수 있으면 관리 평면에 닿을 수 있다.
+#
+# 이 설정이 운영으로 새지 않는 근거는 두 겹이다.
+#   1. 이 프로파일은 명시 활성이 아니면 로드되지 않는다. 운영은 SPRING_PROFILES_ACTIVE=prod다.
+#   2. StartupSecretValidator가 운영 기동에서 trusted-forwarding=true를 발견하면 기동을
+#      중단한다. 1이 실수로 뚫려도 부팅이 실패하지 조용히 열리지 않는다.
+# 배포 토폴로지는 바뀌지 않는다. 클라우드는 여전히 8443·client-auth: need로 물리 분리한다.
+spring:
+  config:
+    activate:
+      on-profile: admin-local
+exchange:
+  admin:
+    enabled: true
+    mtls:
+      trusted-forwarding: true
+      forward-header: "X-Operator-Cn"
+    # 관리 버킷 실효 한도는 capacity/weight(10)다. 계약값 60이면 60초에 6요청인데 콘솔 한 화면이
+    # 폴링만으로 그 이상을 쓴다. 화면 확인용 기동이라 상향한다. 운영 기본값은 손대지 않는다.
+    rate-limit:
+      capacity: 6000

@@ -17,7 +17,7 @@ import {
   type Notice,
   type NoticeSeverity,
 } from "@/lib/admin/types";
-import { formatTimeHMS } from "@/lib/format";
+import { formatKRW, formatTimeHMS } from "@/lib/format";
 import PanelCard from "@/components/PanelCard";
 import Pager from "@/components/Pager";
 import Skeleton from "@/components/Skeleton";
@@ -28,6 +28,7 @@ import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
 import { HealthPill, PageHeader, PermissionNote } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
+import { mulDecimal } from "@/lib/decimal";
 import styles from "@/components/admin/admin.module.css";
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
@@ -158,14 +159,21 @@ export default function ConfigPage() {
           <span className={styles.neutralPill}>상장폐지</span>
         ),
     },
-    // 수수료 도메인 관용어라 번역하지 않고 음차한다. API 필드(maker_fee 등) 문구는 계약값이라 불변
-    { key: "maker", label: "메이커", width: "90px", align: "right", render: (m) => m.makerFee },
-    { key: "taker", label: "테이커", width: "90px", align: "right", render: (m) => m.takerFee },
+    /* 수수료 도메인 관용어라 번역하지 않고 음차한다. API 필드(maker_fee 등) 문구는 계약값이라 불변.
+       표시는 비율이 아니라 퍼센트다. 계약값 0.00050000을 그대로 적으면 0이 여덟 자리라 열두 행이
+       같은 모양이 되고 값이 달라져도 눈에 안 든다. 거래 화면도 같은 파생을 쓴다(0.0005 -> 0.05%).
+       mulDecimal은 후행 0을 떼고 돌려주므로 별도 손질이 없다. float 왕복도 없다 */
+    { key: "maker", label: "메이커", width: "96px", render: (m) => `${mulDecimal(m.makerFee, "100")}%` },
+    { key: "taker", label: "테이커", width: "96px", render: (m) => `${mulDecimal(m.takerFee, "100")}%` },
+    /* 주문 규칙 2열(§2 v2.35). 정지·수수료 판단에서 같이 읽히는 값인데 종전에는 고객 평면
+       GET /markets 에만 있어 운영자가 다른 평면을 열어야 했다.
+       NUMERIC 문자열을 그대로 받아 표시만 자릿수를 정리한다. float 왕복은 없다 */
+    { key: "tick", label: "호가 단위", width: "110px", render: (m) => `${formatKRW(m.tickSize)}원` },
+    { key: "minNotional", label: "최소 주문", width: "116px", render: (m) => `${formatKRW(m.minNotional)}원` },
     {
       key: "action",
       label: "제어",
-      width: "minmax(130px, 1fr)",
-      align: "right",
+      width: "minmax(120px, 0.6fr)",
       render: (m) =>
         m.state === "ACTIVE" ? (
           <RequestButton
@@ -219,7 +227,7 @@ export default function ConfigPage() {
           <Skeleton variant="card" width="100%" height={200} />
         ) : (
           <div className={styles.staleRegion} data-stale={res.stale ? "" : undefined}>
-            <DataTable columns={marketCols} rows={markets} rowKey={(m) => m.symbol} rowHeight={48} ariaLabel="마켓 설정" />
+            <DataTable columns={marketCols} rows={markets} rowKey={(m) => m.symbol} rowHeight={48} ariaLabel="마켓 설정" defaultAlign="center" />
           </div>
         )}
       </PanelCard>

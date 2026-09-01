@@ -104,6 +104,17 @@ interface BiasState {
   strength: number;
 }
 
+/** sessionStorage 로 나르는 플릿 상태. Map 은 직렬화가 안 되므로 엔트리 배열로 눕힌다 */
+interface FleetSnapshot {
+  running: boolean;
+  paused: boolean;
+  rate: number;
+  bots: Bot[];
+  flash: TradeFlash;
+  scale: [string, FleetScaleTargets][];
+  bias: [string, BiasState][];
+}
+
 /**
  * sim 커서는 마지막으로 본 항목의 id다. 없는 커서를 조용히 첫 쪽으로 되돌리지 않는다.
  * 서버는 400을 주므로, 여기서 관대하면 sim에서만 통과하는 화면 코드가 생긴다.
@@ -178,6 +189,9 @@ export class SimAdminApi implements AdminApi {
     state: i === COIN_META.length - 1 ? "DELISTED" : "ACTIVE",
     makerFee: "0.0005",
     takerFee: "0.0005",
+    // 주문 규칙(§2 v2.35). 마켓별 격자는 sim이 들지 않아 대표값 한 벌을 둔다
+    tickSize: "1000",
+    minNotional: "5000",
   }));
 
   private nodes: HaNode[] = [
@@ -239,7 +253,66 @@ export class SimAdminApi implements AdminApi {
   private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
-    if (typeof window !== "undefined") this.start();
+    if (typeof window !== "undefined") {
+      this.restore();
+      this.start();
+    }
+  }
+
+  /**
+   * 운영자가 바꾼 플릿 상태만 새로고침 너머로 잇는다.
+   *
+   * 왜 필요한가. sim 어댑터는 전부 모듈 메모리라 F5 한 번에 시드값으로 돌아갔다. 정지를
+   * 눌러 0 OPS를 만든 다음 새로고침하면 다시 가동 중이 떠서, 버튼이 듣지 않는 것으로 읽힌다.
+   * 데모에서 그 장면은 제어가 고장난 것과 구분되지 않는다.
+   *
+   * 왜 이 목록만인가. 여기 담는 것은 전부 운영자가 직접 정한 값이다. 노드 헬스·epoch·
+   * 불변식 검사 시각처럼 시뮬레이터가 스스로 굴리는 값은 담지 않는다. 그것들은 재기동 때
+   * 새로 도는 것이 맞고, 얼려 두면 멈춘 시계를 살아 있는 관측으로 보여주게 된다.
+   *
+   * 세션은 담지 않는다. 실제 HttpAdminApi 도 세션을 인메모리로만 들고 F5 뒤 재확립을
+   * 요구한다(mTLS 핸드셰이크가 연결 단위이므로). 여기만 살려 두면 두 어댑터의 인증 수명이
+   * 갈리고, sim 에서만 통과하는 화면 코드가 생긴다.
+   *
+   * sessionStorage 인 이유. 탭을 닫으면 사라지는 수명이 단기 세션 규율과 어긋나지 않는다.
+   * localStorage 로 두면 어제 눌러 둔 정지가 오늘 처음 연 화면에 남는다.
+   */
+  private static readonly STORE_KEY = "admin.sim.fleet.v1";
+
+  private restore(): void {
+    try {
+      const raw = window.sessionStorage.getItem(SimAdminApi.STORE_KEY);
+      if (!raw) return;
+      const p = JSON.parse(raw) as Partial<FleetSnapshot>;
+      if (typeof p.running === "boolean") this.simRunning = p.running;
+      if (typeof p.paused === "boolean") this.simPaused = p.paused;
+      if (typeof p.rate === "number" && p.rate > 0) this.simRate = p.rate;
+      if (Array.isArray(p.bots) && p.bots.length > 0) this.bots = p.bots;
+      if (p.flash) this.tradeFlash = p.flash;
+      if (p.scale) this.scaleTargets = new Map(p.scale);
+      if (p.bias) this.biasStates = new Map(p.bias);
+    } catch {
+      // 저장분이 깨졌으면 시드로 시작한다. 복원 실패로 화면을 막지 않는다
+    }
+  }
+
+  /** 운영자 액션 뒤에 부른다. tick 의 난수 요동은 저장하지 않는다(매초 쓰기가 된다) */
+  private persist(): void {
+    if (typeof window === "undefined") return;
+    const snap: FleetSnapshot = {
+      running: this.simRunning,
+      paused: this.simPaused,
+      rate: this.simRate,
+      bots: this.bots,
+      flash: this.tradeFlash,
+      scale: [...this.scaleTargets],
+      bias: [...this.biasStates],
+    };
+    try {
+      window.sessionStorage.setItem(SimAdminApi.STORE_KEY, JSON.stringify(snap));
+    } catch {
+      // 용량 초과·프라이빗 모드. 저장 실패가 제어 실패는 아니므로 삼킨다
+    }
   }
 
   private seedBots(): Bot[] {
@@ -457,6 +530,10 @@ export class SimAdminApi implements AdminApi {
       requestId: uid("req"),
     });
     this.audit = this.audit.slice(0, 200);
+    /* 저장 지점을 여기 하나로 둔다. 운영자가 한 일은 예외 없이 감사 로그를 남기므로,
+       로그가 남는 순간이 곧 저장할 순간이다. 제어 메서드마다 persist 를 흩어 놓으면
+       나중에 추가되는 액션 하나가 조용히 저장에서 빠진다 */
+    this.persist();
   }
 
   /** 원장 프로젝션. token·payload를 제외한 공개 뷰(§6-B) */
@@ -562,6 +639,15 @@ export class SimAdminApi implements AdminApi {
     a.state = "CONSUMED";
     a.consumedAt = isoNow();
     this.log(s, `execute:${a.action}`, a.targetLabel, a.id, "OK");
+    return Promise.resolve();
+  }
+
+  executeDirect(payload: ApprovalPayload): Promise<void> {
+    // 실행 권한은 그대로 본다. 없앤 것은 "다른 사람의 승인"이지 역할 게이트가 아니다
+    const s = this.auth(ACTION_CAP[payload.action]);
+    this.applyEffect(payload, s);
+    // 승인 id 자리는 null 이다. 부재와 미승인은 다른 사실이고 여기서는 뒤쪽이 참이다
+    this.log(s, `execute:${payload.action}`, approvalConsoleTarget(payload).label, null, "OK");
     return Promise.resolve();
   }
 
@@ -1123,9 +1209,12 @@ export class SimAdminApi implements AdminApi {
     const rows = this.members
       .filter((m) => !status || m.status === status)
       .sort((a, b) => b.createdAt - a.createdAt);
+    // 활동 요약도 목록이 함께 낸다(§6-E v2.35). http 어댑터와 같은 계약이라야
+    // 화면이 한쪽에서만 도는 코드를 갖지 않는다
     return Promise.resolve(simPage(rows, opts, (m) => m.externalId, (m) => ({
       externalId: m.externalId, email: m.email, displayName: m.displayName,
       status: m.status, createdAt: m.createdAt,
+      openOrderCount: m.openOrderCount, lastOrderAt: m.lastOrderAt, assetKinds: m.assetKinds,
     })));
   }
 

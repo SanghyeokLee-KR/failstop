@@ -51,7 +51,6 @@ const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
     key: "replay_ms",
     label: "재생 소요",
     width: "90px",
-    align: "right",
     // recovery_runs.duration_ms다. 페일오버 RTO가 아니다. 두 축은 다른 것을 잰다.
     // 실측 대역이 수십에서 수백 ms라 초 고정 표기는 전건 0.0초가 된다.
     render: (r) => (
@@ -64,7 +63,6 @@ const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
     key: "rpo",
     label: "유실",
     width: "80px",
-    align: "right",
     // recovery_runs에 RPO 컬럼이 없다. 0을 채우면 화면이 유실 없음을 단정한다.
     render: (r) => <span title="RPO. 원천은 harness.failover_runs">{r.rpoMs === null ? "미측정" : `${r.rpoMs}ms`}</span>,
   },
@@ -73,7 +71,6 @@ const RECOVERY_COLUMNS: DataColumn<HaRecovery["runs"][number]>[] = [
     label: "재현 구간(순번)",
     // 1fr로 두면 이 열이 슬랙을 전량 흡수해 행 한가운데 수백 px 공백이 생긴다. 슬랙은 마지막 열로
     width: "190px",
-    align: "right",
     render: (r) => <span title="seq">{`${formatKRW(r.replayedFromSeq)} → ${formatKRW(r.replayedToSeq)}`}</span>,
   },
   {
@@ -235,6 +232,7 @@ export default function MonitoringPage() {
               rowKey={(r) => r.id}
               rowHeight={44}
               ariaLabel="복구 실행 이력"
+              defaultAlign="center"
               empty={
                 <div className="empty-state">
                   <span className="empty-state__title">복구 이력 없음</span>

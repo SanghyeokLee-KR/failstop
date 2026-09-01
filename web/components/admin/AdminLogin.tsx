@@ -7,14 +7,16 @@
  */
 
 import { useState } from "react";
-import { getAdminApi } from "@/lib/admin/api";
+import { getAdminApi, isAdminHttp } from "@/lib/admin/api";
 import BrandMark from "@/components/BrandMark";
 import { toast } from "@/components/Toast";
 import styles from "./admin.module.css";
 
 // http 모드는 mTLS를 TLS 계층(브라우저 인증서)이 처리하고 앱은 POST /admin/v1/session으로
 // 신원 유래 세션만 발급받는다. 인증서 열거가 없으므로 세션 확립 액션을 직접 노출한다.
-const IS_HTTP = process.env.NEXT_PUBLIC_DATASOURCE === "http";
+// 판정은 api.ts와 같은 함수를 쓴다. 여기서 환경변수를 다시 읽으면 어댑터는 sim인데 화면은
+// http 분기를 그리는 어긋남이 생긴다.
+const IS_HTTP = isAdminHttp();
 
 export default function AdminLogin() {
   const certs = getAdminApi().listDemoCerts();

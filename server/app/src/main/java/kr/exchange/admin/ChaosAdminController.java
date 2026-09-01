@@ -25,8 +25,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 카오스 실험 콘솔(관리자 설계 §2-2, 정본 §6-B). 파괴 액션은 전부 CHAOS_OPS + 2인 승인
- * 필수다. 실제 주입은 격리 스택의 카오스 주입기가 승인된 명령을 소비하는 경계다. 이 컨트롤러는
+ * 카오스 실험 콘솔(관리자 설계 §2-2, 정본 §6-B). 파괴 액션은 전부 CHAOS_OPS를 요구하고,
+ * approval_token은 제시 시에만 검증·소각한다(§3-6 v2.34 카오스 승인 완화, consumeIfPresent). 실제 주입은 격리 스택의 카오스 주입기가 승인된 명령을 소비하는 경계다. 이 컨트롤러는
  * 승인·감사·experiment_id 발급 지점이며, 관측 데이터를 근거로 자동 주입하지 않는다(§6 안전).
  */
 @RestController
@@ -165,7 +165,7 @@ public class ChaosAdminController {
         principal.require(AdminRole.CHAOS_OPS);
         String token = body == null ? null : body.approval_token();
         String safeToxic = requireSafeTarget(toxic);
-        long approvalId = approvals.consume(principal.operatorId(), token,
+        Long approvalId = consumeIfPresent(principal.operatorId(), token,
                 "chaos.network.clear", safeToxic);
         String experimentId = UUID.randomUUID().toString();
         audit.record(principal.operatorId(), "chaos.network.clear", toxic,
@@ -174,8 +174,15 @@ public class ChaosAdminController {
         enqueue(experimentId, "chaos.network.clear", safeToxic,
                 body == null ? null : body.experiment(), Map.of(),
                 principal.operatorId(), approvalId);
-        return Map.of("schema_version", "1.0", "toxic", toxic, "approval_id", approvalId,
-                "experiment_id", experimentId, "state", "PENDING");
+        // Map.of는 null 값에 NPE다. 승인 없이 실행하면 approval_id가 null이라 순서 보존 맵을 쓴다.
+        // 키를 빼지 않고 null로 싣는다. 부재와 미승인은 다른 사실이고 뒤쪽이 참이다
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("schema_version", "1.0");
+        out.put("toxic", toxic);
+        out.put("approval_id", approvalId);
+        out.put("experiment_id", experimentId);
+        out.put("state", "PENDING");
+        return out;
     }
 
     private Map<String, Object> inject(String action, String target, ChaosBody body,
@@ -184,16 +191,21 @@ public class ChaosAdminController {
         principal.require(AdminRole.CHAOS_OPS);
         String t = requireSafeTarget(target);
         String token = body == null ? null : body.approval_token();
-        long approvalId = approvals.consume(principal.operatorId(), token, action, t);
+        Long approvalId = consumeIfPresent(principal.operatorId(), token, action, t);
         String experimentId = UUID.randomUUID().toString();
         audit.record(principal.operatorId(), action, t,
                 AdminRequestContext.requestId(request), approvalId, "OK",
                 Map.of("experiment_id", experimentId, "params", chaosParams(body)));
         enqueue(experimentId, action, t, body == null ? null : body.experiment(),
                 chaosParams(body), principal.operatorId(), approvalId);
-        return Map.of("schema_version", "1.0", "action", action, "target", t,
-                "experiment_id", experimentId, "approval_id", approvalId,
-                "state", "PENDING");
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("schema_version", "1.0");
+        out.put("action", action);
+        out.put("target", t);
+        out.put("experiment_id", experimentId);
+        out.put("approval_id", approvalId);
+        out.put("state", "PENDING");
+        return out;
     }
 
     /**
@@ -206,8 +218,28 @@ public class ChaosAdminController {
      * 이 서버는 외부 부수효과를 내지 않으므로 승인 소각과 같은 트랜잭션에 묶는 것이 맞다.
      * 소각만 커밋되고 지시가 유실되면 승인은 탔는데 아무 일도 안 일어난다.
      */
+    /**
+     * 승인 토큰이 있으면 검증·소각하고, 없으면 승인 없이 진행한다(§3-6 v2.34).
+     *
+     * 카오스 4종을 approval_token 필수 열거에서 뺀 이유는 운영 규율이 아니라 운영 인원이다.
+     * 2인 승인은 발급 주체와 사용 주체가 서로 달라야 성립하는데(반결탁, chk_approval_two_person)
+     * 이 배포의 카오스 실행 주체는 1인이다. 1인 운영에서는 그 조건을 만족시킬 방법이 없어
+     * 실험을 못 돌리거나 운영자 계정을 하나 더 만들어 혼자 두 역을 하게 된다. 뒤쪽은 2인 통제를
+     * 형해화하면서 형식만 남기므로 규정을 사실에 맞춘다.
+     *
+     * 토큰을 실으면 종전 계약이 그대로 걸린다. 소각·TTL·바인딩·반결탁 전부 남아 있어
+     * 2인 운영 배포는 코드 변경 없이 종전대로 쓴다. 역할 게이트(CHAOS_OPS)와 대상 검증,
+     * 전 액션 감사 적재도 승인 유무와 무관하게 그대로다.
+     */
+    private Long consumeIfPresent(String operatorId, String token, String action, String target) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        return approvals.consume(operatorId, token, action, target);
+    }
+
     private void enqueue(String experimentId, String action, String target, String experiment,
-                         Map<String, Object> params, String operatorId, long approvalId) {
+                         Map<String, Object> params, String operatorId, Long approvalId) {
         String json;
         try {
             json = objectMapper.writeValueAsString(params == null ? Map.of() : params);
