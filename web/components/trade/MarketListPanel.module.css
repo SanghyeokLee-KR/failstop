@@ -194,3 +194,18 @@
 }
 
 .vol { color: var(--text-secondary); font-size: var(--font-dense-size); }
+
+/* 미체결 표식. 심볼 줄 끝에 붙는 무채 칩.
+   방향색을 쓰지 않는다. 이 표식이 말하는 것은 "여기 걸어둔 주문이 있다"이지 그 주문이
+   매수인지 매도인지가 아니다. 같은 목록에서 전일대비가 이미 방향색을 쓰고 있어
+   표식까지 물들이면 두 색이 다른 뜻으로 겹친다.
+   inline-block에 여백만 준다. 심볼 줄은 13px 박스 메트릭이라 패딩을 세로로 주면 행이 커진다 */
+.pending {
+  display: inline-block;
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs);
+  color: var(--text-tertiary);
+  background: var(--surface-sunken);
+  font-weight: var(--fw-semibold);
+}

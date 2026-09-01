@@ -38,7 +38,7 @@ import {
   shouldApplyInputChange,
   type OrderKeyState,
 } from "./orderKey";
-import { shouldAnnounceFill } from "./fillNotice";
+import { placedNotice, shouldAnnounceFill } from "./fillNotice";
 import type { PricePrefill } from "./prefill";
 import OrderConfirmDialog from "./OrderConfirmDialog";
 import {
@@ -96,6 +96,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const loadOrders = useExchangeStore((s) => s.loadOrders);
   const upsertOrder = useExchangeStore((s) => s.upsertOrder);
   const apply = useExchangeStore((s) => s.apply);
+  // 묶임 금액이 몇 건에서 나왔는지를 같이 말하려고 구독한다. 금액만 있으면 취소할 대상이
+  // 하나인지 열인지 모른 채 미체결 목록을 먼저 열어봐야 한다
+  const openOrders = useExchangeStore((s) => s.openOrders);
 
   // 게스트(데모 둘러보기) 잔고 표식용. 회원 세션이 서면 배지를 내린다
   const isGuest = useMemberSession() === null;
@@ -142,6 +145,22 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   // 가격·퍼센트칩·틱 계산용 number(격자 선택·역산 보조). 총액·수수료·검증·제출은 아래 십진 문자열이 단일 기준.
   const price = ordType === "market" ? curPrice : toNum(priceRaw);
   const isMarketBuy = ordType === "market" && side === "bid";
+
+  /* 시장가 매수는 금액 기반(notional) 주문이고, 서버가 quote 자산 scale 18 마켓에서만 받는다
+     (OrderGateway market_buy_quote_scale_18, DB 설계 §1.4 v2.9 앱 가드). notional 나눗셈이
+     scale 18 소진액을 만들어 quote scale<18 이면 정산 양자화 재검증에서 fail-fast 하기 때문이다.
+     이 저장소의 KRW 마켓은 전부 quote scale 0 이라 시장가 매수가 한 건도 통과할 수 없다.
+     DB 설계 §1.4 도 "금액기반(notional) 주문은 사용하지 않는다"로 못박고 있다.
+     그런데 화면은 그 탭을 계속 세워 두어, 누르면 400 invalid_parameter 만 돌아왔다.
+     사용자에게는 "주문했는데 아무 일도 안 일어남"으로 보인다. 낼 수 없는 주문은 걷는다.
+     시장가 매도는 수량 기반이라 이 가드를 타지 않으므로 그대로 둔다. */
+  const marketBuyAllowed = (marketInfo?.price_scale ?? 0) === 18;
+  const ordTypes: OrdType[] = side === "bid" && !marketBuyAllowed ? ["limit"] : ["limit", "market"];
+
+  // 매도에서 시장가를 고른 뒤 매수로 넘어오면 낼 수 없는 상태가 남는다. 지정가로 되돌린다
+  useEffect(() => {
+    if (!ordTypes.includes(ordType)) setOrdType("limit");
+  }, [ordTypes, ordType]);
 
   // 마켓 스펙 틱(권위). 입력값에 따라 흔들리지 않아 재스냅 트리거로 안전하다
   const specTick = marketInfo?.tick_size && toNum(marketInfo.tick_size) > 0 ? marketInfo.tick_size : null;
@@ -294,6 +313,19 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const availCoinStr = assets.find((a) => a.currency === base)?.balance ?? "0";
   const availKRW = toNum(availKRWStr);
   const availCoin = toNum(availCoinStr);
+  /* 묶임 잔고. 미체결 지정가가 잡아둔 몫이다. 이 값을 감추면 "주문가능"이 왜 보유량보다
+     적은지가 화면 어디에도 없다. 매수는 원화가, 매도는 코인이 묶이므로 지금 보는 방향의
+     자산만 싣는다. 반대 방향 묶임까지 같이 세우면 어느 쪽이 내 주문가능을 깎았는지 흐려진다 */
+  const lockedStr = side === "bid"
+    ? (assets.find((a) => a.currency === "KRW")?.locked ?? "0")
+    : (assets.find((a) => a.currency === base)?.locked ?? "0");
+  const hasLocked = compareDecimal(lockedStr, "0") > 0;
+  /* 묶임을 만든 건수. 방향을 맞춰 센다. 매수 화면에서 매도 미체결까지 세면 금액과 건수가
+     서로 다른 것을 세게 된다. 마켓은 걸러내지 않는다. 원화 묶임은 전 마켓 매수 주문의 합이라
+     이 화면 마켓만 세면 건수가 금액을 설명하지 못한다 */
+  const openCount = openOrders.filter(
+    (o) => o.side === side && (o.status === "OPEN" || o.status === "PARTIAL"),
+  ).length;
   // 진행 중과 실패를 분리한다. 실패면 영구 로딩 대신 재시도를 노출하고, 잔고 미확정이므로 CTA는 막는다
   const loadingBalance = !accountsFailed && (assets.length === 0 || !ticker);
 
@@ -404,7 +436,9 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
       upsertOrder(placed);
       // 확정 성공. 다음 주문은 새 키
       keyStateRef.current = onSubmitAccepted(keyState());
-      toast("주문 접수 완료", "info");
+      // 접수와 체결은 다른 사건이다. 한 문구로 알리면 미체결을 "샀다"로 읽는다
+      const notice = placedNotice(placed);
+      toast(notice.text, notice.kind);
       setQtyRaw("");
       setAmountRaw("");
       setActivePct(null);
@@ -483,7 +517,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
         />
 
         <div className={styles.typRow} role="group" aria-label="주문 유형">
-          {(["limit", "market"] as OrdType[]).map((t) => (
+          {ordTypes.map((t) => (
             <button
               key={t}
               type="button"
@@ -662,6 +696,22 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
               </span>
             )}
           </div>
+
+          {/* 묶임 잔고. 주문가능 바로 아래에 붙인다. 두 값은 한 잔고를 나눈 것이라 떨어뜨리면
+              합이 보이지 않고, "왜 내 돈이 줄었나"가 화면 밖 질문이 된다.
+              0이면 줄을 만들지 않는다. 늘 떠 있는 0은 읽을 것이 없는데 자리만 먹는다 */}
+          {!loadingBalance && !accountsFailed && hasLocked && (
+            <div className={styles.sumRow}>
+              <span className={styles.availLabel}>
+                주문 중
+                {openCount > 0 && <span className={`status-pill ${styles.lockHint}`}>미체결 {openCount}건</span>}
+              </span>
+              <span className={`num ${styles.locked}`}>
+                {side === "bid" ? formatKRW(lockedStr) : formatQty(lockedStr, qtyScale)}{" "}
+                <span className="unit-suffix">{side === "bid" ? "원" : base}</span>
+              </span>
+            </div>
+          )}
 
           {accountsFailed && (
             <p className={styles.error} role="alert">

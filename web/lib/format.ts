@@ -102,9 +102,43 @@ export function formatPrice(value: string | number, spec?: PriceSpec): string {
   return formatFixed(value, priceDecimalsOf(spec, value));
 }
 
-/** 수량 포맷: qty_scale에서 고정 소수 자릿수 유도. 0.00412(scale 8) → "0.00412000" (절단·정수강제 없음) */
+/**
+ * 표시 소수 자릿수 상한. 정산 scale 과 표시 scale 을 가른다.
+ *
+ * assets.scale 은 정산 자릿수다(ETH=18 은 wei 단위라 도메인상 맞다). 그 값을 표시에 그대로
+ * 쓰면 KRW-ETH 수량이 "13.750000000000000000" 으로 나와 열 하나가 화면 절반을 먹고,
+ * 체결·호가 목록에서 앞자리 몇 개만 읽히고 나머지는 0 벽이 된다.
+ * 8 은 BTC 의 사토시 자릿수이자 이 저장소의 다른 마켓 최대치다(BTC 8, SOL 6, LINK 4, XRP 2).
+ */
+const QTY_DISPLAY_MAX = 8;
+
+/** 표시 하한. 이 아래로는 후행 0을 남긴다. 열 안에서 0.5 와 0.53 이 자릿수로 갈리지 않게 한다 */
+const QTY_DISPLAY_MIN = 2;
+
+/**
+ * 수량 포맷. qty_scale 에서 고정 소수 자릿수를 유도하되 표시 상한으로 자르고 후행 0을 떤다.
+ *
+ * 후행 0 유지 규약(formatFixed 주석)을 여기서만 깨는 이유. 그 규약의 목적은 열 안의 tabular
+ * 정렬인데, 자릿수가 마켓마다 2~18 로 갈리는 수량에서는 정렬보다 판독이 먼저 깨진다.
+ * 전역 tabular-nums 로 글자 폭은 이미 같아 자릿수가 달라도 소수점 위치가 크게 어긋나지 않는다.
+ * 하한 2를 두어 0.5 와 0.53 이 한 열에서 들쭉날쭉해지는 것만 막는다.
+ */
 export function formatQty(value: string | number, qtyScale = 8): string {
-  return formatFixed(value, qtyScale);
+  const scale = clampDecimals(qtyScale);
+  const v = displayValue(value);
+  let d = Math.min(scale, QTY_DISPLAY_MAX);
+  /* 상한으로 잘랐더니 0이 되면 표시가 값을 지운 것이다. 0.000000001 을 "0.00" 으로 그리면
+     화면이 잔량 없음이라고 거짓을 말한다. 값이 0이 아닌데 표시가 0이면 첫 유효 숫자가
+     나올 때까지 자릿수를 되돌린다. 되돌림 상한은 마켓이 정한 scale 이다 */
+  while (d < scale && scaledIntRound(v, d) === 0n && compareDecimal(absDecimal(v), "0") > 0) {
+    d += 1;
+  }
+  const shown = formatFixed(v, d);
+  const dot = shown.indexOf(".");
+  if (dot < 0) return shown;
+  // 하한 자리까지 남기고 그 뒤 후행 0을 뗀다. 소수부가 전부 0이면 하한 자리만 남는다
+  const keep = dot + 1 + QTY_DISPLAY_MIN;
+  return shown.slice(0, keep) + shown.slice(keep).replace(/0+$/, "");
 }
 
 /** 등락률(절대 rate 문자열 + change) → "+2.34%" / "−1.08%" / "0.00%" */
@@ -154,12 +188,13 @@ export function formatCompactKRW(value: string | number): string {
 
 /**
  * 코인 수량 축약. 1 이상은 소수 2자리로 압축하고,
- * 1 미만은 qty_scale까지 보존해 세션 초반 소액 누적분이 "0"으로 사라지지 않게 한다.
+ * 1 미만은 표시 상한까지 보존해 세션 초반 소액 누적분이 "0"으로 사라지지 않게 한다.
  */
 export function formatCompactQty(value: string | number, qtyScale = 8): string {
   const v = displayValue(value);
   if (compareDecimal(absDecimal(v), "1") >= 0) return formatFixed(v, 2);
-  return formatFixed(v, qtyScale);
+  // 상한을 두는 이유는 formatQty와 같다. 정산 scale 18(ETH)을 그대로 쓰면 축약이 아니게 된다
+  return formatFixed(v, Math.min(clampDecimals(qtyScale), QTY_DISPLAY_MAX));
 }
 
 /** ChangeState → UI Direction */

@@ -90,7 +90,11 @@
   /* 폼 컨트롤 히트 ≥44px (§10-2). 예산이 눌리는 구간(max-height: 820px)에서만 32px로 내려가고
      그건 §10-2가 명시한 예외다 */
   height: 44px;
-  padding: 0 var(--space-2);
+  /* 좌우 16px 인 이유. 스테퍼 히트영역(.step::after)이 버튼 바깥으로 16px 나가는데
+     여백이 8px 이면 그 절반이 상자 밖으로 삐져나와 .form 의 overflow-y:auto 가
+     가로 스크롤바를 만든다(1440px 실측: inp scrollWidth 269 대 clientWidth 261).
+     여백을 히트영역과 같게 주면 44x44 를 줄이지 않고 넘침이 사라진다 */
+  padding: 0 var(--space-4);
   background: var(--surface-sunken);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -230,4 +234,20 @@
   .form { gap: var(--space-2); }
   .inp { height: 32px; }
   .cta { min-height: 40px; }
+}
+
+/* 묶임 잔고 행. 주문가능과 같은 sumRow 골격을 쓰되 무게를 한 단 낮춘다.
+   주문가능은 결정에 쓰는 값이고 묶임은 그 값을 설명하는 값이다. 둘을 같은 굵기로 세우면
+   어느 쪽을 보고 수량을 정하는지가 흐려진다. 그래서 b가 아니라 span이고 색도 secondary다 */
+.locked {
+  color: var(--text-secondary);
+}
+
+/* 묶임을 만든 미체결 건수. 라벨 옆 무채 칩. demoBadge와 같은 경로(전역 status-pill 형태에
+   무채 틴트만 얹기)를 따른다. 금액만 있으면 취소할 대상이 하나인지 열인지 모른다 */
+.availLabel .lockHint {
+  padding-top: 0;
+  padding-bottom: 0;
+  color: var(--text-tertiary);
+  background: var(--surface-sunken);
 }

@@ -45,12 +45,15 @@ const MarketRow = memo(function MarketRow({
   ticker,
   tickSpec,
   current,
+  pending,
   onNavigate,
 }: {
   meta: CoinMeta;
   ticker: TickerMessage | undefined;
   tickSpec: string | undefined;
   current: boolean;
+  /** 이 마켓에 걸린 미체결 건수. 0이면 표식 없음. memo 유지를 위해 원시값으로 받는다 */
+  pending: number;
   onNavigate: (market: string) => void;
 }) {
   const d = ticker ? dirOf(ticker.change) : "flat";
@@ -78,7 +81,14 @@ const MarketRow = memo(function MarketRow({
       <span role="cell" className={styles.nameCell}>
         <span className={styles.nameText}>
           <span className={styles.name}>{meta.koreanName}</span>
-          <span className={`${styles.sym} num`}>{meta.symbol}/KRW</span>
+          <span className={`${styles.sym} num`}>
+            {meta.symbol}/KRW
+            {/* 미체결 표식. 매수 주문은 원화를 묶고 코인 잔고는 0으로 남는다. 그래서 방금 산
+                코인이 보유 탭에도, 이 목록 어디에도 없다. 그 주문이 어느 마켓에 걸렸는지를
+                목록에서 바로 짚게 한다. 둘째 줄에 두는 이유는 첫 줄이 한글명 말줄임 자리라
+                표식을 끼우면 이름이 먼저 잘리기 때문이다 */}
+            {pending > 0 && <span className={styles.pending}>주문 {pending}</span>}
+          </span>
         </span>
       </span>
       <span role="cell" className="dir-text num" data-dir={d}>
@@ -102,7 +112,18 @@ export default function MarketListPanel({ market }: { market: string }) {
   const markets = useExchangeStore((s) => s.markets);
   const favorites = useExchangeStore((s) => s.favorites);
   const assets = useExchangeStore((s) => s.assets);
+  const openOrders = useExchangeStore((s) => s.openOrders);
   const connected = useExchangeStore((s) => s.connected);
+  /* 마켓별 미체결 건수. 보유 탭 판정과 행 표식이 같은 값을 봐야 한다.
+     openOrders는 전 마켓을 담는다(loadOrders를 마켓 인자 없이 부른다) */
+  const pendingByMarket = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const o of openOrders) {
+      if (o.status !== "OPEN" && o.status !== "PARTIAL") continue;
+      m.set(o.market, (m.get(o.market) ?? 0) + 1);
+    }
+    return m;
+  }, [openOrders]);
   // 행별 markets.find(커밋당 O(행수×마켓수))를 없애는 Map 조회
   const specMap = useMemo(() => new Map(markets.map((m) => [m.market, m.tick_size])), [markets]);
   const onNavigate = useCallback(
@@ -134,7 +155,11 @@ export default function MarketListPanel({ market }: { market: string }) {
         const held = assets.some(
           (a) => a.currency === c.symbol && toNum(a.balance) + toNum(a.locked) > 0,
         );
-        if (!held) return false;
+        /* 미체결이 걸린 마켓도 남긴다. 매수 지정가는 원화를 묶고 코인 잔고는 0으로 둔다.
+           보유량만으로 거르면 방금 낸 매수 주문의 코인이 이 탭에서 사라진다. 사용자가
+           "샀는데 안 보인다"고 말하는 자리가 정확히 여기다. 이미 locked를 세고 있었던 것도
+           같은 의도이고(매도 묶임은 코인이 묶인다), 매수 쪽 짝을 마저 채우는 것이다 */
+        if (!held && (pendingByMarket.get(c.market) ?? 0) === 0) return false;
       }
       if (!q) return true;
       return (
@@ -178,7 +203,7 @@ export default function MarketListPanel({ market }: { market: string }) {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [query, tab, sortKey, sortDir, tickers, favorites, assets]);
+  }, [query, tab, sortKey, sortDir, tickers, favorites, assets, pendingByMarket]);
 
   const emptyText =
     query.trim() !== ""
@@ -261,6 +286,7 @@ export default function MarketListPanel({ market }: { market: string }) {
                   ticker={tickers[c.market]}
                   tickSpec={specMap.get(c.market)}
                   current={c.market === market}
+                  pending={pendingByMarket.get(c.market) ?? 0}
                   onNavigate={onNavigate}
                 />
               ))

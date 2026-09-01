@@ -62,14 +62,32 @@ test("formatPrice: tick_size 문자열 스펙에서 자릿수 유도", () => {
   assert.equal(formatPrice("64000000", "1000"), "64,000,000"); // tick 1000 -> 0자리
 });
 
-test("formatQty: null·undefined·\"\"는 스케일 0 강등(\"0.00000000\")", () => {
-  assert.equal(formatQty(nul), "0.00000000");
-  assert.equal(formatQty(undef), "0.00000000");
-  assert.equal(formatQty(""), "0.00000000");
+test("formatQty: null·undefined·\"\"는 하한 자릿수 0으로 강등", () => {
+  assert.equal(formatQty(nul), "0.00");
+  assert.equal(formatQty(undef), "0.00");
+  assert.equal(formatQty(""), "0.00");
 });
 
-test("formatQty: 유효 수량은 qty_scale까지 후행 0 유지", () => {
-  assert.equal(formatQty("0.00412"), "0.00412000");
+test("formatQty: 후행 0은 하한 2자리까지만 남는다", () => {
+  assert.equal(formatQty("0.00412"), "0.00412");
+  assert.equal(formatQty("1.5", 4), "1.50");
+  assert.equal(formatQty("2", 8), "2.00");
+});
+
+/* 정산 scale 과 표시 scale 을 가른다. ETH 는 wei 단위라 정산 18 이 맞지만 그대로 그리면
+   "13.750000000000000000" 이 되어 열 하나가 화면을 먹는다 */
+test("formatQty: 정산 scale 18은 표시 상한 8로 자른다", () => {
+  assert.equal(formatQty("13.750000000000000000", 18), "13.75");
+  assert.equal(formatQty("0.010000000000000000", 18), "0.01");
+});
+
+/* 상한으로 자른 결과가 0이면 표시가 값을 지운 것이다. 잔량이 있는데 없다고 그리지 않는다 */
+test("formatQty: 상한 아래 값은 첫 유효 숫자까지 자릿수를 되돌린다", () => {
+  assert.equal(formatQty("0.000000000000000001", 18), "0.000000000000000001");
+  // 되돌림은 첫 유효 자리에서 멈추므로 반올림 표기다. 0이 아니라는 사실이 남는 것이 목적이다
+  assert.equal(formatQty("0.0000000005", 18), "0.000000001");
+  // scale 이 허용하지 않으면 되돌리지 않는다. 없는 정밀도를 만들지 않는다
+  assert.equal(formatQty("0.000000000000000001", 8), "0.00");
 });
 
 // formatPct 경로: 등락률

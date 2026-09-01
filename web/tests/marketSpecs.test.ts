@@ -13,9 +13,12 @@ test("스펙 미로드 시 표시 자릿수가 위조된다(가격·수량)", ()
   // tick_size 1000 마켓의 저가 구간. 스펙이 없으면 가격대 폴백이 소수를 붙인다
   assert.equal(formatPrice("125.5", "1000"), "126");
   assert.notEqual(formatPrice("125.5"), formatPrice("125.5", "1000"));
-  // qty_scale 4 마켓. 스펙이 없으면 기본 8자리로 없는 정밀도를 그린다
-  assert.equal(formatQty("1.5", 4), "1.5000");
-  assert.notEqual(formatQty("1.5"), formatQty("1.5", 4));
+  /* 수량은 후행 0을 떼므로 스펙 유무가 자릿수를 위조하지 않는다(format.ts QTY_DISPLAY_MIN).
+     위조가 남는 자리는 유효 숫자가 스펙 밖에 있을 때다. scale 4 마켓에서 5자리 값은
+     스펙대로면 반올림되고, 스펙이 없으면 없는 정밀도가 그대로 그려진다 */
+  assert.equal(formatQty("1.5", 4), "1.50");
+  assert.equal(formatQty("0.00001", 4), "0.00");
+  assert.notEqual(formatQty("0.00001"), formatQty("0.00001", 4));
 });
 
 test("loadMarkets는 표시 자릿수의 근거를 스토어에 채운다", async () => {

@@ -17,11 +17,14 @@ import { buildChartStyles, precisionOf, volStyles } from "./chartTheme";
 import { DEFAULT_ACTIVE, specOf, type IndicatorKey, type IndicatorSpec } from "./indicators";
 import { startCandleStream, type CandleStreamHandle, type LiveCandle } from "./candleStream";
 import { registerMatchedVolume } from "./volIndicator";
+import { registerOrderLine, syncOrderLines, toOrderLines, type OrderLineSpec } from "./orderLine";
+import { useExchangeStore } from "@/lib/store";
 import { prefersReducedMotion } from "@/lib/reducedMotion";
 import styles from "./chart.module.css";
 
 // 내장 VOL을 막대 폭이 캔들과 같은 구현으로 교체한다. 모듈 로드 시 1회(등록은 이름 기준 덮어쓰기).
 registerMatchedVolume();
+registerOrderLine();
 
 const CANDLE_PANE_ID = "candle_pane";
 // 거래량 전용 pane. 캔들 pane에 스택하지 않는다. klinecharts YAxis는 pane에 붙은 모든 지표 figure
@@ -84,6 +87,9 @@ export default function TradingChart({ market }: { market: string }) {
   const [retrySeq, setRetrySeq] = useState(0);
   // status 리전 낭독 문구. 형성봉 300ms 스트림과 분리해 게이팅된 이벤트에서만 갱신한다
   const [ariaMessage, setAriaMessage] = useState("");
+  // 미체결 주문선. 스토어를 그대로 구독해 별도 폴러를 만들지 않는다
+  const openOrders = useExchangeStore((s) => s.openOrders);
+  const orderLinesRef = useRef<Map<string, OrderLineSpec>>(new Map());
 
   const unitRef = useRef(unit);
   unitRef.current = unit;
@@ -252,6 +258,21 @@ export default function TradingChart({ market }: { market: string }) {
       streamRef.current = null;
     };
   }, [market, unit, retrySeq, handleLatest]);
+
+  /* 미체결 주문선. 스토어가 바뀔 때만 돌고 캔들 스트림과 독립이다.
+     차트가 [market]마다 재생성되므로 마켓이 바뀌면 이전 선은 차트와 함께 사라진다.
+     그때 ref 를 비우지 않으면 다음 마켓에서 지울 대상을 잘못 계산한다 */
+  useEffect(() => {
+    orderLinesRef.current = new Map();
+  }, [market]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const tokens = readChartTokens();
+    const next = toOrderLines(openOrders, market, tokens, (v) => formatQty(v, 4));
+    orderLinesRef.current = syncOrderLines(chart, orderLinesRef.current, next);
+  }, [openOrders, market]);
 
   // 지표 토글: 활성 집합 diff만 반영(전체 재생성 없이)
   useEffect(() => {
