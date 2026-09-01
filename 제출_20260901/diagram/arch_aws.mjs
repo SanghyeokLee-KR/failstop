@@ -21,7 +21,10 @@
 //       node arch_aws.mjs --slide   -> arch_aws_slide.svg (하단 범례 제외)
 
 import { Canvas, C, writeSvg } from './lib/draw.mjs'
-import { FIG_META } from './lib/content.mjs'
+import {
+  FIG_META, ARCH_KPI, ARCH_EDGE, ARCH_STATIONS, ARCH_STATION_LEGEND,
+  ARCH_AZ, ARCH_COTENANT, ARCH_VERIFY, ARCH_LIMITS, ARCH_FILM, ARCH_COST, ARCH_FOOT,
+} from './lib/content.mjs'
 
 const SLIDE = process.argv.includes('--slide')
 
@@ -76,11 +79,9 @@ d.txt(40, 63, M.sub, 11.5, MUTE)
 d.add(`<line x1="40" y1="86" x2="${W - 40}" y2="86" stroke="${LINE}" stroke-width="1"/>`)
 
 // KPI. 값과 측정 범위를 반드시 함께 적는다. 범위 없는 숫자는 이 도면에 없다
-;[['Application HA', '2 AZ', '설계 · Cloud NOT RUN', INK],
-  ['전체 AZ 내성', '미성립', 'DB 승격 수동', FAIL],
-  ['Failover RTO', '6.688 s', 'Local · 1 run', INK],
-  ['RPO', '0', 'Local · same run', INK],
-  ['Ledger 위반', '0 rows', 'Local validation', INK]].forEach(([k, v, ev, col], i) => {
+const CBY = { INK, FAIL, OK, IDLE, TRANS, MUTE }
+;ARCH_KPI.forEach(([k, v, ev, cn], i) => {
+  const col = CBY[cn]
   const x = 1330 + i * 148
   d.txt(x, 30, k, 9, MUTE)
   d.txt(x, 52, v, 15, col, '700')
@@ -159,14 +160,7 @@ const SW = 288, SGAP = 32
 const SX0 = AX + 24
 d.txt(SX0, SY - 52, 'Transaction Write Path', 10.5, INK, '700')
 d.txt(SX0 + 170, SY - 52, '주문 하나가 밟는 여섯 정거장. 전부 리더 안이다', 9, MUTE)
-const ST = [
-  ['1', '접수', '서명 · nonce · 멱등', 'mem'],
-  ['2', '저널 append', 'command_journal · fsync', 'dur'],
-  ['3', 'ACK', '여기서 200 을 낸다', 'mem'],
-  ['4', '매칭엔진', 'single writer · seq 오름차순', 'sole'],
-  ['5', '원장 정산', '복식부기 · 한 트랜잭션', 'dur'],
-  ['6', '프로젝션', '재계산 가능한 파생', 'derived'],
-]
+const ST = ARCH_STATIONS
 
 d.add(`<line x1="${SX0}" y1="${SY}" x2="${SX0 + 5 * (SW + SGAP) + SW}" y2="${SY}" stroke="${INK}" stroke-width="2.6"/>`)
 
@@ -187,7 +181,7 @@ ST.forEach(([n, title, sub, kind], i) => {
   }
 })
 
-d.txt(SX0, SY + 62, '옅은 채움 = PostgreSQL 에 남는다     흰 바탕 = 메모리에서 돈다     파선 = 재계산 가능한 파생     굵은 테두리 = 이중화할 수 없는 유일점', 9.5, MUTE)
+d.txt(SX0, SY + 62, ARCH_STATION_LEGEND, 9.5, MUTE)
 
 // --------------------------------------------------------------- B+C. AZ-c 복구 경로
 box(AX, 612, AW, 132, { stroke: IDLE, sw: 1.3, dash: '5 4' })
@@ -208,27 +202,23 @@ d.ln([[AX + 1288, 404], [AX + 1288, 674]], OK, 1.6, '4 3')
 d.txt(AX + 1302, 560, 'streaming replication', 9.5, OK, '700')
 
 // D. 관측과 봇. 배선 상태를 라벨로 함께 둔다. 배선 없는 아이콘은 답할 자산이 없다
-d.node(AX + 500, 690, 'prom', null, null, 20)
-d.node(AX + 550, 690, 'grafana', null, null, 20)
-d.txt(AX + 580, 686, '관측  Prometheus · Grafana', 11, INK, '700')
-d.txt(AX + 580, 700, 'app-2 노드 동거. AZ-a 상실 시 승격을 관측해야 한다', 9, MUTE)
-badge(AX + 580, 716, '상시면 컴포즈 정의 0건 · Local harness only', IDLE)
-
-d.txt(AX + 940, 686, 'Bot Fleet', 11, INK, '700')
-d.txt(AX + 940, 700, 'standby 노드 동거 계획 · 24시간 기저 트래픽', 9, MUTE)
-badge(AX + 940, 716, 'compose 정의 0건 · W1', IDLE)
+;ARCH_COTENANT.forEach(([icons, title, sub, gap], i) => {
+  const x = AX + 580 + i * 360
+  icons.forEach((ic, j) => d.node(x - 80 + j * 50, 690, ic, null, null, 20))
+  d.txt(x, 686, title, 11, INK, '700')
+  d.txt(x, 700, sub, 9, MUTE)
+  badge(x, 716, gap, IDLE)
+})
 
 d.txt(AX + 1700, 686, 'AZ-a 를 통째로 잃으면 등뼈 1~6 이', 10.5, INK, '700')
 d.txt(AX + 1700, 702, '이 평면에서 다시 선다. 승격 소요는 미측정이다.', 9.5, BODY)
 
 // ===================================================================== 2-b. 검증면
 box(40, 776, 2020, 104, { stroke: MUTE, sw: 1.2, dash: '5 4' })
-caption(56, 798, '온프레미스 검증면', '세션 구동 · 비용 0 · Rocky Linux 10 · VM 2대 또는 network namespace · Kernel-level Injection 전용', MUTE)
-d.node(74, 840, 'linux', null, null, 22)
+caption(56, 798, '온프레미스 검증면', ARCH_VERIFY.note, MUTE)
+d.node(74, 840, ARCH_VERIFY.icon, null, null, 22)
 
-;[['L3', 'tc netem', '지연 · 손실 · 재정렬', 'Kernel Injection'],
-  ['L4', 'nftables', 'DROP · REJECT', 'Kernel Injection'],
-  ['L7', 'process kill', 'SIGTERM · SIGKILL', 'Fault Injection']].forEach(([l, tool, det, kind], i) => {
+;ARCH_VERIFY.tools.forEach(([l, tool, det, kind], i) => {
   const x = 110 + i * 300
   d.txt(x, 828, l, 10.5, FAIL, '700')
   d.txt(x + 26, 828, tool, 11, INK, '700')
@@ -237,20 +227,14 @@ d.node(74, 840, 'linux', null, null, 22)
 })
 
 d.add(`<line x1="1030" y1="806" x2="1030" y2="866" stroke="${LINE}" stroke-width="1"/>`)
-d.txt(1054, 828, '커널 계층 주입은 이 평면 전용이다. 클라우드 노드에 걸면 SSM 접근 경로가 같은 네트워크를 타서 노드를 통째로 잃는다.', 9.5, BODY)
-d.txt(1054, 846, '두 평면을 잇는 것은 상시 터널이 아니라 같은 GHCR digest 와 저장소에 커밋한 verdict 파일이다.', 9.5, BODY)
-d.txt(1054, 864, '검증면이 탐색하고, 증명면이 재현하고, 상시면이 서비스한다.', 9.5, INK, '700')
+ARCH_VERIFY.why.forEach((t, i) => d.txt(1054, 828 + i * 18, t, 9.5, BODY))
+d.txt(1054, 864, ARCH_VERIFY.motto, 9.5, INK, '700')
 
 // ===================================================================== 2-c. 한계와 메타
 // 한계는 경고문이 아니라 검토 자료다. 차분한 회색 상자에 이름으로 적는다
 box(40, 896, 1372, 128, { stroke: MUTE, sw: 1.1 })
 caption(56, 918, 'Known Limitations', '숨기지 않는다. 이 목록이 남은 작업의 정의다', MUTE)
-;[
-  'Application 계층만 2 AZ 다. 전체 AZ 장애 내성은 미성립이고 AZ-a 상실 시 DB 승격 소요는 미측정이다',
-  'PostgreSQL 승격이 수동이다. Patroni · etcd 설정 파일 0건. primary 가 자동 복구 기준의 단일 장애점이다',
-  '클라우드 배포와 카오스 실측이 NOT RUN 이다. RTO · RPO · Ledger 수치는 전부 로컬 카오스 스택 실측이다',
-  '상시면 관측 스택 컴포즈 정의 0건, 알람 통지 경로 0건. E1 · E2 · E5 · E9 는 상시면 이식 불가라 카오스는 로컬 전속이다',
-].forEach((t, i) => {
+;ARCH_LIMITS.forEach((t, i) => {
   d.txt(72, 944 + i * 20, `${i + 1}`, 9, MUTE, '700')
   d.txt(90, 944 + i * 20, t, 9.5, BODY)
 })
@@ -264,12 +248,7 @@ M.meta.forEach((t, i) => d.txt(1444, 940 + i * 18, t, 9, MUTE))
 d.txt(40, 1064, '상태 전이', 14, INK, '700')
 d.txt(112, 1064, '같은 배치, 다른 상태 · 장애 도메인이 어디서 끊기는지 본다', 10, MUTE)
 
-const FILM = [
-  ['정상', 'ok', [['app-1', 'ok'], ['primary', 'ok']], [['app-2', 'idle'], ['standby', 'ok']], '불변식 26 체크 통과'],
-  ['app-1 kill', 'ok', [['app-1', 'fail'], ['primary', 'ok']], [['app-2', 'ok'], ['standby', 'ok']], 'RTO 6.688 s · Local 1 run'],
-  ['AZ-a 상실', 'trans', [['app-1', 'fail'], ['primary', 'fail']], [['app-2', 'ok'], ['standby', 'trans']], 'DB 승격 필요 · 미측정'],
-  ['승격 · 재생', 'trans', [['app-1', 'fail'], ['primary', 'fail']], [['app-2', 'trans'], ['primary', 'ok']], '저널 재생 중 · 503 재시도'],
-]
+const FILM = ARCH_FILM
 const PW = 484, PGAP = 24, PY = 1080, PH = 234
 
 FILM.forEach(([label, tone, aRow, cRow, note], k) => {
@@ -308,9 +287,7 @@ if (!SLIDE) {
   d.add(`<line x1="40" y1="${H_MAIN - 4}" x2="${W - 40}" y2="${H_MAIN - 4}" stroke="${LINE}" stroke-width="1"/>`)
 
   d.txt(40, H_MAIN + 22, '운영 상태와 비용', 11, INK, '700')
-  ;[['BASELINE', '24/7', 'Route 53 · CloudFront · S3. 외부 접속 요건 성립', 'USD 0.72 /월'],
-    ['HA STEADY', '24/7', '위 토폴로지 전체. app x2 · primary/standby · NAT x2', '달력 월 97,318원'],
-    ['PROOF', '창 구동', '부하 발생기 c7g.large 단독. 달력 월 45시간 예산', 'USD 0.0816 /hr']].forEach(([nm, mode, desc, price], i) => {
+  ;ARCH_COST.forEach(([nm, mode, desc, price], i) => {
     const y = H_MAIN + 46 + i * 22
     d.txt(40, y, nm, 10, INK, '700')
     d.txt(150, y, mode, 9.5, MUTE)
@@ -337,7 +314,7 @@ if (!SLIDE) {
     d.add(`<circle cx="${x + 8}" cy="${y}" r="7" fill="${col}"/>`)
     d.txt(x + 24, y + 4, nm, 9.5, BODY)
   })
-  d.txt(40, H_MAIN + 114, '수치에 출처가 없으면 미측정이다. RTO 6.688 s 는 E4-20260829 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.5 달력 월 판정과 같은 값이다.', 9.5, MUTE)
+  d.txt(40, H_MAIN + 114, ARCH_FOOT, 9.5, MUTE)
 }
 
 const out = SLIDE ? 'arch_aws_slide.svg' : 'arch_aws.svg'

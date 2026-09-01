@@ -1,4 +1,4 @@
-// 도면 2·3 의 draw.io 판. 내용은 lib/content.mjs 하나에서 읽는다.
+// 도면 1·2·3 의 draw.io 판. 내용은 lib/content.mjs 하나에서 읽는다.
 //
 // 왜 별도 형식인가. SVG 판은 제출본에 그대로 박히는 완성물이고 draw.io 판은 손으로
 // 고칠 수 있는 편집본이다. 발표 준비에서 문구를 바꾸거나 배치를 옮길 때 생성기를
@@ -7,14 +7,35 @@
 // 좌표는 SVG 판과 맞추지 않는다. draw.io 는 셀 단위 편집이라 여백 규칙이 다르고,
 // 억지로 맞추면 편집할 때마다 어긋난다. 같아야 하는 것은 내용이지 픽셀이 아니다.
 //
-// 사용: node drawio.mjs   -> 장애대응_흐름.drawio · 계층판별_트리.drawio
+// 사용: node drawio.mjs   -> 시스템_아키텍처.drawio · 장애대응_흐름.drawio · 계층판별_트리.drawio
 
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
+import sharp from 'sharp'
 import {
   TIER_COLOR, LAYER_COLOR,
   FLOW_KPI, STATIONS, SEV, SEV_NOTE, TIERS, TIER_NOTE, NOAUTO, LEDGER_WHY, SAFE_COND,
   TRIAGE_KPI, TRIAGE_NODES, TRIAGE_TABLE, INJECT_TOOLS, TRIAGE_CASES, TRIAGE_STATUS, FIG_META,
+  ARCH_KPI, ARCH_EDGE, ARCH_STATIONS, ARCH_STATION_LEGEND, ARCH_AZ, ARCH_COTENANT,
+  ARCH_VERIFY, ARCH_LIMITS, ARCH_FILM, ARCH_COST, ARCH_FOOT,
 } from './lib/content.mjs'
+
+// 아이콘은 파일 참조가 아니라 base64 로 박는다. draw.io 파일을 옮기거나 남에게 주면
+// 상대경로 참조는 깨지는데 편집본은 그렇게 돌아다니라고 만든 것이다.
+// 원본이 256~300px 인데 표시 크기가 28px 안팎이라 96px 로 줄여 넣는다.
+// 확대해도 선명한 3배수를 유지하면서 파일이 271KB 에서 104KB 로 내려간다.
+const ICON_PX = 96
+const ICON_KEYS = [
+  'users', 'route53', 'cloudfront', 's3', 'alb', 'tg', 'ssm',
+  'spring', 'pg', 'prom', 'grafana', 'linux',
+]
+const ICONS = {}
+for (const k of ICON_KEYS) {
+  const buf = await sharp(readFileSync(new URL(`icons/${k}.png`, import.meta.url)))
+    .resize(ICON_PX, ICON_PX, { fit: 'inside' })
+    .png({ compressionLevel: 9 })
+    .toBuffer()
+  ICONS[k] = buf.toString('base64')
+}
 
 const INK = '#16191F'
 const BODY = '#3C4750'
@@ -62,6 +83,15 @@ class Dio {
       x, y, w, h)
   }
 
+  /** 아이콘. 없는 키를 조용히 넘기지 않고 던진다. 빠진 아이콘은 눈으로 안 보인다 */
+  img(key, x, y, size) {
+    const b64 = ICONS[key]
+    if (!b64) throw new Error(`아이콘 없음: ${key}`)
+    return this.cell('',
+      'shape=image;html=1;imageAspect=1;aspect=fixed;labelBackgroundColor=none;' +
+      `image=data:image/png,${b64}`, x, y, size, size)
+  }
+
   /** 화살표. 두 셀 사이가 아니라 좌표로 긋는다. 편집할 때 붙였다 떼기 쉽다 */
   arrow(x1, y1, x2, y2, { color = INK, dashed = false, head = true } = {}) {
     const id = this.next()
@@ -102,6 +132,223 @@ function header(d, title, sub, kpi, W) {
     d.txt(v, x, 34, 140, 22, { size: 15, color: bad ? TIER_COLOR.GAP : INK, bold: true })
   })
   d.cell('', `line;html=1;strokeColor=${LINE};strokeWidth=1;`, 20, 74, W - 40, 8)
+}
+
+/* ===================== 도면 1 ===================== */
+
+// 상태 4색. arch_aws.mjs 와 같은 값이다. 이 넷 밖의 색은 쓰지 않는다
+const A_OK = '#0E7C66'
+const A_FAIL = '#C0392B'
+const A_TRANS = '#B8730A'
+const A_IDLE = '#98A2A8'
+const A_CBY = { INK, FAIL: A_FAIL, OK: A_OK, IDLE: A_IDLE, TRANS: A_TRANS, MUTE }
+
+function serviceArchitecture() {
+  const W = 2000, H = 1560
+  const d = new Dio()
+  const M = FIG_META.arch
+
+  // 헤더. KPI 는 값과 측정 범위를 함께 적는다. 범위 없는 숫자는 이 도면에 없다
+  d.txt(`${M.no} · ${M.title}`, 20, 14, 900, 32, { size: 22, color: INK, bold: true })
+  d.txt(M.sub, 20, 44, 900, 20, { size: 11, color: MUTE })
+  ARCH_KPI.forEach(([k, v, ev, cn], i) => {
+    const x = W - 40 - (ARCH_KPI.length - i) * 150
+    d.txt(k, x, 12, 145, 14, { size: 9, color: MUTE })
+    d.txt(v, x, 28, 145, 20, { size: 14, color: A_CBY[cn], bold: true })
+    d.txt(ev, x, 50, 145, 14, { size: 8.5, color: MUTE })
+  })
+  d.cell('', `line;html=1;strokeColor=${LINE};strokeWidth=1;`, 20, 74, W - 40, 8)
+
+  /* --- AWS 영역 --- */
+  d.box(20, 92, W - 40, 748, { stroke: '#8A9299', sw: 1.4 })
+  d.txt('AWS Cloud', 36, 100, 140, 20, { size: 13, color: INK, bold: true })
+  d.txt('Region ap-northeast-2', 130, 100, 240, 20, { size: 10, color: MUTE })
+
+  /* --- 외부 진입 --- */
+  d.txt('External Access', 36, 126, 160, 16, { size: 9.5, color: MUTE, bold: true })
+  const EW = 180, EGAP = 34, EH = 48, EY = 152
+  ARCH_EDGE.chain.forEach(([ic, label, note], i) => {
+    const x = 40 + i * (EW + EGAP)
+    d.box(x, EY, EW, EH, { fill: '#FFFFFF' })
+    d.img(ic, x + 12, EY + 10, 28)
+    d.txt(label, x + 48, EY, EW - 60, EH, { size: 12, color: INK, bold: true })
+    if (note) d.txt(note, x, EY + EH + 2, EW, 14, { size: 8.5, color: MUTE, align: 'center' })
+    if (i < ARCH_EDGE.chain.length - 1) d.arrow(x + EW, EY + EH / 2, x + EW + EGAP, EY + EH / 2)
+  })
+  // CloudFront 에서 정적과 동적이 갈린다. 이 분기가 상단의 요지다
+  const FX = 40 + 3 * (EW + EGAP)
+  ARCH_EDGE.fork.forEach(([ic, label, sub, note], i) => {
+    const y = EY - 34 + i * 78
+    d.box(FX, y, 300, 48, { fill: '#FFFFFF' })
+    d.img(ic, FX + 12, y + 10, 28)
+    d.txt(label, FX + 48, y + 4, 244, 20, { size: 11.5, color: INK, bold: true })
+    d.txt(sub, FX + 48, y + 24, 244, 16, { size: 9, color: MUTE })
+    if (note) d.txt(note, FX + 306, y + 14, 170, 16, { size: 8.5, color: MUTE })
+    d.arrow(FX - 26, EY + EH / 2, FX - 26, y + 23, { head: false })
+    d.arrow(FX - 26, y + 23, FX, y + 23)
+  })
+
+  // 계약 각주 둘. 크기로 눌러 둔다
+  ARCH_EDGE.contracts.forEach(([ic, title, line1, line2], i) => {
+    const x = 1030 + i * 470
+    d.box(x, 138, 450, 78)
+    d.img(ic, x + 14, 148, 24)
+    d.txt(title, x + 46, 144, 390, 18, { size: 10.5, color: INK, bold: true })
+    d.txt(line1, x + 46, 164, 390, 16, { size: 9.5, color: BODY })
+    d.txt(line2, x + 14, 184, 424, 28, { size: 8.8, color: MUTE })
+  })
+  d.badge(ARCH_EDGE.probeBadge, 1030, 232, 250, 20, A_IDLE)
+
+  /* --- 가용영역 둘 --- */
+  const AY = [258, 618]
+  ARCH_AZ.forEach((az, k) => {
+    const y = AY[k]
+    const tone = az.tone === 'OK' ? A_OK : A_IDLE
+    d.box(36, y, W - 72, k === 0 ? 336 : 210, { stroke: tone, sw: 1.3, dashed: k === 1 })
+    d.txt(az.name, 52, y + 8, 300, 20, { size: 12.5, color: tone, bold: true })
+    d.txt(az.note, 300, y + 8, 1200, 20, { size: 9.5, color: MUTE })
+
+    // 같은 것은 같은 x 에 둔다. app 과 db 가 두 평면에서 수직으로 맞는다
+    const put = (spec, x) => {
+      const [ic, name, sub, badgeTxt, badgeCol, extra] = spec
+      d.box(x, y + 34, 330, extra ? 64 : 48, { fill: '#FFFFFF' })
+      d.img(ic, x + 12, y + 42, 26)
+      d.txt(name, x + 48, y + 38, 264, 18, { size: 12, color: INK, bold: true })
+      d.txt(sub, x + 48, y + 56, 274, 16, { size: 9, color: MUTE })
+      if (extra) d.txt(extra, x + 48, y + 76, 274, 16, { size: 8.6, color: A_TRANS })
+      if (badgeTxt) d.badge(badgeTxt, x + 338, y + 46, 128, 20, A_CBY[badgeCol])
+    }
+    put(az.app, 52)
+    put(az.db, 1180)
+  })
+
+  // 복제. 청록 점선이고 범례와 같은 스타일이다.
+  // x 는 정거장 틈(1288~1300)의 중앙이다. 상자 안을 지나면 등뼈를 관통해 읽을 수 없다.
+  // 시작과 끝을 상자 경계에 두는 이유는 도형 안에서 출발하면 draw.io 직교 라우터가 꺾기 때문이다
+  d.arrow(1294, 340, 1294, 652, { color: A_OK, dashed: true, head: false })
+  d.txt('streaming replication', 1304, 348, 220, 16, { size: 9.5, color: A_OK, bold: true })
+
+  /* --- 거래 쓰기 경로 --- */
+  const SY = 376, SW = 300, SGAP = 12
+  d.txt('Transaction Write Path', 52, SY, 200, 18, { size: 10.5, color: INK, bold: true })
+  d.txt('주문 하나가 밟는 여섯 정거장. 전부 리더 안이다', 236, SY, 500, 18, { size: 9, color: MUTE })
+  ARCH_STATIONS.forEach(([n, title, sub, kind], i) => {
+    const x = 52 + i * (SW + SGAP)
+    const y = SY + 24
+    // 지속성과 파생을 색이 아니라 형태로 가른다
+    const fill = kind === 'dur' ? '#F2F5F7' : '#FFFFFF'
+    d.box(x, y, SW, 72, {
+      fill,
+      dashed: kind === 'derived',
+      sw: kind === 'sole' ? 1.8 : 1,
+      stroke: kind === 'sole' ? INK : LINE,
+    })
+    d.badge(n, x + 12, y + 10, 22, 22, INK)
+    d.txt(title, x + 42, y + 10, 190, 22, { size: 13, color: INK, bold: true })
+    d.txt(sub, x + 12, y + 40, SW - 100, 18, { size: 9.5, color: BODY })
+    d.txt(kind === 'dur' || kind === 'derived' ? 'PostgreSQL' : 'app-1',
+      x + SW - 96, y + 40, 84, 18, { size: 8.8, color: MUTE, align: 'right' })
+    if (i < ARCH_STATIONS.length - 1) d.arrow(x + SW, y + 36, x + SW + SGAP, y + 36)
+  })
+  d.txt(ARCH_STATION_LEGEND, 52, SY + 106, 1800, 18, { size: 9.5, color: MUTE })
+
+  /* --- AZ-c 동거 구성요소. 배선 상태를 라벨로 함께 둔다 --- */
+  const CY2 = AY[1] + 116
+  const COL = [52, 470]
+  ARCH_COTENANT.forEach(([icons, title, sub, gap], i) => {
+    const x = COL[i]
+    icons.forEach((ic, j) => d.img(ic, x + j * 30, CY2 + 4, 26))
+    const tx = x + (icons.length ? icons.length * 30 + 8 : 0)
+    d.txt(title, tx, CY2, 330, 18, { size: 11, color: INK, bold: true })
+    d.txt(sub, tx, CY2 + 20, 380, 16, { size: 9, color: MUTE })
+    d.badge(gap, tx, CY2 + 40, i === 0 ? 268 : 150, 20, A_IDLE)
+  })
+  d.txt('AZ-a 를 통째로 잃으면 등뼈 1~6 이 이 평면에서 다시 선다.', 900, CY2, 1050, 18,
+    { size: 10.5, color: INK, bold: true })
+  d.txt('승격 소요는 미측정이다.', 900, CY2 + 20, 1050, 16, { size: 9.5, color: BODY })
+
+  /* --- 온프레미스 검증면 --- */
+  const VY = 860
+  d.box(20, VY, W - 40, 116, { stroke: MUTE, sw: 1.2, dashed: true })
+  d.txt('온프레미스 검증면', 36, VY + 8, 180, 20, { size: 12.5, color: MUTE, bold: true })
+  d.txt(ARCH_VERIFY.note, 180, VY + 8, 900, 20, { size: 9.5, color: MUTE })
+  d.img(ARCH_VERIFY.icon, 40, VY + 44, 26)
+  ARCH_VERIFY.tools.forEach(([l, tool, det, kind], i) => {
+    const x = 86 + i * 300
+    d.txt(l, x, VY + 36, 30, 18, { size: 10.5, color: A_FAIL, bold: true })
+    d.txt(tool, x + 30, VY + 36, 200, 18, { size: 11, color: INK, bold: true })
+    d.txt(det, x, VY + 56, 270, 16, { size: 9, color: BODY })
+    d.txt(kind, x, VY + 74, 270, 16, { size: 8.8, color: MUTE })
+  })
+  d.cell('', `line;html=1;strokeColor=${LINE};strokeWidth=1;`, 960, VY + 32, 0, 60)
+  ARCH_VERIFY.why.forEach((t, i) => d.txt(t, 984, VY + 34 + i * 18, 990, 16, { size: 9.5, color: BODY }))
+  d.txt(ARCH_VERIFY.motto, 984, VY + 74, 990, 16, { size: 9.5, color: INK, bold: true })
+
+  /* --- 한계와 메타. 한계는 경고문이 아니라 검토 자료다 --- */
+  const LY = 992
+  d.box(20, LY, 1360, 124, { stroke: MUTE, sw: 1.1 })
+  d.txt('Known Limitations', 36, LY + 8, 200, 20, { size: 12.5, color: MUTE, bold: true })
+  d.txt('숨기지 않는다. 이 목록이 남은 작업의 정의다', 190, LY + 8, 500, 20, { size: 9.5, color: MUTE })
+  ARCH_LIMITS.forEach((t, i) => {
+    d.txt(String(i + 1), 44, LY + 34 + i * 20, 16, 16, { size: 9, color: MUTE, bold: true })
+    d.txt(t, 64, LY + 34 + i * 20, 1300, 16, { size: 9.5, color: BODY })
+  })
+  d.box(1396, LY, 584, 124)
+  d.txt(`${M.no} · Metadata`, 1412, LY + 8, 300, 18, { size: 10, color: MUTE, bold: true })
+  M.meta.forEach((t, i) => d.txt(t, 1412, LY + 30 + i * 18, 550, 16, { size: 9, color: MUTE }))
+
+  /* --- 상태 전이 --- */
+  const FY = 1134
+  d.txt('상태 전이', 20, FY, 100, 20, { size: 13, color: INK, bold: true })
+  d.txt('같은 배치, 다른 상태 · 장애 도메인이 어디서 끊기는지 본다', 100, FY, 700, 20, { size: 10, color: MUTE })
+  const PW = 476, PGAP = 20, PH = 214
+  ARCH_FILM.forEach(([label, tone, aRow, cRow, note], k) => {
+    const px = 20 + k * (PW + PGAP)
+    const py = FY + 26
+    const tc = tone === 'ok' ? A_OK : A_TRANS
+    d.box(px, py, PW, PH)
+    d.cell('', `rounded=0;html=1;fillColor=${tc};strokeColor=none;`, px, py, PW, 3)
+    d.txt(label, px + 14, py + 12, 220, 22, { size: 13, color: INK, bold: true })
+    d.txt(note, px + PW - 314, py + 12, 300, 22, { size: 9.5, color: tc, bold: true, align: 'right' })
+    // 두 AZ 를 같은 기하로 반복한다. 좌표가 패널마다 같아야 상태 차이만 보인다
+    const row = (ry, name, cells, dashed) => {
+      d.box(px + 14, ry, PW - 28, 74, { dashed })
+      d.txt(name, px + 26, ry + 8, 80, 16, { size: 9.5, color: MUTE, bold: true })
+      cells.forEach(([lbl, st], j) => {
+        const cx = px + 40 + j * 200
+        const col = st === 'ok' ? A_OK : st === 'fail' ? A_FAIL : st === 'trans' ? A_TRANS : A_IDLE
+        const style = st === 'ok' || st === 'trans'
+          ? `ellipse;html=1;fillColor=${col};strokeColor=none;`
+          : `ellipse;html=1;fillColor=#FFFFFF;strokeColor=${col};strokeWidth=1.8;dashed=${st === 'idle' ? 1 : 0};`
+        d.cell('', style, cx, ry + 34, 20, 20)
+        d.txt(lbl, cx + 26, ry + 34, 150, 20, { size: 10, color: col, bold: st !== 'idle' })
+      })
+    }
+    row(py + 40, 'AZ-a', aRow, false)
+    row(py + 128, 'AZ-c', cRow, true)
+  })
+
+  /* --- 비용과 각주 --- */
+  const CY = 1390
+  d.cell('', `line;html=1;strokeColor=${LINE};strokeWidth=1;`, 20, CY, W - 40, 8)
+  d.txt('운영 상태와 비용', 20, CY + 14, 160, 20, { size: 11, color: INK, bold: true })
+  ARCH_COST.forEach(([nm, mode, desc, price], i) => {
+    const y = CY + 40 + i * 22
+    d.txt(nm, 20, y, 110, 18, { size: 10, color: INK, bold: true })
+    d.txt(mode, 132, y, 70, 18, { size: 9.5, color: MUTE })
+    d.txt(desc, 206, y, 640, 18, { size: 9.5, color: BODY })
+    d.txt(price, 850, y, 170, 18, { size: 10, color: INK, bold: true, align: 'right' })
+  })
+  d.txt('범례', 1120, CY + 14, 80, 20, { size: 11, color: INK, bold: true })
+  const LEG = [['정상 · 실측', A_OK], ['장애 · SPOF', A_FAIL], ['복구 중', A_TRANS], ['비활성 · 계획', A_IDLE]]
+  LEG.forEach(([nm, col], i) => {
+    const x = 1120 + i * 220
+    d.cell('', `ellipse;html=1;fillColor=${col};strokeColor=none;`, x, CY + 42, 14, 14)
+    d.txt(nm, x + 22, CY + 40, 180, 18, { size: 9.5, color: BODY })
+  })
+  d.txt(ARCH_FOOT, 20, CY + 114, 1960, 18, { size: 9.5, color: MUTE })
+
+  return { xml: d.toString('Service Architecture', W, H), out: '시스템_아키텍처.drawio', W, H }
 }
 
 /* ===================== 도면 2 ===================== */
@@ -348,7 +595,7 @@ function layerTriage() {
   return { xml: d.toString('계층 판별', W, H), out: '계층판별_트리.drawio', W, H }
 }
 
-for (const g of [incidentFlow(), layerTriage()]) {
+for (const g of [serviceArchitecture(), incidentFlow(), layerTriage()]) {
   writeFileSync(new URL(g.out, import.meta.url), g.xml, 'utf8')
   console.log(`${g.out}  ${g.W}x${g.H}`)
 }

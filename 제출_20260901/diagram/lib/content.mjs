@@ -176,3 +176,118 @@ export const FIG_META = {
     ],
   },
 }
+
+/* ===================== 도면 1. Service Architecture ===================== */
+// arch_aws.mjs(SVG)와 drawio.mjs(편집본)가 아래를 함께 읽는다. 좌표는 각 생성기가
+// 따로 갖고 여기에는 무엇을 적는가만 둔다. 수치가 바뀌면 이 블록만 고친다.
+
+// 값과 측정 범위를 반드시 함께 적는다. 범위 없는 숫자는 도면 1 에 없다
+export const ARCH_KPI = [
+  ['Application HA', '2 AZ', '설계 · Cloud NOT RUN', 'INK'],
+  ['전체 AZ 내성', '미성립', 'DB 승격 수동', 'FAIL'],
+  ['Failover RTO', '6.688 s', 'Local · 1 run', 'INK'],
+  ['RPO', '0', 'Local · same run', 'INK'],
+  ['Ledger 위반', '0 rows', 'Local validation', 'INK'],
+]
+
+// 외부 진입. CloudFront 에서 정적과 동적이 갈리는 것이 상단의 요지다
+export const ARCH_EDGE = {
+  chain: [
+    ['users', '사용자', null],
+    ['route53', 'Route 53', null],
+    ['cloudfront', 'CloudFront', 'ACM  us-east-1'],
+  ],
+  fork: [
+    ['s3', 'Amazon S3', '정적 · /*', null],
+    ['alb', 'Application Load Balancer', '동적 · /api/*  /ws/*', 'ACM  ap-northeast-2'],
+  ],
+  contracts: [
+    ['tg', 'Target Group',
+      '/actuator/health/readiness   port 8081',
+      '팔로워는 503 이라 자동으로 빠진다. 트래픽 8080 과 헬스체크 8081 이 다르다'],
+    ['ssm', '운영 경로  ·  Operations',
+      'SSM Session Manager 단독 · SSH 22 전 노드 미개방 · NAT 인스턴스 AZ 로컬 2대',
+      '관리 평면 8443 mTLS 는 ALB 뒤에 두지 않는다. TLS 종단이 X509 전달을 끊는다'],
+  ],
+  probeBadge: 'L3/L4/L7 probe · not wired',
+}
+
+// 주문 하나가 밟는 여섯 정거장. kind 가 지속성과 파생을 형태로 가른다
+export const ARCH_STATIONS = [
+  ['1', '접수', '서명 · nonce · 멱등', 'mem'],
+  ['2', '저널 append', 'command_journal · fsync', 'dur'],
+  ['3', 'ACK', '여기서 200 을 낸다', 'mem'],
+  ['4', '매칭엔진', 'single writer · seq 오름차순', 'sole'],
+  ['5', '원장 정산', '복식부기 · 한 트랜잭션', 'dur'],
+  ['6', '프로젝션', '재계산 가능한 파생', 'derived'],
+]
+
+export const ARCH_STATION_LEGEND =
+  '옅은 채움 = PostgreSQL 에 남는다     흰 바탕 = 메모리에서 돈다     파선 = 재계산 가능한 파생     굵은 테두리 = 이중화할 수 없는 유일점'
+
+// 두 가용영역. 같은 것은 같은 자리에 둔다
+export const ARCH_AZ = [
+  {
+    id: 'a', name: '가용영역 ap-northeast-2a', tone: 'OK',
+    note: '정상 서비스 경로. 쓰기 경로 전체가 이 안에 있다 · private-app-a / private-db-a',
+    app: ['spring', 'app-1', 'Leader  ·  EC2 t4g.small  ·  Spring Boot', null, null],
+    db: ['pg', 'PostgreSQL 17', 'primary  ·  EC2 t4g.small', 'SPOF · 승격 수동', 'FAIL'],
+  },
+  {
+    id: 'c', name: '가용영역 ap-northeast-2c', tone: 'IDLE',
+    note: '복구 경로. 평시에는 트래픽을 받지 않는다 · private-app-c / private-db-c',
+    app: ['spring', 'app-2', 'Follower  ·  readiness 503', null, null],
+    db: ['pg', 'PostgreSQL 17', 'standby  ·  streaming replication', 'PLANNED', 'IDLE',
+      'Patroni 설정 0건 · 승격 현재 수동'],
+  },
+]
+
+// AZ-c 동거 구성요소. 배선 상태를 라벨로 함께 둔다. 배선 없는 아이콘은 답할 자산이 없다
+export const ARCH_COTENANT = [
+  [['prom', 'grafana'], '관측  Prometheus · Grafana', 'app-2 노드 동거. AZ-a 상실 시 승격을 관측해야 한다',
+    '상시면 컴포즈 정의 0건 · Local harness only'],
+  [[], 'Bot Fleet', 'standby 노드 동거 계획 · 24시간 기저 트래픽',
+    'compose 정의 0건 · W1'],
+]
+
+// 온프레미스 검증면. 커널 계층 주입 전용이다
+export const ARCH_VERIFY = {
+  icon: 'linux',
+  note: '세션 구동 · 비용 0 · Rocky Linux 10 · VM 2대 또는 network namespace · Kernel-level Injection 전용',
+  tools: [
+    ['L3', 'tc netem', '지연 · 손실 · 재정렬', 'Kernel Injection'],
+    ['L4', 'nftables', 'DROP · REJECT', 'Kernel Injection'],
+    ['L7', 'process kill', 'SIGTERM · SIGKILL', 'Fault Injection'],
+  ],
+  why: [
+    '커널 계층 주입은 이 평면 전용이다. 클라우드 노드에 걸면 SSM 접근 경로가 같은 네트워크를 타서 노드를 통째로 잃는다.',
+    '두 평면을 잇는 것은 상시 터널이 아니라 같은 GHCR digest 와 저장소에 커밋한 verdict 파일이다.',
+  ],
+  motto: '검증면이 탐색하고, 증명면이 재현하고, 상시면이 서비스한다.',
+}
+
+// 한계는 경고문이 아니라 검토 자료다. 이 목록이 남은 작업의 정의다
+export const ARCH_LIMITS = [
+  'Application 계층만 2 AZ 다. 전체 AZ 장애 내성은 미성립이고 AZ-a 상실 시 DB 승격 소요는 미측정이다',
+  'PostgreSQL 승격이 수동이다. Patroni · etcd 설정 파일 0건. primary 가 자동 복구 기준의 단일 장애점이다',
+  '클라우드 배포와 카오스 실측이 NOT RUN 이다. RTO · RPO · Ledger 수치는 전부 로컬 카오스 스택 실측이다',
+  '상시면 관측 스택 컴포즈 정의 0건, 알람 통지 경로 0건. E1 · E2 · E5 · E9 는 상시면 이식 불가라 카오스는 로컬 전속이다',
+]
+
+// 같은 배치, 다른 상태. 좌표가 패널마다 동일해야 상태 차이만 보인다
+export const ARCH_FILM = [
+  ['정상', 'ok', [['app-1', 'ok'], ['primary', 'ok']], [['app-2', 'idle'], ['standby', 'ok']], '불변식 26 체크 통과'],
+  ['app-1 kill', 'ok', [['app-1', 'fail'], ['primary', 'ok']], [['app-2', 'ok'], ['standby', 'ok']], 'RTO 6.688 s · Local 1 run'],
+  ['AZ-a 상실', 'trans', [['app-1', 'fail'], ['primary', 'fail']], [['app-2', 'ok'], ['standby', 'trans']], 'DB 승격 필요 · 미측정'],
+  ['승격 · 재생', 'trans', [['app-1', 'fail'], ['primary', 'fail']], [['app-2', 'trans'], ['primary', 'ok']], '저널 재생 중 · 503 재시도'],
+]
+
+// 비용은 계획서 9.5 달력 월 판정과 같은 값이다
+export const ARCH_COST = [
+  ['BASELINE', '24/7', 'Route 53 · CloudFront · S3. 외부 접속 요건 성립', 'USD 0.72 /월'],
+  ['HA STEADY', '24/7', '위 토폴로지 전체. app x2 · primary/standby · NAT x2', '달력 월 97,318원'],
+  ['PROOF', '창 구동', '부하 발생기 c7g.large 단독. 달력 월 45시간 예산', 'USD 0.0816 /hr'],
+]
+
+export const ARCH_FOOT =
+  '수치에 출처가 없으면 미측정이다. RTO 6.688 s 는 E4-20260829 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.5 달력 월 판정과 같은 값이다.'
