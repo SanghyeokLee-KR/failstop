@@ -739,14 +739,27 @@ export default function OrderPanel({ market, initialSide, prefill, accountsHealt
           )}
 
           {/* 429는 장애가 아니라 설계된 백프레셔라 종결 실패로 적지 않는다(§2-3 429 클라이언트
-              규약). 서버가 회복 시각을 알려줬으면 그것을 말한다. role 도 가른다.
-              alert 는 즉시 낭독을 뺏으므로 곧 풀리는 지연에는 쓰지 않는다 */}
-          {balance.notice === "backpressure" && (
+              규약). 문구 축은 decideBalance 가 정하고 여기서는 고르기만 한다.
+              role 도 가른다. alert 는 즉시 낭독을 뺏으므로 값이 있어 확정이 열려 있는 지연이나
+              곧 자동으로 풀리는 대기에는 쓰지 않고, 스스로 풀리지 않는 차단에만 쓴다.
+              자동 재조회 예고는 대기 초가 있는 경로에만 붙는다. 비429 실패에는 그 타이머가
+              걸리지 않으므로(ExchangeMarketClient 자동 재조회 조건) 예고하면 거짓말이 된다 */}
+          {balance.notice === "delayed_wait" && (
             <p className={styles.hint} role="status">
-              요청 몰림으로 잔고 조회 대기. {accountsHealth.retryAfterSec}초 후 자동 재조회
+              요청 몰림으로 잔고 갱신 대기. {accountsHealth.retryAfterSec}초 후 자동 재조회
             </p>
           )}
-          {balance.notice === "error" && (
+          {balance.notice === "delayed" && (
+            <p className={styles.hint} role="status">
+              잔고 갱신 실패로 표시 값이 오래됨. 새로고침 가능
+            </p>
+          )}
+          {balance.notice === "blocked_wait" && (
+            <p className={styles.hint} role="status">
+              잔고 미확정으로 주문 불가. {accountsHealth.retryAfterSec}초 후 자동 재조회
+            </p>
+          )}
+          {balance.notice === "blocked" && (
             <p className={styles.error} role="alert">
               잔고 조회 실패로 주문 불가. 다시 시도 필요
             </p>

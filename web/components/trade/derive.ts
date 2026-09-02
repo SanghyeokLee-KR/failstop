@@ -71,6 +71,16 @@ export function rateVsPrevClose(price: string | number, prevClose: string): Deri
 /** 주문 패널이 잔고 영역에 무엇을 그릴지. 순수 함수라 표로 고정한다 */
 export type BalanceView = "loading" | "value" | "retry";
 
+/**
+ * 안내 문구 축. 화면이 오류 코드를 직접 분기하지 않도록 문구 선택까지 여기서 끝낸다.
+ *
+ * 앞부분(delayed·blocked)은 값의 유무가 가른다. 값이 있으면 지연이고 없으면 차단이다.
+ * 뒷부분(_wait)은 서버가 회복 시각을 줬는지만 가른다. 대기 초를 말할 수 있는지를 정할 뿐
+ * 종결 실패인지는 정하지 않는다(§2-3). 두 축을 하나로 접으면 값이 있고 확정도 열린 상태에
+ * 종결 실패 문구가 붙어, 화면이 주문 불가라 말하면서 CTA 는 여는 자기모순이 된다.
+ */
+export type BalanceNotice = "none" | "delayed_wait" | "delayed" | "blocked_wait" | "blocked";
+
 export interface BalanceDecision {
   /** 잔고 영역 표시 종류 */
   view: BalanceView;
@@ -79,7 +89,7 @@ export interface BalanceDecision {
   /** 주문 CTA 를 허용하는가 */
   ready: boolean;
   /** 안내 문구 종류. none 이면 행을 만들지 않는다 */
-  notice: "none" | "backpressure" | "error";
+  notice: BalanceNotice;
   /**
    * 사용자가 직접 다시 읽을 수단을 내주는가.
    *
@@ -107,19 +117,20 @@ export interface BalanceDecision {
  * 확정하게 두는 것은 다른 문제다. 이 경계가 유일한 차단 근거다.
  *
  * failed 와 stale 을 가르는 것은 값의 유무이지 오류의 종류가 아니다. 429든 5xx든 값이
- * 있으면 stale 이고 없으면 failed 다. 오류 종류는 문구(notice)만 가른다.
+ * 있으면 stale 이고 없으면 failed 다. 429 여부는 대기 초를 말할 수 있는지만 가른다.
  */
 export function decideBalance(input: {
   state: "idle" | "ok" | "stale" | "failed";
   hasTicker: boolean;
   retryAfterSec: number | null;
 }): BalanceDecision {
-  const backpressure = input.retryAfterSec !== null;
+  // 회복 시각을 서버가 준 경우에만 대기 초를 말할 수 있다. 비429 실패는 그 근거가 없다
+  const canNameWait = input.retryAfterSec !== null;
   if (input.state === "failed") {
     // 값이 없다. 재시도 자리를 내주고 CTA 는 막는다
     return {
       view: "retry", stale: false, ready: false, canRetry: true,
-      notice: backpressure ? "backpressure" : "error",
+      notice: canNameWait ? "blocked_wait" : "blocked",
     };
   }
   if (input.state === "stale") {
@@ -127,7 +138,7 @@ export function decideBalance(input: {
        시세는 여전히 필요하다. 없으면 총액·수수료 파생이 서지 않아 확정할 값이 없다 */
     return {
       view: "value", stale: true, ready: input.hasTicker, canRetry: true,
-      notice: backpressure ? "backpressure" : "error",
+      notice: canNameWait ? "delayed_wait" : "delayed",
     };
   }
   if (input.state === "ok") {
