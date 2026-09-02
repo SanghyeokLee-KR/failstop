@@ -742,12 +742,44 @@ export class HttpStompDataSource implements DataSource {
     return this.refreshPromise;
   }
 
+  /**
+   * 유계 대기. 재시도는 전부 Retry-After 를 존중하고 상한으로 접는다.
+   *
+   * 비유한 입력을 하한으로 접는 것이 핵심이다. NaN 은 비교 두 개를 모두 빠져나가 그대로
+   * setTimeout 에 실리고, 그러면 유계 대기가 즉시 재발사가 된다. 규칙은 store 의
+   * clampRetrySec 과 같다. 두 곳이 다르면 같은 헤더가 화면마다 다르게 해석된다.
+   */
+  private static delay(sec: number): Promise<void> {
+    const bounded = Number.isFinite(sec) ? Math.min(30, Math.max(1, Math.ceil(sec))) : 1;
+    return new Promise((resolve) => setTimeout(resolve, bounded * 1000));
+  }
+
+  /**
+   * 회전 요청. 409 refresh_in_progress 만 1회 재시도한다(회원 설계 4-5 부트스트랩 복원 규약 v2.6).
+   *
+   * 429 에는 걸지 않는다. 이 엔드포인트는 리프레시 토큰을 회전시키므로 자동 재발사가 곧
+   * 동시 회전이고 그것이 재사용 탐지에 걸린다. 409 는 성질이 정반대다. "네 토큰은 동시 승자가
+   * 소비했고 그 승자의 새 쿠키가 이미 도착했다"는 뜻이라 재시도가 곧 정상 경로이고,
+   * 재시도하지 않으면 세션이 서지 않아 데모로 폴백한다.
+   */
+  private async rotate(): Promise<string> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const body = await this.authPost("/api/v1/auth/refresh");
+        if (!body.access_token) throw new ApiError(0, "invalid_envelope", "갱신 응답에 access_token 없음");
+        return body.access_token;
+      } catch (e) {
+        const raced = e instanceof ApiError && e.status === 409;
+        if (!raced || attempt >= 1) throw e;
+        await HttpStompDataSource.delay((e as ApiError).retryAfter ?? 1);
+      }
+    }
+  }
+
   private async doRefresh(): Promise<MemberSession | null> {
     let token: string;
     try {
-      const body = await this.authPost("/api/v1/auth/refresh");
-      if (!body.access_token) throw new ApiError(0, "invalid_envelope", "갱신 응답에 access_token 없음");
-      token = body.access_token;
+      token = await this.rotate();
     } catch (e) {
       // 401·403만 세션 종료로 수렴해 재로그인 전까지 재요청을 억제한다(§3-4).
       // 네트워크·5xx·429에서 member를 해제하면 유효 rt 쿠키를 갖고도 데모로 강등되므로 세션을 유지한다.
@@ -759,7 +791,7 @@ export class HttpStompDataSource implements DataSource {
       throw e;
     }
     // refresh 응답은 user를 주지 않으므로 /me로 사용자 로드(§3-8)
-    const user = this.member?.user ?? (await this.fetchMe(token));
+    const user = this.member?.user ?? (await this.fetchMeWithRetry(token));
     if (!user) {
       // 토큰 회전은 성공했으나 /me 일시 실패. 회전된 유효 쿠키를 버리지 않도록 억제하지 않는다.
       this.clearMember();
@@ -777,6 +809,24 @@ export class HttpStompDataSource implements DataSource {
    * 이 파일은 이미 같은 규칙을 refresh 경로에 적용해 두었는데(401·403만 세션 종료) 여기서만
    * 어긋나 있었다. 두 호출이 한 사슬이므로 규칙도 같아야 한다.
    */
+  /**
+   * /me 429 만 1회 재시도한다(회원_설계 §부트스트랩 복원 규약).
+   *
+   * 재시도를 이 안에서 하는 이유. 바깥에서 복원 전체를 다시 부르면 이미 성공한
+   * POST /auth/refresh 까지 다시 쏘게 되고, 그것이 정본이 금지한 동시 회전이다.
+   * 여기서는 유효한 access 를 이미 쥐고 있어 회전 없이 다시 부를 수 있다.
+   * 5xx·네트워크에는 걸지 않는다. 서버가 회복 시각을 말한 바 없다.
+   */
+  private async fetchMeWithRetry(token: string): Promise<MemberUser | null> {
+    try {
+      return await this.fetchMe(token);
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.status !== 429) throw e;
+      await HttpStompDataSource.delay(e.retryAfter ?? 1);
+      return this.fetchMe(token);
+    }
+  }
+
   private async fetchMe(token: string): Promise<MemberUser | null> {
     const res = await this.fetchFn(`${this.apiBase}/api/v1/me`, {
       headers: { Authorization: `Bearer ${token}` },

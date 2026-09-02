@@ -199,6 +199,8 @@ interface ExchangeState {
   accountsHealth: AccountsHealth;
   /** 조회 왕복 단일화 가드. 연타·동시 마운트가 요청을 늘리지 않게 한다 */
   accountsInFlight: boolean;
+  /** 진행 중 잔고 조회의 신원. in-flight 가드를 신원별로 만든다 */
+  accountsInFlightId: string | null;
   /* 공지 첫 쪽(§4-F). 배너와 진입점 미읽음 표식이 쓴다.
      목록 화면은 여기를 보지 않고 자기 커서로 아카이브를 따라간다 */
   notices: PublicNotice[];
@@ -297,6 +299,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   assets: [],
   accountsHealth: { state: "idle", lastUpdatedAt: null, retryAfterSec: null },
   accountsInFlight: false,
+  accountsInFlightId: null,
   notices: [],
   noticesLoaded: false,
   closedOrdersTruncated: false,
@@ -431,7 +434,16 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
       // 같은 신원의 토큰 재발급은 사설 슬라이스를 보존한다. 신원 전환·해제만 소거해
       // 이전 회원의 잔액·주문이 다음 신원 화면에 잔존·flash 하지 않게 한다
       if (prevId === nextId) return { session: s };
-      return { session: s, assets: [], openOrders: [], closedOrders: [] };
+      /* 신선도도 함께 되돌린다. assets 만 비우면 stale 상태가 값 없이 남고, 그 조합은
+         "이전 성공값이 있다"는 stale 정의를 깬다. decideBalance 는 stale 을 값 있음으로
+         읽어 CTA 까지 열므로, 로그아웃 직후 거래 화면이 빈 잔고로 주문을 허용하게 된다 */
+      return {
+        session: s,
+        assets: [],
+        openOrders: [],
+        closedOrders: [],
+        accountsHealth: { state: "idle" as const, lastUpdatedAt: null, retryAfterSec: null },
+      };
     });
   },
 
@@ -495,13 +507,24 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
 
   async loadAccounts() {
     /* 단일 in-flight. 여러 화면이 같은 프레임에 마운트하거나 사용자가 재시도를 연타해도
-       왕복은 하나다. 백프레셔로 거절당한 구간에 요청을 더 얹지 않는 것이 이 가드의 목적이다 */
-    if (get().accountsInFlight) return;
-    set({ accountsInFlight: true });
+       왕복은 하나다. 백프레셔로 거절당한 구간에 요청을 더 얹지 않는 것이 이 가드의 목적이다.
+
+       가드는 신원별이다. 전역 부울 하나로 두면 이전 신원의 조회가 도는 동안 새 신원의
+       조회가 통째로 삼켜지고, 새 신원 화면이 값 없이 남는다. 신원이 다르면 통과시킨다.
+       늦게 도착한 이전 신원 응답은 아래 stillMine 이 버린다. 두 장치는 역할이 다르다.
+       in-flight 는 중복 발사를 막고, stillMine 은 남의 응답 채택을 막는다 */
+    const fired = get().session?.user.external_id ?? null;
+    const cur = get();
+    if (cur.accountsInFlight && cur.accountsInFlightId === fired) return;
+    set({ accountsInFlight: true, accountsInFlightId: fired });
+    /* 발사 시점 신원과 현재 신원이 다르면 이 응답은 남의 것이다. 채택하지 않는다 */
+    const stillMine = () => (get().session?.user.external_id ?? null) === fired;
     try {
       const assets = await getDataSource().getAccounts();
+      if (!stillMine()) return;
       set({ assets, accountsHealth: { state: "ok", lastUpdatedAt: Date.now(), retryAfterSec: null } });
     } catch (e) {
+      if (!stillMine()) return;
       /* 값이 있으면 stale, 없으면 failed다. 이 구분이 이 상태 모델의 요점이다.
          종전에는 둘을 한 플래그로 묶어, 한 번 실패하면 이미 받아둔 잔고까지 화면에서 사라졌다.
          429는 장애가 아니라 설계된 백프레셔라 회복 시각을 함께 든다(§2-3 429 클라이언트 규약) */
@@ -516,7 +539,10 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
       throw e;
     } finally {
       // 실패해도 세운다. 미로딩으로 두면 스켈레톤이 영원히 돈다(loadNotices와 같은 규약)
-      set({ accountsLoaded: true, accountsInFlight: false });
+      // 내 비행일 때만 내린다. 신원이 바뀌어 새 조회가 떴으면 그 비행의 깃발이다
+      set((s) => (s.accountsInFlightId === fired
+        ? { accountsLoaded: true, accountsInFlight: false }
+        : { accountsLoaded: true }));
     }
   },
 
@@ -526,11 +552,16 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     // 응답 부재를 소멸로 해석하면 방금 낸 주문이 목록에서 사라진다
     const before = get();
     const known = new Set([...before.openOrders, ...before.closedOrders].map((o) => o.id));
+    /* 주문도 사설 슬라이스다. 잔고와 같은 규율로 신원을 찍고 착지 때 대조한다.
+       없으면 로그아웃 왕복 중 착지한 이전 신원 주문이 새 신원 목록에 그대로 병합된다 */
+    const fired = before.session?.user.external_id ?? null;
+    const stillMine = () => (get().session?.user.external_id ?? null) === fired;
     try {
       /* 전역이 드는 체결 목록은 첫 쪽뿐이다. 여기를 소비하는 것은 체결 통지 중복 판정
          (OrderPanel.shouldAnnounceFill)과 마이페이지 요약이고 둘 다 최근 것만 본다.
          아카이브 전체는 거래내역 화면이 자기 커서로 따라간다 */
       const [open, closed] = await Promise.all([ds.getOpenOrders(market), ds.getClosedOrders({ market })]);
+      if (!stillMine()) return;
       set((s) => nextOrderLists(s, mergeOrderSnapshot(s, [...open, ...closed.data], { known, market })));
       set({ closedOrdersTruncated: closed.has_more });
     } finally {
@@ -614,25 +645,11 @@ export function useMemberSessionBootstrap(): void {
     const ds = getDataSource();
     const off = ds.onMemberSessionChange(setSession);
     /* 새로고침 후 httpOnly refresh 쿠키로 access 재획득(§4-5). sim은 인메모리 세션을 그대로 반환.
-       복원이 1회로 끝나던 것에 429 한정 1회 재시도를 얹는다(회원_설계 부트스트랩 복원 규약).
-       한 번 놓치면 이후 읽기가 데모 세션으로 폴백해 공유 데모 계정 잔고가 회원 화면에 그려진다.
-       429 에만 거는 이유는 서버가 그때만 회복 시각을 주기 때문이다. 5xx·네트워크는 언제 될지
-       모르므로 자동으로 다시 쏘지 않는다. 상한 없는 재시도는 노드가 굶는 구간에 부하를 더한다. */
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const restore = (retryOn429: boolean) => {
-      void ds.refresh().catch((e: unknown) => {
-        if (!retryOn429) return;
-        const limited = e instanceof ApiError && e.status === 429;
-        if (!limited) return;
-        const sec = clampRetrySec(e.retryAfter);
-        timer = setTimeout(() => restore(false), sec * 1000);
-      });
-    };
-    restore(true);
-    return () => {
-      if (timer) clearTimeout(timer);
-      off();
-    };
+       재시도는 여기서 하지 않는다. 복원 전체를 다시 부르면 이미 성공한 POST /auth/refresh 까지
+       다시 쏘게 되고, 그것이 회원_설계가 금지한 동시 회전이다. 어댑터가 사슬 안에서
+       /me 429 와 refresh 409 만 각각 1회 재시도한다 */
+    void ds.refresh().catch(() => {});
+    return off;
   }, [setSession]);
 }
 

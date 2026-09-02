@@ -1786,3 +1786,73 @@ test("복원: /me 200이면 회원 세션이 선다", async () => {
   assert.ok(s, "복원 성공");
   assert.equal(s.user.email, MEMBER_USER.email);
 });
+
+/* 복원 사슬 안에서만 재시도한다(회원_설계 §부트스트랩 복원 규약 v2.6).
+   바깥에서 복원 전체를 다시 부르면 이미 성공한 POST /auth/refresh 까지 다시 쏘게 되고
+   그것이 정본이 금지한 동시 회전이다. 두 재시도의 대상과 횟수를 여기서 고정한다. */
+
+test("복원: /me 429는 1회 재시도한다. refresh는 다시 쏘지 않는다", async () => {
+  const token = edJwt(900_000, "boot");
+  let refreshHits = 0;
+  let meHits = 0;
+  const { ds } = newDs({
+    "/api/v1/auth/refresh": () => {
+      refreshHits += 1;
+      return jsonRes(200, { schema_version: "1.0", access_token: token });
+    },
+    "/api/v1/me": () => {
+      meHits += 1;
+      return meHits === 1
+        ? jsonRes(429, { error: { name: "too_many_requests", retry_after: 1 } })
+        : jsonRes(200, { schema_version: "1.0", user: MEMBER_USER });
+    },
+  });
+  const s = await ds.refresh();
+  assert.ok(s, "재시도로 복원된다");
+  assert.equal(meHits, 2, "/me 는 한 번 더 부른다");
+  assert.equal(refreshHits, 1, "회전 엔드포인트는 다시 쏘지 않는다. 동시 회전을 스스로 만들지 않는다");
+});
+
+test("복원: /me 429가 두 번이면 포기한다. 상한은 1회다", async () => {
+  const token = edJwt(900_000, "boot");
+  let meHits = 0;
+  const { ds } = newDs({
+    "/api/v1/auth/refresh": () => jsonRes(200, { schema_version: "1.0", access_token: token }),
+    "/api/v1/me": () => {
+      meHits += 1;
+      return jsonRes(429, { error: { name: "too_many_requests", retry_after: 1 } });
+    },
+  });
+  await assert.rejects(ds.refresh(), (e: unknown) => e instanceof ApiError && e.status === 429);
+  assert.equal(meHits, 2, "최초 + 재시도 1회");
+});
+
+test("복원: refresh 409는 1회 재시도한다. 승자의 새 쿠키로 성립한다", async () => {
+  const token = edJwt(900_000, "boot");
+  let refreshHits = 0;
+  const { ds } = newDs({
+    "/api/v1/auth/refresh": () => {
+      refreshHits += 1;
+      // 첫 호출은 동시 회전 패자. 두 번째는 승자가 심은 새 쿠키로 성공한다
+      return refreshHits === 1
+        ? jsonRes(409, { error: { name: "refresh_in_progress", retry_after: 1 } })
+        : jsonRes(200, { schema_version: "1.0", access_token: token });
+    },
+    "/api/v1/me": () => jsonRes(200, { schema_version: "1.0", user: MEMBER_USER }),
+  });
+  const s = await ds.refresh();
+  assert.ok(s, "경합 뒤 세션이 선다. 재시도가 없으면 데모로 폴백한다");
+  assert.equal(refreshHits, 2);
+});
+
+test("복원: refresh 429는 재시도하지 않는다. 회전이 동시 회전을 만든다", async () => {
+  let refreshHits = 0;
+  const { ds } = newDs({
+    "/api/v1/auth/refresh": () => {
+      refreshHits += 1;
+      return jsonRes(429, { error: { name: "too_many_requests", retry_after: 1 } });
+    },
+  });
+  await assert.rejects(ds.refresh(), (e: unknown) => e instanceof ApiError && e.status === 429);
+  assert.equal(refreshHits, 1, "회전 엔드포인트에 자동 재발사를 걸지 않는다");
+});

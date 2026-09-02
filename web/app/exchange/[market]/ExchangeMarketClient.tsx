@@ -97,6 +97,8 @@ function ExchangeMarketBody() {
      그래서 myAsset 이 잔고를 되살려도 그 성공을 관측하지 못해 데이터는 최신인데 표시만
      실패로 남았다. 단일 in-flight 가드도 스토어로 옮겨 다른 화면의 조회와 함께 유계화된다 */
   const accountsHealth = useExchangeStore((s) => s.accountsHealth);
+  // 사설 슬라이스 재조회의 트리거. 이 값이 바뀌면 잔고와 주문을 다시 읽는다
+  const memberId = useExchangeStore((s) => s.session?.user.external_id ?? null);
 
   const reloadAccounts = useCallback(() => {
     // 상태는 스토어가 기록한다. 여기서는 실패를 삼키기만 한다(미처리 거부 방지)
@@ -118,9 +120,19 @@ function ExchangeMarketBody() {
       return;
     }
     if (autoRetried.current) return;
-    autoRetried.current = true;
-    const id = setTimeout(() => reloadAccounts(), retrySec * 1000);
-    return () => clearTimeout(id);
+    /* 소진 표시는 예약이 아니라 발사 시점에 세운다. 예약 시점에 세우면 정리 함수가 타이머를
+       거둬 간 뒤에도 표시가 남아, 재마운트(StrictMode 이중 마운트, 마켓 전환)에서 자동
+       재조회가 한 번도 나가지 않고 사라진다. 발사하지 못한 예약은 소진이 아니다 */
+    let fired = false;
+    const id = setTimeout(() => {
+      fired = true;
+      autoRetried.current = true;
+      reloadAccounts();
+    }, retrySec * 1000);
+    return () => {
+      clearTimeout(id);
+      if (!fired) autoRetried.current = false;
+    };
   }, [retrySec, reloadAccounts]);
 
   // 실시간 배선 (§2.5). 전 마켓 ticker는 마켓 전환과 무관해 deps 고정 배열로 분리한다.
@@ -135,9 +147,16 @@ function ExchangeMarketBody() {
 
   useEffect(() => {
     hydrateFavorites();
+  }, [hydrateFavorites]);
+
+  /* 사설 슬라이스는 신원에 걸린다. deps 를 스토어 액션만으로 두면 이 효과는 마운트에 한 번
+     돌고 끝이라, 부트스트랩 복원·로그인·로그아웃으로 신원이 바뀌어도 다시 읽지 않는다.
+     스토어가 신원 교체 때 잔고를 비우고 신선도를 idle 로 되돌리므로, 재조회 주체가 없으면
+     화면은 재시도 자리도 없는 스켈레톤으로 고착한다(decideBalance: idle -> loading) */
+  useEffect(() => {
     reloadAccounts();
     void loadOrders();
-  }, [hydrateFavorites, reloadAccounts, loadOrders]);
+  }, [memberId, reloadAccounts, loadOrders]);
 
   useEffect(() => {
     if (meta) writeRecentMarket(market);
