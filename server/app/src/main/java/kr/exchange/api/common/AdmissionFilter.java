@@ -20,8 +20,9 @@ import java.io.IOException;
  * 않는다(DB 설계 §5.4).
  *
  * 런타임 스위치(v2.41). AdmissionGate 가 꺼져 있으면 버킷을 타지 않고 통과시킨다. 수용 제어가
- * 없는 상태를 재현하는 실험 전용이고, 기본은 켜짐이다. 스위치는 슬롯 계수에 닿지 않는다.
- * 꺼진 동안 들어온 요청은 획득도 반납도 하지 않으므로, 켜는 순간 in-flight 는 0 에서 시작한다.
+ * 없는 상태를 재현하는 실험 전용이고, 기본은 켜짐이다. 스위치는 permit 을 직접 건드리지 않는다.
+ * 끄기 전에 이미 획득된 슬롯은 그 요청이 끝나야 반납되므로 켜는 순간 in-flight 가 0 이라는
+ * 보장은 없다(API 설계 §2-5-a v2.42).
  */
 public class AdmissionFilter extends OncePerRequestFilter {
 
