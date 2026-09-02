@@ -9,7 +9,7 @@ import { isBackpressure, messageOf, shouldNotify } from "../components/globalErr
 import { ApiError } from "../lib/api/httpDatasource";
 
 test("Error 사유는 메시지를 그대로 쓴다", () => {
-  assert.equal(messageOf(new Error("노드 처리 용량을 초과했습니다")), "노드 처리 용량을 초과했습니다");
+  assert.equal(messageOf(new Error("동시 처리 한도 도달. 잠시 후 재시도 가능")), "동시 처리 한도 도달. 잠시 후 재시도 가능");
 });
 
 test("빈 메시지·비정형 사유는 기본 문구로 수렴한다", () => {
@@ -36,7 +36,7 @@ test("같은 메시지는 억제 창 안에서 한 번만 통지한다", () => {
    이 판정이 없으면 자체 catch 를 빠져나간 429 거부가 붉은 오류 토스트가 되어,
    설계된 백프레셔가 사용자에게 고장으로 보인다. 그 오역이 이 저장소가 없애려는 것이다. */
 test("429는 전역 통지 대상이 아니다", () => {
-  assert.equal(isBackpressure({ status: 429, message: "노드 처리 용량 초과" }), true);
+  assert.equal(isBackpressure({ status: 429, message: "동시 처리 한도 도달. 잠시 후 재시도 가능" }), true);
   assert.equal(isBackpressure(new ApiError(429, "too_many_requests", "요청 몰림", 3)), true);
 });
 
