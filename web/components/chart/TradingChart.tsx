@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActionType, dispose, init, type Chart, type IndicatorCreate, type KLineData } from "klinecharts";
+import { ActionType, dispose, init, utils, type Chart, type IndicatorCreate, type KLineData } from "klinecharts";
 import Skeleton from "@/components/Skeleton";
 import type { CandleUnit } from "@/lib/types";
 import { formatPrice, formatQty } from "@/lib/format";
@@ -39,9 +39,41 @@ const VOLUME_PANE_HEIGHT = 78;
 // 모션 킬스위치 판정(§4.5)은 lib/reducedMotion의 단일 질의 객체를 쓴다. init·테마 재주입 시
 // klinecharts 애니메이션 비활성에 소비한다.
 
+// 낭독·툴팁용 라벨. ChartToolbar.TIMEFRAMES 와 같은 집합을 덮어야 한다.
+// 빠지면 그 주기에서 안내가 unit 원문("240m")으로 새어 나간다
 const UNIT_LABEL: Record<string, string> = {
-  "1m": "1분", "5m": "5분", "15m": "15분", "60m": "1시간", "240m": "4시간", "1d": "1일",
+  "1s": "1초", "1m": "1분", "3m": "3분", "5m": "5분", "15m": "15분",
+  "30m": "30분", "60m": "1시간", "240m": "4시간", "1d": "1일", "1w": "1주",
 };
+
+/**
+ * 축·크로스헤어·툴팁 시각 표기. 라이브러리 기본이 x축 HH:mm, 크로스헤어 YYYY-MM-DD HH:mm 이라
+ * 초 단위 봉에서 라벨이 전부 같은 분으로 찍힌다. 200개가 한 분 안에 들어가는 주기이므로
+ * 초를 그리지 않으면 x축이 값을 잃는다.
+ *
+ * 초를 언제 그리는가는 봉 폭이 아니라 라벨이 담당하는 구간으로 정한다. 라이브러리가 틱 위치에
+ * 따라 YYYY·MM-DD 같은 상위 패턴도 넘기므로, 시·분까지 내려온 패턴에만 초를 덧붙인다.
+ * 상위 패턴을 건드리면 일봉 x축에 초가 붙는다.
+ */
+function formatChartDate(
+  dateTimeFormat: Intl.DateTimeFormat,
+  timestamp: number,
+  format: string,
+  type: unknown,
+): string {
+  const d = new Date(timestamp);
+  const p2 = (n: number) => String(n).padStart(2, "0");
+  const hm = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  const hms = `${hm}:${p2(d.getSeconds())}`;
+  const ymd = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  // 시·분이 든 패턴만 초까지 내린다. 그 외(연·월·일 축)는 라이브러리 기본 표기를 지킨다
+  if (format.includes("HH:mm")) {
+    return format.includes("YYYY") ? `${ymd} ${hms}` : hms;
+  }
+  // 상위 패턴은 라이브러리 기본에 맡긴다. 우리가 다시 구현하면 로캘·틱 규칙이 갈린다
+  void type;
+  return utils.formatDate(dateTimeFormat, timestamp, format);
+}
 
 // status 리전 낭독 디바운스. 크로스헤어 스윕·연속 이벤트를 최종 1건으로 합쳐 SR 낭독 큐 폭주를 막는다.
 // 시각 채널(플래시 throttle 300ms, 소음 0)의 청각 대칭.
@@ -170,7 +202,10 @@ export default function TradingChart({ market }: { market: string }) {
     const el = containerRef.current;
     if (!el) return;
     const tokens = readChartTokens();
-    const chart = init(el, { styles: buildChartStyles(tokens, prefersReducedMotion()) });
+    const chart = init(el, {
+      styles: buildChartStyles(tokens, prefersReducedMotion()),
+      customApi: { formatDate: formatChartDate },
+    });
     if (!chart) return;
     chartRef.current = chart;
 

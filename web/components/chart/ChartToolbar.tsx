@@ -13,13 +13,23 @@ import { OVERLAY_INDICATORS, SUB_INDICATORS, type IndicatorKey } from "./indicat
 import { DRAWING_TOOLS } from "./drawingTools";
 import styles from "./chart.module.css";
 
+/* 서버 UNIT_SECONDS 가 받는 10종 중 UI 가 6종만 내고 있었다. 남은 넷(1s·3m·30m·1w)은
+   서버·DB·프론트 타입에 이미 다 들어 있어 노출만 하면 되고 서버 변경이 0이다.
+   집합의 근거는 실물 거래소다. 업비트가 초·1·3·5·10·15·30분·1·4시간·일·주·월·년을 내고
+   그중 초는 1초 하나뿐이다. 빗썸은 초봉이 없고, 국내 증권사 HTS 는 초 대신 틱을 쓴다.
+   우리는 암호화폐 거래소이므로 업비트 쪽 관행을 따르되 서버가 받는 것만 낸다.
+   10분·월·년은 서버가 안 받으므로 이번 범위 밖이다. */
 const TIMEFRAMES: { value: CandleUnit; label: string }[] = [
+  { value: "1s", label: "1초" },
   { value: "1m", label: "1분" },
+  { value: "3m", label: "3분" },
   { value: "5m", label: "5분" },
   { value: "15m", label: "15분" },
+  { value: "30m", label: "30분" },
   { value: "60m", label: "1시간" },
   { value: "240m", label: "4시간" },
   { value: "1d", label: "1일" },
+  { value: "1w", label: "1주" },
 ];
 
 /* 아이콘은 장식이라 stroke를 currentColor로 물려받는다 */

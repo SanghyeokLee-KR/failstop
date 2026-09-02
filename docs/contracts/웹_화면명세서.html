@@ -241,7 +241,7 @@ DataSource.subscribe(dest, cb) ──→ store.apply(msg) ──→ 화면 selec
   <table>
     <tr><th style="width:34mm">컴포넌트</th><th>역할</th></tr>
     <tr><td><code>SummaryBar</code></td><td>종목 식별(SymbolChip·한글명)·마켓 전환 드롭다운·현재가(TickCell)·등락(PricePill)·24H 스탯(고가·저가·거래대금·거래량)·관심 토글</td></tr>
-    <tr><td><code>ChartPanel</code></td><td>주기 탭(SegmentedTab, 1분~1주) + <code>CandleChart</code>(<code>next/dynamic</code>, ssr:false, height 100%)</td></tr>
+    <tr><td><code>ChartPanel</code></td><td>주기 탭(SegmentedTab, 1초~1주) + <code>CandleChart</code>(<code>next/dynamic</code>, ssr:false, height 100%)</td></tr>
     <tr><td><code>OrderbookPanel</code></td><td>세로 호가. 매도 10호가(Blue 틴트) 위 / 현재가 경계 / 매수 10호가(Red 틴트) 아래. 잔량 막대·가격·등락률(전일종가 역산). 클릭 시 가격만 프리필(side 유지)</td></tr>
     <tr><td><code>TradesPanel</code></td><td>최근 체결 4열 테이블(체결가·체결량·등락률·시각). sticky 헤더 + 내부 스크롤. 스토어 60건 + REST 백필 병합·중복 제거</td></tr>
     <tr><td><code>OrderPanel</code></td><td>인라인 주문 폼. 매수(Red)·매도(Blue), 지정가·시장가, 가격 ±스텝, 수량 + 퍼센트 칩, 총액·수수료·주문가능. 인라인 2단계 확인</td></tr>
