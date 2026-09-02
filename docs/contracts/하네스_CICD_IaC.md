@@ -833,7 +833,7 @@ Micrometer Tracing(OTel bridge)→OTLP→Tempo, Logback JSON(trace_id 포함)→
 | 보완(그레이 장애) | `docker pause`(freezer), **pause는 restart 정책으로 복구 안 됨 → 실험 타이머가 unpause 자동 종료(필수 훅)** | 헬스체크 vs TCP 생존 괴리, 좀비 리더 fencing |
 | 보완(패킷) | Pumba netem loss/corrupt (`chaos-net`), **사전 검증 필수**: `docker run --rm --cap-add NET_ADMIN alpine sh -c "apk add iproute2 && tc qdisc add dev eth0 root netem loss 10%"` 성공 시에만 활성. WSL2 커널 sch_netem 미탑재 시 **packet loss 실험은 범위 제외로 문서화** | Toxiproxy 공백 전담(조건부) |
 
-모든 실험은 approval_token(2인 승인)·감사 로그·Grafana annotation 자동 삽입(§5-4)을 경유한다. 계약 §3-6/§6-B 그대로. 카오스 주입의 유일한 입구는 admin API다(toxiproxy 8474 호스트 미공개, §3-1).
+모든 실험은 감사 로그·Grafana annotation 자동 삽입(§5-4)을 경유한다. 계약 §3-6/§6-B 그대로. approval_token 은 v2.34 에서 불요로 완화됐다(제시하면 검증·소각). 실행 주체가 1인이라 발급 주체와 사용 주체가 달라야 하는 2인 승인이 성립하지 않았고, 운영자 계정을 하나 더 만들어 혼자 두 역을 하는 우회는 통제를 형해화하면서 형식만 남긴다. 역할 게이트(CHAOS_OPS)와 전량 감사는 그대로다. 카오스 주입의 유일한 입구는 admin API다(toxiproxy 8474 호스트 미공개, §3-1).
 
 ### 6-3. 실험 판정 프로토콜 (불변식 검증기 연계)
 

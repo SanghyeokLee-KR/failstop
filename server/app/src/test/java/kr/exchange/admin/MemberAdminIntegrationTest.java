@@ -53,6 +53,10 @@ class MemberAdminIntegrationTest {
                 () -> Base64.getEncoder().encodeToString(new byte[32]));
         registry.add("exchange.admin.enabled", () -> "true");
         registry.add("exchange.admin.mtls.trusted-forwarding", () -> "true");
+        /* 이 토폴로지는 게이트웨이가 mTLS 를 종단하고 CN 을 헤더로 실어 주는 전제다.
+           그 전제에서 앱은 루프백에만 뜬다. 주소를 비워 두면 전 인터페이스 바인딩이라
+           자가신고 헤더 인증이 그대로 외부에 열리고, AdminConfig 가드가 기동을 막는다 */
+        registry.add("server.address", () -> "127.0.0.1");
         registry.add("exchange.admin.rate-limit.capacity", () -> "1000000");
     }
 

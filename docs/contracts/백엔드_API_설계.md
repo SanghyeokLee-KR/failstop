@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.33, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.39, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -1287,8 +1287,8 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 승인 라이프사이클(§3-6): `ISSUED → CONSUMED | EXPIRED | REJECTED`. 발급·사용·만료·거부 전이는 모두 admin_audit_log에 기록된다. `GET /approvals`는 원장 프로젝션이며 `approval_token`을 절대 반환하지 않는다(토큰은 발급 응답 단일 경로의 bearer 시크릿). `reject`는 `consume`과 대칭으로 `FOR UPDATE` 행 잠금·소유 검증을 거치고 `consumed_at`을 건드리지 않는다.
 
 ```json
-// POST /admin/v1/chaos/kill-node  (operator_id + approval_token 필수)
-// approval_token은 단회용·TTL 5분·(action=kill-node, node=chaos-api-1) 바인딩 발급분(§3-6, POST /admin/v1/approvals)
+// POST /admin/v1/chaos/kill-node  (operator_id 필수, approval_token 불요. v2.34 완화)
+// approval_token을 실으면 종전 계약대로 검증·소각한다. 단회용·TTL 5분·(action=kill-node, node=chaos-api-1) 바인딩(§3-6, POST /admin/v1/approvals)
 { "operator_id":"op-01","approval_token":"apv-8842",
   "node":"chaos-api-1","method":"docker_kill","expect_failover":true }
 // 202
