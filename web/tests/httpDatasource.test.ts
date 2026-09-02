@@ -324,6 +324,81 @@ test("표준 에러 매핑: name·message·status·retry_after", async () => {
   });
 });
 
+/* 429 파싱 계약(§2-3 429 클라이언트 규약). 세 평면이 같은 규칙을 쓴다는 것을 여기서 고정한다.
+   429는 설계된 백프레셔이고 서버가 회복 시각을 함께 준다. 그 정보가 어댑터에서 소실되면
+   화면은 "언제 되는지"를 말할 수 없고 곧 풀릴 지연을 영구 실패로 적게 된다 */
+test("429: 비 JSON 본문도 too_many_requests로 분류한다", async () => {
+  const { ds } = newDs({
+    "/api/v1/markets": () => new Response("<html>gateway</html>", { status: 429 }),
+  });
+  await assert.rejects(ds.getMarkets(), (e: unknown) => {
+    assert.ok(e instanceof ApiError);
+    assert.equal(e.status, 429);
+    // invalid_parameter 로 떨어지면 authErrors 가 표시명 필드 오류로 매핑한다. 열화가 아니라 오답이다
+    assert.equal(e.code, "too_many_requests");
+    return true;
+  });
+});
+
+test("429: name 없는 본문에서도 retry_after를 읽는다", async () => {
+  const { ds } = newDs({
+    "/api/v1/markets": () => jsonRes(429, { error: { retry_after: 3 } }),
+  });
+  await assert.rejects(ds.getMarkets(), (e: unknown) => {
+    assert.ok(e instanceof ApiError);
+    assert.equal(e.status, 429);
+    assert.equal(e.code, "too_many_requests");
+    // 가드 안에서 읽으면 여기서 null 이 된다. 회복 시각을 버리는 자리다
+    assert.equal(e.retryAfter, 3);
+    return true;
+  });
+});
+
+test("429: 본문에 retry_after가 없으면 Retry-After 헤더로 폴백한다", async () => {
+  const { ds } = newDs({
+    "/api/v1/markets": () =>
+      new Response(JSON.stringify({ error: { name: "too_many_requests" } }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", "Retry-After": "5" },
+      }),
+  });
+  await assert.rejects(ds.getMarkets(), (e: unknown) => {
+    assert.ok(e instanceof ApiError);
+    assert.equal(e.retryAfter, 5);
+    return true;
+  });
+});
+
+test("429: Retry-After가 HTTP-date면 값을 만들지 않는다", async () => {
+  const { ds } = newDs({
+    "/api/v1/markets": () =>
+      new Response(JSON.stringify({ error: { name: "too_many_requests" } }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", "Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT" },
+      }),
+  });
+  await assert.rejects(ds.getMarkets(), (e: unknown) => {
+    assert.ok(e instanceof ApiError);
+    // 없는 값을 지어내지 않는다. 안내는 "잠시 후"로 열화한다
+    assert.equal(e.retryAfter, null);
+    return true;
+  });
+});
+
+test("429: 위반 버킷 detail은 보존한다(표시·로깅 전용, 분기 금지)", async () => {
+  const { ds } = newDs({
+    "/api/v1/markets": () =>
+      jsonRes(429, {
+        error: { name: "too_many_requests", detail: { bucket: "node", scope: "query" }, retry_after: 1 },
+      }),
+  });
+  await assert.rejects(ds.getMarkets(), (e: unknown) => {
+    assert.ok(e instanceof ApiError);
+    assert.deepEqual(e.detail, { bucket: "node", scope: "query" });
+    return true;
+  });
+});
+
 test("에러 본문이 JSON이 아니면 상태코드 기반 기본 에러", async () => {
   const { ds } = newDs({
     "/api/v1/markets": () => new Response("bad gateway", { status: 502 }),

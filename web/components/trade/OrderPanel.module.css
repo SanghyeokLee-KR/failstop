@@ -251,3 +251,11 @@
   color: var(--text-tertiary);
   background: var(--surface-sunken);
 }
+
+/* 백프레셔 안내. error 와 색을 가른다. 429는 장애가 아니라 설계된 거절이고 곧 풀린다.
+   경보색을 쓰면 사용자가 자산에 문제가 생긴 것으로 읽고, 그 오해가 연타를 부른다.
+   무채 강등 잉크로 두되 caption 크기는 error 와 같게 해 행 높이가 갈리지 않게 한다 */
+.hint {
+  font-size: var(--font-caption-size);
+  color: var(--text-secondary);
+}

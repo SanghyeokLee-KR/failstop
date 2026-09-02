@@ -270,3 +270,40 @@ test("쓰기(required) 401은 refresh 후 새 토큰으로 1회 재시도하고 
   assert.equal(posts[0].idem, "idem-key-1");
   assert.equal(posts[1].idem, "idem-key-1", "재시도가 같은 멱등키를 재전송(중복 생성 방지)");
 });
+
+/* 429 파싱 계약(§2-3 429 클라이언트 규약). 거래 어댑터와 같은 표를 커뮤니티에도 건다.
+   세 평면이 같은 규칙을 쓴다는 것이 규약의 요지이고, 한 평면만 테스트하면 나머지는 발산한다 */
+test("429: 비 JSON 본문도 too_many_requests로 분류한다", async () => {
+  const { ds } = newDs({
+    "/api/v1/community/boards/KRW-BTC/posts": () => new Response("<html>gateway</html>", { status: 429 }),
+  });
+  await assert.rejects(
+    () => ds.listPosts("KRW-BTC", "latest"),
+    (e: unknown) => e instanceof ApiError && e.status === 429 && e.code === "too_many_requests",
+  );
+});
+
+test("429: name 없는 본문에서도 retry_after를 읽는다", async () => {
+  const { ds } = newDs({
+    "/api/v1/community/boards/KRW-BTC/posts": () => jsonRes(429, { error: { retry_after: 3 } }),
+  });
+  await assert.rejects(
+    () => ds.listPosts("KRW-BTC", "latest"),
+    // 가드 안에서 읽으면 여기서 null 이 된다. 회복 시각을 버리는 자리다
+    (e: unknown) => e instanceof ApiError && e.retryAfter === 3,
+  );
+});
+
+test("429: Retry-After가 HTTP-date면 값을 만들지 않는다", async () => {
+  const { ds } = newDs({
+    "/api/v1/community/boards/KRW-BTC/posts": () =>
+      new Response(JSON.stringify({ error: { name: "too_many_requests" } }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", "Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT" },
+      }),
+  });
+  await assert.rejects(
+    () => ds.listPosts("KRW-BTC", "latest"),
+    (e: unknown) => e instanceof ApiError && e.retryAfter === null,
+  );
+});

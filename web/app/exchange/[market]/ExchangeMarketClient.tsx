@@ -5,7 +5,7 @@
  * 그래야 나머지 패널이 정적 export HTML에 프리렌더된다.
  */
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import TradeLayout, { ORDER_SLOT_ID } from "@/components/trade/TradeLayout";
@@ -16,6 +16,7 @@ import TradesPanel from "@/components/trade/TradesPanel";
 import OrderPanel from "@/components/trade/OrderPanel";
 import OrderPanelSkeleton from "@/components/trade/OrderPanelSkeleton";
 import OpenOrdersMini from "@/components/trade/OpenOrdersMini";
+import { ApiError } from "@/lib/api/httpDatasource";
 import {
   effectivePrefill,
   nextClickPrefill,
@@ -36,6 +37,8 @@ interface OrderSlotProps {
   /** 호가 클릭 프리필(부모 소유). 쿼리 승계분보다 항상 최신이다 */
   prefill: PricePrefill | null;
   accountsFailed: boolean;
+  /** 429 대기 초. null 이면 429가 아닌 실패다 */
+  accountsRetryAfter: number | null;
   onRetryAccounts: () => void;
 }
 
@@ -44,7 +47,7 @@ interface OrderSlotProps {
  * useSearchParams는 정적 export 프리렌더를 CSR로 떨어뜨리므로 이 슬롯만 Suspense 경계에 넣는다.
  * 쿼리 읽기를 화면 본체에 두면 호가·체결·차트까지 통째로 바일아웃해 HTML이 빈 셸이 된다.
  */
-function OrderPanelSlot({ market, prefill, accountsFailed, onRetryAccounts }: OrderSlotProps) {
+function OrderPanelSlot({ market, prefill, accountsFailed, accountsRetryAfter, onRetryAccounts }: OrderSlotProps) {
   const search = useSearchParams();
   const initialSide = prefillSideOf(search.get("side"));
 
@@ -65,6 +68,7 @@ function OrderPanelSlot({ market, prefill, accountsFailed, onRetryAccounts }: Or
       initialSide={initialSide}
       prefill={effectivePrefill(prefill, queryPrefill)}
       accountsFailed={accountsFailed}
+      accountsRetryAfter={accountsRetryAfter}
       onRetryAccounts={onRetryAccounts}
     />
   );
@@ -93,14 +97,39 @@ function ExchangeMarketBody() {
   const loadAccounts = useExchangeStore((s) => s.loadAccounts);
   const loadOrders = useExchangeStore((s) => s.loadOrders);
   const [accountsFailed, setAccountsFailed] = useState(false);
+  /* 429 로 거절됐을 때 서버가 알려준 대기 초. 화면 문구가 "실패"가 아니라 "언제 되는지"를
+     말하게 하는 근거다(§2-3 429 클라이언트 규약). 429 가 아니면 null 이다 */
+  const [accountsRetryAfter, setAccountsRetryAfter] = useState<number | null>(null);
+  /* 재시도 연타 방어. 종전에는 가드가 없어 누를 때마다 요청이 나갔고, 백프레셔로 거절당한
+     구간에 요청을 더 얹는 쪽이었다. 자동 재시도를 넣기 전에 이것부터 있어야 한다 */
+  const accountsInFlight = useRef(false);
 
   // 계좌 로드 실패를 표면화한다. catch 없으면 assets가 빈 배열로 남아 주문 CTA가 영구 비활성된다
   const reloadAccounts = useCallback(() => {
+    if (accountsInFlight.current) return;
+    accountsInFlight.current = true;
     setAccountsFailed(false);
-    loadAccounts().catch(() => {
-      setAccountsFailed(true);
-      toast("잔고 조회 실패. 다시 시도 필요", "error");
-    });
+    setAccountsRetryAfter(null);
+    loadAccounts()
+      .catch((e: unknown) => {
+        setAccountsFailed(true);
+        /* 429 는 장애가 아니라 설계된 백프레셔다. 종결 실패로 적지 않는다(§2-3).
+           이번 단계는 상태 구조를 그대로 두므로 자동 재조회는 없고, 문구만 사실에 맞춘다 */
+        const limited = e instanceof ApiError && e.status === 429;
+        const sec = limited ? e.retryAfter : null;
+        setAccountsRetryAfter(sec);
+        toast(
+          limited
+            ? sec != null
+              ? `요청 몰림. ${sec}초 후 재시도 가능`
+              : "요청 몰림. 잠시 후 재시도 가능"
+            : "잔고 조회 실패. 다시 시도 필요",
+          limited ? "info" : "error",
+        );
+      })
+      .finally(() => {
+        accountsInFlight.current = false;
+      });
   }, [loadAccounts]);
 
   // 실시간 배선 (§2.5). 전 마켓 ticker는 마켓 전환과 무관해 deps 고정 배열로 분리한다.
@@ -159,6 +188,7 @@ function ExchangeMarketBody() {
                 market={market}
                 prefill={prefill}
                 accountsFailed={accountsFailed}
+                accountsRetryAfter={accountsRetryAfter}
                 onRetryAccounts={reloadAccounts}
               />
             </Suspense>

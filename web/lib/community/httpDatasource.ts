@@ -46,13 +46,16 @@ async function toApiError(res: Response): Promise<ApiError> {
   let name = res.status >= 500 ? "server_error" : res.status === 429 ? "too_many_requests" : "invalid_parameter";
   let message = GENERIC_MESSAGE;
   let retryAfter: number | null = null;
+  let detail: unknown = null;
   try {
     const body = (await res.json()) as ErrorEnvelope;
     if (body?.error?.name) {
       name = body.error.name;
       if (body.error.message) message = body.error.message;
-      retryAfter = body.error.retry_after ?? null;
+      detail = body.error.detail ?? null;
     }
+    // retry_after 는 name 가드 밖에서 읽는다(§2-3 파싱 규칙). 세 평면이 같은 규칙이다
+    if (body?.error?.retry_after != null) retryAfter = body.error.retry_after;
   } catch {
     // 비 JSON 본문은 상태코드 기반 기본값 유지
   }
@@ -61,7 +64,8 @@ async function toApiError(res: Response): Promise<ApiError> {
     const sec = header != null ? Number(header) : Number.NaN;
     if (Number.isFinite(sec) && sec >= 0) retryAfter = sec;
   }
-  return new ApiError(res.status, name, message, retryAfter);
+  // detail 은 위반 버킷 진단값이다(§2-5). 표시·로깅 전용이고 분기에 쓰지 않는다
+  return new ApiError(res.status, name, message, retryAfter, detail);
 }
 
 export class HttpCommunityDataSource {

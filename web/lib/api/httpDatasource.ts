@@ -94,7 +94,14 @@ async function toApiError(res: {
   headers?: { get(name: string): string | null };
   json(): Promise<unknown>;
 }): Promise<ApiError> {
-  let name = res.status >= 500 ? "server_error" : "invalid_parameter";
+  /* 상태코드가 이미 429면 바디를 못 읽어도 429다(§2-3 429 클라이언트 규약).
+     종전에는 비-JSON 429가 invalid_parameter로 떨어졌는데, 그 코드는 authErrors가
+     "표시명은 최대 32자" 인라인 필드 오류로 매핑한다. 열화가 아니라 오답이다 */
+  let name = res.status === 429
+    ? "too_many_requests"
+    : res.status >= 500
+      ? "server_error"
+      : "invalid_parameter";
   let message = GENERIC_ERROR_MESSAGE;
   let retryAfter: number | null = null;
   let detail: unknown = null;
@@ -103,9 +110,11 @@ async function toApiError(res: {
     if (body?.error?.name) {
       name = body.error.name;
       if (body.error.message) message = body.error.message;
-      retryAfter = body.error.retry_after ?? null;
       detail = body.error.detail ?? null;
     }
+    /* retry_after 는 name 가드 밖에서 읽는다(§2-3 파싱 규칙). 안에 두면
+       {"error":{"retry_after":3}} 처럼 name 없는 바디에서 회복 시각을 버린다 */
+    if (body?.error?.retry_after != null) retryAfter = body.error.retry_after;
   } catch {
     // 본문이 JSON이 아니면 상태코드 기반 기본값 유지
   }
