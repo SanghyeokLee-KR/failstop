@@ -213,6 +213,36 @@ class MemberAuthIntegrationTest {
     }
 
     @Test
+    void refreshGraceBoundarySplitsRaceFromReuse() throws Exception {
+        /* 유예창 10초(§1-3 v2.5)의 경계. 창 길이가 SQL 로 바인딩되므로 단위가 어긋나면 창이
+           통째로 넓어지거나 좁아지는데, 1시간 밀기로는 그 오류가 드러나지 않는다 */
+        String email = uniqueEmail();
+        signup(email, "correctpass1", "유예경계");
+        Login ok = login(email, "correctpass1");
+        Refresh rotated = refresh(ok.rtCookie);
+        assertEquals(200, rotated.status);
+
+        jdbc.sql("UPDATE auth_sessions SET used_at = now() - interval '8 seconds' "
+                        + "WHERE token_hash = encode(digest(?, 'sha256'), 'hex')")
+                .params(ok.rtCookie)
+                .update();
+        Refresh inside = refresh(ok.rtCookie);
+        assertEquals(409, inside.status);
+        assertEquals("refresh_in_progress", inside.body.path("error").path("name").asText());
+
+        jdbc.sql("UPDATE auth_sessions SET used_at = now() - interval '12 seconds' "
+                        + "WHERE token_hash = encode(digest(?, 'sha256'), 'hex')")
+                .params(ok.rtCookie)
+                .update();
+        Refresh outside = refresh(ok.rtCookie);
+        assertEquals(401, outside.status);
+        assertEquals("refresh_reuse", outside.body.path("error").path("name").asText());
+
+        // 창 밖 판정은 family 를 폐기하므로 회전으로 받은 tip 도 함께 무효다
+        assertEquals(401, refresh(rotated.rtCookie).status);
+    }
+
+    @Test
     void logoutRevokesFamily() throws Exception {
         String email = uniqueEmail();
         signup(email, "correctpass1", "로그아웃테스트");

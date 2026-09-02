@@ -220,16 +220,20 @@ public class MemberAuthService {
             throw sessionExpired();
         }
         String hash = sha256Hex(rawRefresh);
+        // used_at 은 DB now() 로 찍히므로 유예 판정도 같은 시계로 낸다. JVM 시계와 섞으면 스큐만큼
+        // 창이 넓어지거나 무효가 된다. 이 판정이 동시 회전을 도난과 가르는 유일한 축이다.
         Optional<RefreshRow> found = jdbc.sql("""
-                        SELECT id, user_id, family_id::text AS family_id, expires_at, used_at, revoked_at
+                        SELECT id, user_id, family_id::text AS family_id, expires_at, used_at, revoked_at,
+                               used_at > now() - make_interval(secs => ?) AS burned_within_grace
                         FROM auth_sessions WHERE token_hash = ?
                         """)
-                .params(hash)
+                .params((double) ROTATION_GRACE.toSeconds(), hash)
                 .query((rs, rowNum) -> new RefreshRow(
                         rs.getLong("id"), rs.getLong("user_id"), rs.getString("family_id"),
                         rs.getTimestamp("expires_at").toInstant(),
                         rs.getTimestamp("used_at") == null ? null : rs.getTimestamp("used_at").toInstant(),
-                        rs.getTimestamp("revoked_at") != null))
+                        rs.getTimestamp("revoked_at") != null,
+                        rs.getBoolean("burned_within_grace")))
                 .optional();
         if (found.isEmpty()) {
             throw sessionExpired();
@@ -441,14 +445,9 @@ public class MemberAuthService {
     }
 
     private record RefreshRow(long id, long userId, String familyId, Instant expiresAt,
-                              Instant usedAt, boolean revoked) {
+                              Instant usedAt, boolean revoked, boolean burnedWithinGrace) {
         boolean burned() {
             return usedAt != null;
-        }
-
-        /** 소각된 지 유예창 안인가. 동시 회전을 도난과 가르는 유일한 축이다 */
-        boolean burnedWithinGrace() {
-            return usedAt != null && usedAt.isAfter(Instant.now().minus(ROTATION_GRACE));
         }
     }
 
@@ -458,6 +457,8 @@ public class MemberAuthService {
      * 10초인 이유. 경합은 같은 사용자의 동시 요청이라 왕복 몇 백 ms 안에 끝나고, 실제 도난
      * 재생은 그보다 훨씬 뒤에 온다. 창을 너무 좁히면 느린 네트워크의 정상 경합을 도난으로
      * 몰고, 너무 넓히면 훔친 토큰이 그 창 동안 쓰일 수 있다.
+     *
+     * 판정은 SQL 이 하지만 값은 여기에만 둔다. 쿼리에 10을 다시 적으면 두 곳이 갈린다.
      */
     private static final Duration ROTATION_GRACE = Duration.ofSeconds(10);
 
@@ -470,15 +471,17 @@ public class MemberAuthService {
     /** 경합 판정용 재조회. 소각과 폐기 중 무엇이 UPDATE 를 0행으로 만들었는지 가른다 */
     private RefreshRow reread(long id) {
         return jdbc.sql("""
-                        SELECT id, user_id, family_id::text AS family_id, expires_at, used_at, revoked_at
+                        SELECT id, user_id, family_id::text AS family_id, expires_at, used_at, revoked_at,
+                               used_at > now() - make_interval(secs => ?) AS burned_within_grace
                         FROM auth_sessions WHERE id = ?
                         """)
-                .params(id)
+                .params((double) ROTATION_GRACE.toSeconds(), id)
                 .query((rs, rowNum) -> new RefreshRow(
                         rs.getLong("id"), rs.getLong("user_id"), rs.getString("family_id"),
                         rs.getTimestamp("expires_at").toInstant(),
                         rs.getTimestamp("used_at") == null ? null : rs.getTimestamp("used_at").toInstant(),
-                        rs.getTimestamp("revoked_at") != null))
+                        rs.getTimestamp("revoked_at") != null,
+                        rs.getBoolean("burned_within_grace")))
                 .optional().orElse(null);
     }
 
