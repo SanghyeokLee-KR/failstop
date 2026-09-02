@@ -33,13 +33,22 @@ test("ok: 시세가 없으면 아직 그릴 값이 없다(총액·수수료 파�
   assert.equal(d.ready, false);
 });
 
-test("stale: 값을 지우지 않는다. 배지를 붙이고 확정만 막는다", () => {
+test("stale: 값도 주문도 막지 않는다. 배지만 붙인다", () => {
   const d = decideBalance({ state: "stale", hasTicker: true, retryAfterSec: 1 });
   assert.equal(d.view, "value", "값이 사라지면 이 작업의 목적이 무너진다");
   assert.equal(d.stale, true);
-  assert.equal(d.ready, false, "낡은 잔고로 주문을 확정하지 않는다");
+  /* 백프레셔가 걸리는 구간은 거래가 몰리는 때다. 그때 매도를 막으면 429를 흡수한 것이
+     아니라 더 나쁜 것으로 바꾼 것이다. 잔고 판정의 권위는 서버에 있다(§2-3 v2.37) */
+  assert.equal(d.ready, true, "지연을 이유로 확정을 막지 않는다");
   assert.equal(d.notice, "backpressure");
   assert.equal(d.canRetry, true, "자동 재조회 1회가 실패하면 사람이 판단한다. 자리가 있어야 한다");
+});
+
+test("stale: 시세가 없으면 확정할 값이 없다", () => {
+  // 총액·수수료 파생이 시세에서 나온다. 잔고와 별개 축이다
+  const d = decideBalance({ state: "stale", hasTicker: false, retryAfterSec: 1 });
+  assert.equal(d.view, "value", "잔고는 여전히 보인다");
+  assert.equal(d.ready, false);
 });
 
 test("canRetry: 값을 못 읽은 두 상태에서만 참이다", () => {
@@ -87,7 +96,9 @@ test("어느 상태에서도 안내 행은 최대 1개다", () => {
   }
 });
 
-test("ready 는 ok + 시세 조합에서만 참이다", () => {
+/* 값을 못 읽은 두 상태를 가르는 선이 여기다. 지연된 참값은 확정을 허용하고,
+   값 부재는 막는다. failed 에서 열면 0 으로 폴백된 거짓 잔고로 주문하게 된다 */
+test("ready 는 값이 있는 상태 + 시세 조합에서만 참이다", () => {
   const states = ["idle", "ok", "stale", "failed"] as const;
   const ready: string[] = [];
   for (const state of states) {
@@ -97,7 +108,15 @@ test("ready 는 ok + 시세 조합에서만 참이다", () => {
       }
     }
   }
-  assert.deepEqual(ready, ["ok/true"]);
+  assert.deepEqual(ready, ["ok/true", "stale/true"]);
+});
+
+test("failed 는 어떤 조합에서도 확정을 열지 않는다", () => {
+  for (const hasTicker of [true, false]) {
+    for (const sec of [null, 1]) {
+      assert.equal(decideBalance({ state: "failed", hasTicker, retryAfterSec: sec }).ready, false);
+    }
+  }
 });
 
 /* 대기 초 유계화. 상한이 없으면 잘못된 헤더 하나가 화면을 몇 분 잠그고,
