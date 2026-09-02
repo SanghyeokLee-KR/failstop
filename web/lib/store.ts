@@ -613,9 +613,26 @@ export function useMemberSessionBootstrap(): void {
   useEffect(() => {
     const ds = getDataSource();
     const off = ds.onMemberSessionChange(setSession);
-    // 새로고침 후 httpOnly refresh 쿠키로 access 재획득(§4-5). sim은 인메모리 세션을 그대로 반환
-    void ds.refresh().catch(() => {});
-    return off;
+    /* 새로고침 후 httpOnly refresh 쿠키로 access 재획득(§4-5). sim은 인메모리 세션을 그대로 반환.
+       복원이 1회로 끝나던 것에 429 한정 1회 재시도를 얹는다(회원_설계 부트스트랩 복원 규약).
+       한 번 놓치면 이후 읽기가 데모 세션으로 폴백해 공유 데모 계정 잔고가 회원 화면에 그려진다.
+       429 에만 거는 이유는 서버가 그때만 회복 시각을 주기 때문이다. 5xx·네트워크는 언제 될지
+       모르므로 자동으로 다시 쏘지 않는다. 상한 없는 재시도는 노드가 굶는 구간에 부하를 더한다. */
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const restore = (retryOn429: boolean) => {
+      void ds.refresh().catch((e: unknown) => {
+        if (!retryOn429) return;
+        const limited = e instanceof ApiError && e.status === 429;
+        if (!limited) return;
+        const sec = clampRetrySec(e.retryAfter);
+        timer = setTimeout(() => restore(false), sec * 1000);
+      });
+    };
+    restore(true);
+    return () => {
+      if (timer) clearTimeout(timer);
+      off();
+    };
   }, [setSession]);
 }
 

@@ -1733,3 +1733,56 @@ test("totals 없는 orderbook 수신 시 orderbook_units 합산으로 채운다(
   assert.equal(ob.total_ask_size, "0.625");
   assert.equal(ob.total_bid_size, "3.25");
 });
+
+/* 부트스트랩 복원 규약(회원_설계 §부트스트랩 복원 규약).
+   access 가 메모리 전용이라 새로고침마다 refresh -> /me 로 세션을 다시 세운다.
+   이 사슬에서 "미로그인"과 "복원 실패"를 가르지 못하면, 유효한 rt 쿠키를 든 회원이
+   데모 세션으로 폴백해 공유 데모 계정 잔고를 보게 된다. 사용자에게는 로그인이 풀린 것으로 보인다.
+   두 호출에 같은 규칙이 걸리는지를 여기서 고정한다. */
+
+test("복원: /me 429는 미로그인이 아니다. 사유를 올려 호출자가 판단하게 한다", async () => {
+  const token = edJwt(900_000, "boot");
+  const { ds } = newDs({
+    "/api/v1/auth/refresh": () => jsonRes(200, { schema_version: "1.0", access_token: token }),
+    "/api/v1/me": () => jsonRes(429, { error: { name: "too_many_requests", retry_after: 2 } }),
+  });
+  await assert.rejects(ds.refresh(), (e: unknown) => {
+    assert.ok(e instanceof ApiError);
+    assert.equal(e.status, 429);
+    // 종전에는 !res.ok 를 null 로 접어 이 정보가 통째로 사라졌다
+    assert.equal(e.retryAfter, 2);
+    return true;
+  });
+});
+
+test("복원: /me 5xx도 미로그인이 아니다", async () => {
+  const token = edJwt(900_000, "boot");
+  const { ds } = newDs({
+    "/api/v1/auth/refresh": () => jsonRes(200, { schema_version: "1.0", access_token: token }),
+    "/api/v1/me": () => jsonRes(503, { error: { name: "service_unavailable" } }),
+  });
+  await assert.rejects(ds.refresh(), (e: unknown) => e instanceof ApiError && e.status === 503);
+});
+
+test("복원: /me 401·403만 미로그인으로 확정한다", async () => {
+  for (const status of [401, 403]) {
+    const token = edJwt(900_000, "boot");
+    const { ds } = newDs({
+      "/api/v1/auth/refresh": () => jsonRes(200, { schema_version: "1.0", access_token: token }),
+      "/api/v1/me": () => jsonRes(status, { error: { name: "session_expired" } }),
+    });
+    const s = await ds.refresh();
+    assert.equal(s, null, `${status}는 사용자 없음으로 확정한다`);
+  }
+});
+
+test("복원: /me 200이면 회원 세션이 선다", async () => {
+  const token = edJwt(900_000, "boot");
+  const { ds } = newDs({
+    "/api/v1/auth/refresh": () => jsonRes(200, { schema_version: "1.0", access_token: token }),
+    "/api/v1/me": () => jsonRes(200, { schema_version: "1.0", user: MEMBER_USER }),
+  });
+  const s = await ds.refresh();
+  assert.ok(s, "복원 성공");
+  assert.equal(s.user.email, MEMBER_USER.email);
+});

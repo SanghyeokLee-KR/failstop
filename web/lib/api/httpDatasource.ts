@@ -768,18 +768,26 @@ export class HttpStompDataSource implements DataSource {
     return this.setMember(user, token);
   }
 
+  /**
+   * 현재 회원을 읽는다. null 은 "사용자 없음"이지 "읽지 못함"이 아니다(회원_설계 §부트스트랩 복원 규약).
+   *
+   * 종전에는 !res.ok 를 전부 null 로 접어 429·5xx·403 이 미로그인과 같아졌다. 그러면 복원
+   * 사슬이 조용히 포기하고 이후 읽기가 데모 세션으로 폴백해, 유효한 rt 쿠키를 든 회원 화면에
+   * 공유 데모 계정 잔고가 그려진다. 사용자에게는 로그인이 풀린 것으로 보인다.
+   * 이 파일은 이미 같은 규칙을 refresh 경로에 적용해 두었는데(401·403만 세션 종료) 여기서만
+   * 어긋나 있었다. 두 호출이 한 사슬이므로 규칙도 같아야 한다.
+   */
   private async fetchMe(token: string): Promise<MemberUser | null> {
-    try {
-      const res = await this.fetchFn(`${this.apiBase}/api/v1/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: "include",
-      });
-      if (!res.ok) return null;
-      const body = (await res.json()) as { user?: MemberUser };
-      return body.user ?? null;
-    } catch {
-      return null;
-    }
+    const res = await this.fetchFn(`${this.apiBase}/api/v1/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+    });
+    // 미로그인. 호출자는 이것만 확정으로 받는다
+    if (res.status === 401 || res.status === 403) return null;
+    // 그 외 실패는 복원 실패다. 호출자가 사유를 보고 재시도를 판단하도록 올린다
+    if (!res.ok) throw await toApiError(res);
+    const body = (await res.json()) as { user?: MemberUser };
+    return body.user ?? null;
   }
 
   async getMe(): Promise<MemberUser> {
