@@ -47,32 +47,30 @@ const UNIT_LABEL: Record<string, string> = {
 };
 
 /**
- * 축·크로스헤어·툴팁 시각 표기. 라이브러리 기본이 x축 HH:mm, 크로스헤어 YYYY-MM-DD HH:mm 이라
- * 초 단위 봉에서 라벨이 전부 같은 분으로 찍힌다. 200개가 한 분 안에 들어가는 주기이므로
- * 초를 그리지 않으면 x축이 값을 잃는다.
+ * 축·크로스헤어·툴팁 시각 표기. 초 단위 봉에서만 초를 덧붙인다.
  *
- * 초를 언제 그리는가는 봉 폭이 아니라 라벨이 담당하는 구간으로 정한다. 라이브러리가 틱 위치에
- * 따라 YYYY·MM-DD 같은 상위 패턴도 넘기므로, 시·분까지 내려온 패턴에만 초를 덧붙인다.
- * 상위 패턴을 건드리면 일봉 x축에 초가 붙는다.
+ * 왜 필요한가. 라이브러리 기본이 x축 HH:mm, 크로스헤어 YYYY-MM-DD HH:mm 이라 1초봉에서는
+ * 200개 라벨이 전부 같은 분으로 찍혀 x축이 값을 잃는다.
+ *
+ * 왜 주기로 거는가. 판정축은 캔들 주기여야 한다. 라벨 패턴은 판정축이 될 수 없다.
+ * 라이브러리가 분봉 축에도 1초봉과 같은 HH:mm 을 넘기고, 크로스헤어 패턴은 주기와 무관하게
+ * YYYY-MM-DD HH:mm 으로 고정이라, 패턴으로 판정하면 노출 중인 10종 전부가 초 표기로 넘어간다.
  */
 function formatChartDate(
+  unit: CandleUnit,
   dateTimeFormat: Intl.DateTimeFormat,
   timestamp: number,
   format: string,
-  type: unknown,
 ): string {
+  // 초 단위 주기가 아니면 손대지 않는다. 라이브러리 기본이 곧 계약이다
+  if (unit !== "1s" || !format.includes("HH:mm")) {
+    return utils.formatDate(dateTimeFormat, timestamp, format);
+  }
   const d = new Date(timestamp);
   const p2 = (n: number) => String(n).padStart(2, "0");
-  const hm = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
-  const hms = `${hm}:${p2(d.getSeconds())}`;
-  const ymd = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
-  // 시·분이 든 패턴만 초까지 내린다. 그 외(연·월·일 축)는 라이브러리 기본 표기를 지킨다
-  if (format.includes("HH:mm")) {
-    return format.includes("YYYY") ? `${ymd} ${hms}` : hms;
-  }
-  // 상위 패턴은 라이브러리 기본에 맡긴다. 우리가 다시 구현하면 로캘·틱 규칙이 갈린다
-  void type;
-  return utils.formatDate(dateTimeFormat, timestamp, format);
+  const hms = `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+  if (!format.includes("YYYY")) return hms;
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${hms}`;
 }
 
 // status 리전 낭독 디바운스. 크로스헤어 스윕·연속 이벤트를 최종 1건으로 합쳐 SR 낭독 큐 폭주를 막는다.
@@ -204,7 +202,11 @@ export default function TradingChart({ market }: { market: string }) {
     const tokens = readChartTokens();
     const chart = init(el, {
       styles: buildChartStyles(tokens, prefersReducedMotion()),
-      customApi: { formatDate: formatChartDate },
+      // 주기는 ref 로 읽는다. init 은 주기 전환마다 다시 도므로 클로저가 굳지 않는다
+      customApi: {
+        formatDate: (fmt: Intl.DateTimeFormat, ts: number, pattern: string) =>
+          formatChartDate(unitRef.current, fmt, ts, pattern),
+      },
     });
     if (!chart) return;
     chartRef.current = chart;
