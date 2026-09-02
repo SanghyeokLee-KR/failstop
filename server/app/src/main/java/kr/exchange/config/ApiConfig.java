@@ -187,14 +187,35 @@ public class ApiConfig {
      * api_keys 조회로 이미 DB를 탄 뒤라 실효가 없고, 바디 상한 앞이면 64KB 초과 요청이 슬롯을
      * 소비한다. ApiAuthFilter와 별도 필터인 이유는 AdmissionFilter 클래스 주석 참조.
      */
+    /**
+     * 수용 게이트 런타임 스위치(API 설계 §2-5-a v2.41). 기본 켜짐. 끄는 것은 실험 전용이다.
+     * 기동 시 값은 설정으로, 이후는 actuator `admission` 엔드포인트로 바꾼다.
+     */
+    @Bean
+    public kr.exchange.api.common.AdmissionGate admissionGate(
+            @Value("${exchange.admission.enabled:true}") boolean enabled) {
+        return new kr.exchange.api.common.AdmissionGate(enabled);
+    }
+
+    @Bean
+    public kr.exchange.api.common.AdmissionEndpoint admissionEndpoint(
+            kr.exchange.api.common.AdmissionGate gate,
+            @Qualifier("orderAdmissionControl") AdmissionControl orderAdmission,
+            @Qualifier("queryAdmissionControl") AdmissionControl queryAdmission,
+            @Qualifier("requeryAdmissionControl") AdmissionControl requeryAdmission) {
+        return new kr.exchange.api.common.AdmissionEndpoint(gate, orderAdmission, queryAdmission,
+                requeryAdmission);
+    }
+
     @Bean
     public FilterRegistrationBean<AdmissionFilter> admissionFilter(
+            kr.exchange.api.common.AdmissionGate gate,
             @Qualifier("orderAdmissionControl") AdmissionControl orderAdmission,
             @Qualifier("queryAdmissionControl") AdmissionControl queryAdmission,
             @Qualifier("requeryAdmissionControl") AdmissionControl requeryAdmission,
             ErrorRenderer errorRenderer) {
         FilterRegistrationBean<AdmissionFilter> registration = new FilterRegistrationBean<>(
-                new AdmissionFilter(orderAdmission, queryAdmission, requeryAdmission,
+                new AdmissionFilter(gate, orderAdmission, queryAdmission, requeryAdmission,
                         errorRenderer));
         registration.addUrlPatterns("/api/v1/*");
         registration.setOrder(6);

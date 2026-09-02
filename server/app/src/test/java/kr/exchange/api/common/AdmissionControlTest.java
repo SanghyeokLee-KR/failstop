@@ -100,7 +100,7 @@ class AdmissionControlTest {
                 AdmissionControl.Shed.CAPACITY, registry);
         AdmissionControl requery = new AdmissionControl("requery", 2,
                 AdmissionControl.Shed.REQUERY_DEFERRED, registry);
-        AdmissionFilter filter = new AdmissionFilter(order, query, requery, null);
+        AdmissionFilter filter = new AdmissionFilter(new AdmissionGate(true), order, query, requery, null);
 
         assertSame(order, filter.bucketFor("POST", "/api/v1/orders"));
         assertSame(order, filter.bucketFor("POST", "/api/v1/orders/batch"));
@@ -124,7 +124,7 @@ class AdmissionControlTest {
     @Test
     void survivalSignalPathsAreOutsideTheGate() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
-        AdmissionFilter filter = new AdmissionFilter(
+        AdmissionFilter filter = new AdmissionFilter(new AdmissionGate(true), 
                 new AdmissionControl("order", 4, AdmissionControl.Shed.CAPACITY, registry),
                 new AdmissionControl("query", 4, AdmissionControl.Shed.CAPACITY, registry),
                 new AdmissionControl("requery", 2, AdmissionControl.Shed.REQUERY_DEFERRED, registry),

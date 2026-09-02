@@ -106,7 +106,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics
+        include: health, info, prometheus, metrics, admission
 
 ---
 # 운영 프로파일. 명시 활성(SPRING_PROFILES_ACTIVE=prod)이 전제다. 시크릿 fail-fast를 켜고
@@ -166,7 +166,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics
+        include: health, info, prometheus, metrics, admission
 
 ---
 spring:
@@ -180,7 +180,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics
+        include: health, info, prometheus, metrics, admission
 # 데모용 봇 플릿. 12개 마켓(웹 SSG 로스터 동형). 주력 2종(BTC·ETH)은 MM 2, 나머지는 MM 1 + TAKER 1.
 # 파라미터 근거는 SimProperties 주석. initial-price·quote-size·qty-step은 web 시드가와
 # 마켓 tick/lot/최소주문(5000)에 맞춰 마켓별로 지정한다(markets 리스트 우선, top-level은 폴백).
@@ -299,7 +299,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics, chaosmonkey
+        include: health, info, prometheus, metrics, admission, chaosmonkey
 
 chaos:
   monkey:
