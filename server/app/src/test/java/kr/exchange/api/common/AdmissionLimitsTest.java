@@ -3,6 +3,7 @@ package kr.exchange.api.common;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** 상한 배분 계약(API 설계 §2-5-a). 합이 풀보다 작다는 성질이 이 클래스의 존재 이유다. */
@@ -69,5 +70,37 @@ class AdmissionLimitsTest {
         assertEquals(3, limits.write(), "명시 설정이 유도값에 밀렸다");
         assertEquals(12, limits.query(), "미설정 버킷이 명시 설정에 오염됐다");
         assertEquals(3, limits.requery());
+    }
+
+    /**
+     * 명시 설정은 풀과 대조한다. 유도 경로는 배분율이 합을 풀 아래로 묶지만 명시값에는 그 보장이
+     * 없어, 종전에는 풀 16에 order-in-flight=30을 줘도 기동이 성공하고 불변식만 조용히 깨졌다.
+     * 그러면 게이트를 통과한 요청이 커넥션을 기다리고 무대기 성질이 사라진다.
+     */
+    @Test
+    void explicitLimitsThatEatThePoolAreRejected() {
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> AdmissionLimits.resolve(16, 30, 0, 0));
+        assertTrue(e.getMessage().contains("요청 풀 16"), e.getMessage());
+        // 합이 정확히 풀과 같아도 예비분이 0이라 거부한다. 면제 경로 몫이 남지 않는다
+        assertThrows(IllegalStateException.class, () -> AdmissionLimits.resolve(16, 8, 6, 2));
+    }
+
+    /** 명시값이 여유를 남기면 그대로 쓴다. 가드는 불변식만 보고 값 자체를 재단하지 않는다 */
+    @Test
+    void explicitLimitsWithHeadroomAreKept() {
+        AdmissionLimits limits = AdmissionLimits.resolve(16, 5, 5, 2);
+        assertEquals(5, limits.write());
+        assertEquals(5, limits.query());
+        assertEquals(2, limits.requery());
+        assertEquals(4, limits.reserved());
+    }
+
+    /** 유도 경로는 검사하지 않는다. 초소형 풀에서 하한이 지배하는 것은 이미 알려진 상태다 */
+    @Test
+    void derivedLimitsOnTinyPoolStillResolve() {
+        AdmissionLimits limits = AdmissionLimits.resolve(4, 0, 0, 0);
+        assertEquals(4, limits.write());
+        assertTrue(limits.reserved() <= 0, "초소형 풀에서는 하한이 지배한다");
     }
 }
