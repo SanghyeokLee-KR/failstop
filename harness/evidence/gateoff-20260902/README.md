@@ -35,7 +35,12 @@
   jvm_cpu_pct 열은 이 파일에서는 무효다(PS 5.1에서 프로세스 선택이 실패해 다른 java 프로세스를 읽었다). JVM CPU는 jvm_cpu_pid8784.csv 를 쓴다.
 - jvm_cpu_pid8784.csv. 대상 PID 고정 JVM CPU(1코어=100%), OS 스레드 수, 워킹셋.
 - threads_gateoff_205418.summary.txt, threads_gateoff_205903.summary.txt. jcmd Thread.dump_to_file 요약(첫 앱 프레임별 집계). 원본 덤프는 크기와 키 노출 때문에 싣지 않는다.
-- gate_on_attempts.log. 게이트 ON 전환 시도 기록.
+- gate_on_attempts.log. 게이트 ON 전환 시도 기록. 저장소에 없고 작업 트리에도 남지 않았다.
+  `.gitignore` 의 `*.log` 가 이 디렉터리까지 덮어 커밋 대상에서 무음으로 빠졌다. 담고 있던 것은
+  20:54:45 첫 시도의 60초 타임아웃과 뒤이은 2회 실패의 원본 출력이다. 따라서 위 타임라인의
+  게이트 ON 실패 3회와 백엔드_API_설계 §2-5-a 런타임 스위치(v2.41) 항이 인용하는 같은 수치는
+  원자료 없이 이 README 서술만을 근거로 한다. 재현하려면 게이트 OFF 실측 2회차가 필요하다.
+  같은 유실을 막으려고 `.gitignore` 에 `harness/evidence/` 하위 `*.log`·`*.err` 예외를 두었다.
 - k6_failures_by_kind.txt. k6 실패 종류 집계와 ACK 수. k6 원본 로그는 access key 가 찍혀 싣지 않는다.
 - sampler.ps1, jvmcpu.ps1, analyze.py. 측정 방법. sampler.ps1 의 프로세스 선택은 실측 뒤 CIM 조회로 고쳤다.
 

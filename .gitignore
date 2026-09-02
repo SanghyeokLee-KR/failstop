@@ -28,10 +28,15 @@ Desktop.ini
 
 # 로그/임시
 *.log
+*.err
 *.tmp
 tmp/
 # 로컬 데모 런타임 산출물. 기동 스크립트가 남기는 프로세스 id라 커밋 대상이 아니다
 *.pid
+# harness/evidence/ 아래는 검증 원본이 사는 자리다. 위 로그 규칙이 증거를 무음으로 삼키면
+# 문서가 인용한 원자료가 저장소에 없는 상태가 된다. 상위 디렉터리는 무시되지 않아 예외가 성립한다
+!harness/evidence/**/*.log
+!harness/evidence/**/*.err
 
 # 테스트·세션 런타임 산물 (재생성됨, 추적 불필요)
 **/.jqwik-database
