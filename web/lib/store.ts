@@ -282,6 +282,27 @@ export function clampRetrySec(sec: number | null): number {
   return Math.min(RETRY_SEC_MAX, Math.max(RETRY_SEC_MIN, Math.ceil(sec)));
 }
 
+/* 사설 조회 왕복 상한. 응답하지 않는 요청 하나가 in-flight 가드와 로딩 플래그를 영구 고착시켜
+   재조회 자체를 봉인한다. 봉인이 걸리는 구간은 응답이 느린 구간, 곧 백프레셔 구간이다.
+   never-settle REST를 끊는다는 사유가 어댑터의 재동기화 상한(RESYNC_TIMEOUT_MS)과 같아 값도 맞춘다 */
+export const PRIVATE_QUERY_TIMEOUT_MS = 8_000;
+
+/** 상한을 넘긴 조회를 실패로 확정한다. signal은 어댑터가 in-flight fetch를 끊는 데 쓴다 */
+function withQueryTimeout<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), PRIVATE_QUERY_TIMEOUT_MS);
+  return run(ctl.signal)
+    .catch((e: unknown) => {
+      /* 상한으로 끊은 것은 화면의 흐름 제어가 아니라 실패다. 어댑터가 원형 보존하는 취소 예외를
+         그대로 흘리면 브라우저 원문이 전역 토스트에 오른다(§2-3 한국어 메시지 계약).
+         429가 아니므로 신선도는 값 유무에 따라 stale·failed로 수렴한다 */
+      throw ctl.signal.aborted
+        ? new ApiError(0, "query_timeout", "응답 지연으로 조회를 중단함. 잠시 후 다시 시도 필요")
+        : e;
+    })
+    .finally(() => clearTimeout(timer));
+}
+
 // loadMarkets 동시 호출 병합. 여러 화면이 같은 프레임에 마운트해도 GET /markets는 1회다
 let marketsInFlight: Promise<void> | null = null;
 
@@ -512,7 +533,9 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
        가드는 신원별이다. 전역 부울 하나로 두면 이전 신원의 조회가 도는 동안 새 신원의
        조회가 통째로 삼켜지고, 새 신원 화면이 값 없이 남는다. 신원이 다르면 통과시킨다.
        늦게 도착한 이전 신원 응답은 아래 stillMine 이 버린다. 두 장치는 역할이 다르다.
-       in-flight 는 중복 발사를 막고, stillMine 은 남의 응답 채택을 막는다 */
+       in-flight 는 중복 발사를 막고, stillMine 은 남의 응답 채택을 막는다.
+       가드는 왕복 상한이 있어야 성립한다. 상한이 없으면 미해소 요청 하나가 같은 신원의
+       재조회를 영구 봉인해, 새로고침도 429 자동 재조회도 반응 없이 삼켜진다 */
     const fired = get().session?.user.external_id ?? null;
     const cur = get();
     if (cur.accountsInFlight && cur.accountsInFlightId === fired) return;
@@ -520,7 +543,7 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
     /* 발사 시점 신원과 현재 신원이 다르면 이 응답은 남의 것이다. 채택하지 않는다 */
     const stillMine = () => (get().session?.user.external_id ?? null) === fired;
     try {
-      const assets = await getDataSource().getAccounts();
+      const assets = await withQueryTimeout((signal) => getDataSource().getAccounts(signal));
       if (!stillMine()) return;
       set({ assets, accountsHealth: { state: "ok", lastUpdatedAt: Date.now(), retryAfterSec: null } });
     } catch (e) {
@@ -560,7 +583,11 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
       /* 전역이 드는 체결 목록은 첫 쪽뿐이다. 여기를 소비하는 것은 체결 통지 중복 판정
          (OrderPanel.shouldAnnounceFill)과 마이페이지 요약이고 둘 다 최근 것만 본다.
          아카이브 전체는 거래내역 화면이 자기 커서로 따라간다 */
-      const [open, closed] = await Promise.all([ds.getOpenOrders(market), ds.getClosedOrders({ market })]);
+      // 여기에는 in-flight 가드가 없어 봉인은 없지만, 미해소 요청이면 아래 finally 가
+      // 실행되지 않아 ordersLoaded 가 서지 않고 스켈레톤이 영원히 돈다. 같은 상한을 건다
+      const [open, closed] = await withQueryTimeout((signal) =>
+        Promise.all([ds.getOpenOrders(market, signal), ds.getClosedOrders({ market }, signal)]),
+      );
       if (!stillMine()) return;
       set((s) => nextOrderLists(s, mergeOrderSnapshot(s, [...open, ...closed.data], { known, market })));
       set({ closedOrdersTruncated: closed.has_more });
