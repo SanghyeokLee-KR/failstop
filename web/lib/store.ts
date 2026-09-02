@@ -23,6 +23,7 @@ import type {
 import { DEFAULT_EFFECT_CONFIG, SCHEMA_VERSION, TRADE_TAPE_LIMIT } from "./types";
 import { compareDecimal } from "./decimal";
 import { getDataSource } from "./api/datasource";
+import { ApiError } from "./api/httpDatasource";
 
 /**
  * ticker·orderbook 스토어 교체 전 (epoch, seq) 단조 검사. 느린 REST 스냅샷·재전달이
@@ -192,6 +193,12 @@ interface ExchangeState {
   orderbooks: Record<string, OrderbookMessage>;
   trades: Record<string, TradeMessage[]>;
   assets: Asset[];
+  /* 잔고 신선도(§2-3 429 클라이언트 규약). 이진 실패 플래그를 대신한다.
+     플래그가 UI 로컬에 있던 동안에는 myAsset 이 잔고를 되살려도 그 성공을 관측할 수 없어
+     데이터는 살아나고 표시만 실패로 남는 갈라짐이 있었다. 소유자를 데이터 쪽으로 옮긴다 */
+  accountsHealth: AccountsHealth;
+  /** 조회 왕복 단일화 가드. 연타·동시 마운트가 요청을 늘리지 않게 한다 */
+  accountsInFlight: boolean;
   /* 공지 첫 쪽(§4-F). 배너와 진입점 미읽음 표식이 쓴다.
      목록 화면은 여기를 보지 않고 자기 커서로 아카이브를 따라간다 */
   notices: PublicNotice[];
@@ -241,6 +248,38 @@ interface ExchangeState {
   upsertOrder(order: Order): void;
 }
 
+/**
+ * 잔고 신선도(§2-3 429 클라이언트 규약).
+ *
+ * idle   아직 한 번도 읽지 않음
+ * ok     마지막 조회 성공. 값이 최신이다
+ * stale  조회는 실패했지만 이전 성공값이 있다. 값을 지우지 않고 지연을 표시한다
+ * failed 값이 없는 채로 실패했다. 표시할 잔고 자체가 없다
+ *
+ * stale 과 failed 를 가르는 것이 이 모델의 요점이다. 종전에는 한 플래그였고, 그래서 조회
+ * 한 번 실패에 이미 받아둔 잔고까지 화면에서 사라졌다. 서버가 설계대로 백프레셔를 걸수록
+ * 화면은 그것을 고장으로 번역했다.
+ */
+export type BalanceFreshness = "idle" | "ok" | "stale" | "failed";
+
+export interface AccountsHealth {
+  state: BalanceFreshness;
+  /** 마지막 성공 시각(epoch ms). 실패해도 보존한다. 값의 나이를 말하는 근거다 */
+  lastUpdatedAt: number | null;
+  /** 429 대기 초. 표시와 자동 재조회가 함께 쓴다. 429가 아닌 실패면 null */
+  retryAfterSec: number | null;
+}
+
+/* 서버가 준 대기 초를 표시·타이머에 쓰기 전에 유계화한다. 계약상 작은 값이지만 상한이
+   없으면 잘못된 헤더 하나가 화면을 몇 분 잠그고, 하한이 없으면 0초 재조회가 폭주가 된다 */
+const RETRY_SEC_MIN = 1;
+const RETRY_SEC_MAX = 30;
+
+export function clampRetrySec(sec: number | null): number {
+  if (sec == null || !Number.isFinite(sec)) return RETRY_SEC_MIN;
+  return Math.min(RETRY_SEC_MAX, Math.max(RETRY_SEC_MIN, Math.ceil(sec)));
+}
+
 // loadMarkets 동시 호출 병합. 여러 화면이 같은 프레임에 마운트해도 GET /markets는 1회다
 let marketsInFlight: Promise<void> | null = null;
 
@@ -256,6 +295,8 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   orderbooks: {},
   trades: {},
   assets: [],
+  accountsHealth: { state: "idle", lastUpdatedAt: null, retryAfterSec: null },
+  accountsInFlight: false,
   notices: [],
   noticesLoaded: false,
   closedOrdersTruncated: false,
@@ -323,7 +364,13 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
             if (i >= 0) next[i] = merged;
             else next.push(merged);
           }
-          return { assets: next };
+          /* 잔고 델타가 도착했으면 값이 살아난 것이다. 신선도도 함께 회복시킨다.
+             이 한 줄이 없어서 종전에는 데이터는 최신인데 화면만 실패로 남았다.
+             lastUpdatedAt 도 갱신한다. 값의 나이가 조회 시각이 아니라 이 시각이기 때문이다 */
+          return {
+            assets: next,
+            accountsHealth: { state: "ok" as const, lastUpdatedAt: Date.now(), retryAfterSec: null },
+          };
         });
         break;
       case "myOrder": {
@@ -447,11 +494,29 @@ export const useExchangeStore = create<ExchangeState>((set, get) => ({
   },
 
   async loadAccounts() {
+    /* 단일 in-flight. 여러 화면이 같은 프레임에 마운트하거나 사용자가 재시도를 연타해도
+       왕복은 하나다. 백프레셔로 거절당한 구간에 요청을 더 얹지 않는 것이 이 가드의 목적이다 */
+    if (get().accountsInFlight) return;
+    set({ accountsInFlight: true });
     try {
-      set({ assets: await getDataSource().getAccounts() });
+      const assets = await getDataSource().getAccounts();
+      set({ assets, accountsHealth: { state: "ok", lastUpdatedAt: Date.now(), retryAfterSec: null } });
+    } catch (e) {
+      /* 값이 있으면 stale, 없으면 failed다. 이 구분이 이 상태 모델의 요점이다.
+         종전에는 둘을 한 플래그로 묶어, 한 번 실패하면 이미 받아둔 잔고까지 화면에서 사라졌다.
+         429는 장애가 아니라 설계된 백프레셔라 회복 시각을 함께 든다(§2-3 429 클라이언트 규약) */
+      const limited = e instanceof ApiError && e.status === 429;
+      set((s) => ({
+        accountsHealth: {
+          state: s.assets.length > 0 ? "stale" : "failed",
+          lastUpdatedAt: s.accountsHealth.lastUpdatedAt,
+          retryAfterSec: limited ? clampRetrySec((e as ApiError).retryAfter) : null,
+        },
+      }));
+      throw e;
     } finally {
       // 실패해도 세운다. 미로딩으로 두면 스켈레톤이 영원히 돈다(loadNotices와 같은 규약)
-      set({ accountsLoaded: true });
+      set({ accountsLoaded: true, accountsInFlight: false });
     }
   },
 

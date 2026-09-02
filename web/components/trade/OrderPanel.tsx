@@ -12,6 +12,9 @@ import SegmentedTab from "@/components/SegmentedTab";
 import Skeleton from "@/components/Skeleton";
 import { toast } from "@/components/Toast";
 import { useExchangeStore, useLiveChannels, useMemberSession } from "@/lib/store";
+import type { AccountsHealth } from "@/lib/store";
+import { decideBalance } from "./derive";
+import { StaleBadge } from "@/components/StatusSignals";
 import { dest, type OrderRequest, type Side } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
 import { loginHref } from "@/lib/auth/nextPath";
@@ -78,9 +81,8 @@ interface Props {
   /** 호가 클릭·쿼리 승계 프리필. 가격만 주입, side 유지 (§2.5) */
   prefill: PricePrefill | null;
   /** 계좌 로드 실패 여부. 실패면 잔고 미확정으로 CTA를 막고 재시도를 노출한다 */
-  accountsFailed?: boolean;
-  /** 429 대기 초. null 이면 429가 아닌 실패다(§2-3 429 클라이언트 규약) */
-  accountsRetryAfter?: number | null;
+  /** 잔고 신선도(§2-3 429 클라이언트 규약). 판정은 derive.decideBalance 가 한다 */
+  accountsHealth?: AccountsHealth;
   /** 계좌 재조회 트리거 (부모 소유) */
   onRetryAccounts?: () => void;
 }
@@ -89,7 +91,9 @@ function newClientOrderId(): string {
   return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export default function OrderPanel({ market, initialSide, prefill, accountsFailed = false, accountsRetryAfter = null, onRetryAccounts }: Props) {
+const IDLE_HEALTH: AccountsHealth = { state: "idle", lastUpdatedAt: null, retryAfterSec: null };
+
+export default function OrderPanel({ market, initialSide, prefill, accountsHealth = IDLE_HEALTH, onRetryAccounts }: Props) {
   const base = market.split("-")[1] ?? "";
 
   const ticker = useExchangeStore((s) => s.tickers[market]);
@@ -328,8 +332,15 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   const openCount = openOrders.filter(
     (o) => o.side === side && (o.status === "OPEN" || o.status === "PARTIAL"),
   ).length;
-  // 진행 중과 실패를 분리한다. 실패면 영구 로딩 대신 재시도를 노출하고, 잔고 미확정이므로 CTA는 막는다
-  const loadingBalance = !accountsFailed && (assets.length === 0 || !ticker);
+  /* 잔고 표시·CTA 판정을 순수 함수 한 곳으로 모은다(derive.decideBalance).
+     화면이 오류 코드를 직접 분기하면 상태가 늘 때마다 분기가 흩어지고, 그 분기는 테스트로
+     고정할 수 없다. 여기서는 결과만 읽는다. 표는 tests/balanceFreshness.test.ts 가 든다 */
+  const balance = decideBalance({
+    state: accountsHealth.state,
+    hasTicker: Boolean(ticker),
+    retryAfterSec: accountsHealth.retryAfterSec,
+  });
+  const loadingBalance = balance.view === "loading";
 
   /* 최소·최대는 반올림 총액이 아니라 문자열 십진 정확 비교로 판정한다. 서버가 NUMERIC 정확
      비교라 클라이언트만 반올림하면 경계 구간 주문이 인라인 검증을 통과한 뒤 거부된다(§4-B-1) */
@@ -342,7 +353,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
   else if (side === "bid" && totalPositive && compareDecimal(bidLockStr, availKRWStr) > 0)
     error = "주문 가능 금액 초과";
   else if (side === "ask" && compareDecimal(qtyStr, availCoinStr) > 0) error = "보유 수량 초과";
-  const ready = totalPositive && error === null && !loadingBalance && !accountsFailed;
+  const ready = totalPositive && error === null && balance.ready;
 
   /* 비활성 사유를 CTA 라벨이 말한다. 별도 안내 행을 더하면 스켈레톤과의 높이 계약이 깨진다 */
   const needLabel = ordType === "limit" && !(price > 0)
@@ -682,9 +693,21 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
               {/* 게스트 데모 잔고 표식. 숫자가 실자산으로 읽히지 않게 한다. 화면당 1곳 */}
               {isGuest && <span className={`status-pill ${styles.demoBadge}`}>데모 자산</span>}
             </span>
-            {loadingBalance ? (
+            {/* 값이 오래됐음을 라벨 옆에 붙인다. 값 자체는 지우지 않는다(§2-3 429 규약).
+                공용 StaleBadge 를 쓴다. 관리·자산 표면이 이미 같은 구현을 공유한다 */}
+            {/* 지연 배지 옆에 다시 읽을 수단을 둔다. 자동 재조회가 실패 한 건당 1회라
+                그 한 번이 실패하면 사용자가 판단한다(§2-3). 판단하려면 자리가 있어야 한다 */}
+            {balance.stale && (
+              <>
+                <StaleBadge label="지연" announce={false} />
+                <button type="button" className={styles.retry} onClick={() => onRetryAccounts?.()}>
+                  새로고침
+                </button>
+              </>
+            )}
+            {balance.view === "loading" ? (
               <Skeleton variant="text" width={110} height={16} />
-            ) : accountsFailed ? (
+            ) : balance.view === "retry" ? (
               // 버튼은 행동만 맡는다. 실패 사실과 결과는 바로 아래 경고문이 이미 말하므로
               // 여기서 되풀이하면 한 화면에서 같은 사건을 두 번 듣는다
               <button type="button" className={styles.retry} onClick={() => onRetryAccounts?.()}>
@@ -702,7 +725,7 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           {/* 묶임 잔고. 주문가능 바로 아래에 붙인다. 두 값은 한 잔고를 나눈 것이라 떨어뜨리면
               합이 보이지 않고, "왜 내 돈이 줄었나"가 화면 밖 질문이 된다.
               0이면 줄을 만들지 않는다. 늘 떠 있는 0은 읽을 것이 없는데 자리만 먹는다 */}
-          {!loadingBalance && !accountsFailed && hasLocked && (
+          {balance.view === "value" && hasLocked && (
             <div className={styles.sumRow}>
               <span className={styles.availLabel}>
                 주문 중
@@ -718,16 +741,15 @@ export default function OrderPanel({ market, initialSide, prefill, accountsFaile
           {/* 429는 장애가 아니라 설계된 백프레셔라 종결 실패로 적지 않는다(§2-3 429 클라이언트
               규약). 서버가 회복 시각을 알려줬으면 그것을 말한다. role 도 가른다.
               alert 는 즉시 낭독을 뺏으므로 곧 풀리는 지연에는 쓰지 않는다 */}
-          {accountsFailed && (
-            accountsRetryAfter !== null ? (
-              <p className={styles.hint} role="status">
-                요청 몰림으로 잔고 조회 대기. {accountsRetryAfter}초 후 재시도 가능
-              </p>
-            ) : (
-              <p className={styles.error} role="alert">
-                잔고 조회 실패로 주문 불가. 다시 시도 필요
-              </p>
-            )
+          {balance.notice === "backpressure" && (
+            <p className={styles.hint} role="status">
+              요청 몰림으로 잔고 조회 대기. {accountsHealth.retryAfterSec}초 후 자동 재조회
+            </p>
+          )}
+          {balance.notice === "error" && (
+            <p className={styles.error} role="alert">
+              잔고 조회 실패로 주문 불가. 다시 시도 필요
+            </p>
           )}
 
           {error && (
