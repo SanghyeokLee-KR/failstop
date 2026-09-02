@@ -1,0 +1,22 @@
+source: threads_gateoff_205418.txt  threads=2809 virtual=2408 empty_stack=1858
+  1858  empty-stack
+   363  non-app:java.base/sun.nio.ch.WEPoll.wait
+   261  kr.exchange.sim.TakerBot.run
+   148  kr.exchange.api.order.OrderGateway.awaitRow
+    86  kr.exchange.sim.MarketMakerBot.run
+    32  kr.exchange.api.order.OrderQueryService.byInternalId
+    14  non-app:java.base/jdk.internal.misc.Unsafe.park
+    13  kr.exchange.sim.BotApiClient.send
+    12  non-app:java.base/jdk.internal.vm.Continuation.run
+     7  kr.exchange.api.order.InflightReserves.defer
+     4  kr.exchange.api.order.InflightReserves.tryReserve
+     1  non-app:java.base/java.lang.ref.Reference.waitForReferencePendingLis
+     1  non-app:java.base/java.lang.Object.wait0
+     1  non-app:java.base/java.lang.Thread.getStackTrace
+     1  non-app:java.base/java.lang.Thread.sleep0
+     1  kr.exchange.snapshot.SnapshotCapture.drain
+     1  non-app:java.base/sun.nio.ch.Net.accept
+     1  kr.exchange.api.market.MarketDirectory.byId
+     1  kr.exchange.sim.BotFleet.lambda$startBalancer$2
+     1  kr.exchange.api.order.OrderGateway.nextOrderId
+frame counts: awaitRow=179 HikariPool.getConnection=38 ConcurrentBag.borrow=19 InflightReserves=26
