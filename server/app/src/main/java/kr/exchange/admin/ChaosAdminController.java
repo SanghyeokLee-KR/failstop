@@ -299,7 +299,8 @@ public class ChaosAdminController {
     }
 
     private static Map<String, Object> catalog(String id, String label, String action) {
-        return Map.of("id", id, "label", label, "action", action, "approval_required", true);
+        // 카탈로그 9종이 전부 카오스 4종 액션이라 v2.34 완화로 승인이 불요다
+        return Map.of("id", id, "label", label, "action", action, "approval_required", false);
     }
 
     // API §2-1 UTC 밀리초 3자리 고정. OffsetDateTime.toString의 가변 소수부를 쓰지 않는다.

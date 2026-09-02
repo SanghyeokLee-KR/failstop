@@ -590,7 +590,8 @@ class AdminPlaneIntegrationTest {
         String op01 = issueSession("op-01");
         String op02 = issueSession("op-02");
 
-        // kill-node: node 필드가 target으로 소각. CHAOS_OPS + 2인 승인.
+        // kill-node: 토큰을 실으면 node 필드가 target으로 소각된다. 승인은 불요지만(§6-B v2.34)
+        // 제시하면 종전 계약(바인딩·TTL·단회성)이 그대로 걸린다.
         String killToken = issueToken("op-01", "chaos.kill_node", "exchange-core-1", "op-02", op02);
         ResponseEntity<String> killed = adminPost("/admin/v1/chaos/kill-node",
                 "{\"node\":\"exchange-core-1\",\"approval_token\":\"" + killToken + "\"}",
@@ -675,6 +676,88 @@ class AdminPlaneIntegrationTest {
         // 소각 실패이므로 승인은 ISSUED로 남아 재사용 가능하다(액션과 함께 롤백).
         assertEquals("ISSUED", jdbc.sql("SELECT state FROM admin_approvals WHERE approval_token = ?")
                 .param(token).query(String.class).single());
+    }
+
+    // 카오스 4종은 approval_token 불요다(§6-B v2.34). 이 경로는 approval_id에 NULL을 싣는데,
+    // 승인 필수였던 동안 한 번도 실행되지 않았다. 역할 게이트와 감사 적재가 완화 뒤에도
+    // 남아 있는지를 함께 본다.
+
+    @Test
+    @Order(20)
+    void chaosKillNodeWithoutApprovalTokenIsQueuedAndAudited() throws Exception {
+        String op04 = issueSession("op-04");
+
+        ResponseEntity<String> killed = adminPost("/admin/v1/chaos/kill-node",
+                "{\"node\":\"exchange-core-9\"}", "op-04", op04);
+        assertEquals(200, killed.getStatusCode().value(), killed.getBody());
+        JsonNode body = objectMapper.readTree(killed.getBody());
+        assertEquals("chaos.kill_node", body.path("action").asText());
+        assertEquals("exchange-core-9", body.path("target").asText());
+        assertEquals("PENDING", body.path("state").asText());
+
+        String expId = body.path("experiment_id").asText();
+        assertFalse(expId.isBlank(), "승인 없이도 experiment_id는 발급된다");
+
+        // 부재와 미승인은 다른 사실이다. 키를 빼면 소비자가 둘을 구분하지 못한다.
+        assertTrue(body.has("approval_id"), "approval_id 키가 응답에서 빠졌다");
+        assertTrue(body.get("approval_id").isNull(), "승인 없는 주입의 approval_id는 null이다");
+
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM chaos_commands "
+                        + "WHERE experiment_id = ?::uuid AND action = 'chaos.kill_node' "
+                        + "AND target = 'exchange-core-9' AND state = 'PENDING' "
+                        + "AND requested_by = 'op-04' AND approval_id IS NULL")
+                .param(expId).query(Long.class).single(), "무승인 명령 큐 적재");
+
+        assertEquals(1L, jdbc.sql("SELECT count(*) FROM admin_audit_log "
+                        + "WHERE operator_id = 'op-04' AND action = 'chaos.kill_node' "
+                        + "AND target = 'exchange-core-9' AND result = 'OK' "
+                        + "AND approval_id IS NULL")
+                .query(Long.class).single(), "감사 적재는 승인 유무와 무관하다");
+    }
+
+    @Test
+    @Order(21)
+    void chaosNetworkAppAndClearWithoutApprovalTokenAreAccepted() throws Exception {
+        String op04 = issueSession("op-04");
+
+        ResponseEntity<String> net = adminPost("/admin/v1/chaos/network",
+                "{\"name\":\"e1-toxic\",\"type\":\"latency\"}", "op-04", op04);
+        assertEquals(200, net.getStatusCode().value(), net.getBody());
+        JsonNode netBody = objectMapper.readTree(net.getBody());
+        assertEquals("e1-toxic", netBody.path("target").asText());
+        assertTrue(netBody.has("approval_id") && netBody.get("approval_id").isNull());
+
+        ResponseEntity<String> app = adminPost("/admin/v1/chaos/app",
+                "{\"assault\":\"e8-assault\"}", "op-04", op04);
+        assertEquals(200, app.getStatusCode().value(), app.getBody());
+        JsonNode appBody = objectMapper.readTree(app.getBody());
+        assertEquals("e8-assault", appBody.path("target").asText());
+        assertTrue(appBody.has("approval_id") && appBody.get("approval_id").isNull());
+
+        // 해제는 본문 자체가 없는 호출이다. 바디 없는 경로도 같은 계약을 지나야 한다.
+        ResponseEntity<String> cleared =
+                adminDelete("/admin/v1/chaos/network/e1-toxic", "op-04", op04);
+        assertEquals(200, cleared.getStatusCode().value(), cleared.getBody());
+        JsonNode clearBody = objectMapper.readTree(cleared.getBody());
+        assertEquals("e1-toxic", clearBody.path("toxic").asText());
+        assertTrue(clearBody.has("approval_id") && clearBody.get("approval_id").isNull());
+
+        List<String> ids = List.of(netBody.path("experiment_id").asText(),
+                appBody.path("experiment_id").asText(),
+                clearBody.path("experiment_id").asText());
+        for (String id : ids) {
+            assertFalse(id.isBlank(), "experiment_id 발급");
+            assertEquals(1L, jdbc.sql("SELECT count(*) FROM chaos_commands "
+                            + "WHERE experiment_id = ?::uuid AND requested_by = 'op-04' "
+                            + "AND approval_id IS NULL")
+                    .param(id).query(Long.class).single(), "무승인 명령 큐 적재: " + id);
+        }
+
+        assertEquals(3L, jdbc.sql("SELECT count(*) FROM admin_audit_log "
+                        + "WHERE operator_id = 'op-04' AND result = 'OK' "
+                        + "AND approval_id IS NULL AND action IN "
+                        + "('chaos.network', 'chaos.app', 'chaos.network.clear')")
+                .query(Long.class).single(), "해제를 포함한 3종 감사 적재");
     }
 
     // 시각 필드는 UTC 밀리초 3자리 고정이다(§2-1). OffsetDateTime.toString의 가변 소수부·오프셋
