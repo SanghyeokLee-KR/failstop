@@ -14,6 +14,7 @@
  */
 
 import { registerOverlay, type OverlayCreate } from "klinecharts";
+import { addDecimal } from "@/lib/decimal";
 import type { Order } from "@/lib/types";
 
 /** 오버레이 이름. 등록과 생성이 같은 문자열을 봐야 하므로 상수로 묶는다 */
@@ -115,14 +116,15 @@ export function toOrderLines(
   );
 
   // 가격+방향으로 묶는다. 키에 방향을 넣지 않으면 같은 가격의 매수·매도가 한 선이 된다
-  const bucket = new Map<string, { price: number; side: Order["side"]; qty: number; n: number }>();
+  const bucket = new Map<string, { price: number; side: Order["side"]; qty: string; n: number }>();
   for (const o of open) {
     const price = Number(o.price);
     const key = `${o.side}@${price}`;
-    const remain = Number(o.remaining_volume ?? o.volume ?? 0);
+    const remain = o.remaining_volume ?? o.volume ?? "0";
     const cur = bucket.get(key);
     if (cur) {
-      cur.qty += remain;
+      // 잔량 누산은 십진 단일 출처를 쓴다. number 누산은 금지 대상이다(CLAUDE.md 14절)
+      cur.qty = addDecimal(cur.qty, remain);
       cur.n += 1;
     } else {
       bucket.set(key, { price, side: o.side, qty: remain, n: 1 });
@@ -135,8 +137,8 @@ export function toOrderLines(
     color: tokens.brandPrimary,
     textColor: tokens.textInverse,
     label: b.n > 1
-      ? `${b.side === "bid" ? "매수" : "매도"} ${fmtQty(String(b.qty))} · ${b.n}건`
-      : `${b.side === "bid" ? "매수" : "매도"} ${fmtQty(String(b.qty))}`,
+      ? `${b.side === "bid" ? "매수" : "매도"} ${fmtQty(b.qty)} · ${b.n}건`
+      : `${b.side === "bid" ? "매수" : "매도"} ${fmtQty(b.qty)}`,
   }));
 }
 

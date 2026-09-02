@@ -202,7 +202,7 @@ export default function TradingChart({ market }: { market: string }) {
   }, []);
   useChartTheme(reapplyTheme);
 
-  // 초기화: 차트 생성 + 거래량(상시) + 활성 지표 + resize 관찰. [market]마다 재생성
+  // 초기화: 차트 생성 + 거래량(상시) + 활성 지표 + resize 관찰. market·unit 마다 재생성
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -337,19 +337,21 @@ export default function TradingChart({ market }: { market: string }) {
   }, [status, retryAfterSec]);
 
   /* 미체결 주문선. 스토어가 바뀔 때만 돌고 캔들 스트림과 독립이다.
-     차트가 [market]마다 재생성되므로 마켓이 바뀌면 이전 선은 차트와 함께 사라진다.
-     그때 ref 를 비우지 않으면 다음 마켓에서 지울 대상을 잘못 계산한다 */
+     차트가 market·unit 마다 재생성되므로 둘 중 하나가 바뀌면 이전 선은 차트와 함께 사라진다.
+     그때 ref 를 비우지 않으면 다음 인스턴스에서 지울 대상을 잘못 계산하고, 명세가 같다는
+     이유로 재생성도 걸러져 선이 돌아오지 않는다 */
   useEffect(() => {
     orderLinesRef.current = new Map();
-  }, [market]);
+  }, [market, unit]);
 
+  // 초기화가 아래 sync 보다 먼저 선언돼야 한다. 순서가 뒤집히면 방금 그린 선을 ref 가 잊는다
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
     const tokens = readChartTokens();
     const next = toOrderLines(openOrders, market, tokens, (v) => formatQty(v, 4));
     orderLinesRef.current = syncOrderLines(chart, orderLinesRef.current, next);
-  }, [openOrders, market]);
+  }, [openOrders, market, unit]);
 
   // 지표 토글: 활성 집합 diff만 반영(전체 재생성 없이)
   useEffect(() => {
