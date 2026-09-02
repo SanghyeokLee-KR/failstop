@@ -287,6 +287,14 @@ function ensureOrderbookTotals(msg: OrderbookMessage): void {
 
 type Listener = (msg: WsMessage) => void;
 
+/** 합류를 기다리는 ticker 조회 한 건. 호출자 하나에 대응한다 */
+interface TickerFetchWait {
+  market: string;
+  resolve: (t: Ticker | undefined) => void;
+  reject: (e: unknown) => void;
+  signal?: AbortSignal;
+}
+
 interface ChannelState {
   // 콜백 참조가 아니라 구독 호출 단위로 계수한다. 같은 destination을 같은 콜백(예: store.apply)으로
   // 이중 구독하면 Set 병합으로 refcount가 소실돼, 한 컴포넌트 언마운트가 살아있는 다른 구독의 STOMP
@@ -1166,7 +1174,8 @@ export class HttpStompDataSource implements DataSource {
         return;
       }
       case "ticker": {
-        const [t] = await this.getTicker([parsed.market], signal);
+        // 재동기화는 전 채널에 한꺼번에 걸린다. 같은 합류를 써 왕복 하나로 묶는다
+        const t = await this.fetchTickerCoalesced(parsed.market, signal);
         if (!t || !this.resyncFresh(ch, gen)) return;
         if (ch.lastSeq !== null && t.seq <= ch.lastSeq) return; // 기준점 전진만
         ch.lastSeq = t.seq;
@@ -1229,7 +1238,7 @@ export class HttpStompDataSource implements DataSource {
     const alive = () => this.channels.get(destination)?.subscribers.has(cb) ?? false;
     try {
       if (parsed.kind === "ticker") {
-        const [t] = await this.getTicker([parsed.market], signal);
+        const t = await this.fetchTickerCoalesced(parsed.market, signal);
         if (t && alive()) cb(this.tickerToMessage(t, "snapshot"));
       } else if (parsed.kind === "orderbook") {
         // 연결 상태면 STOMP 구독 즉시 서버 snapshot 1건이 연속성 기준점으로 도착한다(§5-2).
@@ -1249,6 +1258,67 @@ export class HttpStompDataSource implements DataSource {
       // config는 WS 채널이 아니다(§5-3). 폴링으로 갱신(§4-A-6)
     } catch {
       // 초기 스냅샷 실패는 realtime 수신으로 수렴
+    }
+  }
+
+  /* ticker 조회 합류. 조회 하나당 왕복 하나를 쓰면 마켓 수만큼 요청이 된다.
+     거래 화면은 전 마켓 시세를 한 번에 구독하므로 12건이 같은 tick 에 나가고,
+     서버 조회 수용 상한(6, API 설계 2-5-a)을 화면 하나가 스스로 넘겨 자기 요청을
+     429 로 만든다. 서버 `GET /ticker` 는 markets= 복수 조회를 이미 받는다(상한 100).
+
+     팬아웃 지점이 둘이라 둘 다 이 경로를 쓴다. 하나는 구독 직후 초기 스냅샷이고,
+     다른 하나는 재동기화다. 재동기화는 리더 교체·재연결에서 전 채널에 한꺼번에 걸리므로
+     초기 로드보다 오히려 폭이 크다. 한쪽만 합치면 다른 쪽이 그대로 상한을 넘긴다.
+
+     계약은 그대로다. 호출자마다 자기 마켓의 결과를 받고, 합친 것은 왕복뿐이다.
+     ticker 는 서버 push 스냅샷이 없는 채널이라(5-2 구독 즉시 계약은 orderbook 한정)
+     초기 상태를 어떻게 받아 오는지는 전선 계약 밖이고 클라이언트 소관이다. */
+  private tickerFetchQueue: TickerFetchWait[] = [];
+  private tickerFetchScheduled = false;
+
+  private fetchTickerCoalesced(market: string, signal?: AbortSignal): Promise<Ticker | undefined> {
+    return new Promise<Ticker | undefined>((resolve, reject) => {
+      this.tickerFetchQueue.push({ market, resolve, reject, signal });
+      if (this.tickerFetchScheduled) return;
+      this.tickerFetchScheduled = true;
+      /* 마이크로태스크로 모은다. 리액트는 같은 커밋의 효과를 동기로 몰아 실행하고
+         재동기화 루프도 동기로 전 채널을 건다. 둘 다 이 창에 들어온다.
+         타이머로 미루면 첫 시세가 그만큼 늦다 */
+      queueMicrotask(() => void this.flushTickerFetches());
+    });
+  }
+
+  private async flushTickerFetches(): Promise<void> {
+    this.tickerFetchScheduled = false;
+    const batch = this.tickerFetchQueue;
+    this.tickerFetchQueue = [];
+    const live: TickerFetchWait[] = [];
+    for (const w of batch) {
+      if (w.signal?.aborted) w.resolve(undefined);
+      else live.push(w);
+    }
+    if (live.length === 0) return;
+
+    /* 합친 요청의 취소 규약. 종전에는 구독 해제가 그 요청을 실제로 취소해 슬롯을 즉시
+       반환했다(결과 폐기만으로는 요청이 큐를 점유한다). 합류 뒤에도 그 성질을 지키되,
+       한 호출자가 빠졌다고 나머지 결과까지 죽이면 안 되므로 전원이 빠진 때만 끊는다 */
+    const ctl = new AbortController();
+    let waiting = live.length;
+    const release = (): void => {
+      waiting -= 1;
+      if (waiting <= 0) ctl.abort();
+    };
+    for (const w of live) w.signal?.addEventListener("abort", release, { once: true });
+
+    const markets = [...new Set(live.map((w) => w.market))];
+    try {
+      const rows = await this.getTicker(markets, ctl.signal);
+      const byMarket = new Map(rows.map((t) => [t.market, t]));
+      for (const w of live) w.resolve(byMarket.get(w.market));
+    } catch (e) {
+      for (const w of live) w.reject(e);
+    } finally {
+      for (const w of live) w.signal?.removeEventListener("abort", release);
     }
   }
 

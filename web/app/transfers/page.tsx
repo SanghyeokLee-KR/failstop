@@ -73,7 +73,8 @@ export default function TransfersPage() {
      "입금이 안 됐다"로 읽힌다. 초기 1회 조회 + myAsset 델타 구독을 함께 건다 */
   useLiveChannels(useMemo(() => (session ? [dest.myAsset] : []), [session]));
   useEffect(() => {
-    if (session) void loadAccounts();
+    // 실패는 스토어가 기록한다. 흘리면 조회 429 가 전역 오류 토스트가 된다(API 설계 2-3)
+    if (session) loadAccounts().catch(() => {});
   }, [session, loadAccounts]);
 
   const krw = assets.find((a) => a.currency === "KRW");
@@ -143,7 +144,8 @@ export default function TransfersPage() {
         row.status === "COMPLETED" ? "success" : "info",
       );
       void reload();
-      void loadAccounts();
+      // 이체는 이미 접수됐다. 뒤따르는 잔고 재조회 실패가 접수 통지를 오류로 덮으면 안 된다
+      loadAccounts().catch(() => {});
     } catch (err) {
       // 서버가 코드를 주면 그걸 쓰고, 아니면 일반 문구로 떨어뜨린다. 서버 문장을 그대로
       // 띄우지 않는 이유는 화면 어휘와 어투가 갈리기 때문이다(3차 감사 결함)
@@ -158,7 +160,8 @@ export default function TransfersPage() {
       await getDataSource().cancelTransfer(row.external_id);
       toast("출금 요청 취소", "info");
       void load(page);
-      void loadAccounts();
+      // 취소는 이미 성공했다. 재조회 실패로 성공 통지를 덮지 않는다
+      loadAccounts().catch(() => {});
     } catch (err) {
       toast(transferErrorCopy(err), "error");
     }

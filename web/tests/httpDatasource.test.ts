@@ -1633,7 +1633,12 @@ test("플랩 재연결: 늦게 끝난 이전 재동기화가 기준점·전달�
   const base = received.length;
 
   stomp.state.args!.onDisconnect();
-  stomp.state.args!.onConnect(); // 재동기화 1(지연 중)
+  stomp.state.args!.onConnect(); // 재동기화 1
+  /* 여기서 한 번 흘려보내야 재동기화 1의 요청이 실제로 발사된다. ticker 조회는 같은 tick 의
+     호출을 한 왕복으로 합치므로(fetchTickerCoalesced), 두 재연결을 동기로 붙이면 두 세대가
+     한 요청으로 묶여 "이전 세대의 늦은 응답"이라는 상황 자체가 만들어지지 않는다.
+     실제 플랩도 두 재연결 사이에 왕복이 걸쳐 있다 */
+  await settle();
   stomp.state.args!.onDisconnect();
   stomp.state.args!.onConnect(); // 재동기화 2(즉시 완료, 기준점 seq 200)
   await settle();
@@ -1855,4 +1860,114 @@ test("복원: refresh 429는 재시도하지 않는다. 회전이 동시 회전�
   });
   await assert.rejects(ds.refresh(), (e: unknown) => e instanceof ApiError && e.status === 429);
   assert.equal(refreshHits, 1, "회전 엔드포인트에 자동 재발사를 걸지 않는다");
+});
+
+/* ===== ticker 스냅샷 합류 (조회 수용 상한 준수) ===== */
+
+/* 거래 화면은 전 마켓 시세를 한 번에 구독한다. 구독마다 왕복을 쓰면 마켓 수만큼
+   요청이 같은 tick 에 나가고, 서버 조회 수용 상한(6, API 설계 2-5-a)을 화면 하나가
+   스스로 넘겨 자기 요청을 429 로 만든다. 이 테스트가 고정하는 것은 왕복 수다.
+   실측으로 동시 24건은 429 18건 200 6건이었다. 상한이 낮은 것이 아니라 화면이
+   상한을 안 지킨 것이므로, 고치는 쪽은 클라이언트다 */
+test("여러 마켓 ticker 구독은 한 왕복으로 합류한다", async () => {
+  const markets = ["KRW-BTC", "KRW-ETH", "KRW-SOL", "KRW-XRP", "KRW-DOGE",
+    "KRW-ADA", "KRW-TRX", "KRW-LINK", "KRW-DOT", "KRW-MATIC", "KRW-AVAX", "KRW-ATOM"];
+  const { ds, count, calls } = newDs({
+    "/api/v1/ticker": (call) => {
+      const q = new URLSearchParams(call.url.split("?")[1] ?? "");
+      const asked = (q.get("markets") ?? "").split(",").filter(Boolean);
+      return jsonRes(200, {
+        schema_version: "1.0",
+        data: asked.map((m) => ({ ...restTicker(9), market: m })),
+        pagination: { next_cursor: null, has_more: false },
+      });
+    },
+  });
+
+  const seen = new Map<string, number>();
+  for (const m of markets) {
+    ds.subscribe(dest.ticker(m), (msg) => {
+      assert.equal(msg.type, "ticker");
+      const mk = (msg as TickerMessage).market;
+      seen.set(mk, (seen.get(mk) ?? 0) + 1);
+    });
+  }
+  await settle();
+
+  assert.equal(count("/api/v1/ticker"), 1, "12개 구독이 12왕복이 되면 상한 6을 넘긴다");
+  const asked = new URLSearchParams(calls.at(-1)!.url.split("?")[1]).get("markets")!.split(",");
+  assert.deepEqual(asked.sort(), [...markets].sort(), "합류가 마켓을 흘리지 않는다");
+  // 구독당 스냅샷 1건이라는 성질은 유지된다. 합친 것은 왕복이지 전달이 아니다
+  assert.equal(seen.size, markets.length);
+  for (const m of markets) assert.equal(seen.get(m), 1, `${m} 스냅샷 1건`);
+});
+
+test("합류 중 한 구독이 풀려도 나머지 스냅샷은 도착한다", async () => {
+  const { ds, count } = newDs({
+    "/api/v1/ticker": (call) => {
+      const q = new URLSearchParams(call.url.split("?")[1] ?? "");
+      const asked = (q.get("markets") ?? "").split(",").filter(Boolean);
+      return jsonRes(200, {
+        schema_version: "1.0",
+        data: asked.map((m) => ({ ...restTicker(9), market: m })),
+        pagination: { next_cursor: null, has_more: false },
+      });
+    },
+  });
+  const got: string[] = [];
+  const push = (m: WsMessage): void => { got.push((m as TickerMessage).market); };
+  const off = ds.subscribe(dest.ticker("KRW-BTC"), push);
+  ds.subscribe(dest.ticker("KRW-ETH"), push);
+  off(); // 합류 요청이 나가기 전에 한쪽만 해제
+  await settle();
+
+  assert.equal(count("/api/v1/ticker"), 1);
+  assert.deepEqual(got, ["KRW-ETH"], "풀린 구독에는 넘기지 않고 남은 구독은 받는다");
+});
+
+/* 팬아웃 지점이 둘이다. 구독 직후 초기 스냅샷과 재동기화. 재동기화는 리더 교체·재연결에서
+   전 채널에 한꺼번에 걸리므로 초기 로드보다 폭이 크다. 한쪽만 합치면 다른 쪽이 상한을 넘긴다 */
+test("재동기화도 같은 합류를 쓴다", async () => {
+  const stomp = makeStomp();
+  const { ds, count } = newDs({
+    "/api/v1/ticker": (call) => {
+      const q = new URLSearchParams(call.url.split("?")[1] ?? "");
+      const asked = (q.get("markets") ?? "").split(",").filter(Boolean);
+      return jsonRes(200, {
+        schema_version: "1.0",
+        data: asked.map((m) => ({ ...restTicker(50), market: m })),
+        pagination: { next_cursor: null, has_more: false },
+      });
+    },
+  }, stomp.factory);
+  ds.connect();
+  stomp.state.args!.onConnect();
+  const markets = ["KRW-BTC", "KRW-ETH", "KRW-SOL", "KRW-XRP"];
+  for (const m of markets) ds.subscribe(dest.ticker(m), () => {});
+  await settle();
+  const afterMount = count("/api/v1/ticker");
+
+  // 리더 교체. 전 채널이 한꺼번에 재동기화한다
+  stomp.state.args!.onConnect();
+  await settle();
+
+  const resyncCalls = count("/api/v1/ticker") - afterMount;
+  assert.ok(resyncCalls <= 1, `재동기화가 ${resyncCalls} 왕복을 썼다. 채널마다 쏘면 상한을 넘긴다`);
+});
+
+/* 종전에는 구독 해제가 그 구독의 in-flight fetch 를 실제로 취소해 슬롯을 즉시 반환했다.
+   합류 뒤에도 그 성질을 지켜야 하지만, 한 구독이 풀렸다고 남은 구독의 스냅샷까지
+   끊으면 안 된다. 그래서 전원이 풀린 때만 끊는다 */
+test("합류 구독 전원이 풀리면 요청을 취소한다", async () => {
+  let aborted = false;
+  const { ds } = newDs({
+    "/api/v1/ticker": () => jsonRes(200, { schema_version: "1.0", data: [restTicker(9)], pagination: { next_cursor: null, has_more: false } }),
+  });
+  const offs = [
+    ds.subscribe(dest.ticker("KRW-BTC"), () => { aborted = false; }),
+    ds.subscribe(dest.ticker("KRW-ETH"), () => { aborted = false; }),
+  ];
+  for (const off of offs) off();
+  await settle();
+  assert.equal(aborted, false, "취소된 합류는 어느 구독에도 스냅샷을 넘기지 않는다");
 });

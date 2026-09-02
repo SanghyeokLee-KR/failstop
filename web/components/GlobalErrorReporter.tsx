@@ -7,13 +7,15 @@
 
 import { useEffect } from "react";
 import { toast } from "@/components/Toast";
-import { messageOf, shouldNotify } from "@/components/globalErrorNotice";
+import { isBackpressure, messageOf, shouldNotify } from "@/components/globalErrorNotice";
 
 export default function GlobalErrorReporter() {
   useEffect(() => {
     let lastMessage: string | null = null;
     let lastAt = 0;
     const onRejection = (e: PromiseRejectionEvent) => {
+      // 백프레셔는 오류가 아니라 지연이다. 각 화면이 자기 자리에서 알린다(API 설계 2-3)
+      if (isBackpressure(e.reason)) return;
       const message = messageOf(e.reason);
       const now = Date.now();
       if (!shouldNotify(message, lastMessage, now - lastAt)) return;

@@ -155,7 +155,9 @@ function ExchangeMarketBody() {
      화면은 재시도 자리도 없는 스켈레톤으로 고착한다(decideBalance: idle -> loading) */
   useEffect(() => {
     reloadAccounts();
-    void loadOrders();
+    // 상태는 스토어가 기록한다. 여기서는 실패를 삼키기만 한다(reloadAccounts 와 같은 규율).
+    // void 로 두면 조회 429 가 미포착 거부가 되고 전역 보고기가 그것을 오류 토스트로 올린다
+    loadOrders().catch(() => {});
   }, [memberId, reloadAccounts, loadOrders]);
 
   useEffect(() => {

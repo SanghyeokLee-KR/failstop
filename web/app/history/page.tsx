@@ -122,7 +122,8 @@ export default function HistoryPage() {
       // 200 응답이 권위 Order다. 재조회 왕복 전에 행을 체결·취소 탭으로 확정한다(§4-B-2)
       upsertOrder(canceled);
       toast("주문 취소 완료", "info");
-      void loadOrders();
+      // 취소는 이미 성공했다. 뒤따르는 재조회 실패가 성공 통지를 오류로 덮으면 안 된다
+      loadOrders().catch(() => {});
     } catch (e) {
       toast(e instanceof Error ? e.message : "취소 실패. 잠시 후 다시 시도 필요", "error");
     } finally {

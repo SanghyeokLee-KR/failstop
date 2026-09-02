@@ -34,8 +34,9 @@ export default function MyPage() {
 
   useEffect(() => {
     if (!session) return;
-    void loadAccounts();
-    void loadOrders();
+    // 실패는 각 화면이 자기 자리에서 알린다. 여기서 흘리면 전역 오류 토스트가 된다
+    loadAccounts().catch(() => {});
+    loadOrders().catch(() => {});
   }, [session, loadAccounts, loadOrders]);
 
   // 금액은 문자열 십진으로 다룬다. float 합산은 NUMERIC(40,18) 정밀을 잃고 2^53 상한에 걸린다
