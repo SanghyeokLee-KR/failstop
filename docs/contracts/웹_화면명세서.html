@@ -317,9 +317,9 @@ HeaderNav는 app/layout.tsx에서 전 화면 공통 렌더</pre>
   <h4>OrderPanel. 주문 검증 · 제출 규약</h4>
   <table>
     <tr><th style="width:34mm">항목</th><th>규칙</th></tr>
-    <tr><td>주문 유형</td><td>지정가(<code>limit</code>) / 시장가(<code>market</code>). 시장가 매수는 <code>price</code>에 주문 금액(notional), 시장가 매도는 <code>volume</code></td></tr>
+    <tr><td>주문 유형</td><td>지정가(<code>limit</code>) / 시장가(<code>market</code>). 시장가 매도는 <code>volume</code>. 시장가 매수는 <code>price</code>에 주문 금액(notional)을 싣는 전선 규약이나, DB 설계 1-4 앱 가드가 이를 quote 자산 scale 18 마켓으로 한정하고(<code>market_buy_quote_scale_18</code>. notional 나눗셈이 scale 18 소진액을 만들어 quote scale이 낮으면 정산 양자화에서 fail-fast), 이 저장소의 KRW 마켓은 전부 scale 0 이다. 따라서 <b>매수 쪽 시장가 탭은 <code>price_scale === 18</code> 일 때만 노출</b>한다. 낼 수 없는 주문을 폼이 받으면 확인 2단계까지 통과한 뒤 서버가 거부한다</td></tr>
     <tr><td>가격</td><td>지정가만 입력. ±스텝은 <code>priceStep(price)</code> 호가 단위. 프리필·현재가 1회 채움</td></tr>
-    <tr><td>수량 / 금액</td><td>퍼센트 칩(10·25·50·최대). 매도는 보유 수량, 지정가 매수는 가용 KRW÷(가격·수수료), 시장가 매수는 금액 기준 자동 계산. 소수는 <code>qty_scale</code> 내림</td></tr>
+    <tr><td>수량 / 금액</td><td>퍼센트 칩(10·25·50·최대). 매도는 보유 수량, 지정가 매수는 가용 KRW÷(가격·수수료). 시장가 매수 금액 입력은 위 노출 조건이 참인 마켓에서만 나타난다. 소수는 <code>qty_scale</code> 내림</td></tr>
     <tr><td>검증</td><td>최소주문 5,000원 미만 → 에러 + CTA disabled / 매수 총액+수수료 &gt; 가용 KRW → "주문 가능 금액 초과" / 매도 수량 &gt; 보유 → "보유 수량 초과"</td></tr>
     <tr><td>멱등</td><td><code>client_order_id</code> 클라이언트 생성(<code>web-{ts}-{rand}</code>). 확인 진입(arm) 시 1개 발급, 주문 1건당 1키</td></tr>
     <tr><td>제출</td><td><code>placeOrder(req)</code> → 접수 Toast(info) + 입력 초기화 + <code>loadOrders()</code>. 실패 시 오류 메시지 Toast(error)</td></tr>
