@@ -174,6 +174,7 @@ exchange-platform/
 | 400 | `invalid_email` | **회원 이메일 형식 오류(신규, §3-8)** |
 | 401 | `invalid_credentials` | **로그인 이메일·비밀번호 불일치. 존재 여부 비노출(미가입도 동일 코드·메시지·유사 지연) (신규, §3-8)** |
 | 401 | `refresh_reuse` | **소각·폐기된 리프레시 재제출. 도난 신호로 family 전체 폐기(신규, §3-8)** |
+| 409 | `refresh_in_progress` | **동시 회전 경합(v2.39). 소각 10초 이내 + family 생존이면 도난이 아니라 경합으로 보고 폐기하지 않는다. `Retry-After` 동반, 재시도 대상** |
 | 401 | `session_expired` | **리프레시 만료·부재(신규, §3-8)** |
 | 403 | `account_suspended` | **`users.status` SUSPENDED·CLOSED 계정의 로그인·갱신 거부(신규, §3-8)** |
 | 409 | `email_taken` | **이메일 중복 가입(신규, §3-8)** |

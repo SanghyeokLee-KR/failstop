@@ -10,6 +10,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -227,13 +228,21 @@ public class MemberAuthService {
                 .query((rs, rowNum) -> new RefreshRow(
                         rs.getLong("id"), rs.getLong("user_id"), rs.getString("family_id"),
                         rs.getTimestamp("expires_at").toInstant(),
-                        rs.getTimestamp("used_at") != null,
+                        rs.getTimestamp("used_at") == null ? null : rs.getTimestamp("used_at").toInstant(),
                         rs.getTimestamp("revoked_at") != null))
                 .optional();
         if (found.isEmpty()) {
             throw sessionExpired();
         }
         RefreshRow row = found.get();
+        if (row.burned() && !row.revoked() && row.burnedWithinGrace()) {
+            /* 동시 회전 경합이다(§1-3 v2.5 유예). 탭 둘, 재시도 겹침, 429 뒤 복구에서 같은
+               토큰이 동시에 온다. 승자가 소각한 직후 패자가 도착한 것이므로 도난이 아니다.
+               종전에는 이것을 구분하지 못해 정상 사용자의 family 를 통째로 폐기했다.
+               폐기를 미룰 뿐 소각은 그대로라 패자는 아무 세션도 얻지 못한다. 브라우저는 승자의
+               Set-Cookie 를 이미 받았으므로 재시도가 새 토큰으로 성립한다. */
+            throw rotationInProgress();
+        }
         if (row.burned() || row.revoked()) {
             // 소각·폐기된 토큰 재제출은 도난 신호다. family 전체를 폐기하고 재사용으로 판정한다(§1-3).
             revokeFamily(row.familyId());
@@ -269,7 +278,14 @@ public class MemberAuthService {
                 insertSession(row.userId(), row.familyId(), rawNext, row.id(), ip, userAgent);
             });
         } catch (RotationRaceException e) {
-            // 회전 소각·삽입은 롤백됐다. family 폐기는 별도 커밋으로 확정한다.
+            /* UPDATE 가 0행이라 롤백됐다. 원인은 둘이다. 동시 회전이 먼저 소각했거나
+               revokeFamily 가 먼저 커밋됐거나. 앞쪽은 경합이고 뒤쪽은 도난 대응의 결과다.
+               지금 행을 다시 읽어 가른다. 폐기됐으면 종전대로 도난으로 닫고, 유예창 안에서
+               소각만 됐으면 폐기하지 않고 재시도로 돌린다. */
+            RefreshRow now = reread(row.id());
+            if (now != null && !now.revoked() && now.burnedWithinGrace()) {
+                throw rotationInProgress();
+            }
             revokeFamily(row.familyId());
             throw new ApiException(401, "refresh_reuse", "재사용된 세션. 다시 로그인 필요");
         }
@@ -425,7 +441,45 @@ public class MemberAuthService {
     }
 
     private record RefreshRow(long id, long userId, String familyId, Instant expiresAt,
-                              boolean burned, boolean revoked) {
+                              Instant usedAt, boolean revoked) {
+        boolean burned() {
+            return usedAt != null;
+        }
+
+        /** 소각된 지 유예창 안인가. 동시 회전을 도난과 가르는 유일한 축이다 */
+        boolean burnedWithinGrace() {
+            return usedAt != null && usedAt.isAfter(Instant.now().minus(ROTATION_GRACE));
+        }
+    }
+
+    /**
+     * 동시 회전 유예창(§1-3 v2.5). 이 안의 소각은 도난이 아니라 경합으로 본다.
+     *
+     * 10초인 이유. 경합은 같은 사용자의 동시 요청이라 왕복 몇 백 ms 안에 끝나고, 실제 도난
+     * 재생은 그보다 훨씬 뒤에 온다. 창을 너무 좁히면 느린 네트워크의 정상 경합을 도난으로
+     * 몰고, 너무 넓히면 훔친 토큰이 그 창 동안 쓰일 수 있다.
+     */
+    private static final Duration ROTATION_GRACE = Duration.ofSeconds(10);
+
+    /** 경합 응답. 401·403 은 클라이언트가 세션 종료로 수렴시키므로 쓰지 않는다(§4-5) */
+    private static ApiException rotationInProgress() {
+        return new ApiException(409, "refresh_in_progress",
+                "세션 갱신 요청 중복. 잠시 후 재시도 필요", null, 1);
+    }
+
+    /** 경합 판정용 재조회. 소각과 폐기 중 무엇이 UPDATE 를 0행으로 만들었는지 가른다 */
+    private RefreshRow reread(long id) {
+        return jdbc.sql("""
+                        SELECT id, user_id, family_id::text AS family_id, expires_at, used_at, revoked_at
+                        FROM auth_sessions WHERE id = ?
+                        """)
+                .params(id)
+                .query((rs, rowNum) -> new RefreshRow(
+                        rs.getLong("id"), rs.getLong("user_id"), rs.getString("family_id"),
+                        rs.getTimestamp("expires_at").toInstant(),
+                        rs.getTimestamp("used_at") == null ? null : rs.getTimestamp("used_at").toInstant(),
+                        rs.getTimestamp("revoked_at") != null))
+                .optional().orElse(null);
     }
 
     // 회전 경합 롤백 신호. TransactionTemplate 밖에서 family 폐기를 별도 커밋하기 위한 제어 예외.

@@ -186,13 +186,29 @@ class MemberAuthIntegrationTest {
         assertNotNull(first.rtCookie);
         assertTrue(!first.rtCookie.equals(ok.rtCookie), "rt는 회전되어야 한다");
 
-        // 소각된 이전 rt 재사용 → family 폐기 + refresh_reuse
-        Refresh reused = refresh(ok.rtCookie);
+        /* 소각 직후 재제출은 동시 회전 경합이다(§1-3 v2.5 유예). 도난이 아니므로 family 를
+           폐기하지 않고 409 로 재시도를 돌린다. 탭 둘·재시도 겹침·429 뒤 복구가 이 경로다 */
+        Refresh raced = refresh(ok.rtCookie);
+        assertEquals(409, raced.status);
+        assertEquals("refresh_in_progress", raced.body.path("error").path("name").asText());
+
+        // family 가 살아 있어 회전된 rt 는 그대로 쓴다. 이것이 유예의 목적이다
+        Refresh stillAlive = refresh(first.rtCookie);
+        assertEquals(200, stillAlive.status);
+        assertNotNull(stillAlive.rtCookie);
+
+        /* 유예창 밖의 재제출은 도난 판정 그대로다. used_at 을 과거로 밀어 창을 넘긴다.
+           실시간 대기로 검증하면 테스트가 유예창 길이만큼 느려진다 */
+        jdbc.sql("UPDATE auth_sessions SET used_at = now() - interval '1 hour' "
+                        + "WHERE token_hash = encode(digest(?, 'sha256'), 'hex')")
+                .params(first.rtCookie)
+                .update();
+        Refresh reused = refresh(first.rtCookie);
         assertEquals(401, reused.status);
         assertEquals("refresh_reuse", reused.body.path("error").path("name").asText());
 
-        // family 폐기로 회전된 rt도 무효
-        Refresh afterRevoke = refresh(first.rtCookie);
+        // 도난 판정은 family 를 폐기한다. 그 뒤 발급분도 무효다
+        Refresh afterRevoke = refresh(stillAlive.rtCookie);
         assertEquals(401, afterRevoke.status);
     }
 
