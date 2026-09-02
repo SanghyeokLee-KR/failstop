@@ -508,10 +508,16 @@ export class HttpStompDataSource implements DataSource {
     try {
       return unwrapList<Candle>(await this.http(`/api/v1/candles/${unit}?${q}`, { signal }), "/candles");
     } catch (e) {
-      // 캔들은 표시 전용 피드라 조회 실패를 빈 배열로 흡수해 화면이 빈 상태를 그리게 한다.
-      // 무진단 흡수는 지속 5xx·스키마 드리프트를 묻으므로 흡수 지점에 진단 로그를 남기고,
-      // invalid_envelope는 백엔드 스키마 결함이라 예상 범위인 조회 실패와 분리해 error로 올린다.
+      /* 캔들은 표시 전용 피드라 조회 실패를 빈 배열로 흡수해 화면이 빈 상태를 그리게 한다.
+         무진단 흡수는 지속 5xx·스키마 드리프트를 묻으므로 흡수 지점에 진단 로그를 남기고,
+         invalid_envelope는 백엔드 스키마 결함이라 예상 범위인 조회 실패와 분리해 error로 올린다.
+
+         429만 흡수 대상에서 뺀다(v2.6, 차트 설계 5-2). 백프레셔는 실패가 아니라 지연이고
+         서버가 회복 시각까지 준다. 빈 배열로 접으면 화면이 "데이터 없음"을 그려, 설계된
+         백프레셔를 데이터 부재로 번역한다. 실제로 체결 12만 건이 도는 마켓의 429 빈 차트를
+         데이터 부재로 오진한 사례가 있다. 사유를 올려 호출자가 지연으로 다루게 한다. */
       if (e instanceof ApiError) {
+        if (e.status === 429) throw e;
         const where = `candles ${unit} ${market}`;
         if (e.code === "invalid_envelope") {
           console.error(`[datasource] ${where} 엔벌로프 스키마 불일치. 빈 상태 렌더`, e);

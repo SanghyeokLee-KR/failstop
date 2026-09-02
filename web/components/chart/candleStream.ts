@@ -7,6 +7,8 @@ import type { Chart, KLineData } from "klinecharts";
 import type { CandleUnit } from "@/lib/types";
 import { dest } from "@/lib/types";
 import { getDataSource } from "@/lib/api/datasource";
+import { ApiError } from "@/lib/api/httpDatasource";
+import { clampRetrySec } from "@/lib/store";
 import { CANDLE_UNIT_MS } from "@/lib/sim/engine";
 import { toNum } from "@/lib/format";
 import { newTradeCursor, isDuplicateTrade, advanceTradeCursor } from "./tradeDedup";
@@ -20,9 +22,24 @@ export interface LiveCandle {
   volume: number;
 }
 
+/**
+ * 초기 로드 결과. 넷을 가른다(차트 설계 5-2, 디자인시스템 A-8).
+ *
+ * 종전에는 불리언 하나였고 빈 응답과 조회 실패가 같은 값으로 접혔다. 그 합침 때문에
+ * 429로 못 받은 화면과 진짜 데이터 없는 마켓이 구분되지 않았고, 실제로 체결 12만 건이
+ * 도는 마켓의 백프레셔를 데이터 부재로 오진한 사례가 있다.
+ *
+ * deferred 는 실패가 아니라 지연이다. 서버가 회복 시각을 함께 주므로 종결로 적지 않는다.
+ */
+export type CandleLoadResult =
+  | { kind: "data" }
+  | { kind: "empty" }
+  | { kind: "error" }
+  | { kind: "deferred"; retryAfterSec: number };
+
 export interface CandleStreamCallbacks {
-  /** 초기 로드 결과. hasData=false면 빈 상태 렌더 */
-  onLoaded: (hasData: boolean) => void;
+  /** 초기 로드 결과 */
+  onLoaded: (result: CandleLoadResult) => void;
   /** 형성 중 마지막 캔들 갱신(300ms coalesce). 시각 판독(ChartReadout)만 소비하고, aria 낭독은
    *  TradingChart가 봉 롤오버·크로스헤어로 별도 게이팅한다 */
   onLatest: (candle: LiveCandle | null) => void;
@@ -75,9 +92,9 @@ export function startCandleStream(
     .getCandles(market, unit, INITIAL_COUNT, loadAbort.signal)
     .then((rows) => {
       if (disposed) return;
-      // 백엔드 미구현·조회 실패는 어댑터가 []로 흡수(§3.7). 빈 상태로 수렴한다.
+      // 200 + 0행만 빈 상태다. 조회 실패는 아래 catch 가 사유별로 가른다
       if (rows.length === 0) {
-        cb.onLoaded(false);
+        cb.onLoaded({ kind: "empty" });
         return;
       }
       // 계약은 시각 내림차순 → 차트는 오름차순
@@ -93,20 +110,25 @@ export function startCandleStream(
         data.push({ timestamp: Date.parse(c.candle_time), open, high, low, close, volume: Math.max(0, toNum(c.volume)) });
       }
       if (data.length === 0) {
-        cb.onLoaded(false);
+        cb.onLoaded({ kind: "empty" });
         return;
       }
       chart.applyNewData(data);
       const latest = data[data.length - 1];
       last = latest ? { ...latest, volume: latest.volume ?? 0 } : null;
-      cb.onLoaded(true);
+      cb.onLoaded({ kind: "data" });
       cb.onLatest(last);
     })
     .catch((e) => {
       if (disposed) return;
-      // 어댑터가 흡수하지 못한 실패도 빈 상태로 수렴. 흡수 지점에 진단 로그를 남긴다
-      console.warn(`[chart] ${market} ${unit} 캔들 로드 실패. 빈 상태 렌더`, e);
-      cb.onLoaded(false);
+      /* 429 는 지연이다. 상한 해석은 store 와 같은 규칙을 쓴다. 두 곳이 다르면
+         같은 헤더가 화면마다 다르게 해석된다(API 설계 2-3) */
+      if (e instanceof ApiError && e.status === 429) {
+        cb.onLoaded({ kind: "deferred", retryAfterSec: clampRetrySec(e.retryAfter) });
+        return;
+      }
+      console.warn(`[chart] ${market} ${unit} 캔들 로드 실패`, e);
+      cb.onLoaded({ kind: "error" });
     });
 
   // 체결 합성 폴백: 같은 버킷이면 high·low·close·volume 갱신, 새 버킷이면 새 봉(§3.5)

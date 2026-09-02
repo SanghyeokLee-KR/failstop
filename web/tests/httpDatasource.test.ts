@@ -226,6 +226,22 @@ test("캔들 500은 빈 배열로 흡수(표시 전용 피드, 화면은 빈 상
   assert.deepEqual(await ds.getCandles("KRW-BTC", "15m"), []);
 });
 
+/* 429만 흡수 대상에서 뺀다. 백프레셔는 실패가 아니라 지연이고 서버가 회복 시각을 준다.
+   빈 배열로 접으면 화면이 "데이터 없음"을 그려 설계된 백프레셔를 데이터 부재로 번역한다.
+   실제로 체결 12만 건이 도는 마켓의 429 빈 차트를 데이터 부재로 오진한 사례가 있다 */
+test("캔들 429는 흡수하지 않는다. 사유를 올려 호출자가 지연으로 다루게 한다", async () => {
+  const { ds } = newDs({
+    "/api/v1/candles/15m": () =>
+      new Response(JSON.stringify({ error: { name: "too_many_requests", message: "동시 처리 한도 도달. 잠시 후 재시도 가능", retry_after: 3 } }),
+        { status: 429, headers: { "Content-Type": "application/json" } }),
+  });
+  await assert.rejects(
+    () => ds.getCandles("KRW-BTC", "15m"),
+    (e: unknown) => e instanceof ApiError && e.status === 429 && e.retryAfter === 3,
+    "429를 빈 배열로 접으면 지연과 데이터 부재가 같은 화면이 된다",
+  );
+});
+
 test("캔들 미구현(404)도 빈 배열로 흡수", async () => {
   const { ds } = newDs({
     "/api/v1/candles/15m": () => jsonRes(404, { error: { name: "not_found", message: "없음" } }),

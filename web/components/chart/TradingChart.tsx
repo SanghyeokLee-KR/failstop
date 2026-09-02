@@ -107,8 +107,15 @@ export default function TradingChart({ market }: { market: string }) {
 
   const [unit, setUnit] = useState<CandleUnit>("15m");
   const [active, setActive] = useState<Set<IndicatorKey>>(() => new Set(DEFAULT_ACTIVE));
-  const [loading, setLoading] = useState(true);
-  const [empty, setEmpty] = useState(false);
+  /* 로드 결과 넷을 가른다(차트 설계 5-2, 디자인시스템 A-8). 종전에는 불리언 둘이라
+     빈 응답과 조회 실패가 같은 화면으로 접혔고, 그래서 429 로 못 받은 상태와 진짜
+     데이터 없는 마켓이 구분되지 않았다 */
+  const [status, setStatus] = useState<"loading" | "data" | "empty" | "error" | "deferred">("loading");
+  const [retryAfterSec, setRetryAfterSec] = useState<number | null>(null);
+  /* 차트 인스턴스가 지금 들고 있는 데이터의 (market, unit). 차트는 그 둘마다 재생성되므로
+     키가 다르면 인스턴스는 비어 있다. 이 대조가 없으면 주기 전환 중 429 를 맞았을 때
+     지연 배지가 직전 주기의 봉을 정당화한다 */
+  const renderedKeyRef = useRef<string | null>(null);
   const [latest, setLatest] = useState<LiveCandle | null>(null);
   // 크로스헤어가 가리키는 봉. null이면 판독은 최신 봉으로 폴백
   const [hover, setHover] = useState<LiveCandle | null>(null);
@@ -275,8 +282,7 @@ export default function TradingChart({ market }: { market: string }) {
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
-    setLoading(true);
-    setEmpty(false);
+    setStatus("loading");
     setLatest(null);
     hoverTsRef.current = null;
     setHover(null);
@@ -284,9 +290,10 @@ export default function TradingChart({ market }: { market: string }) {
     lastBarTsRef.current = null;
     streamRef.current?.dispose();
     streamRef.current = startCandleStream(market, unit, chart, {
-      onLoaded: (hasData) => {
-        setLoading(false);
-        setEmpty(!hasData);
+      onLoaded: (r) => {
+        if (r.kind === "data") renderedKeyRef.current = `${market}|${unit}`;
+        setStatus(r.kind);
+        setRetryAfterSec(r.kind === "deferred" ? r.retryAfterSec : null);
       },
       onLatest: handleLatest,
     });
@@ -295,6 +302,39 @@ export default function TradingChart({ market }: { market: string }) {
       streamRef.current = null;
     };
   }, [market, unit, retrySeq, handleLatest]);
+
+  /* 429 자동 재조회. 조건 넷을 전부 만족할 때만 켠다(API 설계 2-3 자동 재요청 유계 조건).
+       - Retry-After 존중: 서버가 준 초를 유계화해 지킨다(clampRetrySec, 스트림에서 이미 적용)
+       - 단일 in-flight: retrySeq 증가가 스트림 효과를 한 번만 재실행한다
+       - 최대 1회: 같은 지연 구간에서 두 번 걸지 않는다. 이어지면 사람이 판단한다
+       - 언마운트 정리: 화면을 떠난 뒤 타이머가 요청을 쏘지 않는다
+     소진 표시는 예약이 아니라 발사 시점에 세운다. 예약 시점에 세우면 정리 함수가 타이머를
+     거둔 뒤에도 표시가 남아, 재마운트에서 자동 재조회가 한 번도 안 나간다(잔고 경로와 같은 규율) */
+  const autoRetriedRef = useRef(false);
+  /* 주기·마켓이 바뀌면 새 로드 맥락이므로 소진 표시를 되돌린다. 이것이 없으면 한 번 쓴
+     재조회가 컴포넌트 수명 내내 막힌다. 실측으로 5분봉에서 429 를 맞아 소진한 뒤
+     15분봉으로 전환했을 때 자동 재조회가 한 번도 나가지 않았다. 아래 효과는 status 로만
+     되돌리는데, 지연에서 지연으로 이어지면 그 사이에 data·empty 가 오지 않는다 */
+  useEffect(() => {
+    autoRetriedRef.current = false;
+  }, [market, unit]);
+  useEffect(() => {
+    if (status !== "deferred" || retryAfterSec === null) {
+      if (status === "data" || status === "empty") autoRetriedRef.current = false;
+      return;
+    }
+    if (autoRetriedRef.current) return;
+    let fired = false;
+    const id = setTimeout(() => {
+      fired = true;
+      autoRetriedRef.current = true;
+      setRetrySeq((n) => n + 1);
+    }, retryAfterSec * 1000);
+    return () => {
+      clearTimeout(id);
+      if (!fired) autoRetriedRef.current = false;
+    };
+  }, [status, retryAfterSec]);
 
   /* 미체결 주문선. 스토어가 바뀔 때만 돌고 캔들 스트림과 독립이다.
      차트가 [market]마다 재생성되므로 마켓이 바뀌면 이전 선은 차트와 함께 사라진다.
@@ -378,16 +418,39 @@ export default function TradingChart({ market }: { market: string }) {
       <ChartReadout candle={readoutCandle} />
       <div className={styles.chartArea}>
         <div ref={containerRef} className={styles.canvas} role="img" aria-label={ariaLabel} />
-        {loading && (
+        {status === "loading" && (
           <div className={styles.overlayState} aria-hidden="true">
             <Skeleton variant="chart" width="100%" height="100%" />
           </div>
         )}
-        {empty && !loading && (
+        {status === "empty" && (
           <div className={styles.emptyState} role="status">
             <span>표시할 차트 데이터 없음</span>
             <button type="button" className={styles.retryBtn} onClick={() => setRetrySeq((n) => n + 1)}>
               다시 불러오기
+            </button>
+          </div>
+        )}
+        {status === "error" && (
+          <div className={styles.emptyState} role="status">
+            <span>차트 조회 실패</span>
+            <button type="button" className={styles.retryBtn} onClick={() => setRetrySeq((n) => n + 1)}>
+              다시 불러오기
+            </button>
+          </div>
+        )}
+        {/* 지연은 실패가 아니다. 그릴 값이 있으면 값을 두고 배지만 얹는다(2-3) */}
+        {status === "deferred" && renderedKeyRef.current === `${market}|${unit}` && (
+          <div className={styles.staleBadge} role="status">
+            <span>{retryAfterSec === null ? "갱신 지연" : `갱신 지연. ${retryAfterSec}초 후 자동 재시도`}</span>
+          </div>
+        )}
+        {/* 그릴 값이 없으면 자리를 채우되 종결 실패로 적지 않는다 */}
+        {status === "deferred" && renderedKeyRef.current !== `${market}|${unit}` && (
+          <div className={styles.emptyState} role="status">
+            <span>{retryAfterSec === null ? "요청 몰림. 잠시 후 재시도" : `요청 몰림. ${retryAfterSec}초 후 자동 재시도`}</span>
+            <button type="button" className={styles.retryBtn} onClick={() => setRetrySeq((n) => n + 1)}>
+              지금 다시 불러오기
             </button>
           </div>
         )}

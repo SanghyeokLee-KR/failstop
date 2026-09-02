@@ -230,6 +230,22 @@
   color: var(--text-secondary);
   font-size: var(--font-body-sm-size);
 }
+/* 지연 배지. 값을 그린 채 갱신이 밀린 것만 알린다. 실패가 아니므로 화면을 덮지 않고
+   포인터도 받지 않는다. 차트 조작이 배지에 막히면 지연이 고장처럼 느껴진다 */
+.staleBadge {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-default);
+  /* sunken 위 문구는 secondary 가 라이트 4.27:1 미달이라 default 를 쓴다(디자인시스템 9절) */
+  color: var(--text-default);
+  font-size: var(--font-caption-size);
+  pointer-events: none;
+}
+
 .retryBtn {
   min-height: 44px;
   padding: 0 var(--space-4);
