@@ -999,13 +999,14 @@ test("flush: 스냅샷이 결번을 못 메워도 재동기화가 순환하지 �
   stomp.push(dest.ticker("KRW-BTC"), wsTicker(25)); // gap → 재동기화(스냅샷 19)
   await settle();
 
-  assert.ok(tickerHits <= 3, `재동기화 순환 없음(실제 ${tickerHits}회)`);
-  assert.equal(
-    received[received.length - 1].seq,
-    25,
-    "상한을 넘긴 결번은 수용해 스트림을 진행시킨다",
+  // 상한만 걸면 재기동이 아예 없는 구현(초기 1 + 재동기화 1)도 통과한다. 판정 대상인 재기동이
+  // 실제로 한 번 돌았다는 것을 왕복 수로 고정한다
+  assert.equal(tickerHits, 3, "초기 스냅샷 1 + 재동기화 1 + 재기동 1. 재기동 상한은 1회다");
+  assert.deepEqual(
+    received.slice(base).map((m) => m.seq),
+    [10, 19, 25],
+    "상한을 넘긴 결번(25)은 수용해 스트림을 진행시키고, 같은 스냅샷(19)을 반복 전달하지 않는다",
   );
-  assert.ok(received.length - base <= 4, "같은 스냅샷을 반복 전달하지 않는다");
 });
 
 test("flush: 늦은 스냅샷 재전달은 기준점을 되돌리지 않는다", async () => {
@@ -1968,22 +1969,97 @@ test("재동기화도 같은 합류를 쓴다", async () => {
   await settle();
 
   const resyncCalls = count("/api/v1/ticker") - afterMount;
-  assert.ok(resyncCalls <= 1, `재동기화가 ${resyncCalls} 왕복을 썼다. 채널마다 쏘면 상한을 넘긴다`);
+  // 상한만 걸면 재동기화가 아예 안 도는 상태(0 왕복)도 통과한다. 4채널이 한 왕복으로 합류한다는
+  // 것이 계약이므로 왕복 수를 정확히 못박는다
+  assert.equal(resyncCalls, 1, `재동기화가 ${resyncCalls} 왕복을 썼다. 채널마다 쏘면 상한을 넘기고 0이면 복원이 멈춘 것이다`);
 });
 
 /* 종전에는 구독 해제가 그 구독의 in-flight fetch 를 실제로 취소해 슬롯을 즉시 반환했다.
    합류 뒤에도 그 성질을 지켜야 하지만, 한 구독이 풀렸다고 남은 구독의 스냅샷까지
-   끊으면 안 된다. 그래서 전원이 풀린 때만 끊는다 */
-test("합류 구독 전원이 풀리면 요청을 취소한다", async () => {
-  let aborted = false;
-  const { ds } = newDs({
-    "/api/v1/ticker": () => jsonRes(200, { schema_version: "1.0", data: [restTicker(9)], pagination: { next_cursor: null, has_more: false } }),
+   끊으면 안 된다. 그래서 전원이 풀린 때만 끊는다. 계약이 둘이라 따로 판정한다.
+   둘 다 요청이 실제로 발사된 것을 먼저 세운다. 안 나간 요청은 취소된 것이 아니다 */
+test("합류 요청이 나간 뒤 한 구독만 풀려도 남은 구독의 스냅샷은 도착한다", async () => {
+  // 클로저 대입은 TS 흐름 분석 밖이라 ref 객체로 관찰한다
+  const captured: { signal: AbortSignal | null } = { signal: null };
+  const deferred: { send: (() => void) | null } = { send: null };
+  let tickerHits = 0;
+  const fetchFn: typeof fetch = (input, init) => {
+    const url = String(input);
+    if (!url.includes("/api/v1/ticker")) {
+      return Promise.resolve(jsonRes(404, { error: { name: "order_not_found", message: "없음" } }));
+    }
+    tickerHits += 1;
+    captured.signal = init?.signal ?? null;
+    const asked = (new URLSearchParams(url.split("?")[1] ?? "").get("markets") ?? "").split(",").filter(Boolean);
+    return new Promise<Response>((resolve, reject) => {
+      deferred.send = () =>
+        resolve(
+          jsonRes(200, {
+            schema_version: "1.0",
+            data: asked.map((m) => ({ ...restTicker(9), market: m })),
+            pagination: { next_cursor: null, has_more: false },
+          }),
+        );
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("취소", "AbortError")));
+    });
+  };
+  const ds = new HttpStompDataSource({
+    apiBase: "http://api.test",
+    wsBase: "ws://api.test",
+    fetchFn,
+    stompFactory: () => ({ activate: () => {}, deactivate: async () => {}, subscribe: () => () => {} }),
   });
-  const offs = [
-    ds.subscribe(dest.ticker("KRW-BTC"), () => { aborted = false; }),
-    ds.subscribe(dest.ticker("KRW-ETH"), () => { aborted = false; }),
-  ];
-  for (const off of offs) off();
+  const got: string[] = [];
+  const push = (m: WsMessage): void => { got.push((m as TickerMessage).market); };
+  const offBtc = ds.subscribe(dest.ticker("KRW-BTC"), push);
+  ds.subscribe(dest.ticker("KRW-ETH"), push);
   await settle();
-  assert.equal(aborted, false, "취소된 합류는 어느 구독에도 스냅샷을 넘기지 않는다");
+
+  assert.equal(tickerHits, 1, "두 구독이 한 왕복으로 합류해 실제로 발사됐다");
+  assert.ok(captured.signal, "합류 요청에 취소 signal이 걸려 있다");
+  offBtc();
+  assert.equal(captured.signal.aborted, false, "한쪽이 빠졌다고 남은 구독의 요청을 끊지 않는다");
+
+  assert.ok(deferred.send, "응답 대기 중인 합류 요청이 있다");
+  deferred.send();
+  await settle();
+  assert.deepEqual(got, ["KRW-ETH"], "풀린 구독에는 넘기지 않고 남은 구독은 받는다");
+});
+
+test("합류 구독 전원이 풀리면 in-flight 요청을 실제로 취소한다", async () => {
+  const captured: { signal: AbortSignal | null } = { signal: null };
+  let tickerHits = 0;
+  const fetchFn: typeof fetch = (input, init) => {
+    if (!String(input).includes("/api/v1/ticker")) {
+      return Promise.resolve(jsonRes(404, { error: { name: "order_not_found", message: "없음" } }));
+    }
+    tickerHits += 1;
+    captured.signal = init?.signal ?? null;
+    // 응답을 주지 않는다. 취소만이 이 요청을 끝낼 수 있다
+    return new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("취소", "AbortError")));
+    });
+  };
+  const ds = new HttpStompDataSource({
+    apiBase: "http://api.test",
+    wsBase: "ws://api.test",
+    fetchFn,
+    stompFactory: () => ({ activate: () => {}, deactivate: async () => {}, subscribe: () => () => {} }),
+  });
+  const got: string[] = [];
+  const push = (m: WsMessage): void => { got.push((m as TickerMessage).market); };
+  const offs = [
+    ds.subscribe(dest.ticker("KRW-BTC"), push),
+    ds.subscribe(dest.ticker("KRW-ETH"), push),
+  ];
+  await settle();
+
+  assert.equal(tickerHits, 1, "취소를 판정하려면 요청이 먼저 나가 있어야 한다");
+  assert.ok(captured.signal, "합류 요청에 취소 signal이 걸려 있다");
+  offs[0]();
+  assert.equal(captured.signal.aborted, false, "일부만 빠진 동안은 요청을 유지한다");
+  offs[1]();
+  assert.equal(captured.signal.aborted, true, "전원이 빠지면 요청을 끊어 조회 슬롯을 즉시 반환한다");
+  await settle();
+  assert.deepEqual(got, [], "취소된 합류는 어느 구독에도 스냅샷을 넘기지 않는다");
 });
