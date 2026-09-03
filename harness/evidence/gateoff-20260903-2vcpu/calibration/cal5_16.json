@@ -1,0 +1,29 @@
+{
+  "base_ops": 16,
+  "duration": "90s",
+  "k6_overhead_ms": 0.29325899999999905,
+  "k6_overhead_orders_ms": 0.545631999999955,
+  "k6_overhead_reads_ms": 0.24671999999999983,
+  "order_path_overhead_ms": 0.2989119999999552,
+  "order_http_med_ms": 686.961887,
+  "order_http_p95_ms": 1189.941028,
+  "accepted_p95_ms": 1189.941028,
+  "accepted_p99_ms": 1443.7363569999993,
+  "iteration_duration_med_ms": 6.675412,
+  "http_req_duration_med_ms": 6.382153000000001,
+  "http_req_duration_p95_ms": 1025.6533153999999,
+  "http_reqs": 3872,
+  "http_req_rate": 42.92670472802343,
+  "http_req_failed_rate": 0,
+  "dropped_iterations": 0,
+  "vus_max": 80,
+  "order_accepted": 1441,
+  "order_throttled": 0,
+  "order_replayed": 0,
+  "order_rejected": 0,
+  "order_lookup": 0,
+  "status": {
+    "200": 2431,
+    "201": 1441
+  }
+}

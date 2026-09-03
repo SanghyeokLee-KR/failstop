@@ -1,0 +1,30 @@
+10:50:09 --- step BASE_OPS=12 reads=20 ---
+10:51:42 step 12 k6 exit=0 readiness=200 pending=0.0 active=1.0 timeout_total=0.0 queue=3.0
+10:51:42 step 12 ACK=1080 requestFailed=0
+0
+10:52:07 step 12 after 25s idle: readiness=200 pending=0.0
+10:52:08 --- step BASE_OPS=16 reads=27 ---
+10:53:40 step 16 k6 exit=0 readiness=200 pending=0.0 active=1.0 timeout_total=0.0 queue=2.0
+10:53:40 step 16 ACK=1441 requestFailed=0
+0
+10:54:05 step 16 after 25s idle: readiness=200 pending=0.0
+10:54:05 --- step BASE_OPS=20 reads=33 ---
+10:55:38 step 20 k6 exit=0 readiness=200 pending=0.0 active=1.0 timeout_total=0.0 queue=1.0
+10:55:38 step 20 ACK=1800 requestFailed=0
+0
+10:56:03 step 20 after 25s idle: readiness=200 pending=0.0
+10:56:03 --- step BASE_OPS=26 reads=43 ---
+10:57:38 step 26 k6 exit=0 readiness=200 pending=0.0 active=9.0 timeout_total=0.0 queue=5.0
+10:57:38 step 26 ACK=2223 requestFailed=0
+0
+10:58:04 step 26 after 25s idle: readiness=200 pending=0.0
+10:58:04 --- step BASE_OPS=32 reads=53 ---
+10:59:42 step 32 k6 exit=0 readiness=200 pending=0.0 active=1.0 timeout_total=0.0 queue=44.0
+10:59:42 step 32 ACK=557 requestFailed=0
+0
+11:00:08 step 32 after 25s idle: readiness=200 pending=0.0
+11:00:08 --- step BASE_OPS=40 reads=67 ---
+11:02:09 step 40 k6 exit=0 readiness=200 pending=0.0 active=1.0 timeout_total=0.0 queue=4.0
+11:02:09 step 40 ACK=284 requestFailed=2
+11:02:34 step 40 after 25s idle: readiness=200 pending=0.0
+11:02:34 === staircase done ===
