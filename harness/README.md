@@ -20,7 +20,7 @@
 | k6 부하 | `load/` | 개방루프 SLO 계측 시나리오 + STOMP/서명 라이브러리(§2-2). `load/README.md` 참조 |
 | 검증 SQL | `sql/invariants.sql`,`sql/summary.sql` | 불변식 C01~C25 psql 직조회본(§4-1). 데모 라이브 판정·수동 감사. C24·C25는 V13 미적용 DB에서 SKIP 표기 |
 | 관측 규칙 | `prometheus/rules/*.yml` | 레코딩(§5-3)·알람(§5-6). obs 프로파일 |
-| 대시보드 | `grafana/dashboards/*.json` | 증명 4장(①무결성 ②복구 ③SLO ④시스템) |
+| 대시보드 | `grafana/dashboards/*.json` | 증명 5장(①무결성 ②복구 ③SLO ④시스템 ⑤운영 상황판) |
 | 프로비저닝 | `grafana/provisioning/**` | 데이터소스(prometheus·pg-proof) + 대시보드 프로바이더 |
 
 ## 포트 (데모 스택과 무충돌)

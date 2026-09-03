@@ -733,7 +733,7 @@ datasources:
 - 대시보드는 파일 프로비저닝(`allowUiUpdates:false`, 변경=파일 수정→`POST /api/admin/provisioning/dashboards/reload`).
 - **카오스 annotation 규약(API§6-B `grafana_annotation` 필드 구현)**: exchange-admin이 실험 시작 시 `POST /api/annotations`(service account 토큰, epoch ms, `tags:["chaos","E5","kill-node"]`) → 응답의 정수 `id`를 `anno-{id}` 접두 표기로 계약 응답에 반환 + `admin_audit_log` 기록 → 복구 판정 시 `PATCH /api/annotations/{id}`로 `timeEnd` 채워 region 승격(실험 구간 음영). 대시보드 4장 모두 태그 구독형 annotation 쿼리 내장(`type:"tags", tags:["chaos"]` / `["failover"]`), 조직 annotation이라 전 대시보드 동일 마커 자동 표기.
 
-### 5-5. 증명 대시보드 4장 (`observability/grafana/dashboards/`)
+### 5-5. 증명 대시보드 5장 (`observability/grafana/dashboards/`)
 
 | # | 대시보드 | 핵심 패널 (원천) |
 |---|---|---|
@@ -741,6 +741,7 @@ datasources:
 | ② | **자동 복구 증명** | Gauge `exchange_failover_downtime_seconds` vs 임계 30s · State-timeline `exchange_leader_is_leader{node}`(kill 시점 리더 밴드 교대) · `exchange_leader_epoch` 계단 + kill annotation 수직선 정렬 · `exchange:trades_per_second:rate1m` 곡선 사멸→수초 부활 · **Table 2장: `recovery_runs`(matched=true. 결정론 판정은 ReplayService가 재생 이벤트를 event_journal 행과 하나씩 대조한 결과다. fp_replay·fp_live는 재생 창 식별자이지 대조 대상이 아니다. 기록자가 성공 경로에서 두 값을 같게 적으므로 그 비교로는 항상 참이다) + `failover_runs`(rto_seconds·rpo_records·verdict 이력, §6-C API와 동일 계산점, §4-3)** · replay rate · **복구 경로 구분(pg-proof): snapshot_head=0이면 `FULL_REPLAY_FROM_0`(적)/아니면 `SNAPSHOT_TAIL`(녹), replay_tail=command_head-snapshot_head 재생 명령 수 · 채택 가능 스냅샷 재고(버전 튜플별, 드리프트 무음 폴백 노출) · 스냅샷 캡처 파이프라인 rate(captured/dropped/persist_failed) · `exchange_snapshot_last_persisted_seq` 진행 계단** |
 | ③ | **부하·SLO** | k6 Remote Write 계열(공식 대시보드 19665 병행 임포트) · `exchange:slo_500ms_ratio_1m` · p95/p99 · 429 비율(`exchange_orders_rejected_total{reason="rate_limited"}`) · `exchange_sequencer_queue_size` · Resilience4j CB/RateLimiter, "거부는 늘어도 p99·무결성은 방어" 장 |
 | ④ | **시스템** | HikariCP active/pending · JVM heap/GC · `exchange_ws_clients` · orderbook depth · Kafka lag · `up`/readiness |
+| ⑤ | **운영 상황판** | Stat 4연(거래소 `up` · 봇 플릿 `up` · 리더 존재 · 초당 체결) · 주문 접수율 vs 용량 상한 20/s · p95·p99 vs 2s · 시퀀서 큐 vs 임계 50 · HikariCP 대기·사용·상한 · CPU(발화하지 않는 지표임을 설명에 명시) · 수용 게이트 in-flight vs limit · 거절률 · 노드별 스레드와 WS. 임계는 전부 2026-09-03 실측 유도값이고 축 하한을 주어 평시에도 기준선이 보인다 |
 
 발표 프리셋: refresh 5s, 시간창 15m 고정. 증명 한 줄(API§7-4) "총자산 선은 수평, 체결 곡선은 수초 만에 부활"이 ①·②에 그대로 시각화된다.
 
