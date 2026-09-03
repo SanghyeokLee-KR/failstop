@@ -175,3 +175,28 @@ WS 없이 견뎠다. 곧 2회차를 넘긴 것은 주문율이 아니라 WS 300 
 readiness 200 은 Tomcat 이 먼저 열려 조기 참이 되므로 기동 완료 판정에 쓸 수 없다.
 로그의 `Started ExchangeApp` 를 기다린 뒤 호출해야 한다. 하네스 엔드포인트가 애플리케이션
 기동을 막을 수 있다는 뜻이라 별도 등재 대상이다.
+
+## 탐지. 이미 배선된 알람 기준
+
+정본은 CloudWatch 를 기각하고 Prometheus·Grafana 자체 운영을 쓴다(기획안 338행). RDS 도 기각이고
+DB 는 EC2 자체 운영 PostgreSQL 17 이다(333행·6.2). 앱 노드는 t4g.small 2 vCPU 이고 c7g.large 는
+부하 발생기 전용이다(483·544·1304행). 아래는 `harness/prometheus/rules/exchange-alerts.yml` 의
+기존 알람 11건을 이 실측에 대조한 결과다.
+
+| 알람 | 조건 | 이 장애에서 | 판정 |
+|---|---|---|---|
+| LeaderAbsent | `absent(exchange_leader_is_leader == 1)` for 15s | 정지 노드가 스크레이프에 응답하지 못해 시계열이 소멸한다 | **발화. 정지 15~20초 뒤** |
+| SequencerQueueBackpressure | `exchange:sequencer_queue:avg1m > 8192` for 1m | 죽기 직전 큐는 13~18 이다 | 미발화 |
+
+스크레이프 간격은 핵심 잡 2초, 평가 간격 5초다(`harness/prometheus/prometheus.yml:2,13`).
+Prometheus 는 팔로워 노드에서 돈다(기획안 486행)므로 리더가 죽어도 관측면은 산다.
+
+두 가지가 남는다.
+
+1. `LeaderAbsent` 의 설명이 "승격 지연·양쪽 스탠바이 의심"이다. 이 장애에서 리더는 부재하지 않는다.
+   리스를 계속 갱신하는 좀비다. 문구를 따라가면 운영자는 승격을 기다리고 런북 §2 의 "리스 TTL
+   만료 대기(10초 내)" 분기로 들어가 풀리지 않는 대기를 한다. 판별은 `leader_lease` 의
+   `lease_until > now()` 한 줄이고, 그때의 조치는 대기가 아니라 정지 노드 재기동이다.
+2. 선행 경보는 없다. 가장 이른 신호가 정지 15~20초 뒤다. 그 앞을 원하면 축을 새로 만들어야 하고
+   후보는 `up{job="exchange"} == 0`(스크레이프 실패 자체)과 좀비 판별(`up == 0` 인데 리스 유효)이다.
+   둘 다 미배선이다.
