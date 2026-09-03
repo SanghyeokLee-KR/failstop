@@ -1,0 +1,4 @@
+=== 15:32:32 /api/webhooks/1/x
+{"content":"","embeds":[{"title":"[FIRING 1건] LeaderAbsent","description":"심각도 critical\n리더 부재 15s 초과\nexchange_leader_is_leader==1 시계열 소멸. 승격 지연·양쪽 스탠바이 의심.\n\n\n","color":10038562}],"username":"failstop 관측"}
+
+

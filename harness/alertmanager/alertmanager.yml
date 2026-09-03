@@ -1,9 +1,14 @@
 # 알람 통지 경로. 종전에는 이것이 없어 알람 13개가 울려도 사람이 화면을 열기 전까지
 # 아무도 몰랐다(기획안 운영 관점 결손 1번). Prometheus 가 발화한 알람을 여기로 보내고
-# 이곳이 Teams 로 밀어낸다.
+# 이곳이 채팅으로 밀어낸다.
 #
 # 웹훅 URL 을 이 파일에 적지 않는다. URL 자체가 열쇠라 가진 사람은 누구나 채널에 글을
-# 쓸 수 있다. secrets/teams_webhook_url 파일에서 읽고 그 파일은 커밋하지 않는다.
+# 쓸 수 있다. secrets/discord_webhook_url 파일에서 읽고 그 파일은 커밋하지 않는다.
+#
+# Teams 대신 Discord 를 쓰는 이유. Teams 의 웹훅(Power Automate 워크플로)은 이 계정에서
+# 참여자 2명 이상을 요구했다. 운영자가 1인인 구성에서 성립하지 않는다. Discord 는 1인
+# 서버에서 채널 웹훅을 바로 발급한다. 알람이 사람에게 닿는다는 사실은 같고 경로만 다르다.
+# 되돌리려면 discord_configs 를 msteamsv2_configs 로 바꾸고 URL 파일명을 맞춘다.
 route:
   # 같은 알람이 여러 노드에서 동시에 뜨면 한 장으로 묶는다. 노드 수만큼 알림이 오면
   # 사람이 읽지 않게 된다.
@@ -15,25 +20,26 @@ route:
   # 해소되지 않은 알람의 재알림 주기. 4시간은 근무 중 두 번 이상 눈에 띄되 도배가 되지
   # 않는 값으로 잡았다. 실측 근거는 없다. 운영하며 조정 대상이다.
   repeat_interval: 4h
-  receiver: teams
+  receiver: chat
 
   routes:
     # 무결성과 리더 부재는 서비스가 멈춘 상태다. 모으는 시간을 줄이고 재알림을 당긴다.
     - matchers:
         - severity = "critical"
-      receiver: teams
+      receiver: chat
       group_wait: 10s
       repeat_interval: 1h
 
 receivers:
-  - name: teams
-    msteamsv2_configs:
-      - webhook_url_file: /etc/alertmanager/secrets/teams_webhook_url
+  - name: chat
+    discord_configs:
+      - webhook_url_file: /etc/alertmanager/secrets/discord_webhook_url
         send_resolved: true
+        username: failstop 관측
         title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }} {{ .Alerts.Firing | len }}건{{ end }}] {{ .CommonLabels.alertname }}'
-        text: |
+        message: |
           {{ range .Alerts -}}
-          심각도: {{ .Labels.severity }}{{ if .Labels.component }} · 구성요소: {{ .Labels.component }}{{ end }}
+          심각도 {{ .Labels.severity }}{{ if .Labels.component }} · 구성요소 {{ .Labels.component }}{{ end }}
           {{ .Annotations.summary }}
           {{ .Annotations.description }}
 

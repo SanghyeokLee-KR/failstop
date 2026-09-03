@@ -518,8 +518,10 @@ Prometheus 를 로컬에 띄우고(스크레이프 2초, 평가 5초) 거래소�
 |---|---|
 | Alertmanager | `prom/alertmanager:v0.34.0`, 카오스 스택 `obs` 프로파일, 포트 59093 |
 | Prometheus | `alerting.alertmanagers` 절 추가. `chaos-alertmanager:9093` |
-| 수신기 | `msteamsv2_configs`. Teams 의 Power Automate 워크플로 형식 |
+| 수신기 | `discord_configs`. 채널 웹훅 형식 |
 | 웹훅 URL | `webhook_url_file` 로 파일에서 읽는다. 설정에 URL 을 적지 않는다 |
+
+종전 판은 Teams(`msteamsv2_configs`)로 잡았다가 Discord 로 바꿨다. Teams 의 Power Automate 웹훅이 이 계정에서 참여자 2명 이상을 요구해 운영자 1인 구성에서 성립하지 않았기 때문이다. 알람이 사람에게 닿는다는 사실은 같고 경로만 다르다. 되돌리려면 `discord_configs` 를 `msteamsv2_configs` 로 바꾸고 URL 파일명을 맞춘다.
 
 URL 을 설정 파일에 넣지 않는 이유는 그것이 열쇠이기 때문이다. 가진 사람은 누구나 채널에 글을
 쓸 수 있다. `harness/alertmanager/secrets/` 에 두고 그 디렉터리는 `.gitignore` 로 실물을 막는다.
@@ -531,7 +533,7 @@ URL 을 설정 파일에 넣지 않는 이유는 그것이 열쇠이기 때문�
 
 ### 도달 실증
 
-실제 Teams URL 없이 사슬 전체를 증명했다. 수신기 자리에 로컬 HTTP 서버를 놓고 Alertmanager 를
+실제 채팅 URL 없이 사슬 전체를 증명했다. 수신기 자리에 로컬 HTTP 서버를 놓고 Alertmanager 를
 `webhook_configs` 로 바꿔 붙인 뒤(경로 검증이 목적이므로 전송 방식만 대체), 노드를 모두 내려
 `LeaderAbsent` 를 자연 발화시켰다.
 
@@ -544,15 +546,17 @@ URL 을 설정 파일에 넣지 않는 이유는 그것이 열쇠이기 때문�
 도착한 본문에 알람명, 심각도 `critical`, 요약, 설명, 발화 시각이 모두 들어 있다.
 곧 규칙 발화부터 통지까지 끊긴 곳이 없다.
 
-### 실제 Teams 연결 시 남는 일
+### 실제 Discord 연결 시 남는 일
 
-1. `harness/alertmanager/secrets/teams_webhook_url` 파일에 URL 한 줄을 적는다(줄바꿈 없이).
-2. `docker compose -f harness/docker-compose.chaos.yml --profile obs up -d`
-3. 파일이 없으면 Alertmanager 가 기동에 실패한다. 올리기 전에 만든다.
+1. Discord 에서 1인 서버를 만들고 채널 설정의 연동에서 웹훅을 발급한다.
+2. `harness/alertmanager/secrets/discord_webhook_url` 파일에 URL 한 줄을 적는다(줄바꿈 없이).
+3. `docker compose -f harness/docker-compose.chaos.yml --profile obs up -d`
+4. 파일이 없으면 Alertmanager 가 기동에 실패한다. 올리기 전에 만든다.
 
-URL 형식이 둘이라 확인이 필요하다. Power Automate 워크플로 형식이면 현재 설정 그대로다.
-구형 Office 365 커넥터 형식(`*.webhook.office.com`)이면 `msteamsv2_configs` 를
-`msteams_configs` 로 바꾼다. 마이크로소프트가 구형을 단계적으로 폐지했으므로 신규 발급은
-워크플로 형식일 가능성이 높다.
+### Discord 형식 확인 (11회차, 15:32)
 
-원자료는 `run10_alert_delivery.log`(수신기가 받은 본문 그대로).
+수신기를 Discord 로 바꾼 뒤 같은 방식으로 다시 확인했다. 도착한 본문이 Discord 가 받는 형식
+그대로다. `username` 이 `failstop 관측`, `embeds[0].title` 이 `[FIRING 1건] LeaderAbsent`,
+`description` 에 심각도·요약·설명, `color` 가 발화 색이다.
+
+원자료는 `run10_alert_delivery.log`(Teams 판 경로 검증)와 `run11_discord_delivery.log`(Discord 형식).
