@@ -1,0 +1,7 @@
+ops  reads  ack   expected  failed  readiness  pending  tmo  queue  cpu_avg_1core  cpu_max_1core  inst_max  idle_ready
+4    7      360   360       0       200        0.0      0.0  1.0    52             112            56%       200       
+8    13     721   720       0       200        0.0      0.0  1.0    30             42             21%       200       
+12   20     1081  1080      0       200        0.0      0.0  7.0    30             48             24%       200       
+16   27     427   1440      176     000000                          77             107            54%       000000    
+
+STOP: STOP: readiness=000000 before step 20

@@ -1,0 +1,24 @@
+"HikariPool-1:housekeeper" #26 [20804] daemon prio=5 os_prio=0 cpu=185140.62ms elapsed=333.16s tid=0x000001495c4c9a90 nid=20804 runnable  [0x0000002b80dff000]
+   java.lang.Thread.State: RUNNABLE
+	at java.lang.Thread.yield0(java.base@21.0.12/Native Method)
+	at java.lang.Thread.yield(java.base@21.0.12/Thread.java:445)
+	at com.zaxxer.hikari.util.ConcurrentBag.unreserve(ConcurrentBag.java:322)
+	at com.zaxxer.hikari.pool.HikariPool$KeepaliveTask.run(HikariPool.java:887)
+	at java.util.concurrent.Executors$RunnableAdapter.call(java.base@21.0.12/Executors.java:572)
+	at java.util.concurrent.FutureTask.runAndReset(java.base@21.0.12/FutureTask.java:358)
+	at java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(java.base@21.0.12/ScheduledThreadPoolExecutor.java:305)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(java.base@21.0.12/ThreadPoolExecutor.java:1144)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(java.base@21.0.12/ThreadPoolExecutor.java:642)
+	at java.lang.Thread.runWith(java.base@21.0.12/Thread.java:1596)
+	at java.lang.Thread.run(java.base@21.0.12/Thread.java:1583)
+
+"Catalina-utility-1" #28 [17824] prio=1 os_prio=-2 cpu=0.00ms elapsed=330.60s tid=0x000001495ed346f0 nid=17824 waiting on condition  [0x0000002b80fff000]
+8734.38 DestroyJavaVM
+8171.88 matching-engine-writer
+4468.75 pool-4-thread-1
+656.25 ws-heartbeat-1
+31.25 Catalina-utility-2
+0.00 container-0
+0.00 MessageBroker-2
+0.00 MessageBroker-1
+0.00 Catalina-utility-1
