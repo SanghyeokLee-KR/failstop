@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.LongPredicate;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -23,6 +24,12 @@ class InflightReserves {
     private record Deferred(String key, BigDecimal amount, long orderId, long expiresAt) {
     }
 
+    // synchronized가 아니라 ReentrantLock인 이유. tryReserve는 락 안에서 DB를 왕복한다
+    // (available.get()과 sweep()의 orderRowObserved). JDK 21에서 synchronized 안의 블로킹은
+    // 가상 스레드를 캐리어에 고정해, 캐리어 수(=코어 수)만큼 고정되면 스케줄링이 통째로 멈춘다.
+    // 2 vCPU 실측에서 주문 16/s에 노드가 영구 정지했다(harness/evidence/gateoff-20260903-2vcpu/).
+    // ReentrantLock은 가상 스레드를 고정하지 않는다. 상호 배제 계약은 그대로다.
+    private final ReentrantLock lock = new ReentrantLock();
     private final Map<String, BigDecimal> totals = new HashMap<>();
     private final List<Deferred> deferred = new ArrayList<>();
     private final LongPredicate orderRowObserved;
@@ -39,26 +46,42 @@ class InflightReserves {
      * 가용 잔고에서 in-flight 누계를 차감한 헤드룸으로 예약을 시도한다.
      * available 조회를 락 안에서 수행해 동시 예약의 이중 통과를 막는다.
      */
-    synchronized boolean tryReserve(String key, BigDecimal required, Supplier<BigDecimal> available) {
-        sweep();
-        BigDecimal pending = totals.getOrDefault(key, BigDecimal.ZERO);
-        if (available.get().subtract(pending).compareTo(required) < 0) {
-            return false;
+    boolean tryReserve(String key, BigDecimal required, Supplier<BigDecimal> available) {
+        lock.lock();
+        try {
+            sweep();
+            BigDecimal pending = totals.getOrDefault(key, BigDecimal.ZERO);
+            if (available.get().subtract(pending).compareTo(required) < 0) {
+                return false;
+            }
+            totals.merge(key, required, BigDecimal::add);
+            return true;
+        } finally {
+            lock.unlock();
         }
-        totals.merge(key, required, BigDecimal::add);
-        return true;
     }
 
     /** 정산 관측 완료(또는 저널 미기록 확정) 시 즉시 해제. */
-    synchronized void release(String key, BigDecimal amount) {
-        subtract(key, amount);
+    void release(String key, BigDecimal amount) {
+        lock.lock();
+        try {
+            subtract(key, amount);
+        } finally {
+            lock.unlock();
+        }
     }
 
     /** 정산 미관측 종료 경로. 누계를 유지한 채 주문 row 관측 또는 TTL로 지연 회수한다. */
-    synchronized void defer(String key, BigDecimal amount, long orderId) {
-        deferred.add(new Deferred(key, amount, orderId, clock.getAsLong() + deferTtlMs));
+    void defer(String key, BigDecimal amount, long orderId) {
+        lock.lock();
+        try {
+            deferred.add(new Deferred(key, amount, orderId, clock.getAsLong() + deferTtlMs));
+        } finally {
+            lock.unlock();
+        }
     }
 
+    /** 호출자가 lock을 쥔 상태에서만 부른다. */
     private void sweep() {
         long now = clock.getAsLong();
         Iterator<Deferred> it = deferred.iterator();
@@ -71,6 +94,7 @@ class InflightReserves {
         }
     }
 
+    /** 호출자가 lock을 쥔 상태에서만 부른다. */
     private void subtract(String key, BigDecimal amount) {
         totals.computeIfPresent(key, (k, v) -> {
             BigDecimal rest = v.subtract(amount);
