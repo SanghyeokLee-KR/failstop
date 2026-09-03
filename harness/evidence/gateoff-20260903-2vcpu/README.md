@@ -460,3 +460,49 @@ HaAvailability      : readiness 전이: REFUSING_TRAFFIC
 식별한다(거래소 8090, 봇 8092).
 
 원자료는 `run8_bot_node_kill.txt`.
+
+## 9회차. 침묵 경보 두 축 배선과 발화 실증 (2026-09-03 14:28~14:32)
+
+8회차가 남긴 미배선 둘을 규칙으로 넣고 실제 발화를 확인했다.
+
+### 넣은 규칙
+
+| 알람 | 식 | 지속 | 잡는 것 |
+|---|---|---|---|
+| `BotFleetDown` | `up{job="chaos-bots"} == 0` | 30초 | 봇 노드 프로세스 사망 |
+| `TradeSilence` | `(sum(rate(exchange_trades_total[2m])) or vector(0)) == 0 and on() (max(up{job="exchange-api"}) == 1)` | 1분 | 거래소는 정상인데 거래가 없는 상태 |
+
+`TradeSilence` 가 단순 `== 0` 이 아닌 이유가 둘이다. `exchange_trades_total` 은 마켓별 첫 체결
+시점에 지연 등록되므로(`MarketDataPublisher.tradeCounter`, `computeIfAbsent`) 체결을 낸 적 없는
+마켓에는 시계열이 없다. 그리고 프로세스가 죽으면 스크레이프가 끊겨 시계열을 잃는다. 두 경우 모두
+`== 0` 비교가 빈 결과가 되어 알람이 성립하지 않는다. `or vector(0)` 으로 부재를 0 으로 접는다.
+
+거래소가 살아 있을 때만 발화하도록 묶었다. 거래소 사망은 `LeaderAbsent` 가 잡으므로 겹쳐 울리면
+원인 지목이 흐려진다. 곧 `TradeSilence` 의 뜻은 하나다. 거래소는 멀쩡한데 아무도 거래하지 않는다.
+
+### 발화 실증
+
+Prometheus 를 로컬에 띄우고(스크레이프 2초, 평가 5초) 거래소·봇 두 노드를 물린 뒤 봇 노드를
+강제 종료했다.
+
+| 시각 | BotFleetDown | TradeSilence | LeaderAbsent |
+|---|---|---|---|
+| 14:28:45 | 봇 노드 종료 | | |
+| 14:29:15 | pending | inactive | inactive |
+| 14:29:45 | **firing** | inactive | inactive |
+| 14:31:16 | firing | pending | inactive |
+| 14:32:17 | firing | **firing** | inactive |
+
+`BotFleetDown` 은 사망 60초 뒤, `TradeSilence` 는 3분 32초 뒤에 발화한다. `LeaderAbsent` 는 전
+구간 inactive 다. 거래소가 정상이므로 옳은 동작이다. 정상 구간에서 두 알람 모두 inactive 였다.
+오발화가 없다.
+
+두 축의 역할이 갈린다. 앞은 빠르고 원인이 명확하다(프로세스가 없다). 뒤는 느리지만 넓다.
+봇이 살아 있으면서 주문만 못 내는 경우까지 잡는다. 7회차의 마스터키 불일치가 그 사례다.
+둘이 함께 뜨면 프로세스 사망이고, 뒤만 뜨면 봇은 살아 있으나 주문이 나가지 않는 상태다.
+
+### 미해소
+
+`job="chaos-bots"` 는 카오스 스택의 이름이다. 상시면 Prometheus 설정은 저장소에 아직 없다
+(`harness/prometheus/prometheus.yml` 하나뿐). 상시면을 세울 때 잡 이름을 맞추거나 규칙을
+그 이름으로 고쳐야 한다.
