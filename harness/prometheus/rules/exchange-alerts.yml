@@ -102,19 +102,27 @@ groups:
           description: "instance={{ $labels.instance }} last_persisted_seq가 5분 창에서 전진 0회인데 캡처는 큐잉 중. 워커 스레드 정체·영속화 지속 실패. 복구가 저널 전량 재생으로 폴백해 RTO가 저널 크기에 비례한다. 비리더는 캡처 rate 0이라 발화하지 않는다."
 
       # 시퀀서 백프레셔(§5-2 P4). 라이터 유계 큐 용량은 65536(ArrayBlockingQueue, EngineProperties
-      # 기본값). 큐가 가득 차면 접수가 백프레셔 거부(rate_limited)로 떨어진다. 임계는 용량의 1/8
-      # (8192)로, 포화 전 선행 경보다. 단일 라이터가 정상이면 큐는 2초 스크레이프 간 0 근처로 배수되므로
-      # 1분 평균이 용량 1/8을 지속 초과하면 도착률이 배수율을 앞선다는 뜻이다. 무결성이 아니라 처리량
+      # 기본값). 큐가 가득 차면 접수가 백프레셔 거부(rate_limited)로 떨어진다. 임계는 용량이 아니라
+      # 실측에서 유도한다(아래). 단일 라이터가 정상이면 큐는 2초 스크레이프 간 0 근처로 배수되므로
+      # 1분 평균이 임계를 지속 초과하면 도착률이 배수율을 앞선다는 뜻이다. 무결성이 아니라 처리량
       # 저하 신호라 warning. exchange:sequencer_queue:avg1m은 리더 노드 큐의 1분 이동평균(레코딩 규칙).
+      # 임계 50의 유도(2026-09-03 실측, harness/evidence/gateoff-20260903-2vcpu/ 5·6회차).
+      # 종전 8192는 용량 65536의 1/8이라는 산술로 잡은 값이고 관측 근거가 없었다. 두 방향
+      # 모두에서 닿지 않는다. 게이트가 켜져 있으면 in-flight 상한이 큐를 1~3에 묶고, 꺼져
+      # 있으면 큐가 8192에 닿기 전에 노드가 먼저 죽는다(2 vCPU 실측 최대 236).
+      # 재유도는 avg1m 기준이다(이 알람이 쓰는 축). 게이트 OFF 계단에서
+      # 정상 구간 주문 20/s(p95 1.6초)의 avg1m 최대가 29, 열화 시작 26/s(p95 4.7초)가 93이다.
+      # 둘 사이를 갈라 50으로 잡는다. 정상 구간에서 오발화하지 않고, 응답이 쓸 수 없게 되는
+      # 구간에서는 발화한다. 게이트 ON 주행의 큐는 1~3이라 평시 오발화 여지가 없다.
       - alert: SequencerQueueBackpressure
-        expr: exchange:sequencer_queue:avg1m > 8192
+        expr: exchange:sequencer_queue:avg1m > 50
         for: 1m
         labels:
           severity: warning
           component: sequencer
         annotations:
           summary: "시퀀서 라이터 큐 백프레셔(포화 선행 경보)"
-          description: "sequencer_queue avg1m={{ $value }} > 8192(용량 65536의 1/8). 도착률이 단일 라이터 배수율을 앞선다. 지속되면 큐 포화로 접수가 rate_limited 거부로 폴백한다."
+          description: "sequencer_queue avg1m={{ $value }} > 50(실측 재유도. 정상 20 OPS 29, 열화 26 OPS 93). 도착률이 단일 라이터 배수율을 앞선다. 지속되면 응답 지연이 초 단위로 오른다. 수용 게이트가 켜져 있는지 먼저 확인한다."
 
       # 비rate_limited 거부 급증. 429는 설계상 부하 차단 경로라 제외한다. 스파이크 창에서는
       # 주입 상한 100 req/s와 노드 수용 천장 40~42/s의 차가 설계대로 전량 429가 된다.

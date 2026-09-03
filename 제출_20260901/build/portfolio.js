@@ -402,7 +402,8 @@ const ch5 = [
   P('알람은 경로가 있을 때만 알람이다. 울린다, 무엇을 본다, 무엇을 친다, 무엇으로 끝났다고 판정한다. 이 네 칸으로 11개를 채점했다.'),
   T(['경로 상태', '알람', '결손'], [
     ['완결', 'LedgerImbalance, InvariantViolation, FailoverRtoExceeded, LeaderAbsent', '없음. 단 앞 둘은 상시면에서 시계열 자체가 없다'],
-    ['임계 재유도 필요', 'SequencerQueueBackpressure, OrderP99SloBreach', '앞은 수용 제한이 임계에 구조적으로 닿지 않게 하고, 뒤는 정상 주행에서 이미 상시 초과'],
+    ['임계 재유도 필요', 'OrderP99SloBreach', '정상 주행에서 이미 500ms를 상시 초과'],
+    ['임계 재유도 완료', 'SequencerQueueBackpressure', '2026-09-03 실측으로 8192에서 50으로. 정상 20 OPS 29, 열화 26 OPS 93'],
     ['조치 미정의', 'OrderRejectSpike, 스냅샷 3종', '다음 행동으로 넘어갈 축이 끊긴다. 거부 카운터에 계정·IP 차원이 없다'],
     ['화면 없음', 'RecoverableStandDownRepeating', '대시보드 패널 0개'],
   ], [1600, 4200, 3838]),

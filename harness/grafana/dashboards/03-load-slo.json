@@ -102,7 +102,7 @@
       "id": 7,
       "type": "timeseries",
       "title": "시퀀서 큐 깊이 exchange_sequencer_queue_size (백프레셔 P4)",
-      "description": "단일 라이터 유계 큐 깊이. 용량 65536. avg1m이 8192(용량 1/8) 초과 지속 시 SequencerQueueBackpressure 발화. 포화 시 접수가 rate_limited 거부로 폴백.",
+      "description": "단일 라이터 유계 큐 깊이. 용량 65536. avg1m이 50 초과 지속 시 SequencerQueueBackpressure 발화(2026-09-03 실측 재유도. 정상 20 OPS 29, 열화 26 OPS 93). 포화 시 접수가 rate_limited 거부로 폴백.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
       "targets": [
@@ -113,7 +113,7 @@
         "defaults": {
           "unit": "short",
           "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 5 },
-          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 8192 } ] }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 50 } ] }
         },
         "overrides": [
           { "matcher": { "id": "byName", "options": "avg1m(리더)" }, "properties": [ { "id": "custom.lineWidth", "value": 2 }, { "id": "custom.fillOpacity", "value": 0 } ] }
