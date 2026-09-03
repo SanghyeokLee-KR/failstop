@@ -1,0 +1,8 @@
+11:18:11 게이트 상태: {"enabled":true,"buckets":{"order":{"limit":6,"inFlight":3},"requery":{"limit":2,"inFlight":0},"query":{"limit":6,"inFlight":0}}}
+11:18:12 --- BASE_OPS=26 (봇누적=1263 k6누적=0 거절누적=38.0) ---
+11:19:55 step 26 봇 1127건(12/s) k6 1569건(17/s) 거절 1750 readiness=200 pending=0.0 queue=1.0
+11:20:16 --- BASE_OPS=32 (봇누적=2831 k6누적=1569 거절누적=1817.0) ---
+11:21:49 step 32 봇 829건(9/s) k6 1758건(19/s) 거절 2016 readiness=200 pending=0.0 queue=1.0
+11:22:10 --- BASE_OPS=40 (봇누적=4065 k6누적=3327 거절누적=3877.0) ---
+11:24:02 step 40 봇 1099건(12/s) k6 2095건(23/s) 거절 2691 readiness=200 pending=0.0 queue=3.0
+11:24:22 === gate ON 계단 완료 ===
