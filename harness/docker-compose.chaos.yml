@@ -156,6 +156,21 @@ services:
     deploy: { resources: { limits: { memory: 512m } } }
     networks: [chaos-net]
 
+  # 알람 통지. Prometheus 가 발화만 하고 보내지는 못한다. 이것이 Teams 로 밀어낸다.
+  # 웹훅 URL 은 secrets/teams_webhook_url 파일에서 읽는다. 그 파일은 커밋하지 않는다.
+  # 파일이 없으면 Alertmanager 가 기동에 실패하므로 obs 프로파일을 올리기 전에 만든다.
+  chaos-alertmanager:
+    image: prom/alertmanager:v0.34.0
+    container_name: chaos-alertmanager
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/secrets:/etc/alertmanager/secrets:ro
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    ports: ["59093:9093"]
+    restart: unless-stopped
+    profiles: [obs]
+    networks: [chaos-net]
+
   chaos-prometheus:
     image: prom/prometheus:v3.13.0
     container_name: chaos-prometheus
@@ -164,6 +179,7 @@ services:
       - ./prometheus/rules:/etc/prometheus/rules:ro     # 레코딩·알람 규칙(§5-3/§5-6)
     command: ["--storage.tsdb.retention.time=2h", "--config.file=/etc/prometheus/prometheus.yml"]
     ports: ["59090:9090"]
+    depends_on: [chaos-alertmanager]
     restart: unless-stopped
     profiles: [obs]
     networks: [chaos-net]

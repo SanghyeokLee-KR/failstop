@@ -506,3 +506,53 @@ Prometheus 를 로컬에 띄우고(스크레이프 2초, 평가 5초) 거래소�
 `job="chaos-bots"` 는 카오스 스택의 이름이다. 상시면 Prometheus 설정은 저장소에 아직 없다
 (`harness/prometheus/prometheus.yml` 하나뿐). 상시면을 세울 때 잡 이름을 맞추거나 규칙을
 그 이름으로 고쳐야 한다.
+
+## 10회차. 알람 통지 경로 배선과 도달 실증 (2026-09-03 15:08)
+
+알람 13개가 발화해도 보낼 곳이 없었다. Prometheus 설정에 `alerting:` 절이 없고 Alertmanager 가
+스택에 아예 없다. 기획안이 운영 관점 최우선 결손 1번으로 적어 둔 것이다. 그 경로를 세웠다.
+
+### 배선
+
+| 구성 | 내용 |
+|---|---|
+| Alertmanager | `prom/alertmanager:v0.34.0`, 카오스 스택 `obs` 프로파일, 포트 59093 |
+| Prometheus | `alerting.alertmanagers` 절 추가. `chaos-alertmanager:9093` |
+| 수신기 | `msteamsv2_configs`. Teams 의 Power Automate 워크플로 형식 |
+| 웹훅 URL | `webhook_url_file` 로 파일에서 읽는다. 설정에 URL 을 적지 않는다 |
+
+URL 을 설정 파일에 넣지 않는 이유는 그것이 열쇠이기 때문이다. 가진 사람은 누구나 채널에 글을
+쓸 수 있다. `harness/alertmanager/secrets/` 에 두고 그 디렉터리는 `.gitignore` 로 실물을 막는다.
+예시 파일만 커밋한다.
+
+묶음 규칙은 이렇다. `alertname` 과 `component` 로 묶고 30초 모았다가 보낸다. 재알림은 4시간,
+`severity=critical` 은 10초 모으고 1시간이다. 이 값들은 실측 근거가 없고 운영하며 조정한다.
+억제 규칙 하나를 넣었다. `LeaderAbsent` 와 `TradeSilence` 가 같이 뜨면 원인은 앞이므로 뒤를 누른다.
+
+### 도달 실증
+
+실제 Teams URL 없이 사슬 전체를 증명했다. 수신기 자리에 로컬 HTTP 서버를 놓고 Alertmanager 를
+`webhook_configs` 로 바꿔 붙인 뒤(경로 검증이 목적이므로 전송 방식만 대체), 노드를 모두 내려
+`LeaderAbsent` 를 자연 발화시켰다.
+
+| 시각 | 사건 |
+|---|---|
+| 06:08:32 UTC | `LeaderAbsent` 발화 |
+| 15:08:40 KST | Prometheus firing, Alertmanager 수신 1건, 전송 0건(group_wait 10초 대기 중) |
+| 15:08:42 KST | 수신기에 POST 도착 |
+
+도착한 본문에 알람명, 심각도 `critical`, 요약, 설명, 발화 시각이 모두 들어 있다.
+곧 규칙 발화부터 통지까지 끊긴 곳이 없다.
+
+### 실제 Teams 연결 시 남는 일
+
+1. `harness/alertmanager/secrets/teams_webhook_url` 파일에 URL 한 줄을 적는다(줄바꿈 없이).
+2. `docker compose -f harness/docker-compose.chaos.yml --profile obs up -d`
+3. 파일이 없으면 Alertmanager 가 기동에 실패한다. 올리기 전에 만든다.
+
+URL 형식이 둘이라 확인이 필요하다. Power Automate 워크플로 형식이면 현재 설정 그대로다.
+구형 Office 365 커넥터 형식(`*.webhook.office.com`)이면 `msteamsv2_configs` 를
+`msteams_configs` 로 바꾼다. 마이크로소프트가 구형을 단계적으로 폐지했으므로 신규 발급은
+워크플로 형식일 가능성이 높다.
+
+원자료는 `run10_alert_delivery.log`(수신기가 받은 본문 그대로).

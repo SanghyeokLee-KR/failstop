@@ -7,6 +7,13 @@ global:
 rule_files:
   - /etc/prometheus/rules/*.yml
 
+# 발화한 알람을 보낼 곳. 이 절이 없으면 규칙이 발화해도 아무 데도 가지 않는다.
+# 종전에 통지 경로가 0건이던 원인이 여기 부재였다.
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['chaos-alertmanager:9093']
+
 scrape_configs:
   - job_name: exchange-api
     metrics_path: /actuator/prometheus
