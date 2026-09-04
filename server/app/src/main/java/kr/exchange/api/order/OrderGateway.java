@@ -6,6 +6,7 @@ import kr.exchange.api.common.ApiException;
 import kr.exchange.api.market.MarketDirectory;
 import kr.exchange.api.order.dto.CancelAllResponse;
 import kr.exchange.engine.EngineBridge;
+import kr.exchange.ledger.ProjectionSignal;
 import kr.exchange.engine.OrderIntake;
 import kr.exchange.engine.SubmitResult;
 import kr.exchange.engine.core.OrderCommand;
@@ -37,6 +38,8 @@ public class OrderGateway {
 
     private static final long PROJECTION_WAIT_MS = 5_000;
     private static final long POLL_INTERVAL_MS = 20;
+    // 신호 대기 상한. 전체 대기 예산(5초)보다 짧게 두어 신호가 오지 않는 경로에 폴링 몫을 남긴다.
+    private static final long SIGNAL_WAIT_MS = 3_000;
     private static final long RESERVE_DEFER_TTL_MS = 30_000;
 
     private final JdbcClient jdbc;
@@ -44,6 +47,8 @@ public class OrderGateway {
     private final MarketDirectory markets;
     private final OrderQueryService orders;
     private final InflightReserves inflight;
+    // 프로젝션 반영을 알리는 신호. 없으면 종전대로 폴링만 한다.
+    private ProjectionSignal signal;
 
     public OrderGateway(JdbcClient jdbc, EngineBridge bridge, MarketDirectory markets,
                         OrderQueryService orders) {
@@ -54,6 +59,14 @@ public class OrderGateway {
         this.inflight = new InflightReserves(
                 orderId -> orders.byInternalId(orderId).isPresent(),
                 System::currentTimeMillis, RESERVE_DEFER_TTL_MS);
+    }
+
+    /**
+     * 프로젝션 신호를 붙인다. 선택 배선이라 붙이지 않으면 폴링만으로 동작한다.
+     * 생성자를 늘리지 않는 이유는 기존 호출부와 테스트를 신호와 무관하게 두기 위해서다.
+     */
+    public void attachProjectionSignal(ProjectionSignal projectionSignal) {
+        this.signal = projectionSignal;
     }
 
     public Placement place(long userId, JsonNode body, byte[] rawBody) {
@@ -129,6 +142,11 @@ public class OrderGateway {
         try {
             final long assignedId = nextOrderId();
             orderId = assignedId;
+            // 제출 전에 자리를 잡는다. 제출 뒤에 잡으면 정산이 먼저 끝나 신호를 놓친다.
+            // 자리 회수는 이 메서드의 finally 가 한다.
+            if (signal != null) {
+                signal.register(assignedId);
+            }
             OrderIntake intake = new OrderIntake(
                     market.id(), CommandDraft.CommandType.NEW, userId, clientOrderId, assignedId,
                     System.currentTimeMillis(), assignedId,
@@ -162,8 +180,8 @@ public class OrderGateway {
             }
 
             row = result.replayed()
-                    ? awaitRow(() -> orders.byClientOrderId(userId, clientOrderId))
-                    : awaitRow(() -> orders.byInternalId(assignedId));
+                    ? awaitRow(() -> orders.byClientOrderId(userId, clientOrderId), assignedId)
+                    : awaitRow(() -> orders.byInternalId(assignedId), assignedId);
             if (row == null) {
                 throw new ApiException(409, "order_in_progress",
                         "주문 처리 중. 재조회 필요", null, 1);
@@ -175,6 +193,10 @@ public class OrderGateway {
             }
             return new Placement(row, result.replayed(), result.epoch());
         } finally {
+            // 신호 자리 회수. 성공·실패·예외 어느 경로로 나가도 반드시 지운다.
+            if (signal != null && orderId > 0) {
+                signal.forget(orderId);
+            }
             if (insertedKey && (!journaled || discardKey)) {
                 // 저널 미기록 확정(페일오버 창 submit 실패 등)이면 선삽입한 고아 멱등 키를 정리해
                 // 다음 재시도가 잔고 가드를 재적용하게 한다. 정리 실패해도 재시도 경로의
@@ -323,7 +345,41 @@ public class OrderGateway {
 
     private OrderQueryService.OrderRow awaitRow(
             java.util.function.Supplier<Optional<OrderQueryService.OrderRow>> query) {
+        return awaitRow(query, 0L);
+    }
+
+    /**
+     * 프로젝션에 행이 생길 때까지 기다린다.
+     *
+     * orderId가 양수이고 신호가 붙어 있으면 먼저 신호를 기다린다. 정산이 같은 JVM에서 커밋
+     * 직후 깨우므로 그 뒤 조회 한 번이면 끝난다. 2026-09-04 실측에서 이 조회가 주문 하나당
+     * 약 100회였고(20ms 폴링 x 대기 시간), 그것이 전체 DB 호출의 절반을 넘었다.
+     *
+     * 신호가 오지 않으면 종전 폴링으로 넘어간다. 다른 노드의 엔진이 처리한 경우, 신호 등록이
+     * 상한에 걸린 경우, 신호 배선이 없는 경우가 그에 해당한다. 곧 신호는 빠른 길일 뿐이고
+     * 정확성은 폴링이 그대로 보장한다.
+     */
+    private OrderQueryService.OrderRow awaitRow(
+            java.util.function.Supplier<Optional<OrderQueryService.OrderRow>> query, long orderId) {
         long deadline = System.currentTimeMillis() + PROJECTION_WAIT_MS;
+        // 먼저 한 번 조회한다. 멱등 재생처럼 이미 반영된 경우가 여기서 끝난다. 그 경우 신호는
+        // 오지 않는다(원본 주문이 다른 id로 이미 정산됐다). 조회를 신호 뒤로 미루면 그 경로가
+        // 신호를 기다리다 예산을 소진하고 409로 끝난다. 실측으로 재현했다(2026-09-04).
+        Optional<OrderQueryService.OrderRow> first = query.get();
+        if (first.isPresent()) {
+            return first.get();
+        }
+        // 신호를 기다리되 예산의 일부만 쓴다. 신호가 오지 않는 경로가 폴링 기회를 잃으면
+        // 종전보다 나빠진다. 남는 예산이 폴링 몫이다.
+        if (orderId > 0 && signal != null) {
+            long slice = Math.min(SIGNAL_WAIT_MS, deadline - System.currentTimeMillis());
+            if (slice > 0 && signal.await(orderId, slice)) {
+                Optional<OrderQueryService.OrderRow> row = query.get();
+                if (row.isPresent()) {
+                    return row.get();
+                }
+            }
+        }
         while (System.currentTimeMillis() < deadline) {
             Optional<OrderQueryService.OrderRow> row = query.get();
             if (row.isPresent()) {

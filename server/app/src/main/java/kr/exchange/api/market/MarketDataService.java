@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 시장 데이터 조회. 호가는 orders 프로젝션 집계(idx_orderbook_open), 체결·티커는 trades
@@ -59,8 +60,34 @@ public class MarketDataService {
                 .list();
     }
 
+    // 잔량 합계 단기 캐시.
+    //
+    // 이 집계는 호가 15단과 달리 LIMIT 이 없어 그 마켓·방향의 미체결 주문 전체를 더한다.
+    // 2026-09-04 실측(pg_stat_statements)에서 호출 17288 회에 총 실행시간 51초로 전체 쿼리 중
+    // 가장 무거웠다. 인덱스는 정상 사용된다(Index Only Scan, 회당 1.7ms). 비용의 원인은
+    // 계획이 아니라 대상 행 수(마켓·방향당 약 4500)와 호출 빈도(초당 182)다.
+    //
+    // 캐시가 성립하는 이유. 이 값은 화면 하단의 매도·매수 잔량 표시 전용이고 판정에 쓰지
+    // 않는다. 호가 15단(levels)은 캐시하지 않으므로 체결 반영은 그대로 즉시다. 곧 최대
+    // TTL_MS 만큼 낡을 수 있는 것은 총합 숫자 하나뿐이다.
+    //
+    // TTL 200ms 의 근거. 호가 푸시가 초당 여러 건이라 이보다 짧으면 캐시가 거의 안 맞고,
+    // 길면 총합이 눈에 띄게 멎는다. 실측 근거는 없고 운영하며 조정한다.
+    private static final long TOTAL_CACHE_TTL_MS = 200;
+
+    private record CachedTotal(BigDecimal value, long expiresAt) {
+    }
+
+    private final ConcurrentHashMap<String, CachedTotal> totalCache = new ConcurrentHashMap<>();
+
     private BigDecimal total(int marketId, String side) {
-        return jdbc.sql("""
+        String key = marketId + ":" + side;
+        long now = System.currentTimeMillis();
+        CachedTotal hit = totalCache.get(key);
+        if (hit != null && hit.expiresAt() > now) {
+            return hit.value();
+        }
+        BigDecimal fresh = jdbc.sql("""
                         SELECT COALESCE(SUM(remaining_qty), 0)
                         FROM orders
                         WHERE market_id = ? AND side = ? AND status IN ('OPEN','PARTIAL')
@@ -68,6 +95,8 @@ public class MarketDataService {
                 .params(marketId, side)
                 .query(BigDecimal.class)
                 .single();
+        totalCache.put(key, new CachedTotal(fresh, now + TOTAL_CACHE_TTL_MS));
+        return fresh;
     }
 
     /** REST 단건 객체·WS 메시지 공용 호가 본문. stream 필드는 WS 호출측만 덧붙인다(§5-2 v2.4). */

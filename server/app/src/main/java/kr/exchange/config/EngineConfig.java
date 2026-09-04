@@ -118,6 +118,33 @@ public class EngineConfig {
                 leaderWriteProgress);
     }
 
+    // 접수 경로를 깨우는 신호. 정산(생산)과 접수(소비)가 같은 객체를 봐야 하므로 빈으로 둔다.
+    // 엔진이 꺼진 노드(봇 전용)에도 생성되나 정산이 돌지 않아 아무도 깨우지 않는다. 그 노드의
+    // 접수 경로는 어차피 쓰이지 않는다.
+    @Bean
+    public kr.exchange.ledger.ProjectionSignal projectionSignal() {
+        return new kr.exchange.ledger.ProjectionSignal();
+    }
+
+    @Bean
+    public org.springframework.beans.factory.config.BeanPostProcessor projectionSignalWiring(
+            org.springframework.beans.factory.ObjectProvider<kr.exchange.ledger.ProjectionSignal> provider) {
+        // 생성자를 늘리지 않고 부착한다. SettlementService 생성자는 호출부와 테스트가 여럿이라
+        // 시그니처를 건드리면 그 전부가 신호를 알아야 한다. 이 프로젝션 최적화는 그 정도의
+        // 파급을 살 이유가 없다.
+        return new org.springframework.beans.factory.config.BeanPostProcessor() {
+            @Override
+            public Object postProcessAfterInitialization(Object bean, String name) {
+                if (bean instanceof SettlementService s) {
+                    s.attachProjectionSignal(provider.getObject());
+                } else if (bean instanceof kr.exchange.api.order.OrderGateway g) {
+                    g.attachProjectionSignal(provider.getObject());
+                }
+                return bean;
+            }
+        };
+    }
+
     @Bean
     public CommandPayloadMapper commandPayloadMapper(ObjectMapper objectMapper) {
         return new CommandPayloadMapper(objectMapper);

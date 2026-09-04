@@ -89,6 +89,8 @@ public class SettlementService {
 
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
+    // 접수 경로를 깨우는 신호. 없으면(구 생성자) 신호를 보내지 않고 접수는 폴링으로 돈다.
+    private ProjectionSignal projectionSignal;
     private final LeaderLeaseService lease;
     private final ObjectMapper objectMapper;
     private final MarketCatalog catalog;
@@ -126,6 +128,15 @@ public class SettlementService {
         this.progress = progress;
     }
 
+    /**
+     * 접수 경로 깨우기 신호를 붙인다. 선택 배선이다. 붙이지 않으면 정산은 신호를 보내지 않고
+     * 접수는 종전 폴링으로 돈다. 생성자를 늘리지 않는 이유는 기존 호출부와 테스트가 여섯 곳이라
+     * 그 전부를 신호와 무관하게 두기 위해서다.
+     */
+    public void attachProjectionSignal(ProjectionSignal signal) {
+        this.projectionSignal = signal;
+    }
+
     /** 단일 명령의 방출 배치를 원자 정산하고 event_seq가 부여된 목록을 반환한다. */
     public List<EngineEvent> appendAndSettle(List<EngineEvent> events) {
         if (events.isEmpty()) {
@@ -144,6 +155,20 @@ public class SettlementService {
             List<EngineEvent> settled = tx.execute(status -> settleInTx(leader, cmdSeq, events));
             // 커밋 성공만 진행으로 센다. 예외 경로는 카운터를 건드리지 않는다(§5.4 좀비 리더 판정).
             progress.recordCompletion();
+            // 커밋 뒤에만 깨운다. 커밋 전에 깨우면 접수가 조회해도 행이 아직 안 보인다.
+            // 신호 실패가 정산 결과를 바꾸면 안 되므로 예외를 삼킨다. 놓친 접수는 폴링으로 간다.
+            if (projectionSignal != null) {
+                try {
+                    for (EngineEvent event : settled) {
+                        long id = event.orderId();
+                        if (id > 0) {
+                            projectionSignal.settled(id);
+                        }
+                    }
+                } catch (RuntimeException ignored) {
+                    // 신호는 최적화다. 실패해도 정산은 이미 커밋됐고 접수는 폴링으로 회수한다.
+                }
+            }
             return settled;
         } catch (StaleLeaderException e) {
             // fencing 거부는 리스 권위를 재확인한 뒤에만 강등한다(§5.4 강등 사유 분류). 거부
