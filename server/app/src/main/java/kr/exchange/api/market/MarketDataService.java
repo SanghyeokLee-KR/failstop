@@ -47,7 +47,7 @@ public class MarketDataService {
     }
 
     private List<Level> levels(int marketId, String side, String direction) {
-        return jdbc.sql("""
+        return cached(levelsCache, marketId + ":" + side, () -> jdbc.sql("""
                         SELECT price, SUM(remaining_qty) AS size
                         FROM orders
                         WHERE market_id = ? AND side = ? AND status IN ('OPEN','PARTIAL')
@@ -57,7 +57,7 @@ public class MarketDataService {
                         """.formatted(direction, DEPTH_LEVELS))
                 .params(marketId, side)
                 .query((rs, rowNum) -> new Level(rs.getBigDecimal("price"), rs.getBigDecimal("size")))
-                .list();
+                .list());
     }
 
     // 잔량 합계 단기 캐시.
@@ -73,30 +73,43 @@ public class MarketDataService {
     //
     // TTL 200ms 의 근거. 호가 푸시가 초당 여러 건이라 이보다 짧으면 캐시가 거의 안 맞고,
     // 길면 총합이 눈에 띄게 멎는다. 실측 근거는 없고 운영하며 조정한다.
-    private static final long TOTAL_CACHE_TTL_MS = 200;
+    // 2026-09-04 재측정에서 200ms 로는 부족했다. 호출이 초당 32회였고 캐시 하한이 초당 30회라
+    // 감소가 23% 에 그쳤다. 1초로 늘려 하한을 초당 6회로 내린다. 호가창이 최대 1초 늦게
+    // 갱신되나 체결과 잔고는 영향받지 않는다.
+    private static final long DEPTH_CACHE_TTL_MS = 1_000;
 
-    private record CachedTotal(BigDecimal value, long expiresAt) {
+    private record Cached<T>(T value, long expiresAt) {
     }
 
-    private final ConcurrentHashMap<String, CachedTotal> totalCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Cached<BigDecimal>> totalCache = new ConcurrentHashMap<>();
 
-    private BigDecimal total(int marketId, String side) {
-        String key = marketId + ":" + side;
+    // 호가 15단도 캐시한다. 이쪽이 실제 비용의 대부분이다. 2026-09-04 실측에서 매수·매도 두
+    // 계열이 DB 총 실행시간의 65.6%(294.5초)로 1위였다. LIMIT 15 가 있어도 GROUP BY 가 그
+    // 마켓·방향의 미체결 전체를 훑은 뒤에야 15단을 낼 수 있어 비용이 주문 수에 비례한다.
+    private final ConcurrentHashMap<String, Cached<List<Level>>> levelsCache = new ConcurrentHashMap<>();
+
+    @SuppressWarnings("unchecked")
+    private <T> T cached(ConcurrentHashMap<String, Cached<T>> cache, String key,
+                         java.util.function.Supplier<T> loader) {
         long now = System.currentTimeMillis();
-        CachedTotal hit = totalCache.get(key);
+        Cached<T> hit = cache.get(key);
         if (hit != null && hit.expiresAt() > now) {
             return hit.value();
         }
-        BigDecimal fresh = jdbc.sql("""
+        T fresh = loader.get();
+        cache.put(key, new Cached<>(fresh, now + DEPTH_CACHE_TTL_MS));
+        return fresh;
+    }
+
+    private BigDecimal total(int marketId, String side) {
+        return cached(totalCache, marketId + ":" + side, () -> jdbc.sql("""
                         SELECT COALESCE(SUM(remaining_qty), 0)
                         FROM orders
                         WHERE market_id = ? AND side = ? AND status IN ('OPEN','PARTIAL')
                         """)
                 .params(marketId, side)
                 .query(BigDecimal.class)
-                .single();
-        totalCache.put(key, new CachedTotal(fresh, now + TOTAL_CACHE_TTL_MS));
-        return fresh;
+                .single());
     }
 
     /** REST 단건 객체·WS 메시지 공용 호가 본문. stream 필드는 WS 호출측만 덧붙인다(§5-2 v2.4). */
