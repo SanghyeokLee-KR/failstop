@@ -1,0 +1,53 @@
+# MSP 수집 설정. 모든 시계열에 customer·service·env·node 를 붙인다.
+# 라벨이 없으면 Grafana 상단에서 고객사·서비스로 걸러낼 수 없다.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  external_labels: { region: local }
+rule_files: [ /etc/prometheus/rules/*.yml ]
+
+scrape_configs:
+  # 애플리케이션. 두 노드를 모두 수집한다. node 라벨로 노드별 분산을 본다.
+  - job_name: exchange-api
+    metrics_path: /actuator/prometheus
+    scrape_interval: 2s
+    static_configs:
+      - targets: ['ex-app:8080']
+        labels: { customer: failstop, service: exchange, env: dev, node: app-01, role: leader }
+      - targets: ['ex-app2:8080']
+        labels: { customer: failstop, service: exchange, env: dev, node: app-02, role: reader }
+
+  - job_name: chaos-bots
+    static_configs:
+      - targets: ['ex-bot:8080']
+        labels: { customer: failstop, service: bots, env: dev, node: bot-01 }
+    metrics_path: /actuator/prometheus
+
+  # 컨테이너 자원.
+  - job_name: containers
+    static_configs:
+      - targets: ['host.docker.internal:58089']
+        labels: { customer: failstop, env: dev }
+
+  # 데이터베이스.
+  - job_name: postgres
+    static_configs:
+      - targets: ['ex-pgexp:9187']
+        labels: { customer: failstop, service: exchange, env: dev, node: db-01 }
+
+  # 서비스가 실제로 응답하는가. 자원이 정상이어도 사이트가 죽을 수 있어서 밖에서 찔러본다.
+  - job_name: blackbox
+    metrics_path: /probe
+    params: { module: [http_2xx] }
+    static_configs:
+      - targets:
+          - http://ex-lb/api/v1/markets
+          - http://ex-web/
+        labels: { customer: failstop, service: exchange, env: dev }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: target
+      - target_label: __address__
+        replacement: ex-blackbox:9115

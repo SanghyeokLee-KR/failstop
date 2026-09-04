@@ -6,166 +6,21 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "MSP 대시보드",
+      "tags": [
+        "msp"
+      ],
+      "asDropdown": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link"
+    }
+  ],
   "liveNow": false,
   "panels": [
-    {
-      "id": 1,
-      "type": "text",
-      "title": "이 화면 읽는 법",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 0,
-        "y": 0
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "**위에서 아래로 읽는다.**\n\n1. 게이지 둘이 초록이면 정상\n2. 노랑이면 한계가 가깝다\n3. 빨강이면 이미 넘었다\n\n넘었으면 아래 두 줄을 본다.\n대기 줄이 오르고 거절이 오르면\n방어가 도는 것이다.\n\n한계값은 2026-09-03 실측이다.\n주문 20건/s, 응답 2초."
-      }
-    },
-    {
-      "id": 2,
-      "type": "gauge",
-      "title": "용량 사용률",
-      "description": "지금 들어오는 주문이 이 노드 한계의 몇 퍼센트인가. 한계 20건/s 는 2026-09-03 실측이다. 그 지점까지 접수율 100 퍼센트에 p95 1.6초였고, 26건/s 부터 p95 가 4.7초로 올라 쓸 수 없는 응답이 된다.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 9,
-        "x": 6,
-        "y": 0
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "sizing": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 150,
-          "decimals": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 100
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(exchange_order_latency_seconds_count{job=\"exchange-api\"}[1m])) / 20 * 100",
-          "legendFormat": "",
-          "range": true,
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 3,
-      "type": "gauge",
-      "title": "응답 시간 소진율",
-      "description": "주문 응답 p95 가 체감 한계 2초의 몇 퍼센트인가. 거절 장치를 켜면 부하가 올라도 240~272ms 에서 흔들리지 않는다. 끄면 같은 부하에서 9.4초까지 오른다.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 9,
-        "x": 15,
-        "y": 0
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "sizing": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 150,
-          "decimals": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 100
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "exchange:order_latency:p95_1m / 2 * 100",
-          "legendFormat": "",
-          "range": true,
-          "refId": "A"
-        }
-      ]
-    },
     {
       "id": 10,
       "type": "row",
@@ -174,7 +29,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 0
       },
       "collapsed": false,
       "panels": []
@@ -192,7 +47,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 9
+        "y": 1
       },
       "options": {
         "colorMode": "background",
@@ -272,7 +127,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 9
+        "y": 1
       },
       "options": {
         "colorMode": "background",
@@ -352,7 +207,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 9
+        "y": 1
       },
       "options": {
         "colorMode": "background",
@@ -432,7 +287,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 9
+        "y": 1
       },
       "options": {
         "colorMode": "background",
@@ -484,187 +339,6 @@
       ]
     },
     {
-      "id": 20,
-      "type": "row",
-      "title": "한계까지 얼마나 남았나",
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 13
-      },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "id": 21,
-      "type": "timeseries",
-      "title": "주문 접수율과 한계선",
-      "description": "점선이 실측 한계 20건/s 다. 곡선이 점선에 닿으면 응답이 느려지기 시작한다. 봇이 초당 9~19건을 쓰므로 외부 사용자 몫은 그만큼 줄어든다.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 14
-      },
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "showPoints": "never",
-            "spanNulls": true,
-            "axisSoftMin": 0,
-            "thresholdsStyle": {
-              "mode": "dashed"
-            },
-            "axisSoftMax": 26
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 20
-              },
-              {
-                "color": "red",
-                "value": 26
-              }
-            ]
-          },
-          "decimals": 1
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(exchange_order_latency_seconds_count{job=\"exchange-api\"}[1m]))",
-          "legendFormat": "주문/s",
-          "range": true,
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 22,
-      "type": "timeseries",
-      "title": "응답 시간과 한계선",
-      "description": "사용자가 주문 버튼을 누르고 응답을 받기까지다. 점선 2초가 체감 한계다.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 14
-      },
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "showPoints": "never",
-            "spanNulls": true,
-            "axisSoftMin": 0,
-            "thresholdsStyle": {
-              "mode": "dashed"
-            },
-            "axisSoftMax": 2.2
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 2
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "exchange:order_latency:p95_1m",
-          "legendFormat": "p95",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "exchange:order_latency:p99_1m",
-          "legendFormat": "p99",
-          "range": true,
-          "refId": "B"
-        }
-      ]
-    },
-    {
       "id": 30,
       "type": "row",
       "title": "넘었을 때 무엇이 보이나",
@@ -672,7 +346,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 5
       },
       "collapsed": false,
       "panels": []
@@ -690,7 +364,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 6
       },
       "options": {
         "legend": {
@@ -771,7 +445,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 23
+        "y": 6
       },
       "options": {
         "legend": {
@@ -838,7 +512,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 14
       },
       "collapsed": true,
       "panels": [
@@ -1186,7 +860,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 15
       },
       "collapsed": false,
       "panels": []
@@ -1204,7 +878,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 50
+        "y": 16
       },
       "options": {
         "legend": {
@@ -1284,7 +958,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 50
+        "y": 16
       },
       "options": {
         "legend": {
@@ -1366,7 +1040,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 58
+        "y": 24
       },
       "options": {
         "legend": {
@@ -1448,7 +1122,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 58
+        "y": 24
       },
       "options": {
         "legend": {
@@ -1522,7 +1196,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "⑤ 운영 상황판",
+  "title": "운영 현황",
   "uid": "proof-ops",
   "version": 2,
   "weekStart": ""
