@@ -11,9 +11,179 @@
   "panels": [
     {
       "id": 1,
+      "type": "text",
+      "title": "이 화면 읽는 법",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**위에서 아래로 읽는다.**\n\n1. 게이지 둘이 초록이면 정상\n2. 노랑이면 한계가 가깝다\n3. 빨강이면 이미 넘었다\n\n넘었으면 아래 두 줄을 본다.\n대기 줄이 오르고 거절이 오르면\n방어가 도는 것이다.\n\n한계값은 2026-09-03 실측이다.\n주문 20건/s, 응답 2초."
+      }
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "용량 사용률",
+      "description": "지금 들어오는 주문이 이 노드 한계의 몇 퍼센트인가. 한계 20건/s 는 2026-09-03 실측이다. 그 지점까지 접수율 100 퍼센트에 p95 1.6초였고, 26건/s 부터 p95 가 4.7초로 올라 쓸 수 없는 응답이 된다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 6,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "sizing": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 150,
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(exchange_order_latency_seconds_count{job=\"exchange-api\"}[1m])) / 20 * 100",
+          "legendFormat": "",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "응답 시간 소진율",
+      "description": "주문 응답 p95 가 체감 한계 2초의 몇 퍼센트인가. 거절 장치를 켜면 부하가 올라도 240~272ms 에서 흔들리지 않는다. 끄면 같은 부하에서 9.4초까지 오른다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 15,
+        "y": 0
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "sizing": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 150,
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "exchange:order_latency:p95_1m / 2 * 100",
+          "legendFormat": "",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "지금 상태",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 4,
       "type": "stat",
-      "title": "거래소 노드",
-      "description": "Prometheus 가 거래소를 긁을 수 있는가. 프로세스가 죽거나 응답 불능이면 중단이다. 게이트 OFF 실측에서 노드 정지 시 이 값이 0 이 되고 LeaderAbsent 가 15~20초 뒤 발화한다.",
+      "title": "거래소",
+      "description": "거래소 노드가 응답하는가. 중단이면 LeaderAbsent 가 15~20초 뒤 발화한다.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -22,7 +192,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 0
+        "y": 9
       },
       "options": {
         "colorMode": "background",
@@ -85,16 +255,15 @@
           "expr": "max(up{job=\"exchange-api\"})",
           "legendFormat": "",
           "range": true,
-          "instant": false,
           "refId": "A"
         }
       ]
     },
     {
-      "id": 2,
+      "id": 5,
       "type": "stat",
-      "title": "봇 플릿 노드",
-      "description": "상시면의 유일한 트래픽 발생원이자 합성 트랜잭션 감시원. 이것이 죽으면 거래소 지표는 전부 정상인 채로 거래만 멈춘다(8회차 실측). BotFleetDown 이 30초 뒤 발화한다.",
+      "title": "봇",
+      "description": "트래픽 발생원이 살아 있는가. 중단이면 거래가 멈추는데 거래소 지표는 전부 정상으로 보인다.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -103,7 +272,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 0
+        "y": 9
       },
       "options": {
         "colorMode": "background",
@@ -166,16 +335,15 @@
           "expr": "max(up{job=\"chaos-bots\"})",
           "legendFormat": "",
           "range": true,
-          "instant": false,
           "refId": "A"
         }
       ]
     },
     {
-      "id": 3,
+      "id": 6,
       "type": "stat",
-      "title": "리더 존재",
-      "description": "쓰기를 받는 노드가 있는가. 단일 라이터라 리더가 없으면 주문이 들어가지 않는다. 좀비 리더는 이 값이 1 인 채로 요청에 응답하지 못할 수 있으므로 아래 접수율과 함께 읽는다.",
+      "title": "리더",
+      "description": "쓰기를 받는 노드가 있는가. 없으면 주문이 들어가지 않는다.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -184,7 +352,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 0
+        "y": 9
       },
       "options": {
         "colorMode": "background",
@@ -247,16 +415,15 @@
           "expr": "max(exchange_leader_is_leader)",
           "legendFormat": "",
           "range": true,
-          "instant": false,
           "refId": "A"
         }
       ]
     },
     {
-      "id": 4,
+      "id": 7,
       "type": "stat",
       "title": "초당 체결",
-      "description": "실제로 거래가 일어나고 있는가. 0 은 평온이거나 사망이다. 둘을 가르는 것은 위의 봇 플릿 상태다. 둘 다 이상 없는데 0 이면 봇이 살아서 주문을 못 내는 상태다(마스터키 불일치, 대상 주소 오설정).",
+      "description": "실제로 거래가 일어나는가. 0 은 평온이거나 사망이다. 왼쪽 봇 상태와 함께 읽는다.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -265,7 +432,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 0
+        "y": 9
       },
       "options": {
         "colorMode": "background",
@@ -312,16 +479,28 @@
           "expr": "exchange:trades_per_second:rate1m",
           "legendFormat": "",
           "range": true,
-          "instant": false,
           "refId": "A"
         }
       ]
     },
     {
-      "id": 5,
+      "id": 20,
+      "type": "row",
+      "title": "한계까지 얼마나 남았나",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 21,
       "type": "timeseries",
-      "title": "주문 접수율과 용량 상한",
-      "description": "노드가 실제로 접수한 주문 수다. 2 vCPU 실측에서 20 건/s 까지 접수율 100 퍼센트에 p95 1.6초였고, 26 건/s 부터 p95 가 4.7초로 올라 쓸 수 없는 응답이 된다. 점선이 그 상한이다. 봇 몫이 초당 9~19건이므로 외부 사용자 몫은 그만큼 줄어든다.",
+      "title": "주문 접수율과 한계선",
+      "description": "점선이 실측 한계 20건/s 다. 곡선이 점선에 닿으면 응답이 느려지기 시작한다. 봇이 초당 9~19건을 쓰므로 외부 사용자 몫은 그만큼 줄어든다.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -330,7 +509,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 4
+        "y": 14
       },
       "options": {
         "legend": {
@@ -338,7 +517,7 @@
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         },
@@ -353,7 +532,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
             "spanNulls": true,
             "axisSoftMin": 0,
@@ -362,6 +541,7 @@
             },
             "axisSoftMax": 26
           },
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -370,7 +550,7 @@
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#EAB839",
                 "value": 20
               },
               {
@@ -379,7 +559,6 @@
               }
             ]
           },
-          "mappings": [],
           "decimals": 1
         },
         "overrides": []
@@ -392,18 +571,17 @@
           },
           "editorMode": "code",
           "expr": "sum(rate(exchange_order_latency_seconds_count{job=\"exchange-api\"}[1m]))",
-          "legendFormat": "접수 주문/s",
+          "legendFormat": "주문/s",
           "range": true,
-          "instant": false,
           "refId": "A"
         }
       ]
     },
     {
-      "id": 6,
+      "id": 22,
       "type": "timeseries",
-      "title": "주문 접수 지연",
-      "description": "사용자가 주문 버튼을 누르고 응답을 받기까지다. 점선 2초는 체감 한계로 잡은 값이다. 게이트를 켜면 부하가 40 건/s 여도 p95 가 240~272ms 에서 흔들리지 않는다. 끄면 같은 부하에서 9.4초까지 오른다(5·6회차 실측).",
+      "title": "응답 시간과 한계선",
+      "description": "사용자가 주문 버튼을 누르고 응답을 받기까지다. 점선 2초가 체감 한계다.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -412,7 +590,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 4
+        "y": 14
       },
       "options": {
         "legend": {
@@ -420,7 +598,7 @@
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         },
@@ -435,7 +613,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
             "spanNulls": true,
             "axisSoftMin": 0,
@@ -444,6 +622,7 @@
             },
             "axisSoftMax": 2.2
           },
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -452,12 +631,11 @@
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "red",
                 "value": 2
               }
             ]
-          },
-          "mappings": []
+          }
         },
         "overrides": []
       },
@@ -471,7 +649,6 @@
           "expr": "exchange:order_latency:p95_1m",
           "legendFormat": "p95",
           "range": true,
-          "instant": false,
           "refId": "A"
         },
         {
@@ -483,16 +660,28 @@
           "expr": "exchange:order_latency:p99_1m",
           "legendFormat": "p99",
           "range": true,
-          "instant": false,
           "refId": "B"
         }
       ]
     },
     {
-      "id": 7,
+      "id": 30,
+      "type": "row",
+      "title": "넘었을 때 무엇이 보이나",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 31,
       "type": "timeseries",
-      "title": "시퀀서 큐(조기 신호)",
-      "description": "단일 라이터 앞에 쌓인 주문이다. 이 시스템에서 가장 먼저 움직이는 조기 신호다. 점선 50 은 2026-09-03 실측으로 재유도한 알람 임계다(정상 20 OPS 에서 avg1m 최대 29, 열화 26 OPS 에서 93). 종전 임계 8192 는 어느 방향으로도 닿지 않아 무용했다. 1분평균 계열은 레코딩 룰이라 잡 필터가 들어가지 않는다. 봇 노드의 큐는 엔진이 꺼져 있어 항상 0 이므로 max 결과는 거래소 값이다.",
+      "title": "대기 줄(가장 먼저 움직인다)",
+      "description": "주문을 처리하는 줄에 몇 건이 밀려 있는가. 이 시스템에서 가장 먼저 움직이는 신호다. 점선 50 이 경보선이고 실측으로 유도했다. 종전 임계 8192 는 어느 방향으로도 닿지 않아 무용했다.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -501,7 +690,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 23
       },
       "options": {
         "legend": {
@@ -509,7 +698,7 @@
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         },
@@ -524,7 +713,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
             "spanNulls": true,
             "axisSoftMin": 0,
@@ -533,6 +722,7 @@
             },
             "axisSoftMax": 60
           },
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -541,7 +731,7 @@
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#EAB839",
                 "value": 50
               },
               {
@@ -550,7 +740,7 @@
               }
             ]
           },
-          "mappings": []
+          "decimals": 2
         },
         "overrides": []
       },
@@ -562,30 +752,17 @@
           },
           "editorMode": "code",
           "expr": "exchange:sequencer_queue:avg1m",
-          "legendFormat": "큐 1분평균",
+          "legendFormat": "1분평균",
           "range": true,
-          "instant": false,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(exchange_sequencer_queue_size{job=\"exchange-api\"})",
-          "legendFormat": "큐 순간값",
-          "range": true,
-          "instant": false,
-          "refId": "B"
         }
       ]
     },
     {
-      "id": 8,
+      "id": 32,
       "type": "timeseries",
-      "title": "DB 커넥션 풀",
-      "description": "대기(pending)가 0 에서 두 자릿수로 오르면 풀 고갈이다. 다만 2 vCPU 실측에서는 이 지표가 경고를 주지 못했다. 마지막 정상 표본이 0 이고 다음 표본이 판독 불가였다. 관측면이 업무면보다 11초 먼저 죽기 때문이다. 조기 경보로 기대하지 말고 사후 확인에 쓴다.",
+      "title": "거절 건수(방어가 일하는 증거)",
+      "description": "한계를 넘은 주문을 거절 장치가 돌려보낸 수다. 이 곡선이 오르면서 위의 응답 시간이 평탄하면 방어가 제대로 도는 것이다. 거절은 고장이 아니라 설계다.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -594,7 +771,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 12
+        "y": 23
       },
       "options": {
         "legend": {
@@ -602,7 +779,7 @@
             "lastNotNull",
             "max"
           ],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         },
@@ -617,201 +794,15 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
             "spanNulls": true,
             "axisSoftMin": 0,
             "thresholdsStyle": {
               "mode": "off"
             }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(hikaricp_connections_pending{job=\"exchange-api\",pool=\"HikariPool-1\"})",
-          "legendFormat": "대기",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(hikaricp_connections_active{job=\"exchange-api\",pool=\"HikariPool-1\"})",
-          "legendFormat": "사용 중",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(hikaricp_connections_max{job=\"exchange-api\",pool=\"HikariPool-1\"})",
-          "legendFormat": "상한",
-          "range": true,
-          "instant": false,
-          "refId": "C"
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "type": "timeseries",
-      "title": "CPU(믿으면 안 되는 지표)",
-      "description": "이 서버는 DB 를 기다리는 것이 일이라 CPU 가 상태를 반영하지 않는다. 2 vCPU 실측에서 죽기 직전이 16~18 퍼센트, 죽는 순간 12 퍼센트로 내려갔고, 최고점 54 퍼센트는 정지 시작 28초 뒤에 왔다. 그 54 퍼센트도 일이 아니라 HikariCP 하우스키퍼가 고갈된 풀에서 헛도는 몫이다. CPU 기준 오토스케일링은 이 장애를 보지 못한다. 봇 노드 CPU 는 이 패널에서 뺐다. 노드별로 보려면 잡 필터를 지운다.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 20
-      },
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "axisSoftMin": 0,
-            "thresholdsStyle": {
-              "mode": "dashed"
-            },
-            "axisSoftMax": 80
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 70
-              }
-            ]
           },
           "mappings": [],
-          "max": 100,
-          "decimals": 1
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "process_cpu_usage{job=\"exchange-api\"} * 100",
-          "legendFormat": "거래소 프로세스 CPU %",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "system_cpu_usage{job=\"exchange-api\"} * 100",
-          "legendFormat": "거래소 호스트 CPU %",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        }
-      ]
-    },
-    {
-      "id": 10,
-      "type": "timeseries",
-      "title": "수용 게이트(방어 상태)",
-      "description": "게이트가 돌고 있는지 보는 유일한 창이다. 사용 중이 상한에 붙어 있으면 방어가 작동 중이라는 뜻이다. 게이트를 끄면 이 값이 0 에 머무는데, 그 상태가 노드를 죽이는 상태다. 상한 대비 사용 중을 함께 본다.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 20
-      },
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "axisSoftMin": 0,
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -821,91 +812,6 @@
               }
             ]
           },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(exchange_admission_in_flight{job=\"exchange-api\"}) by (scope)",
-          "legendFormat": "{{scope}} 사용 중",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max(exchange_admission_limit{job=\"exchange-api\"}) by (scope)",
-          "legendFormat": "{{scope}} 상한",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        }
-      ]
-    },
-    {
-      "id": 11,
-      "type": "timeseries",
-      "title": "거절률",
-      "description": "게이트가 초과분을 429 로 돌려보낸 비율이다. 거절은 고장이 아니라 설계된 방어다. 게이트 ON 40 건/s 주행에서 초과분이 전부 여기로 나가고 5xx 는 0 이었다. 이 곡선이 오르면서 지연이 평탄하면 방어가 제대로 도는 것이다.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 12,
-        "x": 0,
-        "y": 28
-      },
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "axisSoftMin": 0,
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
           "decimals": 2
         },
         "overrides": []
@@ -920,104 +826,355 @@
           "expr": "sum(rate(exchange_admission_rejected_total{job=\"exchange-api\"}[1m])) by (scope)",
           "legendFormat": "{{scope}} 거절/s",
           "range": true,
-          "instant": false,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(exchange:orders_rejected:rate1m) by (reason)",
-          "legendFormat": "{{reason}}",
-          "range": true,
-          "instant": false,
-          "refId": "B"
         }
       ]
     },
     {
-      "id": 12,
-      "type": "timeseries",
-      "title": "노드 내부",
-      "description": "스레드 수로 두 노드를 가르면 반대로 짚는다. 봇 노드가 428~461 개, 거래소 노드가 59~62 개다. 거래소는 요청을 가상 스레드로 처리하므로 플랫폼 스레드가 늘지 않는다. WebSocket 접속 수는 팬아웃 부하의 축이다.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "id": 40,
+      "type": "row",
+      "title": "진단용 (필요할 때만 펼친다)",
       "gridPos": {
-        "h": 7,
-        "w": 12,
-        "x": 12,
-        "y": 28
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
       },
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "axisSoftMin": 0,
-            "thresholdsStyle": {
-              "mode": "off"
+      "collapsed": true,
+      "panels": [
+        {
+          "id": 41,
+          "type": "timeseries",
+          "title": "DB 커넥션 풀",
+          "description": "대기가 0 에서 두 자릿수로 오르면 풀 고갈이다. 다만 2 vCPU 실측에서 이 지표는 경고를 주지 못했다. 마지막 정상 표본이 0 이고 다음 표본이 판독 불가였다. 사후 확인용이다.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 32
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
             }
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0,
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
               }
-            ]
+            },
+            "overrides": []
           },
-          "mappings": []
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max(hikaricp_connections_pending{job=\"exchange-api\",pool=\"HikariPool-1\"})",
+              "legendFormat": "대기",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max(hikaricp_connections_active{job=\"exchange-api\",pool=\"HikariPool-1\"})",
+              "legendFormat": "사용 중",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max(hikaricp_connections_max{job=\"exchange-api\",pool=\"HikariPool-1\"})",
+              "legendFormat": "상한",
+              "range": true,
+              "refId": "C"
+            }
+          ]
         },
-        "overrides": []
-      },
-      "targets": [
         {
+          "id": 42,
+          "type": "timeseries",
+          "title": "CPU(믿으면 안 되는 지표)",
+          "description": "이 서버는 DB 를 기다리는 것이 일이라 CPU 가 상태를 반영하지 않는다. 실측에서 죽기 직전 16~18 퍼센트, 죽는 순간 12 퍼센트, 최고점 54 퍼센트는 정지 28초 뒤에 왔다. 그 54 퍼센트도 일이 아니라 커넥션 풀 관리 스레드가 헛도는 몫이다.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "expr": "jvm_threads_live_threads",
-          "legendFormat": "{{job}} 스레드",
-          "range": true,
-          "instant": false,
-          "refId": "A"
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 32
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0,
+                "thresholdsStyle": {
+                  "mode": "dashed"
+                },
+                "axisSoftMax": 80
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "#EAB839",
+                    "value": 70
+                  }
+                ]
+              },
+              "decimals": 1
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "process_cpu_usage{job=\"exchange-api\"} * 100",
+              "legendFormat": "거래소 프로세스",
+              "range": true,
+              "refId": "A"
+            }
+          ]
         },
         {
+          "id": 43,
+          "type": "timeseries",
+          "title": "거절 장치 상태",
+          "description": "창구가 몇 개 차 있는가. 사용 중이 상한에 붙어 있으면 방어가 작동 중이다. 장치를 끄면 0 에 머무는데 그 상태가 노드를 죽이는 상태다.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "expr": "sum(exchange_ws_clients)",
-          "legendFormat": "WS 접속",
-          "range": true,
-          "instant": false,
-          "refId": "B"
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 40
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0,
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "sum(exchange_admission_in_flight{job=\"exchange-api\"}) by (scope)",
+              "legendFormat": "{{scope}} 사용 중",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max(exchange_admission_limit{job=\"exchange-api\"}) by (scope)",
+              "legendFormat": "{{scope}} 상한",
+              "range": true,
+              "refId": "B"
+            }
+          ]
+        },
+        {
+          "id": 44,
+          "type": "timeseries",
+          "title": "노드 내부",
+          "description": "스레드 수로 두 노드를 가르면 반대로 짚는다. 봇 노드가 400 개대, 거래소가 60 개 안팎이다. 거래소는 요청을 가상 스레드로 처리해 플랫폼 스레드가 늘지 않는다.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 40
+          },
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "max"
+              ],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": true,
+                "axisSoftMin": 0,
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "jvm_threads_live_threads",
+              "legendFormat": "{{job}} 스레드",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "sum(exchange_ws_clients)",
+              "legendFormat": "WS 접속",
+              "range": true,
+              "refId": "B"
+            }
+          ]
         }
       ]
     }
@@ -1039,6 +1196,6 @@
   "timezone": "browser",
   "title": "⑤ 운영 상황판",
   "uid": "proof-ops",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
