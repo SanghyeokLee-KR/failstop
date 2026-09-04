@@ -1,0 +1,67 @@
+# 봇 노드 1개분. 상시면 bot-1(t4g.micro, AZ-c)에 얹는다(기획안 6.5).
+#
+# 이 노드가 하는 일이 둘이다. 상시면에 24시간 기저 트래픽을 만들어 7.9 의 침묵 판정에
+# 기준선을 주고, 거래소 밖에서 주문을 던져 합성 트랜잭션 감시원이 된다.
+#
+# 거래소와 같은 이미지를 프로파일만 바꿔 돌린다. 코드가 나뉘어 있지 않다.
+# compose.node-app.yml 과 다른 점 넷이다.
+#   1. 엔진을 끈다. 이것이 리더 경쟁에서 빠지는 유일한 스위치다.
+#      EngineConfig.engineRuntimeLifecycle 이 리스 시작·라이터 시작·부팅 복구의 단일
+#      지점이고 거기에 조건이 걸려 있다. 이 값이 true 로 새면 봇 노드가 승격 주체를
+#      오염시키고, 크래시 창이 비어 있지 않으면 기동 자체를 거부당한다(실측 확인).
+#   2. 고객 트래픽을 받지 않으므로 8080 을 외부에 열지 않는다. 관측용으로만 노출한다.
+#   3. DB 는 시드와 제어 명령 수신 전용이다. 주문은 전부 HTTP 로 나간다(BotApiClient).
+#   4. 메모리 상한이 작다. 실측 상주 385~416 MB 기준이다(증거 10회차).
+#
+# 마스터키를 거래소와 반드시 공유한다. 다르면 봇이 발급·암호화한 API 시크릿을 거래소가
+# 복호화하지 못해 주문이 전건 인증 실패하고, 45초 뒤 LeaderStallDetector 가 정상인
+# 거래소를 강등시킨다. 복구는 재기동뿐이다(재승격 금지). 실측으로 재현했다.
+#
+# 미검증이다. 실제 다중 호스트에서 기동한 적이 없다.
+services:
+  bot:
+    image: ${APP_IMAGE}
+    environment:
+      # 상시면에서도 bots 다. prod 는 관리 포트를 8081 로 분리하고 CORS 필수값을 요구하는데
+      # 이 노드는 고객 트래픽을 받지 않아 둘 다 불필요하다.
+      SPRING_PROFILES_ACTIVE: ${BOT_PROFILES:-bots}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME:-exchange}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      # 스키마는 앱 노드가 확정한다. 봇 노드는 절대 마이그레이션하지 않는다.
+      SPRING_FLYWAY_ENABLED: "false"
+      # 리더 경쟁 불참. 이 파일의 존재 이유다.
+      EXCHANGE_ENGINE_ENABLED: "false"
+      # 거래소와 같은 값이어야 한다. 위 주석 참조.
+      EXCHANGE_AUTH_MASTER_KEY_BASE64: ${MASTER_KEY_BASE64}
+      EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64: ${PASSWORD_PEPPER_BASE64}
+      EXCHANGE_MEMBER_SESSION_SEED_BASE64: ${SESSION_SEED_BASE64}
+      # 주문을 보낼 곳. 노드가 아니라 로드밸런서를 가리킨다. 리더가 바뀌어도 따라가야 한다.
+      EXCHANGE_SIM_BASE_URL: ${SIM_BASE_URL}
+      # 봇 거버너 축. 외부 k6 주입 축과 별개다. 기본 10 의 근거는 검증설계 2-4 다.
+      EXCHANGE_SIM_TARGET_OPS: ${BOT_TARGET_OPS:-10}
+      EXCHANGE_HARNESS_ENABLED: "false"
+    ports:
+      # 관측 전용. Prometheus 가 이 포트를 긁어 BotFleetDown 을 판정한다.
+      # 고객 평면에는 노출하지 않는다. 보안그룹에서 관측 노드만 허용한다.
+      - "${BOT_MGMT_PORT:-8080}:8080"
+    healthcheck:
+      # liveness 로 판정한다. 이 노드는 엔진이 꺼져 있어 readiness 가 설계상 통과하지
+      # 않을 수 있고, 컨테이너 기동 여부와 트래픽 수용 여부는 다른 질문이다.
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/liveness || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          # 실측 상주 385~416 MB. 힙은 이 값의 75%다(Dockerfile.app).
+          # t4g.micro 는 1 GiB 라 OS 몫을 남긴다.
+          memory: ${BOT_MEMORY:-768m}
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"

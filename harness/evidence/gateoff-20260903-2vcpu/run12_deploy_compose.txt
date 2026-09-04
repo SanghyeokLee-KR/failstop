@@ -1,0 +1,5 @@
+09:47:39 리스=2a7ac528-1aa6-4696-b045-e4813c55f1e6 e2 유효=true 주문/체결=1547/1047 depbot-bot-1 373.6MiB / 768MiB depapp-app-1 285.2MiB / 1GiB  헬스=healthy/healthy
+09:48:03 리스=2a7ac528-1aa6-4696-b045-e4813c55f1e6 e2 유효=true 주문/체결=1547/1047 depbot-bot-1 373.3MiB / 768MiB depapp-app-1 285.1MiB / 1GiB  헬스=healthy/healthy
+09:48:25 리스=2a7ac528-1aa6-4696-b045-e4813c55f1e6 e2 유효=true 주문/체결=1547/1047 depbot-bot-1 374.2MiB / 768MiB depapp-app-1 285.1MiB / 1GiB  헬스=healthy/healthy
+09:48:49 리스=2a7ac528-1aa6-4696-b045-e4813c55f1e6 e2 유효=true 주문/체결=1547/1047 depbot-bot-1 373.3MiB / 768MiB depapp-app-1 287.5MiB / 1GiB  헬스=healthy/healthy
+09:49:13 리스=2a7ac528-1aa6-4696-b045-e4813c55f1e6 e2 유효=true 주문/체결=1547/1047 depbot-bot-1 373.6MiB / 768MiB depapp-app-1 286.8MiB / 1GiB  헬스=healthy/healthy

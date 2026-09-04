@@ -37,7 +37,12 @@ services:
       # liveness로 판정한다. readiness는 팔로워에서 설계상 503(REFUSING_TRAFFIC)이라
       # 정상 팔로워가 영구 unhealthy가 된다. 컨테이너 기동 여부와 트래픽 수용 여부는
       # 다른 질문이다.
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health/liveness || exit 1"]
+      #
+      # 포트를 변수로 받는 이유. 관리 포트 8081 분리는 prod 프로파일에서만 일어난다
+      # (application.yml). SPRING_PROFILES_ACTIVE 를 dev 로 덮으면 actuator 가 8080 에
+      # 남는데 종전 판은 8081 을 박아 두어 컨테이너가 영구 unhealthy 가 됐다. 프로파일은
+      # 변수인데 그것에 따라 움직이는 포트가 상수였다. 실측으로 재현했다(2026-09-04).
+      test: ["CMD-SHELL", "curl -fsS http://localhost:${MGMT_PORT_INTERNAL:-8081}/actuator/health/liveness || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 30
