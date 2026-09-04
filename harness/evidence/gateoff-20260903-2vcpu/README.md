@@ -1103,3 +1103,60 @@ DB 만 2 vCPU·2GB 에서 4 vCPU·4GB 로 올리고(`shared_buffers=1GB`) 앱은
 그 줄이 60 주문/s 다. 곧 대응은 둘로 갈린다. **조회는 늘려서 나누고 주문은 거절로 막는다.**
 
 원자료는 `run24_bigdb.txt`, `run25_readscale.txt`.
+
+## 27회차. 로드밸런서 뒤에서 조회가 실제로 나뉜다 (2026-09-04 15:05~15:13)
+
+25회차는 두 노드에 부하를 직접 나눠 보냈다. 실제 배치는 로드밸런서가 나눠야 한다. 정본
+`deploy/nginx-edge.conf.template` 의 upstream·location 규약을 그대로 옮겨 세우고 확인했다.
+
+### 정본 규약
+
+```
+upstream exchange_read {
+    least_conn;
+    server APP_1:8080 max_fails=1 fail_timeout=2s;
+    server APP_2:8080 max_fails=1 fail_timeout=2s;
+}
+location ~ ^/api/v1/(orders|transfers) {
+    limit_except GET { proxy_pass http://exchange_leader; }
+    proxy_pass http://exchange_read;
+}
+location /api/ { proxy_pass http://exchange_read; }
+```
+
+쓰기(`POST /api/v1/orders`)는 `limit_except GET` 으로 리더 단독에 보내고, 조회는 두 노드에
+`least_conn` 으로 나눈다. 단일 라이터 구조라 쓰기를 팔로워로 보내면 거부된다.
+
+### 결과 (조회 600/s, 주문 2/s, 90초, 봇 정지)
+
+| 노드 | 받은 요청 | 비중 | CPU |
+|---|---|---|---|
+| 1번(리더) | 28329 | 52% | 20.0% |
+| 2번(읽기 전용) | 25896 | 48% | 19.3% |
+
+**조회가 반반으로 나뉜다.** CPU 도 20.0% 대 19.3% 로 같다. 두 번째 노드가 실제로 일을 나눠
+가진다.
+
+주문은 181건 접수에 거절 0, 실패율 0 이다. 쓰기가 전부 리더로 갔다는 뜻이다. 팔로워로 샜다면
+`단일 라이터 루프 정지 상태: 접수 거부` 로 실패했을 것이다.
+
+봇을 켜 둔 채로 재면 52 대 48 이 아니라 60 대 40 으로 보인다. 봇이 로드밸런서를 지나지 않고
+1번 노드를 직접 부르기 때문이다. 분산 판정에는 봇을 끈 값을 쓴다.
+
+### 읽기 전용 노드의 조건
+
+`EXCHANGE_ENGINE_ENABLED=false` 로 띄워야 한다. 켜면 기동 시 크래시 창 재적재를 위해 리더
+승격을 시도하고, 리더가 살아 있으므로 15초를 소진한 뒤 기동을 거부당한다(8·25회차와 같은 경로).
+실측에서 재현했다.
+
+### 이 회차가 확정하는 것
+
+| 축 | 로드밸런서 뒤에서 | 근거 |
+|---|---|---|
+| 조회 | **나뉜다** | 52% 대 48%, CPU 20.0% 대 19.3% |
+| 주문 | 리더 단독 | 접수 181건, 거절 0, 실패율 0 |
+
+곧 노드를 늘리면 조회 용량이 오른다. 주문 천장 60/s 는 그대로다. 대응이 둘로 갈린다는 결론이
+로드밸런서 배선에서도 성립한다.
+
+원자료는 `lb_verify_nginx.conf`(검증본 설정), `calibration/lb2.json`.
