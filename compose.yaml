@@ -61,6 +61,11 @@ x-k6-run-env: &k6-run-env
 services:
   # 관측 스택을 full에도 편입한다. 종전에는 obs 전용이라 --profile full 한 번으로
   # 대시보드가 뜨지 않았다. obs를 남겨 카오스 실험이 관측만 따로 켜는 경로를 보존한다.
+  # alertmanager 는 prometheus 의 depends_on 대상이라 함께 올린다. 빠지면 full 프로파일에서
+  # 대상이 정의되지 않아 compose 프로젝트 전체가 무효가 된다.
+  chaos-alertmanager:
+    profiles: [obs, full]
+
   chaos-prometheus:
     profiles: [obs, full]
 
