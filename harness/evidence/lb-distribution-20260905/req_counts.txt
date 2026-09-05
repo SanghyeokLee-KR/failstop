@@ -1,0 +1,14 @@
+# http.server.requests COUNT 누적. 팔마다 주행 전후.
+# 18080=chaos-api-1(리더), 28080=chaos-api-2(엔진 OFF)
+
+[direct]
+req_before: 18080 56344.0 28080 1394.0
+req_after: 18080 86843.0 28080 1590.0
+
+[lb]
+req_before: 18080 25795.0 28080 1151.0
+req_after: 18080 56296.0 28080 1347.0
+
+[dist]
+req_before: 18080 86845.0 28080 1591.0
+req_after: 18080 105711.0 28080 13422.0

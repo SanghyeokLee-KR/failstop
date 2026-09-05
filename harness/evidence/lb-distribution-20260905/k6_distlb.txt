@@ -1,0 +1,68 @@
+# k6 요약. ACK 로그 4822행은 부하 계정 access key 를 실어 제외했다(18절).
+# 주행이 실제로 돌았다는 양성 증거는 그 행 수와 아래 checks_total 이다.
+
+  █ THRESHOLDS 
+    accepted_req_duration{scenario:orders_steady,phase:steady}
+    ✓ 'p(95)<200' p(95)=191.61ms
+    ✓ 'p(99)<500' p(99)=192.83ms
+    accepted_total{phase:steady,replay:false}
+    ✓ 'count>900' count=4822
+    checks{check:idempotent_safe}
+    ✓ 'rate==1' rate=100.00%
+    http_req_failed{name:lookup,phase:steady}
+    ✓ 'rate<0.001' rate=0.00%
+    http_req_failed{scenario:orders_steady,name:placeOrder,phase:steady}
+    ✓ 'rate<0.001' rate=0.00%
+    ws_epoch_resync_fail
+    ✗ 'count==0' count=4
+    ws_seq_gap{phase:steady,dest:orderbook}
+    ✓ 'count==0' count=0
+    ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}
+    ✗ 'count>100' count=0
+    ws_seq_observed{phase:steady,dest:trade}
+    ✗ 'count>10' count=0
+    ws_stale_discarded{phase:steady,dest:orderbook}
+    ✓ 'count<200' count=0
+    ws_stale_discarded{phase:steady,dest:trade}
+    ✓ 'count<10' count=0
+  █ TOTAL RESULTS 
+    checks_total.......: 30301   252.445233/s
+    checks_succeeded...: 100.00% 30301 out of 30301
+    checks_failed......: 0.00%   0 out of 30301
+    ✓ ob_ok
+    ✓ idempotent_safe
+    ✓ retry_after_present
+    CUSTOM
+    accepted_req_duration.......................................: avg=132.1ms min=27.13ms med=170.99ms max=254.29ms p(90)=191.75ms p(95)=192.34ms
+      { scenario:orders_steady,phase:steady }...................: avg=70.1ms  min=27.25ms med=28.21ms  max=194.46ms p(90)=171.81ms p(95)=191.61ms
+    accepted_total..............................................: 4822   40.173292/s
+      { phase:steady,replay:false }.............................: 4822   40.173292/s
+    rate_limited_total..........................................: 1478   12.313589/s
+    HTTP
+    http_req_duration...........................................: avg=26.14ms min=381.2µs med=6.49ms   max=254.29ms p(90)=170.5ms  p(95)=171.43ms
+      { expected_response:true }................................: avg=26.14ms min=381.2µs med=6.49ms   max=254.29ms p(90)=170.5ms  p(95)=171.43ms
+    http_req_failed.............................................: 0.00%  0 out of 30301
+      { name:lookup,phase:steady }..............................: 0.00%  0 out of 0
+      { scenario:orders_steady,name:placeOrder,phase:steady }...: 0.00%  0 out of 241
+    http_reqs...................................................: 30301  252.445233/s
+    EXECUTION
+    iteration_duration..........................................: avg=30.28ms min=551.3µs med=6.62ms   max=30s      p(90)=170.88ms p(95)=171.8ms 
+    iterations..................................................: 30305  252.478558/s
+    vus.........................................................: 3      min=2          max=16 
+    vus_max.....................................................: 351    min=351        max=351
+    NETWORK
+    data_received...............................................: 21 MB  177 kB/s
+    data_sent...................................................: 7.2 MB 60 kB/s
+    WEBSOCKET
+    ws_connecting...............................................: avg=14.4ms  min=1.71ms  med=7.5ms    max=40.89ms  p(90)=32.5ms   p(95)=36.69ms 
+    ws_epoch_resync_fail........................................: 4      0.033325/s
+    ws_seq_gap..................................................: 0      0/s
+      { phase:steady,dest:orderbook }...........................: 0      0/s
+    ws_seq_observed.............................................: 0      0/s
+      { phase:steady,dest:orderbook,stream:realtime }...........: 0      0/s
+      { phase:steady,dest:trade }...............................: 0      0/s
+    ws_sessions.................................................: 4      0.033325/s
+    ws_stale_discarded..........................................: 0      0/s
+      { phase:steady,dest:orderbook }...........................: 0      0/s
+      { phase:steady,dest:trade }...............................: 0      0/s
+time="2026-09-04T12:54:19Z" level=error msg="thresholds on metrics 'ws_epoch_resync_fail, ws_seq_observed{phase:steady,dest:orderbook,stream:realtime}, ws_seq_observed{phase:steady,dest:trade}' have been crossed"
