@@ -1,0 +1,24 @@
+12942|20234|1.563|SELECT reserve_funds($1, $2, $3, $4, $5)
+12993|8345|0.642|SELECT apply_position_cost(v_txn)
+153379|7878|0.051|SELECT m.id, m.symbol, m.status,
+       m.base_asset_id, b.symbol AS base_symbol, b.name AS base_nam
+12993|4450|0.342|UPDATE ledger_transactions
+    SET status = 'SEALED', sealed_at = clock_timestamp()
+    WHERE id = v
+12993|3579|0.275|INSERT INTO ledger_entries (transaction_id, account_id, asset_id, amount, entry_type)
+    SELECT v_t
+12942|3059|0.236|INSERT INTO orders
+  (id, external_id, user_id, market_id, client_order_id, side, ord_type,
+   time_
+12994|3016|0.232|WITH d AS (
+            SELECT a.owner_id AS user_id, le.asset_id, SUM(le.amount) AS delta
+         
+38928|1891|0.049|SELECT m.id, m.symbol, m.status,
+       m.base_asset_id, b.symbol AS base_symbol, b.name AS base_nam
+25986|1738|0.067|SELECT a.symbol, ub.available, ub.locked,
+       COALESCE(pc.cost_qty, 0)    AS cost_basis_qty,
+    
+38928|1292|0.033|SELECT o.id, o.external_id, o.user_id, o.market_id, m.symbol AS market_symbol,
+       o.client_order
+25884|1220|0.047|SELECT assert_current_leader($1, $2)
+25884|1171|0.045|SELECT next_journal_value('order_id')

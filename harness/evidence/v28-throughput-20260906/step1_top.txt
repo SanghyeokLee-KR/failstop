@@ -1,0 +1,24 @@
+14834|22596|1.523|SELECT reserve_funds($1, $2, $3, $4, $5)
+14935|9236|0.618|SELECT apply_position_cost(v_txn)
+14935|5018|0.336|UPDATE ledger_transactions
+    SET status = $6, sealed_at = clock_timestamp()
+    WHERE id = v_txn A
+14935|4078|0.273|INSERT INTO ledger_entries (transaction_id, account_id, asset_id, amount, entry_type)
+    SELECT v_t
+14834|3463|0.233|INSERT INTO orders
+  (id, external_id, user_id, market_id, client_order_id, side, ord_type,
+   time_
+14935|3274|0.219|WITH d AS (
+            SELECT a.owner_id AS user_id, le.asset_id, SUM(le.amount) AS delta
+         
+29870|2073|0.069|SELECT a.symbol, ub.available, ub.locked,
+       COALESCE(pc.cost_qty, $3)    AS cost_basis_qty,
+   
+44704|1523|0.034|SELECT o.id, o.external_id, o.user_id, o.market_id, m.symbol AS market_symbol,
+       o.client_order
+29668|1347|0.045|SELECT assert_current_leader($1, $2)
+29668|1241|0.042|SELECT next_journal_value('order_id')
+14935|1070|0.072|NEW.status = $23
+       AND NOT EXISTS (SELECT $24 FROM ledger_entries WHERE transaction_id = OLD.id
+14935|986|0.066|SELECT count(*)          FROM (
+        SELECT asset_id FROM ledger_entries WHERE transaction_id = N
