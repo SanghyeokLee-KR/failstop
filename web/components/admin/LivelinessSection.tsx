@@ -40,9 +40,11 @@ function biasNorm(raw: string): string {
 export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
   const [market, setMarket] = useState(COIN_META[0]?.market ?? "KRW-BTC");
   const state: MarketSimState | undefined = useMemo(
-    () => sim?.markets.find((m) => m.market === market),
+    () => sim?.markets?.find((m) => m.market === market),
     [sim, market],
   );
+  // 미보고와 "이 마켓에 봇이 없음"은 다르다. 미보고를 0.00 으로 그리면 중립 바이어스로 읽힌다
+  const unknown = sim != null && sim.markets == null;
 
   // 대수·바이어스는 로컬 드래프트(낙관 편집). 마켓 전환 시에만 서버 스냅샷으로 시딩한다
   const [scaleDraft, setScaleDraft] = useState<Record<BotType, number>>({ MARKET_MAKER: 0, TAKER: 0, TREND: 0, NOISE: 0 });
@@ -58,7 +60,7 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
   const flashPending = useRef(false);
 
   useEffect(() => {
-    const snap = sim?.markets.find((m) => m.market === market);
+    const snap = sim?.markets?.find((m) => m.market === market);
     const prev = seedRef.current;
     const marketChanged = prev.market !== market;
     if (!marketChanged && (prev.withData || !snap)) return;
@@ -174,7 +176,11 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
                 />
                 <span className={`${styles.scaleValue} num`}>
                   <b>{formatCount(scaleDraft[t])}</b>
-                  <span className={styles.scaleActive}>활성 {formatCount(cur?.active ?? 0)} / 목표 {formatCount(cur?.target ?? 0)}</span>
+                  <span className={styles.scaleActive}>
+                    {unknown
+                      ? "활성 미상 / 목표 미상"
+                      : `활성 ${formatCount(cur?.active ?? 0)} / 목표 ${formatCount(cur?.target ?? 0)}`}
+                  </span>
                 </span>
               </div>
             );
@@ -226,25 +232,30 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
           </span>
           {/* 판독 레일. 마커 형태는 아래 biasMeta 라벨의 형태 문자가 범례를 겸한다 */}
           <div className={styles.biasReadoutSlot}>
-            <BiasReadout
-              target={state?.targetNetBias ?? "0.00"}
-              measured={state?.measuredNetBias ?? "0.00"}
-              effective={state?.effectiveBias ?? "0.00"}
-            />
+            {/* 미보고에 레일을 그리면 마커가 중립 위치에 서서 실측 0.00 으로 읽힌다 */}
+            {unknown ? (
+              <p className={styles.formHelp}>봇 노드 상태 미보고 · 판독 불가</p>
+            ) : (
+              <BiasReadout
+                target={state?.targetNetBias ?? "0.00"}
+                measured={state?.measuredNetBias ?? "0.00"}
+                effective={state?.effectiveBias ?? "0.00"}
+              />
+            )}
           </div>
         </div>
         <div className={styles.biasMeta}>
           <span>
-            ▽ 목표 <b className="num">{state?.targetNetBias ?? "0.00"}</b>
+            ▽ 목표 <b className="num">{unknown ? "미상" : (state?.targetNetBias ?? "0.00")}</b>
           </span>
           <span>
-            ▲ 실측 <b className="num">{state?.measuredNetBias ?? "0.00"}</b>
+            ▲ 실측 <b className="num">{unknown ? "미상" : (state?.measuredNetBias ?? "0.00")}</b>
           </span>
           <span>
-            | 유효 <b className="num">{state?.effectiveBias ?? "0.00"}</b>
+            | 유효 <b className="num">{unknown ? "미상" : (state?.effectiveBias ?? "0.00")}</b>
           </span>
           <span>
-            체결률 <b className="num">{state?.fillRatio ?? "0.00"}</b>
+            체결률 <b className="num">{unknown ? "미상" : (state?.fillRatio ?? "0.00")}</b>
           </span>
         </div>
         <div className={styles.biasControls}>

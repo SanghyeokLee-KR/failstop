@@ -847,6 +847,10 @@ export class SimAdminApi implements AdminApi {
     this.auth("VIEW");
     const active = this.bots.filter((b) => b.active).length;
     return Promise.resolve({
+      // 모의 어댑터는 상태를 자기 안에 들고 있어 미상이 구조적으로 없다.
+      source: "local" as const,
+      observedAt: null,
+      stale: false,
       running: this.simRunning,
       paused: this.simPaused,
       rate: this.simRate,

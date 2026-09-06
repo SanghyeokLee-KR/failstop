@@ -46,6 +46,7 @@ import type {
   ScenarioName,
   ScenarioResult,
   SimStatus,
+  SimStatusSource,
   TradeFlash,
   AdminInquiry,
   AdminTransfer,
@@ -323,6 +324,10 @@ interface WireMarketState {
 interface WireSimStatus {
   schema_version?: string;
   fleet_present?: boolean;
+  /** status 1.3(§6-A). local·published·unknown. 구 서버는 부재 */
+  source?: SimStatusSource;
+  observed_at?: string;
+  stale?: boolean;
   /** status 1.2(v2.22)부터 실제 플릿 상태. 구 서버는 부재라 fleet_present 폴백 */
   running?: boolean;
   paused?: boolean;
@@ -979,32 +984,48 @@ export class HttpAdminApi implements AdminApi {
   }
 
   async getSimStatus(): Promise<SimStatus> {
-    // 서버 /status 1.1은 {schema_version, fleet_present, target_ops, trade_flash, markets[]}만 준다.
-    // 명시 매핑 + 안전 기본값으로 좁힌다(대수는 markets scale 합, currentOps는 target_ops).
+    // 없는 값을 0으로 채우지 않는다. 서버가 안 낸 이유가 모르기 때문이고, 0을 채우면
+    // 정지·0대·성공률 100%가 측정값처럼 화면에 뜬다(status 1.3 source, §6-A).
     const raw = await this.http<WireSimStatus>("/admin/v1/sim/status");
-    const markets = this.mapMarkets(raw.markets);
-    let activeBots = 0;
-    let botCount = 0;
-    for (const m of markets) {
-      for (const type of Object.keys(m.scale) as (keyof MarketSimState["scale"])[]) {
-        const e = m.scale[type];
-        if (!e) continue;
-        activeBots += e.active;
-        botCount += e.target;
+    // 구 서버(1.2 이하)는 source가 없다. 거버너 부재 배포에서 running·markets를 함께
+    // 내지 않으므로 그때는 unknown으로 읽는다.
+    const source: SimStatusSource =
+      raw.source ?? (raw.running === undefined && raw.markets === undefined ? "unknown" : "local");
+    const markets = source === "unknown" || raw.markets === undefined
+      ? null
+      : this.mapMarkets(raw.markets);
+    let activeBots: number | null = null;
+    let botCount: number | null = null;
+    if (markets) {
+      activeBots = 0;
+      botCount = 0;
+      for (const m of markets) {
+        for (const type of Object.keys(m.scale) as (keyof MarketSimState["scale"])[]) {
+          const e = m.scale[type];
+          if (!e) continue;
+          activeBots += e.active;
+          botCount += e.target;
+        }
       }
     }
-    const rate = num(raw.target_ops);
+    // unknown 에서 target_ops 를 실은 구 서버 응답도 0 으로 눕히지 않는다.
+    const rate =
+      source === "unknown" || raw.target_ops === undefined ? null : num(raw.target_ops);
     return {
-      // status 1.2의 실제 플릿 상태. fleet_present는 빈 존재 여부일 뿐 가동 여부가 아니다
-      running: raw.running ?? raw.fleet_present === true,
-      paused: raw.paused ?? false,
+      source,
+      observedAt: raw.observed_at ?? null,
+      stale: raw.stale === true,
+      running: raw.running ?? null,
+      paused: raw.paused ?? null,
       rate,
       currentOps: rate,
       botCount,
       activeBots,
-      successRate: "1.0000",
-      avgLatencyMs: 0,
-      duplicateFillTotal: 0,
+      // 서버 status가 내지 않는 세 축이다. 상수를 채우면 성공률 100%·지연 0ms·중복체결
+      // 0건이 실측처럼 보인다. 원천이 생기기 전까지 미측정으로 둔다
+      successRate: null,
+      avgLatencyMs: null,
+      duplicateFillTotal: null,
       // 서버 status에 개별 봇 목록은 없다(생성·파라미터는 별도 경로). 빈 목록으로 정직하게 둔다
       bots: [],
       markets,

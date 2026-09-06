@@ -34,6 +34,16 @@ const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jw
 // 전역 OPS 상한. 슬라이더와 현재 OPS 미터가 같은 눈금을 소비한다(서버 rate 클램프와 정렬)
 const OPS_MAX = 600;
 
+/**
+ * 수치의 출처를 한 줄로 적는다. 관리 평면은 봇 JVM과 분리돼 있어 상태가 발행분일 수 있고,
+ * 발행이 끊기면 옛 값이 남는다. 출처를 안 적으면 어느 쪽이든 현재로 읽힌다(status 1.3 source).
+ */
+function sourceNote(sim: SimStatus): string | undefined {
+  if (sim.source === "unknown") return "봇 노드 상태 미보고";
+  if (sim.source !== "published") return undefined;
+  return sim.stale ? "발행 끊김 · 마지막 관측값" : "봇 노드 발행분";
+}
+
 // 성공률 톤 임계. 99% 이상은 정상이라 잉크(무톤), 95% 미만 위험, 사이는 주의
 const SUCCESS_RATE_OK = 0.99;
 const SUCCESS_RATE_WARN = 0.95;
@@ -66,7 +76,8 @@ export default function BotsPage() {
   const load = res.reload;
 
   useEffect(() => {
-    if (sim && !rateSeeded.current) {
+    // 미보고면 씨앗을 심지 않는다. 0을 심으면 슬라이더가 정지값으로 서고 적용 시 그 값이 나간다
+    if (sim && sim.rate != null && !rateSeeded.current) {
       setRateDraft(sim.rate);
       rateSeeded.current = true;
     }
@@ -126,6 +137,9 @@ export default function BotsPage() {
      그래서 실서버에 붙이면 표가 머리글만 남고 비었다. 화면이 데이터를 못 받은 것처럼 보였다.
      양쪽 어댑터가 모두 채우는 scale 을 단위로 삼아 한 표로 맞춘다. */
   const fleetRows = useMemo(() => sim?.markets ?? [], [sim]);
+  // markets 부재는 "마켓이 없다"가 아니라 "모른다"다. 둘을 같은 빈 표로 그리면
+  // 목표를 올리라는 안내가 도는 플릿에도 뜬다
+  const fleetUnknown = sim != null && sim.markets == null;
 
   type FleetRow = MarketSimState;
 
@@ -194,7 +208,9 @@ export default function BotsPage() {
          대수라 running 을 반영하지 않는다. 그래서 플릿 수명주기를 먼저 본다.
          정상(거래 중)은 잉크, 이탈만 pill 로 세운다 */
       render: (m) => {
-        if (!sim?.running) return <span className={styles.neutralPill}>플릿 정지</span>;
+        // 미보고는 정지가 아니다. 정지로 칠하면 도는 플릿을 멈춘 것으로 읽는다
+        if (sim?.running == null) return <span className={styles.stateTextDim}>-</span>;
+        if (!sim.running) return <span className={styles.neutralPill}>플릿 정지</span>;
         if (sim.paused) return <span className={styles.neutralPill}>일시정지</span>;
         const off = BOT_TYPES.filter((t) => m.scale[t] && m.scale[t]!.active !== m.scale[t]!.target).length;
         if (off > 0) return <span className={styles.neutralPill}>수렴 중 {off}개 유형</span>;
@@ -222,42 +238,61 @@ export default function BotsPage() {
       ) : (
         // 폴링 실패 시 헤드라인 지표만 opacity로 강등한다. 제어 슬라이더·버튼은 아래 별도 카드라 흐려지지 않는다
         <div className={`${styles.kpiGrid} ${styles.staleRegion}`} data-cols="3" data-stale={res.stale ? "" : undefined}>
+          {/* 원천이 셋이라 수치의 출처를 함께 적는다. 미보고를 정지로 칠하면 도는 플릿을
+              멈춘 것으로 읽고, 조작 버튼을 누르게 된다 */}
           <StatTile
             label="플릿 상태"
-            value={sim.running ? (sim.paused ? "일시정지" : "가동 중") : "정지"}
-            tone={sim.running && sim.paused ? "warning" : undefined}
+            value={sim.running == null ? "알 수 없음" : sim.running ? (sim.paused ? "일시정지" : "가동 중") : "정지"}
+            sub={sourceNote(sim)}
+            tone={sim.running == null || sim.stale ? "warning" : sim.running && sim.paused ? "warning" : undefined}
           />
           <StatTile
             label="초당 주문 수"
             title="OPS"
-            value={formatCount(sim.currentOps)}
-            sub={`목표 ${formatCount(sim.rate)}`}
-            meter={{ value: sim.currentOps, max: OPS_MAX, marks: [{ at: sim.rate, label: "목표" }] }}
+            value={sim.currentOps == null ? "미상" : formatCount(sim.currentOps)}
+            sub={sim.rate == null ? "목표 미상" : `목표 ${formatCount(sim.rate)}`}
+            tone={sim.currentOps == null ? "warning" : undefined}
+            // 미상에 미터를 그리면 바늘이 왼쪽 끝에 붙어 0으로 읽힌다
+            meter={
+              sim.currentOps == null || sim.rate == null
+                ? undefined
+                : { value: sim.currentOps, max: OPS_MAX, marks: [{ at: sim.rate, label: "목표" }] }
+            }
           />
           {/* 정지 중에도 대수는 그대로 뜬다. active 는 파킹 풀의 설정 대수라 수명주기와 무관하다.
               숫자만 두면 "14대가 돌고 있다"로 읽히므로 정지·일시정지일 때 사유를 병기한다 */}
           <StatTile
             label="활성 봇"
-            value={`${sim.activeBots} / ${sim.botCount}`}
-            sub={sim.running ? (sim.paused ? "일시정지 중 · 발행 없음" : undefined) : "플릿 정지 중 · 발행 없음"}
+            value={sim.activeBots == null || sim.botCount == null ? "미상" : `${sim.activeBots} / ${sim.botCount}`}
+            sub={
+              sim.running == null
+                ? "플릿 상태 미보고"
+                : sim.running
+                  ? sim.paused ? "일시정지 중 · 발행 없음" : undefined
+                  : "플릿 정지 중 · 발행 없음"
+            }
             tone={sim.running && !sim.paused ? undefined : "warning"}
           />
+          {/* 아래 셋은 서버 status가 내지 않는 축이다. 상수를 채우면 성공률 100%·지연 0ms·
+              중복체결 0건이 실측처럼 보인다. 원천이 생기기 전까지 미측정으로 둔다 */}
           <StatTile
             label="성공률"
-            /* 소수 둘째 자리는 운영 판단에 안 쓰인다. 자릿수가 많으면 변화를 못 읽는다.
-               임계 이탈은 아래 tone이 잡고, 정밀한 수치가 필요하면 감사·지표에서 본다 */
-            value={(Number(sim.successRate) * 100).toFixed(1)}
-            unit="%"
-            tone={successRateTone(Number(sim.successRate))}
+            value={sim.successRate == null ? "미측정" : (Number(sim.successRate) * 100).toFixed(1)}
+            unit={sim.successRate == null ? undefined : "%"}
+            tone={sim.successRate == null ? undefined : successRateTone(Number(sim.successRate))}
           />
-          <StatTile label="평균 지연" value={sim.avgLatencyMs} unit="ms" />
+          <StatTile
+            label="평균 지연"
+            value={sim.avgLatencyMs == null ? "미측정" : sim.avgLatencyMs}
+            unit={sim.avgLatencyMs == null ? undefined : "ms"}
+          />
           {/* 정의 캡션("0이어야 정상")은 걷는다. 정상은 침묵, 위반 시에만 행동 지시가 발화한다 */}
           <StatTile
             label="중복 체결"
-            value={sim.duplicateFillTotal}
-            sub={sim.duplicateFillTotal === 0 ? undefined : "멱등 위반 · 원장 대조 필요"}
-            tone={sim.duplicateFillTotal === 0 ? undefined : "danger"}
-            alarm={sim.duplicateFillTotal !== 0}
+            value={sim.duplicateFillTotal == null ? "미측정" : sim.duplicateFillTotal}
+            sub={sim.duplicateFillTotal ? "멱등 위반 · 원장 대조 필요" : undefined}
+            tone={sim.duplicateFillTotal ? "danger" : undefined}
+            alarm={!!sim.duplicateFillTotal}
           />
         </div>
       )}
@@ -292,7 +327,9 @@ export default function BotsPage() {
                 onChange={(e) => setRateDraft(Number(e.target.value))}
               />
               <b className="num">{formatCount(rateDraft)}</b>
-              {rateDraft !== sim.rate && <span className={styles.rateApplied}>적용값 {formatCount(sim.rate)}</span>}
+              {sim.rate != null && rateDraft !== sim.rate && (
+                <span className={styles.rateApplied}>적용값 {formatCount(sim.rate)}</span>
+              )}
               <button
                 type="button"
                 className={styles.primaryBtn}
@@ -341,7 +378,9 @@ export default function BotsPage() {
                행 없는 표가 그대로 떴고, 데이터를 못 받은 화면과 구분되지 않았다 */
             empty={
               <p className={styles.formHelp}>
-                등록된 마켓 없음. 아래 봇 타입별 대수에서 목표를 올리면 서버가 수렴시킵니다
+                {fleetUnknown
+                  ? "플릿 구성 미보고. 봇 노드가 상태를 발행하지 않아 대수를 읽을 수 없음"
+                  : "등록된 마켓 없음. 아래 봇 타입별 대수에서 목표를 올리면 서버가 수렴"}
               </p>
             }
           />

@@ -81,7 +81,13 @@ export default function AdminOverviewPage() {
                   />
                 </Link>
                 <Link href="/admin/bots" className={styles.railLink}>
-                  <StatTile compact label="활성 봇" value={ov.botsActive} sub={`초당 ${formatKRW(ov.currentOps)}건 처리`} />
+                  {/* 봇 노드 미보고를 0으로 채우면 홈이 플릿 정지를 단정한다(status 1.3 source) */}
+                  <StatTile
+                    compact
+                    label="활성 봇"
+                    value={ov.botsActive == null ? "미상" : ov.botsActive}
+                    sub={ov.currentOps == null ? "상태 미보고" : `초당 ${formatKRW(ov.currentOps)}건 처리`}
+                  />
                 </Link>
                 <Link href="/admin/chaos" className={styles.railLink}>
                   <StatTile

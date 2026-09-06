@@ -386,3 +386,106 @@ test("failover 표가 비면 RTO는 미측정이다", async () => {
     globalThis.fetch = original;
   }
 });
+
+/* ===== 플릿 상태 원천 매핑(status 1.3, §6-A) ===== */
+
+test("플릿 상태 미보고를 정지·0대로 눕히지 않는다", async () => {
+  const api = new HttpAdminApi("");
+  await withFetch(
+    fakeRes({
+      status: 200,
+      // 관리 평면에 거버너가 없고 봇 노드 발행분도 없는 상태. 서버가 네 필드를 싣지 않는다
+      body: { schema_version: "1.3", fleet_present: false, source: "unknown", trade_flash: "normal" },
+    }),
+    async () => {
+      const s = await api.getSimStatus();
+      assert.equal(s.source, "unknown");
+      assert.equal(s.running, null, "미보고를 정지로 단정하지 않는다");
+      assert.equal(s.paused, null);
+      assert.equal(s.rate, null);
+      assert.equal(s.currentOps, null);
+      assert.equal(s.activeBots, null, "0대로 단정하지 않는다");
+      assert.equal(s.botCount, null);
+      assert.equal(s.markets, null, "빈 배열은 마켓 0개라는 뜻이라 미보고와 다르다");
+    },
+  );
+});
+
+test("봇 노드 발행분은 값으로 읽고 원천과 신선도를 남긴다", async () => {
+  const api = new HttpAdminApi("");
+  await withFetch(
+    fakeRes({
+      status: 200,
+      body: {
+        schema_version: "1.3",
+        fleet_present: false,
+        source: "published",
+        observed_at: "2026-09-06T13:40:00Z",
+        stale: false,
+        running: true,
+        paused: false,
+        target_ops: "10.0",
+        trade_flash: "normal",
+        markets: [
+          {
+            market: "KRW-BTC",
+            target_net_bias: "0.00",
+            measured_net_bias: "0.12",
+            effective_bias: "0.00",
+            auto_balance: { enabled: true, strength: "0.50" },
+            scale: { MARKET_MAKER: { target: 4, active: 4 }, TAKER: { target: 2, active: 2 } },
+            fill_ratio: "0.31",
+          },
+        ],
+      },
+    }),
+    async () => {
+      const s = await api.getSimStatus();
+      assert.equal(s.source, "published");
+      assert.equal(s.observedAt, "2026-09-06T13:40:00Z");
+      assert.equal(s.stale, false);
+      assert.equal(s.running, true);
+      assert.equal(s.rate, 10);
+      assert.equal(s.activeBots, 6);
+      assert.equal(s.botCount, 6);
+      assert.equal(s.markets?.length, 1);
+    },
+  );
+});
+
+test("서버가 내지 않는 성공률·지연·중복체결은 상수로 채우지 않는다", async () => {
+  const api = new HttpAdminApi("");
+  await withFetch(
+    fakeRes({
+      status: 200,
+      body: {
+        schema_version: "1.3", fleet_present: true, source: "local",
+        running: true, paused: false, target_ops: "20.0", trade_flash: "normal", markets: [],
+      },
+    }),
+    async () => {
+      const s = await api.getSimStatus();
+      assert.equal(s.source, "local");
+      // 종전에는 "1.0000"·0·0 을 박아 성공률 100%·지연 0ms 가 실측처럼 보였다
+      assert.equal(s.successRate, null);
+      assert.equal(s.avgLatencyMs, null);
+      assert.equal(s.duplicateFillTotal, null);
+      // markets 는 실제 빈 배열이므로 0대다. 미보고와 구분된다
+      assert.deepEqual(s.markets, []);
+      assert.equal(s.activeBots, 0);
+    },
+  );
+});
+
+test("source 없는 구 서버 응답도 미보고로 읽는다", async () => {
+  const api = new HttpAdminApi("");
+  await withFetch(
+    fakeRes({ status: 200, body: { schema_version: "1.2", fleet_present: false, target_ops: "0" } }),
+    async () => {
+      const s = await api.getSimStatus();
+      assert.equal(s.source, "unknown");
+      assert.equal(s.running, null);
+      assert.equal(s.markets, null);
+    },
+  );
+});

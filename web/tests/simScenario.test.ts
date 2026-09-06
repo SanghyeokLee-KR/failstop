@@ -109,7 +109,8 @@ test("평상은 기준선 복귀 경로다", async () => {
 
 test("OPS는 기준선 배수이고 봇 대수와 무관하다", async () => {
   const api = await botOps();
-  const base = (await api.getSimStatus()).rate;
+  // 모의 어댑터는 source=local 이라 rate 가 항상 있다. 미보고 경로는 httpAdmin 쪽 시험이다
+  const base = (await api.getSimStatus()).rate!;
   const spike = await api.activateScenario("spike");
   assert.equal(Number(spike.targetOps), base * 10);
   // spike는 대수를 건드리지 않으므로 시드 대수가 그대로다

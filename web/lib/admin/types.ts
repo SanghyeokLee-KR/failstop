@@ -252,19 +252,32 @@ export interface CreateBotResult {
   fleetPresent: boolean;
 }
 
+/**
+ * 플릿 상태 원천(status 1.3). local은 같은 JVM의 거버너, published는 봇 노드가 발행한
+ * 스냅샷, unknown은 둘 다 없는 상태다. unknown에서 값을 0으로 채우면 정지·0대라는
+ * 없는 사실을 화면이 단정한다.
+ */
+export type SimStatusSource = "local" | "published" | "unknown";
+
 export interface SimStatus {
-  running: boolean;
-  paused: boolean;
-  rate: number; // 전역 OPS 목표
-  currentOps: number;
-  botCount: number;
-  activeBots: number;
-  successRate: string; // "0.9987" 문자열
-  avgLatencyMs: number;
-  duplicateFillTotal: number;
+  source: SimStatusSource;
+  /** published일 때 스냅샷 시각. 그 외 null */
+  observedAt: string | null;
+  /** 발행이 끊겨 스냅샷이 늙은 상태 */
+  stale: boolean;
+  running: boolean | null;
+  paused: boolean | null;
+  rate: number | null; // 전역 OPS 목표
+  currentOps: number | null;
+  botCount: number | null;
+  activeBots: number | null;
+  /** 서버 status가 내지 않는 축이다. 상수를 채우면 미측정이 측정값으로 보인다 */
+  successRate: string | null;
+  avgLatencyMs: number | null;
+  duplicateFillTotal: number | null;
   bots: Bot[];
-  /** 마켓별 방향·대수·측정치(status 1.1, §5-5). 데모·HTTP 공통 */
-  markets: MarketSimState[];
+  /** 마켓별 방향·대수·측정치(status 1.1, §5-5). 미보고는 null이고 빈 배열과 다르다 */
+  markets: MarketSimState[] | null;
   /** 체결 시각효과 강도 전역 저장값(system_config, §5-3). auto 포함 */
   tradeFlash: TradeFlash;
 }
@@ -570,8 +583,9 @@ export interface AdminOverview {
   invariantsTotal: number;
   lastRtoMs: number | null;
   lastVerdict: RecoveryVerdict | null;
-  botsActive: number;
-  currentOps: number;
+  /** 봇 노드가 상태를 발행하지 않으면 미상이다. 0을 채우면 정지로 읽힌다 */
+  botsActive: number | null;
+  currentOps: number | null;
   chaosRunning: number;
   pendingApprovals: number;
   suspendedMarkets: number;
