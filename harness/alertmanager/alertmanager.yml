@@ -35,7 +35,7 @@ receivers:
     discord_configs:
       - webhook_url_file: /etc/alertmanager/secrets/discord_webhook_url
         send_resolved: true
-        username: failstop 관측
+        username: failstop 알람
         title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }} {{ .Alerts.Firing | len }}건{{ end }}] {{ .CommonLabels.alertname }}'
         message: |
           {{ range .Alerts -}}
