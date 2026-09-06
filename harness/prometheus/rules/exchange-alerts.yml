@@ -13,8 +13,13 @@ groups:
           severity: critical
           check: ASSET_CONSERVATION
         annotations:
-          summary: "원장 자산 총합이 0이 아니다(자산 보존 위반)"
-          description: "max(abs(exchange_ledger_imbalance))={{ $value }}. 항상 0이어야 한다. 즉시 정지·조사."
+          summary: "원장 자산 총합 위반"
+          metric: "imbalance"
+          value: "{{ $value }}"
+          threshold: "> 0"
+          duration: "0s"
+          dashboard: "① 체결 무결성 증명 (proof-integrity)"
+          runbook: "기획안 §7.4 장애 대응 절차"
 
       - alert: InvariantViolation
         expr: max by (check_name, severity) (exchange_invariant_violations) > 0
@@ -23,7 +28,12 @@ groups:
           severity: "{{ $labels.severity }}"
         annotations:
           summary: "불변식 위반: {{ $labels.check_name }}"
-          description: "check_name={{ $labels.check_name }} 위반행={{ $value }}. §5-6 C-카탈로그 심각도로 라우팅."
+          metric: "violations"
+          value: "{{ $value }} rows"
+          threshold: "> 0"
+          duration: "30s"
+          dashboard: "① 체결 무결성 증명 (proof-integrity)"
+          runbook: "기획안 §12.3 · 검증설계 §5-6 C-카탈로그"
 
       - alert: OrderP99SloBreach
         expr: exchange:order_latency:p99_1m > 0.5
@@ -31,8 +41,13 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "주문 지연 p99가 500ms SLO 초과"
-          description: "exchange:order_latency:p99_1m={{ $value }}s. 거부는 늘어도 무결성은 방어가 원칙."
+          summary: "주문 지연 p99 SLO 초과"
+          metric: "p99"
+          value: "{{ $value }}s"
+          threshold: "> 0.5s"
+          duration: "2m"
+          dashboard: "③ 부하·SLO (proof-load-slo)"
+          runbook: "기획안 §7.8 부하 구간과 고부하 대응"
 
       - alert: FailoverRtoExceeded
         expr: max(exchange_failover_downtime_seconds) > 30
@@ -40,8 +55,13 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "페일오버 RTO 30s 목표 초과"
-          description: "exchange_failover_downtime_seconds={{ $value }}s. 목표 <30s(API§7-4)."
+          summary: "페일오버 RTO 목표 초과"
+          metric: "downtime"
+          value: "{{ $value }}s"
+          threshold: "> 30s"
+          duration: "0s"
+          dashboard: "② 자동 복구 증명 (proof-recovery)"
+          runbook: "기획안 §7.4 · API §7-4"
 
       - alert: LeaderAbsent
         expr: absent(exchange_leader_is_leader == 1)
@@ -49,26 +69,28 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "리더 부재 15s 초과"
-          description: "exchange_leader_is_leader==1 시계열 소멸. 승격 지연·양쪽 스탠바이 의심."
+          summary: "리더 부재"
+          metric: "leader"
+          value: "not detected"
+          threshold: "absent 15s"
+          duration: "15s"
+          dashboard: "② 자동 복구 증명 (proof-recovery)"
+          runbook: "기획안 §7.4 장애 대응 절차"
 
-      # 회복 가능 반납 반복은 재생 불가 신호다. 리더가 잠깐씩 존재해 LeaderAbsent가
-      # 발화하지 않으므로 별도 축이 필요하다. E2 페일오버 1회의 정상 상한은 1이다.
-      # 임계를 > 2로 둔 것은 increase() 외삽 오차 흡수용이고 상한이 2라는 뜻이 아니다.
-      # 델타를 직접 재는 E2 실험 게이트는 외삽이 없어 상한 1을 그대로 쓴다(CICD §5-2).
       - alert: RecoverableStandDownRepeating
         expr: increase(exchange_leader_recoverable_standdown_total[5m]) > 2
         for: 0s
         labels:
           severity: critical
         annotations:
-          summary: "승격 재생 실패 반복(회복 가능 반납 5분 2회 이상)"
-          description: "instance={{ $labels.instance }} 5분 증가={{ $value }}(외삽 추정치라 실증분보다 크다). exchange_leader_epoch 계단과 대조해 승격·반납 루프인지 확인한다."
+          summary: "승격 재생 실패 반복"
+          metric: "standdown 5m"
+          value: "{{ $value }}"
+          threshold: "> 2"
+          duration: "0s"
+          dashboard: "② 자동 복구 증명 (proof-recovery)"
+          runbook: "기획안 §7.4 · DB 설계 §5.4"
 
-      # 스냅샷 파이프라인 경보(SnapshotCapture, 서버 실등록 4종). 정확성은 무손실이라
-      # 무결성 계열(critical)이 아니라 복구 준비도 저하(warning)로 둔다. 지속되면 채택
-      # 스냅샷이 낡아 복구가 저널 seq 0 전량 재생으로 폴백하고 RTO가 저널 크기에 비례한다.
-      # 데모 저널이 작아 전량 재생이 우연히 RTO를 통과해도 이 경보가 스냅샷 경로 회귀를 드러낸다.
       - alert: SnapshotPersistFailed
         expr: rate(exchange_snapshot_persist_failed_total[5m]) > 0
         for: 1m
@@ -76,8 +98,13 @@ groups:
           severity: warning
           component: snapshot
         annotations:
-          summary: "스냅샷 영속화 실패(복구 tail 상한 무력화 위험)"
-          description: "instance={{ $labels.instance }} persist_failed rate={{ $value }}/s. 워커 INSERT 실패가 지속되면 채택 가능 스냅샷이 낡아 복구가 저널 전량 재생으로 폴백한다."
+          summary: "스냅샷 영속화 실패"
+          metric: "persist_failed"
+          value: "{{ $value }}/s"
+          threshold: "> 0"
+          duration: "1m"
+          dashboard: "④ 시스템 (proof-system)"
+          runbook: "기획안 §7.5 백업과 복구"
 
       - alert: SnapshotDropped
         expr: rate(exchange_snapshot_dropped_total[5m]) > 0
@@ -86,8 +113,13 @@ groups:
           severity: warning
           component: snapshot
         annotations:
-          summary: "스냅샷 캡처 드롭(유계 큐 포화·인코딩 실패)"
-          description: "instance={{ $labels.instance }} dropped rate={{ $value }}/s. 정확성은 무손실이나 채택 스냅샷 간격이 벌어져 tail 재생이 길어진다."
+          summary: "스냅샷 캡처 드롭"
+          metric: "dropped"
+          value: "{{ $value }}/s"
+          threshold: "> 0"
+          duration: "1m"
+          dashboard: "④ 시스템 (proof-system)"
+          runbook: "기획안 §7.5 백업과 복구"
 
       - alert: SnapshotStalled
         expr: |
@@ -98,22 +130,14 @@ groups:
           severity: warning
           component: snapshot
         annotations:
-          summary: "스냅샷 영속화 정지(캡처 진행, seq 전진 없음)"
-          description: "instance={{ $labels.instance }} last_persisted_seq가 5분 창에서 전진 0회인데 캡처는 큐잉 중. 워커 스레드 정체·영속화 지속 실패. 복구가 저널 전량 재생으로 폴백해 RTO가 저널 크기에 비례한다. 비리더는 캡처 rate 0이라 발화하지 않는다."
+          summary: "스냅샷 영속화 정지"
+          metric: "seq advance 5m"
+          value: "0"
+          threshold: "= 0"
+          duration: "2m"
+          dashboard: "④ 시스템 (proof-system)"
+          runbook: "기획안 §7.5 백업과 복구"
 
-      # 시퀀서 백프레셔(§5-2 P4). 라이터 유계 큐 용량은 65536(ArrayBlockingQueue, EngineProperties
-      # 기본값). 큐가 가득 차면 접수가 백프레셔 거부(rate_limited)로 떨어진다. 임계는 용량이 아니라
-      # 실측에서 유도한다(아래). 단일 라이터가 정상이면 큐는 2초 스크레이프 간 0 근처로 배수되므로
-      # 1분 평균이 임계를 지속 초과하면 도착률이 배수율을 앞선다는 뜻이다. 무결성이 아니라 처리량
-      # 저하 신호라 warning. exchange:sequencer_queue:avg1m은 리더 노드 큐의 1분 이동평균(레코딩 규칙).
-      # 임계 50의 유도(2026-09-03 실측, harness/evidence/gateoff-20260903-2vcpu/ 5·6회차).
-      # 종전 8192는 용량 65536의 1/8이라는 산술로 잡은 값이고 관측 근거가 없었다. 두 방향
-      # 모두에서 닿지 않는다. 게이트가 켜져 있으면 in-flight 상한이 큐를 1~3에 묶고, 꺼져
-      # 있으면 큐가 8192에 닿기 전에 노드가 먼저 죽는다(2 vCPU 실측 최대 236).
-      # 재유도는 avg1m 기준이다(이 알람이 쓰는 축). 게이트 OFF 계단에서
-      # 정상 구간 주문 20/s(p95 1.6초)의 avg1m 최대가 29, 열화 시작 26/s(p95 4.7초)가 93이다.
-      # 둘 사이를 갈라 50으로 잡는다. 정상 구간에서 오발화하지 않고, 응답이 쓸 수 없게 되는
-      # 구간에서는 발화한다. 게이트 ON 주행의 큐는 1~3이라 평시 오발화 여지가 없다.
       - alert: SequencerQueueBackpressure
         expr: exchange:sequencer_queue:avg1m > 50
         for: 1m
@@ -121,12 +145,14 @@ groups:
           severity: warning
           component: sequencer
         annotations:
-          summary: "시퀀서 라이터 큐 백프레셔(포화 선행 경보)"
-          description: "sequencer_queue avg1m={{ $value }} > 50(실측 재유도. 정상 20 OPS 29, 열화 26 OPS 93). 도착률이 단일 라이터 배수율을 앞선다. 지속되면 응답 지연이 초 단위로 오른다. 수용 게이트가 켜져 있는지 먼저 확인한다."
+          summary: "시퀀서 큐 백프레셔"
+          metric: "queue avg1m"
+          value: "{{ $value }}"
+          threshold: "> 50"
+          duration: "1m"
+          dashboard: "③ 부하·SLO (proof-load-slo)"
+          runbook: "기획안 §7.8 부하 구간과 고부하 대응"
 
-      # 비rate_limited 거부 급증. 429는 설계상 부하 차단 경로라 제외한다. 스파이크 창에서는
-      # 주입 상한 100 req/s와 노드 수용 천장 40~42/s의 차가 설계대로 전량 429가 된다.
-      # 임계 1/s의 유도는 CICD §5-2 미방출 항목의 exchange.orders.rejected 항에 둔다.
       - alert: OrderRejectSpike
         expr: exchange:orders_rejected:rate1m{reason!~"rate_limited|insufficient_funds|invalid_price|invalid_volume|over_max_order|under_min_order"} > 1
         for: 2m
@@ -134,15 +160,14 @@ groups:
           severity: warning
           component: order-gateway
         annotations:
-          summary: "주문 거부 급증(reason={{ $labels.reason }})"
-          description: "reason={{ $labels.reason }} 거부율={{ $value }}/s > 1(확정 스파이크 상한 100 req/s의 1%). 정상 부하 도메인 거부(rate_limited·insufficient_funds·invalid_price·invalid_volume·over/under_max/min_order)는 제외했으므로, 잔여 사유(account_suspended·admin_forbidden·out_of_scope·client_order_id_required·invalid_parameter) 급증은 클라이언트 버그·인증 이상을 시사한다."
+          summary: "주문 거부 급증"
+          metric: "reject rate ({{ $labels.reason }})"
+          value: "{{ $value }}/s"
+          threshold: "> 1/s"
+          duration: "2m"
+          dashboard: "③ 부하·SLO (proof-load-slo)"
+          runbook: "기획안 §7.4 장애 대응 절차"
 
-      # 봇 플릿 프로세스 사망(7.9 침묵 축). 봇 노드는 상시면의 유일한 트래픽 발생원이자
-      # 합성 트랜잭션 감시원이다. 2026-09-03 실측에서 봇 노드를 강제 종료했더니 거래소 지표는
-      # 전부 정상이었다(readiness 200, 리더 1, epoch 1, 강등 0, 서비스 가능 1). 움직인 것은
-      # 누적 체결이 멈춘 것 하나이고 그것을 보는 알람이 없었다
-      # (harness/evidence/gateoff-20260903-2vcpu/ 8회차). 감시원을 세우면 감시원을 감시하는
-      # 축이 함께 필요하다. 30초 임계는 기획안 7.9 표의 값이다.
       - alert: BotFleetDown
         expr: up{job="chaos-bots"} == 0
         for: 30s
@@ -150,20 +175,14 @@ groups:
           severity: warning
           component: bots
         annotations:
-          summary: "봇 플릿 노드 스크레이프 불가"
-          description: "job=chaos-bots up=0 이 30초 지속. 상시면 기저 트래픽 발생원이 끊겼다. 거래소 쪽 지표는 전부 정상으로 보이므로 이 알람 없이는 무거래 상태를 알 수 없다."
+          summary: "봇 플릿 스크레이프 불가"
+          metric: "up"
+          value: "0"
+          threshold: "= 0"
+          duration: "30s"
+          dashboard: "MSP 종합 (msp-overview)"
+          runbook: "기획안 §7.9 침묵 판정"
 
-      # 체결 침묵(7.9). 단순 == 0 을 쓰지 않는 이유가 둘이다. exchange_trades_total 은 마켓별
-      # 첫 체결 시점에 지연 등록되므로(MarketDataPublisher.tradeCounter, computeIfAbsent) 체결을
-      # 낸 적 없는 마켓에는 시계열 자체가 없다. 그리고 프로세스가 죽으면 스크레이프가 끊겨
-      # 시계열을 잃는다. 두 경우 모두 == 0 비교가 빈 결과가 되어 알람이 성립하지 않는다.
-      # 단순 식은 사망 쪽을 못 잡고 평온 쪽만 잡는다. or vector(0) 으로 부재를 0 으로 접는다.
-      #
-      # 거래소가 살아 있을 때만 발화하게 묶는다. 거래소 사망은 LeaderAbsent 가 잡으므로 여기서
-      # 겹쳐 울리면 원인 지목이 흐려진다. 이 알람의 뜻은 하나다. 거래소는 멀쩡한데 아무도
-      # 거래하지 않는다. BotFleetDown 이 함께 떠 있으면 원인은 프로세스 사망이고, 이것만 떠
-      # 있으면 봇은 살아 있으나 주문이 나가지 않는 것이다(대상 주소 오설정, 인증 실패).
-      # 후자는 실측에서 마스터키 불일치로 재현된 적이 있다(7회차).
       - alert: TradeSilence
         expr: (sum(rate(exchange_trades_total[2m])) or vector(0)) == 0 and on() (max(up{job="exchange-api"}) == 1)
         for: 1m
@@ -171,5 +190,10 @@ groups:
           severity: warning
           component: bots
         annotations:
-          summary: "체결 침묵. 거래소는 정상인데 거래가 없다"
-          description: "2분 체결률이 0 이고 1분 지속. 거래소는 스크레이프에 응답 중이다. BotFleetDown 동반 시 원인은 봇 노드 사망, 단독 발화 시 봇은 살아 있으나 주문이 나가지 않는 상태다."
+          summary: "체결 침묵"
+          metric: "trade rate 2m"
+          value: "0 TPS"
+          threshold: "= 0 TPS"
+          duration: "1m"
+          dashboard: "MSP 종합 (msp-overview)"
+          runbook: "기획안 §7.9 침묵 판정"
