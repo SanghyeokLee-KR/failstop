@@ -25,9 +25,12 @@ $exts = @(".md", ".ps1", ".java", ".ts", ".tsx", ".yml", ".yaml", ".sql", ".js",
 $skipNames = @("node_modules", ".git")
 # .claude/worktrees/ 는 다른 커밋을 체크아웃한 저장소 사본이라 그 시점의 인용을 그대로 갖는다.
 # 문서를 옮긴 뒤 사본이 남아 있으면 이미 고친 인용이 깨진 것으로 다시 잡힌다.
+# db/migration/ 은 적용 뒤 한 글자도 못 고친다(30절). 주석의 문서 경로까지 이 게이트가
+# 잡으면 문서를 옮길 때마다 마이그레이션을 고치게 되고, 그러면 기존 볼륨을 쥔 노드가
+# 체크섬 불일치로 전부 기동을 거부한다. 실제로 2026-08-31 에 주석 한 줄로 그렇게 됐다.
 $skipPaths = @("server/build", "server/*/build", "server/.gradle",
                "web/.next", "web/.test-dist", "web/out", "seed-data/out",
-               ".claude/worktrees")
+               ".claude/worktrees", "server/app/src/main/resources/db/migration")
 $skipFiles = @("package-lock.json")
 # 폐기 문서 발신은 판정 대상이 아니다. 스타일 게이트의 archive 면제와 같은 규약이다.
 $archivePrefix = "docs/archive/"
