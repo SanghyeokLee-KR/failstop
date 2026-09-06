@@ -1,0 +1,19 @@
+9655|543.8|NEW.status = 'SEALED'
+       AND NOT EXISTS (SELECT 1 FROM ledger_entries WHERE transaction_id = OLD.id)
+9655|597.4|SELECT count(*)          FROM (
+        SELECT asset_id FROM ledger_entries WHERE transaction_id = NEW.transac
+9655|632.8|SELECT le.account_id, SUM(le.amount) AS delta
+        FROM ledger_entries le
+        WHERE le.transaction_id =
+9655|2669.4|INSERT INTO ledger_entries (transaction_id, account_id, asset_id, amount, entry_type)
+    SELECT v_txn, e.acco
+9655|1155.4|EXISTS (
+        SELECT 1 FROM ledger_entries le JOIN assets a ON a.id = le.asset_id
+        WHERE le.transact
+9655|1866.5|WITH d AS (
+            SELECT a.owner_id AS user_id, le.asset_id, SUM(le.amount) AS delta
+            FROM le
+9655|570.7|EXISTS (
+        SELECT 1 FROM ledger_entries
+        WHERE transaction_id = v_txn
+        GROUP BY asset_id H

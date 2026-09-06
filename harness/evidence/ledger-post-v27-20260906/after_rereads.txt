@@ -1,0 +1,9 @@
+10328|626.1|NEW.status = 'SEALED'
+       AND NOT EXISTS (SELECT 1 FROM ledger_entries WHERE transaction_id = OLD.id)
+10328|644.1|SELECT count(*)          FROM (
+        SELECT asset_id FROM ledger_entries WHERE transaction_id = NEW.transac
+10328|2659.2|INSERT INTO ledger_entries (transaction_id, account_id, asset_id, amount, entry_type)
+    SELECT v_txn, e.acco
+10328|2039.6|WITH d AS (
+            SELECT a.owner_id AS user_id, le.asset_id, SUM(le.amount) AS delta
+            FROM le

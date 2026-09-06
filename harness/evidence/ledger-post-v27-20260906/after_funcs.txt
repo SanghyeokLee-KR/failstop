@@ -1,0 +1,3 @@
+10275|14839.7|1.444|SELECT reserve_funds($1, $2, $3, $4, $5)
+10328|6087.6|0.589|SELECT apply_position_cost(v_txn)
+53|111.3|2.099|SELECT post_ledger_transaction('TRADE', $1, $2::jsonb)

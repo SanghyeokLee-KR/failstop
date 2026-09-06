@@ -1,0 +1,4 @@
+rate=40 accepted=10383 p95=117ms
+rate=60 accepted=11519 p95=115.46ms
+rate=80 accepted=12020 p95=119.84ms
+rate=100 accepted=12452 p95=124.99ms
