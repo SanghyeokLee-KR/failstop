@@ -1,0 +1,5 @@
+balance_mismatch=0
+asset_sum_nonzero=0
+unsealed=0
+poscost_qty_mismatch=0
+ledger_entries=27054
