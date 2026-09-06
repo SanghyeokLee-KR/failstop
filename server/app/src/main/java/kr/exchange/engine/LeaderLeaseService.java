@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,6 +41,8 @@ public class LeaderLeaseService implements AutoCloseable {
     // 생존성과 분리되므로, 요청 경로가 멈춘 노드도 리스만 갱신하는 좀비 리더가 성립한다.
     private final NodeServiceHealth serviceHealth;
     private final String holder = UUID.randomUUID().toString();
+    // 이 노드가 승격을 감시하기 시작한 시각(DB 시계). 첫 획득 시도에서 잡는다.
+    private volatile OffsetDateTime watchingSince;
     // null이면 리더 아님. 값은 획득 시점의 epoch.
     private final AtomicReference<Long> epoch = new AtomicReference<>();
     // 상실 확정 후 재승격 금지(§5.4 self-shutdown). 강등 시점의 엔진 인메모리 상태는 타 리더의
@@ -350,14 +353,26 @@ public class LeaderLeaseService implements AutoCloseable {
      * (같은 ttl로 renew하므로, 하네스 CICD §5-1 T1). 시드(holder='')나 실 페일오버가 아닌
      * 최초 기동 승격은 0을 돌려 게이지 오염을 막는다. 읽기 실패는 0으로 흡수해 승격을 막지 않는다.
      */
+    /**
+     * 구 리더 최종 심박부터 이 노드의 승격까지. 페일오버가 아닌 구간을 세지 않으려고 이 노드가
+     * 감시를 시작한 시각으로 하한을 건다. 리스 행은 스택 종료를 넘어 볼륨에 남으므로, 하한이
+     * 없으면 스택을 껐다 켠 시간이 통째로 다운타임이 되어 RTO 알람이 기동마다 오발화한다.
+     * 두 시각을 모두 DB 시계로 읽어 JVM 과의 스큐가 판정에 들어오지 않게 한다.
+     */
     private double capturePriorDowntimeSeconds() {
         try {
+            if (watchingSince == null) {
+                watchingSince = jdbc.sql("SELECT clock_timestamp()")
+                        .query(OffsetDateTime.class)
+                        .single();
+            }
             Double expiredSeconds = jdbc.sql("""
                     SELECT CASE WHEN holder <> ''
-                                THEN EXTRACT(EPOCH FROM (clock_timestamp() - lease_until))
+                                THEN EXTRACT(EPOCH FROM (clock_timestamp() - GREATEST(lease_until, ?)))
                                 ELSE NULL END
                     FROM leader_lease WHERE resource = 'matching-engine'
                     """)
+                    .param(watchingSince)
                     .query(Double.class)
                     .optional()
                     .orElse(null);

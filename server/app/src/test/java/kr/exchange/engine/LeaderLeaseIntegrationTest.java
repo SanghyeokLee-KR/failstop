@@ -18,9 +18,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -154,6 +156,50 @@ class LeaderLeaseIntegrationTest {
         LeaderLeaseService fresh =
                 new LeaderLeaseService(jdbc, Duration.ofSeconds(60), Duration.ofSeconds(1));
         assertTrue(fresh.tryAcquire(), "신규 인스턴스 승격이 막히면 안 된다");
+    }
+
+    @Test
+    @Order(7)
+    void 오래_만료된_리스를_주워도_페일오버_다운타임으로_세지_않는다() {
+        // 리스 행은 볼륨에 남아 스택 종료를 넘긴다. 하한이 없으면 꺼 둔 시간이 통째로
+        // 다운타임이 되어 RTO 알람이 기동마다 오발화한다.
+        jdbc.sql("UPDATE leader_lease SET lease_until = clock_timestamp() - interval '36 hours' "
+                        + "WHERE resource = 'matching-engine'")
+                .update();
+
+        LeaderLeaseService coldStart =
+                new LeaderLeaseService(jdbc, Duration.ofSeconds(60), Duration.ofSeconds(1));
+        AtomicReference<Double> reported = new AtomicReference<>();
+        coldStart.onLeadershipAcquired((identity, downtime) -> reported.set(downtime));
+
+        assertTrue(coldStart.tryAcquire(), "만료 리스는 획득할 수 있어야 한다");
+        assertNotNull(reported.get(), "승격 통지가 오지 않았다");
+        assertTrue(reported.get() < 120,
+                "감시 시작 이전 구간을 다운타임으로 셌다: " + reported.get() + "s");
+    }
+
+    @Test
+    @Order(8)
+    void 감시_중이던_노드의_실제_페일오버는_그대로_잰다() {
+        LeaderLeaseService standby =
+                new LeaderLeaseService(jdbc, Duration.ofSeconds(60), Duration.ofSeconds(1));
+        AtomicReference<Double> reported = new AtomicReference<>();
+        standby.onLeadershipAcquired((identity, downtime) -> reported.set(downtime));
+
+        // 유효 리스를 세워 감시만 하게 만든다. 이 실패한 시도가 감시 시작 시각을 잡는다.
+        jdbc.sql("UPDATE leader_lease SET lease_until = clock_timestamp() + interval '60 seconds' "
+                        + "WHERE resource = 'matching-engine'")
+                .update();
+        assertFalse(standby.tryAcquire(), "유효 리스는 탈취할 수 없다");
+
+        // 그 뒤 리더가 죽어 리스가 20초 전에 만료됐다.
+        jdbc.sql("UPDATE leader_lease SET lease_until = clock_timestamp() - interval '20 seconds' "
+                        + "WHERE resource = 'matching-engine'")
+                .update();
+        assertTrue(standby.tryAcquire(), "만료 후에는 승격해야 한다");
+        assertNotNull(reported.get(), "승격 통지가 오지 않았다");
+        assertTrue(reported.get() >= 20,
+                "실제 페일오버 구간이 하한에 깎였다: " + reported.get() + "s");
     }
 
     private static String leaseHolder() {
