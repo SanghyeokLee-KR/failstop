@@ -275,11 +275,15 @@ public class EngineConfig {
         return coordinator;
     }
 
+    // 카탈로그는 API 계층이 소유한다. 엔진에는 정지 여부를 묻는 함수 하나만 넘겨 의존 방향을
+    // 뒤집지 않는다. 조회는 메모리 스냅샷이라 저널 경로에 DB 왕복이 생기지 않는다.
     @Bean
     public EngineBridge engineBridge(CommandJournalAppender appender, SingleWriterLoop loop,
                                      CommandPayloadMapper commandPayloadMapper,
-                                     PromotionCoordinator promotionCoordinator) {
-        return new EngineBridge(appender, loop, commandPayloadMapper, promotionCoordinator.gate());
+                                     PromotionCoordinator promotionCoordinator,
+                                     kr.exchange.api.market.MarketDirectory markets) {
+        return new EngineBridge(appender, loop, commandPayloadMapper, promotionCoordinator.gate(),
+                marketId -> "HALTED".equals(markets.byId(marketId).status()));
     }
 
     // 봇 전용 노드는 엔진을 끄고 리더 경쟁에서 빠진다(격리 토폴로지에서 봇이 죽인 리더로

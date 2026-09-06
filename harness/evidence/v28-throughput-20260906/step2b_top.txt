@@ -1,0 +1,24 @@
+14252|23733|1.665|SELECT reserve_funds($1, $2, $3, $4, $5)
+14352|9583|0.668|SELECT apply_position_cost(v_txn)
+14352|5425|0.378|UPDATE ledger_transactions
+    SET status = 'SEALED', sealed_at = clock_timestamp()
+    WHERE id = v
+14352|4150|0.289|INSERT INTO ledger_entries (transaction_id, account_id, asset_id, amount, entry_type)
+    SELECT v_t
+14352|3449|0.240|WITH d AS (
+            SELECT a.owner_id AS user_id, le.asset_id, SUM(le.amount) AS delta
+         
+14252|3441|0.241|INSERT INTO orders
+  (id, external_id, user_id, market_id, client_order_id, side, ord_type,
+   time_
+28704|2046|0.071|SELECT a.symbol, ub.available, ub.locked,
+       COALESCE(pc.cost_qty, $3)    AS cost_basis_qty,
+   
+14352|1973|0.137|NEW.status = 'SEALED'
+       AND NOT EXISTS (SELECT 1 FROM ledger_entries WHERE transaction_id = OLD
+42956|1127|0.026|SELECT o.id, o.external_id, o.user_id, o.market_id, m.symbol AS market_symbol,
+       o.client_order
+28504|1126|0.040|SELECT next_journal_value($1)
+28504|1074|0.038|SELECT assert_current_leader($1, $2)
+14352|985|0.069|SELECT count(*)          FROM (
+        SELECT asset_id FROM ledger_entries WHERE transaction_id = N

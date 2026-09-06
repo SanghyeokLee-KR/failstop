@@ -33,6 +33,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -344,6 +345,50 @@ class EngineRuntimeIntegrationTest {
         assertFalse(result.replayed());
         assertTrue(result.queued());
         return result;
+    }
+
+    @Test
+    @Order(9)
+    void 정지된_마켓_주문은_저널에_닿기_전에_거부된다() throws Exception {
+        // 게이트웨이가 ACTIVE 를 본 뒤 관리자가 정지시킨 창을 흉내낸다. 이미 통과한 주문이
+        // 엔진에 도착해도 저널 append 전에 끊겨야 한다.
+        // 앞 회차가 종신 강등을 거쳤다. 재승격 금지는 인스턴스 단위이므로 새 리스 서비스로
+        // 승격해야 저널 append 가 fencing 을 통과한다.
+        LeaderLeaseService freshLease =
+                new LeaderLeaseService(jdbc, Duration.ofSeconds(120), Duration.ofSeconds(1));
+        takeOver(freshLease);
+        CommandJournalAppender appender = new CommandJournalAppender(jdbc, tx, freshLease);
+        // 이벤트 어펜더도 같은 리스에 묶는다. 클래스 리스는 방금 리더십을 잃어 fencing 에 걸린다.
+        EventJournalAppender events =
+                new EventJournalAppender(jdbc, tx, freshLease, objectMapper);
+        MatchingEngineImpl live = new MatchingEngineImpl();
+        SingleWriterLoop loop = new SingleWriterLoop(1024, live, events::append,
+                new JournalCatchUpSource(commandReader, mapper), t -> { });
+        AtomicBoolean halted = new AtomicBoolean(false);
+        EngineBridge bridge = new EngineBridge(appender, loop, mapper,
+                AcceptGate.ALWAYS_OPEN, marketId -> halted.get());
+        loop.start();
+        try {
+            long before = journalRows();
+            submit(bridge, limitIntake(901, 9901, OrderCommand.Side.SELL, "100", "1"));
+            long afterAccepted = journalRows();
+            assertTrue(afterAccepted > before, "정상 주문이 저널에 남지 않았다");
+
+            halted.set(true);
+            assertThrows(EngineBridge.MarketHaltedException.class,
+                    () -> bridge.submit(limitIntake(901, 9902, OrderCommand.Side.SELL, "100", "1")));
+            assertEquals(afterAccepted, journalRows(), "정지 중 주문이 저널에 기록됐다");
+
+            halted.set(false);
+            submit(bridge, limitIntake(901, 9903, OrderCommand.Side.SELL, "100", "1"));
+            assertTrue(journalRows() > afterAccepted, "해제 뒤 주문이 저널에 남지 않았다");
+        } finally {
+            loop.stop();
+        }
+    }
+
+    private static long journalRows() {
+        return jdbc.sql("SELECT count(*) FROM command_journal").query(Long.class).single();
     }
 
     private static OrderIntake limitIntake(long userId, long orderId, OrderCommand.Side side,

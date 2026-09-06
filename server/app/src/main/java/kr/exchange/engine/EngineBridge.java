@@ -29,19 +29,43 @@ public class EngineBridge {
     private final SingleWriterLoop loop;
     private final CommandPayloadMapper payloadMapper;
     private final AcceptGate acceptGate;
+    private final MarketStatusSource marketStatus;
     private final ReentrantLock submitLock = new ReentrantLock();
 
     public EngineBridge(CommandJournalAppender appender, SingleWriterLoop loop,
                         CommandPayloadMapper payloadMapper) {
-        this(appender, loop, payloadMapper, AcceptGate.ALWAYS_OPEN);
+        this(appender, loop, payloadMapper, AcceptGate.ALWAYS_OPEN, NEVER_HALTED);
     }
 
     public EngineBridge(CommandJournalAppender appender, SingleWriterLoop loop,
                         CommandPayloadMapper payloadMapper, AcceptGate acceptGate) {
+        this(appender, loop, payloadMapper, acceptGate, NEVER_HALTED);
+    }
+
+    public EngineBridge(CommandJournalAppender appender, SingleWriterLoop loop,
+                        CommandPayloadMapper payloadMapper, AcceptGate acceptGate,
+                        MarketStatusSource marketStatus) {
         this.appender = appender;
         this.loop = loop;
         this.payloadMapper = payloadMapper;
         this.acceptGate = acceptGate;
+        this.marketStatus = marketStatus;
+    }
+
+    /** 엔진이 마켓 카탈로그 전체를 알 필요는 없다. 정지 여부 하나만 본다. */
+    @FunctionalInterface
+    public interface MarketStatusSource {
+        boolean isHalted(int marketId);
+    }
+
+    /** 카탈로그 없이 엔진만 세우는 경로용. 정지 판정은 그 경우 호출자 책임이다. */
+    public static final MarketStatusSource NEVER_HALTED = marketId -> false;
+
+    /** 저널 커밋 전 거부. 게이트웨이 통과와 정지가 겹친 창에서만 난다. */
+    public static class MarketHaltedException extends RuntimeException {
+        public MarketHaltedException(int marketId) {
+            super("마켓 정지 상태: 접수 거부(market=" + marketId + ")");
+        }
     }
 
     public SubmitResult submit(OrderIntake intake) {
@@ -56,6 +80,11 @@ public class EngineBridge {
                 // 리더지만 승격 재생(PROMOTING) 중이다. head 선복원 전 접수를 열면 catch-up이
                 // 대규모 delta를 정산 sink로 태우는 결함 경로가 재발한다. 저널 커밋 전에 거부한다.
                 throw new NotReadyException("승격 재생 진행 중: 접수 보류");
+            }
+            // 게이트웨이 검사와 여기 사이에 정지가 들어오면 통과한 주문이 저널에 남는다.
+            // 로컬 스냅샷을 다시 보고 저널 커밋 전에 끊는다. DB 를 보지 않는다.
+            if (marketStatus.isHalted(intake.marketId())) {
+                throw new MarketHaltedException(intake.marketId());
             }
             CommandDraft draft = new CommandDraft(
                     intake.marketId(), intake.type(), intake.userId(), intake.clientOrderId(),

@@ -1,28 +1,42 @@
 package kr.exchange.api.market;
 
 import kr.exchange.api.common.ApiException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 마켓 규칙·자산 구성 조회. 게이트웨이 검증(tick/lot/min·max/scale 가드, §1.4 앱 가드 목록)과
  * 시장 데이터 응답이 같은 행을 본다. 요율 박제(§5.2)의 원천이기도 하다.
  *
- * 카탈로그 전체를 TTL 캐시로 들고 세 조회가 그 스냅샷을 본다. 2026-09-06 실측
+ * 카탈로그 전체를 스냅샷으로 들고 세 조회가 그것을 본다. 2026-09-06 실측
  * (pg_stat_statements, 주입 200/s 2분)에서 이 조회가 192,409 회로 DB 시간의 16.6% 였다.
  * 회당 0.052ms 라 계획이 아니라 횟수가 비용이다. MarketDataPublisher 가 엔진 이벤트마다
  * byId 를 부르는 것이 대부분을 만든다.
  *
- * 관리 평면이 별도 JVM 이라 프로세스 내 무효화가 닿지 않는다. markets 를 런타임에 바꾸는
- * 경로는 ConfigAdminController 의 halt·resume 과 수수료 변경 둘뿐이고 둘 다 그 JVM 에 있다.
- * 그래서 TTL 로만 수렴시킨다. 대가는 halt 반영이 최대 TTL 만큼 늦는 것이다. 엔진은 status 를
- * 따로 보지 않으므로 그 창에서는 정지된 마켓의 주문이 접수된다.
+ * 갱신은 전용 데몬 스레드가 1초 주기로 전량을 다시 읽어 통째로 갈아 끼운다. 요청 스레드는
+ * DB 를 보지 않는다. 관리 평면이 별도 JVM 이라 프로세스 내 무효화가 닿지 않고, 이 저장소에
+ * 메시지 버스도 LISTEN/NOTIFY 선례도 없어 주기 재적재가 가장 작은 수단이다. 리스 서비스가
+ * 같은 관용구로 리더 상태를 JVM 사이에 공유한다.
+ *
+ * 주기 재적재가 성립하는 이유는 카탈로그가 작아서다. 2026-09-06 실측으로 12마켓 13자산이고
+ * 전량 조회가 평균 0.1296ms 최대 0.1473ms 다. 초당 한 번이면 DB 시간이 초당 0.13ms 다.
+ *
+ * 갱신에 실패하면 직전 정상 스냅샷을 그대로 쓴다. 빈 스냅샷으로 갈아 끼우면 전 마켓이
+ * 미등록이 되어 거래가 통째로 멎는다. 낡은 값이 그보다 낫다.
  */
-public class MarketDirectory {
+public class MarketDirectory implements AutoCloseable {
+
+    private static final Logger log = LoggerFactory.getLogger(MarketDirectory.class);
 
     public record Market(int id, String symbol, String status,
                          short baseAssetId, String baseSymbol, String baseName, int baseScale,
@@ -44,31 +58,94 @@ public class MarketDirectory {
             JOIN assets q ON q.id = m.quote_asset_id
             """;
 
-    // 5초. 상한은 halt 반영 지연이 정한다. 정지는 긴급 통제라 30초는 길고, 1초 미만이면
-    // 이벤트당 조회를 되살려 캐시 의미가 사라진다.
-    private static final long TTL_MS = 5_000;
+    // 1초. 상한은 halt 반영 지연이 정한다. 정지는 긴급 통제이므로 초 단위 위로 늘리지 않는다.
+    private static final long REFRESH_MS = 1_000;
 
     private record Snapshot(List<Market> ordered, Map<String, Market> bySymbol,
-                            Map<Integer, Market> byId, long expiresAt) {
+                            Map<Integer, Market> byId, long loadedAt) {
     }
 
     private final JdbcClient jdbc;
-    // 갱신을 한 스레드로 묶어 만료 순간의 동시 재적재를 막는다.
-    private final Object loadLock = new Object();
+    // 요청 스레드는 이 참조만 읽는다. 교체가 단일 대입이라 부분 상태가 보이지 않는다.
     private volatile Snapshot snapshot;
+    private volatile long lastSuccessAt;
+    private final AtomicLong refreshFailures = new AtomicLong();
+    private volatile ScheduledExecutorService refresher;
+    // 미스 재적재를 한 스레드로 묶는다. 정상 경로는 이 잠금을 지나지 않는다.
+    private final Object missLock = new Object();
+    private volatile long lastMissReloadAt;
 
     public MarketDirectory(JdbcClient jdbc) {
         this.jdbc = jdbc;
     }
 
+    /** 최초 적재와 주기 갱신 시작. 최초 적재는 기동을 막아야 하므로 예외를 그대로 올린다. */
+    public void start() {
+        if (refresher != null) {
+            return;
+        }
+        snapshot = load();
+        lastSuccessAt = snapshot.loadedAt();
+        ScheduledExecutorService s = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "market-catalog-refresh");
+            t.setDaemon(true);
+            return t;
+        });
+        s.scheduleWithFixedDelay(this::refresh, REFRESH_MS, REFRESH_MS, TimeUnit.MILLISECONDS);
+        refresher = s;
+    }
+
+    @Override
+    public void close() {
+        ScheduledExecutorService s = refresher;
+        refresher = null;
+        if (s != null) {
+            s.shutdownNow();
+        }
+    }
+
+    private void refresh() {
+        try {
+            Snapshot fresh = load();
+            snapshot = fresh;
+            lastSuccessAt = fresh.loadedAt();
+        } catch (RuntimeException e) {
+            // 직전 스냅샷을 버리지 않는다. 낡은 카탈로그가 빈 카탈로그보다 안전하다.
+            refreshFailures.incrementAndGet();
+            log.warn("마켓 카탈로그 갱신 실패. 직전 스냅샷 유지: {}", e.toString());
+        }
+    }
+
+    /** 관측용. 갱신 실패 누계와 마지막 성공 시각으로 스냅샷 나이를 판정한다. */
+    public long refreshFailureCount() {
+        return refreshFailures.get();
+    }
+
+    public long lastSuccessfulRefreshAt() {
+        return lastSuccessAt;
+    }
+
     public Market bySymbol(String symbol) {
-        Market m = current().bySymbol().get(symbol);
+        Snapshot s = current();
+        Market m = s.bySymbol().get(symbol);
+        if (m == null) {
+            s = reloadOnMiss(s);
+            m = s.bySymbol().get(symbol);
+        }
         if (m == null) {
             throw new ApiException(400, "invalid_parameter", "존재하지 않는 마켓입니다: " + symbol);
         }
         return m;
     }
 
+    /**
+     * 핫패스 전용. 스냅샷만 읽고 어떤 경우에도 DB 를 보지 않는다.
+     *
+     * MarketDataPublisher 가 엔진 이벤트마다, EngineBridge 가 저널 커밋 직전에 부른다. 뒤엣것은
+     * 단일 라이터의 submitLock 안이라 여기서 DB 를 한 번이라도 왕복하면 그 시간만큼 접수가
+     * 직렬로 멎는다. 실측에서 미스 재적재를 이 경로에 두었더니 TPS 가 123.6 에서 119.3 으로
+     * 내려갔다. 심볼 조회와 목록 조회만 미스 재적재를 갖는다.
+     */
     public Market byId(int marketId) {
         Market m = current().byId().get(marketId);
         if (m == null) {
@@ -77,33 +154,67 @@ public class MarketDirectory {
         return m;
     }
 
-    public List<Market> all() {
-        return current().ordered();
+    /**
+     * 미스 한 건에만 도는 동기 재적재. 기동 뒤에 마켓이 추가되는 배치(시딩·신규 상장)에서
+     * 다음 주기까지 기다리지 않게 한다.
+     *
+     * 빈도에 상한을 둔다. 없는 심볼을 반복해 보내면 미스가 계속 나므로, 상한이 없으면 그것이
+     * 곧 DB 부하 주입 경로가 된다. 상한은 스냅샷 나이가 아니라 직전 미스 재적재 시각으로 잰다.
+     * 나이로 재면 기동 직후 시딩된 마켓의 첫 조회가 갓 적재된 빈 스냅샷에 막힌다.
+     * 정상 운영에서는 미스가 나지 않으므로 이 경로가 돌지 않는다.
+     */
+    private Snapshot reloadOnMiss(Snapshot stale) {
+        long now = System.currentTimeMillis();
+        if (now - lastMissReloadAt < REFRESH_MS) {
+            return stale;
+        }
+        synchronized (missLock) {
+            if (System.currentTimeMillis() - lastMissReloadAt < REFRESH_MS) {
+                return snapshot;
+            }
+            lastMissReloadAt = System.currentTimeMillis();
+            try {
+                Snapshot fresh = load();
+                snapshot = fresh;
+                lastSuccessAt = fresh.loadedAt();
+                return fresh;
+            } catch (RuntimeException e) {
+                refreshFailures.incrementAndGet();
+                return stale;
+            }
+        }
     }
 
+    public List<Market> all() {
+        Snapshot s = current();
+        if (s.ordered().isEmpty()) {
+            // 빈 카탈로그는 이 서비스의 정상 상태가 아니다. 기동과 시딩이 겹친 창이므로
+            // 미스와 같은 처리로 한 번 다시 읽는다.
+            s = reloadOnMiss(s);
+        }
+        return s.ordered();
+    }
+
+    /** 요청 스레드 전용. DB 를 보지 않는다. */
     private Snapshot current() {
-        long now = System.currentTimeMillis();
         Snapshot s = snapshot;
-        if (s != null && s.expiresAt() > now) {
-            return s;
+        if (s == null) {
+            // start() 이전 호출이다. 배선 오류이므로 조용히 적재하지 않고 드러낸다.
+            throw new IllegalStateException("마켓 카탈로그 미적재: start() 선행 필요");
         }
-        synchronized (loadLock) {
-            s = snapshot;
-            if (s != null && s.expiresAt() > System.currentTimeMillis()) {
-                return s;
-            }
-            List<Market> rows = jdbc.sql(SELECT + " ORDER BY m.id").query(this::map).list();
-            Map<String, Market> byName = new HashMap<>(rows.size() * 2);
-            Map<Integer, Market> byKey = new HashMap<>(rows.size() * 2);
-            for (Market m : rows) {
-                byName.put(m.symbol(), m);
-                byKey.put(m.id(), m);
-            }
-            Snapshot fresh = new Snapshot(List.copyOf(rows), Map.copyOf(byName), Map.copyOf(byKey),
-                    System.currentTimeMillis() + TTL_MS);
-            snapshot = fresh;
-            return fresh;
+        return s;
+    }
+
+    private Snapshot load() {
+        List<Market> rows = jdbc.sql(SELECT + " ORDER BY m.id").query(this::map).list();
+        Map<String, Market> byName = new HashMap<>(rows.size() * 2);
+        Map<Integer, Market> byKey = new HashMap<>(rows.size() * 2);
+        for (Market m : rows) {
+            byName.put(m.symbol(), m);
+            byKey.put(m.id(), m);
         }
+        return new Snapshot(List.copyOf(rows), Map.copyOf(byName), Map.copyOf(byKey),
+                System.currentTimeMillis());
     }
 
     private Market map(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {

@@ -273,9 +273,13 @@ public class ApiConfig {
         return new AccountBootstrap(jdbc);
     }
 
-    @Bean
+    // destroyMethod 로 갱신 스레드를 회수한다. 데몬이라 JVM 종료는 막지 않으나 컨텍스트만
+    // 내렸다 올리는 테스트에서 스레드가 쌓인다.
+    @Bean(destroyMethod = "close")
     public MarketDirectory marketDirectory(JdbcClient jdbc) {
-        return new MarketDirectory(jdbc);
+        MarketDirectory directory = new MarketDirectory(jdbc);
+        directory.start();
+        return directory;
     }
 
     @Bean

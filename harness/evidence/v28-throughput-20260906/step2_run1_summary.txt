@@ -1,0 +1,11 @@
+accepted=14311
+tps=119.3
+p95=107.49ms
+checks_failed=0.00%
+http_req_failed=0.00%
+db_total_ms=84330
+market_calls=765
+orderbook_calls=58571
+orderbook_ms=5053
+poscost_calls=14372
+poscost_ms=18563
