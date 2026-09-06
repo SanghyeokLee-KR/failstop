@@ -174,15 +174,17 @@ class SimGovernanceIntegrationTest {
     }
 
     @Test
-    void statusIsSchema12Additive() throws Exception {
+    void statusIsSchema13Additive() throws Exception {
         String s = session("op-bot");
         put("/admin/v1/sim/scale", "{\"market\":\"KRW-BTC\",\"targets\":{\"TAKER\":3}}",
                 "op-bot", s);
         ResponseEntity<String> r = get("/admin/v1/sim/status", "op-bot", s);
         assertEquals(200, r.getStatusCode().value());
         JsonNode body = objectMapper.readTree(r.getBody());
-        assertEquals("1.2", body.path("schema_version").asText());
+        assertEquals("1.3", body.path("schema_version").asText());
         assertTrue(body.path("fleet_present").asBoolean());
+        // 1.3 additive: 값의 원천. 거버너가 이 JVM 에 있으므로 local 이다.
+        assertEquals("local", body.path("source").asText());
         assertTrue(body.has("target_ops"), "기존 1.0 필드 보존(additive)");
         // 1.2 additive: 플릿 수명주기. 이 컨텍스트는 BotFleet 빈이 없어 둘 다 false다.
         assertFalse(body.path("running").asBoolean());

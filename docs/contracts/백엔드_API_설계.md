@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.42, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.43, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -1178,8 +1178,9 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 { "schema_version":"1.0","created":40,"bot_ids":[],"fleet_total":140,
   "fleet_present":true,"applied_target":40,"clamped":false }
 
-// GET /admin/v1/sim/status → 200 (schema 1.2, 봇_방향성 §5-5)
-{ "schema_version":"1.2", "fleet_present":true, "running":true, "paused":false,
+// GET /admin/v1/sim/status → 200 (schema 1.3, 봇_방향성 §5-5). source=local
+{ "schema_version":"1.3", "fleet_present":true, "source":"local",
+  "running":true, "paused":false,
   "target_ops":"20", "trade_flash":"normal",
   "markets":[
     { "market":"KRW-BTC",
@@ -1187,14 +1188,26 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
       "auto_balance":{"enabled":true,"strength":"0.5"},
       "scale":{"MARKET_MAKER":{"target":40,"active":40},"TAKER":{"target":30,"active":28}},
       "fill_ratio":"0.61", "trade_flash":"normal" } ] }
+
+// GET /admin/v1/sim/status → 200 (schema 1.3). 봇 노드 발행분을 읽은 분리 배치
+{ "schema_version":"1.3", "fleet_present":false, "source":"published",
+  "observed_at":"2026-09-06T13:40:00.000Z", "stale":false,
+  "running":true, "paused":false, "target_ops":"10.0", "trade_flash":"normal",
+  "markets":[ /* local 과 같은 서식 */ ] }
+
+// GET /admin/v1/sim/status → 200 (schema 1.3). 발행분도 없는 상태
+{ "schema_version":"1.3", "fleet_present":false, "source":"unknown",
+  "trade_flash":"normal" }
 ```
+
+**`GET /sim/status` 원천 규약(v2.43, schema 1.3)**: 값의 출처를 `source`로 밝힌다. `local`은 이 JVM의 거버너, `published`는 봇 노드가 `sim_fleet_state`에 발행한 스냅샷(DB 설계 v2.39 패치 절), `unknown`은 둘 다 없는 상태다. **`unknown`에서는 `running`·`paused`·`target_ops`·`markets`를 싣지 않는다.** `false`·`"0"`·`[]`를 실으면 콘솔이 정지·0대라는 없는 사실을 단정한다. 실측(2026-09-06): 봇이 초당 8.3건을 발행하는 동안 콘솔이 정지·활성 0대를 표시했다. 이것은 §6-A가 관리 평면과 봇 플릿의 동거를 전제로 쓰였는데 배포가 둘을 물리 분리한 데서 나온 공백이다. V22가 관리에서 봇으로 가는 제어 방향만 이었고 반대 방향이 없었다. `published`는 `observed_at`(§2-1 UTC 밀리초 3자리)과 `stale`을 함께 낸다. `stale`은 발행이 끊겨 스냅샷이 늙었다는 뜻이고 판정은 DB 시계 하나로만 한다. 신선도 임계는 10초다. `fleet_present`는 종전 정의(로컬 거버너 주입 여부)를 유지하므로 `published`에서 `false`다. `local`·`published`는 1.2 필드를 그대로 실으므로 구 소비자에게 additive다. `unknown`만 필드 제거이며, 그 상태는 종전 구현이 거짓을 싣던 자리라 하위호환보다 정직을 택한다.
 **봇 유형**: `MARKET_MAKER`(유동성·재고 스큐) / `TAKER` / `TREND`(모멘텀·역추세 이원 페르소나, 봇_방향성 §2-1-a) / `NOISE`. 코드 경로는 둘(MarketMakerBot·TakerBot)이고 TREND·NOISE는 TakerBot 프리셋으로 실현한다. 가격은 **OU 평균회귀 + 점프 프로세스**로 fair value만 제공, 체결가는 오더북에서 창발.
 
 **`POST /sim/bots` 응답 계약(v2.11, governor set-point 반영)**: 이 경로는 개별 봇 인스턴스를 즉시 기동하지 않고 인메모리 governor의 유형별 목표 대수를 `count`만큼 상향한다(캡 클램프 적용). 실제 인스턴스는 별도 `bots` 프로파일이 목표 대수를 좇아 기동하므로 이 경로는 인스턴스 id를 발급하지 않는다. 따라서 `bot_ids`는 상시 빈 배열이다. `created`는 클램프 후 순증분, `applied_target`은 클램프 후 해당 유형 목표, `fleet_total`은 전 마켓 목표 대수 합계, `clamped`는 캡에 걸렸는지, `fleet_present`는 governor 주입 여부다. governor 부재 배포는 `count`를 그대로 `created`·`applied_target`·`fleet_total`로 보고하고 `fleet_present:false`를 준다. Cluster B는 `created`·`fleet_total`로 결과를 표시하고 `clamped`로 캡 도달을 안내한다.
 
 **set-point 제어(v2.10, 봇_방향성 §5·체결_시각효과 §5-6 정본 반영)**: `PUT /sim/scale`·`/sim/bias`·`/sim/effects`는 개별 봇 생성/제거를 대체하지 않고 그 위에 마켓·유형 단위 목표값을 얹는 상위 제어다. 셋 다 파괴 액션이 아니므로 approval_token 불요이고 감사 로그만 적재한다(§3-6 필수 완결 열거 불변, 신규 필수 액션 없음). `/sim/effects`의 `trade_flash`는 공개 `GET /api/v1/exchange-config`(§4-A-6)에 반영된다. `GET /sim/status`는 schema를 1.1로 올려 마켓별 `target/measured/effective_bias`, `auto_balance`, 유형별 `scale{target,active}`, `fill_ratio`, `trade_flash`를 additive로 더한다(기존 1.0 소비자 무영향).
 
-**전체 제어(v2.22, `POST /sim/start|stop|pause` 계약 확정)**: 세 명령은 봇 플릿 수명주기를 실제로 움직인다. `start`는 미기동이면 기동, 일시정지 상태면 해제(재기동 아님). `stop`은 플릿 정지(스레드 종료, pause 잔류 없음). `pause`는 토글이며 봇 스레드·시드·오더북 상태를 유지한 채 발행 게이트(전역 OPS 버킷)만 닫아 주문·취소 발행을 멈춘다. 셋 다 멱등 수렴형이라 approval_token 불요·감사 적재는 불변이다. 응답은 schema 1.1: `{ "schema_version":"1.1","command":"pause","applied":true,"running":true,"paused":true,"fleet_present":true }`. `applied`는 명령이 플릿에 반영됐는지(수명주기 플릿 빈 부재 배포는 항상 false, 미기동 플릿에의 `pause`도 false), `running`·`paused`는 실행 후 상태, `fleet_present`는 수명주기 플릿 빈 주입 여부다. `GET /sim/status`는 schema를 1.2로 올려 top-level `running`·`paused`를 additive로 더한다(기존 1.1 소비자 무영향). status의 `fleet_present`는 종전대로 governor 주입 여부이고 제어 응답의 `fleet_present`는 수명주기 빈 기준이므로, 봇 프로파일이 켜진 정상 배포에서 둘은 일치한다.
+**전체 제어(v2.22, `POST /sim/start|stop|pause` 계약 확정)**: 세 명령은 봇 플릿 수명주기를 실제로 움직인다. `start`는 미기동이면 기동, 일시정지 상태면 해제(재기동 아님). `stop`은 플릿 정지(스레드 종료, pause 잔류 없음). `pause`는 토글이며 봇 스레드·시드·오더북 상태를 유지한 채 발행 게이트(전역 OPS 버킷)만 닫아 주문·취소 발행을 멈춘다. 셋 다 멱등 수렴형이라 approval_token 불요·감사 적재는 불변이다. 응답은 schema 1.1: `{ "schema_version":"1.1","command":"pause","applied":true,"running":true,"paused":true,"fleet_present":true }`. `applied`는 명령이 플릿에 반영됐는지(수명주기 플릿 빈 부재 배포는 항상 false, 미기동 플릿에의 `pause`도 false), `running`·`paused`는 실행 후 상태, `fleet_present`는 수명주기 플릿 빈 주입 여부다. `GET /sim/status`는 schema를 1.2로 올려 top-level `running`·`paused`를 additive로 더한다(기존 1.1 소비자 무영향). status의 `fleet_present`는 종전대로 governor 주입 여부이고 제어 응답의 `fleet_present`는 수명주기 빈 기준이므로, 봇 프로파일이 같은 JVM에 켜진 배포에서 둘은 일치한다. 관리 평면을 물리 분리한 배포에서는 둘 다 `false`이며, 그때 status가 무엇을 내는지는 위 원천 규약(schema 1.3)이 규정한다.
 
 **시나리오 프리셋(v2.31, `POST /sim/scenarios/{name}/activate` 계약 확정)**: 프리셋은 시장 국면 하나를 전역 OPS·마켓별 유형 대수·마켓별 bias에 동시에 얹는 상위 set-point다. 기존 `/sim/rate`·`/sim/scale`·`/sim/bias`를 한 번에 호출하는 것과 같고, 그 셋으로 도달할 수 없는 상태는 만들지 않는다. 따라서 파괴 액션이 아니며 approval_token 불요·감사 적재다(§3-6 완결 열거 불변).
 
@@ -2036,3 +2049,20 @@ NULL 취급이 축마다 다르다. `rto_seconds`·`rpo_records`의 NULL은 `UNK
 실측 1회차의 잔여 슬롯은 0이었다. 게이트를 노드가 건강한 10 OPS 구간(20:50:54)에서 껐기 때문이다. `samples_15s.csv` 는 actuator 가 응답한 마지막 샘플(20:52:35)까지 `adm_inflight_order`·`adm_inflight_query` 를 0으로 기록한다. 같은 행의 `active 16.0` 은 요청 커넥션 풀 게이지(`hikaricp_connections_active`)이지 수용 in-flight 가 아니다. 두 지표를 섞어 읽으면 정지 시점의 슬롯 잔여를 16으로 오독한다.
 
 문서 헤더 버전을 v2.42로 순증.
+
+---
+
+## v2.43 패치 반영 사항
+
+§6-A가 `GET /sim/status`를 관리 평면과 봇 플릿의 동거 전제로만 규정해, 물리 분리 배포에서 무엇을 내야 하는지가 공백이었다. 구현은 그 공백을 `false`·`"0"`·`[]`로 메웠고 콘솔이 그것을 사실로 그렸다. 원천을 명시하고 모르는 값을 비우도록 확정한다.
+
+| # | 위치 | 내용 |
+|---|---|---|
+| L1 | §6-A | `GET /sim/status` schema 1.3: `source` additive 추가(`local`·`published`·`unknown`). 값이 이 JVM의 거버너에서 왔는지, 봇 노드 발행분인지, 아예 모르는지를 소비자가 가를 수 있게 한다 |
+| L2 | §6-A | `unknown`에서 `running`·`paused`·`target_ops`·`markets` 생략을 계약으로 못 박는다. 종전 구현은 `running:false`·`target_ops:"0"`·`markets:[]`를 냈고, 봇이 초당 8.3건을 발행하는 동안 콘솔이 정지·활성 0대를 표시했다(실측 2026-09-06). 빈 배열도 0대라는 주장이라 미보고와 구분되지 않는다 |
+| L3 | §6-A | `published`에 `observed_at`·`stale` 동반. 봇 노드가 죽어도 발행 행은 남으므로 신선도 없이는 죽은 상태를 현재로 읽는다. 판정은 DB 시계 하나로만 하고 임계는 발행 주기의 10배다 |
+| L4 | §6-A | v2.22의 "봇 프로파일이 켜진 정상 배포에서 둘은 일치한다"를 "같은 JVM에 켜진 배포"로 좁힌다. 분리 배포를 비정상으로 읽히게 두면 실제 배포가 계약 밖에 놓인다 |
+
+원천은 `sim_fleet_state`다(DB 설계 v2.39). V22가 관리에서 봇으로 가는 제어 방향만 이었고 이 표가 반대 방향을 잇는다.
+
+문서 헤더 버전을 v2.43으로 순증.

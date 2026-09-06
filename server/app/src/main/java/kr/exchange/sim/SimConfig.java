@@ -22,6 +22,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @EnableConfigurationProperties(SimProperties.class)
 public class SimConfig {
 
+    // 명령 적용자와 상태 발행자가 같은 값을 써야 콘솔이 둘을 한 노드로 읽는다.
+    private static final String NODE_ID =
+            "bots-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+
     @Bean
     public BotSeeder botSeeder(JdbcClient jdbc, AccountBootstrap bootstrap, DemoKeySeeder keys) {
         return new BotSeeder(jdbc, bootstrap, keys);
@@ -45,8 +49,18 @@ public class SimConfig {
     @Bean
     public SimCommandConsumer simCommandConsumer(JdbcClient jdbc, OpsGovernor governor,
                                                  BotFleetGovernor fleetGovernor) {
-        return new SimCommandConsumer(jdbc, governor, fleetGovernor,
-                "bots-" + java.util.UUID.randomUUID().toString().substring(0, 8));
+        return new SimCommandConsumer(jdbc, governor, fleetGovernor, NODE_ID);
+    }
+
+    /**
+     * 이 JVM의 플릿 상태를 sim_fleet_state에 발행한다(V28). 관리 평면의 status가 읽을
+     * 원천이며, 없으면 콘솔이 플릿을 상시 정지로 그린다.
+     */
+    @Bean
+    public SimStateReporter simStateReporter(JdbcClient jdbc, OpsGovernor governor,
+                                             BotFleetGovernor fleetGovernor, BotFleet fleet,
+                                             com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+        return new SimStateReporter(jdbc, governor, fleetGovernor, fleet, objectMapper, NODE_ID);
     }
 
     @Bean

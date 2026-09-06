@@ -1,8 +1,11 @@
 package kr.exchange.admin;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
+import kr.exchange.api.common.ApiFormats;
 import kr.exchange.sim.BotFleet;
 import kr.exchange.sim.BotFleetGovernor;
 import kr.exchange.sim.BotType;
@@ -24,6 +27,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Timestamp;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -43,6 +48,8 @@ import java.util.Set;
 public class SimAdminController {
 
     private static final String FLASH_KEY = "ui.trade_flash_intensity";
+    // 발행 주기 1초 기준 10배. 이보다 늙은 스냅샷은 현재 상태로 읽지 않는다.
+    private static final int STATE_STALE_SECONDS = 10;
     private static final Set<String> FLASH_VALUES =
             Set.of("off", "subtle", "normal", "strong", "auto");
 
@@ -88,6 +95,12 @@ public class SimAdminController {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * 플릿 상태 조회(정본 §6-A schema 1.3). 원천이 셋이라 source로 구분한다.
+     * local은 이 JVM의 거버너, published는 봇 노드가 sim_fleet_state에 발행한 스냅샷,
+     * unknown은 둘 다 없는 상태다. unknown에서는 running·paused·target_ops·markets를
+     * 아예 싣지 않는다. false와 빈 배열을 실으면 콘솔이 정지·0대라는 없는 사실을 단정한다.
+     */
     @GetMapping("/status")
     public Map<String, Object> status(HttpServletRequest request) {
         AdminRequestContext.principal(request).require(AdminRole.VIEWER);
@@ -96,14 +109,55 @@ public class SimAdminController {
         BotFleet lifecycle = botFleet.getIfAvailable();
         String flash = readTradeFlash();
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("schema_version", "1.2");
+        body.put("schema_version", "1.3");
         body.put("fleet_present", governor != null || fleet != null);
-        body.put("running", lifecycle != null && lifecycle.isRunning());
-        body.put("paused", lifecycle != null && lifecycle.isPaused());
-        body.put("target_ops", governor == null ? "0" : String.valueOf(governor.targetOps()));
         body.put("trade_flash", flash);
-        body.put("markets", fleet == null ? List.of() : marketRows(fleet, flash));
+        if (governor != null || fleet != null) {
+            body.put("source", "local");
+            body.put("running", lifecycle != null && lifecycle.isRunning());
+            body.put("paused", lifecycle != null && lifecycle.isPaused());
+            body.put("target_ops", governor == null ? "0" : String.valueOf(governor.targetOps()));
+            body.put("markets", fleet == null ? List.of() : marketRows(fleet, flash));
+            return body;
+        }
+        Map<String, Object> published = readPublishedState();
+        if (published == null) {
+            body.put("source", "unknown");
+            return body;
+        }
+        body.put("source", "published");
+        body.put("observed_at", published.get("observed_at"));
+        body.put("stale", published.get("stale"));
+        body.put("running", published.get("running"));
+        body.put("paused", published.get("paused"));
+        body.put("target_ops", String.valueOf((double) published.get("target_ops")));
+        body.put("markets", publishedMarketRows((String) published.get("markets"), flash));
         return body;
+    }
+
+    /**
+     * 봇 노드가 발행한 최신 스냅샷(V28). 없으면 null이다.
+     *
+     * 신선도를 DB 시계 하나로만 판정한다. observed_at도 now()로 찍히므로 관리 JVM 시계를
+     * 섞으면 컨테이너 간 스큐가 그대로 판정에 들어온다. 같은 함정이 페일오버 RTO에서 났다.
+     */
+    private Map<String, Object> readPublishedState() {
+        List<Map<String, Object>> rows = jdbc.sql("""
+                        SELECT running, paused, target_ops::float8 AS target_ops,
+                               markets::text AS markets,
+                               observed_at,
+                               now() - observed_at > make_interval(secs => ?) AS stale
+                        FROM sim_fleet_state ORDER BY observed_at DESC LIMIT 1
+                        """)
+                .param(STATE_STALE_SECONDS).query().listOfRows();
+        if (rows.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> row = rows.get(0);
+        // 시각 서식은 SQL 이 아니라 정본 헬퍼가 정한다(API §2-1 UTC 밀리초 3자리).
+        row.put("observed_at", ApiFormats.time(
+                ((Timestamp) row.get("observed_at")).toInstant().atOffset(ZoneOffset.UTC)));
+        return row;
     }
 
     private List<Map<String, Object>> marketRows(BotFleetGovernor fleet, String flash) {
@@ -114,19 +168,50 @@ public class SimAdminController {
                 scale.put(e.getKey().name(), Map.of(
                         "target", e.getValue()[0], "active", e.getValue()[1]));
             }
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("market", s.market());
-            row.put("target_net_bias", bias(s.targetBias()));
-            row.put("measured_net_bias", bias(s.measuredBias()));
-            row.put("effective_bias", bias(s.effectiveBias()));
-            row.put("auto_balance", Map.of(
-                    "enabled", s.autoBalance(), "strength", bias(s.strength())));
-            row.put("scale", scale);
-            row.put("fill_ratio", ratio(s.fillRatio()));
-            row.put("trade_flash", flash);
-            rows.add(row);
+            rows.add(marketRow(s.market(), s.targetBias(), s.measuredBias(), s.effectiveBias(),
+                    s.autoBalance(), s.strength(), scale, s.fillRatio(), flash));
         }
         return rows;
+    }
+
+    private List<Map<String, Object>> publishedMarketRows(String marketsJson, String flash) {
+        JsonNode arr;
+        try {
+            arr = objectMapper.readTree(marketsJson);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("발행된 플릿 스냅샷을 읽을 수 없다", e);
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (JsonNode n : arr) {
+            JsonNode s = n.path("scale");
+            Map<String, Object> scale = new LinkedHashMap<>();
+            s.fieldNames().forEachRemaining(type -> scale.put(type, Map.of(
+                    "target", s.path(type).path("target").asInt(),
+                    "active", s.path(type).path("active").asInt())));
+            rows.add(marketRow(n.path("market").asText(), n.path("target_bias").asDouble(),
+                    n.path("measured_bias").asDouble(), n.path("effective_bias").asDouble(),
+                    n.path("auto_balance").asBoolean(), n.path("strength").asDouble(),
+                    scale, n.path("fill_ratio").asDouble(), flash));
+        }
+        return rows;
+    }
+
+    /** 두 원천이 같은 자릿수를 내야 콘솔이 원천 전환에서 값이 바뀐 것으로 보지 않는다. */
+    private static Map<String, Object> marketRow(String market, double targetBias,
+                                                 double measuredBias, double effectiveBias,
+                                                 boolean autoBalance, double strength,
+                                                 Map<String, Object> scale, double fillRatio,
+                                                 String flash) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("market", market);
+        row.put("target_net_bias", bias(targetBias));
+        row.put("measured_net_bias", bias(measuredBias));
+        row.put("effective_bias", bias(effectiveBias));
+        row.put("auto_balance", Map.of("enabled", autoBalance, "strength", bias(strength)));
+        row.put("scale", scale);
+        row.put("fill_ratio", ratio(fillRatio));
+        row.put("trade_flash", flash);
+        return row;
     }
 
     @PutMapping("/rate")

@@ -2,6 +2,9 @@ package kr.exchange.admin;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.exchange.sim.BotFleetGovernor;
+import kr.exchange.sim.BotType;
+import kr.exchange.sim.SimStateReporter;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -18,8 +21,10 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -109,6 +114,76 @@ class AdminSplitPlaneIntegrationTest {
         // 프리셋 정의값은 거버너 없이도 정확하다. 요청한 프리셋이 무엇인가의 서술이다.
         assertFalse(body.path("auto_balance").asBoolean());
         assertEquals("0.60", body.path("target_net_bias").asText());
+    }
+
+    @Test
+    void statusOmitsFleetFieldsWhenNoNodePublished() throws Exception {
+        String sess = session("op-split");
+        jdbc.sql("DELETE FROM sim_fleet_state").update();
+
+        JsonNode body = objectMapper.readTree(get("/admin/v1/sim/status", sess).getBody());
+
+        assertEquals("1.3", body.path("schema_version").asText());
+        assertEquals("unknown", body.path("source").asText());
+        assertFalse(body.path("fleet_present").asBoolean());
+        // 종전에는 running:false, target_ops:"0", markets:[] 를 냈다. 봇이 초당 8건을
+        // 발행하는 동안 콘솔이 정지·0대를 표시한 원인이다. 모르는 값은 비운다.
+        assertTrue(body.path("running").isMissingNode(), "미보고를 정지로 단정하지 않는다");
+        assertTrue(body.path("paused").isMissingNode());
+        assertTrue(body.path("target_ops").isMissingNode());
+        assertTrue(body.path("markets").isMissingNode(), "빈 배열도 0대라는 주장이다");
+    }
+
+    @Test
+    void statusReadsThePublishedSnapshotWhenGovernorAbsent() throws Exception {
+        String sess = session("op-split");
+        jdbc.sql("DELETE FROM sim_fleet_state").update();
+        // 픽스처를 손으로 쓰지 않는다. 발행 쪽이 실제로 내는 문자열을 그대로 먹여야
+        // 두 클래스의 JSON 키 계약이 이 시험에 걸린다. 한쪽 키만 바뀌면 Jackson
+        // MissingNode 가 0 을 내어 예외 없이 0.00 이 화면에 뜬다.
+        BotFleetGovernor governor = BotFleetGovernor.defaults(7L);
+        governor.registerMarket("KRW-BTC", new BigDecimal("84000000"), Map.of(BotType.TAKER, 3));
+        governor.setBias("KRW-BTC", 0.25, false, 0.5);
+        jdbc.sql("""
+                        INSERT INTO sim_fleet_state (node_id, running, paused, target_ops, markets)
+                        VALUES ('bots-test', true, false, 12.5, ?::jsonb)
+                        """)
+                .param(SimStateReporter.marketsJson(governor, objectMapper))
+                .update();
+
+        JsonNode body = objectMapper.readTree(get("/admin/v1/sim/status", sess).getBody());
+
+        assertEquals("published", body.path("source").asText());
+        assertFalse(body.path("fleet_present").asBoolean(), "로컬 빈 주입 여부는 여전히 false다");
+        assertFalse(body.path("stale").asBoolean(), "방금 넣은 행은 늙지 않았다");
+        assertTrue(body.path("running").asBoolean());
+        assertEquals("12.5", body.path("target_ops").asText());
+        JsonNode btc = body.path("markets").get(0);
+        assertEquals("KRW-BTC", btc.path("market").asText());
+        // 서식은 두 원천이 같아야 한다. 로컬 경로와 같은 헬퍼를 타는지 자릿수로 본다.
+        assertEquals("0.25", btc.path("target_net_bias").asText());
+        assertEquals("0.00", btc.path("measured_net_bias").asText(), "무주행이라 실측 방향 0");
+        assertEquals("0.00", btc.path("fill_ratio").asText(), "체결 표본이 없다");
+        assertEquals(3, btc.path("scale").path("TAKER").path("target").asInt());
+        assertEquals(3, btc.path("scale").path("TAKER").path("active").asInt(),
+                "풀 상한 30 아래라 활성이 목표를 따라간다");
+    }
+
+    @Test
+    void statusMarksAnOldSnapshotStale() throws Exception {
+        String sess = session("op-split");
+        jdbc.sql("DELETE FROM sim_fleet_state").update();
+        // 봇 노드가 죽어도 행은 남는다. 신선도를 안 보면 죽은 상태를 현재로 읽는다.
+        jdbc.sql("""
+                        INSERT INTO sim_fleet_state (node_id, running, paused, target_ops, markets, observed_at)
+                        VALUES ('bots-dead', true, false, 9.0, '[]'::jsonb, now() - interval '5 minutes')
+                        """)
+                .update();
+
+        JsonNode body = objectMapper.readTree(get("/admin/v1/sim/status", sess).getBody());
+
+        assertEquals("published", body.path("source").asText());
+        assertTrue(body.path("stale").asBoolean(), "발행이 끊긴 스냅샷은 현재가 아니다");
     }
 
     @Test

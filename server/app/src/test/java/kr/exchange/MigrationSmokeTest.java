@@ -98,13 +98,14 @@ class MigrationSmokeTest {
                     """), "app_role must EXECUTE post_ledger_transaction");
 
             // 롤을 분리하면 GRANT 누락이 권한 오류로만 드러나 원인 추적이 한 단계 멀어진다.
-            for (String t : List.of("sim_commands", "chaos_commands")) {
+            for (String t : List.of("sim_commands", "chaos_commands", "sim_fleet_state")) {
                 for (String priv : List.of("SELECT", "INSERT", "UPDATE")) {
                     assertTrue(queryBool(conn,
                                     "SELECT has_table_privilege('app_role', '" + t + "', '" + priv + "')"),
                             "app_role must " + priv + " on " + t);
                 }
                 // 제어 이력이라 지우는 경로가 없어야 감사가 성립한다.
+                // sim_fleet_state 는 이력이 아니라 갱신형이지만 같은 규율을 쓴다.
                 assertTrue(!queryBool(conn,
                                 "SELECT has_table_privilege('app_role', '" + t + "', 'DELETE')"),
                         "app_role must not DELETE on " + t);
