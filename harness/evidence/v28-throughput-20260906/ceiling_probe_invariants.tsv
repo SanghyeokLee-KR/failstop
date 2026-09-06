@@ -1,0 +1,25 @@
+probe	check	value
+ctl_cpu2_pool32	balance_mismatch	0
+ctl_cpu2_pool32	asset_sum_nonzero	0
+ctl_cpu2_pool32	unsealed	0
+ctl_cpu2_pool32	poscost_qty_mismatch	0
+ctl_cpu2_pool32	ledger_entries	26080
+ctl_cpu2_pool32	admission_limits	수용 제한 상한 해석: 쓰기 12 / 조회 12 / 재조회 3 / 예비 5 (요청 풀 32)
+cpu4_pool32	balance_mismatch	0
+cpu4_pool32	asset_sum_nonzero	0
+cpu4_pool32	unsealed	0
+cpu4_pool32	poscost_qty_mismatch	0
+cpu4_pool32	ledger_entries	28816
+cpu4_pool32	admission_limits	수용 제한 상한 해석: 쓰기 12 / 조회 12 / 재조회 3 / 예비 5 (요청 풀 32)
+cpu2_pool64	balance_mismatch	0
+cpu2_pool64	asset_sum_nonzero	0
+cpu2_pool64	unsealed	0
+cpu2_pool64	poscost_qty_mismatch	0
+cpu2_pool64	ledger_entries	31346
+cpu2_pool64	admission_limits	수용 제한 상한 해석: 쓰기 25 / 조회 25 / 재조회 6 / 예비 8 (요청 풀 64)
+cpu4_pool64	balance_mismatch	0
+cpu4_pool64	asset_sum_nonzero	0
+cpu4_pool64	unsealed	0
+cpu4_pool64	poscost_qty_mismatch	0
+cpu4_pool64	ledger_entries	29686
+cpu4_pool64	admission_limits	수용 제한 상한 해석: 쓰기 25 / 조회 25 / 재조회 6 / 예비 8 (요청 풀 64)

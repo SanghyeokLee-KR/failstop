@@ -1,0 +1,29 @@
+# 측정 전용 오버레이. pg_stat_statements 와 커넥션 상한 확대.
+# 저장소 정본 compose 를 건드리지 않으려고 별도 파일로 둔다.
+services:
+  chaos-pg:
+    command:
+      - "postgres"
+      - "-c"
+      - "synchronous_commit=on"
+      - "-c"
+      - "idle_in_transaction_session_timeout=10s"
+      - "-c"
+      - "tcp_keepalives_idle=5"
+      - "-c"
+      - "tcp_keepalives_interval=2"
+      - "-c"
+      - "tcp_keepalives_count=3"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.max=10000"
+      - "-c"
+      - "pg_stat_statements.track=all"
+      - "-c"
+      - "pg_stat_statements.track_utility=off"
+      - "-c"
+      - "max_connections=300"
+  chaos-api-1:
+    environment:
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "${PROBE_POOL:-32}"
