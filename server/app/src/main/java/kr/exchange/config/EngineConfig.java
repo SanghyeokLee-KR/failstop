@@ -221,14 +221,22 @@ public class EngineConfig {
                                              CommandPayloadMapper commandPayloadMapper,
                                              LeaderLeaseService leaderLeaseService,
                                              MarketDataPublisher marketDataPublisher,
+                                             kr.exchange.api.market.MarketDataService marketDataService,
                                              MeterRegistry meterRegistry) {
         SingleWriterLoop loop = new SingleWriterLoop(
                 props.queueCapacity(),
                 engine,
                 // 정산 커밋 후 WS 게시(§5). 게시 실패는 publisher가 삼키므로 sink 예외
                 // (= fail-fast) 축은 정산 실패뿐이다.
-                events -> marketDataPublisher.publishSettled(
-                        settlementService.appendAndSettle(events)),
+                events -> {
+                    java.util.List<kr.exchange.engine.core.EngineEvent> settled =
+                            settlementService.appendAndSettle(events);
+                    // 정산 커밋 뒤, 게시 전에 호가 스냅샷을 갱신한다. 여기가 단일 라이터
+                    // 스레드이므로 책을 안전하게 읽을 수 있는 유일한 자리다. 게시와 이어지는
+                    // 모든 조회가 이 스냅샷을 보고, DB 집계는 스냅샷이 없을 때만 돈다.
+                    publishEngineDepth(engine, marketDataService, settled);
+                    marketDataPublisher.publishSettled(settled);
+                },
                 new JournalCatchUpSource(commandJournalReader, commandPayloadMapper),
                 // 이벤트 정산 실패는 무음 재시도 대상이 아니다. 원인 불문 리더십을 함께
                 // 내려놓아 접수 경로를 닫는다(LoopFatalHandler, DB 설계 §5.4).
@@ -239,6 +247,37 @@ public class EngineConfig {
                 .builder("exchange.sequencer.queue.size", loop, SingleWriterLoop::queueSize)
                 .description("단일 라이터 명령 큐 깊이(백프레셔)").register(meterRegistry);
         return loop;
+    }
+
+    /**
+     * 배치가 건드린 마켓의 호가 스냅샷을 엔진 메모리에서 만들어 조회 경로에 넘긴다.
+     *
+     * 단일 라이터 스레드에서만 부른다. OrderBookImpl 의 TreeMap 은 동시 수정에 안전하지 않아
+     * 다른 스레드가 책을 직접 읽으면 안 된다. 여기서 불변 객체로 떠서 건네는 이유다.
+     *
+     * 실패해도 삼킨다. 스냅샷은 최적화이고, 없으면 조회가 종전대로 DB 집계로 내려간다.
+     * 여기서 예외를 올리면 정산이 끝난 배치가 sink 실패로 계상되어 리더십까지 내려놓는다.
+     */
+    private static void publishEngineDepth(MatchingEngineImpl engine,
+                                           kr.exchange.api.market.MarketDataService marketDataService,
+                                           java.util.List<kr.exchange.engine.core.EngineEvent> settled) {
+        try {
+            java.util.Set<Integer> touched = new java.util.LinkedHashSet<>();
+            for (kr.exchange.engine.core.EngineEvent e : settled) {
+                touched.add(e.marketId());
+            }
+            for (int marketId : touched) {
+                kr.exchange.engine.core.OrderBookImpl book = engine.orderBook(marketId);
+                if (book == null) {
+                    continue;
+                }
+                marketDataService.publishEngineDepth(marketId,
+                        kr.exchange.api.market.MarketDataService.fromEngine(
+                                book.askDepth(15), book.bidDepth(15)));
+            }
+        } catch (RuntimeException ignored) {
+            // 스냅샷 실패가 정산 결과를 바꾸면 안 된다. 조회는 DB 집계로 회수된다.
+        }
     }
 
     // HA 관측 게이지 + readiness 배선. 승격 상태 전이를 AvailabilityChangeEvent로 승격시켜

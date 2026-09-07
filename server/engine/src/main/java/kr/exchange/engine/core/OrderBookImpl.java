@@ -41,6 +41,22 @@ public final class OrderBookImpl implements OrderBook {
     private final TreeMap<BigDecimal, ArrayDeque<RestingOrder>> bids =
             new TreeMap<>(java.util.Comparator.reverseOrder());
     private final TreeMap<BigDecimal, ArrayDeque<RestingOrder>> asks = new TreeMap<>();
+    /*
+     * 가격 단별 잔량 합. 위 두 TreeMap 과 같은 키를 갖고 같은 순서로 돈다.
+     *
+     * 왜 따로 두는가. 호가 응답은 단별 합을 원하는데, 그것을 필요할 때 세면 그 단에 걸린 주문
+     * 수만큼 덧셈이 든다. 2026-09-07 실측에서 가격 단이 17 개인데 미체결이 73073 건이었다.
+     * 배치마다 그것을 세면 단일 라이터가 배치당 7 만 번 덧셈을 한다. 실제로 그렇게 만들었다가
+     * 천장이 98.6/s 에서 88.7/s 로 내려갔다.
+     *
+     * 그래서 잔량이 드나드는 자리에서 함께 갱신한다. 갱신 지점은 셋뿐이다. 신규 안착(rest,
+     * 스냅샷 복원), 제거(removeResting), 체결·STP 감액이다. 그 셋 밖에서 remaining 을 바꾸면
+     * 이 맵이 어긋나므로 새 경로를 만들 때 반드시 여기를 함께 본다.
+     */
+    private final TreeMap<BigDecimal, BigDecimal> bidSizes =
+            new TreeMap<>(java.util.Comparator.reverseOrder());
+    private final TreeMap<BigDecimal, BigDecimal> askSizes = new TreeMap<>();
+
     // 취소 조회용 색인. HashMap은 순회 비결정 우려로 금지 대상이라 TreeMap을 쓴다.
     private final TreeMap<Long, RestingOrder> ordersById = new TreeMap<>();
 
@@ -98,6 +114,50 @@ public final class OrderBookImpl implements OrderBook {
         return ordersById.size();
     }
 
+    /** 호가 한 단. 가격과 그 가격의 잔량 합이다. */
+    public record DepthLevel(BigDecimal price, BigDecimal size) {
+    }
+
+    /** 한 면의 상위 단과 그 면 전체 잔량. levels 순서는 우선순위 순서다. */
+    public record SideDepth(List<DepthLevel> levels, BigDecimal total) {
+    }
+
+    /**
+     * 매수 상위 limit 단과 매수 전체 잔량.
+     *
+     * 이 메서드는 책을 읽기만 한다. 엔진 결정론에 영향이 없다.
+     *
+     * 왜 엔진에 두는가. 종전에는 같은 값을 DB 집계로 다시 만들었다. 2026-09-07 실측에서 그
+     * 두 쿼리가 DB 실행 시간 166445ms 로 같은 창 쓰기 경로의 3 배였고, 미체결이 8 만 건일 때
+     * 총 잔량 한 번이 25ms 였다. 엔진은 같은 사실을 이미 메모리에 들고 있으므로 다시 셀 이유가
+     * 없다. 여기서 읽으면 가격 단 수에 비례할 뿐 주문 수와 무관하다.
+     *
+     * 호출은 단일 라이터 스레드에서만 해야 한다. TreeMap 은 동시 수정에 안전하지 않다.
+     * 다른 스레드가 쓰려면 라이터가 만든 결과를 불변 객체로 건네받아야 한다.
+     */
+    public SideDepth bidDepth(int limit) {
+        return depthOf(bidSizes, limit);
+    }
+
+    /** 매도 상위 limit 단과 매도 전체 잔량. 규약은 {@link #bidDepth(int)} 와 같다. */
+    public SideDepth askDepth(int limit) {
+        return depthOf(askSizes, limit);
+    }
+
+    private static SideDepth depthOf(TreeMap<BigDecimal, BigDecimal> sizes, int limit) {
+        List<DepthLevel> levels = new ArrayList<>(Math.max(limit, 0));
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<BigDecimal, BigDecimal> e : sizes.entrySet()) {
+            // 총 잔량은 상위 단으로 끊지 않는다. 끊으면 total_ask_size 가 15 단 합이 되어
+            // 종전 DB 집계와 다른 값이 된다.
+            total = total.add(e.getValue());
+            if (levels.size() < limit) {
+                levels.add(new DepthLevel(e.getKey(), e.getValue()));
+            }
+        }
+        return new SideDepth(List.copyOf(levels), total);
+    }
+
     // ------------------------------------------------------------------
     // 스냅샷 export/import (복구 RTO 설계 §3-b)
     // ------------------------------------------------------------------
@@ -134,6 +194,7 @@ public final class OrderBookImpl implements OrderBook {
             TreeMap<BigDecimal, ArrayDeque<RestingOrder>> side =
                     e.side() == OrderCommand.Side.BUY ? book.bids : book.asks;
             side.computeIfAbsent(e.price(), p -> new ArrayDeque<>()).addLast(o);
+            book.addSize(e.side(), e.price(), e.remaining());
             book.ordersById.put(o.orderId, o);
         }
         return book;
@@ -240,6 +301,7 @@ public final class OrderBookImpl implements OrderBook {
                 // 취소한다. 체결 없이 소멸한 수량은 CANCELED 이벤트로 남겨 정산·프로젝션이
                 // 이벤트만으로 잔량과 잠금 해제를 재구성할 수 있게 한다. maker 먼저 방출.
                 maker.remaining = maker.remaining.subtract(fill);
+                addSize(maker.side, maker.price, fill.negate());
                 em.canceled(maker.orderId, fill, REASON_SELF_TRADE_PREVENTED);
                 if (maker.remaining.signum() == 0) {
                     removeResting(maker);
@@ -251,6 +313,7 @@ public final class OrderBookImpl implements OrderBook {
             // 체결가는 항상 maker 지정가(price improvement는 taker 차익, API §7-2, 하네스 C18).
             em.trade(command, maker, fill);
             maker.remaining = maker.remaining.subtract(fill);
+            addSize(maker.side, maker.price, fill.negate());
             if (maker.remaining.signum() == 0) {
                 removeResting(maker);
             }
@@ -410,15 +473,33 @@ public final class OrderBookImpl implements OrderBook {
         TreeMap<BigDecimal, ArrayDeque<RestingOrder>> side =
                 command.side() == OrderCommand.Side.BUY ? bids : asks;
         side.computeIfAbsent(price, p -> new ArrayDeque<>()).addLast(order);
+        addSize(command.side(), price, remaining);
         ordersById.put(order.orderId, order);
+    }
+
+    /**
+     * 단별 잔량을 더하거나 뺀다. 0 이 되면 그 단을 지운다.
+     *
+     * 지우는 이유는 호가 응답에 잔량 0 인 빈 벽이 서지 않게 하려는 것이고, 그것이 곧 위 두
+     * 호가 TreeMap 의 키 집합과 이 맵의 키 집합을 같게 유지한다.
+     */
+    private void addSize(OrderCommand.Side side, BigDecimal price, BigDecimal delta) {
+        TreeMap<BigDecimal, BigDecimal> sizes = side == OrderCommand.Side.BUY ? bidSizes : askSizes;
+        BigDecimal next = sizes.getOrDefault(price, BigDecimal.ZERO).add(delta);
+        if (next.signum() == 0) {
+            sizes.remove(price);
+        } else {
+            sizes.put(price, next);
+        }
     }
 
     private void removeResting(RestingOrder order) {
         TreeMap<BigDecimal, ArrayDeque<RestingOrder>> side =
                 order.side == OrderCommand.Side.BUY ? bids : asks;
         ArrayDeque<RestingOrder> level = side.get(order.price);
-        if (level != null) {
-            level.remove(order);
+        if (level != null && level.remove(order)) {
+            // 제거 시점에 남아 있던 잔량만 뺀다. 체결로 줄어든 몫은 그때 이미 뺐다.
+            addSize(order.side, order.price, order.remaining.negate());
             if (level.isEmpty()) {
                 side.remove(order.price);
             }

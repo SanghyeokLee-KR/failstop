@@ -40,7 +40,57 @@ public class MarketDataService {
         this.jdbc = jdbc;
     }
 
+    /**
+     * 리더가 배치마다 넣어 두는 호가 스냅샷. 마켓 id 로 찾는다.
+     *
+     * 엔진은 호가창을 이미 메모리에 들고 있다(OrderBookImpl 의 TreeMap). 종전에는 같은 사실을
+     * DB 집계로 다시 만들었고, 2026-09-07 실측에서 그 두 쿼리가 DB 실행 시간 166445ms 로 같은
+     * 창 쓰기 경로의 3 배였다. 미체결이 8 만 건일 때 총 잔량 한 번이 25ms 다.
+     *
+     * 스냅샷은 단일 라이터 스레드가 만들어 불변 객체로 넣는다. 읽는 쪽은 잠금 없이 그 참조만
+     * 가져가므로 라이터와 경합하지 않는다. 책을 직접 읽게 하면 TreeMap 동시 수정에 걸린다.
+     *
+     * 비어 있을 수 있다. 엔진이 없는 조회 전용 노드가 그렇고, 리더도 첫 배치 전에는 그렇다.
+     * 그때는 종전대로 DB 집계로 내려간다.
+     */
+    private final ConcurrentHashMap<Integer, Depth> engineDepth = new ConcurrentHashMap<>();
+
+    /**
+     * 엔진 호가창에서 뜬 결과를 조회 응답 모양으로 옮긴다.
+     *
+     * 총 잔량은 상위 15 단 합이 아니라 그 면 전체다. DB 집계가 내던 값과 같아야 화면이 바뀌지
+     * 않는다(OrderBookImpl.depthOf 주석과 짝).
+     */
+    public static Depth fromEngine(kr.exchange.engine.core.OrderBookImpl.SideDepth ask,
+                                   kr.exchange.engine.core.OrderBookImpl.SideDepth bid) {
+        return new Depth(toLevels(ask), toLevels(bid), ask.total(), bid.total());
+    }
+
+    private static List<Level> toLevels(kr.exchange.engine.core.OrderBookImpl.SideDepth side) {
+        List<Level> out = new java.util.ArrayList<>(side.levels().size());
+        for (kr.exchange.engine.core.OrderBookImpl.DepthLevel l : side.levels()) {
+            out.add(new Level(l.price(), l.size()));
+        }
+        return List.copyOf(out);
+    }
+
+    /** 단일 라이터 스레드에서만 부른다. 배치가 건드린 마켓의 스냅샷을 갈아 끼운다. */
+    public void publishEngineDepth(int marketId, Depth depth) {
+        if (depth != null) {
+            engineDepth.put(marketId, depth);
+        }
+    }
+
+    /** 진단용. 스냅샷을 들고 있는 마켓 수다. 0 이면 전부 DB 집계로 내려가고 있다. */
+    public int engineDepthMarkets() {
+        return engineDepth.size();
+    }
+
     public Depth depth(int marketId) {
+        Depth fromEngine = engineDepth.get(marketId);
+        if (fromEngine != null) {
+            return fromEngine;
+        }
         List<Level> asks = levels(marketId, "SELL", "ASC");
         List<Level> bids = levels(marketId, "BUY", "DESC");
         return new Depth(asks, bids, total(marketId, "SELL"), total(marketId, "BUY"));
