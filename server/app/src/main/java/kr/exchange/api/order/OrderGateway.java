@@ -544,8 +544,23 @@ public class OrderGateway {
                 .orElse(BigDecimal.ZERO);
     }
 
+    /**
+     * 주문 id 사전 채번(V31 order_id_seq).
+     *
+     * 종전에는 `next_journal_value('order_id')` 를 썼다. 그것은 카운터 한 행을 UPDATE 로 잠그고
+     * 트랜잭션이 끝날 때까지 쥔다. 이 메서드는 트랜잭션 밖에서 도므로 한 문장이 곧 한
+     * 트랜잭션이고, **주문마다 id 채번만을 위한 커밋과 WAL 플러시가 한 번 더 일어났다.**
+     * 접수는 수용 정원만큼 동시에 들어오므로 그 잠금에서 서로 줄을 섰다.
+     *
+     * 2026-09-07 실측에서 그 문장이 명령당 2.73 회에 총 3202ms 로 fencing 의 12 배였다.
+     * nextval 은 행 잠금을 잡지 않고 캐시 구간 안에서는 플러시도 없다.
+     *
+     * 구멍이 생기는 것은 계약상 허용된다. V2__gateway_counters.sql 이 "gapless는 요구되지
+     * 않으나 채번 경로는 journal_counters 단일 방식으로 통일한다" 고 적었다. 통일성이 이유였고
+     * 정확성이 아니었다. 실제 사용처는 전부 조인 키와 존재 검사다.
+     */
     private long nextOrderId() {
-        return jdbc.sql("SELECT next_journal_value('order_id')")
+        return jdbc.sql("SELECT nextval('order_id_seq')")
                 .query(Long.class)
                 .single();
     }
