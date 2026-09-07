@@ -53,12 +53,15 @@ public class SettlementService {
      * 합산 재구성과 어긋나지 않는다(DB 설계 §5.2). 게이트 가드 아닌 산식 상수로 박제한다. */
     private static final int NOTIONAL_SOAK_SCALE = 18;
 
-    private static final String SELECT_EPOCH_SQL = """
-            SELECT epoch FROM leader_lease
-            WHERE resource = 'matching-engine'
-              AND holder = ? AND epoch = ? AND lease_until > clock_timestamp()
-            FOR SHARE
-            """;
+    /**
+     * fencing 검증·행 잠금·epoch 반환을 한 왕복으로 한다(V30 assert_and_lock_leader).
+     *
+     * 종전에는 assert_current_leader 호출과 FOR SHARE 조회를 따로 보냈다. 앞이 거부
+     * 사유를, 뒤가 커밋까지의 보장을 담당해 둘 다 필요했다. 함수가 둘을 겸하므로 왕복이
+     * 하나 준다. 거부 시 예외 메시지가 종전과 같아 FencingErrors 분류가 바뀌지 않는다.
+     */
+    private static final String ASSERT_AND_LOCK_SQL =
+            "SELECT assert_and_lock_leader(?, ?)";
 
     private static final String INSERT_EVENT_SQL = """
             INSERT INTO event_journal
@@ -185,12 +188,11 @@ public class SettlementService {
     }
 
     private List<EngineEvent> settleInTx(LeaderIdentity leader, long cmdSeq, List<EngineEvent> events) {
-        jdbc.sql("SELECT assert_current_leader(?, ?)")
-                .params(leader.holder(), leader.epoch())
-                .query((rs, rowNum) -> 0)
-                .list();
-        // FOR SHARE 행 잠금으로 커밋까지 epoch 불변을 강제한다. 0행이면 stale 확정.
-        Long epoch = jdbc.sql(SELECT_EPOCH_SQL)
+        // fencing 검증과 FOR SHARE 잠금을 한 왕복으로 한다(V30). 종전에는 두 문장을 연달아
+        // 보냈다. 앞 문장이 거부 사유를 주고 뒤 문장이 커밋까지의 보장을 주는 구조였는데,
+        // 함수가 둘 다 하므로 왕복 하나가 준다. 거부 메시지는 종전과 같아 강등 분류가 그대로다.
+        // 잠금을 잡은 뒤 판정하므로 판정과 커밋 사이에 epoch 이 바뀌지 않는다.
+        Long epoch = jdbc.sql(ASSERT_AND_LOCK_SQL)
                 .params(leader.holder(), leader.epoch())
                 .query(Long.class)
                 .optional()

@@ -400,6 +400,33 @@ class MigrationSmokeTest {
             assertThrows(SQLException.class,
                     () -> st.execute("SELECT assert_current_leader('proc-uuid-2', 7)"));
 
+            /*
+             * V30 assert_and_lock_leader 의 계약. 검증과 FOR SHARE 잠금을 한 왕복으로 한다.
+             *
+             * 거부 메시지를 여기서 못 박는 이유. 자바의 강등 판정이 SQLSTATE P0001 과 메시지의
+             * `fencing 위반` 문구 일치로 동작한다(FencingErrors.isFencingRejection). 정산과 이벤트
+             * 적재는 이 함수만 부르므로, 문구가 어긋나면 stale 리더가 강등되지 않고 자기를 리더로
+             * 믿는다. 그 어긋남이 런타임이 아니라 여기서 드러나야 한다.
+             */
+            st.execute("SELECT assert_and_lock_leader('proc-uuid-1', 7)");
+
+            SQLException lockedStale = assertThrows(SQLException.class,
+                    () -> st.execute("SELECT assert_and_lock_leader('proc-uuid-1', 6)"));
+            assertEquals("P0001", lockedStale.getSQLState(),
+                    "강등 판정이 P0001 을 요구한다: " + lockedStale.getMessage());
+            assertTrue(lockedStale.getMessage().contains("fencing 위반"),
+                    "강등 판정이 이 문구를 요구한다: " + lockedStale.getMessage());
+
+            SQLException wrongHolder = assertThrows(SQLException.class,
+                    () -> st.execute("SELECT assert_and_lock_leader('proc-uuid-2', 7)"));
+            assertTrue(wrongHolder.getMessage().contains("fencing 위반"), wrongHolder.getMessage());
+
+            // 정상 경로는 epoch 을 돌려준다. 호출자가 fencing_epoch 컬럼에 쓰는 값이다.
+            try (ResultSet rs = st.executeQuery("SELECT assert_and_lock_leader('proc-uuid-1', 7)")) {
+                assertTrue(rs.next());
+                assertEquals(7L, rs.getLong(1), "잠금 함수가 현재 epoch 을 돌려주지 않는다");
+            }
+
             st.execute("""
                     UPDATE leader_lease
                     SET lease_until = clock_timestamp() - interval '1 second'
