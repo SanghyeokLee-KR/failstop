@@ -47,7 +47,7 @@ public class MarketDataService {
     }
 
     private List<Level> levels(int marketId, String side, String direction) {
-        return cached(levelsCache, marketId + ":" + side, () -> jdbc.sql("""
+        return cached(levelsCache, marketId + ":" + side, DEPTH_CACHE_TTL_MS, () -> jdbc.sql("""
                         SELECT price, SUM(remaining_qty) AS size
                         FROM orders
                         WHERE market_id = ? AND side = ? AND status IN ('OPEN','PARTIAL')
@@ -78,6 +78,25 @@ public class MarketDataService {
     // 갱신되나 체결과 잔고는 영향받지 않는다.
     private static final long DEPTH_CACHE_TTL_MS = 1_000;
 
+    /**
+     * 총 잔량(total_ask_size·total_bid_size) 전용 TTL. 15 단보다 길게 둔다.
+     *
+     * 둘은 성격이 다르다. 15 단은 사용자가 보고 주문을 내는 값이라 신선해야 한다. 총 잔량은
+     * 화면 위쪽의 요약 숫자 하나이고 계약도 신선도를 규정하지 않는다(API 설계 §4-A-2 는 필드만
+     * 적는다). 매칭·주문 검증·정산은 이 값을 쓰지 않는다. 쓰는 곳은 REST 조회와 WS 게시뿐이다.
+     *
+     * 비용은 반대로 총 잔량이 크다. 15 단은 LIMIT 15 라 상위만 보면 되지만 총 잔량은 그 마켓·
+     * 방향의 미체결 전체를 더한다. 2026-09-07 실측에서 총 잔량이 건당 25.0ms(누적 137167ms)로
+     * 15 단의 12.8ms(29278ms)보다 4.7 배 비쌌다. 그때 미체결이 한 방향에 87746 건이었고
+     * 실행 계획은 이미 인덱스 전용 스캔이라 더 줄일 여지가 없다. 남은 축은 얼마나 자주 다시
+     * 세느냐뿐이다.
+     *
+     * 5 초인 근거. 미체결 8 만 건 규모에서 1 초 동안의 체결·취소가 총량을 바꾸는 폭은 소수점
+     * 아래다. 요약 숫자가 그만큼 늦는 것은 화면에서 구분되지 않는다. 반대로 이보다 더 늘리면
+     * 호가창이 갱신되는데 위쪽 총량만 눈에 띄게 멈춰 있어 어긋나 보인다.
+     */
+    private static final long TOTAL_CACHE_TTL_MS = 5_000;
+
     private record Cached<T>(T value, long expiresAt) {
     }
 
@@ -90,19 +109,19 @@ public class MarketDataService {
 
     @SuppressWarnings("unchecked")
     private <T> T cached(ConcurrentHashMap<String, Cached<T>> cache, String key,
-                         java.util.function.Supplier<T> loader) {
+                         long ttlMs, java.util.function.Supplier<T> loader) {
         long now = System.currentTimeMillis();
         Cached<T> hit = cache.get(key);
         if (hit != null && hit.expiresAt() > now) {
             return hit.value();
         }
         T fresh = loader.get();
-        cache.put(key, new Cached<>(fresh, now + DEPTH_CACHE_TTL_MS));
+        cache.put(key, new Cached<>(fresh, now + ttlMs));
         return fresh;
     }
 
     private BigDecimal total(int marketId, String side) {
-        return cached(totalCache, marketId + ":" + side, () -> jdbc.sql("""
+        return cached(totalCache, marketId + ":" + side, TOTAL_CACHE_TTL_MS, () -> jdbc.sql("""
                         SELECT COALESCE(SUM(remaining_qty), 0)
                         FROM orders
                         WHERE market_id = ? AND side = ? AND status IN ('OPEN','PARTIAL')
