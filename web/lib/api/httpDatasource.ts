@@ -4,7 +4,7 @@
  * 데모 세션 단기 JWT는 메모리에만 두고 만료·401 시 재발급 후 1회 재시도한다(§3-7).
  */
 
-import { Client, TickerStrategy, type IMessage } from "@stomp/stompjs";
+import { Client, ReconnectionTimeMode, TickerStrategy, type IMessage } from "@stomp/stompjs";
 import type {
   Page,
   Asset,
@@ -203,10 +203,41 @@ export interface StompHandle {
 
 export type StompFactory = (args: StompFactoryArgs) => StompHandle;
 
+/* ===== 재접속 간격 (§5-2 재동기화, 증거 ws-storm-20260907) ===== */
+
+/** 재접속 기준 지연. 지터의 중심이자 지수 백오프의 출발점이다. */
+export const WS_RECONNECT_BASE_MS = 2_000;
+/** 지수 백오프 상한. 이 위로는 사용자가 화면이 죽었다고 판단한다. */
+export const WS_RECONNECT_MAX_MS = 30_000;
+
+/**
+ * 재접속 기준 지연에 지터를 준다. 결과는 기준의 0.5배에서 1.5배 사이다.
+ *
+ * 왜 필요한가. 서버가 동시 연결 상한을 넘긴 접속을 거절하면(WsConnectionLimitHandler) 거절은
+ * 한꺼번에 난다. 종전 설정은 고정 2초에 지터도 백오프도 없어서 거절당한 전원이 2초 뒤 같은
+ * 순간에 다시 몰렸다. 2026-09-07 실측에서 그 재시도가 초당 785건이었다(증거 ws-storm-20260907).
+ * 노드는 견뎠지만 그 부하는 아무 일도 하지 않는 순수 낭비다.
+ *
+ * 지터를 접속마다가 아니라 클라이언트마다 준다. stompjs 7.3.0 은 다음 지연을 private 필드에
+ * 들고 있고 그 값을 activate 시점과 접속 성공 시점에만 reconnectDelay 에서 다시 읽는다. 매
+ * 시도에 끼어들 공개 지점이 없다. 대신 클라이언트마다 출발점이 다르면 이어지는 지수 수열도
+ * 갈라지므로 무리가 흩어진다. 같은 순간에 페이지를 연 브라우저들도 각자 다른 값을 뽑는다.
+ *
+ * random 을 인자로 받는 이유는 테스트가 결과를 고정하기 위해서다.
+ */
+export function jitteredReconnectDelayMs(random: () => number = Math.random): number {
+  return Math.round(WS_RECONNECT_BASE_MS * (0.5 + random()));
+}
+
 function defaultStompFactory(args: StompFactoryArgs): StompHandle {
   const client = new Client({
     brokerURL: args.url,
-    reconnectDelay: 2000,
+    // 클라이언트마다 다른 출발점. 아래 onConnect 가 접속마다 다시 뽑는다.
+    reconnectDelay: jitteredReconnectDelayMs(),
+    // 거절이 이어지는 동안 간격을 두 배씩 늘린다. 고정 간격이면 거절당한 무리가 같은 주기로
+    // 영원히 되돌아온다. 상한을 두는 이유는 그 위로는 사용자가 화면이 죽었다고 보기 때문이다.
+    reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
+    maxReconnectDelay: WS_RECONNECT_MAX_MS,
     heartbeatIncoming: 10000,
     heartbeatOutgoing: 10000,
     // 은닉 탭에서 메인 스레드 setInterval이 스로틀되면 발신 하트비트가 굶어 서버가 연결을
@@ -217,7 +248,14 @@ function defaultStompFactory(args: StompFactoryArgs): StompHandle {
       // 재연결마다 최신 세션 토큰 반영
       client.connectHeaders = args.connectHeaders();
     },
-    onConnect: () => args.onConnect(),
+    onConnect: () => {
+      /* 다음 절단에 쓸 출발점을 새로 뽑는다. 라이브러리는 접속 성공 직후 reconnectDelay 를
+         내부 값으로 복사하고 그 다음에 이 콜백을 부르므로, 여기서 바꾼 값은 이번이 아니라
+         다음 접속의 출발점이 된다. 한 클라이언트가 같은 값을 영원히 쓰지 않게 하는 것이
+         목적이라 그 한 박자 지연은 문제가 되지 않는다. */
+      client.reconnectDelay = jitteredReconnectDelayMs();
+      args.onConnect();
+    },
     onWebSocketClose: () => args.onDisconnect(),
   });
   return {

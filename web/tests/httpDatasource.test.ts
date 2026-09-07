@@ -9,6 +9,9 @@ import assert from "node:assert/strict";
 import {
   ApiError,
   HttpStompDataSource,
+  jitteredReconnectDelayMs,
+  WS_RECONNECT_BASE_MS,
+  WS_RECONNECT_MAX_MS,
   type StompFactory,
   type StompFactoryArgs,
 } from "../lib/api/httpDatasource";
@@ -2062,4 +2065,27 @@ test("합류 구독 전원이 풀리면 in-flight 요청을 실제로 취소한�
   assert.equal(captured.signal.aborted, true, "전원이 빠지면 요청을 끊어 조회 슬롯을 즉시 반환한다");
   await settle();
   assert.deepEqual(got, [], "취소된 합류는 어느 구독에도 스냅샷을 넘기지 않는다");
+});
+
+/* ===== 재접속 지터 (증거 ws-storm-20260907) ===== */
+
+test("재접속 지연은 기준의 0.5배에서 1.5배 사이다", () => {
+  assert.equal(jitteredReconnectDelayMs(() => 0), WS_RECONNECT_BASE_MS * 0.5);
+  assert.equal(jitteredReconnectDelayMs(() => 0.5), WS_RECONNECT_BASE_MS);
+  assert.equal(jitteredReconnectDelayMs(() => 1), WS_RECONNECT_BASE_MS * 1.5);
+});
+
+test("서로 다른 난수는 서로 다른 지연을 낸다", () => {
+  /* 무리를 흩는 것이 목적이라 값이 갈리는 것 자체가 계약이다. 고정 2초였을 때 거절당한
+     전원이 같은 순간에 되돌아왔다(실측 초당 785건). */
+  const draws = new Set<number>();
+  for (let i = 0; i < 100; i++) {
+    draws.add(jitteredReconnectDelayMs(() => i / 100));
+  }
+  assert.ok(draws.size > 50, `출발점이 충분히 갈려야 한다. 실제 ${draws.size}종`);
+});
+
+test("지연은 상한 아래에서 시작한다", () => {
+  /* 출발점이 상한을 넘으면 지수 백오프가 첫 시도부터 상한에 붙어 백오프가 무의미해진다. */
+  assert.ok(jitteredReconnectDelayMs(() => 1) < WS_RECONNECT_MAX_MS);
 });

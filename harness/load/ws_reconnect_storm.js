@@ -32,6 +32,18 @@ const STORM_DURATION = __ENV.WS_STORM_DURATION || '120s';
 // 실제 웹 클라이언트 값이다. 낮추면 폭주가 세지고 올리면 약해진다.
 const RETRY_MS = Number(__ENV.WS_RETRY_MS || 2000);
 /*
+ * 웹 클라이언트의 재접속 정책을 그대로 흉내낸다.
+ *
+ * fixed  : 종전 정책. 고정 간격에 지터도 백오프도 없다.
+ * jitter : 현행 정책. 출발점을 기준의 0.5~1.5배에서 뽑고 실패마다 두 배로 늘리되 상한에서 멈춘다
+ *          (`web/lib/api/httpDatasource.ts` jitteredReconnectDelayMs).
+ *
+ * VU 마다 출발점을 한 번 뽑는 것도 그쪽과 같다. stompjs 는 매 시도에 끼어들 지점이 없어
+ * 클라이언트 단위 지터가 실제 구현이다.
+ */
+const RETRY_MODE = __ENV.WS_RETRY_MODE || 'fixed';
+const RETRY_MAX_MS = Number(__ENV.WS_RETRY_MAX_MS || 30000);
+/*
  * 대조군 스위치. 켜면 stormers 가 연결을 맺지 않고 쉬기만 한다.
  *
  * 왜 필요한가. 폭주군을 붙이면 k6 의 VU 수도 함께 늘어난다. VU 가 많아지면 이쪽 이벤트
@@ -165,6 +177,25 @@ export function holder() {
  * 거절당하고 다시 붙기를 반복한다. 반복 하나가 시도 한 번이고, 끝나면 k6 가 곧바로 다음 반복을
  * 시작하므로 재시도 간격은 아래 sleep 이 정한다.
  */
+/* VU 하나가 쓰는 재시도 상태. 반복 사이에 남아야 백오프가 이어진다. */
+const retryState = {};
+
+function nextRetryMs() {
+  if (RETRY_MODE !== 'jitter') {
+    return RETRY_MS;
+  }
+  let cur = retryState[__VU];
+  if (cur === undefined) {
+    // VU 번호로 출발점을 흩는다. 실행마다 같은 값이 나오지만 VU 사이에서는 갈린다.
+    // 목적이 무리를 흩는 것이라 VU 간 분산이 곧 계약이다.
+    cur = Math.round(RETRY_MS * (0.5 + (__VU % 100) / 100));
+  } else {
+    cur = Math.min(cur * 2, RETRY_MAX_MS);
+  }
+  retryState[__VU] = cur;
+  return cur;
+}
+
 export function stormer() {
   if (STORM_IDLE) {
     // VU 는 살아 있되 서버를 건드리지 않는다. 부하 도구 쪽 부담만 남긴다.
@@ -219,7 +250,7 @@ export function stormer() {
     try { ws.close(); } catch (err) { /* 이미 닫힘 */ }
   }, PROBE_HOLD_MS);
 
-  sleep(RETRY_MS / 1000);
+  sleep(nextRetryMs() / 1000);
 }
 
 export function handleSummary(data) {
@@ -229,6 +260,7 @@ export function handleSummary(data) {
     holders: HOLDERS,
     stormers: STORMERS,
     retry_ms: RETRY_MS,
+    retry_mode: RETRY_MODE,
     storm_attempt: c('storm_attempt'),
     storm_rejected: c('storm_rejected'),
     storm_admitted: c('storm_admitted'),
