@@ -26,6 +26,12 @@
 
 upstream exchange_read {
     # 조회는 두 노드로 분산한다. 평시 분산 0을 해소하는 자리다.
+    #
+    # 대상 노드의 헬스 경로는 `/actuator/health/read` 다. `/actuator/health/readiness` 를 쓰면
+    # 안 된다. 그것은 쓰기를 받을 수 있는가를 답하므로 팔로워가 설계상 503 이고(DB 설계 §5.4),
+    # 능동 헬스체크를 하는 인그레스(ALB 대상 그룹 등)가 팔로워를 빼 조회 분산 자체가 성립하지
+    # 않는다. 실측에서 팔로워는 readiness 503 이면서 조회 200 이다(증거 scenario-20260907).
+    # nginx OSS 는 능동 헬스체크가 없어 아래 max_fails 로 실패한 요청을 보고 판정한다.
     zone exchange_read 64k;
     least_conn;
     server ${APP_1_HOST}:8080 max_fails=1 fail_timeout=2s;

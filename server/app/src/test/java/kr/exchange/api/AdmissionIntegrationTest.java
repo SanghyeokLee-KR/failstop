@@ -223,6 +223,9 @@ class AdmissionIntegrationTest {
         try {
             for (String path : new String[]{
                     "/actuator/health", "/actuator/health/readiness", "/actuator/health/liveness",
+                    // 조회 전용 노드의 인그레스 헬스 경로. 이것이 수용 제한에 막히면 포화한
+                    // 노드가 로드밸런서에서 통째로 빠져 남은 노드로 부하가 몰린다.
+                    "/actuator/health/read",
                     "/actuator/prometheus", "/harness/v1/status"}) {
                 assertEquals(200, rest.getForEntity(path, String.class).getStatusCode().value(),
                         path + "가 수용 제한에 막혔다. 노드 생존 판정이 무너진다");
