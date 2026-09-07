@@ -1,0 +1,15 @@
+{
+  "holders": 1900,
+  "stormers": 1600,
+  "retry_ms": 2000,
+  "storm_attempt": 0,
+  "storm_rejected": 0,
+  "storm_admitted": 0,
+  "storm_unresolved": 0,
+  "admit_p50_ms": 0,
+  "holder_msg": 6142070,
+  "holder_lost": 0,
+  "holder_silent": 0,
+  "holder_first_msg_p50_ms": 12,
+  "holder_first_msg_p95_ms": 801.05
+}

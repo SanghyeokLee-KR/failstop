@@ -3,29 +3,37 @@ package kr.exchange.api.ws;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
-import org.springframework.web.socket.CloseStatus;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * exchange.ws.clients 게이지 계약 검증(하네스 CICD §5-2). Connected/Disconnect 이벤트로 증감하고,
- * DISCONNECT가 CONNECT보다 많아도 게이지는 0 미만으로 내려가지 않는다(음수 하한 클램프).
+ * exchange.ws.clients 게이지 계약 검증(하네스 CICD §5-2).
+ *
+ * 증감은 세션 id 로 짝을 맞춘다. Spring 은 STOMP CONNECT 를 마치지 못한 세션에도 Disconnect
+ * 이벤트를 내므로, 짝을 맞추지 않으면 올린 적 없는 값을 내린다. 2026-09-07 재접속 폭주 실측에서
+ * 살아 있는 세션 1900 개가 계속 메시지를 받는 동안 게이지만 159 까지 떨어진 것이 그 경로다.
  */
 class WsSessionMetricsTest {
 
-    private static Message<byte[]> frame() {
-        return MessageBuilder.withPayload(new byte[0]).build();
+    private static Message<byte[]> frame(String sessionId) {
+        SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.create();
+        if (sessionId != null) {
+            accessor.setSessionId(sessionId);
+        }
+        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
     }
 
-    private SessionConnectedEvent connected() {
-        return new SessionConnectedEvent(this, frame());
+    private SessionConnectedEvent connected(String sessionId) {
+        return new SessionConnectedEvent(this, frame(sessionId));
     }
 
-    private SessionDisconnectEvent disconnected() {
-        return new SessionDisconnectEvent(this, frame(), "s", CloseStatus.NORMAL);
+    private SessionDisconnectEvent disconnected(String sessionId) {
+        return new SessionDisconnectEvent(this, frame(sessionId), sessionId, CloseStatus.NORMAL);
     }
 
     private double gauge(SimpleMeterRegistry registry) {
@@ -39,29 +47,74 @@ class WsSessionMetricsTest {
 
         assertEquals(0.0, gauge(registry));
 
-        metrics.onConnected(connected());
-        metrics.onConnected(connected());
+        metrics.onConnected(connected("a"));
+        metrics.onConnected(connected("b"));
         assertEquals(2.0, gauge(registry));
         assertEquals(2, metrics.activeCount());
 
-        metrics.onDisconnect(disconnected());
+        metrics.onDisconnect(disconnected("a"));
         assertEquals(1.0, gauge(registry));
         assertEquals(1, metrics.activeCount());
     }
 
+    /**
+     * 폭주 회귀. STOMP CONNECT 없이 끝난 세션의 Disconnect 가 살아 있는 세션의 계수를 깎으면
+     * 안 된다. 깎이면 운영자가 접속자 급감으로 읽고 없는 장애를 좇는다.
+     */
     @Test
-    void disconnectWithoutConnectClampsAtZero() {
+    void disconnectOfNeverConnectedSessionDoesNotDecrementLiveSessions() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         WsSessionMetrics metrics = new WsSessionMetrics(registry);
 
-        // 재시작 후 잔여 DISCONNECT나 이벤트 재전달로 음수가 되지 않아야 한다.
-        metrics.onDisconnect(disconnected());
-        metrics.onDisconnect(disconnected());
-        assertEquals(0.0, gauge(registry));
-        assertEquals(0, metrics.activeCount());
+        metrics.onConnected(connected("live-1"));
+        metrics.onConnected(connected("live-2"));
+        assertEquals(2.0, gauge(registry));
 
-        // 클램프 이후 정상 연결은 다시 1부터 증가한다(음수 누적 흔적 없음).
-        metrics.onConnected(connected());
+        // 상한에 걸려 STOMP 까지 가지 못하고 끝난 연결들이다. 이벤트는 온다.
+        for (int i = 0; i < 500; i++) {
+            metrics.onDisconnect(disconnected("rejected-" + i));
+        }
+
+        assertEquals(2.0, gauge(registry), "살아 있는 세션 수가 그대로여야 한다");
+        assertEquals(2, metrics.countedSessions());
+    }
+
+    @Test
+    void disconnectWithoutConnectStaysAtZero() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        WsSessionMetrics metrics = new WsSessionMetrics(registry);
+
+        metrics.onDisconnect(disconnected("x"));
+        metrics.onDisconnect(disconnected("y"));
+        assertEquals(0.0, gauge(registry));
+
+        metrics.onConnected(connected("z"));
+        assertEquals(1.0, gauge(registry), "음수 누적 흔적이 남지 않아야 한다");
+    }
+
+    /** 같은 세션의 이벤트가 두 번 와도 계수가 어긋나면 안 된다. */
+    @Test
+    void duplicateEventsAreIdempotent() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        WsSessionMetrics metrics = new WsSessionMetrics(registry);
+
+        metrics.onConnected(connected("a"));
+        metrics.onConnected(connected("a"));
         assertEquals(1.0, gauge(registry));
+
+        metrics.onDisconnect(disconnected("a"));
+        metrics.onDisconnect(disconnected("a"));
+        assertEquals(0.0, gauge(registry));
+        assertEquals(0, metrics.countedSessions());
+    }
+
+    /** id 를 읽지 못하면 세지 않는다. 틀리게 세는 것보다 낫다. */
+    @Test
+    void missingSessionIdIsNotCounted() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        WsSessionMetrics metrics = new WsSessionMetrics(registry);
+
+        metrics.onConnected(connected(null));
+        assertEquals(0.0, gauge(registry));
     }
 }
