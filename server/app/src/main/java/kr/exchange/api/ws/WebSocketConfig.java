@@ -1,5 +1,6 @@
 package kr.exchange.api.ws;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,6 +13,9 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
+import kr.exchange.api.common.AdmissionControl;
+import kr.exchange.api.common.AdmissionGate;
+
 /**
  * /ws/v1 STOMP 엔드포인트(§5-1). 단일 노드 SimpleBroker 구성이다.
  * 다중 노드의 /topic Redis 릴레이·/user 외부 STOMP 브로커 릴레이(§5-1 (A))는 M2 몫이며,
@@ -23,11 +27,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthInterceptor authInterceptor;
     private final String[] allowedOrigins;
+    private final AdmissionGate admissionGate;
+    private final AdmissionControl wsAdmission;
 
     public WebSocketConfig(@Lazy StompAuthInterceptor authInterceptor,
                            @Value("${app.ws.allowed-origins:https://demo.exchange.local,http://localhost:3000}")
                            String[] allowedOrigins,
-                           @Value("${exchange.require-secrets:false}") boolean requireSecrets) {
+                           @Value("${exchange.require-secrets:false}") boolean requireSecrets,
+                           // @Lazy 를 붙이지 않는다. 두 타입 모두 final 이라 CGLIB 이 프록시를
+                           // 만들지 못하고 기동이 깨진다. 순환도 없다. ApiConfig 는 이 설정을
+                           // 참조하지 않는다.
+                           AdmissionGate admissionGate,
+                           @Qualifier("wsAdmissionControl") AdmissionControl wsAdmission) {
         // 운영 기동에서 데모·로컬 오리진이 남아 있으면(미지정 시 @Value 기본값으로 폴백) fail-closed.
         // 운영 CONNECT 인증이 있어도 오리진 화이트리스트는 심층방어의 첫 관문이라 명시를 강제한다.
         if (requireSecrets) {
@@ -42,6 +53,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         }
         this.authInterceptor = authInterceptor;
         this.allowedOrigins = allowedOrigins;
+        this.admissionGate = admissionGate;
+        this.wsAdmission = wsAdmission;
     }
 
     @Override
@@ -73,6 +86,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registration.setSendTimeLimit(15_000);
         registration.setSendBufferSizeLimit(512 * 1024);
         registration.setMessageSizeLimit(64 * 1024);
+        // 동시 연결 수용 제어. 위 세 상한은 세션 하나가 쓰는 양을 묶지만 세션 수는 묶지 않는다.
+        // 노드를 죽인 것은 세션 하나의 크기가 아니라 세션 수였다(증거 31회차).
+        registration.addDecoratorFactory(
+                delegate -> new WsConnectionLimitHandler(delegate, admissionGate, wsAdmission));
     }
 
     @Bean

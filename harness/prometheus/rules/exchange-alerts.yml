@@ -197,3 +197,36 @@ groups:
           duration: "1m"
           dashboard: "MSP 종합 (msp-overview)"
           runbook: "기획안 §7.9 침묵 판정"
+
+      # WS 동시 연결이 상한에 다가간다. 상한 자체는 노드를 지키지만 그 지점부터 신규 접속이
+      # 거절되므로 사용자에게는 접속 불가로 보인다. 증설 판단 신호다.
+      - alert: WsConnectionsNearLimit
+        expr: max(exchange_admission_in_flight{scope="ws"}) / max(exchange_admission_limit{scope="ws"}) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+          component: ws
+        annotations:
+          summary: "WS 동시 연결이 상한의 80% 초과"
+          metric: "admission in_flight / limit (scope=ws)"
+          value: "> 80%"
+          threshold: "> 80%"
+          duration: "2m"
+          dashboard: "인프라 상세 (msp-infra)"
+          runbook: "하네스 CICD·IaC §3-3 WS 동시연결 예산. 노드 증설 또는 앱 메모리 상향"
+
+      # 상한에 걸려 실제로 거절이 나간다. 위 경고를 지나쳐 사용자가 접속하지 못하는 상태다.
+      - alert: WsConnectionsRejected
+        expr: sum(rate(exchange_admission_rejected_total{scope="ws"}[2m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: ws
+        annotations:
+          summary: "WS 신규 접속 거절 발생"
+          metric: "admission rejected rate 2m (scope=ws)"
+          value: "> 0/s"
+          threshold: "> 0/s"
+          duration: "1m"
+          dashboard: "인프라 상세 (msp-infra)"
+          runbook: "하네스 CICD·IaC §3-3. 거절은 노드를 지키는 정상 동작이고 대응은 증설이다"

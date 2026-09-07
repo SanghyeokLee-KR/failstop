@@ -23,23 +23,29 @@ public class AdmissionEndpoint {
     private final AdmissionControl order;
     private final AdmissionControl query;
     private final AdmissionControl requery;
+    private final AdmissionControl ws;
 
     public AdmissionEndpoint(AdmissionGate gate, AdmissionControl order,
-                             AdmissionControl query, AdmissionControl requery) {
+                             AdmissionControl query, AdmissionControl requery,
+                             AdmissionControl ws) {
         this.gate = gate;
         this.order = order;
         this.query = query;
         this.requery = requery;
+        this.ws = ws;
     }
 
     @ReadOperation
     public Map<String, Object> state() {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("enabled", gate.enabled());
+        // ws 는 요청이 아니라 연결을 센다. 같은 응답에 두는 이유는 게이트 하나가 넷을 함께
+        // 여닫기 때문이다. 버킷이 빠져 있으면 게이트를 껐을 때 무엇이 풀렸는지 알 수 없다.
         out.put("buckets", Map.of(
                 "order", bucket(order),
                 "query", bucket(query),
-                "requery", bucket(requery)));
+                "requery", bucket(requery),
+                "ws", bucket(ws)));
         return out;
     }
 

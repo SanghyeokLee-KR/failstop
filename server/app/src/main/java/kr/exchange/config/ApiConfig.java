@@ -183,6 +183,31 @@ public class ApiConfig {
     }
 
     /**
+     * WS 동시 연결 상한. 요청 세 버킷과 달리 요청 풀이 아니라 최대 힙에서 유도한다
+     * (WsConnectionLimit). 연결은 DB 커넥션을 쥐지 않고 힙을 쥐며, 요청보다 훨씬 오래 산다.
+     *
+     * 기동 로그를 남기는 이유는 요청 버킷과 같다. 유도 결과가 배포마다 다른데 코드에도 설정에도
+     * 그 숫자가 없다.
+     */
+    @Bean
+    public kr.exchange.api.ws.WsConnectionLimit wsConnectionLimit(
+            @Value("${exchange.admission.ws-connections:0}") int configured) {
+        kr.exchange.api.ws.WsConnectionLimit limit =
+                kr.exchange.api.ws.WsConnectionLimit.resolve(configured, Runtime.getRuntime().maxMemory());
+        log.info("수용 제한 상한 해석: {}", limit.describe());
+        return limit;
+    }
+
+    @Bean
+    public AdmissionControl wsAdmissionControl(kr.exchange.api.ws.WsConnectionLimit limit,
+                                               MeterRegistry registry) {
+        // Shed 는 쓰지 않는다. WS 거절은 HTTP 본문이 아니라 종료 코드 1013 으로 나간다
+        // (WsConnectionLimitHandler). 지표를 요청 버킷과 같은 계열에 두려고 같은 클래스를 쓴다.
+        return new AdmissionControl("ws", limit.limit(),
+                AdmissionControl.Shed.CAPACITY, registry);
+    }
+
+    /**
      * 수용 게이트는 인증(order 10)보다 앞이고 바디 상한(order 5)보다 뒤다. 인증 뒤에서 막으면
      * api_keys 조회로 이미 DB를 탄 뒤라 실효가 없고, 바디 상한 앞이면 64KB 초과 요청이 슬롯을
      * 소비한다. ApiAuthFilter와 별도 필터인 이유는 AdmissionFilter 클래스 주석 참조.
@@ -202,9 +227,10 @@ public class ApiConfig {
             kr.exchange.api.common.AdmissionGate gate,
             @Qualifier("orderAdmissionControl") AdmissionControl orderAdmission,
             @Qualifier("queryAdmissionControl") AdmissionControl queryAdmission,
-            @Qualifier("requeryAdmissionControl") AdmissionControl requeryAdmission) {
+            @Qualifier("requeryAdmissionControl") AdmissionControl requeryAdmission,
+            @Qualifier("wsAdmissionControl") AdmissionControl wsAdmission) {
         return new kr.exchange.api.common.AdmissionEndpoint(gate, orderAdmission, queryAdmission,
-                requeryAdmission);
+                requeryAdmission, wsAdmission);
     }
 
     @Bean

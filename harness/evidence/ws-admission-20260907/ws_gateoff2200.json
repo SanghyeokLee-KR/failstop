@@ -1,0 +1,14 @@
+{
+  "vus": 2200,
+  "hold_ms": 90000,
+  "ramp_ms": 45000,
+  "ws_open": 2200,
+  "ws_error": 0,
+  "ws_closed_early": 0,
+  "ws_silent": 0,
+  "ws_msg": 2200,
+  "first_msg_p50_ms": 3,
+  "first_msg_p95_ms": 7,
+  "first_msg_max_ms": 211,
+  "vus_max": 2200
+}
