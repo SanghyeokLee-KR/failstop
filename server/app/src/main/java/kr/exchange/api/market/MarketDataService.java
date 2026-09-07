@@ -74,6 +74,30 @@ public class MarketDataService {
         return List.copyOf(out);
     }
 
+    private final ConcurrentHashMap<String, Cached<Map<String, Object>>> tickerStatsCache =
+            new ConcurrentHashMap<>();
+
+    /** 24 시간 창의 고가·저가·거래량·거래대금. 창이 넓어 비싸므로 위 TTL 로 감싼다. */
+    private Map<String, Object> dayStats(MarketDirectory.Market market) {
+        OffsetDateTime dayAgo = OffsetDateTime.now(java.time.ZoneOffset.UTC).minusHours(24);
+        return jdbc.sql("""
+                        SELECT MAX(price) AS high, MIN(price) AS low,
+                               COALESCE(SUM(quantity), 0) AS vol,
+                               COALESCE(SUM(price * quantity), 0) AS turnover
+                        FROM trades WHERE market_id = ? AND created_at > ?
+                        """)
+                .params(market.id(), dayAgo)
+                .query((rs, rowNum) -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("high", rs.getBigDecimal("high"));
+                    m.put("low", rs.getBigDecimal("low"));
+                    m.put("vol", rs.getBigDecimal("vol"));
+                    m.put("turnover", rs.getBigDecimal("turnover"));
+                    return m;
+                })
+                .single();
+    }
+
     /** 단일 라이터 스레드에서만 부른다. 배치가 건드린 마켓의 스냅샷을 갈아 끼운다. */
     public void publishEngineDepth(int marketId, Depth depth) {
         if (depth != null) {
@@ -146,6 +170,21 @@ public class MarketDataService {
      * 호가창이 갱신되는데 위쪽 총량만 눈에 띄게 멈춰 있어 어긋나 보인다.
      */
     private static final long TOTAL_CACHE_TTL_MS = 5_000;
+
+    /**
+     * 24 시간 시세 통계(고가·저가·거래량·거래대금) 전용 TTL.
+     *
+     * 이 통계는 체결이 있는 배치마다 다시 계산됐다. 한 번이 24 시간치 체결을 전부 훑으므로
+     * 체결이 쌓일수록 비싸진다. 2026-09-07 실측에서 860 회에 17977ms, 건당 20.9ms 였다.
+     *
+     * 24 시간 창의 통계라 몇 초 늦어도 값이 사실상 같다. 거래량은 계속 늘지만 하루치 누계에서
+     * 2 초 몫은 눈에 띄지 않고, 고가·저가는 그 창에서 갱신이 드물다. 반면 현재가는 캐시하지
+     * 않는다. 그것은 화면에서 가장 먼저 보는 값이고 체결마다 바뀌어야 한다.
+     *
+     * 총 잔량(5 초)보다 짧게 두는 이유. 거래량은 단조 증가라 늦으면 늦은 만큼 작게 보이는데,
+     * 호가 총량과 달리 사용자가 체결 목록과 나란히 놓고 본다. 어긋남이 드러나는 창을 줄인다.
+     */
+    private static final long TICKER_STATS_TTL_MS = 2_000;
 
     private record Cached<T>(T value, long expiresAt) {
     }
@@ -279,24 +318,11 @@ public class MarketDataService {
                 .optional()
                 .orElse(null);
 
-        OffsetDateTime dayAgo = OffsetDateTime.now(java.time.ZoneOffset.UTC).minusHours(24);
-        Map<String, Object> agg = jdbc.sql("""
-                        SELECT MAX(price) AS high, MIN(price) AS low,
-                               COALESCE(SUM(quantity), 0) AS vol,
-                               COALESCE(SUM(price * quantity), 0) AS turnover
-                        FROM trades WHERE market_id = ? AND created_at > ?
-                        """)
-                .params(market.id(), dayAgo)
-                .query((rs, rowNum) -> {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("high", rs.getBigDecimal("high"));
-                    m.put("low", rs.getBigDecimal("low"));
-                    m.put("vol", rs.getBigDecimal("vol"));
-                    m.put("turnover", rs.getBigDecimal("turnover"));
-                    return m;
-                })
-                .single();
+        Map<String, Object> agg = cached(tickerStatsCache, String.valueOf(market.id()),
+                TICKER_STATS_TTL_MS, () -> dayStats(market));
 
+        // 전일 종가 기준시각. 위 통계는 캐시가 자기 시각을 쓰므로 여기서 따로 잡는다.
+        OffsetDateTime dayAgo = OffsetDateTime.now(java.time.ZoneOffset.UTC).minusHours(24);
         BigDecimal prev = jdbc.sql("""
                         SELECT price FROM trades
                         WHERE market_id = ? AND created_at <= ?
