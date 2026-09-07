@@ -197,16 +197,43 @@ public class MarketDataService {
     private final ConcurrentHashMap<String, Cached<List<Level>>> levelsCache = new ConcurrentHashMap<>();
 
     @SuppressWarnings("unchecked")
+    /**
+     * 키마다 하나씩 두는 채움 잠금. 만료 순간의 동시 요청이 전부 DB 로 몰리는 것을 막는다.
+     *
+     * 잠금을 캐시와 따로 두는 이유는 캐시 항목이 만료로 사라져도 잠금은 남아 다음 채움까지
+     * 이어져야 하기 때문이다. 키 수는 마켓 수의 상수배라 유계다.
+     */
+    private final ConcurrentHashMap<String, Object> fillLocks = new ConcurrentHashMap<>();
+
+    /**
+     * TTL 캐시. 만료 시 한 스레드만 DB 를 치고 나머지는 그 결과를 기다린다.
+     *
+     * 기다리게 하는 이유. 종전에는 만료를 본 스레드가 저마다 loader 를 돌렸다. 2026-09-07
+     * 실측에서 조회 7684 건/s 를 받는 노드가 1 초 TTL 인데도 호가 쿼리를 초당 10.8 회 냈다.
+     * 1 마켓 두 면이면 초당 2 회여야 하므로 5.4 배가 이 몰림이다. TTL 이 짧을수록, 부하가
+     * 셀수록 배수가 커진다.
+     *
+     * 기다린 쪽이 얻는 값은 방금 채운 값이라 최신이다. 잠금 구간이 DB 왕복 한 번이라 대기도
+     * 그만큼이고, 몰림으로 왕복을 여러 번 하는 것보다 짧다.
+     */
     private <T> T cached(ConcurrentHashMap<String, Cached<T>> cache, String key,
                          long ttlMs, java.util.function.Supplier<T> loader) {
-        long now = System.currentTimeMillis();
         Cached<T> hit = cache.get(key);
-        if (hit != null && hit.expiresAt() > now) {
+        if (hit != null && hit.expiresAt() > System.currentTimeMillis()) {
             return hit.value();
         }
-        T fresh = loader.get();
-        cache.put(key, new Cached<>(fresh, now + ttlMs));
-        return fresh;
+        Object lock = fillLocks.computeIfAbsent(key, k -> new Object());
+        synchronized (lock) {
+            // 잠금을 잡는 사이에 다른 스레드가 채웠을 수 있다. 다시 본다.
+            Cached<T> again = cache.get(key);
+            long now = System.currentTimeMillis();
+            if (again != null && again.expiresAt() > now) {
+                return again.value();
+            }
+            T fresh = loader.get();
+            cache.put(key, new Cached<>(fresh, now + ttlMs));
+            return fresh;
+        }
     }
 
     private BigDecimal total(int marketId, String side) {
