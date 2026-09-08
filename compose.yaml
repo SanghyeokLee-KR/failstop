@@ -80,7 +80,10 @@ services:
     volumes:
       - ./web/out:/usr/share/nginx/html:ro
       - ./harness/nginx/web.conf:/etc/nginx/conf.d/default.conf:ro
-    ports: ["53000:80"]
+    # 3000 으로 낸다. 앱의 WS 오리진 화이트리스트(app.ws.allowed-origins)와 dev CORS 가
+    # 기본값으로 http://localhost:3000 만 허용한다. 다른 포트로 내면 시세·차트는 나와도
+    # WS 핸드셰이크가 403 으로 막힌다(실측 2026-09-08). 포트를 계약에 맞춘다.
+    ports: ["3000:80"]
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost/"]
       interval: 3s

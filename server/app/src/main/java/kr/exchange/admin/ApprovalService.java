@@ -36,13 +36,13 @@ public class ApprovalService {
 
     /**
      * 승인 발급. approver는 인증 주체 유래 operator_id, requester는 승인 대상 운영자.
-     * 두 신원이 같으면 DB CHECK(chk_approval_two_person)와 앱 가드가 함께 반려한다.
+     *
+     * 두 신원이 같아도 된다. 1인 승인이다(ADR 0019, V34). 종전 판은 반결탁을 이유로 서로
+     * 달라야 한다고 걸었는데, 그 제약이 1인 운영에서 파괴 액션 자체를 봉쇄했다. 남는 방어는
+     * 별도 발급 단계와 TTL, 단회 소각, 액션·대상 바인딩, 역할 게이트, append-only 감사다.
      */
     public Issued issue(String approverOperatorId, String requesterOperatorId,
                         String action, String target) {
-        if (approverOperatorId.equals(requesterOperatorId)) {
-            throw forbidden("approvals 발급 주체와 요청 주체 동일 불가", "same_operator");
-        }
         String token = "APV" + randomToken(40);
         long exp = System.currentTimeMillis() / 1000 + ttl.toSeconds();
         long id = jdbc.sql("""
@@ -106,10 +106,8 @@ public class ApprovalService {
         if (!requesterOperatorId.equals(row.get("requester"))) {
             throw forbidden("approval_token 사용 주체가 승인 지정 요청자와 다릅니다.", "requester_mismatch");
         }
-        // 반결탁 최종 방어선: 사용 주체는 발급 주체와 달라야 한다(§3-6).
-        if (requesterOperatorId.equals(row.get("approver"))) {
-            throw forbidden("approval_token 사용 주체가 발급 주체와 동일", "same_operator");
-        }
+        // 발급 주체와 사용 주체가 같아도 통과시킨다(1인 승인, ADR 0019). 바인딩 검사는 위에
+        // 남는다. 곧 남의 승인을 가져다 쓰는 것은 여전히 requester_mismatch 로 막힌다.
         jdbc.sql("UPDATE admin_approvals SET state = 'CONSUMED', consumed_at = now() WHERE id = ?")
                 .param(id).update();
         return id;

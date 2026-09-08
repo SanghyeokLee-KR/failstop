@@ -1,5 +1,5 @@
 ﻿# docs §3 E5 네트워크 분할(split-brain 반증, crown jewel).
-# docker network disconnect chaos-net chaos-api-1(프로세스 생존, 네트워크만 격리) -> 60s -> connect.
+# docker network disconnect exchange-chaos_chaos-net chaos-api-1(프로세스 생존, 네트워크만 격리) -> 60s -> connect.
 # 정본 §3 주입명은 데모 컨테이너(exchange-demo_default/api-1-1)라 격리 스택 실명으로 정정한다.
 # 판정(§3 E5 합격 기준, 안전성 중심): 이중 쓰기 0(워터마크 이후 구 epoch fencing 저널 행 0) +
 # 무결성 0. 여기에 공허 통과 차단용으로 [신 리더 실제 승격(epoch 단조 상승 + holder 교체)]과
@@ -106,7 +106,7 @@ try {
     Write-Section "ⓓ 복귀: docker network connect $net $target"
     & docker network connect $net $target | Out-Null
     # 성공을 확인한 뒤에만 플래그를 올린다. 먼저 올리면 실패 시 종료 훅이 재시도하지 않아
-    # 대상이 chaos-net에서 영구 이탈하고 이후 전 실험이 무관한 이유로 FAIL한다(E7 ⓓ와 동형).
+    # 대상이 그 네트워크에서 영구 이탈하고 이후 전 실험이 무관한 이유로 FAIL한다(E7 ⓓ와 동형).
     if ($LASTEXITCODE -eq 0) { $connected = $true }
     else { Write-Host "docker network connect 실패(종료코드 $LASTEXITCODE). 종료 훅에서 재시도한다." -ForegroundColor Yellow }
     # 복귀 노드가 팔로워로 재합류하거나 self-shutdown 하는지 관찰(soft). 좀비 리더의 첫 append는

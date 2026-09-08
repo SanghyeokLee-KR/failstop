@@ -86,7 +86,7 @@ $LOGICAL_CPUS   = [int]$env:NUMBER_OF_PROCESSORS
 
 $PG = 'chaos-pg'
 $API = 'http://localhost:58080'
-$NET = 'chaos-net'
+$NET = $Global:CHAOS.Network
 $K6_IMAGE = 'grafana/k6:1.4.0'
 $CAL_CONTAINER = 'chaos-k6-cal'
 $PREFLIGHT_CONTAINER = 'chaos-k6-preflight'

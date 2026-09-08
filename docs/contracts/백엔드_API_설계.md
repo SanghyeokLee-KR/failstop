@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.43, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.44, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -455,7 +455,7 @@ payload = {"access_key":ACCESS_KEY,"nonce":str(uuid.uuid4()),
 - **네트워크 격리**: `admin.exchange.local` 별도 호스트/포트, 방화벽으로 운영자 네트워크만 접근. **mTLS 필수**(클라이언트 인증서 검증).
 - **서명**: §3의 JWT+canonical+nonce+timestamp를 그대로 재사용하되, `scope=admin` 키 + **별도 `admin_secret`**로 서명. `/admin/v1/**` path가 canonical에 포함되어 거래 서명과 교차 재사용 불가. **중첩 바디(`params`/`seed` 등)를 가진 관리 요청은 §3-3(b) `JCS(body)` canonical 규칙을 상속**하므로 flat 평탄화 불가 문제 없이 서명 대상이 바이트 단위로 확정된다(예시: §3-3 admin 봇 생성).
 - **비가역 액션 이중 승인(v2.3 완결 규정, v2.12 config·operators 확장)**: `approval_token` 필수 액션은 다음 **완결 열거**로 확정한다('등'으로 열어두지 않는다): `PATCH /admin/v1/sim/bots/{id}/params`, `POST /admin/v1/config/markets/{symbol}/halt`, `POST /admin/v1/config/markets/{symbol}/resume`, `PATCH /admin/v1/config/markets/{symbol}/fees`, `POST /admin/v1/operators`, `PATCH /admin/v1/operators/{id}/status`, `POST /admin/v1/operators/{id}/roles`, `POST /admin/v1/members/{external_id}/close`(v2.32). **그 외 모든 관리 엔드포인트**(카오스 주입·해제 4종(v2.34), 봇 생성/제거, `sim/start|stop|pause`, `scenarios/{name}/activate`, `PUT /sim/rate`, 공지 발급·갱신·소프트 삭제, 조회류)는 `operator_id`만 필수이고 approval_token **불요**다(§6-A 봇 생성 예시와 정합. 전 액션 감사 로그 대상은 동일). 필수 액션은 요청 바디에 `operator_id` + `approval_token` 포함, 누락·불일치·만료 시 `403 admin_forbidden`. §6-A/§6-B 표의 **승인 컬럼**이 엔드포인트별 요구 여부의 권위 소스다.
-  - **approval_token 수명주기(v2.3)**: 요청 operator와 **다른** operator가 `POST /admin/v1/approvals`(mTLS + `scope=admin` 서명, 2인 승인 절차)로 발급하며, 발급 시 **`action` + 대상 식별자**(`node`/`bot_id`/`toxic` 등)에 바인딩된다. 토큰은 **단회용**(검증 성공 시 즉시 소각)·**TTL 5분**. 바인딩된 action·대상과 다른 요청에의 사용, 만료·기소각 토큰 재사용은 `403 admin_forbidden`. 정적·재사용 가능한 토큰은 금지된다(동일 토큰으로 반복 kill-node 승인 불가. nonce가 막지 못하는 '새 요청+같은 토큰' 경로 차단). 발급·사용·만료·거부는 모두 `admin_audit_log`에 기록.
+  - **approval_token 수명주기(v2.3)**: operator 가 `POST /admin/v1/approvals`(mTLS + `scope=admin` 서명, 2인 승인 절차)로 발급하며, 발급 시 **`action` + 대상 식별자**(`node`/`bot_id`/`toxic` 등)에 바인딩된다. 토큰은 **단회용**(검증 성공 시 즉시 소각)·**TTL 5분**. 바인딩된 action·대상과 다른 요청에의 사용, 만료·기소각 토큰 재사용은 `403 admin_forbidden`. 정적·재사용 가능한 토큰은 금지된다(동일 토큰으로 반복 kill-node 승인 불가. nonce가 막지 못하는 '새 요청+같은 토큰' 경로 차단). 발급·사용·만료·거부는 모두 `admin_audit_log`에 기록.
   - **operator 신원 바인딩(v2.4, 2인 통제의 검증 수단 확정)**: `operator_id`는 바디 자가신고 값으로 판정하지 않는다. 각 admin `access_key`(및 mTLS 클라이언트 인증서)는 발급 시 정확히 **하나의 `operator_id`에 1:1 등록**되며(`api_keys`에 operator_id 바인딩, §7-1), 서버는 **모든 관리 요청과 approvals 발급 각각에서 인증 주체(access_key / 인증서 CN)로부터 operator_id를 도출**해 바디의 `operator_id`와 대조한다. 불일치 시 `403 admin_forbidden`(바디 필드는 가독·감사 편의용이고 권위는 인증 주체 유래 값이다. `admin_audit_log`에도 인증 주체 유래 operator_id를 기록). **2인 승인 판정**: "요청 operator와 다른 operator"는 자가신고 값이 아니라 **approvals 발급 요청의 인증 주체 ≠ approval_token 사용 요청의 인증 주체**로 서버가 검증한다 → 단일 admin 키 보유자가 발급 시 `op-02`, 사용 시 `op-01`로 바꿔 신고해 혼자 2인 승인을 완성하는 경로를 차단한다(발급 시 토큰에 발급 주체 operator를 함께 바인딩).
   - **바인딩 target·바디 필드 확정표(v2.13, 발급·소각 정합 단일 규칙)**: `POST /admin/v1/approvals`가 발급하는 `target` 문자열과 파괴 액션 엔드포인트가 소각 시 재구성하는 `target`은 아래 표의 형식으로 **바이트 단위 동일**해야 한다. 불일치는 `403 admin_forbidden`(`detail.reason=binding_mismatch`). `target`은 두 계열로 나뉜다. (1) **자원 스코프**: `target`=파괴 대상 자원 식별자. 페이로드 값(수수료·method·params·type)은 바인딩에 넣지 않는다. (2) **신원·권한 전이 스코프**(`operators.status`·`operators.roles`): `target`에 전이 방향·대상 등급까지 포함해 승인된 토큰을 더 위험한 전이(예: `GRANT VIEWER` 승인분을 `GRANT SUPER`로, `ACTIVE` 승인분을 `DISABLED`로)로 재사용하는 경로를 차단한다. 전이 스코프의 상태·역할·방향 토큰은 모두 **대문자**로 정규화해 바인딩한다. 모든 파괴 액션 바디는 `operator_id`(수행자, 인증 주체 유래 값과 대조)와 `approval_token`을 공통으로 싣는다.
 
@@ -1325,7 +1325,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 | POST | `/admin/v1/chaos/app` | Chaos Monkey assault(latency/exception/appkiller) | 불요(제시 시 검증·소각) |
 | POST | `/admin/v1/chaos/kill-node` | 매칭 노드 강제 종료(docker kill) | 불요(제시 시 검증·소각) |
 | GET | `/admin/v1/chaos/experiments` | 진행 중 실험·blast radius | 불요 |
-| POST | `/admin/v1/approvals` | approval_token 발급(요청자와 **다른** operator의 2인 승인, v2.3 §3-6) | 불요(발급 자체) |
+| POST | `/admin/v1/approvals` | approval_token 발급(1인 승인. 발급자와 사용자가 같아도 된다, v2.44 §3-6. 종전 요청자와 **다른** operator의 2인 승인, v2.3 §3-6) | 불요(발급 자체) |
 | GET | `/admin/v1/approvals` | 승인 원장 조회(state 필터, VIEWER+). `approval_token`은 응답에서 제외 | 불요(조회) |
 | POST | `/admin/v1/approvals/{id}/reject` | ISSUED 승인 거부(`ISSUED→REJECTED`). 호출 주체는 그 행의 approver 또는 requester여야 한다(소유·반결탁) | 불요(de-escalation) |
 
@@ -2102,3 +2102,11 @@ NULL 취급이 축마다 다르다. `rto_seconds`·`rpo_records`의 NULL은 `UNK
 원천은 `sim_fleet_state`다(DB 설계 v2.39). V22가 관리에서 봇으로 가는 제어 방향만 이었고 이 표가 반대 방향을 잇는다.
 
 문서 헤더 버전을 v2.43으로 순증.
+
+## v2.44 패치 반영 사항
+
+- **파괴 액션 승인을 1인 승인으로 바꾼다(ADR 0019).** 승인 티켓 발급 주체와 사용 주체가 같아도 된다. 종전 반결탁 제약 셋을 전부 뗀다. DB CHECK `chk_approval_two_person`, `ApprovalService.issue` 의 발급 가드, `ApprovalService.consume` 의 소각 가드다. 마이그레이션은 `V34__single_operator_approval.sql` 이다.
+- **이 절이 앞선 서술을 갈아친다.** 이 문서에 남은 "2인 승인"·"2인 통제"·"반결탁" 서술은 전부 v2.43 까지의 판이고 v2.44 부터 효력이 없다. 해당 위치는 §3-6 approval_token 수명주기와 operator 신원 바인딩, §3-7 브라우저 관리 콘솔 세션, §6-A 엔드포인트 표, R3·S2 위험 표다. 규칙을 진술하는 두 자리(수명주기 첫 문장, 엔드포인트 표 행)는 본문에서 직접 고쳤다.
+- **사유.** 정본 7.9 파괴 액션 표가 이미 "야간 1인 운영이면 동일 오퍼레이터로 거부된다" 를 적어 두었다. 곧 이 제약이 한 일은 결탁 차단이 아니라 1인 운영 시간대의 정지 명령 봉쇄다. 운영 인원이 1인이라 두 인증서를 한 사람이 번갈아 제시하는 것은 반결탁의 외형일 뿐이었다.
+- **남는 것.** 승인 티켓 별도 발급 단계, TTL 5분, 단회 소각, action·대상 바인딩, requester 바인딩, 역할 게이트, append-only 감사. 사라지는 것은 발급자와 사용자의 분리 한 겹뿐이고 그 대가는 정본 13.2 의 16 에 등재했다.
+- **2인 경로는 남는다.** 다른 운영자가 발급한 승인도 그대로 통한다. 운영 인원이 늘면 규칙을 되돌리지 않고 2인 운용이 가능하다. S2 위험 항목은 그래서 폐기가 아니라 무효다.

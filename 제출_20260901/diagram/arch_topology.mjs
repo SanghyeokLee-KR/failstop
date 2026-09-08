@@ -249,7 +249,7 @@ function topology() {
   p.group('exp', 'private', 110, 1244, 1180, 320, '실험과 판정 · harness/evidence/ 28건',
     { color: C.red, fill: '#FDFAFA', fontSize: 18 });
   const ex = (id, c, r, name, sub) => p.card(id, cx[c], r, 370, 110, name, sub, C.red);
-  ex('x-chaos', 0, 1300, '카오스 e1~e9', 'tc netem · nftables · 정지');
+  ex('x-chaos', 0, 1300, '카오스 e1~e9', 'Toxiproxy · docker kill/pause · 분리');
   ex('x-repl', 1, 1300, '복제 결함', 'replication-fault');
   ex('x-sync', 2, 1300, '동기 복제 대가', 'sync-replication');
   ex('x-fo', 0, 1424, '리더 페일오버', 'leader-failover');
@@ -260,15 +260,15 @@ function topology() {
   p.strip('l6', 110, 1668, 1180, 62, '스케일링 실험 asg-scenario · scaleout-timing', 'readnode · lb-distribution', C.orange);
   p.strip('l7', 110, 1742, 1180, 62, '판정 산출물 · harness/evidence/', 'verdict JSON · 샘플 · 분석', C.ink);
 
-  p.text(700, 1830, '커널 계층 주입은 이 평면 전용이다. 관리형 계층에는 그 권한이 없다', 15,
-    { align: 'center', color: C.grey, w: 1000 });
+  p.text(700, 1830, '커널 계층 주입(tc netem)은 E10 이고 아직 돌리지 않았다. 관리형 계층에는 그 권한이 없다', 15,
+    { align: 'center', color: C.grey, w: 1100 });
   p.text(700, 1864, '관측 스택이 지금 도는 곳은 여기뿐이다', 15, { align: 'center', color: C.grey, w: 1000 });
 
   /* ============ 가운데. 두 평면을 잇는 것 ============ */
   p.text(1540, 300, '두 평면을 잇는 것', 21, { align: 'center', weight: 600, w: 360 });
   p.text(1540, 338, '네트워크가 아니다', 16, { align: 'center', color: C.grey, w: 360 });
 
-  p.card('gha', 1370, 700, 340, 112, 'GitHub Actions', 'workflows 4종 · OIDC', C.ink);
+  p.card('gha', 1370, 700, 340, 112, 'GitHub Actions', 'workflows 4종', C.ink);
   p.card('ghcr', 1370, 852, 340, 112, 'GHCR', '같은 이미지 digest', C.ink);
   p.card('ev', 1370, 1004, 340, 112, '커밋한 판정 파일', 'harness/evidence/', C.ink);
   p.card('dis', 1370, 1200, 340, 112, 'Discord', '웹훅 URL 미투입', RT.obs, { dashed: true });
@@ -343,8 +343,14 @@ function topology() {
   p.line([[2300, 514], [2300, 690], [2460, 690], [2460, 750]], { width: 2.6 });
   p.line([[3000, 514], [3000, 690], [3180, 690], [3180, 750]], { color: C.blue });
   p.line([[3060, 514], [3060, 664], [3320, 664], [3320, 878]], { color: C.blue, dashed: true });
-  p.text(2200, 672, '쓰기 8080', 15, { align: 'center', weight: 600, w: 150, background: true });
-  p.text(2920, 672, '조회 8081', 15, { align: 'center', weight: 600, color: C.blue, w: 150, background: true });
+  // 조회 타겟그룹은 리더도 대상이다. 빼면 조회 분산이 구조적으로 0 이 된다(정본 6.11).
+  p.line([[2340, 514], [2340, 706], [2600, 706], [2600, 750]], { color: C.blue });
+  p.text(2210, 678, '쓰기 TG · HC readiness', 14,
+    { align: 'center', weight: 600, w: 280, background: true });
+  p.text(2960, 678, '조회 TG · HC read', 14,
+    { align: 'center', weight: 600, color: C.blue, w: 260, background: true });
+  p.text(2640, 1650, '두 타겟그룹 모두 트래픽 8080 · 헬스체크 8081. 갈리는 축은 경로다', 15,
+    { align: 'center', color: C.grey, w: 900 });
 
   /* 앱은 셋 다 primary 만 본다. standby 는 페일오버 대기다 */
   p.line([[2460, 890], [2460, 1298]]);
@@ -375,7 +381,7 @@ function topology() {
 
   p.text(130, 2196, 'RDS · NAT Gateway · CloudWatch · EKS · WAF · Secrets Manager · Site-to-Site VPN 비채택', 16,
     { color: C.grey, w: 1300 });
-  p.text(130, 2240, '오케스트레이터 미채택. 스케줄러 자동 재기동이 kill 실험 관측을 오염시킨다', 16,
+  p.text(130, 2240, 'AWS 평면 오케스트레이터 미채택. 스케줄러 자동 재기동이 kill 실험 관측을 오염시킨다', 16,
     { color: C.grey, w: 1300 });
 
   p.text(1800, 2026, '스케일링 · 판정은 지표가 하고 실행은 사람이 한다 (ADR 0015)', 19, { weight: 600, w: 1200 });

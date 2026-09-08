@@ -7,6 +7,8 @@ $Global:CHAOS = @{
     ComposeFile = Join-Path $PSScriptRoot '..\docker-compose.chaos.yml'
     EnvFile     = Join-Path $PSScriptRoot '..\.env.chaos'
     Pg          = 'chaos-pg'
+    # 컴포즈가 프로젝트 접두를 붙인 실명이다. E5 분할과 캘리브레이션이 이 값을 쓴다.
+    Network     = 'exchange-chaos_chaos-net'
     Api1Port    = 18080
     Api2Port    = 28080
     LbPort      = 58080

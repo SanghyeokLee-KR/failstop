@@ -240,5 +240,7 @@ volumes:
   chaos-pgdata:
 
 networks:
+  # name 을 강제하지 않는다. 컴포즈가 프로젝트 접두를 붙여
+  # exchange-chaos_chaos-net 이 된다. 접두를 벗기면 다른 프로젝트의 같은 이름과
+  # 한 네트워크를 공유하게 되고, 그 상태에서 E5 분할 주입은 남의 컨테이너를 끊는다.
   chaos-net:
-    name: chaos-net

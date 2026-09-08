@@ -56,14 +56,14 @@ cd /tmp/webbuild/web && npm run build
 |---|---|---|
 | `/admin` | 종합 상태 요약(헬스·불변식·RTO·봇·카오스·승인). 전역 승인 대기 | VIEWER |
 | `/admin/monitoring` | 불변식 7종·복구 RTO 추이·노드·지표. 읽기 전용 | VIEWER |
-| `/admin/bots` | 봇 플릿 start/stop/pause·OPS·생성(BOT_OPS), 파라미터 변경(2인 승인) | BOT_OPS |
-| `/admin/chaos` | E1~E9 카탈로그 주입·해제(전부 2인 승인) | CHAOS_OPS |
-| `/admin/config` | 마켓 halt/resume(SUPER·2인 승인), 수수료 조회, 공지 등록(SUPER) | SUPER |
-| `/admin/operators` | 운영자·역할 관리(SUPER·2인 승인) | SUPER |
+| `/admin/bots` | 봇 플릿 start/stop/pause·OPS·생성(BOT_OPS), 파라미터 변경(승인 필요) | BOT_OPS |
+| `/admin/chaos` | E1~E9 카탈로그 주입·해제(승인 불요, ADR 0014) | CHAOS_OPS |
+| `/admin/config` | 마켓 halt/resume(SUPER·승인 필요), 수수료 조회, 공지 등록(SUPER) | SUPER |
+| `/admin/operators` | 운영자·역할 관리(SUPER·승인 필요) | SUPER |
 | `/admin/audit` | append-only 감사 로그 조회 | VIEWER |
 
 - 진입: mTLS 클라이언트 인증서 제시 → 신원(CN) 유래 단기 세션 확립. 인증서 없으면 접근 불가 안내(§1-3). 데모는 `op-01`·`op-02` 인증서로 2인 승인을 시연한다(상단 바 인증서 전환).
-- 파괴 액션 흐름: 요청(요구 권한 보유 운영자) → 다른 운영자 승인(반결탁, 요청자 자기승인 차단) → 요청자 실행(단회 소각). 서버·UI 이중 강제.
+- 파괴 액션 흐름: 요청(요구 권한 보유 운영자) → 승인 티켓 발급(1인 승인. 요청자 자기승인 허용, ADR 0019) → 요청자 실행(단회 소각). 서버·UI 이중 강제.
 - 색 도메인: 관리 평면은 헬스 색(success/warning/danger)만 쓰고 시세색(up/down)을 차용하지 않는다. 상태는 색 단독 금지, 아이콘·라벨 병기.
 - 시스템 내부 상태는 관리 평면으로 이관했다. 공개 HeaderNav의 "시스템 상태" 링크를 제거하고 `/admin/*`에서는 HeaderNav를 렌더하지 않는다.
 

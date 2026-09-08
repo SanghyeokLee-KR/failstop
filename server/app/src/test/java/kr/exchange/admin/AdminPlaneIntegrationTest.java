@@ -199,17 +199,13 @@ class AdminPlaneIntegrationTest {
         assertEquals(403, noApproval.getStatusCode().value());
         assertEquals("approval_required", reason(noApproval));
 
-        // op-01이 자기 자신에게 승인 발급 시도 → 400/403(반결탁, requester=approver)
+        // op-01이 자기 자신에게 승인 발급 → 200. 1인 승인이다(ADR 0019, V34).
+        // 종전 판은 여기서 same_operator 로 403 이었고 그 제약이 1인 운영을 봉쇄했다.
         ResponseEntity<String> selfApproval = adminPost("/admin/v1/approvals",
                 approvalBody("op-01", "config.market.halt", "KRW-BTC"), "op-01", op01);
-        assertEquals(403, selfApproval.getStatusCode().value());
-        assertEquals("same_operator", reason(selfApproval));
-
-        // op-02가 op-01의 halt를 승인 → approval_token 발급
-        ResponseEntity<String> approval = adminPost("/admin/v1/approvals",
-                approvalBody("op-01", "config.market.halt", "KRW-BTC"), "op-02", op02);
-        assertEquals(200, approval.getStatusCode().value());
-        String approvalToken = objectMapper.readTree(approval.getBody())
+        assertEquals(200, selfApproval.getStatusCode().value(),
+                "1인 승인 발급 응답: " + selfApproval.getBody());
+        String approvalToken = objectMapper.readTree(selfApproval.getBody())
                 .path("approval_token").asText();
 
         // op-01이 승인 토큰으로 halt → 성공, markets.status HALTED 반영
@@ -226,7 +222,8 @@ class AdminPlaneIntegrationTest {
         assertEquals(403, reused.getStatusCode().value());
         assertEquals("not_open", reason(reused));
 
-        // 마켓 복구(정리): op-02 승인 → op-01 resume
+        // 마켓 복구(정리): 다른 운영자 승인도 그대로 통한다. 1인 승인은 허용을 넓힌 것이지
+        // 2인 경로를 없앤 것이 아니다.
         String resumeToken = objectMapper.readTree(adminPost("/admin/v1/approvals",
                 approvalBody("op-01", "config.market.resume", "KRW-BTC"), "op-02", op02)
                 .getBody()).path("approval_token").asText();
