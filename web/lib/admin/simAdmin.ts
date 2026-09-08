@@ -22,6 +22,9 @@ import type {
   AuditEntry,
   Bot,
   BotType,
+  CapacityAdvice,
+  CapacityNode,
+  CapacityState,
   ChaosExperimentDef,
   ChaosRun,
   ConfigMarket,
@@ -200,6 +203,18 @@ export class SimAdminApi implements AdminApi {
     { id: "engine-03", role: "follower", epoch: 7, seq: 148_230, followerLagMs: 18, ownedMarkets: [], health: "healthy" },
   ];
   private epoch = 7;
+  /**
+   * 용량 콘솔 상태(ADR 0015). 계약면만 든다. 관측면은 부를 때마다 만든다.
+   *
+   * 실측을 미러한다. 노드 규격과 AZ 배치는 정본 6.5 사이징 표이고, 조회 전용 노드는
+   * 매칭엔진을 끄고 뜬다. 세 번째 노드는 부하 구간에만 존재하므로 초기 desired는 2다.
+   */
+  private capacityDesired = 2;
+  private readonly capacityNodes = [
+    { id: "app-1", az: "ap-northeast-2a", instanceType: "t4g.small", engine: true, scalable: false },
+    { id: "app-2", az: "ap-northeast-2c", instanceType: "t4g.small", engine: false, scalable: true },
+    { id: "app-3", az: "ap-northeast-2c", instanceType: "t4g.small", engine: false, scalable: true },
+  ];
   // 재생 소요 실측 분포(2026-08-30, n=34: min 40 · p50 73 · max 159ms)를 미러한 시드 6건.
   // 초 단위 페일오버 RTO 대역은 다른 축이다. 단건 시드는 RtoSpark가 접힌다
   private recovery: RecoveryRun[] = [
@@ -796,6 +811,100 @@ export class SimAdminApi implements AdminApi {
       suspendedMarkets: this.markets.filter((m) => m.state === "HALTED").length,
       generatedAt: isoNow(),
     });
+  }
+
+  /* ===== 용량(ADR 0015 수동 스케일링) ===== */
+
+  getCapacity(): Promise<CapacityState> {
+    this.auth("VIEW");
+    return Promise.resolve(this.capacitySnapshot());
+  }
+
+  scaleOut(reason?: string): Promise<CapacityState> {
+    return Promise.resolve(this.capacityChange(+1, "capacity.scale_out", reason));
+  }
+
+  scaleIn(reason?: string): Promise<CapacityState> {
+    return Promise.resolve(this.capacityChange(-1, "capacity.scale_in", reason));
+  }
+
+  private capacityChange(delta: number, action: string, reason?: string): CapacityState {
+    // 용량 변경은 비용을 쓰는 인프라 조치라 SUPER 를 요구한다(서버와 같은 판정).
+    const session = this.auth("SUPER");
+    const min = 2;
+    const max = 3;
+    const next = this.capacityDesired + delta;
+    if (next < min || next > max) {
+      this.log(session, action, "app", null, "DENIED");
+      throw new AdminError("CAPACITY_OUT_OF_BOUNDS",
+        next < min ? `최소 ${min}대 아래로 축소 불가` : `최대 ${max}대 위로 증설 불가`);
+    }
+    this.capacityDesired = next;
+    this.log(session, action, "app", null, "OK");
+    void reason;
+    return this.capacitySnapshot();
+  }
+
+  /**
+   * 관측면을 만든다. 시뮬레이터라 값을 지어내지만 두 가지는 실제와 같게 둔다.
+   *
+   * 하나. 계약과 관측이 즉시 일치하지 않는다. 실제 조정기가 노드를 세우는 데 약 17초가
+   * 걸리므로 버튼 직후에는 어긋난 창이 있다. 여기서는 desired가 오른 직후 한 번은 관측이
+   * 따라가지 않은 것으로 낸다면 화면 검증이 어려우므로 즉시 맞춘다. 그 대신 화면이
+   * reconciled를 실제로 소비하는지는 http 어댑터에서 확인한다.
+   *
+   * 둘. 리더는 하나뿐이고 조회 전용 노드는 readiness가 503이다. 이것이 설계이고
+   * 화면 문구가 그것을 정상으로 읽어야 한다.
+   */
+  private capacitySnapshot(): CapacityState {
+    const nodes: CapacityNode[] = this.capacityNodes.map((c, i) => {
+      const expected = i < this.capacityDesired;
+      const reachable = expected;
+      const cpu = reachable ? 0.28 + i * 0.06 : null;
+      return {
+        id: c.id,
+        az: c.az,
+        instanceType: c.instanceType,
+        engine: c.engine,
+        scalable: c.scalable,
+        expected,
+        reachable,
+        leader: reachable && c.engine,
+        servesReads: reachable,
+        cpuRatio: cpu,
+        cpuCount: reachable ? 2 : null,
+        heapUsedBytes: reachable ? 620_000_000 + i * 20_000_000 : null,
+        heapMaxBytes: reachable ? 742_000_000 : null,
+        httpRequests: reachable ? 1_200_000 + i * 90_000 : null,
+        wsClients: reachable ? 380 + i * 40 : null,
+      };
+    });
+    const serving = nodes.filter((n) => n.servesReads && n.cpuRatio !== null);
+    const avg = serving.length === 0
+      ? null
+      : serving.reduce((a, n) => a + (n.cpuRatio ?? 0), 0) / serving.length;
+    const pct = avg === null ? 0 : Math.round(avg * 100);
+    const advice: CapacityAdvice[] = avg === null
+      ? [{ id: "no_metrics", level: "warn", headline: "상태 읽기 실패",
+          detail: "조회를 받는 서버에서 사용률을 가져오지 못했다. 판단 근거가 없어 권고를 내지 않는다.", action: null }]
+      : avg >= 0.6 && this.capacityDesired < 3
+        ? [{ id: "scale_out", level: "warn", headline: "조회 부하 높음",
+            detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 늘리면 부하가 나뉜다. 추가에 약 17초가 걸리고 서비스는 멈추지 않는다.`, action: "SCALE_OUT" }]
+        : avg <= 0.3 && this.capacityDesired > 2
+          ? [{ id: "scale_in", level: "info", headline: "조회 부하 낮음",
+              detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 줄이면 비용이 준다. 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내린다.`, action: "SCALE_IN" }]
+          : [{ id: "steady", level: "ok", headline: "안정",
+              detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 조치 불요.`, action: null }];
+    const up = nodes.filter((n) => n.reachable).length;
+    return {
+      tier: "app",
+      plan: { min: 2, desired: this.capacityDesired, max: 3, updatedBy: "sim", updatedAt: isoNow() },
+      observedTotal: up,
+      reconciled: up === this.capacityDesired,
+      readAvgCpuRatio: avg,
+      nodes,
+      advice,
+    };
   }
 
   getHaStatus(): Promise<HaStatus> {

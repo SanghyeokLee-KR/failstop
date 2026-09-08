@@ -18,7 +18,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  */
 @Configuration
 @ConditionalOnProperty(prefix = "exchange.admin", name = "enabled", havingValue = "true")
-@EnableConfigurationProperties(AdminProperties.class)
+@EnableConfigurationProperties({AdminProperties.class, CapacityProperties.class})
 public class AdminConfig {
 
     /**
@@ -90,6 +90,16 @@ public class AdminConfig {
     @Bean
     public AdminOperatorSeeder adminOperatorSeeder(JdbcClient jdbc) {
         return new AdminOperatorSeeder(jdbc);
+    }
+
+    /**
+     * 용량 콘솔의 관측면(ADR 0015). 노드마다 액추에이터를 직접 물어본다.
+     * 타임아웃을 설정에서 받는 이유는 한 노드가 죽어 있을 때 그 대기가 화면 응답에
+     * 그대로 더해지기 때문이다. 병렬로 던지되 각자 상한을 건다.
+     */
+    @Bean
+    public NodeProbe nodeProbe(CapacityProperties props) {
+        return new NodeProbe(props.getProbeTimeout());
     }
 
     @Bean

@@ -2234,3 +2234,87 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ===== 용량 콘솔(ADR 0015) =====
+   노드 카드는 .nodeCard 를 그대로 쓴다. 여기 있는 것은 그 격자와 권고 줄, 그리고
+   계약과 관측을 나란히 싣는 정의 목록이다. */
+.capacityAdviceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.capacityAdvice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+}
+/* 등급을 왼쪽 띠로 낸다. 배경을 물들이면 그 위 본문 대비가 등급마다 달라진다 */
+.capacityAdvice[data-health="warning"] {
+  box-shadow: inset 3px 0 0 var(--color-warning-text);
+}
+.capacityAdvice[data-health="danger"] {
+  box-shadow: inset 3px 0 0 var(--color-danger);
+}
+.capacityAdvice[data-health="success"] {
+  box-shadow: inset 3px 0 0 var(--color-success-text);
+}
+.capacityNote {
+  margin: var(--space-3) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-body-line);
+}
+.capacityNodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+/* 계약과 관측을 같은 격자에 싣는다. 라벨을 고정폭으로 두어 카드끼리 줄이 맞는다 */
+.capacityMeta {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--font-caption-size);
+}
+.capacityMeta dt {
+  color: var(--text-tertiary);
+}
+.capacityMeta dd {
+  margin: 0;
+  color: var(--text-default);
+  min-width: 0;
+}
+.capacityTag {
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--control-radius);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+.capacityTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-caption-size);
+}
+.capacityTable th,
+.capacityTable td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.capacityTable thead th {
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+.capacityTable tbody th {
+  color: var(--text-strong);
+  white-space: nowrap;
+}

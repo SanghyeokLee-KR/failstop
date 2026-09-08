@@ -35,6 +35,7 @@ const NAV_GROUPS: AdminNavGroup[] = [
   {
     label: "제어",
     items: [
+      { href: "/admin/capacity", label: "용량", icon: "monitoring" },
       { href: "/admin/bots", label: "봇 플릿", icon: "bots" },
       { href: "/admin/chaos", label: "카오스", icon: "chaos" },
       { href: "/admin/config", label: "마켓·공지", icon: "config" },

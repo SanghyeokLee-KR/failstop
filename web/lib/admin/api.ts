@@ -13,6 +13,7 @@ import type {
   ApprovalRequest,
   ApprovalState,
   BotType,
+  CapacityState,
   ChaosExperimentDef,
   ChaosRun,
   ConfigMarket,
@@ -102,6 +103,15 @@ export interface AdminApi {
   getHaStatus(): Promise<HaStatus>;
   getRecovery(): Promise<HaRecovery>;
   getInvariants(): Promise<InvariantCheck[]>;
+
+  /* ===== 용량(ADR 0015 수동 스케일링) =====
+   *
+   * 판정은 자동이고 실행은 사람이다. getCapacity가 계약과 관측을 함께 주고 권고까지 붙인다.
+   * scaleOut·scaleIn은 희망 대수만 바꾼다. 노드를 직접 띄우거나 내리지 않으므로 호출 직후에는
+   * 계약과 관측이 어긋난 창이 실재하고, 화면은 그 창을 감추지 않는다. */
+  getCapacity(): Promise<CapacityState>;
+  scaleOut(reason?: string): Promise<CapacityState>;
+  scaleIn(reason?: string): Promise<CapacityState>;
 
   /* ===== 봇 플릿(§2-1) ===== */
   /** start·stop·pause가 플릿 상태에 즉시 반영되는지. sim·http(v2.22 실반영) 모두 true다.

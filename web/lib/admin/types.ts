@@ -154,6 +154,72 @@ export interface HaStatus {
   generatedAt: string;
 }
 
+/* ===== 용량 콘솔(ADR 0015 수동 스케일링) =====
+ *
+ * 계약면과 관측면을 한 객체에 나란히 담는다. "몇 대가 있어야 하는가" 와 "몇 대가 있는가" 를
+ * 갈라 두어야 어긋남이 보인다. 계약 3 대에 관측 2 대면 추가가 아직 안 끝난 것이고, 계약 2 대에
+ * 관측 3 대면 줄이기가 안 끝나 비용이 새는 중이다. 관측만 보면 둘 다 안 보인다. */
+
+/** 노드 한 대. expected 까지가 계약이고 reachable 부터가 관측이다. */
+export interface CapacityNode {
+  id: string;
+  az: string;
+  instanceType: string;
+  /** 매칭엔진 보유. 켠 노드만 리더가 될 수 있다 */
+  engine: boolean;
+  /** 확장 대상인가. 리더는 아니다. 단일 라이터라 늘려도 주문 천장이 오르지 않는다 */
+  scalable: boolean;
+  /** 계약상 떠 있어야 하는가 */
+  expected: boolean;
+  /** 액추에이터가 응답했는가. false면 아래 값은 뜻이 없다 */
+  reachable: boolean;
+  /** readiness 200. 주문을 받는 노드다 */
+  leader: boolean;
+  /** read 그룹 200. 조회를 받을 수 있다. 팔로워는 leader=false이면서 이 값이 true다 */
+  servesReads: boolean;
+  /** 할당 코어 대비 사용률 0~1. 코어 수로 이미 나눈 값이다 */
+  cpuRatio: number | null;
+  cpuCount: number | null;
+  heapUsedBytes: number | null;
+  heapMaxBytes: number | null;
+  /** 누적 요청 수. 초당 값은 화면이 두 표본의 차로 낸다 */
+  httpRequests: number | null;
+  wsClients: number | null;
+}
+
+export type CapacityAdviceLevel = "ok" | "info" | "warn" | "danger";
+
+/** 권고. 표시까지이고 조치로 이어지지 않는다(정본 7.12 자동화 격자 3층) */
+export interface CapacityAdvice {
+  id: string;
+  level: CapacityAdviceLevel;
+  headline: string;
+  detail: string;
+  /** 이 권고에 붙는 조치 버튼. null이면 표시만 한다 */
+  action: "SCALE_OUT" | "SCALE_IN" | null;
+}
+
+export interface CapacityPlan {
+  min: number;
+  desired: number;
+  max: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface CapacityState {
+  tier: string;
+  plan: CapacityPlan;
+  /** 실제로 응답한 노드 수 */
+  observedTotal: number;
+  /** 계약과 관측이 같은가 */
+  reconciled: boolean;
+  /** 조회를 받는 노드의 평균 사용률 0~1. 못 읽으면 null이고 그때는 권고를 내지 않는다 */
+  readAvgCpuRatio: number | null;
+  nodes: CapacityNode[];
+  advice: CapacityAdvice[];
+}
+
 /** invariant_checks 원소. 항목 수는 서버가 정한다(실측 26종) */
 export interface InvariantCheck {
   name: string;

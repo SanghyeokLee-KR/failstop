@@ -21,6 +21,10 @@ import type {
   ApprovalState,
   AuditEntry,
   BotType,
+  CapacityAdvice,
+  CapacityAdviceLevel,
+  CapacityNode,
+  CapacityState,
   ChaosExperimentDef,
   ChaosRun,
   ConfigMarket,
@@ -94,6 +98,63 @@ function toPage<T>(data: T[], res: { pagination?: { next_cursor?: string | null;
 type PagedEnvelope<T> = WireDataEnvelope<T> & {
   pagination?: { next_cursor?: string | null; has_more?: boolean };
 };
+
+/**
+ * 용량 응답 매핑. 지표가 null로 오면 null로 둔다.
+ *
+ * 0으로 좁히지 않는 이유가 있다. "사용률 0%"와 "사용률을 못 읽었다"는 다른 사실이고,
+ * 둘을 합치면 화면이 죽은 노드를 한가한 노드로 그린다. 서버도 같은 이유로 못 읽은 값을
+ * null로 낸다(NodeProbe).
+ */
+function mapCapacity(w: WireCapacity): CapacityState {
+  const plan = w.plan ?? {};
+  const nodes: CapacityNode[] = (w.nodes ?? []).map((n) => ({
+    id: n.id ?? "",
+    az: n.az ?? "",
+    instanceType: n.instance_type ?? "",
+    engine: n.engine === true,
+    scalable: n.scalable === true,
+    expected: n.expected === true,
+    reachable: n.reachable === true,
+    leader: n.leader === true,
+    servesReads: n.serves_reads === true,
+    cpuRatio: nullableNum(n.cpu_ratio),
+    cpuCount: nullableNum(n.cpu_count),
+    heapUsedBytes: nullableNum(n.heap_used_bytes),
+    heapMaxBytes: nullableNum(n.heap_max_bytes),
+    httpRequests: nullableNum(n.http_requests),
+    wsClients: nullableNum(n.ws_clients),
+  }));
+  const advice: CapacityAdvice[] = (w.advice ?? []).map((a) => ({
+    id: a.id ?? "",
+    level: (["ok", "info", "warn", "danger"].includes(a.level ?? "")
+      ? a.level
+      : "info") as CapacityAdviceLevel,
+    headline: a.headline ?? "",
+    detail: a.detail ?? "",
+    action: a.action === "SCALE_OUT" || a.action === "SCALE_IN" ? a.action : null,
+  }));
+  return {
+    tier: w.tier ?? "app",
+    plan: {
+      min: num(plan.min, 2),
+      desired: num(plan.desired, 2),
+      max: num(plan.max, 2),
+      updatedBy: plan.updated_by ?? "",
+      updatedAt: plan.updated_at ?? "",
+    },
+    observedTotal: num(w.observed_total),
+    reconciled: w.reconciled === true,
+    readAvgCpuRatio: nullableNum(w.read_avg_cpu_ratio),
+    nodes,
+    advice,
+  };
+}
+
+/** 숫자면 숫자, 아니면 null. num()과 달리 기본값으로 좁히지 않는다 */
+function nullableNum(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
 
 function num(v: unknown, fallback = 0): number {
   const n = Number(v);
@@ -413,6 +474,33 @@ interface WireHaStatus {
   command_watermark?: number;
   event_watermark?: number;
   trades_count?: number;
+}
+/** 용량 콘솔 응답. 서버가 못 읽은 지표는 null로 오고 화면이 빈칸으로 낸다 */
+interface WireCapacityNode {
+  id?: string;
+  az?: string;
+  instance_type?: string;
+  engine?: boolean;
+  scalable?: boolean;
+  expected?: boolean;
+  reachable?: boolean;
+  leader?: boolean;
+  serves_reads?: boolean;
+  cpu_ratio?: number | null;
+  cpu_count?: number | null;
+  heap_used_bytes?: number | null;
+  heap_max_bytes?: number | null;
+  http_requests?: number | null;
+  ws_clients?: number | null;
+}
+interface WireCapacity {
+  tier?: string;
+  plan?: { min?: number; desired?: number; max?: number; updated_by?: string; updated_at?: string };
+  observed_total?: number;
+  reconciled?: boolean;
+  read_avg_cpu_ratio?: number | null;
+  nodes?: WireCapacityNode[];
+  advice?: { id?: string; level?: string; headline?: string; detail?: string; action?: string | null }[];
 }
 interface WireRecoveryRun {
   market_id?: number;
@@ -889,6 +977,26 @@ export class HttpAdminApi implements AdminApi {
       suspendedMarkets: markets.filter((m) => m.state === "HALTED").length,
       generatedAt: ha.generatedAt,
     };
+  }
+
+  /* ===== 용량(ADR 0015) ===== */
+
+  async getCapacity(): Promise<CapacityState> {
+    return mapCapacity(await this.http<WireCapacity>("/admin/v1/capacity"));
+  }
+
+  async scaleOut(reason?: string): Promise<CapacityState> {
+    return mapCapacity(await this.http<WireCapacity>("/admin/v1/capacity/scale-out", {
+      method: "POST",
+      body: JSON.stringify({ reason: reason ?? "" }),
+    }));
+  }
+
+  async scaleIn(reason?: string): Promise<CapacityState> {
+    return mapCapacity(await this.http<WireCapacity>("/admin/v1/capacity/scale-in", {
+      method: "POST",
+      body: JSON.stringify({ reason: reason ?? "" }),
+    }));
   }
 
   async getHaStatus(): Promise<HaStatus> {
