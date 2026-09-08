@@ -5,6 +5,13 @@ node_modules/
 # 슬라이드용 SVG 는 PNG 를 구운 뒤 지운다. 커밋 대상은 옮겨진 결과물이다.
 arch_aws.svg
 arch_aws_slide.svg
+# 같은 이유로 나머지 둘도 중간 산출물이다. build.ps1 이 장애대응_흐름.svg 와
+# 계층판별_트리.svg 로 옮긴다. 종전에는 arch_aws 만 적혀 있어 생성기를 손으로 돌리면
+# 이 둘이 추적 대상으로 떴다(2026-09-08 확인).
+incident_flow.svg
+incident_flow_slide.svg
+layer_triage.svg
+layer_triage_slide.svg
 
 # 확인용 축소본
 preview.png
