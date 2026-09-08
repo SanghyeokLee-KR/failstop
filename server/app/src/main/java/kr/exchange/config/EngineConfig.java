@@ -18,6 +18,7 @@ import kr.exchange.engine.PromotionCoordinator;
 import kr.exchange.engine.LeaderStallDetector;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.SingleWriterLoop;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -308,13 +309,18 @@ public class EngineConfig {
                                                      LeaderLeaseService leaderLeaseService,
                                                      CommandJournalReader commandJournalReader,
                                                      HaAvailability haAvailability,
-                                                     kr.exchange.engine.FollowerCatchUp followerCatchUp) {
+                                                     ObjectProvider<kr.exchange.engine.FollowerCatchUp> followerCatchUp) {
         PromotionCoordinator coordinator = new PromotionCoordinator(
                 engineRecovery, loop, leaderLeaseService, commandJournalReader, haAvailability);
         // 따라잡기 정지를 코디네이터보다 먼저 등록한다. 순서가 계약이다. 승격 재생 생략 경로는
         // 공유 엔진 위에서 접수를 여는데, 그 전에 따라잡기 스레드가 그 엔진에서 손을 뗀 것이
         // 확인돼야 한다. 리스너는 등록 순서로 발화한다.
-        leaderLeaseService.onLeadershipGained(identity -> followerCatchUp.stopForPromotion());
+        // 따라잡기 빈은 엔진과 같은 조건에서만 뜬다. 봇 노드는 엔진이 없어 이 빈도 없고,
+        // 리더 경쟁에도 끼지 않으므로 정지시킬 대상 자체가 없다. 필수로 받으면 봇이 못 뜬다.
+        kr.exchange.engine.FollowerCatchUp catchUp = followerCatchUp.getIfAvailable();
+        if (catchUp != null) {
+            leaderLeaseService.onLeadershipGained(identity -> catchUp.stopForPromotion());
+        }
         leaderLeaseService.onLeadershipGained(coordinator::onLeadershipGained);
         leaderLeaseService.onLeadershipLost(coordinator::onLeadershipLost);
         // 관측: epoch 계단·is_leader·failover downtime 게이지 갱신(라이터 스레드 밖).

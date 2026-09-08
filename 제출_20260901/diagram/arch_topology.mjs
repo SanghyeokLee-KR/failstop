@@ -4,18 +4,32 @@
  * 사용:
  *   node arch_topology.mjs
  *
- * 산출: 시스템_구성도.svg / .png(4000x2280) / .drawio
+ * 산출: 시스템_구성도.svg / .png / .drawio
  *
  * `arch_aws.mjs` 와 목적이 다르다. 그쪽은 증거를 실은 문서형 도면이라 한계·상태 전이·비용까지
  * 한 장에 담는다. 이 파일은 배치만 그린다. 심사자가 처음 5 초에 무엇이 어디에 있는지 보는 용도다.
- * 수치와 판정은 정본과 arch_aws 도면이 갖는다. 여기에 복사하지 않는다.
+ * 그래서 설명 문장을 싣지 않는다. 수치와 판정은 정본과 arch_aws 도면이 갖는다.
  *
- * 원천은 정본 `제출_20260901/기획안_원본.md` 6.3 목표 아키텍처, 6.4 네트워크와 보안그룹,
- * 6.11 리더 인지 라우팅이다. 도면은 그 절들의 파생물이고 절이 바뀌면 이 파일을 고친다.
+ * 평면이 둘이라 도면도 둘로 가른다. 왼쪽이 온프레미스 검증면이고 오른쪽이 AWS 상시면이다.
+ * 가운데는 둘을 잇는 자리인데 네트워크가 아니다. 정본 4.4 가 Site-to-Site VPN 을 기각하면서
+ * "두 평면을 잇는 것은 네트워크가 아니라 같은 GHCR 이미지 digest 와 저장소에 커밋한 verdict
+ * 파일이다" 라고 적었다. 그 문장을 그대로 그린다.
  *
- * 아이콘은 AWS 공식 아키텍처 아이콘(2026-07-31 패키지)이다. 원본 경로는
+ * 실선과 파선을 가르는 기준은 하나다. 저장소에 정의가 있으면 실선이고 정본에 설계만 있으면
+ * 파선이다. 관측 스택이 그 예다. ADR 0016 이 bot-1 자리를 정했지만 상시면 컴포즈 3종
+ * (`deploy/compose.node-{app,bot,data}.yml`) 에 관측 서비스 정의가 0 건이라 파선으로 적는다.
+ * 이 가름은 2026-09-08 저장소 전수 조사 결과이고 근거는 각 구성요소의 파일 경로다.
+ *
+ * 원천은 정본 `제출_20260901/기획안_원본.md` 4.4 기술 선택, 6.4 네트워크와 보안그룹,
+ * 6.5 노드 규격, 6.11 리더 인지 라우팅과 `harness/docker-compose.chaos.yml` 이다.
+ *
+ * 아이콘은 AWS 공식 아키텍처 아이콘(2025-07-31 자산 패키지)이다. 원본 경로는
  * `icons-aws/manifest.json` 에 있고 색과 비율은 원본을 유지한다.
  * https://aws.amazon.com/architecture/icons/
+ *
+ * Spring Boot 와 PostgreSQL 과 nginx 와 Prometheus 는 이름표로만 적는다. AWS 자산 패키지에
+ * 없는 글리프를 흉내 내 그리지 않는다는 것이 이 도면의 규약이다. 특히 CloudWatch 아이콘을
+ * 빌려 자체 운영 관측을 표시하지 않는다. 비채택한 서비스를 쓰는 것처럼 읽히기 때문이다.
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -32,13 +46,20 @@ const C = {
   blue: '#147EBA', green: '#248814', red: '#C9252C',
 };
 
-const ASSET_KEYS = ['ec2', 'db', 'alb', 'cloudfront', 'route53', 's3', 'users', 'cloud', 'vpc', 'public', 'private', 'region'];
+/** 런타임 이름표 색. 각 프로젝트의 상징색이고 글리프가 아니라 색만 쓴다. */
+const RT = {
+  spring: '#6DB33F', postgres: '#336791', nginx: '#009639',
+  obs: '#E6522C', bot: '#8C4FFF', ddb: '#C925D1',
+};
+
+const ASSET_KEYS = ['ec2', 'db', 'alb', 'cloudfront', 'route53', 's3', 'dynamodb', 'acm', 'ssm',
+  'iam', 'users', 'cloud', 'vpc', 'public', 'private', 'asg'];
 const assets = Object.fromEntries(ASSET_KEYS.map((k) => [
   k, readFileSync(join(ROOT, 'icons-aws', k + '.svg'), 'utf8').replace(/<\?xml[^>]*>/, '').trim(),
 ]));
 
-const W = 2000;
-const H = 1140;
+const W = 3600;
+const H = 2440;
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 class Page {
@@ -52,17 +73,40 @@ class Page {
   icon(id, asset, x, y, size, label = '', o = {}) {
     this.shapes.push({ type: 'icon', id, asset, x, y, w: size, h: size, ...o });
     if (label) this.text(x + size / 2, y + size + 12, label, o.fs || 20, { align: 'center', weight: 600, w: o.labelWidth || 240 });
-    if (o.sub) this.text(x + size / 2, y + size + (o.fs || 20) + 20, o.sub, o.subSize || 16, { align: 'center', color: C.grey, w: o.labelWidth || 240 });
+    if (o.sub) this.text(x + size / 2, y + size + (o.fs || 20) + 20, o.sub, o.subSize || 15, { align: 'center', color: C.grey, w: o.labelWidth || 240 });
+  }
+
+  /** 평면 상자. 제목 띠를 위에 얹는다. AWS 그룹 아이콘을 쓰지 않는 것은 온프레미스 평면 때문이다. */
+  plane(id, x, y, w, h, title, color) {
+    this.shapes.push({ type: 'plane', id, x, y, w, h, title, color });
+  }
+
+  /** 계층 띠. 물리에서 컨테이너까지 쌓인 순서를 보인다. */
+  strip(id, x, y, w, h, label, right, color) {
+    this.shapes.push({ type: 'strip', id, x, y, w, h, label, right, color });
+  }
+
+  /**
+   * 인스턴스 상자. 아이콘은 인스턴스 종류이고 이름표는 그 위에서 도는 런타임이다.
+   * 이 둘을 한 상자에 묶는 것이 이 도면의 목적이다. pills 는 런타임 이름표 배열이다.
+   */
+  node(id, x, y, w, h, name, sub, asset, pills, o = {}) {
+    this.shapes.push({ type: 'node', id, x, y, w, h, name, sub, asset, pills, ...o });
+  }
+
+  /** 아이콘이 없는 구성요소의 이름표 상자. 공식 글리프를 빌려 쓰지 않기 위해 쓴다. */
+  card(id, x, y, w, h, title, sub, color, o = {}) {
+    this.shapes.push({ type: 'card', id, x, y, w, h, title, sub, color, ...o });
   }
 
   group(id, kind, x, y, w, h, title, o = {}) {
-    const cols = { cloud: C.ink, vpc: C.purple, public: C.green, private: C.blue, region: C.blue };
+    const cols = { cloud: C.ink, vpc: C.purple, public: C.green, private: C.blue };
     this.shapes.push({ type: 'group', id, kind, x, y, w, h, title, color: cols[kind] || C.grey, ...o });
   }
 
   line(points, o = {}) {
     this.links.push({ points, ...o });
-    if (o.label) this.text(o.lx, o.ly, o.label, o.fs || 18, { align: 'center', color: o.color || C.grey, w: o.lw || 240, background: o.background !== false, weight: o.bold ? 600 : 400 });
+    if (o.label) this.text(o.lx, o.ly, o.label, o.fs || 16, { align: 'center', color: o.color || C.grey, w: o.lw || 160, background: o.background !== false, weight: 600 });
   }
 
   renderText(t, svg, cells) {
@@ -83,23 +127,42 @@ class Page {
     cells.push(`<mxCell id="${s.id}" value="" style="shape=image;imageAspect=0;aspect=fixed;html=1;image=data:image/svg+xml,${encodeURIComponent(source)};" vertex="1" parent="1"><mxGeometry x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" as="geometry"/></mxCell>`);
   }
 
+  rect(svg, cells, id, x, y, w, h, fill, stroke, sw, dashed, rx) {
+    svg.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}"${rx ? ` rx="${rx}"` : ''} fill="${fill}" stroke="${stroke}" stroke-width="${sw}"${dashed ? ' stroke-dasharray="8 5"' : ''}/>`);
+    cells.push(`<mxCell id="${id}" value="" style="rounded=${rx ? 1 : 0};arcSize=${rx ? 10 : 0};html=1;fillColor=${fill};strokeColor=${stroke};strokeWidth=${sw};dashed=${dashed ? 1 : 0};dashPattern=8 5;" vertex="1" parent="1"><mxGeometry x="${x}" y="${y}" width="${w}" height="${h}" as="geometry"/></mxCell>`);
+  }
+
   async save() {
     const svg = [];
     const cells = [];
-    const def = Object.entries(C).map(([k, color]) => `<marker id="${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="${color}"/></marker>`).join('');
+    const def = Object.entries(C).map(([k, color]) => `<marker id="${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="${color}"/></marker>`).join('')
+      + Object.entries(RT).map(([k, color]) => `<marker id="rt-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="${color}"/></marker>`).join('');
+
+    for (const s of this.shapes.filter((v) => v.type === 'plane')) {
+      this.rect(svg, cells, s.id, s.x, s.y, s.w, s.h, '#FFFFFF', s.color, 2.4, false);
+      svg.push(`<rect x="${s.x}" y="${s.y}" width="${s.w}" height="46" fill="${s.color}"/>`);
+      cells.push(`<mxCell id="${s.id}-b" value="" style="rounded=0;html=1;fillColor=${s.color};strokeColor=none;" vertex="1" parent="1"><mxGeometry x="${s.x}" y="${s.y}" width="${s.w}" height="46" as="geometry"/></mxCell>`);
+      this.renderText({ x: s.x + s.w / 2, y: s.y + 10, value: s.title, size: 22, weight: 600, align: 'center', color: '#FFFFFF', w: s.w - 24 }, svg, cells);
+    }
 
     for (const s of this.shapes.filter((v) => v.type === 'group')) {
-      const dash = s.dashed ?? false;
-      svg.push(`<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${s.fill || '#FFFFFF'}" stroke="${s.color}" stroke-width="1.4"${dash ? ' stroke-dasharray="8 5"' : ''}/>`);
-      cells.push(`<mxCell id="${s.id}" value="" style="rounded=0;html=1;fillColor=${s.fill || '#FFFFFF'};strokeColor=${s.color};strokeWidth=1.4;dashed=${dash ? 1 : 0};dashPattern=8 5;" vertex="1" parent="1"><mxGeometry x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" as="geometry"/></mxCell>`);
+      this.rect(svg, cells, s.id, s.x, s.y, s.w, s.h, s.fill || '#FFFFFF', s.color, 1.4, s.dashed ?? false);
       this.renderIcon({ id: s.id + '-mark', asset: s.kind, x: s.x + 14, y: s.y + 12, w: 28, h: 28 }, svg, cells);
-      this.renderText({ x: s.x + 52, y: s.y + 14, value: s.title, size: s.fontSize || 19, color: s.color, weight: 600, w: s.w - 70 }, svg, cells);
+      if (s.title) this.renderText({ x: s.x + 52, y: s.y + 14, value: s.title, size: s.fontSize || 19, color: s.color, weight: 600, w: s.w - 70 }, svg, cells);
+    }
+
+    for (const s of this.shapes.filter((v) => v.type === 'strip')) {
+      this.rect(svg, cells, s.id, s.x, s.y, s.w, s.h, '#F4F6F8', s.color || C.hair, 1.4, false, 4);
+      this.renderText({ x: s.x + 20, y: s.y + (s.h - 25) / 2, value: s.label, size: 18, weight: 600, color: s.color || C.ink, w: s.w - 40 }, svg, cells);
+      if (s.right) this.renderText({ x: s.x + s.w - 20, y: s.y + (s.h - 22) / 2, value: s.right, size: 15, align: 'right', color: C.grey, w: s.w - 40 }, svg, cells);
     }
 
     for (const l of this.links) {
       const color = l.color || C.ink;
       const width = l.width || 2;
-      const key = Object.entries(C).find(([, v]) => v === color)?.[0] || 'ink';
+      const key = Object.entries(C).find(([, v]) => v === color)?.[0]
+        || (Object.entries(RT).find(([, v]) => v === color)?.[0] ?? '').replace(/^(.)/, 'rt-$1')
+        || 'ink';
       svg.push(`<polyline points="${l.points.map((p) => p.join(',')).join(' ')}" fill="none" stroke="${color}" stroke-width="${width}"${l.dashed ? ' stroke-dasharray="8 5"' : ''}${l.arrow === false ? '' : ` marker-end="url(#${key})"`}/>`);
       const start = l.points[0];
       const end = l.points.at(-1);
@@ -107,78 +170,230 @@ class Page {
       cells.push(`<mxCell id="e${this.n++}" style="edgeStyle=none;html=1;rounded=0;strokeColor=${color};strokeWidth=${width};endArrow=${l.arrow === false ? 'none' : 'block'};endFill=1;dashed=${l.dashed ? 1 : 0};" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="${start[0]}" y="${start[1]}" as="sourcePoint"/><mxPoint x="${end[0]}" y="${end[1]}" as="targetPoint"/>${pts ? `<Array as="points">${pts}</Array>` : ''}</mxGeometry></mxCell>`);
     }
 
+    /* 상자는 선보다 뒤에 그린다. 상자 몸통이 아래를 지나는 선을 덮어야 읽힌다. */
+    for (const s of this.shapes.filter((v) => v.type === 'card')) {
+      this.rect(svg, cells, s.id, s.x, s.y, s.w, s.h, '#FFFFFF', s.color, 2.2, s.dashed, 8);
+      this.renderText({ x: s.x + s.w / 2, y: s.y + (s.sub ? 20 : (s.h - 26) / 2), value: s.title, size: 19, weight: 600, align: 'center', w: s.w - 16, color: s.color }, svg, cells);
+      if (s.sub) this.renderText({ x: s.x + s.w / 2, y: s.y + 56, value: s.sub, size: 15, align: 'center', w: s.w - 16, color: C.grey }, svg, cells);
+    }
+
+    for (const s of this.shapes.filter((v) => v.type === 'node')) {
+      const edge = s.dashed ? C.hair : C.ink;
+      this.rect(svg, cells, s.id, s.x, s.y, s.w, s.h, '#FFFFFF', edge, 1.8, s.dashed, 8);
+      this.renderText({ x: s.x + 20, y: s.y + 12, value: s.name, size: 19, weight: 600, w: s.w - 40 }, svg, cells);
+      const iconSize = s.h >= 130 ? 46 : 40;
+      this.renderIcon({ id: s.id + '-i', asset: s.asset, x: s.x + 20, y: s.y + 46, w: iconSize, h: iconSize }, svg, cells);
+      const px = s.x + 36 + iconSize + 20;
+      const pw = s.x + s.w - 20 - px;
+      const tops = s.pills.length === 1 ? [s.y + 46 + (iconSize - 32) / 2] : [s.y + 44, s.y + 84];
+      s.pills.forEach((pill, i) => {
+        const py = tops[i];
+        svg.push(`<rect x="${px}" y="${py}" width="${pw}" height="32" rx="16" fill="#FFFFFF" stroke="${pill.color}" stroke-width="1.8"${pill.dashed ? ' stroke-dasharray="6 4"' : ''}/>`);
+        cells.push(`<mxCell id="${s.id}-p${i}" value="" style="rounded=1;arcSize=50;html=1;fillColor=#FFFFFF;strokeColor=${pill.color};strokeWidth=1.8;dashed=${pill.dashed ? 1 : 0};dashPattern=6 4;" vertex="1" parent="1"><mxGeometry x="${px}" y="${py}" width="${pw}" height="32" as="geometry"/></mxCell>`);
+        this.renderText({ x: px + pw / 2, y: py + 7, value: pill.text, size: 15, weight: 600, align: 'center', color: pill.color, w: pw - 8 }, svg, cells);
+      });
+      this.renderText({ x: s.x + 20, y: s.y + s.h - 30, value: s.sub, size: 14, color: C.grey, w: s.w - 40 }, svg, cells);
+    }
+
     for (const s of this.shapes.filter((v) => v.type === 'icon')) this.renderIcon(s, svg, cells);
     for (const t of this.texts) this.renderText(t, svg, cells);
 
-    this.renderText({ x: 64, y: 34, value: this.title, size: 32, weight: 600, w: 1500 }, svg, cells);
-    this.renderText({ x: 64, y: 82, value: this.subtitle, size: 18, color: C.grey, w: 1500 }, svg, cells);
-    this.renderText({ x: 1936, y: 42, value: '설계안 · 클라우드 미배포', size: 16, color: C.grey, align: 'right', w: 400 }, svg, cells);
+    this.renderText({ x: 64, y: 28, value: this.title, size: 34, weight: 600, w: 1800 }, svg, cells);
+    this.renderText({ x: 64, y: 84, value: this.subtitle, size: 19, color: C.grey, w: 2200 }, svg, cells);
+    this.renderText({ x: 3536, y: 36, value: 'AWS 상시면은 설계안이고 아직 배포하지 않았다', size: 16, color: C.grey, align: 'right', w: 700 }, svg, cells);
 
     const xml = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><title>${esc(this.title)}</title><defs>${def}</defs><rect width="${W}" height="${H}" fill="white"/>${svg.join('\n')}</svg>`;
     writeFileSync(join(ROOT, this.id + '.svg'), xml);
     await sharp(Buffer.from(xml), { density: 144 }).png().toFile(join(ROOT, this.id + '.png'));
     writeFileSync(join(ROOT, this.id + '.drawio'), `<mxfile host="app.diagrams.net"><diagram id="${this.id}" name="${esc(this.title)}"><mxGraphModel grid="1" gridSize="10" page="1" pageScale="1" pageWidth="${W}" pageHeight="${H}" background="#FFFFFF"><root><mxCell id="0"/><mxCell id="1" parent="0"/>${cells.join('\n')}</root></mxGraphModel></diagram></mxfile>`);
-    console.log(`${this.id}  PNG 4000x2280 / SVG / draw.io`);
+    console.log(`${this.id}  SVG ${W}x${H} / PNG / draw.io`);
   }
 }
 
 function topology() {
-  const p = new Page(OUT, '거래소 시스템 구성도', 'AWS ap-northeast-2 · 2 가용영역 · 매칭엔진 단일 라이터');
+  const p = new Page(OUT, '거래소 하이브리드 인프라 구성도',
+    '온프레미스 검증면 · AWS 상시면 · 두 평면을 잇는 것은 네트워크가 아니라 같은 이미지 digest 와 커밋한 판정 파일이다');
 
-  /* ===== 경계. 정본 6.4 서브넷 표 그대로다 ===== */
-  p.group('cloud', 'cloud', 250, 130, 1690, 966, 'AWS Cloud');
-  p.group('vpc', 'vpc', 300, 372, 1600, 706, 'VPC · ap-northeast-2   10.20.0.0/16');
-  p.group('public', 'public', 350, 446, 1500, 174, 'Public subnets · AZ-a / AZ-c', { fill: '#FAFCF8', fontSize: 18 });
-  p.group('app-a', 'private', 350, 684, 730, 182, 'Private app · AZ-a', { fill: '#F8FBFD', fontSize: 18 });
-  p.group('app-c', 'private', 1120, 684, 730, 182, 'Private app · AZ-c', { fill: '#F8FBFD', fontSize: 18 });
-  p.group('db-a', 'private', 350, 890, 730, 170, 'Private DB · AZ-a', { fill: '#F8FBFD', fontSize: 18 });
-  p.group('db-c', 'private', 1120, 890, 730, 170, 'Private DB · AZ-c', { fill: '#F8FBFD', fontSize: 18 });
+  p.icon('users', 'users', 1500, 118, 76, 'Users', { fs: 19 });
 
-  /* ===== 외부 ===== */
-  p.icon('users', 'users', 70, 470, 84, 'Users', { fs: 22 });
-  p.icon('dns', 'route53', 370, 200, 72, 'Route 53', { fs: 21 });
-  p.icon('cdn', 'cloudfront', 660, 200, 72, 'CloudFront', { fs: 21 });
-  p.icon('s3', 's3', 1210, 200, 72, 'Amazon S3', { fs: 21, sub: '정적 화면', labelWidth: 260 });
+  /* ============ 왼쪽. 온프레미스 검증면. 여기 있는 것은 전부 실물이다 ============ */
+  p.plane('lp', 80, 250, 1240, 1650, 'Private · 온프레미스 검증면 (세션 구동 · 비용 0)', C.green);
 
-  /* ===== 퍼블릭 ===== */
-  p.icon('alb', 'alb', 1056, 470, 86);
-  p.text(1036, 502, 'Application Load Balancer', 20, { align: 'right', weight: 600, w: 420 });
-  p.icon('nat-a', 'ec2', 470, 490, 56, 'NAT-a', { fs: 18, sub: '아웃바운드 · t4g.nano', subSize: 15, labelWidth: 230 });
-  p.icon('nat-c', 'ec2', 1690, 490, 56, 'NAT-c', { fs: 18, sub: '아웃바운드 · t4g.nano', subSize: 15, labelWidth: 230 });
+  p.strip('l1', 110, 320, 1180, 50, 'VMware Workstation', '한글 경로·Windows 컨테이너 마찰 제거');
+  p.strip('l2', 110, 378, 1180, 50, 'Rocky Linux 10 VM', '커널 계층 주입 권한');
+  p.strip('l3', 110, 436, 1180, 50, 'Docker CE', '카오스 스크립트가 직접 호출하는 런타임');
 
-  /* ===== 앱 ===== */
-  p.icon('app1', 'ec2', 640, 710, 64, 'app-1', { fs: 20, sub: 'Leader · t4g.small', labelWidth: 250 });
-  p.icon('app2', 'ec2', 1180, 710, 64, 'app-2', { fs: 20, sub: 'Follower · t4g.small', labelWidth: 250 });
-  p.icon('obs', 'ec2', 1420, 714, 56, '관측', { fs: 18, sub: 'Prometheus · Grafana', subSize: 15, labelWidth: 230 });
-  p.icon('bot', 'ec2', 1660, 714, 56, 'bot-1', { fs: 18, sub: '봇 · t4g.micro', subSize: 15, labelWidth: 190 });
+  p.group('chaos', 'private', 110, 510, 1180, 700, '카오스 스택 · compose.yaml · harness/docker-compose.chaos.yml',
+    { color: C.grey, fill: '#FAFBFC', fontSize: 18 });
 
-  /* ===== DB ===== */
-  p.icon('pg1', 'db', 760, 936, 62, 'PostgreSQL primary', { fs: 19, sub: 't4g.small', subSize: 15, labelWidth: 260 });
-  p.icon('pg2', 'db', 1240, 936, 62, 'PostgreSQL standby', { fs: 19, sub: 't4g.small', subSize: 15, labelWidth: 260 });
+  const cx = [130, 520, 910];
+  const chip = (id, c, r, name, sub, color, dashed) =>
+    p.card(id, cx[c], r, 370, 110, name, sub, color, { dashed });
+  chip('c-web', 0, 566, 'chaos-web', 'nginx · 정적 화면', RT.nginx);
+  chip('c-lb', 1, 566, 'chaos-lb', 'nginx · 리더 인지 라우팅', RT.nginx);
+  chip('c-a1', 2, 566, 'chaos-api-1', 'Spring Boot · 리더', RT.spring);
+  chip('c-a2', 0, 690, 'chaos-api-2', 'Spring Boot · 팔로워', RT.spring);
+  chip('c-pg', 1, 690, 'chaos-pg', 'PostgreSQL 17', RT.postgres);
+  chip('c-ddb', 2, 690, 'chaos-dynamodb', 'DynamoDB Local · 리더 리스', RT.ddb);
+  chip('c-bots', 0, 814, 'chaos-bots', '봇 플릿 · 유형 4종 · 활성 14', RT.bot);
+  chip('c-tox', 1, 814, 'chaos-toxiproxy', 'DB 경로 지연·절단', C.red);
+  chip('c-prom', 2, 814, 'chaos-prometheus', '레코딩 9 · 알람 15', RT.obs);
+  chip('c-graf', 0, 938, 'chaos-grafana', '대시보드 9 · 패널 92', RT.obs);
+  chip('c-k6', 1, 938, 'k6 부하', 'harness/load', C.grey);
+  chip('c-am', 2, 938, 'chaos-alertmanager', '통지 라우팅', RT.obs);
+  chip('c-bb', 0, 1062, 'blackbox_exporter', '수동 기동 · 외부 왕복', C.grey, true);
+  chip('c-pgx', 1, 1062, 'postgres_exporter', '수동 기동', C.grey, true);
+  chip('c-cs', 2, 1062, 'container_stats', '수동 기동', C.grey, true);
 
-  /* ===== 외부 진입 ===== */
-  p.line([[154, 512], [212, 512], [212, 330], [612, 330], [612, 254], [660, 254]], { label: 'HTTPS', lx: 300, ly: 296, lw: 100 });
-  p.line([[442, 220], [660, 220]], { dashed: true, label: 'DNS', lx: 551, ly: 184, lw: 80 });
-  p.line([[732, 220], [1210, 220]], { label: '/*  정적', lx: 971, ly: 184, lw: 150 });
-  p.line([[732, 254], [828, 254], [828, 398], [1099, 398], [1099, 470]], { label: '/api/*   /ws/*', lx: 963, ly: 330, lw: 200 });
+  /* 실험 축. 상시면 설계가 여기서 나왔다 */
+  p.group('exp', 'private', 110, 1244, 1180, 320, '실험과 판정 · harness/evidence/ 28건',
+    { color: C.red, fill: '#FDFAFA', fontSize: 18 });
+  const ex = (id, c, r, name, sub) => p.card(id, cx[c], r, 370, 110, name, sub, C.red);
+  ex('x-chaos', 0, 1300, '카오스 e1~e9', 'tc netem · nftables · 정지');
+  ex('x-repl', 1, 1300, '복제 결함', 'replication-fault');
+  ex('x-sync', 2, 1300, '동기 복제 대가', 'sync-replication');
+  ex('x-fo', 0, 1424, '리더 페일오버', 'leader-failover');
+  ex('x-lease', 1, 1424, '리더 리스 분리', 'leader-lease-dynamodb');
+  ex('x-rejoin', 2, 1424, '부하 중 재합류', 'follower-rejoin');
 
-  /* ===== 타겟그룹 두 갈래. 이 도면의 핵심이다 ===== */
-  p.line([[1078, 556], [1078, 652], [658, 652], [658, 710]], { width: 2.6, color: C.ink });
-  p.line([[1099, 556], [1099, 666], [690, 666], [690, 710]], { color: C.blue });
-  p.line([[1120, 556], [1120, 666], [1212, 666], [1212, 710]], { color: C.blue });
-  p.text(860, 624, '쓰기 · 리더 1대', 17, { align: 'center', color: C.ink, weight: 600, w: 240, background: true });
-  p.text(1380, 624, '조회 · 2대 분산', 17, { align: 'center', color: C.blue, weight: 600, w: 240, background: true });
+  p.strip('l5', 110, 1594, 1180, 62, '복제 실험 노드 ex-pg · ex-pg2 · ex-pg3', 'ANY 1 정족수를 여기서 쟀다', C.blue);
+  p.strip('l6', 110, 1668, 1180, 62, '스케일링 실험 asg-scenario · scaleout-timing', 'readnode · lb-distribution', C.orange);
+  p.strip('l7', 110, 1742, 1180, 62, '판정 산출물 · harness/evidence/', 'verdict JSON · 샘플 · 분석', C.ink);
 
-  /* ===== 앱에서 DB. 조회도 primary 를 읽는다. standby 는 페일오버 대기다(정본 6.5) ===== */
-  p.line([[672, 866], [672, 878], [775, 878], [775, 936]]);
-  p.line([[1212, 866], [1212, 878], [805, 878], [805, 936]], { color: C.blue });
+  p.text(700, 1830, '커널 계층 주입은 이 평면 전용이다. 관리형 계층에는 그 권한이 없다', 15,
+    { align: 'center', color: C.grey, w: 1000 });
+  p.text(700, 1864, '관측 스택이 지금 도는 곳은 여기뿐이다', 15, { align: 'center', color: C.grey, w: 1000 });
 
-  /* ===== 복제 ===== */
-  p.line([[826, 967], [1236, 967]], { dashed: true, color: C.green });
-  p.text(1070, 930, 'streaming replication', 16, { align: 'right', color: C.green, w: 300 });
+  /* ============ 가운데. 두 평면을 잇는 것 ============ */
+  p.text(1540, 300, '두 평면을 잇는 것', 21, { align: 'center', weight: 600, w: 360 });
+  p.text(1540, 338, '네트워크가 아니다', 16, { align: 'center', color: C.grey, w: 360 });
 
-  /* ===== 비채택. 다른 구성과 갈리는 지점이라 한 줄만 남긴다 ===== */
-  p.text(1936, 1104, 'RDS · NAT Gateway · EKS 비채택   ·   SSH 미개방, SSM Session Manager 단독', 15, { align: 'right', color: C.grey, w: 950 });
+  p.card('gha', 1370, 700, 340, 112, 'GitHub Actions', 'workflows 4종 · OIDC', C.ink);
+  p.card('ghcr', 1370, 852, 340, 112, 'GHCR', '같은 이미지 digest', C.ink);
+  p.card('ev', 1370, 1004, 340, 112, '커밋한 판정 파일', 'harness/evidence/', C.ink);
+  p.card('dis', 1370, 1200, 340, 112, 'Discord', '웹훅 URL 미투입', RT.obs, { dashed: true });
+
+  p.text(1540, 1380, 'Site-to-Site VPN 비채택', 17, { align: 'center', weight: 600, color: C.red, w: 360 });
+  p.text(1540, 1416, '상시 터널을 두지 않는다', 15, { align: 'center', color: C.grey, w: 360 });
+
+  p.line([[1540, 812], [1540, 852]]);
+  p.line([[1320, 756], [1370, 756]]);
+  p.line([[1320, 1060], [1370, 1060]]);
+  p.line([[1280, 993], [1340, 993], [1340, 1256], [1370, 1256]], { dashed: true, color: RT.obs });
+  p.line([[1710, 908], [1760, 908]]);
+
+  /* ============ 오른쪽. AWS 상시면 ============ */
+  p.plane('rp', 1760, 250, 1780, 1650, 'Public · AWS 상시면 (ap-northeast-2 · 24시간)', C.ink);
+
+  p.icon('dns', 'route53', 1836, 340, 64, 'Route 53', { fs: 17, labelWidth: 220 });
+  p.icon('cdn', 'cloudfront', 1836, 500, 64, 'CloudFront', { fs: 17, sub: '2 오리진', subSize: 14, labelWidth: 220 });
+  p.icon('s3', 's3', 1836, 672, 64, 'Amazon S3', { fs: 17, sub: '정적 화면', subSize: 14, labelWidth: 220 });
+  p.icon('acm', 'acm', 1836, 844, 64, 'ACM', { fs: 17, sub: 'TLS 인증서', subSize: 14, labelWidth: 220 });
+
+  p.line([[1576, 156], [1868, 156], [1868, 340]]);
+  p.line([[1868, 404], [1868, 500]], { dashed: true });
+  p.line([[1900, 532], [1980, 532], [1980, 704], [1900, 704]], { arrow: false, dashed: true });
+  p.line([[1900, 564], [2010, 564], [2010, 474], [2060, 474]]);
+
+  p.group('cloud', 'cloud', 2060, 310, 1440, 1490, 'AWS Cloud');
+  p.group('vpc', 'vpc', 2090, 380, 1380, 1240, 'VPC · 10.20.0.0/16');
+
+  p.text(2400, 404, 'ap-northeast-2a', 18, { align: 'center', weight: 600, color: C.grey, w: 400 });
+  p.text(3160, 404, 'ap-northeast-2c', 18, { align: 'center', weight: 600, color: C.grey, w: 400 });
+
+  p.group('albband', 'public', 2120, 434, 1320, 80, '', { fill: '#FAFCF8', dashed: true });
+  p.icon('alb', 'alb', 2134, 442, 56);
+  p.text(2206, 456, 'Application Load Balancer · 2 가용영역 · 타겟그룹 2', 19, { weight: 600, w: 900 });
+
+  p.group('pub-a', 'public', 2120, 542, 560, 128, 'Public subnet', { fill: '#FAFCF8', fontSize: 16 });
+  p.group('pub-c', 'public', 2880, 542, 560, 128, 'Public subnet', { fill: '#FAFCF8', fontSize: 16 });
+  p.icon('nat-a', 'ec2', 2210, 584, 46, 'NAT-a  t4g.nano', { fs: 15, labelWidth: 280 });
+  p.icon('nat-c', 'ec2', 2970, 584, 46, 'NAT-c  t4g.nano', { fs: 15, labelWidth: 280 });
+
+  p.group('app-a', 'private', 2120, 700, 560, 520, 'Private subnet · Application', { fill: '#F8FBFD', fontSize: 16 });
+  p.group('app-c', 'private', 2880, 700, 560, 520, 'Private subnet · Application', { fill: '#F8FBFD', fontSize: 16 });
+
+  p.node('app1', 2146, 750, 508, 140, 'app-1', 'Leader · 단일 라이터 · actuator 8081 · t4g.small', 'ec2',
+    [{ text: 'Spring Boot', color: RT.spring }]);
+  p.node('app2', 2906, 750, 508, 116, 'app-2', '조회 · t4g.small', 'ec2',
+    [{ text: 'Spring Boot', color: RT.spring }]);
+  p.node('app3', 2906, 878, 508, 116, 'app-3', '증설분 · 평시 없음', 'ec2',
+    [{ text: 'Spring Boot', color: RT.spring, dashed: true }], { dashed: true });
+  p.node('bot', 2906, 1006, 508, 180, 'bot-1', '봇 유형 4종 · 활성 14 · 관측 동거 ADR 0016 · t4g.small', 'ec2',
+    [{ text: '봇 플릿 · Spring Boot', color: RT.bot },
+     { text: 'Prometheus · Grafana · Alertmanager', color: RT.obs, dashed: true }]);
+
+  p.group('db-a', 'private', 2120, 1250, 560, 330, 'Private subnet · Database', { fill: '#F8FBFD', fontSize: 16 });
+  p.group('db-c', 'private', 2880, 1250, 560, 330, 'Private subnet · Database', { fill: '#F8FBFD', fontSize: 16 });
+
+  p.node('pg1', 2146, 1298, 508, 140, 'pg-primary', 'Flyway V0~V33 · 자체 운영 · t4g.small', 'db',
+    [{ text: 'PostgreSQL 17', color: RT.postgres }]);
+  p.card('lease', 2146, 1460, 508, 96, 'leader_lease · fencing 검증',
+    '트랜잭션 안의 검증은 여기 남는다', RT.postgres);
+  p.node('pg2', 2906, 1298, 508, 116, 'pg-standby-1', '동기 · t4g.small', 'db',
+    [{ text: 'PostgreSQL 17', color: RT.postgres, dashed: true }], { dashed: true });
+  p.node('pg3', 2906, 1440, 508, 116, 'pg-standby-2', '동기 · t4g.small · ADR 0018', 'db',
+    [{ text: 'PostgreSQL 17', color: RT.postgres, dashed: true }], { dashed: true });
+
+  p.icon('ddb', 'dynamodb', 2200, 1660, 56, 'Amazon DynamoDB', { fs: 16, sub: '리더 리스 항목 1개', subSize: 14, labelWidth: 320 });
+  p.icon('ssm', 'ssm', 2620, 1660, 56, 'Systems Manager', { fs: 16, sub: '파라미터 · 세션 · SSH 폐쇄', subSize: 14, labelWidth: 340 });
+  p.icon('iam', 'iam', 3040, 1660, 56, 'IAM', { fs: 16, sub: '비채택 서비스 생성 Deny', subSize: 14, labelWidth: 340 });
+
+  /* 타겟그룹 두 갈래. 이 도면의 핵심이다(정본 6.11) */
+  p.line([[2300, 514], [2300, 690], [2460, 690], [2460, 750]], { width: 2.6 });
+  p.line([[3000, 514], [3000, 690], [3180, 690], [3180, 750]], { color: C.blue });
+  p.line([[3060, 514], [3060, 664], [3320, 664], [3320, 878]], { color: C.blue, dashed: true });
+  p.text(2200, 672, '쓰기 8080', 15, { align: 'center', weight: 600, w: 150, background: true });
+  p.text(2920, 672, '조회 8081', 15, { align: 'center', weight: 600, color: C.blue, w: 150, background: true });
+
+  /* 앱은 셋 다 primary 만 본다. standby 는 페일오버 대기다 */
+  p.line([[2460, 890], [2460, 1298]]);
+  p.line([[3180, 1220], [3180, 1234], [2850, 1234], [2850, 1380], [2654, 1380]], { color: C.blue });
+
+  /* 관측은 스크레이프다. 상시면 배선이 없어 파선이다 */
+  p.line([[2906, 1096], [2760, 1096], [2760, 820], [2654, 820]], { dashed: true, color: RT.obs });
+
+  /* 동기 복제. standby 2 대를 ANY 1 로 묶는다(ADR 0018) */
+  p.line([[2654, 1340], [2906, 1340]], { dashed: true, color: C.green });
+  p.line([[2654, 1404], [2720, 1404], [2720, 1498], [2906, 1498]], { dashed: true, color: C.green });
+  p.text(2780, 1588, '동기 복제 · ANY 1 정족수', 15,
+    { align: 'center', color: C.green, weight: 600, w: 280, background: true });
+
+  /* 리스 갱신은 커밋 경로 밖이다(ADR 0017) */
+  p.line([[2146, 850], [2100, 850], [2100, 1688], [2200, 1688]], { dashed: true, color: RT.ddb });
+
+  /* ============ 아래. 스케일링 축과 범례 ============ */
+  p.plane('ops', 80, 1960, 3460, 420, '운영 · 스케일링 · 범례', C.orange);
+
+  p.text(120, 2026, '범례', 19, { weight: 600, w: 200 });
+  p.text(130, 2076, '실선', 17, { weight: 600, w: 100 });
+  p.line([[200, 2088], [290, 2088]], { arrow: false, width: 2.4 });
+  p.text(306, 2076, '저장소에 정의가 있다', 16, { color: C.grey, w: 320 });
+  p.text(130, 2126, '파선', 17, { weight: 600, w: 100 });
+  p.line([[200, 2138], [290, 2138]], { arrow: false, width: 2.4, dashed: true });
+  p.text(306, 2126, '정본에 설계만 있고 배선이 없다', 16, { color: C.grey, w: 400 });
+
+  p.text(130, 2196, 'RDS · NAT Gateway · CloudWatch · EKS · WAF · Secrets Manager · Site-to-Site VPN 비채택', 16,
+    { color: C.grey, w: 1300 });
+  p.text(130, 2240, '오케스트레이터 미채택. 스케줄러 자동 재기동이 kill 실험 관측을 오염시킨다', 16,
+    { color: C.grey, w: 1300 });
+
+  p.text(1800, 2026, '스케일링 · 판정은 지표가 하고 실행은 사람이 한다 (ADR 0015)', 19, { weight: 600, w: 1200 });
+
+  p.card('asg', 1800, 2090, 320, 120, 'asg_controller.py', 'capacity_reconciler.py', C.grey);
+  p.card('adm', 2200, 2090, 320, 120, '관리 페이지', 'Scale-Out / In 버튼', C.orange);
+  p.icon('op', 'users', 2580, 2108, 70, '운영자', { fs: 16, sub: 'SSM 단독', subSize: 13, labelWidth: 200 });
+  p.card('sc-app', 2780, 2050, 330, 110, '조회 계층 2~3대', '버튼으로 증감한다', C.orange);
+  p.card('sc-db', 2780, 2190, 330, 110, 'DB 수직 스케일', '권고만. 버튼 없음', C.grey, { dashed: true });
+
+  p.line([[2120, 2150], [2200, 2150]], { color: C.grey });
+  p.line([[2520, 2143], [2580, 2143]], { color: C.orange });
+  p.line([[2650, 2120], [2710, 2120], [2710, 2105], [2780, 2105]], { color: C.orange });
+  p.line([[2650, 2160], [2710, 2160], [2710, 2245], [2780, 2245]], { dashed: true, color: C.grey });
+
+  p.line([[3110, 2105], [3520, 2105], [3520, 940], [3440, 940]], { color: C.orange });
+  p.text(3400, 1922, '앱 노드 증감', 15,
+    { align: 'center', color: C.orange, weight: 600, w: 200, background: true });
 
   return p;
 }
