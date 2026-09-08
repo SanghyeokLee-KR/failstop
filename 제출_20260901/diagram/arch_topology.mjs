@@ -15,10 +15,12 @@
  * "두 평면을 잇는 것은 네트워크가 아니라 같은 GHCR 이미지 digest 와 저장소에 커밋한 verdict
  * 파일이다" 라고 적었다. 그 문장을 그대로 그린다.
  *
- * 실선과 파선을 가르는 기준은 하나다. 저장소에 정의가 있으면 실선이고 정본에 설계만 있으면
- * 파선이다. 관측 스택이 그 예다. ADR 0016 이 bot-1 자리를 정했지만 상시면 컴포즈 3종
- * (`deploy/compose.node-{app,bot,data}.yml`) 에 관측 서비스 정의가 0 건이라 파선으로 적는다.
- * 이 가름은 2026-09-08 저장소 전수 조사 결과이고 근거는 각 구성요소의 파일 경로다.
+ * 실선과 파선을 가르는 기준은 평면마다 다르다. 온프레미스 검증면에서는 compose 에 정의가
+ * 있으면 실선이고 수동 기동이면 파선이다. AWS 상시면에는 IaC 가 0 건이라 실선이 배선을 뜻할
+ * 수 없다. 그 면의 실선은 정본이 확정한 구성이라는 뜻이고 파선은 정본 안에서도 아직 미정이거나
+ * 배선 계획이 없는 것이다. 관측 스택이 그 예다. ADR 0016 이 bot-1 자리를 정했지만 상시면 컴포즈
+ * 3종(`deploy/compose.node-{app,bot,data}.yml`)에 관측 서비스 정의가 0 건이라 파선으로 적는다.
+ * 한 줄로 뭉쳐 적었더니 AWS 면 전체가 배선된 것으로 읽혔다. 2026-09-08 전수 조사에서 나온 정정이다.
  *
  * 원천은 정본 `제출_20260901/기획안_원본.md` 4.4 기술 선택, 6.4 네트워크와 보안그룹,
  * 6.5 노드 규격, 6.11 리더 인지 라우팅과 `harness/docker-compose.chaos.yml` 이다.
@@ -223,27 +225,30 @@ function topology() {
   p.strip('l2', 110, 378, 1180, 50, 'Rocky Linux 10 VM', '커널 계층 주입 권한');
   p.strip('l3', 110, 436, 1180, 50, 'Docker CE', '카오스 스크립트가 직접 호출하는 런타임');
 
-  p.group('chaos', 'private', 110, 510, 1180, 700, '카오스 스택 · compose.yaml · harness/docker-compose.chaos.yml',
+  p.group('chaos', 'private', 110, 510, 1180, 716, '카오스 스택 · compose.yaml · harness/docker-compose.chaos.yml',
     { color: C.grey, fill: '#FAFBFC', fontSize: 18 });
 
   const cx = [130, 520, 910];
   const chip = (id, c, r, name, sub, color, dashed) =>
-    p.card(id, cx[c], r, 370, 110, name, sub, color, { dashed });
+    p.card(id, cx[c], r, 370, 100, name, sub, color, { dashed });
   chip('c-web', 0, 566, 'chaos-web', 'nginx · 정적 화면', RT.nginx);
   chip('c-lb', 1, 566, 'chaos-lb', 'nginx · 리더 인지 라우팅', RT.nginx);
   chip('c-a1', 2, 566, 'chaos-api-1', 'Spring Boot · 리더', RT.spring);
-  chip('c-a2', 0, 690, 'chaos-api-2', 'Spring Boot · 팔로워', RT.spring);
-  chip('c-pg', 1, 690, 'chaos-pg', 'PostgreSQL 17', RT.postgres);
-  chip('c-ddb', 2, 690, 'chaos-dynamodb', 'DynamoDB Local · 리더 리스', RT.ddb);
-  chip('c-bots', 0, 814, 'chaos-bots', '봇 플릿 · 유형 4종 · 활성 14', RT.bot);
-  chip('c-tox', 1, 814, 'chaos-toxiproxy', 'DB 경로 지연·절단', C.red);
-  chip('c-prom', 2, 814, 'chaos-prometheus', '레코딩 9 · 알람 15', RT.obs);
-  chip('c-graf', 0, 938, 'chaos-grafana', '대시보드 9 · 패널 92', RT.obs);
-  chip('c-k6', 1, 938, 'k6 부하', 'harness/load', C.grey);
-  chip('c-am', 2, 938, 'chaos-alertmanager', '통지 라우팅', RT.obs);
-  chip('c-bb', 0, 1062, 'blackbox_exporter', '수동 기동 · 외부 왕복', C.grey, true);
-  chip('c-pgx', 1, 1062, 'postgres_exporter', '수동 기동', C.grey, true);
-  chip('c-cs', 2, 1062, 'container_stats', '수동 기동', C.grey, true);
+  chip('c-a2', 0, 676, 'chaos-api-2', 'Spring Boot · 팔로워', RT.spring);
+  chip('c-pg', 1, 676, 'chaos-pg', 'PostgreSQL 17', RT.postgres);
+  chip('c-ddb', 2, 676, 'chaos-dynamodb', 'DynamoDB Local · 리더 리스', RT.ddb);
+  // 관리 평면은 고객 평면과 물리 분리된 배포 단위다(compose.yaml:99). 같은 격자에 두되
+  // mTLS 포트를 적어 다른 평면임을 드러낸다.
+  chip('c-adm', 0, 786, 'chaos-admin', '관리 평면 · mTLS 8443 · 엔진 OFF', C.orange);
+  chip('c-bots', 1, 786, 'chaos-bots', '봇 플릿 · 유형 4종 · 활성 14', RT.bot);
+  chip('c-tox', 2, 786, 'chaos-toxiproxy', 'DB 경로 지연·절단 · init 1회', C.red);
+  chip('c-prom', 0, 896, 'chaos-prometheus', '레코딩 9 · 알람 15', RT.obs);
+  chip('c-graf', 1, 896, 'chaos-grafana', '대시보드 9 · 패널 79', RT.obs);
+  chip('c-am', 2, 896, 'chaos-alertmanager', '통지 라우팅', RT.obs);
+  chip('c-k6', 0, 1006, 'k6 부하', 'harness/load · cleanup · preflight', C.grey);
+  chip('c-bb', 1, 1006, 'blackbox_exporter', '수동 기동 · 외부 왕복', C.grey, true);
+  chip('c-pgx', 2, 1006, 'postgres_exporter', '수동 기동', C.grey, true);
+  chip('c-cs', 0, 1116, 'container_stats', '수동 기동', C.grey, true);
 
   /* 실험 축. 상시면 설계가 여기서 나왔다 */
   p.group('exp', 'private', 110, 1244, 1180, 320, '실험과 판정 · harness/evidence/ 28건',
@@ -258,7 +263,8 @@ function topology() {
 
   p.strip('l5', 110, 1594, 1180, 62, '복제 실험 노드 ex-pg · ex-pg2 · ex-pg3', 'ANY 1 정족수를 여기서 쟀다', C.blue);
   p.strip('l6', 110, 1668, 1180, 62, '스케일링 실험 asg-scenario · scaleout-timing', 'readnode · lb-distribution', C.orange);
-  p.strip('l7', 110, 1742, 1180, 62, '판정 산출물 · harness/evidence/', 'verdict JSON · 샘플 · 분석', C.ink);
+  p.strip('l7', 110, 1742, 1180, 62, '판정 산출물 · harness/evidence/',
+    '샘플 · 분석 · verdict 파일 배선은 M4 잔여', C.ink);
 
   p.text(700, 1830, '커널 계층 주입(tc netem)은 E10 이고 아직 돌리지 않았다. 관리형 계층에는 그 권한이 없다', 15,
     { align: 'center', color: C.grey, w: 1100 });
@@ -271,7 +277,7 @@ function topology() {
 
   p.card('gha', 1370, 700, 340, 112, 'GitHub Actions', 'workflows 4종', C.ink);
   p.card('ghcr', 1370, 852, 340, 112, 'GHCR', '같은 이미지 digest', C.ink);
-  p.card('ev', 1370, 1004, 340, 112, '커밋한 판정 파일', 'harness/evidence/', C.ink);
+  p.card('ev', 1370, 1004, 340, 112, '커밋한 증거', 'harness/evidence/ 28건', C.ink);
   p.card('dis', 1370, 1200, 340, 112, 'Discord', '웹훅 URL 미투입', RT.obs, { dashed: true });
 
   p.text(1540, 1380, 'Site-to-Site VPN 비채택', 17, { align: 'center', weight: 600, color: C.red, w: 360 });
@@ -337,7 +343,7 @@ function topology() {
   p.group('db-a', 'private', 2120, 1310, 560, 330, 'Private subnet · Database', { fill: '#F8FBFD', fontSize: 16 });
   p.group('db-c', 'private', 2880, 1310, 560, 330, 'Private subnet · Database', { fill: '#F8FBFD', fontSize: 16 });
 
-  p.node('pg1', 2146, 1358, 508, 140, 'pg-primary', 'Flyway V0~V33 · 자체 운영 · t4g.small', 'db',
+  p.node('pg1', 2146, 1358, 508, 140, 'pg-primary', 'Flyway V0~V34 · 자체 운영 · t4g.small', 'db',
     [{ text: 'PostgreSQL 17', color: RT.postgres }]);
   p.card('lease', 2146, 1520, 508, 96, 'leader_lease · fencing 검증',
     '트랜잭션 안의 검증은 여기 남는다', RT.postgres);
@@ -381,7 +387,7 @@ function topology() {
 
   /* 증명면. 같은 AWS 이지만 창 구동이고 창이 끝나면 볼륨까지 파기한다(정본 5).
      상시면과 한 상자에 담으면 그 파기 계약이 보이지 않는다. */
-  p.group('proof', 'asg', 2060, 1880, 1440, 120, '증명면 · AWS 창 구동 · terraform apply / destroy',
+  p.group('proof', 'asg', 2060, 1880, 1440, 120, '증명면 · AWS 창 구동 · IaC 미배선 · 수동 기동과 파기',
     { color: C.red, dashed: true, fill: 'none', fontSize: 17 });
   p.icon('load', 'ec2', 2100, 1920, 46);
   p.text(2166, 1930, 'load  c7g.large  부하 발생기 전용 · 비버스터블 · 창이 끝나면 볼륨까지 파기한다', 16,
@@ -393,35 +399,51 @@ function topology() {
   /* ============ 아래. 스케일링 축과 범례 ============ */
   p.plane('ops', 80, 2020, 3460, 420, '운영 · 스케일링 · 범례', C.orange);
 
-  p.text(120, 2086, '범례', 19, { weight: 600, w: 200 });
-  p.text(130, 2136, '실선', 17, { weight: 600, w: 100 });
-  p.line([[200, 2148], [290, 2148]], { arrow: false, width: 2.4 });
-  p.text(306, 2136, '저장소에 정의가 있다', 16, { color: C.grey, w: 320 });
-  p.text(130, 2186, '파선', 17, { weight: 600, w: 100 });
-  p.line([[200, 2198], [290, 2198]], { arrow: false, width: 2.4, dashed: true });
-  p.text(306, 2186, '정본에 설계만 있고 배선이 없다', 16, { color: C.grey, w: 400 });
+  /* 범례. 두 평면의 실선이 뜻하는 것이 다르다. 검증면 실선은 compose 정의이고 상시면에는
+     IaC 가 0 건이라 실선이 배선을 뜻할 수 없다. 한 줄로 뭉치면 AWS 면 전체가 배선된 것으로
+     읽힌다. 2026-09-08 저장소 전수 조사에서 나온 정정이다. */
+  p.text(120, 2074, '범례', 19, { weight: 600, w: 200 });
+  p.text(130, 2120, '실선', 17, { weight: 600, w: 100 });
+  p.line([[200, 2132], [290, 2132]], { arrow: false, width: 2.4 });
+  p.text(306, 2120, '검증면은 compose 에 정의가 있다', 16, { color: C.grey, w: 420 });
+  p.text(130, 2166, '파선', 17, { weight: 600, w: 100 });
+  p.line([[200, 2178], [290, 2178]], { arrow: false, width: 2.4, dashed: true });
+  p.text(306, 2166, '배선이 없다. 검증면은 수동 기동, 상시면은 설계만', 16, { color: C.grey, w: 520 });
 
-  p.text(130, 2256, 'RDS · NAT Gateway · CloudWatch · EKS · WAF · Secrets Manager · Site-to-Site VPN 비채택', 16,
-    { color: C.grey, w: 1300 });
-  p.text(130, 2300, 'AWS 평면 오케스트레이터 미채택. 스케줄러 자동 재기동이 kill 실험 관측을 오염시킨다', 16,
-    { color: C.grey, w: 1300 });
+  p.text(130, 2216, 'AWS 상시면은 전부 설계안이다. IaC 가 0 건이라 그 면의 실선은 배선이 아니라 정본 확정을 뜻한다', 16,
+    { color: C.red, w: 1500 });
+  p.text(130, 2262, 'RDS · NAT Gateway · CloudWatch · EKS · WAF · Secrets Manager · Site-to-Site VPN 비채택', 16,
+    { color: C.grey, w: 1500 });
+  p.text(130, 2306, 'AWS 평면 오케스트레이터 미채택. 스케줄러 자동 재기동이 kill 실험 관측을 오염시킨다', 16,
+    { color: C.grey, w: 1500 });
 
-  p.text(1800, 2086, '스케일링 · 판정은 지표가 하고 실행은 사람이 한다 (ADR 0015)', 19, { weight: 600, w: 1200 });
+  /* 스케일링 축. 인과는 사람에서 시작한다. ADR 0015 가 자동 판정을 기각했으므로 조정기는
+     버튼의 상류가 아니라 하류다. 지표는 권고를 띄울 뿐이고 값을 바꾸는 것은 사람이다. */
+  p.text(1740, 2074, '스케일링 · 판정은 지표가 하고 실행은 사람이 한다 (ADR 0015)', 19, { weight: 600, w: 1300 });
 
-  p.card('asgctl', 1800, 2150, 320, 120, 'asg_controller.py', 'capacity_reconciler.py', C.grey);
-  p.card('adm', 2200, 2150, 320, 120, '관리 페이지', 'Scale-Out / In 버튼', C.orange);
-  p.icon('op', 'users', 2580, 2168, 70, '운영자', { fs: 16, sub: 'SSM 단독', subSize: 13, labelWidth: 200 });
-  p.card('sc-app', 2780, 2110, 330, 110, '조회 계층 2~3대', '버튼으로 증감한다', C.orange);
-  p.card('sc-db', 2780, 2250, 330, 110, 'DB 수직 스케일', '권고만. 버튼 없음', C.grey, { dashed: true });
+  p.card('metric', 1740, 2130, 300, 116, '노드 지표', 'CPU · 요청 수 · 도달성', C.grey);
+  p.card('adm', 2100, 2130, 300, 116, '관리 페이지', '권고 표시 · Scale-Out / In', C.orange);
+  p.icon('op', 'users', 2220, 2264, 60, '운영자', { fs: 16, sub: '버튼을 누른다', subSize: 13, labelWidth: 220 });
+  p.card('plan', 2460, 2130, 300, 116, 'capacity_plan', 'desired_nodes UPDATE', C.grey);
+  p.card('recon', 2820, 2130, 320, 116, 'capacity_reconciler.py', '희망 대수를 노드로 실현', C.grey);
+  p.card('sc-app', 3200, 2090, 300, 106, '조회 계층 2~3대', '로컬 ex-app2 · ex-app3', C.orange);
+  p.card('sc-db', 3200, 2230, 300, 106, 'DB 수직 스케일', '정본 설계 · 콘솔 미구현', C.grey, { dashed: true });
 
-  p.line([[2120, 2210], [2200, 2210]], { color: C.grey });
-  p.line([[2520, 2203], [2580, 2203]], { color: C.orange });
-  p.line([[2650, 2180], [2710, 2180], [2710, 2165], [2780, 2165]], { color: C.orange });
-  p.line([[2650, 2220], [2710, 2220], [2710, 2305], [2780, 2305]], { dashed: true, color: C.grey });
+  p.line([[2040, 2188], [2100, 2188]], { color: C.grey });
+  p.line([[2250, 2264], [2250, 2246]], { color: C.orange });
+  p.line([[2400, 2188], [2460, 2188]], { color: C.orange });
+  p.line([[2760, 2188], [2820, 2188]], { color: C.grey });
+  p.line([[3140, 2188], [3170, 2188], [3170, 2143], [3200, 2143]], { color: C.orange });
+  p.line([[3140, 2188], [3170, 2188], [3170, 2283], [3200, 2283]], { dashed: true, color: C.grey });
 
-  p.line([[3110, 2165], [3520, 2165], [3520, 982], [3440, 982]], { color: C.orange });
-  p.text(3400, 1982, '앱 노드 증감', 15,
-    { align: 'center', color: C.orange, weight: 600, w: 200, background: true });
+  /* 조정기는 로컬 도커만 조작한다(asg_controller.py:41 POOL, capacity_reconciler.py).
+     서버에 AWS autoscaling SDK 가 0 건이라 상시면 증감은 아직 설계다. */
+  p.line([[3500, 2120], [3524, 2120], [3524, 982], [3440, 982]], { dashed: true, color: C.orange });
+  p.text(3400, 1982, '앱 노드 증감 · 미배선', 15,
+    { align: 'center', color: C.orange, weight: 600, w: 260, background: true });
+
+  p.text(1740, 2404, 'asg_controller.py 는 ADR 0015 가 기각한 자동 판정 형태의 모사기다. asg-scenario 증거 전용이고 채택 경로가 아니다', 14,
+    { color: C.grey, w: 1780 });
 
   return p;
 }
