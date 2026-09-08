@@ -59,7 +59,7 @@ const assets = Object.fromEntries(ASSET_KEYS.map((k) => [
 ]));
 
 const W = 3600;
-const H = 2440;
+const H = 2500;
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 class Page {
@@ -212,12 +212,12 @@ class Page {
 
 function topology() {
   const p = new Page(OUT, '거래소 하이브리드 인프라 구성도',
-    '온프레미스 검증면 · AWS 상시면 · 두 평면을 잇는 것은 네트워크가 아니라 같은 이미지 digest 와 커밋한 판정 파일이다');
+    '평면 셋이다(정본 5). AWS 상시면 24시간 · AWS 증명면 창 구동 · 온프레미스 검증면 세션 구동. 상시 필요한 것은 AWS 에 두고 세션 중에만 필요한 것은 검증면에 둔다');
 
   p.icon('users', 'users', 1500, 118, 76, 'Users', { fs: 19 });
 
   /* ============ 왼쪽. 온프레미스 검증면. 여기 있는 것은 전부 실물이다 ============ */
-  p.plane('lp', 80, 250, 1240, 1650, 'Private · 온프레미스 검증면 (세션 구동 · 비용 0)', C.green);
+  p.plane('lp', 80, 250, 1240, 1770, 'Private · 온프레미스 검증면 (세션 구동 · 비용 0)', C.green);
 
   p.strip('l1', 110, 320, 1180, 50, 'VMware Workstation', '한글 경로·Windows 컨테이너 마찰 제거');
   p.strip('l2', 110, 378, 1180, 50, 'Rocky Linux 10 VM', '커널 계층 주입 권한');
@@ -265,8 +265,9 @@ function topology() {
   p.text(700, 1864, '관측 스택이 지금 도는 곳은 여기뿐이다', 15, { align: 'center', color: C.grey, w: 1000 });
 
   /* ============ 가운데. 두 평면을 잇는 것 ============ */
-  p.text(1540, 300, '두 평면을 잇는 것', 21, { align: 'center', weight: 600, w: 360 });
-  p.text(1540, 338, '네트워크가 아니다', 16, { align: 'center', color: C.grey, w: 360 });
+  p.text(1540, 296, '온프레미스와 클라우드를', 17, { align: 'center', color: C.grey, w: 360 });
+  p.text(1540, 326, '잇는 것', 21, { align: 'center', weight: 600, w: 360 });
+  p.text(1540, 362, '네트워크가 아니다', 16, { align: 'center', color: C.grey, w: 360 });
 
   p.card('gha', 1370, 700, 340, 112, 'GitHub Actions', 'workflows 4종', C.ink);
   p.card('ghcr', 1370, 852, 340, 112, 'GHCR', '같은 이미지 digest', C.ink);
@@ -283,7 +284,7 @@ function topology() {
   p.line([[1710, 908], [1760, 908]]);
 
   /* ============ 오른쪽. AWS 상시면 ============ */
-  p.plane('rp', 1760, 250, 1780, 1650, 'Public · AWS 상시면 (ap-northeast-2 · 24시간)', C.ink);
+  p.plane('rp', 1760, 250, 1780, 1770, 'Public · AWS 상시면 (ap-northeast-2 · 24시간)', C.ink);
 
   p.icon('dns', 'route53', 1836, 340, 64, 'Route 53', { fs: 17, labelWidth: 220 });
   p.icon('cdn', 'cloudfront', 1836, 500, 64, 'CloudFront', { fs: 17, sub: '2 오리진', subSize: 14, labelWidth: 220 });
@@ -295,8 +296,8 @@ function topology() {
   p.line([[1900, 532], [1980, 532], [1980, 704], [1900, 704]], { arrow: false, dashed: true });
   p.line([[1900, 564], [2010, 564], [2010, 474], [2060, 474]]);
 
-  p.group('cloud', 'cloud', 2060, 310, 1440, 1490, 'AWS Cloud');
-  p.group('vpc', 'vpc', 2090, 380, 1380, 1240, 'VPC · 10.20.0.0/16');
+  p.group('cloud', 'cloud', 2060, 310, 1440, 1550, 'AWS Cloud');
+  p.group('vpc', 'vpc', 2090, 380, 1380, 1300, 'VPC · 10.20.0.0/16');
 
   p.text(2400, 404, 'ap-northeast-2a', 18, { align: 'center', weight: 600, color: C.grey, w: 400 });
   p.text(3160, 404, 'ap-northeast-2c', 18, { align: 'center', weight: 600, color: C.grey, w: 400 });
@@ -310,95 +311,116 @@ function topology() {
   p.icon('nat-a', 'ec2', 2210, 584, 46, 'NAT-a  t4g.nano', { fs: 15, labelWidth: 280 });
   p.icon('nat-c', 'ec2', 2970, 584, 46, 'NAT-c  t4g.nano', { fs: 15, labelWidth: 280 });
 
-  p.group('app-a', 'private', 2120, 700, 560, 520, 'Private subnet · Application', { fill: '#F8FBFD', fontSize: 16 });
-  p.group('app-c', 'private', 2880, 700, 560, 520, 'Private subnet · Application', { fill: '#F8FBFD', fontSize: 16 });
+  p.group('app-a', 'private', 2120, 700, 560, 580, 'Private subnet · Application', { fill: '#F8FBFD', fontSize: 16 });
+  p.group('app-c', 'private', 2880, 700, 560, 580, 'Private subnet · Application', { fill: '#F8FBFD', fontSize: 16 });
 
-  p.node('app1', 2146, 750, 508, 140, 'app-1', 'Leader · 단일 라이터 · actuator 8081 · t4g.small', 'ec2',
+  // ADR 0015. 그룹은 쓰고 스케일링 정책만 두지 않는다. 용량은 그 ADR 의 값이다.
+  // 멤버십(리더 포함 여부)은 ADR 에 명시가 없어 상자만 두르고 주장하지 않는다.
+  p.group('asg', 'asg', 2130, 746, 1300, 304, 'Auto Scaling group',
+    { color: C.orange, dashed: true, fill: 'none', fontSize: 16 });
+
+  p.text(2160, 1062, '스케일링 정책 없음 · Min 2 / Desired 2 / Max 3', 15,
+    { color: C.orange, weight: 600, w: 480 });
+  p.text(2160, 1096, '확장 대상은 조회 계층뿐이다. 쓰기는 단일 라이터라 늘려도 천장이 오르지 않는다', 14,
+    { color: C.grey, w: 520 });
+
+  p.node('app1', 2146, 792, 508, 140, 'app-1', 'Leader · 단일 라이터 · actuator 8081 · t4g.small', 'ec2',
     [{ text: 'Spring Boot', color: RT.spring }]);
-  p.node('app2', 2906, 750, 508, 116, 'app-2', '조회 · t4g.small', 'ec2',
+  p.node('app2', 2906, 792, 508, 116, 'app-2', '조회 · t4g.small', 'ec2',
     [{ text: 'Spring Boot', color: RT.spring }]);
-  p.node('app3', 2906, 878, 508, 116, 'app-3', '증설분 · 평시 없음', 'ec2',
+  p.node('app3', 2906, 920, 508, 116, 'app-3', '증설분 · 평시 없음', 'ec2',
     [{ text: 'Spring Boot', color: RT.spring, dashed: true }], { dashed: true });
-  p.node('bot', 2906, 1006, 508, 180, 'bot-1', '봇 유형 4종 · 활성 14 · 관측 동거 ADR 0016 · t4g.small', 'ec2',
+  p.node('bot', 2906, 1080, 508, 180, 'bot-1', '봇 유형 4종 · 활성 14 · 관측 동거 ADR 0016 · t4g.small', 'ec2',
     [{ text: '봇 플릿 · Spring Boot', color: RT.bot },
      { text: 'Prometheus · Grafana · Alertmanager', color: RT.obs, dashed: true }]);
 
-  p.group('db-a', 'private', 2120, 1250, 560, 330, 'Private subnet · Database', { fill: '#F8FBFD', fontSize: 16 });
-  p.group('db-c', 'private', 2880, 1250, 560, 330, 'Private subnet · Database', { fill: '#F8FBFD', fontSize: 16 });
+  p.group('db-a', 'private', 2120, 1310, 560, 330, 'Private subnet · Database', { fill: '#F8FBFD', fontSize: 16 });
+  p.group('db-c', 'private', 2880, 1310, 560, 330, 'Private subnet · Database', { fill: '#F8FBFD', fontSize: 16 });
 
-  p.node('pg1', 2146, 1298, 508, 140, 'pg-primary', 'Flyway V0~V33 · 자체 운영 · t4g.small', 'db',
+  p.node('pg1', 2146, 1358, 508, 140, 'pg-primary', 'Flyway V0~V33 · 자체 운영 · t4g.small', 'db',
     [{ text: 'PostgreSQL 17', color: RT.postgres }]);
-  p.card('lease', 2146, 1460, 508, 96, 'leader_lease · fencing 검증',
+  p.card('lease', 2146, 1520, 508, 96, 'leader_lease · fencing 검증',
     '트랜잭션 안의 검증은 여기 남는다', RT.postgres);
-  p.node('pg2', 2906, 1298, 508, 116, 'pg-standby-1', '동기 · t4g.small', 'db',
+  p.node('pg2', 2906, 1358, 508, 116, 'pg-standby-1', '동기 · t4g.small', 'db',
     [{ text: 'PostgreSQL 17', color: RT.postgres, dashed: true }], { dashed: true });
-  p.node('pg3', 2906, 1440, 508, 116, 'pg-standby-2', '동기 · t4g.small · ADR 0018', 'db',
+  p.node('pg3', 2906, 1500, 508, 116, 'pg-standby-2', '동기 · t4g.small · ADR 0018', 'db',
     [{ text: 'PostgreSQL 17', color: RT.postgres, dashed: true }], { dashed: true });
 
-  p.icon('ddb', 'dynamodb', 2200, 1660, 56, 'Amazon DynamoDB', { fs: 16, sub: '리더 리스 항목 1개', subSize: 14, labelWidth: 320 });
-  p.icon('ssm', 'ssm', 2620, 1660, 56, 'Systems Manager', { fs: 16, sub: '파라미터 · 세션 · SSH 폐쇄', subSize: 14, labelWidth: 340 });
-  p.icon('iam', 'iam', 3040, 1660, 56, 'IAM', { fs: 16, sub: '비채택 서비스 생성 Deny', subSize: 14, labelWidth: 340 });
+  p.icon('ddb', 'dynamodb', 2200, 1720, 56, 'Amazon DynamoDB', { fs: 16, sub: '리더 리스 항목 1개', subSize: 14, labelWidth: 320 });
+  p.icon('ssm', 'ssm', 2620, 1720, 56, 'Systems Manager', { fs: 16, sub: '파라미터 · 세션 · SSH 폐쇄', subSize: 14, labelWidth: 340 });
+  p.icon('iam', 'iam', 3040, 1720, 56, 'IAM', { fs: 16, sub: '비채택 서비스 생성 Deny', subSize: 14, labelWidth: 340 });
 
   /* 타겟그룹 두 갈래. 이 도면의 핵심이다(정본 6.11) */
-  p.line([[2300, 514], [2300, 690], [2460, 690], [2460, 750]], { width: 2.6 });
-  p.line([[3000, 514], [3000, 690], [3180, 690], [3180, 750]], { color: C.blue });
-  p.line([[3060, 514], [3060, 664], [3320, 664], [3320, 878]], { color: C.blue, dashed: true });
+  p.line([[2300, 514], [2300, 690], [2460, 690], [2460, 792]], { width: 2.6 });
+  p.line([[3000, 514], [3000, 690], [3180, 690], [3180, 792]], { color: C.blue });
+  p.line([[3060, 514], [3060, 664], [3320, 664], [3320, 920]], { color: C.blue, dashed: true });
   // 조회 타겟그룹은 리더도 대상이다. 빼면 조회 분산이 구조적으로 0 이 된다(정본 6.11).
-  p.line([[2340, 514], [2340, 706], [2600, 706], [2600, 750]], { color: C.blue });
+  p.line([[2340, 514], [2340, 706], [2600, 706], [2600, 792]], { color: C.blue });
   p.text(2210, 678, '쓰기 TG · HC readiness', 14,
     { align: 'center', weight: 600, w: 280, background: true });
   p.text(2960, 678, '조회 TG · HC read', 14,
     { align: 'center', weight: 600, color: C.blue, w: 260, background: true });
-  p.text(2640, 1650, '두 타겟그룹 모두 트래픽 8080 · 헬스체크 8081. 갈리는 축은 경로다', 15,
+  p.text(2640, 1690, '두 타겟그룹 모두 트래픽 8080 · 헬스체크 8081. 갈리는 축은 경로다', 15,
     { align: 'center', color: C.grey, w: 900 });
 
   /* 앱은 셋 다 primary 만 본다. standby 는 페일오버 대기다 */
-  p.line([[2460, 890], [2460, 1298]]);
-  p.line([[3180, 1220], [3180, 1234], [2850, 1234], [2850, 1380], [2654, 1380]], { color: C.blue });
+  p.line([[2460, 932], [2460, 1358]]);
+  p.line([[3180, 1280], [3180, 1294], [2850, 1294], [2850, 1440], [2654, 1440]], { color: C.blue });
 
   /* 관측은 스크레이프다. 상시면 배선이 없어 파선이다 */
-  p.line([[2906, 1096], [2760, 1096], [2760, 820], [2654, 820]], { dashed: true, color: RT.obs });
+  p.line([[2906, 1170], [2760, 1170], [2760, 862], [2654, 862]], { dashed: true, color: RT.obs });
 
   /* 동기 복제. standby 2 대를 ANY 1 로 묶는다(ADR 0018) */
-  p.line([[2654, 1340], [2906, 1340]], { dashed: true, color: C.green });
-  p.line([[2654, 1404], [2720, 1404], [2720, 1498], [2906, 1498]], { dashed: true, color: C.green });
-  p.text(2780, 1588, '동기 복제 · ANY 1 정족수', 15,
+  p.line([[2654, 1400], [2906, 1400]], { dashed: true, color: C.green });
+  p.line([[2654, 1464], [2720, 1464], [2720, 1558], [2906, 1558]], { dashed: true, color: C.green });
+  p.text(2780, 1648, '동기 복제 · ANY 1 정족수', 15,
     { align: 'center', color: C.green, weight: 600, w: 280, background: true });
 
   /* 리스 갱신은 커밋 경로 밖이다(ADR 0017) */
-  p.line([[2146, 850], [2100, 850], [2100, 1688], [2200, 1688]], { dashed: true, color: RT.ddb });
+  p.line([[2146, 892], [2100, 892], [2100, 1748], [2200, 1748]], { dashed: true, color: RT.ddb });
+
+  /* 증명면. 같은 AWS 이지만 창 구동이고 창이 끝나면 볼륨까지 파기한다(정본 5).
+     상시면과 한 상자에 담으면 그 파기 계약이 보이지 않는다. */
+  p.group('proof', 'asg', 2060, 1880, 1440, 120, '증명면 · AWS 창 구동 · terraform apply / destroy',
+    { color: C.red, dashed: true, fill: 'none', fontSize: 17 });
+  p.icon('load', 'ec2', 2100, 1920, 46);
+  p.text(2166, 1930, 'load  c7g.large  부하 발생기 전용 · 비버스터블 · 창이 끝나면 볼륨까지 파기한다', 16,
+    { w: 1200 });
+  p.line([[1320, 1940], [2060, 1940]], { dashed: true, color: C.red });
+  p.text(1690, 1898, 'k6 시나리오를 같은 저장소에서 가져간다', 14,
+    { align: 'center', color: C.grey, w: 460, background: true });
 
   /* ============ 아래. 스케일링 축과 범례 ============ */
-  p.plane('ops', 80, 1960, 3460, 420, '운영 · 스케일링 · 범례', C.orange);
+  p.plane('ops', 80, 2020, 3460, 420, '운영 · 스케일링 · 범례', C.orange);
 
-  p.text(120, 2026, '범례', 19, { weight: 600, w: 200 });
-  p.text(130, 2076, '실선', 17, { weight: 600, w: 100 });
-  p.line([[200, 2088], [290, 2088]], { arrow: false, width: 2.4 });
-  p.text(306, 2076, '저장소에 정의가 있다', 16, { color: C.grey, w: 320 });
-  p.text(130, 2126, '파선', 17, { weight: 600, w: 100 });
-  p.line([[200, 2138], [290, 2138]], { arrow: false, width: 2.4, dashed: true });
-  p.text(306, 2126, '정본에 설계만 있고 배선이 없다', 16, { color: C.grey, w: 400 });
+  p.text(120, 2086, '범례', 19, { weight: 600, w: 200 });
+  p.text(130, 2136, '실선', 17, { weight: 600, w: 100 });
+  p.line([[200, 2148], [290, 2148]], { arrow: false, width: 2.4 });
+  p.text(306, 2136, '저장소에 정의가 있다', 16, { color: C.grey, w: 320 });
+  p.text(130, 2186, '파선', 17, { weight: 600, w: 100 });
+  p.line([[200, 2198], [290, 2198]], { arrow: false, width: 2.4, dashed: true });
+  p.text(306, 2186, '정본에 설계만 있고 배선이 없다', 16, { color: C.grey, w: 400 });
 
-  p.text(130, 2196, 'RDS · NAT Gateway · CloudWatch · EKS · WAF · Secrets Manager · Site-to-Site VPN 비채택', 16,
+  p.text(130, 2256, 'RDS · NAT Gateway · CloudWatch · EKS · WAF · Secrets Manager · Site-to-Site VPN 비채택', 16,
     { color: C.grey, w: 1300 });
-  p.text(130, 2240, 'AWS 평면 오케스트레이터 미채택. 스케줄러 자동 재기동이 kill 실험 관측을 오염시킨다', 16,
+  p.text(130, 2300, 'AWS 평면 오케스트레이터 미채택. 스케줄러 자동 재기동이 kill 실험 관측을 오염시킨다', 16,
     { color: C.grey, w: 1300 });
 
-  p.text(1800, 2026, '스케일링 · 판정은 지표가 하고 실행은 사람이 한다 (ADR 0015)', 19, { weight: 600, w: 1200 });
+  p.text(1800, 2086, '스케일링 · 판정은 지표가 하고 실행은 사람이 한다 (ADR 0015)', 19, { weight: 600, w: 1200 });
 
-  p.card('asg', 1800, 2090, 320, 120, 'asg_controller.py', 'capacity_reconciler.py', C.grey);
-  p.card('adm', 2200, 2090, 320, 120, '관리 페이지', 'Scale-Out / In 버튼', C.orange);
-  p.icon('op', 'users', 2580, 2108, 70, '운영자', { fs: 16, sub: 'SSM 단독', subSize: 13, labelWidth: 200 });
-  p.card('sc-app', 2780, 2050, 330, 110, '조회 계층 2~3대', '버튼으로 증감한다', C.orange);
-  p.card('sc-db', 2780, 2190, 330, 110, 'DB 수직 스케일', '권고만. 버튼 없음', C.grey, { dashed: true });
+  p.card('asgctl', 1800, 2150, 320, 120, 'asg_controller.py', 'capacity_reconciler.py', C.grey);
+  p.card('adm', 2200, 2150, 320, 120, '관리 페이지', 'Scale-Out / In 버튼', C.orange);
+  p.icon('op', 'users', 2580, 2168, 70, '운영자', { fs: 16, sub: 'SSM 단독', subSize: 13, labelWidth: 200 });
+  p.card('sc-app', 2780, 2110, 330, 110, '조회 계층 2~3대', '버튼으로 증감한다', C.orange);
+  p.card('sc-db', 2780, 2250, 330, 110, 'DB 수직 스케일', '권고만. 버튼 없음', C.grey, { dashed: true });
 
-  p.line([[2120, 2150], [2200, 2150]], { color: C.grey });
-  p.line([[2520, 2143], [2580, 2143]], { color: C.orange });
-  p.line([[2650, 2120], [2710, 2120], [2710, 2105], [2780, 2105]], { color: C.orange });
-  p.line([[2650, 2160], [2710, 2160], [2710, 2245], [2780, 2245]], { dashed: true, color: C.grey });
+  p.line([[2120, 2210], [2200, 2210]], { color: C.grey });
+  p.line([[2520, 2203], [2580, 2203]], { color: C.orange });
+  p.line([[2650, 2180], [2710, 2180], [2710, 2165], [2780, 2165]], { color: C.orange });
+  p.line([[2650, 2220], [2710, 2220], [2710, 2305], [2780, 2305]], { dashed: true, color: C.grey });
 
-  p.line([[3110, 2105], [3520, 2105], [3520, 940], [3440, 940]], { color: C.orange });
-  p.text(3400, 1922, '앱 노드 증감', 15,
+  p.line([[3110, 2165], [3520, 2165], [3520, 982], [3440, 982]], { color: C.orange });
+  p.text(3400, 1982, '앱 노드 증감', 15,
     { align: 'center', color: C.orange, weight: 600, w: 200, background: true });
 
   return p;
