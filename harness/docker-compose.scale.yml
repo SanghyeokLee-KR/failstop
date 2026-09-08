@@ -1,0 +1,31 @@
+# 풀·정원·DB 규격 교차 실측용 오버레이. 상시 기동이 아니라 실험 때만 겹쳐 쓴다.
+#
+# 왜 오버레이인가. 기준 컴포즈를 고치면 카오스 실험 9종이 다른 스택을 보게 된다.
+# 이 파일은 세 값만 바꾸고 나머지는 전부 승계한다.
+#
+# 사용:
+#   docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml \
+#     --env-file harness/.env.chaos up -d --force-recreate chaos-pg chaos-api-1 chaos-api-2
+#
+# 손잡이가 둘인 것처럼 보이지만 실은 하나다. 정원은 풀에서 유도되기 때문이다.
+# AdmissionLimits 가 쓰기 정원을 floor(poolSize x 0.40) 으로 잡으므로(WRITE_POOL_SHARE)
+# SCALE_POOL 만 올리면 정원이 따라 오른다. 풀 16 이면 쓰기 6, 풀 48 이면 쓰기 19 다.
+#
+# DB 규격은 기준 컴포즈에 한도가 없어 호스트 전부를 쓴다. 그 상태에서는 "키웠다" 는
+# 조작이 성립하지 않으므로 여기서 한도를 명시해 작은 DB 를 만들고 그것을 키운다.
+
+services:
+  chaos-pg:
+    deploy:
+      resources:
+        limits:
+          cpus: "${SCALE_PG_CPUS:-4.0}"
+          memory: "${SCALE_PG_MEM:-2g}"
+
+  chaos-api-1:
+    environment:
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "${SCALE_POOL:-16}"
+
+  chaos-api-2:
+    environment:
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "${SCALE_POOL:-16}"
