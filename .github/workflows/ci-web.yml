@@ -9,11 +9,13 @@ on:
     branches: [main, develop]
     paths:
       - 'web/**'
+      - 'scripts/prune-admin-bundle.mjs'
       - '.github/workflows/ci-web.yml'
   push:
     branches: [main, develop]
     paths:
       - 'web/**'
+      - 'scripts/prune-admin-bundle.mjs'
       - '.github/workflows/ci-web.yml'
 
 permissions:
@@ -80,6 +82,16 @@ jobs:
             ls -la out
             exit 1
           fi
+
+      # 공개 번들에서 관리 화면을 뺀다. output:'export'가 web/app/admin/도 함께 내보내므로
+      # 그대로 S3에 올리면 CloudFront가 /* 규칙으로 관리 화면까지 공개한다(기획안 §6.6).
+      # 여기서 제거와 잔존 검사를 매 PR 돌려 배포 시점에 처음 발견되는 것을 막는다.
+      # 제거 대상이 0건이면 스크립트가 실패한다. 무동작을 통과로 읽지 않기 위해서다.
+      - name: prune admin from public bundle
+        run: |
+          set -e
+          node ../scripts/prune-admin-bundle.mjs
+          node ../scripts/prune-admin-bundle.mjs --check
 
       # broad tsconfig(app/lib/components 전부) 타입 검사. next build가 포함하지 않는 파일까지 본다.
       - run: npx tsc --noEmit

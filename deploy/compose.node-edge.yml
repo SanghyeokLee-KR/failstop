@@ -3,7 +3,8 @@
 # 퍼블릭 서브넷에 있는 유일한 노드다. sg-edge가 CloudFront 관리형 프리픽스와 관리자
 # 고정 IP만 443으로 받고, 80은 Let's Encrypt HTTP-01 한정이다(기획안 §6.4).
 #
-# 미검증이다. 실제 EC2에서 기동한 적이 없다.
+# 실제 EC2 기동은 아직 0 건이다. 이 파일의 기동과 인증서 부트스트랩은 2026-09-08 에
+# 로컬 컨테이너로 검증했다(증거 `harness/evidence/edge-bootstrap-20260908/`).
 services:
   edge:
     image: nginx:1.29
@@ -12,21 +13,32 @@ services:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
       APP_1_HOST: ${APP_1_HOST}
       APP_2_HOST: ${APP_2_HOST}
+    # 기동 전에 자체 서명 임시 인증서를 깐다. 없으면 443 블록 파싱에서 죽고, 죽으면
+    # 80 의 ACME 챌린지가 안 열려 최초 발급이 불가능해진다. 스크립트 주석 참조.
+    # /docker-entrypoint.d/ 대신 entrypoint 로 부르는 이유는 그 경로가 실행 비트를
+    # 요구하고 Windows 바인드 마운트에서 그 비트가 보장되지 않기 때문이다.
+    entrypoint: ["/bin/sh", "/usr/local/bin/edge-bootstrap-cert.sh"]
+    command: ["nginx", "-g", "daemon off;"]
     volumes:
       - ./nginx-edge.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./proxy-common.conf:/etc/nginx/conf.d/proxy-common.conf:ro
-      # 사이드카가 갱신한다. 부트스트랩이 빈 파일이라도 만들어야 nginx가 기동한다.
-      - leader-conf:/etc/nginx/conf.d/leader
-      - certbot-conf:/etc/letsencrypt:ro
+      - ./edge-bootstrap-cert.sh:/usr/local/bin/edge-bootstrap-cert.sh:ro
+      # rw 여야 한다. 부트스트랩이 임시 인증서를 여기에 쓴다. certbot 과 같은 볼륨을
+      # 공유하므로 발급 뒤에는 진짜 인증서가 같은 경로에 놓인다.
+      - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot:ro
     ports:
       - "80:80"
       - "443:443"
+    # 80 의 리다이렉트 응답으로 생존을 본다. curl -f 는 4xx 부터 실패하므로 301 은 통과다.
+    # 종전 판은 `|| exit 0` 이 붙어 nginx 가 죽어도 영구 healthy 로 보고했다. 배포 당일
+    # "헬스 초록" 을 근거로 삼으면 안 되는 상태였다.
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost/.well-known/acme-challenge/ || exit 0"]
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1/"]
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 10s
     restart: unless-stopped
     logging:
       driver: json-file
@@ -34,6 +46,9 @@ services:
         max-size: "50m"
         max-file: "3"
 
+  # 최초 발급은 이 서비스가 하지 않는다. `deploy/issue-cert.sh` 를 한 번 돌린다.
+  # renew 는 갱신 대상이 있을 때만 동작하고 빈 /etc/letsencrypt 에서는 무동작으로
+  # 종료 코드 0 을 낸다. 곧 이 서비스만으로는 인증서가 영원히 생기지 않는다.
   certbot:
     image: certbot/certbot:latest
     volumes:
@@ -46,6 +61,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  leader-conf:
   certbot-conf:
   certbot-www:

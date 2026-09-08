@@ -9,20 +9,25 @@
 #   2. backup 정적 승계를 쓰지 않는다. 현행은 api-1 1차 / api-2 backup이라 평시 분산이
 #      0이고, 강등 노드가 업스트림에서 안 빠져 POST 실패 바닥이 남는다(기획안 §6.11).
 #      대신 조회는 least_conn 분산, 쓰기는 리더 단독으로 가른다.
-#      리더 판별은 사이드카가 upstream-leader.conf를 갱신한다. 오픈소스 nginx에는
-#      능동 health_check가 없어 그 방식이 필요하다.
 #
 #   3. TLS를 종단한다. 카오스 스택은 평문 8080이었다.
 #
-# 미검증이다. 실제 EC2에서 기동한 적이 없다.
+# 실제 EC2 기동은 아직 0 건이다. 다만 이 설정 자체의 기동과 라우팅은 2026-09-08 에
+# 로컬 컨테이너로 검증했다(증거 `harness/evidence/edge-bootstrap-20260908/`).
 
-# exchange_leader upstream은 별도 파일이 정의한다(conf.d/upstream-leader.conf).
-# nginx 기본 설정이 conf.d/*.conf를 이미 자동 로드하므로 여기서 include하지 않는다.
-# include를 걸면 같은 파일이 두 번 읽혀 duplicate upstream으로 기동이 막힌다(실측).
+# 종전 판은 exchange_leader upstream 을 사이드카가 conf.d/upstream-leader.conf 로
+# 갱신하는 구조였다. 그 설계를 접는다. 사유 둘이다.
 #
-# 그 파일은 사이드카가 2초 주기로 갱신한다. 두 노드의 readiness를 폴링해 리더를
-# 판별한다. 팔로워는 설계상 503(REFUSING_TRAFFIC)이라 그대로 판별이 된다.
-# 부트스트랩이 빈 파일이라도 만들어야 nginx가 기동한다.
+#   1. 사이드카가 존재한 적이 없다. 저장소 전수에서 구현 0 건이고 주석만 있었다.
+#      그래서 exchange_leader 가 어디에도 정의되지 않아 nginx 가 아예 기동하지 못했다.
+#      실측 오류: [emerg] host not found in upstream "exchange_leader" (2026-09-08).
+#   2. 기획안 6.3 이 2026-08-30 에 ALB 를 채택하면서 그 사이드카 설계를 이미 접었다.
+#      6.11 이 "종전 판은 이 절에서 nginx 사이드카를 설계했고 6.3 의 ALB 채택으로 그
+#      설계를 접었다" 고 적는다. 구현이 없는 채로 주석만 남아 정본과 어긋나 있었다.
+#
+# 대신 리더 판별을 반응형으로 한다. 쓰기 업스트림에 두 노드를 다 넣고, 팔로워가 내는
+# 503(REFUSING_TRAFFIC)을 proxy_next_upstream 이 실패로 보고 다른 노드로 넘긴다.
+# 폴링도 사이드카도 없이 같은 결과가 나온다. 상세는 아래 upstream 주석에 적는다.
 
 upstream exchange_read {
     # 조회는 두 노드로 분산한다. 평시 분산 0을 해소하는 자리다.
@@ -34,6 +39,33 @@ upstream exchange_read {
     # nginx OSS 는 능동 헬스체크가 없어 아래 max_fails 로 실패한 요청을 보고 판정한다.
     zone exchange_read 64k;
     least_conn;
+    server ${APP_1_HOST}:8080 max_fails=1 fail_timeout=2s;
+    server ${APP_2_HOST}:8080 max_fails=1 fail_timeout=2s;
+}
+
+upstream exchange_write {
+    # 쓰기는 리더 한 대만 받는다. 단일 라이터 구조라 팔로워로 보내면 503 이 난다.
+    #
+    # 리더가 누구인지 미리 알지 못해도 된다. 두 노드를 다 넣고 팔로워의 503 을
+    # proxy_next_upstream 이 실패로 처리해 다른 노드로 넘긴다(proxy-common.conf 가
+    # http_503 과 non_idempotent 를 이미 목록에 넣는다). 노드가 둘이고 tries 2 이므로
+    # 리더가 살아 있으면 늦어도 두 번째 시도에서 닿는다.
+    #
+    # max_fails=1 fail_timeout=2s 가 정상 상태를 만든다. 팔로워는 첫 503 으로 이 업스트림
+    # 에서 2 초간 빠지므로 그 뒤 쓰기는 리더로 직행한다. 2 초마다 한 번 재탐색이 일어나
+    # 그 요청만 한 홉을 더 쓴다. 페일오버 시에도 같은 기제로 2 초 안에 새 리더를 찾는다.
+    # RTO 계약 30 초 안이다.
+    #
+    # 실패 계수는 업스트림 블록마다 따로 센다. 곧 팔로워가 쓰기에서 빠져도 exchange_read
+    # 에서는 그대로 조회를 받는다. 6.11 의 "조회는 갈리고 주문은 갈리지 않는다" 가 이 두
+    # 블록으로 실현된다.
+    #
+    # 승격 재생 구간에는 두 노드가 모두 503 이고 그때는 클라이언트가 503 을 받는다.
+    # 그것이 계약이다. 앱이 Retry-After 와 함께 흡수한다(6.11).
+    #
+    # least_conn 을 쓰지 않는다. 목적이 분산이 아니라 리더 지목이고, 라운드로빈이 두 노드를
+    # 번갈아 짚어 재탐색 주기가 예측 가능하다.
+    zone exchange_write 64k;
     server ${APP_1_HOST}:8080 max_fails=1 fail_timeout=2s;
     server ${APP_2_HOST}:8080 max_fails=1 fail_timeout=2s;
 }
@@ -83,9 +115,19 @@ server {
     }
 
     # 쓰기는 리더 단독이다. 단일 라이터 구조라 팔로워로 보내면 503이 난다.
+    #
+    # include 는 바깥 location 에만 둔다. limit_except 안에 넣으면 기동이 막힌다.
+    # 실측 오류: [emerg] "proxy_http_version" directive is not allowed here in
+    # proxy-common.conf:6 (2026-09-08). limit_except 는 proxy_pass 는 받지만 proxy_* 설정
+    # 전부를 받지는 않는 제한된 컨텍스트다.
+    #
+    # 바깥에만 둬도 된다. limit_except 블록은 바깥 location 의 설정을 물려받으므로
+    # proxy_next_upstream 과 tries 가 쓰기 경로에도 걸린다. 물려받지 않으면 팔로워 503 이
+    # 그대로 클라이언트에 나가므로 이 업스트림의 전제가 무너진다. 그래서 상속 여부를
+    # 추정하지 않고 실측했다(증거 `harness/evidence/edge-bootstrap-20260908/`).
     location ~ ^/api/v1/(orders|transfers) {
         limit_except GET {
-            proxy_pass http://exchange_leader;
+            proxy_pass http://exchange_write;
         }
         proxy_pass http://exchange_read;
         include /etc/nginx/conf.d/proxy-common.conf;
