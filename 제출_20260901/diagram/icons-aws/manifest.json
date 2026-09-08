@@ -1,0 +1,19 @@
+{
+  "ec2": "Resource-Icons_07312026/Res_Compute/Res_Amazon-EC2_Instance_48.svg",
+  "db": "Resource-Icons_07312026/Res_Compute/Res_Amazon-EC2_DB-Instance_48.svg",
+  "alb": "Resource-Icons_07312026/Res_Networking-Content-Delivery/Res_Elastic-Load-Balancing_Application-Load-Balancer_48.svg",
+  "cloudwatch": "Architecture-Service-Icons_07312026/Arch_Management-Tools/64/Arch_Amazon-CloudWatch_64.svg",
+  "autoscaling": "Architecture-Service-Icons_07312026/Arch_Compute/64/Arch_Amazon-EC2-Auto-Scaling_64.svg",
+  "alarm": "Resource-Icons_07312026/Res_Management-Governance/Res_Amazon-CloudWatch_Alarm_48.svg",
+  "cloudfront": "Architecture-Service-Icons_07312026/Arch_Networking-Content-Delivery/64/Arch_Amazon-CloudFront_64.svg",
+  "route53": "Architecture-Service-Icons_07312026/Arch_Networking-Content-Delivery/64/Arch_Amazon-Route-53_64.svg",
+  "s3": "Architecture-Service-Icons_07312026/Arch_Storage/64/Arch_Amazon-Simple-Storage-Service_64.svg",
+  "ebs": "Resource-Icons_07312026/Res_Storage/Res_Amazon-Elastic-Block-Store_Volume_48.svg",
+  "users": "Resource-Icons_07312026/Res_General-Icons/Res_48_Light/Res_Users_48_Light.svg",
+  "cloud": "Architecture-Group-Icons_07312026/AWS-Cloud-logo_32.svg",
+  "vpc": "Architecture-Group-Icons_07312026/Virtual-private-cloud-VPC_32.svg",
+  "public": "Architecture-Group-Icons_07312026/Public-subnet_32.svg",
+  "private": "Architecture-Group-Icons_07312026/Private-subnet_32.svg",
+  "asg": "Architecture-Group-Icons_07312026/Auto-Scaling-group_32.svg",
+  "region": "Architecture-Group-Icons_07312026/Region_32.svg"
+}

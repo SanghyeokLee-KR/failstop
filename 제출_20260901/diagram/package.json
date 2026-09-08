@@ -5,7 +5,7 @@
   "description": "제출 도면 생성기. SVG 를 직접 조립하고 sharp 로 PNG 를 굽는다.",
   "scripts": {
     "build": "npm run svg && node render.mjs",
-    "svg": "node arch_aws.mjs && node arch_aws.mjs --slide && node incident_flow.mjs && node incident_flow.mjs --slide && node layer_triage.mjs && node layer_triage.mjs --slide",
+    "svg": "node arch_aws.mjs && node arch_aws.mjs --slide && node incident_flow.mjs && node incident_flow.mjs --slide && node layer_triage.mjs && node layer_triage.mjs --slide && node arch_topology.mjs",
     "png": "node render.mjs"
   },
   "dependencies": {

@@ -127,9 +127,9 @@ d.txt(566, EY + 70, 'ACM  ap-northeast-2', 8.8, MUTE)
 // 타겟그룹은 계약 각주다. 크기로 눌러 둔다
 box(830, EY + 14, 500, 64)
 d.node(852, EY + 46, 'tg', null, null, 18)
-d.txt(878, EY + 34, 'Target Group', 10.5, INK, '700')
-d.txt(878, EY + 50, '/actuator/health/readiness   port 8081', 9.5, BODY)
-d.txt(878, EY + 66, '팔로워는 503 이라 자동으로 빠진다. 트래픽 8080 과 헬스체크 8081 이 다르다', 8.8, MUTE)
+d.txt(878, EY + 34, 'Target Group  x2', 10.5, INK, '700')
+d.txt(878, EY + 50, '쓰기 /actuator/health/readiness   ·   조회 /actuator/health/read   port 8081', 9.5, BODY)
+d.txt(878, EY + 66, '쓰기는 팔로워가 503 이라 빠지고 조회는 두 노드가 남는다. 트래픽 8080 과 헬스체크 8081 이 다르다', 8.8, MUTE)
 
 box(1370, EY + 14, 666, 64)
 d.node(1392, EY + 46, 'ssm', null, null, 18)

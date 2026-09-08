@@ -31,6 +31,8 @@ foreach ($g in $Gen) {
     node "$g.mjs" --slide | Out-Null
 }
 node render.mjs
+# 구성도는 최종 파일명으로 바로 쓰므로 아래 이름 바꾸기 대상이 아니다
+node arch_topology.mjs
 # draw.io 판은 손으로 고치는 편집본이다. 내용 원천은 lib/content.mjs 하나다
 node drawio.mjs
 # SVG 는 편집 가능한 원본으로 남긴다. 슬라이드용 SVG 는 PNG 만 쓰므로 지운다

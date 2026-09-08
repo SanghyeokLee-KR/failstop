@@ -202,9 +202,9 @@ export const ARCH_EDGE = {
     ['alb', 'Application Load Balancer', '동적 · /api/*  /ws/*', 'ACM  ap-northeast-2'],
   ],
   contracts: [
-    ['tg', 'Target Group',
-      '/actuator/health/readiness   port 8081',
-      '팔로워는 503 이라 자동으로 빠진다. 트래픽 8080 과 헬스체크 8081 이 다르다'],
+    ['tg', 'Target Group  x2',
+      '쓰기 /actuator/health/readiness   ·   조회 /actuator/health/read   port 8081',
+      '쓰기는 팔로워가 503 이라 빠지고 조회는 두 노드가 다 남는다. 트래픽 8080 과 헬스체크 8081 이 다르다'],
     ['ssm', '운영 경로  ·  Operations',
       'SSM Session Manager 단독 · SSH 22 전 노드 미개방 · NAT 인스턴스 AZ 로컬 2대',
       '관리 평면 8443 mTLS 는 ALB 뒤에 두지 않는다. TLS 종단이 X509 전달을 끊는다'],
