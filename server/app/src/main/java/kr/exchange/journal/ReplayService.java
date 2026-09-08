@@ -25,6 +25,12 @@ import java.util.List;
  * 대조 축: event_seq 연속성, source_cmd_seq, event_ordinal, event_type,
  * payload(canonical JSON 바이트), created_at(engine_ts 파생). fencing_epoch는 리더 이력
  * 값이라 재생으로 재현되는 값이 아니므로 대조에서 제외한다.
+ *
+ * 상한(JournalCheckpoint)을 받는 변형이 있다. 상한 없이 재생하면 다른 노드가 리더로서 계속 쓰는
+ * 동안 "명령은 있는데 이벤트가 아직 없는" 구간이 항상 남고, 재생하는 쪽이 그것을 자기 크래시
+ * 창으로 읽어 리더 자격을 요구한다. 그러면 유효한 타 리더가 있는 노드는 기동을 거부한다.
+ * 2026-09-08 두 노드 실측이 그 경로다. 상한을 걸면 pending 이 구조적으로 비어 리더 자격이
+ * 필요 없고, 상한 초과분은 팔로워 catch-up 이 따라잡는다.
  */
 public class ReplayService {
 
@@ -54,6 +60,26 @@ public class ReplayService {
     }
 
     /**
+     * 지금 재생할 수 있는 상한. 이벤트가 전부 적재된 마지막 명령 지점이다.
+     *
+     * 여기 두는 이유는 호출측에 리더를 새로 주입하지 않기 위해서다. 이 클래스가 두 저널 리더를
+     * 이미 들고 있고, 상한은 재생의 성질이지 복구 절차의 성질이 아니다.
+     */
+    public JournalCheckpoint checkpoint() {
+        return eventReader.checkpoint();
+    }
+
+    /** 명령 저널 head. 상한 초과분이 있는지 판정에 쓴다. */
+    public long journalHead() {
+        return commandReader.maxSeq();
+    }
+
+    /** 주어진 명령까지의 이벤트 워터마크. 이어서 재생할 때 이벤트 커서 시작점이다. */
+    public long watermarkAt(long commandSeq) {
+        return eventReader.watermark(commandSeq);
+    }
+
+    /**
      * 스냅샷 경계 tail 재생(복구 RTO 설계 §3-b). eventStartSeq는 스냅샷 워터마크 W이며,
      * 명령 커서는 engine.lastAppliedSeq() 초과분(= 스냅샷 로드로 세운 snapshot seq 초과분),
      * 이벤트 커서는 W+1부터 대조한다. eventStartSeq=0이면 seq 0 전량 재생(기존 경로).
@@ -63,13 +89,27 @@ public class ReplayService {
      * 정확히 일치하고, 커서를 W로 두면 첫 tail 이벤트(W+1)를 기대해 prefix가 정합한다.
      */
     public ReplayResult rebuild(MatchingEngine engine, long eventStartSeq) {
-        JournalEventCursor cursor = new JournalEventCursor(eventStartSeq);
+        return rebuild(engine, eventStartSeq, null);
+    }
+
+    /**
+     * 상한을 건 재생. bound 가 null 이면 상한 없이 읽는다(종전 경로).
+     *
+     * 명령과 이벤트를 같은 상한으로 묶는 것이 핵심이다. 명령만 상한하고 이벤트를 끝까지 읽으면
+     * 재생이 만들지 않은 이벤트를 만나 불일치로 오판한다.
+     */
+    public ReplayResult rebuild(MatchingEngine engine, long eventStartSeq, JournalCheckpoint bound) {
+        // 음수가 '상한 없음' 이다. 0 은 '안정 구간이 없다' 라 상한으로서 유효한 값이다.
+        long commandBound = bound == null ? -1 : bound.commandSeq();
+        long eventBound = bound == null ? -1 : bound.eventSeq();
+        JournalEventCursor cursor = new JournalEventCursor(eventStartSeq, eventBound);
         List<EngineEvent> pending = new ArrayList<>();
         long replayedCommands = 0;
         long verifiedEvents = 0;
 
         while (true) {
-            List<JournalEntry> batch = commandReader.readAfter(engine.lastAppliedSeq(), BATCH);
+            List<JournalEntry> batch =
+                    commandReader.readRange(engine.lastAppliedSeq(), commandBound, BATCH);
             if (batch.isEmpty()) {
                 break;
             }
@@ -100,8 +140,16 @@ public class ReplayService {
                     "재생이 생성하지 않은 이벤트가 저널에 남아 있다: event_seq="
                             + cursor.current().eventSeq());
         }
-        log.info("재생 완료: lastAppliedSeq={}, commands={}, verified={}, pending={}",
-                engine.lastAppliedSeq(), replayedCommands, verifiedEvents, pending.size());
+        // 상한 있는 재생은 팔로워 catch-up 이 초마다 부른다. 그 경로까지 INFO 로 남기면 로그가
+        // 초당 한 줄씩 쌓인다. 기동 요약은 호출측(EngineRecovery)이 따로 남긴다.
+        if (bound == null) {
+            log.info("재생 완료: lastAppliedSeq={}, commands={}, verified={}, pending={}",
+                    engine.lastAppliedSeq(), replayedCommands, verifiedEvents, pending.size());
+        } else if (replayedCommands > 0) {
+            log.debug("재생 완료(상한 {}): lastAppliedSeq={}, commands={}, verified={}, pending={}",
+                    commandBound, engine.lastAppliedSeq(), replayedCommands, verifiedEvents,
+                    pending.size());
+        }
         return new ReplayResult(engine.lastAppliedSeq(), replayedCommands, verifiedEvents, pending);
     }
 
@@ -155,17 +203,25 @@ public class ReplayService {
         private List<EventJournalRow> buffer = List.of();
         private int index;
         private long lastSeq;
+        // 음수면 상한 없음. 0 이상이면 이 event_seq 까지만 읽는다. 명령 상한과 짝이 맞아야 한다.
+        private final long upperSeq;
         private boolean exhausted;
         private EventJournalRow current;
 
         // lastSeq를 스냅샷 워터마크 W로 초기화한다. readAfter(W)가 W+1부터 읽고 선두 결번
         // 검사(expected = lastSeq==0 ? 1 : lastSeq+1)도 W+1을 기대해 tail prefix가 정합한다.
-        JournalEventCursor(long eventStartSeq) {
+        JournalEventCursor(long eventStartSeq, long upperSeq) {
             this.lastSeq = eventStartSeq;
+            this.upperSeq = upperSeq;
         }
 
         EventJournalRow next() {
             if (exhausted) {
+                return null;
+            }
+            if (upperSeq >= 0 && lastSeq >= upperSeq) {
+                // 상한에 닿았다. 그 너머는 이번 재생의 대조 대상이 아니다.
+                exhausted = true;
                 return null;
             }
             if (index >= buffer.size()) {

@@ -1,0 +1,5 @@
+=== 1GiB 승격 실패 증거 (2026-09-08T06:45:55Z)
+OPEN 주문 195808, command_journal 935530, event_journal 1535569
+app-2 승격 06:34:28.183 (epoch 18 게시 성공) 이후 readiness 전이 없음
+부하 정지 06:43:03 이후에도 CPU 200%, MEM 770MiB/1GiB 고정. readiness 응답 없음(000)
+OutOfMemoryError 로그 0건. GC 스파이럴로 프로세스가 살아 있으나 응답하지 못한다

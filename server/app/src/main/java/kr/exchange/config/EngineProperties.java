@@ -12,10 +12,12 @@ import java.time.Duration;
  * @param leaseStanddownAfter 서비스 불능이 끊김 없이 지속될 때 리스 갱신을 포기하는 임계(§5.4).
  *                            TTL보다 충분히 길어야 정상 갱신 주기와 겹치지 않는다
  * @param queueCapacity       단일 라이터 유계 큐 크기. 초과분은 백프레셔 거부
+ * @param followerCatchUpInterval 팔로워가 리더 저널을 따라잡는 주기
  */
 @ConfigurationProperties(prefix = "exchange.engine")
 public record EngineProperties(Duration leaseTtl, Duration leaseTickInterval,
-                               Duration leaseStanddownAfter, int queueCapacity) {
+                               Duration leaseStanddownAfter, int queueCapacity,
+                               Duration followerCatchUpInterval) {
 
     public EngineProperties {
         if (leaseTtl == null) {
@@ -29,6 +31,12 @@ public record EngineProperties(Duration leaseTtl, Duration leaseTickInterval,
         }
         if (queueCapacity <= 0) {
             queueCapacity = 65536;
+        }
+        // 팔로워가 리더 저널을 따라잡는 주기. 리스 축이 아니라 저널 추적 축이다. 1초는 부하
+        // 100 OPS 기준 한 틱에 100 명령 남짓이라 틱이 짧게 끝난다. 늘리면 격차가 커지고
+        // 줄이면 조회 왕복만 늘어난다.
+        if (followerCatchUpInterval == null) {
+            followerCatchUpInterval = Duration.ofSeconds(1);
         }
         // tick이 TTL 이상이면 갱신 전 리스가 만료돼 정당 단독 리더가 스스로 펜싱된다(half-leader).
         if (leaseTickInterval.compareTo(leaseTtl) >= 0) {

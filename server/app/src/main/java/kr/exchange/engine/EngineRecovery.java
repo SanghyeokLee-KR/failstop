@@ -16,6 +16,28 @@ import java.util.Optional;
  * 기동 복구: 저널 재생으로 오더북을 재구성하고, 크래시 창(명령 커밋 후·이벤트 커밋 전)의
  * 재방출 이벤트를 재적재·재정산한다(DB 설계 §5.5 ②).
  *
+ * 기동 경로는 체크포인트로 상한한다(2026-09-08). 상한이 없으면 다른 노드가 리더로서 계속 쓰는
+ * 동안 "명령은 있는데 이벤트가 아직 없는" 구간이 항상 남고, 부팅 노드가 그것을 자기 크래시 창으로
+ * 읽어 리더 자격을 요구한다. 그러면 유효한 타 리더가 있는 노드가 기동을 거부한다. 두 노드 실측에서
+ * 장애 노드가 그 경로로 재합류하지 못했다(`harness/evidence/leader-failover-20260908/`).
+ *
+ * 상한을 걸면 pending 이 구조적으로 비어 리더 자격이 필요 없다. 상한 초과분은 둘 중 하나다.
+ * 진짜 크래시 창이거나, 살아 있는 리더가 지금 쓰고 있는 것이다. 리더 자격을 얻을 수 있으면
+ * 전자로 보고 이어서 재적재하고, 얻을 수 없으면 후자로 보고 팔로워로 뜬다. 팔로워의 따라잡기는
+ * FollowerCatchUp 이 맡는다.
+ *
+ * <p>승격 재생도 같은 두 단계를 탄다(2026-09-09). 종전에는 승격 경로만 상한 없이 읽었고, 그것이
+ * 종료하는 근거는 "승격 시점에는 다른 노드가 명령 저널에 쓸 수 없다" 는 fencing 하나뿐이었다.
+ * 그 전제가 깨지면, 곧 승격한 노드가 리스를 잃고 다른 노드가 리더가 되면, 재생 루프가 새 리더의
+ * 명령을 계속 읽어 끝나지 않는다. 2026-09-08 회차에서 실제로 CPU 200% 로 4분간 응답하지 못했다
+ * (`harness/evidence/follower-rejoin-20260908/` 무효 1회차).
+ *
+ * 그래서 2 단계도 그 시점에 잡아 둔 저널 head 로 상한한다. 상한이 있으면 루프가 유한하게 끝나고,
+ * 리스를 잃었다면 이어지는 재적재가 fencing 으로 즉시 거부된다. 무한 재생이 fail-fast 로 바뀐다.
+ *
+ * 두 경로의 차이는 이제 하나뿐이다. 2 단계에서 리더 자격을 얻지 못했을 때 기동은 팔로워로 뜨고
+ * 승격은 실패한다. 승격은 리더 자격이 전제인 경로이므로 그 전제가 사라지면 진행할 이유가 없다.
+ *
  * pending을 버리고 기동하면 이후 신규 명령의 이벤트가 계속 적재되면서 저널 스트림이
  * 재생 스트림의 prefix 성질을 잃고, 다음 재기동의 대조가 영구 실패한다(무음 유실 + 벽돌).
  * 단일 라이터의 방출 순서 그대로 sink에 넘기므로 event_seq는 W+1부터 연속 배정되어
@@ -107,10 +129,19 @@ public class EngineRecovery {
         if (budget.compareTo(BOOT_PROMOTION_WAIT_CAP) > 0) {
             budget = BOOT_PROMOTION_WAIT_CAP;
         }
-        return recover(engine, budget);
+        return recover(engine, budget, true);
     }
 
     private ReplayResult recover(MatchingEngineImpl engine, java.time.Duration promotionWait) {
+        return recover(engine, promotionWait, false);
+    }
+
+    /**
+     * @param followerAllowed 2 단계에서 리더 자격을 얻지 못했을 때 팔로워로 진행할 수 있는가.
+     *                        기동은 참이고 승격은 거짓이다. 승격은 리더 자격이 전제인 경로다.
+     */
+    private ReplayResult recover(MatchingEngineImpl engine, java.time.Duration promotionWait,
+                                 boolean followerAllowed) {
         long eventStart = 0;
         if (snapshotSource != null) {
             Optional<SnapshotSource.Loaded> snap = snapshotSource.loadLatestAdoptable();
@@ -126,7 +157,7 @@ public class EngineRecovery {
         long replayStartedNs = System.nanoTime();
         ReplayResult result;
         try {
-            result = replayService.rebuild(engine, eventStart);
+            result = replayToCheckpointThenTail(engine, eventStart, promotionWait, followerAllowed);
         } catch (RuntimeException e) {
             // 불일치를 남기고 다시 던진다. 이 행이 C17이 검출하는 대상이다. 예외만 던지고
             // 기록을 안 남기면 재생이 깨진 사건이 표에 없어 C17이 통과한다.
@@ -197,6 +228,116 @@ public class EngineRecovery {
         return result;
     }
 
+    /**
+     * 두 단계 재생. 1 단계는 체크포인트까지 대조만 하고 2 단계는 그 초과분을 재적재 대상으로 낸다.
+     *
+     * 두 단계로 가르는 이유가 있다. 앞 구간은 이벤트가 전부 있는 안정 구간이라 대조만 하면 되고
+     * 리더 자격이 필요 없다. 뒤 구간은 이벤트가 없는 구간이라 재적재가 필요하고 그것은 리더만
+     * 할 수 있다. 하나로 묶으면 앞 구간까지 리더 자격에 걸린다.
+     *
+     * 2 단계도 상한을 건다. 상한 없이 읽으면 다른 노드가 쓰는 동안 루프가 끝나지 않는다. 상한을
+     * 잡아 두면 유한하게 끝나고, 리스를 잃었다면 이어지는 재적재가 fencing 으로 거부된다.
+     */
+    private ReplayResult replayToCheckpointThenTail(MatchingEngineImpl engine, long eventStart,
+                                                    java.time.Duration promotionWait,
+                                                    boolean followerAllowed) {
+        kr.exchange.journal.JournalCheckpoint bound = replayService.checkpoint();
+        ReplayResult stable = verifiedTo(engine, eventStart, bound, null);
+        log.info("재생 1단계(체크포인트 상한): cmd<={}, evt<={}, 적용 {}건, 대조 {}건",
+                bound.commandSeq(), bound.eventSeq(), stable.replayedCommands(),
+                stable.verifiedEvents());
+
+        long head = replayService.journalHead();
+        long beyond = head - bound.commandSeq();
+        if (beyond <= 0) {
+            return stable;
+        }
+        if (!lease.isLeader() && !acquireLeadership(promotionWait)) {
+            if (followerAllowed) {
+                log.info("리더 자격 없이 기동한다(팔로워). 체크포인트 초과 명령 {}건은 catch-up 이 따라잡는다",
+                        beyond);
+                return stable;
+            }
+            throw new IllegalStateException(
+                    "크래시 창 명령 " + beyond + "건 재적재 불가: 리더 승격 실패"
+                            + (promotionWait.isZero() ? ""
+                                    : "(대기 " + promotionWait.toMillis() + "ms 소진)"));
+        }
+
+        // 리더 자격을 기다리는 사이 다른 노드가 창을 메웠을 수 있다. 상한을 다시 읽어 검증
+        // 가능한 구간을 먼저 소진한다. 대조 없이 재적재로 넘기면 그 구간의 불일치를 놓친다.
+        kr.exchange.journal.JournalCheckpoint after = replayService.checkpoint();
+        ReplayResult verified = stable;
+        long eventCursor = bound.eventSeq();
+        if (after.commandSeq() > bound.commandSeq()) {
+            ReplayResult more = verifiedTo(engine, eventCursor, after, bound);
+            verified = merge(stable, more, more.lastAppliedSeq(), more.pendingEvents());
+            eventCursor = after.eventSeq();
+            log.info("재생 1단계 연장(대기 중 메워진 구간): cmd<={}, 적용 {}건",
+                    after.commandSeq(), more.replayedCommands());
+        }
+
+        // 2 단계. 지금 잡은 head 로 상한한다. 이벤트 커서는 1 단계 끝에서 이미 소진돼 있으므로
+        // 여기서 나오는 방출은 전부 크래시 창이다.
+        long tailHead = replayService.journalHead();
+        if (tailHead <= after.commandSeq()) {
+            return verified;
+        }
+        ReplayResult tail = replayService.rebuild(engine, eventCursor,
+                new kr.exchange.journal.JournalCheckpoint(tailHead, eventCursor));
+        log.info("재생 2단계(크래시 창 상한 {}): 적용 {}건, 재적재 대상 {}건",
+                tailHead, tail.replayedCommands(), tail.pendingEvents().size());
+        return merge(verified, tail, tail.lastAppliedSeq(), tail.pendingEvents());
+    }
+
+    /**
+     * 상한까지 대조만 하는 재생. 여기서 pending 이 나오면 이벤트가 명령 단위로 원자 커밋된다는
+     * 전제가 깨진 것이다. 조용히 넘기면 그 뒤의 모든 판정이 잘못된 전제 위에 선다.
+     */
+    private ReplayResult verifiedTo(MatchingEngineImpl engine, long eventStart,
+                                    kr.exchange.journal.JournalCheckpoint bound,
+                                    kr.exchange.journal.JournalCheckpoint previous) {
+        ReplayResult result = replayService.rebuild(engine, eventStart, bound);
+        if (!result.pendingEvents().isEmpty()) {
+            throw new IllegalStateException("체크포인트 상한 재생에서 pending 이 나왔다: "
+                    + result.pendingEvents().size() + "건, 상한 cmd=" + bound.commandSeq()
+                    + (previous == null ? "" : ", 직전 상한 cmd=" + previous.commandSeq()));
+        }
+        return result;
+    }
+
+    /** 두 재생 결과를 하나로 접는다. 관측 수치가 단계마다 잘리지 않게 한다. */
+    private static ReplayResult merge(ReplayResult first, ReplayResult second, long lastAppliedSeq,
+                                      List<EngineEvent> pending) {
+        return new ReplayResult(lastAppliedSeq,
+                first.replayedCommands() + second.replayedCommands(),
+                first.verifiedEvents() + second.verifiedEvents(),
+                pending);
+    }
+
+    /**
+     * 유효한 리스를 쥔 노드가 살아서 갱신하고 있는가. 참이면 만료를 기다릴 이유가 없다.
+     *
+     * 기동 대기의 원래 목적은 "직전 프로세스가 남긴 리스가 만료되기를 기다린다" 이다. 그 리스는
+     * 갱신되지 않으므로 만료 시각이 움직이지 않는다. 살아 있는 리더의 리스는 움직인다. 그 차이로
+     * 가른다. 표본 간격은 TTL 의 절반이라 갱신 주기(TTL 보다 짧다)를 반드시 한 번 이상 덮는다.
+     */
+    private boolean anotherLeaderRenewing() {
+        java.util.Optional<kr.exchange.engine.lease.LeaseSnapshot> before = lease.leaseSnapshot();
+        if (before.isEmpty() || before.get().holder().isEmpty()) {
+            return false;
+        }
+        try {
+            Thread.sleep(lease.ttl().dividedBy(2).toMillis());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+        java.util.Optional<kr.exchange.engine.lease.LeaseSnapshot> after = lease.leaseSnapshot();
+        return after.isPresent()
+                && after.get().leaseUntil().isAfter(before.get().leaseUntil());
+    }
+
     // 승격 획득만 담당하고 획득 후 로직은 무변경이다. 대기는 부팅 스레드의 블로킹일 뿐
     // 엔진 결정론·저널·매칭 순서와 무관하다. 인터럽트는 대기 포기로 처리해 기동 실패로 흐른다.
     private boolean acquireLeadership(java.time.Duration wait) {
@@ -206,8 +347,12 @@ public class EngineRecovery {
         if (wait.isZero() || wait.isNegative()) {
             return false;
         }
-        log.warn("리더 승격 실패(유효한 타 리더 존재). 리스 만료 대기 후 재시도: 상한 {}ms",
-                wait.toMillis());
+        if (anotherLeaderRenewing()) {
+            // 살아 있는 리더가 갱신 중이다. 만료를 기다려도 오지 않는다.
+            log.info("유효한 타 리더가 리스를 갱신 중이다. 승격 대기를 건너뛴다");
+            return false;
+        }
+        log.warn("리더 승격 실패(잔존 리스 만료 대기 후 재시도): 상한 {}ms", wait.toMillis());
         long deadlineNanos = System.nanoTime() + wait.toNanos();
         while (System.nanoTime() < deadlineNanos) {
             try {

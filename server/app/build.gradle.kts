@@ -42,6 +42,26 @@ dependencies {
     // SB BOM 미관리 항목이라 개별 핀 유지(버전 고정 원칙).
     implementation("io.github.erdtman:java-json-canonicalization:1.1")
 
+    // 리더 리스 보관소를 PostgreSQL 커밋 경로에서 떼기 위한 DynamoDB 클라이언트(2026-09-08).
+    // 거래 데이터는 PostgreSQL에 그대로 있고 리스 항목 하나만 여기로 간다. SB BOM 미관리
+    // 항목이라 버전 고정 원칙에 따라 핀한다. url-connection-client는 Netty 대신 JDK
+    // HttpURLConnection을 쓰는 최소 동기 전송이다. 리스 왕복은 초당 한 번이라 비동기 스택이
+    // 필요 없고, 기본 전송(apache/netty)을 끌어오면 앱 이미지와 기동 시간만 커진다.
+    //
+    // Apache HttpClient 5 를 반드시 배제한다. 이것이 클래스패스에 들어오면 Spring 의
+    // ClientHttpRequestFactory 자동 선택이 JDK 클라이언트 대신 그것을 고르고, TestRestTemplate 의
+    // 급송이 소형 커넥션 풀에 직렬화된다. 그러면 레이트리밋 급송 검증이 한도를 넘지 못해 429 대신
+    // 201 이 나오고 회차 시간이 5 배가 된다. 2026-09-08 에 실측으로 확인했다. 배제 전 8 건 실패,
+    // 배제 후 전량 통과다. 전송은 url-connection-client 하나로 충분하므로 Apache 는 필요 없다.
+    implementation("software.amazon.awssdk:dynamodb:2.54.13") {
+        exclude(group = "software.amazon.awssdk", module = "netty-nio-client")
+        exclude(group = "software.amazon.awssdk", module = "apache-client")
+        exclude(group = "org.apache.httpcomponents.client5", module = "httpclient5")
+        exclude(group = "org.apache.httpcomponents.core5", module = "httpcore5")
+        exclude(group = "org.apache.httpcomponents.core5", module = "httpcore5-h2")
+    }
+    implementation("software.amazon.awssdk:url-connection-client:2.54.13")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")

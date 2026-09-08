@@ -1,5 +1,7 @@
 package kr.exchange.harness;
 
+import kr.exchange.engine.lease.LeaderLeaseStore;
+import kr.exchange.engine.lease.LeaseSnapshot;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,33 +34,41 @@ public class HarnessController {
     private final InvariantVerifier verifier;
     private final FailoverRecorder failoverRecorder;
     private final LoadKeySeeder loadKeys;
+    // 리더 판정의 권위. leader_lease 행이 아니다.
+    private final LeaderLeaseStore leaseStore;
 
     public HarnessController(JdbcClient jdbc, InvariantVerifier verifier,
-                             FailoverRecorder failoverRecorder, LoadKeySeeder loadKeys) {
+                             FailoverRecorder failoverRecorder, LoadKeySeeder loadKeys,
+                             LeaderLeaseStore leaseStore) {
         this.jdbc = jdbc;
         this.verifier = verifier;
         this.failoverRecorder = failoverRecorder;
         this.loadKeys = loadKeys;
+        this.leaseStore = leaseStore;
     }
 
-    /** 리더십·워터마크·체결 관측(leader_lease DB 직조회가 권위, 노드 무관). */
+    /** 리더십·워터마크·체결 관측. 리더 판정의 권위는 리스 보관소이고 노드와 무관하다. */
     @GetMapping("/status")
     public StatusResponse status() {
-        return jdbc.sql("""
-                SELECT holder, epoch, lease_until, clock_timestamp() AS now,
-                       (lease_until > clock_timestamp()) AS leader_alive
-                FROM leader_lease WHERE resource = 'matching-engine'
-                """)
-                .query((rs, n) -> new StatusResponse(
-                        rs.getString("holder"),
-                        rs.getLong("epoch"),
-                        rs.getObject("lease_until", OffsetDateTime.class),
-                        rs.getObject("now", OffsetDateTime.class),
-                        rs.getBoolean("leader_alive"),
-                        scalar("SELECT COALESCE(max(seq), 0) FROM command_journal"),
-                        scalar("SELECT COALESCE(max(event_seq), 0) FROM event_journal"),
-                        scalar("SELECT count(*) FROM trades")))
-                .single();
+        // 리더 판정의 권위는 리스 보관소다. leader_lease 행을 직접 읽던 종전 판정은 리스가
+        // PostgreSQL 밖으로 나간 뒤 틀린다. 그 행은 승격 때 한 번만 게시되고 lease_until 이
+        // 100년 뒤라 leader_alive 가 항상 참이 된다. 2026-09-08 리더 페일오버 실측에서 리더가
+        // 죽고 리스가 만료된 11초 동안 이 엔드포인트가 죽은 노드를 살아 있다고 답했다.
+        //
+        // 만료 판정은 보관소 시계로 한다. 묻는 쪽 시계를 쓰면 스큐가 판정에 들어온다.
+        java.util.Optional<LeaseSnapshot> lease = leaseStore.current();
+        java.time.Instant storeNow = leaseStore.now();
+        boolean alive = lease.isPresent() && !lease.get().holder().isEmpty()
+                && !lease.get().expiredAt(storeNow);
+        return new StatusResponse(
+                lease.map(LeaseSnapshot::holder).orElse(""),
+                lease.map(LeaseSnapshot::epoch).orElse(0L),
+                lease.map(l -> l.leaseUntil().atOffset(java.time.ZoneOffset.UTC)).orElse(null),
+                storeNow.atOffset(java.time.ZoneOffset.UTC),
+                alive,
+                scalar("SELECT COALESCE(max(seq), 0) FROM command_journal"),
+                scalar("SELECT COALESCE(max(event_seq), 0) FROM event_journal"),
+                scalar("SELECT count(*) FROM trades"));
     }
 
     /** 권위 run 실행(실험 프로토콜 ⓐ 사전 / ⓓ 사후). */

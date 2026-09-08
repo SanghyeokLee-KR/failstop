@@ -9,6 +9,8 @@ import kr.exchange.engine.EngineRecovery;
 import kr.exchange.engine.HaAvailability;
 import kr.exchange.engine.JournalCatchUpSource;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.lease.FencingEpochPublisher;
+import kr.exchange.engine.lease.LeaderLeaseStore;
 import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.engine.LoopFatalHandler;
 import kr.exchange.engine.NodeServiceHealth;
@@ -59,13 +61,19 @@ public class EngineConfig {
 
     @Bean
     public LeaderLeaseService leaderLeaseService(
-            @Qualifier("leaseDataSource") DataSource leaseDataSource, EngineProperties props,
+            LeaderLeaseStore leaderLeaseStore, FencingEpochPublisher fencingEpochPublisher,
+            EngineProperties props,
             NodeServiceHealth nodeServiceHealth, MeterRegistry meterRegistry) {
-        // 리스 renew·승격 시도 UPDATE는 전용 소형 풀 커넥션으로만 수행한다. 요청 풀이 포화돼도
-        // 하트비트가 굶지 않게 격리한다(LeaseDataSourceConfig, DB 설계 §5.4). 저널·정산 등 승격
-        // 이후 쓰기 경로는 그대로 기본 풀·트랜잭션을 타므로 fencing 원자성 경계는 불변이다.
-        // 그 격리로 분리된 '하트비트는 살고 서비스는 죽은' 창은 nodeServiceHealth가 닫는다.
-        LeaderLeaseService lease = new LeaderLeaseService(JdbcClient.create(leaseDataSource),
+        // 리스 renew·승격 시도는 보관소가 정한다(LeaseStoreConfig). PostgreSQL 보관소는 전용 소형
+        // 풀 커넥션으로만 UPDATE 한다. 요청 풀이 포화돼도 하트비트가 굶지 않게 격리한다
+        // (LeaseDataSourceConfig, DB 설계 §5.4). 저널·정산 등 승격 이후 쓰기 경로는 그대로 기본
+        // 풀·트랜잭션을 타므로 fencing 원자성 경계는 불변이다. 그 격리로 분리된 '하트비트는 살고
+        // 서비스는 죽은' 창은 nodeServiceHealth가 닫는다.
+        //
+        // 풀 격리가 닫지 못하는 창이 하나 더 있고 2026-09-08에 실측했다. 동기 복제 대상 standby를
+        // 전부 잃으면 커밋 자체가 멈추므로 전용 풀이어도 UPDATE가 반환하지 않는다. 그 창을 닫는
+        // 것이 DynamoDB 보관소이며 설정으로 갈린다.
+        LeaderLeaseService lease = new LeaderLeaseService(leaderLeaseStore, fencingEpochPublisher,
                 props.leaseTtl(), props.leaseTickInterval(), nodeServiceHealth);
         // 회복 가능 반납 카운터(§5-2). 종신 강등 축(exchange.leader.standdown)과 분리한다. 이
         // 등급이 만드는 실패 모드는 [재생 실패 -> 반납 -> 재승격]의 반복이라, 합산하면 자발적
@@ -299,9 +307,14 @@ public class EngineConfig {
                                                      SingleWriterLoop loop,
                                                      LeaderLeaseService leaderLeaseService,
                                                      CommandJournalReader commandJournalReader,
-                                                     HaAvailability haAvailability) {
+                                                     HaAvailability haAvailability,
+                                                     kr.exchange.engine.FollowerCatchUp followerCatchUp) {
         PromotionCoordinator coordinator = new PromotionCoordinator(
                 engineRecovery, loop, leaderLeaseService, commandJournalReader, haAvailability);
+        // 따라잡기 정지를 코디네이터보다 먼저 등록한다. 순서가 계약이다. 승격 재생 생략 경로는
+        // 공유 엔진 위에서 접수를 여는데, 그 전에 따라잡기 스레드가 그 엔진에서 손을 뗀 것이
+        // 확인돼야 한다. 리스너는 등록 순서로 발화한다.
+        leaderLeaseService.onLeadershipGained(identity -> followerCatchUp.stopForPromotion());
         leaderLeaseService.onLeadershipGained(coordinator::onLeadershipGained);
         leaderLeaseService.onLeadershipLost(coordinator::onLeadershipLost);
         // 관측: epoch 계단·is_leader·failover downtime 게이지 갱신(라이터 스레드 밖).
@@ -325,6 +338,20 @@ public class EngineConfig {
                 marketId -> "HALTED".equals(markets.byId(marketId).status()));
     }
 
+    /**
+     * 팔로워 따라잡기. 기동 재생이 체크포인트로 상한되므로 그 뒤를 이 빈이 잇는다.
+     * 엔진과 같은 조건(exchange.engine.enabled)에서만 뜬다. 봇 노드는 엔진이 없으므로 없다.
+     */
+    @Bean(destroyMethod = "close")
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            prefix = "exchange.engine", name = "enabled", matchIfMissing = true)
+    public kr.exchange.engine.FollowerCatchUp followerCatchUp(
+            kr.exchange.journal.ReplayService replayService, MatchingEngineImpl engine,
+            LeaderLeaseService lease, EngineProperties props, MeterRegistry meterRegistry) {
+        return new kr.exchange.engine.FollowerCatchUp(replayService, engine, lease,
+                props.followerCatchUpInterval(), meterRegistry);
+    }
+
     // 봇 전용 노드는 엔진을 끄고 리더 경쟁에서 빠진다(격리 토폴로지에서 봇이 죽인 리더로
     // 승격 주체가 오염되지 않게). 기본값 true라 기존 dev·통합테스트·단일 노드는 무변경이다.
     @Bean
@@ -333,7 +360,8 @@ public class EngineConfig {
     public SmartLifecycle engineRuntimeLifecycle(LeaderLeaseService lease, SingleWriterLoop loop,
                                                  EngineRecovery recovery,
                                                  MatchingEngineImpl engine,
-                                                 PromotionCoordinator promotionCoordinator) {
+                                                 PromotionCoordinator promotionCoordinator,
+                                                 kr.exchange.engine.FollowerCatchUp followerCatchUp) {
         // 리더십 상실 확정 시 self-shutdown: 잔여 큐를 버리고 즉시 정지한다(DB 설계 §5.4).
         lease.onLeadershipLost(loop::halt);
         return new SmartLifecycle() {
@@ -352,12 +380,18 @@ public class EngineConfig {
                 promotionCoordinator.bootstrap(engine, lease.isLeader());
                 promotionCoordinator.arm();
                 lease.start();
+                // 리스보다 뒤에 시작한다. 앞서 시작하면 리더 여부가 정해지기 전에 첫 틱이 돌아
+                // 부팅 리더의 엔진을 만질 수 있다.
+                followerCatchUp.start();
                 running = true;
             }
 
             @Override
             public void stop() {
                 running = false;
+                // 리스보다 먼저 멈춘다. 리스가 먼저 멈추면 isLeader()가 false로 남아 따라잡기가
+                // 종료 중인 엔진을 계속 만진다.
+                followerCatchUp.stop();
                 lease.stop();
                 try {
                     loop.stop();

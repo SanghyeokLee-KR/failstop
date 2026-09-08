@@ -294,6 +294,10 @@ public class PromotionCoordinator implements AutoCloseable {
     private void replayOnce(LeaderIdentity identity, long t0) {
         long head = journalReader.maxSeq();
         MatchingEngineImpl current = installedEngine;
+        // 생략이 안전한 근거는 FollowerCatchUp 의 불변식 M 이다. 설치 엔진의 lastAppliedSeq 는
+        // 관측한 체크포인트를 넘지 않으므로, head 에 닿았다는 것은 head 이하에 이벤트 없는 명령이
+        // 없다는 뜻이다. 곧 메울 크래시 창이 없다. 따라잡기가 상한을 재사용하거나 저널 head 로
+        // 유도하도록 바뀌면 이 생략이 미물질화 명령 위에서 접수를 연다.
         if (current != null && current.lastAppliedSeq() >= head) {
             log.info("승격 재생 생략(엔진 이미 head): epoch={}, lastAppliedSeq={}, head={}",
                     identity.epoch(), current.lastAppliedSeq(), head);

@@ -263,11 +263,16 @@ class PromotionRecoveryIntegrationTest {
                 Duration.ofSeconds(1));
         // ReplayService는 클래스라 서브클래싱으로 실패를 주입한다. rebuild가 예외를 던지는
         // 상황이 곧 재생 결정론 위반이고, 그때 기록 경로가 도는지가 이 테스트의 대상이다.
+        //
+        // 상한을 받는 3인자 rebuild 를 덮는다. 2026-09-09 에 복구가 두 단계(체크포인트 상한 대조 +
+        // 크래시 창 상한 재적재)로 바뀌면서 실제 호출이 그쪽으로 옮겼다. 2인자를 덮으면 주입이
+        // 실제 경로를 비껴가고 이 검증이 조용히 무의미해진다.
         ReplayService failing = new ReplayService(commandReader, eventReader, mapper,
                 objectMapper, new MarketCatalog(jdbc)) {
             @Override
             public kr.exchange.journal.ReplayResult rebuild(
-                    kr.exchange.engine.core.MatchingEngine engine, long eventStartSeq) {
+                    kr.exchange.engine.core.MatchingEngine engine, long eventStartSeq,
+                    kr.exchange.journal.JournalCheckpoint bound) {
                 throw new IllegalStateException("주입 결함: 재생 불일치");
             }
         };

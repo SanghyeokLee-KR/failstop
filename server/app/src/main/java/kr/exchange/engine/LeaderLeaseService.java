@@ -1,11 +1,13 @@
 package kr.exchange.engine;
 
+import kr.exchange.engine.lease.FencingEpochPublisher;
+import kr.exchange.engine.lease.LeaderLeaseStore;
+import kr.exchange.engine.lease.PostgresLeaderLeaseStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.time.Duration;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,20 +31,29 @@ import java.util.function.Consumer;
  *
  * lease_until을 미는 경로는 extendLease 하나뿐이다(§5.4 연장 직전 생존성 판정). 하트비트와 fencing
  * 거부 재확인이 같은 UPDATE를 쓰므로, 판정을 호출자별로 두면 좀비 리더가 리스를 무한 연장한다.
+ *
+ * 리스가 어디에 보관되는지는 LeaderLeaseStore가 정한다(2026-09-08). 이 클래스는 보관소를 모르고
+ * 강등 등급·재승격 금지·승격 재생 구간만 소유한다. 가른 이유는 실측이다. 리스가 PostgreSQL 행일
+ * 때 갱신은 곧 커밋이었고, 동기 복제 대상 standby를 전부 잃으면 갱신이 함께 멈춰 리스가 만료됐다.
+ * 거래 데이터의 내구성 설정이 리더 선출의 생존성을 결정하던 자리다.
+ *
+ * 보관소가 PostgreSQL 밖이면 트랜잭션 안의 assert_current_leader가 볼 근거가 사라지므로,
+ * 승격 시 FencingEpochPublisher가 epoch을 그 행에 먼저 올린다. 게시 실패는 승격 실패다.
  */
 public class LeaderLeaseService implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(LeaderLeaseService.class);
 
-    private final JdbcClient jdbc;
+    private final LeaderLeaseStore store;
+    // 승격 시 epoch을 쓰기 경로가 보는 자리에 올린다. PostgreSQL 보관소에서는 승격 UPDATE가
+    // 이미 같은 행을 올리므로 NONE이다.
+    private final FencingEpochPublisher fencingPublisher;
     private final Duration ttl;
     private final Duration tickInterval;
     // 갱신 직전 서비스 생존성 판정(§5.4 자발적 강등). 하트비트가 전용 풀로 격리돼 서비스
     // 생존성과 분리되므로, 요청 경로가 멈춘 노드도 리스만 갱신하는 좀비 리더가 성립한다.
     private final NodeServiceHealth serviceHealth;
     private final String holder = UUID.randomUUID().toString();
-    // 이 노드가 승격을 감시하기 시작한 시각(DB 시계). 첫 획득 시도에서 잡는다.
-    private volatile OffsetDateTime watchingSince;
     // null이면 리더 아님. 값은 획득 시점의 epoch.
     private final AtomicReference<Long> epoch = new AtomicReference<>();
     // 상실 확정 후 재승격 금지(§5.4 self-shutdown). 강등 시점의 엔진 인메모리 상태는 타 리더의
@@ -81,17 +92,26 @@ public class LeaderLeaseService implements AutoCloseable {
     private final List<AcquisitionListener> acquisitionListeners = new CopyOnWriteArrayList<>();
     private volatile ScheduledExecutorService scheduler;
 
+    /** 종전 배선. leader_lease 행을 보관소로 쓴다. */
     public LeaderLeaseService(JdbcClient jdbc, Duration ttl, Duration tickInterval) {
         this(jdbc, ttl, tickInterval, NodeServiceHealth.ALWAYS_SERVICEABLE);
     }
 
+    /** 종전 배선. leader_lease 행을 보관소로 쓴다. */
     public LeaderLeaseService(JdbcClient jdbc, Duration ttl, Duration tickInterval,
+                              NodeServiceHealth serviceHealth) {
+        this(new PostgresLeaderLeaseStore(jdbc), FencingEpochPublisher.NONE,
+                ttl, tickInterval, serviceHealth);
+    }
+
+    public LeaderLeaseService(LeaderLeaseStore store, FencingEpochPublisher fencingPublisher,
+                              Duration ttl, Duration tickInterval,
                               NodeServiceHealth serviceHealth) {
         if (serviceHealth == null) {
             throw new IllegalArgumentException("serviceHealth는 필수");
         }
-        if (jdbc == null || ttl == null || tickInterval == null) {
-            throw new IllegalArgumentException("jdbc·ttl·tickInterval은 필수");
+        if (store == null || fencingPublisher == null || ttl == null || tickInterval == null) {
+            throw new IllegalArgumentException("store·fencingPublisher·ttl·tickInterval은 필수");
         }
         if (ttl.isZero() || ttl.isNegative() || tickInterval.isZero() || tickInterval.isNegative()) {
             throw new IllegalArgumentException("ttl·tickInterval은 양수여야 한다");
@@ -100,7 +120,8 @@ public class LeaderLeaseService implements AutoCloseable {
             // 갱신 주기가 TTL 이상이면 정상 리더도 만료를 반복해 탈취/복구 플래핑이 된다.
             throw new IllegalArgumentException("tickInterval은 ttl보다 짧아야 한다");
         }
-        this.jdbc = jdbc;
+        this.store = store;
+        this.fencingPublisher = fencingPublisher;
         this.ttl = ttl;
         this.tickInterval = tickInterval;
         this.serviceHealth = serviceHealth;
@@ -117,6 +138,17 @@ public class LeaderLeaseService implements AutoCloseable {
 
     public boolean isLeader() {
         return epoch.get() != null;
+    }
+
+    /**
+     * 보관소가 보는 현재 리스. 이 노드의 신원이 아니라 클러스터 상태다.
+     *
+     * 읽기 전용이고 상태를 바꾸지 않는다. 기동 복구가 "지금 유효한 리스를 쥔 노드가 살아서
+     * 갱신하고 있는가" 를 판별하는 데 쓴다. 그 판별이 없으면, 살아 있는 리더가 있는 클러스터에
+     * 노드를 붙일 때마다 만료를 기다리는 시간이 통째로 낭비된다.
+     */
+    public Optional<kr.exchange.engine.lease.LeaseSnapshot> leaseSnapshot() {
+        return store.current();
     }
 
     public Optional<LeaderIdentity> current() {
@@ -303,14 +335,17 @@ public class LeaderLeaseService implements AutoCloseable {
         }
         // 승격 전 구 리스 상태를 캡처해 다운타임을 산정한다(관측 전용, 승격 정확성과 무관).
         // try_acquire_leader가 lease_until을 덮어쓰므로 반드시 취득 시도 전에 읽는다.
-        double failoverDowntimeSeconds = capturePriorDowntimeSeconds();
-        // 실패는 NULL 반환 계약이라 single()이 아니라 optional()로 받는다.
-        Long acquired = jdbc.sql("SELECT try_acquire_leader(?, ? * interval '1 millisecond')")
-                .params(holder, ttl.toMillis())
-                .query(Long.class)
-                .optional()
-                .orElse(null);
+        double failoverDowntimeSeconds = store.priorDowntimeSeconds(ttl);
+        Long acquired = store.acquire(holder, ttl).orElse(null);
         if (acquired == null) {
+            return false;
+        }
+        // 쓰기 경로가 볼 자리에 epoch을 먼저 올린다. 게시 전에 리더가 되면 구 리더의 epoch이
+        // 남아 있는 동안 두 노드의 쓰기가 모두 통과한다. 게시하지 못한 노드는 어차피 쓸 수
+        // 없으므로 승격을 포기하는 것이 안전 측이다. 획득한 리스는 갱신하지 않아 TTL 후 소멸한다.
+        if (!fencingPublisher.publish(holder, acquired)) {
+            log.error("fencing epoch 게시 실패로 승격을 포기한다(갱신 없음, TTL 후 소멸): "
+                    + "holder={}, epoch={}", holder, acquired);
             return false;
         }
         synchronized (leadershipLock) {
@@ -346,43 +381,6 @@ public class LeaderLeaseService implements AutoCloseable {
             }
         }
         return true;
-    }
-
-    /**
-     * 페일오버 다운타임 = 승격 시각 − 구 리더 최종 심박. 구 리더 최종 심박 = old_lease_until − ttl
-     * (같은 ttl로 renew하므로, 하네스 CICD §5-1 T1). 시드(holder='')나 실 페일오버가 아닌
-     * 최초 기동 승격은 0을 돌려 게이지 오염을 막는다. 읽기 실패는 0으로 흡수해 승격을 막지 않는다.
-     */
-    /**
-     * 구 리더 최종 심박부터 이 노드의 승격까지. 페일오버가 아닌 구간을 세지 않으려고 이 노드가
-     * 감시를 시작한 시각으로 하한을 건다. 리스 행은 스택 종료를 넘어 볼륨에 남으므로, 하한이
-     * 없으면 스택을 껐다 켠 시간이 통째로 다운타임이 되어 RTO 알람이 기동마다 오발화한다.
-     * 두 시각을 모두 DB 시계로 읽어 JVM 과의 스큐가 판정에 들어오지 않게 한다.
-     */
-    private double capturePriorDowntimeSeconds() {
-        try {
-            if (watchingSince == null) {
-                watchingSince = jdbc.sql("SELECT clock_timestamp()")
-                        .query(OffsetDateTime.class)
-                        .single();
-            }
-            Double expiredSeconds = jdbc.sql("""
-                    SELECT CASE WHEN holder <> ''
-                                THEN EXTRACT(EPOCH FROM (clock_timestamp() - GREATEST(lease_until, ?)))
-                                ELSE NULL END
-                    FROM leader_lease WHERE resource = 'matching-engine'
-                    """)
-                    .param(watchingSince)
-                    .query(Double.class)
-                    .optional()
-                    .orElse(null);
-            if (expiredSeconds == null || expiredSeconds < 0) {
-                return 0;
-            }
-            return expiredSeconds + ttl.toMillis() / 1000.0;
-        } catch (RuntimeException e) {
-            return 0;
-        }
     }
 
     /**
@@ -427,11 +425,8 @@ public class LeaderLeaseService implements AutoCloseable {
         if (!serviceHealth.serviceable()) {
             return LeaseExtension.UNSERVICEABLE;
         }
-        Boolean renewed = jdbc.sql("SELECT renew_leader_lease(?, ?, ? * interval '1 millisecond')")
-                .params(holder, currentEpoch, ttl.toMillis())
-                .query(Boolean.class)
-                .single();
-        return Boolean.TRUE.equals(renewed) ? LeaseExtension.EXTENDED : LeaseExtension.REJECTED;
+        return store.renew(holder, currentEpoch, ttl)
+                ? LeaseExtension.EXTENDED : LeaseExtension.REJECTED;
     }
 
     /** 주기 구동: 리더면 갱신, 아니면 승격 시도. 테스트는 이 메서드 대신 개별 호출을 쓴다. */
@@ -445,6 +440,9 @@ public class LeaderLeaseService implements AutoCloseable {
             t.setDaemon(true);
             return t;
         });
+        // 어느 보관소가 실제로 걸렸는지 라이브에서 확인할 단일 지점. 보관소는 설정으로 갈리는데
+        // 코드에도 설정 파일에도 '지금 무엇이 걸렸는가' 가 한 곳에 없다.
+        log.info("리스 보관소: {}, ttl={}, tick={}", store.describe(), ttl, tickInterval);
         s.scheduleWithFixedDelay(this::tick, 0, tickInterval.toMillis(), TimeUnit.MILLISECONDS);
         scheduler = s;
     }
