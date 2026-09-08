@@ -1,0 +1,20 @@
+{"t": 0.0, "kind": "start", "min_pool": 1, "max_pool": 2, "out_pct": 60, "out_for": 30, "in_pct": 30, "in_for": 90, "drain": 15, "cooldown": 20}
+{"t": 2.3, "kind": "sample", "avg": 8.8, "n": 2, "state": "steady", "ex-app": 17.5, "ex-app2": 0.1}
+{"t": 9.9, "kind": "sample", "avg": 55.5, "n": 2, "state": "steady", "ex-app": 61.0, "ex-app2": 50.0}
+{"t": 17.4, "kind": "sample", "avg": 99.8, "n": 2, "state": "out_hold", "held": 0.0, "ex-app": 97.3, "ex-app2": 102.4}
+{"t": 25.1, "kind": "sample", "avg": 102.3, "n": 2, "state": "out_hold", "held": 7.7, "ex-app": 102.0, "ex-app2": 102.6}
+{"t": 33.2, "kind": "sample", "avg": 103.8, "n": 2, "state": "out_hold", "held": 15.8, "ex-app": 103.6, "ex-app2": 103.9}
+{"t": 41.5, "kind": "sample", "avg": 103.6, "n": 2, "state": "out_hold", "held": 24.1, "ex-app": 106.6, "ex-app2": 100.6}
+{"t": 48.7, "kind": "sample", "avg": 103.6, "n": 2, "state": "out_hold", "held": 31.3, "ex-app": 105.9, "ex-app2": 101.2}
+{"t": 49.1, "kind": "launch.begin", "node": "ex-app3"}
+{"t": 49.9, "kind": "launch.container", "node": "ex-app3", "elapsed": 1.0}
+{"t": 64.7, "kind": "launch.healthy", "node": "ex-app3", "elapsed": 15.8}
+{"t": 65.9, "kind": "scale_out", "node": "ex-app3", "total": 3, "elapsed": 17.0}
+{"t": 71.9, "kind": "sample", "avg": 101.5, "n": 3, "state": "cooldown", "ex-app": 103.3, "ex-app2": 100.3, "ex-app3": 101.0}
+{"t": 79.5, "kind": "sample", "avg": 101.9, "n": 3, "state": "cooldown", "ex-app": 101.1, "ex-app2": 101.5, "ex-app3": 103.0}
+{"t": 86.8, "kind": "sample", "avg": 101.0, "n": 3, "state": "steady", "ex-app": 100.8, "ex-app2": 100.1, "ex-app3": 102.2}
+{"t": 94.5, "kind": "sample", "avg": 101.9, "n": 3, "state": "steady", "ex-app": 102.1, "ex-app2": 102.5, "ex-app3": 101.1}
+{"t": 102.3, "kind": "sample", "avg": 102.1, "n": 3, "state": "steady", "ex-app": 101.8, "ex-app2": 102.6, "ex-app3": 101.9}
+{"t": 110.3, "kind": "sample", "avg": 103.6, "n": 3, "state": "steady", "ex-app": 104.9, "ex-app2": 104.2, "ex-app3": 101.8}
+{"t": 116.9, "kind": "sample", "avg": 103.3, "n": 3, "state": "steady", "ex-app": 101.3, "ex-app2": 104.1, "ex-app3": 104.4}
+{"t": 124.5, "kind": "sample", "avg": 102.3, "n": 3, "state": "steady", "ex-app": 103.1, "ex-app2": 101.3, "ex-app3": 102.4}

@@ -29,6 +29,18 @@
 # 503(REFUSING_TRAFFIC)을 proxy_next_upstream 이 실패로 보고 다른 노드로 넘긴다.
 # 폴링도 사이드카도 없이 같은 결과가 나온다. 상세는 아래 upstream 주석에 적는다.
 
+# Docker·VPC 내장 DNS. 아래 upstream 의 resolve 와 짝이다.
+#
+# resolve 가 없으면 nginx 는 기동 시점에 upstream 이름을 풀고, 하나라도 실패하면 통째로
+# 뜨지 않는다. 그러면 앱 노드가 다 서기 전에는 엣지를 올릴 수 없고 오토스케일링처럼 노드가
+# 오가는 구성에서는 축소 직후 reload 가 엣지를 죽인다.
+#
+# A/B 실측(2026-09-08): 없는 호스트 하나를 두고 `nginx -t` 를 돌리면 resolve 있음은 통과,
+# 없음은 `[emerg] host not found in upstream` 이다. 증거 `harness/evidence/asg-scenario-20260908/`.
+#
+# 클라우드에서는 VPC 리졸버(.2 주소)로 바꾼다. 이 값은 도커 내장 DNS 다.
+resolver 127.0.0.11 valid=10s ipv6=off;
+
 upstream exchange_read {
     # 조회는 두 노드로 분산한다. 평시 분산 0을 해소하는 자리다.
     #
@@ -39,8 +51,8 @@ upstream exchange_read {
     # nginx OSS 는 능동 헬스체크가 없어 아래 max_fails 로 실패한 요청을 보고 판정한다.
     zone exchange_read 64k;
     least_conn;
-    server ${APP_1_HOST}:8080 max_fails=1 fail_timeout=2s;
-    server ${APP_2_HOST}:8080 max_fails=1 fail_timeout=2s;
+    server ${APP_1_HOST}:8080 resolve max_fails=1 fail_timeout=2s;
+    server ${APP_2_HOST}:8080 resolve max_fails=1 fail_timeout=2s;
 }
 
 upstream exchange_write {
@@ -66,8 +78,8 @@ upstream exchange_write {
     # least_conn 을 쓰지 않는다. 목적이 분산이 아니라 리더 지목이고, 라운드로빈이 두 노드를
     # 번갈아 짚어 재탐색 주기가 예측 가능하다.
     zone exchange_write 64k;
-    server ${APP_1_HOST}:8080 max_fails=1 fail_timeout=2s;
-    server ${APP_2_HOST}:8080 max_fails=1 fail_timeout=2s;
+    server ${APP_1_HOST}:8080 resolve max_fails=1 fail_timeout=2s;
+    server ${APP_2_HOST}:8080 resolve max_fails=1 fail_timeout=2s;
 }
 
 map $http_upgrade $connection_upgrade {

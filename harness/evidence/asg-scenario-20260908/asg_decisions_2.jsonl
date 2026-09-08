@@ -1,0 +1,64 @@
+{"t": 0.4, "kind": "start", "min_pool": 1, "max_pool": 2, "desired": 2, "out_pct": 60, "out_for": 30, "in_pct": 30, "in_for": 90, "drain": 15, "cooldown": 20}
+{"t": 4.0, "kind": "sample", "avg": 103.2, "n": 3, "state": "steady", "ex-app": 103.8, "ex-app2": 104.7, "ex-app3": 101.1}
+{"t": 11.7, "kind": "sample", "avg": 103.9, "n": 3, "state": "steady", "ex-app": 103.2, "ex-app2": 105.2, "ex-app3": 103.2}
+{"t": 18.9, "kind": "sample", "avg": 102.5, "n": 3, "state": "steady", "ex-app": 103.3, "ex-app2": 101.4, "ex-app3": 102.7}
+{"t": 24.9, "kind": "sample", "avg": 101.8, "n": 3, "state": "steady", "ex-app": 101.2, "ex-app2": 103.1, "ex-app3": 101.0}
+{"t": 31.8, "kind": "sample", "avg": 96.7, "n": 3, "state": "steady", "ex-app": 97.4, "ex-app2": 94.3, "ex-app3": 98.3}
+{"t": 38.7, "kind": "sample", "avg": 85.3, "n": 3, "state": "steady", "ex-app": 98.9, "ex-app2": 92.4, "ex-app3": 64.5}
+{"t": 49.7, "kind": "sample", "avg": 102.6, "n": 2, "state": "out_hold", "held": 0.0, "ex-app": 102.0, "ex-app3": 103.2}
+{"t": 59.5, "kind": "unhealthy", "node": "ex-app2", "streak": 2}
+{"t": 59.9, "kind": "recover.begin", "node": "ex-app2"}
+{"t": 78.8, "kind": "recover.done", "node": "ex-app2", "elapsed": 18.9}
+{"t": 79.0, "kind": "sample", "avg": 102.1, "n": 2, "state": "cooldown", "ex-app": 102.9, "ex-app3": 101.2}
+{"t": 87.3, "kind": "sample", "avg": 102.4, "n": 3, "state": "cooldown", "ex-app": 101.5, "ex-app2": 102.4, "ex-app3": 103.4}
+{"t": 93.9, "kind": "sample", "avg": 100.9, "n": 3, "state": "cooldown", "ex-app": 98.6, "ex-app2": 101.8, "ex-app3": 102.4}
+{"t": 100.9, "kind": "sample", "avg": 102.1, "n": 3, "state": "steady", "ex-app": 101.8, "ex-app2": 101.3, "ex-app3": 103.1}
+{"t": 109.6, "kind": "sample", "avg": 104.5, "n": 3, "state": "steady", "ex-app": 104.1, "ex-app2": 104.1, "ex-app3": 105.4}
+{"t": 116.8, "kind": "sample", "avg": 102.6, "n": 3, "state": "steady", "ex-app": 101.6, "ex-app2": 102.6, "ex-app3": 103.5}
+{"t": 123.7, "kind": "sample", "avg": 101.7, "n": 3, "state": "steady", "ex-app": 103.2, "ex-app2": 102.9, "ex-app3": 99.0}
+{"t": 132.5, "kind": "sample", "avg": 102.1, "n": 3, "state": "steady", "ex-app": 101.2, "ex-app2": 103.3, "ex-app3": 101.8}
+{"t": 140.8, "kind": "sample", "avg": 102.8, "n": 3, "state": "steady", "ex-app": 101.8, "ex-app2": 104.1, "ex-app3": 102.4}
+{"t": 147.8, "kind": "sample", "avg": 101.3, "n": 3, "state": "steady", "ex-app": 99.5, "ex-app2": 100.4, "ex-app3": 104.1}
+{"t": 155.0, "kind": "sample", "avg": 103.9, "n": 3, "state": "steady", "ex-app": 105.3, "ex-app2": 101.3, "ex-app3": 105.1}
+{"t": 162.1, "kind": "sample", "avg": 100.7, "n": 3, "state": "steady", "ex-app": 102.5, "ex-app2": 99.5, "ex-app3": 100.1}
+{"t": 169.4, "kind": "sample", "avg": 103.9, "n": 3, "state": "steady", "ex-app": 102.7, "ex-app2": 106.4, "ex-app3": 102.5}
+{"t": 176.0, "kind": "sample", "avg": 102.0, "n": 3, "state": "steady", "ex-app": 102.4, "ex-app2": 102.3, "ex-app3": 101.2}
+{"t": 182.7, "kind": "sample", "avg": 80.2, "n": 3, "state": "steady", "ex-app": 101.3, "ex-app2": 71.2, "ex-app3": 68.2}
+{"t": 189.5, "kind": "sample", "avg": 78.1, "n": 3, "state": "steady", "ex-app": 88.3, "ex-app2": 79.5, "ex-app3": 66.4}
+{"t": 196.2, "kind": "sample", "avg": 102.7, "n": 3, "state": "steady", "ex-app": 104.5, "ex-app2": 101.7, "ex-app3": 101.8}
+{"t": 203.2, "kind": "sample", "avg": 96.7, "n": 3, "state": "steady", "ex-app": 102.5, "ex-app2": 85.8, "ex-app3": 101.8}
+{"t": 209.9, "kind": "sample", "avg": 81.0, "n": 3, "state": "steady", "ex-app": 78.2, "ex-app2": 71.4, "ex-app3": 93.3}
+{"t": 215.9, "kind": "sample", "avg": 91.0, "n": 3, "state": "steady", "ex-app": 105.7, "ex-app2": 87.1, "ex-app3": 80.1}
+{"t": 222.5, "kind": "sample", "avg": 94.8, "n": 3, "state": "steady", "ex-app": 102.8, "ex-app2": 90.3, "ex-app3": 91.2}
+{"t": 229.0, "kind": "sample", "avg": 5.6, "n": 3, "state": "in_hold", "held": 0.0, "ex-app": 16.6, "ex-app2": 0.1, "ex-app3": 0.2}
+{"t": 234.5, "kind": "sample", "avg": 7.3, "n": 3, "state": "in_hold", "held": 5.5, "ex-app": 21.5, "ex-app2": 0.3, "ex-app3": 0.1}
+{"t": 241.0, "kind": "sample", "avg": 5.2, "n": 3, "state": "in_hold", "held": 12.0, "ex-app": 15.2, "ex-app2": 0.2, "ex-app3": 0.2}
+{"t": 247.4, "kind": "sample", "avg": 5.0, "n": 3, "state": "in_hold", "held": 18.4, "ex-app": 14.5, "ex-app2": 0.2, "ex-app3": 0.3}
+{"t": 253.4, "kind": "sample", "avg": 5.3, "n": 3, "state": "in_hold", "held": 24.5, "ex-app": 15.5, "ex-app2": 0.3, "ex-app3": 0.2}
+{"t": 259.9, "kind": "sample", "avg": 5.5, "n": 3, "state": "in_hold", "held": 30.9, "ex-app": 16.1, "ex-app2": 0.2, "ex-app3": 0.1}
+{"t": 265.5, "kind": "sample", "avg": 5.7, "n": 3, "state": "in_hold", "held": 36.5, "ex-app": 16.8, "ex-app2": 0.1, "ex-app3": 0.1}
+{"t": 272.0, "kind": "sample", "avg": 5.2, "n": 3, "state": "in_hold", "held": 43.0, "ex-app": 14.5, "ex-app2": 0.4, "ex-app3": 0.7}
+{"t": 278.5, "kind": "sample", "avg": 5.6, "n": 3, "state": "in_hold", "held": 49.5, "ex-app": 16.3, "ex-app2": 0.3, "ex-app3": 0.2}
+{"t": 284.6, "kind": "sample", "avg": 3.7, "n": 3, "state": "in_hold", "held": 55.6, "ex-app": 10.8, "ex-app2": 0.2, "ex-app3": 0.2}
+{"t": 291.1, "kind": "sample", "avg": 3.9, "n": 3, "state": "in_hold", "held": 62.1, "ex-app": 11.4, "ex-app2": 0.2, "ex-app3": 0.2}
+{"t": 297.6, "kind": "sample", "avg": 5.1, "n": 3, "state": "in_hold", "held": 68.6, "ex-app": 15.1, "ex-app2": 0.1, "ex-app3": 0.2}
+{"t": 303.5, "kind": "sample", "avg": 8.4, "n": 3, "state": "in_hold", "held": 74.5, "ex-app": 24.8, "ex-app2": 0.2, "ex-app3": 0.1}
+{"t": 310.0, "kind": "sample", "avg": 5.8, "n": 3, "state": "in_hold", "held": 81.0, "ex-app": 17.2, "ex-app2": 0.2, "ex-app3": 0.1}
+{"t": 315.6, "kind": "sample", "avg": 7.4, "n": 3, "state": "in_hold", "held": 86.6, "ex-app": 21.9, "ex-app2": 0.1, "ex-app3": 0.1}
+{"t": 322.0, "kind": "sample", "avg": 6.1, "n": 3, "state": "in_hold", "held": 93.0, "ex-app": 18.1, "ex-app2": 0.1, "ex-app3": 0.1}
+{"t": 322.9, "kind": "drain.begin", "node": "ex-app3", "window": 15}
+{"t": 339.5, "kind": "scale_in", "node": "ex-app3", "total": 2, "desired": 1, "elapsed": 17.0}
+{"t": 342.7, "kind": "sample", "avg": 5.5, "n": 2, "state": "cooldown", "ex-app": 11.0, "ex-app2": 0.1}
+{"t": 348.8, "kind": "sample", "avg": 30.0, "n": 2, "state": "cooldown", "ex-app": 59.9, "ex-app2": 0.1}
+{"t": 354.2, "kind": "sample", "avg": 8.1, "n": 2, "state": "cooldown", "ex-app": 16.1, "ex-app2": 0.1}
+{"t": 360.5, "kind": "sample", "avg": 9.5, "n": 2, "state": "steady", "ex-app": 18.9, "ex-app2": 0.2}
+{"t": 366.7, "kind": "sample", "avg": 8.1, "n": 2, "state": "steady", "ex-app": 16.1, "ex-app2": 0.1}
+{"t": 373.0, "kind": "sample", "avg": 8.8, "n": 2, "state": "steady", "ex-app": 17.4, "ex-app2": 0.2}
+{"t": 379.7, "kind": "sample", "avg": 100.2, "n": 2, "state": "out_hold", "held": 0.0, "ex-app": 100.7, "ex-app2": 99.7}
+{"t": 385.7, "kind": "sample", "avg": 98.6, "n": 2, "state": "out_hold", "held": 5.9, "ex-app": 100.7, "ex-app2": 96.4}
+{"t": 392.7, "kind": "sample", "avg": 101.5, "n": 2, "state": "out_hold", "held": 13.0, "ex-app": 101.7, "ex-app2": 101.2}
+{"t": 398.3, "kind": "sample", "avg": 100.6, "n": 2, "state": "out_hold", "held": 18.5, "ex-app": 100.8, "ex-app2": 100.4}
+{"t": 404.6, "kind": "sample", "avg": 101.7, "n": 2, "state": "out_hold", "held": 24.9, "ex-app": 99.8, "ex-app2": 103.6}
+{"t": 414.3, "kind": "sample", "avg": 100.8, "n": 1, "state": "out_hold", "held": 34.6, "ex-app": 100.8}
+{"t": 414.6, "kind": "launch.begin", "node": "ex-app2"}
+{"t": 415.3, "kind": "launch.container", "node": "ex-app2", "elapsed": 0.9}

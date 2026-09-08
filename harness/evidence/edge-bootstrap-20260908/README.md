@@ -155,8 +155,25 @@ app2 가 죽어 있는 동안 엣지가 `host not found in upstream "app2:8080"`
 배포 순서에 걸리는 제약이다. 앱 노드 둘이 다 서기 전에 엣지를 올리면 엣지가 기동에 실패한다.
 반대로 이미 뜬 뒤에 앱 노드가 죽는 것은 위 표대로 견딘다. 곧 위험은 기동 시점에만 있다.
 
-회피 수단은 `resolver` 와 변수 `proxy_pass` 조합이지만 그러면 업스트림 블록의 `max_fails` 와
-재시도가 함께 사라져 위 라우팅 규약이 성립하지 않는다. 배포 순서로 푸는 쪽을 택한다.
+### 정정 (2026-09-08 같은 날 늦게)
+
+**위 문단이 "배포 순서로 푼다" 로 끝나 있었다. 그 결론은 틀렸다.** 회피 수단을 `resolver` 와
+변수 `proxy_pass` 조합으로만 보고, 그러면 `max_fails` 와 재시도가 사라진다고 적었다.
+
+실제 수단은 업스트림 server 줄의 `resolve` 지시자다. `zone` 과 `resolver` 를 짝지으면
+이름 해석이 기동 시점에서 런타임으로 미뤄지고 **`max_fails` 와 재시도는 그대로 남는다.**
+
+A/B 실측:
+
+| upstream 지시자 | 없는 호스트로 `nginx -t` |
+|---|---|
+| `server <없는호스트>:8080 resolve max_fails=1 fail_timeout=2s;` | **통과** |
+| `server <없는호스트>:8080 max_fails=1 fail_timeout=2s;` | `[emerg] host not found in upstream` |
+
+`deploy/nginx-edge.conf.template` 에 적용했고, 앱 노드 둘을 모두 없는 이름으로 둔 채
+`compose.node-edge.yml` 을 띄워 `emerg` 0 건과 healthcheck 통과를 확인했다.
+
+**제약은 사라졌다.** 상세는 `harness/evidence/asg-scenario-20260908/`.
 
 ## 한계
 
