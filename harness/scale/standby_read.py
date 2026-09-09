@@ -165,7 +165,7 @@ def main():
     record('base', sample(a.window, containers=[PRIMARY]), 'standby 없음')
 
     print('[2] 동기 standby 기동. 읽기 부하 없음', flush=True)
-    code = subprocess.run([str(ROOT / 'harness/scale/standby_up.sh')],
+    code = subprocess.run(['sh', str(ROOT / 'harness/scale/standby_up.sh')],
                           capture_output=True, text=True, encoding='utf-8',
                           errors='replace', timeout=900)
     if code.returncode != 0:

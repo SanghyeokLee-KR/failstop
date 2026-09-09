@@ -1,0 +1,13 @@
+{"t": "2026-09-09T05:53:50.759798+00:00", "chaos-pg_cpu": 5.79, "p95_ms": 142.79274838333328, "p99_ms": 1370.8103950299972, "trades_per_sec": 2.310504172701566, "repl_lag_ms": 0.0}
+{"t": "2026-09-09T05:53:57.837882+00:00", "chaos-pg_cpu": 0.8, "p95_ms": 1190.0638548249995, "p99_ms": 2337.17803573, "trades_per_sec": 0.8104007172908477, "repl_lag_ms": 0.0}
+{"t": "2026-09-09T05:54:04.926425+00:00", "chaos-pg_cpu": 6.96, "p95_ms": 48.93354475, "p99_ms": 50.05202575, "trades_per_sec": 0.258647446287547, "repl_lag_ms": 0.0}
+{"t": "2026-09-09T05:54:12.016956+00:00", "chaos-pg_cpu": 4.88, "p95_ms": NaN, "p99_ms": NaN, "trades_per_sec": 0.0, "repl_lag_ms": 0.0}
+{"t": "2026-09-09T05:54:19.175760+00:00", "chaos-pg_cpu": 13.4, "p95_ms": NaN, "p99_ms": NaN, "trades_per_sec": 0.0, "repl_lag_ms": 0.0}
+{"t": "2026-09-09T05:54:26.307260+00:00", "chaos-pg_cpu": 1.03, "p95_ms": NaN, "p99_ms": NaN, "trades_per_sec": 0.0, "repl_lag_ms": 0.0}
+{"t": "2026-09-09T05:54:33.337826+00:00", "chaos-pg_cpu": 4.92, "p95_ms": NaN, "p99_ms": NaN, "trades_per_sec": 0.0, "repl_lag_ms": 0.0}
+{"t": "2026-09-09T05:54:40.460222+00:00", "chaos-pg_cpu": 2.11, "p95_ms": NaN, "p99_ms": NaN, "trades_per_sec": 0.0, "repl_lag_ms": 6.0}
+{"t": "2026-09-09T05:54:47.568950+00:00", "chaos-pg_cpu": 2.31, "p95_ms": NaN, "p99_ms": NaN, "trades_per_sec": 0.0, "repl_lag_ms": 4.0}
+{"t": "2026-09-09T05:54:54.688165+00:00", "chaos-pg_cpu": 16.44, "p95_ms": NaN, "p99_ms": NaN, "trades_per_sec": 0.0, "repl_lag_ms": 0.0}
+{"t": "2026-09-09T05:55:01.789357+00:00", "chaos-pg_cpu": 0.94, "p95_ms": NaN, "p99_ms": NaN, "trades_per_sec": 0.0, "repl_lag_ms": 0.0}
+{"t": "2026-09-09T05:55:08.911786+00:00", "chaos-pg_cpu": 7.2, "p95_ms": NaN, "p99_ms": NaN, "trades_per_sec": 0.0, "repl_lag_ms": 0.0}
+{"t": "2026-09-09T05:55:16.055373+00:00", "chaos-pg_cpu": 6.56, "p95_ms": NaN, "p99_ms": NaN, "trades_per_sec": 0.0, "repl_lag_ms": 0.0}

@@ -22,6 +22,13 @@ docker exec "$PRIMARY" psql -U "$PGUSER" -d postgres -q -c \
   "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='repl') THEN
      CREATE ROLE repl WITH REPLICATION LOGIN PASSWORD '${PGPASS}'; END IF; END \$\$;"
 
+# pg_hba 에 복제 항목을 넣는다. 기본 이미지는 replication 을 127.0.0.1 과 ::1 로만 연다.
+# 컨테이너 망에서 오는 pg_basebackup 이 "no pg_hba.conf entry for replication connection"
+# 으로 죽는다(2026-09-09 실측). 도커 사설 대역만 연다. 같은 줄이 이미 있으면 넣지 않는다.
+HBA_LINE="host replication all 172.16.0.0/12 scram-sha-256"
+docker exec "$PRIMARY" sh -c 'grep -qF "$0" "$PGDATA/pg_hba.conf" || echo "$0" >> "$PGDATA/pg_hba.conf"' "$HBA_LINE"
+docker exec "$PRIMARY" psql -U "$PGUSER" -d postgres -q -c "SELECT pg_reload_conf();" >/dev/null
+
 echo "2/5 기존 standby 정리"
 docker rm -f "$STANDBY" >/dev/null 2>&1 || true
 docker exec "$PRIMARY" psql -U "$PGUSER" -d postgres -q -c \
