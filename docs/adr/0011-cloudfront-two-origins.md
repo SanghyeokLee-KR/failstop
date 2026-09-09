@@ -41,7 +41,7 @@ CloudFront 단일 배포에 오리진 둘을 걸고, 경로 패턴으로 가른�
 - 관리 평면이 경로 표에서부터 빠진다. 라우팅 없음은 인증 검사보다 앞선 방어다. 접근 경로는 대상마다 다르다. 관리 평면 8443 mTLS와 Prometheus 9090·Grafana 3000은 SSM 포트 포워딩, actuator 8081은 edge 노드 내부 스크레이프만, harness API는 `exchange.harness.enabled=false`로 상시면 미등록, PostgreSQL 5432는 프라이빗 서브넷이다(정본 8.1 접근 경로 표).
 - 캐시 정책을 경로별로 가를 수 있다. `/*`는 빌드 산출물이라 캐시 가능하고, `/api/*`는 인증 헤더·서명·멱등키를 그대로 전달해야 해서 CachingDisabled에 AllViewer가 필요하다. 오리진이 하나였다면 이 두 성격을 한 정책으로 묶어야 한다.
 - WS가 CloudFront를 통과한다. `/ws/*`는 CachingDisabled로 두고, heartbeat가 10s/10s라 idle 타임아웃이 발생하지 않는다.
-- 코드가 이 계약에 이미 맞춰져 있다. `web/lib/api/datasource.ts:476-477`이 `NEXT_PUBLIC_API_BASE`, `NEXT_PUBLIC_WS_BASE`를 각각 빈 문자열 기본으로 읽고, `web/lib/api/httpDatasource.ts:364`가 `${wsBase}/ws/v1`을 만든다. 목적지가 `/ws/*` 패턴 안에 들어간다.
+- 코드가 이 계약에 이미 맞춰져 있다. `web/lib/api/datasource.ts`의 `createDataSource()`가 `NEXT_PUBLIC_API_BASE`, `NEXT_PUBLIC_WS_BASE`를 각각 빈 문자열 기본으로 읽고, `web/lib/api/httpDatasource.ts`의 `HttpStompDataSource` 생성자가 `${wsBase}/ws/v1`을 만든다. 목적지가 `/ws/*` 패턴 안에 들어간다.
 
 ## 대안
 
@@ -50,10 +50,10 @@ CloudFront 단일 배포에 오리진 둘을 걸고, 경로 패턴으로 가른�
 
 ## 영향
 
-- 도메인 확보가 일정의 선행 작업이 된다(정본 11.1이 W2를 "노드 배포와 도메인 연결"로 잡는다). 도메인이 정해지기 전에는 배포용 웹을 빌드할 수 없다. `deploy/README.md:30`은 `sang.it.kr`(가비아 네임서버)를 대상으로 적고 A 레코드 미설정 상태로 남긴다.
-- `NEXT_PUBLIC_WS_BASE`를 비워 두면 조용히 깨진다. `web/lib/api/httpDatasource.ts:363`의 폴백이 `apiBase.replace(/^http/, "ws")`인데, same-origin 계약에서 apiBase가 빈 문자열이라 폴백 결과도 빈 문자열이다. wsUrl이 `/ws/v1` 상대 경로가 되고 STOMP 클라이언트는 절대 URL을 요구한다. 이 값은 CI가 주입해야 한다.
+- 도메인 확보가 일정의 선행 작업이 된다(정본 11.1이 W2를 "노드 배포와 도메인 연결"로 잡는다). 도메인이 정해지기 전에는 배포용 웹을 빌드할 수 없다. `deploy/README.md`의 "도메인" 절은 `sang.it.kr`(가비아 네임서버)를 대상으로 적고 A 레코드 미설정 상태로 남긴다.
+- `NEXT_PUBLIC_WS_BASE`를 비워 두면 조용히 깨진다. `web/lib/api/httpDatasource.ts`의 `HttpStompDataSource` 생성자 폴백이 `apiBase.replace(/^http/, "ws")`인데, same-origin 계약에서 apiBase가 빈 문자열이라 폴백 결과도 빈 문자열이다. wsUrl이 `/ws/v1` 상대 경로가 되고 STOMP 클라이언트는 절대 URL을 요구한다. 이 값은 CI가 주입해야 한다.
 - 추적 설정 파일에 API_BASE와 WS_BASE를 두지 않는다. 이유는 배포 계약이 same-origin이라 API_BASE가 빈 문자열이고 WS_BASE가 도메인에 종속되기 때문이다. 추적 파일에 localhost를 박으면 그 값이 배포 번들에 들어간다(`web/.env.production:8-10`, 커밋 `6a5efe9`). 같은 커밋이 `NEXT_PUBLIC_DATASOURCE=http`만 추적 대상으로 고정하고 CI 게이트를 붙였다.
-- 오리진 쪽 대응이 엣지 nginx에 필요하다. `deploy/nginx-edge.conf.template:65-67`이 `^/(admin|harness|actuator)/`에 404를 돌려주고, `:70`이 `/ws/`를, `:79-80`이 `/api/v1/(orders|transfers)`를 받는다. CloudFront가 라우팅하지 않는 경로를 오리진도 거절하는 이중 차단이다.
+- 오리진 쪽 대응이 엣지 nginx에 필요하다. `deploy/nginx-edge.conf.template`의 `location ~ ^/(admin|harness|actuator)/` 블록이 404를 돌려주고, `location /ws/`가 웹소켓을, `location ~ ^/api/v1/(orders|transfers)`가 주문·입출금 경로를 받는다. CloudFront가 라우팅하지 않는 경로를 오리진도 거절하는 이중 차단이다.
 - 되돌리려면 세 곳을 같이 고쳐야 한다. 정본 6.6 웹 배치, 웹 빌드 주입 값, 서버 오리진 화이트리스트다. 마지막 항목은 신규 구현이 아니라 값 확대다. `ProdCorsConfig.java:29`와 `WebSocketConfig.java:28`이 이미 주입 지점을 갖고 있어, 웹 오리진이 갈라지면 그 목록에 도메인이 하나 더 붙는다.
 - same-origin이어도 prod 프로파일은 오리진 값을 요구한다. `ProdCorsConfig.java:30-33`이 `exchange.cors.allowed-origins` 미지정 시 IllegalStateException으로 기동을 중단한다. `WebSocketConfig.java:33-42`도 `exchange.require-secrets=true`에서 localhost나 demo.exchange.local이 남아 있으면 같이 중단한다. 도메인이 확정되면 두 값에 그 도메인을 넣어야 부팅한다.
 

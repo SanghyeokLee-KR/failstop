@@ -71,19 +71,18 @@ metric RTO가 실측을 은폐한다. 근인은 T5의 `created_at`이 벽시계 
 - `catchUpTo`는 `applyAndSink`로 각 명령을 처리한다(SingleWriterLoop.java:212~227, 호출 지점 :221).
 - `applyAndSink`는 `engine.apply` 후 방출 이벤트를 `eventSink.accept`로 넘긴다(SingleWriterLoop.java:229~239, accept 호출 :232).
 - 이 `eventSink`는 정산 경로다. `EngineConfig.java:240~248` 람다가 `settlementService.appendAndSettle(events)`(:242) 결과를 `marketDataPublisher.publishSettled(settled)`(:247)로 잇는다.
-- `appendAndSettle`는 명령마다 원격 PG 왕복 트랜잭션 1개다(SettlementService.java:106~131). 트랜잭션 내부:
-  - `assert_current_leader(holder, epoch)`(SettlementService.java:134~137)
-  - `leader_lease FOR SHARE` epoch 확인(:139~147, `SELECT_EPOCH_SQL` :51~56)
-  - `event_emission_registry` count로 멱등 판정(:149~157). 이미 적재분이면 `registered == events.size()`로 전량 스킵.
-  - BEGIN·COMMIT(`tx.execute`, :120). PG는 주문당 fsync 구성(`docs/contracts/하네스_검증설계.md` §2-4).
+- `appendAndSettle`는 명령마다 원격 PG 왕복 트랜잭션 1개다(`SettlementService.appendAndSettle`). 트랜잭션 본체는 `settleInTx`이고 내부는 다음과 같다.
+  - fencing 검증과 `leader_lease` 행 잠금을 한 왕복으로 한다. `SettlementService.ASSERT_AND_LOCK_SQL`(`SELECT assert_and_lock_leader(?, ?)`). V30 이전에는 `assert_current_leader` 호출과 `leader_lease FOR SHARE` 조회 두 문장이었다.
+  - `event_emission_registry` count로 멱등 판정(`settleInTx`의 `SELECT count(*) FROM event_emission_registry WHERE source_cmd_seq = ?`). 이미 적재분이면 `registered == events.size()`로 전량 스킵.
+  - BEGIN·COMMIT(`appendAndSettle`의 `tx.execute(status -> settleInTx(...))`). PG는 주문당 fsync 구성(`docs/contracts/하네스_검증설계.md` §2-4).
 
 catch-up 배치가 27k건이면 27k개의 직렬 원격 트랜잭션이 toxiproxy 경유로 순차 커밋된다. 전부 멱등 스킵이라 상태를 바꾸지 않지만, 각 트랜잭션이 다중 왕복 + fsync 커밋이다. RTO = O(저널 크기) × 정산 왕복 지연. 이것이 2026-08 회차 4~8분 정체의 근인이었다. 3-a 배선 이후 승격 delta는 이 경로를 타지 않는다(§2-1).
 
-대조군: `ReplayService.rebuild`는 같은 27k를 인메모리로만 처리한다. `engine.apply`(순수, ReplayService.java:64) + `event_journal` 배치 대조(:57, :148~168). 쓰기 트랜잭션 0, 커밋 0, 정산 0. 500행 배치 읽기라 왕복 수가 O(저널/500)이고 fsync가 없다. 크래시 창 pending만 정산한다(EngineRecovery.java:41~73). 즉 올바른 sink는 이미 존재했고, 승격 경로가 이 sink 대신 정산 sink를 탄 것이 결함이었다. 3-a가 승격 재생을 `recover` 경로로 옮겨 닫았다.
+대조군: `ReplayService.rebuild`는 같은 27k를 인메모리로만 처리한다. `engine.apply`(순수, `ReplayService.rebuild`의 재생 루프) + `event_journal` 배치 대조(`ReplayService.verifyMatch`, 커서는 내부 클래스 `JournalEventCursor`). 쓰기 트랜잭션 0, 커밋 0, 정산 0. 500행 배치 읽기(`ReplayService.BATCH`)라 왕복 수가 O(저널/500)이고 fsync가 없다. 크래시 창 pending만 정산한다(`EngineRecovery.recover`의 pending 재적재 루프, sink는 `reappendSink`). 즉 올바른 sink는 이미 존재했고, 승격 경로가 이 sink 대신 정산 sink를 탄 것이 결함이었다. 3-a가 승격 재생을 `recover` 경로로 옮겨 닫았다.
 
 ### 2-4. metric RTO 은폐 메커니즘
 
-- `event_journal.created_at`은 `engine_ts` 파생값이다. `SettlementService.insertEvent`가 `toUtc(event.engineTs())`로 삽입한다(SettlementService.java:510~519). 재생 대조도 `created_at == engine_ts`를 강제한다(ReplayService.java:109).
+- `event_journal.created_at`은 `engine_ts` 파생값이다. `SettlementService.insertEvent`가 `INSERT_EVENT_SQL`의 `created_at` 자리에 `toUtc(event.engineTs())`를 바인딩한다. 재생 대조도 `created_at == engine_ts`를 강제한다(`ReplayService.verifyMatch`의 "created_at이 engine_ts 파생값과 다르다" 분기).
 - `engine_ts`는 게이트웨이가 접수 시점에 박제한다(`OrderGateway`, 접수 박제 계약 P0-4). 즉 명령이 수락된 논리 시각이다.
 - 승격 후 첫 신규 명령의 `engine_ts`는 접수 시각(약 승격+11s)에 박제됐다. 그러나 그 명령의 `event_journal` 행은 27k catch-up이 끝난 뒤(약 4~8분 후) 커밋된다. §5-1 T5의 `min(created_at)`은 박제된 이른 논리 시각을 읽어 11.289s로 보고한다. 실제 커밋·게시 벽시계는 분 단위 뒤다.
 - `event_journal`에는 커밋 벽시계 컬럼이 없다. 따라서 T5를 `created_at`으로 재면 구조적으로 catch-up 지연이 소거된다.
@@ -110,7 +109,7 @@ ACCEPTING --(fencing 거부·정산 실패·리스 상실)-->  DEMOTED(self-shut
 
 #### fresh 엔진 필수(정합성 제약)
 
-stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplayService.rebuild`의 이벤트 커서는 `event_seq` 0부터 시작하는데(ReplayService.java:51, JournalEventCursor `lastSeq` 초기값 0, :148~168), 명령 커서는 `engine.lastAppliedSeq()` 초과분부터 읽는다(:57). 엔진이 이미 부팅 seq만큼 전진해 있으면 명령은 부팅 seq+1부터, 이벤트는 event_seq 1부터 대조돼 prefix가 어긋나고 `ReplayMismatchException`이 뜬다(:100~119). 따라서 승격 rebuild는 반드시 새 `MatchingEngineImpl`에 대해 0(또는 스냅샷 seq)부터 수행한다.
+stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. 1인자 `ReplayService.rebuild(MatchingEngine)`은 `eventStartSeq`를 0으로 넘기므로 이벤트 커서가 `event_seq` 0부터 시작하는데(내부 클래스 `JournalEventCursor`의 `lastSeq` 초기값이 `eventStartSeq`다), 명령 커서는 `engine.lastAppliedSeq()` 초과분부터 읽는다(재생 루프의 `commandReader.readRange(engine.lastAppliedSeq(), commandBound, BATCH)`). 엔진이 이미 부팅 seq만큼 전진해 있으면 명령은 부팅 seq+1부터, 이벤트는 event_seq 1부터 대조돼 prefix가 어긋나고 `ReplayMismatchException`이 뜬다(`ReplayService.verifyMatch`의 불일치 분기와 재생 루프 종료 후 잔여 이벤트 검사). 따라서 승격 rebuild는 반드시 새 `MatchingEngineImpl`에 대해 0(또는 스냅샷 워터마크)부터 수행한다. 스냅샷 경계 재생은 3인자 `rebuild(MatchingEngine, long eventStartSeq, JournalCheckpoint bound)`가 받는다(§3-b).
 
 #### 루프로의 엔진 핸드오프
 
@@ -121,7 +120,7 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplaySer
 
 - 종전 접수는 `EngineBridge.submit`이 `loop.isRunning()`만 검사했고 append는 `lease.requireLeader()`로 리더십만 봤다. 승격 즉시 epoch가 세팅되므로 rebuild 완료 전에도 append·offer가 통과해 결함 경로가 재발했다.
 - 접수 개방 여부를 리더십과 분리한 명시 게이트로 둔다. `isLeader() == true`여도 접수 게이트가 닫힌 PROMOTING 구간을 만든다. 실물은 `AcceptGate.isAccepting()`이고(AcceptGate.java:13), `EngineBridge.submit`이 루프 생존(EngineBridge.java:74)에 이어 게이트를 확인해(:79) 미개방 시 `NotReadyException`으로 거부한다(:82). 이 예외는 503 service_unavailable로 렌더된다(ApiExceptionHandler.java:67~71). 봇·k6는 503을 재시도로 흡수한다(`SimConfig` 주석, 접수 보류 계약).
-- Spring readiness 상태와 연동한다. PROMOTING = `REFUSING_TRAFFIC`, ACCEPTING = `ACCEPTING_TRAFFIC`(HaAvailability.java:88, :94). 리더 인지 LB(`docs/architecture/M4_하드닝설계.md` §3-4)가 readiness DOWN 노드를 제외하므로 rebuild 중 외부 트래픽 유입을 원천 차단한다.
+- Spring readiness 상태와 연동한다. PROMOTING = `REFUSING_TRAFFIC`(`HaAvailability.refusing()`), ACCEPTING = `ACCEPTING_TRAFFIC`(`HaAvailability.accepting()`). 리더 인지 LB(`docs/architecture/M4_하드닝설계.md` §3-4)가 readiness DOWN 노드를 제외하므로 rebuild 중 외부 트래픽 유입을 원천 차단한다.
 
 #### 승격 중 리스 유지
 
@@ -133,16 +132,17 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplaySer
 - `SingleWriterLoop.catchUpTo`는 제거하지 않는다. 큐 유실 같은 소규모 gap(수 건)의 방어선으로 유지한다(EngineRuntimeIntegrationTest `seqGapIsRecoveredByCatchUp` 커버).
 - 단 승격 delta는 절대 catch-up이 메우지 않는다. 접수 개방 시점에 엔진이 head에 있으므로 gap은 항상 소규모다. 방어적으로 catch-up gap이 임계(예: CATCH_UP_BATCH 초과)를 넘으면 접수 게이트가 우회된 상태로 보고 fail-fast하는 가드를 검토한다.
 
-### 3-b. 주기적 스냅샷(catch-up 상한을 저널 크기와 분리)
+### 3-b. 주기적 스냅샷(catch-up 상한을 저널 크기와 분리, 배선 완료)
 
-3-a의 인메모리 rebuild는 스파이크(27k)에서는 빠르지만 장기 soak(수백만 명령)에서는 다시 O(저널)로 커진다. 스냅샷이 tail 재생량을 상한한다.
+3-a의 인메모리 rebuild는 스파이크(27k)에서는 빠르지만 장기 soak(수백만 명령)에서는 다시 O(저널)로 커진다. 스냅샷이 tail 재생량을 상한한다. 아래는 배선된 설계이고 단계 상태는 §6-1이 소유한다.
 
-- 저장소: 기존 `snapshots` 테이블(DB 설계 §6.3, `docs/contracts/백엔드_DB_설계.md`:1032~1050). 신규 DDL 불필요. 컬럼: `last_applied_seq`, `state`(BYTEA), `state_checksum`, `engine_version`, `config_hash`, `format_version`, `fencing_epoch`, `created_at`. append-only(트리거+REVOKE, :1047~1050).
-- 주기·트리거: 리더가 N 명령마다 또는 T초마다(둘 중 먼저) 스냅샷 1건 기록. 정산 핫패스를 블록하지 않도록 매칭 코어 밖 별도 스레드가 특정 seq 경계의 엔진 상태를 직렬화한다. 경계 seq에서의 인메모리 상태 정합은 단일 라이터라 자연 확보된다(그 seq까지 apply 완료 시점 캡처). 정확 주기 값은 캘리브레이션에서 확정(`docs/architecture/M4_하드닝설계.md` §3-3(d) 연계).
-- 직렬화: `MatchingEngineImpl`의 마켓별 `OrderBookImpl`(bids·asks·ordersById TreeMap, `OrderBookImpl.java:37~41`)을 결정론 바이트로 인코딩하는 codec 신설. 순회 순서가 정의된 자료구조만 쓰므로(TreeMap·ArrayDeque, 코어 순수성 T3-A) 인코딩이 결정론이다. `state_checksum`은 기존 `stateChecksum()`(MatchingEngineImpl.java:38~44)과 동일 규약으로 병기해 로드 시 무결 검증한다.
-- 복원(스냅샷 + 델타): 승격 rebuild가 최신 유효 스냅샷을 로드(DB 설계 §5.5 STEP1, :1753~1755)해 fresh 엔진에 역직렬화한 뒤, `command_journal`에서 `seq > snapshot.last_applied_seq`만 tail 재생한다(STEP2, :1757~1767).
-  - 이벤트 커서 정렬: `ReplayService`의 이벤트 커서는 현재 event_seq 0부터다. 스냅샷 로드 시 커서를 `source_cmd_seq > snapshot.last_applied_seq`의 첫 이벤트 event_seq부터 시작하도록 확장한다. 스냅샷이 대응 event 워터마크를 함께 기록하거나(권장), 로드 시 `SELECT min(event_seq) FROM event_journal WHERE source_cmd_seq > :snap_seq`로 유도한다. 이 확장이 스냅샷 지원의 유일한 `ReplayService` 변경점이다.
-  - 채택 판정: `engine_version`·`config_hash`·`format_version` 불일치 스냅샷은 무시하고 이전 스냅샷 또는 seq 0 재생으로 폴백(DB 설계 §5.5 STEP1, :1030~1031). `state_checksum` 불일치도 폐기가 아니라 무시·폴백(테이블 append-only, 삭제 금지).
+- 저장소: 기존 `snapshots` 테이블을 그대로 쓴다(`docs/contracts/백엔드_DB_설계.md` §3.1 DDL 블록 6.3 `CREATE TABLE snapshots`). 신규 DDL 없음. 컬럼: `last_applied_seq`, `state`(BYTEA), `state_checksum`, `engine_version`, `config_hash`, `format_version`, `fencing_epoch`, `created_at`. append-only 강제는 같은 블록의 `trg_snap_noupd`·`trg_snap_notrunc` 트리거와, §3.1 권한 블록이 `app_role`에 `GRANT SELECT, INSERT`만 부여하는 것이다.
+- 주기·트리거: 리더가 N 명령마다 또는 T초마다(둘 중 먼저) 스냅샷 1건을 기록한다. 실물은 `SingleWriterLoop.SnapshotHook` 구현체 `server/app/src/main/java/kr/exchange/snapshot/SnapshotCapture.java`의 `afterCommand`이고, 배선은 `EngineConfig`의 `snapshotCapture` 빈과 `loop.setSnapshotHook(capture)`다. 라이터 스레드는 정책 판정과 마켓별 결정론 인코딩만 하고 DB 영속화는 별도 워커 스레드가 한다. 유계 큐가 차면 드롭한다(best-effort. tail이 길어질 뿐 정확성 무손실). 경계 seq에서의 인메모리 상태 정합은 단일 라이터라 자연 확보된다(그 seq까지 apply 완료 시점 캡처). 주기 값은 `SnapshotProperties`가 소유하고 기본값은 `commandInterval` 100,000 명령·`timeInterval` 60초다.
+  - 미결: 정확 주기 값은 캘리브레이션(`docs/architecture/M4_하드닝설계.md` §3-3(d))에서 확정해야 하며 아직 정해지지 않았다. 위 기본값은 캘리브레이션 전 초기값이고 실측 근거가 없다.
+- 직렬화: `MatchingEngineImpl`의 마켓별 `OrderBookImpl`(`bids`·`asks`·`ordersById` TreeMap)을 결정론 바이트로 인코딩하는 codec은 `server/engine/src/main/java/kr/exchange/engine/core/SnapshotCodec.java`다(`encode`·`decode`, `FORMAT_VERSION` 1). 순회 순서가 정의된 자료구조만 쓰므로(TreeMap·ArrayDeque, 코어 순수성 T3-A) 인코딩이 결정론이다. `state_checksum`은 기존 `OrderBookImpl.stateChecksum()`(`MatchingEngineImpl.stateChecksum()`과 동일 규약)을 병기해 로드 시 무결 검증한다.
+- 복원(스냅샷 + 델타): 승격 rebuild가 최신 유효 스냅샷을 로드해(`EngineRecovery`의 `snapshotSource.loadLatestAdoptable()`, DB 설계 §5.5 STEP1) fresh 엔진에 역직렬화한 뒤, `command_journal`에서 `seq > snapshot.last_applied_seq`만 tail 재생한다(DB 설계 §5.5 STEP2).
+  - 이벤트 커서 정렬(배선 완료): `ReplayService.rebuild(MatchingEngine, long eventStartSeq, JournalCheckpoint bound)`가 이벤트 커서 시작점을 인자로 받는다. `eventStartSeq`가 스냅샷 워터마크 W이고 커서는 W+1부터 대조한다. W는 스냅샷에 병기하지 않고 로드 시 `SnapshotStore.eventWatermark`의 `SELECT COALESCE(max(event_seq), 0) FROM event_journal WHERE source_cmd_seq <= ?`로 유도한다. `eventStartSeq`가 0이면 seq 0 전량 재생(기존 경로)이다. 이 확장이 스냅샷 지원의 유일한 `ReplayService` 변경점이다.
+  - 채택 판정: `engine_version`·`config_hash`·`format_version` 불일치 스냅샷은 무시하고 이전 스냅샷 또는 seq 0 재생으로 폴백한다(DB 설계 §3.1 DDL 블록 6.3 주석 "불일치 스냅샷은 무시하고 저널 재생으로 폴백한다"). `state_checksum` 불일치도 폐기가 아니라 무시·폴백(테이블 append-only, 삭제 금지).
 - 단일 정본 규율: 스냅샷은 저널 파생이다. 원천은 `command_journal`·`event_journal`이고 스냅샷은 재생 시작점 최적화일 뿐이다(DB 설계 §1.1 ① 복구 원천, :16). 스냅샷 부재·손상 시 항상 저널 전량 재생으로 동일 결과에 도달하므로 단일 정본이 유지된다.
 
 ### 3-c. C13A 스코프 AUTHORITATIVE_ONLY 수정(적용 완료)
@@ -172,7 +172,7 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplaySer
 
 종전 CI 사각: 어느 통합테스트도 "빈(또는 stale) 엔진 + 대규모 gap을 정산 sink로 catch-up" 경로를 밟지 않았다. `EngineRuntimeIntegrationTest.seqGapIsRecoveredByCatchUp`(EngineRuntimeIntegrationTest.java:190)은 gap이 2건이고, 더 결정적으로 루프를 열기 전에 `replayService.rebuild(runningEngine)`로 엔진을 미리 head에 올린다(:193). 즉 결함을 은폐하는 조건에서만 catch-up을 검증한다. 4-1이 이 사각을 메운다.
 
-### 4-1. 신규 통합테스트: 승격 재생 경로(대규모 gap)
+### 4-1. 통합테스트: 승격 재생 경로(대규모 gap)(추가 완료)
 
 - 이름: `PromotionRecoveryIntegrationTest`. 실물은 `server/app/src/test/java/kr/exchange/engine/PromotionRecoveryIntegrationTest.java`다. Testcontainers postgres:17.
 - 준비: 초기 리더로 대규모 저널을 만든다. NEW·매칭 명령을 N건(스파이크 재현 위해 27k+, CI 축약본은 수천) 접수·정산해 `command_journal`·`event_journal`·`orders`를 채운다.
@@ -182,7 +182,8 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplaySer
   - (B) 엔진 head 도달. rebuild 후 `engine.lastAppliedSeq() == max(command_journal.seq)`, `stateChecksum` == 초기 리더 종료 상태와 일치.
   - (C) 접수 게이트 순서. rebuild 완료 전 `submit` 시도는 503(NotReady), 완료 후 첫 신규 명령은 통과.
   - (D) 벽시계 RTO. 아래 4-2 측정 계약으로 승격~가시 첫 체결 < 예산.
-- 스냅샷 케이스(3-b): 스냅샷 존재 시 tail 재생 구간이 `seq > snapshot.last_applied_seq`로 축소됨을 `recovery_runs.replayed_from_seq/to_seq`로 단언. 손상 스냅샷 주입 시 이전 스냅샷·seq 0 폴백 단언.
+- 스냅샷 케이스(3-b, 추가 완료): 별도 테스트 클래스가 소유한다. `server/app/src/test/java/kr/exchange/snapshot/SnapshotRecoveryIntegrationTest.java`의 `adoptsSnapshotAndReplaysOnlyTail`이 스냅샷 채택 시 tail 재생이 `seq > snapshot.last_applied_seq`로 상한됨을, `discardsVersionMismatchedSnapshotAndFullReplays`가 `engine_version` 불일치 스냅샷의 seq 0 전량 재생 폴백을 단언한다. `server/app/src/test/java/kr/exchange/snapshot/SnapshotEquivalenceIntegrationTest.java`의 `storeRecoveryAdoptsLatestThenFallsBackOnCorruption`이 `state_checksum` 손상 시 직전 유효 스냅샷 폴백을, `versionAndConfigMismatchDiscardAllAndFullReplay`가 전량 재생 폴백을 단언한다.
+  - 단언 축은 `ReplayResult.replayedCommands`와 엔진 바이트·체크섬이다. `recovery_runs.replayed_from_seq/to_seq` 대조로 같은 사실을 재확인하는 단언은 아직 없다.
 
 ### 4-2. RTO 측정 계약(engine_ts 금지, 가시 첫 체결 기준)
 
@@ -224,7 +225,8 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplaySer
 
 ### 6-2. 영향 범위
 
-- 변경: `LeaderLeaseService`(gain 리스너), `EngineConfig`(gain 배선·접수 게이트·스냅샷 빈), `EngineBridge`/append 진입점(접수 게이트 확인), `SingleWriterLoop`(엔진 핸드오프·catch-up 가드), `EngineRecovery`/`ReplayService`(스냅샷 로드·이벤트 커서 정렬), 신규 스냅샷 codec·writer, `InvariantCheck`(C13A 스코프).
+- 변경된 곳(3-a·3-b·3-c 반영 완료): `LeaderLeaseService`(gain 리스너), `EngineConfig`(gain 배선·접수 게이트·스냅샷 빈), `EngineBridge`/append 진입점(접수 게이트 확인), `SingleWriterLoop`(엔진 핸드오프·스냅샷 훅), `EngineRecovery`/`ReplayService`(스냅샷 로드·이벤트 커서 정렬), 스냅샷 codec `SnapshotCodec`·writer `SnapshotCapture`(신설 완료), `InvariantCheck`(C13A 스코프).
+- 남은 변경: 4-2 RTO 측정 계약 정정과 문서 동기화(§6-1 4번), §3-a의 catch-up gap 임계 가드(검토 단계).
 - 코어 순수성 유지: 스냅샷 codec는 순수 Java 결정론 인코딩. 엔진 모듈에 Spring 의존 금지. 현재 시각·랜덤·비결정 순회 금지.
 - 원장 게시는 `post_ledger_transaction` 단일 경로 유지. 승격 rebuild는 크래시 창 pending만 정산(기존 `appendAndSettle` 경로 재사용), 원장 직접 DML 없음.
 

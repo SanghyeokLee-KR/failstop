@@ -529,7 +529,7 @@
         <mxCell id="164" value="4" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="44" y="1086" width="16" height="16" as="geometry"/>
         </mxCell>
-        <mxCell id="165" value="상시면 관측 스택 컴포즈 정의 0건, 알람 통지 경로 0건. E1 · E2 · E5 · E9 는 상시면 이식 불가라 카오스는 로컬 전속이다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="165" value="상시면 관측 스택 컴포즈 정의 0건. 로컬 하네스는 통지 경로가 배선됐고 수신 주소만 비어 있다. E1 · E2 · E5 · E9 는 상시면 이식 불가라 카오스는 로컬 전속이다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="64" y="1086" width="1300" height="16" as="geometry"/>
         </mxCell>
         <mxCell id="166" value="" style="rounded=0;html=1;fillColor=none;strokeColor=#D0D7DC;strokeWidth=1;dashed=0;" vertex="1" parent="1">

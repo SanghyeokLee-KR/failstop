@@ -179,14 +179,15 @@ class MigrationSmokeTest {
             assertEquals("23514", noBinding.getSQLState(),
                     "ADMIN 키는 operator 바인딩 필수(check_violation): " + noBinding.getMessage());
 
-            // admin_approvals: requester = approver는 물리 차단(반결탁)
-            SQLException selfApprove = assertThrows(SQLException.class, () -> st.execute("""
+            // admin_approvals: 1인 승인이므로 requester = approver 가 통과해야 한다.
+            // V34 가 chk_approval_two_person 을 지웠다(ADR 0019). 종전 판은 이 자리에서
+            // 23514 를 기대했는데, 그 제약이 막은 것은 결탁이 아니라 야간 단독 운영의
+            // 정지 명령이었다. 제약이 되살아나면 이 단언이 실패해 알린다.
+            st.execute("""
                     INSERT INTO admin_approvals
                         (approval_token, action, requester_operator_id, approver_operator_id, expires_at)
                     VALUES ('T1', 'chaos.kill_node', 'op-01', 'op-01', now() + interval '5 min')
-                    """));
-            assertEquals("23514", selfApprove.getSQLState(),
-                    "자가승인은 CHECK 위반이어야 한다: " + selfApprove.getMessage());
+                    """);
             st.execute("""
                     INSERT INTO admin_approvals
                         (approval_token, action, requester_operator_id, approver_operator_id, expires_at)

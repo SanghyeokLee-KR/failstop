@@ -18,10 +18,10 @@
 
 | 계층 | 구성요소 | 확정 버전/이미지 | 근거·주의 |
 |---|---|---|---|
-| CI | GitHub Actions (public repo) | `checkout@v6` / `setup-java@v5`(temurin 21) / `gradle/actions/setup-gradle@v6` / `setup-node@v6`(Node 22) | ubuntu-latest = Docker 내장 → Testcontainers 무설정 |
+| CI | GitHub Actions (public repo) | `checkout@v4` / `setup-java@v4`(temurin 21) / `gradle/actions/setup-gradle@v4` / `setup-node@v4`(Node 22) | ubuntu-latest = Docker 내장 → Testcontainers 무설정. 태그는 실물 워크플로 실측값이다(2026-09-09, `.github/workflows/*.yml` `uses:` 전수 grep) |
 | 레지스트리 | GHCR | `ghcr.io` + `GITHUB_TOKEN` | 별도 시크릿 불요 |
-| 이미지 빌드 | buildx | `setup-buildx-action@v3` / `build-push-action@v6` / `metadata-action@v5`, 캐시 `type=gha` | `linux/amd64,linux/arm64` 둘. **v2.x 개정(2026-08-30)**: 배포 대상이 t4g 계열(AWS Graviton, ARM64)이라 amd64 단독이면 EC2에서 exec format error로 컨테이너가 뜨지 않는다. app.jar는 아키텍처 독립이라 차이는 베이스 레이어뿐이다. 액션 버전도 실제 사용값으로 정정한다(종전 v4/v7/v6은 실재하지 않는 태그였다) |
-| DB | PostgreSQL | **`postgres:17.6-bookworm` 기반 커스텀 이미지**를 CI가 빌드해 **GHCR digest로 배포**(`harness/pg/Dockerfile`: `postgresql-17-partman=5.*`·`postgresql-17-cron` apt 버전 핀) | **PG18 금지**(PGDATA 경로 변경·계약 PG17+). V2가 `CREATE EXTENSION pg_partman/pg_cron` 요구 → 순정 이미지로는 Flyway 실패. 베이스 `postgres:17`(유동 태그) 직접 사용 금지. TC·compose·CI가 **동일 GHCR digest를 공용 pull**해 드리프트 봉쇄(§1-2) |
+| 이미지 빌드 | buildx | `setup-buildx-action@v3` / `build-push-action@v6` / `metadata-action@v5`, 캐시 `type=gha` | `linux/amd64,linux/arm64` 둘. **v2.x 개정(2026-08-30)**: 배포 대상이 t4g 계열(AWS Graviton, ARM64)이라 amd64 단독이면 EC2에서 exec format error로 컨테이너가 뜨지 않는다. app.jar는 아키텍처 독립이라 차이는 베이스 레이어뿐이다. 액션 버전도 실제 사용값으로 정정한다(종전 표기 buildx v4·build-push v7·metadata v6은 이 세 액션에 실재하지 않는 태그였다. CI 행의 checkout·setup-java·setup-gradle v4는 별개 액션의 실재 태그다) |
+| DB | PostgreSQL | **`postgres:17.6-bookworm` 기반 커스텀 이미지**를 CI가 빌드해 **GHCR digest로 배포**(`harness/pg/Dockerfile`: `postgresql-17-partman=5.*`·`postgresql-17-cron` apt 버전 핀) | **PG18 금지**(PGDATA 경로 변경·계약 PG17+). V2가 `CREATE EXTENSION pg_partman/pg_cron` 요구 → 순정 이미지로는 Flyway 실패. 베이스 `postgres:17`(유동 태그) 직접 사용 금지. TC·compose·CI가 **동일 GHCR digest를 공용 pull**해 드리프트 봉쇄(§1-2). **미구현(2026-09-09 확인)**: `harness/pg` 디렉터리는 저장소에 없다. 이 행은 목표 명세이고 부재 사실의 원천은 §3-1 정정 문단이다 |
 | 캐시/브로커 | Redis / Kafka / RabbitMQ | `redis:8` / `apache/kafka:4.0.0`(KRaft 단일노드) / `rabbitmq:4-management`(+`enabled_plugins` 파일 마운트로 **rabbitmq_stomp 명시 활성**, 기본 비활성) | **Bitnami 이미지 전면 금지**(카탈로그 폐지). RabbitMQ = API§5-1 `/user/queue/**` 크로스노드 릴레이 계약상 필수 |
 | LB | Nginx | `nginx:1.29` | readiness 기반 제외(API§0-2), WS 스케일 파라미터 §3-3 |
 | 네트워크 카오스 | Toxiproxy | `ghcr.io/shopify/toxiproxy:2.12.0` | **노드별 프록시 4개** 상시 배선(§3-2). admin API(8474)는 **admin-net 내부 전용, 호스트 미공개**. packet loss 불가 → Pumba 보완 |
@@ -119,10 +119,10 @@ jobs:
     timeout-minutes: 30
     defaults: { run: { working-directory: server } }         # 빌드 루트는 server/
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '21' }     # cache 옵션 금지(아래 캐시 규칙)
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}   # PR=읽기전용 → 캐시 오염 방지
       - run: ./gradlew build                                     # 단위 + Testcontainers 통합
@@ -131,7 +131,7 @@ jobs:
     steps: ...                                                 # promtool check config·rules + 대시보드 JSON sanity·중복 키
 ```
 
-**캐시 전략**: Gradle 캐시는 `setup-gradle@v6` **전담**, `setup-java`의 `cache: gradle`·수동 `actions/cache` 병행 금지(공식 문서 명시 상호 간섭). main만 캐시 쓰기, PR은 읽기 전용. Docker 레이어는 buildx `type=gha`(모듈별 `scope=`, `mode=max`). Next.js `.next/cache`만 별도 `actions/cache`(선택).
+**캐시 전략**: Gradle 캐시는 `setup-gradle@v4` **전담**, `setup-java`의 `cache: gradle`·수동 `actions/cache` 병행 금지(공식 문서 명시 상호 간섭). main만 캐시 쓰기, PR은 읽기 전용. Docker 레이어는 buildx `type=gha`(모듈별 `scope=`, `mode=max`). Next.js `.next/cache`만 별도 `actions/cache`(선택).
 
 **ArchUnit 게이트(T3-A) (미구현, 목표 명세)**: `server/engine`(`:engine`, 초안의 `exchange-core`)에서 `System.currentTimeMillis/nanoTime`, `Random/UUID.randomUUID`, `Instant.now`, `HashMap/HashSet` 필드, `double/float` 필드 금지. 재생 결정론(API§7-2)의 컴파일 타임 방어를 PR마다 강제하는 것이 목표다. **미구현(2026-09-09 확인)**: 저장소에 ArchUnit 의존도 규칙 테스트도 없다(빌드 스크립트·테스트 전량 검색 0건, 언급은 `ci-backend.yml` 머리 주석 한 줄뿐). 현행 `./gradlew build`는 단위·통합만 돌린다.
 
@@ -147,10 +147,10 @@ jobs:
   v3-suite:
     runs-on: ubuntu-latest          # Docker 내장, DinD/service 컨테이너 불요
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '21' }
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew integrationTest -Dexchange.pg.image=${{ vars.PG_IMAGE }}
 ```
 
@@ -164,7 +164,7 @@ jobs:
 
 ### 2-4. `image.yml`, GHCR 푸시 (아래 골격은 미구현 목표 명세)
 
-> **정정(2026-09-09)**: 실물 `image.yml`은 이미지 하나만 만든다. `ci-backend` 성공을 `workflow_run`(main 한정)으로 받아 `:app:bootJar`를 굽고, 빌드 컨텍스트 `harness/`와 `harness/Dockerfile.app`으로 `ghcr.io/<repo>/exchange-app`을 `linux/amd64,linux/arm64` 멀티아치 푸시한 뒤 digest를 잡 요약에 남긴다. 아래 3모듈 매트릭스·`pg-image`·`frontend-image`·jarmode 레이어 표준형은 초안의 멀티모듈 전제라 미구현 목표 명세다(`harness/Dockerfile.app`이 자기 주석에 "계약 표준형의 축약본"이라고 적는다). 배포단위 A/B/C는 이미지가 아니라 Spring 프로파일이 가른다.
+> **정정(2026-09-09)**: 실물 `image.yml`은 이미지 하나만 만든다. `ci-backend` 성공을 `workflow_run`(main 한정)으로 받아 `:app:bootJar`를 굽고, 빌드 컨텍스트 `harness/`와 `harness/Dockerfile.app`으로 `ghcr.io/<repo>/exchange-app`을 `linux/amd64,linux/arm64` 멀티아치 푸시한 뒤 digest를 잡 요약에 남긴다. 아래 3모듈 매트릭스·`pg-image`·`frontend-image`·jarmode 레이어 표준형은 초안의 멀티모듈 전제라 미구현 목표 명세다(`harness/Dockerfile.app`이 자기 주석에 "계약 표준형의 축약본"이라고 적는다). 배포단위 A/B/C는 이미지가 아니라 Spring 프로파일이 가른다. 액션 태그도 실물 값으로 맞춘다(`setup-buildx-action@v3`·`login-action@v3`·`metadata-action@v5`·`build-push-action@v6`, 2026-09-09 `.github/workflows/image.yml` `uses:` grep). 종전 v4/v7/v6 표기는 §0이 실재하지 않는 태그로 못박은 값이라 제거한다.
 
 ```yaml
 name: image
@@ -175,15 +175,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy: { matrix: { module: [exchange-api, exchange-admin, bot-simulator] } }
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '21' }
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew :${{ matrix.module }}:bootJar
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
-      - uses: docker/metadata-action@v6
+      - uses: docker/metadata-action@v5
         id: meta
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.module }}
@@ -191,7 +191,7 @@ jobs:
             type=sha
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}   # latest 실제 발행, TAG 기본값과 정합
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.module }}/Dockerfile
@@ -201,7 +201,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.module }}
           cache-to: type=gha,scope=${{ matrix.module }},mode=max
-  pg-image:        # harness/pg, 동일 골격. 푸시 digest를 repo variable PG_IMAGE로 갱신(워크플로 마지막 step)
+  pg-image:        # harness/pg(미구현, 저장소에 없다, §3-1), 동일 골격. 푸시 digest를 repo variable PG_IMAGE로 갱신(워크플로 마지막 step)
     ...
   frontend-image:  # 동일 골격, context=frontend/, Node 22 setup-node cache:npm
     ...
@@ -242,7 +242,7 @@ jobs:
   slo-gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: resolve TAG (최근 main SHA, latest 의존 제거)
         run: echo "TAG=sha-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - run: docker compose -f compose.yaml -f compose.ci.yaml --profile slim up -d --wait
@@ -645,7 +645,7 @@ spec:
 
 ```yaml
 management:
-  server: { port: 8081 }                    # 관리 포트 분리(코드 실값 application.yml:165), 공개 LB 미노출
+  server: { port: 8081 }                    # 관리 포트 분리(코드 실값 application.yml management.server.port), 공개 LB 미노출
   endpoints: { web: { exposure: { include: health,info,prometheus,metrics } } }
   endpoint:
     health: { probes: { enabled: true }, show-details: never }   # /health/liveness|readiness 분리
@@ -732,7 +732,7 @@ scrape_configs:
 rule_files: ["rules/*.yml"]
 ```
 
-실물과의 차이 셋을 적어 둔다. 실물 잡은 `exchange-api`(`chaos-api-1:8080`·`chaos-api-2:8080`)와 `chaos-bots` 둘이고 admin 잡이 없다. 위 스니펫의 8081 관리 포트 분리는 상시면 토폴로지 규약이며 격리 하네스는 dev 노출이라 8080을 스크레이프한다. 그리고 실물은 `alerting.alertmanagers`로 `chaos-alertmanager:9093`을 지정한다. 파일 머리 주석(`harness/prometheus/prometheus.yml`)은 그 관리 포트를 아직 9404로 적는데, 관리 포트 실값은 8081이고(`server/app/src/main/resources/application.yml:165`) ADR 0010이 이 문서의 9404 표기 9행 10건을 8081로 치환했다. 주석의 9404는 미정정 잔재이고 이 절을 인용할 때의 값은 8081이다. 주석 정정은 하네스 파일 쪽 과제로 남는다.
+실물과의 차이 셋을 적어 둔다. 실물 잡은 `exchange-api`(`chaos-api-1:8080`·`chaos-api-2:8080`)와 `chaos-bots` 둘이고 admin 잡이 없다. 위 스니펫의 8081 관리 포트 분리는 상시면 토폴로지 규약이며 격리 하네스는 dev 노출이라 8080을 스크레이프한다. 그리고 실물은 `alerting.alertmanagers`로 `chaos-alertmanager:9093`을 지정한다. 파일 머리 주석(`harness/prometheus/prometheus.yml`)은 그 관리 포트를 아직 9404로 적는데, 관리 포트 실값은 8081이고(`server/app/src/main/resources/application.yml`의 `management.server.port`) ADR 0010이 이 문서의 9404 표기 9행 10건을 8081로 치환했다. 주석의 9404는 미정정 잔재이고 이 절을 인용할 때의 값은 8081이다. 주석 정정은 하네스 파일 쪽 과제로 남는다.
 
 레코딩 규칙은 `harness/prometheus/rules/exchange-recording.yml`이고 record 9개다(정본 §3.1·§4.2·§7.2 "레코딩 규칙 9개"). 대시보드·알람이 같은 식을 공유한다. 전량은 아래와 같다:
 
@@ -934,7 +934,7 @@ V1/V2는 `CREATE EXTENSION pg_partman/pg_cron`·`REVOKE ... FROM app_role`을 �
 
 | 주체 | 계정 | 역할 |
 |---|---|---|
-| initdb (`harness/pg/initdb/01-roles.sql`) | postgres(superuser, 이미지 엔트리포인트) | `CREATE ROLE app_role LOGIN PASSWORD ...; CREATE ROLE grafana_ro LOGIN ...;` + 스키마 기본 GRANT(SELECT/INSERT 등 최소). V1의 `REVOKE ... FROM app_role`이 참조하는 롤을 **선재**시킨다 |
+| initdb (`harness/pg/initdb/01-roles.sql`) | postgres(superuser, 이미지 엔트리포인트) | `CREATE ROLE app_role LOGIN PASSWORD ...; CREATE ROLE grafana_ro LOGIN ...;` + 스키마 기본 GRANT(SELECT/INSERT 등 최소). V1의 `REVOKE ... FROM app_role`이 참조하는 롤을 **선재**시킨다. **미구현(2026-09-09 확인)**: `harness/pg/initdb`는 저장소에 없다(§3-1) |
 | 마이그레이션 (`flyway-migrate` 잡, §3-1) | postgres(superuser) | 전 마이그레이션(V0~V10) + `V90__observability_ext.sql` 실행. CREATE EXTENSION·REVOKE·cron.schedule 전부 이 주체 |
 | 런타임 | `app_role` | exchange-api/admin/bots DataSource. `spring.flyway.enabled=false`(demo 프로파일), 앱은 마이그레이션을 절대 실행하지 않는다 |
 | 관측 조회 | `grafana_ro` | invariant_checks/recovery_runs/failover_runs/admin_audit_log SELECT만 |
@@ -979,7 +979,7 @@ Testcontainers도 동일 구조를 재현한다(§2-3). 로컬·CI·데모의 �
 
 ---
 
-**구현 착수 순서 요약**: ① `harness/pg/Dockerfile`+initdb 롤 스크립트 + compose slim(flyway-migrate/seed 포함) + `.env.example` → ② ci-backend/integration 워크플로(V3 T1·T5 우선) → ③ Actuator 설정(+demo 카오스 문서)+메트릭 카탈로그+Prometheus/Grafana 프로비저닝(대시보드 ①) → ④ image.yml(latest 규칙 포함)+full 프로파일(api×2 노드별 프록시 배선, LB, RabbitMQ STOMP) → ⑤ 카오스 배선(E5 docker-java 경로)+failover_runs+대시보드 ② → ⑥ k6 slo-gate+nightly(compose.ci.yaml) → ⑦ (선택) ha-db 오버레이·k3d·Pumba(사전 검증 통과 시).
+**구현 착수 순서 요약**: ① `harness/pg/Dockerfile`+initdb 롤 스크립트 + compose slim(flyway-migrate/seed 포함) + `.env.example` → ② ci-backend/integration 워크플로(V3 T1·T5 우선) → ③ Actuator 설정(+demo 카오스 문서)+메트릭 카탈로그+Prometheus/Grafana 프로비저닝(대시보드 ①) → ④ image.yml(latest 규칙 포함)+full 프로파일(api×2 노드별 프록시 배선, LB, RabbitMQ STOMP) → ⑤ 카오스 배선(E5 docker-java 경로)+failover_runs+대시보드 ② → ⑥ k6 slo-gate+nightly(compose.ci.yaml) → ⑦ (선택) ha-db 오버레이·k3d·Pumba(사전 검증 통과 시). ①의 `harness/pg`는 2026-09-09 확인 기준 저장소에 없다(§3-1).
 
 ---
 

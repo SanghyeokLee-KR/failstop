@@ -39,7 +39,7 @@ groups:
           threshold: "> 0"
           duration: "30s"
           dashboard: "① 체결 무결성 증명 (proof-integrity)"
-          runbook: "기획안 §10.2 무결 판정 · 검증설계 §5-6 C-카탈로그"
+          runbook: "기획안 §10.2 무결 판정 · 검증설계 §4-1 체크 카탈로그"
 
       - alert: OrderP99SloBreach
         expr: exchange:order_latency:p99_1m > 0.5

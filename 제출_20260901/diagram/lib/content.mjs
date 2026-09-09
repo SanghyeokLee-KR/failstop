@@ -4,9 +4,10 @@
 // 좌표와 배치는 형식마다 다르지만 무엇을 적는가는 하나여야 한다.
 // 계획서 수치가 바뀌면 이 파일만 고치고 두 형식을 다시 굽는다.
 //
-// 출처는 전부 계획서다. 7.1 순환 구조, 7.2 계층별 지표, 7.3 병목 판정,
+// 출처. 7.1 순환 구조, 7.2 무엇을 보는가, 7.3 어느 계층이 병목인지 어떻게 아는가,
 // 7.5 스케일링 실행 주체, 10.2 무결 판정, 10.3 장애 주입 카탈로그,
-// 하네스 검증설계 3절 LB 배선 실측이다. 여기서 새로 만든 수치는 없다.
+// 하네스 검증설계 3절 LB 배선 실측이다. 심각도 등급만 계획서에 근거 절이 없고
+// harness/prometheus/rules/exchange-alerts.yml 실물에서 왔다. 여기서 새로 만든 수치는 없다.
 
 // 손이 닿는 정도. 도면 2 의 색 축
 export const TIER_COLOR = {
@@ -27,14 +28,14 @@ export const LAYER_COLOR = {
 /* ========== 도면 2. 장애 대응 흐름 ========== */
 
 export const FLOW_KPI = [
-  ['알람', '11종', false],
-  ['통지 경로', '0종', true],
+  ['알람', '15종', false],
+  ['통지 수신 주소', '미기입', true],
   ['자동 복구 실측', 'E4 1회', false],
   ['수동 잔여', '4층 7항목', false],
 ]
 
 export const STATIONS = [
-  { n: '1', t: '감지', s: '메트릭 임계 이탈', tier: 'AUTO', tl: 'AUTO · 자동', gap: '통지 경로 없음' },
+  { n: '1', t: '감지', s: '메트릭 임계 이탈', tier: 'AUTO', tl: 'AUTO · 자동', gap: '수신 주소 미기입' },
   { n: '2', t: '심각도 판정', s: 'S1 · S2 · S3', tier: 'HAND', tl: 'OPERATOR · 사람', gap: '어휘 두 갈래' },
   { n: '3', t: '계층 소거', s: 'ICMP -> TCP -> HTTP', tier: 'HAND', tl: 'OPERATOR · assisted', gap: '프로브 0건' },
   { n: '4', t: '조치', s: '계층별 Runbook', tier: 'APPR', tl: '자동화 층에 따라 다름', gap: '런북 0건' },
@@ -43,13 +44,19 @@ export const STATIONS = [
   { n: '7', t: '종료', s: 'verdict 아카이브', tier: 'HAND', tl: 'OPERATOR · 사람', gap: null },
 ]
 
+// 심각도 등급. 알람 이름과 severity 라벨은
+// harness/prometheus/rules/exchange-alerts.yml 실물에서 읽은 것이다.
+// S1 S2 S3 은 이 도면이 세운 대응 시점 구분이고 정본에 근거 절이 없다. 정본 자리를 사람이 정한다.
+// 배정 대상은 exchange-alerts.yml 의 alert 15건 전량이고 누락 없이 덮는다(2026-09-09 대조).
+// 파일의 severity 라벨은 critical 5 와 warning 10 둘뿐이라 세 등급과 1대1로 대응하지 않는다.
+// S1 은 critical 5 건을 그대로 받고, warning 10 건을 대응 시점으로 S2 와 S3 에 가른다.
 export const SEV = [
-  ['S1', '즉시 호출', 'LedgerImbalance · 불변식 CRITICAL · FailoverRtoExceeded · LeaderAbsent · RecoverableStandDownRepeating', 'GAP'],
-  ['S2', '당일 근무 시간', '불변식 HIGH · SequencerQueueBackpressure · OrderRejectSpike', 'APPR'],
-  ['S3', '다음 영업일', '불변식 WARN · 스냅샷 3종 · 체결 전파 지연 초과', 'HAND'],
+  ['S1', '즉시 호출', 'LedgerImbalance · InvariantViolation · FailoverRtoExceeded · LeaderAbsent · RecoverableStandDownRepeating · WsConnectionsRejected', 'GAP'],
+  ['S2', '당일 근무 시간', 'SequencerQueueBackpressure · OrderRejectSpike · OrderP99SloBreach · TradeSilence · BotFleetDown', 'APPR'],
+  ['S3', '다음 영업일', '스냅샷 3종 · WsConnectionsNearLimit', 'HAND'],
 ]
 
-export const SEV_NOTE = '11종 전부 통지 경로가 없어 무음이다. 사람이 화면을 열기 전까지 장애를 모른다'
+export const SEV_NOTE = '통지 경로는 로컬 하네스에 배선됐다. 수신 주소가 비어 있어 아직 아무도 받지 못한다. 상시면에는 관측 스택 자체가 없다'
 
 export const TIERS = [
   ['1층', '자가 복구', '개입 0', 'AUTO', '리스 만료 후 무개입 승격 · readiness 503 자동 배제 · 쓰기 fencing · 좀비 리더 자발적 강등 · 백프레셔 무대기 거절'],
@@ -61,7 +68,7 @@ export const TIERS = [
 export const TIER_NOTE = '4층이 남은 작업의 목록이다. Patroni 설정 파일 0건이라 DB 승격이 현재 수동이다'
 
 export const NOAUTO = [
-  ['알람에 자동 액션 연결', '알람 11개의 실제 발화 확인 건수가 0이다. 정확도 미검증 신호에 롤백을 걸면 오탐이 곧 사고다'],
+  ['알람에 자동 액션 연결', '알람 15개의 실제 발화 확인 건수가 0이다. 정확도 미검증 신호에 롤백을 걸면 오탐이 곧 사고다'],
   ['파괴 액션을 서버가 직접 수행', '리더를 죽이는 명령을 받은 프로세스가 그 명령으로 사라지면 기록할 주체가 없다'],
   ['종신 강등 노드의 자동 재승격', '재생 불가 노드가 자동 복귀하면 승격과 반납이 반복돼 서비스가 계속 끊긴다'],
   ['수용 제한 대기열', '큐를 두면 노드를 죽인 대기 스레드가 다시 쌓인다'],
@@ -275,7 +282,7 @@ export const ARCH_LIMITS = [
   'Application 계층만 2 AZ 다. 전체 AZ 장애 내성은 미성립이고 AZ-a 상실 시 DB 승격 소요는 미측정이다',
   'PostgreSQL 승격이 수동이다. Patroni · etcd 설정 파일 0건. primary 가 자동 복구 기준의 단일 장애점이다',
   '클라우드 배포와 카오스 실측이 NOT RUN 이다. RTO · RPO · Ledger 수치는 전부 로컬 카오스 스택 실측이다',
-  '상시면 관측 스택 컴포즈 정의 0건, 알람 통지 경로 0건. E1 · E2 · E5 · E9 는 상시면 이식 불가라 카오스는 로컬 전속이다',
+  '상시면 관측 스택 컴포즈 정의 0건. 로컬 하네스는 통지 경로가 배선됐고 수신 주소만 비어 있다. E1 · E2 · E5 · E9 는 상시면 이식 불가라 카오스는 로컬 전속이다',
 ]
 
 // 같은 배치, 다른 상태. 좌표가 패널마다 동일해야 상태 차이만 보인다

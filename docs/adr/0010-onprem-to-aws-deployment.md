@@ -21,7 +21,7 @@
 ## 결정
 
 1. 클라우드 배포를 채택한다. §7-1의 클라우드 OIDC 비채택을 철회한다(`docs/contracts/하네스_CICD_IaC.md:857`).
-2. 평면을 둘로 나눈다. 상시면은 24시간 가동하고 비파괴 실험만 허용한다. 증명면은 실험·발표 창에서만 세우고 창이 끝나면 파기한다(정본 5.1 평면 표. 정본은 검증면까지 셋으로 나눈다). 그 수단은 `terraform apply` / `destroy`다. 다만 Terraform은 정본 4.2 선택표에서 "Terraform. 여유 시간 조건부"이고 사유 칸이 "아직 착수하지 않았습니다"다. 이 결정이 확정하는 것은 창 구동이지 도구가 아니다.
+2. 평면을 둘로 나눈다. 상시면은 24시간 가동하고 애플리케이션 계층 정지와 가용영역 상실 재현만 허용하며 커널 주입을 제외한다. 증명면은 실험·발표 창에서만 세우고 창이 끝나면 파기한다(정본 5.1 평면 표. 정본은 검증면까지 셋으로 나눈다). 그 수단은 `terraform apply` / `destroy`다. 다만 Terraform은 정본 4.2 선택표에서 "Terraform. 여유 시간 조건부"이고 사유 칸이 "아직 착수하지 않았습니다"다. 이 결정이 확정하는 것은 창 구동이지 도구가 아니다.
 3. 파괴 실험은 로컬 Rocky VM에서 수렴시키고 확정 회차만 AWS에서 재현한다(정본 5.1 평면 표의 증명면 행이 "확정 회차 재현"으로 적는다). AWS는 리허설 장소가 아니라 본실행 장소다.
 4. GitHub Actions가 AWS에 붙는 경로는 OIDC 페더레이션이다. 장기 액세스 키를 발급하지 않는다(정본 4.2 선택표의 지속적 통합 인증 행, §7-1 `:857`).
 5. GHCR 이미지는 `image.yml`이 만든다(0dbadb5로 신설). `workflow_run`으로 ci-backend에 잇고(`.github/workflows/image.yml:15-18`), `conclusion == 'success'`를 게이트로 건다(`:37`). 체크아웃 ref와 이미지 태그에 `workflow_run.head_sha`를 명시한다(`:44`, `:83`). 게이트는 `workflow_run` 경로에만 걸린다. `:36`의 `workflow_dispatch` 분기가 ci-backend 결과를 보지 않고 통과시키며, `:19-20`이 그 용도를 수동 재빌드로 한정한다. 수동 디스패치로는 검증 실패 커밋도 이미지가 되고 그 위험은 디스패치를 누르는 사람이 진다.
@@ -38,7 +38,7 @@
 - OIDC는 키 유출 경유 과금 사고 경로를 구조적으로 차단한다(정본 4.2 선택표의 지속적 통합 인증 행, 12절 완료 기준 B2가 장기 접근 키 0개를 요구한다). 발급하지 않은 키는 유출되지 않는다.
 - 이미지 빌드를 검증에 잇는 이유는 순서다. `workflow_run`이 기본으로 기본 브랜치 HEAD를 잡으므로 `head_sha`를 빠뜨리면 검증한 커밋과 다른 코드로 이미지가 만들어진다(`image.yml:42-43` 주석과 `:44` 설정).
 - arm64를 넣는 비용이 거의 없다. app.jar가 아키텍처 독립이라 차이는 베이스 이미지 레이어뿐이다(`image.yml:11-12`).
-- 쓰는 이미지 8종의 arm64 지원을 `docker manifest inspect`로 전수 확인했고 전건 통과다(`deploy/README.md:41-57`). 하나라도 없었으면 인스턴스 계열 재선정과 비용표 재산정이 따라온다. 통과라 §9 비용표를 건드릴 이유가 없다.
+- 쓰는 이미지 8종의 arm64 지원을 `docker manifest inspect`로 전수 확인했고 전건 통과다(`deploy/README.md` 의 "arm64 매니페스트 실측" 절). 하나라도 없었으면 인스턴스 계열 재선정과 비용표 재산정이 따라온다. 통과라 §9 비용표를 건드릴 이유가 없다.
 - 매니페스트 검증 단계가 없으면 한쪽만 올라간 사실을 배포 시점에 알게 된다. 그때는 늦다.
 
 ## 대안
@@ -57,11 +57,11 @@
 ## 영향
 
 - 정본 개정은 세 축이다(0dbadb5). §0 확정 스택 버전표 이미지 빌드 행(`:23`)의 플랫폼과 액션 버전, §7-1 시크릿 계층의 OIDC 판정(`:857`), 관리 포트 9404를 8081로 문서 9곳(치환 10건) 전수 치환이다. 개정 전 판이 9행이고(`git show '0dbadb5^:docs/contracts/하네스_CICD_IaC.md' | grep -c '9404'` -> 9), prometheus 타깃 한 행에 api-1·api-2 둘이 있어 치환 건수는 10이다(`git show 0dbadb5 -- "docs/contracts/하네스_CICD_IaC.md" | grep '^-.*9404' | grep -o '9404' | wc -l` -> 10). 전수 여부는 `git show '0dbadb5:docs/contracts/하네스_CICD_IaC.md' | grep -c '9404'` -> 0이 증명한다. 0dbadb5 커밋 메시지 본문의 "문서 8곳"은 오기다.
-- `deploy/` 오버레이는 미검증이다. 실제 다중 호스트에서 기동한 적이 없고, 검증 전까지 "배포 가능"으로 읽지 않는다(`deploy/README.md:36-39`).
-- 오버레이 파일 2건이 결손이다. 종전 판 파일 트리가 규정하던 `compose.base.yml`과 `compose.local.yml`이 `git ls-files deploy/`에 둘 다 없다. 현재 정본에는 두 파일명 문자열이 0건이라 규정 자체가 사라졌다(`grep -c "compose.base" "제출_20260901/기획안_원본.md"` -> 0). `deploy/README.md:11`은 `compose.base.yml`만 표에 올리고 있어 `compose.local.yml` 결손은 README에서도 드러나지 않는다. 골격을 완성할지 표에서 내릴지는 미결이다.
-- prod 프로파일은 배포 당일 처음 켜진다. 저장소 전체에서 prod를 활성화하는 지점이 0이었다. 부팅 중단 조건 5건을 실측했고 다섯 변수를 채워야 뜬다(`deploy/README.md:59-77`).
-- `prod,admin` 조합은 운영 PKI 실물 없이 기동하지 않는다. 상시면에 관리 평면을 함께 올리려면 인증서 발급이 선행돼야 한다(`deploy/README.md:79-82`).
-- 도메인 `sang.it.kr`의 A 레코드가 미설정이다. 웹 빌드 파라미터 3종이 도메인 확정에 묶여 있고, 그중 값이 도메인에 직접 종속되는 것은 `NEXT_PUBLIC_WS_BASE=wss://sang.it.kr` 1종이다. 나머지 둘은 `NEXT_PUBLIC_API_BASE=""`와 `NEXT_PUBLIC_DATASOURCE=http`로 도메인과 무관한 상수다(`deploy/README.md:28-34`. 정본 6.6이 API 주소를 빈 문자열로 적는다).
+- `deploy/` 오버레이는 미검증이다. 실제 다중 호스트에서 기동한 적이 없고, 검증 전까지 "배포 가능"으로 읽지 않는다(`deploy/README.md`의 "상태" 절).
+- 오버레이 파일 2건이 결손이다. 종전 판 파일 트리가 규정하던 `compose.base.yml`과 `compose.local.yml`이 `git ls-files deploy/`에 둘 다 없다. 현재 정본에는 두 파일명 문자열이 0건이라 규정 자체가 사라졌다(`grep -c "compose.base" "제출_20260901/기획안_원본.md"` -> 0). `deploy/README.md` 의 "파일" 절은 `compose.base.yml`만 표에 올리고 있어 `compose.local.yml` 결손은 README에서도 드러나지 않는다. 골격을 완성할지 표에서 내릴지는 미결이다.
+- prod 프로파일은 배포 당일 처음 켜진다. 저장소 전체에서 prod를 활성화하는 지점이 0이었다. 부팅 중단 조건 5건을 실측했고 다섯 변수를 채워야 뜬다(`deploy/README.md` 의 "prod 프로파일 부팅 실측" 절).
+- `prod,admin` 조합은 운영 PKI 실물 없이 기동하지 않는다. 상시면에 관리 평면을 함께 올리려면 인증서 발급이 선행돼야 한다(`deploy/README.md` 의 "prod 프로파일 부팅 실측" 절).
+- 도메인 `sang.it.kr`의 A 레코드가 미설정이다. 웹 빌드 파라미터 3종이 도메인 확정에 묶여 있고, 그중 값이 도메인에 직접 종속되는 것은 `NEXT_PUBLIC_WS_BASE=wss://sang.it.kr` 1종이다. 나머지 둘은 `NEXT_PUBLIC_API_BASE=""`와 `NEXT_PUBLIC_DATASOURCE=http`로 도메인과 무관한 상수다(`deploy/README.md` 의 "도메인" 절. 정본 6.6이 API 주소를 빈 문자열로 적는다).
 - `deploy.yml`은 아직 없다. 현재 워크플로는 ci-backend, ci-web, image, style 4종이다(`git ls-files .github/workflows/` -> 4). 배포 워크플로와 무중단 롤링 절차가 미착수 잔여다. 현재 정본에는 대응 절이 없다("무중단 롤링" 문자열 0건).
 - 정본 개정 잔여가 있었다. 0dbadb5가 고친 파일은 `image.yml`, `deploy/README.md`, `docs/contracts/하네스_CICD_IaC.md` 3건뿐이라(`git show 0dbadb5 --stat`) 아래 넷은 손대지 않았다. 앞 둘은 2026-09-09 정본 재작성으로 닫혔고 뒤 둘이 잔여다.
   - 기획안이 "현행 워크플로 3종은 빌드 검증에서 끝난다"로 적던 항은 닫혔다. 현재 정본 10.6이 "지속적 통합 워크플로 4종"과 그 내역(백엔드 검증, 웹 검증, 이미지 빌드, 스타일 검사)을 적는다.

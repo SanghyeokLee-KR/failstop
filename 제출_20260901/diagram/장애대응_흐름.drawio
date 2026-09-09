@@ -13,13 +13,13 @@
         <mxCell id="4" value="알람" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1260" y="16" width="140" height="16" as="geometry"/>
         </mxCell>
-        <mxCell id="5" value="11종" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="5" value="15종" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1260" y="34" width="140" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="6" value="통지 경로" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="6" value="통지 수신 주소" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1410" y="16" width="140" height="16" as="geometry"/>
         </mxCell>
-        <mxCell id="7" value="0종" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="7" value="미기입" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1410" y="34" width="140" height="22" as="geometry"/>
         </mxCell>
         <mxCell id="8" value="자동 복구 실측" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
@@ -61,7 +61,7 @@
         <mxCell id="20" value="AUTO · 자동" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#0E7C66;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="34" y="186" width="220" height="16" as="geometry"/>
         </mxCell>
-        <mxCell id="21" value="통지 경로 없음" style="rounded=0;html=1;fillColor=#FDF2F1;strokeColor=#C0392B;strokeWidth=0.9;fontSize=9.5;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;align=left;spacingLeft=6;" vertex="1" parent="1">
+        <mxCell id="21" value="수신 주소 미기입" style="rounded=0;html=1;fillColor=#FDF2F1;strokeColor=#C0392B;strokeWidth=0.9;fontSize=9.5;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;align=left;spacingLeft=6;" vertex="1" parent="1">
           <mxGeometry x="34" y="208" width="220" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="22" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=0;strokeColor=#16191F;strokeWidth=1.4;dashed=0;endArrow=blockThin;endFill=1;" edge="1" parent="1">
@@ -241,8 +241,8 @@
         <mxCell id="71" value="심각도와 대응 시점" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="300" width="180" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="72" value="계획서 7.2 무엇을 보는가 · 알람은 경로가 있을 때만 알람이다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
-          <mxGeometry x="180" y="300" width="400" height="20" as="geometry"/>
+        <mxCell id="72" value="출처 harness/prometheus/rules/exchange-alerts.yml 의 severity 라벨 · 등급과 대응 시점은 정본 미확정" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+          <mxGeometry x="180" y="300" width="740" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="73" value="" style="rounded=0;html=1;fillColor=none;strokeColor=#D0D7DC;strokeWidth=1;dashed=0;" vertex="1" parent="1">
           <mxGeometry x="20" y="324" width="910" height="156" as="geometry"/>
@@ -253,7 +253,7 @@
         <mxCell id="75" value="즉시 호출" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=12;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="88" y="338" width="150" height="24" as="geometry"/>
         </mxCell>
-        <mxCell id="76" value="LedgerImbalance · 불변식 CRITICAL · FailoverRtoExceeded · LeaderAbsent · RecoverableStandDownRepeating" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="76" value="LedgerImbalance · InvariantViolation · FailoverRtoExceeded · LeaderAbsent · RecoverableStandDownRepeating · WsConnectionsRejected" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="244" y="338" width="670" height="24" as="geometry"/>
         </mxCell>
         <mxCell id="77" value="S2" style="rounded=1;arcSize=20;html=1;fillColor=#B8730A;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;fontFamily=Malgun Gothic;verticalAlign=middle;align=center;" vertex="1" parent="1">
@@ -262,7 +262,7 @@
         <mxCell id="78" value="당일 근무 시간" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=12;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="88" y="386" width="150" height="24" as="geometry"/>
         </mxCell>
-        <mxCell id="79" value="불변식 HIGH · SequencerQueueBackpressure · OrderRejectSpike" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="79" value="SequencerQueueBackpressure · OrderRejectSpike · OrderP99SloBreach · TradeSilence · BotFleetDown" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="244" y="386" width="670" height="24" as="geometry"/>
         </mxCell>
         <mxCell id="80" value="S3" style="rounded=1;arcSize=20;html=1;fillColor=#5C6B75;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;fontFamily=Malgun Gothic;verticalAlign=middle;align=center;" vertex="1" parent="1">
@@ -271,10 +271,10 @@
         <mxCell id="81" value="다음 영업일" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=12;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="88" y="434" width="150" height="24" as="geometry"/>
         </mxCell>
-        <mxCell id="82" value="불변식 WARN · 스냅샷 3종 · 체결 전파 지연 초과" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="82" value="스냅샷 3종 · WsConnectionsNearLimit" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="244" y="434" width="670" height="24" as="geometry"/>
         </mxCell>
-        <mxCell id="83" value="11종 전부 통지 경로가 없어 무음이다. 사람이 화면을 열기 전까지 장애를 모른다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="83" value="통지 경로는 로컬 하네스에 배선됐다. 수신 주소가 비어 있어 아직 아무도 받지 못한다. 상시면에는 관측 스택 자체가 없다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="486" width="910" height="18" as="geometry"/>
         </mxCell>
         <mxCell id="84" value="자동화 계층" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
@@ -352,7 +352,7 @@
         <mxCell id="108" value="알람에 자동 액션 연결" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="62" y="558" width="330" height="22" as="geometry"/>
         </mxCell>
-        <mxCell id="109" value="알람 11개의 실제 발화 확인 건수가 0이다. 정확도 미검증 신호에 롤백을 걸면 오탐이 곧 사고다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="109" value="알람 15개의 실제 발화 확인 건수가 0이다. 정확도 미검증 신호에 롤백을 걸면 오탐이 곧 사고다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="400" y="558" width="1460" height="22" as="geometry"/>
         </mxCell>
         <mxCell id="110" value="X" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">

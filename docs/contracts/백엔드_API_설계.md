@@ -2,7 +2,7 @@
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
-> 정본의 증명 축은 셋이다(정본 1.3). ① 체결 무결, ② 자동 복구, ③ 병목 이동과 안정화다. 이 문서가 계약으로 덮는 것은 ①②이고, ③은 정본 1.3 이 못박은 관측 대상 넷(계층별 CPU, 응답 시간 분위수, 수용 정원 점유, 커넥션 대기)을 여러 자리에서 나눠 규정한다. 수용 정원 점유와 커넥션 대기는 §2-5-a(`exchange_admission_in_flight{scope}`·`exchange_admission_limit{scope}`, DB에 블록된 스레드 수의 유계화), 응답 시간 분위수는 §7-4 SLO(p99·p95), 커넥션 풀 사이징과 pinning 은 §7-5, 수동 스케일링의 판정·실행 경계는 §6-A-a 용량 API 다. 접점이 §6-A-a 하나가 아니다.
+> 정본의 증명 축은 셋이다(정본 1.3). ① 체결 무결, ② 자동 복구, ③ 병목 이동과 안정화다. 이 문서가 계약으로 덮는 것은 ①②이고, ③에 대해서는 정본 1.3 이 못박은 관측 대상 넷(계층별 CPU, 응답 시간 분위수, 수용 정원 점유, 커넥션 대기) 가운데 셋만 이 문서에 자리를 받는다. 수용 정원 점유와 커넥션 대기는 §2-5-a(`exchange_admission_in_flight{scope}`·`exchange_admission_limit{scope}`, 게이트된 경로에 한정한 무대기 성질과 DB에 블록된 스레드 수의 유계화), 응답 시간 분위수는 §7-4 SLO(p99·p95) 다. **계층별 CPU 는 이 문서에 계약 절이 없다.** 정본 7.2 무엇을 보는가 의 계층별 지표 표와 정본 7.3 어느 계층이 병목인지 어떻게 아는가 의 판정 조합이 그것을 규정하며, 이 문서가 계약으로 받을지는 미결이다. 아래 둘은 관측 대상이 아니라 그 옆의 조작 계약이라 넷에 세지 않는다. 커넥션 풀 사이징과 pinning 은 §7-5(정본 7.4 무엇을 조작하는가), 수동 스케일링의 판정·실행 경계는 §6-A-a 용량 API 다(정본 7.5 스케일링 실행 주체). 접점이 §6-A-a 하나가 아니다.
 > ①②를 관통하는 축: **결정론적 단일 라이터 + 이벤트 소싱 + (필수)멱등성 + 복식부기 원장 + epoch(fencing, 전 쓰기 경로 §7-1)**.
 
 ---
@@ -66,7 +66,8 @@ exchange-platform/
                        [PostgreSQL 프로젝션 (JPA/jOOQ)]   ← (4)의 같은 트랜잭션이 그대로 쓴다
                        [outbox 적재]  발행기가 없어 나가는 경로가 없다. 읽는 곳은 InvariantCheck·SettlementService 둘뿐(§1 메시징/이벤트 행, §7-1)
                                        ▼ (5) 커밋 이후 단일 라이터 스레드가 게시(MarketDataPublisher)
-                       [STOMP 팬아웃: /topic=Redis Pub/Sub 릴레이, /user/queue=외부 STOMP 브로커 릴레이]
+                       [STOMP 게시: 단일 노드 SimpleBroker(/topic·/queue)]  WebSocketConfig.enableSimpleBroker
+                       크로스노드 팬아웃(/topic=Redis Pub/Sub 릴레이, /user/queue=외부 STOMP 브로커 릴레이)은 §5-1 규정이고 미배선이다. 다중 노드 승격 시점의 몫이다(MarketDataPublisher 클래스 주석)
                                                      ▼  실시간 호가/체결/잔고 푸시
 [DB HA: PostgreSQL 직접 운영. standby 2대 + synchronous_standby_names `ANY 1` 정족수(정본 6.3, ADR 0018). 무손실 failover 전제 조건은 §1 DB 자체 HA 행]
 [복구: snapshot + journal replay | 정산배치: @Scheduled + ShedLock + fencing]
@@ -101,7 +102,7 @@ exchange-platform/
 | **관측성(메트릭)** | **Actuator + Micrometer(Prometheus registry) + Grafana** | **버전 BOM 위임(개별 핀 제거)** | 정정: `micrometer-registry-prometheus` 마이크로버전 개별 고정 제거(‘BOM 위임’ 원칙과 모순 해소). 스타터만 추가. |
 | **관측성(트레이싱)** | **Micrometer Tracing(OTel Bridge) → 백엔드 Grafana Tempo** | SB BOM + OTLP exporter | 신규: 트레이스 **수집·조회 백엔드를 Tempo로 확정**(미지정 시 트레이스 미수집). Zipkin/Jaeger 대체 가능. |
 | **관측성(로그)** | **Logback JSON → Loki (Grafana)** | (인프라) | 신규: 중앙 로그 집계. 카오스 시 노드 간 로그 상관분석(trace_id 키). |
-| **테스트** | **JUnit5 + Testcontainers + Awaitility + ArchUnit + jqwik** | **Testcontainers·Awaitility=SB BOM 위임** / ArchUnit 1.4.2·jqwik 최신 GA(BOM 미관리 → 개별 핀 유지) | 실 PG·Redis·Toxiproxy 컨테이너. 비동기=Awaitility(sleep 금지). 경계=ArchUnit. 불변식=jqwik. 정정(v2.4): TC·Awaitility 개별 핀 제거. 둘 다 SB BOM 관리 항목(버전 고정 원칙 정합). 정정(v2.44): Kafka 컨테이너를 뺀다. 같은 표의 메시징/이벤트 행이 미채택이고 `server/app/build.gradle.kts` 와 `server/app/src` 전역에 kafka 가 0건이다. |
+| **테스트** | **JUnit5 + Testcontainers + Awaitility + ArchUnit + jqwik** | **Testcontainers·Awaitility=SB BOM 위임** / ArchUnit 1.4.2·jqwik 최신 GA(BOM 미관리 → 개별 핀 유지) | 실 PG 컨테이너. 비동기=Awaitility(sleep 금지). 경계=ArchUnit. 불변식=jqwik. 정정(v2.4): TC·Awaitility 개별 핀 제거. 둘 다 SB BOM 관리 항목(버전 고정 원칙 정합). 정정(v2.44): 컨테이너 열거에서 Kafka·Redis·Toxiproxy 를 함께 뺀다. 종전 정정은 Kafka 만 빼고 같은 기준을 나머지 둘에 적용하지 않았다. `server/app/build.gradle.kts` 의 Testcontainers 선언은 `spring-boot-testcontainers`·`junit-jupiter`·`postgresql` 셋뿐이고 kafka·redis·toxiproxy 가 각각 0건이다. Toxiproxy 는 테스트 컨테이너가 아니라 하네스 카오스 스택이 띄운다(`harness/docker-compose.chaos.yml` 의 `chaos-toxiproxy`). |
 | **부하 테스트** | **k6 (메인)** + Gatling(발표용, 선택) | k6 2.0 / Gatling 3.13+ | Thresholds→exit code로 SLO CI 게이팅. WS 부하 지원. |
 | **카오스** | **Toxiproxy(네트워크) + Chaos Monkey(앱) + docker kill(인프라)** | toxiproxy 모듈=**TC(SB BOM) 위임**(v2.4, TC 개별 핀 제거와 동일 논리) / **chaos-monkey-spring-boot 3.x (SB3 정합, BOM 미관리 → 개별 관리)** | 정정: 초안의 "Chaos Monkey 4.0.0=SB3 타깃" 경고는 **사실과 반대**(4.0.0은 SB4.0.2 기반=SB4 지원). SB3.5 경로에선 **3.x 라인을 사용**. Toxiproxy=네트워크, Chaos Monkey=앱 계층 상호보완. |
 | **매칭엔진 동시성** | **LMAX Disruptor** | 4.0.0 (min JDK 11, Java 21 OK) | 락-프리 링버퍼. 참고: 4.0.0(2023-09) 이후 유지보수 정체 → **1차 `ArrayBlockingQueue`로 결정론 완성 후, 벤치마크로 실측 이득 확인되면 교체**(handler 인터페이스 동일). |
@@ -1583,7 +1584,7 @@ RPO=0 매핑: 게이트웨이는 command_journal fsync 성공 후에만 ACK하�
 
 | 심각도 | 지적 | 반영 |
 |---|---|---|
-| high | Resilience4j "3.x" 오기 + SB4 미지원 | **경로를 Spring Boot 3.5.16 + resilience4j-spring-boot3 2.4.0으로 확정**(전 스택 GA 검증, 과제 "3.x" 부합). spring-kafka 3.3.x(BOM 위임)·redisson-spring-data-35 등 SB3.5 정합으로 통일(§1) |
+| high | Resilience4j "3.x" 오기 + SB4 미지원 | **경로를 Spring Boot 3.5.16 + resilience4j-spring-boot3 2.4.0으로 확정**(전 스택 GA 검증, 과제 "3.x" 부합). spring-kafka 3.3.x(BOM 위임)·redisson-spring-data-35 등 SB3.5 정합으로 통일(§1). **갱신(v2.44)**: 이 칸은 당시 반영 기록이다. spring-kafka 와 redisson 은 그 뒤 미채택으로 정리돼 지금은 BOM 위임 대상이 아니다(§1 메시징/이벤트 행·캐시/분산 프리미티브 행·리더선출 행, §0-2 Kafka 미채택). 현행 근거로는 Resilience4j 경로 확정 부분만 인용한다 |
 | medium | Chaos Monkey 4.0.0 경고 반대(실제 SB4 지원) | 경고 **삭제·정정**. SB3.5 경로에선 **chaos-monkey 3.x 라인** 사용 명시(§1) |
 | low | Disruptor 유지보수 정체 | **ABQ 우선 → 벤치 후 교체** 전략 유지·명문화(§1, P5) |
 | low | micrometer-registry-prometheus 개별 핀 모순 | **핀 제거·BOM 위임**, 트레이싱 백엔드 **Tempo 확정**(§1) |

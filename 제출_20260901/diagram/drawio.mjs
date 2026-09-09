@@ -394,7 +394,7 @@ function incidentFlow() {
   // 심각도
   const GY = 300
   d.txt('심각도와 대응 시점', 20, GY, 180, 20, { size: 13, color: INK, bold: true })
-  d.txt('계획서 7.2 무엇을 보는가 · 알람은 경로가 있을 때만 알람이다', 180, GY, 400, 20, { size: 10, color: MUTE })
+  d.txt('출처 harness/prometheus/rules/exchange-alerts.yml 의 severity 라벨 · 등급과 대응 시점은 정본 미확정', 180, GY, 740, 20, { size: 10, color: MUTE })
   d.box(20, GY + 24, 910, 156)
   SEV.forEach(([lv, when, what, col], i) => {
     const y = GY + 38 + i * 48
