@@ -810,7 +810,7 @@ Micrometer Tracing(OTel bridge)→OTLP→Tempo, Logback JSON(trace_id 포함)→
 ### 6-1. k6 역할 분담과 시나리오
 
 - **역할 공식**: 봇 플릿(B) = 시장 형성 + 상시 배경 부하(폐쇄 루프, admin API 제어) / **k6 = 외부 블랙박스 SLO 계측기**(개방 루프 `ramping-arrival-rate`, coordinated omission 없는 p99). 카오스 실험은 둘 다 유지한 채 k6 thresholds가 중립 판정.
-- k6 v2.1.0 확정. STOMP는 stable `k6/websockets` 위 순수 JS 프레임 구현(`load/lib/stomp.js`, ~100줄: CONNECT/SUBSCRIBE/MESSAGE/`\0` 종단), 확장 빌드 0, seq/epoch gap·`subscription_rejected` 검사 자유 코딩. xk6-stomp는 k6 v2 호환 미확인으로 예비안.
+- k6 1.4.0 확정(`grafana/k6:1.4.0`, 전 증거 회차 실측 핀). 정정(2026-09-09): 종전 표기 v2.1.0 은 실물과 무관했다. STOMP는 stable `k6/websockets` 위 순수 JS 프레임 구현(`load/lib/stomp.js`, ~100줄: CONNECT/SUBSCRIBE/MESSAGE/`\0` 종단), 확장 빌드 0, seq/epoch gap·`subscription_rejected` 검사 자유 코딩. xk6-stomp는 k6 v2 호환 미확인으로 예비안.
 - 서명 클라이언트: `k6/crypto`(HMAC-SHA256) + JCS canonical(`load/lib/sign.js`), 봇과 동일 규약(API§3-3). **전용 부하 계정은 §7-3 seed 잡이 발급**하며 k6는 `secrets/k6_keys.json`(seed 산출물)을 읽는다. 계정 키 버킷(API§2-5) 준수, 재시도는 동일 `client_order_id`(§2-4).
 - 출력: `-o experimental-prometheus-rw`(`K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9091/api/v1/write`) → 기존 Grafana 합류(추가 인프라 0) + `K6_WEB_DASHBOARD_EXPORT` HTML 리포트 보존. Gatling 3.15는 발표용 HTML 한정(WS 시나리오 배치 금지, 블로킹 체크 한계).
 - 시나리오 프리셋(steady/spike/ramp/thundering-herd)은 API§6-A 봇 프리셋과 이름 대응. thundering-herd의 WS 목표 연결 수는 §3-3 예산표(5,000)에서 파생.

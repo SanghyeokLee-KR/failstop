@@ -58,7 +58,7 @@ exchange-platform/
                                        │ (2) ACK "접수됨" (+ client_order_id 반환)
                                        ▼ (3) 적용
                        [Matching Engine 결정론 상태기계]  ← exchange-core, 단일 스레드
-                       리더선출: Redisson RLock + fencing token(epoch)
+                       리더선출: 임차 보관소(기본 PostgreSQL `leader_lease`, 선택 DynamoDB) + fencing epoch(ADR 0017)
                                        │ (4) 같은 트랜잭션: assert_current_leader(holder, epoch) 통과 후 trades + outbox + ledger (fencing_epoch 저장)
                                        ▼
                        [Kafka trades 토픽] ──┬─▶ [PostgreSQL 프로젝션 (JPA/jOOQ)]
@@ -89,9 +89,9 @@ exchange-platform/
 | **영속성(핫패스 조회)** | **jOOQ** (Community, Apache 2.0) | **SB BOM 위임(3.5.x 관리 라인=3.19.x)** | 호가 집계·체결 페이징·리포팅. 컴파일타임 타입안전. 정정(v2.4): 개별 핀 `3.20/3.21` 제거. jOOQ는 SB BOM 관리 항목이라 개별 핀은 버전 고정 원칙(하단) 위반이자 BOM 라인 오버라이드(Q12의 Flyway와 동일 논리). |
 | **DB 마이그레이션** | **Flyway** | **SB BOM 위임(3.5.x 관리 라인=11.x)** | SQL-first·저마찰. Liquibase 5.0 FSL 라이선스 이슈 회피. 정정(v2.2): 개별 핀 `12.9.0` 제거. Flyway는 SB BOM 관리 항목이라 개별 핀은 버전 고정 원칙(하단) 위반이자 BOM 메이저 오버라이드(SB 3.5 자동구성이 검증한 11.x와 상이)였다. |
 | **메시징/이벤트** | **Spring for Apache Kafka** | **SB BOM 위임(3.3.x, SB3 정합)**, Kafka 4.x KRaft | 트랜잭셔널 아웃박스 발행·리플레이. EOS로 이중발행 방지. (초안의 4.1.0은 SB4용 → SB3 경로에선 BOM이 관리하는 3.3.x. v2.2: 개별 핀 표기 제거. BOM 관리 항목) |
-| **캐시/분산 프리미티브** | **Redisson** (+ Spring Data Redis 보조) | **redisson-spring-data-35 (Spring Data Redis 3.5 정합)**, Redisson 최신 GA | 분산 락·리더선출·RateLimiter·Pub/Sub·nonce 저장. |
+| **캐시/분산 프리미티브** | **Spring Data Redis** | **SB BOM 위임** | Pub/Sub 릴레이·nonce 저장. 정정(v2.40): Redisson 은 저장소에 의존이 없다. 분산 RateLimiter 용도로 남은 것은 M2 선행 조건이고 현 배선이 아니다. 리더선출은 이 행의 범위가 아니다(아래 행). |
 | **회복탄력성** | **Resilience4j** | **`resilience4j-spring-boot3` 2.4.0** | CircuitBreaker·RateLimiter·Bulkhead·Retry·TimeLimiter. Micrometer 통합. 버전 정정: 3.x는 미존재, 최신 GA=2.4.0. SB3.5에서 GA 검증. |
-| **리더선출/분산락** | **Redisson RLock + fencing token(epoch)** (매칭) / **ShedLock 7.7.0**(배치) | Redisson / ShedLock 7.7.0 | 매칭 단일 활성화=Redisson 리더 락. 배치 중복방지=ShedLock. **주의: ShedLock은 correctness 보장 X → fencing token 병행 필수**(적용 범위: 모든 엔진 기원 쓰기 트랜잭션, §7-1). |
+| **리더선출/분산락** | **임차 보관소 + fencing epoch**(매칭) / **ShedLock 7.7.0**(배치) | `LeaderLeaseStore` 구현 2종(기본 PostgreSQL, 선택 DynamoDB, AWS SDK v2) / ShedLock 7.7.0 | 매칭 단일 활성화=임차 획득. 정정(v2.40): 초안이 Redisson RLock 이었으나 채택하지 않았다. 저장소에 redisson 의존이 0건이다. 기본값은 `PostgresLeaderLeaseStore`(`exchange.leader.lease.provider=postgres`)이고, ADR 0017 이 임차 **갱신**을 커밋 경로 밖으로 빼는 선택지로 `DynamoDbLeaderLeaseStore` 를 더했다. 임차 **검증**(`assert_current_leader`)은 어느 쪽이든 거래 트랜잭션 안에 남는다. 배치 중복방지=ShedLock. **주의: ShedLock은 correctness 보장 X → fencing 병행 필수**(적용 범위: 모든 엔진 기원 쓰기 트랜잭션, §7-1). |
 | **관측성(메트릭)** | **Actuator + Micrometer(Prometheus registry) + Grafana** | **버전 BOM 위임(개별 핀 제거)** | 정정: `micrometer-registry-prometheus` 마이크로버전 개별 고정 제거(‘BOM 위임’ 원칙과 모순 해소). 스타터만 추가. |
 | **관측성(트레이싱)** | **Micrometer Tracing(OTel Bridge) → 백엔드 Grafana Tempo** | SB BOM + OTLP exporter | 신규: 트레이스 **수집·조회 백엔드를 Tempo로 확정**(미지정 시 트레이스 미수집). Zipkin/Jaeger 대체 가능. |
 | **관측성(로그)** | **Logback JSON → Loki (Grafana)** | (인프라) | 신규: 중앙 로그 집계. 카오스 시 노드 간 로그 상관분석(trace_id 키). |
@@ -233,7 +233,7 @@ exchange-platform/
 
 ### 2-5. Rate limit (알고리즘·다중버킷·프록시 확정)
 
-- **알고리즘**: 고정창이 아닌 **토큰버킷**(Resilience4j RateLimiter / Redisson `RRateLimiter`). 초당 리필. thundering-herd 시나리오에서 창 경계 2배 버스트·리셋 herd 방지. `X-RateLimit-Reset`은 **"다음 토큰 가용 시각(epoch s)"**으로 재정의.
+- **알고리즘**: 고정창이 아닌 **토큰버킷**(Resilience4j RateLimiter). 현 배선은 노드 단위이고, 노드 간 합산 한도는 M2 선행 조건이다. 분산 구현체(Redisson `RRateLimiter` 등)는 그때 정한다. 초당 리필. thundering-herd 시나리오에서 창 경계 2배 버스트·리셋 herd 방지. `X-RateLimit-Reset`은 **"다음 토큰 가용 시각(epoch s)"**으로 재정의.
 - **다중 버킷 노출**: 한 요청이 IP 공개 버킷 + 계정 사설 버킷에 동시 계상 가능 → 버킷별 헤더 노출.
 
 응답 헤더(모든 응답):
@@ -1301,7 +1301,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 다른 사실이고, 합치면 화면이 죽은 노드를 한가한 노드로 그린다.
 
 `advice[].action` 이 `SCALE_OUT`·`SCALE_IN`·`null` 이다. `null` 은 표시만 하는 권고이고
-조치 버튼이 붙지 않는다. 권고는 정본 7.12 자동화 격자의 3층(자동 진단, 사람이 판단)이고
+조치 버튼이 붙지 않는다. 권고는 정본 7.5 자동화 격자의 3층(자동 진단, 사람이 판단)이고
 실행은 4층(수동)이다. 알람에 자동 액션을 연결하지 않는다.
 
 경계를 넘는 요청은 409 `CAPACITY_OUT_OF_BOUNDS` 다. DB `chk_capacity_bounds` 가 같은 경계를
@@ -1353,7 +1353,8 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 | 메서드 | 경로 | 기능 |
 |---|---|---|
 | GET | `/actuator/health/liveness` | 생존 프로브 |
-| GET | `/actuator/health/readiness` | 준비 프로브(페일오버 시 `REFUSING_TRAFFIC` → LB가 제외) |
+| GET | `/actuator/health/readiness` | 준비 프로브(페일오버 시 `REFUSING_TRAFFIC` → LB가 제외). 쓰기 대상 그룹이 이 경로를 본다 |
+| GET | `/actuator/health/read` | 조회 프로브. 팔로워도 조회는 정상으로 내므로 조회 대상 그룹은 `readiness` 대신 이 경로를 본다. `readiness` 를 쓰면 팔로워가 대상 그룹에서 빠져 조회 분산이 성립하지 않는다(`application.yml` 헬스 그룹 주석, 2026-09-07 실측) |
 | GET | `/admin/v1/ha/status` | 리더/팔로워·epoch·seq 정합 |
 | GET | `/admin/v1/ha/recovery` | 복구 판정 객체 + `recovery_runs[]` + `failover_runs[]`(불변식은 방출하지 않는다. 아래 실제 방출 문단 참조) |
 | GET | `/admin/v1/ha/invariants` | `invariant_checks`의 `check_name`별 최신 행(`ok`·`violated_rows`·`checked_at`). 저장 행 조회이지 호출 시점 재검증이 아니다 |
@@ -1498,7 +1499,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 |---|---|---|
 | P0 | 순수 Java 단일스레드 매칭 코어 + command_journal(WAL) + Log-first + 재생 복구 | 로컬 장애 RPO=0(프로세스·전원 장애 범위, §7-6), 재생 결정론 `matched=true` |
 | P1 | 스냅샷 + 핫 스탠바이 재생 | RTO 단축 측정 |
-| P2 | Redisson 리더선출 + 전 쓰기 경로 fencing(`assert_current_leader`, epoch, §7-1) + Patroni 동기복제 | 구 리더 쓰기 0행(fencing 계약 하 split-brain 차단, 하네스 V3) |
+| P2 | 임차 리더선출(PostgreSQL 기본, DynamoDB 선택 - ADR 0017) + 전 쓰기 경로 fencing(`assert_current_leader`, epoch, §7-1) + Patroni 동기복제 | 구 리더 쓰기 0행(fencing 계약 하 split-brain 차단, 하네스 V3) |
 | P3 | 트랜잭셔널 아웃박스 + Kafka + 이중부기 + 불변식 배치 | 자산 보존 그래프 |
 | P4 | 봇 부하 + 백프레셔(유계 큐·토큰버킷) | 폭주 하 p99·거부율 |
 | P5 | (벤치 후 이득 확인 시) Disruptor 파이프라인 | 처리량 벤치, zero-alloc |
@@ -2107,6 +2108,6 @@ NULL 취급이 축마다 다르다. `rto_seconds`·`rpo_records`의 NULL은 `UNK
 
 - **파괴 액션 승인을 1인 승인으로 바꾼다(ADR 0019).** 승인 티켓 발급 주체와 사용 주체가 같아도 된다. 종전 반결탁 제약 셋을 전부 뗀다. DB CHECK `chk_approval_two_person`, `ApprovalService.issue` 의 발급 가드, `ApprovalService.consume` 의 소각 가드다. 마이그레이션은 `V34__single_operator_approval.sql` 이다.
 - **이 절이 앞선 서술을 갈아친다.** 이 문서에 남은 "2인 승인"·"2인 통제"·"반결탁" 서술은 전부 v2.43 까지의 판이고 v2.44 부터 효력이 없다. 해당 위치는 §3-6 approval_token 수명주기와 operator 신원 바인딩, §3-7 브라우저 관리 콘솔 세션, §6-A 엔드포인트 표, R3·S2 위험 표다. 규칙을 진술하는 두 자리(수명주기 첫 문장, 엔드포인트 표 행)는 본문에서 직접 고쳤다.
-- **사유.** 정본 7.9 파괴 액션 표가 이미 "야간 1인 운영이면 동일 오퍼레이터로 거부된다" 를 적어 두었다. 곧 이 제약이 한 일은 결탁 차단이 아니라 1인 운영 시간대의 정지 명령 봉쇄다. 운영 인원이 1인이라 두 인증서를 한 사람이 번갈아 제시하는 것은 반결탁의 외형일 뿐이었다.
-- **남는 것.** 승인 티켓 별도 발급 단계, TTL 5분, 단회 소각, action·대상 바인딩, requester 바인딩, 역할 게이트, append-only 감사. 사라지는 것은 발급자와 사용자의 분리 한 겹뿐이고 그 대가는 정본 13.2 의 16 에 등재했다.
+- **사유.** 정본 8.2 가 이미 "실제로 한 일은 야간 단독 운영 시간대에 정지 명령을 봉쇄한 것" 이라고 적어 두었다. 곧 이 제약이 한 일은 결탁 차단이 아니라 1인 운영 시간대의 정지 명령 봉쇄다. 운영 인원이 1인이라 두 인증서를 한 사람이 번갈아 제시하는 것은 반결탁의 외형일 뿐이었다.
+- **남는 것.** 승인 티켓 별도 발급 단계, TTL 5분, 단회 소각, action·대상 바인딩, requester 바인딩, 역할 게이트, append-only 감사. 사라지는 것은 발급자와 사용자의 분리 한 겹뿐이고 그 대가는 정본 13.3 의 11 에 등재했다.
 - **2인 경로는 남는다.** 다른 운영자가 발급한 승인도 그대로 통한다. 운영 인원이 늘면 규칙을 되돌리지 않고 2인 운용이 가능하다. S2 위험 항목은 그래서 폐기가 아니라 무효다.

@@ -329,7 +329,7 @@ erDiagram
 
 ## 3. 전체 DDL
 
-정본 마이그레이션은 현재 `V0`~`V13` 14개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V14 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
+정본 마이그레이션은 현재 `V0`~`V34` 35개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V14 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
 
 | 버전 | 파일 | 내용 | 적용 전제 |
 |---|---|---|---|
@@ -338,7 +338,7 @@ erDiagram
 | V2 | `V2__gateway_counters.sql` | 게이트웨이 주문 id 사전 채번 카운터(§5.1 (e), API §4-B-1) | V1 |
 | V3 | `V3__observability_tables.sql` | 관측 테이블 `invariant_checks`·`recovery_runs` 도입 | V1 |
 | V4 | `V4__harness_schema.sql` | 하네스 전용 객체를 `harness` 스키마로 격리(계약 스키마 public 오염 차단) | V1 |
-| V5 | `V5__admin.sql` | 관리 평면(exchange-admin) 스키마: `api_keys.scope`에 `ADMIN` 추가·operator 바인딩, `admin_operators`·`operator_roles`·`admin_sessions`·`admin_approvals`·`system_config`·`notices`(severity CHECK `INFO|WARNING|CRITICAL`)(관리자 설계 v1.2 §1-5) | V1 |
+| V5 | `V5__admin.sql` | 관리 평면(exchange-admin) 스키마: `api_keys.scope`에 `ADMIN` 추가·operator 바인딩, `admin_operators`·`operator_roles`·`admin_sessions`·`admin_approvals`·`system_config`·`notices`(severity CHECK `INFO|WARNING|CRITICAL`)(관리자 설계 v1.2 §1-5). 초판의 `chk_approval_two_person`(2인 승인)은 V34가 제거했다(ADR 0019) | V1 |
 | V6 | `V6__members.sql` | 회원 인증·세션·프로필: `user_credentials`·`user_profiles`·`auth_sessions`·`user_provisioning`(회원_설계.md §2, §3.3). 기존 `users`·`api_keys`·`accounts` 무변경 | V1 |
 | V7 | `V7__community_board.sql` | M3 종목 토론 게시판 7개 테이블(§9). `app_role`에 게시판 SELECT·INSERT·UPDATE + 좋아요 2테이블 DELETE | V1 |
 | V8 | `V8__trades_order_index_and_partitions.sql` | `trades` order_id 축 조회 인덱스, 시간 파티션 12개월 수동 선생성(§3.1·§3.2). 적재 DB 증분 적용 대응(v2.16): DEFAULT에 신규 범위 행이 있으면 파티션 생성이 중단되므로 DETACH → 월 파티션 생성 → 행 재배치 → 재ATTACH로 수행. 재배치 구간은 `DISABLE TRIGGER USER`로 사용자 트리거(레지스트리·봉인 가드)를 우회하고 같은 트랜잭션에서 ENABLE 원복(owner 권한 충분, superuser 불요). 상단 `SET LOCAL statement_timeout/lock_timeout = 0`으로 풀 상속 타임아웃 해제, `SET LOCAL timezone='UTC'` + 명시 오프셋 리터럴로 세션 TZ 독립 | V1 |
@@ -347,7 +347,28 @@ erDiagram
 | V11 | `V11__sim_run_ordinal.sql` | 봇 플릿 run ordinal 채번 시퀀스 `sim_run_ordinal`. 플릿 기동마다 `nextval` 1건으로 `client_order_id` nonce 접두의 JVM 경계 유일성을 보장한다. 종전 인메모리 카운터는 프로세스 재기동마다 0으로 리셋돼 DB 보존 재기동 시 직전 run의 coid 열을 재생성했고, `idempotency_keys` 재충돌로 409 `duplicate_client_order_id`가 폭주했다. 봇 클라이언트측 채번이라 엔진 임계경로·`journal_counters`와 분리 | V0, V1 |
 | V12 | `V12__outbox_2026_08_partition.sql` | `outbox` 2026-08 월 파티션 신설. V1이 2026-07까지(상한 2026-08-01), V8이 2026-09부터 만들어 2026-08 한 달이 정규 파티션 없이 남아 있었다(`trades`·`ledger_entries`는 V1이 2026-08까지 만들어 정상). 2026-08 진입과 함께 신규 `outbox` 행이 전부 `outbox_default`로 유입돼 `C15_DEFAULT_PARTITION`이 상시 위반됐다. 절차는 V8과 동일(DETACH → 생성 → 재배치 → 재ATTACH). `outbox`는 사용자 트리거가 없어 트리거 우회 불요, `id`가 IDENTITY라 `OVERRIDING SYSTEM VALUE` 필요. `to_regclass` 가드로 재실행 안전, 이동·삭제 행 수 대칭과 전후 총행 수 일치를 블록 안에서 검증(불일치 시 `RAISE EXCEPTION`) | V1, V8 |
 | V13 | `V13__position_cost.sql` | 원가 추적 프로젝션 `position_cost`(PK `(user_id, asset_id)`). 평단가를 저장하지 않고 누산기 쌍(`cost_qty`·`cost_amount`)만 적재해 매수 경로를 덧셈으로만 구성한다(반올림 누적 0). 원가 미상 취득(GENESIS·입금)은 `unknown_qty`로 분리해 원가 0과 구분한다. `apply_position_cost(txn_id)`가 `post_ledger_transaction` 말미에서 1회 호출되며(같은 함수를 `CREATE OR REPLACE`로 재정의), 사용자별 자산 **순델타**만 보므로 RESERVE·RELEASE는 합 0으로 자동 무시되고 매수 수수료는 실수취 base·실지출 quote에 이미 반영돼 별도 항이 없다. `rebuild_position_cost()`가 **같은 함수**를 `ledger_transactions.id` 오름차순으로 재호출해 산식이 한 벌이다. 계층 ③ 파생 프로젝션이라 엔진 state hash·`event_journal` payload 무접촉(재생 결정론 무영향). 함수는 no-RAISE 계약(입력 계열 22·23만 흡수, 잠금·취소·데드락은 상위 전파). 검증 뷰 `position_cost_qty_check`(C24)·`position_cost_sanity_check`(C25). 마이그레이션 안에서 `rebuild_position_cost(NULL)` 1패스 백필 | V1 |
-| V14+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V14 | `V14__transfer_requests.sql` | 입출금 요청 `transfer_requests`. 관리자 승인 경로가 이 표를 원천으로 쓴다 |
+| V15 | `V15__support_inquiries.sql` | 고객 문의 `support_inquiries` |
+| V16 | `V16__transfer_user_keyset_index.sql` | 입출금 사용자 축 keyset 인덱스 |
+| V17 | `V17__support_user_keyset_index.sql` | 문의 사용자 축 keyset 인덱스 |
+| V18 | `V18__notice_keyset_index.sql` | 공지 keyset 인덱스 |
+| V19 | `V19__cursor_keyset_indexes.sql` | 커서 페이지네이션 인덱스 묶음 |
+| V20 | `V20__members_admin_keyset_index.sql` | 관리 평면 회원 목록 keyset 인덱스 |
+| V21 | `V21__chaos_commands.sql` | 카오스 명령 큐 `chaos_commands`. 관리 평면이 넣고 하네스가 소비한다 |
+| V22 | `V22__sim_commands.sql` | 봇 플릿 명령 큐 `sim_commands` |
+| V23 | `V23__sim_commands_grant.sql` | `app_role` 에 `sim_commands` 권한 부여 |
+| V24 | `V24__recovery_runs_comment.sql` | `recovery_runs` 열 주석. 판정 술어의 뜻을 스키마에 남긴다 |
+| V25 | `V25__recovery_runs_comment_rest.sql` | 같은 표의 나머지 열 주석 |
+| V26 | `V26__ledger_balance_check_once_per_txn.sql` | 원장 잔액 검사를 트랜잭션당 1회로. 행마다 걸면 대량 정산에서 검사가 지배한다 |
+| V27 | `V27__ledger_post_from_input.sql` | 원장 기입을 입력에서 유도. 정산 경로의 왕복을 줄인다 |
+| V28 | `V28__sim_fleet_state.sql` | 봇 플릿 상태 `sim_fleet_state`. 기동 간 상태를 잇는다 |
+| V29 | `V29__sim_fleet_state_target_ops_width.sql` | 같은 표의 목표 OPS 열 폭 확장 |
+| V30 | `V30__assert_and_lock_leader.sql` | `assert_and_lock_leader`. 세대 번호 검증과 행 잠금을 한 호출로 묶는다 |
+| V31 | `V31__order_id_sequence.sql` | 주문 식별자 시퀀스. 단일 라이터 전제에서 채번을 DB 로 옮긴다 |
+| V32 | `V32__capacity_plan.sql` | 용량 계획 `capacity_plan`. 수동 스케일링 판정이 이 표를 읽는다 |
+| V33 | `V33__publish_leader_epoch.sql` | `publish_leader_epoch`. 리더 임차를 DynamoDB 로 옮긴 뒤 승격 때만 세대 번호를 게시한다(ADR 0017) |
+| V34 | `V34__single_operator_approval.sql` | `chk_approval_two_person` 제약 제거. 파괴 액션 승인을 1인 승인으로 바꾼다(ADR 0019) |
+| V35+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7), 봇·효과 config 확장 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -1738,7 +1759,7 @@ select extname from pg_extension;
 - 갈래 A의 `DETACH`·`DROP` 실행 주체가 없다. 마이그레이션에도 스케줄러에도 없다.
 - 갈래 B의 파기 수단이 결정되지 않았다.
 - 갈래 C 전량에 정책이 없다.
-- 디스크 사용률 알람은 있다. 기획안 원본 7.3이 임계 85%와 조치 "저널 파티션 정리"를 규정한다. **그러나 그 조치가 실행 불가능하다.** 저널은 시퀀스 파티션이고 첫 경계까지 161일이므로, 알람이 울린 시점에 정리할 파티션이 존재하지 않는다. 처방이 있는데 집행할 수 없는 상태다.
+- 디스크 사용률 알람이 없다. `harness/prometheus/rules/exchange-alerts.yml` 에 디스크 규칙이 0건이다(2026-09-09 실측). 폐기된 기획안 초판 7.3이 임계 85%와 조치 "저널 파티션 정리"를 규정했으나 배선된 적이 없고, 2026-09-09 정본 재작성 때 그 규정을 승계하지 않았다. 설령 배선해도 처방이 집행 불가능하다. 저널은 시퀀스 파티션이고 첫 경계까지 161일이라 알람이 울린 시점에 정리할 파티션이 존재하지 않는다.
 
 `V14+` 로드맵(§3 도입부 표)이 파티션 자동화를 pg_partman·pg_cron으로 잡고 있으나, 그 표는 **생성** 자동화이고 파기를 포함하지 않는다. 이 절의 대상은 그 표의 범위 밖이다.
 
@@ -3067,7 +3088,7 @@ v2.19 readiness 감시가 종료 경로에서 만드는 오보 1건을 §5.4에 
 
 | # | 심각도 | 위치 | 내용 |
 |---|---|---|---|
-| 1 | high | §3 도입부·마이그레이션 표 | "현재 `V0`~`V12` 13개 파일, V13 이후는 로드맵" 선언이 살아 있어, 다른 역할이 문서만 보고 V13을 다시 집으면 Flyway 중복 버전으로 부팅이 막힌다(`V11__` 중복 사고 재현). `V0`~`V13` 14개로 정정하고 V13 행을 신설, 로드맵 행을 V14+로 이동 |
+| 1 | high | §3 도입부·마이그레이션 표 | "현재 `V0`~`V12` 13개 파일, V13 이후는 로드맵" 선언이 살아 있어, 다른 역할이 문서만 보고 V13을 다시 집으면 Flyway 중복 버전으로 부팅이 막힌다(`V11__` 중복 사고 재현). `V0`~`V34` 35개로 정정하고 V13 행을 신설, 로드맵 행을 V14+로 이동 |
 | 2 | medium | §6.4 | 원가 프로젝션 검증 C24(수량 보존)·C25(누산기 정합)를 등재. 번호는 §6.4가 이미 ⑧~⑩을 쓰고 있어 하네스 카탈로그 축으로 배정 |
 | 3 | medium | §6.4 | 재구축·백필의 실행 조건을 명문화. `apply_position_cost`가 잠금·취소·데드락을 상위로 올리므로 정산 가동 중 재구축은 라이브 게시를 롤백시켜 엔진을 fail-fast시킨다. 정산 정지 창 전제와 운영 규모의 백필 분리 지침을 함께 기록 |
 | 4 | low | 헤더 | `audit_log` 로드맵 표기를 V13+에서 V14+로 정정 |
@@ -3231,7 +3252,7 @@ V23을 따로 두는 이유. V22가 이미 적용된 DB가 있어 그 파일을 
 
 보존 정책을 신설한다(§3.2-a). 스키마·DDL·함수는 무변경이고 규약만 더한다. §3.2가 파티션 **선생성**을 규정하는데 **파기**가 이 문서에 없었고, `백엔드_API_설계.md` §2-4가 보존 규정의 소재지로 이 문서를 지목하는데 받는 규정이 없었다.
 
-**초판 작성 시 "정본에 보존 정책이 없다"로 판정했다가 적대적 검증에서 세 건이 뒤집혔다.** 저널 보존은 API 2-4에 영구 유지로 규정돼 있었고, 디스크 사용률 알람은 기획안 7.3에 임계 85%로 있었으며, `idempotency_keys` 7일은 API 2-4와 ADR 0005가 이미 확정한 값이었다. 부재 판정을 단일 문서 grep으로 세운 것이 방법상 구멍이었다. 아래 표는 정정 후 확정본이다.
+**초판 작성 시 "정본에 보존 정책이 없다"로 판정했다가 적대적 검증에서 세 건이 뒤집혔다.** 저널 보존은 API 2-4에 영구 유지로 규정돼 있었고, 디스크 사용률 알람은 폐기된 기획안 초판 7.3에 임계 85%로 규정돼 있었으며(배선은 없었다), `idempotency_keys` 7일은 API 2-4와 ADR 0005가 이미 확정한 값이었다. 부재 판정을 단일 문서 grep으로 세운 것이 방법상 구멍이었다. 아래 표는 정정 후 확정본이다.
 
 | # | 심각도 | 대상 | 내용 |
 |---|---|---|---|
@@ -3246,7 +3267,7 @@ V23을 따로 두는 이유. V22가 이미 적용된 DB가 있어 그 파일을 
 
 **끊어진 상호 참조를 §3.2-a-6에 등재한다.** API 2-4가 규정한 셋 중 둘이 이 문서에서 받는 곳이 없다. `orders` 90일 콜드 파티션 이관은 `orders`에 파티션이 없어 대상이 스키마에 존재하지 않고, `idempotency_keys` 7일은 "DB 설계의 보존 규정에 따라"라고 이 문서를 지목하는데 그 규정이 없었다.
 
-**미배선을 §3.2-a-7에 명시한다.** 이 절은 규약이고 실행 주체는 아직 없다. 갈래 A의 `DETACH`·`DROP` 주체, 갈래 B의 충돌 해소, 갈래 C 전량의 정책, `pg_cron` 설치가 전부 미구현이다. 디스크 사용률 알람은 기획안 7.3에 임계 85%로 존재하나 처방된 조치 "저널 파티션 정리"가 실행 불가능하다. `V14+` 로드맵의 파티션 자동화는 **생성** 자동화라 이 절의 대상을 포함하지 않는다.
+**미배선을 §3.2-a-7에 명시한다.** 이 절은 규약이고 실행 주체는 아직 없다. 갈래 A의 `DETACH`·`DROP` 주체, 갈래 B의 충돌 해소, 갈래 C 전량의 정책, `pg_cron` 설치가 전부 미구현이다. 디스크 사용률 알람은 폐기된 기획안 초판 7.3의 규정이고 규칙 파일에 실물이 0건이며, 처방된 조치 "저널 파티션 정리"도 실행 불가능하다. `V14+` 로드맵의 파티션 자동화는 **생성** 자동화라 이 절의 대상을 포함하지 않는다.
 
 **적대적 검증이 초판의 오류를 추가로 둘 더 잡았다.** 하나는 22절 위반이다. 측정 창 25.06시간 안에 약 16시간 유휴가 있어 4.4 GB/일이 창 전체를 나눈 값이 아니라 연속 가동 환산값인데 그 전제가 표에 없었다. 다른 하나는 갈래 B 결정 항목이다. 초판이 시퀀스 범위 `DELETE`를 선택지로 제시했으나 `trg_cj_noupd`·`trg_ej_noupd`가 `BEFORE DELETE`를 막고 1-1 SoT 계층 (1)이 계약으로 금지한다. 선택지가 아니라 계약 위반이므로 결정 항목에서 뺐다.
 
