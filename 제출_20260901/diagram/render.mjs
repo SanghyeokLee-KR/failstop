@@ -24,6 +24,8 @@ const JOBS = [
   { name: 'incident_flow_slide', src: 'incident_flow_slide.svg', out: '장애대응_흐름_슬라이드용.png' },
   { name: 'layer_triage', src: 'layer_triage.svg', out: '계층판별_트리.png' },
   { name: 'layer_triage_slide', src: 'layer_triage_slide.svg', out: '계층판별_트리_슬라이드용.png' },
+  { name: 'chaos_topology', src: 'chaos_topology.svg', out: '검증면_도커구성.png' },
+  { name: 'chaos_topology_slide', src: 'chaos_topology_slide.svg', out: '검증면_도커구성_슬라이드용.png' },
 ]
 
 /** viewBox 에서 폭과 높이를 읽는다. 없으면 width/height 속성으로 물러선다. */
