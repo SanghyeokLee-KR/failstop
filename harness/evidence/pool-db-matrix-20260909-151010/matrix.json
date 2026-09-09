@@ -1,0 +1,284 @@
+{
+  "ops": 40,
+  "warmup_sec": 70,
+  "window_sec": 120,
+  "pg_mem": "2g",
+  "cells": [
+    {
+      "cell": "A",
+      "pool": 16,
+      "write_slots": 6,
+      "pg_cpus": "1.0",
+      "samples": 18,
+      "summary": {
+        "chaos-pg_cpu": {
+          "n": 18,
+          "avg": 70.982,
+          "p50": 69.71,
+          "max": 91.32
+        },
+        "chaos-api-1_cpu": {
+          "n": 18,
+          "avg": 44.246,
+          "p50": 37.87,
+          "max": 99.47
+        },
+        "chaos-api-2_cpu": {
+          "n": 18,
+          "avg": 2.329,
+          "p50": 1.48,
+          "max": 7.32
+        },
+        "trades_per_sec": {
+          "n": 18,
+          "avg": 29.021,
+          "p50": 29.089,
+          "max": 30.744
+        },
+        "p95_ms": {
+          "n": 18,
+          "avg": 0.206,
+          "p50": 0.19,
+          "max": 0.278
+        },
+        "p99_ms": {
+          "n": 18,
+          "avg": 0.285,
+          "p50": 0.248,
+          "max": 0.425
+        },
+        "rejected_per_sec": {
+          "n": 18,
+          "avg": 0.163,
+          "p50": 0.172,
+          "max": 0.293
+        },
+        "admission_rejected_per_sec": {
+          "n": 18,
+          "avg": 21.783,
+          "p50": 20.433,
+          "max": 30.669
+        },
+        "pool_active": {
+          "n": 18,
+          "avg": 1.556,
+          "p50": 2.0,
+          "max": 3.0
+        },
+        "pool_pending": {
+          "n": 18,
+          "avg": 0.0,
+          "p50": 0.0,
+          "max": 0.0
+        }
+      }
+    },
+    {
+      "cell": "B",
+      "pool": 16,
+      "write_slots": 6,
+      "pg_cpus": "4.0",
+      "samples": 17,
+      "summary": {
+        "chaos-pg_cpu": {
+          "n": 17,
+          "avg": 76.953,
+          "p50": 72.82,
+          "max": 112.61
+        },
+        "chaos-api-1_cpu": {
+          "n": 17,
+          "avg": 40.25,
+          "p50": 36.94,
+          "max": 74.33
+        },
+        "chaos-api-2_cpu": {
+          "n": 17,
+          "avg": 5.351,
+          "p50": 1.76,
+          "max": 30.2
+        },
+        "trades_per_sec": {
+          "n": 17,
+          "avg": 28.298,
+          "p50": 28.295,
+          "max": 30.434
+        },
+        "p95_ms": {
+          "n": 17,
+          "avg": 0.216,
+          "p50": 0.207,
+          "max": 0.25
+        },
+        "p99_ms": {
+          "n": 17,
+          "avg": 0.266,
+          "p50": 0.27,
+          "max": 0.302
+        },
+        "rejected_per_sec": {
+          "n": 17,
+          "avg": 0.169,
+          "p50": 0.174,
+          "max": 0.224
+        },
+        "admission_rejected_per_sec": {
+          "n": 17,
+          "avg": 29.59,
+          "p50": 31.089,
+          "max": 39.484
+        },
+        "pool_active": {
+          "n": 17,
+          "avg": 1.706,
+          "p50": 2.0,
+          "max": 3.0
+        },
+        "pool_pending": {
+          "n": 17,
+          "avg": 0.0,
+          "p50": 0.0,
+          "max": 0.0
+        }
+      }
+    },
+    {
+      "cell": "C",
+      "pool": 48,
+      "write_slots": 19,
+      "pg_cpus": "1.0",
+      "samples": 18,
+      "summary": {
+        "chaos-pg_cpu": {
+          "n": 18,
+          "avg": 66.255,
+          "p50": 65.67,
+          "max": 77.93
+        },
+        "chaos-api-1_cpu": {
+          "n": 18,
+          "avg": 30.921,
+          "p50": 31.6,
+          "max": 40.16
+        },
+        "chaos-api-2_cpu": {
+          "n": 18,
+          "avg": 2.695,
+          "p50": 1.55,
+          "max": 14.47
+        },
+        "trades_per_sec": {
+          "n": 18,
+          "avg": 28.863,
+          "p50": 29.621,
+          "max": 30.45
+        },
+        "p95_ms": {
+          "n": 18,
+          "avg": 0.313,
+          "p50": 0.32,
+          "max": 0.341
+        },
+        "p99_ms": {
+          "n": 18,
+          "avg": 0.41,
+          "p50": 0.387,
+          "max": 0.926
+        },
+        "rejected_per_sec": {
+          "n": 18,
+          "avg": 0.08,
+          "p50": 0.086,
+          "max": 0.103
+        },
+        "admission_rejected_per_sec": {
+          "n": 18,
+          "avg": 0.0,
+          "p50": 0.0,
+          "max": 0.0
+        },
+        "pool_active": {
+          "n": 18,
+          "avg": 1.389,
+          "p50": 1.0,
+          "max": 2.0
+        },
+        "pool_pending": {
+          "n": 18,
+          "avg": 0.0,
+          "p50": 0.0,
+          "max": 0.0
+        }
+      }
+    },
+    {
+      "cell": "D",
+      "pool": 48,
+      "write_slots": 19,
+      "pg_cpus": "4.0",
+      "samples": 17,
+      "summary": {
+        "chaos-pg_cpu": {
+          "n": 17,
+          "avg": 71.238,
+          "p50": 67.34,
+          "max": 115.55
+        },
+        "chaos-api-1_cpu": {
+          "n": 17,
+          "avg": 31.469,
+          "p50": 31.48,
+          "max": 42.13
+        },
+        "chaos-api-2_cpu": {
+          "n": 17,
+          "avg": 2.688,
+          "p50": 1.47,
+          "max": 7.12
+        },
+        "trades_per_sec": {
+          "n": 17,
+          "avg": 29.574,
+          "p50": 30.002,
+          "max": 31.14
+        },
+        "p95_ms": {
+          "n": 17,
+          "avg": 0.267,
+          "p50": 0.261,
+          "max": 0.291
+        },
+        "p99_ms": {
+          "n": 17,
+          "avg": 0.341,
+          "p50": 0.341,
+          "max": 0.348
+        },
+        "rejected_per_sec": {
+          "n": 17,
+          "avg": 0.16,
+          "p50": 0.138,
+          "max": 0.241
+        },
+        "admission_rejected_per_sec": {
+          "n": 17,
+          "avg": 0.0,
+          "p50": 0.0,
+          "max": 0.0
+        },
+        "pool_active": {
+          "n": 17,
+          "avg": 1.765,
+          "p50": 1.0,
+          "max": 5.0
+        },
+        "pool_pending": {
+          "n": 17,
+          "avg": 0.0,
+          "p50": 0.0,
+          "max": 0.0
+        }
+      }
+    }
+  ]
+}

@@ -154,11 +154,25 @@ def summarize(rows, keys):
     return out
 
 
+def activate_scenario(name):
+    """관리 평면으로 프리셋을 건다. mTLS 라 load_ceiling 의 클라이언트를 재사용한다."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from load_ceiling import admin_call
+        return admin_call("POST", "/admin/v1/sim/scenarios/%s/activate" % name)[0]
+    except Exception as e:
+        return "실패 %s" % type(e).__name__
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--ops', type=int, default=40, help='봇 목표 OPS. 천장을 때리지 않는 값')
     ap.add_argument('--warmup', type=int, default=60)
     ap.add_argument('--window', type=int, default=120)
+    ap.add_argument('--scenario', default=None,
+                    help='칸마다 활성화할 시나리오 프리셋. thundering-herd, spike, ramp. '
+                         '없으면 프리셋 없이 목표 OPS 만 건다. 2026-09-09 실측에서 프리셋 '
+                         '없이는 봇 수요가 상한이라 목표를 올려도 실효 부하가 안 올랐다')
     ap.add_argument('--pg-mem', default='2g')
     ap.add_argument('--out', default=None)
     ap.add_argument('--cells', default=None,
@@ -206,6 +220,11 @@ def main():
             continue
         print('  워밍업 %ds' % a.warmup, flush=True)
         time.sleep(a.warmup)
+        # 프리셋은 워밍업 뒤에 건다. 기동 직후에 걸면 봇이 아직 다 뜨지 않아 배수가 일부에만 적용된다.
+        if a.scenario:
+            code2 = activate_scenario(a.scenario)
+            print('  시나리오 %s 활성 %s' % (a.scenario, code2), flush=True)
+            time.sleep(45)   # 프리셋이 큐를 지나 봇에 닿고 rate 창이 채워질 시간
         print('  표집 %ds' % a.window, flush=True)
         rows = sample_window(a.window)
         (out_dir / ('cell-%s.jsonl' % name)).write_text(
