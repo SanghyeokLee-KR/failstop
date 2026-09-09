@@ -67,7 +67,9 @@ def admin_call(method, path, body=None):
 #
 # 절대량과 포화도를 함께 낸다. 절대량만 보면 "많다"만 알고 "꽉 찼다"를 모른다.
 AXES = {
-    '주문 처리/s': 'sum(rate(exchange_order_latency_seconds_count[1m]))',
+    '접수/s': 'sum(rate(http_server_requests_seconds_count{uri="/api/v1/orders",method="POST",status="201"}[1m]))',
+    '취소/s': 'sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/orders.*",method="DELETE"}[1m]))',
+    '체결확정/s': 'sum(rate(exchange_order_latency_seconds_count[1m]))',
     '체결 rate1m': 'max(exchange:trades_per_second:rate1m)',
     '체결/s': 'sum(rate(exchange_trades_total[1m]))',
     '거절/s': 'sum(rate(exchange_admission_rejected_total[1m]))',

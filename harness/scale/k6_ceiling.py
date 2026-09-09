@@ -58,7 +58,9 @@ def duration_fill(duration):
 def measure():
     """서버가 본 값을 쓴다. k6 가 본 값은 클라이언트 쪽이라 거절도 성공으로 셀 수 있다."""
     return {
-        '접수/s': q('sum(rate(exchange_order_latency_seconds_count[1m]))'),
+        '접수/s': q('sum(rate(http_server_requests_seconds_count{uri="/api/v1/orders",method="POST",status="201"}[1m]))'),
+        '취소/s': q('sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/orders.*",method="DELETE"}[1m]))'),
+        '체결확정/s': q('sum(rate(exchange_order_latency_seconds_count[1m]))'),
         '체결/s': q('max(exchange:trades_per_second:rate1m)'),
         '수용거절/s': q('sum(rate(exchange_admission_rejected_total[1m]))'),
         '주문거절/s': q('sum(rate(exchange_orders_rejected_total[1m]))'),

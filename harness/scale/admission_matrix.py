@@ -87,7 +87,9 @@ def wait_ready(timeout=180):
 
 def measure():
     return {
-        '접수/s': q('sum(rate(exchange_order_latency_seconds_count[1m]))'),
+        '접수/s': q('sum(rate(http_server_requests_seconds_count{uri="/api/v1/orders",method="POST",status="201"}[1m]))'),
+        '취소/s': q('sum(rate(http_server_requests_seconds_count{uri=~"/api/v1/orders.*",method="DELETE"}[1m]))'),
+        '체결확정/s': q('sum(rate(exchange_order_latency_seconds_count[1m]))'),
         '체결/s': q('max(exchange:trades_per_second:rate1m)'),
         '수용거절/s': q('sum(rate(exchange_admission_rejected_total[1m]))'),
         'p95(ms)': (lambda v: v * 1000 if v else v)(q('max(exchange:order_latency:p95_1m)')),
