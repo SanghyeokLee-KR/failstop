@@ -329,7 +329,7 @@ erDiagram
 
 ## 3. 전체 DDL
 
-정본 마이그레이션은 현재 `V0`~`V34` 35개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V35 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
+정본 마이그레이션은 현재 `V0`~`V35` 36개 파일이며(경로: `server/app/src/main/resources/db/migration/`), **외부 확장(pg_partman/pg_cron) 의존 없이 빈 PostgreSQL 17에 단독 적용 가능**하다(Testcontainers `postgres:17` 통합테스트 통과로 실증). V35 이후는 로드맵이다. 문서와 SQL이 다르면 SQL 정본을 따른다.
 
 | 버전 | 파일 | 내용 | 적용 전제 |
 |---|---|---|---|
@@ -368,7 +368,8 @@ erDiagram
 | V32 | `V32__capacity_plan.sql` | 용량 계획 `capacity_plan`. 수동 스케일링 판정이 이 표를 읽는다 | V0(`app_role` GRANT) |
 | V33 | `V33__publish_leader_epoch.sql` | `publish_leader_epoch`. 리더 임차를 DynamoDB 로 옮긴 뒤 승격 때만 세대 번호를 게시한다(ADR 0017) | V1(`leader_lease`) |
 | V34 | `V34__single_operator_approval.sql` | `chk_approval_two_person` 제약 제거. 파괴 액션 승인을 1인 승인으로 바꾼다(ADR 0019). 바꾼 뒤의 판정 축은 정본 8.2가 남긴 방어 일곱이다: 승인 티켓 별도 발급 단계, 티켓 수명 5분, 단회 소각, 액션과 대상 바인딩, 요청자 바인딩, 역할 통제, 추가만 가능한 감사 기록. 사라진 한 겹은 발급자와 사용자의 분리이고, 그 대가는 정본 13.3 한계 11이 등재한다 | V5(`admin_approvals` 생성) |
-| V35+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V35 | `V35__orders_locked_account_index.sql` | `orders.locked_account_id` 부분 인덱스. C14 불변식이 orders 를 순차 스캔하던 것을 인덱스로 바꾼다. 열린 상태 셋만 담는다 | V1 |
+| V36+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
