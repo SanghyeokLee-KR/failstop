@@ -138,7 +138,7 @@
       },
       "targets": [
         {
-          "expr": "max by(name)(container_cpu_percent{name=~\"ex-.*\"})",
+          "expr": "max by(name)(container_cpu_percent{name=~\"chaos-.*\"})",
           "legendFormat": "{{name}}",
           "refId": "A",
           "datasource": {
@@ -203,7 +203,7 @@
       },
       "targets": [
         {
-          "expr": "max by(name)(container_mem_bytes{name=~\"ex-.*\"})/clamp_min(max by(name)(container_mem_limit_bytes{name=~\"ex-.*\"}),1)*100",
+          "expr": "max by(name)(container_mem_bytes{name=~\"chaos-.*\"})/clamp_min(max by(name)(container_mem_limit_bytes{name=~\"chaos-.*\"}),1)*100",
           "legendFormat": "{{name}}",
           "refId": "A",
           "datasource": {
@@ -280,7 +280,7 @@
       },
       "targets": [
         {
-          "expr": "max by(name)(rate(container_net_rx_bytes{name=~\"ex-.*\"}[1m]))",
+          "expr": "max by(name)(rate(container_net_rx_bytes{name=~\"chaos-.*\"}[1m]))",
           "legendFormat": "{{name}} 수신",
           "refId": "A",
           "datasource": {
@@ -289,7 +289,7 @@
           }
         },
         {
-          "expr": "max by(name)(rate(container_net_tx_bytes{name=~\"ex-.*\"}[1m]))",
+          "expr": "max by(name)(rate(container_net_tx_bytes{name=~\"chaos-.*\"}[1m]))",
           "legendFormat": "{{name}} 송신",
           "refId": "B",
           "datasource": {
@@ -354,7 +354,7 @@
       },
       "targets": [
         {
-          "expr": "max by(name)(container_pids{name=~\"ex-.*\"})",
+          "expr": "max by(name)(container_pids{name=~\"chaos-.*\"})",
           "legendFormat": "{{name}}",
           "refId": "A",
           "datasource": {

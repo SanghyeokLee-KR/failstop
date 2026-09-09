@@ -207,7 +207,7 @@
       },
       "targets": [
         {
-          "expr": "max(container_cpu_percent{name=\"ex-pg\"})",
+          "expr": "max(container_cpu_percent{name=\"chaos-pg\"})",
           "instant": false,
           "refId": "A",
           "datasource": {
@@ -274,7 +274,7 @@
       },
       "targets": [
         {
-          "expr": "max(container_mem_bytes{name=\"ex-pg\"})/clamp_min(max(container_mem_limit_bytes{name=\"ex-pg\"}),1)*100",
+          "expr": "max(container_mem_bytes{name=\"chaos-pg\"})/clamp_min(max(container_mem_limit_bytes{name=\"chaos-pg\"}),1)*100",
           "instant": false,
           "refId": "A",
           "datasource": {

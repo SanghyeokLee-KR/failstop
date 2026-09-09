@@ -938,7 +938,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "container_cpu_percent{name=~\"ex-.*\"}",
+          "expr": "container_cpu_percent{name=~\"chaos-.*\"}",
           "legendFormat": "{{name}}",
           "range": true,
           "refId": "A"
@@ -1009,7 +1009,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "container_mem_bytes{name=~\"ex-.*\"}",
+          "expr": "container_mem_bytes{name=~\"chaos-.*\"}",
           "legendFormat": "{{name}} 사용",
           "range": true,
           "refId": "A"
@@ -1020,7 +1020,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "container_mem_limit_bytes{name=~\"ex-.*\"}",
+          "expr": "container_mem_limit_bytes{name=~\"chaos-.*\"}",
           "legendFormat": "{{name}} 상한",
           "range": true,
           "refId": "B"
@@ -1091,7 +1091,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "rate(container_net_rx_bytes{name=~\"ex-.*\"}[1m])",
+          "expr": "rate(container_net_rx_bytes{name=~\"chaos-.*\"}[1m])",
           "legendFormat": "{{name}} 수신",
           "range": true,
           "refId": "A"
@@ -1102,7 +1102,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "rate(container_net_tx_bytes{name=~\"ex-.*\"}[1m])",
+          "expr": "rate(container_net_tx_bytes{name=~\"chaos-.*\"}[1m])",
           "legendFormat": "{{name}} 송신",
           "range": true,
           "refId": "B"
@@ -1173,7 +1173,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "container_pids{name=~\"ex-.*\"}",
+          "expr": "container_pids{name=~\"chaos-.*\"}",
           "legendFormat": "{{name}}",
           "range": true,
           "refId": "A"

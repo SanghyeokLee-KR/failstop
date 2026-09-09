@@ -583,7 +583,7 @@
       },
       "targets": [
         {
-          "expr": "max(container_cpu_percent{name=~\"ex-app.*\"})",
+          "expr": "max(container_cpu_percent{name=~\"chaos-api-.*\"})",
           "instant": false,
           "refId": "A",
           "datasource": {
@@ -656,7 +656,7 @@
       },
       "targets": [
         {
-          "expr": "max(container_mem_bytes{name=~\"ex-app.*\"})/clamp_min(max(container_mem_limit_bytes{name=~\"ex-app.*\"}),1)*100",
+          "expr": "max(container_mem_bytes{name=~\"chaos-api-.*\"})/clamp_min(max(container_mem_limit_bytes{name=~\"chaos-api-.*\"}),1)*100",
           "instant": false,
           "refId": "A",
           "datasource": {
@@ -721,7 +721,7 @@
       },
       "targets": [
         {
-          "expr": "sum(max by(name)(rate(container_net_rx_bytes{name=~\"ex-.*\"}[1m])))+sum(max by(name)(rate(container_net_tx_bytes{name=~\"ex-.*\"}[1m])))",
+          "expr": "sum(max by(name)(rate(container_net_rx_bytes{name=~\"chaos-.*\"}[1m])))+sum(max by(name)(rate(container_net_tx_bytes{name=~\"chaos-.*\"}[1m])))",
           "instant": false,
           "refId": "A",
           "datasource": {
@@ -794,7 +794,7 @@
       },
       "targets": [
         {
-          "expr": "max(container_cpu_percent{name=\"ex-pg\"})",
+          "expr": "max(container_cpu_percent{name=\"chaos-pg\"})",
           "instant": false,
           "refId": "A",
           "datasource": {
