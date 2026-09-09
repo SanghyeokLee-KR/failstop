@@ -1,7 +1,7 @@
 # 복구 RTO 설계 (승격 재생 병목 해소)
 
 > 정본 계약: `docs/contracts/백엔드_DB_설계.md`(§5.4 리스·§5.5 복구·§6.3 스냅샷), `docs/contracts/하네스_검증설계.md`(§5-1 RTO 체인·§3 E4/E6·§4-1 C13), `docs/architecture/M4_하드닝설계.md`(§3-3(d) 승격 재생 병목·§1 심각도 카탈로그). 코드 정본은 `server/`. 컬럼·라인은 실제 파일 인용, 추측 금지.
-> 판정 원칙: SQL 위반 행 0, 메트릭 임계, 벽시계 RTO. 본 문서는 설계 확정이며 코드 구현은 관리자 워크플로 완료 후 별도로 한다.
+> 판정 원칙: SQL 위반 행 0, 메트릭 임계, 벽시계 RTO. 구현 상태(2026-09-09 저장소 확인): 3-a·3-b·3-c는 코드에 배선됐고 4-2 RTO 측정 계약 정정만 미착수다. 단계별 상태는 §6-1이 소유한다.
 > 스타일: 개조식 평서문. em dash·en dash·이모지·도구 서명 금지. 완료 전 `scripts/check-style.ps1`.
 
 ---
@@ -15,9 +15,9 @@
 - RPO=0: ACK 명령 전량 `command_journal` 존재(C16 0행).
 - 자산합 0: `ledger_entries` 자산별 합 0(C01 0행).
 - 불변식 위반 0: 이 회차에서 평가한 14종(C01·C02·C05·C06·C07·C07P·C08·C13A·C13B·C14·C16·C17·C18·C19)이 전건 green.
-  - 이 14종은 현 구현 카탈로그 전량이 아니다. `InvariantCheck.java` enum은 26종이고(C01·C02·C03·C05·C06·C07·C07P·C08·C09·C10·C11·C12·C13A·C13B·C14·C15·C16·C17·C18·C19·C20·C21·C22·C23·C24·C25), `harness/sql/invariants.sql`은 여기에 C04를 더해 27개 식별자를 쓴다. 카탈로그 수는 §5 미결 항목이 소유한다.
+  - 이 14종은 현 구현 카탈로그 전량이 아니다. `InvariantCheck.java` enum은 26종이고(C01·C02·C03·C05·C06·C07·C07P·C08·C09·C10·C11·C12·C13A·C13B·C14·C15·C16·C17·C18·C19·C20·C21·C22·C23·C24·C25), `harness/sql/invariants.sql`은 여기에 C04를 더해 27개 식별자를 쓴다. 카탈로그 총수는 §5 확정 항목이 소유한다. 세는 단위는 SQL 판정 블록이고 총수는 27개다.
 
-안전성 결함이 아니다. catch-up 경로는 멱등 스킵이고 원장은 무결하며 유실이 없다. 라이브니스·RTO 결함이다.
+안전성 결함이 아니었다. catch-up 경로는 멱등 스킵이고 원장은 무결하며 유실이 없다. 2026-08 시점의 라이브니스·RTO 결함이고, 현재 상태는 §1-2-a가 소유한다.
 
 ### 1-2. RTO 이중성(metric vs 실제 가시 체결)
 
@@ -33,8 +33,8 @@ metric RTO가 실측을 은폐한다. 근인은 T5의 `created_at`이 벽시계 
 
 #### 1-2-a. 결과: 2026-09-08 leader-failover 실측에서 해소
 
-- 상태: 해소. 위 FAIL은 2026-08 회차 판정이고 현재 상태가 아니다.
-- 실측: 두 노드 리더 kill 세 회차에서 승격 완료가 T0+11.3초·12.0초·13.1초이고, 새 리더 처리량 정상화(68.1 주문/s)가 T0+15초다. 출처 `harness/evidence/leader-failover-20260908/README.md` 결론 표(판정 A·D). 정본 `제출_20260901/기획안_원본.md` 10.5는 같은 증거를 근거로 리더 교체 시간을 9.6초에서 13.1초로 적는다.
+- 상태: 2GiB 노드 규격 조건부 해소. 위 FAIL은 2026-08 회차 판정이고 현재 상태가 아니다. 무조건 해소가 아니다. 1GiB 노드는 OPEN 주문 195,808건 조건에서 승격 재생을 끝내지 못했다(§2-1 남은 결함).
+- 실측: 두 노드 리더 kill 세 회차에서 승격 완료가 T0+11.3초·12.0초·13.1초이고, 새 리더 처리량 정상화(68.1 주문/s)가 T0+15초다. 출처 `harness/evidence/leader-failover-20260908/README.md` 결론 표(판정 A·D). 정본 `제출_20260901/기획안_원본.md` 10.5는 같은 증거를 근거로 리더 교체 시간을 9.6초에서 13.1초로 적는다. 같은 결과표의 네 번째 리더 kill 회차(1GiB, OPEN 19.6만, f4)는 실패로 남아 있다. 성공 세 회차는 그 조건 밖이다.
 - 해소 경로: 승격 gain 훅과 접수 개방 전 선복원이 배선됐다(§2-1). 대규모 delta가 정산 sink를 타지 않으므로 4~8분 정체가 재발하지 않는다.
 - 정본 정합: 정본 3.1이 리더 선출과 세대 번호 펜싱을 성립으로 등재하고 근거를 같은 증거 디렉터리로 단다. 정본 3.2 미성립 표에 RTO 초과 항목이 없다.
 - 측정 평면 한계: 위 실측은 전부 로컬 도커 2노드다. 배포 대상 인스턴스 실물 재측정은 0건이다(정본 3.3).
@@ -60,26 +60,26 @@ metric RTO가 실측을 은폐한다. 근인은 T5의 `created_at`이 벽시계 
 
 남은 결함: 승격 재생의 메모리 소요다. OPEN 주문 195,808건 상태에서 1GiB 노드가 승격 재생을 끝내지 못하고 GC 스파이럴에 빠졌고, 2GiB로 올리자 같은 조건에서 성립했다(`harness/evidence/leader-failover-20260908/README.md` 결론 절). 3-b 스냅샷이 tail 재생량을 상한하기 전에는 노드 규격이 이 경로의 제약이다.
 
-### 2-2. 스탠바이 엔진이 stale lastAppliedSeq로 열림
+### 2-2. 스탠바이 엔진이 stale lastAppliedSeq로 열림(2026-08 근인. 3-a 배선으로 닫힘)
 
-- `MatchingEngineImpl.lastAppliedSeq`는 마지막 apply한 명령 seq다(MatchingEngineImpl.java:18, :27, :32). 스탠바이는 리더가 아니라 큐에 명령이 공급되지 않으므로 부팅 후 이 값이 전진하지 않는다.
-- 부팅 시 저널이 작았다면 lastAppliedSeq는 0 또는 소수다. 스파이크 동안 리더가 27k 명령을 적재해도 스탠바이 엔진은 따라가지 않는다.
-- 승격 후 게이트웨이 접수가 열려 첫 신규 명령(seq 약 27k+)이 큐에 들어오면, `SingleWriterLoop.process`가 `command.seq() > last + 1`을 관측(SingleWriterLoop.java:136)하고 `catchUpTo(command.seq())`를 호출한다(:137).
+- `MatchingEngineImpl.lastAppliedSeq`는 마지막 apply한 명령 seq다(MatchingEngineImpl.java:19, :28, :33). 스탠바이는 리더가 아니라 큐에 명령이 공급되지 않으므로, 2026-08 시점에는 부팅 후 이 값이 전진하지 않았다.
+- 부팅 시 저널이 작았다면 lastAppliedSeq는 0 또는 소수였다. 스파이크 동안 리더가 27k 명령을 적재해도 스탠바이 엔진은 따라가지 않았다. 현재는 `FollowerCatchUp`(2026-09-08 배선)이 체크포인트 상한까지 팔로워 엔진을 계속 재생해 이 얼어붙음을 없앤다(`server/app/src/main/java/kr/exchange/engine/FollowerCatchUp.java`, 배선 EngineConfig.java:354~357). 상세는 §3-d다.
+- 승격 후 게이트웨이 접수가 열려 첫 신규 명령(seq 약 27k+)이 큐에 들어오면, `SingleWriterLoop.process`가 `command.seq() > last + 1`을 관측하고 `catchUpTo(command.seq())`를 호출했다(`server/engine/src/main/java/kr/exchange/engine/core/SingleWriterLoop.java:203`, :204). 현재는 접수 게이트가 rebuild 완료 전 유입을 막아 이 경로에 대규모 gap이 들어오지 않는다(§2-1·§3-a).
 
-### 2-3. catch-up의 sink가 인메모리 rebuild가 아니라 정산 경로
+### 2-3. catch-up의 sink가 인메모리 rebuild가 아니라 정산 경로(2026-08 근인)
 
-- `catchUpTo`는 `applyAndSink`로 각 명령을 처리한다(SingleWriterLoop.java:153, :145~160).
-- `applyAndSink`는 `engine.apply` 후 방출 이벤트를 `eventSink.accept`로 넘긴다(SingleWriterLoop.java:162~167).
-- 이 `eventSink`는 정산 경로다. `EngineConfig.java:110~111`에서 `events -> marketDataPublisher.publishSettled(settlementService.appendAndSettle(events))`로 배선됐다.
+- `catchUpTo`는 `applyAndSink`로 각 명령을 처리한다(SingleWriterLoop.java:212~227, 호출 지점 :221).
+- `applyAndSink`는 `engine.apply` 후 방출 이벤트를 `eventSink.accept`로 넘긴다(SingleWriterLoop.java:229~239, accept 호출 :232).
+- 이 `eventSink`는 정산 경로다. `EngineConfig.java:240~248` 람다가 `settlementService.appendAndSettle(events)`(:242) 결과를 `marketDataPublisher.publishSettled(settled)`(:247)로 잇는다.
 - `appendAndSettle`는 명령마다 원격 PG 왕복 트랜잭션 1개다(SettlementService.java:106~131). 트랜잭션 내부:
   - `assert_current_leader(holder, epoch)`(SettlementService.java:134~137)
   - `leader_lease FOR SHARE` epoch 확인(:139~147, `SELECT_EPOCH_SQL` :51~56)
   - `event_emission_registry` count로 멱등 판정(:149~157). 이미 적재분이면 `registered == events.size()`로 전량 스킵.
   - BEGIN·COMMIT(`tx.execute`, :120). PG는 주문당 fsync 구성(`docs/contracts/하네스_검증설계.md` §2-4).
 
-catch-up 배치가 27k건이면 27k개의 직렬 원격 트랜잭션이 toxiproxy 경유로 순차 커밋된다. 전부 멱등 스킵이라 상태를 바꾸지 않지만, 각 트랜잭션이 다중 왕복 + fsync 커밋이다. RTO = O(저널 크기) × 정산 왕복 지연. 이것이 4~8분의 정체다.
+catch-up 배치가 27k건이면 27k개의 직렬 원격 트랜잭션이 toxiproxy 경유로 순차 커밋된다. 전부 멱등 스킵이라 상태를 바꾸지 않지만, 각 트랜잭션이 다중 왕복 + fsync 커밋이다. RTO = O(저널 크기) × 정산 왕복 지연. 이것이 2026-08 회차 4~8분 정체의 근인이었다. 3-a 배선 이후 승격 delta는 이 경로를 타지 않는다(§2-1).
 
-대조군: `ReplayService.rebuild`는 같은 27k를 인메모리로만 처리한다. `engine.apply`(순수, ReplayService.java:64) + `event_journal` 배치 대조(:57, :148~168). 쓰기 트랜잭션 0, 커밋 0, 정산 0. 500행 배치 읽기라 왕복 수가 O(저널/500)이고 fsync가 없다. 크래시 창 pending만 정산한다(EngineRecovery.java:41~73). 즉 올바른 sink는 이미 존재하며, 승격 경로가 이 sink 대신 정산 sink를 타는 것이 결함이다.
+대조군: `ReplayService.rebuild`는 같은 27k를 인메모리로만 처리한다. `engine.apply`(순수, ReplayService.java:64) + `event_journal` 배치 대조(:57, :148~168). 쓰기 트랜잭션 0, 커밋 0, 정산 0. 500행 배치 읽기라 왕복 수가 O(저널/500)이고 fsync가 없다. 크래시 창 pending만 정산한다(EngineRecovery.java:41~73). 즉 올바른 sink는 이미 존재했고, 승격 경로가 이 sink 대신 정산 sink를 탄 것이 결함이었다. 3-a가 승격 재생을 `recover` 경로로 옮겨 닫았다.
 
 ### 2-4. metric RTO 은폐 메커니즘
 
@@ -92,9 +92,9 @@ catch-up 배치가 27k건이면 27k개의 직렬 원격 트랜잭션이 toxiprox
 
 ## 3. 수정 설계
 
-### 3-a. 승격 gain 훅 배선 + 접수 개방 전 인메모리 선복원
+### 3-a. 승격 gain 훅 배선 + 접수 개방 전 인메모리 선복원(배선 완료)
 
-핵심. 접수를 열기 전에 인메모리 rebuild로 엔진을 head까지 끌어올린다. 대규모 delta를 정산 sink로 태우지 않는다.
+핵심. 접수를 열기 전에 인메모리 rebuild로 엔진을 head까지 끌어올린다. 대규모 delta를 정산 sink로 태우지 않는다. 아래는 배선된 설계이고 실물 대응은 §2-1이 인용한다.
 
 #### 상태기계
 
@@ -104,9 +104,9 @@ PROMOTING --(fresh 엔진 rebuild 완료 + 크래시 창 재정산 완료)-->  A
 ACCEPTING --(fencing 거부·정산 실패·리스 상실)-->  DEMOTED(self-shutdown)
 ```
 
-- 감지·승격: `tryAcquire` 성공 시 gain 콜백 발화. `LeaderLeaseService`에 `onLeadershipGained(Consumer<LeaderIdentity>)` 리스너 목록을 추가하고 `tryAcquire`가 epoch 세팅 직후 발화한다(현 `markLost` 대칭). 승격 성공 경로는 부팅 `start()` 최초 획득과 런타임 tick 승격 둘 다다. 부팅 경로는 이미 `recover`가 도는 lifecycle이라 이중 실행을 막는 가드가 필요하다(아래).
-- rebuild: gain 콜백이 접수를 닫은 채 **fresh 엔진**을 만들어 `recover`(스냅샷 로드 + tail 재생 + 크래시 창 재정산)를 돌린다.
-- 접수 개방: rebuild 완료 후에만 접수 게이트를 연다.
+- 감지·승격: `tryAcquire` 성공 시 gain 콜백이 발화한다. `LeaderLeaseService`가 `onLeadershipGained(Consumer<LeaderIdentity>)` 리스너 목록을 보유하고(LeaderLeaseService.java:90, :194) epoch 세팅 직후 발화한다(:369). 승격 성공 경로는 부팅 `start()` 최초 획득과 런타임 tick 승격 둘 다다. 부팅 경로는 `recoverAtBoot`로 분리해 이중 실행을 막는다(EngineConfig.java:382).
+- rebuild: gain 콜백이 접수를 닫은 채 **fresh 엔진**을 만들어 `recover`(스냅샷 로드 + tail 재생 + 크래시 창 재정산)를 돌린다(`PromotionCoordinator.replayOnce`, PromotionCoordinator.java:294~313).
+- 접수 개방: rebuild 완료 후에만 접수 게이트를 연다(PromotionCoordinator.java:228 닫힘, :233 개방).
 
 #### fresh 엔진 필수(정합성 제약)
 
@@ -115,13 +115,13 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplaySer
 #### 루프로의 엔진 핸드오프
 
 - 승격 sequence는 fresh 엔진을 rebuild한 뒤 단일 라이터 루프가 이 엔진을 쓰도록 설치한다. 접수가 닫힌 PROMOTING 구간이라 동시 apply가 없어 스왑이 안전하다.
-- 구현 선택지(구현 워크플로에서 확정): (i) `SingleWriterLoop.engine`을 volatile로 두고 접수 닫힘 상태에서만 호출 가능한 `installEngine`을 추가, (ii) halt 후 fresh 엔진으로 루프 재시작. 정확성 우선이면 (i)가 큐·스레드 재생성을 피해 단순하다. 어느 쪽이든 "접수 닫힘 + 라이터 유휴" 불변을 문서화한다.
+- 구현 선택지 확정: (i)을 채택했다. `SingleWriterLoop.engine`이 volatile이고(SingleWriterLoop.java:49) 접수 닫힘 구간에서만 호출하는 `installEngine`이 있다(:92). 대안 (ii) halt 후 루프 재시작은 큐·스레드 재생성 비용 때문에 버렸다. "접수 닫힘 + 라이터 유휴" 불변은 이 절이 소유한다.
 
 #### 접수 게이트(readiness 연동)
 
-- 현재 접수는 `EngineBridge.submit`이 `loop.isRunning()`만 검사하고(EngineBridge.java:33) append는 `lease.requireLeader()`로 리더십만 본다(CommandJournalAppender.java:42). 승격 즉시 epoch가 세팅되므로 rebuild 완료 전에도 append·offer가 통과해 결함 경로가 재발한다.
-- 접수 개방 여부를 리더십과 분리한 명시 게이트로 둔다. `isLeader() == true`여도 `acceptingCommands == false`인 PROMOTING 구간을 만든다. `EngineBridge.submit`(과 append 진입점)이 이 게이트를 확인해 미개방 시 503(NotLeaderException 계열 재사용 또는 신규 NotReadyException)으로 거부한다. 봇·k6는 503을 재시도로 흡수한다(`SimConfig` 주석, 접수 보류 계약).
-- Spring readiness 상태와 연동한다. PROMOTING = `REFUSING_TRAFFIC`, ACCEPTING = `ACCEPTING_TRAFFIC`. 리더 인지 LB(`docs/architecture/M4_하드닝설계.md` §3-4)가 readiness DOWN 노드를 제외하므로 rebuild 중 외부 트래픽 유입을 원천 차단한다.
+- 종전 접수는 `EngineBridge.submit`이 `loop.isRunning()`만 검사했고 append는 `lease.requireLeader()`로 리더십만 봤다. 승격 즉시 epoch가 세팅되므로 rebuild 완료 전에도 append·offer가 통과해 결함 경로가 재발했다.
+- 접수 개방 여부를 리더십과 분리한 명시 게이트로 둔다. `isLeader() == true`여도 접수 게이트가 닫힌 PROMOTING 구간을 만든다. 실물은 `AcceptGate.isAccepting()`이고(AcceptGate.java:13), `EngineBridge.submit`이 루프 생존(EngineBridge.java:74)에 이어 게이트를 확인해(:79) 미개방 시 `NotReadyException`으로 거부한다(:82). 이 예외는 503 service_unavailable로 렌더된다(ApiExceptionHandler.java:67~71). 봇·k6는 503을 재시도로 흡수한다(`SimConfig` 주석, 접수 보류 계약).
+- Spring readiness 상태와 연동한다. PROMOTING = `REFUSING_TRAFFIC`, ACCEPTING = `ACCEPTING_TRAFFIC`(HaAvailability.java:88, :94). 리더 인지 LB(`docs/architecture/M4_하드닝설계.md` §3-4)가 readiness DOWN 노드를 제외하므로 rebuild 중 외부 트래픽 유입을 원천 차단한다.
 
 #### 승격 중 리스 유지
 
@@ -145,33 +145,36 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. `ReplaySer
   - 채택 판정: `engine_version`·`config_hash`·`format_version` 불일치 스냅샷은 무시하고 이전 스냅샷 또는 seq 0 재생으로 폴백(DB 설계 §5.5 STEP1, :1030~1031). `state_checksum` 불일치도 폐기가 아니라 무시·폴백(테이블 append-only, 삭제 금지).
 - 단일 정본 규율: 스냅샷은 저널 파생이다. 원천은 `command_journal`·`event_journal`이고 스냅샷은 재생 시작점 최적화일 뿐이다(DB 설계 §1.1 ① 복구 원천, :16). 스냅샷 부재·손상 시 항상 저널 전량 재생으로 동일 결과에 도달하므로 단일 정본이 유지된다.
 
-### 3-c. C13A 스코프 AUTHORITATIVE_ONLY 수정
+### 3-c. C13A 스코프 AUTHORITATIVE_ONLY 수정(적용 완료)
 
-- 결함: `C13A_ORDER_MATERIALIZED`가 `Scope.SCHEDULED`다(InvariantCheck.java:63). 이 체크는 `command_journal`의 모든 NEW 명령에 대응 `orders` 행 존재를 요구한다(:63~67).
-- 오탐 메커니즘: NEW 명령은 append 시점에 커밋되지만, `orders` 행은 이후 정산 sink가 ACCEPTED 이벤트를 처리할 때 INSERT된다(SettlementService.java:225~240 `settleAccepted`). append와 정산 커밋 사이의 비동기 창에서 명령은 있으나 주문 행이 없다. 라이브 부하·스파이크에서 큐 백로그가 이 창을 키워 C13A가 대량 위반으로 오탐한다.
-- 수정: `C13A_ORDER_MATERIALIZED`를 `Scope.AUTHORITATIVE_ONLY`로 변경(1행). 상시 스케줄·soak에서 제외하고, 정지 시점·실험 사후 권위 run(큐 드레인 상태)에서만 평가한다. 근거는 기존 C16·C19의 AUTHORITATIVE_ONLY 사유와 동일하다("라이브 프로젝션 지연 오탐 차단", InvariantCheck.java:12~13).
-- 커버리지 손실 없음: 역방향 C13B(orders → command_journal, InvariantCheck.java:68~72)는 정산 이후에만 orders가 존재하므로 프로젝션 지연 오탐이 없다. C13B는 `SCHEDULED` 유지. 유실 주문(NEW without order)은 큐 드레인된 권위 run에서 C13A가 잡는다.
-- E3(구 번호, 정본 E6) 스파이크 게이트의 스퍼리어스 FAIL: 동일 근인이다. 스파이크 창에서 상시 C13A가 프로젝션 지연을 위반으로 집계해 게이트를 오탈락시킨다. C13A를 AUTHORITATIVE_ONLY로 옮기면 스파이크 게이트도 정리된다. 데모 15분 스택은 구 잠정 번호 E3 = 정본 E6(스파이크+kill 복합, `docs/architecture/M4_하드닝설계.md` §0-3)을 가리킨다.
-- 문서 동기화(구현 시 함께): `docs/architecture/M4_하드닝설계.md` §1(CRITICAL·SCHEDULED 열거)·§2-2(soak SQL의 `check_name IN` 목록)·§4-2(알람 라우팅 critical 열거)가 C13A를 SCHEDULED로 나열한다. C13A를 CRITICAL·AUTHORITATIVE_ONLY로 이동해 정정한다. 정본이 문서이므로 코드 변경과 문서 정정을 한 커밋으로 묶는다.
+- 종전 결함: `C13A_ORDER_MATERIALIZED`가 `Scope.SCHEDULED`였다. 이 체크는 `command_journal`의 모든 NEW 명령에 대응 `orders` 행 존재를 요구한다(InvariantCheck.java:124~128).
+- 오탐 메커니즘: NEW 명령은 append 시점에 커밋되지만, `orders` 행은 이후 정산 sink가 ACCEPTED 이벤트를 처리할 때 INSERT된다(SettlementService.java:225~240 `settleAccepted`). append와 정산 커밋 사이의 비동기 창에서 명령은 있으나 주문 행이 없다. 라이브 부하·스파이크에서 큐 백로그가 이 창을 키워 C13A가 대량 위반으로 오탐했다.
+- 수정(적용 완료): 실물이 `C13A_ORDER_MATERIALIZED(Severity.CRITICAL, Scope.AUTHORITATIVE_ONLY, ...)`다(InvariantCheck.java:124, 사유 주석 :120~123). 상시 스케줄·soak에서 제외하고, 정지 시점·실험 사후 권위 run(큐 드레인 상태)에서만 평가한다. 근거는 기존 C16·C19의 AUTHORITATIVE_ONLY 사유와 동일하다("라이브 프로젝션 지연과 스테일 loadtest_acks가 오탐을 만들기 때문이다", InvariantCheck.java:13~14).
+- 커버리지 손실 없음: 역방향 C13B(orders에서 command_journal 방향, InvariantCheck.java:129~133)는 정산 이후에만 orders가 존재하므로 프로젝션 지연 오탐이 없다. C13B는 `SCHEDULED` 유지. 유실 주문(NEW without order)은 큐 드레인된 권위 run에서 C13A가 잡는다.
+- E3(구 번호, 정본 E6) 스파이크 게이트의 스퍼리어스 FAIL: 동일 근인이다. 스파이크 창에서 상시 C13A가 프로젝션 지연을 위반으로 집계해 게이트를 오탈락시켰다. C13A를 AUTHORITATIVE_ONLY로 옮겨 상시 집계에서 뺐다. 스파이크 게이트 스퍼리어스 FAIL 0 은 실측이 아직 없고 §5 수용 기준으로 남는다. 데모 15분 스택은 구 잠정 번호 E3 = 정본 E6(스파이크+kill 복합, `docs/architecture/M4_하드닝설계.md` §0-3)을 가리킨다.
+- 문서 동기화(완료): `docs/architecture/M4_하드닝설계.md` §1(심각도 카탈로그)·§2-2(soak 판정의 CRITICAL·SCHEDULED 열거)·§4-2(알람 라우팅 critical 열거) 세 자리 모두 C13A를 CRITICAL·AUTHORITATIVE_ONLY로 적고 상시·soak 대상에서 뺀다. 코드와 정합이다.
 
-### 3-d. 핫 스탠바이(연속 적용) 검토·판정
+### 3-d. 핫 스탠바이(연속 적용) 검토·판정(2026-09-08 도입으로 갱신)
 
 - 대안: 스탠바이가 `command_journal`을 실시간 tail해 인메모리 엔진만(정산 없이) 연속 apply하는 웜 팔로워. 승격 시 delta가 0에 수렴해 rebuild가 사실상 불필요.
-- 판정: 현 단계 도입하지 않는다.
+- 종전 판정(설계 시점): 현 단계 도입하지 않는다. 근거는 아래 셋이었다.
   - 스냅샷 + 빠른 rebuild가 목표(RTO<30s)를 충족한다. 27k 인메모리 rebuild는 수 초, 스냅샷으로 tail을 상한하면 더 짧다.
   - 웜 팔로워는 상태 전진 경로를 하나 더 만든다. 이 경로가 재생과 비트동일해야 하고(결정론 표면 확대), 팔로워 이벤트 대조·발산 감지를 rebuild와 별도로 유지해야 한다. 정확성 > 편의성 원칙에서 표면 확대는 비용이다.
   - 단일 코드 경로(recover/rebuild) 유지가 검증·감사를 단순화한다.
-- 재검토 트리거: 최대 스냅샷 간격에서 측정한 승격 rebuild delta 벽시계가 예산에 근접(예: 10s 초과)하면 웜 팔로워를 재평가한다. `recovery_runs.duration_ms`로 상시 계량한다.
+- 갱신 판정(2026-09-08): 도입했다. `FollowerCatchUp`이 체크포인트 상한까지 팔로워 엔진을 계속 재생한다(`server/app/src/main/java/kr/exchange/engine/FollowerCatchUp.java`, 배선 EngineConfig.java:354~357).
+  - 표면 확대 우려는 재생 경로를 새로 만들지 않고 `ReplayService` 재생을 그대로 돌려 해소했다. 이벤트 payload 바이트 대조가 곧 발산 감지다.
+  - 승격 경로는 바뀌지 않는다. 승격은 여전히 fresh 엔진 rebuild이고, 설치 엔진이 이미 저널 head에 닿았을 때만 재생을 생략한다(PromotionCoordinator.java:295, :301). 생략의 안전 근거는 FollowerCatchUp 불변식 M(설치 엔진의 lastAppliedSeq가 관측 체크포인트를 넘지 않음)이다.
+- 계량: 승격 rebuild delta 벽시계는 `recovery_runs.duration_ms`로 상시 계량한다. 웜 팔로워 도입 여부라는 재검토 트리거 자체는 위 갱신 판정으로 종결됐다.
 
 ---
 
 ## 4. 회귀 테스트 설계
 
-CI 사각: 어느 통합테스트도 "빈(또는 stale) 엔진 + 대규모 gap을 정산 sink로 catch-up" 경로를 밟지 않는다. `EngineRuntimeIntegrationTest.seqGapIsRecoveredByCatchUp`은 gap이 2건이고, 더 결정적으로 루프를 열기 전에 `replayService.rebuild(runningEngine)`로 엔진을 미리 head에 올린다(EngineRuntimeIntegrationTest.java:198~199). 즉 결함을 은폐하는 조건에서만 catch-up을 검증한다.
+종전 CI 사각: 어느 통합테스트도 "빈(또는 stale) 엔진 + 대규모 gap을 정산 sink로 catch-up" 경로를 밟지 않았다. `EngineRuntimeIntegrationTest.seqGapIsRecoveredByCatchUp`(EngineRuntimeIntegrationTest.java:190)은 gap이 2건이고, 더 결정적으로 루프를 열기 전에 `replayService.rebuild(runningEngine)`로 엔진을 미리 head에 올린다(:193). 즉 결함을 은폐하는 조건에서만 catch-up을 검증한다. 4-1이 이 사각을 메운다.
 
 ### 4-1. 신규 통합테스트: 승격 재생 경로(대규모 gap)
 
-- 이름(안): `PromotionRecoveryIntegrationTest` (또는 `EngineRuntimeIntegrationTest`에 케이스 추가). Testcontainers postgres:17.
+- 이름: `PromotionRecoveryIntegrationTest`. 실물은 `server/app/src/test/java/kr/exchange/engine/PromotionRecoveryIntegrationTest.java`다. Testcontainers postgres:17.
 - 준비: 초기 리더로 대규모 저널을 만든다. NEW·매칭 명령을 N건(스파이크 재현 위해 27k+, CI 축약본은 수천) 접수·정산해 `command_journal`·`event_journal`·`orders`를 채운다.
 - 승격 시뮬레이션: 스탠바이 부팅을 재현한다. lastAppliedSeq=0(또는 소수)인 fresh `MatchingEngineImpl` + 접수 닫힘 루프. 초기 리더 강등 후 승격 콜백을 발화한다.
 - 계약 단언:
@@ -179,7 +182,7 @@ CI 사각: 어느 통합테스트도 "빈(또는 stale) 엔진 + 대규모 gap�
   - (B) 엔진 head 도달. rebuild 후 `engine.lastAppliedSeq() == max(command_journal.seq)`, `stateChecksum` == 초기 리더 종료 상태와 일치.
   - (C) 접수 게이트 순서. rebuild 완료 전 `submit` 시도는 503(NotReady), 완료 후 첫 신규 명령은 통과.
   - (D) 벽시계 RTO. 아래 4-2 측정 계약으로 승격~가시 첫 체결 < 예산.
-- 스냅샷 케이스(3-b 구현 후): 스냅샷 존재 시 tail 재생 구간이 `seq > snapshot.last_applied_seq`로 축소됨을 `recovery_runs.replayed_from_seq/to_seq`로 단언. 손상 스냅샷 주입 시 이전 스냅샷·seq 0 폴백 단언.
+- 스냅샷 케이스(3-b): 스냅샷 존재 시 tail 재생 구간이 `seq > snapshot.last_applied_seq`로 축소됨을 `recovery_runs.replayed_from_seq/to_seq`로 단언. 손상 스냅샷 주입 시 이전 스냅샷·seq 0 폴백 단언.
 
 ### 4-2. RTO 측정 계약(engine_ts 금지, 가시 첫 체결 기준)
 
@@ -212,10 +215,10 @@ CI 사각: 어느 통합테스트도 "빈(또는 stale) 엔진 + 대규모 gap�
 
 ### 6-1. 순서(작은 단위 완결)
 
-1. C13A 스코프 수정(3-c). 1행 + 문서 3곳 정정. 최소 리스크, 오탐 즉시 제거. `InvariantVerifierIntegrationTest`가 스코프 필터를 검증하도록 확장.
-2. 승격 gain 훅 + fresh 엔진 rebuild-before-accept + 접수 게이트(3-a). 스키마 무변경. 스파이크(27k)에서 RTO<30s 달성. 회귀 테스트 4-1 동반.
-3. 주기 스냅샷(3-b). 스냅샷 codec + writer + 스냅샷 로드 rebuild 경로. 장기 soak에서 tail 상한. 스냅샷 케이스 테스트 동반.
-4. RTO 측정 계약 정정(4-2)과 문서 동기화. E4·E6 게이트에 벽시계 RTO 반영.
+1. C13A 스코프 수정(3-c). 완료. `InvariantCheck.java:124`가 AUTHORITATIVE_ONLY이고 `docs/architecture/M4_하드닝설계.md` 세 자리도 정합이다(3-c).
+2. 승격 gain 훅 + fresh 엔진 rebuild-before-accept + 접수 게이트(3-a). 코드 배선 완료. 스키마 무변경. 실물은 `LeaderLeaseService`·`PromotionCoordinator`·`AcceptGate`·`EngineBridge`·`SingleWriterLoop.installEngine`이다(§2-1·§3-a 인용). 회귀 테스트는 `server/app/src/test/java/kr/exchange/engine/PromotionRecoveryIntegrationTest.java`다. 실측 조건과 남은 규격 제약은 §1-2-a·§2-1이 소유한다.
+3. 주기 스냅샷(3-b). 코드 배선 완료. codec `server/engine/src/main/java/kr/exchange/engine/core/SnapshotCodec.java`, writer `server/app/src/main/java/kr/exchange/snapshot/SnapshotCapture.java`, 로드 경로 `EngineRecovery`의 `snapshotSource.loadLatestAdoptable()`(EngineRecovery.java:146~151). 장기 soak에서 tail 상한이 실제로 걸리는지의 실측은 아직 없다.
+4. RTO 측정 계약 정정(4-2)과 문서 동기화. 미착수. `docs/contracts/하네스_검증설계.md` §5-1 T5가 아직 `min(e.created_at)` 기준이다. E4·E6 게이트에 벽시계 RTO 반영도 남았다.
 
 각 단계는 컴파일·테스트 통과 상태로만 멈춘다.
 

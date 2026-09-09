@@ -20,9 +20,11 @@
 라이브 PASS다. 셋 다 로컬 카오스 스택 회차이고 verdict 파일이 저장소에 남지 않았다. 근거는
 `docs/contracts/하네스_검증설계.md`의 2026-07-29 패치 노트(E2)와 ADR 0012(E5·E7, 커밋 923ee6d)다.
 
-AWS 이관 설계에서 DB 계층을 관리형으로 올릴지 판단해야 했다. 이 축의 요구를 정본 4.2
-선택표의 데이터베이스 행이 적는다. 커널 계층 장애 주입(tc netem, nftables, SIGSTOP)과
-노드 간 실제 네트워크 분단 관측이 그 요구다. 둘 다 OS 셸 접근을 전제한다.
+AWS 이관 설계에서 DB 계층을 관리형으로 올릴지 판단해야 했다. 이 축의 요구는 커널 계층
+장애 주입(tc netem, nftables, SIGSTOP)과 노드 간 실제 네트워크 분단 관측이고 둘 다 OS 셸
+접근을 전제한다. 이 열거는 이 ADR이 아래 근거 절에서 다섯 축으로 벌려 적는 것이다. 정본
+4.2 선택표의 데이터베이스 행은 같은 축을 "운영체제 접근이 없어 커널 파라미터 조작과 프로세스
+정지를 못 합니다"로 줄여 적고, tc netem·nftables·노드 간 분단 관측은 열거하지 않는다.
 
 ## 결정
 
@@ -49,7 +51,7 @@ DB 계층을 EC2 자체 운영 PostgreSQL 17로 둔다. RDS를 채택하지 않�
   USD 85 대 EC2 2대 + 80GiB 약 USD 53으로 자체 운영이 저렴했다. 그 뒤 정족수 채택으로
   데이터베이스 노드가 3대가 됐고, 현재 단가는 정본 9.2가 768시간 47.9232달러로 적는다.
 - 로컬과 클라우드의 동형화 계약과 맞는다. 정본 5.3이 두 평면을 잇는 것을 같은 컨테이너 이미지
-  지문으로 규정하고, `deploy/compose.node-data.yml:16`과 `harness/docker-compose.chaos.yml:11`이
+  지문으로 규정하고, `deploy/compose.node-data.yml:17`과 `harness/docker-compose.chaos.yml:11`이
   둘 다 `postgres:17-alpine`으로 고정돼 있다. 관리형은 이 계약을 만족시키지 못한다.
 
 ## 대안
@@ -57,7 +59,7 @@ DB 계층을 EC2 자체 운영 PostgreSQL 17로 둔다. RDS를 채택하지 않�
 - RDS PostgreSQL Multi-AZ 채택. 기각. 위 다섯 축 전량 불가이고 비용도 더 크다.
   이 안만 정본 4.3 비채택 표에 정식 판정으로 기록돼 있다.
 - 혼합안. 상시면은 RDS, 증명면은 EC2 자체 운영. 기각. 정본 5.3이 두 면에 같은 이미지
-  지문을 요구하고, `deploy/compose.node-data.yml:10-11`이 "상시면과 증명면이 같은 값을 써야
+  지문을 요구하고, `deploy/compose.node-data.yml:11-12`가 "상시면과 증명면이 같은 값을 써야
   실험 결과가 이관된다"를 keepalive 튜닝 승계의 사유로 명시한다. 두 면의 DB 구현이 갈리면
   증명면 결과를 상시면 주장으로 옮길 수 없다. 이 안은 정본 4.3에 별도 행으로 없다.
   기각 근거는 동형화 계약에서 유도한 것이다.
@@ -71,24 +73,29 @@ DB 계층을 EC2 자체 운영 PostgreSQL 17로 둔다. RDS를 채택하지 않�
 
 ## 영향
 
-- 대체 구현 4종이 부채로 남았다(정본 7.9 백업과 복구 표). 자동 스냅샷은 EBS 스냅샷 일 1회 +
-  `pg_basebackup` 주 1회, PITR은 WAL 아카이빙을 S3로, Multi-AZ 페일오버는 스트리밍 복제
-  standby + 수동 승격 스크립트, 자동 패치는 dnf-automatic security only다. 자동 승격(Patroni)은
-  스트레치로 분리했다.
+- 대체 구현 4종이 부채로 남았다. 자동 스냅샷은 EBS 스냅샷 일 1회 + `pg_basebackup` 주 1회,
+  PITR은 WAL 아카이빙을 S3로, Multi-AZ 페일오버는 스트리밍 복제 standby + 수동 승격
+  스크립트다. 이 셋만 정본 7.9 백업과 복구 표에 대응 행이 있다(물리 백업, 논리 백업,
+  미리 쓰기 기록 보관, 복제). 넷째인 자동 패치(dnf-automatic security only)는 7.9 표 밖이고
+  정본에 등재가 없다. 위 대안 절과 같은 판정이다. 자동 승격(Patroni)은 스트레치로 분리했다.
 - 배선 실물은 `deploy/compose.node-data.yml`이다. 커밋 4d5ba51(2026-08-30).
-  command 블록 `:21-41`이 `synchronous_commit=on`, 유휴 트랜잭션 타임아웃, keepalive 3종을
+  command 블록 `:22-42`가 `synchronous_commit=on`, 유휴 트랜잭션 타임아웃, keepalive 3종을
   카오스 스택에서 그대로 승계하고 `archive_mode`·`archive_command`를 변수로 열어 PITR 배선 자리를 남긴다.
-  카오스 스택의 `ports: ["55432:5432"]`(`harness/docker-compose.chaos.yml:35`)는 승계하지
-  않는다. 사유는 `deploy/compose.node-data.yml:8-9`에 있다.
+  카오스 스택의 `ports: ["55432:5432"]`(`harness/docker-compose.chaos.yml:31`)는 승계하지
+  않는다. 사유는 `deploy/compose.node-data.yml:9-10`에 있다.
 - 4d5ba51 커밋 본문은 data 오버레이를 실제로 기동해 확인했다고 적는다. 조사 중
   `tcp_keepalives_idle`이 0으로 보였으나 SHOW가 현재 연결 기준으로 보고하는 것이었고,
   유닉스 소켓 연결은 0, TCP 연결은 5를 낸다. 정본 주장이 틀렸다고 결론 낼 뻔한 지점이다.
 - 반영 한계. `deploy/README.md:36-39` "상태" 절이 미검증을 명시한다. 실제 다중 호스트에서
   기동한 적이 0회다. AWS 실기동 근거는 저장소에 없다. 위 기동 확인은 단일 호스트 범위다.
-- 남는 한계는 문서에 이미 적혀 있다. `docs/architecture/아키텍처_개관.md` 3.3은 RPO=0이 단일
-  PostgreSQL 인스턴스 범위에서만 성립한다고 적고, 동기 standby·STONITH 운영 요건이 미충족이라고
-  적는다. 정본 13.2 한계 8은 봇과 관측이 한 노드에 있어 그 노드가 죽으면 기저 트래픽과 지표
-  수집이 함께 멈춘다고 적는다. 이 ADR은 그 한계를 닫지 않는다.
+- 남는 한계는 문서에 이미 적혀 있다. `docs/architecture/아키텍처_개관.md` 3.3은 RPO=0이 로컬
+  커밋 fsync 내구성에 근거하므로 단일 PostgreSQL 인스턴스의 프로세스·전원 장애 범위에서만
+  성립한다고 적고, failover를 포함한 무손실의 운영 요건 넷을 등재한다. 대기 서버 2대 중
+  `ANY 1` 정족수, 정산·저널 트랜잭션 `synchronous_commit=on`, 리더 임차 갱신을 DB 커밋 경로
+  밖으로 분리, PITR 아카이브 병행이다. 그 넷 중 PITR 아카이브를 정본 7.9가 "목표. 미배선"으로
+  적고, 승격 후 동기 복제 대상 재설정도 배선이 없다(같은 3.3, 정본 13.2 한계 10). 정본 13.2
+  한계 8은 봇과 관측이 한 노드에 있어 그 노드가 죽으면 기저 트래픽과 지표 수집이 함께 멈춘다고
+  적는다. 이 ADR은 그 한계를 닫지 않는다.
 - 되돌리려면 다음을 함께 고쳐야 한다. 정본 4.2 선택표와 4.3 비채택 표, 5.3 이미지 지문,
   7.9 백업과 복구 표, `deploy/compose.node-data.yml` 전체, 9.2 상시면 단가표의 데이터베이스 행.
   실험 계획도 걸린다. nftables 5432 블랙홀은 E2 재현에 필수이고 PG 프로세스 SIGSTOP·kill -9는

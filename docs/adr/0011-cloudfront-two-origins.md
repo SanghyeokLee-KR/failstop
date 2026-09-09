@@ -8,11 +8,11 @@
 
 학교 공지의 필수 조건은 "반드시 배포하여 외부에서 접속 가능한 상태로 서비스할 것"이다. 정본은 그 조건을 5.1 평면 분리의 전제와 12절 완료 기준 A1으로 담는다(`제출_20260901/기획안_원본.md`). 이 프로젝트의 증명 수단은 장애 주입이다. 두 요구가 정면 충돌한다. 정본 5.1이 그 충돌을 "학교 필수 조건인 외부 상시 접속과, 이 프로젝트가 필요로 하는 커널 계층 장애 주입은 한 평면에서 양립하지 않습니다"로 적는다.
 
-서빙 대상은 Next.js 정적 export다. 결정 시점 규모는 66페이지 6.3MB였다. 현재 정본에는 이 규모 기록이 없고("66페이지"·"6.3MB" 문자열 0건), 오늘 재측정하면 html 74개, 6.9M이다(`find web/out -name "*.html" | wc -l`, `du -sh web/out`). 빌드 산출물이라 앱 노드와 생명주기를 공유할 이유가 없다.
+서빙 대상은 Next.js 정적 export다. 결정 시점 규모는 66페이지 6.3MB였다. 현재 정본에는 이 규모 기록이 없고("66페이지"·"6.3MB" 문자열 0건), 오늘 재측정하면 html 75개, 6.9M이다(2026-09-09 실행. `find web/out -name "*.html" | wc -l`, `du -sh web/out`). 빌드 산출물이라 앱 노드와 생명주기를 공유할 이유가 없다.
 
 두 번째 제약은 정적 export의 빌드 타임 인라인이다. `NEXT_PUBLIC_*` 값이 번들에 굳는다. 정본 6.6이 "웹은 빌드 시점에 정적 파일로 굽습니다"로 적는다. 오리진 주소가 빌드에 박히므로, 웹과 API가 서로 다른 오리진이면 CORS 허용 목록과 WS 오리진 화이트리스트가 배포 대상마다 따라 늘어난다.
 
-충돌의 상위 해법은 평면 분리다. 상시면은 24시간 구동에 비파괴 실험만 허용하고, 증명면은 실험·발표 창에서만 띄워 전 실험을 받는다(정본 5.1 평면 표). 그러나 평면 분리만으로는 상시면에서 리더 kill을 돌리는 동안 웹까지 같이 흔들리는 문제가 남는다. 웹 서빙 경로를 어디에 두느냐가 남은 결정이다.
+충돌의 상위 해법은 평면 분리다. 정본 5.1이 평면을 셋으로 나눈다. 상시면은 24시간 구동에 애플리케이션 계층 정지와 가용영역 상실 재현만 허용하고 커널 주입을 제외한다. 증명면은 실험과 발표 창에만 서고 부하 주입과 확정 회차 재현을 받는다. 커널 계층 주입 전량은 온프레미스 검증면 몫이다(정본 5.1 평면 표). 그러나 평면 분리만으로는 상시면에서 리더 kill을 돌리는 동안 웹까지 같이 흔들리는 문제가 남는다. 웹 서빙 경로를 어디에 두느냐가 남은 결정이다.
 
 ## 결정
 
@@ -59,4 +59,4 @@ CloudFront 단일 배포에 오리진 둘을 걸고, 경로 패턴으로 가른�
 
 ## 반영 한계
 
-문서와 웹 빌드 파라미터 계약까지만 반영됐다. CloudFront 배포 실물도, 그것을 정의하는 IaC 파일도 저장소에 없다. `deploy/`의 추적 파일은 7개다(`git ls-files deploy/ | wc -l`). compose 오버레이 3종(node-app·node-data·node-edge), nginx 템플릿, proxy-common.conf, .env.example, README.md다. CloudFront를 언급하는 곳은 `deploy/compose.node-edge.yml`의 주석 2줄(`:3`, `:43`)과 `deploy/README.md:32`의 도메인 절뿐이고, 어느 쪽도 배포를 정의하지 않는다(`grep -rn -i cloudfront deploy/`). `.tf` 파일은 0개다(`find . -name "*.tf" -not -path "*/node_modules/*" | wc -l`). `deploy/README.md:38-39`도 배포 산출물 전체를 미검증으로 선언한다.
+문서와 웹 빌드 파라미터 계약까지만 반영됐다. CloudFront 배포 실물도, 그것을 정의하는 IaC 파일도 저장소에 없다. `deploy/`의 추적 파일은 10개다(`git ls-files deploy/ | wc -l`. 2026-09-09 확인). compose 오버레이 4종(node-app·node-bot·node-data·node-edge), nginx 템플릿, proxy-common.conf, 인증서 스크립트 2종(edge-bootstrap-cert.sh·issue-cert.sh), .env.example, README.md다. CloudFront를 언급하는 곳은 `deploy/compose.node-edge.yml`의 주석 2줄(`:3`, `:61`)과 `deploy/README.md:36`뿐이고, 어느 쪽도 배포를 정의하지 않는다(`grep -rn -i cloudfront deploy/`). `.tf` 파일은 0개다(`find . -name "*.tf" -not -path "*/node_modules/*" | wc -l`). `deploy/README.md:42-43`도 배포 산출물 전체를 미검증으로 선언한다.

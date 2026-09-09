@@ -2,9 +2,12 @@
 # 알람으로 평가한다. ALERTS 시계열과 /alerts로 기계 판정이 성립한다. 알림 라우팅은 정본
 # infra/ 토폴로지의 Grafana 통합 얼럿이 맡는다.
 # 중복 체결은 서버 미등록 지표 대신 InvariantViolation(TRADE_SEQ_DUP)이 커버한다.
-# runbook 의 절 번호는 2026-09-09 전면 재작성판 `제출_20260901/기획안_원본.md` 기준이다.
-# 종전 판의 "§7.4 장애 대응 절차"·"§7.8 부하 구간과 고부하 대응"·"§12.3" 은 새 정본에
-# 대응 절이 없어 7.2·7.3·7.5 로 재배정했다.
+# runbook 의 기획안 절 번호와 절 제목은 2026-09-09 전면 재작성판 `제출_20260901/기획안_원본.md`
+# 의 축어 인용이다. 종전 판의 "§7.4 장애 대응 절차"·"§7.8 부하 구간과 고부하 대응"·"§12.3"
+# 은 새 정본에 대응 절이 없어, 각 알람이 보는 대상을 정의한 절로 재배정했다.
+# 미결. 새 정본에 장애 대응 절차 절이 없고 저장소에 운영 런북 문서도 없다. 아래 runbook 은
+# 판정 근거와 복구 절차 설계를 가리킬 뿐 당직자용 조치 카드가 아니다. 그 문서의 작성 주체와
+# 위치는 아직 정하지 않았다.
 groups:
   - name: exchange.alerts
     interval: 10s
@@ -22,7 +25,7 @@ groups:
           threshold: "> 0"
           duration: "0s"
           dashboard: "① 체결 무결성 증명 (proof-integrity)"
-          runbook: "기획안 §7.2 무엇을 보는가"
+          runbook: "기획안 §10.2 무결 판정 · 검증설계 §5-3 복구 리컨실리에이션 런북 R5"
 
       - alert: InvariantViolation
         expr: max by (check_name, severity) (exchange_invariant_violations) > 0
@@ -36,7 +39,7 @@ groups:
           threshold: "> 0"
           duration: "30s"
           dashboard: "① 체결 무결성 증명 (proof-integrity)"
-          runbook: "기획안 §7.2 무엇을 보는가 · 검증설계 §5-6 C-카탈로그"
+          runbook: "기획안 §10.2 무결 판정 · 검증설계 §5-6 C-카탈로그"
 
       - alert: OrderP99SloBreach
         expr: exchange:order_latency:p99_1m > 0.5
@@ -50,7 +53,7 @@ groups:
           threshold: "> 0.5s"
           duration: "2m"
           dashboard: "③ 부하·SLO (proof-load-slo)"
-          runbook: "기획안 §7.3 어느 계층이 병목인지 · §7.5 스케일링 실행 주체"
+          runbook: "기획안 §7.3 어느 계층이 병목인지 어떻게 아는가 · §7.5 스케일링 실행 주체"
 
       - alert: FailoverRtoExceeded
         expr: max(exchange_failover_downtime_seconds) > 30
@@ -64,7 +67,7 @@ groups:
           threshold: "> 30s"
           duration: "0s"
           dashboard: "② 자동 복구 증명 (proof-recovery)"
-          runbook: "기획안 §7.2 무엇을 보는가 · API §7-4"
+          runbook: "기획안 §6.5 리더 임차와 세대 번호 · 검증설계 §5-3 복구 리컨실리에이션 런북 R0~R7 · API §7-4 SLO"
 
       - alert: LeaderAbsent
         expr: absent(exchange_leader_is_leader == 1)
@@ -78,7 +81,7 @@ groups:
           threshold: "absent 15s"
           duration: "15s"
           dashboard: "② 자동 복구 증명 (proof-recovery)"
-          runbook: "기획안 §7.2 무엇을 보는가"
+          runbook: "기획안 §6.5 리더 임차와 세대 번호 · 검증설계 §5-3 복구 리컨실리에이션 런북 R0~R7"
 
       - alert: RecoverableStandDownRepeating
         expr: increase(exchange_leader_recoverable_standdown_total[5m]) > 2
@@ -92,7 +95,7 @@ groups:
           threshold: "> 2"
           duration: "0s"
           dashboard: "② 자동 복구 증명 (proof-recovery)"
-          runbook: "기획안 §7.2 무엇을 보는가 · DB 설계 §5.4"
+          runbook: "기획안 §6.5 리더 임차와 세대 번호 · DB 설계 §5.4"
 
       - alert: SnapshotPersistFailed
         expr: rate(exchange_snapshot_persist_failed_total[5m]) > 0
@@ -154,7 +157,7 @@ groups:
           threshold: "> 50"
           duration: "1m"
           dashboard: "③ 부하·SLO (proof-load-slo)"
-          runbook: "기획안 §7.3 어느 계층이 병목인지 · §7.5 스케일링 실행 주체"
+          runbook: "기획안 §7.3 어느 계층이 병목인지 어떻게 아는가 · §7.5 스케일링 실행 주체"
 
       - alert: OrderRejectSpike
         expr: exchange:orders_rejected:rate1m{reason!~"rate_limited|insufficient_funds|invalid_price|invalid_volume|over_max_order|under_min_order"} > 1
@@ -169,7 +172,7 @@ groups:
           threshold: "> 1/s"
           duration: "2m"
           dashboard: "③ 부하·SLO (proof-load-slo)"
-          runbook: "기획안 §7.3 어느 계층이 병목인지 · §7.5 스케일링 실행 주체"
+          runbook: "기획안 §7.3 어느 계층이 병목인지 어떻게 아는가 · §7.5 스케일링 실행 주체"
 
       - alert: BotFleetDown
         expr: up{job="chaos-bots"} == 0

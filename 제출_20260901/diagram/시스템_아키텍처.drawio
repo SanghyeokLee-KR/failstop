@@ -550,7 +550,7 @@
         <mxCell id="171" value="Source: 저장소 실측 + 기획안 6절" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1412" y="1076" width="550" height="16" as="geometry"/>
         </mxCell>
-        <mxCell id="172" value="Ref: 기획안 6절 인프라 · 10절 검증 · 12.7 Scorecard" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="172" value="Ref: 기획안 6절 인프라 · 10절 검증 · 12절 완료 기준" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1412" y="1094" width="550" height="16" as="geometry"/>
         </mxCell>
         <mxCell id="173" value="상태 전이" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
@@ -820,7 +820,7 @@
         <mxCell id="261" value="비활성 · 계획" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1802" y="1430" width="180" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="262" value="수치에 출처가 없으면 미측정이다. RTO 6.688 s 는 E4-20260829 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.5 달력 월 판정과 같은 값이다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="262" value="수치에 출처가 없으면 미측정이다. RTO 6.688 s 는 E4-20260829 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.3 달력 월 실청구와 같은 축의 값이다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="1504" width="1960" height="18" as="geometry"/>
         </mxCell>
       </root>

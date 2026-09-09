@@ -182,7 +182,7 @@
 <text x="1444" y="958" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9" font-weight="400" fill="#5C6B75" text-anchor="start">Scope: Steady + Proof Environment</text>
 <text x="1444" y="976" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9" font-weight="400" fill="#5C6B75" text-anchor="start">Status: Partially Implemented · Cloud NOT RUN</text>
 <text x="1444" y="994" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9" font-weight="400" fill="#5C6B75" text-anchor="start">Source: 저장소 실측 + 기획안 6절</text>
-<text x="1444" y="1012" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9" font-weight="400" fill="#5C6B75" text-anchor="start">Ref: 기획안 6절 인프라 · 10절 검증 · 12.7 Scorecard</text>
+<text x="1444" y="1012" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9" font-weight="400" fill="#5C6B75" text-anchor="start">Ref: 기획안 6절 인프라 · 10절 검증 · 12절 완료 기준</text>
 <text x="40" y="1064" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">상태 전이</text>
 <text x="112" y="1064" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">같은 배치, 다른 상태 · 장애 도메인이 어디서 끊기는지 본다</text>
 <rect x="40" y="1080" width="484" height="234" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
@@ -285,6 +285,6 @@
 <text x="1624" y="1416" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">복구 중</text>
 <circle cx="1848" cy="1412" r="7" fill="#98A2A8"/>
 <text x="1864" y="1416" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">비활성 · 계획</text>
-<text x="40" y="1444" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#5C6B75" text-anchor="start">수치에 출처가 없으면 미측정이다. RTO 6.688 s 는 E4-20260829 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.5 달력 월 판정과 같은 값이다.</text>
+<text x="40" y="1444" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#5C6B75" text-anchor="start">수치에 출처가 없으면 미측정이다. RTO 6.688 s 는 E4-20260829 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.3 달력 월 실청구와 같은 축의 값이다.</text>
 </g>
 </svg>

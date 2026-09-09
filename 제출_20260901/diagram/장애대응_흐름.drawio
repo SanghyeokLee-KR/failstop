@@ -7,7 +7,7 @@
         <mxCell id="2" value="Figure 3 · Incident Response and Recovery Flow" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=22;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="14" width="900" height="32" as="geometry"/>
         </mxCell>
-        <mxCell id="3" value="Detection -&gt; Classification -&gt; Recovery -&gt; Data Validation  ·  계획서 7.4 · 7.11 · 7.12 에서 파생. 색은 손이 닿는 정도를 뜻한다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="3" value="안정화 순환 관측 -&gt; 판정 -&gt; 조작 -&gt; 재관측 · 자동화 계층 · 원장 무결은 자동 보정 대상이 아니다  ·  계획서 7.1 · 7.2 · 7.5 · 10.2 에서 파생. 색은 손이 닿는 정도를 뜻한다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=11;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="44" width="1100" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="4" value="알람" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
@@ -241,7 +241,7 @@
         <mxCell id="71" value="심각도와 대응 시점" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="300" width="180" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="72" value="7.11. 알람은 경로가 있을 때만 알람이다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="72" value="계획서 7.2 무엇을 보는가 · 알람은 경로가 있을 때만 알람이다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="180" y="300" width="400" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="73" value="" style="rounded=0;html=1;fillColor=none;strokeColor=#D0D7DC;strokeWidth=1;dashed=0;" vertex="1" parent="1">
@@ -280,7 +280,7 @@
         <mxCell id="84" value="자동화 계층" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="960" y="300" width="140" height="20" as="geometry"/>
         </mxCell>
-        <mxCell id="85" value="7.12. 사람 손이 어디서 끊기고 어디서 붙는가" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="85" value="계획서 7.5 스케일링 실행 주체 · 사람 손이 어디서 끊기고 어디서 붙는가" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1060" y="300" width="420" height="20" as="geometry"/>
         </mxCell>
         <mxCell id="86" value="" style="rounded=0;html=1;fillColor=none;strokeColor=#D0D7DC;strokeWidth=1;dashed=0;" vertex="1" parent="1">
@@ -469,7 +469,7 @@
         <mxCell id="147" value="이 도면은 설계다. 5단계와 6단계 외에는 아직 실행 기록이 없다. 알람 통지 경로와 계층 프로브와 런북이 남은 작업이고 그 셋이 1번 2번 3번 4번 정거장을 막고 있다." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="940" width="1600" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="148" value="Figure 3 · Metadata   As of: 2026-08-31   Status: Partial Automation   Ref: 기획안 7.11 · 7.12 · 7.15 · 7.16" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="148" value="Figure 3 · Metadata   As of: 2026-08-31   Status: Partial Automation   Ref: 기획안 7.1 · 7.2 · 7.5 · 10.2" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="20" y="964" width="1400" height="18" as="geometry"/>
         </mxCell>
       </root>

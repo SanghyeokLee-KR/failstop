@@ -357,7 +357,7 @@ function incidentFlow() {
   const d = new Dio()
   const MF = FIG_META.flow
   header(d, `${MF.no} · ${MF.title}`,
-    `${MF.sub}  ·  계획서 7.1 · 7.3 · 7.5 에서 파생. 색은 손이 닿는 정도를 뜻한다`,
+    `${MF.sub}  ·  계획서 7.1 · 7.2 · 7.5 · 10.2 에서 파생. 색은 손이 닿는 정도를 뜻한다`,
     FLOW_KPI, W)
 
   // 운영 루프
@@ -394,7 +394,7 @@ function incidentFlow() {
   // 심각도
   const GY = 300
   d.txt('심각도와 대응 시점', 20, GY, 180, 20, { size: 13, color: INK, bold: true })
-  d.txt('7.11. 알람은 경로가 있을 때만 알람이다', 180, GY, 400, 20, { size: 10, color: MUTE })
+  d.txt('계획서 7.2 무엇을 보는가 · 알람은 경로가 있을 때만 알람이다', 180, GY, 400, 20, { size: 10, color: MUTE })
   d.box(20, GY + 24, 910, 156)
   SEV.forEach(([lv, when, what, col], i) => {
     const y = GY + 38 + i * 48
@@ -406,7 +406,7 @@ function incidentFlow() {
 
   // 자동화 계층
   d.txt('자동화 계층', 960, GY, 140, 20, { size: 13, color: INK, bold: true })
-  d.txt('7.12. 사람 손이 어디서 끊기고 어디서 붙는가', 1060, GY, 420, 20, { size: 10, color: MUTE })
+  d.txt('계획서 7.5 스케일링 실행 주체 · 사람 손이 어디서 끊기고 어디서 붙는가', 1060, GY, 420, 20, { size: 10, color: MUTE })
   d.box(960, GY + 24, 920, 156)
   TIERS.forEach(([lv, nm, how, col, items], i) => {
     const y = GY + 38 + i * 36

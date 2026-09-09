@@ -189,7 +189,7 @@ export interface CapacityNode {
 
 export type CapacityAdviceLevel = "ok" | "info" | "warn" | "danger";
 
-/** 권고. 표시까지이고 조치로 이어지지 않는다(정본 7.12 자동화 격자 3층) */
+/** 권고. 표시까지이고 조치로 이어지지 않는다(정본 7.5 스케일링 실행 주체) */
 export interface CapacityAdvice {
   id: string;
   level: CapacityAdviceLevel;

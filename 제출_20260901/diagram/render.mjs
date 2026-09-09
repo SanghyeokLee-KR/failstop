@@ -8,7 +8,7 @@
 //       node render.mjs arch_aws   -> 이름이 맞는 작업만
 
 import sharp from 'sharp'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -54,6 +54,9 @@ for (const { src, out } of jobs) {
   }
   const buf = readFileSync(srcPath)
   const { w, h } = svgSize(buf.toString('utf8'))
+  // 한글 이름 SVG 도 여기서 같이 낸다. 종전에는 사람이 복사해 두고 생성기가 갱신하지
+  // 않아 원본과 갈렸다(2026-09-09 실측: 사본이 폐기된 절 제목을 들고 있었다).
+  writeFileSync(join(HERE, out.replace(/\.png$/, '.svg')), buf)
   const outPath = join(HERE, out)
   await sharp(buf, { density: 144 })
     .resize(w * 2, h * 2, { fit: 'fill' })

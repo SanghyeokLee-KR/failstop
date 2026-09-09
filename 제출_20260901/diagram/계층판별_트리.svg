@@ -8,7 +8,7 @@
 </defs>
 <g transform="translate(0,0)">
 <text x="40" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="23" font-weight="700" fill="#16191F" text-anchor="start">Figure 2  ·  Fault Isolation and Troubleshooting Flow</text>
-<text x="40" y="64" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.5" font-weight="400" fill="#5C6B75" text-anchor="start">L3 / L4 / L7 / 애플리케이션 / DB 장애 계층 판별  ·  계획서 7.4 2단계에서 파생</text>
+<text x="40" y="64" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.5" font-weight="400" fill="#5C6B75" text-anchor="start">L3 / L4 / L7 / 애플리케이션 / DB 장애 계층 판별  ·  계획서 7.3 어느 계층이 병목인지에서 파생</text>
 <text x="40" y="84" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">운영 목표. 서비스가 안 된다는 현상을 실제 장애 계층으로 구체화한다. 프로브 셋의 전이 시점이 갈리는 지점에서 계층이 결정된다</text>
 <line x1="1644" y1="26" x2="1644" y2="76" stroke="#D0D7DC" stroke-width="1"/>
 <text x="1660" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">계층 프로브</text>
@@ -166,10 +166,10 @@
 <text x="62" y="874" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13" font-weight="700" fill="#16191F" text-anchor="start">Current Status</text>
 <text x="78" y="900" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#16191F" text-anchor="start">판별 로직</text>
 <text x="300" y="900" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#5C6B75" text-anchor="start">Designed</text>
-<text x="452" y="900" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">7.14 분기 트리와 조합 판정표</text>
+<text x="452" y="900" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">7.3 조합 판정표. 분기 트리는 그 표를 순서로 편 것이다</text>
 <text x="78" y="920" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#16191F" text-anchor="start">L3 / L4 / L7 프로브 배선</text>
 <text x="300" y="920" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#C0392B" text-anchor="start">BLOCKED · pending</text>
-<text x="452" y="920" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">11.4 A2 · W2. 배선 전까지 첫 세 분기를 탈 수 없다</text>
+<text x="452" y="920" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">11.1 W4 관측 배선. 배선 전까지 첫 세 분기를 탈 수 없다</text>
 <text x="78" y="940" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#16191F" text-anchor="start">클라우드 검증</text>
 <text x="300" y="940" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#C0392B" text-anchor="start">NOT RUN</text>
 <text x="452" y="940" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">배포 0건</text>
@@ -181,7 +181,7 @@
 <text x="1444" y="874" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#5C6B75" text-anchor="start">Figure 2 · Metadata</text>
 <text x="1444" y="898" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#5C6B75" text-anchor="start">As of: 2026-08-31</text>
 <text x="1444" y="918" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#5C6B75" text-anchor="start">Status: Design Complete · Probe Wiring Pending</text>
-<text x="1444" y="938" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#5C6B75" text-anchor="start">Ref: 기획안 2.5 · 7.4 · 7.14 · 10.3</text>
+<text x="1444" y="938" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#5C6B75" text-anchor="start">Ref: 기획안 2.1 · 7.2 · 7.3 · 10.3</text>
 <line x1="40" y1="1058" x2="2060" y2="1058" stroke="#D0D7DC" stroke-width="1.2"/>
 <text x="40" y="1088" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#16191F" text-anchor="start">범례</text>
 <rect x="140" y="1078" width="26" height="12" rx="2" fill="#8C4FFF"/>
@@ -194,7 +194,7 @@
 <text x="776" y="1088" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">데이터</text>
 <text x="40" y="1118" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">판정표의 원은 프로브 응답이다. 초록이 성공, 빨강이 실패다.</text>
 <text x="40" y="1142" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">마지막 행이 중요하다. 프로브가 전부 정상인데 느린 경우가 있고 그때는 계층 문제가 아니다. 수요가 줄었을 수도 있고 DB 가 느릴 수도 있다.</text>
-<text x="40" y="1166" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">그 구분이 없으면 정상 유휴 구간을 장애로 오인한다. 저부하 침묵 판정이 계획서 7.9 다.</text>
+<text x="40" y="1166" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">그 구분이 없으면 정상 유휴 구간을 장애로 오인한다. 저부하 침묵 판정이 계획서 7.10 이다.</text>
 <text x="40" y="1202" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">수치 출처. 실패율 대조는 2026-08-29 LB 배선 회차 실측이고 계획서 하네스 검증설계 3절이 원본이다.</text>
 <text x="40" y="1226" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">502 10,239건은 같은 회차의 교정 전 계수다. 계층 프로브 0건은 저장소 전수 확인 결과다.</text>
 </g>

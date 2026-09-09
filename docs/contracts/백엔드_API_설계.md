@@ -2,7 +2,7 @@
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
-> 정본의 증명 축은 셋이다(정본 1.3). ① 체결 무결, ② 자동 복구, ③ 병목 이동과 안정화다. 이 문서가 계약으로 덮는 것은 ①②이고, ③은 §6-A-a 용량 API 로만 접한다.
+> 정본의 증명 축은 셋이다(정본 1.3). ① 체결 무결, ② 자동 복구, ③ 병목 이동과 안정화다. 이 문서가 계약으로 덮는 것은 ①②이고, ③은 정본 1.3 이 못박은 관측 대상 넷(계층별 CPU, 응답 시간 분위수, 수용 정원 점유, 커넥션 대기)을 여러 자리에서 나눠 규정한다. 수용 정원 점유와 커넥션 대기는 §2-5-a(`exchange_admission_in_flight{scope}`·`exchange_admission_limit{scope}`, DB에 블록된 스레드 수의 유계화), 응답 시간 분위수는 §7-4 SLO(p99·p95), 커넥션 풀 사이징과 pinning 은 §7-5, 수동 스케일링의 판정·실행 경계는 §6-A-a 용량 API 다. 접점이 §6-A-a 하나가 아니다.
 > ①②를 관통하는 축: **결정론적 단일 라이터 + 이벤트 소싱 + (필수)멱등성 + 복식부기 원장 + epoch(fencing, 전 쓰기 경로 §7-1)**.
 
 ---
@@ -60,11 +60,13 @@ exchange-platform/
                                        │ (2) ACK "접수됨" (+ client_order_id 반환)
                                        ▼ (3) 적용
                        [Matching Engine 결정론 상태기계]  ← exchange-core, 단일 스레드
-                       리더선출: 임차 보관소(기본 PostgreSQL `leader_lease`, 선택 DynamoDB) + fencing epoch(ADR 0017)
+                       리더선출: 임차 보관소(기본 PostgreSQL `leader_lease`, 선택 DynamoDB) + fencing epoch(ADR 0017. 정본 4.2·6.5 대조 미결은 §1 리더선출 행과 §8-3)
                                        │ (4) 같은 트랜잭션: assert_current_leader(holder, epoch) 통과 후 trades + outbox + ledger (fencing_epoch 저장)
                                        ▼
-                       [outbox 적재]       ──┬─▶ [PostgreSQL 프로젝션 (JPA/jOOQ)]
-                                            └─▶ [STOMP 팬아웃: /topic=Redis Pub/Sub 릴레이, /user/queue=외부 STOMP 브로커 릴레이]
+                       [PostgreSQL 프로젝션 (JPA/jOOQ)]   ← (4)의 같은 트랜잭션이 그대로 쓴다
+                       [outbox 적재]  발행기가 없어 나가는 경로가 없다. 읽는 곳은 InvariantCheck·SettlementService 둘뿐(§1 메시징/이벤트 행, §7-1)
+                                       ▼ (5) 커밋 이후 단일 라이터 스레드가 게시(MarketDataPublisher)
+                       [STOMP 팬아웃: /topic=Redis Pub/Sub 릴레이, /user/queue=외부 STOMP 브로커 릴레이]
                                                      ▼  실시간 호가/체결/잔고 푸시
 [DB HA: PostgreSQL 직접 운영. standby 2대 + synchronous_standby_names `ANY 1` 정족수(정본 6.3, ADR 0018). 무손실 failover 전제 조건은 §1 DB 자체 HA 행]
 [복구: snapshot + journal replay | 정산배치: @Scheduled + ShedLock + fencing]
@@ -95,18 +97,18 @@ exchange-platform/
 | **메시징/이벤트** | **미채택**(아웃박스 테이블만 적재, 발행기 없음) | (없음) | 정정(v2.44): 초안이 Spring for Apache Kafka·Kafka 4.x KRaft 였으나 배선하지 않았다. `server/app/build.gradle.kts` 와 `server/app/src` 전역에 kafka 가 0건이고 정본 6.1 전체 구조에 메시지 브로커가 없다. 같은 트랜잭션 `outbox` INSERT 는 실재하고 발행 경로만 없다(§7-1). 브로커 도입 여부는 정본 4.3 비채택표에도 없어 미결이다. |
 | **캐시/분산 프리미티브** | **Spring Data Redis** | **SB BOM 위임** | Pub/Sub 릴레이·nonce 저장. 정정(v2.40): Redisson 은 저장소에 의존이 없다. 분산 RateLimiter 용도로 남은 것은 M2 선행 조건이고 현 배선이 아니다. 리더선출은 이 행의 범위가 아니다(아래 행). |
 | **회복탄력성** | **Resilience4j** | **`resilience4j-spring-boot3` 2.4.0** | CircuitBreaker·RateLimiter·Bulkhead·Retry·TimeLimiter. Micrometer 통합. 버전 정정: 3.x는 미존재, 최신 GA=2.4.0. SB3.5에서 GA 검증. |
-| **리더선출/분산락** | **임차 보관소 + fencing epoch**(매칭) / **ShedLock 7.7.0**(배치) | `LeaderLeaseStore` 구현 2종(기본 PostgreSQL, 선택 DynamoDB, AWS SDK v2) / ShedLock 7.7.0 | 매칭 단일 활성화=임차 획득. 정정(v2.40): 초안이 Redisson RLock 이었으나 채택하지 않았다. 저장소에 redisson 의존이 0건이다. 기본값은 `PostgresLeaderLeaseStore`(`exchange.leader.lease.provider=postgres`)이고, ADR 0017 이 임차 **갱신**을 커밋 경로 밖으로 빼는 선택지로 `DynamoDbLeaderLeaseStore` 를 더했다. 임차 **검증**(`assert_current_leader`)은 어느 쪽이든 거래 트랜잭션 안에 남는다. 배치 중복방지=ShedLock. **주의: ShedLock은 correctness 보장 X → fencing 병행 필수**(적용 범위: 모든 엔진 기원 쓰기 트랜잭션, §7-1). |
+| **리더선출/분산락** | **임차 보관소 + fencing epoch**(매칭) / **ShedLock 7.7.0**(배치) | `LeaderLeaseStore` 구현 2종(기본 PostgreSQL, 선택 DynamoDB, AWS SDK v2) / ShedLock 7.7.0 | 매칭 단일 활성화=임차 획득. 정정(v2.40): 초안이 Redisson RLock 이었으나 채택하지 않았다. 저장소에 redisson 의존이 0건이다. 기본값은 `PostgresLeaderLeaseStore`(`exchange.leader.lease.provider=postgres`)이고, ADR 0017 이 임차 **갱신**을 커밋 경로 밖으로 빼는 선택지로 `DynamoDbLeaderLeaseStore` 를 더했다. 임차 **검증**(`assert_current_leader`)은 어느 쪽이든 거래 트랜잭션 안에 남는다. 배치 중복방지=ShedLock. **주의: ShedLock은 correctness 보장 X → fencing 병행 필수**(적용 범위: 모든 엔진 기원 쓰기 트랜잭션, §7-1). **정본 대조 미결(v2.44)**: 정본 4.2 선택표는 리더 임차를 "DynamoDB 항목 1개" 로, 정본 6.5 는 "임차 갱신은 DynamoDB 항목 하나에 조건부 쓰기" 로 단정한다. 이 문서는 저장소 실물을 적었다(`server/app/src/main/resources/application.yml` 77행 `provider: postgres`, `kr/exchange/config/LeaseStoreConfig.java` 가 고르는 구현 2종 `PostgresLeaderLeaseStore`·`DynamoDbLeaderLeaseStore`). 정본을 "기본 postgres·선택 dynamodb" 로 고칠지, 배포 기본값을 dynamodb 로 바꿔 정본에 맞출지는 미결이며 이 문서가 정하지 않는다(§8-3). |
 | **관측성(메트릭)** | **Actuator + Micrometer(Prometheus registry) + Grafana** | **버전 BOM 위임(개별 핀 제거)** | 정정: `micrometer-registry-prometheus` 마이크로버전 개별 고정 제거(‘BOM 위임’ 원칙과 모순 해소). 스타터만 추가. |
 | **관측성(트레이싱)** | **Micrometer Tracing(OTel Bridge) → 백엔드 Grafana Tempo** | SB BOM + OTLP exporter | 신규: 트레이스 **수집·조회 백엔드를 Tempo로 확정**(미지정 시 트레이스 미수집). Zipkin/Jaeger 대체 가능. |
 | **관측성(로그)** | **Logback JSON → Loki (Grafana)** | (인프라) | 신규: 중앙 로그 집계. 카오스 시 노드 간 로그 상관분석(trace_id 키). |
-| **테스트** | **JUnit5 + Testcontainers + Awaitility + ArchUnit + jqwik** | **Testcontainers·Awaitility=SB BOM 위임** / ArchUnit 1.4.2·jqwik 최신 GA(BOM 미관리 → 개별 핀 유지) | 실 PG·Kafka·Redis·Toxiproxy 컨테이너. 비동기=Awaitility(sleep 금지). 경계=ArchUnit. 불변식=jqwik. 정정(v2.4): TC·Awaitility 개별 핀 제거. 둘 다 SB BOM 관리 항목(버전 고정 원칙 정합). |
+| **테스트** | **JUnit5 + Testcontainers + Awaitility + ArchUnit + jqwik** | **Testcontainers·Awaitility=SB BOM 위임** / ArchUnit 1.4.2·jqwik 최신 GA(BOM 미관리 → 개별 핀 유지) | 실 PG·Redis·Toxiproxy 컨테이너. 비동기=Awaitility(sleep 금지). 경계=ArchUnit. 불변식=jqwik. 정정(v2.4): TC·Awaitility 개별 핀 제거. 둘 다 SB BOM 관리 항목(버전 고정 원칙 정합). 정정(v2.44): Kafka 컨테이너를 뺀다. 같은 표의 메시징/이벤트 행이 미채택이고 `server/app/build.gradle.kts` 와 `server/app/src` 전역에 kafka 가 0건이다. |
 | **부하 테스트** | **k6 (메인)** + Gatling(발표용, 선택) | k6 2.0 / Gatling 3.13+ | Thresholds→exit code로 SLO CI 게이팅. WS 부하 지원. |
 | **카오스** | **Toxiproxy(네트워크) + Chaos Monkey(앱) + docker kill(인프라)** | toxiproxy 모듈=**TC(SB BOM) 위임**(v2.4, TC 개별 핀 제거와 동일 논리) / **chaos-monkey-spring-boot 3.x (SB3 정합, BOM 미관리 → 개별 관리)** | 정정: 초안의 "Chaos Monkey 4.0.0=SB3 타깃" 경고는 **사실과 반대**(4.0.0은 SB4.0.2 기반=SB4 지원). SB3.5 경로에선 **3.x 라인을 사용**. Toxiproxy=네트워크, Chaos Monkey=앱 계층 상호보완. |
 | **매칭엔진 동시성** | **LMAX Disruptor** | 4.0.0 (min JDK 11, Java 21 OK) | 락-프리 링버퍼. 참고: 4.0.0(2023-09) 이후 유지보수 정체 → **1차 `ArrayBlockingQueue`로 결정론 완성 후, 벤치마크로 실측 이득 확인되면 교체**(handler 인터페이스 동일). |
 | **커넥션 풀** | **HikariCP** | SB BOM | 신규: VirtualThreads+JDBC 조합의 **pinning·풀 사이징** 명시(§7-5). 풀 고갈이 p99 SLO 직결. |
 | **DB 자체 HA** | **PostgreSQL 직접 운영**(standby 2대 + `synchronous_standby_names` `ANY 1` 정족수) | (인프라) | 정정(v2.44): 초안이 Patroni(+etcd)+HAProxy 였으나 채택하지 않았다. `server`·`deploy`·`harness` 전역에 patroni·etcd·haproxy 가 0건이고, 정족수는 `harness/scale/standby_up.sh` 가 `ALTER SYSTEM SET synchronous_standby_names = 'ANY 1 (...)'` 로 직접 건다(정본 6.3, ADR 0018). failover RPO=0은 무조건 성립하지 않는다. 성립 조건(운영 요건): 동기 standby 강제, 정산·저널 트랜잭션에 `synchronous_commit=on`(remote flush 이상), PITR 아카이브 병행. 비동기 standby failover·스토리지 손실·조기 승격에서는 유실 가능. 진입 라우팅은 `deploy/nginx-edge.conf.template` 의 두 업스트림(`exchange_read`·`exchange_write`)이 맡는다. **DB 클러스터 리더 선출과 STONITH 의 담당 주체는 미결이다**(정본 13.2 의 10 이 승격 시 동기 복제 대상 재설정을 미배선으로 등재). |
 
-**버전 고정 원칙**: Micrometer/JUnit/Hibernate/Kafka-client 개별 고정 금지 → **Spring Boot BOM 위임**. 스타터만 추가. (표에서 개별 핀은 Resilience4j·ShedLock 등 BOM 미관리 항목에만 남긴다.)
+**버전 고정 원칙**: Micrometer/JUnit/Hibernate 개별 고정 금지 → **Spring Boot BOM 위임**. 스타터만 추가. (표에서 개별 핀은 Resilience4j·ShedLock 등 BOM 미관리 항목에만 남긴다.) 정정(v2.44): 종전 열거의 Kafka-client 를 뺀다. 메시징/이벤트가 미채택이라 BOM 위임 대상 자체가 없다(위 메시징/이벤트 행).
 
 ---
 
@@ -1503,8 +1505,8 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 |---|---|---|
 | P0 | 순수 Java 단일스레드 매칭 코어 + command_journal(WAL) + Log-first + 재생 복구 | 로컬 장애 RPO=0(프로세스·전원 장애 범위, §7-6), 재생 결정론 `matched=true` |
 | P1 | 스냅샷 + 핫 스탠바이 재생 | RTO 단축 측정 |
-| P2 | 임차 리더선출(PostgreSQL 기본, DynamoDB 선택 - ADR 0017) + 전 쓰기 경로 fencing(`assert_current_leader`, epoch, §7-1) + 동기 복제 정족수(`synchronous_standby_names` `ANY 1`, ADR 0018) | 구 리더 쓰기 0행(fencing 계약 하 split-brain 차단, 하네스 V3) |
-| P3 | 트랜잭셔널 아웃박스 + Kafka + 이중부기 + 불변식 배치 | 자산 보존 그래프 |
+| P2 | 임차 리더선출(PostgreSQL 기본, DynamoDB 선택 - ADR 0017. 정본 4.2·6.5 대조 미결은 §1 리더선출 행) + 전 쓰기 경로 fencing(`assert_current_leader`, epoch, §7-1) + 동기 복제 정족수(`synchronous_standby_names` `ANY 1`, ADR 0018) | 구 리더 쓰기 0행(fencing 계약 하 split-brain 차단, 하네스 V3) |
+| P3 | 같은 트랜잭션 `outbox` 적재(발행기 미배선, §7-1) + 이중부기 + 불변식 배치. 브로커는 미채택이고 도입 여부가 미결이라 이 단계에 넣지 않는다(§0-2 Kafka 미채택, §1 메시징/이벤트 행, §8-3) | 자산 보존 그래프 |
 | P4 | 봇 부하 + 백프레셔(유계 큐·토큰버킷) | 폭주 하 p99·거부율 |
 | P5 | (벤치 후 이득 확인 시) Disruptor 파이프라인 | 처리량 벤치, zero-alloc |
 | P6 | Toxiproxy/Chaos Monkey/kill 자동화 + property-based test | "유실 0·중복 0·자산합 0·재생 결정론 `matched=true`·fencing 위반 0" 표 |
@@ -1590,6 +1592,8 @@ RPO=0 매핑: 게이트웨이는 command_journal fsync 성공 후에만 ACK하�
 ### 8-3. 최종 미결(운영 판단) 사항
 - SB 3.5.16 EOL 시점 도래 시 보안 패치 경로: Resilience4j의 SB4 GA 릴리스 확인 후 SB4 이관 재검토(현재는 검증된 3.5 경로 확정).
 - 시장가 매수 기준: **notional(금액) 확정**(§4-B-1). 정책 변경 시 `remaining_notional` 스키마 유지.
+- 리더 임차 보관소 기본값(v2.44 등재): 정본 4.2·6.5 는 DynamoDB 로 단정하고 저장소 기본값은 `application.yml` 77행 `provider: postgres` 다. 정본을 고칠지 배포 기본값을 바꿀지 미결이다(§1 리더선출 행).
+- 메시지 브로커 도입 여부(v2.44 등재): `outbox` 적재는 실재하고 발행기가 없다. 정본 4.3 비채택표에도 등재가 없어 채택으로도 비채택으로도 확정되지 않았다(§0-2, §1 메시징/이벤트 행, §7-3 P3).
 
 ---
 

@@ -1,7 +1,7 @@
 # 고가용성 가상 암호화폐 거래소 CI/CD·IaC·관측성 설계서 (설계 B, v1.1 제출본)
 
 > 전제 계약: `docs/contracts/백엔드_DB_설계.md` **v2.29**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 전용 리스 풀·자발적 강등·강등 등급 분리·표식 해제 지점, §2-5-a 수용 제한, V13 원가 프로젝션), `docs/contracts/백엔드_API_설계.md` **v2.20**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·1인 승인(v2.34 `V34__single_operator_approval.sql`이 반결탁 제약을 제거, ADR 0019), §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
-> 설계 원칙: **정확성(증명 가능성) > 재현성(1커맨드 기동) > 성능 > 편의성**. 인프라의 임무는 두 증명 목표, ① 체결 무결(자산합 0·유실 0·중복 0), ② 자동 복구(재생·페일오버·RTO<30s)를 **CI가 매 커밋, 데모가 실시간으로 데이터로 보여주게 만드는 것**이다.
+> 설계 원칙: **정확성(증명 가능성) > 재현성(1커맨드 기동) > 성능 > 편의성**. 인프라의 임무는 세 증명 목표, ① 체결 무결(자산합 0·유실 0·중복 0), ② 자동 복구(재생·페일오버·RTO<30s), ③ 병목 이동과 안정화(병목 계층을 관측으로 특정하고, 키우면 지표가 예측한 방향으로 유의하게 움직이고 재현)를 **CI가 매 커밋, 데모가 실시간으로 데이터로 보여주게 만드는 것**이다. 축이 셋인 것은 정본 §요약·§1.3 기준이다. ③만은 단일 임계의 CI 게이트가 아니라 라이브 교차 실험이 조작 전후 지표 차와 그 방향으로 판정한다(검증설계 §3 말미, `harness/scale/pool_db_matrix.py` + 오버레이 `harness/docker-compose.scale.yml`).
 > 2026-07-21: 스타일 정리, 내용 무변경.
 > 2026-07-24: §5-6 C-카탈로그에 C21~C23(전부 CRITICAL, InvariantCheck enum 실재분) 수록, InvariantViolation 라우팅 열거 갱신. 단일 권위는 검증설계 §4-1 불변(§5-6은 2차 미러).
 > 2026-07-24 2차: 전제 계약 핀을 실헤더 기준으로 갱신(DB v2.5→v2.17, API v2.4→v2.15). 하네스_검증설계.md 핀(v2.17/v2.15)과 통일. §8 정정 권고 항목은 발견 시점 기록으로 존치.
@@ -21,7 +21,7 @@
 | CI | GitHub Actions (public repo) | `checkout@v6` / `setup-java@v5`(temurin 21) / `gradle/actions/setup-gradle@v6` / `setup-node@v6`(Node 22) | ubuntu-latest = Docker 내장 → Testcontainers 무설정 |
 | 레지스트리 | GHCR | `ghcr.io` + `GITHUB_TOKEN` | 별도 시크릿 불요 |
 | 이미지 빌드 | buildx | `setup-buildx-action@v3` / `build-push-action@v6` / `metadata-action@v5`, 캐시 `type=gha` | `linux/amd64,linux/arm64` 둘. **v2.x 개정(2026-08-30)**: 배포 대상이 t4g 계열(AWS Graviton, ARM64)이라 amd64 단독이면 EC2에서 exec format error로 컨테이너가 뜨지 않는다. app.jar는 아키텍처 독립이라 차이는 베이스 레이어뿐이다. 액션 버전도 실제 사용값으로 정정한다(종전 v4/v7/v6은 실재하지 않는 태그였다) |
-| DB | PostgreSQL | **`postgres:17.6-bookworm` 기반 커스텀 이미지**를 CI가 빌드해 **GHCR digest로 배포**(`infra/pg/Dockerfile`: `postgresql-17-partman=5.*`·`postgresql-17-cron` apt 버전 핀) | **PG18 금지**(PGDATA 경로 변경·계약 PG17+). V2가 `CREATE EXTENSION pg_partman/pg_cron` 요구 → 순정 이미지로는 Flyway 실패. 베이스 `postgres:17`(유동 태그) 직접 사용 금지. TC·compose·CI가 **동일 GHCR digest를 공용 pull**해 드리프트 봉쇄(§1-2) |
+| DB | PostgreSQL | **`postgres:17.6-bookworm` 기반 커스텀 이미지**를 CI가 빌드해 **GHCR digest로 배포**(`harness/pg/Dockerfile`: `postgresql-17-partman=5.*`·`postgresql-17-cron` apt 버전 핀) | **PG18 금지**(PGDATA 경로 변경·계약 PG17+). V2가 `CREATE EXTENSION pg_partman/pg_cron` 요구 → 순정 이미지로는 Flyway 실패. 베이스 `postgres:17`(유동 태그) 직접 사용 금지. TC·compose·CI가 **동일 GHCR digest를 공용 pull**해 드리프트 봉쇄(§1-2) |
 | 캐시/브로커 | Redis / Kafka / RabbitMQ | `redis:8` / `apache/kafka:4.0.0`(KRaft 단일노드) / `rabbitmq:4-management`(+`enabled_plugins` 파일 마운트로 **rabbitmq_stomp 명시 활성**, 기본 비활성) | **Bitnami 이미지 전면 금지**(카탈로그 폐지). RabbitMQ = API§5-1 `/user/queue/**` 크로스노드 릴레이 계약상 필수 |
 | LB | Nginx | `nginx:1.29` | readiness 기반 제외(API§0-2), WS 스케일 파라미터 §3-3 |
 | 네트워크 카오스 | Toxiproxy | `ghcr.io/shopify/toxiproxy:2.12.0` | **노드별 프록시 4개** 상시 배선(§3-2). admin API(8474)는 **admin-net 내부 전용, 호스트 미공개**. packet loss 불가 → Pumba 보완 |
@@ -33,7 +33,7 @@
 | 부하 | k6 | **1.4.0** (`grafana/k6:1.4.0`, 전 증거 회차 실측 핀) + Gatling 3.15 발표용 선택 | STOMP = `k6/experimental/websockets` 위 순수 JS(확장 빌드 0). 핀 이미지에 stable `k6/websockets`가 없다(실측 오류 `unknown dependency : k6/websockets`, `harness/load/lib/stomp.js`). JMeter 배제 |
 | 로컬 k8s(선택) | k3d | v5.9.x | rolling 무중단 시연 전용 가산점 트랙 |
 | Gradle | 9.6.1 | Configuration Cache 활성 | |
-| Next.js | 16.2.x LTS | `output:'standalone'` 3-스테이지 | |
+| Next.js | 16.2.x LTS | `output:'export'` 정적 export(`web/out`) | 정정(2026-09-09): 실물 `web/next.config.ts`가 `output:"export"`라 런타임 이미지가 없다. `nginx:1.29`가 `web/out`을 서빙한다(§3-1) |
 
 ---
 
@@ -66,6 +66,7 @@ failstop/
 ├── deploy/                      상시면 배포용 compose 4종(edge·app·data·bot) + 인증서 스크립트
 ├── seed-data/                   마켓·코인 메타 수집기와 산출물(out/markets.json, markets 배열 269개)
 ├── scripts/                     check-style.ps1 등 로컬 게이트(부록 S-2)
+├── artifacts/                   검증 산출물(verification/role-system/20260831/result.txt)
 ├── docs/                        contracts · architecture · adr · records · archive
 ├── 제출_20260901/               정본 기획안
 └── compose.yaml                 데모 전체 스택(name: exchange-chaos). harness/docker-compose.chaos.yml을 include하고 web·admin·k6를 얹는다
@@ -81,7 +82,7 @@ failstop/
 | `demo-ha-db` **(미구현 선택 트랙)** | `--profile full` + **`-f compose.ha-db.yaml` 오버레이** | `demo` | Patroni×2+etcd+HAProxy(**단독 PG 대체**, §3-5) | + DB 페일오버 | DB HA 시연 세션 한정. 오버레이 파일·`infra/patroni/`·`populate-ha.json`이 저장소에 없다. 현행 DB 이중화는 대기 서버 2대 `ANY 1` 정족수이고 실험 수단은 `harness/replication/`이다(정본 §6.3, §3-5) |
 | `k3d`(선택) | `k3d cluster create` + kubectl | `demo` | compose DB 재사용 | - | rolling 무중단 시연 |
 
-**이미지 단일 원천 규율**: PG 커스텀 이미지는 `image.yml`이 빌드해 `ghcr.io/<org>/exchange-platform/exchange-pg:<sha>`로 푸시하고, `.env`의 `PG_IMAGE`(digest 고정)를 compose·Testcontainers(`-Dexchange.pg.image=` 시스템 프로퍼티)·CI가 **공용 참조**한다. 베이스는 `postgres:17.6-bookworm` + apt 버전 핀, "버전 드리프트 = 파티션드 IDENTITY/partman 동작 차이 = 증명 무효" 규율을 이미지 자체에도 적용한다. 앱 이미지 태그는 `.env`의 `TAG` 하나로 일원화한다.
+**이미지 단일 원천 규율**: PG 커스텀 이미지는 `image.yml`이 빌드해 `ghcr.io/<repo>/exchange-pg:<sha>`로 푸시하고, `.env`의 `PG_IMAGE`(digest 고정)를 compose·Testcontainers(`-Dexchange.pg.image=` 시스템 프로퍼티)·CI가 **공용 참조**한다. 베이스는 `postgres:17.6-bookworm` + apt 버전 핀, "버전 드리프트 = 파티션드 IDENTITY/partman 동작 차이 = 증명 무효" 규율을 이미지 자체에도 적용한다. 앱 이미지 태그는 `.env`의 `TAG` 하나로 일원화한다. **미구현(2026-09-09 확인)**: 실물 `image.yml`이 푸시하는 이미지는 앱 단일 이미지 `ghcr.io/<repo>/exchange-app` 하나뿐이고 PG 커스텀 이미지 잡이 없다. 격리 카오스 스택은 순정 `postgres:17-alpine`을 쓴다(`harness/docker-compose.chaos.yml`).
 
 ---
 
@@ -90,7 +91,7 @@ failstop/
 ### 2-1. 토폴로지와 게이트 정책
 
 ```
-PR·push → [ci-backend]  ./gradlew build (컴파일 + 단위 + Testcontainers 통합 + ArchUnit) + promtool 룰 검사 + 대시보드 sanity
+PR·push → [ci-backend]  ./gradlew build (컴파일 + 단위 + Testcontainers 통합) + promtool 룰 검사 + 대시보드 sanity   (ArchUnit은 미구현, §2-2)
           [ci-web]      npm ci → build → 정적 export 검증 → tsc --noEmit → npm test        (paths: web/**)
 PR      → [style]       추가된 줄·커밋 메시지의 dash·이모지·AI 어투 검사 + 문서 링크·디자인 토큰·브라우저 불변 (부록 S)
 main    → [image]       ci-backend 성공 커밋 한정. `:app:bootJar` → `ghcr.io/<repo>/exchange-app` 멀티아치(amd64+arm64) push, 배포는 digest 고정
@@ -99,18 +100,24 @@ main    → [image]       ci-backend 성공 커밋 한정. `:app:bootJar` → `g
 - 워크플로는 4종이다(정본 §10.6: 백엔드 검증·웹 검증·이미지 빌드·스타일 검사). **PR 게이트 = 핵심 불변식·결정론**(빠르고 항상). 실물에서는 Testcontainers 통합 검증도 `ci-backend` 안에서 PR·push 양쪽에 걸린다. 별도 `integration.yml`은 미구현이고(§2-3) **부하 게이트(nightly)도 미구현이다**(§2-5). `concurrency: cancel-in-progress`로 낭비 차단.
 - **V3 스위트가 CI에 귀속되는 것이 이 설계의 핵심 서사다**: DB 문서가 "문서 단정만으로 신뢰하지 않는다"며 V3에 위임한 명제(커밋 백스톱 파티션 전파, partman 채택, 재생 결정론, fencing 원자성)를 **매 main 커밋마다 CI가 재증명**한다. T2(경계 기준 partman 채택 판정) 실패는 코드 버그가 아니라 **DB 문서 정정 트리거**로 취급한다(§8).
 
-### 2-2. `ci-backend.yml` (PR)
+### 2-2. `ci-backend.yml` (PR·push)
 
 ```yaml
 name: ci-backend
 on:
   pull_request:
-    paths: ['exchange-*/**','common-dto/**','bot-simulator/**','build.gradle*','settings.gradle*','gradle/**']
+    branches: [main, develop]
+    paths: ['server/**','harness/prometheus/**','harness/grafana/dashboards/**','.github/workflows/ci-backend.yml']
+  push:                                                      # push(main·develop)가 Gradle 캐시를 채우고 PR이 읽는다
+    branches: [main, develop]
+    paths: ['server/**','harness/prometheus/**','harness/grafana/dashboards/**','.github/workflows/ci-backend.yml']
 permissions: { contents: read }
 concurrency: { group: ci-backend-${{ github.ref }}, cancel-in-progress: true }
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults: { run: { working-directory: server } }         # 빌드 루트는 server/
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -118,12 +125,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}   # PR=읽기전용 → 캐시 오염 방지
-      - run: ./gradlew build --configuration-cache               # 단위 + ArchUnit 포함
+      - run: ./gradlew build                                     # 단위 + Testcontainers 통합
+  observability:                                               # 관측 산출물 게이트(같은 워크플로의 둘째 잡)
+    runs-on: ubuntu-latest
+    steps: ...                                                 # promtool check config·rules + 대시보드 JSON sanity·중복 키
 ```
 
 **캐시 전략**: Gradle 캐시는 `setup-gradle@v6` **전담**, `setup-java`의 `cache: gradle`·수동 `actions/cache` 병행 금지(공식 문서 명시 상호 간섭). main만 캐시 쓰기, PR은 읽기 전용. Docker 레이어는 buildx `type=gha`(모듈별 `scope=`, `mode=max`). Next.js `.next/cache`만 별도 `actions/cache`(선택).
 
-**ArchUnit 게이트(T3-A)**: `exchange-core`에서 `System.currentTimeMillis/nanoTime`, `Random/UUID.randomUUID`, `Instant.now`, `HashMap/HashSet` 필드, `double/float` 필드 금지. 재생 결정론(API§7-2)의 컴파일 타임 방어가 PR마다 강제된다.
+**ArchUnit 게이트(T3-A) (미구현, 목표 명세)**: `server/engine`(`:engine`, 초안의 `exchange-core`)에서 `System.currentTimeMillis/nanoTime`, `Random/UUID.randomUUID`, `Instant.now`, `HashMap/HashSet` 필드, `double/float` 필드 금지. 재생 결정론(API§7-2)의 컴파일 타임 방어를 PR마다 강제하는 것이 목표다. **미구현(2026-09-09 확인)**: 저장소에 ArchUnit 의존도 규칙 테스트도 없다(빌드 스크립트·테스트 전량 검색 0건, 언급은 `ci-backend.yml` 머리 주석 한 줄뿐). 현행 `./gradlew build`는 단위·통합만 돌린다.
 
 ### 2-3. `integration.yml` (main), V3 실증 스위트 **(미구현, 목표 명세)**
 
@@ -152,7 +162,9 @@ jobs:
 - 스위트 구성: **T1** DEFERRABLE 커밋 백스톱, JDBC 수동 `commit()`에서 P0001·전체 롤백, V1 수동/partman 신규/DEFAULT 파티션 3곳 반복 · **T2** partman 채택, **이름이 아니라 `pg_get_expr(relpartbound)` 경계 기준** 겹침 0·premake 충족·REVOKE 전파(app_role 42501)·명명 규칙 기록 · **T3** 재생 결정론, jqwik 속성(로컬 50/CI 200/nightly 2000 tries) + 크래시 창 catch-up 멱등(2회째 no-op) · **T4** fencing, CyclicBarrier 동시 승격 1승자, 스테일 epoch 0행 append, **리스 갱신 epoch 불변(T4-7, DB v2.5 §5.4 heartbeat 문장의 회귀 방지)** · **T5** append-only/REVOKE/복합 FK 물리 강제.
 - 판정: **T1~T5 전건 green = "V3 실증 완료"의 정의.**
 
-### 2-4. `image.yml` (main), GHCR 5종 푸시
+### 2-4. `image.yml`, GHCR 푸시 (아래 골격은 미구현 목표 명세)
+
+> **정정(2026-09-09)**: 실물 `image.yml`은 이미지 하나만 만든다. `ci-backend` 성공을 `workflow_run`(main 한정)으로 받아 `:app:bootJar`를 굽고, 빌드 컨텍스트 `harness/`와 `harness/Dockerfile.app`으로 `ghcr.io/<repo>/exchange-app`을 `linux/amd64,linux/arm64` 멀티아치 푸시한 뒤 digest를 잡 요약에 남긴다. 아래 3모듈 매트릭스·`pg-image`·`frontend-image`·jarmode 레이어 표준형은 초안의 멀티모듈 전제라 미구현 목표 명세다(`harness/Dockerfile.app`이 자기 주석에 "계약 표준형의 축약본"이라고 적는다). 배포단위 A/B/C는 이미지가 아니라 Spring 프로파일이 가른다.
 
 ```yaml
 name: image
@@ -189,7 +201,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.module }}
           cache-to: type=gha,scope=${{ matrix.module }},mode=max
-  pg-image:        # infra/pg, 동일 골격. 푸시 digest를 repo variable PG_IMAGE로 갱신(워크플로 마지막 step)
+  pg-image:        # harness/pg, 동일 골격. 푸시 digest를 repo variable PG_IMAGE로 갱신(워크플로 마지막 step)
     ...
   frontend-image:  # 동일 골격, context=frontend/, Node 22 setup-node cache:npm
     ...
@@ -217,7 +229,7 @@ ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75"
 ENTRYPOINT ["java","-jar","app.jar"]
 ```
 
-`exchange-admin/Dockerfile`만 예외적으로 **docker-cli 패키지를 추가하지 않는다**. 관리 서비스는 Docker를 조작하지 않기 때문이다(§6-2 명령 소비기 모델). 거래·관리 프로세스에 docker.sock을 주면 그 프로세스의 원격 코드 실행 하나가 호스트 장악이 되고, 리더 kill 실험에서는 명령을 받은 프로세스가 그 명령으로 사라져 결과를 기록할 주체가 없어진다. 주입은 별도 소비기가 수행한다. Next.js는 `output:'standalone'` 3-스테이지(deps/builder/runner, non-root, `HOSTNAME=0.0.0.0`).
+`exchange-admin/Dockerfile`만 예외적으로 **docker-cli 패키지를 추가하지 않는다**. 관리 서비스는 Docker를 조작하지 않기 때문이다(§6-2 명령 소비기 모델). 거래·관리 프로세스에 docker.sock을 주면 그 프로세스의 원격 코드 실행 하나가 호스트 장악이 되고, 리더 kill 실험에서는 명령을 받은 프로세스가 그 명령으로 사라져 결과를 기록할 주체가 없어진다. 주입은 별도 소비기가 수행한다. Next.js는 `output:'export'`라 런타임 이미지가 없다. `web/out` 정적 산출을 `nginx:1.29`가 서빙한다(§3-1).
 
 ### 2-5. `nightly-slo.yml`, k6 SLO 게이트 (API§1 "Thresholds→exit code" 계약 이행) **(미구현, 목표 명세)**
 
@@ -269,11 +281,13 @@ services:
 
 ### 3-1. `compose.yaml` (구현 골자, `version:` 키는 obsolete, 미사용)
 
+정정(2026-09-09): 아래 스니펫의 호스트 경로와 이미지 이름을 저장소 기준으로 통일한다. 마운트 원천은 `infra/`가 아니라 `harness/`이고(`infra/` 디렉터리는 존재하지 않는다, §1-1), Flyway 마이그레이션 경로는 `server/app/src/main/resources/db/migration`이다. 실재 파일은 `harness/toxiproxy/populate.json`과 `harness/nginx/nginx.conf` 둘이고, `harness/docker-compose.chaos.yml`이 하네스 기준 상대경로(`./toxiproxy/populate.json`·`./nginx/nginx.conf`)로 같은 둘을 마운트한다. `harness/pg/initdb`와 `harness/rabbitmq/enabled_plugins`는 저장소에 없는 목표 명세다(2026-09-09 확인). 앱 이미지는 배포단위 A/B/C가 공유하는 단일 이미지 `ghcr.io/<repo>/exchange-app` 하나이고 역할은 `SPRING_PROFILES_ACTIVE`가 가른다(§2-1).
+
 ```yaml
 name: exchange-demo
 
 x-api-common: &api-common
-  image: ghcr.io/<org>/exchange-platform/exchange-api:${TAG:-latest}
+  image: ghcr.io/<repo>/exchange-app:${TAG:-latest}   # 배포단위 A/B/C 공용 단일 이미지, 역할은 프로파일이 가른다(§2-1)
   environment: &api-env
     SPRING_PROFILES_ACTIVE: demo
     DB_HOST: toxiproxy            # 앱→toxiproxy→postgres. 포트는 노드별 상이(아래), E2/그레이 장애의 노드 선택성 확보
@@ -305,14 +319,14 @@ services:
     environment:
       FLYWAY_URL: jdbc:postgresql://postgres:5432/exchange
       FLYWAY_USER: postgres
-    volumes: ["./exchange-api/src/main/resources/db/migration:/flyway/sql:ro"]
+    volumes: ["./server/app/src/main/resources/db/migration:/flyway/sql:ro"]
     secrets: [pg_password]        # FLYWAY_PASSWORD_FILE 지원, /run/secrets 참조
     depends_on: { postgres: { condition: service_healthy } }
     restart: "no"
     profiles: [slim, full]
 
   seed:                            # 데모 시드 잡, 봇/부하 계정 + GENESIS 입금 (§7-3, 멱등)
-    image: ghcr.io/<org>/exchange-platform/exchange-admin:${TAG:-latest}
+    image: ghcr.io/<repo>/exchange-app:${TAG:-latest}
     environment: { SPRING_PROFILES_ACTIVE: seed }     # 시드 전용 프로파일: 실행 후 종료(exit 0)
     depends_on:
       flyway-migrate: { condition: service_completed_successfully }
@@ -332,7 +346,7 @@ services:
     secrets: [pg_password]
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./infra/pg/initdb:/docker-entrypoint-initdb.d:ro     # 01-roles.sql, app_role/grafana_ro 생성(§7-2)
+      - ./harness/pg/initdb:/docker-entrypoint-initdb.d:ro     # 01-roles.sql, app_role/grafana_ro 생성(§7-2)
     healthcheck: { test: ["CMD-SHELL","pg_isready -U postgres -d exchange"], interval: 5s, retries: 10, start_period: 15s }
     restart: unless-stopped
     deploy: { resources: { limits: { memory: 1536m } } }
@@ -350,7 +364,7 @@ services:
   toxiproxy-init:                  # 기동 시 프록시 사전 정의(POST /populate). 실패=non-zero exit=기동 전체 명확 실패
     image: curlimages/curl:8
     depends_on: [toxiproxy]
-    volumes: ["./infra/toxiproxy/populate.json:/populate.json:ro"]
+    volumes: ["./harness/toxiproxy/populate.json:/populate.json:ro"]
     command: ["sh","-c","for i in $(seq 1 20); do curl -sf -XPOST toxiproxy:8474/populate -d @/populate.json && exit 0; sleep 1; done; exit 1"]
     restart: "no"
     profiles: [slim, full]
@@ -373,7 +387,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:4-management
-    volumes: ["./infra/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro"]
+    volumes: ["./harness/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro"]
     # enabled_plugins 내용: [rabbitmq_management,rabbitmq_stomp]. STOMP(61613)는 기본 비활성이므로 명시 활성
     restart: unless-stopped
     deploy: { resources: { limits: { memory: 512m } } }
@@ -392,7 +406,7 @@ services:
 
   lb:
     image: nginx:1.29
-    volumes: ["./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro"]
+    volumes: ["./harness/nginx/nginx.conf:/etc/nginx/nginx.conf:ro"]
     ports: ["8080:8080"]
     depends_on: { api-1: { condition: service_healthy } }
     restart: unless-stopped
@@ -400,7 +414,7 @@ services:
     profiles: [slim, full]
 
   admin:
-    image: ghcr.io/<org>/exchange-platform/exchange-admin:${TAG:-latest}
+    image: ghcr.io/<repo>/exchange-app:${TAG:-latest}
     ports: ["9090:9090"]           # 분리 포트(API§3-6)
     networks: [default, admin-net] # admin-net에서만 toxiproxy:8474·docker.sock 접근
     volumes: ["/var/run/docker.sock:/var/run/docker.sock"]   # docker-java(Engine API)로 kill-node 실행(§6-2)
@@ -411,7 +425,7 @@ services:
     profiles: [full]
 
   bots:
-    image: ghcr.io/<org>/exchange-platform/bot-simulator:${TAG:-latest}
+    image: ghcr.io/<repo>/exchange-app:${TAG:-latest}
     depends_on:
       lb:   { condition: service_started }
       seed: { condition: service_completed_successfully }     # 계정 시드 후 기동, 인증 불가 문제 해소
@@ -420,8 +434,9 @@ services:
     profiles: [full]
 
   frontend:
-    image: ghcr.io/<org>/exchange-platform/frontend:${TAG:-latest}
-    ports: ["3000:3000"]
+    image: nginx:1.29              # web/out 정적 export 서빙(§1-1). 별도 프런트 이미지는 빌드하지 않는다
+    volumes: ["./web/out:/usr/share/nginx/html:ro", "./harness/nginx/web.conf:/etc/nginx/conf.d/default.conf:ro"]
+    ports: ["3000:80"]             # 앱 WS 오리진 화이트리스트가 http://localhost:3000만 허용한다
     restart: unless-stopped
     deploy: { resources: { limits: { memory: 384m } } }
     profiles: [full]
@@ -462,7 +477,7 @@ volumes: { pgdata: , promdata: }
 networks: { admin-net: }
 ```
 
-### 3-2. Toxiproxy 노드별 배선 (`infra/toxiproxy/populate.json`)
+### 3-2. Toxiproxy 노드별 배선 (`harness/toxiproxy/populate.json`)
 
 ```json
 { "proxies": [
@@ -476,7 +491,7 @@ networks: { admin-net: }
 
 exchange-admin의 `POST /admin/v1/chaos/network`(API§6-B)는 admin-net 내부에서 toxiproxy admin API(8474)로 릴레이하며, 요청 바디에 **`target_node`(`api-1`|`api-2`|`all`) 축을 추가**해 프록시명(`pg-api1` 등)으로 매핑한다(계약 §6-B 바디에 노드 축이 없으므로 §8 정정 권고 항목). 계약 열거 toxic 전부 실재 확인: `latency`(+jitter)/`bandwidth`/`timeout`(**timeout=0=블랙홀**)/`reset_peer`/`down`(enabled=false). **packet loss는 Toxiproxy에 없음**, `chaos-net` 프로파일의 Pumba가 전담(사전 검증 §6-2). 실험 종료 훅은 프록시별 `POST /reset`.
 
-### 3-3. `infra/nginx/nginx.conf` 핵심 (+WS 스케일 파라미터 신규)
+### 3-3. `harness/nginx/nginx.conf` 핵심 (+WS 스케일 파라미터 신규)
 
 ```nginx
 worker_processes auto;
@@ -554,7 +569,7 @@ volumes: { pgdata-ha1: , pgdata-ha2: }        # 단독 pgdata와 볼륨 분리, 
 
 채택 시 `populate-ha.json`은 `pg-api1/pg-api2`의 upstream만 `haproxy:5432`로 바꾼 사본이다. 이 오버레이로 **앱 트래픽이 실제 Patroni 경로를 경유**하며, DB 페일오버 시연(Patroni 리더 kill → HAProxy 재라우팅 → 앱 Hikari 재수립)이 실질이 된다. 오버레이 없이 `--profile ha-db`만 켜는 방식은 금지(단독 PG와 동시 기동 + upstream 미전환으로 공회전).
 
-### 3-6. 데모 리셋 표준 절차 (`infra/deploy/reset.sh` 신규)
+### 3-6. 데모 리셋 표준 절차 (`deploy/reset.sh`, 미작성)
 
 계약 §2-4 "데모 리셋 시 네임스페이스 초기화"의 인프라 구현. **선별 리셋은 금지**. append-only 원장·저널의 부분 삭제는 계약 위반이자 증명 오염이므로, 리셋은 항상 전체 볼륨 파기다:
 
@@ -575,7 +590,7 @@ Grafana 대시보드는 파일 프로비저닝이라 리셋과 무관하게 재�
 - **배포 순서 원칙: 팔로워 먼저.** ① `GET /admin/v1/ha/status`로 현재 리더 확인 → ② 팔로워 갱신·healthy 대기 → ③ 리더 갱신. 리더 갱신은 곧 의도된 페일오버이므로 graceful 경로(readiness=REFUSING_TRAFFIC → in-flight 완료 → 스냅샷 flush → 종료)를 태워 새 리더의 tail 재생량을 최소화한다.
 - 클라이언트 관점 "무중단"의 정의(API 계약 유래): **주문 접수 실패 0 + 이중체결 0**, 5xx/타임아웃 창은 `client_order_id` 재조회 상태머신(API§7-6)으로 수렴하므로, 배포 중에도 k6가 `checks: 접수 유실 0·중복 0`을 동시 측정해 증거화한다.
 
-### 4-2. Compose rolling 재시작 절차 (`infra/deploy/rolling.sh`)
+### 4-2. Compose rolling 재시작 절차 (`deploy/rolling.sh`, 미작성)
 
 ```bash
 #!/usr/bin/env bash
@@ -613,7 +628,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: api
-          image: ghcr.io/<org>/exchange-platform/exchange-api:sha-<pin>
+          image: ghcr.io/<repo>/exchange-app:sha-<pin>
           resources: { limits: { memory: 1Gi } }      # compose 캡과 동일 예산
           readinessProbe: { httpGet: { path: /actuator/health/readiness, port: 8081 }, periodSeconds: 3 }
           livenessProbe:  { httpGet: { path: /actuator/health/liveness,  port: 8081 } }
@@ -645,7 +660,7 @@ management:
       minimum-expected-value: { exchange.order.latency: 1ms }
       maximum-expected-value: { exchange.order.latency: 30s }
 
----   # demo 프로파일 전용 문서(E3 앱 카오스 활성, API§6-B 계약 이행)
+---   # demo 프로파일 전용 문서(E8 앱 카오스 활성, API§6-B 계약 이행)
 spring.config.activate.on-profile: demo
 chaos:
   monkey:
@@ -654,7 +669,7 @@ chaos:
 management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosmonkey
 ```
 
-**E3 배선 정합(수정)**: admin의 `POST /admin/v1/chaos/app` 릴레이 대상인 `POST /actuator/chaosmonkey/**`가 위 demo 프로파일 문서로 **실제 노출·활성**된다(기본 노출 목록만으로는 404였음). 관리 포트 8081는 공개 LB에 라우팅되지 않고(§3-3) chaosmonkey 릴레이는 admin-net 내부에서만 이뤄지므로 §3-6 격리 원칙과 정합. `local`/CI 프로파일에서는 chaos.monkey 미활성.
+**E8 배선 정합(수정)**: admin의 `POST /admin/v1/chaos/app` 릴레이 대상인 `POST /actuator/chaosmonkey/**`가 위 demo 프로파일 문서로 **실제 노출·활성**된다(기본 노출 목록만으로는 404였음). 관리 포트 8081는 공개 LB에 라우팅되지 않고(§3-3) chaosmonkey 릴레이는 admin-net 내부에서만 이뤄지므로 §3-6 격리 원칙과 정합. `local`/CI 프로파일에서는 chaos.monkey 미활성.
 
 원칙: **classic 히스토그램 + SLO 경계 버킷**이 기본(`le="0.5"` 직독 = 보간 없는 500ms 판정). `publishPercentiles`(클라이언트 계산)는 다노드 집계 불가, 서버측 `histogram_quantile`만 권위. exemplar(OTel bridge)로 지연 스파이크 점 → Tempo 트레이스 점프(권장). liveness 그룹에 의존성 체크 금지(재시작 루프 방지), 의존성은 readiness에만.
 
@@ -695,7 +710,7 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 **계측 위치(코어 순수성)**: exchange-core에 Micrometer 반입 금지. 주문 지연 Timer는 시퀀서 ACK→event_journal 소비 시점을 api 계층이 측정, 오더북 depth는 방출 이벤트의 프로젝션 Gauge, 불변식 게이지는 검증기 배치가 `invariant_checks` INSERT와 동시 갱신(별도 postgres_exporter 불요).
 
 **미방출 항목(의도적 보류)**:
-- `exchange.orderbook.depth`: 카디널리티 산정을 정정한다(2026-09-09). 구동 마켓은 12개이고 side 2를 곱하면 24 시계열이다(정본 §요약·§1.1). 종전 표기 269는 시드 카탈로그 총수(`seed-data/out/markets.json`의 markets 배열)이지 구동 마켓 수가 아니었고, 상시면 활성 마켓은 3종이다(`server/app/src/main/resources/application.yml`). 24 시계열이면 카디널리티만으로는 방출 보류 근거가 서지 않는다. 남는 보류 근거는 둘이다. 상한·집계(전체 합 또는 top-N) 설계가 미확정이고, 오더북 잔량은 시스템 대시보드 부가 신호라 무데이터 패널을 증거로 두지 않는 원칙에 걸린다. **미결**: 24 시계열 기준으로 방출을 재개할지 여부는 결정되지 않았다.
+- `exchange.orderbook.depth`: 카디널리티 산정을 정정한다(2026-09-09). 구동 마켓은 12개이고 side 2를 곱하면 24 시계열이다(정본 §요약. §1.1 한 줄 정의에는 마켓 수 서술이 없다). 종전 표기 269는 시드 카탈로그 총수(`seed-data/out/markets.json`의 markets 배열)이지 구동 마켓 수가 아니었고, 상시면 활성 마켓은 3종이다(`server/app/src/main/resources/application.yml`). 24 시계열이면 카디널리티만으로는 방출 보류 근거가 서지 않는다. 남는 보류 근거는 둘이다. 상한·집계(전체 합 또는 top-N) 설계가 미확정이고, 오더북 잔량은 시스템 대시보드 부가 신호라 무데이터 패널을 증거로 두지 않는 원칙에 걸린다. **미결**: 24 시계열 기준으로 방출을 재개할지 여부는 결정되지 않았다.
 - `exchange.duplicate.fills`: InvariantVerifier의 C-카탈로그 검증(중복 체결 0)이 `exchange_invariant_violations{check_name}`로 이미 커버해 별도 Counter는 중복이라 방출하지 않는다.
 - `exchange.ws.clients`: `channel` 태그는 연결 단위 계량이라 단일 값(`stomp`)만 방출한다. 목적지별 분해는 세션-구독 회계가 필요해 후속.
 - `exchange.orders.rejected`: `reason`은 종결 거부(4xx: 429·422·400·403·413) 에러코드 집합이며 429는 대시보드 PromQL 정합을 위해 `rate_limited`로 정규화한다. 409·503은 재조회 수렴 신호라 거부율에서 제외한다. **`OrderRejectSpike` 임계 1/s의 유도**: 값은 확정 스파이크 상한 100 req/s(검증설계 §2-4)의 1%다. 제외 목록을 뺀 잔여 사유의 정상 기대값이 0이므로 임계의 역할은 상한 배분이 아니라 노이즈 바닥 위에 선을 긋는 것이다. `rate1m`에서 단발 1건은 1/60 = 0.017/s이므로 1/s는 그 60배이고, `for: 2m`과 겹쳐 1분 60건이 2분 지속돼야 발화한다. 일회성 오타·재시도 한 건으로는 뜨지 않고 클라이언트 버그·인증 이상만 남는다. 종전 10/s는 명목 스파이크 3000/s의 0.33%로 유도한 값이라 상한 확정 후에는 스파이크 도착률의 10%·노드 수용 천장 40/s의 25%가 되어 조기 경보가 아니라 사후 확인이 됐다. 유도 기저가 바뀌면 값도 함께 재산정한다.
@@ -717,7 +732,7 @@ scrape_configs:
 rule_files: ["rules/*.yml"]
 ```
 
-실물과의 차이 셋을 적어 둔다. 실물 잡은 `exchange-api`(`chaos-api-1:8080`·`chaos-api-2:8080`)와 `chaos-bots` 둘이고 admin 잡이 없다. 위 스니펫의 8081 관리 포트 분리는 상시면 토폴로지 규약이며 격리 하네스는 dev 노출이라 8080을 스크레이프한다(파일 머리 주석). 그리고 실물은 `alerting.alertmanagers`로 `chaos-alertmanager:9093`을 지정한다.
+실물과의 차이 셋을 적어 둔다. 실물 잡은 `exchange-api`(`chaos-api-1:8080`·`chaos-api-2:8080`)와 `chaos-bots` 둘이고 admin 잡이 없다. 위 스니펫의 8081 관리 포트 분리는 상시면 토폴로지 규약이며 격리 하네스는 dev 노출이라 8080을 스크레이프한다. 그리고 실물은 `alerting.alertmanagers`로 `chaos-alertmanager:9093`을 지정한다. 파일 머리 주석(`harness/prometheus/prometheus.yml`)은 그 관리 포트를 아직 9404로 적는데, 관리 포트 실값은 8081이고(`server/app/src/main/resources/application.yml:165`) ADR 0010이 이 문서의 9404 표기 9행 10건을 8081로 치환했다. 주석의 9404는 미정정 잔재이고 이 절을 인용할 때의 값은 8081이다. 주석 정정은 하네스 파일 쪽 과제로 남는다.
 
 레코딩 규칙은 `harness/prometheus/rules/exchange-recording.yml`이고 record 9개다(정본 §3.1·§4.2·§7.2 "레코딩 규칙 9개"). 대시보드·알람이 같은 식을 공유한다. 전량은 아래와 같다:
 
@@ -792,6 +807,8 @@ datasources:
 
 ### 5-6. 불변식 check_name 카탈로그(C-코드) + 알람
 
+> **세는 단위와 총수(2026-09-09, 검증설계 §4-1 정합)**: 불변식 개수를 세는 단위는 SQL 판정 블록이고 총수는 **27개**다(`harness/sql/invariants.sql`). 아래 표의 코드 축 C01~C25는 그대로 두되, 총수를 적을 때는 27을 쓴다. 표가 26행인 것은 코드 축 25행에 C07' 분리 행 하나를 더한 값이고, 27은 거기서 C13 행이 한 행에 담은 두 블록(`C13A_ORDER_MATERIALIZED`·`C13B_ORDER_JOURNALED`)을 각각 센 값이다. C04는 러너가 평가하지 않지만 `invariants.sql`에 판정 블록으로 있어 27에 든다. 앱 `InvariantCheck` enum은 **26개**로 27에서 C04 하나가 빠진 값이고, C04는 DB DEFERRABLE 트리거가 하드 강제한다. 세 수(25·27·26)는 같은 카탈로그를 다른 단위로 센 값이지 불일치가 아니다. 정본(§요약·§1.3·§3.1·§10.2·§12)도 27개로 적는다. 단일 권위는 검증설계 §4-1이고 이 절은 2차 미러다.
+
 **카탈로그 개정(검증설계 §4-1 정합)**: 종전 표는 DB§6 ①~⑫ 직접 매핑의 구 체계(C08/C09 분리, C10=TRADE_SEQ_EVENT_MATCH, C14=BOT_ACK_SUBSET, C90 등)로 검증설계 §4-1 카탈로그·앱 검증기(InvariantCheck enum)와 코드 배정이 어긋났다. §4-1 체계로 개정한다. 단일 권위는 검증설계 §4-1이며, `invariant_checks.check_name`·게이지 태그에는 InvariantCheck enum 상수명이 그대로 실리고 심각도는 게이지 `severity` 라벨로 패스스루된다. DB 문서 §6에의 역수록 권고는 §8-8 유지:
 
 | 코드 | check_name(표준) | 원천(검증설계 §4-1) | 심각도 | 스코프 |
@@ -825,7 +842,7 @@ datasources:
 
 `exchange_invariant_violations{check_name="C01_ASSET_CONSERVATION", severity="CRITICAL"}` 형태로 노출된다.
 
-**알람 15개, 정본은 `harness/prometheus/rules/exchange-alerts.yml`**(그룹 `exchange.alerts`, interval 10s). 격리 하네스는 Alertmanager 컨테이너(`chaos-alertmanager:9093`)로 통지하고 Prometheus 네이티브 알람으로 평가한다. 아래 표는 그 파일과 1:1 미러다(정본 §3.1·§4.2·§7.2 "알람 15개"). 상시면 `infra/` 토폴로지의 Grafana 통합 얼럿 프로비저닝은 미구현이다.
+**알람 15개, 정본은 `harness/prometheus/rules/exchange-alerts.yml`**(그룹 `exchange.alerts`, interval 10s). 격리 하네스는 Alertmanager 컨테이너(`chaos-alertmanager:9093`)로 통지하고 Prometheus 네이티브 알람으로 평가한다. 아래 표는 그 파일과 1:1 미러다(정본 §3.1·§4.2·§7.2 "알람 15개"). 상시면 `deploy/` 토폴로지의 Grafana 통합 얼럿 프로비저닝은 미구현이다.
 
 | 알람 | 식 | 조건 | severity |
 |---|---|---|---|
@@ -917,7 +934,7 @@ V1/V2는 `CREATE EXTENSION pg_partman/pg_cron`·`REVOKE ... FROM app_role`을 �
 
 | 주체 | 계정 | 역할 |
 |---|---|---|
-| initdb (`infra/pg/initdb/01-roles.sql`) | postgres(superuser, 이미지 엔트리포인트) | `CREATE ROLE app_role LOGIN PASSWORD ...; CREATE ROLE grafana_ro LOGIN ...;` + 스키마 기본 GRANT(SELECT/INSERT 등 최소). V1의 `REVOKE ... FROM app_role`이 참조하는 롤을 **선재**시킨다 |
+| initdb (`harness/pg/initdb/01-roles.sql`) | postgres(superuser, 이미지 엔트리포인트) | `CREATE ROLE app_role LOGIN PASSWORD ...; CREATE ROLE grafana_ro LOGIN ...;` + 스키마 기본 GRANT(SELECT/INSERT 등 최소). V1의 `REVOKE ... FROM app_role`이 참조하는 롤을 **선재**시킨다 |
 | 마이그레이션 (`flyway-migrate` 잡, §3-1) | postgres(superuser) | 전 마이그레이션(V0~V10) + `V90__observability_ext.sql` 실행. CREATE EXTENSION·REVOKE·cron.schedule 전부 이 주체 |
 | 런타임 | `app_role` | exchange-api/admin/bots DataSource. `spring.flyway.enabled=false`(demo 프로파일), 앱은 마이그레이션을 절대 실행하지 않는다 |
 | 관측 조회 | `grafana_ro` | invariant_checks/recovery_runs/failover_runs/admin_audit_log SELECT만 |
@@ -962,21 +979,23 @@ Testcontainers도 동일 구조를 재현한다(§2-3). 로컬·CI·데모의 �
 
 ---
 
-**구현 착수 순서 요약**: ① `infra/pg/Dockerfile`+initdb 롤 스크립트 + compose slim(flyway-migrate/seed 포함) + `.env.example` → ② ci-backend/integration 워크플로(V3 T1·T5 우선) → ③ Actuator 설정(+demo 카오스 문서)+메트릭 카탈로그+Prometheus/Grafana 프로비저닝(대시보드 ①) → ④ image.yml(latest 규칙 포함)+full 프로파일(api×2 노드별 프록시 배선, LB, RabbitMQ STOMP) → ⑤ 카오스 배선(E5 docker-java 경로)+failover_runs+대시보드 ② → ⑥ k6 slo-gate+nightly(compose.ci.yaml) → ⑦ (선택) ha-db 오버레이·k3d·Pumba(사전 검증 통과 시).
+**구현 착수 순서 요약**: ① `harness/pg/Dockerfile`+initdb 롤 스크립트 + compose slim(flyway-migrate/seed 포함) + `.env.example` → ② ci-backend/integration 워크플로(V3 T1·T5 우선) → ③ Actuator 설정(+demo 카오스 문서)+메트릭 카탈로그+Prometheus/Grafana 프로비저닝(대시보드 ①) → ④ image.yml(latest 규칙 포함)+full 프로파일(api×2 노드별 프록시 배선, LB, RabbitMQ STOMP) → ⑤ 카오스 배선(E5 docker-java 경로)+failover_runs+대시보드 ② → ⑥ k6 slo-gate+nightly(compose.ci.yaml) → ⑦ (선택) ha-db 오버레이·k3d·Pumba(사전 검증 통과 시).
 
 ---
 
 ## 반영한 검증 사항
 
+> 여기서 "반영"은 이 설계서에 반영했다는 뜻이고 구현 완료 판정이 아니다. 저장소 실물 상태는 각 절의 미구현 표기가 권위다(§2-2 ArchUnit·§2-3 integration·§2-5 nightly와 `compose.ci.yaml`·§3-5 ha-db 오버레이).
+
 **[high · 4/4 전부 반영]**
 1. **slim 프로파일 기동 불능(rabbitmq depends_on)**: rabbitmq를 `profiles: [slim, full]`로 확장해 공통 앵커 depends_on과 프로파일 정합화(§3-1). slim에서도 §5-1(A) 릴레이 배선이 동일해 환경 분기 최소화 원칙에도 부합.
 2. **`latest` 태그 영구 미발행 → GHCR pull 404**: metadata-action에 `type=raw,value=latest,enable={{is_default_branch}}` 추가(§2-4) + nightly는 `TAG=sha-<pin>` 명시 주입(§2-5) + `.env.example` TAG 규약 명문화.
-3. **공유 toxiproxy 프록시로 E2 재현 불가**: 노드별 프록시 4개(`pg-api1/pg-api2/redis-api1/redis-api2`)로 분리, api-1/api-2 포트 개별 배선(§3-1/§3-2), admin chaos API에 `target_node` 축 추가(+계약 정정 권고 §8-9). E2를 "리더 프록시만 toxic"으로 재정의(§6-2).
+3. **공유 toxiproxy 프록시로 리더 단독 실험 재현 불가**(당시 표기 E2): 노드별 프록시 4개(`pg-api1/pg-api2/redis-api1/redis-api2`)로 분리, api-1/api-2 포트 개별 배선(§3-1/§3-2), admin chaos API에 `target_node` 축 추가(+계약 정정 권고 §8-9). 해당 실험을 "리더 프록시만 toxic"으로 재정의(§6-2). **정정(2026-09-09)**: 현 카탈로그에서 이 분리에 걸리는 실험은 둘이다. 리더 pg 프록시만 블랙홀로 막는 E2와 리더 redis 프록시만 toxic으로 막는 E3다. §3-2 본문이 근거로 든 판정 시나리오(리더만 Redis 상실)는 E3 쪽이다.
 4. **메모리 캡 부재 → MaxRAMPercentage가 WSL2 12GB 기준 동작**: 전 서비스 `deploy.resources.limits.memory` 명시, 리소스 계획표를 compose 캡과 1:1 표로 재작성(§3-4). OOM 킬에 의한 카오스 판정 오염 차단을 명분으로 명문화.
 
 **[medium · 6/6 전부 반영]**
-5. **ha-db 시 단독 PG 동시 기동·upstream 미전환**: `compose.ha-db.yaml` 오버레이 신설, postgres 비활성, `populate-ha.json`(upstream=haproxy:5432), flyway URL 전환, pgdata 볼륨 분리(§3-5).
-6. **chaosmonkey 액추에이터 404**: demo 프로파일 한정 `chaos.monkey.enabled=true`+watcher+exposure 추가(§5-1), E3 배선 정합 명시(§6-2).
+5. **ha-db 시 단독 PG 동시 기동·upstream 미전환**: `compose.ha-db.yaml` 오버레이 신설, postgres 비활성, `populate-ha.json`(upstream=haproxy:5432), flyway URL 전환, pgdata 볼륨 분리(§3-5). **정정(2026-09-09)**: 반영은 문서 명세까지다. 오버레이 파일·`infra/patroni/`·`populate-ha.json`이 저장소에 없어 §3-5가 이 트랙을 미구현 선택 트랙으로 강등했다.
+6. **chaosmonkey 액추에이터 404**: demo 프로파일 한정 `chaos.monkey.enabled=true`+watcher+exposure 추가(§5-1), E8 배선 정합 명시(§6-2. 당시 카탈로그 표기는 E3였다).
 7. **recovery_runs에 rto_seconds/rpo_records 부재**: RTO 원천을 단일 계산점(신 리더 콜백)으로 재정의하고 `failover_runs` 신설(DB v2.6 정정 권고 §8-7 + V90 선반영), recovery_runs는 재생 결정론 증거로 역할 재정렬(§4-3, 대시보드 ② Table 2장).
 8. **C01~C17 미정의 분류**: DB §6 ①~⑫(+⑧')·DEFAULT 감시를 1:1 매핑한 C01~C14·C90 카탈로그 표(check_name 표준·심각도·근거) 신설(§5-6) + DB 문서 역수록 권고(§8-8). 알람 라우팅을 이 표 기준으로 교체.
 9. **api가 populate 완료를 안 기다림**: `toxiproxy-init: service_completed_successfully` depends_on 추가 + init에 재시도 루프·명확한 non-zero exit(§3-1).
@@ -984,7 +1003,7 @@ Testcontainers도 동일 구조를 재현한다(§2-3). 로컬·CI·데모의 �
 
 **[low · 7/7 전부 반영]** 11. E5 실행 수단을 docker-java(Engine API)로 한 줄 확정(§2-4/§6-2). 12. rabbitmq `enabled_plugins` 파일 마운트로 STOMP 명시 활성(§0/§3-1). 13. `GF_*__FILE` 오용 제거 → datasource `secureJsonData.password: $__file{...}`(§3-1/§5-4). 14. Pumba WSL2 sch_netem 사전 검증 커맨드 + 실패 시 범위 제외 문서화(§6-2). 15. TC 템플릿 클론 절차(커넥션 정리→CREATE DATABASE→동적 DataSource) 명세 + cron.job 단언은 원본 exchange DB 한정으로 T2 보정(§2-3). 16. PG 이미지를 `postgres:17.6-bookworm`+apt 핀+CI 빌드 GHCR digest 공용 pull로 드리프트 봉쇄(§0/§1-2). 17. `exchange:trades_per_second:rate1m` 명칭 참조 통일(§4-3).
 
-**[missing · 6/6 전부 반영]** Flyway 주체·롤 분리(initdb 롤 스크립트+flyway-migrate 잡+app_role/grafana_ro 3주체 표, §7-2) · 시드/부하 계정 프로비저닝(seed 잡, GENESIS 정본 분개 경유, k6 키 산출물, §7-3) · 봇 ACK 기록 경로(`sim.bot_ack_log` DB 영속화+C14 판정 SQL, §7-4) · `compose.ci.yaml` 실체(tmpfs pgdata·자원 축소·bots/grafana 제외, §2-5) · nginx WS 스케일 파라미터(worker_rlimit_nofile/worker_connections+동시연결 예산표와 k6 목표 정합, §3-3) · 데모 리셋 표준 절차(전체 볼륨 파기 원칙, 선별 리셋 금지 근거 포함, §3-6).
+**[missing · 6/6 전부 반영]** Flyway 주체·롤 분리(initdb 롤 스크립트+flyway-migrate 잡+app_role/grafana_ro 3주체 표, §7-2) · 시드/부하 계정 프로비저닝(seed 잡, GENESIS 정본 분개 경유, k6 키 산출물, §7-3) · 봇 ACK 기록 경로(`sim.bot_ack_log` DB 영속화+C14 판정 SQL, §7-4) · `compose.ci.yaml` 실체(tmpfs pgdata·자원 축소·bots/grafana 제외, §2-5) · nginx WS 스케일 파라미터(worker_rlimit_nofile/worker_connections+동시연결 예산표와 k6 목표 정합, §3-3) · 데모 리셋 표준 절차(전체 볼륨 파기 원칙, 선별 리셋 금지 근거 포함, §3-6). **정정(2026-09-09)**: `compose.ci.yaml`은 문서 명세까지이고 `nightly-slo.yml`과 함께 저장소에 없다(§2-5 미구현). 리셋 절차의 `deploy/reset.sh`도 미작성이다(§3-6).
 
 **[추가 정정]** 계약 버전 표기를 실물 기준으로 교정(DB **v2.5**/API v2.4), 이에 따라 초안 §8-3(리스 갱신 문장 "추가 권고")은 "v2.4 패치로 이미 계약화 확인, 정정 불요"로 갱신했다(§8-3).
 

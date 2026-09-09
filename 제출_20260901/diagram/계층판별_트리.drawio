@@ -457,7 +457,7 @@
         <mxCell id="143" value="Designed" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#5C6B75;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="270" y="776" width="150" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="144" value="7.14 분기 트리와 조합 판정표" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="144" value="7.3 조합 판정표. 분기 트리는 그 표를 순서로 편 것이다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="430" y="776" width="900" height="18" as="geometry"/>
         </mxCell>
         <mxCell id="145" value="L3 / L4 / L7 프로브 배선" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
@@ -466,7 +466,7 @@
         <mxCell id="146" value="BLOCKED · pending" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#C0392B;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="270" y="796" width="150" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="147" value="11.4 A2 · W2. 배선 전까지 첫 세 분기를 탈 수 없다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="147" value="11.1 W4 관측 배선. 배선 전까지 첫 세 분기를 탈 수 없다" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#3C4750;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="430" y="796" width="900" height="18" as="geometry"/>
         </mxCell>
         <mxCell id="148" value="클라우드 검증" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#16191F;fontStyle=1;fontFamily=Malgun Gothic;" vertex="1" parent="1">
@@ -502,7 +502,7 @@
         <mxCell id="158" value="Status: Design Complete · Probe Wiring Pending" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1398" y="794" width="460" height="18" as="geometry"/>
         </mxCell>
-        <mxCell id="159" value="Ref: 기획안 2.5 · 7.4 · 7.14 · 10.3" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
+        <mxCell id="159" value="Ref: 기획안 2.1 · 7.2 · 7.3 · 10.3" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=9.5;fontColor=#5C6B75;fontStyle=0;fontFamily=Malgun Gothic;" vertex="1" parent="1">
           <mxGeometry x="1398" y="814" width="460" height="18" as="geometry"/>
         </mxCell>
         <mxCell id="160" value="" style="line;html=1;strokeColor=#D0D7DC;strokeWidth=1;" vertex="1" parent="1">

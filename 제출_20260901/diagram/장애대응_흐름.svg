@@ -5,8 +5,8 @@
 </defs>
 <g transform="translate(0,0)">
 <text x="40" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="23" font-weight="700" fill="#16191F" text-anchor="start">Figure 3  ·  Incident Response and Recovery Flow</text>
-<text x="40" y="64" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.5" font-weight="400" fill="#5C6B75" text-anchor="start">Detection -> Classification -> Recovery -> Data Validation</text>
-<text x="40" y="84" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">계획서 7.4 소거 절차 · 7.11 심각도 · 7.12 자동화 계층에서 파생 · 색은 손이 닿는 정도를 뜻한다</text>
+<text x="40" y="64" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11.5" font-weight="400" fill="#5C6B75" text-anchor="start">안정화 순환 관측 -> 판정 -> 조작 -> 재관측 · 자동화 계층 · 원장 무결은 자동 보정 대상이 아니다</text>
+<text x="40" y="84" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">계획서 7.1 순환 구조 · 7.2 무엇을 보는가 · 7.5 스케일링 실행 주체 · 10.2 무결 판정에서 파생 · 색은 손이 닿는 정도를 뜻한다</text>
 <line x1="1484" y1="26" x2="1484" y2="76" stroke="#D0D7DC" stroke-width="1"/>
 <text x="1500" y="42" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">알람</text>
 <text x="1500" y="66" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="17" font-weight="700" fill="#16191F" text-anchor="start">11종</text>
@@ -88,7 +88,7 @@
 <polyline points="1893,298 1893,328 177,328 177,300" fill="none" stroke="#5C6B75" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#h5C6B75)"/>
 <text x="197" y="320" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="400" fill="#5C6B75" text-anchor="start">정상 상태 재확인 후 루프로 복귀</text>
 <text x="40" y="380" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">심각도와 대응 시점</text>
-<text x="214" y="380" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">7.11. 알람은 경로가 있을 때만 알람이다</text>
+<text x="214" y="380" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">계획서 7.2 무엇을 보는가 · 알람은 경로가 있을 때만 알람이다</text>
 <rect x="40" y="396" width="1000" height="176" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
 <rect x="58" y="408" width="42" height="26" rx="3" fill="#C0392B"/>
 <text x="79" y="426" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">S1</text>
@@ -106,7 +106,7 @@
 <text x="272" y="538" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.4" font-weight="400" fill="#3C4750" text-anchor="start">불변식 WARN · 스냅샷 3종 · 체결 전파 지연 초과</text>
 <text x="58" y="590" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.6" font-weight="700" fill="#C0392B" text-anchor="start">11종 전부 통지 경로가 없어 무음이다. 사람이 화면을 열기 전까지 장애를 모른다</text>
 <text x="1074" y="380" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="14" font-weight="700" fill="#16191F" text-anchor="start">자동화 계층</text>
-<text x="1186" y="380" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">7.12. 사람 손이 어디서 끊기고 어디서 붙는가</text>
+<text x="1186" y="380" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="400" fill="#5C6B75" text-anchor="start">계획서 7.5 스케일링 실행 주체 · 사람 손이 어디서 끊기고 어디서 붙는가</text>
 <rect x="1074" y="396" width="986" height="176" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
 <rect x="1092" y="409" width="34" height="24" rx="3" fill="#0E7C66"/>
 <text x="1109" y="426" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#FFFFFF" text-anchor="middle">1층</text>
@@ -181,6 +181,6 @@
 <rect x="1360" y="1056" width="26" height="12" rx="2" fill="#C0392B"/>
 <text x="1396" y="1066" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#3C4750" text-anchor="start">현재 결손</text>
 <text x="40" y="1114" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.8" font-weight="400" fill="#5C6B75" text-anchor="start">이 도면은 설계다. 5단계와 6단계 외에는 아직 실행 기록이 없다. 알람 통지 경로와 계층 프로브와 런북이 남은 작업이고 그 셋이 1번 2번 3번 4번 정거장을 막고 있다.</text>
-<text x="2060" y="992" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.8" font-weight="400" fill="#5C6B75" text-anchor="end">Figure 3 · Metadata   As of: 2026-08-31   Status: Partial Automation   Ref: 기획안 7.11 · 7.12 · 7.15 · 7.16</text>
+<text x="2060" y="992" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.8" font-weight="400" fill="#5C6B75" text-anchor="end">Figure 3 · Metadata   As of: 2026-08-31   Status: Partial Automation   Ref: 기획안 7.1 · 7.2 · 7.5 · 10.2</text>
 </g>
 </svg>
