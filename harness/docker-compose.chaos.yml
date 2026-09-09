@@ -205,6 +205,40 @@ services:
     profiles: [obs]
     networks: [chaos-net]
 
+  # 데이터베이스 지표. 정본 13.4 한계 14 의 계층 프로브 축이다.
+  #
+  # 앱이 방출하는 것은 HikariCP 풀 상태까지다. 그 너머의 커넥션 점유와 트랜잭션
+  # 처리량과 잠금은 DB 가 직접 내야 안다. 풀 대기가 0인데 느린 경우를 그 둘로 가른다.
+  chaos-pg-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: chaos-pg-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://exchange:exchange@chaos-pg:5432/exchange?sslmode=disable"
+    depends_on:
+      chaos-pg: { condition: service_healthy }
+    restart: unless-stopped
+    profiles: [obs]
+    networks: [chaos-net]
+
+  # 컨테이너 자원. 앱 JVM 이 아니라 컨테이너 경계에서 잰다.
+  #
+  # JVM 이 내는 힙 사용량과 컨테이너가 실제로 쓰는 메모리는 다르다. 캡에 걸려 죽는
+  # 것은 후자다. CPU 도 같다. 스로틀은 컨테이너 경계에서 일어난다.
+  #
+  # cAdvisor 를 쓰지 않는다. Docker Desktop(WSL2) 에서 컨테이너 메타데이터를 못 읽어
+  # name 라벨이 붙은 시계열이 0건이었다(2026-09-09 실측). 도커 API 를 직접 읽으면
+  # 그 계층을 지나지 않는다. 파일 머리 주석에 근거를 적었다.
+  chaos-cstats:
+    image: python:3.12-alpine
+    container_name: chaos-cstats
+    command: ["python", "/app/exporter.py"]
+    volumes:
+      - ./cstats/exporter.py:/app/exporter.py:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    profiles: [obs]
+    networks: [chaos-net]
+
   # 외부 프로브. 진입 계층을 밖에서 찌른다(정본 13.4 한계 14).
   #
   # 봇은 앱 안에서 돌아 내부 경로만 왕복한다. 로드밸런서가 죽어도 봇 지표는 정상으로

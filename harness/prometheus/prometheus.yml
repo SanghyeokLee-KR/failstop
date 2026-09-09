@@ -54,4 +54,17 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: chaos-blackbox:9115
-
+
+  # 데이터베이스 지표. 앱이 못 내는 축이다.
+  - job_name: postgres
+    static_configs:
+      - targets: ["chaos-pg-exporter:9187"]
+        labels: { stack: chaos, customer: exchange, service: db }
+
+  # 컨테이너 자원. 이름은 cAdvisor 표준명이고 대시보드가 쓰는 container_* 는
+  # exchange-recording.yml 이 이 원천에서 유도한다. 대시보드를 고치지 않기 위해
+  # 어댑터를 규칙 층에 뒀다.
+  - job_name: cstats
+    static_configs:
+      - targets: ["chaos-cstats:9200"]
+        labels: { stack: chaos, customer: exchange, service: infra }
