@@ -357,7 +357,7 @@ function incidentFlow() {
   const d = new Dio()
   const MF = FIG_META.flow
   header(d, `${MF.no} · ${MF.title}`,
-    `${MF.sub}  ·  계획서 7.4 · 7.11 · 7.12 에서 파생. 색은 손이 닿는 정도를 뜻한다`,
+    `${MF.sub}  ·  계획서 7.1 · 7.3 · 7.5 에서 파생. 색은 손이 닿는 정도를 뜻한다`,
     FLOW_KPI, W)
 
   // 운영 루프

@@ -29,7 +29,7 @@ import java.util.Optional;
  * 노드가 같은 시계를 봤다. DynamoDB 는 조건식에서 쓸 서버 시계를 노출하지 않으므로 만료 판정의
  * 기준 시각이 호출한 노드의 시계다. 곧 노드 사이 시계 스큐가 리스 만료 판정에 들어온다.
  * 스큐가 TTL 에 가까우면 이른 탈취가 가능하다. 이 저장소는 시계 스큐 내성을 검증 범위 밖으로
- * 두고 있으므로(기획안 13.2 한계 10) 이 성질을 그 자리에 함께 등재한다.
+ * 두고 있으므로(기획안 13.2 한계 7) 이 성질을 그 자리에 함께 등재한다.
  */
 public final class DynamoDbLeaderLeaseStore implements LeaderLeaseStore {
 

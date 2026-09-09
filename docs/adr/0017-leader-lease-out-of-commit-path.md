@@ -61,7 +61,7 @@ PHASE 1(standby 1대)과 PHASE 2-E(standby 2대 `ANY 1`)에서 각각, 그리고
 - **ADR 0009의 전제가 좁아진다.** 리스 전용 커넥션 풀은 요청 풀 포화로부터 하트비트를 지키기 위한 것이었다. DynamoDB 보관소에서는 갱신이 그 풀을 쓰지 않으므로, 그 풀의 남은 역할은 승격 게시 커밋 하나다. 풀 자체는 그대로 둔다. 종전 보관소가 기본값이라 두 역할이 모두 살아 있어야 한다.
 - **`leader_alive` 오라클이 dynamodb 보관소에서 권위를 잃는다.** `HarnessController`가 `lease_until > clock_timestamp()`로 리더 생존을 판정하는데, 게시가 100년 뒤를 밀어 두므로 항상 참이 된다. 그 보관소에서 권위는 DynamoDB 항목의 `leaseUntil`이다. 2026-09-08 두 노드 페일오버 실측에서 이 오라클이 죽은 노드를 11초 동안 살아 있다고 답하는 것을 확인하고 같은 날 `HarnessController`의 판정 권위를 보관소로 옮겼다. `admin/HaMonitoringController`는 아직 옮기지 않았고 남은 위험으로 등재한다.
 - **되돌리기에 절차가 필요하다.** dynamodb에서 postgres로 되돌리려면 앱을 전부 내린 상태에서 `SELECT expire_leader_lease_now()`를 한 번 부른다. 게시가 `lease_until`을 100년 뒤로 밀어 두므로 그대로 두면 `try_acquire_leader`의 만료 조건이 영원히 거짓이다.
-- **시계 스큐가 판정에 들어온다.** PostgreSQL은 만료를 `clock_timestamp()`로 판정해 모든 노드가 같은 시계를 봤다. DynamoDB는 조건식에서 쓸 서버 시계를 노출하지 않으므로 기준 시각이 호출한 노드의 시계다. 스큐가 TTL에 가까우면 이른 탈취가 가능하다. `제출_20260901/기획안_원본.md` 13.2 한계 10이 시계 스큐 내성을 검증 범위 밖으로 두고 있으므로 그 자리에 함께 등재한다.
+- **시계 스큐가 판정에 들어온다.** PostgreSQL은 만료를 `clock_timestamp()`로 판정해 모든 노드가 같은 시계를 봤다. DynamoDB는 조건식에서 쓸 서버 시계를 노출하지 않으므로 기준 시각이 호출한 노드의 시계다. 스큐가 TTL에 가까우면 이른 탈취가 가능하다. `제출_20260901/기획안_원본.md` 13.2 한계 7이 시계 스큐 내성을 검증 범위 밖으로 두고 있으므로 그 자리에 함께 등재한다.
 - **AWS 자원이 하나 는다.** DynamoDB 테이블 한 개, 항목 한 개, 초당 갱신 한 번이다. 비용 판정은 9장이 소유한다.
 - **Patroni, etcd, HAProxy, PgBouncer, DNS failover, 자동 primary discovery는 이번 범위가 아니다.** `spring.datasource.url`이 고정 primary를 보는 문제는 그대로 남는다.
 

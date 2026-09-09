@@ -4,7 +4,7 @@
 // 좌표와 배치는 형식마다 다르지만 무엇을 적는가는 하나여야 한다.
 // 계획서 수치가 바뀌면 이 파일만 고치고 두 형식을 다시 굽는다.
 //
-// 출처는 전부 계획서다. 7.4 소거 절차, 7.11 심각도, 7.12 자동화 계층,
+// 출처는 전부 계획서다. 7.2 계층별 지표, 7.3 병목 판정, 7.5 스케일링 실행 주체,
 // 하네스 검증설계 3절 LB 배선 실측이다. 여기서 새로 만든 수치는 없다.
 
 // 손이 닿는 정도. 도면 2 의 색 축
@@ -151,7 +151,7 @@ export const FIG_META = {
       'Scope: Steady + Proof Environment',
       'Status: Partially Implemented · Cloud NOT RUN',
       'Source: 저장소 실측 + 기획안 6절',
-      'Ref: 기획안 6절 인프라 · 10절 검증 · 12.7 Scorecard',
+      'Ref: 기획안 6절 인프라 · 10절 검증 · 12절 완료 기준',
     ],
   },
   triage: {
@@ -162,17 +162,17 @@ export const FIG_META = {
     meta: [
       'As of: 2026-08-31',
       'Status: Design Complete · Probe Wiring Pending',
-      'Ref: 기획안 2.5 · 7.4 · 7.14 · 10.3',
+      'Ref: 기획안 2.1 · 7.2 · 7.3 · 10.3',
     ],
   },
   flow: {
     no: 'Figure 3',
     title: 'Incident Response and Recovery Flow',
-    sub: 'Detection -> Classification -> Recovery -> Data Validation',
+    sub: '안정화 순환. 관측 -> 판정 -> 조작 -> 재관측',
     meta: [
       'As of: 2026-08-31',
       'Status: Partial Automation',
-      'Ref: 기획안 7.11 · 7.12 · 7.15 · 7.16',
+      'Ref: 기획안 7.2 · 7.5 · 7.9 · 7.10',
     ],
   },
 }
@@ -282,7 +282,7 @@ export const ARCH_FILM = [
   ['승격 · 재생', 'trans', [['app-1', 'fail'], ['primary', 'fail']], [['app-2', 'trans'], ['primary', 'ok']], '저널 재생 중 · 503 재시도'],
 ]
 
-// 비용은 계획서 9.5 달력 월 판정과 같은 값이다
+// 비용은 계획서 9.3 달력 월 실청구와 같은 축의 값이다
 export const ARCH_COST = [
   ['BASELINE', '24/7', 'Route 53 · CloudFront · S3. 외부 접속 요건 성립', 'USD 0.72 /월'],
   ['HA STEADY', '24/7', '위 토폴로지 전체. app x2 · primary/standby · NAT x2', '달력 월 97,318원'],
@@ -290,4 +290,4 @@ export const ARCH_COST = [
 ]
 
 export const ARCH_FOOT =
-  '수치에 출처가 없으면 미측정이다. RTO 6.688 s 는 E4-20260829 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.5 달력 월 판정과 같은 값이다.'
+  '수치에 출처가 없으면 미측정이다. RTO 6.688 s 는 E4-20260829 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.3 달력 월 실청구와 같은 축의 값이다.'

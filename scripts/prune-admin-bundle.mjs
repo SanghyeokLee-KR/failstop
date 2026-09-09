@@ -8,8 +8,9 @@
  *
  * 배경: 관리 화면은 별도 앱이 아니라 같은 Next.js 라우트다(`web/app/admin/`).
  * `output: "export"` 가 전 라우트를 함께 내보내므로 `web/out/` 에 관리 화면이 들어간다.
- * 그대로 S3 에 올리면 CloudFront 가 `/*` 규칙으로 그것까지 공개한다. 기획안 6.6 이
- * "라우팅 없음은 인증 검사보다 앞선 방어다" 라고 적었고, 그 원칙을 화면 축에도 적용한다.
+ * 그대로 S3 에 올리면 CloudFront 가 `/*` 규칙으로 그것까지 공개한다. ADR 0011
+ * (docs/adr/0011-cloudfront-two-origins.md:41) 이 "라우팅 없음은 인증 검사보다 앞선
+ * 방어다" 라고 적었고, 그 원칙을 화면 축에도 적용한다. 정본 근거 절은 8.1 접근 경로다.
  *
  * 노출 등급은 정보 노출이고 즉시 장악은 아니다. 화면이 부르는 `/admin/v1/*` 은 8443 mTLS 라
  * 클라이언트 인증서 없이는 응답하지 않는다. 그럼에도 제거하는 이유는 위 원칙 때문이다.
@@ -70,7 +71,7 @@ if (checkOnly) {
   if (left.length > 0) {
     console.error(`오류: 공개 번들에 관리 화면이 남았다. ${left.length} 건.`);
     for (const p of left) console.error(`  ${relative(ROOT, p)}`);
-    console.error("scripts/prune-admin-bundle.mjs 를 빌드 뒤에 돌린다(기획안 6.6).");
+    console.error("scripts/prune-admin-bundle.mjs 를 빌드 뒤에 돌린다(기획안 8.1).");
     process.exit(1);
   }
   console.log(`공개 번들 검사 통과. 관리 화면 0 건. 대상 ${relative(ROOT, target)}`);

@@ -190,9 +190,9 @@ readiness 200 은 Tomcat 이 먼저 열려 조기 참이 되므로 기동 완료
 
 ## 탐지. 이미 배선된 알람 기준
 
-정본은 CloudWatch 를 기각하고 Prometheus·Grafana 자체 운영을 쓴다(기획안 338행). RDS 도 기각이고
-DB 는 EC2 자체 운영 PostgreSQL 17 이다(333행·6.2). 앱 노드는 t4g.small 2 vCPU 이고 c7g.large 는
-부하 발생기 전용이다(483·544·1304행). 아래는 `harness/prometheus/rules/exchange-alerts.yml` 의
+정본은 CloudWatch 를 기각하고 Prometheus·Grafana 자체 운영을 쓴다(기획안 4.2 선택표·4.3 비채택).
+RDS 도 기각이고 DB 는 EC2 자체 운영 PostgreSQL 17 이다(4.2·4.3·6.2). 앱 노드는 t4g.small
+2 vCPU 이고 c7g.large 는 부하 발생기 전용이다(6.2 노드 구성 표). 아래는 `harness/prometheus/rules/exchange-alerts.yml` 의
 기존 알람 11건을 이 실측에 대조한 결과다.
 
 | 알람 | 조건 | 이 장애에서 | 판정 |
@@ -201,7 +201,7 @@ DB 는 EC2 자체 운영 PostgreSQL 17 이다(333행·6.2). 앱 노드는 t4g.sm
 | SequencerQueueBackpressure | `exchange:sequencer_queue:avg1m > 8192` for 1m | 죽기 직전 큐는 13~18 이다 | 미발화 |
 
 스크레이프 간격은 핵심 잡 2초, 평가 간격 5초다(`harness/prometheus/prometheus.yml:2,13`).
-Prometheus 는 팔로워 노드에서 돈다(기획안 486행)므로 리더가 죽어도 관측면은 산다.
+Prometheus 는 봇 플릿과 함께 bot-1 노드에서 돈다(기획안 6.2, ADR 0016)므로 리더가 죽어도 관측면은 산다.
 
 두 가지가 남는다.
 

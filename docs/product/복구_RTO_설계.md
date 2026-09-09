@@ -14,19 +14,30 @@
 
 - RPO=0: ACK 명령 전량 `command_journal` 존재(C16 0행).
 - 자산합 0: `ledger_entries` 자산별 합 0(C01 0행).
-- 불변식 14/14 green: 현 구현 카탈로그 전건(C01·C02·C05·C06·C07·C07P·C08·C13A·C13B·C14·C16·C17·C18·C19, `InvariantCheck.java`).
+- 불변식 위반 0: 이 회차에서 평가한 14종(C01·C02·C05·C06·C07·C07P·C08·C13A·C13B·C14·C16·C17·C18·C19)이 전건 green.
+  - 이 14종은 현 구현 카탈로그 전량이 아니다. `InvariantCheck.java` enum은 26종이고(C01·C02·C03·C05·C06·C07·C07P·C08·C09·C10·C11·C12·C13A·C13B·C14·C15·C16·C17·C18·C19·C20·C21·C22·C23·C24·C25), `harness/sql/invariants.sql`은 여기에 C04를 더해 27개 식별자를 쓴다. 카탈로그 수는 §5 미결 항목이 소유한다.
 
 안전성 결함이 아니다. catch-up 경로는 멱등 스킵이고 원장은 무결하며 유실이 없다. 라이브니스·RTO 결함이다.
 
 ### 1-2. RTO 이중성(metric vs 실제 가시 체결)
 
-| 축 | 값 | 근거 |
-|---|---|---|
-| metric RTO | 약 11.289s | `docs/contracts/하네스_검증설계.md` §5-1 T5: `min(created_at) FROM event_journal WHERE event_seq > W_event AND event_type='TRADE'` |
-| 실제 가시 체결 재개 | 약 4~8분 | 승격 후 신규 명령의 체결 커밋·WS 게시가 실제로 관측된 벽시계 시각 |
-| 목표 | < 30s | `docs/architecture/M4_하드닝설계.md` §3-2, API §7-4 |
+아래 표는 2026-08 회차(15분 데모 카오스) 기준이다. 현재 상태가 아니라 문제를 발견한 시점의 측정값이다.
 
-metric RTO가 실측을 은폐한다. 근인은 T5의 `created_at`이 벽시계 커밋 시각이 아니라 `engine_ts` 파생 논리 시각이라는 점이다(§2-4). 판정 = FAIL(실제 30s 초과).
+| 축 | 값 | 측정 시점 | 근거 |
+|---|---|---|---|
+| metric RTO | 약 11.289s | 2026-08 회차 | `docs/contracts/하네스_검증설계.md` §5-1 T5: `min(created_at) FROM event_journal WHERE event_seq > W_event AND event_type='TRADE'` |
+| 실제 가시 체결 재개 | 약 4~8분 | 2026-08 회차 | 승격 후 신규 명령의 체결 커밋·WS 게시가 실제로 관측된 벽시계 시각 |
+| 목표 | < 30s | 계약 | `docs/architecture/M4_하드닝설계.md` §3-2, API §7-4 |
+
+metric RTO가 실측을 은폐한다. 근인은 T5의 `created_at`이 벽시계 커밋 시각이 아니라 `engine_ts` 파생 논리 시각이라는 점이다(§2-4). 2026-08 회차 판정 = FAIL(실제 30s 초과).
+
+#### 1-2-a. 결과: 2026-09-08 leader-failover 실측에서 해소
+
+- 상태: 해소. 위 FAIL은 2026-08 회차 판정이고 현재 상태가 아니다.
+- 실측: 두 노드 리더 kill 세 회차에서 승격 완료가 T0+11.3초·12.0초·13.1초이고, 새 리더 처리량 정상화(68.1 주문/s)가 T0+15초다. 출처 `harness/evidence/leader-failover-20260908/README.md` 결론 표(판정 A·D). 정본 `제출_20260901/기획안_원본.md` 10.5는 같은 증거를 근거로 리더 교체 시간을 9.6초에서 13.1초로 적는다.
+- 해소 경로: 승격 gain 훅과 접수 개방 전 선복원이 배선됐다(§2-1). 대규모 delta가 정산 sink를 타지 않으므로 4~8분 정체가 재발하지 않는다.
+- 정본 정합: 정본 3.1이 리더 선출과 세대 번호 펜싱을 성립으로 등재하고 근거를 같은 증거 디렉터리로 단다. 정본 3.2 미성립 표에 RTO 초과 항목이 없다.
+- 측정 평면 한계: 위 실측은 전부 로컬 도커 2노드다. 배포 대상 인스턴스 실물 재측정은 0건이다(정본 3.3).
 
 ### 1-3. 트리거 조건
 
@@ -36,14 +47,18 @@ metric RTO가 실측을 은폐한다. 근인은 T5의 `created_at`이 벽시계 
 
 ## 2. 근인(코드 라인 확정)
 
-### 2-1. 승격이 recover/rebuild에 미배선(gain 콜백 부재)
+### 2-1. 승격 gain 훅과 접수 개방 전 선복원(3-a 배선 완료)
 
-- `LeaderLeaseService`는 상실 리스너만 보유한다. `onLeadershipLost`(LeaderLeaseService.java:74), `lossListeners`(:39). 승격 통지(onLeadershipGained 류) 인터페이스가 없다.
-- 승격은 `tick()`의 `tryAcquire()`가 조용히 수행한다(LeaderLeaseService.java:157~168, :91~107). epoch를 세팅할 뿐 어떤 콜백도 발화하지 않는다.
-- 배선측도 상실만 건다. `EngineConfig.java:133` `lease.onLeadershipLost(loop::halt);`. gain 대응 배선이 없다.
-- `recover`는 앱 기동 1회만 호출된다. `EngineConfig.java:141`의 `engineRuntimeLifecycle.start()` 내부 `recovery.recover(engine);`. 부팅 이후 승격 시점에는 재생·재구성이 다시 돌지 않는다.
+당초 근인은 승격 통지 인터페이스 부재였다. 현재는 3-a가 배선돼 있다.
 
-결과: 승격해도 스탠바이의 인메모리 엔진은 부팅 시점 seq에 머문다.
+- `LeaderLeaseService`가 획득·상실 두 리스너 목록을 보유한다. `gainListeners`(LeaderLeaseService.java:90), `public void onLeadershipGained(Consumer<LeaderIdentity> listener)`(:194). 상실 축은 `lossListeners`(:83), `onLeadershipLost`(:172).
+- 승격 경로가 epoch 세팅 직후 gain 리스너를 발화한다. 발화 루프는 `for (Consumer<LeaderIdentity> listener : gainListeners)`(LeaderLeaseService.java:369)이고 바로 앞 :366이 `serviceHealth.onLeadershipGained()`다.
+- 배선측이 gain을 건다. `EngineConfig.java:322` `leaderLeaseService.onLeadershipGained(identity -> catchUp.stopForPromotion());`, `EngineConfig.java:324` `leaderLeaseService.onLeadershipGained(coordinator::onLeadershipGained);`. 상실 배선은 `EngineConfig.java:372` `lease.onLeadershipLost(loop::halt);`다.
+- 승격 시점에 재생이 다시 돈다. `PromotionCoordinator.replayOnce`가 fresh `MatchingEngineImpl`을 만들어 `recovery.recover(fresh)`를 돌리고 `loop.installEngine(fresh)`로 핸드오프한다(PromotionCoordinator.java:310~313). 부팅 경로는 `recovery.recoverAtBoot(engine)`로 분리됐다(EngineConfig.java:382).
+
+결과: 승격 시 인메모리 엔진이 접수 개방 전에 head까지 선복원된다. 스탠바이가 부팅 시점 seq에 머무는 상태는 해소됐다.
+
+남은 결함: 승격 재생의 메모리 소요다. OPEN 주문 195,808건 상태에서 1GiB 노드가 승격 재생을 끝내지 못하고 GC 스파이럴에 빠졌고, 2GiB로 올리자 같은 조건에서 성립했다(`harness/evidence/leader-failover-20260908/README.md` 결론 절). 3-b 스냅샷이 tail 재생량을 상한하기 전에는 노드 규격이 이 경로의 제약이다.
 
 ### 2-2. 스탠바이 엔진이 stale lastAppliedSeq로 열림
 
@@ -185,7 +200,8 @@ CI 사각: 어느 통합테스트도 "빈(또는 stale) 엔진 + 대규모 gap�
 
 - 스파이크 조건(저널 27k+ 명령 누적) 리더 kill에서 실제 가시 체결 재개 RTO < 30s(벽시계, §4-2 계약).
 - RPO=0 유지: C16 0행, ACK 명령 전량 `command_journal` 존재.
-- 불변식 14/14: C01·C02·C05·C06·C07·C07P·C08·C13A·C13B·C14·C16·C17·C18·C19 위반 0(권위 run). C13A는 AUTHORITATIVE_ONLY로 평가.
+- 불변식 카탈로그 전건 위반 0(권위 run): `InvariantCheck.java` enum 26종. C13A·C16·C19·C22·C23·C24·C25는 `Scope.AUTHORITATIVE_ONLY`로 평가한다.
+- 확정(2026-09-09): 불변식을 세는 단위는 SQL 판정 블록이다. `harness/sql/invariants.sql` 의 판정 블록 27개가 정본 수치다. 정본 `제출_20260901/기획안_원본.md`(요약·1.3·3.1·10.2·12절 A2) 다섯 곳을 종전 37개에서 27개로 정정했다. `InvariantCheck.java` enum 26종은 앱 러너가 순회하는 크기이고 27개에서 C04 하나가 빠진 값이다. C04 는 지연 제약 트리거가 DB 안에서 강제하므로 러너의 조회 대상이 아니다. 카탈로그 코드 축 C01~C25 는 그대로 두되 총수를 적을 때는 27을 쓴다.
 - `recovery_runs.matched=true`, epoch 정확히 +1, 중복 체결 0.
 - 승격 rebuild가 `appendAndSettle`를 O(pending)회만 호출(정산 catch-up 재발 0, §4-1 (A)).
 - soak 2h에서 C13A 프로젝션 지연 오탐 0(SCHEDULED 미평가), E6 스파이크 게이트 스퍼리어스 FAIL 0.
@@ -212,7 +228,8 @@ CI 사각: 어느 통합테스트도 "빈(또는 stale) 엔진 + 대규모 gap�
 ### 6-3. 마이그레이션
 
 - 3-b 스냅샷은 기존 `snapshots` 테이블(V1)을 그대로 쓴다. 기본 계획은 신규 마이그레이션 불필요.
-- 스냅샷 지원에 스키마 변경(예: 이벤트 워터마크 컬럼 추가, 조회 인덱스, 스냅샷 채택 부기)이 필요하다고 판명되면 다음 가용 버전으로 번호를 예약한다(현재 최신 적용본 V12__outbox_2026_08_partition.sql, 다음 가용 V13). 적용된 V0~V12는 수정하지 않는다.
+- 스냅샷 지원에 스키마 변경(예: 이벤트 워터마크 컬럼 추가, 조회 인덱스, 스냅샷 채택 부기)이 필요하다고 판명되면 착수 시점 다음 가용 V 번호로 배정한다. 본 문서에서 번호를 고정하지 않는다. 배정 규칙은 `docs/contracts/백엔드_DB_설계.md` 마이그레이션 표의 V35+ 행(번호는 착수 시점 다음 가용값으로 배정)이 소유한다.
+- 2026-09-09 확인 시점의 최신 적용본은 V34__single_operator_approval.sql이다(`server/app/src/main/resources/db/migration/` 35개 파일, V0~V34). 적용된 V0~V34는 수정하지 않는다.
 
 ### 6-4. 리스크
 

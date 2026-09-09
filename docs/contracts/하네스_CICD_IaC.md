@@ -1,6 +1,6 @@
 # 고가용성 가상 암호화폐 거래소 CI/CD·IaC·관측성 설계서 (설계 B, v1.1 제출본)
 
-> 전제 계약: `docs/contracts/백엔드_DB_설계.md` **v2.29**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 전용 리스 풀·자발적 강등·강등 등급 분리·표식 해제 지점, §2-5-a 수용 제한, V13 원가 프로젝션), `docs/contracts/백엔드_API_설계.md` **v2.20**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·2인 승인, §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
+> 전제 계약: `docs/contracts/백엔드_DB_설계.md` **v2.29**(PG17+, V1 수동 파티션 부트스트랩 + V2 pg_partman 5.x/pg_cron 채택(adoption), V3 통합테스트 위임, `invariant_checks`/`recovery_runs` 관측 테이블, §5.4 전용 리스 풀·자발적 강등·강등 등급 분리·표식 해제 지점, §2-5-a 수용 제한, V13 원가 프로젝션), `docs/contracts/백엔드_API_설계.md` **v2.20**(SB 3.5.16+Java 21, 배포단위 A/B/C, §0-2 토폴로지, §3-6 admin 격리·1인 승인(v2.34 `V34__single_operator_approval.sql`이 반결탁 제약을 제거, ADR 0019), §6-A/B/C 관리·카오스·HA API, §7-4 SLO).
 > 설계 원칙: **정확성(증명 가능성) > 재현성(1커맨드 기동) > 성능 > 편의성**. 인프라의 임무는 두 증명 목표, ① 체결 무결(자산합 0·유실 0·중복 0), ② 자동 복구(재생·페일오버·RTO<30s)를 **CI가 매 커밋, 데모가 실시간으로 데이터로 보여주게 만드는 것**이다.
 > 2026-07-21: 스타일 정리, 내용 무변경.
 > 2026-07-24: §5-6 C-카탈로그에 C21~C23(전부 CRITICAL, InvariantCheck enum 실재분) 수록, InvariantViolation 라우팅 열거 갱신. 단일 권위는 검증설계 §4-1 불변(§5-6은 2차 미러).
@@ -30,7 +30,7 @@
 | 메트릭 | Micrometer + Prometheus | `prom/prometheus:v3.13.0`(LTS) | classic 히스토그램 + SLO 경계 버킷 기본 |
 | 대시보드 | Grafana | `grafana/grafana:13.1.0` | 12.x EOL 라인 회피. 파일 프로비저닝, 시크릿은 datasource `$__file` 표기(§5-4) |
 | 트레이스/로그 | Tempo / Loki | `grafana/tempo` / `grafana/loki` (`obs` 프로파일) | exemplar → Tempo 점프(권장) |
-| 부하 | k6 | **v2.1.0** (+ Gatling 3.15 발표용 선택) | STOMP = stable `k6/websockets` 위 순수 JS(확장 빌드 0). JMeter 배제 |
+| 부하 | k6 | **1.4.0** (`grafana/k6:1.4.0`, 전 증거 회차 실측 핀) + Gatling 3.15 발표용 선택 | STOMP = `k6/experimental/websockets` 위 순수 JS(확장 빌드 0). 핀 이미지에 stable `k6/websockets`가 없다(실측 오류 `unknown dependency : k6/websockets`, `harness/load/lib/stomp.js`). JMeter 배제 |
 | 로컬 k8s(선택) | k3d | v5.9.x | rolling 무중단 시연 전용 가산점 트랙 |
 | Gradle | 9.6.1 | Configuration Cache 활성 | |
 | Next.js | 16.2.x LTS | `output:'standalone'` 3-스테이지 | |
@@ -39,30 +39,36 @@
 
 ## 1. 저장소 구조·환경 분리
 
-### 1-1. 디렉터리 레이아웃 (exchange-platform 모노레포)
+### 1-1. 디렉터리 레이아웃 (저장소 실물)
+
+정정(2026-09-09): 초안의 `exchange-platform/` 멀티모듈 트리(common-dto·exchange-core·exchange-api·exchange-admin·bot-simulator·frontend·infra·observability·load)는 실물과 다르다. 실물은 `server/` 단일 트리(`:engine`·`:app`)이고 `infra/`·`observability/`·루트 `load/` 디렉터리는 존재하지 않는다. `.github/workflows/ci-backend.yml`의 머리 주석도 같은 사실을 적는다. 워크플로는 4종이다(정본 §10.6).
 
 ```
-exchange-platform/
-├── .github/workflows/           ci-backend.yml · ci-frontend.yml · integration.yml · image.yml · nightly-slo.yml
-├── common-dto/ exchange-core/ exchange-api/ exchange-admin/ bot-simulator/   (계약 §0-1 멀티모듈)
-├── frontend/                    Next.js 16 (standalone)
-├── infra/
-│   ├── pg/
-│   │   ├── Dockerfile           postgres:17.6-bookworm + partman(5.* 핀) + cron  (TC·compose 공용, GHCR digest 배포)
-│   │   └── initdb/01-roles.sql  app_role/grafana_ro 롤 생성 + 기본 GRANT (§7-2 롤 분리)
-│   ├── nginx/nginx.conf
-│   ├── rabbitmq/enabled_plugins [rabbitmq_management,rabbitmq_stomp].
-│   ├── toxiproxy/{populate.json, populate-ha.json}   노드별 프록시 / ha-db 전환용
-│   ├── prometheus/{prometheus.yml, rules/exchange-recording.yml}
-│   ├── patroni/                 (ha-db 오버레이 전용: patroni×2 + etcd + haproxy)
-│   └── deploy/{rolling.sh, reset.sh}
-├── observability/grafana/
-│   ├── provisioning/{datasources,dashboards,alerting}/*.yaml
-│   └── dashboards/{01-integrity,02-recovery,03-load-slo,04-system}.json
-├── load/                        k6: lib/{sign.js,stomp.js} · scenarios/{steady,spike,ramp,thundering-herd}.js · slo-gate.js
-├── compose.yaml  compose.ci.yaml  compose.ha-db.yaml  compose.k3d/(선택)
-├── secrets/                     *.txt (git 제외, .gitignore + .dockerignore 동시 등재)
-└── .env.example                 전체 변수 카탈로그(값 없음, 커밋 대상). TAG 규약 명문화(§2-4)
+failstop/
+├── .github/workflows/           ci-backend.yml · ci-web.yml · image.yml · style.yml   (4종)
+├── server/                      Gradle 멀티프로젝트: engine/(매칭 코어) · app/(API·관리·봇·Flyway 마이그레이션)
+├── web/                         Next.js 정적 export(`web/out`), ci-web.yml이 export 산출을 검증
+├── harness/                     격리 카오스·부하·관측 하네스
+│   ├── docker-compose.chaos.yml · docker-compose.scale.yml   카오스 스택 / 스케일 스택
+│   ├── Dockerfile.app           image.yml 빌드 컨텍스트(app.jar 스테이징)
+│   ├── nginx/{nginx.conf, web.conf}
+│   ├── toxiproxy/populate.json  노드별 프록시(§3-2)
+│   ├── prometheus/{prometheus.yml, rules/{exchange-recording.yml, exchange-alerts.yml}}  레코딩 9개 · 알람 15개
+│   ├── grafana/{provisioning/, dashboards/}   대시보드 9종(01~05, 10~13)
+│   ├── alertmanager/            발화 알람 통지 경로
+│   ├── load/                    k6: lib/{sign.js,stomp.js} · scenarios/ · order_flow.js · calibrate.js · ws_capacity.js
+│   ├── scripts/                 up · down · calibrate · chaos-consumer · e1~e9
+│   ├── config/                  e1~e9 실험 파라미터(.env)
+│   ├── sql/                     invariants.sql · summary.sql
+│   ├── replication/             run.sh · repl_sampler.py · analyze.py · dynamo_lease.py  (동기 복제·정족수 실험, §3-5)
+│   ├── asg/ · scale/            확장·축소 시나리오
+│   └── evidence/                판정 산출물 30건(정본 §10.4)
+├── deploy/                      상시면 배포용 compose 4종(edge·app·data·bot) + 인증서 스크립트
+├── seed-data/                   마켓·코인 메타 수집기와 산출물(out/markets.json, markets 배열 269개)
+├── scripts/                     check-style.ps1 등 로컬 게이트(부록 S-2)
+├── docs/                        contracts · architecture · adr · records · archive
+├── 제출_20260901/               정본 기획안
+└── compose.yaml                 데모 전체 스택(name: exchange-chaos). harness/docker-compose.chaos.yml을 include하고 web·admin·k6를 얹는다
 ```
 
 ### 1-2. 환경 매트릭스와 이미지 단일 원천
@@ -70,9 +76,9 @@ exchange-platform/
 | 환경 | 기동 방식 | Spring 프로파일 | DB/브로커 | 카오스 | 용도 |
 |---|---|---|---|---|---|
 | `local` | Gradle 직기동 + Testcontainers(@ServiceConnection 싱글턴) | `local` | TC 임시 컨테이너(**GHCR pg 이미지 동일 digest**) | Toxiproxy TC 모듈 | 개발·단위/통합 테스트 |
-| `ci-slim` | `docker compose -f compose.yaml -f compose.ci.yaml --profile slim up -d --wait` | `demo` | compose(단일 api 노드, **RabbitMQ 포함**) | 미주입 | nightly k6 SLO 게이트 |
-| `demo-full` | `docker compose --profile full up -d --wait` | `demo` | compose 전체(api×2) | Toxiproxy 상시 배선 + admin API | 발표·카오스 실험 E1~E6 |
-| `demo-ha-db` | `--profile full` + **`-f compose.ha-db.yaml` 오버레이** | `demo` | Patroni×2+etcd+HAProxy(**단독 PG 대체**, §3-5) | + DB 페일오버 | DB HA 시연 세션 한정 |
+| `ci-slim` | `docker compose -f compose.yaml -f compose.ci.yaml --profile slim up -d --wait` | `demo` | compose(단일 api 노드, **RabbitMQ 포함**) | 미주입 | nightly k6 SLO 게이트. **미구현**: 루트 `compose.ci.yaml`과 `nightly-slo.yml`이 저장소에 없다(§2-5) |
+| `demo-full` | `docker compose --profile full up -d --wait` | `demo` | compose 전체(api×2) | Toxiproxy 상시 배선 + admin API | 발표·카오스 실험 E1~E9(E10 미실시, §6-2) |
+| `demo-ha-db` **(미구현 선택 트랙)** | `--profile full` + **`-f compose.ha-db.yaml` 오버레이** | `demo` | Patroni×2+etcd+HAProxy(**단독 PG 대체**, §3-5) | + DB 페일오버 | DB HA 시연 세션 한정. 오버레이 파일·`infra/patroni/`·`populate-ha.json`이 저장소에 없다. 현행 DB 이중화는 대기 서버 2대 `ANY 1` 정족수이고 실험 수단은 `harness/replication/`이다(정본 §6.3, §3-5) |
 | `k3d`(선택) | `k3d cluster create` + kubectl | `demo` | compose DB 재사용 | - | rolling 무중단 시연 |
 
 **이미지 단일 원천 규율**: PG 커스텀 이미지는 `image.yml`이 빌드해 `ghcr.io/<org>/exchange-platform/exchange-pg:<sha>`로 푸시하고, `.env`의 `PG_IMAGE`(digest 고정)를 compose·Testcontainers(`-Dexchange.pg.image=` 시스템 프로퍼티)·CI가 **공용 참조**한다. 베이스는 `postgres:17.6-bookworm` + apt 버전 핀, "버전 드리프트 = 파티션드 IDENTITY/partman 동작 차이 = 증명 무효" 규율을 이미지 자체에도 적용한다. 앱 이미지 태그는 `.env`의 `TAG` 하나로 일원화한다.
@@ -84,14 +90,13 @@ exchange-platform/
 ### 2-1. 토폴로지와 게이트 정책
 
 ```
-PR      → [ci-backend]  컴파일 + 단위테스트 + ArchUnit(T3-A 결정론 정적 방어)   ~3분 목표
-          [ci-frontend] lint + next build                                    (paths: frontend/**)
-main    → [integration] Testcontainers 통합 = V3 실증 스위트 T1~T5            5~10분
-          [image]       5종 이미지 빌드 → GHCR push (pg/api/admin/bot/frontend)
-nightly → [nightly-slo] ci-slim compose 기동 + k6 thresholds 게이트 + jqwik tries 2000
+PR·push → [ci-backend]  ./gradlew build (컴파일 + 단위 + Testcontainers 통합 + ArchUnit) + promtool 룰 검사 + 대시보드 sanity
+          [ci-web]      npm ci → build → 정적 export 검증 → tsc --noEmit → npm test        (paths: web/**)
+PR      → [style]       추가된 줄·커밋 메시지의 dash·이모지·AI 어투 검사 + 문서 링크·디자인 토큰·브라우저 불변 (부록 S)
+main    → [image]       ci-backend 성공 커밋 한정. `:app:bootJar` → `ghcr.io/<repo>/exchange-app` 멀티아치(amd64+arm64) push, 배포는 digest 고정
 ```
 
-- **PR 게이트 = 핵심 불변식·결정론**(빠르고 항상), **무거운 것(컨테이너·부하) = main/nightly**. `concurrency: cancel-in-progress`로 낭비 차단.
+- 워크플로는 4종이다(정본 §10.6: 백엔드 검증·웹 검증·이미지 빌드·스타일 검사). **PR 게이트 = 핵심 불변식·결정론**(빠르고 항상). 실물에서는 Testcontainers 통합 검증도 `ci-backend` 안에서 PR·push 양쪽에 걸린다. 별도 `integration.yml`은 미구현이고(§2-3) **부하 게이트(nightly)도 미구현이다**(§2-5). `concurrency: cancel-in-progress`로 낭비 차단.
 - **V3 스위트가 CI에 귀속되는 것이 이 설계의 핵심 서사다**: DB 문서가 "문서 단정만으로 신뢰하지 않는다"며 V3에 위임한 명제(커밋 백스톱 파티션 전파, partman 채택, 재생 결정론, fencing 원자성)를 **매 main 커밋마다 CI가 재증명**한다. T2(경계 기준 partman 채택 판정) 실패는 코드 버그가 아니라 **DB 문서 정정 트리거**로 취급한다(§8).
 
 ### 2-2. `ci-backend.yml` (PR)
@@ -120,7 +125,9 @@ jobs:
 
 **ArchUnit 게이트(T3-A)**: `exchange-core`에서 `System.currentTimeMillis/nanoTime`, `Random/UUID.randomUUID`, `Instant.now`, `HashMap/HashSet` 필드, `double/float` 필드 금지. 재생 결정론(API§7-2)의 컴파일 타임 방어가 PR마다 강제된다.
 
-### 2-3. `integration.yml` (main), V3 실증 스위트
+### 2-3. `integration.yml` (main), V3 실증 스위트 **(미구현, 목표 명세)**
+
+> **미구현(2026-09-09 확인)**: `.github/workflows/integration.yml`도 `integrationTest` gradle 태스크도 저장소에 없다. 실물은 `ci-backend.yml`의 `./gradlew build` 한 잡이 단위·통합 검증을 함께 돌린다(검증 클래스 74개 전량 통과, 정본 §10.6). 아래는 목표 명세다.
 
 ```yaml
 name: integration
@@ -212,7 +219,9 @@ ENTRYPOINT ["java","-jar","app.jar"]
 
 `exchange-admin/Dockerfile`만 예외적으로 **docker-cli 패키지를 추가하지 않는다**. 관리 서비스는 Docker를 조작하지 않기 때문이다(§6-2 명령 소비기 모델). 거래·관리 프로세스에 docker.sock을 주면 그 프로세스의 원격 코드 실행 하나가 호스트 장악이 되고, 리더 kill 실험에서는 명령을 받은 프로세스가 그 명령으로 사라져 결과를 기록할 주체가 없어진다. 주입은 별도 소비기가 수행한다. Next.js는 `output:'standalone'` 3-스테이지(deps/builder/runner, non-root, `HOSTNAME=0.0.0.0`).
 
-### 2-5. `nightly-slo.yml`, k6 SLO 게이트 (API§1 "Thresholds→exit code" 계약 이행)
+### 2-5. `nightly-slo.yml`, k6 SLO 게이트 (API§1 "Thresholds→exit code" 계약 이행) **(미구현, 목표 명세)**
+
+> **미구현(2026-09-09 확인)**: `.github/workflows/nightly-slo.yml`도 루트 `compose.ci.yaml`도 저장소에 없다. 실물 워크플로는 4종(ci-backend·ci-web·image·style)뿐이고, k6는 `compose.yaml --profile load`의 `chaos-k6`를 사람이 실행한다. 아래는 목표 명세다.
 
 ```yaml
 name: nightly-slo
@@ -379,7 +388,7 @@ services:
     <<: *api-common
     environment: { <<: *api-env, NODE_ID: exchange-api-2,
                    DB_PORT: "25432", REDIS_PORT: "26379" }    # api-2 전용 프록시 리스너
-    profiles: [full]               # slim=1노드, full=2노드(리더/스탠바이는 Redisson 선출이 결정)
+    profiles: [full]               # slim=1노드, full=2노드(리더/스탠바이는 리더 임차 승격이 결정, §4-1)
 
   lb:
     image: nginx:1.29
@@ -419,15 +428,15 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.13.0
-    volumes: ["./infra/prometheus:/etc/prometheus:ro", "promdata:/prometheus"]
+    volumes: ["./harness/prometheus:/etc/prometheus:ro", "promdata:/prometheus"]
     ports: ["9091:9090"]
     restart: unless-stopped
     deploy: { resources: { limits: { memory: 512m } } }
     profiles: [slim, full]
   grafana:
     image: grafana/grafana:13.1.0
-    volumes: ["./observability/grafana/provisioning:/etc/grafana/provisioning:ro",
-              "./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro",
+    volumes: ["./harness/grafana/provisioning:/etc/grafana/provisioning:ro",
+              "./harness/grafana/dashboards:/var/lib/grafana/dashboards:ro",
               "./secrets/grafana_ro_password.txt:/run/secrets/grafana_ro_password:ro"]
     # GF_*__FILE 방식 미사용, 그 메커니즘은 grafana.ini 설정 키 한정이라 datasource 비밀번호에 무효.
     #   pg-proof 비밀번호는 datasource 프로비저닝 YAML의 $__file 표기로 주입(§5-4).
@@ -463,7 +472,7 @@ networks: { admin-net: }
   { "name": "redis-api2", "listen": "0.0.0.0:26379", "upstream": "redis:6379",    "enabled": true } ] }
 ```
 
-**공유 프록시 2개 → 노드별 4개로 분리한 이유(핵심 수정)**: 공유 리스너로는 toxic 주입 시 api-1·api-2가 **동시에** 단절되어, E2의 판정 시나리오(리더만 Redis 상실 → Redisson 리스 만료 → **스탠바이가** fencing 승격 → 구 리더 append 0행)가 재현 불가였다. 스탠바이도 Redis를 잃으면 승격 주체가 없다. 그레이 장애(리더만 DB 단절) 역시 동일. 노드별 프록시로 **blast radius를 노드 축으로 선택**할 수 있어야 실험 카탈로그가 성립한다.
+**공유 프록시 2개 → 노드별 4개로 분리한 이유(핵심 수정)**: 공유 리스너로는 toxic 주입 시 api-1·api-2가 **동시에** 단절되어, 캐시 계층 실험(현 카탈로그의 E3, §6-2)의 판정 시나리오(리더만 Redis 상실 → **스탠바이가** fencing 승격 → 구 리더 append 0행)가 재현 불가였다. 다만 Redisson이 런타임에 미배선이라(§4-1) 현재 이 실험의 유효 판정은 SKIP이다. 스탠바이도 Redis를 잃으면 승격 주체가 없다. 그레이 장애(리더만 DB 단절) 역시 동일. 노드별 프록시로 **blast radius를 노드 축으로 선택**할 수 있어야 실험 카탈로그가 성립한다.
 
 exchange-admin의 `POST /admin/v1/chaos/network`(API§6-B)는 admin-net 내부에서 toxiproxy admin API(8474)로 릴레이하며, 요청 바디에 **`target_node`(`api-1`|`api-2`|`all`) 축을 추가**해 프록시명(`pg-api1` 등)으로 매핑한다(계약 §6-B 바디에 노드 축이 없으므로 §8 정정 권고 항목). 계약 열거 toxic 전부 실재 확인: `latency`(+jitter)/`bandwidth`/`timeout`(**timeout=0=블랙홀**)/`reset_peer`/`down`(enabled=false). **packet loss는 Toxiproxy에 없음**, `chaos-net` 프로파일의 Pumba가 전담(사전 검증 §6-2). 실험 종료 훅은 프록시별 `POST /reset`.
 
@@ -509,7 +518,22 @@ server {
 
 캡이 없으면 `MaxRAMPercentage=75`가 WSL2 전체(12GB) 기준으로 동작해 폭주 부하 시 힙이 수 GB로 팽창 → OOM 킬이 **의도치 않은 노드 kill**로 카오스 판정을 오염시킨다. 캡 명시는 산정표 정합이 아니라 **실험 무결성 요건**이다. `ha-db`·`obs`·`chaos-net`은 필요 세션에만 겹쳐 기동.
 
-### 3-5. `compose.ha-db.yaml`, DB HA 오버레이 (단독 PG 동시 기동 문제 해소)
+### 3-5. DB 이중화 (현행 정족수 구성 + 미구현 선택 트랙)
+
+**현행(정본 §6.3, ADR 0018)**: primary 1대 + 대기 서버 2대이고 동기 복제 대상을 `ANY 1` 정족수로 묶는다. 커밋은 두 대기 서버 중 아무 한 대의 응답만 기다린다. 대기 서버를 한 대만 두면 그 한 대가 쓰기의 단일 장애점이다.
+
+| 조건 | 초당 접수 | 서버 오류 | 커밋 |
+|---|---|---|---|
+| 동기 대기 1대 정상 | 97.2 | 0 | 정상 |
+| 동기 대기 1대 정지 | 0.0 | 0 | 전면 정지 |
+| 정족수, 2대 중 1대 정지 | 56.0 | 0 | 정상 지속 |
+| 정족수, 2대 모두 정지 | 0.0 | 0 | 전면 정지 |
+
+측정은 2026-09-08 회차이고 출처는 `harness/evidence/replication-fault-20260908/`다. 실험 수단은 `harness/replication/`(`run.sh`·`repl_sampler.py`·`analyze.py`·`dynamo_lease.py`)이다. 배치는 primary가 가용영역 a, 대기 서버 둘 다 가용영역 c다(정본 §6.3).
+
+**미결**: 승격한 노드를 기준으로 동기 복제 대상을 다시 쓰는 절차가 배선되지 않았다(정본 §3.2).
+
+**선택 트랙(미구현)**: 아래 Patroni 오버레이는 실체 명세가 아니라 미구현 선택 트랙이다. 정본 §4.2 선택표에도 §4.3 비채택표에도 Patroni·etcd·HAProxy가 없고, 저장소에 `compose.ha-db.yaml`·`infra/patroni/`·`infra/toxiproxy/populate-ha.json`이 전부 없다(2026-09-09 확인). 채택하면 아래 형태가 된다.
 
 ```yaml
 # demo-ha-db 세션: docker compose -f compose.yaml -f compose.ha-db.yaml --profile full up -d --wait
@@ -528,7 +552,7 @@ services:
 volumes: { pgdata-ha1: , pgdata-ha2: }        # 단독 pgdata와 볼륨 분리, 데이터 계보 혼선 차단
 ```
 
-`populate-ha.json`은 `pg-api1/pg-api2`의 upstream만 `haproxy:5432`로 바꾼 사본이다. 이 오버레이로 **앱 트래픽이 실제 Patroni 경로를 경유**하며, DB 페일오버 시연(Patroni 리더 kill → HAProxy 재라우팅 → 앱 Hikari 재수립)이 실질이 된다. 오버레이 없이 `--profile ha-db`만 켜는 방식은 금지(단독 PG와 동시 기동 + upstream 미전환으로 공회전).
+채택 시 `populate-ha.json`은 `pg-api1/pg-api2`의 upstream만 `haproxy:5432`로 바꾼 사본이다. 이 오버레이로 **앱 트래픽이 실제 Patroni 경로를 경유**하며, DB 페일오버 시연(Patroni 리더 kill → HAProxy 재라우팅 → 앱 Hikari 재수립)이 실질이 된다. 오버레이 없이 `--profile ha-db`만 켜는 방식은 금지(단독 PG와 동시 기동 + upstream 미전환으로 공회전).
 
 ### 3-6. 데모 리셋 표준 절차 (`infra/deploy/reset.sh` 신규)
 
@@ -547,7 +571,7 @@ Grafana 대시보드는 파일 프로비저닝이라 리셋과 무관하게 재�
 
 ### 4-1. 리더 선출과 배포 순서 계약
 
-- 리더십 = Redisson 리더 락 + DB `leader_lease` 원자 승격(DB§5.4). **epoch+1은 리스 만료 탈취 시에만, 리스 갱신(heartbeat)은 epoch 보존 별도 UPDATE**, DB v2.5(v2.4 패치)에 이미 계약화되어 있으며, V3 T4-7이 이 문장의 회귀를 방지한다.
+- 리더십 임차 권위는 평면별로 갈린다. **상시면**은 DynamoDB 항목 하나에 조건부 쓰기로 임차를 갱신한다(초당 한 번, 데이터베이스 커밋 경로 밖. 정본 §4.2·§6.5, ADR 0017, 근거 `harness/evidence/leader-lease-dynamodb-20260908/`). **로컬 카오스 스택**은 DB `leader_lease` 원자 승격을 쓴다(DB§5.4). 세대 번호 검증은 두 평면 모두 DB 쓰기 트랜잭션 안에 남는다. **Redisson은 런타임에 배선되어 있지 않다**: server 하위 gradle 파일에 redisson·spring-boot-starter-data-redis 의존이 없고 클라이언트 빈·`spring.data.redis` 설정도 없으며, 코드 언급은 `AccountRateLimiter.java`·`PublicRateLimitFilter.java`의 M2 유예 주석 둘뿐이다(검증설계 패치 노트 6차와 같은 조사 결과). **epoch+1은 리스 만료 탈취 시에만, 리스 갱신(heartbeat)은 epoch 보존 별도 UPDATE**, DB v2.5(v2.4 패치)에 이미 계약화되어 있으며, V3 T4-7이 이 문장의 회귀를 방지한다.
 - **배포 순서 원칙: 팔로워 먼저.** ① `GET /admin/v1/ha/status`로 현재 리더 확인 → ② 팔로워 갱신·healthy 대기 → ③ 리더 갱신. 리더 갱신은 곧 의도된 페일오버이므로 graceful 경로(readiness=REFUSING_TRAFFIC → in-flight 완료 → 스냅샷 flush → 종료)를 태워 새 리더의 tail 재생량을 최소화한다.
 - 클라이언트 관점 "무중단"의 정의(API 계약 유래): **주문 접수 실패 0 + 이중체결 0**, 5xx/타임아웃 창은 `client_order_id` 재조회 상태머신(API§7-6)으로 수렴하므로, 배포 중에도 k6가 `checks: 접수 유실 0·중복 0`을 동시 측정해 증거화한다.
 
@@ -671,14 +695,14 @@ management.endpoints.web.exposure.include: health,info,prometheus,metrics,chaosm
 **계측 위치(코어 순수성)**: exchange-core에 Micrometer 반입 금지. 주문 지연 Timer는 시퀀서 ACK→event_journal 소비 시점을 api 계층이 측정, 오더북 depth는 방출 이벤트의 프로젝션 Gauge, 불변식 게이지는 검증기 배치가 `invariant_checks` INSERT와 동시 갱신(별도 postgres_exporter 불요).
 
 **미방출 항목(의도적 보류)**:
-- `exchange.orderbook.depth`: 마켓 269개 × side 2 = 538 시계열이라 방출 보류. 상한/집계(전체 합 또는 top-N) 설계 확정 후 배선한다. 오더북 잔량은 시스템 대시보드 부가 신호라 무데이터 패널을 증거로 두지 않는 원칙에 따라 제외한다.
+- `exchange.orderbook.depth`: 카디널리티 산정을 정정한다(2026-09-09). 구동 마켓은 12개이고 side 2를 곱하면 24 시계열이다(정본 §요약·§1.1). 종전 표기 269는 시드 카탈로그 총수(`seed-data/out/markets.json`의 markets 배열)이지 구동 마켓 수가 아니었고, 상시면 활성 마켓은 3종이다(`server/app/src/main/resources/application.yml`). 24 시계열이면 카디널리티만으로는 방출 보류 근거가 서지 않는다. 남는 보류 근거는 둘이다. 상한·집계(전체 합 또는 top-N) 설계가 미확정이고, 오더북 잔량은 시스템 대시보드 부가 신호라 무데이터 패널을 증거로 두지 않는 원칙에 걸린다. **미결**: 24 시계열 기준으로 방출을 재개할지 여부는 결정되지 않았다.
 - `exchange.duplicate.fills`: InvariantVerifier의 C-카탈로그 검증(중복 체결 0)이 `exchange_invariant_violations{check_name}`로 이미 커버해 별도 Counter는 중복이라 방출하지 않는다.
 - `exchange.ws.clients`: `channel` 태그는 연결 단위 계량이라 단일 값(`stomp`)만 방출한다. 목적지별 분해는 세션-구독 회계가 필요해 후속.
 - `exchange.orders.rejected`: `reason`은 종결 거부(4xx: 429·422·400·403·413) 에러코드 집합이며 429는 대시보드 PromQL 정합을 위해 `rate_limited`로 정규화한다. 409·503은 재조회 수렴 신호라 거부율에서 제외한다. **`OrderRejectSpike` 임계 1/s의 유도**: 값은 확정 스파이크 상한 100 req/s(검증설계 §2-4)의 1%다. 제외 목록을 뺀 잔여 사유의 정상 기대값이 0이므로 임계의 역할은 상한 배분이 아니라 노이즈 바닥 위에 선을 긋는 것이다. `rate1m`에서 단발 1건은 1/60 = 0.017/s이므로 1/s는 그 60배이고, `for: 2m`과 겹쳐 1분 60건이 2분 지속돼야 발화한다. 일회성 오타·재시도 한 건으로는 뜨지 않고 클라이언트 버그·인증 이상만 남는다. 종전 10/s는 명목 스파이크 3000/s의 0.33%로 유도한 값이라 상한 확정 후에는 스파이크 도착률의 10%·노드 수용 천장 40/s의 25%가 되어 조기 경보가 아니라 사후 확인이 됐다. 유도 기저가 바뀌면 값도 함께 재산정한다.
 - `exchange.leader.standdown` / `exchange.leader.recoverable_standdown`: 두 축을 합치지 않는다. 전자는 종신 강등(복귀는 재기동)이고 후자는 승격 재생 실패의 회복 가능 반납(만료 후 같은 노드 재승격 허용)이라, 합치면 [재생 실패 -> 반납 -> 재승격]의 반복이 자발적 강등 1회와 구분되지 않는다. 반복 자체는 `exchange_leader_epoch` 계단으로도 정상 페일오버와 갈리지 않는다. 라이브 판독 조합은 `increase(exchange_leader_recoverable_standdown_total[5m]) > 1 and exchange_leader_is_leader == 0`이며, 참이면 그 노드의 재생이 결정적으로 실패한다는 뜻이라 데이터 쪽을 본다. **같은 신호에 임계가 셋 공존하는데 기저가 달라서 통일하지 않는다.** 여기 판독 조합과 E2 실험 게이트는 `> 1`이고 §5-6 알람 룰만 `> 2`다. 실험 게이트는 주입 전후 델타, 즉 한 페일오버 사건의 실측 반납 횟수를 세므로 정상 상한 1을 그대로 임계로 쓴다. 알람 룰의 `increase()`는 5분 창의 외삽 추정치다. 창 안 첫 표본이 0이 아니고 표본 구간이 창보다 짧으면 증가 위치와 무관하게 계수가 실증분보다 커진다(실측: 1회 증가에 1.0526). `> 1`로 두면 정상 페일오버 1회가 critical을 발화시킨다. `> 2`의 마진은 그 외삽 오차를 흡수하려는 것이지 정상 상한이 2라는 뜻이 아니다. 뒤집어 말하면 이 룰은 실증분 2회에서 발화한다(실측 2.1053). 알람 문구도 그렇게 읽어야 한다. 판독 조합이 `> 1`인 것은 사람이 `exchange_leader_is_leader == 0` 동반 조건과 함께 읽는 수동 축이라 오탐 비용이 낮기 때문이다. **따라서 일괄 `> 1` 통일은 권장하지 않는다.** 노출명 정합은 `AdmissionIntegrationTest.prometheusExposesContractedMeterNames`가 스크레이프 본문으로 고정한다(익스포트를 켠 컨텍스트가 그것뿐이라 §5-2 노출명 검증의 단일 고정점으로 둔다). 레지스트리 조회만으로는 점 표기와 스크레이프명의 불일치가 잡히지 않아 게이트가 공허 통과한다.
 - `exchange.admission.*`: 수용 제한은 인증 이전(AdmissionFilter, order 6)에서 거절하므로 컨트롤러 계층의 `exchange.orders.rejected`에 잡히지 않는다. 의도적 분리다. 후자는 '클라이언트가 요청을 고쳐야 하는 종결 거부'이고 전자는 '같은 요청을 그대로 재시도하면 되는 노드 포화'라 한 시계열에 섞으면 거부율의 의미가 무너진다. `scope`는 `order`·`query`·`requery` 3값 고정이다. 태그 없이 조회하면 세 시계열이 따로 반환되므로 총량은 `sum(...)`으로 집계한다. 라이브 판독의 핵심 조합은 버킷별 포화도 `exchange_admission_in_flight / exchange_admission_limit`와 거절률 `rate(exchange_admission_rejected_total[1m])`이다. 판독 주의 둘. (1) `scope=query`는 주문 쓰기가 아닌 쓰기(로그인·게시글 작성)도 포함하므로 순수 조회 지표가 아니다. (2) `scope=requery`의 증가는 HTTP 429가 아니라 `409 requery_deferred`(판정 보류)를 뜻한다. 다른 두 버킷과 달리 종결 거절이 아니며 k6의 `idempotent_safe` 판정에서 안전으로 계상된다.
 
-### 5-3. Prometheus 구성 (`infra/prometheus/prometheus.yml`)
+### 5-3. Prometheus 구성 (`harness/prometheus/prometheus.yml`)
 
 ```yaml
 global: { scrape_interval: 5s, evaluation_interval: 5s }
@@ -693,7 +717,9 @@ scrape_configs:
 rule_files: ["rules/*.yml"]
 ```
 
-레코딩 규칙(`rules/exchange-recording.yml`), 대시보드·알람이 같은 식을 공유:
+실물과의 차이 셋을 적어 둔다. 실물 잡은 `exchange-api`(`chaos-api-1:8080`·`chaos-api-2:8080`)와 `chaos-bots` 둘이고 admin 잡이 없다. 위 스니펫의 8081 관리 포트 분리는 상시면 토폴로지 규약이며 격리 하네스는 dev 노출이라 8080을 스크레이프한다(파일 머리 주석). 그리고 실물은 `alerting.alertmanagers`로 `chaos-alertmanager:9093`을 지정한다.
+
+레코딩 규칙은 `harness/prometheus/rules/exchange-recording.yml`이고 record 9개다(정본 §3.1·§4.2·§7.2 "레코딩 규칙 9개"). 대시보드·알람이 같은 식을 공유한다. 전량은 아래와 같다:
 
 ```yaml
 groups:
@@ -709,6 +735,19 @@ groups:
   - record: exchange:slo_500ms_ratio_1m          # SLO 경계 버킷 직독(보간 0)
     expr: sum(rate(exchange_order_latency_seconds_bucket{le="0.5"}[1m]))
           / sum(rate(exchange_order_latency_seconds_count[1m]))
+  # 스냅샷 캡처 파이프라인 rate. 대시보드 ②와 §5-6 스냅샷 3종 알람의 원천이다.
+  - record: exchange:snapshot_captured:rate1m
+    expr: sum(rate(exchange_snapshot_captured_total[1m]))
+  - record: exchange:snapshot_dropped:rate1m
+    expr: sum(rate(exchange_snapshot_dropped_total[1m]))
+  - record: exchange:snapshot_persist_failed:rate1m
+    expr: sum(rate(exchange_snapshot_persist_failed_total[1m]))
+  # 주문 거부율(reason 유지). 대시보드 ③와 OrderRejectSpike가 공유한다.
+  - record: exchange:orders_rejected:rate1m
+    expr: sum by (reason) (rate(exchange_orders_rejected_total[1m]))
+  # 단일 라이터 큐 깊이 1분 이동평균. 대시보드 ③·⑤와 SequencerQueueBackpressure가 공유한다.
+  - record: exchange:sequencer_queue:avg1m
+    expr: max(avg_over_time(exchange_sequencer_queue_size[1m]))
 ```
 
 Grafana 쿼리는 고정 `[1m]` 대신 `$__rate_interval` 사용(rate 창≥스크레이프 4배 규칙).
@@ -731,9 +770,11 @@ datasources:
 ```
 
 - 대시보드는 파일 프로비저닝(`allowUiUpdates:false`, 변경=파일 수정→`POST /api/admin/provisioning/dashboards/reload`).
-- **카오스 annotation 규약(API§6-B `grafana_annotation` 필드 구현)**: exchange-admin이 실험 시작 시 `POST /api/annotations`(service account 토큰, epoch ms, `tags:["chaos","E5","kill-node"]`) → 응답의 정수 `id`를 `anno-{id}` 접두 표기로 계약 응답에 반환 + `admin_audit_log` 기록 → 복구 판정 시 `PATCH /api/annotations/{id}`로 `timeEnd` 채워 region 승격(실험 구간 음영). 대시보드 4장 모두 태그 구독형 annotation 쿼리 내장(`type:"tags", tags:["chaos"]` / `["failover"]`), 조직 annotation이라 전 대시보드 동일 마커 자동 표기.
+- **카오스 annotation 규약(API§6-B `grafana_annotation` 필드 구현)**: exchange-admin이 실험 시작 시 `POST /api/annotations`(service account 토큰, epoch ms, `tags:["chaos","E5","kill-node"]`) → 응답의 정수 `id`를 `anno-{id}` 접두 표기로 계약 응답에 반환 + `admin_audit_log` 기록 → 복구 판정 시 `PATCH /api/annotations/{id}`로 `timeEnd` 채워 region 승격(실험 구간 음영). 증명 대시보드 ①~④ 4장이 태그 구독형 annotation 쿼리를 내장한다(`type:"tags"`, ①·②는 `["chaos"]`와 `["failover"]` 둘, ③·④는 `["chaos"]` 하나). ⑤ 운영 상황판과 MSP 4장(⑥~⑨)에는 없다. 조직 annotation이라 내장한 대시보드에는 동일 마커가 자동 표기된다.
 
-### 5-5. 증명 대시보드 5장 (`observability/grafana/dashboards/`)
+### 5-5. 대시보드 9종 (`harness/grafana/dashboards/`)
+
+실물은 9종이다(정본 §3.1·§4.2·§7.2 "대시보드 9종"). ①~⑤가 증명·운영 대시보드이고 ⑥~⑨가 MSP 계열이다. `observability/` 디렉터리는 저장소에 없다.
 
 | # | 대시보드 | 핵심 패널 (원천) |
 |---|---|---|
@@ -741,7 +782,11 @@ datasources:
 | ② | **자동 복구 증명** | Gauge `exchange_failover_downtime_seconds` vs 임계 30s · State-timeline `exchange_leader_is_leader{node}`(kill 시점 리더 밴드 교대) · `exchange_leader_epoch` 계단 + kill annotation 수직선 정렬 · `exchange:trades_per_second:rate1m` 곡선 사멸→수초 부활 · **Table 2장: `recovery_runs`(matched=true. 결정론 판정은 ReplayService가 재생 이벤트를 event_journal 행과 하나씩 대조한 결과다. fp_replay·fp_live는 재생 창 식별자이지 대조 대상이 아니다. 기록자가 성공 경로에서 두 값을 같게 적으므로 그 비교로는 항상 참이다) + `failover_runs`(rto_seconds·rpo_records·verdict 이력, §6-C API와 동일 계산점, §4-3)** · replay rate · **복구 경로 구분(pg-proof): snapshot_head=0이면 `FULL_REPLAY_FROM_0`(적)/아니면 `SNAPSHOT_TAIL`(녹), replay_tail=command_head-snapshot_head 재생 명령 수 · 채택 가능 스냅샷 재고(버전 튜플별, 드리프트 무음 폴백 노출) · 스냅샷 캡처 파이프라인 rate(captured/dropped/persist_failed) · `exchange_snapshot_last_persisted_seq` 진행 계단** |
 | ③ | **부하·SLO** | k6 Remote Write 계열(공식 대시보드 19665 병행 임포트) · `exchange:slo_500ms_ratio_1m` · p95/p99 · 429 비율(`exchange_orders_rejected_total{reason="rate_limited"}`) · `exchange_sequencer_queue_size` · Resilience4j CB/RateLimiter, "거부는 늘어도 p99·무결성은 방어" 장 |
 | ④ | **시스템** | HikariCP active/pending · JVM heap/GC · `exchange_ws_clients` · orderbook depth · Kafka lag · `up`/readiness |
-| ⑤ | **운영 상황판** | Stat 4연(거래소 `up` · 봇 플릿 `up` · 리더 존재 · 초당 체결) · 주문 접수율 vs 용량 상한 20/s · p95·p99 vs 2s · 시퀀서 큐 vs 임계 50 · HikariCP 대기·사용·상한 · CPU(발화하지 않는 지표임을 설명에 명시) · 수용 게이트 in-flight vs limit · 거절률 · 노드별 스레드와 WS. 임계는 전부 2026-09-03 실측 유도값이고 축 하한을 주어 평시에도 기준선이 보인다 |
+| ⑤ | **운영 상황판** (`05-ops.json`, uid `proof-ops`) | Stat 4연(거래소 `up` · 봇 플릿 `up` · 리더 존재 · 초당 체결) · 대기 줄 `exchange:sequencer_queue:avg1m` 임계 50·130 · 거절 건수 `rate(exchange_admission_rejected_total[1m]) by (scope)` · 접이식 진단 행(DB 커넥션 풀 pending/active/max · CPU `process_cpu_usage*100` 임계 70 · 거절 장치 in-flight vs limit · 노드 내부 스레드와 WS) · 자원 행(컨테이너 CPU 임계 150·190 · 메모리 · 네트워크 · 스레드). **정정(2026-09-09)**: 종전 표기의 접수율 20/s 축 패널과 지연 2s 축 패널은 실물 대시보드에 없다. 20/s는 2026-09-03 게이트 OFF 회차 유도값이고, 2026-09-07 이후 실측은 주문 천장 약 99/s(`harness/evidence/final-ceiling-20260907/`)·봇 켠 운영 천장 약 91/s(`harness/evidence/operational-20260907/`)이며 정본 §10.5의 접수 실측은 초당 97.2(정족수 조건 56.0)다. **미결**: 접수율·지연 축 패널을 어느 회차 기준으로 재산정해 되살릴지 결정되지 않았다 |
+| ⑥ | **MSP 종합** (`10-msp-overview.json`, uid `msp-overview`) | 서비스 생존 Stat 6연(사이트 접속 · 실패율 · 응답 시간 P95 · 초당 요청 · 초당 체결 · 살아 있는 노드) · 자원 Stat 4연(앱 CPU · 앱 메모리 · 네트워크 · DB CPU) · 데이터베이스 Stat 4연(DB 커넥션 · 커넥션 풀 대기 · 초당 트랜잭션 · 잠금) · Table 발화 중인 알람. `BotFleetDown`·`TradeSilence`의 runbook 대시보드다 |
+| ⑦ | **서비스 상세** (`11-msp-service.json`, uid `msp-service`) | 들어오는 양(초당 요청 · 초당 체결과 대기열) · 실패(응답 코드 · 주문 거절 사유) · 느림(주문 응답 시간 · 밖에서 본 응답 시간) |
+| ⑧ | **인프라 상세** (`12-msp-infra.json`, uid `msp-infra`) | 노드(컨테이너 CPU · 메모리) · 망과 스레드(네트워크 · 스레드) · JVM(힙 사용 · 살아 있는 스레드 · 노드 상태). `WsConnectionsNearLimit`·`WsConnectionsRejected`의 runbook 대시보드다 |
+| ⑨ | **DB 상세** (`13-msp-db.json`, uid `msp-db`) | 연결 Stat 4연(커넥션 사용률 · DB CPU · DB 메모리 · 복제 지연) · 일하는 양(초당 트랜잭션 · 읽기와 쓰기) · 앱이 겪는 DB(커넥션 풀 · 커넥션 확보 시간 · 잠금 · DB 크기) |
 
 발표 프리셋: refresh 5s, 시간창 15m 고정. 증명 한 줄(API§7-4) "총자산 선은 수평, 체결 곡선은 수초 만에 부활"이 ①·②에 그대로 시각화된다.
 
@@ -780,24 +825,31 @@ datasources:
 
 `exchange_invariant_violations{check_name="C01_ASSET_CONSERVATION", severity="CRITICAL"}` 형태로 노출된다.
 
-**알람, Grafana 통합 얼럿 파일 프로비저닝**(Alertmanager 컨테이너 생략). `provisioning/alerting/rules.yaml`, 그룹 interval 10s, contact point=데모 webhook 1개:
+**알람 15개, 정본은 `harness/prometheus/rules/exchange-alerts.yml`**(그룹 `exchange.alerts`, interval 10s). 격리 하네스는 Alertmanager 컨테이너(`chaos-alertmanager:9093`)로 통지하고 Prometheus 네이티브 알람으로 평가한다. 아래 표는 그 파일과 1:1 미러다(정본 §3.1·§4.2·§7.2 "알람 15개"). 상시면 `infra/` 토폴로지의 Grafana 통합 얼럿 프로비저닝은 미구현이다.
 
 | 알람 | 식 | 조건 | severity |
 |---|---|---|---|
 | `LedgerImbalance` | `max(abs(exchange_ledger_imbalance))` | `>0` for 0s | **critical**, 자산 보존 위반 즉시 |
-| `DuplicateFill` | `increase(exchange_duplicate_fills_total[5m])` | `>0` | **critical** |
-| `InvariantViolation` | `max by(check_name)(exchange_invariant_violations)` | `>0` for 30s | **게이지 `severity` 라벨 패스스루로 라우팅**(critical=C01·C02·C05~C08(C07' 포함)·C13·C16~C18·C21~C23 / high=C03·C09~C12·C14·C19·C20 / warn=C15·C24·C25. C04는 DB 트리거 강제라 게이지 미노출) |
+| `InvariantViolation` | `max by(check_name, severity)(exchange_invariant_violations)` | `>0` for 30s | **게이지 `severity` 라벨 패스스루로 라우팅**(critical=C01·C02·C05~C08(C07' 포함)·C13·C16~C18·C21~C23 / high=C03·C09~C12·C14·C19·C20 / warn=C15·C24·C25. C04는 DB 트리거 강제라 게이지 미노출) |
 | `OrderP99SloBreach` | `exchange:order_latency:p99_1m` | `>0.5` for 2m | warning 체결 전파 지연 경보다. §2-3 주문 API SLO 판정과 다른 축이므로 이 경보 발화가 곧 SLO 위반은 아니다 |
-| `FailoverRtoExceeded` | `max(exchange_failover_downtime_seconds)` | `>30` | critical |
+| `FailoverRtoExceeded` | `max(exchange_failover_downtime_seconds)` | `>30` for 0s | critical |
 | `LeaderAbsent` | `absent(exchange_leader_is_leader == 1)` | for 15s | critical |
 | `RecoverableStandDownRepeating` | `increase(exchange_leader_recoverable_standdown_total[5m])` | `>2` for 0s | **critical** |
 | `SnapshotPersistFailed` | `rate(exchange_snapshot_persist_failed_total[5m])` | `>0` for 1m | warning |
 | `SnapshotDropped` | `rate(exchange_snapshot_dropped_total[5m])` | `>0` for 1m | warning |
 | `SnapshotStalled` | `changes(exchange_snapshot_last_persisted_seq[5m])==0 and rate(exchange_snapshot_captured_total[5m])>0` | for 2m | warning |
+| `SequencerQueueBackpressure` | `exchange:sequencer_queue:avg1m` | `>50` for 1m | warning 백프레셔. 대시보드 ③·⑤ |
+| `OrderRejectSpike` | `exchange:orders_rejected:rate1m{reason!~"rate_limited\|insufficient_funds\|invalid_price\|invalid_volume\|over_max_order\|under_min_order"}` | `>1` for 2m | warning. 임계 1/s의 유도는 §5-2 `exchange.orders.rejected` 항목에 있다 |
+| `BotFleetDown` | `up{job="chaos-bots"}` | `==0` for 30s | warning 침묵 판정(정본 §7.10) |
+| `TradeSilence` | `(sum(rate(exchange_trades_total[2m])) or vector(0)) == 0 and on() (max(up{job="exchange-api"}) == 1)` | for 1m | warning 침묵 판정(정본 §7.10). 거래소가 살아 있는데 체결이 0인 경우만 발화 |
+| `WsConnectionsNearLimit` | `max(exchange_admission_in_flight{scope="ws"}) / max(exchange_admission_limit{scope="ws"})` | `>0.8` for 2m | warning 증설 판단 신호(§3-3) |
+| `WsConnectionsRejected` | `sum(rate(exchange_admission_rejected_total{scope="ws"}[2m]))` | `>0` for 1m | critical. 거절 자체는 노드를 지키는 정상 동작이고 대응은 증설이다(§3-3) |
+
+`DuplicateFill` 행은 삭제했다(2026-09-09). 룰 파일에 그 alert가 없고, 원천 지표 `exchange.duplicate.fills`는 §5-2 미방출 항목이라 방출되지 않는다. 중복 체결은 `InvariantViolation`의 C08(`C08_DUP_FILL`)이 커버한다. 반대로 종전 표에 없던 6개(`SequencerQueueBackpressure`·`OrderRejectSpike`·`BotFleetDown`·`TradeSilence`·`WsConnectionsNearLimit`·`WsConnectionsRejected`)를 실물 기준으로 채웠다.
 
 스냅샷 3종은 정확성 무손실이라 warning이다(다음 캡처가 대체). 지속되면 채택 스냅샷이 낡아 복구가 저널 seq 0 전량 재생으로 폴백해 RTO가 저널 크기에 비례한다. 데모 저널이 작아 전량 재생이 RTO를 통과해도 이 경보와 대시보드 ②의 복구 경로 지표가 스냅샷 경로 회귀를 드러낸다. `SnapshotStalled`는 비리더(캡처 rate 0)에서 발화하지 않는다.
 
-CRITICAL(무결성 계열) 발화 시 앱 자동 조치 상한: **정지(HALTED + self-shutdown)·프로젝션 재빌드·멱등 재정산까지만 자동**, 원장·저널 자동 수정 금지(정정=REVERSAL+2인 승인, API§3-6).
+CRITICAL(무결성 계열) 발화 시 앱 자동 조치 상한: **정지(HALTED + self-shutdown)·프로젝션 재빌드·멱등 재정산까지만 자동**, 원장·저널 자동 수정 금지(정정=REVERSAL+승인 티켓, API§3-6). **승인은 1인 승인이다**(정본 §8.2, ADR 0019). 티켓을 발급한 운영자와 사용하는 운영자가 같아도 된다. `V34__single_operator_approval.sql`이 반결탁 제약 `chk_approval_two_person`을 실제로 제거했다. 실행 주체가 1인이라 발급 주체와 사용 주체가 달라야 하는 2인 승인이 성립하지 않았고, 운영자 계정을 하나 더 만들어 혼자 두 역을 하는 우회는 통제를 형해화하면서 형식만 남긴다(§6-2 같은 서술). 남는 방어는 일곱이다. 승인 티켓 별도 발급 · 수명 5분 · 1회 소각 · 액션과 대상 바인딩 · 요청자 바인딩 · 역할 게이트(CHAOS_OPS) · 추가만 가능한 감사 기록. 사라지는 것은 발급자와 사용자의 분리 한 겹이고, 단독 운영자의 고의는 사후 감사 기록으로만 드러난다(정본 §13.3 한계 11).
 
 ### 5-7. Tempo/Loki (`obs` 프로파일)
 
@@ -810,12 +862,12 @@ Micrometer Tracing(OTel bridge)→OTLP→Tempo, Logback JSON(trace_id 포함)→
 ### 6-1. k6 역할 분담과 시나리오
 
 - **역할 공식**: 봇 플릿(B) = 시장 형성 + 상시 배경 부하(폐쇄 루프, admin API 제어) / **k6 = 외부 블랙박스 SLO 계측기**(개방 루프 `ramping-arrival-rate`, coordinated omission 없는 p99). 카오스 실험은 둘 다 유지한 채 k6 thresholds가 중립 판정.
-- k6 1.4.0 확정(`grafana/k6:1.4.0`, 전 증거 회차 실측 핀). 정정(2026-09-09): 종전 표기 v2.1.0 은 실물과 무관했다. STOMP는 stable `k6/websockets` 위 순수 JS 프레임 구현(`load/lib/stomp.js`, ~100줄: CONNECT/SUBSCRIBE/MESSAGE/`\0` 종단), 확장 빌드 0, seq/epoch gap·`subscription_rejected` 검사 자유 코딩. xk6-stomp는 k6 v2 호환 미확인으로 예비안.
+- k6 1.4.0 확정(`grafana/k6:1.4.0`, 전 증거 회차 실측 핀). 정정(2026-09-09): 종전 표기 v2.1.0 은 실물과 무관했다. STOMP는 `k6/experimental/websockets` 위 순수 JS 프레임 구현이다(`load/lib/stomp.js`, ~100줄: CONNECT/SUBSCRIBE/MESSAGE/`\0` 종단). 핀 이미지에 stable `k6/websockets`가 없고 자동 확장 프로비저닝도 실패한다(실측 오류 `unknown dependency : k6/websockets`). 두 모듈의 WebSocket API가 같은 형태라 나머지 코드는 무변경이다. 확장 빌드 0, seq/epoch gap·`subscription_rejected` 검사 자유 코딩. xk6-stomp는 호환 미확인으로 예비안.
 - 서명 클라이언트: `k6/crypto`(HMAC-SHA256) + JCS canonical(`load/lib/sign.js`), 봇과 동일 규약(API§3-3). **전용 부하 계정은 §7-3 seed 잡이 발급**하며 k6는 `secrets/k6_keys.json`(seed 산출물)을 읽는다. 계정 키 버킷(API§2-5) 준수, 재시도는 동일 `client_order_id`(§2-4).
 - 출력: `-o experimental-prometheus-rw`(`K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9091/api/v1/write`) → 기존 Grafana 합류(추가 인프라 0) + `K6_WEB_DASHBOARD_EXPORT` HTML 리포트 보존. Gatling 3.15는 발표용 HTML 한정(WS 시나리오 배치 금지, 블로킹 체크 한계).
 - 시나리오 프리셋(steady/spike/ramp/thundering-herd)은 API§6-A 봇 프리셋과 이름 대응. thundering-herd의 WS 목표 연결 수는 §3-3 예산표(5,000)에서 파생.
 
-### 6-2. 카오스 도구 배선, 실험 카탈로그 E1~E6 매핑 (API§6-B)
+### 6-2. 카오스 도구 배선, 실험 카탈로그 E1~E9 매핑 (+E10 미실시, API§6-B)
 
 **실행 경로(v2.36 확정)**. 관리 API는 주입을 수행하지 않고 지시만 남긴다. `POST /admin/v1/chaos/*`가 승인 토큰을 소각하고 `chaos_commands`(V21)에 `PENDING` 행을 적재하면, 하네스 소비기가 `FOR UPDATE SKIP LOCKED`로 한 건을 점유해 실제 주입을 수행하고 컨테이너 id·상태를 `result`에 되쓴다. 콘솔은 `GET /admin/v1/chaos/runs`의 `exec_state`로 지시가 집행됐는지 본다.
 
@@ -825,14 +877,16 @@ Micrometer Tracing(OTel bridge)→OTLP→Tempo, Logback JSON(trace_id 포함)→
 
 | 실험 | 주입 수단(인프라 경로) | 관찰 판정 |
 |---|---|---|
-| E1 DB 지연/단절 | admin → toxiproxy(admin-net 내부), `pg-api1`/`pg-api2` **노드 선택** latency/timeout=0/reset_peer/down | Hikari pending↑, p99, 무결성 유지 |
-| E2 Redis 장애(리더 한정) | **`redis-api{리더}` 프록시만** toxic, 스탠바이의 Redis 경로는 생존 | 리더만 Redisson 리스 만료 → **스탠바이 fencing 승격**, 구 리더 append 0행 |
-| E3 예외 폭풍/지연 | admin → api 노드 `POST /actuator/chaosmonkey/**` 릴레이(admin-net, **§5-1 demo 프로파일에서 노출·활성 확인됨**) | CB open, 429/503+Retry-After 규약 |
-| E4 AppKiller/자원 고갈 | Chaos Monkey AppKiller/Memory/CPU + `restart: unless-stopped` | 프로세스 수준 자동 복구(메모리 캡 §3-4 내에서) |
-| E5 노드 kill(핵심) | admin이 `chaos_commands`에 지시를 적재하고 **하네스 소비기**(`scripts/chaos-consumer.ps1`)가 점유해 `docker kill chaos-api-1` 수행. 관리 프로세스는 Docker에 닿지 않는다 | restart→재생→readiness UP→LB 재편입, RTO<30s, epoch+1 |
-| E6 폭주+kill 동시 | k6 spike 중첩 + E5 | 유실 0·중복 0·자산합 0·재생 결정론 `matched=true`(P6 증거 표) + C16 |
-| 보완(그레이 장애) | `docker pause`(freezer), **pause는 restart 정책으로 복구 안 됨 → 실험 타이머가 unpause 자동 종료(필수 훅)** | 헬스체크 vs TCP 생존 괴리, 좀비 리더 fencing |
-| 보완(패킷) | Pumba netem loss/corrupt (`chaos-net`), **사전 검증 필수**: `docker run --rm --cap-add NET_ADMIN alpine sh -c "apk add iproute2 && tc qdisc add dev eth0 root netem loss 10%"` 성공 시에만 활성. WSL2 커널 sch_netem 미탑재 시 **packet loss 실험은 범위 제외로 문서화** | Toxiproxy 공백 전담(조건부) |
+| E1 데이터베이스 경로 지연 | admin → toxiproxy(admin-net 내부), 리더 `pg-api{n}` 프록시에 latency/jitter 주입(`harness/scripts/e1-pg-latency.ps1`) | Hikari pending↑, p99는 수용 제한으로 유계 유지, 429 백프레셔는 정상 동작, 무결성 유지 |
+| E2 데이터베이스 연결 절단 | 같은 경로로 리더 pg 프록시에 `timeout=0` 블랙홀(`e2-db-cut.ps1`). 리스 갱신 실패 → 강등 → 페일오버 | 유실 0(gapless+물질화)·중복 0·자산합 0, RTO<30s, 승격 노드가 재생 실패로 종신 강등하지 않을 것 |
+| E3 캐시 계층 정지 | Redis 컨테이너 강제 종료 + `redis-api{리더}` 프록시 toxic(`e3-redis-outage.ps1`) | **현 런타임에서는 SKIP이 유효 판정이다.** 리더십 권위가 DB `leader_lease`이고 Redisson이 미배선이라(§4-1) Redis 상실이 매칭·리더십·split-brain에 도달할 경로가 없다. DB 권위 리더십이 Redis 없이 성립함을 증거로 남긴다. 라이브 E3는 M2 채택 후에만 의미가 있다 |
+| E4 리더 노드 정지(핵심) | admin이 `chaos_commands`에 지시를 적재하고 **하네스 소비기**(`scripts/chaos-consumer.ps1`)가 점유해 `docker kill chaos-api-1` 수행(`e4-leader-kill.ps1`). 관리 프로세스는 Docker에 닿지 않는다 | 스탠바이 승격 → 스냅샷+tail 재생 → readiness UP → LB 재편입. RTO<30s, epoch 정확히 +1. `docker kill`은 restart 정책을 건너뛰므로 자동 부활을 전제로 판정하지 않는다 |
+| E5 네트워크 분단 | `docker network disconnect`로 구 리더를 chaos-net에서 분리(프로세스 생존) → 60s → connect(`e5-net-partition.ps1`) | 신 리더 승격(epoch 단조 상승 + holder 교체)과 서비스 재개, 구 epoch append 0행 → self-shutdown, 이중 쓰기 0 |
+| E6 폭주 중 페일오버 | 봇 노드를 높은 target-ops로 재기동해 스파이크를 만든 뒤 E4 주입(`e6-spike-failover.ps1`) | 유실 0·중복 0·자산합 0·재생 결정론 `matched=true`(P6 증거 표) + C16 |
+| E7 회색 장애 | `docker pause chaos-api-1`(freezer cgroup, TCP 생존) → 45s → unpause(`e7-gray-pause.ps1`). **pause는 restart 정책으로 복구 안 됨 → 종료 훅이 unpause를 무조건 실행(필수)** | 헬스체크 vs TCP 생존 괴리, 좀비 리더의 stale 쓰기 0(fencing 0행 → self-shutdown), RTO<30s |
+| E8 애플리케이션 내부 교란 | admin → api 노드 `POST /actuator/chaosmonkey/assaults` 릴레이(admin-net, **§5-1 demo 프로파일에서 노출·활성 확인됨**, `e8-app-assault.ps1`). assault는 latency·exception 둘이고 watcher는 `chaosProbeDownstream` 단일 빈에 국한된다 | CB open → fail-fast 503, 게이트웨이 저하가 매칭 코어 무결성에 비전파, 해제 후 CB half-open→closed 자동 복귀. AppKiller·메모리·CPU assault는 미배선이라 카탈로그에 없다 |
+| E9 커밋 경로 절단 | 리더 pg 프록시에 `reset_peer`(또는 `limit_data`) 주입해 커밋 응답을 절단(`e9-commit-cut.ps1`). 창은 리스 TTL 미만이라 승격을 유발하지 않는다 | 이중 접수 0(C07/C07'), gapless, 자산합 0, 동일 `client_order_id` 멱등 replay로 클라이언트 수렴 |
+| E10 커널 계층 지연 | **미실시**(정본 §10.3·§3.2). 수단은 `chaos-net` 프로파일의 Pumba netem이고 **사전 검증 필수**: `docker run --rm --cap-add NET_ADMIN alpine sh -c "apk add iproute2 && tc qdisc add dev eth0 root netem loss 10%"` 성공 시에만 활성. WSL2 커널 sch_netem 미탑재 시 **packet loss 실험은 범위 제외로 문서화** | 미실시. E1~E9는 전부 프록시·컨테이너 조작이라 커널 큐의 실제 거동을 재현하지 않는다. 그것이 E10의 몫이고 아직 돌리지 않았다 |
 
 모든 실험은 감사 로그·Grafana annotation 자동 삽입(§5-4)을 경유한다. 계약 §3-6/§6-B 그대로. approval_token 은 v2.34 에서 불요로 완화됐다(제시하면 검증·소각). 실행 주체가 1인이라 발급 주체와 사용 주체가 달라야 하는 2인 승인이 성립하지 않았고, 운영자 계정을 하나 더 만들어 혼자 두 역을 하는 우회는 통제를 형해화하면서 형식만 남긴다. 역할 게이트(CHAOS_OPS)와 전량 감사는 그대로다. 카오스 주입의 유일한 입구는 admin API다(toxiproxy 8474 호스트 미공개, §3-1).
 
@@ -896,7 +950,7 @@ Testcontainers도 동일 구조를 재현한다(§2-3). 로컬·CI·데모의 �
 
 ## 8. 계약 문서 정정 권고 및 미결 (조사·검증 발견분 이관)
 
-1. **API§1 선정표 갱신 권고**: 부하 행 "k6 2.0/Gatling 3.13+" → "**k6 2.1.0**(STOMP=순수 JS over stable `k6/websockets`, Prometheus RW 합류) + Gatling 3.15(선택)". 카오스 행 chaos-monkey "3.x" → **3.3.0 핀**(BOM 미관리 항목, 원칙 정합).
+1. **API§1 선정표 갱신 권고**: 부하 행 "k6 2.0/Gatling 3.13+" → "**k6 1.4.0**(`grafana/k6:1.4.0` 핀, STOMP=순수 JS over `k6/experimental/websockets`, Prometheus RW 합류) + Gatling 3.15(선택)". 카오스 행 chaos-monkey "3.x" → **3.3.0 핀**(BOM 미관리 항목, 원칙 정합).
 2. **API§7-1 타입 규약 `NUMERIC(36,18)`** → DB v2.5의 `NUMERIC(40,18)`로 정정 필요(§7-1 표·타입 규약 두 곳 모두, 문서 간 불일치 잔존 확인).
 3. **DB§5.4 리스 갱신**: ~~문장 추가 권고~~ → **v2.4 패치로 이미 계약화 확인**(epoch 보존 heartbeat UPDATE 실재, §5.4). 정정 불요. V3 T4-7은 회귀 방지 테스트로 유지.
 4. **DB§3.1 `_pYYYY_MM` 명명**: v2.5가 부트스트랩 파티션을 partman 규칙에 정렬하고 `p_start_partition` 채택 원칙을 명문화했으나, partman 5.x의 실제 접미사 규칙(`_pYYYYMMDD` 가능성)은 여전히 **V3 T2가 경계 기준으로 실증**한다. T2 실패 시 §3.2 채택 원칙을 partman 공식 기존-세트 절차로 정정.

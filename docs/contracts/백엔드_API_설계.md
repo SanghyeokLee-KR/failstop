@@ -2,7 +2,8 @@
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
-> 두 증명 목표(① 폭주·장애에도 체결이 어긋나지 않음, ② 자동 복구)를 관통하는 축: **결정론적 단일 라이터 + 이벤트 소싱 + (필수)멱등성 + 복식부기 원장 + epoch(fencing, 전 쓰기 경로 §7-1)**.
+> 정본의 증명 축은 셋이다(정본 1.3). ① 체결 무결, ② 자동 복구, ③ 병목 이동과 안정화다. 이 문서가 계약으로 덮는 것은 ①②이고, ③은 §6-A-a 용량 API 로만 접한다.
+> ①②를 관통하는 축: **결정론적 단일 라이터 + 이벤트 소싱 + (필수)멱등성 + 복식부기 원장 + epoch(fencing, 전 쓰기 경로 §7-1)**.
 
 ---
 
@@ -47,7 +48,8 @@ exchange-platform/
    │
    ▼
 [L7 LB / Reverse Proxy : Nginx or HAProxy or Envoy]   ← 신규: exchange-api 앞단 LB
-   │  readiness=REFUSING_TRAFFIC 프로브 기반 라우팅 (페일오버 시 즉시 제외)
+   │  대상 그룹 둘(정본 6.4). 쓰기=`/actuator/health/readiness`(REFUSING_TRAFFIC 이면 제외)
+   │  조회=`/actuator/health/read`(팔로워는 조회 200 이라 대상 그룹에 남는다)
    ▼
 [exchange-api × N (Docker/K8s)]                        ← 신규: 컨테이너 오케스트레이션
    │ REST 주문 (Spring MVC + Virtual Threads, Resilience4j RateLimiter/CB)
@@ -61,13 +63,15 @@ exchange-platform/
                        리더선출: 임차 보관소(기본 PostgreSQL `leader_lease`, 선택 DynamoDB) + fencing epoch(ADR 0017)
                                        │ (4) 같은 트랜잭션: assert_current_leader(holder, epoch) 통과 후 trades + outbox + ledger (fencing_epoch 저장)
                                        ▼
-                       [Kafka trades 토픽] ──┬─▶ [PostgreSQL 프로젝션 (JPA/jOOQ)]
+                       [outbox 적재]       ──┬─▶ [PostgreSQL 프로젝션 (JPA/jOOQ)]
                                             └─▶ [STOMP 팬아웃: /topic=Redis Pub/Sub 릴레이, /user/queue=외부 STOMP 브로커 릴레이]
                                                      ▼  실시간 호가/체결/잔고 푸시
-[DB HA: Patroni(+etcd) 동기복제 + HAProxy 라우팅. 무손실 failover 전제 조건은 §1 DB 자체 HA 행]
+[DB HA: PostgreSQL 직접 운영. standby 2대 + synchronous_standby_names `ANY 1` 정족수(정본 6.3, ADR 0018). 무손실 failover 전제 조건은 §1 DB 자체 HA 행]
 [복구: snapshot + journal replay | 정산배치: @Scheduled + ShedLock + fencing]
 [시크릿: 로컬=.env / 운영데모=Docker Secret·K8s Secret (secret_key는 AES-GCM 암호화 저장)]
 ```
+
+**Kafka 미채택**: `outbox` 테이블은 실재한다(`server/app/src/main/resources/db/migration/V12__outbox_2026_08_partition.sql`). 발행기는 없다. `server/app/build.gradle.kts` 와 `server/app/src` 전역에 kafka 가 0건이고, 정본 6.1 전체 구조에도 메시지 브로커가 없다(정본은 데이터베이스 밖 별도 저장소를 리더 임차 하나로 못박는다). 정본 4.3 비채택표에도 Kafka 행이 없어 채택으로도 비채택으로도 등재되지 않았다. **브로커 도입 여부는 미결이다.**
 
 **컨테이너 재기동 정책**: Docker Compose `restart: unless-stopped`(또는 K8s Deployment + livenessProbe)로 kill 후 자동 재기동 → "자동 복구"의 인프라 토대. 카오스 API의 `docker_kill`은 이 재기동 정책과 짝을 이룬다.
 
@@ -88,7 +92,7 @@ exchange-platform/
 | **영속성(도메인)** | **Spring Data JPA / Hibernate 6.6.x** | SB BOM | 계정·지갑·주문 CRUD. `@Version` 낙관적 락. |
 | **영속성(핫패스 조회)** | **jOOQ** (Community, Apache 2.0) | **SB BOM 위임(3.5.x 관리 라인=3.19.x)** | 호가 집계·체결 페이징·리포팅. 컴파일타임 타입안전. 정정(v2.4): 개별 핀 `3.20/3.21` 제거. jOOQ는 SB BOM 관리 항목이라 개별 핀은 버전 고정 원칙(하단) 위반이자 BOM 라인 오버라이드(Q12의 Flyway와 동일 논리). |
 | **DB 마이그레이션** | **Flyway** | **SB BOM 위임(3.5.x 관리 라인=11.x)** | SQL-first·저마찰. Liquibase 5.0 FSL 라이선스 이슈 회피. 정정(v2.2): 개별 핀 `12.9.0` 제거. Flyway는 SB BOM 관리 항목이라 개별 핀은 버전 고정 원칙(하단) 위반이자 BOM 메이저 오버라이드(SB 3.5 자동구성이 검증한 11.x와 상이)였다. |
-| **메시징/이벤트** | **Spring for Apache Kafka** | **SB BOM 위임(3.3.x, SB3 정합)**, Kafka 4.x KRaft | 트랜잭셔널 아웃박스 발행·리플레이. EOS로 이중발행 방지. (초안의 4.1.0은 SB4용 → SB3 경로에선 BOM이 관리하는 3.3.x. v2.2: 개별 핀 표기 제거. BOM 관리 항목) |
+| **메시징/이벤트** | **미채택**(아웃박스 테이블만 적재, 발행기 없음) | (없음) | 정정(v2.44): 초안이 Spring for Apache Kafka·Kafka 4.x KRaft 였으나 배선하지 않았다. `server/app/build.gradle.kts` 와 `server/app/src` 전역에 kafka 가 0건이고 정본 6.1 전체 구조에 메시지 브로커가 없다. 같은 트랜잭션 `outbox` INSERT 는 실재하고 발행 경로만 없다(§7-1). 브로커 도입 여부는 정본 4.3 비채택표에도 없어 미결이다. |
 | **캐시/분산 프리미티브** | **Spring Data Redis** | **SB BOM 위임** | Pub/Sub 릴레이·nonce 저장. 정정(v2.40): Redisson 은 저장소에 의존이 없다. 분산 RateLimiter 용도로 남은 것은 M2 선행 조건이고 현 배선이 아니다. 리더선출은 이 행의 범위가 아니다(아래 행). |
 | **회복탄력성** | **Resilience4j** | **`resilience4j-spring-boot3` 2.4.0** | CircuitBreaker·RateLimiter·Bulkhead·Retry·TimeLimiter. Micrometer 통합. 버전 정정: 3.x는 미존재, 최신 GA=2.4.0. SB3.5에서 GA 검증. |
 | **리더선출/분산락** | **임차 보관소 + fencing epoch**(매칭) / **ShedLock 7.7.0**(배치) | `LeaderLeaseStore` 구현 2종(기본 PostgreSQL, 선택 DynamoDB, AWS SDK v2) / ShedLock 7.7.0 | 매칭 단일 활성화=임차 획득. 정정(v2.40): 초안이 Redisson RLock 이었으나 채택하지 않았다. 저장소에 redisson 의존이 0건이다. 기본값은 `PostgresLeaderLeaseStore`(`exchange.leader.lease.provider=postgres`)이고, ADR 0017 이 임차 **갱신**을 커밋 경로 밖으로 빼는 선택지로 `DynamoDbLeaderLeaseStore` 를 더했다. 임차 **검증**(`assert_current_leader`)은 어느 쪽이든 거래 트랜잭션 안에 남는다. 배치 중복방지=ShedLock. **주의: ShedLock은 correctness 보장 X → fencing 병행 필수**(적용 범위: 모든 엔진 기원 쓰기 트랜잭션, §7-1). |
@@ -100,7 +104,7 @@ exchange-platform/
 | **카오스** | **Toxiproxy(네트워크) + Chaos Monkey(앱) + docker kill(인프라)** | toxiproxy 모듈=**TC(SB BOM) 위임**(v2.4, TC 개별 핀 제거와 동일 논리) / **chaos-monkey-spring-boot 3.x (SB3 정합, BOM 미관리 → 개별 관리)** | 정정: 초안의 "Chaos Monkey 4.0.0=SB3 타깃" 경고는 **사실과 반대**(4.0.0은 SB4.0.2 기반=SB4 지원). SB3.5 경로에선 **3.x 라인을 사용**. Toxiproxy=네트워크, Chaos Monkey=앱 계층 상호보완. |
 | **매칭엔진 동시성** | **LMAX Disruptor** | 4.0.0 (min JDK 11, Java 21 OK) | 락-프리 링버퍼. 참고: 4.0.0(2023-09) 이후 유지보수 정체 → **1차 `ArrayBlockingQueue`로 결정론 완성 후, 벤치마크로 실측 이득 확인되면 교체**(handler 인터페이스 동일). |
 | **커넥션 풀** | **HikariCP** | SB BOM | 신규: VirtualThreads+JDBC 조합의 **pinning·풀 사이징** 명시(§7-5). 풀 고갈이 p99 SLO 직결. |
-| **DB 자체 HA** | **Patroni(+etcd) + HAProxy** | (인프라) | failover RPO=0은 무조건 성립하지 않는다. 성립 조건(운영 요건): `synchronous_standby_names`로 동기 standby 강제, 정산·저널 트랜잭션에 `synchronous_commit=on`(remote flush 이상), DB 클러스터의 리더 선출과 STONITH(Patroni+etcd 담당), PITR 아카이브 병행. 비동기 standby failover·스토리지 손실·조기 승격에서는 유실 가능. HAProxy가 Patroni REST 헬스체크로 새 리더 라우팅, RTO 수초. |
+| **DB 자체 HA** | **PostgreSQL 직접 운영**(standby 2대 + `synchronous_standby_names` `ANY 1` 정족수) | (인프라) | 정정(v2.44): 초안이 Patroni(+etcd)+HAProxy 였으나 채택하지 않았다. `server`·`deploy`·`harness` 전역에 patroni·etcd·haproxy 가 0건이고, 정족수는 `harness/scale/standby_up.sh` 가 `ALTER SYSTEM SET synchronous_standby_names = 'ANY 1 (...)'` 로 직접 건다(정본 6.3, ADR 0018). failover RPO=0은 무조건 성립하지 않는다. 성립 조건(운영 요건): 동기 standby 강제, 정산·저널 트랜잭션에 `synchronous_commit=on`(remote flush 이상), PITR 아카이브 병행. 비동기 standby failover·스토리지 손실·조기 승격에서는 유실 가능. 진입 라우팅은 `deploy/nginx-edge.conf.template` 의 두 업스트림(`exchange_read`·`exchange_write`)이 맡는다. **DB 클러스터 리더 선출과 STONITH 의 담당 주체는 미결이다**(정본 13.2 의 10 이 승격 시 동기 복제 대상 재설정을 미배선으로 등재). |
 
 **버전 고정 원칙**: Micrometer/JUnit/Hibernate/Kafka-client 개별 고정 금지 → **Spring Boot BOM 위임**. 스타터만 추가. (표에서 개별 핀은 Resilience4j·ShedLock 등 BOM 미관리 항목에만 남긴다.)
 
@@ -706,7 +710,7 @@ POST /api/v1/orders
 
 #### 4-B-4. 조회
 - `GET /api/v1/orders/{id}`, `GET /api/v1/orders/by-client/{client_order_id}` → 단건 객체(위 201 스키마와 동일 필드).
-- **(a) 재조회 계약**: `UNKNOWN` 해소용. **판정의 권위 소스는 `command_journal`(진실의 원천, §7-1)이다(v2.2 확정)**. orders는 Kafka 경유 비동기 프로젝션(§0-2)이라 지연될 수 있으므로, by-client 조회는 프로젝션만 보고 404를 반환해서는 안 된다. 5XX/타임아웃 후 클라이언트는 `by-client/{client_order_id}`로 조회 → **저널에 없음 = `404`**(미접수, 재전송 가능) / **저널에 있으나 프로젝션 미반영 = `409 order_in_progress` + `Retry-After`**(비종결, 재조회 반복) / 프로젝션 반영 후 = 상태 반환(접수됨, 재전송 금지). §7-6 상태머신. 주문 `id`는 명령 접수 전 사전 발급되어 저널에 박제되므로(§4-B-1 v2.6), 저널 존재 판정 시점에 이미 id가 확정되어 있고 프로젝션 반영 후 조회되는 id와 항상 동일하다.
+- **(a) 재조회 계약**: `UNKNOWN` 해소용. **판정의 권위 소스는 `command_journal`(진실의 원천, §7-1)이다(v2.2 확정)**. orders는 비동기 프로젝션(§0-2)이라 지연될 수 있으므로, by-client 조회는 프로젝션만 보고 404를 반환해서는 안 된다. 5XX/타임아웃 후 클라이언트는 `by-client/{client_order_id}`로 조회 → **저널에 없음 = `404`**(미접수, 재전송 가능) / **저널에 있으나 프로젝션 미반영 = `409 order_in_progress` + `Retry-After`**(비종결, 재조회 반복) / 프로젝션 반영 후 = 상태 반환(접수됨, 재전송 금지). §7-6 상태머신. 주문 `id`는 명령 접수 전 사전 발급되어 저널에 박제되므로(§4-B-1 v2.6), 저널 존재 판정 시점에 이미 id가 확정되어 있고 프로젝션 반영 후 조회되는 id와 항상 동일하다.
   - **판정 보류(v2.18)**: 이 경로에 노드 용량 상한이 있고(§2-5-a `scope=requery`), 초과 시 저널을 조회하기 **전에** `409 requery_deferred` + `Retry-After`가 반환된다. 종결 응답이 아니며 저널 존재 여부를 주장하지 않는다. 위 세 갈래는 슬롯을 얻은 요청에만 적용된다. 클라이언트는 `order_in_progress`와 동일하게 `Retry-After` 후 재조회를 반복하면 되고, 상한이 풀리면 세 갈래 중 하나로 확정된다. 보류 중 신규 재전송은 금지다(확정 `404`를 받기 전에는 미접수가 확인되지 않았다).
 - `GET /api/v1/orders/open?market=KRW-BTC&cursor=...` / `GET /api/v1/orders/closed?...` → §2-2 엔벌로프.
 - **커서 통일()**: 주문 내역 커서도 opaque `(created_at,id)` 인코딩. 초안의 정수 `from_id`는 문자열 id(UUID, v2.7 정정)와 타입 불일치 → 폐기, opaque 커서로 통일.
@@ -1301,8 +1305,8 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 다른 사실이고, 합치면 화면이 죽은 노드를 한가한 노드로 그린다.
 
 `advice[].action` 이 `SCALE_OUT`·`SCALE_IN`·`null` 이다. `null` 은 표시만 하는 권고이고
-조치 버튼이 붙지 않는다. 권고는 정본 7.5 자동화 격자의 3층(자동 진단, 사람이 판단)이고
-실행은 4층(수동)이다. 알람에 자동 액션을 연결하지 않는다.
+조치 버튼이 붙지 않는다. 권고는 정본 7.5 가 규정한 대로다. 판정은 자동이고 실행은
+사람이다. 알람에 자동 액션을 연결하지 않는다.
 
 경계를 넘는 요청은 409 `CAPACITY_OUT_OF_BOUNDS` 다. DB `chk_capacity_bounds` 가 같은 경계를
 한 번 더 걸지만 컨트롤러가 먼저 막는다. 그래야 화면이 제약 위반 메시지 대신 사람이 읽을 수
@@ -1353,7 +1357,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 | 메서드 | 경로 | 기능 |
 |---|---|---|
 | GET | `/actuator/health/liveness` | 생존 프로브 |
-| GET | `/actuator/health/readiness` | 준비 프로브(페일오버 시 `REFUSING_TRAFFIC` → LB가 제외). 쓰기 대상 그룹이 이 경로를 본다 |
+| GET | `/actuator/health/readiness` | 준비 프로브(페일오버 시 `REFUSING_TRAFFIC`). 이 경로를 보는 것은 쓰기 대상 그룹뿐이므로 거절한 노드는 **쓰기 대상 그룹에서만** 빠진다. 조회 대상 그룹은 아래 `/actuator/health/read` 로 판정하므로 팔로워가 남는다(정본 6.4) |
 | GET | `/actuator/health/read` | 조회 프로브. 팔로워도 조회는 정상으로 내므로 조회 대상 그룹은 `readiness` 대신 이 경로를 본다. `readiness` 를 쓰면 팔로워가 대상 그룹에서 빠져 조회 분산이 성립하지 않는다(`application.yml` 헬스 그룹 주석, 2026-09-07 실측) |
 | GET | `/admin/v1/ha/status` | 리더/팔로워·epoch·seq 정합 |
 | GET | `/admin/v1/ha/recovery` | 복구 판정 객체 + `recovery_runs[]` + `failover_runs[]`(불변식은 방출하지 않는다. 아래 실제 방출 문단 참조) |
@@ -1471,7 +1475,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 | `journal_counters` | `seq` 채번 전용 단일 행. `UPDATE ... RETURNING` 원자 채번으로 할당·롤백·역순 커밋에서도 영구 결번 없음(인메모리 카운터 재사용 금지, v2.6) | gapless 증명(§6-C ①) |
 | `snapshots` | 재생 시작점(`last_applied_seq`+체크섬), `fencing_epoch` 저장, `engine_version`·`config_hash` 병기(재생 전제 조건 검증, v2.6) | RTO 단축 |
 | `event_journal` | 출력 이벤트(검증·발행). `event_seq` PK, **`event_ordinal`(원인 커맨드 내 이벤트 순번) + `UNIQUE(source_cmd_seq, event_ordinal)`**, `payload_schema_version`, `engine_version`·`config_hash`·`fencing_epoch` 저장(v2.6). **`trade_id`는 `event_seq`에서 결정론 파생**되어 재구축 시 동일 | 재생 대조·read model |
-| `outbox` | Kafka 신뢰 발행(같은 트랜잭션 INSERT) | dual-write 방지 |
+| `outbox` | 발행 대상 적재(같은 트랜잭션 INSERT). 발행기는 미배선이다(§1 메시징/이벤트 행) | dual-write 방지 |
 | `ledger_transactions`/`ledger_entries` | 복식부기 원장. 분개 헤더 `ledger_transactions`에 `UNIQUE(business_event_type, business_event_id)` 멱등 키(동일 업무 이벤트의 이중 기표를 DB 제약으로 원천 차단), 분개 라인 `ledger_entries`는 `NUMERIC(40,18)`, 지연제약 트리거로 자산별 합=0 | 자산 보존 증명·원장 멱등 |
 | `balances` | `available`/`locked` 분리, `CHECK(available≥0)`·`CHECK(locked≥0)` | 이중지출 방지 |
 | `orders`/`trades` | 조회 프로젝션(파생), 시간 RANGE 파티셔닝. `trades`는 `fencing_epoch` 저장 | 조회·감사 |
@@ -1499,7 +1503,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 |---|---|---|
 | P0 | 순수 Java 단일스레드 매칭 코어 + command_journal(WAL) + Log-first + 재생 복구 | 로컬 장애 RPO=0(프로세스·전원 장애 범위, §7-6), 재생 결정론 `matched=true` |
 | P1 | 스냅샷 + 핫 스탠바이 재생 | RTO 단축 측정 |
-| P2 | 임차 리더선출(PostgreSQL 기본, DynamoDB 선택 - ADR 0017) + 전 쓰기 경로 fencing(`assert_current_leader`, epoch, §7-1) + Patroni 동기복제 | 구 리더 쓰기 0행(fencing 계약 하 split-brain 차단, 하네스 V3) |
+| P2 | 임차 리더선출(PostgreSQL 기본, DynamoDB 선택 - ADR 0017) + 전 쓰기 경로 fencing(`assert_current_leader`, epoch, §7-1) + 동기 복제 정족수(`synchronous_standby_names` `ANY 1`, ADR 0018) | 구 리더 쓰기 0행(fencing 계약 하 split-brain 차단, 하네스 V3) |
 | P3 | 트랜잭셔널 아웃박스 + Kafka + 이중부기 + 불변식 배치 | 자산 보존 그래프 |
 | P4 | 봇 부하 + 백프레셔(유계 큐·토큰버킷) | 폭주 하 p99·거부율 |
 | P5 | (벤치 후 이득 확인 시) Disruptor 파이프라인 | 처리량 벤치, zero-alloc |
@@ -1518,7 +1522,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 
 ### 7-5. VirtualThreads × JDBC 커넥션 풀 (기술 검증 반영)
 
-- HikariCP `maximumPoolSize`는 CPU/DB 코어에 맞춰 **작게 고정**(예: 20~30). 가상 스레드는 수만 개여도 **DB 동시성은 풀 크기로 제한**하는 것이 핵심(무한 확장 금지).
+- HikariCP `maximumPoolSize`는 CPU/DB 코어에 맞춰 **작게 고정**한다. 현행 배포는 dev 16 / prod 32 다(`server/app/src/main/resources/application.yml` 116·167행). 버킷 배분은 §2-5-a. 가상 스레드는 수만 개여도 **DB 동시성은 풀 크기로 제한**하는 것이 핵심(무한 확장 금지).
 - **pinning 회피**: JDBC 드라이버가 `synchronized` 블록에서 캐리어 스레드를 고정할 수 있으므로, 트랜잭션 경계를 짧게 유지하고 `jdk.tracePinnedThreads`로 모니터링. 풀 고갈이 p99 SLO 직결 → 부하테스트로 풀 사이즈 튜닝.
 
 ### 7-6. 페일오버 주문 상태머신 (UNKNOWN 해소)

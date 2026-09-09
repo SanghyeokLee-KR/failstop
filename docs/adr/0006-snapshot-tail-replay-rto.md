@@ -10,7 +10,7 @@
 
 - 실제 가시 체결 재개 약 4~8분. 목표는 RTO 30초 미만(`docs/product/복구_RTO_설계.md`:26~27, `docs/architecture/M4_하드닝설계.md`:87).
 - 보고 지표 metric RTO는 약 11.289s였다(:25). T5의 `created_at`이 벽시계 커밋 시각이 아니라 `engine_ts` 파생 논리 시각이라 실측을 은폐했다(:29, :73).
-- 무결성 결함이 아니다. RPO=0(C16 0행), 자산합 0(C01 0행), 불변식 14/14 green으로 안전성은 증명됐다(:15~17). 라이브니스 결함이다.
+- 무결성 결함이 아니다. RPO=0(C16 0행), 자산합 0(C01 0행), 그 회차에서 평가한 불변식 14종 전건 green 으로 안전성은 증명됐다(카탈로그 총수는 27이고 이 회차가 그 부분집합을 돌렸다)(:15~17). 라이브니스 결함이다.
 
 직접 근인은 승격 경로가 인메모리 rebuild 대신 정산 sink를 타면서 27k건을 직렬 원격 트랜잭션으로 커밋한 것이고(:65), 이 근인은 `PromotionCoordinator`의 gain 훅·fresh 엔진 선복원(설계 §3-a)이 b3ebf07 이전에 해소했다(`git show b3ebf07^:server/app/src/main/java/kr/exchange/engine/PromotionCoordinator.java`:145~149).
 
