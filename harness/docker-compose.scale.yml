@@ -25,7 +25,21 @@ services:
   chaos-api-1:
     environment:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "${SCALE_POOL:-16}"
+      # 수용 정원. 0 이면 앱이 풀에서 유도한다(쓰기 0.40, 조회 0.40, 재조회 0.10).
+      # 여기 없으면 셸 환경변수를 줘도 서비스에 닿지 않는다. compose 는 environment 에
+      # 선언된 키만 통과시킨다. 2026-09-09 정원 격자가 이 결함으로 네 칸이 전부 같은
+      # 설정으로 돌았고 "정원은 상한이 아니다" 라는 잘못된 판정을 냈다.
+      EXCHANGE_ADMISSION_ORDER_IN_FLIGHT: "${SCALE_ORDER_INFLIGHT:-0}"
+      EXCHANGE_ADMISSION_QUERY_IN_FLIGHT: "${SCALE_QUERY_INFLIGHT:-0}"
+      EXCHANGE_ADMISSION_REQUERY_IN_FLIGHT: "${SCALE_REQUERY_INFLIGHT:-0}"
 
   chaos-api-2:
     environment:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "${SCALE_POOL:-16}"
+      # 수용 정원. 0 이면 앱이 풀에서 유도한다(쓰기 0.40, 조회 0.40, 재조회 0.10).
+      # 여기 없으면 셸 환경변수를 줘도 서비스에 닿지 않는다. compose 는 environment 에
+      # 선언된 키만 통과시킨다. 2026-09-09 정원 격자가 이 결함으로 네 칸이 전부 같은
+      # 설정으로 돌았고 "정원은 상한이 아니다" 라는 잘못된 판정을 냈다.
+      EXCHANGE_ADMISSION_ORDER_IN_FLIGHT: "${SCALE_ORDER_INFLIGHT:-0}"
+      EXCHANGE_ADMISSION_QUERY_IN_FLIGHT: "${SCALE_QUERY_INFLIGHT:-0}"
+      EXCHANGE_ADMISSION_REQUERY_IN_FLIGHT: "${SCALE_REQUERY_INFLIGHT:-0}"

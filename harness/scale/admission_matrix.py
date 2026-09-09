@@ -53,7 +53,7 @@ def compose(*args, env=None):
     e = dict(os.environ)
     if env:
         e.update(env)
-    return subprocess.run(['docker', 'compose', '-f', COMPOSE,
+    return subprocess.run(['docker', 'compose', '-f', COMPOSE, '-f', str(ROOT / 'harness/docker-compose.scale.yml'),
                            '--env-file', str(ROOT / 'harness/.env.chaos')] + list(args),
                           cwd=str(ROOT / 'harness'), env=e,
                           capture_output=True, text=True, timeout=600).returncode
@@ -62,10 +62,10 @@ def compose(*args, env=None):
 def bring_up(pool, w, qy, rq):
     """앱 두 노드만 다시 띄운다. DB 와 관측은 그대로 둬 표본 연속성을 지킨다."""
     env = {
-        'SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE': str(pool),
-        'EXCHANGE_ADMISSION_ORDER_IN_FLIGHT': str(w),
-        'EXCHANGE_ADMISSION_QUERY_IN_FLIGHT': str(qy),
-        'EXCHANGE_ADMISSION_REQUERY_IN_FLIGHT': str(rq),
+        'SCALE_POOL': str(pool),
+        'SCALE_ORDER_INFLIGHT': str(w),
+        'SCALE_QUERY_INFLIGHT': str(qy),
+        'SCALE_REQUERY_INFLIGHT': str(rq),
     }
     return compose('up', '-d', '--force-recreate', 'chaos-api-1', 'chaos-api-2', env=env)
 
