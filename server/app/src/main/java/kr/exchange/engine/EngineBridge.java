@@ -32,6 +32,36 @@ public class EngineBridge {
     private final MarketStatusSource marketStatus;
     private final ReentrantLock submitLock = new ReentrantLock();
 
+    // 접수 임계구역 계측(정본 13.5 한계 29). 직렬 구간과 매칭이 상한에서 빠진 뒤
+    // 남은 후보가 이 락이다. 모든 접수가 여기를 지나고 안에서 저널 append 와 커밋을 한다.
+    //
+    // 대기와 보유를 나눈다. 대기가 크면 경합이 상한이고 보유가 크면 임계구역 안의
+    // 작업이 상한이다. 둘을 합치지 않으면 어느 쪽인지 알 수 없다.
+    //
+    // 생성자가 셋이라 MeterRegistry 를 파라미터로 받으면 호출부가 전부 깨진다.
+    // 누적기만 노출하고 EngineConfig 가 FunctionCounter 로 읽는다. 엔진 쪽과 같은 방식이다.
+    private final java.util.concurrent.atomic.LongAdder lockWaitNanos =
+            new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder lockHoldNanos =
+            new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder submitCount =
+            new java.util.concurrent.atomic.LongAdder();
+
+    /** 락 획득 대기 누적 나노초. 경합의 크기다. */
+    public long lockWaitNanos() {
+        return lockWaitNanos.sum();
+    }
+
+    /** 락 보유 누적 나노초. 임계구역 안 작업의 크기다. */
+    public long lockHoldNanos() {
+        return lockHoldNanos.sum();
+    }
+
+    /** 접수 시도 수. 위 둘의 분모다. 예외 경로도 센다. */
+    public long submitCount() {
+        return submitCount.sum();
+    }
+
     public EngineBridge(CommandJournalAppender appender, SingleWriterLoop loop,
                         CommandPayloadMapper payloadMapper) {
         this(appender, loop, payloadMapper, AcceptGate.ALWAYS_OPEN, NEVER_HALTED);
@@ -69,7 +99,10 @@ public class EngineBridge {
     }
 
     public SubmitResult submit(OrderIntake intake) {
+        long t0 = System.nanoTime();
         submitLock.lock();
+        long t1 = System.nanoTime();
+        lockWaitNanos.add(t1 - t0);
         try {
             if (!loop.isRunning()) {
                 // 루프 정지 상태의 ACK는 '접수됐지만 영원히 미체결'인 주문을 만든다. 저널 커밋 전에
@@ -102,6 +135,9 @@ public class EngineBridge {
                     intake.price(), intake.quantity(), intake.quoteOrderQty(), ack.fencingToken()));
             return new SubmitResult(ack.seq(), ack.fencingToken(), false, queued);
         } finally {
+            // 보유 시간은 예외 경로도 센다. 거부로 끝난 접수도 락을 잡고 있었다.
+            lockHoldNanos.add(System.nanoTime() - t1);
+            submitCount.increment();
             submitLock.unlock();
         }
     }

@@ -255,6 +255,23 @@ public class EngineConfig {
         io.micrometer.core.instrument.Gauge
                 .builder("exchange.sequencer.queue.size", loop, SingleWriterLoop::queueSize)
                 .description("단일 라이터 명령 큐 깊이(백프레셔)").register(meterRegistry);
+        // 직렬 구간 분해(정본 13.5 한계 29). 저널과 커밋이 상한이 아님을 소거한 뒤
+        // 남은 후보가 이 구간이다. 셋을 갈라 세어 무엇이 지배하는지 본다.
+        //
+        // 누적 나노초를 그대로 낸다. FunctionCounter 라 rate() 로 초당 소비 시간이
+        // 나오고 그것이 곧 직렬 점유율이다. 1.0 이면 그 구간만으로 꽉 찬다.
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.writer.apply.nanos", loop, SingleWriterLoop::applyNanos)
+                .description("매칭 적용 누적 나노초").register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.writer.sink.nanos", loop, SingleWriterLoop::sinkNanos)
+                .description("이벤트 sink 누적 나노초(정산과 발행)").register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.writer.hook.nanos", loop, SingleWriterLoop::hookNanos)
+                .description("스냅샷 훅 누적 나노초").register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.writer.apply.count", loop, SingleWriterLoop::applyCount)
+                .description("적용 호출 수. 위 셋의 분모").register(meterRegistry);
         return loop;
     }
 
@@ -339,9 +356,23 @@ public class EngineConfig {
     public EngineBridge engineBridge(CommandJournalAppender appender, SingleWriterLoop loop,
                                      CommandPayloadMapper commandPayloadMapper,
                                      PromotionCoordinator promotionCoordinator,
-                                     kr.exchange.api.market.MarketDirectory markets) {
-        return new EngineBridge(appender, loop, commandPayloadMapper, promotionCoordinator.gate(),
+                                     kr.exchange.api.market.MarketDirectory markets,
+                                     MeterRegistry meterRegistry) {
+        EngineBridge bridge = new EngineBridge(appender, loop, commandPayloadMapper,
+                promotionCoordinator.gate(),
                 marketId -> "HALTED".equals(markets.byId(marketId).status()));
+        // 접수 임계구역 분해(정본 13.5 한계 29). 대기가 크면 경합이, 보유가 크면
+        // 임계구역 안 작업이 상한이다. rate() 로 초당 소비 시간이 나오고 그것이 점유율이다.
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.submit.lock.wait.nanos", bridge, EngineBridge::lockWaitNanos)
+                .description("접수 락 획득 대기 누적 나노초").register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.submit.lock.hold.nanos", bridge, EngineBridge::lockHoldNanos)
+                .description("접수 락 보유 누적 나노초").register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.submit.count", bridge, EngineBridge::submitCount)
+                .description("접수 시도 수. 위 둘의 분모").register(meterRegistry);
+        return bridge;
     }
 
     /**

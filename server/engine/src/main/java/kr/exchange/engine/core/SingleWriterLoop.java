@@ -58,6 +58,21 @@ public final class SingleWriterLoop {
     // 기본 null(무동작). 프로덕션만 배선하고 직접 생성 테스트는 스냅샷 없이 돈다.
     private volatile SnapshotHook snapshotHook;
 
+    // 매칭 적용 구간 계측(정본 13.5 한계 29). 단일 라이터 스레드만 쓰므로 경합이 없다.
+    // Micrometer 를 이 모듈에 들이지 않는다. 엔진은 관측 라이브러리에 의존하지 않는
+    // 것이 이 모듈의 경계다. 앱이 게이지로 읽어 간다(EngineConfig).
+    //
+    // 셋을 나눠 센다. apply 는 순수 매칭이고 sink 는 정산과 발행이며 hook 은 스냅샷
+    // 판정이다. 직렬 구간에서 무엇이 지배하는지 이 셋을 갈라야 안다.
+    private final java.util.concurrent.atomic.LongAdder applyNanos =
+            new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder sinkNanos =
+            new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder hookNanos =
+            new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder applyCount =
+            new java.util.concurrent.atomic.LongAdder();
+
     public SingleWriterLoop(int queueCapacity, MatchingEngine engine, EventSink eventSink,
                             CatchUpSource catchUpSource, Consumer<Throwable> fatalHandler) {
         this.queue = new ArrayBlockingQueue<>(queueCapacity);
@@ -74,6 +89,26 @@ public final class SingleWriterLoop {
      */
     public boolean offer(OrderCommand command) {
         return queue.offer(command);
+    }
+
+    /** 매칭 적용 누적 나노초. 앱이 게이지로 읽는다. */
+    public long applyNanos() {
+        return applyNanos.sum();
+    }
+
+    /** 이벤트 sink 누적 나노초(정산과 발행). */
+    public long sinkNanos() {
+        return sinkNanos.sum();
+    }
+
+    /** 스냅샷 훅 누적 나노초. */
+    public long hookNanos() {
+        return hookNanos.sum();
+    }
+
+    /** 적용 호출 수. 위 셋의 분모다. */
+    public long applyCount() {
+        return applyCount.sum();
     }
 
     public int queueSize() {
@@ -227,14 +262,21 @@ public final class SingleWriterLoop {
     }
 
     private void applyAndSink(OrderCommand command) throws Exception {
+        long t0 = System.nanoTime();
         List<EngineEvent> events = engine.apply(command);
+        long t1 = System.nanoTime();
         if (!events.isEmpty()) {
             eventSink.accept(events);
         }
+        long t2 = System.nanoTime();
+        applyNanos.add(t1 - t0);
+        sinkNanos.add(t2 - t1);
+        applyCount.increment();
         // 정산 커밋 후 이벤트 경계에서 스냅샷 캡처 판정(§3-b). 훅은 예외를 밖으로 던지지 않는다.
         SnapshotHook hook = snapshotHook;
         if (hook != null) {
             hook.afterCommand(engine);
+            hookNanos.add(System.nanoTime() - t2);
         }
     }
 }
