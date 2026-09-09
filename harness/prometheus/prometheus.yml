@@ -20,7 +20,7 @@ scrape_configs:
     scrape_interval: 2s                 # 핵심 잡 고해상도. 페일오버 창을 2초 격자로 포착(§5-3)
     static_configs:
       - targets: ['chaos-api-1:8080', 'chaos-api-2:8080']
-        labels: { stack: chaos }
+        labels: { stack: chaos, customer: exchange, service: api }
 
   # 봇 플릿 텔레메트리. 부하·주문 발행률·재전송을 페일오버 창과 함께 관측한다(§7 데모 재현).
   # 전제: bots 프로파일이 동일 포트(8080)에 /actuator/prometheus를 노출한다(server application.yml bots 문서).
@@ -28,4 +28,30 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ['chaos-bots:8080']
-        labels: { stack: chaos }
+        labels: { stack: chaos, customer: exchange, service: bots }
+
+  # 외부 프로브(정본 13.4 한계 14). blackbox 가 대상을 찌르고 프로메테우스가 결과를 긁는다.
+  #
+  # 대상은 사람이 실제로 지나는 경로다. 웹 정적 서빙과 API 진입이다. 앱 노드를 직접
+  # 찌르지 않는다. 그건 exchange-api 잡이 이미 한다. 이 잡의 값은 진입 계층이 죽어
+  # 앱은 멀쩡한데 사용자가 못 들어오는 상태를 잡는 데 있다.
+  #
+  # 조회 헬스는 read 경로를 쓴다. readiness 를 쓰면 팔로워의 정상 거절을 고장으로 읽는다.
+  - job_name: blackbox-http
+    metrics_path: /probe
+    scrape_interval: 10s
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://chaos-web:80/
+          - http://chaos-lb:8080/actuator/health/read
+        labels: { stack: chaos, customer: exchange, service: edge }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: chaos-blackbox:9115
+

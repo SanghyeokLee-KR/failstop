@@ -205,6 +205,20 @@ services:
     profiles: [obs]
     networks: [chaos-net]
 
+  # 외부 프로브. 진입 계층을 밖에서 찌른다(정본 13.4 한계 14).
+  #
+  # 봇은 앱 안에서 돌아 내부 경로만 왕복한다. 로드밸런서가 죽어도 봇 지표는 정상으로
+  # 보인다. 그 구간을 잡을 수단이 이것뿐이다.
+  chaos-blackbox:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: chaos-blackbox
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    command: [--config.file=/etc/blackbox/blackbox.yml]
+    restart: unless-stopped
+    profiles: [obs]
+    networks: [chaos-net]
+
   chaos-prometheus:
     image: prom/prometheus:v3.13.0
     container_name: chaos-prometheus

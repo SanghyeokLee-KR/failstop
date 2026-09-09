@@ -236,3 +236,38 @@ groups:
           duration: "1m"
           dashboard: "인프라 상세 (msp-infra)"
           runbook: "하네스 CICD·IaC §3-3. 거절은 노드를 지키는 정상 동작이고 대응은 증설이다"
+
+      # 진입 계층 생존. 앱이 멀쩡해도 사용자가 못 들어오는 상태를 잡는다.
+      #
+      # 봇 지표로는 이 구간이 안 보인다. 봇은 앱 안에서 돌아 내부 경로만 왕복한다.
+      # 정본 7.10 말미가 그 한계를 적고 13.4 항목 14 가 프로브 부재를 등재했다.
+      - alert: EdgeProbeDown
+        expr: probe_success{job="blackbox-http"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: edge
+        annotations:
+          summary: "외부 프로브 실패. 진입 계층에서 사용자가 막힌다"
+          metric: "probe_success (blackbox-http)"
+          value: "0"
+          threshold: "== 0"
+          duration: "30s"
+          dashboard: "MSP 종합 (msp-overview)"
+          runbook: "정본 7.3 이 계층별 병목 판정을 규정한다. 앱 지표가 정상인데 이 알람이 울리면 진입 계층이다. 로드밸런서와 웹 서빙을 먼저 본다"
+
+      # 진입은 살아 있으나 느리다. 회색 장애의 진입 계층 판이다.
+      - alert: EdgeProbeSlow
+        expr: probe_duration_seconds{job="blackbox-http"} > 2
+        for: 2m
+        labels:
+          severity: warning
+          component: edge
+        annotations:
+          summary: "외부 프로브 응답 2초 초과"
+          metric: "probe_duration_seconds (blackbox-http)"
+          value: "> 2s"
+          threshold: "> 2s"
+          duration: "2m"
+          dashboard: "MSP 종합 (msp-overview)"
+          runbook: "정본 7.3 판정표를 따른다. 앱 응답 분위수가 정상인데 이것만 느리면 진입 계층이다"

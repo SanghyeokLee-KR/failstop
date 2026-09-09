@@ -285,7 +285,7 @@ exporter가 없다. `postgres_exporter`, `node_exporter`, `blackbox_exporter`, c
 | 파일 | 개수 | 세는 방법 |
 |---|---|---|
 | `exchange-recording.yml` | record 9 | `grep -c '^      - record:'` |
-| `exchange-alerts.yml` | alert 15 | `grep -c '^      - alert:'` |
+| `exchange-alerts.yml` | alert 17 | `grep -c '^      - alert:'` |
 
 ### 5-4. Grafana
 
@@ -309,7 +309,7 @@ exporter가 없다. `postgres_exporter`, `node_exporter`, `blackbox_exporter`, c
 | 12 | msp-infra | 인프라 |
 | 13 | msp-db | 데이터베이스 |
 
-### 5-6. 알람 15개
+### 5-6. 알람 17개
 
 severity는 critical 5, warning 9, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급을 라벨로 그대로 옮긴다.
 
