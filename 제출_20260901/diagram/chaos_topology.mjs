@@ -51,10 +51,10 @@ d.txt(70, 78, '컨테이너 16개가 한 대에 있다. 진짜 노드 분리가 
 
 // ── 조작 계층. 호스트에서 도는 스크립트 ────────────────────────────────
 d.group(80, 100, 420, 250, '호스트 실행 · 실험 조작', PROBE, '#FFFDF6', '7 5')
-d.chip(190, 165, 190, 46, 'harness/scripts', 'e1~e9.ps1 · 장애 주입 9종', PROBE)
+d.chip(190, 165, 190, 46, 'harness/scripts', 'e1~e9.ps1 · 실험 9종', PROBE)
 d.chip(190, 235, 190, 46, 'harness/scale', '격자와 사다리 러너', PROBE)
 d.chip(390, 165, 170, 46, 'docker API', '컨테이너 정지와 재기동', PROBE)
-d.chip(390, 235, 170, 46, 'Toxiproxy admin', ':8474 · 지연과 절단', PROBE)
+d.chip(390, 235, 170, 46, 'compose', '규격과 정원 교체', PROBE)
 d.txt(100, 320, '시스템 밖에서 조작한다. 앱 코드에 실험용 분기를 넣지 않는다', 10, C.MUTE)
 
 // ── 카오스 네트워크 ────────────────────────────────────────────────────
@@ -79,15 +79,10 @@ d.chip(NX + 830, NY + 215, 170, 52, 'chaos-admin', ':8443 mTLS', C.SG)
 d.txt(NX + 830, NY + 258, '별도 배포단위 · 관리 평면', 9, C.MUTE, '400', 'middle')
 d.txt(NX + 485, NY + 335, '봇은 앱 안에서 도는 스레드다. 시장을 만들지 천장을 재지 않는다', 9.5, C.MUTE)
 
-// 장애 주입
-d.node(NX + 1010, NY + 120, 'fw', 'chaos-toxiproxy', '노드별 프록시 2개')
-d.txt(NX + 1010, NY + 200, 'pg-api1 · pg-api2', 9.5, PROBE, '700', 'middle')
-d.txt(NX + 1010, NY + 216, '리더만 겨냥할 수 있다', 9, C.MUTE, '400', 'middle')
-
 // DB
-d.node(NX + 1210, NY + 120, 'pg', 'chaos-pg', 'postgres:17-alpine')
-d.txt(NX + 1210, NY + 200, 'standby 는 실험 때만', 9, C.MUTE, '400', 'middle')
-d.txt(NX + 1210, NY + 214, 'standby_up.sh 로 세운다', 9, C.MUTE, '400', 'middle')
+d.node(NX + 1120, NY + 120, 'pg', 'chaos-pg', 'postgres:17-alpine')
+d.txt(NX + 1120, NY + 202, '단일 primary', 9.5, C.BODY, '700', 'middle')
+d.txt(NX + 1120, NY + 218, 'standby 는 실험 세션에만', 9, C.MUTE, '400', 'middle')
 
 // 웹
 d.chip(NX + 330, NY + 250, 190, 52, 'chaos-web', 'nginx · :3000 정적', C.PUB)
@@ -108,15 +103,14 @@ d.txt(NX + 60, OY + 222, 'cAdvisor 를 쓰지 않는다. Docker Desktop 에서 �
 d.txt(NX + 60, OY + 244, '알람 수신 주소가 비어 있다. 통지 경로는 배선됐고 주소만 미기입이다(정본 한계 15)', 9.6, C.MUTE)
 
 // 임차 보관소
-d.chip(NX + 1330, NY + 120, 180, 52, 'chaos-dynamodb', '리더 임차 · 선택', C.MUTE)
+d.chip(NX + 1330, NY + 120, 190, 52, 'chaos-dynamodb', '리더 임차 · 선택', C.MUTE)
 d.txt(NX + 1330, NY + 172, '기본은 PG leader_lease', 9, C.MUTE, '400', 'middle')
 
 // ── 흐름선 ────────────────────────────────────────────────────────────
 // 계측기 -> LB -> 앱 -> DB
 d.ln([[NX + 150, NY + 120], [NX + 292, NY + 120]], PROBE, 1.8)
 d.ln([[NX + 368, NY + 120], [NX + 485, NY + 120]], C.FLOW, 1.8)
-d.ln([[NX + 685, NY + 110], [NX + 760, NY + 110], [NX + 760, NY + 120], [NX + 972, NY + 120]], C.FLOW, 1.6)
-d.ln([[NX + 1048, NY + 120], [NX + 1172, NY + 120]], C.FLOW, 1.8)
+d.ln([[NX + 685, NY + 110], [NX + 780, NY + 110], [NX + 780, NY + 120], [NX + 1082, NY + 120]], C.FLOW, 1.8)
 d.step(NX + 430, NY + 96, 1, C.FLOW)
 d.step(NX + 900, NY + 96, 2, C.FLOW)
 
@@ -126,17 +120,17 @@ d.ln([[NX + 620, NY + 84], [NX + 620, NY + 60], [NX + 1330, NY + 60], [NX + 1330
 // 관측이 앱을 당긴다
 d.ln([[NX + 160, OY + 60], [NX + 160, OY - 24], [NX + 585, OY - 24], [NX + 585, NY + 355]], OBS, 1.4, '6 4')
 d.txt(NX + 250, OY - 32, 'scrape :8080 · 앱을 당긴다', 9.5, OBS, '700')
-d.ln([[NX + 1195, OY + 80], [NX + 1195, OY - 40], [NX + 1210, OY - 40], [NX + 1210, NY + 165]], OBS, 1.4, '6 4')
+d.ln([[NX + 1195, OY + 80], [NX + 1195, OY - 46], [NX + 1240, OY - 46], [NX + 1240, NY + 140], [NX + 1150, NY + 128]], OBS, 1.4, '6 4')
 
 // 조작선
-d.ln([[500, 235], [NX + 990, NY + 150]], PROBE, 1.4, '5 4')
-d.ln([[500, 165], [NX + 92, NY + 108]], PROBE, 1.4, '5 4')
+d.ln([[500, 200], [530, 200], [530, NY - 16], [NX + 640, NY - 16], [NX + 640, NY + 78]], PROBE, 1.4, '5 4')
+d.ln([[500, 165], [NX + 60, NY + 165], [NX + 60, NY + 130], [NX + 88, NY + 118]], PROBE, 1.4, '5 4')
 
 // ── 실험 방식 ──────────────────────────────────────────────────────────
 const EY = H - TITLE - 150
 d.group(80, EY, W - 160, 110, '실험 방식', C.INK, '#FAFAFA', null, 1.5)
 const how = [
-  ['장애 주입', 'e1~e9 · 프록시 지연과 절단, 노드 정지, 네트워크 분단'],
+  ['장애 주입', 'e1~e9 · 노드 정지, 네트워크 분단, 커밋 경로 절단'],
   ['부하 주입', 'k6 개방 루프 · constant-arrival-rate'],
   ['판정', '불변식 27개 SQL · 재생 결정론 · RTO 와 RPO'],
   ['기록', 'harness/evidence/ · 회차마다 표본과 판정을 남긴다'],
