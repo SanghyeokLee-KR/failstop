@@ -31,7 +31,7 @@ IMAGE = 'grafana/k6:1.4.0'
 NET = 'exchange-chaos_chaos-net'
 
 
-def run_k6(rate, duration, run_id):
+def run_k6(rate, duration, run_id, log_path=None):
     """calibrate.js 를 한 구간 돌린다. 컨테이너는 카오스 망 안에 붙여 로드밸런서를 친다."""
     args = [
         'docker', 'run', '--rm', '--network', NET,
@@ -47,6 +47,18 @@ def run_k6(rate, duration, run_id):
     ]
     # Popen 이다. run 이 아니다. 주행이 끝난 뒤 재면 1분 rate 창에 조용한 구간이 섞여
     # 기저보다 낮은 값이 나온다(2026-09-09 실측: 기저 20.8/s 인데 주행 후 12/s).
+    #
+    # 출력은 파이프가 아니라 파일로 받는다. 호출부가 주행 중에 파이프를 읽지 않으므로
+    # 파이프면 버퍼가 차는 순간 k6 가 쓰기에서 막힌다. k6 는 초당 수백 줄을 stderr 로
+    # 낸다(2026-09-10 실측: 30초 주행에 432KB, 전량 stderr). 파일이면 그 위험이 없고
+    # 실패했을 때 원문이 남는다. 파이프로 받았을 때는 rc=107 에 출력이 비어 있어
+    # 원인을 못 찾았다.
+    if log_path:
+        fh = open(log_path, 'w', encoding='utf-8', errors='replace')
+        p = subprocess.Popen(args, stdout=fh, stderr=subprocess.STDOUT, text=True)
+        p._log_fh = fh
+        p._log_path = log_path
+        return p
     return subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
 

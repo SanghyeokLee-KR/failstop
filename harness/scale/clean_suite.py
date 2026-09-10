@@ -17,6 +17,7 @@
   python harness/scale/clean_suite.py --suite dbspec
 """
 import argparse
+import io
 import json
 import os
 import subprocess
@@ -313,16 +314,24 @@ def main():
             out['rows'].append({'cell': label, 'error': '봇 안정화 실패'})
             continue
 
-        proc = run_k6(rate, a.duration, 'clean-%s-%s' % (a.suite, label))
+        k6log = str(ROOT / ('harness/evidence/k6-%s-%s.log' % (a.suite, label)))
+        proc = run_k6(rate, a.duration, 'clean-%s-%s' % (a.suite, label), log_path=k6log)
         time.sleep(min(duration_fill(a.duration), a.duration - 5))
         s = measure()
         s['cell'] = label
         s['rate'] = rate
         s['db_before'] = before
         try:
-            k6out, _ = proc.communicate(timeout=a.duration + 120)
+            proc.communicate(timeout=a.duration + 120)
         except subprocess.TimeoutExpired:
             proc.kill()
+        try:
+            proc._log_fh.close()
+        except Exception:
+            pass
+        try:
+            k6out = io.open(k6log, encoding='utf-8', errors='replace').read()
+        except Exception:
             k6out = ''
         s['db_after'] = db_state()
 
@@ -341,8 +350,15 @@ def main():
             s['error'] = 'k6 미주입(제공 %.1f/s, 요청 %d/s, rc=%s)' % (
                 offered, rate, proc.returncode)
             print('  %s' % s['error'], flush=True)
-            if k6out:
-                print('  k6 꼬리: %s' % k6out.strip().splitlines()[-3:], flush=True)
+            errs = [l for l in k6out.splitlines()
+                    if 'level=error' in l or 'panic' in l.lower()]
+            if errs:
+                print('  k6 에러: %s' % errs[0][:300], flush=True)
+                s['k6_error'] = errs[0][:600]
+            elif k6out:
+                print('  k6 꼬리: %s' % k6out.strip().splitlines()[-2:], flush=True)
+            else:
+                print('  k6 출력이 비었다. 원문: %s' % k6log, flush=True)
         out['rows'].append(s)
         for k in ('접수/s', '체결/s', '수용거절/s', 'p99(ms)', '시퀀서 큐', 'DB CPU%'):
             v = s.get(k)

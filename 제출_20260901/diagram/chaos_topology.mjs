@@ -77,7 +77,7 @@ d.group(40, 30, W - 80, HOSTH, 'Windows 11 + WSL2 · Docker Desktop · 단일 �
 d.txt(70, 78, '컨테이너 13개가 한 대에 있다. 진짜 노드 분리가 아니고 자원을 공유한다(정본 13.1)', 11, C.MUTE)
 
 // 호스트 실행. 컨테이너가 아닌 것들이다
-d.group(80, 100, 420, 230, '호스트 실행 · 컨테이너 아님', PROBE, '#FFFDF6', '7 5')
+d.group(80, 100, 420, 230, '호스트 실행 · 컨테이너 아님 · 프로세스 4', PROBE, '#FFFDF6', '7 5')
 d.chip(190, 158, 190, 46, 'harness/scripts', 'e1~e9.ps1 · 실험 9종', PROBE)
 d.chip(190, 226, 190, 46, 'harness/scale', '격자와 사다리 러너', PROBE)
 d.chip(390, 158, 170, 46, 'docker API', '정지와 재기동', PROBE)
@@ -115,7 +115,7 @@ const NW = W - NX - 70
 d.group(NX, NY, NW, NETH, 'exchange-chaos_chaos-net · 도커 브리지 네트워크', SYS, '#FCFAFF', null, 1.8)
 
 // 부하원 둘. 같은 입구로 들어간다
-d.group(NX + 24, NY + 40, 210, 320, '부하원 · 둘 다 진짜 주문', PROBE, '#FFFDF6')
+d.group(NX + 24, NY + 40, 210, 320, '부하원 · 컨테이너 2 · 둘 다 진짜 주문', PROBE, '#FFFDF6')
 d.ctn(NX + 38, NY + 74, 182, 84, 'k6', 'k6:1.4.0', ['개방 루프 · 계측기', '일회성 · docker run --rm'], PROBE)
 d.txt(NX + 129, NY + 174, '천장을 잰다', 9.5, PROBE, '700', 'middle')
 d.ctn(NX + 38, NY + 204, 182, 84, 'chaos-bots', 'app:local', ['bots 프로파일 · 상시', 'SIM_BASE_URL 이 chaos-lb'], APP)
@@ -128,7 +128,7 @@ d.txt(NX + 387, NY + 242, '쓰기와 조회를 가르지 않는다', 9.4, C.INK,
 d.txt(NX + 387, NY + 258, '가르는 배선은 상시면에만 있다', 9, C.MUTE, '400', 'middle')
 
 // 앱 배포단위
-d.group(NX + 512, NY + 56, 408, 244, '서빙 노드 · 같은 이미지 둘', APP, '#FBFDF6')
+d.group(NX + 512, NY + 56, 408, 244, '서빙 노드 · 컨테이너 2 · 같은 이미지', APP, '#FBFDF6')
 d.ctn(NX + 530, NY + 92, 372, 80, 'chaos-api-1', 'app:local', ['매칭 리더 · 단일 라이터', '평시 트래픽 전량을 받는다'], APP)
 d.ctn(NX + 530, NY + 190, 372, 80, 'chaos-api-2', 'app:local', ['nginx backup · 평시 트래픽 0', 'api-1 이 죽어야 받는다'], C.MUTE, '#FAFAFA')
 d.txt(NX + 526, NY + 288, '노드를 늘려도 부하는 안 갈린다. 이 평면의 사실이다', 9.4, C.MUTE)
@@ -144,7 +144,7 @@ d.ctn(RX, NY + 240, 252, 60, 'chaos-dynamodb', 'dynamodb:2.5.2', ['리더 임차
 // 관측
 const OY = NY + 392
 const OGW = NW - 48
-d.group(NX + 24, OY, OGW, 262, '관측 · 피검체 밖에서 당긴다', OBS, '#F5FCFC')
+d.group(NX + 24, OY, OGW, 262, '관측 · 컨테이너 6 · 피검체 밖에서 당긴다', OBS, '#F5FCFC')
 const obs = [
   ['chaos-prometheus', 'v3.13.0', ':59090 · 수집 축 다섯'],
   ['chaos-grafana', 'v13.1.0', ':53001 · 대시보드'],
@@ -204,13 +204,21 @@ if (!SLIDE) {
   })
 }
 
-// 범례
+// 범례. 선 넷과 상자 둘이다.
+//
+// 상자 둘을 넣는 이유가 있다. 전부 네모로 두르면 네모가 정보를 잃는다. 컨테이너에만
+// 머리띠와 적층 글리프를 주고 컨테이너 아닌 것은 민 네모로 두어야 "따로 도는
+// 프로세스" 가 눈에 갈린다. 묶음 상자 이름에 개수를 박는 것도 같은 이유다.
+// 개수가 없으면 묶음 하나가 컨테이너 하나로 읽힌다.
 const leg = [['서비스 요청', C.FLOW, null], ['부하 주입', PROBE, null], ['관측과 조작', OBS, '6 4'], ['평시 미사용', C.MUTE, '5 4']]
 leg.forEach(([t, c, dash], i) => {
-  const x = 80 + i * 240
-  d.ln([[x, LY], [x + 42, LY]], c, 1.8, dash)
-  d.txt(x + 52, LY + 4, t, 10.5, C.MUTE)
+  const x = 80 + i * 190
+  d.ln([[x, LY], [x + 36, LY]], c, 1.8, dash)
+  d.txt(x + 44, LY + 4, t, 10.5, C.MUTE)
 })
+d.ctn(846, LY - 15, 150, 30, '컨테이너', '이미지', null, SYS)
+d.txt(1006, LY + 4, '따로 도는 프로세스', 10.5, C.MUTE)
+d.chip(1215, LY, 130, 26, '컨테이너 아님', '호스트 프로세스', C.MUTE)
 d.txt(W - 80, LY + 4, '증거가 전부 이 평면에서 나왔다. 상시면은 아직 인스턴스 0대다', 10, C.MUTE, '400', 'end')
 
 const out = join(HERE, SLIDE ? 'chaos_topology_slide.svg' : 'chaos_topology.svg')
