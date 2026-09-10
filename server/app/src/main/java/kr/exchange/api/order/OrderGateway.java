@@ -536,12 +536,38 @@ public class OrderGateway {
         return new ParsedOrder(market, side, ordType, tif, price, quantity, quoteOrderQty);
     }
 
+    /**
+     * 예약 자산의 가용 잔고. 계정이 없으면 접수 단계에서 거부한다(정본 13.5 한계 40).
+     *
+     * 종전에는 계정이 없어도 잔고 0 으로 보고 그대로 진행했다. 그러면 정산이 그 계정을
+     * 찾다가 예외를 던지고, 그 예외가 단일 라이터를 fail-fast 로 멈추며 리더십까지 함께
+     * 내려놓는다. 2026-09-10 실측에서 그 순서를 그대로 봤다. 계정 없음 예외, 라이터 정지,
+     * 리더십 상실이다. 곧 한 사용자의 잘못된 주문 하나가 노드를 통째로 내렸다.
+     *
+     * 잔고 0 과 계정 부재는 다른 사실이다. 매수는 예약액이 금액이라 잔고 0 이면 가드에
+     * 걸리지만, 매도는 예약액이 수량이라 그 자산 잔고를 보지 않고 통과할 수 있다.
+     * 그래서 잔고로 대신 막을 수 없고 계정 실재를 따로 확인해야 한다.
+     *
+     * 400 으로 돌려보낸다. 클라이언트가 고칠 수 있는 요청 문제이고, 서버 용량 문제가
+     * 아니므로 503 이 아니다.
+     *
+     * user_balances 조회로 계정 실재를 판정해도 되는 근거는 스키마에 있다. 그 뷰는
+     * accounts 와 balances 의 조인이고(V1__init.sql:135-141), balances 행은 계정이
+     * 생길 때 트리거가 반드시 만든다(trg_account_balance, V1__init.sql:131). 곧 계정이
+     * 있는데 뷰에 안 나오는 상태가 물리적으로 생기지 않는다. 실측으로도 확인했다.
+     * 사용자 계정 1,570개 전부가 잔고 행을 가지고 있고 없는 것이 0개다.
+     *
+     * 그 트리거가 사라지면 이 판정이 정상 계정을 오거부한다. 트리거를 건드릴 때
+     * 이 자리를 함께 봐야 한다.
+     */
     private BigDecimal availableBalance(long userId, short assetId) {
         return jdbc.sql("SELECT available FROM user_balances WHERE user_id = ? AND asset_id = ?")
                 .params(userId, assetId)
                 .query(BigDecimal.class)
                 .optional()
-                .orElse(BigDecimal.ZERO);
+                .orElseThrow(() -> new ApiException(400, "account_not_found",
+                        "해당 자산 계좌 없음",
+                        Map.of("asset_id", String.valueOf(assetId)), null));
     }
 
     /**
