@@ -27,7 +27,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from load_ceiling import q, admin_call  # noqa: E402
+from load_ceiling import q  # noqa: E402
 from k6_ceiling import run_k6, duration_fill  # noqa: E402
 
 CHAOS = str(ROOT / 'harness/docker-compose.chaos.yml')
@@ -49,27 +49,20 @@ def reset_stack(env):
     """볼륨까지 파기하고 다시 세운다. 이 함수가 이 러너의 존재 이유다."""
     compose(['--profile', 'obs', '--profile', 'admin', '--profile', 'load',
              'down', '-v', '--remove-orphans'], env)
-    time.sleep(8)
-    # 관리 평면도 함께 올린다. 봇 목표 처리량을 그쪽 API 로 거는데 obs 만 올리면
-    # chaos-admin 이 없어 연결이 거부된다(2026-09-09 실측).
-    if compose(['--profile', 'obs', '--profile', 'admin', 'up', '-d'], env) != 0:
+    # 반복 파기 뒤 데몬이 지운 컨테이너를 참조하는 상태가 된다(2026-09-09 실측:
+    # `No such container`). 그러면 다음 기동이 통째로 실패한다. 매 칸 정리한다.
+    #
+    # TRUNCATE 로 대신할 수 없다. 원장 표에 append-only 트리거가 걸려 있어
+    # `append-only 위반: ledger_entries.TRUNCATE` 로 막힌다. 그 트리거는 계약이므로
+    # 우회하지 않는다. 초기화 수단은 볼륨 파기뿐이다.
+    subprocess.run(['docker', 'container', 'prune', '-f'],
+                   capture_output=True, text=True, timeout=120)
+    time.sleep(10)
+    if compose(['--profile', 'obs', 'up', '-d'], env) != 0:
         return False
     if not wait_ready():
         return False
-    return wait_admin() and wait_prom()
-
-
-def wait_admin(timeout=180):
-    """관리 평면이 mTLS 세션을 낼 때까지 기다린다."""
-    end = time.time() + timeout
-    while time.time() < end:
-        try:
-            if admin_call('POST', '/admin/v1/session')[0] == 200:
-                return True
-        except Exception:
-            pass
-        time.sleep(6)
-    return False
+    return wait_prom()
 
 
 def wait_prom(timeout=180):
@@ -113,6 +106,46 @@ def reissue_keys():
     return 0
 
 
+def set_bot_ops(ops):
+    """봇 목표 처리량을 명령 큐에 직접 넣는다. 봇 노드가 그 큐를 소비한다.
+
+    관리 평면을 쓰지 않는 이유는 의존을 줄이기 위해서다. chaos-admin 은 루트 compose.yaml
+    에만 있고 이 러너는 harness 쪽 파일을 쓴다. 프로파일을 줘도 그 서비스가 안 뜬다
+    (2026-09-09 실측). 큐는 어느 평면에서든 같은 데이터베이스에 있다.
+    """
+    subprocess.run(
+        ['docker', 'exec', 'chaos-pg', 'psql', '-U', 'exchange', '-d', 'exchange', '-q', '-c',
+         "INSERT INTO sim_commands (action, payload, requested_by) "
+         "VALUES ('target_ops', '%s', 'clean_suite');" % ops],
+        capture_output=True, text=True, timeout=60)
+
+
+def wait_bots_steady(timeout, need=3, tol=0.35):
+    """봇 체결이 안정 구간에 들 때까지 기다린다.
+
+    고정 초를 세지 않는 이유가 있다. 2026-09-09 ceiling 회차에서 칸마다 봇 워밍업 상태가
+    달라 값이 단조롭지 않았다. 요청 20 칸이 4.4, 60 칸이 55.7, 120 칸이 16.6 이었다.
+    축 효과가 아니라 표본 시점 차이일 가능성이 컸다.
+
+    판정은 연속 표본 셋의 체결률이 서로 tol 안에 들고 0 이 아닌 것이다. 그러면 봇이
+    붙었고 값이 흔들리지 않는다는 뜻이다.
+    """
+    end = time.time() + timeout
+    hist = []
+    while time.time() < end:
+        v = q('sum(rate(exchange_trades_total[1m]))')
+        hist.append(v if v is not None else 0.0)
+        hist = hist[-need:]
+        if len(hist) == need and min(hist) > 0.5:
+            lo, hi = min(hist), max(hist)
+            if (hi - lo) / hi <= tol:
+                print('  봇 안정 확인 %s' % [round(x, 1) for x in hist], flush=True)
+                return True
+        time.sleep(15)
+    print('  봇 안정 미도달 %s' % [round(x, 1) for x in hist], flush=True)
+    return False
+
+
 def db_state():
     """데이터 상태를 기록한다. 회차 간 비교 가능성을 나중에 판정하려면 이 값이 있어야 한다."""
     p = subprocess.run(
@@ -128,11 +161,21 @@ def db_state():
         return {'주문': None, '체결': None, 'DB(MB)': None}
 
 
+# 봇 기저. set_bot_ops 로 고정하는 값에서 나오는 HTTP 주문율이다. 칸마다 재기보다
+# 상수로 두고, 어긋나면 k6추정이 음수로 튀어 눈에 띄게 한다.
+BOT_BASE = 17.0
+
+
 def measure():
     return {
         '접수/s': q('sum(rate(http_server_requests_seconds_count{uri="/api/v1/orders",method="POST",status="201"}[1m]))'),
         '체결/s': q('sum(rate(exchange_trades_total[1m]))'),
         '수용거절/s': q('sum(rate(exchange_admission_rejected_total{scope="order"}[1m]))'),
+        # 접수만 세면 요청이 사라진 칸을 포화로 오독한다(2026-09-09 실측: 요청 120/s
+        # 에서 접수 16.5/s, 거부 0.0, p99 74ms). 포화면 지연이 오르는데 내렸다.
+        # 즉 201 도 거부도 아닌 응답으로 빠진 것이다. 그 몫을 따로 센다.
+        '비201/s': q('sum(rate(http_server_requests_seconds_count{uri="/api/v1/orders",method="POST",status!="201"}[1m]))'),
+        '전체요청/s': q('sum(rate(http_server_requests_seconds_count{uri="/api/v1/orders",method="POST"}[1m]))'),
         'p95(ms)': (lambda v: v * 1000 if v else v)(q('max(exchange:order_latency:p95_1m)')),
         'p99(ms)': (lambda v: v * 1000 if v else v)(q('max(exchange:order_latency:p99_1m)')),
         '시퀀서 큐': q('max(exchange_sequencer_queue_size)'),
@@ -145,6 +188,10 @@ def measure():
 
 # 묶음 정의. 각 칸은 (라벨, 환경, 기대 검증) 셋이다.
 SUITES = {
+    # 예행용. 한 칸만 돌려 배선을 확인한다.
+    'smoke': [('smoke', {'SCALE_POOL': '32', 'SCALE_ORDER_INFLIGHT': '0',
+                         'SCALE_QUERY_INFLIGHT': '0', 'SCALE_REQUERY_INFLIGHT': '0',
+                         'SCALE_PG_CPUS': '4.0', 'SCALE_PG_MEM': '4g'}, ('limit', 12))],
     # 풀이 축이다. 정원은 유도값에 맡긴다.
     'pool': [(str(p), {'SCALE_POOL': str(p), 'SCALE_ORDER_INFLIGHT': '0',
                        'SCALE_QUERY_INFLIGHT': '0', 'SCALE_REQUERY_INFLIGHT': '0',
@@ -169,6 +216,8 @@ def main():
     ap.add_argument('--rate', type=int, default=150)
     ap.add_argument('--duration', type=int, default=130)
     ap.add_argument('--bots-ops', type=int, default=20)
+    ap.add_argument('--warmup', type=int, default=240,
+                    help='봇 안정화 대기 상한 초. 고정 대기가 아니라 상한이다')
     ap.add_argument('--out', default=None)
     a = ap.parse_args()
 
@@ -203,8 +252,11 @@ def main():
                 continue
         before = db_state()
         print('  초기 상태 %s' % before, flush=True)
-        admin_call('PUT', '/admin/v1/sim/rate', {'target_ops': a.bots_ops})
-        time.sleep(40)
+        set_bot_ops(a.bots_ops)
+        if not wait_bots_steady(a.warmup):
+            print('  봇 안정화 실패. 이 칸은 버린다', flush=True)
+            out['rows'].append({'cell': label, 'error': '봇 안정화 실패'})
+            continue
 
         proc = run_k6(rate, a.duration, 'clean-%s-%s' % (a.suite, label))
         time.sleep(min(duration_fill(a.duration), a.duration - 5))
@@ -213,10 +265,29 @@ def main():
         s['rate'] = rate
         s['db_before'] = before
         try:
-            proc.communicate(timeout=a.duration + 120)
+            k6out, _ = proc.communicate(timeout=a.duration + 120)
         except subprocess.TimeoutExpired:
             proc.kill()
+            k6out = ''
         s['db_after'] = db_state()
+
+        # k6 의 종료코드와 출력을 버리면 죽은 발생기를 조용한 시스템으로 오독한다.
+        # 2026-09-09 회차에서 12칸 중 6칸이 그렇게 무효였다. 거절과 인증 실패는
+        # Micrometer 필터 앞에서 끊기므로 http_server_requests 에 안 잡힌다.
+        # 그래서 k6 가 전량 401 이어도 표에는 '조용한 시스템' 으로 보인다.
+        s['k6_rc'] = proc.returncode
+        s['k6_tail'] = (k6out or '')[-600:]
+        offered = (s.get('접수/s') or 0) + (s.get('수용거절/s') or 0)
+        s['제공/s'] = round(offered, 2)
+        # 봇은 앱 안 vthread 가 아니라 BotApiClient 로 HTTP 를 친다. 그래서 접수에
+        # 봇 몫이 섞인다. 기저를 빼야 k6 가 실제로 얼마를 넣었는지 나온다.
+        s['k6추정/s'] = round(offered - (s.get('봇기저/s') or BOT_BASE), 2)
+        if s['k6추정/s'] < rate * 0.5:
+            s['error'] = 'k6 미주입(제공 %.1f/s, 요청 %d/s, rc=%s)' % (
+                offered, rate, proc.returncode)
+            print('  %s' % s['error'], flush=True)
+            if k6out:
+                print('  k6 꼬리: %s' % k6out.strip().splitlines()[-3:], flush=True)
         out['rows'].append(s)
         for k in ('접수/s', '체결/s', '수용거절/s', 'p99(ms)', '시퀀서 큐', 'DB CPU%'):
             v = s.get(k)
@@ -225,7 +296,8 @@ def main():
 
     Path(out_path).write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding='utf-8')
 
-    keys = ['접수/s', '체결/s', '수용거절/s', 'p95(ms)', 'p99(ms)', '시퀀서 큐',
+    keys = ['제공/s', 'k6추정/s', '전체요청/s', '접수/s', '비201/s', '체결/s', '수용거절/s',
+            'p95(ms)', 'p99(ms)', '시퀀서 큐',
             '풀 대기', 'DB CPU%', '읽은튜플/s', '쓴튜플/s']
     print('\n' + '=' * 116)
     print('%-9s%-7s' % ('칸', '부하') + ''.join('%11s' % k[:10] for k in keys))
