@@ -331,6 +331,50 @@ class InvariantVerifierIntegrationTest {
     }
 
     /**
+     * C13B(SCHEDULED, CRITICAL). orders -> command_journal 역참조다. 주문 행이 저널에 없는
+     * seq 를 가리키거나 seq 가 비면 위반이다.
+     *
+     * 이 검사에 대응 테스트가 없었다. 2026-09-10 문서 감사가 잡았다. 정방향 C13A 는
+     * scheduledScopeExcludesC13aButAuthoritativeEvaluatesIt 이 스코프를 확인하지만
+     * 역방향은 아무 테스트도 위반을 주입해 본 적이 없다. 검사가 상시 통과만 하면
+     * 그것이 clean 인지 검사가 죽은 것인지 갈리지 않는다.
+     *
+     * orders.command_seq 에는 외래키가 없고 트리거는 갱신 시각 하나뿐이라 값을 흔들고
+     * 되돌릴 수 있다. 두 갈래를 모두 주입한다. 없는 seq 를 가리키는 경우와 NULL 인 경우다.
+     */
+    @Test
+    @Order(13)
+    void verifierCatchesC13bOrphanOrderJournalRef() {
+        long orderId = count("SELECT o.id FROM orders o WHERE o.command_seq IS NOT NULL ORDER BY o.id LIMIT 1");
+        assertTrue(orderId > 0, "command_seq 를 가진 주문이 없다(봇 체결 선행 실패)");
+        long originalSeq = count("SELECT command_seq FROM orders WHERE id = " + orderId);
+
+        assertTrue(runScheduledCheck(InvariantCheck.C13B_ORDER_JOURNALED).ok(),
+                "주입 전 C13B 가 이미 위반");
+
+        // 갈래 하나. 저널에 없는 seq 를 가리킨다.
+        long orphanSeq = count("SELECT coalesce(max(seq), 0) + 1000000 FROM command_journal");
+        jdbc.sql("UPDATE orders SET command_seq = ? WHERE id = ?").params(orphanSeq, orderId).update();
+        InvariantResult orphan = runScheduledCheck(InvariantCheck.C13B_ORDER_JOURNALED);
+        assertFalse(orphan.ok(), "주입한 고아 command_seq 를 C13B 가 놓침");
+        assertTrue(orphan.violatedRows() >= 1, "C13B 위반행 계수 0");
+
+        jdbc.sql("UPDATE orders SET command_seq = ? WHERE id = ?").params(originalSeq, orderId).update();
+        assertTrue(runScheduledCheck(InvariantCheck.C13B_ORDER_JOURNALED).ok(),
+                "복원 후 C13B clean 미복귀(항상 FAIL 반증)");
+
+        // 갈래 둘. seq 가 비었다.
+        jdbc.sql("UPDATE orders SET command_seq = NULL WHERE id = ?").params(orderId).update();
+        InvariantResult nullSeq = runScheduledCheck(InvariantCheck.C13B_ORDER_JOURNALED);
+        assertFalse(nullSeq.ok(), "주입한 NULL command_seq 를 C13B 가 놓침");
+        assertTrue(nullSeq.violatedRows() >= 1, "C13B 위반행 계수 0");
+
+        jdbc.sql("UPDATE orders SET command_seq = ? WHERE id = ?").params(originalSeq, orderId).update();
+        assertTrue(runScheduledCheck(InvariantCheck.C13B_ORDER_JOURNALED).ok(),
+                "복원 후 C13B clean 미복귀");
+    }
+
+    /**
      * 카오스 스택·Testcontainers에 pg_cron이 없으면 C03/C09~C12/C15를 아무 러너도 평가하지 않는다.
      * 이들은 InvariantVerifier enum에 배선돼 상시 스케줄이 평가한다.
      * 고아 체결(존재하지 않는 주문 참조 + event_journal TRADE 부재) 1건을 주입해 C09·C11이 잡는지

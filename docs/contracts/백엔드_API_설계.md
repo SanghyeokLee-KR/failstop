@@ -26,7 +26,9 @@
 ### 0-1. 배포 단위 (Gradle 멀티모듈)
 
 ```
-exchange-platform/
+exchange-platform/   (목표 구조. 정정 2026-09-10: 실제 Gradle 모듈은 engine 과 app 둘뿐이다.
+                      server/settings.gradle.kts:3 이 include("engine", "app") 이다.
+                      아래 다섯 갈래는 패키지 경계로만 있고 배포 단위로 갈려 있지 않다)
 ├── common-dto/        순수 DTO·enum (OrderRequest, Side, OrderType…), 순환의존 방지
 ├── exchange-core/     순수 Java 매칭엔진 + 오더북 + 복식부기 원장 + 불변식 검증
 │                       (Spring/락/I/O/벽시계/난수 금지 = 결정론 보장)
@@ -92,17 +94,17 @@ exchange-platform/
 | **런타임 기반** | **Spring Boot 3.5.16 + Java 21** | SB 3.5.16 | 전 스택 GA 검증. Resilience4j·Chaos Monkey 등 회복탄력성/카오스 도구가 정식 지원되는 유일한 안정 경로. |
 | **REST 계층** | Spring MVC + **Java 21 Virtual Threads** (`spring.threads.virtual.enabled=true`) | SB BOM | DB-heavy 워크로드에서 가상 스레드가 tail latency 우세. JPA/JDBC 그대로 사용 → 완성도·유지보수 유리. |
 | **실시간 푸시** | **WebSocket + STOMP** (`spring-boot-starter-websocket`) | SB BOM | 호가/체결/잔고 다채널 구독. 공개 `/topic/**`=Redis Pub/Sub 릴레이, 비공개 `/user/queue/**`=**외부 STOMP 브로커 릴레이(RabbitMQ/ActiveMQ)로 크로스노드 user-destination 라우팅**(§5-1). |
-| **영속성(도메인)** | **Spring Data JPA / Hibernate 6.6.x** | SB BOM | 계정·지갑·주문 CRUD. `@Version` 낙관적 락. |
-| **영속성(핫패스 조회)** | **jOOQ** (Community, Apache 2.0) | **SB BOM 위임(3.5.x 관리 라인=3.19.x)** | 호가 집계·체결 페이징·리포팅. 컴파일타임 타입안전. 정정(v2.4): 개별 핀 `3.20/3.21` 제거. jOOQ는 SB BOM 관리 항목이라 개별 핀은 버전 고정 원칙(하단) 위반이자 BOM 라인 오버라이드(Q12의 Flyway와 동일 논리). |
+| **영속성(도메인)** | ~~Spring Data JPA / Hibernate 6.6.x~~ **미채택** | 없음 | 정정(2026-09-10): 의존과 사용처가 저장소에 0건이다. 실제 배선은 `spring-boot-starter-jdbc` 의 `JdbcClient` 하나다(`server/app/build.gradle.kts:19`). 낙관적 락은 `@Version` 이 아니라 SQL 로 건다. |
+| **영속성(핫패스 조회)** | **미채택**. 정정(2026-09-10): jOOQ 의존이 저장소에 0건이고 핫패스 조회도 `JdbcClient` 로 쓴다. 이 뒤는 종전 선정 사유이며 현 배선이 아니다. ~~jOOQ~~ (Community, Apache 2.0) | **SB BOM 위임(3.5.x 관리 라인=3.19.x)** | 호가 집계·체결 페이징·리포팅. 컴파일타임 타입안전. 정정(v2.4): 개별 핀 `3.20/3.21` 제거. jOOQ는 SB BOM 관리 항목이라 개별 핀은 버전 고정 원칙(하단) 위반이자 BOM 라인 오버라이드(Q12의 Flyway와 동일 논리). |
 | **DB 마이그레이션** | **Flyway** | **SB BOM 위임(3.5.x 관리 라인=11.x)** | SQL-first·저마찰. Liquibase 5.0 FSL 라이선스 이슈 회피. 정정(v2.2): 개별 핀 `12.9.0` 제거. Flyway는 SB BOM 관리 항목이라 개별 핀은 버전 고정 원칙(하단) 위반이자 BOM 메이저 오버라이드(SB 3.5 자동구성이 검증한 11.x와 상이)였다. |
 | **메시징/이벤트** | **미채택**(아웃박스 테이블만 적재, 발행기 없음) | (없음) | 정정(v2.44): 초안이 Spring for Apache Kafka·Kafka 4.x KRaft 였으나 배선하지 않았다. `server/app/build.gradle.kts` 와 `server/app/src` 전역에 kafka 가 0건이고 정본 6.1 전체 구조에 메시지 브로커가 없다. 같은 트랜잭션 `outbox` INSERT 는 실재하고 발행 경로만 없다(§7-1). 브로커 도입 여부는 정본 4.3 비채택표에도 없어 미결이다. |
-| **캐시/분산 프리미티브** | **Spring Data Redis** | **SB BOM 위임** | Pub/Sub 릴레이·nonce 저장. 정정(v2.40): Redisson 은 저장소에 의존이 없다. 분산 RateLimiter 용도로 남은 것은 M2 선행 조건이고 현 배선이 아니다. 리더선출은 이 행의 범위가 아니다(아래 행). |
-| **회복탄력성** | **Resilience4j** | **`resilience4j-spring-boot3` 2.4.0** | CircuitBreaker·RateLimiter·Bulkhead·Retry·TimeLimiter. Micrometer 통합. 버전 정정: 3.x는 미존재, 최신 GA=2.4.0. SB3.5에서 GA 검증. |
-| **리더선출/분산락** | **임차 보관소 + fencing epoch**(매칭) / **ShedLock 7.7.0**(배치) | `LeaderLeaseStore` 구현 2종(기본 PostgreSQL, 선택 DynamoDB, AWS SDK v2) / ShedLock 7.7.0 | 매칭 단일 활성화=임차 획득. 정정(v2.40): 초안이 Redisson RLock 이었으나 채택하지 않았다. 저장소에 redisson 의존이 0건이다. 기본값은 `PostgresLeaderLeaseStore`(`exchange.leader.lease.provider=postgres`)이고, ADR 0017 이 임차 **갱신**을 커밋 경로 밖으로 빼는 선택지로 `DynamoDbLeaderLeaseStore` 를 더했다. 임차 **검증**(`assert_current_leader`)은 어느 쪽이든 거래 트랜잭션 안에 남는다. 배치 중복방지=ShedLock. **주의: ShedLock은 correctness 보장 X → fencing 병행 필수**(적용 범위: 모든 엔진 기원 쓰기 트랜잭션, §7-1). **정본 대조 미결(v2.44)**: 정본 4.2 선택표는 리더 임차를 "DynamoDB 항목 1개" 로, 정본 6.5 는 "임차 갱신은 DynamoDB 항목 하나에 조건부 쓰기" 로 단정한다. 이 문서는 저장소 실물을 적었다(`server/app/src/main/resources/application.yml` 77행 `provider: postgres`, `kr/exchange/config/LeaseStoreConfig.java` 가 고르는 구현 2종 `PostgresLeaderLeaseStore`·`DynamoDbLeaderLeaseStore`). 정본을 "기본 postgres·선택 dynamodb" 로 고칠지, 배포 기본값을 dynamodb 로 바꿔 정본에 맞출지는 미결이며 이 문서가 정하지 않는다(§8-3). |
+| **캐시/분산 프리미티브** | **미배선**. 정정(2026-09-10): Spring Data Redis 의존이 0건이고 Redis 서비스도 어느 컴포즈 파일에도 없다. Pub/Sub 릴레이와 nonce 저장은 현재 PostgreSQL 이 진다 | 없음 | Pub/Sub 릴레이·nonce 저장. 정정(v2.40): Redisson 은 저장소에 의존이 없다. 분산 RateLimiter 용도로 남은 것은 M2 선행 조건이고 현 배선이 아니다. 리더선출은 이 행의 범위가 아니다(아래 행). |
+| **회복탄력성** | **Resilience4j** | **`resilience4j-spring-boot3` 2.4.0** | 정정(2026-09-10): 실사용처는 카오스 프로브의 CircuitBreaker 하나다(`server/app/src/main/java/kr/exchange/chaos/ChaosProbeGateway.java`). RateLimiter·Bulkhead·Retry·TimeLimiter 는 미사용이고 레이트리밋은 자체 구현이다. Micrometer 통합. 버전 정정: 3.x는 미존재, 최신 GA=2.4.0. SB3.5에서 GA 검증. |
+| **리더선출/분산락** | **임차 보관소 + fencing epoch**(매칭) / ShedLock **미배선**(배치). 정정(2026-09-10): ShedLock 의존이 저장소에 0건이다 | `LeaderLeaseStore` 구현 2종(기본 PostgreSQL, 선택 DynamoDB, AWS SDK v2) / ShedLock 7.7.0 | 매칭 단일 활성화=임차 획득. 정정(v2.40): 초안이 Redisson RLock 이었으나 채택하지 않았다. 저장소에 redisson 의존이 0건이다. 기본값은 `PostgresLeaderLeaseStore`(`exchange.leader.lease.provider=postgres`)이고, ADR 0017 이 임차 **갱신**을 커밋 경로 밖으로 빼는 선택지로 `DynamoDbLeaderLeaseStore` 를 더했다. 임차 **검증**(`assert_current_leader`)은 어느 쪽이든 거래 트랜잭션 안에 남는다. 배치 중복방지=ShedLock. **주의: ShedLock은 correctness 보장 X → fencing 병행 필수**(적용 범위: 모든 엔진 기원 쓰기 트랜잭션, §7-1). **정본 대조 미결(v2.44)**: 정본 4.2 선택표는 리더 임차를 "DynamoDB 항목 1개" 로, 정본 6.5 는 "임차 갱신은 DynamoDB 항목 하나에 조건부 쓰기" 로 단정한다. 이 문서는 저장소 실물을 적었다(`server/app/src/main/resources/application.yml` 77행 `provider: postgres`, `kr/exchange/config/LeaseStoreConfig.java` 가 고르는 구현 2종 `PostgresLeaderLeaseStore`·`DynamoDbLeaderLeaseStore`). 정본을 "기본 postgres·선택 dynamodb" 로 고칠지, 배포 기본값을 dynamodb 로 바꿔 정본에 맞출지는 미결이며 이 문서가 정하지 않는다(§8-3). |
 | **관측성(메트릭)** | **Actuator + Micrometer(Prometheus registry) + Grafana** | **버전 BOM 위임(개별 핀 제거)** | 정정: `micrometer-registry-prometheus` 마이크로버전 개별 고정 제거(‘BOM 위임’ 원칙과 모순 해소). 스타터만 추가. |
-| **관측성(트레이싱)** | **Micrometer Tracing(OTel Bridge) → 백엔드 Grafana Tempo** | SB BOM + OTLP exporter | 신규: 트레이스 **수집·조회 백엔드를 Tempo로 확정**(미지정 시 트레이스 미수집). Zipkin/Jaeger 대체 가능. |
-| **관측성(로그)** | **Logback JSON → Loki (Grafana)** | (인프라) | 신규: 중앙 로그 집계. 카오스 시 노드 간 로그 상관분석(trace_id 키). |
-| **테스트** | **JUnit5 + Testcontainers + Awaitility + ArchUnit + jqwik** | **Testcontainers·Awaitility=SB BOM 위임** / ArchUnit 1.4.2·jqwik 최신 GA(BOM 미관리 → 개별 핀 유지) | 실 PG 컨테이너. 비동기=Awaitility(sleep 금지). 경계=ArchUnit. 불변식=jqwik. 정정(v2.4): TC·Awaitility 개별 핀 제거. 둘 다 SB BOM 관리 항목(버전 고정 원칙 정합). 정정(v2.44): 컨테이너 열거에서 Kafka·Redis·Toxiproxy 를 함께 뺀다. 종전 정정은 Kafka 만 빼고 같은 기준을 나머지 둘에 적용하지 않았다. `server/app/build.gradle.kts` 의 Testcontainers 선언은 `spring-boot-testcontainers`·`junit-jupiter`·`postgresql` 셋뿐이고 kafka·redis·toxiproxy 가 각각 0건이다. Toxiproxy 는 테스트 컨테이너가 아니라 하네스 카오스 스택이 띄운다(`harness/docker-compose.chaos.yml` 의 `chaos-toxiproxy`). |
+| **관측성(트레이싱)** | Micrometer Tracing(OTel Bridge) / 백엔드 **미배선** | SB BOM | 정정(2026-09-10): Tempo 가 어느 컴포즈 파일에도 없다. `docs/contracts/하네스_CICD_IaC.md` 도 같은 사실을 저장소에 없는 것으로 적는다. 확정 스택이 아니라 목표다. |
+| **관측성(로그)** | Logback JSON / 중앙 집계 **미배선** | 없음 | 정정(2026-09-10): Loki 가 어느 컴포즈 파일에도 없다. 노드 간 로그 상관분석은 아직 수단이 없다. |
+| **테스트** | **JUnit5 + Testcontainers + Awaitility + jqwik**. 정정(2026-09-10): ArchUnit 은 의존이 0건이라 뺀다 | **Testcontainers·Awaitility=SB BOM 위임** / ArchUnit 1.4.2·jqwik 최신 GA(BOM 미관리 → 개별 핀 유지) | 실 PG 컨테이너. 비동기=Awaitility(sleep 금지). 경계=ArchUnit. 불변식=jqwik. 정정(v2.4): TC·Awaitility 개별 핀 제거. 둘 다 SB BOM 관리 항목(버전 고정 원칙 정합). 정정(v2.44): 컨테이너 열거에서 Kafka·Redis·Toxiproxy 를 함께 뺀다. 종전 정정은 Kafka 만 빼고 같은 기준을 나머지 둘에 적용하지 않았다. `server/app/build.gradle.kts` 의 Testcontainers 선언은 `spring-boot-testcontainers`·`junit-jupiter`·`postgresql` 셋뿐이고 kafka·redis·toxiproxy 가 각각 0건이다. Toxiproxy 는 테스트 컨테이너가 아니라 하네스 카오스 스택이 띄운다(`harness/docker-compose.chaos.yml` 의 `chaos-toxiproxy`). |
 | **부하 테스트** | **k6 (메인)** + Gatling(발표용, 선택) | k6 2.0 / Gatling 3.13+ | Thresholds→exit code로 SLO CI 게이팅. WS 부하 지원. |
 | **카오스** | **Toxiproxy(네트워크) + Chaos Monkey(앱) + docker kill(인프라)** | toxiproxy 모듈=**TC(SB BOM) 위임**(v2.4, TC 개별 핀 제거와 동일 논리) / **chaos-monkey-spring-boot 3.x (SB3 정합, BOM 미관리 → 개별 관리)** | 정정: 초안의 "Chaos Monkey 4.0.0=SB3 타깃" 경고는 **사실과 반대**(4.0.0은 SB4.0.2 기반=SB4 지원). SB3.5 경로에선 **3.x 라인을 사용**. Toxiproxy=네트워크, Chaos Monkey=앱 계층 상호보완. |
 | **매칭엔진 동시성** | **LMAX Disruptor** | 4.0.0 (min JDK 11, Java 21 OK) | 락-프리 링버퍼. 참고: 4.0.0(2023-09) 이후 유지보수 정체 → **1차 `ArrayBlockingQueue`로 결정론 완성 후, 벤치마크로 실측 이득 확인되면 교체**(handler 인터페이스 동일). |
@@ -240,7 +242,7 @@ exchange-platform/
 
 ### 2-5. Rate limit (알고리즘·다중버킷·프록시 확정)
 
-- **알고리즘**: 고정창이 아닌 **토큰버킷**(Resilience4j RateLimiter). 현 배선은 노드 단위이고, 노드 간 합산 한도는 M2 선행 조건이다. 분산 구현체(Redisson `RRateLimiter` 등)는 그때 정한다. 초당 리필. thundering-herd 시나리오에서 창 경계 2배 버스트·리셋 herd 방지. `X-RateLimit-Reset`은 **"다음 토큰 가용 시각(epoch s)"**으로 재정의.
+- **알고리즘**: 고정창이 아닌 **토큰버킷**. 정정(2026-09-10): 구현체는 Resilience4j RateLimiter 가 아니라 자체 구현이다. 현 배선은 노드 단위이고, 노드 간 합산 한도는 M2 선행 조건이다. 분산 구현체(Redisson `RRateLimiter` 등)는 그때 정한다. 초당 리필. thundering-herd 시나리오에서 창 경계 2배 버스트·리셋 herd 방지. `X-RateLimit-Reset`은 **"다음 토큰 가용 시각(epoch s)"**으로 재정의.
 - **다중 버킷 노출**: 한 요청이 IP 공개 버킷 + 계정 사설 버킷에 동시 계상 가능 → 버킷별 헤더 노출.
 
 응답 헤더(모든 응답):
@@ -773,8 +775,10 @@ POST /api/v1/orders
 | 전체 잔고 | `GET /api/v1/accounts` | 2 |
 | 체결 내역(내 거래) | `GET /api/v1/my/trades` | 2 |
 | 거래(원장) 내역 | `GET /api/v1/my/ledger` | 2 |
-| API 키 회전 | `POST /api/v1/keys/{access_key}/rotate` | 5 |
-| API 키 폐기 | `DELETE /api/v1/keys/{access_key}` (§3-2 즉시 revocation, 표 등재 v2.5) | 5 |
+| API 키 회전 | `POST /api/v1/keys/{access_key}/rotate` **미구현** | 5 |
+| API 키 폐기 | `DELETE /api/v1/keys/{access_key}` **미구현** (§3-2 즉시 revocation, 표 등재 v2.5) | 5 |
+
+정정(2026-09-10): 위 두 경로는 `server/` 에 대응 핸들러가 없습니다. 설계로만 존재하므로 미구현으로 표시합니다.
 
 #### 4-C-1. `GET /api/v1/accounts`
 ```json
@@ -1165,7 +1169,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 | 메서드 | 경로 | 기능 | approval_token(§3-6) |
 |---|---|---|---|
 | POST | `/admin/v1/sim/bots` | 봇 생성(유형·수·파라미터) | 불요 |
-| DELETE | `/admin/v1/sim/bots/{id}` | 봇 제거 | 불요 |
+| DELETE | `/admin/v1/sim/bots/{id}` | 봇 제거. **미구현** | 불요 |
 | PATCH | `/admin/v1/sim/bots/{id}/params` | 실행 중 파라미터 변경(operator 승인) | **필수** |
 | POST | `/admin/v1/sim/start` \| `/stop` \| `/pause` | 전체 제어(기동·정지·발행 일시정지 토글, v2.22) | 불요 |
 | POST | `/admin/v1/sim/scenarios/{name}/activate` | 프리셋(steady/volatile/spike/ramp/selloff/thundering-herd) | 불요 |

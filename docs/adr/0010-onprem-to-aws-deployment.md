@@ -16,7 +16,7 @@
 
 비용 축은 실측 단가로 이미 닫혀 있었다. 당시 상한은 월 100,000원(VAT 포함)이고 단가 원천은 AWS Price List Bulk API 서울 리전 판본 20260824193147이었다. 증명면 4노드를 상시 구동하면 730시간에 253,620원이라 그 상한을 단독으로 2.5배 넘긴다. 65시간 창 구동은 22,583원이다. 11.2배 차다. 판본 문자열과 이 두 금액은 2026-08-30 시점 산정이고 현재 정본에 대응 절이 없다. 현재 정본 9.1은 자체 상한을 월 500,000원으로 적고 2026-09-08 승인으로 종전 100,000원에서 올린 사실을 함께 적는다.
 
-이미지 축에는 배포 시점에야 드러날 결함이 있었다. 목표 아키텍처의 노드가 t4g.micro·t4g.medium·c7g.large·t4g.small, 전부 Graviton 계열인데(2026-08-30 시점 노드 구성. 현재 정본 6.2 노드 구성 표는 t4g.small·t4g.nano·c7g.large로 적고 세 등급 다 Graviton이다) 이미지 빌드 플랫폼 규약은 `linux/amd64` 단독이었다(`docs/contracts/하네스_CICD_IaC.md` §0 확정 스택 버전표 이미지 빌드 행, 개정 전 `:23`). 문서가 인용하던 액션 버전 `setup-buildx-action@v4` / `build-push-action@v7` / `metadata-action@v6`은 `image.yml` 실사용값 `@v3` / `@v6` / `@v5`와 어긋나 있었다(`image.yml:70`·`:87`·`:79`). 관리 포트는 9404로 계약돼 있었고 코드 실값은 8081이었다(`server/app/src/main/resources/application.yml:165`).
+이미지 축에는 배포 시점에야 드러날 결함이 있었다. 목표 아키텍처의 노드가 t4g.micro·t4g.medium·c7g.large·t4g.small, 전부 Graviton 계열인데(2026-08-30 시점 노드 구성. 그 뒤 정본 6.2 가 두 번 바뀌었다. ADR 0020 이 주소 변환을 관리형으로 옮기면서 t4g.nano 두 대가 빠졌고, 현재 정본 전문에 t4g.nano 는 0건이다. 등급을 이 파일에 복사하지 않는다. 현재 값은 정본 6.2 를 읽는다. 이 항의 논점은 등급이 아니라 전부 Graviton 이라는 것이고 그 사실은 그대로다) 이미지 빌드 플랫폼 규약은 `linux/amd64` 단독이었다(`docs/contracts/하네스_CICD_IaC.md` §0 확정 스택 버전표 이미지 빌드 행, 개정 전 `:23`). 문서가 인용하던 액션 버전 `setup-buildx-action@v4` / `build-push-action@v7` / `metadata-action@v6`은 `image.yml` 실사용값 `@v3` / `@v6` / `@v5`와 어긋나 있었다(`image.yml:70`·`:87`·`:79`). 관리 포트는 9404로 계약돼 있었고 코드 실값은 8081이었다(`server/app/src/main/resources/application.yml:165`).
 
 ## 결정
 
