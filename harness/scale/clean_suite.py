@@ -19,6 +19,7 @@
 import argparse
 import io
 import json
+import urllib.parse
 import re
 import os
 import subprocess
@@ -110,7 +111,11 @@ def reissue_keys():
     for _ in range(6):
         try:
             req = urllib.request.Request(
-                'http://localhost:18080/harness/v1/loadtest-keys?market=KRW-BTC&count=4',
+                # 부하를 여러 마켓에 흩으면 그 마켓들의 자산 계정이 있어야 한다.
+                # 없으면 매도 주문이 접수를 통과한 뒤 정산에서 라이터를 죽인다(한계 40).
+                'http://localhost:18080/harness/v1/loadtest-keys?market='
+                + urllib.parse.quote(os.environ.get('SCALE_MARKETS', 'KRW-BTC') or 'KRW-BTC')
+                + '&count=4',
                 method='POST')
             with urllib.request.urlopen(req, timeout=90) as r:
                 keys = json.load(r)

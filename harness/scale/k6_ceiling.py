@@ -18,6 +18,7 @@ k6 는 시스템 완전 외부에서 개방 루프(constant-arrival-rate)로 주
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -37,6 +38,8 @@ def run_k6(rate, duration, run_id, log_path=None):
         'docker', 'run', '--rm', '--network', NET,
         '-v', str(ROOT / 'harness/load') + ':/load:ro',
         '-e', 'BASE_OPS=%d' % rate,
+        # 마켓별 라이터 실측(ADR 0021). 비어 있으면 k6 가 단일 마켓으로 돈다.
+        '-e', 'MARKETS=%s' % os.environ.get('SCALE_MARKETS', ''),
         '-e', 'CAL_DURATION=%ds' % duration,
         '-e', 'BASE_URL=http://chaos-lb:8080',
         '-e', 'K6_KEYS=/load/secrets/k6_keys.json',

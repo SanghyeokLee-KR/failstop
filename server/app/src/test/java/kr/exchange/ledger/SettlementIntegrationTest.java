@@ -427,8 +427,14 @@ class SettlementIntegrationTest {
         // ⑤⑥ gapless
         assertEquals(0, queryLong("SELECT COALESCE((max(seq)-min(seq)+1) - count(*), 0) "
                 + "FROM command_journal"));
-        assertEquals(0, queryLong("SELECT COALESCE((max(event_seq)-min(event_seq)+1) - count(*), 0) "
-                + "FROM event_journal"));
+        // V36 에서 결번 없음의 축이 마켓 안으로 갔다. event_seq 는 marketId 대역 파생이라
+        // 전역으로 세면 대역 사이가 비어 보이고 그것은 결번이 아니라 경계다.
+        assertEquals(0, queryLong("""
+                SELECT COALESCE(sum(gap), 0) FROM (
+                    SELECT (max(market_seq) - min(market_seq) + 1) - count(*) AS gap
+                    FROM event_journal WHERE market_seq IS NOT NULL GROUP BY market_id
+                ) g
+                """));
         // ③④ 봉인·균형
         assertEquals(0, queryLong("SELECT count(*) FROM ledger_transactions WHERE status = 'OPEN'"));
         assertEquals(0, queryLong("""

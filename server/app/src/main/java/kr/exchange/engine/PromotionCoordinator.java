@@ -43,7 +43,7 @@ public class PromotionCoordinator implements AutoCloseable {
     static final long REPLAY_RETRY_BUDGET_MILLIS = 5_000;
 
     private final EngineRecovery recovery;
-    private final SingleWriterLoop loop;
+    private final WriterHost host;
     private final LeaderLeaseService lease;
     private final CommandJournalReader journalReader;
     private final AvailabilitySignal availability;
@@ -78,8 +78,21 @@ public class PromotionCoordinator implements AutoCloseable {
     public PromotionCoordinator(EngineRecovery recovery, SingleWriterLoop loop,
                                 LeaderLeaseService lease, CommandJournalReader journalReader,
                                 AvailabilitySignal availability) {
+        this(recovery, WriterHost.of(loop), lease, journalReader, availability);
+    }
+
+    /** 마켓별 라이터 배선(ADR 0021 5단계). 운영이 쓴다. */
+    public PromotionCoordinator(EngineRecovery recovery, WriterRouter router,
+                                LeaderLeaseService lease, CommandJournalReader journalReader,
+                                AvailabilitySignal availability) {
+        this(recovery, WriterHost.of(router), lease, journalReader, availability);
+    }
+
+    private PromotionCoordinator(EngineRecovery recovery, WriterHost host,
+                                 LeaderLeaseService lease, CommandJournalReader journalReader,
+                                 AvailabilitySignal availability) {
         this.recovery = recovery;
-        this.loop = loop;
+        this.host = host;
         this.lease = lease;
         this.journalReader = journalReader;
         this.availability = availability;
@@ -113,7 +126,7 @@ public class PromotionCoordinator implements AutoCloseable {
                 // 먼저 부르므로 항상 참이지만, 그 순서에 기대는 순간 불변이 배선에만 있게 된다.
                 // 정지한 루프 위에서 리스를 쥔 채 열면 좀비 리더가 되므로 기동을 세운다.
                 // 기동 실패는 리스 만료를 거쳐 스탠바이 승격으로 수렴한다.
-                if (!loop.isRunning()) {
+                if (!host.isRunning()) {
                     throw new IllegalStateException(
                             "단일 라이터 정지 상태에서 부팅 접수 개방 금지");
                 }
@@ -220,7 +233,7 @@ public class PromotionCoordinator implements AutoCloseable {
                         identity.epoch(), state);
                 return;
             }
-            if (!loop.isRunning()) {
+            if (!host.isRunning()) {
                 // 게이트는 리더십·상태만이 아니라 소비자 생존까지 봐야 한다. 정지한 루프 위에서
                 // 열면 저널에 커밋되고 영원히 체결되지 않는 주문이 생긴다. 지금은 재생 구간에
                 // 루프가 유휴라 도달하지 않지만, 그 불변이 코드에 없으면 배선이 바뀌는 순간
@@ -309,7 +322,7 @@ public class PromotionCoordinator implements AutoCloseable {
         // 대규모 catch-up은 ReplayService가 인메모리로만 처리하고 정산 sink를 타지 않는다.
         MatchingEngineImpl fresh = new MatchingEngineImpl();
         recovery.recover(fresh);
-        loop.installEngine(fresh);
+        host.install(fresh);
         installedEngine = fresh;
         log.info("승격 재생 완료: epoch={}, lastAppliedSeq={}, head={}, 소요={}ms",
                 identity.epoch(), fresh.lastAppliedSeq(), head,

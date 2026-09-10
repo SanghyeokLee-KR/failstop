@@ -42,8 +42,14 @@ SELECT COALESCE((max(seq) - min(seq) + 1) - count(*), 0) AS gaps FROM command_jo
 HAVING COALESCE((max(seq) - min(seq) + 1) - count(*), 0) <> 0;
 
 \echo '== C06 EVENT_JOURNAL_GAPLESS [CRITICAL] 이벤트 저널 무결 =='
-SELECT COALESCE((max(event_seq) - min(event_seq) + 1) - count(*), 0) AS gaps FROM event_journal
-HAVING COALESCE((max(event_seq) - min(event_seq) + 1) - count(*), 0) <> 0;
+-- V36 에서 축이 마켓 안으로 바뀌었다. event_seq 는 marketId * 10^7 + marketSeq 파생이라
+-- 전역으로 보면 대역 사이가 비어 있고 그것은 결번이 아니다. 결번 없음이 요구되는 축은
+-- 마켓 안이다. market_seq 가 비어 있는 V36 이전 행은 이 검사 밖이다.
+SELECT COALESCE(sum(gap), 0) AS gaps FROM (
+    SELECT (max(market_seq) - min(market_seq) + 1) - count(*) AS gap
+    FROM event_journal WHERE market_seq IS NOT NULL GROUP BY market_id
+) g
+HAVING COALESCE(sum(gap), 0) <> 0;
 
 \echo '== C07 DUP_CLIENT_ORDER [CRITICAL] 중복 주문 접수 0 (프로젝션 축) =='
 SELECT user_id, client_order_id, count(*) AS n FROM orders
@@ -189,11 +195,15 @@ WHERE t.prev > t.fencing_token;
 -- next_value가 저널 최대 seq 이하이면 다음 채번이 기존 seq와 충돌한다(재사용). 정상 채번은
 -- 원자적이라 라이브에선 항상 max+1 이상이고, 백업 복원·수동 리시드가 카운터를 저널 아래로
 -- 되돌리는 경우만 위반이다.
+-- V36 에서 이벤트 축이 마켓 안으로 갔다. 전역 event_seq 행은 호출자가 없으므로 대조 대상이
+-- 아니다. 명령 축은 전역 카운터, 이벤트 축은 마켓별 카운터 대 마켓별 최대 market_seq 다.
 SELECT c.name, c.next_value FROM journal_counters c
-WHERE (c.name = 'command_seq'
-         AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal))
-   OR (c.name = 'event_seq'
-         AND c.next_value <= (SELECT COALESCE(max(event_seq), 0) FROM event_journal));
+WHERE c.name = 'command_seq'
+  AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal);
+SELECT m.market_id, m.name, m.next_value FROM market_journal_counters m
+WHERE m.name = 'event_seq'
+  AND m.next_value <= (SELECT COALESCE(max(e.market_seq), 0) FROM event_journal e
+                       WHERE e.market_id = m.market_id AND e.market_seq IS NOT NULL);
 
 -- V13 미적용 DB에서는 아래 두 뷰가 없다. 무조건 조회하면 ON_ERROR_STOP 경로가 C24 이전
 -- 24개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이

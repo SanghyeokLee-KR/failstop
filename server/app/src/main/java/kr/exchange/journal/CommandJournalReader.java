@@ -42,6 +42,23 @@ public class CommandJournalReader {
         return read("WHERE seq > ? ORDER BY seq LIMIT ?", lastAppliedSeq, limit);
     }
 
+    /**
+     * 한 마켓의 명령만 seq 오름차순으로 읽는다(ADR 0021 4단계).
+     *
+     * 마켓별 재생의 입력이다. seq 는 전역 채번이라 이 스트림에는 구멍이 뚫려 있다.
+     * 그 구멍은 다른 마켓의 명령이지 결번이 아니다. 곧 이 축에서 seq 연속성을
+     * 검사하면 안 된다. 마켓 안의 순서만 보장되면 재생이 성립한다.
+     */
+    public List<JournalEntry> readAfterForMarket(long lastAppliedSeq, int marketId,
+                                                 long upToSeq, int limit) {
+        if (upToSeq < 0) {
+            return read("WHERE seq > ? AND market_id = ? ORDER BY seq LIMIT ?",
+                    lastAppliedSeq, marketId, limit);
+        }
+        return read("WHERE seq > ? AND market_id = ? AND seq <= ? ORDER BY seq LIMIT ?",
+                lastAppliedSeq, marketId, upToSeq, limit);
+    }
+
     private List<JournalEntry> read(String tail, Object... params) {
         return jdbc.sql("""
                         SELECT seq, market_id, command_type, user_id, client_order_id,

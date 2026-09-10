@@ -26,7 +26,7 @@ import kr.exchange.journal.CommandJournalAppender;
 public class EngineBridge {
 
     private final CommandJournalAppender appender;
-    private final SingleWriterLoop loop;
+    private final CommandSink sink;
     private final CommandPayloadMapper payloadMapper;
     private final AcceptGate acceptGate;
     private final MarketStatusSource marketStatus;
@@ -75,8 +75,21 @@ public class EngineBridge {
     public EngineBridge(CommandJournalAppender appender, SingleWriterLoop loop,
                         CommandPayloadMapper payloadMapper, AcceptGate acceptGate,
                         MarketStatusSource marketStatus) {
+        this(appender, CommandSink.of(loop), payloadMapper, acceptGate, marketStatus);
+    }
+
+    /** 마켓별 라이터 배선(ADR 0021 5단계). 운영이 쓴다. */
+    public EngineBridge(CommandJournalAppender appender, WriterRouter router,
+                        CommandPayloadMapper payloadMapper, AcceptGate acceptGate,
+                        MarketStatusSource marketStatus) {
+        this(appender, CommandSink.of(router), payloadMapper, acceptGate, marketStatus);
+    }
+
+    private EngineBridge(CommandJournalAppender appender, CommandSink sink,
+                         CommandPayloadMapper payloadMapper, AcceptGate acceptGate,
+                         MarketStatusSource marketStatus) {
         this.appender = appender;
-        this.loop = loop;
+        this.sink = sink;
         this.payloadMapper = payloadMapper;
         this.acceptGate = acceptGate;
         this.marketStatus = marketStatus;
@@ -104,7 +117,7 @@ public class EngineBridge {
         long t1 = System.nanoTime();
         lockWaitNanos.add(t1 - t0);
         try {
-            if (!loop.isRunning()) {
+            if (!sink.isRunning()) {
                 // 루프 정지 상태의 ACK는 '접수됐지만 영원히 미체결'인 주문을 만든다. 저널 커밋 전에
                 // 거부한다. 정지와 경합하는 창은 fatal 처리의 demote가 requireLeader로 마저 닫는다.
                 throw new IllegalStateException("단일 라이터 루프 정지 상태: 접수 거부");
@@ -128,7 +141,7 @@ public class EngineBridge {
                 // 원본 명령이 이미 큐 또는 저널 catch-up 경로에 있다. 재투입하면 이중 적용 후보만 늘린다.
                 return new SubmitResult(ack.seq(), ack.fencingToken(), true, false);
             }
-            boolean queued = loop.offer(new OrderCommand(
+            boolean queued = sink.offer(new OrderCommand(
                     ack.seq(), intake.marketId(), CommandPayloadMapper.commandType(intake.type()),
                     intake.userId(), intake.clientOrderId(), intake.assignedOrderId(), intake.engineTs(),
                     intake.tieBreak(), intake.side(), intake.ordType(), intake.timeInForce(),

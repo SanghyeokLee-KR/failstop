@@ -49,42 +49,74 @@ public class LoadKeySeeder {
      * 자금은 GENESIS에서 내려온다(AccountBootstrap.deposit). 자산 합 0 불변식은 그 경로가
      * 지키므로 여기서 별도 보정을 하지 않는다.
      */
+    /**
+     * 부하 계정을 만든다. marketSymbol 은 쉼표로 여러 마켓을 받는다.
+     *
+     * 왜 여럿인가. 마켓별 라이터 실측(ADR 0021)이 주문을 여러 마켓에 흩는데, 종전에는
+     * 마켓 하나의 기준 자산과 원화만 넣어 줬다. 그러면 다른 마켓의 매도 주문이 그 자산
+     * 계정을 못 찾는다. 2026-09-10 실측에서 그 주문이 접수를 통과한 뒤 정산에서 예외를
+     * 만나 단일 라이터가 fail-fast 로 멈췄고 리더십까지 함께 내려놨다(정본 한계 40).
+     * 실측을 하려면 계정이 먼저 있어야 한다.
+     */
     public List<Map<String, String>> seed(String marketSymbol, int count,
                                           BigDecimal quoteAmount, BigDecimal baseAmount) {
         int n = Math.max(1, Math.min(count, MAX_COUNT));
-        Integer baseAsset = jdbc.sql("SELECT base_asset_id FROM markets WHERE symbol = ?")
-                .params(marketSymbol).query(Integer.class).optional()
-                .orElseThrow(() -> new IllegalStateException("미시드 마켓: " + marketSymbol));
-        int quoteAsset = jdbc.sql("SELECT quote_asset_id FROM markets WHERE symbol = ?")
-                .params(marketSymbol).query(Integer.class).single();
+        List<String> symbols = java.util.Arrays.stream(marketSymbol.split(","))
+                .map(String::trim).filter(x -> !x.isEmpty()).toList();
+        if (symbols.isEmpty()) {
+            throw new IllegalStateException("마켓이 비었다: " + marketSymbol);
+        }
+        // 기준 자산은 마켓마다 다르고 상대 자산은 보통 원화 하나다. 중복을 지운다.
+        java.util.LinkedHashSet<Integer> baseAssets = new java.util.LinkedHashSet<>();
+        java.util.LinkedHashSet<Integer> quoteAssets = new java.util.LinkedHashSet<>();
+        for (String symbol : symbols) {
+            Integer base = jdbc.sql("SELECT base_asset_id FROM markets WHERE symbol = ?")
+                    .params(symbol).query(Integer.class).optional()
+                    .orElseThrow(() -> new IllegalStateException("미시드 마켓: " + symbol));
+            baseAssets.add(base);
+            quoteAssets.add(jdbc.sql("SELECT quote_asset_id FROM markets WHERE symbol = ?")
+                    .params(symbol).query(Integer.class).single());
+        }
 
         List<Map<String, String>> out = new ArrayList<>(n);
         for (int i = 1; i <= n; i++) {
             String email = "k6-load-" + i + "@demo.local";
             // 계정 생성·자금·키 발급을 한 트랜잭션에 묶는다. 중간 실패로 자금 없는 키가
             // 남으면 k6가 전량 주문 거부를 받고 그것을 SLO 위반으로 오판한다.
-            out.add(tx.execute(s -> issueFor(email, baseAsset, quoteAsset,
+            out.add(tx.execute(s -> issueFor(email, baseAssets, quoteAssets,
                     quoteAmount, baseAmount)));
         }
         return out;
     }
 
-    private Map<String, String> issueFor(String email, int baseAsset, int quoteAsset,
+    private Map<String, String> issueFor(String email,
+                                         java.util.Collection<Integer> baseAssets,
+                                         java.util.Collection<Integer> quoteAssets,
                                          BigDecimal quoteAmount, BigDecimal baseAmount) {
         // 부하 계정은 사람이 아니다. kind='BOT'으로 표시해 회원 운영 목록(§6-E)에 섞이지 않게 한다.
         jdbc.sql("INSERT INTO users (email, kind) VALUES (?, 'BOT') ON CONFLICT (email) DO NOTHING")
                 .params(email).update();
         long userId = jdbc.sql("SELECT id FROM users WHERE email = ?")
                 .params(email).query(Long.class).single();
-        bootstrap.userAccounts(userId, baseAsset);
-        bootstrap.userAccounts(userId, quoteAsset);
+        // 계정은 매번 보장한다. 자금과 달리 있으면 아무 일도 하지 않으므로, 마켓이 뒤에
+        // 늘어도 이 호출 한 번으로 따라잡는다.
+        for (int asset : quoteAssets) {
+            bootstrap.userAccounts(userId, asset);
+        }
+        for (int asset : baseAssets) {
+            bootstrap.userAccounts(userId, asset);
+        }
 
         BigDecimal held = jdbc.sql(
                         "SELECT COALESCE(sum(available + locked), 0) FROM user_balances WHERE user_id = ?")
                 .params(userId).query(BigDecimal.class).single();
         if (held.signum() == 0) {
-            bootstrap.deposit(userId, quoteAsset, quoteAmount);
-            bootstrap.deposit(userId, baseAsset, baseAmount);
+            for (int asset : quoteAssets) {
+                bootstrap.deposit(userId, asset, quoteAmount);
+            }
+            for (int asset : baseAssets) {
+                bootstrap.deposit(userId, asset, baseAmount);
+            }
         }
 
         // 기존 활성 키를 먼저 회수한다. uq_apikey_active가 (user_id, label) 활성 유일이라

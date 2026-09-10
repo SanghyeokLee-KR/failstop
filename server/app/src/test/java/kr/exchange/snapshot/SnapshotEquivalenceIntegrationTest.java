@@ -180,8 +180,10 @@ class SnapshotEquivalenceIntegrationTest {
             }
             MatchingEngineImpl b = new MatchingEngineImpl();
             b.loadSnapshot(k, books);
-            long watermark = watermarkSource.eventWatermark(k);
-            ReplayResult tail = replayService.rebuild(b, watermark);
+            // V36 에서 이벤트 커서 축이 (source_cmd_seq, event_ordinal) 로 바뀌었다.
+            // 스냅샷이 명령 K 까지 반영했으므로 시작점이 그냥 K 다. 종전의 event_seq
+            // 워터마크 유도는 필요 없어졌다.
+            ReplayResult tail = replayService.rebuild(b, k);
 
             assertEngineBytesEqual(reference, b, "K=" + k);
             assertEquals(leaderHead - k, tail.replayedCommands(),
@@ -264,6 +266,38 @@ class SnapshotEquivalenceIntegrationTest {
             return result;
         } finally {
             lease.close();
+        }
+    }
+
+    /**
+     * ADR 0021 4단계. 전역 재생과 마켓별 재생을 shadow 비교한다.
+     *
+     * 이 설계의 전제는 "재생이 요구하는 것은 마켓 안의 순서이지 전역 순서가 아니다" 이다.
+     * 그 전제가 맞다면 한 마켓만 골라 재생한 북이 전 마켓을 재생한 북 중 그 마켓 것과
+     * 바이트가 같아야 한다. 이 시험이 그것을 실증한다.
+     *
+     * 마켓별 재생은 전역 seq 에 구멍이 뚫린 스트림을 받는다. 그 구멍은 다른 마켓의
+     * 명령이지 결번이 아니다. 그래도 같은 북이 나오면, 전역 순서에 기대던 자리를
+     * 마켓 축으로 옮겨도 상태가 보존된다는 뜻이다.
+     */
+    @Test
+    void marketReplayEqualsGlobalReplayPerMarket() {
+        MatchingEngineImpl reference = fullReplay();
+        assertFalse(reference.markets().isEmpty(), "재생할 마켓이 없다");
+
+        for (int marketId : reference.markets()) {
+            MatchingEngineImpl shard = new MatchingEngineImpl();
+            replayService.rebuildMarket(shard, marketId);
+
+            assertEquals(List.of(marketId), shard.markets(),
+                    "마켓 재생이 남의 마켓을 건드렸다: market=" + marketId);
+
+            OrderBookImpl expBook = reference.orderBook(marketId);
+            OrderBookImpl actBook = shard.orderBook(marketId);
+            assertEquals(expBook.openOrderCount(), actBook.openOrderCount(),
+                    "openOrderCount market=" + marketId);
+            assertArrayEquals(SnapshotCodec.encode(expBook), SnapshotCodec.encode(actBook),
+                    "마켓별 재생이 전역 재생과 다른 북을 냈다: market=" + marketId);
         }
     }
 

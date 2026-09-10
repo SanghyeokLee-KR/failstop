@@ -66,9 +66,25 @@ public class SettlementService {
     private static final String INSERT_EVENT_SQL = """
             INSERT INTO event_journal
               (event_seq, source_cmd_seq, event_ordinal, event_type, payload,
-               payload_schema_version, fencing_epoch, created_at)
-            VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?)
+               payload_schema_version, fencing_epoch, created_at, market_id, market_seq)
+            VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
             """;
+
+    /**
+     * 마켓 순서 대역. event_seq 를 marketId * MARKET_SEQ_BAND + marketSeq 로 파생한다.
+     *
+     * 왜 파생인가. 종전에는 event_seq 를 journal_counters 한 행에서 뽑았고 그 UPDATE
+     * 행 잠금이 커밋까지 유지됐다. 채번이 원장 게시 루프보다 앞이라 정산 전 구간이
+     * 그 한 행에서 직렬화됐다(2026-09-10 실측: 라이터 12개에서 초당 43.5). 마켓별
+     * 카운터로 가르면 514.5 다. 파생으로 두면 채번이 마켓당 한 번이고 전역 행을
+     * 아예 건드리지 않는다.
+     *
+     * 왜 10^7 인가. 마켓 id 가 1 에서 12 이므로 최대 event_seq 가 1.3 x 10^8 이고,
+     * event_journal 의 p0 파티션 경계 2 x 10^8 안에 들어간다. 파티션을 건드리지 않으려는
+     * 값이다. 대역을 넘으면 next_market_journal_value 가 예외를 던진다. 조용히 넘어가면
+     * 다음 마켓 대역을 침범해 event_seq 전역 유일성이 깨진다.
+     */
+    private static final long MARKET_SEQ_BAND = 10_000_000L;
 
     private static final String SELECT_ORDER_SQL = """
             SELECT id, user_id, side, ord_type, price, quantity, quote_order_qty,
@@ -220,19 +236,24 @@ public class SettlementService {
         OrderCommand command = payloadMapper.toCommand(entry);
         CommandPayloadMapper.Extras extras = payloadMapper.extras(entry);
 
-        long start = jdbc.sql("SELECT next_journal_value('event_seq', ?)")
-                .params(events.size())
+        // 마켓별 채번. 한 정산 배치는 명령 하나의 방출분이고 명령은 마켓 하나에 속하므로
+        // 배치 전체가 같은 마켓이다. 그래서 채번이 배치당 한 번이다.
+        int marketId = command.marketId();
+        long marketStart = jdbc.sql("SELECT next_market_journal_value(?::smallint, 'event_seq', ?)")
+                .params(marketId, events.size())
                 .query(Long.class)
                 .single();
 
         List<EngineEvent> assigned = new ArrayList<>(events.size());
         for (int i = 0; i < events.size(); i++) {
-            EngineEvent event = events.get(i).withEventSeq(start + i);
+            long marketSeq = marketStart + i;
+            EngineEvent event = events.get(i)
+                    .withEventSeq(marketId * MARKET_SEQ_BAND + marketSeq);
             Fees.TradeFees fees = event.type() == EngineEvent.EventType.TRADE
                     ? Fees.of(event, extras.makerFeeRate(), extras.takerFeeRate(),
                               catalog.meta(event.marketId()))
                     : null;
-            insertEvent(epoch, event, fees);
+            insertEvent(epoch, event, fees, marketId, marketSeq);
             switch (event.type()) {
                 case ACCEPTED -> settleAccepted(command, extras);
                 case REJECTED -> settleRejected(command, extras, event);
@@ -568,7 +589,8 @@ public class SettlementService {
     // 공용
     // ------------------------------------------------------------------
 
-    private void insertEvent(long epoch, EngineEvent event, Fees.TradeFees fees) {
+    private void insertEvent(long epoch, EngineEvent event, Fees.TradeFees fees,
+                             int marketId, long marketSeq) {
         String payload = fees == null
                 ? EventPayloads.json(event, objectMapper)
                 : EventPayloads.json(event, objectMapper,
@@ -576,7 +598,7 @@ public class SettlementService {
         jdbc.sql(INSERT_EVENT_SQL)
                 .params(event.eventSeq(), event.sourceCmdSeq(), event.eventOrdinal(),
                         event.type().name(), payload, PAYLOAD_SCHEMA_VERSION, epoch,
-                        toUtc(event.engineTs()))
+                        toUtc(event.engineTs()), (short) marketId, marketSeq)
                 .update();
     }
 
