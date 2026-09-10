@@ -142,6 +142,13 @@ public final class WriterRouter {
         }
     }
 
+    /** 리더십 상실 시 전부 즉시 정지. 잔여 큐를 버린다. */
+    public void haltAll() {
+        for (Shard s : shards.values()) {
+            s.loop().halt();
+        }
+    }
+
     public boolean isRunning() {
         if (!started) {
             return false;

@@ -16,6 +16,7 @@ import kr.exchange.engine.LoopFatalHandler;
 import kr.exchange.engine.NodeServiceHealth;
 import kr.exchange.engine.PromotionCoordinator;
 import kr.exchange.engine.LeaderStallDetector;
+import kr.exchange.engine.WriterRouter;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.SingleWriterLoop;
 import org.springframework.beans.factory.ObjectProvider;
@@ -223,6 +224,49 @@ public class EngineConfig {
         return capture;
     }
 
+    /**
+     * 마켓별 라이터 묶음(ADR 0021 5단계).
+     *
+     * 마켓마다 SingleWriterLoop 와 MatchingEngineImpl 을 하나씩 만든다. 인스턴스는 늘리지
+     * 않는다. 같은 노드 안 스레드 N개다. 정산이 직렬 구간의 99.9퍼센트를 차지하므로
+     * 그것을 마켓마다 따로 돌리면 마켓 수만큼 커넥션이 동시에 붙는다.
+     *
+     * 지표에 market 라벨을 붙인다. 라벨 없이 등록하면 두 번째 마켓에서 미터 id 가 충돌해
+     * 첫 루프만 관측된다. 집계가 필요한 곳은 sum 으로 합친다.
+     */
+    @Bean
+    public WriterRouter writerRouter(EngineProperties props,
+                                     SettlementService settlementService,
+                                     CommandJournalReader commandJournalReader,
+                                     CommandPayloadMapper commandPayloadMapper,
+                                     LeaderLeaseService leaderLeaseService,
+                                     MarketDataPublisher marketDataPublisher,
+                                     kr.exchange.api.market.MarketDataService marketDataService,
+                                     MeterRegistry meterRegistry) {
+        return new WriterRouter(marketId -> {
+            MatchingEngineImpl shardEngine = new MatchingEngineImpl();
+            SingleWriterLoop loop = new SingleWriterLoop(
+                    props.queueCapacity(),
+                    shardEngine,
+                    events -> {
+                        java.util.List<kr.exchange.engine.core.EngineEvent> settled =
+                                settlementService.appendAndSettle(events);
+                        // 승격 뒤 엔진이 교체되면 이 참조가 낡는다. 종전 단일 루프 배선도
+                        // 같은 성질이라 동작을 바꾸지 않는다. 호가 스냅샷 갱신만의 문제이고
+                        // 정산과 게시는 영향이 없다. 고치는 것은 이 판의 범위가 아니다.
+                        publishEngineDepth(shardEngine, marketDataService, settled);
+                        marketDataPublisher.publishSettled(settled);
+                    },
+                    new JournalCatchUpSource(commandJournalReader, commandPayloadMapper, marketId),
+                    new LoopFatalHandler(leaderLeaseService));
+            io.micrometer.core.instrument.Gauge
+                    .builder("exchange.sequencer.queue.size", loop, SingleWriterLoop::queueSize)
+                    .tag("market", String.valueOf(marketId))
+                    .description("마켓별 라이터 명령 큐 깊이(백프레셔)").register(meterRegistry);
+            return new WriterRouter.Shard(shardEngine, loop);
+        });
+    }
+
     @Bean
     public SingleWriterLoop singleWriterLoop(EngineProperties props, MatchingEngineImpl engine,
                                              SettlementService settlementService,
@@ -322,13 +366,13 @@ public class EngineConfig {
     // 이중 실행하지 않도록 arm 이전 gain(부팅 획득)은 코디네이터가 무시한다(복구 RTO §3-a).
     @Bean
     public PromotionCoordinator promotionCoordinator(EngineRecovery engineRecovery,
-                                                     SingleWriterLoop loop,
+                                                     WriterRouter router,
                                                      LeaderLeaseService leaderLeaseService,
                                                      CommandJournalReader commandJournalReader,
                                                      HaAvailability haAvailability,
                                                      ObjectProvider<kr.exchange.engine.FollowerCatchUp> followerCatchUp) {
         PromotionCoordinator coordinator = new PromotionCoordinator(
-                engineRecovery, loop, leaderLeaseService, commandJournalReader, haAvailability);
+                engineRecovery, router, leaderLeaseService, commandJournalReader, haAvailability);
         // 따라잡기 정지를 코디네이터보다 먼저 등록한다. 순서가 계약이다. 승격 재생 생략 경로는
         // 공유 엔진 위에서 접수를 여는데, 그 전에 따라잡기 스레드가 그 엔진에서 손을 뗀 것이
         // 확인돼야 한다. 리스너는 등록 순서로 발화한다.
@@ -353,12 +397,14 @@ public class EngineConfig {
     // 카탈로그는 API 계층이 소유한다. 엔진에는 정지 여부를 묻는 함수 하나만 넘겨 의존 방향을
     // 뒤집지 않는다. 조회는 메모리 스냅샷이라 저널 경로에 DB 왕복이 생기지 않는다.
     @Bean
-    public EngineBridge engineBridge(CommandJournalAppender appender, SingleWriterLoop loop,
+    public EngineBridge engineBridge(CommandJournalAppender appender, WriterRouter router,
                                      CommandPayloadMapper commandPayloadMapper,
                                      PromotionCoordinator promotionCoordinator,
                                      kr.exchange.api.market.MarketDirectory markets,
                                      MeterRegistry meterRegistry) {
-        EngineBridge bridge = new EngineBridge(appender, loop, commandPayloadMapper,
+        // ADR 0021 5단계. 접수가 마켓별 라이터로 간다. 종전에는 SingleWriterLoop 하나였다.
+        // 라우터가 marketId 로 라우팅하고 그 마켓의 라이터가 없으면 만든다.
+        EngineBridge bridge = new EngineBridge(appender, router, commandPayloadMapper,
                 promotionCoordinator.gate(),
                 marketId -> "HALTED".equals(markets.byId(marketId).status()));
         // 접수 임계구역 분해(정본 13.5 한계 29). 대기가 크면 경합이, 보유가 크면
@@ -394,13 +440,13 @@ public class EngineConfig {
     @Bean
     @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
             prefix = "exchange.engine", name = "enabled", matchIfMissing = true)
-    public SmartLifecycle engineRuntimeLifecycle(LeaderLeaseService lease, SingleWriterLoop loop,
+    public SmartLifecycle engineRuntimeLifecycle(LeaderLeaseService lease, WriterRouter router,
                                                  EngineRecovery recovery,
                                                  MatchingEngineImpl engine,
                                                  PromotionCoordinator promotionCoordinator,
                                                  kr.exchange.engine.FollowerCatchUp followerCatchUp) {
         // 리더십 상실 확정 시 self-shutdown: 잔여 큐를 버리고 즉시 정지한다(DB 설계 §5.4).
-        lease.onLeadershipLost(loop::halt);
+        lease.onLeadershipLost(router::haltAll);
         return new SmartLifecycle() {
             private volatile boolean running;
 
@@ -411,7 +457,11 @@ public class EngineConfig {
                 // 강제 종료 직후 재기동은 직전 프로세스 리스가 TTL 내 유효할 수 있어 부팅
                 // 경로는 만료 대기 후 승격을 재시도한다(EngineRecovery.recoverAtBoot).
                 recovery.recoverAtBoot(engine);
-                loop.start();
+                // ADR 0021 5단계. 복구는 종전 그대로 전역 엔진 하나로 하고, 그 안의 북을
+                // 마켓마다 나눠 담기만 한다. 복구 경로를 마켓별로 쪼개지 않는 것이 이 설계의
+                // 요점이다. 북 자체가 이미 마켓 단위이고 복구 경로는 검증돼 있다.
+                router.installFrom(engine);
+                router.startAll();
                 // 부팅 시점에 리더면 즉시 접수 개방, 아니면 팔로워로 게이트를 닫는다. arm 이후의
                 // gain(런타임 승격)만 fresh 엔진 선복원 경로를 탄다(복구 RTO §3-a).
                 promotionCoordinator.bootstrap(engine, lease.isLeader());
@@ -431,7 +481,7 @@ public class EngineConfig {
                 followerCatchUp.stop();
                 lease.stop();
                 try {
-                    loop.stop();
+                    router.stopAll();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
