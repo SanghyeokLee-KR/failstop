@@ -19,6 +19,7 @@
 import argparse
 import io
 import json
+import re
 import os
 import subprocess
 import sys
@@ -119,6 +120,25 @@ def reissue_keys():
         except Exception:
             time.sleep(10)
     return 0
+
+
+def run_id_for(suite, label):
+    """주행 이름을 만든다. order_flow.js 가 [A-Za-z0-9_-] 1~16자만 받는다.
+
+    그 제한은 client_order_id 가 서버 검증(OrderGateway [A-Za-z0-9_-]{1,36})에
+    걸리지 않게 하려는 것이다. 벗어나면 k6 가 기동 즉시 script exception 으로 죽는다.
+
+    2026-09-10 실측. 종전에는 'clean-%s-%s' % (suite, label) 로 만들었고 그 결과
+    열두 칸 중 여섯 칸이 죽었다. clean-ceiling-20 은 16자라 살고 clean-ceiling-120 은
+    17자라 죽었다. clean-dbspec-1.0코어 는 한글까지 섞여 죽었다. 칸의 유효와 무효가
+    부하율이 아니라 이름 길이로 갈렸다. order_flow.js 는 그 사유를 정확히 적어 냈으나
+    러너가 출력을 파이프로 받고 읽지 않아 그 문장이 버려졌다.
+    """
+    body = re.sub(r'[^A-Za-z0-9_-]', '', '%s%s' % (suite[:4], label))
+    rid = body[:16]
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,16}', rid):
+        raise ValueError('주행 이름을 만들 수 없다: %r -> %r' % (label, rid))
+    return rid
 
 
 def keys_match_db():
@@ -315,7 +335,7 @@ def main():
             continue
 
         k6log = str(ROOT / ('harness/evidence/k6-%s-%s.log' % (a.suite, label)))
-        proc = run_k6(rate, a.duration, 'clean-%s-%s' % (a.suite, label), log_path=k6log)
+        proc = run_k6(rate, a.duration, run_id_for(a.suite, label), log_path=k6log)
         time.sleep(min(duration_fill(a.duration), a.duration - 5))
         s = measure()
         s['cell'] = label
