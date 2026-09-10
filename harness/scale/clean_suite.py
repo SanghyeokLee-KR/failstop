@@ -264,6 +264,23 @@ SUITES = {
                              'SCALE_QUERY_INFLIGHT': '0', 'SCALE_REQUERY_INFLIGHT': '0',
                              'SCALE_PG_CPUS': c, 'SCALE_PG_MEM': m}, None)
                for c, m in (('1.0', '1g'), ('2.0', '2g'), ('4.0', '4g'), ('8.0', '8g'))],
+    # 수용 정원이 축이다. 풀을 64로 고정하고 쓰기 정원만 벌린다.
+    #
+    # 왜 풀을 크게 고정하는가. AdmissionLimits 가 명시 설정에서 예비분을 검사한다.
+    # pool - write - query - requery > 0 이 아니면 기동을 멈춘다. 풀 32 에서는
+    # 쓰기 정원을 24 위로 올릴 자리가 없다. 그리고 풀 사다리가 풀 자체는 접수에
+    # 영향이 없음을 이미 보였으므로(16 에서 128 까지 접수 불변, 풀 대기 0)
+    # 풀을 키워도 축이 오염되지 않는다.
+    #
+    # 왜 조회와 재조회를 12 와 3 으로 고정하는가. 풀 32 의 유도값이다. 기준선과
+    # 같은 조회 조건을 두어야 쓰기 축만 남는다.
+    #
+    # 데이터베이스는 4코어로 둔다. 2026-09-10 실측에서 규격이 접수를 6퍼센트만
+    # 움직였으므로 이 축의 교란 요인이 아니다.
+    'admission': [(str(w), {'SCALE_POOL': '64', 'SCALE_ORDER_INFLIGHT': str(w),
+                            'SCALE_QUERY_INFLIGHT': '12', 'SCALE_REQUERY_INFLIGHT': '3',
+                            'SCALE_PG_CPUS': '4.0', 'SCALE_PG_MEM': '4g'},
+                   ('limit', w)) for w in (12, 24, 36, 48)],
     # 부하율이 축이다. 설정은 기본으로 고정한다.
     'ceiling': [(str(r), {'SCALE_POOL': '32', 'SCALE_ORDER_INFLIGHT': '0',
                           'SCALE_QUERY_INFLIGHT': '0', 'SCALE_REQUERY_INFLIGHT': '0',

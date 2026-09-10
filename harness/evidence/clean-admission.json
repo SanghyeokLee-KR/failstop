@@ -1,0 +1,102 @@
+{
+ "suite": "admission",
+ "duration": 130,
+ "bots_ops": 20,
+ "rows": [
+  {
+   "접수/s": 73.22792558235771,
+   "체결/s": 6.50034823294105,
+   "수용거절/s": 96.29087272532458,
+   "비201/s": 0.017242271151956135,
+   "전체요청/s": 72.95204924392641,
+   "p95(ms)": 466.4870269333332,
+   "p99(ms)": 557.1527009333327,
+   "시퀀서 큐": 10.0,
+   "풀 대기": 0.0,
+   "DB CPU%": 64.2551,
+   "읽은튜플/s": 135739.476698729,
+   "쓴튜플/s": 1101.8601014600797,
+   "cell": "12",
+   "rate": 150,
+   "db_before": {
+    "주문": 0,
+    "체결": 0,
+    "DB(MB)": 12
+   },
+   "db_after": {
+    "주문": 10566,
+    "체결": 1986,
+    "DB(MB)": 41
+   },
+   "k6_rc": 0,
+   "k6_tail": "vel=info msg=\"ACK|{\\\"ak\\\":\\\"AK3BIhDhDA1STaJtgm6qUO5bh6qZjSi5\\\",\\\"coid\\\":\\\"k6-admi12-152-129\\\",\\\"oid\\\":\\\"48182db8-cbce-4c33-a3eb-85d47b79ea6b\\\",\\\"t\\\":1789006176116}\" source=console\ntime=\"2026-09-10T02:09:36Z\" level=info msg=\"ACK|{\\\"ak\\\":\\\"AKYO9WIpTMDgxtTXzklnM7vMldoOGSyd\\\",\\\"coid\\\":\\\"k6-admi12-171-129\\\",\\\"oid\\\":\\\"8c662e27-88b8-424f-a4a6-bad6547d2932\\\",\\\"t\\\":1789006176126}\" source=console\ntime=\"2026-09-10T02:09:36Z\" level=info msg=\"ACK|{\\\"ak\\\":\\\"AK3BIhDhDA1STaJtgm6qUO5bh6qZjSi5\\\",\\\"coid\\\":\\\"k6-admi12-172-130\\\",\\\"oid\\\":\\\"3d7bce7e-a682-48fa-8f1a-d282f7033ebf\\\",\\\"t\\\":1789006176137}\" source=console\n",
+   "제공/s": 169.52,
+   "k6추정/s": 152.52
+  },
+  {
+   "cell": "24",
+   "error": "초기화 실패",
+   "stderr": "Container chaos-alertmanager Started \n Container chaos-prometheus Starting \n Container chaos-cstats Started \n Container chaos-pg Started \n Container chaos-pg Waiting \n Container chaos-pg Waiting \n Container chaos-prometheus Started \n Container chaos-grafana Starting \n Container chaos-grafana Started \n Container chaos-pg Healthy \n Container chaos-pg-exporter Starting \n Container chaos-pg Healthy \n Container chaos-toxiproxy Starting \n Container chaos-pg-exporter Started \nError response from daemon: ports are not available: exposing port TCP 0.0.0.0:58474 -> 127.0.0.1:0: listen tcp 0.0.0.0:58474: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.\n"
+  },
+  {
+   "접수/s": 68.0380019656189,
+   "체결/s": 8.79355828749763,
+   "수용거절/s": 101.41903891580598,
+   "비201/s": 0.0,
+   "전체요청/s": 68.0380019656189,
+   "p95(ms)": 889.6091347107842,
+   "p99(ms)": 976.4091134277771,
+   "시퀀서 큐": 34.0,
+   "풀 대기": 0.0,
+   "DB CPU%": 65.9808,
+   "읽은튜플/s": 133841.10042365946,
+   "쓴튜플/s": 1109.4059675982326,
+   "cell": "36",
+   "rate": 150,
+   "db_before": {
+    "주문": 0,
+    "체결": 0,
+    "DB(MB)": 12
+   },
+   "db_after": {
+    "주문": 10239,
+    "체결": 1938,
+    "DB(MB)": 40
+   },
+   "k6_rc": 0,
+   "k6_tail": "vel=info msg=\"ACK|{\\\"ak\\\":\\\"AK4KFZCMgxe7BmRJGb2B6ZdvnLxNBCka\\\",\\\"coid\\\":\\\"k6-admi36-195-129\\\",\\\"oid\\\":\\\"66df0410-af7b-4107-af1e-06171707ee83\\\",\\\"t\\\":1789006456737}\" source=console\ntime=\"2026-09-10T02:14:16Z\" level=info msg=\"ACK|{\\\"ak\\\":\\\"AK4KFZCMgxe7BmRJGb2B6ZdvnLxNBCka\\\",\\\"coid\\\":\\\"k6-admi36-151-129\\\",\\\"oid\\\":\\\"0fb8ac1a-9661-4a2f-bc29-dd6b7e80c776\\\",\\\"t\\\":1789006456749}\" source=console\ntime=\"2026-09-10T02:14:16Z\" level=info msg=\"ACK|{\\\"ak\\\":\\\"AK7zQXPxoG1RVtnfPxSRStUvSdcstpim\\\",\\\"coid\\\":\\\"k6-admi36-137-129\\\",\\\"oid\\\":\\\"d4311c52-51f3-441e-ba8d-b78b564ee5d6\\\",\\\"t\\\":1789006456759}\" source=console\n",
+   "제공/s": 169.46,
+   "k6추정/s": 152.46
+  },
+  {
+   "접수/s": 68.96908460782454,
+   "체결/s": 6.276186699312033,
+   "수용거절/s": 100.29829129092884,
+   "비201/s": null,
+   "전체요청/s": 68.96908460782454,
+   "p95(ms)": 1199.5539971999995,
+   "p99(ms)": 1385.2354114399996,
+   "시퀀서 큐": 46.0,
+   "풀 대기": 0.0,
+   "DB CPU%": 67.5097,
+   "읽은튜플/s": 131333.8909395058,
+   "쓴튜플/s": 1064.8399003582015,
+   "cell": "48",
+   "rate": 150,
+   "db_before": {
+    "주문": 0,
+    "체결": 0,
+    "DB(MB)": 12
+   },
+   "db_after": {
+    "주문": 10305,
+    "체결": 1814,
+    "DB(MB)": 40
+   },
+   "k6_rc": 0,
+   "k6_tail": "vel=info msg=\"ACK|{\\\"ak\\\":\\\"AKGSVbgKR61JNFY6zv103S4fJOWVL1A9\\\",\\\"coid\\\":\\\"k6-admi48-129-131\\\",\\\"oid\\\":\\\"cffecb44-924d-4ad8-9370-eb09c4d5c7d9\\\",\\\"t\\\":1789006720148}\" source=console\ntime=\"2026-09-10T02:18:40Z\" level=info msg=\"ACK|{\\\"ak\\\":\\\"AKGSVbgKR61JNFY6zv103S4fJOWVL1A9\\\",\\\"coid\\\":\\\"k6-admi48-173-128\\\",\\\"oid\\\":\\\"21ecacac-50f6-4483-86d7-7a97d9e3d0b4\\\",\\\"t\\\":1789006720159}\" source=console\ntime=\"2026-09-10T02:18:40Z\" level=info msg=\"ACK|{\\\"ak\\\":\\\"AKaiuil5f6ZtsjFrTYwrSvquiQTptMr9\\\",\\\"coid\\\":\\\"k6-admi48-160-126\\\",\\\"oid\\\":\\\"bdefc52d-013d-4da9-80ba-24191c30c76e\\\",\\\"t\\\":1789006720169}\" source=console\n",
+   "제공/s": 169.27,
+   "k6추정/s": 152.27
+  }
+ ]
+}
