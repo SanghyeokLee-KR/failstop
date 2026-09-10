@@ -63,3 +63,6 @@ harness/load/secrets/k6_keys.json
 # 실제로 제출_20260901/~$기획안.docx 가 162 바이트로 추적되고 있었다(2026-09-08 제거).
 ~$*
 __pycache__/
+
+# k6 원문 로그. 회차마다 수 MB 이고 진단용이다. 판정은 clean-*.json 이 갖는다.
+harness/evidence/k6-*.log
