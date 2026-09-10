@@ -294,11 +294,11 @@ public class EngineConfig {
                 // 이벤트 정산 실패는 무음 재시도 대상이 아니다. 원인 불문 리더십을 함께
                 // 내려놓아 접수 경로를 닫는다(LoopFatalHandler, DB 설계 §5.4).
                 new LoopFatalHandler(leaderLeaseService));
-        // 단일 라이터 큐 깊이 Gauge(§5-2 백프레셔 P4). 스크레이프 시점 queue.size() 조회라
-        // 라이터 핫패스와 무관하다.
-        io.micrometer.core.instrument.Gauge
-                .builder("exchange.sequencer.queue.size", loop, SingleWriterLoop::queueSize)
-                .description("단일 라이터 명령 큐 깊이(백프레셔)").register(meterRegistry);
+        // 큐 깊이 Gauge 는 여기서 등록하지 않는다. 접수가 마켓별 라우터로 가므로 이 빈의
+        // 루프에는 명령이 들어오지 않는다(ADR 0021 5단계). 종전에는 여기서 라벨 없이
+        // 등록했고, Micrometer 가 먼저 등록된 미터를 유지하므로 라우터가 마켓 라벨로
+        // 등록한 것이 덮이지 않고 밀려났다. 2026-09-10 실측에서 마켓별 큐가 관측되지
+        // 않은 원인이 이것이다. 라이터 스레드는 셋이 돌고 있었고 지표만 옛 것이었다.
         // 직렬 구간 분해(정본 13.5 한계 29). 저널과 커밋이 상한이 아님을 소거한 뒤
         // 남은 후보가 이 구간이다. 셋을 갈라 세어 무엇이 지배하는지 본다.
         //
