@@ -259,10 +259,31 @@ public class EngineConfig {
                     },
                     new JournalCatchUpSource(commandJournalReader, commandPayloadMapper, marketId),
                     new LoopFatalHandler(leaderLeaseService));
+            String tag = String.valueOf(marketId);
             io.micrometer.core.instrument.Gauge
                     .builder("exchange.sequencer.queue.size", loop, SingleWriterLoop::queueSize)
-                    .tag("market", String.valueOf(marketId))
+                    .tag("market", tag)
                     .description("마켓별 라이터 명령 큐 깊이(백프레셔)").register(meterRegistry);
+            // 직렬 구간 분해(정본 13.5 한계 29). 누적 나노초를 그대로 낸다. rate() 로
+            // 초당 소비 시간이 나오고 그것이 직렬 점유율이다. 1.0 이면 그 마켓의 라이터가
+            // 그 구간만으로 꽉 찬다. 마켓 라벨이 없으면 두 번째 마켓에서 미터 id 가
+            // 충돌해 첫 루프만 관측된다.
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.writer.apply.nanos", loop, SingleWriterLoop::applyNanos)
+                    .tag("market", tag)
+                    .description("매칭 적용 누적 나노초").register(meterRegistry);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.writer.sink.nanos", loop, SingleWriterLoop::sinkNanos)
+                    .tag("market", tag)
+                    .description("이벤트 sink 누적 나노초(정산과 발행)").register(meterRegistry);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.writer.hook.nanos", loop, SingleWriterLoop::hookNanos)
+                    .tag("market", tag)
+                    .description("스냅샷 훅 누적 나노초").register(meterRegistry);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.writer.apply.count", loop, SingleWriterLoop::applyCount)
+                    .tag("market", tag)
+                    .description("적용 호출 수. 위 셋의 분모").register(meterRegistry);
             return new WriterRouter.Shard(shardEngine, loop);
         });
     }
@@ -299,23 +320,10 @@ public class EngineConfig {
         // 등록했고, Micrometer 가 먼저 등록된 미터를 유지하므로 라우터가 마켓 라벨로
         // 등록한 것이 덮이지 않고 밀려났다. 2026-09-10 실측에서 마켓별 큐가 관측되지
         // 않은 원인이 이것이다. 라이터 스레드는 셋이 돌고 있었고 지표만 옛 것이었다.
-        // 직렬 구간 분해(정본 13.5 한계 29). 저널과 커밋이 상한이 아님을 소거한 뒤
-        // 남은 후보가 이 구간이다. 셋을 갈라 세어 무엇이 지배하는지 본다.
-        //
-        // 누적 나노초를 그대로 낸다. FunctionCounter 라 rate() 로 초당 소비 시간이
-        // 나오고 그것이 곧 직렬 점유율이다. 1.0 이면 그 구간만으로 꽉 찬다.
-        io.micrometer.core.instrument.FunctionCounter
-                .builder("exchange.writer.apply.nanos", loop, SingleWriterLoop::applyNanos)
-                .description("매칭 적용 누적 나노초").register(meterRegistry);
-        io.micrometer.core.instrument.FunctionCounter
-                .builder("exchange.writer.sink.nanos", loop, SingleWriterLoop::sinkNanos)
-                .description("이벤트 sink 누적 나노초(정산과 발행)").register(meterRegistry);
-        io.micrometer.core.instrument.FunctionCounter
-                .builder("exchange.writer.hook.nanos", loop, SingleWriterLoop::hookNanos)
-                .description("스냅샷 훅 누적 나노초").register(meterRegistry);
-        io.micrometer.core.instrument.FunctionCounter
-                .builder("exchange.writer.apply.count", loop, SingleWriterLoop::applyCount)
-                .description("적용 호출 수. 위 셋의 분모").register(meterRegistry);
+        // 직렬 구간 분해 지표는 여기서 등록하지 않는다. 접수가 마켓별 라우터로 가므로
+        // 이 빈의 루프에는 명령이 들어오지 않아 값이 늘 0 이다. 큐 깊이와 같은 사고였다.
+        // 2026-09-10 실측에서 이 카운터를 읽어 명령 0건이 나왔고, 실제 일은 라우터의
+        // 루프 열둘이 하고 있었다. 등록 자리를 라우터 팩토리로 옮긴다.
         return loop;
     }
 
