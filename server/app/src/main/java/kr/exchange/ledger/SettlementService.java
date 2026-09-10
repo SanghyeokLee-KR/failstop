@@ -54,14 +54,39 @@ public class SettlementService {
     private static final int NOTIONAL_SOAK_SCALE = 18;
 
     /**
-     * fencing 검증·행 잠금·epoch 반환을 한 왕복으로 한다(V30 assert_and_lock_leader).
+     * 정산 머리말. 종전 세 왕복을 한 왕복으로 묶는다.
      *
-     * 종전에는 assert_current_leader 호출과 FOR SHARE 조회를 따로 보냈다. 앞이 거부
-     * 사유를, 뒤가 커밋까지의 보장을 담당해 둘 다 필요했다. 함수가 둘을 겸하므로 왕복이
-     * 하나 준다. 거부 시 예외 메시지가 종전과 같아 FencingErrors 분류가 바뀌지 않는다.
+     * 무엇을 묶는가. (1) fencing 검증과 리스 행 FOR SHARE, (2) 이 명령의 이벤트가 이미
+     * 적재됐는지 세는 멱등 탐침, (3) 정산 대상 명령 읽기다. 셋 다 cmdSeq 하나로 정해지는
+     * 조회이고 서로의 결과를 입력으로 쓰지 않는다. 그래서 한 문장에 담을 수 있다.
+     *
+     * (1) 은 V30 이 이미 두 문장을 하나로 합쳐 둔 것이다. assert_current_leader 호출과
+     * FOR SHARE 조회를 따로 보내던 것을 함수 하나가 겸한다. 거부 시 예외 메시지가 종전과
+     * 같아 FencingErrors 의 강등 분류가 바뀌지 않는다. 그 성질은 여기서도 그대로다.
+     *
+     * 왜 하는가. 2026-09-10 실측에서 명령 하나의 직렬 시간 21.36밀리초 중 매칭이 0.02 이고
+     * 나머지가 전부 정산이었다. 대기 사유는 행 잠금이 3.8퍼센트뿐이라 경합이 아니었다.
+     * 남은 설명이 왕복 횟수였다. V30 이 같은 판단으로 (1) 을 두 문장에서 한 문장으로 줄였고
+     * 이번은 그 자리에 (2) 와 (3) 을 마저 붙인다.
+     *
+     * 왜 이 모양인가. 한 행짜리 원천에 command_journal 을 LEFT JOIN 한다. 안쪽 조인으로 두면
+     * 명령 행이 없을 때 결과가 0행이 되고, 그러면 assert_and_lock_leader 가 아예 실행되지
+     * 않아 fencing 거부와 명령 부재를 가릴 수 없게 된다. LEFT JOIN 이면 언제나 한 행이고
+     * 판정 순서를 종전과 같이 유지할 수 있다.
+     *
+     * 판정 순서는 바뀌지 않는다. 리스 거부, 멱등 스킵, 부분 적재, 명령 부재 순이다.
      */
-    private static final String ASSERT_AND_LOCK_SQL =
-            "SELECT assert_and_lock_leader(?, ?)";
+    private static final String PROLOGUE_SQL =
+            "SELECT assert_and_lock_leader(?, ?) AS epoch,"
+            + " (SELECT count(*) FROM event_emission_registry"
+            + "   WHERE source_cmd_seq = ?) AS registered,"
+            + " " + CommandJournalReader.ENTRY_COLUMNS
+            + " FROM (VALUES (1)) AS one(x)"
+            + " LEFT JOIN command_journal ON seq = ?";
+
+    /** 머리말 한 왕복의 결과. entry 는 명령 행이 없으면 null 이다. */
+    private record Prologue(Long epoch, long registered, JournalEntry entry) {
+    }
 
     private static final String INSERT_EVENT_SQL = """
             INSERT INTO event_journal
@@ -113,7 +138,6 @@ public class SettlementService {
     private final LeaderLeaseService lease;
     private final ObjectMapper objectMapper;
     private final MarketCatalog catalog;
-    private final CommandJournalReader commandReader;
     private final CommandPayloadMapper payloadMapper;
     // 좀비 리더 판정의 진행 축(§5.4). 승격 재생의 크래시 창 재정산도 이 경로를 타므로, 접수가
     // 닫힌 승격 구간에서도 진행성이 관측돼 오탐 강등이 나지 않는다.
@@ -128,21 +152,20 @@ public class SettlementService {
 
     public SettlementService(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease,
                              ObjectMapper objectMapper, MarketCatalog catalog,
-                             CommandJournalReader commandReader, CommandPayloadMapper payloadMapper) {
-        this(jdbc, tx, lease, objectMapper, catalog, commandReader, payloadMapper,
+                             CommandPayloadMapper payloadMapper) {
+        this(jdbc, tx, lease, objectMapper, catalog, payloadMapper,
                 new LeaderWriteProgress());
     }
 
     public SettlementService(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease,
                              ObjectMapper objectMapper, MarketCatalog catalog,
-                             CommandJournalReader commandReader, CommandPayloadMapper payloadMapper,
+                             CommandPayloadMapper payloadMapper,
                              LeaderWriteProgress progress) {
         this.jdbc = jdbc;
         this.tx = tx;
         this.lease = lease;
         this.objectMapper = objectMapper;
         this.catalog = catalog;
-        this.commandReader = commandReader;
         this.payloadMapper = payloadMapper;
         this.progress = progress;
     }
@@ -204,24 +227,24 @@ public class SettlementService {
     }
 
     private List<EngineEvent> settleInTx(LeaderIdentity leader, long cmdSeq, List<EngineEvent> events) {
-        // fencing 검증과 FOR SHARE 잠금을 한 왕복으로 한다(V30). 종전에는 두 문장을 연달아
-        // 보냈다. 앞 문장이 거부 사유를 주고 뒤 문장이 커밋까지의 보장을 주는 구조였는데,
-        // 함수가 둘 다 하므로 왕복 하나가 준다. 거부 메시지는 종전과 같아 강등 분류가 그대로다.
+        // 머리말 한 왕복. fencing 검증과 FOR SHARE 잠금(V30)에 멱등 탐침과 명령 읽기를
+        // 함께 실어 세 왕복을 하나로 줄인다. 거부 메시지는 종전과 같아 강등 분류가 그대로다.
         // 잠금을 잡은 뒤 판정하므로 판정과 커밋 사이에 epoch 이 바뀌지 않는다.
-        Long epoch = jdbc.sql(ASSERT_AND_LOCK_SQL)
-                .params(leader.holder(), leader.epoch())
-                .query(Long.class)
-                .optional()
-                .orElse(null);
+        Prologue prologue = jdbc.sql(PROLOGUE_SQL)
+                .params(leader.holder(), leader.epoch(), cmdSeq, cmdSeq)
+                .query((rs, rowNum) -> new Prologue(
+                        (Long) rs.getObject("epoch"),
+                        rs.getLong("registered"),
+                        rs.getObject("seq") == null ? null : CommandJournalReader.mapEntry(rs)))
+                .single();
+
+        Long epoch = prologue.epoch();
         if (epoch == null) {
             throw new StaleLeaderException(
                     "stale 리더 정산 거부: holder=" + leader.holder() + ", epoch=" + leader.epoch());
         }
 
-        long registered = jdbc.sql("SELECT count(*) FROM event_emission_registry WHERE source_cmd_seq = ?")
-                .params(cmdSeq)
-                .query(Long.class)
-                .single();
+        long registered = prologue.registered();
         if (registered == events.size()) {
             // 이벤트가 적재돼 있으면 정산도 같은 커밋에 포함돼 있었다. 재정산 없이 스킵(§5.5 ②).
             // event_seq는 레지스트리 적재분으로 채워 반환한다. WS 게시 등 호출측이 seq를 쓴다.
@@ -232,7 +255,10 @@ public class SettlementService {
                     + registered + "/" + events.size() + " (원자 커밋 계약 위반)");
         }
 
-        JournalEntry entry = readCommand(cmdSeq);
+        JournalEntry entry = prologue.entry();
+        if (entry == null) {
+            throw new IllegalStateException("정산 대상 명령이 저널에 없다: seq=" + cmdSeq);
+        }
         OrderCommand command = payloadMapper.toCommand(entry);
         CommandPayloadMapper.Extras extras = payloadMapper.extras(entry);
 
@@ -621,14 +647,6 @@ public class SettlementService {
             assigned.add(event.withEventSeq(seq));
         }
         return assigned;
-    }
-
-    private JournalEntry readCommand(long cmdSeq) {
-        List<JournalEntry> found = commandReader.readAfter(cmdSeq - 1, 1);
-        if (found.isEmpty() || found.get(0).seq() != cmdSeq) {
-            throw new IllegalStateException("정산 대상 명령이 저널에 없다: seq=" + cmdSeq);
-        }
-        return found.get(0);
     }
 
     private List<OrderRow> lockOrders(long oid1, long oid2) {

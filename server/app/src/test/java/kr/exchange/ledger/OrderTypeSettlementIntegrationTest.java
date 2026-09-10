@@ -102,8 +102,7 @@ class OrderTypeSettlementIntegrationTest {
         commandReader = new CommandJournalReader(jdbc);
         payloadMapper = new CommandPayloadMapper(objectMapper);
         catalog = new MarketCatalog(jdbc);
-        settlement = new SettlementService(jdbc, tx, lease, objectMapper, catalog,
-                commandReader, payloadMapper);
+        settlement = new SettlementService(jdbc, tx, lease, objectMapper, catalog, payloadMapper);
         engine = new MatchingEngineImpl();
 
         AccountBootstrap bootstrap = new AccountBootstrap(jdbc);

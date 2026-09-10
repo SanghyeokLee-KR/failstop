@@ -113,8 +113,7 @@ class PositionCostIntegrationTest {
         commandAppender = new CommandJournalAppender(jdbc, tx, lease);
         commandReader = new CommandJournalReader(jdbc);
         payloadMapper = new CommandPayloadMapper(objectMapper);
-        settlement = new SettlementService(jdbc, tx, lease, objectMapper, new MarketCatalog(jdbc),
-                commandReader, payloadMapper);
+        settlement = new SettlementService(jdbc, tx, lease, objectMapper, new MarketCatalog(jdbc), payloadMapper);
         engine = new MatchingEngineImpl();
 
         AccountBootstrap bootstrap = new AccountBootstrap(jdbc);

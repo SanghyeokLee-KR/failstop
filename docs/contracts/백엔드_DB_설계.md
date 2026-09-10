@@ -369,7 +369,9 @@ erDiagram
 | V33 | `V33__publish_leader_epoch.sql` | `publish_leader_epoch`. 리더 임차를 DynamoDB 로 옮긴 뒤 승격 때만 세대 번호를 게시한다(ADR 0017) | V1(`leader_lease`) |
 | V34 | `V34__single_operator_approval.sql` | `chk_approval_two_person` 제약 제거. 파괴 액션 승인을 1인 승인으로 바꾼다(ADR 0019). 바꾼 뒤의 판정 축은 정본 8.2가 남긴 방어 일곱이다: 승인 티켓 별도 발급 단계, 티켓 수명 5분, 단회 소각, 액션과 대상 바인딩, 요청자 바인딩, 역할 통제, 추가만 가능한 감사 기록. 사라진 한 겹은 발급자와 사용자의 분리이고, 그 대가는 정본 13.3 한계 11이 등재한다 | V5(`admin_approvals` 생성) |
 | V35 | `V35__orders_locked_account_index.sql` | `orders.locked_account_id` 부분 인덱스. C14 불변식이 orders 를 순차 스캔하던 것을 인덱스로 바꾼다. 열린 상태 셋만 담는다 | V1 |
-| V36+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V36 | `V36__market_seq.sql` | 마켓별 순서 축. `market_journal_counters`와 `next_market_journal_value`, `event_journal`의 `market_id`·`market_seq` 열. 전역 채번 한 행에서 직렬화되던 정산을 마켓별 카운터로 가른다(ADR 0021 1단계). `markets` 외래키를 걸지 않는 이유는 저널이 마켓 행의 실재를 요구하지 않기 때문이다 | V1(`event_journal`), V0(`app_role` GRANT) |
+| V37 | `V37__ledger_batch_balance_update.sql` | 원장 게시의 잔고 갱신을 계좌별 UPDATE 루프에서 오름차순 잠금 한 문장과 일괄 UPDATE 한 문장으로 묶는다. 잠금 순서는 `SELECT ... ORDER BY account_id FOR NO KEY UPDATE`가 지킨다. `UPDATE ... FROM`에 맡기면 계획기가 훑는 순서를 정해 규약이 깨진다 | V27(`post_ledger_transaction` 재정의. V13의 `apply_position_cost` 호출 유지) |
+| V38+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -782,7 +784,7 @@ CREATE TRIGGER trg_guard_txn_transition BEFORE UPDATE ON ledger_transactions
 
 -- 4.3 원장 게시 단일 경로 post_ledger_transaction(P0-2)
 --     게시 경로는 SECURITY DEFINER post_ledger_transaction 하나다. 헤더 FOR UPDATE,
---     entry 수 일치 검증, 자산 scale 양자화 재검증(P0-3), 삽입된 entry에서 델타 직접 집계,
+--     entry 수 일치 검증, 자산 scale 양자화 재검증(P0-3), 입력 JSONB에서 델타 직접 집계(V27),
 --     account_id 오름차순 잔고 갱신(전역 잠금 순서 규약), 자산별 합=0 검증,
 --     clock_timestamp() 봉인까지 함수가 수행한다. seal_ledger_transaction은 제거한다.
 --     앱 롤은 원장·잔고 직접 DML이 없고 함수 EXECUTE만 가진다.
@@ -791,88 +793,31 @@ CREATE TRIGGER trg_guard_txn_transition BEFORE UPDATE ON ledger_transactions
 --   2) balances를 account_id 오름차순으로 행 잠금
 -- 예약/취소/체결 등 원장을 만지는 모든 경로가 이 함수를 경유하므로 규약이 물리 강제된다.
 -- 검증: entry 수 일치, 자산 scale 양자화(P0-3), 자산별 합=0, 빈 거래 금지.
--- 잔고 델타는 앱 전달값이 아니라 삽입된 entry에서 DB가 직접 집계한다.
-CREATE OR REPLACE FUNCTION post_ledger_transaction(
-    p_business_event_type VARCHAR,
-    p_business_event_id   BIGINT,
-    p_entries             JSONB
-) RETURNS BIGINT
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-    v_txn      BIGINT;
-    v_expected INT;
-    v_inserted INT;
-    r          RECORD;
-BEGIN
-    IF p_entries IS NULL OR jsonb_typeof(p_entries) <> 'array'
-       OR jsonb_array_length(p_entries) = 0 THEN
-        RAISE EXCEPTION '빈 거래 게시 금지: entries가 비어 있음(event=% %)',
-            p_business_event_type, p_business_event_id;
-    END IF;
-    v_expected := jsonb_array_length(p_entries);
-
-    -- 멱등 키 UNIQUE가 이중 게시를 23505로 차단한다.
-    INSERT INTO ledger_transactions (business_event_type, business_event_id)
-    VALUES (p_business_event_type, p_business_event_id)
-    RETURNING id INTO v_txn;
-
-    -- 헤더 잠금. 자체 생성 행이라 이미 배타적이지만 게시 경로의 잠금 패턴을 고정한다.
-    PERFORM 1 FROM ledger_transactions WHERE id = v_txn FOR UPDATE;
-
-    INSERT INTO ledger_entries (transaction_id, account_id, asset_id, amount, entry_type)
-    SELECT v_txn, e.account_id, e.asset_id, e.amount, e.entry_type
-    FROM jsonb_to_recordset(p_entries)
-         AS e(account_id BIGINT, asset_id SMALLINT, amount NUMERIC, entry_type VARCHAR);
-    GET DIAGNOSTICS v_inserted = ROW_COUNT;
-    IF v_inserted <> v_expected THEN
-        RAISE EXCEPTION 'entry 수 불일치: 기대 % 실제 % (txn=%)', v_expected, v_inserted, v_txn;
-    END IF;
-
-    -- 양자화 검증(P0-3): 자산 scale을 넘는 소수는 게시 자체를 거부한다.
-    IF EXISTS (
-        SELECT 1 FROM ledger_entries le JOIN assets a ON a.id = le.asset_id
-        WHERE le.transaction_id = v_txn
-          AND le.amount <> round(le.amount, a.scale::int)
-    ) THEN
-        RAISE EXCEPTION '양자화 위반: 자산 scale 초과 소수 존재(txn=%)', v_txn;
-    END IF;
-
-    -- 잔고 갱신. account_id 오름차순 UPDATE로 행 배타 잠금을 항상 같은 순서로 획득한다.
-    -- balances CHECK(>=0)가 이중지출/과다락을 커밋 전에 차단한다.
-    FOR r IN
-        SELECT le.account_id, SUM(le.amount) AS delta
-        FROM ledger_entries le
-        WHERE le.transaction_id = v_txn
-        GROUP BY le.account_id
-        ORDER BY le.account_id
-    LOOP
-        UPDATE balances
-        SET balance = balance + r.delta, version = version + 1
-        WHERE account_id = r.account_id;
-        IF NOT FOUND THEN
-            RAISE EXCEPTION 'balances 행 없음: account=% (txn=%)', r.account_id, v_txn;
-        END IF;
-    END LOOP;
-
-    -- 자산별 합=0 최종 검증(자산 보존)
-    IF EXISTS (
-        SELECT 1 FROM ledger_entries
-        WHERE transaction_id = v_txn
-        GROUP BY asset_id HAVING SUM(amount) <> 0
-    ) THEN
-        RAISE EXCEPTION '원장 불균형: txn=% 자산별 합이 0이 아님(자산 보존 위반)', v_txn;
-    END IF;
-
-    -- clock_timestamp(): 장기 트랜잭션에서도 실제 봉인 시각을 기록한다.
-    UPDATE ledger_transactions
-    SET status = 'SEALED', sealed_at = clock_timestamp()
-    WHERE id = v_txn AND status = 'OPEN';
-    IF NOT FOUND THEN
-        RAISE EXCEPTION '봉인 실패: txn=% OPEN 상태 아님', v_txn;
-    END IF;
-
-    RETURN v_txn;
-END $$;
+-- 잔고 델타는 앱이 계산해 넘긴 값이 아니다. 함수가 입력 JSONB를 계좌별로 직접 집계한다.
+-- V1은 같은 집계를 방금 삽입한 ledger_entries를 다시 읽어서 했고 V27이 입력으로 옮겼다.
+-- 삽입 자체가 그 입력에서 나오므로 두 원천은 같은 값이고, 재조회 세 건이 사라진다.
+-- 본문은 여기에 옮겨 적지 않는다. 마이그레이션 파일이 정본이다.
+--
+-- 왜 옮겨 적지 않는가. 이 자리에는 V1 본문이 통째로 실려 있었고 그 뒤 함수가 두 번
+-- 개정되는 동안 갱신되지 않았다. 2026-09-10 에 그 낡은 사본을 기준으로 새 판을 쓰는
+-- 사고가 났다. V27 이 없앤 재조회 세 건이 되살아나고 V13 이 넣은 원가 프로젝션 호출이
+-- 사라져 시험 열두 건이 깨졌다. 같은 사실을 두 곳에 두면 반드시 갈린다. 가리키기만 한다.
+--
+-- 현재 본문:  V37__ledger_batch_balance_update.sql
+-- 개정 이력:
+--   V1  최초. 삽입한 entry 를 다시 읽어 검증하고 계좌마다 UPDATE 를 돈다
+--   V13 말미에 apply_position_cost(v_txn) 추가. 원가 프로젝션(계층 3)
+--   V27 검증 세 건(양자화·잔고 델타·자산별 합)을 입력 JSONB 에서 직접 계산.
+--       ledger_entries 재조회를 없앤다
+--   V37 잔고 갱신을 오름차순 잠금 한 문장과 일괄 UPDATE 한 문장으로 묶는다.
+--       계좌마다 돌던 UPDATE 루프를 없앤다
+--
+-- 개정해도 바뀌지 않는 것(이 문서가 보증하는 계약).
+--   잠금 순서   헤더 FOR UPDATE 다음 balances 를 account_id 오름차순
+--   검증 항목   entry 수 일치, 자산 scale 양자화(P0-3), 자산별 합 0, 빈 거래 금지
+--   봉인        합 0 검증 뒤 OPEN 에서 SEALED 로 단방향
+--   원가        봉인 뒤 apply_position_cost 를 한 번 호출
+--   경계        SECURITY DEFINER 단일 경로. 앱은 balances 를 직접 만지지 않는다
 
 -- 예약/해제 헬퍼(P1). 자금 이동은 전부 post_ledger_transaction 경유이므로
 -- 오름차순 잠금 규약이 자동 적용된다. 앱은 직접 balances를 만지지 않는다.
@@ -916,23 +861,18 @@ END $$;
 -- 4.4 커밋 시점 백스톱: 모든 손댄 txn이 봉인+균형인지 최종 강제(DEFERRABLE)
 --     PG13+에서 파티션 부모의 constraint trigger는 각 파티션에 전파됨.
 --     ※ 반드시 통합테스트로 "위반 케이스가 COMMIT에서 롤백되는지" 증명(초안 high).
-CREATE OR REPLACE FUNCTION assert_txn_sealed_balanced() RETURNS trigger
-LANGUAGE plpgsql AS $$
-DECLARE st TEXT; bad INT;
-BEGIN
-    SELECT status INTO st FROM ledger_transactions WHERE id = NEW.transaction_id;
-    IF st <> 'SEALED' THEN
-        RAISE EXCEPTION '커밋 시점 미봉인 txn=%: post_ledger_transaction 경유 누락', NEW.transaction_id;
-    END IF;
-    SELECT count(*) INTO bad FROM (
-        SELECT asset_id FROM ledger_entries WHERE transaction_id = NEW.transaction_id
-        GROUP BY asset_id HAVING SUM(amount) <> 0
-    ) t;
-    IF bad > 0 THEN
-        RAISE EXCEPTION '커밋 시점 불균형 txn=%', NEW.transaction_id;
-    END IF;
-    RETURN NULL;
-END $$;
+-- 본문은 여기에 옮겨 적지 않는다. 마이그레이션 파일이 정본이다(한계 41).
+--
+-- 현재 본문:  V26__ledger_balance_check_once_per_txn.sql
+-- 개정 이력:
+--   V1  최초. 분개 한 행마다 봉인 여부와 자산별 합 0 을 함께 확인한다
+--   V26 자산별 합 0 을 거래마다 한 번만 확인하도록 바꾼다. 봉인 여부는 분개마다 그대로다.
+--       한 거래에 분개가 N 개면 종전에는 같은 집계를 N 번 돌았다(N+1 제거)
+--
+-- 개정해도 바뀌지 않는 것(이 문서가 보증하는 계약).
+--   시점    커밋 시점. DEFERRABLE INITIALLY DEFERRED 제약 트리거
+--   판정    손댄 거래가 전부 SEALED 이고 자산별 합이 0 이어야 한다
+--   범위    PG13+ 에서 파티션 부모의 제약 트리거가 각 파티션에 전파된다
 CREATE CONSTRAINT TRIGGER trg_ledger_committed
     AFTER INSERT ON ledger_entries
     DEFERRABLE INITIALLY DEFERRED
@@ -1901,7 +1841,7 @@ CREATE TABLE user_provisioning (
 ### 5.0 전역 잠금 순서 규약 (P1)
 
 - 모든 자금 경로(예약 §5.1, 체결 정산 §5.2, 해제·취소 §5.3, 입출금 정산)는 `balances` 행 배타 잠금을 **account_id 오름차순**으로만 획득한다. 예외 없음.
-- 원장 게시·잔고 갱신은 `post_ledger_transaction`(SECURITY DEFINER, V1 정본) 단일 경로다. 함수 내부가 헤더 행 FOR UPDATE 후 삽입된 entry에서 계정별 델타를 집계해 account_id 오름차순 UPDATE로 적용하므로, 이 경로를 쓰는 한 규약이 물리 강제된다.
+- 원장 게시·잔고 갱신은 `post_ledger_transaction`(SECURITY DEFINER) 단일 경로다. 정본은 마이그레이션 파일이고 현재 본문은 V37이다(§4.3). 함수 내부가 헤더 행 FOR UPDATE 후 입력 JSONB에서 계정별 델타를 집계하고(V27), `balances`를 account_id 오름차순 `FOR NO KEY UPDATE`로 먼저 잠근 뒤 일괄 UPDATE로 적용하므로(V37), 이 경로를 쓰는 한 규약이 물리 강제된다.
 - 예약·해제는 `reserve_funds` / `release_funds` 헬퍼로 호출한다. 두 헬퍼 모두 `post_ledger_transaction` 경유이므로 동일 규약이 자동 적용된다.
 - 자금 외 행 잠금(`orders` FOR UPDATE)은 id 오름차순으로 통일하고, 한 트랜잭션 안에서 테이블 간 잠금 순서(balances 다음 orders 또는 그 역)를 경로 전체에서 하나로 고정한다(§5.2의 순서가 정본).
 - 호출 규율("모든 자금 트랜잭션이 이 경로만 사용") 자체는 앱 계층 책임이다. `app_role`의 원장·잔고 직접 DML 회수(§9)가 우회를 물리 차단하고, 감사 쿼리(§6)가 잔여 위반을 탐지한다.

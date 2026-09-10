@@ -31,7 +31,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from load_ceiling import q  # noqa: E402
-from k6_ceiling import run_k6, duration_fill  # noqa: E402
+from k6_ceiling import run_k6, duration_fill, markets  # noqa: E402
 
 CHAOS = str(ROOT / 'harness/docker-compose.chaos.yml')
 SCALE = str(ROOT / 'harness/docker-compose.scale.yml')
@@ -114,7 +114,7 @@ def reissue_keys():
                 # 부하를 여러 마켓에 흩으면 그 마켓들의 자산 계정이 있어야 한다.
                 # 없으면 매도 주문이 접수를 통과한 뒤 정산에서 라이터를 죽인다(한계 40).
                 'http://localhost:18080/harness/v1/loadtest-keys?market='
-                + urllib.parse.quote(os.environ.get('SCALE_MARKETS', 'KRW-BTC') or 'KRW-BTC')
+                + urllib.parse.quote(markets())
                 + '&count=4',
                 method='POST')
             with urllib.request.urlopen(req, timeout=90) as r:

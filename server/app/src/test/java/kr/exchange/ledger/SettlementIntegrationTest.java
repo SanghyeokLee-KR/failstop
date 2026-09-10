@@ -113,8 +113,7 @@ class SettlementIntegrationTest {
         commandReader = new CommandJournalReader(jdbc);
         payloadMapper = new CommandPayloadMapper(objectMapper);
         catalog = new MarketCatalog(jdbc);
-        settlement = new SettlementService(jdbc, tx, lease, objectMapper, catalog,
-                commandReader, payloadMapper);
+        settlement = new SettlementService(jdbc, tx, lease, objectMapper, catalog, payloadMapper);
         replayService = new ReplayService(commandReader,
                 new kr.exchange.journal.EventJournalReader(jdbc), payloadMapper, objectMapper, catalog);
         engine = new MatchingEngineImpl();

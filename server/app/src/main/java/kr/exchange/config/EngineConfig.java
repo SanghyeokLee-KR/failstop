@@ -120,11 +120,10 @@ public class EngineConfig {
                                                LeaderLeaseService leaderLeaseService,
                                                ObjectMapper objectMapper,
                                                MarketCatalog marketCatalog,
-                                               CommandJournalReader commandJournalReader,
                                                CommandPayloadMapper commandPayloadMapper,
                                                LeaderWriteProgress leaderWriteProgress) {
         return new SettlementService(jdbcClient, transactionTemplate, leaderLeaseService,
-                objectMapper, marketCatalog, commandJournalReader, commandPayloadMapper,
+                objectMapper, marketCatalog, commandPayloadMapper,
                 leaderWriteProgress);
     }
 

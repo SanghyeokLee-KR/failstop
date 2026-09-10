@@ -2,6 +2,8 @@ package kr.exchange.journal;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -59,27 +61,38 @@ public class CommandJournalReader {
                 lastAppliedSeq, marketId, upToSeq, limit);
     }
 
+    /**
+     * 한 명령의 열 목록. 이 이름들이 곧 아래 mapEntry 의 계약이다.
+     *
+     * 정산이 이 목록을 자기 질의에 붙여 쓴다. 열 이름과 매핑을 한 곳에 두어야 둘이 갈리지
+     * 않는다. 별칭 payload 는 payload::text 의 결과다.
+     */
+    public static final String ENTRY_COLUMNS = """
+            seq, market_id, command_type, user_id, client_order_id,
+            assigned_order_id, engine_ts, tie_break, payload::text AS payload,
+            fencing_token, checksum, created_at""";
+
+    /** ENTRY_COLUMNS 를 고른 결과 한 행을 명령으로 옮긴다. 호출측이 다른 질의에 붙여 쓴다. */
+    public static JournalEntry mapEntry(ResultSet rs) throws SQLException {
+        return new JournalEntry(
+                rs.getLong("seq"),
+                rs.getInt("market_id"),
+                CommandDraft.CommandType.valueOf(rs.getString("command_type")),
+                rs.getLong("user_id"),
+                rs.getString("client_order_id"),
+                rs.getLong("assigned_order_id"),
+                rs.getLong("engine_ts"),
+                rs.getLong("tie_break"),
+                rs.getString("payload"),
+                rs.getLong("fencing_token"),
+                rs.getLong("checksum"),
+                rs.getObject("created_at", OffsetDateTime.class));
+    }
+
     private List<JournalEntry> read(String tail, Object... params) {
-        return jdbc.sql("""
-                        SELECT seq, market_id, command_type, user_id, client_order_id,
-                               assigned_order_id, engine_ts, tie_break, payload::text AS payload,
-                               fencing_token, checksum, created_at
-                        FROM command_journal
-                        """ + tail)
+        return jdbc.sql("SELECT " + ENTRY_COLUMNS + " FROM command_journal " + tail)
                 .params(params)
-                .query((rs, rowNum) -> new JournalEntry(
-                        rs.getLong("seq"),
-                        rs.getInt("market_id"),
-                        CommandDraft.CommandType.valueOf(rs.getString("command_type")),
-                        rs.getLong("user_id"),
-                        rs.getString("client_order_id"),
-                        rs.getLong("assigned_order_id"),
-                        rs.getLong("engine_ts"),
-                        rs.getLong("tie_break"),
-                        rs.getString("payload"),
-                        rs.getLong("fencing_token"),
-                        rs.getLong("checksum"),
-                        rs.getObject("created_at", OffsetDateTime.class)))
+                .query((rs, rowNum) -> mapEntry(rs))
                 .list();
     }
 }

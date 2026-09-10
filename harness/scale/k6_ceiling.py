@@ -31,6 +31,29 @@ from load_ceiling import q, admin_call  # noqa: E402
 IMAGE = 'grafana/k6:1.4.0'
 NET = 'exchange-chaos_chaos-net'
 
+# 부하를 흩는 마켓 목록의 기본값.
+#
+# 왜 기본값을 두는가. 종전에는 비어 있었고, 비면 k6 가 단일 마켓으로 돈다. 그런데
+# 2026-09-10 이후의 측정은 전부 12마켓 기준이다(ADR 0021 마켓별 라이터). 환경 변수를
+# 빠뜨리면 단일 마켓 결과가 나오는데 표에는 그렇게 적히지 않으므로, 정본의 12마켓
+# 수치와 나란히 놓으면 조용히 어긋난다. 실제로 그 실수를 한 번 했다.
+#
+# 목록은 order_flow.js 의 MARKET_RULES 와 같아야 한다. 거기 없는 마켓은 호가 규칙이
+# 없어 KRW-BTC 규칙으로 떨어지고 그러면 주문이 전량 거절된다.
+#
+# 부르는 쪽 책임. 이 목록의 마켓들에 부하 계정의 자금이 시드돼 있어야 한다. 없으면
+# 매도가 400 으로 떨어지고 표에는 접수도 거절도 아닌 몫으로만 보인다(정본 13.3 한계 42).
+# clean_suite 는 볼륨을 파고 markets() 로 재발급하므로 충족한다. run_k6 를 직접 부르는
+# writer_breakdown 과 writer_serial 은 재발급을 하지 않으므로 직전에 clean_suite 로
+# 한 번 세우거나 SCALE_MARKETS 를 단일 마켓으로 지정해 돌려야 한다.
+MARKETS_12 = ('KRW-BTC,KRW-ETH,KRW-SOL,KRW-XRP,KRW-DOGE,KRW-ADA,'
+              'KRW-TRX,KRW-LINK,KRW-DOT,KRW-MATIC,KRW-AVAX,KRW-ATOM')
+
+
+def markets():
+    """환경 변수가 있으면 그것, 없으면 12마켓 기본값."""
+    return os.environ.get('SCALE_MARKETS') or MARKETS_12
+
 
 def run_k6(rate, duration, run_id, log_path=None):
     """calibrate.js 를 한 구간 돌린다. 컨테이너는 카오스 망 안에 붙여 로드밸런서를 친다."""
@@ -38,8 +61,8 @@ def run_k6(rate, duration, run_id, log_path=None):
         'docker', 'run', '--rm', '--network', NET,
         '-v', str(ROOT / 'harness/load') + ':/load:ro',
         '-e', 'BASE_OPS=%d' % rate,
-        # 마켓별 라이터 실측(ADR 0021). 비어 있으면 k6 가 단일 마켓으로 돈다.
-        '-e', 'MARKETS=%s' % os.environ.get('SCALE_MARKETS', ''),
+        # 마켓별 라이터 실측(ADR 0021). 기본이 12마켓이다.
+        '-e', 'MARKETS=%s' % markets(),
         '-e', 'CAL_DURATION=%ds' % duration,
         '-e', 'BASE_URL=http://chaos-lb:8080',
         '-e', 'K6_KEYS=/load/secrets/k6_keys.json',
