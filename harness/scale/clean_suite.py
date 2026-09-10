@@ -36,13 +36,27 @@ ENVF = str(ROOT / 'harness/.env.chaos')
 WRITE_SHARE = 0.40
 
 
+# 마지막 compose 실패의 출력. 종료코드만 남기면 '초기화 실패' 네 글자로 끝나
+# 원인을 못 찾는다(2026-09-10 실측: 도커 데몬이 죽었는데 그 사실이 안 보였다).
+LAST_ERR = ['']
+
+
 def compose(args, env=None, timeout=900):
     e = dict(os.environ)
     if env:
         e.update(env)
-    return subprocess.run(
+    p = subprocess.run(
         ['docker', 'compose', '-f', CHAOS, '-f', SCALE, '--env-file', ENVF] + args,
-        cwd=str(ROOT / 'harness'), env=e, capture_output=True, text=True, timeout=timeout).returncode
+        cwd=str(ROOT / 'harness'), env=e, capture_output=True, text=True, timeout=timeout)
+    if p.returncode != 0:
+        LAST_ERR[0] = ((p.stderr or '') + (p.stdout or ''))[-700:]
+    return p.returncode
+
+
+def daemon_alive():
+    """데몬 자체가 죽었으면 칸을 더 돌아 봐야 전부 같은 실패다. 먼저 가른다."""
+    return subprocess.run(['docker', 'info'], capture_output=True,
+                          text=True, timeout=60).returncode == 0
 
 
 def reset_stack(env):
@@ -104,6 +118,33 @@ def reissue_keys():
         except Exception:
             time.sleep(10)
     return 0
+
+
+def keys_match_db():
+    """발급한 키가 실제로 데이터베이스에 있는지 본다.
+
+    볼륨을 파기하면 부하 계정이 사라진다. 재발급이 200 을 돌려줘도 그 뒤 스택이
+    다시 서면 어긋난다. 어긋나면 k6 가 전량 401 인데, 인증 실패는 Micrometer
+    필터 앞에서 끊겨 지표에 안 잡힌다(2026-09-09 실측: 그래서 여섯 칸이 조용한
+    시스템으로 보였다). 그러니 부하를 넣기 전에 여기서 가른다.
+
+    키 값은 찍지 않는다. 개수만 본다.
+    """
+    try:
+        keys = json.loads((ROOT / 'harness/load/secrets/k6_keys.json')
+                          .read_text(encoding='utf-8'))
+        acc = [k['access_key'] for k in keys]
+    except Exception:
+        return 0, 0
+    lst = ','.join("'" + a.replace("'", "''") + "'" for a in acc)
+    p = subprocess.run(
+        ['docker', 'exec', 'chaos-pg', 'psql', '-U', 'exchange', '-d', 'exchange',
+         '-t', '-A', '-c', 'select count(*) from api_keys where access_key in (%s)' % lst],
+        capture_output=True, text=True, timeout=60)
+    try:
+        return int(p.stdout.strip()), len(acc)
+    except Exception:
+        return 0, len(acc)
 
 
 def set_bot_ops(ops):
@@ -231,14 +272,28 @@ def main():
         print('\n' + '#' * 64, flush=True)
         print('[%s] 부하 %d/s' % (label, rate), flush=True)
         if not reset_stack(env):
-            print('  초기화 실패', flush=True)
-            out['rows'].append({'cell': label, 'error': '초기화 실패'})
+            if not daemon_alive():
+                print('  도커 데몬이 죽었다. 남은 칸을 버리고 멈춘다', flush=True)
+                out['rows'].append({'cell': label, 'error': '도커 데몬 정지'})
+                break
+            print('  초기화 실패: %s' % LAST_ERR[0].strip()[-300:], flush=True)
+            out['rows'].append({'cell': label,
+                                'error': '초기화 실패',
+                                'stderr': LAST_ERR[0]})
             continue
         n = reissue_keys()
         if n == 0:
             print('  키 재발급 실패', flush=True)
             out['rows'].append({'cell': label, 'error': '키 재발급 실패'})
             continue
+        hit, want = keys_match_db()
+        if hit < want:
+            print('  키가 데이터베이스와 어긋난다 (%d/%d). 이 칸은 버린다'
+                  % (hit, want), flush=True)
+            out['rows'].append({'cell': label,
+                                'error': '키 불일치(%d/%d)' % (hit, want)})
+            continue
+        print('  키 %d개 대조 통과' % hit, flush=True)
         if check and check[0] == 'limit':
             got = None
             for _ in range(14):

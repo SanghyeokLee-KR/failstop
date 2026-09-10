@@ -125,6 +125,37 @@ export class Canvas {
     this.txt(cx, cy + 13, t2, 8.6, C.MUTE, '400', 'middle')
   }
 
+  /**
+   * 컨테이너 상자. 도커 컨테이너 하나를 그린다.
+   *
+   * chip 과 갈라 둔 이유가 있다. 이 도면에는 컨테이너인 것과 아닌 것이 섞여 있다.
+   * 호스트에서 도는 스크립트, 도커 API, 앱 안의 스레드는 컨테이너가 아니다.
+   * 같은 모양으로 그리면 "저게 다 따로 도는 프로세스인가" 에 답할 수 없다.
+   * 그래서 컨테이너에만 머리띠와 적층 글리프를 준다.
+   *
+   * name 은 container_name 이고 image 는 실제 이미지 태그다. 둘 다 컴포즈에서
+   * 그대로 옮긴다. 옮겨 적은 값은 반드시 드리프트하므로 확인하고 쓴다.
+   */
+  ctn(x, y, w, h, name, image, role, c, tone = '#FFFFFF') {
+    const BAR = 19
+    this.add(`<rect x="${F(x)}" y="${F(y)}" width="${w}" height="${h}" rx="3" fill="${tone}" stroke="${c}" stroke-width="1.3"/>`)
+    this.add(`<path d="M${F(x)},${F(y + BAR)} L${F(x)},${F(y + 3)} Q${F(x)},${F(y)} ${F(x + 3)},${F(y)} L${F(x + w - 3)},${F(y)} Q${F(x + w)},${F(y)} ${F(x + w)},${F(y + 3)} L${F(x + w)},${F(y + BAR)} Z" fill="${c}1E"/>`)
+    this.add(`<line x1="${F(x)}" y1="${F(y + BAR)}" x2="${F(x + w)}" y2="${F(y + BAR)}" stroke="${c}" stroke-width="0.9"/>`)
+    // 적층 글리프. 컨테이너 표식이다.
+    const gx = x + 8, gy = y + 5.5
+    for (let i = 0; i < 3; i++) {
+      this.add(`<rect x="${F(gx + i * 3.4)}" y="${F(gy + 3)}" width="2.6" height="5" fill="${c}"/>`)
+    }
+    this.add(`<rect x="${F(gx + 3.4)}" y="${F(gy)}" width="2.6" height="2.6" fill="${c}"/>`)
+    this.add(`<rect x="${F(gx)}" y="${F(gy + 9.4)}" width="9.4" height="1.3" fill="${c}"/>`)
+    this.txt(x + 24, y + 14, name, 10.2, c, '700')
+    if (image) this.txt(x + w - 8, y + 14, image, 8.2, C.MUTE, '400', 'end')
+    if (role) {
+      const lines = Array.isArray(role) ? role : [role]
+      lines.forEach((t, i) => this.txt(x + 10, y + BAR + 17 + i * 13, t, 9.2, C.BODY))
+    }
+  }
+
   toString() {
     return [
       ...this.head,
