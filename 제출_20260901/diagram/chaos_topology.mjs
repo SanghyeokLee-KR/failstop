@@ -8,7 +8,8 @@
 // 무엇이 아닌지, 부하가 어디서 들어와 어디로 가는지가 갈려야 한다. 그래서 컨테이너에는
 // ctn 으로 머리띠와 적층 글리프를 주고, 컨테이너가 아닌 것은 chip 으로 둔다.
 //
-// 2026-09-10 개정. 네 가지를 실물과 맞췄다. 전부 실험을 무효로 만든 오해였다.
+// 2026-09-10 개정. 여섯 가지를 실물과 맞췄다. 앞의 넷은 실험을 무효로 만든 오해였고
+// 뒤의 둘은 도면이 실물보다 상황을 나쁘게 그린 자리였다.
 //
 // 1. 로드밸런서에 쓰기와 조회를 가르는 분기가 없다. harness/nginx/nginx.conf 는
 //    location 하나에 업스트림 하나이고 chaos-api-2 는 backup 이다. backup 은 1차가
@@ -22,6 +23,12 @@
 //    docker run --rm 으로 띄웠다 버린다(harness/scale/k6_ceiling.py).
 // 4. chaos-web 과 chaos-admin 은 이 묶음에 없다. 루트 compose.yaml 에만 있다.
 //    실험 러너는 -f docker-compose.chaos.yml -f docker-compose.scale.yml 만 쓴다.
+// 5. 서빙 노드는 데이터베이스에 직결되지 않는다. 항상 chaos-toxiproxy 를 지난다.
+//    api-1 은 :15432, api-2 는 :25432 로 노드마다 포트가 다르고 그것이 E2 의
+//    노드별 절단점이다. 직결인 것은 chaos-bots 의 시드 경로뿐이다.
+//    토식을 곁가지로 그리면 "어디를 끊어 실험하는가" 가 도면에서 사라진다.
+// 6. Alertmanager 는 수신 경로가 배선돼 있다. receiver 가 chat 하나이고
+//    discord_configs 의 webhook_url_file 을 가리킨다. 없는 것은 그 값 파일이다.
 import { Canvas, C, writeSvg } from './lib/draw.mjs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -82,9 +89,9 @@ d.group(80, 356, 420, 214, '상시 컨테이너 13 · 역할별', SYS, '#FCFAFF'
 const roster = [
   ['서빙 2', 'chaos-api-1 · chaos-api-2'],
   ['부하 1', 'chaos-bots'],
-  ['경로 1', 'chaos-lb'],
+  ['진입 1', 'chaos-lb'],
   ['저장 2', 'chaos-pg · chaos-dynamodb'],
-  ['주입 1', 'chaos-toxiproxy'],
+  ['경로 1', 'chaos-toxiproxy · DB 앞에 상시'],
   ['관측 6', 'prometheus · grafana · alertmanager'],
   ['', 'blackbox · pg-exporter · cstats'],
 ]
@@ -121,16 +128,18 @@ d.txt(NX + 387, NY + 242, '쓰기와 조회를 가르지 않는다', 9.4, C.INK,
 d.txt(NX + 387, NY + 258, '가르는 배선은 상시면에만 있다', 9, C.MUTE, '400', 'middle')
 
 // 앱 배포단위
-d.group(NX + 528, NY + 56, 420, 244, '서빙 노드 · 같은 이미지 둘', APP, '#FBFDF6')
-d.ctn(NX + 546, NY + 92, 384, 80, 'chaos-api-1', 'app:local', ['매칭 리더 · 단일 라이터', '평시 트래픽 전량을 받는다'], APP)
-d.ctn(NX + 546, NY + 190, 384, 80, 'chaos-api-2', 'app:local', ['nginx backup · 평시 트래픽 0', 'api-1 이 죽어야 받는다'], C.MUTE, '#FAFAFA')
-d.txt(NX + 542, NY + 288, '노드를 늘려도 부하는 안 갈린다. 이 평면의 사실이다', 9.4, C.MUTE)
+d.group(NX + 512, NY + 56, 408, 244, '서빙 노드 · 같은 이미지 둘', APP, '#FBFDF6')
+d.ctn(NX + 530, NY + 92, 372, 80, 'chaos-api-1', 'app:local', ['매칭 리더 · 단일 라이터', '평시 트래픽 전량을 받는다'], APP)
+d.ctn(NX + 530, NY + 190, 372, 80, 'chaos-api-2', 'app:local', ['nginx backup · 평시 트래픽 0', 'api-1 이 죽어야 받는다'], C.MUTE, '#FAFAFA')
+d.txt(NX + 526, NY + 288, '노드를 늘려도 부하는 안 갈린다. 이 평면의 사실이다', 9.4, C.MUTE)
 
-// 저장과 주입. 오른쪽 한 열로 쌓는다
-const RX = NX + 1010
-d.ctn(RX, NY + 92, 250, 112, 'chaos-pg', 'postgres:17-alpine', ['단일 primary', 'leader_lease 기본', 'standby 는 실험 세션에만'], C.SG)
-d.ctn(RX, NY + 222, 250, 60, 'chaos-dynamodb', 'dynamodb:2.5.2', ['리더 임차 · 선택'], C.MUTE, '#FAFAFA')
-d.ctn(RX, NY + 300, 250, 60, 'chaos-toxiproxy', 'toxiproxy:2.12.0', ['커밋 경로 절단 · 장애 주입'], PROBE)
+// 저장. 서빙 노드는 토식을 반드시 지난다
+const TX = NX + 948
+const RX = NX + 1166
+d.ctn(TX, NY + 96, 186, 104, 'chaos-toxiproxy', 'toxiproxy:2.12.0', ['api-1 은 :15432', 'api-2 는 :25432', '노드별 절단점'], PROBE)
+d.txt(TX + 93, NY + 218, '여기를 끊어 실험한다', 9.2, PROBE, '700', 'middle')
+d.ctn(RX, NY + 92, 252, 112, 'chaos-pg', 'postgres:17-alpine', ['단일 primary', 'leader_lease 기본', 'standby 는 실험 세션에만'], C.SG)
+d.ctn(RX, NY + 240, 252, 60, 'chaos-dynamodb', 'dynamodb:2.5.2', ['리더 임차 · 선택'], C.MUTE, '#FAFAFA')
 
 // 관측
 const OY = NY + 392
@@ -139,7 +148,7 @@ d.group(NX + 24, OY, OGW, 262, '관측 · 피검체 밖에서 당긴다', OBS, '
 const obs = [
   ['chaos-prometheus', 'v3.13.0', ':59090 · 수집 축 다섯'],
   ['chaos-grafana', 'v13.1.0', ':53001 · 대시보드'],
-  ['chaos-alertmanager', 'v0.34.0', '알람 17 · 수신 주소 미기입'],
+  ['chaos-alertmanager', 'v0.34.0', '알람 17 · 웹훅 값 파일 없음'],
   ['chaos-blackbox', 'v0.25.0', '외부 프로브'],
   ['chaos-pg-exporter', 'v0.17.1', 'DB 지표'],
   ['chaos-cstats', 'py3.12', '도커 API 로 컨테이너 자원'],
@@ -149,29 +158,30 @@ obs.forEach(([n, img, role], i) => {
 })
 d.txt(NX + 42, OY + 136, '수집 축 다섯. 앱 액추에이터, 봇, 진입 프로브, 데이터베이스, 컨테이너 경계', 10.5, C.BODY)
 d.txt(NX + 42, OY + 158, 'cAdvisor 를 쓰지 않는다. Docker Desktop 에서 컨테이너 메타데이터를 못 읽어 도커 API 를 직접 읽는다(2026-09-09 실측)', 9.6, C.MUTE)
-d.txt(NX + 42, OY + 180, '알람 수신 주소가 비어 있다. 통지 경로는 배선됐고 주소만 미기입이다(정본 한계 15)', 9.6, C.MUTE)
+d.txt(NX + 42, OY + 180, '알람 수신 경로는 배선됐다. receiver 가 chat 하나이고 webhook_url_file 을 가리킨다. 없는 것은 그 값 파일이다(정본 한계 15)', 9.6, C.MUTE)
 d.txt(NX + 42, OY + 210, 'http_server_requests 에는 수용 거절과 인증 실패가 안 잡힌다. Micrometer 필터 앞에서 끊기기 때문이다', 9.6, C.INK, '700')
 d.txt(NX + 42, OY + 230, '제공 부하는 접수에 exchange_admission_rejected_total 을 더해 구하고, 봇 기저를 빼야 k6 몫이 나온다(2026-09-09 실측)', 9.6, C.MUTE)
 
 // 흐름선. 부하원 둘이 같은 입구로 들어간다
 d.ln([[NX + 220, NY + 116], [NX + 258, NY + 116], [NX + 258, NY + 152], [NX + 288, NY + 152]], PROBE, 1.8)
 d.ln([[NX + 220, NY + 246], [NX + 258, NY + 246], [NX + 258, NY + 192], [NX + 288, NY + 192]], APP, 1.8)
-d.ln([[NX + 482, NY + 168], [NX + 512, NY + 168], [NX + 512, NY + 132], [NX + 544, NY + 132]], C.FLOW, 2.2)
-d.ln([[NX + 512, NY + 168], [NX + 512, NY + 230], [NX + 544, NY + 230]], C.MUTE, 1.2, '5 4')
-d.txt(NX + 502, NY + 254, 'backup', 8.6, C.MUTE, '700', 'middle')
-d.ln([[NX + 930, NY + 132], [NX + 970, NY + 132], [NX + 970, NY + 140], [RX - 2, NY + 140]], C.FLOW, 2.2)
+d.ln([[NX + 482, NY + 168], [NX + 498, NY + 168], [NX + 498, NY + 132], [NX + 528, NY + 132]], C.FLOW, 2.2)
+d.ln([[NX + 498, NY + 168], [NX + 498, NY + 230], [NX + 528, NY + 230]], C.MUTE, 1.2, '5 4')
+d.txt(NX + 490, NY + 254, 'backup', 8.6, C.MUTE, '700', 'middle')
+// 서빙 노드 둘 다 토식을 지난다. 포트만 다르다
+d.ln([[NX + 902, NY + 132], [NX + 926, NY + 132], [NX + 926, NY + 140], [TX - 2, NY + 140]], C.FLOW, 2.2)
+d.ln([[NX + 902, NY + 230], [NX + 926, NY + 230], [NX + 926, NY + 172], [TX - 2, NY + 172]], C.MUTE, 1.2, '5 4')
+d.ln([[TX + 186, NY + 148], [RX - 2, NY + 148]], C.FLOW, 2.2)
 d.step(NX + 262, NY + 92, 1, PROBE)
-d.step(NX + 512, NY + 102, 2, C.FLOW)
-d.step(NX + 970, NY + 102, 3, C.FLOW)
+d.step(NX + 498, NY + 102, 2, C.FLOW)
+d.step(NX + 926, NY + 102, 3, C.FLOW)
+d.step(TX + 202, NY + 120, 4, C.FLOW)
 
 // 임차 보관소
-d.ln([[NX + 738, NY + 172], [NX + 738, NY + 330], [RX - 40, NY + 330], [RX - 40, NY + 252], [RX - 2, NY + 252]], C.MUTE, 1.2, '5 4')
-
-// 장애 주입
-d.ln([[RX + 60, NY + 300], [RX + 60, NY + 210]], PROBE, 1.4, '5 4')
+d.ln([[NX + 716, NY + 172], [NX + 716, NY + 340], [RX - 34, NY + 340], [RX - 34, NY + 270], [RX - 2, NY + 270]], C.MUTE, 1.2, '5 4')
 
 // 관측이 앱을 당긴다
-d.ln([[NX + 147, OY + 36], [NX + 147, OY - 26], [NX + 738, OY - 26], [NX + 738, NY + 272]], OBS, 1.4, '6 4')
+d.ln([[NX + 147, OY + 36], [NX + 147, OY - 26], [NX + 716, OY - 26], [NX + 716, NY + 272]], OBS, 1.4, '6 4')
 d.txt(NX + 240, OY - 34, 'scrape :8080 · 앱을 당긴다', 9.5, OBS, '700')
 
 // 조작선

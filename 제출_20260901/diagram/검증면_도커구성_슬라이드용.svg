@@ -44,12 +44,12 @@
 <text x="168" y="392" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#3C4750" text-anchor="start">chaos-api-1 · chaos-api-2</text>
 <text x="100" y="413" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#8C4FFF" text-anchor="start">부하 1</text>
 <text x="168" y="413" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#3C4750" text-anchor="start">chaos-bots</text>
-<text x="100" y="434" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#8C4FFF" text-anchor="start">경로 1</text>
+<text x="100" y="434" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#8C4FFF" text-anchor="start">진입 1</text>
 <text x="168" y="434" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#3C4750" text-anchor="start">chaos-lb</text>
 <text x="100" y="455" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#8C4FFF" text-anchor="start">저장 2</text>
 <text x="168" y="455" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#3C4750" text-anchor="start">chaos-pg · chaos-dynamodb</text>
-<text x="100" y="476" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#8C4FFF" text-anchor="start">주입 1</text>
-<text x="168" y="476" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#3C4750" text-anchor="start">chaos-toxiproxy</text>
+<text x="100" y="476" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#8C4FFF" text-anchor="start">경로 1</text>
+<text x="168" y="476" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#3C4750" text-anchor="start">chaos-toxiproxy · DB 앞에 상시</text>
 <text x="100" y="497" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#8C4FFF" text-anchor="start">관측 6</text>
 <text x="168" y="497" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#3C4750" text-anchor="start">prometheus · grafana · alertmanager</text>
 <text x="168" y="518" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#3C4750" text-anchor="start">blackbox · pg-exporter · cstats</text>
@@ -109,69 +109,72 @@
 <text x="862" y="278" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">:58080 호스트 노출</text>
 <text x="947" y="342" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.4" font-weight="700" fill="#16191F" text-anchor="middle">쓰기와 조회를 가르지 않는다</text>
 <text x="947" y="358" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9" font-weight="400" fill="#5C6B75" text-anchor="middle">가르는 배선은 상시면에만 있다</text>
-<rect x="1088" y="156" width="420" height="244" rx="4" fill="#FBFDF6" stroke="#7AA116" stroke-width="1.7"/>
-<rect x="1097" y="165" width="13" height="13" rx="2" fill="#7AA116"/>
-<text x="1116" y="176" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#7AA116">서빙 노드 · 같은 이미지 둘</text>
-<rect x="1106.0" y="192.0" width="384" height="80" rx="3" fill="#FFFFFF" stroke="#7AA116" stroke-width="1.3"/>
-<path d="M1106.0,211.0 L1106.0,195.0 Q1106.0,192.0 1109.0,192.0 L1487.0,192.0 Q1490.0,192.0 1490.0,195.0 L1490.0,211.0 Z" fill="#7AA1161E"/>
-<line x1="1106.0" y1="211.0" x2="1490.0" y2="211.0" stroke="#7AA116" stroke-width="0.9"/>
-<rect x="1114.0" y="200.5" width="2.6" height="5" fill="#7AA116"/>
-<rect x="1117.4" y="200.5" width="2.6" height="5" fill="#7AA116"/>
-<rect x="1120.8" y="200.5" width="2.6" height="5" fill="#7AA116"/>
-<rect x="1117.4" y="197.5" width="2.6" height="2.6" fill="#7AA116"/>
-<rect x="1114.0" y="206.9" width="9.4" height="1.3" fill="#7AA116"/>
-<text x="1130" y="206" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#7AA116" text-anchor="start">chaos-api-1</text>
-<text x="1482" y="206" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">app:local</text>
-<text x="1116" y="228" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">매칭 리더 · 단일 라이터</text>
-<text x="1116" y="241" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">평시 트래픽 전량을 받는다</text>
-<rect x="1106.0" y="290.0" width="384" height="80" rx="3" fill="#FAFAFA" stroke="#5C6B75" stroke-width="1.3"/>
-<path d="M1106.0,309.0 L1106.0,293.0 Q1106.0,290.0 1109.0,290.0 L1487.0,290.0 Q1490.0,290.0 1490.0,293.0 L1490.0,309.0 Z" fill="#5C6B751E"/>
-<line x1="1106.0" y1="309.0" x2="1490.0" y2="309.0" stroke="#5C6B75" stroke-width="0.9"/>
-<rect x="1114.0" y="298.5" width="2.6" height="5" fill="#5C6B75"/>
-<rect x="1117.4" y="298.5" width="2.6" height="5" fill="#5C6B75"/>
-<rect x="1120.8" y="298.5" width="2.6" height="5" fill="#5C6B75"/>
-<rect x="1117.4" y="295.5" width="2.6" height="2.6" fill="#5C6B75"/>
-<rect x="1114.0" y="304.9" width="9.4" height="1.3" fill="#5C6B75"/>
-<text x="1130" y="304" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#5C6B75" text-anchor="start">chaos-api-2</text>
-<text x="1482" y="304" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">app:local</text>
-<text x="1116" y="326" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">nginx backup · 평시 트래픽 0</text>
-<text x="1116" y="339" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">api-1 이 죽어야 받는다</text>
-<text x="1102" y="388" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.4" font-weight="400" fill="#5C6B75" text-anchor="start">노드를 늘려도 부하는 안 갈린다. 이 평면의 사실이다</text>
-<rect x="1570.0" y="192.0" width="250" height="112" rx="3" fill="#FFFFFF" stroke="#C7392E" stroke-width="1.3"/>
-<path d="M1570.0,211.0 L1570.0,195.0 Q1570.0,192.0 1573.0,192.0 L1817.0,192.0 Q1820.0,192.0 1820.0,195.0 L1820.0,211.0 Z" fill="#C7392E1E"/>
-<line x1="1570.0" y1="211.0" x2="1820.0" y2="211.0" stroke="#C7392E" stroke-width="0.9"/>
-<rect x="1578.0" y="200.5" width="2.6" height="5" fill="#C7392E"/>
-<rect x="1581.4" y="200.5" width="2.6" height="5" fill="#C7392E"/>
-<rect x="1584.8" y="200.5" width="2.6" height="5" fill="#C7392E"/>
-<rect x="1581.4" y="197.5" width="2.6" height="2.6" fill="#C7392E"/>
-<rect x="1578.0" y="206.9" width="9.4" height="1.3" fill="#C7392E"/>
-<text x="1594" y="206" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#C7392E" text-anchor="start">chaos-pg</text>
-<text x="1812" y="206" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">postgres:17-alpine</text>
-<text x="1580" y="228" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">단일 primary</text>
-<text x="1580" y="241" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">leader_lease 기본</text>
-<text x="1580" y="254" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">standby 는 실험 세션에만</text>
-<rect x="1570.0" y="322.0" width="250" height="60" rx="3" fill="#FAFAFA" stroke="#5C6B75" stroke-width="1.3"/>
-<path d="M1570.0,341.0 L1570.0,325.0 Q1570.0,322.0 1573.0,322.0 L1817.0,322.0 Q1820.0,322.0 1820.0,325.0 L1820.0,341.0 Z" fill="#5C6B751E"/>
-<line x1="1570.0" y1="341.0" x2="1820.0" y2="341.0" stroke="#5C6B75" stroke-width="0.9"/>
-<rect x="1578.0" y="330.5" width="2.6" height="5" fill="#5C6B75"/>
-<rect x="1581.4" y="330.5" width="2.6" height="5" fill="#5C6B75"/>
-<rect x="1584.8" y="330.5" width="2.6" height="5" fill="#5C6B75"/>
-<rect x="1581.4" y="327.5" width="2.6" height="2.6" fill="#5C6B75"/>
-<rect x="1578.0" y="336.9" width="9.4" height="1.3" fill="#5C6B75"/>
-<text x="1594" y="336" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#5C6B75" text-anchor="start">chaos-dynamodb</text>
-<text x="1812" y="336" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">dynamodb:2.5.2</text>
-<text x="1580" y="358" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">리더 임차 · 선택</text>
-<rect x="1570.0" y="400.0" width="250" height="60" rx="3" fill="#FFFFFF" stroke="#B8730A" stroke-width="1.3"/>
-<path d="M1570.0,419.0 L1570.0,403.0 Q1570.0,400.0 1573.0,400.0 L1817.0,400.0 Q1820.0,400.0 1820.0,403.0 L1820.0,419.0 Z" fill="#B8730A1E"/>
-<line x1="1570.0" y1="419.0" x2="1820.0" y2="419.0" stroke="#B8730A" stroke-width="0.9"/>
-<rect x="1578.0" y="408.5" width="2.6" height="5" fill="#B8730A"/>
-<rect x="1581.4" y="408.5" width="2.6" height="5" fill="#B8730A"/>
-<rect x="1584.8" y="408.5" width="2.6" height="5" fill="#B8730A"/>
-<rect x="1581.4" y="405.5" width="2.6" height="2.6" fill="#B8730A"/>
-<rect x="1578.0" y="414.9" width="9.4" height="1.3" fill="#B8730A"/>
-<text x="1594" y="414" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#B8730A" text-anchor="start">chaos-toxiproxy</text>
-<text x="1812" y="414" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">toxiproxy:2.12.0</text>
-<text x="1580" y="436" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">커밋 경로 절단 · 장애 주입</text>
+<rect x="1072" y="156" width="408" height="244" rx="4" fill="#FBFDF6" stroke="#7AA116" stroke-width="1.7"/>
+<rect x="1081" y="165" width="13" height="13" rx="2" fill="#7AA116"/>
+<text x="1100" y="176" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#7AA116">서빙 노드 · 같은 이미지 둘</text>
+<rect x="1090.0" y="192.0" width="372" height="80" rx="3" fill="#FFFFFF" stroke="#7AA116" stroke-width="1.3"/>
+<path d="M1090.0,211.0 L1090.0,195.0 Q1090.0,192.0 1093.0,192.0 L1459.0,192.0 Q1462.0,192.0 1462.0,195.0 L1462.0,211.0 Z" fill="#7AA1161E"/>
+<line x1="1090.0" y1="211.0" x2="1462.0" y2="211.0" stroke="#7AA116" stroke-width="0.9"/>
+<rect x="1098.0" y="200.5" width="2.6" height="5" fill="#7AA116"/>
+<rect x="1101.4" y="200.5" width="2.6" height="5" fill="#7AA116"/>
+<rect x="1104.8" y="200.5" width="2.6" height="5" fill="#7AA116"/>
+<rect x="1101.4" y="197.5" width="2.6" height="2.6" fill="#7AA116"/>
+<rect x="1098.0" y="206.9" width="9.4" height="1.3" fill="#7AA116"/>
+<text x="1114" y="206" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#7AA116" text-anchor="start">chaos-api-1</text>
+<text x="1454" y="206" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">app:local</text>
+<text x="1100" y="228" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">매칭 리더 · 단일 라이터</text>
+<text x="1100" y="241" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">평시 트래픽 전량을 받는다</text>
+<rect x="1090.0" y="290.0" width="372" height="80" rx="3" fill="#FAFAFA" stroke="#5C6B75" stroke-width="1.3"/>
+<path d="M1090.0,309.0 L1090.0,293.0 Q1090.0,290.0 1093.0,290.0 L1459.0,290.0 Q1462.0,290.0 1462.0,293.0 L1462.0,309.0 Z" fill="#5C6B751E"/>
+<line x1="1090.0" y1="309.0" x2="1462.0" y2="309.0" stroke="#5C6B75" stroke-width="0.9"/>
+<rect x="1098.0" y="298.5" width="2.6" height="5" fill="#5C6B75"/>
+<rect x="1101.4" y="298.5" width="2.6" height="5" fill="#5C6B75"/>
+<rect x="1104.8" y="298.5" width="2.6" height="5" fill="#5C6B75"/>
+<rect x="1101.4" y="295.5" width="2.6" height="2.6" fill="#5C6B75"/>
+<rect x="1098.0" y="304.9" width="9.4" height="1.3" fill="#5C6B75"/>
+<text x="1114" y="304" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#5C6B75" text-anchor="start">chaos-api-2</text>
+<text x="1454" y="304" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">app:local</text>
+<text x="1100" y="326" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">nginx backup · 평시 트래픽 0</text>
+<text x="1100" y="339" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">api-1 이 죽어야 받는다</text>
+<text x="1086" y="388" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.4" font-weight="400" fill="#5C6B75" text-anchor="start">노드를 늘려도 부하는 안 갈린다. 이 평면의 사실이다</text>
+<rect x="1508.0" y="196.0" width="186" height="104" rx="3" fill="#FFFFFF" stroke="#B8730A" stroke-width="1.3"/>
+<path d="M1508.0,215.0 L1508.0,199.0 Q1508.0,196.0 1511.0,196.0 L1691.0,196.0 Q1694.0,196.0 1694.0,199.0 L1694.0,215.0 Z" fill="#B8730A1E"/>
+<line x1="1508.0" y1="215.0" x2="1694.0" y2="215.0" stroke="#B8730A" stroke-width="0.9"/>
+<rect x="1516.0" y="204.5" width="2.6" height="5" fill="#B8730A"/>
+<rect x="1519.4" y="204.5" width="2.6" height="5" fill="#B8730A"/>
+<rect x="1522.8" y="204.5" width="2.6" height="5" fill="#B8730A"/>
+<rect x="1519.4" y="201.5" width="2.6" height="2.6" fill="#B8730A"/>
+<rect x="1516.0" y="210.9" width="9.4" height="1.3" fill="#B8730A"/>
+<text x="1532" y="210" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#B8730A" text-anchor="start">chaos-toxiproxy</text>
+<text x="1686" y="210" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">toxiproxy:2.12.0</text>
+<text x="1518" y="232" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">api-1 은 :15432</text>
+<text x="1518" y="245" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">api-2 는 :25432</text>
+<text x="1518" y="258" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">노드별 절단점</text>
+<text x="1601" y="318" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="700" fill="#B8730A" text-anchor="middle">여기를 끊어 실험한다</text>
+<rect x="1726.0" y="192.0" width="252" height="112" rx="3" fill="#FFFFFF" stroke="#C7392E" stroke-width="1.3"/>
+<path d="M1726.0,211.0 L1726.0,195.0 Q1726.0,192.0 1729.0,192.0 L1975.0,192.0 Q1978.0,192.0 1978.0,195.0 L1978.0,211.0 Z" fill="#C7392E1E"/>
+<line x1="1726.0" y1="211.0" x2="1978.0" y2="211.0" stroke="#C7392E" stroke-width="0.9"/>
+<rect x="1734.0" y="200.5" width="2.6" height="5" fill="#C7392E"/>
+<rect x="1737.4" y="200.5" width="2.6" height="5" fill="#C7392E"/>
+<rect x="1740.8" y="200.5" width="2.6" height="5" fill="#C7392E"/>
+<rect x="1737.4" y="197.5" width="2.6" height="2.6" fill="#C7392E"/>
+<rect x="1734.0" y="206.9" width="9.4" height="1.3" fill="#C7392E"/>
+<text x="1750" y="206" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#C7392E" text-anchor="start">chaos-pg</text>
+<text x="1970" y="206" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">postgres:17-alpine</text>
+<text x="1736" y="228" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">단일 primary</text>
+<text x="1736" y="241" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">leader_lease 기본</text>
+<text x="1736" y="254" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">standby 는 실험 세션에만</text>
+<rect x="1726.0" y="340.0" width="252" height="60" rx="3" fill="#FAFAFA" stroke="#5C6B75" stroke-width="1.3"/>
+<path d="M1726.0,359.0 L1726.0,343.0 Q1726.0,340.0 1729.0,340.0 L1975.0,340.0 Q1978.0,340.0 1978.0,343.0 L1978.0,359.0 Z" fill="#5C6B751E"/>
+<line x1="1726.0" y1="359.0" x2="1978.0" y2="359.0" stroke="#5C6B75" stroke-width="0.9"/>
+<rect x="1734.0" y="348.5" width="2.6" height="5" fill="#5C6B75"/>
+<rect x="1737.4" y="348.5" width="2.6" height="5" fill="#5C6B75"/>
+<rect x="1740.8" y="348.5" width="2.6" height="5" fill="#5C6B75"/>
+<rect x="1737.4" y="345.5" width="2.6" height="2.6" fill="#5C6B75"/>
+<rect x="1734.0" y="354.9" width="9.4" height="1.3" fill="#5C6B75"/>
+<text x="1750" y="354" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#5C6B75" text-anchor="start">chaos-dynamodb</text>
+<text x="1970" y="354" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">dynamodb:2.5.2</text>
+<text x="1736" y="376" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">리더 임차 · 선택</text>
 <rect x="584" y="492" width="1422" height="262" rx="4" fill="#F5FCFC" stroke="#00A4A6" stroke-width="1.7"/>
 <rect x="593" y="501" width="13" height="13" rx="2" fill="#00A4A6"/>
 <text x="612" y="512" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="11" font-weight="700" fill="#00A4A6">관측 · 피검체 밖에서 당긴다</text>
@@ -207,7 +210,7 @@
 <rect x="1066.0" y="544.9" width="9.4" height="1.3" fill="#00A4A6"/>
 <text x="1082" y="544" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.2" font-weight="700" fill="#00A4A6" text-anchor="start">chaos-alertmanager</text>
 <text x="1260" y="544" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="end">v0.34.0</text>
-<text x="1068" y="566" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">알람 17 · 수신 주소 미기입</text>
+<text x="1068" y="566" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">알람 17 · 웹훅 값 파일 없음</text>
 <rect x="1286.0" y="530.0" width="210" height="62" rx="3" fill="#FFFFFF" stroke="#00A4A6" stroke-width="1.3"/>
 <path d="M1286.0,549.0 L1286.0,533.0 Q1286.0,530.0 1289.0,530.0 L1493.0,530.0 Q1496.0,530.0 1496.0,533.0 L1496.0,549.0 Z" fill="#00A4A61E"/>
 <line x1="1286.0" y1="549.0" x2="1496.0" y2="549.0" stroke="#00A4A6" stroke-width="0.9"/>
@@ -243,24 +246,27 @@
 <text x="1752" y="566" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.2" font-weight="400" fill="#3C4750" text-anchor="start">도커 API 로 컨테이너 자원</text>
 <text x="602" y="628" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10.5" font-weight="400" fill="#3C4750" text-anchor="start">수집 축 다섯. 앱 액추에이터, 봇, 진입 프로브, 데이터베이스, 컨테이너 경계</text>
 <text x="602" y="650" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#5C6B75" text-anchor="start">cAdvisor 를 쓰지 않는다. Docker Desktop 에서 컨테이너 메타데이터를 못 읽어 도커 API 를 직접 읽는다(2026-09-09 실측)</text>
-<text x="602" y="672" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#5C6B75" text-anchor="start">알람 수신 주소가 비어 있다. 통지 경로는 배선됐고 주소만 미기입이다(정본 한계 15)</text>
+<text x="602" y="672" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#5C6B75" text-anchor="start">알람 수신 경로는 배선됐다. receiver 가 chat 하나이고 webhook_url_file 을 가리킨다. 없는 것은 그 값 파일이다(정본 한계 15)</text>
 <text x="602" y="702" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="700" fill="#16191F" text-anchor="start">http_server_requests 에는 수용 거절과 인증 실패가 안 잡힌다. Micrometer 필터 앞에서 끊기기 때문이다</text>
 <text x="602" y="722" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.6" font-weight="400" fill="#5C6B75" text-anchor="start">제공 부하는 접수에 exchange_admission_rejected_total 을 더해 구하고, 봇 기저를 빼야 k6 몫이 나온다(2026-09-09 실측)</text>
 <polyline points="780,216 818,216 818,252 848,252" fill="none" stroke="#B8730A" stroke-width="1.8" marker-end="url(#hB8730A)"/>
 <polyline points="780,346 818,346 818,292 848,292" fill="none" stroke="#7AA116" stroke-width="1.8" marker-end="url(#h7AA116)"/>
-<polyline points="1042,268 1072,268 1072,232 1104,232" fill="none" stroke="#2E3B45" stroke-width="2.2" marker-end="url(#h2E3B45)"/>
-<polyline points="1072,268 1072,330 1104,330" fill="none" stroke="#5C6B75" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#h5C6B75)"/>
-<text x="1062" y="354" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.6" font-weight="700" fill="#5C6B75" text-anchor="middle">backup</text>
-<polyline points="1490,232 1530,232 1530,240 1568,240" fill="none" stroke="#2E3B45" stroke-width="2.2" marker-end="url(#h2E3B45)"/>
+<polyline points="1042,268 1058,268 1058,232 1088,232" fill="none" stroke="#2E3B45" stroke-width="2.2" marker-end="url(#h2E3B45)"/>
+<polyline points="1058,268 1058,330 1088,330" fill="none" stroke="#5C6B75" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#h5C6B75)"/>
+<text x="1050" y="354" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.6" font-weight="700" fill="#5C6B75" text-anchor="middle">backup</text>
+<polyline points="1462,232 1486,232 1486,240 1506,240" fill="none" stroke="#2E3B45" stroke-width="2.2" marker-end="url(#h2E3B45)"/>
+<polyline points="1462,330 1486,330 1486,272 1506,272" fill="none" stroke="#5C6B75" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#h5C6B75)"/>
+<polyline points="1694,248 1724,248" fill="none" stroke="#2E3B45" stroke-width="2.2" marker-end="url(#h2E3B45)"/>
 <circle cx="822" cy="192" r="9" fill="#FFFFFF" stroke="#B8730A" stroke-width="1.5"/>
 <text x="822" y="195.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#B8730A" text-anchor="middle">1</text>
-<circle cx="1072" cy="202" r="9" fill="#FFFFFF" stroke="#2E3B45" stroke-width="1.5"/>
-<text x="1072" y="205.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#2E3B45" text-anchor="middle">2</text>
-<circle cx="1530" cy="202" r="9" fill="#FFFFFF" stroke="#2E3B45" stroke-width="1.5"/>
-<text x="1530" y="205.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#2E3B45" text-anchor="middle">3</text>
-<polyline points="1298,272 1298,430 1530,430 1530,352 1568,352" fill="none" stroke="#5C6B75" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#h5C6B75)"/>
-<polyline points="1630,400 1630,310" fill="none" stroke="#B8730A" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#hB8730A)"/>
-<polyline points="707,528 707,466 1298,466 1298,372" fill="none" stroke="#00A4A6" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#h00A4A6)"/>
+<circle cx="1058" cy="202" r="9" fill="#FFFFFF" stroke="#2E3B45" stroke-width="1.5"/>
+<text x="1058" y="205.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#2E3B45" text-anchor="middle">2</text>
+<circle cx="1486" cy="202" r="9" fill="#FFFFFF" stroke="#2E3B45" stroke-width="1.5"/>
+<text x="1486" y="205.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#2E3B45" text-anchor="middle">3</text>
+<circle cx="1710" cy="220" r="9" fill="#FFFFFF" stroke="#2E3B45" stroke-width="1.5"/>
+<text x="1710" y="223.5" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="10" font-weight="700" fill="#2E3B45" text-anchor="middle">4</text>
+<polyline points="1276,272 1276,440 1692,440 1692,370 1724,370" fill="none" stroke="#5C6B75" stroke-width="1.2" stroke-dasharray="5 4" marker-end="url(#h5C6B75)"/>
+<polyline points="707,528 707,466 1276,466 1276,372" fill="none" stroke="#00A4A6" stroke-width="1.4" stroke-dasharray="6 4" marker-end="url(#h00A4A6)"/>
 <text x="800" y="458" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="700" fill="#00A4A6" text-anchor="start">scrape :8080 · 앱을 당긴다</text>
 <polyline points="500,190 530,190 530,84 1200,84 1200,154" fill="none" stroke="#B8730A" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#hB8730A)"/>
 <polyline points="500,158 572,258 572,216 596,216" fill="none" stroke="#B8730A" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#hB8730A)"/>

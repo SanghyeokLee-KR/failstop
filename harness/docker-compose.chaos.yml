@@ -192,7 +192,9 @@ services:
 
   # 알람 통지. Prometheus 가 발화만 하고 보내지는 못한다. 이것이 채팅으로 밀어낸다.
   # 웹훅 URL 은 secrets/discord_webhook_url 파일에서 읽는다. 그 파일은 커밋하지 않는다.
-  # 파일이 없으면 Alertmanager 가 기동에 실패하므로 obs 프로파일을 올리기 전에 만든다.
+  # 파일이 없어도 기동은 된다(2026-09-10 실측: 파일 없이 Running, RestartCount 0).
+  # 실패는 기동이 아니라 통지 시점에 난다. 수신 경로는 alertmanager.yml 에 배선돼
+  # 있고 receiver 는 chat 하나다. 빠진 것은 그 파일의 값뿐이다.
   chaos-alertmanager:
     image: prom/alertmanager:v0.34.0
     container_name: chaos-alertmanager
@@ -241,8 +243,10 @@ services:
 
   # 외부 프로브. 진입 계층을 밖에서 찌른다(정본 13.4 한계 14).
   #
-  # 봇은 앱 안에서 돌아 내부 경로만 왕복한다. 로드밸런서가 죽어도 봇 지표는 정상으로
-  # 보인다. 그 구간을 잡을 수단이 이것뿐이다.
+  # 봇은 chaos-lb 를 통과한다(EXCHANGE_SIM_BASE_URL). 그래서 로드밸런서가 죽으면
+  # 봇 지표도 함께 무너진다. 종전 주석은 봇이 앱 안에서 돈다고 적었으나 사실이 아니다.
+  # 밖에서 찌를 수단이 따로 필요한 이유는 다른 데 있다. 봇과 k6 는 둘 다 망 안에 있어
+  # 진입 계층이 망 밖에서 보이는지를 재지 못한다.
   chaos-blackbox:
     image: prom/blackbox-exporter:v0.25.0
     container_name: chaos-blackbox
