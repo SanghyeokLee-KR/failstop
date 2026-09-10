@@ -151,11 +151,19 @@ class EngineRuntimeIntegrationTest {
         liveChecksum = live.stateChecksum();
         liveLastAppliedSeq = live.lastAppliedSeq();
 
-        List<EventJournalRow> rows = eventReader.readAfter(0, 1000);
+        // 커서 축이 (source_cmd_seq, event_ordinal) 이라 전량 읽기는 (0, -1) 초과다.
+        // event_ordinal 은 0 이상이므로 -1 이 하한 밖이다.
+        List<EventJournalRow> rows = eventReader.readAfter(0, -1, 1000);
         scenarioEventCount = rows.size();
         assertTrue(rows.size() >= 15, "이벤트 저널이 비었거나 부족하다: " + rows.size());
-        // gapless + 레지스트리 트리거 정합
-        assertEquals(rows.size(), queryLong("SELECT max(event_seq) - min(event_seq) + 1 FROM event_journal"));
+        // gapless + 레지스트리 트리거 정합. V36 에서 결번 없음의 축이 마켓 안으로 갔다.
+        // event_seq 는 marketId 대역 파생이라 전역으로 세면 대역 사이가 비어 보인다.
+        assertEquals(rows.size(), queryLong("""
+                SELECT COALESCE(sum(span), 0) FROM (
+                    SELECT max(market_seq) - min(market_seq) + 1 AS span
+                    FROM event_journal WHERE market_seq IS NOT NULL GROUP BY market_id
+                ) g
+                """));
         assertEquals(rows.size(), queryLong("SELECT count(*) FROM event_emission_registry"));
         long epoch = lease.requireLeader().epoch();
         assertEquals(rows.size(), jdbc.sql("SELECT count(*) FROM event_journal WHERE fencing_epoch = ?")
@@ -264,7 +272,12 @@ class EngineRuntimeIntegrationTest {
                 queryLong("SELECT count(*) FROM event_journal"));
         // 재적재분은 W+1부터 연속 배정이라 gapless가 유지된다(§5.5 ②).
         assertEquals(queryLong("SELECT count(*) FROM event_journal"),
-                queryLong("SELECT max(event_seq) - min(event_seq) + 1 FROM event_journal"));
+                queryLong("""
+                SELECT COALESCE(sum(span), 0) FROM (
+                    SELECT max(market_seq) - min(market_seq) + 1 AS span
+                    FROM event_journal WHERE market_seq IS NOT NULL GROUP BY market_id
+                ) g
+                """));
         assertEquals(1, jdbc.sql("SELECT count(*) FROM event_journal "
                         + "WHERE source_cmd_seq = ? AND event_type = 'ACCEPTED' AND event_ordinal = 0")
                 .params(fenceSeq).query(Long.class).single());

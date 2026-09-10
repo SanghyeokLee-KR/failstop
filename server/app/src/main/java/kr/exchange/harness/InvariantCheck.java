@@ -37,8 +37,19 @@ public enum InvariantCheck {
     // ── 저널 gapless(유실 0 · RPO=0) ────────────────────────────────────
     C05_CMD_GAPLESS(Severity.CRITICAL, Scope.SCHEDULED,
             "SELECT COALESCE((max(seq) - min(seq) + 1) - count(*), 0) FROM command_journal"),
-    C06_EVT_GAPLESS(Severity.CRITICAL, Scope.SCHEDULED,
-            "SELECT COALESCE((max(event_seq) - min(event_seq) + 1) - count(*), 0) FROM event_journal"),
+    // V36 에서 축이 바뀌었다. 종전에는 event_seq 전역 gapless 였다. 이제 event_seq 는
+    // marketId * 10^7 + marketSeq 파생이라 전역으로 보면 대역 사이가 통째로 비어 있고,
+    // 그 빈 자리는 결번이 아니라 대역 경계다. 결번 없음이 실제로 요구되는 축은 마켓
+    // 안이다. 재생이 그 마켓의 이벤트를 순서대로 대조하기 때문이다. 그래서 마켓별로
+    // 세고 합친다. market_seq 가 비어 있는 V36 이전 행은 이 검사 밖이다.
+    C06_EVT_GAPLESS(Severity.CRITICAL, Scope.SCHEDULED, """
+            SELECT COALESCE(sum(gap), 0) FROM (
+                SELECT (max(market_seq) - min(market_seq) + 1) - count(*) AS gap
+                FROM event_journal
+                WHERE market_seq IS NOT NULL
+                GROUP BY market_id
+            ) g
+            """),
 
     // ── 중복 접수(프로젝션 축 · 저널 축) ─────────────────────────────────
     C07_DUP_ORDER(Severity.CRITICAL, Scope.SCHEDULED, """
@@ -248,12 +259,23 @@ public enum InvariantCheck {
     // next_value가 저널 최대 seq 이하이면 다음 채번이 기존 seq와 충돌한다(재사용). 정상 채번은
     // 원자적이라 라이브에선 항상 max+1 이상이고, 백업 복원·수동 리시드가 카운터를 저널 아래로
     // 되돌리는 경우만 위반이다. 정지 시점 권위 run에서 평가한다(AUTHORITATIVE_ONLY).
+    // V36 에서 event_seq 축이 마켓 안으로 갔다. 전역 journal_counters 의 event_seq 행은
+    // 더 이상 호출자가 없으므로 max(event_seq) 와 대조하면 항상 위반이다. 채번한 값이
+    // 저널에 실재하는지를 보는 것이 이 검사의 뜻이므로, 그 뜻을 두 축에 나눠 적용한다.
+    // 명령 축은 전역 카운터 그대로이고, 이벤트 축은 마켓별 카운터 대 마켓별 최대값이다.
     C23_COUNTER_SEQ_CONSISTENCY(Severity.CRITICAL, Scope.AUTHORITATIVE_ONLY, """
-            SELECT count(*) FROM journal_counters c
-            WHERE (c.name = 'command_seq'
-                     AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal))
-               OR (c.name = 'event_seq'
-                     AND c.next_value <= (SELECT COALESCE(max(event_seq), 0) FROM event_journal))
+            SELECT (
+                SELECT count(*) FROM journal_counters c
+                WHERE c.name = 'command_seq'
+                  AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal)
+            ) + (
+                SELECT count(*) FROM market_journal_counters m
+                WHERE m.name = 'event_seq'
+                  AND m.next_value <= (SELECT COALESCE(max(e.market_seq), 0)
+                                       FROM event_journal e
+                                       WHERE e.market_id = m.market_id
+                                         AND e.market_seq IS NOT NULL)
+            )
             """),
 
     // ── 원가 프로젝션 정합(DB §6.4 ⑱⑲, V13) ──────────────────────────────

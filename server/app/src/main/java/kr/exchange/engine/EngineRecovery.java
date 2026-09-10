@@ -142,14 +142,19 @@ public class EngineRecovery {
      */
     private ReplayResult recover(MatchingEngineImpl engine, java.time.Duration promotionWait,
                                  boolean followerAllowed) {
+        // 이벤트 커서의 시작점이다. V36 에서 축이 event_seq 에서 source_cmd_seq 로 바뀌었다.
+        // 스냅샷이 명령 snapSeq 까지 반영한 상태이므로 그 다음 명령의 이벤트부터 대조한다.
+        // 종전에는 여기서 max(event_seq) WHERE source_cmd_seq <= snapSeq 를 유도했다.
+        // 그 유도는 event_seq 가 명령 순서대로 배정된다는 전제 위에 있었고 V36 이 그것을
+        // 깼다. 명령 seq 를 그대로 쓰면 유도 자체가 필요 없어진다.
         long eventStart = 0;
         if (snapshotSource != null) {
             Optional<SnapshotSource.Loaded> snap = snapshotSource.loadLatestAdoptable();
             if (snap.isPresent()) {
                 long snapSeq = snap.get().seq();
                 engine.loadSnapshot(snapSeq, snap.get().books());
-                eventStart = snapshotSource.eventWatermark(snapSeq);
-                log.info("스냅샷 채택: last_applied_seq={}, event_watermark={}, markets={}",
+                eventStart = snapSeq;
+                log.info("스냅샷 채택: last_applied_seq={}, 이벤트 커서 시작={}, markets={}",
                         snapSeq, eventStart, snap.get().books().size());
             }
         }

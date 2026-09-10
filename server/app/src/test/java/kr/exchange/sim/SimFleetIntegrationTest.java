@@ -157,10 +157,15 @@ class SimFleetIntegrationTest {
                 SELECT CASE WHEN max(seq) - min(seq) + 1 = count(*) THEN 0 ELSE 1 END
                 FROM command_journal
                 """), "command_journal gapless");
+        // V36 에서 결번 없음의 축이 마켓 안으로 갔다. event_seq 는 marketId 대역 파생이라
+        // 전역으로 세면 대역 사이가 비어 보인다. 그 빈 자리는 결번이 아니라 경계다.
         assertEquals(0, count("""
-                SELECT CASE WHEN max(event_seq) - min(event_seq) + 1 = count(*) THEN 0 ELSE 1 END
-                FROM event_journal
-                """), "event_journal gapless");
+                SELECT CASE WHEN (SELECT COALESCE(sum(span), 0) FROM (
+                    SELECT max(market_seq) - min(market_seq) + 1 AS span
+                    FROM event_journal WHERE market_seq IS NOT NULL GROUP BY market_id
+                ) g) = (SELECT count(*) FROM event_journal WHERE market_seq IS NOT NULL)
+                            THEN 0 ELSE 1 END
+                """), "event_journal 마켓별 gapless");
 
         // 불변식 4: FILLED 주문의 락 잔량 0(§4-B-5)
         assertEquals(0, count(

@@ -44,9 +44,12 @@ public class EventJournalAppender {
     private static final String INSERT_SQL = """
             INSERT INTO event_journal
               (event_seq, source_cmd_seq, event_ordinal, event_type, payload,
-               payload_schema_version, fencing_epoch, created_at)
-            VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?)
+               payload_schema_version, fencing_epoch, created_at, market_id, market_seq)
+            VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
             """;
+
+    /** SettlementService 와 같은 대역이어야 한다. 두 경로가 같은 저널에 쓴다. */
+    private static final long MARKET_SEQ_BAND = 10_000_000L;
 
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
@@ -97,18 +100,31 @@ public class EventJournalAppender {
                     "stale 리더 event append 거부: holder=" + leader.holder() + ", epoch=" + leader.epoch());
         }
 
-        long start = jdbc.sql("SELECT next_journal_value('event_seq', ?)")
-                .params(events.size())
+        // V36. 채번이 마켓별이다. 배치는 명령 하나의 방출분이라 전부 같은 마켓이다.
+        // SettlementService 와 같은 규약을 쓴다. 두 경로가 같은 저널에 쓰므로 어긋나면
+        // 한쪽이 만든 행에 market_seq 가 비고 마켓별 gapless 검사가 그 행을 놓친다.
+        int marketId = events.get(0).marketId();
+        for (EngineEvent e : events) {
+            if (e.marketId() != marketId) {
+                throw new IllegalArgumentException(
+                        "이벤트 배치가 마켓을 넘는다: " + marketId + " vs " + e.marketId());
+            }
+        }
+        long marketStart = jdbc.sql("SELECT next_market_journal_value(?::smallint, 'event_seq', ?)")
+                .params(marketId, events.size())
                 .query(Long.class)
                 .single();
 
         List<EngineEvent> assigned = new ArrayList<>(events.size());
         for (int i = 0; i < events.size(); i++) {
-            EngineEvent event = events.get(i).withEventSeq(start + i);
+            long marketSeq = marketStart + i;
+            EngineEvent event = events.get(i)
+                    .withEventSeq(marketId * MARKET_SEQ_BAND + marketSeq);
             jdbc.sql(INSERT_SQL)
                     .params(event.eventSeq(), event.sourceCmdSeq(), event.eventOrdinal(),
                             event.type().name(), EventPayloads.json(event, objectMapper),
-                            PAYLOAD_SCHEMA_VERSION, epoch, toUtc(event.engineTs()))
+                            PAYLOAD_SCHEMA_VERSION, epoch, toUtc(event.engineTs()),
+                            (short) marketId, marketSeq)
                     .update();
             assigned.add(event);
         }
