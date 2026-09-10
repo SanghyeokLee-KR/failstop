@@ -21,6 +21,32 @@ const BASE = __ENV.BASE_URL || 'http://localhost:58080';
 const WS_URL = __ENV.WS_URL || BASE.replace(/^http/, 'ws') + '/ws/v1';
 const HOST = __ENV.API_HOST || 'api.exchange.local';
 const MARKET = __ENV.MARKET || 'KRW-BTC';
+// 주문을 여러 마켓에 흩는다(ADR 0021 5단계 실측용). 기본값은 단일 마켓이라 기존 회차의
+// 부하 형태가 바뀌지 않는다.
+//
+// 왜 필요한가. 마켓별 라이터의 이득은 부하가 여러 마켓에 걸릴 때만 난다. 한 마켓만 치면
+// 라이터도 하나만 돌아 이득이 0으로 나오는데, 그것은 코드가 아니라 부하 형태의 결과다.
+// 그 둘을 갈라야 이번 변경을 실제로 잰 것이 된다.
+const MARKETS = (__ENV.MARKETS || MARKET).split(',').map((m) => m.trim()).filter((m) => m);
+
+// 마켓마다 호가 단위와 가격대가 다르다. 같은 가격과 수량을 전 마켓에 보내면 시장 규칙에
+// 걸려 400 이 된다(2026-09-10 실측: 다른 마켓 주문 20,826건이 전량 400). tick 배수와
+// 최소 주문 금액 5,000원을 함께 만족하는 값을 마켓마다 둔다. 매수는 기준가 아래,
+// 매도는 위로 두어 즉시 체결되지 않고 호가로 남게 한다. 부하 형성이 목적이다.
+const MARKET_RULES = {
+  'KRW-BTC': { bid: '49900000', ask: '50100000', volume: '0.0010' },
+  'KRW-ETH': { bid: '4400000', ask: '4600000', volume: '0.0100' },
+  'KRW-SOL': { bid: '200000', ask: '220000', volume: '0.1000' },
+  'KRW-XRP': { bid: '700', ask: '800', volume: '20.0000' },
+  'KRW-DOGE': { bid: '300', ask: '400', volume: '50.0000' },
+  'KRW-ADA': { bid: '700', ask: '800', volume: '20.0000' },
+  'KRW-TRX': { bid: '300', ask: '400', volume: '50.0000' },
+  'KRW-LINK': { bid: '20000', ask: '22000', volume: '1.0000' },
+  'KRW-DOT': { bid: '6000', ask: '7000', volume: '2.0000' },
+  'KRW-MATIC': { bid: '600', ask: '700', volume: '20.0000' },
+  'KRW-AVAX': { bid: '30000', ask: '33000', volume: '1.0000' },
+  'KRW-ATOM': { bid: '7000', ask: '8000', volume: '2.0000' },
+};
 
 // 외부 주입 레이트(k6 축). 봇 거버너 축(EXCHANGE_SIM_TARGET_OPS)과 다른 축이고, 섞으면
 // 이미 PASS한 카오스 실험의 전제가 바뀐다. 기본값은 2026-08-29 캘리브레이션 확정치이고
@@ -250,12 +276,15 @@ if (!/^[A-Za-z0-9_-]{1,16}$/.test(RUN_ID)) {
 // 결정론 없이 가격·수량만 변주. 체결 여부는 무결성 판정과 무관하므로 부하 형성만 목적.
 function orderPayload() {
   const side = (exec.vu.iterationInInstance % 2 === 0) ? 'bid' : 'ask';
-  const price = side === 'bid' ? '49900000' : '50100000';
+  const mk = MARKETS[(exec.vu.idInTest + exec.vu.iterationInInstance) % MARKETS.length];
+  const rule = MARKET_RULES[mk] || MARKET_RULES['KRW-BTC'];
+  const price = side === 'bid' ? rule.bid : rule.ask;
   // VARCHAR(36) 상한. RUN_ID 16자 가드가 이 조립의 최악 길이를 36자 안에 묶는다(위 참조).
   const coid = `k6-${RUN_ID}-${exec.vu.idInTest}-${exec.vu.iterationInInstance}`;
   return {
-    clientOrderId: coid, market: MARKET, ordType: 'limit',
-    price, side, timeInForce: 'GTC', volume: '0.0010',
+    // VU 마다 다른 마켓에서 시작해 한 마켓에 몰리지 않게 한다.
+    clientOrderId: coid, market: mk, ordType: 'limit',
+    price, side, timeInForce: 'GTC', volume: rule.volume,
   };
 }
 
