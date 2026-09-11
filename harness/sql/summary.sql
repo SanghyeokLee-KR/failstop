@@ -40,7 +40,12 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
     UNION ALL SELECT 'C05','CMD_JOURNAL_GAPLESS','CRITICAL','ALWAYS',
            (SELECT COALESCE((max(seq)-min(seq)+1)-count(*),0) FROM command_journal)
     UNION ALL SELECT 'C06','EVENT_JOURNAL_GAPLESS','CRITICAL','ALWAYS',
-           (SELECT COALESCE((max(event_seq)-min(event_seq)+1)-count(*),0) FROM event_journal)
+           -- V36 에서 축이 마켓 안으로 갔다. event_seq 는 marketId * 10^7 + market_seq 파생이라
+           -- 전역으로 세면 마켓 대역 사이의 빈 구간이 전부 결번으로 잡힌다. 결번 없음이 성립하는
+           -- 곳은 마켓 안이다. market_seq 가 빈 V36 이전 행은 이 검사 밖이다.
+           (SELECT COALESCE(sum(gap), 0) FROM (
+                SELECT (max(market_seq) - min(market_seq) + 1) - count(*) AS gap
+                FROM event_journal WHERE market_seq IS NOT NULL GROUP BY market_id) g)
     UNION ALL SELECT 'C07','DUP_CLIENT_ORDER','CRITICAL','ALWAYS',
            (SELECT count(*) FROM (SELECT user_id, client_order_id FROM orders
                 WHERE client_order_id IS NOT NULL
@@ -143,11 +148,16 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
             ) t
             WHERE t.prev > t.fencing_token)
     UNION ALL SELECT 'C23','COUNTER_SEQ_CONSISTENCY','CRITICAL','CONDITIONAL',
+           -- V36 이후 이벤트 축은 마켓별 카운터다. 전역 journal_counters 의 event_seq 행은
+           -- 호출자가 없으므로 대조 대상이 아니다. 명령 축만 전역으로 남는다.
            (SELECT count(*) FROM journal_counters c
-            WHERE (c.name = 'command_seq'
-                     AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal))
-               OR (c.name = 'event_seq'
-                     AND c.next_value <= (SELECT COALESCE(max(event_seq), 0) FROM event_journal)))
+            WHERE c.name = 'command_seq'
+              AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal))
+           + (SELECT count(*) FROM market_journal_counters m
+              WHERE m.name = 'event_seq'
+                AND m.next_value <= (SELECT COALESCE(max(e.market_seq), 0) FROM event_journal e
+                                     WHERE e.market_id = m.market_id
+                                       AND e.market_seq IS NOT NULL))
 \if :has_cost_views
     UNION ALL SELECT 'C24','POSITION_COST_QTY','WARN','CONDITIONAL',
            (SELECT count(*) FROM position_cost_qty_check)

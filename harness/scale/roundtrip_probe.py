@@ -43,6 +43,15 @@ def sample():
 
     ap, sk, hk = ns('apply'), ns('sink'), ns('hook')
     n = q('sum(rate(exchange_writer_apply_count_total[1m]))')
+    # 접수 임계구역. 마켓별 샤딩이 건드리지 않은 전역 직렬 구간이다. 모든 마켓의 모든
+    # 접수가 EngineBridge 의 ReentrantLock 하나를 지나고 그 안에서 저널 append 와 커밋을
+    # 한다. 보유 점유가 1.0 에 가까우면 그 락이 상한이다. 라이터 점유와 달리 마켓 수로
+    # 나뉘지 않으므로 물리 상한이 12.0 이 아니라 1.0 이다.
+    lw = q('sum(rate(exchange_submit_lock_wait_nanos_total[1m]))')
+    lh = q('sum(rate(exchange_submit_lock_hold_nanos_total[1m]))')
+    sc = q('sum(rate(exchange_submit_count_total[1m]))')
+    lw = (lw / 1e9) if lw is not None else None
+    lh = (lh / 1e9) if lh is not None else None
     acc = q('sum(rate(http_server_requests_seconds_count'
             '{uri="/api/v1/orders",method="POST",status="201"}[1m]))')
     xact = q('sum(rate(pg_stat_database_xact_commit{datname="exchange"}[1m]))')
@@ -59,6 +68,11 @@ def sample():
         'sink 1회(ms)': (sk / n * 1e3) if (sk and n) else None,
         '훅 1회(ms)': (hk / n * 1e3) if (hk is not None and n) else None,
         '1건당 직렬(ms)': (((ap or 0) + (sk or 0) + (hk or 0)) / n * 1e3) if n else None,
+        '락 보유 점유': lh,
+        '락 대기 점유': lw,
+        '접수 시도/s': sc,
+        '락 보유 1회(ms)': (lh / sc * 1e3) if (lh and sc) else None,
+        '락 대기 1회(ms)': (lw / sc * 1e3) if (lw and sc) else None,
         '트랜잭션/s': xact,
         '명령당 트랜잭션': (xact / n) if (xact and n) else None,
         '활성 커넥션': q('avg_over_time(pg_stat_activity_count{state="active",datname="exchange"}[1m])'),
