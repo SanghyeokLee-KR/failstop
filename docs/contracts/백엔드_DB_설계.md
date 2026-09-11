@@ -371,7 +371,8 @@ erDiagram
 | V35 | `V35__orders_locked_account_index.sql` | `orders.locked_account_id` 부분 인덱스. C14 불변식이 orders 를 순차 스캔하던 것을 인덱스로 바꾼다. 열린 상태 셋만 담는다 | V1 |
 | V36 | `V36__market_seq.sql` | 마켓별 순서 축. `market_journal_counters`와 `next_market_journal_value`, `event_journal`의 `market_id`·`market_seq` 열. 전역 채번 한 행에서 직렬화되던 정산을 마켓별 카운터로 가른다(ADR 0021 1단계). `markets` 외래키를 걸지 않는 이유는 저널이 마켓 행의 실재를 요구하지 않기 때문이다 | V1(`event_journal`), V0(`app_role` GRANT) |
 | V37 | `V37__ledger_batch_balance_update.sql` | 원장 게시의 잔고 갱신을 계좌별 UPDATE 루프에서 오름차순 잠금 한 문장과 일괄 UPDATE 한 문장으로 묶는다. 잠금 순서는 `SELECT ... ORDER BY account_id FOR NO KEY UPDATE`가 지킨다. `UPDATE ... FROM`에 맡기면 계획기가 훑는 순서를 정해 규약이 깨진다 | V27(`post_ledger_transaction` 재정의. V13의 `apply_position_cost` 호출 유지) |
-| V38+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V38 | `V38__ledger_balance_update_index_scan.sql` | V37 의 일괄 잔고 UPDATE 에 `account_id = ANY(배열)` 조건을 더한다. `jsonb_to_recordset` 이 통계 없이 100행으로 추정돼 조인만으로는 `balances` 순차 스캔이 뽑힌다. 실행 계획으로 확인했다 | V37(`post_ledger_transaction` 재정의) |
+| V39+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -803,7 +804,7 @@ CREATE TRIGGER trg_guard_txn_transition BEFORE UPDATE ON ledger_transactions
 -- 사고가 났다. V27 이 없앤 재조회 세 건이 되살아나고 V13 이 넣은 원가 프로젝션 호출이
 -- 사라져 시험 열두 건이 깨졌다. 같은 사실을 두 곳에 두면 반드시 갈린다. 가리키기만 한다.
 --
--- 현재 본문:  V37__ledger_batch_balance_update.sql
+-- 현재 본문:  V38__ledger_balance_update_index_scan.sql
 -- 개정 이력:
 --   V1  최초. 삽입한 entry 를 다시 읽어 검증하고 계좌마다 UPDATE 를 돈다
 --   V13 말미에 apply_position_cost(v_txn) 추가. 원가 프로젝션(계층 3)
@@ -811,6 +812,8 @@ CREATE TRIGGER trg_guard_txn_transition BEFORE UPDATE ON ledger_transactions
 --       ledger_entries 재조회를 없앤다
 --   V37 잔고 갱신을 오름차순 잠금 한 문장과 일괄 UPDATE 한 문장으로 묶는다.
 --       계좌마다 돌던 UPDATE 루프를 없앤다
+--   V38 일괄 UPDATE 에 배열 조건을 더해 기본키 인덱스를 타게 한다. V37 의 조인만으로는
+--       계획기가 balances 를 순차 스캔한다
 --
 -- 개정해도 바뀌지 않는 것(이 문서가 보증하는 계약).
 --   잠금 순서   헤더 FOR UPDATE 다음 balances 를 account_id 오름차순
@@ -1841,7 +1844,7 @@ CREATE TABLE user_provisioning (
 ### 5.0 전역 잠금 순서 규약 (P1)
 
 - 모든 자금 경로(예약 §5.1, 체결 정산 §5.2, 해제·취소 §5.3, 입출금 정산)는 `balances` 행 배타 잠금을 **account_id 오름차순**으로만 획득한다. 예외 없음.
-- 원장 게시·잔고 갱신은 `post_ledger_transaction`(SECURITY DEFINER) 단일 경로다. 정본은 마이그레이션 파일이고 현재 본문은 V37이다(§4.3). 함수 내부가 헤더 행 FOR UPDATE 후 입력 JSONB에서 계정별 델타를 집계하고(V27), `balances`를 account_id 오름차순 `FOR NO KEY UPDATE`로 먼저 잠근 뒤 일괄 UPDATE로 적용하므로(V37), 이 경로를 쓰는 한 규약이 물리 강제된다.
+- 원장 게시·잔고 갱신은 `post_ledger_transaction`(SECURITY DEFINER) 단일 경로다. 정본은 마이그레이션 파일이고 현재 본문은 V38이다(§4.3). 함수 내부가 헤더 행 FOR UPDATE 후 입력 JSONB에서 계정별 델타를 집계하고(V27), `balances`를 account_id 오름차순 `FOR NO KEY UPDATE`로 먼저 잠근 뒤 일괄 UPDATE로 적용하므로(V37), 이 경로를 쓰는 한 규약이 물리 강제된다.
 - 예약·해제는 `reserve_funds` / `release_funds` 헬퍼로 호출한다. 두 헬퍼 모두 `post_ledger_transaction` 경유이므로 동일 규약이 자동 적용된다.
 - 자금 외 행 잠금(`orders` FOR UPDATE)은 id 오름차순으로 통일하고, 한 트랜잭션 안에서 테이블 간 잠금 순서(balances 다음 orders 또는 그 역)를 경로 전체에서 하나로 고정한다(§5.2의 순서가 정본).
 - 호출 규율("모든 자금 트랜잭션이 이 경로만 사용") 자체는 앱 계층 책임이다. `app_role`의 원장·잔고 직접 DML 회수(§9)가 우회를 물리 차단하고, 감사 쿼리(§6)가 잔여 위반을 탐지한다.

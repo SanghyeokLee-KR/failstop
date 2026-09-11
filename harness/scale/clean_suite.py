@@ -106,6 +106,21 @@ def wait_ready(timeout=300):
     return False
 
 
+# 기준자산 시드. 엔드포인트 기본값은 100 인데 그 값으로는 매도가 몇 건 만에 바닥난다.
+#
+# 2026-09-11 실측. 12마켓 240/s 회차에서 주문의 34퍼센트가 400 이었고 사유가 전부
+# insufficient_funds 였다(초당 65.12건, domain_rejected 는 0). 주행 1분 만에 기준자산
+# 아홉 종의 잔고가 0 이 됐다. order_flow.js 의 매도 수량이 마켓마다 다르고 KRW-DOGE 와
+# KRW-TRX 는 한 건에 50 이라 계정당 두 건이면 100 이 사라진다.
+#
+# 값의 근거. 240/s 130초면 주문이 약 26,000건이고 12마켓 4계정으로 나누면 계정당 매도가
+# 약 271건이다. 최대 수량 50 을 곱하면 13,550 이 필요하다. 10^6 은 그 74배다.
+# 시세 가장 높은 KRW-BTC 기준으로도 10^6 BTC 는 KRW 시드 10^9 로 못 사므로 매수 경로가
+# 이 값에 영향받지 않는다.
+LOAD_BASE_FUNDING = '1000000'
+LOAD_QUOTE_FUNDING = '1000000000'
+
+
 def reissue_keys():
     """볼륨을 파기했으므로 부하 계정이 사라진다. 이 재발급이 없으면 k6 가 전량 401 이다."""
     for _ in range(6):
@@ -115,7 +130,9 @@ def reissue_keys():
                 # 없으면 매도 주문이 접수를 통과한 뒤 정산에서 라이터를 죽인다(한계 40).
                 'http://localhost:18080/harness/v1/loadtest-keys?market='
                 + urllib.parse.quote(markets())
-                + '&count=4',
+                + '&count=4'
+                + '&base=' + LOAD_BASE_FUNDING
+                + '&quote=' + LOAD_QUOTE_FUNDING,
                 method='POST')
             with urllib.request.urlopen(req, timeout=90) as r:
                 keys = json.load(r)
