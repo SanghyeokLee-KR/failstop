@@ -52,6 +52,19 @@ def sample():
     sc = q('sum(rate(exchange_submit_count_total[1m]))')
     lw = (lw / 1e9) if lw is not None else None
     lh = (lh / 1e9) if lh is not None else None
+
+    # 임계구역 안 분해(ADR 0022 0단계 (b)). 락 보유의 3분의 2가 데이터베이스 밖이라는
+    # 것까지만 알고 그 안을 몰랐다(정본 5.7.10). append 를 문장별로 가른다.
+    # appendTimer - inTx 가 커넥션 획득과 트랜잭션 경계와 커밋의 합이다.
+    def jn(name):
+        v = q('sum(rate(exchange_journal_%s_nanos_total[1m]))' % name)
+        return (v / 1e9) if v is not None else None
+
+    ap_sum = q('sum(rate(exchange_journal_append_seconds_sum[1m]))')
+    ap_cnt = q('sum(rate(exchange_journal_append_seconds_count[1m]))')
+    intx, la, idem, alloc, ins = (jn('intx'), jn('leader_assert'), jn('idempotency'),
+                                  jn('alloc'), jn('insert'))
+    jc = q('sum(rate(exchange_journal_intx_count_total[1m]))')
     acc = q('sum(rate(http_server_requests_seconds_count'
             '{uri="/api/v1/orders",method="POST",status="201"}[1m]))')
     xact = q('sum(rate(pg_stat_database_xact_commit{datname="exchange"}[1m]))')
@@ -73,6 +86,15 @@ def sample():
         '접수 시도/s': sc,
         '락 보유 1회(ms)': (lh / sc * 1e3) if (lh and sc) else None,
         '락 대기 1회(ms)': (lw / sc * 1e3) if (lw and sc) else None,
+        'append 1회(ms)': (ap_sum / ap_cnt * 1e3) if (ap_sum and ap_cnt) else None,
+        'inTx 1회(ms)': (intx / jc * 1e3) if (intx and jc) else None,
+        '  리더검증 1회(ms)': (la / jc * 1e3) if (la and jc) else None,
+        '  멱등판정 1회(ms)': (idem / jc * 1e3) if (idem and jc) else None,
+        '  전역채번 1회(ms)': (alloc / jc * 1e3) if (alloc and jc) else None,
+        '  저널삽입 1회(ms)': (ins / jc * 1e3) if (ins and jc) else None,
+        '커넥션·경계·커밋 1회(ms)': ((ap_sum / ap_cnt - intx / jc) * 1e3)
+                                   if (ap_sum and ap_cnt and intx and jc) else None,
+        'append 호출/s': ap_cnt,
         '트랜잭션/s': xact,
         '명령당 트랜잭션': (xact / n) if (xact and n) else None,
         '활성 커넥션': q('avg_over_time(pg_stat_activity_count{state="active",datname="exchange"}[1m])'),

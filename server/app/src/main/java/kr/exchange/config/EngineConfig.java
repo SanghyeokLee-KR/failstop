@@ -95,8 +95,33 @@ public class EngineConfig {
                                                          LeaderLeaseService leaderLeaseService,
                                                          MeterRegistry meterRegistry,
                                                          LeaderWriteProgress leaderWriteProgress) {
-        return new CommandJournalAppender(jdbcClient, transactionTemplate, leaderLeaseService,
+        CommandJournalAppender appender = new CommandJournalAppender(
+                jdbcClient, transactionTemplate, leaderLeaseService,
                 meterRegistry, leaderWriteProgress);
+        // 임계구역 안 분해(ADR 0022 0단계 (b)). 접수 락 보유의 3분의 2가 데이터베이스 밖에
+        // 있다는 것까지만 알고 그 안을 모른다(정본 5.7.10). appendTimer 에서 inTx 를 빼면
+        // 커넥션 획득과 트랜잭션 경계와 커밋이 남는다. 그 셋은 여기서 더 못 가른다.
+        record Probe(String name, java.util.function.ToDoubleFunction<CommandJournalAppender> f,
+                     String desc) {
+        }
+        for (Probe probe : java.util.List.of(
+                new Probe("exchange.journal.intx.nanos",
+                        CommandJournalAppender::inTxNanos, "append 트랜잭션 콜백 누적 나노초"),
+                new Probe("exchange.journal.leader.assert.nanos",
+                        CommandJournalAppender::leaderAssertNanos, "assert_current_leader 누적 나노초"),
+                new Probe("exchange.journal.idempotency.nanos",
+                        CommandJournalAppender::idempotencyNanos, "NEW 멱등 판정 누적 나노초"),
+                new Probe("exchange.journal.alloc.nanos",
+                        CommandJournalAppender::allocNanos, "전역 채번 누적 나노초"),
+                new Probe("exchange.journal.insert.nanos",
+                        CommandJournalAppender::insertNanos, "저널 INSERT 누적 나노초"),
+                new Probe("exchange.journal.intx.count",
+                        CommandJournalAppender::inTxCount, "위 다섯의 분모"))) {
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder(probe.name(), appender, probe.f())
+                    .description(probe.desc()).register(meterRegistry);
+        }
+        return appender;
     }
 
     @Bean
