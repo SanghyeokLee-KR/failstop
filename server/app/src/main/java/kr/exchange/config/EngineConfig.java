@@ -89,15 +89,36 @@ public class EngineConfig {
         return lease;
     }
 
+    /**
+     * 접수 저널 append 전용 배선. 커넥션과 트랜잭션 관리자를 요청 풀과 나눈다.
+     *
+     * 왜 나누는가. 2026-09-11 실측에서 접수 락 보유 7.878밀리초 중 4.729가 커넥션 획득과
+     * 트랜잭션 경계와 커밋이었다(정본 5.7.11). 커밋 fsync 약 1.2를 빼면 약 3.5가 데이터베이스
+     * 일이 아니다. 그 구간을 EngineBridge.submitLock 이 이미 직렬화하므로 append 가 동시에
+     * 커넥션을 둘 이상 쓸 일이 없다. 전용 풀은 그 구간에서 경합과 검증을 없앤다.
+     *
+     * 트랜잭션 관리자를 함께 나눠야 한다. 기본 관리자에 다른 DataSource 의 커넥션을 물리면
+     * 트랜잭션이 기본 풀에서 열리고 질의만 전용 풀로 가서 경계가 갈린다.
+     */
     @Bean
-    public CommandJournalAppender commandJournalAppender(JdbcClient jdbcClient,
-                                                         TransactionTemplate transactionTemplate,
-                                                         LeaderLeaseService leaderLeaseService,
-                                                         MeterRegistry meterRegistry,
-                                                         LeaderWriteProgress leaderWriteProgress) {
+    public CommandJournalAppender commandJournalAppender(
+            @org.springframework.beans.factory.annotation.Qualifier("appendDataSource")
+            javax.sql.DataSource appendDataSource,
+            LeaderLeaseService leaderLeaseService,
+            MeterRegistry meterRegistry,
+            LeaderWriteProgress leaderWriteProgress) {
+        // JdbcClient 와 TransactionTemplate 을 빈으로 내놓지 않고 여기서 만든다. 빈으로 두면
+        // 그 타입의 후보가 둘이 되고, 한정자 없이 타입으로 주입받는 다른 배선이 이름으로
+        // 아무거나 문다. 실제로 그렇게 관리 평면의 승인 롤백이 append 풀의 트랜잭션
+        // 관리자를 물어 롤백이 무효가 됐다(AdminPlaneIntegrationTest 두 건).
+        //
+        // 트랜잭션 관리자를 함께 나눠야 한다. 기본 관리자에 다른 DataSource 의 커넥션을
+        // 물리면 트랜잭션이 기본 풀에서 열리고 질의만 전용 풀로 가서 경계가 갈린다.
         CommandJournalAppender appender = new CommandJournalAppender(
-                jdbcClient, transactionTemplate, leaderLeaseService,
-                meterRegistry, leaderWriteProgress);
+                JdbcClient.create(appendDataSource),
+                new TransactionTemplate(
+                        new org.springframework.jdbc.support.JdbcTransactionManager(appendDataSource)),
+                leaderLeaseService, meterRegistry, leaderWriteProgress);
         // 임계구역 안 분해(ADR 0022 0단계 (b)). 접수 락 보유의 3분의 2가 데이터베이스 밖에
         // 있다는 것까지만 알고 그 안을 모른다(정본 5.7.10). appendTimer 에서 inTx 를 빼면
         // 커넥션 획득과 트랜잭션 경계와 커밋이 남는다. 그 셋은 여기서 더 못 가른다.
@@ -107,12 +128,9 @@ public class EngineConfig {
         for (Probe probe : java.util.List.of(
                 new Probe("exchange.journal.intx.nanos",
                         CommandJournalAppender::inTxNanos, "append 트랜잭션 콜백 누적 나노초"),
-                new Probe("exchange.journal.leader.assert.nanos",
-                        CommandJournalAppender::leaderAssertNanos, "assert_current_leader 누적 나노초"),
-                new Probe("exchange.journal.idempotency.nanos",
-                        CommandJournalAppender::idempotencyNanos, "NEW 멱등 판정 누적 나노초"),
-                new Probe("exchange.journal.alloc.nanos",
-                        CommandJournalAppender::allocNanos, "전역 채번 누적 나노초"),
+                new Probe("exchange.journal.prologue.nanos",
+                        CommandJournalAppender::prologueNanos,
+                        "머리말 한 왕복 누적 나노초(V39. 리더 검증·멱등 판정·채번)"),
                 new Probe("exchange.journal.insert.nanos",
                         CommandJournalAppender::insertNanos, "저널 INSERT 누적 나노초"),
                 new Probe("exchange.journal.intx.count",

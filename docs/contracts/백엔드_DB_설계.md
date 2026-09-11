@@ -372,7 +372,8 @@ erDiagram
 | V36 | `V36__market_seq.sql` | 마켓별 순서 축. `market_journal_counters`와 `next_market_journal_value`, `event_journal`의 `market_id`·`market_seq` 열. 전역 채번 한 행에서 직렬화되던 정산을 마켓별 카운터로 가른다(ADR 0021 1단계). `markets` 외래키를 걸지 않는 이유는 저널이 마켓 행의 실재를 요구하지 않기 때문이다 | V1(`event_journal`), V0(`app_role` GRANT) |
 | V37 | `V37__ledger_batch_balance_update.sql` | 원장 게시의 잔고 갱신을 계좌별 UPDATE 루프에서 오름차순 잠금 한 문장과 일괄 UPDATE 한 문장으로 묶는다. 잠금 순서는 `SELECT ... ORDER BY account_id FOR NO KEY UPDATE`가 지킨다. `UPDATE ... FROM`에 맡기면 계획기가 훑는 순서를 정해 규약이 깨진다 | V27(`post_ledger_transaction` 재정의. V13의 `apply_position_cost` 호출 유지) |
 | V38 | `V38__ledger_balance_update_index_scan.sql` | V37 의 일괄 잔고 UPDATE 에 `account_id = ANY(배열)` 조건을 더한다. `jsonb_to_recordset` 이 통계 없이 100행으로 추정돼 조인만으로는 `balances` 순차 스캔이 뽑힌다. 실행 계획으로 확인했다 | V37(`post_ledger_transaction` 재정의) |
-| V39+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V39 | `V39__append_prologue.sql` | 접수 저널 append 의 리더 검증과 NEW 멱등 판정과 전역 채번을 `append_command_prologue` 한 함수로 묶는다. 왕복이 다섯에서 둘로 준다. 삽입은 체크섬이 seq 와 Jackson 정규화 JSON 을 먹어 함수로 옮길 수 없다 | V1(`assert_current_leader`, `next_journal_value`, `command_journal`) |
+| V40+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 

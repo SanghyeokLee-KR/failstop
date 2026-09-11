@@ -10,7 +10,6 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.Optional;
 
 /**
  * command_journal append 단일 경로(DB 설계 v2.9 §5.1 (a'), §5.4).
@@ -20,6 +19,15 @@ import java.util.Optional;
  * 롤백되면 카운터 증가도 함께 되돌아가 결번이 없다(P0-5).
  */
 public class CommandJournalAppender {
+
+    // V39. 리더 검증과 NEW 멱등 판정과 전역 채번을 한 왕복으로 묶는다.
+    private static final String PROLOGUE_SQL =
+            "SELECT out_seq, out_replayed, out_fencing, out_order_id"
+            + " FROM append_command_prologue(?, ?, ?, ?, ?)";
+
+    /** 머리말 한 왕복의 결과. replayed 면 seq 가 기존 명령의 것이다. */
+    private record Prologue(long seq, boolean replayed, long fencing, long orderId) {
+    }
 
     private static final String INSERT_SQL = """
             INSERT INTO command_journal
@@ -54,11 +62,7 @@ public class CommandJournalAppender {
     // 붙기 때문이다. 여기서 필요한 것은 분포가 아니라 누적 합이다.
     private final java.util.concurrent.atomic.LongAdder inTxNanos =
             new java.util.concurrent.atomic.LongAdder();
-    private final java.util.concurrent.atomic.LongAdder leaderAssertNanos =
-            new java.util.concurrent.atomic.LongAdder();
-    private final java.util.concurrent.atomic.LongAdder idempotencyNanos =
-            new java.util.concurrent.atomic.LongAdder();
-    private final java.util.concurrent.atomic.LongAdder allocNanos =
+    private final java.util.concurrent.atomic.LongAdder prologueNanos =
             new java.util.concurrent.atomic.LongAdder();
     private final java.util.concurrent.atomic.LongAdder insertNanos =
             new java.util.concurrent.atomic.LongAdder();
@@ -70,19 +74,9 @@ public class CommandJournalAppender {
         return inTxNanos.sum();
     }
 
-    /** assert_current_leader 왕복. */
-    public long leaderAssertNanos() {
-        return leaderAssertNanos.sum();
-    }
-
-    /** NEW 멱등 판정. 어드바이저리 락과 저널 조회 둘을 합친다. 같은 목적의 한 덩어리다. */
-    public long idempotencyNanos() {
-        return idempotencyNanos.sum();
-    }
-
-    /** next_journal_value 전역 채번. 이 행 잠금이 커밋까지 유지된다. */
-    public long allocNanos() {
-        return allocNanos.sum();
+    /** 머리말 한 왕복(V39). 리더 검증과 NEW 멱등 판정과 전역 채번을 합친다. */
+    public long prologueNanos() {
+        return prologueNanos.sum();
     }
 
     /** command_journal INSERT. */
@@ -149,28 +143,28 @@ public class CommandJournalAppender {
     }
 
     private AppendResult appendInTxTimed(LeaderIdentity leader, CommandDraft draft) {
-        // 커밋 전 리더 검증 계약(P0-1). INSERT...SELECT의 엄격 비교와 이중 방어다.
+        // 머리말 한 왕복(V39). 종전에는 리더 검증과 어드바이저리 락과 멱등 조회와 채번을
+        // 네 문장으로 보냈다. 넷 다 이 트랜잭션 안에서 끝나므로 함수 하나에 담긴다.
+        // 판정 순서와 예외와 락 키는 그 함수가 종전 그대로 정한다.
+        //
+        // 삽입을 여기 안 넣는 이유는 체크섬이다. seq 를 받아야 계산할 수 있고 그 산식이
+        // Jackson 정규화에 걸려 있어 plpgsql 로 옮기면 같은 계약이 두 언어에 생긴다.
         long t = System.nanoTime();
-        jdbc.sql("SELECT assert_current_leader(?, ?)")
-                .params(leader.holder(), leader.epoch())
-                .query((rs, rowNum) -> 0)
-                .list();
-        leaderAssertNanos.add(System.nanoTime() - t);
-
-        if (draft.type() == CommandDraft.CommandType.NEW) {
-            t = System.nanoTime();
-            Optional<AppendResult> replay = findExistingNew(draft);
-            idempotencyNanos.add(System.nanoTime() - t);
-            if (replay.isPresent()) {
-                return replay.get();
-            }
-        }
-
-        t = System.nanoTime();
-        long seq = jdbc.sql("SELECT next_journal_value('command_seq')")
-                .query(Long.class)
+        Prologue p = jdbc.sql(PROLOGUE_SQL)
+                .params(leader.holder(), leader.epoch(),
+                        draft.type() == CommandDraft.CommandType.NEW,
+                        draft.userId(), draft.clientOrderId())
+                .query((rs, rowNum) -> new Prologue(
+                        rs.getLong("out_seq"), rs.getBoolean("out_replayed"),
+                        rs.getLong("out_fencing"), rs.getLong("out_order_id")))
                 .single();
-        allocNanos.add(System.nanoTime() - t);
+        prologueNanos.add(System.nanoTime() - t);
+
+        if (p.replayed()) {
+            // 원본 명령이 이미 저널에 있다. 종전 findExistingNew 가 돌려주던 것과 같은 값이다.
+            return new AppendResult(p.seq(), p.fencing(), true, p.orderId());
+        }
+        long seq = p.seq();
 
         long tIns = System.nanoTime();
         int inserted = jdbc.sql(INSERT_SQL)
@@ -189,28 +183,4 @@ public class CommandJournalAppender {
         return new AppendResult(seq, leader.epoch(), false, draft.assignedOrderId());
     }
 
-    /**
-     * NEW 멱등 재전송 판정. command_journal은 seq 파티션이라 (user_id, client_order_id)
-     * 유니크를 물리 강제할 수 없어, 동일 키 동시 append를 트랜잭션 어드바이저리 락으로
-     * 직렬화한 뒤 기존 명령을 조회한다. 완결 강제는 접수 트랜잭션의 orders
-     * uq_orders_client(§5.1 (a))가 담당한다.
-     */
-    private Optional<AppendResult> findExistingNew(CommandDraft draft) {
-        jdbc.sql("SELECT pg_advisory_xact_lock(hashtextextended('cmd-new:' || ?::text || ':' || ?, 0))")
-                .params(draft.userId(), draft.clientOrderId())
-                .query((rs, rowNum) -> 0)
-                .list();
-        return jdbc.sql("""
-                        SELECT seq, fencing_token, assigned_order_id
-                        FROM command_journal
-                        WHERE command_type = 'NEW' AND user_id = ? AND client_order_id = ?
-                        ORDER BY seq
-                        LIMIT 1
-                        """)
-                .params(draft.userId(), draft.clientOrderId())
-                .query((rs, rowNum) -> new AppendResult(
-                        rs.getLong("seq"), rs.getLong("fencing_token"), true,
-                        rs.getLong("assigned_order_id")))
-                .optional();
-    }
 }

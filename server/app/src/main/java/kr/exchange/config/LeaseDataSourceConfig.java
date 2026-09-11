@@ -36,6 +36,31 @@ public class LeaseDataSourceConfig {
     // 별도 지정한다. 코드 기본값은 프로파일에 블록이 없어도 소형·UTC로 뜨게 하는 안전망이고,
     // yml 값이 있으면 그것이 이긴다(바인딩이 반환 후 적용). statement_timeout은 걸지 않는다.
     // 단일 행 renew가 슬로 윈도에서 취소되면 리더십을 잃는다.
+    // 접수 저널 append 전용 소형 풀(ADR 0022 0단계 (b) 후속).
+    //
+    // 왜 전용인가. 2026-09-11 실측에서 접수 락 보유 7.878밀리초 중 4.729가 커넥션 획득과
+    // 트랜잭션 경계와 커밋이었다(정본 5.7.11). 커밋 fsync 가 약 1.2밀리초이므로 약 3.5가
+    // 데이터베이스 일이 아니다. 그 구간은 EngineBridge.submitLock 이 이미 직렬화하므로
+    // 동시에 커넥션을 둘 이상 쓸 일이 구조적으로 없다.
+    //
+    // 왜 크기가 2인가. 하나면 충분하지만 하나로 두면 커넥션이 끊긴 순간 풀이 새 커넥션을
+    // 만들 동안 append 가 전부 막힌다. 리스 풀이 같은 이유로 2다.
+    //
+    // 요청 풀과 나누는 부수 효과가 있다. 조회 폭주로 기본 풀이 포화돼도 접수가 커넥션을
+    // 기다리지 않는다. 리스 풀을 나눈 사유(v2.18)와 같은 성질이고 범위만 다르다.
+    @Bean
+    @ConfigurationProperties("exchange.engine.append-datasource.hikari")
+    public HikariDataSource appendDataSource(DataSourceProperties properties) {
+        HikariDataSource ds = properties.initializeDataSourceBuilder()
+                .type(HikariDataSource.class).build();
+        ds.setPoolName("exchange-append");
+        ds.setMaximumPoolSize(2);
+        ds.setMinimumIdle(2);
+        ds.setConnectionTimeout(2000);
+        ds.setConnectionInitSql("SET TIME ZONE 'UTC'");
+        return ds;
+    }
+
     @Bean
     @ConfigurationProperties("exchange.engine.lease-datasource.hikari")
     public HikariDataSource leaseDataSource(DataSourceProperties properties) {

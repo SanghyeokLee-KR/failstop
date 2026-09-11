@@ -62,8 +62,7 @@ def sample():
 
     ap_sum = q('sum(rate(exchange_journal_append_seconds_sum[1m]))')
     ap_cnt = q('sum(rate(exchange_journal_append_seconds_count[1m]))')
-    intx, la, idem, alloc, ins = (jn('intx'), jn('leader_assert'), jn('idempotency'),
-                                  jn('alloc'), jn('insert'))
+    intx, pro, ins = jn('intx'), jn('prologue'), jn('insert')
     jc = q('sum(rate(exchange_journal_intx_count_total[1m]))')
     acc = q('sum(rate(http_server_requests_seconds_count'
             '{uri="/api/v1/orders",method="POST",status="201"}[1m]))')
@@ -88,9 +87,7 @@ def sample():
         '락 대기 1회(ms)': (lw / sc * 1e3) if (lw and sc) else None,
         'append 1회(ms)': (ap_sum / ap_cnt * 1e3) if (ap_sum and ap_cnt) else None,
         'inTx 1회(ms)': (intx / jc * 1e3) if (intx and jc) else None,
-        '  리더검증 1회(ms)': (la / jc * 1e3) if (la and jc) else None,
-        '  멱등판정 1회(ms)': (idem / jc * 1e3) if (idem and jc) else None,
-        '  전역채번 1회(ms)': (alloc / jc * 1e3) if (alloc and jc) else None,
+        '  머리말 1회(ms)': (pro / jc * 1e3) if (pro and jc) else None,
         '  저널삽입 1회(ms)': (ins / jc * 1e3) if (ins and jc) else None,
         '커넥션·경계·커밋 1회(ms)': ((ap_sum / ap_cnt - intx / jc) * 1e3)
                                    if (ap_sum and ap_cnt and intx and jc) else None,

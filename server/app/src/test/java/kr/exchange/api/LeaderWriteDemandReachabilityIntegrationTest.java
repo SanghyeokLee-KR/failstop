@@ -96,6 +96,13 @@ class LeaderWriteDemandReachabilityIntegrationTest {
     @Qualifier("dataSource")
     HikariDataSource requestPool;
 
+    // 접수 저널 append 전용 풀. 2026-09-11 에 요청 풀과 갈랐다(정본 5.7.11). 이 시험이
+    // 고정하는 계약은 "쓰기 경로가 커넥션을 못 얻으면 503 이고 그래도 수요는 관측된다" 이고,
+    // 그 경로가 쓰는 풀이 이제 이쪽이다. 요청 풀만 말리면 접수가 성공해 시험이 무효가 된다.
+    @Autowired
+    @Qualifier("appendDataSource")
+    HikariDataSource appendPool;
+
     DemoKeySeeder.IssuedKey tradeKey;
     DemoKeySeeder.IssuedKey brokeKey;
 
@@ -139,13 +146,19 @@ class LeaderWriteDemandReachabilityIntegrationTest {
                 + "\"price\":\"84000000\",\"volume\":\"0.001\","
                 + "\"client_order_id\":\"stall-probe-1\"}").getBytes(StandardCharsets.UTF_8);
 
-        // 요청 풀 전량 점유. 이 시점부터 요청 경로의 모든 DB 조회가 커넥션 획득에서 실패한다.
+        // 두 풀 전량 점유. 이 시점부터 요청 경로와 접수 경로가 둘 다 커넥션 획득에서 실패한다.
         for (int i = 0; i < requestPool.getMaximumPoolSize(); i++) {
             held.add(requestPool.getConnection());
+        }
+        for (int i = 0; i < appendPool.getMaximumPoolSize(); i++) {
+            held.add(appendPool.getConnection());
         }
         assertEquals(requestPool.getMaximumPoolSize(),
                 requestPool.getHikariPoolMXBean().getActiveConnections(),
                 "요청 풀이 포화되지 않았다");
+        assertEquals(appendPool.getMaximumPoolSize(),
+                appendPool.getHikariPoolMXBean().getActiveConnections(),
+                "접수 전용 풀이 포화되지 않았다");
 
         long attemptsBefore = writeProgress.attempts();
         long completionsBefore = writeProgress.completions();

@@ -143,6 +143,17 @@ exchange:
         connection-timeout: 2000
         pool-name: exchange-lease
         connection-init-sql: "SET TIME ZONE 'UTC'"
+    # 접수 저널 append 전용 풀. 접수 락이 이미 직렬화하므로 동시에 둘 이상 쓸 일이 없다.
+    # 하나로 두지 않는 이유는 커넥션이 끊긴 순간 새로 만들 동안 접수가 전부 막히기 때문이다.
+    # 2026-09-11 실측에서 락 보유 7.878밀리초 중 4.729가 커넥션 획득과 트랜잭션 경계와
+    # 커밋이었다(정본 5.7.11). 요청 풀과 나눠 그 구간의 경합을 없앤다.
+    append-datasource:
+      hikari:
+        maximum-pool-size: 2
+        minimum-idle: 2
+        connection-timeout: 2000
+        pool-name: exchange-append
+        connection-init-sql: "SET TIME ZONE 'UTC'"
 
 # dev·하네스 chaos 스택은 8080에서 /actuator/prometheus를 스크레이프한다(harness prometheus.yml).
 management:
