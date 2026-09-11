@@ -66,6 +66,13 @@ public class CommandJournalAppender {
             new java.util.concurrent.atomic.LongAdder();
     private final java.util.concurrent.atomic.LongAdder insertNanos =
             new java.util.concurrent.atomic.LongAdder();
+    // 트랜잭션 경계 셋. 앞은 커넥션 획득과 자동커밋 해제, 커밋은 fsync, 뒤는 정리와 반납이다.
+    private final java.util.concurrent.atomic.LongAdder preNanos =
+            new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder commitNanos =
+            new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder postNanos =
+            new java.util.concurrent.atomic.LongAdder();
     private final java.util.concurrent.atomic.LongAdder inTxCount =
             new java.util.concurrent.atomic.LongAdder();
 
@@ -82,6 +89,21 @@ public class CommandJournalAppender {
     /** command_journal INSERT. */
     public long insertNanos() {
         return insertNanos.sum();
+    }
+
+    /** 커넥션 획득과 자동커밋 해제와 경계 시작. 콜백이 돌기 전까지다. */
+    public long preNanos() {
+        return preNanos.sum();
+    }
+
+    /** 커밋. 콜백 종료부터 afterCommit 훅까지다. 이 안에 fsync 가 있다. */
+    public long commitNanos() {
+        return commitNanos.sum();
+    }
+
+    /** 정리와 커넥션 반납. afterCommit 뒤부터 tx.execute 반환까지다. */
+    public long postNanos() {
+        return postNanos.sum();
     }
 
     /** 위 다섯의 분모. 콜백이 돈 횟수다. */
@@ -113,8 +135,46 @@ public class CommandJournalAppender {
     public AppendResult append(CommandDraft draft) {
         LeaderIdentity leader = lease.requireLeader();
         try {
-            AppendResult result =
-                    appendTimer.record(() -> tx.execute(status -> appendInTx(leader, draft)));
+            // 트랜잭션 경계 분해(ADR 0022 0단계 (b) 후속).
+            //
+            // 2026-09-11 실측에서 append 6.099밀리초 중 콜백이 1.860 이고 나머지 4.239가
+            // 커넥션과 경계와 커밋이었다(정본 5.7.12). 전용 풀을 줘도 0.49밀리초밖에 안 줄어
+            // 그 비용이 풀 경합이 아니라는 것까지만 알고 정체를 모른다. 커밋 fsync 가 약
+            // 1.2밀리초이므로 약 3.0이 설명되지 않는다.
+            //
+            // 그 4.239를 셋으로 가른다. 콜백 앞이 커넥션 획득과 자동커밋 해제와 경계 시작이고,
+            // 콜백 뒤부터 커밋 동기화 훅까지가 커밋이며, 그 뒤가 정리와 반납이다.
+            // marks 를 배열로 두는 이유는 람다가 지역 변수를 재할당할 수 없기 때문이다.
+            // 접수 락이 이 구간을 직렬화하므로 배열 공유가 경합하지 않는다.
+            long t0 = System.nanoTime();
+            long[] marks = new long[3];
+            AppendResult result = appendTimer.record(() -> tx.execute(status -> {
+                marks[0] = System.nanoTime();
+                org.springframework.transaction.support.TransactionSynchronizationManager
+                        .registerSynchronization(
+                                new org.springframework.transaction.support.TransactionSynchronization() {
+                                    @Override
+                                    public void afterCommit() {
+                                        marks[2] = System.nanoTime();
+                                    }
+                                });
+                try {
+                    return appendInTx(leader, draft);
+                } finally {
+                    marks[1] = System.nanoTime();
+                }
+            }));
+            long t1 = System.nanoTime();
+            if (marks[0] > 0) {
+                preNanos.add(marks[0] - t0);
+                if (marks[2] > 0) {
+                    commitNanos.add(marks[2] - marks[1]);
+                    postNanos.add(t1 - marks[2]);
+                } else {
+                    // 롤백 경로. 커밋 훅이 안 돌므로 뒤를 통째로 정리로 센다.
+                    postNanos.add(t1 - marks[1]);
+                }
+            }
             // 커밋 성공만 진행으로 센다. 예외 경로는 카운터를 건드리지 않는다(§5.4 좀비 리더 판정).
             progress.recordCompletion();
             return result;

@@ -63,6 +63,7 @@ def sample():
     ap_sum = q('sum(rate(exchange_journal_append_seconds_sum[1m]))')
     ap_cnt = q('sum(rate(exchange_journal_append_seconds_count[1m]))')
     intx, pro, ins = jn('intx'), jn('prologue'), jn('insert')
+    pre, cmt, post = jn('pre'), jn('commit'), jn('post')
     jc = q('sum(rate(exchange_journal_intx_count_total[1m]))')
     acc = q('sum(rate(http_server_requests_seconds_count'
             '{uri="/api/v1/orders",method="POST",status="201"}[1m]))')
@@ -91,6 +92,9 @@ def sample():
         '  저널삽입 1회(ms)': (ins / jc * 1e3) if (ins and jc) else None,
         '커넥션·경계·커밋 1회(ms)': ((ap_sum / ap_cnt - intx / jc) * 1e3)
                                    if (ap_sum and ap_cnt and intx and jc) else None,
+        '  커넥션획득·경계시작(ms)': (pre / jc * 1e3) if (pre and jc) else None,
+        '  커밋(ms)': (cmt / jc * 1e3) if (cmt and jc) else None,
+        '  정리·반납(ms)': (post / jc * 1e3) if (post and jc) else None,
         'append 호출/s': ap_cnt,
         '트랜잭션/s': xact,
         '명령당 트랜잭션': (xact / n) if (xact and n) else None,
