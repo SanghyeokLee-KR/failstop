@@ -4,7 +4,7 @@
 - 날짜: 2026-09-12
 - 뒤집는 결정: `docs/adr/0018-synchronous-quorum-any1.md`. 그 문서의 결정(primary 1 + standby 2, 동기 `ANY 1`)과 기각안 표 비동기 행을 대체한다
 - 관련: ADR 0017(리스를 커밋 경로 밖으로), ADR 0004(비용과 무손실 요건), ADR 0020(증명 경로 근거)
-- 근거 실측: `harness/evidence/replication-fault-20260908/`, `harness/evidence/sync-replication-20260908/`
+- 근거 실측: `harness/evidence/replication-fault-20260908/`, `harness/evidence/sync-replication-20260908/`, `harness/evidence/failover-rpo-20260912/`
 - 코드: `deploy/compose.node-data.yml`, `deploy/.env.example`, `deploy/pg-standby-entrypoint.sh`
 
 ## 맥락
@@ -90,12 +90,12 @@ PostgreSQL 커밋이고 primary 자체가 멈추면 같은 연쇄가 돈다.
 - primary 급사 시 standby 에 아직 전달되지 않은 WAL 이 유실될 수 있다.
 - `command_journal` 이 같은 PostgreSQL 에 있으므로 **그 구간은 저널 재생으로도 복원되지
   않는다.** 저널 자체가 유실 대상이기 때문이다. "저널 재생으로 RPO 0" 이라고 쓰지 않는다.
-- 유실 창은 복제 지연이다. 정상 구간에서는 밀리초 단위일 것으로 보이나 **이 저장소에 비동기
-  아래 유실량 실측이 0 건이다.** `replication-fault` 는 primary 를 죽이지 않았고
-  `sync-replication` 은 승격을 재지 않았다. 얼마나 잃는지 모른다.
+- 유실 창은 복제 지연이다. `failover-rpo-20260912` 가 그 값을 잰다. 정상 복제 중 급사에서는
+  ACK 88 건 중 0 건을 잃었고, standby 를 8 초 얼린 뒤 급사에서는 ACK 122 건 중 36 건을 잃었다.
+  **곧 유실량은 그 순간의 복제 지연과 같다.** 정상 구간의 0 을 무손실 보장으로 읽지 않는다.
 
-그래서 정본에서 RPO 0 주장을 철회한다. 대체 문구는 "RPO 는 복제 지연만큼이고 그 값은
-미측정" 이다. 수치를 지어내지 않는다.
+그래서 정본에서 RPO 0 주장을 철회한다. 대체 문구는 "RPO 는 복제 지연만큼이고 지연이 있는
+구간에서는 그만큼 잃는다" 이다.
 
 **RTO 는 이 결정이 정하지 않는다.** 아래 미충족 참조.
 
@@ -115,9 +115,16 @@ PostgreSQL 커밋이고 primary 자체가 멈추면 같은 연쇄가 돈다.
   `promote_trigger_file` 이 0 건이다. 이 결정은 그것을 만들지 않는다. 지금 있는 자동
   페일오버는 앱 리더 페일오버(`leader_lease`, fencing)뿐이고 그것은 DB 가 살아 있을 때의
   장치다. **"자동 failover" 라고 쓰지 않는다.** 수동 절차를 `docs/operations/` 에 둔다.
-- 그래서 **RTO 를 이 결정이 정하지 않는다.** 수동 승격 시간에 지배되고 측정된 바 없다.
+- 그래서 **RTO 를 이 결정이 정하지 않는다.** `failover-rpo-20260912` 가 잰 1.697초와 1.886초는
+  승격 명령의 실행 시간이다. 사람이 장애를 알아차리는 시간, 승격 여부를 판단하는 시간, 앱
+  `DB_HOST` 를 바꿔 재기동하는 시간이 그 안에 없다. 운영 RTO 는 여전히 미측정이다.
   E5·E7 이 잰 4.265초와 10.176초는 앱 층 값이지 DB 페일오버 값이 아니다.
-- 비동기 아래 유실량 미측정. 위 대가 절 참조.
+- **구 primary 재편입이 되감기로 끝나지 않는다.** 같은 회차에서 `pg_rewind` 가 실패했다.
+  `wal_log_hints=on` 전제는 섰으나 되감기가 읽어야 하는 구간이 분기 지점부터가 아니라 마지막
+  공통 체크포인트부터라, 분기보다 209.8MiB 앞의 WAL 이 이미 재활용된 뒤였다(`wal_keep_size`
+  기본값 0). 실제 경로는 전량 베이스백업이고 428.7MiB 에 264.7초, 스트리밍 재개 확인까지
+  272.5초다. 그 동안이 이중화 공백이다. 되감기를 사려면 `wal_keep_size` 를 체크포인트 간격만큼의
+  소급 폭으로 올리거나 `archive_mode` 를 켜야 하고, 둘 다 이 결정의 범위 밖이다.
 - 읽기 라우팅 미구현. standby 를 hot standby 로 띄우지만 조회를 보내는 코드가 없다.
 - 실제 다중 호스트 기동 0 건. `deploy/` 전체가 미검증이고 이 변경도 같다. 로컬 한 호스트
   두 컨테이너로만 확인한다.

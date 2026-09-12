@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.44, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.45, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -109,7 +109,7 @@ exchange-platform/   (목표 구조. 정정 2026-09-10: 실제 Gradle 모듈은 
 | **카오스** | **Toxiproxy(네트워크) + Chaos Monkey(앱) + docker kill(인프라)** | toxiproxy 모듈=**TC(SB BOM) 위임**(v2.4, TC 개별 핀 제거와 동일 논리) / **chaos-monkey-spring-boot 3.x (SB3 정합, BOM 미관리 → 개별 관리)** | 정정: 초안의 "Chaos Monkey 4.0.0=SB3 타깃" 경고는 **사실과 반대**(4.0.0은 SB4.0.2 기반=SB4 지원). SB3.5 경로에선 **3.x 라인을 사용**. Toxiproxy=네트워크, Chaos Monkey=앱 계층 상호보완. |
 | **매칭엔진 동시성** | **LMAX Disruptor** | 4.0.0 (min JDK 11, Java 21 OK) | 락-프리 링버퍼. 참고: 4.0.0(2023-09) 이후 유지보수 정체 → **1차 `ArrayBlockingQueue`로 결정론 완성 후, 벤치마크로 실측 이득 확인되면 교체**(handler 인터페이스 동일). |
 | **커넥션 풀** | **HikariCP** | SB BOM | 신규: VirtualThreads+JDBC 조합의 **pinning·풀 사이징** 명시(§7-5). 풀 고갈이 p99 SLO 직결. |
-| **DB 자체 HA** | **PostgreSQL 직접 운영**(primary 1대 + standby 1대, 비동기 스트리밍 복제) | (인프라) | 정정(v2.44): 초안이 Patroni(+etcd)+HAProxy 였으나 채택하지 않았다. `server`·`deploy`·`harness` 전역에 patroni·etcd·haproxy 가 0건이다. 정정(ADR 0024): 상시면 복제를 비동기 2노드로 내린다. `synchronous_standby_names` 를 비우므로 standby 상실이 primary 커밋을 멈추지 않는다. 배선은 `deploy/compose.node-data.yml` 이다. 종전의 동기 정족수(`ANY 1`, standby 2대, ADR 0018)는 `harness/scale/standby_up.sh` 가 거는 카오스·규격 평면 실험 구성으로만 남고 상시면 계약이 아니다. **failover 포함 RPO=0 은 주장하지 않는다.** 유실 창은 복제 지연만큼이고 그 값은 이 저장소에 실측이 없다(미측정). 무손실 failover 요건은 DB§7.2 가 소유하며 현행 구성은 그 요건을 충족하지 않는다. **DB 자동 페일오버가 없다**(저장소 전역에 `pg_ctl promote`·`pg_promote()`·`promote_trigger_file` 0건). 수동 승격 절차는 `docs/operations/DB_수동_페일오버.md` 다. 진입 라우팅은 `deploy/nginx-edge.conf.template` 의 두 업스트림(`exchange_read`·`exchange_write`)이 맡는다. | 정정(v2.44): 초안이 Patroni(+etcd)+HAProxy 였으나 채택하지 않았다. `server`·`deploy`·`harness` 전역에 patroni·etcd·haproxy 가 0건이고, 정족수는 `harness/scale/standby_up.sh` 가 `ALTER SYSTEM SET synchronous_standby_names = 'ANY 1 (...)'` 로 직접 건다(정본 6.3, ADR 0018). failover RPO=0은 무조건 성립하지 않는다. 성립 조건(운영 요건): 동기 standby 강제, 정산·저널 트랜잭션에 `synchronous_commit=on`(remote flush 이상), PITR 아카이브 병행. 비동기 standby failover·스토리지 손실·조기 승격에서는 유실 가능. 진입 라우팅은 `deploy/nginx-edge.conf.template` 의 두 업스트림(`exchange_read`·`exchange_write`)이 맡는다. **DB 클러스터 리더 선출과 STONITH 의 담당 주체는 미결이다**(정본 13.2 의 10 이 승격 시 동기 복제 대상 재설정을 미배선으로 등재). |
+| **DB 자체 HA** | **PostgreSQL 직접 운영**(primary 1대 + standby 1대, 비동기 스트리밍 복제) | (인프라) | 정정(v2.44): 초안이 Patroni(+etcd)+HAProxy 였으나 채택하지 않았다. `server`·`deploy`·`harness` 전역에 patroni·etcd·haproxy 가 0건이다. 정정(ADR 0024): 상시면 복제를 비동기 2노드로 내린다. `synchronous_standby_names` 를 비우므로 standby 상실이 primary 커밋을 멈추지 않는다. 배선은 `deploy/compose.node-data.yml` 이다. 종전의 동기 정족수(`ANY 1`, standby 2대, ADR 0018)는 `harness/scale/standby_up.sh` 가 거는 카오스·규격 평면 실험 구성으로만 남고 상시면 계약이 아니다. **failover 포함 RPO=0 은 주장하지 않는다.** 유실 창은 복제 지연만큼이다. 정정(v2.45): 2026-09-12 실측에서 복제가 따라오는 중 급사는 ACK 88건 중 0건, 대기 서버를 8초 멈춘 뒤 급사는 ACK 122건 중 36건이다(`harness/evidence/failover-rpo-20260912/`). 정상 구간의 0을 무손실 보장으로 읽지 않는다. 무손실 failover 요건은 DB§7.2 가 소유하며 현행 구성은 그 요건을 충족하지 않는다. **DB 자동 페일오버가 없다**(저장소 전역에 `pg_ctl promote`·`pg_promote()`·`promote_trigger_file` 0건). 수동 승격 절차는 `docs/operations/DB_수동_페일오버.md` 다. 진입 라우팅은 `deploy/nginx-edge.conf.template` 의 두 업스트림(`exchange_read`·`exchange_write`)이 맡는다. | 정정(v2.44): 초안이 Patroni(+etcd)+HAProxy 였으나 채택하지 않았다. `server`·`deploy`·`harness` 전역에 patroni·etcd·haproxy 가 0건이고, 정족수는 `harness/scale/standby_up.sh` 가 `ALTER SYSTEM SET synchronous_standby_names = 'ANY 1 (...)'` 로 직접 건다(정본 6.3, ADR 0018). failover RPO=0은 무조건 성립하지 않는다. 성립 조건(운영 요건): 동기 standby 강제, 정산·저널 트랜잭션에 `synchronous_commit=on`(remote flush 이상), PITR 아카이브 병행. 비동기 standby failover·스토리지 손실·조기 승격에서는 유실 가능. 진입 라우팅은 `deploy/nginx-edge.conf.template` 의 두 업스트림(`exchange_read`·`exchange_write`)이 맡는다. **DB 클러스터 리더 선출과 STONITH 의 담당 주체는 미결이다**(정본 13.2 의 10 이 승격 시 동기 복제 대상 재설정을 미배선으로 등재). |
 
 **버전 고정 원칙**: Micrometer/JUnit/Hibernate 개별 고정 금지 → **Spring Boot BOM 위임**. 스타터만 추가. (표에서 개별 핀은 Resilience4j·ShedLock 등 BOM 미관리 항목에만 남긴다.) 정정(v2.44): 종전 열거의 Kafka-client 를 뺀다. 메시징/이벤트가 미채택이라 BOM 위임 대상 자체가 없다(위 메시징/이벤트 행).
 
@@ -1544,7 +1544,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
              └─ 409 order_in_progress → Retry-After 후 재조회 반복(수렴)
 ```
 RPO=0 매핑: 게이트웨이는 command_journal fsync 성공 후에만 ACK하고, **by-client 재조회는 `command_journal`을 권위 소스로 판정한다(§4-B-4-a, v2.2)**. 저널에 있으나 프로젝션(orders) 미반영이면 404가 아니라 `409 order_in_progress`를 반환하므로, 프로젝션 지연이 거짓 404를 만들지 않는다. 따라서 "ACK 못 받음 && 재조회 404"는 저널에도 없음이 보장 → 안전 재전송. ACK 후 장애면 재조회로 접수 확인.
-**보장 범위(v2.6)**: 위 RPO=0은 로컬 COMMIT fsync의 내구성에 근거하므로 단일 PostgreSQL 인스턴스의 프로세스·전원 장애 범위에서 성립한다. 비동기 standby로의 failover, 스토리지 손실, 조기 승격에서는 fsync된 커밋도 유실될 수 있다. 상시면 복제는 비동기이고(ADR 0024) DB 자동 페일오버도 없으므로, failover를 포함한 무손실(RPO=0)은 **현재 주장하지 않는다**. 무손실 요건은 DB§7.2가 소유하며 현행 구성은 그 요건을 충족하지 않는다. 따라서 DB primary 교체 후에는 "재조회 404 = 저널에 없음" 판정이 유실 구간에서 거짓 음성이 될 수 있고, 클라이언트 안전 재전송 계약은 단일 primary가 유지되는 범위에서만 완전하다. 유실 창은 복제 지연만큼이며 그 값은 미측정이다.
+**보장 범위(v2.6)**: 위 RPO=0은 로컬 COMMIT fsync의 내구성에 근거하므로 단일 PostgreSQL 인스턴스의 프로세스·전원 장애 범위에서 성립한다. 비동기 standby로의 failover, 스토리지 손실, 조기 승격에서는 fsync된 커밋도 유실될 수 있다. 상시면 복제는 비동기이고(ADR 0024) DB 자동 페일오버도 없으므로, failover를 포함한 무손실(RPO=0)은 **현재 주장하지 않는다**. 무손실 요건은 DB§7.2가 소유하며 현행 구성은 그 요건을 충족하지 않는다. 따라서 DB primary 교체 후에는 "재조회 404 = 저널에 없음" 판정이 유실 구간에서 거짓 음성이 될 수 있고, 클라이언트 안전 재전송 계약은 단일 primary가 유지되는 범위에서만 완전하다. 유실 창은 복제 지연만큼이다. 2026-09-12 실측에서 복제가 따라오는 중 급사는 ACK 88건 중 0건, 대기 서버를 8초 멈춘 뒤 급사는 ACK 122건 중 36건이다(`harness/evidence/failover-rpo-20260912/`, ADR 0024).
 
 ### 7-7. 기계가독 계약 산출물 (신규)
 
@@ -2124,3 +2124,10 @@ NULL 취급이 축마다 다르다. `rto_seconds`·`rpo_records`의 NULL은 `UNK
 - **사유.** 정본 8.2 가 이미 "실제로 한 일은 야간 단독 운영 시간대에 정지 명령을 봉쇄한 것" 이라고 적어 두었다. 곧 이 제약이 한 일은 결탁 차단이 아니라 1인 운영 시간대의 정지 명령 봉쇄다. 운영 인원이 1인이라 두 인증서를 한 사람이 번갈아 제시하는 것은 반결탁의 외형일 뿐이었다.
 - **남는 것.** 승인 티켓 별도 발급 단계, TTL 5분, 단회 소각, action·대상 바인딩, requester 바인딩, 역할 게이트, append-only 감사. 사라지는 것은 발급자와 사용자의 분리 한 겹뿐이고 그 대가는 정본 13.3 의 11 에 등재했다.
 - **2인 경로는 남는다.** 다른 운영자가 발급한 승인도 그대로 통한다. 운영 인원이 늘면 규칙을 되돌리지 않고 2인 운용이 가능하다. S2 위험 항목은 그래서 폐기가 아니라 무효다.
+
+## v2.45 패치 반영 사항
+
+- **비동기 복제의 유실 창에 값을 붙인다.** 이 문서가 두 자리에서 "미측정" 으로 적던 것을 실측으로 바꾼다. §0-a 기술 스택 선택표 DB 자체 HA 행과 §7-1 보장 범위(v2.6) 단락이다. 근거는 `harness/evidence/failover-rpo-20260912/` 이고 스크립트는 `harness/scale/failover_rpo_check.py` 다.
+- **값.** 복제가 따라오는 중 primary 급사는 ACK 88건 중 0건, 대기 서버를 8초 정지시킨 뒤 급사는 ACK 122건 중 36건이다. 유실 판정은 ACK 받은 행 중 승격한 노드에 없는 것을 센다.
+- **정상 구간의 0을 무손실로 읽지 않는다.** 유실량은 그 순간의 복제 지연과 같다. RPO=0 을 주장하지 않는다는 §7-1 의 결론은 그대로다.
+- **RTO 는 여전히 미측정이다.** 같은 회차가 잰 승격 명령 실행 1.697초와 1.886초는 명령 시간이고, 감지와 판단과 엔드포인트 전환이 그 안에 없다. DB 자동 페일오버가 0건이라는 서술도 그대로다.

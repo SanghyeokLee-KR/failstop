@@ -8,7 +8,7 @@
 #
 # 복제는 비동기다(ADR 0024). synchronous_standby_names 를 쓰지 않는다. standby 장애가
 # primary 의 커밋을 멈추지 않는 것이 이 정책의 전부다. 대가는 RPO 0 을 보장하지 않는 것이고
-# 그 유실량은 미측정이다.
+# 유실량은 그 순간의 복제 지연과 같다. 실측은 ADR 0024 미충족 절이 소유한다.
 #
 # RDS를 쓰지 않는 이유는 기획안 §4.2 선택표와 §4.3 비채택 표다. 장애 주입에 OS 셸이
 # 필요하고, RDS를 채택하면 DB 계층 전체가 증명 범위 밖으로 나가 남는 명제가 앱 계층
@@ -56,6 +56,13 @@ services:
       # 무효가 되고 standby 는 베이스백업을 다시 받아야 한다. 가용성을 디스크보다 앞에 둔다.
       - "-c"
       - "max_slot_wal_keep_size=${MAX_SLOT_WAL_KEEP:-4GB}"
+      # pg_rewind 전제다. 이 값이나 데이터 체크섬 중 하나가 없으면 되감기 자체가 시작되지
+      # 않는다. 기본값이 off 라 명시한다. 다만 이것만으로 되감기가 서지는 않는다. 마지막 공통
+      # 체크포인트까지 거슬러 올라간 WAL 을 구 primary 가 들고 있어야 하고 wal_keep_size 가
+      # 기본값 0 이라 쓰기가 많으면 이미 재활용된다. 실측 회차가 그렇게 실패했다
+      # (harness/evidence/failover-rpo-20260912/).
+      - "-c"
+      - "wal_log_hints=on"
       # 유휴 트랜잭션이 잠금을 붙든 채 남는 것을 끊는다. 카오스 창에서 좀비가 생기는 경로다.
       - "-c"
       - "idle_in_transaction_session_timeout=10s"
@@ -107,6 +114,10 @@ services:
       REPL_SLOT: ${REPL_SLOT:-standby_1}
     entrypoint: ["/usr/local/bin/pg-standby-entrypoint.sh"]
     command:
+      # primary 와 같은 값이어야 한다. 승격하면 이 노드가 primary 이고, 여기서 빠지면 그
+      # 시점부터 pg_control 에 off 가 기록돼 다음 재편입이 되감기를 쓸 수 없다.
+      - "-c"
+      - "wal_log_hints=on"
       - "-c"
       - "idle_in_transaction_session_timeout=10s"
       - "-c"
