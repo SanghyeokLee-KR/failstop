@@ -245,6 +245,32 @@ def db_state():
         return {'주문': None, '체결': None, 'DB(MB)': None}
 
 
+def fsync_state():
+    """WAL 플러시 지연. 거의 같은 코드가 날짜마다 다른 천장을 냈고(한계 47) 이 값이 09-07 과
+    09-12 사이에 7.7배 움직였다. 회차마다 함께 재지 않으면 절대값을 비교할 수 없다.
+    호출자는 k6 주행 전에 부른다. 주행 중이면 같은 장치를 부하와 다툰다. 다만 이 시점에도
+    봇 기저는 돌고 있으므로 완전한 무부하가 아니다. 09-07 기준값과의 조건 동일성은 미확인이다.
+    -s 5 는 09-07 기준과 같은 지속 시간이다. 짧게 잡으면 그 값과 비교할 수 없다."""
+    p = subprocess.run(
+        ['docker', 'exec', 'chaos-pg', 'sh', '-c',
+         'cd "$PGDATA" && pg_test_fsync -s 5 -f ./pg_test_fsync.tmp; rm -f ./pg_test_fsync.tmp'],
+        capture_output=True, text=True, timeout=300)
+    # 8kB 한 번 쓰기 블록의 fdatasync 행만 본다. 두 번 쓰기 블록에 같은 이름이 다시 나온다.
+    for line in (p.stdout or '').splitlines():
+        if 'two 8kB writes' in line:
+            break
+        f = line.split()
+        if len(f) >= 4 and f[0] == 'fdatasync':
+            try:
+                return {'fsync fdatasync/s': float(f[1]), 'fsync 건당(ms)': float(f[3]) / 1000.0}
+            except ValueError:
+                break
+    # 측정 실패를 조용히 지나가면 산출물의 null 이 "저장 계층을 함께 쟀다" 의 근거로 읽힌다.
+    LAST_ERR[0] = (p.stderr or p.stdout or '')[-300:]
+    print('  fsync 측정 실패: %s' % LAST_ERR[0], flush=True)
+    return {'fsync fdatasync/s': None, 'fsync 건당(ms)': None}
+
+
 # 봇 기저. set_bot_ops 로 고정하는 값에서 나오는 HTTP 주문율이다. 칸마다 재기보다
 # 상수로 두고, 어긋나면 k6추정이 음수로 튀어 눈에 띄게 한다.
 BOT_BASE = 17.0
@@ -373,10 +399,14 @@ def main():
             out['rows'].append({'cell': label, 'error': '봇 안정화 실패'})
             continue
 
+        # 부하 전에 잰다. 부하 중이면 같은 장치를 k6 주행과 다투게 된다.
+        fsync = fsync_state()
+
         k6log = str(ROOT / ('harness/evidence/k6-%s-%s.log' % (a.suite, label)))
         proc = run_k6(rate, a.duration, run_id_for(a.suite, label), log_path=k6log)
         time.sleep(min(duration_fill(a.duration), a.duration - 5))
         s = measure()
+        s.update(fsync)
         s['cell'] = label
         s['rate'] = rate
         s['db_before'] = before

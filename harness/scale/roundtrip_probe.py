@@ -139,10 +139,14 @@ def main():
         print('  봇 안정화 실패', flush=True)
         return 1
 
+    # 부하 전에 잰다. 부하 중이면 같은 장치를 k6 주행과 다투게 되고 측정값이 그 다툼을 담는다.
+    fsync = cs.fsync_state()
+
     k6log = str(ROOT / ('harness/evidence/k6-rt-%s.log' % a.label))
     proc = run_k6(a.rate, a.duration, 'rt%s%d' % (a.label[:3], a.rate), log_path=k6log)
     time.sleep(min(duration_fill(a.duration), a.duration - 5))
     s = sample()
+    s.update(fsync)
     s['label'] = a.label
     s['rate'] = a.rate
     try:

@@ -126,6 +126,11 @@ def main():
     print('사다리 %s, 구간당 %ds, 봇 기저 %d OPS' % (rungs, a.duration, a.bots_ops), flush=True)
     print('기저 설정:', admin_call('PUT', '/admin/v1/sim/rate', {'target_ops': a.bots_ops})[0], flush=True)
     time.sleep(30)
+    # 사다리 전에 한 번 잰다. 천장 절대값이 회차 밖에서 비교되려면 이 값이 함께 있어야 한다(한계 47).
+    # clean_suite 가 이 모듈을 최상단에서 읽으므로 여기서 늦게 읽는다. 최상단에 두면 순환이 된다.
+    from clean_suite import fsync_state
+    fsync = fsync_state()
+    print('저장 계층: fdatasync %s회/s' % fsync['fsync fdatasync/s'], flush=True)
     base = measure()
     print('기저만: 접수 %s/s' % round(base['접수/s'] or 0, 2), flush=True)
 
@@ -156,7 +161,7 @@ def main():
 
     Path(a.out).write_text(json.dumps(
         {'rungs': rungs, 'duration': a.duration, 'bots_ops': a.bots_ops,
-         'base': base, 'rows': rows}, ensure_ascii=False, indent=1), encoding='utf-8')
+         'fsync': fsync, 'base': base, 'rows': rows}, ensure_ascii=False, indent=1), encoding='utf-8')
 
     keys = ['접수/s', '체결/s', '수용거절/s', '주문거절/s', 'p95(ms)', 'p99(ms)',
             'api1 CPU%', 'DB CPU%', '풀 활성', '시퀀서 큐']
