@@ -508,6 +508,15 @@ band_span  (SELECT band_span FROM journal_band_spec WHERE name='command_seq')
 
 ### 6-5. 하네스 판정식. 스테일 쓰기 fail-open 을 양쪽 축에서 닫는다
 
+> **해소(2026-09-12). 이 항은 이 판을 기다리지 않고 닫혔다.** 마켓별 워터마크 벡터 대신 위치
+> 축을 아예 버리고 epoch 기준 증분으로 바꿨다. 주입 직후와 관찰 후에 `fencing_token = 구 epoch`
+> 와 `fencing_epoch = 구 epoch` 의 행 수를 각각 재고 그 차를 스테일 쓰기로 본다. 축이 없으므로
+> 대역 파생과 무관하고, 이미 물질화된 명령을 구 리더가 다시 적재하는 경우도 잡는다. 위치
+> 워터마크는 그 경우를 구조적으로 못 잡았다. 기준선이 0 이면 술어가 틀렸거나 부하가 안 실린
+> 것이므로 주행을 세운다(§22 양성 증거 축). 명령 축이 대역화돼도 이 술어는 그대로 성립한다.
+> 함수는 `Get-EpochWriteCounts`, `Get-StaleWriteDelta`, `Test-StaleWriteBaseline` 이다.
+> 아래는 해소 시점의 서술이다.
+
 `Get-StaleWriteCount`(lib.ps1:533-543)가 지금 이렇다.
 
 ```

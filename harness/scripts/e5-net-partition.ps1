@@ -78,10 +78,14 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "docker network disconnect 실패(종료코드 $LASTEXITCODE). 유령 주입으로 진행하면 확정 위양성이다." }
     $connected = $false
     $t0 = (Get-Date).ToUniversalTime()
-    # 워터마크는 분할 완료 직후 채취한다. 이 이후 구 epoch로 append된 행 = 복귀 시 스테일 쓰기.
-    $wCmd = Get-CommandWatermark
-    $wEvt = Get-EventWatermark
-    Write-Host "T0=$($t0.ToString('o')) w_cmd=$wCmd w_evt=$wEvt trades_at_inject=$tradesAtInject"
+    # 기준선은 분할 완료 직후 채취한다. 이 이후 구 epoch로 늘어난 행 = 복귀 시 스테일 쓰기.
+    # 구 epoch가 여기까지 쓴 양을 기준선으로 잡는다. 이후 같은 값을 다시 재 그 차가 스테일
+    # 쓰기다. 위치 워터마크를 쓰지 않는 이유는 lib.ps1 의 Get-EpochWriteCounts 주석에 있다.
+    $swBase = Get-EpochWriteCounts -Epoch $oldEpoch -CmdHasFencing $cmdHasFencing
+    if (-not (Test-StaleWriteBaseline -Baseline $swBase -CmdHasFencing $cmdHasFencing)) {
+        throw "스테일 쓰기 기준선이 0이다(cmd=$($swBase.Cmd) evt=$($swBase.Evt)). 구 epoch=$oldEpoch 가 주입 전에 쓴 것이 없으면 이후 델타 0은 아무것도 판정하지 않는다."
+    }
+    Write-Host "T0=$($t0.ToString('o')) sw_base_cmd=$($swBase.Cmd) sw_base_evt=$($swBase.Evt) trades_at_inject=$tradesAtInject"
 
     Write-Section 'ⓒ 관찰(개입 금지): 신 리더 승격 + 체결 재개'
     $t2 = Wait-For {
@@ -129,7 +133,8 @@ try {
     # 될 수 있다. 구 리더는 강등 상태라 판정 대상으로 부적절하다. 승격을 관찰한 스탠바이로 고정한다.
     $postPort = $standbyPort
     $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
-    $staleWrites = Get-StaleWriteCount -CmdWatermark $wCmd -EvtWatermark $wEvt -OldEpoch $oldEpoch -CmdHasFencing $cmdHasFencing
+    $swAfter = Get-EpochWriteCounts -Epoch $oldEpoch -CmdHasFencing $cmdHasFencing
+    $staleWrites = Get-StaleWriteDelta -Baseline $swBase -After $swAfter
     # 리스 행 부재는 리더 부재라 정상 상태가 아니지만 질의로는 0행이 나올 수 있다. 0으로 폴백하면
     # final=0이 되어 아래 단조 상승 판정이 우연히 거짓이 되는 것에 기대게 된다. 명시로 가른다.
     $finalEpochRaw = Get-Scalar "SELECT epoch FROM leader_lease WHERE resource='matching-engine'"
@@ -182,7 +187,7 @@ try {
     Write-Host ''
     Write-Host '── E5 증거(split-brain 반증) ────────────' -ForegroundColor Green
     Write-Host ("verdict            : {0}" -f $verdict)
-    Write-Host ("이중 쓰기(stale)   : {0}  (구 epoch={1} 워터마크 이후 저널 행)" -f $staleWrites, $oldEpoch)
+    Write-Host ("이중 쓰기(stale)   : {0}  (구 epoch={1} 로 늘어난 저널 행. 기준선 cmd={2} evt={3})" -f $staleWrites, $oldEpoch, $swBase.Cmd, $swBase.Evt)
     Write-Host ("epoch              : {0} -> {1} (final={2}, 단조 상승={3})" -f $oldEpoch, $newEpoch, $finalEpochDisp, $epochOk)
     Write-Host ("리더 교체          : {0}  ({1} -> {2})" -f $holderChanged, $oldHolder, $newHolder)
     Write-Host ("서비스 재개        : {0}  (체결 {1} -> {2})" -f $serviceResumed, $tradesAtInject, $tradesAfter)

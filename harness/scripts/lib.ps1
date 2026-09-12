@@ -513,33 +513,57 @@ function Test-ToxiproxyProxy {
     } catch { return $false }
 }
 
-# 저널 워터마크. 주입 직후 max(seq)를 잡아 이후 구 epoch append(스테일 쓰기)를 시간 축으로 격리한다.
-# COALESCE로 빈 테이블에서도 행이 나오므로 빈 결과는 곧 psql 무응답이다. 그것을 0으로 읽으면
-# 워터마크가 0이 되어 이후 스테일 쓰기 질의가 저널 전량을 대상으로 삼는다(판정 무효).
-function Get-CommandWatermark { [long](Get-Scalar "SELECT COALESCE(max(seq),0) FROM command_journal" -Required) }
-function Get-EventWatermark   { [long](Get-Scalar "SELECT COALESCE(max(event_seq),0) FROM event_journal" -Required) }
-
 # command_journal에 명령 축 fencing 컬럼(fencing_token)이 있는지(실스키마 대조). 실DDL 정본:
 # command_journal.fencing_token(= epoch 값), event_journal.fencing_epoch. 정본 §4-1 C22 주석은
 # 이를 command_journal.fencing_epoch로 오기(§5-1 T5는 fencing_token으로 정확). 실스키마가 권위다.
+#
+# -Required 필수. 종전에는 Invoke-Psql을 직접 썼고 그 함수는 stderr를 버리므로 psql 무응답이
+# 빈 문자열로 왔다. PowerShell에서 [decimal]'' -gt 0은 예외가 아니라 False라, 관측 실패가
+# 그대로 "명령 축 없음"이 되어 아래 판정이 축 하나를 통째로 건너뛰었다.
 function Test-CommandFencingColumn {
-    $v = Invoke-Psql "SELECT count(*) FROM information_schema.columns WHERE table_name='command_journal' AND column_name='fencing_token'"
-    return ([decimal]$v -gt 0)
+    $v = [long](Get-Scalar "SELECT count(*) FROM information_schema.columns WHERE table_name='command_journal' AND column_name='fencing_token'" -Required)
+    return ($v -gt 0)
 }
 
-# 스테일 쓰기 수: 워터마크 이후 구 epoch로 append된 저널 행. split-brain 반증(E5)·좀비 리더(E7)의
-# 기계 판정. 명령 축(command_journal.fencing_token)이 1차 쓰기 경로라 존재 시 합산, event 축
-# (event_journal.fencing_epoch)은 항상. fencing_token/fencing_epoch 값 = 리더 epoch(실데이터 확인).
-function Get-StaleWriteCount {
-    param([long] $CmdWatermark, [long] $EvtWatermark, [long] $OldEpoch, [bool] $CmdHasFencing)
-    # -Required 필수. 이 두 count가 E5·E7의 지배 증거(split-brain 반증)라, 빈 결과를 0으로 읽으면
+# 구 epoch가 쓴 저널 행 수. 주입 직후와 관찰 후에 각각 재고 그 차가 스테일 쓰기다.
+#
+# 왜 위치 워터마크를 쓰지 않는가. 종전에는 주입 직후 max(seq)와 max(event_seq)를 잡고 그
+# 이후 행만 셌다. 명령 축은 seq가 전역 단조라 성립하지만 이벤트 축은 V36 이후 성립하지 않는다.
+# event_seq = market_id * 10^7 + market_seq라 max는 가장 큰 마켓 대역의 값이고, 그보다 낮은
+# 대역의 마켓이 구 epoch로 append하면 그 행은 워터마크 아래라 세어지지 않는다(ADR 0022 §6-5).
+# 게다가 둘 다 이미 물질화된 명령을 구 리더가 다시 적재하는 경우를 못 잡는다. 그 행의 seq는
+# 워터마크 아래이기 때문이다.
+#
+# epoch 기준 증분은 축과 무관하다. 어느 대역이든, 새 행이든 재적재든, 구 epoch를 달고 들어온
+# 것은 전부 차에 잡힌다.
+function Get-EpochWriteCounts {
+    param([long] $Epoch, [bool] $CmdHasFencing)
+    # -Required 필수. 이 값들이 E5·E7의 지배 증거(split-brain 반증)라, 빈 결과를 0으로 읽으면
     # psql 무응답이 그대로 "이중 쓰기 0"이 되어 확정 위양성 PASS를 만든다.
-    $n = 0
+    $cmd = $null
     if ($CmdHasFencing) {
-        $n += [long](Get-Scalar "SELECT count(*) FROM command_journal WHERE seq > $CmdWatermark AND fencing_token = $OldEpoch" -Required)
+        $cmd = [long](Get-Scalar "SELECT count(*) FROM command_journal WHERE fencing_token = $Epoch" -Required)
     }
-    $n += [long](Get-Scalar "SELECT count(*) FROM event_journal WHERE event_seq > $EvtWatermark AND fencing_epoch = $OldEpoch" -Required)
+    $evt = [long](Get-Scalar "SELECT count(*) FROM event_journal WHERE fencing_epoch = $Epoch" -Required)
+    return [pscustomobject]@{ Cmd = $cmd; Evt = $evt }
+}
+
+# 기준선과 사후를 받아 스테일 쓰기 수를 낸다. 음수면 행이 사라진 것이고 그것도 이상이다.
+function Get-StaleWriteDelta {
+    param($Baseline, $After)
+    $n = 0
+    if ($null -ne $Baseline.Cmd -and $null -ne $After.Cmd) { $n += ($After.Cmd - $Baseline.Cmd) }
+    $n += ($After.Evt - $Baseline.Evt)
     return $n
+}
+
+# 기준선이 판정 대상의 존재를 증명하는가. 구 리더가 주입 전에 쓴 것이 한 건도 없으면 술어가
+# 틀렸거나(컬럼명·epoch 값) 그 회차에 부하가 실리지 않은 것이다. 둘 다 이후 델타 0을 공허하게
+# 만든다. §22 양성 증거 축이다.
+function Test-StaleWriteBaseline {
+    param($Baseline, [bool] $CmdHasFencing)
+    if ($CmdHasFencing -and ($null -eq $Baseline.Cmd -or $Baseline.Cmd -le 0)) { return $false }
+    return ($Baseline.Evt -gt 0)
 }
 
 # 승격 후 최초 신규 TRADE의 engine_ts(§5-1 T5). 커밋 가시화 지연과 무관한 체결 재개 시점.
