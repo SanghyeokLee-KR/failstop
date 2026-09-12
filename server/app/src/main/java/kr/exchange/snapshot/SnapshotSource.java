@@ -15,12 +15,6 @@ public interface SnapshotSource {
     Optional<Loaded> loadLatestAdoptable();
 
     /**
-     * 스냅샷 경계 이벤트 워터마크 W = max(event_seq) WHERE source_cmd_seq <= snapshotSeq.
-     * tail 재생의 이벤트 커서 시작점이다(§3-b 이벤트 커서 정렬).
-     */
-    long eventWatermark(long snapshotSeq);
-
-    /**
      * 채택된 스냅샷 세트. seq는 last_applied_seq, books는 마켓별 복원 오더북이다.
      * loadSnapshot이 fresh 엔진에 그대로 적재한다.
      */

@@ -109,7 +109,7 @@ ACCEPTING --(fencing 거부·정산 실패·리스 상실)-->  DEMOTED(self-shut
 
 #### fresh 엔진 필수(정합성 제약)
 
-stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. 1인자 `ReplayService.rebuild(MatchingEngine)`은 `eventStartSeq`를 0으로 넘기므로 이벤트 커서가 `event_seq` 0부터 시작하는데(내부 클래스 `JournalEventCursor`의 `lastSeq` 초기값이 `eventStartSeq`다), 명령 커서는 `engine.lastAppliedSeq()` 초과분부터 읽는다(재생 루프의 `commandReader.readRange(engine.lastAppliedSeq(), commandBound, BATCH)`). 엔진이 이미 부팅 seq만큼 전진해 있으면 명령은 부팅 seq+1부터, 이벤트는 event_seq 1부터 대조돼 prefix가 어긋나고 `ReplayMismatchException`이 뜬다(`ReplayService.verifyMatch`의 불일치 분기와 재생 루프 종료 후 잔여 이벤트 검사). 따라서 승격 rebuild는 반드시 새 `MatchingEngineImpl`에 대해 0(또는 스냅샷 워터마크)부터 수행한다. 스냅샷 경계 재생은 3인자 `rebuild(MatchingEngine, long eventStartSeq, JournalCheckpoint bound)`가 받는다(§3-b).
+**커서 어긋남 위험은 해소됐다(2026-09-12, ADR 0023).** 종전에는 재생 진입점이 이벤트 커서 시작점을 인자로 받았고, 그 자리에 잘못된 축의 값을 넣으면 대조가 어긋났다. 지금은 세 진입점 모두 커서 시작점을 받지 않고 본체가 `engine.lastAppliedSeq()` 에서 유도하므로, 명령 커서와 이벤트 커서가 구조적으로 같은 값에서 출발한다. 승격 재생이 fresh 엔진을 쓰는 계약은 그대로다. 이유가 커서 정합에서 재생 중단 시 적용 범위 불확정으로 바뀌었을 뿐이다. 대조 전용 진입점은 `verifyTo(MatchingEngine, JournalCheckpoint)` 이고 크래시 창 산출은 `replayTail(MatchingEngine, long)` 이다(§3-b).
 
 #### 루프로의 엔진 핸드오프
 
@@ -141,7 +141,7 @@ stale 스탠바이 엔진에 `rebuild`를 재호출하면 안 된다. 1인자 `R
   - 미결: 정확 주기 값은 캘리브레이션(`docs/architecture/M4_하드닝설계.md` §3-3(d))에서 확정해야 하며 아직 정해지지 않았다. 위 기본값은 캘리브레이션 전 초기값이고 실측 근거가 없다.
 - 직렬화: `MatchingEngineImpl`의 마켓별 `OrderBookImpl`(`bids`·`asks`·`ordersById` TreeMap)을 결정론 바이트로 인코딩하는 codec은 `server/engine/src/main/java/kr/exchange/engine/core/SnapshotCodec.java`다(`encode`·`decode`, `FORMAT_VERSION` 1). 순회 순서가 정의된 자료구조만 쓰므로(TreeMap·ArrayDeque, 코어 순수성 T3-A) 인코딩이 결정론이다. `state_checksum`은 기존 `OrderBookImpl.stateChecksum()`(`MatchingEngineImpl.stateChecksum()`과 동일 규약)을 병기해 로드 시 무결 검증한다.
 - 복원(스냅샷 + 델타): 승격 rebuild가 최신 유효 스냅샷을 로드해(`EngineRecovery`의 `snapshotSource.loadLatestAdoptable()`, DB 설계 §5.5 STEP1) fresh 엔진에 역직렬화한 뒤, `command_journal`에서 `seq > snapshot.last_applied_seq`만 tail 재생한다(DB 설계 §5.5 STEP2).
-  - 이벤트 커서 정렬(배선 완료): `ReplayService.rebuild(MatchingEngine, long eventStartSeq, JournalCheckpoint bound)`가 이벤트 커서 시작점을 인자로 받는다. `eventStartSeq`가 스냅샷 워터마크 W이고 커서는 W+1부터 대조한다. W는 스냅샷에 병기하지 않고 로드 시 `SnapshotStore.eventWatermark`의 `SELECT COALESCE(max(event_seq), 0) FROM event_journal WHERE source_cmd_seq <= ?`로 유도한다. `eventStartSeq`가 0이면 seq 0 전량 재생(기존 경로)이다. 이 확장이 스냅샷 지원의 유일한 `ReplayService` 변경점이다.
+  - 이벤트 커서 정렬(2026-09-12 개정, ADR 0023): 커서 시작점을 인자로 넘기지 않는다. `loadSnapshot` 이 `engine.lastAppliedSeq()` 를 스냅샷 seq 로 세우고 재생이 그 값에서 명령 커서와 이벤트 커서를 함께 연다. 종전의 이벤트 워터마크 유도(`SnapshotStore.eventWatermark`)는 삭제했다. 그 유도는 `event_seq` 가 명령 순서대로 결번 없이 배정된다는 전제 위에 있었고 V36 의 마켓 대역 파생이 그것을 깼다.
   - 채택 판정: `engine_version`·`config_hash`·`format_version` 불일치 스냅샷은 무시하고 이전 스냅샷 또는 seq 0 재생으로 폴백한다(DB 설계 §3.1 DDL 블록 6.3 주석 "불일치 스냅샷은 무시하고 저널 재생으로 폴백한다"). `state_checksum` 불일치도 폐기가 아니라 무시·폴백(테이블 append-only, 삭제 금지).
 - 단일 정본 규율: 스냅샷은 저널 파생이다. 원천은 `command_journal`·`event_journal`이고 스냅샷은 재생 시작점 최적화일 뿐이다(DB 설계 §1.1 ① 복구 원천, :16). 스냅샷 부재·손상 시 항상 저널 전량 재생으로 동일 결과에 도달하므로 단일 정본이 유지된다.
 

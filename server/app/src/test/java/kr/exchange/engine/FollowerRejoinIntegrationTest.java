@@ -112,12 +112,12 @@ class FollowerRejoinIntegrationTest {
         // 명령 A. 리더가 이벤트까지 마쳐 안정 구간이 된다.
         long seqA = appendCommand("rejoin-a", 101L);
         materializeAsLeader();
-        JournalCheckpoint afterA = replayService.checkpoint();
+        JournalCheckpoint afterA = replayService.materializedThrough(0);
         assertEquals(seqA, afterA.commandSeq(), "A 가 안정 구간에 들어오지 않았다");
 
         // 명령 B. 리더가 방금 커밋했고 이벤트는 아직 없다. 라이브 부하에서 항상 존재하는 구간이다.
         long seqB = appendCommand("rejoin-b", 102L);
-        assertEquals(afterA.commandSeq(), replayService.checkpoint().commandSeq(),
+        assertEquals(afterA.commandSeq(), replayService.materializedThrough(0).commandSeq(),
                 "이벤트 없는 명령이 체크포인트를 밀면 안 된다");
 
         // 기동. 종전에는 여기서 IllegalStateException 으로 프로세스가 죽었다.
@@ -147,6 +147,9 @@ class FollowerRejoinIntegrationTest {
         assertEquals(seqB, engine.lastAppliedSeq(), "따라잡기가 리더 head 에 도달하지 못했다");
         assertEquals(0, catchUp.lagCommands(), "따라잡은 뒤 격차가 0 이어야 한다");
         assertEquals(1, catchUp.state(), "따라잡는 중 상태가 아니다");
+        // 양성 증거 축. 명령을 적용했다는 것만으로는 대조가 돌았다는 뜻이 아니다. 결함 B 는
+        // 적용 건수가 늘어도 이 값이 0 이던 상태였다.
+        assertTrue(catchUp.verifiedEvents() > 0, "따라잡기가 이벤트를 한 건도 대조하지 않았다");
 
         catchUp.close();
         bootLease.close();

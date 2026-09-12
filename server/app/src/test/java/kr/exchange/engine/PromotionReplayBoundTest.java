@@ -59,7 +59,7 @@ class PromotionReplayBoundTest {
         }
 
         @Override
-        public JournalCheckpoint checkpoint() {
+        public JournalCheckpoint materializedThrough(long fromCmdSeq) {
             return checkpoint;
         }
 
@@ -69,12 +69,18 @@ class PromotionReplayBoundTest {
         }
 
         @Override
-        public ReplayResult rebuild(MatchingEngine engine, long eventStartSeq,
-                                    JournalCheckpoint bound) {
+        public ReplayResult verifyTo(MatchingEngine engine, JournalCheckpoint bound) {
             bounds.add(bound);
-            // 상한이 있으면 그 지점까지 갔다고 본다. 없으면 상한 없는 호출이라는 사실만 남긴다.
-            long applied = bound == null ? head.get() : bound.commandSeq();
-            return new ReplayResult(applied, applied - eventStartSeq, 0, List.of());
+            long from = engine.lastAppliedSeq();
+            long applied = bound.commandSeq();
+            return new ReplayResult(applied, applied - from, applied - from, List.of());
+        }
+
+        @Override
+        public ReplayResult replayTail(MatchingEngine engine, long upperCmdSeq) {
+            // 2 단계는 상한을 JournalCheckpoint 로 받지 않는다. 기록 형태를 맞춘다.
+            bounds.add(new JournalCheckpoint(upperCmdSeq));
+            return new ReplayResult(upperCmdSeq, 0, 0, List.of());
         }
     }
 
@@ -126,7 +132,7 @@ class PromotionReplayBoundTest {
     @Test
     void 승격_재생은_상한_없는_재생을_부르지_않는다() {
         RecordingReplayService replay = new RecordingReplayService(
-                new JournalCheckpoint(100, 500), 130, 0);
+                new JournalCheckpoint(100), 130, 0);
         try (LeaderLeaseService lease = leader()) {
             EngineRecovery recovery = new EngineRecovery(replay, events -> {
             }, lease);
@@ -144,7 +150,7 @@ class PromotionReplayBoundTest {
     void 두단계_상한은_그_시점의_head이고_이후_증가를_따라가지_않는다() {
         // head 가 부를 때마다 40 씩 는다. 다른 노드가 계속 쓰는 상황이다.
         RecordingReplayService replay = new RecordingReplayService(
-                new JournalCheckpoint(100, 500), 130, 40);
+                new JournalCheckpoint(100), 130, 40);
         try (LeaderLeaseService lease = leader()) {
             EngineRecovery recovery = new EngineRecovery(replay, events -> {
             }, lease);
@@ -152,21 +158,19 @@ class PromotionReplayBoundTest {
             recovery.recover(new MatchingEngineImpl());
 
             assertEquals(2, replay.bounds.size(), "1 단계와 2 단계 두 번이어야 한다");
-            assertEquals(100, replay.bounds.get(0).commandSeq(), "1 단계 상한이 체크포인트가 아니다");
-            assertEquals(500, replay.bounds.get(0).eventSeq());
+            assertEquals(100, replay.bounds.get(0).commandSeq(),
+                    "1 단계 상한이 물질화 경계가 아니다");
 
             JournalCheckpoint tail = replay.bounds.get(1);
             assertEquals(170, tail.commandSeq(),
                     "2 단계 상한이 그 시점에 잡은 head 가 아니다. 늘어난 head 를 따라가면 끝나지 않는다");
-            assertEquals(500, tail.eventSeq(),
-                    "2 단계 이벤트 커서가 1 단계 끝에서 소진돼 있어야 크래시 창이 전부 pending 이 된다");
         }
     }
 
     @Test
     void 초과분이_없으면_두단계로_넘어가지_않는다() {
         RecordingReplayService replay = new RecordingReplayService(
-                new JournalCheckpoint(100, 500), 100, 0);
+                new JournalCheckpoint(100), 100, 0);
         try (LeaderLeaseService lease = leader()) {
             EngineRecovery recovery = new EngineRecovery(replay, events -> {
             }, lease);

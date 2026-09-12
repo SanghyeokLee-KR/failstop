@@ -74,6 +74,9 @@ public final class FollowerCatchUp implements AutoCloseable {
     private final LeaderLeaseService lease;
     private final Duration interval;
     private final Counter applied;
+    // 대조한 이벤트 수. 따라잡기가 실제로 무엇을 판정했는지가 이 값에만 남는다. 적용 건수가
+    // 늘어도 이 값이 0 이면 대조가 돌지 않은 것이다.
+    private final Counter verified;
     private final AtomicLong lagCommands = new AtomicLong();
     private final AtomicLong lastTickMillis = new AtomicLong();
     private final AtomicInteger state = new AtomicInteger(STATE_STOPPED);
@@ -103,6 +106,9 @@ public final class FollowerCatchUp implements AutoCloseable {
         this.applied = Counter.builder("exchange.follower.catchup.applied")
                 .description("팔로워가 따라잡기로 적용한 명령 수")
                 .register(registry);
+        this.verified = Counter.builder("exchange.follower.catchup.verified_events")
+                .description("팔로워가 저널과 대조한 이벤트 수")
+                .register(registry);
         Gauge.builder("exchange.follower.catchup.lag_commands", lagCommands, AtomicLong::doubleValue)
                 .description("리더 저널 head 와 이 노드 엔진의 명령 격차")
                 .register(registry);
@@ -118,6 +124,11 @@ public final class FollowerCatchUp implements AutoCloseable {
     /** 관측·검증용. 현재 격차다. */
     public long lagCommands() {
         return lagCommands.get();
+    }
+
+    /** 관측·검증용. 지금까지 대조한 이벤트 수다. */
+    public long verifiedEvents() {
+        return (long) verified.count();
     }
 
     /** 관측·검증용. 상태 게이지와 같은 값이다. */
@@ -244,14 +255,14 @@ public final class FollowerCatchUp implements AutoCloseable {
 
     /** 체크포인트를 새로 읽고 그 지점까지만 전진한다. 불변식 M 이 여기서 성립한다. */
     private void advance() {
-        JournalCheckpoint bound = replayService.checkpoint();
         long from = engine.lastAppliedSeq();
+        JournalCheckpoint bound = replayService.materializedThrough(from);
         if (bound.commandSeq() > from) {
-            long watermark = replayService.watermarkAt(from);
-            ReplayResult result = replayService.rebuild(engine, watermark, bound);
+            ReplayResult result = replayService.verifyTo(engine, bound);
             if (result.replayedCommands() > 0) {
                 applied.increment(result.replayedCommands());
             }
+            verified.increment(result.verifiedEvents());
         }
         lagCommands.set(Math.max(0, replayService.journalHead() - engine.lastAppliedSeq()));
     }

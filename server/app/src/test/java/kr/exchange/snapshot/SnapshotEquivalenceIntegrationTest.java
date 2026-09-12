@@ -180,10 +180,9 @@ class SnapshotEquivalenceIntegrationTest {
             }
             MatchingEngineImpl b = new MatchingEngineImpl();
             b.loadSnapshot(k, books);
-            // V36 에서 이벤트 커서 축이 (source_cmd_seq, event_ordinal) 로 바뀌었다.
-            // 스냅샷이 명령 K 까지 반영했으므로 시작점이 그냥 K 다. 종전의 event_seq
-            // 워터마크 유도는 필요 없어졌다.
-            ReplayResult tail = replayService.rebuild(b, k);
+            // 커서 시작점을 넘기지 않는다. loadSnapshot 이 lastAppliedSeq 를 K 로 세우고
+            // 재생이 그 값에서 커서를 연다.
+            ReplayResult tail = replayService.rebuild(b);
 
             assertEngineBytesEqual(reference, b, "K=" + k);
             assertEquals(leaderHead - k, tail.replayedCommands(),
@@ -245,7 +244,7 @@ class SnapshotEquivalenceIntegrationTest {
 
     private MatchingEngineImpl fullReplay() {
         MatchingEngineImpl engine = new MatchingEngineImpl();
-        replayService.rebuild(engine, 0);
+        replayService.rebuild(engine);
         return engine;
     }
 

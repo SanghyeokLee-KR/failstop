@@ -15,33 +15,32 @@ public class EventJournalReader {
     }
 
     /**
-     * 재생 상한. 이벤트가 전부 적재된 마지막 명령과 그 명령의 마지막 이벤트를 한 문장으로 읽는다.
+     * 연속 물질화 경계. 이 seq 이하 모든 명령의 이벤트가 저널에 전부 있다.
      *
-     * 한 문장이어야 하는 이유가 있다. 두 값을 따로 읽으면 그 사이에 리더의 커밋이 끼어 명령 상한과
-     * 이벤트 상한이 어긋나고, 이벤트 커서가 재생이 만들지 않은 행을 만나 재생 불일치로 오판한다.
+     * max(source_cmd_seq) 가 아닌 이유가 있다. 명령 저널은 접수 시점에 커밋되고 이벤트는
+     * 마켓별 라이터가 각자 정산 트랜잭션에서 적재하므로, 마켓 A 의 seq N 이 아직 정산 전인데
+     * 마켓 B 의 N+1 이 먼저 커밋될 수 있다. max 를 상한으로 쓰면 창 안에 그 구멍이 남고
+     * 대조가 짝을 잘못 잡아 거짓 불일치를 낸다. 실측은
+     * harness/evidence/materialization-holes-20260912/ 다.
+     *
+     * 경계는 첫 미물질화 명령 바로 앞이다. 구멍이 없으면 명령 head 가 경계다.
+     * fromCmdSeq 는 성능 하한이다. 이미 재생한 구간을 다시 훑지 않는다.
      */
-    public JournalCheckpoint checkpoint() {
-        return jdbc.sql("""
-                        SELECT COALESCE(max(source_cmd_seq), 0) AS cmd_seq,
-                               COALESCE(max(event_seq), 0) AS evt_seq
-                        FROM event_journal
+    public JournalCheckpoint materializedThrough(long fromCmdSeq) {
+        Long v = jdbc.sql("""
+                        SELECT COALESCE(
+                          (SELECT min(c.seq) - 1 FROM command_journal c
+                            WHERE c.seq > ?
+                              AND NOT EXISTS (SELECT 1 FROM event_journal e
+                                               WHERE e.source_cmd_seq = c.seq)),
+                          (SELECT COALESCE(max(c2.seq), ?) FROM command_journal c2
+                            WHERE c2.seq > ?),
+                          ?)
                         """)
-                .query((rs, rowNum) -> new JournalCheckpoint(
-                        rs.getLong("cmd_seq"), rs.getLong("evt_seq")))
-                .single();
-    }
-
-    /**
-     * 주어진 명령까지의 이벤트 워터마크. 이어서 재생할 때 이벤트 커서를 어디에 둘지 정한다.
-     * 상태를 들고 다니지 않고 매번 유도해야 재기동·건너뜀에 흔들리지 않는다.
-     */
-    public long watermark(long commandSeq) {
-        Long v = jdbc.sql("SELECT COALESCE(max(event_seq), 0) FROM event_journal "
-                        + "WHERE source_cmd_seq <= ?")
-                .param(commandSeq)
+                .param(fromCmdSeq).param(fromCmdSeq).param(fromCmdSeq).param(fromCmdSeq)
                 .query(Long.class)
                 .single();
-        return v == null ? 0 : v;
+        return new JournalCheckpoint(v == null ? fromCmdSeq : v);
     }
 
     /**

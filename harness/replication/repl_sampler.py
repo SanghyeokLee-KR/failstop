@@ -83,8 +83,10 @@ def parse_metrics(text):
         'lease_renew_ok': None, 'lease_renew_rejected': None, 'lease_renew_error': None,
         'lease_renew_age': None, 'lease_token': None,
         'is_leader': None, 'leader_epoch': None,
-        # 팔로워 따라잡기 축(2026-09-08). 재합류가 성립했는지는 이 셋으로만 밖에서 보인다.
+        # 팔로워 따라잡기 축(2026-09-08). 재합류가 성립했는지는 이 넷으로만 밖에서 보인다.
+        # verified 는 대조가 실제로 돌았는지다. 적용만 보면 결함 B 같은 무음 실패를 놓친다.
         'catchup_lag': None, 'catchup_state': None, 'catchup_applied': None,
+        'catchup_verified': None,
         'catchup_tick': None, 'heap_used': None, 'heap_max': None,
     }
     if not text:
@@ -150,6 +152,9 @@ def parse_metrics(text):
             out['catchup_state'] = tail(line)
         elif line.startswith('exchange_follower_catchup_applied_total'):
             out['catchup_applied'] = tail(line)
+        # 적용 건수만 보면 대조가 도는지 알 수 없다. 결함 B 는 적용이 늘어도 대조가 0 이던 상태였다.
+        elif line.startswith('exchange_follower_catchup_verified_events_total'):
+            out['catchup_verified'] = tail(line)
         elif line.startswith('exchange_follower_catchup_last_tick_seconds'):
             out['catchup_tick'] = tail(line)
         elif line.startswith('jvm_memory_used_bytes{') and 'area="heap"' in line:
@@ -360,6 +365,7 @@ def main():
                        'catchup_lag': (m or {}).get('catchup_lag'),
                        'catchup_state': (m or {}).get('catchup_state'),
                        'catchup_applied': (m or {}).get('catchup_applied'),
+                       'catchup_verified': (m or {}).get('catchup_verified'),
                        'catchup_tick': (m or {}).get('catchup_tick'),
                        'cpu': (m or {}).get('cpu'),
                        'heap_used': (m or {}).get('heap_used'),

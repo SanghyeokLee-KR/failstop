@@ -55,18 +55,19 @@ public class ReplayService {
         this.catalog = catalog;
     }
 
+    /** 상한 없는 전량 재생. 대조하며 읽고 pending 을 허용한다. */
     public ReplayResult rebuild(MatchingEngine engine) {
-        return rebuild(engine, 0);
+        return replay(engine, -1, new JournalEventCursor(engine.lastAppliedSeq(), -1));
     }
 
     /**
-     * 지금 재생할 수 있는 상한. 이벤트가 전부 적재된 마지막 명령 지점이다.
+     * 연속 물질화 경계. 이 seq 이하 모든 명령의 이벤트가 저널에 전부 있다.
      *
      * 여기 두는 이유는 호출측에 리더를 새로 주입하지 않기 위해서다. 이 클래스가 두 저널 리더를
      * 이미 들고 있고, 상한은 재생의 성질이지 복구 절차의 성질이 아니다.
      */
-    public JournalCheckpoint checkpoint() {
-        return eventReader.checkpoint();
+    public JournalCheckpoint materializedThrough(long fromCmdSeq) {
+        return eventReader.materializedThrough(fromCmdSeq);
     }
 
     /** 명령 저널 head. 상한 초과분이 있는지 판정에 쓴다. */
@@ -74,37 +75,71 @@ public class ReplayService {
         return commandReader.maxSeq();
     }
 
-    /** 주어진 명령까지의 이벤트 워터마크. 이어서 재생할 때 이벤트 커서 시작점이다. */
-    public long watermarkAt(long commandSeq) {
-        return eventReader.watermark(commandSeq);
+    /**
+     * 상한까지 대조만 하는 재생. pending 이 하나라도 나오면 던진다.
+     *
+     * 상한이 연속 물질화 경계이므로 그 아래 모든 명령은 이벤트가 있어야 한다. pending 이
+     * 나왔다는 것은 커서가 죽었거나 이벤트가 명령 단위로 원자 커밋된다는 전제가 깨진 것이다.
+     * 조용히 넘기면 대조 건수가 0 인 채로 통과해 그 뒤 판정이 전부 잘못된 전제 위에 선다.
+     *
+     * 가드를 호출측이 아니라 여기 두는 이유가 있다. 호출측에 두면 다음 호출자가 그것을 안 부르고
+     * 지나간다. 실제로 그렇게 됐다. 팔로워 경로에는 그 검사가 없었다.
+     */
+    public ReplayResult verifyTo(MatchingEngine engine, JournalCheckpoint bound) {
+        long from = engine.lastAppliedSeq();
+        ReplayResult result = replay(engine, bound.commandSeq(),
+                new JournalEventCursor(from, bound.commandSeq()));
+        if (!result.pendingEvents().isEmpty()) {
+            // 대조 건수를 함께 싣는다. 커서가 죽은 경우와 일부만 대조된 경우를 로그에서 가른다.
+            // 별도 하한을 두지 않는 이유는 그것이 발화할 수 없기 때문이다. 커서가 한 번 null 을
+            // 내면 exhausted 가 서서 이후 방출이 전부 pending 으로 가므로, pending 이 비었다는
+            // 것이 곧 방출 전량이 대조됐다는 뜻이다.
+            throw new ReplayMismatchException("물질화 경계 재생에서 pending 이 나왔다: "
+                    + result.pendingEvents().size() + "건, 커서 시작=" + from
+                    + ", 상한 cmd=" + bound.commandSeq()
+                    + ", 적용=" + result.replayedCommands()
+                    + ", 대조=" + result.verifiedEvents()
+                    + ", 첫 pending cmd=" + result.pendingEvents().get(0).sourceCmdSeq());
+        }
+        return result;
     }
 
     /**
-     * 스냅샷 경계 tail 재생(복구 RTO 설계 §3-b). eventStartSeq는 스냅샷 워터마크 W이며,
-     * 명령 커서는 engine.lastAppliedSeq() 초과분(= 스냅샷 로드로 세운 snapshot seq 초과분),
-     * 이벤트 커서는 W+1부터 대조한다. eventStartSeq=0이면 seq 0 전량 재생(기존 경로).
+     * 크래시 창 산출 전용 재생. 이벤트 커서를 열지 않으므로 전 방출이 pending 이다.
      *
-     * W는 호출측이 event_journal에서 max(event_seq) WHERE source_cmd_seq <= snapshot seq로
-     * 유도한다. event_seq는 source_cmd_seq 오름차순 gapless 배정이라 유도값이 캡처 시점 W와
-     * 정확히 일치하고, 커서를 W로 두면 첫 tail 이벤트(W+1)를 기대해 prefix가 정합한다.
+     * 상한 위 구간은 이벤트가 없는 구간이라 대조할 상대가 없다. 커서를 열어 두면 경계 위에
+     * 이미 물질화된 다른 마켓의 행을 만나 짝이 어긋난다.
      */
-    public ReplayResult rebuild(MatchingEngine engine, long eventStartSeq) {
-        return rebuild(engine, eventStartSeq, null);
+    public ReplayResult replayTail(MatchingEngine engine, long upperCmdSeq) {
+        return replay(engine, upperCmdSeq, EventCursor.NONE);
+    }
+
+    /** 이벤트 커서. 대조할 상대가 없는 구간에서는 NONE 을 쓴다. */
+    private interface EventCursor {
+        EventCursor NONE = new EventCursor() {
+            @Override
+            public EventJournalRow next() {
+                return null;
+            }
+
+            @Override
+            public EventJournalRow current() {
+                return null;
+            }
+        };
+
+        EventJournalRow next();
+
+        EventJournalRow current();
     }
 
     /**
-     * 상한을 건 재생. bound 가 null 이면 상한 없이 읽는다(종전 경로).
-     *
-     * 명령과 이벤트를 같은 상한으로 묶는 것이 핵심이다. 명령만 상한하고 이벤트를 끝까지 읽으면
-     * 재생이 만들지 않은 이벤트를 만나 불일치로 오판한다.
+     * 재생 본체. 명령 커서는 engine.lastAppliedSeq() 초과분이고 이벤트 커서 시작점도 같은
+     * 값이다. 둘이 같은 값에서 출발한다는 것이 이 경로의 유일한 축 계약이고, 그것을 인자가
+     * 아니라 이 코드가 소유한다. 종전에는 호출자가 long 으로 건넸고 그 자리에 이벤트 축 값이
+     * 들어가 커서가 첫 조회에서 소진됐다.
      */
-    public ReplayResult rebuild(MatchingEngine engine, long eventStartSeq, JournalCheckpoint bound) {
-        // 음수가 '상한 없음' 이다. 0 은 '안정 구간이 없다' 라 상한으로서 유효한 값이다.
-        long commandBound = bound == null ? -1 : bound.commandSeq();
-        // 이벤트 커서도 명령 축 상한을 쓴다. 종전에는 bound.eventSeq() 였으나 커서 축이
-        // (source_cmd_seq, event_ordinal) 로 바뀌어 같은 축의 상한을 쓰는 것이 맞다.
-        // 둘을 같은 상한으로 묶는다는 성질은 그대로다.
-        JournalEventCursor cursor = new JournalEventCursor(eventStartSeq, commandBound);
+    private ReplayResult replay(MatchingEngine engine, long commandBound, EventCursor cursor) {
         List<EngineEvent> pending = new ArrayList<>();
         long replayedCommands = 0;
         long verifiedEvents = 0;
@@ -144,7 +179,7 @@ public class ReplayService {
         }
         // 상한 있는 재생은 팔로워 catch-up 이 초마다 부른다. 그 경로까지 INFO 로 남기면 로그가
         // 초당 한 줄씩 쌓인다. 기동 요약은 호출측(EngineRecovery)이 따로 남긴다.
-        if (bound == null) {
+        if (commandBound < 0) {
             log.info("재생 완료: lastAppliedSeq={}, commands={}, verified={}, pending={}",
                     engine.lastAppliedSeq(), replayedCommands, verifiedEvents, pending.size());
         } else if (replayedCommands > 0) {
@@ -301,7 +336,7 @@ public class ReplayService {
      * source_cmd_seq 와 event_ordinal 로 대조하므로, 빠진 행은 그 자리에서 불일치로 잡힌다.
      * 명령 자체의 결번은 C05 가 전역 축에서 본다.
      */
-    private final class JournalEventCursor {
+    private final class JournalEventCursor implements EventCursor {
         private List<EventJournalRow> buffer = List.of();
         private int index;
         private long lastCmdSeq;
@@ -319,7 +354,8 @@ public class ReplayService {
             this.upperCmdSeq = upperCmdSeq;
         }
 
-        EventJournalRow next() {
+        @Override
+        public EventJournalRow next() {
             if (exhausted) {
                 return null;
             }
@@ -343,7 +379,8 @@ public class ReplayService {
             return row;
         }
 
-        EventJournalRow current() {
+        @Override
+        public EventJournalRow current() {
             return current;
         }
     }

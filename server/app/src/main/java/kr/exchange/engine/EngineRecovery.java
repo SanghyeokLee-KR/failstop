@@ -142,27 +142,23 @@ public class EngineRecovery {
      */
     private ReplayResult recover(MatchingEngineImpl engine, java.time.Duration promotionWait,
                                  boolean followerAllowed) {
-        // 이벤트 커서의 시작점이다. V36 에서 축이 event_seq 에서 source_cmd_seq 로 바뀌었다.
-        // 스냅샷이 명령 snapSeq 까지 반영한 상태이므로 그 다음 명령의 이벤트부터 대조한다.
-        // 종전에는 여기서 max(event_seq) WHERE source_cmd_seq <= snapSeq 를 유도했다.
-        // 그 유도는 event_seq 가 명령 순서대로 배정된다는 전제 위에 있었고 V36 이 그것을
-        // 깼다. 명령 seq 를 그대로 쓰면 유도 자체가 필요 없어진다.
-        long eventStart = 0;
+        // 이벤트 커서 시작점을 여기서 유도하지 않는다. loadSnapshot 이 engine.lastAppliedSeq()
+        // 를 snapSeq 로 세우고 재생이 그 값에서 커서를 연다. 종전에는 이 자리에서 값을 만들어
+        // 넘겼고 그 인자에 이벤트 축 값이 들어갈 수 있었다.
         if (snapshotSource != null) {
             Optional<SnapshotSource.Loaded> snap = snapshotSource.loadLatestAdoptable();
             if (snap.isPresent()) {
                 long snapSeq = snap.get().seq();
                 engine.loadSnapshot(snapSeq, snap.get().books());
-                eventStart = snapSeq;
-                log.info("스냅샷 채택: last_applied_seq={}, 이벤트 커서 시작={}, markets={}",
-                        snapSeq, eventStart, snap.get().books().size());
+                log.info("스냅샷 채택: last_applied_seq={}, markets={}",
+                        snapSeq, snap.get().books().size());
             }
         }
         long replayFrom = engine.lastAppliedSeq();
         long replayStartedNs = System.nanoTime();
         ReplayResult result;
         try {
-            result = replayToCheckpointThenTail(engine, eventStart, promotionWait, followerAllowed);
+            result = replayToCheckpointThenTail(engine, promotionWait, followerAllowed);
         } catch (RuntimeException e) {
             // 불일치를 남기고 다시 던진다. 이 행이 C17이 검출하는 대상이다. 예외만 던지고
             // 기록을 안 남기면 재생이 깨진 사건이 표에 없어 C17이 통과한다.
@@ -243,14 +239,14 @@ public class EngineRecovery {
      * 2 단계도 상한을 건다. 상한 없이 읽으면 다른 노드가 쓰는 동안 루프가 끝나지 않는다. 상한을
      * 잡아 두면 유한하게 끝나고, 리스를 잃었다면 이어지는 재적재가 fencing 으로 거부된다.
      */
-    private ReplayResult replayToCheckpointThenTail(MatchingEngineImpl engine, long eventStart,
+    private ReplayResult replayToCheckpointThenTail(MatchingEngineImpl engine,
                                                     java.time.Duration promotionWait,
                                                     boolean followerAllowed) {
-        kr.exchange.journal.JournalCheckpoint bound = replayService.checkpoint();
-        ReplayResult stable = verifiedTo(engine, eventStart, bound, null);
-        log.info("재생 1단계(체크포인트 상한): cmd<={}, evt<={}, 적용 {}건, 대조 {}건",
-                bound.commandSeq(), bound.eventSeq(), stable.replayedCommands(),
-                stable.verifiedEvents());
+        kr.exchange.journal.JournalCheckpoint bound =
+                replayService.materializedThrough(engine.lastAppliedSeq());
+        ReplayResult stable = replayService.verifyTo(engine, bound);
+        log.info("재생 1단계(물질화 경계 상한): cmd<={}, 적용 {}건, 대조 {}건",
+                bound.commandSeq(), stable.replayedCommands(), stable.verifiedEvents());
 
         long head = replayService.journalHead();
         long beyond = head - bound.commandSeq();
@@ -271,44 +267,29 @@ public class EngineRecovery {
 
         // 리더 자격을 기다리는 사이 다른 노드가 창을 메웠을 수 있다. 상한을 다시 읽어 검증
         // 가능한 구간을 먼저 소진한다. 대조 없이 재적재로 넘기면 그 구간의 불일치를 놓친다.
-        kr.exchange.journal.JournalCheckpoint after = replayService.checkpoint();
+        kr.exchange.journal.JournalCheckpoint after =
+                replayService.materializedThrough(engine.lastAppliedSeq());
         ReplayResult verified = stable;
-        long eventCursor = bound.eventSeq();
         if (after.commandSeq() > bound.commandSeq()) {
-            ReplayResult more = verifiedTo(engine, eventCursor, after, bound);
+            ReplayResult more = replayService.verifyTo(engine, after);
             verified = merge(stable, more, more.lastAppliedSeq(), more.pendingEvents());
-            eventCursor = after.eventSeq();
             log.info("재생 1단계 연장(대기 중 메워진 구간): cmd<={}, 적용 {}건",
                     after.commandSeq(), more.replayedCommands());
         }
 
-        // 2 단계. 지금 잡은 head 로 상한한다. 이벤트 커서는 1 단계 끝에서 이미 소진돼 있으므로
-        // 여기서 나오는 방출은 전부 크래시 창이다.
+        // 2 단계. 지금 잡은 head 로 상한한다. 이벤트 커서를 열지 않으므로 방출이 전부 pending
+        // 으로 나온다. 그 안에는 크래시 창과 경계 위에 이미 물질화된 명령이 섞인다. 상한이 첫
+        // 구멍 직전이라 그 위의 물질화된 명령이 이 구간에 들어오기 때문이다. 후자는 재적재에서
+        // event_emission_registry 멱등 스킵이 걸러낸다. 안전을 지키는 것은 그 레지스트리이지
+        // 이 구간의 방출 성질이 아니다.
         long tailHead = replayService.journalHead();
         if (tailHead <= after.commandSeq()) {
             return verified;
         }
-        ReplayResult tail = replayService.rebuild(engine, eventCursor,
-                new kr.exchange.journal.JournalCheckpoint(tailHead, eventCursor));
+        ReplayResult tail = replayService.replayTail(engine, tailHead);
         log.info("재생 2단계(크래시 창 상한 {}): 적용 {}건, 재적재 대상 {}건",
                 tailHead, tail.replayedCommands(), tail.pendingEvents().size());
         return merge(verified, tail, tail.lastAppliedSeq(), tail.pendingEvents());
-    }
-
-    /**
-     * 상한까지 대조만 하는 재생. 여기서 pending 이 나오면 이벤트가 명령 단위로 원자 커밋된다는
-     * 전제가 깨진 것이다. 조용히 넘기면 그 뒤의 모든 판정이 잘못된 전제 위에 선다.
-     */
-    private ReplayResult verifiedTo(MatchingEngineImpl engine, long eventStart,
-                                    kr.exchange.journal.JournalCheckpoint bound,
-                                    kr.exchange.journal.JournalCheckpoint previous) {
-        ReplayResult result = replayService.rebuild(engine, eventStart, bound);
-        if (!result.pendingEvents().isEmpty()) {
-            throw new IllegalStateException("체크포인트 상한 재생에서 pending 이 나왔다: "
-                    + result.pendingEvents().size() + "건, 상한 cmd=" + bound.commandSeq()
-                    + (previous == null ? "" : ", 직전 상한 cmd=" + previous.commandSeq()));
-        }
-        return result;
     }
 
     /** 두 재생 결과를 하나로 접는다. 관측 수치가 단계마다 잘리지 않게 한다. */

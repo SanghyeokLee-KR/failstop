@@ -120,16 +120,6 @@ public class SnapshotStore implements SnapshotSource {
         return Optional.of(new Loaded(seq, new ArrayList<>(books.values())));
     }
 
-    @Override
-    public long eventWatermark(long snapshotSeq) {
-        Long v = jdbc.sql(
-                        "SELECT COALESCE(max(event_seq), 0) FROM event_journal WHERE source_cmd_seq <= ?")
-                .params(snapshotSeq)
-                .query(Long.class)
-                .single();
-        return v == null ? 0 : v;
-    }
-
     /** 마켓 하나의 직렬화 스냅샷. 라이터 스레드가 인코딩해 워커로 넘긴다. */
     public record MarketState(int marketId, byte[] state, long checksum) {
     }
