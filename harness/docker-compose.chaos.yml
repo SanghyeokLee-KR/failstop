@@ -216,6 +216,12 @@ services:
     container_name: chaos-pg-exporter
     environment:
       DATA_SOURCE_NAME: "postgresql://exchange:exchange@chaos-pg:5432/exchange?sslmode=disable"
+      # 확장 질의. 기본 수집기가 내지 않는 복제 재생 지연과 WAL 생성 속도를 연다.
+      # 재생 지연이 곧 그 순간의 RPO 다(failover-rpo-20260912). 플래그는 v0.17.1 에서
+      # DEPRECATED 표기이나 동작한다. 새 수집기 틀로 옮기는 것은 별도 작업이다.
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/pg-queries.yaml
+    volumes:
+      - ./prometheus/pg-queries.yaml:/etc/pg-queries.yaml:ro
     depends_on:
       chaos-pg: { condition: service_healthy }
     restart: unless-stopped

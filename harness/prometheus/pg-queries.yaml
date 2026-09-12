@@ -1,0 +1,82 @@
+# postgres_exporter 확장 질의. 기본 수집기가 내지 않는 복제와 WAL 축을 연다.
+#
+# 왜 필요한가. 기본 수집기는 커넥션·트랜잭션·잠금까지다. 이 프로젝트가 지금 필요로 하는 값 둘이
+# 그 밖에 있다. 복제 재생 지연과 WAL 생성 속도다.
+#
+#   재생 지연. 2026-09-12 실측이 "RPO 는 그 순간의 복제 지연과 같다" 로 끝났다
+#   (harness/evidence/failover-rpo-20260912/). 곧 이 값이 곧 유실량이다. standby 에 조회를
+#   보낼지 판단하는 입력이기도 하다. 조회가 재생을 밀면 유실량이 커진다.
+#
+#   WAL 생성 속도. ADR 0025 가 되감기 보존 정책의 지배 입력으로 지목했고 저장소에 실측이
+#   0건이다. 유일한 실측 35.4 MiB/s 는 소음 부하가 만든 값이라 인용 자격이 없다.
+#
+# NULL 을 0 으로 접지 않는다. standby 가 아직 아무것도 재생하지 않았으면
+# pg_last_xact_replay_timestamp() 가 NULL 이고, 그것을 COALESCE 로 0 초로 만들면 데이터가 없는
+# 상태가 무지연으로 보인다. 22절 공허 통과다. NULL 은 NULL 로 둔다.
+#
+# primary 전용 함수는 CASE 로 감싼다. pg_current_wal_lsn() 은 standby 에서 오류다. CASE 가
+# 단락 평가하므로 한 파일을 두 역할 노드에 그대로 쓸 수 있다.
+
+pg_wal_position:
+  query: |
+    SELECT
+      CASE WHEN pg_is_in_recovery() THEN NULL
+           ELSE pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0') END AS bytes,
+      (SELECT count(*) * 16 * 1024 * 1024 FROM pg_ls_waldir()) AS dir_bytes,
+      CASE WHEN pg_is_in_recovery() THEN 1 ELSE 0 END AS in_recovery
+  metrics:
+    - bytes:
+        usage: "COUNTER"
+        description: "primary 의 현재 WAL 삽입 위치를 바이트로 편 값. 증분의 rate 가 WAL 생성 속도다"
+    - dir_bytes:
+        usage: "GAUGE"
+        description: "pg_wal 디렉터리 점유. 세그먼트 수 곱하기 16MiB"
+    - in_recovery:
+        usage: "GAUGE"
+        description: "1 이면 standby, 0 이면 primary"
+
+# standby 자신이 보는 재생 상태. primary 의 pg_stat_replication 과 달리 standby 가 죽거나
+# 끊겨도 이 노드에서 직접 읽힌다.
+pg_replica_replay:
+  query: |
+    SELECT
+      CASE WHEN pg_is_in_recovery()
+           THEN pg_wal_lsn_diff(pg_last_wal_receive_lsn(), pg_last_wal_replay_lsn())
+           END AS receive_replay_bytes,
+      CASE WHEN pg_is_in_recovery()
+           THEN EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp()))
+           END AS delay_seconds
+  metrics:
+    - receive_replay_bytes:
+        usage: "GAUGE"
+        description: "받은 WAL 과 재생한 WAL 의 거리. 조회 부하가 재생을 밀면 이 값이 벌어진다"
+    - delay_seconds:
+        usage: "GAUGE"
+        description: "마지막으로 재생한 트랜잭션의 나이. 이 값이 곧 그 순간의 RPO 다"
+
+# primary 가 보는 각 standby 의 진행. sent 와 replay 의 거리가 곧 승격 시 잃는 구간이다.
+pg_replication_client:
+  query: |
+    SELECT
+      application_name,
+      state,
+      sync_state,
+      pg_wal_lsn_diff(sent_lsn, replay_lsn) AS sent_replay_bytes,
+      COALESCE(EXTRACT(EPOCH FROM replay_lag), 0) AS replay_lag_seconds
+    FROM pg_stat_replication
+  metrics:
+    - application_name:
+        usage: "LABEL"
+        description: "standby 의 application_name"
+    - state:
+        usage: "LABEL"
+        description: "streaming, catchup, backup 등"
+    - sync_state:
+        usage: "LABEL"
+        description: "ADR 0024 아래에서는 async 여야 한다"
+    - sent_replay_bytes:
+        usage: "GAUGE"
+        description: "primary 가 보낸 위치와 standby 가 재생한 위치의 거리"
+    - replay_lag_seconds:
+        usage: "GAUGE"
+        description: "primary 가 계산한 재생 지연"

@@ -1,0 +1,10 @@
+{
+  "samples": 24,
+  "step_seconds": 60,
+  "median_mib_s": 0.3637,
+  "mean_mib_s": 0.386,
+  "min_mib_s": 0.1894,
+  "max_mib_s": 0.5048,
+  "p90_mib_s": 0.4617,
+  "gb_per_day_median": 32.95
+}

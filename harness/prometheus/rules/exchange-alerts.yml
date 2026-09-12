@@ -271,3 +271,39 @@ groups:
           duration: "2m"
           dashboard: "MSP 종합 (msp-overview)"
           runbook: "정본 7.3 판정표를 따른다. 앱 응답 분위수가 정상인데 이것만 느리면 진입 계층이다"
+
+      # 복제 축. 임계를 정해야 하는 알람은 일부러 넣지 않았다.
+      #
+      # 재생 지연이 얼마를 넘으면 나쁜지가 지금 이 계측으로 답하려는 질문 자체다. 값을 모르는
+      # 채로 임계를 적으면 22절이 금지하는 지어낸 수치가 정본에 들어간다. 지연 임계 알람은
+      # exchange:replica_replay_delay:seconds 의 실측 분포가 쌓인 뒤에 건다.
+      #
+      # 아래 둘은 임계가 아니라 이진 고장이라 지금 걸 수 있다.
+      - alert: ReplicationNotStreaming
+        expr: pg_replication_client_sent_replay_bytes{state!="streaming"} > -1
+        for: 2m
+        labels:
+          severity: warning
+          component: db
+        annotations:
+          summary: "복제가 streaming 이 아닌 상태로 2분"
+          metric: "pg_replication_client_sent_replay_bytes{state}"
+          value: "{{ $labels.state }}"
+          threshold: "state != streaming"
+          duration: "2m"
+          dashboard: "MSP 종합 (msp-overview)"
+          runbook: "재생이 멈추면 그만큼이 승격 시 유실량이다. docs/operations/DB_수동_페일오버.md 2-3"
+      - alert: ReplicationSyncStateUnexpected
+        expr: pg_replication_client_sent_replay_bytes{sync_state!="async"} > -1
+        for: 1m
+        labels:
+          severity: warning
+          component: db
+        annotations:
+          summary: "복제 모드가 async 가 아니다"
+          metric: "pg_replication_client_sent_replay_bytes{sync_state}"
+          value: "{{ $labels.sync_state }}"
+          threshold: "sync_state != async"
+          duration: "1m"
+          dashboard: "MSP 종합 (msp-overview)"
+          runbook: "ADR 0024 는 상시면을 비동기로 규정한다. 동기로 떠 있으면 정책과 배선이 갈렸다"

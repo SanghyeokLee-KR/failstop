@@ -34,3 +34,17 @@ groups:
       # max()로 리더 노드를 취한다(비리더 라이터는 유휴라 큐 0).
       - record: exchange:sequencer_queue:avg1m
         expr: max(avg_over_time(exchange_sequencer_queue_size[1m]))
+      # WAL 생성 속도. ADR 0025 가 되감기 보존 정책의 지배 입력으로 지목했고 저장소에 실측이
+      # 0건이던 값이다. pg_wal_position_bytes 는 현재 삽입 위치를 편 카운터라 rate 가 곧 속도다.
+      # MiB/s 판본을 함께 두는 이유는 ADR 0025 재진입 임계가 그 단위이기 때문이다.
+      - record: exchange:wal_bytes_per_second:rate5m
+        expr: max(rate(pg_wal_position_bytes[5m]))
+      - record: exchange:wal_mib_per_second:rate5m
+        expr: max(rate(pg_wal_position_bytes[5m])) / 1048576
+      # 복제 재생 지연. 2026-09-12 실측이 이 값이 곧 그 순간의 RPO 임을 보였다
+      # (harness/evidence/failover-rpo-20260912/). standby 가 없으면 NaN 이고 그대로 둔다.
+      # 0 으로 접으면 데이터 없음이 무지연으로 보인다(22절).
+      - record: exchange:replica_replay_delay:seconds
+        expr: max(pg_replica_replay_delay_seconds)
+      - record: exchange:replica_receive_replay_gap:bytes
+        expr: max(pg_replica_replay_receive_replay_bytes)
