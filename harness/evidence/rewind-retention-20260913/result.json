@@ -1,0 +1,64 @@
+{
+  "cases": [
+    {
+      "case": "natural",
+      "acked_rows": 95,
+      "last_acked_n": 95,
+      "max_n_on_promoted": 95,
+      "lost_rows": 0,
+      "promote_rc": 0,
+      "promote_stderr": "",
+      "promote_ok": true,
+      "writable_after_promote": true,
+      "rto_command_seconds": 1.606,
+      "standby_receive_lsn_before_promote": "0/33F95CF8",
+      "lag_injected_seconds": 0,
+      "standby_build_from_empty_seconds": 5.579,
+      "noise_batches": 64,
+      "probe_errors": 2,
+      "wal_generated_bytes": "808968192"
+    },
+    {
+      "case": "lagged",
+      "acked_rows": 135,
+      "last_acked_n": 135,
+      "max_n_on_promoted": 95,
+      "lost_rows": 40,
+      "promote_rc": 0,
+      "promote_stderr": "",
+      "promote_ok": true,
+      "writable_after_promote": true,
+      "rto_command_seconds": 1.77,
+      "standby_receive_lsn_before_promote": "0/34554000",
+      "lag_injected_seconds": 8,
+      "standby_build_from_empty_seconds": 5.617,
+      "noise_batches": 92,
+      "probe_errors": 2,
+      "wal_generated_bytes": "1168281440"
+    }
+  ],
+  "rejoin": {
+    "wal_log_hints_at_crash": "on",
+    "checksum_version_at_crash": "0",
+    "rewind_possible": true,
+    "wal_keep_size_on_recovery": "256MB",
+    "clean_shutdown_rc": 0,
+    "clean_shutdown_seconds": 4.018,
+    "wal_log_hints_after_shutdown": "on",
+    "rewind_rc": 1,
+    "rewind_seconds": 0.604,
+    "rewind_tail": "pg_rewind: connected to server\npg_rewind: servers diverged at WAL location 0/34553FF0 on timeline 1\npg_rewind: error: could not open file \"/var/lib/postgresql/data/pg_wal/000000010000000000000032\": No such file or directory\npg_rewind: error: could not find previous WAL record at 0/32FFFFD8",
+    "diverged_lsn": "0/34553FF0",
+    "needed_back_to_lsn": "0/32FFFFD8",
+    "rewind_lookback_bytes": "22364184",
+    "fallback": {
+      "rc": 0,
+      "seconds": 264.511,
+      "tail": "waiting for checkpoint\n    75/487279 kB (0%), 0/1 tablespace\n487290/487290 kB (100%), 0/1 tablespace\n487290/487290 kB (100%), 1/1 tablespace"
+    },
+    "streaming_after_rejoin": true,
+    "stream_wait_seconds": 1.124,
+    "rejoined_is_in_recovery": "t"
+  },
+  "rejoin_seconds": 271.736
+}

@@ -283,13 +283,17 @@ def rejoin(project, env, standby, user, db, out):
     # 돌리고 내린다. 네트워크가 없고 TCP 도 열지 않는다. 구 primary 가 다시 쓰기를 받는 창을
     # 만들지 않기 위해서다(수동 절차 2-2 fencing 과 같은 전제).
     #
-    # 급사 시점 wal_log_hints 를 그대로 준다. 이 값은 기동할 때마다 pg_control 에 다시 쓰이므로
-    # 다른 값으로 띄우면 재현이 아니라 조작이 된다.
+    # WAL 보존에 영향을 주는 설정을 전부 그대로 준다. 빠뜨리면 이 기동의 종료 체크포인트가
+    # 되감기에 필요한 구간을 회수한다. wal_keep_size 를 빠뜨려 256MB 보존이 무력화된 회차가
+    # 있었다(2026-09-13). wal_log_hints 는 기동마다 pg_control 에 다시 쓰이므로 같은 이유다.
+    keep = cfg.get('WAL_KEEP_SIZE', '256MB')
+    d['wal_keep_size_on_recovery'] = keep
     t0 = time.monotonic()
     p = docker_run(project, ['gosu postgres pg_ctl -D /var/lib/postgresql/data '
-                             '-o "-c listen_addresses= -c wal_log_hints=%s" -w start '
+                             '-o "-c listen_addresses= -c wal_log_hints=%s -c wal_keep_size=%s" '
+                             '-w start '
                              '&& gosu postgres pg_ctl -D /var/lib/postgresql/data -m fast -w stop'
-                             % d['wal_log_hints_at_crash']],
+                             % (d['wal_log_hints_at_crash'], keep)],
                    network='none')
     d['clean_shutdown_rc'] = p.returncode
     d['clean_shutdown_seconds'] = round(time.monotonic() - t0, 3)
