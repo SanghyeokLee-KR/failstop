@@ -200,6 +200,17 @@ public final class OrderBookImpl implements OrderBook {
         return book;
     }
 
+    /**
+     * 내용이 같은 독립 북을 만든다.
+     *
+     * 라우터가 복구본의 북을 샤드 엔진에 나눠 담을 때 쓴다. 참조를 그대로 넘기면 전역
+     * 엔진과 샤드 엔진이 같은 북을 공유하면서 lastAppliedSeq 만 따로 들어, 카운터와 상태가
+     * 어긋난 채 이중 적용이 난다.
+     */
+    public OrderBookImpl copy() {
+        return fromEntries(marketId, exportEntries());
+    }
+
     /** 스냅샷 직렬화 단위. 레스팅 주문 복원에 필요한 전 필드를 담는다. */
     record BookEntry(long orderId, long userId, OrderCommand.Side side,
                      BigDecimal price, BigDecimal remaining) {

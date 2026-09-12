@@ -311,9 +311,22 @@ public class PromotionCoordinator implements AutoCloseable {
         // 관측한 체크포인트를 넘지 않으므로, head 에 닿았다는 것은 head 이하에 이벤트 없는 명령이
         // 없다는 뜻이다. 곧 메울 크래시 창이 없다. 따라잡기가 상한을 재사용하거나 저널 head 로
         // 유도하도록 바뀌면 이 생략이 미물질화 명령 위에서 접수를 연다.
+        //
+        // 생략 대상은 재생이지 설치가 아니다. 라이터가 이 엔진을 이어받아야 라이터의 카운터가
+        // 자기 북의 진행도와 맞는다. 설치를 함께 생략하면 카운터만 부팅값에 멈춘 채 게이트가
+        // 열려 첫 명령이 갭으로 보이고, catch-up 이 이미 반영된 구간을 다시 적용한다.
         if (current != null && current.lastAppliedSeq() >= head) {
-            log.info("승격 재생 생략(엔진 이미 head): epoch={}, lastAppliedSeq={}, head={}",
-                    identity.epoch(), current.lastAppliedSeq(), head);
+            long applied = current.lastAppliedSeq();
+            host.install(current);
+            if (current.lastAppliedSeq() != applied) {
+                // 유계 대기를 못 채운 잔여 따라잡기 틱이 설치 창에서 엔진을 전진시켰다.
+                // 조용히 보정하지 않는다. 재시도가 다시 잡는다.
+                throw new IllegalStateException(
+                        "승격 설치 중 엔진이 전진했다: before=" + applied
+                                + ", after=" + current.lastAppliedSeq());
+            }
+            log.info("승격 재생 생략(엔진 이미 head), 라이터에 설치: epoch={}, lastAppliedSeq={}, head={}",
+                    identity.epoch(), applied, head);
             return;
         }
         // fresh 엔진에 0(또는 스냅샷 seq)부터 인메모리 선복원 + 크래시 창 재정산. 재시도마다

@@ -45,6 +45,9 @@ public final class WriterRouter {
     // 지연 생성을 직렬화한다. 같은 마켓의 첫 주문 둘이 동시에 오면 루프가 둘 생긴다.
     private final Object createLock = new Object();
     private volatile boolean started;
+    // 마지막 설치가 심은 진행도. 그 이후 새로 생기는 샤드는 0 이 아니라 이 값에서 출발해야
+    // 갭 회수가 그 마켓의 전 이력을 다시 읽지 않는다.
+    private volatile long installedSeq;
 
     public WriterRouter(LoopFactory factory) {
         this.factory = factory;
@@ -68,6 +71,10 @@ public final class WriterRouter {
         synchronized (createLock) {
             return shards.computeIfAbsent(marketId, id -> {
                 Shard created = factory.create(id);
+                long floor = installedSeq;
+                if (floor > 0) {
+                    created.engine().loadSnapshot(floor, List.of());
+                }
                 if (started) {
                     created.loop().start();
                 }
@@ -117,6 +124,9 @@ public final class WriterRouter {
      * 중복 판정에 걸리지 않는다.
      *
      * 복구 결과에 없는 마켓은 빈 엔진으로 둔다. 그 마켓은 명령이 아직 없었다는 뜻이다.
+     *
+     * 북은 복사해서 담는다. 참조를 그대로 넘기면 복구본과 샤드 엔진이 같은 북을 공유하면서
+     * lastAppliedSeq 만 따로 들어, 한쪽이 전진해도 다른 쪽 카운터가 멈춘 채로 남는다.
      */
     public void installFrom(MatchingEngineImpl recovered) {
         long seq = recovered.lastAppliedSeq();
@@ -124,7 +134,7 @@ public final class WriterRouter {
             for (int marketId : recovered.markets()) {
                 Shard s = shard(marketId);
                 MatchingEngineImpl fresh = new MatchingEngineImpl();
-                fresh.loadSnapshot(seq, List.of(recovered.orderBook(marketId)));
+                fresh.loadSnapshot(seq, List.of(recovered.orderBook(marketId).copy()));
                 s.loop().installEngine(fresh);
                 shards.put(marketId, new Shard(fresh, s.loop()));
             }
@@ -139,6 +149,7 @@ public final class WriterRouter {
                 e.getValue().loop().installEngine(fresh);
                 shards.put(e.getKey(), new Shard(fresh, e.getValue().loop()));
             }
+            installedSeq = seq;
         }
     }
 
