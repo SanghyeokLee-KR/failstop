@@ -256,7 +256,7 @@ function topology() {
   const ex = (id, c, r, name, sub) => p.card(id, cx[c], r, 370, 110, name, sub, C.red);
   ex('x-chaos', 0, 1300, '카오스 e1~e9', 'Toxiproxy · docker kill/pause · 분리');
   ex('x-repl', 1, 1300, '복제 결함', 'replication-fault');
-  ex('x-sync', 2, 1300, '동기 복제 대가', 'sync-replication');
+  ex('x-sync', 2, 1300, '복제 방식별 대가', 'sync-replication');
   ex('x-fo', 0, 1424, '리더 페일오버', 'leader-failover');
   ex('x-lease', 1, 1424, '리더 리스 분리', 'leader-lease-dynamodb');
   ex('x-rejoin', 2, 1424, '부하 중 재합류', 'follower-rejoin');
@@ -347,9 +347,7 @@ function topology() {
     [{ text: 'PostgreSQL 17', color: RT.postgres }]);
   p.card('lease', 2146, 1520, 508, 96, 'leader_lease · fencing 검증',
     '트랜잭션 안의 검증은 여기 남는다', RT.postgres);
-  p.node('pg2', 2906, 1358, 508, 116, 'pg-standby-1', '동기 · t4g.small', 'db',
-    [{ text: 'PostgreSQL 17', color: RT.postgres, dashed: true }], { dashed: true });
-  p.node('pg3', 2906, 1500, 508, 116, 'pg-standby-2', '동기 · t4g.small · ADR 0018', 'db',
+  p.node('pg2', 2906, 1358, 508, 116, 'pg-standby', '비동기 · 읽기 전용 · t4g.small · ADR 0024', 'db',
     [{ text: 'PostgreSQL 17', color: RT.postgres, dashed: true }], { dashed: true });
 
   p.icon('ddb', 'dynamodb', 2200, 1720, 56, 'Amazon DynamoDB', { fs: 16, sub: '리더 리스 항목 1개', subSize: 14, labelWidth: 320 });
@@ -376,11 +374,10 @@ function topology() {
   /* 관측은 스크레이프다. 상시면 배선이 없어 파선이다 */
   p.line([[2906, 1170], [2760, 1170], [2760, 862], [2654, 862]], { dashed: true, color: RT.obs });
 
-  /* 동기 복제. standby 2 대를 ANY 1 로 묶는다(ADR 0018) */
+  /* 비동기 스트리밍 복제. standby 상실이 primary 커밋을 멈추지 않는다(ADR 0024) */
   p.line([[2654, 1400], [2906, 1400]], { dashed: true, color: C.green });
-  p.line([[2654, 1464], [2720, 1464], [2720, 1558], [2906, 1558]], { dashed: true, color: C.green });
-  p.text(2780, 1648, '동기 복제 · ANY 1 정족수', 15,
-    { align: 'center', color: C.green, weight: 600, w: 280, background: true });
+  p.text(2780, 1500, '비동기 WAL 복제 · RPO 미보장', 15,
+    { align: 'center', color: C.green, weight: 600, w: 300, background: true });
 
   /* 리스 갱신은 커밋 경로 밖이다(ADR 0017) */
   p.line([[2146, 892], [2100, 892], [2100, 1748], [2200, 1748]], { dashed: true, color: RT.ddb });

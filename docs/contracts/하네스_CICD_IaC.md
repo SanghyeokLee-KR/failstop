@@ -230,7 +230,7 @@ Redis 프록시는 없다. Redis 서비스 자체가 없기 때문이다.
 
 ### 3-5. 데이터베이스 이중화
 
-현행 구성은 정본 §6.3이다. primary 한 대와 대기 서버 두 대를 `synchronous_standby_names = ANY 1`로 묶는다. 실험 수단은 `harness/replication/`이고 파일 4개다(`run.sh`, `repl_sampler.py`, `analyze.py`, `dynamo_lease.py`).
+상시면 구성은 ADR 0024다. primary 한 대와 대기 서버 한 대를 비동기 스트리밍 복제로 묶고 `synchronous_standby_names`는 비운다. 배선은 `deploy/compose.node-data.yml`이고 DB 자동 페일오버는 없다(수동 절차 `docs/operations/DB_수동_페일오버.md`). 아래 동기 정족수는 카오스·규격 평면의 실험 구성이며 상시면 계약이 아니다. 실험 수단은 `harness/replication/`이고 파일 4개다(`run.sh`, `repl_sampler.py`, `analyze.py`, `dynamo_lease.py`).
 
 정족수 설정은 `harness/scale/standby_up.sh`가 `ALTER SYSTEM SET`으로 직접 건다.
 

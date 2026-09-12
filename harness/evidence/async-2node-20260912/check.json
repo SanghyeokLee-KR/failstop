@@ -1,0 +1,31 @@
+{
+  "primary": "pgha-db-1",
+  "standby": "pgha-db-standby-1",
+  "checks": {
+    "A_streaming": {
+      "ok": true,
+      "detail": "state=streaming sync_state=async"
+    },
+    "B_replicated": {
+      "ok": true,
+      "detail": "standby 행 수 0 -> 1"
+    },
+    "C_write_without_standby": {
+      "ok": true,
+      "detail": "커밋 성공, 222.0ms, 행 INSERT 0 1\n2"
+    },
+    "D_catchup": {
+      "ok": true,
+      "detail": "standby 가 22 행까지 따라잡았다"
+    },
+    "E_lag": {
+      "ok": true,
+      "detail": "replay_delay=2.174496s, sent/replay/diff=0/3072770|0/3072770|0"
+    }
+  },
+  "pg_stat_replication": "walreceiver|streaming|async",
+  "write_without_standby_ms": 222.0,
+  "replay_delay_seconds": "2.174496",
+  "lsn_sent_replay_diff": "0/3072770|0/3072770|0",
+  "verdict": "PASS"
+}

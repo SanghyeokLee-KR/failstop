@@ -1,4 +1,14 @@
-# PostgreSQL 1개분. 상시면 core에 앱과 함께 얹거나 전용 노드로 분리한다.
+# PostgreSQL 1개분. 같은 파일을 두 노드에서 역할만 달리 띄운다(ADR 0024).
+#
+#   AZ-a  DB_ROLE=primary   docker compose -f compose.node-data.yml up -d db
+#   AZ-c  DB_ROLE=standby   docker compose -f compose.node-data.yml --profile standby up -d db-standby
+#
+# 왜 한 파일인가. 두 노드의 PostgreSQL 설정이 갈리면 승격 뒤 새 primary 가 옛 standby 설정으로
+# 돌게 된다. 역할만 변수로 가르면 그 어긋남이 구조적으로 생기지 않는다.
+#
+# 복제는 비동기다(ADR 0024). synchronous_standby_names 를 쓰지 않는다. standby 장애가
+# primary 의 커밋을 멈추지 않는 것이 이 정책의 전부다. 대가는 RPO 0 을 보장하지 않는 것이고
+# 그 유실량은 미측정이다.
 #
 # RDS를 쓰지 않는 이유는 기획안 §4.2 선택표와 §4.3 비채택 표다. 장애 주입에 OS 셸이
 # 필요하고, RDS를 채택하면 DB 계층 전체가 증명 범위 밖으로 나가 남는 명제가 앱 계층
@@ -10,8 +20,10 @@
 #      55432 노출은 로컬 실험 편의였다.
 #   2. 커널 keepalive 튜닝은 그대로 둔다. 좀비 커넥션 회수가 E2·E7 계열의 원천이라
 #      상시면과 증명면이 같은 값을 써야 실험 결과가 이관된다.
+#   3. 복제 정책이 다르다. 카오스 스택은 3노드 동기 정족수를 실험으로 세우고 여기는 2노드
+#      비동기다. 그 실험 증거가 이 정책 변경의 근거다(ADR 0018 -> ADR 0024).
 #
-# 미검증이다. 실제 다중 호스트에서 기동한 적이 없다.
+# 미검증이다. 실제 다중 호스트에서 기동한 적이 없다. 로컬 한 호스트 두 컨테이너로만 확인했다.
 services:
   db:
     image: postgres:17-alpine
@@ -19,11 +31,31 @@ services:
       POSTGRES_DB: ${DB_NAME:-exchange}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+      # 복제 롤과 슬롯을 첫 기동에 만든다. 아래 셋을 초기화 스크립트가 읽는다. 공식 이미지는
+      # initdb 직후 한 번만 그 디렉터리를 실행하므로, 이미 초기화된 볼륨에서는 수동 SQL 이 된다.
+      REPL_USER: ${REPL_USER:-replicator}
+      REPL_PASSWORD: ${REPL_PASSWORD}
+      REPL_SLOT: ${REPL_SLOT:-standby_1}
+      # 복제 접속을 허용할 대역. 기본값은 VPC 대역이고 그 밖은 보안그룹이 막는다.
+      REPL_CIDR: ${REPL_CIDR:-10.0.0.0/16}
     command:
       - "postgres"
-      # RPO=0의 전제다. 끄면 커밋 응답 후 유실 창이 생겨 §7-3 P6 주장이 무너진다.
+      # standby 를 지목하지 않으므로 이 값은 로컬 WAL flush 까지만 기다린다. 비동기 정책과
+      # 모순되지 않는다. 내리면 primary 급사 시 유실 창이 더 커진다(ADR 0024 결정 절).
       - "-c"
       - "synchronous_commit=on"
+      # 복제 송신. replica 면 스트리밍 복제에 충분하고 logical 은 이 판에서 쓰지 않는다.
+      - "-c"
+      - "wal_level=replica"
+      # 송신 슬롯 수. standby 1 대에 여유 하나다. 승격 리허설에서 둘이 동시에 붙는 창이 있다.
+      - "-c"
+      - "max_wal_senders=${MAX_WAL_SENDERS:-4}"
+      - "-c"
+      - "max_replication_slots=${MAX_REPLICATION_SLOTS:-4}"
+      # 슬롯이 끊긴 standby 때문에 primary 디스크가 차는 것을 막는다. 이 상한을 넘으면 슬롯이
+      # 무효가 되고 standby 는 베이스백업을 다시 받아야 한다. 가용성을 디스크보다 앞에 둔다.
+      - "-c"
+      - "max_slot_wal_keep_size=${MAX_SLOT_WAL_KEEP:-4GB}"
       # 유휴 트랜잭션이 잠금을 붙든 채 남는 것을 끊는다. 카오스 창에서 좀비가 생기는 경로다.
       - "-c"
       - "idle_in_transaction_session_timeout=10s"
@@ -42,6 +74,9 @@ services:
       - "archive_command=${ARCHIVE_COMMAND:-/bin/true}"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # 복제 접속 허용. 공식 이미지의 기본 pg_hba 는 replication 데이터베이스 항목을 로컬로만
+      # 연다. 이 스크립트가 첫 기동에 롤과 항목을 함께 만든다.
+      - ./pg-init-replication.sh:/docker-entrypoint-initdb.d/10-replication.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME:-exchange}"]
       interval: 5s
@@ -58,5 +93,49 @@ services:
         max-size: "50m"
         max-file: "3"
 
+  # standby. 프로파일로 가르므로 primary 노드에서 `up -d db` 만 하면 뜨지 않는다.
+  # 같은 이미지에 entrypoint 만 다르다. PGDATA 가 비면 베이스백업을 받고 아니면 이어서 재생한다.
+  db-standby:
+    profiles: ["standby"]
+    image: postgres:17-alpine
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      PRIMARY_HOST: ${DB_HOST}
+      PRIMARY_PORT: ${DB_PORT:-5432}
+      REPL_USER: ${REPL_USER:-replicator}
+      REPL_PASSWORD: ${REPL_PASSWORD}
+      REPL_SLOT: ${REPL_SLOT:-standby_1}
+    entrypoint: ["/usr/local/bin/pg-standby-entrypoint.sh"]
+    command:
+      - "-c"
+      - "idle_in_transaction_session_timeout=10s"
+      - "-c"
+      - "tcp_keepalives_idle=5"
+      - "-c"
+      - "tcp_keepalives_interval=2"
+      - "-c"
+      - "tcp_keepalives_count=3"
+    volumes:
+      - pgstandby:/var/lib/postgresql/data
+      - ./pg-standby-entrypoint.sh:/usr/local/bin/pg-standby-entrypoint.sh:ro
+    healthcheck:
+      # dbname 을 명시한다. 빠뜨리면 pg_isready 가 사용자명을 dbname 으로 써서 접속을 시도하고
+      # 그 데이터베이스가 없어 FATAL 이 5초마다 로그에 쌓인다(실측).
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME:-exchange}"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${DB_MEMORY:-1600m}
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
 volumes:
   pgdata:
+  pgstandby:

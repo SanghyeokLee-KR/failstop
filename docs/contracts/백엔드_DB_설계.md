@@ -2453,7 +2453,7 @@ failover에서도 RPO 0을 주장하려면 아래 요건을 전부 갖춰야 한
 
 | 요건 | 구성 | 목적 |
 |---|---|---|
-| 동기 복제 | `synchronous_standby_names`를 `ANY 1 (s1, s2)` 정족수로 두고 standby 2대를 상시면에 세운다(ADR 0018). 승격 후보 standby가 반드시 동기 목록에 포함 | 커밋 확인 시점에 standby WAL flush 보장 |
+| 동기 복제 | `synchronous_standby_names`로 승격 후보 standby를 동기 목록에 강제한다. **현행 상시면은 이 요건을 채택하지 않는다.** ADR 0024가 상시면을 primary 1대 + standby 1대 비동기 스트리밍 복제로 내렸고 `synchronous_standby_names`를 비운다. 종전 구성(`ANY 1 (s1, s2)` 정족수, standby 2대, ADR 0018)은 카오스·규격 평면의 실험 구성으로만 남는다 | 커밋 확인 시점에 standby WAL flush 보장 |
 | 정산 트랜잭션 동기 커밋 | 자금 경로(§5.1~§5.3, `post_ledger_transaction` 호출 트랜잭션)와 저널 append는 `synchronous_commit = on`(remote flush) 이상. 비자금 경로(프로젝션 재빌드, 조회 부가 기록)만 `local` 완화 허용 | 무손실 대상 트랜잭션의 선별적 보장, 성능 절충의 명시화 |
 | 클러스터 리더 선출 | Patroni 등 DCS 기반 자동 failover. 구 primary의 재기동·이중 기동을 막는 STONITH/워치독 필수 | 두 primary 병존(split-brain) 봉쇄. leader_lease는 이를 대체하지 못함(§7.1) |
 | WAL archive·PITR | `archive_command` 또는 `pg_receivewal` 상시 아카이브, 주기 base backup | 동기 standby까지 소실되는 이중 장애의 최후 복구선 |

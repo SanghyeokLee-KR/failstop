@@ -50,9 +50,10 @@ DB 계층을 EC2 자체 운영 PostgreSQL 17로 둔다. RDS를 채택하지 않�
   않아 기본값 아래에서는 회수되지 않는다고 적는다. 주입 권한이 없으면 이 세 수치를 AWS에서 재현할 수 없다.
 - 비용이 반대 방향으로 걸리지 않는다. 2026-08-26 판정 시점 산정이 RDS Multi-AZ 최소 등급 약
   USD 85 대 EC2 2대 + 80GiB 약 USD 53으로 자체 운영이 저렴했다. 그 뒤 정족수 채택으로
-  데이터베이스 노드가 3대가 됐고, 현재 단가는 정본 9.2가 768시간 47.9232달러로 적는다.
+  데이터베이스 노드가 3대가 됐다. **ADR 0024 가 상시면을 비동기 2노드로 내리면서 다시 2대가 됐다.**
+  정본 9.2 의 768시간 47.9232달러는 3대 시점 산정이므로 재산정 대상이다(미반영).
 - 로컬과 클라우드의 동형화 계약과 맞는다. 정본 5.3이 두 평면을 잇는 것을 같은 컨테이너 이미지
-  지문으로 규정하고, `deploy/compose.node-data.yml:17`과 `harness/docker-compose.chaos.yml:11`이
+  지문으로 규정하고, `deploy/compose.node-data.yml` 의 image 행과 `harness/docker-compose.chaos.yml:11`이
   둘 다 `postgres:17-alpine`으로 고정돼 있다. 관리형은 이 계약을 만족시키지 못한다.
 
 ## 대안
@@ -60,7 +61,7 @@ DB 계층을 EC2 자체 운영 PostgreSQL 17로 둔다. RDS를 채택하지 않�
 - RDS PostgreSQL Multi-AZ 채택. 기각. 위 다섯 축 전량 불가이고 비용도 더 크다.
   이 안만 정본 4.3 비채택 표에 정식 판정으로 기록돼 있다.
 - 혼합안. 상시면은 RDS, 증명면은 EC2 자체 운영. 기각. 정본 5.3이 두 면에 같은 이미지
-  지문을 요구하고, `deploy/compose.node-data.yml:11-12`가 "상시면과 증명면이 같은 값을 써야
+  지문을 요구하고, `deploy/compose.node-data.yml` 머리 주석가 "상시면과 증명면이 같은 값을 써야
   실험 결과가 이관된다"를 keepalive 튜닝 승계의 사유로 명시한다. 두 면의 DB 구현이 갈리면
   증명면 결과를 상시면 주장으로 옮길 수 없다. 이 안은 정본 4.3에 별도 행으로 없다.
   기각 근거는 동형화 계약에서 유도한 것이다.
@@ -80,10 +81,10 @@ DB 계층을 EC2 자체 운영 PostgreSQL 17로 둔다. RDS를 채택하지 않�
   미리 쓰기 기록 보관, 복제). 넷째인 자동 패치(dnf-automatic security only)는 7.9 표 밖이고
   정본에 등재가 없다. 위 대안 절과 같은 판정이다. 자동 승격(Patroni)은 스트레치로 분리했다.
 - 배선 실물은 `deploy/compose.node-data.yml`이다. 커밋 4d5ba51(2026-08-30).
-  command 블록 `:22-42`가 `synchronous_commit=on`, 유휴 트랜잭션 타임아웃, keepalive 3종을
+  command 블록가 `synchronous_commit=on`, 유휴 트랜잭션 타임아웃, keepalive 3종을
   카오스 스택에서 그대로 승계하고 `archive_mode`·`archive_command`를 변수로 열어 PITR 배선 자리를 남긴다.
   카오스 스택의 `ports: ["55432:5432"]`(`harness/docker-compose.chaos.yml:31`)는 승계하지
-  않는다. 사유는 `deploy/compose.node-data.yml:9-10`에 있다.
+  않는다. 사유는 `deploy/compose.node-data.yml` 머리 주석에 있다.
 - 4d5ba51 커밋 본문은 data 오버레이를 실제로 기동해 확인했다고 적는다. 조사 중
   `tcp_keepalives_idle`이 0으로 보였으나 SHOW가 현재 연결 기준으로 보고하는 것이었고,
   유닉스 소켓 연결은 0, TCP 연결은 5를 낸다. 정본 주장이 틀렸다고 결론 낼 뻔한 지점이다.
@@ -91,9 +92,10 @@ DB 계층을 EC2 자체 운영 PostgreSQL 17로 둔다. RDS를 채택하지 않�
   기동한 적이 0회다. AWS 실기동 근거는 저장소에 없다. 위 기동 확인은 단일 호스트 범위다.
 - 남는 한계는 문서에 이미 적혀 있다. `docs/architecture/아키텍처_개관.md` 3.3은 RPO=0이 로컬
   커밋 fsync 내구성에 근거하므로 단일 PostgreSQL 인스턴스의 프로세스·전원 장애 범위에서만
-  성립한다고 적고, failover를 포함한 무손실의 운영 요건 넷을 등재한다. 대기 서버 2대 중
-  `ANY 1` 정족수, 정산·저널 트랜잭션 `synchronous_commit=on`, 리더 임차 갱신을 DB 커밋 경로
-  밖으로 분리, PITR 아카이브 병행이다. 그 넷 중 PITR 아카이브를 정본 7.9가 "목표. 미배선"으로
+  성립한다고 적고, failover를 포함한 무손실의 운영 요건 넷을 등재한다. 동기 복제
+  정족수, 정산·저널 트랜잭션 `synchronous_commit=on`, 리더 임차 갱신을 DB 커밋 경로
+  밖으로 분리, PITR 아카이브 병행이다. **ADR 0024 가 첫째 요건을 채택하지 않기로 했다.**
+  상시면이 비동기 2노드이므로 failover 포함 무손실을 주장하지 않는다. 그 넷 중 PITR 아카이브를 정본 7.9가 "목표. 미배선"으로
   적고, 승격 후 동기 복제 대상 재설정도 배선이 없다(같은 3.3, 정본 13.2 한계 10). 정본 13.2
   한계 8은 봇과 관측이 한 노드에 있어 그 노드가 죽으면 기저 트래픽과 지표 수집이 함께 멈춘다고
   적는다. 이 ADR은 그 한계를 닫지 않는다.

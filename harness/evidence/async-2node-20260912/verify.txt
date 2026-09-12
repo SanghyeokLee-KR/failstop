@@ -1,0 +1,48 @@
+# 검증 산출물 원본. deploy/compose.node-data.yml 로 세운 2노드 비동기 복제.
+
+## primary
+-[ RECORD 1 ]--
+in_recovery | f
+
+-[ RECORD 1 ]----+------------
+application_name | walreceiver
+state            | streaming
+sync_state       | async
+sent_lsn         | 0/30691D0
+write_lsn        | 0/30691D0
+flush_lsn        | 0/30691D0
+replay_lsn       | 0/30691D0
+
+-[ RECORD 1 ]---------
+slot_name  | standby_1
+slot_type  | physical
+active     | t
+wal_status | reserved
+
+
+## standby
+-[ RECORD 1 ]-----------+---------------
+pg_is_in_recovery       | t
+pg_last_wal_receive_lsn | 0/30691D0
+pg_last_wal_replay_lsn  | 0/30691D0
+replay_delay            | 00:00:35.59989
+
+
+## 설정 확인
+           name            | setting 
+---------------------------+---------
+ hot_standby               | on
+ max_replication_slots     | 4
+ max_slot_wal_keep_size    | 4096
+ max_wal_senders           | 4
+ synchronous_commit        | on
+ synchronous_standby_names | 
+ wal_level                 | replica
+(7 rows)
+
+       name        |  setting  
+-------------------+-----------
+ hot_standby       | on
+ primary_slot_name | standby_1
+(2 rows)
+
