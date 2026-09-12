@@ -146,6 +146,19 @@ compose.yaml         카오스 스택 진입점
 
 digest는 `GITHUB_STEP_SUMMARY`에 `APP_IMAGE=...@digest`로 적힌다. 배포가 이 digest를 받는다.
 
+**이 워크플로는 신설(2026-08-30) 이래 성공한 적이 없다. 2026-09-12에 원인을 특정하고 고쳤다.**
+`gh run list` 전수에서 54회차가 전부 failure 또는 skipped다. 원인은 마지막 검증 스텝이
+`github.repository`를 원문 그대로 digest 참조에 넣은 것이다. GHCR은 이미지 경로에 대문자를
+허용하지 않고 이 저장소 이름에는 대문자가 있다. `metadata-action`은 스스로 소문자로 접으므로
+push까지는 통했고, 그 뒤 `docker buildx imagetools inspect`가
+`invalid reference format: repository name ... must be lowercase`로 깨졌다. 같은 원문을 쓰는
+digest 보고 스텝도 같은 이유로 받을 수 없는 `APP_IMAGE` 문자열을 냈다.
+
+곧 **arm64 매니페스트 검증이 한 번도 수행된 적이 없다.** 그 스텝의 목적이 t4g 배포에서
+`exec format error`를 막는 것인데 그 보증이 지금까지 없었다. 교정은 이미지 이름을 한 자리에서
+소문자로 접어 세 스텝이 같은 값을 쓰게 한 것이다. 첫 성공 회차에서 아키텍처 둘이 실제로
+나오는지 확인해야 이 항이 닫힌다.
+
 `harness/app.jar`가 작업 트리에 53MB로 있으나 git 추적 대상이 아니다. CI가 매번 새로 만든다.
 
 ### 2-5. `style.yml`

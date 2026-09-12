@@ -75,10 +75,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # GHCR 은 이미지 경로에 대문자를 허용하지 않는다. github.repository 는 저장소 이름을 그대로
+      # 주고 이 저장소 이름에는 대문자가 있다. metadata-action 은 스스로 소문자로 접으므로 push 는
+      # 통했으나, 아래 두 단계가 그 원문으로 digest 참조를 만들어 invalid reference format 으로
+      # 깨졌다. 한 자리에서 접어 셋이 같은 값을 쓰게 한다.
+      - id: img
+        name: resolve image name
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}/exchange-app" >> "$GITHUB_OUTPUT"
+
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/exchange-app
+          images: ${{ steps.img.outputs.name }}
           tags: |
             type=raw,value=${{ github.event.workflow_run.head_sha || github.sha }}
             type=raw,value=latest,enable={{is_default_branch}}
@@ -101,7 +109,7 @@ jobs:
         run: |
           echo "### 배포용 이미지" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "APP_IMAGE=ghcr.io/${{ github.repository }}/exchange-app@${{ steps.push.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+          echo "APP_IMAGE=${{ steps.img.outputs.name }}@${{ steps.push.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       # 멀티 아키텍처가 실제로 들어갔는지 확인한다. 한쪽만 올라가면 t4g에서
@@ -109,7 +117,7 @@ jobs:
       - name: verify both architectures
         run: |
           set -e
-          ref="ghcr.io/${{ github.repository }}/exchange-app@${{ steps.push.outputs.digest }}"
+          ref="${{ steps.img.outputs.name }}@${{ steps.push.outputs.digest }}"
           got=$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest}}' \
             | python3 -c "import sys,json; m=json.load(sys.stdin); print(' '.join(sorted(x['platform']['architecture'] for x in m.get('manifests',[]) if x['platform']['os']=='linux')))")
           echo "아키텍처: $got"
