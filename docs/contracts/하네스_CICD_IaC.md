@@ -444,6 +444,8 @@ enum의 Severity 분포는 CRITICAL 15, HIGH 8, WARN 3이다. Scope 분포는 SC
 
 카오스 스택에서는 `chaos-api-1`이 단독으로 마이그레이션을 돈다. 배포 평면에서는 먼저 뜨는 노드가 돈다.
 
+**마이그레이션 노드가 적용을 끝낸 뒤 나머지 노드를 새 이미지로 올린다.** Flyway가 꺼진 노드는 스키마를 확인하지 않고 붙는다. V41처럼 앱 코드가 DB 쪽 전제(`uq_leader_lease_fencing_key`)에 안전성을 기대는 판에서 순서가 뒤집히면 승격이 진행 중 쓰기를 기다리지 않아 stale write가 열린다(`docs/adr/0026-leader-lease-key-share-lock.md`). 기동 시 이를 막는 코드 가드는 아직 없다.
+
 `V0__roles.sql`이 `app_role`과 `harness_role`을 만든다. **두 롤 모두 런타임에 배선돼 있지 않다.** 둘 다 NOLOGIN이고 실제 접속은 다른 계정으로 한다. 롤 경계가 스키마에는 있고 런타임에는 없다. 처분은 §8-2에 둔다.
 
 Flyway 설정 파일도 Gradle 플러그인도 없다. Spring Boot 자동구성이 돈다.

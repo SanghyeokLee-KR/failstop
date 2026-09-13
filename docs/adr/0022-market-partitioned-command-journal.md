@@ -5,7 +5,7 @@
 - 선례: `docs/adr/0021-market-partitioned-ordering.md`(이벤트 축), `V36__market_seq.sql`
 - 후속 연계: `docs/adr/0023-replay-bound-and-cursor-axis.md`. 재생 상한을 명령 축 연속 경계로 바꿨다. 이 판이 명령 축을 대역화하면 그 경계 술어와 C05·C22 를 함께 본다
 - 근거 실측: `harness/evidence/submit-lock-20260911/README.md`, `harness/evidence/stage0-20260911/README.md`, `harness/evidence/stage0c-20260912/README.md`, `harness/evidence/leader-failover-20260908/`
-- 코드: `V40__command_seq_band.sql`, `V41__band_headroom.sql`, `EngineBridge`, `CommandJournalAppender`, `EngineRecovery`, `ReplayService`, `WriterRouter`, `InvariantCheck`
+- 코드: `V40__command_seq_band.sql`, 대역 여유 마이그레이션(7단계, 번호는 착수 시 다음 가용값), `EngineBridge`, `CommandJournalAppender`, `EngineRecovery`, `ReplayService`, `WriterRouter`, `InvariantCheck`
 
 ---
 
@@ -309,12 +309,12 @@ SELECT 'pre_v36_event', COALESCE(max(source_cmd_seq), 0) FROM event_journal WHER
 
 되돌리기: 파티션 DROP(비어 있음), 두 함수 CREATE OR REPLACE 복귀, 시드 행 DELETE, 표 둘 DROP.
 
-### 3-2. V41__band_headroom.sql (7단계)
+### 3-2. band_headroom 마이그레이션 (7단계. 번호는 착수 시 다음 가용값)
 
 - `v_journal_band_headroom` 뷰. 마켓별 `next_value`, `band_span - next_value`, 잔여 비율.
 - 게이지 `exchange.journal.band.remaining{name,market}`. 정적 바닥은 SQL 이, 소진 속도는 게이지가 본다.
 
-### 3-3. V42__event_seq_band_widen.sql (선택. 별건)
+### 3-3. event_seq_band_widen 마이그레이션 (선택. 별건. 번호는 착수 시 다음 가용값)
 
 이벤트 축의 한계 43 을 같은 처방으로 닫는다. `journal_band_spec` 의 `('event_seq', 10^7, 19)` 를 `(10^12, 63)` 으로 올리고 `event_journal` 파티션을 같은 모양으로 더한다. 이벤트 축은 `market_seq` 가 별도 컬럼이라 지역 번호가 이어지고 파생값만 뛴다. 기존 행은 그대로 유일하고 마켓 안에서 증가도 유지된다. **이 판의 필수가 아니다.** 명령 축 커트오버가 안정화된 뒤 별도 회차로 판단한다.
 
@@ -365,7 +365,7 @@ private ReentrantLock lockFor(int marketId) {
 
 1. `pg_advisory_xact_lock('cmd-new:user:coid')`. 트랜잭션당 정확히 하나.
 2. 자기 마켓의 `market_journal_counters` 행. 마켓마다 다르다.
-3. `leader_lease` 행 `FOR SHARE`. 공유 모드라 서로 호환.
+3. `leader_lease` 행 `FOR KEY SHARE`(ADR 0026). 서로 호환이고 갱신(FOR NO KEY UPDATE)과도 호환이다. 탈취·게시(FOR UPDATE)와만 충돌한다.
 
 모든 트랜잭션이 같은 순서로 잡고 (1)이 하나이며 (2)가 마켓마다 다르므로 순환이 생길 조합이 없다. 논증이므로 다중 마켓 동시 append 통합 시험(`MultiMarketConcurrentAppendTest`)으로 고정한다.
 
@@ -626,7 +626,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 
 되돌리기: 없다.
 
-### 7단계. V41 + 스냅샷 훅 배선 (되돌릴 수 있다)
+### 7단계. 대역 여유 마이그레이션(3-2) + 스냅샷 훅 배선 (되돌릴 수 있다)
 
 - 대역 여유 뷰·게이지·C26 알람 라우팅.
 - `EngineConfig.snapshotCapture` 가 레거시 `singleWriterLoop` 빈에만 훅을 거는 것(EngineConfig.java:211-223)을 샤드 팩토리(EngineConfig.java:245-288)로 옮긴다. `setSnapshotHook` 호출부가 코드 전체에 그 한 줄뿐이고 라우터 샤드에는 없다. 곧 **지금 스냅샷이 한 건도 안 찍히고 복구가 항상 seq 0 전량 재생이다.** 샤드마다 `SnapshotCapture` 를 하나 두면 `seq - lastCapturedSeq >= commandInterval` 판정이 자연히 마켓 단위가 된다.
@@ -636,7 +636,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 
 `wal-fsync-20260907` 이 "재지 않았다" 로 남긴 자리다. 그 문서의 유보 사유가 "커밋이 단일 라이터에서 직렬화되어 동시 커밋자가 적다" 였고, **6단계가 그 전제를 바꾼다.** `synchronous_commit=off` 와 다르다. 동기 커밋을 유지한 채 플러셔가 형제 트랜잭션을 모으도록 기다리게 하는 것이라 'fsync 후 ACK' 계약을 깨지 않는다. `commit_siblings` 와 함께 격자로 돈다. `ALTER SYSTEM RESET` 으로 되돌린다.
 
-### 9단계. V42 이벤트 축 대역 확대 (선택. 별건)
+### 9단계. 이벤트 축 대역 확대 마이그레이션(3-3) (선택. 별건)
 
 3-3. 이 판의 필수가 아니다.
 

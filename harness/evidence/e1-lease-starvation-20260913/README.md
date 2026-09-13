@@ -10,6 +10,8 @@ E1(리더 DB 경로 지연 200ms, 지터 100ms)이 현 코드에서 세 번 연�
 `renew_leader_lease`(V1)는 같은 행의 UPDATE 다. 지연이 걸리면 정산 트랜잭션이 길어지고, 공유
 잠금을 쥔 트랜잭션이 교대로 이어져 갱신 UPDATE 가 TTL 6초 안에 잠금을 얻지 못한다.
 
+후속: ADR 0026(V41). 재주행 verdict: NOT RUN(재주행 후 `harness/evidence/chaos-runs/<runId>.json`).
+
 ## 근거
 
 | 회차 | 코드 | 판정 파일 |

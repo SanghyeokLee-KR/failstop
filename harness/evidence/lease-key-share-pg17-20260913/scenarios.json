@@ -1,0 +1,174 @@
+{
+ "postgresVersion": "PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit (image postgres:17-alpine, container leasekeyshare-exp)",
+ "containerRemoved": true,
+ "scenarios": [
+  {
+   "id": "S1",
+   "setup": "Base V1/V30/V33 functions (FOR SHARE, PK only). lease holder=nodeA epoch=5 lease_until=+1h. A: BEGIN; SELECT assert_and_lock_leader('nodeA',5); pg_sleep(4); COMMIT. B at +0.5s: SET lock_timeout='1s'; renew_leader_lease('nodeA',5,'6 seconds').",
+   "expected": "B gets lock timeout",
+   "observed": "pgrowlocks while A open: modes {\"For Share\"}. B: \"ERROR: canceling statement due to lock timeout / CONTEXT: while updating tuple (0,2) in relation \\\"leader_lease\\\" ... renew_leader_lease line 3\" Time: 1002.556 ms. A committed normally at 04:46:33.770; row unchanged nodeA|5.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S2",
+   "setup": "Base (FOR SHARE). 5 background psql sessions, each 50x 'BEGIN; SELECT assert_and_lock_leader(nodeA,5); SELECT pg_sleep(0.3); COMMIT;', starts staggered 70ms. Renew started 1s later with no lock_timeout, statement_timeout 14s. pg_stat_activity sampled every 1.5s.",
+   "expected": "renew waits multiple seconds",
+   "observed": "Renew started 04:46:42.175, 'ERROR: canceling statement due to statement timeout ... while updating tuple (0,2)' Time: 14001.250 ms, i.e. it never got the row during the whole 14s window. 6 samples (04:46:43.683 .. 04:46:51.233): renew pid 183 wait_event_type=Lock wait_event=transactionid, pg_blocking_pids={173} in all 6 samples. lease_until unchanged (still the +1h seed). Writers had 0 errors.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S3-B",
+   "setup": "Proposal: V30 body with FOR KEY SHARE (only change) + CREATE UNIQUE INDEX leader_lease_fencing_key ON leader_lease (resource, holder, epoch). lease valid (+1h). A: BEGIN; assert_and_lock_leader('nodeA',5); pg_sleep(10); COMMIT. At +0.5s B renew with lock_timeout 1s.",
+   "expected": "renew succeeds quickly",
+   "observed": "pgrowlocks before and after B: {\"For Key Share\"} (pid of A only). B: 'renew(nodeA,5,6s) ->|t' Time: 2.709 ms.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S3-D",
+   "setup": "Same open A (after B committed). D: publish_leader_epoch('nodeB',6), lock_timeout 1s.",
+   "expected": "lock timeout",
+   "observed": "ERROR: canceling statement due to lock timeout, CONTEXT while updating tuple (0,3) ... publish_leader_epoch line 4. Time: 1002.503 ms. (tuple (0,3) is the version created by B's renew: A's KEY SHARE lock was carried to the new version.)",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S3-E",
+   "setup": "Same open A. E: publish_leader_epoch('nodeA',5) (same holder, same epoch), lock_timeout 1s.",
+   "expected": "no wait",
+   "observed": "'E publish(nodeA,5) ->|5' Time: 2.669 ms. Separate S9 check: an open tx with publish_leader_epoch('nodeA',5) holds {\"No Key Update\"}, not Update. Unchanged key values are not treated as key modification.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S3-F",
+   "setup": "Same open A. F: expire_leader_lease_now(), lock_timeout 1s.",
+   "expected": "no wait (report)",
+   "observed": "Returned void, Time: 2.228 ms. Row after: nodeA|5|lease_until 04:46:57.133 (now 04:46:58.140), expired. pgrowlocks still {\"For Key Share\"} held by A.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S3-D2",
+   "setup": "Same open A, after three intervening non-key updates (B renew, E same-value publish, F expire). D2: publish_leader_epoch('nodeB',6), lock_timeout 1s.",
+   "expected": "still blocked: the KEY SHARE lock must survive the non-key updates",
+   "observed": "ERROR: canceling statement due to lock timeout, while updating tuple (0,5). Time: 1002.130 ms.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S3-C",
+   "setup": "Same open A, lease now expired (by F). C: try_acquire_leader('nodeC','6 seconds') with lock_timeout 1s. Then C2: same call with no lock_timeout, started at 04:47:00.170 while A is still open. A commits at 04:47:06.597.",
+   "expected": "C lock timeout; after A commits C2 succeeds with epoch+1",
+   "observed": "C: ERROR: canceling statement due to lock timeout (tuple (0,5)) Time: 1002.399 ms. While waiting, C2 pid showed wait_event=transactionid, blocking={A pid 228}. C2: 'C2 try_acquire(nodeC) ->|6' Time: 6428.053 ms, end 04:47:06.598. A before commit still saw nodeA|5 and committed at 04:47:06.597. Final row: nodeC|6|lease_until 04:47:06.172 (now 04:47:06.606). So lease_until = C2 statement start + 6s: the new leader's lease had already expired 0.43s before it was acquired.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S3b",
+   "setup": "Proposal config. Literal variant: lease expired via expire_leader_lease_now() in a committed tx BEFORE A starts. (1) A uses assert_and_lock_leader. (2) A uses raw 'SELECT epoch FROM leader_lease WHERE resource=... FOR KEY SHARE' (no assert), held 4s. C try_acquire lock_timeout 1s, then C2 without lock_timeout.",
+   "expected": "C blocked while A holds lock",
+   "observed": "(1) A: 'ERROR: fencing 위반: 리스 만료(...)', the transaction aborted and the lock was released at the error (not at ROLLBACK). C returned 6 in 2.761 ms (not blocked). (2) Raw lock: C ERROR lock timeout Time: 1002.115 ms. C2 waited 2497.266 ms and returned 6 at 04:47:11.534, the same ms A committed. lease_until 04:47:15.038 = C2 start 04:47:09.037 + 6s.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S4",
+   "setup": "FOR KEY SHARE function WITHOUT the unique index (PK only). lease valid. A holds assert_and_lock_leader 5s, then selects the row and COMMITs. B renew, D publish(nodeB,6), F expire, C try_acquire(nodeC): each with lock_timeout 1s.",
+   "expected": "try_acquire (and publish) NOT blocked, so the index is required",
+   "observed": "B t 3.258 ms. D publish(nodeB,6) ->6 in 2.627 ms. Row nodeB|6. F 2.101 ms. C try_acquire ->7 in 2.296 ms. Row nodeC|7. A 'before commit sees|nodeC|7' then COMMIT succeeded (04:47:16.890). The V30 guarantee (epoch unchanged between fencing check and commit) is violated without the index. S9b: without the index, try_acquire holds {\"No Key Update\"}; with the index it holds {Update}.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S5",
+   "setup": "Proposal config. 5 writers x80 (same loop as S2, FOR KEY SHARE). 10 renews spaced 0.7s, no lock_timeout.",
+   "expected": "renew wait ~0",
+   "observed": "R1..R10 all returned t with Times 3.255, 2.646, 2.801, 2.873, 2.663, 2.695, 2.723, 2.459, 2.983, 2.188 ms.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S5-publish",
+   "setup": "Continuation of S5, writers still looping, renews stopped after R10 (04:47:48.194, lease_until=+6s=04:47:54.193). D: publish_leader_epoch('nodeB',6) with lock_timeout 1s.",
+   "expected": "lock timeout after ~1s (writers hold KEY SHARE continuously)",
+   "observed": "No lock timeout. 'D publish(nodeB,6) ->|6' Time: 5557.067 ms (start 04:47:48.901, end 04:47:54.457). Writers began failing at 04:47:54.226 with 'fencing 위반: 리스 만료(lease_until=04:47:54.193443...)'. Once the lease expired, writers' locks were released at the assert error, and publish got through 264 ms after expiry. Later writers got 34x 'fencing 위반: 현재 리더(...)가 아님(요청 holder=nodeA, epoch=5)'. lock_timeout bounds each individual wait, not the total.",
+   "matchesExpectation": false
+  },
+  {
+   "id": "S6a",
+   "setup": "Base (FOR SHARE). A holds 2s. Renew with no lock_timeout started 0.3s later. Returns statement_timestamp and clock_timestamp at end.",
+   "expected": "lease_until = renew start + ttl?",
+   "observed": "R stmt_start 04:48:01.117, returned t at 04:48:02.820 (1702.871 ms). lease_until - 6s = 04:48:01.119. lease_until was computed from the pre-wait clock (statement start + ttl), not the finish (+1.7s).",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S6b",
+   "setup": "Base. lease_until=clock+1.5s (expires ~04:48:04.66). A holds FOR SHARE 4s (locked 04:48:03.165). Renew queued at +0.5s (lease still valid). try_acquire_leader('nodeB') queued at +2.0s (after expiry). A commits 04:48:07.171.",
+   "expected": "(report) which waiter wins",
+   "observed": "waiters: R pid 499 on transactionid {A 495}; C pid 503 on 'tuple' {499}, queued behind the renew. R returned t (3506 ms) with lease_until 04:48:09.667 = R start 03.665 + 6s. C returned NULL (2006.7 ms). Row nodeA|5|09.667. The renew extended a lease that had expired ~2.5s earlier during its wait (its WHERE lease_until>=clock was evaluated before the wait). The promotion queued behind it lost.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S6c",
+   "setup": "As S6b but A holds 8s (renew wait > ttl). lease_until=clock+1.5s. A locked 04:48:07.512. R at +0.5s, C try_acquire('nodeB') at +2.0s.",
+   "expected": "(report) renew result and whether the row is re-evaluated",
+   "observed": "R: returned t at 04:48:15.522 after 7509.7 ms, start 04:48:08.013, so by the S6a rule its lease_until was 04:48:14.013, already in the past at commit. C: start 09.514, waited 6009 ms (tuple lock behind R), returned 6 at 04:48:15.522. Final row nodeB|6|lease_until 04:48:21.522 = post-wait clock + 6s: the SET expression was re-evaluated because R had updated the row. renew_leader_lease returned TRUE while the lease was already expired, and a new leader took over within 1 ms.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S6d",
+   "setup": "Base. lease valid. A holds FOR SHARE 3s. D publish_leader_epoch('nodeB',6) queued at +0.5s, renew('nodeA',5) queued at +1.0s. The row is changed first by D.",
+   "expected": "waiting renew returns false (0 rows)",
+   "observed": "waiters: D on transactionid {A}; R on tuple {D}. A commit 04:48:18.897. D ->6 (2505.8 ms). R: 'renew(nodeA,5,6s) ->|f' (2004.8 ms). Row nodeB|6. The WHERE clause was re-checked against the new version, so the renew returned false.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S6e",
+   "setup": "Base. A holds FOR SHARE 3s. Renew R1 queued at +0.5s, R2 at +1.0s.",
+   "expected": "(report) R2 lease_until basis after re-evaluation",
+   "observed": "R1 start 04:48:19.730 t (2505 ms). R2 start 04:48:20.231 t (2005 ms). A committed 04:48:22.235. Final lease_until - 6s = 04:48:22.236 = R2 finish time, not R2 start. A re-evaluated update recomputes clock_timestamp(); an update that only waited on a lock does not.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S7",
+   "setup": "Fresh table per variant. A holds raw 'FOR KEY SHARE' 4.5s. Sequential UPDATEs, lock_timeout 1s each: U_holder SET holder='x'; U_epoch SET epoch=epoch+1; U_lease SET lease_until=clock+6s. pg_index flags shown as indisunique|indimmediate|partial|expr.",
+   "expected": "UNIQUE(resource,epoch): holder-only change not conflicting, epoch conflicting. UNIQUE(resource,holder,epoch): holder-only conflicting. Deferrable, partial, expression and non-unique indexes: no key columns.",
+   "observed": "pk_only: holder 1.553ms ok, epoch 1.768ms ok, lease 1.594ms ok. uq(resource,epoch) [t|t|f|f]: holder 1.719ms ok, epoch LOCK TIMEOUT 1001.374ms, lease 1.688ms ok. uq(resource,holder,epoch) [t|t|f|f]: holder LOCK TIMEOUT 1001.522ms, epoch LOCK TIMEOUT 1001.288ms, lease 1.614ms ok. UNIQUE constraint DEFERRABLE INITIALLY IMMEDIATE [t|f(indimmediate=false)|f|f]: holder LOCK TIMEOUT 1001.251ms, epoch LOCK TIMEOUT 1001.645ms, lease 1.911ms ok. Partial unique WHERE epoch>=0 [t|t|t|f]: all 3 ok (2.334/1.665/1.707ms). Expression unique (resource,(holder||''),epoch) [t|t|f|t]: all ok, including epoch (1.724/1.649/2.033ms). Non-unique (resource,holder,epoch): all ok (1.605/1.509/1.837ms).",
+   "matchesExpectation": false
+  },
+  {
+   "id": "S8",
+   "setup": "Fresh table, reset table counters, 200 renew_leader_lease calls (autocommit), then reset and 50 publish_leader_epoch('nodeA',6..55) (epoch changes). Counters read from pg_stat_user_tables after 1.5s. Run for PK only and with UNIQUE(resource,holder,epoch).",
+   "expected": "renew still HOT with the index",
+   "observed": "pk_only: renew x200 n_tup_upd=200 n_tup_hot_upd=200 (rel size 8192). publish x50 upd=50 hot=50. with_fencing_key: renew x200 upd=200 hot=200 (8192). publish x50 (epoch changes) upd=50 hot=0.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S9",
+   "setup": "pgrowlocks from another session while a single statement's tx is open (1.2s then ROLLBACK). Base vs proposal. S9b runs try_acquire alone after the lease was expired in a committed tx.",
+   "expected": "base: writers FOR SHARE, all updates No Key Update. Proposal: writers For Key Share, renew/same-value publish No Key Update, epoch-changing publish/try_acquire Update.",
+   "observed": "BASE: assert_and_lock_leader {\"For Share\"}; renew {\"No Key Update\"}; publish(nodeA,5) {\"No Key Update\"}; publish(nodeA,99) {\"No Key Update\"}; try_acquire (S9b) {\"No Key Update\"}. PROPOSAL: assert_and_lock_leader {\"For Key Share\"}; renew {\"No Key Update\"}; publish(nodeA,5) {\"No Key Update\"}; publish(nodeA,99) {Update}; try_acquire (S9b) {Update}. (The combined 'expire_leader_lease_now(), try_acquire' row in S9 showed only the first update's mode and is inconclusive; S9b supersedes it.)",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S10",
+   "setup": "lease_until=+100y via publish_leader_epoch('nodeA',5), modelling the dynamodb provider. 5 writers x40 looping (0.3s tx). 1s later publish_leader_epoch('nodeB',6) with lock_timeout 1s and statement_timeout 9s. Run for base (FOR SHARE) and proposal (KEY SHARE + index).",
+   "expected": "(added check) does publish starve while old-leader writers keep committing?",
+   "observed": "base: 'ERROR: canceling statement due to statement timeout ... while updating tuple (0,3)' Time: 9001.305 ms, row still nodeA|5, 0 writer errors. proposal: same, Time: 9000.352 ms, row nodeA|5, 0 writer errors. lock_timeout=1s never fired in either run.",
+   "matchesExpectation": true
+  },
+  {
+   "id": "S11",
+   "setup": "CHECKPOINT, read pg_control_checkpoint().next_multixact_id, then 5 writers x20 plus 10 renews (lock_timeout 1s) every 0.5s, CHECKPOINT, read again. Base vs proposal.",
+   "expected": "(added check) multixact consumption comparable",
+   "observed": "base: 1048 -> 1147 (99). proposal: 1147 -> 1256 (109).",
+   "matchesExpectation": true
+  }
+ ],
+ "surprises": [
+  "lock_timeout bounds each individual lock wait, not the total wait. Under rotating overlapping holders, a key-changing UPDATE with lock_timeout=1s waited 5557 ms and then succeeded (S5-publish), or ran to a 9 s statement_timeout (S10). Only statement_timeout, or an application-side deadline, bounds total wait.",
+  "The proposal moves the starvation from renew to key-changing updates. With lease_until=+100y (dynamodb provider), publish_leader_epoch by a new leader starved for the full 9 s while the old leader's writers kept committing (S10). This is identical under the current FOR SHARE, so it is not a regression. For the PostgreSQL provider, promotion gets through only after the lease expires and writers' assert starts raising: in S5 that was 264 ms after expiry, because an aborting writer releases its row lock at the error, not at ROLLBACK.",
+  "The UPDATE's SET clock_timestamp()+ttl and its WHERE lease_until >= clock_timestamp() are evaluated before the row-lock wait. They are re-evaluated only if the blocker actually updated the row (EvalPlanQual). If the blocker only locked the row, the pre-wait values are used. Consequences: (a) S6a/evidence: lease_until = renew statement start + ttl. (b) S6c: renew_leader_lease returned TRUE after waiting 7.5 s with TTL 6 s, so its lease was already expired at commit, and a queued try_acquire took over within 1 ms. (c) Under the proposal, try_acquire_leader that waits for an in-flight writer gets lease_until = its statement start + ttl. In S3 C2 waited 6.43 s and acquired epoch 6 with lease_until 0.43 s in the past. The promotion wait is subtracted from the new leader's lease.",
+  "S6b: a renew queued before expiry holds the tuple-lock queue position. A try_acquire that arrives after expiry queues behind it on a 'tuple' lock, then returns NULL once the renew commits a lease_until computed at the renew's start. The old leader keeps leadership even though the lease was expired for ~2.5 s during the wait. Not split-brain (holder and epoch unchanged, and assert rejects writes in the gap), but a legitimate promotion is refused.",
+  "A DEFERRABLE INITIALLY IMMEDIATE unique constraint (pg_index.indimmediate=false) still made holder and epoch key columns on PG 17.10: holder-only and epoch updates both hit lock timeouts under KEY SHARE (S7). The 'immediate' condition in the fix description was not needed in the observed behavior. Partial, expression and non-unique indexes did not create key columns. With an expression index, even the plain epoch column in it was not treated as key.",
+  "UNIQUE(resource, epoch) alone does not protect holder: a holder-only UPDATE did not conflict with FOR KEY SHARE (1.7 ms). V33's publish_leader_epoch always raises epoch for a new holder, so it would still be blocked, but same-epoch holder changes would not be.",
+  "A publish_leader_epoch with identical holder and epoch values is a non-key update (pgrowlocks {\"No Key Update\"}, no wait under KEY SHARE, S3-E). The same-holder republish retry path does not wait for writers.",
+  "FOR KEY SHARE locks carry over to new row versions made by non-key updates. After renew, same-value publish and expire created tuple (0,5), a key-changing publish was still blocked by the original writer (S3-D2). The protection is not lost across renews.",
+  "Without the index (S4), a writer holding FOR KEY SHARE did not block try_acquire_leader (epoch 7 in 2.3 ms) or publish_leader_epoch. The writer then saw holder=nodeC, epoch=7 before its COMMIT, which succeeded. The V30 guarantee is violated.",
+  "S2 did not reproduce the rotating blocking pid from the production evidence. All 6 samples over 7.5 s showed pg_blocking_pids={173} with wait_event=transactionid, yet the renew never got the row in 14 s.",
+  "With the index, renew stays 100% HOT (200/200). Epoch-changing updates become non-HOT (publish x50: 0 HOT, previously 50/50 without the index). This happens only on promotion.",
+  "Multixact consumption was similar: base 99 vs proposal 109 ids for the same 5 writers x20 + 10 renews workload."
+ ]
+}

@@ -17,7 +17,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       # 스키마 확정은 한 노드만 한다. 두 노드가 동시에 Flyway를 돌리면 잠금 경합이 난다.
-      # 롤링 배포에서 먼저 뜨는 노드가 true를 받는다.
+      # 롤링 배포에서 먼저 뜨는 노드가 true를 받는다. 그 노드의 마이그레이션이 끝난 뒤 나머지 노드를
+      # 올린다. V41 처럼 코드가 DB 전제에 기대는 판에서 순서가 뒤집히면 stale write 가 열린다(ADR 0026).
       SPRING_FLYWAY_ENABLED: ${FLYWAY_ENABLED:-false}
       EXCHANGE_AUTH_MASTER_KEY_BASE64: ${MASTER_KEY_BASE64}
       EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64: ${PASSWORD_PEPPER_BASE64}

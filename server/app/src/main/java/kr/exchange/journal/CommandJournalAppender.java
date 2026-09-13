@@ -14,8 +14,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * command_journal append 단일 경로(DB 설계 v2.9 §5.1 (a'), §5.4).
  *
- * 한 트랜잭션 안에서 [assert_current_leader → NEW 멱등 검사 → next_journal_value 채번 →
- * leader_lease FOR SHARE 참조 INSERT...SELECT]를 원자 수행한다. COMMIT 성공이 곧 ACK다.
+ * 한 트랜잭션 안에서 [append_command_prologue(V39: 리더 검증, NEW 멱등, 채번) →
+ * leader_lease FOR KEY SHARE 참조 INSERT...SELECT]를 원자 수행한다. COMMIT 성공이 곧 ACK다.
  * 롤백되면 카운터 증가도 함께 되돌아가 결번이 없다(P0-5).
  */
 public class CommandJournalAppender {
@@ -29,7 +29,9 @@ public class CommandJournalAppender {
     private record Prologue(long seq, boolean replayed, long fencing, long orderId) {
     }
 
-    private static final String INSERT_SQL = """
+    // FOR KEY SHARE 는 holder·epoch 를 바꾸는 승격·게시만 커밋까지 막고 lease_until 갱신은 막지 않는다.
+    // 그 구분은 V41 의 uq_leader_lease_fencing_key 가 있어야 성립한다(ADR 0026).
+    static final String INSERT_SQL = """
             INSERT INTO command_journal
               (seq, market_id, command_type, user_id, client_order_id, assigned_order_id,
                engine_ts, tie_break, payload, fencing_token, checksum)
@@ -37,7 +39,7 @@ public class CommandJournalAppender {
             FROM leader_lease l
             WHERE l.resource = 'matching-engine'
               AND l.holder = ? AND l.epoch = ? AND l.lease_until > clock_timestamp()
-            FOR SHARE OF l
+            FOR KEY SHARE OF l
             """;
 
     private final JdbcClient jdbc;

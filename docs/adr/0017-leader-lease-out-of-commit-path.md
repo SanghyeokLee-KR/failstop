@@ -26,7 +26,7 @@ PHASE 1(standby 1대)과 PHASE 2-E(standby 2대 `ANY 1`)에서 각각, 그리고
 
 - `LeaderLeaseStore` 인터페이스를 두고 구현을 둘 둔다. `PostgresLeaderLeaseStore`가 종전 경로이고 기본값이다. `DynamoDbLeaderLeaseStore`가 새 경로이며 `exchange.leader.lease.provider=dynamodb`로만 켜진다.
 - DynamoDB 보관소는 항목 하나를 쓴다. 파티션 키 `clusterId`, 값 `leaderId`·`leaseUntil`·`fencingToken`·`updatedAt`이다. 승격·갱신·반납 모두 조건부 쓰기 한 번이다.
-- 트랜잭션 안의 `assert_current_leader`와 `assert_and_lock_leader`는 **한 글자도 바꾸지 않는다**.
+- 트랜잭션 안의 `assert_current_leader`와 `assert_and_lock_leader`는 **한 글자도 바꾸지 않는다**. (ADR 0026이 잠금 모드를 FOR KEY SHARE로 바꿨다. 검증 위임과 거부 메시지는 그대로다)
 - 대신 승격 때 `publish_leader_epoch(holder, epoch)`(V33)가 얻은 epoch을 `leader_lease` 행에 단조 게시하고 `lease_until`을 100년 뒤로 민다. 만료 판정을 외부 보관소로 넘긴다는 뜻이다.
 - 게시는 접수 개방 전에 끝난다. 게시 실패는 승격 실패다.
 
@@ -40,7 +40,7 @@ PHASE 1(standby 1대)과 PHASE 2-E(standby 2대 `ANY 1`)에서 각각, 그리고
 ## 근거
 
 - **실측이 요구한다.** 위 연쇄의 3단계와 4단계는 전적으로 "갱신이 커밋"이라는 성질에서 나온다. 그 성질을 없애면 3단계가 성립하지 않는다.
-- **검증까지 옮기면 ADR 0002를 뒤집는다.** ADR 0002가 Redisson RLock을 기각한 사유가 "락 획득과 DB 커밋이 다른 시스템이면 그 사이가 항상 열린다"였다. 검증을 외부로 옮기면 그 창이 그대로 돌아오고 GC pause 한 번이 stale 리더의 커밋을 통과시킨다. V30의 `FOR SHARE`가 닫던 "판정과 커밋 사이"도 다시 열린다. 그래서 검증은 옮기지 않는다.
+- **검증까지 옮기면 ADR 0002를 뒤집는다.** ADR 0002가 Redisson RLock을 기각한 사유가 "락 획득과 DB 커밋이 다른 시스템이면 그 사이가 항상 열린다"였다. 검증을 외부로 옮기면 그 창이 그대로 돌아오고 GC pause 한 번이 stale 리더의 커밋을 통과시킨다. V30의 행 잠금(ADR 0026 이후 FOR KEY SHARE)이 닫던 "판정과 커밋 사이"도 다시 열린다. 그래서 검증은 옮기지 않는다.
 - **함수를 고치지 않는 이유가 세 개다.** `FencingErrors.rejectionDetail`이 거부 메시지 두 갈래로 강등 사유를 가른다. `MigrationSmokeTest`가 만료 메시지 문구를 단언한다. `PromotionStandDownIntegrationTest.installFencingFault`가 `assert_current_leader`를 갈아끼워 결함을 주입하고, 그 주입이 정산과 이벤트 적재 경로를 함께 덮는다. 규칙을 바꾸면 셋이 함께 흔들린다. 데이터로만 푸는 쪽이 파급이 작다.
 - **epoch 게시만으로 stale 리더가 막힌다.** fencing의 본질은 "다음 리더가 토큰을 올리면 이전 토큰의 쓰기가 거부된다"이다. 만료 검사는 그 위의 보조 장치이고, 보조 장치가 주 장치의 가용성을 무너뜨리고 있었다. 게시가 접수 개방보다 앞서는 한 주 장치는 그대로 선다.
 - **기본값을 바꾸지 않아 비교 가능성이 남는다.** 옮기기 전과 옮긴 뒤를 같은 조건에서 재려면 종전 경로가 살아 있어야 한다. 기존 통합 검증 전량도 종전 경로를 전제한다.

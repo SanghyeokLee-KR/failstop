@@ -402,7 +402,7 @@ class MigrationSmokeTest {
                     () -> st.execute("SELECT assert_current_leader('proc-uuid-2', 7)"));
 
             /*
-             * V30 assert_and_lock_leader 의 계약. 검증과 FOR SHARE 잠금을 한 왕복으로 한다.
+             * assert_and_lock_leader(V30, 잠금 모드 V41) 의 계약. 검증과 FOR KEY SHARE 잠금을 한 왕복으로 한다.
              *
              * 거부 메시지를 여기서 못 박는 이유. 자바의 강등 판정이 SQLSTATE P0001 과 메시지의
              * `fencing 위반` 문구 일치로 동작한다(FencingErrors.isFencingRejection). 정산과 이벤트

@@ -204,20 +204,23 @@ class CommandJournalIntegrationTest {
         assertEquals(0, queryLong(
                 "SELECT count(*) FROM command_journal WHERE client_order_id = 'stale-append'"));
 
-        // fencing INSERT...SELECT 자체 계약: 구 epoch·구 holder 참조는 0행이다(§5.4).
-        int rows = jdbc.sql("""
-                        INSERT INTO command_journal
-                          (seq, market_id, command_type, user_id, client_order_id, assigned_order_id,
-                           engine_ts, tie_break, payload, fencing_token, checksum)
-                        SELECT 999999999, 1, 'NEW', 1, 'stale-direct', 1, 0, 0, '{}'::jsonb, l.epoch, 0
-                        FROM leader_lease l
-                        WHERE l.resource = 'matching-engine'
-                          AND l.holder = ? AND l.epoch = ? AND l.lease_until > now()
-                        FOR SHARE OF l
-                        """)
-                .params(staleHolder, staleEpoch)
+        // 운영 append SQL 자체 계약: 구 epoch·구 holder 참조는 0행이다(§5.4).
+        int rows = jdbc.sql(CommandJournalAppender.INSERT_SQL)
+                .params(999_999_999L, 1, "NEW", 1L, "stale-direct", 1L, 0L, 0L, "{}", 0L,
+                        staleHolder, staleEpoch)
                 .update();
         assertEquals(0, rows, "구 epoch fencing INSERT가 0행이 아니다");
+
+        // holder·epoch 가 맞아도 만료된 리스면 0행이다. 만료 판정은 문장 평가 시점이다.
+        jdbc.sql("UPDATE leader_lease SET lease_until = clock_timestamp() - interval '1 second'"
+                + " WHERE resource = 'matching-engine'").update();
+        int expiredRows = jdbc.sql(CommandJournalAppender.INSERT_SQL)
+                .params(999_999_998L, 1, "NEW", 1L, "expired-direct", 1L, 0L, 0L, "{}", 0L,
+                        successor.holder(), successor.requireLeader().epoch())
+                .update();
+        assertEquals(0, expiredRows, "만료 리스의 fencing INSERT가 0행이 아니다");
+        jdbc.sql("UPDATE leader_lease SET lease_until = clock_timestamp() + interval '120 seconds'"
+                + " WHERE resource = 'matching-engine'").update();
 
         // 리더가 아닌 인스턴스는 DB 왕복 전에 거부된다.
         LeaderLeaseService neverLeader =

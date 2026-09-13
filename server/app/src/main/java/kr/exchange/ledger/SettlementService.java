@@ -56,7 +56,7 @@ public class SettlementService {
     /**
      * 정산 머리말. 종전 세 왕복을 한 왕복으로 묶는다.
      *
-     * 무엇을 묶는가. (1) fencing 검증과 리스 행 FOR SHARE, (2) 이 명령의 이벤트가 이미
+     * 무엇을 묶는가. (1) fencing 검증과 리스 행 FOR KEY SHARE(V41), (2) 이 명령의 이벤트가 이미
      * 적재됐는지 세는 멱등 탐침, (3) 정산 대상 명령 읽기다. 셋 다 cmdSeq 하나로 정해지는
      * 조회이고 서로의 결과를 입력으로 쓰지 않는다. 그래서 한 문장에 담을 수 있다.
      *
@@ -227,7 +227,7 @@ public class SettlementService {
     }
 
     private List<EngineEvent> settleInTx(LeaderIdentity leader, long cmdSeq, List<EngineEvent> events) {
-        // 머리말 한 왕복. fencing 검증과 FOR SHARE 잠금(V30)에 멱등 탐침과 명령 읽기를
+        // 머리말 한 왕복. fencing 검증과 FOR KEY SHARE 잠금(V41)에 멱등 탐침과 명령 읽기를
         // 함께 실어 세 왕복을 하나로 줄인다. 거부 메시지는 종전과 같아 강등 분류가 그대로다.
         // 잠금을 잡은 뒤 판정하므로 판정과 커밋 사이에 epoch 이 바뀌지 않는다.
         Prologue prologue = jdbc.sql(PROLOGUE_SQL)

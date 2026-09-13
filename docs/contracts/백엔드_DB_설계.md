@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.42)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.43)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, §3 도입부 표의 로드맵 행)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -363,7 +363,7 @@ erDiagram
 | V27 | `V27__ledger_post_from_input.sql` | 원장 기입을 입력에서 유도. 정산 경로의 왕복을 줄인다 | V1, V13(`post_ledger_transaction` 재정의. 말미에서 V13의 `apply_position_cost` 호출) |
 | V28 | `V28__sim_fleet_state.sql` | 봇 플릿 상태 `sim_fleet_state`. 기동 간 상태를 잇는다 | V0(`app_role` GRANT) |
 | V29 | `V29__sim_fleet_state_target_ops_width.sql` | 같은 표의 목표 OPS 열 폭 확장 | V28(`sim_fleet_state` 생성) |
-| V30 | `V30__assert_and_lock_leader.sql` | `assert_and_lock_leader`. 세대 번호 검증과 행 잠금을 한 호출로 묶는다 | V1(`leader_lease`, `assert_current_leader` 호출) |
+| V30 | `V30__assert_and_lock_leader.sql` | `assert_and_lock_leader`. 세대 번호 검증과 행 잠금을 한 호출로 묶는다. 잠금 모드는 V41 이 FOR KEY SHARE 로 바꿨다 | V1(`leader_lease`, `assert_current_leader` 호출) |
 | V31 | `V31__order_id_sequence.sql` | 주문 식별자 시퀀스. 단일 라이터 전제에서 채번을 DB 로 옮긴다 | V0, V1(`journal_counters`·`orders`에서 시작값 역산, `app_role` GRANT) |
 | V32 | `V32__capacity_plan.sql` | 용량 계획 `capacity_plan`. 수동 스케일링 판정이 이 표를 읽는다 | V0(`app_role` GRANT) |
 | V33 | `V33__publish_leader_epoch.sql` | `publish_leader_epoch`. 리더 임차를 DynamoDB 로 옮긴 뒤 승격 때만 세대 번호를 게시한다(ADR 0017) | V1(`leader_lease`) |
@@ -374,7 +374,8 @@ erDiagram
 | V38 | `V38__ledger_balance_update_index_scan.sql` | V37 의 일괄 잔고 UPDATE 에 `account_id = ANY(배열)` 조건을 더한다. `jsonb_to_recordset` 이 통계 없이 100행으로 추정돼 조인만으로는 `balances` 순차 스캔이 뽑힌다. 실행 계획으로 확인했다 | V37(`post_ledger_transaction` 재정의) |
 | V39 | `V39__append_prologue.sql` | 접수 저널 append 의 리더 검증과 NEW 멱등 판정과 전역 채번을 `append_command_prologue` 한 함수로 묶는다. 왕복이 다섯에서 둘로 준다. 삽입은 체크섬이 seq 와 Jackson 정규화 JSON 을 먹어 함수로 옮길 수 없다 | V1(`assert_current_leader`, `next_journal_value`, `command_journal`) |
 | V40 | `V40__command_seq_band.sql` | 명령 저널 대역 채번의 기반(ADR 0022 1단계). 대역 명세 `journal_band_spec` 와 재생 축 경계 `journal_axis_boundary`, 레거시 꼬리 파티션 `command_journal_p200000000` [2x10^8, 10^12), 마켓이 있는 id K 마다 대역 잎 `command_journal_b<K>` [K x 10^12, (K+1) x 10^12), `next_market_command_seq`, 잎 생성 단일 진입점 `ensure_command_band_partition`(SECURITY DEFINER, PUBLIC 회수), 마켓 생성 트리거의 `command_seq` 시드와 대역 잎 생성. prod 풀 타임아웃을 `SET LOCAL` 로 해제한다. `next_market_journal_value` 는 대역 상한을 명세표에서 읽는다. 채번 경로를 바꾸지 않아 대역 잎은 비어 있고 되돌릴 수 있다. 꼬리 파티션은 되돌리지 않는다 | V36(`market_journal_counters`, `next_market_journal_value`, `seed_market_journal_counters`), V1(`command_journal`, `markets`) |
-| V41+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V41 | `V41__lease_key_share_lock.sql` | `leader_lease` 에 `uq_leader_lease_fencing_key`(resource, holder, epoch) 를 더해 holder·epoch 를 키 열로 만들고 `assert_and_lock_leader` 를 FOR KEY SHARE 로 재정의한다. 갱신은 쓰기 트랜잭션 잠금을 기다리지 않고 승격·게시는 기다린다(ADR 0026) | V1(`leader_lease`), V30(`assert_and_lock_leader`) |
+| V42+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -1176,6 +1177,10 @@ CREATE TABLE leader_lease (
     epoch       BIGINT      NOT NULL DEFAULT 0,
     lease_until TIMESTAMPTZ NOT NULL
 );
+CREATE UNIQUE INDEX uq_leader_lease_fencing_key ON leader_lease (resource, holder, epoch);
+-- (V41) 유일성 목적이 아니다. holder·epoch 를 키 열로 만들어 탈취·게시 UPDATE 는 FOR UPDATE,
+-- 갱신은 FOR NO KEY UPDATE 가 되게 한다. 쓰기 경로의 FOR KEY SHARE 는 앞과만 충돌한다.
+-- 부분·식·INCLUDE 인덱스로 바꾸면 키 열에서 빠져 탈취가 쓰기를 기다리지 않는다(§5.4).
 -- 부트스트랩 시드(v2.4): §5.4의 승격은 조건부 UPDATE 단독이므로 행이 **선재**해야 한다.
 -- 빈 테이블에서는 UPDATE가 항상 0행이고 §5.4 규칙상 0행='타 리더 존재'로 해석되어
 -- 최초 리더 선출이 영구 불가(부트스트랩 교착). 만료 상태로 시드해 첫 승격 UPDATE가 즉시 성립한다.
@@ -1193,9 +1198,9 @@ VALUES ('matching-engine', '', 0, now() - interval '1 s');
 -- 호출 규율 자체는 앱 계층 책임이며, 저장된 fencing_epoch 감사 쿼리로 보완한다(§6.4).
 -- clock_timestamp(): now()는 트랜잭션 시작 시각으로 고정되어 장기 트랜잭션에서
 -- 만료된 리스를 유효로 오판한다. 실제 벽시계와 비교해야 한다.
--- 리스 행을 잠그지 않는 이유: 모든 정산 트랜잭션이 단일 행 잠금에 직렬화되고
--- 리스 갱신 UPDATE의 liveness가 깨진다. epoch 불일치 검출 + 저장된 fencing_epoch 컬럼
--- 감사가 잠금 없는 읽기의 보완이다.
+-- 이 함수가 리스 행을 잠그지 않는 이유: 잠금은 호출 경로(assert_and_lock_leader, §5.4 append
+-- INSERT…SELECT)가 FOR KEY SHARE 로 잡는다(v2.43). KEY SHARE 끼리 호환이고 lease_until 만 바꾸는
+-- 갱신과도 호환이라 직렬화와 갱신 기아가 없다. 저장된 fencing_epoch 감사가 사후 보완이다.
 CREATE OR REPLACE FUNCTION assert_current_leader(p_holder TEXT, p_epoch BIGINT)
 RETURNS void
 LANGUAGE plpgsql AS $$
@@ -2079,11 +2084,10 @@ SELECT try_acquire_leader(:holder_uuid, interval '10 s') AS my_epoch;
 SELECT renew_leader_lease(:holder_uuid, :my_epoch, interval '10 s');
 
 -- 쓰기 트랜잭션 공통: 커밋 전 assert_current_leader(:holder_uuid, :my_epoch) 호출 계약(P0-1).
---   assert_current_leader는 의도적으로 리스 행을 잠그지 않는다(전 정산 트랜잭션이 단일 행
---   잠금에 직렬화되는 것과 리스 갱신 liveness 붕괴 방지). epoch 불일치 검출 + 저장된
---   fencing_epoch 감사가 보완한다.
+--   assert_current_leader 자체는 잠그지 않는다. 잠금은 assert_and_lock_leader(V30, V41)와 아래
+--   append 가 FOR KEY SHARE 로 잡는다. KEY SHARE 는 갱신과 호환이라 갱신 liveness 를 깨지 않는다.
 
--- 저널 append: 권위 있는 leader_lease를 동일 문장에서 참조(FOR SHARE 잠금), 엄격 일치 검사
+-- 저널 append: 권위 있는 leader_lease를 동일 문장에서 참조(FOR KEY SHARE 잠금, v2.43), 엄격 일치 검사
 INSERT INTO command_journal
   (seq, market_id, command_type, user_id, client_order_id, assigned_order_id, engine_ts, tie_break,
    payload, fencing_token, checksum)
@@ -2092,21 +2096,24 @@ SELECT :seq, :mid, :type, :uid, :coid, :oid, :ts, :tie, :payload, l.epoch, :cksu
 --     payload 박제와 별도로 컬럼에도 채운다(NEW 외 명령은 NULL 허용).
 FROM leader_lease l
 WHERE l.resource = :r AND l.holder = :me
-  AND l.epoch = :my_epoch AND l.lease_until > now()
-FOR SHARE OF l;
---   FOR SHARE(v2.4): 잠금 없는 스냅샷 읽기(check-then-act)면 [이 문장 실행 → 트랜잭션 COMMIT]
+  AND l.epoch = :my_epoch AND l.lease_until > clock_timestamp()
+FOR KEY SHARE OF l;
+--   FOR KEY SHARE(v2.4 도입, v2.43 모드 변경): 잠금 없는 스냅샷 읽기면 [이 문장 실행 → 트랜잭션 COMMIT]
 --     사이에 신규 리더의 탈취 UPDATE가 병행 커밋될 수 있고, (a') 규칙상 이 문장은 §5.1/§5.3
---     비즈니스 트랜잭션 내부에 있어 그 창이 길다(GC pause 등으로 수 초 이상 가능). FOR SHARE는
---     lease 행에 공유 락을 걸어 탈취 UPDATE를 이 트랜잭션의 COMMIT/ROLLBACK까지 대기시키고,
---     탈취 커밋 이후의 모든 stale append는 epoch 불일치로 0행이 된다 → stale 명령이 저널에
---     커밋되는 레이스 창 자체가 닫힌다. 이 공유 락은 §5.1/§5.3 트랜잭션 전체 동안 유지된다
---     (트레이드오프: 탈취·heartbeat UPDATE가 진행 중 append의 커밋을 대기. 단일 라이터의
---     직렬 실행상 대기는 최대 트랜잭션 1개 분량이며 승격 지연으로만 나타난다).
---   0행 삽입 → 내 epoch가 이미 밀렸거나 리스 만료 → 나는 stale 리더 → 즉시 self-shutdown.
+--     비즈니스 트랜잭션 내부에 있어 그 창이 길다. FOR KEY SHARE는 lease 행의 키 열(resource, holder,
+--     epoch. uq_leader_lease_fencing_key)을 고정해 키를 바꾸는 탈취·게시 UPDATE를 이 트랜잭션의
+--     COMMIT/ROLLBACK까지 대기시키고, 탈취 커밋 이후의 stale append는 epoch 불일치로 0행이 된다.
+--     (트레이드오프: 탈취·게시는 진행 중 쓰기 트랜잭션 전부의 커밋을 기다리고 겹친 잠금이 끊기지 않으면
+--     굶는다. postgres 리스는 만료 뒤 쓰기가 판정에서 거부되며 풀리고, dynamodb 리스는 구 리더 쓰기가
+--     멈출 때까지 풀리지 않는다. heartbeat는 lease_until만 바꾸는 FOR NO KEY UPDATE라 기다리지 않는다.
+--     v2.4의 FOR SHARE는 heartbeat까지 막아 E1에서 리스가 만료됐다: harness/evidence/e1-lease-starvation-20260913/)
+--   0행 삽입 → 내 epoch가 밀렸거나 이 문장을 평가하는 시점(clock_timestamp())에 리스 만료 → stale 리더 → 즉시 self-shutdown.
+--     커밋까지 불변을 보장하는 것은 holder·epoch이고 lease_until이 아니다. 갱신·만료 UPDATE와 이 문장은
+--     서로를 기다리지 않는다.
 --   구 리더의 :my_epoch는 현재 l.epoch와 불일치하여 append 거부됨. seq는 PK라 중복도 23505.
 ```
 
-- 원자성: 승격(탈취)은 단일 조건부 UPDATE, 갱신(heartbeat)은 epoch 보존 단일 UPDATE(v2.4), append는 leader_lease를 **FOR SHARE로 잠그는** 단일 INSERT…SELECT. 탈취가 진행 중 append 트랜잭션의 커밋을 대기하므로 문장 실행과 COMMIT 사이의 레이스 창이 없다(v2.4).
+- 원자성: 승격(탈취)은 단일 조건부 UPDATE, 갱신(heartbeat)은 epoch 보존 단일 UPDATE(v2.4), append는 leader_lease를 **FOR KEY SHARE로 잠그는** 단일 INSERT…SELECT(v2.43). 키를 바꾸는 탈취가 진행 중 쓰기 트랜잭션의 커밋을 대기하므로 문장 실행과 COMMIT 사이의 레이스 창이 없고, 키를 바꾸지 않는 갱신은 대기하지 않는다(v2.4, v2.43).
 - 엄격 비교: `l.epoch = :my_epoch` (동일 epoch 두 리더 동시 허용하던 `>=` 제거).
 - 권위 참조: 저널 max가 아니라 `leader_lease.epoch` 참조.
 - 부팅 승격 대기: 강제 종료 직후 재기동은 직전 프로세스 리스가 TTL 내 유효하므로, 부팅 복구 경로는 즉시 실패하지 않고 TTL 1.5배(상한 30초)까지 짧은 간격으로 try_acquire_leader를 재시도한 뒤 실패 처리한다(만료 전 탈취 없음, 승격 규칙 불변).
@@ -2126,7 +2133,7 @@ FOR SHARE OF l;
 - 접수 개방 조건에 소비자 생존 포함(v2.24): 승격 재생 완료 후 접수 게이트를 여는 조건은 [승격 시도 세대 일치 + 상태 PROMOTING + 리스 보유 + **단일 라이터 루프 가동**]이다. 정지한 루프 위에서 게이트를 열면 저널에 커밋되고 영원히 체결되지 않는 주문이 생긴다. 현재 배선에서는 재생 구간에 루프가 유휴라 도달하지 않지만 그 불변이 코드에 없으면 배선 변경으로 무음으로 깨진다. 이 조건에 걸리면 종신 강등한다. 루프 정지는 강등 등급 분류의 종신 축 그 자체이고, 회복 가능으로 내리면 죽은 루프 위에서 승격과 반납을 무한 반복한다.
 - 승격 경계 판정 초기화(v2.23): 자발적 강등 판정기(아래)의 누적 창은 승격 시점에 다시 세운다. serviceable() 판정은 renew 직전에만 불리고 renew는 리더만 하므로 팔로워 구간에는 표본이 한 번도 채취되지 않는다. 그 사이 쌓인 수요는 '리더 일을 못 했다'가 아니라 '리더가 아니어서 거절했다'는 기록이다. 초기화하지 않으면 승격 후 첫 표본이 팔로워 구간 전량을 완료 0과 함께 창에 접고, 비율이 임계를 회복하려면 그 분모의 5%를 새로 채워야 해서 정상 처리율로도 임계 시간 안에 회복이 불가능하다. 결과는 페일오버 standdownAfter 초 뒤의 확정적 재강등이며, 2노드에서는 곧 클러스터 정지다.
 - 유효 범위: 이 fencing은 동일 primary 접속 앱 사이에서만 성립한다. DB 클러스터 failover의 무손실·단일 primary 보장은 §7.2 요건이 담당한다(P0-6).
-- 리스 전용 커넥션 풀(v2.18): renew_leader_lease heartbeat와 try_acquire_leader 승격 UPDATE는 요청 트래픽용 기본 HikariCP 풀과 분리된 소형 전용 풀(`exchange.engine.lease-datasource`, maximum-pool-size 2·minimum-idle 1·connection-timeout 2000ms·session init UTC)로만 수행한다. 근거: 요청 풀이 pg 지연·부하 급증으로 포화되면 heartbeat가 커넥션을 얻지 못해 TTL 내 갱신에 실패하고, 정당 단독 리더가 스스로 페일오버한다(하네스 검증 §3 E1 라이브 실측: downstream latency가 다중행 쿼리 점유를 폭증시켜 무제한 봇 부하와 겹쳐 풀을 고갈, heartbeat 기아). 전용 풀은 요청 부하와 무관하게 renew에 커넥션을 즉시 내주므로 가용성이 보전된다. 분리 범위는 리스 UPDATE(heartbeat·승격 시도)와 승격 다운타임 관측 SELECT뿐이다. 승격 성사 이후의 재생·저널 append·정산은 기존 기본 풀·트랜잭션 경계를 그대로 타므로(append의 FOR SHARE fencing 원자성 불변) split-brain 차단 성질에는 영향이 없다. statement_timeout은 전용 풀 세션에 걸지 않는다(단일 행 renew가 슬로 윈도에서 취소돼 리더십을 잃는 것을 막음).
+- 리스 전용 커넥션 풀(v2.18): renew_leader_lease heartbeat와 try_acquire_leader 승격 UPDATE는 요청 트래픽용 기본 HikariCP 풀과 분리된 소형 전용 풀(`exchange.engine.lease-datasource`, maximum-pool-size 2·minimum-idle 1·connection-timeout 2000ms·session init UTC)로만 수행한다. 근거: 요청 풀이 pg 지연·부하 급증으로 포화되면 heartbeat가 커넥션을 얻지 못해 TTL 내 갱신에 실패하고, 정당 단독 리더가 스스로 페일오버한다(하네스 검증 §3 E1 라이브 실측: downstream latency가 다중행 쿼리 점유를 폭증시켜 무제한 봇 부하와 겹쳐 풀을 고갈, heartbeat 기아). 전용 풀은 요청 부하와 무관하게 renew에 커넥션을 즉시 내주므로 가용성이 보전된다. 분리 범위는 리스 UPDATE(heartbeat·승격 시도)와 승격 다운타임 관측 SELECT뿐이다. 승격 성사 이후의 재생·저널 append·정산은 기존 기본 풀·트랜잭션 경계를 그대로 타므로(append의 FOR KEY SHARE fencing 원자성 불변) split-brain 차단 성질에는 영향이 없다. statement_timeout은 전용 풀 세션에 걸지 않는다(단일 행 renew가 슬로 윈도에서 취소돼 리더십을 잃는 것을 막음). 풀 격리는 커넥션 축만 막는다. 행 잠금 축은 v2.43 FOR KEY SHARE 가 막는다.
 - 서비스 불능 지속 시 자발적 강등(standdown, v2.19): 전용 풀 격리는 하트비트 생존성을 서비스 생존성과 분리한다. 그 결과 요청 경로가 완전히 멈춘 노드도 heartbeat만은 성공해 리스가 계속 유효하고, 스탠바이는 만료를 보지 못해 승격하지 않는다(좀비 리더 → 클러스터 무기한 정지, 라이브 실측: 요청 풀 고갈 상태의 리더가 30분 이상 체결 0인 채 lease_until만 전진, epoch 불변). 앱은 renew 직전에 이 노드가 일을 할 수 있는지 판정하고, 불능이 임계 시간 동안 끊김 없이 지속되면 **갱신을 포기**한다.
   - 판정 명제: **쓰기 수요 대비 완료율이 붕괴한 상태가 임계 시간 지속되면 리더 자격을 내려놓는다.** 원인은 묻지 않는다. 두 축뿐이다. ① 주문 쓰기 요청 도착(수요), ② 그 요청 경로가 끝낸 일(완료). 둘 다 인메모리 카운터라 판정이 굶거나 실패할 여지가 없다(판정이 DB를 타면 판정 자체가 굶어 하트비트를 막는다).
   - 신호가 **비율**인 근거(라이브 3회 실증): 이 장애는 정지가 아니라 처리율 붕괴다. (1차) 요청 풀 전량 점유(active >= maximum-pool-size)를 필수 조건으로 뒀더니, 실제 좀비는 커넥션 대기가 아니라 CPU 폭주(chaos-api-1 463%, HikariCP housekeeper 지연 59초)로 죽어 있어 커넥션이 계속 반납됐고 점유 조건이 거짓인 표본이 섞여 발동하지 않았다. (2차) '완료 0'을 조건으로 뒀더니, 노드가 완전히 죽지 않고 **5분에 체결 1건**을 내는 상태였다(정상은 초당 20건). 완료 1건이 누적을 초기화하는 규칙 때문에 역시 발동하지 않았다. (3차) 비율을 도입했으나 완료 축이 넓어 발동하지 않았다(아래 ②). 정상 구간의 완료/수요는 1 이상이고 좀비 구간은 0.04 수준이므로, 그 간극을 비율로 재면 임계 선택이 예민하지 않다. 풀 점유는 판정에서 빼고 강등 로그의 진단 정보로만 남긴다(사후 원인 분류용). 능동 커넥션 프로브도 채택하지 않는다. HikariCP가 대기자를 FIFO로 처리하므로 대기열이 길기만 해도 실패해 지연을 정지로 오판하고 v2.18 이전(헛페일오버)으로 회귀한다.
@@ -2161,7 +2168,7 @@ FOR SHARE OF l;
 **갱신은 옮긴다. 검증은 옮기지 않는다.**
 
 - 갱신·승격·반납·조회는 `LeaderLeaseStore` 뒤로 들어간다. 구현이 둘이고 `exchange.leader.lease.provider`가 고른다. `postgres`가 기본값이며 위 함수 3종을 그대로 쓴다. `dynamodb`는 DynamoDB 항목 하나를 조건부 쓰기로 다룬다.
-- 트랜잭션 안의 `assert_current_leader`와 `assert_and_lock_leader`는 **바꾸지 않는다**. 검증까지 옮기면 락 획득과 커밋이 서로 다른 시스템이 되어 ADR 0002가 Redisson RLock을 기각한 사유가 그대로 돌아온다.
+- 트랜잭션 안의 검증(`assert_current_leader` 술어와 거부 메시지, `assert_and_lock_leader`의 위임 구조)은 **옮기지 않는다**. 잠금 모드만 v2.43(V41)에서 FOR KEY SHARE로 바뀌었다. 검증까지 옮기면 락 획득과 커밋이 서로 다른 시스템이 되어 ADR 0002가 Redisson RLock을 기각한 사유가 그대로 돌아온다.
 
 **그래서 생기는 문제와 그 처리.** 갱신이 행을 밀지 않으면 `lease_until`이 시드값(과거)에 머물러 모든 쓰기가 만료로 거부된다. 승격 때 한 번 `publish_leader_epoch(holder, epoch)`(V33)를 불러 `holder`·`epoch`을 단조 게시하고 `lease_until`을 100년 뒤로 민다. 만료 판정을 외부 보관소로 넘긴다는 뜻이다. 트랜잭션 안에 남는 검사는 (holder, epoch) 일치이고, stale 리더 차단은 그것으로 성립한다. 다음 리더가 쓰기를 열기 전에 반드시 자기 epoch을 게시하기 때문이다.
 
@@ -3319,5 +3326,39 @@ C15 조치를 같은 판단으로 맞춘다.
 
 결정은 ADR 0022 3-1 이고 검증은 `CommandSeqBandMigrationIntegrationTest` 다. 문서 헤더 버전을
 v2.42 로 순증. 2026-09-13 갱신.
+
+## v2.43 패치 반영 사항
+
+쓰기 경로의 `leader_lease` 행 잠금을 FOR SHARE 에서 FOR KEY SHARE 로 낮추는 V41 을 §3 도입부 표에
+등재하고 로드맵 행을 V42+ 로 옮긴다. V41 은 한 트랜잭션에서 평문 유일 인덱스
+`uq_leader_lease_fencing_key`(resource, holder, epoch) 를 먼저 만들고 `assert_and_lock_leader` 를
+FOR KEY SHARE 로 재정의한 뒤 인덱스와 함수에 COMMENT 를 건다. CREATE OR REPLACE 가 함수 OID 를
+유지해 V30 의 COMMENT 가 카탈로그에 남기 때문에 함수 COMMENT 를 다시 건다.
+
+FOR SHARE 는 이 행의 모든 UPDATE 와 충돌해 lease_until 만 바꾸는 `renew_leader_lease` 도 막는다.
+마켓별 라이터들의 공유 잠금이 교대로 이어지면 갱신이 TTL 안에 잠금을 얻지 못하고 정당 리더의
+리스가 만료된다. E1 에서 이 굶김이 관측됐다(`harness/evidence/e1-lease-starvation-20260913/`).
+
+§3.1 DDL 에 인덱스를 더하고 `assert_current_leader` 머리 주석의 잠그지 않는 이유를 호출 경로
+잠금 기준으로 다시 쓴다. §5.4 append 의 잠금을 `FOR KEY SHARE OF l` 로 바꾼다. 인덱스가 holder·epoch
+를 키 열로 만들므로 탈취·게시 UPDATE 는 FOR UPDATE 를, 갱신·만료 UPDATE 는 FOR NO KEY UPDATE 를
+잡는다. FOR KEY SHARE 는 앞과만 충돌한다. 판정과 커밋 사이에 epoch 이 바뀌지 않는다는 V30 의
+보장은 그대로이고 갱신은 쓰기 트랜잭션을 기다리지 않는다. 인덱스가 없거나 부분·식·INCLUDE
+인덱스면 holder·epoch 가 키 열에서 빠져 탈취가 쓰기를 기다리지 않는다.
+
+§5.4 의 0행 삽입 의미를 한정한다. 커밋까지 불변인 것은 holder·epoch 이고 lease_until 이 아니다.
+만료 판정은 그 조건을 평가하는 시점(clock_timestamp()) 기준이며, 문장 뒤의 갱신·만료 UPDATE 와 이 문장은 서로를 기다리지 않는다.
+§5.4 계약 SQL 의 만료 조건을 `now()` 에서 `clock_timestamp()` 로 정정한다. `now()` 는 트랜잭션 시작
+시각이라 같은 절의 v2.7 서술과 코드(`CommandJournalAppender.INSERT_SQL`)와 어긋나 있었다.
+
+주장 범위는 갱신 굶김 제거뿐이다. 겹친 쓰기 잠금이 끊기지 않으면 탈취·게시가 굶는 성질은
+FOR SHARE 와 같게 남는다.
+
+v2.4 #1 의 '탈취·heartbeat 지연은 단일 라이터 직렬 실행상 최대 트랜잭션 1개 분량' 서술은 마켓별
+라이터 배선 이후 거짓이 됐고 v2.43 이 대체한다. v2.18 노트 분리 범위 행의 'FOR SHARE fencing'
+표기도 v2.43 이 대체한다. 두 노트의 역사 서술은 원문 유지한다.
+
+결정은 ADR 0026 이고 검증은 `LeaderLeaseLockModeIntegrationTest` 다. 변경 뒤 E1 카오스 재주행은
+NOT RUN 이다. 문서 헤더 버전을 v2.43 으로 순증. 2026-09-13 갱신.
 
 ---

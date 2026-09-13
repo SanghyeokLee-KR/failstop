@@ -14,10 +14,39 @@ $gapMs = [int]$cfg['SAMPLE_GAP_MS']
 $errMax = [double]$cfg['ERROR_RATE_MAX']
 $recSec = [int]$cfg['P99_RECOVERY_SEC']
 $recMargin = [double]$cfg['P99_RECOVERY_MARGIN']
+# 리스 행 잠금 축 임계. 키가 빠지면 [int]$null이 0이 되어 양성 축 하한이 공허해진다.
+foreach ($k in 'LEASE_SAMPLE_GAP_MS', 'LEASE_SAMPLE_MIN', 'LEASE_ROWSHARE_MIN', 'RENEW_AGE_SAMPLE_GAP_MS',
+               'RENEW_AGE_SAMPLE_MIN', 'RENEW_AGE_MAX_SEC', 'RENEW_OK_MIN', 'INJECT_P99_FACTOR_MIN') {
+    if ([string]::IsNullOrWhiteSpace($cfg[$k])) { throw "설정 키 누락: $k ($ConfigPath)" }
+}
+$leaseGapMs = [int]$cfg['LEASE_SAMPLE_GAP_MS']
+$leaseSampleMin = [int]$cfg['LEASE_SAMPLE_MIN']
+$rowShareMin = [int]$cfg['LEASE_ROWSHARE_MIN']
+$ageGapMs = [int]$cfg['RENEW_AGE_SAMPLE_GAP_MS']
+$ageSampleMin = [int]$cfg['RENEW_AGE_SAMPLE_MIN']
+$ageMaxSec = [double]$cfg['RENEW_AGE_MAX_SEC']
+$renewOkMin = [int]$cfg['RENEW_OK_MIN']
+$p99FactorMin = [double]$cfg['INJECT_P99_FACTOR_MIN']
 
 function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
+# 리스 갱신 결과 카운터(MeteredLeaderLeaseStore의 outcome 태그). 시계열이 하나라도 없으면 $null이다.
+# 스크레이프 도달 실패는 -Required라 throw한다. 호출부가 두 경우를 가른다.
+function Get-RenewCounts {
+    param([int] $Port)
+    $counts = @{}
+    foreach ($outcome in 'ok', 'rejected', 'error') {
+        $pattern = 'exchange_leader_lease_renew_total\{[^}]*outcome="' + $outcome + '"[^}]*\}\s+([0-9.eE+-]+)'
+        $raw = Get-AppMetric -Port $Port -Pattern $pattern -Required
+        if ($null -eq $raw) { return $null }
+        $counts[$outcome] = [double]$raw
+    }
+    return $counts
+}
+
 Write-Section "E1(PG 지연) 시작 runId=$runId proxy=$proxy port=$port"
+$samplerStop = [hashtable]::Synchronized(@{ Stop = $false })
+$samplerJobs = @()
 try {
     # 실험별 봇 부하 적용(Tier 1). E1은 normal 부하라 저부하로 재기동해 지연 하 요청 풀 포화를 막는다.
     if ($cfg['BASE_OPS']) { Set-BotOps ([int]$cfg['BASE_OPS']) }
@@ -59,12 +88,77 @@ try {
     $standdownBaseRaw = Get-AppMetric -Port $port -Pattern $standdownPattern -Required
     $standdownBase = 0.0; if ($null -ne $standdownBaseRaw) { $standdownBase = [double]$standdownBaseRaw }
     $tradesBeforeInject = Get-TradeCount
+    # 갱신 카운터 기저. 주입 전에 못 읽으면 갱신 rejected·error 증가 0 축을 판정할 수 없다.
+    $renewBase = Get-RenewCounts -Port $port
+    if ($null -eq $renewBase) { throw '리더 스크레이프에 exchange_leader_lease_renew_total 시계열이 없다. 갱신 축을 판정할 수 없다.' }
+    # V41 잠금 모드(키 열 인덱스와 FOR KEY SHARE 함수)가 깔린 스택인지 본다. 인덱스가 없어도 갱신은 막히지 않아
+    # 이 실험은 PASS 할 수 있고, 그 스택은 승격이 쓰기를 기다리지 않는 stale write 구멍을 안고 있다(ADR 0026).
+    # 인덱스는 존재가 아니라 키 열이 되는 모양(유일, 부분·식 없음, 키 열 셋)으로 본다.
+    $fencingKeyIndex = [long](Get-Scalar "SELECT count(*) FROM pg_index WHERE indexrelid = to_regclass('uq_leader_lease_fencing_key') AND indisunique AND indisvalid AND indpred IS NULL AND indexprs IS NULL AND indnkeyatts = 3" -Required)
+    # 주석이 아니라 잠금 절 자체를 찾는다. 함수 본문 주석에도 같은 낱말이 있다.
+    $lockFunctionKeyShare = [long](Get-Scalar "SELECT count(*) FROM pg_proc WHERE proname = 'assert_and_lock_leader' AND prosrc ~ 'resource = ''matching-engine''\s+FOR KEY SHARE;'" -Required)
+    $fixDeployed = ($fencingKeyIndex -eq 1) -and ($lockFunctionKeyShare -eq 1)
+    # 리스 보관소가 dynamodb 면 갱신이 PostgreSQL 을 타지 않아 갱신 잠금 대기 축이 늘 0 으로 공허해진다.
+    $envDump = & cmd /c "docker inspect -f ""{{range .Config.Env}}{{println .}}{{end}}"" $leaderContainer 2>nul"
+    $providerLine = @($envDump | Where-Object { $_ -like 'EXCHANGE_LEADER_LEASE_PROVIDER=*' }) | Select-Object -First 1
+    $leaseStoreProvider = if ($providerLine) { $providerLine.Substring('EXCHANGE_LEADER_LEASE_PROVIDER='.Length).Trim() } else { $null }
+    $stackPreconditionOk = $fixDeployed -and ($leaseStoreProvider -eq 'postgres')
+    Write-Host "스택 전제: 키 열 인덱스 $fencingKeyIndex, FOR KEY SHARE 함수 $lockFunctionKeyShare, 리스 보관소 $leaseStoreProvider"
 
     Write-Section "ⓑ 주입: latency=$($cfg['TOXIC_LATENCY_MS'])/jitter=$($cfg['TOXIC_JITTER_MS']) on $proxy"
     Add-Toxic -Proxy $proxy -Name 'e1-latency' -Type 'latency' `
         -Attributes @{ latency = [int]$cfg['TOXIC_LATENCY_MS']; jitter = [int]$cfg['TOXIC_JITTER_MS'] }
     $t0 = (Get-Date).ToUniversalTime()
     Write-Host "T0=$($t0.ToString('o'))"
+    # 리스 행 잠금 표본. 창 안의 권위 run과 지연 표본이 수십 초씩 막으므로 별도 스레드로 창 전체를 덮는다.
+    # chaos-pg 직조회라 지연이 걸린 리더 프록시를 타지 않는다. 한 왕복에 두 표본을 담아 주기를 지킨다.
+    $libPath = Join-Path $PSScriptRoot 'lib.ps1'
+    $leaseSql = "SELECT (SELECT count(*) FROM pg_locks WHERE relation = 'leader_lease'::regclass " +
+        "AND mode = 'RowShareLock' AND granted) || '|' || coalesce((SELECT string_agg(pid || ':' || " +
+        "coalesce(wait_event, '') || ':' || round(extract(epoch FROM clock_timestamp() - query_start)::numeric, 3) " +
+        "|| ':' || pg_blocking_pids(pid)::text, ';') FROM pg_stat_activity WHERE query ILIKE '%renew_leader_lease%' " +
+        "AND state = 'active' AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()), '')"
+    $leaseSampler = Start-ThreadJob -ArgumentList $libPath, $leaseSql, $leaseGapMs, $samplerStop -ScriptBlock {
+        param($LibPath, $Sql, $GapMs, $Flag)
+        . $LibPath
+        $samples = 0; $failed = 0; $waitRows = 0; $rowShareMax = 0
+        $waits = New-Object System.Collections.Generic.List[string]
+        while (-not $Flag.Stop) {
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            # 조회 실패는 표본에서 빼고 따로 센다. 표본 수 하한이 관측 공백을 FAIL로 만든다.
+            $raw = ''
+            try { $raw = Invoke-Psql $Sql } catch { $raw = '' }
+            $parts = @()
+            if ($raw) { $parts = $raw.Split('|', 2) }
+            if ($parts.Count -eq 2 -and $parts[0] -match '^\d+$') {
+                $samples++
+                $rowShareMax = [math]::Max($rowShareMax, [int]$parts[0])
+                if ($parts[1]) {
+                    foreach ($w in $parts[1].Split(';')) { $waitRows++; $waits.Add("$(Now-Iso)|$w") }
+                }
+            } else { $failed++ }
+            $rest = $GapMs - [int]$sw.ElapsedMilliseconds
+            if ($rest -gt 0) { Start-Sleep -Milliseconds $rest }
+        }
+        [pscustomobject]@{ Samples = $samples; Failed = $failed; WaitRows = $waitRows; RowShareMax = $rowShareMax; Waits = $waits.ToArray() }
+    }
+    # 갱신 경과 게이지는 리더 HTTP로 긁는다. 스크레이프가 늦어도 위 잠금 표본 주기를 밀지 않게 스레드를 나눈다.
+    $ageSampler = Start-ThreadJob -ArgumentList $libPath, $port, $ageGapMs, $samplerStop -ScriptBlock {
+        param($LibPath, $Port, $GapMs, $Flag)
+        . $LibPath
+        $ages = New-Object System.Collections.Generic.List[double]
+        $missed = 0
+        while (-not $Flag.Stop) {
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            $raw = Get-AppMetric -Port $Port -Pattern 'exchange_leader_lease_last_renew_age_seconds(?:\{[^}]*\})?\s+([0-9.eE+-]+)'
+            # -1은 한 번도 갱신하지 않았다는 값이라 경과 표본이 아니다.
+            if ($null -ne $raw -and [double]$raw -ge 0) { $ages.Add([double]$raw) } else { $missed++ }
+            $rest = $GapMs - [int]$sw.ElapsedMilliseconds
+            if ($rest -gt 0) { Start-Sleep -Milliseconds $rest }
+        }
+        [pscustomobject]@{ Ages = $ages.ToArray(); Missed = $missed }
+    }
+    $samplerJobs = @($leaseSampler, $ageSampler)
     # 헬스 표본은 주입 직후부터 모은다. 창 끝에서만 재면 권위 run과 지연 표본이 창을 다 쓴 경우
     # 표본이 1개로 끝나 "창 전체 관측"이 성립하지 않는다.
     $injHealth = New-Object System.Collections.Generic.List[string]
@@ -96,6 +190,45 @@ try {
         $remain -= $step
         $injHealth.Add((Get-ContainerHealth $leaderContainer))
     }
+    $samplerStop.Stop = $true
+    # 창 끝 카운터는 해제 전에 읽는다. 실패는 throw하지 않고 델타를 null로 둬 갱신 축 불합격으로 떨어뜨린다.
+    $renewEnd = $null; $renewScrapeOk = $true
+    try { $renewEnd = Get-RenewCounts -Port $port }
+    catch {
+        $renewScrapeOk = $false
+        Write-Host "주입 창 끝 리더 스크레이프 실패($($_.Exception.Message)). 갱신 축 판정 불가로 계상" -ForegroundColor Red
+    }
+    $null = Wait-Job -Job $samplerJobs -Timeout 30
+    # 표본 스레드가 예외로 끝났으면 Receive-Job 이 다시 던진다. 판정 파일이 남도록 잡고 결과를 비운다.
+    $leaseRes = $null; $ageRes = $null
+    try { $leaseRes = @(Receive-Job -Job $leaseSampler) | Select-Object -Last 1 }
+    catch { Write-Host "리스 잠금 표본 스레드 실패($($_.Exception.Message)). 표본 0으로 계상" -ForegroundColor Red }
+    try { $ageRes = @(Receive-Job -Job $ageSampler) | Select-Object -Last 1 }
+    catch { Write-Host "갱신 경과 표본 스레드 실패($($_.Exception.Message)). 표본 0으로 계상" -ForegroundColor Red }
+
+    # 표본 스레드가 끝나지 않았거나 실패했으면 결과가 비어 아래 null 검사와 표본 수 하한에서 불합격이 된다.
+    $leaseSampleCount = [int]$leaseRes.Samples
+    $leaseSampleFailed = $leaseRes.Failed
+    $renewLockWaitSamples = $leaseRes.WaitRows
+    $leaseRowShareMax = $leaseRes.RowShareMax
+    $renewLockWaits = @()
+    if ($leaseRes) { $renewLockWaits = $leaseRes.Waits }
+    $renewAges = @()
+    if ($ageRes) { $renewAges = @($ageRes.Ages) }
+    $renewAgeSampleCount = $renewAges.Count
+    $lastRenewAgeMaxSec = $null
+    if ($renewAgeSampleCount -gt 0) {
+        $lastRenewAgeMaxSec = [math]::Round(($renewAges | Measure-Object -Maximum).Maximum, 3)
+    }
+    $renewOkDeltaInject = $null; $renewRejectedDelta = $null; $renewErrorDelta = $null
+    if ($null -ne $renewEnd) {
+        $renewOkDeltaInject = $renewEnd['ok'] - $renewBase['ok']
+        $renewRejectedDelta = $renewEnd['rejected'] - $renewBase['rejected']
+        $renewErrorDelta = $renewEnd['error'] - $renewBase['error']
+    }
+    Write-Host ("리스 표본 {0}(실패 {1}) 갱신 잠금 대기 {2} RowShareLock 최대 {3} last_renew_age 최대 {4}s(표본 {5}) 갱신 증분 ok={6} rejected={7} error={8}" -f `
+        $leaseSampleCount, $leaseSampleFailed, $renewLockWaitSamples, $leaseRowShareMax, $lastRenewAgeMaxSec,
+        $renewAgeSampleCount, $renewOkDeltaInject, $renewRejectedDelta, $renewErrorDelta)
     # 'unknown'(도커 조회 실패)도 불량 표본으로 센다. 상태를 모르는 것은 healthy의 증거가 아니다.
     $injUnhealthy = @($injHealth | Where-Object { $_ -eq 'unhealthy' -or $_ -eq 'unknown' }).Count
     $tradesAfterInject = Get-TradeCount
@@ -170,15 +303,36 @@ try {
     # 강등하면 1차 요구가 조용히 사라진다.
     $statusRespOk = ($errRate -lt $errMax)
 
+    # 리스 행 잠금 축(DB 설계 v2.43). 갱신이 쓰기 트랜잭션 잠금을 기다리지 않았고, 한 번도 늦지 않았고,
+    # 거부나 왕복 실패가 없어야 한다. null은 관측 실패다. PowerShell에서 $null -lt 4.0은 참이라 먼저 막는다.
+    $leaseGateOk = ($null -ne $renewLockWaitSamples -and $renewLockWaitSamples -eq 0) -and `
+                   ($null -ne $lastRenewAgeMaxSec -and $lastRenewAgeMaxSec -lt $ageMaxSec) -and `
+                   ($null -ne $renewRejectedDelta -and $renewRejectedDelta -eq 0) -and `
+                   ($null -ne $renewErrorDelta -and $renewErrorDelta -eq 0)
+
     # 정본 §3 E1 합격 기준 1차. 컨테이너 헬스는 단독으로는 둔감하다(3s x 30회 연속 실패라야
     # unhealthy, start_period 40s는 실패해도 starting). $statusRespOk와 체결 흐름이 함께 있어야
     # 좀비 구간이 잡히므로 셋을 모두 1차에 둔다.
     $primaryOk = $injClean -and $postClean -and $epochStable -and $standdownOk -and `
-                 $healthOk -and $tradesFlowing -and $recovered -and $statusRespOk
+                 $healthOk -and $tradesFlowing -and $recovered -and $statusRespOk -and $leaseGateOk
+
+    # 양성 축(CLAUDE.md §22). 표본이 실제로 돌았고, 쓰기 잠금이 겹쳤고, 갱신이 돌았고, 지연이 PG 경로에
+    # 닿은 회차에서만 위의 0이 판정이다. 하나라도 미달이면 판정 대상이 없는 회차라 PASS를 내지 않는다.
+    $p99Reached = ($null -ne $baseP99 -and $null -ne $injP99) -and ($injP99 -ge $p99FactorMin * $baseP99)
+    $positiveOk = ($leaseSampleCount -ge $leaseSampleMin) -and `
+                  ($null -ne $leaseRowShareMax -and $leaseRowShareMax -ge $rowShareMin) -and `
+                  ($renewAgeSampleCount -ge $ageSampleMin) -and `
+                  ($null -ne $renewOkDeltaInject -and $renewOkDeltaInject -ge $renewOkMin) -and `
+                  $p99Reached -and $stackPreconditionOk
     $verdict = 'FAIL'
-    if ($primaryOk) { $verdict = 'PASS' }
+    if ($primaryOk -and $positiveOk) { $verdict = 'PASS' }
 
     Write-Verdict -ExperimentId 'E1' -RunId $runId -Verdict $verdict -Metrics @{
+        fencingKeyIndex        = $fencingKeyIndex
+        lockFunctionKeyShare   = $lockFunctionKeyShare
+        fixDeployed            = $fixDeployed
+        leaseStoreProvider     = $leaseStoreProvider
+        stackPreconditionOk    = $stackPreconditionOk
         baselineP99Ms = [math]::Round($baseP99, 1)
         injectP99Ms   = [math]::Round($injP99, 1)
         errorRate     = $errRate
@@ -204,11 +358,35 @@ try {
         statusRespOk      = $statusRespOk
         admissionRejectedOrder = $admissionRejected
         nodeServiceable        = $nodeServiceable
+        renewLockWaitSamples   = $renewLockWaitSamples
+        renewLockWaits         = $renewLockWaits
+        leaseSampleCount       = $leaseSampleCount
+        leaseSampleFailed      = $leaseSampleFailed
+        leaseSampleMin         = $leaseSampleMin
+        leaseRowShareMax       = $leaseRowShareMax
+        leaseRowShareMin       = $rowShareMin
+        lastRenewAgeMaxSec     = $lastRenewAgeMaxSec
+        lastRenewAgeLimitSec   = $ageMaxSec
+        renewAgeSampleCount    = $renewAgeSampleCount
+        renewAgeSampleMissed   = $ageRes.Missed
+        renewAgeSampleMin      = $ageSampleMin
+        renewOkDeltaInject     = $renewOkDeltaInject
+        renewOkMin             = $renewOkMin
+        renewRejectedDelta     = $renewRejectedDelta
+        renewErrorDelta        = $renewErrorDelta
+        renewScrapeOk          = $renewScrapeOk
+        injectP99FactorMin     = $p99FactorMin
+        injectP99Reached       = $p99Reached
+        leaseGateOk            = $leaseGateOk
+        positiveOk             = $positiveOk
     }
 }
 finally {
     Write-Section '종료 훅: 토식 해제'
     Remove-AllToxics -Proxy $proxy
+    # 예외로 창 중간에 빠져도 표본 스레드가 chaos-pg를 계속 두드리지 않게 멈춘다.
+    $samplerStop.Stop = $true
+    if ($samplerJobs.Count -gt 0) { Remove-Job -Job $samplerJobs -Force }
 }
 
 if ($verdict -ne 'PASS') { Write-Host 'E1(PG 지연) FAIL.' -ForegroundColor Red; exit 1 }

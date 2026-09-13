@@ -1,6 +1,6 @@
 # ADR 0002. 단일 라이터 권위를 DB leader_lease 행에 두고 외부 합의·분산락을 배제한다
 
-- 상태: 채택
+- 상태: 채택. 부분 대체: ADR 0017(갱신 축), ADR 0026(잠금 모드)
 - 날짜: 2026-07-22
 - 결정자: 아키텍처 담당(정본 문서 관리자). 계약 충돌 신고는 harness-engineer(하네스 설계 부록 A #6)
 
@@ -23,7 +23,7 @@
 - 승격은 `try_acquire_leader`. `lease_until < clock_timestamp()`를 UPDATE 술어에 포함한 조건부 갱신이며, 만료된 리스만 탈취하고 `epoch = epoch + 1` 후 획득한 epoch를 반환한다. 실패는 NULL이다(V1__init.sql:737-749).
 - 갱신은 `renew_leader_lease`. `holder`·`epoch` 일치하고 만료 전인 경우만 `lease_until`을 민다. epoch는 보존한다(V1__init.sql:752-762).
 - 그 epoch가 fencing 토큰의 유일한 원천이다. 자산을 바꾸는 모든 엔진 기원 트랜잭션은 커밋 전 `assert_current_leader(holder, epoch)`를 호출하고, holder·epoch 불일치 또는 리스 만료면 예외로 롤백한다(V1__init.sql:715-733).
-- 저널 append와 정산은 그 호출에 더해 같은 트랜잭션에서 `leader_lease`를 `FOR SHARE`로 잠근 채 epoch 일치를 재검증한다. 0행이면 stale 확정이다(CommandJournalAppender.java:32, EventJournalAppender.java:38 · :88, SettlementService.java:60 · :167).
+- 저널 append와 정산은 그 호출에 더해 같은 트랜잭션에서 `leader_lease`를 `FOR SHARE`로 잠근 채 epoch 일치를 재검증한다. 0행이면 stale 확정이다(CommandJournalAppender.java:32, EventJournalAppender.java:38 · :88, SettlementService.java:60 · :167). (잠금 모드는 ADR 0026에서 FOR KEY SHARE로 바뀌었다)
 - TTL과 갱신 주기는 `tickInterval < ttl`을 기동 시 강제한다. 갱신 주기가 TTL 이상이면 정상 리더도 만료를 반복해 탈취·복구 플래핑이 된다(LeaderLeaseService.java:106-109).
 - `holder`는 호스트명이 아니라 프로세스 기동마다 새로 발급하는 UUID다(LeaderLeaseService.java:52). 같은 호스트에서 재기동한 구·신 프로세스를 구분하지 못하면 fencing이 무력화된다.
 - 마켓별 리스 분할은 금지한다. 전역 seq 채번 권위가 분열되기 때문이다(V1__init.sql:693-694, docs/architecture/아키텍처_개관.md:145).
@@ -36,13 +36,13 @@
 
 - 승격 원자성이 DB 한 문장으로 닫힌다. 만료 검사와 탈취가 같은 UPDATE의 술어·SET이라 check-then-act 창이 없다. 승격 경로가 이 문장 하나뿐이므로 epoch 단조 증가가 경로 수와 무관하게 성립한다.
 - 판정과 쓰기가 같은 트랜잭션에 든다. 외부 락은 락 획득과 DB 커밋이 서로 다른 시스템이라 그 사이가 항상 열려 있고, GC pause 한 번이 stale 리더의 커밋을 통과시킨다. `assert_current_leader`는 정산·저널 트랜잭션 내부에서 호출되어 롤백이 곧 판정이다. 현재 SQL 호출 지점은 세 곳이다(CommandJournalAppender.java:87, EventJournalAppender.java:83, SettlementService.java:163).
-- 그것만으로는 부족해서 `FOR SHARE`를 덧댔다. 잠금 없는 스냅샷 읽기면 문장 실행과 COMMIT 사이가 열리고, fencing 문장이 예약·정산 비즈니스 트랜잭션 내부에 있는 규칙상 그 창이 GC pause 등으로 수 초까지 벌어진다. `FOR SHARE`는 탈취 UPDATE를 이 트랜잭션 종료까지 대기시켜 stale append가 커밋되는 레이스 창 자체를 닫는다(docs/contracts/백엔드_DB_설계.md:1969-1976).
-- 그 대가는 승격 지연 한 건으로 유계다. 탈취·하트비트 UPDATE가 진행 중 append의 커밋을 기다리지만, 단일 라이터의 직렬 실행상 대기는 최대 트랜잭션 1개 분량이다(같은 절).
+- 그것만으로는 부족해서 `FOR SHARE`를 덧댔다. 잠금 없는 스냅샷 읽기면 문장 실행과 COMMIT 사이가 열리고, fencing 문장이 예약·정산 비즈니스 트랜잭션 내부에 있는 규칙상 그 창이 GC pause 등으로 수 초까지 벌어진다. `FOR SHARE`는 탈취 UPDATE를 이 트랜잭션 종료까지 대기시켜 stale append가 커밋되는 레이스 창 자체를 닫는다(docs/contracts/백엔드_DB_설계.md:1969-1976). (ADR 0026 이후 같은 성질을 FOR KEY SHARE가 낸다. 전제는 holder·epoch가 키 열이라는 것이다)
+- 그 대가는 승격 지연 한 건으로 유계다. 탈취·하트비트 UPDATE가 진행 중 append의 커밋을 기다리지만, 단일 라이터의 직렬 실행상 대기는 최대 트랜잭션 1개 분량이다(같은 절). (ADR 0026: 이 유계는 마켓별 라이터 배선 cd2e026 이후 거짓이었다. 현재 하트비트는 기다리지 않고 탈취가 진행 중 쓰기 트랜잭션 전부를 기다린다)
 - 판정 결과가 데이터로 남는다. `trades.fencing_epoch`(V1__init.sql:229), `command_journal.fencing_token`(:580), `event_journal.fencing_epoch`(:612), `snapshots.fencing_epoch`(:659)에 승격 epoch를 저장해 stale 쓰기를 사후 감사한다. 런타임 차단과 사후 증명이 같은 토큰을 쓴다.
 - 승격 실패 신호가 값 하나로 끝난다. `try_acquire_leader`의 NULL 반환이 곧 "유효한 타 리더 존재"이고, 앱은 이를 `optional()`로 받아 그대로 판정한다(LeaderLeaseService.java:315-322). 실패 여부를 알기 위한 별도 상태 조회가 없으므로 조회와 판정 사이의 창도 없다.
 - 비교 기준을 `clock_timestamp()`로 잡았다. `now()`는 트랜잭션 시작 시각으로 고정되어 장기 트랜잭션이 만료된 리스를 유효로 오판한다(V1__init.sql:710-711).
 - 시드 행이 승격 경로를 하나로 유지한다. 시드가 없으면 "빈 테이블이면 INSERT" 분기를 따로 둬야 하고, 그 분기가 두 번째 승격 경로가 되어 원자성 주장이 깨진다.
-- `assert_current_leader`는 의도적으로 리스 행을 잠그지 않는다. 잠그면 모든 정산 트랜잭션이 단일 행 잠금에 직렬화되고 리스 갱신 UPDATE의 liveness가 깨진다. 잠금 없는 읽기의 보완이 저장된 fencing 컬럼 감사다(V1__init.sql:712-714).
+- `assert_current_leader`는 의도적으로 리스 행을 잠그지 않는다. 잠그면 모든 정산 트랜잭션이 단일 행 잠금에 직렬화되고 리스 갱신 UPDATE의 liveness가 깨진다. 잠금 없는 읽기의 보완이 저장된 fencing 컬럼 감사다(V1__init.sql:712-714). (ADR 0026: 쓰기 경로 잠금은 FOR KEY SHARE이고 갱신과 호환이다)
 - 정상 경로의 판정 비용이 0이다. 리더가 아니면 인메모리 epoch가 null이므로 DB 왕복 없이 즉시 거부한다(LeaderLeaseService.java:135-141). 권위는 DB에 있지만 상시 비용은 갱신 틱 하나로 상각된다.
 - 운영 부품이 늘지 않는다. PostgreSQL은 이미 SoT이며 리스는 그 안의 행 하나다. 권위를 외부 시스템에 두면 "DB는 살아 있는데 코디네이터가 죽은" 상태가 새 장애 축으로 생긴다.
 

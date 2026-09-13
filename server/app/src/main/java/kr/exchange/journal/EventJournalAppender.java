@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * event_journal 저널 전용 append 경로(DB 설계 v2.11 §3.1 6.2).
  *
- * 한 트랜잭션 안에서 [assert_and_lock_leader(검증+FOR SHARE 잠금 한 왕복) →
+ * 한 트랜잭션 안에서 [assert_and_lock_leader(검증+FOR KEY SHARE 잠금 한 왕복) →
  * next_journal_value('event_seq') 블록 채번 → 이벤트별 INSERT 반복]을 원자 수행한다.
  * JDBC 배치가 아니라 왕복 N회다. batchUpdate 전환은 실측 병목 확인 후에 한다.
  * created_at은 이벤트의 engine_ts 파생값을 명시 삽입한다(DB now() 금지, P0-4).
@@ -86,7 +86,7 @@ public class EventJournalAppender {
     }
 
     private List<EngineEvent> appendInTx(LeaderIdentity leader, List<EngineEvent> events) {
-        // fencing 검증과 FOR SHARE 잠금을 한 왕복으로 한다(V30). 종전에는 두 문장을 연달아
+        // fencing 검증과 FOR KEY SHARE 잠금을 한 왕복으로 한다(V30, V41). 종전에는 두 문장을 연달아
         // 보냈다. 앞 문장이 거부 사유를 주고 뒤 문장이 커밋까지의 보장을 주는 구조였는데,
         // 함수가 둘 다 하므로 왕복 하나가 준다. 거부 메시지는 종전과 같아 강등 분류가 그대로다.
         // 잠금을 잡은 뒤 판정하므로 판정과 커밋 사이에 epoch 이 바뀌지 않는다.
