@@ -332,6 +332,15 @@ public class EngineConfig {
                     .builder("exchange.writer.apply.count", loop, SingleWriterLoop::applyCount)
                     .tag("market", tag)
                     .description("적용 호출 수. 위 셋의 분모").register(meterRegistry);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.writer.catchup.calls", loop, SingleWriterLoop::catchUpCalls)
+                    .tag("market", tag)
+                    .description("갭 회수 저널 왕복 수").register(meterRegistry);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.writer.catchup.nanos", loop, SingleWriterLoop::catchUpNanos)
+                    .tag("market", tag)
+                    .description("갭 회수 저널 왕복 누적 나노초. 적용·sink 와 겹치지 않는다")
+                    .register(meterRegistry);
             return new WriterRouter.Shard(shardEngine, loop);
         });
     }

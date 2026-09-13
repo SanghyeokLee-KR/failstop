@@ -8,6 +8,9 @@
   명령당 시간  같은 값을 적용 호출 수로 나눈 것
   명령당 트랜잭션  pg_stat_database_xact_commit 의 초당 증가분을 접수로 나눈 것
   표별 쓰기    pg_stat_user_tables 의 삽입과 갱신을 접수로 나눈 것
+  갭 회수 비   exchange_writer_catchup_calls_total 을 적용 호출 수로 나눈 것
+  예약 락      exchange_inflight_lock_{wait,hold}_nanos_total 의 초당 증가분
+  교착과 커밋  pg_stat_database 의 deadlocks 와 xact_commit 주행 전후 차
 
 한 칸만 돈다. 규격은 4코어로 고정한다. 정본 5.7.6 이 그 지점을 포화로 판정했다.
 
@@ -34,6 +37,28 @@ ENV = {'SCALE_POOL': '32', 'SCALE_ORDER_INFLIGHT': '0', 'SCALE_QUERY_INFLIGHT': 
 TABLES = ('ledger_entries', 'balances', 'ledger_transactions', 'orders',
           'event_journal', 'command_journal', 'event_emission_registry',
           'trades', 'position_cost', 'market_journal_counters', 'journal_counters')
+
+# pgstat.c PGSTAT_IDLE_INTERVAL(10초)보다 길게 잡는다.
+PGSTAT_FLUSH_WAIT_S = 11
+
+
+def pg_counters():
+    """커밋과 교착의 누계를 데이터베이스에서 직접 읽는다. 주행 전후 차로 쓴다.
+
+    rate 창 1분만 보면 창 밖에서 난 교착을 놓치고, 프로메테우스를 거치면 스크레이프 지연으로
+    주행 끝의 증가분이 빠질 수 있다. 데이터베이스 쪽에도 같은 성질의 지연이 있다. PG15 이후
+    백엔드는 통계를 모았다가 쓰고 마지막 기록 뒤 1초 안이면 유휴 10초 뒤로 미룬다. 그래서
+    주행 뒤 값은 PGSTAT_FLUSH_WAIT_S 를 기다린 다음 읽는다."""
+    try:
+        p = subprocess.run(
+            ['docker', 'exec', 'chaos-pg', 'psql', '-U', 'exchange', '-d', 'exchange', '-t', '-A',
+             '-F', '|', '-c',
+             "select xact_commit, deadlocks from pg_stat_database where datname = 'exchange';"],
+            capture_output=True, text=True, timeout=60)
+        c, d = p.stdout.strip().split('|')
+        return int(c), int(d)
+    except (ValueError, subprocess.SubprocessError, OSError):
+        return None
 
 
 def sample():
@@ -68,6 +93,17 @@ def sample():
     acc = q('sum(rate(http_server_requests_seconds_count'
             '{uri="/api/v1/orders",method="POST",status="201"}[1m]))')
     xact = q('sum(rate(pg_stat_database_xact_commit{datname="exchange"}[1m]))')
+
+    # 갭 회수 저널 왕복(ADR 0022 0단계 (c)). 전역 seq 를 마켓 12개가 나눠 쓰면 한 마켓
+    # 스트림의 명령 대부분이 갭으로 도착한다. 적용 대비 비의 계산값 1 - 1/12 를 이것으로 잰다.
+    cu_n = q('sum(rate(exchange_writer_catchup_calls_total[1m]))')
+    cu_t = ns('catchup')
+    # in-flight 예약 락. 저널 replay 를 뺀 접수가 지나는 전역 락이고 안에서 잔고 조회가
+    # 데이터베이스를 왕복한다.
+    iw = q('sum(rate(exchange_inflight_lock_wait_nanos_total[1m]))')
+    ih = q('sum(rate(exchange_inflight_lock_hold_nanos_total[1m]))')
+    iw = (iw / 1e9) if iw is not None else None
+    ih = (ih / 1e9) if ih is not None else None
     out = {
         '접수/s': acc,
         '체결/s': q('sum(rate(exchange_trades_total[1m]))'),
@@ -102,6 +138,15 @@ def sample():
         'DB CPU%': q('max(container_cpu_percent{name="chaos-pg"})'),
         'api1 CPU%': q('max(container_cpu_percent{name="chaos-api-1"})'),
         '풀 대기': q('sum(hikaricp_connections_pending)'),
+        'append 풀 대기': q('sum(hikaricp_connections_pending{pool="exchange-append"})'),
+        # 커밋 누적 나노초의 초당 증가분. 1.0 을 넘으면 커밋이 동시에 겹친 것이다.
+        '커밋 동시성': cmt,
+        'catchup 왕복/s': cu_n,
+        'catchup 비': (cu_n / n) if (cu_n is not None and n) else None,
+        'catchup 점유': cu_t,
+        'catchup 1회(ms)': (cu_t / cu_n * 1e3) if (cu_t and cu_n) else None,
+        'inflight 락 보유 점유': ih,
+        'inflight 락 대기 점유': iw,
     }
     per = {}
     for t in TABLES:
@@ -143,6 +188,7 @@ def main():
     fsync = cs.fsync_state()
 
     k6log = str(ROOT / ('harness/evidence/k6-rt-%s.log' % a.label))
+    pg0 = pg_counters()
     proc = run_k6(a.rate, a.duration, 'rt%s%d' % (a.label[:3], a.rate), log_path=k6log)
     time.sleep(min(duration_fill(a.duration), a.duration - 5))
     s = sample()
@@ -154,6 +200,11 @@ def main():
     except subprocess.TimeoutExpired:
         proc.kill()
     s['k6_rc'] = proc.returncode
+    time.sleep(PGSTAT_FLUSH_WAIT_S)
+    pg1 = pg_counters()
+    # 읽기 실패는 None 으로 남긴다. 0 으로 채우면 교착 0건으로 읽힌다.
+    s['xact_commit 증가'] = (pg1[0] - pg0[0]) if (pg0 and pg1) else None
+    s['deadlocks 증가'] = (pg1[1] - pg0[1]) if (pg0 and pg1) else None
     io.open(a.out, 'w', encoding='utf-8').write(json.dumps(s, ensure_ascii=False, indent=2))
     for k, v in s.items():
         if k != '표별 쓰기':

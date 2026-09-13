@@ -42,7 +42,7 @@ server/
 │       ├── OrderCommand       command_journal 1:1 명령 레코드
 │       ├── EngineEvent        event_journal 1:1 이벤트 레코드
 │       ├── OrderBook(Impl)    가격 레벨 정렬 맵 + 레벨 내 FIFO, 정준 상태 체크섬
-│       ├── MatchingEngine(Impl) 전 마켓 라우팅, lastAppliedSeq 이중 적용 방지
+│       ├── MatchingEngine(Impl) 전 마켓 라우팅, 마켓별 적용 커서로 이중 적용 방지
 │       └── SingleWriterLoop   유계 큐 + seq 연속성 검증 + catch-up + fail-fast
 └── app/                     Spring Boot 3.5.x 애플리케이션
     ├── kr.exchange.api      REST/WS 공개 API

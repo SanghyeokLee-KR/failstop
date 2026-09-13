@@ -11,7 +11,7 @@ import java.util.function.Consumer;
  * 단일 라이터 루프. 유계 명령 큐를 전용 스레드 하나가 소비해 엔진에 순차 적용하고,
  * 방출 이벤트를 sink(이벤트 저널 append)로 넘긴다.
  *
- * seq 연속성 계약(server/README.md M1-2 인계): 수신 seq가 lastApplied+1이 아니면 그대로
+ * seq 연속성 계약(server/README.md M1-2 인계): 수신 seq가 그 마켓의 적용 seq+1이 아니면 그대로
  * 적용하지 않고 catch-up 소스(command_journal)에서 누락 구간을 회수한 뒤 진행한다.
  * 회수 불가나 sink 실패(fencing 확정 거부 포함)는 복구 대상이 아니라 fail-fast다.
  * fatalHandler 통지 후 즉시 정지하며, 재개는 재기동 재생 몫이다.
@@ -27,9 +27,9 @@ public final class SingleWriterLoop {
         void accept(List<EngineEvent> events) throws Exception;
     }
 
-    /** seq 갭 회수 소스. lastAppliedSeq 초과분을 seq 오름차순으로 반환한다. */
+    /** seq 갭 회수 소스. afterSeq 초과분을 seq 오름차순으로 반환한다. */
     public interface CatchUpSource {
-        List<OrderCommand> readAfter(long lastAppliedSeq, int limit);
+        List<OrderCommand> readAfter(long afterSeq, int limit);
     }
 
     /**
@@ -72,6 +72,12 @@ public final class SingleWriterLoop {
             new java.util.concurrent.atomic.LongAdder();
     private final java.util.concurrent.atomic.LongAdder applyCount =
             new java.util.concurrent.atomic.LongAdder();
+    // 갭 회수의 저널 왕복만 센다. 회수한 명령의 적용과 정산은 위 셋에 이미 들어가고, 이
+    // 왕복은 라이터 직렬 구간 안에서 돌면서 셋 어디에도 잡히지 않는다(ADR 0022 0단계 (c)).
+    private final java.util.concurrent.atomic.LongAdder catchUpCalls =
+            new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder catchUpNanos =
+            new java.util.concurrent.atomic.LongAdder();
 
     public SingleWriterLoop(int queueCapacity, MatchingEngine engine, EventSink eventSink,
                             CatchUpSource catchUpSource, Consumer<Throwable> fatalHandler) {
@@ -109,6 +115,16 @@ public final class SingleWriterLoop {
     /** 적용 호출 수. 위 셋의 분모다. */
     public long applyCount() {
         return applyCount.sum();
+    }
+
+    /** 갭 회수 저널 왕복 수. */
+    public long catchUpCalls() {
+        return catchUpCalls.sum();
+    }
+
+    /** 갭 회수 저널 왕복 누적 나노초. */
+    public long catchUpNanos() {
+        return catchUpNanos.sum();
     }
 
     public int queueSize() {
@@ -230,31 +246,42 @@ public final class SingleWriterLoop {
     }
 
     private void process(OrderCommand command) throws Exception {
-        long last = engine.lastAppliedSeq();
+        long last = engine.appliedSeq(command.marketId());
         if (command.seq() <= last) {
             // 재전송·catch-up 중복 공급. 이중 적용 방지 규약으로 무시한다.
             return;
         }
         if (command.seq() > last + 1) {
-            catchUpTo(command.seq());
-            if (command.seq() <= engine.lastAppliedSeq()) {
+            catchUpTo(command);
+            if (command.seq() <= engine.appliedSeq(command.marketId())) {
                 return;
             }
         }
         applyAndSink(command);
     }
 
-    private void catchUpTo(long targetSeq) throws Exception {
-        while (engine.lastAppliedSeq() < targetSeq - 1) {
-            List<OrderCommand> batch = catchUpSource.readAfter(engine.lastAppliedSeq(), CATCH_UP_BATCH);
+    private void catchUpTo(OrderCommand command) throws Exception {
+        long target = command.seq();
+        // seq가 max 아래면 대역 채번에서 더 높은 대역 마켓이 max를 쥔 것이라 이 마켓 커서부터 읽는다.
+        // max를 넘으면 이 마켓의 누락분은 max 위에만 있다(조밀 전역 축은 늘 이쪽).
+        long max = engine.lastAppliedSeq();
+        long from = target > max ? max : engine.appliedSeq(command.marketId());
+        // 종료는 적용 커서가 아니라 읽은 위치로 본다. 이미 적용한 남의 마켓 행만 든 배치가 와도
+        // 위치가 전진해 같은 배치를 다시 읽지 않는다.
+        while (from < target - 1) {
+            long t0 = System.nanoTime();
+            List<OrderCommand> batch = catchUpSource.readAfter(from, CATCH_UP_BATCH);
+            catchUpNanos.add(System.nanoTime() - t0);
+            catchUpCalls.increment();
             if (batch.isEmpty()) {
                 // 저널이 갭을 못 메우면 순서 보장이 깨진 것이다. 계속 진행은 무음 유실이 된다.
-                throw new IllegalStateException("catch-up 실패: lastApplied="
-                        + engine.lastAppliedSeq() + ", target=" + targetSeq);
+                throw new IllegalStateException("catch-up 실패: market=" + command.marketId()
+                        + ", from=" + from + ", target=" + target);
             }
             for (OrderCommand c : batch) {
                 applyAndSink(c);
-                if (engine.lastAppliedSeq() >= targetSeq - 1) {
+                from = c.seq();
+                if (from >= target - 1) {
                     break;
                 }
             }

@@ -453,6 +453,18 @@ class MatchingEngineImplTest {
     }
 
     @Test
+    void lowerSeqOfOtherMarketIsApplied() {
+        engine.apply(limitBuyIn(1, 10, 1));
+        List<EngineEvent> events = engine.apply(limitBuyIn(2, 3, 2));
+
+        assertEquals(EngineEvent.EventType.ACCEPTED, events.get(0).type());
+        assertEquals(1, engine.orderBook(2).openOrderCount());
+        assertEquals(3, engine.appliedSeq(2));
+        assertEquals(10, engine.appliedSeq(1));
+        assertEquals(10, engine.lastAppliedSeq());
+    }
+
+    @Test
     void checksumReflectsStateAndIsReproducible() {
         MatchingEngineImpl other = new MatchingEngineImpl();
         List<OrderCommand> commands = List.of(
@@ -545,6 +557,12 @@ class MatchingEngineImplTest {
                                     BigDecimal price, BigDecimal qty, BigDecimal quoteOrderQty) {
         return new OrderCommand(s, 1, OrderCommand.CommandType.NEW, userId, "c-" + s,
                 9000 + s, BASE_TS + s, s, side, ordType, tif, price, qty, quoteOrderQty, 1);
+    }
+
+    private static OrderCommand limitBuyIn(int marketId, long s, long orderId) {
+        return new OrderCommand(s, marketId, OrderCommand.CommandType.NEW, 1, "c-" + orderId,
+                orderId, BASE_TS + s, s, OrderCommand.Side.BUY, OrderCommand.OrdType.LIMIT,
+                OrderCommand.TimeInForce.GTC, dec("100"), dec("1"), null, 1);
     }
 
     private OrderCommand cancel(long userId, long targetOrderId) {

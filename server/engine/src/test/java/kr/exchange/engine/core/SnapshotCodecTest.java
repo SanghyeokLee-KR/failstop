@@ -84,6 +84,43 @@ class SnapshotCodecTest {
     }
 
     @Test
+    void loadMarketSnapshotGuardIsPerMarket() {
+        MatchingEngineImpl engine = new MatchingEngineImpl();
+        engine.apply(limit(5, 1, 1, OrderCommand.Side.BUY, "100", "1"));
+        OrderBookImpl market2 = SnapshotCodec.decode(SnapshotCodec.encode(restingBook().orderBook(2)));
+
+        engine.loadMarketSnapshot(2, 3, market2);
+        assertEquals(2, engine.orderBook(2).openOrderCount());
+        assertEquals(3, engine.appliedSeq(2));
+        assertEquals(5, engine.appliedSeq(1));
+
+        assertThrows(IllegalStateException.class,
+                () -> engine.loadMarketSnapshot(1, 5, new OrderBookImpl(1)));
+        assertEquals(1, engine.orderBook(1).openOrderCount(), "거부된 로드가 market 1 북을 덮었다");
+    }
+
+    @Test
+    void loadMarketSnapshotRejectsBookOfOtherMarket() {
+        MatchingEngineImpl engine = new MatchingEngineImpl();
+        assertThrows(IllegalArgumentException.class,
+                () -> engine.loadMarketSnapshot(2, 3, new OrderBookImpl(1)));
+        assertTrue(engine.markets().isEmpty(), "거부된 로드가 북을 남겼다");
+        assertEquals(0, engine.appliedSeq(2));
+    }
+
+    @Test
+    void loadMarketSnapshotRejectsMarketHoldingBookAtSeqZero() {
+        MatchingEngineImpl engine = new MatchingEngineImpl();
+        OrderBookImpl market2 = SnapshotCodec.decode(SnapshotCodec.encode(restingBook().orderBook(2)));
+        engine.loadMarketSnapshot(2, 0, market2);
+        assertEquals(0, engine.appliedSeq(2));
+
+        assertThrows(IllegalStateException.class,
+                () -> engine.loadMarketSnapshot(2, 0, new OrderBookImpl(2)));
+        assertEquals(2, engine.orderBook(2).openOrderCount(), "거부된 로드가 market 2 북을 덮었다");
+    }
+
+    @Test
     void decodeRejectsUnknownFormatVersion() {
         byte[] bytes = SnapshotCodec.encode(restingBook().orderBook(1));
         bytes[0] = (byte) (SnapshotCodec.formatVersion() + 1);

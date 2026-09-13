@@ -69,6 +69,16 @@ public class OrderGateway {
         this.signal = projectionSignal;
     }
 
+    /** in-flight 예약 락 획득 대기 누적 나노초. */
+    public long inflightLockWaitNanos() {
+        return inflight.lockWaitNanos();
+    }
+
+    /** in-flight 예약 락 보유 누적 나노초. */
+    public long inflightLockHoldNanos() {
+        return inflight.lockHoldNanos();
+    }
+
     public Placement place(long userId, JsonNode body, byte[] rawBody) {
         String clientOrderId = text(body, "client_order_id");
         if (clientOrderId == null || clientOrderId.isBlank()) {
