@@ -196,7 +196,7 @@ export const FIG_META = {
 export const ARCH_KPI = [
   ['Application HA', '2 AZ', '설계 · Cloud NOT RUN', 'INK'],
   ['전체 AZ 내성', '미성립', 'DB 승격 수동', 'FAIL'],
-  ['Failover RTO', '6.688 s', 'Local · 1 run', 'INK'],
+  ['Failover RTO', '6.518 s', 'Local · 1 run', 'INK'],
   ['RPO', '0', 'Local · same run', 'INK'],
   ['Ledger 위반', '0 rows', 'Local validation', 'INK'],
 ]
@@ -288,7 +288,7 @@ export const ARCH_LIMITS = [
 // 같은 배치, 다른 상태. 좌표가 패널마다 동일해야 상태 차이만 보인다
 export const ARCH_FILM = [
   ['정상', 'ok', [['app-1', 'ok'], ['primary', 'ok']], [['app-2', 'idle'], ['standby', 'ok']], '불변식 26 체크 통과'],
-  ['app-1 kill', 'ok', [['app-1', 'fail'], ['primary', 'ok']], [['app-2', 'ok'], ['standby', 'ok']], 'RTO 6.688 s · Local 1 run'],
+  ['app-1 kill', 'ok', [['app-1', 'fail'], ['primary', 'ok']], [['app-2', 'ok'], ['standby', 'ok']], 'RTO 6.518 s · Local 1 run'],
   ['AZ-a 상실', 'trans', [['app-1', 'fail'], ['primary', 'fail']], [['app-2', 'ok'], ['standby', 'trans']], 'DB 승격 필요 · 미측정'],
   ['승격 · 재생', 'trans', [['app-1', 'fail'], ['primary', 'fail']], [['app-2', 'trans'], ['primary', 'ok']], '저널 재생 중 · 503 재시도'],
 ]
@@ -301,4 +301,4 @@ export const ARCH_COST = [
 ]
 
 export const ARCH_FOOT =
-  '수치에 출처가 없으면 미측정이다. RTO 6.688 s 는 E4-20260829 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.3 달력 월 실청구와 같은 축의 값이다.'
+  '수치에 출처가 없으면 미측정이다. RTO 6.518 s 는 E4-20260913-152059 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.3 달력 월 실청구와 같은 축의 값이다.'

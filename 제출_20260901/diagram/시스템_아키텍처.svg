@@ -17,7 +17,7 @@
 <text x="1478" y="68" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="start">DB 승격 수동</text>
 <line x1="1610" y1="22" x2="1610" y2="72" stroke="#D0D7DC" stroke-width="1"/>
 <text x="1626" y="30" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9" font-weight="400" fill="#5C6B75" text-anchor="start">Failover RTO</text>
-<text x="1626" y="52" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="15" font-weight="700" fill="#16191F" text-anchor="start">6.688 s</text>
+<text x="1626" y="52" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="15" font-weight="700" fill="#16191F" text-anchor="start">6.518 s</text>
 <text x="1626" y="68" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="8.2" font-weight="400" fill="#5C6B75" text-anchor="start">Local · 1 run</text>
 <line x1="1758" y1="22" x2="1758" y2="72" stroke="#D0D7DC" stroke-width="1"/>
 <text x="1774" y="30" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9" font-weight="400" fill="#5C6B75" text-anchor="start">RPO</text>
@@ -204,7 +204,7 @@
 <rect x="548" y="1080" width="484" height="234" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
 <line x1="548" y1="1080" x2="1032" y2="1080" stroke="#0E7C66" stroke-width="3"/>
 <text x="564" y="1108" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="13.5" font-weight="700" fill="#16191F" text-anchor="start">app-1 kill</text>
-<text x="1016" y="1108" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="700" fill="#0E7C66" text-anchor="end">RTO 6.688 s · Local 1 run</text>
+<text x="1016" y="1108" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="700" fill="#0E7C66" text-anchor="end">RTO 6.518 s · Local 1 run</text>
 <rect x="564" y="1124" width="452" height="72" rx="2" fill="none" stroke="#D0D7DC" stroke-width="1"/>
 <text x="576" y="1142" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="700" fill="#5C6B75" text-anchor="start">AZ-a</text>
 <circle cx="688" cy="1168" r="11" fill="#FFFFFF" stroke="#C0392B" stroke-width="1.8"/>
@@ -285,6 +285,6 @@
 <text x="1624" y="1416" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">복구 중</text>
 <circle cx="1848" cy="1412" r="7" fill="#98A2A8"/>
 <text x="1864" y="1416" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#3C4750" text-anchor="start">비활성 · 계획</text>
-<text x="40" y="1444" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#5C6B75" text-anchor="start">수치에 출처가 없으면 미측정이다. RTO 6.688 s 는 E4-20260829 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.3 달력 월 실청구와 같은 축의 값이다.</text>
+<text x="40" y="1444" font-family="'Malgun Gothic','맑은 고딕',sans-serif" font-size="9.5" font-weight="400" fill="#5C6B75" text-anchor="start">수치에 출처가 없으면 미측정이다. RTO 6.518 s 는 E4-20260913-152059 로컬 실측 1회차이고 AZ 상실 회차는 아직 재지 않았다. 비용은 계획서 9.3 달력 월 실청구와 같은 축의 값이다.</text>
 </g>
 </svg>
