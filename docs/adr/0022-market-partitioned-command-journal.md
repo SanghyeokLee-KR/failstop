@@ -500,7 +500,7 @@ bound(m)     = COALESCE(hole(m) - 1, GREATEST(head(m), floor(m)))   -- 바닥 �
 - **갭 회수.** `JournalCatchUpSource` 는 이미 마켓 조건을 갖고 있다(JournalCatchUpSource.java:43-45). 커서만 마켓별로 바뀐다.
 - **스냅샷.** 세트 개념을 버린다. `loadLatestAdoptablePerMarket()` 이 마켓마다 독립으로 최신 채택 가능본을 고르고, 한 마켓이 폐기되면 그 마켓만 0 으로 폴백한다. `MatchingEngineImpl.loadMarketSnapshot` 의 fresh 가드도 마켓 단위다.
 - **승격 생략.** `PromotionCoordinator.replayOnce`(PromotionCoordinator.java:307-331)의 `current.lastAppliedSeq() >= head`(PromotionCoordinator.java:318)를 '모든 마켓에서 커서가 그 마켓 head 에 닿았다' 로 바꾼다. head 에는 있는데 엔진에 없는 마켓은 닿지 않은 것으로 본다. 한 마켓만 닿은 상태에서 생략이 걸리면 재생이 안 된 마켓 위에서 접수가 열린다.
-- **팔로워.** 불변식 M 을 '모든 마켓 m 에서 seq 가 `cursor(m)` 이하인 그 마켓 명령은 전부 이벤트가 있다' 로 다시 쓴다. 커서가 매 틱 새로 읽은 그 마켓의 `bound(m)` 까지만 전진하기 때문에 성립한다. '커서가 체크포인트를 넘지 않는다' 는 체크포인트 정의상 늘 참이라 승격 생략의 근거가 되지 못한다(`docs/contracts/백엔드_DB_설계.md` §5.5-a). lag 는 마켓별 격차의 최대와 합 둘을 낸다. 합만 내면 한 마켓의 정체가 열한 마켓의 진행에 묻힌다. `Math.max(0, ...)` 클램프는 마켓 안에서는 발화할 수 없는 값이므로 발화하면 ERROR 로그를 남긴다.
+- **팔로워.** 불변식 M 을 '모든 마켓 m 에서 seq 가 `cursor(m)` 이하인 그 마켓 명령은 전부 이벤트가 있다' 로 다시 쓴다. 커서가 매 틱 새로 읽은 그 마켓의 `bound(m)` 까지만 전진하기 때문에 성립한다. '커서가 체크포인트를 넘지 않는다' 는 체크포인트 정의상 늘 참이라 승격 생략의 근거가 되지 못한다(`docs/contracts/백엔드_DB_설계.md` §5.5-a). lag 는 마켓별 격차의 최대와 합 둘을 낸다. 합만 내면 한 마켓의 정체가 열한 마켓의 진행에 묻힌다. 격차가 음수인 경우는 스냅샷에서 복원한 커서가 그 마켓의 마지막 명령보다 클 때 정당하게 생기므로 로그 없이 0 으로 센다.
 
 ---
 
