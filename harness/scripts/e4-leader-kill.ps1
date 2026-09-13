@@ -63,7 +63,7 @@ Write-Host "사전 verdict=$($pre.verdict) 위반합=$($pre.totalViolations) old
 if ($pre.verdict -ne 'PASS') { Write-Host '경고: 사전 run이 PASS가 아님. 배경 부하 안정 후 재실행 권장' -ForegroundColor Yellow }
 
 # ── 시계 동기 전제조건(#58): 스큐면 주입 없이 SKIP(거짓 FAIL 방지) ─────────
-if (Test-FailoverClockGuard -ExperimentId 'E4') { exit 0 }
+if (Test-FailoverClockGuard -ExperimentId 'E4' -RunId $runId) { exit 0 }
 
 # ── 주입 직전 대상 재확인 ──────────────────────────────────────────────
 # 감지(워밍업 직후)와 주입 사이에 사전 권위 run(최대 60s)·시계가드가 들어간다. 카오스 리스 TTL이
@@ -237,6 +237,9 @@ Write-Host ''
 Write-Host "invariant_checks 사후 run 위반 요약(run_id=$runId):"
 Invoke-Psql "SELECT check_name, ok, violated_rows FROM invariant_checks WHERE details->>'run_id'='$runId' AND details->>'window'='post' ORDER BY ok, check_name"
 
+Save-VerdictFile -ExperimentId 'E4' -RunId $runId -Verdict $verdict -Metrics @{
+    c16LoadtestAcksRows = $c16rows; c17RecoveryRunsRows = $c17rows
+}
 if ($verdict -ne 'PASS') {
     Write-Host ''
     Write-Host 'E4 FAIL. 위 증거로 원인 귀속 후 재실행.' -ForegroundColor Red

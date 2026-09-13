@@ -53,7 +53,7 @@ try {
     Write-Host "회복 가능 반납 기저(승격 예정 노드): $sdBaseDisp"
 
     # 시계 동기 전제조건(#58): 스큐면 주입 없이 SKIP. 토식 미주입이라 종료 훅 해제는 무해.
-    if (Test-FailoverClockGuard -ExperimentId 'E2') { exit 0 }
+    if (Test-FailoverClockGuard -ExperimentId 'E2' -RunId $runId) { exit 0 }
 
     Write-Section "ⓑ 주입: $($cfg['TOXIC_TYPE']) blackhole on $proxy"
     # T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다(E5·E7과 동형). ⓐ 시점
@@ -128,6 +128,11 @@ finally {
     Remove-AllToxics -Proxy $proxy
 }
 
+# 승격 안정성 게이트와 반납 델타가 적재 뒤에 verdict 를 떨어뜨릴 수 있어 종료코드 직전에 쓴다.
+Save-VerdictFile -ExperimentId 'E2' -RunId $runId -Verdict $verdict -Metrics @{
+    promotionStable = $stable; deadLeaseSamples = $deadSample; epochRegressions = $regressed
+    finalEpoch = $prevEpoch; standdownScrapeOk = $sdScrapeOk; standdownDelta = $sdDelta
+}
 if ($verdict -ne 'PASS') { exit 1 }
 Write-Host 'E2 PASS.' -ForegroundColor Green
 # 명시 종료코드. 앞선 네이티브 호출($LASTEXITCODE)이 프로세스 종료코드로 새면 PASS가 exit 1이 된다.

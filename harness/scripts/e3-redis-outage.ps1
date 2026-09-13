@@ -30,7 +30,7 @@ if (-not $redisPresent) {
     $run = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'skip'
     $reason = "Redisson 런타임 미배선(코드: redis/redisson 의존·빈·spring.data.redis 설정 전무, 참조는 전부 M2 유예 주석). 리더십 권위=DB leader_lease라 Redis 장애가 매칭·리더십·split-brain에 무영향. chaos-redis 추가는 무의미하며 이 SKIP은 유효 판정이다."
 
-    Write-Verdict -ExperimentId 'E3' -Verdict 'SKIP' -Metrics @{
+    Write-Verdict -ExperimentId 'E3' -RunId $runId -Verdict 'SKIP' -Metrics @{
         reason                 = $reason
         redissonWiredAtRuntime = $false
         skipIsValidVerdict     = $true
@@ -108,7 +108,7 @@ try {
     $verdict = 'FAIL'
     if ($injClean -and $postClean -and $noSplitBrain -and $recovered) { $verdict = 'PASS' }
 
-    Write-Verdict -ExperimentId 'E3' -Verdict $verdict -Metrics @{
+    Write-Verdict -ExperimentId 'E3' -RunId $runId -Verdict $verdict -Metrics @{
         epochBefore       = $oldEpoch
         epochAfter        = $newEpoch
         noSplitBrain      = $noSplitBrain

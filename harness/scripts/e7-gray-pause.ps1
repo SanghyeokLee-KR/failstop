@@ -60,7 +60,7 @@ try {
     Write-Host "사전 verdict=$($pre.verdict) old_epoch=$oldEpoch cmd_fencing_col=$cmdHasFencing"
 
     # 시계 동기 전제조건(#58): 스큐면 pause 없이 SKIP. 미동결이라 종료 훅 unpause는 무해.
-    if (Test-FailoverClockGuard -ExperimentId 'E7') { exit 0 }
+    if (Test-FailoverClockGuard -ExperimentId 'E7' -RunId $runId) { exit 0 }
 
     Write-Section "ⓑ 주입: docker pause $target (프로세스 동결)"
     $tradesAtInject = Get-TradeCount
@@ -192,6 +192,10 @@ finally {
     } catch { Write-Host "unpause 시도 중 예외: $($_.Exception.Message)" -ForegroundColor Yellow }
 }
 
+Save-VerdictFile -ExperimentId 'E7' -RunId $runId -Verdict $verdict -Metrics @{
+    staleWrites = $staleWrites; epochOk = $epochOk; holderChanged = $holderChanged
+    rtoOk = $rtoOk; postClean = $postClean; zombieShutdown = [bool]$zombieOk
+}
 if ($verdict -ne 'PASS') { Write-Host 'E7 FAIL.' -ForegroundColor Red; exit 1 }
 Write-Host 'E7 PASS.' -ForegroundColor Green
 # 명시 exit 0. PowerShell은 스크립트 종료코드로 마지막 네이티브 명령의 $LASTEXITCODE를

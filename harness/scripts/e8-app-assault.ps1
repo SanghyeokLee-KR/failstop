@@ -56,7 +56,7 @@ if (-not $cmAvailable) {
     Write-Section 'SKIP: Chaos Monkey actuator 부재'
     $prePort = Get-LiveNodePort
     $run = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'skip'
-    Write-Verdict -ExperimentId 'E8' -Verdict 'SKIP' -Metrics @{
+    Write-Verdict -ExperimentId 'E8' -RunId $runId -Verdict 'SKIP' -Metrics @{
         reason           = "/actuator/chaosmonkey 미노출. 서빙 노드를 chaos-monkey 프로파일로 기동해야 한다."
         chaosMonkeyBase  = $cmBase
         integrityCriticalClean = [bool]$run.criticalClean
@@ -156,7 +156,7 @@ try {
     $verdict = 'FAIL'
     if ($injClean -and $postClean -and $cbOpened -and $cbClosed) { $verdict = 'PASS' }
 
-    Write-Verdict -ExperimentId 'E8' -Verdict $verdict -Metrics @{
+    Write-Verdict -ExperimentId 'E8' -RunId $runId -Verdict $verdict -Metrics @{
         assaultType           = $cfg['ASSAULT_TYPE']
         cbOpened              = [bool]$cbOpened
         cbRecovered           = [bool]$cbClosed

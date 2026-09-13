@@ -96,7 +96,7 @@ try {
         $verdict = 'PASS'
     }
 
-    Write-Verdict -ExperimentId 'E9' -Verdict $verdict -Metrics @{
+    Write-Verdict -ExperimentId 'E9' -RunId $runId -Verdict $verdict -Metrics @{
         dupOrderProjection = [long]$dupOrderProj
         dupOrderJournal    = [long]$dupOrderJrnl
         dupOrderTotal      = $dupOrder

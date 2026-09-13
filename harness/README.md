@@ -72,6 +72,7 @@ pwsh -File scripts/down.ps1          # 전체 볼륨 파기(append-only 선별 �
 
 - 사전·사후 권위 run: `POST /harness/v1/invariants/run`(REPEATABLE READ READ ONLY, C01~C19).
 - 결과 적재: `invariant_checks`(체크별 ok·위반행·details), `harness.failover_runs`(RTO/RPO/verdict).
+  둘 다 카오스 볼륨 안이라 `down -v` 로 파기된다. 저장소에 남는 판정은 `evidence/chaos-runs/<runId>.json` 이다.
 - 판정 원천: SQL 위반 행 수 0, epoch 단조 +1, RTO 임계. 사람 눈 판정 없음.
 - 수동 게이트(`sql/summary.sql` 출력 파싱). 등급 CRITICAL·HIGH이고 verdict=FAIL인 행이 0이어야
   한다. 아래 명령의 출력이 비면 통과다.

@@ -65,7 +65,7 @@ try {
     Write-Host "사전 verdict=$($pre.verdict) old_epoch=$oldEpoch cmd_fencing_col=$cmdHasFencing"
 
     # 시계 동기 전제조건(#58): 스큐면 분할 없이 SKIP. 미분할이라 종료 훅 복귀는 무해.
-    if (Test-FailoverClockGuard -ExperimentId 'E5') { exit 0 }
+    if (Test-FailoverClockGuard -ExperimentId 'E5' -RunId $runId) { exit 0 }
 
     Write-Section "ⓑ 주입: docker network disconnect $net $target (프로세스 생존)"
     $tradesAtInject = Get-TradeCount
@@ -212,6 +212,10 @@ finally {
     } catch { Write-Host "network connect 시도 중 예외: $($_.Exception.Message)" -ForegroundColor Yellow }
 }
 
+Save-VerdictFile -ExperimentId 'E5' -RunId $runId -Verdict $verdict -Metrics @{
+    staleWrites = $staleWrites; epochOk = $epochOk; holderChanged = $holderChanged
+    serviceResumed = $serviceResumed; postClean = $postClean
+}
 if ($verdict -ne 'PASS') { Write-Host 'E5 FAIL.' -ForegroundColor Red; exit 1 }
 Write-Host 'E5 PASS.' -ForegroundColor Green
 # 명시 exit 0. 종료 훅의 docker network connect가 이미 연결된 정상 경우에도 비영을 내므로

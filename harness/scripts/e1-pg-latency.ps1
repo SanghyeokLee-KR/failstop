@@ -178,7 +178,7 @@ try {
     $verdict = 'FAIL'
     if ($primaryOk) { $verdict = 'PASS' }
 
-    Write-Verdict -ExperimentId 'E1' -Verdict $verdict -Metrics @{
+    Write-Verdict -ExperimentId 'E1' -RunId $runId -Verdict $verdict -Metrics @{
         baselineP99Ms = [math]::Round($baseP99, 1)
         injectP99Ms   = [math]::Round($injP99, 1)
         errorRate     = $errRate

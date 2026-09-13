@@ -17,6 +17,9 @@ $Global:CHAOS = @{
     ToxiUrl     = $(if ($env:CHAOS_TOXI_URL) { $env:CHAOS_TOXI_URL } else { 'http://localhost:58474' })
     PgUser      = 'exchange'
     PgDb        = 'exchange'
+    RepoRoot    = Join-Path $PSScriptRoot '..\..'
+    # 실험 판정 파일이 떨어지는 곳. 컨테이너 볼륨이 아니라 저장소라 down -v 에 살아남는다.
+    EvidenceDir = Join-Path $PSScriptRoot '..\evidence\chaos-runs'
 }
 
 # param 블록을 두지 않는 이유: [Parameter()]가 붙는 순간 고급 함수가 되고, 그러면 PowerShell이
@@ -230,8 +233,11 @@ function Reset-LoadtestAcks {
 function Record-Failover {
     param([int] $Port, [hashtable] $Body)
     $json = $Body | ConvertTo-Json -Depth 6
-    return Invoke-RestMethod -Uri "http://localhost:$Port/harness/v1/failover" -Method Post `
+    $resp = Invoke-RestMethod -Uri "http://localhost:$Port/harness/v1/failover" -Method Post `
         -ContentType 'application/json' -Body $json -TimeoutSec 10
+    # 판정 파일이 이 적재 본문을 함께 싣는다. failover_runs 행은 down -v 로 파기된다.
+    $Global:CHAOS_LAST_FAILOVER = @{ body = $Body; response = $resp }
+    return $resp
 }
 
 # Toxiproxy 2.12.0은 DNS 리바인딩 방어로 User-Agent에 'Mozilla'가 있으면 거부(User agent not allowed).
@@ -678,16 +684,84 @@ function Test-ExperimentIntegrity {
     return $true
 }
 
-# 비페일오버·SKIP 실험의 verdict JSON을 표준 형식으로 stdout에 낸다. failover_runs 적재는 안 한다
-# (epoch 변화 없는 실험을 페일오버 행으로 남기면 증거가 오염된다). E1·E3·E8·E9가 쓴다.
+# 실험 판정을 저장소 파일로 남긴다. failover_runs·invariant_checks 는 카오스 볼륨 안이라 down -v 로
+# 파기되므로 판정 시점에 함께 뽑는다(기획안 12절 A5). verdict 에는 종료코드를 정하는 값을 넘긴다.
+# 저장 실패가 판정과 종료코드를 바꾸지 않게 하되, 조용히 삼키지 않고 붉게 알린다.
+function Save-VerdictFile {
+    param([string] $ExperimentId, [string] $RunId, [string] $Verdict, [hashtable] $Metrics)
+    try {
+        if ([string]::IsNullOrWhiteSpace($RunId)) {
+            $RunId = "$ExperimentId-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
+        }
+        # 아래 SQL 에 그대로 들어가므로 형식을 먼저 막는다.
+        if ($RunId -notmatch '^[A-Za-z0-9-]+$') { throw "runId 형식 위반: $RunId" }
+
+        $repo = $Global:CHAOS.RepoRoot
+        $commit = (& git -C $repo rev-parse HEAD 2>$null | Out-String).Trim()
+        $dirty = $null
+        if ($commit) {
+            # 판정에 닿는 경로만 센다. 문서는 판정을 바꾸지 않고, 판정 파일 자신이 쌓이는 경로를
+            # 세면 두 번째 실험부터 항상 dirty 다.
+            $dirty = @(& git -C $repo status --porcelain -- server harness ':!harness/evidence' 2>$null).Count
+        }
+        $imageName = (Read-EnvFile $Global:CHAOS.EnvFile)['CHAOS_APP_IMAGE']
+        $imageId = (& docker image inspect $imageName --format '{{.Id}}' 2>$null | Out-String).Trim()
+
+        $invSql = "SELECT coalesce(json_agg(json_build_object('window', details->>'window', " +
+            "'check', check_name, 'ok', ok, 'violatedRows', violated_rows, 'checkedAt', checked_at) " +
+            "ORDER BY checked_at, check_name), '[]'::json) FROM invariant_checks " +
+            "WHERE details->>'run_id' = '$RunId'"
+        $invRaw = Invoke-Psql $invSql
+        $invariants = $null
+        if (-not [string]::IsNullOrWhiteSpace($invRaw)) { $invariants = @($invRaw | ConvertFrom-Json) }
+
+        $obj = [ordered]@{
+            experimentId  = $ExperimentId
+            runId         = $RunId
+            verdict       = $Verdict
+            writtenAt     = (Now-Iso)
+            code          = [ordered]@{ commit = $commit; uncommittedPaths = $dirty; image = $imageName; imageId = $imageId }
+            metrics       = $Metrics
+            invariantRows = $(if ($null -ne $invariants) { $invariants.Count } else { $null })
+            invariants    = $invariants
+        }
+        $last = $Global:CHAOS_LAST_FAILOVER
+        if ($last -and $last.body.details.runId -eq $RunId) {
+            $obj['failover'] = $last.body
+            $obj['failoverRunId'] = $last.response.failover_run_id
+        }
+
+        $dir = $Global:CHAOS.EvidenceDir
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        $path = Join-Path $dir "$RunId.json"
+        $json = ([pscustomobject]$obj) | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($path, $json, [System.Text.UTF8Encoding]::new($false))
+
+        if ($null -eq $invariants) {
+            Write-Host "경고: 판정 파일에 불변식 행을 싣지 못했다(psql 무응답). $path" -ForegroundColor Yellow
+        } elseif ($invariants.Count -eq 0) {
+            Write-Host "경고: run_id=$RunId 의 불변식 행이 0건이다. 판정 대상이 없는 파일이다. $path" -ForegroundColor Yellow
+        } else {
+            Write-Host "판정 파일: $path (불변식 행 $($invariants.Count))"
+        }
+    }
+    catch {
+        Write-Host "판정 파일 저장 실패: $($_.Exception.Message). 이 회차는 기획안 12절 A5 를 채우지 못한다" -ForegroundColor Red
+    }
+}
+
+# 비페일오버·SKIP 실험의 verdict JSON을 표준 형식으로 stdout에 내고 판정 파일로 남긴다. failover_runs
+# 적재는 안 한다(epoch 변화 없는 실험을 페일오버 행으로 남기면 증거가 오염된다). E1·E3·E8·E9가 쓴다.
+# 이 실험들은 여기서 넘긴 verdict 가 곧 종료코드를 정한다.
 function Write-Verdict {
-    param([string] $ExperimentId, [string] $Verdict, [hashtable] $Metrics)
+    param([string] $ExperimentId, [string] $RunId, [string] $Verdict, [hashtable] $Metrics)
     $obj = [ordered]@{ experimentId = $ExperimentId; verdict = $Verdict; ts = (Now-Iso) }
     foreach ($k in $Metrics.Keys) { $obj[$k] = $Metrics[$k] }
     Write-Host ''
     Write-Host '── verdict(JSON) ───────────────────────' -ForegroundColor Green
     ([pscustomobject]$obj) | ConvertTo-Json -Depth 6 -Compress | Write-Host
     Write-Host '────────────────────────────────────────'
+    Save-VerdictFile -ExperimentId $ExperimentId -RunId $RunId -Verdict $Verdict -Metrics $Metrics
 }
 
 # ── 시계 동기 전제조건 가드(조사 #58). 페일오버 승격 게이트 실험 전용. ──
@@ -720,7 +794,7 @@ function Test-ClockSkew {
 # (호출부가 주입 없이 exit 0으로 조기 종료). 동기·PG미도달이면 $false(정상 진행). 주입이 없어
 # failover_runs 미적재(SKIP은 페일오버 사건 아님). SKIP은 E3 redis·E8 chaosmonkey 부재와 동일 어휘.
 function Test-FailoverClockGuard {
-    param([Parameter(Mandatory = $true)][string] $ExperimentId)
+    param([Parameter(Mandatory = $true)][string] $ExperimentId, [string] $RunId)
     $clock = Test-ClockSkew
     if (-not $clock.Reachable) {
         # 도달불가는 시계가드 소관 밖. 정상 진행시켜 기존 권위 run·주입 경로가 실패를 드러내게 둔다.
@@ -731,7 +805,7 @@ function Test-FailoverClockGuard {
         Write-Host ("시계가드 통과: 스큐 {0}ms, 임계 {1}ms, 왕복 {2}ms." -f $clock.SkewMs, $clock.ToleranceMs, $clock.RoundTripMs)
         return $false
     }
-    Write-Verdict -ExperimentId $ExperimentId -Verdict 'SKIP' -Metrics @{
+    Write-Verdict -ExperimentId $ExperimentId -RunId $RunId -Verdict 'SKIP' -Metrics @{
         reason      = 'clock_skew'
         clockSkewMs = $clock.SkewMs
         toleranceMs = $clock.ToleranceMs

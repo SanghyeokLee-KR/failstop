@@ -67,7 +67,7 @@ try {
     if ($spikeScans -lt 1) { throw '스파이크 창 내 권위 run 미적재(공허 통과 방지 가드)' }
 
     # 시계 동기 전제조건(#58): 스큐면 주입 없이 SKIP(거짓 FAIL 방지). 스파이크는 이미 형성됨.
-    if (Test-FailoverClockGuard -ExperimentId 'E6') { exit 0 }
+    if (Test-FailoverClockGuard -ExperimentId 'E6' -RunId $runId) { exit 0 }
 
     Write-Section 'ⓑ 주입: docker kill (스파이크 plateau 중)'
     # T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다(E5·E7과 동형). ⓐ 시점
@@ -100,7 +100,13 @@ Write-Host "스파이크 중 불변식 위반 합(게이팅 대상, WARN·조건
 # 게이트는 $spikeClean 단독이다. $spikeViol은 같은 면제 술어에서 나온 표시값이라 조건으로 더해도
 # 정상 페이로드에서는 판정이 바뀌지 않는다. 빈 응답만 두 값이 갈리는데 그 경로는 $spikeClean이
 # 공허 가드로 이미 거짓을 낸다(lib.ps1 Test-ExperimentIntegrity).
-if ($verdict -ne 'PASS' -or -not $spikeClean) { exit 1 }
+# 스파이크 창 판정이 failover_runs 적재 뒤에 붙으므로 파일에는 둘을 합친 값을 쓴다.
+$finalVerdict = if ($verdict -eq 'PASS' -and $spikeClean) { 'PASS' } else { 'FAIL' }
+Save-VerdictFile -ExperimentId 'E6' -RunId $runId -Verdict $finalVerdict -Metrics @{
+    failoverVerdict = $verdict; spikeClean = $spikeClean
+    spikeViolations = $spikeViol; spikeScans = $spikeScans
+}
+if ($finalVerdict -ne 'PASS') { exit 1 }
 Write-Host 'E6 PASS.' -ForegroundColor Green
 # 명시 종료코드. 앞선 네이티브 호출($LASTEXITCODE)이 프로세스 종료코드로 새면 PASS가 exit 1이 된다.
 exit 0
