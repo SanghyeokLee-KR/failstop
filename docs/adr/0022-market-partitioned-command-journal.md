@@ -1,11 +1,11 @@
 # ADR 0022. 명령 저널을 마켓별 순서 원장으로 가른다
 
-- 상태: 채택. 착수는 M4 클라우드 배포 뒤. **2026-09-12 재개. 보류 사유였던 전제 (4)가 실측으로 뒤집혔다. 락 보유 안의 60퍼센트가 커넥션 획득과 트랜잭션 경계일 것이라 봤으나 실제로는 커밋이 99퍼센트다. 커밋은 마켓별로 곱해지지 않는 직렬 구간이 아니라 동시성으로 접히는 구간이므로 이 판이 치는 자리가 맞다.** 아래 「재개 근거」 절을 먼저 읽는다
+- 상태: 채택. **2026-09-13 착수를 앞당긴다. 클라우드 배포가 지원금 확정 대기로 밀려, 되돌릴 수 있는 0~5단계를 배포 전에 한다. 되돌릴 수 없는 6단계 커트오버는 클라우드 스토리지에서 fsync 와 동시 커밋 확장성을 다시 잰 뒤 따로 결정한다.** 아래 「이 회차가 함께 바꾸는 것」 의 착수 시점 항목이 이 결정으로 갈음된다. **2026-09-12 재개. 보류 사유였던 전제 (4)가 실측으로 뒤집혔다. 락 보유 안의 60퍼센트가 커넥션 획득과 트랜잭션 경계일 것이라 봤으나 실제로는 커밋이 99퍼센트다. 커밋은 마켓별로 곱해지지 않는 직렬 구간이 아니라 동시성으로 접히는 구간이므로 이 판이 치는 자리가 맞다.** 아래 「재개 근거」 절을 먼저 읽는다
 - 날짜: 2026-09-11
 - 선례: `docs/adr/0021-market-partitioned-ordering.md`(이벤트 축), `V36__market_seq.sql`
 - 후속 연계: `docs/adr/0023-replay-bound-and-cursor-axis.md`. 재생 상한을 명령 축 연속 경계로 바꿨다. 이 판이 명령 축을 대역화하면 그 경계 술어와 C05·C22 를 함께 본다
 - 근거 실측: `harness/evidence/submit-lock-20260911/README.md`, `harness/evidence/stage0-20260911/README.md`, `harness/evidence/stage0c-20260912/README.md`, `harness/evidence/leader-failover-20260908/`
-- 코드: `V39__command_seq_band.sql`, `V40__band_headroom.sql`, `EngineBridge`, `CommandJournalAppender`, `EngineRecovery`, `ReplayService`, `WriterRouter`, `InvariantCheck`
+- 코드: `V40__command_seq_band.sql`, `V41__band_headroom.sql`, `EngineBridge`, `CommandJournalAppender`, `EngineRecovery`, `ReplayService`, `WriterRouter`, `InvariantCheck`
 
 ---
 
@@ -148,8 +148,9 @@
   NULL 행 문제와 `lib.ps1` 의 스테일 쓰기 판정 fail-open 이다. 후자는 ADR 0023 이 이벤트 축
   상한을 명령 축 연속 경계로 바꾸면서 앱 경로에서는 닫혔으나, 하네스 판정기의 이벤트 축
   술어는 그대로다. 이 판의 3단계와 함께 본다.
-- **착수 시점은 M4 클라우드 배포 뒤다.** CLAUDE.md 1절이 외부 접속 가능한 실제 배포를 1순위로
-  두고 그 실측이 아직 0건이다. 이 문서를 채택으로 올리는 것은 결정이지 일정이 아니다.
+- **착수 시점.** 2026-09-12 판단은 M4 클라우드 배포 뒤였다. 2026-09-13 에 되돌릴 수 있는
+  0~5단계를 배포 전으로 앞당겼다(머리말 상태 줄). CLAUDE.md 1절이 외부 접속 가능한 실제 배포를
+  1순위로 두는 것은 그대로이고, 배포가 지원금 확정 대기로 밀린 구간을 쓴다.
 
 ## 1. 무엇을 왜 쪼개는가
 
@@ -196,7 +197,7 @@ V36 이 같은 형태를 격리 실측으로 쟀다(ADR 0021 「결정」 표).
 
 `command_journal` 은 `PARTITION BY RANGE (seq)` 이고 파티션이 `p0 [0,10^8)`, `p100000000 [10^8,2x10^8)`, `DEFAULT` 셋뿐이다(V1__init.sql:592-594). V1 이후 파티션을 더한 마이그레이션이 0건이다. 현재 저널이 약 10^6 자리이므로 132.12/s 로 `DEFAULT` 유입까지 약 17.4일이다. `DEFAULT` 에 한 행이라도 들어가면 그 구간의 파티션을 영영 만들 수 없다(PostgreSQL 이 `DEFAULT` 를 훑어 거부한다). C15 는 WARN 이라 멈추지 않는다.
 
-**이 시한은 이 판을 하든 안 하든 온다.** V39 가 그것을 먼저 닫는다.
+**이 시한은 이 판을 하든 안 하든 온다.** V40 이 그것을 먼저 닫는다.
 
 ---
 
@@ -263,7 +264,10 @@ V36 이 10^7 을 고른 이유는 기존 `event_journal_p0` 경계 2x10^8 안에
 
 ## 3. 스키마 변경
 
-### 3-1. V39__command_seq_band.sql (되돌릴 수 있다. 채번 경로를 바꾸지 않는다)
+### 3-1. V40__command_seq_band.sql (되돌릴 수 있다. 채번 경로를 바꾸지 않는다)
+
+V39 는 `V39__append_prologue.sql` 이 이미 쓴다(`docs/contracts/백엔드_DB_설계.md` 마이그레이션 표).
+이 판의 계획 번호를 한 칸씩 민다.
 
 **(1) 대역 명세표.** 대역 상수를 코드·마이그레이션·감사 세 곳에 복제하지 않기 위한 단일 원천이다.
 
@@ -288,34 +292,35 @@ SELECT 'pre_v36_event', COALESCE(max(source_cmd_seq), 0) FROM event_journal WHER
 
 배포 시 일회 확인이 붙는다. `cmd_seq` 이하의 명령 중 이벤트가 없는 것이 0건이어야 한다. 0 이 아니면 V36 이전 구간이 단일 라이터였다는 전제가 틀린 것이고 여기서 멈춘다.
 
-**(3) 파티션을 코드보다 먼저 만든다.**
+**(3) 파티션을 코드보다 먼저 만든다. 대역 잎은 마켓이 있는 것만 만든다.**
 
 - 레거시 꼬리 `command_journal_p200000000` = `[2x10^8, 10^12)` 하나. **이것 하나가 1-4 의 17.4일 시한을 닫는다.** 이 판을 접어도 이 파티션은 남긴다.
-- 대역 `command_journal_b<K>` = `[K*10^12, (K+1)*10^12)` 를 K=1..63 에 대해.
+- 대역 `command_journal_b<K>` = `[K*10^12, (K+1)*10^12)` 를 **지금 있는 마켓 id K 에 대해서만** 만든다. 12마켓이면 잎 12개에 레거시 셋을 더해 열다섯이다. 앞으로 생길 마켓의 잎은 (6)의 트리거가 만든다.
+- b1..b63 선생성을 하지 않는 이유는 0단계 실측 (2)다. 멱등 조회가 파티션 키 술어 없이 잎 전부를 훑어, 잎 67개면 접수 락 안에 2.94밀리초가 더 붙고 잎 15개면 0.26밀리초다.
 - 전부 비어 있으므로 DROP 으로 되돌릴 수 있다. 대역 값이 처음 쓰이는 것은 6단계이고 이것은 1단계다. 배포 순서가 곧 안전이다.
 
 **(4) `next_market_journal_value` 일반화.** 하드코딩된 `> 10000000`(V36:66)을 `journal_band_spec` PK 조회로 바꾼다. 2행짜리 표의 PK 조회라 공유 버퍼에서 끝나지만 이 함수는 정산 핫패스이므로 1단계 배포 전후로 `exchange.writer.sink.nanos` 를 대조한다.
 
-**(5) `next_market_command_seq(p_market_id SMALLINT) RETURNS BIGINT` 신설.** `band_span`·`max_band_index` 를 조회하고, `p_market_id < 1 OR > max_band_index` 면 예외, `next_market_journal_value(p_market_id, 'command_seq', 1)` 로 지역 번호를 받고, 지역 번호가 `band_span` 이상이면 예외, `p_market_id * band_span + local` 을 반환한다. 파생을 DB 에 두어 앱이 대역 폭을 모르게 한다.
+**(5) `next_market_command_seq(p_market_id SMALLINT) RETURNS BIGINT` 신설.** `band_span`·`max_band_index` 를 조회하고, `p_market_id < 1 OR > max_band_index` 면 예외, 그 마켓의 대역 잎 `command_journal_b<p_market_id>` 가 없으면 예외, `next_market_journal_value(p_market_id, 'command_seq', 1)` 로 지역 번호를 받고, 지역 번호가 `band_span` 이상이면 예외, `p_market_id * band_span + local` 을 반환한다. 파생을 DB 에 두어 앱이 대역 폭을 모르게 한다.
 
-**(6) 시드와 트리거.** `market_journal_counters` 에 기존 마켓의 `'command_seq'` 행을 넣고, `seed_market_journal_counters`(V36:78-89)를 확장해 `'command_seq'` 도 시드하며 `NEW.id > max_band_index` 면 거부한다. `markets.id` 는 `SMALLINT PRIMARY KEY` 로 운영이 값을 직접 준다(V1:38). 파티션 없는 마켓이 애초에 만들어지지 않게 하는 구조적 차단이 이것이다.
+**(6) 시드와 트리거.** `market_journal_counters` 에 기존 마켓의 `'command_seq'` 행을 넣고, `seed_market_journal_counters`(V36:78-89)를 확장해 `'command_seq'` 도 시드하며, `NEW.id > max_band_index` 면 거부하고, 그 마켓의 대역 잎 `command_journal_b<NEW.id>` 를 만든다. `markets.id` 는 `SMALLINT PRIMARY KEY` 로 운영이 값을 직접 준다(V1:38). 마켓 행과 잎이 같은 트랜잭션에서 생기므로 파티션 없는 마켓이 만들어지지 않는다. 대가는 마켓 생성 순간 `command_journal` 부모에 걸리는 ACCESS EXCLUSIVE 잠금이고, 그동안 접수 append 가 기다린다. 마켓 생성은 관리자 조작이라 드물다. 채번 함수 (5)의 `p_market_id > max_band_index` 가드가 같은 상한을 한 번 더 막는다.
 
 **(7) 권한.** GRANT 는 표 단위라 그대로이고 새 함수에만 EXECUTE 를 준다. 두 새 표는 `harness_role` 에 SELECT.
 
 되돌리기: 파티션 DROP(비어 있음), 두 함수 CREATE OR REPLACE 복귀, 시드 행 DELETE, 표 둘 DROP.
 
-### 3-2. V40__band_headroom.sql (7단계)
+### 3-2. V41__band_headroom.sql (7단계)
 
 - `v_journal_band_headroom` 뷰. 마켓별 `next_value`, `band_span - next_value`, 잔여 비율.
 - 게이지 `exchange.journal.band.remaining{name,market}`. 정적 바닥은 SQL 이, 소진 속도는 게이지가 본다.
 
-### 3-3. V41__event_seq_band_widen.sql (선택. 별건)
+### 3-3. V42__event_seq_band_widen.sql (선택. 별건)
 
 이벤트 축의 한계 43 을 같은 처방으로 닫는다. `journal_band_spec` 의 `('event_seq', 10^7, 19)` 를 `(10^12, 63)` 으로 올리고 `event_journal` 파티션을 같은 모양으로 더한다. 이벤트 축은 `market_seq` 가 별도 컬럼이라 지역 번호가 이어지고 파생값만 뛴다. 기존 행은 그대로 유일하고 마켓 안에서 증가도 유지된다. **이 판의 필수가 아니다.** 명령 축 커트오버가 안정화된 뒤 별도 회차로 판단한다.
 
 ### 3-4. 새 컬럼·새 인덱스가 없다
 
-`command_journal` 에 컬럼을 더하지 않는다. 인덱스도 더하지 않는다. 마켓별 읽기는 기존 `idx_cmd_market (market_id, seq)`(V1:585)로 끝나고 대역 술어가 파티션 프루닝까지 한다. 멱등 조회는 기존 `idx_cmd_client_new` 로 끝난다(정렬 대상이 0 또는 1행이라 추가 정렬 비용이 없다). 크래시 창 정렬은 메모리에서 한다(5-3).
+`command_journal` 에 컬럼을 더하지 않는다. 인덱스도 더하지 않는다. 마켓별 읽기는 기존 `idx_cmd_market (market_id, seq)`(V1:585)로 끝나고 대역 술어가 파티션 프루닝까지 한다. 멱등 조회는 기존 `idx_cmd_client_new` 로 끝나지만 파티션 키 술어가 없어 잎마다 인덱스를 한 번씩 훑는다. 잎 수가 곧 비용이라 3-1(3)이 잎을 마켓 수로 묶는다. 크래시 창 정렬은 메모리에서 한다(5-3).
 
 ---
 
@@ -348,11 +353,11 @@ private ReentrantLock lockFor(int marketId) {
 
 ### 4-3. 채번과 멱등
 
-- `CommandJournalAppender.appendInTx` 의 `SELECT next_journal_value('command_seq')`(:99-101) 한 줄을 `SELECT next_market_command_seq(?)` 로 바꾼다. 6단계다.
-- 채번은 지금도 멱등 판정 뒤에 있다(:92-101). 그 순서가 C05 의 근거이므로 주석이 아니라 구조로 유지한다. 채번과 INSERT 사이에 조건 분기를 넣지 않는다.
-- **어드바이저리 락 키를 건드리지 않는다.** `pg_advisory_xact_lock(hashtextextended('cmd-new:' || user_id || ':' || client_order_id, 0))`(:125)의 키에 `market_id` 를 넣지 않는다. 지금은 전역 `submitLock` 이 모든 append 를 직렬화하므로 이 락의 교차 마켓 역할이 잠들어 있다. 락을 가르는 순간 겹이 둘에서 하나로 줄고 이 락만 남는다. 키에 마켓을 넣으면 서로 다른 마켓의 같은 `(user_id, client_order_id)` 동시 재전송 둘이 서로를 못 보고 둘 다 ACK 를 받는다. 그 뒤 정산의 `orders` INSERT 가 `uq_orders_client` 23505 로 죽고 라이터가 fail-fast 한다. `command_journal` 은 seq 파티션이라 `(user_id, client_order_id)` UNIQUE 를 물리로 걸 수 없으므로 대체 방어선이 없다(V1:586-588 주석이 그 사실을 이미 적고 있다).
-- 같은 이유로 `findExistingNew` 의 WHERE 에도 `market_id` 를 넣지 않는다(:129-135). 멱등 네임스페이스가 `(user_id, client_order_id)` 이고 마켓이 없다.
-- **한 줄이 바뀐다.** `ORDER BY seq LIMIT 1`(:133)은 대역 파생에서 '가장 이른 시각' 이 아니라 '가장 작은 marketId' 를 고른다. 그 행의 `seq` 와 `assigned_order_id` 가 `AppendResult` 로 나가 200 replayed 응답에 실리므로, 사용자가 내지 않은 마켓의 주문이 자기 주문으로 돌아간다. `ORDER BY created_at, seq LIMIT 1` 로 바꾼다. `idempotency_keys` 내용 해시 대조가 앞에서 409 로 끊지만 그 표는 7일 보존이고 저널은 무기한 권위라 만료 이후가 이 경로다.
+- 채번은 `append_command_prologue`(V39) 안의 `next_journal_value('command_seq')` 한 줄이다. 6단계에서 마켓 id 를 받는 판을 더하고 그 줄을 `next_market_command_seq(p_market_id)` 로 바꾼다. 새 판을 더하는 마이그레이션은 되돌릴 수 있고, 앱이 새 판을 불러 첫 대역 행이 커밋되는 순간이 비가역 지점이다.
+- 채번은 지금도 멱등 판정 뒤에 있고 V39 가 그 순서를 함수 구조로 못박았다. 그 순서가 C05 의 근거이므로 새 판도 같은 구조를 유지한다. 채번과 INSERT 사이에 조건 분기를 넣지 않는다.
+- **어드바이저리 락 키를 건드리지 않는다.** `pg_advisory_xact_lock(hashtextextended('cmd-new:' || user_id || ':' || client_order_id, 0))`(V39 함수 본문)의 키에 `market_id` 를 넣지 않는다. 지금은 전역 `submitLock` 이 모든 append 를 직렬화하므로 이 락의 교차 마켓 역할이 잠들어 있다. 락을 가르는 순간 겹이 둘에서 하나로 줄고 이 락만 남는다. 키에 마켓을 넣으면 서로 다른 마켓의 같은 `(user_id, client_order_id)` 동시 재전송 둘이 서로를 못 보고 둘 다 ACK 를 받는다. 그 뒤 정산의 `orders` INSERT 가 `uq_orders_client` 23505 로 죽고 라이터가 fail-fast 한다. `command_journal` 은 seq 파티션이라 `(user_id, client_order_id)` UNIQUE 를 물리로 걸 수 없으므로 대체 방어선이 없다(V1:586-588 주석이 그 사실을 이미 적고 있다).
+- 같은 이유로 멱등 조회의 WHERE 에도 `market_id` 를 넣지 않는다. 그 조회는 `append_command_prologue`(V39) 안에 있다. 멱등 네임스페이스가 `(user_id, client_order_id)` 이고 마켓이 없다.
+- **한 줄이 바뀐다.** `ORDER BY seq LIMIT 1`(V39 함수 본문)은 대역 파생에서 '가장 이른 시각' 이 아니라 '가장 작은 marketId' 를 고른다. 그 행의 `seq` 와 `assigned_order_id` 가 `AppendResult` 로 나가 200 replayed 응답에 실리므로, 사용자가 내지 않은 마켓의 주문이 자기 주문으로 돌아간다. `ORDER BY created_at, seq LIMIT 1` 로 바꾼다. `idempotency_keys` 내용 해시 대조가 앞에서 409 로 끊지만 그 표는 7일 보존이고 저널은 무기한 권위라 만료 이후가 이 경로다.
 
 ### 4-4. 잠금 계층과 교착
 
@@ -558,7 +563,7 @@ event_journal   WHERE event_seq > $EvtWatermark  AND fencing_epoch = $OldEpoch
 
 **멈추면.** 오늘 그대로다. 되돌리기는 배포 롤백이다.
 
-### 1단계. V39 (되돌릴 수 있다. 채번 경로를 바꾸지 않는다)
+### 1단계. V40 (되돌릴 수 있다. 채번 경로를 바꾸지 않는다)
 
 3-1 전부. **처리량이 오르기 전에 넣는다.**
 
@@ -593,7 +598,7 @@ event_journal   WHERE event_seq > $EvtWatermark  AND fencing_epoch = $OldEpoch
 
 ### 4단계. 접수 락 분할 (되돌릴 수 있다)
 
-4-1 부터 4-4 까지. `findExistingNew` 의 `ORDER BY created_at, seq` 포함.
+4-1 부터 4-4 까지. 멱등 조회의 `ORDER BY created_at, seq` 포함. 그 조회가 V39 함수 안이라 함수 본문을 바꾸는 마이그레이션이 붙고, CREATE OR REPLACE 로 되돌릴 수 있다.
 
 **이 단계에서 처리량 이득은 없다.** 채번이 아직 전역이라 12개 트랜잭션이 `journal_counters` 행 잠금에서 다시 직렬화된다. V36 격리 실측으로 12 라이터 전역 카운터가 43.5/s 였다. ADR 0021 3단계와 같은 성질이고 같은 문장으로 적는다. 목적은 이득이 아니라 이득의 전제를 까는 것이고, 커트오버 단계를 최대한 작게 만드는 것이다.
 
@@ -607,11 +612,11 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 
 ### 6단계. 커트오버 (**되돌릴 수 없다**)
 
-`CommandJournalAppender.appendInTx` 의 한 줄을 `SELECT next_market_command_seq(?)` 로 바꾼다. 첫 대역 행이 커밋되는 순간이 돌아올 수 없는 지점이다. 그 뒤에 '역시 전역으로 돌아가자' 를 하려면 이미 쓴 대역 값보다 큰 값에서 전역 채번을 이어야 하는데, 그러면 전역 축이 다시 결번투성이라 C05 레거시 항이 영영 성립하지 않는다.
+앱이 `append_command_prologue` 의 마켓 id 판을 부르게 바꾼다(4-3). 첫 대역 행이 커밋되는 순간이 돌아올 수 없는 지점이다. 그 뒤에 '역시 전역으로 돌아가자' 를 하려면 이미 쓴 대역 값보다 큰 값에서 전역 채번을 이어야 하는데, 그러면 전역 축이 다시 결번투성이라 C05 레거시 항이 영영 성립하지 않는다.
 
 배포 전 확인 다섯.
 
-1. `command_journal_b1`..`b63` 과 꼬리 파티션이 실재하는가.
+1. 모든 마켓의 대역 잎 `command_journal_b<K>` 와 꼬리 파티션이 실재하는가.
 2. 3단계 술어가 오늘 값과 같은가.
 3. 5단계가 통과했는가.
 4. `market_journal_counters` 에 12마켓의 `command_seq` 행이 다 있는가.
@@ -619,7 +624,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 
 되돌리기: 없다.
 
-### 7단계. V40 + 스냅샷 훅 배선 (되돌릴 수 있다)
+### 7단계. V41 + 스냅샷 훅 배선 (되돌릴 수 있다)
 
 - 대역 여유 뷰·게이지·C26 알람 라우팅.
 - `EngineConfig.snapshotCapture` 가 레거시 `singleWriterLoop` 빈에만 훅을 거는 것(EngineConfig.java:211-223)을 샤드 팩토리(EngineConfig.java:245-288)로 옮긴다. `setSnapshotHook` 호출부가 코드 전체에 그 한 줄뿐이고 라우터 샤드에는 없다. 곧 **지금 스냅샷이 한 건도 안 찍히고 복구가 항상 seq 0 전량 재생이다.** 샤드마다 `SnapshotCapture` 를 하나 두면 `seq - lastCapturedSeq >= commandInterval` 판정이 자연히 마켓 단위가 된다.
@@ -629,7 +634,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 
 `wal-fsync-20260907` 이 "재지 않았다" 로 남긴 자리다. 그 문서의 유보 사유가 "커밋이 단일 라이터에서 직렬화되어 동시 커밋자가 적다" 였고, **6단계가 그 전제를 바꾼다.** `synchronous_commit=off` 와 다르다. 동기 커밋을 유지한 채 플러셔가 형제 트랜잭션을 모으도록 기다리게 하는 것이라 'fsync 후 ACK' 계약을 깨지 않는다. `commit_siblings` 와 함께 격자로 돈다. `ALTER SYSTEM RESET` 으로 되돌린다.
 
-### 9단계. V41 이벤트 축 대역 확대 (선택. 별건)
+### 9단계. V42 이벤트 축 대역 확대 (선택. 별건)
 
 3-3. 이 판의 필수가 아니다.
 
@@ -728,12 +733,12 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 5. **스냅샷은 지금 한 건도 안 찍힌다.** 7단계가 처음 도는 코드이고, 채택 게이트가 실동작하는 것도 처음이다. 시험 부담이 가장 큰 단계이며 폴백(전량 재생)을 남긴다.
 6. **6단계는 비가역이다.** 되돌리면 전역 축의 C05 원형이 영영 성립하지 않는다.
 7. **C26 은 10^12 대역에서 사실상 공허하다.** 6-4 에 이유와 실제 방어선을 적었다.
-8. **파티션 67개의 전역 정렬 비용을 안 쟀다.** 점 조회와 마켓별 읽기는 프루닝되지만 C22 의 `ORDER BY created_at, seq` 는 전량 정렬이다. 3단계에서 실측 시간을 기록한다.
+8. **파티션 15개의 전역 정렬 비용을 안 쟀다.** 점 조회와 마켓별 읽기는 프루닝되지만 C22 의 `ORDER BY created_at, seq` 는 전량 정렬이다. 3단계에서 실측 시간을 기록한다.
 9. **`journal_band_spec` 조회가 정산 핫패스에 들어간다.** `next_market_journal_value` 가 일반화되면서 호출마다 2행짜리 표의 PK 조회가 붙는다. 1단계 배포 전후로 `exchange.writer.sink.nanos` 를 대조한다.
 10. **제공 부하 600/s 를 낼 시드·VU 가 아직 없다.** 이것은 위험이 아니라 절차이고 0단계 (d)에서 준비한다. 올리지 않고 재면 '개선했는데 수치가 그대로' 가 나온다.
 11. **6-5 의 이벤트 축 fail-open 은 V36 이후 이미 존재했다.** 그 사이 회차의 E5·E7 split-brain 반증 PASS 는 소급 무효일 수 있다. 정본 한계로 등재한다.
 12. **`legacy_bound` 박제는 'V36 이전 구간이 단일 라이터였다' 는 전제 위에 있다.** 1단계 배포 시 일회 질의로 확인하고, 0 이 아니면 거기서 멈춘다.
-13. **`findExistingNew` 의 교차 마켓 동일 coid 는 여전히 200 replayed 로 돌아간다.** `ORDER BY created_at, seq` 는 '가장 이른 것' 을 옳게 고르지만, 다른 마켓의 그 주문을 409 로 끊지는 않는다. 행동 변경이라 이 판의 범위 밖으로 둔다. `idempotency_keys` 7일 보존 뒤가 그 경로다.
+13. **멱등 조회의 교차 마켓 동일 coid 는 여전히 200 replayed 로 돌아간다.** `ORDER BY created_at, seq` 는 '가장 이른 것' 을 옳게 고르지만, 다른 마켓의 그 주문을 409 로 끊지는 않는다. 행동 변경이라 이 판의 범위 밖으로 둔다. `idempotency_keys` 7일 보존 뒤가 그 경로다.
 
 2026-09-11 재심에서 셋을 더 찾았다. 셋 다 이 판의 채택 여부와 무관하게 실재한다.
 
@@ -745,15 +750,18 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
     스냅샷이 0건이라(9-5) 복구가 항상 전량 재생이므로 첫 기동에서 만난다. 지금 그 경로를
     부르는 곳이 `SnapshotEquivalenceIntegrationTest` 뿐이라 아직 안 터졌을 뿐이다.
     해는 레거시 구간을 `command_journal` 조인으로 유도하는 두 패스 구조이고, 2단계 시험
-    조건에 명시한다.
-15. **`findExistingNew` 가 파티션 잎 전부를 훑는다.** 술어가
-    `(command_type, user_id, client_order_id)` 뿐이라 파티션 프루닝이 계획시에도 실행시에도
-    0 이다. 그 조회가 어드바이저리 락 안, append 트랜잭션 안, 곧 상한 그 자체인 6.879밀리초
-    안이다. 3-4 의 "추가 비용이 없다" 는 정렬만 따지고 Append 자식 수를 안 따진 문장이다.
-    배치 순서가 더 나쁘다. 1단계가 잎을 67개로 만드는데 락 분할은 뒤 단계라, 그 사이 내내
-    전역 락이 구속인 상태에서 이 비용만 먼저 문다. 완화는 b1..b63 선생성을 마켓 생성 시
-    잎 생성으로 바꾸는 것이고 그러면 잎이 열다섯이 된다. 대신 3-1(6)의 구조적 차단 논거가
-    약해지므로 그 거래를 0단계 (e) 실측 뒤에 고른다.
+    조건에 명시한다. **2026-09-13 확인. 새로 만든 DB 에는 이 구간이 없다.** HEAD 로 세운
+    카오스 스택에서 `event_journal` 5,648행 중 `market_id` NULL 이 0행이었다. 빈 DB 에
+    V36 까지 한 번에 적용되므로 모든 행이 V36 이후다. 곧 이 결함은 V36 적용 전부터 행이 있던
+    DB 에서만 발화하고, 새 DB 로 시작하는 클라우드 배포에는 해당하지 않는다. 두 패스 구조는
+    그대로 넣는다. `legacy_bound` 가 0 이면 레거시 패스가 빈 구간이라 비용이 없다.
+15. **멱등 조회가 파티션 잎 전부를 훑는다. 3-1(3)으로 해소했다.** 술어가
+    `(command_type, user_id, client_order_id)` 뿐이라 파티션 프루닝이 없고, 그 조회가 접수
+    락 안에 있다. 2026-09-13 실행 계획으로 확인했다. 잎마다 인덱스 스캔 하나를 붙인 Append 다.
+    조회는 `findExistingNew` 에서 `append_command_prologue`(V39)로 옮겨졌고 술어는 같다.
+    0단계 실측 (2)가 잎 3·15·67 에서 중앙값 0.329·0.584·3.265밀리초를 냈다. 그래서
+    b1..b63 선생성을 버리고 마켓이 있는 잎만 만든다. 구조적 차단은 채번 함수 가드와 마켓
+    생성 트리거로 옮겼다(3-1(5), 3-1(6)).
 16. **마켓별 축이 새 실패 모드를 만든다. 지금 그것을 잡는 검사가 없다.** 오늘은 저널이
     전역 축 하나라 백업 복원이 한 점으로 잘린다. 마켓별 축이면 열두 마켓이 저마다 다른
     지점으로 잘린 상태가 물리적으로 표현 가능하고, 마켓 안에서는 여전히 조밀하므로
@@ -772,7 +780,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 - 헤드라인이 자기 모형과 모순이다. 저자 스스로 배치 크기를 `B = λ x T(B)` 의 Nagle 관계로 정의했는데, 주장 착지 293.6/s 에서 그 식이 주는 B 는 2.21 이다. 명령당 플러시가 1.0625 가 아니라 1.452 이고 요구 플러시 426/s 가 저자가 든 예산 311.9/s 를 초과한다. B=16 은 λ≈2,100/s 가 선행돼야 도달한다. 자기 일관해는 약 172/s 다.
 - 그리고 `wal-fsync-20260907` 이 이미 같은 방안을 재고 기각했다. "저널 적재 배치로 얻을 수 있는 최대가 요청 시간의 8퍼센트다."
 
-**살려서 이 판에 넣은 것.** (a) 저장소 내구 커밋 예산을 상한 사다리에 넣는다(8-2). (b) V39 파티션 선행 확장과 `command_journal_default` 유입을 CRITICAL 로 올리는 것을 1단계와 6-4 로 옮겼다. 이 판을 접어도 남긴다. (c) '채번을 멱등 판정 뒤에 두고 그 순서를 주석이 아니라 구조로 강제한다' 는 규율(4-3). (d) 그룹 커밋 자체는 배타적이지 않다. 락을 가르면 저널 축에 동시 커밋자가 생겨 PostgreSQL 이 알아서 묶을 수 있다. 8단계가 그 자리다.
+**살려서 이 판에 넣은 것.** (a) 저장소 내구 커밋 예산을 상한 사다리에 넣는다(8-2). (b) V40 파티션 선행 확장과 `command_journal_default` 유입을 CRITICAL 로 올리는 것을 1단계와 6-4 로 옮겼다. 이 판을 접어도 남긴다. (c) '채번을 멱등 판정 뒤에 두고 그 순서를 주석이 아니라 구조로 강제한다' 는 규율(4-3). (d) 그룹 커밋 자체는 배타적이지 않다. 락을 가르면 저널 축에 동시 커밋자가 생겨 PostgreSQL 이 알아서 묶을 수 있다. 8단계가 그 자리다.
 
 ### 10-2. 전역 시퀀스 + `market_cmd_seq` 별도 컬럼
 
