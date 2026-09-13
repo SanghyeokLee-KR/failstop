@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -129,11 +128,10 @@ public class EngineRecovery {
     }
 
     /**
-     * 스냅샷 로드 후 tail 재생(복구 RTO 설계 §3-b). fresh 엔진에 최신 채택 스냅샷을 적재하고
-     * seq > snapshot.last_applied_seq만 재생해 tail을 상한한다. 채택 게이트를 통과하는 스냅샷이
-     * 없으면 eventStart=0으로 seq 0 전량 재생(폴백)한다. 버전·설정·checksum 불일치는 게이트가
-     * 폐기하므로 여기까지 오지 않는다(§3-b 단일 정본 규율). 로드는 fresh 엔진에만 허용된다
-     * (MatchingEngineImpl.loadSnapshot 가드).
+     * 스냅샷 로드 후 tail 재생(복구 RTO 설계 §3-b). fresh 엔진에 마켓마다 최신 채택 스냅샷을 적재하고
+     * 그 마켓에서 seq > 스냅샷 seq 만 재생해 tail 을 상한한다. 채택본이 없는 마켓은 0 에서 재생한다.
+     * 버전·설정·checksum 불일치는 게이트가 폐기하므로 여기까지 오지 않는다(§3-b 단일 정본 규율).
+     * 로드는 fresh 마켓에만 허용된다(MatchingEngineImpl.loadMarketSnapshot 가드).
      */
     public ReplayResult recover(MatchingEngineImpl engine) {
         return recover(engine, java.time.Duration.ZERO);
@@ -162,15 +160,14 @@ public class EngineRecovery {
      */
     private ReplayResult recover(MatchingEngineImpl engine, java.time.Duration promotionWait,
                                  boolean followerAllowed) {
-        // 이벤트 커서 시작점을 여기서 유도하지 않는다. loadSnapshot 이 커서 바닥을 snapSeq 로 세우고
-        // 재생이 engine.appliedSeq(marketId) 에서 커서를 연다. 호출자가 넘기면 다른 축 값이 들어갈 수 있다(ADR 0023 결정 2).
+        // 이벤트 커서 시작점을 여기서 유도하지 않는다. loadMarketSnapshot 이 마켓 커서를 그 마켓 스냅샷 seq 로
+        // 세우고 재생이 engine.appliedSeq(marketId) 에서 커서를 연다. 호출자가 넘기면 다른 축 값이 들어갈 수 있다(ADR 0023 결정 2).
         if (snapshotSource != null) {
-            Optional<SnapshotSource.Loaded> snap = snapshotSource.loadLatestAdoptable();
-            if (snap.isPresent()) {
-                long snapSeq = snap.get().seq();
-                engine.loadSnapshot(snapSeq, snap.get().books());
-                log.info("스냅샷 채택: last_applied_seq={}, markets={}",
-                        snapSeq, snap.get().books().size());
+            Map<Integer, SnapshotSource.MarketLoaded> snaps = snapshotSource.loadLatestAdoptablePerMarket();
+            snaps.forEach((marketId, snap) -> engine.loadMarketSnapshot(marketId, snap.seq(), snap.book()));
+            if (!snaps.isEmpty()) {
+                log.info("스냅샷 채택(마켓별): {}", snaps.entrySet().stream()
+                        .map(e -> e.getKey() + "@" + e.getValue().seq()).toList());
             }
         }
         long replayFrom = engine.lastAppliedSeq();

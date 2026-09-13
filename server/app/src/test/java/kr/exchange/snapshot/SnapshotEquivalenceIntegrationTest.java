@@ -40,6 +40,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -194,50 +196,117 @@ class SnapshotEquivalenceIntegrationTest {
 
     @Test
     void storeRecoveryAdoptsLatestThenFallsBackOnCorruption() {
-        // 공유 append-only snapshots 테이블이라 형제 테스트가 심은 유효 세트도 후보에 든다.
-        // 채택 seq를 하드코딩하지 않고 게이트가 고른 값으로 tail 상한을 검증한다(순서 무관).
+        // 공유 append-only snapshots 테이블이라 형제 테스트가 심은 유효본도 후보에 든다. 채택 seq 를
+        // 하드코딩하지 않고 게이트가 마켓마다 고른 값으로 tail 상한을 검증한다(순서 무관).
         SnapshotStore store = new SnapshotStore(jdbc, tx, ENGINE_VERSION, CONFIG_HASH);
         store.persist(9, leaderEpoch, capturedByK.get(9L));
 
-        long adopted = store.loadLatestAdoptable().orElseThrow().seq();
-        assertTrue(adopted >= 9 && adopted < leaderHead, "유효 스냅샷 채택 실패: seq=" + adopted);
+        Map<Integer, SnapshotSource.MarketLoaded> adopted = store.loadLatestAdoptablePerMarket();
+        assertEquals(Set.of(1, 2, 3), adopted.keySet(), "유효 스냅샷을 채택하지 않은 마켓이 있다");
+        assertTrue(adopted.values().stream().allMatch(loaded -> loaded.seq() >= 9 && loaded.seq() < leaderHead),
+                "유효 스냅샷 채택 실패: " + seqs(adopted));
         ReplayResult adoptResult = recoverWith(store);
         assertEngineBytesEqual(fullReplay(), lastRecovered, "store-adopt");
-        assertEquals(leaderHead - adopted, adoptResult.replayedCommands(), "채택 tail 상한 위반");
+        assertEquals(tailCommands(adopted), adoptResult.replayedCommands(), "채택 tail 상한 위반");
         assertTrue(adoptResult.pendingEvents().isEmpty());
 
-        // state_checksum 손상 세트를 최상위 seq에 추가한다. 채택 게이트가 폐기하고 직전 유효
-        // 프리픽스로 폴백해야 한다(스냅샷 = 저널 파생 최적화, 단일 정본 아님).
+        // state_checksum 손상본을 전 마켓 최상위 seq 에 추가한다. 게이트가 폐기하고 마켓마다 직전 유효본으로
+        // 물러서야 한다(스냅샷 = 저널 파생 최적화, 단일 정본 아님).
         long kCorrupt = 17;
         List<SnapshotStore.MarketState> corrupt = new ArrayList<>();
         for (SnapshotStore.MarketState ms : capturedByK.get(kCorrupt)) {
             corrupt.add(new SnapshotStore.MarketState(ms.marketId(), ms.state(), ms.checksum() ^ 0x5A5AL));
         }
         store.persist(kCorrupt, leaderEpoch, corrupt);
-        assertEquals(adopted, store.loadLatestAdoptable().orElseThrow().seq(),
-                "손상 세트를 폐기하고 직전 유효 프리픽스로 폴백해야 한다");
+        assertEquals(seqs(adopted), seqs(store.loadLatestAdoptablePerMarket()),
+                "손상본을 폐기하고 마켓마다 직전 유효본으로 물러서야 한다");
         ReplayResult afterCorrupt = recoverWith(store);
         assertEngineBytesEqual(fullReplay(), lastRecovered, "store-fallback-checksum");
-        assertEquals(leaderHead - adopted, afterCorrupt.replayedCommands(),
-                "손상 폴백 tail 상한 위반");
+        assertEquals(tailCommands(adopted), afterCorrupt.replayedCommands(), "손상 폴백 tail 상한 위반");
+    }
+
+    @Test
+    void corruptSnapshotOfOneMarketFallsBackOnlyThatMarket() {
+        SnapshotStore store = new SnapshotStore(jdbc, tx, ENGINE_VERSION, CONFIG_HASH);
+        store.persist(13, leaderEpoch, capturedByK.get(13L));
+        List<SnapshotStore.MarketState> oneCorrupt = new ArrayList<>();
+        for (SnapshotStore.MarketState ms : capturedByK.get(15L)) {
+            long checksum = ms.marketId() == 3 ? ms.checksum() ^ 0x5A5AL : ms.checksum();
+            oneCorrupt.add(new SnapshotStore.MarketState(ms.marketId(), ms.state(), checksum));
+        }
+        store.persist(15, leaderEpoch, oneCorrupt);
+
+        Map<Integer, SnapshotSource.MarketLoaded> adopted = store.loadLatestAdoptablePerMarket();
+
+        assertEquals(Set.of(1, 2, 3), adopted.keySet(), "채택본이 없는 마켓이 있다: " + seqs(adopted));
+        assertTrue(adopted.get(1).seq() >= 15 && adopted.get(2).seq() >= 15,
+                "손상 없는 마켓이 15 를 채택하지 않았다. 한 마켓 손상이 다른 마켓을 끌어내렸다: " + seqs(adopted));
+        assertTrue(adopted.get(3).seq() >= 13 && adopted.get(3).seq() < 15,
+                "손상 마켓이 폐기되지 않았거나 직전 유효본으로 물러서지 않았다: " + seqs(adopted));
+        // 물러선 구간에 그 마켓 명령이 있어야 커서를 어디서 여는지가 북 바이트와 tail 수로 드러난다.
+        assertTrue(commandsBetween(3, adopted.get(3).seq(), 15) > 0,
+                "마켓 3 이 물러선 구간에 명령이 없어 물러선 마켓의 커서가 판정되지 않는다");
+        ReplayResult result = recoverWith(store);
+        assertEngineBytesEqual(fullReplay(), lastRecovered, "one-market-fallback");
+        assertEquals(tailCommands(adopted), result.replayedCommands(), "마켓별 tail 상한 위반");
+        assertTrue(result.pendingEvents().isEmpty());
+    }
+
+    @Test
+    void snapshotWhoseBookBelongsToAnotherMarketIsDiscarded() {
+        SnapshotStore store = new SnapshotStore(jdbc, tx, ENGINE_VERSION, CONFIG_HASH);
+        SnapshotStore.MarketState market2Book = capturedByK.get(16L).stream()
+                .filter(ms -> ms.marketId() == 2).findFirst().orElseThrow();
+        // 마켓 1 행에 마켓 2 의 북을 싣는다. checksum 은 그 북의 것이라 checksum 게이트는 통과한다.
+        store.persist(16, leaderEpoch,
+                List.of(new SnapshotStore.MarketState(1, market2Book.state(), market2Book.checksum())));
+
+        Map<Integer, SnapshotSource.MarketLoaded> adopted = store.loadLatestAdoptablePerMarket();
+
+        assertTrue(!adopted.containsKey(1) || adopted.get(1).seq() != 16,
+                "다른 마켓의 북을 담은 스냅샷을 채택했다: " + seqs(adopted));
+        recoverWith(store);
+        assertEngineBytesEqual(fullReplay(), lastRecovered, "foreign-book-discard");
+    }
+
+    private static long commandsBetween(int marketId, long afterSeq, long upToSeq) {
+        return jdbc.sql("SELECT count(*) FROM command_journal WHERE market_id = ? AND seq > ? AND seq <= ?")
+                .params(marketId, afterSeq, upToSeq).query(Long.class).single();
+    }
+
+    /** 마켓마다 채택본 seq 초과 명령 수의 합. 채택본이 없는 마켓은 전 명령이다. */
+    private static long tailCommands(Map<Integer, SnapshotSource.MarketLoaded> adopted) {
+        long total = 0;
+        for (int marketId : List.of(1, 2, 3)) {
+            long from = adopted.containsKey(marketId) ? adopted.get(marketId).seq() : 0;
+            total += jdbc.sql("SELECT count(*) FROM command_journal WHERE market_id = ? AND seq > ?")
+                    .params(marketId, from).query(Long.class).single();
+        }
+        return total;
+    }
+
+    private static Map<Integer, Long> seqs(Map<Integer, SnapshotSource.MarketLoaded> adopted) {
+        Map<Integer, Long> out = new TreeMap<>();
+        adopted.forEach((marketId, loaded) -> out.put(marketId, loaded.seq()));
+        return out;
     }
 
     @Test
     void versionAndConfigMismatchDiscardAllAndFullReplay() {
         SnapshotStore base = new SnapshotStore(jdbc, tx, ENGINE_VERSION, CONFIG_HASH);
         base.persist(11, leaderEpoch, capturedByK.get(11L));
-        assertFalse(base.loadLatestAdoptable().isEmpty(), "동일 버전·설정은 채택되어야 한다");
+        assertFalse(base.loadLatestAdoptablePerMarket().isEmpty(), "동일 버전·설정은 채택되어야 한다");
 
         // engine_version 불일치: 전 세트 폐기 → 전량 재생.
         SnapshotStore upgraded = new SnapshotStore(jdbc, tx, "engine-m2", CONFIG_HASH);
-        assertTrue(upgraded.loadLatestAdoptable().isEmpty(), "engine_version 불일치 채택");
+        assertTrue(upgraded.loadLatestAdoptablePerMarket().isEmpty(), "engine_version 불일치 채택");
         ReplayResult byVersion = recoverWith(upgraded);
         assertEngineBytesEqual(fullReplay(), lastRecovered, "version-fallback");
         assertEquals(leaderHead, byVersion.replayedCommands(), "폴백인데 전량 재생이 아니다");
 
         // config_hash 불일치: 전 세트 폐기 → 전량 재생.
         SnapshotStore reconfigured = new SnapshotStore(jdbc, tx, ENGINE_VERSION, "config-changed");
-        assertTrue(reconfigured.loadLatestAdoptable().isEmpty(), "config_hash 불일치 채택");
+        assertTrue(reconfigured.loadLatestAdoptablePerMarket().isEmpty(), "config_hash 불일치 채택");
         ReplayResult byConfig = recoverWith(reconfigured);
         assertEngineBytesEqual(fullReplay(), lastRecovered, "config-fallback");
         assertEquals(leaderHead, byConfig.replayedCommands());
