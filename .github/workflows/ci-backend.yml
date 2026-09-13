@@ -89,6 +89,18 @@ jobs:
           /etc/prometheus/rules/exchange-recording.yml
           /etc/prometheus/rules/exchange-alerts.yml
 
+      # 규칙 문법 검사는 라벨 값을 보지 않는다. severity 이진 접기처럼 값 자체가 계약인
+      # 규칙은 promtool 유닛 시험으로 별도로 고정한다. 시험 픽스처는 rules/ 글롭과
+      # 충돌하지 않도록 tests/ 에 둔다. check config 와 같은 전체 디렉터리 마운트를 써서
+      # 픽스처의 상대경로(../rules/exchange-alerts.yml)가 컨테이너 안에서도 그대로 풀리게 한다.
+      - name: promtool test rules
+        run: >
+          docker run --rm --entrypoint promtool
+          -v "$PWD/harness/prometheus:/etc/prometheus:ro"
+          prom/prometheus:v3.13.0
+          test rules
+          /etc/prometheus/tests/exchange-alerts.test.yml
+
       # 대시보드 JSON 최소 sanity: 유효 JSON + 최상위 panels 비어있지 않음. jq는 러너 내장.
       - name: grafana dashboards sanity
         run: |

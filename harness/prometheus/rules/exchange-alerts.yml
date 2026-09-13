@@ -28,7 +28,13 @@ groups:
           runbook: "기획안 §10.2 무결 판정 · 검증설계 §5-3 복구 리컨실리에이션 런북 R5"
 
       - alert: InvariantViolation
-        expr: max by (check_name, severity) (exchange_invariant_violations) > 0
+        # 위반 체크의 등급(CRITICAL·HIGH·WARN, InvariantCheck.Severity)을 이 파일의 다른 알람과 같은
+        # critical·warning 이진 어휘로 접는다. Alertmanager critical 경로 매처가 소문자 정확히 일치라
+        # 접지 않으면 CRITICAL 체크 위반이 치명 경로(10s·1h)를 못 타고 기본 경로(30s·4h)로만 간다.
+        expr: label_replace(label_replace(max by (check_name, severity)
+          (exchange_invariant_violations) > 0,
+          "severity", "critical", "severity", "CRITICAL"),
+          "severity", "warning", "severity", "HIGH|WARN")
         for: 30s
         labels:
           severity: "{{ $labels.severity }}"

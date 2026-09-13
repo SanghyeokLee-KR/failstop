@@ -115,12 +115,14 @@ compose.yaml         카오스 스택 진입점
 
 `build-test` 잡은 `server`에서 `./gradlew build` 하나를 돈다. timeout 30분, 캐시는 main 밖에서 읽기 전용이다.
 
-`observability` 잡은 저장소 루트에서 네 검사를 돈다. `uses:`는 checkout 하나뿐이고 나머지는 전부 `run:`이다.
+`observability` 잡은 저장소 루트에서 다섯 검사를 돈다. `uses:`는 checkout 하나뿐이고 나머지는 전부 `run:`이다.
 
 1. `promtool check config` (`prom/prometheus:v3.13.0` 컨테이너)
 2. `promtool check rules` (`exchange-recording.yml`, `exchange-alerts.yml`)
-3. 대시보드 sanity (`jq -e '(.panels|type)=="array" and (.panels|length)>0'`)
-4. 대시보드 중복 키 (python `object_pairs_hook`)
+3. `promtool test rules` (`exchange-alerts.test.yml`). 문법 검사는 라벨 값을 보지 않으므로 `InvariantViolation`의
+   severity 이진 접기(CRITICAL·HIGH·WARN → critical·warning)처럼 값 자체가 계약인 규칙은 이 유닛 시험이 고정한다
+4. 대시보드 sanity (`jq -e '(.panels|type)=="array" and (.panels|length)>0'`)
+5. 대시보드 중복 키 (python `object_pairs_hook`)
 
 곧 관측 설정이 문법 오류이거나 대시보드에 패널이 없으면 백엔드 CI가 막힌다. 관측을 코드와 같은 게이트에 올린 것이 이 잡의 요점이다.
 
@@ -337,7 +339,7 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 
 ### 5-6. 알람 22개
 
-severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급을 라벨로 그대로 옮긴다.
+severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
 
 | 알람 | severity |
 |---|---|
