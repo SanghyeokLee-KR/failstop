@@ -1,0 +1,7 @@
+Timing is on.
+CREATE INDEX
+Time: 347.745 ms
+ERROR:  column "event_journal_p0" does not exist
+LINE 1: ...relid = (SELECT oid FROM pg_class WHERE relname = event_jour...
+                                                             ^
+Time: 0.707 ms

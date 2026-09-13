@@ -1,0 +1,1 @@
+RESULT label=idx_r2 cand_index_leaves=2 rows_before=1340266 total_ms=3270.4 inserted=200000 rows_per_s=61154.6

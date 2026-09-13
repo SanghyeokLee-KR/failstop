@@ -97,12 +97,14 @@ public class CommandJournalReader {
      */
     public List<JournalEntry> readAfterForMarket(long lastAppliedSeq, int marketId,
                                                  long upToSeq, int limit) {
+        // 마켓 id 는 리터럴로 넣는다. psql 준비문 실측에서 인자로 둔 문장은 generic 계획으로 굳어 작은 마켓에서
+        // PK 를 훑으며 다른 마켓 행을 걸렀다(harness/evidence/replay-reader-plans-20260913/).
         if (upToSeq < 0) {
-            return read("WHERE seq > ? AND market_id = ? ORDER BY seq LIMIT ?",
-                    lastAppliedSeq, marketId, limit);
+            return read("WHERE seq > ? AND market_id = " + marketId + " ORDER BY seq LIMIT ?",
+                    lastAppliedSeq, limit);
         }
-        return read("WHERE seq > ? AND market_id = ? AND seq <= ? ORDER BY seq LIMIT ?",
-                lastAppliedSeq, marketId, upToSeq, limit);
+        return read("WHERE seq > ? AND market_id = " + marketId + " AND seq <= ? ORDER BY seq LIMIT ?",
+                lastAppliedSeq, upToSeq, limit);
     }
 
     /**

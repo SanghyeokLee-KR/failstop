@@ -1,0 +1,39 @@
+CREATE TABLE
+INSERT 0 8
+INSERT 0 2
+INSERT 0 4
+INSERT 0 2
+INSERT 0 4
+INSERT 0 2
+INSERT 0 1
+     name      |   v    | o  |            note            
+---------------+--------+----+----------------------------
+ cmd_m12_mid   | 195837 |    | rank 2052 of 4105
+ cmd_m12_near  | 380422 |    | rank 3905 of 4105
+ cmd_m12_start |      0 |    | journal start
+ cmd_m1_mid    | 200619 |    | rank 79817 of 159634
+ cmd_m1_near   | 399491 |    | rank 159434 of 159634
+ cmd_m1_start  |      0 |    | journal start
+ head_m1       | 399994 |    | head
+ head_m12      | 399986 |    | head
+ q1_m12_end    | 399986 |  0 | rank 5585 of 5585
+ q1_m12_mid    | 248695 |  2 | rank 2792 of 5585
+ q1_m12_near   | 390638 |  0 | rank 5385 of 5585
+ q1_m12_start  | 100503 |  0 | rank 1 of 5585
+ q1_m1_end     | 399989 |  0 | rank 221674 of 221674
+ q1_m1_mid     | 250150 |  1 | rank 110837 of 221674
+ q1_m1_near    | 399720 |  0 | rank 221474 of 221674
+ q1_m1_start   | 100001 |  0 | rank 1 of 221674
+ q2_m12_mid    |  50048 |  0 | legacy rank 990 of 1980
+ q2_m12_near   |  89030 |  0 | legacy rank 1780 of 1980
+ q2_m12_start  |      0 | -1 | journal start
+ q2_m1_mid     |  49997 |  1 | legacy rank 36779 of 73558
+ q2_m1_near    |  99718 |  1 | legacy rank 73358 of 73558
+ q2_m1_start   |      0 | -1 | journal start
+(22 rows)
+
+                                                                                j                                                                                
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"1": 399733, "2": 398511, "3": 398152, "4": 398447, "5": 398504, "6": 398534, "7": 398211, "8": 398295, "9": 398200, "10": 398395, "11": 398115, "12": 390656}
+(1 row)
+

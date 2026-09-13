@@ -1,0 +1,9 @@
+case=a mode=auto markets=12 sum_med_ms=5.662 markets_with_jit=0 max_topcost=365.80 market_set_med_ms=1.034 market_set_jit_runs=0 market_set_topcost=545.28 total_ms=6.696
+case=a mode=force_custom_plan markets=12 sum_med_ms=6.460 markets_with_jit=0 max_topcost=365.80 market_set_med_ms=1.1 market_set_jit_runs=0 market_set_topcost=545.28 total_ms=7.560
+case=a mode=force_generic_plan markets=12 sum_med_ms=111.030 markets_with_jit=0 max_topcost=5396.01 market_set_med_ms=1.103 market_set_jit_runs=0 market_set_topcost=545.28 total_ms=112.133
+case=b mode=auto markets=12 sum_med_ms=175.673 markets_with_jit=0 max_topcost=5396.01 market_set_med_ms=1.034 market_set_jit_runs=0 market_set_topcost=545.28 total_ms=176.707
+case=b mode=force_custom_plan markets=12 sum_med_ms=190.338 markets_with_jit=0 max_topcost=24951.95 market_set_med_ms=1.1 market_set_jit_runs=0 market_set_topcost=545.28 total_ms=191.438
+case=b mode=force_generic_plan markets=12 sum_med_ms=179.132 markets_with_jit=0 max_topcost=5396.01 market_set_med_ms=1.103 market_set_jit_runs=0 market_set_topcost=545.28 total_ms=180.235
+case=c mode=auto markets=12 sum_med_ms=203.681 markets_with_jit=0 max_topcost=5396.01 market_set_med_ms=1.034 market_set_jit_runs=0 market_set_topcost=545.28 total_ms=204.715
+case=c mode=force_custom_plan markets=12 sum_med_ms=216.995 markets_with_jit=0 max_topcost=26429.78 market_set_med_ms=1.1 market_set_jit_runs=0 market_set_topcost=545.28 total_ms=218.095
+case=c mode=force_generic_plan markets=12 sum_med_ms=212.964 markets_with_jit=0 max_topcost=5396.01 market_set_med_ms=1.103 market_set_jit_runs=0 market_set_topcost=545.28 total_ms=214.067
