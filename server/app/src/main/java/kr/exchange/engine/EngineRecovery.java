@@ -272,7 +272,7 @@ public class EngineRecovery {
         ReplayResult verified = stable;
         if (after.commandSeq() > bound.commandSeq()) {
             ReplayResult more = replayService.verifyTo(engine, after);
-            verified = merge(stable, more, more.lastAppliedSeq(), more.pendingEvents());
+            verified = merge(stable, more, more.lastAppliedSeq(), more.pendingBatches());
             log.info("재생 1단계 연장(대기 중 메워진 구간): cmd<={}, 적용 {}건",
                     after.commandSeq(), more.replayedCommands());
         }
@@ -289,12 +289,12 @@ public class EngineRecovery {
         ReplayResult tail = replayService.replayTail(engine, tailHead);
         log.info("재생 2단계(크래시 창 상한 {}): 적용 {}건, 재적재 대상 {}건",
                 tailHead, tail.replayedCommands(), tail.pendingEvents().size());
-        return merge(verified, tail, tail.lastAppliedSeq(), tail.pendingEvents());
+        return merge(verified, tail, tail.lastAppliedSeq(), tail.pendingBatches());
     }
 
     /** 두 재생 결과를 하나로 접는다. 관측 수치가 단계마다 잘리지 않게 한다. */
     private static ReplayResult merge(ReplayResult first, ReplayResult second, long lastAppliedSeq,
-                                      List<EngineEvent> pending) {
+                                      List<ReplayResult.PendingBatch> pending) {
         return new ReplayResult(lastAppliedSeq,
                 first.replayedCommands() + second.replayedCommands(),
                 first.verifiedEvents() + second.verifiedEvents(),

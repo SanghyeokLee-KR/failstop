@@ -51,10 +51,7 @@ public class EventJournalReader {
      * 결과에는 cursors 의 마켓과 명령이 있는 마켓이 모두 담긴다. cursors 에 없는 마켓의 커서는 0 이다.
      */
     public JournalCheckpoints materializedThroughByMarket(Map<Integer, Long> cursors) {
-        long legacyBound = jdbc.sql(
-                        "SELECT cmd_seq FROM journal_axis_boundary WHERE name = 'pre_v36_event'")
-                .query(Long.class)
-                .single();
+        long legacyBound = legacyBound();
         // 구멍 탐색과 head 를 한 문장에 둔다. 둘을 따로 읽으면 사이에 접수된 미물질화 명령이
         // head 로 잡혀 상한이 그 명령 위로 올라간다. 커서는 마켓 수만큼 늘어 jsonb 한 인자로 넘긴다.
         Map<Integer, Long> bounds = new HashMap<>();
@@ -88,6 +85,13 @@ public class EventJournalReader {
                 .list()
                 .forEach(e -> bounds.put(e.getKey(), e.getValue()));
         return new JournalCheckpoints(bounds, legacyBound);
+    }
+
+    /** journal_axis_boundary('pre_v36_event'). 이 이하 명령의 이벤트는 market_id 가 비어 있을 수 있다. */
+    public long legacyBound() {
+        return jdbc.sql("SELECT cmd_seq FROM journal_axis_boundary WHERE name = 'pre_v36_event'")
+                .query(Long.class)
+                .single();
     }
 
     private static String cursorsJson(Map<Integer, Long> cursors) {

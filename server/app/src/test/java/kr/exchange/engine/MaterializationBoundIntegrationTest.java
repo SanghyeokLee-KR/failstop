@@ -253,7 +253,8 @@ class MaterializationBoundIntegrationTest {
         insertCommands(db, 1, 1, 1);
         insertLegacyEvents(db, 1, 1, 2);
         insertCommands(db, 2, 2, 2);
-        insertLegacyEvents(db, 2, 2, 1);
+        // V36 전 크래시 창 명령을 V36 뒤에 재적재한 모양이다. 경계 이하인데 market_id 가 차 있다.
+        insertMarketEvents(db, 2, 2, 2, 1);
         insertCommands(db, 1, 3, 3);
         insertLegacyEvents(db, 3, 3, 2);
         migrate(url, null);
@@ -265,8 +266,11 @@ class MaterializationBoundIntegrationTest {
         long legacyBound = events.materializedThroughByMarket(Map.of()).legacyBound();
 
         assertEquals(3, legacyBound, "레거시 경계가 서지 않아 레거시 패스가 판정되지 않는다");
-        assertEquals(5, db.sql("SELECT count(*) FROM event_journal WHERE market_id IS NULL")
+        assertEquals(4, db.sql("SELECT count(*) FROM event_journal WHERE market_id IS NULL")
                 .query(Long.class).single(), "market_id 없는 이벤트가 만들어지지 않았다");
+        assertEquals(1, db.sql("SELECT count(*) FROM event_journal WHERE market_id IS NOT NULL"
+                        + " AND source_cmd_seq <= ?").param(legacyBound).query(Long.class).single(),
+                "경계 이하에 market_id 가 찬 이벤트가 없어 갈래 겹침이 판정되지 않는다");
 
         // 한 행씩 읽어 커서가 경계 명령의 ordinal 사이 (3, 0) 에 서는 자리까지 지나게 한다.
         List<String> market1 = readOneByOne(events, 1, legacyBound);
@@ -275,6 +279,8 @@ class MaterializationBoundIntegrationTest {
         assertEquals(market1, keys(events.readAfterForMarket(0, -1, 1, legacyBound, 100)),
                 "한 배치로 읽은 순서가 한 행씩 읽은 순서와 다르다");
         assertEquals(List.of("2:0", "5:0"), readOneByOne(events, 2, legacyBound));
+        assertEquals(List.of("2:0", "5:0"), keys(events.readAfterForMarket(0, -1, 2, legacyBound, 100)),
+                "경계 이하 market_id 가 찬 행을 두 갈래가 겹쳐 읽었다");
         assertEquals(List.of("4:0", "4:1"), keys(events.readAfterForMarket(0, -1, 1, 100)),
                 "레거시 패스 없는 판독에 market_id 없는 행이 섞였다. 위 결과가 조인에서 왔는지 알 수 없다");
     }

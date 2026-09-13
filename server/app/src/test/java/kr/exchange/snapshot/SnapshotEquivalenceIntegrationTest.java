@@ -19,6 +19,7 @@ import kr.exchange.journal.CommandJournalAppender;
 import kr.exchange.journal.CommandJournalReader;
 import kr.exchange.journal.EventJournalAppender;
 import kr.exchange.journal.EventJournalReader;
+import kr.exchange.journal.JournalCheckpoints;
 import kr.exchange.journal.ReplayResult;
 import kr.exchange.journal.ReplayService;
 import kr.exchange.ledger.MarketCatalog;
@@ -298,6 +299,48 @@ class SnapshotEquivalenceIntegrationTest {
             assertArrayEquals(SnapshotCodec.encode(expBook), SnapshotCodec.encode(actBook),
                     "마켓별 재생이 전역 재생과 다른 북을 냈다: market=" + marketId);
         }
+    }
+
+    /**
+     * 마켓 상한 재생은 bound(m) 에서 멈추고 이어지는 tail 이 head(m) 까지 채워 전역 재생과 같은 북을 낸다.
+     * 상한을 두 마켓 1 명령 사이의 다른 마켓 seq 자리에 둬 명령 seq 와 겹칠 때만 맞는 구현을 거른다.
+     */
+    @Test
+    void boundedMarketReplayStopsAtMarketBound() {
+        List<Long> seqs = jdbc.sql("SELECT seq FROM command_journal WHERE market_id = 1 ORDER BY seq")
+                .query(Long.class).list();
+        int k = -1;
+        for (int i = 0; i + 1 < seqs.size(); i++) {
+            if (seqs.get(i + 1) - seqs.get(i) > 1) {
+                k = i;
+                break;
+            }
+        }
+        assertTrue(k >= 0, "마켓 1 명령 사이에 다른 마켓 seq 가 없어 상한 위치가 판정되지 않는다: " + seqs);
+        long bound = seqs.get(k + 1) - 1;
+        long head = seqs.get(seqs.size() - 1);
+        MatchingEngineImpl shard = new MatchingEngineImpl();
+
+        ReplayResult stable = replayService.verifyToMarket(shard, 1,
+                new JournalCheckpoints(Map.of(1, bound), eventReader.legacyBound()));
+
+        assertEquals(seqs.get(k), shard.appliedSeq(1), "상한 너머를 적용했거나 상한에 못 미쳤다");
+        assertEquals(k + 1, stable.replayedCommands());
+        assertTrue(stable.verifiedEvents() > 0, "대조한 이벤트가 없다");
+        assertEquals(List.of(1), shard.markets(), "마켓 상한 재생이 남의 마켓을 건드렸다");
+        MatchingEngineImpl exact = new MatchingEngineImpl();
+        replayService.verifyToMarket(exact, 1,
+                new JournalCheckpoints(Map.of(1, seqs.get(k)), eventReader.legacyBound()));
+        assertEquals(seqs.get(k), exact.appliedSeq(1), "상한이 명령 seq 와 같을 때 그 명령을 적용하지 않았다");
+
+        ReplayResult tail = replayService.replayTailMarket(shard, 1, head);
+
+        assertEquals(seqs.subList(k + 1, seqs.size()),
+                tail.pendingBatches().stream().map(ReplayResult.PendingBatch::seq).toList(),
+                "tail 배치가 상한 위 마켓 1 명령과 다르다");
+        assertEquals(head, shard.appliedSeq(1));
+        assertArrayEquals(SnapshotCodec.encode(fullReplay().orderBook(1)),
+                SnapshotCodec.encode(shard.orderBook(1)), "상한 재생과 tail 이 전역 재생과 다른 북을 냈다");
     }
 
     private static void assertEngineBytesEqual(MatchingEngineImpl expected, MatchingEngineImpl actual,
