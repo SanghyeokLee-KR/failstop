@@ -444,21 +444,20 @@ ADR 0023 결정 1 의 연속 물질화 경계를 마켓마다 적용한다(`docs
 ```
 legacy_bound = journal_axis_boundary('pre_v36_event').cmd_seq     -- V40 이 박제한 상수
 cursor(m)    = engine.appliedSeq(m)                                -- 호출자가 엔진에서 읽어 넘긴다. 참 경계 이하이면 성능 하한이다
-from(m)      = GREATEST(cursor(m), legacy_bound)
+floor(m)     = GREATEST(cursor(m), legacy_bound)
 hole(m)      = (SELECT min(c.seq) FROM command_journal c
-                 WHERE c.market_id = m AND c.seq > from(m)
+                 WHERE c.market_id = m AND c.seq > floor(m)
                    AND NOT EXISTS (SELECT 1 FROM event_journal e
                                     WHERE e.source_cmd_seq = c.seq))
-head(m)      = (SELECT max(c.seq) FROM command_journal c
-                 WHERE c.market_id = m AND c.seq > from(m))
-bound(m)     = COALESCE(hole(m) - 1, head(m), from(m))
+head(m)      = (SELECT max(c.seq) FROM command_journal c WHERE c.market_id = m)
+bound(m)     = COALESCE(hole(m) - 1, GREATEST(head(m), floor(m)))   -- 바닥 위 명령이 없으면 floor(m)
 ```
 
-- 구멍이 없으면 경계는 head(m)이다. 구멍이 있으면 그 마켓의 첫 미물질화 명령 바로 앞이다. 다른 마켓의 구멍은 이 마켓의 경계를 누르지 않는다.
+- 구멍이 없으면 경계는 GREATEST(head(m), floor(m))이다. 구멍이 있으면 그 마켓의 첫 미물질화 명령 바로 앞이다. 다른 마켓의 구멍은 이 마켓의 경계를 누르지 않는다.
 - `max(source_cmd_seq) GROUP BY market_id` 로 정의하지 않는다. 마켓 안 라이터가 하나이고 seq 순으로 정산하는 동안에는 두 정의가 마켓 m 의 명령 집합을 같은 자리에서 가른다. 값은 다를 수 있다. 연속 정의는 첫 미물질화 명령 바로 앞을, max 정의는 마지막 물질화 명령을 가리키고 그 사이에는 다른 마켓의 seq 만 있다. 갈리는 것은 그 전제가 깨질 때의 방향이다. max 정의는 경계가 미물질화 명령 위로 올라가 대조 구간에서 pending 이 나 기동이 서거나(ReplayService.java:92-103), 승격 생략이 크래시 창 위에서 접수를 연다(PromotionCoordinator.java:310-313). 연속 정의는 이벤트 실재를 직접 보므로 전제에 기대지 않는다. 틀려도 보수 쪽이고 재적재 구간이 늘 뿐이며 그 구간은 `event_emission_registry` 멱등 스킵이 거른다(ADR 0023 영향).
 - 구멍 판정은 `source_cmd_seq` 로 짝을 짓고 `event_journal.market_id` 를 보지 않는다. V36 이전 이벤트 행은 `market_id` 가 NULL 이라(9-14) 마켓 술어를 걸면 레거시 명령이 전부 구멍으로 보인다. 짝 조회는 `idx_evt_src`(V1__init.sql:616), 마켓 범위는 `idx_cmd_market`(V1__init.sql:585)로 끝난다. 새 인덱스가 필요 없다.
 - `legacy_bound` 는 바닥이다. 그 이하 명령에 이벤트가 전부 있다는 것을 V40 이 적용 때 확인하고 어긋나면 멈춘다(3-1(2), V40__command_seq_band.sql:59-66). 그래서 탐색을 그 위에서 시작한다. V36 이후 이벤트가 없는 조용한 마켓도 경계가 `legacy_bound` 아래로 내려가지 않는다.
-- 대역 채번 뒤에도 정의가 같다. 마켓 m 의 대역 행은 레거시 행보다 항상 크므로 `c.market_id = m AND c.seq > from(m)` 한 술어가 커트오버 경계를 넘는다(2-3(1)).
+- 대역 채번 뒤에도 정의가 같다. 마켓 m 의 대역 행은 레거시 행보다 항상 크므로 `c.market_id = m AND c.seq > floor(m)` 한 술어가 커트오버 경계를 넘는다(2-3(1)).
 
 ### 5-3. 크래시 창 재적재는 마켓별 seq 큐를 (created_at, seq) 머리 키로 병합한다
 
