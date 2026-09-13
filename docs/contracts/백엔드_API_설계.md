@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.45, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.46, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -1052,7 +1052,7 @@ POST /api/v1/orders
 ### 5-2. seq / epoch 의미 (high 확정)
 
 - **`seq`는 채널 단위 단조 증가**로 정의. **일반 규칙(v2.3): seq 도메인 = 구독 destination 단위**다. 공개 채널의 채널 단위 = market × type이며, **unit 차원이 있는 candle은 `market × type × unit` 단위 독립 단조 증가**다(`/topic/candle.1m.KRW-BTC`와 `/topic/candle.5m.KRW-BTC`는 독립 seq 도메인. 1m만 구독한 클라이언트가 5m/1d 증가분으로 false-gap을 감지하는 일 없음). 예: `orderbook.KRW-BTC`와 `trade.KRW-BTC`는 각자 독립 seq 도메인. 특정 채널(destination)만 구독해도 false-gap 없음.
-- **seq 도메인의 두 실현(v2.11 확정)**: 채널 seq는 종류에 따라 두 방식으로 실현하되 둘 다 채널 단위 단조 증가라는 상위 규칙을 지킨다. (1) 팬아웃 대상이 점 상태인 `orderbook`·`ticker`와 비공개 `myOrder`·`myAsset`은 노드 인메모리 조밀 카운터로 실현한다(destination당 +1 단조, 공개 채널의 REST 스냅샷은 현재 카운터값 §4-A-2·§4-A-4, 연속성 판정 = 다음 seq가 직전 +1). 비공개 두 채널은 REST 스냅샷에 seq 도메인이 없어 기준점을 다음 realtime으로 잡는다(아래 구독 즉시 계약). (2) 팬아웃 대상이 영속 이벤트 리스트인 `trade`·`candle`은 `event_seq`로 실현한다(`trade` seq = event_seq, `candle` seq = 버킷 최대 event_seq, REST 리스트 스냅샷 §4-A-3·§4-A-5와 **동일 값·동일 도메인**). (2)는 리스트 스냅샷의 과거 행이 저마다 seq를 지녀야 하는데 인메모리 카운터로는 과거 행 값을 재구성할 수 없어 영속 축(event_seq)을 쓴다. `event_seq`는 전역 gapless라 채널 내에서는 sparse 단조 증가이므로 **연속성 판정은 strictly-increasing**(`seq ≤ 기준`은 중복·역행 폐기, `seq > 기준`은 순서대로 수용)이며 조밀 +1을 요구하지 않는다. 어느 실현이든 REST 스냅샷 seq가 곧 WS 라이브 seq 기준점이라, 재연결·gap·epoch 교체 후 재동기화에서 라이브가 도메인 불일치로 폐기되는 영구 정지가 없다.
+- **seq 도메인의 두 실현(v2.11 확정)**: 채널 seq는 종류에 따라 두 방식으로 실현하되 둘 다 채널 단위 단조 증가라는 상위 규칙을 지킨다. (1) 팬아웃 대상이 점 상태인 `orderbook`·`ticker`와 비공개 `myOrder`·`myAsset`은 노드 인메모리 조밀 카운터로 실현한다(destination당 +1 단조, 공개 채널의 REST 스냅샷은 현재 카운터값 §4-A-2·§4-A-4, 연속성 판정 = 다음 seq가 직전 +1). 비공개 두 채널은 REST 스냅샷에 seq 도메인이 없어 기준점을 다음 realtime으로 잡는다(아래 구독 즉시 계약). (2) 팬아웃 대상이 영속 이벤트 리스트인 `trade`·`candle`은 `event_seq`로 실현한다(`trade` seq = event_seq, `candle` seq = 버킷 최대 event_seq, REST 리스트 스냅샷 §4-A-3·§4-A-5와 **동일 값·동일 도메인**). (2)는 리스트 스냅샷의 과거 행이 저마다 seq를 지녀야 하는데 인메모리 카운터로는 과거 행 값을 재구성할 수 없어 영속 축(event_seq)을 쓴다. `event_seq`는 전역 유일한 마켓 대역 파생 값이고(V36부터 `market_id * 10^7 + market_seq`, 결번 없는 축은 마켓 안 `market_seq`) 채널은 그 마켓 이벤트의 일부만 실어 채널 내에서는 sparse 단조 증가이므로 **연속성 판정은 strictly-increasing**(`seq ≤ 기준`은 중복·역행 폐기, `seq > 기준`은 순서대로 수용)이며 조밀 +1을 요구하지 않는다. 어느 실현이든 REST 스냅샷 seq가 곧 WS 라이브 seq 기준점이라, 재연결·gap·epoch 교체 후 재동기화에서 라이브가 도메인 불일치로 폐기되는 영구 정지가 없다.
 - **비공개 채널의 seq 도메인(v2.2 확정)**: `myOrder`/`myAsset`은 market 차원이 없으므로 **`user × type` 단위 독립 단조 증가**로 정의한다(사용자별·채널별 별도 카운터, 두 채널 간 번호 공유 없음). gap 감지·재동기화도 이 도메인 기준으로 수행한다(불연속 감지 시 REST 스냅샷(주문 `GET /orders/open`·잔고 `GET /accounts`)으로 재동기화).
 - **전역 순서가 필요하면 `global_seq` 병기**(선택). gap 감지는 채널 seq로만 수행.
 - **`epoch`(리더 세대)**: 모든 WS·orderbook REST 페이로드에 포함. 페일오버로 새 리더가 seq 도메인을 재설정하면 epoch 증가. **클라이언트는 epoch 변화 감지 시 무조건 REST 스냅샷 재동기화**(backward/중복 seq 오인 방지).
@@ -1086,7 +1086,7 @@ POST /api/v1/orders
   "trade_id":"01J8ZT...","price":"50005000","volume":"0.01","taker_side":"bid",
   "timestamp":"2026-07-21T09:00:01.050Z" }
 ```
-> trade 메시지의 `trade_id`·`timestamp`는 §4-A-3과 동일 규약이다(`trade_id`=event_seq 결정론 파생, `timestamp`=command `engine_ts` 파생, 재구축 시 동일. v2.6). WS trade `seq`(v2.11)는 §4-A-3 REST `seq`와 **동일 값·동일 도메인**(= event_seq 파생 `trade_id`)이다. REST 스냅샷과 WS 라이브가 한 도메인이라 재연결 재동기화가 연속된다(§5-2 (2) trade·candle 도메인). orderbook·ticker의 조밀 팬아웃 카운터와 달리 event_seq는 전역 gapless라 채널 내에서 sparse 단조 증가이고, 연속성 판정은 strictly-increasing(§5-2)이다.
+> trade 메시지의 `trade_id`·`timestamp`는 §4-A-3과 동일 규약이다(`trade_id`=event_seq 결정론 파생, `timestamp`=command `engine_ts` 파생, 재구축 시 동일. v2.6). WS trade `seq`(v2.11)는 §4-A-3 REST `seq`와 **동일 값·동일 도메인**(= event_seq 파생 `trade_id`)이다. REST 스냅샷과 WS 라이브가 한 도메인이라 재연결 재동기화가 연속된다(§5-2 (2) trade·candle 도메인). orderbook·ticker의 조밀 팬아웃 카운터와 달리 trade 채널은 그 마켓 이벤트(event_seq, 결번 없는 축은 마켓 안 market_seq) 중 체결만 실어 채널 내에서 sparse 단조 증가이고, 연속성 판정은 strictly-increasing(§5-2)이다.
 
 **ticker** (`/topic/ticker.KRW-BTC`, 1s 집계)
 ```json
@@ -2131,3 +2131,8 @@ NULL 취급이 축마다 다르다. `rto_seconds`·`rpo_records`의 NULL은 `UNK
 - **값.** 복제가 따라오는 중 primary 급사는 ACK 88건 중 0건, 대기 서버를 8초 정지시킨 뒤 급사는 ACK 122건 중 36건이다. 유실 판정은 ACK 받은 행 중 승격한 노드에 없는 것을 센다.
 - **정상 구간의 0을 무손실로 읽지 않는다.** 유실량은 그 순간의 복제 지연과 같다. RPO=0 을 주장하지 않는다는 §7-1 의 결론은 그대로다.
 - **RTO 는 여전히 미측정이다.** 같은 회차가 잰 승격 명령 실행 1.697초와 1.886초는 명령 시간이고, 감지와 판단과 엔드포인트 전환이 그 안에 없다. DB 자동 페일오버가 0건이라는 서술도 그대로다.
+
+## v2.46 패치 반영 사항
+
+- **`event_seq` 를 전역 gapless 로 적던 두 자리를 DB 설계에 맞춘다.** §5-2 seq 도메인의 두 실현 (2) 와 trade 메시지 예시 아래 주석이다. V36 부터 `event_seq` 는 `market_id * 10^7 + market_seq` 대역 파생이라 전역 유일하되 전역 gapless 가 아니고, 결번 없는 축은 마켓 안 `market_seq` 다. 근거는 `docs/contracts/백엔드_DB_설계.md` v2.44 의 `event_journal.event_seq` 열 정의와 `docs/adr/0022-market-partitioned-command-journal.md` 개정이다.
+- **클라이언트 계약은 바뀌지 않는다.** 채널 seq 는 여전히 sparse 단조 증가이고 연속성 판정은 strictly-increasing 이다. 처음부터 조밀 +1 을 요구하지 않던 규칙이라 결번 없는 축이 전역에서 마켓 안으로 옮겨도 판정이 같다.
