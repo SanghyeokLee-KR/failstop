@@ -78,4 +78,9 @@ tasks.withType<Test> {
     // 해결된다(server/README.md). 한글 경로 실측에서 이 블록이 있는 :app:test도 전량 실패했다.
     defaultCharacterEncoding = "UTF-8"
     jvmArgs("-Dfile.encoding=UTF-8", "-Dsun.jnu.encoding=UTF-8")
+    // 판정 술어 세 벌 대조 시험이 컨테이너 psql 에 넘기는 하네스 SQL. 작업 디렉터리에 기대지 않게 절대 경로로
+    // 넘기고, 빌드 캐시가 SQL 변경 뒤에도 시험 결과를 재사용하지 않도록 입력으로 선언한다.
+    val harnessSql = rootProject.file("../harness/sql")
+    inputs.dir(harnessSql).withPropertyName("harnessSql").withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("harness.sql.dir", harnessSql.absolutePath)
 }

@@ -1,0 +1,1071 @@
+{
+  "started": "2026-09-13T10:33:33.8400955Z",
+  "head": "8c46f2a9ee3b184d367b35a9296e35d873933ebb",
+  "uncommitted": [
+    " M harness/sql/invariants.sql",
+    " M harness/sql/summary.sql",
+    " M server/app/build.gradle.kts",
+    " M server/app/src/main/java/kr/exchange/harness/InvariantCheck.java",
+    " M server/app/src/test/java/kr/exchange/PartitionCoverageIntegrationTest.java",
+    " M server/app/src/test/java/kr/exchange/harness/InvariantVerifierIntegrationTest.java",
+    " M server/app/src/test/java/kr/exchange/journal/CommandJournalIntegrationTest.java",
+    " M server/app/src/test/java/kr/exchange/ledger/SettlementIntegrationTest.java",
+    " M server/app/src/test/java/kr/exchange/sim/SimFleetIntegrationTest.java",
+    "?? harness/evidence/adr0022-stage3-predicates-20260913/",
+    "?? server/app/src/test/java/kr/exchange/harness/InvariantBandAxisIntegrationTest.java"
+  ],
+  "sources": {
+    "server/app/src/main/java/kr/exchange/harness/InvariantCheck.java": "6BA14F999B655159248D398C2C9B928B8709171BA161FF0E5A1DA204188850C1",
+    "harness/sql/summary.sql": "34F42049204BE4E51D8E6AF0D781BE3FEAC9DD212D8F3DD349FD17F30EF0A624",
+    "harness/sql/invariants.sql": "93D674CE34569B23D4B7C9037880B5DD50D9128D154512C50CACD79B21346D73"
+  },
+  "failover": {
+    "killed": "chaos-api-1",
+    "oldEpoch": 1,
+    "newEpoch": 2
+  },
+  "natural": {
+    "legacy": {
+      "legacy_c05": 0,
+      "legacy_c15": 0,
+      "legacy_c22": 0,
+      "legacy_c23": 0,
+      "arm_time": 0,
+      "arm_market": 0,
+      "created_at_regressions": 0,
+      "journal_rows": 257,
+      "journal_max_seq": 257,
+      "journal_markets": 3,
+      "journal_epochs": 2,
+      "band_spec_rows": 1,
+      "band_rows": 0,
+      "event_rows_with_market_seq": 440,
+      "timeline_id": 1
+    },
+    "app": {
+      "C05": 0,
+      "C15": 0,
+      "C22": 0,
+      "C23": 0,
+      "C27": 0
+    },
+    "invariantsArms": {
+      "C27": {},
+      "C22": {},
+      "C05": {},
+      "C15": {},
+      "C23": {}
+    },
+    "runVerdict": "PASS",
+    "failedChecks": []
+  },
+  "injected": {
+    "legacy": {
+      "legacy_c05": 0,
+      "legacy_c15": 1,
+      "legacy_c22": 0,
+      "legacy_c23": 1,
+      "arm_time": 0,
+      "arm_market": 0,
+      "created_at_regressions": 0,
+      "journal_rows": 257,
+      "journal_max_seq": 257,
+      "journal_markets": 3,
+      "journal_epochs": 2,
+      "band_spec_rows": 1,
+      "band_rows": 0,
+      "event_rows_with_market_seq": 440,
+      "timeline_id": 1
+    },
+    "app": {
+      "C05": 0,
+      "C15": 1,
+      "C22": 0,
+      "C23": 1,
+      "C27": 0
+    },
+    "invariantsArms": {
+      "C27": {},
+      "C22": {},
+      "C05": {},
+      "C15": {
+        "outbox_default": 1
+      },
+      "C23": {
+        "legacy": 1
+      }
+    },
+    "runVerdict": "FAIL",
+    "failedChecks": [
+      "C15_DEFAULT_PARTITION=1",
+      "C23_COUNTER_SEQ_CONSISTENCY=1"
+    ]
+  },
+  "cost": {
+    "thresholdMs": 1500,
+    "minRows": 1000000,
+    "journalRows": 1000257,
+    "syntheticRows": 1000000,
+    "syntheticLayout": "마켓별 대역 잎, 마켓 사이 created_at 교차",
+    "leaves": 16,
+    "leavesWithRows": 13,
+    "leafRows": {
+      "command_journal_p0": 257,
+      "command_journal_b1": 83334,
+      "command_journal_b2": 83334,
+      "command_journal_b3": 83334,
+      "command_journal_b4": 83334,
+      "command_journal_b5": 83333,
+      "command_journal_b6": 83333,
+      "command_journal_b7": 83333,
+      "command_journal_b8": 83333,
+      "command_journal_b9": 83333,
+      "command_journal_b10": 83333,
+      "command_journal_b11": 83333,
+      "command_journal_b12": 83333
+    },
+    "isolation": "REPEATABLE READ READ ONLY",
+    "executionMs": [
+      1051.489,
+      1056.545,
+      1127.241
+    ],
+    "maxExecutionMs": 1127.241,
+    "verdict": "PASS",
+    "pg": {
+      "version": "17.10",
+      "shared_buffers": "128MB",
+      "work_mem": "4MB",
+      "statement_timeout": "0"
+    },
+    "host": "29.5.2 NCPU=16 MemTotal=16299147264 OS=Docker Desktop"
+  },
+  "positiveAxes": {
+    "journal_rows": true,
+    "journal_markets_ge_2": true,
+    "journal_epochs_ge_2": true,
+    "band_spec_present": true,
+    "timeline_id_is_1": true
+  },
+  "timelineIdScope": "timeline_id 1 은 승격·시점 복구 이력만 배제한다. 한 프라이머리 안의 서버 시계 조정은 배제하지 못하고(ADR 0022 9-17), 순서를 뒤집은 조정은 created_at_regressions 가 드러낸다.",
+  "bandArms": "N/A(대상 행 0, 커트오버 전)",
+  "comparisons": [
+    {
+      "phase": "natural",
+      "name": "정지 확인 legacy_c05 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 legacy_c15 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 legacy_c22 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 legacy_c23 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 arm_time 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 arm_market 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 created_at_regressions 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 journal_rows 대조 전 대 후",
+      "left": 257,
+      "right": 257,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 journal_max_seq 대조 전 대 후",
+      "left": 257,
+      "right": 257,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 journal_markets 대조 전 대 후",
+      "left": 3,
+      "right": 3,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 journal_epochs 대조 전 대 후",
+      "left": 2,
+      "right": 2,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 band_spec_rows 대조 전 대 후",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 band_rows 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 event_rows_with_market_seq 대조 전 대 후",
+      "left": 440,
+      "right": 440,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "정지 확인 timeline_id 대조 전 대 후",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C05 InvariantCheck 대 summary.sql",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C05 InvariantCheck 대 invariants.sql 팔 합",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C15 InvariantCheck 대 summary.sql",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C15 InvariantCheck 대 invariants.sql 팔 합",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C22 InvariantCheck 대 summary.sql",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C22 InvariantCheck 대 invariants.sql 팔 합",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C23 InvariantCheck 대 summary.sql",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C23 InvariantCheck 대 invariants.sql 팔 합",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C27 InvariantCheck 대 summary.sql",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C27 InvariantCheck 대 invariants.sql 팔 합",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C01 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C02 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C03 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C06 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C07 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C07P InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C08 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C09 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C10 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C11 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C12 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C13A InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C13B InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C14 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C16 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C17 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C18 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C19 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C20 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C21 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C24 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C25 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "natural",
+      "name": "C05 대 구 C05",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C15 + C27 대 구 C15",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C23 대 구 C23",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C22 대 시간 축 팔 + 마켓 안 팔",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C22 구 값 0 이면 마켓 안 팔 0",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C22 시간 축 팔 대 구 C22",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C22 구 값 0 이면 합산 0",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C05 대역 항 행 없음(N/A 근거)",
+      "left": false,
+      "right": false,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "natural",
+      "name": "C23 대역 팔 행 없음(N/A 근거)",
+      "left": false,
+      "right": false,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 legacy_c05 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 legacy_c15 대조 전 대 후",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 legacy_c22 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 legacy_c23 대조 전 대 후",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 arm_time 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 arm_market 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 created_at_regressions 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 journal_rows 대조 전 대 후",
+      "left": 257,
+      "right": 257,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 journal_max_seq 대조 전 대 후",
+      "left": 257,
+      "right": 257,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 journal_markets 대조 전 대 후",
+      "left": 3,
+      "right": 3,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 journal_epochs 대조 전 대 후",
+      "left": 2,
+      "right": 2,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 band_spec_rows 대조 전 대 후",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 band_rows 대조 전 대 후",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 event_rows_with_market_seq 대조 전 대 후",
+      "left": 440,
+      "right": 440,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "정지 확인 timeline_id 대조 전 대 후",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C05 InvariantCheck 대 summary.sql",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C05 InvariantCheck 대 invariants.sql 팔 합",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C15 InvariantCheck 대 summary.sql",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C15 InvariantCheck 대 invariants.sql 팔 합",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C22 InvariantCheck 대 summary.sql",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C22 InvariantCheck 대 invariants.sql 팔 합",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C23 InvariantCheck 대 summary.sql",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C23 InvariantCheck 대 invariants.sql 팔 합",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C27 InvariantCheck 대 summary.sql",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C27 InvariantCheck 대 invariants.sql 팔 합",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C01 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C02 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C03 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C06 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C07 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C07P InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C08 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C09 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C10 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C11 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C12 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C13A InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C13B InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C14 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C16 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C17 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C18 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C19 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C20 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C21 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C24 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C25 InvariantCheck 대 summary.sql(개정 대상 밖, 참고)",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": false
+    },
+    {
+      "phase": "injected",
+      "name": "C05 대 구 C05",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C15 + C27 대 구 C15",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C23 대 구 C23",
+      "left": 1,
+      "right": 1,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C22 대 시간 축 팔 + 마켓 안 팔",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C22 구 값 0 이면 마켓 안 팔 0",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C22 시간 축 팔 대 구 C22",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C22 구 값 0 이면 합산 0",
+      "left": 0,
+      "right": 0,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C05 대역 항 행 없음(N/A 근거)",
+      "left": false,
+      "right": false,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "C23 대역 팔 행 없음(N/A 근거)",
+      "left": false,
+      "right": false,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "주입이 구 C23 에 닿음",
+      "left": true,
+      "right": true,
+      "equal": true,
+      "gate": true
+    },
+    {
+      "phase": "injected",
+      "name": "주입이 구 C15 에 닿음",
+      "left": true,
+      "right": true,
+      "equal": true,
+      "gate": true
+    }
+  ],
+  "gateMismatches": 0,
+  "positiveAxisFailures": [],
+  "notRun": [],
+  "finished": "2026-09-13T10:35:03.6500176Z",
+  "exitCode": 0
+}

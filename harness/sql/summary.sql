@@ -38,7 +38,18 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
                 JOIN ledger_transactions t ON t.id = l.transaction_id AND t.status='SEALED'
                 GROUP BY l.transaction_id, l.asset_id HAVING SUM(l.amount) <> 0) x)
     UNION ALL SELECT 'C05','CMD_JOURNAL_GAPLESS','CRITICAL','ALWAYS',
-           (SELECT COALESCE((max(seq)-min(seq)+1)-count(*),0) FROM command_journal)
+           -- 명세 부재 + 레거시 구간 전역 결번 + 마켓 안 대역 결번. InvariantCheck 축어(ADR 0022 6-1).
+           (WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+            SELECT (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM s)
+                 + (SELECT COALESCE((max(c.seq) - min(c.seq) + 1) - count(*), 0)
+                    FROM command_journal c
+                    WHERE c.seq < (SELECT band_span FROM s))
+                 + (SELECT COALESCE(sum(b.gap), 0) FROM (
+                        SELECT (max(c.seq) - min(c.seq) + 1) - count(*) AS gap
+                        FROM command_journal c
+                        WHERE c.seq >= (SELECT band_span FROM s)
+                        GROUP BY c.market_id
+                    ) b))
     UNION ALL SELECT 'C06','EVENT_JOURNAL_GAPLESS','CRITICAL','ALWAYS',
            -- V36 에서 축이 마켓 안으로 갔다. event_seq 는 marketId * 10^7 + market_seq 파생이라
            -- 전역으로 세면 마켓 대역 사이의 빈 구간이 전부 결번으로 잡힌다. 결번 없음이 성립하는
@@ -95,7 +106,6 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
                 HAVING b.balance <> COALESCE(SUM(o.locked_amount),0)) x)
     UNION ALL SELECT 'C15','DEFAULT_PARTITION','WARN','ALWAYS',
            (SELECT count(*) FROM ledger_entries_default)
-           + (SELECT count(*) FROM command_journal_default)
            + (SELECT count(*) FROM event_journal_default)
            + (SELECT count(*) FROM trades_default)
            + (SELECT count(*) FROM outbox_default)
@@ -141,23 +151,45 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
                 LEFT JOIN event_journal e ON e.event_seq = r.event_seq
                 WHERE r.created_at >= now() - interval '90 days' AND e.event_seq IS NULL)
     UNION ALL SELECT 'C22','FENCING_MONOTONIC','CRITICAL','CONDITIONAL',
-           (SELECT count(*) FROM (
-                SELECT seq, fencing_token,
-                       lag(fencing_token) OVER (ORDER BY seq) AS prev
-                FROM command_journal
-            ) t
-            WHERE t.prev > t.fencing_token)
+           -- 시간 축 팔 + 마켓 안 팔. InvariantCheck 축어(ADR 0022 6-2). 시계 역행 뒤 거짓 양성 한계는 9-17.
+           (SELECT (
+                SELECT count(*) FROM (
+                    SELECT fencing_token,
+                           lag(fencing_token) OVER (ORDER BY created_at, seq) AS prev
+                    FROM command_journal
+                ) t
+                WHERE t.prev > t.fencing_token
+            ) + (
+                SELECT count(*) FROM (
+                    SELECT fencing_token,
+                           lag(fencing_token) OVER (PARTITION BY market_id ORDER BY seq) AS prev
+                    FROM command_journal
+                ) t
+                WHERE t.prev > t.fencing_token
+            ))
     UNION ALL SELECT 'C23','COUNTER_SEQ_CONSISTENCY','CRITICAL','CONDITIONAL',
-           -- V36 이후 이벤트 축은 마켓별 카운터다. 전역 journal_counters 의 event_seq 행은
-           -- 호출자가 없으므로 대조 대상이 아니다. 명령 축만 전역으로 남는다.
-           (SELECT count(*) FROM journal_counters c
-            WHERE c.name = 'command_seq'
-              AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal))
-           + (SELECT count(*) FROM market_journal_counters m
-              WHERE m.name = 'event_seq'
-                AND m.next_value <= (SELECT COALESCE(max(e.market_seq), 0) FROM event_journal e
-                                     WHERE e.market_id = m.market_id
-                                       AND e.market_seq IS NOT NULL))
+           -- 명세 부재 + 명령 레거시 팔 + 명령 대역 팔 + 이벤트 팔. InvariantCheck 축어(ADR 0022 6-3).
+           (WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+            SELECT (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM s)
+                 + (SELECT count(*) FROM journal_counters c
+                    WHERE c.name = 'command_seq'
+                      AND c.next_value <= (SELECT COALESCE(max(j.seq), 0)
+                                           FROM command_journal j
+                                           WHERE j.seq < (SELECT band_span FROM s)))
+                 + (SELECT count(*) FROM market_journal_counters m
+                    WHERE m.name = 'command_seq'
+                      AND m.next_value <= (SELECT COALESCE(max(j.seq - j.market_id * (SELECT band_span FROM s)), 0)
+                                           FROM command_journal j
+                                           WHERE j.market_id = m.market_id
+                                             AND j.seq >= (SELECT band_span FROM s)))
+                 + (SELECT count(*) FROM market_journal_counters m
+                    WHERE m.name = 'event_seq'
+                      AND m.next_value <= (SELECT COALESCE(max(e.market_seq), 0)
+                                           FROM event_journal e
+                                           WHERE e.market_id = m.market_id
+                                             AND e.market_seq IS NOT NULL)))
+    UNION ALL SELECT 'C27','CMD_DEFAULT_PARTITION','CRITICAL','ALWAYS',
+           (SELECT count(*) FROM command_journal_default)
 \if :has_cost_views
     UNION ALL SELECT 'C24','POSITION_COST_QTY','WARN','CONDITIONAL',
            (SELECT count(*) FROM position_cost_qty_check)

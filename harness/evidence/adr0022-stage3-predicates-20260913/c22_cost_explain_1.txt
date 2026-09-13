@@ -1,0 +1,98 @@
+Result  (cost=306061.29..306061.30 rows=1 width=8) (actual time=1023.575..1023.592 rows=1 loops=1)
+  Buffers: shared hit=20920 read=13790 written=2531, temp read=8324 written=8339
+  InitPlan 1
+    ->  Aggregate  (cost=183953.00..183953.01 rows=1 width=8) (actual time=596.481..596.491 rows=1 loops=1)
+          Buffers: shared hit=12098 read=3313 written=1251, temp read=8324 written=8339
+          ->  Subquery Scan on t  (cost=150611.02..183119.45 rows=333420 width=0) (actual time=596.453..596.463 rows=0 loops=1)
+                Filter: (t.prev > t.fencing_token)
+                Rows Removed by Filter: 1000257
+                Buffers: shared hit=12098 read=3313 written=1251, temp read=8324 written=8339
+                ->  WindowAgg  (cost=150611.02..170616.20 rows=1000260 width=32) (actual time=350.895..567.981 rows=1000257 loops=1)
+                      Buffers: shared hit=12098 read=3313 written=1251, temp read=8324 written=8339
+                      ->  Sort  (cost=150611.00..153111.65 rows=1000260 width=24) (actual time=350.812..403.071 rows=1000257 loops=1)
+                            Sort Key: command_journal.created_at, command_journal.seq
+                            Sort Method: external merge  Disk: 33304kB
+                            Buffers: shared hit=12098 read=3313 written=1251, temp read=8324 written=8339
+                            ->  Append  (cost=0.00..30411.87 rows=1000260 width=24) (actual time=0.033..132.892 rows=1000257 loops=1)
+                                  Buffers: shared hit=12095 read=3313 written=1251
+                                  ->  Seq Scan on command_journal_p0 command_journal_1  (cost=0.00..14.57 rows=257 width=24) (actual time=0.032..0.093 rows=257 loops=1)
+                                        Buffers: shared read=12
+                                  ->  Seq Scan on command_journal_p100000000 command_journal_2  (cost=0.00..0.00 rows=1 width=24) (actual time=0.002..0.002 rows=0 loops=1)
+                                  ->  Seq Scan on command_journal_p200000000 command_journal_3  (cost=0.00..0.00 rows=1 width=24) (actual time=0.005..0.005 rows=0 loops=1)
+                                  ->  Seq Scan on command_journal_b1 command_journal_4  (cost=0.00..2116.34 rows=83334 width=24) (actual time=0.022..9.306 rows=83334 loops=1)
+                                        Buffers: shared hit=611 read=672
+                                  ->  Seq Scan on command_journal_b2 command_journal_5  (cost=0.00..2116.34 rows=83334 width=24) (actual time=0.045..7.843 rows=83334 loops=1)
+                                        Buffers: shared hit=412 read=871
+                                  ->  Seq Scan on command_journal_b3 command_journal_6  (cost=0.00..2116.34 rows=83334 width=24) (actual time=0.036..7.836 rows=83334 loops=1)
+                                        Buffers: shared hit=1276 read=7
+                                  ->  Seq Scan on command_journal_b4 command_journal_7  (cost=0.00..2116.34 rows=83334 width=24) (actual time=0.044..7.785 rows=83334 loops=1)
+                                        Buffers: shared hit=1276 read=7
+                                  ->  Seq Scan on command_journal_b5 command_journal_8  (cost=0.00..2116.33 rows=83333 width=24) (actual time=0.039..8.381 rows=83333 loops=1)
+                                        Buffers: shared hit=1283
+                                  ->  Seq Scan on command_journal_b6 command_journal_9  (cost=0.00..2116.33 rows=83333 width=24) (actual time=0.038..8.300 rows=83333 loops=1)
+                                        Buffers: shared hit=1283
+                                  ->  Seq Scan on command_journal_b7 command_journal_10  (cost=0.00..2116.33 rows=83333 width=24) (actual time=0.038..5.989 rows=83333 loops=1)
+                                        Buffers: shared hit=1283
+                                  ->  Seq Scan on command_journal_b8 command_journal_11  (cost=0.00..2116.33 rows=83333 width=24) (actual time=0.032..6.109 rows=83333 loops=1)
+                                        Buffers: shared hit=1283
+                                  ->  Seq Scan on command_journal_b9 command_journal_12  (cost=0.00..2116.33 rows=83333 width=24) (actual time=0.035..5.430 rows=83333 loops=1)
+                                        Buffers: shared hit=1283
+                                  ->  Seq Scan on command_journal_b10 command_journal_13  (cost=0.00..2116.33 rows=83333 width=24) (actual time=0.034..5.642 rows=83333 loops=1)
+                                        Buffers: shared hit=1283
+                                  ->  Seq Scan on command_journal_b11 command_journal_14  (cost=0.00..2116.33 rows=83333 width=24) (actual time=0.046..8.493 rows=83333 loops=1)
+                                        Buffers: shared hit=411 read=872 written=391
+                                  ->  Seq Scan on command_journal_b12 command_journal_15  (cost=0.00..2116.33 rows=83333 width=24) (actual time=0.055..9.021 rows=83333 loops=1)
+                                        Buffers: shared hit=411 read=872 written=860
+                                  ->  Seq Scan on command_journal_default command_journal_16  (cost=0.00..0.00 rows=1 width=24) (actual time=0.015..0.015 rows=0 loops=1)
+  InitPlan 2
+    ->  Aggregate  (cost=122108.27..122108.28 rows=1 width=8) (actual time=396.118..396.123 rows=1 loops=1)
+          Buffers: shared hit=8822 read=10477 written=1280
+          ->  Subquery Scan on t_1  (cost=5.96..121274.72 rows=333420 width=0) (actual time=396.077..396.082 rows=0 loops=1)
+                Filter: (t_1.prev > t_1.fencing_token)
+                Rows Removed by Filter: 1000257
+                Buffers: shared hit=8822 read=10477 written=1280
+                ->  WindowAgg  (cost=5.96..108771.47 rows=1000260 width=26) (actual time=0.440..367.972 rows=1000257 loops=1)
+                      Buffers: shared hit=8822 read=10477 written=1280
+                      ->  Merge Append  (cost=5.85..91266.92 rows=1000260 width=18) (actual time=0.429..174.906 rows=1000257 loops=1)
+                            Sort Key: command_journal_17.market_id, command_journal_17.seq
+                            Buffers: shared hit=8822 read=10477 written=1280
+                            ->  Index Scan using command_journal_p0_market_id_seq_idx on command_journal_p0 command_journal_18  (cost=0.15..55.17 rows=257 width=18) (actual time=0.042..0.113 rows=257 loops=1)
+                                  Buffers: shared hit=35 read=1
+                            ->  Index Scan using command_journal_p100000000_market_id_seq_idx on command_journal_p100000000 command_journal_19  (cost=0.12..8.14 rows=1 width=18) (actual time=0.009..0.009 rows=0 loops=1)
+                                  Buffers: shared hit=1
+                            ->  Index Scan using command_journal_p200000000_market_id_seq_idx on command_journal_p200000000 command_journal_20  (cost=0.12..8.14 rows=1 width=18) (actual time=0.007..0.008 rows=0 loops=1)
+                                  Buffers: shared hit=1
+                            ->  Index Scan using command_journal_b1_market_id_seq_idx on command_journal_b1 command_journal_21  (cost=0.42..5515.05 rows=83334 width=18) (actual time=0.033..11.104 rows=83334 loops=1)
+                                  Buffers: shared hit=1084 read=521 written=141
+                            ->  Index Scan using command_journal_b2_market_id_seq_idx on command_journal_b2 command_journal_22  (cost=0.42..5515.05 rows=83334 width=18) (actual time=0.025..9.009 rows=83334 loops=1)
+                                  Buffers: shared hit=1283 read=322
+                            ->  Index Scan using command_journal_b3_market_id_seq_idx on command_journal_b3 command_journal_23  (cost=0.42..5515.05 rows=83334 width=18) (actual time=0.023..10.278 rows=83334 loops=1)
+                                  Buffers: shared hit=453 read=1152
+                            ->  Index Scan using command_journal_b4_market_id_seq_idx on command_journal_b4 command_journal_24  (cost=0.42..5515.05 rows=83334 width=18) (actual time=0.022..12.066 rows=83334 loops=1)
+                                  Buffers: shared hit=419 read=1186 written=315
+                            ->  Index Scan using command_journal_b5_market_id_seq_idx on command_journal_b5 command_journal_25  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.022..9.209 rows=83333 loops=1)
+                                  Buffers: shared hit=1106 read=499 written=148
+                            ->  Index Scan using command_journal_b6_market_id_seq_idx on command_journal_b6 command_journal_26  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.023..8.523 rows=83333 loops=1)
+                                  Buffers: shared hit=1144 read=461
+                            ->  Index Scan using command_journal_b7_market_id_seq_idx on command_journal_b7 command_journal_27  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.028..10.452 rows=83333 loops=1)
+                                  Buffers: shared hit=1279 read=326
+                            ->  Index Scan using command_journal_b8_market_id_seq_idx on command_journal_b8 command_journal_28  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.051..8.491 rows=83333 loops=1)
+                                  Buffers: shared hit=1194 read=411
+                            ->  Index Scan using command_journal_b9_market_id_seq_idx on command_journal_b9 command_journal_29  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.031..10.525 rows=83333 loops=1)
+                                  Buffers: shared hit=411 read=1194
+                            ->  Index Scan using command_journal_b10_market_id_seq_idx on command_journal_b10 command_journal_30  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.028..11.017 rows=83333 loops=1)
+                                  Buffers: shared hit=409 read=1196 written=231
+                            ->  Index Scan using command_journal_b11_market_id_seq_idx on command_journal_b11 command_journal_31  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.029..13.140 rows=83333 loops=1)
+                                  Buffers: shared hit=1 read=1604 written=445
+                            ->  Index Scan using command_journal_b12_market_id_seq_idx on command_journal_b12 command_journal_32  (cost=0.42..5515.04 rows=83333 width=18) (actual time=0.032..11.142 rows=83333 loops=1)
+                                  Buffers: shared hit=1 read=1604
+                            ->  Index Scan using command_journal_default_market_id_seq_idx on command_journal_default command_journal_33  (cost=0.12..8.14 rows=1 width=18) (actual time=0.017..0.017 rows=0 loops=1)
+                                  Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=1469 read=43
+Planning Time: 8.075 ms
+JIT:
+  Functions: 82
+  Options: Inlining false, Optimization false, Expressions true, Deforming true
+  Timing: Generation 4.223 ms (Deform 2.808 ms), Inlining 0.000 ms, Optimization 1.797 ms, Emission 29.489 ms, Total 35.510 ms
+Execution Time: 1051.489 ms

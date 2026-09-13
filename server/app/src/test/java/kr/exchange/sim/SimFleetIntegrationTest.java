@@ -1,6 +1,7 @@
 package kr.exchange.sim;
 
 import kr.exchange.api.auth.DemoKeySeeder;
+import kr.exchange.harness.InvariantCheck;
 import kr.exchange.ledger.AccountBootstrap;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
@@ -152,11 +153,9 @@ class SimFleetIntegrationTest {
         assertEquals(0, count("SELECT count(*) FROM balance_ledger_check WHERE mismatch"),
                 "balance_ledger_check 0행");
 
-        // 불변식 3: 저널 gapless(§6-C ①)
-        assertEquals(0, count("""
-                SELECT CASE WHEN max(seq) - min(seq) + 1 = count(*) THEN 0 ELSE 1 END
-                FROM command_journal
-                """), "command_journal gapless");
+        // 불변식 3: 저널 gapless(§6-C ①). C05 는 빈 저널에서 0 이라 행 실재를 먼저 본다.
+        assertTrue(count("SELECT count(*) FROM command_journal") > 0, "command_journal 행 실재");
+        assertEquals(0, count(InvariantCheck.C05_CMD_GAPLESS.sql()), "command_journal gapless");
         // V36 에서 결번 없음의 축이 마켓 안으로 갔다. event_seq 는 marketId 대역 파생이라
         // 전역으로 세면 대역 사이가 비어 보인다. 그 빈 자리는 결번이 아니라 경계다.
         assertEquals(0, count("""

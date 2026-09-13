@@ -1,5 +1,6 @@
 package kr.exchange;
 
+import kr.exchange.harness.InvariantCheck;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -107,15 +108,6 @@ class PartitionCoverageIntegrationTest {
             WHERE i.inhparent = ?::regclass AND e.b <> 'DEFAULT'
               AND j.next_value >= substring(e.b from 'FROM \\(''([^'']*)''\\)')::bigint
               AND j.next_value <  substring(e.b from 'TO \\(''([^'']*)''\\)')::bigint
-            """;
-
-    /** InvariantCheck.C15_DEFAULT_PARTITION 본문과 동일. 이 테스트가 막는 위반의 정의. */
-    private static final String C15_DEFAULT_PARTITION = """
-            SELECT (SELECT count(*) FROM ledger_entries_default)
-                 + (SELECT count(*) FROM command_journal_default)
-                 + (SELECT count(*) FROM event_journal_default)
-                 + (SELECT count(*) FROM trades_default)
-                 + (SELECT count(*) FROM outbox_default)
             """;
 
     @BeforeAll
@@ -251,10 +243,14 @@ class PartitionCoverageIntegrationTest {
             assertNotEquals("outbox_default", partition,
                     "지금 생성한 outbox 행이 DEFAULT로 유입됨(C15_DEFAULT_PARTITION 위반 경로)");
 
-            try (ResultSet rs = st.executeQuery(C15_DEFAULT_PARTITION)) {
-                rs.next();
-                assertEquals(0, rs.getLong(1),
-                        "DEFAULT 파티션 유입 행 존재. 파티션 " + partition + "로 라우팅됐으나 총합 비0");
+            // C15 는 command_journal_default 를 세지 않으므로 C27 을 함께 본다.
+            for (InvariantCheck check : List.of(
+                    InvariantCheck.C15_DEFAULT_PARTITION, InvariantCheck.C27_CMD_DEFAULT_PARTITION)) {
+                try (ResultSet rs = st.executeQuery(check.sql())) {
+                    rs.next();
+                    assertEquals(0, rs.getLong(1), check.name()
+                            + " DEFAULT 파티션 유입 행 존재. 파티션 " + partition + "로 라우팅됐으나 총합 비0");
+                }
             }
             st.execute("DELETE FROM outbox WHERE aggregate_id = 'coverage-probe'");
         }

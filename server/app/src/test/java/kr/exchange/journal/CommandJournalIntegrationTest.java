@@ -13,6 +13,7 @@ import kr.exchange.engine.SubmitResult;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.engine.core.SingleWriterLoop;
+import kr.exchange.harness.InvariantCheck;
 import org.awaitility.Awaitility;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
@@ -134,8 +135,7 @@ class CommandJournalIntegrationTest {
 
         long count = queryLong("SELECT count(*) FROM command_journal");
         assertEquals((long) appendThreads * appendsPerThread, count, "커밋된 append 수 불일치");
-        long span = queryLong("SELECT max(seq) - min(seq) + 1 FROM command_journal");
-        assertEquals(count, span, "커밋된 seq에 영구 결번 존재");
+        assertEquals(0, queryLong(InvariantCheck.C05_CMD_GAPLESS.sql()), "커밋된 seq에 영구 결번 존재");
         // 카운터 정합(§6.3 ⑰): 롤백 채번이 회수되지 않았다면 next_value가 max+1을 초과한다.
         assertEquals(queryLong("SELECT max(seq) + 1 FROM command_journal"),
                 queryLong("SELECT next_value FROM journal_counters WHERE name = 'command_seq'"),
@@ -232,8 +232,8 @@ class CommandJournalIntegrationTest {
         CommandJournalAppender active = new CommandJournalAppender(jdbc, tx, successor);
         AppendResult ok = active.append(newDraft("post-takeover", 79));
         assertEquals(successor.requireLeader().epoch(), ok.fencingToken());
-        assertEquals(queryLong("SELECT count(*) FROM command_journal"),
-                queryLong("SELECT max(seq) - min(seq) + 1 FROM command_journal"));
+        assertTrue(queryLong("SELECT count(*) FROM command_journal") > 0, "command_journal 행 실재");
+        assertEquals(0, queryLong(InvariantCheck.C05_CMD_GAPLESS.sql()), "실패 append 가 결번을 남김");
 
         // 강등 인스턴스는 재승격 금지 계약이라(§5.4 self-shutdown) 재기동을 시뮬레이션한다:
         // 이후 테스트는 새 인스턴스가 리더십을 잡고 이어간다.

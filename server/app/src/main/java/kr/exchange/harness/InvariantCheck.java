@@ -35,8 +35,21 @@ public enum InvariantCheck {
             """),
 
     // ── 저널 gapless(유실 0 · RPO=0) ────────────────────────────────────
-    C05_CMD_GAPLESS(Severity.CRITICAL, Scope.SCHEDULED,
-            "SELECT COALESCE((max(seq) - min(seq) + 1) - count(*), 0) FROM command_journal"),
+    // 레거시 구간(seq < band_span)은 전역 조밀, 대역 구간은 마켓 안에서만 조밀하다(ADR 0022 6-1).
+    // 대역 명세 행이 없으면 두 항이 대상 없이 0 을 내므로 그 부재를 위반 1 로 센다.
+    C05_CMD_GAPLESS(Severity.CRITICAL, Scope.SCHEDULED, """
+            WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+            SELECT (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM s)
+                 + (SELECT COALESCE((max(c.seq) - min(c.seq) + 1) - count(*), 0)
+                    FROM command_journal c
+                    WHERE c.seq < (SELECT band_span FROM s))
+                 + (SELECT COALESCE(sum(b.gap), 0) FROM (
+                        SELECT (max(c.seq) - min(c.seq) + 1) - count(*) AS gap
+                        FROM command_journal c
+                        WHERE c.seq >= (SELECT band_span FROM s)
+                        GROUP BY c.market_id
+                    ) b)
+            """),
     // V36 에서 축이 바뀌었다. 종전에는 event_seq 전역 gapless 였다. 이제 event_seq 는
     // marketId * 10^7 + marketSeq 파생이라 전역으로 보면 대역 사이가 통째로 비어 있고,
     // 그 빈 자리는 결번이 아니라 대역 경계다. 결번 없음이 실제로 요구되는 축은 마켓
@@ -196,14 +209,19 @@ public enum InvariantCheck {
 
     // ── DEFAULT 파티션 유입 0(파티션 지평 소진 전조) ─────────────────────
     // 파생 파티션(_pYYYY_MM/_p<start>)이 정상 흡수하면 DEFAULT는 항상 비어야 한다. 유입 행은
-    // 경계 소진 전조다(가용성). WARN: 무결성 위반은 아니다. 위반 행 수 = DEFAULT 유입 행 총합.
+    // 경계 소진 전조다(가용성). WARN: 무결성 위반은 아니다. command_journal_default 는 C27 이 본다.
     C15_DEFAULT_PARTITION(Severity.WARN, Scope.SCHEDULED, """
             SELECT (SELECT count(*) FROM ledger_entries_default)
-                 + (SELECT count(*) FROM command_journal_default)
                  + (SELECT count(*) FROM event_journal_default)
                  + (SELECT count(*) FROM trades_default)
                  + (SELECT count(*) FROM outbox_default)
             """),
+
+    // ── 명령 저널 DEFAULT 유입 0(ADR 0022 6-4) ──────────────────────────
+    // DEFAULT 행은 어느 잎에도 속하지 않는 seq 로 들어간 명령이고 행이 든 구간은 잎을 다시 만들 수 없다(V40).
+    // 가용성 전조가 아니라 저널 원천 이상이라 CRITICAL 이다.
+    C27_CMD_DEFAULT_PARTITION(Severity.CRITICAL, Scope.SCHEDULED,
+            "SELECT count(*) FROM command_journal_default"),
 
     // ── RPO=0 외부 증거(실험 한정): ACK 원장 ⊆ command_journal ───────────
     C16_ACK_JOURNALED(Severity.CRITICAL, Scope.AUTHORITATIVE_ONLY, """
@@ -244,38 +262,49 @@ public enum InvariantCheck {
             """),
 
     // ── fencing_token 단조성(DB §6.4 ⑯, P0-1) ────────────────────────────
-    // 리더 epoch는 seq 오름차순으로 비감소여야 한다(split-brain 부재). assert_current_leader가
-    // 라이브 강제이고 이 감사는 그 백스톱이라 정지 시점 권위 run에서만 평가한다(AUTHORITATIVE_ONLY).
+    // assert_current_leader 가 라이브 강제이고 이 감사는 백스톱이라 권위 run 에서만 돈다. 시간 축 팔은
+    // 마켓 사이까지, 마켓 안 팔은 시계 역행이 시간 축에서 가린 마켓 안 역행을 본다(ADR 0022 6-2, 9-17).
     C22_FENCING_MONOTONIC(Severity.CRITICAL, Scope.AUTHORITATIVE_ONLY, """
-            SELECT count(*) FROM (
-                SELECT seq, fencing_token,
-                       lag(fencing_token) OVER (ORDER BY seq) AS prev
-                FROM command_journal
-            ) t
-            WHERE t.prev > t.fencing_token
+            SELECT (
+                SELECT count(*) FROM (
+                    SELECT fencing_token,
+                           lag(fencing_token) OVER (ORDER BY created_at, seq) AS prev
+                    FROM command_journal
+                ) t
+                WHERE t.prev > t.fencing_token
+            ) + (
+                SELECT count(*) FROM (
+                    SELECT fencing_token,
+                           lag(fencing_token) OVER (PARTITION BY market_id ORDER BY seq) AS prev
+                    FROM command_journal
+                ) t
+                WHERE t.prev > t.fencing_token
+            )
             """),
 
     // ── 채번 카운터 정합(DB §6.4 ⑰, P0-5) ────────────────────────────────
-    // next_value가 저널 최대 seq 이하이면 다음 채번이 기존 seq와 충돌한다(재사용). 정상 채번은
-    // 원자적이라 라이브에선 항상 max+1 이상이고, 백업 복원·수동 리시드가 카운터를 저널 아래로
-    // 되돌리는 경우만 위반이다. 정지 시점 권위 run에서 평가한다(AUTHORITATIVE_ONLY).
-    // V36 에서 event_seq 축이 마켓 안으로 갔다. 전역 journal_counters 의 event_seq 행은
-    // 더 이상 호출자가 없으므로 max(event_seq) 와 대조하면 항상 위반이다. 채번한 값이
-    // 저널에 실재하는지를 보는 것이 이 검사의 뜻이므로, 그 뜻을 두 축에 나눠 적용한다.
-    // 명령 축은 전역 카운터 그대로이고, 이벤트 축은 마켓별 카운터 대 마켓별 최대값이다.
+    // next_value 가 그 축의 저널 최대값 이하이면 다음 채번이 기존 값과 충돌한다. 명령 축은 레거시 팔과
+    // 마켓별 대역 팔, 이벤트 축은 마켓별 market_seq 팔이고 명세 부재는 위반 1 이다(ADR 0022 6-3).
     C23_COUNTER_SEQ_CONSISTENCY(Severity.CRITICAL, Scope.AUTHORITATIVE_ONLY, """
-            SELECT (
-                SELECT count(*) FROM journal_counters c
-                WHERE c.name = 'command_seq'
-                  AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal)
-            ) + (
-                SELECT count(*) FROM market_journal_counters m
-                WHERE m.name = 'event_seq'
-                  AND m.next_value <= (SELECT COALESCE(max(e.market_seq), 0)
-                                       FROM event_journal e
-                                       WHERE e.market_id = m.market_id
-                                         AND e.market_seq IS NOT NULL)
-            )
+            WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+            SELECT (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM s)
+                 + (SELECT count(*) FROM journal_counters c
+                    WHERE c.name = 'command_seq'
+                      AND c.next_value <= (SELECT COALESCE(max(j.seq), 0)
+                                           FROM command_journal j
+                                           WHERE j.seq < (SELECT band_span FROM s)))
+                 + (SELECT count(*) FROM market_journal_counters m
+                    WHERE m.name = 'command_seq'
+                      AND m.next_value <= (SELECT COALESCE(max(j.seq - j.market_id * (SELECT band_span FROM s)), 0)
+                                           FROM command_journal j
+                                           WHERE j.market_id = m.market_id
+                                             AND j.seq >= (SELECT band_span FROM s)))
+                 + (SELECT count(*) FROM market_journal_counters m
+                    WHERE m.name = 'event_seq'
+                      AND m.next_value <= (SELECT COALESCE(max(e.market_seq), 0)
+                                           FROM event_journal e
+                                           WHERE e.market_id = m.market_id
+                                             AND e.market_seq IS NOT NULL))
             """),
 
     // ── 원가 프로젝션 정합(DB §6.4 ⑱⑲, V13) ──────────────────────────────

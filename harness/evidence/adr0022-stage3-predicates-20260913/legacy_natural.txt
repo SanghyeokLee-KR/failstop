@@ -1,0 +1,15 @@
+legacy_c05|0
+legacy_c15|0
+legacy_c22|0
+legacy_c23|0
+arm_time|0
+arm_market|0
+created_at_regressions|0
+journal_rows|257
+journal_max_seq|257
+journal_markets|3
+journal_epochs|2
+band_spec_rows|1
+band_rows|0
+event_rows_with_market_seq|440
+timeline_id|1
