@@ -181,20 +181,6 @@ class ReplayVerifyAxisTest {
     }
 
     @Test
-    void 크래시_창_재생은_전량_pending_이_정상이다() {
-        // replayTail 은 대조할 상대가 없는 구간 전용이다. 같은 눈먼 리더에서도 던지지 않는다.
-        ReplayService replay = blind(3);
-        MatchingEngineImpl engine = new MatchingEngineImpl();
-
-        ReplayResult result = replay.replayTail(engine, 3);
-
-        assertEquals(3, result.replayedCommands(), "크래시 창 명령을 적용하지 않았다");
-        assertEquals(0, result.verifiedEvents());
-        assertTrue(result.pendingEvents().size() >= 3,
-                "크래시 창 방출이 pending 으로 나오지 않았다");
-    }
-
-    @Test
     void 상한이_시작점과_같으면_아무것도_읽지_않는다() {
         ReplayService replay = blind(3);
         MatchingEngineImpl engine = new MatchingEngineImpl();

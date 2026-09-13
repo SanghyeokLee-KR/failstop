@@ -85,7 +85,7 @@ def parse_metrics(text):
         'is_leader': None, 'leader_epoch': None,
         # 팔로워 따라잡기 축(2026-09-08). 재합류가 성립했는지는 이 넷으로만 밖에서 보인다.
         # verified 는 대조가 실제로 돌았는지다. 적용만 보면 결함 B 같은 무음 실패를 놓친다.
-        'catchup_lag': None, 'catchup_state': None, 'catchup_applied': None,
+        'catchup_lag_max': None, 'catchup_lag_sum': None, 'catchup_state': None, 'catchup_applied': None,
         'catchup_verified': None,
         'catchup_tick': None, 'heap_used': None, 'heap_max': None,
     }
@@ -146,8 +146,11 @@ def parse_metrics(text):
             out['is_leader'] = tail(line)
         elif line.startswith('exchange_leader_epoch{'):
             out['leader_epoch'] = tail(line)
-        elif line.startswith('exchange_follower_catchup_lag_commands'):
-            out['catchup_lag'] = tail(line)
+        # 이름을 통째로 맞춘다. 두 격차 지표가 같은 접두를 공유해 startswith 로는 서로를 삼킨다.
+        elif line.split('{')[0].split(' ')[0] == 'exchange_follower_catchup_lag_commands_max':
+            out['catchup_lag_max'] = tail(line)
+        elif line.split('{')[0].split(' ')[0] == 'exchange_follower_catchup_lag_commands_sum_of_markets':
+            out['catchup_lag_sum'] = tail(line)
         elif line.startswith('exchange_follower_catchup_state'):
             out['catchup_state'] = tail(line)
         elif line.startswith('exchange_follower_catchup_applied_total'):
@@ -362,7 +365,8 @@ def main():
                        'epoch': (m or {}).get('leader_epoch'),
                        'token': (m or {}).get('lease_token'),
                        'lease_age': (m or {}).get('lease_renew_age'),
-                       'catchup_lag': (m or {}).get('catchup_lag'),
+                       'catchup_lag_max': (m or {}).get('catchup_lag_max'),
+                       'catchup_lag_sum': (m or {}).get('catchup_lag_sum'),
                        'catchup_state': (m or {}).get('catchup_state'),
                        'catchup_applied': (m or {}).get('catchup_applied'),
                        'catchup_verified': (m or {}).get('catchup_verified'),

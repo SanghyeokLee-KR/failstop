@@ -16,10 +16,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import java.util.function.IntConsumer;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -43,18 +46,18 @@ class PromotionSkipInstallTest {
     private static final long BASE_TS = 1_721_600_000_000L;
     private static final int MARKET = 1;
 
-    /** 명령 저널 대역. head 만 답한다. */
+    /** 명령 저널 대역. 마켓별 head 만 답한다. */
     private static final class FixedHead extends CommandJournalReader {
-        private final long head;
+        private final Map<Integer, Long> heads;
 
-        FixedHead(long head) {
+        FixedHead(Map<Integer, Long> heads) {
             super(null);
-            this.head = head;
+            this.heads = heads;
         }
 
         @Override
-        public long maxSeq() {
-            return head;
+        public Map<Integer, Long> maxSeqByMarket() {
+            return heads;
         }
     }
 
@@ -115,7 +118,14 @@ class PromotionSkipInstallTest {
     private final List<EngineEvent> sunk = new CopyOnWriteArrayList<>();
 
     private WriterRouter router() {
+        return router(marketId -> {
+        });
+    }
+
+    /** onCreate 는 샤드를 만들기 직전에 불린다. 설치 창에 끼어드는 따라잡기 틱을 흉내 낼 때 쓴다. */
+    private WriterRouter router(IntConsumer onCreate) {
         return new WriterRouter(marketId -> {
+            onCreate.accept(marketId);
             MatchingEngineImpl engine = new MatchingEngineImpl();
             SingleWriterLoop loop = new SingleWriterLoop(64, engine,
                     sunk::addAll,
@@ -162,7 +172,7 @@ class PromotionSkipInstallTest {
                 FencingEpochPublisher.NONE, TTL, TICK, NodeServiceHealth.ALWAYS_SERVICEABLE)) {
             recovery = new CountingRecovery(lease);
             PromotionCoordinator coordinator = new PromotionCoordinator(
-                    recovery, router, lease, new FixedHead(7), AvailabilitySignal.NOOP);
+                    recovery, router, lease, new FixedHead(Map.of(MARKET, 7L)), AvailabilitySignal.NOOP);
             coordinator.bootstrap(global, false);
             coordinator.arm();
             lease.onLeadershipGained(coordinator::onLeadershipGained);
@@ -244,9 +254,103 @@ class PromotionSkipInstallTest {
         router.installFrom(global);
         router.startAll();
 
-        // 부팅 복구본에 없던 마켓이다. 0 에서 출발하면 그 마켓의 전 이력을 회수해 재정산한다.
-        assertEquals(1, router.engine(2).lastAppliedSeq(),
-                "지연 생성 샤드가 설치 진행도가 아니라 0 에서 출발한다");
+        // 부팅 복구본에 없던 마켓이다. 다른 마켓의 커서가 아니라 복구본의 바닥(여기서는 0)에서 출발한다.
+        assertEquals(1, router.engine(MARKET).appliedSeq(MARKET));
+        assertEquals(0, router.engine(2).appliedSeq(2),
+                "지연 생성 샤드가 다른 마켓의 커서에서 출발한다");
+        router.stopAll();
+
+        MatchingEngineImpl snapshotted = new MatchingEngineImpl();
+        snapshotted.loadSnapshot(5, List.of());
+        WriterRouter fromSnapshot = router();
+        fromSnapshot.installFrom(snapshotted);
+        assertEquals(5, fromSnapshot.engine(3).appliedSeq(3),
+                "지연 생성 샤드가 복구본의 스냅샷 바닥에서 출발하지 않는다. 0 이면 그 마켓 전 이력을 회수한다");
+    }
+
+    @Test
+    void skipDoesNotFireWhenOnlyOneMarketReachedHead() throws Exception {
+        MatchingEngineImpl global = new MatchingEngineImpl();
+        apply(global, order(1, 1, 1, OrderCommand.Side.BUY, "100", "1"));
+        apply(global, order(2, 6, 2, OrderCommand.Side.BUY, "100", "1"));
+        // 전역 최댓값 6 을 쥔 마켓 2 는 head 에 닿았고 낮은 seq 마켓 1 은 head 5 에 못 미친다.
+        // 최댓값으로 판정하면 이 상태에서 생략이 걸린다.
+        assertEquals(6, global.lastAppliedSeq(), "최댓값 마켓이 전역 head 에 닿지 않아 이 검증이 판정하지 못한다");
+        WriterRouter router = router();
+        router.startAll();
+
+        CountingRecovery recovery;
+        try (LeaderLeaseService lease = new LeaderLeaseService(new MemoryStore(),
+                FencingEpochPublisher.NONE, TTL, TICK, NodeServiceHealth.ALWAYS_SERVICEABLE)) {
+            recovery = new CountingRecovery(lease);
+            PromotionCoordinator coordinator = new PromotionCoordinator(recovery, router, lease,
+                    new FixedHead(Map.of(1, 5L, 2, 6L)), AvailabilitySignal.NOOP);
+            coordinator.bootstrap(global, false);
+            coordinator.arm();
+            lease.onLeadershipGained(coordinator::onLeadershipGained);
+
+            assertTrue(lease.tryAcquire(), "검증 전제인 리더 승격이 실패했다");
+            await(() -> coordinator.state() == PromotionCoordinator.State.ACCEPTING);
+        }
+
+        assertEquals(1, recovery.calls, "뒤처진 마켓이 있는데 승격 재생을 생략했다");
+        router.stopAll();
+    }
+
+    @Test
+    void lazyLowerMarketShardAfterInstallAppliesBandCommand() throws Exception {
+        long band = 1_000_000_000_000L;
+        MatchingEngineImpl recovered = new MatchingEngineImpl();
+        apply(recovered, order(12, 12 * band + 5, 1, OrderCommand.Side.BUY, "100", "1"));
+        WriterRouter router = router();
+        router.installFrom(recovered);
+        router.startAll();
+
+        OrderCommand lower = order(1, band + 1, 2, OrderCommand.Side.BUY, "100", "1");
+        journal.add(lower);
+        assertTrue(router.offer(lower));
+        await(() -> router.engine(1).appliedSeq(1) == band + 1);
+
+        assertEquals(Set.of(band + 1),
+                sunk.stream().map(EngineEvent::sourceCmdSeq).collect(Collectors.toSet()),
+                "낮은 대역 마켓 명령이 적용되지 않았다");
+        router.stopAll();
+    }
+
+    @Test
+    void installRetriesWhenLowerBandMarketAdvancesDuringInstall() throws Exception {
+        long band = 1_000_000_000_000L;
+        MatchingEngineImpl global = new MatchingEngineImpl();
+        apply(global, order(1, band + 2, 1, OrderCommand.Side.BUY, "100", "1"));
+        apply(global, order(12, 12 * band + 5, 2, OrderCommand.Side.BUY, "100", "1"));
+        OrderCommand lateTick = order(1, band + 3, 3, OrderCommand.Side.BUY, "99", "1");
+        AtomicBoolean advanced = new AtomicBoolean();
+        // 마켓 12 샤드를 만드는 순간, 설치 창에 남은 따라잡기 틱이 낮은 대역 마켓 1 만 전진시킨다.
+        WriterRouter router = router(marketId -> {
+            if (marketId == 12 && advanced.compareAndSet(false, true)) {
+                global.apply(lateTick);
+            }
+        });
+        router.startAll();
+
+        CountingRecovery recovery;
+        try (LeaderLeaseService lease = new LeaderLeaseService(new MemoryStore(),
+                FencingEpochPublisher.NONE, TTL, TICK, NodeServiceHealth.ALWAYS_SERVICEABLE)) {
+            recovery = new CountingRecovery(lease);
+            PromotionCoordinator coordinator = new PromotionCoordinator(recovery, router, lease,
+                    new FixedHead(Map.of(1, band + 2, 12, 12 * band + 5)), AvailabilitySignal.NOOP);
+            coordinator.bootstrap(global, false);
+            coordinator.arm();
+            lease.onLeadershipGained(coordinator::onLeadershipGained);
+
+            assertTrue(lease.tryAcquire(), "검증 전제인 리더 승격이 실패했다");
+            await(() -> coordinator.state() == PromotionCoordinator.State.ACCEPTING);
+        }
+
+        assertTrue(advanced.get(), "설치 창 전진이 일어나지 않아 이 검증이 판정하지 못한다");
+        assertEquals(0, recovery.calls, "생략 경로가 아니라 전량 재생이 돌았다");
+        assertEquals(band + 3, router.engine(1).appliedSeq(1),
+                "설치 중 낮은 대역 마켓의 전진을 놓쳐 라이터가 낡은 커서를 쥐었다");
         router.stopAll();
     }
 
@@ -264,7 +368,12 @@ class PromotionSkipInstallTest {
 
     private static OrderCommand order(long seq, long orderId, OrderCommand.Side side,
                                       String price, String qty) {
-        return new OrderCommand(seq, MARKET, OrderCommand.CommandType.NEW, 1, "c-" + orderId,
+        return order(MARKET, seq, orderId, side, price, qty);
+    }
+
+    private static OrderCommand order(int marketId, long seq, long orderId, OrderCommand.Side side,
+                                      String price, String qty) {
+        return new OrderCommand(seq, marketId, OrderCommand.CommandType.NEW, 1, "c-" + orderId,
                 orderId, BASE_TS + seq, seq, side, OrderCommand.OrdType.LIMIT,
                 OrderCommand.TimeInForce.GTC, new BigDecimal(price), new BigDecimal(qty), null, 1);
     }

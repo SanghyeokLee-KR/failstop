@@ -22,8 +22,8 @@ public final class MatchingEngineImpl implements MatchingEngine {
     // 커서가 없는 마켓의 바닥. 스칼라 loadSnapshot만 세운다. 전역 seq로 복구해 설치한 엔진에서
     // 명령이 아직 없던 마켓이 그 seq 이하를 다시 적용하지 않게 한다(WriterRouter 설치·지연 생성).
     private long floorSeq;
-    // 승격 스레드가 설치 판정에서 이 값을 읽는 동안 따라잡기 틱이 커서 맵에 마켓을 더할 수 있어
-    // 맵 순회로 계산하지 않고 커서와 함께 갱신한다(PromotionCoordinator 생략 경로).
+    // 커서와 함께 갱신해 표시와 갭 회수 판단이 맵 순회 없이 읽는다. 승격 설치 판정의 appliedSeqs() 사본은 정지 대기를
+    // 넘긴 따라잡기 틱과 겹치면 어긋날 수 있고, 그 오독은 미도달이나 설치 전후 불일치로 가 재시도가 흡수한다.
     private long maxAppliedSeq;
 
     @Override
@@ -41,6 +41,11 @@ public final class MatchingEngineImpl implements MatchingEngine {
     @Override
     public long appliedSeq(int marketId) {
         return appliedSeqs.getOrDefault(marketId, floorSeq);
+    }
+
+    /** 커서가 없는 마켓의 바닥. 스칼라 loadSnapshot 만 세운다. 라이터 설치가 지연 생성 마켓의 출발점으로 쓴다. */
+    public long floorSeq() {
+        return floorSeq;
     }
 
     /** 커서를 가진 마켓의 적용 seq. 마켓 id 오름차순 사본이다. */

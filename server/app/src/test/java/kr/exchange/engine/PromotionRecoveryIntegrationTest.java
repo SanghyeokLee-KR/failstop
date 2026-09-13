@@ -237,7 +237,8 @@ class PromotionRecoveryIntegrationTest {
         assertEquals(0L, from, "fresh 엔진이라 재생 시작이 0이다");
         // leaderHead는 클래스 셋업 시점 값이다. 앞선 테스트가 명령을 더 넣으므로 지금 head를
         // 읽는다. 고정 상수와 비교하면 실행 순서에 따라 깨진다(실측: 1000 대 1002).
-        assertEquals(commandReader.maxSeq(), to, "재생 종점이 저널 head다");
+        assertEquals(commandReader.maxSeqByMarket().values().stream().mapToLong(Long::longValue).max()
+                .orElse(0), to, "재생 종점이 마켓별 head 의 최댓값이다");
         // fp는 재생 창 식별자다(DB§5.5). 형식이 계약이라 형식을 건다.
         String fp = String.valueOf(row.get("fp_replay"));
         String prefix = "seq:" + from + "-" + to + ":ev:";
@@ -269,9 +270,9 @@ class PromotionRecoveryIntegrationTest {
         ReplayService failing = new ReplayService(commandReader, eventReader, mapper,
                 objectMapper, new MarketCatalog(jdbc)) {
             @Override
-            public kr.exchange.journal.ReplayResult verifyTo(
-                    kr.exchange.engine.core.MatchingEngine engine,
-                    kr.exchange.journal.JournalCheckpoint bound) {
+            public kr.exchange.journal.ReplayResult verifyToMarket(
+                    kr.exchange.engine.core.MatchingEngine engine, int marketId,
+                    kr.exchange.journal.JournalCheckpoints checkpoints) {
                 throw new IllegalStateException("주입 결함: 재생 불일치");
             }
         };

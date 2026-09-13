@@ -6,6 +6,7 @@ import kr.exchange.journal.CommandJournalReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -305,28 +306,28 @@ public class PromotionCoordinator implements AutoCloseable {
     }
 
     private void replayOnce(LeaderIdentity identity, long t0) {
-        long head = journalReader.maxSeq();
+        Map<Integer, Long> heads = journalReader.maxSeqByMarket();
         MatchingEngineImpl current = installedEngine;
-        // 생략이 안전한 근거는 FollowerCatchUp 의 불변식 M 이다. 설치 엔진의 lastAppliedSeq 는
-        // 관측한 체크포인트를 넘지 않으므로, head 에 닿았다는 것은 head 이하에 이벤트 없는 명령이
-        // 없다는 뜻이다. 곧 메울 크래시 창이 없다. 따라잡기가 상한을 재사용하거나 저널 head 로
-        // 유도하도록 바뀌면 이 생략이 미물질화 명령 위에서 접수를 연다.
+        // 생략이 안전한 근거는 FollowerCatchUp 의 불변식 M 이다. 모든 마켓에서 설치 엔진의 커서가 그 마켓
+        // head 에 닿았으면 어느 마켓에도 head 이하에 이벤트 없는 명령이 없다. 곧 메울 크래시 창이 없다.
+        // 한 마켓만 닿았거나, 저널에 명령이 있는데 엔진에 커서가 없는 마켓이 있으면 생략하지 않는다
+        // (ADR 0022 5-4). 전역 최댓값으로 판정하면 가장 큰 seq 를 쥔 마켓이 head 에 닿는 순간 뒤처진 마켓이 있어도 생략이 걸린다.
         //
         // 생략 대상은 재생이지 설치가 아니다. 라이터가 이 엔진을 이어받아야 라이터의 카운터가
         // 자기 북의 진행도와 맞는다. 설치를 함께 생략하면 카운터만 부팅값에 멈춘 채 게이트가
         // 열려 첫 명령이 갭으로 보이고, catch-up 이 이미 반영된 구간을 다시 적용한다.
-        if (current != null && current.lastAppliedSeq() >= head) {
-            long applied = current.lastAppliedSeq();
+        if (current != null && reachedEveryHead(current, heads)) {
+            Map<Integer, Long> applied = current.appliedSeqs();
             host.install(current);
-            if (current.lastAppliedSeq() != applied) {
-                // 유계 대기를 못 채운 잔여 따라잡기 틱이 설치 창에서 엔진을 전진시켰다.
-                // 조용히 보정하지 않는다. 재시도가 다시 잡는다.
+            if (!current.appliedSeqs().equals(applied)) {
+                // 유계 대기를 못 채운 잔여 따라잡기 틱이 설치 창에서 엔진을 전진시켰다. 조용히 보정하지
+                // 않는다. 마켓 커서 전체를 비교한다. 최댓값 비교는 낮은 대역 마켓의 전진을 놓친다.
                 throw new IllegalStateException(
                         "승격 설치 중 엔진이 전진했다: before=" + applied
-                                + ", after=" + current.lastAppliedSeq());
+                                + ", after=" + current.appliedSeqs());
             }
-            log.info("승격 재생 생략(엔진 이미 head), 라이터에 설치: epoch={}, lastAppliedSeq={}, head={}",
-                    identity.epoch(), applied, head);
+            log.info("승격 재생 생략(모든 마켓 head 도달), 라이터에 설치: epoch={}, 마켓 커서={}, head={}",
+                    identity.epoch(), applied, heads);
             return;
         }
         // fresh 엔진에 0(또는 스냅샷 seq)부터 인메모리 선복원 + 크래시 창 재정산. 재시도마다
@@ -337,9 +338,20 @@ public class PromotionCoordinator implements AutoCloseable {
         recovery.recover(fresh);
         host.install(fresh);
         installedEngine = fresh;
-        log.info("승격 재생 완료: epoch={}, lastAppliedSeq={}, head={}, 소요={}ms",
-                identity.epoch(), fresh.lastAppliedSeq(), head,
+        log.info("승격 재생 완료: epoch={}, 마켓 커서={}, head={}, 소요={}ms",
+                identity.epoch(), fresh.appliedSeqs(), heads,
                 (System.nanoTime() - t0) / 1_000_000);
+    }
+
+    private static boolean reachedEveryHead(MatchingEngineImpl engine, Map<Integer, Long> heads) {
+        Map<Integer, Long> cursors = engine.appliedSeqs();
+        for (Map.Entry<Integer, Long> head : heads.entrySet()) {
+            Long cursor = cursors.get(head.getKey());
+            if (cursor == null || cursor < head.getValue()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

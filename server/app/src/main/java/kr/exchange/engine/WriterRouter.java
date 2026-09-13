@@ -45,9 +45,11 @@ public final class WriterRouter {
     // 지연 생성을 직렬화한다. 같은 마켓의 첫 주문 둘이 동시에 오면 루프가 둘 생긴다.
     private final Object createLock = new Object();
     private volatile boolean started;
-    // 마지막 설치가 심은 진행도. 그 이후 새로 생기는 샤드는 0 이 아니라 이 값에서 출발해야
-    // 갭 회수가 그 마켓의 전 이력을 다시 읽지 않는다.
-    private volatile long installedSeq;
+    // 마지막 설치가 심은 마켓별 커서와, 커서 없는 마켓의 바닥(복구본의 스냅샷 seq). 그 뒤에 생기는 샤드는
+    // 자기 마켓 커서에서 출발한다. 0 에서 출발하면 갭 회수가 그 마켓 전 이력을 다시 읽고, 다른 마켓의
+    // 더 큰 seq 에서 출발하면 대역 채번에서 제 마켓의 새 명령을 커서 아래로 보고 버린다.
+    private volatile Map<Integer, Long> installedCursors = Map.of();
+    private volatile long installedFloor;
 
     public WriterRouter(LoopFactory factory) {
         this.factory = factory;
@@ -71,9 +73,9 @@ public final class WriterRouter {
         synchronized (createLock) {
             return shards.computeIfAbsent(marketId, id -> {
                 Shard created = factory.create(id);
-                long floor = installedSeq;
-                if (floor > 0) {
-                    created.engine().loadSnapshot(floor, List.of());
+                long start = installedCursors.getOrDefault(id, installedFloor);
+                if (start > 0) {
+                    created.engine().loadSnapshot(start, List.of());
                 }
                 if (started) {
                     created.loop().start();
@@ -102,54 +104,47 @@ public final class WriterRouter {
     }
 
     /**
-     * 전부 살아 있어야 running 이다.
+     * 복구한 엔진의 북을 마켓별 엔진으로 나눠 담는다.
      *
-     * 하나라도 죽었으면 그 마켓의 접수가 갈 곳이 없다. 부분 생존을 running 으로 보면
-     * 죽은 마켓의 주문이 등록되지 않은 마켓 예외로 떨어지거나 큐에 쌓이기만 한다.
-     * 접수 게이트는 전체 기준으로 닫는다. 마켓별 게이트는 이 판의 범위가 아니다.
-     */
-    /**
-     * 복구한 전역 엔진을 마켓별 엔진으로 나눠 담는다.
+     * 복구는 엔진 하나 위에서 마켓 벡터로 하고(EngineRecovery), 여기서는 그 안의 북을 마켓마다 하나씩
+     * 옮겨 담기만 한다. MatchingEngineImpl 은 마켓별 OrderBookImpl 을 들고 라우팅할 뿐이고 북 자체는
+     * 이미 마켓 단위다.
      *
-     * 이 설계의 요점이다. 복구와 승격 재생을 마켓별로 쪼개지 않는다. 종전 그대로 전역
-     * 엔진 하나를 복구한 뒤, 그 안의 북을 마켓마다 하나씩 옮겨 담기만 한다.
+     * 커서는 마켓마다 복구본의 그 마켓 커서를 심는다. 전역 최댓값을 물려주면 대역 채번에서 낮은 대역
+     * 마켓의 새 명령이 커서 아래로 보여 버려진다(ADR 0022 1-3(3)).
      *
-     * 그래도 되는 이유. MatchingEngineImpl 은 마켓별 OrderBookImpl 을 들고 라우팅할 뿐이고
-     * 북 자체는 이미 마켓 단위다. 복구 경로는 지금 그대로 검증돼 있으므로 손대지 않는 것이
-     * 가장 안전하다. 4단계 shadow 비교가 마켓별 재생과 전역 재생이 같은 북을 낸다는 것을
-     * 이미 보였으므로, 어느 쪽으로 만들어도 같은 상태다.
-     *
-     * lastAppliedSeq 는 전역 값을 그대로 물려준다. 그 마켓이 그 seq 까지의 자기 명령을
-     * 전부 반영했다는 뜻이라 맞는 값이고, 이후 그 마켓의 새 명령은 seq 가 더 크므로
-     * 중복 판정에 걸리지 않는다.
-     *
-     * 복구 결과에 없는 마켓은 빈 엔진으로 둔다. 그 마켓은 명령이 아직 없었다는 뜻이다.
+     * 복구 결과에 없는 마켓은 명령이 아직 없었던 마켓이다. 복구본의 바닥(스냅샷 seq, 없으면 0)에서
+     * 출발한다.
      *
      * 북은 복사해서 담는다. 참조를 그대로 넘기면 복구본과 샤드 엔진이 같은 북을 공유하면서
-     * lastAppliedSeq 만 따로 들어, 한쪽이 전진해도 다른 쪽 카운터가 멈춘 채로 남는다.
+     * 커서만 따로 들어, 한쪽이 전진해도 다른 쪽 커서가 멈춘 채로 남는다.
      */
     public void installFrom(MatchingEngineImpl recovered) {
-        long seq = recovered.lastAppliedSeq();
         synchronized (createLock) {
             for (int marketId : recovered.markets()) {
                 Shard s = shard(marketId);
                 MatchingEngineImpl fresh = new MatchingEngineImpl();
-                fresh.loadSnapshot(seq, List.of(recovered.orderBook(marketId).copy()));
+                fresh.loadMarketSnapshot(marketId, recovered.appliedSeq(marketId),
+                        recovered.orderBook(marketId).copy());
                 s.loop().installEngine(fresh);
                 shards.put(marketId, new Shard(fresh, s.loop()));
             }
-            // 복구본에 없던 마켓은 명령이 없었던 마켓이다. 그 루프의 엔진도 같은 seq 로
-            // 맞춰야 이후 catch-up 이 이미 지난 명령을 다시 읽지 않는다.
+            Map<Integer, Long> cursors = recovered.appliedSeqs();
+            long floor = recovered.floorSeq();
             for (Map.Entry<Integer, Shard> e : shards.entrySet()) {
                 if (recovered.markets().contains(e.getKey())) {
                     continue;
                 }
                 MatchingEngineImpl fresh = new MatchingEngineImpl();
-                fresh.loadSnapshot(seq, List.of());
+                long start = cursors.getOrDefault(e.getKey(), floor);
+                if (start > 0) {
+                    fresh.loadSnapshot(start, List.of());
+                }
                 e.getValue().loop().installEngine(fresh);
                 shards.put(e.getKey(), new Shard(fresh, e.getValue().loop()));
             }
-            installedSeq = seq;
+            installedCursors = cursors;
+            installedFloor = floor;
         }
     }
 
@@ -160,6 +155,13 @@ public final class WriterRouter {
         }
     }
 
+    /**
+     * 전부 살아 있어야 running 이다.
+     *
+     * 하나라도 죽었으면 그 마켓의 접수가 갈 곳이 없다. 부분 생존을 running 으로 보면
+     * 죽은 마켓의 주문이 등록되지 않은 마켓 예외로 떨어지거나 큐에 쌓이기만 한다.
+     * 접수 게이트는 전체 기준으로 닫는다. 마켓별 게이트는 이 판의 범위가 아니다.
+     */
     public boolean isRunning() {
         if (!started) {
             return false;

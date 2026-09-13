@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.engine.CommandPayloadMapper;
 import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.MatchingEngine;
+import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.journal.ReplayResult.PendingBatch;
 import kr.exchange.ledger.Fees;
@@ -13,6 +14,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * 기동 재생(DB 설계 §5.5 STEP2, M1-2 범위: 스냅샷 없이 seq 0부터 전역 단일 패스).
@@ -76,6 +79,28 @@ public class ReplayService {
         return commandReader.maxSeq();
     }
 
+    /** 마켓별 연속 물질화 경계. 호출자는 엔진의 마켓 커서를 넘긴다(ADR 0023 결정 2). */
+    public JournalCheckpoints materializedThroughByMarket(Map<Integer, Long> cursors) {
+        return eventReader.materializedThroughByMarket(cursors);
+    }
+
+    /**
+     * 엔진의 마켓 커서로 구한 마켓별 경계. 저널에 명령이 있는데 엔진에 커서가 없는 마켓은 엔진의 바닥을 넘긴다.
+     * 바닥을 넘기지 않으면 경계 탐색이 스냅샷 아래를 다시 훑는다(ADR 0023 결정 2).
+     */
+    public JournalCheckpoints materializedThroughByMarket(MatchingEngineImpl engine) {
+        Map<Integer, Long> cursors = new TreeMap<>(engine.appliedSeqs());
+        for (int marketId : journalHeads().keySet()) {
+            cursors.putIfAbsent(marketId, engine.appliedSeq(marketId));
+        }
+        return materializedThroughByMarket(cursors);
+    }
+
+    /** 마켓별 명령 저널 head. 2 단계 상한과 초과분 판정에 쓴다. */
+    public Map<Integer, Long> journalHeads() {
+        return commandReader.maxSeqByMarket();
+    }
+
     /**
      * 상한까지 대조만 하는 재생. pending 이 하나라도 나오면 던진다.
      *
@@ -103,16 +128,6 @@ public class ReplayService {
                     + ", 첫 pending cmd=" + result.pendingBatches().get(0).seq());
         }
         return result;
-    }
-
-    /**
-     * 크래시 창 산출 전용 재생. 이벤트 커서를 열지 않으므로 전 방출이 pending 이다.
-     *
-     * 상한 위 구간은 이벤트가 없는 구간이라 대조할 상대가 없다. 커서를 열어 두면 경계 위에
-     * 이미 물질화된 다른 마켓의 행을 만나 짝이 어긋난다.
-     */
-    public ReplayResult replayTail(MatchingEngine engine, long upperCmdSeq) {
-        return replay(engine, upperCmdSeq, EventCursor.NONE);
     }
 
     /** 이벤트 커서. 대조할 상대가 없는 구간에서는 NONE 을 쓴다. */

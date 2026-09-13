@@ -4,13 +4,14 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import kr.exchange.engine.core.MatchingEngineImpl;
-import kr.exchange.journal.JournalCheckpoint;
+import kr.exchange.journal.JournalCheckpoints;
 import kr.exchange.journal.ReplayResult;
 import kr.exchange.journal.ReplayService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 팔로워 따라잡기. 리더가 쌓은 저널을 체크포인트 상한으로 계속 재생해 이 노드의 엔진을 리더에
+ * 팔로워 따라잡기. 리더가 쌓은 저널을 마켓별 체크포인트 상한으로 계속 재생해 이 노드의 엔진을 리더에
  * 붙여 둔다(2026-09-08).
  *
  * 왜 생겼나. 기동 재생이 체크포인트로 상한되면서 팔로워는 그 지점까지만 복원된 채 뜬다. 그 뒤
@@ -47,17 +48,18 @@ import java.util.concurrent.atomic.AtomicLong;
  * 프로세스를 죽이지 않는 이유는 승격이 어차피 fresh 엔진으로 다시 유도하기 때문이다. 갈린
  * 엔진이 쓰기에 쓰이는 경로가 없다.
  *
- * <p><b>불변식 M(물질화).</b> 이 엔진의 lastAppliedSeq 는 관측한 체크포인트의 commandSeq 를
- * 절대 넘지 않는다. 매 틱이 체크포인트를 새로 읽고 그 값으로만 상한하기 때문이다.
+ * <p><b>불변식 M(물질화).</b> 모든 마켓 m 에서 seq 가 cursor(m) 이하인 그 마켓 명령은 전부 이벤트가
+ * 있다. 커서가 매 틱 새로 읽은 그 마켓의 bound(m) 까지만 전진하고, 출발점이 0 이거나 스냅샷 seq 이기
+ * 때문이다(ADR 0022 5-4, DB 설계 §5.5-a). '커서가 체크포인트를 넘지 않는다' 는 체크포인트 정의상 늘
+ * 참이라 이 불변식을 대신하지 못한다.
  *
- * 이 불변식이 실려 있는 곳이 하나 더 있다. PromotionCoordinator 는 설치 엔진이 이미 저널
- * head 에 닿았으면 승격 재생을 생략한다. 이 배선이 없을 때는 팔로워 엔진이 기동 시점에 얼어
- * 있어 그 생략이 사실상 도달하지 않았지만, 따라잡기가 붙으면 조용한 시장에서 도달한다.
- * 생략이 안전한 근거가 곧 M 이다. lastAppliedSeq >= head 이고 lastAppliedSeq <= 체크포인트이면
- * head 이하에 이벤트 없는 명령이 없다. 곧 메울 크래시 창이 없다.
+ * 이 불변식이 실려 있는 곳이 하나 더 있다. PromotionCoordinator 는 설치 엔진이 이미 저널 head 에
+ * 닿았으면 승격 재생을 생략한다. 생략이 안전한 근거가 곧 M 이다. 한 마켓의 cursor(m) 이 head(m) 에
+ * 닿았으면 그 마켓 head 이하에 이벤트 없는 명령이 없다.
  *
- * M 을 깨는 방법은 하나뿐이다. 상한을 매 틱 새로 읽지 않고 재사용하거나 저널 head 로 유도하는
- * 것이다. 그러면 생략이 미물질화 명령 위에서 접수를 열고 저널의 prefix 성질이 깨진다.
+ * M 을 깨는 방법은 셋이다. 상한을 매 틱 새로 읽지 않고 재사용하는 것, 저널 head 로 유도하는 것,
+ * 마켓 판정에 전역 스칼라 커서나 전역 경계를 쓰는 것이다. 그러면 생략이 미물질화 명령 위에서
+ * 접수를 열고 저널의 prefix 성질이 깨진다.
  */
 public final class FollowerCatchUp implements AutoCloseable {
 
@@ -77,7 +79,9 @@ public final class FollowerCatchUp implements AutoCloseable {
     // 대조한 이벤트 수. 따라잡기가 실제로 무엇을 판정했는지가 이 값에만 남는다. 적용 건수가
     // 늘어도 이 값이 0 이면 대조가 돌지 않은 것이다.
     private final Counter verified;
-    private final AtomicLong lagCommands = new AtomicLong();
+    // 마켓별 격차의 최대와 합. 합만 두면 한 마켓의 정체가 나머지 마켓의 진행에 묻힌다.
+    private final AtomicLong lagMax = new AtomicLong();
+    private final AtomicLong lagSum = new AtomicLong();
     private final AtomicLong lastTickMillis = new AtomicLong();
     private final AtomicInteger state = new AtomicInteger(STATE_STOPPED);
     // 엔진을 만지는 구간의 배타. 승격이 이 락을 잡아 진행 중인 틱이 끝난 것을 확인한 뒤 넘어간다.
@@ -109,8 +113,11 @@ public final class FollowerCatchUp implements AutoCloseable {
         this.verified = Counter.builder("exchange.follower.catchup.verified_events")
                 .description("팔로워가 저널과 대조한 이벤트 수")
                 .register(registry);
-        Gauge.builder("exchange.follower.catchup.lag_commands", lagCommands, AtomicLong::doubleValue)
-                .description("리더 저널 head 와 이 노드 엔진의 명령 격차")
+        Gauge.builder("exchange.follower.catchup.lag_commands.max", lagMax, AtomicLong::doubleValue)
+                .description("마켓별 (저널 head - 이 노드 엔진 커서) 의 최대. 대역 채번에서는 명령 수다")
+                .register(registry);
+        Gauge.builder("exchange.follower.catchup.lag_commands.sum_of_markets", lagSum, AtomicLong::doubleValue)
+                .description("마켓별 (저널 head - 이 노드 엔진 커서) 의 합")
                 .register(registry);
         Gauge.builder("exchange.follower.catchup.state", state, AtomicInteger::doubleValue)
                 .description("0 정지, 1 따라잡는 중, 2 리더라 쉬는 중, -1 상태 어긋남")
@@ -121,9 +128,14 @@ public final class FollowerCatchUp implements AutoCloseable {
                 .register(registry);
     }
 
-    /** 관측·검증용. 현재 격차다. */
+    /** 관측·검증용. 마켓별 격차의 최대다. */
     public long lagCommands() {
-        return lagCommands.get();
+        return lagMax.get();
+    }
+
+    /** 관측·검증용. 마켓별 격차의 합이다. */
+    public long lagCommandsSum() {
+        return lagSum.get();
     }
 
     /** 관측·검증용. 지금까지 대조한 이벤트 수다. */
@@ -242,8 +254,8 @@ public final class FollowerCatchUp implements AutoCloseable {
             } catch (kr.exchange.journal.ReplayMismatchException e) {
                 // 이 노드의 엔진이 리더와 갈렸다. 더 적용하면 갈린 상태 위에 쌓는다.
                 state.set(STATE_DIVERGED);
-                log.error("팔로워 상태가 리더와 갈렸다. 따라잡기를 멈춘다: lastAppliedSeq={}, 사유={}",
-                        engine.lastAppliedSeq(), e.getMessage());
+                log.error("팔로워 상태가 리더와 갈렸다. 따라잡기를 멈춘다: 마켓 커서={}, 사유={}",
+                        engine.appliedSeqs(), e.getMessage());
             } catch (RuntimeException e) {
                 // 왕복 실패는 갈림이 아니다. 다음 틱에 다시 시도한다.
                 log.warn("따라잡기 틱 실패: {}", e.toString());
@@ -253,17 +265,30 @@ public final class FollowerCatchUp implements AutoCloseable {
         }
     }
 
-    /** 체크포인트를 새로 읽고 그 지점까지만 전진한다. 불변식 M 이 여기서 성립한다. */
+    /** 마켓별 체크포인트를 새로 읽고 마켓마다 그 지점까지만 전진한다. 불변식 M 이 여기서 성립한다. */
     private void advance() {
-        long from = engine.lastAppliedSeq();
-        JournalCheckpoint bound = replayService.materializedThrough(from);
-        if (bound.commandSeq() > from) {
-            ReplayResult result = replayService.verifyTo(engine, bound);
+        JournalCheckpoints bounds = replayService.materializedThroughByMarket(engine);
+        for (Map.Entry<Integer, Long> bound : bounds.bounds().entrySet()) {
+            int marketId = bound.getKey();
+            if (bound.getValue() <= engine.appliedSeq(marketId)) {
+                continue;
+            }
+            ReplayResult result = replayService.verifyToMarket(engine, marketId, bounds);
             if (result.replayedCommands() > 0) {
                 applied.increment(result.replayedCommands());
             }
             verified.increment(result.verifiedEvents());
         }
-        lagCommands.set(Math.max(0, replayService.journalHead() - engine.lastAppliedSeq()));
+        // 격차는 전진 뒤 head 를 다시 읽어 잰다. 앞서 읽은 head 는 그 뒤 경계보다 작을 수 있다.
+        long max = 0;
+        long sum = 0;
+        for (Map.Entry<Integer, Long> head : replayService.journalHeads().entrySet()) {
+            // 스냅샷에서 복원한 커서는 그 마켓의 마지막 명령보다 클 수 있다. 그때의 음수 격차는 이상이 아니라 0 이다.
+            long lag = Math.max(0, head.getValue() - engine.appliedSeq(head.getKey()));
+            max = Math.max(max, lag);
+            sum += lag;
+        }
+        lagMax.set(max);
+        lagSum.set(sum);
     }
 }
