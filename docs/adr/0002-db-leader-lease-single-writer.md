@@ -26,7 +26,7 @@
 - 저널 append와 정산은 그 호출에 더해 같은 트랜잭션에서 `leader_lease`를 `FOR SHARE`로 잠근 채 epoch 일치를 재검증한다. 0행이면 stale 확정이다(CommandJournalAppender.java:32, EventJournalAppender.java:38 · :88, SettlementService.java:60 · :167). (잠금 모드는 ADR 0026에서 FOR KEY SHARE로 바뀌었다)
 - TTL과 갱신 주기는 `tickInterval < ttl`을 기동 시 강제한다. 갱신 주기가 TTL 이상이면 정상 리더도 만료를 반복해 탈취·복구 플래핑이 된다(LeaderLeaseService.java:106-109).
 - `holder`는 호스트명이 아니라 프로세스 기동마다 새로 발급하는 UUID다(LeaderLeaseService.java:52). 같은 호스트에서 재기동한 구·신 프로세스를 구분하지 못하면 fencing이 무력화된다.
-- 마켓별 리스 분할은 금지한다. 전역 seq 채번 권위가 분열되기 때문이다(V1__init.sql:693-694, docs/architecture/아키텍처_개관.md:145).
+- 마켓별 리스 분할은 금지한다. 전역 seq 채번 권위가 분열되기 때문이다(V1__init.sql:693-694, docs/architecture/아키텍처_개관.md:145). (2026-09-13 주: ADR 0022 가 채번을 마켓 대역으로 가르지만 리스는 하나로 남는다. 리스 분할 금지는 유지된다)
 - 강등은 리스 행에 아무것도 쓰지 않는다. 갱신을 멈출 뿐이다. 다음 리더는 종전대로 TTL 만료 뒤 `try_acquire_leader`(epoch +1) 단독 UPDATE로만 정해진다(docs/contracts/백엔드_DB_설계.md:1989 · :2017, LeaderLeaseService.java:401-408).
 - `lease_until`을 미는 앱 경로는 정확히 하나다. 하트비트와 fencing 거부 재확인이 같은 `renew_leader_lease`를 쓰므로 생존성 판정을 그 단일 경로 안에 넣는다(LeaderLeaseService.java:415-432, docs/contracts/백엔드_DB_설계.md:1997).
 
@@ -50,7 +50,7 @@
 
 - Redisson RLock 리더선출. 기각. API 설계가 이 모델을 서술했으나 채택하지 않았다. 락 만료와 DB 커밋이 다른 시스템이라 fencing이 트랜잭션 원자성을 얻지 못하고, Redis가 죽으면 권위 자체가 사라진다. Redis는 권위가 아니라 후보 조율·알림 보조로 강등했다(docs/architecture/아키텍처_개관.md:248). 실제 배선도 하지 않았다. `grep -rniI "redisson" server/`는 2건이고 둘 다 주석이며, 둘 다 리더선출이 아니라 레이트리밋 분산화의 M2 유예 언급이다(AccountRateLimiter.java:16, PublicRateLimitFilter.java:23). `grep -rniI "redis" --include=*.gradle --include=*.kts --include=*.toml server/`는 0건이라 의존조차 없다.
 - etcd·ZooKeeper 등 외부 합의 코디네이터 도입. 기각. 앱 계층 단일 라이터를 위해 별도 쿼럼 클러스터를 운영·검증해야 하고, 위와 같은 이유로 fencing이 여전히 DB 트랜잭션 밖에 남는다. 다만 이 축을 버린 것이 아니라 계층을 나눴다. DB 클러스터의 primary 교체와 STONITH는 Patroni + etcd 운영 요건으로 분리했다(docs/contracts/백엔드_DB_설계.md §7.2, docs/architecture/아키텍처_개관.md:184-190).
-- 마켓별 `leader_lease` 행 분할. 기각. 마켓 단위 병렬 승격으로 처리량을 늘릴 수 있으나 `seq`·`event_seq`가 전역 gapless 시퀀스라 채번 권위가 분열된다. 재생도 전 마켓 통합 전역 seq 오름차순 단일 패스라 마켓별 독립 리스는 크래시 창을 놓친다(docs/architecture/아키텍처_개관.md:168).
+- 마켓별 `leader_lease` 행 분할. 기각. 마켓 단위 병렬 승격으로 처리량을 늘릴 수 있으나 `seq`·`event_seq`가 전역 gapless 시퀀스라 채번 권위가 분열된다. 재생도 전 마켓 통합 전역 seq 오름차순 단일 패스라 마켓별 독립 리스는 크래시 창을 놓친다(docs/architecture/아키텍처_개관.md:168). (2026-09-13 주: `event_seq` 는 V36 부터 마켓 카운터 파생이고, `seq` 는 ADR 0022 6단계에서 마켓 대역 채번이 되며, 재생은 마켓별 2상으로 바뀐다. 리스는 여전히 하나이고 이 기각의 결론은 유지된다)
 - PostgreSQL advisory lock(`pg_try_advisory_lock`). 기각. 정본 문서에 별도 기각 기록은 없고 아래는 이 ADR에서 정리한 사유다. advisory lock은 세션 수명에 묶이고 단조 증가 토큰을 남기지 않는다. 저장된 `fencing_epoch` 감사 축이 사라져 사후 증명이 불가능해지고, 커넥션 풀 위에서 세션 동일성을 보장하는 부담이 새로 생긴다.
 - 리더를 두지 않고 전 노드가 DB 행 잠금으로 직렬화한다. 기각. 선출 자체가 사라지므로 가장 단순하지만, 매칭을 DB 왕복에 묶어 처리량 상한을 잠금 경합에 내준다. DB는 매칭 핫패스가 아니라 SoT이자 최종 방어선이라는 전제와 정면으로 어긋나고(docs/contracts/백엔드_DB_설계.md:5), 인메모리 결정론 상태기계·재생 복구 구조 전체가 성립하지 않는다.
 - 강등 시 리스 즉시 반납. 기각. 페일오버를 TTL만큼 앞당길 수 있으나, 반납 UPDATE가 승격 경로 밖에서 리스 행을 쓰는 유일한 예외가 된다. 그 순간 "리스 행을 바꾸는 것은 만료 구동 단독 UPDATE뿐"이라는 불변이 깨지고 epoch 단조·stale append 0행 거부의 논거도 함께 약해진다. 자발적 강등도 회복 가능 반납도 리스 행에는 쓰지 않는 쪽으로 확정했다(docs/contracts/백엔드_DB_설계.md:1989 · :2017).
@@ -63,7 +63,7 @@
 - 검증 축이 하나 생겼다. 저장된 epoch가 감사 가능해지면서, 리더 epoch가 seq 오름차순으로 비감소여야 한다는 불변식을 검사로 걸었다. 라이브 강제는 `assert_current_leader`이고 이 감사는 그 백스톱이라 상시 스케줄에서 제외하고 정지 시점·실험 사후 권위 run에서만 평가한다(C22_FENCING_MONOTONIC, Scope.AUTHORITATIVE_ONLY, InvariantCheck.java:250-252, docs/contracts/하네스_검증설계.md:512).
 - 부팅 경로에 대기 절차가 생겼다. 강제 종료 직후 재기동은 직전 프로세스의 리스가 TTL 내 유효하므로, 부팅 복구는 즉시 실패하지 않고 TTL 1.5배(상한 30초)까지 짧은 간격으로 `try_acquire_leader`를 재시도한다. 만료 전 탈취가 없다는 승격 규칙은 그대로다(docs/contracts/백엔드_DB_설계.md:1984, d24e9f7).
 - 관측이 승격 문장에 종속됐다. `try_acquire_leader`가 `lease_until`을 덮어쓰므로, 페일오버 다운타임(승격 시각 - 구 리더 최종 심박)은 취득 시도 **전에** 구값을 읽어야만 산출된다(LeaderLeaseService.java:311-313 · :363-381). 하네스는 같은 요구를 T1 선캡처 승격 SQL로 등재했다(docs/contracts/하네스_검증설계.md:610, 부록 A #10 행 :729).
-- 처리량 상한이 단일 라이터에 고정됐다. 마켓별 리스 분할을 금지했으므로 매칭 수평 확장은 리스 구조 변경이 아니라 전역 seq 채번 권위를 다시 설계하는 별도 결정을 요구한다.
+- 처리량 상한이 단일 라이터에 고정됐다. 마켓별 리스 분할을 금지했으므로 매칭 수평 확장은 리스 구조 변경이 아니라 전역 seq 채번 권위를 다시 설계하는 별도 결정을 요구한다. (2026-09-13 주: 그 별도 결정이 ADR 0022 다. 리스는 하나로 두고 마켓별 대역 채번과 마켓별 접수 락으로 넓힌다)
 - 범위 한계를 명시해야 한다. `leader_lease`는 같은 primary에 접속한 앱 인스턴스 사이의 장치이고 DB 클러스터 primary 교체는 조율하지 못한다. RPO=0 주장도 그 범위로 한정했다(docs/contracts/백엔드_DB_설계.md:2264, docs/architecture/아키텍처_개관.md:182).
 - 리스 자체가 후속 결함 계보의 출발점이 됐다. 하트비트를 요청 풀에서 전용 소형 풀로 격리하자(v2.18, 992e59b) 하트비트 생존성이 서비스 생존성과 분리되어 좀비 리더가 성립했고(v2.19), 그 뿌리인 수용 제한 부재를 다시 막았다(v2.20). 좀비 라이브 실측은 요청 풀 고갈 리더가 30분 넘게 체결 0인 채 `lease_until`만 전진하고 epoch는 불변인 상태였다(docs/contracts/백엔드_DB_설계.md:2002).
 - 그 계보의 실측 대비는 완료율 비율로 남았다. 정상 구간 2.4~3.9, 좀비 구간 0.04다(docs/contracts/백엔드_DB_설계.md:2011). 리스만으로는 "리더가 살아 있다"와 "리더가 일을 한다"를 구분하지 못한다는 것이 이 결정의 잔여 비용이고, 자발적 강등 판정기가 그 자리를 메운다.
