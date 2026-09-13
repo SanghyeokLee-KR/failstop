@@ -6,6 +6,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /** command_journal 순서 보장 조회. catch-up과 재생 복구가 같은 경로를 쓴다. */
 public class CommandJournalReader {
@@ -19,6 +21,45 @@ public class CommandJournalReader {
     /** 현재 저널 head. 승격 시 인메모리 엔진이 head에 도달했는지 판정에 쓴다(빈 저널이면 0). */
     public long maxSeq() {
         Long v = jdbc.sql("SELECT COALESCE(max(seq), 0) FROM command_journal")
+                .query(Long.class).single();
+        return v == null ? 0 : v;
+    }
+
+    /**
+     * 명령이 있는 마켓 id. 마지막 행은 NULL 이라 쓰는 쪽이 거른다.
+     *
+     * DISTINCT 나 GROUP BY 는 저널 전체를 훑는다. 재귀로 idx_cmd_market 을 마켓마다 한 번씩만
+     * 짚는다. 경계 판독(EventJournalReader)이 같은 집합을 써야 해서 여기 한 곳에 둔다.
+     */
+    static final String MARKET_IDS_CTE = """
+            WITH RECURSIVE market_ids(id) AS (
+                SELECT min(market_id) FROM command_journal
+                UNION ALL
+                SELECT (SELECT min(c.market_id) FROM command_journal c WHERE c.market_id > m.id)
+                FROM market_ids m
+                WHERE m.id IS NOT NULL
+            )
+            """;
+
+    /** 마켓별 head(m). 명령이 있는 마켓만 담고 마켓 id 오름차순으로 순회한다. */
+    public Map<Integer, Long> maxSeqByMarket() {
+        Map<Integer, Long> heads = new TreeMap<>();
+        jdbc.sql(MARKET_IDS_CTE + """
+                        SELECT m.id AS market_id,
+                               (SELECT max(c.seq) FROM command_journal c WHERE c.market_id = m.id) AS head
+                        FROM market_ids m
+                        WHERE m.id IS NOT NULL
+                        """)
+                .query((rs, rowNum) -> Map.entry(rs.getInt("market_id"), rs.getLong("head")))
+                .list()
+                .forEach(e -> heads.put(e.getKey(), e.getValue()));
+        return heads;
+    }
+
+    /** head(m). 그 마켓에 명령이 없으면 0. */
+    public long maxSeqForMarket(int marketId) {
+        Long v = jdbc.sql("SELECT COALESCE(max(seq), 0) FROM command_journal WHERE market_id = ?")
+                .param(marketId)
                 .query(Long.class).single();
         return v == null ? 0 : v;
     }
@@ -47,9 +88,12 @@ public class CommandJournalReader {
     /**
      * 한 마켓의 명령만 seq 오름차순으로 읽는다(ADR 0021 4단계).
      *
-     * 마켓별 재생의 입력이다. seq 는 전역 채번이라 이 스트림에는 구멍이 뚫려 있다.
-     * 그 구멍은 다른 마켓의 명령이지 결번이 아니다. 곧 이 축에서 seq 연속성을
-     * 검사하면 안 된다. 마켓 안의 순서만 보장되면 재생이 성립한다.
+     * 마켓별 재생의 입력이다. 이 스트림의 seq 에는 구멍이 있다. 전역 채번 구간에서는 다른
+     * 마켓의 명령이고, 대역 채번으로 넘어가는 지점에서는 대역 시작으로 뛴다. 둘 다 결번이
+     * 아니다. 곧 이 축에서 seq 연속성을 검사하면 안 된다. 마켓 안의 순서만 보장되면 재생이 성립한다.
+     *
+     * upToSeq 는 그 마켓의 상한이다. 대조 구간이면 bound(m), 크래시 창 구간이면 head(m) 이다
+     * (JournalCheckpoints). 음수면 상한 없이 읽는다. readRange 와 같은 약속이다.
      */
     public List<JournalEntry> readAfterForMarket(long lastAppliedSeq, int marketId,
                                                  long upToSeq, int limit) {
