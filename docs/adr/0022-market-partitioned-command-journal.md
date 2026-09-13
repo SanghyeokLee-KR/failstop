@@ -303,9 +303,9 @@ SELECT 'pre_v36_event', COALESCE(max(source_cmd_seq), 0) FROM event_journal WHER
 
 **(5) `next_market_command_seq(p_market_id SMALLINT) RETURNS BIGINT` 신설.** `band_span`·`max_band_index` 를 조회하고, `p_market_id < 1 OR > max_band_index` 면 예외, 그 마켓의 대역 잎 `command_journal_b<p_market_id>` 가 없으면 예외, `next_market_journal_value(p_market_id, 'command_seq', 1)` 로 지역 번호를 받고, 지역 번호가 `band_span` 이상이면 예외, `p_market_id * band_span + local` 을 반환한다. 파생을 DB 에 두어 앱이 대역 폭을 모르게 한다.
 
-**(6) 시드와 트리거.** `market_journal_counters` 에 기존 마켓의 `'command_seq'` 행을 넣고, `seed_market_journal_counters`(V36:78-89)를 확장해 `'command_seq'` 도 시드하며, `NEW.id > max_band_index` 면 거부하고, 그 마켓의 대역 잎 `command_journal_b<NEW.id>` 를 만든다. `markets.id` 는 `SMALLINT PRIMARY KEY` 로 운영이 값을 직접 준다(V1:38). 마켓 행과 잎이 같은 트랜잭션에서 생기므로 파티션 없는 마켓이 만들어지지 않는다. 대가는 마켓 생성 순간 `command_journal` 부모에 걸리는 ACCESS EXCLUSIVE 잠금이고, 그동안 접수 append 가 기다린다. 마켓 생성은 관리자 조작이라 드물다. 채번 함수 (5)의 `p_market_id > max_band_index` 가드가 같은 상한을 한 번 더 막는다.
+**(6) 시드와 트리거.** `market_journal_counters` 에 기존 마켓의 `'command_seq'` 행을 넣고, `seed_market_journal_counters`(V36:78-89)를 확장해 `'command_seq'` 도 시드하며, `NEW.id > max_band_index` 면 거부하고, 그 마켓의 대역 잎 `command_journal_b<NEW.id>` 를 만든다. `markets.id` 는 `SMALLINT PRIMARY KEY` 로 운영이 값을 직접 준다(V1:38). 마켓 행과 잎이 같은 트랜잭션에서 생기므로 파티션 없는 마켓이 만들어지지 않는다. 대가는 마켓 생성 순간 `command_journal` 부모에 걸리는 ACCESS EXCLUSIVE 잠금이고, 그동안 접수 append 가 기다린다. 마켓 생성은 관리자 조작이라 드물다. prod 풀은 `lock_timeout` 2초라 트래픽이 흐르는 중이면 그 잠금을 못 얻고 마켓 생성이 실패한다. 지금 prod 에 마켓을 만드는 런타임 경로는 없다. `command_journal` 은 partman 10^8 격자와 꼬리 파티션이 겹치므로 partman 대상에서 뺀다(`docs/contracts/백엔드_DB_설계.md` §3.2). 채번 함수 (5)의 `p_market_id > max_band_index` 가드가 같은 상한을 한 번 더 막는다.
 
-**(7) 권한.** GRANT 는 표 단위라 그대로이고 새 함수에만 EXECUTE 를 준다. 두 새 표는 `harness_role` 에 SELECT.
+**(7) 권한.** 저널 GRANT 는 부모 표 단위라 새 잎에 따로 주지 않는다. `next_market_command_seq` 에 `app_role` EXECUTE 를 준다. `next_market_journal_value` 는 호출자 권한으로 돌고 정산에서 `app_role` 이 부르므로 명세표 읽기 권한이 없으면 정산이 멈춘다. 그래서 두 새 표는 `app_role` 과 `harness_role` 둘 다에 SELECT 를 준다. 잎 생성은 `ensure_command_band_partition`(SECURITY DEFINER, PUBLIC 회수) 하나가 맡고 기존 마켓 시드와 (6)의 트리거가 같이 부른다.
 
 되돌리기: 파티션 DROP(비어 있음), 두 함수 CREATE OR REPLACE 복귀, 시드 행 DELETE, 표 둘 DROP.
 
@@ -566,6 +566,8 @@ event_journal   WHERE event_seq > $EvtWatermark  AND fencing_epoch = $OldEpoch
 ### 1단계. V40 (되돌릴 수 있다. 채번 경로를 바꾸지 않는다)
 
 3-1 전부. **처리량이 오르기 전에 넣는다.**
+
+2026-09-13 작성. 증거는 `CommandSeqBandMigrationIntegrationTest` 다. 대역 명세, 빈 DB 의 축 경계 0, 레거시 DB 의 경계 박제와 이벤트 없는 명령에서의 정지, 꼬리 잎 경로와 꼬리 상한이 첫 대역 잎 하한과 맞물림, 마켓 생성 트리거의 잎과 카운터, 대역 밖 id 거부, 파생 seq 와 잎 경로, 잎 없는 마켓의 채번 거부, `event_seq` 대역 상한 불변, 명세 없는 카운터 거부를 단언한다. 12마켓 카오스 스택에서 V40 이 적용된 채 E6·E7 이 PASS 다(`harness/evidence/chaos-runs/E6-20260913-130519.json`, `E7-20260913-130723.json`). 두 회차는 `SET LOCAL` 타임아웃 해제 두 줄을 넣기 전 V40 본문으로 돌았다. 판정 파일은 미커밋 경로를 개수(`code.uncommittedPaths` 2)로만 남기고, 그 시각 `server`·`harness` 아래 미커밋 경로가 V40 마이그레이션과 그 테스트 둘이었다는 것은 작업 기록 기준이다. 그 스택은 소유자 계정과 dev 프로파일로 붙어 `app_role` 권한과 prod 타임아웃은 검증하지 않는다.
 
 **멈추면.** 오늘 그대로 살아 있고 **17.4일짜리 파티션 시한 하나가 제거된 상태다.** 이 판을 접어도 이 단계는 남긴다.
 

@@ -1,6 +1,6 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.41)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.42)
 
-> 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, V35+ 로드맵)
+> 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, §3 도입부 표의 로드맵 행)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
 > 설계 우선순위: **정확성(exactness) > 성능 > 편의성**. DB는 매칭 핫패스가 아니라 "진실의 원천(SoT) + 최종 방어선"이다.
 > 이 제출본은 초안·v2.0 검증에서 지적된 critical/high 결함(파티션 소진, RESERVE amount=0 모순, `user_id=0` 수수료 계정 무효, 파티션 seq 유일성 무력화, 비원자적 fencing, `transaction_id` 권위 부재, RULE 기반 무음 무시)을 **계정 모델 재설계**로 근본 해결한다. (v2.1~v2.15 패치 반영 사항은 문서 말미 참조)
@@ -373,7 +373,8 @@ erDiagram
 | V37 | `V37__ledger_batch_balance_update.sql` | 원장 게시의 잔고 갱신을 계좌별 UPDATE 루프에서 오름차순 잠금 한 문장과 일괄 UPDATE 한 문장으로 묶는다. 잠금 순서는 `SELECT ... ORDER BY account_id FOR NO KEY UPDATE`가 지킨다. `UPDATE ... FROM`에 맡기면 계획기가 훑는 순서를 정해 규약이 깨진다 | V27(`post_ledger_transaction` 재정의. V13의 `apply_position_cost` 호출 유지) |
 | V38 | `V38__ledger_balance_update_index_scan.sql` | V37 의 일괄 잔고 UPDATE 에 `account_id = ANY(배열)` 조건을 더한다. `jsonb_to_recordset` 이 통계 없이 100행으로 추정돼 조인만으로는 `balances` 순차 스캔이 뽑힌다. 실행 계획으로 확인했다 | V37(`post_ledger_transaction` 재정의) |
 | V39 | `V39__append_prologue.sql` | 접수 저널 append 의 리더 검증과 NEW 멱등 판정과 전역 채번을 `append_command_prologue` 한 함수로 묶는다. 왕복이 다섯에서 둘로 준다. 삽입은 체크섬이 seq 와 Jackson 정규화 JSON 을 먹어 함수로 옮길 수 없다 | V1(`assert_current_leader`, `next_journal_value`, `command_journal`) |
-| V40+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
+| V40 | `V40__command_seq_band.sql` | 명령 저널 대역 채번의 기반(ADR 0022 1단계). 대역 명세 `journal_band_spec` 와 재생 축 경계 `journal_axis_boundary`, 레거시 꼬리 파티션 `command_journal_p200000000` [2x10^8, 10^12), 마켓이 있는 id K 마다 대역 잎 `command_journal_b<K>` [K x 10^12, (K+1) x 10^12), `next_market_command_seq`, 잎 생성 단일 진입점 `ensure_command_band_partition`(SECURITY DEFINER, PUBLIC 회수), 마켓 생성 트리거의 `command_seq` 시드와 대역 잎 생성. prod 풀 타임아웃을 `SET LOCAL` 로 해제한다. `next_market_journal_value` 는 대역 상한을 명세표에서 읽는다. 채번 경로를 바꾸지 않아 대역 잎은 비어 있고 되돌릴 수 있다. 꼬리 파티션은 되돌리지 않는다 | V36(`market_journal_counters`, `next_market_journal_value`, `seed_market_journal_counters`), V1(`command_journal`, `markets`) |
+| V41+ | 로드맵(미배정) | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
 
@@ -1434,7 +1435,7 @@ END $$;
 
 1. **현재 커버리지**: 실행 시점이 속한 구간을 모든 시간 파티션 부모가 정규 파티션으로 담는다. seq 축 저널은 `journal_counters`의 현재 채번값이 정규 파티션에 속한다.
 2. **선행 커버리지**: 실행 시점부터 **6개월 앞**까지 담는다. 마이그레이션 작성·검토·배포 여유다. 현 지평은 2027-09-01이므로 이 단언은 2027-03에 의도적으로 깨지며, 그때 월 파티션을 연장하는 마이그레이션을 추가한다.
-3. **연속성**: 정규 파티션 사슬에 내부 구멍이 없다. 부모별로 "하한이 다른 파티션의 상한과 맞물리는" 파티션 수가 전체보다 정확히 1 작아야 한다. 이 형태는 정렬을 쓰지 않아 시간·정수 경계에 공통 적용된다.
+3. **연속성**: 정규 파티션 사슬에 내부 구멍이 없다. 부모별로 "하한이 다른 파티션의 상한과 맞물리는" 파티션 수가 전체보다 정확히 1 작아야 한다. 이 형태는 정렬을 쓰지 않아 시간·정수 경계에 공통 적용된다. `command_journal` 의 대역 잎(V40)은 마켓 행이 생길 때 만들어지므로 마켓이 없는 빈 PG17 판정에는 나타나지 않는다. 운영 DB 에서 마켓 id 가 연속이 아니면 대역 잎 사이가 비지만 그 구간에는 채번이 가지 않는다(`next_market_command_seq` 가 잎 없는 마켓을 거부한다).
 
 세 규약은 `PartitionCoverageIntegrationTest`가 빈 PG17에 전 마이그레이션을 적용한 뒤 카탈로그(`pg_get_expr(relpartbound)`)로 판정한다. DEFAULT 파티션은 판정에서 제외한다(모든 값을 담아 구멍을 가린다). 위반은 `C15_DEFAULT_PARTITION` 위반보다 **앞서** 잡히므로, 종전처럼 "행이 실제로 DEFAULT에 쌓인 뒤에야" 발견되지 않는다.
 
@@ -1464,9 +1465,9 @@ SELECT partman.create_parent('public.outbox',         'created_at', '1 month',
        p_premake := 4, p_start_partition := '2026-07-01');
 -- audit_log create_parent는 audit_log가 생기는 V4 이후로 이동한다(v2.6. V1에 테이블 없음).
 
--- seq 파티션: 1억/2억 폭, 3구간 사전 생성. 기존 p0 경계와 정렬
-SELECT partman.create_parent('public.command_journal','seq','100000000',
-       p_premake := 3, p_start_partition := '0');
+-- seq 파티션: event_journal 만 2억 폭, 3구간 사전 생성. 기존 p0 경계와 정렬.
+-- command_journal 은 partman 대상이 아니다. V40 이 [2x10^8, 10^12) 꼬리와 마켓별 대역 잎을 두므로
+-- 10^8 격자로 premake 하면 꼬리와 겹친다. 대역 잎은 마켓 생성 트리거가 만든다(§3.2-a-4).
 SELECT partman.create_parent('public.event_journal',  'event_seq','200000000',
        p_premake := 3, p_start_partition := '0');
 
@@ -1476,7 +1477,7 @@ DO $$
 DECLARE tmpl TEXT;
 BEGIN
   FOR tmpl IN SELECT template_table FROM partman.part_config
-              WHERE parent_table IN ('public.ledger_entries','public.command_journal',
+              WHERE parent_table IN ('public.ledger_entries',
                                      'public.event_journal')   -- audit_log는 V4 이후(v2.6)
                 AND template_table IS NOT NULL LOOP
     EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON %s FROM app_role', tmpl);
@@ -1603,6 +1604,8 @@ SELECT cron.schedule('check-default-part','*/5 * * * *', $$SELECT check_default_
 ```
 command_journal_p0          seq 0 ~ 100,000,000
 command_journal_p100000000  seq 100,000,000 ~ 200,000,000
+command_journal_p200000000  seq 200,000,000 ~ 1,000,000,000,000 (V40)
+command_journal_b<K>        seq K x 10^12 ~ (K+1) x 10^12, 마켓 id K 마다 하나 (V40)
 command_journal_default     DEFAULT
 event_journal_p0            event_seq 0 ~ 200,000,000
 event_journal_default       DEFAULT
@@ -1706,7 +1709,7 @@ select extname from pg_extension;
 - 갈래 C 전량에 정책이 없다.
 - 디스크 사용률 알람이 없다. `harness/prometheus/rules/exchange-alerts.yml` 에 디스크 규칙이 0건이다(2026-09-09 실측). 폐기된 기획안 초판 7.3이 임계 85%와 조치 "저널 파티션 정리"를 규정했으나 배선된 적이 없고, 2026-09-09 정본 재작성 때 그 규정을 승계하지 않았다. 설령 배선해도 처방이 집행 불가능하다. 저널은 시퀀스 파티션이고 첫 경계까지 161일이라 알람이 울린 시점에 정리할 파티션이 존재하지 않는다.
 
-`V35+` 로드맵(§3 도입부 표)이 파티션 자동화를 pg_partman·pg_cron으로 잡고 있으나, 그 표는 **생성** 자동화이고 파기를 포함하지 않는다. 이 절의 대상은 그 표의 범위 밖이다.
+§3 도입부 표의 로드맵 행이 파티션 자동화를 pg_partman·pg_cron으로 잡고 있으나, 그 표는 **생성** 자동화이고 파기를 포함하지 않는다. 이 절의 대상은 그 표의 범위 밖이다.
 
 ### 3.3 `V6__members.sql`: 회원 인증·세션·프로필 (v2.11 신설)
 
@@ -3296,5 +3299,25 @@ V23을 따로 두는 이유. V22가 이미 적용된 DB가 있어 그 파일을 
 배선에서 설치까지 생략하면 라이터 카운터가 부팅값에 멈춘 채 게이트가 열린다.
 
 결정은 ADR 0023 이다. 문서 헤더 버전을 v2.41 로 순증. 2026-09-12 갱신.
+
+## v2.42 패치 반영 사항
+
+명령 저널 대역 채번의 기반인 V40 을 §3 도입부 표에 등재하고 로드맵 행을 V41+ 로 옮긴다. 헤더와
+§3.2-a 본문 한 곳이 로드맵 행을 `V35+` 번호로 부르던 것을 번호 없는 '로드맵 행' 으로 바꾼다.
+번호가 마이그레이션마다 밀려 인용이 낡기 때문이다.
+
+§3.2-a-4 경계 목록에 꼬리 파티션과 대역 잎을 더한다. 꼬리 파티션이 `DEFAULT` 유입 시한을 닫는다.
+§3.2 연속성 규약에는 대역 잎이 빈 PG17 판정에 나타나지 않는 이유와, 마켓 id 가 연속이 아닐 때
+비는 구간이 구멍이 아닌 이유를 적는다.
+
+§3.2 partman 채택 코드에서 `command_journal` 의 `create_parent` 와 템플릿 권한 회수 대상을 뺀다.
+10^8 격자 premake 가 V40 꼬리 파티션과 겹치기 때문이다. `docs/contracts/하네스_검증설계.md` 의 T2 행과
+C15 조치를 같은 판단으로 맞춘다.
+
+`next_market_journal_value` 는 호출자 권한으로 돌고 정산에서 `app_role` 이 부른다. 대역 상한을
+명세표에서 읽게 되므로 `app_role` 에 두 새 표의 SELECT 를 준다. 빠지면 정산이 멈춘다.
+
+결정은 ADR 0022 3-1 이고 검증은 `CommandSeqBandMigrationIntegrationTest` 다. 문서 헤더 버전을
+v2.42 로 순증. 2026-09-13 갱신.
 
 ---
