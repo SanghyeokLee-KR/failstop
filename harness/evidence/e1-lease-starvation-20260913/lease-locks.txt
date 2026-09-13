@@ -1,0 +1,12 @@
+2026-09-13 04:24:31.225031+00|99|Lock|transactionid|0.183|{84}|SELECT id, user_id, side, ord_type, price, quantity, quote_o
+2026-09-13 04:24:31.735816+00|99|Lock|transactionid|0.694|{84}|INSERT INTO trades (id, market_id, maker_order_id, taker_ord
+2026-09-13 04:24:32.247671+00|99|Lock|transactionid|1.206|{84}|UPDATE orders SET filled_qty = filled_qty + $1, remaining_qt
+2026-09-13 04:24:34.804113+00|720|Lock|transactionid|0.134|{90}|INSERT INTO outbox (aggregate_type, aggregate_id, event_type
+2026-09-13 04:24:35.315517+00|720|Lock|transactionid|0.645|{83}|UPDATE orders SET canceled_qty = canceled_qty + $1, remainin
+2026-09-13 04:24:35.827029+00|720|Lock|transactionid|1.157|{83}|SELECT id, user_id, side, ord_type, price, quantity, quote_o
+2026-09-13 04:24:36.338648+00|720|Lock|transactionid|1.668|{84}|INSERT INTO orders (id, external_id, user_id, market_id, cli
+2026-09-13 04:24:36.849962+00|720|Lock|transactionid|2.180|{84}|SELECT id, user_id, side, ord_type, price, quantity, quote_o
+2026-09-13 04:24:37.361232+00|720|Lock|transactionid|2.691|{84}|UPDATE orders SET filled_qty = filled_qty + $1, remaining_qt
+2026-09-13 04:24:37.873018+00|720|Lock|transactionid|3.203|{84}|INSERT INTO outbox (aggregate_type, aggregate_id, event_type
+2026-09-13 04:25:14.651358+00|139|Lock|transactionid|0.021|{122}|UPDATE orders SET filled_qty = filled_qty + $1, remaining_qt
+2026-09-13 04:26:32.781361+00|139|Lock|transactionid|0.001|{121}|SELECT id, user_id, side, ord_type, price, quantity, quote_o
