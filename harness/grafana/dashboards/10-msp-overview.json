@@ -149,7 +149,7 @@
       },
       "targets": [
         {
-          "expr": "min(probe_success{customer=\"$customer\"})",
+          "expr": "min(probe_success{job=\"blackbox-http\",customer=\"$customer\"})",
           "instant": false,
           "refId": "A",
           "datasource": {

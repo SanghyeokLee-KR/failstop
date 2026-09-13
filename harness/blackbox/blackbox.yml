@@ -38,3 +38,10 @@ modules:
     timeout: 5s
     tcp:
       preferred_ip_protocol: ip4
+
+  # 네트워크 계층 도달. 포트와 무관하게 호스트에 패킷이 닿는가만 본다.
+  icmp:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: ip4

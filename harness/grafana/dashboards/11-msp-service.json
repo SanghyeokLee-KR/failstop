@@ -523,7 +523,7 @@
       },
       "targets": [
         {
-          "expr": "max by(target)(probe_duration_seconds{customer=\"$customer\"})",
+          "expr": "max by(target)(probe_duration_seconds{job=\"blackbox-http\",customer=\"$customer\"})",
           "legendFormat": "{{target}}",
           "refId": "A",
           "datasource": {
@@ -532,7 +532,7 @@
           }
         },
         {
-          "expr": "max by(target)(probe_success{customer=\"$customer\"})",
+          "expr": "max by(target)(probe_success{job=\"blackbox-http\",customer=\"$customer\"})",
           "legendFormat": "접속 성공 여부",
           "refId": "B",
           "datasource": {

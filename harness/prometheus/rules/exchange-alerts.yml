@@ -272,6 +272,53 @@ groups:
           dashboard: "MSP 종합 (msp-overview)"
           runbook: "정본 7.3 판정표를 따른다. 앱 응답 분위수가 정상인데 이것만 느리면 진입 계층이다"
 
+      # 계층 프로브(CLAUDE.md §19). 같은 호스트의 L3·L4·L7 결과로 고장 계층을 가른다.
+      # 아래 계층이 실패하면 위 계층도 따라 실패하므로 alertmanager.yml 억제 규칙이 host 기준으로 위를 누른다.
+      - alert: ProbeL3Unreachable
+        expr: probe_success{layer="l3"} == 0
+        for: 30s
+        labels:
+          severity: warning
+          component: network
+        annotations:
+          summary: "L3 도달 실패. 호스트에 패킷이 닿지 않는다"
+          metric: "probe_success (blackbox-icmp)"
+          value: "0"
+          threshold: "== 0"
+          duration: "30s"
+          dashboard: "MSP 종합 (msp-overview)"
+          runbook: "네트워크 분리, 컨테이너 부재, 이름 해석 실패를 본다. 같은 host 의 L4·L7 알람은 억제된다"
+
+      - alert: ProbeL4ConnectFailed
+        expr: probe_success{layer="l4"} == 0
+        for: 30s
+        labels:
+          severity: warning
+          component: transport
+        annotations:
+          summary: "L4 연결 실패. 호스트에는 닿지만 포트가 연결을 받지 않는다"
+          metric: "probe_success (blackbox-tcp)"
+          value: "0"
+          threshold: "== 0"
+          duration: "30s"
+          dashboard: "MSP 종합 (msp-overview)"
+          runbook: "L3 가 정상인데 이것만 실패하면 리스너, 프로세스, 프록시 계층이다. 같은 host 의 L7 알람은 억제된다"
+
+      - alert: ProbeL7Failed
+        expr: probe_success{layer="l7"} == 0
+        for: 30s
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "L7 응답 실패. 연결은 되지만 응답이 정상이 아니다"
+          metric: "probe_success (blackbox-http-node)"
+          value: "0"
+          threshold: "== 0"
+          duration: "30s"
+          dashboard: "MSP 종합 (msp-overview)"
+          runbook: "L3·L4 가 정상인데 이것만 실패하면 응용 계층이다. 일시 정지, 의존 DB 단절, 헬스 그룹 DOWN 을 본다"
+
       # 복제 축. 임계를 정해야 하는 알람은 일부러 넣지 않았다.
       #
       # 재생 지연이 얼마를 넘으면 나쁜지가 지금 이 계측으로 답하려는 질문 자체다. 값을 모르는

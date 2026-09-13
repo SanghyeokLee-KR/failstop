@@ -289,16 +289,29 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 
 ### 5-3. Prometheus
 
-`harness/prometheus/prometheus.yml`은 31줄이고 scrape job 2개에 대상 엔드포인트 3개다. `exchange-api`가 `chaos-api-1`과 `chaos-api-2`를, `chaos-bots`가 봇 노드를 본다.
+`harness/prometheus/prometheus.yml`은 scrape job 8개다(`grep -c 'job_name:'`). exporter는 `chaos-blackbox`, `chaos-pg-exporter`, `chaos-cstats` 셋이고 전부 `obs` 프로파일이다. node_exporter는 없다.
 
-exporter가 없다. `postgres_exporter`, `node_exporter`, `blackbox_exporter`, cAdvisor 전부 없다. 컨테이너와 호스트 자원은 `docker stats`로 따로 잰다.
+| job | 대상 | 비고 |
+|---|---|---|
+| `exchange-api` | chaos-api-1, chaos-api-2 :8080 | 2초 |
+| `chaos-bots` | chaos-bots :8080 | |
+| `blackbox-http` | chaos-web:80/, chaos-lb:8080/actuator/health/read | 진입 경로. chaos-web은 `web`·`full` 프로파일에만 있어 `obs` 단독 기동이면 이 대상이 실패한다 |
+| `blackbox-icmp` | chaos-lb, chaos-api-1, chaos-api-2, chaos-toxiproxy, chaos-pg | L3 도달. `layer=l3` |
+| `blackbox-tcp` | chaos-lb:8080, chaos-api-1:8080, chaos-api-2:8080, chaos-toxiproxy:15432·25432, chaos-pg:5432 | L4 연결. `layer=l4` |
+| `blackbox-http-node` | chaos-lb·chaos-api-1·chaos-api-2 :8080 /actuator/health/read | L7 응답. `layer=l7` |
+| `postgres` | chaos-pg-exporter:9187 | |
+| `cstats` | chaos-cstats:9200 | 컨테이너 자원 |
+
+계층 프로브 세 잡은 대상 주소에서 뽑은 `host` 라벨을 함께 쓴다. 같은 호스트의 L3·L4·L7 값을 나란히 놓아 고장 계층을 가른다(CLAUDE.md §19). 프로브는 같은 도커망 안에 있어 망 밖 관점이 아니다.
+
+판별력은 `harness/scripts/probe-layers.ps1`이 잰다. 팔로워 한 노드에 `docker pause`(L7), Toxiproxy 리스너 비활성(L4), `docker network disconnect`(L3)를 차례로 넣고 프로브 값과 알람 active·suppressed 상태를 기대 행렬과 대조한다. 주입 뒤에 시작한 알람 집합이 기대 집합과 같아야 하고, 리스 holder·epoch가 기준선과 같아야 판정한다. 증거는 `harness/evidence/layer-probes-<날짜>/result.json`이다. `docker network disconnect` 뒤 L3 실패는 도커 DNS 해석 실패로도 나타나므로, 도달 불가와 이름 해석 실패는 프로브 값만으로 가르지 못한다.
 
 규칙 파일 2개다.
 
 | 파일 | 개수 | 세는 방법 |
 |---|---|---|
-| `exchange-recording.yml` | record 9 | `grep -c '^      - record:'` |
-| `exchange-alerts.yml` | alert 17 | `grep -c '^      - alert:'` |
+| `exchange-recording.yml` | record 13 | `grep -c '^      - record:'` |
+| `exchange-alerts.yml` | alert 22 | `grep -c '^      - alert:'` |
 
 ### 5-4. Grafana
 
@@ -322,9 +335,9 @@ exporter가 없다. `postgres_exporter`, `node_exporter`, `blackbox_exporter`, c
 | 12 | msp-infra | 인프라 |
 | 13 | msp-db | 데이터베이스 |
 
-### 5-6. 알람 17개
+### 5-6. 알람 22개
 
-severity는 critical 5, warning 9, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급을 라벨로 그대로 옮긴다.
+severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급을 라벨로 그대로 옮긴다.
 
 | 알람 | severity |
 |---|---|
@@ -334,6 +347,7 @@ severity는 critical 5, warning 9, 템플릿 1이다. 템플릿 1은 `InvariantV
 | LeaderAbsent | critical |
 | RecoverableStandDownRepeating | critical |
 | WsConnectionsRejected | critical |
+| EdgeProbeDown | critical |
 | OrderP99SloBreach | warning |
 | SnapshotPersistFailed | warning |
 | SnapshotDropped | warning |
@@ -343,8 +357,14 @@ severity는 critical 5, warning 9, 템플릿 1이다. 템플릿 1은 `InvariantV
 | BotFleetDown | warning |
 | TradeSilence | warning |
 | WsConnectionsNearLimit | warning |
+| EdgeProbeSlow | warning |
+| ProbeL3Unreachable | warning |
+| ProbeL4ConnectFailed | warning |
+| ProbeL7Failed | warning |
+| ReplicationNotStreaming | warning |
+| ReplicationSyncStateUnexpected | warning |
 
-`for` 분포는 0s 3개, 15s 1개, 30s 2개, 1m 5개, 2m 4개다. `component` 라벨은 snapshot 3, bots 2, ws 2, sequencer 1, order-gateway 1이고 6개는 라벨이 없다.
+`for` 분포는 0s 3개, 15s 1개, 30s 6개, 1m 6개, 2m 6개다. `component` 라벨은 snapshot 3, bots 2, ws 2, edge 2, db 2, sequencer 1, order-gateway 1, network 1, transport 1, application 1이고 6개는 라벨이 없다.
 
 `TradeSilence`가 체결 0을 본다. 체결 0은 평온이거나 사망인데 그 둘을 가르는 것이 봇 플릿의 24시간 기저 트래픽이다(정본 §7.10).
 
@@ -352,7 +372,7 @@ severity는 critical 5, warning 9, 템플릿 1이다. 템플릿 1은 `InvariantV
 
 ### 5-7. Alertmanager
 
-`harness/alertmanager/alertmanager.yml`은 68줄이다. route는 최상위 1개에 하위 1개, receiver는 `chat` 하나(Discord), inhibit_rule 1개다.
+`harness/alertmanager/alertmanager.yml`은 route가 최상위 1개에 하위 1개, receiver는 `chat` 하나(Discord), inhibit_rule 3개다. 계층 프로브 억제 둘은 같은 `host`에서 L3 실패가 L4·L7 알람을, L4 실패가 L7 알람을 누른다. 억제는 같은 `host` 안에서만 걸린다. 여러 호스트에 걸친 고장은 호스트마다 알람이 남는다(예: Toxiproxy 리스너가 닫히면 그 DB 경로를 쓰는 노드의 L7도 따로 뜬다). chaos-lb 조회 헬스는 `blackbox-http`와 `blackbox-http-node`가 함께 찔러 `EdgeProbeDown`과 `ProbeL7Failed{host="chaos-lb"}`가 억제 없이 같이 뜬다.
 
 critical은 `group_wait` 10초에 `repeat_interval` 1시간이다. 나머지는 4시간이다.
 
@@ -465,7 +485,9 @@ Flyway 설정 파일도 Gradle 플러그인도 없다. Spring Boot 자동구성�
 | `deploy/rolling.sh` | 롤링 재시작 | §4-2가 수동이다 |
 | `deploy/reset.sh` | 데모 리셋 | 수동이다 |
 | Redis | 캐시 계층 | E3이 못 돈다 |
-| exporter 3종 | node, postgres, blackbox | 계층 프로브가 없다. 정본 13.4 한계 14 |
+| node_exporter | 호스트 자원 | 컨테이너 경계 밖 호스트 CPU·디스크를 못 본다 |
+| 망 밖 프로브 | 도커망·VPC 밖에서 찌르는 프로브 | 계층 프로브가 같은 망 안이라 CDN 구간을 못 본다. 정본 13.4 한계 14 |
+| 상시면 계층 프로브 | 배포 컴포즈의 blackbox와 규칙 | 검증면에만 있다 |
 | 런북 | 알람별 조치 카드 | 알람이 가리킬 문서가 없다 |
 | Discord 웹훅 주소 | 수신 주소 | 통지가 아무에게도 안 간다 |
 | 상시면 관측 배선 | 배포 컴포즈의 관측 서비스 | 정의 0건. 정본 13.4 한계 13 |

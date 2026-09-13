@@ -1,0 +1,439 @@
+{
+  "experiment": "layer-probes",
+  "startedAt": "2026-09-13T12:01:03.9264816Z",
+  "commit": "5197647fff564829a9ca9d19df2fe8ca0c6dd794",
+  "worktreeDirty": true,
+  "blackboxImage": "prom/blackbox-exporter:v0.25.0 sha256:b04a9fef4fa086a02fc7fcd8dcdbc4b7b35cc30cdee860fdc6a19dd8b208d63e",
+  "configSha256": {
+    "blackbox/blackbox.yml": "53AE5146625F5637160D50C7D4F23ACB59B09593FF357297412292F4C7FE5EE6",
+    "prometheus/prometheus.yml": "8F146023C1839B9716608365F8232E2877A183048E08D67FEA1986EDAB2CC3DB",
+    "prometheus/rules/exchange-alerts.yml": "039F14667CE0F172BD734C95E912747BFD6D704D987DD4FA240E2FC258073EDA",
+    "alertmanager/alertmanager.yml": "F33A367D752F455FB4B7721747D15000E9AB560922A867A1634F7EBE3C66350B"
+  },
+  "note": "단일 호스트 로컬 Docker Desktop. 프로브가 같은 도커망 안에 있어 망 밖 관점이 아니다",
+  "baseline": {
+    "healthy": true,
+    "seriesCount": {
+      "l4": 6,
+      "l3": 5,
+      "l7": 3
+    },
+    "expectedCount": {
+      "l4": 6,
+      "l3": 5,
+      "l7": 3
+    }
+  },
+  "leader": "chaos-api-1",
+  "follower": "chaos-api-2",
+  "lease": "cc3d1f0e-704b-466e-8d6d-cbf26b0addce/1",
+  "phases": [
+    {
+      "name": "L7 응용 정지(docker pause)",
+      "follower": "chaos-api-2",
+      "probeExpected": {
+        "l7|http://chaos-api-1:8080/actuator/health/read": 1,
+        "l3|chaos-api-2": 1,
+        "l3|chaos-pg": 1,
+        "l4|chaos-toxiproxy:25432": 1,
+        "l3|chaos-api-1": 1,
+        "l3|chaos-toxiproxy": 1,
+        "l4|chaos-lb:8080": 1,
+        "l7|http://chaos-lb:8080/actuator/health/read": 1,
+        "l3|chaos-lb": 1,
+        "l4|chaos-toxiproxy:15432": 1,
+        "l4|chaos-pg:5432": 1,
+        "l7|http://chaos-api-2:8080/actuator/health/read": 0,
+        "l4|chaos-api-2:8080": 1,
+        "l4|chaos-api-1:8080": 1
+      },
+      "alertExpected": {
+        "ProbeL7Failed|chaos-api-2": "active"
+      },
+      "injectedAt": "2026-09-13T12:01:04.7975190Z",
+      "probeObserved": [
+        {
+          "Layer": "l4",
+          "Host": "chaos-toxiproxy",
+          "Instance": "chaos-toxiproxy:25432",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-toxiproxy",
+          "Instance": "chaos-toxiproxy",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-api-1",
+          "Instance": "chaos-api-1:8080",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-pg",
+          "Instance": "chaos-pg:5432",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-toxiproxy",
+          "Instance": "chaos-toxiproxy:15432",
+          "Value": 1
+        },
+        {
+          "Layer": "l7",
+          "Host": "chaos-api-2",
+          "Instance": "http://chaos-api-2:8080/actuator/health/read",
+          "Value": 0
+        },
+        {
+          "Layer": "l7",
+          "Host": "chaos-api-1",
+          "Instance": "http://chaos-api-1:8080/actuator/health/read",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-pg",
+          "Instance": "chaos-pg",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-api-1",
+          "Instance": "chaos-api-1",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-lb",
+          "Instance": "chaos-lb:8080",
+          "Value": 1
+        },
+        {
+          "Layer": "l7",
+          "Host": "chaos-lb",
+          "Instance": "http://chaos-lb:8080/actuator/health/read",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-api-2",
+          "Instance": "chaos-api-2:8080",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-lb",
+          "Instance": "chaos-lb",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-api-2",
+          "Instance": "chaos-api-2",
+          "Value": 1
+        }
+      ],
+      "probeDetectSec": 8.1,
+      "alertObserved": [
+        {
+          "Name": "ProbeL7Failed",
+          "Host": "chaos-api-2",
+          "Instance": "http://chaos-api-2:8080/actuator/health/read",
+          "State": "active",
+          "InhibitedBy": 0,
+          "StartsAt": "2026-09-13T12:01:42.748Z"
+        }
+      ],
+      "alertDetectSec": 50.4,
+      "probeHeldAtAlert": true,
+      "leaseDuring": "cc3d1f0e-704b-466e-8d6d-cbf26b0addce/1",
+      "recovered": true,
+      "verdict": "PASS"
+    },
+    {
+      "name": "L4 리스너 닫힘(Toxiproxy 비활성)",
+      "follower": "chaos-api-2",
+      "probeExpected": {
+        "l7|http://chaos-api-1:8080/actuator/health/read": 1,
+        "l3|chaos-api-2": 1,
+        "l3|chaos-pg": 1,
+        "l4|chaos-toxiproxy:25432": 0,
+        "l3|chaos-api-1": 1,
+        "l3|chaos-toxiproxy": 1,
+        "l4|chaos-lb:8080": 1,
+        "l7|http://chaos-lb:8080/actuator/health/read": 1,
+        "l3|chaos-lb": 1,
+        "l4|chaos-toxiproxy:15432": 1,
+        "l4|chaos-pg:5432": 1,
+        "l7|http://chaos-api-2:8080/actuator/health/read": 0,
+        "l4|chaos-api-2:8080": 1,
+        "l4|chaos-api-1:8080": 1
+      },
+      "alertExpected": {
+        "ProbeL4ConnectFailed|chaos-toxiproxy": "active",
+        "ProbeL7Failed|chaos-api-2": "active"
+      },
+      "injectedAt": "2026-09-13T12:01:59.3764097Z",
+      "probeObserved": [
+        {
+          "Layer": "l4",
+          "Host": "chaos-toxiproxy",
+          "Instance": "chaos-toxiproxy:25432",
+          "Value": 0
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-toxiproxy",
+          "Instance": "chaos-toxiproxy",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-api-1",
+          "Instance": "chaos-api-1:8080",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-pg",
+          "Instance": "chaos-pg:5432",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-toxiproxy",
+          "Instance": "chaos-toxiproxy:15432",
+          "Value": 1
+        },
+        {
+          "Layer": "l7",
+          "Host": "chaos-api-2",
+          "Instance": "http://chaos-api-2:8080/actuator/health/read",
+          "Value": 0
+        },
+        {
+          "Layer": "l7",
+          "Host": "chaos-api-1",
+          "Instance": "http://chaos-api-1:8080/actuator/health/read",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-pg",
+          "Instance": "chaos-pg",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-api-1",
+          "Instance": "chaos-api-1",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-lb",
+          "Instance": "chaos-lb:8080",
+          "Value": 1
+        },
+        {
+          "Layer": "l7",
+          "Host": "chaos-lb",
+          "Instance": "http://chaos-lb:8080/actuator/health/read",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-api-2",
+          "Instance": "chaos-api-2:8080",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-lb",
+          "Instance": "chaos-lb",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-api-2",
+          "Instance": "chaos-api-2",
+          "Value": 1
+        }
+      ],
+      "probeDetectSec": 14.1,
+      "alertObserved": [
+        {
+          "Name": "ProbeL7Failed",
+          "Host": "chaos-api-2",
+          "Instance": "http://chaos-api-2:8080/actuator/health/read",
+          "State": "active",
+          "InhibitedBy": 0,
+          "StartsAt": "2026-09-13T12:02:42.748Z"
+        },
+        {
+          "Name": "ProbeL4ConnectFailed",
+          "Host": "chaos-toxiproxy",
+          "Instance": "chaos-toxiproxy:25432",
+          "State": "active",
+          "InhibitedBy": 0,
+          "StartsAt": "2026-09-13T12:02:32.748Z"
+        }
+      ],
+      "alertDetectSec": 56.3,
+      "probeHeldAtAlert": true,
+      "leaseDuring": "cc3d1f0e-704b-466e-8d6d-cbf26b0addce/1",
+      "recovered": true,
+      "verdict": "PASS"
+    },
+    {
+      "name": "L3 도달 단절(docker network disconnect)",
+      "follower": "chaos-api-2",
+      "probeExpected": {
+        "l7|http://chaos-api-1:8080/actuator/health/read": 1,
+        "l3|chaos-api-2": 0,
+        "l3|chaos-pg": 1,
+        "l4|chaos-toxiproxy:25432": 1,
+        "l3|chaos-api-1": 1,
+        "l3|chaos-toxiproxy": 1,
+        "l4|chaos-lb:8080": 1,
+        "l7|http://chaos-lb:8080/actuator/health/read": 1,
+        "l3|chaos-lb": 1,
+        "l4|chaos-toxiproxy:15432": 1,
+        "l4|chaos-pg:5432": 1,
+        "l7|http://chaos-api-2:8080/actuator/health/read": 0,
+        "l4|chaos-api-2:8080": 0,
+        "l4|chaos-api-1:8080": 1
+      },
+      "alertExpected": {
+        "ProbeL7Failed|chaos-api-2": "suppressed",
+        "ProbeL4ConnectFailed|chaos-api-2": "suppressed",
+        "ProbeL3Unreachable|chaos-api-2": "active"
+      },
+      "injectedAt": "2026-09-13T12:03:02.1073417Z",
+      "probeObserved": [
+        {
+          "Layer": "l4",
+          "Host": "chaos-toxiproxy",
+          "Instance": "chaos-toxiproxy:25432",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-toxiproxy",
+          "Instance": "chaos-toxiproxy",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-api-1",
+          "Instance": "chaos-api-1:8080",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-pg",
+          "Instance": "chaos-pg:5432",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-toxiproxy",
+          "Instance": "chaos-toxiproxy:15432",
+          "Value": 1
+        },
+        {
+          "Layer": "l7",
+          "Host": "chaos-api-2",
+          "Instance": "http://chaos-api-2:8080/actuator/health/read",
+          "Value": 0
+        },
+        {
+          "Layer": "l7",
+          "Host": "chaos-api-1",
+          "Instance": "http://chaos-api-1:8080/actuator/health/read",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-pg",
+          "Instance": "chaos-pg",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-api-1",
+          "Instance": "chaos-api-1",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-lb",
+          "Instance": "chaos-lb:8080",
+          "Value": 1
+        },
+        {
+          "Layer": "l7",
+          "Host": "chaos-lb",
+          "Instance": "http://chaos-lb:8080/actuator/health/read",
+          "Value": 1
+        },
+        {
+          "Layer": "l4",
+          "Host": "chaos-api-2",
+          "Instance": "chaos-api-2:8080",
+          "Value": 0
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-lb",
+          "Instance": "chaos-lb",
+          "Value": 1
+        },
+        {
+          "Layer": "l3",
+          "Host": "chaos-api-2",
+          "Instance": "chaos-api-2",
+          "Value": 0
+        }
+      ],
+      "probeDetectSec": 10.3,
+      "alertObserved": [
+        {
+          "Name": "ProbeL7Failed",
+          "Host": "chaos-api-2",
+          "Instance": "http://chaos-api-2:8080/actuator/health/read",
+          "State": "suppressed",
+          "InhibitedBy": 1,
+          "StartsAt": "2026-09-13T12:03:42.748Z"
+        },
+        {
+          "Name": "ProbeL4ConnectFailed",
+          "Host": "chaos-api-2",
+          "Instance": "chaos-api-2:8080",
+          "State": "suppressed",
+          "InhibitedBy": 1,
+          "StartsAt": "2026-09-13T12:03:42.748Z"
+        },
+        {
+          "Name": "ProbeL3Unreachable",
+          "Host": "chaos-api-2",
+          "Instance": "chaos-api-2",
+          "State": "active",
+          "InhibitedBy": 0,
+          "StartsAt": "2026-09-13T12:03:42.748Z"
+        }
+      ],
+      "alertDetectSec": 52.6,
+      "probeHeldAtAlert": true,
+      "leaseDuring": "cc3d1f0e-704b-466e-8d6d-cbf26b0addce/1",
+      "recovered": true,
+      "verdict": "PASS"
+    }
+  ],
+  "verdict": "PASS",
+  "finishedAt": "2026-09-13T12:03:58.7098906Z"
+}

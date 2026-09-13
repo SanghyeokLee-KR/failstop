@@ -66,3 +66,14 @@ inhibit_rules:
     target_matchers:
       - alertname = "TradeSilence"
     equal: []
+  # 계층 프로브. 아래 계층이 실패한 호스트에서 위 계층 실패는 결과일 뿐이라 원인 계층 알람만 남긴다.
+  - source_matchers:
+      - alertname = "ProbeL3Unreachable"
+    target_matchers:
+      - alertname =~ "ProbeL4ConnectFailed|ProbeL7Failed"
+    equal: [host]
+  - source_matchers:
+      - alertname = "ProbeL4ConnectFailed"
+    target_matchers:
+      - alertname = "ProbeL7Failed"
+    equal: [host]
