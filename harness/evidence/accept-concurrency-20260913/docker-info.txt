@@ -1,0 +1,8 @@
+NCPU=16 MemTotal=16299147264 OS=Docker Desktop Kernel=6.6.114.1-microsoft-standard-WSL2
+
+# 2026-09-13 17:25:59 +09:00 주행 뒤 읽기 전용 조회. 스택을 띄우지 않았다. pwsh 7.
+# docker version --format '{{.Server.Version}}'
+29.5.2
+# $o = Get-CimInstance Win32_OperatingSystem; $o.Caption; $o.Version
+Microsoft Windows 11 Home
+10.0.26200

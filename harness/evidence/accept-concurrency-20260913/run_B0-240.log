@@ -1,0 +1,75 @@
+start 2026-09-13T16:08:00+09:00 label=B0-240 image=exchange-chaos-app:b0-ceecaef
+CMD: python harness/scale/roundtrip_probe.py --label B0 --rate 240 --out harness/evidence/accept-concurrency-20260913/B0-240.json
+[B0] 부하 240/s
+  봇 안정 확인 [10.3, 11.7, 11.8]
+  접수/s             184.972
+  체결/s             13.621
+  수용거절/s           73.865
+  p95(ms)          321.361
+  p99(ms)          352.888
+  적용 점유            0.002
+  sink 점유          2.057
+  훅 점유             0.0
+  직렬 합계            2.06
+  적용 호출/s          185.627
+  적용 1회(ms)        0.013
+  sink 1회(ms)      11.082
+  훅 1회(ms)         0.0
+  1건당 직렬(ms)       11.096
+  락 보유 점유          0.983
+  락 대기 점유          7.275
+  접수 시도/s          185.644
+  락 보유 1회(ms)      5.294
+  락 대기 1회(ms)      39.189
+  append 1회(ms)    5.25
+  inTx 1회(ms)      3.917
+    머리말 1회(ms)     3.373
+    저널삽입 1회(ms)    0.543
+  커넥션·경계·커밋 1회(ms) 1.333
+    커넥션획득·경계시작(ms) 0.008
+    커밋(ms)         1.318
+    정리·반납(ms)      0.007
+  append 호출/s      185.644
+  트랜잭션/s           2738.286
+  명령당 트랜잭션         14.752
+  활성 커넥션           1.5
+  DB CPU%          238.486
+  api1 CPU%        143.456
+  풀 대기             0.0
+  append 풀 대기      0.0
+  커밋 동시성           0.245
+  catchup 왕복/s     175.627
+  catchup 비        0.946
+  catchup 점유       0.215
+  catchup 1회(ms)   1.223
+  inflight 락 보유 점유 0.099
+  inflight 락 대기 점유 0.007
+  fsync fdatasync/s 2142.82
+  fsync 건당(ms)     0.467
+  label            B0
+  rate             240
+  k6_rc            0
+  xact_commit 증가   417273
+  deadlocks 증가     0
+  ledger_entries           삽입  0.000 갱신  0.000
+  balances                 삽입  0.000 갱신  2.467
+  ledger_transactions      삽입  1.084 갱신  1.084
+  orders                   삽입  0.998 갱신  0.158
+  event_journal            삽입  0.000 갱신  0.000
+  command_journal          삽입  0.000 갱신  0.000
+  event_emission_registry  삽입  1.082 갱신  0.000
+  trades                   삽입  0.000 갱신  0.000
+  position_cost            삽입  0.000 갱신  0.147
+  market_journal_counters  삽입  0.000 갱신  1.003
+  journal_counters         삽입  0.000 갱신  0.992
+probe_rc=0
+end 2026-09-13T16:13:43+09:00
+rtB0240 저널 NEW 합 26191, 접수>0 마켓 12/12
+30718|4394|92
+/chaos-api-1 sha256:e740b25ac7dbdfbc8040cce13cad1ebad435c4f15a11a1e03670078afb7f5b61 exchange-chaos-app:b0-ceecaef
+/chaos-api-2 sha256:e740b25ac7dbdfbc8040cce13cad1ebad435c4f15a11a1e03670078afb7f5b61 exchange-chaos-app:b0-ceecaef
+/chaos-bots sha256:e740b25ac7dbdfbc8040cce13cad1ebad435c4f15a11a1e03670078afb7f5b61 exchange-chaos-app:b0-ceecaef
+e1b4d0991433598fc0751e2fb5a4e3e62b17f5808452afc63a794cbed5033c6c  /app/app.jar
+e1b4d0991433598fc0751e2fb5a4e3e62b17f5808452afc63a794cbed5033c6c  /app/app.jar
+e461c032-dc4d-4fbd-9373-3dd877d253c2|1
+samplers_done 2026-09-13T16:13:53+09:00

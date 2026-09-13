@@ -1,0 +1,167 @@
+{
+ "k6ceil-120": {
+  "journal_new": {
+   "KRW-BTC": 905,
+   "KRW-ETH": 906,
+   "KRW-SOL": 899,
+   "KRW-XRP": 897,
+   "KRW-DOGE": 895,
+   "KRW-ADA": 895,
+   "KRW-TRX": 895,
+   "KRW-LINK": 895,
+   "KRW-DOT": 898,
+   "KRW-MATIC": 903,
+   "KRW-AVAX": 904,
+   "KRW-ATOM": 903
+  },
+  "orders": {
+   "KRW-BTC": 905,
+   "KRW-ETH": 906,
+   "KRW-SOL": 899,
+   "KRW-XRP": 897,
+   "KRW-DOGE": 895,
+   "KRW-ADA": 895,
+   "KRW-TRX": 895,
+   "KRW-LINK": 895,
+   "KRW-DOT": 898,
+   "KRW-MATIC": 903,
+   "KRW-AVAX": 904,
+   "KRW-ATOM": 903
+  },
+  "journal_new_total": 10795,
+  "markets_with_accept": 12,
+  "all_12_positive": true
+ },
+ "k6ceil-240": {
+  "journal_new": {
+   "KRW-BTC": 1791,
+   "KRW-ETH": 1789,
+   "KRW-SOL": 1784,
+   "KRW-XRP": 1795,
+   "KRW-DOGE": 1789,
+   "KRW-ADA": 1787,
+   "KRW-TRX": 1788,
+   "KRW-LINK": 1796,
+   "KRW-DOT": 1790,
+   "KRW-MATIC": 1791,
+   "KRW-AVAX": 1788,
+   "KRW-ATOM": 1788
+  },
+  "orders": {
+   "KRW-BTC": 1791,
+   "KRW-ETH": 1789,
+   "KRW-SOL": 1784,
+   "KRW-XRP": 1795,
+   "KRW-DOGE": 1789,
+   "KRW-ADA": 1787,
+   "KRW-TRX": 1788,
+   "KRW-LINK": 1796,
+   "KRW-DOT": 1790,
+   "KRW-MATIC": 1791,
+   "KRW-AVAX": 1788,
+   "KRW-ATOM": 1788
+  },
+  "journal_new_total": 21476,
+  "markets_with_accept": 12,
+  "all_12_positive": true
+ },
+ "k6ceil-360": {
+  "journal_new": {
+   "KRW-BTC": 2101,
+   "KRW-ETH": 2094,
+   "KRW-SOL": 2057,
+   "KRW-XRP": 2064,
+   "KRW-DOGE": 2081,
+   "KRW-ADA": 2104,
+   "KRW-TRX": 2084,
+   "KRW-LINK": 2062,
+   "KRW-DOT": 2046,
+   "KRW-MATIC": 2064,
+   "KRW-AVAX": 2069,
+   "KRW-ATOM": 2058
+  },
+  "orders": {
+   "KRW-BTC": 2101,
+   "KRW-ETH": 2094,
+   "KRW-SOL": 2057,
+   "KRW-XRP": 2064,
+   "KRW-DOGE": 2081,
+   "KRW-ADA": 2104,
+   "KRW-TRX": 2084,
+   "KRW-LINK": 2062,
+   "KRW-DOT": 2046,
+   "KRW-MATIC": 2064,
+   "KRW-AVAX": 2069,
+   "KRW-ATOM": 2058
+  },
+  "journal_new_total": 24884,
+  "markets_with_accept": 12,
+  "all_12_positive": true
+ },
+ "k6ceil-480": {
+  "journal_new": {
+   "KRW-BTC": 2068,
+   "KRW-ETH": 2097,
+   "KRW-SOL": 2053,
+   "KRW-XRP": 2093,
+   "KRW-DOGE": 2031,
+   "KRW-ADA": 2057,
+   "KRW-TRX": 2031,
+   "KRW-LINK": 2091,
+   "KRW-DOT": 2047,
+   "KRW-MATIC": 2043,
+   "KRW-AVAX": 2061,
+   "KRW-ATOM": 2031
+  },
+  "orders": {
+   "KRW-BTC": 2068,
+   "KRW-ETH": 2097,
+   "KRW-SOL": 2053,
+   "KRW-XRP": 2093,
+   "KRW-DOGE": 2031,
+   "KRW-ADA": 2057,
+   "KRW-TRX": 2031,
+   "KRW-LINK": 2091,
+   "KRW-DOT": 2047,
+   "KRW-MATIC": 2043,
+   "KRW-AVAX": 2061,
+   "KRW-ATOM": 2031
+  },
+  "journal_new_total": 24703,
+  "markets_with_accept": 12,
+  "all_12_positive": true
+ },
+ "k6ceil-600": {
+  "journal_new": {
+   "KRW-BTC": 1962,
+   "KRW-ETH": 2016,
+   "KRW-SOL": 2036,
+   "KRW-XRP": 1945,
+   "KRW-DOGE": 1977,
+   "KRW-ADA": 1908,
+   "KRW-TRX": 1989,
+   "KRW-LINK": 1958,
+   "KRW-DOT": 2023,
+   "KRW-MATIC": 1956,
+   "KRW-AVAX": 1943,
+   "KRW-ATOM": 2025
+  },
+  "orders": {
+   "KRW-BTC": 1962,
+   "KRW-ETH": 2016,
+   "KRW-SOL": 2036,
+   "KRW-XRP": 1945,
+   "KRW-DOGE": 1977,
+   "KRW-ADA": 1908,
+   "KRW-TRX": 1989,
+   "KRW-LINK": 1958,
+   "KRW-DOT": 2023,
+   "KRW-MATIC": 1956,
+   "KRW-AVAX": 1943,
+   "KRW-ATOM": 2025
+  },
+  "journal_new_total": 23738,
+  "markets_with_accept": 12,
+  "all_12_positive": true
+ }
+}

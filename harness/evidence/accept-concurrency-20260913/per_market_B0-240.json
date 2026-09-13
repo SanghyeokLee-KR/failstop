@@ -1,0 +1,35 @@
+{
+ "rtB0240": {
+  "journal_new": {
+   "KRW-BTC": 2164,
+   "KRW-ETH": 2163,
+   "KRW-SOL": 2200,
+   "KRW-XRP": 2200,
+   "KRW-DOGE": 2192,
+   "KRW-ADA": 2195,
+   "KRW-TRX": 2176,
+   "KRW-LINK": 2231,
+   "KRW-DOT": 2184,
+   "KRW-MATIC": 2146,
+   "KRW-AVAX": 2164,
+   "KRW-ATOM": 2176
+  },
+  "orders": {
+   "KRW-BTC": 2164,
+   "KRW-ETH": 2163,
+   "KRW-SOL": 2200,
+   "KRW-XRP": 2200,
+   "KRW-DOGE": 2192,
+   "KRW-ADA": 2195,
+   "KRW-TRX": 2176,
+   "KRW-LINK": 2231,
+   "KRW-DOT": 2184,
+   "KRW-MATIC": 2146,
+   "KRW-AVAX": 2164,
+   "KRW-ATOM": 2176
+  },
+  "journal_new_total": 26191,
+  "markets_with_accept": 12,
+  "all_12_positive": true
+ }
+}

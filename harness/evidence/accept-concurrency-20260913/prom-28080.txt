@@ -1,0 +1,492 @@
+# HELP application_ready_time_seconds Time taken for the application to be ready to service requests
+# TYPE application_ready_time_seconds gauge
+application_ready_time_seconds{main_application_class="kr.exchange.ExchangeApplication"} 5.442
+# HELP application_started_time_seconds Time taken to start the application
+# TYPE application_started_time_seconds gauge
+application_started_time_seconds{main_application_class="kr.exchange.ExchangeApplication"} 5.374
+# HELP disk_free_bytes Usable space for path
+# TYPE disk_free_bytes gauge
+disk_free_bytes{path="/app/."} 9.97108867072E11
+# HELP disk_total_bytes Total space for path
+# TYPE disk_total_bytes gauge
+disk_total_bytes{path="/app/."} 1.081101176832E12
+# HELP exchange_admission_in_flight 처리 중인 요청 수
+# TYPE exchange_admission_in_flight gauge
+exchange_admission_in_flight{scope="order"} 0.0
+exchange_admission_in_flight{scope="query"} 0.0
+exchange_admission_in_flight{scope="requery"} 0.0
+exchange_admission_in_flight{scope="ws"} 0.0
+# HELP exchange_admission_limit 동시 처리 상한
+# TYPE exchange_admission_limit gauge
+exchange_admission_limit{scope="order"} 12.0
+exchange_admission_limit{scope="query"} 12.0
+exchange_admission_limit{scope="requery"} 3.0
+exchange_admission_limit{scope="ws"} 1929.0
+# HELP exchange_admission_rejected_total 수용 제한으로 접수·처리 이전에 거절한 요청 수
+# TYPE exchange_admission_rejected_total counter
+exchange_admission_rejected_total{scope="order"} 0.0
+exchange_admission_rejected_total{scope="query"} 0.0
+exchange_admission_rejected_total{scope="requery"} 0.0
+exchange_admission_rejected_total{scope="ws"} 0.0
+# HELP exchange_failover_downtime_seconds 페일오버 다운타임 RTO(구 리더 최종 심박~신 리더 승격)
+# TYPE exchange_failover_downtime_seconds gauge
+exchange_failover_downtime_seconds 0.0
+# HELP exchange_follower_catchup_applied_total 팔로워가 따라잡기로 적용한 명령 수
+# TYPE exchange_follower_catchup_applied_total counter
+exchange_follower_catchup_applied_total 674.0
+# HELP exchange_follower_catchup_lag_commands 리더 저널 head 와 이 노드 엔진의 명령 격차
+# TYPE exchange_follower_catchup_lag_commands gauge
+exchange_follower_catchup_lag_commands 0.0
+# HELP exchange_follower_catchup_last_tick_seconds 마지막 따라잡기 한 번의 소요
+# TYPE exchange_follower_catchup_last_tick_seconds gauge
+exchange_follower_catchup_last_tick_seconds 0.004
+# HELP exchange_follower_catchup_state 0 정지, 1 따라잡는 중, 2 리더라 쉬는 중, -1 상태 어긋남
+# TYPE exchange_follower_catchup_state gauge
+exchange_follower_catchup_state 1.0
+# HELP exchange_follower_catchup_verified_events_total 팔로워가 저널과 대조한 이벤트 수
+# TYPE exchange_follower_catchup_verified_events_total counter
+exchange_follower_catchup_verified_events_total 1205.0
+# HELP exchange_inflight_lock_hold_nanos_total in-flight 예약 락 보유 누적 나노초
+# TYPE exchange_inflight_lock_hold_nanos_total counter
+exchange_inflight_lock_hold_nanos_total 0.0
+# HELP exchange_inflight_lock_wait_nanos_total in-flight 예약 락 획득 대기 누적 나노초
+# TYPE exchange_inflight_lock_wait_nanos_total counter
+exchange_inflight_lock_wait_nanos_total 0.0
+# HELP exchange_journal_append_seconds command_journal append fsync 지연(RPO=0 비용, 하네스 CICD §5-2)
+# TYPE exchange_journal_append_seconds summary
+exchange_journal_append_seconds_count 0
+exchange_journal_append_seconds_sum 0.0
+# HELP exchange_journal_append_seconds_max command_journal append fsync 지연(RPO=0 비용, 하네스 CICD §5-2)
+# TYPE exchange_journal_append_seconds_max gauge
+exchange_journal_append_seconds_max 0.0
+# HELP exchange_journal_commit_nanos_total 커밋 누적 나노초. fsync 가 여기 있다
+# TYPE exchange_journal_commit_nanos_total counter
+exchange_journal_commit_nanos_total 0.0
+# HELP exchange_journal_insert_nanos_total 저널 INSERT 누적 나노초
+# TYPE exchange_journal_insert_nanos_total counter
+exchange_journal_insert_nanos_total 0.0
+# HELP exchange_journal_intx_count_total 위 다섯의 분모
+# TYPE exchange_journal_intx_count_total counter
+exchange_journal_intx_count_total 0.0
+# HELP exchange_journal_intx_nanos_total append 트랜잭션 콜백 누적 나노초
+# TYPE exchange_journal_intx_nanos_total counter
+exchange_journal_intx_nanos_total 0.0
+# HELP exchange_journal_post_nanos_total 정리와 커넥션 반납 누적 나노초
+# TYPE exchange_journal_post_nanos_total counter
+exchange_journal_post_nanos_total 0.0
+# HELP exchange_journal_pre_nanos_total 커넥션 획득과 경계 시작 누적 나노초
+# TYPE exchange_journal_pre_nanos_total counter
+exchange_journal_pre_nanos_total 0.0
+# HELP exchange_journal_prologue_nanos_total 머리말 한 왕복 누적 나노초(V39. 리더 검증·멱등 판정·채번)
+# TYPE exchange_journal_prologue_nanos_total counter
+exchange_journal_prologue_nanos_total 0.0
+# HELP exchange_journal_replay_commands_total 복구·승격 재생으로 재적용한 명령 수
+# TYPE exchange_journal_replay_commands_total counter
+exchange_journal_replay_commands_total 0.0
+# HELP exchange_leader_epoch 현재 리더 epoch 계단
+# TYPE exchange_leader_epoch gauge
+exchange_leader_epoch{node="exchange"} 0.0
+# HELP exchange_leader_is_leader 리더 소유권(1)·비리더(0)
+# TYPE exchange_leader_is_leader gauge
+exchange_leader_is_leader{node="exchange"} 0.0
+# HELP exchange_leader_lease_acquire_total 리스 승격 시도 결과
+# TYPE exchange_leader_lease_acquire_total counter
+exchange_leader_lease_acquire_total{outcome="denied"} 37.0
+exchange_leader_lease_acquire_total{outcome="granted"} 0.0
+# HELP exchange_leader_lease_fencing_token 이 노드가 마지막으로 얻은 fencing 토큰. 승격에서만 오른다
+# TYPE exchange_leader_lease_fencing_token gauge
+exchange_leader_lease_fencing_token 0.0
+# HELP exchange_leader_lease_last_renew_age_seconds 마지막 갱신 성공 이후 경과. 갱신이 멈추면 이 값만 오른다
+# TYPE exchange_leader_lease_last_renew_age_seconds gauge
+exchange_leader_lease_last_renew_age_seconds -1.0
+# HELP exchange_leader_lease_renew_total 리스 갱신 결과. rejected는 보관소가 거부한 것이고 error는 왕복 실패다
+# TYPE exchange_leader_lease_renew_total counter
+exchange_leader_lease_renew_total{outcome="error"} 0.0
+exchange_leader_lease_renew_total{outcome="ok"} 0.0
+exchange_leader_lease_renew_total{outcome="rejected"} 0.0
+# HELP exchange_leader_recoverable_standdown_total 승격 재생 실패로 리더십을 회복 가능하게 반납한 횟수
+# TYPE exchange_leader_recoverable_standdown_total counter
+exchange_leader_recoverable_standdown_total 0.0
+# HELP exchange_leader_standdown_total 서비스 불능 지속으로 리스 갱신을 자발적으로 포기한 횟수
+# TYPE exchange_leader_standdown_total counter
+exchange_leader_standdown_total 0.0
+# HELP exchange_node_serviceable 리더 일 수행 가능(1)·서비스 불능 지속(0)
+# TYPE exchange_node_serviceable gauge
+exchange_node_serviceable 1.0
+# HELP exchange_node_write_completion_ratio 누적 쓰기 완료율(완료/수요). 붕괴 판정 축
+# TYPE exchange_node_write_completion_ratio gauge
+exchange_node_write_completion_ratio 1.0
+# HELP exchange_snapshot_captured_total 라이터 명령 경계에서 큐잉된 스냅샷 캡처 수
+# TYPE exchange_snapshot_captured_total counter
+exchange_snapshot_captured_total 0.0
+# HELP exchange_snapshot_dropped_total 유계 큐 포화·인코딩 실패로 드롭된 스냅샷 캡처 수
+# TYPE exchange_snapshot_dropped_total counter
+exchange_snapshot_dropped_total 0.0
+# HELP exchange_snapshot_last_persisted_seq  
+# TYPE exchange_snapshot_last_persisted_seq gauge
+exchange_snapshot_last_persisted_seq 0.0
+# HELP exchange_snapshot_persist_failed_total 워커 스레드의 스냅샷 영속화 실패 수
+# TYPE exchange_snapshot_persist_failed_total counter
+exchange_snapshot_persist_failed_total 0.0
+# HELP exchange_submit_count_total 접수 시도 수. 위 둘의 분모
+# TYPE exchange_submit_count_total counter
+exchange_submit_count_total 0.0
+# HELP exchange_submit_lock_hold_nanos_total 접수 락 보유 누적 나노초
+# TYPE exchange_submit_lock_hold_nanos_total counter
+exchange_submit_lock_hold_nanos_total 0.0
+# HELP exchange_submit_lock_wait_nanos_total 접수 락 획득 대기 누적 나노초
+# TYPE exchange_submit_lock_wait_nanos_total counter
+exchange_submit_lock_wait_nanos_total 0.0
+# HELP exchange_ws_clients  
+# TYPE exchange_ws_clients gauge
+exchange_ws_clients{channel="stomp"} 0.0
+# HELP executor_active_threads The approximate number of threads that are actively executing tasks
+# TYPE executor_active_threads gauge
+executor_active_threads{name="brokerChannelExecutor"} 0.0
+executor_active_threads{name="chaosMonkeyTaskScheduler"} 0.0
+executor_active_threads{name="clientInboundChannelExecutor"} 0.0
+executor_active_threads{name="clientOutboundChannelExecutor"} 0.0
+executor_active_threads{name="messageBrokerTaskScheduler"} 0.0
+executor_active_threads{name="wsHeartbeatScheduler"} 0.0
+# HELP executor_completed_tasks_total The approximate total number of tasks that have completed execution
+# TYPE executor_completed_tasks_total counter
+executor_completed_tasks_total{name="brokerChannelExecutor"} 0.0
+executor_completed_tasks_total{name="chaosMonkeyTaskScheduler"} 0.0
+executor_completed_tasks_total{name="clientInboundChannelExecutor"} 8.0
+executor_completed_tasks_total{name="clientOutboundChannelExecutor"} 8.0
+executor_completed_tasks_total{name="messageBrokerTaskScheduler"} 1.0
+executor_completed_tasks_total{name="wsHeartbeatScheduler"} 8.0
+# HELP executor_pool_core_threads The core number of threads for the pool
+# TYPE executor_pool_core_threads gauge
+executor_pool_core_threads{name="brokerChannelExecutor"} 0.0
+executor_pool_core_threads{name="chaosMonkeyTaskScheduler"} 1.0
+executor_pool_core_threads{name="clientInboundChannelExecutor"} 1.0
+executor_pool_core_threads{name="clientOutboundChannelExecutor"} 1.0
+executor_pool_core_threads{name="messageBrokerTaskScheduler"} 16.0
+executor_pool_core_threads{name="wsHeartbeatScheduler"} 1.0
+# HELP executor_pool_max_threads The maximum allowed number of threads in the pool
+# TYPE executor_pool_max_threads gauge
+executor_pool_max_threads{name="brokerChannelExecutor"} 1.0
+executor_pool_max_threads{name="chaosMonkeyTaskScheduler"} 2.147483647E9
+executor_pool_max_threads{name="clientInboundChannelExecutor"} 2.147483647E9
+executor_pool_max_threads{name="clientOutboundChannelExecutor"} 2.147483647E9
+executor_pool_max_threads{name="messageBrokerTaskScheduler"} 2.147483647E9
+executor_pool_max_threads{name="wsHeartbeatScheduler"} 2.147483647E9
+# HELP executor_pool_size_threads The current number of threads in the pool
+# TYPE executor_pool_size_threads gauge
+executor_pool_size_threads{name="brokerChannelExecutor"} 0.0
+executor_pool_size_threads{name="chaosMonkeyTaskScheduler"} 0.0
+executor_pool_size_threads{name="clientInboundChannelExecutor"} 1.0
+executor_pool_size_threads{name="clientOutboundChannelExecutor"} 1.0
+executor_pool_size_threads{name="messageBrokerTaskScheduler"} 2.0
+executor_pool_size_threads{name="wsHeartbeatScheduler"} 1.0
+# HELP executor_queue_remaining_tasks The number of additional elements that this queue can ideally accept without blocking
+# TYPE executor_queue_remaining_tasks gauge
+executor_queue_remaining_tasks{name="brokerChannelExecutor"} 0.0
+executor_queue_remaining_tasks{name="chaosMonkeyTaskScheduler"} 2.147483647E9
+executor_queue_remaining_tasks{name="clientInboundChannelExecutor"} 2.147483647E9
+executor_queue_remaining_tasks{name="clientOutboundChannelExecutor"} 2.147483647E9
+executor_queue_remaining_tasks{name="messageBrokerTaskScheduler"} 2.147483647E9
+executor_queue_remaining_tasks{name="wsHeartbeatScheduler"} 2.147483647E9
+# HELP executor_queued_tasks The approximate number of tasks that are queued for execution
+# TYPE executor_queued_tasks gauge
+executor_queued_tasks{name="brokerChannelExecutor"} 0.0
+executor_queued_tasks{name="chaosMonkeyTaskScheduler"} 0.0
+executor_queued_tasks{name="clientInboundChannelExecutor"} 1.0
+executor_queued_tasks{name="clientOutboundChannelExecutor"} 1.0
+executor_queued_tasks{name="messageBrokerTaskScheduler"} 1.0
+executor_queued_tasks{name="wsHeartbeatScheduler"} 1.0
+# HELP hikaricp_connections Total connections
+# TYPE hikaricp_connections gauge
+hikaricp_connections{pool="HikariPool-1"} 8.0
+hikaricp_connections{pool="exchange-lease"} 1.0
+# HELP hikaricp_connections_acquire_seconds Connection acquire time
+# TYPE hikaricp_connections_acquire_seconds summary
+hikaricp_connections_acquire_seconds_count{pool="HikariPool-1"} 596
+hikaricp_connections_acquire_seconds_sum{pool="HikariPool-1"} 0.053203072
+hikaricp_connections_acquire_seconds_count{pool="exchange-lease"} 75
+hikaricp_connections_acquire_seconds_sum{pool="exchange-lease"} 0.017580159
+# HELP hikaricp_connections_acquire_seconds_max Connection acquire time
+# TYPE hikaricp_connections_acquire_seconds_max gauge
+hikaricp_connections_acquire_seconds_max{pool="HikariPool-1"} 9.06552E-4
+hikaricp_connections_acquire_seconds_max{pool="exchange-lease"} 7.3194E-4
+# HELP hikaricp_connections_active Active connections
+# TYPE hikaricp_connections_active gauge
+hikaricp_connections_active{pool="HikariPool-1"} 0.0
+hikaricp_connections_active{pool="exchange-lease"} 0.0
+# HELP hikaricp_connections_creation_seconds Connection creation time
+# TYPE hikaricp_connections_creation_seconds summary
+hikaricp_connections_creation_seconds_count{pool="HikariPool-1"} 0
+hikaricp_connections_creation_seconds_sum{pool="HikariPool-1"} 0.0
+hikaricp_connections_creation_seconds_count{pool="exchange-lease"} 0
+hikaricp_connections_creation_seconds_sum{pool="exchange-lease"} 0.0
+# HELP hikaricp_connections_creation_seconds_max Connection creation time
+# TYPE hikaricp_connections_creation_seconds_max gauge
+hikaricp_connections_creation_seconds_max{pool="HikariPool-1"} 0.0
+hikaricp_connections_creation_seconds_max{pool="exchange-lease"} 0.0
+# HELP hikaricp_connections_idle Idle connections
+# TYPE hikaricp_connections_idle gauge
+hikaricp_connections_idle{pool="HikariPool-1"} 8.0
+hikaricp_connections_idle{pool="exchange-lease"} 1.0
+# HELP hikaricp_connections_max Max connections
+# TYPE hikaricp_connections_max gauge
+hikaricp_connections_max{pool="HikariPool-1"} 32.0
+hikaricp_connections_max{pool="exchange-lease"} 2.0
+# HELP hikaricp_connections_min Min connections
+# TYPE hikaricp_connections_min gauge
+hikaricp_connections_min{pool="HikariPool-1"} 8.0
+hikaricp_connections_min{pool="exchange-lease"} 1.0
+# HELP hikaricp_connections_pending Pending threads
+# TYPE hikaricp_connections_pending gauge
+hikaricp_connections_pending{pool="HikariPool-1"} 0.0
+hikaricp_connections_pending{pool="exchange-lease"} 0.0
+# HELP hikaricp_connections_timeout_total Connection timeout total count
+# TYPE hikaricp_connections_timeout_total counter
+hikaricp_connections_timeout_total{pool="HikariPool-1"} 0.0
+hikaricp_connections_timeout_total{pool="exchange-lease"} 0.0
+# HELP hikaricp_connections_usage_seconds Connection usage time
+# TYPE hikaricp_connections_usage_seconds summary
+hikaricp_connections_usage_seconds_count{pool="HikariPool-1"} 596
+hikaricp_connections_usage_seconds_sum{pool="HikariPool-1"} 0.161
+hikaricp_connections_usage_seconds_count{pool="exchange-lease"} 75
+hikaricp_connections_usage_seconds_sum{pool="exchange-lease"} 0.006
+# HELP hikaricp_connections_usage_seconds_max Connection usage time
+# TYPE hikaricp_connections_usage_seconds_max gauge
+hikaricp_connections_usage_seconds_max{pool="HikariPool-1"} 0.013
+hikaricp_connections_usage_seconds_max{pool="exchange-lease"} 0.003
+# HELP http_server_requests_active_seconds  
+# TYPE http_server_requests_active_seconds summary
+http_server_requests_active_seconds_count{exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN"} 1
+http_server_requests_active_seconds_sum{exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN"} 0.013701321
+# HELP http_server_requests_active_seconds_max  
+# TYPE http_server_requests_active_seconds_max gauge
+http_server_requests_active_seconds_max{exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN"} 0.013730828
+# HELP http_server_requests_seconds  
+# TYPE http_server_requests_seconds summary
+http_server_requests_seconds_count{error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health/**"} 23
+http_server_requests_seconds_sum{error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health/**"} 0.133277371
+# HELP http_server_requests_seconds_max  
+# TYPE http_server_requests_seconds_max gauge
+http_server_requests_seconds_max{error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health/**"} 0.087085527
+# HELP jdbc_connections_active Current number of active connections that have been allocated from the data source.
+# TYPE jdbc_connections_active gauge
+jdbc_connections_active{name="dataSource"} 0.0
+# HELP jdbc_connections_idle Number of established but idle connections.
+# TYPE jdbc_connections_idle gauge
+jdbc_connections_idle{name="dataSource"} 8.0
+# HELP jdbc_connections_max Maximum number of active connections that can be allocated at the same time.
+# TYPE jdbc_connections_max gauge
+jdbc_connections_max{name="append"} 2.0
+jdbc_connections_max{name="dataSource"} 32.0
+jdbc_connections_max{name="lease"} 2.0
+# HELP jdbc_connections_min Minimum number of idle connections in the pool.
+# TYPE jdbc_connections_min gauge
+jdbc_connections_min{name="append"} 2.0
+jdbc_connections_min{name="dataSource"} 8.0
+jdbc_connections_min{name="lease"} 1.0
+# HELP jvm_info JVM version info
+# TYPE jvm_info gauge
+jvm_info{runtime="OpenJDK Runtime Environment",vendor="Eclipse Adoptium",version="21.0.12+8-LTS"} 1
+# HELP jvm_buffer_count_buffers An estimate of the number of buffers in the pool
+# TYPE jvm_buffer_count_buffers gauge
+jvm_buffer_count_buffers{id="direct"} 5.0
+jvm_buffer_count_buffers{id="mapped"} 0.0
+jvm_buffer_count_buffers{id="mapped - 'non-volatile memory'"} 0.0
+# HELP jvm_buffer_memory_used_bytes An estimate of the memory that the Java virtual machine is using for this buffer pool
+# TYPE jvm_buffer_memory_used_bytes gauge
+jvm_buffer_memory_used_bytes{id="direct"} 43008.0
+jvm_buffer_memory_used_bytes{id="mapped"} 0.0
+jvm_buffer_memory_used_bytes{id="mapped - 'non-volatile memory'"} 0.0
+# HELP jvm_buffer_total_capacity_bytes An estimate of the total capacity of the buffers in this pool
+# TYPE jvm_buffer_total_capacity_bytes gauge
+jvm_buffer_total_capacity_bytes{id="direct"} 43008.0
+jvm_buffer_total_capacity_bytes{id="mapped"} 0.0
+jvm_buffer_total_capacity_bytes{id="mapped - 'non-volatile memory'"} 0.0
+# HELP jvm_classes_loaded_classes The number of classes that are currently loaded in the Java virtual machine
+# TYPE jvm_classes_loaded_classes gauge
+jvm_classes_loaded_classes 12732.0
+# HELP jvm_classes_unloaded_classes_total The number of classes unloaded in the Java virtual machine
+# TYPE jvm_classes_unloaded_classes_total counter
+jvm_classes_unloaded_classes_total 0.0
+# HELP jvm_compilation_time_ms_total The approximate accumulated elapsed time spent in compilation
+# TYPE jvm_compilation_time_ms_total counter
+jvm_compilation_time_ms_total{compiler="HotSpot 64-Bit Tiered Compilers"} 20010.0
+# HELP jvm_gc_live_data_size_bytes Size of long-lived heap memory pool after reclamation
+# TYPE jvm_gc_live_data_size_bytes gauge
+jvm_gc_live_data_size_bytes 0.0
+# HELP jvm_gc_max_data_size_bytes Max size of long-lived heap memory pool
+# TYPE jvm_gc_max_data_size_bytes gauge
+jvm_gc_max_data_size_bytes 5.36870912E8
+# HELP jvm_gc_memory_allocated_bytes_total Incremented for an increase in the size of the (young) heap memory pool after one GC to before the next
+# TYPE jvm_gc_memory_allocated_bytes_total counter
+jvm_gc_memory_allocated_bytes_total 6.3307776E7
+# HELP jvm_gc_memory_promoted_bytes_total Count of positive increases in the size of the old generation memory pool before GC to after GC
+# TYPE jvm_gc_memory_promoted_bytes_total counter
+jvm_gc_memory_promoted_bytes_total 2065104.0
+# HELP jvm_gc_overhead An approximation of the percent of CPU time used by GC activities over the last lookback period or since monitoring began, whichever is shorter, in the range [0..1]
+# TYPE jvm_gc_overhead gauge
+jvm_gc_overhead 3.856294018313313E-4
+# HELP jvm_gc_pause_seconds Time spent in GC pause
+# TYPE jvm_gc_pause_seconds summary
+jvm_gc_pause_seconds_count{action="end of minor GC",cause="Allocation Failure",gc="Copy"} 3
+jvm_gc_pause_seconds_sum{action="end of minor GC",cause="Allocation Failure",gc="Copy"} 0.016
+# HELP jvm_gc_pause_seconds_max Time spent in GC pause
+# TYPE jvm_gc_pause_seconds_max gauge
+jvm_gc_pause_seconds_max{action="end of minor GC",cause="Allocation Failure",gc="Copy"} 0.008
+# HELP jvm_memory_committed_bytes The amount of memory in bytes that is committed for the Java virtual machine to use
+# TYPE jvm_memory_committed_bytes gauge
+jvm_memory_committed_bytes{area="heap",id="Eden Space"} 2.1102592E7
+jvm_memory_committed_bytes{area="heap",id="Survivor Space"} 2621440.0
+jvm_memory_committed_bytes{area="heap",id="Tenured Gen"} 5.2580352E7
+jvm_memory_committed_bytes{area="nonheap",id="CodeHeap 'non-nmethods'"} 3342336.0
+jvm_memory_committed_bytes{area="nonheap",id="CodeHeap 'non-profiled nmethods'"} 9371648.0
+jvm_memory_committed_bytes{area="nonheap",id="CodeHeap 'profiled nmethods'"} 1.9791872E7
+jvm_memory_committed_bytes{area="nonheap",id="Compressed Class Space"} 8192000.0
+jvm_memory_committed_bytes{area="nonheap",id="Metaspace"} 6.127616E7
+# HELP jvm_memory_max_bytes The maximum amount of memory in bytes that can be used for memory management
+# TYPE jvm_memory_max_bytes gauge
+jvm_memory_max_bytes{area="heap",id="Eden Space"} 2.14827008E8
+jvm_memory_max_bytes{area="heap",id="Survivor Space"} 2.6804224E7
+jvm_memory_max_bytes{area="heap",id="Tenured Gen"} 5.36870912E8
+jvm_memory_max_bytes{area="nonheap",id="CodeHeap 'non-nmethods'"} 7606272.0
+jvm_memory_max_bytes{area="nonheap",id="CodeHeap 'non-profiled nmethods'"} 1.22028032E8
+jvm_memory_max_bytes{area="nonheap",id="CodeHeap 'profiled nmethods'"} 1.22023936E8
+jvm_memory_max_bytes{area="nonheap",id="Compressed Class Space"} 1.073741824E9
+jvm_memory_max_bytes{area="nonheap",id="Metaspace"} -1.0
+# HELP jvm_memory_usage_after_gc The percentage of long-lived heap pool used after the last GC event, in the range [0..1]
+# TYPE jvm_memory_usage_after_gc gauge
+jvm_memory_usage_after_gc{area="heap",pool="long-lived"} 0.08829210698604584
+# HELP jvm_memory_used_bytes The amount of used memory
+# TYPE jvm_memory_used_bytes gauge
+jvm_memory_used_bytes{area="heap",id="Eden Space"} 8454064.0
+jvm_memory_used_bytes{area="heap",id="Survivor Space"} 879728.0
+jvm_memory_used_bytes{area="heap",id="Tenured Gen"} 4.7401464E7
+jvm_memory_used_bytes{area="nonheap",id="CodeHeap 'non-nmethods'"} 1487872.0
+jvm_memory_used_bytes{area="nonheap",id="CodeHeap 'non-profiled nmethods'"} 9309824.0
+jvm_memory_used_bytes{area="nonheap",id="CodeHeap 'profiled nmethods'"} 1.9774976E7
+jvm_memory_used_bytes{area="nonheap",id="Compressed Class Space"} 7641000.0
+jvm_memory_used_bytes{area="nonheap",id="Metaspace"} 6.0033776E7
+# HELP jvm_threads_daemon_threads The current number of live daemon threads
+# TYPE jvm_threads_daemon_threads gauge
+jvm_threads_daemon_threads 18.0
+# HELP jvm_threads_live_threads The current number of live threads including both daemon and non-daemon threads
+# TYPE jvm_threads_live_threads gauge
+jvm_threads_live_threads 26.0
+# HELP jvm_threads_peak_threads The peak live thread count since the Java virtual machine started or peak was reset
+# TYPE jvm_threads_peak_threads gauge
+jvm_threads_peak_threads 26.0
+# HELP jvm_threads_started_threads_total The total number of application threads started in the JVM
+# TYPE jvm_threads_started_threads_total counter
+jvm_threads_started_threads_total 30.0
+# HELP jvm_threads_states_threads The current number of threads
+# TYPE jvm_threads_states_threads gauge
+jvm_threads_states_threads{state="blocked"} 0.0
+jvm_threads_states_threads{state="new"} 0.0
+jvm_threads_states_threads{state="runnable"} 6.0
+jvm_threads_states_threads{state="terminated"} 0.0
+jvm_threads_states_threads{state="timed-waiting"} 13.0
+jvm_threads_states_threads{state="waiting"} 7.0
+# HELP logback_events_total Number of log events that were enabled by the effective log level
+# TYPE logback_events_total counter
+logback_events_total{level="debug"} 0.0
+logback_events_total{level="error"} 0.0
+logback_events_total{level="info"} 17.0
+logback_events_total{level="trace"} 0.0
+logback_events_total{level="warn"} 1.0
+# HELP process_cpu_time_ns_total The "cpu time" used by the Java Virtual Machine process
+# TYPE process_cpu_time_ns_total counter
+process_cpu_time_ns_total 2.627E10
+# HELP process_cpu_usage The "recent cpu usage" for the Java Virtual Machine process
+# TYPE process_cpu_usage gauge
+process_cpu_usage 0.0
+# HELP process_files_max_files The maximum file descriptor count
+# TYPE process_files_max_files gauge
+process_files_max_files 1048576.0
+# HELP process_files_open_files The open file descriptor count
+# TYPE process_files_open_files gauge
+process_files_open_files 22.0
+# HELP process_start_time_seconds Start time of the process since unix epoch.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.789282842314E9
+# HELP process_uptime_seconds The uptime of the Java virtual machine
+# TYPE process_uptime_seconds gauge
+process_uptime_seconds 78.085
+# HELP resilience4j_circuitbreaker_buffered_calls The number of buffered successful calls stored in the ring buffer
+# TYPE resilience4j_circuitbreaker_buffered_calls gauge
+resilience4j_circuitbreaker_buffered_calls{kind="failed",name="chaosProbe"} 0.0
+resilience4j_circuitbreaker_buffered_calls{kind="successful",name="chaosProbe"} 0.0
+# HELP resilience4j_circuitbreaker_calls_seconds Total number of successful calls
+# TYPE resilience4j_circuitbreaker_calls_seconds summary
+resilience4j_circuitbreaker_calls_seconds_count{kind="failed",name="chaosProbe"} 0
+resilience4j_circuitbreaker_calls_seconds_sum{kind="failed",name="chaosProbe"} 0.0
+resilience4j_circuitbreaker_calls_seconds_count{kind="ignored",name="chaosProbe"} 0
+resilience4j_circuitbreaker_calls_seconds_sum{kind="ignored",name="chaosProbe"} 0.0
+resilience4j_circuitbreaker_calls_seconds_count{kind="successful",name="chaosProbe"} 0
+resilience4j_circuitbreaker_calls_seconds_sum{kind="successful",name="chaosProbe"} 0.0
+# HELP resilience4j_circuitbreaker_calls_seconds_max Total number of successful calls
+# TYPE resilience4j_circuitbreaker_calls_seconds_max gauge
+resilience4j_circuitbreaker_calls_seconds_max{kind="failed",name="chaosProbe"} 0.0
+resilience4j_circuitbreaker_calls_seconds_max{kind="ignored",name="chaosProbe"} 0.0
+resilience4j_circuitbreaker_calls_seconds_max{kind="successful",name="chaosProbe"} 0.0
+# HELP resilience4j_circuitbreaker_failure_rate The failure rate of the circuit breaker
+# TYPE resilience4j_circuitbreaker_failure_rate gauge
+resilience4j_circuitbreaker_failure_rate{name="chaosProbe"} -1.0
+# HELP resilience4j_circuitbreaker_not_permitted_calls_total Total number of not permitted calls
+# TYPE resilience4j_circuitbreaker_not_permitted_calls_total counter
+resilience4j_circuitbreaker_not_permitted_calls_total{kind="not_permitted",name="chaosProbe"} 0.0
+# HELP resilience4j_circuitbreaker_slow_call_rate The slow call of the circuit breaker
+# TYPE resilience4j_circuitbreaker_slow_call_rate gauge
+resilience4j_circuitbreaker_slow_call_rate{name="chaosProbe"} -1.0
+# HELP resilience4j_circuitbreaker_slow_calls The number of slow successful which were slower than a certain threshold
+# TYPE resilience4j_circuitbreaker_slow_calls gauge
+resilience4j_circuitbreaker_slow_calls{kind="failed",name="chaosProbe"} 0.0
+resilience4j_circuitbreaker_slow_calls{kind="successful",name="chaosProbe"} 0.0
+# HELP resilience4j_circuitbreaker_state The states of the circuit breaker
+# TYPE resilience4j_circuitbreaker_state gauge
+resilience4j_circuitbreaker_state{name="chaosProbe",state="closed"} 1.0
+resilience4j_circuitbreaker_state{name="chaosProbe",state="disabled"} 0.0
+resilience4j_circuitbreaker_state{name="chaosProbe",state="forced_open"} 0.0
+resilience4j_circuitbreaker_state{name="chaosProbe",state="half_open"} 0.0
+resilience4j_circuitbreaker_state{name="chaosProbe",state="metrics_only"} 0.0
+resilience4j_circuitbreaker_state{name="chaosProbe",state="open"} 0.0
+# HELP system_cpu_count The number of processors available to the Java virtual machine
+# TYPE system_cpu_count gauge
+system_cpu_count 16.0
+# HELP system_cpu_usage The "recent cpu usage" of the system the application is running in
+# TYPE system_cpu_usage gauge
+system_cpu_usage 0.0625
+# HELP system_load_average_1m The sum of the number of runnable entities queued to available processors and the number of runnable entities running on the available processors averaged over a period of time
+# TYPE system_load_average_1m gauge
+system_load_average_1m 0.73828125
+# HELP tasks_scheduled_execution_active_seconds  
+# TYPE tasks_scheduled_execution_active_seconds summary
+tasks_scheduled_execution_active_seconds_count{code_function="tick",code_namespace="kr.exchange.harness.InvariantScheduler",exception="none",outcome="UNKNOWN"} 0
+tasks_scheduled_execution_active_seconds_sum{code_function="tick",code_namespace="kr.exchange.harness.InvariantScheduler",exception="none",outcome="UNKNOWN"} 0.0
+# HELP tasks_scheduled_execution_active_seconds_max  
+# TYPE tasks_scheduled_execution_active_seconds_max gauge
+tasks_scheduled_execution_active_seconds_max{code_function="tick",code_namespace="kr.exchange.harness.InvariantScheduler",exception="none",outcome="UNKNOWN"} 0.0
+# HELP tasks_scheduled_execution_seconds  
+# TYPE tasks_scheduled_execution_seconds summary
+tasks_scheduled_execution_seconds_count{code_function="tick",code_namespace="kr.exchange.harness.InvariantScheduler",error="none",exception="none",outcome="SUCCESS"} 1
+tasks_scheduled_execution_seconds_sum{code_function="tick",code_namespace="kr.exchange.harness.InvariantScheduler",error="none",exception="none",outcome="SUCCESS"} 6.76066E-4
+# HELP tasks_scheduled_execution_seconds_max  
+# TYPE tasks_scheduled_execution_seconds_max gauge
+tasks_scheduled_execution_seconds_max{code_function="tick",code_namespace="kr.exchange.harness.InvariantScheduler",error="none",exception="none",outcome="SUCCESS"} 6.76066E-4
+# HELP tomcat_sessions_active_current_sessions  
+# TYPE tomcat_sessions_active_current_sessions gauge
+tomcat_sessions_active_current_sessions 0.0
+# HELP tomcat_sessions_active_max_sessions  
+# TYPE tomcat_sessions_active_max_sessions gauge
+tomcat_sessions_active_max_sessions 0.0
+# HELP tomcat_sessions_alive_max_seconds  
+# TYPE tomcat_sessions_alive_max_seconds gauge
+tomcat_sessions_alive_max_seconds 0.0
+# HELP tomcat_sessions_created_sessions_total  
+# TYPE tomcat_sessions_created_sessions_total counter
+tomcat_sessions_created_sessions_total 0.0
+# HELP tomcat_sessions_expired_sessions_total  
+# TYPE tomcat_sessions_expired_sessions_total counter
+tomcat_sessions_expired_sessions_total 0.0
+# HELP tomcat_sessions_rejected_sessions_total  
+# TYPE tomcat_sessions_rejected_sessions_total counter
+tomcat_sessions_rejected_sessions_total 0.0

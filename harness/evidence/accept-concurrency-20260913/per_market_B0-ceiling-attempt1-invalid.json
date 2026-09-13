@@ -1,0 +1,167 @@
+{
+ "k6ceil-120": {
+  "journal_new": {
+   "KRW-BTC": 0,
+   "KRW-ETH": 0,
+   "KRW-SOL": 0,
+   "KRW-XRP": 0,
+   "KRW-DOGE": 0,
+   "KRW-ADA": 0,
+   "KRW-TRX": 0,
+   "KRW-LINK": 0,
+   "KRW-DOT": 0,
+   "KRW-MATIC": 0,
+   "KRW-AVAX": 0,
+   "KRW-ATOM": 0
+  },
+  "orders": {
+   "KRW-BTC": 0,
+   "KRW-ETH": 0,
+   "KRW-SOL": 0,
+   "KRW-XRP": 0,
+   "KRW-DOGE": 0,
+   "KRW-ADA": 0,
+   "KRW-TRX": 0,
+   "KRW-LINK": 0,
+   "KRW-DOT": 0,
+   "KRW-MATIC": 0,
+   "KRW-AVAX": 0,
+   "KRW-ATOM": 0
+  },
+  "journal_new_total": 0,
+  "markets_with_accept": 0,
+  "all_12_positive": false
+ },
+ "k6ceil-240": {
+  "journal_new": {
+   "KRW-BTC": 0,
+   "KRW-ETH": 0,
+   "KRW-SOL": 0,
+   "KRW-XRP": 0,
+   "KRW-DOGE": 0,
+   "KRW-ADA": 0,
+   "KRW-TRX": 0,
+   "KRW-LINK": 0,
+   "KRW-DOT": 0,
+   "KRW-MATIC": 0,
+   "KRW-AVAX": 0,
+   "KRW-ATOM": 0
+  },
+  "orders": {
+   "KRW-BTC": 0,
+   "KRW-ETH": 0,
+   "KRW-SOL": 0,
+   "KRW-XRP": 0,
+   "KRW-DOGE": 0,
+   "KRW-ADA": 0,
+   "KRW-TRX": 0,
+   "KRW-LINK": 0,
+   "KRW-DOT": 0,
+   "KRW-MATIC": 0,
+   "KRW-AVAX": 0,
+   "KRW-ATOM": 0
+  },
+  "journal_new_total": 0,
+  "markets_with_accept": 0,
+  "all_12_positive": false
+ },
+ "k6ceil-360": {
+  "journal_new": {
+   "KRW-BTC": 0,
+   "KRW-ETH": 0,
+   "KRW-SOL": 0,
+   "KRW-XRP": 0,
+   "KRW-DOGE": 0,
+   "KRW-ADA": 0,
+   "KRW-TRX": 0,
+   "KRW-LINK": 0,
+   "KRW-DOT": 0,
+   "KRW-MATIC": 0,
+   "KRW-AVAX": 0,
+   "KRW-ATOM": 0
+  },
+  "orders": {
+   "KRW-BTC": 0,
+   "KRW-ETH": 0,
+   "KRW-SOL": 0,
+   "KRW-XRP": 0,
+   "KRW-DOGE": 0,
+   "KRW-ADA": 0,
+   "KRW-TRX": 0,
+   "KRW-LINK": 0,
+   "KRW-DOT": 0,
+   "KRW-MATIC": 0,
+   "KRW-AVAX": 0,
+   "KRW-ATOM": 0
+  },
+  "journal_new_total": 0,
+  "markets_with_accept": 0,
+  "all_12_positive": false
+ },
+ "k6ceil-480": {
+  "journal_new": {
+   "KRW-BTC": 0,
+   "KRW-ETH": 0,
+   "KRW-SOL": 0,
+   "KRW-XRP": 0,
+   "KRW-DOGE": 0,
+   "KRW-ADA": 0,
+   "KRW-TRX": 0,
+   "KRW-LINK": 0,
+   "KRW-DOT": 0,
+   "KRW-MATIC": 0,
+   "KRW-AVAX": 0,
+   "KRW-ATOM": 0
+  },
+  "orders": {
+   "KRW-BTC": 0,
+   "KRW-ETH": 0,
+   "KRW-SOL": 0,
+   "KRW-XRP": 0,
+   "KRW-DOGE": 0,
+   "KRW-ADA": 0,
+   "KRW-TRX": 0,
+   "KRW-LINK": 0,
+   "KRW-DOT": 0,
+   "KRW-MATIC": 0,
+   "KRW-AVAX": 0,
+   "KRW-ATOM": 0
+  },
+  "journal_new_total": 0,
+  "markets_with_accept": 0,
+  "all_12_positive": false
+ },
+ "k6ceil-600": {
+  "journal_new": {
+   "KRW-BTC": 0,
+   "KRW-ETH": 0,
+   "KRW-SOL": 0,
+   "KRW-XRP": 0,
+   "KRW-DOGE": 0,
+   "KRW-ADA": 0,
+   "KRW-TRX": 0,
+   "KRW-LINK": 0,
+   "KRW-DOT": 0,
+   "KRW-MATIC": 0,
+   "KRW-AVAX": 0,
+   "KRW-ATOM": 0
+  },
+  "orders": {
+   "KRW-BTC": 0,
+   "KRW-ETH": 0,
+   "KRW-SOL": 0,
+   "KRW-XRP": 0,
+   "KRW-DOGE": 0,
+   "KRW-ADA": 0,
+   "KRW-TRX": 0,
+   "KRW-LINK": 0,
+   "KRW-DOT": 0,
+   "KRW-MATIC": 0,
+   "KRW-AVAX": 0,
+   "KRW-ATOM": 0
+  },
+  "journal_new_total": 0,
+  "markets_with_accept": 0,
+  "all_12_positive": false
+ }
+}

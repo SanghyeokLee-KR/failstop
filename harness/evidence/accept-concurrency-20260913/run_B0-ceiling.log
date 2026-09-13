@@ -1,0 +1,74 @@
+start 2026-09-13T16:23:17+09:00 label=B0-ceiling image=exchange-chaos-app:b0-ceecaef
+CMD: python harness/evidence/accept-concurrency-20260913/prep_stack.py
+ENV {'SCALE_POOL': '32', 'SCALE_ORDER_INFLIGHT': '0', 'SCALE_QUERY_INFLIGHT': '0', 'SCALE_REQUERY_INFLIGHT': '0', 'SCALE_PG_CPUS': '4.0', 'SCALE_PG_MEM': '4g'}
+키 대조 4/4
+  봇 안정 확인 [10.2, 11.9, 12.3]
+준비 완료. 초기 상태 {'주문': 1397, '체결': 997, 'DB(MB)': 21}
+prep_rc=0
+CMD: python harness/evidence/accept-concurrency-20260913/k6_ceiling_logged.py --rungs 120,240,360,480,600 --duration 90 --out harness/evidence/accept-concurrency-20260913/k6_ceiling.json
+사다리 [120, 240, 360, 480, 600], 구간당 90s, 봇 기저 20 OPS
+기저 설정: 관리 평면 호출 생략(prep_stack 이 sim_commands 로 {'target_ops': 20} 설정)
+저장 계층: fdatasync 2122.068회/s
+기저만: 접수 16.47/s
+
+[요청 120/s] k6 90s
+  접수/s         136.54
+  수용거절/s       0.12
+  p99(ms)      77.98
+  api1 CPU%    76.97
+  DB CPU%      143.72
+
+[요청 240/s] k6 90s
+  접수/s         255.36
+  수용거절/s       1.45
+  p99(ms)      329.89
+  api1 CPU%    109.27
+  DB CPU%      244.03
+
+[요청 360/s] k6 90s
+  접수/s         272.67
+  수용거절/s       106.09
+  p99(ms)      419.63
+  api1 CPU%    142.22
+  DB CPU%      284.28
+
+[요청 480/s] k6 90s
+  접수/s         273.2
+  수용거절/s       226.25
+  p99(ms)      363.82
+  api1 CPU%    149.47
+  DB CPU%      335.3
+
+[요청 600/s] k6 90s
+  접수/s         272.48
+  수용거절/s       347.14
+  p99(ms)      100.71
+  api1 CPU%    158.97
+  DB CPU%      310.68
+
+============================================================================================================
+요청/s           접수/s       체결/s     수용거절/s     주문거절/s    p95(ms)    p99(ms)  api1 CPU%    DB CPU%       풀 활성      시퀀서 큐
+120           136.5       17.5        0.1        0.0       39.0       78.0       77.0      143.7        3.0        0.0
+240           255.4       22.1        1.4        0.0      251.1      329.9      109.3      244.0        5.0        0.0
+360           272.7       18.2      106.1        0.0      345.8      419.6      142.2      284.3        5.0        0.0
+480           273.2       16.1      226.2        0.0      340.7      363.8      149.5      335.3        7.0        0.0
+600           272.5        4.3      347.1        0.0       79.7      100.7      159.0      310.7        4.0        0.0
+
+판정. 접수/s 가 요청/s 를 따라오기를 멈추는 구간이 천장이다.
+그 구간에서 거절이 오르면 수용 게이트가, CPU 가 100 에 붙으면 그 계층이 원인이다.
+결과 파일: harness/evidence/accept-concurrency-20260913/k6_ceiling.json
+ceiling_rc=0
+end 2026-09-13T16:36:27+09:00
+k6ceil-120 저널 NEW 합 10795, 접수>0 마켓 12/12
+k6ceil-240 저널 NEW 합 21476, 접수>0 마켓 12/12
+k6ceil-360 저널 NEW 합 24884, 접수>0 마켓 12/12
+k6ceil-480 저널 NEW 합 24703, 접수>0 마켓 12/12
+k6ceil-600 저널 NEW 합 23738, 접수>0 마켓 12/12
+115755|10701|286
+/chaos-api-1 sha256:e740b25ac7dbdfbc8040cce13cad1ebad435c4f15a11a1e03670078afb7f5b61 exchange-chaos-app:b0-ceecaef
+/chaos-api-2 sha256:e740b25ac7dbdfbc8040cce13cad1ebad435c4f15a11a1e03670078afb7f5b61 exchange-chaos-app:b0-ceecaef
+/chaos-bots sha256:e740b25ac7dbdfbc8040cce13cad1ebad435c4f15a11a1e03670078afb7f5b61 exchange-chaos-app:b0-ceecaef
+e1b4d0991433598fc0751e2fb5a4e3e62b17f5808452afc63a794cbed5033c6c  /app/app.jar
+e1b4d0991433598fc0751e2fb5a4e3e62b17f5808452afc63a794cbed5033c6c  /app/app.jar
+bcb609a5-7fc1-4789-84f7-8e752f794bd5|1
+samplers_done 2026-09-13T16:36:39+09:00

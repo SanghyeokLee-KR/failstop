@@ -1,0 +1,13 @@
+ts=2026-09-13T16:02:33.7038482+09:00  (% of 16 logical CPUs, 5s sample)
+league of legends                            10.6
+vgc                                           6.6
+leagueclient                                  3.9
+vmmemwsl                                      3.5
+leagueclientux                                2.2
+system                                        1.6
+leagueclientuxrender                          1.5
+memory compression                            1.2
+cam_helper                                    1.0
+dwm                                           0.6
+audiodg                                       0.4
+leagueclientuxrender                          0.3
