@@ -46,6 +46,9 @@ public class InvariantVerifier {
     // MultiGauge.register는 동시 호출에 스레드 안전하지 않다. runScheduled(@Scheduled 스레드)와
     // runAuthoritative(HTTP 스레드)가 겹칠 때 등록 계량기 집합 손상을 막는다.
     private final Object imbalanceGaugeLock = new Object();
+    // C26 의 정적 바닥과 짝인 소진 속도 축(ADR 0022 3-2). 같은 이유로 등록을 직렬화한다.
+    private final MultiGauge bandRemaining;
+    private final Object bandRemainingGaugeLock = new Object();
 
     public InvariantVerifier(JdbcClient jdbc,
                              TransactionTemplate transactionTemplate,
@@ -59,6 +62,9 @@ public class InvariantVerifier {
         this.readOnlyRepeatableRead.setReadOnly(true);
         this.ledgerImbalance = MultiGauge.builder("exchange_ledger_imbalance")
                 .description("자산별 원장 총합. 0이 아니면 자산 보존 위반")
+                .register(meterRegistry);
+        this.bandRemaining = MultiGauge.builder("exchange.journal.band.remaining")
+                .description("축·마켓별 채번 대역에 남은 배정 가능 번호 수(band_span - next_value). 줄어드는 속도가 소진 속도다")
                 .register(meterRegistry);
     }
 
@@ -74,6 +80,7 @@ public class InvariantVerifier {
             record(result, null, null);
         }
         refreshLedgerImbalanceGauge();
+        refreshBandRemainingGauge();
         logViolations("scheduled", results);
         return results;
     }
@@ -99,6 +106,7 @@ public class InvariantVerifier {
             record(result, runId, window, snapshot.commandWatermark(), snapshot.eventWatermark());
         }
         refreshLedgerImbalanceGauge();
+        refreshBandRemainingGauge();
         logViolations("authoritative[" + runId + "/" + window + "]", snapshot.results());
         log.info("권위 run 완료: run_id={}, window={}, verdict={}, 위반합={}",
                 runId, window, snapshot.pass() ? "PASS" : "FAIL", snapshot.totalViolations());
@@ -158,6 +166,22 @@ public class InvariantVerifier {
                 .list();
         synchronized (imbalanceGaugeLock) {
             ledgerImbalance.register(rows, true);
+        }
+    }
+
+    private void refreshBandRemainingGauge() {
+        List<MultiGauge.Row<?>> rows = new ArrayList<>();
+        jdbc.sql("SELECT name, market_id, remaining FROM v_journal_band_headroom")
+                .query((rs, n) -> {
+                    rows.add(MultiGauge.Row.of(
+                            Tags.of("name", rs.getString("name"),
+                                    "market", String.valueOf(rs.getInt("market_id"))),
+                            rs.getLong("remaining")));
+                    return null;
+                })
+                .list();
+        synchronized (bandRemainingGaugeLock) {
+            bandRemaining.register(rows, true);
         }
     }
 

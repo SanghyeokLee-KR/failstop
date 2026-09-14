@@ -217,6 +217,14 @@ public enum InvariantCheck {
                  + (SELECT count(*) FROM outbox_default)
             """),
 
+    // ── 명령 대역 여유(ADR 0022 6-4) ────────────────────────────────────
+    // 소진은 되돌릴 수 없어 잔여가 대역의 10퍼센트 아래인 마켓을 미리 센다. 10^12 대역에서는 사실상 공허하고 실제 방어선은
+    // 채번 함수의 대역 상한 예외다. 뷰는 V45 이고 명세 부재는 C05·C23 이 센다.
+    C26_CMD_BAND_HEADROOM(Severity.HIGH, Scope.SCHEDULED, """
+            SELECT count(*) FROM v_journal_band_headroom
+            WHERE name = 'command_seq' AND remaining_ratio < 0.1
+            """),
+
     // ── 명령 저널 DEFAULT 유입 0(ADR 0022 6-4) ──────────────────────────
     // DEFAULT 행은 어느 잎에도 속하지 않는 seq 로 들어간 명령이고 행이 든 구간은 잎을 다시 만들 수 없다(V40).
     // C15 가 여러 표를 합산하는 WARN 이라 명령 축만 떼어 CRITICAL 로 세운다. 행은 부모 표로 읽혀 원천 손상이 아니라 잎 경로 이상이다(검증설계 §4-1 C27, §5-3 R5).
