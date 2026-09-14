@@ -239,7 +239,7 @@ Redis 프록시는 없다. Redis 서비스 자체가 없기 때문이다.
 | `chaos-bots` (bots, 엔진 끔) | 10/10 (Hikari 기본) | 연결 없음 | 연결 없음 | 10 |
 | `chaos-pg-exporter` | | | | 약 2 |
 
-합은 약 124다. 엔진을 끈 프로세스의 리스·append 풀까지 최대로 잡은 이론값은 약 156이다. `chaos-pg`의 기본값 100(일반 사용자 97)으로는 모자라 `max_connections=200`으로 올렸다(`harness/docker-compose.chaos.yml`). 이 값은 E1~E9 전 실험의 스택 조건이다. append 풀 idle-timeout 10초는 강등된 노드가 늘어난 연결을 하우스키핑 주기 30초를 더해 약 40초 안에 돌려주게 하는 값이고, HikariCP가 받는 최솟값이다(`server/app/src/main/java/kr/exchange/config/LeaseDataSourceConfig.java`). 배포 앱 노드(prod)는 요청 32 + 리스 2 + append 14로 48이고 봇 노드(엔진 끔)는 10이다. 배포 데이터 노드는 `max_connections`를 지정하지 않아 기본 100이다.
+합은 약 124다. 엔진을 끈 프로세스의 리스·append 풀까지 최대로 잡은 이론값은 약 156이다. `chaos-pg`의 기본값 100(일반 사용자 97)으로는 모자라 `max_connections=200`으로 올렸다(`harness/docker-compose.chaos.yml`). 이 값은 E1~E9 전 실험의 스택 조건이다. append 풀 idle-timeout 10초는 강등된 노드가 늘어난 연결을 하우스키핑 주기 30초를 더해 약 40초 안에 돌려주게 하는 값이고, HikariCP가 받는 최솟값이다(`server/app/src/main/java/kr/exchange/config/LeaseDataSourceConfig.java`). 배포 앱 노드(prod)는 요청 32 + 리스 2 + append 14로 48이고 봇 노드(엔진 끔)는 10이다. 배포 데이터 노드는 `max_connections`를 지정하지 않아 기본 100이다. 엣지 설정(`deploy/nginx-edge.conf.template`)이 쓰기·조회 upstream에 앱 두 노드를 두므로, 두 노드가 같은 primary에 붙으면 이론 최대가 48 x 2 + 10 = 106으로 일반 사용자 한도 97을 넘는다. 클라우드 배포 전에 데이터 노드 `max_connections` 지정이나 풀 상한 조정으로 닫아야 한다(후속).
 
 ### 3-5. 데이터베이스 이중화
 

@@ -137,7 +137,7 @@ def sample():
     # 스트림의 명령 대부분이 갭으로 도착한다. 적용 대비 비의 계산값 1 - 1/12 를 이것으로 잰다.
     cu_n = q('sum(rate(exchange_writer_catchup_calls_total[1m]))')
     cu_t = ns('catchup')
-    # in-flight 예약 락. 저널 replay 를 뺀 접수가 지나는 전역 락이고 안에서 잔고 조회가
+    # in-flight 예약 락. 저널 replay 를 뺀 접수가 지나는 락이고(4단계 전에는 전역 하나, 4단계부터 스트라이프 1024개) 안에서 잔고 조회가
     # 데이터베이스를 왕복한다.
     iw = q('sum(rate(exchange_inflight_lock_wait_nanos_total[1m]))')
     ih = q('sum(rate(exchange_inflight_lock_hold_nanos_total[1m]))')
