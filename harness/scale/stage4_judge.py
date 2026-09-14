@@ -1,12 +1,13 @@
 """ADR 0022 4단계 판정. 같은 날 같은 스택의 B0·B4 왕복 프로브 산출물 둘을 7절 4단계 문턱으로 가른다.
 
-문턱 수치의 정본은 ADR 0022 7절 4단계 「판정 문턱」 이다. 아래 상수는 그 글자를 옮긴 것이고 주행 뒤
-고치지 않는다. ADR 에 없는 검사는 행마다 출처를 따로 적는다.
+근거는 ADR 0022 7절 4단계 「판정 문턱」 과 docs/contracts/하네스_검증설계.md 의 「ADR 0022 4단계 B0·B4 판정
+규약」 문단이다. 문턱 수치는 ADR 글자를 옮긴 것이고 주행 뒤 고치지 않는다. 입력 키, 반증 우선, T2 N/A 식,
+분류기 양성 대조 축, 칸 식별 전제, 연결 고갈 분리는 판정 규약 문단이 정한다.
 
 돌리는 법:
   python harness/scale/stage4_judge.py --b0 <B0.json> --b4 <B4.json> --out <verdict.json>
 
-종료코드: 0 평평 또는 명제 성립, 1 반증, 2 NOT RUN, 3 보류(명세 충돌), 4 증거 불완전(연결 고갈).
+종료코드: 0 평평 또는 명제 성립, 1 반증, 2 NOT RUN, 4 증거 불완전(연결 고갈).
 """
 import argparse
 import json
@@ -27,11 +28,9 @@ T1_FLAT = 1.15             # 이하면 평평
 T2_BOUND = 1.2             # 이하
 
 ADR = 'ADR 0022 7절 4단계'
-IDENTITY = '칸 식별. 같은 코드끼리 비교하면 비가 1 근처로 공허하게 평평이 난다'
-CLASSIFIER = 'accept-concurrency-20260913 README 왕복 프로브 절. 양성 대조 전의 대기 0 은 반증으로 못 쓴다'
-CONNECTION = '연결 고갈 분리 규칙. 정본 미반영'
+RULES = '하네스_검증설계 ADR 0022 4단계 B0·B4 판정 규약'
 
-EXIT = {'평평': 0, '명제 성립': 0, '반증': 1, 'NOT RUN': 2, '보류(명세 충돌)': 3, '증거 불완전(연결 고갈)': 4}
+EXIT = {'평평': 0, '명제 성립': 0, '반증': 1, 'NOT RUN': 2, '증거 불완전(연결 고갈)': 4}
 
 
 def num(cell, key):
@@ -116,10 +115,11 @@ def preconditions(b0, b4):
     diff = sorted(k for k in s0 if s0[k] != s4[k] or s0[k] is None)
     row('같은 스택과 같은 부하 설정', not diff, {'다른 항목': diff})
     per0 = market_series(b0)
+    # 같은 코드끼리 비교하면 비가 1 근처로 나와 공허하게 평평이 된다.
     row('B0 는 전역 접수 락이다(보유 점유에 market 태그 없음)',
-        per0 is not None and not any(per0.keys()), per0, IDENTITY)
+        per0 is not None and not any(per0.keys()), per0, RULES)
     i0, i4 = image_id(b0), image_id(b4)
-    row('B0 와 B4 의 서빙 이미지가 다르다', bool(i0 and i4 and i0 != i4), [i0, i4], IDENTITY)
+    row('B0 와 B4 의 서빙 이미지가 다르다', bool(i0 and i4 and i0 != i4), [i0, i4], RULES)
     return rows
 
 
@@ -139,8 +139,9 @@ def positive_axes(b0, b4):
     axis('B4 카운터 행 잠금 표본 채집 5회 이상(15초 간격)', 'B4',
          interval == COUNTER_INTERVAL_S and n_ok is not None and n_ok >= COUNTER_SAMPLES_MIN,
          {'채집 성공': n_ok, '간격(초)': interval, '채집 실패': summary['채집 실패'] if summary else None})
+    # 양성 대조 전의 대기 0 은 분류기가 대기를 못 잡는 경우와 갈리지 않아 반증으로 쓸 수 없다.
     ctl = control_state(b4)
-    axis('B4 카운터 행 분류기 양성 대조 PASS', 'B4', ctl == 'PASS', ctl, CLASSIFIER)
+    axis('B4 카운터 행 분류기 양성 대조 PASS', 'B4', ctl == 'PASS', ctl, RULES)
     for label, cell in (('B0', b0), ('B4', b4)):
         per = market_accepts(cell)
         axis('12마켓 각 접수 0 초과', label,
@@ -184,14 +185,11 @@ def a_bound(b0, b4):
 
 
 def decide(ratio, a, wait_sum):
-    """반증 조건은 T1 과 무관하게 걸린다. 평평과 반증이 함께 서면 ADR 이 우선을 정하지 않아 보류한다."""
-    flat = ratio <= T1_FLAT
-    refuted = ratio > a or wait_sum == 0
-    if flat and refuted:
-        return '보류(명세 충돌)'
-    if refuted:
+    """반증을 T1 보다 먼저 본다. 600/s 칸의 반증은 대기 표본 0 하나가 맡고(ADR 참고 항), 비가 A 를 넘으면
+    명제의 상한을 넘은 것이라 평평보다 앞선다."""
+    if ratio > a or wait_sum == 0:
         return '반증'
-    if flat:
+    if ratio <= T1_FLAT:
         return '평평'
     return '명제 성립'
 
@@ -239,8 +237,8 @@ def judge(b0, b4):
         'A': {'값': a, '입력': a_inputs, '비가 A 초과': (ratio > a) if ratio is not None and a is not None else None},
         '카운터 행 대기(B4)': {'요약': summary, '분류기 양성 대조': control_state(b4), '규칙': pgs.COUNTER_ROW_RULE},
         'T2': {'B0': t2(b0), 'B4': t2(b4)},
-        '주': ['T2 는 값과 상태만 적는다. ADR 이 T2 초과를 최종 판정에 잇지 않는다',
-              '평평과 반증 조건이 함께 서면 보류다. ADR 이 둘의 우선을 정하지 않는다'],
+        '주': ['T2 는 값과 상태만 적고 최종 판정을 바꾸지 않는다',
+              '반증 조건(대기 표본 0 또는 비 > A)은 T1 보다 먼저 본다'],
     }
 
 

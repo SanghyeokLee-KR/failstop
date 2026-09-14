@@ -91,17 +91,22 @@ class DecisionTest(unittest.TestCase):
     def test_zero_waits_over_115_refutes(self):
         self.assertEqual(verdict(*pair(390.0, wait=0)), '반증')
 
-    def test_flat_with_zero_waits_is_held(self):
+    def test_flat_with_zero_waits_refutes(self):
         r = sj.judge(*pair(330.0, wait=0))
-        self.assertEqual(r['최종 판정'], '보류(명세 충돌)')
-        self.assertEqual(sj.EXIT[r['최종 판정']], 3)
+        self.assertTrue(r['T1']['평평(1.15 이하)'])
+        self.assertEqual(r['최종 판정'], '반증')
+        self.assertEqual(sj.EXIT[r['최종 판정']], 1)
 
-    def test_flat_over_a_is_held(self):
+    def test_flat_over_a_refutes(self):
         b0, b4 = pair(330.0)
         b4['  커밋(ms)'] = 3.0
         r = sj.judge(b0, b4)
         self.assertLess(r['A']['값'], 1.1)
-        self.assertEqual(r['최종 판정'], '보류(명세 충돌)')
+        self.assertTrue(r['T1']['평평(1.15 이하)'])
+        self.assertEqual(r['최종 판정'], '반증')
+
+    def test_exit_codes(self):
+        self.assertEqual(sorted(set(sj.EXIT.values())), [0, 1, 2, 4])
 
     def test_a_matches_adr_reference(self):
         b0, b4 = pair()

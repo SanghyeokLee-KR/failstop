@@ -1,7 +1,7 @@
 # ADR 0022 4단계 판정 주행. 같은 날 같은 카오스 스택에서 B0(main 기준) 다음 B4(4단계 브랜치 기준)를 제시 부하
 # 600/s 로 돌리고 harness/scale/stage4_judge.py 로 판정한다. 증거는 harness/evidence/adr0022-stage4-b0b4-<YYYYMMDD>/ 다.
 # 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage4-b0b4.ps1 -B4Ref <4단계 브랜치> [-B0Ref main] [-SkipBuild]
-# 종료코드: 판정기 값(0 평평·명제 성립, 1 반증, 2 NOT RUN, 3 보류, 4 연결 고갈), 5 BLOCKED(준비·빌드·주행 실패).
+# 종료코드: 판정기 값(0 평평·명제 성립, 1 반증, 2 NOT RUN, 4 연결 고갈), 5 BLOCKED(준비·빌드·주행 실패).
 # 비밀 파일(harness/.env.chaos, harness/load/secrets/k6_keys.json)은 경로로만 넘기고 읽지 않는다.
 param(
     [string] $B4Ref = '',
