@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.49)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.50)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, §3 도입부 표의 로드맵 행)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -379,6 +379,7 @@ erDiagram
 | V43 | `V43__append_prologue_created_at_order.sql` | `append_command_prologue` 의 NEW 멱등 조회 정렬을 `ORDER BY c.created_at, c.seq` 로 바꾸고 함수를 `VOLATILE` 로 명시한다(ADR 0022 4단계 4-3). 대역 파생 seq 에서 `ORDER BY c.seq` 는 가장 이른 명령이 아니라 가장 작은 마켓의 명령을 고르기 때문이다. 어드바이저리 락 키와 조회 술어에는 `market_id` 를 넣지 않는다. 접수 락이 마켓별로 갈린 뒤 같은 키의 교차 마켓 동시 append 를 직렬화하는 겹이 이 락 하나이기 때문이다. CREATE OR REPLACE 라 되돌릴 수 있다. |
 | V44 | `V44__command_band_cutover_latch.sql` | 대역 채번 커트오버 래치(ADR 0022 6단계). 삽입 전용 표 `journal_cutover`(UPDATE·DELETE 는 트리거가 거부)의 행이 없으면 전역 채번, 있으면 마켓 대역 채번이다. 6인자 `append_command_prologue(..., p_market_id)` 가 채번 직전에 같은 트랜잭션에서 래치를 읽어 `next_journal_value('command_seq')` 와 `next_market_command_seq(p_market_id)` 가운데 하나를 부르고, 멱등 조회 정렬·어드바이저리 락 키·VOLATILE 은 V43 과 같다. 5인자 판은 래치가 있으면 예외를 내되 강등 분류 문구를 쓰지 않는다. `latch_command_band_cutover()` 는 대역 잎과 꼬리 파티션 실재, 마켓별 `command_seq` 카운터 행, `command_journal_default` 0행을 검사한 뒤 래치 행을 넣고 소유자만 실행한다. 래치 행이 없을 때만 되돌릴 수 있다. |
 | V45 | `V45__band_headroom.sql` | 채번 대역 여유 뷰 `v_journal_band_headroom`(ADR 0022 7단계 3-2). `journal_band_spec` 의 축마다 `market_journal_counters` 의 마켓별 `next_value`, 남은 배정 가능 번호 수 `remaining`(`band_span - next_value`), `remaining_ratio`(`remaining / band_span`)를 낸다. 채번 함수가 지역 번호를 `band_span - 1` 까지 주므로 `next_value` 가 `band_span` 이면 `remaining` 이 0 이다. 카운터 행이 없는 마켓은 쓴 번호가 없어 행이 없다. 하네스 C26_CMD_BAND_HEADROOM 과 게이지 `exchange.journal.band.remaining` 의 원천이고 `app_role`·`harness_role` 에 SELECT 를 준다. 뷰 하나라 DROP 으로 되돌린다 | V40(`journal_band_spec`), V36(`market_journal_counters`), V0(롤 GRANT) |
+| V46 | `V46__event_seq_band_widen.sql` | 이벤트 저널 대역 확대(ADR 0022 9단계, 3-3). `journal_band_spec('event_seq')` 를 (10^7, 19) 에서 (10^12, 63) 으로 올리고, 꼬리 잎 `event_journal_p200000000` [2x10^8, 10^12) 와 마켓이 있는 id K 마다 대역 잎 `event_journal_b<K>` [K x 10^12, (K+1) x 10^12) 를 만든다. 파생을 DB 로 옮겨 `next_market_event_seq(p_market_id, p_count)` 가 마켓 안 번호와 `market_id * band_span + market_seq` 를 함께 돌려주고, 앱 파생 판이 부르던 `next_market_journal_value(.., 'event_seq', ..)` 는 55000 으로 거부한다. 잎 생성 단일 진입점은 `ensure_event_band_partition`(SECURITY DEFINER, PUBLIC 회수)이고 마켓 생성 트리거가 두 저널 잎을 함께 만든다. 적용 전 확인 셋(명세 (10^7, 19), `event_journal_default` 0행, 앞으로 배정될 대역 값과 겹치는 TRADE·RELEASE `business_event_id` 0건)이 실패하면 멈춘다. 기존 행은 그대로이고 `market_seq` 가 같은 카운터에서 이어져 마켓 안 증가가 유지된다. prod 풀 타임아웃을 `SET LOCAL` 로 해제한다. 첫 대역 행이 쓰인 뒤에는 되돌릴 수 없다(ADR 0022 7절 9단계) | V40(`journal_band_spec`, `next_market_journal_value`, `seed_market_journal_counters`, `ensure_command_band_partition`), V36(`market_journal_counters`, `event_journal.market_id`·`market_seq`), V1(`event_journal`, `ledger_transactions`), V0(`app_role` GRANT) |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -1062,7 +1063,8 @@ CREATE TRIGGER trg_cj_notrunc BEFORE TRUNCATE ON command_journal
     FOR EACH STATEMENT EXECUTE FUNCTION forbid_mutation();
 
 -- 6.2 이벤트 저널: event_seq 전역유일, trades.id의 진실 원천(v2.6)
---     V36부터 event_seq는 market_id * 10^7 + market_seq 파생이라 전역 gapless가 아니다.
+--     V36부터 event_seq는 market_id * band_span + market_seq 파생이라 전역 gapless가 아니다.
+--     band_span은 journal_band_spec('event_seq')이고 V36~V45는 10^7, V46부터 10^12다(ADR 0022 9단계).
 --     결번 없이 증가하는 축은 마켓 안의 market_seq다.
 --     적재 규칙(v2.2): 이벤트를 낳은 정산/상태변경 DB 트랜잭션과 **동일 트랜잭션**으로 INSERT한다
 --     (체결 TRADE는 §5.2 (0), 접수/거절/취소 이벤트도 각 상태변경 트랜잭션에 포함).
@@ -1071,7 +1073,7 @@ CREATE TRIGGER trg_cj_notrunc BEFORE TRUNCATE ON command_journal
 --     §5.5 ② 유형별 재정산·orders.status('CANCELED') 매핑과 어휘를 일원화한다(별도 EXPIRED
 --     유형은 정산·상태 매핑 규칙이 없어 크래시 창 catch-up에서 해석이 갈리므로 사용하지 않는다).
 CREATE TABLE event_journal (
-    event_seq              BIGINT      NOT NULL, -- V36부터 market_id * 10^7 + next_market_journal_value(market_id, 'event_seq') 파생
+    event_seq              BIGINT      NOT NULL, -- market_id * band_span + market_seq 파생. V46부터 next_market_event_seq(market_id, n)이 파생한다(V36~V45는 앱이 10^7로 파생)
     source_cmd_seq         BIGINT      NOT NULL,
     event_ordinal          INT         NOT NULL CHECK (event_ordinal >= 0),
     event_type             VARCHAR(16) NOT NULL
@@ -1170,7 +1172,7 @@ CREATE TABLE processed_events (
 --       (seq < band_span, journal_counters('command_seq') 채번)은 전역에서, 대역 구간(market_id * band_span
 --       + 지역 번호, market_journal_counters 채번)은 마켓 안에서 결번이 없고 대역 채번은 ADR 0022 6단계 전환
 --       뒤다(§4.4). event_journal.event_seq는 V36부터 마켓 카운터 파생
---       (market_id * 10^7 + market_seq)이라 전역유일이되 전역 gapless가 아니다. resource는 전 마켓 공용 단일 값
+--       (market_id * band_span + market_seq, V46부터 band_span 10^12)이라 전역유일이되 전역 gapless가 아니다. resource는 전 마켓 공용 단일 값
 --       'matching-engine' 하나만 사용한다. 마켓별 리스 분할('matching-engine:KRW-BTC' 식)은
 --       서로 다른 노드가 서로 다른 마켓의 리더가 되는 것을 허용해 레거시 구간 전역 seq 채번 권위가
 --       분열되고, 마켓마다 epoch 계열이 갈려 C22 시간 축 팔의 단일 epoch 순서 전제(ADR 0022 6-2)가
@@ -1451,7 +1453,7 @@ END $$;
 
 1. **현재 커버리지**: 실행 시점이 속한 구간을 모든 시간 파티션 부모가 정규 파티션으로 담는다. seq 축 저널은 `journal_counters`의 현재 채번값이 정규 파티션에 속한다.
 2. **선행 커버리지**: 실행 시점부터 **6개월 앞**까지 담는다. 마이그레이션 작성·검토·배포 여유다. 현 지평은 2027-09-01이므로 이 단언은 2027-03에 의도적으로 깨지며, 그때 월 파티션을 연장하는 마이그레이션을 추가한다.
-3. **연속성**: 정규 파티션 사슬에 내부 구멍이 없다. 부모별로 "하한이 다른 파티션의 상한과 맞물리는" 파티션 수가 전체보다 정확히 1 작아야 한다. 이 형태는 정렬을 쓰지 않아 시간·정수 경계에 공통 적용된다. `command_journal` 의 대역 잎(V40)은 마켓 행이 생길 때 만들어지므로 마켓이 없는 빈 PG17 판정에는 나타나지 않는다. 운영 DB 에서 마켓 id 가 연속이 아니면 대역 잎 사이가 비지만 그 구간에는 채번이 가지 않는다(`next_market_command_seq` 가 잎 없는 마켓을 거부한다).
+3. **연속성**: 정규 파티션 사슬에 내부 구멍이 없다. 부모별로 "하한이 다른 파티션의 상한과 맞물리는" 파티션 수가 전체보다 정확히 1 작아야 한다. 이 형태는 정렬을 쓰지 않아 시간·정수 경계에 공통 적용된다. `command_journal`(V40)과 `event_journal`(V46)의 대역 잎은 마켓 행이 생길 때 만들어지므로 마켓이 없는 빈 PG17 판정에는 나타나지 않는다. 운영 DB 에서 마켓 id 가 연속이 아니면 대역 잎 사이가 비지만 그 구간에는 채번이 가지 않는다. `next_market_command_seq` 는 잎 없는 마켓을 거부하고, `next_market_event_seq` 는 거부하지 않는 대신 그 행이 DEFAULT 로 가 C15 가 본다(ADR 0022 7절 9단계).
 
 세 규약은 `PartitionCoverageIntegrationTest`가 빈 PG17에 전 마이그레이션을 적용한 뒤 카탈로그(`pg_get_expr(relpartbound)`)로 판정한다. DEFAULT 파티션은 판정에서 제외한다(모든 값을 담아 구멍을 가린다). 위반은 `C15_DEFAULT_PARTITION` 위반보다 **앞서** 잡히므로, 종전처럼 "행이 실제로 DEFAULT에 쌓인 뒤에야" 발견되지 않는다.
 
@@ -1481,11 +1483,9 @@ SELECT partman.create_parent('public.outbox',         'created_at', '1 month',
        p_premake := 4, p_start_partition := '2026-07-01');
 -- audit_log create_parent는 audit_log가 생기는 V4 이후로 이동한다(v2.6. V1에 테이블 없음).
 
--- seq 파티션: event_journal 만 2억 폭, 3구간 사전 생성. 기존 p0 경계와 정렬.
--- command_journal 은 partman 대상이 아니다. V40 이 [2x10^8, 10^12) 꼬리와 마켓별 대역 잎을 두므로
--- 10^8 격자로 premake 하면 꼬리와 겹친다. 대역 잎은 마켓 생성 트리거가 만든다(§3.2-a-4).
-SELECT partman.create_parent('public.event_journal',  'event_seq','200000000',
-       p_premake := 3, p_start_partition := '0');
+-- seq 파티션은 partman 대상이 없다. command_journal(V40)과 event_journal(V46)이 [2x10^8, 10^12) 꼬리와
+-- 마켓별 대역 잎을 두므로 10^8·2x10^8 격자로 premake 하면 꼬리와 대역 잎에 겹친다. 대역 잎은 마켓 생성
+-- 트리거가 만든다(§3.2-a-4).
 
 -- append-only 저널의 신규 자동생성 파티션에도 REVOKE가 전파되도록 partman 템플릿 권한을 회수(medium#4).
 -- partman은 템플릿 테이블(part_config.template_table)의 권한을 자식에 복제한다.
@@ -1493,8 +1493,7 @@ DO $$
 DECLARE tmpl TEXT;
 BEGIN
   FOR tmpl IN SELECT template_table FROM partman.part_config
-              WHERE parent_table IN ('public.ledger_entries',
-                                     'public.event_journal')   -- audit_log는 V4 이후(v2.6)
+              WHERE parent_table IN ('public.ledger_entries')   -- audit_log는 V4 이후(v2.6). seq 저널은 partman 대상이 아니다
                 AND template_table IS NOT NULL LOOP
     EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON %s FROM app_role', tmpl);
   END LOOP;
@@ -1626,6 +1625,8 @@ command_journal_p200000000  seq 200,000,000 ~ 1,000,000,000,000 (V40)
 command_journal_b<K>        seq K x 10^12 ~ (K+1) x 10^12, 마켓 id K 마다 하나 (V40)
 command_journal_default     DEFAULT
 event_journal_p0            event_seq 0 ~ 200,000,000
+event_journal_p200000000    event_seq 200,000,000 ~ 1,000,000,000,000 (V46)
+event_journal_b<K>          event_seq K x 10^12 ~ (K+1) x 10^12, 마켓 id K 마다 하나 (V46)
 event_journal_default       DEFAULT
 ```
 
@@ -1804,7 +1805,7 @@ CREATE TABLE user_provisioning (
 | 출금 요청 시 잠금 | `RESERVE` | `TRANSFER_LOCK_BASE + transfer_requests.id` | 주문 예약이 `orders.id`를 쓴다 |
 | 출금 거절 시 해제 | `RELEASE` | `TRANSFER_UNLOCK_BASE + transfer_requests.id` | 체결 해제가 `event_seq`를 쓴다 |
 
-`TRANSFER_LOCK_BASE = 2_000_000_000_000`, `TRANSFER_UNLOCK_BASE = 3_000_000_000_000`(코드: `TransferService`). `orders.id`와 `event_seq`가 각각 2e12·3e12에 도달하려면 그 수만큼의 주문·이벤트가 필요하므로 데모 규모에서 서로소다. GENESIS와 같은 오프셋 예약 방식을 쓴다.
+`TRANSFER_LOCK_BASE = 2_000_000_000_000`, `TRANSFER_UNLOCK_BASE = 100_000_000_000_000`(코드: `TransferService`). `orders.id`가 2e12에 도달하려면 그 수만큼의 주문이 필요하므로 데모 규모에서 서로소다. `event_seq`는 개수와 무관한 대역 값이다. V46부터 `market_id * 10^12 + market_seq`라 마켓 3의 값이 곧바로 3e12 구간에 있다. 그래서 해제 예약을 event_seq 값 공간(`(max_band_index + 1) * band_span` = 64 x 10^12) 위인 1e14에 둔다. 명세를 이 값 위로 넓히면 예약을 함께 옮긴다. V46 전에 3e12 + id로 쓴 해제 행은 그대로 남고, V46 적용 전 확인이 그 행과 앞으로 배정될 대역 값의 충돌을 검사한다(ADR 0022 7절 9단계). GENESIS와 같은 오프셋 예약 방식을 쓴다.
 
 #### 입출금 자산 제한: KRW 전용 (V14)
 
@@ -1853,7 +1854,7 @@ CREATE TABLE user_provisioning (
 | `command_journal.seq` | **전 마켓 단일 라이터** 채번(리스도 단일 resource `'matching-engine'`, §3.1 6.6). 결번 없는 범위는 축별이다. 레거시 구간 `seq < band_span`은 `journal_counters('command_seq')` 채번이라 전역에서, 대역 구간 `market_id * band_span + 지역 번호`는 `market_journal_counters(market_id, name='command_seq')` 채번이라 마켓 안에서 결번이 없다. 대역 사이 빈 구간은 결번이 아니고 대역 채번은 ADR 0022 6단계 전환 뒤다(§6.3 ⑤). **파티션키=seq이자 PK → 전역유일 성립**(초안 high: trades.seq 문제와 대비) |
 | `command_journal.engine_ts/tie_break/payload` | 모든 비결정 입력(시간·tie-break·market_state·적용 수수료율) 박제 → 재생 비트동일(초안 missing, v2.3: 수수료율 포함. 체결 수수료 금액은 TRADE 이벤트 payload에 추가 박제, §5.2 (0)) |
 | `command_journal.fencing_token` | 기록 시점 리더 epoch. §5.4 원자적 fencing으로 stale 이중쓰기 차단 |
-| `event_journal.event_seq` | 출력 사실의 전역유일 식별자. V36부터 `market_id * 10^7 + market_seq` 파생이라 전역 gapless가 아니고, 결번 없이 증가하는 축은 마켓 안의 `market_seq`다. **trades.id의 진실 원천**(v2.6: trade_id=event_seq 명시 삽입) |
+| `event_journal.event_seq` | 출력 사실의 전역유일 식별자. V36부터 `market_id * band_span + market_seq` 파생이라 전역 gapless가 아니고, 결번 없이 증가하는 축은 마켓 안의 `market_seq`다. `band_span`은 `journal_band_spec('event_seq')`이고 V36~V45는 10^7로 앱이, V46부터는 10^12로 `next_market_event_seq`가 파생한다. 확대 경계에서도 마켓 안 값은 계속 커지고 첫 대역 행 뒤 명세를 되돌리지 않는다(ADR 0022 7절 9단계). **trades.id의 진실 원천**(v2.6: trade_id=event_seq 명시 삽입) |
 | `snapshots.last_applied_seq/state_checksum` | 재생 시작점 / 손상 스냅샷 폐기 fallback. `last_applied_seq` 는 그 행 `market_id` 의 엔진 적용 커서다(v2.49). 전 마켓 행에 스칼라 한 값을 쓰면 대역 채번에서 그 값이 가장 높은 대역 마켓의 seq 라 복원한 낮은 대역 마켓이 제 명령을 커서 아래로 보고 버린다 |
 | `leader_lease.epoch` | fencing token 발급원. 승격(탈취) 시에만 원자적 +1, 리스 갱신(heartbeat)은 epoch 보존(v2.4, §5.4). 행은 V1 부트스트랩 시드로 선재 |
 
@@ -2265,7 +2266,7 @@ FROM snapshots WHERE market_id=:mid ORDER BY last_applied_seq DESC LIMIT 1;
 
 -- STEP2. 스냅샷 이후 명령 tail 재생: **마켓별 2상**. 마켓 사이 순회 순서는 결과에 영향이 없다
 --   (엔진 커서가 마켓별이라는 전제, ADR 0022 4-5). 오더북은 마켓 로컬이고, event_seq는 V36부터
---   마켓 카운터 파생(market_id * 10^7 + market_seq)이라 재생이 마켓 사이 인터리빙을 재구성할
+--   마켓 카운터 파생(market_id * band_span + market_seq)이라 재생이 마켓 사이 인터리빙을 재구성할
 --   필요가 없다. 마켓 사이 순서가 필요한 곳은 ② 재적재뿐이다.
 --   커서: :cursor_m = cursor(m)(§5.5-a). 인자로 받지 않고 엔진의 마켓 커서에서 유도하며, STEP1이
 --   그 마켓 스냅샷을 로드했으면 그 last_applied_seq에서 시작한다. 명령 커서와 이벤트 커서가 같은
@@ -2343,7 +2344,7 @@ V3 마이그레이션 파일의 테이블 주석(V3:24-26)은 상태 해시 대�
     - 전체 `(created_at, seq)` 정렬이 아니라 병합이다. DB 서버 시계가 뒤로 가면(프라이머리 교체 포함) 마켓 안에서도 created_at이 seq와 역전될 수 있고, 전체 정렬은 그때 마켓 안 seq 순서를 뒤집는다. 마켓 안 역전 쌍은 seq 순서를 따르고 `exchange.recovery.reinject.created_at_inversions`에 센다. 마켓 안 created_at이 seq와 같은 순서이면 병합 결과는 전체 정렬과 같다.
     - 이 순서가 복원하는 것은 사용자가 만든 인과 순서이지 원래의 마켓 사이 정산 순서가 아니다. 같은 사용자가 잔고를 넘겨 동시에 낸 명령 둘이 한 크래시 창에 들면 어느 순서로도 23514이고, 그것은 게이트웨이 사전 가드의 몫이다.
     - 리스 갱신 판정(시간·누적 이벤트 수)은 배치 경계에서 한다. 한 배치 안에서는 명령 단위 원자성 때문에 갱신하지 않는다.
-  - **이미 적재분 판정과 event_seq 배정(P0-4)**: 재방출 이벤트는 명령 내 방출 순번을 event_ordinal로 갖는다. 이미 적재분 판정은 event_emission_registry를 (source_cmd_seq, event_ordinal)로 조회해 존재하면 스킵, 없으면 신규 적재한다. 신규 적재 시 트리거가 레지스트리에 자동 기입되므로 동일 (source_cmd_seq, event_ordinal) 중복 방출은 레지스트리 PK가 23505로 물리 차단하고, event_seq 재사용은 레지스트리 UNIQUE(event_seq)가 차단한다. 미적재분의 event_seq는 적재 트랜잭션이 라이브 정산과 같은 경로로 `next_market_journal_value(market_id, 'event_seq', n)`에서 마켓 구간을 받아 `market_id * 10^7 + market_seq`로 배정한다. 배정은 재적재 순서가 아니라 마켓 카운터가 정한다. 23505 멱등 스킵은 동시 stale 라이터에 대한 최후 안전망이다.
+  - **이미 적재분 판정과 event_seq 배정(P0-4)**: 재방출 이벤트는 명령 내 방출 순번을 event_ordinal로 갖는다. 이미 적재분 판정은 event_emission_registry를 (source_cmd_seq, event_ordinal)로 조회해 존재하면 스킵, 없으면 신규 적재한다. 신규 적재 시 트리거가 레지스트리에 자동 기입되므로 동일 (source_cmd_seq, event_ordinal) 중복 방출은 레지스트리 PK가 23505로 물리 차단하고, event_seq 재사용은 레지스트리 UNIQUE(event_seq)가 차단한다. 미적재분의 event_seq는 적재 트랜잭션이 라이브 정산과 같은 경로로 `next_market_event_seq(market_id, n)`에서 마켓 안 번호 구간과 그 파생값(`market_id * band_span + market_seq`)을 함께 받아 배정한다(V46. V36~V45는 `next_market_journal_value(market_id, 'event_seq', n)`과 앱의 10^7 파생). 배정은 재적재 순서가 아니라 마켓 카운터가 정한다. 23505 멱등 스킵은 동시 stale 라이터에 대한 최후 안전망이다.
   - **유형별 재정산(v2.3)**: TRADE → §5.2 전 절차(수수료는 payload 박제값 사용. `trade_seq_registry` 23505 = '이미 정산됨' → 멱등 스킵, §5.2 (1')), CANCELED → §5.3의 RELEASE 정산(잠금 환급 + orders CANCELED), REJECTED → orders(REJECTED) 기록만(원장 무변경, §5.1 (a') 거절 경로와 동일), ACCEPTED → event_journal 적재만. 어느 유형이든 이벤트 적재와 대응 정산은 §3.1 6.2대로 **동일 트랜잭션 원자 커밋**한다.
 → ③ §6 불변식 배치 실행(위반 0 확인, `invariant_checks` 적재) → ④ 미발행 outbox 재발행(소비자는 `processed_events`로 중복 흡수) → ⑤ 필요 시 프로젝션 폐기 후 재구성: `orders`는 ① 저널·이벤트(`command_journal`/`event_journal`)에서, `balances`는 ② 원장(`ledger_entries`)에서 재빌드(§1.1 계층 대응으로 정정, v2.5).
 
@@ -2393,7 +2394,7 @@ SELECT (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM s)
             SELECT (max(seq)-min(seq)+1) - count(*) AS gap
             FROM command_journal WHERE seq >= (SELECT band_span FROM s)
             GROUP BY market_id) b) AS gaps;                                  -- 0
--- ⑥ event_journal 마켓 안 market_seq gapless. V36부터 event_seq는 market_id * 10^7 + market_seq 파생이라
+-- ⑥ event_journal 마켓 안 market_seq gapless. V36부터 event_seq는 market_id * band_span + market_seq 파생이라
 --    전역으로 세면 대역 사이 빈 구간을 결번으로 센다. market_seq가 빈 V36 이전 행은 이 검사 밖이다.
 SELECT COALESCE(sum(gap), 0) AS gaps FROM (
     SELECT (max(market_seq)-min(market_seq)+1) - count(*) AS gap
@@ -3589,3 +3590,15 @@ ADR 0022 7단계(대역 여유 마이그레이션과 스냅샷 훅 배선)를 �
 §5.5 STEP1 에 폴백을 적는다. 스냅샷 시작 재생은 복구 대상 엔진이 아니라 새 엔진에서 돌아, 실패해도 복구 대상 엔진이 전량 재생을 그대로 탈 수 있다. 재생 실패는 전량 재생 전에 `recovery_runs` 불일치 행으로 남으므로 C17 이 결함을 본다. `recovery_runs` 의 행 단위(전 마켓 통합, `market_id` 0)는 바꾸지 않는다.
 
 스키마 변경은 뷰 하나다. 문서 헤더 버전을 v2.49 로 순증. 2026-09-14 갱신.
+
+## v2.50 패치 반영 사항
+
+ADR 0022 9단계(이벤트 대역 확대)를 정본에 먼저 반영한다. 2026-09-14 사용자 결정으로 확대는 폐기용 도커 DB 에서만 적용하고, 클라우드 DB 적용은 배포 때 ADR 0022 7절 9단계의 적용 시점 조건과 적용 전 확인으로 판단한다.
+
+§3 표에 V46 행을 더한다. 이벤트 축 명세를 (10^12, 63) 으로 올리고 `event_journal` 에 명령 저널과 같은 모양의 꼬리 잎과 마켓별 대역 잎을 만든다. 파생은 `next_market_event_seq` 로 DB 에 옮기고 앱 파생 판이 부르던 `next_market_journal_value(.., 'event_seq', ..)` 는 거부한다. 확대 뒤 그 판이 정산하면 마켓 안 event_seq 가 대역 행 아래로 되돌아가기 때문이다. 첫 대역 행이 쓰인 뒤에는 되돌릴 수 없다. 잎 없는 마켓의 이벤트 채번은 명령 축과 달리 거부하지 않는다. 이벤트 채번 예외는 노드 강등까지 번지므로 그 행을 DEFAULT 로 보내고 C15 가 본다.
+
+§3.3 입출금 네임스페이스의 해제 예약 `TRANSFER_UNLOCK_BASE` 를 3e12 에서 1e14 로 옮긴다. 정산 RELEASE 가 event_seq 를 `business_event_id` 로 쓰고 10^12 대역에서 마켓 3 의 event_seq 가 3e12 구간이라 종전 서로소 전제가 깨진다. 겹치면 그 정산이 23505 로 롤백되고 재적재가 같은 번호를 다시 내 같은 자리에서 멈춘다. 이 충돌은 ADR 0022 3-3 과 이 문서 §3.3 이 서로 다른 전제를 둔 것이라 두 정본을 같은 판에서 맞춘다.
+
+§3.2 partman 채택 코드와 템플릿 권한 회수 대상에서 `event_journal` 을 뺀다. 2x10^8 격자 premake 가 V46 꼬리와 대역 잎에 겹친다. §3.2 연속성 규약과 §3.2-a-4 경계 목록에 두 잎을 더한다. §3.1 6.2·6.6 주석, §4.4 `event_journal.event_seq` 행, §5.5 STEP2 주석과 ② event_seq 배정, §6.3 ⑥ 주석의 `market_id * 10^7 + market_seq` 를 `journal_band_spec` 의 `band_span` 파생으로 고친다. 같은 서술을 `docs/contracts/백엔드_API_설계.md` v2.51 §5-2 와 `docs/contracts/하네스_검증설계.md` §2-4 에서 맞췄다.
+
+검증 SQL ⑤~⑰ 은 바뀌지 않는다. ⑥ 은 `market_seq` 로, ⑮ 는 `event_seq` 짝으로, ⑰ 이벤트 팔은 카운터와 `market_seq` 로 세어 대역 폭을 읽지 않는다. 문서 헤더 버전을 v2.50 으로 순증. 2026-09-14 갱신.
