@@ -1,0 +1,66 @@
+
+== E5(네트워크 분할) 시작 runId=E5-20260914-172120 net=exchange-chaos_chaos-net ==
+봇 OPS=40 적용(chaos-bots 재기동, settle 5s)
+리더 감지: chaos-api-1 (config 기본과 무관하게 실 리더 대상). standby=28080
+
+== ⓐ 사전 권위 run ==
+사전 verdict=FAIL old_epoch=1 cmd_fencing_col=True
+시계가드 통과: 스큐 50ms, 임계 2000ms, 왕복 132ms.
+
+== ⓑ 주입: docker network disconnect exchange-chaos_chaos-net chaos-api-1 (프로세스 생존) ==
+T0=2026-09-14T08:22:01.2861483Z sw_base_cmd=792 sw_base_evt=1393 trades_at_inject=479
+
+== ⓒ 관찰(개입 금지): 신 리더 승격 + 체결 재개 ==
+T2(승격)=2026-09-14T08:22:05.7915415Z new_epoch=2 RTO=4.381s
+
+== ⓓ 복귀: docker network connect exchange-chaos_chaos-net chaos-api-1 ==
+
+== ⓔ 사후 권위 run + fencing 판정 ==
+
+── E5 증거(split-brain 반증) ────────────
+verdict            : PASS
+이중 쓰기(stale)   : 0  (구 epoch=1 로 늘어난 저널 행. 기준선 cmd=792 evt=1393)
+epoch              : 1 -> 2 (final=2, 단조 상승=True)
+리더 교체          : True  (c071e9e7-f3eb-424a-9187-da00eccaf27a -> fe2a8b2a-df23-4701-a270-9d5b78e75438)
+서비스 재개        : True  (체결 479 -> 1391)
+RTO(체결 재개)     : 4.381 s (목표 < 30, 증거만)
+무결성(ALWAYS 스코프): True
+자산합(C01)        : 0
+저널 gap C05/C06   : 0 / 0
+복귀 팔로워 재합류 : True (관찰, 핵심 판정 비게이팅)
+failover_run_id    : 1
+────────────────────────────────────────
+invariant_checks 사후 위반 요약(run_id=E5-20260914-172120):
+C01_ASSET_CONSERVATION|t|0
+C02_BAL_VS_LEDGER|t|0
+C03_TXN_UNSEALED|t|0
+C05_CMD_GAPLESS|t|0
+C06_EVT_GAPLESS|t|0
+C07P_DUP_ORDER_JOURNAL|t|0
+C07_DUP_ORDER|t|0
+C08_DUP_FILL|t|0
+C09_TRADE_SEQ_EVENT_MATCH|t|0
+C10_ORDER_FILL_AGG|t|0
+C11_TRADE_ORPHAN|t|0
+C12_EVENT_ORPHAN|t|0
+C13A_ORDER_MATERIALIZED|t|0
+C13B_ORDER_JOURNALED|t|0
+C14_LOCKED_RESERVATION|t|0
+C15_DEFAULT_PARTITION|t|0
+C16_ACK_JOURNALED|t|0
+C17_REPLAY_DETERMINISM|t|0
+C18_FILL_PRICE_MAKER|t|0
+C19_ORDERBOOK_NONCROSS|t|0
+C20_ORDER_FEE_MATERIALIZED|t|0
+C21_EVENT_EMISSION_REGISTRY|t|0
+C22_FENCING_MONOTONIC|t|0
+C23_COUNTER_SEQ_CONSISTENCY|t|0
+C24_POSITION_COST_QTY|t|0
+C25_POSITION_COST_SANITY|t|0
+C27_CMD_DEFAULT_PARTITION|t|0
+C28_CMD_LEGACY_AFTER_CUTOVER|t|0
+
+== 종료 훅: 네트워크 복귀(무조건) ==
+network connect 종료코드 1 (이미 연결돼 있으면 정상)
+판정 파일: D:\dev\failstop\harness\scripts\..\evidence\chaos-runs\E5-20260914-172120.json (불변식 행 56)
+E5 PASS.

@@ -1,0 +1,201 @@
+ts,process,cpu_pct_of_logical
+17:10:24,pwsh,0.9
+17:10:24,Notepad,0.6
+17:10:24,claude,0.3
+17:10:24,explorer,0.2
+17:10:24,ctfmon,0.2
+17:10:24,claude,0.2
+17:10:24,bash,0.1
+17:10:24,pwsh,0.1
+17:10:39,Docker Desktop,1.8
+17:10:39,Photos,0.5
+17:10:39,Photos,0.5
+17:10:39,ChatGPT,0.5
+17:10:39,Photos,0.5
+17:10:39,Photos,0.4
+17:10:39,Photos,0.4
+17:10:39,pwsh,0.3
+17:10:54,com.docker.backend,0.6
+17:10:54,Docker Desktop,0.5
+17:10:54,pwsh,0.1
+17:10:54,Docker Desktop,0.1
+17:10:54,chrome,0.1
+17:10:54,wsl,0.1
+17:10:54,Photos,0.0
+17:10:54,java,0.0
+17:11:09,claude,0.3
+17:11:09,claude,0.2
+17:11:09,com.docker.backend,0.1
+17:11:09,pwsh,0.1
+17:11:09,ChatGPT,0.1
+17:11:09,ChatGPT,0.1
+17:11:09,ChatGPT,0.1
+17:11:09,chrome,0.0
+17:11:24,com.docker.backend,0.4
+17:11:24,Docker Desktop,0.3
+17:11:24,Photos,0.1
+17:11:24,Photos,0.1
+17:11:24,Photos,0.1
+17:11:24,Photos,0.1
+17:11:24,Photos,0.1
+17:11:24,wsl,0.1
+17:11:39,Photos,0.4
+17:11:39,Photos,0.4
+17:11:39,Photos,0.4
+17:11:39,Photos,0.4
+17:11:39,Photos,0.4
+17:11:39,ChatGPT,0.2
+17:11:39,pwsh,0.2
+17:11:39,com.docker.backend,0.1
+17:11:54,com.docker.backend,0.5
+17:11:54,claude,0.3
+17:11:54,claude,0.3
+17:11:54,Docker Desktop,0.3
+17:11:54,bash,0.1
+17:11:54,OneDrive.Sync.Service,0.1
+17:11:54,pwsh,0.1
+17:11:54,WINWORD,0.1
+17:12:09,com.docker.backend,0.5
+17:12:09,ChatGPT Classic,0.1
+17:12:09,ms-teams,0.0
+17:12:09,chrome,0.0
+17:12:09,wsl,0.0
+17:12:09,pwsh,0.0
+17:12:09,ChatGPT,0.0
+17:12:09,ChatGPT,0.0
+17:12:24,com.docker.backend,0.3
+17:12:24,Docker Desktop,0.2
+17:12:24,claude,0.2
+17:12:24,ChatGPT,0.1
+17:12:24,ChatGPT,0.1
+17:12:24,Photos,0.1
+17:12:24,Photos,0.1
+17:12:24,Photos,0.1
+17:12:39,claude,0.5
+17:12:39,claude,0.2
+17:12:39,com.docker.backend,0.2
+17:12:39,pwsh,0.1
+17:12:39,ChatGPT,0.1
+17:12:39,wsl,0.1
+17:12:39,claude,0.1
+17:12:39,Photos,0.0
+17:12:54,com.docker.backend,0.3
+17:12:54,Docker Desktop,0.3
+17:12:54,ChatGPT,0.2
+17:12:54,Photos,0.2
+17:12:54,Photos,0.2
+17:12:54,pwsh,0.1
+17:12:54,Photos,0.1
+17:12:54,Photos,0.1
+17:13:09,com.docker.backend,0.5
+17:13:09,msedgewebview2,0.1
+17:13:09,claude,0.1
+17:13:09,chrome,0.0
+17:13:09,ChatGPT Classic,0.0
+17:13:09,ChatGPT Classic,0.0
+17:13:09,msedgewebview2,0.0
+17:13:09,ChatGPT Classic,0.0
+17:13:24,Docker Desktop,0.2
+17:13:24,com.docker.backend,0.2
+17:13:24,claude,0.1
+17:13:24,pwsh,0.1
+17:13:24,Docker Desktop,0.1
+17:13:24,ChatGPT Classic,0.1
+17:13:24,bash,0.1
+17:13:24,ChatGPT,0.0
+17:13:39,chrome,0.1
+17:13:39,ChatGPT,0.1
+17:13:39,Docker Desktop,0.0
+17:13:39,ChatGPT Classic,0.0
+17:13:39,com.docker.backend,0.0
+17:13:39,pwsh,0.0
+17:13:39,ChatGPT,0.0
+17:13:39,claude,0.0
+17:13:54,com.docker.backend,1.0
+17:13:54,Photos,0.5
+17:13:54,Photos,0.5
+17:13:54,Docker Desktop,0.4
+17:13:54,Photos,0.4
+17:13:54,Photos,0.3
+17:13:54,docker,0.2
+17:13:54,claude,0.2
+17:14:09,com.docker.backend,0.8
+17:14:09,docker,0.4
+17:14:09,wsl,0.3
+17:14:09,pwsh,0.2
+17:14:09,claude,0.1
+17:14:09,claude,0.1
+17:14:09,chrome,0.1
+17:14:09,chrome,0.0
+17:14:24,com.docker.backend,0.8
+17:14:24,Docker Desktop,0.5
+17:14:24,pwsh,0.4
+17:14:24,docker,0.2
+17:14:24,wsl,0.1
+17:14:24,ChatGPT,0.1
+17:14:24,claude,0.1
+17:14:24,Docker Desktop,0.1
+17:14:39,com.docker.backend,0.7
+17:14:39,docker,0.6
+17:14:39,wsl,0.2
+17:14:39,claude,0.1
+17:14:39,ChatGPT,0.1
+17:14:39,ChatGPT,0.1
+17:14:39,Docker Desktop,0.1
+17:14:39,ChatGPT,0.0
+17:14:54,com.docker.backend,0.8
+17:14:54,Docker Desktop,0.5
+17:14:54,docker,0.3
+17:14:54,ChatGPT,0.2
+17:14:54,wsl,0.1
+17:14:54,ChatGPT Classic,0.1
+17:14:54,bash,0.1
+17:14:54,ChatGPT,0.1
+17:15:09,ChatGPT,0.5
+17:15:09,com.docker.backend,0.5
+17:15:09,Photos,0.4
+17:15:09,Photos,0.4
+17:15:09,Photos,0.3
+17:15:09,docker,0.3
+17:15:09,Photos,0.3
+17:15:09,Photos,0.2
+17:15:25,com.docker.backend,1.2
+17:15:25,Docker Desktop,0.7
+17:15:25,docker,0.3
+17:15:25,claude,0.3
+17:15:25,wsl,0.2
+17:15:25,claude,0.1
+17:15:25,bash,0.1
+17:15:25,ChatGPT,0.1
+17:15:40,docker,0.7
+17:15:40,com.docker.backend,0.6
+17:15:40,claude,0.3
+17:15:40,claude,0.2
+17:15:40,wsl,0.2
+17:15:40,ChatGPT,0.1
+17:15:40,Docker Desktop,0.1
+17:15:40,chrome,0.0
+17:15:55,com.docker.backend,0.7
+17:15:55,Docker Desktop,0.4
+17:15:55,claude,0.2
+17:15:55,com.docker.backend,0.1
+17:15:55,wsl,0.1
+17:15:55,Docker Desktop,0.1
+17:15:55,claude,0.1
+17:15:55,python,0.0
+17:16:10,claude,0.4
+17:16:10,claude,0.3
+17:16:10,claude,0.2
+17:16:10,com.docker.backend,0.2
+17:16:10,ChatGPT Classic,0.1
+17:16:10,Photos,0.1
+17:16:10,Photos,0.1
+17:16:10,wsl,0.1
+17:16:25,com.docker.backend,0.4
+17:16:25,Docker Desktop,0.3
+17:16:25,Photos,0.2
+17:16:25,Photos,0.2
+17:16:25,claude,0.2
+17:16:25,Photos,0.1
+17:16:25,ChatGPT,0.1
+17:16:25,Photos,0.1

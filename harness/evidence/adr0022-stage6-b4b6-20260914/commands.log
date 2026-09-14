@@ -1,0 +1,22 @@
+2026-09-14T17:03:44+09:00 RUN adr0022-stage6-b4b6 Ref=0cb57a3827ac06cb2d32992ea8f21170b9e7e201 SkipBuild=False
+2026-09-14T17:03:44+09:00 START worktree | cwd=D:\dev\failstop | git -C D:\dev\failstop worktree add --detach C:\dev\exchange-adr0022-stage6-0cb57a3 0cb57a3827ac06cb2d32992ea8f21170b9e7e201
+2026-09-14T17:03:45+09:00 END worktree rc=0
+2026-09-14T17:03:45+09:00 START bootjar | cwd=C:\dev\exchange-adr0022-stage6-0cb57a3\server | C:\dev\exchange-adr0022-stage6-0cb57a3\server\gradlew.bat :app:bootJar -q
+2026-09-14T17:03:48+09:00 END bootjar rc=0
+2026-09-14T17:03:48+09:00 START image | cwd=C:\dev\exchange-adr0022-stage6-0cb57a3\harness | docker build -f Dockerfile.app -t exchange-chaos-app:adr0022-stage6-0cb57a3 --label org.opencontainers.image.revision=0cb57a3827ac06cb2d32992ea8f21170b9e7e201 --label org.opencontainers.image.ref.name=0cb57a3827ac06cb2d32992ea8f21170b9e7e201 .
+2026-09-14T17:03:56+09:00 END image rc=0
+2026-09-14T17:03:56+09:00 START budget | cwd=D:\dev\failstop | python harness/scale/pg_samplers.py budget --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --max-connections 200 --superuser-reserved 3 --out D:\dev\failstop\harness\evidence\adr0022-stage6-b4b6-20260914\budget.json
+2026-09-14T17:03:56+09:00 END budget rc=0
+2026-09-14T17:03:57+09:00 START probe-B4 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label B4 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage6-b4b6-20260914\B4.json
+2026-09-14T17:10:02+09:00 END probe-B4 rc=0
+2026-09-14T17:10:13+09:00 IMAGE B4 want=sha256:1f16a036b451df9ec04338ddd5ace345be01d481a5b445cbfa01627aa6ddc640 running=sha256:1f16a036b451df9ec04338ddd5ace345be01d481a5b445cbfa01627aa6ddc640
+2026-09-14T17:10:13+09:00 START down-B4 | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-14T17:10:18+09:00 END down-B4 rc=0
+2026-09-14T17:10:18+09:00 START probe-B6 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label B6 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage6-b4b6-20260914\B6.json --latch-before-traffic
+2026-09-14T17:16:21+09:00 END probe-B6 rc=0
+2026-09-14T17:16:35+09:00 IMAGE B6 want=sha256:1f16a036b451df9ec04338ddd5ace345be01d481a5b445cbfa01627aa6ddc640 running=sha256:1f16a036b451df9ec04338ddd5ace345be01d481a5b445cbfa01627aa6ddc640
+2026-09-14T17:16:35+09:00 START judge | cwd=D:\dev\failstop | python harness/scale/stage6_judge.py --b4 D:\dev\failstop\harness\evidence\adr0022-stage6-b4b6-20260914\B4.json --b6 D:\dev\failstop\harness\evidence\adr0022-stage6-b4b6-20260914\B6.json --out D:\dev\failstop\harness\evidence\adr0022-stage6-b4b6-20260914\verdict.json
+2026-09-14T17:16:35+09:00 END judge rc=0
+2026-09-14T17:16:35+09:00 VERDICT 채번 분할 효과 | 분기 B(동시 커밋 확장) rc=0
+2026-09-14T17:16:35+09:00 START down | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-14T17:16:40+09:00 END down rc=0
