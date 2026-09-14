@@ -735,6 +735,18 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 - **커트오버 뒤로 미루는 이유.** 배선하는 순간 처음 도는 코드다. 새 코드와 새 축을 같은 창에 겹치지 않게 한다. 실패해도 오늘의 동작(전량 재생)으로 떨어지는 폴백을 남긴다.
 - **6단계 감사가 남긴 7단계 위험(2026-09-14).** 둘 다 스냅샷이 찍혀야 발현하므로 지금은 잠복이다. (1) `SnapshotCapture` 한 인스턴스를 여러 샤드에 걸면 `seq <= lastCapturedSeq` 조기 반환이 시간 조건보다 앞서, 높은 대역 마켓을 한 번 캡처한 뒤 낮은 대역 마켓은 시간 간격으로도 캡처되지 않는다(SnapshotCapture.java:89-92). 샤드마다 하나를 둔다. (2) `WriterRouter` 는 복구 결과에 없는 마켓과 복구 뒤 처음 생기는 마켓을 복구본 바닥 `floorSeq()` 에서 출발시킨다(WriterRouter.java:76, 133-147). 스냅샷 복원이 스칼라 seq 를 바닥으로 남기면 그보다 낮은 대역 마켓의 새 명령이 커서 아래로 버려진다. 스냅샷에 마켓별 커서를 담아 복원하고 바닥 규칙을 대역 축에서 다시 정한다.
 
+**구현 주(2026-09-14).** 마이그레이션은 `V45__band_headroom.sql` 이다. 위 서술을 구체화하거나 다르게 한 곳을 적는다.
+
+- 뷰 `v_journal_band_headroom` 은 `market_journal_counters` 와 `journal_band_spec` 을 `name` 으로 이어 축마다 마켓별 `next_value`, `remaining`, `remaining_ratio` 를 낸다. `remaining` 은 `band_span - next_value` 로 남은 배정 가능 번호 수이고(채번 함수가 지역 번호를 `band_span - 1` 까지 준다), `remaining_ratio` 는 `remaining / band_span` 이다. 카운터 행이 없는 마켓은 쓴 번호가 없어 행이 없다. `app_role`·`harness_role` 에 SELECT 를 준다.
+- C26 술어는 `SELECT count(*) FROM v_journal_band_headroom WHERE name = 'command_seq' AND remaining_ratio < 0.1` 이다. 이벤트 축은 뷰와 게이지에만 보인다. 알람 라우팅은 `InvariantViolation` 템플릿이 체크 등급을 라벨로 옮기므로 규칙 파일을 고치지 않는다(HIGH 는 warning).
+- 게이지 `exchange.journal.band.remaining{name,market}` 은 `InvariantVerifier` 가 상시 run 과 권위 run 끝에서 `exchange_ledger_imbalance` 와 같은 MultiGauge 덮어쓰기로 이 뷰의 `remaining` 을 싣는다. 하네스를 켠 리더 노드에서 5분마다 바뀐다.
+- 샤드 팩토리가 샤드마다 `SnapshotCapture` 를 하나 만들어 훅을 건다. 캡처는 `appliedSeq(marketId)` 로 판정하고 그 마켓 북만 인코딩한다. DB 적재는 모든 캡처가 나눠 쓰는 워커 하나(`SnapshotPersister`)가 한다. 워커를 샤드마다 두면 시간 간격 캡처가 거의 같은 순간에 마켓 수만큼 커넥션을 쓴다. 큐 상한(`queue-capacity`)은 캡처마다 센다. 스냅샷 지표 넷(`exchange.snapshot.captured`·`dropped`·`persist_failed`·`last_persisted_seq`)에 `market` 태그가 붙는다.
+- 스냅샷 행의 `last_applied_seq` 는 그 마켓 커서다. 전 마켓 행에 스칼라 한 값을 쓰지 않는다. 적재 트랜잭션은 `assert_and_lock_leader` 를 먼저 부르고 그 epoch 를 `fencing_epoch` 에 쓴다. 이 경로가 운영에서 처음 돌므로 CLAUDE.md 14절 리더 안전성과 `docs/contracts/백엔드_API_설계.md` §6-C ⑦ 에 맞춘다. 거부는 영속화 실패로 세고 강등하지 않는다.
+- 바닥 규칙. `MatchingEngineImpl` 의 스칼라 바닥(`floorSeq`, 스칼라 `loadSnapshot`)을 없앤다. 커서 없는 마켓은 0 에서 출발하고, `WriterRouter` 는 설치 뒤 새로 생기는 샤드와 복구본에 없던 샤드를 커서 0 엔진으로 둔다. 복구본에 커서가 없는 마켓은 적용한 명령이 없으므로 그 마켓 명령을 전부 적용해야 하고, 다른 값을 바닥으로 두면 대역 채번에서 그 아래 명령을 버린다. 갭 회수는 6단계대로 그 마켓 커서에서 그 마켓 행만 읽는다.
+- 폴백. `EngineRecovery` 는 채택본을 새 엔진에 싣고 1·2 상 재생을 마친 뒤 호출자 엔진으로 옮긴다. 적재가 예외를 내면 기록 없이, 재생이 예외를 내면 `recovery_runs` 불일치 행을 남긴 뒤 스냅샷 없이 호출자 엔진에서 전량 재생한다. 둘 다 `exchange.recovery.snapshot_fallback` 에 더하고 ERROR 로그를 남긴다. 승격 재생이 리더 자격을 잃고 실패하면 폴백하지 않고 던진다. 불일치 행을 남기는 이유는 폴백이 가용성을 지키는 동안에도 결함을 C17 이 보게 하려는 것이다.
+- 복구 로그는 마켓별 채택 seq(`스냅샷 채택(마켓별)`)와 마켓별 커서 구간과 적용 명령 수(`재생 적용(마켓별)`)를 남긴다. `recovery_runs` 는 종전대로 전 마켓 통합 행(`market_id` 0)이다.
+- 시험. 두 채번 모드(래치 전 전역, 래치 뒤 대역)마다 마켓별 캡처, 스냅샷에서 꼬리만 재생하는 복구, 페일오버 뒤 C17, 갭 회수와 커서 0 출발을 `SnapshotHookWiringIntegrationTest` 가 본다. C26 세 벌 동치와 양성 검출, 뷰 권한, 게이지는 `InvariantBandAxisIntegrationTest` 가 본다.
+
 ### 8단계. commit_delay 실측 (선택. 되돌릴 수 있다)
 
 `wal-fsync-20260907` 이 "재지 않았다" 로 남긴 자리다. 그 문서의 유보 사유가 "커밋이 단일 라이터에서 직렬화되어 동시 커밋자가 적다" 였고, **6단계가 그 전제를 바꾼다.** `synchronous_commit=off` 와 다르다. 동기 커밋을 유지한 채 플러셔가 형제 트랜잭션을 모으도록 기다리게 하는 것이라 'fsync 후 ACK' 계약을 깨지 않는다. `commit_siblings` 와 함께 격자로 돈다. `ALTER SYSTEM RESET` 으로 되돌린다.
@@ -836,6 +848,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 3. **`LoopFatalHandler` 가 여전히 한 샤드의 fatal 에서 노드 전체를 강등시킨다.** 곧 마켓별 게이트가 실제로 사는 경우는 '샤드가 멈췄는데 강등은 아직 안 온 창' 과 '접수 단계 예외(대역 초과 포함)' 뿐이다. 라이터 fatal 의 폭발 반경을 마켓으로 가두는 것은 별건이다.
 4. **승격·강등의 단위는 노드로 남는다.** `acceptGate` 를 가르지 않았다.
 5. **스냅샷은 지금 한 건도 안 찍힌다.** 7단계가 처음 도는 코드이고, 채택 게이트가 실동작하는 것도 처음이다. 시험 부담이 가장 큰 단계이며 폴백(전량 재생)을 남긴다.
+    **2026-09-14 7단계 배선.** 샤드마다 캡처가 걸려 스냅샷이 찍힌다. 폴백과 기록은 7단계 구현 주에 적었다. 도커 스택의 스냅샷 경계 재생 실측은 아직 없다.
 6. **6단계의 래치 전환은 비가역이다.** 래치 전에는 6단계 배포까지 되돌릴 수 있다. 래치 뒤에 전역 채번으로 돌아가면 낮은 seq 가 마켓 커서 아래로 무음 폐기되거나 전역 축의 C05 원형이 영영 성립하지 않는다. 래치 뒤 2단계 이전 앱으로의 롤백은 금지다(7절 6단계).
 7. **C26 은 10^12 대역에서 사실상 공허하다.** 6-4 에 이유와 실제 방어선을 적었다.
 8. **파티션 15개의 전역 정렬 비용을 안 쟀다.** 점 조회와 마켓별 읽기는 프루닝되지만 C22 의 `ORDER BY created_at, seq` 는 전량 정렬이다. 3단계에서 실측 시간을 기록한다.
