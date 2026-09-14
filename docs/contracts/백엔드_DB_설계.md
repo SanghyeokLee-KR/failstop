@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.47)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.48)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, §3 도입부 표의 로드맵 행)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -377,6 +377,7 @@ erDiagram
 | V41 | `V41__lease_key_share_lock.sql` | `leader_lease` 에 `uq_leader_lease_fencing_key`(resource, holder, epoch) 를 더해 holder·epoch 를 키 열로 만들고 `assert_and_lock_leader` 를 FOR KEY SHARE 로 재정의한다. 갱신은 쓰기 트랜잭션 잠금을 기다리지 않고 승격·게시는 기다린다(ADR 0026) | V1(`leader_lease`), V30(`assert_and_lock_leader`) |
 | V42 | `V42__event_journal_market_cmd_index.sql` | `event_journal (market_id, source_cmd_seq, event_ordinal)` 인덱스 `idx_evt_market_cmd`. 마켓별 재생과 따라잡기 판독이 다른 마켓 행을 거르며 훑지 않게 한다. 분할 부모라 `CONCURRENTLY` 를 못 써 잎마다 SHARE 잠금을 쥐므로 라이터가 멈춘 배포 창에서 적용한다. 근거 `docs/측정/20260913.md` 5.7.15 | V36(`event_journal.market_id`) |
 | V43 | `V43__append_prologue_created_at_order.sql` | `append_command_prologue` 의 NEW 멱등 조회 정렬을 `ORDER BY c.created_at, c.seq` 로 바꾸고 함수를 `VOLATILE` 로 명시한다(ADR 0022 4단계 4-3). 대역 파생 seq 에서 `ORDER BY c.seq` 는 가장 이른 명령이 아니라 가장 작은 마켓의 명령을 고르기 때문이다. 어드바이저리 락 키와 조회 술어에는 `market_id` 를 넣지 않는다. 접수 락이 마켓별로 갈린 뒤 같은 키의 교차 마켓 동시 append 를 직렬화하는 겹이 이 락 하나이기 때문이다. CREATE OR REPLACE 라 되돌릴 수 있다. |
+| V44 | `V44__command_band_cutover_latch.sql` | 대역 채번 커트오버 래치(ADR 0022 6단계). 삽입 전용 표 `journal_cutover`(UPDATE·DELETE 는 트리거가 거부)의 행이 없으면 전역 채번, 있으면 마켓 대역 채번이다. 6인자 `append_command_prologue(..., p_market_id)` 가 채번 직전에 같은 트랜잭션에서 래치를 읽어 `next_journal_value('command_seq')` 와 `next_market_command_seq(p_market_id)` 가운데 하나를 부르고, 멱등 조회 정렬·어드바이저리 락 키·VOLATILE 은 V43 과 같다. 5인자 판은 래치가 있으면 예외를 내되 강등 분류 문구를 쓰지 않는다. `latch_command_band_cutover()` 는 대역 잎과 꼬리 파티션 실재, 마켓별 `command_seq` 카운터 행, `command_journal_default` 0행을 검사한 뒤 래치 행을 넣고 소유자만 실행한다. 래치 행이 없을 때만 되돌릴 수 있다. |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -3559,3 +3560,11 @@ ADR 0022 4단계(접수 락 분할)를 정본에 먼저 반영한다. 코드는 
 접수 락이 마켓별로 갈리면 append 트랜잭션이 마켓마다 동시에 돈다. 잡는 잠금 순서는 셋이고 모든 트랜잭션에 같다. 어드바이저리 락(NEW 에 `client_order_id` 가 있을 때만 하나), 채번 카운터 행(래치 전에는 전 마켓이 같은 `journal_counters('command_seq')` 행), `leader_lease` 행 `FOR KEY SHARE` 다. 순환이 생길 조합이 없고 검증은 `docs/contracts/하네스_검증설계.md` T4-10 이 맡는다. 래치 전에는 채번 카운터 행을 커밋까지 쥐므로 마켓 사이 채번은 여전히 직렬이다.
 
 멱등 표현을 실물에 맞춘다. `command_journal` 은 `seq` 파티션이라 `(user_id, client_order_id)` 유니크가 물리로 없다(§3.1 `idx_cmd_client_new` 주석). §5.1 (a) 주석, 3.2-a-4 의 API 인용, 3.2-a-6 표 행, §7 요약 표의 중복 체결 행이 그 유니크를 저널 제약처럼 적었다. 저널 쪽은 어드바이저리 락과 조회로, 물리 유일성은 `orders` 의 `uq_orders_client` 로 고친다. 같은 정정을 `docs/contracts/백엔드_API_설계.md` v2.49 §2-4 에 했다. 문서 헤더 버전을 v2.47 로 순증. 2026-09-14 갱신.
+
+## v2.48 패치 반영 사항
+
+ADR 0022 6단계(대역 채번 커트오버)를 정본에 먼저 반영한다. 2026-09-14 사용자 결정으로 구현과 래치 실측은 클라우드 재측정을 기다리지 않고 도커 카오스 스택에서 하고, 래치는 폐기용 도커 DB 에서만 건다. 클라우드 DB 래치는 배포 때 ADR 0022 래치 전 확인 7 로 다시 판단한다.
+
+§3 표에 V44 행을 더한다. 래치는 앱 설정이 아니라 DB 의 단방향 행이다. 낡은 설정으로 뜬 노드가 승격해 대역 행 뒤에 전역 seq 를 쓰면 그 값이 마켓 커서보다 낮아 엔진이 버리기 때문이다(ADR 0022 6-a). 채번 판정이 채번과 같은 트랜잭션, 같은 마켓 접수 락 안에 있어 한 마켓 안에서 래치 전 행이 모두 먼저 커밋되고 대역 행이 뒤따른다.
+
+래치 뒤 섞임 감사는 하네스 C28_CMD_LEGACY_AFTER_CUTOVER(CRITICAL, SCHEDULED)이고 술어는 `docs/contracts/하네스_검증설계.md` §4-1 에 있다. 문서 헤더 버전을 v2.48 로 순증. 2026-09-14 갱신.
