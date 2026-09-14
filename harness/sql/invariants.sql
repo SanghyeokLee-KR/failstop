@@ -244,7 +244,7 @@ SELECT 'command_journal_default' AS partition, count(*) AS rows
 FROM command_journal_default HAVING count(*) > 0;
 
 -- V13 미적용 DB에서는 아래 두 뷰가 없다. 무조건 조회하면 ON_ERROR_STOP 경로가 C24 이전
--- 24개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이
+-- 26개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이
 -- 거짓 통과다. 부재 시 SKIP을 크게 찍고 종료 상태를 남긴다.
 SELECT (to_regclass('public.position_cost_qty_check') IS NOT NULL
         AND to_regclass('public.position_cost_sanity_check') IS NOT NULL) AS has_cost_views \gset

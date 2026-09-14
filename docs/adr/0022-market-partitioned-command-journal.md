@@ -643,7 +643,7 @@ band_span  (SELECT band_span FROM journal_band_spec WHERE name='command_seq')
 
 시험 조건의 실측은 `docs/측정/20260913.md` 5.7.16 이다. 대역 행이 없는 정지 저널에서 C05·C15·C22·C23·C27 이 세 벌과 개정 전 술어 모두 0 이었고, 위반을 넣은 상에서도 세 벌과 개정 전 술어가 같은 값을 냈다. C05 대역 항과 C23 대역 팔은 대상 행이 없어 실저널로 판정하지 못했고 합성 행 시험 `InvariantBandAxisIntegrationTest` 가 맡는다.
 
-적용하지 않은 것이 넷 있다. `docs/contracts/하네스_검증설계.md` §1 표 ① 행의 pg_cron 표기, 관리 화면 카탈로그(`web/lib/admin/catalog.ts`)의 C27 라벨, 6-6 의 데모 대본 네 자리 C05 SQL, 낡은 코드 주석 셋(`InvariantCheck.java`:222 의 C27 등급 근거, `summary.sql`:21 과 `invariants.sql`:247 의 판정 수)이다. 코드 주석은 증거 `result.json` 의 원천 해시와 묶여 있어 이 병합에서 고치지 않았다.
+적용하지 않은 것이 셋 있다. `docs/contracts/하네스_검증설계.md` §1 표 ① 행의 pg_cron 표기, 관리 화면 카탈로그(`web/lib/admin/catalog.ts`)의 C27 라벨, 6-6 의 데모 대본 네 자리 C05 SQL 이다. 낡은 코드 주석 셋(`InvariantCheck.java`:222 의 C27 등급 근거, `summary.sql`:21 과 `invariants.sql`:247 의 판정 수)은 증거 원천 해시와 같은 트리를 병합 커밋 `95990bc` 로 남긴 뒤 그 다음 커밋에서 고쳤다.
 
 ### 4단계. 접수 락 분할 (되돌릴 수 있다)
 

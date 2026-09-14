@@ -219,7 +219,7 @@ public enum InvariantCheck {
 
     // ── 명령 저널 DEFAULT 유입 0(ADR 0022 6-4) ──────────────────────────
     // DEFAULT 행은 어느 잎에도 속하지 않는 seq 로 들어간 명령이고 행이 든 구간은 잎을 다시 만들 수 없다(V40).
-    // 가용성 전조가 아니라 저널 원천 이상이라 CRITICAL 이다.
+    // C15 가 여러 표를 합산하는 WARN 이라 명령 축만 떼어 CRITICAL 로 세운다. 행은 부모 표로 읽혀 원천 손상이 아니라 잎 경로 이상이다(검증설계 §4-1 C27, §5-3 R5).
     C27_CMD_DEFAULT_PARTITION(Severity.CRITICAL, Scope.SCHEDULED,
             "SELECT count(*) FROM command_journal_default"),
 
