@@ -706,7 +706,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 
 **왜 앱 설정이 아닌가.** 모드를 앱 속성으로 두면 낡은 설정으로 뜬 노드가 승격한 순간 대역 행 뒤에 전역 seq 를 쓴다. 그 값은 그 마켓 커서보다 낮아 엔진이 예외 없이 버린다(MatchingEngineImpl.java:23-25, SingleWriterLoop.java:234-237). 노드마다 설정이 달라도 같다. DB 래치는 모드를 채번 지점 한 곳에서 정하고 되돌릴 수 없게 한다.
 
-**6-a 구현 주(2026-09-14, 브랜치 `adr0022-stage6`).** 마이그레이션은 `V44__command_band_cutover_latch.sql` 이다. 래치 행 키는 `name = 'command_seq'` 이고 `latched_by` 기본값은 `session_user` 다. UPDATE·DELETE 와 TRUNCATE 는 `forbid_mutation` 트리거가 거부한다. 5인자 판은 래치가 있으면 SQLSTATE 55000 으로 거부한다. `latch_command_band_cutover()` 는 이미 래치된 DB 에서 55000 으로 거부하고, 동시에 두 번 부르면 늦은 쪽이 PK 23505 로 선다. EXECUTE 는 PUBLIC 과 `app_role` 에서 회수했고 `app_role` 에는 6인자 판 EXECUTE 와 `journal_cutover` SELECT 를, `harness_role` 에는 SELECT 를 줬다. 두 롤이 런타임에 배선돼 있지 않아 회수는 스키마 경계뿐이다(`docs/contracts/하네스_CICD_IaC.md` §7-2). 게이지 `exchange.journal.band.latched` 는 기동 때 한 번 읽어 운영 중 래치는 다음 기동에서 보이고, `journal_cutover` 가 없으면 기동이 선다.
+**6-a 구현 주(2026-09-14, 브랜치 `adr0022-stage6`).** 마이그레이션은 `V44__command_band_cutover_latch.sql` 이다. 래치 행 키는 `name = 'command_seq'` 이고 `latched_by` 기본값은 `session_user` 다. UPDATE·DELETE 와 TRUNCATE 는 `forbid_mutation` 트리거가 거부한다. 5인자 판은 래치가 있으면 SQLSTATE 55000 으로 거부한다. `latch_command_band_cutover()` 는 이미 래치된 DB 에서 55000 으로 거부한다(순차 두 번째 호출은 시험이 본다). 동시에 두 번 부르면 늦은 쪽을 PK 가 23505 로 막는다고 V44 주석이 적지만 이 경우는 시험하지 않았다. EXECUTE 는 PUBLIC 과 `app_role` 에서 회수했고 `app_role` 에는 6인자 판 EXECUTE 와 `journal_cutover` SELECT 를, `harness_role` 에는 SELECT 를 줬다. 두 롤이 런타임에 배선돼 있지 않아 회수는 스키마 경계뿐이다(`docs/contracts/하네스_CICD_IaC.md` §7-2). 게이지 `exchange.journal.band.latched` 는 기동 때 한 번 읽어 운영 중 래치는 다음 기동에서 보이고, `journal_cutover` 가 없으면 기동이 선다.
 
 **6-b. 래치 전환(되돌릴 수 없다).** 소유자 계정으로 `latch_command_band_cutover()` 를 부른다. PUBLIC 과 `app_role` 의 EXECUTE 는 회수한다. 첫 대역 행이 아니라 래치 행이 커밋되는 순간이 돌아올 수 없는 지점이다. 그 뒤에 전역으로 돌아가면 전역 카운터가 대역 값 아래에서 채번을 이어 마켓 커서 아래로 무음 폐기되거나, 대역 값 위에서 이어 전역 축이 결번투성이라 C05 레거시 항이 영영 성립하지 않는다.
 
@@ -726,7 +726,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 
 되돌리기: 6-a 는 래치 행이 없을 때만. 6-b 는 없다.
 
-**착지(2026-09-14, 도커 카오스 스택).** 브랜치 `adr0022-stage6` 에서 정본 선행 개정(`7c47ebd`, `abf4e71`), 주행 도구(`70598af`), 구현(`0cb57a3`), 구현 반영 정본(`bd6e365`)으로 들어왔다. 래치는 폐기용 도커 DB 에서만 걸었고 클라우드 DB 래치는 배포 때 래치 전 확인 7 로 판단한다. 판정 주행 B4·B6 는 채번 분할 효과다. 접수 비 B6/B4 가 1.359 이고 B6 전역 카운터 행 대기가 0 이며, 커밋 동시성 1.233 으로 분기 B(동시 커밋 확장)다. 실험 스크립트 전에 래치를 건 대역 모드 장애 주행 E2·E4·E5·E6·E7 은 다섯 모두 실험 판정 PASS, 분리 판정 PASS 이고 C28 0, RTO 4.360~10.450초다. 래치 전 확인 5 의 대역 모드 장애 시험이 도커 스택에서 성립했다. E7 의 `rpo_records` 1 은 드레인 없이 센 사후 run 의 C13A 1 이고 4.4초 뒤 하네스 SQL 에서 0 이었다. 기록은 `docs/측정/20260914.md` 5.7.19 와 5.7.20 이다.
+**착지(2026-09-14, 도커 카오스 스택).** 브랜치 `adr0022-stage6` 에서 정본 선행 개정(`7c47ebd`, `abf4e71`), 주행 도구(`70598af`), 구현(`0cb57a3`), 구현 반영 정본(`bd6e365`)으로 들어왔다. 래치는 폐기용 도커 DB 에서만 걸었고 클라우드 DB 래치는 배포 때 래치 전 확인 7 로 판단한다. 판정 주행 B4·B6 는 채번 분할 효과다. 접수 비 B6/B4 가 1.359 이고 B6 전역 카운터 행 대기가 0 이며, 커밋 동시성 1.233 으로 분기 B(동시 커밋 확장)다. 스택 기동 직후 실험 스크립트 전에 래치를 건 대역 모드 장애 주행 E2·E4·E5·E6·E7 은 다섯 모두 실험 판정 PASS, 분리 판정 PASS 이고 C28 0, RTO 4.360~10.450초다. 래치 호출 전 저널은 다섯 모두 KRW-BTC 레거시 12행이었고, E7 은 호출 전 집계 뒤 전역 채번 행이 1 더 커밋돼 13행이다. 그래서 래치 전 확인 5 의 트래픽 전 래치 장애 시험은 레거시 행이 조금 쌓인 스택 기동 직후 래치로 성립했다. 저널 0행에서 래치한 것은 판정 주행의 B6 칸뿐이다. E7 의 `rpo_records` 1 은 드레인 없이 센 사후 run 의 C13A 1 이고 그 뒤 채집한 하네스 SQL 에서 0행이었다. 관리 화면 카탈로그(`web/lib/admin/catalog.ts`)에는 C28 라벨이 아직 없다. 기록은 `docs/측정/20260914.md` 5.7.19 와 5.7.20 이다.
 
 ### 7단계. 대역 여유 마이그레이션(3-2) + 스냅샷 훅 배선 (되돌릴 수 있다)
 

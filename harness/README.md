@@ -4,7 +4,7 @@
 데모 스택(PG 5432·Spring 8080·web 3000)을 건드리지 않는다. 컨테이너명 `chaos-*`,
 포트·볼륨·네트워크 전부 분리.
 
-정본: `../docs/contracts/하네스_검증설계.md`(C01~C25·C27·E1~E9·실험 판정 프로토콜·RTO), `../docs/contracts/하네스_CICD_IaC.md`.
+정본: `../docs/contracts/하네스_검증설계.md`(C01~C25·C27·C28·E1~E9·실험 판정 프로토콜·RTO), `../docs/contracts/하네스_CICD_IaC.md`.
 
 ## 구성
 
@@ -18,7 +18,7 @@
 | 실험 설정 | `config/e*.env`(실험별 1:1) | 시드·타임라인·판정 임계(재현용) |
 | 스크립트 | `scripts/*.ps1` | up/down + E1~E9 오케스트레이터 + 공용 lib |
 | k6 부하 | `load/` | 개방루프 SLO 계측 시나리오 + STOMP/서명 라이브러리(§2-2). `load/README.md` 참조 |
-| 검증 SQL | `sql/invariants.sql`,`sql/summary.sql` | 불변식 C01~C25·C27 psql 직조회본(§4-1). 데모 라이브 판정·수동 감사. C24·C25는 V13 미적용 DB에서 SKIP 표기 |
+| 검증 SQL | `sql/invariants.sql`,`sql/summary.sql` | 불변식 C01~C25·C27·C28 psql 직조회본(§4-1). 데모 라이브 판정·수동 감사. C24·C25는 V13 미적용 DB에서 SKIP 표기 |
 | 관측 규칙 | `prometheus/rules/*.yml` | 레코딩(§5-3)·알람(§5-6). obs 프로파일 |
 | 대시보드 | `grafana/dashboards/*.json` | 증명 5장(①무결성 ②복구 ③SLO ④시스템 ⑤운영 상황판) |
 | 프로비저닝 | `grafana/provisioning/**` | 데이터소스(prometheus·pg-proof) + 대시보드 프로바이더 |
