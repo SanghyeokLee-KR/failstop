@@ -755,6 +755,8 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 
 `wal-fsync-20260907` 이 "재지 않았다" 로 남긴 자리다. 그 문서의 유보 사유가 "커밋이 단일 라이터에서 직렬화되어 동시 커밋자가 적다" 였고, **6단계가 그 전제를 바꾼다.** `synchronous_commit=off` 와 다르다. 동기 커밋을 유지한 채 플러셔가 형제 트랜잭션을 모으도록 기다리게 하는 것이라 'fsync 후 ACK' 계약을 깨지 않는다. `commit_siblings` 와 함께 격자로 돈다. `ALTER SYSTEM RESET` 으로 되돌린다.
 
+**도구 착수 주(2026-09-14).** 판정 규약은 `docs/contracts/하네스_검증설계.md` §2-4 끝의 「ADR 0022 8단계 commit_delay 격자 판정 규약」, 절차는 `harness/scripts/adr0022-stage8-commit-delay.ps1`, 판정기는 `harness/scale/stage8_judge.py` 다. 기준 칸 (0, 5)를 처음과 끝에 두고 `commit_delay` 250·1000·3000마이크로초 x `commit_siblings` 1·5 를 칸마다 새 도커 카오스 스택에서 트래픽 전 래치 뒤 돈다. 칸 값은 `ALTER SYSTEM SET` 과 재적재로 걸고 칸 끝과 실패 경로에서 `ALTER SYSTEM RESET` 으로 되돌린다. 묶음 비는 같은 1분 구간의 배정 xid 수를 `pg_stat_wal.wal_sync` 증가로 나눈 값이다. 주행은 NOT RUN 이다. 도커 결과는 참고치이고 채택은 클라우드 저장소 재측정 뒤 정한다.
+
 ### 9단계. 이벤트 축 대역 확대 마이그레이션(3-3) (선택. 별건)
 
 3-3. 이 판의 필수가 아니다.
