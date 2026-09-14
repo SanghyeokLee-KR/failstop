@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.45)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.46)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, §3 도입부 표의 로드맵 행)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -1024,7 +1024,7 @@ BEGIN
     RETURN v_start;
 END $$;
 
--- 6.1 명령 저널: seq range 파티션. PK=seq(전역유일·gapless), fencing 결합
+-- 6.1 명령 저널: seq range 파티션. PK=seq(전역유일. 결번 없는 범위는 축별, §4.4), fencing 결합
 CREATE TABLE command_journal (
     seq               BIGINT      NOT NULL,
     market_id         SMALLINT    NOT NULL,
@@ -1163,12 +1163,15 @@ CREATE TABLE processed_events (
 );
 
 -- 6.6 리더 리스 + fencing (단일 라이터 보장)
---     ※ 채번 권위 규칙(v2.2): command_journal.seq는 **전역** gapless PK이므로 채번 권위도
---       전역 단일이어야 한다. event_journal.event_seq는 V36부터 마켓 카운터 파생
+--     ※ 채번 권위 규칙(v2.2): command_journal.seq는 전역유일 PK이고 결번 없는 범위는 축별이다. 레거시 구간
+--       (seq < band_span, journal_counters('command_seq') 채번)은 전역에서, 대역 구간(market_id * band_span
+--       + 지역 번호, market_journal_counters 채번)은 마켓 안에서 결번이 없고 대역 채번은 ADR 0022 6단계 전환
+--       뒤다(§4.4). event_journal.event_seq는 V36부터 마켓 카운터 파생
 --       (market_id * 10^7 + market_seq)이라 전역유일이되 전역 gapless가 아니다. resource는 전 마켓 공용 단일 값
 --       'matching-engine' 하나만 사용한다. 마켓별 리스 분할('matching-engine:KRW-BTC' 식)은
---       서로 다른 노드가 서로 다른 마켓의 리더가 되는 것을 허용해 전역 seq 채번 권위가
---       분열되므로 금지한다(§4.4 '전 마켓 단일 라이터'·§6.3 ⑤ gapless 검증과 정합).
+--       서로 다른 노드가 서로 다른 마켓의 리더가 되는 것을 허용해 레거시 구간 전역 seq 채번 권위가
+--       분열되고, 마켓마다 epoch 계열이 갈려 C22 시간 축 팔의 단일 epoch 순서 전제(ADR 0022 6-2)가
+--       깨지므로 금지한다(§4.4 '전 마켓 단일 라이터'·§6.3 ⑤ 결번 검증과 정합).
 --     ※ 유효 범위(P0-6): leader_lease는 **동일 PostgreSQL primary에 접속한 앱 인스턴스
 --       사이의** 단일 라이터 보장 장치다. DB 클러스터 자체의 primary 교체(failover)는
 --       조율하지 못한다. split-brain으로 두 primary가 병존하면 각 primary의 leader_lease가
@@ -1556,6 +1559,8 @@ BEGIN
   END LOOP;
 END $$;
 SELECT cron.schedule('check-default-part','*/5 * * * *', $$SELECT check_default_partitions()$$);
+-- 명령 저널 DEFAULT 유입의 판정은 하네스 C27_CMD_DEFAULT_PARTITION(CRITICAL)이다. 이 함수가 적재하는
+-- DEFAULT_PARTITION_command_journal_default 행은 같은 사실의 관측 기록이다(ADR 0022 6-4).
 ```
 
 > V3·V4 내용과 적용 전제는 §3 도입부 로드맵 표를 정본으로 한다(v2.6).
@@ -1842,7 +1847,7 @@ CREATE TABLE user_provisioning (
 ### 4.4 HA/복구
 | 테이블.컬럼 | 설명 |
 |---|---|
-| `command_journal.seq` | **전 마켓 단일 라이터** gapless 채번(리스도 단일 resource `'matching-engine'`, §3.1 6.6). **파티션키=seq이자 PK → 전역유일 성립**(초안 high: trades.seq 문제와 대비) |
+| `command_journal.seq` | **전 마켓 단일 라이터** 채번(리스도 단일 resource `'matching-engine'`, §3.1 6.6). 결번 없는 범위는 축별이다. 레거시 구간 `seq < band_span`은 `journal_counters('command_seq')` 채번이라 전역에서, 대역 구간 `market_id * band_span + 지역 번호`는 `market_journal_counters(market_id, name='command_seq')` 채번이라 마켓 안에서 결번이 없다. 대역 사이 빈 구간은 결번이 아니고 대역 채번은 ADR 0022 6단계 전환 뒤다(§6.3 ⑤). **파티션키=seq이자 PK → 전역유일 성립**(초안 high: trades.seq 문제와 대비) |
 | `command_journal.engine_ts/tie_break/payload` | 모든 비결정 입력(시간·tie-break·market_state·적용 수수료율) 박제 → 재생 비트동일(초안 missing, v2.3: 수수료율 포함. 체결 수수료 금액은 TRADE 이벤트 payload에 추가 박제, §5.2 (0)) |
 | `command_journal.fencing_token` | 기록 시점 리더 epoch. §5.4 원자적 fencing으로 stale 이중쓰기 차단 |
 | `event_journal.event_seq` | 출력 사실의 전역유일 식별자. V36부터 `market_id * 10^7 + market_seq` 파생이라 전역 gapless가 아니고, 결번 없이 증가하는 축은 마켓 안의 `market_seq`다. **trades.id의 진실 원천**(v2.6: trade_id=event_seq 명시 삽입) |
@@ -2366,7 +2371,16 @@ GROUP BY transaction_id, asset_id HAVING SUM(amount) <> 0;
 -- ⑤ command_journal gapless (유실 0. RPO 0 주장은 §7.1의 단일 인스턴스 스코프 한정)
 --    COALESCE(v2.5): 빈 테이블이면 max/min이 NULL이라 식 전체가 NULL을 반환해 '0이어야 정상'
 --    판정과 어긋난다. 부트스트랩 직후(0행)는 결번이 정의상 없으므로 0(통과)으로 판정한다(⑥ 동일).
-SELECT COALESCE((max(seq)-min(seq)+1) - count(*), 0) AS gaps FROM command_journal;       -- 0
+--    레거시 항(seq < band_span)은 전역 조밀, 대역 항(seq >= band_span)은 market_id별 조밀이고 둘을 더한다.
+--    대역 사이 빈 구간은 결번이 아니다. 명세 행이 없으면 두 항이 대상 없이 0이므로 부재를 1로 센다(ADR 0022 6-1).
+WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+SELECT (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM s)
+     + (SELECT COALESCE((max(seq)-min(seq)+1) - count(*), 0)
+        FROM command_journal WHERE seq < (SELECT band_span FROM s))
+     + (SELECT COALESCE(sum(gap), 0) FROM (
+            SELECT (max(seq)-min(seq)+1) - count(*) AS gap
+            FROM command_journal WHERE seq >= (SELECT band_span FROM s)
+            GROUP BY market_id) b) AS gaps;                                  -- 0
 -- ⑥ event_journal 마켓 안 market_seq gapless. V36부터 event_seq는 market_id * 10^7 + market_seq 파생이라
 --    전역으로 세면 대역 사이 빈 구간을 결번으로 센다. market_seq가 빈 V36 이전 행은 이 검사 밖이다.
 SELECT COALESCE(sum(gap), 0) AS gaps FROM (
@@ -2433,14 +2447,39 @@ LEFT JOIN event_journal e ON e.event_seq = r.event_seq
 WHERE e.event_seq IS NULL;                                                       -- 0행
 -- ⑯ fencing_epoch 단조성 감사(P0-1): assert_current_leader 호출 규율은 앱 책임이므로
 --    저장된 epoch 열의 사후 감사로 보완한다(event_journal/trades/snapshots 동일 패턴).
-SELECT seq FROM (
-  SELECT seq, fencing_token, lag(fencing_token) OVER (ORDER BY seq) AS prev
+--    시간 축 팔(created_at, seq)과 마켓 안 팔(market_id 분할 seq)의 합이다(ADR 0022 6-2). 대역 파생 seq 순서는
+--    마켓 id 순서라 seq 단일 순서로는 마켓 경계마다 거짓 위반이 난다. 시간 축 팔은 DB 서버 시계 역행
+--    (프라이머리 전환 포함) 뒤 split-brain 없이도 행을 낼 수 있다(ADR 0022 9-17).
+SELECT 'time' AS arm, seq FROM (
+  SELECT seq, fencing_token, lag(fencing_token) OVER (ORDER BY created_at, seq) AS prev
+  FROM command_journal) t
+WHERE prev > fencing_token
+UNION ALL
+SELECT 'market', seq FROM (
+  SELECT seq, fencing_token, lag(fencing_token) OVER (PARTITION BY market_id ORDER BY seq) AS prev
   FROM command_journal) t
 WHERE prev > fencing_token;                                                  -- 0행
--- ⑰ 채번 카운터 정합(P0-5): 카운터가 저널 최대값 이하이면 재사용 위험
-SELECT name FROM journal_counters c
-WHERE (name='command_seq' AND next_value <= (SELECT COALESCE(max(seq),0)       FROM command_journal))
-   OR (name='event_seq'   AND next_value <= (SELECT COALESCE(max(event_seq),0) FROM event_journal)); -- 0행
+-- ⑰ 채번 카운터 정합(P0-5): 카운터가 그 축의 저널 최대값 이하이면 재사용 위험. 네 문장의 행 수 합이 위반 수다.
+--    명세 부재, 명령 레거시 팔, 명령 대역 팔(지역 번호 = seq - market_id * band_span), 이벤트 팔 순(ADR 0022 6-3).
+--    전역 journal_counters('event_seq') 행은 V36 뒤 호출자가 없어 대조하지 않는다.
+SELECT 'band_spec_missing' AS arm
+WHERE NOT EXISTS (SELECT 1 FROM journal_band_spec WHERE name = 'command_seq');          -- 0행
+WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+SELECT c.name FROM journal_counters c
+WHERE c.name = 'command_seq'
+  AND c.next_value <= (SELECT COALESCE(max(j.seq), 0) FROM command_journal j
+                       WHERE j.seq < (SELECT band_span FROM s));                         -- 0행
+WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+SELECT m.market_id FROM market_journal_counters m
+WHERE m.name = 'command_seq'
+  AND m.next_value <= (SELECT COALESCE(max(j.seq - j.market_id * (SELECT band_span FROM s)), 0)
+                       FROM command_journal j
+                       WHERE j.market_id = m.market_id
+                         AND j.seq >= (SELECT band_span FROM s));                        -- 0행
+SELECT m.market_id FROM market_journal_counters m
+WHERE m.name = 'event_seq'
+  AND m.next_value <= (SELECT COALESCE(max(e.market_seq), 0) FROM event_journal e
+                       WHERE e.market_id = m.market_id AND e.market_seq IS NOT NULL);     -- 0행
 -- ⑱ C24 원가 수량 보존(V13): 원가 확보분 + 원가 미상분 = 실보유(available+locked). **항등**이다.
 --    취득·처분이 순델타 그대로 누산되므로 이력이 온전하면 양변이 같다. 초과는 처분 차감 누락,
 --    미달은 취득 누산 누락 또는 apply 의 클램프·강등이 실제로 발동했다는 뜻이라 양방향 모두
@@ -3470,5 +3509,39 @@ v2.43 이 V41 을 표와 3.1 DDL 에 함께 올린 선례를 따른다.
 같은 코드 상태 서술을 `docs/contracts/하네스_검증설계.md` §5-3 R2·R3·R4 와 `docs/product/복구_RTO_설계.md`
 의 커서 서술·복원 절차·스냅샷 배선 항에서 함께 맞췄다. ADR 0006·0022·0023 에는 날짜 주를 달았다. §5.5-a 경계 한 문장 항의 행 인용과 §5.5 STEP2 의사코드의 판정 주체 주석도 병합 판으로 고쳤다. 스키마 변경은 V42 인덱스 하나다. 문서 헤더
 버전을 v2.45 로 순증. 2026-09-14 갱신.
+
+## v2.46 패치 반영 사항
+
+ADR 0022 3단계 감사 축 개정의 DB 쪽 검증 SQL 을 하네스 판정 술어와 맞춘다. `docs/contracts/하네스_검증설계.md`
+§4-1 이 C05·C22·C23 의 SQL 정본을 이 문서 §6.3 ⑤·§6.4 ⑯⑰ 로 지목하므로, 하네스만 고치면 같은 체크를 두 정본이
+다른 술어로 정의한다.
+
+§6.3 ⑤ 를 레거시 항과 대역 항의 합으로 바꾼다. 레거시 항(`seq < band_span`)은 종전 술어를 그 구간에 그대로
+걸고, 대역 항(`seq >= band_span`)은 `market_id` 별로 세어 더한다. `band_span` 은 `journal_band_spec('command_seq')`
+한 곳에서 읽고 명세 행 부재를 위반 1 로 센다. 명세 행이 없으면 두 항이 대상 없이 0 을 내는 공허 통과이기 때문이다.
+커트오버 전에는 전 행이 레거시 구간이라 값이 종전 술어와 같다. 뜻은 전역 결번 없음에서 축별 결번 없음으로 바뀐다.
+마켓마다 다른 지점에서 잘린 복원은 ⑤ 를 통과하고 그 축의 검사는 없다(ADR 0022 6-1, 9-16).
+
+§6.4 ⑯ 을 시간 축 팔(`ORDER BY created_at, seq`)과 마켓 안 팔(`PARTITION BY market_id ORDER BY seq`)의 합으로
+바꾼다. 결과 행에 `arm` 열을 둬 팔을 가른다. 시간 축 팔은 DB 서버 시계 역행 뒤 거짓 양성을 낼 수 있고 합산에
+그대로 남는다(ADR 0022 6-2, 9-17).
+
+§6.4 ⑰ 을 네 문장으로 바꾼다. 명세 부재, 명령 레거시 팔, 명령 대역 팔, 이벤트 팔이다. 이벤트 팔은 종전 판이
+전역 `journal_counters('event_seq')` 대 전역 `max(event_seq)` 였다. V36 뒤 그 행은 호출자가 없어 대조하면 항상
+위반이었고, 코드 판정 `C23_COUNTER_SEQ_CONSISTENCY` 와 하네스 SQL 은 이미 마켓별 `market_journal_counters` 대
+`market_seq` 형태였다. 이 판에서 문서를 그 형태로 맞춘다.
+
+§3.2 `check_default_partitions()` 아래에 명령 저널 DEFAULT 유입의 판정 소재를 적는다. 하네스가
+C27_CMD_DEFAULT_PARTITION(CRITICAL)을 신설하고 C15 에서 `command_journal_default` 를 뺐다(ADR 0022 6-4). 함수
+본문은 무변경이라 같은 사실이 `DEFAULT_PARTITION_command_journal_default` 이름으로도 적재되는 설계다. 이 함수와 그
+pg_cron 잡은 `server/app/src/main/resources/db/migration` 에 없어 실제 이름 충돌은 없다.
+
+§3.1 6.1·6.6 주석과 §4.4 `command_journal.seq` 행의 전역 gapless 서술을 축별로 고친다. 레거시 구간은 전역,
+대역 구간은 마켓 안에서 결번이 없고 대역 채번은 ADR 0022 6단계 전환 뒤다. API 설계 v2.48 §7-1 `command_journal` 행과
+같은 서술이다. 6.6 의 리스 단일 resource 규칙은 그대로 두고 근거에서 전역 gapless 를 뺀다. 남는 근거는 레거시 구간
+전역 채번 권위와 C22 시간 축 팔의 단일 epoch 순서 전제(ADR 0022 6-2)다.
+
+스키마 변경은 없다. 코드 판정 세 벌(`InvariantCheck.java`, `harness/sql/invariants.sql`, `harness/sql/summary.sql`)은
+같은 ADR 0022 3단계 술어 개정에서 이 판의 술어로 바뀐다. 문서 헤더 버전을 v2.46 으로 순증. 2026-09-14 갱신.
 
 ---

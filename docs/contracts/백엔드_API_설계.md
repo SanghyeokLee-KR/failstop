@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.47, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.48, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -677,10 +677,10 @@ POST /api/v1/orders
   "executed_volume":"0","executed_funds":"0","remaining_notional":null,
   "paid_fee":"0","trades_count":0,
   "created_at":"2026-07-21T09:00:00.500Z",
-  "epoch":42,"seq":88123600 }   // v2.2: 이 seq는 command_journal seq(저널 도메인, §7-1. §6-C last_applied_seq와 동일 축, journal_counters DB 원자 채번 v2.6). WS 채널 seq(§5-2)와는 별개 도메인
+  "epoch":42,"seq":88123600 }   // v2.2: 이 seq는 command_journal seq(저널 도메인, §7-1. §6-C last_applied_seq와 동일 축, 카운터 행 DB 원자 채번 v2.6. 채번 행과 결번 없는 범위는 §7-1 command_journal 행). WS 채널 seq(§5-2)와는 별개 도메인
 ```
 
-**id·시각·seq 결정론(v2.6, id 표기 v2.7 정정)**: 응답 `id`는 게이트웨이가 명령 접수 전 사전 발급해 command_journal에 박제한 **UUID**다(구현 정본 §7-1. 이전 판의 ULID 표기는 오기). 저널 append 성공 이후에는 프로젝션 반영 전이라도 id가 확정되어 있으며, 저널 재생 시에도 동일 값이 재사용된다(재발급 금지). `created_at`은 시퀀서가 command에 박제한 `engine_ts`에서 파생하므로 재구축 시에도 동일하다. `seq`는 `journal_counters` 단일 행 `UPDATE ... RETURNING` 원자 채번으로 gapless가 보장된다(§7-1, §6-C ①).
+**id·시각·seq 결정론(v2.6, id 표기 v2.7 정정)**: 응답 `id`는 게이트웨이가 명령 접수 전 사전 발급해 command_journal에 박제한 **UUID**다(구현 정본 §7-1. 이전 판의 ULID 표기는 오기). 저널 append 성공 이후에는 프로젝션 반영 전이라도 id가 확정되어 있으며, 저널 재생 시에도 동일 값이 재사용된다(재발급 금지). `created_at`은 시퀀서가 command에 박제한 `engine_ts`에서 파생하므로 재구축 시에도 동일하다. `seq`는 카운터 행 `UPDATE ... RETURNING` 원자 채번이라 전역 유일하고, 결번이 없는 범위는 축별이다. 레거시 구간(`seq < band_span`, `journal_counters('command_seq')` 채번)은 전역에서, 대역 구간(`market_id * band_span + 지역 번호`, `market_journal_counters` 채번)은 마켓 안에서 결번이 없고 대역 사이 빈 구간은 결번이 아니다. 대역 채번은 ADR 0022 6단계 전환 뒤에 시작하고 그 전에는 전 행이 레거시 구간이다(§7-1, §6-C ①).
 
 **notional(시장가 매수) 응답 예**: `remaining_notional`(잔여 금액), `executed_funds`(체결 금액), `executed_volume`(환산 수량) 채움. 접수 시점 기준가로 수량 환산 규칙 명시.
 
@@ -1398,7 +1398,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 > **`since`가 필요한 이유**: `harness.failover_runs`는 append-only 누적이고 비우는 훅이 없다. 카오스 실험이 한 번 `verdict='FAIL'`을 적재하면 그 뒤로 `overall`이 영구히 `FAIL`이다. 창이 없으면 수동 DB 삭제 외에 복귀 수단이 없다. 기본값을 두지 않는 이유는 기본 창이 판정 범위를 조용히 정하기 때문이다. 좁히는 것은 호출자의 명시 선택이다.
 
 > `rpo_records`의 의미(v2.6): ACK 이후 유실된 저널 레코드 수. 0의 보장 범위는 §7-6 하단과 동일하다. 로컬 fsync는 단일 인스턴스의 프로세스·전원 장애까지 보장하며, failover 포함 0은 DB§7.2 무손실 요건 충족 시에만 성립하고, 현행 상시면 구성(비동기 2노드, ADR 0024)은 그 요건을 충족하지 않는다.
-**불변식 7종**(모두 SQL로 즉시 증명): ①시퀀스 무결 `max(seq)-min(seq)+1==count(*)`(gapless 전제=`journal_counters` 단일 행 DB 원자 채번, §7-1 v2.6. 복수 worker의 할당·롤백·역순 커밋에서도 영구 결번 없음) ②주문 유실 0(ACK된 client_order_id ⊆ 저널·orders. 보장 범위는 §7-6 하단과 동일: 로컬 fsync는 프로세스·전원 장애까지, failover 포함 무손실은 DB§7.2 요건 충족 시이며 현행 상시면 구성은 미충족) ③중복 접수·중복 체결 0(v2.4 두 축 분리·대상 테이블 명기. (i) **주문 중복 접수 0**: `command_journal`의 **주문 생성 커맨드 한정**(§7-1 부분 유니크 축과 동일, v2.5) `(user_id,client_order_id)` 그룹당 1건(=UNIQUE 위반 0), (ii) **중복 체결 0**: `trades` 기준 `trade_id` 단위 중복 행 0 **및** 주문별 `SUM(trades.volume) ≤ orders.volume`. 한 주문의 다건 부분체결(§4-B-1 `trades_count`, §4-B-2)은 정상이며, 위반은 **동일 체결 이벤트의 이중 적용**만을 뜻한다. 원장 측 이중 적용은 `ledger_transactions`의 `UNIQUE(business_event_type, business_event_id)`(§7-1)가 DB 제약으로 선차단하므로 본 불변식 SQL은 그 제약의 사후 감사다) ④**자산 보존** 이중부기 `SUM(delta)`=0(v2.6 범위 명시: 수기 검증으로 확인한 경로는 LIMIT BUY taker 단일 시나리오다. market·best·IOC·FOK·POST_ONLY·부분체결 반올림 잔차를 포함한 전 주문 유형의 커버는 V3 무작위 회귀 테스트, 즉 무작위 가격·수량·부분체결 조합에서 자산별 합 0과 FILLED 주문 락 잔량 0 검증으로 위임한다) ⑤체결 정합(체결가=maker 지정가, `bestBid<bestAsk`, 수량 보존) ⑥재생 결정론(`recovery_runs.matched=true`. **v2.33에서 판정 축을 확정한다.** 판정 주체는 `ReplayService.verifyToMarket`(마켓판 대조 전용 재생, ADR 0023. 2026-09-14 ADR 0022 2단계 병합 판)이고 재생이 만든 이벤트를 `event_journal` 행과 하나씩 대조해 어긋나면 예외를 던진다. 대조 범위는 §7-2 v2.6 규약대로 외부 id·executed_at·event_ordinal까지다. 종전 정의였던 "저널 재생 상태 해시==라이브 해시"는 구현되지 않았고 앞으로도 두지 않는다. 대조가 두 벌이면 둘이 어긋날 때 어느 쪽이 정본인지 규정할 자리가 없어지고, 이벤트 단위 대조가 이미 더 촘촘하다. 상태 해시는 스냅샷 로드 무결 검증 전용이다(DB§5.5 v2.37). §4-4 매핑 표의 축 이름 `replay_state_hash_match`는 역사 표기다) ⑦fencing 무결(split-brain 차단): `event_journal`·`trades`·`snapshots`의 `fencing_epoch`가 커밋 시점의 `leader_lease` 승인 (holder, epoch)와 불일치하는 행 0. 리더 교체 후 구 epoch로 커밋된 자산 변경 행 0. 이 항목이 통과할 때에만 "split-brain 없음"을 주장한다(계약 정의 §7-1).
+**불변식 7종**(모두 SQL로 즉시 증명): ①시퀀스 무결(명령 저널 `seq` 결번 0. 레거시 구간 `seq < band_span`은 전역 `max(seq)-min(seq)+1==count(*)`, 대역 구간은 `market_id`마다 같은 식이고 둘의 결번 합이 0이다. 대역 사이 빈 구간은 결번이 아니다. 정본 SQL은 DB§6.3 ⑤. 결번 없음 전제=카운터 행 DB 원자 채번(레거시 `journal_counters`, 대역 `market_journal_counters`), §7-1 v2.6. 복수 worker의 할당·롤백·역순 커밋에서도 영구 결번 없음. 마켓마다 다른 지점에서 잘린 복원은 이 식을 통과한다, ADR 0022 9-16) ②주문 유실 0(ACK된 client_order_id ⊆ 저널·orders. 보장 범위는 §7-6 하단과 동일: 로컬 fsync는 프로세스·전원 장애까지, failover 포함 무손실은 DB§7.2 요건 충족 시이며 현행 상시면 구성은 미충족) ③중복 접수·중복 체결 0(v2.4 두 축 분리·대상 테이블 명기. (i) **주문 중복 접수 0**: `command_journal`의 **주문 생성 커맨드 한정**(§7-1 부분 유니크 축과 동일, v2.5) `(user_id,client_order_id)` 그룹당 1건(=UNIQUE 위반 0), (ii) **중복 체결 0**: `trades` 기준 `trade_id` 단위 중복 행 0 **및** 주문별 `SUM(trades.volume) ≤ orders.volume`. 한 주문의 다건 부분체결(§4-B-1 `trades_count`, §4-B-2)은 정상이며, 위반은 **동일 체결 이벤트의 이중 적용**만을 뜻한다. 원장 측 이중 적용은 `ledger_transactions`의 `UNIQUE(business_event_type, business_event_id)`(§7-1)가 DB 제약으로 선차단하므로 본 불변식 SQL은 그 제약의 사후 감사다) ④**자산 보존** 이중부기 `SUM(delta)`=0(v2.6 범위 명시: 수기 검증으로 확인한 경로는 LIMIT BUY taker 단일 시나리오다. market·best·IOC·FOK·POST_ONLY·부분체결 반올림 잔차를 포함한 전 주문 유형의 커버는 V3 무작위 회귀 테스트, 즉 무작위 가격·수량·부분체결 조합에서 자산별 합 0과 FILLED 주문 락 잔량 0 검증으로 위임한다) ⑤체결 정합(체결가=maker 지정가, `bestBid<bestAsk`, 수량 보존) ⑥재생 결정론(`recovery_runs.matched=true`. **v2.33에서 판정 축을 확정한다.** 판정 주체는 `ReplayService.verifyToMarket`(마켓판 대조 전용 재생, ADR 0023. 2026-09-14 ADR 0022 2단계 병합 판)이고 재생이 만든 이벤트를 `event_journal` 행과 하나씩 대조해 어긋나면 예외를 던진다. 대조 범위는 §7-2 v2.6 규약대로 외부 id·executed_at·event_ordinal까지다. 종전 정의였던 "저널 재생 상태 해시==라이브 해시"는 구현되지 않았고 앞으로도 두지 않는다. 대조가 두 벌이면 둘이 어긋날 때 어느 쪽이 정본인지 규정할 자리가 없어지고, 이벤트 단위 대조가 이미 더 촘촘하다. 상태 해시는 스냅샷 로드 무결 검증 전용이다(DB§5.5 v2.37). §4-4 매핑 표의 축 이름 `replay_state_hash_match`는 역사 표기다) ⑦fencing 무결(split-brain 차단): `event_journal`·`trades`·`snapshots`의 `fencing_epoch`가 커밋 시점의 `leader_lease` 승인 (holder, epoch)와 불일치하는 행 0. 리더 교체 후 구 epoch로 커밋된 자산 변경 행 0. 이 항목이 통과할 때에만 "split-brain 없음"을 주장한다(계약 정의 §7-1).
 
 ### 6-D. 마켓 구성·공지·운영자 API (관리자 설계 §3-1)
 
@@ -1478,8 +1478,8 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 
 | 테이블 | 역할 | 복구 필수 이유 |
 |---|---|---|
-| `command_journal` | **진실의 원천(WAL)**, append-only, `seq` PK(**`journal_counters` 단일 행 `UPDATE ... RETURNING` DB 원자 채번, gapless**, v2.6), `fencing_token(epoch)`, **사전 발급 주문 `external_id`(UUID, v2.7 W3) 박제 컬럼**(명령 접수 전 발급·저널 고정, §4-B-1), `UNIQUE(user_id,client_order_id)`, **주문 생성 커맨드 한정 부분 유니크 인덱스**(`WHERE command_type='NEW'`, v2.5): 취소 등 비생성 커맨드도 동일 저널에 적재되며 동일 `client_order_id`를 동반할 수 있으므로(by-client 취소) 전 커맨드 무조건 UNIQUE는 성립 불가 | 재생 원천 |
-| `journal_counters` | `seq` 채번 전용 단일 행. `UPDATE ... RETURNING` 원자 채번으로 할당·롤백·역순 커밋에서도 영구 결번 없음(인메모리 카운터 재사용 금지, v2.6) | gapless 증명(§6-C ①) |
+| `command_journal` | **진실의 원천(WAL)**, append-only, `seq` PK(**카운터 행 `UPDATE ... RETURNING` DB 원자 채번, 축별 gapless**, v2.6. 레거시 구간 `seq < band_span`은 `journal_counters` 채번이라 전역 결번 없음, 대역 구간 `market_id * band_span + 지역 번호`는 `market_journal_counters` 채번이라 마켓 안 결번 없음. 대역 채번은 ADR 0022 6단계 전환 뒤), `fencing_token(epoch)`, **사전 발급 주문 `external_id`(UUID, v2.7 W3) 박제 컬럼**(명령 접수 전 발급·저널 고정, §4-B-1), `UNIQUE(user_id,client_order_id)`, **주문 생성 커맨드 한정 부분 유니크 인덱스**(`WHERE command_type='NEW'`, v2.5): 취소 등 비생성 커맨드도 동일 저널에 적재되며 동일 `client_order_id`를 동반할 수 있으므로(by-client 취소) 전 커맨드 무조건 UNIQUE는 성립 불가 | 재생 원천 |
+| `journal_counters` | 레거시 구간 `seq` 채번 행(`name='command_seq'`). `UPDATE ... RETURNING` 원자 채번으로 할당·롤백·역순 커밋에서도 영구 결번 없음(인메모리 카운터 재사용 금지, v2.6). 대역 채번 뒤에는 호출자가 없어 값이 멈추고 복원 리시드 기준행으로 남는다. 대역 구간은 `market_journal_counters(market_id, name='command_seq')` 행이 같은 방식으로 채번한다 | gapless 증명(§6-C ①) |
 | `snapshots` | 재생 시작점(`last_applied_seq`+체크섬), `fencing_epoch` 저장, `engine_version`·`config_hash` 병기(재생 전제 조건 검증, v2.6) | RTO 단축 |
 | `event_journal` | 출력 이벤트(검증·발행). `event_seq` PK, **`event_ordinal`(원인 커맨드 내 이벤트 순번) + `UNIQUE(source_cmd_seq, event_ordinal)`**, `payload_schema_version`, `engine_version`·`config_hash`·`fencing_epoch` 저장(v2.6). **`trade_id`는 `event_seq`에서 결정론 파생**되어 재구축 시 동일 | 재생 대조·read model |
 | `outbox` | 발행 대상 적재(같은 트랜잭션 INSERT). 발행기는 미배선이다(§1 메시징/이벤트 행) | dual-write 방지 |
@@ -2141,3 +2141,10 @@ NULL 취급이 축마다 다르다. `rto_seconds`·`rpo_records`의 NULL은 `UNK
 
 - **§6-C 불변식 ⑥ 재생 결정론의 판정 주체를 병합 판 코드 이름에 맞춘다.** `ReplayService.verifyTo` 를 `ReplayService.verifyToMarket` 으로 고친다. 2026-09-14 ADR 0022 2단계 병합으로 복구·팔로워·승격 경로가 마켓별 커서로 옮겨 가 운영 경로가 부르는 대조 전용 재생이 마켓 진입점이다(`ReplayService.java`:297). 전역 `verifyTo`(:114)는 시험만 부른다.
 - **판정 축은 바뀌지 않는다.** 재생이 만든 이벤트를 `event_journal` 행과 하나씩 대조하고 대조 범위가 외부 id·executed_at·event_ordinal 까지라는 v2.33 정의가 그대로다. 대조 단위가 마켓마다 한 번으로 나뉠 뿐이다. 근거는 `docs/contracts/백엔드_DB_설계.md` v2.45 와 `docs/adr/0023-replay-bound-and-cursor-axis.md` 의 2026-09-14 주석이다.
+
+## v2.48 패치 반영 사항
+
+- **명령 저널 `seq` 를 전역 gapless 로 적던 다섯 자리를 축별로 고친다.** §4-B-1 주문 응답 예시 주석, 같은 절 id·시각·seq 결정론 단락, §6-C 불변식 7종 ①, §7-1 `command_journal`·`journal_counters` 두 행이다. ADR 0022 가 명령 `seq` 를 마켓 대역(`market_id * band_span + 지역 번호`)으로 채번하게 하면 전역 유일은 남고, 전역에서 결번이 없는 것은 레거시 구간(`seq < band_span`)뿐이다. 대역 구간의 결번 없는 축은 마켓 안이다.
+- **① 의 판정 식이 같이 바뀐다.** 레거시 구간 전역 결번과 마켓 안 대역 결번의 합이 0 이다. 정본 SQL 은 `docs/contracts/백엔드_DB_설계.md` v2.46 §6.3 ⑤, 판정은 `docs/contracts/하네스_검증설계.md` §4-1 C05 다. 대역 채번은 ADR 0022 6단계 전환 뒤에 시작하므로 그 전에는 전 행이 레거시 구간이고 값이 종전 식과 같다.
+- **약해지는 것.** 마켓마다 다른 지점에서 잘린 복원은 ① 을 통과한다. 그 축의 검사는 아직 없다(ADR 0022 9-16). ② 의 외부 증거 축은 `(user_id, client_order_id)` 라 이 변경과 무관하다.
+- **클라이언트 계약은 바뀌지 않는다.** 프론트는 응답 `seq` 를 소비하지 않고 커서 축은 `(created_at, id)`·`trade_id` 다(ADR 0022 6-6). 같은 주석의 "§6-C `last_applied_seq` 와 동일 축" 문구는 §6-C 상태 응답을 마켓 벡터로 바꾸는 개정에서 함께 고친다.

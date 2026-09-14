@@ -423,13 +423,15 @@ e1부터 e9를 순서대로 도는 오케스트레이터가 없다. 하나씩 �
 
 | 원천 | 개수 | 세는 방법 |
 |---|---|---|
-| `harness/sql/invariants.sql` | **27** | 판정 블록. `\echo '== C` 29행에서 C24·C25의 분기 중복 2행을 뺀다 |
-| `InvariantCheck.java` enum | 26 | 27에서 C04가 빠진다 |
-| 카탈로그 코드 | 25 | C01~C25 |
+| `harness/sql/invariants.sql` | **28** | 판정 블록. `\echo '== C` 30행에서 C24·C25의 분기 중복 2행을 뺀다 |
+| `InvariantCheck.java` enum | 27 | 28에서 C04가 빠진다 |
+| 카탈로그 코드 | 26 | C01~C25와 C27. C26은 ADR 0022 7단계 예약 번호라 비어 있다 |
 
-C04는 지연 제약 트리거가 데이터베이스 안에서 강제하므로 러너의 조회 대상이 아니다. 코드 축 C01~C25에서 C07이 C07·C07P로, C13이 C13a·C13b로 갈려 블록이 27개가 된다.
+C04는 지연 제약 트리거가 데이터베이스 안에서 강제하므로 러너의 조회 대상이 아니다. 코드 축에서 C07이 C07·C07P로, C13이 C13a·C13b로 갈려 블록이 코드보다 둘 많다.
 
-enum의 Severity 분포는 CRITICAL 15, HIGH 8, WARN 3이다. Scope 분포는 SCHEDULED 19, AUTHORITATIVE_ONLY 7이다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
+enum의 Severity 분포는 CRITICAL 16, HIGH 8, WARN 3이다. Scope 분포는 SCHEDULED 20, AUTHORITATIVE_ONLY 7이다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
+
+개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다.
 
 술어 정본은 `하네스_검증설계.md` §4-1이다. 이 절은 미러다.
 
