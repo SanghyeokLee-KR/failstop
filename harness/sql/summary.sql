@@ -51,7 +51,7 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
                         GROUP BY c.market_id
                     ) b))
     UNION ALL SELECT 'C06','EVENT_JOURNAL_GAPLESS','CRITICAL','ALWAYS',
-           -- V36 에서 축이 마켓 안으로 갔다. event_seq 는 marketId * 10^7 + market_seq 파생이라
+           -- V36 에서 축이 마켓 안으로 갔다. event_seq 는 marketId * band_span + market_seq 파생이라
            -- 전역으로 세면 마켓 대역 사이의 빈 구간이 전부 결번으로 잡힌다. 결번 없음이 성립하는
            -- 곳은 마켓 안이다. market_seq 가 빈 V36 이전 행은 이 검사 밖이다.
            (SELECT COALESCE(sum(gap), 0) FROM (

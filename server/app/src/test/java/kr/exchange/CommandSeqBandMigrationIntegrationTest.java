@@ -23,13 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * V40 대역 채번 기반의 계약 고정(ADR 0022 1단계). 시험마다 다른 마켓 id 를 써서 실행 순서에
  * 기대지 않는다. 저널 행을 넣는 시험은 트랜잭션을 롤백한다. command_journal 은 append-only 라
  * 커밋한 행을 지울 수 없다. 레거시 DB 시험은 같은 컨테이너의 별도 데이터베이스를 V39 까지 올려
- * market_id 없는 이벤트를 합성한 뒤 V40 을 적용한다.
+ * market_id 없는 이벤트를 합성한 뒤 V40 을 적용한다. 이벤트 축 명세와 상한은 V46 이 바꿨고
+ * EventSeqBandWidenMigrationIntegrationTest 가 본다.
  */
 @Testcontainers
 class CommandSeqBandMigrationIntegrationTest {
 
     private static final long COMMAND_SPAN = 1_000_000_000_000L;
-    private static final long EVENT_SPAN = 10_000_000L;
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -52,10 +52,8 @@ class CommandSeqBandMigrationIntegrationTest {
     }
 
     @Test
-    void bandSpecHoldsEventAndCommandAxes() throws Exception {
+    void bandSpecHoldsCommandAxis() throws Exception {
         try (Connection conn = open()) {
-            assertEquals(EVENT_SPAN + "|19",
-                    queryString(conn, "SELECT band_span || '|' || max_band_index FROM journal_band_spec WHERE name = 'event_seq'"));
             assertEquals(COMMAND_SPAN + "|63",
                     queryString(conn, "SELECT band_span || '|' || max_band_index FROM journal_band_spec WHERE name = 'command_seq'"));
         }
@@ -168,21 +166,6 @@ class CommandSeqBandMigrationIntegrationTest {
             SQLException e = assertThrows(SQLException.class,
                     () -> queryString(conn, "SELECT next_market_command_seq(9::smallint)"));
             assertTrue(e.getMessage().contains("명령 대역 잎 없음"), e.getMessage());
-        }
-    }
-
-    /** V36 이 박아 둔 이벤트 대역 상한과 같은 경계에서 같은 판정을 내는지 본다. */
-    @Test
-    void eventSeqBandLimitIsUnchanged() throws Exception {
-        try (Connection conn = open(); Statement st = conn.createStatement()) {
-            insertMarket(st, 7);
-            st.execute("UPDATE market_journal_counters SET next_value = " + (EVENT_SPAN - 1)
-                    + " WHERE market_id = 7 AND name = 'event_seq'");
-            assertEquals(String.valueOf(EVENT_SPAN - 1),
-                    queryString(conn, "SELECT next_market_journal_value(7::smallint, 'event_seq', 1)"));
-            SQLException e = assertThrows(SQLException.class,
-                    () -> queryString(conn, "SELECT next_market_journal_value(7::smallint, 'event_seq', 1)"));
-            assertTrue(e.getMessage().contains("마켓 순서 대역 초과"), e.getMessage());
         }
     }
 

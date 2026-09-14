@@ -116,17 +116,19 @@ class HaMonitoringStatusBandLagIntegrationTest {
         }
     }
 
-    /** event_seq 는 V36 규약대로 market_id * 10^7 + market_seq 로 파생한다. */
+    /** event_seq 는 명세 파생(market_id * band_span + market_seq)이다(DB 설계 §4.4). */
     private static void event(Connection c, long sourceCmdSeq, int marketId, long marketSeq) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement("""
                 INSERT INTO event_journal (event_seq, source_cmd_seq, event_ordinal, event_type, payload,
                                            fencing_epoch, created_at, market_id, market_seq)
-                VALUES (?, ?, 0, 'ACCEPTED', '{}', 1, now(), ?, ?)
+                VALUES (? * (SELECT band_span FROM journal_band_spec WHERE name = 'event_seq') + ?,
+                        ?, 0, 'ACCEPTED', '{}', 1, now(), ?, ?)
                 """)) {
-            ps.setLong(1, marketId * 10_000_000L + marketSeq);
-            ps.setLong(2, sourceCmdSeq);
-            ps.setInt(3, marketId);
-            ps.setLong(4, marketSeq);
+            ps.setLong(1, marketId);
+            ps.setLong(2, marketSeq);
+            ps.setLong(3, sourceCmdSeq);
+            ps.setInt(4, marketId);
+            ps.setLong(5, marketSeq);
             assertEquals(1, ps.executeUpdate());
         }
     }

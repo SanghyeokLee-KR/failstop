@@ -535,7 +535,7 @@ function Test-CommandFencingColumn {
 #
 # 왜 위치 워터마크를 쓰지 않는가. 종전에는 주입 직후 max(seq)와 max(event_seq)를 잡고 그
 # 이후 행만 셌다. 명령 축은 seq가 전역 단조라 성립하지만 이벤트 축은 V36 이후 성립하지 않는다.
-# event_seq = market_id * 10^7 + market_seq라 max는 가장 큰 마켓 대역의 값이고, 그보다 낮은
+# event_seq = market_id * band_span + market_seq라 max는 가장 큰 마켓 대역의 값이고, 그보다 낮은
 # 대역의 마켓이 구 epoch로 append하면 그 행은 워터마크 아래라 세어지지 않는다(ADR 0022 §6-5).
 # 게다가 둘 다 이미 물질화된 명령을 구 리더가 다시 적재하는 경우를 못 잡는다. 그 행의 seq는
 # 워터마크 아래이기 때문이다.
