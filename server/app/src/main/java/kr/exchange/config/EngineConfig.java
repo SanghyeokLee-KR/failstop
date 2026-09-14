@@ -45,6 +45,8 @@ import javax.sql.DataSource;
 @EnableConfigurationProperties({EngineProperties.class, SnapshotProperties.class})
 public class EngineConfig {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EngineConfig.class);
+
     @Bean
     public LeaderWriteProgress leaderWriteProgress() {
         return new LeaderWriteProgress();
@@ -521,14 +523,30 @@ public class EngineConfig {
                                                  EngineRecovery recovery,
                                                  MatchingEngineImpl engine,
                                                  PromotionCoordinator promotionCoordinator,
-                                                 kr.exchange.engine.FollowerCatchUp followerCatchUp) {
+                                                 kr.exchange.engine.FollowerCatchUp followerCatchUp,
+                                                 JdbcClient jdbcClient,
+                                                 MeterRegistry meterRegistry) {
         // 리더십 상실 확정 시 self-shutdown: 잔여 큐를 버리고 즉시 정지한다(DB 설계 §5.4).
         lease.onLeadershipLost(router::haltAll);
+        java.util.concurrent.atomic.AtomicInteger bandLatched = new java.util.concurrent.atomic.AtomicInteger();
         return new SmartLifecycle() {
             private volatile boolean running;
 
             @Override
             public void start() {
+                // 명령 채번 축은 앱 설정이 아니라 DB 래치가 정한다(ADR 0022 6단계). 기동 시점 값이라 운영 중 래치 전환은
+                // 다음 기동에서 보인다. 래치 표가 없으면 이 앱이 부르는 6인자 판도 없으므로 여기서 기동이 선다.
+                boolean latched = jdbcClient.sql(
+                                "SELECT EXISTS (SELECT 1 FROM journal_cutover WHERE name = 'command_seq')")
+                        .query(Boolean.class).single();
+                bandLatched.set(latched ? 1 : 0);
+                io.micrometer.core.instrument.Gauge
+                        .builder("exchange.journal.band.latched", bandLatched,
+                                java.util.concurrent.atomic.AtomicInteger::get)
+                        .description("기동 시점 명령 대역 채번 래치. 1 이면 마켓 대역 채번, 0 이면 전역 채번이다")
+                        .register(meterRegistry);
+                log.info("명령 채번 축: {} (journal_cutover command_seq 래치 {})",
+                        latched ? "마켓 대역" : "전역", latched ? "있음" : "없음");
                 // 재생·크래시 창 재적재 실패는 기동 실패다. 검증 안 된 상태로 트래픽을 받지
                 // 않고, pending을 버린 기동은 저널 prefix 성질을 깨므로 금지다(§5.5 ②).
                 // 강제 종료 직후 재기동은 직전 프로세스 리스가 TTL 내 유효할 수 있어 부팅

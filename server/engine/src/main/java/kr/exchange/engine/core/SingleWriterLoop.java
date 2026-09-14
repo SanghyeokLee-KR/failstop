@@ -262,12 +262,11 @@ public final class SingleWriterLoop {
 
     private void catchUpTo(OrderCommand command) throws Exception {
         long target = command.seq();
-        // seq가 max 아래면 대역 채번에서 더 높은 대역 마켓이 max를 쥔 것이라 이 마켓 커서부터 읽는다.
-        // max를 넘으면 이 마켓의 누락분은 max 위에만 있다(조밀 전역 축은 늘 이쪽).
-        long max = engine.lastAppliedSeq();
-        long from = target > max ? max : engine.appliedSeq(command.marketId());
-        // 종료는 적용 커서가 아니라 읽은 위치로 본다. 이미 적용한 남의 마켓 행만 든 배치가 와도
-        // 위치가 전진해 같은 배치를 다시 읽지 않는다.
+        int marketId = command.marketId();
+        // 대역 채번에서는 마켓 사이 seq 대소가 적용 순서가 아니다. 그래서 이 마켓 커서부터 읽고 이 마켓 행만 적용한다.
+        // 전 마켓 최댓값에서 읽으면 레거시 누락분을 건너뛰고, 남의 마켓 행을 적용하면 그 마켓 커서가 제 누락분 위로 뛴다.
+        long from = engine.appliedSeq(marketId);
+        // 종료는 적용 커서가 아니라 읽은 위치로 본다. 남의 마켓 행만 든 배치가 와도 위치가 전진해 같은 배치를 다시 읽지 않는다.
         while (from < target - 1) {
             long t0 = System.nanoTime();
             List<OrderCommand> batch = catchUpSource.readAfter(from, CATCH_UP_BATCH);
@@ -275,11 +274,13 @@ public final class SingleWriterLoop {
             catchUpCalls.increment();
             if (batch.isEmpty()) {
                 // 저널이 갭을 못 메우면 순서 보장이 깨진 것이다. 계속 진행은 무음 유실이 된다.
-                throw new IllegalStateException("catch-up 실패: market=" + command.marketId()
+                throw new IllegalStateException("catch-up 실패: market=" + marketId
                         + ", from=" + from + ", target=" + target);
             }
             for (OrderCommand c : batch) {
-                applyAndSink(c);
+                if (c.marketId() == marketId) {
+                    applyAndSink(c);
+                }
                 from = c.seq();
                 if (from >= target - 1) {
                     break;

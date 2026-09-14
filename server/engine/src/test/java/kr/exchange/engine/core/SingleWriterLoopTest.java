@@ -263,6 +263,66 @@ class SingleWriterLoopTest {
         }
     }
 
+    /** 레거시 누락분이 다른 마켓의 대역 커서 아래에 있는 모양. 전 마켓 최댓값에서 읽으면 그 누락분을 건너뛴다. */
+    @Test
+    void mixedAxisCatchUpRecoversLegacyGapBelowOtherMarketsBandCursor() throws Exception {
+        long bandSpan = 1_000_000_000_000L;
+        List<OrderCommand> journal = List.of(
+                limitBuy(1, 1, 1), limitBuy(2, 2, 2), limitBuy(3, 1, 3), limitBuy(4, 2, 4),
+                limitBuy(bandSpan + 1, 1, 5), limitBuy(2 * bandSpan + 1, 2, 6));
+        MatchingEngineImpl engine = new MatchingEngineImpl();
+        for (int i : new int[] {0, 1, 2, 4}) {
+            engine.apply(journal.get(i));
+        }
+        AtomicReference<Throwable> fatal = new AtomicReference<>();
+        SingleWriterLoop loop = new SingleWriterLoop(16, engine,
+                events -> { },
+                (afterSeq, limit) -> journal.stream()
+                        .filter(c -> c.seq() > afterSeq).limit(limit).toList(),
+                fatal::set);
+        loop.start();
+        try {
+            assertTrue(loop.offer(journal.get(5)));
+            await(() -> engine.appliedSeq(2) == 2 * bandSpan + 1);
+            assertEquals(3, engine.orderBook(2).openOrderCount(), "마켓 2 의 레거시 누락 seq 4 가 버려졌다");
+            assertEquals(bandSpan + 1, engine.appliedSeq(1));
+            assertNull(fatal.get());
+        } finally {
+            loop.stop();
+        }
+    }
+
+    /** 한 마켓의 갭 회수가 남의 마켓 행을 적용하면 그 마켓 커서가 제 누락분 위로 뛰어 누락분이 버려진다. */
+    @Test
+    void catchUpAppliesOnlyItsOwnMarketSoOtherMarketGapSurvives() throws Exception {
+        long bandSpan = 1_000_000_000_000L;
+        List<OrderCommand> journal = List.of(
+                limitBuy(1, 1, 1), limitBuy(2, 2, 2), limitBuy(3, 1, 3), limitBuy(4, 2, 4),
+                limitBuy(bandSpan + 1, 1, 5), limitBuy(2 * bandSpan + 1, 2, 6));
+        MatchingEngineImpl engine = new MatchingEngineImpl();
+        for (int i : new int[] {0, 1, 3}) {
+            engine.apply(journal.get(i));
+        }
+        AtomicReference<Throwable> fatal = new AtomicReference<>();
+        SingleWriterLoop loop = new SingleWriterLoop(16, engine,
+                events -> { },
+                (afterSeq, limit) -> journal.stream()
+                        .filter(c -> c.seq() > afterSeq).limit(limit).toList(),
+                fatal::set);
+        loop.start();
+        try {
+            assertTrue(loop.offer(journal.get(5)));
+            await(() -> engine.appliedSeq(2) == 2 * bandSpan + 1);
+            assertEquals(1, engine.appliedSeq(1), "마켓 2 의 갭 회수가 마켓 1 커서를 옮겼다");
+            assertTrue(loop.offer(journal.get(4)));
+            await(() -> engine.appliedSeq(1) == bandSpan + 1);
+            assertEquals(3, engine.orderBook(1).openOrderCount(), "마켓 1 의 누락 seq 3 이 버려졌다");
+            assertNull(fatal.get());
+        } finally {
+            loop.stop();
+        }
+    }
+
     private static OrderCommand limitBuy(long seq, long orderId) {
         return limitBuy(seq, 1, orderId);
     }

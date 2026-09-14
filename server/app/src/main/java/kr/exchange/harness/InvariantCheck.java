@@ -223,6 +223,23 @@ public enum InvariantCheck {
     C27_CMD_DEFAULT_PARTITION(Severity.CRITICAL, Scope.SCHEDULED,
             "SELECT count(*) FROM command_journal_default"),
 
+    // ── 커트오버 뒤 레거시 채번 0(ADR 0022 7절 6단계 섞임 감사) ────────────
+    // 마켓 안 첫 대역 행보다 늦게 접수된 레거시 행은 그 마켓 커서 아래로 버려진다. latched_at 과 비교하지 않는다.
+    // 래치 커밋 전에 시작한 정당한 전역 행이 latched_at 보다 늦을 수 있다. 명세 부재는 C05·C23 이 센다.
+    C28_CMD_LEGACY_AFTER_CUTOVER(Severity.CRITICAL, Scope.SCHEDULED, """
+            WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq'),
+                 b AS (SELECT c.market_id, min(c.created_at) AS first_band_at
+                       FROM command_journal c, s
+                       WHERE c.seq >= s.band_span
+                       GROUP BY c.market_id)
+            SELECT count(*)
+            FROM command_journal c
+            JOIN b ON b.market_id = c.market_id
+            CROSS JOIN s
+            WHERE c.seq < s.band_span
+              AND c.created_at > b.first_band_at
+            """),
+
     // ── RPO=0 외부 증거(실험 한정): ACK 원장 ⊆ command_journal ───────────
     C16_ACK_JOURNALED(Severity.CRITICAL, Scope.AUTHORITATIVE_ONLY, """
             SELECT count(*) FROM harness.loadtest_acks a

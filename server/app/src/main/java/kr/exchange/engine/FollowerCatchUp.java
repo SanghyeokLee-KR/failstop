@@ -114,10 +114,10 @@ public final class FollowerCatchUp implements AutoCloseable {
                 .description("팔로워가 저널과 대조한 이벤트 수")
                 .register(registry);
         Gauge.builder("exchange.follower.catchup.lag_commands.max", lagMax, AtomicLong::doubleValue)
-                .description("마켓별 (저널 head - 이 노드 엔진 커서) 의 최대. 대역 채번에서는 명령 수다")
+                .description("마켓별 (저널 head - 적용 위치) 의 최대. 적용 위치는 엔진 커서와 그 틱 물질화 경계 중 앞선 쪽이다. 대역 채번에서는 명령 수다")
                 .register(registry);
         Gauge.builder("exchange.follower.catchup.lag_commands.sum_of_markets", lagSum, AtomicLong::doubleValue)
-                .description("마켓별 (저널 head - 이 노드 엔진 커서) 의 합")
+                .description("마켓별 (저널 head - 적용 위치) 의 합")
                 .register(registry);
         Gauge.builder("exchange.follower.catchup.state", state, AtomicInteger::doubleValue)
                 .description("0 정지, 1 따라잡는 중, 2 리더라 쉬는 중, -1 상태 어긋남")
@@ -283,8 +283,14 @@ public final class FollowerCatchUp implements AutoCloseable {
         long max = 0;
         long sum = 0;
         for (Map.Entry<Integer, Long> head : replayService.journalHeads().entrySet()) {
-            // 스냅샷에서 복원한 커서는 그 마켓의 마지막 명령보다 클 수 있다. 그때의 음수 격차는 이상이 아니라 0 이다.
-            long lag = Math.max(0, head.getValue() - engine.appliedSeq(head.getKey()));
+            Long bound = bounds.bounds().get(head.getKey());
+            if (bound == null) {
+                // 이 틱에 경계를 읽지 않은 새 마켓이다. 커서로 재면 대역 채번에서 대역 폭이 격차로 읽힌다. 다음 틱에 잰다.
+                continue;
+            }
+            // 경계 이하 명령은 위에서 전부 적용됐으므로 커서가 대역 시작 아래에 있어도 경계에서 잰다. 스냅샷에서 복원한
+            // 커서는 그 마켓의 마지막 명령보다 클 수 있다. 그때의 음수 격차는 이상이 아니라 0 이다.
+            long lag = Math.max(0, head.getValue() - Math.max(engine.appliedSeq(head.getKey()), bound));
             max = Math.max(max, lag);
             sum += lag;
         }

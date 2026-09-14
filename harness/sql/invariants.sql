@@ -1,6 +1,6 @@
 -- ============================================================================
 -- invariants.sql
--- 불변식 카탈로그 C01~C25, C27의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
+-- 불변식 카탈로그 C01~C25, C27, C28의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
 -- (server V1__init.sql, trades.id = event_seq).
 -- 실행: psql -U exchange -d exchange -f invariants.sql
 -- 판정: 각 쿼리는 위반 행만 낸다. 전 쿼리 0행 = 무결. summary.sql이 같은 술어의 건별 카운트다.
@@ -243,8 +243,24 @@ WHERE m.name = 'event_seq'
 SELECT 'command_journal_default' AS partition, count(*) AS rows
 FROM command_journal_default HAVING count(*) > 0;
 
+\echo '== C28 CMD_LEGACY_AFTER_CUTOVER [CRITICAL] 마켓 안 첫 대역 행보다 늦은 레거시 행 0 =='
+-- 행 수가 InvariantCheck.C28_CMD_LEGACY_AFTER_CUTOVER 값이다. 그 레거시 행은 그 마켓 커서 아래로 버려진다.
+-- latched_at 이 아니라 마켓 첫 대역 행과 비교한다(ADR 0022 6단계). 시계 역행 뒤 거짓 양성 한계는 9-17.
+WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq'),
+     b AS (SELECT c.market_id, min(c.created_at) AS first_band_at
+           FROM command_journal c, s
+           WHERE c.seq >= s.band_span
+           GROUP BY c.market_id)
+SELECT c.market_id, c.seq, c.created_at, b.first_band_at
+FROM command_journal c
+JOIN b ON b.market_id = c.market_id
+CROSS JOIN s
+WHERE c.seq < s.band_span
+  AND c.created_at > b.first_band_at
+ORDER BY c.market_id, c.seq;
+
 -- V13 미적용 DB에서는 아래 두 뷰가 없다. 무조건 조회하면 ON_ERROR_STOP 경로가 C24 이전
--- 26개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이
+-- 27개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이
 -- 거짓 통과다. 부재 시 SKIP을 크게 찍고 종료 상태를 남긴다.
 SELECT (to_regclass('public.position_cost_qty_check') IS NOT NULL
         AND to_regclass('public.position_cost_sanity_check') IS NOT NULL) AS has_cost_views \gset

@@ -2,6 +2,9 @@ package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
+import kr.exchange.journal.CommandJournalReader;
+import kr.exchange.journal.EventJournalReader;
+import kr.exchange.journal.JournalCheckpoints;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,8 +13,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * HA 모니터링(관리자 설계 §2-3, 읽기 전용). 하네스가 적재한 invariant_checks·recovery_runs·
@@ -65,16 +71,21 @@ public class HaMonitoringController {
     }
 
     private final JdbcClient jdbc;
+    private final CommandJournalReader commandReader;
+    private final EventJournalReader eventReader;
 
-    public HaMonitoringController(JdbcClient jdbc) {
+    public HaMonitoringController(JdbcClient jdbc, CommandJournalReader commandReader,
+                                  EventJournalReader eventReader) {
         this.jdbc = jdbc;
+        this.commandReader = commandReader;
+        this.eventReader = eventReader;
     }
 
     /**
      * 리더십·워터마크·복구 관측(leader_lease DB 직조회가 권위, 노드 무관). 노출 필드는 전부
      * DB 실적재분이다. 노드 팔로워 레지스트리·복제 큐 depth·standby readiness는 단일 라이터 +
-     * 저널 재생 복구 구조라 시스템에 실재하지 않으므로 노출하지 않는다(날조 회피). 지연은 저널
-     * head 대비 applied seq(apply_lag)로만 잰다.
+     * 저널 재생 복구 구조라 시스템에 실재하지 않으므로 노출하지 않는다(날조 회피). 지연은 마켓별
+     * 명령 head 대비 물질화 경계(apply_lag, apply_lag_total)로만 잰다.
      */
     @GetMapping("/status")
     public Map<String, Object> status(HttpServletRequest request) {
@@ -101,21 +112,44 @@ public class HaMonitoringController {
                 })
                 .optional()
                 .orElse(Map.of("leader_alive", false));
+        // 세 워터마크는 표시용 전역 스칼라다. 대역 채번에서는 마켓 사이 seq 대소가 없어 서로 빼지 않는다.
         long commandWm = scalar("SELECT COALESCE(max(seq), 0) FROM command_journal");
         long eventWm = scalar("SELECT COALESCE(max(event_seq), 0) FROM event_journal");
-        // 적용 지연은 command seq 단일 축에서 잰다. 접수된 명령 최대 seq(command_watermark) 대비
-        // 이벤트를 낳은 명령 최대 seq(event_journal.source_cmd_seq)의 격차다. command seq와 event
-        // seq는 별개 채번이라 그 차이는 지연이 아니므로 섞지 않는다.
         long appliedCmdWm = scalar("SELECT COALESCE(max(source_cmd_seq), 0) FROM event_journal");
         // 저널 head 대비 스냅샷 워터마크. 마켓별 최신 스냅샷이 담은 last_applied_seq의 전역 최대.
         long snapshotSeq = scalar("SELECT COALESCE(max(last_applied_seq), 0) FROM snapshots");
+        // 적용 지연은 마켓마다 명령 head 에서 물질화 경계를 뺀 값이고 최대와 합을 따로 낸다(ADR 0022 6-6).
+        // 합만 내면 한 마켓의 정체가 묻히고, 전역 스칼라끼리 빼면 대역 채번에서 대역 폭이 지연으로 읽힌다.
+        Map<Integer, Long> heads = commandReader.maxSeqByMarket();
+        Map<Integer, Long> materializedHeads = new TreeMap<>();
+        for (int marketId : heads.keySet()) {
+            // 경계 탐색의 하한. 마켓 안 정산은 seq 순이라 이벤트가 있는 마지막 명령 이하는 전부 물질화돼 있다.
+            materializedHeads.put(marketId, scalar(String.format(Locale.ROOT,
+                    "SELECT COALESCE(max(source_cmd_seq), 0) FROM event_journal WHERE market_id = %d", marketId)));
+        }
+        JournalCheckpoints bounds = eventReader.materializedThroughByMarket(materializedHeads);
+        List<Map<String, Object>> commandWatermarks = new ArrayList<>();
+        long lagMax = 0;
+        long lagTotal = 0;
+        for (Map.Entry<Integer, Long> head : heads.entrySet()) {
+            long lag = Math.max(0, head.getValue() - bounds.bound(head.getKey()));
+            lagMax = Math.max(lagMax, lag);
+            lagTotal += lag;
+            Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("market_id", head.getKey());
+            row.put("command_watermark", head.getValue());
+            row.put("apply_lag", lag);
+            commandWatermarks.add(row);
+        }
         Map<String, Object> out = new java.util.LinkedHashMap<>();
-        out.put("schema_version", "1.0");
+        out.put("schema_version", "1.1");
         out.put("lease", lease);
         out.put("command_watermark", commandWm);
+        out.put("command_watermarks", commandWatermarks);
         out.put("event_watermark", eventWm);
         out.put("applied_command_watermark", appliedCmdWm);
-        out.put("apply_lag", Math.max(0, commandWm - appliedCmdWm));
+        out.put("apply_lag", lagMax);
+        out.put("apply_lag_total", lagTotal);
         out.put("snapshot_seq", snapshotSeq);
         out.put("trades_count", scalar("SELECT count(*) FROM trades"));
         out.put("recovery_runs_count", scalar("SELECT count(*) FROM recovery_runs"));
