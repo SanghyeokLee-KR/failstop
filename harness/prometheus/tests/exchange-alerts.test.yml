@@ -1,6 +1,8 @@
 # InvariantViolation 알람의 severity 이진 접기(critical·warning) 회귀 시험.
 # CRITICAL·HIGH·WARN 원본 라벨이 Alertmanager 치명 경로 매처(severity = "critical")와
 # 어긋나지 않는지를 promtool test rules 로 고정한다(§5-6, CI observability 잡).
+# C26_CMD_BAND_HEADROOM 은 ADR 0022 6-4 가 HIGH 로 정한 명령 대역 여유 감사다. 전용 알람을 두지 않고
+# 이 템플릿에 warning 으로 실려 기본 경로(group_wait 30s, repeat_interval 4h)로 가는 것을 함께 고정한다.
 #
 # rules/ 가 아니라 별도 디렉터리에 둔다. prometheus.yml:8 의 rule_files 글롭이
 # rules/*.yml 전부를 실제 규칙 파일로 읽어, 같은 자리의 시험 픽스처를 규칙 파일
@@ -18,6 +20,8 @@ tests:
       - series: 'exchange_invariant_violations{check_name="C03_TXN_UNSEALED", severity="HIGH"}'
         values: "1x6"
       - series: 'exchange_invariant_violations{check_name="C15_DEFAULT_PARTITION", severity="WARN"}'
+        values: "1x6"
+      - series: 'exchange_invariant_violations{check_name="C26_CMD_BAND_HEADROOM", severity="HIGH"}'
         values: "1x6"
 
     alert_rule_test:
@@ -51,6 +55,17 @@ tests:
               severity: warning
             exp_annotations:
               summary: "불변식 위반: C15_DEFAULT_PARTITION"
+              metric: "violations"
+              value: "1 rows"
+              threshold: "> 0"
+              duration: "30s"
+              dashboard: "① 체결 무결성 증명 (proof-integrity)"
+              runbook: "기획안 §10.2 무결 판정 · 검증설계 §4-1 체크 카탈로그"
+          - exp_labels:
+              check_name: C26_CMD_BAND_HEADROOM
+              severity: warning
+            exp_annotations:
+              summary: "불변식 위반: C26_CMD_BAND_HEADROOM"
               metric: "violations"
               value: "1 rows"
               threshold: "> 0"
