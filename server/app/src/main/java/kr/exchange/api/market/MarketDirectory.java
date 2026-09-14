@@ -142,7 +142,7 @@ public class MarketDirectory implements AutoCloseable {
      * 핫패스 전용. 스냅샷만 읽고 어떤 경우에도 DB 를 보지 않는다.
      *
      * MarketDataPublisher 가 엔진 이벤트마다, EngineBridge 가 저널 커밋 직전에 부른다. 뒤엣것은
-     * 단일 라이터의 submitLock 안이라 여기서 DB 를 한 번이라도 왕복하면 그 시간만큼 접수가
+     * 그 마켓의 접수 락 안이라 여기서 DB 를 한 번이라도 왕복하면 그 시간만큼 그 마켓 접수가
      * 직렬로 멎는다. 실측에서 미스 재적재를 이 경로에 두었더니 TPS 가 123.6 에서 119.3 으로
      * 내려갔다. 심볼 조회와 목록 조회만 미스 재적재를 갖는다.
      */

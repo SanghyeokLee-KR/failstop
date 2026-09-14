@@ -230,6 +230,17 @@ Redis 프록시는 없다. Redis 서비스 자체가 없기 때문이다.
 
 `harness/docker-compose.scale.yml`이 규격 실험용 오버레이다. `SCALE_PG_CPUS`, `SCALE_PG_MEM`, `SCALE_POOL` 셋을 받는다.
 
+**연결 예산(ADR 0022 4단계, 2026-09-14).** append 전용 풀이 2에서 14로 오르면서 프로세스별 풀 최대 합을 PostgreSQL `max_connections`와 대조한다. HikariCP는 첫 연결 요청에서 풀을 띄우므로, 엔진을 끈 프로세스(`EXCHANGE_ENGINE_ENABLED=false`)의 리스·append 풀은 연결을 만들지 않는다.
+
+| 프로세스(프로파일) | 요청 풀 최대/최소 유휴 | 리스 풀 | append 풀 | 최대 합 |
+|---|---|---|---|---:|
+| `chaos-api-1`, `chaos-api-2` (dev,chaos-monkey) | 32/8 (compose 환경변수) | 2/1 | 14/2, idle-timeout 10초 | 48 |
+| `chaos-admin` (dev,admin, 엔진 끔) | 16/4 | 연결 없음 | 연결 없음 | 16 |
+| `chaos-bots` (bots, 엔진 끔) | 10/10 (Hikari 기본) | 연결 없음 | 연결 없음 | 10 |
+| `chaos-pg-exporter` | | | | 약 2 |
+
+합은 약 124다. 엔진을 끈 프로세스의 리스·append 풀까지 최대로 잡은 이론값은 약 156이다. `chaos-pg`의 기본값 100(일반 사용자 97)으로는 모자라 `max_connections=200`으로 올렸다(`harness/docker-compose.chaos.yml`). 이 값은 E1~E9 전 실험의 스택 조건이다. append 풀 idle-timeout 10초는 강등된 노드가 늘어난 연결을 하우스키핑 주기 30초를 더해 약 40초 안에 돌려주게 하는 값이고, HikariCP가 받는 최솟값이다(`server/app/src/main/java/kr/exchange/config/LeaseDataSourceConfig.java`). 배포 앱 노드(prod)는 요청 32 + 리스 2 + append 14로 48이고 봇 노드(엔진 끔)는 10이다. 배포 데이터 노드는 `max_connections`를 지정하지 않아 기본 100이다. 엣지 설정(`deploy/nginx-edge.conf.template`)이 쓰기·조회 upstream에 앱 두 노드를 두므로, 두 노드가 같은 primary에 붙으면 이론 최대가 48 x 2 + 10 = 106으로 일반 사용자 한도 97을 넘는다. 클라우드 배포 전에 데이터 노드 `max_connections` 지정이나 풀 상한 조정으로 닫아야 한다(후속).
+
 ### 3-5. 데이터베이스 이중화
 
 상시면 구성은 ADR 0024다. primary 한 대와 대기 서버 한 대를 비동기 스트리밍 복제로 묶고 `synchronous_standby_names`는 비운다. 배선은 `deploy/compose.node-data.yml`이고 DB 자동 페일오버는 없다(수동 절차 `docs/operations/DB_수동_페일오버.md`). 아래 동기 정족수는 카오스·규격 평면의 실험 구성이며 상시면 계약이 아니다. 실험 수단은 `harness/replication/`이고 파일 4개다(`run.sh`, `repl_sampler.py`, `analyze.py`, `dynamo_lease.py`).
@@ -288,6 +299,8 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 **규칙이나 대시보드가 실제로 참조하는 것은 19개다.** 12개가 방출만 되고 아무도 보지 않는다. 방출 비용은 이미 내고 있으므로, 쓰지 않을 것이면 걷고 쓸 것이면 규칙이나 패널에 걸어야 한다. 이 12개의 처분은 §8-2에 미결로 둔다.
 
 `AdmissionControl`의 scope는 4개다(order, query, requery, ws).
+
+`exchange.submit.lock.wait.nanos`·`exchange.submit.lock.hold.nanos`·`exchange.submit.count`는 2026-09-14 ADR 0022 4단계부터 `market` 태그(마켓 id 문자열)를 가진 마켓별 계측이고, 그 마켓의 첫 접수 때 등록된다. 태그 없는 시계열은 없다. `sum(rate(...))`로 읽는 하네스 스크립트는 그대로 쓰되, 락이 마켓마다 겹치므로 보유 점유 합이 1.0을 넘을 수 있다. `exchange.inflight.lock.*`는 1024개 스트라이프 락의 합이라 같은 성질이다.
 
 ### 5-3. Prometheus
 

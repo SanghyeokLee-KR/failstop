@@ -704,7 +704,9 @@ function Save-VerdictFile {
             # 세면 두 번째 실험부터 항상 dirty 다.
             $dirty = @(& git -C $repo status --porcelain -- server harness ':!harness/evidence' 2>$null).Count
         }
-        $imageName = (Read-EnvFile $Global:CHAOS.EnvFile)['CHAOS_APP_IMAGE']
+        # compose 는 셸 환경변수를 --env-file 값보다 앞세운다. 이미지를 환경변수로 고정한 회차가 파일 값으로 적히지 않게 한다.
+        $imageName = $env:CHAOS_APP_IMAGE
+        if ([string]::IsNullOrWhiteSpace($imageName)) { $imageName = (Read-EnvFile $Global:CHAOS.EnvFile)['CHAOS_APP_IMAGE'] }
         $imageId = (& docker image inspect $imageName --format '{{.Id}}' 2>$null | Out-String).Trim()
 
         $invSql = "SELECT coalesce(json_agg(json_build_object('window', details->>'window', " +

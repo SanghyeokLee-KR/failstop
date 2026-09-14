@@ -5,11 +5,11 @@ import kr.exchange.engine.NotLeaderException;
 import kr.exchange.engine.NotReadyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataAccessException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -79,11 +79,14 @@ public class ApiExceptionHandler {
                 "일시적 처리 불가", null, 1), response, requestId);
     }
 
-    @ExceptionHandler({TransientDataAccessException.class, CannotGetJdbcConnectionException.class})
-    public ResponseEntity<Object> transientDataAccess(DataAccessException e, HttpServletResponse response) {
+    @ExceptionHandler({TransientDataAccessException.class, CannotGetJdbcConnectionException.class,
+            CannotCreateTransactionException.class})
+    public ResponseEntity<Object> transientDataAccess(RuntimeException e, HttpServletResponse response) {
         // 풀 고갈·락 타임아웃·직렬화 실패 등 일시 backpressure. catch-all 500으로 떨구면 자체 규약상
         // 재시도 가능한 신호가 소실되고 매 건 ERROR 로그로 알람이 폭증한다. 503+Retry-After로 신호하고
         // WARN으로 낮춘다. NonTransient(무결성 위반 등)는 이 핸들러를 타지 않고 아래 catch-all 500 유지.
+        // TransactionTemplate 경로(접수 append 전용 풀 등)는 커넥션 획득 실패를 트랜잭션 시작 실패로
+        // 감싸 던지므로 CannotCreateTransactionException 도 같은 사유로 받는다.
         String requestId = resolveRequestId(response);
         log.warn("일시적 DB 접근 실패 request_id={}: {}", requestId, e.getMessage());
         return render(new ApiException(503, "service_unavailable",

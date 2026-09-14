@@ -92,10 +92,9 @@ public class EngineConfig {
     /**
      * 접수 저널 append 전용 배선. 커넥션과 트랜잭션 관리자를 요청 풀과 나눈다.
      *
-     * 왜 나누는가. 2026-09-11 실측에서 접수 락 보유 7.878밀리초 중 4.729가 커넥션 획득과
-     * 트랜잭션 경계와 커밋이었다(정본 5.7.11). 커밋 fsync 약 1.2를 빼면 약 3.5가 데이터베이스
-     * 일이 아니다. 그 구간을 EngineBridge.submitLock 이 이미 직렬화하므로 append 가 동시에
-     * 커넥션을 둘 이상 쓸 일이 없다. 전용 풀은 그 구간에서 경합과 검증을 없앤다.
+     * 왜 나누는가. 조회 폭주로 요청 풀이 포화돼도 접수가 커넥션을 기다리지 않게 한다. 접수 락이
+     * 마켓별이라 append 가 마켓 수만큼 동시에 커넥션을 쓰고, 풀 크기는 그 수에 맞춘다
+     * (LeaseDataSourceConfig.appendDataSource).
      *
      * 트랜잭션 관리자를 함께 나눠야 한다. 기본 관리자에 다른 DataSource 의 커넥션을 물리면
      * 트랜잭션이 기본 풀에서 열리고 질의만 전용 풀로 가서 경계가 갈린다.
@@ -479,15 +478,23 @@ public class EngineConfig {
                 marketId -> "HALTED".equals(markets.byId(marketId).status()));
         // 접수 임계구역 분해(정본 13.5 한계 29). 대기가 크면 경합이, 보유가 크면
         // 임계구역 안 작업이 상한이다. rate() 로 초당 소비 시간이 나오고 그것이 점유율이다.
-        io.micrometer.core.instrument.FunctionCounter
-                .builder("exchange.submit.lock.wait.nanos", bridge, EngineBridge::lockWaitNanos)
-                .description("접수 락 획득 대기 누적 나노초").register(meterRegistry);
-        io.micrometer.core.instrument.FunctionCounter
-                .builder("exchange.submit.lock.hold.nanos", bridge, EngineBridge::lockHoldNanos)
-                .description("접수 락 보유 누적 나노초").register(meterRegistry);
-        io.micrometer.core.instrument.FunctionCounter
-                .builder("exchange.submit.count", bridge, EngineBridge::submitCount)
-                .description("접수 시도 수. 위 둘의 분모").register(meterRegistry);
+        // 락이 마켓별이라 마켓이 처음 접수될 때 market 태그로 등록한다. 태그 없는 같은 이름을 함께
+        // 두면 태그 키 집합이 달라 Prometheus 레지스트리가 뒤에 온 쪽을 버린다(샤드 지표와 같은 사고).
+        bridge.onMarketAdded(marketId -> {
+            String tag = String.valueOf(marketId);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.submit.lock.wait.nanos", bridge, b -> b.lockWaitNanos(marketId))
+                    .tag("market", tag)
+                    .description("마켓별 접수 락 획득 대기 누적 나노초").register(meterRegistry);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.submit.lock.hold.nanos", bridge, b -> b.lockHoldNanos(marketId))
+                    .tag("market", tag)
+                    .description("마켓별 접수 락 보유 누적 나노초").register(meterRegistry);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.submit.count", bridge, b -> b.submitCount(marketId))
+                    .tag("market", tag)
+                    .description("마켓별 접수 시도 수. 위 둘의 분모").register(meterRegistry);
+        });
         return bridge;
     }
 

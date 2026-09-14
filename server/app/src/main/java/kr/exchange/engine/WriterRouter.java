@@ -156,17 +156,30 @@ public final class WriterRouter {
     }
 
     /**
-     * 전부 살아 있어야 running 이다.
+     * 전부 살아 있어야 running 이다. 부팅과 승격이 노드의 접수 게이트를 열기 전에 본다(WriterHost).
      *
-     * 하나라도 죽었으면 그 마켓의 접수가 갈 곳이 없다. 부분 생존을 running 으로 보면
-     * 죽은 마켓의 주문이 등록되지 않은 마켓 예외로 떨어지거나 큐에 쌓이기만 한다.
-     * 접수 게이트는 전체 기준으로 닫는다. 마켓별 게이트는 이 판의 범위가 아니다.
+     * 접수 한 건의 게이트는 이것이 아니라 isRunning(int) 다. 한 마켓 라이터의 정지로 다른 마켓 접수를
+     * 닫지 않는다.
      */
     public boolean isRunning() {
         if (!started) {
             return false;
         }
         return shards.values().stream().allMatch(s -> s.loop().isRunning());
+    }
+
+    /**
+     * 그 마켓의 접수를 받을 수 있는가(ADR 0022 4-2). 한 샤드의 정지는 그 마켓의 접수만 닫는다.
+     *
+     * 샤드가 아직 없는 마켓은 참이다. 첫 offer 가 샤드를 만들고 started 면 곧바로 띄우므로 닫을 사유가
+     * 없다. 판정이 샤드를 만들지 않는다. 만들면 뒤 게이트에서 거부될 접수도 라이터 스레드를 띄운다.
+     */
+    public boolean isRunning(int marketId) {
+        if (!started) {
+            return false;
+        }
+        Shard shard = shards.get(marketId);
+        return shard == null || shard.loop().isRunning();
     }
 
     /** 큐 깊이 합. 지표는 마켓별로도 따로 등록한다. */

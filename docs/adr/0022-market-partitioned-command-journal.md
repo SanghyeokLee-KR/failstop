@@ -362,7 +362,7 @@ private ReentrantLock lockFor(int marketId) {
 
 **락을 가르면 드러날 전역 직렬 장치 둘을 함께 가른다.** 락만 가르면 상한이 이 둘로 옮겨 가고, 4단계의 평평함 실측이 채번 행이 아니라 이 둘을 재게 된다.
 
-- **append 전용 풀 크기 2.** append 풀은 `submitLock` 안에서 쓰여 락이 직렬화한다. `appendDataSource` 가 최대 2로 고정하고(LeaseDataSourceConfig.java:57, `application.yml` 의 `exchange.engine.append-datasource.hikari.maximum-pool-size`) 그 근거를 "`EngineBridge.submitLock` 이 이미 직렬화하므로 동시에 커넥션을 둘 이상 쓸 일이 구조적으로 없다" 로 적는다(LeaseDataSourceConfig.java:43-44). 락을 가르면 그 전제가 사라진다. 크기를 마켓 수 + 2 로 올린다. 풀 대기가 `connectionTimeout` 2초(LeaseDataSourceConfig.java:59)를 넘으면 트랜잭션 시작이 `CannotCreateTransactionException` 으로 실패하는데 503 매핑(ApiExceptionHandler.java:82)에 그 형이 없어 재시도 신호로 나가지 않는다. 매핑을 더한다. 노드 수 x (요청 풀 + 리스 풀 2 + append 풀) 합을 PostgreSQL `max_connections` 와 대조해 기록한다.
+- **append 전용 풀 크기 2.** (4단계 전 판 서술이다. 2026-09-14 4단계 병합 판은 풀 최대 14, 접수 락은 마켓별이다.) append 풀은 `submitLock` 안에서 쓰여 락이 직렬화한다. `appendDataSource` 가 최대 2로 고정하고(LeaseDataSourceConfig.java:57, `application.yml` 의 `exchange.engine.append-datasource.hikari.maximum-pool-size`) 그 근거를 "`EngineBridge.submitLock` 이 이미 직렬화하므로 동시에 커넥션을 둘 이상 쓸 일이 구조적으로 없다" 로 적는다(LeaseDataSourceConfig.java:43-44). 락을 가르면 그 전제가 사라진다. 크기를 마켓 수 + 2 로 올린다. 풀 대기가 `connectionTimeout` 2초(LeaseDataSourceConfig.java:59)를 넘으면 트랜잭션 시작이 `CannotCreateTransactionException` 으로 실패하는데 503 매핑(ApiExceptionHandler.java:82)에 그 형이 없어 재시도 신호로 나가지 않는다. 매핑을 더한다. 노드 수 x (요청 풀 + 리스 풀 2 + append 풀) 합을 PostgreSQL `max_connections` 와 대조해 기록한다.
 - **`InflightReserves` 전역 락.** 잔고 사전 가드가 모든 사용자와 자산의 예약을 `ReentrantLock` 하나로 직렬화한다(InflightReserves.java:32). 이 락은 `submitLock` 앞에 있다. 게이트웨이가 `bridge.submit` 전에 잡고 풀므로(OrderGateway.java:114-115, 158, InflightReserves.java:49-62) 지금 상한으로 드러나지 않는 이유는 락의 직렬화가 아니라 짧은 보유다. 보유는 미측정이고 0단계 계측에 더한다. 그 락 안에서 가용 잔고를 DB 에서 읽고(InflightReserves.java:54, OrderGateway.java:563-571), 만료되지 않은 지연 항목마다 주문 행 실재를 DB 에서 본다(InflightReserves.java:85-95, OrderGateway.java:59-60). 락 단위를 `reserveKey`(사용자:자산, OrderGateway.java:95-96)로 가른다. 마켓 단위로 가르지 않는다. 호가 자산을 여러 마켓이 공유하므로 마켓 단위면 같은 잔고의 이중 통과가 열린다. 가용 잔고 조회는 키 락 안에 남기고(InflightReserves.java:46-47 계약), sweep 은 요청 임계구역 밖으로 뺀다.
 
 ### 4-2. 접수 게이트
@@ -378,7 +378,7 @@ private ReentrantLock lockFor(int marketId) {
 
 - 채번은 `append_command_prologue` 안의 `next_journal_value('command_seq')` 한 줄이다(V39__append_prologue.sql:75). 6단계의 `command_band_cutover_latch` 마이그레이션이 마켓 id 를 받는 6인자 판을 더한다. 6인자 판은 채번 직전에 같은 트랜잭션에서 래치를 읽고, 래치가 없으면 `next_journal_value('command_seq')`, 있으면 `next_market_command_seq(p_market_id)` 를 부른다. 앱이 6인자 판을 불러도 래치 전에는 채번이 오늘과 같다. 비가역 지점은 첫 대역 행이 아니라 래치 행이 커밋되는 순간이다(7절 6단계).
 - 채번은 지금도 멱등 판정 뒤에 있고 V39 가 그 순서를 함수 구조로 못박았다. 그 순서가 C05 의 근거이므로 새 판도 같은 구조를 유지한다. 채번과 INSERT 사이에 조건 분기를 넣지 않는다.
-- **어드바이저리 락 키를 건드리지 않는다.** `pg_advisory_xact_lock(hashtextextended('cmd-new:' || user_id || ':' || client_order_id, 0))`(V39 함수 본문)의 키에 `market_id` 를 넣지 않는다. 지금은 전역 `submitLock` 이 모든 append 를 직렬화하므로 이 락의 교차 마켓 역할이 잠들어 있다. 락을 가르는 순간 겹이 둘에서 하나로 줄고 이 락만 남는다. 키에 마켓을 넣으면 서로 다른 마켓의 같은 `(user_id, client_order_id)` 동시 재전송 둘이 서로를 못 보고 둘 다 ACK 를 받는다. 그 뒤 정산의 `orders` INSERT 가 `uq_orders_client` 23505 로 죽고 라이터가 fail-fast 한다. `command_journal` 은 seq 파티션이라 `(user_id, client_order_id)` UNIQUE 를 물리로 걸 수 없으므로 대체 방어선이 없다(V1:586-588 주석이 그 사실을 이미 적고 있다).
+- **어드바이저리 락 키를 건드리지 않는다.** `pg_advisory_xact_lock(hashtextextended('cmd-new:' || user_id || ':' || client_order_id, 0))`(V39 함수 본문)의 키에 `market_id` 를 넣지 않는다. 4단계 전에는 전역 `submitLock` 이 모든 append 를 직렬화해 이 락의 교차 마켓 역할이 잠들어 있었다. 락을 가르는 순간 겹이 둘에서 하나로 줄고 이 락만 남는다. 키에 마켓을 넣으면 서로 다른 마켓의 같은 `(user_id, client_order_id)` 동시 재전송 둘이 서로를 못 보고 둘 다 ACK 를 받는다. 그 뒤 정산의 `orders` INSERT 가 `uq_orders_client` 23505 로 죽고 라이터가 fail-fast 한다. `command_journal` 은 seq 파티션이라 `(user_id, client_order_id)` UNIQUE 를 물리로 걸 수 없으므로 대체 방어선이 없다(V1:586-588 주석이 그 사실을 이미 적고 있다).
 - 같은 이유로 멱등 조회의 WHERE 에도 `market_id` 를 넣지 않는다. 그 조회는 `append_command_prologue`(V39) 안에 있다. 멱등 네임스페이스가 `(user_id, client_order_id)` 이고 마켓이 없다.
 - **한 줄이 바뀐다.** `ORDER BY c.seq LIMIT 1`(V39__append_prologue.sql:61-62)은 대역 파생에서 '가장 이른 명령' 이 아니라 '가장 작은 marketId 의 명령' 을 고른다. 4단계의 `append_prologue_created_at_order` 마이그레이션이 `ORDER BY c.created_at, c.seq LIMIT 1` 로 바꾼다. 이 선택이 값을 가르는 것은 같은 `(user_id, client_order_id)` 의 NEW 행이 둘 이상일 때뿐이다. 어드바이저리 락이 그 상태를 막고 C07P 가 그 상태를 센다(InvariantCheck.java:62-68. 2026-09-14 3단계 병합 판은 :75-81). 곧 방어선이고, 뚫렸을 때 '먼저 접수된 것이 이긴다' 는 뜻을 대역 전후로 같게 둔다. 교차 마켓 재사용이 200 replayed 로 나가는 경로는 없다. 게이트웨이가 409 로 끊는다(9-13).
 - 같은 마이그레이션이 함수를 `VOLATILE` 로 명시한다. 어드바이저리 락을 기다린 뒤의 멱등 조회가 앞선 트랜잭션의 커밋을 보려면 문장마다 새 스냅숏을 잡아야 하고, READ COMMITTED 와 VOLATILE 이 그 전제다. V39 는 선언이 없어 기본값 VOLATILE 로 돈다(V39__append_prologue.sql:40).
@@ -673,11 +673,23 @@ B0 는 전역 접수 락, B4 는 이 단계를 모두 넣은 상태다. 같은 �
 - **반증.** 양성 축을 모두 채웠는데 카운터 행 대기 표본이 0 이거나 B4/B0 가 A 를 넘으면 카운터 행이 재직렬화하지 않는다는 뜻이다. 1-2 의 논증이 틀린 것이고 5단계로 가지 않는다.
 - 참고. `probe_saturated.json` 값(락 보유 1회 2.420, 저널삽입 1회 0.494, 커밋 1회 1.154, 점유 0.906)을 넣으면 A 는 1.62 이고, 같은 칸의 제시 부하 대 접수 비도 1.62 다. 접수는 제시 부하를 넘을 수 없으므로 B4 의 삽입과 커밋이 B0 값 근처면 600/s 에서 비 팔의 반증 폭이 0 이다. 그 칸의 반증은 카운터 행 대기 표본 0 하나가 맡는다.
 
+**구현 주(2026-09-14, 브랜치 `adr0022-stage4`).** 정본 선행 개정은 커밋 `c880593`, 코드는 `e51cdf1`(접수 락 분할)과 `e0130fb`(V43)이다. 4-1~4-4 서술과 다른 곳이 다섯 있다.
+
+- 마켓별 락 맵의 값은 락과 계측 누적기 셋을 묶은 `MarketLock` 이다(EngineBridge.java:47, :131). 마켓이 처음 쓰일 때 `onMarketAdded` 통지로 `market` 태그 지표를 등록한다(EngineConfig.java:483). 4-1 이 인용한 등록 위치(EngineConfig.java:468-476)는 병합 전 판이다.
+- `InflightReserves` 는 `reserveKey` 해시로 고르는 고정 스트라이프 1024개다(InflightReserves.java:32, :77). 같은 키는 늘 같은 락이라 상호 배제는 그대로다. 다른 키가 같은 락을 나눌 수 있어 병렬성은 근사다. 락 수를 사용자 수와 무관하게 묶으려는 선택이다. sweep 은 `tryLock` 으로 요청 임계구역 밖에서 한 스레드만 돈다(:138-139).
+- append 풀 최대는 마켓 수를 읽지 않는 고정값 14(마켓 12 + 2)다. 코드 기본값과 dev 프로파일 `application.yml` 이 모두 14 이고 다른 프로파일은 코드 기본값을 쓴다. idle-timeout 10초를 더했다(LeaseDataSourceConfig.java:51-54, application.yml:150-154). 강등된 노드가 늘어난 연결을 빨리 돌려주게 하려는 값이다. 마켓 수가 바뀌면 함께 바꾼다. 연결 예산 대조는 `docs/contracts/하네스_CICD_IaC.md` §3-4 에 적었다.
+- 4-2 는 `isRunning(int)` 를 더한다고 적었으나, 호출자가 없어진 무인자 `CommandSink.isRunning()` 을 없애고 대체했다. 수명주기용 `WriterRouter.isRunning()` 은 남는다(WriterRouter.java:164, :177).
+- 4-4 의 갱신 굶김 확인은 운영 틱이 아니다. `MultiMarketConcurrentAppendTest` 가 lock_timeout 100ms 전용 풀에서 100ms 간격 20틱을 부르고 틱마다 1초 상한을 단언한다. 갱신 시간 최댓값은 기록하지 않았다.
+
+**판정(2026-09-14).** B0(main `5c9d986`)와 B4(`4bccb2a`)를 같은 날 같은 카오스 스택에서 요청 600/s 로 돌렸고 양성 축을 모두 채웠다. 판정은 명제 성립이다. 접수 비 B4/B0 는 1.354(112.45/s 에서 152.25/s)로 T1 1.15 를 넘었으나 상한 A 1.531 이하이고, 카운터 행 대기 표본은 10회 중 7회에서 0 보다 컸다(합 25). 마켓별 접수 락 보유 점유 합은 4.446 이고 머리말 1회가 3.52ms 에서 23.29ms 로 늘어, 락을 가른 append 가 전역 채번 카운터 행에서 다시 직렬화됐다. T2 커밋 동시성은 0.486, 0.743 이다. 반증이 아니므로 5단계로 간다. 기록은 `docs/측정/20260914.md` 5.7.17 이다.
+
 **멈추면.** 오늘과 같은 처리량에 마켓별 접수 게이트가 붙은 상태다.
 
 ### 5단계. 장애 시험 (되돌릴 수 있다)
 
 E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 때만 드러난다. `CrashWindowReinjectionOrderTest` 와 `MultiMarketConcurrentAppendTest` 가 여기 앞에 있어야 한다.
+
+**착지(2026-09-14).** 4단계 B4 이미지(`4bccb2a`)로 E2·E4·E5·E6·E7 을 실험마다 새 스택에서 한 번씩 돌렸고 다섯 모두 실험 판정 PASS 다. RTO 는 5.277~10.507초로 목표 30초 안이고, 사후 창 C22 시간 축 팔과 마켓 안 팔은 모두 0, 마켓 안 `created_at` 역행도 0 이다. 앞에 있어야 하는 두 시험(`CrashWindowReinjectionOrderTest`, `MultiMarketConcurrentAppendTest`)은 같은 브랜치 전체 빌드에서 통과했다. 판정과 따로 둘을 적는다. E5·E7 은 도커 사건 수집이 주입보다 늦게 시작해 주입을 복귀 사건과 승격으로 간접 확인했다. E5 의 `rpo_records` 1 은 드레인 없이 센 사후 run 의 C13A 1(물질화 대기 명령)이고 1.4초 뒤 채집한 하네스 SQL 에서 0 이었다. 기록은 `docs/측정/20260914.md` 5.7.18 이다.
 
 ### 6단계. 커트오버 (배포는 되돌릴 수 있다. **래치는 되돌릴 수 없다**)
 
@@ -748,7 +760,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 
 그러나 그 산술에는 전제가 하나 숨어 있다. **311.9회/s 는 겹치지 않는 직렬 플러시의 값이고 곧 지연 3.206밀리초의 다른 표현이다.** `pg_test_fsync` 는 한 스레드가 쓰고 플러시하기를 반복한다. PostgreSQL 의 그룹 커밋은 한 번의 `fdatasync` 로 동시에 커밋 대기 중인 트랜잭션 여럿을 함께 내구화하므로, 동시 커밋자가 있으면 '초당 커밋' 이 '초당 플러시' 를 넘을 수 있다.
 
-지금 이 배선이 그 조건을 어떻게 막고 있는지 적는다.
+4단계 전 배선이 그 조건을 어떻게 막고 있었는지 적는다. 4단계 뒤에도 래치 전에는 채번 카운터 행을 커밋까지 쥐어 저널 커밋이 사실상 직렬이다(`docs/측정/20260914.md` 5.7.17, 커밋 동시성 0.743).
 
 | 축 | 동시 커밋자 | 평균 동시성 (132/s x 3.206밀리초) |
 |---|---|---|

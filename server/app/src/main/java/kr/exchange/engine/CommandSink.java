@@ -18,7 +18,8 @@ public interface CommandSink {
 
     boolean offer(OrderCommand command);
 
-    boolean isRunning();
+    /** 그 마켓의 명령을 받을 라이터가 살아 있는가. 한 마켓 라이터의 정지가 다른 마켓 접수를 닫지 않는다. */
+    boolean isRunning(int marketId);
 
     /** 루프 하나가 전 마켓을 받던 종전 배선. 통합 시험과 단일 라이터 경로가 쓴다. */
     static CommandSink of(SingleWriterLoop loop) {
@@ -29,7 +30,7 @@ public interface CommandSink {
             }
 
             @Override
-            public boolean isRunning() {
+            public boolean isRunning(int marketId) {
                 return loop.isRunning();
             }
         };
@@ -44,8 +45,8 @@ public interface CommandSink {
             }
 
             @Override
-            public boolean isRunning() {
-                return router.isRunning();
+            public boolean isRunning(int marketId) {
+                return router.isRunning(marketId);
             }
         };
     }

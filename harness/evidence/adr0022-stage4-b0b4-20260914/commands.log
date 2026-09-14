@@ -1,0 +1,27 @@
+2026-09-14T14:31:42+09:00 RUN adr0022-stage4-b0b4 B0Ref=5c9d9865735f342ea6f2f4bd21d52022aeca7a4c B4Ref=4bccb2a1468e9631b40e8b1b065885b6ed3b1253 SkipBuild=False
+2026-09-14T14:31:43+09:00 START worktree-B0 | cwd=D:\dev\failstop | git -C D:\dev\failstop worktree add --detach C:\dev\exchange-adr0022-b0-5c9d986 5c9d9865735f342ea6f2f4bd21d52022aeca7a4c
+2026-09-14T14:31:45+09:00 END worktree-B0 rc=0
+2026-09-14T14:31:45+09:00 START bootjar-B0 | cwd=C:\dev\exchange-adr0022-b0-5c9d986\server | C:\dev\exchange-adr0022-b0-5c9d986\server\gradlew.bat :app:bootJar -q
+2026-09-14T14:31:49+09:00 END bootjar-B0 rc=0
+2026-09-14T14:31:49+09:00 START image-B0 | cwd=C:\dev\exchange-adr0022-b0-5c9d986\harness | docker build -f Dockerfile.app -t exchange-chaos-app:adr0022-b0-5c9d986 --label org.opencontainers.image.revision=5c9d9865735f342ea6f2f4bd21d52022aeca7a4c --label org.opencontainers.image.ref.name=5c9d9865735f342ea6f2f4bd21d52022aeca7a4c .
+2026-09-14T14:31:57+09:00 END image-B0 rc=0
+2026-09-14T14:31:57+09:00 START worktree-B4 | cwd=D:\dev\failstop | git -C D:\dev\failstop worktree add --detach C:\dev\exchange-adr0022-b4-4bccb2a 4bccb2a1468e9631b40e8b1b065885b6ed3b1253
+2026-09-14T14:31:58+09:00 END worktree-B4 rc=0
+2026-09-14T14:31:59+09:00 START bootjar-B4 | cwd=C:\dev\exchange-adr0022-b4-4bccb2a\server | C:\dev\exchange-adr0022-b4-4bccb2a\server\gradlew.bat :app:bootJar -q
+2026-09-14T14:32:01+09:00 END bootjar-B4 rc=0
+2026-09-14T14:32:01+09:00 START image-B4 | cwd=C:\dev\exchange-adr0022-b4-4bccb2a\harness | docker build -f Dockerfile.app -t exchange-chaos-app:adr0022-b4-4bccb2a --label org.opencontainers.image.revision=4bccb2a1468e9631b40e8b1b065885b6ed3b1253 --label org.opencontainers.image.ref.name=4bccb2a1468e9631b40e8b1b065885b6ed3b1253 .
+2026-09-14T14:32:10+09:00 END image-B4 rc=0
+2026-09-14T14:32:10+09:00 START budget-B0 | cwd=D:\dev\failstop | python harness/scale/pg_samplers.py budget --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 2 --bots-request-pool 10 --exporter 2 --tooling 4 --max-connections 200 --superuser-reserved 3 --out D:\dev\failstop\harness\evidence\adr0022-stage4-b0b4-20260914\budget_B0.json
+2026-09-14T14:32:10+09:00 END budget-B0 rc=0
+2026-09-14T14:32:10+09:00 START budget-B4 | cwd=D:\dev\failstop | python harness/scale/pg_samplers.py budget --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --max-connections 200 --superuser-reserved 3 --out D:\dev\failstop\harness\evidence\adr0022-stage4-b0b4-20260914\budget_B4.json
+2026-09-14T14:32:10+09:00 END budget-B4 rc=0
+2026-09-14T14:32:10+09:00 START probe-B0 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label B0 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage4-b0b4-20260914\B0.json
+2026-09-14T14:38:11+09:00 END probe-B0 rc=0
+2026-09-14T14:38:12+09:00 IMAGE B0 want=sha256:8d35c54c56f53c2dbbf65597fd8a42c39ba2db3a6e22c7ec7d57074a370178cd running=sha256:8d35c54c56f53c2dbbf65597fd8a42c39ba2db3a6e22c7ec7d57074a370178cd
+2026-09-14T14:38:12+09:00 START probe-B4 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label B4 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage4-b0b4-20260914\B4.json
+2026-09-14T14:44:18+09:00 END probe-B4 rc=0
+2026-09-14T14:44:29+09:00 IMAGE B4 want=sha256:c8aa0005301aa702323f4d59b52e31279506bd637b04504c0a6a23f950302199 running=sha256:c8aa0005301aa702323f4d59b52e31279506bd637b04504c0a6a23f950302199
+2026-09-14T14:44:29+09:00 START judge | cwd=D:\dev\failstop | python harness/scale/stage4_judge.py --b0 D:\dev\failstop\harness\evidence\adr0022-stage4-b0b4-20260914\B0.json --b4 D:\dev\failstop\harness\evidence\adr0022-stage4-b0b4-20260914\B4.json --out D:\dev\failstop\harness\evidence\adr0022-stage4-b0b4-20260914\verdict.json
+2026-09-14T14:44:29+09:00 END judge rc=0
+2026-09-14T14:44:29+09:00 START down | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-14T14:44:35+09:00 END down rc=0

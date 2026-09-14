@@ -37,6 +37,17 @@ def q(expr):
         return None
 
 
+def qv(expr):
+    """프로메테우스 순간 질의의 시계열 전부. [(라벨, 값)] 이고 질의 실패는 None, 빈 결과는 [] 다."""
+    url = PROM + '/api/v1/query?' + urllib.parse.urlencode({'query': expr})
+    try:
+        with urllib.request.urlopen(url, timeout=10) as r:
+            res = json.load(r)['data']['result']
+        return [(row['metric'], float(row['value'][1])) for row in res]
+    except Exception:
+        return None
+
+
 def admin_call(method, path, body=None):
     """관리 평면은 mTLS 다. Windows curl 이 Schannel 이라 파이썬으로 직접 붙는다."""
     import http.client
