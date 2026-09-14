@@ -3,7 +3,9 @@
 # (ADR 0022 7절 6-b 래치 전 확인 5). 래치는 되돌릴 수 없고 실험마다 down -v 가 그 DB 를 버린다.
 # 실험마다 볼륨을 파기하고 새로 세운다(e4·e5·e7 머리 주석의 실행 전제). down -v 전에 판정 파일, DB 쪽 증거,
 # 도커 사건, 연결 표본을 harness/evidence/adr0022-stage5-<YYYYMMDD>/<실험>/ 로 떨어뜨린다. 대역 모드는 adr0022-stage6-chaos-<YYYYMMDD>/ 다.
-# 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic]
+# -SnapshotEvidence 이면 ADR 0022 7단계 스냅샷 경계 재생 주행이다. 실험 스크립트 전과 뒤에 harness/scale/snapshot_evidence.py 로
+# 스냅샷·복구 증거를 뜨고 전역 모드도 래치 상태를 남긴다. 증거 기본 폴더는 adr0022-stage7-snapshot-<YYYYMMDD>/<global|band>/ 다.
+# 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic] [-SnapshotEvidence]
 # 종료코드: 0 전 실험 PASS 이고 연결 고갈 없음, 1 그 밖, 5 BLOCKED(시작 전 조건).
 # 비밀 파일(harness/.env.chaos)은 compose 에 경로로만 넘기고 읽지 않는다.
 param(
@@ -12,7 +14,9 @@ param(
     [string] $EvidenceDir = '',
     [string] $LocalLogDir = '',
     [int] $AppendPool = 14,
-    [switch] $LatchBeforeTraffic
+    [switch] $LatchBeforeTraffic,
+    [switch] $SnapshotEvidence,
+    [int] $SnapshotWaitSec = 180
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,10 +26,12 @@ $env:PYTHONIOENCODING = 'utf-8'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $date = Get-Date -Format 'yyyyMMdd'
-$runName = $(if ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } else { 'adr0022-stage5' })
-if (-not $EvidenceDir) { $EvidenceDir = Join-Path $repo "harness\evidence\$runName-$date" }
+$runName = $(if ($SnapshotEvidence) { 'adr0022-stage7-snapshot' } elseif ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } else { 'adr0022-stage5' })
+$runDir = "$runName-$date"
+if ($SnapshotEvidence) { $runDir = Join-Path $runDir $(if ($LatchBeforeTraffic) { 'band' } else { 'global' }) }
+if (-not $EvidenceDir) { $EvidenceDir = Join-Path $repo "harness\evidence\$runDir" }
 # 컨테이너 로그는 요청 식별자와 계정 흔적을 담아 저장소 밖에 두고 해시만 증거에 남긴다.
-if (-not $LocalLogDir) { $LocalLogDir = Join-Path ([System.IO.Path]::GetTempPath()) "$runName-$date" }
+if (-not $LocalLogDir) { $LocalLogDir = Join-Path ([System.IO.Path]::GetTempPath()) $runDir }
 $runLog = Join-Path $EvidenceDir 'commands.log'
 
 $scripts = [ordered]@{ E2 = 'e2-db-cut.ps1'; E4 = 'e4-leader-kill.ps1'; E5 = 'e5-net-partition.ps1'
@@ -34,6 +40,8 @@ $scripts = [ordered]@{ E2 = 'e2-db-cut.ps1'; E4 = 'e4-leader-kill.ps1'; E5 = 'e5
 $reachActions = @{ E2 = @(); E4 = @('kill', 'die'); E5 = @('disconnect', 'connect'); E6 = @('kill', 'die'); E7 = @('pause', 'unpause') }
 $eventActions = @('kill', 'die', 'stop', 'start', 'restart', 'oom', 'pause', 'unpause', 'disconnect', 'connect')
 $apiNodes = @('chaos-api-1', 'chaos-api-2')
+# 스냅샷 채집기가 로그와 지표를 뜨는 노드와 포트. lib.ps1 의 포트를 그대로 넘긴다.
+$snapshotApi = 'chaos-api-1={0},chaos-api-2={1}' -f $Global:CHAOS.Api1Port, $Global:CHAOS.Api2Port
 
 # 같은 마켓 안에서는 접수 락이 append 를 통째로 직렬화하므로 seq 순서의 created_at 역행은 DB 서버 시계 역행이다.
 $inversionSql = "SELECT json_build_object('rows', count(*), 'inversions', count(*) FILTER (WHERE prev > created_at), " +
@@ -133,6 +141,12 @@ function Invoke-Experiment {
             '--request-pool', '32', '--lease-pool', '2', '--append-pool', "$AppendPool", '--bots-request-pool', '10',
             '--exporter', '2', '--tooling', '4', '--out', (Get-RelPath (Join-Path $dir 'budget.json'))) (Join-Path $dir 'budget.log')
         if ($budgetRc -ne 0) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "연결 예산 부족 또는 설정 읽기 실패(rc=$budgetRc)"; return $row }
+        if ($SnapshotEvidence) {
+            # 주입 전 증거. 활성 마켓마다 스냅샷이 생기기를 기다리되 못 채워도 실험은 돈다. 판정은 stage7_judge.py 가 한다.
+            $preRc = Invoke-Logged 'python' @('harness/scale/snapshot_evidence.py', 'pre', '--dir', (Get-RelPath $dir),
+                '--api', $snapshotApi, '--wait-sec', "$SnapshotWaitSec") (Join-Path $dir 'snapshot_pre.log')
+            $row['snapshotEvidence'] = [ordered]@{ pre = $preRc; post = $null }
+        }
         $row['clockBefore'] = Test-ClockSkew
 
         Remove-Item $stop -Force -ErrorAction SilentlyContinue
@@ -182,6 +196,11 @@ function Invoke-Experiment {
         }
 
         # 여기부터 down -v 전 증거. 카오스 볼륨과 컨테이너가 사라지면 다시 뜰 수 없다.
+        if ($SnapshotEvidence) {
+            # 판정은 재생 적용 줄의 구간 안 행 수로 세므로 실험 뒤에 쌓인 새 명령이 이 증거를 흐리지 않는다.
+            $row['snapshotEvidence']['post'] = Invoke-Logged 'python' @('harness/scale/snapshot_evidence.py', 'post',
+                '--dir', (Get-RelPath $dir), '--api', $snapshotApi) (Join-Path $dir 'snapshot_post.log')
+        }
         Save-Text (Join-Path $dir 'failover_runs.json') (Invoke-Psql "SELECT coalesce(json_agg(f ORDER BY f.id), '[]'::json) FROM harness.failover_runs f")
         if ($runId) {
             Save-Text (Join-Path $dir 'invariant_checks.json') (Invoke-Psql ("SELECT coalesce(json_agg(i ORDER BY i.checked_at, i.check_name), '[]'::json) " +
@@ -235,9 +254,12 @@ function Invoke-Experiment {
         if (Test-Path $connPath) { $connState = (Get-Content $connPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable).'판정'.'상태' }
 
         $cutover = $null
-        if ($LatchBeforeTraffic) {
-            $statePath = Join-Path $dir 'band_state.json'
+        $statePath = Join-Path $dir 'band_state.json'
+        # 스냅샷 채집 주행은 전역 모드에서도 래치 상태를 남긴다. 7단계 판정기의 모드 식별 증거다.
+        if ($LatchBeforeTraffic -or $SnapshotEvidence) {
             Invoke-Logged 'python' @('harness/scale/band_cutover.py', 'state', '--out', (Get-RelPath $statePath)) (Join-Path $dir 'band_state.log') | Out-Null
+        }
+        if ($LatchBeforeTraffic) {
             $latch = Get-Content (Join-Path $dir 'latch.json') -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
             $latchRows = @(); $marketRows = @(); $c28 = $null
             if (Test-Path $statePath) {
@@ -341,7 +363,7 @@ $unknown = @($wanted | Where-Object { -not $scripts.Contains($_) })
 if ($unknown.Count -gt 0) { Write-Host ('이 절차에 없는 실험: {0}' -f ($unknown -join ', ')); exit 5 }
 if (Test-Path (Join-Path $EvidenceDir 'summary.json')) { Write-Host '이미 summary.json 이 있다. 증거를 덮지 않는다.'; exit 5 }
 New-Item -ItemType Directory -Force -Path $EvidenceDir | Out-Null
-Write-RunLog "RUN adr0022-stage5-chaos Image=$Image Experiments=$($wanted -join ',') LatchBeforeTraffic=$LatchBeforeTraffic"
+Write-RunLog "RUN adr0022-stage5-chaos Image=$Image Experiments=$($wanted -join ',') LatchBeforeTraffic=$LatchBeforeTraffic SnapshotEvidence=$SnapshotEvidence"
 if (-not (Test-Path $Global:CHAOS.EnvFile)) { Write-RunLog 'BLOCKED harness/.env.chaos 가 없다'; exit 5 }
 & docker info *> $null
 if ($LASTEXITCODE -ne 0) { Write-RunLog 'BLOCKED 도커 데몬 미응답'; exit 5 }
@@ -358,6 +380,7 @@ $summary = [ordered]@{
     imageRevision = $(if ($labels -and $labels -ne 'null') { ($labels | ConvertFrom-Json).'org.opencontainers.image.revision' } else { $null })
     harnessCommit = (& git -C $repo rev-parse HEAD | Out-String).Trim()
     latchBeforeTraffic = [bool]$LatchBeforeTraffic
+    snapshotEvidence = [bool]$SnapshotEvidence
     localLogDir = $LocalLogDir
     experiments = @()
 }
