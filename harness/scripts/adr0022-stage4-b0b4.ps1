@@ -180,7 +180,7 @@ try {
     $verdictPath = Join-Path $EvidenceDir 'verdict.json'
     # 파이썬 예외 종료도 1 이라 반증과 겹친다. 판정 파일이 있어야 판정기 종료코드로 인정한다.
     if (-not (Test-Path $verdictPath)) { Stop-Blocked "판정기가 판정 파일을 쓰지 못했다(rc=$rc)" }
-    $final = (Get-Content $verdictPath -Raw -Encoding utf8 | ConvertFrom-Json).'최종 판정'
+    $final = (Get-Content $verdictPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable).'최종 판정'
     Write-CommandLog "VERDICT $final rc=$rc"
     $judgeRc = $rc
 } finally {

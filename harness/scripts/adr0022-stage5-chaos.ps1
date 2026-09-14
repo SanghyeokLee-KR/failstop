@@ -213,7 +213,7 @@ function Invoke-Experiment {
         Invoke-Logged 'python' @('harness/scale/pg_samplers.py', 'summarize', '--samples', (Get-RelPath $samplesPath),
             '--out', (Get-RelPath $connPath)) (Join-Path $dir 'connections.log') | Out-Null
         $connState = 'NOT RUN'
-        if (Test-Path $connPath) { $connState = (Get-Content $connPath -Raw -Encoding utf8 | ConvertFrom-Json).'판정'.'상태' }
+        if (Test-Path $connPath) { $connState = (Get-Content $connPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable).'판정'.'상태' }
         $row['clockAfter'] = Test-ClockSkew
 
         $expVerdict = $null
