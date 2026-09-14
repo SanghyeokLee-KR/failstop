@@ -1,0 +1,22 @@
+{
+ "입력": {
+  "api_nodes": 2,
+  "request_pool": 32,
+  "lease_pool": 2,
+  "append_pool": 2,
+  "bots_request_pool": 10,
+  "admin_request_pool": 0,
+  "exporter": 2,
+  "tooling": 4,
+  "max_connections": 200,
+  "superuser_reserved_connections": 3
+ },
+ "API 노드": 72,
+ "봇": 14,
+ "관리": 0,
+ "합": 92,
+ "한도": 197,
+ "여유": 105,
+ "판정": "충분",
+ "실측": null
+}

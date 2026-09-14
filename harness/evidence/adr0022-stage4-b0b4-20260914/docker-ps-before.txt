@@ -1,0 +1,23 @@
+thirsty_noether postgres:17-alpine Up 20 seconds
+thirsty_mendel postgres:17-alpine Up 30 seconds
+quizzical_mcnulty postgres:17-alpine Up 40 seconds
+hopeful_chaplygin postgres:17-alpine Up 2 minutes
+vibrant_proskuriakova postgres:17-alpine Up 3 minutes
+elegant_snyder postgres:17-alpine Up 3 minutes
+ecstatic_golick postgres:17-alpine Up 4 minutes
+great_bell postgres:17-alpine Up 4 minutes
+ecstatic_spence postgres:17-alpine Up 4 minutes
+focused_wilson postgres:17-alpine Up 5 minutes
+elastic_matsumoto postgres:17-alpine Up 5 minutes
+charming_pascal postgres:17-alpine Up 5 minutes
+beautiful_noether postgres:17-alpine Up 5 minutes
+distracted_robinson postgres:17-alpine Up 5 minutes
+zealous_kare postgres:17-alpine Up 5 minutes
+objective_hofstadter postgres:17-alpine Up 6 minutes
+determined_nash postgres:17-alpine Up 6 minutes
+intelligent_murdock postgres:17-alpine Up 6 minutes
+confident_hertz postgres:17-alpine Up 6 minutes
+gracious_maxwell postgres:17-alpine Up 6 minutes
+inspiring_swartz postgres:17-alpine Up 6 minutes
+testcontainers-ryuk-1a8793b2-3a14-40d4-8444-e4921bf14d59 testcontainers/ryuk:0.12.0 Up 7 minutes
+

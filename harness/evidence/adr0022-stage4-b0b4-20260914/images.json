@@ -1,0 +1,24 @@
+{
+  "B0": {
+    "cell": "B0",
+    "ref": "5c9d9865735f342ea6f2f4bd21d52022aeca7a4c",
+    "commit": "5c9d9865735f342ea6f2f4bd21d52022aeca7a4c",
+    "worktree": "C:\\dev\\exchange-adr0022-b0-5c9d986",
+    "tag": "exchange-chaos-app:adr0022-b0-5c9d986",
+    "imageId": "sha256:8d35c54c56f53c2dbbf65597fd8a42c39ba2db3a6e22c7ec7d57074a370178cd",
+    "jarSha256": "d1c894a94b40eb617f46bfd28d7e5b22121ecef704ece403d9de64bf882f03a3",
+    "recordedAt": "2026-09-14T14:31:57.8154074+09:00"
+  },
+  "B4": {
+    "cell": "B4",
+    "ref": "4bccb2a1468e9631b40e8b1b065885b6ed3b1253",
+    "commit": "4bccb2a1468e9631b40e8b1b065885b6ed3b1253",
+    "worktree": "C:\\dev\\exchange-adr0022-b4-4bccb2a",
+    "tag": "exchange-chaos-app:adr0022-b4-4bccb2a",
+    "imageId": "sha256:c8aa0005301aa702323f4d59b52e31279506bd637b04504c0a6a23f950302199",
+    "jarSha256": "5ff7fb6269bad41c83966bab9c722cfd0dedeb3346974ed163e67c96497cfbba",
+    "recordedAt": "2026-09-14T14:32:10.2024897+09:00"
+  },
+  "maxConnections": 200,
+  "harnessCommit": "4bccb2a1468e9631b40e8b1b065885b6ed3b1253"
+}
