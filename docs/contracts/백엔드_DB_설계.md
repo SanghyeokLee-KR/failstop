@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.46)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.47)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, §3 도입부 표의 로드맵 행)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -376,6 +376,7 @@ erDiagram
 | V40 | `V40__command_seq_band.sql` | 명령 저널 대역 채번의 기반(ADR 0022 1단계). 대역 명세 `journal_band_spec` 와 재생 축 경계 `journal_axis_boundary`, 레거시 꼬리 파티션 `command_journal_p200000000` [2x10^8, 10^12), 마켓이 있는 id K 마다 대역 잎 `command_journal_b<K>` [K x 10^12, (K+1) x 10^12), `next_market_command_seq`, 잎 생성 단일 진입점 `ensure_command_band_partition`(SECURITY DEFINER, PUBLIC 회수), 마켓 생성 트리거의 `command_seq` 시드와 대역 잎 생성. prod 풀 타임아웃을 `SET LOCAL` 로 해제한다. `next_market_journal_value` 는 대역 상한을 명세표에서 읽는다. 채번 경로를 바꾸지 않아 대역 잎은 비어 있고 되돌릴 수 있다. 꼬리 파티션은 되돌리지 않는다 | V36(`market_journal_counters`, `next_market_journal_value`, `seed_market_journal_counters`), V1(`command_journal`, `markets`) |
 | V41 | `V41__lease_key_share_lock.sql` | `leader_lease` 에 `uq_leader_lease_fencing_key`(resource, holder, epoch) 를 더해 holder·epoch 를 키 열로 만들고 `assert_and_lock_leader` 를 FOR KEY SHARE 로 재정의한다. 갱신은 쓰기 트랜잭션 잠금을 기다리지 않고 승격·게시는 기다린다(ADR 0026) | V1(`leader_lease`), V30(`assert_and_lock_leader`) |
 | V42 | `V42__event_journal_market_cmd_index.sql` | `event_journal (market_id, source_cmd_seq, event_ordinal)` 인덱스 `idx_evt_market_cmd`. 마켓별 재생과 따라잡기 판독이 다른 마켓 행을 거르며 훑지 않게 한다. 분할 부모라 `CONCURRENTLY` 를 못 써 잎마다 SHARE 잠금을 쥐므로 라이터가 멈춘 배포 창에서 적용한다. 근거 `docs/측정/20260913.md` 5.7.15 | V36(`event_journal.market_id`) |
+| V43 | `V43__append_prologue_created_at_order.sql` | `append_command_prologue` 의 NEW 멱등 조회 정렬을 `ORDER BY c.created_at, c.seq` 로 바꾸고 함수를 `VOLATILE` 로 명시한다(ADR 0022 4단계 4-3). 대역 파생 seq 에서 `ORDER BY c.seq` 는 가장 이른 명령이 아니라 가장 작은 마켓의 명령을 고르기 때문이다. 어드바이저리 락 키와 조회 술어에는 `market_id` 를 넣지 않는다. 접수 락이 마켓별로 갈린 뒤 같은 키의 교차 마켓 동시 append 를 직렬화하는 겹이 이 락 하나이기 때문이다. CREATE OR REPLACE 라 되돌릴 수 있다. |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -1626,7 +1627,7 @@ event_journal_p0            event_seq 0 ~ 200,000,000
 event_journal_default       DEFAULT
 ```
 
-**저널 보존은 이미 규정돼 있고, 규정된 값은 "영구"다.** `백엔드_API_설계.md` §2-4가 "`client_order_id` UNIQUE는 `command_journal`에서 영구 유지. 키 재사용 금지(무기한)"로 못박는다. 즉 이 갈래는 정책 부재가 아니라 **의도적 무기한 보존**이다. 파기 수단이 없는 것이 결함이 아니라 설계다.
+**저널 보존은 이미 규정돼 있고, 규정된 값은 "영구"다.** `백엔드_API_설계.md` §2-4가 `client_order_id` 유일성의 원장인 `command_journal` 주문 생성 명령 행을 영구 유지하고 키 재사용을 무기한 금지한다(API v2.49 가 물리 UNIQUE 표현을 정정했다). 즉 이 갈래는 정책 부재가 아니라 **의도적 무기한 보존**이다. 파기 수단이 없는 것이 결함이 아니라 설계다.
 
 **결함은 그 설계가 디스크 상한과 대조된 적이 없다는 것이다.** 무기한 보존은 저장이 무한하다는 전제 위에서만 성립하는데, 배포는 노드당 20 GiB 고정이다(정본 9.2 상시면 단가 표). 두 규정이 같은 자원을 두고 충돌하며, 어느 정본도 그 충돌을 등재하지 않았다.
 
@@ -1697,7 +1698,7 @@ select extname from pg_extension;
 
 | 대상 | API 2-4 규정 | 이 문서의 대응 |
 |---|---|---|
-| `command_journal`의 `client_order_id` UNIQUE | 영구 유지. 키 재사용 무기한 금지 | 없음 |
+| `command_journal` 주문 생성 명령 행(`client_order_id` 유일성 원장) | 영구 유지. 키 재사용 무기한 금지 | 없음 |
 | 조회 프로젝션 `orders` | **90일 후 콜드 파티션 이관** | 없음. `orders`는 파티션 자체가 없다 |
 | `idempotency_keys.request_hash` | **"DB 설계의 보존 규정에 따라" 7일 경과분 삭제** | **없음** |
 
@@ -1876,7 +1877,10 @@ BEGIN;
 --      호출 규율 자체는 앱 계층 책임이며, 저장된 fencing_epoch 컬럼 감사로 보완한다.
 --      §5.2·§5.3·스냅샷 저장·catch-up도 동일.
 SELECT assert_current_leader(:holder_uuid, :my_epoch);
--- (a) 멱등성: UNIQUE(user_id, client_order_id) 위반(23505) 시 게이트웨이가 기존 주문 반환
+-- (a) 멱등성(v2.47 정정): 같은 (user_id, client_order_id) 주문 생성 명령의 append 는 append_command_prologue 가
+--     어드바이저리 락으로 직렬화하고, 기존 명령이 있으면(created_at, seq 순 첫 행) 채번 없이 재전송으로 판정해
+--     게이트웨이가 기존 주문을 반환한다. command_journal 은 seq 파티션이라 물리 UNIQUE 가 없고(§3.1 idx_cmd_client_new),
+--     물리 유일성은 orders 의 uq_orders_client 가 강제한다.
 -- (a') 명령 저널 append(v2.2): §5.4의 fencing INSERT…SELECT(:cmd_seq 채번분)를 **이 트랜잭션에
 --      포함**한다. 저널·예약·주문이 원자 커밋되므로 크래시 창에서 '저널만 있는 자금 미예약
 --      명령'(재생 시 잠긴 자금 없는 주문 매칭 → balances CHECK 롤백)도,
@@ -2517,7 +2521,7 @@ $$);
 | 증명 목표 | DB 메커니즘 | 검증 산출물 |
 |---|---|---|
 | 체결이 어긋나지 않음 | 복식부기 원장(계정 단일키) + 원장 게시 단일 경로 post_ledger_transaction(봉인 포함, v2.6) + 커밋 백스톱 트리거(합=0) | §6.1 ①② 항상 0행 |
-| 중복 체결 0 | `UNIQUE(user_id, client_order_id)` + idempotency_keys | §6.3 ⑦ 0행 |
+| 중복 체결 0 | `orders` 의 `uq_orders_client`(user_id, client_order_id) + idempotency_keys | §6.3 ⑦ 0행 |
 | 주문 유실 0 (RPO 0, 단일 인스턴스 스코프 §7.1) | append-only `command_journal`(PK=seq) + fsync 후 ACK. failover 무손실은 §7.2 요건 충족 시에만 | §6.3 ⑤ gaps=0 |
 | 자동 복구 | 스냅샷 + tail 재생 + 결정론(비결정 입력 박제) | §5.5 fp 일치, `recovery_runs.matched` |
 | split-brain 없음 | `leader_lease.epoch` 원자적 fencing(엄격=) | stale append REJECT 카운트 |
@@ -3545,3 +3549,13 @@ pg_cron 잡은 `server/app/src/main/resources/db/migration` 에 없어 실제 �
 같은 ADR 0022 3단계 술어 개정에서 이 판의 술어로 바뀐다. 문서 헤더 버전을 v2.46 으로 순증. 2026-09-14 갱신.
 
 ---
+
+## v2.47 패치 반영 사항
+
+ADR 0022 4단계(접수 락 분할)를 정본에 먼저 반영한다. 코드는 같은 브랜치 `adr0022-stage4` 에서 이 판을 따라 바뀐다.
+
+§3 표에 V43 행을 더한다. 멱등 조회가 `created_at, seq` 순 첫 행을 고르고 함수를 `VOLATILE` 로 명시한다. 어드바이저리 락을 기다린 뒤의 조회가 앞선 트랜잭션의 커밋을 보려면 문장마다 새 스냅숏이 필요하고 READ COMMITTED 와 VOLATILE 이 그 전제다.
+
+접수 락이 마켓별로 갈리면 append 트랜잭션이 마켓마다 동시에 돈다. 잡는 잠금 순서는 셋이고 모든 트랜잭션에 같다. 어드바이저리 락(NEW 에 `client_order_id` 가 있을 때만 하나), 채번 카운터 행(래치 전에는 전 마켓이 같은 `journal_counters('command_seq')` 행), `leader_lease` 행 `FOR KEY SHARE` 다. 순환이 생길 조합이 없고 검증은 `docs/contracts/하네스_검증설계.md` T4-10 이 맡는다. 래치 전에는 채번 카운터 행을 커밋까지 쥐므로 마켓 사이 채번은 여전히 직렬이다.
+
+멱등 표현을 실물에 맞춘다. `command_journal` 은 `seq` 파티션이라 `(user_id, client_order_id)` 유니크가 물리로 없다(§3.1 `idx_cmd_client_new` 주석). §5.1 (a) 주석, 3.2-a-4 의 API 인용, 3.2-a-6 표 행, §7 요약 표의 중복 체결 행이 그 유니크를 저널 제약처럼 적었다. 저널 쪽은 어드바이저리 락과 조회로, 물리 유일성은 `orders` 의 `uq_orders_client` 로 고친다. 같은 정정을 `docs/contracts/백엔드_API_설계.md` v2.49 §2-4 에 했다. 문서 헤더 버전을 v2.47 로 순증. 2026-09-14 갱신.
