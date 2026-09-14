@@ -18,6 +18,11 @@ ADR 0022 4단계 판정 입력(stage4_judge.py 가 읽는다).
   카운터 행 표본   15초마다 pg_samplers.COUNTER_ROW_RULE 로 센다. 부하 뒤 분류기 양성 대조를 한다
   연결 표본        같은 틱의 pg_stat_activity 연결 분해와 chaos-pg 로그의 거절 문구
 
+ADR 0022 6단계 판정 입력(stage6_judge.py 가 읽는다). 위 넷에 더한다.
+  래치             --latch-before-traffic 이면 기동 직후, 키 발급과 봇 워밍업 전에 건다. 칸마다 래치 행을 남긴다
+  대역 행과 C28    k6 주행 창의 command_journal 행을 마켓별 대역과 레거시로 센다. C28 은 주행 뒤 전체 저널 값이다
+  카운터 행 분리 표본  같은 틱에 pg_samplers.COUNTER_SPLIT_RULE 로 전역과 마켓을 가른다. 양성 대조도 각각 한다
+
 한 칸만 돈다. 규격은 4코어로 고정한다. 정본 5.7.6 이 그 지점을 포화로 판정했다.
 
 돌리는 법:
@@ -42,6 +47,7 @@ from load_ceiling import q, qv  # noqa: E402
 from k6_ceiling import run_k6, duration_fill, markets, IMAGE as K6_IMAGE  # noqa: E402
 import clean_suite as cs  # noqa: E402
 import pg_samplers as pgs  # noqa: E402
+import band_cutover as bc  # noqa: E402
 
 ENV = {'SCALE_POOL': '32', 'SCALE_ORDER_INFLIGHT': '0', 'SCALE_QUERY_INFLIGHT': '0',
        'SCALE_REQUERY_INFLIGHT': '0', 'SCALE_PG_CPUS': '4.0', 'SCALE_PG_MEM': '4g'}
@@ -216,12 +222,12 @@ class RunSampler(threading.Thread):
         next_t = time.monotonic()
         while True:
             alive = self.proc.poll() is None
-            counter = pgs.sample_counter_row()
-            counter['k6_alive'] = alive
+            counter, split = pgs.sample_counter_rows()
+            counter['k6_alive'] = split['k6_alive'] = alive
             conn = pgs.sample_connections()
             conn['k6_alive'] = alive
             prom = {k: q(e) for k, e in PROM_SERIES}
-            self.rows.append({'ts': counter['ts'], 'k6_alive': alive, 'counter': counter,
+            self.rows.append({'ts': counter['ts'], 'k6_alive': alive, 'counter': counter, 'split': split,
                               'conn': conn, 'prom': prom})
             if not alive:
                 return
@@ -362,6 +368,8 @@ def main():
     a_.add_argument('--bots-ops', type=int, default=20)
     a_.add_argument('--warmup', type=int, default=240)
     a_.add_argument('--out', required=True)
+    a_.add_argument('--latch-before-traffic', action='store_true',
+                    help='ADR 0022 6단계 B6. 되돌릴 수 없는 래치를 새로 세운 카오스 DB 에 건다')
     a = a_.parse_args()
 
     started = pgs.now_iso()
@@ -369,6 +377,14 @@ def main():
     if not cs.reset_stack(ENV):
         print('  초기화 실패: %s' % cs.LAST_ERR[0][-300:], flush=True)
         return 1
+    latch = None
+    if a.latch_before_traffic:
+        # 키 발급, 봇 워밍업, k6 보다 먼저 건다. 봇은 스택 기동과 함께 돌므로 호출 전 저널 행 수를 함께 남긴다.
+        latch = bc.latch()
+        if not latch['ok']:
+            print('  래치 실패: %s' % json.dumps(latch, ensure_ascii=False), flush=True)
+            return 1
+        print('  래치 %s' % latch['상태']['래치 행'], flush=True)
     n_keys = cs.reissue_keys()
     if n_keys == 0:
         print('  키 재발급 실패', flush=True)
@@ -420,7 +436,19 @@ def main():
     counter_rows = [r['counter'] for r in sampler.rows]
     s['카운터 행 표본'] = {'간격(초)': SAMPLE_INTERVAL_S, '규칙': pgs.COUNTER_ROW_RULE,
                         '요약': pgs.summarize_counter_samples(counter_rows), '표본': counter_rows}
-    s['카운터 행 양성 대조'] = pgs.counter_row_positive_control()
+    split_rows = [r['split'] for r in sampler.rows]
+    s['카운터 행 표본(전역·마켓)'] = {
+        '간격(초)': SAMPLE_INTERVAL_S, '규칙': pgs.COUNTER_SPLIT_RULE,
+        '요약': {'전역': pgs.summarize_counter_samples(split_rows, 'global_row_wait'),
+                '마켓': pgs.summarize_counter_samples(split_rows, 'market_row_wait')},
+        '표본': split_rows}
+    controls = pgs.counter_row_controls()
+    s['카운터 행 양성 대조'] = controls['카운터 행']
+    s['카운터 행 양성 대조(전역)'] = controls['전역']
+    s['카운터 행 양성 대조(마켓)'] = controls['마켓']
+    s['래치'] = {'트래픽 전 래치': a.latch_before_traffic, '호출': latch, '상태': bc.latch_state()}
+    s['대역 행(DB, 마켓별)'] = bc.band_rows((t0, t1))
+    s['C28'] = bc.c28()
     conn_rows = [r['conn'] for r in sampler.rows]
     conn_summary = pgs.summarize_connection_samples(conn_rows)
     conn_log = pgs.pg_log_exhaustion()
@@ -451,7 +479,10 @@ def main():
         print('  %-24s 삽입 %6.3f 갱신 %6.3f' % (t, d['삽입/명령'], d['갱신/명령']), flush=True)
     print('  락 보유 점유(마켓별) %s' % s['락 보유 점유(마켓별)'], flush=True)
     print('  카운터 행 표본 %s' % s['카운터 행 표본']['요약'], flush=True)
-    print('  분류기 양성 대조 %s' % s['카운터 행 양성 대조']['상태'], flush=True)
+    print('  분류기 양성 대조 %s, 전역 %s, 마켓 %s' % (controls['카운터 행']['상태'], controls['전역']['상태'],
+                                             controls['마켓']['상태']), flush=True)
+    print('  카운터 행 분리 표본 %s' % s['카운터 행 표본(전역·마켓)']['요약'], flush=True)
+    print('  래치 행 %s, C28 %s' % (s['래치']['상태']['래치 행'], s['C28']['위반 행']), flush=True)
     print('  연결 %s' % s['연결']['판정'], flush=True)
     return 0
 

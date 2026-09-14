@@ -14,16 +14,17 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * command_journal append 단일 경로(DB 설계 v2.9 §5.1 (a'), §5.4).
  *
- * 한 트랜잭션 안에서 [append_command_prologue(V39: 리더 검증, NEW 멱등, 채번) →
+ * 한 트랜잭션 안에서 [append_command_prologue(V44 6인자 판: 리더 검증, NEW 멱등, 채번) →
  * leader_lease FOR KEY SHARE 참조 INSERT...SELECT]를 원자 수행한다. COMMIT 성공이 곧 ACK다.
  * 롤백되면 카운터 증가도 함께 되돌아가 결번이 없다(P0-5).
  */
 public class CommandJournalAppender {
 
-    // V39. 리더 검증과 NEW 멱등 판정과 전역 채번을 한 왕복으로 묶는다.
+    // V44 6인자 판. 리더 검증과 NEW 멱등 판정과 채번을 한 왕복으로 묶는다. 전역 채번과 마켓 대역 채번은
+    // 앱 설정이 아니라 DB 래치가 가른다(ADR 0022 6단계). 5인자 판은 래치 뒤에 접수를 거부한다.
     private static final String PROLOGUE_SQL =
             "SELECT out_seq, out_replayed, out_fencing, out_order_id"
-            + " FROM append_command_prologue(?, ?, ?, ?, ?)";
+            + " FROM append_command_prologue(?, ?, ?, ?, ?, ?::smallint)";
 
     /** 머리말 한 왕복의 결과. replayed 면 seq 가 기존 명령의 것이다. */
     private record Prologue(long seq, boolean replayed, long fencing, long orderId) {
@@ -83,7 +84,7 @@ public class CommandJournalAppender {
         return inTxNanos.sum();
     }
 
-    /** 머리말 한 왕복(V39). 리더 검증과 NEW 멱등 판정과 전역 채번을 합친다. */
+    /** 머리말 한 왕복(V44 6인자 판). 리더 검증과 NEW 멱등 판정과 채번을 합친다. */
     public long prologueNanos() {
         return prologueNanos.sum();
     }
@@ -205,7 +206,7 @@ public class CommandJournalAppender {
     }
 
     private AppendResult appendInTxTimed(LeaderIdentity leader, CommandDraft draft) {
-        // 머리말 한 왕복(V39). 종전에는 리더 검증과 어드바이저리 락과 멱등 조회와 채번을
+        // 머리말 한 왕복(V44 6인자 판). 종전에는 리더 검증과 어드바이저리 락과 멱등 조회와 채번을
         // 네 문장으로 보냈다. 넷 다 이 트랜잭션 안에서 끝나므로 함수 하나에 담긴다.
         // 판정 순서와 예외와 락 키는 그 함수가 종전 그대로 정한다.
         //
@@ -215,7 +216,7 @@ public class CommandJournalAppender {
         Prologue p = jdbc.sql(PROLOGUE_SQL)
                 .params(leader.holder(), leader.epoch(),
                         draft.type() == CommandDraft.CommandType.NEW,
-                        draft.userId(), draft.clientOrderId())
+                        draft.userId(), draft.clientOrderId(), draft.marketId())
                 .query((rs, rowNum) -> new Prologue(
                         rs.getLong("out_seq"), rs.getBoolean("out_replayed"),
                         rs.getLong("out_fencing"), rs.getLong("out_order_id")))

@@ -31,6 +31,7 @@ import static kr.exchange.harness.InvariantCheck.C15_DEFAULT_PARTITION;
 import static kr.exchange.harness.InvariantCheck.C22_FENCING_MONOTONIC;
 import static kr.exchange.harness.InvariantCheck.C23_COUNTER_SEQ_CONSISTENCY;
 import static kr.exchange.harness.InvariantCheck.C27_CMD_DEFAULT_PARTITION;
+import static kr.exchange.harness.InvariantCheck.C28_CMD_LEGACY_AFTER_CUTOVER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -98,7 +99,7 @@ class InvariantBandAxisIntegrationTest {
 
     private static final List<InvariantCheck> BAND_AXIS_CHECKS = List.of(
             C05_CMD_GAPLESS, C15_DEFAULT_PARTITION, C22_FENCING_MONOTONIC,
-            C23_COUNTER_SEQ_CONSISTENCY, C27_CMD_DEFAULT_PARTITION);
+            C23_COUNTER_SEQ_CONSISTENCY, C27_CMD_DEFAULT_PARTITION, C28_CMD_LEGACY_AFTER_CUTOVER);
 
     private static final OffsetDateTime T0 = OffsetDateTime.of(2026, 9, 1, 0, 0, 0, 0, ZoneOffset.UTC);
 
@@ -338,6 +339,34 @@ class InvariantBandAxisIntegrationTest {
         }
     }
 
+    /** 제 마켓 첫 대역 행보다 늦은 레거시 행만 센다. latched_at 은 읽지 않는다(ADR 0022 7절 6단계 섞임 감사). */
+    @Test
+    void c28CountsOnlyLegacyRowsLaterThanFirstBandRowOfSameMarket() throws Exception {
+        inRollback(conn -> {
+            loadBandAxis(conn);
+            assertBandAxis(conn, 5);
+            assertEquals(0, eval(conn, C28_CMD_LEGACY_AFTER_CUTOVER));
+
+            insert(conn, List.of(new Cmd(7, 1, 2, 10)));
+            assertEquals(1, eval(conn, C28_CMD_LEGACY_AFTER_CUTOVER), "마켓 1 첫 대역 행(7초) 뒤 레거시 행을 놓침");
+            insert(conn, List.of(new Cmd(8, 2, 2, 7)));
+            assertEquals(1, eval(conn, C28_CMD_LEGACY_AFTER_CUTOVER), "마켓 2 첫 대역 행(8초) 앞 레거시 행을 셈");
+            insert(conn, List.of(new Cmd(9, 3, 2, 30)));
+            assertEquals(1, eval(conn, C28_CMD_LEGACY_AFTER_CUTOVER), "대역 행이 없는 마켓의 레거시 행을 셈");
+
+            // 래치가 5초에 커밋됐다고 둔다. 레거시 행 6(6초)과 8(7초)은 latched_at 보다 늦지만 제 마켓 첫 대역 행보다 이르다.
+            assertEquals(1, update(conn, "INSERT INTO journal_cutover (name, latched_at) VALUES ('command_seq', '"
+                    + T0.plusSeconds(5) + "')"));
+            assertTrue(queryLong(conn, "SELECT count(*) FROM command_journal WHERE seq < " + span
+                            + " AND created_at > (SELECT latched_at FROM journal_cutover)") > 1,
+                    "latched_at 비교가 정당한 레거시 행까지 세는 모양이 아니다");
+            assertEquals(1, eval(conn, C28_CMD_LEGACY_AFTER_CUTOVER));
+
+            assertEquals(1, update(conn, "DELETE FROM journal_band_spec WHERE name = 'command_seq'"));
+            assertEquals(0, eval(conn, C28_CMD_LEGACY_AFTER_CUTOVER), "명세 부재는 C05·C23 이 센다");
+        });
+    }
+
     @Test
     void bandSpecMissingFailsClosed() throws Exception {
         inRollback(conn -> {
@@ -404,7 +433,7 @@ class InvariantBandAxisIntegrationTest {
 
     /**
      * 0 끼리의 일치는 대조가 아니므로 모든 팔이 위반을 내는 데이터에서 맞춘다. 한 체크 안의 팔 크기를 달리해
-     * 어느 사본에서 팔 하나가 빠져도 합계나 팔별 값이 어긋나게 한다. 명세 부재 팔은 par_nospec 이 본다.
+     * 어느 사본에서 팔 하나가 빠져도 합계나 팔별 값이 어긋나게 한다. 명세 부재 팔은 par_nospec 이, C28 위반은 par_c28 이 본다.
      */
     @Test
     void threeCopiesAgreeWithEveryArmNonZero() throws Exception {
@@ -447,6 +476,34 @@ class InvariantBandAxisIntegrationTest {
             assertEquals(Map.of("legacy", 1L, "band", 2L, "event", 1L), arms.get(C23_COUNTER_SEQ_CONSISTENCY));
             assertEquals(Map.of("outbox_default", 1L), arms.get(C15_DEFAULT_PARTITION));
             assertEquals(Map.of("command_journal_default", 1L), arms.get(C27_CMD_DEFAULT_PARTITION));
+            assertEquals(Map.of(), arms.get(C28_CMD_LEGACY_AFTER_CUTOVER), "레거시 행이 모두 대역 행보다 이르다");
+        }
+    }
+
+    @Test
+    void threeCopiesAgreeOnLegacyRowsAfterFirstBandRow() throws Exception {
+        String db = "par_c28";
+        try (Connection conn = open(createDatabase(db))) {
+            List<Cmd> rows = new ArrayList<>(legacyPrefix(6));
+            rows.add(new Cmd(span + 1, 1, 2, 7));
+            rows.add(new Cmd(2 * span + 1, 2, 2, 8));
+            rows.add(new Cmd(span + 2, 1, 2, 9));
+            // 제 마켓 첫 대역 행보다 늦게 접수된 레거시 행. 마켓 1 에 둘, 마켓 2 에 하나다.
+            rows.add(new Cmd(7, 1, 2, 10));
+            rows.add(new Cmd(8, 1, 2, 11));
+            rows.add(new Cmd(9, 2, 2, 12));
+            insert(conn, rows);
+            setGlobalCounter(conn, 10);
+            setMarketCounter(conn, 1, 3);
+            setMarketCounter(conn, 2, 2);
+            assertBandAxis(conn, 3);
+            assertEquals(3, eval(conn, C28_CMD_LEGACY_AFTER_CUTOVER));
+
+            Map<InvariantCheck, Map<String, Long>> arms = assertThreeCopiesAgree(conn, db);
+            assertEquals(Map.of("1", 2L, "2", 1L), arms.get(C28_CMD_LEGACY_AFTER_CUTOVER));
+            BAND_AXIS_CHECKS.stream()
+                    .filter(check -> check != C28_CMD_LEGACY_AFTER_CUTOVER)
+                    .forEach(check -> assertEquals(Map.of(), arms.get(check), check.name()));
         }
     }
 
@@ -600,7 +657,7 @@ class InvariantBandAxisIntegrationTest {
     // ── 세 벌 대조 도우미 ────────────────────────────────────────────────
 
     /**
-     * 다섯 체크마다 InvariantCheck, summary.sql, invariants.sql 합계가 같음을 단언하고 invariants.sql 의
+     * 대역 축 체크마다 InvariantCheck, summary.sql, invariants.sql 합계가 같음을 단언하고 invariants.sql 의
      * 팔별 값(값 0 인 팔은 행이 없어 빠진다)을 돌려준다. 합계만으로는 0 인 팔의 누락을 잡지 못한다.
      */
     private static Map<InvariantCheck, Map<String, Long>> assertThreeCopiesAgree(Connection conn, String db)
@@ -653,7 +710,7 @@ class InvariantBandAxisIntegrationTest {
         return sections;
     }
 
-    /** 첫 열(팔 또는 파티션 이름)별 값. C05 는 gaps 열 합, C15·C27 은 rows 열 합, C22·C23 은 행 수다. */
+    /** 첫 열(팔, 파티션 이름, C28 은 마켓 id)별 값. C05 는 gaps 열 합, C15·C27 은 rows 열 합, C22·C23·C28 은 행 수다. */
     private static Map<String, Long> invariantsArms(InvariantCheck check, List<String[]> rows) {
         Map<String, Long> arms = new HashMap<>();
         for (String[] f : rows) {
@@ -674,6 +731,11 @@ class InvariantBandAxisIntegrationTest {
                 case C23_COUNTER_SEQ_CONSISTENCY -> {
                     assertTrue(Set.of("band_spec_missing", "legacy", "band", "event").contains(f[0]),
                             check.name() + " 행 형식: " + String.join("|", f));
+                    yield 1;
+                }
+                case C28_CMD_LEGACY_AFTER_CUTOVER -> {
+                    assertEquals(4, f.length, check.name() + " 행 형식: " + String.join("|", f));
+                    assertTrue(f[0].matches("\\d+"), check.name() + " 행 형식: " + String.join("|", f));
                     yield 1;
                 }
                 default -> throw new IllegalArgumentException(check.name());

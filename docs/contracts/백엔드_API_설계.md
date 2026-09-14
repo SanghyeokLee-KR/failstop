@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.49, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.50, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -125,7 +125,7 @@ exchange-platform/   (목표 구조. 정정 2026-09-10: 실제 Gradle 모듈은 
 | REST 버전 prefix | `/api/v1` |
 | WS 버전 prefix | `/ws/v1` (STOMP `accept-version:1.2` 별도) |
 | Admin 버전 prefix | `/admin/v1` |
-| 스키마 버전 | 모든 REST/WS 페이로드에 `schema_version:"1.0"` 포함 |
+| 스키마 버전 | 모든 REST/WS 페이로드에 `schema_version` 포함. 기본은 `"1.0"` 이고 관리자 응답 일부는 응답별 판을 쓴다(§6, v2.50 명시) |
 | Base URL | `https://api.exchange.local` (거래) / `https://admin.exchange.local` (관리, 분리) |
 | 시각 표현 | **항상 UTC, 밀리초 3자리 고정** `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` (예: `2026-07-21T09:00:01.000Z`). DB는 `TIMESTAMPTZ`. 모든 예시 통일. **예외**: 서명 프리미티브(§3-3 JWT payload의 `timestamp`)는 밀리초 문자열이 아니라 **정수 epoch ms**(`1784624400123`)를 사용한다. HMAC canonical 계산의 결정론·간결성을 위한 명시적 예외이며, 이 예외는 JWT payload 한정이다. |
 | 금액/수량 | 문자열 표기 `NUMERIC(40,18)` (JSON float 금지, `"0.00000012"`; DB 설계 v2.0+와 동일, 정수부 22자리로 `qty×price` 중간값 오버플로 방지). Java `BigDecimal`+명시적 `RoundingMode`. |
@@ -677,7 +677,7 @@ POST /api/v1/orders
   "executed_volume":"0","executed_funds":"0","remaining_notional":null,
   "paid_fee":"0","trades_count":0,
   "created_at":"2026-07-21T09:00:00.500Z",
-  "epoch":42,"seq":88123600 }   // v2.2: 이 seq는 command_journal seq(저널 도메인, §7-1. §6-C last_applied_seq와 동일 축, 카운터 행 DB 원자 채번 v2.6. 채번 행과 결번 없는 범위는 §7-1 command_journal 행). WS 채널 seq(§5-2)와는 별개 도메인
+  "epoch":42,"seq":88123600 }   // v2.2: 이 seq는 command_journal seq(저널 도메인, §7-1. §6-C `/admin/v1/ha/status` 실제 방출 `command_watermarks[]` 의 그 마켓 `command_watermark` 와 동일 축(v2.50), 카운터 행 DB 원자 채번 v2.6. 채번 행과 결번 없는 범위는 §7-1 command_journal 행). WS 채널 seq(§5-2)와는 별개 도메인
 ```
 
 **id·시각·seq 결정론(v2.6, id 표기 v2.7 정정)**: 응답 `id`는 게이트웨이가 명령 접수 전 사전 발급해 command_journal에 박제한 **UUID**다(구현 정본 §7-1. 이전 판의 ULID 표기는 오기). 저널 append 성공 이후에는 프로젝션 반영 전이라도 id가 확정되어 있으며, 저널 재생 시에도 동일 값이 재사용된다(재발급 금지). `created_at`은 시퀀서가 command에 박제한 `engine_ts`에서 파생하므로 재구축 시에도 동일하다. `seq`는 카운터 행 `UPDATE ... RETURNING` 원자 채번이라 전역 유일하고, 결번이 없는 범위는 축별이다. 레거시 구간(`seq < band_span`, `journal_counters('command_seq')` 채번)은 전역에서, 대역 구간(`market_id * band_span + 지역 번호`, `market_journal_counters` 채번)은 마켓 안에서 결번이 없고 대역 사이 빈 구간은 결번이 아니다. 대역 채번은 ADR 0022 6단계 전환 뒤에 시작하고 그 전에는 전 행이 레거시 구간이다(§7-1, §6-C ①).
@@ -1385,7 +1385,7 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
                 "fencing_violations":0},
   "verdict":"PASS" }
 ```
-> `/admin/v1/ha/status` 실제 방출(단일 라이터 데모, 관리자 §2-3 읽기 전용): `schema_version`, `lease{holder,epoch,lease_until,leader_alive,lease_remaining_ms}`, `command_watermark`, `event_watermark`, `applied_command_watermark`, `apply_lag`(저널 head 대비 applied seq 지연), `snapshot_seq`, `trades_count`, `recovery_runs_count`, `last_failover{downtime_seconds,rto_seconds,verdict,at}`. 전부 DB 실적재분이고 시각은 §2-1 밀리초 UTC다. 이상형 예시의 `role`·`node`·`follower_lag_seq`·`matching_market_owner`는 노드 팔로워 레지스트리·복제 큐가 실재해야 하나 본 구조(단일 라이터 + 저널 재생 복구)에 없어 방출하지 않는다(미추적 필드 날조 회피). 리더 권위는 `leader_lease` DB 직조회다. 확장은 기존 필드 불변의 additive만 한다.
+> `/admin/v1/ha/status` 실제 방출(단일 라이터 데모, 관리자 §2-3 읽기 전용): `schema_version`(1.1, v2.50), `lease{holder,epoch,lease_until,leader_alive,lease_remaining_ms}`, `command_watermark`(표시용 전역 최대), `command_watermarks[]{market_id,command_watermark,apply_lag}`(마켓별 명령 head 와 적용 지연, v2.50), `event_watermark`, `applied_command_watermark`, `apply_lag`(마켓마다 명령 head 에서 물질화 경계를 뺀 값의 최대, v2.50), `apply_lag_total`(그 합, v2.50), `snapshot_seq`, `trades_count`, `recovery_runs_count`, `last_failover{downtime_seconds,rto_seconds,verdict,at}`. 전부 DB 실적재분이고 시각은 §2-1 밀리초 UTC다. 이상형 예시의 `role`·`node`·`follower_lag_seq`·`matching_market_owner`는 노드 팔로워 레지스트리·복제 큐가 실재해야 하나 본 구조(단일 라이터 + 저널 재생 복구)에 없어 방출하지 않는다(미추적 필드 날조 회피). 리더 권위는 `leader_lease` DB 직조회다. 확장은 기존 필드 불변의 additive만 한다. v2.50 의 `apply_lag` 재정의는 이 규칙의 예외라 응답 `schema_version` 을 1.1 로 올렸다. 스칼라 워터마크 셋은 표시용 전역 최대라 서로 빼지 않는다.
 
 > `/admin/v1/ha/recovery` 실제 방출(v2.33, 스키마 1.2): `schema_version`, `verdict{...}`, `recovery_runs[]`, `failover_runs[]`. 이상형 예시의 `last_experiment`·`failover`·`invariants`는 실험 메타와 불변식 결과를 한 응답에 합친 형태이나, 그 둘은 각각 `GET /admin/v1/chaos/runs`와 하네스 `invariant_checks`가 원천이라 여기서 방출하지 않는다(미추적 필드 날조 회피).
 
@@ -2155,3 +2155,12 @@ NULL 취급이 축마다 다르다. `rto_seconds`·`rpo_records`의 NULL은 `UNK
 - **락 키에 마켓을 넣지 않는다.** ADR 0022 4단계가 접수 락을 마켓별로 가르면 같은 `(user_id, client_order_id)` 의 교차 마켓 동시 재전송을 직렬화하는 겹이 이 락 하나다. 키에 마켓을 넣으면 두 요청이 서로를 못 보고 둘 다 ACK 를 받는다.
 - **503 `service_unavailable` 사유에 트랜잭션 시작 실패를 더한다.** 접수 락 분할로 append 전용 커넥션 풀 획득이 타임아웃하면 트랜잭션 시작이 실패하고, 이것도 재조회 계약(`Retry-After`)으로 수렴시킨다. 마켓 라이터 샤드가 멈춘 창에서는 그 마켓의 주문 접수만 이 코드로 거부된다. 근거는 `docs/contracts/백엔드_DB_설계.md` v2.47 과 `docs/adr/0022-market-partitioned-command-journal.md` 4-1~4-3 이다.
 - **트랜잭션 시작 실패 매핑의 범위.** `CannotCreateTransactionException` 은 `TransactionTemplate` 을 쓰는 컨트롤러 경로 전체에서 503 `service_unavailable` + `Retry-After` 가 된다. 종전에는 범용 처리기의 `500 server_error` 였다.
+
+## v2.50 패치 반영 사항
+
+ADR 0022 6단계(대역 채번 커트오버)가 §6-C 상태 응답을 마켓 벡터로 바꾼다. 2026-09-14 갱신.
+
+- **`/admin/v1/ha/status` 에 `command_watermarks[]{market_id,command_watermark,apply_lag}` 와 `apply_lag_total` 을 더한다.** `apply_lag` 는 마켓마다 명령 head 에서 물질화 경계를 뺀 값의 최대이고 `apply_lag_total` 은 그 합이다. 합만 내면 한 마켓의 정체가 묻힌다. 대역 채번 뒤 명령 seq 는 `market_id * band_span + 마켓 안 번호` 라 전역 스칼라끼리 빼면 대역 폭이 지연으로 읽힌다.
+- **이 응답의 `schema_version` 을 1.1 로 올린다.** `apply_lag` 의 뜻이 바뀌어 §6-C 의 additive 규칙 예외이기 때문이다. 관리자 API 에는 응답별 1.1·1.3 판이 이미 있어, §2-2 표의 스키마 버전 행을 기본 1.0 과 관리자 응답별 판으로 고쳐 적는다.
+- **스칼라 `command_watermark`·`event_watermark`·`applied_command_watermark`·`snapshot_seq` 는 남긴다.** 표시용 전역 최대다. 웹 관리 화면(`web/lib/admin/httpAdmin.ts`)은 `command_watermark` 만 읽고, 그 값이 이미 마켓별 최대의 최대라 웹 변경이 없다.
+- **§4-B-1 주문 응답 예시 주석의 "§6-C last_applied_seq와 동일 축" 을 고친다.** v2.48 패치가 상태 응답을 마켓 벡터로 바꾸는 개정으로 미룬 문구다. 이제 `command_watermarks[]` 의 그 마켓 `command_watermark` 와 같은 축이다.

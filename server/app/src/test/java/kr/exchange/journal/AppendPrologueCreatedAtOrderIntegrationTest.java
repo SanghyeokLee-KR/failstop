@@ -14,9 +14,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -60,14 +61,20 @@ class AppendPrologueCreatedAtOrderIntegrationTest {
         }
     }
 
+    /** 5인자 판(V43)과 6인자 판(V44) 모두 VOLATILE 이어야 어드바이저리 락을 기다린 멱등 조회가 앞선 커밋을 본다. */
     @Test
     void prologueIsDeclaredVolatile() throws Exception {
         try (Connection c = open(POSTGRES.getJdbcUrl()); Statement st = c.createStatement();
-             ResultSet rs = st.executeQuery(
-                     "SELECT provolatile FROM pg_proc WHERE proname = 'append_command_prologue'")) {
-            assertTrue(rs.next(), "append_command_prologue 가 없다");
-            assertEquals("v", rs.getString(1));
-            assertFalse(rs.next(), "append_command_prologue 정의가 둘 이상이다");
+             ResultSet rs = st.executeQuery("""
+                     SELECT pg_get_function_identity_arguments(oid), provolatile FROM pg_proc
+                     WHERE proname = 'append_command_prologue' ORDER BY pronargs
+                     """)) {
+            List<String> overloads = new ArrayList<>();
+            while (rs.next()) {
+                assertEquals("v", rs.getString(2), rs.getString(1));
+                overloads.add(rs.getString(1));
+            }
+            assertEquals(2, overloads.size(), "append_command_prologue 가 5인자와 6인자 두 판이 아니다: " + overloads);
         }
     }
 

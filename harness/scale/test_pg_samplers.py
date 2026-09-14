@@ -57,6 +57,40 @@ class ControlTest(unittest.TestCase):
         self.assertEqual(pgs.control_verdict([], 'OSError', None)['상태'], 'NOT RUN')
 
 
+class SplitTest(unittest.TestCase):
+    PARSED = {'counter_rel': True, 'market_rel': True, 'prologue_active': 3, 'prologue_lock_wait': 2,
+              'advisory_wait': 0, 'counter_row_wait': 1, 'market_row_wait': 1, 'both_row_wait': 0,
+              'waiters': [{'pid': 1, 'blockers': [9], 'advisory': False, 'counter_row': True, 'market_row': False},
+                          {'pid': 2, 'blockers': [8], 'advisory': False, 'counter_row': False, 'market_row': True}]}
+
+    def test_split_follows_table_lock(self):
+        rec = pgs.counter_split_record(self.PARSED, None)
+        self.assertTrue(rec['ok'])
+        self.assertEqual((rec['global_row_wait'], rec['market_row_wait']), (1, 1))
+        self.assertEqual([(w['global_row'], w['market_row']) for w in rec['waiters']], [(True, False), (False, True)])
+        self.assertEqual(pgs.counter_row_record(self.PARSED, None)['counter_row_wait'], 1)
+
+    def test_waiter_on_both_tables_fails_split_sample_only(self):
+        both = dict(self.PARSED, both_row_wait=1)
+        rec = pgs.counter_split_record(both, None)
+        self.assertFalse(rec['ok'])
+        self.assertIsNone(rec['global_row_wait'])
+        self.assertTrue(pgs.counter_row_record(both, None)['ok'])
+
+    def test_unresolved_table_fails_sample(self):
+        self.assertFalse(pgs.counter_split_record(dict(self.PARSED, market_rel=False), None)['ok'])
+        rec = pgs.counter_split_record(None, 'psql 빈 출력')
+        self.assertEqual((rec['ok'], rec['error'], rec['market_row_wait']), (False, 'psql 빈 출력', None))
+
+    def test_summary_and_control_by_class(self):
+        market_only = dict(self.PARSED, counter_row_wait=0, waiters=[self.PARSED['waiters'][1]])
+        rec = dict(pgs.counter_split_record(market_only, None), k6_alive=True)
+        self.assertEqual(pgs.summarize_counter_samples([rec, rec], 'market_row_wait')['대기 합'], 2)
+        self.assertEqual(pgs.summarize_counter_samples([rec, rec], 'global_row_wait')['대기 합'], 0)
+        self.assertEqual(pgs.control_verdict([rec], 0, 0, 'market_row_wait', 'market_row')['상태'], 'PASS')
+        self.assertEqual(pgs.control_verdict([rec], 0, 0, 'global_row_wait', 'global_row')['상태'], 'FAIL')
+
+
 class ConnectionTest(unittest.TestCase):
     def test_limit_is_max_minus_superuser_reserved(self):
         s = pgs.summarize_connection_samples([conn(40), conn(97)])

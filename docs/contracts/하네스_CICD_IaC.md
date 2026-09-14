@@ -302,6 +302,8 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 
 `exchange.submit.lock.wait.nanos`·`exchange.submit.lock.hold.nanos`·`exchange.submit.count`는 2026-09-14 ADR 0022 4단계부터 `market` 태그(마켓 id 문자열)를 가진 마켓별 계측이고, 그 마켓의 첫 접수 때 등록된다. 태그 없는 시계열은 없다. `sum(rate(...))`로 읽는 하네스 스크립트는 그대로 쓰되, 락이 마켓마다 겹치므로 보유 점유 합이 1.0을 넘을 수 있다. `exchange.inflight.lock.*`는 1024개 스트라이프 락의 합이라 같은 성질이다.
 
+2026-09-14 ADR 0022 6단계가 `exchange.journal.band.latched`(1 대역 채번, 0 전역 채번)를 더했다. 기동 때 한 번 읽는 값이라 운영 중 래치 뒤에는 재기동 전까지 0 이다. 같은 단계에서 `exchange.follower.catchup.lag_commands.max`·`exchange.follower.catchup.lag_commands.sum_of_markets` 의 격차를 마켓 head 에서 엔진 커서와 물질화 경계 중 큰 쪽을 뺀 값으로 바꿨다. 커서가 대역 시작 아래에 있으면 대역 폭이 격차로 읽히기 때문이다. 경계를 아직 읽지 않은 새 마켓은 다음 틱에 잰다.
+
 ### 5-3. Prometheus
 
 `harness/prometheus/prometheus.yml`은 scrape job 8개다(`grep -c 'job_name:'`). exporter는 `chaos-blackbox`, `chaos-pg-exporter`, `chaos-cstats` 셋이고 전부 `obs` 프로파일이다. node_exporter는 없다.
@@ -436,15 +438,15 @@ e1부터 e9를 순서대로 도는 오케스트레이터가 없다. 하나씩 �
 
 | 원천 | 개수 | 세는 방법 |
 |---|---|---|
-| `harness/sql/invariants.sql` | **28** | 판정 블록. `\echo '== C` 30행에서 C24·C25의 분기 중복 2행을 뺀다 |
-| `InvariantCheck.java` enum | 27 | 28에서 C04가 빠진다 |
-| 카탈로그 코드 | 26 | C01~C25와 C27. C26은 ADR 0022 7단계 예약 번호라 비어 있다 |
+| `harness/sql/invariants.sql` | **29** | 판정 블록. `\echo '== C` 31행에서 C24·C25의 분기 중복 2행을 뺀다 |
+| `InvariantCheck.java` enum | 28 | 29에서 C04가 빠진다 |
+| 카탈로그 코드 | 27 | C01~C25와 C27·C28. C26은 ADR 0022 7단계 예약 번호라 비어 있다 |
 
 C04는 지연 제약 트리거가 데이터베이스 안에서 강제하므로 러너의 조회 대상이 아니다. 코드 축에서 C07이 C07·C07P로, C13이 C13a·C13b로 갈려 블록이 코드보다 둘 많다.
 
-enum의 Severity 분포는 CRITICAL 16, HIGH 8, WARN 3이다. Scope 분포는 SCHEDULED 20, AUTHORITATIVE_ONLY 7이다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
+enum의 Severity 분포는 CRITICAL 17, HIGH 8, WARN 3이다. Scope 분포는 SCHEDULED 21, AUTHORITATIVE_ONLY 7이다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
 
-개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다.
+개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다. 2026-09-14 ADR 0022 6단계가 C28(CRITICAL·SCHEDULED)을 더해 다시 셌다.
 
 술어 정본은 `하네스_검증설계.md` §4-1이다. 이 절은 미러다.
 
@@ -481,11 +483,11 @@ enum의 Severity 분포는 CRITICAL 16, HIGH 8, WARN 3이다. Scope 분포는 SC
 
 카오스 스택에서는 `chaos-api-1`이 단독으로 마이그레이션을 돈다. 배포 평면에서는 먼저 뜨는 노드가 돈다.
 
-**마이그레이션 노드가 적용을 끝낸 뒤 나머지 노드를 새 이미지로 올린다.** Flyway가 꺼진 노드는 스키마를 확인하지 않고 붙는다. V41처럼 앱 코드가 DB 쪽 전제(`uq_leader_lease_fencing_key`)에 안전성을 기대는 판에서 순서가 뒤집히면 승격이 진행 중 쓰기를 기다리지 않아 stale write가 열린다(`docs/adr/0026-leader-lease-key-share-lock.md`). 기동 시 이를 막는 코드 가드는 아직 없다.
+**마이그레이션 노드가 적용을 끝낸 뒤 나머지 노드를 새 이미지로 올린다.** Flyway가 꺼진 노드는 스키마를 확인하지 않고 붙는다. V41처럼 앱 코드가 DB 쪽 전제(`uq_leader_lease_fencing_key`)에 안전성을 기대는 판에서 순서가 뒤집히면 승격이 진행 중 쓰기를 기다리지 않아 stale write가 열린다(`docs/adr/0026-leader-lease-key-share-lock.md`). 기동 시 이를 막는 코드 가드는 아직 없다. V44 만 예외다. 앱이 기동 때 `journal_cutover` 를 읽으므로 V44 적용 전의 DB 에 새 이미지가 붙으면 기동이 선다(`EngineConfig.java` 래치 게이지 등록부).
 
 V42 는 적용 창에 조건이 붙는다. `event_journal` 이 분할 부모라 `CONCURRENTLY` 를 쓸 수 없어 잎마다 SHARE 잠금을 쥔다. 행이 있는 DB 에 운영 중 적용하면 정산이 기본 풀 lock_timeout(2000ms)을 넘기는 순간 55P03 으로 실패한다. 그래서 구 리더의 라이터가 멈춘 창에서 적용한다(`V42__event_journal_market_cmd_index.sql` 머리 주석). 새 볼륨으로 세운 카오스 스택은 적용 시점에 행이 없어 발화하지 않는다. 이 조건을 강제하는 코드 가드는 없다.
 
-`V0__roles.sql`이 `app_role`과 `harness_role`을 만든다. **두 롤 모두 런타임에 배선돼 있지 않다.** 둘 다 NOLOGIN이고 실제 접속은 다른 계정으로 한다. 롤 경계가 스키마에는 있고 런타임에는 없다. 처분은 §8-2에 둔다.
+`V0__roles.sql`이 `app_role`과 `harness_role`을 만든다. **두 롤 모두 런타임에 배선돼 있지 않다.** 둘 다 NOLOGIN이고 실제 접속은 다른 계정으로 한다. 롤 경계가 스키마에는 있고 런타임에는 없다. 처분은 §8-2에 둔다. V44 가 `latch_command_band_cutover()` 의 EXECUTE 를 PUBLIC 과 `app_role` 에서 회수한 것도 같은 이유로 스키마 경계뿐이다. 앱 접속 계정이 함수 소유자와 같으면 앱 경로에서도 래치를 부를 수 있다.
 
 Flyway 설정 파일도 Gradle 플러그인도 없다. Spring Boot 자동구성이 돈다.
 

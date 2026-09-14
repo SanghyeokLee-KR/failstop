@@ -1,0 +1,116 @@
+{
+ "래치": {
+  "ok": true,
+  "error": null,
+  "래치 행": [
+   {
+    "name": "command_seq",
+    "latched_at": "2026-09-14T08:26:10.753542+00:00",
+    "latched_by": "exchange"
+   }
+  ],
+  "ts": "2026-09-14T17:27:47+09:00"
+ },
+ "대역 행": {
+  "창": null,
+  "band_span": 1000000000000,
+  "마켓": [
+   {
+    "id": 1,
+    "symbol": "KRW-BTC",
+    "band_rows": 723,
+    "legacy_rows": 13
+   },
+   {
+    "id": 2,
+    "symbol": "KRW-ETH",
+    "band_rows": 614,
+    "legacy_rows": 0
+   },
+   {
+    "id": 3,
+    "symbol": "KRW-SOL",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 4,
+    "symbol": "KRW-XRP",
+    "band_rows": 359,
+    "legacy_rows": 0
+   },
+   {
+    "id": 5,
+    "symbol": "KRW-DOGE",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 6,
+    "symbol": "KRW-ADA",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 7,
+    "symbol": "KRW-TRX",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 8,
+    "symbol": "KRW-LINK",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 9,
+    "symbol": "KRW-DOT",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 10,
+    "symbol": "KRW-MATIC",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 11,
+    "symbol": "KRW-AVAX",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 12,
+    "symbol": "KRW-ATOM",
+    "band_rows": 0,
+    "legacy_rows": 0
+   }
+  ],
+  "error": null
+ },
+ "C28": {
+  "ok": true,
+  "error": null,
+  "band_span": 1000000000000,
+  "위반 행": 0,
+  "마켓": [
+   {
+    "market_id": 1,
+    "first_band_created_at": "2026-09-14T08:26:11.507369+00:00",
+    "legacy_after_band": 0
+   },
+   {
+    "market_id": 2,
+    "first_band_created_at": "2026-09-14T08:26:14.050928+00:00",
+    "legacy_after_band": 0
+   },
+   {
+    "market_id": 4,
+    "first_band_created_at": "2026-09-14T08:26:26.375266+00:00",
+    "legacy_after_band": 0
+   }
+  ]
+ }
+}

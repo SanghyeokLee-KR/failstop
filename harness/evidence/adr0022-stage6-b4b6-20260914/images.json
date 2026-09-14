@@ -1,0 +1,13 @@
+{
+  "image": {
+    "ref": "0cb57a3827ac06cb2d32992ea8f21170b9e7e201",
+    "commit": "0cb57a3827ac06cb2d32992ea8f21170b9e7e201",
+    "worktree": "C:\\dev\\exchange-adr0022-stage6-0cb57a3",
+    "tag": "exchange-chaos-app:adr0022-stage6-0cb57a3",
+    "imageId": "sha256:1f16a036b451df9ec04338ddd5ace345be01d481a5b445cbfa01627aa6ddc640",
+    "jarSha256": "a624e430c343f6f7a952b2d28da4bd39918c342d04be5d4768b2f92b9ffd1a1a",
+    "recordedAt": "2026-09-14T17:03:56.6480642+09:00"
+  },
+  "maxConnections": 200,
+  "harnessCommit": "0cb57a3827ac06cb2d32992ea8f21170b9e7e201"
+}

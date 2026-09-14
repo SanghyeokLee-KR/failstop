@@ -1,7 +1,9 @@
 # ADR 0022 5단계 장애 시험 주행. 4단계 이미지(B4)로 E2, E4, E5, E6, E7 을 차례로 돌린다.
+# -LatchBeforeTraffic 이면 6단계 대역 모드 주행이다. 6단계 이미지로 실험마다 기동 직후, 실험 스크립트 전에 래치를 건다
+# (ADR 0022 7절 6-b 래치 전 확인 5). 래치는 되돌릴 수 없고 실험마다 down -v 가 그 DB 를 버린다.
 # 실험마다 볼륨을 파기하고 새로 세운다(e4·e5·e7 머리 주석의 실행 전제). down -v 전에 판정 파일, DB 쪽 증거,
-# 도커 사건, 연결 표본을 harness/evidence/adr0022-stage5-<YYYYMMDD>/<실험>/ 로 떨어뜨린다.
-# 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:adr0022-b4-<sha7>
+# 도커 사건, 연결 표본을 harness/evidence/adr0022-stage5-<YYYYMMDD>/<실험>/ 로 떨어뜨린다. 대역 모드는 adr0022-stage6-chaos-<YYYYMMDD>/ 다.
+# 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic]
 # 종료코드: 0 전 실험 PASS 이고 연결 고갈 없음, 1 그 밖, 5 BLOCKED(시작 전 조건).
 # 비밀 파일(harness/.env.chaos)은 compose 에 경로로만 넘기고 읽지 않는다.
 param(
@@ -9,7 +11,8 @@ param(
     [string] $Experiments = 'E2,E4,E5,E6,E7',
     [string] $EvidenceDir = '',
     [string] $LocalLogDir = '',
-    [int] $AppendPool = 14
+    [int] $AppendPool = 14,
+    [switch] $LatchBeforeTraffic
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,9 +22,10 @@ $env:PYTHONIOENCODING = 'utf-8'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $date = Get-Date -Format 'yyyyMMdd'
-if (-not $EvidenceDir) { $EvidenceDir = Join-Path $repo "harness\evidence\adr0022-stage5-$date" }
+$runName = $(if ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } else { 'adr0022-stage5' })
+if (-not $EvidenceDir) { $EvidenceDir = Join-Path $repo "harness\evidence\$runName-$date" }
 # 컨테이너 로그는 요청 식별자와 계정 흔적을 담아 저장소 밖에 두고 해시만 증거에 남긴다.
-if (-not $LocalLogDir) { $LocalLogDir = Join-Path ([System.IO.Path]::GetTempPath()) "adr0022-stage5-$date" }
+if (-not $LocalLogDir) { $LocalLogDir = Join-Path ([System.IO.Path]::GetTempPath()) "$runName-$date" }
 $runLog = Join-Path $EvidenceDir 'commands.log'
 
 $scripts = [ordered]@{ E2 = 'e2-db-cut.ps1'; E4 = 'e4-leader-kill.ps1'; E5 = 'e5-net-partition.ps1'
@@ -81,18 +85,16 @@ function Get-C22Arms {
     return [ordered]@{ ok = $true; timeArm = $time; marketArm = $market }
 }
 
+# 사건 줄은 실험 전에 띄운 docker events 스트림이 파일로 흘린 것이다. 네트워크 사건의 컨테이너 id 는 down 전 이름으로 바꾼다.
 function Get-DockerEvents {
-    param([DateTimeOffset] $From, [DateTimeOffset] $To, [string] $OutPath)
+    param([string] $RawPath)
     $names = @{}
     foreach ($line in @(& docker ps -a --no-trunc --format '{{.ID}} {{.Names}}' 2>$null)) {
         $parts = "$line".Split(' ')
         if ($parts.Count -eq 2) { $names[$parts[0]] = $parts[1] }
     }
-    $raw = @(& docker events --since ($From.ToUnixTimeSeconds()) --until ($To.ToUnixTimeSeconds() + 1) `
-        --format '{{json .}}' --filter 'type=container' --filter 'type=network' 2>$null)
-    Save-Text $OutPath (($raw -join "`n") + "`n")
     $events = @()
-    foreach ($line in $raw) {
+    foreach ($line in @(Get-Content $RawPath -Encoding utf8)) {
         try { $e = $line | ConvertFrom-Json } catch { continue }
         if ($eventActions -notcontains $e.Action) { continue }
         $target = if ($e.Type -eq 'network') { $names[[string]$e.Actor.Attributes.container] } else { [string]$e.Actor.Attributes.name }
@@ -108,6 +110,7 @@ function Invoke-Experiment {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     $row = [ordered]@{ experiment = $Exp; script = "harness/scripts/$($scripts[$Exp])"; image = $Image; imageId = $imageId }
     $sampler = $null
+    $eventsProc = $null
     $stop = Join-Path $dir 'stop-conn'
     try {
         Write-RunLog "START $Exp"
@@ -119,6 +122,11 @@ function Invoke-Experiment {
         $row['containerImages'] = $running
         if (@($running.Values | Where-Object { $_ -ne $imageId }).Count -gt 0) {
             $row['분리 판정'] = 'BLOCKED'; $row['사유'] = '고정한 이미지로 뜨지 않았다'; return $row
+        }
+        if ($LatchBeforeTraffic) {
+            # 실험 스크립트가 봇 부하를 정하기 전에 건다. 봇은 compose 기동과 함께 돌므로 호출 전 저널 행 수가 latch.json 에 남는다.
+            $latchRc = Invoke-Logged 'python' @('harness/scale/band_cutover.py', 'latch', '--out', (Get-RelPath (Join-Path $dir 'latch.json'))) (Join-Path $dir 'latch.log')
+            if ($latchRc -ne 0) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "래치 거부 또는 실패(rc=$latchRc). latch.json 을 본다"; return $row }
         }
         # 연결 예산 사전 점검. max_connections 는 떠 있는 chaos-pg 에서 읽는다. 요청 풀 32 는 chaos compose 값이다.
         $budgetRc = Invoke-Logged 'python' @('harness/scale/pg_samplers.py', 'budget', '--live', '--api-nodes', '2',
@@ -134,6 +142,13 @@ function Invoke-Experiment {
                 '--stop-file', (Get-RelPath $stop), '--interval', '5') `
             -RedirectStandardOutput (Join-Path $dir 'conn_sampler.out') -RedirectStandardError (Join-Path $dir 'conn_sampler.err')
 
+        # 사건 스트림을 실험 스크립트보다 먼저 띄운다. 끝난 뒤 --since 로 되물으면 주입 사건이 데몬 버퍼에 남아 있지 않았다(5단계 E5·E7).
+        $eventsPath = Join-Path $dir 'docker_events.jsonl'
+        $eventsProc = Start-Process -FilePath 'docker' -NoNewWindow -PassThru `
+            -ArgumentList @('events', '--since', "$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())", '--format', '"{{json .}}"',
+                '--filter', 'type=container', '--filter', 'type=network') `
+            -RedirectStandardOutput $eventsPath -RedirectStandardError (Join-Path $dir 'docker_events.err')
+
         $t0 = [DateTimeOffset]::UtcNow
         $console = Join-Path $dir 'console.log'
         Write-RunLog "EXPERIMENT $Exp pwsh -NoProfile -File $($row.script)"
@@ -147,6 +162,10 @@ function Invoke-Experiment {
         $row['window'] = [ordered]@{ from = $t0.ToString('o'); to = $t1.ToString('o') }
         New-Item -ItemType File -Force -Path $stop | Out-Null
         if (-not $sampler.WaitForExit(30000)) { Stop-Process -Id $sampler.Id -Force }
+        # 마지막 복귀 사건이 스트림에 닿을 틈을 두고 멈춘다.
+        Start-Sleep -Seconds 2
+        Stop-Process -Id $eventsProc.Id -Force
+        $eventsProc.WaitForExit(10000) | Out-Null
 
         # 판정 파일은 실험 스크립트가 harness/evidence/chaos-runs 에 쓴다. 판정 전에 예외로 끝나면 없다.
         $runId = $null
@@ -184,7 +203,7 @@ function Invoke-Experiment {
         Save-Text (Join-Path $dir 'invariants_psql.txt') $psqlOut
         $c22 = Get-C22Arms $psqlOut $psqlRc
 
-        $events = Get-DockerEvents $t0 $t1 (Join-Path $dir 'docker_events.jsonl')
+        $events = Get-DockerEvents $eventsPath
         $states = [ordered]@{}
         foreach ($c in 'chaos-api-1', 'chaos-api-2', 'chaos-bots', 'chaos-pg') {
             $raw = (& docker inspect -f '{{json .State}}' $c 2>$null | Out-String).Trim()
@@ -214,6 +233,39 @@ function Invoke-Experiment {
             '--out', (Get-RelPath $connPath)) (Join-Path $dir 'connections.log') | Out-Null
         $connState = 'NOT RUN'
         if (Test-Path $connPath) { $connState = (Get-Content $connPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable).'판정'.'상태' }
+
+        $cutover = $null
+        if ($LatchBeforeTraffic) {
+            $statePath = Join-Path $dir 'band_state.json'
+            Invoke-Logged 'python' @('harness/scale/band_cutover.py', 'state', '--out', (Get-RelPath $statePath)) (Join-Path $dir 'band_state.log') | Out-Null
+            $latch = Get-Content (Join-Path $dir 'latch.json') -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+            $latchRows = @(); $marketRows = @(); $c28 = $null
+            if (Test-Path $statePath) {
+                $state = Get-Content $statePath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+                if ($state['래치']['래치 행']) { $latchRows = @($state['래치']['래치 행']) }
+                if ($state['대역 행']['마켓']) { $marketRows = @($state['대역 행']['마켓']) }
+                if ($state['C28']['ok']) { $c28 = [long]$state['C28']['위반 행'] }
+            }
+            $bandTotal = 0; $legacyTotal = 0; $bandMarkets = 0
+            foreach ($m in $marketRows) {
+                $bandTotal += [long]$m['band_rows']; $legacyTotal += [long]$m['legacy_rows']
+                if ([long]$m['band_rows'] -gt 0) { $bandMarkets++ }
+            }
+            $authC28 = $null
+            if ($verdict) {
+                $authC28 = @($verdict.invariants | Where-Object { $_.window -eq 'post' -and "$($_.check)" -like 'C28*' } |
+                    ForEach-Object { [ordered]@{ check = $_.check; ok = $_.ok; violatedRows = $_.violatedRows } })
+            }
+            $cutover = [ordered]@{
+                '래치' = [ordered]@{ ok = $latch['ok']; '호출 전 저널 행' = $latch['사전']['journal_rows']; '래치 행' = $latchRows }
+                '대역 모드 성립' = ($latchRows.Count -gt 0 -and $bandTotal -gt 0)
+                '대역 행 합' = $bandTotal; '대역 행 > 0 마켓' = $bandMarkets; '레거시 행 합' = $legacyTotal
+                'C28(하네스 SQL)' = $c28
+                '사후 권위 run C28' = [ordered]@{ '포함' = $(if ($null -ne $authC28) { $authC28.Count -gt 0 } else { $null }); '행' = $authC28 }
+                '주' = $(if ($c28 -gt 0 -and $inversions -and $inversions.inversions -gt 0) { 'C28 위반과 마켓 안 created_at 역행이 함께 있다. 시계 역행 뒤 거짓 양성 후보(ADR 0022 9-17)' } else { $null })
+            }
+            $row['cutover'] = $cutover
+        }
         $row['clockAfter'] = Test-ClockSkew
 
         $expVerdict = $null
@@ -225,6 +277,13 @@ function Invoke-Experiment {
             elseif (-not $expVerdict) { 'NOT RUN' }
             elseif ($expVerdict -eq 'SKIP') { 'NOT RUN(시계 스큐 SKIP)' }
             else { $expVerdict })
+        # 대역 모드에서 래치 행이나 대역 행이 없으면 대역 채번을 시험하지 않은 주행이다. C28 은 사후 권위 run 에 없을 수 있어 하네스 SQL 값으로 막는다.
+        if ($cutover -and $row['분리 판정'] -eq 'PASS') {
+            $row['분리 판정'] = $(if (-not $cutover['대역 모드 성립']) { 'NOT RUN(대역 모드 미성립)' }
+                elseif ($null -eq $cutover['C28(하네스 SQL)']) { 'NOT RUN(C28 미확인)' }
+                elseif ($cutover['C28(하네스 SQL)'] -gt 0) { 'FAIL(C28 섞임)' }
+                else { 'PASS' })
+        }
 
         $expected = $reachActions[$Exp]
         $apiEvents = @($events | Where-Object { $apiNodes -contains $_.container })
@@ -269,19 +328,20 @@ function Invoke-Experiment {
             New-Item -ItemType File -Force -Path $stop | Out-Null
             if (-not $sampler.WaitForExit(30000)) { Stop-Process -Id $sampler.Id -Force }
         }
+        if ($eventsProc -and -not $eventsProc.HasExited) { Stop-Process -Id $eventsProc.Id -Force }
         $code = Invoke-ComposeQuiet '--profile obs down -v --remove-orphans'
         Write-RunLog "END $Exp down rc=$code"
     }
 }
 
 if ($PSVersionTable.PSVersion.Major -lt 7) { Write-Host 'pwsh 7 로 실행한다(CLAUDE.md 30절).'; exit 5 }
-if (-not $Image) { Write-Host '-Image 가 필요하다. adr0022-stage4-b0b4.ps1 가 구운 B4 태그다.'; exit 5 }
+if (-not $Image) { Write-Host '-Image 가 필요하다. 5단계는 4단계 B4 태그, 대역 모드는 adr0022-stage6-b4b6.ps1 가 구운 6단계 태그다.'; exit 5 }
 $wanted = @($Experiments.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $unknown = @($wanted | Where-Object { -not $scripts.Contains($_) })
 if ($unknown.Count -gt 0) { Write-Host ('이 절차에 없는 실험: {0}' -f ($unknown -join ', ')); exit 5 }
 if (Test-Path (Join-Path $EvidenceDir 'summary.json')) { Write-Host '이미 summary.json 이 있다. 증거를 덮지 않는다.'; exit 5 }
 New-Item -ItemType Directory -Force -Path $EvidenceDir | Out-Null
-Write-RunLog "RUN adr0022-stage5-chaos Image=$Image Experiments=$($wanted -join ',')"
+Write-RunLog "RUN adr0022-stage5-chaos Image=$Image Experiments=$($wanted -join ',') LatchBeforeTraffic=$LatchBeforeTraffic"
 if (-not (Test-Path $Global:CHAOS.EnvFile)) { Write-RunLog 'BLOCKED harness/.env.chaos 가 없다'; exit 5 }
 & docker info *> $null
 if ($LASTEXITCODE -ne 0) { Write-RunLog 'BLOCKED 도커 데몬 미응답'; exit 5 }
@@ -297,6 +357,7 @@ $summary = [ordered]@{
     image = $Image; imageId = $imageId
     imageRevision = $(if ($labels -and $labels -ne 'null') { ($labels | ConvertFrom-Json).'org.opencontainers.image.revision' } else { $null })
     harnessCommit = (& git -C $repo rev-parse HEAD | Out-String).Trim()
+    latchBeforeTraffic = [bool]$LatchBeforeTraffic
     localLogDir = $LocalLogDir
     experiments = @()
 }
