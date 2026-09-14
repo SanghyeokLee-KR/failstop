@@ -292,11 +292,11 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 
 ### 5-2. 커스텀 메트릭
 
-고유 이름 31개다. 등록 호출 지점은 34개다. 타입 분포는 Counter 9, FunctionCounter 3, Timer 2, `Gauge.builder` 13, `MeterRegistry.gauge` 3, MultiGauge 1이다.
+고유 이름 48개다. 등록 호출 지점은 51개다. 고유 이름 기준 타입 분포는 Counter 10, FunctionCounter 16, Timer 2, `Gauge.builder` 16, `MeterRegistry.gauge` 2, MultiGauge 2이다. 2026-09-14 ADR 0022 7단계 판에서 셌다.
 
-세는 방법은 `server/app/src/main/java` 아래에서 `.builder("`와 `.gauge("` 등록 인자를 뽑아 중복을 제거하는 것이다.
+세는 방법은 `server/app/src/main/java` 아래에서 `.builder("`와 `.gauge("` 등록 인자를 뽑아 중복을 제거하는 것이다. 타입은 등록 호출 바로 앞의 미터 타입 이름으로 가른다.
 
-**규칙이나 대시보드가 실제로 참조하는 것은 19개다.** 12개가 방출만 되고 아무도 보지 않는다. 방출 비용은 이미 내고 있으므로, 쓰지 않을 것이면 걷고 쓸 것이면 규칙이나 패널에 걸어야 한다. 이 12개의 처분은 §8-2에 미결로 둔다.
+**규칙이나 대시보드가 실제로 참조하는 것은 19개다.** 29개가 방출만 되고 아무도 보지 않는다. 참조는 `harness/prometheus/rules/`와 `harness/grafana/dashboards/`에서 노출 이름(점을 밑줄로 바꾸고 카운터는 `_total`, 타이머는 `_seconds_*` 접미)을 찾아 센다. 방출 비용은 이미 내고 있으므로, 쓰지 않을 것이면 걷고 쓸 것이면 규칙이나 패널에 걸어야 한다. 이 29개의 처분은 §8-2에 미결로 둔다.
 
 `AdmissionControl`의 scope는 4개다(order, query, requery, ws).
 
@@ -304,7 +304,7 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 
 2026-09-14 ADR 0022 6단계가 `exchange.journal.band.latched`(1 대역 채번, 0 전역 채번)를 더했다. 기동 때 한 번 읽는 값이라 운영 중 래치 뒤에는 재기동 전까지 0 이다. 같은 단계에서 `exchange.follower.catchup.lag_commands.max`·`exchange.follower.catchup.lag_commands.sum_of_markets` 의 격차를 마켓 head 에서 엔진 커서와 물질화 경계 중 큰 쪽을 뺀 값으로 바꿨다. 커서가 대역 시작 아래에 있으면 대역 폭이 격차로 읽히기 때문이다. 경계를 아직 읽지 않은 새 마켓은 다음 틱에 잰다.
 
-2026-09-14 ADR 0022 7단계가 `exchange.journal.band.remaining{name,market}`(채번 대역에 남은 배정 가능 번호 수, `v_journal_band_headroom.remaining`)을 더했다. `InvariantVerifier` 가 상시 run 과 권위 run 끝에서 `exchange_ledger_imbalance` 와 같은 MultiGauge 덮어쓰기로 갱신하므로 하네스를 켠 리더 노드에서 5분 주기로 바뀐다. 줄어드는 속도가 소진 속도다. 같은 단계에서 스냅샷 지표 넷(`exchange.snapshot.captured`·`dropped`·`persist_failed`·`last_persisted_seq`)이 샤드마다 `market` 태그로 등록되고, `exchange.recovery.snapshot_fallback`(스냅샷 시작 복구를 버리고 전량 재생한 횟수)이 더해졌다. `SnapshotStalled` 규칙의 `and` 는 양쪽이 같은 `market` 태그를 가져 마켓마다 짝지어진다.
+2026-09-14 ADR 0022 7단계가 `exchange.journal.band.remaining{name,market}`(채번 대역에 남은 배정 가능 번호 수, `v_journal_band_headroom.remaining`)을 더했다. `InvariantVerifier` 가 상시 run 과 권위 run 끝에서 `exchange_ledger_imbalance` 와 같은 MultiGauge 덮어쓰기로 갱신하므로 하네스를 켠 리더 노드에서 5분 주기로 바뀐다. 줄어드는 속도가 소진 속도다. 같은 단계에서 스냅샷 지표 넷(`exchange.snapshot.captured`·`dropped`·`persist_failed`·`last_persisted_seq`)이 샤드마다 `market` 태그로 등록되고, `exchange.recovery.snapshot_fallback`(스냅샷 시작 복구를 버리고 전량 재생한 횟수)이 더해졌다. `SnapshotStalled` 규칙의 `and` 는 양쪽이 같은 `market` 태그를 가져 마켓마다 짝지어진다. 새 노출 이름 `exchange_journal_band_remaining` 과 `exchange_recovery_snapshot_fallback_total` 은 규칙과 대시보드가 보지 않아 위 29개에 든다. 7단계 판정기 `harness/scale/stage7_judge.py` 는 승격 노드의 `exchange_recovery_snapshot_fallback_total` 과 `exchange_journal_replay_commands_total` 증분을 판정에 쓴다(`docs/contracts/하네스_검증설계.md` §2-4).
 
 ### 5-3. Prometheus
 
@@ -521,7 +521,7 @@ Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 �
 
 ### 8-2. 결정이 필요한 것
 
-1. **미참조 메트릭 12개.** 방출은 하는데 규칙도 대시보드도 보지 않는다. 걷을지 걸지 정한다.
+1. **미참조 메트릭 29개.** 방출은 하는데 규칙도 대시보드도 보지 않는다. 걷을지 걸지 정한다.
 2. **`app_role`·`harness_role` 미배선.** 스키마의 롤 경계를 런타임에 세울지, 스키마에서 뺄지 정한다.
 3. **브로커 지위.** Kafka·RabbitMQ를 정본 비채택표에 올릴지 로드맵에 둘지 정한다. `outbox` 테이블은 실재하고 발행기만 없다.
 4. **`develop` 브랜치.** 네 워크플로가 트리거에 적는데 원격에 없다. 만들거나 트리거에서 뺀다.

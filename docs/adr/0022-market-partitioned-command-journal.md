@@ -747,6 +747,8 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 - 복구 로그는 마켓별 채택 seq(`스냅샷 채택(마켓별)`)와 마켓별 커서 구간과 적용 명령 수(`재생 적용(마켓별)`)를 남긴다. `recovery_runs` 는 종전대로 전 마켓 통합 행(`market_id` 0)이다.
 - 시험. 두 채번 모드(래치 전 전역, 래치 뒤 대역)마다 마켓별 캡처, 스냅샷에서 꼬리만 재생하는 복구, 페일오버 뒤 C17, 갭 회수와 커서 0 출발, 두 폴백(재생 불일치는 불일치 행과 함께, 적재 실패는 기록 없이)을 `SnapshotHookWiringIntegrationTest` 가 본다. 운영 샤드 팩토리가 샤드마다 캡처를 거는지는 `SnapshotCaptureWiringTest` 가 본다. C26 세 벌 동치와 양성 검출, 뷰 권한, 게이지는 `InvariantBandAxisIntegrationTest` 가 본다.
 
+**검증 도구 주(2026-09-14).** 도커 판정 규약은 `docs/contracts/하네스_검증설계.md` §2-4 끝 「ADR 0022 7단계 스냅샷 경계 재생 판정 규약」이다. 절차는 `harness/scripts/adr0022-stage7-snapshot.ps1`(실험 주행은 `adr0022-stage5-chaos.ps1 -SnapshotEvidence`), 채집은 `harness/scale/snapshot_evidence.py`, 판정은 `harness/scale/stage7_judge.py` 다. 구현 보고의 판정식 `count(seq > 채택 seq)` 는 승격 뒤 새 명령이 더해져 적용 건수와 어긋나므로 재생 적용 줄의 종료 커서로 상한하고 승격 head 도달을 따로 본다. 팔로워가 모든 마켓 head 에 닿아 승격 재생이 생략된 주행은 NOT RUN 이다. 6-6 의 Grafana `replay_tail_commands` 를 마켓별 합으로, 스냅샷 영속화 패널을 마켓별 변화 수로 바꿨다. C26 이 `InvariantViolation` 에 warning 으로 실리는 경로를 promtool 시험에 더했다. 도커 주행은 NOT RUN 이다.
+
 ### 8단계. commit_delay 실측 (선택. 되돌릴 수 있다)
 
 `wal-fsync-20260907` 이 "재지 않았다" 로 남긴 자리다. 그 문서의 유보 사유가 "커밋이 단일 라이터에서 직렬화되어 동시 커밋자가 적다" 였고, **6단계가 그 전제를 바꾼다.** `synchronous_commit=off` 와 다르다. 동기 커밋을 유지한 채 플러셔가 형제 트랜잭션을 모으도록 기다리게 하는 것이라 'fsync 후 ACK' 계약을 깨지 않는다. `commit_siblings` 와 함께 격자로 돈다. `ALTER SYSTEM RESET` 으로 되돌린다.
