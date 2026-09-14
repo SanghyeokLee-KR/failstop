@@ -28,6 +28,10 @@ services:
       - "tcp_keepalives_interval=2"
       - "-c"
       - "tcp_keepalives_count=3"
+      # 노드마다 요청·리스·append 풀을 다 쥔 합이 ADR 0022 4단계(append 14)에서 기본 100 을 넘는다.
+      # API 2x(32+2+14) + 봇 26 + chaos-admin 32 + exporter·표본기 6 = 160 에 예약 3과 대시보드 여유를 둔다.
+      - "-c"
+      - "max_connections=200"
     ports: ["55432:5432"]
     volumes: ["chaos-pgdata:/var/lib/postgresql/data"]
     healthcheck:
