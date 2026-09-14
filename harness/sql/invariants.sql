@@ -1,6 +1,6 @@
 -- ============================================================================
 -- invariants.sql
--- 불변식 카탈로그 C01~C25의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
+-- 불변식 카탈로그 C01~C25, C27의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
 -- (server V1__init.sql, trades.id = event_seq).
 -- 실행: psql -U exchange -d exchange -f invariants.sql
 -- 판정: 각 쿼리는 위반 행만 낸다. 전 쿼리 0행 = 무결. summary.sql이 같은 술어의 건별 카운트다.
@@ -36,10 +36,23 @@ FROM ledger_entries l
 JOIN ledger_transactions t ON t.id = l.transaction_id AND t.status = 'SEALED'
 GROUP BY l.transaction_id, l.asset_id HAVING SUM(l.amount) <> 0;
 
-\echo '== C05 CMD_JOURNAL_GAPLESS [CRITICAL] 명령 저널 무결(유실 0 / RPO=0) =='
--- 0이 아니면 gap. COALESCE로 빈 테이블(max/min NULL)을 0으로 접는다.
-SELECT COALESCE((max(seq) - min(seq) + 1) - count(*), 0) AS gaps FROM command_journal
-HAVING COALESCE((max(seq) - min(seq) + 1) - count(*), 0) <> 0;
+\echo '== C05 CMD_JOURNAL_GAPLESS [CRITICAL] 명령 저널 무결(레거시 구간 전역 + 마켓 안 대역) =='
+-- 행이 나오면 위반이다. 명세 부재 1행, 레거시 항 결번 1행, 대역 항은 결번 난 마켓마다 1행.
+-- gaps 열 합이 InvariantCheck.C05_CMD_GAPLESS 값이다. 대역 사이 빈 구간은 결번이 아니다(ADR 0022 6-1).
+WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+SELECT 'band_spec_missing' AS term, NULL::smallint AS market_id, 1::bigint AS gaps
+WHERE NOT EXISTS (SELECT 1 FROM s)
+UNION ALL
+SELECT 'legacy', NULL, COALESCE((max(c.seq) - min(c.seq) + 1) - count(*), 0)
+FROM command_journal c
+WHERE c.seq < (SELECT band_span FROM s)
+HAVING COALESCE((max(c.seq) - min(c.seq) + 1) - count(*), 0) <> 0
+UNION ALL
+SELECT 'band', c.market_id, (max(c.seq) - min(c.seq) + 1) - count(*)
+FROM command_journal c
+WHERE c.seq >= (SELECT band_span FROM s)
+GROUP BY c.market_id
+HAVING (max(c.seq) - min(c.seq) + 1) - count(*) <> 0;
 
 \echo '== C06 EVENT_JOURNAL_GAPLESS [CRITICAL] 이벤트 저널 무결 =='
 -- V36 에서 축이 마켓 안으로 바뀌었다. event_seq 는 marketId * 10^7 + marketSeq 파생이라
@@ -112,10 +125,8 @@ HAVING b.balance <> COALESCE(SUM(o.locked_amount), 0);
 
 \echo '== C15 DEFAULT_PARTITION [WARN] DEFAULT 파티션 유입 0 =='
 -- 파생 파티션(_pYYYY_MM / _p<start>)이 정상 흡수하면 DEFAULT는 항상 비어야 한다.
--- 유입 행은 파티션 경계 소진 전조(가용성). 무결성 위반은 아니다.
+-- 유입 행은 파티션 경계 소진 전조(가용성). 무결성 위반은 아니다. command_journal_default 는 C27.
 SELECT 'ledger_entries_default' AS partition, count(*) AS rows FROM ledger_entries_default HAVING count(*) > 0
-UNION ALL
-SELECT 'command_journal_default', count(*) FROM command_journal_default HAVING count(*) > 0
 UNION ALL
 SELECT 'event_journal_default', count(*) FROM event_journal_default HAVING count(*) > 0
 UNION ALL
@@ -181,29 +192,56 @@ SELECT r.event_seq FROM event_emission_registry r
 LEFT JOIN event_journal e ON e.event_seq = r.event_seq
 WHERE r.created_at >= now() - interval '90 days' AND e.event_seq IS NULL;
 
-\echo '== C22 FENCING_MONOTONIC [CRITICAL, 권위 run 한정] fencing_token 비감소 =='
--- 리더 epoch는 seq 오름차순으로 비감소여야 한다(split-brain 부재). assert_current_leader가
--- 라이브 강제이고 이 감사는 그 백스톱이라 정지 시점 권위 run에서만 평가한다.
-SELECT t.seq, t.prev, t.fencing_token FROM (
-    SELECT seq, fencing_token,
-           lag(fencing_token) OVER (ORDER BY seq) AS prev
+\echo '== C22 FENCING_MONOTONIC [CRITICAL, 권위 run 한정] fencing_token 비감소(시간 축 팔 + 마켓 안 팔) =='
+-- 행 수가 InvariantCheck.C22_FENCING_MONOTONIC 값이다. 시간 축 팔은 마켓 사이 epoch 역행까지 본다.
+-- 마켓 안 팔은 시계를 읽지 않아 시계 역행이 가린 마켓 안 역행을 잡는다(ADR 0022 6-2).
+-- 시간 축 팔은 DB 서버 시계 역행(PostgreSQL 프라이머리 전환 포함) 뒤 split-brain 없이도 행을 낼 수 있다(9-17).
+SELECT 'time' AS arm, t.seq, t.market_id, t.created_at, t.prev, t.fencing_token FROM (
+    SELECT seq, market_id, created_at, fencing_token,
+           lag(fencing_token) OVER (ORDER BY created_at, seq) AS prev
+    FROM command_journal
+) t
+WHERE t.prev > t.fencing_token
+UNION ALL
+SELECT 'market', t.seq, t.market_id, t.created_at, t.prev, t.fencing_token FROM (
+    SELECT seq, market_id, created_at, fencing_token,
+           lag(fencing_token) OVER (PARTITION BY market_id ORDER BY seq) AS prev
     FROM command_journal
 ) t
 WHERE t.prev > t.fencing_token;
 
-\echo '== C23 COUNTER_SEQ_CONSISTENCY [CRITICAL, 권위 run 한정] 채번 카운터 > 저널 최대 seq =='
--- next_value가 저널 최대 seq 이하이면 다음 채번이 기존 seq와 충돌한다(재사용). 정상 채번은
--- 원자적이라 라이브에선 항상 max+1 이상이고, 백업 복원·수동 리시드가 카운터를 저널 아래로
--- 되돌리는 경우만 위반이다.
--- V36 에서 이벤트 축이 마켓 안으로 갔다. 전역 event_seq 행은 호출자가 없으므로 대조 대상이
--- 아니다. 명령 축은 전역 카운터, 이벤트 축은 마켓별 카운터 대 마켓별 최대 market_seq 다.
-SELECT c.name, c.next_value FROM journal_counters c
-WHERE c.name = 'command_seq'
-  AND c.next_value <= (SELECT COALESCE(max(seq), 0) FROM command_journal);
-SELECT m.market_id, m.name, m.next_value FROM market_journal_counters m
+\echo '== C23 COUNTER_SEQ_CONSISTENCY [CRITICAL, 권위 run 한정] 채번 카운터 > 그 축의 저널 최대값 =='
+-- next_value가 저널 최대값 이하이면 다음 채번이 기존 값과 충돌한다(재사용). 네 문장의 행 수 합이
+-- InvariantCheck.C23_COUNTER_SEQ_CONSISTENCY 값이다. 명세 부재, 명령 레거시 팔, 명령 대역 팔, 이벤트 팔 순(ADR 0022 6-3).
+SELECT 'band_spec_missing' AS arm
+WHERE NOT EXISTS (SELECT 1 FROM journal_band_spec WHERE name = 'command_seq');
+
+WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+SELECT 'legacy' AS arm, c.name, c.next_value, x.journal_max
+FROM journal_counters c
+CROSS JOIN LATERAL (SELECT COALESCE(max(j.seq), 0) AS journal_max
+                    FROM command_journal j
+                    WHERE j.seq < (SELECT band_span FROM s)) x
+WHERE c.name = 'command_seq' AND c.next_value <= x.journal_max;
+
+WITH s AS (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+SELECT 'band' AS arm, m.market_id, m.name, m.next_value, x.local_max
+FROM market_journal_counters m
+CROSS JOIN LATERAL (SELECT COALESCE(max(j.seq - j.market_id * (SELECT band_span FROM s)), 0) AS local_max
+                    FROM command_journal j
+                    WHERE j.market_id = m.market_id AND j.seq >= (SELECT band_span FROM s)) x
+WHERE m.name = 'command_seq' AND m.next_value <= x.local_max;
+
+SELECT 'event' AS arm, m.market_id, m.name, m.next_value FROM market_journal_counters m
 WHERE m.name = 'event_seq'
   AND m.next_value <= (SELECT COALESCE(max(e.market_seq), 0) FROM event_journal e
                        WHERE e.market_id = m.market_id AND e.market_seq IS NOT NULL);
+
+\echo '== C27 CMD_DEFAULT_PARTITION [CRITICAL] command_journal DEFAULT 유입 0 =='
+-- 행이 있으면 어느 잎에도 속하지 않는 seq 로 들어간 명령이고 그 구간 잎은 다시 만들 수 없다(V40, ADR 0022 6-4).
+-- 아래 V13 조건 블록 안에 두면 V13 미적용 DB 에서 이 판정이 빠진다.
+SELECT 'command_journal_default' AS partition, count(*) AS rows
+FROM command_journal_default HAVING count(*) > 0;
 
 -- V13 미적용 DB에서는 아래 두 뷰가 없다. 무조건 조회하면 ON_ERROR_STOP 경로가 C24 이전
 -- 24개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이

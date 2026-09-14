@@ -4,7 +4,7 @@
 데모 스택(PG 5432·Spring 8080·web 3000)을 건드리지 않는다. 컨테이너명 `chaos-*`,
 포트·볼륨·네트워크 전부 분리.
 
-정본: `../docs/contracts/하네스_검증설계.md`(C01~C25·E1~E9·실험 판정 프로토콜·RTO), `../docs/contracts/하네스_CICD_IaC.md`.
+정본: `../docs/contracts/하네스_검증설계.md`(C01~C25·C27·E1~E9·실험 판정 프로토콜·RTO), `../docs/contracts/하네스_CICD_IaC.md`.
 
 ## 구성
 
@@ -18,7 +18,7 @@
 | 실험 설정 | `config/e*.env`(실험별 1:1) | 시드·타임라인·판정 임계(재현용) |
 | 스크립트 | `scripts/*.ps1` | up/down + E1~E9 오케스트레이터 + 공용 lib |
 | k6 부하 | `load/` | 개방루프 SLO 계측 시나리오 + STOMP/서명 라이브러리(§2-2). `load/README.md` 참조 |
-| 검증 SQL | `sql/invariants.sql`,`sql/summary.sql` | 불변식 C01~C25 psql 직조회본(§4-1). 데모 라이브 판정·수동 감사. C24·C25는 V13 미적용 DB에서 SKIP 표기 |
+| 검증 SQL | `sql/invariants.sql`,`sql/summary.sql` | 불변식 C01~C25·C27 psql 직조회본(§4-1). 데모 라이브 판정·수동 감사. C24·C25는 V13 미적용 DB에서 SKIP 표기 |
 | 관측 규칙 | `prometheus/rules/*.yml` | 레코딩(§5-3)·알람(§5-6). obs 프로파일 |
 | 대시보드 | `grafana/dashboards/*.json` | 증명 5장(①무결성 ②복구 ③SLO ④시스템 ⑤운영 상황판) |
 | 프로비저닝 | `grafana/provisioning/**` | 데이터소스(prometheus·pg-proof) + 대시보드 프로바이더 |
@@ -101,7 +101,7 @@ rto/rpo/verdict 컬럼이 없고 재생 결정론(`matched`)과 재생 창 식�
 판정 대상이 없었다는 뜻이지 미배선이 아니다. C16 실데이터 교차대조와 검증기 반증(위반 주입
 검출)은 서버측 통합테스트가 별도 실증한다(아래).
 
-C17의 판정력 한계를 밝힌다. 결정론 판정은 `ReplayService.verifyTo`(대조 전용 재생, ADR 0023)가 재생 이벤트를
+C17의 판정력 한계를 밝힌다. 결정론 판정은 `ReplayService.verifyToMarket`(마켓판 대조 전용 재생, ADR 0023. 2026-09-14 ADR 0022 2단계 병합 판)가 재생 이벤트를
 `event_journal` 행과 하나씩 대조해 내고 `matched`는 그 결과다. `fp_replay`·`fp_live`는 재생 창
 식별자이지 대조 대상이 아니며, 기록자가 성공 경로에서 두 값을 같게 적으므로 그 비교로는
 `matched`가 항상 참이다. 실질 판정력은 불일치 기록 경로가 도달하는가에 있다.

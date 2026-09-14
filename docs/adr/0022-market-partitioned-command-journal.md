@@ -205,7 +205,7 @@ V36 이 같은 형태를 격리 실측으로 쟀다(ADR 0021 「결정」 표).
 
 1. **갭 fast path 소실.** 마켓별 라이터에서 전역 채번을 쓰면 한 마켓 스트림의 seq 가 성기다. `SingleWriterLoop.process`(SingleWriterLoop.java:238)의 `command.seq() > last + 1` 이 사실상 모든 라이브 명령에서 참이라 명령마다 `catchUpTo` 가 저널을 한 번 더 SELECT 한다. 그 왕복은 `applyNanos`·`sinkNanos`·`hookNanos` 어디에도 계상되지 않으므로 실측 "라이터 sink 점유 2.146" 은 과소 보고다. 대역 파생이면 마켓 안에서 seq 가 +1 씩 증가해 이 왕복이 사라진다.
 2. **전역 스칼라 체크포인트.** `max(source_cmd_seq)` 하나를 "이 값 이하는 이벤트가 전부 있다" 로 읽는 해석은 라이터가 하나일 때만 참이다. 라이터가 열둘이면 뒤진 마켓의 미물질화 명령이 상한 안에 들어온다. 2026-09-12 에 그 구멍을 실측했고(`harness/evidence/materialization-holes-20260912/README.md`) ADR 0023 결정 1 이 상한을 연속 물질화 경계로 바꿔 전역 축에서 닫았다(EventJournalReader.java:29-44). 대조 구간에서 pending 이 나오면 던지는 가드는 `ReplayService.verifyTo`(ReplayService.java:88-105)에 있다. 그 경계도 `c.seq > engine.lastAppliedSeq()` 한 스칼라에서 구멍을 찾는다. 대역 채번 뒤에는 그 커서가 가장 높은 대역에 서서 낮은 대역 마켓의 구멍을 보지 못한다. 그래서 5-2 가 같은 정의를 마켓마다 적용한다.
-3. **`WriterRouter.installFrom` 과 지연 생성 샤드의 스칼라 바닥.** 복구본의 `lastAppliedSeq` 스칼라 하나를 전 마켓 엔진에 심고(WriterRouter.java:131-154), 설치 뒤 새로 생기는 샤드도 그 값을 바닥으로 받는다(WriterRouter.java:48-50, 74-77). 전역 조밀 축에서는 맞는 값이다. 복구본이 그 seq 까지 전 마켓 명령을 반영했고 이후 명령은 seq 가 더 크다(WriterRouter.java:122-124). **대역 채번 뒤에는 틀린다.** 그 값이 가장 높은 대역 마켓의 seq 이므로 낮은 대역 마켓 엔진이 자기 명령을 `seq <= lastAppliedSeq`(MatchingEngineImpl.java:23-25)로 조용히 버린다. 예외도 로그도 없고 상시 감사에 안 보인다(C13A 가 AUTHORITATIVE_ONLY, InvariantCheck.java:135). 오늘의 결함이 아니라 래치 전에 반드시 닫아야 할 위험이고 2단계가 닫는다.
+3. **`WriterRouter.installFrom` 과 지연 생성 샤드의 스칼라 바닥.** 복구본의 `lastAppliedSeq` 스칼라 하나를 전 마켓 엔진에 심고(WriterRouter.java:131-154), 설치 뒤 새로 생기는 샤드도 그 값을 바닥으로 받는다(WriterRouter.java:48-50, 74-77). 전역 조밀 축에서는 맞는 값이다. 복구본이 그 seq 까지 전 마켓 명령을 반영했고 이후 명령은 seq 가 더 크다(WriterRouter.java:122-124). **대역 채번 뒤에는 틀린다.** 그 값이 가장 높은 대역 마켓의 seq 이므로 낮은 대역 마켓 엔진이 자기 명령을 `seq <= lastAppliedSeq`(MatchingEngineImpl.java:23-25)로 조용히 버린다. 예외도 로그도 없고 상시 감사에 안 보인다(C13A 가 AUTHORITATIVE_ONLY, InvariantCheck.java:135. 2026-09-14 3단계 병합 판은 :148). 오늘의 결함이 아니라 래치 전에 반드시 닫아야 할 위험이고 2단계가 닫는다.
 
 ### 1-4. 파티션 시한
 
@@ -255,7 +255,7 @@ V36 은 `market_seq` 를 컬럼으로 더했고 V36 이전 행은 그 컬럼이 
 
 **(2) 명령 축에는 C22 가 있고 이벤트 축에는 없다.**
 
-`C22_FENCING_MONOTONIC` 이 `lag(fencing_token) OVER (ORDER BY seq)` 로 epoch 비감소를 본다(InvariantCheck.java:249). 대역 파생이면 seq 오름차순이 시간 순서가 아니므로 마켓 경계마다 거짓 CRITICAL 이 난다. V36 이 이 문제를 안 만난 이유는 이벤트 축에 대응 검사가 없기 때문이다. 6-2 에서 시간 축을 `created_at` 으로 재정의한다.
+`C22_FENCING_MONOTONIC` 이 `lag(fencing_token) OVER (ORDER BY seq)` 로 epoch 비감소를 본다(InvariantCheck.java:249. 3단계 병합 전 판이고, 2026-09-14 병합 판의 C22 는 :267 에서 6-2 의 두 팔로 바뀌었다). 대역 파생이면 seq 오름차순이 시간 순서가 아니므로 마켓 경계마다 거짓 CRITICAL 이 난다. V36 이 이 문제를 안 만난 이유는 이벤트 축에 대응 검사가 없기 때문이다. 6-2 에서 시간 축을 `created_at` 으로 재정의한다.
 
 **(3) 실패 반경이 다르다.**
 
@@ -380,7 +380,7 @@ private ReentrantLock lockFor(int marketId) {
 - 채번은 지금도 멱등 판정 뒤에 있고 V39 가 그 순서를 함수 구조로 못박았다. 그 순서가 C05 의 근거이므로 새 판도 같은 구조를 유지한다. 채번과 INSERT 사이에 조건 분기를 넣지 않는다.
 - **어드바이저리 락 키를 건드리지 않는다.** `pg_advisory_xact_lock(hashtextextended('cmd-new:' || user_id || ':' || client_order_id, 0))`(V39 함수 본문)의 키에 `market_id` 를 넣지 않는다. 지금은 전역 `submitLock` 이 모든 append 를 직렬화하므로 이 락의 교차 마켓 역할이 잠들어 있다. 락을 가르는 순간 겹이 둘에서 하나로 줄고 이 락만 남는다. 키에 마켓을 넣으면 서로 다른 마켓의 같은 `(user_id, client_order_id)` 동시 재전송 둘이 서로를 못 보고 둘 다 ACK 를 받는다. 그 뒤 정산의 `orders` INSERT 가 `uq_orders_client` 23505 로 죽고 라이터가 fail-fast 한다. `command_journal` 은 seq 파티션이라 `(user_id, client_order_id)` UNIQUE 를 물리로 걸 수 없으므로 대체 방어선이 없다(V1:586-588 주석이 그 사실을 이미 적고 있다).
 - 같은 이유로 멱등 조회의 WHERE 에도 `market_id` 를 넣지 않는다. 그 조회는 `append_command_prologue`(V39) 안에 있다. 멱등 네임스페이스가 `(user_id, client_order_id)` 이고 마켓이 없다.
-- **한 줄이 바뀐다.** `ORDER BY c.seq LIMIT 1`(V39__append_prologue.sql:61-62)은 대역 파생에서 '가장 이른 명령' 이 아니라 '가장 작은 marketId 의 명령' 을 고른다. 4단계의 `append_prologue_created_at_order` 마이그레이션이 `ORDER BY c.created_at, c.seq LIMIT 1` 로 바꾼다. 이 선택이 값을 가르는 것은 같은 `(user_id, client_order_id)` 의 NEW 행이 둘 이상일 때뿐이다. 어드바이저리 락이 그 상태를 막고 C07P 가 그 상태를 센다(InvariantCheck.java:62-68). 곧 방어선이고, 뚫렸을 때 '먼저 접수된 것이 이긴다' 는 뜻을 대역 전후로 같게 둔다. 교차 마켓 재사용이 200 replayed 로 나가는 경로는 없다. 게이트웨이가 409 로 끊는다(9-13).
+- **한 줄이 바뀐다.** `ORDER BY c.seq LIMIT 1`(V39__append_prologue.sql:61-62)은 대역 파생에서 '가장 이른 명령' 이 아니라 '가장 작은 marketId 의 명령' 을 고른다. 4단계의 `append_prologue_created_at_order` 마이그레이션이 `ORDER BY c.created_at, c.seq LIMIT 1` 로 바꾼다. 이 선택이 값을 가르는 것은 같은 `(user_id, client_order_id)` 의 NEW 행이 둘 이상일 때뿐이다. 어드바이저리 락이 그 상태를 막고 C07P 가 그 상태를 센다(InvariantCheck.java:62-68. 2026-09-14 3단계 병합 판은 :75-81). 곧 방어선이고, 뚫렸을 때 '먼저 접수된 것이 이긴다' 는 뜻을 대역 전후로 같게 둔다. 교차 마켓 재사용이 200 replayed 로 나가는 경로는 없다. 게이트웨이가 409 로 끊는다(9-13).
 - 같은 마이그레이션이 함수를 `VOLATILE` 로 명시한다. 어드바이저리 락을 기다린 뒤의 멱등 조회가 앞선 트랜잭션의 커밋을 보려면 문장마다 새 스냅숏을 잡아야 하고, READ COMMITTED 와 VOLATILE 이 그 전제다. V39 는 선언이 없어 기본값 VOLATILE 로 돈다(V39__append_prologue.sql:40).
 
 ### 4-4. 잠금 계층과 교착
@@ -512,7 +512,7 @@ bound(m)     = COALESCE(hole(m) - 1, GREATEST(head(m), floor(m)))   -- 바닥 �
 
 ### 6-1. C05_CMD_GAPLESS (CRITICAL, SCHEDULED). 두 항 합으로
 
-지금: `COALESCE((max(seq) - min(seq) + 1) - count(*), 0) FROM command_journal`(InvariantCheck.java:38).
+지금: `COALESCE((max(seq) - min(seq) + 1) - count(*), 0) FROM command_journal`(InvariantCheck.java:38. 3단계 병합 전 판이고, 2026-09-14 병합 판의 C05 는 :40 에서 아래 개정 술어로 바뀌었다).
 
 이후:
 
@@ -531,7 +531,7 @@ band_span  (SELECT band_span FROM journal_band_spec WHERE name='command_seq')
 
 ### 6-2. C22_FENCING_MONOTONIC (CRITICAL, AUTHORITATIVE_ONLY). 시간 축 팔과 마켓 안 팔
 
-지금: `lag(fencing_token) OVER (ORDER BY seq)`(InvariantCheck.java:249-256).
+지금: `lag(fencing_token) OVER (ORDER BY seq)`(InvariantCheck.java:249-256. 3단계 병합 전 판이고, 2026-09-14 병합 판의 C22 는 :267 에서 아래 두 팔로 바뀌었다).
 
 이후: 두 팔의 위반 행 수 합.
 
@@ -548,7 +548,7 @@ band_span  (SELECT band_span FROM journal_band_spec WHERE name='command_seq')
 
 ### 6-3. C23_COUNTER_SEQ_CONSISTENCY (CRITICAL, AUTHORITATIVE_ONLY). 명령 축을 마켓별로
 
-지금 명령 축은 전역 `journal_counters('command_seq').next_value` 대 전역 `max(seq)` 다(InvariantCheck.java:266-271).
+지금 명령 축은 전역 `journal_counters('command_seq').next_value` 대 전역 `max(seq)` 다(InvariantCheck.java:266-271. 3단계 병합 전 판이고, 2026-09-14 병합 판의 C23 은 :288 에서 명령 축을 마켓별로 본다).
 
 이후 세 팔이다.
 
@@ -558,7 +558,7 @@ band_span  (SELECT band_span FROM journal_band_spec WHERE name='command_seq')
 
 ### 6-4. 신설 둘. 단계가 다르다
 
-- **C27_CMD_DEFAULT_PARTITION (CRITICAL, SCHEDULED). 3단계.** `SELECT count(*) FROM command_journal_default`. C15 를 통째로 올리지 않는 이유는 그것이 WARN 이고 다섯 표를 합산하기 때문이다(InvariantCheck.java:200-206). 통째로 올리면 다른 네 표의 정상 운영까지 CRITICAL 이 된다. 명령 축만 떼어 CRITICAL 로 세운다. C15 는 나머지 넷으로 남는다.
+- **C27_CMD_DEFAULT_PARTITION (CRITICAL, SCHEDULED). 3단계.** `SELECT count(*) FROM command_journal_default`. C15 를 통째로 올리지 않는 이유는 그것이 WARN 이고 다섯 표를 합산하기 때문이다(InvariantCheck.java:200-206. 3단계 병합 전 판이고, 2026-09-14 병합 판의 C15 는 :213 에서 `command_journal_default` 를 뺐다). 통째로 올리면 다른 네 표의 정상 운영까지 CRITICAL 이 된다. 명령 축만 떼어 CRITICAL 로 세운다. C15 는 나머지 넷으로 남는다.
 - **C26_CMD_BAND_HEADROOM (HIGH, SCHEDULED). 7단계.** `v_journal_band_headroom` 에서 잔여 비율 10퍼센트 미만인 마켓 수. 술어가 읽는 뷰를 7단계의 `band_headroom` 마이그레이션(3-2)이 만들므로 3단계에 둘 수 없다. 세 벌에 더하는 것도 7단계다. **정직하게 적는다. 10^12 대역에서 이 검사는 사실상 공허하다**(단일 마켓 집중에서도 240년). 남기는 이유는 둘이다. 비용이 0 이고, 소진이 비가역이다(PK 가 seq 재사용을 막고 append-only 트리거가 백필을 막으므로 운영이 카운터를 되돌릴 수 없다). 실제 방어선은 이 검사가 아니라 `next_market_command_seq` 의 `max_band_index` 예외와 `markets` INSERT 트리거의 거부다.
 
 ### 6-5. 하네스 스테일 쓰기 판정. 위치 축을 쓰지 않는다
@@ -638,6 +638,12 @@ band_span  (SELECT band_span FROM journal_band_spec WHERE name='command_seq')
 스테일 쓰기 판정은 이 단계와 무관하다. 축 없는 epoch 증분이라 이미 fail-closed 다(6-5).
 
 **멈추면.** 오늘 그대로이고 판정 술어 세 벌이 대역 행에서도 오늘과 같은 값을 내도록 바뀐 상태다. 대역 행이 실재하지 않는 시점이라 그 값은 아직 실측으로 보이지 않았다. 시계 역행(PostgreSQL 프라이머리 전환 포함) 뒤 시간 축 팔의 거짓 양성은 남는다(9-17).
+
+**착지(2026-09-14).** 정본 개정은 2026-09-13 에 브랜치 `stage3-canon` 커밋 `349dce7` 로, 판정 술어 세 벌(`InvariantCheck.java`, `harness/sql/invariants.sql`, `harness/sql/summary.sql`)은 같은 날 브랜치 `adr0022-stage3` 커밋 `dfb05b8` 로 구현했다. 2026-09-14 에 코드 커밋을 `adr0022-stage2` 위로 재배치(`3e3f4b8`)하고 정본을 먼저, 코드를 다음에 main 에 병합했다. 판본 번호가 2단계 병합과 겹쳐 정본 개정은 DB 설계 v2.46, API 설계 v2.48 로 들어갔다. reviewer 판정은 두 커밋 본문과 `docs/records/인수인계_20260913.md` 5절에 있다.
+
+시험 조건의 실측은 `docs/측정/20260913.md` 5.7.16 이다. 대역 행이 없는 정지 저널에서 C05·C15·C22·C23·C27 이 세 벌과 개정 전 술어 모두 0 이었고, 위반을 넣은 상에서도 세 벌과 개정 전 술어가 같은 값을 냈다. C05 대역 항과 C23 대역 팔은 대상 행이 없어 실저널로 판정하지 못했고 합성 행 시험 `InvariantBandAxisIntegrationTest` 가 맡는다.
+
+적용하지 않은 것이 넷 있다. `docs/contracts/하네스_검증설계.md` §1 표 ① 행의 pg_cron 표기, 관리 화면 카탈로그(`web/lib/admin/catalog.ts`)의 C27 라벨, 6-6 의 데모 대본 네 자리 C05 SQL, 낡은 코드 주석 셋(`InvariantCheck.java`:222 의 C27 등급 근거, `summary.sql`:21 과 `invariants.sql`:247 의 판정 수)이다. 코드 주석은 증거 `result.json` 의 원천 해시와 묶여 있어 이 병합에서 고치지 않았다.
 
 ### 4단계. 접수 락 분할 (되돌릴 수 있다)
 
@@ -815,6 +821,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 6. **6단계의 래치 전환은 비가역이다.** 래치 전에는 6단계 배포까지 되돌릴 수 있다. 래치 뒤에 전역 채번으로 돌아가면 낮은 seq 가 마켓 커서 아래로 무음 폐기되거나 전역 축의 C05 원형이 영영 성립하지 않는다. 래치 뒤 2단계 이전 앱으로의 롤백은 금지다(7절 6단계).
 7. **C26 은 10^12 대역에서 사실상 공허하다.** 6-4 에 이유와 실제 방어선을 적었다.
 8. **파티션 15개의 전역 정렬 비용을 안 쟀다.** 점 조회와 마켓별 읽기는 프루닝되지만 C22 의 `ORDER BY created_at, seq` 는 전량 정렬이다. 3단계에서 실측 시간을 기록한다.
+    **2026-09-14 해소.** 2026-09-13 에 쟀다. 잎 16개 중 행이 든 13개, 1,000,257행에서 C22 문장이 세 번 1,051.489, 1,056.545, 1,127.241ms 로 문턱 1,500ms 아래였다(`docs/측정/20260913.md` 5.7.16). 로컬 Docker Desktop 한 번이고 클라우드 스택과 한 마켓 쏠림 배치는 재지 않았다.
 9. **`journal_band_spec` 조회가 정산 핫패스에 들어간다.** `next_market_journal_value` 가 일반화되면서 호출마다 2행짜리 표의 PK 조회가 붙는다. 1단계 배포 전후로 `exchange.writer.sink.nanos` 를 대조한다.
 10. **제공 부하 600/s 를 낼 시드·VU 가 아직 없다.** 이것은 위험이 아니라 절차이고 0단계 (d)에서 준비한다. 올리지 않고 재면 '개선했는데 수치가 그대로' 가 나온다.
 11. **이벤트 축 스테일 쓰기 판정이 V36 부터 2026-09-12 까지 fail-open 이었다(6-5).** 그 사이 회차의 E5·E7 split-brain 반증 PASS 는 소급 무효일 수 있다. 정본 한계로 등재한다. 판정은 지금 epoch 증분이라 닫혀 있다(lib.ps1:534-573).
@@ -962,7 +969,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 `ORDER BY created_at, seq` 는 4단계 `append_prologue_created_at_order` 마이그레이션으로
 넣는다(4-3). 복원 리시드 절차서는 6단계 문서 개정에 넣는다. C12·C13B 조인을 쌍으로 바꾸는
 것은 이 판에서 N/A 다. 두 조인은 `c.seq = e.source_cmd_seq`, `c.seq = o.command_seq` 점
-조인이고(InvariantCheck.java:124-128, 140-144) 대역 파생에서도 seq 가 전역 유일이라(2-2 표)
+조인이고(InvariantCheck.java:124-128, 140-144. 2026-09-14 3단계 병합 판은 137-141, 153-157) 대역 파생에서도 seq 가 전역 유일이라(2-2 표)
 결과가 바뀌지 않는다. 쌍으로 내려가는 회차(위 조건 3)에서 바꾼다.
 
 ### 10-5. 대역 폭 10^7 (V36 값을 그대로 쓴다)

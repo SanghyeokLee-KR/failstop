@@ -1,0 +1,129 @@
+
+== 1/3 bootJar 빌드 ==
+jar: app-0.1.0-SNAPSHOT.jar → app.jar
+
+== 2/3 이미지 빌드 ==
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.app
+#1 transferring dockerfile: 1.13kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/eclipse-temurin:21-jre
+#2 DONE 11.2s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 31B done
+#4 DONE 0.0s
+
+#5 [1/4] FROM docker.io/library/eclipse-temurin:21-jre@sha256:a80c51f2d09a3e7e00d521f1c817bbceb6b3be94109b4a784d46078099882dda
+#5 resolve docker.io/library/eclipse-temurin:21-jre@sha256:a80c51f2d09a3e7e00d521f1c817bbceb6b3be94109b4a784d46078099882dda 0.0s done
+#5 DONE 0.0s
+
+#6 [2/4] RUN apt-get update && apt-get install -y --no-install-recommends curl     && rm -rf /var/lib/apt/lists/*
+#6 CACHED
+
+#7 [3/4] WORKDIR /app
+#7 CACHED
+
+#8 [4/4] COPY app.jar app.jar
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers done
+#9 exporting manifest sha256:af7059eb682aee11fb7f48eca5b2f1075c135a96fbb1e6c0e18b3f651b593f82 done
+#9 exporting config sha256:bdb85f499c61869df85cb19f83d13d3192a19d645d0bc1e9864b030da7a5d54f done
+#9 exporting attestation manifest sha256:edb51de566e1f4413f5a2b6f1492abeaa2d21e7bb42b8b539bb3e2fbe728e1e9 0.0s done
+#9 exporting manifest list sha256:95c9dca962b44271187c3caf8ea3033d736175729e8a1048e080f04fa15600af done
+#9 naming to docker.io/library/exchange-chaos-app:local done
+#9 unpacking to docker.io/library/exchange-chaos-app:local done
+#9 DONE 0.1s
+
+ 1 warning found (use docker --debug to expand):
+ - SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "EXCHANGE_AUTH_REQUIRE_MASTER_KEY") (line 17)
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/siit6h0iml3lvn4npznt3ti14
+
+== 3/3 compose up ==
+ Network exchange-chaos_chaos-net Creating 
+ Network exchange-chaos_chaos-net Created 
+ Volume exchange-chaos_chaos-pgdata Creating 
+ Volume exchange-chaos_chaos-pgdata Created 
+ Container chaos-pg Creating 
+ Container chaos-dynamodb Creating 
+ Container chaos-dynamodb Created 
+ Container chaos-pg Created 
+ Container chaos-toxiproxy Creating 
+ Container chaos-toxiproxy Created 
+ Container chaos-toxiproxy-init Creating 
+ Container chaos-toxiproxy-init Created 
+ Container chaos-api-1 Creating 
+ Container chaos-api-1 Created 
+ Container chaos-lb Creating 
+ Container chaos-api-2 Creating 
+ Container chaos-api-2 Created 
+ Container chaos-lb Created 
+ Container chaos-bots Creating 
+ Container chaos-bots Created 
+ Container chaos-dynamodb Starting 
+ Container chaos-pg Starting 
+ Container chaos-dynamodb Started 
+ Container chaos-pg Started 
+ Container chaos-pg Waiting 
+ Container chaos-pg Healthy 
+ Container chaos-toxiproxy Starting 
+ Container chaos-toxiproxy Started 
+ Container chaos-toxiproxy-init Starting 
+ Container chaos-toxiproxy-init Started 
+ Container chaos-toxiproxy-init Waiting 
+ Container chaos-dynamodb Waiting 
+ Container chaos-pg Waiting 
+ Container chaos-toxiproxy-init Exited 
+ Container chaos-pg Healthy 
+ Container chaos-dynamodb Healthy 
+ Container chaos-api-1 Starting 
+ Container chaos-api-1 Started 
+ Container chaos-api-1 Waiting 
+ Container chaos-api-1 Waiting 
+ Container chaos-api-1 Healthy 
+ Container chaos-api-1 Healthy 
+ Container chaos-lb Starting 
+ Container chaos-api-2 Starting 
+ Container chaos-api-2 Started 
+ Container chaos-lb Started 
+ Container chaos-api-1 Waiting 
+ Container chaos-api-1 Healthy 
+ Container chaos-bots Starting 
+ Container chaos-bots Started 
+ Container chaos-lb Waiting 
+ Container chaos-dynamodb Waiting 
+ Container chaos-pg Waiting 
+ Container chaos-api-1 Waiting 
+ Container chaos-api-2 Waiting 
+ Container chaos-toxiproxy-init Waiting 
+ Container chaos-bots Waiting 
+ Container chaos-toxiproxy Waiting 
+ Container chaos-toxiproxy Healthy 
+ Container chaos-lb Healthy 
+ Container chaos-bots Healthy 
+ Container chaos-dynamodb Healthy 
+ Container chaos-api-1 Healthy 
+ Container chaos-pg Healthy 
+ Container chaos-toxiproxy-init Exited 
+ Container chaos-api-2 Healthy 
+
+== 상태 ==
+NAME              IMAGE                              COMMAND                  SERVICE           CREATED          STATUS                    PORTS
+chaos-api-1       exchange-chaos-app:local           "java -jar app.jar"      chaos-api-1       22 seconds ago   Up 16 seconds (healthy)   0.0.0.0:18080->8080/tcp, [::]:18080->8080/tcp
+chaos-api-2       exchange-chaos-app:local           "java -jar app.jar"      chaos-api-2       22 seconds ago   Up 5 seconds (healthy)    0.0.0.0:28080->8080/tcp, [::]:28080->8080/tcp
+chaos-bots        exchange-chaos-app:local           "java -jar app.jar"      chaos-bots        22 seconds ago   Up 4 seconds              8080/tcp
+chaos-dynamodb    amazon/dynamodb-local:2.5.2        "java -jar DynamoDBL…"   chaos-dynamodb    22 seconds ago   Up 21 seconds (healthy)   8000/tcp
+chaos-lb          nginx:1.29                         "/docker-entrypoint.…"   chaos-lb          22 seconds ago   Up 5 seconds              0.0.0.0:58080->8080/tcp, [::]:58080->8080/tcp
+chaos-pg          postgres:17-alpine                 "docker-entrypoint.s…"   chaos-pg          22 seconds ago   Up 21 seconds (healthy)   0.0.0.0:55432->5432/tcp, [::]:55432->5432/tcp
+chaos-toxiproxy   ghcr.io/shopify/toxiproxy:2.12.0   "/toxiproxy -host=0.…"   chaos-toxiproxy   22 seconds ago   Up 18 seconds             0.0.0.0:58474->8474/tcp, [::]:58474->8474/tcp
+
+리더 리스:a4a871f1-18cc-4bcb-b1b6-a056a4f16642|1|t

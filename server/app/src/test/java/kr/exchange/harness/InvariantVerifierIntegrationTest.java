@@ -387,7 +387,8 @@ class InvariantVerifierIntegrationTest {
         for (InvariantCheck c : new InvariantCheck[]{
                 InvariantCheck.C03_TXN_UNSEALED, InvariantCheck.C09_TRADE_SEQ_EVENT_MATCH,
                 InvariantCheck.C10_ORDER_FILL_AGG, InvariantCheck.C11_TRADE_ORPHAN,
-                InvariantCheck.C12_EVENT_ORPHAN, InvariantCheck.C15_DEFAULT_PARTITION}) {
+                InvariantCheck.C12_EVENT_ORPHAN, InvariantCheck.C15_DEFAULT_PARTITION,
+                InvariantCheck.C27_CMD_DEFAULT_PARTITION}) {
             assertTrue(scheduled.stream().anyMatch(r -> r.check() == c),
                     c.name() + "가 상시 스케줄 평가에서 누락(러너 미배선)");
         }
@@ -450,6 +451,7 @@ class InvariantVerifierIntegrationTest {
     @Test
     @Order(8)
     void authoritativeCatchesCounterSeqReuseRisk() {
+        assertTrue(count("SELECT count(*) FROM command_journal") > 0, "command_journal 행 실재");
         long original = count("SELECT next_value FROM journal_counters WHERE name = 'command_seq'");
         assertTrue(authoritativeCheck(InvariantCheck.C23_COUNTER_SEQ_CONSISTENCY).ok(),
                 "주입 전 C23이 이미 위반");
@@ -675,6 +677,55 @@ class InvariantVerifierIntegrationTest {
         assertEquals(1, jdbc.sql("UPDATE position_cost SET " + assignment
                         + " WHERE user_id = ? AND asset_id = ?")
                 .params(key[0], key[1]).update(), "원가 행 주입·복원이 0행");
+    }
+
+    /**
+     * 봇 저널(전역 조밀 축) 위에서 개정 술어가 구 술어와 같은 값을 낸다(ADR 0022 7절 3단계 시험 조건).
+     * 0 끼리의 일치로 끝나지 않게 C23·C15 는 위반을 주입한 값에서도 대조한다.
+     */
+    @Test
+    @Order(14)
+    void newPredicatesEqualLegacyValuesOnRealJournal() {
+        assertTrue(count("SELECT count(*) FROM trades") >= 8, "체결 선행");
+        assertTrue(count("SELECT count(*) FROM command_journal") > 0, "command_journal 행 실재");
+        assertEquals(1, count("SELECT count(*) FROM journal_band_spec WHERE name = 'command_seq'"),
+                "명령 대역 명세 행");
+        assertEquals(0, count("""
+                SELECT count(*) FROM command_journal
+                WHERE seq >= (SELECT band_span FROM journal_band_spec WHERE name = 'command_seq')
+                """), "대역 행이 없어야 커트오버 전 축이다");
+
+        assertEquals(count(InvariantBandAxisIntegrationTest.LEGACY_C05),
+                count(InvariantCheck.C05_CMD_GAPLESS.sql()), "C05 대 구 술어");
+        assertEquals(count(InvariantBandAxisIntegrationTest.LEGACY_C15),
+                count(InvariantCheck.C15_DEFAULT_PARTITION.sql())
+                        + count(InvariantCheck.C27_CMD_DEFAULT_PARTITION.sql()), "C15 + C27 대 구 C15");
+        assertEquals(count(InvariantBandAxisIntegrationTest.LEGACY_C23),
+                count(InvariantCheck.C23_COUNTER_SEQ_CONSISTENCY.sql()), "C23 대 구 술어");
+
+        long original = count("SELECT next_value FROM journal_counters WHERE name = 'command_seq'");
+        jdbc.sql("UPDATE journal_counters SET next_value = 1 WHERE name = 'command_seq'").update();
+        try {
+            assertEquals(1, count(InvariantBandAxisIntegrationTest.LEGACY_C23), "주입한 카운터 역행을 구 C23 이 놓침");
+            assertEquals(1, count(InvariantCheck.C23_COUNTER_SEQ_CONSISTENCY.sql()), "위반 값에서 C23 대 구 술어");
+        } finally {
+            jdbc.sql("UPDATE journal_counters SET next_value = ? WHERE name = 'command_seq'")
+                    .params(original).update();
+        }
+
+        assertEquals("outbox_default", jdbc.sql("""
+                INSERT INTO outbox (aggregate_type, aggregate_id, event_type, payload, created_at)
+                VALUES ('TRADE', 'legacy-parity-probe', 'TradeExecuted', '{}', TIMESTAMPTZ '2000-01-01 00:00:00+00')
+                RETURNING tableoid::regclass::text
+                """).query(String.class).single(), "과거 시각 outbox 행이 DEFAULT 로 가야 한다");
+        try {
+            long legacy = count(InvariantBandAxisIntegrationTest.LEGACY_C15);
+            assertTrue(legacy >= 1, "주입한 DEFAULT 유입을 구 C15 가 놓침");
+            assertEquals(legacy, count(InvariantCheck.C15_DEFAULT_PARTITION.sql())
+                    + count(InvariantCheck.C27_CMD_DEFAULT_PARTITION.sql()), "위반 값에서 C15 + C27 대 구 C15");
+        } finally {
+            jdbc.sql("DELETE FROM outbox WHERE aggregate_id = 'legacy-parity-probe'").update();
+        }
     }
 
     private InvariantResult authoritativeCheck(InvariantCheck target) {

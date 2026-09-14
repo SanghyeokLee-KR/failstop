@@ -13,6 +13,7 @@ import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.engine.core.SingleWriterLoop;
+import kr.exchange.harness.InvariantCheck;
 import kr.exchange.journal.AppendResult;
 import kr.exchange.journal.CommandDraft;
 import kr.exchange.journal.CommandJournalAppender;
@@ -423,9 +424,9 @@ class SettlementIntegrationTest {
                 + "GROUP BY asset_id HAVING SUM(amount) <> 0) x"));
         // C02 잔고 프로젝션 대조
         assertEquals(0, queryLong("SELECT count(*) FROM balance_ledger_check WHERE mismatch"));
-        // ⑤⑥ gapless
-        assertEquals(0, queryLong("SELECT COALESCE((max(seq)-min(seq)+1) - count(*), 0) "
-                + "FROM command_journal"));
+        // ⑤⑥ gapless. C05 는 빈 저널에서 0 이라 행 실재를 먼저 본다.
+        assertTrue(queryLong("SELECT count(*) FROM command_journal") > 0, "command_journal 행 실재");
+        assertEquals(0, queryLong(InvariantCheck.C05_CMD_GAPLESS.sql()));
         // V36 에서 결번 없음의 축이 마켓 안으로 갔다. event_seq 는 marketId 대역 파생이라
         // 전역으로 세면 대역 사이가 비어 보이고 그것은 결번이 아니라 경계다.
         assertEquals(0, queryLong("""
