@@ -580,6 +580,7 @@ band_span  (SELECT band_span FROM journal_band_spec WHERE name='command_seq')
 - `docs/contracts/백엔드_API_설계.md` 의 "`seq` 는 gapless" 문구와 "§6-C `last_applied_seq` 와 동일 축" 문구 둘 다 거짓이 된다. 값은 그대로 쓸 수 있다(프론트가 소비하지 않고 커서 축이 `(created_at, id)`·`trade_id` 다). 문서를 고친다.
 - 데모 대본 네 자리의 C05 SQL 과 "명령 저널 gap 도 0행" 대사.
 - `하네스_검증설계.md` R0(워터마크 선캡처), R5 분류 C.
+- **6단계 적용 주(2026-09-14).** `HaMonitoringController.status()` 가 `command_watermarks[]{market_id,command_watermark,apply_lag}` 와 `apply_lag_total` 을 내고 `apply_lag` 는 마켓별 최대다. 응답 `schema_version` 은 1.1 이다(API 설계 v2.50). 웹이 `command_watermark` 스칼라만 읽어 스칼라는 표시용 전역 최대로 남겼다. 그 값이 마켓별 최대의 최대라 웹 노드 `seq` 표시 항목은 코드 변경 없이 성립한다. 좀비 리더 판별식의 부분 정체는 배열로 보인다. API 설계 문구 항목은 gapless 를 v2.48 이, 동일 축을 v2.50 이 고쳤다. 팔로워 격차 게이지(`exchange.follower.catchup.lag_commands.*`)도 마켓 head 에서 엔진 커서와 물질화 경계 중 큰 쪽을 빼도록 고쳤다. Grafana `replay_tail_commands`, 데모 대본 C05 SQL 과 대사, `하네스_검증설계.md` R0·R5 는 이 단계에서 고치지 않았다.
 
 ---
 
@@ -705,6 +706,8 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 
 **왜 앱 설정이 아닌가.** 모드를 앱 속성으로 두면 낡은 설정으로 뜬 노드가 승격한 순간 대역 행 뒤에 전역 seq 를 쓴다. 그 값은 그 마켓 커서보다 낮아 엔진이 예외 없이 버린다(MatchingEngineImpl.java:23-25, SingleWriterLoop.java:234-237). 노드마다 설정이 달라도 같다. DB 래치는 모드를 채번 지점 한 곳에서 정하고 되돌릴 수 없게 한다.
 
+**6-a 구현 주(2026-09-14, 브랜치 `adr0022-stage6`).** 마이그레이션은 `V44__command_band_cutover_latch.sql` 이다. 래치 행 키는 `name = 'command_seq'` 이고 `latched_by` 기본값은 `session_user` 다. UPDATE·DELETE 와 TRUNCATE 는 `forbid_mutation` 트리거가 거부한다. 5인자 판은 래치가 있으면 SQLSTATE 55000 으로 거부한다. `latch_command_band_cutover()` 는 이미 래치된 DB 에서 55000 으로 거부하고, 동시에 두 번 부르면 늦은 쪽이 PK 23505 로 선다. EXECUTE 는 PUBLIC 과 `app_role` 에서 회수했고 `app_role` 에는 6인자 판 EXECUTE 와 `journal_cutover` SELECT 를, `harness_role` 에는 SELECT 를 줬다. 두 롤이 런타임에 배선돼 있지 않아 회수는 스키마 경계뿐이다(`docs/contracts/하네스_CICD_IaC.md` §7-2). 게이지 `exchange.journal.band.latched` 는 기동 때 한 번 읽어 운영 중 래치는 다음 기동에서 보이고, `journal_cutover` 가 없으면 기동이 선다.
+
 **6-b. 래치 전환(되돌릴 수 없다).** 소유자 계정으로 `latch_command_band_cutover()` 를 부른다. PUBLIC 과 `app_role` 의 EXECUTE 는 회수한다. 첫 대역 행이 아니라 래치 행이 커밋되는 순간이 돌아올 수 없는 지점이다. 그 뒤에 전역으로 돌아가면 전역 카운터가 대역 값 아래에서 채번을 이어 마켓 커서 아래로 무음 폐기되거나, 대역 값 위에서 이어 전역 축이 결번투성이라 C05 레거시 항이 영영 성립하지 않는다.
 
 래치 전 확인. 함수가 검사하는 것과 절차로 확인하는 것을 나눈다.
@@ -728,6 +731,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 - `band_headroom` 마이그레이션의 대역 여유 뷰와 게이지. C26 신설과 알람 라우팅(6-4). C26 이 읽는 뷰가 이 단계에서 생기므로 세 벌에 C26 을 더하는 것도 이 단계다.
 - `EngineConfig.snapshotCapture` 가 레거시 `singleWriterLoop` 빈에만 훅을 거는 것(EngineConfig.java:261-273)을 샤드 팩토리(EngineConfig.java:285-337)로 옮긴다. `setSnapshotHook` 호출부가 코드 전체에 그 한 줄뿐이고(EngineConfig.java:270) 라우터 샤드에는 없다. 곧 **지금 스냅샷이 한 건도 안 찍히고 복구가 항상 seq 0 전량 재생이다.** 샤드마다 `SnapshotCapture` 를 하나 두면 `seq - lastCapturedSeq >= commandInterval` 판정이 자연히 마켓 단위가 된다.
 - **커트오버 뒤로 미루는 이유.** 배선하는 순간 처음 도는 코드다. 새 코드와 새 축을 같은 창에 겹치지 않게 한다. 실패해도 오늘의 동작(전량 재생)으로 떨어지는 폴백을 남긴다.
+- **6단계 감사가 남긴 7단계 위험(2026-09-14).** 둘 다 스냅샷이 찍혀야 발현하므로 지금은 잠복이다. (1) `SnapshotCapture` 한 인스턴스를 여러 샤드에 걸면 `seq <= lastCapturedSeq` 조기 반환이 시간 조건보다 앞서, 높은 대역 마켓을 한 번 캡처한 뒤 낮은 대역 마켓은 시간 간격으로도 캡처되지 않는다(SnapshotCapture.java:89-92). 샤드마다 하나를 둔다. (2) `WriterRouter` 는 복구 결과에 없는 마켓과 복구 뒤 처음 생기는 마켓을 복구본 바닥 `floorSeq()` 에서 출발시킨다(WriterRouter.java:76, 133-147). 스냅샷 복원이 스칼라 seq 를 바닥으로 남기면 그보다 낮은 대역 마켓의 새 명령이 커서 아래로 버려진다. 스냅샷에 마켓별 커서를 담아 복원하고 바닥 규칙을 대역 축에서 다시 정한다.
 
 ### 8단계. commit_delay 실측 (선택. 되돌릴 수 있다)
 
