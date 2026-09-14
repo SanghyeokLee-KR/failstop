@@ -1,0 +1,15 @@
+## /out/idx/auto__m12_4th.txt
+         ->  Index Scan using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 event_journal_1  (cost=0.42..15187.84 rows=4356 width=77) (actual time=0.017..0.314 rows=500 loops=1)
+ Execution Time: 0.395 ms
+ q1   |             0 |            4
+## /out/idx/auto__m12_after_m1.txt
+         ->  Index Scan using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 event_journal_1  (cost=0.42..15187.84 rows=4356 width=77) (actual time=0.024..0.944 rows=500 loops=1)
+ Execution Time: 1.025 ms
+         ->  Index Scan using event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx on event_journal_p0 event_journal_1  (cost=0.42..8222.94 rows=2220 width=77) (actual time=0.023..0.700 rows=500 loops=1)
+ Execution Time: 0.783 ms
+ q1   |             0 |           12
+## /out/idx/auto__m12_after_m12.txt
+               ->  Index Scan using event_journal_p0_source_cmd_seq_idx on event_journal_p0 event_journal_1  (cost=0.42..13867.72 rows=15484 width=77) (actual time=0.019..3.820 rows=502 loops=1)
+                     Rows Removed by Filter: 52203
+ Execution Time: 4.000 ms
+ q1   |             6 |            5

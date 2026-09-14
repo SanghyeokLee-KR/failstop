@@ -43,6 +43,12 @@
 `replayTail(engine, upperCmdSeq)` 크래시 창 산출 전용이다. 셋 다 커서 시작점을 받지 않고
 본체가 `engine.lastAppliedSeq()` 에서 유도한다.
 
+**2026-09-14 주.** ADR 0022 2단계 병합에서 `replayTail` 이 삭제됐다(`ff41f18`). 운영 진입점은 마켓판이다.
+대조는 `verifyToMarket(engine, marketId, checkpoints)`(ReplayService.java:297), 크래시 창 산출은
+`replayTailMarket(engine, marketId, headOfMarket)`(:318)이고 둘 다 커서를 `engine.appliedSeq(marketId)`
+에서 연다(:294). 커서 시작점을 인자에서 없앤 이 절의 결정은 그대로다. 전역 `rebuild`·`verifyTo` 는
+운영 호출자 없이 시험만 쓴다.
+
 전 호출자에서 그 자리에 올 수 있는 올바른 값이 하나뿐이었으므로, 인자를 지우면 축을 잘못
 넣을 자리 자체가 사라진다. 이벤트 축 값을 내는 함수 넷도 지운다. `ReplayService.watermarkAt`,
 `EventJournalReader.watermark`, `SnapshotSource.eventWatermark`, `JournalCheckpoint.eventSeq`
@@ -54,7 +60,7 @@
 
 `replayTail` 은 이벤트 커서를 열지 않는다. 종전 2 단계는 커서가 1 단계 끝에서 소진돼 있다는
 성질에 기댔는데, 그 성질이 성립하던 이유가 상한의 이벤트 축 값이 대역 파생으로 거대했기
-때문이다. 우연을 구조로 바꾼다.
+때문이다. 우연을 구조로 바꾼다. (2026-09-14 주: 마켓판 `replayTailMarket` 도 이벤트 커서를 열지 않는다. `EventCursor.NONE` 이다(ReplayService.java:322))
 
 ### 3. 승격 생략은 재생만 생략한다
 

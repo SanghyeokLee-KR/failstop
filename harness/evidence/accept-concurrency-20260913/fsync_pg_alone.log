@@ -1,0 +1,2 @@
+fsync pg-alone 2026-09-13T16:06:39+09:00
+{"fsync fdatasync/s": 2190.117, "fsync 건당(ms)": 0.457}

@@ -1,0 +1,13 @@
+counter_check|1|541314|541314
+counter_check|2|81148|81148
+counter_check|3|79966|79966
+counter_check|4|80390|80390
+counter_check|5|79926|79926
+counter_check|6|80762|80762
+counter_check|7|79271|79271
+counter_check|8|81035|81035
+counter_check|9|78297|78297
+counter_check|10|79326|79326
+counter_check|11|80138|80138
+counter_check|12|13661|13661
+derivation_mismatch|0

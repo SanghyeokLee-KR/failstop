@@ -1,0 +1,3 @@
+# out\seq 원문 EXPLAIN 두 파일에서 파생한 요약. 재측정 아님. 합은 12 마켓 (a) EXPLAIN ANALYZE Execution Time 합.
+SEQ a_only plans=12 sum_exec_ms_12_markets=7.168 jit_plans=0  COUNTS | pm | 0 | 48
+SEQ b_then_a plans=12 sum_exec_ms_12_markets=107.796 jit_plans=0  COUNTS | pm | 43 | 5

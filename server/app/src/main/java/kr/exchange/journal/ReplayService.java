@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.engine.CommandPayloadMapper;
 import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.MatchingEngine;
+import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.OrderCommand;
+import kr.exchange.journal.ReplayResult.PendingBatch;
 import kr.exchange.ledger.Fees;
 import kr.exchange.ledger.MarketCatalog;
 import org.slf4j.Logger;
@@ -12,6 +14,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * 기동 재생(DB 설계 §5.5 STEP2, M1-2 범위: 스냅샷 없이 seq 0부터 전역 단일 패스).
@@ -75,6 +79,28 @@ public class ReplayService {
         return commandReader.maxSeq();
     }
 
+    /** 마켓별 연속 물질화 경계. 호출자는 엔진의 마켓 커서를 넘긴다(ADR 0023 결정 2). */
+    public JournalCheckpoints materializedThroughByMarket(Map<Integer, Long> cursors) {
+        return eventReader.materializedThroughByMarket(cursors);
+    }
+
+    /**
+     * 엔진의 마켓 커서로 구한 마켓별 경계. 저널에 명령이 있는데 엔진에 커서가 없는 마켓은 엔진의 바닥을 넘긴다.
+     * 바닥을 넘기지 않으면 경계 탐색이 스냅샷 아래를 다시 훑는다(ADR 0023 결정 2).
+     */
+    public JournalCheckpoints materializedThroughByMarket(MatchingEngineImpl engine) {
+        Map<Integer, Long> cursors = new TreeMap<>(engine.appliedSeqs());
+        for (int marketId : journalHeads().keySet()) {
+            cursors.putIfAbsent(marketId, engine.appliedSeq(marketId));
+        }
+        return materializedThroughByMarket(cursors);
+    }
+
+    /** 마켓별 명령 저널 head. 2 단계 상한과 초과분 판정에 쓴다. */
+    public Map<Integer, Long> journalHeads() {
+        return commandReader.maxSeqByMarket();
+    }
+
     /**
      * 상한까지 대조만 하는 재생. pending 이 하나라도 나오면 던진다.
      *
@@ -89,7 +115,7 @@ public class ReplayService {
         long from = engine.lastAppliedSeq();
         ReplayResult result = replay(engine, bound.commandSeq(),
                 new JournalEventCursor(from, bound.commandSeq()));
-        if (!result.pendingEvents().isEmpty()) {
+        if (!result.pendingBatches().isEmpty()) {
             // 대조 건수를 함께 싣는다. 커서가 죽은 경우와 일부만 대조된 경우를 로그에서 가른다.
             // 별도 하한을 두지 않는 이유는 그것이 발화할 수 없기 때문이다. 커서가 한 번 null 을
             // 내면 exhausted 가 서서 이후 방출이 전부 pending 으로 가므로, pending 이 비었다는
@@ -99,19 +125,9 @@ public class ReplayService {
                     + ", 상한 cmd=" + bound.commandSeq()
                     + ", 적용=" + result.replayedCommands()
                     + ", 대조=" + result.verifiedEvents()
-                    + ", 첫 pending cmd=" + result.pendingEvents().get(0).sourceCmdSeq());
+                    + ", 첫 pending cmd=" + result.pendingBatches().get(0).seq());
         }
         return result;
-    }
-
-    /**
-     * 크래시 창 산출 전용 재생. 이벤트 커서를 열지 않으므로 전 방출이 pending 이다.
-     *
-     * 상한 위 구간은 이벤트가 없는 구간이라 대조할 상대가 없다. 커서를 열어 두면 경계 위에
-     * 이미 물질화된 다른 마켓의 행을 만나 짝이 어긋난다.
-     */
-    public ReplayResult replayTail(MatchingEngine engine, long upperCmdSeq) {
-        return replay(engine, upperCmdSeq, EventCursor.NONE);
     }
 
     /** 이벤트 커서. 대조할 상대가 없는 구간에서는 NONE 을 쓴다. */
@@ -140,7 +156,7 @@ public class ReplayService {
      * 들어가 커서가 첫 조회에서 소진됐다.
      */
     private ReplayResult replay(MatchingEngine engine, long commandBound, EventCursor cursor) {
-        List<EngineEvent> pending = new ArrayList<>();
+        List<PendingBatch> pending = new ArrayList<>();
         long replayedCommands = 0;
         long verifiedEvents = 0;
 
@@ -151,24 +167,7 @@ public class ReplayService {
                 break;
             }
             for (JournalEntry entry : batch) {
-                JournalChecksum.verify(entry);
-                OrderCommand command = mapper.toCommand(entry);
-                for (EngineEvent event : engine.apply(command)) {
-                    EventJournalRow row = cursor.next();
-                    if (row == null) {
-                        pending.add(event);
-                        continue;
-                    }
-                    if (!pending.isEmpty()) {
-                        // 방어적 불변식. 커서가 한 번 null을 반환하면 exhausted라 이후 next()는
-                        // 계속 null(pending 경로)이므로 현재 커서 구현에서는 도달하지 않는다.
-                        // 커서 변경 시 prefix 성질 위반을 조용히 넘기지 않도록 남긴다.
-                        throw new ReplayMismatchException(
-                                "event_journal prefix 위반: event_seq=" + row.eventSeq());
-                    }
-                    verifyMatch(row, event, entry);
-                    verifiedEvents++;
-                }
+                verifiedEvents += applyAndMatch(engine, entry, cursor, pending, "");
                 replayedCommands++;
             }
         }
@@ -177,17 +176,52 @@ public class ReplayService {
                     "재생이 생성하지 않은 이벤트가 저널에 남아 있다: event_seq="
                             + cursor.current().eventSeq());
         }
+        ReplayResult result =
+                new ReplayResult(engine.lastAppliedSeq(), replayedCommands, verifiedEvents, pending);
         // 상한 있는 재생은 팔로워 catch-up 이 초마다 부른다. 그 경로까지 INFO 로 남기면 로그가
         // 초당 한 줄씩 쌓인다. 기동 요약은 호출측(EngineRecovery)이 따로 남긴다.
         if (commandBound < 0) {
             log.info("재생 완료: lastAppliedSeq={}, commands={}, verified={}, pending={}",
-                    engine.lastAppliedSeq(), replayedCommands, verifiedEvents, pending.size());
+                    engine.lastAppliedSeq(), replayedCommands, verifiedEvents,
+                    result.pendingEvents().size());
         } else if (replayedCommands > 0) {
             log.debug("재생 완료(상한 {}): lastAppliedSeq={}, commands={}, verified={}, pending={}",
                     commandBound, engine.lastAppliedSeq(), replayedCommands, verifiedEvents,
-                    pending.size());
+                    result.pendingEvents().size());
         }
-        return new ReplayResult(engine.lastAppliedSeq(), replayedCommands, verifiedEvents, pending);
+        return result;
+    }
+
+    /**
+     * 한 명령을 적용하고 방출을 이벤트 커서와 1 대 1 로 짝짓는다. 대조한 건수를 돌려준다.
+     * 짝이 없는 방출은 그 명령의 배치로 pending 에 더한다.
+     */
+    private long applyAndMatch(MatchingEngine engine, JournalEntry entry, EventCursor cursor,
+                               List<PendingBatch> pending, String scope) {
+        JournalChecksum.verify(entry);
+        OrderCommand command = mapper.toCommand(entry);
+        List<EngineEvent> unmatched = new ArrayList<>();
+        long verified = 0;
+        for (EngineEvent event : engine.apply(command)) {
+            EventJournalRow row = cursor.next();
+            if (row == null) {
+                unmatched.add(event);
+                continue;
+            }
+            if (!pending.isEmpty() || !unmatched.isEmpty()) {
+                // 방어적 불변식. 커서가 한 번 null을 반환하면 exhausted라 이후 next()는
+                // 계속 null(pending 경로)이므로 현재 커서 구현에서는 도달하지 않는다.
+                // 커서 변경 시 prefix 성질 위반을 조용히 넘기지 않도록 남긴다.
+                throw new ReplayMismatchException(
+                        scope + "event_journal prefix 위반: event_seq=" + row.eventSeq());
+            }
+            verifyMatch(row, event, entry);
+            verified++;
+        }
+        if (!unmatched.isEmpty()) {
+            pending.add(new PendingBatch(entry.seq(), entry.createdAt(), List.copyOf(unmatched)));
+        }
+        return verified;
     }
 
     private void verifyMatch(EventJournalRow row, EngineEvent event, JournalEntry entry) {
@@ -236,95 +270,96 @@ public class ReplayService {
     }
 
     /**
-     * 한 마켓만 재생한다(ADR 0021 4단계 shadow 비교).
+     * 한 마켓만 상한 없이 재생한다(ADR 0021 4단계 shadow 비교).
      *
      * 전역 재생과 같은 대조를 마켓 축에서 한다. 명령은 그 마켓 것만 seq 오름차순으로,
      * 이벤트도 그 마켓 것만 (source_cmd_seq, event_ordinal) 오름차순으로 읽어 1 대 1 로 짝짓는다.
+     * market_id 가 빈 V36 이전 이벤트는 레거시 경계 이하에서 명령 조인으로 짝짓는다(ADR 0022 9-14).
      *
      * seq 연속성을 검사하지 않는다. seq 가 전역 채번이라 한 마켓의 스트림에는 구멍이
      * 뚫려 있고 그 구멍은 다른 마켓의 명령이지 결번이 아니다. 마켓 안의 순서만 있으면
      * 재생이 성립한다는 것이 이 설계의 전제이고, 이 메서드가 그 전제를 실증한다.
      *
-     * 엔진은 비어 있어야 한다. 이 마켓의 북 하나만 채워져 나온다. 전역 재생이 만든
-     * 같은 마켓의 북과 바이트가 같아야 한다. 그 대조가 shadow 비교다.
+     * 빈 엔진에서 부르면 이 마켓의 북 하나만 채워져 나온다. 전역 재생이 만든 같은 마켓의 북과
+     * 바이트가 같아야 한다. 그 대조가 shadow 비교다.
      */
     public ReplayResult rebuildMarket(MatchingEngine engine, int marketId) {
-        MarketEventCursor cursor = new MarketEventCursor(marketId);
-        List<EngineEvent> pending = new ArrayList<>();
+        return replayMarket(engine, marketId, -1, new JournalEventCursor(
+                engine.appliedSeq(marketId), -1, marketId, eventReader.legacyBound()));
+    }
+
+    /**
+     * 한 마켓을 bound(m) 까지 대조만 하는 재생. pending 이 하나라도 나오면 던진다. verifyTo 의 마켓판이다.
+     *
+     * 두 커서를 engine.appliedSeq(marketId) 에서 함께 열고 호출자는 상한만 넘긴다(ADR 0023 결정 2).
+     * checkpoints 는 같은 엔진의 마켓 커서로 구한 materializedThroughByMarket 결과여야 한다.
+     */
+    public ReplayResult verifyToMarket(MatchingEngine engine, int marketId, JournalCheckpoints checkpoints) {
+        long from = engine.appliedSeq(marketId);
+        long bound = checkpoints.bound(marketId);
+        ReplayResult result = replayMarket(engine, marketId, bound,
+                new JournalEventCursor(from, bound, marketId, checkpoints.legacyBound()));
+        if (!result.pendingBatches().isEmpty()) {
+            throw new ReplayMismatchException("마켓 " + marketId + " 물질화 경계 재생에서 pending 이 나왔다: "
+                    + result.pendingEvents().size() + "건, 커서 시작=" + from
+                    + ", 상한 cmd=" + bound
+                    + ", 적용=" + result.replayedCommands()
+                    + ", 대조=" + result.verifiedEvents()
+                    + ", 첫 pending cmd=" + result.pendingBatches().get(0).seq());
+        }
+        return result;
+    }
+
+    /**
+     * 한 마켓의 크래시 창 산출 재생. headOfMarket 까지 적용하고 방출을 전부 명령 단위 배치로 낸다.
+     *
+     * 상한이 없으면 리더가 쓰는 동안 끝나지 않으므로 음수를 받지 않는다(ADR 0022 5-4).
+     */
+    public ReplayResult replayTailMarket(MatchingEngine engine, int marketId, long headOfMarket) {
+        if (headOfMarket < 0) {
+            throw new IllegalArgumentException("크래시 창 재생에는 상한이 있어야 한다: market=" + marketId);
+        }
+        return replayMarket(engine, marketId, headOfMarket, EventCursor.NONE);
+    }
+
+    /**
+     * 마켓 재생 본체. 명령 커서는 engine.appliedSeq(marketId) 초과분이고 이벤트 커서는 호출측이 같은
+     * 값에서 연다. commandBound 가 음수면 상한이 없다.
+     */
+    private ReplayResult replayMarket(MatchingEngine engine, int marketId, long commandBound,
+                                      EventCursor cursor) {
+        String scope = "마켓 " + marketId + " ";
+        List<PendingBatch> pending = new ArrayList<>();
         long replayedCommands = 0;
         long verifiedEvents = 0;
 
         while (true) {
             List<JournalEntry> batch = commandReader.readAfterForMarket(
-                    engine.lastAppliedSeq(), marketId, -1, BATCH);
+                    engine.appliedSeq(marketId), marketId, commandBound, BATCH);
             if (batch.isEmpty()) {
                 break;
             }
             for (JournalEntry entry : batch) {
-                JournalChecksum.verify(entry);
-                OrderCommand command = mapper.toCommand(entry);
-                for (EngineEvent event : engine.apply(command)) {
-                    EventJournalRow row = cursor.next();
-                    if (row == null) {
-                        pending.add(event);
-                        continue;
-                    }
-                    if (!pending.isEmpty()) {
-                        throw new ReplayMismatchException(
-                                "마켓 " + marketId + " prefix 위반: event_seq=" + row.eventSeq());
-                    }
-                    verifyMatch(row, event, entry);
-                    verifiedEvents++;
-                }
+                verifiedEvents += applyAndMatch(engine, entry, cursor, pending, scope);
                 replayedCommands++;
             }
         }
         if (cursor.next() != null) {
             throw new ReplayMismatchException(
-                    "마켓 " + marketId + " 재생이 생성하지 않은 이벤트가 저널에 남았다: event_seq="
+                    scope + "재생이 생성하지 않은 이벤트가 저널에 남았다: event_seq="
                             + cursor.current().eventSeq());
         }
-        log.info("마켓 재생 완료: market={}, commands={}, verified={}, pending={}",
-                marketId, replayedCommands, verifiedEvents, pending.size());
-        return new ReplayResult(engine.lastAppliedSeq(), replayedCommands, verifiedEvents, pending);
-    }
-
-    /** 한 마켓의 event_journal 커서. 축은 전역 커서와 같고 읽기에 마켓 조건만 더 붙는다. */
-    private final class MarketEventCursor {
-        private final int marketId;
-        private List<EventJournalRow> buffer = List.of();
-        private int index;
-        private long lastCmdSeq;
-        private int lastOrdinal = -1;
-        private boolean exhausted;
-        private EventJournalRow current;
-
-        MarketEventCursor(int marketId) {
-            this.marketId = marketId;
+        ReplayResult result = new ReplayResult(engine.appliedSeq(marketId), replayedCommands,
+                verifiedEvents, pending);
+        if (commandBound < 0) {
+            log.info("마켓 재생 완료: market={}, commands={}, verified={}, pending={}",
+                    marketId, replayedCommands, verifiedEvents, result.pendingEvents().size());
+        } else if (replayedCommands > 0) {
+            log.debug("마켓 재생 완료(상한 {}): market={}, commands={}, verified={}, pending={}",
+                    commandBound, marketId, replayedCommands, verifiedEvents,
+                    result.pendingEvents().size());
         }
-
-        EventJournalRow next() {
-            if (exhausted) {
-                return null;
-            }
-            if (index >= buffer.size()) {
-                buffer = eventReader.readAfterForMarket(lastCmdSeq, lastOrdinal, marketId, BATCH);
-                index = 0;
-                if (buffer.isEmpty()) {
-                    exhausted = true;
-                    return null;
-                }
-            }
-            EventJournalRow row = buffer.get(index++);
-            lastCmdSeq = row.sourceCmdSeq();
-            lastOrdinal = row.eventOrdinal();
-            current = row;
-            return row;
-        }
-
-        EventJournalRow current() {
-            return current;
-        }
+        return result;
     }
 
     /**
@@ -343,15 +378,24 @@ public class ReplayService {
         private int lastOrdinal;
         // 음수면 상한 없음. 0 이상이면 이 source_cmd_seq 까지만 읽는다. 명령 상한과 짝이다.
         private final long upperCmdSeq;
+        // 음수면 전 마켓. 마켓을 정하면 legacyBound 이하의 market_id 없는 행도 명령 조인으로 읽는다.
+        private final int marketId;
+        private final long legacyBound;
         private boolean exhausted;
         private EventJournalRow current;
 
+        JournalEventCursor(long startCmdSeq, long upperCmdSeq) {
+            this(startCmdSeq, upperCmdSeq, -1, 0);
+        }
+
         // 커서를 스냅샷 명령 워터마크로 초기화한다. 그 명령까지의 이벤트는 스냅샷에 이미
         // 반영돼 있으므로 그 다음 명령의 첫 이벤트부터 대조한다.
-        JournalEventCursor(long startCmdSeq, long upperCmdSeq) {
+        JournalEventCursor(long startCmdSeq, long upperCmdSeq, int marketId, long legacyBound) {
             this.lastCmdSeq = startCmdSeq;
             this.lastOrdinal = Integer.MAX_VALUE;
             this.upperCmdSeq = upperCmdSeq;
+            this.marketId = marketId;
+            this.legacyBound = legacyBound;
         }
 
         @Override
@@ -360,7 +404,9 @@ public class ReplayService {
                 return null;
             }
             if (index >= buffer.size()) {
-                buffer = eventReader.readAfter(lastCmdSeq, lastOrdinal, BATCH);
+                buffer = marketId < 0
+                        ? eventReader.readAfter(lastCmdSeq, lastOrdinal, BATCH)
+                        : eventReader.readAfterForMarket(lastCmdSeq, lastOrdinal, marketId, legacyBound, BATCH);
                 index = 0;
                 if (buffer.isEmpty()) {
                     exhausted = true;

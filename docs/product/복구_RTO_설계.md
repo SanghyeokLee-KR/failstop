@@ -53,8 +53,8 @@ metric RTO가 실측을 은폐한다. 근인은 T5의 `created_at`이 벽시계 
 
 - `LeaderLeaseService`가 획득·상실 두 리스너 목록을 보유한다. `gainListeners`(LeaderLeaseService.java:90), `public void onLeadershipGained(Consumer<LeaderIdentity> listener)`(:194). 상실 축은 `lossListeners`(:83), `onLeadershipLost`(:172).
 - 승격 경로가 epoch 세팅 직후 gain 리스너를 발화한다. 발화 루프는 `for (Consumer<LeaderIdentity> listener : gainListeners)`(LeaderLeaseService.java:369)이고 바로 앞 :366이 `serviceHealth.onLeadershipGained()`다.
-- 배선측이 gain을 건다. `EngineConfig.java:439` `leaderLeaseService.onLeadershipGained(identity -> catchUp.stopForPromotion());`, `EngineConfig.java:441` `leaderLeaseService.onLeadershipGained(coordinator::onLeadershipGained);`. 상실 배선은 `EngineConfig.java:442` `leaderLeaseService.onLeadershipLost(coordinator::onLeadershipLost);`와 마켓별 라이터 전부를 멈추는 `EngineConfig.java:505` `lease.onLeadershipLost(router::haltAll);`다.
-- 승격 시점에 재생이 다시 돈다. `PromotionCoordinator.replayOnce`가 fresh `MatchingEngineImpl`을 만들어 `recovery.recover(fresh)`를 돌리고 `host.install(fresh)`로 핸드오프한다(PromotionCoordinator.java:336~338). 부팅 경로는 `recovery.recoverAtBoot(engine)`로 분리됐다(EngineConfig.java:515).
+- 배선측이 gain을 건다. `EngineConfig.java:453` `leaderLeaseService.onLeadershipGained(identity -> catchUp.stopForPromotion());`, `EngineConfig.java:455` `leaderLeaseService.onLeadershipGained(coordinator::onLeadershipGained);`. 상실 배선은 `EngineConfig.java:456` `leaderLeaseService.onLeadershipLost(coordinator::onLeadershipLost);`와 마켓별 라이터 전부를 멈추는 `EngineConfig.java:519` `lease.onLeadershipLost(router::haltAll);`다.
+- 승격 시점에 재생이 다시 돈다. `PromotionCoordinator.replayOnce`가 fresh `MatchingEngineImpl`을 만들어 `recovery.recover(fresh)`를 돌리고 `host.install(fresh)`로 핸드오프한다(PromotionCoordinator.java:337~339). 부팅 경로는 `recovery.recoverAtBoot(engine)`로 분리됐다(EngineConfig.java:529).
 
 결과: 승격 시 인메모리 엔진이 접수 개방 전에 head까지 선복원된다. 스탠바이가 부팅 시점 seq에 머무는 상태는 해소됐다.
 
@@ -62,14 +62,14 @@ metric RTO가 실측을 은폐한다. 근인은 T5의 `created_at`이 벽시계 
 
 ### 2-2. 스탠바이 엔진이 stale lastAppliedSeq로 열림(2026-08 근인. 3-a 배선으로 닫힘)
 
-- `MatchingEngineImpl.lastAppliedSeq`는 마지막 apply한 명령 seq다(MatchingEngineImpl.java:19, :28, :33). 스탠바이는 리더가 아니라 큐에 명령이 공급되지 않으므로, 2026-08 시점에는 부팅 후 이 값이 전진하지 않았다.
-- 부팅 시 저널이 작았다면 lastAppliedSeq는 0 또는 소수였다. 스파이크 동안 리더가 27k 명령을 적재해도 스탠바이 엔진은 따라가지 않았다. 현재는 `FollowerCatchUp`(2026-09-08 배선)이 체크포인트 상한까지 팔로워 엔진을 계속 재생해 이 얼어붙음을 없앤다(`server/app/src/main/java/kr/exchange/engine/FollowerCatchUp.java`, 배선 EngineConfig.java:487~491). 상세는 §3-d다.
+- `MatchingEngineImpl.lastAppliedSeq`는 마지막 apply한 명령 seq다(병합 전 판 MatchingEngineImpl.java:19, :28, :33. 2026-09-14 ADR 0022 2단계 병합 판에는 이 필드가 없고 마켓별 `appliedSeqs`(:21)와 `lastAppliedSeq()` 메서드(:57)가 있다). 스탠바이는 리더가 아니라 큐에 명령이 공급되지 않으므로, 2026-08 시점에는 부팅 후 이 값이 전진하지 않았다.
+- 부팅 시 저널이 작았다면 lastAppliedSeq는 0 또는 소수였다. 스파이크 동안 리더가 27k 명령을 적재해도 스탠바이 엔진은 따라가지 않았다. 현재는 `FollowerCatchUp`(2026-09-08 배선)이 체크포인트 상한까지 팔로워 엔진을 계속 재생해 이 얼어붙음을 없앤다(`server/app/src/main/java/kr/exchange/engine/FollowerCatchUp.java`, 배선 EngineConfig.java:501~505). 상세는 §3-d다.
 - 승격 후 게이트웨이 접수가 열려 첫 신규 명령(seq 약 27k+)이 큐에 들어오면, `SingleWriterLoop.process`가 `command.seq() > last + 1`을 관측하고 `catchUpTo(command.seq())`를 호출했다(`server/engine/src/main/java/kr/exchange/engine/core/SingleWriterLoop.java:203`, :204). 현재는 접수 게이트가 rebuild 완료 전 유입을 막아 이 경로에 대규모 gap이 들어오지 않는다(§2-1·§3-a).
 
 ### 2-3. catch-up의 sink가 인메모리 rebuild가 아니라 정산 경로(2026-08 근인)
 
-- `catchUpTo`는 `applyAndSink`로 각 명령을 처리한다(SingleWriterLoop.java:212~227, 호출 지점 :221).
-- `applyAndSink`는 `engine.apply` 후 방출 이벤트를 `eventSink.accept`로 넘긴다(SingleWriterLoop.java:229~239, accept 호출 :232).
+- `catchUpTo`는 `applyAndSink`로 각 명령을 처리한다(SingleWriterLoop.java:263~289, 호출 지점 :282).
+- `applyAndSink`는 `engine.apply` 후 방출 이벤트를 `eventSink.accept`로 넘긴다(SingleWriterLoop.java:291~308, accept 호출 :296).
 - 이 `eventSink`는 정산 경로다. `EngineConfig.java:240~248` 람다가 `settlementService.appendAndSettle(events)`(:242) 결과를 `marketDataPublisher.publishSettled(settled)`(:247)로 잇는다.
 - `appendAndSettle`는 명령마다 원격 PG 왕복 트랜잭션 1개다(`SettlementService.appendAndSettle`). 트랜잭션 본체는 `settleInTx`이고 내부는 다음과 같다.
   - fencing 검증과 `leader_lease` 행 잠금을 한 왕복으로 한다. `SettlementService.ASSERT_AND_LOCK_SQL`(`SELECT assert_and_lock_leader(?, ?)`). V30 이전에는 `assert_current_leader` 호출과 `leader_lease FOR SHARE` 조회 두 문장이었다.
@@ -103,13 +103,13 @@ PROMOTING --(fresh 엔진 rebuild 완료 + 크래시 창 재정산 완료)-->  A
 ACCEPTING --(fencing 거부·정산 실패·리스 상실)-->  DEMOTED(self-shutdown)
 ```
 
-- 감지·승격: `tryAcquire` 성공 시 gain 콜백이 발화한다. `LeaderLeaseService`가 `onLeadershipGained(Consumer<LeaderIdentity>)` 리스너 목록을 보유하고(LeaderLeaseService.java:90, :194) epoch 세팅 직후 발화한다(:369). 승격 성공 경로는 부팅 `start()` 최초 획득과 런타임 tick 승격 둘 다다. 부팅 경로는 `recoverAtBoot`로 분리해 이중 실행을 막는다(EngineConfig.java:515).
-- rebuild: gain 콜백이 접수를 닫은 채 **fresh 엔진**을 만들어 `recover`(스냅샷 로드 + tail 재생 + 크래시 창 재정산)를 돌린다(`PromotionCoordinator.replayOnce`, PromotionCoordinator.java:307~343).
-- 접수 개방: rebuild 완료 후에만 접수 게이트를 연다(PromotionCoordinator.java:162~163 PROMOTING 전환과 함께 닫힘, :245~246 ACCEPTING 전환과 함께 개방).
+- 감지·승격: `tryAcquire` 성공 시 gain 콜백이 발화한다. `LeaderLeaseService`가 `onLeadershipGained(Consumer<LeaderIdentity>)` 리스너 목록을 보유하고(LeaderLeaseService.java:90, :194) epoch 세팅 직후 발화한다(:369). 승격 성공 경로는 부팅 `start()` 최초 획득과 런타임 tick 승격 둘 다다. 부팅 경로는 `recoverAtBoot`로 분리해 이중 실행을 막는다(EngineConfig.java:529).
+- rebuild: gain 콜백이 접수를 닫은 채 **fresh 엔진**을 만들어 `recover`(스냅샷 로드 + tail 재생 + 크래시 창 재정산)를 돌린다(`PromotionCoordinator.replayOnce`, PromotionCoordinator.java:308~344).
+- 접수 개방: rebuild 완료 후에만 접수 게이트를 연다(PromotionCoordinator.java:163~164 PROMOTING 전환과 함께 닫힘, :246~247 ACCEPTING 전환과 함께 개방).
 
 #### fresh 엔진 필수(정합성 제약)
 
-**커서 어긋남 위험은 해소됐다(2026-09-12, ADR 0023).** 종전에는 재생 진입점이 이벤트 커서 시작점을 인자로 받았고, 그 자리에 잘못된 축의 값을 넣으면 대조가 어긋났다. 지금은 세 진입점 모두 커서 시작점을 받지 않고 본체가 `engine.lastAppliedSeq()` 에서 유도하므로, 명령 커서와 이벤트 커서가 구조적으로 같은 값에서 출발한다. 승격 재생이 fresh 엔진을 쓰는 계약은 그대로다. 이유가 커서 정합에서 재생 중단 시 적용 범위 불확정으로 바뀌었을 뿐이다. 대조 전용 진입점은 `verifyTo(MatchingEngine, JournalCheckpoint)` 이고 크래시 창 산출은 `replayTail(MatchingEngine, long)` 이다(§3-b).
+**커서 어긋남 위험은 해소됐다(2026-09-12, ADR 0023).** 종전에는 재생 진입점이 이벤트 커서 시작점을 인자로 받았고, 그 자리에 잘못된 축의 값을 넣으면 대조가 어긋났다. 지금은 진입점이 커서 시작점을 받지 않고 본체가 엔진 커서에서 유도하므로, 명령 커서와 이벤트 커서가 구조적으로 같은 값에서 출발한다. 승격 재생이 fresh 엔진을 쓰는 계약은 그대로다. 이유가 커서 정합에서 재생 중단 시 적용 범위 불확정으로 바뀌었을 뿐이다. 2026-09-14 ADR 0022 2단계 병합으로 운영 진입점이 마켓판이 됐다. 커서는 `engine.appliedSeq(marketId)` 에서 열고(ReplayService.java:294), 대조 전용 진입점은 `verifyToMarket(MatchingEngine, int, JournalCheckpoints)` 이고 크래시 창 산출은 `replayTailMarket(MatchingEngine, int, long)` 이다(§3-b). 전역 `verifyTo`·`rebuild` 는 운영 호출자 없이 시험만 쓴다.
 
 #### 루프로의 엔진 핸드오프
 
@@ -140,8 +140,8 @@ ACCEPTING --(fencing 거부·정산 실패·리스 상실)-->  DEMOTED(self-shut
 - 주기·트리거: 리더가 N 명령마다 또는 T초마다(둘 중 먼저) 스냅샷 1건을 기록한다. 실물은 `SingleWriterLoop.SnapshotHook` 구현체 `server/app/src/main/java/kr/exchange/snapshot/SnapshotCapture.java`의 `afterCommand`이고, 배선은 `EngineConfig`의 `snapshotCapture` 빈과 `loop.setSnapshotHook(capture)`다. 라이터 스레드는 정책 판정과 마켓별 결정론 인코딩만 하고 DB 영속화는 별도 워커 스레드가 한다. 유계 큐가 차면 드롭한다(best-effort. tail이 길어질 뿐 정확성 무손실). 경계 seq에서의 인메모리 상태 정합은 단일 라이터라 자연 확보된다(그 seq까지 apply 완료 시점 캡처). 주기 값은 `SnapshotProperties`가 소유하고 기본값은 `commandInterval` 100,000 명령·`timeInterval` 60초다.
   - 미결: 정확 주기 값은 캘리브레이션(`docs/architecture/M4_하드닝설계.md` §3-3(d))에서 확정해야 하며 아직 정해지지 않았다. 위 기본값은 캘리브레이션 전 초기값이고 실측 근거가 없다.
 - 직렬화: `MatchingEngineImpl`의 마켓별 `OrderBookImpl`(`bids`·`asks`·`ordersById` TreeMap)을 결정론 바이트로 인코딩하는 codec은 `server/engine/src/main/java/kr/exchange/engine/core/SnapshotCodec.java`다(`encode`·`decode`, `FORMAT_VERSION` 1). 순회 순서가 정의된 자료구조만 쓰므로(TreeMap·ArrayDeque, 코어 순수성 T3-A) 인코딩이 결정론이다. `state_checksum`은 기존 `OrderBookImpl.stateChecksum()`(`MatchingEngineImpl.stateChecksum()`과 동일 규약)을 병기해 로드 시 무결 검증한다.
-- 복원(스냅샷 + 델타): 승격 rebuild가 최신 유효 스냅샷을 로드해(`EngineRecovery`의 `snapshotSource.loadLatestAdoptable()`, DB 설계 §5.5 STEP1) fresh 엔진에 역직렬화한 뒤, `command_journal`에서 마켓마다 그 마켓 커서 초과분만 tail 재생한다. 마켓 커서는 그 마켓 스냅샷의 `last_applied_seq`에서 시작한다. 1상은 연속 물질화 경계 `bound(m)`까지 대조하고, 2상은 리더 자격을 얻고 늘어난 경계 구간을 대조한 뒤 한 번 고정한 `head(m)`까지 돌아 크래시 창을 낸다(DB 설계 §5.5-a, §5.5 STEP2). 현재 코드는 전역 스칼라 커서(`engine.lastAppliedSeq()`)와 전역 경계로 돌고, 마켓별 이전은 ADR 0022 2단계다.
-  - 이벤트 커서 정렬(2026-09-12 개정, ADR 0023): 커서 시작점을 인자로 넘기지 않는다. `loadSnapshot` 이 `engine.lastAppliedSeq()` 를 스냅샷 seq 로 세우고 재생이 그 값에서 명령 커서와 이벤트 커서를 함께 연다. 종전의 이벤트 워터마크 유도(`SnapshotStore.eventWatermark`)는 삭제했다. 그 유도는 `event_seq` 가 명령 순서대로 결번 없이 배정된다는 전제 위에 있었고 V36 의 마켓 대역 파생이 그것을 깼다.
+- 복원(스냅샷 + 델타): 승격 rebuild가 최신 유효 스냅샷을 로드해(`EngineRecovery`의 `snapshotSource.loadLatestAdoptablePerMarket()`, DB 설계 §5.5 STEP1) fresh 엔진에 역직렬화한 뒤, `command_journal`에서 마켓마다 그 마켓 커서 초과분만 tail 재생한다. 마켓 커서는 그 마켓 스냅샷의 `last_applied_seq`에서 시작한다. 1상은 연속 물질화 경계 `bound(m)`까지 대조하고, 2상은 리더 자격을 얻고 늘어난 경계 구간을 대조한 뒤 한 번 고정한 `head(m)`까지 돌아 크래시 창을 낸다(DB 설계 §5.5-a, §5.5 STEP2). 코드는 2026-09-14 ADR 0022 2단계 병합으로 이 마켓별 경로로 돈다(`EngineRecovery.java`:254~309).
+  - 이벤트 커서 정렬(2026-09-12 개정, ADR 0023): 커서 시작점을 인자로 넘기지 않는다. `loadMarketSnapshot`(MatchingEngineImpl.java:85)이 마켓마다 스냅샷을 적재하고, 재생이 그 마켓 커서 `engine.appliedSeq(marketId)` 에서 명령 커서와 이벤트 커서를 함께 연다(ReplayService.java:294). 병합 전 전역 판은 `loadSnapshot` 과 `engine.lastAppliedSeq()` 였다. 종전의 이벤트 워터마크 유도(`SnapshotStore.eventWatermark`)는 삭제했다. 그 유도는 `event_seq` 가 명령 순서대로 결번 없이 배정된다는 전제 위에 있었고 V36 의 마켓 대역 파생이 그것을 깼다.
   - 채택 판정: `engine_version`·`config_hash`·`format_version` 불일치 스냅샷은 무시하고 이전 스냅샷 또는 seq 0 재생으로 폴백한다(DB 설계 §3.1 DDL 블록 6.3 주석 "불일치 스냅샷은 무시하고 저널 재생으로 폴백한다"). `state_checksum` 불일치도 폐기가 아니라 무시·폴백(테이블 append-only, 삭제 금지).
 - 단일 정본 규율: 스냅샷은 저널 파생이다. 원천은 `command_journal`·`event_journal`이고 스냅샷은 재생 시작점 최적화일 뿐이다(DB 설계 §1.1 ① 복구 원천, :16). 스냅샷 부재·손상 시 항상 저널 전량 재생으로 동일 결과에 도달하므로 단일 정본이 유지된다.
 
@@ -161,9 +161,9 @@ ACCEPTING --(fencing 거부·정산 실패·리스 상실)-->  DEMOTED(self-shut
   - 스냅샷 + 빠른 rebuild가 목표(RTO<30s)를 충족한다. 27k 인메모리 rebuild는 수 초, 스냅샷으로 tail을 상한하면 더 짧다.
   - 웜 팔로워는 상태 전진 경로를 하나 더 만든다. 이 경로가 재생과 비트동일해야 하고(결정론 표면 확대), 팔로워 이벤트 대조·발산 감지를 rebuild와 별도로 유지해야 한다. 정확성 > 편의성 원칙에서 표면 확대는 비용이다.
   - 단일 코드 경로(recover/rebuild) 유지가 검증·감사를 단순화한다.
-- 갱신 판정(2026-09-08): 도입했다. `FollowerCatchUp`이 체크포인트 상한까지 팔로워 엔진을 계속 재생한다(`server/app/src/main/java/kr/exchange/engine/FollowerCatchUp.java`, 배선 EngineConfig.java:487~491).
+- 갱신 판정(2026-09-08): 도입했다. `FollowerCatchUp`이 체크포인트 상한까지 팔로워 엔진을 계속 재생한다(`server/app/src/main/java/kr/exchange/engine/FollowerCatchUp.java`, 배선 EngineConfig.java:501~505).
   - 표면 확대 우려는 재생 경로를 새로 만들지 않고 `ReplayService` 재생을 그대로 돌려 해소했다. 이벤트 payload 바이트 대조가 곧 발산 감지다.
-  - 승격 경로는 바뀌지 않는다. 승격은 여전히 fresh 엔진 rebuild이고, 설치 엔진의 마켓 커서가 모든 마켓에서 그 마켓 `head(m)`에 닿았을 때만 재생을 생략한다. 저널에 명령이 있는데 엔진에 커서가 없는 마켓은 닿지 않은 것으로 본다. 생략의 안전 근거는 불변식 M(모든 마켓에서 seq가 설치 엔진의 마켓 커서 이하인 명령은 전부 이벤트가 있음, DB 설계 §5.5-a)이다. 현재 코드의 판정은 전역 스칼라 비교이고(PromotionCoordinator.java:308, :318), 마켓별 판정으로의 이전은 ADR 0022 2단계다.
+  - 승격 경로는 바뀌지 않는다. 승격은 여전히 fresh 엔진 rebuild이고, 설치 엔진의 마켓 커서가 모든 마켓에서 그 마켓 `head(m)`에 닿았을 때만 재생을 생략한다. 저널에 명령이 있는데 엔진에 커서가 없는 마켓은 닿지 않은 것으로 본다. 생략의 안전 근거는 불변식 M(모든 마켓에서 seq가 설치 엔진의 마켓 커서 이하인 명령은 전부 이벤트가 있음, DB 설계 §5.5-a)이다. 판정은 2026-09-14 ADR 0022 2단계 병합으로 마켓별이다(PromotionCoordinator.java:309, :319).
 - 계량: 승격 rebuild delta 벽시계는 `recovery_runs.duration_ms`로 상시 계량한다. 웜 팔로워 도입 여부라는 재검토 트리거 자체는 위 갱신 판정으로 종결됐다.
 
 ---
@@ -218,7 +218,7 @@ ACCEPTING --(fencing 거부·정산 실패·리스 상실)-->  DEMOTED(self-shut
 
 1. C13A 스코프 수정(3-c). 완료. `InvariantCheck.java:124`가 AUTHORITATIVE_ONLY이고 `docs/architecture/M4_하드닝설계.md` 세 자리도 정합이다(3-c).
 2. 승격 gain 훅 + fresh 엔진 rebuild-before-accept + 접수 게이트(3-a). 코드 배선 완료. 스키마 무변경. 실물은 `LeaderLeaseService`·`PromotionCoordinator`·`AcceptGate`·`EngineBridge`·`SingleWriterLoop.installEngine`이다(§2-1·§3-a 인용). 회귀 테스트는 `server/app/src/test/java/kr/exchange/engine/PromotionRecoveryIntegrationTest.java`다. 실측 조건과 남은 규격 제약은 §1-2-a·§2-1이 소유한다.
-3. 주기 스냅샷(3-b). 코드 배선 완료. codec `server/engine/src/main/java/kr/exchange/engine/core/SnapshotCodec.java`, writer `server/app/src/main/java/kr/exchange/snapshot/SnapshotCapture.java`, 로드 경로 `EngineRecovery`의 `snapshotSource.loadLatestAdoptable()`(EngineRecovery.java:146~151). 장기 soak에서 tail 상한이 실제로 걸리는지의 실측은 아직 없다.
+3. 주기 스냅샷(3-b). 코드 배선 완료. codec `server/engine/src/main/java/kr/exchange/engine/core/SnapshotCodec.java`, writer `server/app/src/main/java/kr/exchange/snapshot/SnapshotCapture.java`, 로드 경로 `EngineRecovery`의 `snapshotSource.loadLatestAdoptablePerMarket()`(EngineRecovery.java:166, 2026-09-14 병합 판). 장기 soak에서 tail 상한이 실제로 걸리는지의 실측은 아직 없다.
 4. RTO 측정 계약 정정(4-2)과 문서 동기화. 미착수. `docs/contracts/하네스_검증설계.md` §5-1 T5가 아직 `min(e.created_at)` 기준이다. E4·E6 게이트에 벽시계 RTO 반영도 남았다.
 
 각 단계는 컴파일·테스트 통과 상태로만 멈춘다.

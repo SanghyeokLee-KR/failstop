@@ -1,0 +1,65 @@
+ts,process,cpu_pct_of_16
+16:20:34,league of legends,10.4
+16:20:34,vgc,6.7
+16:20:34,vmmemwsl,6.5
+16:20:34,leagueclient,4.2
+16:20:34,docker desktop,2.4
+16:20:34,leagueclientux,2.4
+16:20:34,leagueclientuxrender,2.1
+16:20:34,dwm,1.7
+16:20:49,vmmemwsl,19.3
+16:20:49,league of legends,11.4
+16:20:49,vgc,6.9
+16:20:49,leagueclient,3.9
+16:20:49,docker desktop,2.8
+16:20:49,leagueclientux,1.8
+16:20:49,system,1.5
+16:20:49,leagueclientuxrender,1.5
+16:21:04,vmmemwsl,29.2
+16:21:04,league of legends,10.6
+16:21:04,vgc,6.6
+16:21:04,leagueclient,3.8
+16:21:04,leagueclientux,2.8
+16:21:04,leagueclientuxrender,2.1
+16:21:04,nexonplug,1.0
+16:21:04,cam_helper,0.9
+16:21:20,league of legends,11.4
+16:21:20,vmmemwsl,10.6
+16:21:20,leagueclient,4.0
+16:21:20,leagueclientux,2.5
+16:21:20,leagueclientuxrender,2.1
+16:21:20,vgc,2.0
+16:21:20,dwm,1.9
+16:21:20,nexonplug,1.3
+16:21:35,league of legends,12.0
+16:21:35,vmmemwsl,7.3
+16:21:35,leagueclient,4.1
+16:21:35,leagueclientux,1.9
+16:21:35,leagueclientuxrender,1.6
+16:21:35,nexonplug,1.5
+16:21:35,nexonplug,1.4
+16:21:35,dwm,1.2
+16:22:00,league of legends,11.3
+16:22:00,vmmemwsl,8.3
+16:22:00,leagueclient,4.1
+16:22:00,dwm,1.9
+16:22:00,leagueclientux,1.8
+16:22:00,leagueclientuxrender,1.8
+16:22:00,nexonplug,1.3
+16:22:00,system,1.0
+16:22:15,league of legends,11.9
+16:22:15,vmmemwsl,7.3
+16:22:15,leagueclient,3.9
+16:22:15,leagueclientux,2.4
+16:22:15,nexonplug,1.8
+16:22:15,leagueclientuxrender,1.7
+16:22:15,dwm,1.6
+16:22:15,nexonplug,1.1
+16:22:30,league of legends,11.5
+16:22:30,vmmemwsl,8.7
+16:22:30,msedgewebview2,4.3
+16:22:30,leagueclient,3.8
+16:22:30,leagueclientux,2.3
+16:22:30,leagueclientuxrender,2.1
+16:22:30,nexonplug,1.0
+16:22:30,cam_helper,1.0

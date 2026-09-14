@@ -1,0 +1,100 @@
+diag_nosort_jitoff_q2_lit_m1_bound0__force_custom_plan|med=0.513|runs= 0.371 0.513 0.652|plan= Sort CMD_MKT CAND CAND|removed=|buf=shared hit=45|COUNTS|q2_lit_m1|0|3
+diag_nosort_jitoff_q2_lit_m1_start__force_custom_plan|med=83.797|runs= 82.314 83.797 88.197|plan= Sort EVT_SRC CMD_MKT CAND|removed=|buf=shared hit=5342|COUNTS|q2_lit_m1|0|3
+diag_nosort_q2_lit_m1_bound0__force_custom_plan|med=106.762|runs= 104.571 106.762 147.009|plan= Sort CMD_MKT CAND CAND|removed=|buf=shared hit=43 read=2|COUNTS|q2_lit_m1|0|3
+diag_nosort_q2_lit_m1_start__force_custom_plan|med=202.217|runs= 186.145 202.217 310.893|plan= Sort EVT_SRC CMD_MKT CAND|removed=|buf=shared hit=5340 read=2|COUNTS|q2_lit_m1|0|3
+q1_lit_m12_end__auto|med=0.051|runs= 0.051 0.051 0.052|plan= Sort CAND|removed=|buf=shared hit=3|COUNTS|q1_lit_m12|0|13
+q1_lit_m12_end__force_custom_plan|med=0.037|runs= 0.031 0.037 0.118|plan= Sort CAND|removed=|buf=shared hit=12|COUNTS|q1_lit_m12|0|3
+q1_lit_m12_end__force_generic_plan|med=0.042|runs= 0.039 0.042 0.15|plan= CAND|removed=|buf=shared hit=8|COUNTS|q1_lit_m12|3|0
+q1_lit_m12_mid__auto|med=0.299|runs= 0.294 0.299 0.557|plan= CAND|removed=|buf=shared hit=266|COUNTS|q1_lit_m12|8|5
+q1_lit_m12_mid__force_custom_plan|med=0.443|runs= 0.308 0.443 0.951|plan= CAND|removed=|buf=shared hit=269|COUNTS|q1_lit_m12|0|3
+q1_lit_m12_mid__force_generic_plan|med=0.346|runs= 0.292 0.346 1.01|plan= CAND|removed=|buf=shared hit=269|COUNTS|q1_lit_m12|3|0
+q1_lit_m12_near__auto|med=0.222|runs= 0.219 0.222 0.235|plan= Sort bitmap:CAND|removed=|buf=shared hit=98|COUNTS|q1_lit_m12|0|13
+q1_lit_m12_near__force_custom_plan|med=0.322|runs= 0.245 0.322 0.472|plan= Sort bitmap:CAND|removed=|buf=shared hit=107|COUNTS|q1_lit_m12|0|3
+q1_lit_m12_near__force_generic_plan|med=0.153|runs= 0.141 0.153 0.39|plan= CAND|removed=|buf=shared hit=103|COUNTS|q1_lit_m12|3|0
+q1_lit_m12_start__auto|med=0.295|runs= 0.291 0.295 0.305|plan= CAND|removed=|buf=shared hit=271|COUNTS|q1_lit_m12|8|5
+q1_lit_m12_start__force_custom_plan|med=0.353|runs= 0.343 0.353 0.61|plan= CAND|removed=|buf=shared hit=274|COUNTS|q1_lit_m12|0|3
+q1_lit_m12_start__force_generic_plan|med=0.321|runs= 0.286 0.321 0.661|plan= CAND|removed=|buf=shared hit=274|COUNTS|q1_lit_m12|3|0
+q1_lit_m1_end__auto|med=0.046|runs= 0.045 0.046 0.064|plan= Sort EVT_SRC|removed= 16|buf=shared hit=4|COUNTS|q1_lit_m1|0|13
+q1_lit_m1_end__force_custom_plan|med=0.048|runs= 0.043 0.048 0.107|plan= Sort EVT_SRC|removed= 16|buf=shared hit=10|COUNTS|q1_lit_m1|0|3
+q1_lit_m1_end__force_generic_plan|med=0.073|runs= 0.058 0.073 0.138|plan= IncSort EVT_SRC|removed= 16|buf=shared hit=12|COUNTS|q1_lit_m1|3|0
+q1_lit_m1_mid__auto|med=0.426|runs= 0.397 0.426 0.491|plan= IncSort EVT_SRC|removed= 707|buf=shared hit=45|COUNTS|q1_lit_m1|0|13
+q1_lit_m1_mid__force_custom_plan|med=0.407|runs= 0.39 0.407 0.533|plan= IncSort EVT_SRC|removed= 707|buf=shared hit=51|COUNTS|q1_lit_m1|0|3
+q1_lit_m1_mid__force_generic_plan|med=0.456|runs= 0.408 0.456 0.616|plan= IncSort EVT_SRC|removed= 707|buf=shared hit=51|COUNTS|q1_lit_m1|3|0
+q1_lit_m1_near__auto|med=0.201|runs= 0.2 0.201 0.278|plan= Sort EVT_SRC|removed= 308|buf=shared hit=20|COUNTS|q1_lit_m1|0|13
+q1_lit_m1_near__force_custom_plan|med=0.221|runs= 0.218 0.221 0.288|plan= Sort EVT_SRC|removed= 308|buf=shared hit=26|COUNTS|q1_lit_m1|0|3
+q1_lit_m1_near__force_generic_plan|med=0.255|runs= 0.198 0.255 0.302|plan= IncSort EVT_SRC|removed= 308|buf=shared hit=28|COUNTS|q1_lit_m1|3|0
+q1_lit_m1_start__auto|med=0.409|runs= 0.402 0.409 0.451|plan= IncSort EVT_SRC|removed= 776|buf=shared hit=44|COUNTS|q1_lit_m1|0|13
+q1_lit_m1_start__force_custom_plan|med=0.441|runs= 0.407 0.441 0.766|plan= IncSort EVT_SRC|removed= 776|buf=shared hit=50|COUNTS|q1_lit_m1|0|3
+q1_lit_m1_start__force_generic_plan|med=0.413|runs= 0.409 0.413 0.618|plan= IncSort EVT_SRC|removed= 776|buf=shared hit=50|COUNTS|q1_lit_m1|3|0
+q1_param_m12_end__auto|med=0.043|runs= 0.041 0.043 0.046|plan= Sort CAND|removed=|buf=shared hit=3|COUNTS|q1|0|13
+q1_param_m12_end__force_custom_plan|med=0.042|runs= 0.032 0.042 0.121|plan= Sort CAND|removed=|buf=shared hit=12|COUNTS|q1|0|3
+q1_param_m12_end__force_generic_plan|med=0.059|runs= 0.058 0.059 0.209|plan= IncSort EVT_SRC|removed= 20|buf=shared hit=12|COUNTS|q1|3|0
+q1_param_m12_mid__auto|med=3.924|runs= 3.915 3.924 3.939|plan= IncSort EVT_SRC|removed= 49575|buf=shared hit=1544|COUNTS|q1|8|5
+q1_param_m12_mid__force_custom_plan|med=0.369|runs= 0.313 0.369 0.957|plan= CAND|removed=|buf=shared hit=269|COUNTS|q1|0|3
+q1_param_m12_mid__force_generic_plan|med=4.259|runs= 4.206 4.259 5.241|plan= IncSort EVT_SRC|removed= 49575|buf=shared hit=1550|COUNTS|q1|3|0
+q1_param_m12_near__auto|med=0.233|runs= 0.224 0.233 0.271|plan= Sort bitmap:CAND|removed=|buf=shared hit=98|COUNTS|q1|0|13
+q1_param_m12_near__force_custom_plan|med=0.232|runs= 0.221 0.232 0.475|plan= Sort bitmap:CAND|removed=|buf=shared hit=107|COUNTS|q1|0|3
+q1_param_m12_near__force_generic_plan|med=1.584|runs= 1.312 1.584 1.952|plan= IncSort EVT_SRC|removed= 17044|buf=shared hit=498 read=39|COUNTS|q1|3|0
+q1_param_m12_start__auto|med=3.963|runs= 3.861 3.963 5.125|plan= IncSort EVT_SRC|removed= 52203|buf=shared hit=1642|COUNTS|q1|8|5
+q1_param_m12_start__force_custom_plan|med=0.313|runs= 0.278 0.313 0.596|plan= CAND|removed=|buf=shared hit=274|COUNTS|q1|0|3
+q1_param_m12_start__force_generic_plan|med=3.988|runs= 3.827 3.988 5.229|plan= IncSort EVT_SRC|removed= 52203|buf=shared hit=1648|COUNTS|q1|3|0
+q1_param_m1_end__auto|med=0.042|runs= 0.042 0.042 0.043|plan= Sort EVT_SRC|removed= 16|buf=shared hit=4|COUNTS|q1|0|13
+q1_param_m1_end__force_custom_plan|med=0.04|runs= 0.033 0.04 0.097|plan= Sort EVT_SRC|removed= 16|buf=shared hit=10|COUNTS|q1|0|3
+q1_param_m1_end__force_generic_plan|med=0.057|runs= 0.053 0.057 0.143|plan= IncSort EVT_SRC|removed= 16|buf=shared hit=12|COUNTS|q1|3|0
+q1_param_m1_mid__auto|med=0.407|runs= 0.397 0.407 0.571|plan= IncSort EVT_SRC|removed= 707|buf=shared hit=45|COUNTS|q1|0|13
+q1_param_m1_mid__force_custom_plan|med=0.486|runs= 0.387 0.486 0.567|plan= IncSort EVT_SRC|removed= 707|buf=shared hit=51|COUNTS|q1|0|3
+q1_param_m1_mid__force_generic_plan|med=0.539|runs= 0.51 0.539 0.592|plan= IncSort EVT_SRC|removed= 707|buf=shared hit=51|COUNTS|q1|3|0
+q1_param_m1_near__auto|med=0.204|runs= 0.203 0.204 0.204|plan= Sort EVT_SRC|removed= 308|buf=shared hit=20|COUNTS|q1|0|13
+q1_param_m1_near__force_custom_plan|med=0.262|runs= 0.214 0.262 0.372|plan= Sort EVT_SRC|removed= 308|buf=shared hit=26|COUNTS|q1|0|3
+q1_param_m1_near__force_generic_plan|med=0.201|runs= 0.191 0.201 0.309|plan= IncSort EVT_SRC|removed= 308|buf=shared hit=28|COUNTS|q1|3|0
+q1_param_m1_start__auto|med=0.406|runs= 0.406 0.406 0.41|plan= IncSort EVT_SRC|removed= 776|buf=shared hit=44|COUNTS|q1|0|13
+q1_param_m1_start__force_custom_plan|med=0.422|runs= 0.405 0.422 0.71|plan= IncSort EVT_SRC|removed= 776|buf=shared hit=50|COUNTS|q1|0|3
+q1_param_m1_start__force_generic_plan|med=0.434|runs= 0.4 0.434 0.601|plan= IncSort EVT_SRC|removed= 776|buf=shared hit=50|COUNTS|q1|3|0
+q2_lit_m12_bound0__auto|med=0.647|runs= 0.614 0.647 0.804|plan= IncSort CMD_MKT CAND CAND|removed=|buf=shared hit=274|COUNTS|q2_lit_m12|8|5
+q2_lit_m12_bound0__force_custom_plan|med=0.408|runs= 0.379 0.408 0.85|plan= IncSort CMD_MKT CAND CAND|removed=|buf=shared hit=277|COUNTS|q2_lit_m12|0|3
+q2_lit_m12_bound0__force_generic_plan|med=0.568|runs= 0.559 0.568 0.911|plan= IncSort CMD_MKT CAND CAND|removed=|buf=shared hit=277|COUNTS|q2_lit_m12|3|0
+q2_lit_m12_mid__auto|med=1.024|runs= 0.984 1.024 1.041|plan= IncSort CMD_MKT CAND CAND|removed=|buf=shared hit=1106|COUNTS|q2_lit_m12|8|5
+q2_lit_m12_mid__force_custom_plan|med=0.991|runs= 0.956 0.991 1.624|plan= IncSort CMD_MKT EVT_SRC CAND|removed= 0|buf=shared hit=1107|COUNTS|q2_lit_m12|0|3
+q2_lit_m12_mid__force_generic_plan|med=1.403|runs= 1.162 1.403 1.873|plan= IncSort CMD_MKT CAND CAND|removed=|buf=shared hit=1109|COUNTS|q2_lit_m12|3|0
+q2_lit_m12_near__auto|med=0.737|runs= 0.707 0.737 0.768|plan= IncSort CMD_MKT CAND CAND|removed=|buf=shared hit=629|COUNTS|q2_lit_m12|8|5
+q2_lit_m12_near__force_custom_plan|med=0.761|runs= 0.674 0.761 1.265|plan= IncSort CMD_MKT EVT_SRC CAND|removed= 0|buf=shared hit=633|COUNTS|q2_lit_m12|0|3
+q2_lit_m12_near__force_generic_plan|med=0.871|runs= 0.698 0.871 1.37|plan= IncSort CMD_MKT CAND CAND|removed=|buf=shared hit=632|COUNTS|q2_lit_m12|3|0
+q2_lit_m12_start__auto|med=1.189|runs= 0.965 1.189 1.204|plan= IncSort CMD_MKT CAND CAND|removed=|buf=shared hit=1093|COUNTS|q2_lit_m12|8|5
+q2_lit_m12_start__force_custom_plan|med=1.091|runs= 0.958 1.091 2.039|plan= IncSort CMD_MKT EVT_SRC CAND|removed=|buf=shared hit=1094|COUNTS|q2_lit_m12|0|3
+q2_lit_m12_start__force_generic_plan|med=1.354|runs= 1.175 1.354 2.325|plan= IncSort CMD_MKT CAND CAND|removed=|buf=shared hit=1096|COUNTS|q2_lit_m12|3|0
+q2_lit_m1_bound0__auto|med=13.573|runs= 13.466 13.573 13.67|plan= IncSort CMD_MKT CAND IncSort EVT_SRC|removed= 185807|buf=shared hit=5220|COUNTS|q2_lit_m1|0|13
+q2_lit_m1_bound0__force_custom_plan|med=15.162|runs= 14.824 15.162 19.704|plan= IncSort CMD_MKT CAND IncSort EVT_SRC|removed= 185807|buf=shared hit=5223|COUNTS|q2_lit_m1|0|3
+q2_lit_m1_bound0__force_generic_plan|med=14.228|runs= 13.236 14.228 18.563|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 185807|buf=shared hit=5225|COUNTS|q2_lit_m1|3|0
+q2_lit_m1_mid__auto|med=8.583|runs= 8.417 8.583 8.997|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 2 92682|buf=shared hit=2632|COUNTS|q2_lit_m1|0|13
+q2_lit_m1_mid__force_custom_plan|med=9.265|runs= 8.671 9.265 10.537|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 2 92682|buf=shared hit=2635|COUNTS|q2_lit_m1|0|3
+q2_lit_m1_mid__force_generic_plan|med=9.942|runs= 8.998 9.942 11.509|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 2 92682|buf=shared hit=2635|COUNTS|q2_lit_m1|3|0
+q2_lit_m1_near__auto|med=0.65|runs= 0.646 0.65 0.654|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 2 1093|buf=shared hit=80|COUNTS|q2_lit_m1|8|5
+q2_lit_m1_near__force_custom_plan|med=0.698|runs= 0.696 0.698 1.001|plan= Sort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 2 1093|buf=shared hit=81|COUNTS|q2_lit_m1|0|3
+q2_lit_m1_near__force_generic_plan|med=0.793|runs= 0.699 0.793 0.985|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 2 1093|buf=shared hit=83|COUNTS|q2_lit_m1|3|0
+q2_lit_m1_start__auto|med=14.354|runs= 14.167 14.354 15.019|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 185069|buf=shared hit=5223|COUNTS|q2_lit_m1|0|13
+q2_lit_m1_start__force_custom_plan|med=15.787|runs= 15.065 15.787 19.418|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 185069|buf=shared hit=5226|COUNTS|q2_lit_m1|0|3
+q2_lit_m1_start__force_generic_plan|med=13.896|runs= 13.616 13.896 18.062|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 185069|buf=shared hit=5226|COUNTS|q2_lit_m1|3|0
+q2_param_m12_bound0__auto|med=17.561|runs= 17.441 17.561 17.998|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 237812|buf=shared hit=6836|COUNTS|q2|8|5
+q2_param_m12_bound0__force_custom_plan|med=0.417|runs= 0.407 0.417 0.8|plan= IncSort CMD_MKT CAND CAND|removed=|buf=shared hit=277|COUNTS|q2|0|3
+q2_param_m12_bound0__force_generic_plan|med=18.908|runs= 18.195 18.908 26.873|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 237812|buf=shared hit=6839|COUNTS|q2|3|0
+q2_param_m12_mid__auto|med=16.441|runs= 16.094 16.441 16.934|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 1 97863|buf=shared hit=4056|COUNTS|q2|8|5
+q2_param_m12_mid__force_custom_plan|med=1.054|runs= 0.965 1.054 1.713|plan= IncSort CMD_MKT EVT_SRC CAND|removed= 0|buf=shared hit=1107|COUNTS|q2|0|3
+q2_param_m12_mid__force_generic_plan|med=16.716|runs= 16.493 16.716 17.183|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 1 97863|buf=shared hit=4059|COUNTS|q2|3|0
+q2_param_m12_near__auto|med=8.126|runs= 7.847 8.126 8.561|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 1 55465|buf=shared hit=2254|COUNTS|q2|8|5
+q2_param_m12_near__force_custom_plan|med=0.879|runs= 0.876 0.879 1.344|plan= IncSort CMD_MKT EVT_SRC CAND|removed= 0|buf=shared hit=633|COUNTS|q2|0|3
+q2_param_m12_near__force_generic_plan|med=9.173|runs= 8.608 9.173 10.383|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 1 55465|buf=shared hit=2257|COUNTS|q2|3|0
+q2_param_m12_start__auto|med=23.991|runs= 23.206 23.991 24.22|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 190347|buf=shared hit=6826|COUNTS|q2|8|5
+q2_param_m12_start__force_custom_plan|med=1.021|runs= 0.967 1.021 1.978|plan= IncSort CMD_MKT EVT_SRC CAND|removed=|buf=shared hit=1094|COUNTS|q2|0|3
+q2_param_m12_start__force_generic_plan|med=25.499|runs= 24.993 25.499 27.861|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 190347|buf=shared hit=6829|COUNTS|q2|3|0
+q2_param_m1_bound0__auto|med=13.426|runs= 13.413 13.426 13.743|plan= IncSort CMD_MKT CAND IncSort EVT_SRC|removed= 185807|buf=shared hit=5220|COUNTS|q2|0|13
+q2_param_m1_bound0__force_custom_plan|med=17.763|runs= 14.608 17.763 18.251|plan= IncSort CMD_MKT CAND IncSort EVT_SRC|removed= 185807|buf=shared hit=5223|COUNTS|q2|0|3
+q2_param_m1_bound0__force_generic_plan|med=15.621|runs= 15.584 15.621 18.931|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 185807|buf=shared hit=5225|COUNTS|q2|3|0
+q2_param_m1_mid__auto|med=8.016|runs= 7.897 8.016 8.083|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 2 92682|buf=shared hit=2632|COUNTS|q2|0|13
+q2_param_m1_mid__force_custom_plan|med=10.69|runs= 9.092 10.69 10.768|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 2 92682|buf=shared hit=2635|COUNTS|q2|0|3
+q2_param_m1_mid__force_generic_plan|med=10.739|runs= 10.542 10.739 13.34|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 2 92682|buf=shared hit=2710|COUNTS|q2|3|0
+q2_param_m1_near__auto|med=0.721|runs= 0.703 0.721 0.746|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 2 1093|buf=shared hit=80|COUNTS|q2|8|5
+q2_param_m1_near__force_custom_plan|med=0.757|runs= 0.732 0.757 0.956|plan= Sort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 2 1093|buf=shared hit=81|COUNTS|q2|0|3
+q2_param_m1_near__force_generic_plan|med=0.759|runs= 0.744 0.759 1.198|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 2 1093|buf=shared hit=83|COUNTS|q2|3|0
+q2_param_m1_start__auto|med=20.096|runs= 19.799 20.096 21.304|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 185069|buf=shared hit=5374|COUNTS|q2|8|5
+q2_param_m1_start__force_custom_plan|med=15.208|runs= 14.913 15.208 18.218|plan= IncSort EVT_SRC CMD_MKT IncSort EVT_SRC|removed= 185069|buf=shared hit=5226|COUNTS|q2|0|3
+q2_param_m1_start__force_generic_plan|med=20.085|runs= 19.767 20.085 23.594|plan= IncSort EVT_SRC Sort CMD_MKT IncSort EVT_SRC|removed= 185069|buf=shared hit=5377|COUNTS|q2|3|0

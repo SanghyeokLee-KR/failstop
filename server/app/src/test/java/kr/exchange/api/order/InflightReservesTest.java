@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,5 +68,23 @@ class InflightReservesTest {
         assertTrue(reserves.tryReserve("u4:1", new BigDecimal("100"), available));
         assertTrue(reserves.tryReserve("u4:2", new BigDecimal("100"), available),
                 "다른 자산 키는 독립 누계");
+    }
+
+    @Test
+    void tryReserveRecordsLockHold() {
+        assertEquals(0, reserves.lockHoldNanos());
+        // 락 안 잔고 조회에 시간을 써서 보유 단언이 타이머 해상도에 기대지 않게 한다.
+        assertTrue(reserves.tryReserve("u5:1", new BigDecimal("10"), () -> {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("대기 중 인터럽트", e);
+            }
+            return new BigDecimal("100");
+        }));
+        assertTrue(reserves.lockHoldNanos() > 0, "락 안 잔고 조회 시간이 보유에 잡혀야 한다");
+        assertTrue(reserves.lockHoldNanos() > reserves.lockWaitNanos(),
+                "경합 없는 획득 대기가 보유보다 크면 대기와 보유가 뒤바뀐 것이다");
     }
 }

@@ -1,0 +1,1 @@
+RESULT label=noidx_r1 cand_index_leaves=0 rows_before=740266 total_ms=3376.6 inserted=200000 rows_per_s=59231.2

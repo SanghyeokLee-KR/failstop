@@ -253,6 +253,11 @@ public class EngineConfig {
         // 빈 테이블 대조로 공허 통과한다. 검증은 ReplayService가 이미 하고 여기서는 그
         // 결과를 표로 남길 뿐이다.
         recovery.setRecoveryRecorder(new kr.exchange.harness.RecoveryRunRecorder(jdbcClient));
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.recovery.reinject.created_at_inversions", recovery,
+                        EngineRecovery::reinjectCreatedAtInversions)
+                .description("크래시 창 재적재에서 마켓 안 created_at 이 seq 순서와 거꾸로 선 배치 수")
+                .register(meterRegistry);
         return recovery;
     }
 
@@ -332,6 +337,15 @@ public class EngineConfig {
                     .builder("exchange.writer.apply.count", loop, SingleWriterLoop::applyCount)
                     .tag("market", tag)
                     .description("적용 호출 수. 위 셋의 분모").register(meterRegistry);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.writer.catchup.calls", loop, SingleWriterLoop::catchUpCalls)
+                    .tag("market", tag)
+                    .description("갭 회수 저널 왕복 수").register(meterRegistry);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.writer.catchup.nanos", loop, SingleWriterLoop::catchUpNanos)
+                    .tag("market", tag)
+                    .description("갭 회수 저널 왕복 누적 나노초. 적용·sink 와 겹치지 않는다")
+                    .register(meterRegistry);
             return new WriterRouter.Shard(shardEngine, loop);
         });
     }
@@ -513,9 +527,8 @@ public class EngineConfig {
                 // 강제 종료 직후 재기동은 직전 프로세스 리스가 TTL 내 유효할 수 있어 부팅
                 // 경로는 만료 대기 후 승격을 재시도한다(EngineRecovery.recoverAtBoot).
                 recovery.recoverAtBoot(engine);
-                // ADR 0021 5단계. 복구는 종전 그대로 전역 엔진 하나로 하고, 그 안의 북을
-                // 마켓마다 나눠 담기만 한다. 복구 경로를 마켓별로 쪼개지 않는 것이 이 설계의
-                // 요점이다. 북 자체가 이미 마켓 단위이고 복구 경로는 검증돼 있다.
+                // 복구는 엔진 하나 위에서 마켓 벡터로 하고(ADR 0022 5-4), 그 안의 북과 마켓 커서를
+                // 마켓별 라이터에 나눠 담는다. 전역 최댓값을 심으면 뒤처진 마켓의 명령이 커서 아래로 보인다.
                 router.installFrom(engine);
                 router.startAll();
                 // 부팅 시점에 리더면 즉시 접수 개방, 아니면 팔로워로 게이트를 닫는다. arm 이후의

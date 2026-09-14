@@ -1,16 +1,22 @@
 package kr.exchange.engine;
 
-import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.MatchingEngineImpl;
 import kr.exchange.engine.core.SingleWriterLoop;
+import kr.exchange.journal.JournalCheckpoints;
 import kr.exchange.journal.ReplayResult;
+import kr.exchange.journal.ReplayResult.PendingBatch;
 import kr.exchange.journal.ReplayService;
 import kr.exchange.snapshot.SnapshotSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 기동 복구: 저널 재생으로 오더북을 재구성하고, 크래시 창(명령 커밋 후·이벤트 커밋 전)의
@@ -32,19 +38,22 @@ import java.util.Optional;
  * 명령을 계속 읽어 끝나지 않는다. 2026-09-08 회차에서 실제로 CPU 200% 로 4분간 응답하지 못했다
  * (`harness/evidence/follower-rejoin-20260908/` 무효 1회차).
  *
- * 그래서 2 단계도 그 시점에 잡아 둔 저널 head 로 상한한다. 상한이 있으면 루프가 유한하게 끝나고,
+ * 그래서 2 단계도 그 시점에 잡아 둔 마켓별 head 로 상한한다. 상한이 있으면 루프가 유한하게 끝나고,
  * 리스를 잃었다면 이어지는 재적재가 fencing 으로 즉시 거부된다. 무한 재생이 fail-fast 로 바뀐다.
  *
  * 두 경로의 차이는 이제 하나뿐이다. 2 단계에서 리더 자격을 얻지 못했을 때 기동은 팔로워로 뜨고
  * 승격은 실패한다. 승격은 리더 자격이 전제인 경로이므로 그 전제가 사라지면 진행할 이유가 없다.
  *
+ * 축은 마켓 벡터다. 경계, 커서, 2 단계 상한이 모두 마켓마다 따로다(ADR 0022 5-1, 5-4).
+ *
  * pending을 버리고 기동하면 이후 신규 명령의 이벤트가 계속 적재되면서 저널 스트림이
  * 재생 스트림의 prefix 성질을 잃고, 다음 재기동의 대조가 영구 실패한다(무음 유실 + 벽돌).
- * 단일 라이터의 방출 순서 그대로 sink에 넘기므로 event_seq는 W+1부터 연속 배정되어
- * prefix 성질이 유지된다.
+ * 재적재 순서는 마켓별 큐를 (created_at, seq) 머리 키로 병합한 순서다(ADR 0022 5-3). 마켓 안 순서는
+ * 큐가 지키므로 market_seq 가 마켓마다 이어서 배정되어 prefix 성질이 유지되고, 마켓 사이에서는
+ * 사용자가 만든 자금 의존(한 마켓 체결 대금으로 다른 마켓 주문)이 시간 순서로 먼저 정산된다.
  *
  * sink는 라이브 루프와 동일 계약(명령 단위 배치, append와 정산의 원자 커밋)이다. 명령
- * 단위로 잘라 넘기므로 도중 크래시가 나도 커밋된 prefix는 레지스트리 멱등 판정으로
+ * 단위로 넘기므로 도중 크래시가 나도 커밋된 prefix는 레지스트리 멱등 판정으로
  * 스킵되고 나머지만 재정산된다.
  *
  * sink가 배정한 event_seq는 재적재 결과라 여기서 버린다. 복구는 WS 게시 대상이 아니고
@@ -61,6 +70,9 @@ public class EngineRecovery {
     // 재시도는 잔존 리스의 만료 관측일 뿐이다. 상한은 RTO 목표 30초(API §7-4)를 넘지 않는다.
     private static final java.time.Duration BOOT_PROMOTION_WAIT_CAP = java.time.Duration.ofSeconds(30);
     private static final java.time.Duration BOOT_PROMOTION_RETRY_INTERVAL = java.time.Duration.ofMillis(250);
+    private static final Comparator<PendingBatch> MERGE_KEY =
+            Comparator.comparing((PendingBatch batch) -> batch.createdAt().toInstant())
+                    .thenComparingLong(PendingBatch::seq);
 
     private final ReplayService replayService;
     private final SingleWriterLoop.EventSink reappendSink;
@@ -69,6 +81,8 @@ public class EngineRecovery {
     private final SnapshotSource snapshotSource;
     // 재생 명령 수 관측(§5-2 exchange.journal.replay.commands). 기본 no-op이라 테스트 경로는 무변경.
     private final java.util.function.LongConsumer replayObserver;
+    // 크래시 창 큐에서 마켓 안 created_at 이 seq 순서와 거꾸로 선 배치 수. 시계 역행의 흔적이다(ADR 0022 9-17).
+    private final AtomicLong createdAtInversions = new AtomicLong();
     // 재생 결과를 recovery_runs에 남긴다(C17 원천). null이면 기록하지 않는다. 테스트
     // 경로와 DB 없는 구성이 그대로 돌아야 하므로 선택적 협력자로 둔다.
     private kr.exchange.harness.RecoveryRunRecorder recoveryRecorder;
@@ -108,12 +122,16 @@ public class EngineRecovery {
         return recoveryRecorder != null;
     }
 
+    /** 누적 마켓 안 created_at 역전 배치 수. 지표 exchange.recovery.reinject.created_at_inversions 의 원천이다. */
+    public long reinjectCreatedAtInversions() {
+        return createdAtInversions.get();
+    }
+
     /**
-     * 스냅샷 로드 후 tail 재생(복구 RTO 설계 §3-b). fresh 엔진에 최신 채택 스냅샷을 적재하고
-     * seq > snapshot.last_applied_seq만 재생해 tail을 상한한다. 채택 게이트를 통과하는 스냅샷이
-     * 없으면 eventStart=0으로 seq 0 전량 재생(폴백)한다. 버전·설정·checksum 불일치는 게이트가
-     * 폐기하므로 여기까지 오지 않는다(§3-b 단일 정본 규율). 로드는 fresh 엔진에만 허용된다
-     * (MatchingEngineImpl.loadSnapshot 가드).
+     * 스냅샷 로드 후 tail 재생(복구 RTO 설계 §3-b). fresh 엔진에 마켓마다 최신 채택 스냅샷을 적재하고
+     * 그 마켓에서 seq > 스냅샷 seq 만 재생해 tail 을 상한한다. 채택본이 없는 마켓은 0 에서 재생한다.
+     * 버전·설정·checksum 불일치는 게이트가 폐기하므로 여기까지 오지 않는다(§3-b 단일 정본 규율).
+     * 로드는 fresh 마켓에만 허용된다(MatchingEngineImpl.loadMarketSnapshot 가드).
      */
     public ReplayResult recover(MatchingEngineImpl engine) {
         return recover(engine, java.time.Duration.ZERO);
@@ -142,16 +160,14 @@ public class EngineRecovery {
      */
     private ReplayResult recover(MatchingEngineImpl engine, java.time.Duration promotionWait,
                                  boolean followerAllowed) {
-        // 이벤트 커서 시작점을 여기서 유도하지 않는다. loadSnapshot 이 engine.lastAppliedSeq()
-        // 를 snapSeq 로 세우고 재생이 그 값에서 커서를 연다. 종전에는 이 자리에서 값을 만들어
-        // 넘겼고 그 인자에 이벤트 축 값이 들어갈 수 있었다.
+        // 이벤트 커서 시작점을 여기서 유도하지 않는다. loadMarketSnapshot 이 마켓 커서를 그 마켓 스냅샷 seq 로
+        // 세우고 재생이 engine.appliedSeq(marketId) 에서 커서를 연다. 호출자가 넘기면 다른 축 값이 들어갈 수 있다(ADR 0023 결정 2).
         if (snapshotSource != null) {
-            Optional<SnapshotSource.Loaded> snap = snapshotSource.loadLatestAdoptable();
-            if (snap.isPresent()) {
-                long snapSeq = snap.get().seq();
-                engine.loadSnapshot(snapSeq, snap.get().books());
-                log.info("스냅샷 채택: last_applied_seq={}, markets={}",
-                        snapSeq, snap.get().books().size());
+            Map<Integer, SnapshotSource.MarketLoaded> snaps = snapshotSource.loadLatestAdoptablePerMarket();
+            snaps.forEach((marketId, snap) -> engine.loadMarketSnapshot(marketId, snap.seq(), snap.book()));
+            if (!snaps.isEmpty()) {
+                log.info("스냅샷 채택(마켓별): {}", snaps.entrySet().stream()
+                        .map(e -> e.getKey() + "@" + e.getValue().seq()).toList());
             }
         }
         long replayFrom = engine.lastAppliedSeq();
@@ -170,11 +186,12 @@ public class EngineRecovery {
             throw e;
         }
         if (recoveryRecorder != null) {
+            // 표시 전용 값이다. 마켓별 분해는 원천에 없다(DB 설계 §3.1 센티널 market_id 0).
             recoveryRecorder.recordSuccess(replayFrom, result.lastAppliedSeq(),
                     result.verifiedEvents(), (System.nanoTime() - replayStartedNs) / 1_000_000L);
         }
         replayObserver.accept(result.replayedCommands());
-        List<EngineEvent> pending = result.pendingEvents();
+        List<PendingBatch> pending = result.pendingBatches();
         if (pending.isEmpty()) {
             return result;
         }
@@ -183,7 +200,7 @@ public class EngineRecovery {
         // 병행 적재는 레지스트리 충돌·fencing으로 어차피 실패해야 맞다(무음 유실 금지).
         if (!lease.isLeader() && !acquireLeadership(promotionWait)) {
             throw new IllegalStateException(
-                    "크래시 창 이벤트 " + pending.size() + "건 재적재 불가: 리더 승격 실패"
+                    "크래시 창 이벤트 " + result.pendingEvents().size() + "건 재적재 불가: 리더 승격 실패"
                             + (promotionWait.isZero() ? ""
                                     : "(대기 " + promotionWait.toMillis() + "ms 소진)"));
         }
@@ -198,107 +215,150 @@ public class EngineRecovery {
         long renewIntervalNanos = lease.ttl().dividedBy(3).toNanos();
         long lastRenewNanos = System.nanoTime();
         long eventsSinceRenew = 0;
-        // 배치 그룹핑은 pending이 source_cmd_seq 오름차순·연속이라는 재생 방출 순서에 의존한다.
-        // 명령 단위 원자성 때문에 한 배치(같은 source_cmd_seq) 내부에서는 renew할 수 없다.
-        // 명령 경계마다 시간·누적 이벤트 수 둘 다로 판정해 renew 간격을 이중으로 상한한다.
-        int from = 0;
-        while (from < pending.size()) {
+        // 명령 단위 원자성 때문에 한 배치 안에서는 renew할 수 없다. 배치 경계마다 시간·누적
+        // 이벤트 수 둘 다로 판정해 renew 간격을 이중으로 상한한다.
+        for (PendingBatch batch : pending) {
             if (System.nanoTime() - lastRenewNanos >= renewIntervalNanos
                     || eventsSinceRenew >= RENEW_EVENT_INTERVAL) {
                 lease.renew();
                 lastRenewNanos = System.nanoTime();
                 eventsSinceRenew = 0;
             }
-            int to = from + 1;
-            while (to < pending.size()
-                    && pending.get(to).sourceCmdSeq() == pending.get(from).sourceCmdSeq()) {
-                to++;
-            }
-            List<EngineEvent> batch = pending.subList(from, to);
             try {
-                reappendSink.accept(batch);
+                reappendSink.accept(batch.events());
             } catch (Exception e) {
                 throw new IllegalStateException("크래시 창 재적재·재정산 실패: source_cmd_seq="
-                        + batch.get(0).sourceCmdSeq(), e);
+                        + batch.seq(), e);
             }
-            eventsSinceRenew += (to - from);
-            from = to;
+            eventsSinceRenew += batch.events().size();
         }
-        log.info("크래시 창 이벤트 재적재·재정산: {}건 (source_cmd_seq {}..{})", pending.size(),
-                pending.get(0).sourceCmdSeq(), pending.get(pending.size() - 1).sourceCmdSeq());
+        log.info("크래시 창 이벤트 재적재·재정산: {}건, 명령 {}건", result.pendingEvents().size(), pending.size());
         return result;
     }
 
     /**
-     * 두 단계 재생. 1 단계는 체크포인트까지 대조만 하고 2 단계는 그 초과분을 재적재 대상으로 낸다.
+     * 마켓별 두 단계 재생(ADR 0022 5-4). 1 단계는 마켓마다 bound(m) 까지 대조만 하고 2 단계는 그 초과분을
+     * 재적재 대상으로 낸다.
      *
      * 두 단계로 가르는 이유가 있다. 앞 구간은 이벤트가 전부 있는 안정 구간이라 대조만 하면 되고
      * 리더 자격이 필요 없다. 뒤 구간은 이벤트가 없는 구간이라 재적재가 필요하고 그것은 리더만
      * 할 수 있다. 하나로 묶으면 앞 구간까지 리더 자격에 걸린다.
      *
-     * 2 단계도 상한을 건다. 상한 없이 읽으면 다른 노드가 쓰는 동안 루프가 끝나지 않는다. 상한을
-     * 잡아 두면 유한하게 끝나고, 리스를 잃었다면 이어지는 재적재가 fencing 으로 거부된다.
+     * 2 단계 상한 head(m) 은 리더 자격을 얻고 늘어난 경계 구간의 대조까지 마친 뒤 모든 마켓에서 한 번
+     * 읽어 고정하고 도는 중에 다시 읽지 않는다. 리더 대기 전에 고정하지 않는 이유는 대기 중에 늘어난
+     * 명령이 2 단계 상한 밖에 남지 않게 하려는 것이다.
      */
     private ReplayResult replayToCheckpointThenTail(MatchingEngineImpl engine,
                                                     java.time.Duration promotionWait,
                                                     boolean followerAllowed) {
-        kr.exchange.journal.JournalCheckpoint bound =
-                replayService.materializedThrough(engine.lastAppliedSeq());
-        ReplayResult stable = replayService.verifyTo(engine, bound);
-        log.info("재생 1단계(물질화 경계 상한): cmd<={}, 적용 {}건, 대조 {}건",
-                bound.commandSeq(), stable.replayedCommands(), stable.verifiedEvents());
+        JournalCheckpoints bounds = replayService.materializedThroughByMarket(engine);
+        ReplayResult stable = verifyMarkets(engine, bounds);
+        log.info("재생 1단계(마켓별 물질화 경계 상한): 마켓 {}개, 적용 {}건, 대조 {}건",
+                bounds.bounds().size(), stable.replayedCommands(), stable.verifiedEvents());
 
-        long head = replayService.journalHead();
-        long beyond = head - bound.commandSeq();
-        if (beyond <= 0) {
+        List<Integer> beyond = marketsBeyond(engine, replayService.journalHeads());
+        if (beyond.isEmpty()) {
             return stable;
         }
         if (!lease.isLeader() && !acquireLeadership(promotionWait)) {
             if (followerAllowed) {
-                log.info("리더 자격 없이 기동한다(팔로워). 체크포인트 초과 명령 {}건은 catch-up 이 따라잡는다",
+                log.info("리더 자격 없이 기동한다(팔로워). 체크포인트를 넘은 마켓 {} 는 catch-up 이 따라잡는다",
                         beyond);
                 return stable;
             }
             throw new IllegalStateException(
-                    "크래시 창 명령 " + beyond + "건 재적재 불가: 리더 승격 실패"
+                    "크래시 창 마켓 " + beyond + " 재적재 불가: 리더 승격 실패"
                             + (promotionWait.isZero() ? ""
                                     : "(대기 " + promotionWait.toMillis() + "ms 소진)"));
         }
 
-        // 리더 자격을 기다리는 사이 다른 노드가 창을 메웠을 수 있다. 상한을 다시 읽어 검증
+        // 리더 자격을 기다리는 사이 다른 노드가 창을 메웠을 수 있다. 경계를 다시 읽어 검증
         // 가능한 구간을 먼저 소진한다. 대조 없이 재적재로 넘기면 그 구간의 불일치를 놓친다.
-        kr.exchange.journal.JournalCheckpoint after =
-                replayService.materializedThrough(engine.lastAppliedSeq());
-        ReplayResult verified = stable;
-        if (after.commandSeq() > bound.commandSeq()) {
-            ReplayResult more = replayService.verifyTo(engine, after);
-            verified = merge(stable, more, more.lastAppliedSeq(), more.pendingEvents());
-            log.info("재생 1단계 연장(대기 중 메워진 구간): cmd<={}, 적용 {}건",
-                    after.commandSeq(), more.replayedCommands());
+        ReplayResult more = verifyMarkets(engine, replayService.materializedThroughByMarket(engine));
+        if (more.replayedCommands() > 0) {
+            log.info("재생 1단계 연장(대기 중 메워진 구간): 적용 {}건", more.replayedCommands());
         }
 
-        // 2 단계. 지금 잡은 head 로 상한한다. 이벤트 커서를 열지 않으므로 방출이 전부 pending
-        // 으로 나온다. 그 안에는 크래시 창과 경계 위에 이미 물질화된 명령이 섞인다. 상한이 첫
-        // 구멍 직전이라 그 위의 물질화된 명령이 이 구간에 들어오기 때문이다. 후자는 재적재에서
-        // event_emission_registry 멱등 스킵이 걸러낸다. 안전을 지키는 것은 그 레지스트리이지
-        // 이 구간의 방출 성질이 아니다.
-        long tailHead = replayService.journalHead();
-        if (tailHead <= after.commandSeq()) {
-            return verified;
+        // 2 단계. 이벤트 커서를 열지 않으므로 방출이 전부 pending 이다. 마켓 안 라이터는 seq 순으로
+        // 정산하므로 bound(m) 위에 그 마켓의 물질화된 명령이 없어 방출은 크래시 창뿐이다.
+        // event_emission_registry 멱등 스킵은 안전망으로 남는다.
+        Map<Integer, Long> tailHeads = replayService.journalHeads();
+        Map<Integer, List<PendingBatch>> queues = new TreeMap<>();
+        long tailCommands = 0;
+        for (Map.Entry<Integer, Long> head : tailHeads.entrySet()) {
+            int marketId = head.getKey();
+            if (head.getValue() <= engine.appliedSeq(marketId)) {
+                continue;
+            }
+            ReplayResult tail = replayService.replayTailMarket(engine, marketId, head.getValue());
+            tailCommands += tail.replayedCommands();
+            queues.put(marketId, tail.pendingBatches());
         }
-        ReplayResult tail = replayService.replayTail(engine, tailHead);
-        log.info("재생 2단계(크래시 창 상한 {}): 적용 {}건, 재적재 대상 {}건",
-                tailHead, tail.replayedCommands(), tail.pendingEvents().size());
-        return merge(verified, tail, tail.lastAppliedSeq(), tail.pendingEvents());
+        List<PendingBatch> ordered = mergeByCreatedAt(queues);
+        log.info("재생 2단계(마켓별 head 고정): 마켓 {}개, 적용 {}건, 재적재 대상 명령 {}건",
+                queues.size(), tailCommands, ordered.size());
+        return new ReplayResult(engine.lastAppliedSeq(),
+                stable.replayedCommands() + more.replayedCommands() + tailCommands,
+                stable.verifiedEvents() + more.verifiedEvents(), ordered);
     }
 
-    /** 두 재생 결과를 하나로 접는다. 관측 수치가 단계마다 잘리지 않게 한다. */
-    private static ReplayResult merge(ReplayResult first, ReplayResult second, long lastAppliedSeq,
-                                      List<EngineEvent> pending) {
-        return new ReplayResult(lastAppliedSeq,
-                first.replayedCommands() + second.replayedCommands(),
-                first.verifiedEvents() + second.verifiedEvents(),
-                pending);
+    private ReplayResult verifyMarkets(MatchingEngineImpl engine, JournalCheckpoints bounds) {
+        long replayed = 0;
+        long verified = 0;
+        for (int marketId : bounds.bounds().keySet()) {
+            ReplayResult result = replayService.verifyToMarket(engine, marketId, bounds);
+            replayed += result.replayedCommands();
+            verified += result.verifiedEvents();
+        }
+        return new ReplayResult(engine.lastAppliedSeq(), replayed, verified, List.of());
+    }
+
+    private static List<Integer> marketsBeyond(MatchingEngineImpl engine, Map<Integer, Long> heads) {
+        List<Integer> beyond = new ArrayList<>();
+        heads.forEach((marketId, head) -> {
+            if (head > engine.appliedSeq(marketId)) {
+                beyond.add(marketId);
+            }
+        });
+        return beyond;
+    }
+
+    /**
+     * 마켓별 크래시 창 큐를 (created_at, seq) 머리 키로 병합한다(ADR 0022 5-3).
+     *
+     * 마켓 안 순서는 키가 아니라 큐가 정하고 병합은 그것을 바꾸지 않는다. 마켓 안에서 앞 배치보다
+     * created_at 이 이른 배치는 멈추지 않고 센다. 그것에 의존한 다른 마켓 배치가 먼저 나가면 23514 로
+     * 드러나 무음으로 가지 않는다.
+     */
+    private List<PendingBatch> mergeByCreatedAt(Map<Integer, List<PendingBatch>> queues) {
+        record Head(PendingBatch batch, List<PendingBatch> queue, int index) {
+        }
+        PriorityQueue<Head> heads = new PriorityQueue<>((a, b) -> MERGE_KEY.compare(a.batch(), b.batch()));
+        int total = 0;
+        for (Map.Entry<Integer, List<PendingBatch>> entry : queues.entrySet()) {
+            List<PendingBatch> queue = entry.getValue();
+            for (int i = 1; i < queue.size(); i++) {
+                if (queue.get(i).createdAt().isBefore(queue.get(i - 1).createdAt())) {
+                    createdAtInversions.incrementAndGet();
+                    log.warn("크래시 창 마켓 안 created_at 역전: market={}, seq {} 가 앞 seq {} 보다 이르다. seq 순서를 유지한다",
+                            entry.getKey(), queue.get(i).seq(), queue.get(i - 1).seq());
+                }
+            }
+            if (!queue.isEmpty()) {
+                heads.add(new Head(queue.get(0), queue, 0));
+            }
+            total += queue.size();
+        }
+        List<PendingBatch> ordered = new ArrayList<>(total);
+        while (!heads.isEmpty()) {
+            Head head = heads.poll();
+            ordered.add(head.batch());
+            int next = head.index() + 1;
+            if (next < head.queue().size()) {
+                heads.add(new Head(head.queue().get(next), head.queue(), next));
+            }
+        }
+        return ordered;
     }
 
     /**

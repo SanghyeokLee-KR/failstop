@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.LongPredicate;
 import java.util.function.LongSupplier;
@@ -36,10 +37,26 @@ class InflightReserves {
     private final LongSupplier clock;
     private final long deferTtlMs;
 
+    // 저널 replay 를 뺀 접수가 이 락 하나를 지나고 안에서 DB 를 왕복한다. 접수 락과 같은
+    // 직렬 구간 후보라 대기와 보유를 나눠 센다. 대기가 크면 경합이, 보유가 크면 락 안 왕복이
+    // 상한이다.
+    private final LongAdder lockWaitNanos = new LongAdder();
+    private final LongAdder lockHoldNanos = new LongAdder();
+
     InflightReserves(LongPredicate orderRowObserved, LongSupplier clock, long deferTtlMs) {
         this.orderRowObserved = orderRowObserved;
         this.clock = clock;
         this.deferTtlMs = deferTtlMs;
+    }
+
+    /** 락 획득 대기 누적 나노초. */
+    long lockWaitNanos() {
+        return lockWaitNanos.sum();
+    }
+
+    /** 락 보유 누적 나노초. */
+    long lockHoldNanos() {
+        return lockHoldNanos.sum();
     }
 
     /**
@@ -47,7 +64,7 @@ class InflightReserves {
      * available 조회를 락 안에서 수행해 동시 예약의 이중 통과를 막는다.
      */
     boolean tryReserve(String key, BigDecimal required, Supplier<BigDecimal> available) {
-        lock.lock();
+        long lockedAt = lockTimed();
         try {
             sweep();
             BigDecimal pending = totals.getOrDefault(key, BigDecimal.ZERO);
@@ -57,28 +74,41 @@ class InflightReserves {
             totals.merge(key, required, BigDecimal::add);
             return true;
         } finally {
-            lock.unlock();
+            unlockTimed(lockedAt);
         }
     }
 
     /** 정산 관측 완료(또는 저널 미기록 확정) 시 즉시 해제. */
     void release(String key, BigDecimal amount) {
-        lock.lock();
+        long lockedAt = lockTimed();
         try {
             subtract(key, amount);
         } finally {
-            lock.unlock();
+            unlockTimed(lockedAt);
         }
     }
 
     /** 정산 미관측 종료 경로. 누계를 유지한 채 주문 row 관측 또는 TTL로 지연 회수한다. */
     void defer(String key, BigDecimal amount, long orderId) {
-        lock.lock();
+        long lockedAt = lockTimed();
         try {
             deferred.add(new Deferred(key, amount, orderId, clock.getAsLong() + deferTtlMs));
         } finally {
-            lock.unlock();
+            unlockTimed(lockedAt);
         }
+    }
+
+    private long lockTimed() {
+        long t0 = System.nanoTime();
+        lock.lock();
+        long t1 = System.nanoTime();
+        lockWaitNanos.add(t1 - t0);
+        return t1;
+    }
+
+    private void unlockTimed(long lockedAt) {
+        lockHoldNanos.add(System.nanoTime() - lockedAt);
+        lock.unlock();
     }
 
     /** 호출자가 lock을 쥔 상태에서만 부른다. */

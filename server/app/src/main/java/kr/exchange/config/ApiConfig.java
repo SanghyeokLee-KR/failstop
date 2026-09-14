@@ -357,8 +357,19 @@ public class ApiConfig {
 
     @Bean
     public OrderGateway orderGateway(JdbcClient jdbc, EngineBridge bridge,
-                                     MarketDirectory markets, OrderQueryService orders) {
-        return new OrderGateway(jdbc, bridge, markets, orders);
+                                     MarketDirectory markets, OrderQueryService orders,
+                                     MeterRegistry meterRegistry) {
+        OrderGateway gateway = new OrderGateway(jdbc, bridge, markets, orders);
+        // 접수 락과 별개의 직렬 구간이라 따로 잰다(InflightReserves 필드 주석).
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.inflight.lock.wait.nanos", gateway,
+                        OrderGateway::inflightLockWaitNanos)
+                .description("in-flight 예약 락 획득 대기 누적 나노초").register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.inflight.lock.hold.nanos", gateway,
+                        OrderGateway::inflightLockHoldNanos)
+                .description("in-flight 예약 락 보유 누적 나노초").register(meterRegistry);
+        return gateway;
     }
 
     @Bean

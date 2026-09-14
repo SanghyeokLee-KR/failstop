@@ -1,0 +1,72 @@
+2026-09-13T16:02:18+09:00
+tagged
+ Container chaos-api-2 Stopping 
+ Container chaos-bots Stopping 
+ Container chaos-api-2 Stopped 
+ Container chaos-api-2 Removing 
+ Container chaos-api-2 Removed 
+ Container chaos-bots Stopped 
+ Container chaos-bots Removing 
+ Container chaos-bots Removed 
+ Container chaos-lb Stopping 
+ Container chaos-lb Stopped 
+ Container chaos-lb Removing 
+ Container chaos-lb Removed 
+ Container chaos-api-1 Stopping 
+ Container chaos-api-1 Stopped 
+ Container chaos-api-1 Removing 
+ Container chaos-api-1 Removed 
+ Container chaos-toxiproxy-init Stopping 
+ Container chaos-dynamodb Stopping 
+ Container chaos-toxiproxy-init Stopped 
+ Container chaos-toxiproxy-init Removing 
+ Container chaos-toxiproxy-init Removed 
+ Container chaos-toxiproxy Stopping 
+ Container chaos-toxiproxy Stopped 
+ Container chaos-toxiproxy Removing 
+ Container chaos-toxiproxy Removed 
+ Container chaos-pg Stopping 
+ Container chaos-dynamodb Stopped 
+ Container chaos-dynamodb Removing 
+ Container chaos-dynamodb Removed 
+ Container chaos-pg Stopped 
+ Container chaos-pg Removing 
+ Container chaos-pg Removed 
+ Volume exchange-chaos_chaos-pgdata Removing 
+ Network exchange-chaos_chaos-net Removing 
+ Volume exchange-chaos_chaos-pgdata Removed 
+ Network exchange-chaos_chaos-net Removed 
+down_rc=0
+ Network exchange-chaos_chaos-net Creating 
+ Network exchange-chaos_chaos-net Created 
+ Volume exchange-chaos_chaos-pgdata Creating 
+ Volume exchange-chaos_chaos-pgdata Created 
+ Container chaos-pg Creating 
+ Container chaos-pg Created 
+ Container chaos-pg Starting 
+ Container chaos-pg Started 
+ Container chaos-pg Waiting 
+ Container chaos-pg Healthy 
+pg_up_rc=0
+chaos-pg Up 4 seconds (healthy)
+2026-09-13T16:02:26+09:00
+CMD: python harness/scale/stage0_probe.py --out harness/evidence/accept-concurrency-20260913/stage0.json --levels 1,2,4,8,12,24
+설정 {'synchronous_commit': 'on', 'wal_sync_method': 'fdatasync', 'commit_delay': '0', 'commit_siblings': '5', 'max_wal_size': '1GB', 'shared_buffers': '128MB'}
+
+(a) 동시 커밋 확장성
+  동시 1   커밋/s 1756.1  평균 0.569 ms
+  동시 2   커밋/s 2046.6  평균 0.977 ms
+  동시 4   커밋/s 3705.4  평균 1.08 ms
+  동시 8   커밋/s 7472.5  평균 1.071 ms
+  동시 12  커밋/s 11011.0  평균 1.09 ms
+  동시 24  커밋/s 20248.5  평균 1.185 ms
+  12/1 배수 6.27 -> 분기 B (동시 커밋 확장)
+
+(e) 파티션 잎당 팬아웃
+  잎 3   중앙 0.203 ms  최대 0.532 ms  스캔 노드 3
+  잎 15  중앙 0.572 ms  최대 0.729 ms  스캔 노드 15
+  잎 67  중앙 1.844 ms  최대 3.396 ms  스캔 노드 67
+
+저장 harness/evidence/accept-concurrency-20260913/stage0.json
+stage0_rc=0
+2026-09-13T16:06:05+09:00

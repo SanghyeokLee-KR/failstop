@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.44)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.45)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, §3 도입부 표의 로드맵 행)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -375,6 +375,7 @@ erDiagram
 | V39 | `V39__append_prologue.sql` | 접수 저널 append 의 리더 검증과 NEW 멱등 판정과 전역 채번을 `append_command_prologue` 한 함수로 묶는다. 왕복이 다섯에서 둘로 준다. 삽입은 체크섬이 seq 와 Jackson 정규화 JSON 을 먹어 함수로 옮길 수 없다 | V1(`assert_current_leader`, `next_journal_value`, `command_journal`) |
 | V40 | `V40__command_seq_band.sql` | 명령 저널 대역 채번의 기반(ADR 0022 1단계). 대역 명세 `journal_band_spec` 와 재생 축 경계 `journal_axis_boundary`, 레거시 꼬리 파티션 `command_journal_p200000000` [2x10^8, 10^12), 마켓이 있는 id K 마다 대역 잎 `command_journal_b<K>` [K x 10^12, (K+1) x 10^12), `next_market_command_seq`, 잎 생성 단일 진입점 `ensure_command_band_partition`(SECURITY DEFINER, PUBLIC 회수), 마켓 생성 트리거의 `command_seq` 시드와 대역 잎 생성. prod 풀 타임아웃을 `SET LOCAL` 로 해제한다. `next_market_journal_value` 는 대역 상한을 명세표에서 읽는다. 채번 경로를 바꾸지 않아 대역 잎은 비어 있고 되돌릴 수 있다. 꼬리 파티션은 되돌리지 않는다 | V36(`market_journal_counters`, `next_market_journal_value`, `seed_market_journal_counters`), V1(`command_journal`, `markets`) |
 | V41 | `V41__lease_key_share_lock.sql` | `leader_lease` 에 `uq_leader_lease_fencing_key`(resource, holder, epoch) 를 더해 holder·epoch 를 키 열로 만들고 `assert_and_lock_leader` 를 FOR KEY SHARE 로 재정의한다. 갱신은 쓰기 트랜잭션 잠금을 기다리지 않고 승격·게시는 기다린다(ADR 0026) | V1(`leader_lease`), V30(`assert_and_lock_leader`) |
+| V42 | `V42__event_journal_market_cmd_index.sql` | `event_journal (market_id, source_cmd_seq, event_ordinal)` 인덱스 `idx_evt_market_cmd`. 마켓별 재생과 따라잡기 판독이 다른 마켓 행을 거르며 훑지 않게 한다. 분할 부모라 `CONCURRENTLY` 를 못 써 잎마다 SHARE 잠금을 쥐므로 라이터가 멈춘 배포 창에서 적용한다. 근거 `docs/측정/20260913.md` 5.7.15 | V36(`event_journal.market_id`) |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -1079,6 +1080,7 @@ CREATE TABLE event_journal (
     PRIMARY KEY (event_seq)
 ) PARTITION BY RANGE (event_seq);
 CREATE INDEX idx_evt_src ON event_journal (source_cmd_seq);   -- 고아 event 탐지(초안 medium)
+CREATE INDEX idx_evt_market_cmd ON event_journal (market_id, source_cmd_seq, event_ordinal);   -- 마켓별 재생·따라잡기 판독(V42, v2.45). market_id 는 V36 이 ALTER 로 더한 열이다
 CREATE TABLE event_journal_p0 PARTITION OF event_journal FOR VALUES FROM (0) TO (200000000);   -- partman <table>_p<start_value> 규칙(medium#5)
 CREATE TABLE event_journal_default PARTITION OF event_journal DEFAULT;
 CREATE TRIGGER trg_ej_noupd BEFORE UPDATE OR DELETE ON event_journal
@@ -2193,7 +2195,7 @@ FOR KEY SHARE OF l;
 
 #### 5.5-a 기동 재생을 체크포인트로 상한한다 (v2.40, 2026-09-08 실측 구동)
 
-**코드 상태.** 이 절과 §5.5 STEP2·②의 마켓별 서술은 계약이고 코드 이전은 ADR 0022 2단계다. 현재 코드는 전역 스칼라 커서(MatchingEngineImpl.java:19)·전역 경계(EventJournalReader.java:29-44)·연속 source_cmd_seq 절단(EngineRecovery.java:201-226)으로 돈다. V36 이전 이벤트 행의 명령 조인 짝 짓기와 `exchange.recovery.reinject.created_at_inversions` 계수도 아직 없다(EventJournalReader.java:62).
+**코드 상태(2026-09-14 병합).** 이 절과 §5.5 STEP2·②의 마켓별 서술이 ADR 0022 2단계 병합으로 코드에 들어왔다. 엔진 커서는 마켓별 `appliedSeqs`(MatchingEngineImpl.java:21)이고, 경계는 `materializedThroughByMarket`(EventJournalReader.java:57)가 레거시 경계 `legacyBound`(:87)와 함께 낸다. V36 이전 이벤트 행은 레거시 패스로 `command_journal.market_id` 에 짝 짓고(:117), 크래시 창 재적재의 마켓 안 created_at 역전은 `exchange.recovery.reinject.created_at_inversions` 로 센다(EngineRecovery.java:125-126). 전역 스칼라가 남은 곳은 둘이다. `SingleWriterLoop.catchUpTo` 가 갭 회수 시작점을 고를 때 `engine.lastAppliedSeq()` 를 비교값으로 쓰고(SingleWriterLoop.java:267), `WriterRouter` 가 지연 생성하거나 복구본에 없던 샤드의 커서를 스칼라 `loadSnapshot` 으로 세운다(WriterRouter.java:78, :141). 전역 재생 진입점 정리는 남았다(ADR 0022 2단계 착지 절).
 
 여기까지의 복구 절차는 기동 재생이 `command_journal` 을 끝까지 읽는 것을 전제했다. 단일 노드에서는 맞는 전제다. 재생하는 동안 쓰는 사람이 없기 때문이다.
 
@@ -2215,7 +2217,7 @@ bound(m)  = min(c.seq) - 1
 - **마켓마다 잡는 이유.** 마켓 안에는 라이터가 하나이고 이벤트가 명령 단위로 원자 커밋되므로 마켓 안의 구멍은 그 마켓의 in-flight 명령과 크래시 창 명령뿐이고 seq 접미로만 생긴다. 전역 경계는 한 마켓의 구멍이 나머지 마켓의 상한을 함께 끌어내리고, 명령 seq 가 마켓 대역으로 채번되면 전역 seq 순서가 시간 순서가 아니게 되어 전역 경계 자체가 뜻을 잃는다. 이 정의는 채번 방식과 무관하다. 전역 채번에서도 마켓 안 seq 는 증가하므로 지금 성립하고 대역 채번 뒤에도 그대로다.
 - **바닥.** `journal_axis_boundary('pre_v36_event')` 이하는 V36 이전 단일 라이터 구간이다. V40 이 적용 시점에 그 구간의 이벤트 없는 명령 0 건을 검사했으므로 구멍 탐색을 그 위에서만 한다. 두 저널이 append 전용이고(`trg_cj_noupd`·`trg_ej_noupd`) 경계 이하로 새 seq 가 채번되지 않으므로 그 검사가 지금도 성립한다.
 - **커서는 엔진이 소유한다.** 재생 진입점은 커서 시작점을 인자로 받지 않고 엔진의 마켓 커서에서 명령 커서와 이벤트 커서를 함께 연다. 결정은 ADR 0023 §2 다.
-- **경계는 한 문장으로 구한다.** 마켓 m 의 구멍 탐색과 구멍이 없을 때 쓰는 `head(m)` 대체값은 한 SQL 문장에서 구한다. 두 문장으로 나누면 탐색 뒤에 커밋된 이벤트 없는 명령이 대체값에 들어가 상한 안에 미물질화 명령이 생긴다. 그러면 대조가 pending 예외를 내고(ReplayService.java:92-103) 기동이 서거나 팔로워가 복귀 경로 없이 갈림 상태로 굳는다(FollowerCatchUp.java:242-246). 현재 전역 경계는 COALESCE 한 문장이다(EventJournalReader.java:30-39). 아래 승격 2 단계 상한 `head(m)` 은 이와 다른 값이다. 리더 자격과 경계 재대조 뒤에 일부러 따로 읽어 고정한다.
+- **경계는 한 문장으로 구한다.** 마켓 m 의 구멍 탐색과 구멍이 없을 때 쓰는 `head(m)` 대체값은 한 SQL 문장에서 구한다. 두 문장으로 나누면 탐색 뒤에 커밋된 이벤트 없는 명령이 대체값에 들어가 상한 안에 미물질화 명령이 생긴다. 그러면 대조가 pending 예외를 내고(ReplayService.java:303) 기동이 서거나 팔로워가 복귀 경로 없이 갈림 상태로 굳는다(FollowerCatchUp.java:254-256). 병합 판의 마켓별 경계도 마켓마다 한 문장으로 구한다(EventJournalReader.java:57-83). 아래 승격 2 단계 상한 `head(m)` 은 이와 다른 값이다. 리더 자격과 경계 재대조 뒤에 일부러 따로 읽어 고정한다.
 
 **종전 정의를 폐기한다(2026-09-12).** 종전에는 `SELECT max(source_cmd_seq), max(event_seq) FROM event_journal` 을 한 문장으로 읽은 쌍이었고, 근거는 "이벤트가 명령 단위로 원자 커밋되므로 그 명령 이하는 이벤트가 전부 있다" 였다. 그 근거는 단일 라이터에서만 성립한다. ADR 0021 5단계가 마켓별 라이터 열둘로 가른 뒤에는, 명령 저널이 접수 시점에 커밋되고 이벤트는 라이터마다 다른 정산 트랜잭션에서 적재되므로 마켓 A 의 seq N 이 아직 정산 전인데 마켓 B 의 N+1 이 먼저 커밋될 수 있다. 곧 `max` 아래에 구멍이 남는다. 실측으로 확인했다. 600표본 10밀리초 간격, 봇 120 OPS 에서 구멍 최대 1, 구멍이 있던 표본 2 다(`harness/evidence/materialization-holes-20260912/`). 그 상한을 그대로 쓰면 대조가 구멍 명령의 재생 이벤트와 그 위 명령의 저널 행을 짝지어 거짓 불일치를 내고, 팔로워가 복귀 경로 없이 굳는다.
 
@@ -2260,8 +2262,8 @@ FROM snapshots WHERE market_id=:mid ORDER BY last_applied_seq DESC LIMIT 1;
 --     마켓에서 한 번 읽어 고정하고 :upper = head(m). 이벤트 커서를 열지 않으므로 방출이 전부
 --     재적재 대상이다. 경계 위에 이미 물질화된 명령이 있더라도 ②의 레지스트리 멱등 스킵이 거른다.
 --     created_at은 ② 병합 키다.
---   코드 상태: 이 블록의 마켓별 경로로의 코드 이전은 ADR 0022 2단계다. 현재 코드는 전역 스칼라
---     커서와 전역 경계로 재생하고, V36 이전 이벤트 행은 마켓 읽기에 들어오지 않는다(§5.5-a 코드 상태).
+--   코드 상태(2026-09-14 병합): 이 블록의 마켓별 경로가 코드에 들어왔다. V36 이전 이벤트 행은
+--     레거시 패스로 명령 조인에 짝 짓는다(§5.5-a 코드 상태).
 SELECT seq, market_id, command_type, user_id, client_order_id, assigned_order_id,
        engine_ts, tie_break, payload, fencing_token, created_at
 FROM command_journal
@@ -2291,7 +2293,7 @@ ORDER BY seq ASC;                                   -- idx_cmd_market (market_id
 복구 결정론 증명(관측 테이블 적재). **비교는 반드시 동일 seq 시점끼리** 수행한다(v2.2):
 
 ```text
-// 결정론 판정 주체는 ReplayService.verifyTo다(ADR 0023). 재생이 만든 이벤트를 event_journal 행과
+// 결정론 판정 주체는 마켓판 ReplayService.verifyToMarket 이다(ADR 0023, 2026-09-14 병합 판). 재생이 만든 이벤트를 event_journal 행과
 // 하나씩 대조하고 어긋나면 ReplayMismatchException을 던진다. 즉 재생이 예외 없이 끝났다는
 // 사실이 곧 결정론 성립이고, matched는 그 결과를 옮긴 값이다.
 matched   = 재생이 예외 없이 끝났는가
@@ -2319,7 +2321,7 @@ V3 마이그레이션 파일의 테이블 주석(V3:24-26)은 상태 해시 대�
 스키마를 읽는 사람에게는 아무 서술도 없다. V3 파일 자체의 옛 서술은 체크섬 때문에 남는다.
 
 **자동 재조정 절차**: ① 스냅샷+tail 재생(STEP2 마켓별 2상) → ② **재방출 이벤트 catch-up(v2.2, v2.3 확장)**: 크래시 창(명령 fsync 후·상태변경 커밋 전)의 이벤트는 §3.1 6.2 규칙상 event_journal에 없으므로, tail 재생이 재방출한 **모든 유형의 이벤트**(TRADE뿐 아니라 ACCEPTED/REJECTED/CANCELED 포함)를 재적재·재정산한다.
-  - **재적재 순서**: 2상이 마켓마다 낸 pending을 명령 단위 배치로 묶는다. 한 배치는 한 명령(같은 source_cmd_seq)의 방출 전부이고 배치 안 순서는 event_ordinal이다. 마켓마다 배치를 seq 오름차순 큐에 넣고 큐들을 **k-way 병합**해 배치 하나씩 재적재한다. 병합 키는 각 큐 머리 배치의 명령 `(created_at, seq)`다. 병합은 마켓 사이 순서만 정하고 마켓 안 순서는 seq 순서 그대로다. 코드 이전은 ADR 0022 2단계이고, 현재 코드는 pending을 연속 source_cmd_seq로 잘라 그 순서대로 재적재한다(EngineRecovery.java:201-226).
+  - **재적재 순서**: 2상이 마켓마다 낸 pending을 명령 단위 배치로 묶는다. 한 배치는 한 명령(같은 source_cmd_seq)의 방출 전부이고 배치 안 순서는 event_ordinal이다. 마켓마다 배치를 seq 오름차순 큐에 넣고 큐들을 **k-way 병합**해 배치 하나씩 재적재한다. 병합 키는 각 큐 머리 배치의 명령 `(created_at, seq)`다. 병합은 마켓 사이 순서만 정하고 마켓 안 순서는 seq 순서 그대로다. 이 병합은 ADR 0022 2단계 병합(2026-09-14)으로 코드에 들어왔다.
     - 마켓 사이를 seq로 줄 세우지 않는다. 재적재 정산이 `reserve_funds`로 예약하고 잔고 부족 23514가 배치를 롤백시킨다. 명령 seq가 마켓 대역으로 채번되면 seq 순서는 마켓 id 순서라, 한 마켓의 매도 대금으로 다른 마켓에서 산 크래시 창이 재기동마다 같은 자리에서 멈춘다. `command_journal.created_at`은 append 트랜잭션 시작 시각이므로 DB 서버 시계가 뒤로 가지 않는 한 ACK를 보고 낸 후속 명령이 앞 명령보다 크다.
     - 전체 `(created_at, seq)` 정렬이 아니라 병합이다. DB 서버 시계가 뒤로 가면(프라이머리 교체 포함) 마켓 안에서도 created_at이 seq와 역전될 수 있고, 전체 정렬은 그때 마켓 안 seq 순서를 뒤집는다. 마켓 안 역전 쌍은 seq 순서를 따르고 `exchange.recovery.reinject.created_at_inversions`에 센다. 마켓 안 created_at이 seq와 같은 순서이면 병합 결과는 전체 정렬과 같다.
     - 이 순서가 복원하는 것은 사용자가 만든 인과 순서이지 원래의 마켓 사이 정산 순서가 아니다. 같은 사용자가 잔고를 넘겨 동시에 낸 명령 둘이 한 크래시 창에 들면 어느 순서로도 23514이고, 그것은 게이트웨이 사전 가드의 몫이다.
@@ -3452,5 +3454,21 @@ v2.3 노트의 STEP2 단일 패스 재정의와 ② event_seq 재구성 규칙�
 스키마 변경은 없다. 코드는 아직 전역 스칼라 커서·전역 경계·연속 source_cmd_seq 절단이고 마켓별
 이전은 ADR 0022 2단계다. 이 판이 그 근거이고, §5.5-a 머리와 STEP2·② 본문에 그 코드 상태를 적는다.
 결정은 ADR 0022 5-1~5-4 와 ADR 0023 이다. 문서 헤더 버전을 v2.44 로 순증. 2026-09-13 갱신.
+
+## v2.45 패치 반영 사항
+
+ADR 0022 2단계 코드가 main 에 병합됐다(2026-09-14). v2.44 가 계약으로 적고 코드 상태를 '아직 전역'
+으로 남긴 자리 셋을 병합 결과에 맞춘다. §5.5-a 머리의 코드 상태, §5.5 STEP2 판독 블록 주석, §5.5 ②
+재적재 순서의 코드 문장이다. 병합 뒤에도 전역 스칼라가 남는 곳 둘을 §5.5-a 에 적는다.
+`SingleWriterLoop.catchUpTo` 의 갭 회수 시작점 비교와 `WriterRouter` 지연 생성 샤드의 스칼라
+`loadSnapshot` 이다.
+
+§3 표에 V42 행을 더하고 §3.1 DDL 에 `idx_evt_market_cmd` 를 더한다. 마켓별 재생과 따라잡기의 판독이
+다른 마켓 행을 거르며 훑지 않게 하는 인덱스다. 근거 실측은 `docs/측정/20260913.md` 5.7.15 다.
+v2.43 이 V41 을 표와 3.1 DDL 에 함께 올린 선례를 따른다.
+
+같은 코드 상태 서술을 `docs/contracts/하네스_검증설계.md` §5-3 R2·R3·R4 와 `docs/product/복구_RTO_설계.md`
+의 커서 서술·복원 절차·스냅샷 배선 항에서 함께 맞췄다. ADR 0006·0022·0023 에는 날짜 주를 달았다. §5.5-a 경계 한 문장 항의 행 인용과 §5.5 STEP2 의사코드의 판정 주체 주석도 병합 판으로 고쳤다. 스키마 변경은 V42 인덱스 하나다. 문서 헤더
+버전을 v2.45 로 순증. 2026-09-14 갱신.
 
 ---

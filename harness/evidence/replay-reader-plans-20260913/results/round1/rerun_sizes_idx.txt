@@ -1,0 +1,168 @@
+     name      | cmd_seq 
+---------------+---------
+ pre_v36_event |  100000
+
+   k   | market_id | count |  min   |  max   
+-------+-----------+-------+--------+--------
+ holes |         1 |     3 | 399990 | 399994
+ holes |         5 |     5 | 399938 | 399983
+
+     parent      | leaves 
+-----------------+--------
+ command_journal |     16
+ event_journal   |      2
+
+        leaf        | count  
+--------------------+--------
+ command_journal_p0 | 400000
+
+       leaf       | count  
+------------------+--------
+ event_journal_p0 | 740266
+
+ market_id | legacy_cmds | modern_cmds |  head  
+-----------+-------------+-------------+--------
+         1 |       39781 |      119853 | 399994
+         2 |        5999 |       17935 | 399996
+         3 |        5960 |       17616 | 399998
+         4 |        5841 |       17934 | 399955
+         5 |        5821 |       17773 | 399983
+         6 |        5873 |       17768 | 399969
+         7 |        6040 |       17525 | 399997
+         8 |        5825 |       17827 | 399963
+         9 |        5964 |       17228 | 399999
+        10 |        5980 |       17840 | 399970
+        11 |        5841 |       17671 | 400000
+        12 |        1075 |        3030 | 399986
+
+ market_id | legacy_events | modern_events 
+-----------+---------------+---------------
+         1 |         73558 |        221674
+         2 |         11147 |         33298
+         3 |         11025 |         32754
+         4 |         10830 |         33384
+         5 |         10812 |         32698
+         6 |         10890 |         32844
+         7 |         11184 |         32265
+         8 |         10739 |         33227
+         9 |         11038 |         31805
+        10 |         11071 |         32924
+        11 |         10758 |         32776
+        12 |          1980 |          5585
+
+ market_id | counter_last | max_market_seq | bad_derivation 
+-----------+--------------+----------------+----------------
+         1 |       221674 |         221674 |              0
+         2 |        33298 |          33298 |              0
+         3 |        32754 |          32754 |              0
+         4 |        33384 |          33384 |              0
+         5 |        32698 |          32698 |              0
+         6 |        32844 |          32844 |              0
+         7 |        32265 |          32265 |              0
+         8 |        33227 |          33227 |              0
+         9 |        31805 |          31805 |              0
+        10 |        32924 |          32924 |              0
+        11 |        32776 |          32776 |              0
+        12 |         5585 |           5585 |              0
+
+    name     | next_value 
+-------------+------------
+ command_seq |     400001
+ event_seq   |     185033
+ order_id    |          1
+
+ registry_rows 
+---------------
+        740266
+
+ cmds_without_events | below_bound 
+---------------------+-------------
+                   8 |           0
+
+                             relname                             | relkind |    size    | reltuples 
+-----------------------------------------------------------------+---------+------------+-----------
+ command_journal_b10_market_id_seq_idx                           | i       | 8192 bytes |         0
+ command_journal_b10_pkey                                        | i       | 8192 bytes |         0
+ command_journal_b10_user_id_client_order_id_idx                 | i       | 8192 bytes |         0
+ command_journal_b11_market_id_seq_idx                           | i       | 8192 bytes |         0
+ command_journal_b11_pkey                                        | i       | 8192 bytes |         0
+ command_journal_b11_user_id_client_order_id_idx                 | i       | 8192 bytes |         0
+ command_journal_b12_market_id_seq_idx                           | i       | 8192 bytes |         0
+ command_journal_b12_pkey                                        | i       | 8192 bytes |         0
+ command_journal_b12_user_id_client_order_id_idx                 | i       | 8192 bytes |         0
+ command_journal_b1_market_id_seq_idx                            | i       | 8192 bytes |         0
+ command_journal_b1_pkey                                         | i       | 8192 bytes |         0
+ command_journal_b1_user_id_client_order_id_idx                  | i       | 8192 bytes |         0
+ command_journal_b2_market_id_seq_idx                            | i       | 8192 bytes |         0
+ command_journal_b2_pkey                                         | i       | 8192 bytes |         0
+ command_journal_b2_user_id_client_order_id_idx                  | i       | 8192 bytes |         0
+ command_journal_b3_market_id_seq_idx                            | i       | 8192 bytes |         0
+ command_journal_b3_pkey                                         | i       | 8192 bytes |         0
+ command_journal_b3_user_id_client_order_id_idx                  | i       | 8192 bytes |         0
+ command_journal_b4_market_id_seq_idx                            | i       | 8192 bytes |         0
+ command_journal_b4_pkey                                         | i       | 8192 bytes |         0
+ command_journal_b4_user_id_client_order_id_idx                  | i       | 8192 bytes |         0
+ command_journal_b5_market_id_seq_idx                            | i       | 8192 bytes |         0
+ command_journal_b5_pkey                                         | i       | 8192 bytes |         0
+ command_journal_b5_user_id_client_order_id_idx                  | i       | 8192 bytes |         0
+ command_journal_b6_market_id_seq_idx                            | i       | 8192 bytes |         0
+ command_journal_b6_pkey                                         | i       | 8192 bytes |         0
+ command_journal_b6_user_id_client_order_id_idx                  | i       | 8192 bytes |         0
+ command_journal_b7_market_id_seq_idx                            | i       | 8192 bytes |         0
+ command_journal_b7_pkey                                         | i       | 8192 bytes |         0
+ command_journal_b7_user_id_client_order_id_idx                  | i       | 8192 bytes |         0
+ command_journal_b8_market_id_seq_idx                            | i       | 8192 bytes |         0
+ command_journal_b8_pkey                                         | i       | 8192 bytes |         0
+ command_journal_b8_user_id_client_order_id_idx                  | i       | 8192 bytes |         0
+ command_journal_b9_market_id_seq_idx                            | i       | 8192 bytes |         0
+ command_journal_b9_pkey                                         | i       | 8192 bytes |         0
+ command_journal_b9_user_id_client_order_id_idx                  | i       | 8192 bytes |         0
+ command_journal_default_market_id_seq_idx                       | i       | 8192 bytes |         0
+ command_journal_default_pkey                                    | i       | 8192 bytes |         0
+ command_journal_default_user_id_client_order_id_idx             | i       | 8192 bytes |         0
+ command_journal_p0                                              | r       | 146 MB     |    400000
+ command_journal_p0_market_id_seq_idx                            | i       | 12 MB      |    400000
+ command_journal_p0_pkey                                         | i       | 8792 kB    |    400000
+ command_journal_p0_user_id_client_order_id_idx                  | i       | 29 MB      |    340547
+ command_journal_p100000000_market_id_seq_idx                    | i       | 8192 bytes |         0
+ command_journal_p100000000_pkey                                 | i       | 8192 bytes |         0
+ command_journal_p100000000_user_id_client_order_id_idx          | i       | 8192 bytes |         0
+ command_journal_p200000000_market_id_seq_idx                    | i       | 8192 bytes |         0
+ command_journal_p200000000_pkey                                 | i       | 8192 bytes |         0
+ command_journal_p200000000_user_id_client_order_id_idx          | i       | 8192 bytes |         0
+ event_journal_default_market_id_market_seq_idx                  | i       | 8192 bytes |         0
+ event_journal_default_market_id_source_cmd_seq_event_ordina_idx | i       | 8192 bytes |         0
+ event_journal_default_pkey                                      | i       | 8192 bytes |         0
+ event_journal_default_source_cmd_seq_idx                        | i       | 8192 bytes |         0
+ event_journal_p0                                                | r       | 125 MB     |    740266
+ event_journal_p0_market_id_market_seq_idx                       | i       | 17 MB      |    557421
+ event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx     | i       | 29 MB      |    740266
+ event_journal_p0_pkey                                           | i       | 25 MB      |    740266
+ event_journal_p0_source_cmd_seq_idx                             | i       | 13 MB      |    740266
+
+                            index                            |        tbl         |  size   
+-------------------------------------------------------------+--------------------+---------
+ command_journal_p0_pkey                                     | command_journal_p0 | 8792 kB
+ command_journal_p0_market_id_seq_idx                        | command_journal_p0 | 12 MB
+ command_journal_p0_user_id_client_order_id_idx              | command_journal_p0 | 29 MB
+ event_journal_p0_pkey                                       | event_journal_p0   | 25 MB
+ event_journal_p0_source_cmd_seq_idx                         | event_journal_p0   | 13 MB
+ event_journal_p0_market_id_market_seq_idx                   | event_journal_p0   | 17 MB
+ event_journal_p0_market_id_source_cmd_seq_event_ordinal_idx | event_journal_p0   | 29 MB
+
+ shared_buffers 
+----------------
+ 128MB
+
+ work_mem 
+----------
+ 4MB
+
+ random_page_cost 
+------------------
+ 4
+
+                                         version                                          
+------------------------------------------------------------------------------------------
+ PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+
