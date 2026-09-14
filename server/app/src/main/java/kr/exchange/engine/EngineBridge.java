@@ -1,6 +1,9 @@
 package kr.exchange.engine;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.IntConsumer;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.engine.core.SingleWriterLoop;
 import kr.exchange.journal.AppendResult;
@@ -12,10 +15,11 @@ import kr.exchange.journal.CommandJournalAppender;
  * Log-first 순서가 뒤집히면 크래시 창에서 '저널에 없는 적용된 명령'이 생겨
  * RPO 0 주장이 깨진다(DB 설계 §5.1, API 설계 §0-2 (1)).
  *
- * submit은 append와 offer를 한 임계구역에 묶는다. 병렬 호출을 풀어두면
- * append 커밋(=seq 확정)과 offer 사이에 스레드가 밀려 큐 투입 순서가 seq 순서와
- * 역전될 수 있고, 소비측의 seq 단조 증가 계약이 뒤진 seq를 무음 폐기한다.
- * 직렬화 완화는 소비측 seq 연속성 검증(fail-fast + catch-up)이 먼저다(server/README.md M1-2 인계).
+ * submit은 append와 offer를 그 마켓의 임계구역에 묶는다. 풀어두면 append 커밋(=seq 확정)과
+ * offer 사이에 스레드가 밀려 큐 투입 순서가 seq 순서와 역전될 수 있고, 소비측의 seq 단조 증가
+ * 계약이 뒤진 seq를 무음 폐기한다. 소비측이 마켓별 라이터라(WriterRouter) 그 계약이 요구하는 것은
+ * 마켓 안의 투입 순서다. 마켓 m 의 채번과 커밋과 offer 가 m 의 락 안에서만 일어나므로 m 의 명령은
+ * 락 획득 순서대로 seq 를 받고 같은 순서로 큐에 들어간다. 마켓 사이에는 순서 계약이 없다(ADR 0022 4-1).
  *
  * 그 임계구역을 synchronized가 아니라 ReentrantLock으로 잡는다. 이 구역 안에서 저널 append가
  * DB를 왕복하는데, JDK 21에서 synchronized 안의 블로킹은 가상 스레드를 캐리어에 고정한다.
@@ -30,36 +34,47 @@ public class EngineBridge {
     private final CommandPayloadMapper payloadMapper;
     private final AcceptGate acceptGate;
     private final MarketStatusSource marketStatus;
-    private final ReentrantLock submitLock = new ReentrantLock();
+    private final ConcurrentHashMap<Integer, MarketLock> submitLocks = new ConcurrentHashMap<>();
+    private volatile IntConsumer marketAdded = marketId -> { };
 
-    // 접수 임계구역 계측(정본 13.5 한계 29). 직렬 구간과 매칭이 상한에서 빠진 뒤
-    // 남은 후보가 이 락이다. 모든 접수가 여기를 지나고 안에서 저널 append 와 커밋을 한다.
-    //
-    // 대기와 보유를 나눈다. 대기가 크면 경합이 상한이고 보유가 크면 임계구역 안의
-    // 작업이 상한이다. 둘을 합치지 않으면 어느 쪽인지 알 수 없다.
-    //
-    // 생성자가 셋이라 MeterRegistry 를 파라미터로 받으면 호출부가 전부 깨진다.
-    // 누적기만 노출하고 EngineConfig 가 FunctionCounter 로 읽는다. 엔진 쪽과 같은 방식이다.
-    private final java.util.concurrent.atomic.LongAdder lockWaitNanos =
-            new java.util.concurrent.atomic.LongAdder();
-    private final java.util.concurrent.atomic.LongAdder lockHoldNanos =
-            new java.util.concurrent.atomic.LongAdder();
-    private final java.util.concurrent.atomic.LongAdder submitCount =
-            new java.util.concurrent.atomic.LongAdder();
-
-    /** 락 획득 대기 누적 나노초. 경합의 크기다. */
-    public long lockWaitNanos() {
-        return lockWaitNanos.sum();
+    /**
+     * 마켓 하나의 접수 임계구역과 그 계측(정본 13.5 한계 29).
+     *
+     * 대기와 보유를 나눈다. 대기가 크면 경합이 상한이고 보유가 크면 임계구역 안의 작업이 상한이다.
+     * 생성자가 여럿이라 MeterRegistry 를 받지 않고 누적기만 노출한다. EngineConfig 가 마켓 태그를
+     * 붙여 FunctionCounter 로 읽는다.
+     */
+    private static final class MarketLock {
+        private final ReentrantLock lock = new ReentrantLock();
+        private final LongAdder waitNanos = new LongAdder();
+        private final LongAdder holdNanos = new LongAdder();
+        private final LongAdder submits = new LongAdder();
     }
 
-    /** 락 보유 누적 나노초. 임계구역 안 작업의 크기다. */
-    public long lockHoldNanos() {
-        return lockHoldNanos.sum();
+    /** 그 마켓의 락 획득 대기 누적 나노초. 경합의 크기다. 접수가 없던 마켓은 0이다. */
+    public long lockWaitNanos(int marketId) {
+        MarketLock market = submitLocks.get(marketId);
+        return market == null ? 0 : market.waitNanos.sum();
     }
 
-    /** 접수 시도 수. 위 둘의 분모다. 예외 경로도 센다. */
-    public long submitCount() {
-        return submitCount.sum();
+    /** 그 마켓의 락 보유 누적 나노초. 임계구역 안 작업의 크기다. */
+    public long lockHoldNanos(int marketId) {
+        MarketLock market = submitLocks.get(marketId);
+        return market == null ? 0 : market.holdNanos.sum();
+    }
+
+    /** 그 마켓의 접수 시도 수. 위 둘의 분모다. 예외 경로도 센다. */
+    public long submitCount(int marketId) {
+        MarketLock market = submitLocks.get(marketId);
+        return market == null ? 0 : market.submits.sum();
+    }
+
+    /**
+     * 마켓이 처음 접수될 때 한 번 부를 통지를 건다. 마켓 목록을 기동 시점에 알 수 없어 마켓별 지표를
+     * 이때 등록한다. 첫 접수 전에 건다. 그 마켓의 락을 만드는 자리에서 돌므로 짧게 끝나야 한다.
+     */
+    public void onMarketAdded(IntConsumer listener) {
+        this.marketAdded = listener;
     }
 
     public EngineBridge(CommandJournalAppender appender, SingleWriterLoop loop,
@@ -85,9 +100,10 @@ public class EngineBridge {
         this(appender, CommandSink.of(router), payloadMapper, acceptGate, marketStatus);
     }
 
-    private EngineBridge(CommandJournalAppender appender, CommandSink sink,
-                         CommandPayloadMapper payloadMapper, AcceptGate acceptGate,
-                         MarketStatusSource marketStatus) {
+    /** 명령을 받을 곳을 직접 꽂는다. 운영은 위 배선을 거치고, 시험이 투입 순서를 기록할 때 쓴다. */
+    EngineBridge(CommandJournalAppender appender, CommandSink sink,
+                 CommandPayloadMapper payloadMapper, AcceptGate acceptGate,
+                 MarketStatusSource marketStatus) {
         this.appender = appender;
         this.sink = sink;
         this.payloadMapper = payloadMapper;
@@ -112,15 +128,20 @@ public class EngineBridge {
     }
 
     public SubmitResult submit(OrderIntake intake) {
+        MarketLock market = submitLocks.computeIfAbsent(intake.marketId(), marketId -> {
+            marketAdded.accept(marketId);
+            return new MarketLock();
+        });
         long t0 = System.nanoTime();
-        submitLock.lock();
+        market.lock.lock();
         long t1 = System.nanoTime();
-        lockWaitNanos.add(t1 - t0);
+        market.waitNanos.add(t1 - t0);
         try {
-            if (!sink.isRunning()) {
+            if (!sink.isRunning(intake.marketId())) {
                 // 루프 정지 상태의 ACK는 '접수됐지만 영원히 미체결'인 주문을 만든다. 저널 커밋 전에
                 // 거부한다. 정지와 경합하는 창은 fatal 처리의 demote가 requireLeader로 마저 닫는다.
-                throw new IllegalStateException("단일 라이터 루프 정지 상태: 접수 거부");
+                throw new IllegalStateException(
+                        "단일 라이터 루프 정지 상태: 접수 거부(market=" + intake.marketId() + ")");
             }
             if (!acceptGate.isAccepting()) {
                 // 리더지만 승격 재생(PROMOTING) 중이다. head 선복원 전 접수를 열면 catch-up이
@@ -149,9 +170,9 @@ public class EngineBridge {
             return new SubmitResult(ack.seq(), ack.fencingToken(), false, queued);
         } finally {
             // 보유 시간은 예외 경로도 센다. 거부로 끝난 접수도 락을 잡고 있었다.
-            lockHoldNanos.add(System.nanoTime() - t1);
-            submitCount.increment();
-            submitLock.unlock();
+            market.holdNanos.add(System.nanoTime() - t1);
+            market.submits.increment();
+            market.lock.unlock();
         }
     }
 }

@@ -32,35 +32,34 @@ public class LeaseDataSourceConfig {
         return properties.initializeDataSourceBuilder().type(HikariDataSource.class).build();
     }
 
-    // 리스 전용 소형 풀. 접속 좌표는 기본 풀과 같은 원천을 쓰고 풀 크기·타임아웃·세션 init만
-    // 별도 지정한다. 코드 기본값은 프로파일에 블록이 없어도 소형·UTC로 뜨게 하는 안전망이고,
-    // yml 값이 있으면 그것이 이긴다(바인딩이 반환 후 적용). statement_timeout은 걸지 않는다.
-    // 단일 행 renew가 슬로 윈도에서 취소되면 리더십을 잃는다.
-    // 접수 저널 append 전용 소형 풀(ADR 0022 0단계 (b) 후속).
+    // 접수 저널 append 전용 풀(ADR 0022 0단계 (b) 후속, 4-1). 요청 풀과 나눠 조회 폭주로 기본 풀이
+    // 포화돼도 접수가 커넥션을 기다리지 않게 한다. 리스 풀을 나눈 사유(v2.18)와 같은 성질이다.
     //
-    // 왜 전용인가. 2026-09-11 실측에서 접수 락 보유 7.878밀리초 중 4.729가 커넥션 획득과
-    // 트랜잭션 경계와 커밋이었다(정본 5.7.11). 커밋 fsync 가 약 1.2밀리초이므로 약 3.5가
-    // 데이터베이스 일이 아니다. 그 구간은 EngineBridge.submitLock 이 이미 직렬화하므로
-    // 동시에 커넥션을 둘 이상 쓸 일이 구조적으로 없다.
+    // 최대 14는 마켓 수 12에 여유 2를 더한 값이다. 접수 락이 마켓별이라 append 가 마켓 수만큼 동시에
+    // 커넥션을 쥔다. 여유는 커넥션이 끊긴 순간 새로 만드는 동안 접수가 막히지 않게 하는 몫이다.
+    // 모자라 풀 대기가 connectionTimeout 을 넘으면 트랜잭션 시작이 실패한다(ApiExceptionHandler 가 503).
     //
-    // 왜 크기가 2인가. 하나면 충분하지만 하나로 두면 커넥션이 끊긴 순간 풀이 새 커넥션을
-    // 만들 동안 append 가 전부 막힌다. 리스 풀이 같은 이유로 2다.
-    //
-    // 요청 풀과 나누는 부수 효과가 있다. 조회 폭주로 기본 풀이 포화돼도 접수가 커넥션을
-    // 기다리지 않는다. 리스 풀을 나눈 사유(v2.18)와 같은 성질이고 범위만 다르다.
+    // 최소 유휴 2와 idleTimeout 10초. 강등된 노드가 부하 때 늘린 연결을 빨리 반납해 max_connections 를
+    // 붙들지 않게 한다. Hikari 는 10초 미만을 기본값 10분으로 되돌리고, 회수는 30초 주기 하우스키핑이
+    // 하므로 유휴가 된 뒤 반납까지 최대 약 40초다. yml 값이 있으면 그것이 이긴다(바인딩이 반환 후 적용).
     @Bean
     @ConfigurationProperties("exchange.engine.append-datasource.hikari")
     public HikariDataSource appendDataSource(DataSourceProperties properties) {
         HikariDataSource ds = properties.initializeDataSourceBuilder()
                 .type(HikariDataSource.class).build();
         ds.setPoolName("exchange-append");
-        ds.setMaximumPoolSize(2);
+        ds.setMaximumPoolSize(14);
         ds.setMinimumIdle(2);
+        ds.setIdleTimeout(10_000);
         ds.setConnectionTimeout(2000);
         ds.setConnectionInitSql("SET TIME ZONE 'UTC'");
         return ds;
     }
 
+    // 리스 전용 소형 풀. 접속 좌표는 기본 풀과 같은 원천을 쓰고 풀 크기·타임아웃·세션 init만
+    // 별도 지정한다. 코드 기본값은 프로파일에 블록이 없어도 소형·UTC로 뜨게 하는 안전망이고,
+    // yml 값이 있으면 그것이 이긴다(바인딩이 반환 후 적용). statement_timeout은 걸지 않는다.
+    // 단일 행 renew가 슬로 윈도에서 취소되면 리더십을 잃는다.
     @Bean
     @ConfigurationProperties("exchange.engine.lease-datasource.hikari")
     public HikariDataSource leaseDataSource(DataSourceProperties properties) {

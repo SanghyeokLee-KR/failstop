@@ -1,11 +1,9 @@
 package kr.exchange.api.order;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.LongPredicate;
@@ -25,21 +23,32 @@ class InflightReserves {
     private record Deferred(String key, BigDecimal amount, long orderId, long expiresAt) {
     }
 
+    // 락은 예약 키(사용자:자산) 단위로 가른다. 지키는 것이 같은 잔고의 이중 통과이기 때문이다. 마켓으로
+    // 가르면 호가 자산을 공유하는 두 마켓의 주문이 같은 잔고를 서로 다른 락에서 통과한다(ADR 0022 4-1).
+    //
+    // 키마다 락을 만들면 락 수가 사용자 수를 따라 끝없이 는다. 키 해시로 고정 개수의 락 중 하나를 고른다.
+    // 같은 키는 늘 같은 락이라 상호 배제는 그대로이고, 다른 키가 같은 락에 걸리면 서로 기다릴 뿐이다.
+    // 개수는 동시 예약 수(쓰기 수용 상한)보다 넉넉히 크게 두고, 마스크로 고르므로 2의 거듭제곱이다.
+    private static final int LOCK_STRIPES = 1024;
+
     // synchronized가 아니라 ReentrantLock인 이유. tryReserve는 락 안에서 DB를 왕복한다
-    // (available.get()과 sweep()의 orderRowObserved). JDK 21에서 synchronized 안의 블로킹은
-    // 가상 스레드를 캐리어에 고정해, 캐리어 수(=코어 수)만큼 고정되면 스케줄링이 통째로 멈춘다.
-    // 2 vCPU 실측에서 주문 16/s에 노드가 영구 정지했다(harness/evidence/gateoff-20260903-2vcpu/).
+    // (available.get()). JDK 21에서 synchronized 안의 블로킹은 가상 스레드를 캐리어에 고정해,
+    // 캐리어 수(=코어 수)만큼 고정되면 스케줄링이 통째로 멈춘다. 2 vCPU 실측에서 주문 16/s에
+    // 노드가 영구 정지했다(harness/evidence/gateoff-20260903-2vcpu/).
     // ReentrantLock은 가상 스레드를 고정하지 않는다. 상호 배제 계약은 그대로다.
-    private final ReentrantLock lock = new ReentrantLock();
-    private final Map<String, BigDecimal> totals = new HashMap<>();
-    private final List<Deferred> deferred = new ArrayList<>();
+    private final ReentrantLock[] locks = new ReentrantLock[LOCK_STRIPES];
+    // 키마다 다른 락 아래에서 갱신되므로 맵 자체는 동시 갱신에 안전해야 한다.
+    private final ConcurrentHashMap<String, BigDecimal> totals = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedQueue<Deferred> deferred = new ConcurrentLinkedQueue<>();
+    // 지연 항목 회수는 한 번에 한 스레드만 한다. 항목마다 주문 행을 DB 에서 보므로 요청마다 겹쳐 돌면
+    // 그 조회가 동시 요청 수만큼 곱해진다.
+    private final ReentrantLock sweepLock = new ReentrantLock();
     private final LongPredicate orderRowObserved;
     private final LongSupplier clock;
     private final long deferTtlMs;
 
-    // 저널 replay 를 뺀 접수가 이 락 하나를 지나고 안에서 DB 를 왕복한다. 접수 락과 같은
-    // 직렬 구간 후보라 대기와 보유를 나눠 센다. 대기가 크면 경합이, 보유가 크면 락 안 왕복이
-    // 상한이다.
+    // 저널 replay 를 뺀 접수가 키 락을 지나고 안에서 DB 를 왕복한다. 접수 락과 같은 직렬 구간
+    // 후보라 대기와 보유를 나눠 센다. 대기가 크면 경합이, 보유가 크면 락 안 왕복이 상한이다.
     private final LongAdder lockWaitNanos = new LongAdder();
     private final LongAdder lockHoldNanos = new LongAdder();
 
@@ -47,26 +56,36 @@ class InflightReserves {
         this.orderRowObserved = orderRowObserved;
         this.clock = clock;
         this.deferTtlMs = deferTtlMs;
+        for (int i = 0; i < LOCK_STRIPES; i++) {
+            locks[i] = new ReentrantLock();
+        }
     }
 
-    /** 락 획득 대기 누적 나노초. */
+    /** 락 획득 대기 누적 나노초. 키 락 전부의 합이다. */
     long lockWaitNanos() {
         return lockWaitNanos.sum();
     }
 
-    /** 락 보유 누적 나노초. */
+    /** 락 보유 누적 나노초. 키 락 전부의 합이다. */
     long lockHoldNanos() {
         return lockHoldNanos.sum();
     }
 
+    /** 키가 쓰는 락 번호. 같은 키는 늘 같은 번호다. */
+    static int stripe(String key) {
+        int h = key.hashCode();
+        return (h ^ (h >>> 16)) & (LOCK_STRIPES - 1);
+    }
+
     /**
      * 가용 잔고에서 in-flight 누계를 차감한 헤드룸으로 예약을 시도한다.
-     * available 조회를 락 안에서 수행해 동시 예약의 이중 통과를 막는다.
+     * available 조회를 키 락 안에서 수행해 같은 키 동시 예약의 이중 통과를 막는다.
      */
     boolean tryReserve(String key, BigDecimal required, Supplier<BigDecimal> available) {
-        long lockedAt = lockTimed();
+        sweep();
+        ReentrantLock lock = locks[stripe(key)];
+        long lockedAt = lockTimed(lock);
         try {
-            sweep();
             BigDecimal pending = totals.getOrDefault(key, BigDecimal.ZERO);
             if (available.get().subtract(pending).compareTo(required) < 0) {
                 return false;
@@ -74,31 +93,30 @@ class InflightReserves {
             totals.merge(key, required, BigDecimal::add);
             return true;
         } finally {
-            unlockTimed(lockedAt);
+            unlockTimed(lock, lockedAt);
         }
     }
 
     /** 정산 관측 완료(또는 저널 미기록 확정) 시 즉시 해제. */
     void release(String key, BigDecimal amount) {
-        long lockedAt = lockTimed();
+        ReentrantLock lock = locks[stripe(key)];
+        long lockedAt = lockTimed(lock);
         try {
-            subtract(key, amount);
+            totals.computeIfPresent(key, (k, v) -> {
+                BigDecimal rest = v.subtract(amount);
+                return rest.signum() <= 0 ? null : rest;
+            });
         } finally {
-            unlockTimed(lockedAt);
+            unlockTimed(lock, lockedAt);
         }
     }
 
     /** 정산 미관측 종료 경로. 누계를 유지한 채 주문 row 관측 또는 TTL로 지연 회수한다. */
     void defer(String key, BigDecimal amount, long orderId) {
-        long lockedAt = lockTimed();
-        try {
-            deferred.add(new Deferred(key, amount, orderId, clock.getAsLong() + deferTtlMs));
-        } finally {
-            unlockTimed(lockedAt);
-        }
+        deferred.add(new Deferred(key, amount, orderId, clock.getAsLong() + deferTtlMs));
     }
 
-    private long lockTimed() {
+    private long lockTimed(ReentrantLock lock) {
         long t0 = System.nanoTime();
         lock.lock();
         long t1 = System.nanoTime();
@@ -106,29 +124,34 @@ class InflightReserves {
         return t1;
     }
 
-    private void unlockTimed(long lockedAt) {
+    private void unlockTimed(ReentrantLock lock, long lockedAt) {
         lockHoldNanos.add(System.nanoTime() - lockedAt);
         lock.unlock();
     }
 
-    /** 호출자가 lock을 쥔 상태에서만 부른다. */
+    /**
+     * 만료됐거나 주문 행이 보인 지연 항목을 누계에서 뺀다. 요청의 키 락 밖에서 돈다.
+     *
+     * 항목마다 주문 행을 DB 에서 보므로 키 락 안에 두면 그 조회가 같은 키 예약을 붙잡는다. 다른 스레드가
+     * 이미 훑고 있으면 건너뛴다. 건너뛴 예약은 회수 전 누계를 보므로 거부 쪽으로만 틀린다.
+     */
     private void sweep() {
-        long now = clock.getAsLong();
-        Iterator<Deferred> it = deferred.iterator();
-        while (it.hasNext()) {
-            Deferred d = it.next();
-            if (now >= d.expiresAt() || orderRowObserved.test(d.orderId())) {
-                subtract(d.key(), d.amount());
-                it.remove();
-            }
+        if (deferred.isEmpty() || !sweepLock.tryLock()) {
+            return;
         }
-    }
-
-    /** 호출자가 lock을 쥔 상태에서만 부른다. */
-    private void subtract(String key, BigDecimal amount) {
-        totals.computeIfPresent(key, (k, v) -> {
-            BigDecimal rest = v.subtract(amount);
-            return rest.signum() <= 0 ? null : rest;
-        });
+        try {
+            long now = clock.getAsLong();
+            Iterator<Deferred> it = deferred.iterator();
+            while (it.hasNext()) {
+                Deferred d = it.next();
+                if (now >= d.expiresAt() || orderRowObserved.test(d.orderId())) {
+                    // 항목을 지우는 것은 이 락을 쥔 스레드뿐이라 같은 항목을 두 번 빼지 않는다.
+                    it.remove();
+                    release(d.key(), d.amount());
+                }
+            }
+        } finally {
+            sweepLock.unlock();
+        }
     }
 }

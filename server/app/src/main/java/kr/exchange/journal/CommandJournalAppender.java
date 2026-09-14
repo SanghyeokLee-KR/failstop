@@ -147,7 +147,7 @@ public class CommandJournalAppender {
             // 그 4.239를 셋으로 가른다. 콜백 앞이 커넥션 획득과 자동커밋 해제와 경계 시작이고,
             // 콜백 뒤부터 커밋 동기화 훅까지가 커밋이며, 그 뒤가 정리와 반납이다.
             // marks 를 배열로 두는 이유는 람다가 지역 변수를 재할당할 수 없기 때문이다.
-            // 접수 락이 이 구간을 직렬화하므로 배열 공유가 경합하지 않는다.
+            // 배열은 호출마다 새로 만들고 콜백과 커밋 훅이 호출 스레드에서 돌아 스레드 사이에 공유되지 않는다.
             long t0 = System.nanoTime();
             long[] marks = new long[3];
             AppendResult result = appendTimer.record(() -> tx.execute(status -> {
