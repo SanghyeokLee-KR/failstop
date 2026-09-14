@@ -30,6 +30,7 @@ import kr.exchange.journal.ReplayService;
 import kr.exchange.ledger.MarketCatalog;
 import kr.exchange.ledger.SettlementService;
 import kr.exchange.snapshot.SnapshotCapture;
+import kr.exchange.snapshot.SnapshotPersister;
 import kr.exchange.snapshot.SnapshotStore;
 import org.springframework.boot.availability.ApplicationAvailability;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -259,23 +260,18 @@ public class EngineConfig {
                         EngineRecovery::reinjectCreatedAtInversions)
                 .description("크래시 창 재적재에서 마켓 안 created_at 이 seq 순서와 거꾸로 선 배치 수")
                 .register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.recovery.snapshot_fallback", recovery, EngineRecovery::snapshotFallbacks)
+                .description("스냅샷 시작 복구를 버리고 스냅샷 없이 전량 재생한 횟수")
+                .register(meterRegistry);
         return recovery;
     }
 
-    // 주기 스냅샷 캡처. 라이터 명령 경계 훅으로 인코딩하고 별도 워커가 영속화한다(§3-b).
-    // 비활성이면 훅을 배선하지 않아 캡처가 전혀 돌지 않는다.
+    // 주기 스냅샷 영속화 워커. 캡처는 샤드 팩토리가 마켓마다 걸고 이 워커 하나가 적재한다(§3-b).
+    // 비활성이면 훅을 배선하지 않아 받을 캡처가 없다.
     @Bean(destroyMethod = "close")
-    public SnapshotCapture snapshotCapture(SnapshotStore snapshotStore,
-                                           LeaderLeaseService leaderLeaseService,
-                                           SnapshotProperties props,
-                                           SingleWriterLoop loop,
-                                           MeterRegistry meterRegistry) {
-        SnapshotCapture capture = new SnapshotCapture(snapshotStore, leaderLeaseService,
-                props.commandInterval(), props.timeInterval(), props.queueCapacity(), meterRegistry);
-        if (props.enabled()) {
-            loop.setSnapshotHook(capture);
-        }
-        return capture;
+    public SnapshotPersister snapshotPersister(SnapshotStore snapshotStore) {
+        return new SnapshotPersister(snapshotStore);
     }
 
     /**
@@ -296,6 +292,8 @@ public class EngineConfig {
                                      LeaderLeaseService leaderLeaseService,
                                      MarketDataPublisher marketDataPublisher,
                                      kr.exchange.api.market.MarketDataService marketDataService,
+                                     SnapshotProperties snapshotProps,
+                                     SnapshotPersister snapshotPersister,
                                      MeterRegistry meterRegistry) {
         return new WriterRouter(marketId -> {
             MatchingEngineImpl shardEngine = new MatchingEngineImpl();
@@ -313,6 +311,13 @@ public class EngineConfig {
                     },
                     new JournalCatchUpSource(commandJournalReader, commandPayloadMapper, marketId),
                     new LoopFatalHandler(leaderLeaseService));
+            if (snapshotProps.enabled()) {
+                // 캡처 판정 상태를 샤드마다 둔다. 한 인스턴스를 샤드 여럿에 걸면 커서가 가장 높은 마켓의 캡처가
+                // 나머지 마켓의 판정을 막는다(ADR 0022 7단계).
+                loop.setSnapshotHook(new SnapshotCapture(snapshotPersister, leaderLeaseService, marketId,
+                        snapshotProps.commandInterval(), snapshotProps.timeInterval(),
+                        snapshotProps.queueCapacity(), meterRegistry));
+            }
             String tag = String.valueOf(marketId);
             io.micrometer.core.instrument.Gauge
                     .builder("exchange.sequencer.queue.size", loop, SingleWriterLoop::queueSize)

@@ -107,7 +107,6 @@ class SnapshotEquivalenceIntegrationTest {
     static ReplayService replayService;
 
     static long leaderHead;
-    static long leaderEpoch;
     // 제출 순번 -> 접수 응답 seq.
     static final Map<Integer, Long> ackSeqByOrdinal = new LinkedHashMap<>();
     // 캡처한 제출의 ack seq -> 그 적용 직후 전 샤드에서 동결한 마켓별 스냅샷(인코딩 바이트 + checksum)과 샤드 커서.
@@ -139,7 +138,6 @@ class SnapshotEquivalenceIntegrationTest {
         LeaderLeaseService leader = new LeaderLeaseService(jdbc, Duration.ofSeconds(120),
                 Duration.ofSeconds(1));
         takeOver(leader);
-        leaderEpoch = leader.requireLeader().epoch();
         EventJournalAppender eventAppender = new EventJournalAppender(jdbc, tx, leader, objectMapper);
         AtomicReference<Throwable> fatal = new AtomicReference<>();
         WriterRouter router = liveRouter(commandReader, marketId -> eventAppender::append, fatal);
@@ -238,7 +236,6 @@ class SnapshotEquivalenceIntegrationTest {
                 }
                 String label = "stagger=" + stagger + ", start=" + start;
                 assertEquals(start, b.appliedSeqs(), "적재가 마켓 커서를 그 마켓 스냅샷 커서로 세우지 않았다: " + label);
-                assertEquals(0, b.floorSeq(), "마켓 스냅샷 적재가 커서 없는 마켓의 바닥을 올렸다: " + label);
                 long maxStart = start.values().stream().mapToLong(Long::longValue).max().orElse(0);
                 for (int marketId : markets) {
                     belowOtherCursors += commandsAfter(marketId, start.getOrDefault(marketId, 0L))
@@ -269,12 +266,12 @@ class SnapshotEquivalenceIntegrationTest {
         // 공유 append-only snapshots 테이블이라 형제 테스트가 심은 유효본도 후보에 든다. 채택 seq 를
         // 하드코딩하지 않고 게이트가 마켓마다 고른 값으로 tail 상한을 검증한다(순서 무관).
         SnapshotStore store = new SnapshotStore(jdbc, tx, ENGINE_VERSION, CONFIG_HASH);
-        store.persist(ackSeq(9), leaderEpoch, captured(9));
+        persistAsLeader(store, captured(9));
 
         Map<Integer, SnapshotSource.MarketLoaded> adopted = store.loadLatestAdoptablePerMarket();
         assertEquals(Set.of(1, 2, 3), adopted.keySet(), "유효 스냅샷을 채택하지 않은 마켓이 있다");
-        assertTrue(adopted.values().stream()
-                        .allMatch(loaded -> loaded.seq() >= ackSeq(9) && loaded.seq() < leaderHead),
+        assertTrue(adopted.entrySet().stream()
+                        .allMatch(e -> e.getValue().seq() >= cursor(9, e.getKey()) && e.getValue().seq() < leaderHead),
                 "유효 스냅샷 채택 실패: " + seqs(adopted));
         ReplayResult adoptResult = recoverWith(store);
         assertEngineBytesEqual(fullReplay(), lastRecovered, "store-adopt");
@@ -285,9 +282,9 @@ class SnapshotEquivalenceIntegrationTest {
         // 물러서야 한다(스냅샷 = 저널 파생 최적화, 단일 정본 아님).
         List<SnapshotStore.MarketState> corrupt = new ArrayList<>();
         for (SnapshotStore.MarketState ms : captured(17)) {
-            corrupt.add(new SnapshotStore.MarketState(ms.marketId(), ms.state(), ms.checksum() ^ 0x5A5AL));
+            corrupt.add(new SnapshotStore.MarketState(ms.marketId(), ms.seq(), ms.state(), ms.checksum() ^ 0x5A5AL));
         }
-        store.persist(ackSeq(17), leaderEpoch, corrupt);
+        persistAsLeader(store, corrupt);
         assertEquals(seqs(adopted), seqs(store.loadLatestAdoptablePerMarket()),
                 "손상본을 폐기하고 마켓마다 직전 유효본으로 물러서야 한다");
         ReplayResult afterCorrupt = recoverWith(store);
@@ -298,23 +295,23 @@ class SnapshotEquivalenceIntegrationTest {
     @Test
     void corruptSnapshotOfOneMarketFallsBackOnlyThatMarket() {
         SnapshotStore store = new SnapshotStore(jdbc, tx, ENGINE_VERSION, CONFIG_HASH);
-        store.persist(ackSeq(13), leaderEpoch, captured(13));
+        persistAsLeader(store, captured(13));
         List<SnapshotStore.MarketState> oneCorrupt = new ArrayList<>();
         for (SnapshotStore.MarketState ms : captured(15)) {
             long checksum = ms.marketId() == 3 ? ms.checksum() ^ 0x5A5AL : ms.checksum();
-            oneCorrupt.add(new SnapshotStore.MarketState(ms.marketId(), ms.state(), checksum));
+            oneCorrupt.add(new SnapshotStore.MarketState(ms.marketId(), ms.seq(), ms.state(), checksum));
         }
-        store.persist(ackSeq(15), leaderEpoch, oneCorrupt);
+        persistAsLeader(store, oneCorrupt);
 
         Map<Integer, SnapshotSource.MarketLoaded> adopted = store.loadLatestAdoptablePerMarket();
 
         assertEquals(Set.of(1, 2, 3), adopted.keySet(), "채택본이 없는 마켓이 있다: " + seqs(adopted));
-        assertTrue(adopted.get(1).seq() >= ackSeq(15) && adopted.get(2).seq() >= ackSeq(15),
+        assertTrue(adopted.get(1).seq() >= cursor(15, 1) && adopted.get(2).seq() >= cursor(15, 2),
                 "손상 없는 마켓이 제출 15 스냅샷을 채택하지 않았다. 한 마켓 손상이 다른 마켓을 끌어내렸다: " + seqs(adopted));
-        assertTrue(adopted.get(3).seq() >= ackSeq(13) && adopted.get(3).seq() < ackSeq(15),
+        assertTrue(adopted.get(3).seq() >= cursor(13, 3) && adopted.get(3).seq() < cursor(15, 3),
                 "손상 마켓이 폐기되지 않았거나 직전 유효본으로 물러서지 않았다: " + seqs(adopted));
         // 물러선 구간에 그 마켓 명령이 있어야 커서를 어디서 여는지가 북 바이트와 tail 수로 드러난다.
-        assertTrue(commandsBetween(3, adopted.get(3).seq(), ackSeq(15)) > 0,
+        assertTrue(commandsBetween(3, adopted.get(3).seq(), cursor(15, 3)) > 0,
                 "마켓 3 이 물러선 구간에 명령이 없어 물러선 마켓의 커서가 판정되지 않는다");
         ReplayResult result = recoverWith(store);
         assertEngineBytesEqual(fullReplay(), lastRecovered, "one-market-fallback");
@@ -328,8 +325,8 @@ class SnapshotEquivalenceIntegrationTest {
         SnapshotStore.MarketState market2Book = captured(16).stream()
                 .filter(ms -> ms.marketId() == 2).findFirst().orElseThrow();
         // 마켓 1 행에 마켓 2 의 북을 싣는다. checksum 은 그 북의 것이라 checksum 게이트는 통과한다.
-        store.persist(ackSeq(16), leaderEpoch,
-                List.of(new SnapshotStore.MarketState(1, market2Book.state(), market2Book.checksum())));
+        persistAsLeader(store,
+                List.of(new SnapshotStore.MarketState(1, ackSeq(16), market2Book.state(), market2Book.checksum())));
 
         Map<Integer, SnapshotSource.MarketLoaded> adopted = store.loadLatestAdoptablePerMarket();
 
@@ -367,7 +364,7 @@ class SnapshotEquivalenceIntegrationTest {
     @Test
     void versionAndConfigMismatchDiscardAllAndFullReplay() {
         SnapshotStore base = new SnapshotStore(jdbc, tx, ENGINE_VERSION, CONFIG_HASH);
-        base.persist(ackSeq(11), leaderEpoch, captured(11));
+        persistAsLeader(base, captured(11));
         assertFalse(base.loadLatestAdoptablePerMarket().isEmpty(), "동일 버전·설정은 채택되어야 한다");
 
         // engine_version 불일치: 전 세트 폐기 → 전량 재생.
@@ -689,6 +686,20 @@ class SnapshotEquivalenceIntegrationTest {
         return ackSeqByOrdinal.get(ordinal);
     }
 
+    /** 제출 순번 ordinal 을 적용한 직후 그 마켓 샤드의 커서. 스냅샷 행의 last_applied_seq 가 이 값이다. */
+    private static long cursor(int ordinal, int marketId) {
+        return cursorsByK.get(ackSeq(ordinal)).get(marketId);
+    }
+
+    /** 지금 리더로 적재한다. 적재 트랜잭션이 리더 검증을 거치므로 다른 시험의 승격으로 낡은 epoch 로는 쓸 수 없다. */
+    private static void persistAsLeader(SnapshotStore store, List<SnapshotStore.MarketState> markets) {
+        try (LeaderLeaseService lease = new LeaderLeaseService(jdbc, Duration.ofSeconds(120),
+                Duration.ofSeconds(1))) {
+            takeOver(lease);
+            store.persist(lease.requireLeader(), markets);
+        }
+    }
+
     /** 제출 순번 ordinal 을 적용한 직후 전 샤드에서 동결한 마켓별 스냅샷. */
     private static List<SnapshotStore.MarketState> captured(int ordinal) {
         return capturedByK.get(ackSeq(ordinal));
@@ -712,9 +723,10 @@ class SnapshotEquivalenceIntegrationTest {
     private static List<SnapshotStore.MarketState> freeze(WriterRouter router) {
         List<SnapshotStore.MarketState> markets = new ArrayList<>();
         for (int marketId : router.markets()) {
-            OrderBookImpl book = router.engine(marketId).orderBook(marketId);
+            MatchingEngineImpl shard = router.engine(marketId);
+            OrderBookImpl book = shard.orderBook(marketId);
             markets.add(new SnapshotStore.MarketState(
-                    marketId, SnapshotCodec.encode(book), book.stateChecksum()));
+                    marketId, shard.appliedSeq(marketId), SnapshotCodec.encode(book), book.stateChecksum()));
         }
         return markets;
     }

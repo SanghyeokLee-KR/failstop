@@ -3,6 +3,7 @@ package kr.exchange.engine;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.engine.core.MatchingEngine;
 import kr.exchange.engine.core.MatchingEngineImpl;
+import kr.exchange.engine.core.OrderBookImpl;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.engine.lease.FencingEpochPublisher;
 import kr.exchange.engine.lease.LeaderLeaseStore;
@@ -252,23 +253,24 @@ class PromotionReplayBoundTest {
             new EngineRecovery(replay, events -> {
             }, lease).recover(engine);
 
-            assertEquals(Map.of(1, 0L, 2, 7L), replay.cursorsSeen.get(0),
+            assertEquals(Map.of(2, 7L), replay.cursorsSeen.get(0),
                     "경계 계산이 엔진의 마켓 커서가 아닌 값을 받았다. 빈 커서면 마켓마다 전체 명령을 훑는다");
         }
     }
 
+    /** 커서 없는 마켓에는 값을 넘기지 않아 판독기가 0 에서 연다. 스냅샷 seq 를 바닥으로 넘기면 그 아래 명령을 버린다. */
     @Test
-    void 커서_없는_마켓에는_스냅샷_바닥을_넘긴다() {
+    void 커서_없는_마켓에는_바닥을_넘기지_않는다() {
         MatchingEngineImpl engine = new MatchingEngineImpl();
-        engine.loadSnapshot(5, List.of());
+        engine.loadMarketSnapshot(2, 5, new OrderBookImpl(2));
         RecordingReplayService replay = new RecordingReplayService(
                 Map.of(1, 100L, 2, 50L), Map.of(1, 100L, 2, 50L), 1, 0);
         try (LeaderLeaseService lease = leader()) {
             new EngineRecovery(replay, events -> {
             }, lease).recover(engine);
 
-            assertEquals(Map.of(1, 5L, 2, 5L), replay.cursorsSeen.get(0),
-                    "커서 없는 마켓에 스냅샷 바닥이 아닌 값을 넘겼다. 0 이면 바닥 아래를 다시 훑는다");
+            assertEquals(Map.of(2, 5L), replay.cursorsSeen.get(0),
+                    "스냅샷을 실은 마켓만 커서를 넘겨야 한다. 커서 없는 마켓 1 에 값이 들어가면 그 값이 바닥이 된다");
         }
     }
 
