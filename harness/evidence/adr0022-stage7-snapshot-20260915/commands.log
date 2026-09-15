@@ -1,0 +1,14 @@
+2026-09-15T12:52:18+09:00 RUN adr0022-stage7-snapshot Image= Ref=0a2d8d71e7668c69cf82242148d4fd50f8ff7845 SkipBuild=False Modes=global,band Experiments=E2,E4,E5,E6,E7,COLD SnapshotWaitSec=180
+2026-09-15T12:52:18+09:00 START worktree | cwd=D:\dev\failstop | git -C D:\dev\failstop worktree add --detach C:\dev\exchange-adr0022-stage7-0a2d8d7 0a2d8d71e7668c69cf82242148d4fd50f8ff7845
+2026-09-15T12:52:20+09:00 END worktree rc=0
+2026-09-15T12:52:20+09:00 START bootjar | cwd=C:\dev\exchange-adr0022-stage7-0a2d8d7\server | C:\dev\exchange-adr0022-stage7-0a2d8d7\server\gradlew.bat :app:bootJar -q
+2026-09-15T12:52:31+09:00 END bootjar rc=0
+2026-09-15T12:52:31+09:00 START image | cwd=C:\dev\exchange-adr0022-stage7-0a2d8d7\harness | docker build -f Dockerfile.app -t exchange-chaos-app:adr0022-stage7-0a2d8d7 --label org.opencontainers.image.revision=0a2d8d71e7668c69cf82242148d4fd50f8ff7845 --label org.opencontainers.image.ref.name=0a2d8d71e7668c69cf82242148d4fd50f8ff7845 .
+2026-09-15T12:52:39+09:00 END image rc=0
+2026-09-15T12:52:39+09:00 START chaos-global | cwd=D:\dev\failstop | pwsh -NoProfile -File D:\dev\failstop\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:adr0022-stage7-0a2d8d7 -Experiments E2,E4,E5,E6,E7,COLD -EvidenceDir D:\dev\failstop\harness\evidence\adr0022-stage7-snapshot-20260915\global -LocalLogDir C:\Users\kopo26\AppData\Local\Temp\adr0022-stage7-snapshot-20260915\global -SnapshotEvidence -SnapshotWaitSec 180
+2026-09-15T13:12:32+09:00 END chaos-global rc=0
+2026-09-15T13:12:32+09:00 START chaos-band | cwd=D:\dev\failstop | pwsh -NoProfile -File D:\dev\failstop\harness\scripts\adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:adr0022-stage7-0a2d8d7 -Experiments E2,E4,E5,E6,E7,COLD -EvidenceDir D:\dev\failstop\harness\evidence\adr0022-stage7-snapshot-20260915\band -LocalLogDir C:\Users\kopo26\AppData\Local\Temp\adr0022-stage7-snapshot-20260915\band -SnapshotEvidence -SnapshotWaitSec 180 -LatchBeforeTraffic
+2026-09-15T13:26:04+09:00 END chaos-band rc=0
+2026-09-15T13:26:04+09:00 START judge | cwd=D:\dev\failstop | python harness/scale/stage7_judge.py --modes global,band --experiments E2,E4,E5,E6,E7,COLD --out D:\dev\failstop\harness\evidence\adr0022-stage7-snapshot-20260915\verdict.json --global D:\dev\failstop\harness\evidence\adr0022-stage7-snapshot-20260915\global --band D:\dev\failstop\harness\evidence\adr0022-stage7-snapshot-20260915\band
+2026-09-15T13:26:04+09:00 END judge rc=0
+2026-09-15T13:26:04+09:00 VERDICT 스냅샷 경계 재생 성립 rc=0

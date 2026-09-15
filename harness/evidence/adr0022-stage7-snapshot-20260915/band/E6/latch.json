@@ -1,0 +1,30 @@
+{
+ "ok": true,
+ "error": null,
+ "사전": {
+  "function": "latch_command_band_cutover()",
+  "owner": "exchange",
+  "current_user": "exchange",
+  "app_role_execute": false,
+  "journal_rows": 12
+ },
+ "호출": {
+  "sql": "SELECT latch_command_band_cutover()",
+  "종료코드": 0,
+  "출력": "2026-09-15 04:20:02.423659+00",
+  "오류": "",
+  "ts": "2026-09-15T13:20:02+09:00"
+ },
+ "상태": {
+  "ok": true,
+  "error": null,
+  "래치 행": [
+   {
+    "name": "command_seq",
+    "latched_at": "2026-09-15T04:20:02.423659+00:00",
+    "latched_by": "exchange"
+   }
+  ],
+  "ts": "2026-09-15T13:20:02+09:00"
+ }
+}

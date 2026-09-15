@@ -1,0 +1,316 @@
+{
+ "단계": "post",
+ "ts": "2026-09-15T13:19:21+09:00",
+ "활성 마켓": {
+  "ok": true,
+  "error": null,
+  "마켓": [
+   {
+    "market_id": 1,
+    "rows": 1142,
+    "head": 1000000001129
+   },
+   {
+    "market_id": 2,
+    "rows": 938,
+    "head": 2000000000938
+   },
+   {
+    "market_id": 4,
+    "rows": 707,
+    "head": 4000000000707
+   }
+  ]
+ },
+ "스냅샷": {
+  "ok": true,
+  "error": null,
+  "행": [
+   {
+    "snapshot_id": 1,
+    "market_id": 1,
+    "last_applied_seq": 1000000000001,
+    "fencing_epoch": 1,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 825,
+    "created_at": "2026-09-15T04:17:17.610161+00:00"
+   },
+   {
+    "snapshot_id": 2,
+    "market_id": 2,
+    "last_applied_seq": 2000000000001,
+    "fencing_epoch": 1,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 76,
+    "created_at": "2026-09-15T04:17:20.020413+00:00"
+   },
+   {
+    "snapshot_id": 3,
+    "market_id": 4,
+    "last_applied_seq": 4000000000001,
+    "fencing_epoch": 1,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 73,
+    "created_at": "2026-09-15T04:17:26.184034+00:00"
+   },
+   {
+    "snapshot_id": 4,
+    "market_id": 2,
+    "last_applied_seq": 2000000000328,
+    "fencing_epoch": 2,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 1081,
+    "created_at": "2026-09-15T04:18:12.661244+00:00"
+   },
+   {
+    "snapshot_id": 5,
+    "market_id": 1,
+    "last_applied_seq": 1000000000393,
+    "fencing_epoch": 2,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 621,
+    "created_at": "2026-09-15T04:18:13.302832+00:00"
+   },
+   {
+    "snapshot_id": 6,
+    "market_id": 4,
+    "last_applied_seq": 4000000000193,
+    "fencing_epoch": 2,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 518,
+    "created_at": "2026-09-15T04:18:13.420003+00:00"
+   },
+   {
+    "snapshot_id": 7,
+    "market_id": 4,
+    "last_applied_seq": 4000000000666,
+    "fencing_epoch": 2,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 710,
+    "created_at": "2026-09-15T04:19:13.500827+00:00"
+   },
+   {
+    "snapshot_id": 8,
+    "market_id": 1,
+    "last_applied_seq": 1000000001038,
+    "fencing_epoch": 2,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 1029,
+    "created_at": "2026-09-15T04:19:13.507517+00:00"
+   },
+   {
+    "snapshot_id": 9,
+    "market_id": 2,
+    "last_applied_seq": 2000000000882,
+    "fencing_epoch": 2,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 1349,
+    "created_at": "2026-09-15T04:19:13.736824+00:00"
+   }
+  ]
+ },
+ "복구 실행": {
+  "ok": true,
+  "error": null,
+  "행": [
+   {
+    "id": 1,
+    "market_id": 0,
+    "replayed_from_seq": 0,
+    "replayed_to_seq": 0,
+    "fp_replay": "seq:0-0:ev:0",
+    "fp_live": "seq:0-0:ev:0",
+    "matched": true,
+    "duration_ms": 20,
+    "created_at": "2026-09-15T04:17:04.172624+00:00"
+   },
+   {
+    "id": 2,
+    "market_id": 0,
+    "replayed_from_seq": 0,
+    "replayed_to_seq": 0,
+    "fp_replay": "seq:0-0:ev:0",
+    "fp_live": "seq:0-0:ev:0",
+    "matched": true,
+    "duration_ms": 27,
+    "created_at": "2026-09-15T04:17:14.32795+00:00"
+   }
+  ]
+ },
+ "지표": {
+  "chaos-api-1": {
+   "port": 18080,
+   "ok": true,
+   "error": null,
+   "줄": [
+    "exchange_journal_band_remaining{market=\"1\",name=\"command_seq\"} 9.99999999608E11",
+    "exchange_journal_band_remaining{market=\"1\",name=\"event_seq\"} 9999300.0",
+    "exchange_journal_band_remaining{market=\"10\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"10\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"11\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"11\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"12\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"12\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"2\",name=\"command_seq\"} 9.99999999682E11",
+    "exchange_journal_band_remaining{market=\"2\",name=\"event_seq\"} 9999516.0",
+    "exchange_journal_band_remaining{market=\"3\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"3\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"4\",name=\"command_seq\"} 9.99999999807E11",
+    "exchange_journal_band_remaining{market=\"4\",name=\"event_seq\"} 9999593.0",
+    "exchange_journal_band_remaining{market=\"5\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"5\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"6\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"6\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"7\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"7\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"8\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"8\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"9\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"9\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_replay_commands_total 0.0",
+    "exchange_recovery_reinject_created_at_inversions_total 0.0",
+    "exchange_recovery_snapshot_fallback_total 0.0",
+    "exchange_snapshot_captured_total{market=\"1\"} 1.0",
+    "exchange_snapshot_captured_total{market=\"2\"} 1.0",
+    "exchange_snapshot_captured_total{market=\"4\"} 1.0",
+    "exchange_snapshot_dropped_total{market=\"1\"} 0.0",
+    "exchange_snapshot_dropped_total{market=\"2\"} 0.0",
+    "exchange_snapshot_dropped_total{market=\"4\"} 0.0",
+    "exchange_snapshot_last_persisted_seq{market=\"1\"} 1.000000000001E12",
+    "exchange_snapshot_last_persisted_seq{market=\"2\"} 2.000000000001E12",
+    "exchange_snapshot_last_persisted_seq{market=\"4\"} 4.000000000001E12",
+    "exchange_snapshot_persist_failed_total{market=\"1\"} 0.0",
+    "exchange_snapshot_persist_failed_total{market=\"2\"} 0.0",
+    "exchange_snapshot_persist_failed_total{market=\"4\"} 0.0"
+   ]
+  },
+  "chaos-api-2": {
+   "port": 28080,
+   "ok": true,
+   "error": null,
+   "줄": [
+    "exchange_journal_band_remaining{market=\"1\",name=\"command_seq\"} 9.9999999891E11",
+    "exchange_journal_band_remaining{market=\"1\",name=\"event_seq\"} 9998072.0",
+    "exchange_journal_band_remaining{market=\"10\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"10\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"11\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"11\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"12\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"12\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"2\",name=\"command_seq\"} 9.99999999087E11",
+    "exchange_journal_band_remaining{market=\"2\",name=\"event_seq\"} 9998612.0",
+    "exchange_journal_band_remaining{market=\"3\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"3\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"4\",name=\"command_seq\"} 9.9999999931E11",
+    "exchange_journal_band_remaining{market=\"4\",name=\"event_seq\"} 9998543.0",
+    "exchange_journal_band_remaining{market=\"5\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"5\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"6\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"6\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"7\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"7\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"8\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"8\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"9\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"9\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_replay_commands_total 0.0",
+    "exchange_recovery_reinject_created_at_inversions_total 0.0",
+    "exchange_recovery_snapshot_fallback_total 0.0",
+    "exchange_snapshot_captured_total{market=\"1\"} 2.0",
+    "exchange_snapshot_captured_total{market=\"2\"} 2.0",
+    "exchange_snapshot_captured_total{market=\"4\"} 2.0",
+    "exchange_snapshot_dropped_total{market=\"1\"} 0.0",
+    "exchange_snapshot_dropped_total{market=\"2\"} 0.0",
+    "exchange_snapshot_dropped_total{market=\"4\"} 0.0",
+    "exchange_snapshot_last_persisted_seq{market=\"1\"} 1.000000001038E12",
+    "exchange_snapshot_last_persisted_seq{market=\"2\"} 2.000000000882E12",
+    "exchange_snapshot_last_persisted_seq{market=\"4\"} 4.000000000666E12",
+    "exchange_snapshot_persist_failed_total{market=\"1\"} 0.0",
+    "exchange_snapshot_persist_failed_total{market=\"2\"} 0.0",
+    "exchange_snapshot_persist_failed_total{market=\"4\"} 0.0"
+   ]
+  }
+ },
+ "복구 로그": {
+  "chaos-api-1": {
+   "ok": true,
+   "error": null,
+   "줄": [
+    {
+     "ts": "2026-09-15T04:17:04.149015218Z",
+     "text": "2026-09-15T04:17:04.148Z  INFO 1 --- [exchange] [           main] kr.exchange.config.EngineConfig          : 명령 채번 축: 전역 (journal_cutover command_seq 래치 없음)"
+    },
+    {
+     "ts": "2026-09-15T04:17:04.165963977Z",
+     "text": "2026-09-15T04:17:04.165Z  INFO 1 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 재생 1단계(마켓별 물질화 경계 상한): 마켓 0개, 적용 0건, 대조 0건"
+    },
+    {
+     "ts": "2026-09-15T04:17:04.170854125Z",
+     "text": "2026-09-15T04:17:04.170Z  INFO 1 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 재생 적용(마켓별): {}"
+    },
+    {
+     "ts": "2026-09-15T04:17:04.217518391Z",
+     "text": "2026-09-15T04:17:04.217Z  INFO 1 --- [exchange] [ngine-promotion] k.exchange.engine.PromotionCoordinator   : 승격 재생 생략(모든 마켓 head 도달), 라이터에 설치: epoch=1, 마켓 커서={}, head={}"
+    }
+   ]
+  },
+  "chaos-api-2": {
+   "ok": true,
+   "error": null,
+   "줄": [
+    {
+     "ts": "2026-09-15T04:17:14.296320996Z",
+     "text": "2026-09-15T04:17:14.295Z  INFO 1 --- [exchange] [           main] kr.exchange.config.EngineConfig          : 명령 채번 축: 전역 (journal_cutover command_seq 래치 없음)"
+    },
+    {
+     "ts": "2026-09-15T04:17:14.319322576Z",
+     "text": "2026-09-15T04:17:14.318Z  INFO 1 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 재생 1단계(마켓별 물질화 경계 상한): 마켓 0개, 적용 0건, 대조 0건"
+    },
+    {
+     "ts": "2026-09-15T04:17:14.325634199Z",
+     "text": "2026-09-15T04:17:14.324Z  INFO 1 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 재생 적용(마켓별): {}"
+    },
+    {
+     "ts": "2026-09-15T04:18:12.440987835Z",
+     "text": "2026-09-15T04:18:12.440Z  INFO 1 --- [exchange] [ngine-promotion] k.exchange.engine.PromotionCoordinator   : 승격 재생 생략(모든 마켓 head 도달), 라이터에 설치: epoch=2, 마켓 커서={1=1000000000392, 2=2000000000327, 4=4000000000192}, head={1=1000000000392, 2=2000000000327, 4=4000000000192}"
+    }
+   ]
+  }
+ },
+ "스냅샷 설정 환경변수": {
+  "chaos-api-1": {
+   "ok": true,
+   "error": null,
+   "값": {}
+  },
+  "chaos-api-2": {
+   "ok": true,
+   "error": null,
+   "값": {}
+  }
+ },
+ "저널 구간 수": {
+  "ok": true,
+  "error": null,
+  "구간": [],
+  "해석 실패 줄": []
+ }
+}

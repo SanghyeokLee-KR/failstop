@@ -1,0 +1,32 @@
+[
+  {
+    "container": "chaos-api-1",
+    "path": "C:\\Users\\kopo26\\AppData\\Local\\Temp\\adr0022-stage7-snapshot-20260915\\band\\E7-chaos-api-1.log",
+    "bytes": 297028,
+    "sha256": "7972b3cd7593d898780d769fa75ae78dde3a058246b5f81d5165857b212e9a72"
+  },
+  {
+    "container": "chaos-api-2",
+    "path": "C:\\Users\\kopo26\\AppData\\Local\\Temp\\adr0022-stage7-snapshot-20260915\\band\\E7-chaos-api-2.log",
+    "bytes": 28260,
+    "sha256": "5e987e6d6e56cfdd67504143cf710d93fe9d50d839bf99630cdbe8dd8b054c86"
+  },
+  {
+    "container": "chaos-bots",
+    "path": "C:\\Users\\kopo26\\AppData\\Local\\Temp\\adr0022-stage7-snapshot-20260915\\band\\E7-chaos-bots.log",
+    "bytes": 6164,
+    "sha256": "4dca242c2a11892e630b0820468d3e497d20819d41a4452db08b6fcd6ca8080c"
+  },
+  {
+    "container": "chaos-pg",
+    "path": "C:\\Users\\kopo26\\AppData\\Local\\Temp\\adr0022-stage7-snapshot-20260915\\band\\E7-chaos-pg.log",
+    "bytes": 3508,
+    "sha256": "1b61f3a8f03a55ee069d290ad9adb19ca2920e30a381671db008e1eee7c59b13"
+  },
+  {
+    "container": "chaos-toxiproxy",
+    "path": "C:\\Users\\kopo26\\AppData\\Local\\Temp\\adr0022-stage7-snapshot-20260915\\band\\E7-chaos-toxiproxy.log",
+    "bytes": 21756,
+    "sha256": "7f84e8ef39ff3a0b95c4927516a89cff7c9c50023321c032855f4c6f2cf02e2b"
+  }
+]
