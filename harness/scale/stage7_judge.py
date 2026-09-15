@@ -1,8 +1,8 @@
-"""ADR 0022 7단계 판정. 전역 모드와 대역 모드의 장애 주행 칸마다 승격 복구가 스냅샷 경계에서 재생했는지를 가른다.
+"""ADR 0022 7단계 판정. 전역 모드와 대역 모드의 장애 칸과 콜드 재기동 칸마다 복구가 스냅샷 경계에서 재생했는지를 가른다.
 
 근거는 docs/contracts/하네스_검증설계.md §2-4 의 「ADR 0022 7단계 스냅샷 경계 재생 판정 규약」이다. 모드 식별, 전제, 승격 식별,
-성립 조건 (a)~(h), 판정 순서, 칸과 최종 판정 집계, 종료코드는 그 문단 글자를 옮긴다. 입력은 adr0022-stage5-chaos.ps1
--SnapshotEvidence 가 모드마다 남긴 summary.json 과 실험 폴더의 band_state.json, snapshot_pre.json, snapshot_post.json 이다.
+부팅 식별, 성립 조건, 판정 순서, 칸과 최종 판정 집계, 종료코드는 그 문단 글자를 옮긴다. 입력은 adr0022-stage5-chaos.ps1
+-SnapshotEvidence 가 모드마다 남긴 summary.json 과 칸 폴더의 band_state.json, snapshot_pre.json, snapshot_post.json 이다.
 로그 줄과 지표 줄 해석은 채집기 snapshot_evidence 의 함수를 쓴다.
 
 돌리는 법:
@@ -13,34 +13,43 @@
 import argparse
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import snapshot_evidence as se  # noqa: E402
 
 MODES = ('global', 'band')
-EXPERIMENTS = ('E2', 'E4', 'E5', 'E6', 'E7')
+FAULT_EXPERIMENTS = ('E2', 'E4', 'E5', 'E6', 'E7')
+COLD = 'COLD'
+EXPERIMENTS = FAULT_EXPERIMENTS + (COLD,)
 
 ESTABLISHED = '스냅샷 경계 재생 성립'
 FALLBACK = '전량 재생 폴백'
 MISMATCH = '경계 재생 불일치'
+RESTART_FAILED = '재기동 불성립'
+SKIPPED = '재생 생략'
 NOT_RUN = 'NOT RUN'
 INCOMPLETE = '증거 불완전'
 FAIL = 'FAIL'
 
-# 칸 판정과 최종 판정은 이 순서로 앞선 것이다.
-ORDER = (FAIL, INCOMPLETE, NOT_RUN, ESTABLISHED)
+# 칸 판정은 이 순서로 앞선 것이다. 재생 생략은 칸 판정에만 있고 최종 판정 값이 아니다.
+ORDER = (FAIL, INCOMPLETE, NOT_RUN, SKIPPED, ESTABLISHED)
 EXIT = {ESTABLISHED: 0, FAIL: 1, NOT_RUN: 2, INCOMPLETE: 4}
-SNAPSHOT_STATUS = {ESTABLISHED: ESTABLISHED, FALLBACK: FAIL, MISMATCH: FAIL, NOT_RUN: NOT_RUN, INCOMPLETE: INCOMPLETE}
+SNAPSHOT_STATUS = {ESTABLISHED: ESTABLISHED, FALLBACK: FAIL, MISMATCH: FAIL, RESTART_FAILED: FAIL, SKIPPED: SKIPPED,
+                   NOT_RUN: NOT_RUN, INCOMPLETE: INCOMPLETE}
 
 FALLBACK_METRIC = 'exchange_recovery_snapshot_fallback_total'
 REPLAY_METRIC = 'exchange_journal_replay_commands_total'
 CONNECTION_EXHAUSTED = '증거 불완전(연결 고갈)'
 
 RULES = [
-    '칸 판정은 분리 판정과 스냅샷 판정 중 FAIL, 증거 불완전, NOT RUN, 성립 순으로 앞선 것이다',
-    '최종 판정은 칸 사이에서 같은 순서다. 요청한 칸이 요약에 없으면 NOT RUN 이다',
-    'RTO 는 적기만 하고 판정하지 않는다',
+    '칸 판정은 분리 판정과 스냅샷 판정 중 FAIL, 증거 불완전, NOT RUN, 재생 생략, 성립 순으로 앞선 것이다',
+    '재생 생략 칸은 스냅샷 판정에서 빠지고 실험 판정은 그대로 본다. 주행 창 폴백 증거가 있으면 FAIL 이다',
+    '최종 판정은 FAIL 칸이 있으면 FAIL, 증거 불완전 칸이 있으면 증거 불완전이다. 둘 다 없고 두 모드 모두 콜드 재기동 칸이 '
+    '성립이며 모드마다 장애 칸 성립이 1칸 이상이면 성립, 그 밖은 NOT RUN 이다',
+    '요청한 칸이 요약에 없으면 NOT RUN 이다',
+    'RTO 와 재기동 소요는 적기만 하고 판정하지 않는다',
 ]
 
 
@@ -169,6 +178,21 @@ def find_promotion(window, epoch):
     return dict(parsed, **{'컨테이너': container, '구간': window[start:i]})
 
 
+def boot_sections(window, containers):
+    """컨테이너마다 주행 창 기동 표지 뒤 줄과 부팅 복구 구간(표지 뒤 첫 재생 적용 줄까지). 표지가 정확히 하나가 아니면 사유를 낸다."""
+    sections, problems = {}, []
+    for container in containers:
+        lines = [line for line in window if line['container'] == container]
+        marks = [i for i, line in enumerate(lines) if se.is_boot(line['text'])]
+        if len(marks) != 1:
+            problems.append('%s 주행 창 기동 표지 %d줄' % (container, len(marks)))
+            continue
+        after = lines[marks[0] + 1:]
+        end = next((i for i, line in enumerate(after) if se.APPLIED in line['text']), None)
+        sections[container] = {'기동 뒤': after, '구간': after if end is None else after[:end + 1], '완료': end is not None}
+    return sections, problems
+
+
 def last_parsed(block, marker, parse, errors):
     lines = [line for line in block if marker in line['text']]
     if not lines:
@@ -213,27 +237,43 @@ def env_overrides(*captures):
     return out
 
 
-def snapshot_verdict(mode, summary, row, band_state, pre, post):
-    """칸 하나의 스냅샷 판정. 규약의 판정 순서대로 처음 걸린 범주, 사유, 측정값을 돌려준다."""
-    m = {}
+def fallback_log_reason(lines):
+    """주행 창 폴백 로그 줄 사유. 어느 컨테이너의 줄이든 센다."""
+    if not lines:
+        return []
+    return ['주행 창 폴백 로그 %d줄(%s)' % (len(lines), ', '.join(sorted({line['container'] for line in lines})))]
+
+
+def entry_gate(mode, summary, row, band_state, pre, post, m):
+    """판정 순서 1~3. 걸린 범주와 사유를, 모두 지나면 (None, None) 을 돌려준다. 활성 마켓과 주는 m 에 적는다."""
     split = row.get('분리 판정')
     if not (split == 'PASS' or (isinstance(split, str) and split.startswith('FAIL')) or split == CONNECTION_EXHAUSTED):
-        return NOT_RUN, ['실험 미성립: 분리 판정 %s' % split], m
+        return NOT_RUN, ['실험 미성립: 분리 판정 %s' % split]
     conn = row.get('연결 판정')
     if conn == CONNECTION_EXHAUSTED:
-        return INCOMPLETE, ['연결 고갈'], m
+        return INCOMPLETE, ['연결 고갈']
     if conn != '고갈 없음':
-        return NOT_RUN, ['연결 고갈 여부 미확인: 연결 판정 %s' % conn], m
+        return NOT_RUN, ['연결 고갈 여부 미확인: 연결 판정 %s' % conn]
     reason = mode_reason(mode, summary, row, band_state)
     if reason:
-        return NOT_RUN, [reason], m
+        return NOT_RUN, [reason]
     active, reason = precondition(pre)
     m['활성 마켓'] = active
     if reason:
-        return NOT_RUN, [reason], m
+        return NOT_RUN, [reason]
     overrides = env_overrides(pre, post)
     if overrides:
         m['주'] = '스냅샷 주기 환경변수가 있어 기본값과 다른 주행이다: %s' % overrides
+    return None, None
+
+
+def snapshot_verdict(mode, summary, row, band_state, pre, post):
+    """장애 칸 하나의 스냅샷 판정. 규약의 장애 칸 판정 순서대로 처음 걸린 범주, 사유, 측정값을 돌려준다."""
+    m = {}
+    category, reasons = entry_gate(mode, summary, row, band_state, pre, post, m)
+    if category:
+        return category, reasons, m
+    active = m['활성 마켓']
 
     reaction = (row.get('criteria') or {}).get('2 계약된 반응') or {}
     old_epoch, new_epoch = as_int(reaction.get('oldEpoch')), as_int(reaction.get('newEpoch'))
@@ -251,15 +291,26 @@ def snapshot_verdict(mode, summary, row, band_state, pre, post):
         return INCOMPLETE, ['epoch %d 의 승격 재생 완료·생략 줄이 주행 창에 없다' % new_epoch], m
     container = promo['컨테이너']
     m['승격'] = {k: promo[k] for k in ('종류', 'epoch', '컨테이너', '마켓 커서', 'head')}
-    if promo['종류'] == '생략':
-        return NOT_RUN, ['승격 재생 생략(epoch %d, %s)' % (new_epoch, container)], m
-    block = promo['구간']
 
     fallback_lines = [line for line in window if se.is_fallback(line['text'])]
     fb = counter_delta(pre, post, container, FALLBACK_METRIC)
-    replay = counter_delta(pre, post, container, REPLAY_METRIC)
     m['폴백 로그 줄'] = [{'container': line['container'], 'ts': line['ts']} for line in fallback_lines]
     m['폴백 계수'] = fb
+    fallback = fallback_log_reason(fallback_lines)
+    if fb['증분'] is not None and fb['증분'] > 0:
+        fallback.append('승격 노드 %s 폴백 계수 증분 %g' % (container, fb['증분']))
+
+    if promo['종류'] == '생략':
+        # 생략은 모든 마켓 커서가 head 에 닿았을 때만 난다. 어긋나면 줄 해석을 믿을 수 없다.
+        below = sorted(mk for mk, head in promo['head'].items() if promo['마켓 커서'].get(mk, -1) < head)
+        if below:
+            return INCOMPLETE, ['승격 재생 생략 줄의 마켓 커서가 head 아래인 마켓 %s' % below], m
+        if fallback:
+            return FALLBACK, fallback, m
+        return SKIPPED, ['승격 재생 생략(epoch %d, %s). 스냅샷 판정에서 뺀다' % (new_epoch, container)], m
+
+    block = promo['구간']
+    replay = counter_delta(pre, post, container, REPLAY_METRIC)
     m['재생 명령 지표'] = replay
     parse_errors = []
     adopted = last_parsed(block, se.ADOPTED, se.parse_adopted, parse_errors)
@@ -269,12 +320,6 @@ def snapshot_verdict(mode, summary, row, band_state, pre, post):
     new_rows = new_recovery_rows(pre, post)
     m['주행 창 recovery_runs 행'] = new_rows
 
-    fallback = []
-    if fallback_lines:
-        fallback.append('주행 창 폴백 로그 %d줄(%s)' % (
-            len(fallback_lines), ', '.join(sorted({line['container'] for line in fallback_lines}))))
-    if fb['증분'] is not None and fb['증분'] > 0:
-        fallback.append('승격 노드 %s 폴백 계수 증분 %g' % (container, fb['증분']))
     if not any(se.ADOPTED in line['text'] for line in block):
         fallback.append('승격 복구 구간에 스냅샷 채택 줄이 없다')
     if adopted is not None:
@@ -364,8 +409,194 @@ def snapshot_verdict(mode, summary, row, band_state, pre, post):
     return ESTABLISHED, ['채택 마켓 %d개, 꼬리 재생 %d건, 승격 노드 %s' % (len(adopted), tail, container)], m
 
 
+def restart_record(row):
+    """실험 기록의 접수 재개(i)와 사후 권위 run CRITICAL(j). 기록이 어긋난 사유와 기록이 없는 사유를 따로 낸다."""
+    criteria = row.get('criteria') or {}
+    recovery = criteria.get('5 자력 복구')
+    critical = (criteria.get('4 무결성') or {}).get('사후 권위 run CRITICAL')
+    failed, missing = [], []
+    if not isinstance(recovery, dict) or 'acceptResumedAt' not in recovery:
+        missing.append('접수 재개 기록이 없다')
+    elif not recovery.get('acceptResumedAt'):
+        failed.append('재기동 뒤 접수 재개가 없다')
+    checks = as_int(critical.get('checks')) if isinstance(critical, dict) else None
+    violations = as_int(critical.get('violations')) if isinstance(critical, dict) else None
+    if checks is None or violations is None:
+        missing.append('사후 권위 run CRITICAL 기록이 없다')
+    elif violations > 0:
+        failed.append('사후 권위 run CRITICAL 위반 행 %d' % violations)
+    elif checks <= 0:
+        missing.append('사후 권위 run 게이팅 대상 CRITICAL 체크가 0 이다')
+    return failed, missing
+
+
+def cold_verdict(mode, summary, row, band_state, pre, post):
+    """콜드 재기동 칸의 스냅샷 판정. 규약의 콜드 재기동 칸 판정 순서대로 처음 걸린 범주, 사유, 측정값을 돌려준다."""
+    m = {}
+    category, reasons = entry_gate(mode, summary, row, band_state, pre, post, m)
+    if category:
+        return category, reasons, m
+    active = m['활성 마켓']
+    window, reason = window_lines(pre, post)
+    if reason:
+        return INCOMPLETE, [reason], m
+    m['주행 창 로그 줄'] = len(window)
+    containers = sorted(post['복구 로그'])
+    sections, problems = boot_sections(window, containers)
+    if problems:
+        return INCOMPLETE, problems, m
+
+    fallback_lines = [line for line in window if se.is_fallback(line['text'])]
+    m['폴백 로그 줄'] = [{'container': line['container'], 'ts': line['ts']} for line in fallback_lines]
+    new_rows = new_recovery_rows(pre, post)
+    m['주행 창 recovery_runs 행'] = new_rows
+    fallback = fallback_log_reason(fallback_lines)
+    parse_errors = []
+    nodes = {}
+    for c in containers:
+        section = sections[c]
+        block = section['구간']
+        # 재기동이 계수를 0 에서 다시 세므로 증분이 아니라 사후 값이다.
+        node = {'부팅 구간 완료': section['완료'],
+                '채택': last_parsed(block, se.ADOPTED, se.parse_adopted, parse_errors),
+                '재생 적용': last_parsed(block, se.APPLIED, se.parse_applied, parse_errors),
+                '기동 뒤 재생 적용 줄': sum(1 for line in section['기동 뒤'] if se.APPLIED in line['text']),
+                '폴백 계수': metric_value(post, c, FALLBACK_METRIC),
+                '재생 명령 지표': metric_value(post, c, REPLAY_METRIC)}
+        nodes[c] = node
+        if node['폴백 계수'] is not None and node['폴백 계수'] > 0:
+            fallback.append('%s 사후 폴백 계수 %g' % (c, node['폴백 계수']))
+        # 재생 적용 줄이 아직 없는 구간은 채택 줄이 뒤에 올 수 있어 폴백 증거로 쓰지 않는다.
+        if section['완료'] and not any(se.ADOPTED in line['text'] for line in block):
+            fallback.append('%s 부팅 복구 구간에 스냅샷 채택 줄이 없다' % c)
+        if node['채택'] is not None:
+            unadopted = [x for x in active if x not in node['채택']]
+            if unadopted:
+                fallback.append('%s 채택되지 않은 활성 마켓 %s' % (c, unadopted))
+        if node['재생 적용'] is not None:
+            from_zero = [x for x in active if x in node['재생 적용'] and node['재생 적용'][x][0] == 0]
+            if from_zero:
+                fallback.append('%s 시작 커서 0 에서 재생한 활성 마켓 %s' % (c, from_zero))
+    m['노드'] = nodes
+    if new_rows is not None:
+        full = [r for r in new_rows if r.get('matched') is True and as_int(r.get('replayed_from_seq')) == 0]
+        if full:
+            fallback.append('주행 창에 replayed_from_seq 0 인 matched recovery_runs 행 %d' % len(full))
+    if fallback:
+        return FALLBACK, fallback, m
+
+    failed, missing = restart_record(row)
+    if failed:
+        return RESTART_FAILED, failed, m
+
+    incomplete = ['로그 형식 해석 실패: %s' % e for e in parse_errors] + missing
+    for c in containers:
+        if not sections[c]['완료']:
+            incomplete.append('%s 부팅 복구 구간에 재생 적용 줄이 없다' % c)
+        for label in ('폴백 계수', '재생 명령 지표'):
+            if nodes[c][label] is None:
+                incomplete.append('%s 에서 %s 값을 읽지 못했다' % (c, label))
+    snaps = rows_of(post, '스냅샷')
+    rr_post = rows_of(post, '복구 실행')
+    counts = range_counts_of(post)
+    if snaps is None:
+        incomplete.append('사후 snapshots 조회 실패')
+    if rr_post is None or new_rows is None:
+        incomplete.append('recovery_runs 조회 실패')
+    if counts is None:
+        incomplete.append('저널 구간 행 수 조회 실패')
+    if not incomplete:
+        # 두 노드가 같은 구간을 재생했으면 행 하나로 둘을 채우지 않도록 부팅 수만큼 행을 요구한다.
+        expected = Counter()
+        for c in containers:
+            adopted, applied = nodes[c]['채택'], nodes[c]['재생 적용']
+            pair = (max(adopted.values()), max([end for _, end, _ in applied.values()] + list(adopted.values())))
+            nodes[c]['기대 recovery_runs 구간'] = list(pair)
+            expected[pair] += 1
+        found = Counter((as_int(r.get('replayed_from_seq')), as_int(r.get('replayed_to_seq'))) for r in new_rows)
+        for pair, n in sorted(expected.items()):
+            if found[pair] < n:
+                incomplete.append('replayed_from_seq %d, replayed_to_seq %d 인 새 recovery_runs 행이 %d 개로 부팅 %d 번보다 적다'
+                                  % (pair[0], pair[1], found[pair], n))
+        uncounted = sorted({(mk, start, end) for c in containers
+                            for mk, (start, end, _) in nodes[c]['재생 적용'].items() if (mk, start, end) not in counts})
+        if uncounted:
+            incomplete.append('저널 구간 행 수가 없는 구간 %s' % uncounted)
+    if incomplete:
+        return INCOMPLETE, incomplete, m
+
+    mismatch = []
+    snap_keys = {(as_int(r.get('market_id')), as_int(r.get('last_applied_seq'))) for r in snaps}
+    tails = {}
+    for c in containers:
+        node = nodes[c]
+        adopted, applied = node['채택'], node['재생 적용']
+        for mk, seq in sorted(adopted.items()):
+            if seq <= 0:
+                mismatch.append('%s 마켓 %d 채택 seq 가 0 이하다' % (c, mk))
+            if (mk, seq) not in snap_keys:
+                mismatch.append('%s 채택 %d@%d 와 같은 snapshots 행이 없다' % (c, mk, seq))
+            if mk not in applied:
+                mismatch.append('%s 채택 마켓 %d 의 재생 적용 항목이 없다' % (c, mk))
+            elif applied[mk][0] != seq:
+                mismatch.append('%s 마켓 %d 시작 커서 %d 가 채택 seq %d 와 다르다' % (c, mk, applied[mk][0], seq))
+        for mk, (start, end, n) in sorted(applied.items()):
+            rows = counts[(mk, start, end)]
+            if rows != n:
+                mismatch.append('%s 마켓 %d 구간 %d..%d 적용 %d건, 저널 %d행' % (c, mk, start, end, n, rows))
+        total = sum(n for _, _, n in applied.values())
+        if node['기동 뒤 재생 적용 줄'] == 1:
+            node['재생 지표 비교'] = '비교함'
+            if node['재생 명령 지표'] != total:
+                mismatch.append('%s 사후 재생 명령 지표 %g 가 부팅 적용 합 %d 와 다르다' % (c, node['재생 명령 지표'], total))
+        else:
+            node['재생 지표 비교'] = '생략(기동 뒤 재생 적용 줄 %d)' % node['기동 뒤 재생 적용 줄']
+        tails[c] = sum(applied[mk][2] for mk in adopted if mk in applied)
+    unmatched = [r for r in rr_post if r.get('matched') is not True]
+    if unmatched:
+        mismatch.append('recovery_runs matched=false 행 %d(C17)' % len(unmatched))
+    if mismatch:
+        return MISMATCH, mismatch, m
+
+    m['꼬리 재생 합'] = tails
+    zero = [c for c in containers if tails[c] <= 0]
+    if zero:
+        return NOT_RUN, ['채택 마켓의 재생 적용 합이 0 인 노드 %s(꼬리 재생 없음)' % zero], m
+    return ESTABLISHED, ['부팅 복구 %d노드, 꼬리 재생 %s' % (
+        len(containers), ', '.join('%s %d건' % (c, tails[c]) for c in containers))], m
+
+
+def final_verdict(cells):
+    """규약의 최종 판정과 모드마다의 최종 조건(콜드 재기동 칸 판정, 장애 칸 성립과 재생 생략 수)."""
+    conditions = {}
+    for mode in MODES:
+        mine = [c for c in cells if c['모드'] == mode]
+        cold = [c['칸 판정'] for c in mine if c['실험'] == COLD]
+        faults = [c['칸 판정'] for c in mine if c['실험'] != COLD]
+        conditions[mode] = {'콜드 재기동 칸': cold[0] if cold else None, '장애 칸 성립': faults.count(ESTABLISHED),
+                            '장애 칸 재생 생략': faults.count(SKIPPED), '장애 칸': len(faults)}
+    statuses = [c['칸 판정'] for c in cells]
+    if FAIL in statuses:
+        return FAIL, conditions
+    if INCOMPLETE in statuses:
+        return INCOMPLETE, conditions
+    if all(v['콜드 재기동 칸'] == ESTABLISHED and v['장애 칸 성립'] >= 1 for v in conditions.values()):
+        return ESTABLISHED, conditions
+    return NOT_RUN, conditions
+
+
+def unmet_conditions(conditions):
+    out = []
+    for mode, cond in conditions.items():
+        if cond['콜드 재기동 칸'] != ESTABLISHED:
+            out.append('%s: 콜드 재기동 칸이 성립이 아니다(%s)' % (mode, cond['콜드 재기동 칸']))
+        if cond['장애 칸 성립'] < 1:
+            out.append('%s: 장애 칸 성립 0(장애 칸 %d, 재생 생략 %d)' % (mode, cond['장애 칸'], cond['장애 칸 재생 생략']))
+    return out
+
+
 def judge(inputs, modes=MODES, experiments=EXPERIMENTS):
-    """inputs 는 {모드: {'summary': dict 또는 None, 'cells': {실험: {'row', 'band_state', 'pre', 'post'}}}} 다."""
+    """inputs 는 {모드: {'summary': dict 또는 None, 'cells': {칸: {'row', 'band_state', 'pre', 'post'}}}} 다."""
     summaries = [(inputs.get(mode) or {}).get('summary') for mode in modes]
     image_ids = [s.get('imageId') if isinstance(s, dict) else None for s in summaries]
     present = [s for s in summaries if isinstance(s, dict)]
@@ -377,27 +608,30 @@ def judge(inputs, modes=MODES, experiments=EXPERIMENTS):
     for mode in modes:
         entry = inputs.get(mode) or {}
         for exp in experiments:
+            kind = '콜드 재기동' if exp == COLD else '장애'
             cell = (entry.get('cells') or {}).get(exp)
             if cell is None:
-                cells.append({'모드': mode, '실험': exp, '분리 판정': None, '실험 판정': None, '스냅샷 판정': NOT_RUN,
-                              '사유': ['요약에 칸이 없다'], '칸 판정': NOT_RUN, 'RTO(초)': None, '측정': {}})
+                cells.append({'모드': mode, '실험': exp, '칸 종류': kind, '분리 판정': None, '실험 판정': None,
+                              '스냅샷 판정': NOT_RUN, '사유': ['요약에 칸이 없다'], '칸 판정': NOT_RUN, 'RTO(초)': None,
+                              '측정': {}})
                 continue
             row = cell.get('row') or {}
-            category, reasons, measures = snapshot_verdict(mode, entry.get('summary'), row, cell.get('band_state'),
-                                                           cell.get('pre'), cell.get('post'))
+            verdict = cold_verdict if exp == COLD else snapshot_verdict
+            category, reasons, measures = verdict(mode, entry.get('summary'), row, cell.get('band_state'),
+                                                  cell.get('pre'), cell.get('post'))
             split = row.get('분리 판정')
             status = NOT_RUN if ident else worst([split_status(split), SNAPSHOT_STATUS[category]])
-            cells.append({'모드': mode, '실험': exp, '분리 판정': split, '실험 판정': row.get('실험 판정'),
+            cells.append({'모드': mode, '실험': exp, '칸 종류': kind, '분리 판정': split, '실험 판정': row.get('실험 판정'),
                           '스냅샷 판정': category, '사유': reasons, '칸 판정': status,
                           'RTO(초)': ((row.get('criteria') or {}).get('3 복구 시간') or {}).get('rtoSeconds'),
                           '측정': measures})
 
-    final = worst([c['칸 판정'] for c in cells]) if cells else NOT_RUN
+    final, conditions = final_verdict(cells)
     reasons = ident + ['%s %s: %s(분리 판정 %s, 스냅샷 판정 %s) %s' % (
         c['모드'], c['실험'], c['칸 판정'], c['분리 판정'], c['스냅샷 판정'], '; '.join(c['사유']))
-        for c in cells if c['칸 판정'] != ESTABLISHED]
-    return {'최종 판정': final, '사유': reasons, '식별': {'이미지 id': image_ids, '미충족': ident},
-            '칸': cells, '규칙': RULES}
+        for c in cells if c['칸 판정'] != ESTABLISHED] + unmet_conditions(conditions)
+    return {'최종 판정': final, '사유': reasons, '최종 조건': conditions,
+            '식별': {'이미지 id': image_ids, '미충족': ident}, '칸': cells, '규칙': RULES}
 
 
 def load_json(path):
@@ -442,6 +676,9 @@ def main(argv=None):
     result['입력'] = {x: dirs[x] for x in modes}
     Path(a.out).write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding='utf-8')
     print('최종 판정: %s' % result['최종 판정'], flush=True)
+    for mode, cond in result['최종 조건'].items():
+        print('  %s: 콜드 재기동 칸 %s, 장애 칸 성립 %d, 재생 생략 %d' % (
+            mode, cond['콜드 재기동 칸'], cond['장애 칸 성립'], cond['장애 칸 재생 생략']), flush=True)
     for c in result['칸']:
         print('  %s %s: %s(분리 판정 %s, 스냅샷 판정 %s)' % (c['모드'], c['실험'], c['칸 판정'], c['분리 판정'],
                                                       c['스냅샷 판정']), flush=True)

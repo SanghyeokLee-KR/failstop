@@ -33,6 +33,7 @@ LOG_ALLOW = (
                         '스냅샷 적재 실패', '스냅샷 시작 재생 실패', '크래시 창 이벤트 재적재')),
     ('PromotionCoordinator', ('승격 재생',)),
     ('SnapshotStore', ('스냅샷 폐기',)),
+    ('EngineConfig', ('명령 채번 축',)),
 )
 LOG_LINE_MAX = 2000
 METRIC_PREFIXES = ('exchange_snapshot_', 'exchange_recovery_', 'exchange_journal_replay_commands',
@@ -41,6 +42,8 @@ ENV_PREFIX = 'EXCHANGE_ENGINE_SNAPSHOT_'
 
 ADOPTED = '스냅샷 채택(마켓별)'
 APPLIED = '재생 적용(마켓별)'
+# 엔진 기동 lifecycle 이 부팅 복구 직전에 한 번 남기는 줄이다. 콜드 재기동 칸의 부팅 복구 구간 시작점이다.
+BOOT = '명령 채번 축:'
 FALLBACK_PHRASES = ('스냅샷 적재 실패', '스냅샷 시작 재생 실패')
 
 # EngineRecovery·PromotionCoordinator 의 로그 문구다. 대괄호와 중괄호 안은 Java List·Map 의 toString 형식이다.
@@ -161,6 +164,10 @@ def is_boundary(text):
 
 def is_fallback(text):
     return any(p in text for p in FALLBACK_PHRASES)
+
+
+def is_boot(text):
+    return BOOT in text
 
 
 def keep_log_line(text):

@@ -1,16 +1,17 @@
-# ADR 0022 7단계 스냅샷 경계 재생 장애 주행. 이미지 한 벌로 전역 모드(래치 없음)와 대역 모드(트래픽 전 래치)에서
-# E2·E4·E5·E6·E7 을 실험마다 새 스택으로 돌리고 harness/scale/stage7_judge.py 로 가른다. 규약은
-# docs/contracts/하네스_검증설계.md §2-4 의 「ADR 0022 7단계 스냅샷 경계 재생 판정 규약」이다. 실험 주행과 채집은
-# adr0022-stage5-chaos.ps1 -SnapshotEvidence 가 한다. 증거는 harness/evidence/adr0022-stage7-snapshot-<YYYYMMDD>/<global|band>/<실험>/ 다.
+# ADR 0022 7단계 스냅샷 경계 재생 주행. 이미지 한 벌로 전역 모드(래치 없음)와 대역 모드(트래픽 전 래치)에서
+# 장애 칸 E2·E4·E5·E6·E7 과 콜드 재기동 칸 COLD 를 칸마다 새 스택으로 돌리고 harness/scale/stage7_judge.py 로 가른다. 규약과
+# 시간 예산은 docs/contracts/하네스_검증설계.md §2-4 의 「ADR 0022 7단계 스냅샷 경계 재생 판정 규약」이다. 실험 주행과 채집은
+# adr0022-stage5-chaos.ps1 -SnapshotEvidence 가 하고 COLD 는 adr0022-stage7-cold-restart.ps1 이다.
+# 증거는 harness/evidence/adr0022-stage7-snapshot-<YYYYMMDD>/<global|band>/<칸>/ 다.
 # 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage7-snapshot.ps1 (-Image <태그> | -Ref <커밋> [-SkipBuild])
-#       [-Modes global,band] [-Experiments E2,E4,E5,E6,E7] [-SnapshotWaitSec 180]
+#       [-Modes global,band] [-Experiments E2,E4,E5,E6,E7,COLD] [-SnapshotWaitSec 180]
 # 종료코드: 판정기 값(0 스냅샷 경계 재생 성립, 1 FAIL, 2 NOT RUN, 4 증거 불완전), 5 준비·빌드·주행 실패.
-# 대역 모드 래치는 되돌릴 수 없다. 실험마다 down -v 가 그 DB 를 버린다. 비밀 파일(harness/.env.chaos)은 경로로만 넘기고 읽지 않는다.
+# 대역 모드 래치는 되돌릴 수 없다. 칸마다 down -v 가 그 DB 를 버린다. 비밀 파일(harness/.env.chaos)은 경로로만 넘기고 읽지 않는다.
 param(
     [string] $Image = '',
     [string] $Ref = '',
     [string] $Modes = 'global,band',
-    [string] $Experiments = 'E2,E4,E5,E6,E7',
+    [string] $Experiments = 'E2,E4,E5,E6,E7,COLD',
     [string] $EvidenceDir = '',
     [string] $WorktreeRoot = 'C:\dev',
     [int] $SnapshotWaitSec = 180,

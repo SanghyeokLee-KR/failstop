@@ -5,6 +5,7 @@
 # 도커 사건, 연결 표본을 harness/evidence/adr0022-stage5-<YYYYMMDD>/<실험>/ 로 떨어뜨린다. 대역 모드는 adr0022-stage6-chaos-<YYYYMMDD>/ 다.
 # -SnapshotEvidence 이면 ADR 0022 7단계 스냅샷 경계 재생 주행이다. 실험 스크립트 전과 뒤에 harness/scale/snapshot_evidence.py 로
 # 스냅샷·복구 증거를 뜨고 전역 모드도 래치 상태를 남긴다. 증거 기본 폴더는 adr0022-stage7-snapshot-<YYYYMMDD>/<global|band>/ 다.
+# 실험 COLD 는 7단계 콜드 재기동 칸(adr0022-stage7-cold-restart.ps1)이다. 두 api 노드를 멈췄다가 올리므로 도달 사건은 stop·start 다.
 # 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic] [-SnapshotEvidence]
 # 종료코드: 0 전 실험 PASS 이고 연결 고갈 없음, 1 그 밖, 5 BLOCKED(시작 전 조건).
 # 비밀 파일(harness/.env.chaos)은 compose 에 경로로만 넘기고 읽지 않는다.
@@ -35,9 +36,10 @@ if (-not $LocalLogDir) { $LocalLogDir = Join-Path ([System.IO.Path]::GetTempPath
 $runLog = Join-Path $EvidenceDir 'commands.log'
 
 $scripts = [ordered]@{ E2 = 'e2-db-cut.ps1'; E4 = 'e4-leader-kill.ps1'; E5 = 'e5-net-partition.ps1'
-    E6 = 'e6-spike-failover.ps1'; E7 = 'e7-gray-pause.ps1' }
+    E6 = 'e6-spike-failover.ps1'; E7 = 'e7-gray-pause.ps1'; COLD = 'adr0022-stage7-cold-restart.ps1' }
 # 목표 계층 도달을 보이는 도커 사건. E2 는 Toxiproxy 프록시 계층 주입이라 도커 사건이 없다.
-$reachActions = @{ E2 = @(); E4 = @('kill', 'die'); E5 = @('disconnect', 'connect'); E6 = @('kill', 'die'); E7 = @('pause', 'unpause') }
+$reachActions = @{ E2 = @(); E4 = @('kill', 'die'); E5 = @('disconnect', 'connect'); E6 = @('kill', 'die'); E7 = @('pause', 'unpause')
+    COLD = @('stop', 'start') }
 $eventActions = @('kill', 'die', 'stop', 'start', 'restart', 'oom', 'pause', 'unpause', 'disconnect', 'connect')
 $apiNodes = @('chaos-api-1', 'chaos-api-2')
 # 스냅샷 채집기가 로그와 지표를 뜨는 노드와 포트. lib.ps1 의 포트를 그대로 넘긴다.
@@ -183,7 +185,7 @@ function Invoke-Experiment {
 
         # 판정 파일은 실험 스크립트가 harness/evidence/chaos-runs 에 쓴다. 판정 전에 예외로 끝나면 없다.
         $runId = $null
-        $hit = Select-String -Path $console -Pattern 'runId=(E\d-\d{8}-\d{6})' | Select-Object -First 1
+        $hit = Select-String -Path $console -Pattern 'runId=((?:E\d|COLD)-\d{8}-\d{6})' | Select-Object -First 1
         if ($hit) { $runId = $hit.Matches[0].Groups[1].Value }
         $row['runId'] = $runId
         $verdict = $null
@@ -326,6 +328,9 @@ function Invoke-Experiment {
             'E5' { [ordered]@{ firstTradeTs = $fo.firstTradeTs; rejoin = $fo.details.rejoin } }
             'E6' { [ordered]@{ firstTradeTs = $fo.firstTradeTs; spikeClean = $metrics.spikeClean } }
             'E7' { [ordered]@{ firstTradeTs = $fo.firstTradeTs; zombieShutdown = $metrics.zombieShutdown } }
+            'COLD' { [ordered]@{ acceptResumedAt = $metrics.acceptResumedAt; firstTradeTs = $fo.firstTradeTs; nodes = $metrics.nodes
+                stopOrder = $metrics.stopOrder; startOrder = $metrics.startOrder; epochAfterRejoin = $metrics.epochAfterRejoin
+                '주' = '재기동 소요는 기록만 한다(검증설계 §2-4 7단계 규약)' } }
         }
         $row['criteria'] = [ordered]@{
             '1 목표 계층 도달' = [ordered]@{ '기대 사건' = $expected; '빠진 사건' = $missing; '사건' = $apiEvents
@@ -333,11 +338,14 @@ function Invoke-Experiment {
                 '주' = $(if ($Exp -eq 'E2') { 'Toxiproxy 프록시 계층 주입이다. 커널 주입이 아니고 도커 사건이 없어 리스 상실 뒤 승격(epoch 증가)으로 간접 확인한다' } else { $null }) }
             '2 계약된 반응' = [ordered]@{ oldEpoch = $fo.oldEpoch; newEpoch = $fo.newEpoch; oldLeader = $fo.oldLeader
                 newLeader = $fo.newLeader; metrics = $metrics }
-            '3 복구 시간' = [ordered]@{ rtoSeconds = $fo.rtoSeconds; downtimeSeconds = $fo.downtimeSeconds; '목표(초)' = 30 }
+            '3 복구 시간' = [ordered]@{ rtoSeconds = $fo.rtoSeconds; downtimeSeconds = $fo.downtimeSeconds
+                '목표(초)' = $(if ($Exp -eq 'COLD') { $null } else { 30 }) }
             '4 무결성' = [ordered]@{ 'post 창 위반 체크' = $postNotOk; rpoRecords = $fo.rpoRecords; c22 = $c22
                 createdAtInversions = $inversions; '주' = $c22Note }
             '5 자력 복구' = $selfRecovery
         }
+        # 콜드 재기동 칸의 CRITICAL 위반은 게이팅 면제를 뺀 값이라 post 창 위반 체크와 따로 싣는다. 7단계 판정기가 읽는다.
+        if ($Exp -eq 'COLD') { $row['criteria']['4 무결성']['사후 권위 run CRITICAL'] = $metrics.postCritical }
         return $row
     }
     catch {

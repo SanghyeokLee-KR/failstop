@@ -28,6 +28,13 @@ class LogFilterTest(unittest.TestCase):
                      PREFIX + 'k.e.engine.EngineRecovery : 스냅샷 채택(마켓별): [' + '1@5, ' * 500 + '1@5]'):
             self.assertFalse(se.keep_log_line(text), text[:80])
 
+    def test_keeps_boot_marker_only_from_engine_config(self):
+        boot = PREFIX + 'k.e.config.EngineConfig : 명령 채번 축: 마켓 대역 (journal_cutover command_seq 래치 있음)'
+        self.assertTrue(se.keep_log_line(boot))
+        self.assertTrue(se.is_boot(boot))
+        self.assertFalse(se.keep_log_line(PREFIX + 'k.e.api.OrderController : 명령 채번 축: 전역'))
+        self.assertFalse(se.is_boot(PREFIX + 'k.e.engine.EngineRecovery : 재생 적용(마켓별): {}'))
+
     def test_filter_log_splits_docker_timestamp(self):
         raw = '\n'.join([
             '2026-09-15T01:00:00.000000001Z ' + PREFIX + 'k.e.engine.EngineRecovery : 재생 적용(마켓별): {}',
