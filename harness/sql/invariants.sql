@@ -55,7 +55,7 @@ GROUP BY c.market_id
 HAVING (max(c.seq) - min(c.seq) + 1) - count(*) <> 0;
 
 \echo '== C06 EVENT_JOURNAL_GAPLESS [CRITICAL] 이벤트 저널 무결 =='
--- V36 에서 축이 마켓 안으로 바뀌었다. event_seq 는 marketId * 10^7 + marketSeq 파생이라
+-- V36 에서 축이 마켓 안으로 바뀌었다. event_seq 는 marketId * band_span + marketSeq 파생이라
 -- 전역으로 보면 대역 사이가 비어 있고 그것은 결번이 아니다. 결번 없음이 요구되는 축은
 -- 마켓 안이다. market_seq 가 비어 있는 V36 이전 행은 이 검사 밖이다.
 SELECT COALESCE(sum(gap), 0) AS gaps FROM (

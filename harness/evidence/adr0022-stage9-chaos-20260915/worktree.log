@@ -1,0 +1,15 @@
+Preparing worktree (detached HEAD 3b61c24)
+Updating files:  89% (2039/2288)
+Updating files:  90% (2060/2288)
+Updating files:  91% (2083/2288)
+Updating files:  92% (2105/2288)
+Updating files:  93% (2128/2288)
+Updating files:  94% (2151/2288)
+Updating files:  95% (2174/2288)
+Updating files:  96% (2197/2288)
+Updating files:  97% (2220/2288)
+Updating files:  98% (2243/2288)
+Updating files:  99% (2266/2288)
+Updating files: 100% (2288/2288)
+Updating files: 100% (2288/2288), done.
+HEAD is now at 3b61c24 feat: 이벤트 대역 확대 V46 과 DB 파생 채번 추가

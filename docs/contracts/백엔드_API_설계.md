@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.50, 제출본)
+# 고가용성 가상 암호화폐 거래소 · 완전 API 및 기술 스택 명세서 (v2.51, 제출본)
 
 > 본 문서는 5개 조사 보고서(real-exchange-api / spring-ha-stack / matching-engine / ha-recovery / db-best-practices / bot-simulation / observability-chaos)와 **설계 검증·기술 검증** 두 리뷰의 지적(critical/high 전부 + medium/low 반영)을 통합하여, **그대로 구현·제출 가능한 수준**으로 확정한 거래소 전체 명세다.
 > 설계 원칙 우선순위: **정확성(체결 정합성) > 고가용성(자동 복구) > 성능 > 편의성**.
@@ -1052,7 +1052,7 @@ POST /api/v1/orders
 ### 5-2. seq / epoch 의미 (high 확정)
 
 - **`seq`는 채널 단위 단조 증가**로 정의. **일반 규칙(v2.3): seq 도메인 = 구독 destination 단위**다. 공개 채널의 채널 단위 = market × type이며, **unit 차원이 있는 candle은 `market × type × unit` 단위 독립 단조 증가**다(`/topic/candle.1m.KRW-BTC`와 `/topic/candle.5m.KRW-BTC`는 독립 seq 도메인. 1m만 구독한 클라이언트가 5m/1d 증가분으로 false-gap을 감지하는 일 없음). 예: `orderbook.KRW-BTC`와 `trade.KRW-BTC`는 각자 독립 seq 도메인. 특정 채널(destination)만 구독해도 false-gap 없음.
-- **seq 도메인의 두 실현(v2.11 확정)**: 채널 seq는 종류에 따라 두 방식으로 실현하되 둘 다 채널 단위 단조 증가라는 상위 규칙을 지킨다. (1) 팬아웃 대상이 점 상태인 `orderbook`·`ticker`와 비공개 `myOrder`·`myAsset`은 노드 인메모리 조밀 카운터로 실현한다(destination당 +1 단조, 공개 채널의 REST 스냅샷은 현재 카운터값 §4-A-2·§4-A-4, 연속성 판정 = 다음 seq가 직전 +1). 비공개 두 채널은 REST 스냅샷에 seq 도메인이 없어 기준점을 다음 realtime으로 잡는다(아래 구독 즉시 계약). (2) 팬아웃 대상이 영속 이벤트 리스트인 `trade`·`candle`은 `event_seq`로 실현한다(`trade` seq = event_seq, `candle` seq = 버킷 최대 event_seq, REST 리스트 스냅샷 §4-A-3·§4-A-5와 **동일 값·동일 도메인**). (2)는 리스트 스냅샷의 과거 행이 저마다 seq를 지녀야 하는데 인메모리 카운터로는 과거 행 값을 재구성할 수 없어 영속 축(event_seq)을 쓴다. `event_seq`는 전역 유일한 마켓 대역 파생 값이고(V36부터 `market_id * 10^7 + market_seq`, 결번 없는 축은 마켓 안 `market_seq`) 채널은 그 마켓 이벤트의 일부만 실어 채널 내에서는 sparse 단조 증가이므로 **연속성 판정은 strictly-increasing**(`seq ≤ 기준`은 중복·역행 폐기, `seq > 기준`은 순서대로 수용)이며 조밀 +1을 요구하지 않는다. 어느 실현이든 REST 스냅샷 seq가 곧 WS 라이브 seq 기준점이라, 재연결·gap·epoch 교체 후 재동기화에서 라이브가 도메인 불일치로 폐기되는 영구 정지가 없다.
+- **seq 도메인의 두 실현(v2.11 확정)**: 채널 seq는 종류에 따라 두 방식으로 실현하되 둘 다 채널 단위 단조 증가라는 상위 규칙을 지킨다. (1) 팬아웃 대상이 점 상태인 `orderbook`·`ticker`와 비공개 `myOrder`·`myAsset`은 노드 인메모리 조밀 카운터로 실현한다(destination당 +1 단조, 공개 채널의 REST 스냅샷은 현재 카운터값 §4-A-2·§4-A-4, 연속성 판정 = 다음 seq가 직전 +1). 비공개 두 채널은 REST 스냅샷에 seq 도메인이 없어 기준점을 다음 realtime으로 잡는다(아래 구독 즉시 계약). (2) 팬아웃 대상이 영속 이벤트 리스트인 `trade`·`candle`은 `event_seq`로 실현한다(`trade` seq = event_seq, `candle` seq = 버킷 최대 event_seq, REST 리스트 스냅샷 §4-A-3·§4-A-5와 **동일 값·동일 도메인**). (2)는 리스트 스냅샷의 과거 행이 저마다 seq를 지녀야 하는데 인메모리 카운터로는 과거 행 값을 재구성할 수 없어 영속 축(event_seq)을 쓴다. `event_seq`는 전역 유일한 마켓 대역 파생 값이고(`market_id * band_span + market_seq`. `band_span`은 `journal_band_spec('event_seq')`이고 V36~V45는 10^7, V46부터 10^12다. 결번 없는 축은 마켓 안 `market_seq`) 채널은 그 마켓 이벤트의 일부만 실어 채널 내에서는 sparse 단조 증가이므로 **연속성 판정은 strictly-increasing**(`seq ≤ 기준`은 중복·역행 폐기, `seq > 기준`은 순서대로 수용)이며 조밀 +1을 요구하지 않는다. V46 확대 경계에서 한 마켓의 값이 10^7 대역에서 10^12 대역으로 뛰어도 계속 커지므로 판정이 같고, 최댓값 64 x 10^12는 JavaScript 안전 정수 2^53 안이다. 어느 실현이든 REST 스냅샷 seq가 곧 WS 라이브 seq 기준점이라, 재연결·gap·epoch 교체 후 재동기화에서 라이브가 도메인 불일치로 폐기되는 영구 정지가 없다.
 - **비공개 채널의 seq 도메인(v2.2 확정)**: `myOrder`/`myAsset`은 market 차원이 없으므로 **`user × type` 단위 독립 단조 증가**로 정의한다(사용자별·채널별 별도 카운터, 두 채널 간 번호 공유 없음). gap 감지·재동기화도 이 도메인 기준으로 수행한다(불연속 감지 시 REST 스냅샷(주문 `GET /orders/open`·잔고 `GET /accounts`)으로 재동기화).
 - **전역 순서가 필요하면 `global_seq` 병기**(선택). gap 감지는 채널 seq로만 수행.
 - **`epoch`(리더 세대)**: 모든 WS·orderbook REST 페이로드에 포함. 페일오버로 새 리더가 seq 도메인을 재설정하면 epoch 증가. **클라이언트는 epoch 변화 감지 시 무조건 REST 스냅샷 재동기화**(backward/중복 seq 오인 방지).
@@ -2164,3 +2164,11 @@ ADR 0022 6단계(대역 채번 커트오버)가 §6-C 상태 응답을 마켓 �
 - **이 응답의 `schema_version` 을 1.1 로 올린다.** `apply_lag` 의 뜻이 바뀌어 §6-C 의 additive 규칙 예외이기 때문이다. 관리자 API 에는 응답별 1.1·1.3 판이 이미 있어, §2-2 표의 스키마 버전 행을 기본 1.0 과 관리자 응답별 판으로 고쳐 적는다.
 - **스칼라 `command_watermark`·`event_watermark`·`applied_command_watermark`·`snapshot_seq` 는 남긴다.** 표시용 전역 최대다. 웹 관리 화면(`web/lib/admin/httpAdmin.ts`)은 `command_watermark` 만 읽고, 그 값이 이미 마켓별 최대의 최대라 웹 변경이 없다.
 - **§4-B-1 주문 응답 예시 주석의 "§6-C last_applied_seq와 동일 축" 을 고친다.** v2.48 패치가 상태 응답을 마켓 벡터로 바꾸는 개정으로 미룬 문구다. 이제 `command_watermarks[]` 의 그 마켓 `command_watermark` 와 같은 축이다.
+
+## v2.51 패치 반영 사항
+
+ADR 0022 9단계(이벤트 대역 확대, V46)가 `event_seq` 의 대역 폭을 바꾼다. 2026-09-14 갱신.
+
+- **§5-2 seq 도메인의 두 실현 (2) 의 파생식을 `market_id * band_span + market_seq` 로 고친다.** `band_span` 은 `journal_band_spec('event_seq')` 이고 V36~V45 는 10^7, V46 부터 10^12 다. 근거는 `docs/contracts/백엔드_DB_설계.md` v2.50 §4.4 와 `docs/adr/0022-market-partitioned-command-journal.md` 7절 9단계다.
+- **클라이언트 계약은 바뀌지 않는다.** 한 마켓의 `event_seq` 는 확대 경계에서 10^7 대역 값에서 10^12 대역 값으로 뛰고 그 뒤로도 커진다. trade·candle 채널 `seq` 와 REST 스냅샷 `seq` 가 같은 값이라 strictly-increasing 판정과 기준점 규칙이 그대로다. 최댓값 64 x 10^12 는 JavaScript 안전 정수 2^53 안이라 JSON 숫자 `seq` 의 정밀도가 깨지지 않는다. `trade_id` 는 종전대로 10진 문자열이다.
+- **확대 뒤 되돌리지 않는다.** 명세를 10^7 로 되돌리면 같은 마켓 `seq` 가 기준점 아래로 내려가 폐기 규칙이 채널을 멈춘다. ADR 0022 가 첫 대역 행 뒤 되돌리기를 금지하는 근거 하나다.

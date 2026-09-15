@@ -1,0 +1,62 @@
+2026-09-15T14:10:11+09:00 RUN adr0022-stage5-chaos Image=exchange-chaos-app:adr0022-stage9-3b61c24 Experiments=E2,E4,E5,E6,E7 LatchBeforeTraffic=True SnapshotEvidence=False
+2026-09-15T14:10:12+09:00 START E2
+2026-09-15T14:10:43+09:00 RUN python harness/scale/band_cutover.py latch --out harness\evidence\adr0022-stage9-chaos-20260915\E2\latch.json
+2026-09-15T14:10:44+09:00 RC 0
+2026-09-15T14:10:44+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\adr0022-stage9-chaos-20260915\E2\budget.json
+2026-09-15T14:10:44+09:00 RC 0
+2026-09-15T14:10:44+09:00 EXPERIMENT E2 pwsh -NoProfile -File harness/scripts/e2-db-cut.ps1
+2026-09-15T14:12:13+09:00 EXPERIMENT E2 rc=0
+2026-09-15T14:12:17+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\adr0022-stage9-chaos-20260915\E2\conn_samples.jsonl --out harness\evidence\adr0022-stage9-chaos-20260915\E2\connections.json
+2026-09-15T14:12:17+09:00 RC 0
+2026-09-15T14:12:17+09:00 RUN python harness/scale/band_cutover.py state --out harness\evidence\adr0022-stage9-chaos-20260915\E2\band_state.json
+2026-09-15T14:12:17+09:00 RC 0
+2026-09-15T14:12:25+09:00 END E2 down rc=0
+2026-09-15T14:12:25+09:00 START E4
+2026-09-15T14:12:56+09:00 RUN python harness/scale/band_cutover.py latch --out harness\evidence\adr0022-stage9-chaos-20260915\E4\latch.json
+2026-09-15T14:12:57+09:00 RC 0
+2026-09-15T14:12:57+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\adr0022-stage9-chaos-20260915\E4\budget.json
+2026-09-15T14:12:57+09:00 RC 0
+2026-09-15T14:12:57+09:00 EXPERIMENT E4 pwsh -NoProfile -File harness/scripts/e4-leader-kill.ps1
+2026-09-15T14:13:54+09:00 EXPERIMENT E4 rc=0
+2026-09-15T14:13:58+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\adr0022-stage9-chaos-20260915\E4\conn_samples.jsonl --out harness\evidence\adr0022-stage9-chaos-20260915\E4\connections.json
+2026-09-15T14:13:58+09:00 RC 0
+2026-09-15T14:13:58+09:00 RUN python harness/scale/band_cutover.py state --out harness\evidence\adr0022-stage9-chaos-20260915\E4\band_state.json
+2026-09-15T14:13:59+09:00 RC 0
+2026-09-15T14:14:07+09:00 END E4 down rc=0
+2026-09-15T14:14:07+09:00 START E5
+2026-09-15T14:14:36+09:00 RUN python harness/scale/band_cutover.py latch --out harness\evidence\adr0022-stage9-chaos-20260915\E5\latch.json
+2026-09-15T14:14:36+09:00 RC 0
+2026-09-15T14:14:36+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\adr0022-stage9-chaos-20260915\E5\budget.json
+2026-09-15T14:14:37+09:00 RC 0
+2026-09-15T14:14:37+09:00 EXPERIMENT E5 pwsh -NoProfile -File harness/scripts/e5-net-partition.ps1
+2026-09-15T14:16:35+09:00 EXPERIMENT E5 rc=0
+2026-09-15T14:16:39+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\adr0022-stage9-chaos-20260915\E5\conn_samples.jsonl --out harness\evidence\adr0022-stage9-chaos-20260915\E5\connections.json
+2026-09-15T14:16:40+09:00 RC 0
+2026-09-15T14:16:40+09:00 RUN python harness/scale/band_cutover.py state --out harness\evidence\adr0022-stage9-chaos-20260915\E5\band_state.json
+2026-09-15T14:16:40+09:00 RC 0
+2026-09-15T14:16:47+09:00 END E5 down rc=0
+2026-09-15T14:16:47+09:00 START E6
+2026-09-15T14:17:23+09:00 RUN python harness/scale/band_cutover.py latch --out harness\evidence\adr0022-stage9-chaos-20260915\E6\latch.json
+2026-09-15T14:17:24+09:00 RC 0
+2026-09-15T14:17:24+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\adr0022-stage9-chaos-20260915\E6\budget.json
+2026-09-15T14:17:24+09:00 RC 0
+2026-09-15T14:17:24+09:00 EXPERIMENT E6 pwsh -NoProfile -File harness/scripts/e6-spike-failover.ps1
+2026-09-15T14:18:52+09:00 EXPERIMENT E6 rc=0
+2026-09-15T14:18:57+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\adr0022-stage9-chaos-20260915\E6\conn_samples.jsonl --out harness\evidence\adr0022-stage9-chaos-20260915\E6\connections.json
+2026-09-15T14:18:57+09:00 RC 0
+2026-09-15T14:18:57+09:00 RUN python harness/scale/band_cutover.py state --out harness\evidence\adr0022-stage9-chaos-20260915\E6\band_state.json
+2026-09-15T14:18:58+09:00 RC 0
+2026-09-15T14:19:04+09:00 END E6 down rc=0
+2026-09-15T14:19:04+09:00 START E7
+2026-09-15T14:19:35+09:00 RUN python harness/scale/band_cutover.py latch --out harness\evidence\adr0022-stage9-chaos-20260915\E7\latch.json
+2026-09-15T14:19:36+09:00 RC 0
+2026-09-15T14:19:36+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\adr0022-stage9-chaos-20260915\E7\budget.json
+2026-09-15T14:19:36+09:00 RC 0
+2026-09-15T14:19:36+09:00 EXPERIMENT E7 pwsh -NoProfile -File harness/scripts/e7-gray-pause.ps1
+2026-09-15T14:21:09+09:00 EXPERIMENT E7 rc=0
+2026-09-15T14:21:13+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\adr0022-stage9-chaos-20260915\E7\conn_samples.jsonl --out harness\evidence\adr0022-stage9-chaos-20260915\E7\connections.json
+2026-09-15T14:21:13+09:00 RC 0
+2026-09-15T14:21:13+09:00 RUN python harness/scale/band_cutover.py state --out harness\evidence\adr0022-stage9-chaos-20260915\E7\band_state.json
+2026-09-15T14:21:14+09:00 RC 0
+2026-09-15T14:21:22+09:00 END E7 down rc=0
+2026-09-15T14:21:22+09:00 DONE E2=PASS E4=PASS E5=PASS E6=PASS E7=PASS

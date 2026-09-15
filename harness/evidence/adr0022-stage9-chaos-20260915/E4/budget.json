@@ -1,0 +1,71 @@
+{
+ "입력": {
+  "api_nodes": 2,
+  "request_pool": 32,
+  "lease_pool": 2,
+  "append_pool": 14,
+  "bots_request_pool": 10,
+  "admin_request_pool": 0,
+  "exporter": 2,
+  "tooling": 4,
+  "max_connections": 200,
+  "superuser_reserved_connections": 3
+ },
+ "API 노드": 96,
+ "봇": 26,
+ "관리": 0,
+ "합": 128,
+ "한도": 197,
+ "여유": 69,
+ "판정": "충분",
+ "실측": {
+  "설정 표본": {
+   "ok": true,
+   "error": null,
+   "max_connections": 200,
+   "superuser_reserved_connections": 3,
+   "client_backends": 34
+  },
+  "풀 상한": {
+   "풀": [
+    {
+     "instance": "chaos-api-1:8080",
+     "job": "exchange-api",
+     "pool": "HikariPool-1",
+     "max": 32.0
+    },
+    {
+     "instance": "chaos-api-1:8080",
+     "job": "exchange-api",
+     "pool": "exchange-lease",
+     "max": 2.0
+    },
+    {
+     "instance": "chaos-api-1:8080",
+     "job": "exchange-api",
+     "pool": "exchange-append",
+     "max": 14.0
+    },
+    {
+     "instance": "chaos-api-2:8080",
+     "job": "exchange-api",
+     "pool": "HikariPool-1",
+     "max": 32.0
+    },
+    {
+     "instance": "chaos-api-2:8080",
+     "job": "exchange-api",
+     "pool": "exchange-lease",
+     "max": 2.0
+    },
+    {
+     "instance": "chaos-bots:8080",
+     "job": "chaos-bots",
+     "pool": "HikariPool-1",
+     "max": 10.0
+    }
+   ],
+   "합": 92.0
+  }
+ }
+}

@@ -725,14 +725,15 @@ class InvariantBandAxisIntegrationTest {
         }
     }
 
-    /** event_seq 는 V36 규약대로 market_id * 10^7 + market_seq 로 파생한다. */
+    /** event_seq 는 명세 파생(market_id * band_span + market_seq)이다(DB 설계 §4.4). */
     private static void insertEvent(Connection conn, int market, long marketSeq) throws SQLException {
+        long eventSpan = queryLong(conn, "SELECT band_span FROM journal_band_spec WHERE name = 'event_seq'");
         try (PreparedStatement ps = conn.prepareStatement("""
                 INSERT INTO event_journal (event_seq, source_cmd_seq, event_ordinal, event_type, payload,
                                            fencing_epoch, created_at, market_id, market_seq)
                 VALUES (?, 1, 0, 'ACCEPTED', '{}', 1, ?, ?, ?)
                 """)) {
-            ps.setLong(1, market * 10_000_000L + marketSeq);
+            ps.setLong(1, market * eventSpan + marketSeq);
             ps.setObject(2, T0);
             ps.setInt(3, market);
             ps.setLong(4, marketSeq);

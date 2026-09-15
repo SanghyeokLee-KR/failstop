@@ -34,11 +34,12 @@ import java.util.UUID;
  */
 public class TransferService {
 
-    /* business_event_id 네임스페이스 예약(DB 설계 §3). RESERVE는 주문이 orders.id를,
+    /* business_event_id 네임스페이스 예약(DB 설계 §3.3). RESERVE는 주문이 orders.id를,
        RELEASE는 정산이 event_seq를 쓴다. 그 축과 겹치지 않도록 오프셋을 둔다.
-       GENESIS가 PROVISION_GENESIS_BASE(1e12)로 같은 방식을 쓴다. */
+       GENESIS가 PROVISION_GENESIS_BASE(1e12)로 같은 방식을 쓴다. 해제 오프셋은 event_seq 값 공간
+       ((max_band_index + 1) x band_span = 64 x 10^12, V46) 위에 둔다. */
     public static final long TRANSFER_LOCK_BASE = 2_000_000_000_000L;
-    public static final long TRANSFER_UNLOCK_BASE = 3_000_000_000_000L;
+    public static final long TRANSFER_UNLOCK_BASE = 100_000_000_000_000L;
 
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;

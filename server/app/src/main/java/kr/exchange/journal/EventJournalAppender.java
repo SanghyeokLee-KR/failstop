@@ -18,7 +18,7 @@ import java.util.List;
  * event_journal 저널 전용 append 경로(DB 설계 v2.11 §3.1 6.2).
  *
  * 한 트랜잭션 안에서 [assert_and_lock_leader(검증+FOR KEY SHARE 잠금 한 왕복) →
- * next_journal_value('event_seq') 블록 채번 → 이벤트별 INSERT 반복]을 원자 수행한다.
+ * next_market_event_seq 마켓별 블록 채번 → 이벤트별 INSERT 반복]을 원자 수행한다.
  * JDBC 배치가 아니라 왕복 N회다. batchUpdate 전환은 실측 병목 확인 후에 한다.
  * created_at은 이벤트의 engine_ts 파생값을 명시 삽입한다(DB now() 금지, P0-4).
  * event_ordinal 중복은 event_emission_registry 트리거가 23505로 물리 차단한다.
@@ -47,9 +47,6 @@ public class EventJournalAppender {
                payload_schema_version, fencing_epoch, created_at, market_id, market_seq)
             VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
             """;
-
-    /** SettlementService 와 같은 대역이어야 한다. 두 경로가 같은 저널에 쓴다. */
-    private static final long MARKET_SEQ_BAND = 10_000_000L;
 
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
@@ -101,8 +98,7 @@ public class EventJournalAppender {
         }
 
         // V36. 채번이 마켓별이다. 배치는 명령 하나의 방출분이라 전부 같은 마켓이다.
-        // SettlementService 와 같은 규약을 쓴다. 두 경로가 같은 저널에 쓰므로 어긋나면
-        // 한쪽이 만든 행에 market_seq 가 비고 마켓별 gapless 검사가 그 행을 놓친다.
+        // SettlementService 와 같은 EventSeqBlock 으로 채번한다. 두 경로가 같은 저널에 쓴다.
         int marketId = events.get(0).marketId();
         for (EngineEvent e : events) {
             if (e.marketId() != marketId) {
@@ -110,16 +106,12 @@ public class EventJournalAppender {
                         "이벤트 배치가 마켓을 넘는다: " + marketId + " vs " + e.marketId());
             }
         }
-        long marketStart = jdbc.sql("SELECT next_market_journal_value(?::smallint, 'event_seq', ?)")
-                .params(marketId, events.size())
-                .query(Long.class)
-                .single();
+        EventSeqBlock start = EventSeqBlock.allocate(jdbc, marketId, events.size());
 
         List<EngineEvent> assigned = new ArrayList<>(events.size());
         for (int i = 0; i < events.size(); i++) {
-            long marketSeq = marketStart + i;
-            EngineEvent event = events.get(i)
-                    .withEventSeq(marketId * MARKET_SEQ_BAND + marketSeq);
+            long marketSeq = start.marketSeq() + i;
+            EngineEvent event = events.get(i).withEventSeq(start.eventSeq() + i);
             jdbc.sql(INSERT_SQL)
                     .params(event.eventSeq(), event.sourceCmdSeq(), event.eventOrdinal(),
                             event.type().name(), EventPayloads.json(event, objectMapper),

@@ -51,7 +51,7 @@ public enum InvariantCheck {
                     ) b)
             """),
     // V36 에서 축이 바뀌었다. 종전에는 event_seq 전역 gapless 였다. 이제 event_seq 는
-    // marketId * 10^7 + marketSeq 파생이라 전역으로 보면 대역 사이가 통째로 비어 있고,
+    // marketId * band_span + marketSeq 파생이라 전역으로 보면 대역 사이가 통째로 비어 있고,
     // 그 빈 자리는 결번이 아니라 대역 경계다. 결번 없음이 실제로 요구되는 축은 마켓
     // 안이다. 재생이 그 마켓의 이벤트를 순서대로 대조하기 때문이다. 그래서 마켓별로
     // 세고 합친다. market_seq 가 비어 있는 V36 이전 행은 이 검사 밖이다.

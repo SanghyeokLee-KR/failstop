@@ -1,4 +1,4 @@
-"""band_cutover 시험. 되돌릴 수 없는 래치를 거부하는 조건과 대역 명세 부재가 0 으로 접히지 않는지를 본다.
+"""band_cutover 시험. 되돌릴 수 없는 래치를 거부하는 조건, 대역 명세 부재가 0 으로 접히지 않는지, 이벤트 대역 확대 식별을 본다.
 
 돌리는 법:
   python -m unittest discover -s harness/scale -p "test_*.py"
@@ -106,6 +106,57 @@ class BandTest(unittest.TestCase):
                            ('2026-09-15 10:00:00+09', '2026-09-15 10:02:00+09'))
         self.assertIsNone(rows['error'])
         self.assertIn("created_at >= '2026-09-15 10:00:00+09'", calls[0])
+
+
+def event_market(market_id, band=0, legacy=0, after=0, mismatch=0):
+    return {'market_id': market_id, 'band_rows': band, 'legacy_rows': legacy, 'first_band_market_seq': None,
+            'legacy_after_band': after, 'derivation_mismatch': mismatch}
+
+
+WIDENED = {'band_span': 10 ** 12, 'max_band_index': 63}
+
+
+class EventBandTest(unittest.TestCase):
+    def test_missing_event_spec_is_not_zero(self):
+        out, _ = call(bc.event_band, {bc.EVENT_BAND_SQL: reply({'band_span': None, 'max_band_index': None,
+                                                                'markets': []})})
+        self.assertFalse(out['ok'])
+        self.assertIsNone(out['섞임 행'])
+        self.assertIsNone(out['확대 식별'])
+
+    def test_unreadable_event_band_is_not_zero(self):
+        out, _ = call(bc.event_band, {bc.EVENT_BAND_SQL: (1, '', 'relation "journal_band_spec" does not exist')})
+        self.assertFalse(out['ok'])
+        self.assertIsNone(out['파생 불일치 행'])
+
+    def test_sums_mixing_and_mismatch(self):
+        out, _ = call(bc.event_band, {bc.EVENT_BAND_SQL: reply(dict(WIDENED, markets=[
+            event_market(1, band=3, legacy=5, after=1), event_market(2, band=2, mismatch=2)]))})
+        self.assertEqual((out['ok'], out['섞임 행'], out['파생 불일치 행']), (True, 1, 2))
+
+    def test_widened_mode_needs_widened_spec_and_band_rows_in_every_market(self):
+        partial = dict(WIDENED, markets=[event_market(1, band=3), event_market(2, legacy=4)])
+        cases = [
+            (dict(WIDENED, markets=[event_market(1, band=3), event_market(2, band=1, legacy=4)]), True),
+            (partial, False),
+            (dict(WIDENED, markets=[]), False),
+            ({'band_span': 10 ** 7, 'max_band_index': 19, 'markets': [event_market(1, band=3)]}, False),
+        ]
+        for parsed, expected in cases:
+            out, _ = call(bc.event_band, {bc.EVENT_BAND_SQL: reply(parsed)})
+            self.assertEqual(out['확대 식별']['성립'], expected, parsed)
+        out, _ = call(bc.event_band, {bc.EVENT_BAND_SQL: reply(partial)})
+        self.assertEqual(out['확대 식별']['대역 행 없는 마켓'], [2])
+
+    def test_state_fails_when_event_band_unreadable(self):
+        replies = {bc.STATE_SQL: reply(LATCHED), BAND_PREFIX: reply({'band_span': 10 ** 12, 'markets': []}),
+                   bc.C28_SQL: reply({'band_span': 10 ** 12, 'markets': []}),
+                   bc.EVENT_BAND_SQL: (1, '', 'connection refused')}
+        with mock.patch.object(bc.pgs, 'run_psql', FakePsql(replies)), \
+                mock.patch.object(bc.pgs, 'write_json') as write, \
+                mock.patch.object(bc.sys, 'argv', ['band_cutover.py', 'state', '--out', 'state.json']):
+            self.assertEqual(bc.main(), 1)
+        self.assertFalse(write.call_args[0][1]['이벤트 대역']['ok'])
 
 
 if __name__ == '__main__':
