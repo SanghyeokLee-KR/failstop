@@ -1,0 +1,56 @@
+{
+  "image": {
+    "ref": "053e6a860556d06547b596726b51a256168ba7c0",
+    "commit": "053e6a860556d06547b596726b51a256168ba7c0",
+    "worktree": "C:\\dev\\exchange-adr0022-stage8-053e6a8",
+    "tag": "exchange-chaos-app:adr0022-stage8-053e6a8",
+    "imageId": "sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4",
+    "jarSha256": "36b53f1c1bc85ad77f196ca93180935d3cd71364c356f32c406d4f29c37b1c07",
+    "recordedAt": "2026-09-15T09:49:58.2971168+09:00"
+  },
+  "maxConnections": 200,
+  "harnessCommit": "053e6a860556d06547b596726b51a256168ba7c0",
+  "grid": [
+    {
+      "label": "base-1",
+      "commit_delay": 0,
+      "commit_siblings": 5
+    },
+    {
+      "label": "d3000-s1",
+      "commit_delay": 3000,
+      "commit_siblings": 1
+    },
+    {
+      "label": "d250-s5",
+      "commit_delay": 250,
+      "commit_siblings": 5
+    },
+    {
+      "label": "d1000-s5",
+      "commit_delay": 1000,
+      "commit_siblings": 5
+    },
+    {
+      "label": "d1000-s1",
+      "commit_delay": 1000,
+      "commit_siblings": 1
+    },
+    {
+      "label": "d250-s1",
+      "commit_delay": 250,
+      "commit_siblings": 1
+    },
+    {
+      "label": "d3000-s5",
+      "commit_delay": 3000,
+      "commit_siblings": 5
+    },
+    {
+      "label": "base-2",
+      "commit_delay": 0,
+      "commit_siblings": 5
+    }
+  ],
+  "budgetMinutes": 70
+}

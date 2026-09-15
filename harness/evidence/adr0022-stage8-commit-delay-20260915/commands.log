@@ -1,0 +1,63 @@
+2026-09-15T09:49:35+09:00 RUN adr0022-stage8-commit-delay Ref=053e6a860556d06547b596726b51a256168ba7c0 SkipBuild=False BudgetMinutes=70
+2026-09-15T09:49:35+09:00 GRID base-1(0,5) d3000-s1(3000,1) d250-s5(250,5) d1000-s5(1000,5) d1000-s1(1000,1) d250-s1(250,1) d3000-s5(3000,5) base-2(0,5)
+2026-09-15T09:49:35+09:00 START worktree | cwd=D:\dev\failstop | git -C D:\dev\failstop worktree add --detach C:\dev\exchange-adr0022-stage8-053e6a8 053e6a860556d06547b596726b51a256168ba7c0
+2026-09-15T09:49:36+09:00 END worktree rc=0
+2026-09-15T09:49:36+09:00 START bootjar | cwd=C:\dev\exchange-adr0022-stage8-053e6a8\server | C:\dev\exchange-adr0022-stage8-053e6a8\server\gradlew.bat :app:bootJar -q
+2026-09-15T09:49:50+09:00 END bootjar rc=0
+2026-09-15T09:49:50+09:00 START image | cwd=C:\dev\exchange-adr0022-stage8-053e6a8\harness | docker build -f Dockerfile.app -t exchange-chaos-app:adr0022-stage8-053e6a8 --label org.opencontainers.image.revision=053e6a860556d06547b596726b51a256168ba7c0 --label org.opencontainers.image.ref.name=053e6a860556d06547b596726b51a256168ba7c0 .
+2026-09-15T09:49:58+09:00 END image rc=0
+2026-09-15T09:49:58+09:00 START budget | cwd=D:\dev\failstop | python harness/scale/pg_samplers.py budget --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --max-connections 200 --superuser-reserved 3 --out D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915\budget.json
+2026-09-15T09:49:58+09:00 END budget rc=0
+2026-09-15T09:49:58+09:00 CELL base-1 commit_delay=0 commit_siblings=5 elapsed=0.0m
+2026-09-15T09:49:58+09:00 START probe-base-1 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label base-1 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915\base-1.json --latch-before-traffic --commit-delay 0 --commit-siblings 5
+2026-09-15T09:56:12+09:00 END probe-base-1 rc=0
+2026-09-15T09:56:15+09:00 IMAGE base-1 want=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4 running=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4
+2026-09-15T09:56:15+09:00 START down-base-1 | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-15T09:56:20+09:00 END down-base-1 rc=0
+2026-09-15T09:56:20+09:00 CELL d3000-s1 commit_delay=3000 commit_siblings=1 elapsed=6.4m
+2026-09-15T09:56:20+09:00 START probe-d3000-s1 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label d3000-s1 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915\d3000-s1.json --latch-before-traffic --commit-delay 3000 --commit-siblings 1
+2026-09-15T10:02:25+09:00 END probe-d3000-s1 rc=0
+2026-09-15T10:02:37+09:00 IMAGE d3000-s1 want=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4 running=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4
+2026-09-15T10:02:37+09:00 START down-d3000-s1 | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-15T10:02:43+09:00 END down-d3000-s1 rc=0
+2026-09-15T10:02:43+09:00 CELL d250-s5 commit_delay=250 commit_siblings=5 elapsed=12.7m
+2026-09-15T10:02:43+09:00 START probe-d250-s5 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label d250-s5 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915\d250-s5.json --latch-before-traffic --commit-delay 250 --commit-siblings 5
+2026-09-15T10:08:50+09:00 END probe-d250-s5 rc=0
+2026-09-15T10:08:59+09:00 IMAGE d250-s5 want=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4 running=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4
+2026-09-15T10:08:59+09:00 START down-d250-s5 | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-15T10:09:04+09:00 END down-d250-s5 rc=0
+2026-09-15T10:09:04+09:00 CELL d1000-s5 commit_delay=1000 commit_siblings=5 elapsed=19.1m
+2026-09-15T10:09:05+09:00 START probe-d1000-s5 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label d1000-s5 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915\d1000-s5.json --latch-before-traffic --commit-delay 1000 --commit-siblings 5
+2026-09-15T10:15:12+09:00 END probe-d1000-s5 rc=0
+2026-09-15T10:15:21+09:00 IMAGE d1000-s5 want=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4 running=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4
+2026-09-15T10:15:21+09:00 START down-d1000-s5 | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-15T10:15:29+09:00 END down-d1000-s5 rc=0
+2026-09-15T10:15:29+09:00 CELL d1000-s1 commit_delay=1000 commit_siblings=1 elapsed=25.5m
+2026-09-15T10:15:30+09:00 START probe-d1000-s1 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label d1000-s1 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915\d1000-s1.json --latch-before-traffic --commit-delay 1000 --commit-siblings 1
+2026-09-15T10:21:35+09:00 END probe-d1000-s1 rc=0
+2026-09-15T10:21:46+09:00 IMAGE d1000-s1 want=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4 running=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4
+2026-09-15T10:21:46+09:00 START down-d1000-s1 | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-15T10:21:51+09:00 END down-d1000-s1 rc=0
+2026-09-15T10:21:51+09:00 CELL d250-s1 commit_delay=250 commit_siblings=1 elapsed=31.9m
+2026-09-15T10:21:51+09:00 START probe-d250-s1 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label d250-s1 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915\d250-s1.json --latch-before-traffic --commit-delay 250 --commit-siblings 1
+2026-09-15T10:27:55+09:00 END probe-d250-s1 rc=0
+2026-09-15T10:28:08+09:00 IMAGE d250-s1 want=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4 running=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4
+2026-09-15T10:28:08+09:00 START down-d250-s1 | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-15T10:28:13+09:00 END down-d250-s1 rc=0
+2026-09-15T10:28:13+09:00 CELL d3000-s5 commit_delay=3000 commit_siblings=5 elapsed=38.2m
+2026-09-15T10:28:13+09:00 START probe-d3000-s5 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label d3000-s5 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915\d3000-s5.json --latch-before-traffic --commit-delay 3000 --commit-siblings 5
+2026-09-15T10:34:17+09:00 END probe-d3000-s5 rc=0
+2026-09-15T10:34:29+09:00 IMAGE d3000-s5 want=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4 running=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4
+2026-09-15T10:34:29+09:00 START down-d3000-s5 | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-15T10:34:36+09:00 END down-d3000-s5 rc=0
+2026-09-15T10:34:36+09:00 CELL base-2 commit_delay=0 commit_siblings=5 elapsed=44.6m
+2026-09-15T10:34:36+09:00 START probe-base-2 | cwd=D:\dev\failstop | python harness/scale/roundtrip_probe.py --label base-2 --rate 600 --out D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915\base-2.json --latch-before-traffic --commit-delay 0 --commit-siblings 5
+2026-09-15T10:40:45+09:00 END probe-base-2 rc=0
+2026-09-15T10:40:53+09:00 IMAGE base-2 want=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4 running=sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4
+2026-09-15T10:40:53+09:00 START down-base-2 | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-15T10:40:58+09:00 END down-base-2 rc=0
+2026-09-15T10:40:58+09:00 START judge | cwd=D:\dev\failstop | python harness/scale/stage8_judge.py --dir D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915 --out D:\dev\failstop\harness\evidence\adr0022-stage8-commit-delay-20260915\verdict.json
+2026-09-15T10:40:58+09:00 END judge rc=2
+2026-09-15T10:40:58+09:00 VERDICT NOT RUN | d3000-s1=평평 d250-s5=묶음 없는 증가 d1000-s5=평평 d1000-s1=이득 d250-s1=평평 d3000-s5=평평 rc=2
+2026-09-15T10:40:58+09:00 START down | cwd=D:\dev\failstop | docker compose -f harness/docker-compose.chaos.yml -f harness/docker-compose.scale.yml --env-file harness/.env.chaos --profile obs down -v --remove-orphans
+2026-09-15T10:40:58+09:00 END down rc=0

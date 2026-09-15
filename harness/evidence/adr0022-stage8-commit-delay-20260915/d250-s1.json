@@ -1,0 +1,2302 @@
+{
+  "접수/s": 198.15858894118864,
+  "체결/s": 10.31052259521716,
+  "수용거절/s": 421.7141674856463,
+  "p95(ms)": 539.3564244722219,
+  "p99(ms)": 611.6020160648146,
+  "적용 점유": 0.005295864532147106,
+  "sink 점유": 5.332155010569148,
+  "훅 점유": 0.0019158580665183881,
+  "직렬 합계": 5.3393667331678145,
+  "적용 호출/s": 198.27928067725307,
+  "적용 1회(ms)": 0.026709117130434782,
+  "sink 1회(ms)": 26.89214421373913,
+  "훅 1회(ms)": 0.009662421913043477,
+  "1건당 직렬(ms)": 26.928515752782616,
+  "락 보유 점유": 2.13889513008845,
+  "락 대기 점유": 0.1647946157692374,
+  "접수 시도/s": 198.2447973240918,
+  "락 보유 점유(마켓별)": {
+    "1": 0.19034325253883685,
+    "2": 0.19058194561975209,
+    "4": 0.1860797591165365,
+    "10": 0.17457568592561942,
+    "11": 0.18047635783375576,
+    "12": 0.18142437610993292,
+    "3": 0.16860587149778444,
+    "5": 0.16501501677615132,
+    "6": 0.170628764685598,
+    "7": 0.1779696156140623,
+    "8": 0.17320405225952173,
+    "9": 0.17999043211089846
+  },
+  "접수 시도/s(마켓별)": {
+    "1": 17.827893584372145,
+    "2": 17.48306005275953,
+    "4": 17.43133502301764,
+    "10": 16.20717598579286,
+    "11": 16.98305143192124,
+    "12": 16.396834428179798,
+    "3": 15.603717305470784,
+    "5": 15.24164209727754,
+    "6": 16.155450956050966,
+    "7": 16.586492870566733,
+    "8": 16.069242573147815,
+    "9": 16.25890101553475
+  },
+  "락 보유 1회(ms)": 10.789161475908854,
+  "락 대기 1회(ms)": 0.8312683005740129,
+  "append 1회(ms)": 10.720430510784482,
+  "inTx 1회(ms)": 4.564544086623761,
+  "  머리말 1회(ms)": 3.097559841798574,
+  "  저널삽입 1회(ms)": 1.46401600104366,
+  "커넥션·경계·커밋 1회(ms)": 6.1558864241607205,
+  "  커넥션획득·경계시작(ms)": 0.024506570968864154,
+  "  커밋(ms)": 6.115168262567403,
+  "  정리·반납(ms)": 0.015511016089754739,
+  "append 호출/s": 198.2447973240918,
+  "트랜잭션/s": 2731.512627961525,
+  "명령당 트랜잭션": 13.776087035577433,
+  "활성 커넥션": 1.3333333333333333,
+  "DB CPU%": 341.034,
+  "api1 CPU%": 183.16,
+  "풀 대기": 0.0,
+  "append 풀 대기": 0.0,
+  "append 풀 대기 최대(1m)": 0.0,
+  "커밋 동시성": 1.2123002928153934,
+  "catchup 왕복/s": 0.0,
+  "catchup 비": 0.0,
+  "catchup 점유": 0.0,
+  "catchup 1회(ms)": null,
+  "inflight 락 보유 점유": 0.23457618083070397,
+  "inflight 락 대기 점유": 0.007399670390868808,
+  "표별 쓰기": {
+    "ledger_entries": {
+      "삽입/명령": 0.0,
+      "갱신/명령": 0.0
+    },
+    "balances": {
+      "삽입/명령": 0.0,
+      "갱신/명령": 2.355
+    },
+    "ledger_transactions": {
+      "삽입/명령": 1.058,
+      "갱신/명령": 1.058
+    },
+    "orders": {
+      "삽입/명령": 1.003,
+      "갱신/명령": 0.108
+    },
+    "event_journal": {
+      "삽입/명령": 0.0,
+      "갱신/명령": 0.0
+    },
+    "command_journal": {
+      "삽입/명령": 0.0,
+      "갱신/명령": 0.0
+    },
+    "event_emission_registry": {
+      "삽입/명령": 1.058,
+      "갱신/명령": 0.0
+    },
+    "trades": {
+      "삽입/명령": 0.0,
+      "갱신/명령": 0.0
+    },
+    "position_cost": {
+      "삽입/명령": 0.0,
+      "갱신/명령": 0.104
+    },
+    "market_journal_counters": {
+      "삽입/명령": 0.0,
+      "갱신/명령": 2.001
+    },
+    "journal_counters": {
+      "삽입/명령": 0.0,
+      "갱신/명령": 0.0
+    }
+  },
+  "fsync fdatasync/s": 334.152,
+  "fsync 건당(ms)": 2.993,
+  "label": "d250-s1",
+  "rate": 600,
+  "k6_rc": 0,
+  "xact_commit 증가": 352205,
+  "deadlocks 증가": 0,
+  "접수(DB, 마켓별)": {
+    "run_id": "rtd25600",
+    "창": {
+      "from": "2026-09-15 01:25:14.288391+00",
+      "to": "2026-09-15 01:27:26.462585+00"
+    },
+    "k6 마켓": [
+      "KRW-BTC",
+      "KRW-ETH",
+      "KRW-SOL",
+      "KRW-XRP",
+      "KRW-DOGE",
+      "KRW-ADA",
+      "KRW-TRX",
+      "KRW-LINK",
+      "KRW-DOT",
+      "KRW-MATIC",
+      "KRW-AVAX",
+      "KRW-ATOM"
+    ],
+    "마켓": [
+      {
+        "id": 1,
+        "symbol": "KRW-BTC",
+        "k6_new": 2045,
+        "all_commands": 2303
+      },
+      {
+        "id": 2,
+        "symbol": "KRW-ETH",
+        "k6_new": 2091,
+        "all_commands": 2277
+      },
+      {
+        "id": 3,
+        "symbol": "KRW-SOL",
+        "k6_new": 2021,
+        "all_commands": 2021
+      },
+      {
+        "id": 4,
+        "symbol": "KRW-XRP",
+        "k6_new": 2073,
+        "all_commands": 2299
+      },
+      {
+        "id": 5,
+        "symbol": "KRW-DOGE",
+        "k6_new": 2001,
+        "all_commands": 2001
+      },
+      {
+        "id": 6,
+        "symbol": "KRW-ADA",
+        "k6_new": 2012,
+        "all_commands": 2012
+      },
+      {
+        "id": 7,
+        "symbol": "KRW-TRX",
+        "k6_new": 2057,
+        "all_commands": 2057
+      },
+      {
+        "id": 8,
+        "symbol": "KRW-LINK",
+        "k6_new": 2080,
+        "all_commands": 2080
+      },
+      {
+        "id": 9,
+        "symbol": "KRW-DOT",
+        "k6_new": 2059,
+        "all_commands": 2059
+      },
+      {
+        "id": 10,
+        "symbol": "KRW-MATIC",
+        "k6_new": 2017,
+        "all_commands": 2017
+      },
+      {
+        "id": 11,
+        "symbol": "KRW-AVAX",
+        "k6_new": 2086,
+        "all_commands": 2086
+      },
+      {
+        "id": 12,
+        "symbol": "KRW-ATOM",
+        "k6_new": 2083,
+        "all_commands": 2083
+      }
+    ],
+    "error": null
+  },
+  "접수 시도 계측 대조": {
+    "마켓별": {
+      "1": {
+        "계측 증가": 2304.0,
+        "저널 행": 2303
+      },
+      "10": {
+        "계측 증가": 2017.0,
+        "저널 행": 2017
+      },
+      "11": {
+        "계측 증가": 2086.0,
+        "저널 행": 2086
+      },
+      "12": {
+        "계측 증가": 2083.0,
+        "저널 행": 2083
+      },
+      "2": {
+        "계측 증가": 2278.0,
+        "저널 행": 2277
+      },
+      "3": {
+        "계측 증가": 2021.0,
+        "저널 행": 2021
+      },
+      "4": {
+        "계측 증가": 2299.0,
+        "저널 행": 2299
+      },
+      "5": {
+        "계측 증가": 2001.0,
+        "저널 행": 2001
+      },
+      "6": {
+        "계측 증가": 2012.0,
+        "저널 행": 2012
+      },
+      "7": {
+        "계측 증가": 2057.0,
+        "저널 행": 2057
+      },
+      "8": {
+        "계측 증가": 2080.0,
+        "저널 행": 2080
+      },
+      "9": {
+        "계측 증가": 2059.0,
+        "저널 행": 2059
+      }
+    },
+    "저널 행 합": 25295
+  },
+  "노드 계측 증가": {
+    "exchange_submit_count_total": {
+      "1": 2304.0,
+      "10": 2017.0,
+      "11": 2086.0,
+      "12": 2083.0,
+      "2": 2278.0,
+      "3": 2021.0,
+      "4": 2299.0,
+      "5": 2001.0,
+      "6": 2012.0,
+      "7": 2057.0,
+      "8": 2080.0,
+      "9": 2059.0
+    },
+    "exchange_submit_lock_hold_nanos_total": {
+      "1": 26186507970.0,
+      "10": 22643745554.0,
+      "11": 23467310251.0,
+      "12": 24088188112.0,
+      "2": 25938271313.0,
+      "3": 22966445008.0,
+      "4": 25844410964.0,
+      "5": 22657480588.0,
+      "6": 22689785799.0,
+      "7": 23603820554.0,
+      "8": 23675463688.0,
+      "9": 23654448414.0
+    },
+    "exchange_writer_catchup_calls_total": {
+      "1": 0.0,
+      "10": 1.0,
+      "11": 1.0,
+      "12": 1.0,
+      "2": 0.0,
+      "3": 1.0,
+      "4": 0.0,
+      "5": 1.0,
+      "6": 1.0,
+      "7": 1.0,
+      "8": 1.0,
+      "9": 1.0
+    },
+    "exchange_writer_apply_count_total": {
+      "1": 2303.0,
+      "10": 2017.0,
+      "11": 2086.0,
+      "12": 2083.0,
+      "2": 2278.0,
+      "3": 2021.0,
+      "4": 2299.0,
+      "5": 2001.0,
+      "6": 2012.0,
+      "7": 2057.0,
+      "8": 2080.0,
+      "9": 2059.0
+    }
+  },
+  "카운터 행 표본": {
+    "간격(초)": 15,
+    "규칙": "머리말 질의(query 에 append_command_prologue)가 활성이고, 미획득 잠금이 transactionid 또는 tuple 이며, 같은 백엔드가 journal_counters 표 잠금을 쥐면 카운터 행 대기 1 로 센다. ok 거짓 표본은 채집 실패이고 대기 수를 채우지 않는다.",
+    "요약": {
+      "주행 중 표본": 9,
+      "채집 성공": 9,
+      "채집 실패": 0,
+      "대기 > 0 표본": 0,
+      "대기 합": 0,
+      "대기 최대": 0,
+      "머리말 활성 > 0 표본": 1
+    },
+    "표본": [
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "prologue_lock_wait": 0,
+        "advisory_wait": 0,
+        "counter_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:25:14+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 1,
+        "prologue_lock_wait": 0,
+        "advisory_wait": 0,
+        "counter_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:25:29+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "prologue_lock_wait": 0,
+        "advisory_wait": 0,
+        "counter_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:25:44+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "prologue_lock_wait": 0,
+        "advisory_wait": 0,
+        "counter_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:25:59+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "prologue_lock_wait": 0,
+        "advisory_wait": 0,
+        "counter_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:26:14+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "prologue_lock_wait": 0,
+        "advisory_wait": 0,
+        "counter_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:26:29+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "prologue_lock_wait": 0,
+        "advisory_wait": 0,
+        "counter_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:26:44+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "prologue_lock_wait": 0,
+        "advisory_wait": 0,
+        "counter_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:26:59+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "prologue_lock_wait": 0,
+        "advisory_wait": 0,
+        "counter_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:27:14+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "prologue_lock_wait": 0,
+        "advisory_wait": 0,
+        "counter_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:27:26+09:00",
+        "k6_alive": false
+      }
+    ]
+  },
+  "카운터 행 표본(전역·마켓)": {
+    "간격(초)": 15,
+    "규칙": "카운터 행 대기 규칙의 대기 백엔드를 같은 백엔드가 쥔 표 잠금으로 가른다. journal_counters 면 전역 journal_counters(command_seq) 대기, market_journal_counters 면 마켓 카운터 행 대기다. 두 표를 함께 쥔 대기 백엔드가 하나라도 있으면 둘을 가를 수 없어 그 표본은 채집 실패다.",
+    "요약": {
+      "전역": {
+        "주행 중 표본": 9,
+        "채집 성공": 9,
+        "채집 실패": 0,
+        "대기 > 0 표본": 0,
+        "대기 합": 0,
+        "대기 최대": 0,
+        "머리말 활성 > 0 표본": 1
+      },
+      "마켓": {
+        "주행 중 표본": 9,
+        "채집 성공": 9,
+        "채집 실패": 0,
+        "대기 > 0 표본": 0,
+        "대기 합": 0,
+        "대기 최대": 0,
+        "머리말 활성 > 0 표본": 1
+      }
+    },
+    "표본": [
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "global_row_wait": 0,
+        "market_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:25:14+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 1,
+        "global_row_wait": 0,
+        "market_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:25:29+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "global_row_wait": 0,
+        "market_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:25:44+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "global_row_wait": 0,
+        "market_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:25:59+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "global_row_wait": 0,
+        "market_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:26:14+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "global_row_wait": 0,
+        "market_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:26:29+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "global_row_wait": 0,
+        "market_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:26:44+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "global_row_wait": 0,
+        "market_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:26:59+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "global_row_wait": 0,
+        "market_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:27:14+09:00",
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 0,
+        "global_row_wait": 0,
+        "market_row_wait": 0,
+        "waiters": [],
+        "ts": "2026-09-15T10:27:26+09:00",
+        "k6_alive": false
+      }
+    ]
+  },
+  "카운터 행 양성 대조": {
+    "상태": "PASS",
+    "보유 세션 종료코드": 0,
+    "대기 세션 종료코드": 0,
+    "표본": [
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 2,
+        "prologue_lock_wait": 1,
+        "advisory_wait": 0,
+        "counter_row_wait": 1,
+        "waiters": [
+          {
+            "pid": 1383,
+            "blockers": [
+              1366
+            ],
+            "advisory": false,
+            "counter_row": true,
+            "market_row": false
+          }
+        ],
+        "ts": "2026-09-15T10:27:43+09:00"
+      }
+    ]
+  },
+  "카운터 행 양성 대조(전역)": {
+    "상태": "PASS",
+    "보유 세션 종료코드": 0,
+    "대기 세션 종료코드": 0,
+    "표본": [
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 2,
+        "global_row_wait": 1,
+        "market_row_wait": 0,
+        "waiters": [
+          {
+            "pid": 1383,
+            "blockers": [
+              1366
+            ],
+            "global_row": true,
+            "market_row": false
+          }
+        ],
+        "ts": "2026-09-15T10:27:43+09:00"
+      }
+    ]
+  },
+  "카운터 행 양성 대조(마켓)": {
+    "상태": "PASS",
+    "보유 세션 종료코드": 0,
+    "대기 세션 종료코드": 0,
+    "표본": [
+      {
+        "ok": true,
+        "error": null,
+        "prologue_active": 2,
+        "global_row_wait": 0,
+        "market_row_wait": 2,
+        "waiters": [
+          {
+            "pid": 170,
+            "blockers": [
+              1414
+            ],
+            "global_row": false,
+            "market_row": true
+          },
+          {
+            "pid": 1428,
+            "blockers": [
+              170
+            ],
+            "global_row": false,
+            "market_row": true
+          }
+        ],
+        "ts": "2026-09-15T10:27:51+09:00"
+      }
+    ]
+  },
+  "래치": {
+    "트래픽 전 래치": true,
+    "호출": {
+      "ok": true,
+      "error": null,
+      "사전": {
+        "function": "latch_command_band_cutover()",
+        "owner": "exchange",
+        "current_user": "exchange",
+        "app_role_execute": false,
+        "journal_rows": 0
+      },
+      "호출": {
+        "sql": "SELECT latch_command_band_cutover()",
+        "종료코드": 0,
+        "출력": "2026-09-15 01:22:21.358595+00",
+        "오류": "",
+        "ts": "2026-09-15T10:22:21+09:00"
+      },
+      "상태": {
+        "ok": true,
+        "error": null,
+        "래치 행": [
+          {
+            "name": "command_seq",
+            "latched_at": "2026-09-15T01:22:21.358595+00:00",
+            "latched_by": "exchange"
+          }
+        ],
+        "ts": "2026-09-15T10:22:21+09:00"
+      }
+    },
+    "상태": {
+      "ok": true,
+      "error": null,
+      "래치 행": [
+        {
+          "name": "command_seq",
+          "latched_at": "2026-09-15T01:22:21.358595+00:00",
+          "latched_by": "exchange"
+        }
+      ],
+      "ts": "2026-09-15T10:27:54+09:00"
+    }
+  },
+  "대역 행(DB, 마켓별)": {
+    "창": {
+      "from": "2026-09-15 01:25:14.288391+00",
+      "to": "2026-09-15 01:27:26.462585+00"
+    },
+    "band_span": 1000000000000,
+    "마켓": [
+      {
+        "id": 1,
+        "symbol": "KRW-BTC",
+        "band_rows": 2303,
+        "legacy_rows": 0
+      },
+      {
+        "id": 2,
+        "symbol": "KRW-ETH",
+        "band_rows": 2277,
+        "legacy_rows": 0
+      },
+      {
+        "id": 3,
+        "symbol": "KRW-SOL",
+        "band_rows": 2021,
+        "legacy_rows": 0
+      },
+      {
+        "id": 4,
+        "symbol": "KRW-XRP",
+        "band_rows": 2299,
+        "legacy_rows": 0
+      },
+      {
+        "id": 5,
+        "symbol": "KRW-DOGE",
+        "band_rows": 2001,
+        "legacy_rows": 0
+      },
+      {
+        "id": 6,
+        "symbol": "KRW-ADA",
+        "band_rows": 2012,
+        "legacy_rows": 0
+      },
+      {
+        "id": 7,
+        "symbol": "KRW-TRX",
+        "band_rows": 2057,
+        "legacy_rows": 0
+      },
+      {
+        "id": 8,
+        "symbol": "KRW-LINK",
+        "band_rows": 2080,
+        "legacy_rows": 0
+      },
+      {
+        "id": 9,
+        "symbol": "KRW-DOT",
+        "band_rows": 2059,
+        "legacy_rows": 0
+      },
+      {
+        "id": 10,
+        "symbol": "KRW-MATIC",
+        "band_rows": 2017,
+        "legacy_rows": 0
+      },
+      {
+        "id": 11,
+        "symbol": "KRW-AVAX",
+        "band_rows": 2086,
+        "legacy_rows": 0
+      },
+      {
+        "id": 12,
+        "symbol": "KRW-ATOM",
+        "band_rows": 2083,
+        "legacy_rows": 0
+      }
+    ],
+    "error": null
+  },
+  "C28": {
+    "ok": true,
+    "error": null,
+    "band_span": 1000000000000,
+    "위반 행": 0,
+    "마켓": [
+      {
+        "market_id": 1,
+        "first_band_created_at": "2026-09-15T01:22:30.188102+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 2,
+        "first_band_created_at": "2026-09-15T01:22:34.89754+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 3,
+        "first_band_created_at": "2026-09-15T01:25:15.23365+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 4,
+        "first_band_created_at": "2026-09-15T01:22:39.662716+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 5,
+        "first_band_created_at": "2026-09-15T01:25:15.325605+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 6,
+        "first_band_created_at": "2026-09-15T01:25:14.975555+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 7,
+        "first_band_created_at": "2026-09-15T01:25:14.963421+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 8,
+        "first_band_created_at": "2026-09-15T01:25:14.966481+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 9,
+        "first_band_created_at": "2026-09-15T01:25:15.005589+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 10,
+        "first_band_created_at": "2026-09-15T01:25:14.979174+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 11,
+        "first_band_created_at": "2026-09-15T01:25:14.960665+00:00",
+        "legacy_after_band": 0
+      },
+      {
+        "market_id": 12,
+        "first_band_created_at": "2026-09-15T01:25:14.989291+00:00",
+        "legacy_after_band": 0
+      }
+    ]
+  },
+  "연결": {
+    "요약": {
+      "표본": 10,
+      "성공": 10,
+      "실패": 0,
+      "max_connections": 200,
+      "superuser_reserved_connections": 3,
+      "한도": 197,
+      "최대 연결": 60,
+      "최대 시각": "2026-09-15T10:27:15+09:00",
+      "최대 시 분해": [
+        {
+          "application_name": "PostgreSQL JDBC Driver",
+          "usename": "exchange",
+          "client_addr": "172.18.0.9",
+          "n": 48,
+          "active": 7,
+          "idle": 41,
+          "idle_in_tx": 0,
+          "superuser": true
+        },
+        {
+          "application_name": "PostgreSQL JDBC Driver",
+          "usename": "exchange",
+          "client_addr": "172.18.0.14",
+          "n": 10,
+          "active": 0,
+          "idle": 10,
+          "idle_in_tx": 0,
+          "superuser": true
+        },
+        {
+          "application_name": "",
+          "usename": "exchange",
+          "client_addr": "172.18.0.10",
+          "n": 1,
+          "active": 0,
+          "idle": 1,
+          "idle_in_tx": 0,
+          "superuser": true
+        },
+        {
+          "application_name": "psql",
+          "usename": "exchange",
+          "client_addr": null,
+          "n": 1,
+          "active": 1,
+          "idle": 0,
+          "idle_in_tx": 0,
+          "superuser": true
+        }
+      ],
+      "최대 시 풀": [
+        {
+          "instance": "chaos-api-1:8080",
+          "job": "exchange-api",
+          "pool": "HikariPool-1",
+          "connections": 25.0
+        },
+        {
+          "instance": "chaos-api-1:8080",
+          "job": "exchange-api",
+          "pool": "exchange-lease",
+          "connections": 2.0
+        },
+        {
+          "instance": "chaos-api-1:8080",
+          "job": "exchange-api",
+          "pool": "exchange-append",
+          "connections": 8.0
+        },
+        {
+          "instance": "chaos-api-2:8080",
+          "job": "exchange-api",
+          "pool": "HikariPool-1",
+          "connections": 9.0
+        },
+        {
+          "instance": "chaos-api-2:8080",
+          "job": "exchange-api",
+          "pool": "exchange-lease",
+          "connections": 2.0
+        },
+        {
+          "instance": "chaos-bots:8080",
+          "job": "chaos-bots",
+          "pool": "HikariPool-1",
+          "connections": 10.0
+        },
+        {
+          "instance": "chaos-api-2:8080",
+          "job": "exchange-api",
+          "pool": "exchange-append",
+          "connections": 2.0
+        }
+      ],
+      "한도 도달": false
+    },
+    "로그": {
+      "줄 수": 0,
+      "예시": [],
+      "ok": true,
+      "error": null
+    },
+    "판정": {
+      "상태": "고갈 없음",
+      "표본 한도 도달": false,
+      "로그 고갈 줄": 0,
+      "로그 확인": true
+    },
+    "풀 상한(부하 전)": {
+      "풀": [
+        {
+          "instance": "chaos-api-1:8080",
+          "job": "exchange-api",
+          "pool": "HikariPool-1",
+          "max": 32.0
+        },
+        {
+          "instance": "chaos-api-1:8080",
+          "job": "exchange-api",
+          "pool": "exchange-lease",
+          "max": 2.0
+        },
+        {
+          "instance": "chaos-api-1:8080",
+          "job": "exchange-api",
+          "pool": "exchange-append",
+          "max": 14.0
+        },
+        {
+          "instance": "chaos-api-2:8080",
+          "job": "exchange-api",
+          "pool": "HikariPool-1",
+          "max": 32.0
+        },
+        {
+          "instance": "chaos-api-2:8080",
+          "job": "exchange-api",
+          "pool": "exchange-lease",
+          "max": 2.0
+        },
+        {
+          "instance": "chaos-bots:8080",
+          "job": "chaos-bots",
+          "pool": "HikariPool-1",
+          "max": 10.0
+        },
+        {
+          "instance": "chaos-api-2:8080",
+          "job": "exchange-api",
+          "pool": "exchange-append",
+          "max": 14.0
+        }
+      ],
+      "합": 106.0
+    },
+    "표본": [
+      {
+        "ok": true,
+        "error": null,
+        "max_connections": 200,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": 0,
+        "client_backends": 38,
+        "groups": [
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.9",
+            "n": 26,
+            "active": 0,
+            "idle": 25,
+            "idle_in_tx": 1,
+            "superuser": true
+          },
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.14",
+            "n": 10,
+            "active": 0,
+            "idle": 10,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "",
+            "usename": "exchange",
+            "client_addr": "172.18.0.10",
+            "n": 1,
+            "active": 0,
+            "idle": 1,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "psql",
+            "usename": "exchange",
+            "client_addr": null,
+            "n": 1,
+            "active": 1,
+            "idle": 0,
+            "idle_in_tx": 0,
+            "superuser": true
+          }
+        ],
+        "ts": "2026-09-15T10:25:14+09:00",
+        "hikari": [
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 11.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 1.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 3.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 8.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 1.0
+          },
+          {
+            "instance": "chaos-bots:8080",
+            "job": "chaos-bots",
+            "pool": "HikariPool-1",
+            "connections": 10.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 2.0
+          }
+        ],
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "max_connections": 200,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": 0,
+        "client_backends": 54,
+        "groups": [
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.9",
+            "n": 42,
+            "active": 6,
+            "idle": 36,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.14",
+            "n": 10,
+            "active": 0,
+            "idle": 10,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "",
+            "usename": "exchange",
+            "client_addr": "172.18.0.10",
+            "n": 1,
+            "active": 0,
+            "idle": 1,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "psql",
+            "usename": "exchange",
+            "client_addr": null,
+            "n": 1,
+            "active": 1,
+            "idle": 0,
+            "idle_in_tx": 0,
+            "superuser": true
+          }
+        ],
+        "ts": "2026-09-15T10:25:30+09:00",
+        "hikari": [
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 21.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 1.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 7.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 9.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 1.0
+          },
+          {
+            "instance": "chaos-bots:8080",
+            "job": "chaos-bots",
+            "pool": "HikariPool-1",
+            "connections": 10.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 2.0
+          }
+        ],
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "max_connections": 200,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": 0,
+        "client_backends": 54,
+        "groups": [
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.9",
+            "n": 42,
+            "active": 5,
+            "idle": 37,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.14",
+            "n": 10,
+            "active": 0,
+            "idle": 10,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "",
+            "usename": "exchange",
+            "client_addr": "172.18.0.10",
+            "n": 1,
+            "active": 0,
+            "idle": 1,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "psql",
+            "usename": "exchange",
+            "client_addr": null,
+            "n": 1,
+            "active": 1,
+            "idle": 0,
+            "idle_in_tx": 0,
+            "superuser": true
+          }
+        ],
+        "ts": "2026-09-15T10:25:44+09:00",
+        "hikari": [
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 22.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 1.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 7.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 9.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 1.0
+          },
+          {
+            "instance": "chaos-bots:8080",
+            "job": "chaos-bots",
+            "pool": "HikariPool-1",
+            "connections": 10.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 2.0
+          }
+        ],
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "max_connections": 200,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": 0,
+        "client_backends": 57,
+        "groups": [
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.9",
+            "n": 45,
+            "active": 7,
+            "idle": 38,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.14",
+            "n": 10,
+            "active": 0,
+            "idle": 10,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "",
+            "usename": "exchange",
+            "client_addr": "172.18.0.10",
+            "n": 1,
+            "active": 0,
+            "idle": 1,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "psql",
+            "usename": "exchange",
+            "client_addr": null,
+            "n": 1,
+            "active": 1,
+            "idle": 0,
+            "idle_in_tx": 0,
+            "superuser": true
+          }
+        ],
+        "ts": "2026-09-15T10:25:59+09:00",
+        "hikari": [
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 23.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 1.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 8.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 9.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-bots:8080",
+            "job": "chaos-bots",
+            "pool": "HikariPool-1",
+            "connections": 10.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 2.0
+          }
+        ],
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "max_connections": 200,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": 0,
+        "client_backends": 57,
+        "groups": [
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.9",
+            "n": 45,
+            "active": 3,
+            "idle": 40,
+            "idle_in_tx": 2,
+            "superuser": true
+          },
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.14",
+            "n": 10,
+            "active": 0,
+            "idle": 10,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "",
+            "usename": "exchange",
+            "client_addr": "172.18.0.10",
+            "n": 1,
+            "active": 0,
+            "idle": 1,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "psql",
+            "usename": "exchange",
+            "client_addr": null,
+            "n": 1,
+            "active": 1,
+            "idle": 0,
+            "idle_in_tx": 0,
+            "superuser": true
+          }
+        ],
+        "ts": "2026-09-15T10:26:14+09:00",
+        "hikari": [
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 23.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 1.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 8.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 9.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-bots:8080",
+            "job": "chaos-bots",
+            "pool": "HikariPool-1",
+            "connections": 10.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 2.0
+          }
+        ],
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "max_connections": 200,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": 0,
+        "client_backends": 56,
+        "groups": [
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.9",
+            "n": 44,
+            "active": 6,
+            "idle": 37,
+            "idle_in_tx": 1,
+            "superuser": true
+          },
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.14",
+            "n": 10,
+            "active": 0,
+            "idle": 10,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "",
+            "usename": "exchange",
+            "client_addr": "172.18.0.10",
+            "n": 1,
+            "active": 0,
+            "idle": 1,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "psql",
+            "usename": "exchange",
+            "client_addr": null,
+            "n": 1,
+            "active": 1,
+            "idle": 0,
+            "idle_in_tx": 0,
+            "superuser": true
+          }
+        ],
+        "ts": "2026-09-15T10:26:29+09:00",
+        "hikari": [
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 23.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 1.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 7.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 9.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-bots:8080",
+            "job": "chaos-bots",
+            "pool": "HikariPool-1",
+            "connections": 10.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 2.0
+          }
+        ],
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "max_connections": 200,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": 0,
+        "client_backends": 59,
+        "groups": [
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.9",
+            "n": 47,
+            "active": 5,
+            "idle": 40,
+            "idle_in_tx": 2,
+            "superuser": true
+          },
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.14",
+            "n": 10,
+            "active": 0,
+            "idle": 10,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "",
+            "usename": "exchange",
+            "client_addr": "172.18.0.10",
+            "n": 1,
+            "active": 0,
+            "idle": 1,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "psql",
+            "usename": "exchange",
+            "client_addr": null,
+            "n": 1,
+            "active": 1,
+            "idle": 0,
+            "idle_in_tx": 0,
+            "superuser": true
+          }
+        ],
+        "ts": "2026-09-15T10:26:45+09:00",
+        "hikari": [
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 24.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 8.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 9.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-bots:8080",
+            "job": "chaos-bots",
+            "pool": "HikariPool-1",
+            "connections": 10.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 2.0
+          }
+        ],
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "max_connections": 200,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": 0,
+        "client_backends": 59,
+        "groups": [
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.9",
+            "n": 47,
+            "active": 4,
+            "idle": 39,
+            "idle_in_tx": 4,
+            "superuser": true
+          },
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.14",
+            "n": 10,
+            "active": 0,
+            "idle": 10,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "",
+            "usename": "exchange",
+            "client_addr": "172.18.0.10",
+            "n": 1,
+            "active": 0,
+            "idle": 1,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "psql",
+            "usename": "exchange",
+            "client_addr": null,
+            "n": 1,
+            "active": 1,
+            "idle": 0,
+            "idle_in_tx": 0,
+            "superuser": true
+          }
+        ],
+        "ts": "2026-09-15T10:27:00+09:00",
+        "hikari": [
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 24.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 8.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 9.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-bots:8080",
+            "job": "chaos-bots",
+            "pool": "HikariPool-1",
+            "connections": 10.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 2.0
+          }
+        ],
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "max_connections": 200,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": 0,
+        "client_backends": 60,
+        "groups": [
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.9",
+            "n": 48,
+            "active": 7,
+            "idle": 41,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.14",
+            "n": 10,
+            "active": 0,
+            "idle": 10,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "",
+            "usename": "exchange",
+            "client_addr": "172.18.0.10",
+            "n": 1,
+            "active": 0,
+            "idle": 1,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "psql",
+            "usename": "exchange",
+            "client_addr": null,
+            "n": 1,
+            "active": 1,
+            "idle": 0,
+            "idle_in_tx": 0,
+            "superuser": true
+          }
+        ],
+        "ts": "2026-09-15T10:27:15+09:00",
+        "hikari": [
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 25.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 8.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 9.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-bots:8080",
+            "job": "chaos-bots",
+            "pool": "HikariPool-1",
+            "connections": 10.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 2.0
+          }
+        ],
+        "k6_alive": true
+      },
+      {
+        "ok": true,
+        "error": null,
+        "max_connections": 200,
+        "superuser_reserved_connections": 3,
+        "reserved_connections": 0,
+        "client_backends": 58,
+        "groups": [
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.9",
+            "n": 46,
+            "active": 2,
+            "idle": 44,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "PostgreSQL JDBC Driver",
+            "usename": "exchange",
+            "client_addr": "172.18.0.14",
+            "n": 10,
+            "active": 0,
+            "idle": 10,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "",
+            "usename": "exchange",
+            "client_addr": "172.18.0.10",
+            "n": 1,
+            "active": 0,
+            "idle": 1,
+            "idle_in_tx": 0,
+            "superuser": true
+          },
+          {
+            "application_name": "psql",
+            "usename": "exchange",
+            "client_addr": null,
+            "n": 1,
+            "active": 1,
+            "idle": 0,
+            "idle_in_tx": 0,
+            "superuser": true
+          }
+        ],
+        "ts": "2026-09-15T10:27:26+09:00",
+        "hikari": [
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 25.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-api-1:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 6.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "HikariPool-1",
+            "connections": 9.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-lease",
+            "connections": 2.0
+          },
+          {
+            "instance": "chaos-bots:8080",
+            "job": "chaos-bots",
+            "pool": "HikariPool-1",
+            "connections": 10.0
+          },
+          {
+            "instance": "chaos-api-2:8080",
+            "job": "exchange-api",
+            "pool": "exchange-append",
+            "connections": 2.0
+          }
+        ],
+        "k6_alive": false
+      }
+    ]
+  },
+  "표본 시계열": [
+    {
+      "접수/s": 16.62126280216559,
+      "수용거절/s": 0.0,
+      "락 보유 점유": 0.127705227576813,
+      "커밋 동시성": 0.08960908331321768,
+      "append 풀 대기": 0.0,
+      "ts": "2026-09-15T10:25:14+09:00",
+      "k6_alive": true
+    },
+    {
+      "접수/s": 51.58887528665276,
+      "수용거절/s": 101.04347696145201,
+      "락 보유 점유": 0.602661005329288,
+      "커밋 동시성": 0.32568705182327945,
+      "append 풀 대기": 0.0,
+      "ts": "2026-09-15T10:25:29+09:00",
+      "k6_alive": true
+    },
+    {
+      "접수/s": 101.47076572926186,
+      "수용거절/s": 213.7798736716267,
+      "락 보유 점유": 1.1278425230508604,
+      "커밋 동시성": 0.629730610324672,
+      "append 풀 대기": 0.0,
+      "ts": "2026-09-15T10:25:44+09:00",
+      "k6_alive": true
+    },
+    {
+      "접수/s": 146.36459249297403,
+      "수용거절/s": 317.5026595286125,
+      "락 보유 점유": 1.608364248315306,
+      "커밋 동시성": 0.8994333779375506,
+      "append 풀 대기": 0.0,
+      "ts": "2026-09-15T10:25:59+09:00",
+      "k6_alive": true
+    },
+    {
+      "접수/s": 197.25498310228292,
+      "수용거절/s": 422.6498379198565,
+      "락 보유 점유": 2.114785940828702,
+      "커밋 동시성": 1.2035371739085454,
+      "append 풀 대기": 0.0,
+      "ts": "2026-09-15T10:26:14+09:00",
+      "k6_alive": true
+    },
+    {
+      "접수/s": 201.42421159715158,
+      "수용거절/s": 418.5044054002793,
+      "락 보유 점유": 2.1520453757263307,
+      "커밋 동시성": 1.2122586127730743,
+      "append 풀 대기": 0.0,
+      "ts": "2026-09-15T10:26:29+09:00",
+      "k6_alive": true
+    },
+    {
+      "접수/s": 197.87967591794518,
+      "수용거절/s": 420.7722806412687,
+      "락 보유 점유": 2.183294754835373,
+      "커밋 동시성": 1.1935517272366831,
+      "append 풀 대기": 0.0,
+      "ts": "2026-09-15T10:26:44+09:00",
+      "k6_alive": true
+    },
+    {
+      "접수/s": 191.73405520975223,
+      "수용거절/s": 428.0911081607669,
+      "락 보유 점유": 2.279674103332931,
+      "커밋 동시성": 1.187561054623515,
+      "append 풀 대기": 0.0,
+      "ts": "2026-09-15T10:26:59+09:00",
+      "k6_alive": true
+    },
+    {
+      "접수/s": 190.04431263686052,
+      "수용거절/s": 429.8325775471145,
+      "락 보유 점유": 2.3049658322154594,
+      "커밋 동시성": 1.182182652102695,
+      "append 풀 대기": 0.0,
+      "ts": "2026-09-15T10:27:14+09:00",
+      "k6_alive": true
+    },
+    {
+      "접수/s": 189.28565270617446,
+      "수용거절/s": 419.1078848905978,
+      "락 보유 점유": 2.260597393382416,
+      "커밋 동시성": 1.1788204465058536,
+      "append 풀 대기": 0.0,
+      "ts": "2026-09-15T10:27:26+09:00",
+      "k6_alive": false
+    }
+  ],
+  "WAL 창": {
+    "error": null,
+    "초": 59.98511004447937,
+    "wal_sync 증가": 15081,
+    "쓰기 트랜잭션 증가": 37334,
+    "xact_commit 증가": 162730,
+    "WAL fsync/s": 251.41239198890082,
+    "쓰기 트랜잭션/s": 622.3877887748573,
+    "묶음 비": 2.475565280816922,
+    "묶음 비(xact_commit)": 10.790398514687356,
+    "WAL 바이트/fsync": 4293.712817452423,
+    "WAL fsync 1회(ms)": null,
+    "시작": {
+      "ok": true,
+      "error": null,
+      "epoch": 1789435519.479791,
+      "wal_sync": 13160,
+      "wal_bytes": 52098865,
+      "wal_sync_time_ms": 0,
+      "xact_commit": 78546,
+      "xid_next": 19135,
+      "stats_reset": "2026-09-15T01:22:04.282408+00:00",
+      "track_wal_io_timing": false,
+      "ts": "2026-09-15T10:25:19+09:00"
+    },
+    "끝": {
+      "ok": true,
+      "error": null,
+      "epoch": 1789435579.464901,
+      "wal_sync": 28241,
+      "wal_bytes": 116852348,
+      "wal_sync_time_ms": 0,
+      "xact_commit": 241276,
+      "xid_next": 56469,
+      "stats_reset": "2026-09-15T01:22:04.282408+00:00",
+      "track_wal_io_timing": false,
+      "ts": "2026-09-15T10:26:19+09:00"
+    }
+  },
+  "커밋 설정": {
+    "적용": {
+      "ok": true,
+      "error": null,
+      "요청": {
+        "commit_delay": 250,
+        "commit_siblings": 1
+      },
+      "명령": [
+        {
+          "sql": "ALTER SYSTEM SET commit_delay = 250",
+          "종료코드": 0,
+          "오류": "",
+          "ts": "2026-09-15T10:22:21+09:00"
+        },
+        {
+          "sql": "ALTER SYSTEM SET commit_siblings = 1",
+          "종료코드": 0,
+          "오류": "",
+          "ts": "2026-09-15T10:22:21+09:00"
+        },
+        {
+          "sql": "SELECT pg_reload_conf()",
+          "종료코드": 0,
+          "오류": "",
+          "ts": "2026-09-15T10:22:22+09:00"
+        }
+      ],
+      "확인": {
+        "ok": true,
+        "error": null,
+        "commit_delay": 250,
+        "commit_siblings": 1,
+        "출처": [
+          {
+            "name": "commit_delay",
+            "setting": "250",
+            "source": "configuration file",
+            "sourcefile": "/var/lib/postgresql/data/postgresql.auto.conf",
+            "pending_restart": false
+          },
+          {
+            "name": "commit_siblings",
+            "setting": "1",
+            "source": "configuration file",
+            "sourcefile": "/var/lib/postgresql/data/postgresql.auto.conf",
+            "pending_restart": false
+          }
+        ],
+        "ts": "2026-09-15T10:22:22+09:00",
+        "시도": 1
+      }
+    },
+    "유지": {
+      "ok": true,
+      "error": null,
+      "commit_delay": 250,
+      "commit_siblings": 1,
+      "출처": [
+        {
+          "name": "commit_delay",
+          "setting": "250",
+          "source": "configuration file",
+          "sourcefile": "/var/lib/postgresql/data/postgresql.auto.conf",
+          "pending_restart": false
+        },
+        {
+          "name": "commit_siblings",
+          "setting": "1",
+          "source": "configuration file",
+          "sourcefile": "/var/lib/postgresql/data/postgresql.auto.conf",
+          "pending_restart": false
+        }
+      ],
+      "ts": "2026-09-15T10:27:26+09:00"
+    },
+    "복구": {
+      "ok": true,
+      "error": null,
+      "명령": [
+        {
+          "sql": "ALTER SYSTEM RESET commit_delay",
+          "종료코드": 0,
+          "오류": "",
+          "ts": "2026-09-15T10:27:55+09:00"
+        },
+        {
+          "sql": "ALTER SYSTEM RESET commit_siblings",
+          "종료코드": 0,
+          "오류": "",
+          "ts": "2026-09-15T10:27:55+09:00"
+        },
+        {
+          "sql": "SELECT pg_reload_conf()",
+          "종료코드": 0,
+          "오류": "",
+          "ts": "2026-09-15T10:27:55+09:00"
+        }
+      ],
+      "확인": {
+        "ok": true,
+        "error": null,
+        "commit_delay": 0,
+        "commit_siblings": 5,
+        "출처": [
+          {
+            "name": "commit_delay",
+            "setting": "0",
+            "source": "default",
+            "sourcefile": null,
+            "pending_restart": false
+          },
+          {
+            "name": "commit_siblings",
+            "setting": "5",
+            "source": "default",
+            "sourcefile": null,
+            "pending_restart": false
+          }
+        ],
+        "ts": "2026-09-15T10:27:55+09:00",
+        "시도": 1
+      }
+    }
+  },
+  "메타": {
+    "시작": "2026-09-15T10:21:51+09:00",
+    "끝": "2026-09-15T10:27:55+09:00",
+    "run_id": "rtd25600",
+    "ENV": {
+      "SCALE_POOL": "32",
+      "SCALE_ORDER_INFLIGHT": "0",
+      "SCALE_QUERY_INFLIGHT": "0",
+      "SCALE_REQUERY_INFLIGHT": "0",
+      "SCALE_PG_CPUS": "4.0",
+      "SCALE_PG_MEM": "4g"
+    },
+    "CHAOS_APP_IMAGE": "exchange-chaos-app:adr0022-stage8-053e6a8",
+    "컨테이너 이미지": {
+      "chaos-api-1": {
+        "image_id": "sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4",
+        "config_image": "exchange-chaos-app:adr0022-stage8-053e6a8"
+      },
+      "chaos-api-2": {
+        "image_id": "sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4",
+        "config_image": "exchange-chaos-app:adr0022-stage8-053e6a8"
+      },
+      "chaos-bots": {
+        "image_id": "sha256:23d62038e517d9fd7eb53366b1bc7618c4ff550c01ba2eec3c46e7fd6a7ba2b4",
+        "config_image": "exchange-chaos-app:adr0022-stage8-053e6a8"
+      }
+    },
+    "하네스 커밋": "053e6a860556d06547b596726b51a256168ba7c0",
+    "compose sha256": {
+      "docker-compose.chaos.yml": "0ee1410792c5bf3b7a336e0e3f0ebd5461f3f929bbf4eed72f29815a40c29002",
+      "docker-compose.scale.yml": "126102467cb6422ddc8a1029518504b23a60ee755269c7da75f9d780fac6e46c"
+    },
+    "k6": {
+      "image": "grafana/k6:1.4.0",
+      "script": "calibrate.js",
+      "markets": [
+        "KRW-BTC",
+        "KRW-ETH",
+        "KRW-SOL",
+        "KRW-XRP",
+        "KRW-DOGE",
+        "KRW-ADA",
+        "KRW-TRX",
+        "KRW-LINK",
+        "KRW-DOT",
+        "KRW-MATIC",
+        "KRW-AVAX",
+        "KRW-ATOM"
+      ],
+      "duration": 130,
+      "bots_ops": 20,
+      "keys": 4,
+      "base_funding": "1000000",
+      "quote_funding": "1000000000",
+      "calibrate.js sha256": "403d9e8864621a55d70a2b96e083967fcdb9e90fdef086f64257e35ec6ab273a",
+      "order_flow.js sha256": "9cc10be18a13daf0190a3bb15d58c876f01cc0ae29d5699b1174833f114176f8"
+    },
+    "k6 로그": {
+      "path": "harness\\evidence\\k6-rt-d250-s1.log",
+      "sha256": "a0fc0f257fd47b6f308aa663374e31ccf0aa173a7c3269a31b76a1beffdb06c4"
+    }
+  }
+}
