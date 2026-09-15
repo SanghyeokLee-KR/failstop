@@ -1,0 +1,80 @@
+
+== E4 시작 runId=E4-20260915-141258 ==
+
+== warmup ==
+봇 OPS=40 적용(chaos-bots 재기동, settle 5s)
+체결 증분: 32 (누적 480)
+리더 감지: chaos-api-1 (config TARGET_NODE와 무관하게 실 리더 대상). standby 포트=28080
+
+== ⓐ 사전 권위 run ==
+사전 verdict=FAIL 위반합=1 old_epoch=1
+경고: 사전 run이 PASS가 아님. 배경 부하 안정 후 재실행 권장
+시계가드 통과: 스큐 48ms, 임계 2000ms, 왕복 123ms.
+
+== ⓑ 주입: docker kill ==
+T0=2026-09-15T05:13:40.4517577Z killed=chaos-api-1 trades_at_kill=510
+
+== ⓒ 관찰(개입 금지) ==
+T2(승격)=2026-09-15T05:13:48.3590132Z new_epoch=2
+T5(체결 재개)=2026-09-15T05:13:48.3770000Z first_trade_at=2026-09-15T05:13:48.377Z
+
+== ⓓ 드레인 + 사후 권위 run ==
+봇 정지(docker stop chaos-bots). 드레인 창 동안 신규 쓰기 없음
+봇 OPS=40 적용(chaos-bots 재기동, settle 0s)
+
+== ⓔ 판정·기록 ==
+
+── E4 증거 ─────────────────────────────
+verdict            : PASS
+RTO(체결 재개)     : 7.925 s (목표 < 30)
+epoch              : 1 -> 2
+자산합 위반(C01)   : 0
+중복 접수(C07/C07')  : 0
+중복 체결(C08)     : 0
+저널 gap(C05/C06)  : 0 / 0
+주문 유실(C13a)    : 0 (드레인 성립=True)
+RPO records        : 0
+failover_run_id    : 1
+────────────────────────────────────────
+
+증거 한정(컨테이너 E4):
+  C16 loadtest_acks 행수 : 0 (판정 대상 없음(이 주행 ACK 미적재). load-acks.ps1로 적재 후 재판정)
+  C17 recovery_runs 행수 : 2 (실데이터 대조)
+  RPO=0 판정 근거는 C05·C06·C13a 저널 무결 프록시. C16 실증은 CI 통합테스트 참조.
+
+harness.failover_runs 최근 행:
+1|E4|1|2|7.925|0|PASS
+
+invariant_checks 사후 run 위반 요약(run_id=E4-20260915-141258):
+C01_ASSET_CONSERVATION|t|0
+C02_BAL_VS_LEDGER|t|0
+C03_TXN_UNSEALED|t|0
+C05_CMD_GAPLESS|t|0
+C06_EVT_GAPLESS|t|0
+C07P_DUP_ORDER_JOURNAL|t|0
+C07_DUP_ORDER|t|0
+C08_DUP_FILL|t|0
+C09_TRADE_SEQ_EVENT_MATCH|t|0
+C10_ORDER_FILL_AGG|t|0
+C11_TRADE_ORPHAN|t|0
+C12_EVENT_ORPHAN|t|0
+C13A_ORDER_MATERIALIZED|t|0
+C13B_ORDER_JOURNALED|t|0
+C14_LOCKED_RESERVATION|t|0
+C15_DEFAULT_PARTITION|t|0
+C16_ACK_JOURNALED|t|0
+C17_REPLAY_DETERMINISM|t|0
+C18_FILL_PRICE_MAKER|t|0
+C19_ORDERBOOK_NONCROSS|t|0
+C20_ORDER_FEE_MATERIALIZED|t|0
+C21_EVENT_EMISSION_REGISTRY|t|0
+C22_FENCING_MONOTONIC|t|0
+C23_COUNTER_SEQ_CONSISTENCY|t|0
+C24_POSITION_COST_QTY|t|0
+C25_POSITION_COST_SANITY|t|0
+C26_CMD_BAND_HEADROOM|t|0
+C27_CMD_DEFAULT_PARTITION|t|0
+C28_CMD_LEGACY_AFTER_CUTOVER|t|0
+판정 파일: D:\dev\failstop\harness\scripts\..\evidence\chaos-runs\E4-20260915-141258.json (불변식 행 58)
+
+E4 PASS.

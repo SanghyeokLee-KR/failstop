@@ -1,0 +1,156 @@
+{
+ "래치": {
+  "ok": true,
+  "error": null,
+  "래치 행": [
+   {
+    "name": "command_seq",
+    "latched_at": "2026-09-15T05:10:44.245434+00:00",
+    "latched_by": "exchange"
+   }
+  ],
+  "ts": "2026-09-15T14:12:17+09:00"
+ },
+ "대역 행": {
+  "창": null,
+  "band_span": 1000000000000,
+  "마켓": [
+   {
+    "id": 1,
+    "symbol": "KRW-BTC",
+    "band_rows": 595,
+    "legacy_rows": 13
+   },
+   {
+    "id": 2,
+    "symbol": "KRW-ETH",
+    "band_rows": 488,
+    "legacy_rows": 0
+   },
+   {
+    "id": 3,
+    "symbol": "KRW-SOL",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 4,
+    "symbol": "KRW-XRP",
+    "band_rows": 338,
+    "legacy_rows": 0
+   },
+   {
+    "id": 5,
+    "symbol": "KRW-DOGE",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 6,
+    "symbol": "KRW-ADA",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 7,
+    "symbol": "KRW-TRX",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 8,
+    "symbol": "KRW-LINK",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 9,
+    "symbol": "KRW-DOT",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 10,
+    "symbol": "KRW-MATIC",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 11,
+    "symbol": "KRW-AVAX",
+    "band_rows": 0,
+    "legacy_rows": 0
+   },
+   {
+    "id": 12,
+    "symbol": "KRW-ATOM",
+    "band_rows": 0,
+    "legacy_rows": 0
+   }
+  ],
+  "error": null
+ },
+ "C28": {
+  "ok": true,
+  "error": null,
+  "band_span": 1000000000000,
+  "위반 행": 0,
+  "마켓": [
+   {
+    "market_id": 1,
+    "first_band_created_at": "2026-09-15T05:10:44.733318+00:00",
+    "legacy_after_band": 0
+   },
+   {
+    "market_id": 2,
+    "first_band_created_at": "2026-09-15T05:10:54.805259+00:00",
+    "legacy_after_band": 0
+   },
+   {
+    "market_id": 4,
+    "first_band_created_at": "2026-09-15T05:10:59.859529+00:00",
+    "legacy_after_band": 0
+   }
+  ]
+ },
+ "이벤트 대역": {
+  "ok": true,
+  "error": null,
+  "band_span": 1000000000000,
+  "max_band_index": 63,
+  "마켓": [
+   {
+    "market_id": 1,
+    "band_rows": 1047,
+    "legacy_rows": 0,
+    "first_band_market_seq": 1,
+    "legacy_after_band": 0,
+    "derivation_mismatch": 0
+   },
+   {
+    "market_id": 2,
+    "band_rows": 732,
+    "legacy_rows": 0,
+    "first_band_market_seq": 1,
+    "legacy_after_band": 0,
+    "derivation_mismatch": 0
+   },
+   {
+    "market_id": 4,
+    "band_rows": 719,
+    "legacy_rows": 0,
+    "first_band_market_seq": 1,
+    "legacy_after_band": 0,
+    "derivation_mismatch": 0
+   }
+  ],
+  "섞임 행": 0,
+  "파생 불일치 행": 0,
+  "확대 식별": {
+   "명세 확대": true,
+   "이벤트 행 마켓 수": 3,
+   "대역 행 없는 마켓": [],
+   "성립": true
+  }
+ }
+}

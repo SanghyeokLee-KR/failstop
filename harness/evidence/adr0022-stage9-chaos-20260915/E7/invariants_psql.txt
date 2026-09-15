@@ -1,0 +1,31 @@
+== C01 ASSET_CONSERVATION [CRITICAL] 자산별 원장 총합 = 0 ==
+== C02 BAL_VS_LEDGER [CRITICAL] balances 프로젝션 = 원장 재계산 ==
+== C03 TXN_UNSEALED [HIGH] 1분 초과 미봉인 거래 ==
+== C04 TXN_SEALED_UNBALANCED [CRITICAL] 봉인인데 불균형 ==
+== C05 CMD_JOURNAL_GAPLESS [CRITICAL] 명령 저널 무결(레거시 구간 전역 + 마켓 안 대역) ==
+== C06 EVENT_JOURNAL_GAPLESS [CRITICAL] 이벤트 저널 무결 ==
+== C07 DUP_CLIENT_ORDER [CRITICAL] 중복 주문 접수 0 (프로젝션 축) ==
+== C07P DUP_CLIENT_ORDER_JOURNAL [CRITICAL] 중복 주문 접수 0 (저널 축, NEW 한정) ==
+== C08 TRADE_SEQ_DUP [CRITICAL] 중복 체결 0 (trades.id 중복 + 레지스트리 1:1) ==
+== C09 TRADE_SEQ_EVENT_MATCH [HIGH] trades.id ⊆ event_journal(TRADE) ==
+== C10 ORDER_FILL_AGG [HIGH] 체결 합 = filled_qty (90일 지평) ==
+== C11 TRADE_ORPHAN [HIGH] 고아 체결 (maker/taker 주문 부재) ==
+== C12 EVENT_ORPHAN [HIGH] 고아 이벤트 (source_cmd_seq 부재) ==
+== C13a EVENT_ORDER_MATERIALIZED [CRITICAL, 정지 시점] NEW 명령 → orders 물질화 ==
+1000000000572
+== C13b ORDER_JOURNALED [CRITICAL] orders → 저널 존재 (저널 우회 쓰기 탐지) ==
+== C14 LOCKED_RESERVATION [HIGH] LOCKED 잔고 = 열린 주문 잔여 예약 합 ==
+== C15 DEFAULT_PARTITION [WARN] DEFAULT 파티션 유입 0 ==
+== C16 BOT_ACK_SUBSET [CRITICAL, 실험 한정] ACK 원장 ⊆ command_journal (RPO=0 외부 증거) ==
+== C17 REPLAY_DETERMINISM [CRITICAL] 최근 복구 재생 결정론 (matched=true) ==
+== C18 FILL_PRICE_MAKER [CRITICAL] 체결가 = maker 지정가 ==
+== C19 ORDERBOOK_NONCROSS [HIGH, 정지 시점] bestBid < bestAsk ==
+== C20 ORDER_FEE_MATERIALIZED [HIGH] orders 수수료 물질화 = trades 자기측 fee leg 합 ==
+== C21 EVENT_EMISSION_REGISTRY [CRITICAL] event_journal 대 방출 레지스트리 1:1 ==
+== C22 FENCING_MONOTONIC [CRITICAL, 권위 run 한정] fencing_token 비감소(시간 축 팔 + 마켓 안 팔) ==
+== C23 COUNTER_SEQ_CONSISTENCY [CRITICAL, 권위 run 한정] 채번 카운터 > 그 축의 저널 최대값 ==
+== C26 CMD_BAND_HEADROOM [HIGH] 명령 대역 잔여 10퍼센트 미만 마켓 0 ==
+== C27 CMD_DEFAULT_PARTITION [CRITICAL] command_journal DEFAULT 유입 0 ==
+== C28 CMD_LEGACY_AFTER_CUTOVER [CRITICAL] 마켓 안 첫 대역 행보다 늦은 레거시 행 0 ==
+== C24 POSITION_COST_QTY [WARN, 권위 run 한정] 원가 수량 보존 ==
+== C25 POSITION_COST_SANITY [WARN, 권위 run 한정] 원가 누산기 정합 ==
