@@ -168,5 +168,58 @@ class PromTextTest(unittest.TestCase):
         self.assertIsNone(rp.counter_delta(scrape(10, 5), broken, 'exchange_submit_count_total'))
 
 
+def wal(epoch, sync, xid, xact=0, wal_bytes=0, sync_ms=0.0, reset='2026-09-15T10:00:00+09:00', timing=False, ok=True):
+    if not ok:
+        return pgs.wal_counter_record(None, 'psql 종료코드 1')
+    return pgs.wal_counter_record({'epoch': epoch, 'wal_sync': sync, 'wal_bytes': wal_bytes, 'wal_sync_time_ms': sync_ms,
+                                   'stats_reset': reset, 'track_wal_io_timing': timing, 'xact_commit': xact,
+                                   'xid_next': xid}, None)
+
+
+class WalWindowTest(unittest.TestCase):
+    def test_rates_and_batch_ratio(self):
+        w = pgs.wal_window(wal(1000.0, 100, 5000, xact=9000, wal_bytes=10 ** 6),
+                           wal(1060.0, 700, 6800, xact=12600, wal_bytes=4 * 10 ** 6))
+        self.assertIsNone(w['error'])
+        self.assertEqual((w['초'], w['wal_sync 증가'], w['쓰기 트랜잭션 증가']), (60.0, 600, 1800))
+        self.assertEqual((w['WAL fsync/s'], w['쓰기 트랜잭션/s']), (10.0, 30.0))
+        self.assertEqual((w['묶음 비'], w['묶음 비(xact_commit)'], w['WAL 바이트/fsync']), (3.0, 6.0, 5000.0))
+        self.assertIsNone(w['WAL fsync 1회(ms)'])
+
+    def test_sync_time_needs_timing_on_both_ends(self):
+        on = pgs.wal_window(wal(0.0, 0, 0, timing=True), wal(60.0, 200, 400, sync_ms=500.0, timing=True))
+        self.assertEqual(on['WAL fsync 1회(ms)'], 2.5)
+        half = pgs.wal_window(wal(0.0, 0, 0), wal(60.0, 200, 400, sync_ms=500.0, timing=True))
+        self.assertIsNone(half['WAL fsync 1회(ms)'])
+
+    def test_failed_sample_is_not_zero(self):
+        w = pgs.wal_window(wal(0.0, 0, 0, ok=False), wal(60.0, 10, 10))
+        self.assertEqual(w['error'], 'WAL 표본 채집 실패')
+        self.assertIsNone(w['WAL fsync/s'])
+        self.assertIsNone(w['묶음 비'])
+
+    def test_reset_regression_or_empty_window_gives_no_values(self):
+        self.assertIsNotNone(pgs.wal_window(wal(0.0, 5, 10), wal(60.0, 20, 50, reset='later'))['error'])
+        w = pgs.wal_window(wal(0.0, 500, 10), wal(60.0, 20, 50))
+        self.assertIsNotNone(w['error'])
+        self.assertIsNone(w['wal_sync 증가'])
+        self.assertIsNotNone(pgs.wal_window(wal(60.0, 0, 0), wal(60.0, 10, 10))['error'])
+
+    def test_no_fsync_leaves_ratios_empty(self):
+        w = pgs.wal_window(wal(0.0, 5, 10), wal(60.0, 5, 70))
+        self.assertIsNone(w['error'])
+        self.assertEqual(w['WAL fsync/s'], 0.0)
+        self.assertIsNone(w['묶음 비'])
+
+    def test_record_rejects_non_numbers(self):
+        rec = pgs.wal_counter_record({'epoch': 1.0, 'wal_sync': None, 'wal_bytes': 1, 'wal_sync_time_ms': 0.0,
+                                      'stats_reset': None, 'track_wal_io_timing': False, 'xact_commit': 1,
+                                      'xid_next': True}, None)
+        self.assertFalse(rec['ok'])
+        self.assertIn('wal_sync', rec['error'])
+        self.assertIn('xid_next', rec['error'])
+        self.assertIsNone(rec['xact_commit'])
+
+
 if __name__ == '__main__':
     unittest.main()

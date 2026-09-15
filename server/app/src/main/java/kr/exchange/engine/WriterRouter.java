@@ -45,11 +45,6 @@ public final class WriterRouter {
     // 지연 생성을 직렬화한다. 같은 마켓의 첫 주문 둘이 동시에 오면 루프가 둘 생긴다.
     private final Object createLock = new Object();
     private volatile boolean started;
-    // 마지막 설치가 심은 마켓별 커서와, 커서 없는 마켓의 바닥(복구본의 스냅샷 seq). 그 뒤에 생기는 샤드는
-    // 자기 마켓 커서에서 출발한다. 0 에서 출발하면 갭 회수가 그 마켓 전 이력을 다시 읽고, 다른 마켓의
-    // 더 큰 seq 에서 출발하면 대역 채번에서 제 마켓의 새 명령을 커서 아래로 보고 버린다.
-    private volatile Map<Integer, Long> installedCursors = Map.of();
-    private volatile long installedFloor;
 
     public WriterRouter(LoopFactory factory) {
         this.factory = factory;
@@ -62,6 +57,9 @@ public final class WriterRouter {
      * 채워지고 저널도 처음에는 비어 있다. 통합 시험 여럿은 markets 를 아예 비운 채
      * 주문을 넣는다. 목록을 미리 요구하면 그 경로가 전부 막힌다.
      *
+     * 새 샤드의 엔진은 커서 0 에서 출발한다. 샤드가 없던 마켓은 이 노드가 설치한 상태에 그 마켓 명령이 없으므로 그 마켓
+     * 명령을 전부 적용해야 한다. 다른 마켓 커서나 스냅샷 seq 를 바닥으로 두면 대역 채번에서 그 아래 명령을 버린다.
+     *
      * 생성은 잠금 안에서만 한다. 같은 마켓의 첫 주문 둘이 동시에 오면 루프가 둘 생기고
      * 그러면 그 마켓에 라이터가 둘이라 단일 라이터 계약이 깨진다.
      */
@@ -73,10 +71,6 @@ public final class WriterRouter {
         synchronized (createLock) {
             return shards.computeIfAbsent(marketId, id -> {
                 Shard created = factory.create(id);
-                long start = installedCursors.getOrDefault(id, installedFloor);
-                if (start > 0) {
-                    created.engine().loadSnapshot(start, List.of());
-                }
                 if (started) {
                     created.loop().start();
                 }
@@ -113,8 +107,7 @@ public final class WriterRouter {
      * 커서는 마켓마다 복구본의 그 마켓 커서를 심는다. 전역 최댓값을 물려주면 대역 채번에서 낮은 대역
      * 마켓의 새 명령이 커서 아래로 보여 버려진다(ADR 0022 1-3(3)).
      *
-     * 복구 결과에 없는 마켓은 명령이 아직 없었던 마켓이다. 복구본의 바닥(스냅샷 seq, 없으면 0)에서
-     * 출발한다.
+     * 복구 결과에 없는 마켓은 복구본이 명령을 적용한 적이 없는 마켓이다. 이미 샤드가 있으면 커서 0 엔진을 설치한다.
      *
      * 북은 복사해서 담는다. 참조를 그대로 넘기면 복구본과 샤드 엔진이 같은 북을 공유하면서
      * 커서만 따로 들어, 한쪽이 전진해도 다른 쪽 커서가 멈춘 채로 남는다.
@@ -129,22 +122,14 @@ public final class WriterRouter {
                 s.loop().installEngine(fresh);
                 shards.put(marketId, new Shard(fresh, s.loop()));
             }
-            Map<Integer, Long> cursors = recovered.appliedSeqs();
-            long floor = recovered.floorSeq();
             for (Map.Entry<Integer, Shard> e : shards.entrySet()) {
                 if (recovered.markets().contains(e.getKey())) {
                     continue;
                 }
                 MatchingEngineImpl fresh = new MatchingEngineImpl();
-                long start = cursors.getOrDefault(e.getKey(), floor);
-                if (start > 0) {
-                    fresh.loadSnapshot(start, List.of());
-                }
                 e.getValue().loop().installEngine(fresh);
                 shards.put(e.getKey(), new Shard(fresh, e.getValue().loop()));
             }
-            installedCursors = cursors;
-            installedFloor = floor;
         }
     }
 

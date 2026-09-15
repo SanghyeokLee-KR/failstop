@@ -83,6 +83,8 @@ public class EngineRecovery {
     private final java.util.function.LongConsumer replayObserver;
     // 크래시 창 큐에서 마켓 안 created_at 이 seq 순서와 거꾸로 선 배치 수. 시계 역행의 흔적이다(ADR 0022 9-17).
     private final AtomicLong createdAtInversions = new AtomicLong();
+    // 스냅샷 시작 복구를 버리고 전량 재생한 횟수. 폴백은 가용성을 지키지만 결함의 신호다(ADR 0022 7단계).
+    private final AtomicLong snapshotFallbacks = new AtomicLong();
     // 재생 결과를 recovery_runs에 남긴다(C17 원천). null이면 기록하지 않는다. 테스트
     // 경로와 DB 없는 구성이 그대로 돌아야 하므로 선택적 협력자로 둔다.
     private kr.exchange.harness.RecoveryRunRecorder recoveryRecorder;
@@ -127,11 +129,16 @@ public class EngineRecovery {
         return createdAtInversions.get();
     }
 
+    /** 누적 스냅샷 폴백 수. 지표 exchange.recovery.snapshot_fallback 의 원천이다. */
+    public long snapshotFallbacks() {
+        return snapshotFallbacks.get();
+    }
+
     /**
-     * 스냅샷 로드 후 tail 재생(복구 RTO 설계 §3-b). fresh 엔진에 마켓마다 최신 채택 스냅샷을 적재하고
+     * 스냅샷 로드 후 tail 재생(복구 RTO 설계 §3-b). 마켓마다 최신 채택 스냅샷을 적재하고
      * 그 마켓에서 seq > 스냅샷 seq 만 재생해 tail 을 상한한다. 채택본이 없는 마켓은 0 에서 재생한다.
      * 버전·설정·checksum 불일치는 게이트가 폐기하므로 여기까지 오지 않는다(§3-b 단일 정본 규율).
-     * 로드는 fresh 마켓에만 허용된다(MatchingEngineImpl.loadMarketSnapshot 가드).
+     * engine 은 fresh 여야 한다(MatchingEngineImpl.loadMarketSnapshot 가드).
      */
     public ReplayResult recover(MatchingEngineImpl engine) {
         return recover(engine, java.time.Duration.ZERO);
@@ -162,33 +169,10 @@ public class EngineRecovery {
                                  boolean followerAllowed) {
         // 이벤트 커서 시작점을 여기서 유도하지 않는다. loadMarketSnapshot 이 마켓 커서를 그 마켓 스냅샷 seq 로
         // 세우고 재생이 engine.appliedSeq(marketId) 에서 커서를 연다. 호출자가 넘기면 다른 축 값이 들어갈 수 있다(ADR 0023 결정 2).
-        if (snapshotSource != null) {
-            Map<Integer, SnapshotSource.MarketLoaded> snaps = snapshotSource.loadLatestAdoptablePerMarket();
-            snaps.forEach((marketId, snap) -> engine.loadMarketSnapshot(marketId, snap.seq(), snap.book()));
-            if (!snaps.isEmpty()) {
-                log.info("스냅샷 채택(마켓별): {}", snaps.entrySet().stream()
-                        .map(e -> e.getKey() + "@" + e.getValue().seq()).toList());
-            }
-        }
-        long replayFrom = engine.lastAppliedSeq();
-        long replayStartedNs = System.nanoTime();
-        ReplayResult result;
-        try {
-            result = replayToCheckpointThenTail(engine, promotionWait, followerAllowed);
-        } catch (RuntimeException e) {
-            // 불일치를 남기고 다시 던진다. 이 행이 C17이 검출하는 대상이다. 예외만 던지고
-            // 기록을 안 남기면 재생이 깨진 사건이 표에 없어 C17이 통과한다.
-            if (recoveryRecorder != null) {
-                recoveryRecorder.recordMismatch(replayFrom, engine.lastAppliedSeq(),
-                        e.getClass().getSimpleName() + ": " + e.getMessage(),
-                        (System.nanoTime() - replayStartedNs) / 1_000_000L);
-            }
-            throw e;
-        }
-        if (recoveryRecorder != null) {
-            // 표시 전용 값이다. 마켓별 분해는 원천에 없다(DB 설계 §3.1 센티널 market_id 0).
-            recoveryRecorder.recordSuccess(replayFrom, result.lastAppliedSeq(),
-                    result.verifiedEvents(), (System.nanoTime() - replayStartedNs) / 1_000_000L);
+        ReplayResult result = snapshotSource == null ? null
+                : recoverFromSnapshots(engine, promotionWait, followerAllowed);
+        if (result == null) {
+            result = replayRecorded(engine, promotionWait, followerAllowed);
         }
         replayObserver.accept(result.replayedCommands());
         List<PendingBatch> pending = result.pendingBatches();
@@ -237,6 +221,77 @@ public class EngineRecovery {
     }
 
     /**
+     * 마켓마다 채택한 스냅샷을 새 엔진에 싣고 재생까지 마친 뒤 그 상태를 engine 으로 옮긴다. 채택본이 없거나 폴백하면
+     * null 이다.
+     *
+     * 새 엔진에서 도는 이유는 폴백이다. 적재나 재생이 실패해도 engine 이 손대지 않은 채 남아 스냅샷 없는 전량 재생을
+     * 그대로 탈 수 있다. 스냅샷은 저널 파생 최적화라 그 결함이 복구를 막으면 안 된다(ADR 0022 7단계).
+     */
+    private ReplayResult recoverFromSnapshots(MatchingEngineImpl engine, java.time.Duration promotionWait,
+                                              boolean followerAllowed) {
+        MatchingEngineImpl fromSnapshots = new MatchingEngineImpl();
+        Map<Integer, SnapshotSource.MarketLoaded> snaps;
+        try {
+            snaps = snapshotSource.loadLatestAdoptablePerMarket();
+            snaps.forEach((marketId, snap) -> fromSnapshots.loadMarketSnapshot(marketId, snap.seq(), snap.book()));
+        } catch (RuntimeException e) {
+            fallBackToFullReplay("스냅샷 적재 실패", e);
+            return null;
+        }
+        if (snaps.isEmpty()) {
+            return null;
+        }
+        log.info("스냅샷 채택(마켓별): {}", snaps.entrySet().stream()
+                .map(e -> e.getKey() + "@" + e.getValue().seq()).toList());
+        ReplayResult result;
+        try {
+            result = replayRecorded(fromSnapshots, promotionWait, followerAllowed);
+        } catch (RuntimeException e) {
+            if (!followerAllowed && !lease.isLeader()) {
+                // 리더 자격을 잃은 승격은 전량 재생으로도 끝까지 가지 못한다. 다음 승격이 새 epoch 로 다시 한다.
+                throw e;
+            }
+            fallBackToFullReplay("스냅샷 시작 재생 실패", e);
+            return null;
+        }
+        for (int marketId : fromSnapshots.markets()) {
+            engine.loadMarketSnapshot(marketId, fromSnapshots.appliedSeq(marketId), fromSnapshots.orderBook(marketId));
+        }
+        return result;
+    }
+
+    private void fallBackToFullReplay(String cause, RuntimeException e) {
+        snapshotFallbacks.incrementAndGet();
+        log.error("{}. 스냅샷 없이 전량 재생으로 폴백한다", cause, e);
+    }
+
+    /** 재생 한 벌을 돌리고 그 결과를 recovery_runs 에 남긴다(C17 원천). 예외는 기록한 뒤 그대로 던진다. */
+    private ReplayResult replayRecorded(MatchingEngineImpl engine, java.time.Duration promotionWait,
+                                        boolean followerAllowed) {
+        long replayFrom = engine.lastAppliedSeq();
+        long replayStartedNs = System.nanoTime();
+        ReplayResult result;
+        try {
+            result = replayToCheckpointThenTail(engine, promotionWait, followerAllowed);
+        } catch (RuntimeException e) {
+            // 불일치를 남기고 다시 던진다. 이 행이 C17이 검출하는 대상이다. 예외만 던지고
+            // 기록을 안 남기면 재생이 깨진 사건이 표에 없어 C17이 통과한다.
+            if (recoveryRecorder != null) {
+                recoveryRecorder.recordMismatch(replayFrom, engine.lastAppliedSeq(),
+                        e.getClass().getSimpleName() + ": " + e.getMessage(),
+                        (System.nanoTime() - replayStartedNs) / 1_000_000L);
+            }
+            throw e;
+        }
+        if (recoveryRecorder != null) {
+            // 표시 전용 전 마켓 통합 행이다(DB 설계 §3.1 센티널 market_id 0). 마켓별 구간은 재생 적용 로그에 남는다.
+            recoveryRecorder.recordSuccess(replayFrom, result.lastAppliedSeq(),
+                    result.verifiedEvents(), (System.nanoTime() - replayStartedNs) / 1_000_000L);
+        }
+        return result;
+    }
+
+    /**
      * 마켓별 두 단계 재생(ADR 0022 5-4). 1 단계는 마켓마다 bound(m) 까지 대조만 하고 2 단계는 그 초과분을
      * 재적재 대상으로 낸다.
      *
@@ -251,19 +306,23 @@ public class EngineRecovery {
     private ReplayResult replayToCheckpointThenTail(MatchingEngineImpl engine,
                                                     java.time.Duration promotionWait,
                                                     boolean followerAllowed) {
+        Map<Integer, Long> startCursors = engine.appliedSeqs();
+        Map<Integer, Long> appliedByMarket = new TreeMap<>();
         JournalCheckpoints bounds = replayService.materializedThroughByMarket(engine);
-        ReplayResult stable = verifyMarkets(engine, bounds);
+        ReplayResult stable = verifyMarkets(engine, bounds, appliedByMarket);
         log.info("재생 1단계(마켓별 물질화 경계 상한): 마켓 {}개, 적용 {}건, 대조 {}건",
                 bounds.bounds().size(), stable.replayedCommands(), stable.verifiedEvents());
 
         List<Integer> beyond = marketsBeyond(engine, replayService.journalHeads());
         if (beyond.isEmpty()) {
+            logAppliedByMarket(engine, startCursors, appliedByMarket);
             return stable;
         }
         if (!lease.isLeader() && !acquireLeadership(promotionWait)) {
             if (followerAllowed) {
                 log.info("리더 자격 없이 기동한다(팔로워). 체크포인트를 넘은 마켓 {} 는 catch-up 이 따라잡는다",
                         beyond);
+                logAppliedByMarket(engine, startCursors, appliedByMarket);
                 return stable;
             }
             throw new IllegalStateException(
@@ -274,7 +333,7 @@ public class EngineRecovery {
 
         // 리더 자격을 기다리는 사이 다른 노드가 창을 메웠을 수 있다. 경계를 다시 읽어 검증
         // 가능한 구간을 먼저 소진한다. 대조 없이 재적재로 넘기면 그 구간의 불일치를 놓친다.
-        ReplayResult more = verifyMarkets(engine, replayService.materializedThroughByMarket(engine));
+        ReplayResult more = verifyMarkets(engine, replayService.materializedThroughByMarket(engine), appliedByMarket);
         if (more.replayedCommands() > 0) {
             log.info("재생 1단계 연장(대기 중 메워진 구간): 적용 {}건", more.replayedCommands());
         }
@@ -292,25 +351,41 @@ public class EngineRecovery {
             }
             ReplayResult tail = replayService.replayTailMarket(engine, marketId, head.getValue());
             tailCommands += tail.replayedCommands();
+            appliedByMarket.merge(marketId, tail.replayedCommands(), Long::sum);
             queues.put(marketId, tail.pendingBatches());
         }
         List<PendingBatch> ordered = mergeByCreatedAt(queues);
         log.info("재생 2단계(마켓별 head 고정): 마켓 {}개, 적용 {}건, 재적재 대상 명령 {}건",
                 queues.size(), tailCommands, ordered.size());
+        logAppliedByMarket(engine, startCursors, appliedByMarket);
         return new ReplayResult(engine.lastAppliedSeq(),
                 stable.replayedCommands() + more.replayedCommands() + tailCommands,
                 stable.verifiedEvents() + more.verifiedEvents(), ordered);
     }
 
-    private ReplayResult verifyMarkets(MatchingEngineImpl engine, JournalCheckpoints bounds) {
+    private ReplayResult verifyMarkets(MatchingEngineImpl engine, JournalCheckpoints bounds,
+                                       Map<Integer, Long> appliedByMarket) {
         long replayed = 0;
         long verified = 0;
         for (int marketId : bounds.bounds().keySet()) {
             ReplayResult result = replayService.verifyToMarket(engine, marketId, bounds);
             replayed += result.replayedCommands();
             verified += result.verifiedEvents();
+            appliedByMarket.merge(marketId, result.replayedCommands(), Long::sum);
         }
         return new ReplayResult(engine.lastAppliedSeq(), replayed, verified, List.of());
+    }
+
+    /**
+     * 마켓마다 이번 재생의 커서 구간과 적용 명령 수를 남긴다. 스냅샷 경계 재생을 저널의 그 구간 명령 수와 대조하는
+     * 증거다. recovery_runs 는 전 마켓 통합 행이라 이 분해를 담지 않는다.
+     */
+    private static void logAppliedByMarket(MatchingEngineImpl engine, Map<Integer, Long> startCursors,
+                                           Map<Integer, Long> appliedByMarket) {
+        Map<Integer, String> byMarket = new TreeMap<>();
+        appliedByMarket.forEach((marketId, applied) -> byMarket.put(marketId,
+                startCursors.getOrDefault(marketId, 0L) + ".." + engine.appliedSeq(marketId) + " " + applied + "건"));
+        log.info("재생 적용(마켓별): {}", byMarket);
     }
 
     private static List<Integer> marketsBeyond(MatchingEngineImpl engine, Map<Integer, Long> heads) {

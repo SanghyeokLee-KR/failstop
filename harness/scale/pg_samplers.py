@@ -1,8 +1,9 @@
-"""주행 중 PostgreSQL 표본. ADR 0022 4·6단계 카운터 행 대기와 카오스 스택 연결 예산.
+"""주행 중 PostgreSQL 표본. ADR 0022 4·6단계 카운터 행 대기, 8단계 WAL 묶음 비, 카오스 스택 연결 예산.
 
 카운터 행 대기는 4단계 반증 팔이다(ADR 0022 7절 4단계). 같은 질의가 대기를 전역 카운터와 마켓 카운터로 가르고,
-6단계에서는 B6 의 전역 대기가 래치 무효 팔이다(stage6_judge.py). 연결 표본은 append 풀을 키운 판이
-max_connections 에 닿는지를 가른다. 닿으면 장애 판정과 섞지 않고 증거 불완전으로 뗀다.
+6단계에서는 B6 의 전역 대기가 래치 무효 팔이다(stage6_judge.py). WAL 계수기 두 표본의 차가 8단계 묶음 비다
+(stage8_judge.py). 연결 표본은 append 풀을 키운 판이 max_connections 에 닿는지를 가른다. 닿으면 장애 판정과
+섞지 않고 증거 불완전으로 뗀다.
 
 표본마다 ok 가 있다. 거짓이면 수치 칸이 None 이고 error 에 사유가 있다. 채집 실패를 0 으로 접지 않는다.
 
@@ -109,6 +110,20 @@ CONNECTION_KEYS = ('max_connections', 'superuser_reserved_connections', 'reserve
 # 서버가 연결을 거절할 때 남기는 FATAL 문구 둘.
 EXHAUSTION_PATTERNS = ('too many clients', 'remaining connection slots are reserved')
 
+# 동기 커밋 flush 는 xid 가 배정된 커밋만 요구하므로 쓰기 트랜잭션을 배정된 xid 수로 센다. pg_snapshot_xmax 는
+# xid 를 새로 배정하지 않는다. wal_sync 는 WAL fdatasync 호출 수다.
+WAL_COUNTERS_SQL = """
+SELECT json_build_object(
+  'epoch', extract(epoch FROM clock_timestamp()),
+  'wal_sync', w.wal_sync, 'wal_bytes', w.wal_bytes, 'wal_sync_time_ms', w.wal_sync_time,
+  'stats_reset', w.stats_reset, 'track_wal_io_timing', current_setting('track_wal_io_timing') = 'on',
+  'xact_commit', (SELECT xact_commit FROM pg_stat_database WHERE datname = current_database()),
+  'xid_next', pg_snapshot_xmax(pg_current_snapshot())::text::bigint)
+FROM pg_stat_wal w
+"""
+WAL_COUNTER_KEYS = ('wal_sync', 'wal_bytes', 'wal_sync_time_ms', 'xact_commit', 'xid_next')
+WAL_KEYS = ('epoch',) + WAL_COUNTER_KEYS + ('stats_reset', 'track_wal_io_timing')
+
 
 def now_iso():
     return datetime.now().astimezone().isoformat(timespec='seconds')
@@ -192,6 +207,59 @@ def sample_connections():
     rows = qv('sum by (job, instance, pool) (hikaricp_connections)')
     rec['hikari'] = None if rows is None else [dict(m, connections=v) for m, v in rows]
     return rec
+
+
+def is_number(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def wal_counter_record(parsed, error):
+    rec = {'ok': False, 'error': error}
+    rec.update({k: None for k in WAL_KEYS})
+    if parsed is None:
+        return rec
+    bad = [k for k in ('epoch',) + WAL_COUNTER_KEYS if not is_number(parsed.get(k))]
+    if bad:
+        rec['error'] = 'WAL 계수기 값이 수가 아니다: %s' % ', '.join(bad)
+        return rec
+    rec.update({k: parsed.get(k) for k in WAL_KEYS})
+    rec['ok'] = True
+    return rec
+
+
+def sample_wal_counters():
+    rec = wal_counter_record(*parse_json_row(*run_psql(WAL_COUNTERS_SQL)))
+    rec['ts'] = now_iso()
+    return rec
+
+
+def wal_window(before, after):
+    """두 WAL 표본 사이의 WAL fsync/s 와 묶음 비(쓰기 트랜잭션 수 / wal_sync). 표본 실패, 통계 초기화, 계수기 역행이면
+    값을 내지 않는다. wal_sync 증가가 0 이면 비율 칸만 비운다."""
+    out = {'error': None, '초': None, 'wal_sync 증가': None, '쓰기 트랜잭션 증가': None, 'xact_commit 증가': None,
+           'WAL fsync/s': None, '쓰기 트랜잭션/s': None, '묶음 비': None, '묶음 비(xact_commit)': None,
+           'WAL 바이트/fsync': None, 'WAL fsync 1회(ms)': None, '시작': before, '끝': after}
+    if not ((before or {}).get('ok') and (after or {}).get('ok')):
+        out['error'] = 'WAL 표본 채집 실패'
+        return out
+    if before['stats_reset'] != after['stats_reset']:
+        out['error'] = '창 안에서 pg_stat_wal 이 초기화됐다'
+        return out
+    secs = after['epoch'] - before['epoch']
+    d = {k: after[k] - before[k] for k in WAL_COUNTER_KEYS}
+    if secs <= 0 or any(v < 0 for v in d.values()):
+        out['error'] = '창 길이나 계수기 증가가 음수다'
+        return out
+    out.update({'초': secs, 'wal_sync 증가': d['wal_sync'], '쓰기 트랜잭션 증가': d['xid_next'],
+                'xact_commit 증가': d['xact_commit'], 'WAL fsync/s': d['wal_sync'] / secs,
+                '쓰기 트랜잭션/s': d['xid_next'] / secs})
+    if d['wal_sync'] > 0:
+        out['묶음 비'] = d['xid_next'] / d['wal_sync']
+        out['묶음 비(xact_commit)'] = d['xact_commit'] / d['wal_sync']
+        out['WAL 바이트/fsync'] = d['wal_bytes'] / d['wal_sync']
+        if before['track_wal_io_timing'] and after['track_wal_io_timing']:
+            out['WAL fsync 1회(ms)'] = d['wal_sync_time_ms'] / d['wal_sync']
+    return out
 
 
 def summarize_counter_samples(samples, key='counter_row_wait'):

@@ -1,0 +1,217 @@
+{
+ "단계": "pre",
+ "ts": "2026-09-15T13:10:01+09:00",
+ "대기": {
+  "제한(초)": 180,
+  "경과(초)": 72.0,
+  "표본": 15,
+  "충족": true,
+  "활성 마켓": [
+   1,
+   2,
+   4
+  ],
+  "스냅샷 없는 활성 마켓": [],
+  "error": null
+ },
+ "활성 마켓": {
+  "ok": true,
+  "error": null,
+  "마켓": [
+   {
+    "market_id": 1,
+    "rows": 321,
+    "head": 692
+   },
+   {
+    "market_id": 2,
+    "rows": 242,
+    "head": 693
+   },
+   {
+    "market_id": 4,
+    "rows": 130,
+    "head": 691
+   }
+  ]
+ },
+ "스냅샷": {
+  "ok": true,
+  "error": null,
+  "행": [
+   {
+    "snapshot_id": 1,
+    "market_id": 1,
+    "last_applied_seq": 560,
+    "fencing_epoch": 1,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 417,
+    "created_at": "2026-09-15T04:10:59.353336+00:00"
+   },
+   {
+    "snapshot_id": 2,
+    "market_id": 2,
+    "last_applied_seq": 607,
+    "fencing_epoch": 1,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 679,
+    "created_at": "2026-09-15T04:11:04.144047+00:00"
+   },
+   {
+    "snapshot_id": 3,
+    "market_id": 4,
+    "last_applied_seq": 654,
+    "fencing_epoch": 1,
+    "engine_version": "engine-m1",
+    "config_hash": "default",
+    "format_version": 1,
+    "state_bytes": 326,
+    "created_at": "2026-09-15T04:11:09.055603+00:00"
+   }
+  ]
+ },
+ "복구 실행": {
+  "ok": true,
+  "error": null,
+  "행": [
+   {
+    "id": 1,
+    "market_id": 0,
+    "replayed_from_seq": 0,
+    "replayed_to_seq": 0,
+    "fp_replay": "seq:0-0:ev:0",
+    "fp_live": "seq:0-0:ev:0",
+    "matched": true,
+    "duration_ms": 19,
+    "created_at": "2026-09-15T04:09:48.437007+00:00"
+   },
+   {
+    "id": 2,
+    "market_id": 0,
+    "replayed_from_seq": 0,
+    "replayed_to_seq": 0,
+    "fp_replay": "seq:0-0:ev:0",
+    "fp_live": "seq:0-0:ev:0",
+    "matched": true,
+    "duration_ms": 27,
+    "created_at": "2026-09-15T04:09:58.421054+00:00"
+   }
+  ]
+ },
+ "지표": {
+  "chaos-api-1": {
+   "port": 18080,
+   "ok": true,
+   "error": null,
+   "줄": [
+    "exchange_journal_band_remaining{market=\"1\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"1\",name=\"event_seq\"} 9999824.0",
+    "exchange_journal_band_remaining{market=\"10\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"10\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"11\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"11\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"12\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"12\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"2\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"2\",name=\"event_seq\"} 9999918.0",
+    "exchange_journal_band_remaining{market=\"3\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"3\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"4\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"4\",name=\"event_seq\"} 9999969.0",
+    "exchange_journal_band_remaining{market=\"5\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"5\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"6\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"6\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"7\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"7\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"8\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"8\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_band_remaining{market=\"9\",name=\"command_seq\"} 9.99999999999E11",
+    "exchange_journal_band_remaining{market=\"9\",name=\"event_seq\"} 9999999.0",
+    "exchange_journal_replay_commands_total 0.0",
+    "exchange_recovery_reinject_created_at_inversions_total 0.0",
+    "exchange_recovery_snapshot_fallback_total 0.0",
+    "exchange_snapshot_captured_total{market=\"1\"} 1.0",
+    "exchange_snapshot_captured_total{market=\"2\"} 1.0",
+    "exchange_snapshot_captured_total{market=\"4\"} 1.0",
+    "exchange_snapshot_dropped_total{market=\"1\"} 0.0",
+    "exchange_snapshot_dropped_total{market=\"2\"} 0.0",
+    "exchange_snapshot_dropped_total{market=\"4\"} 0.0",
+    "exchange_snapshot_last_persisted_seq{market=\"1\"} 560.0",
+    "exchange_snapshot_last_persisted_seq{market=\"2\"} 607.0",
+    "exchange_snapshot_last_persisted_seq{market=\"4\"} 654.0",
+    "exchange_snapshot_persist_failed_total{market=\"1\"} 0.0",
+    "exchange_snapshot_persist_failed_total{market=\"2\"} 0.0",
+    "exchange_snapshot_persist_failed_total{market=\"4\"} 0.0"
+   ]
+  },
+  "chaos-api-2": {
+   "port": 28080,
+   "ok": true,
+   "error": null,
+   "줄": [
+    "exchange_journal_replay_commands_total 0.0",
+    "exchange_recovery_reinject_created_at_inversions_total 0.0",
+    "exchange_recovery_snapshot_fallback_total 0.0"
+   ]
+  }
+ },
+ "복구 로그": {
+  "chaos-api-1": {
+   "ok": true,
+   "error": null,
+   "줄": [
+    {
+     "ts": "2026-09-15T04:09:48.414790670Z",
+     "text": "2026-09-15T04:09:48.414Z  INFO 1 --- [exchange] [           main] kr.exchange.config.EngineConfig          : 명령 채번 축: 전역 (journal_cutover command_seq 래치 없음)"
+    },
+    {
+     "ts": "2026-09-15T04:09:48.431198536Z",
+     "text": "2026-09-15T04:09:48.430Z  INFO 1 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 재생 1단계(마켓별 물질화 경계 상한): 마켓 0개, 적용 0건, 대조 0건"
+    },
+    {
+     "ts": "2026-09-15T04:09:48.435422459Z",
+     "text": "2026-09-15T04:09:48.435Z  INFO 1 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 재생 적용(마켓별): {}"
+    },
+    {
+     "ts": "2026-09-15T04:09:48.473423666Z",
+     "text": "2026-09-15T04:09:48.473Z  INFO 1 --- [exchange] [ngine-promotion] k.exchange.engine.PromotionCoordinator   : 승격 재생 생략(모든 마켓 head 도달), 라이터에 설치: epoch=1, 마켓 커서={}, head={}"
+    }
+   ]
+  },
+  "chaos-api-2": {
+   "ok": true,
+   "error": null,
+   "줄": [
+    {
+     "ts": "2026-09-15T04:09:58.388281645Z",
+     "text": "2026-09-15T04:09:58.387Z  INFO 1 --- [exchange] [           main] kr.exchange.config.EngineConfig          : 명령 채번 축: 전역 (journal_cutover command_seq 래치 없음)"
+    },
+    {
+     "ts": "2026-09-15T04:09:58.412021099Z",
+     "text": "2026-09-15T04:09:58.411Z  INFO 1 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 재생 1단계(마켓별 물질화 경계 상한): 마켓 0개, 적용 0건, 대조 0건"
+    },
+    {
+     "ts": "2026-09-15T04:09:58.418419337Z",
+     "text": "2026-09-15T04:09:58.417Z  INFO 1 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 재생 적용(마켓별): {}"
+    }
+   ]
+  }
+ },
+ "스냅샷 설정 환경변수": {
+  "chaos-api-1": {
+   "ok": true,
+   "error": null,
+   "값": {}
+  },
+  "chaos-api-2": {
+   "ok": true,
+   "error": null,
+   "값": {}
+  }
+ }
+}

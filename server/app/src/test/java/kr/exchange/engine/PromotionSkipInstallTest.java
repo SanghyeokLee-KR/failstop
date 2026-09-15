@@ -2,6 +2,7 @@ package kr.exchange.engine;
 
 import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.MatchingEngineImpl;
+import kr.exchange.engine.core.OrderBookImpl;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.engine.core.SingleWriterLoop;
 import kr.exchange.engine.core.SnapshotCodec;
@@ -199,7 +200,7 @@ class PromotionSkipInstallTest {
                 "재적용이 레스팅 잔량을 다시 깎아 체결이 중복으로 났다");
 
         MatchingEngineImpl expected = new MatchingEngineImpl();
-        expected.loadSnapshot(7, List.of(SnapshotCodec.decode(bookBefore)));
+        expected.loadMarketSnapshot(MARKET, 7, SnapshotCodec.decode(bookBefore));
         expected.apply(journal.get(journal.size() - 1));
         assertArrayEquals(SnapshotCodec.encode(expected.orderBook(MARKET)),
                 SnapshotCodec.encode(router.engine(MARKET).orderBook(MARKET)),
@@ -246,7 +247,7 @@ class PromotionSkipInstallTest {
     }
 
     @Test
-    void 승격_이후_생긴_마켓은_설치_진행도에서_출발한다() throws Exception {
+    void 승격_이후_생긴_마켓은_커서_0_에서_출발한다() throws Exception {
         MatchingEngineImpl global = new MatchingEngineImpl();
         apply(global, buy(1, 1, "100", "1"));
 
@@ -254,18 +255,21 @@ class PromotionSkipInstallTest {
         router.installFrom(global);
         router.startAll();
 
-        // 부팅 복구본에 없던 마켓이다. 다른 마켓의 커서가 아니라 복구본의 바닥(여기서는 0)에서 출발한다.
+        // 부팅 복구본에 없던 마켓이다. 다른 마켓의 커서가 아니라 0 에서 출발한다.
         assertEquals(1, router.engine(MARKET).appliedSeq(MARKET));
         assertEquals(0, router.engine(2).appliedSeq(2),
                 "지연 생성 샤드가 다른 마켓의 커서에서 출발한다");
         router.stopAll();
 
+        // 스냅샷을 실은 복구본에서도 같다. 스냅샷 seq 를 바닥으로 받으면 대역 채번에서 그 아래 명령을 버린다(ADR 0022 7단계).
+        long band = 1_000_000_000_000L;
         MatchingEngineImpl snapshotted = new MatchingEngineImpl();
-        snapshotted.loadSnapshot(5, List.of());
+        snapshotted.loadMarketSnapshot(12, 12 * band + 5, new OrderBookImpl(12));
         WriterRouter fromSnapshot = router();
         fromSnapshot.installFrom(snapshotted);
-        assertEquals(5, fromSnapshot.engine(3).appliedSeq(3),
-                "지연 생성 샤드가 복구본의 스냅샷 바닥에서 출발하지 않는다. 0 이면 그 마켓 전 이력을 회수한다");
+        assertEquals(12 * band + 5, fromSnapshot.engine(12).appliedSeq(12), "스냅샷 마켓 커서가 설치되지 않았다");
+        assertEquals(0, fromSnapshot.engine(3).appliedSeq(3),
+                "지연 생성 샤드가 복구본의 스냅샷 seq 를 바닥으로 받았다");
     }
 
     @Test

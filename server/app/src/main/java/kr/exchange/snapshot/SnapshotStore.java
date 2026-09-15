@@ -1,5 +1,6 @@
 package kr.exchange.snapshot;
 
+import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.core.OrderBookImpl;
 import kr.exchange.engine.core.SnapshotCodec;
 import org.slf4j.Logger;
@@ -16,9 +17,8 @@ import java.util.TreeMap;
  * snapshots 테이블 읽기·쓰기(복구 RTO 설계 §3-b). append-only(V1 트리거)라 UPDATE·DELETE가
  * 없고, 손상·구식 스냅샷은 삭제가 아니라 채택 게이트에서 무시한다.
  *
- * 쓰기는 한 번에 여러 마켓 행을 단일 트랜잭션으로 INSERT 한다. 읽기는 세트로 묶지 않는다. 마켓마다
- * 최신 채택본을 따로 고르므로 한 마켓의 손상이 다른 마켓의 채택을 끌어내리지 않는다(ADR 0022 5-4).
- * 마켓 커서가 마켓마다 따로라 서로 다른 seq 의 마켓 스냅샷을 한 엔진에 실어도 재생이 성립한다.
+ * 행의 last_applied_seq 는 그 마켓의 엔진 커서다. 마켓마다 최신 채택본을 따로 고르므로 한 마켓의 손상이 다른 마켓의
+ * 채택을 끌어내리지 않고, 서로 다른 seq 의 마켓 스냅샷을 한 엔진에 실어도 재생이 성립한다(ADR 0022 5-4, 7단계).
  *
  * 채택 게이트: format_version·engine_version·config_hash가 현재 런타임 값과 일치하고, 디코딩한
  * 북의 마켓과 state_checksum이 행과 일치해야 한다. 어긋나면 그 마켓의 그 seq 를 폐기하고 그 마켓의
@@ -27,6 +27,10 @@ import java.util.TreeMap;
 public class SnapshotStore implements SnapshotSource {
 
     private static final Logger log = LoggerFactory.getLogger(SnapshotStore.class);
+
+    // 스냅샷도 엔진 기원 쓰기다(CLAUDE.md 14절). 커밋까지 리스 행을 쥐어 승격이 이 커밋을 기다리므로
+    // 구 epoch 행이 새 epoch 게시 뒤에 커밋되지 않는다.
+    private static final String ASSERT_AND_LOCK_SQL = "SELECT assert_and_lock_leader(?, ?)";
 
     private static final String INSERT_SQL = """
             INSERT INTO snapshots
@@ -48,13 +52,21 @@ public class SnapshotStore implements SnapshotSource {
         this.configHash = configHash;
     }
 
-    /** 여러 마켓 행을 단일 트랜잭션으로 적재한다. 워커 스레드(라이터 밖)에서만 호출한다. */
-    public void persist(long lastAppliedSeq, long fencingEpoch, List<MarketState> markets) {
+    /**
+     * 마켓 행들을 한 트랜잭션으로 적재한다. 워커 스레드(라이터 밖)에서만 호출한다.
+     *
+     * leader 는 캡처 시점의 리더다. 그 뒤 리더십이 바뀌었으면 fencing 거부 예외로 끝나고 행이 남지 않는다.
+     */
+    public void persist(LeaderIdentity leader, List<MarketState> markets) {
         tx.executeWithoutResult(status -> {
+            long epoch = jdbc.sql(ASSERT_AND_LOCK_SQL)
+                    .params(leader.holder(), leader.epoch())
+                    .query(Long.class)
+                    .single();
             for (MarketState m : markets) {
                 jdbc.sql(INSERT_SQL)
-                        .params((short) m.marketId(), lastAppliedSeq, m.state(), m.checksum(),
-                                engineVersion, configHash, SnapshotCodec.formatVersion(), fencingEpoch)
+                        .params((short) m.marketId(), m.seq(), m.state(), m.checksum(),
+                                engineVersion, configHash, SnapshotCodec.formatVersion(), epoch)
                         .update();
             }
         });
@@ -129,8 +141,8 @@ public class SnapshotStore implements SnapshotSource {
         return Optional.ofNullable(adopted);
     }
 
-    /** 마켓 하나의 직렬화 스냅샷. 라이터 스레드가 인코딩해 워커로 넘긴다. */
-    public record MarketState(int marketId, byte[] state, long checksum) {
+    /** 마켓 하나의 직렬화 스냅샷. seq 는 그 마켓의 엔진 커서이고 행의 last_applied_seq 가 된다. */
+    public record MarketState(int marketId, long seq, byte[] state, long checksum) {
     }
 
     private record Row(byte[] state, long checksum,

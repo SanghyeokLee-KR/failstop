@@ -1,8 +1,14 @@
 package kr.exchange.harness;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -30,6 +36,7 @@ import static kr.exchange.harness.InvariantCheck.C05_CMD_GAPLESS;
 import static kr.exchange.harness.InvariantCheck.C15_DEFAULT_PARTITION;
 import static kr.exchange.harness.InvariantCheck.C22_FENCING_MONOTONIC;
 import static kr.exchange.harness.InvariantCheck.C23_COUNTER_SEQ_CONSISTENCY;
+import static kr.exchange.harness.InvariantCheck.C26_CMD_BAND_HEADROOM;
 import static kr.exchange.harness.InvariantCheck.C27_CMD_DEFAULT_PARTITION;
 import static kr.exchange.harness.InvariantCheck.C28_CMD_LEGACY_AFTER_CUTOVER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -99,7 +106,7 @@ class InvariantBandAxisIntegrationTest {
 
     private static final List<InvariantCheck> BAND_AXIS_CHECKS = List.of(
             C05_CMD_GAPLESS, C15_DEFAULT_PARTITION, C22_FENCING_MONOTONIC,
-            C23_COUNTER_SEQ_CONSISTENCY, C27_CMD_DEFAULT_PARTITION, C28_CMD_LEGACY_AFTER_CUTOVER);
+            C23_COUNTER_SEQ_CONSISTENCY, C26_CMD_BAND_HEADROOM, C27_CMD_DEFAULT_PARTITION, C28_CMD_LEGACY_AFTER_CUTOVER);
 
     private static final OffsetDateTime T0 = OffsetDateTime.of(2026, 9, 1, 0, 0, 0, 0, ZoneOffset.UTC);
 
@@ -524,6 +531,100 @@ class InvariantBandAxisIntegrationTest {
         }
     }
 
+    // ── 대역 여유(C26, V45) ──────────────────────────────────────────────
+
+    /** 명령 축 잔여가 대역의 10퍼센트 아래인 마켓만 센다. 정확히 10퍼센트는 위반이 아니고 이벤트 축 소진은 세지 않는다. */
+    @Test
+    void c26CountsCommandMarketsBelowTenPercentHeadroom() throws Exception {
+        inRollback(conn -> {
+            assertEquals(2, queryLong(conn, "SELECT count(*) FROM v_journal_band_headroom WHERE name = 'command_seq'"),
+                    "마켓 1·2 명령 축 행이 뷰에 없어 판정이 공허하다");
+            assertEquals(0, eval(conn, C26_CMD_BAND_HEADROOM));
+
+            setMarketCounter(conn, 1, span - span / 10);
+            assertEquals(span / 10, remaining(conn, "command_seq", 1));
+            assertEquals(0, eval(conn, C26_CMD_BAND_HEADROOM), "잔여가 정확히 10퍼센트인 마켓을 셈");
+
+            setMarketCounter(conn, 1, span - span / 10 + 1);
+            assertEquals(1, eval(conn, C26_CMD_BAND_HEADROOM), "잔여 10퍼센트 미만 마켓을 놓침");
+
+            setMarketCounter(conn, 2, span);
+            assertEquals(0, remaining(conn, "command_seq", 2), "마지막 번호까지 쓴 마켓의 잔여가 0 이 아니다");
+            assertEquals(2, eval(conn, C26_CMD_BAND_HEADROOM));
+
+            long eventSpan = queryLong(conn, "SELECT band_span FROM journal_band_spec WHERE name = 'event_seq'");
+            assertEquals(1, update(conn, "UPDATE market_journal_counters SET next_value = " + eventSpan
+                    + " WHERE market_id = 1 AND name = 'event_seq'"));
+            assertEquals(0, remaining(conn, "event_seq", 1));
+            assertEquals(2, eval(conn, C26_CMD_BAND_HEADROOM), "이벤트 축 소진을 C26 이 셈");
+        });
+    }
+
+    /** 뷰가 명세표의 축을 모두 덮고 카운터 행마다 한 행이며 앱·하네스 롤이 읽을 수 있다. */
+    @Test
+    void bandHeadroomViewCoversEveryAxisAndGrantsReadRoles() throws Exception {
+        try (Connection conn = open(POSTGRES.getJdbcUrl())) {
+            long counters = queryLong(conn, "SELECT count(*) FROM market_journal_counters");
+            assertTrue(counters > 0, "카운터 행이 없어 뷰 판정이 공허하다");
+            assertEquals(counters, queryLong(conn, "SELECT count(*) FROM v_journal_band_headroom"));
+            assertEquals(queryLong(conn, "SELECT count(*) FROM journal_band_spec"),
+                    queryLong(conn, "SELECT count(DISTINCT name) FROM v_journal_band_headroom"), "뷰에 빠진 축이 있다");
+            for (String role : List.of("app_role", "harness_role")) {
+                assertEquals(1, queryLong(conn, "SELECT CASE WHEN has_table_privilege('" + role
+                        + "', 'v_journal_band_headroom', 'SELECT') THEN 1 ELSE 0 END"), role + " 에 뷰 읽기 권한이 없다");
+            }
+        }
+    }
+
+    @Test
+    void threeCopiesAgreeOnLowCommandBandHeadroom() throws Exception {
+        String db = "par_c26";
+        try (Connection conn = open(createDatabase(db))) {
+            insert(conn, legacyAxis());
+            setGlobalCounter(conn, 9);
+            assertLegacyAxis(conn, 8);
+            setMarketCounter(conn, 2, span - 1);
+            assertEquals(1, eval(conn, C26_CMD_BAND_HEADROOM));
+
+            Map<InvariantCheck, Map<String, Long>> arms = assertThreeCopiesAgree(conn, db);
+            assertEquals(Map.of("2", 1L), arms.get(C26_CMD_BAND_HEADROOM));
+            BAND_AXIS_CHECKS.stream()
+                    .filter(check -> check != C26_CMD_BAND_HEADROOM)
+                    .forEach(check -> assertEquals(Map.of(), arms.get(check), check.name()));
+        }
+    }
+
+    /** 상시 run 이 C26 을 평가하고 게이지 exchange.journal.band.remaining 을 뷰의 remaining 으로 축·마켓마다 싣는다. */
+    @Test
+    void scheduledRunRefreshesBandRemainingGaugeFromView() throws Exception {
+        String url = createDatabase("gauge_band");
+        try (Connection conn = open(url)) {
+            setMarketCounter(conn, 1, 42);
+        }
+        DriverManagerDataSource ds = new DriverManagerDataSource(url, POSTGRES.getUsername(), POSTGRES.getPassword());
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        InvariantVerifier verifier = new InvariantVerifier(JdbcClient.create(ds),
+                new TransactionTemplate(new JdbcTransactionManager(ds)), new ObjectMapper(), registry);
+
+        List<InvariantResult> results = verifier.runScheduled();
+
+        assertTrue(results.stream().anyMatch(r -> r.check() == C26_CMD_BAND_HEADROOM && r.ok()),
+                "상시 run 이 C26 을 평가하지 않았다");
+        assertEquals(4, registry.get("exchange.journal.band.remaining").gauges().size(), "축 둘 x 마켓 둘");
+        assertEquals((double) (span - 42), registry.get("exchange.journal.band.remaining")
+                .tags("name", "command_seq", "market", "1").gauge().value());
+        try (Connection conn = open(url)) {
+            long eventSpan = queryLong(conn, "SELECT band_span FROM journal_band_spec WHERE name = 'event_seq'");
+            assertEquals((double) (eventSpan - 1), registry.get("exchange.journal.band.remaining")
+                    .tags("name", "event_seq", "market", "2").gauge().value());
+        }
+    }
+
+    private static long remaining(Connection conn, String name, int market) throws SQLException {
+        return queryLong(conn, "SELECT remaining FROM v_journal_band_headroom WHERE name = '" + name
+                + "' AND market_id = " + market);
+    }
+
     // ── 데이터 ───────────────────────────────────────────────────────────
 
     /** seq 1..n, 마켓 1·2 교대, epoch 1, created_at 은 seq 초. */
@@ -710,7 +811,7 @@ class InvariantBandAxisIntegrationTest {
         return sections;
     }
 
-    /** 첫 열(팔, 파티션 이름, C28 은 마켓 id)별 값. C05 는 gaps 열 합, C15·C27 은 rows 열 합, C22·C23·C28 은 행 수다. */
+    /** 첫 열(팔, 파티션 이름, C26·C28 은 마켓 id)별 값. C05 는 gaps 열 합, C15·C27 은 rows 열 합, C22·C23·C26·C28 은 행 수다. */
     private static Map<String, Long> invariantsArms(InvariantCheck check, List<String[]> rows) {
         Map<String, Long> arms = new HashMap<>();
         for (String[] f : rows) {
@@ -733,7 +834,7 @@ class InvariantBandAxisIntegrationTest {
                             check.name() + " 행 형식: " + String.join("|", f));
                     yield 1;
                 }
-                case C28_CMD_LEGACY_AFTER_CUTOVER -> {
+                case C26_CMD_BAND_HEADROOM, C28_CMD_LEGACY_AFTER_CUTOVER -> {
                     assertEquals(4, f.length, check.name() + " 행 형식: " + String.join("|", f));
                     assertTrue(f[0].matches("\\d+"), check.name() + " 행 형식: " + String.join("|", f));
                     yield 1;

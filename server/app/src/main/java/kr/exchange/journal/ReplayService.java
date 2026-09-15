@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 /**
  * 기동 재생(DB 설계 §5.5 STEP2, M1-2 범위: 스냅샷 없이 seq 0부터 전역 단일 패스).
@@ -85,15 +84,11 @@ public class ReplayService {
     }
 
     /**
-     * 엔진의 마켓 커서로 구한 마켓별 경계. 저널에 명령이 있는데 엔진에 커서가 없는 마켓은 엔진의 바닥을 넘긴다.
-     * 바닥을 넘기지 않으면 경계 탐색이 스냅샷 아래를 다시 훑는다(ADR 0023 결정 2).
+     * 엔진의 마켓 커서로 구한 마켓별 경계(ADR 0023 결정 2). 엔진에 커서가 없는 마켓은 넘기지 않는다. 판독기가 저널에 명령이
+     * 있는 마켓을 더하고 그 커서를 0 으로 연다. 마켓 사이에 통하는 바닥은 없다(ADR 0022 7단계).
      */
     public JournalCheckpoints materializedThroughByMarket(MatchingEngineImpl engine) {
-        Map<Integer, Long> cursors = new TreeMap<>(engine.appliedSeqs());
-        for (int marketId : journalHeads().keySet()) {
-            cursors.putIfAbsent(marketId, engine.appliedSeq(marketId));
-        }
-        return materializedThroughByMarket(cursors);
+        return materializedThroughByMarket(engine.appliedSeqs());
     }
 
     /** 마켓별 명령 저널 head. 2 단계 상한과 초과분 판정에 쓴다. */

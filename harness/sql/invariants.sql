@@ -1,6 +1,6 @@
 -- ============================================================================
 -- invariants.sql
--- 불변식 카탈로그 C01~C25, C27, C28의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
+-- 불변식 카탈로그 C01~C28의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
 -- (server V1__init.sql, trades.id = event_seq).
 -- 실행: psql -U exchange -d exchange -f invariants.sql
 -- 판정: 각 쿼리는 위반 행만 낸다. 전 쿼리 0행 = 무결. summary.sql이 같은 술어의 건별 카운트다.
@@ -237,6 +237,14 @@ WHERE m.name = 'event_seq'
   AND m.next_value <= (SELECT COALESCE(max(e.market_seq), 0) FROM event_journal e
                        WHERE e.market_id = m.market_id AND e.market_seq IS NOT NULL);
 
+\echo '== C26 CMD_BAND_HEADROOM [HIGH] 명령 대역 잔여 10퍼센트 미만 마켓 0 =='
+-- 행 수가 InvariantCheck.C26_CMD_BAND_HEADROOM 값이다. 소진은 되돌릴 수 없어 미리 센다(ADR 0022 6-4, V45 뷰).
+-- 10^12 대역에서는 사실상 공허하다. 명세 부재는 C05·C23 이 센다. 아래 V13 조건 블록 밖에 둔다.
+SELECT market_id, next_value, remaining, remaining_ratio
+FROM v_journal_band_headroom
+WHERE name = 'command_seq' AND remaining_ratio < 0.1
+ORDER BY market_id;
+
 \echo '== C27 CMD_DEFAULT_PARTITION [CRITICAL] command_journal DEFAULT 유입 0 =='
 -- 행이 있으면 어느 잎에도 속하지 않는 seq 로 들어간 명령이고 그 구간 잎은 다시 만들 수 없다(V40, ADR 0022 6-4).
 -- 아래 V13 조건 블록 안에 두면 V13 미적용 DB 에서 이 판정이 빠진다.
@@ -260,7 +268,7 @@ WHERE c.seq < s.band_span
 ORDER BY c.market_id, c.seq;
 
 -- V13 미적용 DB에서는 아래 두 뷰가 없다. 무조건 조회하면 ON_ERROR_STOP 경로가 C24 이전
--- 27개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이
+-- 28개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이
 -- 거짓 통과다. 부재 시 SKIP을 크게 찍고 종료 상태를 남긴다.
 SELECT (to_regclass('public.position_cost_qty_check') IS NOT NULL
         AND to_regclass('public.position_cost_sanity_check') IS NOT NULL) AS has_cost_views \gset

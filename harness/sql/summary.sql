@@ -18,7 +18,7 @@
 -- ============================================================================
 \pset pager off
 
--- V13 미적용 DB에는 원가 검증 뷰가 없다. 무조건 참조하면 단일 문장이라 29개 판정이 통째로
+-- V13 미적용 DB에는 원가 검증 뷰가 없다. 무조건 참조하면 단일 문장이라 30개 판정이 통째로
 -- 사라진다(ON_ERROR_STOP 경로에서 exit 3). 부재 시 두 행을 SKIP으로 낸다.
 SELECT (to_regclass('public.position_cost_qty_check') IS NOT NULL
         AND to_regclass('public.position_cost_sanity_check') IS NOT NULL) AS has_cost_views \gset
@@ -188,6 +188,10 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
                                            FROM event_journal e
                                            WHERE e.market_id = m.market_id
                                              AND e.market_seq IS NOT NULL)))
+    UNION ALL SELECT 'C26','CMD_BAND_HEADROOM','HIGH','ALWAYS',
+           -- 명령 대역 잔여 10퍼센트 미만 마켓 수. InvariantCheck 축어(ADR 0022 6-4).
+           (SELECT count(*) FROM v_journal_band_headroom
+                WHERE name = 'command_seq' AND remaining_ratio < 0.1)
     UNION ALL SELECT 'C27','CMD_DEFAULT_PARTITION','CRITICAL','ALWAYS',
            (SELECT count(*) FROM command_journal_default)
     UNION ALL SELECT 'C28','CMD_LEGACY_AFTER_CUTOVER','CRITICAL','ALWAYS',

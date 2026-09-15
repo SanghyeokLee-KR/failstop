@@ -109,7 +109,6 @@ class SnapshotRecoveryIntegrationTest {
         LeaderLeaseService leader = new LeaderLeaseService(jdbc, Duration.ofSeconds(120),
                 Duration.ofSeconds(1));
         takeOver(leader);
-        long epoch = leader.requireLeader().epoch();
         EventJournalAppender eventAppender = new EventJournalAppender(jdbc, tx, leader, objectMapper);
         MatchingEngineImpl live = new MatchingEngineImpl();
         SingleWriterLoop loop = new SingleWriterLoop(4096, live, eventAppender::append,
@@ -128,9 +127,9 @@ class SnapshotRecoveryIntegrationTest {
             for (int marketId : live.markets()) {
                 OrderBookImpl book = live.orderBook(marketId);
                 markets.add(new SnapshotStore.MarketState(
-                        marketId, SnapshotCodec.encode(book), book.stateChecksum()));
+                        marketId, live.appliedSeq(marketId), SnapshotCodec.encode(book), book.stateChecksum()));
             }
-            store.persist(snapshotSeq, epoch, markets);
+            store.persist(leader.requireLeader(), markets);
 
             long lastSeq = 0;
             for (int i = SNAPSHOT_AT + 1; i <= JOURNAL_SIZE; i++) {

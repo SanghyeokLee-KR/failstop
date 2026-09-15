@@ -23,6 +23,11 @@ ADR 0022 6단계 판정 입력(stage6_judge.py 가 읽는다). 위 넷에 더한
   대역 행과 C28    k6 주행 창의 command_journal 행을 마켓별 대역과 레거시로 센다. C28 은 주행 뒤 전체 저널 값이다
   카운터 행 분리 표본  같은 틱에 pg_samplers.COUNTER_SPLIT_RULE 로 전역과 마켓을 가른다. 양성 대조도 각각 한다
 
+ADR 0022 8단계 판정 입력(stage8_judge.py 가 읽는다). 위에 더한다.
+  커밋 설정   --commit-delay 와 --commit-siblings 를 주면 래치 뒤, 키 발급 전에 commit_delay.apply 로 건다.
+              k6 뒤 유지 확인과 칸 끝 복구를 남기고, 실패 경로의 복구는 __main__ 이 맡는다
+  WAL 창      프로메테우스 1분 창과 같은 구간의 pg_stat_wal.wal_sync 와 배정 xid 차. 묶음 비가 여기서 나온다
+
 한 칸만 돈다. 규격은 4코어로 고정한다. 정본 5.7.6 이 그 지점을 포화로 판정했다.
 
 돌리는 법:
@@ -48,6 +53,7 @@ from k6_ceiling import run_k6, duration_fill, markets, IMAGE as K6_IMAGE  # noqa
 import clean_suite as cs  # noqa: E402
 import pg_samplers as pgs  # noqa: E402
 import band_cutover as bc  # noqa: E402
+import commit_delay as cd  # noqa: E402
 
 ENV = {'SCALE_POOL': '32', 'SCALE_ORDER_INFLIGHT': '0', 'SCALE_QUERY_INFLIGHT': '0',
        'SCALE_REQUERY_INFLIGHT': '0', 'SCALE_PG_CPUS': '4.0', 'SCALE_PG_MEM': '4g'}
@@ -61,6 +67,12 @@ PGSTAT_FLUSH_WAIT_S = 11
 
 # ADR 0022 7절 4단계가 카운터 행 표본 간격을 15초로 정한다.
 SAMPLE_INTERVAL_S = 15
+
+# WAL 계수기 차는 프로메테우스 rate 창과 같은 1분에서 잰다. 백엔드 통계는 1초 안팎으로 모아 쓰여 창 양 끝이 같은 폭으로 늦는다.
+WAL_WINDOW_S = 60
+
+# 칸 값을 건 뒤 칸 끝 복구를 확인하기 전에 끝난 실행은 __main__ 이 되돌린다.
+COMMIT_APPLIED = [False]
 
 PROM_SERIES = (
     ('접수/s', 'sum(rate(http_server_requests_seconds_count'
@@ -370,7 +382,11 @@ def main():
     a_.add_argument('--out', required=True)
     a_.add_argument('--latch-before-traffic', action='store_true',
                     help='ADR 0022 6단계 B6. 되돌릴 수 없는 래치를 새로 세운 카오스 DB 에 건다')
+    a_.add_argument('--commit-delay', type=int, default=None, help='ADR 0022 8단계 칸 값. 마이크로초')
+    a_.add_argument('--commit-siblings', type=int, default=None, help='ADR 0022 8단계 칸 값')
     a = a_.parse_args()
+    if (a.commit_delay is None) != (a.commit_siblings is None):
+        a_.error('--commit-delay 와 --commit-siblings 는 함께 준다')
 
     started = pgs.now_iso()
     print('[%s] 부하 %d/s' % (a.label, a.rate), flush=True)
@@ -385,6 +401,15 @@ def main():
             print('  래치 실패: %s' % json.dumps(latch, ensure_ascii=False), flush=True)
             return 1
         print('  래치 %s' % latch['상태']['래치 행'], flush=True)
+    commit = None
+    if a.commit_delay is not None:
+        # 래치 뒤, 키 발급과 봇 워밍업 전에 건다. 명령 하나만 먹혀도 값이 남으므로 표시를 호출보다 먼저 세운다.
+        COMMIT_APPLIED[0] = True
+        commit = {'적용': cd.apply(a.commit_delay, a.commit_siblings), '유지': None, '복구': None}
+        if not commit['적용']['ok']:
+            print('  커밋 설정 실패: %s' % commit['적용']['error'], flush=True)
+            return 1
+        print('  commit_delay %d, commit_siblings %d' % (a.commit_delay, a.commit_siblings), flush=True)
     n_keys = cs.reissue_keys()
     if n_keys == 0:
         print('  키 재발급 실패', flush=True)
@@ -410,7 +435,12 @@ def main():
     proc = run_k6(a.rate, a.duration, run_id, log_path=k6log)
     sampler = RunSampler(proc)
     sampler.start()
-    time.sleep(min(duration_fill(a.duration), a.duration - 5))
+    k6_started = time.monotonic()
+    fill = min(duration_fill(a.duration), a.duration - 5)
+    time.sleep(max(0, fill - WAL_WINDOW_S))
+    wal0 = pgs.sample_wal_counters()
+    time.sleep(max(0.0, k6_started + fill - time.monotonic()))
+    wal1 = pgs.sample_wal_counters()
     s = sample()
     s.update(fsync)
     s['label'] = a.label
@@ -423,6 +453,8 @@ def main():
     sampler.join(timeout=SAMPLE_INTERVAL_S * 4)
     t1 = db_clock()
     scrape1 = scrape_nodes()
+    if commit is not None:
+        commit['유지'] = cd.settings()
     time.sleep(PGSTAT_FLUSH_WAIT_S)
     pg1 = pg_counters()
     # 읽기 실패는 None 으로 남긴다. 0 으로 채우면 교착 0건으로 읽힌다.
@@ -455,6 +487,11 @@ def main():
     s['연결'] = {'요약': conn_summary, '로그': conn_log, '판정': pgs.connection_verdict(conn_summary, conn_log),
                 '풀 상한(부하 전)': pools, '표본': conn_rows}
     s['표본 시계열'] = [dict(r['prom'], ts=r['ts'], k6_alive=r['k6_alive']) for r in sampler.rows]
+    s['WAL 창'] = pgs.wal_window(wal0, wal1)
+    if commit is not None:
+        commit['복구'] = cd.reset()
+        COMMIT_APPLIED[0] = not commit['복구']['ok']
+        s['커밋 설정'] = commit
     s['메타'] = {
         '시작': started,
         '끝': pgs.now_iso(),
@@ -484,8 +521,21 @@ def main():
     print('  카운터 행 분리 표본 %s' % s['카운터 행 표본(전역·마켓)']['요약'], flush=True)
     print('  래치 행 %s, C28 %s' % (s['래치']['상태']['래치 행'], s['C28']['위반 행']), flush=True)
     print('  연결 %s' % s['연결']['판정'], flush=True)
+    w = s['WAL 창']
+    print('  WAL 창 %s초, fsync/s %s, 묶음 비 %s %s' % (w['초'], w['WAL fsync/s'], w['묶음 비'], w['error'] or ''),
+          flush=True)
+    if commit is not None:
+        print('  커밋 설정 적용 %s, 유지 %s, 복구 %s' % (
+            commit['적용']['ok'], cd.in_effect(commit['유지'], a.commit_delay, a.commit_siblings),
+            commit['복구']['ok']), flush=True)
     return 0
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        code = main()
+    finally:
+        # 실패 경로에서도 칸 값을 서버에 남기지 않는다.
+        if COMMIT_APPLIED[0]:
+            print('  커밋 설정 복구 %s' % cd.reset()['ok'], flush=True)
+    sys.exit(code)

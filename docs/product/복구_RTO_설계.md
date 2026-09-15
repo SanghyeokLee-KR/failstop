@@ -15,7 +15,7 @@
 - RPO=0: ACK 명령 전량 `command_journal` 존재(C16 0행).
 - 자산합 0: `ledger_entries` 자산별 합 0(C01 0행).
 - 불변식 위반 0: 이 회차에서 평가한 14종(C01·C02·C05·C06·C07·C07P·C08·C13A·C13B·C14·C16·C17·C18·C19)이 전건 green.
-  - 이 14종은 현 구현 카탈로그 전량이 아니다. `InvariantCheck.java` enum은 28종이고(C01·C02·C03·C05·C06·C07·C07P·C08·C09·C10·C11·C12·C13A·C13B·C14·C15·C16·C17·C18·C19·C20·C21·C22·C23·C24·C25·C27·C28), `harness/sql/invariants.sql`은 여기에 C04를 더해 29개 식별자를 쓴다. 카탈로그 총수는 §5 확정 항목이 소유한다. 세는 단위는 SQL 판정 블록이고 총수는 29개다.
+  - 이 14종은 현 구현 카탈로그 전량이 아니다. `InvariantCheck.java` enum은 29종이고(C01·C02·C03·C05·C06·C07·C07P·C08·C09·C10·C11·C12·C13A·C13B·C14·C15·C16·C17·C18·C19·C20·C21·C22·C23·C24·C25·C26·C27·C28), `harness/sql/invariants.sql`은 여기에 C04를 더해 30개 식별자를 쓴다. 카탈로그 총수는 §5 확정 항목이 소유한다. 세는 단위는 SQL 판정 블록이고 총수는 30개다.
 
 안전성 결함이 아니었다. catch-up 경로는 멱등 스킵이고 원장은 무결하며 유실이 없다. 2026-08 시점의 라이브니스·RTO 결함이고, 현재 상태는 §1-2-a가 소유한다.
 
@@ -137,7 +137,7 @@ ACCEPTING --(fencing 거부·정산 실패·리스 상실)-->  DEMOTED(self-shut
 3-a의 인메모리 rebuild는 스파이크(27k)에서는 빠르지만 장기 soak(수백만 명령)에서는 다시 O(저널)로 커진다. 스냅샷이 tail 재생량을 상한한다. 아래는 배선된 설계이고 단계 상태는 §6-1이 소유한다.
 
 - 저장소: 기존 `snapshots` 테이블을 그대로 쓴다(`docs/contracts/백엔드_DB_설계.md` §3.1 DDL 블록 6.3 `CREATE TABLE snapshots`). 신규 DDL 없음. 컬럼: `last_applied_seq`, `state`(BYTEA), `state_checksum`, `engine_version`, `config_hash`, `format_version`, `fencing_epoch`, `created_at`. append-only 강제는 같은 블록의 `trg_snap_noupd`·`trg_snap_notrunc` 트리거와, §3.1 권한 블록이 `app_role`에 `GRANT SELECT, INSERT`만 부여하는 것이다.
-- 주기·트리거: 리더가 N 명령마다 또는 T초마다(둘 중 먼저) 스냅샷 1건을 기록한다. 실물은 `SingleWriterLoop.SnapshotHook` 구현체 `server/app/src/main/java/kr/exchange/snapshot/SnapshotCapture.java`의 `afterCommand`이고, 배선은 `EngineConfig`의 `snapshotCapture` 빈과 `loop.setSnapshotHook(capture)`다. 라이터 스레드는 정책 판정과 마켓별 결정론 인코딩만 하고 DB 영속화는 별도 워커 스레드가 한다. 유계 큐가 차면 드롭한다(best-effort. tail이 길어질 뿐 정확성 무손실). 경계 seq에서의 인메모리 상태 정합은 단일 라이터라 자연 확보된다(그 seq까지 apply 완료 시점 캡처). 주기 값은 `SnapshotProperties`가 소유하고 기본값은 `commandInterval` 100,000 명령·`timeInterval` 60초다.
+- 주기·트리거: 리더가 N 명령마다 또는 T초마다(둘 중 먼저) 스냅샷 1건을 기록한다. 실물은 `SingleWriterLoop.SnapshotHook` 구현체 `server/app/src/main/java/kr/exchange/snapshot/SnapshotCapture.java`의 `afterCommand`이고, 배선은 `EngineConfig` 의 마켓별 샤드 팩토리가 샤드마다 `SnapshotCapture` 를 만들어 `loop.setSnapshotHook` 으로 건 것이다(2026-09-14 ADR 0022 7단계. 그 전에는 접수를 받지 않는 레거시 단일 루프 빈에만 걸려 스냅샷이 한 건도 찍히지 않았다). 라이터 스레드는 자기 마켓 커서로 정책을 판정하고 그 마켓 북만 결정론 인코딩한다. DB 영속화는 모든 캡처가 나눠 쓰는 워커 스레드 하나(`SnapshotPersister`)가 `assert_and_lock_leader` 를 먼저 부르는 트랜잭션으로 한다. 유계 큐 상한은 캡처마다 세고 차면 드롭한다(best-effort. tail이 길어질 뿐 정확성 무손실). 경계 seq에서의 인메모리 상태 정합은 단일 라이터라 자연 확보된다(그 seq까지 apply 완료 시점 캡처). 주기 값은 `SnapshotProperties`가 소유하고 기본값은 `commandInterval` 100,000 명령·`timeInterval` 60초다.
   - 미결: 정확 주기 값은 캘리브레이션(`docs/architecture/M4_하드닝설계.md` §3-3(d))에서 확정해야 하며 아직 정해지지 않았다. 위 기본값은 캘리브레이션 전 초기값이고 실측 근거가 없다.
 - 직렬화: `MatchingEngineImpl`의 마켓별 `OrderBookImpl`(`bids`·`asks`·`ordersById` TreeMap)을 결정론 바이트로 인코딩하는 codec은 `server/engine/src/main/java/kr/exchange/engine/core/SnapshotCodec.java`다(`encode`·`decode`, `FORMAT_VERSION` 1). 순회 순서가 정의된 자료구조만 쓰므로(TreeMap·ArrayDeque, 코어 순수성 T3-A) 인코딩이 결정론이다. `state_checksum`은 기존 `OrderBookImpl.stateChecksum()`(`MatchingEngineImpl.stateChecksum()`과 동일 규약)을 병기해 로드 시 무결 검증한다.
 - 복원(스냅샷 + 델타): 승격 rebuild가 최신 유효 스냅샷을 로드해(`EngineRecovery`의 `snapshotSource.loadLatestAdoptablePerMarket()`, DB 설계 §5.5 STEP1) fresh 엔진에 역직렬화한 뒤, `command_journal`에서 마켓마다 그 마켓 커서 초과분만 tail 재생한다. 마켓 커서는 그 마켓 스냅샷의 `last_applied_seq`에서 시작한다. 1상은 연속 물질화 경계 `bound(m)`까지 대조하고, 2상은 리더 자격을 얻고 늘어난 경계 구간을 대조한 뒤 한 번 고정한 `head(m)`까지 돌아 크래시 창을 낸다(DB 설계 §5.5-a, §5.5 STEP2). 코드는 2026-09-14 ADR 0022 2단계 병합으로 이 마켓별 경로로 돈다(`EngineRecovery.java`:254~309).
@@ -204,8 +204,8 @@ ACCEPTING --(fencing 거부·정산 실패·리스 상실)-->  DEMOTED(self-shut
 
 - 스파이크 조건(저널 27k+ 명령 누적) 리더 kill에서 실제 가시 체결 재개 RTO < 30s(벽시계, §4-2 계약).
 - RPO=0 유지: C16 0행, ACK 명령 전량 `command_journal` 존재.
-- 불변식 카탈로그 전건 위반 0(권위 run): `InvariantCheck.java` enum 28종. C13A·C16·C19·C22·C23·C24·C25는 `Scope.AUTHORITATIVE_ONLY`로 평가한다.
-- 확정(2026-09-09, 2026-09-13 C27, 2026-09-14 C28 신설 반영): 불변식을 세는 단위는 SQL 판정 블록이다. `harness/sql/invariants.sql` 의 판정 블록 29개(C27·C28 포함)가 정본 수치다. 2026-09-09 에 `제출_20260901/기획안_원본.md`(요약·1.3·3.1·10.2·12절 A2) 다섯 곳을 37개에서 27개로 정정했으나 C27 신설은 그 파일에 반영하지 않았고, 그 파일은 2026-09-13 제출본 정리(`af90bca`)로 저장소에서 빠졌다. `InvariantCheck.java` enum 28종은 앱 러너가 순회하는 크기이고 29개에서 C04 하나가 빠진 값이다. C04 는 지연 제약 트리거가 DB 안에서 강제하므로 러너의 조회 대상이 아니다. 카탈로그 코드 축은 C01~C25와 C27(ADR 0022 6-4), C28(ADR 0022 6단계)이고 총수를 적을 때는 29를 쓴다.
+- 불변식 카탈로그 전건 위반 0(권위 run): `InvariantCheck.java` enum 29종. C13A·C16·C19·C22·C23·C24·C25는 `Scope.AUTHORITATIVE_ONLY`로 평가한다.
+- 확정(2026-09-09, 2026-09-13 C27, 2026-09-14 C28·C26 신설 반영): 불변식을 세는 단위는 SQL 판정 블록이다. `harness/sql/invariants.sql` 의 판정 블록 30개(C26·C27·C28 포함)가 정본 수치다. 2026-09-09 에 `제출_20260901/기획안_원본.md`(요약·1.3·3.1·10.2·12절 A2) 다섯 곳을 37개에서 27개로 정정했으나 C27 신설은 그 파일에 반영하지 않았고, 그 파일은 2026-09-13 제출본 정리(`af90bca`)로 저장소에서 빠졌다. `InvariantCheck.java` enum 29종은 앱 러너가 순회하는 크기이고 30개에서 C04 하나가 빠진 값이다. C04 는 지연 제약 트리거가 DB 안에서 강제하므로 러너의 조회 대상이 아니다. 카탈로그 코드 축은 C01~C25와 C26(ADR 0022 7단계), C27(ADR 0022 6-4), C28(ADR 0022 6단계)이고 총수를 적을 때는 30을 쓴다.
 - `recovery_runs.matched=true`, epoch 정확히 +1, 중복 체결 0.
 - 승격 rebuild가 `appendAndSettle`를 O(pending)회만 호출(정산 catch-up 재발 0, §4-1 (A)).
 - soak 2h에서 C13A 프로젝션 지연 오탐 0(SCHEDULED 미평가), E6 스파이크 게이트 스퍼리어스 FAIL 0.
@@ -218,7 +218,7 @@ ACCEPTING --(fencing 거부·정산 실패·리스 상실)-->  DEMOTED(self-shut
 
 1. C13A 스코프 수정(3-c). 완료. `InvariantCheck.java:124`가 AUTHORITATIVE_ONLY이고 `docs/architecture/M4_하드닝설계.md` 세 자리도 정합이다(3-c).
 2. 승격 gain 훅 + fresh 엔진 rebuild-before-accept + 접수 게이트(3-a). 코드 배선 완료. 스키마 무변경. 실물은 `LeaderLeaseService`·`PromotionCoordinator`·`AcceptGate`·`EngineBridge`·`SingleWriterLoop.installEngine`이다(§2-1·§3-a 인용). 회귀 테스트는 `server/app/src/test/java/kr/exchange/engine/PromotionRecoveryIntegrationTest.java`다. 실측 조건과 남은 규격 제약은 §1-2-a·§2-1이 소유한다.
-3. 주기 스냅샷(3-b). 코드 배선 완료. codec `server/engine/src/main/java/kr/exchange/engine/core/SnapshotCodec.java`, writer `server/app/src/main/java/kr/exchange/snapshot/SnapshotCapture.java`, 로드 경로 `EngineRecovery`의 `snapshotSource.loadLatestAdoptablePerMarket()`(EngineRecovery.java:166, 2026-09-14 병합 판). 장기 soak에서 tail 상한이 실제로 걸리는지의 실측은 아직 없다.
+3. 주기 스냅샷(3-b). 코드 배선 완료(2026-09-14 ADR 0022 7단계. 그 전에는 훅이 레거시 단일 루프 빈에만 걸려 캡처가 돌지 않았다). codec `server/engine/src/main/java/kr/exchange/engine/core/SnapshotCodec.java`, writer `server/app/src/main/java/kr/exchange/snapshot/SnapshotCapture.java`, 로드 경로 `EngineRecovery`의 `snapshotSource.loadLatestAdoptablePerMarket()`(EngineRecovery.java:166, 2026-09-14 병합 판). 장기 soak에서 tail 상한이 실제로 걸리는지의 실측은 아직 없다.
 4. RTO 측정 계약 정정(4-2)과 문서 동기화. 미착수. `docs/contracts/하네스_검증설계.md` §5-1 T5가 아직 `min(e.created_at)` 기준이다. E4·E6 게이트에 벽시계 RTO 반영도 남았다.
 
 각 단계는 컴파일·테스트 통과 상태로만 멈춘다.

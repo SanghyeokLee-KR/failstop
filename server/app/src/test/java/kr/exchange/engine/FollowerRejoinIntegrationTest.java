@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import kr.exchange.engine.core.MatchingEngineImpl;
+import kr.exchange.engine.core.OrderBookImpl;
 import kr.exchange.journal.CommandDraft;
 import kr.exchange.journal.CommandJournalAppender;
 import kr.exchange.journal.CommandJournalReader;
@@ -217,12 +218,11 @@ class FollowerRejoinIntegrationTest {
         materializeAsLeader();
         Map<Integer, Long> heads = replayService.journalHeads();
         assertFalse(heads.isEmpty(), "저널에 명령이 없어 격차가 판정되지 않는다");
-        // 스칼라 스냅샷은 커서 없는 마켓 바닥을 스냅샷 seq 로 세운다. 모든 마켓 head 보다 크게 둔다.
-        long aboveEveryHead = heads.values().stream().mapToLong(Long::longValue).max().orElseThrow() + 100;
         LeaderLeaseService idleLease =
                 new LeaderLeaseService(jdbc, Duration.ofSeconds(4), Duration.ofSeconds(1));
         MatchingEngineImpl engine = new MatchingEngineImpl();
-        engine.loadSnapshot(aboveEveryHead, List.of());
+        // 마켓마다 엔진 커서를 그 마켓 head 위에 세운다. 격차를 음수로 세지 않는지 본다.
+        heads.forEach((marketId, head) -> engine.loadMarketSnapshot(marketId, head + 100, new OrderBookImpl(marketId)));
         try (FollowerCatchUp catchUp = new FollowerCatchUp(replayService, engine, idleLease,
                 Duration.ofSeconds(1), new SimpleMeterRegistry())) {
             catchUp.tick();

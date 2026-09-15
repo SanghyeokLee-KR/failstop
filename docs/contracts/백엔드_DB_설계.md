@@ -1,4 +1,4 @@
-# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.48)
+# 고가용성 가상 암호화폐 거래소 PostgreSQL 스키마 설계 (제출본 v2.49)
 
 > 대상: Java 21 / Spring Boot 3.5+ / **PostgreSQL 17+** (파티션드 테이블의 `GENERATED ... AS IDENTITY`는 PG17에서 지원, ledger_entries/outbox가 이에 의존. trades는 P0-4로 IDENTITY 제거, id=event_seq 명시 삽입. audit_log는 V1 범위 외, §3 도입부 표의 로드맵 행)
 > DB의 책임: **(1) 체결 정합성** = 복식부기 원장의 자산별 합계 = 0 불변식 + `client_order_id` 멱등성, **(2) 자동 복구** = append-only 명령 저널(`command_journal`) + 스냅샷 + 결정론 재생(replay).
@@ -378,6 +378,7 @@ erDiagram
 | V42 | `V42__event_journal_market_cmd_index.sql` | `event_journal (market_id, source_cmd_seq, event_ordinal)` 인덱스 `idx_evt_market_cmd`. 마켓별 재생과 따라잡기 판독이 다른 마켓 행을 거르며 훑지 않게 한다. 분할 부모라 `CONCURRENTLY` 를 못 써 잎마다 SHARE 잠금을 쥐므로 라이터가 멈춘 배포 창에서 적용한다. 근거 `docs/측정/20260913.md` 5.7.15 | V36(`event_journal.market_id`) |
 | V43 | `V43__append_prologue_created_at_order.sql` | `append_command_prologue` 의 NEW 멱등 조회 정렬을 `ORDER BY c.created_at, c.seq` 로 바꾸고 함수를 `VOLATILE` 로 명시한다(ADR 0022 4단계 4-3). 대역 파생 seq 에서 `ORDER BY c.seq` 는 가장 이른 명령이 아니라 가장 작은 마켓의 명령을 고르기 때문이다. 어드바이저리 락 키와 조회 술어에는 `market_id` 를 넣지 않는다. 접수 락이 마켓별로 갈린 뒤 같은 키의 교차 마켓 동시 append 를 직렬화하는 겹이 이 락 하나이기 때문이다. CREATE OR REPLACE 라 되돌릴 수 있다. |
 | V44 | `V44__command_band_cutover_latch.sql` | 대역 채번 커트오버 래치(ADR 0022 6단계). 삽입 전용 표 `journal_cutover`(UPDATE·DELETE 는 트리거가 거부)의 행이 없으면 전역 채번, 있으면 마켓 대역 채번이다. 6인자 `append_command_prologue(..., p_market_id)` 가 채번 직전에 같은 트랜잭션에서 래치를 읽어 `next_journal_value('command_seq')` 와 `next_market_command_seq(p_market_id)` 가운데 하나를 부르고, 멱등 조회 정렬·어드바이저리 락 키·VOLATILE 은 V43 과 같다. 5인자 판은 래치가 있으면 예외를 내되 강등 분류 문구를 쓰지 않는다. `latch_command_band_cutover()` 는 대역 잎과 꼬리 파티션 실재, 마켓별 `command_seq` 카운터 행, `command_journal_default` 0행을 검사한 뒤 래치 행을 넣고 소유자만 실행한다. 래치 행이 없을 때만 되돌릴 수 있다. |
+| V45 | `V45__band_headroom.sql` | 채번 대역 여유 뷰 `v_journal_band_headroom`(ADR 0022 7단계 3-2). `journal_band_spec` 의 축마다 `market_journal_counters` 의 마켓별 `next_value`, 남은 배정 가능 번호 수 `remaining`(`band_span - next_value`), `remaining_ratio`(`remaining / band_span`)를 낸다. 채번 함수가 지역 번호를 `band_span - 1` 까지 주므로 `next_value` 가 `band_span` 이면 `remaining` 이 0 이다. 카운터 행이 없는 마켓은 쓴 번호가 없어 행이 없다. 하네스 C26_CMD_BAND_HEADROOM 과 게이지 `exchange.journal.band.remaining` 의 원천이고 `app_role`·`harness_role` 에 SELECT 를 준다. 뷰 하나라 DROP 으로 되돌린다 | V40(`journal_band_spec`), V36(`market_journal_counters`), V0(롤 GRANT) |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -1853,7 +1854,7 @@ CREATE TABLE user_provisioning (
 | `command_journal.engine_ts/tie_break/payload` | 모든 비결정 입력(시간·tie-break·market_state·적용 수수료율) 박제 → 재생 비트동일(초안 missing, v2.3: 수수료율 포함. 체결 수수료 금액은 TRADE 이벤트 payload에 추가 박제, §5.2 (0)) |
 | `command_journal.fencing_token` | 기록 시점 리더 epoch. §5.4 원자적 fencing으로 stale 이중쓰기 차단 |
 | `event_journal.event_seq` | 출력 사실의 전역유일 식별자. V36부터 `market_id * 10^7 + market_seq` 파생이라 전역 gapless가 아니고, 결번 없이 증가하는 축은 마켓 안의 `market_seq`다. **trades.id의 진실 원천**(v2.6: trade_id=event_seq 명시 삽입) |
-| `snapshots.last_applied_seq/state_checksum` | 재생 시작점 / 손상 스냅샷 폐기 fallback |
+| `snapshots.last_applied_seq/state_checksum` | 재생 시작점 / 손상 스냅샷 폐기 fallback. `last_applied_seq` 는 그 행 `market_id` 의 엔진 적용 커서다(v2.49). 전 마켓 행에 스칼라 한 값을 쓰면 대역 채번에서 그 값이 가장 높은 대역 마켓의 seq 라 복원한 낮은 대역 마켓이 제 명령을 커서 아래로 보고 버린다 |
 | `leader_lease.epoch` | fencing token 발급원. 승격(탈취) 시에만 원자적 +1, 리스 갱신(heartbeat)은 epoch 보존(v2.4, §5.4). 행은 V1 부트스트랩 시드로 선재 |
 
 ---
@@ -2205,7 +2206,7 @@ FOR KEY SHARE OF l;
 
 #### 5.5-a 기동 재생을 체크포인트로 상한한다 (v2.40, 2026-09-08 실측 구동)
 
-**코드 상태(2026-09-14 병합).** 이 절과 §5.5 STEP2·②의 마켓별 서술이 ADR 0022 2단계 병합으로 코드에 들어왔다. 엔진 커서는 마켓별 `appliedSeqs`(MatchingEngineImpl.java:21)이고, 경계는 `materializedThroughByMarket`(EventJournalReader.java:57)가 레거시 경계 `legacyBound`(:87)와 함께 낸다. V36 이전 이벤트 행은 레거시 패스로 `command_journal.market_id` 에 짝 짓고(:117), 크래시 창 재적재의 마켓 안 created_at 역전은 `exchange.recovery.reinject.created_at_inversions` 로 센다(EngineRecovery.java:125-126). 전역 스칼라가 남은 곳은 둘이다. `SingleWriterLoop.catchUpTo` 가 갭 회수 시작점을 고를 때 `engine.lastAppliedSeq()` 를 비교값으로 쓰고(SingleWriterLoop.java:267), `WriterRouter` 가 지연 생성하거나 복구본에 없던 샤드의 커서를 스칼라 `loadSnapshot` 으로 세운다(WriterRouter.java:78, :141). 전역 재생 진입점 정리는 남았다(ADR 0022 2단계 착지 절).
+**코드 상태(2026-09-14 병합).** 이 절과 §5.5 STEP2·②의 마켓별 서술이 ADR 0022 2단계 병합으로 코드에 들어왔다. 엔진 커서는 마켓별 `appliedSeqs`(MatchingEngineImpl.java:21)이고, 경계는 `materializedThroughByMarket`(EventJournalReader.java:57)가 레거시 경계 `legacyBound`(:87)와 함께 낸다. V36 이전 이벤트 행은 레거시 패스로 `command_journal.market_id` 에 짝 짓고(:117), 크래시 창 재적재의 마켓 안 created_at 역전은 `exchange.recovery.reinject.created_at_inversions` 로 센다(EngineRecovery.java:125-126). 그때 남은 전역 스칼라 둘은 없어졌다. `SingleWriterLoop.catchUpTo` 는 ADR 0022 6단계에서 갭 회수를 그 마켓 커서와 그 마켓 행으로 한정했다. `WriterRouter` 가 지연 생성하거나 복구본에 없던 샤드에 심던 스칼라 바닥(`loadSnapshot`)은 7단계(v2.49)가 엔진에서 없애고, 커서 없는 마켓은 0 에서 출발한다. 전역 재생 진입점 정리는 남았다(ADR 0022 2단계 착지 절).
 
 여기까지의 복구 절차는 기동 재생이 `command_journal` 을 끝까지 읽는 것을 전제했다. 단일 노드에서는 맞는 전제다. 재생하는 동안 쓰는 사람이 없기 때문이다.
 
@@ -2255,6 +2256,12 @@ bound(m)  = min(c.seq) - 1
 -- STEP1. 최신 유효 스냅샷 (checksum 불일치면 앱이 폐기 후 다음으로 fallback)
 SELECT snapshot_id, last_applied_seq, state, state_checksum
 FROM snapshots WHERE market_id=:mid ORDER BY last_applied_seq DESC LIMIT 1;
+--   기록(v2.49, ADR 0022 7단계): 마켓별 라이터가 명령 경계에서 그 마켓 북과 그 마켓 적용 커서를 캡처하고, 영속화
+--     워커가 한 트랜잭션에서 assert_and_lock_leader(§5.4 쓰기 트랜잭션 공통 계약) 뒤 INSERT 한다. last_applied_seq 는
+--     그 마켓 커서이고 fencing_epoch 는 그 함수가 돌려준 epoch 다. 거부되면 버리고 다음 캡처가 대체한다.
+--   폴백(v2.49): 채택본을 새 엔진에 싣고 STEP2 를 마친 뒤에야 복구 대상 엔진으로 옮긴다. 적재가 실패하면 기록 없이,
+--     STEP2 가 실패하면 recovery_runs 불일치 행을 남긴 뒤 스냅샷 없이 전량 재생한다. 승격 재생이 리더 자격을 잃고
+--     실패하면 폴백하지 않는다.
 
 -- STEP2. 스냅샷 이후 명령 tail 재생: **마켓별 2상**. 마켓 사이 순회 순서는 결과에 영향이 없다
 --   (엔진 커서가 마켓별이라는 전제, ADR 0022 4-5). 오더북은 마켓 로컬이고, event_seq는 V36부터
@@ -3568,3 +3575,17 @@ ADR 0022 6단계(대역 채번 커트오버)를 정본에 먼저 반영한다. 2
 §3 표에 V44 행을 더한다. 래치는 앱 설정이 아니라 DB 의 단방향 행이다. 낡은 설정으로 뜬 노드가 승격해 대역 행 뒤에 전역 seq 를 쓰면 그 값이 마켓 커서보다 낮아 엔진이 버리기 때문이다(ADR 0022 6-a). 채번 판정이 채번과 같은 트랜잭션, 같은 마켓 접수 락 안에 있어 한 마켓 안에서 래치 전 행이 모두 먼저 커밋되고 대역 행이 뒤따른다.
 
 래치 뒤 섞임 감사는 하네스 C28_CMD_LEGACY_AFTER_CUTOVER(CRITICAL, SCHEDULED)이고 술어는 `docs/contracts/하네스_검증설계.md` §4-1 에 있다. 문서 헤더 버전을 v2.48 로 순증. 2026-09-14 갱신.
+
+## v2.49 패치 반영 사항
+
+ADR 0022 7단계(대역 여유 마이그레이션과 스냅샷 훅 배선)를 정본에 먼저 반영한다. 코드는 같은 작업에서 이 판을 따라 바뀐다.
+
+§3 표에 V45 행을 더한다. 대역 소진은 되돌릴 수 없다. 운영이 카운터를 되돌려 번호를 되찾으면 저널 PK 가 seq 재사용을 막고, append-only 트리거가 행 정리를 막는다(ADR 0022 6-4). 그래서 정적 바닥은 하네스 C26_CMD_BAND_HEADROOM(HIGH, SCHEDULED)이 명령 축에서 세고 소진 속도는 게이지 `exchange.journal.band.remaining` 이 본다. 이벤트 축은 뷰와 게이지에만 보인다.
+
+§4.4 `snapshots.last_applied_seq` 를 그 행 마켓의 엔진 적용 커서로 적는다. 스냅샷 기록은 지금까지 운영에서 돌지 않았다. 훅이 접수를 받지 않는 레거시 단일 루프 빈에만 걸려 있었기 때문이다(ADR 0022 7단계). 7단계가 훅을 마켓별 샤드 팩토리로 옮기면서 이 행이 처음 쓰이므로, 행 값의 축과 기록 트랜잭션의 fencing 을 §5.5 STEP1 에 함께 적는다. 스냅샷 적재도 엔진 기원 쓰기라 §5.4 쓰기 트랜잭션 공통 계약을 따른다.
+
+§5.5-a 코드 상태의 '전역 스칼라가 남은 곳 둘' 을 고친다. 갭 회수 시작점은 6단계에서 마켓 커서가 됐고, 샤드 바닥의 스칼라 `loadSnapshot` 은 7단계에서 없어진다. 복구본에 커서가 없는 마켓은 적용한 명령이 없으므로 0 에서 출발해야 하고, 다른 값을 바닥으로 두면 대역 채번에서 그 아래 명령을 버린다.
+
+§5.5 STEP1 에 폴백을 적는다. 스냅샷 시작 재생은 복구 대상 엔진이 아니라 새 엔진에서 돌아, 실패해도 복구 대상 엔진이 전량 재생을 그대로 탈 수 있다. 재생 실패는 전량 재생 전에 `recovery_runs` 불일치 행으로 남으므로 C17 이 결함을 본다. `recovery_runs` 의 행 단위(전 마켓 통합, `market_id` 0)는 바꾸지 않는다.
+
+스키마 변경은 뷰 하나다. 문서 헤더 버전을 v2.49 로 순증. 2026-09-14 갱신.

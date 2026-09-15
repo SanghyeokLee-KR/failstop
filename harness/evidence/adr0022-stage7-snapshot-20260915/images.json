@@ -1,0 +1,17 @@
+{
+  "image": {
+    "ref": "0a2d8d71e7668c69cf82242148d4fd50f8ff7845",
+    "commit": "0a2d8d71e7668c69cf82242148d4fd50f8ff7845",
+    "tag": "exchange-chaos-app:adr0022-stage7-0a2d8d7",
+    "imageId": "sha256:bbff3b294fe40f9446f823aeca03d116a1c443ae9ce0f0db2fd6e17c6f381db3",
+    "jarSha256": "49c0aba1ced15fa5805a0e3e0410c9cc3060850fd422260c6f6e30932f488b4b",
+    "recordedAt": "2026-09-15T12:52:39.8889688+09:00"
+  },
+  "harnessCommit": "0a2d8d71e7668c69cf82242148d4fd50f8ff7845",
+  "modes": [
+    "global",
+    "band"
+  ],
+  "experiments": "E2,E4,E5,E6,E7,COLD",
+  "snapshotWaitSec": 180
+}

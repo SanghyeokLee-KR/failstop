@@ -3,7 +3,6 @@ package kr.exchange.engine.core;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -47,13 +46,13 @@ class SnapshotCodecTest {
         MatchingEngineImpl origin = restingBook();
         long seq = origin.lastAppliedSeq();
 
-        List<OrderBookImpl> restoredBooks = new ArrayList<>();
-        for (int marketId : origin.markets()) {
-            restoredBooks.add(SnapshotCodec.decode(SnapshotCodec.encode(origin.orderBook(marketId))));
-        }
         MatchingEngineImpl restored = new MatchingEngineImpl();
-        restored.loadSnapshot(seq, restoredBooks);
+        for (int marketId : origin.markets()) {
+            restored.loadMarketSnapshot(marketId, origin.appliedSeq(marketId),
+                    SnapshotCodec.decode(SnapshotCodec.encode(origin.orderBook(marketId))));
+        }
 
+        assertEquals(origin.appliedSeqs(), restored.appliedSeqs());
         assertEquals(origin.lastAppliedSeq(), restored.lastAppliedSeq());
         assertEquals(origin.stateChecksum(), restored.stateChecksum(),
                 "스냅샷 복원 엔진의 전 마켓 체크섬이 원본과 다르다");
@@ -74,13 +73,6 @@ class SnapshotCodecTest {
         assertEquals(empty.stateChecksum(), restored.stateChecksum());
         assertEquals(0, restored.openOrderCount());
         assertEquals(7, restored.marketId());
-    }
-
-    @Test
-    void loadSnapshotRejectsNonFreshEngine() {
-        MatchingEngineImpl advanced = restingBook();
-        assertThrows(IllegalStateException.class,
-                () -> advanced.loadSnapshot(1, List.of(new OrderBookImpl(1))));
     }
 
     @Test

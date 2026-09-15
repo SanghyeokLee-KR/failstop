@@ -155,8 +155,8 @@
     {
       "id": 7,
       "type": "stat",
-      "title": "복구 경로 스냅샷 채택 vs 전량 재생(DB 원본)",
-      "description": "snapshot_head=0이면 채택 가능 스냅샷 부재로 복구가 저널 seq 0 전량 재생으로 폴백(FULL_REPLAY_FROM_0). replay_tail=command_head-snapshot_head가 재생 명령 수. 데모 저널이 작아 전량 재생이 RTO를 통과해도 여기서 스냅샷 경로 회귀가 드러난다.",
+      "title": "복구 경로 스냅샷 채택 vs 전량 재생(DB 원본, 마켓별)",
+      "description": "마켓마다 스냅샷 커서(그 마켓 snapshots.last_applied_seq 최댓값) 위 명령 수를 더한 값이 replay_tail_commands 다(ADR 0022 6-6 의 마켓별 명령 head 와 스냅샷 커서 차의 합). 대역 모드에서 커서가 그 마켓 대역 안이면 head 와 커서의 차와 같고, 마켓 안 seq 가 성긴 전역 모드와 커서가 대역 밖인 마켓도 명령 수로 센다. 스냅샷이 없는 마켓은 0 에서 재생하므로 markets_without_snapshot 이 0 보다 크면 FULL_REPLAY_FROM_0 이고 저널이 비면 NO_JOURNAL 이다. 전역 최댓값 하나로 보면 가장 높은 커서의 마켓만 보여 낮은 대역 마켓의 전량 재생이 가려진다. 채택 게이트가 버릴 스냅샷도 커서로 세므로 버전 튜플은 패널 8 로 본다.",
       "datasource": { "type": "postgres", "uid": "pg-proof" },
       "gridPos": { "h": 6, "w": 24, "x": 0, "y": 30 },
       "targets": [
@@ -164,7 +164,7 @@
           "refId": "A",
           "format": "table",
           "editorMode": "code",
-          "rawSql": "SELECT (SELECT COALESCE(max(seq),0) FROM command_journal) AS command_head, (SELECT COALESCE(max(last_applied_seq),0) FROM snapshots) AS snapshot_head, (SELECT COALESCE(max(seq),0) FROM command_journal) - (SELECT COALESCE(max(last_applied_seq),0) FROM snapshots) AS replay_tail_commands, CASE WHEN (SELECT COALESCE(max(last_applied_seq),0) FROM snapshots)=0 THEN 'FULL_REPLAY_FROM_0' ELSE 'SNAPSHOT_TAIL' END AS recovery_path"
+          "rawSql": "WITH RECURSIVE market_ids(id) AS (SELECT min(market_id) FROM command_journal UNION ALL SELECT (SELECT min(c.market_id) FROM command_journal c WHERE c.market_id > m.id) FROM market_ids m WHERE m.id IS NOT NULL), per_market AS (SELECT m.id, s.snap_cursor, (SELECT count(*) FROM command_journal c WHERE c.market_id = m.id AND c.seq > COALESCE(s.snap_cursor, 0)) AS tail FROM market_ids m CROSS JOIN LATERAL (SELECT max(last_applied_seq) AS snap_cursor FROM snapshots WHERE market_id = m.id) s WHERE m.id IS NOT NULL) SELECT count(*) AS markets, count(*) FILTER (WHERE snap_cursor IS NULL) AS markets_without_snapshot, COALESCE(sum(tail), 0) AS replay_tail_commands, CASE WHEN count(*) = 0 THEN 'NO_JOURNAL' WHEN count(*) FILTER (WHERE snap_cursor IS NULL) > 0 THEN 'FULL_REPLAY_FROM_0' ELSE 'SNAPSHOT_TAIL' END AS recovery_path FROM per_market"
         }
       ],
       "fieldConfig": {
@@ -175,7 +175,7 @@
             "properties": [
               { "id": "custom.cellOptions", "value": { "type": "color-background" } },
               { "id": "mappings", "value": [
-                { "type": "value", "options": { "FULL_REPLAY_FROM_0": { "color": "red", "index": 0 }, "SNAPSHOT_TAIL": { "color": "green", "index": 1 } } }
+                { "type": "value", "options": { "FULL_REPLAY_FROM_0": { "color": "red", "index": 0 }, "SNAPSHOT_TAIL": { "color": "green", "index": 1 }, "NO_JOURNAL": { "color": "gray", "index": 2 } } }
               ] }
             ]
           },
@@ -191,7 +191,7 @@
       "id": 8,
       "type": "table",
       "title": "채택 가능 스냅샷 재고(DB 원본, 버전 튜플별)",
-      "description": "engine_version·config_hash·format_version이 런타임과 다르면 채택 게이트가 폐기해 전량 재생으로 무음 폴백한다. 빈 표=스냅샷 미기록(=전량 재생 강제). snapshot_head가 command_head에 근접해야 tail이 상한된다.",
+      "description": "engine_version·config_hash·format_version이 런타임과 다르면 채택 게이트가 폐기해 전량 재생으로 무음 폴백한다. 빈 표=스냅샷 미기록(=전량 재생 강제). snapshot_head는 튜플 안 마켓 커서의 최댓값이라 마켓별 꼬리는 패널 7로 본다.",
       "datasource": { "type": "postgres", "uid": "pg-proof" },
       "gridPos": { "h": 7, "w": 24, "x": 0, "y": 36 },
       "targets": [
@@ -229,15 +229,15 @@
     {
       "id": 10,
       "type": "timeseries",
-      "title": "스냅샷 영속화 진행 exchange_snapshot_last_persisted_seq",
-      "description": "워커가 영속화한 최신 seq. 계단이 멈추면(정지) 캡처 진행 중에도 워커 정체·영속화 지속 실패를 뜻해 SnapshotStalled 발화. 계단이 오를수록 복구 tail이 짧아진다.",
+      "title": "마켓별 스냅샷 영속화 진행 changes(exchange_snapshot_last_persisted_seq[5m])",
+      "description": "노드·마켓마다 5분 동안 마지막 영속화 커서가 바뀐 횟수다. 캡처가 도는 계열만 그리고(SnapshotStalled 와 같은 식) 0 이면 그 마켓의 영속화가 멈췄다. 커서 값이나 전역 최댓값을 그리지 않는 이유는 대역 모드에서 마켓 커서가 대역마다 10^12 씩 떨어져 낮은 대역 마켓의 정지가 높은 대역 값에 묻히기 때문이다(ADR 0022 7단계). 영속화 실패와 드롭은 패널 9 로 본다.",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 7, "w": 12, "x": 12, "y": 43 },
       "targets": [
-        { "refId": "A", "expr": "max(exchange_snapshot_last_persisted_seq)", "legendFormat": "last_persisted_seq" }
+        { "refId": "A", "expr": "changes(exchange_snapshot_last_persisted_seq[5m]) and rate(exchange_snapshot_captured_total[5m]) > 0", "legendFormat": "{{instance}} 마켓 {{market}}" }
       ],
       "fieldConfig": {
-        "defaults": { "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 0 }, "decimals": 0, "unit": "short" },
+        "defaults": { "custom": { "drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "fillOpacity": 0 }, "decimals": 0, "unit": "short", "min": 0 },
         "overrides": []
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }

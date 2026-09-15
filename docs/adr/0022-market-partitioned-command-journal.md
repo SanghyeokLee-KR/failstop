@@ -735,9 +735,29 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 - **커트오버 뒤로 미루는 이유.** 배선하는 순간 처음 도는 코드다. 새 코드와 새 축을 같은 창에 겹치지 않게 한다. 실패해도 오늘의 동작(전량 재생)으로 떨어지는 폴백을 남긴다.
 - **6단계 감사가 남긴 7단계 위험(2026-09-14).** 둘 다 스냅샷이 찍혀야 발현하므로 지금은 잠복이다. (1) `SnapshotCapture` 한 인스턴스를 여러 샤드에 걸면 `seq <= lastCapturedSeq` 조기 반환이 시간 조건보다 앞서, 높은 대역 마켓을 한 번 캡처한 뒤 낮은 대역 마켓은 시간 간격으로도 캡처되지 않는다(SnapshotCapture.java:89-92). 샤드마다 하나를 둔다. (2) `WriterRouter` 는 복구 결과에 없는 마켓과 복구 뒤 처음 생기는 마켓을 복구본 바닥 `floorSeq()` 에서 출발시킨다(WriterRouter.java:76, 133-147). 스냅샷 복원이 스칼라 seq 를 바닥으로 남기면 그보다 낮은 대역 마켓의 새 명령이 커서 아래로 버려진다. 스냅샷에 마켓별 커서를 담아 복원하고 바닥 규칙을 대역 축에서 다시 정한다.
 
+**구현 주(2026-09-14).** 마이그레이션은 `V45__band_headroom.sql` 이다. 위 서술을 구체화하거나 다르게 한 곳을 적는다.
+
+- 뷰 `v_journal_band_headroom` 은 `market_journal_counters` 와 `journal_band_spec` 을 `name` 으로 이어 축마다 마켓별 `next_value`, `remaining`, `remaining_ratio` 를 낸다. `remaining` 은 `band_span - next_value` 로 남은 배정 가능 번호 수이고(채번 함수가 지역 번호를 `band_span - 1` 까지 준다), `remaining_ratio` 는 `remaining / band_span` 이다. 카운터 행이 없는 마켓은 쓴 번호가 없어 행이 없다. `app_role`·`harness_role` 에 SELECT 를 준다.
+- C26 술어는 `SELECT count(*) FROM v_journal_band_headroom WHERE name = 'command_seq' AND remaining_ratio < 0.1` 이다. 이벤트 축은 뷰와 게이지에만 보인다. 알람 라우팅은 `InvariantViolation` 템플릿이 체크 등급을 라벨로 옮기므로 규칙 파일을 고치지 않는다(HIGH 는 warning).
+- 게이지 `exchange.journal.band.remaining{name,market}` 은 `InvariantVerifier` 가 상시 run 과 권위 run 끝에서 `exchange_ledger_imbalance` 와 같은 MultiGauge 덮어쓰기로 이 뷰의 `remaining` 을 싣는다. 하네스를 켠 리더 노드에서 5분마다 바뀐다.
+- 샤드 팩토리가 샤드마다 `SnapshotCapture` 를 하나 만들어 훅을 건다. 캡처는 `appliedSeq(marketId)` 로 판정하고 그 마켓 북만 인코딩한다. DB 적재는 모든 캡처가 나눠 쓰는 워커 하나(`SnapshotPersister`)가 한다. 워커를 샤드마다 두면 시간 간격 캡처가 거의 같은 순간에 마켓 수만큼 커넥션을 쓴다. 큐 상한(`queue-capacity`)은 캡처마다 센다. 스냅샷 지표 넷(`exchange.snapshot.captured`·`dropped`·`persist_failed`·`last_persisted_seq`)에 `market` 태그가 붙는다.
+- 스냅샷 행의 `last_applied_seq` 는 그 마켓 커서다. 전 마켓 행에 스칼라 한 값을 쓰지 않는다. 적재 트랜잭션은 `assert_and_lock_leader` 를 먼저 부르고 그 epoch 를 `fencing_epoch` 에 쓴다. 이 경로가 운영에서 처음 돌므로 CLAUDE.md 14절 리더 안전성과 `docs/contracts/백엔드_API_설계.md` §6-C ⑦ 에 맞춘다. 거부는 영속화 실패로 세고 강등하지 않는다.
+- 바닥 규칙. `MatchingEngineImpl` 의 스칼라 바닥(`floorSeq`, 스칼라 `loadSnapshot`)을 없앤다. 커서 없는 마켓은 0 에서 출발하고, `WriterRouter` 는 설치 뒤 새로 생기는 샤드와 복구본에 없던 샤드를 커서 0 엔진으로 둔다. 복구본에 커서가 없는 마켓은 적용한 명령이 없으므로 그 마켓 명령을 전부 적용해야 하고, 다른 값을 바닥으로 두면 대역 채번에서 그 아래 명령을 버린다. 갭 회수는 6단계대로 그 마켓 커서에서 그 마켓 행만 읽는다.
+- 폴백. `EngineRecovery` 는 채택본을 새 엔진에 싣고 1·2 상 재생을 마친 뒤 호출자 엔진으로 옮긴다. 적재가 예외를 내면 기록 없이, 재생이 예외를 내면 `recovery_runs` 불일치 행을 남긴 뒤 스냅샷 없이 호출자 엔진에서 전량 재생한다. 둘 다 `exchange.recovery.snapshot_fallback` 에 더하고 ERROR 로그를 남긴다. 승격 재생이 리더 자격을 잃고 실패하면 폴백하지 않고 던진다. 불일치 행을 남기는 이유는 폴백이 가용성을 지키는 동안에도 결함을 C17 이 보게 하려는 것이다.
+- 복구 로그는 마켓별 채택 seq(`스냅샷 채택(마켓별)`)와 마켓별 커서 구간과 적용 명령 수(`재생 적용(마켓별)`)를 남긴다. `recovery_runs` 는 종전대로 전 마켓 통합 행(`market_id` 0)이다.
+- 시험. 두 채번 모드(래치 전 전역, 래치 뒤 대역)마다 마켓별 캡처, 스냅샷에서 꼬리만 재생하는 복구, 페일오버 뒤 C17, 갭 회수와 커서 0 출발, 두 폴백(재생 불일치는 불일치 행과 함께, 적재 실패는 기록 없이)을 `SnapshotHookWiringIntegrationTest` 가 본다. 운영 샤드 팩토리가 샤드마다 캡처를 거는지는 `SnapshotCaptureWiringTest` 가 본다. C26 세 벌 동치와 양성 검출, 뷰 권한, 게이지는 `InvariantBandAxisIntegrationTest` 가 본다.
+
+**검증 도구 주(2026-09-14).** 도커 판정 규약은 `docs/contracts/하네스_검증설계.md` §2-4 끝 「ADR 0022 7단계 스냅샷 경계 재생 판정 규약」이다. 절차는 `harness/scripts/adr0022-stage7-snapshot.ps1`(실험 주행은 `adr0022-stage5-chaos.ps1 -SnapshotEvidence`), 채집은 `harness/scale/snapshot_evidence.py`, 판정은 `harness/scale/stage7_judge.py` 다. 구현 보고의 판정식 `count(seq > 채택 seq)` 는 승격 뒤 새 명령이 더해져 적용 건수와 어긋나므로 재생 적용 줄의 종료 커서로 상한하고 승격 head 도달을 따로 본다. 승격 재생이 생략된 장애 칸은 재생 생략으로 적어 스냅샷 판정에서 빼고, 부팅 복구 경로는 모드마다 콜드 재기동 칸(`harness/scripts/adr0022-stage7-cold-restart.ps1`, 2026-09-15 보강)이 본다. 최종 성립은 두 모드의 콜드 재기동 칸 성립, 모드마다 장애 칸 성립 1칸 이상, FAIL·증거 불완전 칸 없음이다. 6-6 의 Grafana `replay_tail_commands` 를 마켓별 합으로, 스냅샷 영속화 패널을 마켓별 변화 수로 바꿨다. C26 이 `InvariantViolation` 에 warning 으로 실리는 경로를 promtool 시험에 더했다. 도커 주행은 NOT RUN 이다.
+
+**착지(2026-09-15, 도커 카오스 스택).** 브랜치 `adr0022-stage7` 에서 정본 개정(`340de39`, `135f99d`), 구현(`998ef54`, `09d188f`), 검증 도구(`12a0933`~`39e01c4`), 규약 보강(`a334941`, `0a2d8d7`)으로 들어왔다. 전역 모드와 대역 모드에서 E2·E4·E5·E6·E7 과 콜드 재기동 칸을 돌린 검증 판정은 스냅샷 경계 재생 성립이다. 두 모드 모두 콜드 재기동 칸이 성립했고 장애 칸 성립은 전역 3칸, 대역 2칸이다. 새 리더가 이미 head 에 닿아 재생을 생략한 5칸은 판정에서 뺐다. 12칸 모두 실험 판정 PASS 이고 RTO 는 4.910~10.506초다. 기록은 `docs/측정/20260915.md` 5.7.21 이다. 검토에서 결함 하나가 드러났다. 대역 모드에서는 스냅샷이 샤드마다 첫 명령 직후 캡처된다(`SnapshotCapture.java`:86-94, 초기 커서 0 과 대역 seq 의 차). 정확성 문제는 아니나 이력 중간 경계를 거친 대역 증거가 COLD 한 노드뿐이라, 캡처 기준 수정과 재측정을 후속으로 둔다. 위 3-2 와 7단계 첫 항목의 '샤드마다 두면 판정이 자연히 마켓 단위가 된다' 는 이 수정 뒤에 성립한다.
+
 ### 8단계. commit_delay 실측 (선택. 되돌릴 수 있다)
 
 `wal-fsync-20260907` 이 "재지 않았다" 로 남긴 자리다. 그 문서의 유보 사유가 "커밋이 단일 라이터에서 직렬화되어 동시 커밋자가 적다" 였고, **6단계가 그 전제를 바꾼다.** `synchronous_commit=off` 와 다르다. 동기 커밋을 유지한 채 플러셔가 형제 트랜잭션을 모으도록 기다리게 하는 것이라 'fsync 후 ACK' 계약을 깨지 않는다. `commit_siblings` 와 함께 격자로 돈다. `ALTER SYSTEM RESET` 으로 되돌린다.
+
+**도구 착수 주(2026-09-14).** 판정 규약은 `docs/contracts/하네스_검증설계.md` §2-4 끝의 「ADR 0022 8단계 commit_delay 격자 판정 규약」, 절차는 `harness/scripts/adr0022-stage8-commit-delay.ps1`, 판정기는 `harness/scale/stage8_judge.py` 다. 기준 칸 (0, 5)를 처음과 끝에 두고 `commit_delay` 250·1000·3000마이크로초 x `commit_siblings` 1·5 를 칸마다 새 도커 카오스 스택에서 트래픽 전 래치 뒤 돈다. 칸 값은 `ALTER SYSTEM SET` 과 재적재로 걸고 칸 끝과 실패 경로에서 `ALTER SYSTEM RESET` 으로 되돌린다. 묶음 비는 같은 1분 구간의 배정 xid 수를 `pg_stat_wal.wal_sync` 증가로 나눈 값이다. 주행은 NOT RUN 이다. 도커 결과는 참고치이고 채택은 클라우드 저장소 재측정 뒤 정한다.
+
+**착지(2026-09-15, 도커 카오스 스택).** 7단계 이미지 위에서 격자 여덟 칸을 돌렸고 판정은 NOT RUN 이다. 기준 칸 base-1 의 커밋 동시성이 1.184 라 전제를 못 채웠고, 기준 칸 둘의 접수 차 비가 0.333 이라 드리프트도 넘었다. commit_delay 3000µs 칸은 WAL fsync 를 묶었으나 접수는 늘지 않았다. 채택 여부는 클라우드 저장소에서 같은 격자를 다시 잰 뒤 정한다. 기록은 `docs/측정/20260915.md` 5.7.22 다.
 
 ### 9단계. 이벤트 축 대역 확대 마이그레이션(3-3) (선택. 별건)
 
@@ -836,6 +856,7 @@ E2·E4·E5·E6·E7 을 돌린다. 승격·팔로워·스냅샷 회귀는 장애 
 3. **`LoopFatalHandler` 가 여전히 한 샤드의 fatal 에서 노드 전체를 강등시킨다.** 곧 마켓별 게이트가 실제로 사는 경우는 '샤드가 멈췄는데 강등은 아직 안 온 창' 과 '접수 단계 예외(대역 초과 포함)' 뿐이다. 라이터 fatal 의 폭발 반경을 마켓으로 가두는 것은 별건이다.
 4. **승격·강등의 단위는 노드로 남는다.** `acceptGate` 를 가르지 않았다.
 5. **스냅샷은 지금 한 건도 안 찍힌다.** 7단계가 처음 도는 코드이고, 채택 게이트가 실동작하는 것도 처음이다. 시험 부담이 가장 큰 단계이며 폴백(전량 재생)을 남긴다.
+    **2026-09-14 7단계 배선.** 샤드마다 캡처가 걸려 스냅샷이 찍힌다. 폴백과 기록은 7단계 구현 주에 적었다. 도커 스택의 스냅샷 경계 재생 실측은 아직 없다.
 6. **6단계의 래치 전환은 비가역이다.** 래치 전에는 6단계 배포까지 되돌릴 수 있다. 래치 뒤에 전역 채번으로 돌아가면 낮은 seq 가 마켓 커서 아래로 무음 폐기되거나 전역 축의 C05 원형이 영영 성립하지 않는다. 래치 뒤 2단계 이전 앱으로의 롤백은 금지다(7절 6단계).
 7. **C26 은 10^12 대역에서 사실상 공허하다.** 6-4 에 이유와 실제 방어선을 적었다.
 8. **파티션 15개의 전역 정렬 비용을 안 쟀다.** 점 조회와 마켓별 읽기는 프루닝되지만 C22 의 `ORDER BY created_at, seq` 는 전량 정렬이다. 3단계에서 실측 시간을 기록한다.
