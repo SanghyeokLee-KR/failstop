@@ -3,7 +3,7 @@
 ## 결론
 
 카오스 스택(PostgreSQL 17.10, 앱 2노드)에서 `run_parity.ps1` 을 한 번 끝까지 돌렸다. `result.json` 종료코드 0이다.
-대조 규칙과 비용 문턱은 `docs/contracts/하네스_검증설계.md` §4-1 대역 축 술어의 대조 규칙을 따른다.
+대조 규칙과 비용 문턱은 `docs/reference/contracts/하네스_검증설계.md` §4-1 대역 축 술어의 대조 규칙을 따른다.
 
 - 두 마켓 이상 체결 뒤 리더 kill 한 번(epoch 1에서 2)을 만들고 부하를 끊은 정지 저널에 권위 run(`InvariantCheck`),
   `summary.sql`, `invariants.sql`, 개정 전 술어(`legacy_predicates.sql`)를 대었다. 판정 대조 70건 전부 일치, 양성 축 5개 충족,

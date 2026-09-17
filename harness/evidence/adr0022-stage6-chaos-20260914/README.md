@@ -2,7 +2,7 @@
 
 ## 결론
 
-- 다섯 실험 모두 실험 판정 PASS, 분리 판정 PASS 다. 이미지는 6단계 `exchange-chaos-app:adr0022-stage6-0cb57a3`(`0cb57a3`)이고 절차는 `harness/scripts/adr0022-stage5-chaos.ps1 -LatchBeforeTraffic` 이다. 실험마다 스택을 `down -v` 뒤 새로 띄우고 실험 스크립트 직전에 래치를 걸었다. 분리 판정 규약은 `docs/contracts/하네스_검증설계.md` §2-4 끝의 대역 모드 장애 주행 분리 판정이다.
+- 다섯 실험 모두 실험 판정 PASS, 분리 판정 PASS 다. 이미지는 6단계 `exchange-chaos-app:adr0022-stage6-0cb57a3`(`0cb57a3`)이고 절차는 `harness/scripts/adr0022-stage5-chaos.ps1 -LatchBeforeTraffic` 이다. 실험마다 스택을 `down -v` 뒤 새로 띄우고 실험 스크립트 직전에 래치를 걸었다. 분리 판정 규약은 `docs/reference/contracts/하네스_검증설계.md` §2-4 끝의 대역 모드 장애 주행 분리 판정이다.
 - 다섯 모두 래치 행이 있고 대역 행이 0 보다 크며, 하네스 C28 과 사후 권위 run C28 이 0 이다.
 - RTO 는 4.360~10.450초로 목표 30초 안이다. 사후 창 C22 시간 축 팔과 마켓 안 팔은 모두 0 이고 마켓 안 `created_at` 역행도 0 이다. 연결 고갈은 없었다.
 - 5단계에서 빠졌던 E5·E7 주입 사건이 이번에는 도커 사건 기록에 있다. 사건 수집을 실험 스크립트보다 먼저 시작했다.

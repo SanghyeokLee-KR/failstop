@@ -107,8 +107,8 @@ DB 일을 줄였는데 처리량이 준 두 회차가 천장을 다시 묻게 �
 라이터 뒤에 줄 서 있다.
 
 **천장은 단일 라이터 루프의 직렬 처리율이다.** 수용 상한 12 는 그 초과분을 429 로 되받아
-지연을 묶는 백프레셔다. `docs/contracts/하네스_검증설계.md` §2-4 와
-`docs/adr/0013-capacity-calibration-measured-ops.md` 가 규정한 그대로이며 이 회차가 독립
+지연을 묶는 백프레셔다. `docs/reference/contracts/하네스_검증설계.md` §2-4 와
+`docs/reference/adr/0013-capacity-calibration-measured-ops.md` 가 규정한 그대로이며 이 회차가 독립
 표본으로 재확인한다.
 
 상한을 올렸을 때 20% 가 오른 기전은 이 회차가 가르지 않는다. 5초 표본으로는 라이터가 순간

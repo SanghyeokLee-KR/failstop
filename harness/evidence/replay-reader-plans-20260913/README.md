@@ -2,7 +2,7 @@
 
 ## 목적
 
-- ADR 0022(`docs/adr/0022-market-partitioned-command-journal.md`) 작업 분해 WP6 의 착수 조건이다. WP 번호는 ADR 본문에 없는 작업 분해 명칭이다.
+- ADR 0022(`docs/reference/adr/0022-market-partitioned-command-journal.md`) 작업 분해 WP6 의 착수 조건이다. WP 번호는 ADR 본문에 없는 작업 분해 명칭이다.
 - 대상은 `EventJournalReader` 의 `readAfterForMarket` 모던 분기(q1)와 레거시 분기(q2), `materializedThroughByMarket`(q3), `CommandJournalReader.readAfterForMarket`(qc)이다.
 - 판정 대상은 셋이다. `(market_id, source_cmd_seq, event_ordinal)` 후보 인덱스의 필요 여부, 반복 실행에서의 generic 계획 전환, 경계 SQL 의 JIT 발화.
 

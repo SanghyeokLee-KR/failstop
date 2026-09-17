@@ -4,7 +4,7 @@
 #   pwsh -NoProfile -File scripts\check-doclinks.ps1 -Stats   # 인용 통계까지 출력.
 # 계약 문서를 인용한 코드·문서가 문서 이동·개명 뒤에도 유효한지 본다. 앵커(#절)와 절 표기는
 # 파일 존재만 보고 내용은 보지 않는다. check-style.ps1과 같은 규약으로 종료코드 1이 위반이다.
-# 규약 정본은 docs/contracts/하네스_CICD_IaC.md 부록 U.
+# 규약 정본은 docs/reference/contracts/하네스_CICD_IaC.md 부록 U.
 # 발신이 docs/archive/인 인용은 판정하지 않는다. 폐기 문서는 시점 기록이라 축어 보존이
 # 원칙이고, style.yml·check-style.ps1의 ':!docs/archive/**' 면제와 규약을 맞춘다.
 # 사각이 하나 남는다. 폴더를 넘는 맨 파일명 인용(예: `백엔드_DB_설계.md`)은 경로 접두가
@@ -31,7 +31,12 @@ $skipNames = @("node_modules", ".git")
 $skipPaths = @("server/build", "server/*/build", "server/.gradle",
                "web/.next", "web/.test-dist", "web/out", "seed-data/out",
                ".claude/worktrees", "server/app/src/main/resources/db/migration")
-$skipFiles = @("package-lock.json")
+$skipFiles = @("package-lock.json", "legacy-paths.json", "check-docs.Tests.ps1")
+# 소스 주석은 문서 이동만으로 바꾸지 않는다. 기존 경로는 명시된 대응표로 확인한다.
+# 현재 Markdown·HTML 문서는 새 경로를 써야 하므로 대응표를 적용하지 않는다.
+$legacyMap = Get-Content -LiteralPath (Join-Path $root 'docs/ai/legacy-paths.json') -Raw | ConvertFrom-Json -AsHashtable
+$sourceMayUseLegacyPaths = $false
+$legacyRefs = 0
 # 폐기 문서 발신은 판정 대상이 아니다. 스타일 게이트의 archive 면제와 같은 규약이다.
 $archivePrefix = "docs/archive/"
 
@@ -81,8 +86,25 @@ function Get-TargetFile {
 }
 
 # 토큰을 저장소 기준 상대경로로 환원한다. docs 밖으로 나가면 판정 대상이 아니라 $null.
+function Resolve-LegacyTarget([string]$target) {
+    if (-not $script:sourceMayUseLegacyPaths) { return $target }
+    if ($script:legacyMap.files.ContainsKey($target)) {
+        $script:legacyRefs++
+        return $script:legacyMap.files[$target]
+    }
+    foreach ($prefix in $script:legacyMap.prefixes.Keys) {
+        if ($target.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+            $script:legacyRefs++
+            return $script:legacyMap.prefixes[$prefix] + $target.Substring($prefix.Length)
+        }
+    }
+    return $target
+}
+
 function Resolve-Citation([string]$token, [string]$fileDir) {
     if ($token.Contains('://')) { return $null }
+    # 검사기 등의 변수 보간 경로는 문서 인용이 아니다. 실제 조합은 해당 검사기가 검증한다.
+    if ($token.Contains('$')) { return $null }
     $m = $reExt.Match($token)
     if (-not $m.Success) { return $null }
     $p = $m.Groups[1].Value
@@ -92,9 +114,9 @@ function Resolve-Citation([string]$token, [string]$fileDir) {
         $combined = [System.IO.Path]::Combine($fileDir, $p.Replace('/', $sep))
         $full = [System.IO.Path]::GetFullPath($combined)
         if (-not $full.StartsWith($docsRoot + $sep, [System.StringComparison]::OrdinalIgnoreCase)) { return $null }
-        return $full.Substring($root.Length + 1).Replace('\', '/')
+        return Resolve-LegacyTarget $full.Substring($root.Length + 1).Replace('\', '/')
     }
-    if ($p.StartsWith('docs/')) { return $p }
+    if ($p.StartsWith('docs/')) { return Resolve-LegacyTarget $p }
     return $null
 }
 
@@ -152,6 +174,7 @@ $refFiles = 0
 
 foreach ($file in Get-TargetFile) {
     $rel = $file.Substring($root.Length + 1).Replace('\', '/')
+    $sourceMayUseLegacyPaths = $docExts -notcontains [System.IO.Path]::GetExtension($file).ToLowerInvariant()
     if ($rel.StartsWith($archivePrefix, [System.StringComparison]::Ordinal)) { continue }
     $dir = [System.IO.Path]::GetDirectoryName($file)
     $isIndex = ($rel -eq $indexFile)
@@ -198,6 +221,7 @@ if ($Stats) {
 
 Write-Host ""
 Write-Host "경로 인용 $totalRefs 건, 인용 파일 $refFiles 개, 대상 문서 $($perDoc.Count) 종."
+Write-Host "소스 주석의 이전 문서 경로 $legacyRefs 건은 경로 대응표로 확인했다."
 Write-Host "폴더를 넘는 맨 파일명 인용과 docs/archive/ 발신은 이 집계와 판정 밖이다."
 if ($broken.Count -gt 0) {
     Write-Host "깨진 참조 $($broken.Count) 건. 문서를 옮겼으면 인용부터 고칠 것."

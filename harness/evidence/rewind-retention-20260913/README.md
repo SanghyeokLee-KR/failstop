@@ -41,7 +41,7 @@ checkpoint_timeout|300|s|default
 시킨다. 그 일회성 기동에 `wal_log_hints` 는 넘기면서 **`wal_keep_size` 를 넘기지 않았다.**
 보존 없이 뜬 그 기동의 종료 체크포인트가 구간을 회수했다.
 
-`docs/operations/DB_수동_페일오버.md` 2-7 이 "그 기동에 원래 설정을 그대로 준다" 로 적은 이유가
+`docs/reference/operations/DB_수동_페일오버.md` 2-7 이 "그 기동에 원래 설정을 그대로 준다" 로 적은 이유가
 이것이다. 종전에는 `wal_log_hints` 하나 때문인 줄 알았는데 WAL 보존에 닿는 설정 전부가 대상이다.
 스크립트를 고치고 둘째 회차를 돌렸다.
 

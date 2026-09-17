@@ -409,4 +409,4 @@ PHASE 4 페일오버 창에서 실측했다.
 | `harness/replication/run.sh` | 공용 회차 드라이버 |
 | `harness/replication/dynamo_lease.py` | 리스 항목 조회 |
 | `harness/evidence/leader-lease-dynamodb-20260908/` | 리스 분리 회차 |
-| `docs/adr/0017-leader-lease-out-of-commit-path.md` | 결정 기록 |
+| `docs/reference/adr/0017-leader-lease-out-of-commit-path.md` | 결정 기록 |
