@@ -1,0 +1,16 @@
+[Unit]
+Description=Discover Failstop EC2 monitoring targets
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/lib/failstop/discover-targets.py
+Environment=AWS_PAGER=
+TimeoutStartSec=40
+UMask=0022
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/failstop/deploy/observability/targets /var/lib/failstop/metrics
+ProtectHome=yes
+PrivateTmp=yes

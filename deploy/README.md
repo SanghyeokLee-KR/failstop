@@ -1,10 +1,10 @@
-# AWS 배포 안내
+# Linux 운영과 AWS 배포 안내
 
-이 폴더에는 앱, DB, 봇을 서로 다른 호스트에서 실행하기 위한 Compose 설정이 있다. 루트의 `compose.yaml`은 로컬 단일 호스트용이므로 AWS에 그대로 옮겨 쓰지 않는다.
+이 폴더에는 앱·조회·DB·봇/관측의 역할별 Compose와 Linux 운영·DB 복구·보고 도구가 있다. 정본 작업 브랜치는 `codex/docs-linux-operations`다. 루트 `compose.yaml`은 기존 로컬 개발 검증용이므로 AWS에 그대로 옮겨 쓰지 않는다.
 
 2026-09-18부터 AWS 단계의 목표는 MSP 운영·관제, Linux·네트워크·DB 운영, 조회 계층 EC2 자동 확장, AI 일일·장애 보고와 Microsoft Teams 연계다. 기존 노드 파일은 그 목표가 구현됐다는 뜻이 아니다. 수동 확장만 허용했던 정책은 [ADR 0027](../docs/reference/adr/0027-msp-operations-and-autoscaling.md)로 대체했고, 로컬 카오스는 과거 개발 검증 자료로 남긴다.
 
-2026-09-17 문서 정리 기준으로 실제 AWS 계정과 실행 상태는 조회하지 않았다. 저장된 설정과 배포 완료 여부를 구분한다. 남은 배포 작업은 [로드맵](../docs/ROADMAP.md)에 있다.
+AWS 계정은 아직 제공되지 않았다. 로컬 실행과 실제 AWS 완료를 구분하며, 현재 검증 근거와 남은 작업은 [로드맵](../docs/ROADMAP.md)에 있다.
 
 전체 구조와 배포 착수 조건은 [0099 현재 구조와 AWS 배포 판단](../docs/reference/adr/0099-current-architecture.md)에서 먼저 읽는다. 개별 ADR을 시간순으로 읽으며 현재 결정을 다시 조합할 필요가 없도록, 채택한 구조와 후속 변경을 한곳에 모았다.
 
@@ -15,20 +15,29 @@
 | [compose.node-app.yml](compose.node-app.yml) | 앱 노드. 이미지, DB 주소, 비밀 값과 허용 오리진을 외부에서 받는다. |
 | [compose.node-data.yml](compose.node-data.yml) | PostgreSQL primary 또는 standby 노드. 비동기 복제 설정을 포함한다. |
 | [compose.node-bot.yml](compose.node-bot.yml) | 실제 주문 API를 호출하는 봇 노드. |
+| [compose.node-observability.yml](compose.node-observability.yml), [AWS 관측 overlay](compose.observability-aws.yml) | Prometheus·Grafana·Alertmanager와 AWS 전용 CloudWatch 데이터 소스. |
 | [pg-init-replication.sh](pg-init-replication.sh) | primary의 복제 계정과 슬롯 준비. |
 | [pg-standby-entrypoint.sh](pg-standby-entrypoint.sh) | base backup을 받아 standby 시작. |
 | [.env.example](.env.example) | 배포 변수 이름과 예시. 실제 비밀 값은 별도로 관리한다. |
+| [compose.node-read.yml](compose.node-read.yml) | 엔진과 쓰기 경로를 차단한 조회 역할. |
+| [compose.migrate.yml](compose.migrate.yml) | 스키마 적용, 초기 카탈로그·빈 시스템 계정, 분리 로그인 준비. |
+| [check-config.py](check-config.py) | 역할별 필수 값·digest·사설 바인딩·DB 풀 전체 예산 검사. |
+| [Linux 도구](linux/README.md) | 계정·SSH·권한·systemd·로그·방화벽·디스크 점검. |
+| [관측 도구](observability/README.md) | 호스트·DB exporter, 기존 Grafana와 Teams 기본 알림. |
+| [DB 실습](lab/README.md), [백업 도구](backup/README.md) | 격리·수동 승격·전환·재편입과 실제 백업 복원. |
+| [운영 보고](reporting/README.md) | 매일 09:00 KST·장애 보고, 영속 재전송, 2쪽 PDF·HTML 자동 제공과 선택적 Gemini 분석. |
+| [Terraform](terraform/README.md) | AWS 네트워크·역할별 배치·조회 ASG 사전 구현. |
 
 `compose.base.yml`은 없다. 각 노드의 파일을 직접 사용한다. 앱 이미지는 태그만으로 식별하지 않고 배포할 digest를 확정한다.
 
-`compose.node-edge.yml`, `nginx-edge.conf.template`과 인증서 스크립트는 ALB 채택 전 구성이다. 현재 AWS 진입 계층으로 그대로 사용하지 않는다. 이번 정리에서는 실행 설정을 변경하지 않았다.
+`compose.node-edge.yml`, `nginx-edge.conf.template`과 인증서 스크립트는 ALB 채택 전 구성이다. 현재 AWS 진입 계층으로 그대로 사용하지 않는다.
 
 ## 배포 구조를 확인할 문서
 
 - [ADR 0010](../docs/reference/adr/0010-onprem-to-aws-deployment.md): 외부 접속 가능한 AWS 배포와 실험 환경 분리.
 - [ADR 0011](../docs/reference/adr/0011-cloudfront-two-origins.md): 정적 웹과 API를 CloudFront 뒤에서 연결하는 구조.
 - [ADR 0027](../docs/reference/adr/0027-msp-operations-and-autoscaling.md): MSP 운영과 조회 계층 자동 확장, Teams·AI 보고. ADR 0015의 수동 확장 정책을 대체한다.
-- [ADR 0016](../docs/reference/adr/0016-observability-on-bot-node.md): 봇 노드에 관측 도구를 두는 결정. 노드 Compose의 실제 서비스 정의와 추가로 맞춰야 한다.
+- [ADR 0016](../docs/reference/adr/0016-observability-on-bot-node.md): 봇 노드에 관측 도구를 두는 결정. 관측 Compose와 자원 한도를 함께 적용한다.
 - [ADR 0020](../docs/reference/adr/0020-managed-nat-gateway.md): 관리형 NAT Gateway 채택.
 - [ADR 0024](../docs/reference/adr/0024-async-two-node-replication.md): PostgreSQL 비동기 복제와 수동 승격.
 
@@ -42,13 +51,13 @@ IAM 제약 때문에 기존 역할을 사용할 수 있는지, 추가 역할 설
 
 ## Linux 실행 환경
 
-기존 [ADR 0010](../docs/reference/adr/0010-onprem-to-aws-deployment.md)은 Rocky Linux 10 계열과 Graviton ARM64를 전제로 한다. 실제 사용할 OS 버전·AMI의 출처와 ID, CPU 아키텍처와 배포 이미지 digest는 착수할 때 확인한다. 현재 AWS 호스트의 OS와 설정을 조회한 결과는 없다. 계정·SSH 또는 SSM 접근, 서비스의 부팅·재시작, 로그 보존, 디스크·파일시스템, 네트워크 점검 절차를 이 환경에 맞춰 준비한다. 첫 작업 순서는 [로드맵](../docs/ROADMAP.md)의 '다음 작업의 시작점'을 따른다.
+기존 [ADR 0010](../docs/reference/adr/0010-onprem-to-aws-deployment.md)은 Rocky Linux 10 계열과 Graviton ARM64를 전제로 한다. 로컬 실습은 Ubuntu WSL·x86_64다. apt/dnf, ssh/sshd, AppArmor/SELinux와 firewalld 차이는 [Linux 안내](linux/README.md)에 정리했다. AWS AMI 출처·ID, ARM64 이미지 digest와 실제 재부팅 후 서비스 기동은 별도로 검증한다. WSL의 systemd timer는 해당 WSL이 실행 중일 때 동작하며 Windows 상시 가동 예약을 대신하지 않는다.
 
 ## 녹화를 위한 운영 기간
 
 발표는 실제 시연 영상과 캡처를 PPTX에 넣어 준비한다. [교수님께 보고한 구성](../아키텍쳐/README.md)을 기준으로 로컬에서 절차를 연습한 뒤 AWS 검증과 촬영을 모아서 진행한다. 예산에 맞추려고 DB나 NAT 수를 임의로 줄이면 보고안과 다른 구성의 실험이 된다. 우선 가동 기간과 부하·확장 노드의 사용 시간을 관리한다.
 
-보고본의 수동 확장 표시는 과거 계획이며 현재 요구는 AWS 자동 확장이다. 매칭 리더와 DB는 고정된 역할로 두고, 먼저 확장 가능한 조회 경로와 ASG 노드의 준비·축소·관측 등록을 설계한다. 새 노드 최대 대수만큼의 DB 연결 예산과 비용도 합산한다. 기존 Discord 알림을 Teams로 바꾸고 Linux 호스트 지표·보고 작업을 배포해야 하므로, 앱 Compose만 옮겨서 완료할 수 없다.
+보고본의 수동 확장 표시는 과거 계획이며 현재 요구는 AWS 자동 확장이다. 매칭 리더와 DB는 고정된 역할이고 조회 노드만 확장한다. 최대 대수·교체 여유의 DB 연결 예산과 비용도 합산한다. 새 Linux 관측·Teams·보고 구성까지 실제 호스트에 배포하고 검증해야 한다.
 
 자원을 만들기 전에 예상 사용 시간, 재촬영 여유, 보존할 데이터, 종료일과 철거·재생성 절차를 정한다. 기존 결정의 외부 상시 접속 조건이 영상 발표로 자동 면제된 것은 아니므로 필요한 접속 유지 기간을 별도로 확인한다. 40만 원 안에 드는지는 실제 규격·볼륨·시간·전송량과 잔액을 넣어 다시 계산해야 한다.
 
@@ -61,13 +70,24 @@ EC2를 중지하는 것만으로 전체 과금이 끝나지 않는다. 남은 EB
 - DB 주소와 계정: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
 - 암호화·회원 인증: `MASTER_KEY_BASE64`, `PASSWORD_PEPPER_BASE64`, `SESSION_SEED_BASE64`.
 - 브라우저 접근: `CORS_ALLOWED_ORIGINS`, `WS_ALLOWED_ORIGINS`.
-- 실행 이미지와 스키마 적용: `APP_IMAGE`, `FLYWAY_ENABLED`.
+- 실행 이미지와 신뢰 프록시: `APP_IMAGE`, `EXCHANGE_TRUSTED_PROXIES`.
 
-마이그레이션은 먼저 기동하는 한 노드에서 완료하고 나머지 앱을 시작한다. prod에서는 API 포트 8080과 관리 포트 8081이 분리된다. 관리 포트와 하네스 API를 공개하지 않는다. `prod,admin` 조합에는 별도 운영 인증서가 필요하다.
+마이그레이션은 같은 앱 이미지의 별도 명령으로 실행한다. 일반 앱·조회·봇은 Flyway를 끈다. 첫 배포는 primary 기동 후 아래 명령을 각각 성공시킨 뒤 standby와 앱을 시작한다. 최초 카탈로그는 자산·마켓·잔고 0의 SYSTEM 계정만 만들며 데모 사용자·회원·가상 자금을 만들지 않는다.
+
+```bash
+python3 deploy/check-config.py --env /etc/failstop/migrate.env --role migrate
+docker compose --env-file /etc/failstop/migrate.env -f deploy/compose.migrate.yml run --rm migrate
+docker compose --env-file /etc/failstop/migrate.env -f deploy/compose.migrate.yml run --rm catalog-seed
+docker compose --env-file /etc/failstop/migrate.env -f deploy/compose.migrate.yml run --rm provision
+```
+
+기존 DB 업그레이드는 V41 인덱스·V44 래치·V46 이벤트 대역의 [ADR 0022 적용 조건](../docs/reference/adr/0022-market-partitioned-command-journal.md)을 따르며 쓰기 정지 창과 전체 엔진 버전 정렬이 선행된다. 적용한 Flyway 파일이나 체크섬을 고치지 않는다. prod API 8080과 관리 8081은 분리되며 관리 포트와 하네스 API를 공개하지 않는다. `prod,admin`은 별도 운영 인증서가 필요하다.
+
+`EXCHANGE_TRUSTED_PROXIES`는 CIDR이 아닌 Java 정규식이다. 실제 ALB 서브넷만 신뢰하도록 지정한다. root 소유의 환경 파일과 배포 파일을 [Linux 설치기](linux/README.md)로 설치하고 역할별 설정 검사를 거친다. 로컬 태그 이미지는 명시적인 `--local-image`에서만 허용한다.
 
 컨테이너 생존 확인과 요청 수용 여부도 다르다. 팔로워는 살아 있어도 readiness가 접수 불가를 반환할 수 있으므로, 생존 확인에는 liveness를 사용한다.
 
-조회 ASG용 실행 설정은 아직 완성되지 않았다. 현재 앱 Compose의 `environment`에는 `EXCHANGE_ENGINE_ENABLED` 전달이 없으므로 `.env`에 `false`만 적어도 조회 전용 노드로 바뀌지 않는다. 역할별 실행 설정과 런치 템플릿부터 구현하고 실제 프로세스에서 엔진 비활성화를 확인한다. 이 설정만으로 쓰기 API가 제거되는 것도 아니므로 라우팅과 접근 통제를 함께 검증한다. 조회 헬스의 DB 의존성을 ASG 교체 판단에 그대로 연결하지 않는 조건은 [ADR 0027](../docs/reference/adr/0027-msp-operations-and-autoscaling.md)을 따른다.
+[조회 Compose](compose.node-read.yml)는 `prod,read`, 엔진·Flyway·하네스·관리 기능 비활성화와 읽기 전용 DB 로그인을 강제한다. GET/HEAD의 markets·trades·candles만 제공하며 회원·주문·취소·WS·호가·티커를 거절한다. ALB는 8081의 `/actuator/health/read`를 검사하고 ASG는 EC2 health로 교체를 판단한다. 공통 DB 장애에서 read 503과 liveness 200을 구분한다. 호가·티커는 WebSocket 순번과 연결되므로 고정 엔진 경로에 유지한다. [ADR 0027](../docs/reference/adr/0027-msp-operations-and-autoscaling.md)
 
 ## 웹과 도메인
 
@@ -81,7 +101,13 @@ EC2를 중지하는 것만으로 전체 과금이 끝나지 않는다. 남은 EB
 
 ## 배포 전 확인
 
-첫 실행 전에 [DB 노드 설정](compose.node-data.yml)의 사설 호스트 간 접속 경로를 마련해야 한다. 현재는 포트 공개나 호스트 간 네트워크가 정의되어 있지 않다. 앱·리스·append·봇의 풀을 합산해 PostgreSQL 연결 한도도 맞춘다. 문서상 기본 구성의 최대 합계는 106개로 기본 일반 연결 한도 97개를 넘는다. 역할 권한과 V41·V44·V46 적용 순서까지 포함한 선행 작업은 [0099](../docs/reference/adr/0099-current-architecture.md)에 정리했다.
+[DB 노드](compose.node-data.yml)는 기본 루프백 바인딩이다. 여러 호스트에서는 `DB_BIND_IP`를 해당 사설 IPv4로, 별도 standby의 `STANDBY_LISTEN_PORT`를 5432로 지정하고 SG·호스트 방화벽을 맞춘다. 복제 계정·pg_hba 초기화는 빈 볼륨의 첫 기동에만 실행되므로 기존 볼륨 변경은 SQL과 설정을 별도로 검토한다.
+
+기본 연결 상한은 `(엔진 2 + 교체 여유 1) × 48 + 조회 최대 2 × 10 + 봇 10 + 운영 10 + 복제 4 = 188`이며 PostgreSQL 일반 한도 `200 - 3 = 197` 이내다. 실제 사용량이나 메모리 적정성의 측정값은 아니다. 풀·ASG 최대 대수·교체 여유를 바꾸면 전체 예산을 검사하고 2 GiB 기본 메모리와 실제 EC2 규격을 부하로 검증한다.
+
+node_exporter와 전용 DB exporter, 실제 주소 인벤토리와 Grafana를 연결한다. 고객사·환경·역할로 관측 범위를 정하고 서비스 관제·Spring·AWS 서버·DB 복구 화면에서 같은 대상을 조회한다. DB 접속 실패와 exporter 장애는 별도 경보이며 AWS CloudWatch는 전용 overlay와 기존 instance profile로 연결한다. ALB·ASG 식별자는 Terraform 출력에서 가져온다.
+
+Alertmanager의 기본 Teams 경로와 보고 webhook은 독립적이다. 일일 보고는 **09:00 Asia/Seoul**이다. Google Gemini 직접 연결·호출 상한을 구현했으며 현재 설치는 외부 전송 동의를 기다리는 `facts-only`다. Teams 요약 카드와 같은 원자료의 2쪽 PDF·HTML 자동 제공은 [보고 서비스 안내](reporting/README.md)를 따른다. 파일 링크는 별도 키로 서명하고 기본 7일 뒤 만료된다. PDF 생성 실패가 카드 전송을 막지 않으며 실패를 별도 지표로 남긴다. 로컬 주소와 외부 관계자용 HTTPS 주소를 구분한다. SQLite가 중복·재시작·재전송을 처리하고 비밀 URL·키·토큰은 저장소에 넣지 않는다. HTTP 2xx와 실제 Teams 채널 게시를 구분하며, 환경별 실행 근거는 [09-18 기록](../docs/measurements/20260918.md)에 있다. AWS 계정 없이 Terraform 정적 검사를 통과한 것은 실제 plan·apply 결과가 아니다.
 
 노드 간 연결, 관리 접근 통제, 모니터링과 알림, 재배포·롤백, 백업 복원을 실제 환경에서 확인한다. DB 장애 후 절차는 [DB 수동 페일오버](../docs/reference/operations/DB_수동_페일오버.md)를 따른다. 리더 앱 자동 전환이 DB 자동 승격을 뜻하지는 않는다.
 

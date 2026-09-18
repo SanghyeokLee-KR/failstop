@@ -3,9 +3,8 @@
 # 왜 필요한가. 기본 수집기는 커넥션·트랜잭션·잠금까지다. 이 프로젝트가 지금 필요로 하는 값 둘이
 # 그 밖에 있다. 복제 재생 지연과 WAL 생성 속도다.
 #
-#   재생 지연. 2026-09-12 실측이 "RPO 는 그 순간의 복제 지연과 같다" 로 끝났다
-#   (harness/evidence/failover-rpo-20260912/). 곧 이 값이 곧 유실량이다. standby 에 조회를
-#   보낼지 판단하는 입력이기도 하다. 조회가 재생을 밀면 유실량이 커진다.
+#   재생 지연은 복제 상태를 판단하는 근거다. 유휴 시간에도 마지막 재생 시각의 나이는
+#   늘어나므로 그 값만으로 유실량을 확정하지 않는다. ACK 목록과 복구 저널을 대조해야 한다.
 #
 #   WAL 생성 속도. ADR 0025 가 되감기 보존 정책의 지배 입력으로 지목했고 저장소에 실측이
 #   0건이다. 유일한 실측 35.4 MiB/s 는 소음 부하가 만든 값이라 인용 자격이 없다.
@@ -22,7 +21,7 @@ pg_wal_position:
     SELECT
       CASE WHEN pg_is_in_recovery() THEN NULL
            ELSE pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0') END AS bytes,
-      (SELECT count(*) * 16 * 1024 * 1024 FROM pg_ls_waldir()) AS dir_bytes,
+      (SELECT sum(size) FROM pg_ls_waldir()) AS dir_bytes,
       CASE WHEN pg_is_in_recovery() THEN 1 ELSE 0 END AS in_recovery
   metrics:
     - bytes:
@@ -30,7 +29,7 @@ pg_wal_position:
         description: "primary 의 현재 WAL 삽입 위치를 바이트로 편 값. 증분의 rate 가 WAL 생성 속도다"
     - dir_bytes:
         usage: "GAUGE"
-        description: "pg_wal 디렉터리 점유. 세그먼트 수 곱하기 16MiB"
+        description: "pg_wal 디렉터리의 실제 파일 크기 합계"
     - in_recovery:
         usage: "GAUGE"
         description: "1 이면 standby, 0 이면 primary"
@@ -52,7 +51,7 @@ pg_replica_replay:
         description: "받은 WAL 과 재생한 WAL 의 거리. 조회 부하가 재생을 밀면 이 값이 벌어진다"
     - delay_seconds:
         usage: "GAUGE"
-        description: "마지막으로 재생한 트랜잭션의 나이. 이 값이 곧 그 순간의 RPO 다"
+        description: "마지막 재생 트랜잭션의 나이. 유휴 시간도 포함하므로 RPO나 유실량으로 확정하지 않는다"
 
 # primary 가 보는 각 standby 의 진행. sent 와 replay 의 거리가 곧 승격 시 잃는 구간이다.
 pg_replication_client:
@@ -62,7 +61,7 @@ pg_replication_client:
       state,
       sync_state,
       pg_wal_lsn_diff(sent_lsn, replay_lsn) AS sent_replay_bytes,
-      COALESCE(EXTRACT(EPOCH FROM replay_lag), 0) AS replay_lag_seconds
+      EXTRACT(EPOCH FROM replay_lag) AS replay_lag_seconds
     FROM pg_stat_replication
   metrics:
     - application_name:

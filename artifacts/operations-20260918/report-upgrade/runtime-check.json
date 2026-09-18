@@ -1,0 +1,54 @@
+{
+  "analyzer": "facts-only",
+  "configured_model": "gemini-3.1-flash-lite",
+  "external_ai_enabled": false,
+  "limits": {
+    "ai_daily_calls": 50,
+    "ai_monthly_calls": 1000,
+    "ai_minute_calls": 4,
+    "ai_max_input_tokens": 6000,
+    "ai_max_output_tokens": 1200
+  },
+  "units": [
+    "active",
+    "active"
+  ],
+  "next_daily": "Sat 2026-09-19 09:00:00 KST",
+  "health": 200,
+  "modules_match": {
+    "reporter.py": true,
+    "evidence.py": true,
+    "transport.py": true,
+    "secret_inputs.py": true,
+    "gemini.py": true,
+    "presentation.py": true,
+    "render_pdf.py": true
+  },
+  "status": {
+    "counts": {
+      "sent": 7
+    },
+    "last_daily_sent": 1789695077.2720933,
+    "oldest_pending": null,
+    "ai_usage": {
+      "day": "2026-09-18",
+      "month": "2026-09",
+      "daily_attempts": 0,
+      "monthly_attempts": 0,
+      "completed": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "thought_tokens": 0
+    },
+    "delivery_enabled": true
+  },
+  "secret_permissions": {
+    "teams-webhook": "0o640",
+    "reporting.env": "0o640"
+  },
+  "parent_traverse": {
+    "/opt/failstop": "0o755",
+    "/opt/failstop/deploy": "0o755",
+    "/var/lib/failstop": "0o755"
+  }
+}

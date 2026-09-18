@@ -1,0 +1,65 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.13.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.size=2GB
+    volumes:
+      - ${PROMETHEUS_CONFIG:-./observability/prometheus.yml}:/etc/prometheus/prometheus.yml:ro
+      - ${OBS_TARGETS_DIR:-./observability/targets}:/etc/prometheus/targets:ro
+      - ./observability/rules:/etc/prometheus/operations-rules:ro
+      - ../harness/prometheus/rules:/etc/prometheus/exchange-rules:ro
+      - prometheus-data:/prometheus
+      - ${REPORTER_TOKEN_FILE:?set_REPORTER_TOKEN_FILE}:/run/secrets/reporter_token:ro
+    ports: ['${OBS_BIND_IP:-127.0.0.1}:${PROMETHEUS_PORT:-59090}:9090']
+    extra_hosts: ['host.docker.internal:host-gateway']
+    restart: unless-stopped
+    mem_limit: 512m
+    logging: &logging
+      driver: json-file
+      options: {max-size: 20m, max-file: '3'}
+  alertmanager:
+    image: prom/alertmanager:v0.34.0
+    command: [--config.file=/etc/alertmanager/alertmanager.yml, --storage.path=/alertmanager]
+    volumes:
+      - ${ALERTMANAGER_CONFIG:-./observability/alertmanager.yml}:/etc/alertmanager/alertmanager.yml:ro
+      - ${TEAMS_WEBHOOK_FILE:?set_TEAMS_WEBHOOK_FILE}:/run/secrets/teams_webhook:ro
+      - ${REPORTER_TOKEN_FILE:?set_REPORTER_TOKEN_FILE}:/run/secrets/reporter_token:ro
+      - alertmanager-data:/alertmanager
+    extra_hosts: ['host.docker.internal:host-gateway']
+    ports: ['${OBS_BIND_IP:-127.0.0.1}:${ALERTMANAGER_PORT:-59093}:9093']
+    restart: unless-stopped
+    mem_limit: 128m
+    logging: *logging
+  grafana:
+    image: grafana/grafana:13.1.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-operator}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_password
+    volumes:
+      - ./observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/failstop.yml:ro
+      - ./observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/failstop.yml:ro
+      - ../harness/grafana/dashboards/10-msp-overview.json:/var/lib/grafana/dashboards/10-msp-overview.json:ro
+      - ../harness/grafana/dashboards/11-msp-service.json:/var/lib/grafana/dashboards/11-msp-service.json:ro
+      - ../harness/grafana/dashboards/12-msp-infra.json:/var/lib/grafana/dashboards/12-msp-infra.json:ro
+      - ../harness/grafana/dashboards/13-msp-db.json:/var/lib/grafana/dashboards/13-msp-db.json:ro
+      - ${GRAFANA_PASSWORD_FILE:?set_GRAFANA_PASSWORD_FILE}:/run/secrets/grafana_password:ro
+      - grafana-data:/var/lib/grafana
+    ports: ['${OBS_BIND_IP:-127.0.0.1}:${GRAFANA_PORT:-53001}:3000']
+    restart: unless-stopped
+    mem_limit: 384m
+    logging: *logging
+  blackbox:
+    image: prom/blackbox-exporter:v0.25.0
+    volumes: [../harness/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro]
+    command: [--config.file=/etc/blackbox/blackbox.yml]
+    restart: unless-stopped
+    mem_limit: 64m
+    logging: *logging
+volumes:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:

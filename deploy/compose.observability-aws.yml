@@ -1,0 +1,9 @@
+# AWS 관측 노드 전용. 로컬 Compose에는 추가하지 않는다.
+# bot EC2 instance profile에 CloudWatch 조회 권한과 IMDSv2 hop limit 2가 필요하다.
+services:
+  grafana:
+    environment:
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      GF_AWS_ALLOWED_AUTH_PROVIDERS: ec2_IAM_role
+    volumes:
+      - ./observability/grafana/cloudwatch.aws.yml:/etc/grafana/provisioning/datasources/cloudwatch.yml:ro

@@ -1,0 +1,7 @@
+{
+  "hosts": [{"address": "linux-node.internal:9100", "labels": {"customer": "exchange", "service": "linux", "node": "app-a", "role": "app", "environment": "aws"}}],
+  "apps": [{"address": "app-node.internal:8081", "labels": {"customer": "exchange", "service": "exchange", "role": "app", "environment": "aws"}}],
+  "databases": [{"address": "db-node.internal:9187", "labels": {"customer": "exchange", "service": "postgres", "role": "data", "environment": "aws"}}],
+  "reporters": [{"address": "host.docker.internal:9088", "labels": {"customer": "operations", "service": "operations-reporter", "role": "operations", "environment": "aws"}}],
+  "probes": [{"address": "https://exchange.example.invalid/", "labels": {"customer": "exchange", "service": "edge", "role": "probe", "environment": "aws"}}]
+}

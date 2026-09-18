@@ -1,0 +1,37 @@
+# prod,read 순서로 활성화한다. 읽기용 DB 계정은 배포 프로비저닝에서 별도로 만든다.
+spring:
+  flyway:
+    enabled: false
+  datasource:
+    hikari:
+      maximum-pool-size: 8
+      minimum-idle: 2
+      read-only: true
+
+exchange:
+  node:
+    role: read
+  engine:
+    enabled: false
+    # 공통 빈 배선을 유지하되 사용하지 않는 두 풀의 연결 예산을 각 1개로 제한한다.
+    append-datasource:
+      hikari:
+        maximum-pool-size: 1
+        minimum-idle: 0
+        read-only: true
+    lease-datasource:
+      hikari:
+        maximum-pool-size: 1
+        minimum-idle: 0
+        read-only: true
+  harness:
+    enabled: false
+  admin:
+    enabled: false
+  leader:
+    lease:
+      provider: postgres
+
+server:
+  shutdown: graceful
+spring.lifecycle.timeout-per-shutdown-phase: 30s

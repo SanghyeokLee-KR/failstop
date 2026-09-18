@@ -1,16 +1,26 @@
 {
   "uid": "msp-db",
-  "title": "DB 상세",
+  "title": "04 · DB·복구",
   "tags": [
-    "msp"
+    "msp",
+    "operations"
   ],
-  "timezone": "browser",
+  "timezone": "Asia/Seoul",
   "schemaVersion": 39,
   "editable": true,
-  "refresh": "10s",
+  "graphTooltip": 1,
+  "refresh": "15s",
   "time": {
     "from": "now-30m",
     "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "15s",
+      "30s",
+      "1m",
+      "5m"
+    ]
   },
   "templating": {
     "list": [
@@ -23,108 +33,182 @@
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values(up, customer)",
+          "query": "label_values(up{job=~\"exchange-api|linux-host|postgres|blackbox-http\",role=~\"app|reader|data|standby|probe\"},customer)",
           "refId": "customer"
         },
         "refresh": 1,
-        "current": {},
-        "includeAll": false,
-        "multi": false
+        "current": {
+          "text": "exchange",
+          "value": "exchange"
+        },
+        "multi": false,
+        "includeAll": false
       },
       {
-        "name": "service",
-        "label": "서비스",
+        "name": "environment",
+        "label": "환경",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
         "query": {
-          "query": "label_values(up{customer=\"$customer\"}, service)",
-          "refId": "service"
+          "query": "label_values(up{customer=\"$customer\",job=~\"exchange-api|linux-host|postgres|blackbox-http\",role=~\"app|reader|data|standby|probe\"},environment)",
+          "refId": "environment"
         },
         "refresh": 1,
         "current": {},
-        "includeAll": true,
-        "multi": false
+        "multi": false,
+        "includeAll": false
       }
     ]
   },
   "links": [
     {
-      "type": "dashboards",
-      "title": "MSP 대시보드",
-      "tags": [
-        "msp"
-      ],
-      "asDropdown": false,
+      "type": "link",
+      "icon": "dashboard",
       "includeVars": true,
       "keepTime": true,
-      "icon": "external link"
+      "title": "01 서비스 관제",
+      "url": "/d/msp-overview?${__url_time_range}&var-customer=${customer}&var-environment=${environment}",
+      "targetBlank": false
     },
     {
       "type": "link",
-      "title": "MSP 종합",
-      "url": "/d/msp-overview?${__url_time_range}",
-      "icon": "arrow-left",
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "title": "02 트래픽·Spring",
+      "url": "/d/msp-service?${__url_time_range}&var-customer=${customer}&var-environment=${environment}",
+      "targetBlank": false
+    },
+    {
+      "type": "link",
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "title": "03 AWS·서버",
+      "url": "/d/msp-infra?${__url_time_range}&var-customer=${customer}&var-environment=${environment}",
+      "targetBlank": false
+    },
+    {
+      "type": "link",
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "title": "04 DB·복구",
+      "url": "/d/msp-db?${__url_time_range}&var-customer=${customer}&var-environment=${environment}",
       "targetBlank": false
     }
   ],
+  "annotations": {
+    "list": [
+      {
+        "name": "고객 경보",
+        "enable": true,
+        "hide": false,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "expr": "ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"}",
+        "iconColor": "#E5B35F",
+        "titleFormat": "{{alertname}}",
+        "textFormat": "{{node}} · {{severity}}",
+        "tagKeys": "severity"
+      }
+    ]
+  },
   "panels": [
     {
-      "type": "row",
-      "title": "연결",
+      "type": "text",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 1
+        "h": 2
       },
-      "collapsed": false,
-      "panels": []
+      "options": {
+        "mode": "markdown",
+        "content": "**FAILSTOP / DB · 복구**　 ·　**${customer}**　 ·　**${environment}**　 |　비동기 복제 · 수동 승격"
+      },
+      "description": "PostgreSQL  ·  Primary / Standby 비동기 복제　 |　수동 승격　 |　앱 리더 전환·조회 ASG와 별도 운영",
+      "id": 1
     },
     {
       "type": "stat",
-      "title": "커넥션 사용률",
+      "title": "Primary DB · 연결",
+      "description": "Exporter의 실제 DB 연결 결과. 수집 장애와 별도 판단.",
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "gridPos": {
-        "x": 0,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "decimals": 0,
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 80
-              },
-              {
-                "color": "red",
-                "value": 95
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "장애",
+                  "color": "#E36C78",
+                  "index": 0
+                },
+                "1": {
+                  "text": "정상",
+                  "color": "#57BFA3",
+                  "index": 1
+                }
               }
-            ]
-          }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#6AA7EF"
+          },
+          "unit": "short",
+          "decimals": 0
         },
         "overrides": []
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min(pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",role=\"data\"})",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
       "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -132,133 +216,410 @@
           "fields": "",
           "values": false
         },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      },
-      "targets": [
-        {
-          "expr": "sum(pg_stat_activity_count{customer=\"$customer\"})/max(pg_settings_max_connections{customer=\"$customer\"})*100",
-          "instant": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+        "text": {
+          "valueSize": 30
         }
-      ]
+      },
+      "id": 2
     },
     {
       "type": "stat",
-      "title": "DB CPU",
+      "title": "Standby DB · 연결",
+      "description": "",
+      "gridPos": {
+        "x": 4,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "장애",
+                  "color": "#E36C78",
+                  "index": 0
+                },
+                "1": {
+                  "text": "정상",
+                  "color": "#57BFA3",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#6AA7EF"
+          },
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min(pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",role=\"standby\"})",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "valueSize": 30
+        }
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Primary · DB 역할",
+      "description": "",
       "gridPos": {
-        "x": 6,
-        "y": 1,
-        "w": 6,
+        "x": 8,
+        "y": 2,
+        "w": 4,
         "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "decimals": 0,
-          "mappings": [],
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Primary",
+                  "color": "#57BFA3",
+                  "index": 0
+                },
+                "1": {
+                  "text": "복구 모드",
+                  "color": "#E5B35F",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#6AA7EF"
+          },
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",role=\"data\"})",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "valueSize": 30
+        }
+      },
+      "id": 4
+    },
+    {
+      "type": "stat",
+      "title": "Standby · DB 역할",
+      "description": "",
+      "gridPos": {
+        "x": 12,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "승격 상태",
+                  "color": "#E5B35F",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Standby",
+                  "color": "#57BFA3",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#6AA7EF"
+          },
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min(pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",role=\"standby\"})",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "valueSize": 30
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "stat",
+      "title": "WAL 재생 거리",
+      "description": "Primary 전송 위치와 Standby 재생 위치 차이. 실제 유실량은 ACK·저널 대조로 판단.",
+      "gridPos": {
+        "x": 16,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#6AA7EF"
+          },
+          "unit": "bytes",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(pg_replication_client_sent_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"})",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {
+          "valueSize": 30
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "stat",
+      "title": "연결 사용률 · 최대",
+      "description": "DB 노드별 접속 수 / 해당 노드 max_connections의 최대값. 노드 합계와 단일 한도 혼합 금지.",
+      "gridPos": {
+        "x": 20,
+        "y": 2,
+        "w": 4,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
           "color": {
             "mode": "thresholds"
           },
+          "unit": "percent",
+          "decimals": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#6AA7EF",
                 "value": null
               },
               {
-                "color": "#EAB839",
+                "color": "#E5B35F",
                 "value": 70
               },
               {
-                "color": "red",
-                "value": 90
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      },
-      "targets": [
-        {
-          "expr": "max(container_cpu_percent{name=\"chaos-pg\"})",
-          "instant": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ]
-    },
-    {
-      "type": "stat",
-      "title": "DB 메모리",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "decimals": 0,
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
+                "color": "#E36C78",
                 "value": 85
-              },
-              {
-                "color": "red",
-                "value": 95
               }
             ]
           }
         },
         "overrides": []
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(100 * sum by(node,instance)(pg_stat_activity_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) / on(node,instance) max by(node,instance)(pg_settings_max_connections{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
       "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -266,549 +627,1128 @@
           "fields": "",
           "values": false
         },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      },
-      "targets": [
-        {
-          "expr": "max(container_mem_bytes{name=\"chaos-pg\"})/clamp_min(max(container_mem_limit_bytes{name=\"chaos-pg\"}),1)*100",
-          "instant": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+        "text": {
+          "valueSize": 30
         }
-      ]
+      },
+      "id": 7
     },
     {
-      "type": "stat",
-      "title": "복제 지연",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 1,
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
-      },
-      "targets": [
-        {
-          "expr": "max(pg_replication_lag_seconds{customer=\"$customer\"}) or vector(0)",
-          "instant": false,
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ]
-    },
-    {
-      "type": "row",
-      "title": "일하는 양",
+      "type": "state-timeline",
+      "title": "DB 연결 · 장애 구간",
+      "description": "연속 수집 기준. 공백은 미수집 구간이며 정상값으로 보간하지 않음.",
       "gridPos": {
         "x": 0,
-        "y": 5,
-        "w": 24,
-        "h": 1
+        "y": 6,
+        "w": 8,
+        "h": 7
       },
-      "collapsed": false,
-      "panels": []
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "장애",
+                  "color": "#E36C78"
+                },
+                "1": {
+                  "text": "정상",
+                  "color": "#57BFA3"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#E36C78",
+                "value": null
+              },
+              {
+                "color": "#57BFA3",
+                "value": 1
+              }
+            ]
+          },
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 80,
+            "spanNulls": false,
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.65,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 8
     },
     {
       "type": "timeseries",
-      "title": "초당 트랜잭션",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
+      "title": "WAL 복제 · 전송 / 재생 거리",
       "description": "",
       "gridPos": {
-        "x": 0,
+        "x": 8,
         "y": 6,
-        "w": 12,
+        "w": 8,
         "h": 7
       },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "max": null,
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(pg_stat_database_xact_commit{customer=\"$customer\"}[1m]))",
-          "legendFormat": "커밋",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "expr": "sum(rate(pg_stat_database_xact_rollback{customer=\"$customer\"}[1m]))",
-          "legendFormat": "롤백",
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "읽기와 쓰기",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "읽기가 많으면 읽기 전용 복제본이 듣는다. 쓰기가 많으면 듣지 않는다.",
-      "gridPos": {
-        "x": 12,
-        "y": 6,
-        "w": 12,
-        "h": 7
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "max": null,
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
           "color": {
             "mode": "palette-classic"
           },
+          "unit": "bytes",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
+            "insertNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            },
             "stacking": {
               "mode": "none",
               "group": "A"
-            },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
+            }
           }
         },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Primary → Standby"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#6AA7EF"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Standby 수신 → 재생"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#E5B35F"
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
-          "expr": "sum(rate(pg_stat_database_tup_fetched{customer=\"$customer\"}[1m]))",
-          "legendFormat": "읽은 행",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "expr": "pg_replication_client_sent_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}",
+          "legendFormat": "Primary → Standby",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
         },
         {
-          "expr": "sum(rate(pg_stat_database_tup_inserted{customer=\"$customer\"}[1m]))",
-          "legendFormat": "넣은 행",
           "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "expr": "sum(rate(pg_stat_database_tup_updated{customer=\"$customer\"}[1m]))",
-          "legendFormat": "고친 행",
-          "refId": "C",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "expr": "pg_replica_replay_receive_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",role=\"standby\"}",
+          "legendFormat": "Standby 수신 → 재생",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
         }
-      ]
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 9
     },
     {
-      "type": "row",
-      "title": "앱이 겪는 DB",
+      "type": "timeseries",
+      "title": "DB 연결 사용률 · 노드별",
+      "description": "",
+      "gridPos": {
+        "x": 16,
+        "y": 6,
+        "w": 8,
+        "h": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "max": 100
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum by(node,instance)(pg_stat_activity_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) / on(node,instance) max by(node,instance)(pg_settings_max_connections{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"})",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "트랜잭션 · 커밋 / 롤백",
+      "description": "",
       "gridPos": {
         "x": 0,
         "y": 13,
-        "w": 24,
-        "h": 1
+        "w": 8,
+        "h": 7
       },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "커넥션 풀",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "대기가 0 보다 크면 DB 를 기다리느라 요청이 밀린다.",
-      "gridPos": {
-        "x": 0,
-        "y": 14,
-        "w": 12,
-        "h": 7
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "max": null,
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
           "color": {
             "mode": "palette-classic"
           },
+          "unit": "ops",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
+            "insertNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            },
             "stacking": {
               "mode": "none",
               "group": "A"
-            },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
+            }
           }
         },
         "overrides": []
       },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
       "targets": [
         {
-          "expr": "sum by(node)(hikaricp_connections_active{customer=\"$customer\"})",
-          "legendFormat": "{{node}} 사용 중",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "expr": "sum by(node)(rate(pg_stat_database_xact_commit{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",datname=\"exchange\"}[$__rate_interval]))",
+          "legendFormat": "{{node}} 커밋",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
         },
         {
-          "expr": "sum by(node)(hikaricp_connections_pending{customer=\"$customer\"})",
-          "legendFormat": "{{node}} 대기",
           "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "expr": "max(hikaricp_connections_max{customer=\"$customer\"})",
-          "legendFormat": "상한",
-          "refId": "C",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "expr": "sum by(node)(rate(pg_stat_database_xact_rollback{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",datname=\"exchange\"}[$__rate_interval]))",
+          "legendFormat": "{{node}} 롤백",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
         }
-      ]
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 11
     },
     {
       "type": "timeseries",
-      "title": "커넥션 확보 시간",
+      "title": "앱 DB 풀 · 사용 / 대기",
+      "description": "",
+      "gridPos": {
+        "x": 8,
+        "y": 13,
+        "w": 8,
+        "h": 7
+      },
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 14,
-        "w": 12,
-        "h": 7
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
-          "decimals": 4,
-          "max": null,
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
           "color": {
             "mode": "palette-classic"
           },
+          "unit": "short",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
+            "insertNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            },
             "stacking": {
               "mode": "none",
               "group": "A"
-            },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
+            }
           }
         },
         "overrides": []
       },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(node)(hikaricp_connections_active{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})",
+          "legendFormat": "{{node}} 사용",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
         },
+        {
+          "refId": "B",
+          "expr": "sum by(node)(hikaricp_connections_pending{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})",
+          "legendFormat": "{{node}} 대기",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
         }
       },
-      "targets": [
-        {
-          "expr": "sum by(node)(rate(hikaricp_connections_acquire_seconds_sum{customer=\"$customer\"}[1m]))/clamp_min(sum by(node)(rate(hikaricp_connections_acquire_seconds_count{customer=\"$customer\"}[1m])),0.001)",
-          "legendFormat": "{{node}}",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ]
+      "id": 12
     },
     {
       "type": "timeseries",
-      "title": "잠금",
+      "title": "DB 연결 확보 · 평균",
+      "description": "",
+      "gridPos": {
+        "x": 16,
+        "y": 13,
+        "w": 8,
+        "h": 7
+      },
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1000 * sum by(node)(rate(hikaricp_connections_acquire_seconds_sum{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}[$__rate_interval])) / (sum by(node)(rate(hikaricp_connections_acquire_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}[$__rate_interval])) > 0)",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 13
+    },
+    {
+      "type": "timeseries",
+      "title": "잠금 보유 · 유형별",
+      "description": "보유 잠금 수. 차단 세션 수나 교착 발생 건수와 구분.",
       "gridPos": {
         "x": 0,
-        "y": 21,
-        "w": 12,
-        "h": 7
+        "y": 20,
+        "w": 8,
+        "h": 6
       },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "max": null,
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum by(mode)(pg_locks_count{customer=\"$customer\"})",
-          "legendFormat": "{{mode}}",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "DB 크기",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 21,
-        "w": 12,
-        "h": 7
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
-          "decimals": 0,
-          "max": null,
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
           "color": {
             "mode": "palette-classic"
           },
+          "unit": "short",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
             "fillOpacity": 8,
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
+            "insertNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            },
             "stacking": {
               "mode": "none",
               "group": "A"
-            },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
+            }
           }
         },
         "overrides": []
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(mode)(pg_locks_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"})",
+          "legendFormat": "{{mode}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
-        },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
         }
+      },
+      "id": 14
+    },
+    {
+      "type": "timeseries",
+      "title": "WAL 생성 · Primary",
+      "description": "",
+      "gridPos": {
+        "x": 8,
+        "y": 20,
+        "w": 8,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
       },
       "targets": [
         {
-          "expr": "max(pg_database_size_bytes{customer=\"$customer\",datname=\"exchange\"})",
-          "legendFormat": "exchange",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
+          "expr": "rate(pg_wal_position_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",role=\"data\"}[$__rate_interval])",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 15
+    },
+    {
+      "type": "timeseries",
+      "title": "복제 마지막 재생 경과",
+      "description": "유휴 시간 포함. 이 값만으로 복제 장애·RPO·유실량 판단 금지.",
+      "gridPos": {
+        "x": 16,
+        "y": 20,
+        "w": 8,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": false,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisColorMode": "text",
+            "axisBorderShow": false,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pg_replica_replay_delay_seconds{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",role=\"standby\"}",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "id": 16
+    },
+    {
+      "type": "table",
+      "title": "진행 경보",
+      "description": "선택 고객·환경의 firing 경보. 수집 대상이 없거나 경보 조회에 실패한 경우 정상 판정 제외.",
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "자료 없음",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "자료 없음",
+                  "color": "#94A3B8"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "등급"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "critical": {
+                        "text": "긴급",
+                        "color": "#E36C78"
+                      },
+                      "warning": {
+                        "text": "주의",
+                        "color": "#E5B35F"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "역할"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "data": {
+                        "text": "Primary"
+                      },
+                      "standby": {
+                        "text": "Standby"
+                      },
+                      "app": {
+                        "text": "Spring"
+                      },
+                      "reader": {
+                        "text": "조회"
+                      },
+                      "probe": {
+                        "text": "접속"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "경보"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "DatabaseConnectionFailed": {
+                        "text": "DB 연결 장애"
+                      },
+                      "DatabaseExporterUnavailable": {
+                        "text": "DB 관측 경로 장애"
+                      },
+                      "DatabaseMetricsMissing": {
+                        "text": "DB 지표 누락"
+                      },
+                      "DatabaseReplicationUnknown": {
+                        "text": "복제 연결 미확인"
+                      },
+                      "LinuxHostUnreachable": {
+                        "text": "서버 관측 중단"
+                      },
+                      "LinuxDiskSpaceLow": {
+                        "text": "디스크 여유 부족"
+                      },
+                      "LinuxServiceFailed": {
+                        "text": "서비스 기동 실패"
+                      },
+                      "SpringMetricsUnavailable": {
+                        "text": "Spring 관측 중단"
+                      },
+                      "EdgeProbeDown": {
+                        "text": "외부 접속 장애"
+                      },
+                      "DatabaseBackupUnknownOrStale": {
+                        "text": "백업 지연·미확인"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(severity,alertname,role,node)(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"})",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        },
+        "sortBy": []
+      },
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "severity",
+                "role",
+                "alertname",
+                "node"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "severity": 0,
+              "role": 1,
+              "alertname": 2,
+              "node": 3
+            },
+            "renameByName": {
+              "severity": "등급",
+              "role": "역할",
+              "alertname": "경보",
+              "node": "대상"
+            }
           }
         }
-      ]
+      ],
+      "id": 17
+    },
+    {
+      "type": "text",
+      "title": "DB 장애 · 운영 절차",
+      "transparent": true,
+      "gridPos": {
+        "x": 12,
+        "y": 26,
+        "w": 12,
+        "h": 6
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "| 순서 | 확인·조치 | 완료 기준 |\n|---|---|---|\n| 01 | 고객 영향·Primary 상태 확인 | API·DB 연결 근거 |\n| 02 | 기존 Primary 격리 | 이전 쓰기 경로 차단 |\n| 03 | Standby 수동 승격 | 복구 모드 해제 |\n| 04 | 앱 DB 연결 전환 | readiness·요청 회복 |\n| 05 | 재편입·정합성 확인 | 복제 재개·ACK 대조 |\n\n**사람 개입 필수** · 승격 승인, 기존 Primary 격리, 접속점 전환\n\n**RTO·RPO** · 실제 실험 기록 기준 · 화면 지표만의 확정 금지"
+      },
+      "id": 18
     }
   ]
 }

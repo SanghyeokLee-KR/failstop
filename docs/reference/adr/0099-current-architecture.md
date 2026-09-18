@@ -2,7 +2,7 @@
 
 이 문서만 읽어도 지금 채택한 구조, 실제 구현 범위, AWS에 올리기 전에 남은 일을 판단할 수 있도록 정리한다. 각 ADR은 선택 이유와 변경 이력을 보존하고, 이 문서는 그 결정들이 합쳐진 현재 모습을 계속 갱신한다. `0099`는 이를 위한 예약 번호다. 개별 결정의 번호는 0099를 제외하고 이어간다.
 
-검토 기준일은 2026-09-18이다. ADR 0001~0026과 소스·측정 자료의 기존 대조에 이어, 최신 MSP 운영 방향을 ADR 0027에 반영했다. 현재 ASG·인증·WebSocket과 관측 경로도 정적으로 확인했다. 애플리케이션 시험을 재실행하거나 AWS 계정에 접속하지는 않았다. **로컬 거래·복구 기능과 관제 자산은 있지만 AWS 운영·자동 확장·AI 보고 완료를 판단할 증거는 아직 없다.**
+검토 기준일은 2026-09-18이다. ADR 0027의 범위에 맞춰 Linux 운영·역할별 배포·관측·DB 복구·보고와 Terraform 사전 구현을 대조했다. 서버·웹 시험과 Ubuntu 계정·SSH·권한·방화벽, 조회 역할의 실제 DB 장애 응답, 거래가 있는 DB의 수동 승격·재편입·백업 복원을 로컬에서 검증했다. **AWS 계정은 아직 없으며 실제 클라우드 배포·자동 확장·다중 호스트 복구 완료를 판단할 증거는 없다.** 현재 상태는 [로드맵](../../ROADMAP.md), 당일 실행 조건과 원자료는 [09-18 운영 검증](../../measurements/20260918.md)에 모은다.
 
 09-17에는 사용자가 교수님께 보고한 구성도와 화면을 확인했다. 원본 15개와 현재 구현과의 차이는 [아키텍쳐 자료](../../../아키텍쳐/README.md)에 있다. 지원금은 **40만 원**이며, 발표는 PPTX에 실제 시연 영상과 캡처를 연결해 준비한다. 과거 문서의 50만 원 전제는 현재 예산 판단에 사용하지 않는다.
 
@@ -14,7 +14,7 @@
 
 Docker 카오스는 로컬에서 개발 검증을 했다는 자료로 보존한다. 새로운 카오스 기능·주입 화면이나 과거 실험 전수 재실행을 목표로 두지 않는다. AWS의 부하·장애 대응 시험은 계속하되 관제에서 진단·조치·보고까지 이어지는 과정으로 판단한다. 기존의 수동 확장 전용 정책은 현재 목표가 아니다.
 
-AWS의 비공개 시험 환경을 준비하는 것은 다음 단계로 적절하다. 다만 현재 Compose를 그대로 복사하면 여러 호스트에서 돌아간다고 보기는 어렵다. DB 컨테이너의 호스트 간 접속 경로, 전체 DB 연결 수, 실행 계정과 스키마 적용 절차부터 맞춰야 한다. 공개 접속 전에는 주문 재시도 위험과 운영 접근 통제도 확인해야 한다. 구체적인 순서는 아래의 **AWS로 옮기는 순서**에 있다.
+역할별 Compose에 사설 DB 포트·전체 연결 예산·실행 계정·별도 스키마 적용 순서를 구현했다. 계정이 제공되면 비공개 AWS 환경에서 실제 호스트 연결과 접근 권한부터 검증한다. 공개 접속 전에는 주문 재시도 위험과 운영 접근 통제도 확인해야 한다. 구체적인 순서는 아래의 **AWS로 옮기는 순서**에 있다.
 
 현재 거래 서버는 한 리더 안에서 마켓별로 주문을 처리한다. DB는 primary 한 대와 standby 한 대의 비동기 복제다. 앱 리더 전환은 자동이지만 DB 승격은 수동이다. 따라서 앱 장애 복구 목표인 30초나 로컬 무손실 결과를 DB 장애 전체의 보장으로 설명하면 안 된다.
 
@@ -22,7 +22,7 @@ AWS의 비공개 시험 환경을 준비하는 것은 다음 단계로 적절하
 
 페일스톱은 실제 자금을 다루지 않는 가상 자산 거래소다. 사용자는 시세·호가·차트를 보고 주문하며, 회원별 거래 내역과 가상 자산을 확인한다. 게시판·댓글·공지·문의와 관리자 기능도 같은 프로젝트에 있다. 봇은 사용자와 같은 주문 API를 호출해 시장과 실험 부하를 만든다.
 
-아래는 **채택한 AWS 배치**다. AWS 자원이 실제로 생성됐다는 뜻은 아니다. 관측 스택, 로드밸런서 경로와 여러 호스트의 연결은 배포 설정에서 마무리해야 한다.
+아래는 **채택한 AWS 배치**다. 역할별 배포 코드는 준비했으나 AWS 자원이 실제로 생성됐다는 뜻은 아니다. 로드밸런서 경로와 여러 호스트의 연결은 실제 AWS 검증이 필요하다.
 
 ```mermaid
 flowchart TD
@@ -30,7 +30,7 @@ flowchart TD
     CF -->|정적 웹| S3[비공개 S3]
     CF -->|API와 WebSocket| ALB[ALB]
     ALB -->|주문·WS·순번 연계 조회| Apps[고정 엔진 노드: 리더와 팔로워]
-    ALB -->|분산 가능한 DB 조회| Readers[조회 EC2 ASG: 구현 목표]
+    ALB -->|분산 가능한 DB 조회| Readers[조회 EC2 ASG: 배포 전]
     CW[CloudWatch 확장 정책] --> Readers
     Bot[봇 노드] -->|주문 API| ALB
     Apps --> Primary[(PostgreSQL primary)]
@@ -41,9 +41,9 @@ flowchart TD
     Metrics[봇 노드의 관측 스택] -. 지표 수집 .-> Apps
     Metrics -. 지표 수집 .-> Readers
     Metrics -. 지표 수집 .-> Primary
-    Metrics --> Alerts[기본 장애 알림: Teams 연결 목표]
+    Metrics --> Alerts[기본 장애 알림: Teams]
     Alerts --> Teams[Microsoft Teams]
-    Metrics --> Report[근거 수집·일일 및 장애 AI 보고: 구현 목표]
+    Metrics --> Report[근거 수집·일일 및 장애 보고]
     Report --> Teams
 ```
 
@@ -55,7 +55,7 @@ CloudFront는 정적 웹을 S3에서, API와 WebSocket을 ALB에서 받아 브�
 
 외부 시세·콘텐츠 API가 응답해야 거래나 화면이 동작하는 구조는 채택하지 않았다. 필요한 자료는 시드나 웹 빌드에 포함한다. AWS의 저장소·리스·관리 서비스와 통신하는 것까지 금지한다는 뜻은 아니다. 외부 데이터 수집 도구의 결과를 앱에 자동 적재하는 연결은 아직 없다. [외부 API 전략](../contracts/외부API_전략.md), [수집 도구](../../../seed-data/README.md)
 
-운영 보고의 외부 AI·Teams 호출은 거래 처리와 분리한다. 모델이나 보고 작업이 실패해도 주문과 기본 알림은 유지해야 한다. AI는 원인 가설과 확인 순서를 제시하며 AWS 확장·서버 재시작·DB 승격을 직접 실행하지 않는다. 모델과 호출 방식은 미정이다.
+운영 보고의 외부 AI·Teams 호출은 거래 처리와 분리한다. Alertmanager 기본 알림과 보고 webhook은 독립 경로다. 보고는 수집 근거·가설·확인 순서를 구분하며 AWS 확장·서버 재시작·DB 승격을 실행하지 않는다. Google 키 요청에 맞춰 Gemini 3.1 Flash-Lite 직접 연결을 구현했고 실제 생성 1회를 확인했다. 첫 응답의 과도한 정상 판정을 막도록 지시를 보강했으며 추가 실측 전송은 사용자 동의를 기다린다. 현재 서비스는 `facts-only`다. 명시한 모델·Google HTTPS 주소·근거 ID 검증·입출력 토큰과 SQLite 호출 상한을 적용하며 AI 실패는 사실 보고로 대체한다. [보고 서비스](../../../deploy/reporting/README.md)
 
 ## 자동 확장과 관제를 구현할 때의 경계
 
@@ -63,11 +63,19 @@ CloudFront는 정적 웹을 S3에서, API와 WebSocket을 ALB에서 받아 브�
 
 인증 API 전체를 바로 분산하지 않는다. 공통 회원 시드 외에도 노드 로컬 데모·관리 키, nonce, 요청 제한의 범위를 확인해야 한다. ASG 준비 검사·최대 대수의 DB 풀·관측 대상 등록·축소 드레이닝을 설계하고, 기존 Docker 용량 조정기가 AWS 정책과 같은 대수를 동시에 제어하지 않게 한다. 현재 WS는 노드 내 브로커이므로 조회 노드를 늘리는 것만으로 리더 이벤트가 전달되지 않는다. [WebSocket 설정](../../../server/app/src/main/java/kr/exchange/api/ws/WebSocketConfig.java), [API 계약](../contracts/백엔드_API_설계.md)
 
-조회 역할의 실행 설정은 아직 미구현이다. 현재 [앱 Compose](../../../deploy/compose.node-app.yml)는 `EXCHANGE_ENGINE_ENABLED`를 전달하지 않으므로 `.env`에 `false`를 넣는 것만으로 충분하지 않다. ALB의 조회 상태 검사와 ASG의 교체 조건도 구분한다. 현재 조회 헬스는 DB를 검사하므로, 공통 DB 장애가 조회 노드 전체의 반복 교체로 번지지 않도록 조건을 설계·검증한다. [ADR 0027](0027-msp-operations-and-autoscaling.md)
+[조회 Compose](../../../deploy/compose.node-read.yml)는 `prod,read`, 엔진·Flyway·하네스·관리 기능 비활성화와 별도 SELECT 로그인을 강제한다. 앱 필터는 GET/HEAD markets·trades·candles 이외 경로를 거절한다. 로컬 실제 프로세스에서 리스 미획득·쓰기 거절과 DB 중단 시 read 503/liveness 200, 복구 후 read 200을 확인했다. ALB는 조회 DB health, ASG는 EC2 health를 사용하며 AWS에서 공통 DB 장애 시 반복 교체가 없는지 추가 검증한다. [ADR 0027](0027-msp-operations-and-autoscaling.md)
 
-기존 Grafana MSP 4개 화면을 재사용하되 호스트 Linux의 파일시스템·inode·I/O·네트워크·서비스 상태를 보강한다. 현재 DB 복제 지표 조회에는 미수집을 0으로 표시할 수 있는 경로가 있어 실제 원천과 조회식을 맞춰야 한다. 관측 노드 자체의 실패도 외부에서 감지해야 한다. 기존 봇·관측 동거는 자원과 장애를 공유하므로 부하 발생과 보고 작업이 관제를 방해하지 않는 배치·자원 한도를 정한다. [MSP 화면](../../../harness/grafana/dashboards/10-msp-overview.json), [DB 화면](../../../harness/grafana/dashboards/13-msp-db.json)
+기존 Grafana MSP 4개 화면에 Linux 파일시스템·inode·I/O·네트워크·서비스 상태를 보강했다. 고객 관측 범위는 Spring과 이를 운영하는 고객 서버·DB·접속 경로이며, 모든 Docker 컨테이너나 관측 도구 자체를 고객 서비스로 집계하지 않는다. 과거 `chaos-*` 패널은 Spring 프로세스·JVM과 고객 호스트 지표로 교체하고 고객사·환경 선택을 연결했다. 별도 Ubuntu 운영 실습과 C드라이브는 고객 AWS 서버를 대신하지 않으며 고객 보고에서 제외한다. DB 복제 지표 원천과 조회식을 맞추고 미수집의 `or vector(0)`과 지연 NULL의 0 변환을 제거했다. 수집 성공 여부와 오래된 근거를 별도로 관측한다. 관측 노드 자체의 외부 감시는 AWS에서 남아 있다. 봇·관측 동거의 자원·장애 공유는 컨테이너 한도와 실제 부하로 확인한다. [관측 배포](../../../deploy/observability/README.md), [DB 화면](../../../harness/grafana/dashboards/13-msp-db.json)
 
-기본 장애 알림 뒤에 AI 근거 보고를 보내고, 일일 보고는 별도 예약 작업으로 실행한다. Linux systemd timer 또는 cron의 시간대·중복·실패 이력을 관리한다. 현재 수신 설정은 Discord이며 Teams Workflows·Adaptive Card 전환과 계정 조건은 확인 전이다. 상세한 보고 흐름과 완료 조건은 ADR 0027을 따른다. [현재 알림 설정](../../../harness/alertmanager/alertmanager.yml)
+일일 보고는 사용자 선택인 09:00 Asia/Seoul systemd timer, 장애 보고는 인증된 webhook으로 실행한다. SQLite가 중복·재시작·전송 재시도를 관리하고 분석 실패는 사실 보고로 대체한다. 새 배포는 Teams Workflows·Adaptive Card를 사용하며 승인된 기본 발화·해제, 모의 사건 발화·해제, 일일 보고 5종의 HTTP 접수를 확인했다. 해제 사건은 한 번 재시도했으며 실제 채널 게시·중복 여부와 AWS 운영 자료는 별도 검증이다. 기존 하네스 Discord는 과거 개발 검증 자료로 남긴다. [새 알림 설정](../../../deploy/observability/alertmanager.yml)
+
+로컬과 AWS의 Prometheus·Alertmanager·보고 설정은 [공통 환경 생성기](../../../deploy/observability/configure-environment.py)에서 준비한다. 고객사·환경을 보고 조회와 알림 묶음에 넣고, AWS에서는 지정 `FailstopCluster`의 Spring·고객 호스트·DB를 등록한다. Windows·WSL bridge는 로컬에만 둔다. AWS 실제 연결과 CloudWatch의 관리형 지표는 별도 검증 대상이다. 격리된 DB 반복 실험은 자동으로 관측 대상에 등록하지 않으며, [관측 경로 검사](../../../deploy/observability/tests/check-monitored-standby.py)는 등록된 로컬 replica의 중단·복구, 실제 지표·경보·발화 및 해제 보고의 HTTP 접수를 대조한다. 이 검사는 수동 DB 승격을 대신하지 않는다. 실행 뒤 사용자가 Teams 채널의 두 보고 표시를 확인했으며 [로드맵](../../ROADMAP.md)에 해당 로컬 검증 범위를 기록했다.
+
+Grafana 화면은 서비스 관제·트래픽/Spring·AWS/서버·DB/복구의 네 경로로 정리했다. 명사형 상태·역할별 대상·장애 구간을 표시하고 `pg_up=0`인 DB 접속 장애와 exporter 수집 경로 장애를 구분한다. Spring HTTP histogram을 켜 실제 요청 지연을 수집한다. AWS 전용 [CloudWatch 설정](../../../deploy/compose.observability-aws.yml)은 기존 EC2 instance profile과 서울 리전을 사용하며 ALB·조회 ASG·EBS 지표를 별도 영역에 연결한다. 실제 자원 식별자는 Terraform 출력으로 제공하고 관측 bot만 IMDSv2 hop limit 2를 사용한다. 자격증명이나 임의의 AWS 측정값을 대시보드에 넣지 않았으며 실제 AWS 조회는 미검증이다.
+
+보고의 원자료 JSON 나열은 사건·영향·현재 상태·담당자 개입·조치와 완료 조건으로 바꿨다. 경보 해제와 서비스 전체 복구를 구분하며, DB는 exchange 데이터베이스 연결만 집계하고 업무 HTTP 지표에서는 actuator를 제외한다. 자료 없음은 정상 0으로 바꾸지 않는다. Teams와 HTML·PDF는 같은 개입 판정과 표시 모델을 사용한다. 한글 PDF는 2쪽 고정 양식이며 저장된 조회 표본으로 그래프를 그린다. 수집 공백은 선으로 메우지 않고 예전 요약 보고는 마지막 값의 막대로 구분한다. 백업 예약·복원 확인 자료의 선택적 입력을 두되 없거나 오래된 확인으로 관찰 유지 판정을 내리지 않는다. 새 장애·해제 카드와 PDF/HTML 버튼을 전송했고 사용자가 PDF 열기를 확인했다. 개선 지시의 실제 AI 응답은 아직 검증하지 않았다.
+
+보고 파일은 송신 전에 생성하고 별도 키로 서명한 7일 유효 링크를 Teams 카드에 붙인다. 형식·파일·만료 시각에 묶인 링크만 열 수 있으며 PDF 오류는 요약 카드 전송을 중단하지 않는다. 파일 실패 상태도 영속 저장하고 경보로 관측한다. 로컬 다운로드는 이 PC의 bridge에서 제공한다. AWS의 외부 관계자 접근에는 HTTPS와 조직 접근 정책이 필요하며, Teams 파일 탭의 실제 첨부는 별도 Microsoft 365 저장소 연동 범위다. [보고 파일 제공](../../../deploy/reporting/README.md#teams에서-pdf와-html을-연다)
 
 ## 주문과 데이터의 흐름
 
@@ -85,7 +93,7 @@ CloudFront는 정적 웹을 S3에서, API와 WebSocket을 ALB에서 받아 브�
 
 팔로워 앱은 평소 마켓별로 저널을 따라가며 엔진 상태를 검증한다. 승격 시 모든 마켓의 최신 위치에 도달해 있으면 재생을 생략하고 그 엔진을 설치한다. 복구가 필요하면 마켓별로 채택 가능한 스냅샷을 읽고 이후 명령을 재생한다. 이미 정산된 구간은 각 마켓의 연속 물질화 경계까지 검증하고 미완료 꼬리를 다시 처리한 뒤 접수를 연다. 손상된 스냅샷은 해당 마켓에서 제외하고 이전 스냅샷이나 전량 재생으로 돌아간다. 스냅샷 저장에도 같은 트랜잭션 안의 리더 권한 검사가 연결돼 있다. 과거 ADR의 “스냅샷 미배선”이나 “저장 시 권한 검사 없음”은 현재 상태가 아니다. [승격 분기](../../../server/app/src/main/java/kr/exchange/engine/PromotionCoordinator.java), [EngineRecovery](../../../server/app/src/main/java/kr/exchange/engine/EngineRecovery.java), [SnapshotStore](../../../server/app/src/main/java/kr/exchange/snapshot/SnapshotStore.java)
 
-DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`의 3노드 안은 ADR 0024가 대체했다. primary가 사라지면 운영자가 옛 primary를 격리하고 standby를 승격한 뒤 앱의 DB 연결을 바꾼다. 돌아온 옛 노드는 전체 베이스백업으로 다시 편입한다. `pg_rewind`를 위한 추가 WAL 보존·아카이브는 채택하지 않았으며 재편입 동안 이중화 공백이 생긴다. 별도의 백업·복원 검증은 여전히 필요하다. [DB 수동 페일오버](../operations/DB_수동_페일오버.md)
+DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`의 3노드 안은 ADR 0024가 대체했다. 운영자가 옛 primary를 격리하고 standby를 승격한 뒤 앱·조회·봇의 DB 연결을 바꾼다. 새 볼륨에 전체 베이스백업으로 재편입하며 이중화 공백이 생긴다. `pg_rewind`용 추가 WAL 보존·아카이브는 채택하지 않았다. 실제 거래가 있는 로컬 DB의 전환과 별도 pg_dump 복원을 검증했다. 재실험은 새 프로젝트·볼륨·포트로 수행하고 성공한 임시 자원만 정리하므로 기존 고객 실습 DB를 초기화하지 않는다. AWS 다중 호스트·갑작스러운 장애와 PITR 보장은 남아 있다. [DB 수동 페일오버](../operations/DB_수동_페일오버.md), [백업 도구](../../../deploy/backup/README.md), [DB 실습](../../../deploy/lab/README.md)
 
 비동기 복제에서는 이미 접수 응답을 받은 주문도 standby에 도착하기 전에 primary가 사라지면 잃을 수 있다. 저널도 같은 DB에 있으므로 유실된 저널을 재생으로 복원할 수 없다. 남은 기록을 정확히 재처리한다는 보장과 DB 교체 중 무손실 보장은 다르다.
 
@@ -108,7 +116,7 @@ DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`�
 | V46 이후 앱 장애 | 09-15 로컬 코드 `3b61c24`, 새 시험 DB와 명령 대역 모드에서 E2·E4·E5·E6·E7 각각 1회 PASS. RTO 5.979~10.134초, E4는 7.925초다. AWS 결과나 반복 안정성 보장이 아니다. [9단계 증거](../../../harness/evidence/adr0022-stage9-chaos-20260915/README.md) |
 | 마켓별 스냅샷 복구 | 7단계 로컬 12칸 PASS 중 스냅샷 경로 성립 7칸, 재생 생략 5칸이다. 모든 칸에서 실재 재생을 입증했다는 뜻은 아니다. 꼬리 길이에 따른 RTO 개선량은 미측정이다. [7단계 증거](../../../harness/evidence/adr0022-stage7-snapshot-20260915/README.md) |
 | DB 승격과 유실 | 로컬 정상 복제 조건에서는 ACK 88건 중 유실 0, standby를 8초 멈춘 조건에서는 ACK 122건 중 36건을 잃었다. 여러 호스트에서 격리·연결 전환·재편입까지 끝낸 운영 RTO는 미측정이다. [운영 절차와 결과](../operations/DB_수동_페일오버.md) |
-| 관측과 알림 | 봇 노드에 관측 스택을 두는 정책은 채택했다. 현재 노드 Compose는 봇 서비스만 정의하며 AWS 관측·알림 전달은 미확인이다. [봇 노드 설정](../../../deploy/compose.node-bot.yml) |
+| 관측과 알림 | 봇 노드의 별도 관측 Compose와 AWS CloudWatch overlay를 준비했다. 실제 AWS 관측·알림 전달은 미확인이다. [관측 배포](../../../deploy/observability/README.md) |
 | 성능 조정 | 환경별 캘리브레이션이 기준이다. 옛 로컬 OPS를 AWS 목표 처리량으로 옮기지 않는다. `commit_delay` 실험은 선행 조건 미충족으로 `NOT RUN`이다. [09-15 측정](../../measurements/20260915.md) |
 
 복구 API의 PASS도 단독 증거로 사용하지 않는다. 현재 기록기는 재생 0건을 `matched=true`로 남길 수 있고 관리 API는 실제 검증 이벤트가 있었는지를 PASS 조건으로 강제하지 않는다. 마켓별 재생 범위·건수와 판정 자료를 함께 확인해야 한다. [RecoveryRunRecorder](../../../server/app/src/main/java/kr/exchange/harness/RecoveryRunRecorder.java), [복구 모니터링](../../../server/app/src/main/java/kr/exchange/admin/HaMonitoringController.java)
@@ -121,7 +129,7 @@ DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`�
 
 Linux 실행 환경부터 확인한다. 기존 ADR 0010의 Rocky Linux 10 계열·Graviton ARM64 전제를 기준으로 사용할 OS 버전과 AMI, 이미지 digest를 확인하고 계정·서비스·로그·파일시스템 운영 기준을 정한다. 현재 AWS 호스트의 실제 OS와 적용 상태는 미확인이다. 첫 작업의 범위와 완료 기준은 [로드맵](../../ROADMAP.md)의 '다음 작업의 시작점'을 따른다.
 
-앱·DB 2대·봇 및 관측 노드를 어느 AZ와 서브넷에 둘지, 어떤 포트로 통신할지 정한다. CloudFront·S3·ALB·NAT·볼륨·로그를 포함한 현재 구성으로 비용을 다시 산정한다. 지원금 40만 원은 월 한도로 해석하지 않으며 실제 지급·잔액·청구액은 미확인이다. ADR에 적힌 과거 가격과 잔액은 현재 견적이 아니다. 생성·변경·철거는 Terraform 또는 동등하게 재현 가능한 절차로 남긴다. 저장소에서 완성된 Terraform 배포 구성을 확인하지 못했으며, 이미지 빌드 CI가 곧 배포 자동화는 아니다. [CI·배포 계약](../contracts/하네스_CICD_IaC.md), [이미지 빌드](../../../.github/workflows/image.yml)
+고정 앱 2대·DB 2대·봇/관측과 조회 ASG의 2 AZ 배치, SG·ALB·NAT·CloudFront·S3를 [Terraform](../../../deploy/terraform/README.md)으로 준비한다. 실제 plan/apply와 AWS 동작 검증은 계정 제공 후 수행한다. 지원금 40만 원은 월 한도가 아니며 실제 지급·잔액·청구액은 미확인이다. EC2·ASG 상한·볼륨·ALB·NAT·전송량과 가동 기간으로 비용을 다시 산정한다. ADR의 과거 가격과 잔액을 현재 견적으로 사용하지 않는다. [CI·배포 계약](../contracts/하네스_CICD_IaC.md)
 
 로컬에서 절차를 연습하고 AWS 배포·검증·촬영을 집중해서 진행하는 운영 계획이다. 보고한 자원 구성을 임의로 축소하지 않고 가동 시간과 재촬영 여유를 산정한다. 기존 외부 상시 접속 요구가 영상 발표로 면제됐다고 볼 수는 없으므로 필요한 유지 기간을 확인한 뒤 종료일을 정한다. 영상·캡처·검증 원자료를 보관한 다음 보존할 데이터와 철거할 자원을 구분한다. EC2 정지 뒤에도 볼륨이나 NAT·ALB 등 비용이 남는 점은 [배포 안내](../../../deploy/README.md)의 종료 절차에서 확인한다.
 
@@ -131,21 +139,21 @@ Linux 실행 환경부터 확인한다. 기존 ADR 0010의 Rocky Linux 10 계열
 
 | 먼저 해결할 것 | 현재 파일에서 확인한 문제와 완료 기준 |
 |---|---|
-| DB의 호스트 간 연결 | DB Compose에 포트 공개·host network·호스트 간 네트워크 정의가 없다. 다른 호스트의 앱과 standby가 지정한 DB 주소로 접속하도록 사설 경로를 마련하고 실제 접속을 확인한다. 보안 그룹만 열어서는 컨테이너 포트가 연결되지 않는다. [DB 노드](../../../deploy/compose.node-data.yml) |
-| DB 연결 수 | 문서의 기본 풀 최대 합계는 앱당 48, 앱 2대와 엔진을 끈 봇을 합해 106이다. 실제 동시 사용량의 측정값은 아니지만 PostgreSQL 기본 100 및 일반 연결 한도 97을 넘는다. 리스·append·운영 여유까지 포함해 풀과 DB 설정을 함께 확정한다. 단순히 상한만 올려 메모리 문제를 만들지 않는다. [CI·배포 계약의 연결 예산](../contracts/하네스_CICD_IaC.md) |
-| 실행 이미지와 DB 계정 | 배포 digest의 ARM64 이미지와 prod 부팅을 확인한다. 앱·봇 로그인 역할, 마이그레이션 소유자와 권한을 분리한다. 현재 `app_role`·`harness_role` 정의만으로 실제 접속 계정의 권한이 제한됐다고 볼 수 없다. [앱 노드](../../../deploy/compose.node-app.yml), [배포 변수](../../../deploy/.env.example) |
+| DB의 호스트 간 연결 | 명시적인 사설 IP에 published port를 연결했다. 별도 standby 호스트는 5432로 지정한다. 실제 AWS의 SG·방화벽·호스트 간 접속을 검증한다. [DB 노드](../../../deploy/compose.node-data.yml) |
+| DB 연결 수 | 엔진 교체 여유·조회 ASG 최대·봇·운영·복제를 포함해 기본 상한 188, DB 일반 한도 197이다. 검사기가 초과를 거절한다. 실제 접속량·메모리·부하를 AWS에서 확인한다. [연결 예산](../contracts/하네스_CICD_IaC.md) |
+| 실행 이미지와 DB 계정 | 마이그레이션 소유자와 앱·조회·봇 로그인을 분리했고 reader 권한 거절을 실제 DB에서 검증했다. 배포할 ARM64 digest의 prod 기동은 추가 확인한다. [역할 SQL](../../../deploy/provision-runtime-roles.sql), [배포 변수](../../../deploy/.env.example) |
 | 첫 prod 부팅에 필요한 값 | 마스터키·비밀번호 페퍼·세션 시드와 CORS·WebSocket 허용 오리진을 첫 기동 전에 준비한다. 앱·봇 사이의 비밀 값도 맞춘다. 이 값이 없으면 공개 여부와 관계없이 prod 부팅 검사를 통과할 수 없다. 실제 값은 문서에 넣지 않는다. |
-| 스키마와 전환 순서 | 한 노드에서 마이그레이션을 완료한 뒤 나머지를 시작한다. V41 인덱스를 먼저 적용하고, V44 명령 래치는 ADR 0022 §7의 조건으로 판단한다. V46은 전체 엔진·API 버전을 맞춘 쓰기 정지 창에서 적용한다. 첫 이벤트 대역 행 이후 구버전 복귀는 허용되지 않으므로 롤백 범위를 미리 정한다. |
+| 스키마와 전환 순서 | 별도 migrate→초기 catalog-seed→provision 이후 앱을 시작한다. V41 인덱스·V44 래치는 ADR 0022 §7을 따르고 V46은 전체 엔진·API 버전을 맞춘 쓰기 정지 창에서 적용한다. 첫 이벤트 대역 행 이후 구버전 복귀는 허용되지 않는다. |
 
 ### 3. 외부 사용자에게 열기 전에 거래와 접근 통제를 확인한다
 
 주문 접수에는 우선 확인할 위험 경로가 있다. `OrderGateway`는 저널 제출이 반환돼야 `journaled=true`로 표시하고, 그 전에 예외가 나면 선삽입한 멱등 키를 삭제한다. DB 커밋 여부가 불명확했던 요청을 재시도할 때 기존 저널의 내용 대조가 불가능해지면 새 키를 요구하는 응답으로 이어질 수 있다. 같은 주문을 새 키로 제출하면 중복 접수할 위험이 있으므로 해당 예외·타임아웃을 재현하고 재조회·재시도 계약을 고친 뒤 회귀 검증한다. 이번에는 현재 코드 경로와 ADR 0022 §9-13을 대조했으며 장애를 다시 실행하지는 않았다. [OrderGateway](../../../server/app/src/main/java/kr/exchange/api/order/OrderGateway.java)
 
-실제 공개 도메인·TLS와 웹의 API·WebSocket 주소, 서버의 허용 오리진이 일치하는지 확인한다. 공개 번들에서 관리 화면을 제거하고 관리 API·관리 포트는 사설 접근으로 제한한다. `prod,admin`을 사용할 때만 해당 운영 인증서 구성도 적용한다. ALB·CloudFront 뒤에서 클라이언트 주소를 올바르게 읽도록 신뢰 프록시 범위를 설정한다. 현재 앱 Compose에는 `EXCHANGE_TRUSTED_PROXIES` 전달이 없으므로 기본 설정 그대로 사용했을 때 요청 제한이 프록시 주소 하나에 몰리지 않는지 확인해야 한다. [앱 설정](../../../server/app/src/main/resources/application.yml), [배포 안내](../../../deploy/README.md)
+실제 공개 도메인·TLS와 웹의 API·WebSocket 주소, 서버 허용 오리진을 맞춘다. 공개 번들에서 관리 화면을 제거하고 관리 API·포트는 사설 접근으로 제한한다. `prod,admin`만 별도 운영 인증서를 사용한다. 앱·조회 Compose가 전달하는 `EXCHANGE_TRUSTED_PROXIES`는 실제 ALB 서브넷과 공식 AWS `CLOUDFRONT_ORIGIN_FACING` IPv4만 포함하는 Java 정규식으로 만든다. 주소 목록을 받지 못하면 부팅을 중단하며 목록 변경 시 갱신이 필요하다. 로컬 정규식·프록시 체인 시험과 별개로 실제 ALB·Tomcat에서 클라이언트 IP·요청 제한이 올바르게 구분되는지 검증한다. [앱 설정](../../../server/app/src/main/resources/application.yml), [배포 안내](../../../deploy/README.md)
 
 ### 4. AWS에서 연결·관측·복구를 확인한 뒤 최종 실험을 한다
 
-먼저 주문·조회·WebSocket이 올바른 노드로 전달되는지, 팔로워의 생존 확인과 리더의 요청 수용 판단이 맞는지 확인한다. 실제 지표 수집과 알림 전달, 재배포와 롤백, 백업에서의 복원을 시험한다. 현재 Prometheus 설정은 로컬 chaos 서비스 이름과 포트를 사용하므로 prod 관리 포트 8081 및 사설 주소에 맞춰야 한다. [관측 설정](../../../harness/prometheus/prometheus.yml)
+먼저 주문·조회·WebSocket의 대상 노드, 팔로워 생존과 리더 요청 수용 판단을 확인한다. 지표·알림·재배포·롤백·백업 복원을 실제 호스트에서 시험한다. 새 [관측 설정](../../../deploy/observability/prometheus.yml)의 file discovery에 prod 관리 포트 8081과 사설 exporter 주소를 등록하고 ASG 증감 시 대상 갱신을 확인한다.
 
 그다음 옛 primary 격리, standby 승격, 앱 DB 주소 전환, 리더 회복, 옛 노드 베이스백업 재편입을 여러 호스트에서 끝까지 연습한다. 사람의 판단 시간과 앱 연결 전환까지 포함해 DB 복구 시간을 잰다. `pg_promote` 명령 소요만 운영 RTO로 제시하지 않는다.
 
@@ -172,7 +180,7 @@ Linux 실행 환경부터 확인한다. 기존 ADR 0010의 Rocky Linux 10 계열
 | [0013 실측 부하](0013-capacity-calibration-measured-ops.md) | 환경별 처리량을 먼저 측정한다. 과거 로컬 OPS와 천장은 현재 AWS 성능값이 아니다. |
 | [0014 카오스 승인 선택](0014-chaos-actions-approval-optional.md) | 카오스 4종 토큰은 선택이며 제공한 토큰은 검증·소각한다. 현재 카탈로그의 approval_required도 false다. |
 | [0015 수동 확장](0015-manual-scaling.md) | 수동 확장 전용 정책은 0027로 대체됐다. 기존 API·Docker 조정기 구현과 과거 측정은 남아 있다. |
-| [0016 관측 배치](0016-observability-on-bot-node.md) | 봇 노드에 관측 스택을 둔다. 노드 Compose와 AWS 알림 배선은 남아 있다. |
+| [0016 관측 배치](0016-observability-on-bot-node.md) | 봇 노드에 관측 스택을 둔다. 관측 Compose·Teams 배선을 구현했고 실제 AWS 연결은 남아 있다. |
 | [0017 리스 갱신 분리](0017-leader-lease-out-of-commit-path.md) | PostgreSQL 기본 경로와 선택형 DynamoDB 구현이 공존한다. 쓰기 권한 검사는 DB 트랜잭션에 남는다. |
 | [0018 동기 ANY 1](0018-synchronous-quorum-any1.md) | **0024로 대체됐다.** primary 1 + standby 2 동기 구성을 현재 구조로 사용하지 않는다. |
 | [0019 1인 승인](0019-single-operator-approval.md) | 한 운영자가 승인·실행할 수 있다. 티켓 수명·단회 사용·대상 바인딩은 유지한다. |
@@ -191,6 +199,6 @@ Linux 실행 환경부터 확인한다. 기존 ADR 0010의 Rocky Linux 10 계열
 
 `scripts/check-adr-current.ps1`은 개별 ADR 링크 누락·번호 중복과 원자료 변경 후 검토 표시 누락을 검사한다. 대상은 개별 ADR, 로드맵, 상세 설계·계약·운영 Markdown, 측정 Markdown, 배포 안내와 노드 Compose, 아키텍쳐 안내다. 자료가 바뀌면 0099에 영향이 있는지 검토한 뒤 `-PrintDigest`로 읽은 값을 아래 표시 한 곳에 반영한다. 내용은 그대로 둔 채 검사만 통과하려고 해시를 바꾸지 않는다.
 
-이 검사는 내용을 자동으로 요약하지 않으며, 소스만 바뀌었을 때 구조 설명이 맞는지까지 증명하지 않는다. Claude와 Codex는 코드 변경도 [공통 작업 규칙](../../../AGENTS.md)에 따라 관련 문서와 대조해야 한다. 이번 검토에서 읽지 않은 개별 테스트 전체, 실제 AWS 권한·자원·DNS·청구 상태와 저장된 비밀 값은 여전히 미확인이다.
+이 검사는 내용을 자동으로 요약하지 않으며 소스 변경의 설명 정확성까지 증명하지 않는다. 코드 변경도 [공통 작업 규칙](../../../AGENTS.md)에 따라 원본과 대조한다. 로컬에서 실행한 범위는 로드맵과 증거에 한정하며 AWS 권한·자원·DNS·청구와 실제 AI 모델은 여전히 미확인이다.
 
-<!-- sources-sha256: 4d3f6c8d4538a314d8cc8eb668d7dd09a2fa149638aeddb6e85b8341d4fc9170 -->
+<!-- sources-sha256: 1102483e0448c4c266dfc5c426f538dc73fff69554759ec71cfba77a40345488 -->

@@ -1,0 +1,14 @@
+[Unit]
+Description=Failstop scoped host and container firewall
+Before=failstop-ssh.service docker.service
+After=local-fs.target
+ConditionPathExists=/etc/failstop/firewall.nft
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/failstop/firewall.nft
+ExecReload=/usr/sbin/nft -f /etc/failstop/firewall.nft
+
+[Install]
+WantedBy=multi-user.target

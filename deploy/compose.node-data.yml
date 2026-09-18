@@ -16,8 +16,8 @@
 # 그 대가로 백업·PITR·페일오버를 직접 만든다.
 #
 # 카오스 스택과 다른 점.
-#   1. 포트를 호스트에 노출하지 않는다. 프라이빗 서브넷 안이고 sg-data가 sg-app만 허용한다.
-#      55432 노출은 로컬 실험 편의였다.
+#   1. 기본은 루프백에만 노출한다. 다중 호스트에서는 DB_BIND_IP에 해당 호스트의 사설 IP를 넣고
+#      보안그룹으로 앱·조회·봇·관측·복제 노드만 허용한다.
 #   2. 커널 keepalive 튜닝은 그대로 둔다. 좀비 커넥션 회수가 E2·E7 계열의 원천이라
 #      상시면과 증명면이 같은 값을 써야 실험 결과가 이관된다.
 #   3. 복제 정책이 다르다. 카오스 스택은 3노드 동기 정족수를 실험으로 세우고 여기는 2노드
@@ -29,8 +29,8 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${DB_NAME:-exchange}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_ADMIN_USER:?DB_ADMIN_USER is required}
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?DB_ADMIN_PASSWORD is required}
       # 복제 롤과 슬롯을 첫 기동에 만든다. 아래 셋을 초기화 스크립트가 읽는다. 공식 이미지는
       # initdb 직후 한 번만 그 디렉터리를 실행하므로, 이미 초기화된 볼륨에서는 수동 SQL 이 된다.
       REPL_USER: ${REPL_USER:-replicator}
@@ -40,6 +40,10 @@ services:
       REPL_CIDR: ${REPL_CIDR:-10.0.0.0/16}
     command:
       - "postgres"
+      - "-c"
+      - "max_connections=${DB_MAX_CONNECTIONS:-200}"
+      - "-c"
+      - "superuser_reserved_connections=${DB_RESERVED_CONNECTIONS:-3}"
       # standby 를 지목하지 않으므로 이 값은 로컬 WAL flush 까지만 기다린다. 비동기 정책과
       # 모순되지 않는다. 내리면 primary 급사 시 유실 창이 더 커진다(ADR 0024 결정 절).
       - "-c"
@@ -85,8 +89,10 @@ services:
       # 복제 접속 허용. 공식 이미지의 기본 pg_hba 는 replication 데이터베이스 항목을 로컬로만
       # 연다. 이 스크립트가 첫 기동에 롤과 항목을 함께 만든다.
       - ./pg-init-replication.sh:/docker-entrypoint-initdb.d/10-replication.sh:ro
+    ports:
+      - "${DB_BIND_IP:-127.0.0.1}:${DB_LISTEN_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME:-exchange}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_ADMIN_USER} -d ${DB_NAME:-exchange}"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -94,7 +100,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${DB_MEMORY:-1600m}
+          memory: ${DB_MEMORY:-2g}
     logging:
       driver: json-file
       options:
@@ -115,6 +121,24 @@ services:
       REPL_SLOT: ${REPL_SLOT:-standby_1}
     entrypoint: ["/usr/local/bin/pg-standby-entrypoint.sh"]
     command:
+      - "-c"
+      - "max_connections=${DB_MAX_CONNECTIONS:-200}"
+      - "-c"
+      - "superuser_reserved_connections=${DB_RESERVED_CONNECTIONS:-3}"
+      - "-c"
+      - "wal_level=replica"
+      - "-c"
+      - "max_wal_senders=${MAX_WAL_SENDERS:-4}"
+      - "-c"
+      - "max_replication_slots=${MAX_REPLICATION_SLOTS:-4}"
+      - "-c"
+      - "max_slot_wal_keep_size=${MAX_SLOT_WAL_KEEP:-4GB}"
+      - "-c"
+      - "synchronous_commit=on"
+      - "-c"
+      - "archive_mode=${ARCHIVE_MODE:-off}"
+      - "-c"
+      - "archive_command=${ARCHIVE_COMMAND:-/bin/true}"
       # primary 와 같은 값이어야 한다. 승격하면 이 노드가 primary 이고, 여기서 빠지면 그
       # 시점부터 pg_control 에 off 가 기록돼 다음 재편입이 되감기를 쓸 수 없다.
       - "-c"
@@ -130,10 +154,12 @@ services:
     volumes:
       - pgstandby:/var/lib/postgresql/data
       - ./pg-standby-entrypoint.sh:/usr/local/bin/pg-standby-entrypoint.sh:ro
+    ports:
+      - "${DB_BIND_IP:-127.0.0.1}:${STANDBY_LISTEN_PORT:-5433}:5432"
     healthcheck:
       # dbname 을 명시한다. 빠뜨리면 pg_isready 가 사용자명을 dbname 으로 써서 접속을 시도하고
       # 그 데이터베이스가 없어 FATAL 이 5초마다 로그에 쌓인다(실측).
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME:-exchange}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_ADMIN_USER} -d ${DB_NAME:-exchange}"]
       interval: 5s
       timeout: 5s
       retries: 40
@@ -141,7 +167,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${DB_MEMORY:-1600m}
+          memory: ${DB_MEMORY:-2g}
     logging:
       driver: json-file
       options:

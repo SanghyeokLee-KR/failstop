@@ -1,0 +1,18 @@
+{
+  "image_build": true,
+  "compose_config": true,
+  "migration_count_47": true,
+  "catalog_only": true,
+  "empty_system_accounts": true,
+  "provision": true,
+  "max_connections": true,
+  "standby_with_quoted_password": true,
+  "market_reads": true,
+  "market_count": true,
+  "forbidden_routes": true,
+  "no_leader": true,
+  "db_outage_read_503_liveness_200": true,
+  "db_recovery": true,
+  "runtime_app_role_leader": true,
+  "runtime_app_role_signup": true
+}

@@ -8,7 +8,7 @@
 
 ## 현재 상태
 
-2026-09-18 기준이다. 사용자가 설명한 교수·업체 관계자 상담 이후의 방향을 [ADR 0027](reference/adr/0027-msp-operations-and-autoscaling.md)에 반영했다. 아래 완료 표시는 기존 구현·측정 기록에 따른 것이며, 이번 문서 정리에서 전체 테스트나 AWS 상태를 다시 확인한 것은 아니다.
+2026-09-18 기준이다. [ADR 0027](reference/adr/0027-msp-operations-and-autoscaling.md)의 운영 범위를 정본 `codex/docs-linux-operations`에서 구현하고 로컬 실행을 검증하고 있다. 당일의 조건·판정·원자료는 [09-18 운영 검증](measurements/20260918.md)에 모았다. M1~M3의 과거 측정과 이번 실행 근거를 구분한다. AWS 계정은 아직 제공되지 않았으며 실제 자원·권한·비용은 확인하지 않았다.
 
 | 단계 | 상태 | 범위 |
 |---|---|---|
@@ -25,14 +25,36 @@ Docker 카오스는 로컬 개발 검증 이력으로 남긴다. 새로운 카�
 
 ## 다음 작업의 시작점
 
-먼저 Linux 서버를 어떤 기준으로 구축하고 운영할지 확정한다. 기존 [ADR 0010](reference/adr/0010-onprem-to-aws-deployment.md)은 Rocky Linux 10 계열과 Graviton ARM64를 전제로 한다. 이 기록을 출발점으로 실제 사용할 배포판 버전·AMI의 출처와 ID, CPU 아키텍처, 앱 이미지 digest를 확인한다. 현재 AWS에 어떤 OS가 배포됐는지는 미확인이다. 다른 OS로 바꿀 이유가 있다면 기존 선택과 비교해 결정한다.
+먼저 [배포 안내](../deploy/README.md)의 역할별 설정과 실제 실행 근거를 확인한다. 아래 로컬 검증은 Ubuntu 26.04 WSL·x86_64와 Docker Desktop에서 수행했다. 기존 [ADR 0010](reference/adr/0010-onprem-to-aws-deployment.md)의 Rocky Linux 10·Graviton ARM64를 실제 검증한 결과가 아니다.
 
-1. 작업 PC의 저장소와 필요한 도구, 실제 사용할 AWS 계정·리전·기존 역할의 접근 가능 여부를 확인한다. IAM 제약을 우회하거나 비밀 값을 출력하지 않는다.
-2. 앱·조회·DB·봇 및 관측의 역할별 배치, AZ·서브넷·통신 포트·운영자 접속 경로를 정한다. 계정·권한, 부팅 후 서비스 기동, 로그·디스크·파일시스템 운영과 기본 점검 절차를 선택한 Linux에 맞춘다.
-3. 현재 노드 Compose와 배치안을 대조한다. DB 호스트 간 연결과 풀 합계, 조회 노드의 엔진 비활성화 설정 전달, 마이그레이션 순서를 먼저 보완할 범위로 정한다. ALB의 요청 수용 검사와 ASG의 인스턴스 교체 조건도 구분한다.
-4. 유료 자원 생성 전에는 실제 규격·가동 시간·접속 유지 기간으로 40만 원 예산을 계산한다. 계정 접근이 없어도 로컬 설정 검토와 배치·운영 절차 준비는 계속하고, 실제 계정 확인이 필요한 항목만 남긴다.
+| 사용자 작업 순서 | 구현과 로컬 확인 | 아직 별도로 확인할 것 |
+|---|---|---|
+| 1. 실행 환경 복구 | Docker Linux 기동, 서버 build·캐시 없는 테스트, 웹 의존성·440개 테스트·빌드·5개 페이지 HTTP 200 | 현재 AWS 실행 없음 |
+| 2. Linux 운영 | 운영 계정·별도 SSH·권한·systemd·journal·logrotate·점검 timer 설치. root·비밀번호·다른 키·임의 sudo·비밀 읽기 거절, INPUT/DNAT 실제 허용·거부 시험 통과 | Rocky·ARM64, 실제 EC2 재부팅과 Windows 종료 후 상시 운용 |
+| 3. 배포 설정 | 사설 DB 바인딩·전체 연결 예산·분리 계정·신뢰 프록시·별도 마이그레이션·카탈로그·조회 역할. DB 중단 시 read 503/liveness 200, 복구 후 200 | AWS 다중 호스트·ALB 경로·실제 메모리와 부하 |
+| 4. Linux 관측 | 호스트 디스크·inode·I/O·네트워크·systemd, 전용 DB exporter. Grafana 4개 화면을 서비스 관제·트래픽/Spring·AWS/서버·DB/복구로 개편하고 브라우저 확인, 누락·수집 실패와 정상 0 분리 | 실제 AWS 대상 등록·CloudWatch 조회·관측 노드 자체의 외부 감시 |
+| 5. DB 복구·백업 | 실제 체결 뒤 primary 격리→수동 승격→앱 전환→새 볼륨 재편입→백업 복원. 명령·이벤트·체결·원장·ACK 및 불변식 대조 통과 | 여러 호스트의 급작스러운 장애, 실제 RPO와 사람의 판단을 포함한 RTO |
+| 6. AWS·보고 준비 | Terraform validate·모의 계획 6건, 일일/장애 영속 보고와 09:00 KST timer. 역할별 Teams 카드·2쪽 PDF/HTML 자동 제공, 사용자 PDF 열기 확인, Gemini API·호출 상한 구현 | AWS plan/apply·증설/축소, 개선한 AI 지시의 실제 응답 재검증과 상시 활성화, 외부 관계자의 HTTPS 보고 접근 |
 
-첫 작업의 결과는 [배포 안내](../deploy/README.md)의 선택한 환경과 실행 절차, 검증한 설정, 이 로드맵의 진행 상태에 반영한다. 역할별 서버를 어떻게 기동·접속·점검·복구할지 설명하고 로컬에서 가능한 검증까지 마치는 것이 우선이다. AWS 배포나 장애 시험을 수행하지 않았다면 완료로 표시하지 않는다. 별도 인수인계 파일은 만들지 않는다.
+원본은 [배포 smoke](../artifacts/operations-20260918/deploy-smoke/checks.json), [DB 실습](../artifacts/operations-20260918/db-recovery-drill.json), [별도 백업 복원](../artifacts/operations-20260918/backup-restore-check.json), [Teams 보고 접수](../artifacts/operations-20260918/reporting-live-pipeline.json)에 남긴다. DB 실습은 쓰기를 멈추고 standby를 따라잡게 한 조건이며 급작스러운 장애의 무손실 보장이 아니다. 앱 정상화 시간 11.688초에는 사람의 판단 시간이 없다.
+
+같은 날 [별도 프로젝트 재실험](../artifacts/operations-20260918/failstop-ops-repeat-5f5d0d824ec0.json)에서도 primary 정지 확인, standby 수동 승격, 앱 연결 전환, 새 standby 재편입과 백업 복원을 통과했다. 주문 ACK 2건과 체결 1건이 보존됐고 전환·복원 전후 명령 2건·이벤트 3건·원장 항목 22건·주문 2건이 일치했다. 세 시점의 불변식 각 30개에서 CRITICAL/HIGH 실패는 없었다. 격리 시작부터 앱 준비까지 9.688초이며 사람의 판단 시간은 제외했다. 이번 임시 컨테이너·볼륨은 정리하고 백업과 근거를 보존했으며, 기존 고객 실습 앱과 DB 복제·관측은 정상 상태를 유지했다. 반복 명령은 [DB 실습 안내](../deploy/lab/README.md)의 `drill --repeat`다.
+
+Linux 백업 실행과 실제 복원은 통과했지만 WSL에서 Windows DB로 가는 직접 연결이 되지 않아 정기 백업 timer는 설치하지 않았다. 보고 timer는 설치했으며 Windows·WSL이 실행 중이어야 한다. Teams 해제 사건 보고는 한 번 재시도한 뒤 접수됐고, 최초 시도의 오류 종류와 채널의 실제 게시·중복 여부는 확인하지 못했다. 이후 전송 시도는 오류 종류를 보존한다.
+
+사용자가 제공한 Google 키로 Gemini 3.1 Flash-Lite 인증과 실제 생성 1회를 확인했다. 첫 응답은 DB 연결 수에서 정상 여부를 단정하는 문제가 있어 지시를 보강했다. 추가 실측 시험은 내부 운영 자료의 Google 전송에 대한 자동 승인 심사에서 차단되어 사용자 동의를 기다린다. 현재 설치한 보고 서비스는 `facts-only`이며 Google을 호출하지 않는다. 보고는 2쪽 고정 양식에 결론·담당자 개입·역할별 조치와 완료 조건·실측 그래프·지표표를 바인딩한다. 담당자 개입은 최신 근거와 자료 공백으로 판정하며 AI 문장으로 위험을 낮추지 않는다. 백업 예약·복원 확인은 보호된 파일에서 선택적으로 받으며 없는 결과는 미확인으로 남긴다. [보고 원자료](../artifacts/operations-20260918/report-template/report.json)와 [양식 바인딩](../artifacts/operations-20260918/report-template/report-bindings.json)은 AI 원인 분석의 검증 결과가 아니다.
+
+[최신 관측 확인](../artifacts/operations-20260918/observability-runtime.json)에서 C: 드라이브 여유는 약 15%다. 부족 경보를 유지하며 임의로 파일을 지우지 않았다. Windows 재부팅 뒤에는 [로컬 관측 bridge](../deploy/observability/README.md)를 다시 시작해야 한다. 보고 재설치와 Ubuntu 재시작 뒤 운영 SSH·수집 파일 권한·보고 기록·다음 일정을 [재설치 검사](../artifacts/operations-20260918/reporting-install-check.json)에서 확인했다.
+
+이후 고객 관측 범위를 Spring과 고객 AWS 인프라로 한정했다. 로컬 고객 대상은 Spring·DB 2개·접속 검사이며 별도 Ubuntu 운영 실습·관측 도구·부하 봇은 고객 집계에서 제외한다. C드라이브 경고는 실습 Prometheus에 남기되 고객 장애로 전송하지 않는다. 기존 MSP 4개 화면과 보고 조회에 고객 역할 필터를 적용하고, AWS 서버 자료가 없으면 로컬 호스트 값으로 대신하지 않는다. [고객 범위 확인](../artifacts/operations-20260918/customer-scope/runtime-check.json)은 실제 PromQL 73개와 Grafana 반영을 확인한 로컬 결과이며 AWS 검증은 아니다.
+
+로컬과 AWS의 [공통 관측 설정](../deploy/observability/README.md#로컬과-aws의-관측-경로를-맞춘다)을 추가하고 보고 조회·알림 묶음에 고객사와 환경을 함께 적용했다. AWS EC2 탐색은 지정 cluster만 등록하며 고객 Spring 목록에서 봇을 제외한다. 실제 등록된 로컬 standby를 중단해 `pg_up=0`과 Prometheus 경보를 확인한 뒤 재기동했다. 2026-09-18 14:17 KST의 장애 보고와 14:22 KST의 해제 보고가 각각 첫 시도에 Teams 웹훅에서 접수됐고, 사용자가 두 보고의 채널 표시를 확인했다. 복제 streaming·Spring readiness와 고객 대상 4개를 포함한 scrape 7개 정상 상태도 확인했다. [실행 근거](../artifacts/operations-20260918/prometheus-standby-delivery.json)에 사건 ID·전송 결과·사용자 확인을 보존했다. 이 검사는 replica 중단·복구이며 앞선 수동 승격 시험과 다르다. AWS 대상의 실제 수집은 아직 확인하지 않았다.
+
+이어서 Teams·PDF와 관제 화면을 개편한 뒤 [Standby 관측·보고 재검증](../artifacts/operations-20260918/prometheus-standby-pdf-delivery.json)을 통과했다. 수집기가 응답하지만 DB 접속이 실패하는 `DatabaseConnectionFailed`와 수집기 장애를 분리했다. 14:54 KST 장애 및 14:59 KST 해제 보고는 각각 첫 시도에 접수됐으며, 사용자가 두 버튼 표시와 PDF 열기를 확인했다. Primary 중단 없이 replica 복제와 Spring 정상 상태로 복귀했다. 2쪽 PDF는 저장한 근거로 자동 생성하며 파일 링크의 서명·만료와 변조 거절을 확인했다. 현재 다운로드 주소는 이 PC의 루프백이며 Teams 파일 탭 첨부나 외부 관계자 접근을 뜻하지 않는다. PDF 오류에도 카드와 다음 보고를 계속 처리하고 별도 실패 지표를 남긴다.
+
+관제 화면은 고객 역할과 두 시나리오 중심으로 정리했다. 명사형 표시, 미수집 회색, 역할별 DB 상태, 요청·응답 지연·복제 추이와 장애 구간을 브라우저에서 확인하고 카드 높이·헤더 잘림을 수정했다. [읽기 요청 확인](../artifacts/operations-20260918/monitoring-http-smoke.json)의 120건은 모두 HTTP 200이며 성능 한계나 AWS 자동 확장의 검증 결과는 아니다. AWS 전용 CloudWatch 데이터 소스와 ALB·ASG·EBS 패널, Terraform 식별자 출력·관측 bot의 IMDSv2 설정을 준비했다. 실제 AWS 조회와 비용은 미확인이다.
+
+계정이 준비되면 기존 역할·iam:PassRole·SSM·리전과 AMI·ARM64 digest·도메인/ACM을 확인한다. 실제 규격·가동 기간·ASG 상한·보존 데이터로 40만 원 예산을 계산한 뒤 비공개 환경부터 배포한다. IAM 제약을 우회하거나 기존 로컬 성능을 AWS 결과로 사용하지 않는다.
 
 ## 공통 완료 조건
 
@@ -74,7 +96,7 @@ E1에서 발견한 리스 갱신 잠금 문제는 [ADR 0026](reference/adr/0026-
 2. 기존 Grafana MSP 화면과 Prometheus를 AWS에 연결한다. 호스트의 파일시스템·inode·디스크 I/O·네트워크·서비스 상태를 추가한다. 복제 지표 미수집을 정상 0으로 표시하는 문제를 고치고 Microsoft Teams 기본 알림의 발화·해제를 확인한다.
 3. Linux 서비스, 디스크, 네트워크와 DB 장애를 관측에서 조치까지 연결한다. DB는 옛 primary 격리·수동 승격·앱 연결 전환·재편입을 여러 호스트에서 연습하고 백업도 실제로 복원한다. 자동 DB 전환 여부는 별도 설계 판단으로 남아 있다.
 4. 분산 가능한 REST 조회를 ALB·EC2 ASG로 확장한다. 주문·취소·WebSocket과 재동기화용 조회의 경로를 먼저 구분한다. 부하 증가→EC2 증가→정상 등록→지연·오류 변화→부하 감소 후 축소를 확인한다. 단일 매칭 엔진이나 DB를 ASG로 무작정 늘리지 않는다.
-5. 일일 예약 작업과 장애 발생 작업에서 근거를 수집해 AI 보고를 만든다. Teams Workflows에 전송하고 AI 실패, 자료 부족, 중복 알림과 전송 실패도 처리한다. 모델·보고 시각·Teams 워크플로 계정 조건은 미정이다.
+5. 구현한 보고 서비스를 AWS 근거와 연결한다. 일일 시각은 사용자 선택으로 09:00 Asia/Seoul이다. Google 전송 동의 후 Gemini 3.1 Flash-Lite의 보강한 지시로 실측 응답을 다시 검토하고 활성화한다. 기본 상한은 분당 4회·하루 50회·달력월 1,000회다. Teams HTTP 접수와 채널 게시를 대조하고 실제 AI 실패·자료 부족·중복·재전송을 운영 환경에서도 확인한다.
 6. 위 운영 과정의 원본 영상·캡처·판정 자료를 연결해 PPTX를 만든다. 로컬과 AWS 장면을 구분하고, 재촬영과 접속 유지 기간을 확인한 뒤 보존 데이터와 철거 자원을 정한다.
 
 비공개 시험 환경 준비와 외부 공개는 구분한다. 공개 전에 모호한 주문 커밋 후 멱등 키 삭제·새 키 재시도 경로를 재현하고 처리 계약을 고쳐 검증한다. 신뢰 프록시와 관리 접근 통제도 확인한다. 현재 코드에서 확인한 위험과 단계별 선행 조건은 [0099의 AWS 준비 순서](reference/adr/0099-current-architecture.md)에 있다.
