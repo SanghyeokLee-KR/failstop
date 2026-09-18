@@ -1,0 +1,44 @@
+{
+  "started_at": "2026-09-18T10:35:59.938010+00:00",
+  "before": {
+    "failstop-ops-lab-standby-1": {
+      "recovery": false,
+      "preload": "",
+      "version": "17.11"
+    },
+    "failstop-ops-lab-rejoined-1": {
+      "recovery": true,
+      "preload": "",
+      "version": "17.11"
+    }
+  },
+  "data_before": {
+    "orders": 4,
+    "trades": 2,
+    "ledger": 40,
+    "commands": 4
+  },
+  "data_after": {
+    "orders": 4,
+    "trades": 2,
+    "ledger": 40,
+    "commands": 4
+  },
+  "after": {
+    "failstop-ops-lab-standby-1": {
+      "recovery": false,
+      "preload": "pg_stat_statements",
+      "version": "17.11"
+    },
+    "failstop-ops-lab-rejoined-1": {
+      "recovery": true,
+      "preload": "pg_stat_statements",
+      "version": "17.11"
+    }
+  },
+  "monitor_queries": {
+    "failstop-ops-lab-standby-1": true,
+    "failstop-ops-lab-rejoined-1": true
+  },
+  "finished_at": "2026-09-18T10:36:12.863190+00:00"
+}

@@ -13,7 +13,9 @@ import uuid
 from email.utils import parsedate_to_datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
+from console_api import list_reports
 from evidence import collect, timestamp
 from artifacts import options as artifact_options, publish as publish_artifacts, read_file as read_artifact
 from presentation import card, render_html
@@ -379,6 +381,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(data)))
+        if self.path.startswith("/console/"):
+            self.send_header("Cache-Control", "private, no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(data)
 
@@ -386,7 +391,17 @@ class Handler(BaseHTTPRequestHandler):
         return hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + self.server.token)
 
     def do_GET(self):
-        if self.path.startswith("/reports/"):
+        if urlsplit(self.path).path == "/console/reports":
+            if not self.authenticated():
+                self.send_result(401, {"error": "unauthorized"})
+                return
+            try:
+                self.send_result(200, list_reports(self.server.store, self.server.config, self.path))
+            except ValueError:
+                self.send_result(400, {"error": "invalid_console_query"})
+            except sqlite3.Error:
+                self.send_result(503, {"error": "storage_error"})
+        elif self.path.startswith("/reports/"):
             try:
                 data, mime, extension = read_artifact(self.path, self.server.config)
                 self.send_response(200)

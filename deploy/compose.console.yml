@@ -1,0 +1,35 @@
+services:
+  console:
+    build: ./console
+    environment:
+      CONSOLE_PUBLIC_URL: ${CONSOLE_PUBLIC_URL:-http://127.0.0.1:${CONSOLE_PORT:-53002}}
+      CONSOLE_GRAFANA_URL: http://grafana:3000
+      CONSOLE_PROMETHEUS_URL: http://prometheus:9090
+      CONSOLE_REPORTER_URL: ${CONSOLE_REPORTER_URL:-http://host.docker.internal:59188/reporter}
+      CONSOLE_REPORTER_TOKEN_FILE: /run/secrets/reporter_token
+      CONSOLE_GRAFANA_ORG_ID: ${CONSOLE_GRAFANA_ORG_ID:-1}
+      CONSOLE_GRAFANA_PUBLIC_URL: ${CONSOLE_GRAFANA_PUBLIC_URL:-http://127.0.0.1:53001}
+      CONSOLE_PROMETHEUS_PUBLIC_URL: ${CONSOLE_PROMETHEUS_PUBLIC_URL:-http://127.0.0.1:59090}
+      CONSOLE_ALERTMANAGER_PUBLIC_URL: ${CONSOLE_ALERTMANAGER_PUBLIC_URL:-http://127.0.0.1:59093}
+      CONSOLE_AWS_CUSTOMER: ${CONSOLE_AWS_CUSTOMER:-exchange}
+      CONSOLE_AWS_REGION: ${CONSOLE_AWS_REGION:-ap-northeast-2}
+      CONSOLE_AWS_LOAD_BALANCER: ${CONSOLE_AWS_LOAD_BALANCER:-}
+      CONSOLE_AWS_TARGET_GROUP: ${CONSOLE_AWS_TARGET_GROUP:-}
+      CONSOLE_AWS_ASG: ${CONSOLE_AWS_ASG:-}
+      CONSOLE_AWS_VOLUME_ID: ${CONSOLE_AWS_VOLUME_ID:-}
+    ports: ['127.0.0.1:${CONSOLE_PORT:-53002}:53002']
+    volumes:
+      - console-data:/state
+      - ${CONSOLE_TOKEN_FILE:-${REPORTER_TOKEN_FILE:?set_REPORTER_TOKEN_FILE}}:/run/secrets/reporter_token:ro
+    extra_hosts: ['host.docker.internal:host-gateway']
+    restart: unless-stopped
+    mem_limit: 192m
+    read_only: true
+    tmpfs: ['/tmp:size=16m']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+volumes:
+  console-data:

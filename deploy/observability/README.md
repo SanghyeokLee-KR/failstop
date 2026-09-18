@@ -1,10 +1,46 @@
 # Linux·DB 관측 구성
 
+기본 관제 화면은 기존 Grafana의 MSP 대시보드다. 로컬 주소 `http://127.0.0.1:53001`에서 서비스 관제·트래픽/Spring·AWS/서버·DB 요약·SQL/세션·복제/복구를 조회한다. [별도 MSP 콘솔](../console/README.md)은 루프백 포트 53002의 비교·확장 화면으로 보존하며, 기본 관제에 반드시 실행할 필요는 없다. 두 화면 모두 같은 고객 라벨과 기존 관측 자료를 사용한다.
+
 Prometheus·Alertmanager·Grafana는 [관측 Compose](../compose.node-observability.yml)로 실행한다. Linux는 호스트의 node_exporter와 1분 간격 진단 수집기로, DB는 각 DB 호스트의 전용 postgres_exporter로 읽는다. 대상 파일을 채우지 않은 상태는 미구성 상태이며 Linux·앱·DB·보고·외부 접속 대상 누락 알림을 낸다. 그래프가 비었다는 이유로 정상이라고 판단하지 않는다.
 
 고객 관측 범위는 Spring 서비스와 이를 운영하는 고객 서버·DB·접속 경로다. Docker 전체 컨테이너를 고객 자원으로 집계하지 않는다. MSP 화면은 고객사와 환경으로 범위를 고르고 `app|reader|data|standby|probe` 역할만 포함한다. Spring 자원은 Actuator의 프로세스·JVM 지표, 서버 자원은 node_exporter를 사용한다. DB 서버 CPU·메모리는 `role=data|standby`인 전용 호스트에서만 읽으며 로컬 Ubuntu 값을 Docker DB 사용량으로 바꾸어 표시하지 않는다. Prometheus와 보고 서비스 자체의 상태 수집은 관측 경로 점검용으로 유지하지만 고객 서비스 수집 대상 수에는 넣지 않는다.
 
 `local-lab`의 고객 대상은 Docker에서 실행하는 Spring·DB·접속 검사다. 별도 Ubuntu는 `customer=operations-lab`인 Linux 운영 실습 환경으로 두며 고객 서버 지표와 보고에서 제외한다. AWS에서는 지정한 고객 프로젝트의 EC2를 등록한다. ALB·ASG·EBS의 CloudWatch 데이터 소스와 조회 패널은 준비했지만 AWS 계정이 없어 실제 연결은 아직 검증하지 않았다. Grafana는 Windows bind mount의 파일 변경도 읽도록 30초 주기로 대시보드 파일을 확인한다. [Grafana 파일 갱신 안내](https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards)
+
+## Grafana 기본 관제 화면
+
+| 화면 | 주요 관측 |
+|---|---|
+| 서비스 관제 | 요청·오류·지연, 접속에서 DB까지의 서비스 경로, 장애 구간, 진행 경보와 수집 응답 |
+| 트래픽·Spring | 성공 2xx 처리량, 경로별 HTTP 429·성공 P95, HTTP 응답 코드, CPU·JVM·GC·스레드·연결 풀 |
+| AWS·서버 | 등록 고객 호스트의 CPU·메모리·디스크·inode·네트워크·I/O와 AWS 연결 후 CloudWatch |
+| DB 요약 | 실제 Primary·Standby 역할과 노드, Commit/Rollback 합계 TPS, SQL 처리량·세션 대기·연결 사용률·복제 상태 |
+| SQL·세션 | SQL 명령별 성공 실행량·평균 실행 시간, 세션 상태·대기 유형·차단·장기 트랜잭션과 임시 파일·캐시·행 통계 |
+| 복제·복구 | 표준 WAL 생성량, 전송·쓰기·영속화·재생 위치 차이, 복제 상태·백업 경과와 수동 복구 절차 |
+
+서비스 경로와 DB 복제 구성은 Grafana의 Canvas 패널, 추이는 시계열과 상태 이력 패널, 현재 대상과 경보는 표 패널로 구성한다. 제목과 상태 문구는 명사형을 사용하고 정상·장애·미수집을 색과 문구로 함께 표시한다. 미수집 구간의 선을 연결하거나 정상 0으로 채우지 않는다. 주요 패널은 19개 그리드 행에 배치하고 상세 CloudWatch 행은 접어 두지만, 실제 모니터별 표시 범위와 잘림 여부는 브라우저 검사로 판단한다.
+
+Grafana의 기존 사이드바·검색·기간 선택·자동 갱신·패널 확대·사용자 권한을 사용한다. 여섯 대시보드는 즐겨찾기에 등록하고 각 화면 상단 링크로도 이동한다. 다크·라이트 링크는 고객·환경·기간을 유지한 새 탭을 연다. Grafana의 `theme` URL 설정을 사용하며 계정의 기본 테마 변경은 프로필에서 저장한다. 알림·데이터 소스·사용자 관리는 Grafana 원본 메뉴로 연결한다. 임의 HTML·CSS를 주입하거나 Grafana의 전체 사이드바를 별도 제품 메뉴로 교체하지 않는다. 사용자 관리 등 관리자 메뉴는 해당 Grafana 권한이 있어야 사용할 수 있다.
+
+Prometheus와 기존 Alertmanager는 [데이터 소스 설정](grafana/datasources.yml)의 고정 UID로 연결한다. Grafana 알림 화면에서 기존 Alertmanager를 조회하며, 이 연결이 별도의 경보 전송 경로를 만들거나 Teams 수신기를 바꾸지는 않는다. 저장된 보고 목록과 담당자 확인 이력은 별도 콘솔에 남아 있으며 Grafana 기본 기능으로 구현됐다고 표시하지 않는다.
+
+[생성기](tests/build-msp-dashboards.py)가 `harness/grafana/dashboards/10-msp-overview.json`부터 `15-msp-db-replication.json`까지 만든다. JSON을 직접 수정하기보다 생성기와 [공통 질의](tests/msp_queries.py), [Canvas 구성](tests/msp_canvas.py)을 수정한 뒤 다시 생성한다. 저장소 루트에서 다음을 실행한다.
+
+```powershell
+python deploy/observability/tests/build-msp-dashboards.py --write
+python deploy/observability/tests/configure-grafana-workspace.py --url http://127.0.0.1:53001 --user operator --password-file deploy/observability/.state/grafana-password
+```
+
+첫 명령은 여섯 JSON을 교체한다. 두 번째 [작업 공간 설정 도구](tests/configure-grafana-workspace.py)는 실행 중인 Grafana의 조직·현재 사용자 설정을 변경하고 다시 조회해 확인한다. 서비스 관제 홈, 한국어, `Asia/Seoul`, 기본 다크 테마, 여섯 대시보드 즐겨찾기와 알림·데이터 소스·사용자 관리 북마크를 설정하며 기존 북마크를 보존한다. 비밀번호는 보호 파일에서만 읽는다. 조직 기본 설정을 바꿀 수 있는 계정으로 실행하며 사용자별 즐겨찾기와 프로필은 실행 계정에 적용된다.
+
+고객·환경과 고객 역할 조건은 모든 Prometheus 질의에 적용한다. Spring 수집 응답인 `up`과 요청 수용 상태, DB exporter 응답과 `pg_up`을 구분한다. DB 역할은 `pg_wal_position_in_recovery`로 확인하므로 승격 뒤에도 과거 배치 라벨로 Primary·Standby를 단정하지 않는다. 두 Primary를 실제 관측하면 구성 장애로 표시하며 등록 DB의 역할이 일부 미확인이면 정상 판정을 보류한다. 최근 수집이 없는 대상은 정상 판정에서 제외하고, 수집률 분모는 Prometheus 조회 범위에 남아 있는 등록 `up` 목록을 사용한다. 서비스 검색에서 완전히 제거된 대상까지 보존하는 영구 자산 목록은 아니다. JVM 비율은 사용량/확보량이며 전체 잠금 수는 잠금 대기 수가 아니다.
+
+AWS 계정과 고객 호스트를 아직 등록하지 않았다면 해당 패널의 빈 그래프와 미수집 표시가 현재 상태다. 로컬 Ubuntu나 Docker 전체 자원으로 채우지 않는다. 여섯 화면의 기본 패널은 공통으로 유지하고 실제 AWS 리소스 식별자와 CloudWatch 권한을 연결한 뒤 AWS 자료를 검증한다. 현재 실행 결과는 [로드맵](../../docs/ROADMAP.md)에서 확인한다.
+
+상단 요청 지표는 실제 카운터가 존재하지만 요청이 없는 구간을 `요청 없음`으로 구분한다. 진행 경보 표는 선택 고객·환경·역할 라벨이 있는 경보만 표시하며 미분류 경보는 Grafana 기본 경고 메뉴에서 확인한다. 기존 하네스의 일부 집계 경보는 이 라벨을 보존하지 않으므로 고객 경보 0건을 전체 경보 0건으로 해석하지 않는다.
+
+Grafana 메모리 기본 한도는 768MiB이며 `GRAFANA_MEMORY_LIMIT`로 조정한다. 로컬 다중 화면 검증에서 종전 384MiB 한도 근처 사용과 연결 중단을 확인한 뒤 조정했다. AWS 관측 노드는 Prometheus·봇과의 총사용량 및 여유 메모리를 별도 산정한다. 긴 표는 패널 내부에서 스크롤하며 기본 패널 확대 기능으로 상세를 확인한다.
 
 ## 호스트와 DB 수집
 
@@ -30,6 +66,34 @@ docker compose -f deploy/observability/compose.postgres-exporter.yml up -d
 ```
 
 전용 비밀 파일은 exporter에 읽기 전용으로 마운트한다. DB 연결 비밀번호를 Compose 환경 변수로 전달하지 않는다. postgres_exporter v0.17.1의 custom query 기능을 사용하며 이 기능은 upstream에서 deprecated 상태이므로 버전 갱신 때 대체 수집기와 지표 호환성을 확인한다. [확장 질의](../../harness/prometheus/pg-queries.yaml)는 WAL 실제 파일 크기, 복제 전송·재생 위치 차이와 마지막 재생 나이를 읽는다. 마지막 재생 나이에는 유휴 시간이 포함되므로 RPO나 실제 유실량으로 단정하지 않는다.
+
+## DB 처리량과 대기를 구분한다
+
+DB 요약에서 대상과 영향 범위를 확인한 뒤 SQL·세션 화면에서 부하와 대기를, 복제·복구 화면에서 이중화와 복원 준비를 확인한다. 업무 API 요청량, SQL 실행량, 트랜잭션 수, 처리 행 수는 서로 다른 값이다. 감시 계정을 제외한 SQL 통계에도 운영자의 직접 질의가 포함될 수 있으므로 애플리케이션 전용 QPS라고 해석하지 않는다.
+
+| 표시 | 수집 원천과 해석 |
+|---|---|
+| SQL 실행량·평균 실행 시간 | `pg_stat_statements`의 top-level 성공 호출 수와 누적 실행 시간. SELECT·INSERT·UPDATE·DELETE·MERGE·WITH·OTHER로 합산하며 평균은 초기화·수집 오류 노드를 제외한 유효 표본의 실행 시간 증가량을 호출 증가량으로 나눈다. 실패 SQL 수나 P95가 아니다. |
+| Commit·Rollback TPS | `pg_stat_database`의 트랜잭션 완료 수. 읽기 전용 트랜잭션과 수집 질의도 포함하며 주문 수나 SQL 호출 수가 아니다. |
+| 세션 상태·대기 유형 | `pg_stat_activity`의 client backend를 실행 중 대기 없음·실행 대기·유휴·유휴 트랜잭션·중단된 유휴 트랜잭션·기타로 구분한다. `active_no_wait`는 수집 순간 대기 이벤트가 없다는 뜻이며 CPU 실행 판정이나 시간 평균 동시 실행량이 아니다. |
+| 차단·장기 트랜잭션 | 차단은 `pg_blocking_pids`, 잠금 대기 시간은 `pg_locks.waitstart`, 트랜잭션 나이는 `xact_start`로 구한다. 전체 잠금 수를 차단 세션 수로 사용하지 않는다. |
+| 행·캐시·임시 파일 | PostgreSQL 기본 누적 통계의 행 접근·변경, 블록 캐시 적중, 임시 파일 바이트다. 행 수를 SELECT 호출 수나 고객에게 반환한 고유 행 수로 바꾸어 부르지 않는다. |
+| WAL 생성량·복제 단계 | 생성량은 primary의 `pg_stat_wal.wal_bytes` 증가량이며 DB 하나가 아닌 클러스터 전체 값이다. 복제는 현재 삽입·전송·쓰기·영속화·재생 위치의 차이를 구분한다. 재생 나이에는 유휴 시간이 포함될 수 있고 위치 차이만으로 실제 유실량을 확정하지 않는다. |
+
+수집 연결의 PID, `failstop_monitor` 계정과 알려진 exporter application name은 세션 집계에서 제외한다. SQL 통계는 감시 계정의 user ID를 제외하고 제한된 명령 분류만 Prometheus 라벨로 내보낸다. SQL 원문·query ID·사용자 식별자를 라벨이나 결과에 싣지 않는다. `WITH`는 변경 CTE일 수 있어 SELECT에 합치지 않으며 SELECT도 쓰기 함수를 호출할 수 있으므로 완전한 읽기 전용 분류라고 주장하지 않는다. 주석 등으로 선두 명령을 확정하지 못한 SQL은 OTHER로 남긴다.
+
+SQL 통계에는 별도 준비가 필요하다. [DB 노드 Compose](../compose.node-data.yml)는 `PG_SHARED_PRELOAD_LIBRARIES`의 기본값을 `pg_stat_statements`로 두고 `compute_query_id=auto`, `pg_stat_statements.track=top`, `track_utility=off`를 설정한다. 기존 모듈이 있으면 preload 목록을 덮어쓰지 않고 보존한다.
+
+1. 관리자 작업 창에서 primary와 standby의 역할·복제·기존 preload·연결 대상을 확인한다. DB 재기동이 필요한 변경이다.
+2. 두 노드에 같은 preload 설정을 적용하고 standby부터 재시작한다. primary 재시작 구간에는 앱의 쓰기 중단과 재접속 계획을 적용한다. 이 단계는 자동 승격이 아니다.
+3. 재기동 뒤 관리자가 관측 대상 DB의 primary에서 [확장 설치 SQL](enable-sql-statistics.sql)을 실행한다. 물리 복제의 standby에서는 카탈로그 전달을 확인하며 `CREATE EXTENSION`을 따로 실행하지 않는다. Flyway 파일 수정이나 통계 초기화는 하지 않는다.
+4. 전용 `failstop_monitor`의 통계 읽기, exporter scrape 오류 없음, 실제 역할·streaming·앱 준비 상태를 확인한다. 설치 권한이나 업무 테이블 읽기·쓰기 권한을 감시 계정에 추가하지 않는다.
+
+[로컬 활성화 도구](enable-local-sql-statistics.py)는 승격된 `failstop-ops-lab-standby-1`이 primary이고 `rejoined-1`이 standby인 현재 실습만 대상으로 한다. 옛 primary 정지와 실제 역할을 검사한 뒤 앱을 잠시 멈추며 재시작 후 역할과 거래 관련 행 수를 대조한다. 일반 AWS 배포에 그대로 사용하지 않는다. 09-18의 적용 결과는 [활성화 근거](../../artifacts/operations-20260918/grafana-db/sql-statistics-activation.json)에 남아 있으며 자료 조회를 위해 재실행할 필요는 없다.
+
+확장 미설치·미로드·추적 비활성·권한 부족은 `pg_ops_sql_collection_available=0`으로 내고 SQL 합계는 내지 않는다. 해당 상태는 DB 접속 장애와 구분한다. 원천 질의 실패, 오래된 scrape, 통계 초기화와 항목 퇴출이 포함된 SQL rate 구간은 정상 0이나 추정값으로 채우지 않는다. 집계 counter가 감소한 구간도 제외한다. standby의 SQL 통계는 primary에서 복제되는 통계가 아니며 해당 노드에서 완료된 SQL만 센다. 호출량 0일 때 실행 시간 평균을 만들지 않는다.
+
+정의와 확장 로드 조건은 [PostgreSQL 17 통계](https://www.postgresql.org/docs/17/monitoring-stats.html)와 [pg_stat_statements](https://www.postgresql.org/docs/17/pgstatstatements.html)를 따른다. [DB 지표 통합 검사](tests/test_pg_ops_metrics.py)는 임시 DB·exporter만 사용해 실제 잠금 차단, 수집 계정 제외, 변경 CTE 분리와 선택 확장·권한 실패를 확인한다.
 
 ## 수집 대상을 등록한다
 
@@ -70,7 +134,7 @@ python3 deploy/observability/configure-environment.py --environment aws --report
 
 1. [AWS 탐색 서비스](../terraform/README.md)의 지정 `FailstopCluster`만 등록한다. Spring 앱·조회 노드는 8081, 고객 호스트는 9100, DB exporter는 9187이다. 봇의 앱 지표는 고객 Spring 대상에서 제외한다. 관측 노드 자체의 호스트·reporter 수집은 경로 점검용으로 유지한다.
 2. [보고 설치](../reporting/README.md)에 `--environment aws --bind <관측 노드 사설 IP>`를 지정한다. Teams·인증 토큰·Grafana 비밀은 AWS 호스트의 보호 파일로 전달한다. 보고의 localhost 59090·59093 접속, reporter 9088의 관측 출발지 방화벽과 Bearer 인증을 확인한다.
-3. 관측 Compose 환경의 `PROMETHEUS_CONFIG`와 `ALERTMANAGER_CONFIG`를 생성한 파일로, `OBS_TARGETS_DIR`를 AWS 탐색 서비스의 출력 디렉터리로 지정한다. 로컬 `.state/compose.local.yml`과 Windows bridge는 AWS에서 사용하지 않는다. Prometheus file discovery 형식과 Grafana 4개 화면·경보·보고 양식은 공통으로 유지한다.
+3. 관측 Compose 환경의 `PROMETHEUS_CONFIG`와 `ALERTMANAGER_CONFIG`를 생성한 파일로, `OBS_TARGETS_DIR`를 AWS 탐색 서비스의 출력 디렉터리로 지정한다. 로컬 `.state/compose.local.yml`과 Windows bridge는 AWS에서 사용하지 않는다. Prometheus file discovery 형식과 Grafana 6개 화면·경보·보고 양식은 공통으로 유지한다.
 4. `promtool check config`와 `amtool check-config`를 통과한 뒤 관측 Compose를 기동한다. Grafana에서 `environment=aws`를 선택하고 실제 scrape, 기본 알림, 장애 보고, 복구 보고를 확인한다. AWS 계정이 없을 때 만든 설정·모의 탐색 결과는 이 실행 검증을 대신하지 않는다.
 
 EC2의 Spring·Linux·PostgreSQL 지표와 ALB·ASG·EBS의 CloudWatch 지표는 수집 경로가 다르다. 이 설정 전환만으로 모든 AWS 관리형 지표가 들어오지는 않는다. CloudWatch 연결과 ASG 증감 중 대상 갱신은 AWS 계정에서 검증할 작업으로 남긴다.
@@ -86,7 +150,7 @@ docker compose --env-file /etc/failstop/observability/compose.env -f deploy/comp
 
 위 환경 파일에는 앞 절에서 준비한 설정·수집 대상·보호 파일 경로가 있어야 한다. 관측 노드의 기존 IAM 역할에 필요한 조회 권한을 검토해 추가한다. [읽기 정책 예제](grafana/cloudwatch-read-policy.json)는 서울 리전의 CloudWatch 지표와 리소스 검색을 허용하며 실제 권한 부여 결과가 아니다. `Resource: "*"`인 읽기 API의 권한 범위를 Grafana 고객사 변수만으로 격리할 수는 없다. 계정별 역할과 리전 조건을 실제 고객 범위에 맞춰야 한다. 컨테이너에서 instance profile을 사용할 수 있도록 Terraform은 관측 bot 노드만 IMDSv2 응답 hop limit 2로 두며 다른 앱·DB·조회 노드는 1을 유지한다. [Grafana CloudWatch 인증·설정](https://grafana.com/docs/plugins/cloudwatch/latest/configure/)
 
-인프라 화면의 `CloudWatch` 행은 기본 접힘 상태다. 로컬에서는 AWS 지표를 조회하지 않으며 `AWS 미연결` 상태를 정상 수치로 대체하지 않는다. AWS 배포 후 아래 실제 값을 Grafana URL 변수로 지정하고 이 행을 펼친다. 값은 전체 ARN이나 DNS 이름이 아니라 CloudWatch dimension에 맞는 식별자여야 한다.
+인프라 화면의 `CloudWatch` 행은 기본 접힘 상태이며 준비된 질의는 `hide:true`로 비활성화했다. AWS 계정·IAM과 고객별 리소스 매핑을 적용한 뒤 활성화해야 한다. URL의 고객·환경만 바꿔 다른 고객의 고정 리소스를 계속 조회하는 구성을 허용하지 않는다. 아래 값은 매핑에 사용할 입력이며, URL 변수 입력과 행 펼침만으로 수집이 켜지지는 않는다. 값은 전체 ARN이나 DNS 이름이 아니라 CloudWatch dimension에 맞는 식별자여야 한다.
 
 | Grafana URL 변수 | 실제 값의 출처 |
 |---|---|
@@ -130,6 +194,13 @@ cstats는 Docker API HTTP 오류·일부 컨테이너 수집 실패 시 수집 �
 python -m unittest discover -s deploy/observability/tests -p "test_*.py" -v
 docker run --rm --mount type=bind,source=<repo>/deploy/observability,target=/workspace,readonly --workdir /workspace/tests --entrypoint /bin/promtool prom/prometheus:v3.13.0 test rules linux-operations.test.yml
 python deploy/observability/tests/check-postgres-exporter.py
+python deploy/observability/tests/test_pg_ops_metrics.py --docker docker -v
+python deploy/observability/tests/build-msp-dashboards.py --prometheus http://127.0.0.1:59090 --output artifacts/operations-20260918/grafana-db/query-check.json
+$env:GRAFANA_TEST_OUTPUT_DIR = 'artifacts/operations-20260918/grafana-db/browser'
+node deploy/observability/tests/check-grafana-browser.cjs
+node deploy/observability/tests/check-grafana-interactions.cjs
 ```
 
-마지막 검사는 임의 이름의 격리 DB·exporter·네트워크를 만들고 정리한다. 기존 DB를 사용하지 않는다. pg_monitor 역할을 두 번 적용하고 WAL 실측, 업무 테이블 SELECT·쓰기·DDL 거부, pg_up=1과 확장 지표 존재를 확인한다. 운영 DB나 AWS에서 같은 검증을 끝냈다는 뜻은 아니다.
+`check-postgres-exporter.py`는 임의 이름의 격리 DB·exporter·네트워크를 만들고 정리한다. 기존 DB를 사용하지 않는다. pg_monitor 역할을 두 번 적용하고 WAL 실측, 업무 테이블 SELECT·쓰기·DDL 거부, pg_up=1과 확장 지표 존재를 확인한다. 운영 DB나 AWS에서 같은 검증을 끝냈다는 뜻은 아니다.
+
+생성기의 `--prometheus`는 실행 중인 Prometheus에 읽기 전용 질의를 보내고 결과 개수만 증거 파일에 기록한다. 실제 AWS CloudWatch 연결이나 화면 배치 검사를 대신하지 않는다. [Node 브라우저 검사](tests/check-grafana-browser.cjs)는 기존 웹의 Playwright 의존성과 Windows Edge를 사용한다. 기본 접속은 루프백 53001이며 `GRAFANA_TEST_URL`, `GRAFANA_TEST_USER`, `GRAFANA_TEST_PASSWORD_FILE`로 로컬 접속 설정을 바꾼다. 실제 암호는 보호 파일에서 읽는다. 여섯 화면의 다크·라이트 배치, 쿼리 응답, Canvas 바인딩, 제목·요소의 잘림과 테마 링크 전환 시 고객·환경 유지를 확인한다. 캡처 기본 경로는 `artifacts/operations-20260918/grafana`이고 위 명령은 `GRAFANA_TEST_OUTPUT_DIR`로 개편 증거를 별도 저장해 과거 네 화면의 기록을 보존한다. 현재 실행 결과는 로드맵과 당일 측정에 기록한다.

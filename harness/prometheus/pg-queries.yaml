@@ -1,20 +1,5 @@
-# postgres_exporter 확장 질의. 기본 수집기가 내지 않는 복제와 WAL 축을 연다.
-#
-# 왜 필요한가. 기본 수집기는 커넥션·트랜잭션·잠금까지다. 이 프로젝트가 지금 필요로 하는 값 둘이
-# 그 밖에 있다. 복제 재생 지연과 WAL 생성 속도다.
-#
-#   재생 지연은 복제 상태를 판단하는 근거다. 유휴 시간에도 마지막 재생 시각의 나이는
-#   늘어나므로 그 값만으로 유실량을 확정하지 않는다. ACK 목록과 복구 저널을 대조해야 한다.
-#
-#   WAL 생성 속도. ADR 0025 가 되감기 보존 정책의 지배 입력으로 지목했고 저장소에 실측이
-#   0건이다. 유일한 실측 35.4 MiB/s 는 소음 부하가 만든 값이라 인용 자격이 없다.
-#
-# NULL 을 0 으로 접지 않는다. standby 가 아직 아무것도 재생하지 않았으면
-# pg_last_xact_replay_timestamp() 가 NULL 이고, 그것을 COALESCE 로 0 초로 만들면 데이터가 없는
-# 상태가 무지연으로 보인다. 22절 공허 통과다. NULL 은 NULL 로 둔다.
-#
-# primary 전용 함수는 CASE 로 감싼다. pg_current_wal_lsn() 은 standby 에서 오류다. CASE 가
-# 단락 평가하므로 한 파일을 두 역할 노드에 그대로 쓸 수 있다.
+# PostgreSQL 17용 확장 질의. 트랜잭션·행·캐시·임시 파일 통계는 기본 수집기를 사용한다.
+# 복제 지연과 마지막 재생 시각의 나이는 데이터 유실량이 아니다. 미관측 NULL을 0으로 바꾸지 않는다.
 
 pg_wal_position:
   query: |
@@ -26,7 +11,7 @@ pg_wal_position:
   metrics:
     - bytes:
         usage: "COUNTER"
-        description: "primary 의 현재 WAL 삽입 위치를 바이트로 편 값. 증분의 rate 가 WAL 생성 속도다"
+        description: "primary WAL 삽입 LSN의 바이트 위치. WAL 생성량은 pg_ops_wal_generated_bytes_total 사용"
     - dir_bytes:
         usage: "GAUGE"
         description: "pg_wal 디렉터리의 실제 파일 크기 합계"
@@ -53,13 +38,18 @@ pg_replica_replay:
         usage: "GAUGE"
         description: "마지막 재생 트랜잭션의 나이. 유휴 시간도 포함하므로 RPO나 유실량으로 확정하지 않는다"
 
-# primary 가 보는 각 standby 의 진행. sent 와 replay 의 거리가 곧 승격 시 잃는 구간이다.
+# primary가 보는 복제 단계별 위치 차이. 비동기 복제의 유실 여부는 커밋·복구 기록과 별도 대조한다.
 pg_replication_client:
   query: |
     SELECT
       application_name,
       state,
       sync_state,
+      CASE WHEN NOT pg_is_in_recovery()
+           THEN pg_wal_lsn_diff(pg_current_wal_lsn(), sent_lsn) END AS current_sent_bytes,
+      pg_wal_lsn_diff(sent_lsn, write_lsn) AS sent_write_bytes,
+      pg_wal_lsn_diff(write_lsn, flush_lsn) AS write_flush_bytes,
+      pg_wal_lsn_diff(flush_lsn, replay_lsn) AS flush_replay_bytes,
       pg_wal_lsn_diff(sent_lsn, replay_lsn) AS sent_replay_bytes,
       EXTRACT(EPOCH FROM replay_lag) AS replay_lag_seconds
     FROM pg_stat_replication
@@ -76,6 +66,272 @@ pg_replication_client:
     - sent_replay_bytes:
         usage: "GAUGE"
         description: "primary 가 보낸 위치와 standby 가 재생한 위치의 거리"
+    - current_sent_bytes:
+        usage: "GAUGE"
+        description: "primary 삽입 위치와 standby 전송 위치 사이의 미전송 바이트"
+    - sent_write_bytes:
+        usage: "GAUGE"
+        description: "전송 위치와 standby 쓰기 확인 위치 사이의 바이트"
+    - write_flush_bytes:
+        usage: "GAUGE"
+        description: "standby 쓰기 확인 위치와 영속화 확인 위치 사이의 바이트"
+    - flush_replay_bytes:
+        usage: "GAUGE"
+        description: "standby 영속화 확인 위치와 재생 확인 위치 사이의 바이트"
     - replay_lag_seconds:
         usage: "GAUGE"
         description: "primary 가 계산한 재생 지연"
+
+pg_ops_wal:
+  query: |
+    SELECT wal_bytes AS generated_bytes_total,
+           EXTRACT(EPOCH FROM stats_reset) AS stats_reset_timestamp_seconds
+    FROM pg_stat_wal
+    WHERE NOT pg_is_in_recovery()
+  metrics:
+    - generated_bytes_total:
+        usage: "COUNTER"
+        description: "primary의 pg_stat_wal.wal_bytes 누적 WAL 생성량. 특정 DB의 생성량이 아님"
+    - stats_reset_timestamp_seconds:
+        usage: "GAUGE"
+        description: "WAL 누적 통계 초기화 시각"
+
+# active_no_wait도 CPU 실행량은 아니다. 수집 순간 PostgreSQL 대기 이벤트가 없는 active 세션 수다.
+pg_ops_sessions:
+  query: |
+    WITH sessions AS (
+      SELECT CASE
+               WHEN state = 'active' AND wait_event_type IS NULL THEN 'active_no_wait'
+               WHEN state = 'active' THEN 'active_waiting'
+               WHEN state = 'idle' THEN 'idle'
+               WHEN state = 'idle in transaction' THEN 'idle_in_transaction'
+               WHEN state = 'idle in transaction (aborted)' THEN 'idle_in_transaction_aborted'
+               ELSE 'other'
+             END AS session_state
+      FROM pg_stat_activity
+      WHERE datname = current_database() AND backend_type = 'client backend'
+        AND pid <> pg_backend_pid() AND usename <> 'failstop_monitor'
+        AND application_name !~ '^(postgres_exporter|failstop-exporter)'
+    )
+    SELECT current_database() AS datname, states.session_state, count(sessions.session_state) AS count
+    FROM (VALUES ('active_no_wait'), ('active_waiting'), ('idle'), ('idle_in_transaction'),
+                 ('idle_in_transaction_aborted'), ('other')) AS states(session_state)
+    LEFT JOIN sessions USING (session_state)
+    WHERE pg_has_role(current_user, 'pg_read_all_stats', 'USAGE')
+      AND current_setting('track_activities') = 'on'
+    GROUP BY states.session_state
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "연결된 관측 대상 DB"
+    - session_state:
+        usage: "LABEL"
+        description: "상호 배타적인 세션 상태. active_no_wait는 CPU 실행 판정이 아님"
+    - count:
+        usage: "GAUGE"
+        description: "현재 client backend 세션 수. 수집 연결과 failstop_monitor 계정 제외"
+
+pg_ops_session_waits:
+  query: |
+    WITH waits AS (
+      SELECT CASE WHEN wait_event_type IN ('Lock', 'LWLock', 'IO', 'Client', 'IPC',
+                                           'Timeout', 'BufferPin', 'Extension', 'Activity')
+                  THEN wait_event_type ELSE 'Other' END AS wait_event_type
+      FROM pg_stat_activity
+      WHERE datname = current_database() AND backend_type = 'client backend'
+        AND pid <> pg_backend_pid() AND usename <> 'failstop_monitor'
+        AND application_name !~ '^(postgres_exporter|failstop-exporter)'
+        AND state = 'active' AND wait_event_type IS NOT NULL
+    )
+    SELECT current_database() AS datname, kinds.wait_event_type, count(waits.wait_event_type) AS count
+    FROM (VALUES ('Lock'), ('LWLock'), ('IO'), ('Client'), ('IPC'), ('Timeout'),
+                 ('BufferPin'), ('Extension'), ('Activity'), ('Other')) AS kinds(wait_event_type)
+    LEFT JOIN waits USING (wait_event_type)
+    WHERE pg_has_role(current_user, 'pg_read_all_stats', 'USAGE')
+      AND current_setting('track_activities') = 'on'
+    GROUP BY kinds.wait_event_type
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "연결된 관측 대상 DB"
+    - wait_event_type:
+        usage: "LABEL"
+        description: "active 세션의 PostgreSQL 대기 이벤트 유형. idle의 ClientRead 제외"
+    - count:
+        usage: "GAUGE"
+        description: "수집 순간 해당 대기 유형의 active client 세션 수"
+
+pg_ops_activity:
+  query: |
+    WITH permission AS (
+      SELECT pg_has_role(current_user, 'pg_read_all_stats', 'USAGE')
+             AND current_setting('track_activities') = 'on' AS allowed
+    ), sessions AS MATERIALIZED (
+      SELECT pid, state, xact_start,
+             CASE WHEN wait_event_type = 'Lock' THEN cardinality(pg_blocking_pids(pid)) > 0
+                  ELSE false END AS blocked
+      FROM pg_stat_activity
+      WHERE datname = current_database() AND backend_type = 'client backend'
+        AND pid <> pg_backend_pid() AND usename <> 'failstop_monitor'
+        AND application_name !~ '^(postgres_exporter|failstop-exporter)'
+    ), summary AS (
+      SELECT count(*) FILTER (WHERE blocked) AS blocked_sessions,
+             coalesce(max(EXTRACT(EPOCH FROM clock_timestamp() - xact_start)), 0) AS longest_transaction_seconds,
+             coalesce(max(EXTRACT(EPOCH FROM clock_timestamp() - xact_start))
+               FILTER (WHERE state IN ('idle in transaction', 'idle in transaction (aborted)')), 0)
+               AS oldest_idle_transaction_seconds
+      FROM sessions
+    )
+    SELECT current_database() AS datname, allowed::int AS available,
+           CASE WHEN allowed THEN blocked_sessions END AS blocked_sessions,
+           CASE WHEN allowed THEN longest_transaction_seconds END AS longest_transaction_seconds,
+           CASE WHEN allowed THEN oldest_idle_transaction_seconds END AS oldest_idle_transaction_seconds,
+           CASE WHEN allowed AND blocked_sessions = 0 THEN 0
+                WHEN allowed THEN (
+                  SELECT max(EXTRACT(EPOCH FROM clock_timestamp() - locks.waitstart))
+                  FROM pg_locks locks JOIN sessions USING (pid)
+                  WHERE sessions.blocked AND NOT locks.granted
+                ) END AS longest_lock_wait_seconds
+    FROM permission CROSS JOIN summary
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "연결된 관측 대상 DB"
+    - available:
+        usage: "GAUGE"
+        description: "전체 세션 통계 조회 권한과 track_activities 활성 여부"
+    - blocked_sessions:
+        usage: "GAUGE"
+        description: "pg_blocking_pids로 다른 트랜잭션에 의한 잠금 차단이 확인된 client 세션 수"
+    - longest_transaction_seconds:
+        usage: "GAUGE"
+        description: "진행 중 client 트랜잭션의 최대 경과 시간. idle in transaction 포함"
+    - oldest_idle_transaction_seconds:
+        usage: "GAUGE"
+        description: "idle in transaction 세션의 최장 트랜잭션 경과 시간"
+    - longest_lock_wait_seconds:
+        usage: "GAUGE"
+        description: "차단된 세션의 pg_locks.waitstart 기준 최장 잠금 대기 시간. 시각 미관측은 NULL"
+
+# 선택 확장이 없을 때 관계 이름을 파싱하지 않도록 조건부 동적 SELECT를 사용한다.
+# SQL 원문·queryid·사용자 식별자는 반환하지 않는다. WITH는 SELECT로 추정하지 않는다.
+pg_ops_sql_collection:
+  query: |
+    SELECT current_database() AS datname,
+           (EXISTS (SELECT 1 FROM pg_extension ext JOIN pg_namespace ns ON ns.oid = ext.extnamespace
+                    WHERE ext.extname = 'pg_stat_statements'
+                      AND CASE WHEN has_schema_privilege(ns.oid, 'USAGE') THEN
+                        has_table_privilege(to_regclass(format('%I.pg_stat_statements', ns.nspname)), 'SELECT')
+                        AND has_table_privilege(to_regclass(format('%I.pg_stat_statements_info', ns.nspname)), 'SELECT')
+                        ELSE false END)
+            AND coalesce((SELECT setting FROM pg_settings WHERE name = 'shared_preload_libraries'), '')
+                ~ '(^|,)\s*"?([^,"]*/)?pg_stat_statements(\.so)?"?\s*(,|$)'
+            AND coalesce(current_setting('pg_stat_statements.track', true) IN ('top', 'all'), false)
+            AND current_setting('compute_query_id') IN ('auto', 'on')
+            AND pg_has_role(current_user, 'pg_read_all_stats', 'USAGE'))::int AS available
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "연결된 관측 대상 DB"
+    - available:
+        usage: "GAUGE"
+        description: "pg_stat_statements 설치·사전 로드·추적·권한 조건 충족 여부. 0은 미수집"
+
+pg_ops_sql:
+  query: |
+    WITH extension AS (
+      SELECT namespace.nspname
+      FROM pg_extension ext JOIN pg_namespace namespace ON namespace.oid = ext.extnamespace
+      WHERE ext.extname = 'pg_stat_statements'
+        AND CASE WHEN has_schema_privilege(namespace.oid, 'USAGE') THEN
+          has_table_privilege(to_regclass(format('%I.pg_stat_statements', namespace.nspname)), 'SELECT')
+          AND has_table_privilege(to_regclass(format('%I.pg_stat_statements_info', namespace.nspname)), 'SELECT')
+          ELSE false END
+        AND coalesce((SELECT setting FROM pg_settings WHERE name = 'shared_preload_libraries'), '')
+            ~ '(^|,)\s*"?([^,"]*/)?pg_stat_statements(\.so)?"?\s*(,|$)'
+        AND coalesce(current_setting('pg_stat_statements.track', true) IN ('top', 'all'), false)
+        AND current_setting('compute_query_id') IN ('auto', 'on')
+        AND pg_has_role(current_user, 'pg_read_all_stats', 'USAGE')
+    ), payload AS MATERIALIZED (
+      SELECT query_to_xml(format($sql$
+        WITH classified AS (
+          SELECT CASE
+                   WHEN query ~* '^\s*SELECT\M' THEN 'SELECT'
+                   WHEN query ~* '^\s*INSERT\M' THEN 'INSERT'
+                   WHEN query ~* '^\s*UPDATE\M' THEN 'UPDATE'
+                   WHEN query ~* '^\s*DELETE\M' THEN 'DELETE'
+                   WHEN query ~* '^\s*MERGE\M' THEN 'MERGE'
+                   WHEN query ~* '^\s*WITH\M' THEN 'WITH'
+                   ELSE 'OTHER'
+                 END AS command, calls, total_exec_time, rows
+          FROM %I.pg_stat_statements
+          WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
+            AND toplevel
+            AND userid <> coalesce((SELECT oid FROM pg_roles WHERE rolname = 'failstop_monitor'), 0::oid)
+        )
+        SELECT classes.command, coalesce(sum(calls), 0) AS calls_total,
+               coalesce(sum(total_exec_time), 0) / 1000 AS execution_seconds_total,
+               coalesce(sum(rows), 0) AS rows_total
+        FROM (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('MERGE'), ('WITH'), ('OTHER')) AS classes(command)
+        LEFT JOIN classified USING (command)
+        GROUP BY classes.command
+      $sql$, nspname), false, false, '') AS document
+      FROM extension
+    )
+    SELECT current_database() AS datname, totals.*
+    FROM payload, XMLTABLE('/table/row' PASSING document COLUMNS
+         command text PATH 'command', calls_total numeric PATH 'calls_total',
+         execution_seconds_total double precision PATH 'execution_seconds_total',
+         rows_total numeric PATH 'rows_total') AS totals
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "연결된 관측 대상 DB"
+    - command:
+        usage: "LABEL"
+        description: "선두 SQL 명령 분류. WITH와 주석·기타 명령은 읽기로 추정하지 않음"
+    - calls_total:
+        usage: "COUNTER"
+        description: "현재 보존된 top-level SQL의 성공 실행 횟수 합. 감시 계정 제외. 항목 퇴출 시 rate 사용 제한"
+    - execution_seconds_total:
+        usage: "COUNTER"
+        description: "해당 SQL 성공 실행 시간 누적 합. 호출량과 나눌 때 가중 평균 산출, P95가 아님"
+    - rows_total:
+        usage: "COUNTER"
+        description: "해당 SQL이 반환하거나 변경한 행의 누적 합. SQL 실행 횟수가 아님"
+
+pg_ops_sql_tracking:
+  query: |
+    WITH extension AS (
+      SELECT namespace.nspname
+      FROM pg_extension ext JOIN pg_namespace namespace ON namespace.oid = ext.extnamespace
+      WHERE ext.extname = 'pg_stat_statements'
+        AND CASE WHEN has_schema_privilege(namespace.oid, 'USAGE') THEN
+          has_table_privilege(to_regclass(format('%I.pg_stat_statements', namespace.nspname)), 'SELECT')
+          AND has_table_privilege(to_regclass(format('%I.pg_stat_statements_info', namespace.nspname)), 'SELECT')
+          ELSE false END
+        AND coalesce((SELECT setting FROM pg_settings WHERE name = 'shared_preload_libraries'), '')
+            ~ '(^|,)\s*"?([^,"]*/)?pg_stat_statements(\.so)?"?\s*(,|$)'
+        AND coalesce(current_setting('pg_stat_statements.track', true) IN ('top', 'all'), false)
+        AND current_setting('compute_query_id') IN ('auto', 'on')
+        AND pg_has_role(current_user, 'pg_read_all_stats', 'USAGE')
+    ), payload AS MATERIALIZED (
+      SELECT query_to_xml(format(
+        'SELECT dealloc AS dealloc_total, EXTRACT(EPOCH FROM stats_reset) AS stats_reset_timestamp_seconds FROM %I.pg_stat_statements_info',
+        nspname), false, false, '') AS document
+      FROM extension
+    )
+    SELECT current_database() AS datname, totals.*
+    FROM payload, XMLTABLE('/table/row' PASSING document COLUMNS
+         dealloc_total numeric PATH 'dealloc_total',
+         stats_reset_timestamp_seconds double precision PATH 'stats_reset_timestamp_seconds') AS totals
+  metrics:
+    - datname:
+        usage: "LABEL"
+        description: "연결된 관측 대상 DB"
+    - dealloc_total:
+        usage: "COUNTER"
+        description: "pg_stat_statements 보존 한도에 따른 항목 퇴출 횟수. 증가 구간의 SQL 합계 rate 무효화 필요"
+    - stats_reset_timestamp_seconds:
+        usage: "GAUGE"
+        description: "pg_stat_statements 전체 통계 초기화 시각"

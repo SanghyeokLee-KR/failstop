@@ -8,3 +8,12 @@ datasources:
     isDefault: true
     jsonData:
       timeInterval: 15s
+      manageAlerts: true
+  - name: alertmanager
+    uid: alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false

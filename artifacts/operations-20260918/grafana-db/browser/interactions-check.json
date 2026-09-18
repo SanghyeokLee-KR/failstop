@@ -1,0 +1,794 @@
+{
+  "generatedAt": "2026-09-18T11:00:46.389Z",
+  "checks": [
+    {
+      "name": "native-home-and-starred-sidebar",
+      "status": "PASS",
+      "homeDashboard": "msp-overview",
+      "sidebar": [
+        {
+          "title": "01 · 서비스 관제",
+          "uid": "msp-overview"
+        },
+        {
+          "title": "02 · 트래픽·Spring",
+          "uid": "msp-service"
+        },
+        {
+          "title": "03 · AWS·서버",
+          "uid": "msp-infra"
+        },
+        {
+          "title": "04 · DB 관제",
+          "uid": "msp-db"
+        },
+        {
+          "title": "05 · SQL·세션",
+          "uid": "msp-db-workload"
+        },
+        {
+          "title": "06 · 복제·복구",
+          "uid": "msp-db-replication"
+        }
+      ]
+    },
+    {
+      "name": "native-dashboard-links-and-time-range",
+      "status": "PASS",
+      "timeRange": "now-6h",
+      "dashboardLinks": 6,
+      "scopePreserved": true
+    },
+    {
+      "name": "native-alert-rules-and-alertmanager",
+      "status": "PASS",
+      "ruleGroups": 3,
+      "rules": 55,
+      "alertmanagerStatus": 200
+    },
+    {
+      "name": "native-profile-theme-options",
+      "status": "PASS",
+      "profileOptions": [
+        "기본값",
+        "다크",
+        "라이트",
+        "시스템 기본 설정",
+        "Desert bloom",
+        "Deuteranopia/Protanopia Dark",
+        "Deuteranopia/Protanopia Light",
+        "Gilded grove",
+        "Gloom",
+        "Sapphire dusk",
+        "Tritanopia Dark",
+        "Tritanopia Light"
+      ],
+      "selectedLight": true,
+      "renderedLight": true,
+      "preferenceUnchanged": true
+    },
+    {
+      "name": "service-canvas-dark-fixtures",
+      "status": "PASS",
+      "browserResponseOnly": true,
+      "theme": "dark",
+      "uid": "msp-overview",
+      "outcomes": [
+        {
+          "state": "healthy",
+          "stateLabels": [
+            {
+              "text": "● 정상",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(204, 204, 220)"
+            }
+          ],
+          "iconColors": [
+            "rgb(115, 191, 105)",
+            "rgb(115, 191, 105)",
+            "rgb(115, 191, 105)",
+            "rgb(115, 191, 105)",
+            "rgb(115, 191, 105)",
+            "rgb(115, 191, 105)"
+          ]
+        },
+        {
+          "state": "failed",
+          "stateLabels": [
+            {
+              "text": "▲ 장애",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(204, 204, 220)"
+            }
+          ],
+          "iconColors": [
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)"
+          ]
+        },
+        {
+          "state": "missing",
+          "stateLabels": [
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            }
+          ],
+          "iconColors": [
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "database-canvas-dark-fixtures",
+      "status": "PASS",
+      "browserResponseOnly": true,
+      "theme": "dark",
+      "uid": "msp-db",
+      "outcomes": [
+        {
+          "state": "healthy",
+          "stateLabels": [
+            {
+              "text": "● 정상",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(204, 204, 220)"
+            }
+          ],
+          "iconColors": [
+            "rgb(115, 191, 105)",
+            "rgb(115, 191, 105)"
+          ]
+        },
+        {
+          "state": "failed",
+          "stateLabels": [
+            {
+              "text": "▲ 장애",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(204, 204, 220)"
+            }
+          ],
+          "iconColors": [
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)"
+          ]
+        },
+        {
+          "state": "missing",
+          "stateLabels": [
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(204, 204, 220)"
+            }
+          ],
+          "iconColors": [
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "msp-db-workload-dark-missing-metrics",
+      "status": "PASS",
+      "uid": "msp-db-workload",
+      "theme": "dark",
+      "browserResponseOnly": true,
+      "panels": [
+        {
+          "id": 1,
+          "title": "SQL 실행량 · 수집 계정 제외",
+          "text": "미수집"
+        },
+        {
+          "id": 2,
+          "title": "차단 세션",
+          "text": "미수집"
+        },
+        {
+          "id": 3,
+          "title": "최장 트랜잭션",
+          "text": "미수집"
+        },
+        {
+          "id": 4,
+          "title": "트랜잭션 유휴 · 최장",
+          "text": "미수집"
+        },
+        {
+          "id": 5,
+          "title": "SQL 실행량 · 명령별",
+          "text": "미수집"
+        },
+        {
+          "id": 6,
+          "title": "SQL 평균 시간",
+          "text": "미수집"
+        },
+        {
+          "id": 7,
+          "title": "세션 상태 · 전체 노드",
+          "text": "미수집"
+        },
+        {
+          "id": 8,
+          "title": "실행 대기 · 전체 노드",
+          "text": "미수집"
+        },
+        {
+          "id": 9,
+          "title": "차단 세션",
+          "text": "미수집"
+        },
+        {
+          "id": 10,
+          "title": "최장 잠금 대기",
+          "text": "미수집"
+        },
+        {
+          "id": 11,
+          "title": "버퍼 캐시 적중률",
+          "text": "미수집"
+        },
+        {
+          "id": 12,
+          "title": "임시 파일 생성량",
+          "text": "미수집"
+        },
+        {
+          "id": 13,
+          "title": "교착 발생률",
+          "text": "미수집"
+        },
+        {
+          "id": 14,
+          "title": "처리 행",
+          "text": "미수집"
+        },
+        {
+          "id": 15,
+          "title": "SQL 통계 수집",
+          "text": "미수집"
+        }
+      ]
+    },
+    {
+      "name": "msp-db-replication-dark-missing-metrics",
+      "status": "PASS",
+      "uid": "msp-db-replication",
+      "theme": "dark",
+      "browserResponseOnly": true,
+      "panels": [
+        {
+          "id": 1,
+          "title": "복제 연결 · Streaming",
+          "text": "미수집"
+        },
+        {
+          "id": 2,
+          "title": "WAL 생성량",
+          "text": "미수집"
+        },
+        {
+          "id": 3,
+          "title": "복제 지연량 · 재생",
+          "text": "미수집"
+        },
+        {
+          "id": 4,
+          "title": "백업 성공 · 경과 시간",
+          "text": "미수집"
+        },
+        {
+          "id": 6,
+          "title": "DB 대상 · 현재 역할",
+          "text": "미수집"
+        },
+        {
+          "id": 8,
+          "title": "WAL 생성량 · Primary",
+          "text": "미수집"
+        },
+        {
+          "id": 9,
+          "title": "복제 지연량 · 전송 대기",
+          "text": "미수집"
+        },
+        {
+          "id": 10,
+          "title": "복제 지연량 · 기록 대기",
+          "text": "미수집"
+        },
+        {
+          "id": 11,
+          "title": "복제 지연량 · 적용 대기",
+          "text": "미수집"
+        },
+        {
+          "id": 12,
+          "title": "복제 지연 시간 · Replay",
+          "text": "미수집"
+        },
+        {
+          "id": 13,
+          "title": "백업 성공 · 경과 시간",
+          "text": "미수집"
+        }
+      ]
+    },
+    {
+      "name": "service-canvas-light-fixtures",
+      "status": "PASS",
+      "browserResponseOnly": true,
+      "theme": "light",
+      "uid": "msp-overview",
+      "outcomes": [
+        {
+          "state": "healthy",
+          "stateLabels": [
+            {
+              "text": "● 정상",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(36, 41, 46)"
+            }
+          ],
+          "iconColors": [
+            "rgb(86, 166, 75)",
+            "rgb(86, 166, 75)",
+            "rgb(86, 166, 75)",
+            "rgb(86, 166, 75)",
+            "rgb(86, 166, 75)",
+            "rgb(86, 166, 75)"
+          ]
+        },
+        {
+          "state": "failed",
+          "stateLabels": [
+            {
+              "text": "▲ 장애",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(36, 41, 46)"
+            }
+          ],
+          "iconColors": [
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)"
+          ]
+        },
+        {
+          "state": "missing",
+          "stateLabels": [
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            }
+          ],
+          "iconColors": [
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "database-canvas-light-fixtures",
+      "status": "PASS",
+      "browserResponseOnly": true,
+      "theme": "light",
+      "uid": "msp-db",
+      "outcomes": [
+        {
+          "state": "healthy",
+          "stateLabels": [
+            {
+              "text": "● 정상",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(36, 41, 46)"
+            }
+          ],
+          "iconColors": [
+            "rgb(86, 166, 75)",
+            "rgb(86, 166, 75)"
+          ]
+        },
+        {
+          "state": "failed",
+          "stateLabels": [
+            {
+              "text": "▲ 장애",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(36, 41, 46)"
+            }
+          ],
+          "iconColors": [
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)"
+          ]
+        },
+        {
+          "state": "missing",
+          "stateLabels": [
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(36, 41, 46)"
+            }
+          ],
+          "iconColors": [
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "msp-db-workload-light-missing-metrics",
+      "status": "PASS",
+      "uid": "msp-db-workload",
+      "theme": "light",
+      "browserResponseOnly": true,
+      "panels": [
+        {
+          "id": 1,
+          "title": "SQL 실행량 · 수집 계정 제외",
+          "text": "미수집"
+        },
+        {
+          "id": 2,
+          "title": "차단 세션",
+          "text": "미수집"
+        },
+        {
+          "id": 3,
+          "title": "최장 트랜잭션",
+          "text": "미수집"
+        },
+        {
+          "id": 4,
+          "title": "트랜잭션 유휴 · 최장",
+          "text": "미수집"
+        },
+        {
+          "id": 5,
+          "title": "SQL 실행량 · 명령별",
+          "text": "미수집"
+        },
+        {
+          "id": 6,
+          "title": "SQL 평균 시간",
+          "text": "미수집"
+        },
+        {
+          "id": 7,
+          "title": "세션 상태 · 전체 노드",
+          "text": "미수집"
+        },
+        {
+          "id": 8,
+          "title": "실행 대기 · 전체 노드",
+          "text": "미수집"
+        },
+        {
+          "id": 9,
+          "title": "차단 세션",
+          "text": "미수집"
+        },
+        {
+          "id": 10,
+          "title": "최장 잠금 대기",
+          "text": "미수집"
+        },
+        {
+          "id": 11,
+          "title": "버퍼 캐시 적중률",
+          "text": "미수집"
+        },
+        {
+          "id": 12,
+          "title": "임시 파일 생성량",
+          "text": "미수집"
+        },
+        {
+          "id": 13,
+          "title": "교착 발생률",
+          "text": "미수집"
+        },
+        {
+          "id": 14,
+          "title": "처리 행",
+          "text": "미수집"
+        },
+        {
+          "id": 15,
+          "title": "SQL 통계 수집",
+          "text": "미수집"
+        }
+      ]
+    },
+    {
+      "name": "msp-db-replication-light-missing-metrics",
+      "status": "PASS",
+      "uid": "msp-db-replication",
+      "theme": "light",
+      "browserResponseOnly": true,
+      "panels": [
+        {
+          "id": 1,
+          "title": "복제 연결 · Streaming",
+          "text": "미수집"
+        },
+        {
+          "id": 2,
+          "title": "WAL 생성량",
+          "text": "미수집"
+        },
+        {
+          "id": 3,
+          "title": "복제 지연량 · 재생",
+          "text": "미수집"
+        },
+        {
+          "id": 4,
+          "title": "백업 성공 · 경과 시간",
+          "text": "미수집"
+        },
+        {
+          "id": 6,
+          "title": "DB 대상 · 현재 역할",
+          "text": "미수집"
+        },
+        {
+          "id": 8,
+          "title": "WAL 생성량 · Primary",
+          "text": "미수집"
+        },
+        {
+          "id": 9,
+          "title": "복제 지연량 · 전송 대기",
+          "text": "미수집"
+        },
+        {
+          "id": 10,
+          "title": "복제 지연량 · 기록 대기",
+          "text": "미수집"
+        },
+        {
+          "id": 11,
+          "title": "복제 지연량 · 적용 대기",
+          "text": "미수집"
+        },
+        {
+          "id": 12,
+          "title": "복제 지연 시간 · Replay",
+          "text": "미수집"
+        },
+        {
+          "id": 13,
+          "title": "백업 성공 · 경과 시간",
+          "text": "미수집"
+        }
+      ]
+    }
+  ],
+  "actualServiceStopped": false,
+  "teamsMessagesSent": 0,
+  "status": "PASS"
+}

@@ -18,6 +18,9 @@ def release_files(root):
         if any(part.startswith(".") or part in {"tests", "lab", "__pycache__", "state", "reports", "backups", "targets"} for part in parts):
             continue
         include = len(parts) == 2 and (path.name in ROOT_FILES or (path.name.startswith("compose.") and path.suffix == ".yml"))
+        if len(parts) > 2 and parts[1] == "console":
+            include = ((len(parts) == 3 and (path.suffix == ".py" or path.name == "Dockerfile") and not path.name.startswith("test_"))
+                       or (len(parts) > 3 and parts[2] == "static" and path.suffix in {".html", ".css", ".js", ".svg", ".woff2", ".txt"}))
         if len(parts) > 2 and parts[1] in {"linux", "observability", "reporting", "backup"}:
             include = path.suffix in CODE_SUFFIXES or path.name.endswith(".example.json")
             include = include or parts[1] == "observability" and path.suffix in {".yml", ".yaml"}

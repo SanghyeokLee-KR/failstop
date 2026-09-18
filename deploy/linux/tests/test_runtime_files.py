@@ -18,10 +18,13 @@ class RuntimeFilesTest(unittest.TestCase):
                             "deploy/reporting/config.json", "deploy/reporting/reports/daily.json",
                             "deploy/terraform/.terraform/state.json", "deploy/lab/backup.dump",
                             "deploy/backup/backup.dump", "deploy/backup/backup.env", "deploy/backup/other.env.example",
-                            "deploy/observability/targets/hosts.json"]
+                            "deploy/observability/targets/hosts.json", "deploy/console/.state/console.sqlite3",
+                            "deploy/console/config.json", "deploy/console/test_server.py"]
             safe_paths = ["deploy/pg-standby-entrypoint.sh", "deploy/compose.node-data.yml",
                           "deploy/observability/prometheus.yml", "deploy/backup/backup.sh",
-                          "deploy/backup/backup.env.example", "harness/sql/summary.sql"]
+                          "deploy/backup/backup.env.example", "harness/sql/summary.sql", "deploy/console/server.py",
+                          "deploy/console/Dockerfile", "deploy/console/static/app.js", "deploy/console/static/tokens.css",
+                          "deploy/console/static/assets/PretendardVariable.woff2", "deploy/console/static/assets/LICENSE.txt"]
             for name in secret_paths + safe_paths:
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)

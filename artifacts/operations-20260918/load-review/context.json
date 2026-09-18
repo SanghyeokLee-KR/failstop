@@ -1,0 +1,1878 @@
+{
+  "started_at": "2026-09-18T10:15:33.804339+00:00",
+  "scope": "single-source read-only local API; no rate-limit changes",
+  "rates_rps": [
+    10,
+    18,
+    30,
+    60,
+    120
+  ],
+  "stage_seconds": 60,
+  "steady_seconds": 40,
+  "settling_seconds": 20,
+  "data": {
+    "orders": 4,
+    "trades": 2
+  },
+  "docker": {
+    "cpus": 12,
+    "memory": 16603803648
+  },
+  "app": {
+    "memory_limit": 1073741824,
+    "cpu_quota": 0,
+    "restarts": 0
+  },
+  "samples": [
+    {
+      "time": "2026-09-18T10:15:33.697434+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 187614,
+        "xact_rollback": 3,
+        "tup_returned": 26976649,
+        "tup_fetched": 17440281,
+        "tup_inserted": 3,
+        "tup_updated": 11863,
+        "tup_deleted": 0,
+        "blks_read": 946,
+        "blks_hit": 29837795,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 9
+      },
+      "wal_bytes": 4071043,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 8
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:15:44.868386+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 187748,
+        "xact_rollback": 3,
+        "tup_returned": 26990024,
+        "tup_fetched": 17450152,
+        "tup_inserted": 3,
+        "tup_updated": 11867,
+        "tup_deleted": 0,
+        "blks_read": 947,
+        "blks_hit": 29858081,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 9
+      },
+      "wal_bytes": 4071522,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 8
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:15:56.44998+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 188075,
+        "xact_rollback": 3,
+        "tup_returned": 27007997,
+        "tup_fetched": 17463285,
+        "tup_inserted": 3,
+        "tup_updated": 11871,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 29887167,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 10
+      },
+      "wal_bytes": 4072001,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 9
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:16:08.878413+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 188324,
+        "xact_rollback": 3,
+        "tup_returned": 27022720,
+        "tup_fetched": 17473592,
+        "tup_inserted": 3,
+        "tup_updated": 11875,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 29909298,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 10
+      },
+      "wal_bytes": 4072695,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 9
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:16:21.361651+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 188562,
+        "xact_rollback": 3,
+        "tup_returned": 27034865,
+        "tup_fetched": 17482215,
+        "tup_inserted": 3,
+        "tup_updated": 11879,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 29925962,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 10
+      },
+      "wal_bytes": 4073124,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 9
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:16:33.876254+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 188720,
+        "xact_rollback": 3,
+        "tup_returned": 27038946,
+        "tup_fetched": 17483332,
+        "tup_inserted": 3,
+        "tup_updated": 11887,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 29930159,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 10
+      },
+      "wal_bytes": 4074615,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 9
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:16:45.459284+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 188941,
+        "xact_rollback": 3,
+        "tup_returned": 27053967,
+        "tup_fetched": 17494803,
+        "tup_inserted": 3,
+        "tup_updated": 11891,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 29953630,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4075093,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:16:57.459459+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 189197,
+        "xact_rollback": 3,
+        "tup_returned": 27066281,
+        "tup_fetched": 17503558,
+        "tup_inserted": 3,
+        "tup_updated": 11895,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 29972463,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4075522,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:17:09.95637+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 189451,
+        "xact_rollback": 3,
+        "tup_returned": 27078595,
+        "tup_fetched": 17512313,
+        "tup_inserted": 3,
+        "tup_updated": 11899,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 29991295,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4076001,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:17:22.421968+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 189699,
+        "xact_rollback": 3,
+        "tup_returned": 27090905,
+        "tup_fetched": 17521064,
+        "tup_inserted": 3,
+        "tup_updated": 11903,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30010065,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4076430,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:17:34.977569+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 189930,
+        "xact_rollback": 3,
+        "tup_returned": 27094808,
+        "tup_fetched": 17522042,
+        "tup_inserted": 3,
+        "tup_updated": 11907,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30015807,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4076908,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:17:46.526399+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 190251,
+        "xact_rollback": 3,
+        "tup_returned": 27107262,
+        "tup_fetched": 17530937,
+        "tup_inserted": 3,
+        "tup_updated": 11911,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30036737,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4077387,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:17:58.975454+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 190512,
+        "xact_rollback": 3,
+        "tup_returned": 27119636,
+        "tup_fetched": 17539714,
+        "tup_inserted": 3,
+        "tup_updated": 11915,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30055904,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4081154,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:18:11.457059+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 190735,
+        "xact_rollback": 3,
+        "tup_returned": 27131860,
+        "tup_fetched": 17548417,
+        "tup_inserted": 3,
+        "tup_updated": 11919,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30073952,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4081632,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:18:23.930623+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 190973,
+        "xact_rollback": 3,
+        "tup_returned": 27146599,
+        "tup_fetched": 17557138,
+        "tup_inserted": 3,
+        "tup_updated": 11924,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30092252,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4082168,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:18:35.533756+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 191161,
+        "xact_rollback": 3,
+        "tup_returned": 27147912,
+        "tup_fetched": 17558024,
+        "tup_inserted": 3,
+        "tup_updated": 11927,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30096808,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4082540,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:18:47.534847+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 191373,
+        "xact_rollback": 3,
+        "tup_returned": 27160146,
+        "tup_fetched": 17566699,
+        "tup_inserted": 3,
+        "tup_updated": 11931,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30114437,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4083019,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:18:59.999237+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 191600,
+        "xact_rollback": 3,
+        "tup_returned": 27172448,
+        "tup_fetched": 17575403,
+        "tup_inserted": 3,
+        "tup_updated": 11936,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30132470,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4083554,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:19:12.458166+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 191840,
+        "xact_rollback": 3,
+        "tup_returned": 27184730,
+        "tup_fetched": 17584126,
+        "tup_inserted": 3,
+        "tup_updated": 11940,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30150822,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4084034,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:19:24.969151+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 192076,
+        "xact_rollback": 3,
+        "tup_returned": 27199734,
+        "tup_fetched": 17593112,
+        "tup_inserted": 3,
+        "tup_updated": 11948,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30169460,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4104037,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:19:36.567621+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 192273,
+        "xact_rollback": 3,
+        "tup_returned": 27211927,
+        "tup_fetched": 17601783,
+        "tup_inserted": 3,
+        "tup_updated": 11952,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30187519,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4104516,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:19:49.005515+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 192355,
+        "xact_rollback": 3,
+        "tup_returned": 27213210,
+        "tup_fetched": 17602520,
+        "tup_inserted": 3,
+        "tup_updated": 11956,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30188833,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4104994,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:20:01.451739+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 192455,
+        "xact_rollback": 3,
+        "tup_returned": 27225222,
+        "tup_fetched": 17610973,
+        "tup_inserted": 3,
+        "tup_updated": 11960,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30203135,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4105423,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:20:13.908003+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 192550,
+        "xact_rollback": 3,
+        "tup_returned": 27237196,
+        "tup_fetched": 17619426,
+        "tup_inserted": 3,
+        "tup_updated": 11964,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30217433,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4105902,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:20:25.572086+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 192651,
+        "xact_rollback": 3,
+        "tup_returned": 27251642,
+        "tup_fetched": 17627893,
+        "tup_inserted": 3,
+        "tup_updated": 11968,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30231916,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4106330,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:20:37.656426+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 192748,
+        "xact_rollback": 3,
+        "tup_returned": 27263639,
+        "tup_fetched": 17636332,
+        "tup_inserted": 3,
+        "tup_updated": 11972,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30246178,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4106808,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:20:40.096341+00:00",
+      "recovery": false,
+      "db": {
+        "xact_commit": 192761,
+        "xact_rollback": 3,
+        "tup_returned": 27264367,
+        "tup_fetched": 17636942,
+        "tup_inserted": 3,
+        "tup_updated": 11973,
+        "tup_deleted": 0,
+        "blks_read": 951,
+        "blks_hit": 30247072,
+        "temp_bytes": 0,
+        "deadlocks": 0,
+        "numbackends": 11
+      },
+      "wal_bytes": 4106915,
+      "sessions": [
+        {
+          "state": "idle",
+          "wait_event_type": "Client",
+          "count": 10
+        }
+      ],
+      "replication": [
+        {
+          "state": "streaming",
+          "sync_state": "async",
+          "replay_gap_bytes": 0
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "time": "2026-09-18T10:15:44.988264+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.19MB",
+          "CPUPerc": "5.01%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "33.09%",
+          "MemUsage": "338.8MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "43.6MB / 96.9MB",
+          "PIDs": "53"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "4.11%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.44%",
+          "MemUsage": "69.01MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "85.6MB / 350MB",
+          "PIDs": "15"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "2.99%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.17%",
+          "MemUsage": "26.7MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.5MB / 93.9MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:15:56.559897+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.19MB",
+          "CPUPerc": "11.57%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.51%",
+          "MemUsage": "353.3MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "43.8MB / 97.3MB",
+          "PIDs": "54"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "3.89%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.48%",
+          "MemUsage": "75.44MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "85.7MB / 350MB",
+          "PIDs": "16"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.00%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.36MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.5MB / 94MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:16:08.986813+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.2MB",
+          "CPUPerc": "6.00%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.64%",
+          "MemUsage": "354.7MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "43.9MB / 97.4MB",
+          "PIDs": "54"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "1.04%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.48%",
+          "MemUsage": "75.44MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "85.7MB / 350MB",
+          "PIDs": "16"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "3.03%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.17%",
+          "MemUsage": "26.25MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.5MB / 94MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:16:21.478856+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.2MB",
+          "CPUPerc": "7.14%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.67%",
+          "MemUsage": "355MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "44MB / 97.8MB",
+          "PIDs": "54"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "5.10%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.47%",
+          "MemUsage": "74.91MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "85.7MB / 350MB",
+          "PIDs": "16"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.05%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.81MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.5MB / 94MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:16:33.991183+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.2MB",
+          "CPUPerc": "7.42%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.70%",
+          "MemUsage": "355.3MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "44MB / 98.1MB",
+          "PIDs": "54"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "1.72%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.48%",
+          "MemUsage": "75.43MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "85.8MB / 350MB",
+          "PIDs": "16"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.13%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.82MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.5MB / 94.1MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:16:45.577956+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.22MB",
+          "CPUPerc": "12.87%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.83%",
+          "MemUsage": "356.7MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "44.2MB / 98.6MB",
+          "PIDs": "59"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "2.60%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "79.38MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "85.8MB / 351MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.00%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.17%",
+          "MemUsage": "27.2MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.5MB / 94.2MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:16:57.568216+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.22MB",
+          "CPUPerc": "5.24%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.76%",
+          "MemUsage": "355.9MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "44.3MB / 99MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "2.49%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "78.66MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "85.9MB / 351MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.00%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "26.05MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.5MB / 94.3MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:17:10.068823+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.23MB",
+          "CPUPerc": "8.70%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.73%",
+          "MemUsage": "355.7MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "44.5MB / 99.2MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "2.68%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "79.18MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "85.9MB / 351MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.15%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.6MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.5MB / 94.4MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:17:22.536319+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.23MB",
+          "CPUPerc": "10.75%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.77%",
+          "MemUsage": "356MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "44.6MB / 99.7MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "2.94%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "79.09MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86MB / 351MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "16.83%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.78MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.5MB / 94.5MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:17:35.086279+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.24MB",
+          "CPUPerc": "4.33%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.77%",
+          "MemUsage": "356.1MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "44.8MB / 100MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "18.12%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "79.36MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86MB / 351MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "3.50%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.68MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.5MB / 94.5MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:17:46.636181+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.24MB",
+          "CPUPerc": "7.53%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.81%",
+          "MemUsage": "356.5MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "45MB / 101MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "7.26%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "78.79MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.1MB / 351MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "3.16%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.87MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.6MB / 94.6MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:17:59.090925+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.24MB",
+          "CPUPerc": "8.03%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.78%",
+          "MemUsage": "356.1MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "45.2MB / 101MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "5.11%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "79.55MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.1MB / 352MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "3.20%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.17%",
+          "MemUsage": "26.54MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.6MB / 94.7MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:18:11.572305+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.25MB",
+          "CPUPerc": "10.92%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.92%",
+          "MemUsage": "357.6MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "45.3MB / 102MB",
+          "PIDs": "64"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "2.11%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "79.11MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.2MB / 352MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.06%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.74MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.6MB / 94.8MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:18:24.039126+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.25MB",
+          "CPUPerc": "2.81%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.72%",
+          "MemUsage": "355.6MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "45.5MB / 102MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "0.88%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "78.98MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.2MB / 352MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.00%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.17%",
+          "MemUsage": "26.88MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.6MB / 94.9MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:18:35.641358+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.27MB",
+          "CPUPerc": "7.65%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.75%",
+          "MemUsage": "355.9MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "45.7MB / 103MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "1.54%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "79.03MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.3MB / 352MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.04%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.47MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.6MB / 94.9MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:18:47.645931+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.27MB",
+          "CPUPerc": "9.81%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.81%",
+          "MemUsage": "356.5MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "45.9MB / 103MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "2.20%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "79.17MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.3MB / 352MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.00%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.17%",
+          "MemUsage": "26.55MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.6MB / 94.9MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:19:00.117318+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.27MB",
+          "CPUPerc": "9.62%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.75%",
+          "MemUsage": "355.9MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "46.2MB / 104MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "1.74%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "79.19MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.4MB / 352MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "3.13%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.7MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.6MB / 95MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:19:12.569475+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.28MB",
+          "CPUPerc": "6.76%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.74%",
+          "MemUsage": "355.7MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "46.5MB / 105MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 264MB",
+          "CPUPerc": "1.87%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "79.32MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.4MB / 352MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "0.00%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.92MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.6MB / 95.1MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:19:25.076517+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.28MB",
+          "CPUPerc": "8.28%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.38%",
+          "MemUsage": "352.1MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "46.7MB / 105MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 265MB",
+          "CPUPerc": "5.50%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "78.48MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.5MB / 353MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "3.00%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.91MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.7MB / 95.2MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:19:36.678452+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.29MB",
+          "CPUPerc": "5.68%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.41%",
+          "MemUsage": "352.4MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "47MB / 106MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 265MB",
+          "CPUPerc": "2.67%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "78.79MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.5MB / 353MB",
+          "PIDs": "18"
+        },
+        {
+          "BlockIO": "0B / 438kB",
+          "CPUPerc": "11.31%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.81MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.7MB / 95.3MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:19:49.116740+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.29MB",
+          "CPUPerc": "7.75%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.46%",
+          "MemUsage": "352.8MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "47.4MB / 107MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 265MB",
+          "CPUPerc": "9.73%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.49%",
+          "MemUsage": "76.92MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.5MB / 353MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 442kB",
+          "CPUPerc": "4.03%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.18%",
+          "MemUsage": "28.43MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.7MB / 95.3MB",
+          "PIDs": "7"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:20:01.558043+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.29MB",
+          "CPUPerc": "17.70%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.49%",
+          "MemUsage": "353.1MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "47.8MB / 109MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 265MB",
+          "CPUPerc": "1.78%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.49%",
+          "MemUsage": "77.11MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.6MB / 353MB",
+          "PIDs": "23"
+        },
+        {
+          "BlockIO": "0B / 442kB",
+          "CPUPerc": "1.12%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.17%",
+          "MemUsage": "27.2MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.7MB / 95.4MB",
+          "PIDs": "12"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:20:14.019049+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.3MB",
+          "CPUPerc": "4.91%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.69%",
+          "MemUsage": "355.3MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "48.2MB / 110MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 265MB",
+          "CPUPerc": "3.89%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.48%",
+          "MemUsage": "76.78MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.6MB / 353MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 442kB",
+          "CPUPerc": "3.64%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.17%",
+          "MemUsage": "26.94MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.7MB / 95.5MB",
+          "PIDs": "6"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:20:25.684566+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.3MB",
+          "CPUPerc": "25.23%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.66%",
+          "MemUsage": "354.9MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "48.6MB / 111MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 265MB",
+          "CPUPerc": "0.89%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.50%",
+          "MemUsage": "78.43MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.6MB / 353MB",
+          "PIDs": "23"
+        },
+        {
+          "BlockIO": "0B / 442kB",
+          "CPUPerc": "0.79%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.17%",
+          "MemUsage": "26.76MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.7MB / 95.6MB",
+          "PIDs": "12"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-18T10:20:37.769424+00:00",
+      "containers": [
+        {
+          "BlockIO": "0B / 7.32MB",
+          "CPUPerc": "0.68%",
+          "Container": "failstop-ops-lab-app-1",
+          "ID": "0d97387de219",
+          "MemPerc": "34.57%",
+          "MemUsage": "354MiB / 1GiB",
+          "Name": "failstop-ops-lab-app-1",
+          "NetIO": "48.8MB / 111MB",
+          "PIDs": "58"
+        },
+        {
+          "BlockIO": "528kB / 265MB",
+          "CPUPerc": "0.07%",
+          "Container": "failstop-ops-lab-standby-1",
+          "ID": "396a839bbf1b",
+          "MemPerc": "0.48%",
+          "MemUsage": "75.86MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-standby-1",
+          "NetIO": "86.6MB / 353MB",
+          "PIDs": "17"
+        },
+        {
+          "BlockIO": "0B / 442kB",
+          "CPUPerc": "7.89%",
+          "Container": "failstop-ops-lab-rejoined-1",
+          "ID": "fc45521f3787",
+          "MemPerc": "0.16%",
+          "MemUsage": "25.58MiB / 15.46GiB",
+          "Name": "failstop-ops-lab-rejoined-1",
+          "NetIO": "16.7MB / 95.7MB",
+          "PIDs": "6"
+        }
+      ]
+    }
+  ],
+  "exit_code": 0,
+  "finished_at": "2026-09-18T10:20:39.966107+00:00",
+  "app_after": {
+    "restarts": 0,
+    "health": "healthy"
+  }
+}

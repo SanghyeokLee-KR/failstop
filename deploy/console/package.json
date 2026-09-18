@@ -1,0 +1,9 @@
+{
+  "name": "failstop-operations-console",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test_ui.mjs",
+    "check:browser": "node check-browser.mjs"
+  }
+}

@@ -1,0 +1,6717 @@
+{
+  "generatedAt": "2026-09-18T09:10:18.218Z",
+  "source": "live-local-grafana",
+  "pages": [
+    {
+      "dashboard": "overview",
+      "uid": "msp-overview",
+      "theme": "dark",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "theme": "dark",
+        "panels": [
+          {
+            "title": "요청 처리율",
+            "left": 316,
+            "top": 153,
+            "right": 571,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서버 오류율 · 5xx",
+            "left": 579,
+            "top": 153,
+            "right": 834,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "응답 시간 · P95",
+            "left": 841,
+            "top": 153,
+            "right": 1096,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "고객 라벨 경보",
+            "left": 1104,
+            "top": 153,
+            "right": 1359,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1358,
+            "bottom": 411,
+            "width": 1042,
+            "height": 144
+          },
+          {
+            "title": "요청 추이 · 인스턴스",
+            "left": 316,
+            "top": 419,
+            "right": 571,
+            "bottom": 601,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "응답 시간 · 평균 / P95",
+            "left": 579,
+            "top": 419,
+            "right": 834,
+            "bottom": 601,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "DB 복제 · WAL 재생 거리",
+            "left": 841,
+            "top": 419,
+            "right": 1096,
+            "bottom": 601,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "CPU / JVM 사용률",
+            "left": 1104,
+            "top": 419,
+            "right": 1359,
+            "bottom": 601,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "서비스 가용성 · 장애 구간",
+            "left": 316,
+            "top": 609,
+            "right": 833,
+            "bottom": 791,
+            "width": 517,
+            "height": 182
+          },
+          {
+            "title": "진행 경보 · 고객 라벨",
+            "left": 841,
+            "top": 609,
+            "right": 1358,
+            "bottom": 791,
+            "width": 517,
+            "height": 182
+          },
+          {
+            "title": "등록 대상",
+            "left": 316,
+            "top": 799,
+            "right": 483,
+            "bottom": 867,
+            "width": 167,
+            "height": 68
+          },
+          {
+            "title": "수집 응답률",
+            "left": 491,
+            "top": 799,
+            "right": 658,
+            "bottom": 867,
+            "width": 167,
+            "height": 68
+          },
+          {
+            "title": "",
+            "left": 666,
+            "top": 799,
+            "right": 1358,
+            "bottom": 867,
+            "width": 692,
+            "height": 68
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "spring",
+      "uid": "msp-service",
+      "theme": "dark",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "theme": "dark",
+        "panels": [
+          {
+            "title": "요청 처리율",
+            "left": 316,
+            "top": 153,
+            "right": 571,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서버 오류율 · 5xx",
+            "left": 579,
+            "top": 153,
+            "right": 834,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "응답 시간 · P95",
+            "left": 841,
+            "top": 153,
+            "right": 1096,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서비스 상태",
+            "left": 1104,
+            "top": 153,
+            "right": 1359,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1358,
+            "bottom": 411,
+            "width": 1042,
+            "height": 144
+          },
+          {
+            "title": "요청 처리율 · 인스턴스",
+            "left": 316,
+            "top": 419,
+            "right": 571,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "응답 시간 · 평균 / P95 / P99",
+            "left": 579,
+            "top": 419,
+            "right": 834,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "HTTP 응답 코드 · 처리율",
+            "left": 841,
+            "top": 419,
+            "right": 1096,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "CPU 사용률 · Spring",
+            "left": 1104,
+            "top": 419,
+            "right": 1359,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "JVM 메모리 사용률",
+            "left": 316,
+            "top": 571,
+            "right": 571,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "JVM GC 시간 비율",
+            "left": 579,
+            "top": 571,
+            "right": 834,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "활성 스레드",
+            "left": 841,
+            "top": 571,
+            "right": 1096,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "DB 연결 풀 · 사용 / 한도",
+            "left": 1104,
+            "top": 571,
+            "right": 1359,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "인스턴스 · 요청 수용 상태",
+            "left": 316,
+            "top": 723,
+            "right": 658,
+            "bottom": 867,
+            "width": 342,
+            "height": 144
+          },
+          {
+            "title": "요청 경로 · 상위 5개",
+            "left": 666,
+            "top": 723,
+            "right": 1008,
+            "bottom": 867,
+            "width": 342,
+            "height": 144
+          },
+          {
+            "title": "요청 수용 · 인스턴스 이력",
+            "left": 1016,
+            "top": 723,
+            "right": 1358,
+            "bottom": 867,
+            "width": 342,
+            "height": 144
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 3
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 3
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "aws",
+      "uid": "msp-infra",
+      "theme": "dark",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "theme": "dark",
+        "panels": [
+          {
+            "title": "고객 호스트 · 등록 수",
+            "left": 316,
+            "top": 153,
+            "right": 571,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "CPU 사용률 · 최대",
+            "left": 579,
+            "top": 153,
+            "right": 834,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "메모리 사용률 · 최대",
+            "left": 841,
+            "top": 153,
+            "right": 1096,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "디스크 사용률 · 최대",
+            "left": 1104,
+            "top": 153,
+            "right": 1359,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1358,
+            "bottom": 411,
+            "width": 1042,
+            "height": 144
+          },
+          {
+            "title": "CPU 사용률 · 고객 호스트",
+            "left": 316,
+            "top": 419,
+            "right": 571,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "메모리 사용률",
+            "left": 579,
+            "top": 419,
+            "right": 834,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "파일시스템 사용률",
+            "left": 841,
+            "top": 419,
+            "right": 1096,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "inode 사용률",
+            "left": 1104,
+            "top": 419,
+            "right": 1359,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "네트워크 수신",
+            "left": 316,
+            "top": 571,
+            "right": 571,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "네트워크 송신",
+            "left": 579,
+            "top": 571,
+            "right": 834,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "디스크 I/O 활성 시간",
+            "left": 841,
+            "top": 571,
+            "right": 1096,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "호스트 수집 · 응답 이력",
+            "left": 1104,
+            "top": 571,
+            "right": 1359,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "수집 대상 · 고객 자원",
+            "left": 316,
+            "top": 723,
+            "right": 833,
+            "bottom": 867,
+            "width": 517,
+            "height": 144
+          },
+          {
+            "title": "AWS 운영 · 수집 범위",
+            "left": 841,
+            "top": 723,
+            "right": 1358,
+            "bottom": 867,
+            "width": 517,
+            "height": 144
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 4
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "db",
+      "uid": "msp-db",
+      "theme": "dark",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "theme": "dark",
+        "panels": [
+          {
+            "title": "Primary · 단일 구성",
+            "left": 316,
+            "top": 153,
+            "right": 571,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "Standby · 복제 구성",
+            "left": 579,
+            "top": 153,
+            "right": 834,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "연결 사용률 · 최대",
+            "left": 841,
+            "top": 153,
+            "right": 1096,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "WAL 재생 거리",
+            "left": 1104,
+            "top": 153,
+            "right": 1359,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "DB 복제 구성 · 현재 역할",
+            "left": 316,
+            "top": 267,
+            "right": 833,
+            "bottom": 411,
+            "width": 517,
+            "height": 144
+          },
+          {
+            "title": "WAL 재생 거리",
+            "left": 841,
+            "top": 267,
+            "right": 1096,
+            "bottom": 411,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "DB 연결 사용률",
+            "left": 1104,
+            "top": 267,
+            "right": 1359,
+            "bottom": 411,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "트랜잭션 처리율",
+            "left": 316,
+            "top": 419,
+            "right": 571,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "활성 세션",
+            "left": 579,
+            "top": 419,
+            "right": 834,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "전체 잠금 수",
+            "left": 841,
+            "top": 419,
+            "right": 1096,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "WAL 위치 증가율",
+            "left": 1104,
+            "top": 419,
+            "right": 1359,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "복제 지연 · replay lag",
+            "left": 316,
+            "top": 571,
+            "right": 571,
+            "bottom": 753,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "테이블 크기 · 상위 5개",
+            "left": 579,
+            "top": 571,
+            "right": 834,
+            "bottom": 753,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "DB 역할 · 복구 모드",
+            "left": 841,
+            "top": 571,
+            "right": 1096,
+            "bottom": 753,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "최근 백업 · 경과 시간",
+            "left": 1104,
+            "top": 571,
+            "right": 1359,
+            "bottom": 753,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "진행 경보 · 고객 라벨",
+            "left": 316,
+            "top": 761,
+            "right": 833,
+            "bottom": 867,
+            "width": 517,
+            "height": 106
+          },
+          {
+            "title": "DB 장애 · 영향 확인 후 복구 절차",
+            "left": 841,
+            "top": 761,
+            "right": 1358,
+            "bottom": 867,
+            "width": 517,
+            "height": 106
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "DB 복제 구성 · 현재 역할",
+            "items": [
+              {
+                "text": "Primary",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "비동기 복제",
+                "fontSize": "12px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "WAL",
+                "fontSize": "11px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "0 B",
+                "fontSize": "11px",
+                "color": "rgb(204, 204, 220)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 5
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "overview",
+      "uid": "msp-overview",
+      "theme": "light",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "theme": "light",
+        "panels": [
+          {
+            "title": "요청 처리율",
+            "left": 316,
+            "top": 153,
+            "right": 571,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서버 오류율 · 5xx",
+            "left": 579,
+            "top": 153,
+            "right": 834,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "응답 시간 · P95",
+            "left": 841,
+            "top": 153,
+            "right": 1096,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "고객 라벨 경보",
+            "left": 1104,
+            "top": 153,
+            "right": 1359,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1358,
+            "bottom": 411,
+            "width": 1042,
+            "height": 144
+          },
+          {
+            "title": "요청 추이 · 인스턴스",
+            "left": 316,
+            "top": 419,
+            "right": 571,
+            "bottom": 601,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "응답 시간 · 평균 / P95",
+            "left": 579,
+            "top": 419,
+            "right": 834,
+            "bottom": 601,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "DB 복제 · WAL 재생 거리",
+            "left": 841,
+            "top": 419,
+            "right": 1096,
+            "bottom": 601,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "CPU / JVM 사용률",
+            "left": 1104,
+            "top": 419,
+            "right": 1359,
+            "bottom": 601,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "서비스 가용성 · 장애 구간",
+            "left": 316,
+            "top": 609,
+            "right": 833,
+            "bottom": 791,
+            "width": 517,
+            "height": 182
+          },
+          {
+            "title": "진행 경보 · 고객 라벨",
+            "left": 841,
+            "top": 609,
+            "right": 1358,
+            "bottom": 791,
+            "width": 517,
+            "height": 182
+          },
+          {
+            "title": "등록 대상",
+            "left": 316,
+            "top": 799,
+            "right": 483,
+            "bottom": 867,
+            "width": 167,
+            "height": 68
+          },
+          {
+            "title": "수집 응답률",
+            "left": 491,
+            "top": 799,
+            "right": 658,
+            "bottom": 867,
+            "width": 167,
+            "height": 68
+          },
+          {
+            "title": "",
+            "left": 666,
+            "top": 799,
+            "right": 1358,
+            "bottom": 867,
+            "width": 692,
+            "height": 68
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "spring",
+      "uid": "msp-service",
+      "theme": "light",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "theme": "light",
+        "panels": [
+          {
+            "title": "요청 처리율",
+            "left": 316,
+            "top": 153,
+            "right": 571,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서버 오류율 · 5xx",
+            "left": 579,
+            "top": 153,
+            "right": 834,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "응답 시간 · P95",
+            "left": 841,
+            "top": 153,
+            "right": 1096,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서비스 상태",
+            "left": 1104,
+            "top": 153,
+            "right": 1359,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1358,
+            "bottom": 411,
+            "width": 1042,
+            "height": 144
+          },
+          {
+            "title": "요청 처리율 · 인스턴스",
+            "left": 316,
+            "top": 419,
+            "right": 571,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "응답 시간 · 평균 / P95 / P99",
+            "left": 579,
+            "top": 419,
+            "right": 834,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "HTTP 응답 코드 · 처리율",
+            "left": 841,
+            "top": 419,
+            "right": 1096,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "CPU 사용률 · Spring",
+            "left": 1104,
+            "top": 419,
+            "right": 1359,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "JVM 메모리 사용률",
+            "left": 316,
+            "top": 571,
+            "right": 571,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "JVM GC 시간 비율",
+            "left": 579,
+            "top": 571,
+            "right": 834,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "활성 스레드",
+            "left": 841,
+            "top": 571,
+            "right": 1096,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "DB 연결 풀 · 사용 / 한도",
+            "left": 1104,
+            "top": 571,
+            "right": 1359,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "인스턴스 · 요청 수용 상태",
+            "left": 316,
+            "top": 723,
+            "right": 658,
+            "bottom": 867,
+            "width": 342,
+            "height": 144
+          },
+          {
+            "title": "요청 경로 · 상위 5개",
+            "left": 666,
+            "top": 723,
+            "right": 1008,
+            "bottom": 867,
+            "width": 342,
+            "height": 144
+          },
+          {
+            "title": "요청 수용 · 인스턴스 이력",
+            "left": 1016,
+            "top": 723,
+            "right": 1358,
+            "bottom": 867,
+            "width": 342,
+            "height": 144
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 3
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 3
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "aws",
+      "uid": "msp-infra",
+      "theme": "light",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "theme": "light",
+        "panels": [
+          {
+            "title": "고객 호스트 · 등록 수",
+            "left": 316,
+            "top": 153,
+            "right": 571,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "CPU 사용률 · 최대",
+            "left": 579,
+            "top": 153,
+            "right": 834,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "메모리 사용률 · 최대",
+            "left": 841,
+            "top": 153,
+            "right": 1096,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "디스크 사용률 · 최대",
+            "left": 1104,
+            "top": 153,
+            "right": 1359,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1358,
+            "bottom": 411,
+            "width": 1042,
+            "height": 144
+          },
+          {
+            "title": "CPU 사용률 · 고객 호스트",
+            "left": 316,
+            "top": 419,
+            "right": 571,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "메모리 사용률",
+            "left": 579,
+            "top": 419,
+            "right": 834,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "파일시스템 사용률",
+            "left": 841,
+            "top": 419,
+            "right": 1096,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "inode 사용률",
+            "left": 1104,
+            "top": 419,
+            "right": 1359,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "네트워크 수신",
+            "left": 316,
+            "top": 571,
+            "right": 571,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "네트워크 송신",
+            "left": 579,
+            "top": 571,
+            "right": 834,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "디스크 I/O 활성 시간",
+            "left": 841,
+            "top": 571,
+            "right": 1096,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "호스트 수집 · 응답 이력",
+            "left": 1104,
+            "top": 571,
+            "right": 1359,
+            "bottom": 715,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "수집 대상 · 고객 자원",
+            "left": 316,
+            "top": 723,
+            "right": 833,
+            "bottom": 867,
+            "width": 517,
+            "height": 144
+          },
+          {
+            "title": "AWS 운영 · 수집 범위",
+            "left": 841,
+            "top": 723,
+            "right": 1358,
+            "bottom": 867,
+            "width": 517,
+            "height": 144
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 4
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "db",
+      "uid": "msp-db",
+      "theme": "light",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "theme": "light",
+        "panels": [
+          {
+            "title": "Primary · 단일 구성",
+            "left": 316,
+            "top": 153,
+            "right": 571,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "Standby · 복제 구성",
+            "left": 579,
+            "top": 153,
+            "right": 834,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "연결 사용률 · 최대",
+            "left": 841,
+            "top": 153,
+            "right": 1096,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "WAL 재생 거리",
+            "left": 1104,
+            "top": 153,
+            "right": 1359,
+            "bottom": 259,
+            "width": 255,
+            "height": 106
+          },
+          {
+            "title": "DB 복제 구성 · 현재 역할",
+            "left": 316,
+            "top": 267,
+            "right": 833,
+            "bottom": 411,
+            "width": 517,
+            "height": 144
+          },
+          {
+            "title": "WAL 재생 거리",
+            "left": 841,
+            "top": 267,
+            "right": 1096,
+            "bottom": 411,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "DB 연결 사용률",
+            "left": 1104,
+            "top": 267,
+            "right": 1359,
+            "bottom": 411,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "트랜잭션 처리율",
+            "left": 316,
+            "top": 419,
+            "right": 571,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "활성 세션",
+            "left": 579,
+            "top": 419,
+            "right": 834,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "전체 잠금 수",
+            "left": 841,
+            "top": 419,
+            "right": 1096,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "WAL 위치 증가율",
+            "left": 1104,
+            "top": 419,
+            "right": 1359,
+            "bottom": 563,
+            "width": 255,
+            "height": 144
+          },
+          {
+            "title": "복제 지연 · replay lag",
+            "left": 316,
+            "top": 571,
+            "right": 571,
+            "bottom": 753,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "테이블 크기 · 상위 5개",
+            "left": 579,
+            "top": 571,
+            "right": 834,
+            "bottom": 753,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "DB 역할 · 복구 모드",
+            "left": 841,
+            "top": 571,
+            "right": 1096,
+            "bottom": 753,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "최근 백업 · 경과 시간",
+            "left": 1104,
+            "top": 571,
+            "right": 1359,
+            "bottom": 753,
+            "width": 255,
+            "height": 182
+          },
+          {
+            "title": "진행 경보 · 고객 라벨",
+            "left": 316,
+            "top": 761,
+            "right": 833,
+            "bottom": 867,
+            "width": 517,
+            "height": 106
+          },
+          {
+            "title": "DB 장애 · 영향 확인 후 복구 절차",
+            "left": 841,
+            "top": 761,
+            "right": 1358,
+            "bottom": 867,
+            "width": 517,
+            "height": 106
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "DB 복제 구성 · 현재 역할",
+            "items": [
+              {
+                "text": "Primary",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "비동기 복제",
+                "fontSize": "12px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "WAL",
+                "fontSize": "11px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "0 B",
+                "fontSize": "11px",
+                "color": "rgb(36, 41, 46)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 5
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "overview",
+      "uid": "msp-overview",
+      "theme": "dark",
+      "width": 1920,
+      "height": 1080,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "theme": "dark",
+        "panels": [
+          {
+            "title": "요청 처리율",
+            "left": 316,
+            "top": 153,
+            "right": 691,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서버 오류율 · 5xx",
+            "left": 699,
+            "top": 153,
+            "right": 1074,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "응답 시간 · P95",
+            "left": 1081,
+            "top": 153,
+            "right": 1456,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "고객 라벨 경보",
+            "left": 1464,
+            "top": 153,
+            "right": 1839,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1838,
+            "bottom": 411,
+            "width": 1522,
+            "height": 144
+          },
+          {
+            "title": "요청 추이 · 인스턴스",
+            "left": 316,
+            "top": 419,
+            "right": 691,
+            "bottom": 601,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "응답 시간 · 평균 / P95",
+            "left": 699,
+            "top": 419,
+            "right": 1074,
+            "bottom": 601,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "DB 복제 · WAL 재생 거리",
+            "left": 1081,
+            "top": 419,
+            "right": 1456,
+            "bottom": 601,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "CPU / JVM 사용률",
+            "left": 1464,
+            "top": 419,
+            "right": 1839,
+            "bottom": 601,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "서비스 가용성 · 장애 구간",
+            "left": 316,
+            "top": 609,
+            "right": 1073,
+            "bottom": 791,
+            "width": 757,
+            "height": 182
+          },
+          {
+            "title": "진행 경보 · 고객 라벨",
+            "left": 1081,
+            "top": 609,
+            "right": 1838,
+            "bottom": 791,
+            "width": 757,
+            "height": 182
+          },
+          {
+            "title": "등록 대상",
+            "left": 316,
+            "top": 799,
+            "right": 563,
+            "bottom": 867,
+            "width": 247,
+            "height": 68
+          },
+          {
+            "title": "수집 응답률",
+            "left": 571,
+            "top": 799,
+            "right": 818,
+            "bottom": 867,
+            "width": 247,
+            "height": 68
+          },
+          {
+            "title": "",
+            "left": 826,
+            "top": 799,
+            "right": 1838,
+            "bottom": 867,
+            "width": 1012,
+            "height": 68
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "spring",
+      "uid": "msp-service",
+      "theme": "dark",
+      "width": 1920,
+      "height": 1080,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "theme": "dark",
+        "panels": [
+          {
+            "title": "요청 처리율",
+            "left": 316,
+            "top": 153,
+            "right": 691,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서버 오류율 · 5xx",
+            "left": 699,
+            "top": 153,
+            "right": 1074,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "응답 시간 · P95",
+            "left": 1081,
+            "top": 153,
+            "right": 1456,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서비스 상태",
+            "left": 1464,
+            "top": 153,
+            "right": 1839,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1838,
+            "bottom": 411,
+            "width": 1522,
+            "height": 144
+          },
+          {
+            "title": "요청 처리율 · 인스턴스",
+            "left": 316,
+            "top": 419,
+            "right": 691,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "응답 시간 · 평균 / P95 / P99",
+            "left": 699,
+            "top": 419,
+            "right": 1074,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "HTTP 응답 코드 · 처리율",
+            "left": 1081,
+            "top": 419,
+            "right": 1456,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "CPU 사용률 · Spring",
+            "left": 1464,
+            "top": 419,
+            "right": 1839,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "JVM 메모리 사용률",
+            "left": 316,
+            "top": 571,
+            "right": 691,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "JVM GC 시간 비율",
+            "left": 699,
+            "top": 571,
+            "right": 1074,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "활성 스레드",
+            "left": 1081,
+            "top": 571,
+            "right": 1456,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "DB 연결 풀 · 사용 / 한도",
+            "left": 1464,
+            "top": 571,
+            "right": 1839,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "인스턴스 · 요청 수용 상태",
+            "left": 316,
+            "top": 723,
+            "right": 818,
+            "bottom": 867,
+            "width": 502,
+            "height": 144
+          },
+          {
+            "title": "요청 경로 · 상위 5개",
+            "left": 826,
+            "top": 723,
+            "right": 1328,
+            "bottom": 867,
+            "width": 502,
+            "height": 144
+          },
+          {
+            "title": "요청 수용 · 인스턴스 이력",
+            "left": 1336,
+            "top": 723,
+            "right": 1838,
+            "bottom": 867,
+            "width": 502,
+            "height": 144
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 3
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 3
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "aws",
+      "uid": "msp-infra",
+      "theme": "dark",
+      "width": 1920,
+      "height": 1080,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "theme": "dark",
+        "panels": [
+          {
+            "title": "고객 호스트 · 등록 수",
+            "left": 316,
+            "top": 153,
+            "right": 691,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "CPU 사용률 · 최대",
+            "left": 699,
+            "top": 153,
+            "right": 1074,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "메모리 사용률 · 최대",
+            "left": 1081,
+            "top": 153,
+            "right": 1456,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "디스크 사용률 · 최대",
+            "left": 1464,
+            "top": 153,
+            "right": 1839,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1838,
+            "bottom": 411,
+            "width": 1522,
+            "height": 144
+          },
+          {
+            "title": "CPU 사용률 · 고객 호스트",
+            "left": 316,
+            "top": 419,
+            "right": 691,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "메모리 사용률",
+            "left": 699,
+            "top": 419,
+            "right": 1074,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "파일시스템 사용률",
+            "left": 1081,
+            "top": 419,
+            "right": 1456,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "inode 사용률",
+            "left": 1464,
+            "top": 419,
+            "right": 1839,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "네트워크 수신",
+            "left": 316,
+            "top": 571,
+            "right": 691,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "네트워크 송신",
+            "left": 699,
+            "top": 571,
+            "right": 1074,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "디스크 I/O 활성 시간",
+            "left": 1081,
+            "top": 571,
+            "right": 1456,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "호스트 수집 · 응답 이력",
+            "left": 1464,
+            "top": 571,
+            "right": 1839,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "수집 대상 · 고객 자원",
+            "left": 316,
+            "top": 723,
+            "right": 1073,
+            "bottom": 867,
+            "width": 757,
+            "height": 144
+          },
+          {
+            "title": "AWS 운영 · 수집 범위",
+            "left": 1081,
+            "top": 723,
+            "right": 1838,
+            "bottom": 867,
+            "width": 757,
+            "height": 144
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 4
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "db",
+      "uid": "msp-db",
+      "theme": "dark",
+      "width": 1920,
+      "height": 1080,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "theme": "dark",
+        "panels": [
+          {
+            "title": "Primary · 단일 구성",
+            "left": 316,
+            "top": 153,
+            "right": 691,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "Standby · 복제 구성",
+            "left": 699,
+            "top": 153,
+            "right": 1074,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "연결 사용률 · 최대",
+            "left": 1081,
+            "top": 153,
+            "right": 1456,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "WAL 재생 거리",
+            "left": 1464,
+            "top": 153,
+            "right": 1839,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "DB 복제 구성 · 현재 역할",
+            "left": 316,
+            "top": 267,
+            "right": 1073,
+            "bottom": 411,
+            "width": 757,
+            "height": 144
+          },
+          {
+            "title": "WAL 재생 거리",
+            "left": 1081,
+            "top": 267,
+            "right": 1456,
+            "bottom": 411,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "DB 연결 사용률",
+            "left": 1464,
+            "top": 267,
+            "right": 1839,
+            "bottom": 411,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "트랜잭션 처리율",
+            "left": 316,
+            "top": 419,
+            "right": 691,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "활성 세션",
+            "left": 699,
+            "top": 419,
+            "right": 1074,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "전체 잠금 수",
+            "left": 1081,
+            "top": 419,
+            "right": 1456,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "WAL 위치 증가율",
+            "left": 1464,
+            "top": 419,
+            "right": 1839,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "복제 지연 · replay lag",
+            "left": 316,
+            "top": 571,
+            "right": 691,
+            "bottom": 753,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "테이블 크기 · 상위 5개",
+            "left": 699,
+            "top": 571,
+            "right": 1074,
+            "bottom": 753,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "DB 역할 · 복구 모드",
+            "left": 1081,
+            "top": 571,
+            "right": 1456,
+            "bottom": 753,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "최근 백업 · 경과 시간",
+            "left": 1464,
+            "top": 571,
+            "right": 1839,
+            "bottom": 753,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "진행 경보 · 고객 라벨",
+            "left": 316,
+            "top": 761,
+            "right": 1073,
+            "bottom": 867,
+            "width": 757,
+            "height": 106
+          },
+          {
+            "title": "DB 장애 · 영향 확인 후 복구 절차",
+            "left": 1081,
+            "top": 761,
+            "right": 1838,
+            "bottom": 867,
+            "width": 757,
+            "height": 106
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "DB 복제 구성 · 현재 역할",
+            "items": [
+              {
+                "text": "Primary",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby",
+                "fontSize": "14px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "비동기 복제",
+                "fontSize": "12px",
+                "color": "rgb(204, 204, 220)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "WAL",
+                "fontSize": "11px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "0 B",
+                "fontSize": "11px",
+                "color": "rgb(204, 204, 220)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 5
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "overview",
+      "uid": "msp-overview",
+      "theme": "light",
+      "width": 1920,
+      "height": 1080,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "theme": "light",
+        "panels": [
+          {
+            "title": "요청 처리율",
+            "left": 316,
+            "top": 153,
+            "right": 691,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서버 오류율 · 5xx",
+            "left": 699,
+            "top": 153,
+            "right": 1074,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "응답 시간 · P95",
+            "left": 1081,
+            "top": 153,
+            "right": 1456,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "고객 라벨 경보",
+            "left": 1464,
+            "top": 153,
+            "right": 1839,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1838,
+            "bottom": 411,
+            "width": 1522,
+            "height": 144
+          },
+          {
+            "title": "요청 추이 · 인스턴스",
+            "left": 316,
+            "top": 419,
+            "right": 691,
+            "bottom": 601,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "응답 시간 · 평균 / P95",
+            "left": 699,
+            "top": 419,
+            "right": 1074,
+            "bottom": 601,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "DB 복제 · WAL 재생 거리",
+            "left": 1081,
+            "top": 419,
+            "right": 1456,
+            "bottom": 601,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "CPU / JVM 사용률",
+            "left": 1464,
+            "top": 419,
+            "right": 1839,
+            "bottom": 601,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "서비스 가용성 · 장애 구간",
+            "left": 316,
+            "top": 609,
+            "right": 1073,
+            "bottom": 791,
+            "width": 757,
+            "height": 182
+          },
+          {
+            "title": "진행 경보 · 고객 라벨",
+            "left": 1081,
+            "top": 609,
+            "right": 1838,
+            "bottom": 791,
+            "width": 757,
+            "height": 182
+          },
+          {
+            "title": "등록 대상",
+            "left": 316,
+            "top": 799,
+            "right": 563,
+            "bottom": 867,
+            "width": 247,
+            "height": 68
+          },
+          {
+            "title": "수집 응답률",
+            "left": 571,
+            "top": 799,
+            "right": 818,
+            "bottom": 867,
+            "width": 247,
+            "height": 68
+          },
+          {
+            "title": "",
+            "left": 826,
+            "top": 799,
+            "right": 1838,
+            "bottom": 867,
+            "width": 1012,
+            "height": 68
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "spring",
+      "uid": "msp-service",
+      "theme": "light",
+      "width": 1920,
+      "height": 1080,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "theme": "light",
+        "panels": [
+          {
+            "title": "요청 처리율",
+            "left": 316,
+            "top": 153,
+            "right": 691,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서버 오류율 · 5xx",
+            "left": 699,
+            "top": 153,
+            "right": 1074,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "응답 시간 · P95",
+            "left": 1081,
+            "top": 153,
+            "right": 1456,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서비스 상태",
+            "left": 1464,
+            "top": 153,
+            "right": 1839,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1838,
+            "bottom": 411,
+            "width": 1522,
+            "height": 144
+          },
+          {
+            "title": "요청 처리율 · 인스턴스",
+            "left": 316,
+            "top": 419,
+            "right": 691,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "응답 시간 · 평균 / P95 / P99",
+            "left": 699,
+            "top": 419,
+            "right": 1074,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "HTTP 응답 코드 · 처리율",
+            "left": 1081,
+            "top": 419,
+            "right": 1456,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "CPU 사용률 · Spring",
+            "left": 1464,
+            "top": 419,
+            "right": 1839,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "JVM 메모리 사용률",
+            "left": 316,
+            "top": 571,
+            "right": 691,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "JVM GC 시간 비율",
+            "left": 699,
+            "top": 571,
+            "right": 1074,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "활성 스레드",
+            "left": 1081,
+            "top": 571,
+            "right": 1456,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "DB 연결 풀 · 사용 / 한도",
+            "left": 1464,
+            "top": 571,
+            "right": 1839,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "인스턴스 · 요청 수용 상태",
+            "left": 316,
+            "top": 723,
+            "right": 818,
+            "bottom": 867,
+            "width": 502,
+            "height": 144
+          },
+          {
+            "title": "요청 경로 · 상위 5개",
+            "left": 826,
+            "top": 723,
+            "right": 1328,
+            "bottom": 867,
+            "width": 502,
+            "height": 144
+          },
+          {
+            "title": "요청 수용 · 인스턴스 이력",
+            "left": 1336,
+            "top": 723,
+            "right": 1838,
+            "bottom": 867,
+            "width": 502,
+            "height": 144
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 3
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 3
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "aws",
+      "uid": "msp-infra",
+      "theme": "light",
+      "width": 1920,
+      "height": 1080,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "theme": "light",
+        "panels": [
+          {
+            "title": "고객 호스트 · 등록 수",
+            "left": 316,
+            "top": 153,
+            "right": 691,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "CPU 사용률 · 최대",
+            "left": 699,
+            "top": 153,
+            "right": 1074,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "메모리 사용률 · 최대",
+            "left": 1081,
+            "top": 153,
+            "right": 1456,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "디스크 사용률 · 최대",
+            "left": 1464,
+            "top": 153,
+            "right": 1839,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "서비스 경로 · 계층별 상태",
+            "left": 316,
+            "top": 267,
+            "right": 1838,
+            "bottom": 411,
+            "width": 1522,
+            "height": 144
+          },
+          {
+            "title": "CPU 사용률 · 고객 호스트",
+            "left": 316,
+            "top": 419,
+            "right": 691,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "메모리 사용률",
+            "left": 699,
+            "top": 419,
+            "right": 1074,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "파일시스템 사용률",
+            "left": 1081,
+            "top": 419,
+            "right": 1456,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "inode 사용률",
+            "left": 1464,
+            "top": 419,
+            "right": 1839,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "네트워크 수신",
+            "left": 316,
+            "top": 571,
+            "right": 691,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "네트워크 송신",
+            "left": 699,
+            "top": 571,
+            "right": 1074,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "디스크 I/O 활성 시간",
+            "left": 1081,
+            "top": 571,
+            "right": 1456,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "호스트 수집 · 응답 이력",
+            "left": 1464,
+            "top": 571,
+            "right": 1839,
+            "bottom": 715,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "수집 대상 · 고객 자원",
+            "left": 316,
+            "top": 723,
+            "right": 1073,
+            "bottom": 867,
+            "width": 757,
+            "height": 144
+          },
+          {
+            "title": "AWS 운영 · 수집 범위",
+            "left": 1081,
+            "top": 723,
+            "right": 1838,
+            "bottom": 867,
+            "width": 757,
+            "height": 144
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "서비스 경로 · 계층별 상태",
+            "items": [
+              {
+                "text": "외부 접속",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "CloudFront",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "ALB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "미수집",
+                "fontSize": "13px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "Spring Boot",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Primary DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby DB",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "13px",
+                "color": "rgb(22, 138, 114)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "E",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "F",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 4
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    },
+    {
+      "dashboard": "db",
+      "uid": "msp-db",
+      "theme": "light",
+      "width": 1920,
+      "height": 1080,
+      "status": "PASS",
+      "geometry": {
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "theme": "light",
+        "panels": [
+          {
+            "title": "Primary · 단일 구성",
+            "left": 316,
+            "top": 153,
+            "right": 691,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "Standby · 복제 구성",
+            "left": 699,
+            "top": 153,
+            "right": 1074,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "연결 사용률 · 최대",
+            "left": 1081,
+            "top": 153,
+            "right": 1456,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "WAL 재생 거리",
+            "left": 1464,
+            "top": 153,
+            "right": 1839,
+            "bottom": 259,
+            "width": 375,
+            "height": 106
+          },
+          {
+            "title": "DB 복제 구성 · 현재 역할",
+            "left": 316,
+            "top": 267,
+            "right": 1073,
+            "bottom": 411,
+            "width": 757,
+            "height": 144
+          },
+          {
+            "title": "WAL 재생 거리",
+            "left": 1081,
+            "top": 267,
+            "right": 1456,
+            "bottom": 411,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "DB 연결 사용률",
+            "left": 1464,
+            "top": 267,
+            "right": 1839,
+            "bottom": 411,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "트랜잭션 처리율",
+            "left": 316,
+            "top": 419,
+            "right": 691,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "활성 세션",
+            "left": 699,
+            "top": 419,
+            "right": 1074,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "전체 잠금 수",
+            "left": 1081,
+            "top": 419,
+            "right": 1456,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "WAL 위치 증가율",
+            "left": 1464,
+            "top": 419,
+            "right": 1839,
+            "bottom": 563,
+            "width": 375,
+            "height": 144
+          },
+          {
+            "title": "복제 지연 · replay lag",
+            "left": 316,
+            "top": 571,
+            "right": 691,
+            "bottom": 753,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "테이블 크기 · 상위 5개",
+            "left": 699,
+            "top": 571,
+            "right": 1074,
+            "bottom": 753,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "DB 역할 · 복구 모드",
+            "left": 1081,
+            "top": 571,
+            "right": 1456,
+            "bottom": 753,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "최근 백업 · 경과 시간",
+            "left": 1464,
+            "top": 571,
+            "right": 1839,
+            "bottom": 753,
+            "width": 375,
+            "height": 182
+          },
+          {
+            "title": "진행 경보 · 고객 라벨",
+            "left": 316,
+            "top": 761,
+            "right": 1073,
+            "bottom": 867,
+            "width": 757,
+            "height": 106
+          },
+          {
+            "title": "DB 장애 · 영향 확인 후 복구 절차",
+            "left": 1081,
+            "top": 761,
+            "right": 1838,
+            "bottom": 867,
+            "width": 757,
+            "height": 106
+          }
+        ],
+        "panelOverlaps": [],
+        "outsideViewport": [],
+        "clippedTitles": [],
+        "canvasTextIssues": [],
+        "canvasText": [
+          {
+            "panel": "DB 복제 구성 · 현재 역할",
+            "items": [
+              {
+                "text": "Primary",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "Standby",
+                "fontSize": "14px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "비동기 복제",
+                "fontSize": "12px",
+                "color": "rgb(36, 41, 46)"
+              },
+              {
+                "text": "● 정상",
+                "fontSize": "12px",
+                "color": "rgb(22, 138, 114)"
+              },
+              {
+                "text": "WAL",
+                "fontSize": "11px",
+                "color": "rgb(120, 131, 150)"
+              },
+              {
+                "text": "0 B",
+                "fontSize": "11px",
+                "color": "rgb(36, 41, 46)"
+              }
+            ]
+          }
+        ],
+        "fieldBindingErrors": [],
+        "horizontalOverflow": false
+      },
+      "queries": [
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "B",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "C",
+              "status": 200,
+              "frames": 1
+            },
+            {
+              "refId": "D",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 5
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 2
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "A",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        },
+        {
+          "status": 200,
+          "results": [
+            {
+              "refId": "Anno",
+              "status": 200,
+              "frames": 1
+            }
+          ]
+        }
+      ],
+      "scriptErrors": [],
+      "issues": []
+    }
+  ],
+  "checks": {
+    "login": {
+      "status": "PASS"
+    },
+    "themeLinks": {
+      "status": "PASS",
+      "scopesPreserved": true,
+      "themes": [
+        "light",
+        "dark"
+      ]
+    }
+  },
+  "errors": [],
+  "status": "PASS"
+}

@@ -8,7 +8,7 @@
 #
 # 복제는 비동기다(ADR 0024). synchronous_standby_names 를 쓰지 않는다. standby 장애가
 # primary 의 커밋을 멈추지 않는 것이 이 정책의 전부다. 대가는 RPO 0 을 보장하지 않는 것이고
-# 유실량은 그 순간의 복제 지연과 같다. 실측은 ADR 0024 미충족 절이 소유한다.
+# 실제 유실 여부와 범위는 커밋·복구 기록을 대조해 확인한다. WAL 위치 차이를 유실량으로 단정하지 않는다.
 #
 # RDS를 쓰지 않는 이유는 기획안 §4.2 선택표와 §4.3 비채택 표다. 장애 주입에 OS 셸이
 # 필요하고, RDS를 채택하면 DB 계층 전체가 증명 범위 밖으로 나가 남는 명제가 앱 계층
@@ -42,6 +42,14 @@ services:
       - "postgres"
       - "-c"
       - "max_connections=${DB_MAX_CONNECTIONS:-200}"
+      - "-c"
+      - "shared_preload_libraries=${PG_SHARED_PRELOAD_LIBRARIES:-pg_stat_statements}"
+      - "-c"
+      - "compute_query_id=auto"
+      - "-c"
+      - "pg_stat_statements.track=top"
+      - "-c"
+      - "pg_stat_statements.track_utility=off"
       - "-c"
       - "superuser_reserved_connections=${DB_RESERVED_CONNECTIONS:-3}"
       # standby 를 지목하지 않으므로 이 값은 로컬 WAL flush 까지만 기다린다. 비동기 정책과
@@ -123,6 +131,14 @@ services:
     command:
       - "-c"
       - "max_connections=${DB_MAX_CONNECTIONS:-200}"
+      - "-c"
+      - "shared_preload_libraries=${PG_SHARED_PRELOAD_LIBRARIES:-pg_stat_statements}"
+      - "-c"
+      - "compute_query_id=auto"
+      - "-c"
+      - "pg_stat_statements.track=top"
+      - "-c"
+      - "pg_stat_statements.track_utility=off"
       - "-c"
       - "superuser_reserved_connections=${DB_RESERVED_CONNECTIONS:-3}"
       - "-c"

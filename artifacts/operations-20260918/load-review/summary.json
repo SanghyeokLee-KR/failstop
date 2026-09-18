@@ -1,0 +1,176 @@
+{
+  "started_at": "2026-09-18T10:15:33.804339+00:00",
+  "finished_at": "2026-09-18T10:20:39.966107+00:00",
+  "stage_results": [
+    {
+      "offered_rps": 10,
+      "steady_requests": 400,
+      "success_rps": 10.0,
+      "limited_percent": 0.0,
+      "p95_ms": 8.04,
+      "p99_ms": 8.99,
+      "unexpected": 0,
+      "endpoints": {
+        "orderbook": {
+          "accepted": 134,
+          "limited": 0,
+          "p95_ms": 6.09
+        },
+        "trades": {
+          "accepted": 133,
+          "limited": 0,
+          "p95_ms": 8.21
+        },
+        "candles": {
+          "accepted": 133,
+          "limited": 0,
+          "p95_ms": 8.35
+        }
+      }
+    },
+    {
+      "offered_rps": 18,
+      "steady_requests": 719,
+      "success_rps": 17.975,
+      "limited_percent": 0.0,
+      "p95_ms": 7.41,
+      "p99_ms": 8.02,
+      "unexpected": 0,
+      "endpoints": {
+        "orderbook": {
+          "accepted": 240,
+          "limited": 0,
+          "p95_ms": 5.85
+        },
+        "trades": {
+          "accepted": 239,
+          "limited": 0,
+          "p95_ms": 7.04
+        },
+        "candles": {
+          "accepted": 240,
+          "limited": 0,
+          "p95_ms": 7.77
+        }
+      }
+    },
+    {
+      "offered_rps": 30,
+      "steady_requests": 1200,
+      "success_rps": 20.0,
+      "limited_percent": 33.33,
+      "p95_ms": 7.13,
+      "p99_ms": 7.7,
+      "unexpected": 0,
+      "endpoints": {
+        "orderbook": {
+          "accepted": 400,
+          "limited": 0,
+          "p95_ms": 4.16
+        },
+        "trades": {
+          "accepted": 0,
+          "limited": 400,
+          "p95_ms": null
+        },
+        "candles": {
+          "accepted": 400,
+          "limited": 0,
+          "p95_ms": 7.31
+        }
+      }
+    },
+    {
+      "offered_rps": 60,
+      "steady_requests": 2400,
+      "success_rps": 20.0,
+      "limited_percent": 66.67,
+      "p95_ms": 6.67,
+      "p99_ms": 7.24,
+      "unexpected": 0,
+      "endpoints": {
+        "orderbook": {
+          "accepted": 400,
+          "limited": 400,
+          "p95_ms": 3.02
+        },
+        "trades": {
+          "accepted": 0,
+          "limited": 800,
+          "p95_ms": null
+        },
+        "candles": {
+          "accepted": 400,
+          "limited": 400,
+          "p95_ms": 6.95
+        }
+      }
+    },
+    {
+      "offered_rps": 120,
+      "steady_requests": 4800,
+      "success_rps": 30.0,
+      "limited_percent": 75.0,
+      "p95_ms": 2.09,
+      "p99_ms": 2.77,
+      "unexpected": 0,
+      "endpoints": {
+        "orderbook": {
+          "accepted": 1200,
+          "limited": 400,
+          "p95_ms": 2.09
+        },
+        "trades": {
+          "accepted": 0,
+          "limited": 1600,
+          "p95_ms": null
+        },
+        "candles": {
+          "accepted": 0,
+          "limited": 1600,
+          "p95_ms": null
+        }
+      }
+    }
+  ],
+  "total_requests": 14282,
+  "dropped_iterations": 2,
+  "unexpected_rate": 0,
+  "db_counter_deltas": {
+    "xact_commit": 5147,
+    "xact_rollback": 0,
+    "tup_returned": 287718,
+    "tup_fetched": 196661,
+    "tup_inserted": 0,
+    "tup_updated": 110,
+    "tup_deleted": 0,
+    "blks_read": 5,
+    "blks_hit": 409277,
+    "temp_bytes": 0,
+    "deadlocks": 0
+  },
+  "wal_bytes_delta": 35872,
+  "peak_sampled_docker_cpu_percent_one_core_100": {
+    "failstop-ops-lab-app-1": 25.23,
+    "failstop-ops-lab-standby-1": 18.12,
+    "failstop-ops-lab-rejoined-1": 16.83
+  },
+  "app_after": {
+    "restarts": 0,
+    "health": "healthy"
+  },
+  "replication_after": [
+    {
+      "state": "streaming",
+      "sync_state": "async",
+      "replay_gap_bytes": 0
+    }
+  ],
+  "limitations": [
+    "Orders: 4; trades: 2. Not representative production data.",
+    "One source IP, existing token bucket 300 tokens per 10s; endpoint weights 1/2/2.",
+    "Fixed rotating endpoint order; accepted mix changes under rate limiting.",
+    "DB counters include background jobs, exporter and measurement queries.",
+    "Two scheduled iterations were not issued. No hardware saturation or AWS scaling determination."
+  ]
+}

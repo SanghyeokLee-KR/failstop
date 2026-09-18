@@ -46,11 +46,13 @@ services:
       - ../harness/grafana/dashboards/11-msp-service.json:/var/lib/grafana/dashboards/11-msp-service.json:ro
       - ../harness/grafana/dashboards/12-msp-infra.json:/var/lib/grafana/dashboards/12-msp-infra.json:ro
       - ../harness/grafana/dashboards/13-msp-db.json:/var/lib/grafana/dashboards/13-msp-db.json:ro
+      - ../harness/grafana/dashboards/14-msp-db-workload.json:/var/lib/grafana/dashboards/14-msp-db-workload.json:ro
+      - ../harness/grafana/dashboards/15-msp-db-replication.json:/var/lib/grafana/dashboards/15-msp-db-replication.json:ro
       - ${GRAFANA_PASSWORD_FILE:?set_GRAFANA_PASSWORD_FILE}:/run/secrets/grafana_password:ro
       - grafana-data:/var/lib/grafana
     ports: ['${OBS_BIND_IP:-127.0.0.1}:${GRAFANA_PORT:-53001}:3000']
     restart: unless-stopped
-    mem_limit: 384m
+    mem_limit: ${GRAFANA_MEMORY_LIMIT:-768m}
     logging: *logging
   blackbox:
     image: prom/blackbox-exporter:v0.25.0

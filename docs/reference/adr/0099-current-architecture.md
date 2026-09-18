@@ -59,6 +59,16 @@ CloudFront는 정적 웹을 S3에서, API와 WebSocket을 ALB에서 받아 브�
 
 ## 자동 확장과 관제를 구현할 때의 경계
 
+관제의 기본 접속은 기존 Grafana의 서비스·Spring·AWS/서버·DB 요약·SQL/세션·복제/복구 여섯 화면이다. [ADR 0028](0028-operator-console.md)에 따라 Canvas·시계열·표와 기본 사이드바·권한·관리 메뉴를 사용하고, 작업 공간 설정 도구로 한국어·서울 시간대·홈과 즐겨찾기를 적용한다. 다크·라이트 전환은 Grafana URL 테마를 사용한다. 임의 HTML·CSS 주입이나 Grafana 제품 소스 수정 없이 기존 Prometheus와 Alertmanager를 연결한다. [Grafana 기본 관제](../../../deploy/observability/README.md#grafana-기본-관제-화면)
+
+현재 값은 최근 수집 성공을 확인한 뒤 사용한다. 실제 복구 모드에 따른 단일 Primary·Standby 구성을 확인하고 복수 Primary는 장애, 등록 DB 역할 일부 미확인은 미수집으로 구분한다. 요청 없음과 수집 실패를 구분하며 Canvas의 수치 0에 장애 상태 매핑을 적용하지 않는다. 고객 분류 경보와 기본 메뉴의 미분류 경보는 별도로 확인한다. 로컬 브라우저 검증과 Grafana 메모리 한도 조정 근거는 [당일 측정](../../measurements/20260918.md)에 기록한다.
+
+화면·조회 검사의 통과가 DB 진단 설계의 완성을 뜻하지 않는다. 후속 검토 뒤 로컬 DB의 `pg_stat_statements`를 활성화하고 SQL 명령별 완료 호출·가중 평균 실행 시간, 세션 상태·대기·차단과 표준 WAL 생성량을 추가했다. 설치는 양쪽 노드의 preload·재기동 뒤 관리자가 primary에서 수행하며 exporter는 전용 `failstop_monitor`를 사용한다. SQL 원문·query ID는 Prometheus에 내지 않고 WITH를 조회로 추정하지 않는다. TPS는 읽기·관측 트랜잭션도 포함하므로 SQL 호출 수와 구분한다. 통계 초기화·항목 퇴출·원천 수집 오류 구간을 정상 0이나 과거 값으로 채우지 않는다. WAL 위치 차이는 실제 유실량이 아니다. 지표 정의와 적용 순서는 [관측 안내](../../../deploy/observability/README.md#db-처리량과-대기를-구분한다)에 둔다.
+
+[로컬 조회 시험](../../../deploy/lab/README.md#거래소-화면과-조회-부하-확인)은 기존 IP 요청 제한과 작은 실습 데이터를 유지하므로 서버 최대 성능이나 AWS 확장 근거로 사용하지 않는다. 성공 처리량과 HTTP 429를 따로 보고 빠른 거절이 전체 응답 지연을 낮추는 경우를 구분한다. 거래소 웹은 별도 로컬 nginx에서 기존 실습 앱에 연결한다. SQL 확장 활성화는 기존 DB 역할과 거래 관련 행 수를 보존했다. 여섯 화면과 추가 HTTP 관측의 로컬 검증을 마쳤으며 실행 조건과 남은 범위는 [로드맵](../../ROADMAP.md)과 [당일 측정](../../measurements/20260918.md)에서 확인한다.
+
+앞서 구현한 포트 53002의 [별도 운영자 콘솔](../../../deploy/console/README.md)은 비교·확장용으로 보존한다. Grafana 인증 뒤 고객 범위 지표·경보·사건·보고 파일을 읽으며 담당자 확인 이력은 콘솔에 둔다. 확인은 장애 해제나 mute가 아니다. 사용자·데이터 소스·원본 대시보드 변경은 Grafana 권한으로 수행한다. 기존 콘솔의 로컬 Docker·브라우저 검증과 새 Grafana 화면의 검증은 [당일 측정](../../measurements/20260918.md)에서 구분하며 실제 AWS 데이터 연결을 뜻하지 않는다.
+
 먼저 DB에서 완결되는 markets·trades·candles 등의 REST 조회를 별도 ASG로 보내는 안을 검증한다. `engine.enabled=false`는 출발점이지만 모든 쓰기 API를 제거하는 역할 설정은 아니다. 주문·취소·WebSocket은 리더 경로에 유지한다. 호가·티커의 REST 순번도 노드 로컬 값이므로 WS와 같은 기준으로 재동기화할 수 있도록 리더 경로에 남기거나 순번 전달을 먼저 구현해야 한다. [엔진 구성](../../../server/app/src/main/java/kr/exchange/config/EngineConfig.java), [시장 API](../../../server/app/src/main/java/kr/exchange/api/market/MarketController.java)
 
 인증 API 전체를 바로 분산하지 않는다. 공통 회원 시드 외에도 노드 로컬 데모·관리 키, nonce, 요청 제한의 범위를 확인해야 한다. ASG 준비 검사·최대 대수의 DB 풀·관측 대상 등록·축소 드레이닝을 설계하고, 기존 Docker 용량 조정기가 AWS 정책과 같은 대수를 동시에 제어하지 않게 한다. 현재 WS는 노드 내 브로커이므로 조회 노드를 늘리는 것만으로 리더 이벤트가 전달되지 않는다. [WebSocket 설정](../../../server/app/src/main/java/kr/exchange/api/ws/WebSocketConfig.java), [API 계약](../contracts/백엔드_API_설계.md)
@@ -71,7 +81,7 @@ CloudFront는 정적 웹을 S3에서, API와 WebSocket을 ALB에서 받아 브�
 
 로컬과 AWS의 Prometheus·Alertmanager·보고 설정은 [공통 환경 생성기](../../../deploy/observability/configure-environment.py)에서 준비한다. 고객사·환경을 보고 조회와 알림 묶음에 넣고, AWS에서는 지정 `FailstopCluster`의 Spring·고객 호스트·DB를 등록한다. Windows·WSL bridge는 로컬에만 둔다. AWS 실제 연결과 CloudWatch의 관리형 지표는 별도 검증 대상이다. 격리된 DB 반복 실험은 자동으로 관측 대상에 등록하지 않으며, [관측 경로 검사](../../../deploy/observability/tests/check-monitored-standby.py)는 등록된 로컬 replica의 중단·복구, 실제 지표·경보·발화 및 해제 보고의 HTTP 접수를 대조한다. 이 검사는 수동 DB 승격을 대신하지 않는다. 실행 뒤 사용자가 Teams 채널의 두 보고 표시를 확인했으며 [로드맵](../../ROADMAP.md)에 해당 로컬 검증 범위를 기록했다.
 
-Grafana 화면은 서비스 관제·트래픽/Spring·AWS/서버·DB/복구의 네 경로로 정리했다. 명사형 상태·역할별 대상·장애 구간을 표시하고 `pg_up=0`인 DB 접속 장애와 exporter 수집 경로 장애를 구분한다. Spring HTTP histogram을 켜 실제 요청 지연을 수집한다. AWS 전용 [CloudWatch 설정](../../../deploy/compose.observability-aws.yml)은 기존 EC2 instance profile과 서울 리전을 사용하며 ALB·조회 ASG·EBS 지표를 별도 영역에 연결한다. 실제 자원 식별자는 Terraform 출력으로 제공하고 관측 bot만 IMDSv2 hop limit 2를 사용한다. 자격증명이나 임의의 AWS 측정값을 대시보드에 넣지 않았으며 실제 AWS 조회는 미검증이다.
+Grafana 화면은 서비스 관제·트래픽/Spring·AWS/서버·DB 요약과 SQL/세션·복제/복구 상세로 나눈다. 명사형 상태·역할별 대상·장애 구간을 표시하고 `pg_up=0`인 DB 접속 장애와 exporter 수집 경로 장애를 구분한다. Spring HTTP histogram을 켜 실제 요청 지연을 수집한다. AWS 전용 [CloudWatch 설정](../../../deploy/compose.observability-aws.yml)은 기존 EC2 instance profile과 서울 리전을 사용한다. ALB·조회 ASG·EBS 질의는 준비했으며 고객별 자원 매핑과 IAM 확인 전에는 비활성 상태로 유지한다. 실제 자원 식별자는 Terraform 출력으로 제공하고 관측 bot만 IMDSv2 hop limit 2를 사용한다. 자격증명이나 임의의 AWS 측정값을 대시보드에 넣지 않았으며 실제 AWS 조회는 미검증이다.
 
 보고의 원자료 JSON 나열은 사건·영향·현재 상태·담당자 개입·조치와 완료 조건으로 바꿨다. 경보 해제와 서비스 전체 복구를 구분하며, DB는 exchange 데이터베이스 연결만 집계하고 업무 HTTP 지표에서는 actuator를 제외한다. 자료 없음은 정상 0으로 바꾸지 않는다. Teams와 HTML·PDF는 같은 개입 판정과 표시 모델을 사용한다. 한글 PDF는 2쪽 고정 양식이며 저장된 조회 표본으로 그래프를 그린다. 수집 공백은 선으로 메우지 않고 예전 요약 보고는 마지막 값의 막대로 구분한다. 백업 예약·복원 확인 자료의 선택적 입력을 두되 없거나 오래된 확인으로 관찰 유지 판정을 내리지 않는다. 새 장애·해제 카드와 PDF/HTML 버튼을 전송했고 사용자가 PDF 열기를 확인했다. 개선 지시의 실제 AI 응답은 아직 검증하지 않았다.
 
@@ -192,6 +202,7 @@ Linux 실행 환경부터 확인한다. 기존 ADR 0010의 Rocky Linux 10 계열
 | [0025 베이스백업 재편입](0025-rejoin-by-basebackup-no-wal-retention.md) | 구 primary는 전량 복사로 편입한다. rewind용 WAL 보존은 비채택이고 이중화 공백이 남는다. |
 | [0026 리스 KEY SHARE](0026-leader-lease-key-share-lock.md) | V41 인덱스와 FOR KEY SHARE가 전제다. 당시 후속 과제였던 SnapshotStore의 권한 검사는 현재 연결됐다. |
 | [0027 MSP 운영·자동 확장](0027-msp-operations-and-autoscaling.md) | Linux·네트워크·DB 운영과 관제, 조회 ASG, Teams·AI 일일 및 장애 보고를 현재 목표로 삼는다. 로컬 카오스는 개발 검증 이력으로 보존한다. |
+| [0028 기본 관제와 확장 콘솔](0028-operator-console.md) | 기존 Grafana 네 화면과 기본 관리 기능을 기본 관제로 사용한다. 별도 사설 콘솔은 보고·확인 이력의 비교·확장용으로 보존하며 실제 운영 조치와 구분한다. |
 
 ## 이 문서를 갱신하는 방법
 
@@ -201,4 +212,4 @@ Linux 실행 환경부터 확인한다. 기존 ADR 0010의 Rocky Linux 10 계열
 
 이 검사는 내용을 자동으로 요약하지 않으며 소스 변경의 설명 정확성까지 증명하지 않는다. 코드 변경도 [공통 작업 규칙](../../../AGENTS.md)에 따라 원본과 대조한다. 로컬에서 실행한 범위는 로드맵과 증거에 한정하며 AWS 권한·자원·DNS·청구와 실제 AI 모델은 여전히 미확인이다.
 
-<!-- sources-sha256: 1102483e0448c4c266dfc5c426f538dc73fff69554759ec71cfba77a40345488 -->
+<!-- sources-sha256: 87d080d959719e592e7afe2fdd3eac6db00b97387f9ec0bd5947a7213f32a35d -->

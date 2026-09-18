@@ -2,10 +2,10 @@ name: ci-operations
 
 on:
   pull_request:
-    paths: ['deploy/**', 'harness/cstats/**', 'harness/grafana/dashboards/**', '.github/workflows/ci-operations.yml']
+    paths: ['deploy/**', 'harness/cstats/**', 'harness/grafana/dashboards/**', 'harness/prometheus/pg-queries.yaml', '.github/workflows/ci-operations.yml']
   push:
     branches: [main, 'codex/docs-linux-operations']
-    paths: ['deploy/**', 'harness/cstats/**', 'harness/grafana/dashboards/**', '.github/workflows/ci-operations.yml']
+    paths: ['deploy/**', 'harness/cstats/**', 'harness/grafana/dashboards/**', 'harness/prometheus/pg-queries.yaml', '.github/workflows/ci-operations.yml']
 
 permissions:
   contents: read
@@ -36,6 +36,8 @@ jobs:
           python -m unittest discover -s deploy/backup -p test_backup.py -v
           python -m unittest discover -s deploy/lab -p 'test_*.py' -v
           python -m unittest discover -s deploy/linux/tests -p 'test_*.py' -v
+          python -W error::ResourceWarning -m unittest discover -s deploy/console -p 'test_*.py' -v
+          node --test deploy/console/test_ui.mjs
           bash deploy/linux/tests/test-linux.sh
       - name: Linux and missing-data alert rules
         run: >-
@@ -51,6 +53,12 @@ jobs:
         run: |
           PYTHONPATH=deploy/reporting python -c 'import json; from test_scope import http_query_cases; print(json.dumps(http_query_cases()))' |
             docker run --rm -i --entrypoint promtool prom/prometheus:v3.13.0 test rules /dev/stdin
+      - name: Grafana customer query semantics
+        run: |
+          PYTHONPATH=deploy/observability/tests python -c 'import json; from test_msp_queries import semantic_cases; print(json.dumps(semantic_cases()))' |
+            docker run --rm -i --entrypoint promtool prom/prometheus:v3.13.0 test rules /dev/stdin
+      - name: PostgreSQL metric semantics and exporter integration
+        run: python deploy/observability/tests/test_pg_ops_metrics.py --docker docker -v
       - name: AWS target discovery alert rules
         run: >-
           docker run --rm --entrypoint promtool

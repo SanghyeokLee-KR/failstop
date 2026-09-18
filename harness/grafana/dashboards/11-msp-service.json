@@ -1,17 +1,18 @@
 {
   "uid": "msp-service",
   "title": "02 · 트래픽·Spring",
+  "description": "고객 서비스 관제 · 실측 자료 · 미수집 분리 · 운영자 판단",
   "tags": [
-    "msp",
-    "operations"
+    "MSP",
+    "customer-operations"
   ],
-  "timezone": "Asia/Seoul",
   "schemaVersion": 39,
-  "editable": true,
-  "graphTooltip": 1,
+  "version": 1,
+  "editable": false,
+  "timezone": "Asia/Seoul",
   "refresh": "15s",
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {
@@ -22,6 +23,80 @@
       "5m"
     ]
   },
+  "links": [
+    {
+      "type": "link",
+      "title": "01 · 서비스 관제",
+      "url": "/d/msp-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "02 · 트래픽·Spring",
+      "url": "/d/msp-service",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "03 · AWS·서버",
+      "url": "/d/msp-infra",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "04 · DB 관제",
+      "url": "/d/msp-db",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "05 · SQL·세션",
+      "url": "/d/msp-db-workload",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "06 · 복제·복구",
+      "url": "/d/msp-db-replication",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "다크",
+      "url": "/d/msp-service?theme=dark",
+      "targetBlank": true,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "라이트",
+      "url": "/d/msp-service?theme=light",
+      "targetBlank": true,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    }
+  ],
   "templating": {
     "list": [
       {
@@ -32,17 +107,12 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": {
-          "query": "label_values(up{job=~\"exchange-api|linux-host|postgres|blackbox-http\",role=~\"app|reader|data|standby|probe\"},customer)",
-          "refId": "customer"
-        },
         "refresh": 1,
+        "query": "label_values(up{role=~\"app|reader|data|standby|probe\"}, customer)",
         "current": {
           "text": "exchange",
           "value": "exchange"
-        },
-        "multi": false,
-        "includeAll": false
+        }
       },
       {
         "name": "environment",
@@ -52,100 +122,42 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": {
-          "query": "label_values(up{customer=\"$customer\",job=~\"exchange-api|linux-host|postgres|blackbox-http\",role=~\"app|reader|data|standby|probe\"},environment)",
-          "refId": "environment"
-        },
         "refresh": 1,
-        "current": {},
-        "multi": false,
-        "includeAll": false
+        "query": "label_values(up{customer=\"$customer\",role=~\"app|reader|data|standby|probe\"}, environment)",
+        "current": {
+          "text": "local-lab",
+          "value": "local-lab"
+        }
       }
     ]
   },
-  "links": [
-    {
-      "type": "link",
-      "icon": "dashboard",
-      "includeVars": true,
-      "keepTime": true,
-      "title": "01 서비스 관제",
-      "url": "/d/msp-overview?${__url_time_range}&var-customer=${customer}&var-environment=${environment}",
-      "targetBlank": false
-    },
-    {
-      "type": "link",
-      "icon": "dashboard",
-      "includeVars": true,
-      "keepTime": true,
-      "title": "02 트래픽·Spring",
-      "url": "/d/msp-service?${__url_time_range}&var-customer=${customer}&var-environment=${environment}",
-      "targetBlank": false
-    },
-    {
-      "type": "link",
-      "icon": "dashboard",
-      "includeVars": true,
-      "keepTime": true,
-      "title": "03 AWS·서버",
-      "url": "/d/msp-infra?${__url_time_range}&var-customer=${customer}&var-environment=${environment}",
-      "targetBlank": false
-    },
-    {
-      "type": "link",
-      "icon": "dashboard",
-      "includeVars": true,
-      "keepTime": true,
-      "title": "04 DB·복구",
-      "url": "/d/msp-db?${__url_time_range}&var-customer=${customer}&var-environment=${environment}",
-      "targetBlank": false
-    }
-  ],
   "annotations": {
     "list": [
       {
         "name": "고객 경보",
-        "enable": true,
-        "hide": false,
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "expr": "ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"}",
-        "iconColor": "#E5B35F",
+        "enable": true,
+        "hide": true,
+        "iconColor": "red",
+        "expr": "(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"} and (time() - timestamp(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"}) < 90))",
         "titleFormat": "{{alertname}}",
-        "textFormat": "{{node}} · {{severity}}",
-        "tagKeys": "severity"
+        "textFormat": "{{node}} · {{severity}}"
       }
     ]
   },
   "panels": [
     {
-      "type": "text",
-      "title": "",
-      "transparent": true,
+      "type": "stat",
+      "title": "성공 응답 · 2xx",
+      "description": "실측 HTTP 2xx 응답. 리다이렉트·요청 제한·서버 오류를 성공 처리량에서 제외.",
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 24,
-        "h": 2
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "**FAILSTOP / 트래픽 · SPRING**　 ·　**${customer}**　 ·　**${environment}**　 |　요청 · 지연 · 오류 · 조회 노드 증감"
-      },
-      "description": "트래픽 급증 경로  ·  요청 증가 → 응답 지연·오류 → 조회 노드 증감 → DB 연결 여유",
-      "id": 1
-    },
-    {
-      "type": "stat",
-      "title": "API 요청량",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 2,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "datasource": {
         "type": "prometheus",
@@ -153,22 +165,22 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "자료 없음",
+          "noValue": "미수집",
           "mappings": [
             {
               "type": "special",
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
+                  "text": "미수집",
+                  "color": "text"
                 }
               }
             }
           ],
           "color": {
             "mode": "fixed",
-            "fixedColor": "#6AA7EF"
+            "fixedColor": "blue"
           },
           "unit": "reqps",
           "decimals": 2
@@ -178,7 +190,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval]))",
+          "expr": "sum((sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"2..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)))) or (0 * sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)))))",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -190,32 +202,32 @@
         "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
-        "justifyMode": "center",
+        "justifyMode": "left",
         "orientation": "horizontal",
         "wideLayout": true,
         "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false
-        },
-        "text": {
-          "valueSize": 30
         }
       },
-      "id": 2
+      "id": 1
     },
     {
       "type": "stat",
-      "title": "API 오류율 · 5xx",
-      "description": "",
+      "title": "요청 제한 · HTTP 429",
+      "description": "요청 제한에 의한 거절. 서버 오류율 및 성공 응답과 별도 관측.",
       "gridPos": {
-        "x": 4,
-        "y": 2,
-        "w": 4,
-        "h": 4
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 3
       },
       "datasource": {
         "type": "prometheus",
@@ -223,15 +235,110 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "자료 없음",
+          "noValue": "미수집",
           "mappings": [
             {
               "type": "special",
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "reqps",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 0.01,
+                "color": "orange"
+              },
+              {
+                "value": 5,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum((sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"429\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)))) or (0 * sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)))))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "서버 오류율 · 5xx",
+      "description": " 요청이 없는 구간은 요청 없음. 수집 중단은 미수집. 실제 측정값 0과 구분.",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "요청 없음",
+                  "color": "text"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
                 }
               }
             }
@@ -245,16 +352,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#57BFA3",
-                "value": null
+                "value": null,
+                "color": "green"
               },
               {
-                "color": "#E5B35F",
-                "value": 1
+                "value": 1,
+                "color": "orange"
               },
               {
-                "color": "#E36C78",
-                "value": 5
+                "value": 5,
+                "color": "red"
               }
             ]
           }
@@ -264,7 +371,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * (sum(rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"5..\"}[$__rate_interval])) or (0 * sum(rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])))) / (sum(rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) > 0)",
+          "expr": "(100 * (sum(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"5..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) or (0 * sum(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))))) / (sum(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) > 0)) or (-1 + 0 * (sum(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) == 0))",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -276,32 +383,32 @@
         "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
-        "justifyMode": "center",
+        "justifyMode": "left",
         "orientation": "horizontal",
         "wideLayout": true,
         "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false
-        },
-        "text": {
-          "valueSize": 30
         }
       },
       "id": 3
     },
     {
       "type": "stat",
-      "title": "API 응답 · P95",
-      "description": "",
+      "title": "성공 응답 시간 · P95",
+      "description": "2xx 응답만 산정. 빠른 429 응답에 의한 지연 과소평가 방지. 요청이 없는 구간은 요청 없음. 수집 중단은 미수집. 실제 측정값 0과 구분.",
       "gridPos": {
-        "x": 8,
-        "y": 2,
-        "w": 4,
-        "h": 4
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 3
       },
       "datasource": {
         "type": "prometheus",
@@ -309,22 +416,35 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "자료 없음",
+          "noValue": "미수집",
           "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "text": "요청 없음",
+                  "color": "text"
+                },
+                "-2": {
+                  "text": "성공 응답 없음",
+                  "color": "orange"
+                }
+              }
+            },
             {
               "type": "special",
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
+                  "text": "미수집",
+                  "color": "text"
                 }
               }
             }
           ],
           "color": {
             "mode": "fixed",
-            "fixedColor": "#6AA7EF"
+            "fixedColor": "blue"
           },
           "unit": "ms",
           "decimals": 1
@@ -334,7 +454,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "1000 * histogram_quantile(0.95, sum by(le)(rate(http_server_requests_seconds_bucket{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])))",
+          "expr": "(((1000 * histogram_quantile(0.95,sum by(le)(((rate(http_server_requests_seconds_bucket{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"2..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))))) < +Inf) and on() (sum(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"2..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) > 0)) or (-1 + 0 * (sum(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) == 0)) or ((-2 + 0 * (sum((sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"2..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)))) or (0 * sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))))) == 0)) and on() (sum(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) > 0))",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -346,274 +466,1284 @@
         "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
-        "justifyMode": "center",
+        "justifyMode": "left",
         "orientation": "horizontal",
         "wideLayout": true,
         "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false
-        },
-        "text": {
-          "valueSize": 30
         }
       },
       "id": 4
     },
     {
-      "type": "stat",
-      "title": "활성 앱 리더",
-      "description": "매칭 리더는 1대. 조회 ASG 증감과 별도 판단.",
+      "type": "canvas",
+      "title": "서비스 경로 · 계층별 상태",
+      "description": "선택 고객·환경의 실측 상태. 회색은 미수집 또는 미연결. 화살표는 설계 경로이며 구간별 네트워크 성공 판정이 아님. DB 역할은 호출 쿼리의 in_recovery 기준.",
       "gridPos": {
-        "x": 12,
-        "y": 2,
-        "w": 4,
+        "x": 0,
+        "y": 3,
+        "w": 24,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "자료 없음",
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null+nan",
-                "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "thresholds"
-          },
-          "unit": "suffix:대",
-          "decimals": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#E36C78",
-                "value": null
-              },
-              {
-                "color": "#57BFA3",
-                "value": 1
-              },
-              {
-                "color": "#E36C78",
-                "value": 2
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
+      "transparent": false,
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(exchange_leader_is_leader{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",role=\"app\"})",
-          "legendFormat": "",
+          "expr": "(min(((probe_success{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) < 90)) == 1))) == 0) or (min(((probe_success{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) < 90)) == 1))) and on() (count(((probe_success{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) < 90)) == 1))) == count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"})))",
+          "legendFormat": "edge",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "min(((probe_success{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\",service=\"cloudfront\",environment=\"aws\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) < 90)) == 1)))",
+          "legendFormat": "cloudfront",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "C",
+          "expr": "min(((probe_success{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\",service=\"alb\",environment=\"aws\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) < 90)) == 1)))",
+          "legendFormat": "alb",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "D",
+          "expr": "(min(((exchange_node_serviceable{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) == 0) or (min(((exchange_node_serviceable{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) and on() (count(((exchange_node_serviceable{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) == count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})))",
+          "legendFormat": "spring",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "E",
+          "expr": "(0 * ((count(((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (0 * count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))))) > 1)) or (((count(((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (0 * count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))))) == bool 1) and on() (count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))) == count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"})))",
+          "legendFormat": "primary",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "F",
+          "expr": "((count(((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1) or (0 * count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))))) >= bool 1) and on() (count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))) == count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}))",
+          "legendFormat": "standby",
           "instant": true,
           "range": false,
           "format": "time_series",
           "editorMode": "code"
         }
       ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "value",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "미수집",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#788396"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "#788396"
+                }
+              }
+            }
+          ]
         },
-        "text": {
-          "valueSize": 30
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "D"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "E"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "F"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "inlineEditing": false,
+        "panZoom": false,
+        "zoomToContent": false,
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "single",
+          "disableForOneClick": false
+        },
+        "root": {
+          "name": "관측 경로",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "edge-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 0.6,
+                "right": 84.4,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "edge",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "cloudfront-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "edge-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 1.6,
+                "right": 95.30000000000001,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/globe.svg"
+                },
+                "fill": {
+                  "field": "edge",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "edge-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 5.3,
+                "right": 84.9,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "외부 접속"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "edge-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 1.1,
+                "right": 84.9,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "edge"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "cloudfront-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 17.200000000000003,
+                "right": 67.8,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "cloudfront",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "alb-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "cloudfront-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 18.200000000000003,
+                "right": 78.7,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/cloud.svg"
+                },
+                "fill": {
+                  "field": "cloudfront",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "cloudfront-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 21.900000000000002,
+                "right": 68.3,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "CloudFront"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "cloudfront-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 17.700000000000003,
+                "right": 68.3,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "cloudfront"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "alb-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 33.800000000000004,
+                "right": 51.19999999999999,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "alb",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "spring-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "alb-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 34.800000000000004,
+                "right": 62.09999999999999,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/exchange.svg"
+                },
+                "fill": {
+                  "field": "alb",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "alb-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 38.50000000000001,
+                "right": 51.69999999999999,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ALB"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "alb-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 34.300000000000004,
+                "right": 51.69999999999999,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "alb"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "spring-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 50.400000000000006,
+                "right": 34.599999999999994,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "spring",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "primary-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "spring-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 51.400000000000006,
+                "right": 45.49999999999999,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/server.svg"
+                },
+                "fill": {
+                  "field": "spring",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "spring-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 55.10000000000001,
+                "right": 35.099999999999994,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Spring Boot"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "spring-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 50.900000000000006,
+                "right": 35.099999999999994,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "spring"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 67.0,
+                "right": 18.0,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "primary",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "standby-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "primary-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 68.0,
+                "right": 28.9,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/database.svg"
+                },
+                "fill": {
+                  "field": "primary",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 71.7,
+                "right": 18.499999999999996,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Primary DB"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 67.5,
+                "right": 18.5,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "primary"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 83.6,
+                "right": 1.4000000000000057,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "standby",
+                  "fixed": "#788396"
+                }
+              }
+            },
+            {
+              "name": "standby-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 84.6,
+                "right": 12.300000000000006,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/database.svg"
+                },
+                "fill": {
+                  "field": "standby",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 88.3,
+                "right": 1.9000000000000021,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Standby DB"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 84.1,
+                "right": 1.9000000000000057,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "standby"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            }
+          ]
         }
       },
       "id": 5
     },
     {
-      "type": "stat",
-      "title": "조회 노드 · 수집 응답",
-      "description": "",
-      "gridPos": {
-        "x": 16,
-        "y": 2,
-        "w": 4,
-        "h": 4
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "미연결",
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null+nan",
-                "result": {
-                  "text": "미연결",
-                  "color": "#94A3B8"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#6AA7EF"
-          },
-          "unit": "suffix:대",
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",role=\"reader\"})",
-          "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "time_series",
-          "editorMode": "code"
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "value",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {
-          "valueSize": 30
-        }
-      },
-      "id": 6
-    },
-    {
-      "type": "stat",
-      "title": "DB 풀 대기",
-      "description": "",
-      "gridPos": {
-        "x": 20,
-        "y": 2,
-        "w": 4,
-        "h": 4
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "자료 없음",
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null+nan",
-                "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "thresholds"
-          },
-          "unit": "suffix:건",
-          "decimals": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#57BFA3",
-                "value": null
-              },
-              {
-                "color": "#E5B35F",
-                "value": 1
-              },
-              {
-                "color": "#E36C78",
-                "value": 10
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(hikaricp_connections_pending{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})",
-          "legendFormat": "",
-          "instant": true,
-          "range": false,
-          "format": "time_series",
-          "editorMode": "code"
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "value",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {
-          "valueSize": 30
-        }
-      },
-      "id": 7
-    },
-    {
       "type": "timeseries",
-      "title": "요청량 · 역할별",
-      "description": "",
+      "title": "성공 응답 · 경로별",
+      "description": "경로별 원래 집계를 유지한 표시명. 전체 메서드·URI는 아래 요청 경로 표와 쿼리 검사에서 확인.",
       "gridPos": {
         "x": 0,
-        "y": 6,
-        "w": 8,
-        "h": 7
+        "y": 7,
+        "w": 6,
+        "h": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -621,15 +1751,15 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "자료 없음",
+          "noValue": "미수집",
           "mappings": [
             {
               "type": "special",
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
+                  "text": "미수집",
+                  "color": "text"
                 }
               }
             }
@@ -642,60 +1772,143 @@
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "linear",
-            "lineWidth": 2,
+            "lineWidth": 1.5,
             "fillOpacity": 8,
             "showPoints": "never",
             "spanNulls": false,
-            "insertNulls": false,
+            "insertNulls": true,
             "axisPlacement": "auto",
             "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
             "scaleDistribution": {
               "type": "linear"
-            },
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
             },
             "stacking": {
               "mode": "none",
               "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           }
         },
         "overrides": [
           {
             "matcher": {
-              "id": "byName",
-              "options": "app"
+              "id": "byRegexp",
+              "options": "^GET /api/v1/orderbook$"
             },
             "properties": [
               {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#6AA7EF"
-                }
+                "id": "displayName",
+                "value": "호가"
               }
             ]
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "reader"
+              "id": "byRegexp",
+              "options": "^GET /api/v1/trades$"
             },
             "properties": [
               {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#57BFA3"
-                }
+                "id": "displayName",
+                "value": "체결"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/candles/\\{unit\\}$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "캔들"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/markets$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "마켓"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/ticker$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "현재가"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/accounts$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "계정"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/orders$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "주문 조회"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^POST /api/v1/orders$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "주문 접수"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^DELETE /api/v1/orders/\\{orderId\\}$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "주문 취소"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET UNKNOWN$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "경로 미확인"
               }
             ]
           }
@@ -704,8 +1917,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by(role)(rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval]))",
-          "legendFormat": "{{role}}",
+          "expr": "(sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"2..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)))) or (0 * sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))))",
+          "legendFormat": "{{method}} {{uri}}",
           "instant": false,
           "range": true,
           "format": "time_series",
@@ -713,30 +1926,27 @@
         }
       ],
       "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull"
-          ]
         }
       },
-      "id": 8
+      "id": 6
     },
     {
       "type": "timeseries",
-      "title": "응답 지연 · 평균 / P95 / P99",
-      "description": "",
+      "title": "HTTP 429 · 경로별",
+      "description": "경로별 원래 집계를 유지한 표시명. 전체 메서드·URI는 아래 요청 경로 표와 쿼리 검사에서 확인.",
       "gridPos": {
-        "x": 8,
-        "y": 6,
-        "w": 8,
-        "h": 7
+        "x": 6,
+        "y": 7,
+        "w": 6,
+        "h": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -744,15 +1954,218 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "자료 없음",
+          "noValue": "미수집",
           "mappings": [
             {
               "type": "special",
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/orderbook$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "호가"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/trades$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "체결"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/candles/\\{unit\\}$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "캔들"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/markets$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "마켓"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/ticker$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "현재가"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/accounts$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "계정"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/orders$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "주문 조회"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^POST /api/v1/orders$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "주문 접수"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^DELETE /api/v1/orders/\\{orderId\\}$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "주문 취소"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET UNKNOWN$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "경로 미확인"
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"429\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)))) or (0 * sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))))",
+          "legendFormat": "{{method}} {{uri}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "성공 P95 · 경로별",
+      "description": "경로별 원래 집계를 유지한 표시명. 전체 메서드·URI는 아래 요청 경로 표와 쿼리 검사에서 확인. HTTP 2xx 히스토그램의 P95만 사용하며 성공 응답이 없는 경로는 미산정.",
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
                 }
               }
             }
@@ -765,29 +2178,225 @@
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "linear",
-            "lineWidth": 2,
+            "lineWidth": 1.5,
             "fillOpacity": 8,
             "showPoints": "never",
             "spanNulls": false,
-            "insertNulls": false,
+            "insertNulls": true,
             "axisPlacement": "auto",
             "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
             "scaleDistribution": {
               "type": "linear"
-            },
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
             },
             "stacking": {
               "mode": "none",
               "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/orderbook$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "호가"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/trades$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "체결"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/candles/\\{unit\\}$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "캔들"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/markets$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "마켓"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/ticker$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "현재가"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/accounts$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "계정"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET /api/v1/orders$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "주문 조회"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^POST /api/v1/orders$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "주문 접수"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^DELETE /api/v1/orders/\\{orderId\\}$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "주문 취소"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^GET UNKNOWN$"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "경로 미확인"
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((1000 * histogram_quantile(0.95,sum by(le,uri,method)(((rate(http_server_requests_seconds_bucket{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"2..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))))) < +Inf) and on(uri,method) (sum by(uri,method)(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"2..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) > 0)",
+          "legendFormat": "{{method}} {{uri}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP 응답 코드 · 전체 응답",
+      "description": "",
+      "gridPos": {
+        "x": 18,
+        "y": 7,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 22,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           }
         },
@@ -795,14 +2404,14 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "평균"
+              "options": "2xx"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#6AA7EF"
+                  "fixedColor": "green"
                 }
               }
             ]
@@ -810,14 +2419,14 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "P95"
+              "options": "3xx"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#E5B35F"
+                  "fixedColor": "blue"
                 }
               }
             ]
@@ -825,14 +2434,29 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "P99"
+              "options": "4xx"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#E36C78"
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
                 }
               }
             ]
@@ -842,8 +2466,122 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "1000 * sum(rate(http_server_requests_seconds_sum{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) / (sum(rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])) > 0)",
-          "legendFormat": "평균",
+          "expr": "sum by(code)(label_replace(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"1..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)),\"code\",\"1xx\",\"status\",\".*\") or label_replace(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"2..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)),\"code\",\"2xx\",\"status\",\".*\") or label_replace(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"3..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)),\"code\",\"3xx\",\"status\",\".*\") or label_replace(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"4..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)),\"code\",\"4xx\",\"status\",\".*\") or label_replace(((rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"5..\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)),\"code\",\"5xx\",\"status\",\".*\"))",
+          "legendFormat": "{{code}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU / Heap 사용률",
+      "description": "CPU는 Spring 프로세스. Heap은 사용량 / committed이며 최대 힙 한도 대비 비율과 구분.",
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "max": 100
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * ((process_cpu_usage{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))",
+          "legendFormat": "{{node}} CPU",
           "instant": false,
           "range": true,
           "format": "time_series",
@@ -851,17 +2589,8 @@
         },
         {
           "refId": "B",
-          "expr": "1000 * histogram_quantile(0.95, sum by(le)(rate(http_server_requests_seconds_bucket{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])))",
-          "legendFormat": "P95",
-          "instant": false,
-          "range": true,
-          "format": "time_series",
-          "editorMode": "code"
-        },
-        {
-          "refId": "C",
-          "expr": "1000 * histogram_quantile(0.99, sum by(le)(rate(http_server_requests_seconds_bucket{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval])))",
-          "legendFormat": "P99",
+          "expr": "100 * sum by(node,instance)(((jvm_memory_used_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",area=\"heap\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) / (sum by(node,instance)(((jvm_memory_committed_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",area=\"heap\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) > 0)",
+          "legendFormat": "{{node}} Heap",
           "instant": false,
           "range": true,
           "format": "time_series",
@@ -869,122 +2598,27 @@
         }
       ],
       "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
-      },
-      "id": 9
-    },
-    {
-      "type": "timeseries",
-      "title": "응답 코드 · HTTP",
-      "description": "",
-      "gridPos": {
-        "x": 16,
-        "y": 6,
-        "w": 8,
-        "h": 7
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "자료 없음",
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null+nan",
-                "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "reqps",
-          "min": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": false,
-            "insertNulls": false,
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            },
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by(status)(rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval]))",
-          "legendFormat": "HTTP {{status}}",
-          "instant": false,
-          "range": true,
-          "format": "time_series",
-          "editorMode": "code"
-        }
-      ],
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull"
-          ]
         }
       },
       "id": 10
     },
     {
       "type": "timeseries",
-      "title": "노드별 요청량",
-      "description": "ASG 노드 등록 후 요청 분산 확인.",
+      "title": "JVM GC 시간 비율",
+      "description": "",
       "gridPos": {
-        "x": 0,
-        "y": 13,
-        "w": 8,
-        "h": 7
+        "x": 6,
+        "y": 11,
+        "w": 6,
+        "h": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -992,15 +2626,15 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "자료 없음",
+          "noValue": "미수집",
           "mappings": [
             {
               "type": "special",
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
+                  "text": "미수집",
+                  "color": "text"
                 }
               }
             }
@@ -1008,34 +2642,27 @@
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "reqps",
+          "unit": "percent",
           "min": 0,
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "linear",
-            "lineWidth": 2,
+            "lineWidth": 1.5,
             "fillOpacity": 8,
             "showPoints": "never",
             "spanNulls": false,
-            "insertNulls": false,
+            "insertNulls": true,
             "axisPlacement": "auto",
             "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
             "scaleDistribution": {
               "type": "linear"
-            },
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
             },
             "stacking": {
               "mode": "none",
               "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           }
         },
@@ -1044,8 +2671,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by(node)(rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval]))",
-          "legendFormat": "{{node}}",
+          "expr": "100 * sum by(node,instance,gc)(((rate(jvm_gc_pause_seconds_sum{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)))",
+          "legendFormat": "{{node}} {{gc}}",
           "instant": false,
           "range": true,
           "format": "time_series",
@@ -1053,30 +2680,27 @@
         }
       ],
       "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull"
-          ]
         }
       },
       "id": 11
     },
     {
       "type": "timeseries",
-      "title": "Spring CPU · 프로세스",
-      "description": "EC2 호스트 CPU와 구분한 JVM 프로세스 CPU.",
+      "title": "활성 스레드",
+      "description": "",
       "gridPos": {
-        "x": 8,
-        "y": 13,
-        "w": 8,
-        "h": 7
+        "x": 12,
+        "y": 11,
+        "w": 6,
+        "h": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -1084,15 +2708,15 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "자료 없음",
+          "noValue": "미수집",
           "mappings": [
             {
               "type": "special",
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
+                  "text": "미수집",
+                  "color": "text"
                 }
               }
             }
@@ -1100,44 +2724,36 @@
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "percent",
+          "unit": "short",
           "min": 0,
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "linear",
-            "lineWidth": 2,
+            "lineWidth": 1.5,
             "fillOpacity": 8,
             "showPoints": "never",
             "spanNulls": false,
-            "insertNulls": false,
+            "insertNulls": true,
             "axisPlacement": "auto",
             "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
             "scaleDistribution": {
               "type": "linear"
-            },
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
             },
             "stacking": {
               "mode": "none",
               "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
-          },
-          "max": 100
+          }
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * process_cpu_usage{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}",
+          "expr": "((jvm_threads_live_threads{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))",
           "legendFormat": "{{node}}",
           "instant": false,
           "range": true,
@@ -1146,30 +2762,27 @@
         }
       ],
       "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull"
-          ]
         }
       },
       "id": 12
     },
     {
       "type": "timeseries",
-      "title": "JVM 힙 · 사용률",
+      "title": "DB 연결 풀 · 사용 / 한도",
       "description": "",
       "gridPos": {
-        "x": 16,
-        "y": 13,
-        "w": 8,
-        "h": 7
+        "x": 18,
+        "y": 11,
+        "w": 6,
+        "h": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -1177,108 +2790,15 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "자료 없음",
+          "noValue": "미수집",
           "mappings": [
             {
               "type": "special",
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "percent",
-          "min": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": false,
-            "insertNulls": false,
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            },
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
-          },
-          "max": 100
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "100 * sum by(node)(jvm_memory_used_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",area=\"heap\"}) / sum by(node)(jvm_memory_max_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",area=\"heap\"})",
-          "legendFormat": "{{node}}",
-          "instant": false,
-          "range": true,
-          "format": "time_series",
-          "editorMode": "code"
-        }
-      ],
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
-      },
-      "id": 13
-    },
-    {
-      "type": "timeseries",
-      "title": "처리 대기 · 마켓별",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 20,
-        "w": 8,
-        "h": 6
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "자료 없음",
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null+nan",
-                "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
+                  "text": "미수집",
+                  "color": "text"
                 }
               }
             }
@@ -1291,130 +2811,62 @@
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "linear",
-            "lineWidth": 2,
+            "lineWidth": 1.5,
             "fillOpacity": 8,
             "showPoints": "never",
             "spanNulls": false,
-            "insertNulls": false,
+            "insertNulls": true,
             "axisPlacement": "auto",
             "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
             "scaleDistribution": {
               "type": "linear"
-            },
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
             },
             "stacking": {
               "mode": "none",
               "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           }
         },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "exchange_sequencer_queue_size{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}",
-          "legendFormat": "{{node}} · 마켓 {{market}}",
-          "instant": false,
-          "range": true,
-          "format": "time_series",
-          "editorMode": "code"
-        }
-      ],
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
-      },
-      "id": 14
-    },
-    {
-      "type": "timeseries",
-      "title": "DB 연결 풀 · 사용 / 대기",
-      "description": "",
-      "gridPos": {
-        "x": 8,
-        "y": 20,
-        "w": 8,
-        "h": 6
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "자료 없음",
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null+nan",
-                "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
                 }
               }
-            }
-          ],
-          "color": {
-            "mode": "palette-classic"
+            ]
           },
-          "unit": "short",
-          "min": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": false,
-            "insertNulls": false,
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
             },
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            },
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
           }
-        },
-        "overrides": []
+        ]
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by(node)(hikaricp_connections_active{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})",
+          "expr": "((hikaricp_connections_active{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))",
           "legendFormat": "{{node}} 사용",
           "instant": false,
           "range": true,
@@ -1423,8 +2875,8 @@
         },
         {
           "refId": "B",
-          "expr": "sum by(node)(hikaricp_connections_pending{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})",
-          "legendFormat": "{{node}} 대기",
+          "expr": "((hikaricp_connections_max{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))",
+          "legendFormat": "{{node}} 한도",
           "instant": false,
           "range": true,
           "format": "time_series",
@@ -1432,210 +2884,27 @@
         }
       ],
       "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull"
-          ]
         }
       },
-      "id": 15
-    },
-    {
-      "type": "timeseries",
-      "title": "외부 접속 · 응답 시간",
-      "description": "",
-      "gridPos": {
-        "x": 16,
-        "y": 20,
-        "w": 8,
-        "h": 6
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "자료 없음",
-          "mappings": [
-            {
-              "type": "special",
-              "options": {
-                "match": "null+nan",
-                "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "ms",
-          "min": 0,
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": false,
-            "insertNulls": false,
-            "axisPlacement": "auto",
-            "axisLabel": "",
-            "axisColorMode": "text",
-            "axisBorderShow": false,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            },
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "1000 * probe_duration_seconds{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}",
-          "legendFormat": "{{node}}",
-          "instant": false,
-          "range": true,
-          "format": "time_series",
-          "editorMode": "code"
-        }
-      ],
-      "options": {
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        },
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
-      },
-      "id": 16
-    },
-    {
-      "type": "state-timeline",
-      "title": "요청 수용 · 노드별",
-      "description": "연속 수집 기준. 공백은 미수집 구간이며 정상값으로 보간하지 않음.",
-      "gridPos": {
-        "x": 0,
-        "y": 26,
-        "w": 12,
-        "h": 6
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "자료 없음",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "장애",
-                  "color": "#E36C78"
-                },
-                "1": {
-                  "text": "정상",
-                  "color": "#57BFA3"
-                }
-              }
-            }
-          ],
-          "color": {
-            "mode": "thresholds"
-          },
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#E36C78",
-                "value": null
-              },
-              {
-                "color": "#57BFA3",
-                "value": 1
-              }
-            ]
-          },
-          "custom": {
-            "lineWidth": 0,
-            "fillOpacity": 80,
-            "spanNulls": false,
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            }
-          }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "exchange_node_serviceable{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}",
-          "legendFormat": "{{node}}",
-          "instant": false,
-          "range": true,
-          "format": "time_series",
-          "editorMode": "code"
-        }
-      ],
-      "options": {
-        "mergeValues": true,
-        "showValue": "never",
-        "alignValue": "left",
-        "rowHeight": 0.65,
-        "legend": {
-          "showLegend": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "id": 17
+      "id": 13
     },
     {
       "type": "table",
-      "title": "경로별 요청량",
+      "title": "인스턴스 · 요청 수용 상태",
       "description": "",
       "gridPos": {
-        "x": 12,
-        "y": 26,
-        "w": 12,
-        "h": 6
+        "x": 0,
+        "y": 15,
+        "w": 8,
+        "h": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -1643,15 +2912,15 @@
       },
       "fieldConfig": {
         "defaults": {
-          "noValue": "자료 없음",
+          "noValue": "미수집",
           "mappings": [
             {
               "type": "special",
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "자료 없음",
-                  "color": "#94A3B8"
+                  "text": "미수집",
+                  "color": "text"
                 }
               }
             }
@@ -1661,19 +2930,87 @@
           },
           "unit": "short",
           "custom": {
-            "align": "left",
+            "align": "auto",
+            "minWidth": 50,
             "cellOptions": {
               "type": "auto"
             },
-            "inspect": false
+            "filterable": false
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "등록 역할"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 75
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "상태"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "상태"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      }
+                    }
+                  },
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null+nan",
+                      "result": {
+                        "text": "미수집",
+                        "color": "text"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by(method,uri)(rate(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__rate_interval]))",
+          "expr": "((exchange_node_serviceable{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))",
           "legendFormat": "",
           "instant": true,
           "range": false,
@@ -1681,14 +3018,124 @@
           "editorMode": "code"
         }
       ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "node",
+                "role",
+                "Value"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "node": 0,
+              "role": 1,
+              "Value": 2
+            },
+            "renameByName": {
+              "node": "인스턴스",
+              "role": "등록 역할",
+              "Value": "상태"
+            }
+          }
+        }
+      ],
       "options": {
         "showHeader": true,
         "cellHeight": "sm",
         "footer": {
           "show": false
-        },
-        "sortBy": []
+        }
       },
+      "id": 14
+    },
+    {
+      "type": "table",
+      "title": "전체 응답 · 경로별 누적 요청",
+      "description": "",
+      "gridPos": {
+        "x": 8,
+        "y": 15,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "minWidth": 50,
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "메서드"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 64
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "요청 수"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(5,topk(10,sum by(uri,method)(((increase(http_server_requests_seconds_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[$__range])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1)))))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "editorMode": "code"
+        }
+      ],
       "transformations": [
         {
           "id": "filterFieldsByName",
@@ -1712,29 +3159,101 @@
             },
             "renameByName": {
               "method": "메서드",
-              "uri": "API 경로",
-              "Value": "요청/s"
+              "uri": "경로",
+              "Value": "요청 수"
             }
           }
         }
       ],
-      "id": 18
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 15
     },
     {
-      "type": "text",
-      "title": "확장 판단",
-      "transparent": true,
+      "type": "state-timeline",
+      "title": "요청 수용 · 인스턴스 이력",
+      "description": "회색·빈 구간은 미수집. 수집 응답과 실제 서비스 상태의 구분.",
       "gridPos": {
-        "x": 0,
-        "y": 32,
-        "w": 24,
-        "h": 3
+        "x": 16,
+        "y": 15,
+        "w": 8,
+        "h": 4
       },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "▲ 장애",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "● 정상",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 75,
+            "spanNulls": false,
+            "insertNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((exchange_node_serviceable{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
       "options": {
-        "mode": "markdown",
-        "content": "**조회 계층**　ALB 대상별 요청량·ASG 목표/가동·노드별 지연　 |　 **공유 병목**　Primary 연결·풀 대기·DB 지연\n\n**엔진 계층**　단일 리더·순차 처리 대기　 |　 **데이터 계층**　수동 승격·비동기 복제　 |　 **ASG 대상**　DB 완결 조회 API"
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "center",
+        "rowHeight": 0.72,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
-      "id": 19
+      "id": 16
     }
   ]
 }

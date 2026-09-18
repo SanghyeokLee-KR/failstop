@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 ROUTES = {"/node/metrics": ("GET", "node", "/metrics"),
@@ -18,6 +19,20 @@ ROUTES = {"/node/metrics": ("GET", "node", "/metrics"),
 
 
 def route_for(path):
+    parsed = urllib.parse.urlsplit(path)
+    if parsed.path == "/reporter/console/reports" and not (parsed.scheme or parsed.netloc or parsed.fragment):
+        try:
+            pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=True, max_num_fields=3)
+            query = dict(pairs)
+            if (len(query) != len(pairs) or set(query) - {"customer", "environment", "limit"}
+                    or any(not re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", query.get(name, ""))
+                           for name in ("customer", "environment"))
+                    or not re.fullmatch(r"[1-9][0-9]{0,2}", query.get("limit", "50"))
+                    or int(query.get("limit", "50")) > 100):
+                return None
+            return "GET", "reporter", path.removeprefix("/reporter")
+        except ValueError:
+            return None
     if re.fullmatch(r"/reporter/reports/[0-9a-f]{64}/[0-9]{10}/[0-9a-f]{64}/report\.(pdf|html)", path):
         return "GET", "reporter", path.removeprefix("/reporter")
     return ROUTES.get(path)
@@ -90,6 +105,9 @@ class Bridge(BaseHTTPRequestHandler):
             self.send_response(response["status"])
             self.send_header("Content-Type", response["type"])
             self.send_header("Content-Length", str(len(body)))
+            if self.path.startswith("/reporter/console/"):
+                self.send_header("Cache-Control", "private, no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
             if self.path.startswith("/reporter/reports/"):
                 self.send_header("Cache-Control", "private, no-store")
                 self.send_header("X-Content-Type-Options", "nosniff")

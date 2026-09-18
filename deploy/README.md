@@ -1,5 +1,7 @@
 # Linux 운영과 AWS 배포 안내
 
+기본 관제 화면은 기존 [Grafana MSP 대시보드](observability/README.md#grafana-기본-관제-화면)다. 로컬 `http://127.0.0.1:53001`에서 서비스·Spring·AWS/서버·DB 요약·SQL/세션·복제/복구의 여섯 화면을 조회하고 Grafana의 사이드바·계정·관리 메뉴를 사용한다. [별도 MSP 콘솔](console/README.md)은 포트 53002의 비교·확장 화면으로 보존하며 필요한 경우에만 [콘솔 Compose](compose.console.yml)를 추가한다.
+
 이 폴더에는 앱·조회·DB·봇/관측의 역할별 Compose와 Linux 운영·DB 복구·보고 도구가 있다. 정본 작업 브랜치는 `codex/docs-linux-operations`다. 루트 `compose.yaml`은 기존 로컬 개발 검증용이므로 AWS에 그대로 옮겨 쓰지 않는다.
 
 2026-09-18부터 AWS 단계의 목표는 MSP 운영·관제, Linux·네트워크·DB 운영, 조회 계층 EC2 자동 확장, AI 일일·장애 보고와 Microsoft Teams 연계다. 기존 노드 파일은 그 목표가 구현됐다는 뜻이 아니다. 수동 확장만 허용했던 정책은 [ADR 0027](../docs/reference/adr/0027-msp-operations-and-autoscaling.md)로 대체했고, 로컬 카오스는 과거 개발 검증 자료로 남긴다.
@@ -23,7 +25,7 @@ AWS 계정은 아직 제공되지 않았다. 로컬 실행과 실제 AWS 완료�
 | [compose.migrate.yml](compose.migrate.yml) | 스키마 적용, 초기 카탈로그·빈 시스템 계정, 분리 로그인 준비. |
 | [check-config.py](check-config.py) | 역할별 필수 값·digest·사설 바인딩·DB 풀 전체 예산 검사. |
 | [Linux 도구](linux/README.md) | 계정·SSH·권한·systemd·로그·방화벽·디스크 점검. |
-| [관측 도구](observability/README.md) | 호스트·DB exporter, 기존 Grafana와 Teams 기본 알림. |
+| [관측 도구](observability/README.md) | 호스트·DB exporter, 기본 Grafana MSP 여섯 화면·SQL 통계 설정·작업 공간 설정과 Teams 기본 알림. |
 | [DB 실습](lab/README.md), [백업 도구](backup/README.md) | 격리·수동 승격·전환·재편입과 실제 백업 복원. |
 | [운영 보고](reporting/README.md) | 매일 09:00 KST·장애 보고, 영속 재전송, 2쪽 PDF·HTML 자동 제공과 선택적 Gemini 분석. |
 | [Terraform](terraform/README.md) | AWS 네트워크·역할별 배치·조회 ASG 사전 구현. |
@@ -106,6 +108,8 @@ docker compose --env-file /etc/failstop/migrate.env -f deploy/compose.migrate.ym
 기본 연결 상한은 `(엔진 2 + 교체 여유 1) × 48 + 조회 최대 2 × 10 + 봇 10 + 운영 10 + 복제 4 = 188`이며 PostgreSQL 일반 한도 `200 - 3 = 197` 이내다. 실제 사용량이나 메모리 적정성의 측정값은 아니다. 풀·ASG 최대 대수·교체 여유를 바꾸면 전체 예산을 검사하고 2 GiB 기본 메모리와 실제 EC2 규격을 부하로 검증한다.
 
 node_exporter와 전용 DB exporter, 실제 주소 인벤토리와 Grafana를 연결한다. 고객사·환경·역할로 관측 범위를 정하고 서비스 관제·Spring·AWS 서버·DB 복구 화면에서 같은 대상을 조회한다. DB 접속 실패와 exporter 장애는 별도 경보이며 AWS CloudWatch는 전용 overlay와 기존 instance profile로 연결한다. ALB·ASG 식별자는 Terraform 출력에서 가져온다.
+
+DB 노드의 `PG_SHARED_PRELOAD_LIBRARIES` 기본값은 `pg_stat_statements`다. 기존 라이브러리를 보존해 primary·standby의 preload를 맞추고 재기동한 뒤, 관리자가 대상 DB의 primary에서 [확장 설치 SQL](observability/enable-sql-statistics.sql)을 실행한다. exporter의 `failstop_monitor`에는 설치 권한을 주지 않는다. SQL 호출 수·평균 실행 시간과 세션·잠금·WAL의 정의 및 미수집 처리는 [DB 통계 수집 안내](observability/README.md#db-처리량과-대기를-구분한다)를 따른다. AWS의 DB 재시작·확장 설치·복제 수집은 별도 실행 검증 대상이다.
 
 Alertmanager의 기본 Teams 경로와 보고 webhook은 독립적이다. 일일 보고는 **09:00 Asia/Seoul**이다. Google Gemini 직접 연결·호출 상한을 구현했으며 현재 설치는 외부 전송 동의를 기다리는 `facts-only`다. Teams 요약 카드와 같은 원자료의 2쪽 PDF·HTML 자동 제공은 [보고 서비스 안내](reporting/README.md)를 따른다. 파일 링크는 별도 키로 서명하고 기본 7일 뒤 만료된다. PDF 생성 실패가 카드 전송을 막지 않으며 실패를 별도 지표로 남긴다. 로컬 주소와 외부 관계자용 HTTPS 주소를 구분한다. SQLite가 중복·재시작·재전송을 처리하고 비밀 URL·키·토큰은 저장소에 넣지 않는다. HTTP 2xx와 실제 Teams 채널 게시를 구분하며, 환경별 실행 근거는 [09-18 기록](../docs/measurements/20260918.md)에 있다. AWS 계정 없이 Terraform 정적 검사를 통과한 것은 실제 plan·apply 결과가 아니다.
 

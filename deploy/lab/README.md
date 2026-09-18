@@ -29,4 +29,26 @@ python deploy/lab/run.py status
 python deploy/lab/run.py destroy --confirm-project failstop-ops-lab
 ```
 
+## 거래소 화면과 조회 부하 확인
+
+기존 실습 앱을 보존하면서 거래소 웹을 열려면 저장소 루트에서 다음 명령을 실행한다. `localhost:3000/exchange/KRW-BTC`에서 실제 API와 WebSocket을 사용한다. 봇을 실행하지 않은 실습에는 기존 체결만 표시되며 호가가 없을 수 있다. `compose.web.yml`은 별도 프로젝트로 웹만 기동하고 DB 역할이나 데이터를 바꾸지 않는다.
+
+```powershell
+$env:NEXT_PUBLIC_DATASOURCE='http'
+$env:NEXT_PUBLIC_API_BASE=''
+$env:NEXT_PUBLIC_WS_BASE=''
+npm --prefix web run build
+docker compose -p failstop-ops-web -f deploy/lab/compose.web.yml up -d
+```
+
+`measure-reads.py`는 이미 승격된 기본 실습의 앱과 primary만 읽는다. `grafana/k6:1.4.0`으로 호가·체결·1분 캔들을 같은 비율로 요청하며 10·18·30·60·120 req/s를 각각 60초 유지한다. 단계별 첫 20초는 전환 구간으로 제외하고 마지막 40초의 정상 응답·429 거절·성공 응답 P95/P99를 비교한다. 생성하지 못한 요청과 예기치 않은 응답도 별도로 확인해야 한다. 임시 부하 컨테이너는 2 CPU·512MiB로 제한하고 시험 후 제거한다.
+
+공개 조회의 기존 IP 제한은 유지한다. 이 시험은 한 출발지에서 제한에 도달하는 지점과 관측 연결을 확인하며 서버의 최대 성능이나 ASG 확장을 검증하지 않는다. DB가 작으면 실제 규모에서의 SQL 성능도 판단할 수 없다. 원자료는 [조회 부하 증거](../../artifacts/operations-20260918/load-review/context.json)와 [k6 집계](../../artifacts/operations-20260918/load-review/k6-summary.json)에 보존한다. 스크립트는 기존 증거가 있으면 덮어쓰지 않고 종료한다.
+
+```powershell
+python deploy/lab/measure-reads.py
+```
+
+웹만 종료할 때는 `docker compose -p failstop-ops-web -f deploy/lab/compose.web.yml down`을 사용한다.
+
 운영 백업 예약과 새 격리 DB의 복원 검증은 [백업 도구](../backup/README.md), 사람이 수행하는 실제 DB 전환은 [수동 페일오버 절차](../../docs/reference/operations/DB_수동_페일오버.md)를 따른다.
