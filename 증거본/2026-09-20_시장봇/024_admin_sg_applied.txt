@@ -1,0 +1,295 @@
+Browser tab: 2017667324, Title: "SecurityGroup | EC2 | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroup:group-id=sg-064b0da59e8c9a13c".
+0 AXWebArea SecurityGroup | EC2 | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroup:group-id=sg-064b0da59e8c9a13c
+	1 container b
+		78 container consoleNavHeader
+			79 container awsc-nav-header
+				80 image 계정 색상: 설정 해제
+				81 container 글로벌
+					82 container awsc-top-level-nav
+						83 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						84 link Description: 기본 콘텐츠로 건너뛰기, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#c
+						85 button (collapsed) Description: Amazon Q, ID: toolbar_@amzn/conversational-experience-module_amazon-q-tool, Secondary Actions: Expand
+						86 button (collapsed) Description: 서비스, Secondary Actions: Expand
+							87 image
+						88 container aws-unified-search-container
+							89 container
+								90 image 검색
+								91 combo box (collapsed, settable) Description: 검색, ID: awsc-concierge-input, Secondary Actions: Expand
+								92 button Amazon Q에게 질문하기 
+								93 text [알트+S]
+						94 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						95 container
+							96 pop up button Description: 알림(사용 가능한 알림 없음), Help: 알림
+								97 image 알림
+							98 image 알림
+						99 content list awsc-navigation__more-menu--list
+							100 button (collapsed) Description: 도움말 및 지원, Secondary Actions: Expand
+								101 image 지원
+							102 button (collapsed) Description: 설정, Secondary Actions: Expand
+							103 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								104 text 아시아 태평양 (서울)
+							105 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								106 text 계정 ID: 6192-5696-4117
+								107 text 2026-ai-kopo-04
+		2 container app
+			3 container
+				254 pop up button (expanded) Description: 측면 탐색 열기, Secondary Actions: Collapse
+				5 container 브레드크럼
+					6 content list
+						7 link Description: EC2, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Home:
+						8 link Description: 보안 그룹, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroups:
+						255 link (disabled) sg-064b0da59e8c9a13c
+							326 text sg-064b0da59e8c9a13c
+				256 container 드로어
+					257 toolbar 드로어
+						258 pop up button (collapsed) Description: Console-to-Code, Secondary Actions: Expand
+			259 container 측면 내비게이션
+				260 button 측면 내비게이션 닫기
+				261 heading EC2, Value: 2
+					262 link Description: EC2, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Overview:
+				263 content list
+					264 link Description: 대시보드, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Home:
+					265 link Description: AWS 글로벌 보기 새 탭에서 열림, Value: ap-northeast-2.console.aws.amazon.com/ec2globalview/home
+					266 link Description: 이벤트, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Events:
+					267 container
+						268 button (expanded) 인스턴스, Secondary Actions: Collapse
+							269 text 인스턴스
+						270 container Description: 인스턴스, ID: :r9:
+							271 content list
+								272 link Description: 인스턴스, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Instances:
+								273 link Description: 인스턴스 유형, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#InstanceTypes:
+								274 link Description: 시작 템플릿, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#LaunchTemplates:
+								275 link Description: 스팟 요청, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SpotInstances:
+								276 link Description: Savings Plans, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SavingsPlans:
+								277 link Description: 예약 인스턴스, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#ReservedInstances:
+								278 link Description: 전용 호스트, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Hosts:
+								279 link Description: 용량 예약, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#CapacityReservations:
+								280 container
+									281 link Description: 용량 관리자, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#CapacityManagerHome:
+									282 pop up button 신규, ID: :rn:
+										283 text 신규
+					284 container
+						285 button (expanded) 이미지, Secondary Actions: Collapse
+							286 text 이미지
+						287 container Description: 이미지, ID: :ra:
+							288 content list
+								289 link Description: AMI, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Images:
+								290 link Description: AMI 카탈로그, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#AMICatalog:
+					291 container
+						292 button (expanded) Elastic Block Store, Secondary Actions: Collapse
+							293 text Elastic Block Store
+						294 container Description: Elastic Block Store, ID: :rb:
+							295 content list
+								296 link Description: 볼륨, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Volumes:
+								297 link Description: 스냅샷, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Snapshots:
+								298 link Description: 수명 주기 관리자, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Lifecycle:
+					299 container
+						300 button (expanded) 네트워크 및 보안, Secondary Actions: Collapse
+							301 text 네트워크 및 보안
+						302 container Description: 네트워크 및 보안, ID: :rc:
+							303 content list
+								304 link Description: 보안 그룹, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroups:
+								305 link Description: 탄력적 IP, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Addresses:
+								306 link Description: 배치 그룹, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#PlacementGroups:
+								307 link Description: 키 페어, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#KeyPairs:
+								308 link Description: 네트워크 인터페이스, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#NIC:
+					309 container
+						310 button (expanded) 로드 밸런싱, Secondary Actions: Collapse
+							311 text 로드 밸런싱
+						312 container Description: 로드 밸런싱, ID: :rd:
+							313 content list
+								314 link Description: 로드밸런서, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#LoadBalancers:
+								315 link Description: 대상 그룹, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#TargetGroups:
+								316 link Description: Trust Store, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#TrustStores:
+					317 container
+						318 button (expanded) Auto Scaling, Secondary Actions: Collapse
+							319 text Auto Scaling
+						320 container Description: Auto Scaling, ID: :ro:
+							321 content list
+								322 link Description: Auto Scaling 그룹, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#AutoScalingGroups:
+				323 content list
+					324 link Description: 설정, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Settings:
+			73 container
+				252 container Description: SecurityGroup, ID: security-groups-react-frame
+					253 AXWebArea SecurityGroup, URL: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroup:group-id=sg-064b0da59e8c9a13c
+						325 container
+							327 container 알림
+								328 content list Description: Notifications, ID: flashbar:rm1:
+									329 container
+										330 container Success 보안 그룹의 인바운드 보안 그룹 규칙이 수정되었습니다. (sg-064b0da59e8c9a13c | 2026-ai-kopo-04-bot-sg) 세부 정보
+											331 image Success
+											332 container flash-message:rm4:
+												333 container
+													334 text 보안 그룹의 인바운드 보안 그룹 규칙이 수정되었습니다. 
+													335 link Description: (sg-064b0da59e8c9a13c | 2026-ai-kopo-04-bot-sg), Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroup:group-id=sg-064b0da59e8c9a13c
+												336 button (collapsed) 세부 정보, Secondary Actions: Expand
+													337 text 세부 정보
+										338 button
+							339 heading sg-064b0da59e8c9a13c - 2026-ai-kopo-04-bot-sg, Value: 1
+								340 text sg-064b0da59e8c9a13c - 2026-ai-kopo-04-bot-sg
+							341 pop up button (collapsed) 작업, ID: awsui-button-dropdown__trigger:rme:, Secondary Actions: Expand
+								342 text 작업
+							343 container :rmm:
+								344 heading 세부 정보, Value: 2
+									345 text 세부 정보
+								346 container
+									347 text 보안 그룹 이름
+									348 button 2026-ai-kopo-04-bot-sg
+									349 text 2026-ai-kopo-04-bot-sg
+								350 container
+									351 text 보안 그룹 ID
+									352 button sg-064b0da59e8c9a13c
+									353 text sg-064b0da59e8c9a13c
+								354 container
+									355 text 설명
+									356 button Bot and monitoring node; restricted SSH only during bootstrap
+									357 text Bot and monitoring node; restricted SSH only during bootstrap
+								358 container
+									359 text VPC ID
+									360 link Description: vpc-07ad90c6c3880faee, Value: ap-northeast-2.console.aws.amazon.com/vpc/home?region=ap-northeast-2#vpcs:VpcId=vpc-07ad90c6c3880faee
+								361 container
+									362 text 소유자
+									363 button 619256964117
+									364 text 619256964117
+								365 container
+									366 text 인바운드 규칙 수 3 권한 항목
+								367 container
+									368 text 아웃바운드 규칙 수 1 권한 항목
+							369 button (disabled) 왼쪽으로 스크롤
+							370 tab group
+								371 tab (selected, settable, boolean) 인바운드 규칙, Value: 1, ID: awsui-tabs-:rn4:-inboundRulesTab
+								372 tab (selectable, settable, boolean) 아웃바운드 규칙, Value: 0, ID: awsui-tabs-:rn4:-outboundRulesTab
+								373 tab (selectable, settable, boolean) 공유, Value: 0, ID: awsui-tabs-:rn4:-sharingTab
+								374 tab (selectable, settable, boolean) VPC 연결, Value: 0, ID: awsui-tabs-:rn4:-associationsTab
+								375 tab (selectable, settable, boolean) 관련 리소스 -신규, ID: awsui-tabs-:rn4:-resourceRelationshipTab, Value: 0
+관련 리소스
+-신규
+								376 tab (selectable, settable, boolean) 태그, Value: 0, ID: awsui-tabs-:rn4:-tagsTab
+							377 button 오른쪽으로 스크롤
+							378 container Description: 인바운드 규칙, ID: awsui-tabs-:rn4:-inboundRulesTab-panel
+								379 container :rnf:
+									380 container
+										381 heading 인바운드 규칙 (3), Value: 2
+											382 text 인바운드 규칙
+											383 text (3)
+										384 button 인바운드 규칙 새로 고침
+										385 button (disabled) 태그 관리
+										386 button 인바운드 규칙 편집
+										387 combo box (collapsed, settable) Description: 리소스 검색, ID: input:rnq:, Secondary Actions: Expand
+										388 content list
+											389 button (disabled) 이전 페이지
+											390 button 전체 페이지 중 1페이지
+											391 button (disabled) 다음 페이지
+										392 button 기본 설정
+									393 container 인바운드 규칙
+										394 table 인바운드 규칙
+											395 row
+												396 cell
+													397 checkbox (settable, integer) Value: 0, ID: :rot:
+												398 cell
+													399 button Name
+														400 text Name
+													401 í¬ê¸° ì¡°ì  ë²í¼ Name
+												402 cell
+													403 button 보안 그룹 규칙 ID
+														404 text 보안 그룹 규칙 ID
+													405 í¬ê¸° ì¡°ì  ë²í¼ 보안 그룹 규칙 ID
+												406 cell
+													407 button IP 버전
+														408 text IP 버전
+													409 í¬ê¸° ì¡°ì  ë²í¼ IP 버전
+												410 cell
+													411 button 유형
+														412 text 유형
+													413 í¬ê¸° ì¡°ì  ë²í¼ 유형
+												414 cell
+													415 button 프로토콜
+														416 text 프로토콜
+													417 í¬ê¸° ì¡°ì  ë²í¼ 프로토콜
+												418 cell
+													419 button 포트 범위
+														420 text 포트 범위
+													421 í¬ê¸° ì¡°ì  ë²í¼ 포트 범위
+												422 cell
+													423 button 소스
+														424 text 소스
+													425 í¬ê¸° ì¡°ì  ë²í¼ 소스
+												426 cell
+													427 button 설명
+														428 text 설명
+													429 í¬ê¸° ì¡°ì  ë²í¼ 설명
+											430 row
+												431 cell
+													432 checkbox (settable, integer) Value: 0, ID: :rpr:
+												433 cell
+													434 text –
+												435 cell
+													436 text sgr-01b41ce3cd86b3a11
+												437 cell
+													438 text –
+												439 cell
+													440 text 사용자 지정 TCP
+												441 cell
+													442 text TCP
+												443 cell
+													444 text 8443
+												445 cell
+													446 link Description: sg-0e321b38da5cc8aaf / 2026-ai-kopo-04-linux-lab-sg, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroup:GroupId=sg-0e321b38da5cc8aaf
+												447 cell
+													448 text Admin mTLS from app gateway only
+											449 row
+												450 cell
+													451 checkbox (settable, integer) Value: 0, ID: :rpt:
+												452 cell
+													453 text –
+												454 cell
+													455 text sgr-0eb709a90a91ff952
+												456 cell
+													457 text –
+												458 cell
+													459 text 사용자 지정 TCP
+												460 cell
+													461 text TCP
+												462 cell
+													463 text 3000
+												464 cell
+													465 link Description: sg-0e321b38da5cc8aaf / 2026-ai-kopo-04-linux-lab-sg, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroup:GroupId=sg-0e321b38da5cc8aaf
+												466 cell
+													467 text Grafana from app HTTPS proxy only
+											468 row
+												469 cell
+													470 checkbox (settable, integer) Value: 0, ID: :rpv:
+												471 cell
+													472 text –
+												473 cell
+													474 text sgr-0e7af443475164fe8
+												475 cell
+													476 text –
+												477 cell
+													478 text SSH
+												479 cell
+													480 text TCP
+												481 cell
+													482 text 22
+												483 cell
+													484 link Description: pl-00ec8fd779e5b4175 (com.amazonaws.ap-northeast-2.ec2-instance-connect), Value: ap-northeast-2.console.aws.amazon.com/vpc/home?region=ap-northeast-2#PrefixListDetails:PrefixListId=pl-00ec8fd779e5b4175
+												485 cell
+													486 text SSH from Seoul EC2 Instance Connect only
+		227 container f
+			228 container console-nav-footer
+				229 container awsc-nav-footer-content
+					230 button CloudShell, Help: 열기 CloudShell, ID: tools-experience-ingress
+					231 button AWS용 에이전트 툴킷
+					232 button 의견, ID: feedback
+						233 text 의견
+					234 button Console 모바일 앱, ID: mobile_app_button
+						235 image
+						236 text Console 모바일 앱
+					237 container
+						238 text ©  2026 ,  Amazon Web Services, Inc. 또는 계열사.
+					239 content list
+						240 link Description: 개인 정보 보호, Value: aws.amazon.com/privacy/
+						241 link Description: 약관, Value: aws.amazon.com/terms/
+						242 button 쿠키 기본 설정
+
+The focused UI element is 253 AXWebArea SecurityGroup, URL: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroup:group-id=sg-064b0da59e8c9a13c

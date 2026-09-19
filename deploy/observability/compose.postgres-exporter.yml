@@ -1,0 +1,24 @@
+# DB 호스트별로 한 인스턴스를 실행한다. 기본 DSN은 같은 호스트의 루프백 DB다.
+services:
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    network_mode: host
+    environment:
+      DATA_SOURCE_URI: ${PG_EXPORTER_URI:-127.0.0.1:5432/exchange?sslmode=disable}
+      DATA_SOURCE_USER: failstop_monitor
+      DATA_SOURCE_PASS_FILE: /run/secrets/monitor_password
+      PG_EXPORTER_EXTEND_QUERY_PATH: /etc/postgres-exporter/queries.yml
+    command:
+      - --web.listen-address=${PG_EXPORTER_LISTEN:-127.0.0.1:9187}
+      - --no-collector.stat_statements
+    volumes:
+      - ${PG_MONITOR_PASSWORD_FILE:?set_PG_MONITOR_PASSWORD_FILE}:/run/secrets/monitor_password:ro
+      - ../../harness/prometheus/pg-queries.yaml:/etc/postgres-exporter/queries.yml:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}

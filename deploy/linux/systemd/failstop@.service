@@ -1,0 +1,20 @@
+[Unit]
+Description=Failstop Compose role %i
+Wants=network-online.target
+After=network-online.target docker.service failstop-firewall.service
+Requires=docker.service
+ConditionPathExists=/etc/failstop/%i.env
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/failstop/linux/compose-runner.sh start %i
+ExecStop=/opt/failstop/linux/compose-runner.sh stop %i
+TimeoutStartSec=240
+TimeoutStopSec=90
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

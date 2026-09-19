@@ -1,0 +1,20 @@
+[Unit]
+Description=School AWS operational alerts
+After=network-online.target failstop-reporting.service
+Wants=network-online.target
+
+[Service]
+User=failstop-report
+Group=failstop-report
+ExecStart=/usr/local/bin/alertmanager --config.file=/etc/failstop/alertmanager.yml --storage.path=/var/lib/exchange-alertmanager --web.listen-address=127.0.0.1:9093 --cluster.listen-address=
+StateDirectory=exchange-alertmanager
+Restart=on-failure
+RestartSec=5
+MemoryMax=128M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

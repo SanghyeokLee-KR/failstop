@@ -1,0 +1,82 @@
+Browser tab: 2017667343, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		48 container consoleNavHeader
+			49 container awsc-nav-header
+				50 image Account color: 설정 해제
+				51 container Global
+					52 container awsc-top-level-nav
+						53 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						54 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						55 button (collapsed) Description: Services, Secondary Actions: Expand
+							56 image
+						57 container aws-unified-search-container
+							58 container
+								59 image Search
+								60 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								61 button Ask Amazon Q
+								62 text [Alt+S]
+						63 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						64 container
+							65 pop up button Description: Notifications (none available), Help: Notifications
+								66 image Notifications
+							67 image Notifications
+						68 content list awsc-navigation__more-menu--list
+							69 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								70 image Support
+							71 button (collapsed) Description: Settings, Secondary Actions: Expand
+							72 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								73 text 아시아 태평양 (서울)
+							74 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								75 text Account ID: 6192-5696-4117
+								76 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789834523290-9949
+			23 text Content loaded
+			77 container
+				78 content list
+					96 text Sat Sep 19 16:57:52 UTC 2026
+					97 text PROM LinuxDiskSpaceLow app-1 firing 2026-09-19T16:51:27.810300776Z
+					98 text PROM DatabaseReplicationUnknown db-standby firing 2026-09-19T16:55:42.810300776Z
+					99 text PROM DatabaseConnectionFailed db-primary firing 2026-09-19T16:55:12.810300776Z
+					100 text PROM DatabaseMetricsMissing db-primary firing 2026-09-19T16:55:12.810300776Z
+					101 text AM DatabaseConnectionFailed db-primary active
+					102 text AM LinuxDiskSpaceLow app-1 active
+					103 text AM DatabaseReplicationUnknown db-standby active
+					104 text AM DatabaseMetricsMissing db-primary active
+					105 text REPORT ('incident:199eeed604b3509ccb5dd1ece666e9d0055002e8e3ae3990dd37720ef74b65df', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseMetricsMissing', 'firing')]
+					106 text REPORT ('incident:860dc932209987ebe16af70e68bf4f3fdd66ca585132d57737a2b70eef8f9595', 'incident', 'sent', None, 'ready') AI= gemini incident= [('LinuxDiskSpaceLow', 'firing')]
+					107 text REPORT ('incident:618cdd2f7ed90b61c23a18863a9365ef35ff899bd56d8a251051971522cf4526', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseConnectionFailed', 'firing')]
+					108 text REPORT ('incident:53b60e797c6db16eeac804f93178dab556036590a07b3a0593cc344fef41c1a9', 'incident', 'sent', None, 'ready') AI= gemini incident= [('SpringMetricsUnavailable', 'firing')]
+					109 text REPORT ('incident:6080b661da2efbadf9972bf54ec309a3d8f49043fc720378f5bd3962e15d0ed0', 'incident', 'sent', None, 'ready') AI= gemini incident= [('LinuxServiceFailed', 'firing')]
+					110 text REPORT ('incident:bdbc6525f155e0b47030948c8e6645386a03960806e32452c6c6034c7c86adb3', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseReplicationUnknown', 'resolved')]
+					111 text REPORT ('incident:d11ea922c2706da6f41eb94b057466c755f7edee039696cbd957fa0ff807dcde', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseMetricsMissing', 'resolved')]
+					112 text REPORT ('incident:e9c52756ae34cd7da3a0e58450fd8aee060e3a3f9c50f9569d7f194acdd903ef', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseConnectionFailed', 'resolved')]
+					113 text REPORT ('incident:a6f5dcbb95095a2ee26abe0f5d960c07f07e330ba4d6154090ce3c5d11e0ec09', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseMetricsMissing', 'firing')]
+					114 text REPORT ('incident:5d51fece95959a1ebbf84e9572b14a5ada3238602da68b0a298e9abb905ff667', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseReplicationUnknown', 'firing')]
+					115 text [ec2-user@ip-172-31-44-141 ~]$ 
+				116 text clear; date -u; sudo -u failstop-report /opt/exchange-report-runtime/bin/python /tmp/check-school-alerts.pyclear; date -u; sudo -u failstop-report /opt/exchange-report-runtime/bin/python /tmp/check-school-alerts.py Sat Sep 19 16:57:52 UTC 2026 PROM LinuxDiskSpaceLow app-1 firing 2026-09-19T16:51:27.810300776Z PROM DatabaseReplicationUnknown db-standby firing 2026-09-19T16:55:42.810300776Z PROM DatabaseConnectionFailed db-primary firing 2026-09-19T16:55:12.810300776Z PROM DatabaseMetricsMissing db-primary firing 2026-09-19T16:55:12.810300776Z AM DatabaseConnectionFailed db-primary active AM LinuxDiskSpaceLow app-1 active AM DatabaseReplicationUnknown db-standby active AM DatabaseMetricsMissing db-primary active REPORT ('incident:199eeed604b3509ccb5dd1ece666e9d0055002e8e3ae3990dd37720ef74b65df', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseMetricsMissing', 'firing')] REPORT ('incident:860dc932209987ebe16af70e68bf4f3fdd66ca585132d57737a2b70eef8f9595', 'incident', 'sent', None, 'ready') AI= gemini incident= [('LinuxDiskSpaceLow', 'firing')] REPORT ('incident:618cdd2f7ed90b61c23a18863a9365ef35ff899bd56d8a251051971522cf4526', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseConnectionFailed', 'firing')] REPORT ('incident:53b60e797c6db16eeac804f93178dab556036590a07b3a0593cc344fef41c1a9', 'incident', 'sent', None, 'ready') AI= gemini incident= [('SpringMetricsUnavailable', 'firing')] REPORT ('incident:6080b661da2efbadf9972bf54ec309a3d8f49043fc720378f5bd3962e15d0ed0', 'incident', 'sent', None, 'ready') AI= gemini incident= [('LinuxServiceFailed', 'firing')] REPORT ('incident:bdbc6525f155e0b47030948c8e6645386a03960806e32452c6c6034c7c86adb3', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseReplicationUnknown', 'resolved')] REPORT ('incident:d11ea922c2706da6f41eb94b057466c755f7edee039696cbd957fa0ff807dcde', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseMetricsMissing', 'resolved')] REPORT ('incident:e9c52756ae34cd7da3a0e58450fd8aee060e3a3f9c50f9569d7f194acdd903ef', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseConnectionFailed', 'resolved')] REPORT ('incident:a6f5dcbb95095a2ee26abe0f5d960c07f07e330ba4d6154090ce3c5d11e0ec09', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseMetricsMissing', 'firing')] REPORT ('incident:5d51fece95959a1ebbf84e9572b14a5ada3238602da68b0a298e9abb905ff667', 'incident', 'sent', None, 'ready') AI= gemini incident= [('DatabaseReplicationUnknown', 'firing')] [ec2-user@ip-172-31-44-141 ~]$
+				92 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				33 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			34 container
+				35 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		36 container f
+			37 container console-nav-footer
+				38 container awsc-nav-footer-content
+					93 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					39 button Agent Toolkit for AWS
+					94 button Feedback, ID: feedback
+						95 text Feedback
+					40 button Console Mobile App, ID: mobile_app_button
+						41 image
+						42 text Console Mobile App
+					43 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					44 content list
+						45 link Description: Privacy, Value: aws.amazon.com/privacy/
+						46 link Description: Terms, Value: aws.amazon.com/terms/
+						47 button Cookie preferences
+
+The focused UI element is 92 text field (settable) Terminal input

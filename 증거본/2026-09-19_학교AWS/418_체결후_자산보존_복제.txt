@@ -1,0 +1,99 @@
+Browser tab: 2017667312, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		33 container consoleNavHeader
+			34 container awsc-nav-header
+				35 image Account color: 설정 해제
+				36 container Global
+					37 container awsc-top-level-nav
+						38 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						39 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						40 button (collapsed) Description: Services, Secondary Actions: Expand
+							41 image
+						42 container aws-unified-search-container
+							43 container
+								44 image Search
+								45 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								46 button Ask Amazon Q
+								47 text [Alt+S]
+						48 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						49 container
+							50 pop up button Description: Notifications (none available), Help: Notifications
+								51 image Notifications
+							52 image Notifications
+						53 content list awsc-navigation__more-menu--list
+							54 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								55 image Support
+							56 button (collapsed) Description: Settings, Secondary Actions: Expand
+							57 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								58 text 아시아 태평양 (서울)
+							59 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								60 text Account ID: 6192-5696-4117
+								61 text 2026-ai-kopo-04
+		9 container
+			10 container Notifications
+				11 content list Description: Notifications, ID: flashbar1-1789829511985-2481
+			12 text Content loaded
+			62 container
+				63 content list
+					89 text  db_size | orders | trades | balance_mismatches 
+					90 text ---------+--------+--------+--------------------
+					91 text  16 MB   |     30 |     14 |                  0
+					92 text (1 row)
+					93 text   client_addr  |   state   | sync_state | replay_bytes 
+					94 text ---------------+-----------+------------+--------------
+					95 text  172.31.33.195 | streaming | async      |            0
+					96 text (1 row)
+					97 text [ec2-user@ip-172-31-1-229 ~]$ sudo -u postgres psql -X -P pager=off -d exchange -c "SELECT now(),pg_dat
+					98 text abase_size('exchange') AS db_bytes,(SELECT count(*) FROM orders) AS orders,(SELECT count(*) FROM trades
+					99 text ) AS trades,(SELECT count(*) FROM balance_ledger_check WHERE mismatch) AS balance_mismatches; SELECT as
+					100 text set_id,sum(amount) AS ledger_net FROM ledger_entries GROUP BY asset_id; SELECT status,count(*) FROM ord
+					101 text ers GROUP BY status; SELECT client_addr,state,sync_state,pg_wal_lsn_diff(sent_lsn,replay_lsn) AS replay
+					102 text _bytes FROM pg_stat_replication;"
+					103 text               now              | db_bytes | orders | trades | balance_mismatches 
+					104 text -------------------------------+----------+--------+--------+--------------------
+					105 text  2026-09-19 15:00:35.727362+00 | 16750259 |     83 |     42 |                  0
+					106 text (1 row)
+					107 text  asset_id |      ledger_net      
+					108 text ----------+----------------------
+					109 text         3 | 0.000000000000000000
+					110 text         2 | 0.000000000000000000
+					111 text         1 | 0.000000000000000000
+					112 text (3 rows)
+					113 text   status  | count 
+					114 text ----------+-------
+					115 text  OPEN     |     9
+					116 text  CANCELED |    28
+					117 text  FILLED   |    44
+					118 text  PARTIAL  |     2
+					119 text (4 rows)
+					120 text   client_addr  |   state   | sync_state | replay_bytes 
+					121 text ---------------+-----------+------------+--------------
+					122 text  172.31.33.195 | streaming | async      |            0
+					123 text (1 row)
+					124 text [ec2-user@ip-172-31-1-229 ~]$ 
+				125 text sudo -u postgres psql -X -P pager=off -d exchange -c "SELECT now(),pg_dataToo much output to announce, navigate to rows manually to readbase_size('exchange') AS db_bytes,(SELECT count(*) FROM orders) AS orders,(SELECT count(*) FROM trades) AS trades,(SELECT count(*) FROM balance_ledger_check WHERE mismatch) AS balance_mismatches; SELECT asset_id,sum(amount) AS ledger_net FROM ledger_entries GROUP BY asset_id; SELECT status,count(*) FROM orders GROUP BY status; SELECT client_addr,state,sync_state,pg_wal_lsn_diff(sent_lsn,replay_lsn) AS replay_bytes FROM pg_stat_replication;"sudo -u postgres psql -X -P pager=off -d exchange -c "SELECT now(),pg_database_size('exchange') AS db_bytes,(SELECT count(*) FROM orders) AS orders,(SELECT count(*) FROM trades) AS trades,(SELECT count(*) FROM balance_ledger_check WHERE mismatch) AS balance_mismatches; SELECT asset_id,sum(amount) AS ledger_net FROM ledger_entries GROUP BY asset_id; SELECT status,count(*) FROM orders GROUP BY status; SELECT client_addr,state,sync_state,pg_wal_lsn_diff(sent_lsn,replay_lsn) AS replay_bytes FROM pg_stat_replication;" now | db_bytes | orders | trades | balance_mismatches -------------------------------+----------+--------+--------+-------------------- 2026-09-19 15:00:35.727362+00 | 16750259 | 83 | 42 | 0 (1 row) asset_id | ledger_net ----------+---------------------- 3 | 0.000000000000000000 2 | 0.000000000000000000 1 | 0.000000000000000000 (3 rows) status | count ----------+------- OPEN | 9 CANCELED | 28 FILLED | 44 PARTIAL | 2 (4 rows)
+				77 text field (settable) Terminal input
+			20 button Close instance info
+			78 heading i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01), Value: 3
+				79 text i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01)
+			80 container
+				81 text PublicIPs: 13.125.150.154 PrivateIPs: 172.31.1.229
+		23 container f
+			24 container console-nav-footer
+				25 container awsc-nav-footer-content
+					82 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					83 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					26 button Console Mobile App, ID: mobile_app_button
+						27 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					29 content list
+						30 link Description: Privacy, Value: aws.amazon.com/privacy/
+						31 link Description: Terms, Value: aws.amazon.com/terms/
+						32 button Cookie preferences
+
+The focused UI element is 77 text field (settable) Terminal input

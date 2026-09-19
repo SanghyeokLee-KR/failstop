@@ -1,0 +1,201 @@
+rule_files: [../rules/linux-operations.yml]
+evaluation_interval: 30s
+tests:
+  - interval: 30s
+    input_series:
+      - series: 'up{job="exchange-api",instance="app:8081",customer="exchange",environment="aws",role="app"}'
+        values: '1 0x4 1x6'
+      - series: 'up{job="exchange-api",instance="bot:8080",customer="exchange",environment="aws",role="bot"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: SpringMetricsUnavailable
+        exp_alerts:
+          - exp_labels: {job: exchange-api, instance: 'app:8081', customer: exchange, environment: aws, role: app, severity: critical, component: application}
+            exp_annotations:
+              summary: Spring 수집 경로 장애 발생
+              description: 관리 포트·Spring 프로세스·외부 접속 검사 대조 필요
+      - eval_time: 4m
+        alertname: SpringMetricsUnavailable
+        exp_alerts: []
+  - interval: 30s
+    input_series: []
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: LinuxTargetsMissing
+        exp_alerts:
+          - exp_labels: {job: linux-host, severity: warning, component: monitoring}
+            exp_annotations: {summary: Linux 수집 대상 미등록}
+  - interval: 30s
+    input_series:
+      - series: 'up{job="linux-host",instance="host:9100"}'
+        values: '0x6 1x6'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: LinuxHostUnreachable
+        exp_alerts:
+          - exp_labels: {job: linux-host, instance: 'host:9100', severity: critical, component: linux}
+            exp_annotations: {summary: Linux 호스트 수집 경로 장애 발생}
+      - eval_time: 5m
+        alertname: LinuxHostUnreachable
+        exp_alerts: []
+  - interval: 30s
+    input_series:
+      - series: 'pg_wal_position_in_recovery{job="postgres",instance="db:9187"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: DatabaseReplicationUnknown
+        exp_alerts:
+          - exp_labels: {job: postgres, instance: 'db:9187', severity: critical, component: database}
+            exp_annotations: {summary: Primary·Standby 복제 연결 미확인}
+  - interval: 30s
+    input_series:
+      - series: 'pg_wal_position_in_recovery{job="postgres",instance="db:9187"}'
+        values: '0x12'
+      - series: 'pg_replication_client_sent_replay_bytes{job="postgres",instance="db:9187",application_name="standby"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: DatabaseReplicationUnknown
+        exp_alerts: []
+  - interval: 30s
+    input_series:
+      - series: 'node_systemd_unit_state{job="linux-host",instance="host:9100",name="failstop.service",state="failed"}'
+        values: '1x4 0x6'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: LinuxServiceFailed
+        exp_alerts:
+          - exp_labels: {job: linux-host, instance: 'host:9100', name: failstop.service, state: failed, severity: critical, component: linux}
+            exp_annotations: {summary: Linux 서비스 장애 발생}
+      - eval_time: 4m
+        alertname: LinuxServiceFailed
+        exp_alerts: []
+  - interval: 30s
+    input_series:
+      - series: 'up{job="linux-host",instance="host:9100"}'
+        values: '1x12'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: LinuxLogCollectionStale
+        exp_alerts:
+          - exp_labels: {job: linux-host, instance: 'host:9100', severity: warning, component: monitoring}
+            exp_annotations: {summary: 호스트 운영 기록 수집 지연·실패}
+  - interval: 30s
+    input_series:
+      - series: 'up{job="postgres",instance="db:9187"}'
+        values: '1x12'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: DatabaseExporterUnavailable
+        exp_alerts:
+          - exp_labels: {job: postgres, instance: 'db:9187', severity: critical, component: monitoring}
+            exp_annotations:
+              summary: DB 수집 경로 장애 발생
+              description: 수집기 응답 또는 DB 접속 지표 누락. DB 프로세스 장애 여부 별도 확인 필요
+              resolved_summary: DB 수집 경로 경보 해제
+  - interval: 30s
+    input_series:
+      - series: 'pg_up{job="postgres",instance="db:9187"}'
+        values: '1x12'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: DatabaseMetricsMissing
+        exp_alerts:
+          - exp_labels: {job: postgres, instance: 'db:9187', severity: warning, component: monitoring}
+            exp_annotations: {summary: DB 확장 지표 누락·질의 실패}
+  - interval: 30s
+    input_series:
+      - series: 'report_jobs{status="dead",instance="reporter:9088"}'
+        values: '1x12'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: OperationsReportDeliveryFailed
+        exp_alerts:
+          - exp_labels: {status: dead, instance: 'reporter:9088', severity: warning, component: reporting}
+            exp_annotations: {summary: 운영 보고 전송 실패}
+  - interval: 30s
+    input_series: []
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: OperationsDailyReportMissing
+        exp_alerts:
+          - exp_labels: {severity: warning, component: reporting}
+            exp_annotations: {summary: 일일 운영 보고 미전달 · 26시간 초과}
+  # PDF 실패는 카드 전송 성공과 별개이며 재생성으로 해소된 뒤 경보를 해제한다.
+  - interval: 30s
+    input_series:
+      - series: 'report_artifacts{status="failed",instance="reporter:9088"}'
+        values: '1x4 0x6'
+      - series: 'report_artifacts{status="ready",instance="reporter:9088"}'
+        values: '8x12'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: OperationsReportArtifactFailed
+        exp_alerts:
+          - exp_labels: {status: failed, instance: 'reporter:9088', severity: warning, component: reporting}
+            exp_annotations: {summary: 운영 보고 PDF 생성 실패}
+      - eval_time: 4m
+        alertname: OperationsReportArtifactFailed
+        exp_alerts: []
+  # DB 접속 실패는 응답 중인 수집기가 직접 확인한 경우에만 DB 장애로 분류한다.
+  - interval: 30s
+    input_series:
+      - series: 'up{job="postgres",instance="standby:9187",customer="exchange",environment="aws",role="standby",node="db-2"}'
+        values: '1x12'
+      - series: 'pg_up{job="postgres",instance="standby:9187",customer="exchange",environment="aws",role="standby",node="db-2"}'
+        values: '1 0x4 1x7'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: DatabaseConnectionFailed
+        exp_alerts:
+          - exp_labels: {job: postgres, instance: 'standby:9187', customer: exchange, environment: aws, role: standby, node: db-2, severity: critical, component: database}
+            exp_annotations:
+              summary: Standby DB 접속 장애 발생
+              description: 수집기 응답 정상 · DB 접속 실패. DB 프로세스·네트워크·인증 상태 확인 필요
+              resolved_summary: Standby DB 접속 장애 경보 해제
+      - eval_time: 2m
+        alertname: DatabaseExporterUnavailable
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: DatabaseConnectionFailed
+        exp_alerts: []
+  # 수집기까지 단절되면 이전 pg_up=0 값으로 DB 프로세스 장애를 단정하지 않는다.
+  - interval: 30s
+    input_series:
+      - series: 'up{job="postgres",instance="standby:9187",customer="exchange",environment="aws",role="standby"}'
+        values: '0x12'
+      - series: 'pg_up{job="postgres",instance="standby:9187",customer="exchange",environment="aws",role="standby"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: DatabaseConnectionFailed
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: DatabaseExporterUnavailable
+        exp_alerts:
+          - exp_labels: {job: postgres, instance: 'standby:9187', customer: exchange, environment: aws, role: standby, severity: critical, component: monitoring}
+            exp_annotations:
+              summary: DB 수집 경로 장애 발생
+              description: 수집기 응답 또는 DB 접속 지표 누락. DB 프로세스 장애 여부 별도 확인 필요
+              resolved_summary: DB 수집 경로 경보 해제
+  # 같은 사설 주소가 있어도 고객사·환경이 다르면 다른 대상이다.
+  - interval: 30s
+    input_series:
+      - series: 'up{job="postgres",instance="db:9187",customer="exchange",environment="aws",role="data"}'
+        values: '1x12'
+      - series: 'pg_up{job="postgres",instance="db:9187",customer="another",environment="aws",role="data"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: DatabaseConnectionFailed
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: DatabaseExporterUnavailable
+        exp_alerts:
+          - exp_labels: {job: postgres, instance: 'db:9187', customer: exchange, environment: aws, role: data, severity: critical, component: monitoring}
+            exp_annotations:
+              summary: DB 수집 경로 장애 발생
+              description: 수집기 응답 또는 DB 접속 지표 누락. DB 프로세스 장애 여부 별도 확인 필요
+              resolved_summary: DB 수집 경로 경보 해제

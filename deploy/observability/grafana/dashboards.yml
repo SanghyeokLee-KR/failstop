@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: failstop-operations
+    orgId: 1
+    folder: MSP
+    type: file
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

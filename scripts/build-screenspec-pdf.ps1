@@ -1,31 +1,27 @@
 ﻿# 웹 화면명세서 PDF 생성기.
 #
-# 왜 저장소 안에 있는가. 13절이 생성물과 원본을 가르고, 생성기가 저장소 밖에 있으면
-# 재현이 끊긴다고 못박는다. 실제로 이 PDF 는 한동안 수동 인쇄로만 갱신됐고, 그래서
-# 원본 HTML 이 앞서 가고 PDF 가 뒤처지는 드리프트가 두 번 났다.
-#
-# 이 PDF 는 생성물이지만 10절이 6-2 를 백엔드 수용 기준 정본으로 지정했다. 그래서
-# 두 사본(docs/contracts, 제출_20260901)을 같은 바이트로 유지한다. 원본은 항상 HTML 이다.
+# 원본 HTML과 PDF는 docs/reference/contracts에 함께 둔다.
+# 생성물 관리 기준은 docs/ai/writing.md, PDF §6.2는 백엔드 수용 기준이다.
 #
 # 사용. pwsh -NoProfile -File scripts/build-screenspec-pdf.ps1
-#       -Check 를 주면 생성하지 않고 두 사본의 해시 일치만 검사한다(게이트용).
+#       -Check 는 기존 PDF의 존재와 헤더만 검사한다. HTML과 내용 일치는 판정하지 않는다.
 
 param([switch]$Check)
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
-$html = Join-Path $repo 'docs\contracts\웹_화면명세서.html'
+$html = Join-Path $repo 'docs\reference\contracts\웹_화면명세서.html'
 $targets = @(
-    (Join-Path $repo 'docs\contracts\웹_화면명세서.pdf'),
-    (Join-Path $repo '제출_20260901\웹_화면명세서.pdf')
+    (Join-Path $repo 'docs\reference\contracts\웹_화면명세서.pdf')
 )
 
 if ($Check) {
-    $hashes = $targets | ForEach-Object { (Get-FileHash $_).Hash }
-    if ($hashes[0] -ne $hashes[1]) {
-        Write-Error "PDF 두 사본이 다르다. 이 스크립트를 인자 없이 돌려 다시 생성하라."
+    if (-not (Test-Path -LiteralPath $html -PathType Leaf)) { Write-Error 'PDF 원본 HTML이 없다.' }
+    $bytes = [System.IO.File]::ReadAllBytes($targets[0])
+    if ($bytes.Length -lt 5 -or [System.Text.Encoding]::ASCII.GetString($bytes, 0, 5) -ne '%PDF-') {
+        Write-Error 'PDF 파일 헤더가 올바르지 않다.'
     }
-    Write-Output "PDF 사본 일치. $($hashes[0].Substring(0,16))"
+    Write-Output 'PDF 파일과 헤더 확인. 원본 HTML과의 내용 일치는 별도 확인이 필요하다.'
     exit 0
 }
 
@@ -40,6 +36,15 @@ $browser = @(
 if (-not $browser) { Write-Error "크롬 또는 엣지를 찾지 못했다. 헤드리스 인쇄에 필요하다." }
 
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ("screenspec-" + [System.Guid]::NewGuid().ToString('N'))
+function Remove-PrintWorkspace {
+    $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\', '/')
+    $resolvedWork = [System.IO.Path]::GetFullPath($work)
+    if (-not $resolvedWork.StartsWith($tempRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase) -or
+        [System.IO.Path]::GetFileName($resolvedWork) -notmatch '^screenspec-[0-9a-f]{32}$') {
+        throw '예상한 PDF 임시 폴더가 아니다.'
+    }
+    Remove-Item -LiteralPath $resolvedWork -Recurse -Force -ErrorAction SilentlyContinue
+}
 New-Item -ItemType Directory -Path $work | Out-Null
 $out = Join-Path $work 'spec.pdf'
 
@@ -55,12 +60,12 @@ $proc = Start-Process -FilePath $browser -NoNewWindow -Wait -PassThru -ArgumentL
 )
 
 if ($proc.ExitCode -ne 0 -or -not (Test-Path $out)) {
-    Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-PrintWorkspace
     Write-Error "PDF 생성 실패. 브라우저 종료 코드 $($proc.ExitCode)."
 }
 
 foreach ($t in $targets) { Copy-Item $out $t -Force }
 $hash = (Get-FileHash $targets[0]).Hash
-Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+Remove-PrintWorkspace
 
 Write-Output "생성 완료. $($targets.Count) 사본, sha256 $($hash.Substring(0,16))"

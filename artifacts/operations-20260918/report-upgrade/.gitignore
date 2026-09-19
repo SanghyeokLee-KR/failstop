@@ -1,0 +1,3 @@
+# Rendered previews remain local; the report source and renderer are reproducible.
+*.pdf
+*.png

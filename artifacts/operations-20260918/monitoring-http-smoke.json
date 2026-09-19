@@ -1,0 +1,28 @@
+{
+  "purpose": "read-only HTTP observation smoke; no AWS scaling test",
+  "started_at": 1789710829.447431,
+  "phases": [
+    {
+      "phase": "baseline",
+      "requests": 20,
+      "status_counts": {
+        "200": 20
+      }
+    },
+    {
+      "phase": "read_burst",
+      "requests": 80,
+      "status_counts": {
+        "200": 80
+      }
+    },
+    {
+      "phase": "recovery",
+      "requests": 20,
+      "status_counts": {
+        "200": 20
+      }
+    }
+  ],
+  "finished_at": 1789710891.3035433
+}

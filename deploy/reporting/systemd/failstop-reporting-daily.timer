@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily operations report at 09:00 Asia/Seoul
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 Asia/Seoul
+Persistent=true
+AccuracySec=1min
+Unit=failstop-reporting-daily.service
+
+[Install]
+WantedBy=timers.target

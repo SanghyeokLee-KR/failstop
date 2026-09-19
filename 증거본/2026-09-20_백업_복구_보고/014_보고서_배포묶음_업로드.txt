@@ -1,0 +1,138 @@
+Browser tab: 2017667344, Title: "객체 업로드 - S3 버킷 2026-ai-kopo-04-exchange-artifacts-619256964117 | S3 | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/s3/upload/2026-ai-kopo-04-exchange-artifacts-619256964117?region=ap-northeast-2".
+0 AXWebArea 객체 업로드 - S3 버킷 2026-ai-kopo-04-exchange-artifacts-619256964117 | S3 | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/s3/upload/2026-ai-kopo-04-exchange-artifacts-619256964117?region=ap-northeast-2
+	1 container b
+		80 container consoleNavHeader
+			81 container awsc-nav-header
+				82 image 계정 색상: 설정 해제
+				83 container 글로벌
+					84 container awsc-top-level-nav
+						85 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						86 link Description: 기본 콘텐츠로 건너뛰기, Value: ap-northeast-2.console.aws.amazon.com/s3/upload/2026-ai-kopo-04-exchange-artifacts-619256964117?region=ap-northeast-2#c
+						87 button (collapsed) Description: Amazon Q, ID: toolbar_@amzn/conversational-experience-module_amazon-q-tool, Secondary Actions: Expand
+						88 button (collapsed) Description: 서비스, Secondary Actions: Expand
+							89 image
+						90 container aws-unified-search-container
+							91 container
+								92 image 검색
+								93 combo box (collapsed, settable) Description: 검색, ID: awsc-concierge-input, Secondary Actions: Expand
+								94 button Amazon Q에게 질문하기 
+								95 text [알트+S]
+						96 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						97 container
+							98 pop up button Description: 알림(사용 가능한 알림 없음), Help: 알림
+								99 image 알림
+							100 image 알림
+						101 content list awsc-navigation__more-menu--list
+							102 button (collapsed) Description: 도움말 및 지원, Secondary Actions: Expand
+								103 image 지원
+							104 button (collapsed) Description: 설정, Secondary Actions: Expand
+							105 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								106 text 아시아 태평양 (서울)
+							107 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								108 text 계정 ID: 6192-5696-4117
+								109 text 2026-ai-kopo-04
+		16 container app
+			17 container
+				332 container 사이드 내비게이션
+					333 pop up button (collapsed) Description: 사이드 내비게이션 열기, Secondary Actions: Expand
+				19 container S3 브레드크럼
+					20 content list
+						334 link (disabled) Amazon S3
+							335 text Amazon S3
+			66 container
+				67 container 알림
+					336 content list
+						337 container
+							413 container 성공 업로드 성공 자세한 내용은 파일 및 폴더 표를 참조하세요.
+								414 image 성공
+								415 container flash-message59-1789835534838-2597
+									416 text 업로드 성공
+									417 container
+										418 text 자세한 내용은  파일 및 폴더  표를 참조하세요.
+							338 button 메시지 무시
+				345 heading 업로드: 상태, Value: 1
+					346 text 업로드: 상태
+				347 button 닫기
+				348 container
+					349 image 정보
+					350 text 이 페이지에서 나가면 다음 정보를 더 이상 확인할 수 없습니다.
+				351 container 937-1789835534441-3683
+					352 heading 요약, Value: 2
+						353 text 요약
+					354 container
+						355 text 대상
+						356 link Description: s3://2026-ai-kopo-04-exchange-artifacts-619256964117, ID: link-self940-1789835534441-2432, Value: ap-northeast-2.console.aws.amazon.com/s3/buckets/2026-ai-kopo-04-exchange-artifacts-619256964117?region=ap-northeast-2
+					357 container
+						358 text 성공 1개 파일 , 1.5MB ( 100.00% )
+					359 container
+						360 text 실패 0개 파일 , 0B ( 0% )
+				361 tab group 파일 및 폴더
+					362 tab (selected, settable, boolean) 파일 및 폴더, Value: 1, ID: awsui-tabs-942-1789835534442-7170-status
+					363 tab (selectable, settable, boolean) 구성, Value: 0, ID: awsui-tabs-942-1789835534442-7170-config
+				364 container Description: 파일 및 폴더, ID: awsui-tabs-942-1789835534442-7170-status-panel
+					365 container 951-1789835534442-8347
+						366 container
+							367 heading 파일 및 폴더 (1 합계, 1.5MB), Value: 2
+								368 text 파일 및 폴더
+								369 text (1 합계, 1.5MB)
+							370 search text field (settable) Description: 이름으로 찾기, ID: polaris-table-formfield-filter
+							371 content list
+								372 button (disabled) 이전 페이지
+								373 button 파일 및 폴더, 전체 페이지 1 중 1페이지
+								374 button (disabled) 다음 페이지
+						375 table 파일 및 폴더
+							376 row
+								377 cell
+									378 text 이름
+									379 í¬ê¸° ì¡°ì  ë²í¼ 이름
+								380 cell
+									381 button 폴더
+										382 text 폴더
+									383 í¬ê¸° ì¡°ì  ë²í¼ 폴더
+								384 cell
+									385 button 유형
+										386 text 유형
+									387 í¬ê¸° ì¡°ì  ë²í¼ 유형
+								388 cell
+									389 button 크기
+										390 text 크기
+									391 í¬ê¸° ì¡°ì  ë²í¼ 크기
+								392 cell
+									393 button 상태
+										394 text 상태
+									395 í¬ê¸° ì¡°ì  ë²í¼ 상태
+								396 cell
+									397 button 오류
+										398 text 오류
+									399 í¬ê¸° ì¡°ì  ë²í¼ 오류
+							400 row
+								401 cell
+									402 link Description: school-reporting-20260920.zip  새 탭에서 열기, ID: link-self1003-1789835534828-7636, Value: ap-northeast-2.console.aws.amazon.com/s3/object/2026-ai-kopo-04-exchange-artifacts-619256964117?region=ap-northeast-2&prefix=school-reporting-20260920.zip
+								403 cell
+									404 text -
+								405 cell
+									406 text application/x-zip-compressed
+								407 cell
+									408 text 1.5MB
+								409 cell
+									410 text 성공
+								411 cell
+									412 text -
+		70 container f
+			71 container console-nav-footer
+				72 container awsc-nav-footer-content
+					327 button CloudShell, Help: 열기 CloudShell, ID: tools-experience-ingress
+					73 button AWS용 에이전트 툴킷
+					328 button 의견, ID: feedback
+						329 text 의견
+					74 button Console 모바일 앱, ID: mobile_app_button
+						75 image
+						330 text Console 모바일 앱
+					331 text ©  2026 ,  Amazon Web Services, Inc. 또는 계열사.
+					76 content list
+						77 link Description: 개인 정보 보호, Value: aws.amazon.com/privacy/
+						78 link Description: 약관, Value: aws.amazon.com/terms/
+						79 button 쿠키 기본 설정
+	419 text 파일 및 폴더 (1 합계, 1.5MB)
+
+The focused UI element is 0 AXWebArea 객체 업로드 - S3 버킷 2026-ai-kopo-04-exchange-artifacts-619256964117 | S3 | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/s3/upload/2026-ai-kopo-04-exchange-artifacts-619256964117?region=ap-northeast-2

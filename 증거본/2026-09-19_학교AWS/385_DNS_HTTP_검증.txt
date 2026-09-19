@@ -1,0 +1,18 @@
+실행 시각: 2026-09-19T23:22:00.2395812+09:00 명령: Resolve-DnsName www.sang.it.kr -Type A -Server ns.gabia.co.kr -DnsOnly 
+Name                                           Type   TTL   Section    IPAddress
+----                                           ----   ---   -------    ---------
+www.sang.it.kr                                 A      600   Answer     43.201.253.75
+
+ 명령: curl.exe --max-time 15 -sS -I http://www.sang.it.kr/ HTTP/1.1 200 OK
+Server: nginx
+Date: Sat, 19 Sep 2026 14:22:01 GMT
+Content-Type: text/html
+Content-Length: 10707
+Last-Modified: Sat, 19 Sep 2026 12:02:47 GMT
+Connection: keep-alive
+ETag: "6aae79e7-29d3"
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Accept-Ranges: bytes
+
+ PC CLI 화면 캡처는 불가하여 실제 명령과 출력만 보관했다.

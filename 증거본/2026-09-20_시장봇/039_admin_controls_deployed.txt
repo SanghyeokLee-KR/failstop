@@ -1,0 +1,87 @@
+Browser tab: 2017667323, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		32 container consoleNavHeader
+			33 container awsc-nav-header
+				34 image Account color: 설정 해제
+				35 container Global
+					36 container awsc-top-level-nav
+						37 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						38 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						39 button (collapsed) Description: Services, Secondary Actions: Expand
+							40 image
+						41 container aws-unified-search-container
+							42 container
+								43 image Search
+								44 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								45 button Ask Amazon Q
+								46 text [Alt+S]
+						47 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						48 container
+							49 pop up button Description: Notifications (none available), Help: Notifications
+								50 image Notifications
+							51 image Notifications
+						52 content list awsc-navigation__more-menu--list
+							53 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								54 image Support
+							55 button (collapsed) Description: Settings, Secondary Actions: Expand
+							56 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								57 text 아시아 태평양 (서울)
+							58 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								59 text Account ID: 6192-5696-4117
+								60 text 2026-ai-kopo-04
+		9 container
+			10 container Notifications
+				61 content list Description: Notifications, ID: flashbar1-1789831483374-1663
+			11 text Content loaded
+			62 container
+				63 content list
+					132 text GET /admin/bots: 200, expected=200
+					133 text POST /admin/v1/session: 401, expected=401
+					134 text POST /admin/v1/session/: 404, expected=404
+					135 text GET /admin/v1/sim/status: 401, expected=401
+					136 text GET /grafana/login: 200, expected=200
+					137 text GET /grafana/api/search: 401, expected=401
+					138 text GET /api/admin/health: 403, eaws s3 cp s3://2026-ai-kopo-04-exchange-artifacts-619256964117/exchange-web-admin-controls-20260920.zip /tmp/exchange-web-admin-controls-20260920.zip --region ap-northeast-2 --only-
+					139 text show-errors && echo '73716e05934507b4ed88e787cb2f8cdca303c540fb2889c2db008ed0df869e81  /tmp/exchange-web-admin-controls-20260920.zip' | sha256sum -c - && sudo install -d -m 755 /opt/exchange-web/releases/admin-
+					140 text controls-20260920 && sudo python3 -m zipfile -e /tmp/exchange-web-admin-controls-20260920.zip /opt/exchange-web/releases/admin-controls-20260920 && sudo find /opt/exchange-web/releases/admin-controls-20260920 -
+					141 text type d -exec chmod 755 {} + && sudo find /opt/exchange-web/releases/admin-controls-20260920 -type f -exec chmod 644 {} + && sudo ln -sfn /opt/exchange-web/releases/admin-controls-20260920 /opt/exchange-web/curr
+					142 text ent-next && sudo mv -Tf /opt/exchange-web/current-next /opt/exchange-web/current && readlink -f /opt/exchange-web/current && python3 /tmp/verify-admin-public.py
+					143 text /tmp/exchange-web-admin-controls-20260920.zip: OKai-kopo-04-exchange-artifacts-619256964117/exchange-web-admin-controls-20260920.zip /tmp/exchange-web-admin-controls-20260920.zip --region ap-northeast-2 --only-
+					144 text /opt/exchange-web/releases/admin-controls-20260920cdca303c540fb2889c2db008ed0df869e81  /tmp/exchange-web-admin-controls-20260920.zip' | sha256sum -c - && sudo install -d -m 755 /opt/exchange-web/releases/admin-
+					145 text GET /admin/bots: 200, expected=200-m zipfile -e /tmp/exchange-web-admin-controls-20260920.zip /opt/exchange-web/releases/admin-controls-20260920 && sudo find /opt/exchange-web/releases/admin-controls-20260920 -
+					146 text POST /admin/v1/session: 401, expected=401/opt/exchange-web/releases/admin-controls-20260920 -type f -exec chmod 644 {} + && sudo ln -sfn /opt/exchange-web/releases/admin-controls-20260920 /opt/exchange-web/curr
+					147 text POST /admin/v1/session/: 404, expected=404current-next /opt/exchange-web/current && readlink -f /opt/exchange-web/current && python3 /tmp/verify-admin-public.py
+					148 text GET /admin/v1/sim/status: 401, expected=401
+					149 text GET /grafana/login: 200, expected=200
+					150 text GET /grafana/api/search: 401, expected=401
+					151 text GET /api/admin/health: 403, expected=403
+					152 text GET /actuator/health: 403, expected=403
+					153 text GET /.env: 404, expected=404
+					154 text GET /exchange/KRW-BTC: 200, expected=200
+					155 text PASS: HTTPS 화면과 비인증 접근 차단
+					156 text [ec2-user@ip-172-31-2-86 ~]$ 
+				157 text aws s3 cp s3://2026-ai-kopo-04-exchange-artifacts-619256964117/exchange-web-admin-controls-20260920.zip /tmp/exchange-web-admin-controls-20260920.zip --region ap-northeast-2 --only-show-errors && echo '73716e05934507b4ed88e787cb2f8cdca303c540fb2889c2db008ed0df869e81 /tmp/exchange-web-admin-controls-20260920.zip' | sha256sum -c - && sudo install -d -m 755 /opt/exchange-web/releases/admin-controls-20260920 && sudo python3 -m zipfile -e /tmp/exchange-web-admin-controls-20260920.zip /opt/exchange-web/releases/admin-controls-20260920 && sudo find /opt/exchange-web/releases/admin-controls-20260920 -type d -exec chmod 755 {} + && sudo find /opt/exchange-web/releases/admin-controls-20260920 -type f -exec chmod 644 {} + && sudo ln -sfn /opt/exchange-web/releases/admin-controls-20260920 /opt/exchange-web/current-next && sudo mv -Tf /opt/exchange-web/current-next /opt/exchange-web/current && readlink -f /opt/exchange-web/current && python3 /tmp/verify-admin-public.py /tmp/exchange-web-admin-controls-20260920.zip: OK /opt/exchange-web/releases/admin-controls-20260920 GET /admin/bots: 200, expected=200 POST /admin/v1/session: 401, expected=401 POST /admin/v1/session/: 404, expected=404 GET /admin/v1/sim/status: 401, expected=401 GET /grafana/login: 200, expected=200 GET /grafana/api/search: 401, expected=401 GET /api/admin/health: 403, expected=403 GET /actuator/health: 403, expected=403 GET /.env: 404, expected=404 GET /exchange/KRW-BTC: 200, expected=200 PASS: HTTPS 화면과 비인증 접근 차단 [ec2-user@ip-172-31-2-86 ~]$
+				77 text field (settable) Terminal input
+			19 button Close instance info
+			78 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				79 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			80 container
+				81 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		22 container f
+			23 container console-nav-footer
+				24 container awsc-nav-footer-content
+					82 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					83 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					25 button Console Mobile App, ID: mobile_app_button
+						26 image
+						86 text Console Mobile App
+					131 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					28 content list
+						29 link Description: Privacy, Value: aws.amazon.com/privacy/
+						30 link Description: Terms, Value: aws.amazon.com/terms/
+						31 button Cookie preferences
+
+The focused UI element is 77 text field (settable) Terminal input

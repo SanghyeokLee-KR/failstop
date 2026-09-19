@@ -1,0 +1,36 @@
+[Unit]
+Description=Exchange market bot via HTTPS
+Wants=network-online.target
+After=network-online.target prometheus.service
+StartLimitIntervalSec=900
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=exchange-bot
+Group=exchange-bot
+WorkingDirectory=/var/lib/exchange-bot
+EnvironmentFile=/etc/exchange-bot/bot.env
+EnvironmentFile=/etc/exchange-bot/bot-secret.env
+ExecStart=/usr/bin/java -Duser.timezone=UTC -Xms128m -Xmx384m -XX:+ExitOnOutOfMemoryError -jar /opt/exchange-bot/current/app.jar
+# 반복 실패는 세 번에서 멈춘다. 용량 점검으로 중지한 서비스는 자동 재개하지 않는다.
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=60
+TimeoutStopSec=60
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/exchange-bot
+MemoryHigh=640M
+MemoryMax=768M
+TasksMax=512
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=exchange-bot
+
+[Install]
+WantedBy=multi-user.target

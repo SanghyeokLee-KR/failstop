@@ -1,0 +1,13 @@
+{
+  "prometheus_url": "http://127.0.0.1:9090",
+  "nodes": ["app-1", "db-primary", "db-standby", "bot-1"],
+  "app_nodes": ["app-1"],
+  "db_nodes": {"db-primary": "primary", "db-standby": "standby"},
+  "required_services": {
+    "app-1": ["exchange-app.service", "node_exporter.service", "sshd.service", "chronyd.service"],
+    "db-primary": ["postgresql.service", "node_exporter.service", "sshd.service", "chronyd.service"],
+    "db-standby": ["postgresql.service", "node_exporter.service", "sshd.service", "chronyd.service"],
+    "bot-1": ["prometheus.service", "node_exporter.service", "grafana-server.service", "sshd.service", "chronyd.service"]
+  },
+  "model": "gemini-3.1-flash-lite"
+}

@@ -1,0 +1,670 @@
+{
+  "template": {
+    "id": "MSP-OPS-02",
+    "version": 2,
+    "pages": 2
+  },
+  "document": {
+    "id": "incident:2e70048e80b1815c205b612215773e4d8908cee7da201f2b1329221bd96033c1",
+    "title": "Standby DB 수집 경로 장애 발생",
+    "type": "사건",
+    "service": "페일스톱",
+    "customer": "exchange",
+    "environment": "로컬 실습",
+    "targets": [
+      "local-db-standby"
+    ],
+    "collected_at": "2026-09-18 14:17 KST",
+    "window": "2026-09-18 14:02 KST ~ 2026-09-18 14:17 KST"
+  },
+  "decision": {
+    "code": "immediate",
+    "label": "즉시 대응 필요",
+    "priority": "P1",
+    "reason": "Standby DB 수집 경로 장애",
+    "scale": "보고 우선순위: P1 즉시 대응 · P2 조치 · P3 확인 · P4 관찰 (SLA와 별도)"
+  },
+  "incident": {
+    "state": "진행 중",
+    "conclusion": "진행 경보 1건 · 원인 확인 및 서비스 영향 점검 필요",
+    "impact": "DB 관측 공백 · DB 직접 접속 및 서비스 영향 미확인",
+    "remaining": "진행 경보: Standby DB 수집 경로 장애 1건",
+    "cause": "확정 원인 미제공",
+    "hypotheses": []
+  },
+  "timeline": [
+    {
+      "label": "Standby DB 수집 경로 장애 발생",
+      "time": "2026-09-18 14:16 KST"
+    },
+    {
+      "label": "근거 수집",
+      "time": "2026-09-18 14:17 KST"
+    }
+  ],
+  "actions": [
+    {
+      "priority": "P1",
+      "owner": "관측·DB 운영 담당",
+      "timing": "즉시 확인 권고",
+      "task": "Exporter 프로세스·수집 경로 확인 및 DB 직접 접속 점검",
+      "done_when": "Exporter 응답·pg_up=1 및 DB 접속 확인",
+      "evidence": [
+        "alerts",
+        "target_up"
+      ]
+    },
+    {
+      "priority": "P3",
+      "owner": "DB 운영 담당",
+      "timing": "금일 확인 권고",
+      "task": "백업 파일·다음 예약 실행·격리 복원 결과 대조",
+      "done_when": "예약 활성·다음 실행 시각과 백업 ID에 연결된 복원 성공 기록 확보",
+      "evidence": [
+        "backup_success",
+        "backup_schedule",
+        "backup_restore",
+        "trigger"
+      ]
+    },
+    {
+      "priority": "P3",
+      "owner": "관측·서비스 운영 담당",
+      "timing": "다음 판정 전 확인 권고",
+      "task": "누락·오래된 항목의 대상·수집 시각·명시된 누락 사유 확인",
+      "done_when": "필수 근거의 최신 표본과 실제 요청 결과 확보",
+      "evidence": [
+        "alerts",
+        "backup_success",
+        "db_connections",
+        "db_replication_lag",
+        "disk_available",
+        "host",
+        "inode_free",
+        "latency_p95",
+        "request_rate",
+        "server_errors",
+        "services_failed",
+        "target_up"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "Standby DB 수집 경로 장애",
+      "alertname": "DatabaseExporterUnavailable",
+      "status": "firing",
+      "status_label": "진행",
+      "role": "Standby DB",
+      "node": "local-db-standby",
+      "customer": "exchange",
+      "environment": "local-lab",
+      "local_lab": true,
+      "target": "local-db-standby",
+      "started_at": "2026-09-18 14:16 KST",
+      "ended_at": null
+    }
+  ],
+  "handover": {
+    "owner": "역할별 담당자 지정 필요",
+    "reviewer": "미입력",
+    "processing": "처리 결과 확인 전",
+    "approval": "변경 승인 기록 미제공",
+    "executed_actions": "실행 내역 미제공"
+  },
+  "metrics": [
+    {
+      "label": "DB 연결",
+      "evidence": "db_connections",
+      "value": "11개",
+      "detail": "수집 DB 연결 합계 · 허용 한도 대비 여유는 별도 확인 · data / exchange 9개; standby / exchange 2개",
+      "status": "observed",
+      "as_of": "2026-09-18 14:15 KST",
+      "scope": "DB 인스턴스별 exchange 연결 수; 서버 전체 연결 수와 다릅니다."
+    },
+    {
+      "label": "WAL 재생 거리",
+      "evidence": "db_replication_lag",
+      "value": "0 B",
+      "detail": "전송·재생 위치의 최대 차이 · 지연 시간·유실량 의미 아님",
+      "status": "observed",
+      "as_of": "2026-09-18 14:15 KST",
+      "scope": "primary가 관측한 standby별 전송·재생 위치 차이; 실제 유실량의 확정값은 아닙니다."
+    },
+    {
+      "label": "지표 수집 응답",
+      "evidence": "target_up",
+      "value": "4/4개 응답",
+      "detail": "수집 연결 응답 · 업무 요청 성공 여부는 별도",
+      "status": "observed",
+      "as_of": "2026-09-18 14:17 KST",
+      "scope": "고객 Spring·서버·DB·접속 검사 대상만 집계합니다. 관측 도구 자체와 부하 봇은 제외하며 수집 성공은 서비스 정상 판정과 다릅니다."
+    },
+    {
+      "label": "서비스 요청",
+      "evidence": "request_rate",
+      "value": "0.00건/초",
+      "detail": "조회 구간의 마지막 표본 합계",
+      "status": "observed",
+      "as_of": "2026-09-18 14:17 KST",
+      "scope": "API·조회 노드 합산, Actuator 상태 확인·지표 수집 요청 제외"
+    },
+    {
+      "label": "응답 시간 P95",
+      "evidence": "latency_p95",
+      "value": "자료 없음",
+      "detail": "응답 시간 histogram 지표가 없거나 유효한 업무 요청 표본이 없습니다. p95를 계산하지 않았습니다.",
+      "status": "unknown",
+      "as_of": "표본 없음"
+    },
+    {
+      "label": "5xx 응답",
+      "evidence": "server_errors",
+      "value": "자료 없음",
+      "detail": "업무 HTTP 5xx 시계열 또는 충분한 표본이 없습니다. 오류가 0건이라고 확정하지 않았습니다.",
+      "status": "unknown",
+      "as_of": "표본 없음"
+    },
+    {
+      "label": "디스크 여유",
+      "evidence": "disk_available",
+      "value": "자료 없음",
+      "detail": "조회 조건과 시간 범위에 해당하는 지표 표본이 없습니다.",
+      "status": "unknown",
+      "as_of": "표본 없음"
+    },
+    {
+      "label": "inode 여유",
+      "evidence": "inode_free",
+      "value": "자료 없음",
+      "detail": "조회 조건과 시간 범위에 해당하는 지표 표본이 없습니다.",
+      "status": "unknown",
+      "as_of": "표본 없음"
+    },
+    {
+      "label": "디스크 I/O 사용",
+      "evidence": "io_time",
+      "value": "자료 없음",
+      "detail": "조회 조건과 시간 범위에 해당하는 지표 표본이 없습니다.",
+      "status": "unknown",
+      "as_of": "표본 없음"
+    },
+    {
+      "label": "수신 네트워크 오류",
+      "evidence": "network_errors",
+      "value": "자료 없음",
+      "detail": "조회 조건과 시간 범위에 해당하는 지표 표본이 없습니다.",
+      "status": "unknown",
+      "as_of": "표본 없음"
+    },
+    {
+      "label": "실패 서비스",
+      "evidence": "services_failed",
+      "value": "자료 없음",
+      "detail": "조회 조건과 시간 범위에 해당하는 지표 표본이 없습니다.",
+      "status": "unknown",
+      "as_of": "표본 없음"
+    },
+    {
+      "label": "최근 백업 성공",
+      "evidence": "backup_success",
+      "value": "자료 없음",
+      "detail": "조회 조건과 시간 범위에 해당하는 지표 표본이 없습니다.",
+      "status": "unknown",
+      "as_of": "표본 없음"
+    }
+  ],
+  "charts": [
+    {
+      "id": "request_rate",
+      "title": "Spring 요청 처리량",
+      "kind": "line",
+      "unit": "건/초",
+      "series": [
+        {
+          "label": "대상 미제공",
+          "points": [
+            [
+              1789707756.943,
+              0.0
+            ],
+            [
+              1789707816.943,
+              0.0
+            ],
+            [
+              1789707876.943,
+              0.0
+            ],
+            [
+              1789707936.943,
+              0.0
+            ],
+            [
+              1789707996.943,
+              0.0
+            ],
+            [
+              1789708056.943,
+              0.0
+            ],
+            [
+              1789708116.943,
+              0.0
+            ],
+            [
+              1789708176.943,
+              0.0
+            ],
+            [
+              1789708236.943,
+              0.0
+            ],
+            [
+              1789708296.943,
+              0.0
+            ],
+            [
+              1789708356.943,
+              0.0
+            ],
+            [
+              1789708416.943,
+              0.0
+            ],
+            [
+              1789708476.943,
+              0.0
+            ],
+            [
+              1789708536.943,
+              0.0
+            ],
+            [
+              1789708596.943,
+              0.0
+            ],
+            [
+              1789708656.943,
+              0.0
+            ]
+          ]
+        }
+      ],
+      "source": "request_rate",
+      "window_start": 1789707756.943348,
+      "window_end": 1789708656.943348,
+      "step_seconds": 60,
+      "note": "60초 간격의 조회 표본",
+      "y_min": 0,
+      "status": "observed",
+      "y_max": 1
+    },
+    {
+      "id": "db_connections",
+      "title": "DB별 연결",
+      "kind": "line",
+      "unit": "개",
+      "series": [
+        {
+          "label": "local-db-primary / exchange",
+          "points": [
+            [
+              1789707756.943,
+              9.0
+            ],
+            [
+              1789707816.943,
+              9.0
+            ],
+            [
+              1789707876.943,
+              9.0
+            ],
+            [
+              1789707936.943,
+              9.0
+            ],
+            [
+              1789707996.943,
+              9.0
+            ],
+            [
+              1789708056.943,
+              9.0
+            ],
+            [
+              1789708116.943,
+              9.0
+            ],
+            [
+              1789708176.943,
+              9.0
+            ],
+            [
+              1789708236.943,
+              9.0
+            ],
+            [
+              1789708296.943,
+              9.0
+            ],
+            [
+              1789708356.943,
+              9.0
+            ],
+            [
+              1789708416.943,
+              9.0
+            ],
+            [
+              1789708476.943,
+              9.0
+            ],
+            [
+              1789708536.943,
+              9.0
+            ],
+            [
+              1789708596.943,
+              9.0
+            ],
+            [
+              1789708656.943,
+              9.0
+            ]
+          ]
+        },
+        {
+          "label": "local-db-standby / exchange",
+          "points": [
+            [
+              1789707756.943,
+              2.0
+            ],
+            [
+              1789707816.943,
+              2.0
+            ],
+            [
+              1789707876.943,
+              2.0
+            ],
+            [
+              1789707936.943,
+              2.0
+            ],
+            [
+              1789707996.943,
+              2.0
+            ],
+            [
+              1789708056.943,
+              2.0
+            ],
+            [
+              1789708116.943,
+              2.0
+            ],
+            [
+              1789708176.943,
+              2.0
+            ],
+            [
+              1789708236.943,
+              2.0
+            ],
+            [
+              1789708296.943,
+              2.0
+            ],
+            [
+              1789708356.943,
+              2.0
+            ],
+            [
+              1789708416.943,
+              2.0
+            ],
+            [
+              1789708476.943,
+              2.0
+            ],
+            [
+              1789708536.943,
+              2.0
+            ]
+          ]
+        }
+      ],
+      "source": "db_connections",
+      "window_start": 1789707756.943348,
+      "window_end": 1789708656.943348,
+      "step_seconds": 60,
+      "note": "60초 간격의 조회 표본 · exchange DB별 연결; 서버 한도와 비교하지 않음",
+      "y_min": 0,
+      "status": "observed",
+      "y_max": 10.799999999999999
+    },
+    {
+      "id": "db_replication_lag",
+      "title": "WAL 전송·재생 위치 차이",
+      "kind": "line",
+      "unit": "B",
+      "series": [
+        {
+          "label": "local-db-primary / walreceiver",
+          "points": [
+            [
+              1789707756.943,
+              0.0
+            ],
+            [
+              1789707816.943,
+              0.0
+            ],
+            [
+              1789707876.943,
+              0.0
+            ],
+            [
+              1789707936.943,
+              0.0
+            ],
+            [
+              1789707996.943,
+              0.0
+            ],
+            [
+              1789708056.943,
+              0.0
+            ],
+            [
+              1789708116.943,
+              0.0
+            ],
+            [
+              1789708176.943,
+              0.0
+            ],
+            [
+              1789708236.943,
+              0.0
+            ],
+            [
+              1789708296.943,
+              0.0
+            ],
+            [
+              1789708356.943,
+              0.0
+            ],
+            [
+              1789708416.943,
+              0.0
+            ],
+            [
+              1789708476.943,
+              0.0
+            ],
+            [
+              1789708536.943,
+              0.0
+            ]
+          ]
+        }
+      ],
+      "source": "db_replication_lag",
+      "window_start": 1789707756.943348,
+      "window_end": 1789708656.943348,
+      "step_seconds": 60,
+      "note": "60초 간격의 조회 표본 · 유실량이나 지연 시간으로 해석하지 않음",
+      "y_min": 0,
+      "status": "observed",
+      "y_max": 1
+    },
+    {
+      "id": "target_up",
+      "title": "수집 대상 응답",
+      "kind": "line",
+      "unit": "개",
+      "series": [
+        {
+          "label": "응답 대상 / 등록 4개",
+          "points": [
+            [
+              1789707756.943,
+              4.0
+            ],
+            [
+              1789707816.943,
+              4.0
+            ],
+            [
+              1789707876.943,
+              4.0
+            ],
+            [
+              1789707936.943,
+              4.0
+            ],
+            [
+              1789707996.943,
+              4.0
+            ],
+            [
+              1789708056.943,
+              4.0
+            ],
+            [
+              1789708116.943,
+              4.0
+            ],
+            [
+              1789708176.943,
+              4.0
+            ],
+            [
+              1789708236.943,
+              4.0
+            ],
+            [
+              1789708296.943,
+              4.0
+            ],
+            [
+              1789708356.943,
+              4.0
+            ],
+            [
+              1789708416.943,
+              4.0
+            ],
+            [
+              1789708476.943,
+              4.0
+            ],
+            [
+              1789708536.943,
+              4.0
+            ],
+            [
+              1789708596.943,
+              4.0
+            ],
+            [
+              1789708656.943,
+              4.0
+            ]
+          ]
+        }
+      ],
+      "source": "target_up",
+      "window_start": 1789707756.943348,
+      "window_end": 1789708656.943348,
+      "step_seconds": 60,
+      "note": "60초 간격의 조회 표본 · 모든 대상의 표본이 있는 시각만 합산; 서비스 정상 판정 아님",
+      "y_min": 0,
+      "status": "observed",
+      "y_max": 4
+    }
+  ],
+  "gaps": [
+    "디스크 여유: 자료 없음",
+    "inode 여유: 자료 없음",
+    "디스크 I/O 사용: 자료 없음",
+    "수신 네트워크 오류: 자료 없음",
+    "실패 서비스: 자료 없음",
+    "5xx 응답: 자료 없음",
+    "응답 시간 P95: 자료 없음",
+    "최근 백업 성공: 자료 없음",
+    "호스트 운영 기록: 자료 없음",
+    "상세 로그: 자료 없음",
+    "AWS 변경 기록: 자료 없음",
+    "백업 예약 확인: 자료 없음",
+    "백업 복원 확인: 자료 없음"
+  ],
+  "closure_conditions": [
+    "Exporter 응답·pg_up=1 및 DB 접속 확인",
+    "예약 활성·다음 실행 시각과 백업 ID에 연결된 복원 성공 기록 확보",
+    "필수 근거의 최신 표본과 실제 요청 결과 확보"
+  ],
+  "limitations": [
+    "고객 영향 미확인: 개입 우선순위와 서비스 장애 확정은 별개",
+    "필수 근거 backup_success: 자료 미제공",
+    "필수 근거 disk_available: 자료 미제공",
+    "필수 근거 host: 시각 미제공",
+    "필수 근거 inode_free: 자료 미제공",
+    "필수 근거 latency_p95: 자료 미제공",
+    "필수 근거 server_errors: 자료 미제공",
+    "필수 근거 services_failed: 자료 미제공",
+    "상세 로그 미제공: 원인·변경 이력 판단 범위 제한",
+    "AWS 변경 기록 미제공: 원인·변경 이력 판단 범위 제한"
+  ],
+  "evidence_ids": [
+    "target_up",
+    "disk_available",
+    "inode_free",
+    "io_time",
+    "network_errors",
+    "services_failed",
+    "db_connections",
+    "db_replication_lag",
+    "request_rate",
+    "server_errors",
+    "latency_p95",
+    "backup_success",
+    "alerts",
+    "host",
+    "journal",
+    "aws_activity",
+    "backup_schedule",
+    "backup_restore",
+    "trigger"
+  ],
+  "method": "수집 근거로 판정 · AI 분석 없음",
+  "rendering": {
+    "truncated_fields": [],
+    "output_pages": 2
+  }
+}

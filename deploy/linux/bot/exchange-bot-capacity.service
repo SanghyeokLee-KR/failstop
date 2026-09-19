@@ -1,0 +1,16 @@
+[Unit]
+Description=Check host disk reserve before continuing market bots
+After=prometheus.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/exchange-bot/capacity_guard.py --enforce
+User=root
+UMask=0027
+StateDirectory=exchange-bot-guard
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/exchange-bot-guard
+TimeoutStartSec=100

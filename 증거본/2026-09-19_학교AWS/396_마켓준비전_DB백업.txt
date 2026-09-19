@@ -1,0 +1,101 @@
+Browser tab: 2017667298, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		35 container consoleNavHeader
+			36 container awsc-nav-header
+				37 image Account color: 설정 해제
+				38 container Global
+					39 container awsc-top-level-nav
+						40 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						41 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						42 button (collapsed) Description: Services, Secondary Actions: Expand
+							43 image
+						44 container aws-unified-search-container
+							45 container
+								46 image Search
+								47 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								48 button Ask Amazon Q
+								49 text [Alt+S]
+						50 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						51 container
+							52 pop up button Description: Notifications (none available), Help: Notifications
+								53 image Notifications
+							54 image Notifications
+						55 content list awsc-navigation__more-menu--list
+							56 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								57 image Support
+							58 button (collapsed) Description: Settings, Secondary Actions: Expand
+							59 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								60 text 아시아 태평양 (서울)
+							61 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								62 text Account ID: 6192-5696-4117
+								63 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789828501061-864
+			15 text Content loaded
+			64 container
+				65 content list
+					66 text    ,     #_
+					67 text    ~\_  ####_        Amazon Linux 2023
+					68 text   ~~  \_#####\
+					69 text   ~~     \###|
+					70 text   ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+					71 text    ~~       V~' '->
+					72 text     ~~~         /
+					73 text       ~~._.   _/
+					74 text          _/ _/
+					75 text        _/m/'
+					76 text Last login: Sat Sep 19 13:07:51 2026 from 13.209.1.60
+					89 text [ec2-user@ip-172-31-1-229 ~]$ sudo -u postgres psql -X -d exchange -c "SELECT pg_is_in_recovery(), (SEL
+					90 text ECT count(*) FROM assets) AS assets, (SELECT count(*) FROM markets) AS markets, (SELECT count(*) FROM o
+					91 text rders) AS orders;" && sudo install -d -o postgres -g postgres -m 0700 /var/lib/pgsql/backups && sudo -u
+					92 text  postgres pg_dump -Fc -d exchange -f /var/lib/pgsql/backups/exchange-before-markets-20260919.dump && su
+					93 text do -u postgres pg_restore --list /var/lib/pgsql/backups/exchange-before-markets-20260919.dump | head -n
+					94 text  16
+					95 text  pg_is_in_recovery | assets | markets | orders 
+					96 text -------------------+--------+---------+--------
+					97 text  f                 |      0 |       0 |      0
+					98 text (1 row)
+					99 text ;
+					100 text ; Archive created at 2026-09-19 14:35:55 UTC
+					101 text ;     dbname: exchange
+					102 text ;     TOC Entries: 1126
+					103 text ;     Compression: gzip
+					104 text ;     Dump Version: 1.16-0
+					105 text ;     Format: CUSTOM
+					106 text ;     Integer: 4 bytes
+					107 text ;     Offset: 8 bytes
+					108 text ;     Dumped from database version: 17.11
+					109 text ;     Dumped by pg_dump version: 17.11
+					110 text ;
+					111 text ;
+					112 text ; Selected TOC Entries:
+					113 text ;
+					114 text 7; 2615 17056 SCHEMA - harness exchange_owner
+					115 text [ec2-user@ip-172-31-1-229 ~]$ 
+				116 text Too much output to announce, navigate to rows manually to readsudo -u postgres psql -X -d exchange -c "SELECT pg_is_in_recovery(), (SELECT count(*) FROM assets) AS assets, (SELECT count(*) FROM markets) AS markets, (SELECT count(*) FROM orders) AS orders;" && sudo install -d -o postgres -g postgres -m 0700 /var/lib/pgsql/backups && sudo -u postgres pg_dump -Fc -d exchange -f /var/lib/pgsql/backups/exchange-before-markets-20260919.dump && sudo -u postgres pg_restore --list /var/lib/pgsql/backups/exchange-before-markets-20260919.dump | head -n 16sudo -u postgres psql -X -d exchange -c "SELECT pg_is_in_recovery(), (SELECT count(*) FROM assets) AS assets, (SELECT count(*) FROM markets) AS markets, (SELECT count(*) FROM orders) AS orders;" && sudo install -d -o postgres -g postgres -m 0700 /var/lib/pgsql/backups && sudo -u postgres pg_dump -Fc -d exchange -f /var/lib/pgsql/backups/exchange-before-markets-20260919.dump && sudo -u postgres pg_restore --list /var/lib/pgsql/backups/exchange-before-markets-20260919.dump | head -n 16 pg_is_in_recovery | assets | markets | orders -------------------+--------+---------+-------- f | 0 | 0 | 0 (1 row) ; ; Archive created at 2026-09-19 14:35:55 UTC ; dbname: exchange ; TOC Entries: 1126 ; Compression: gzip ; Dump Version: 1.16-0 ; Format: CUSTOM ; Integer: 4 bytes ; Offset: 8 bytes ; Dumped from database version: 17.11 ; Dumped by pg_dump version: 17.11 ; ; ; Selected TOC Entries: ;
+				79 text field (settable) Terminal input
+			23 button Close instance info
+			24 heading i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01), Value: 3
+				80 text i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01)
+			81 container
+				82 text PublicIPs: 13.125.150.154 PrivateIPs: 172.31.1.229
+		25 container f
+			26 container console-nav-footer
+				27 container awsc-nav-footer-content
+					83 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					28 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					29 button Console Mobile App, ID: mobile_app_button
+						30 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					31 content list
+						32 link Description: Privacy, Value: aws.amazon.com/privacy/
+						33 link Description: Terms, Value: aws.amazon.com/terms/
+						34 button Cookie preferences
+
+The focused UI element is 79 text field (settable) Terminal input

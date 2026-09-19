@@ -1,0 +1,105 @@
+Browser tab: 2017667309, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		36 container consoleNavHeader
+			37 container awsc-nav-header
+				38 image Account color: 설정 해제
+				39 container Global
+					40 container awsc-top-level-nav
+						41 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						42 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						43 button (collapsed) Description: Services, Secondary Actions: Expand
+							44 image
+						45 container aws-unified-search-container
+							46 container
+								47 image Search
+								48 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								49 button Ask Amazon Q
+								50 text [Alt+S]
+						51 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						52 container
+							53 pop up button Description: Notifications (none available), Help: Notifications
+								54 image Notifications
+							55 image Notifications
+						56 content list awsc-navigation__more-menu--list
+							57 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								58 image Support
+							59 button (collapsed) Description: Settings, Secondary Actions: Expand
+							60 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								61 text 아시아 태평양 (서울)
+							62 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								63 text Account ID: 6192-5696-4117
+								64 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789829137356-8727
+			15 text Content loaded
+			65 container
+				66 content list
+					91 text         : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@1002d1c8
+					92 text 2026-09-19T14:58:35.860Z  INFO 41156 --- [exchange] [           main] com.zaxxer.hikari.HikariDataSourc
+					93 text e       : HikariPool-1 - Start completed.
+					94 text 2026-09-19T14:58:38.887Z  INFO 41156 --- [exchange] [           main] o.s.m.s.b.SimpleBrokerMessageHand
+					95 text ler     : Starting...
+					96 text 2026-09-19T14:58:38.890Z  INFO 41156 --- [exchange] [           main] o.s.m.s.b.SimpleBrokerMessageHand
+					97 text ler     : BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messa
+					98 text ging.simp.broker.DefaultSubscriptionRegistry@2cb4e4b1]]
+					99 text 2026-09-19T14:58:38.893Z  INFO 41156 --- [exchange] [           main] o.s.m.s.b.SimpleBrokerMessageHand
+					100 text ler     : Started.
+					101 text 2026-09-19T14:58:38.913Z  INFO 41156 --- [exchange] [           main] o.s.b.w.embedded.tomcat.TomcatWeb
+					102 text Server  : Tomcat started on port 8080 (http) with context path '/'
+					103 text 2026-09-19T14:58:39.032Z  INFO 41156 --- [exchange] [           main] o.s.b.w.embedded.tomcat.TomcatWeb
+					104 text Server  : Tomcat initialized with port 8081 (http)
+					105 text 2026-09-19T14:58:39.039Z  INFO 41156 --- [exchange] [           main] o.apache.catalina.core.StandardSe
+					106 text rvice   : Starting service [Tomcat]
+					107 text 2026-09-19T14:58:39.042Z  INFO 41156 --- [exchange] [           main] o.apache.catalina.core.StandardEn
+					108 text gine    : Starting Servlet engine: [Apache Tomcat/10.1.55]
+					109 text 2026-09-19T14:58:39.046Z  INFO 41156 --- [exchange] [           main] o.a.c.c.C.[Tomcat-1].[localhost].
+					110 text [/]     : Initializing Spring embedded WebApplicationContext
+					111 text 2026-09-19T14:58:39.047Z  INFO 41156 --- [exchange] [           main] w.s.c.ServletWebServerApplication
+					112 text Context : Root WebApplicationContext: initialization completed in 128 ms
+					113 text 2026-09-19T14:58:39.072Z  INFO 41156 --- [exchange] [           main] o.s.b.a.e.web.EndpointLinksResolv
+					114 text er      : Exposing 5 endpoints beneath base path '/actuator'
+					115 text 2026-09-19T14:58:39.151Z  INFO 41156 --- [exchange] [           main] o.s.b.w.embedded.tomcat.TomcatWeb
+					116 text Server  : Tomcat started on port 8081 (http) with context path '/'
+					117 text                total        used        free      shared  buff/cache   available
+					118 text Mem:            1909         641          95         109        1172        1002
+					119 text Swap:              0           0           0
+					120 text NRestarts=0
+					121 text MemoryCurrent=281489408
+					122 text Id=exchange-bot.service
+					123 text ActiveState=active
+					124 text NRestarts=0
+					125 text MemoryCurrent=164462592
+					126 text Id=grafana-server.service
+					127 text ActiveState=active
+					128 text NRestarts=0
+					129 text MemoryCurrent=91000832
+					130 text Id=prometheus.service
+					131 text ActiveState=active
+					132 text [ec2-user@ip-172-31-44-141 ~]$ 
+				133 text Too much output to announce, navigate to rows manually to readstemctl show exchange-bot grafana-server prometheus -p Id -p ActiveState -p MemoryCurrent -p NRestarts sudo journalctl -u exchange-bot -n 45 --no-pager -o cat; free -m; sudo systemctl show exchange-bot grafana-server prometheus -p Id -p ActiveState -p MemoryCurrent -p NRestarts s Started exchange-bot.service - Exchange market bot via HTTPS. . ____ _ __ _ _ /\\ / ___'_ __ _ _(_)_ __ __ _ \ \ \ \ ( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \ \\/ ___)| |_)| | | | | || (_| | ) ) ) ) ' |____| .__|_| |_|_| |_\__, | / / / / =========|_|==============|___/=/_/_/_/ :: Spring Boot :: (v3.5.16) 2026-09-19T14:58:28.478Z INFO 41156 --- [exchange] [ main] kr.exchange.ExchangeApplication : Starting ExchangeApplication v0.1.0-SNAPSHOT using Java 21.0.12.1 with PID 41156 (/opt/exchange-bot/releases/3362117/app.jar started by exchange-bot in /var/lib/exchange-bot) 2026-09-19T14:58:28.482Z INFO 41156 --- [exchange] [ main] kr.exchange.ExchangeApplication : The following 2 profiles are active: "prod", "bots" 2026-09-19T14:58:32.262Z WARN 41156 --- [exchange] [ main] trationDelegate$BeanPostProcessorChecker : Bean 'engineConfig' of type [kr.exchange.config.EngineConfig$$SpringCGLIB$$0] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). The currently created BeanPostProcessor [projectionSignalWiring] is declared through a non-static factory method on that class; consider declaring it as static instead. 2026-09-19T14:58:33.153Z INFO 41156 --- [exchange] [ main] o.s.b.w.embedded.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http) 2026-09-19T14:58:33.182Z INFO 41156 --- [exchange] [ main] o.apache.catalina.core.StandardService : Starting service [Tomcat] 2026-09-19T14:58:33.183Z INFO 41156 --- [exchange] [ main] o.apache.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/10.1.55] 2026-09-19T14:58:33.233Z INFO 41156 --- [exchange] [ main] o.a.c.c.C.[Tomcat].[localhost].[/] : Initializing Spring embedded WebApplicationContext 2026-09-19T14:58:33.236Z INFO 41156 --- [exchange] [ main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 4631 ms 2026-09-19T14:58:33.342Z INFO 41156 --- [exchange] [ main] kr.exchange.config.ApiConfig : 수용 제한 상한 해석: 쓰기 1 / 조회 1 / 재조회 1 / 예비 1 (요청 풀 4) 2026-09-19T14:58:34.700Z INFO 41156 --- [exchange] [ main] kr.exchange.config.ApiConfig : 수용 제한 상한 해석: WS 동시 연결 상한 964 (최대 힙 371MB) 2026-09-19T14:58:34.858Z INFO 41156 --- [exchange] [ main] com.zaxxer.hikari.HikariDataSource : HikariPool-1 - Starting... 2026-09-19T14:58:35.856Z INFO 41156 --- [exchange] [ main] com.zaxxer.hikari.pool.HikariPool : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@1002d1c8
+				80 text field (settable) Terminal input
+			23 button Close instance info
+			81 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				82 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			83 container
+				84 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		26 container f
+			27 container console-nav-footer
+				28 container awsc-nav-footer-content
+					85 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					29 button Agent Toolkit for AWS
+					86 button Feedback, ID: feedback
+						87 text Feedback
+					30 button Console Mobile App, ID: mobile_app_button
+						31 image
+						88 text Console Mobile App
+					89 container
+						90 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					32 content list
+						33 link Description: Privacy, Value: aws.amazon.com/privacy/
+						34 link Description: Terms, Value: aws.amazon.com/terms/
+						35 button Cookie preferences
+
+The focused UI element is 80 text field (settable) Terminal input

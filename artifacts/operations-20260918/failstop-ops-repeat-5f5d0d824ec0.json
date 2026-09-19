@@ -1,0 +1,804 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "environment": "isolated local Docker, PostgreSQL asynchronous replication",
+  "started_at": "2026-09-18T04:12:27.431311+00:00",
+  "project": "failstop-ops-repeat-5f5d0d824ec0",
+  "phases": {
+    "startup": {
+      "markets": 12,
+      "http_status": 200
+    },
+    "manual_failover": {
+      "old_primary_stopped": true,
+      "standby_recovery_before": true,
+      "promoted_recovery_after": false,
+      "caught_up_wal_lsn": "0/301A2D0",
+      "app_ready_seconds": 9.688,
+      "human_decision_time_included": false
+    },
+    "rejoin": {
+      "new_volume": true,
+      "streaming": true,
+      "old_primary_volume_preserved": true
+    },
+    "backup_restore": {
+      "bytes": 564258,
+      "restored_http": 200,
+      "restored_app_ready": true
+    }
+  },
+  "acknowledgements": [
+    {
+      "client_order_id": "84ffdffd-0d77-4109-b957-ed4a3bea48d4",
+      "id": "99899d8a-0e0e-4630-bbeb-6feb75b258a5",
+      "http_status": 201
+    },
+    {
+      "client_order_id": "df7f96c1-810b-4cba-8e9e-be0d61f0c6ef",
+      "id": "336cb220-d988-479a-9856-c61ade997fe6",
+      "http_status": 201
+    }
+  ],
+  "before": {
+    "commands": 2,
+    "events": 3,
+    "trades": 1,
+    "ledger_entries": 22,
+    "orders": 2
+  },
+  "invariants_before": [
+    {
+      "code": "C01",
+      "check_name": "ASSET_CONSERVATION",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C02",
+      "check_name": "BAL_VS_LEDGER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C04",
+      "check_name": "TXN_SEALED_UNBALANCED",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C05",
+      "check_name": "CMD_JOURNAL_GAPLESS",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C06",
+      "check_name": "EVENT_JOURNAL_GAPLESS",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C07",
+      "check_name": "DUP_CLIENT_ORDER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C07P",
+      "check_name": "DUP_CLIENT_ORDER_JOURNAL",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C08",
+      "check_name": "TRADE_SEQ_DUP",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C13A",
+      "check_name": "EVENT_ORDER_MATERIALIZED",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C13B",
+      "check_name": "ORDER_JOURNALED",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C16",
+      "check_name": "BOT_ACK_SUBSET",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C17",
+      "check_name": "REPLAY_DETERMINISM",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C18",
+      "check_name": "FILL_PRICE_MAKER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C21",
+      "check_name": "EVENT_EMISSION_REGISTRY",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C22",
+      "check_name": "FENCING_MONOTONIC",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C23",
+      "check_name": "COUNTER_SEQ_CONSISTENCY",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C27",
+      "check_name": "CMD_DEFAULT_PARTITION",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C28",
+      "check_name": "CMD_LEGACY_AFTER_CUTOVER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C03",
+      "check_name": "TXN_UNSEALED",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C09",
+      "check_name": "TRADE_SEQ_EVENT_MATCH",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C10",
+      "check_name": "ORDER_FILL_AGG",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C11",
+      "check_name": "TRADE_ORPHAN",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C12",
+      "check_name": "EVENT_ORPHAN",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C14",
+      "check_name": "LOCKED_RESERVATION",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C19",
+      "check_name": "ORDERBOOK_NONCROSS",
+      "severity": "HIGH",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C20",
+      "check_name": "ORDER_FEE_MATERIALIZED",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C26",
+      "check_name": "CMD_BAND_HEADROOM",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C15",
+      "check_name": "DEFAULT_PARTITION",
+      "severity": "WARN",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C24",
+      "check_name": "POSITION_COST_QTY",
+      "severity": "WARN",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C25",
+      "check_name": "POSITION_COST_SANITY",
+      "severity": "WARN",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    }
+  ],
+  "after_failover": {
+    "commands": 2,
+    "events": 3,
+    "trades": 1,
+    "ledger_entries": 22,
+    "orders": 2
+  },
+  "ack_preserved": 2,
+  "invariants_after_failover": [
+    {
+      "code": "C01",
+      "check_name": "ASSET_CONSERVATION",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C02",
+      "check_name": "BAL_VS_LEDGER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C04",
+      "check_name": "TXN_SEALED_UNBALANCED",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C05",
+      "check_name": "CMD_JOURNAL_GAPLESS",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C06",
+      "check_name": "EVENT_JOURNAL_GAPLESS",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C07",
+      "check_name": "DUP_CLIENT_ORDER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C07P",
+      "check_name": "DUP_CLIENT_ORDER_JOURNAL",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C08",
+      "check_name": "TRADE_SEQ_DUP",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C13A",
+      "check_name": "EVENT_ORDER_MATERIALIZED",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C13B",
+      "check_name": "ORDER_JOURNALED",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C16",
+      "check_name": "BOT_ACK_SUBSET",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C17",
+      "check_name": "REPLAY_DETERMINISM",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C18",
+      "check_name": "FILL_PRICE_MAKER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C21",
+      "check_name": "EVENT_EMISSION_REGISTRY",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C22",
+      "check_name": "FENCING_MONOTONIC",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C23",
+      "check_name": "COUNTER_SEQ_CONSISTENCY",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C27",
+      "check_name": "CMD_DEFAULT_PARTITION",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C28",
+      "check_name": "CMD_LEGACY_AFTER_CUTOVER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C03",
+      "check_name": "TXN_UNSEALED",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C09",
+      "check_name": "TRADE_SEQ_EVENT_MATCH",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C10",
+      "check_name": "ORDER_FILL_AGG",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C11",
+      "check_name": "TRADE_ORPHAN",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C12",
+      "check_name": "EVENT_ORPHAN",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C14",
+      "check_name": "LOCKED_RESERVATION",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C19",
+      "check_name": "ORDERBOOK_NONCROSS",
+      "severity": "HIGH",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C20",
+      "check_name": "ORDER_FEE_MATERIALIZED",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C26",
+      "check_name": "CMD_BAND_HEADROOM",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C15",
+      "check_name": "DEFAULT_PARTITION",
+      "severity": "WARN",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C24",
+      "check_name": "POSITION_COST_QTY",
+      "severity": "WARN",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C25",
+      "check_name": "POSITION_COST_SANITY",
+      "severity": "WARN",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    }
+  ],
+  "restored_counts": {
+    "commands": 2,
+    "events": 3,
+    "trades": 1,
+    "ledger_entries": 22,
+    "orders": 2
+  },
+  "invariants_restored": [
+    {
+      "code": "C01",
+      "check_name": "ASSET_CONSERVATION",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C02",
+      "check_name": "BAL_VS_LEDGER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C04",
+      "check_name": "TXN_SEALED_UNBALANCED",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C05",
+      "check_name": "CMD_JOURNAL_GAPLESS",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C06",
+      "check_name": "EVENT_JOURNAL_GAPLESS",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C07",
+      "check_name": "DUP_CLIENT_ORDER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C07P",
+      "check_name": "DUP_CLIENT_ORDER_JOURNAL",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C08",
+      "check_name": "TRADE_SEQ_DUP",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C13A",
+      "check_name": "EVENT_ORDER_MATERIALIZED",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C13B",
+      "check_name": "ORDER_JOURNALED",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C16",
+      "check_name": "BOT_ACK_SUBSET",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C17",
+      "check_name": "REPLAY_DETERMINISM",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C18",
+      "check_name": "FILL_PRICE_MAKER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C21",
+      "check_name": "EVENT_EMISSION_REGISTRY",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C22",
+      "check_name": "FENCING_MONOTONIC",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C23",
+      "check_name": "COUNTER_SEQ_CONSISTENCY",
+      "severity": "CRITICAL",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C27",
+      "check_name": "CMD_DEFAULT_PARTITION",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C28",
+      "check_name": "CMD_LEGACY_AFTER_CUTOVER",
+      "severity": "CRITICAL",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C03",
+      "check_name": "TXN_UNSEALED",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C09",
+      "check_name": "TRADE_SEQ_EVENT_MATCH",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C10",
+      "check_name": "ORDER_FILL_AGG",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C11",
+      "check_name": "TRADE_ORPHAN",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C12",
+      "check_name": "EVENT_ORPHAN",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C14",
+      "check_name": "LOCKED_RESERVATION",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C19",
+      "check_name": "ORDERBOOK_NONCROSS",
+      "severity": "HIGH",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C20",
+      "check_name": "ORDER_FEE_MATERIALIZED",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C26",
+      "check_name": "CMD_BAND_HEADROOM",
+      "severity": "HIGH",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C15",
+      "check_name": "DEFAULT_PARTITION",
+      "severity": "WARN",
+      "scope": "ALWAYS",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C24",
+      "check_name": "POSITION_COST_QTY",
+      "severity": "WARN",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    },
+    {
+      "code": "C25",
+      "check_name": "POSITION_COST_SANITY",
+      "severity": "WARN",
+      "scope": "CONDITIONAL",
+      "violated_rows": "0",
+      "verdict": "PASS"
+    }
+  ],
+  "limits": [
+    "Single Docker host, not AWS or multi-host validation",
+    "Writes quiesced and standby caught up before fencing",
+    "Asynchronous DB replication can still lose acknowledged writes in an abrupt failure",
+    "Lab application uses isolated superuser credentials"
+  ],
+  "finished_at": "2026-09-18T04:15:13.759937+00:00",
+  "cleanup": {
+    "repeat_containers_removed": true,
+    "repeat_volumes_removed": true,
+    "backup_preserved": true,
+    "original_lab_reset": false
+  }
+}

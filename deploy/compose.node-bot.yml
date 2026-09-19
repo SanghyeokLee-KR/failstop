@@ -26,8 +26,14 @@ services:
       # 이 노드는 고객 트래픽을 받지 않아 둘 다 불필요하다.
       SPRING_PROFILES_ACTIVE: ${BOT_PROFILES:-bots}
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME:-exchange}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_USERNAME: ${BOT_DB_USER:?BOT_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${BOT_DB_PASSWORD:?BOT_DB_PASSWORD is required}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${BOT_DB_POOL_MAX:-8}
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "2"
+      EXCHANGE_ENGINE_APPENDDATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "1"
+      EXCHANGE_ENGINE_APPENDDATASOURCE_HIKARI_MINIMUM_IDLE: "0"
+      EXCHANGE_ENGINE_LEASEDATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "1"
+      EXCHANGE_ENGINE_LEASEDATASOURCE_HIKARI_MINIMUM_IDLE: "0"
       # 스키마는 앱 노드가 확정한다. 봇 노드는 절대 마이그레이션하지 않는다.
       SPRING_FLYWAY_ENABLED: "false"
       # 리더 경쟁 불참. 이 파일의 존재 이유다.
@@ -44,7 +50,7 @@ services:
     ports:
       # 관측 전용. Prometheus 가 이 포트를 긁어 BotFleetDown 을 판정한다.
       # 고객 평면에는 노출하지 않는다. 보안그룹에서 관측 노드만 허용한다.
-      - "${BOT_MGMT_PORT:-8080}:8080"
+      - "${MGMT_BIND_IP:-127.0.0.1}:${BOT_MGMT_PORT:-8080}:8080"
     healthcheck:
       # liveness 로 판정한다. 이 노드는 엔진이 꺼져 있어 readiness 가 설계상 통과하지
       # 않을 수 있고, 컨테이너 기동 여부와 트래픽 수용 여부는 다른 질문이다.

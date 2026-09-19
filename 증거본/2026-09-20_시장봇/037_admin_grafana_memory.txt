@@ -1,0 +1,78 @@
+Browser tab: 2017667317, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		46 container consoleNavHeader
+			47 container awsc-nav-header
+				48 image Account color: 설정 해제
+				49 container Global
+					50 container awsc-top-level-nav
+						51 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						52 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						53 button (collapsed) Description: Services, Secondary Actions: Expand
+							54 image
+						55 container aws-unified-search-container
+							56 container
+								57 image Search
+								58 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								59 button Ask Amazon Q
+								60 text [Alt+S]
+						61 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						62 container
+							63 pop up button Description: Notifications (none available), Help: Notifications
+								64 image Notifications
+							65 image Notifications
+						66 content list awsc-navigation__more-menu--list
+							67 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								68 image Support
+							69 button (collapsed) Description: Settings, Secondary Actions: Expand
+							70 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								71 text 아시아 태평양 (서울)
+							72 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								73 text Account ID: 6192-5696-4117
+								74 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789830565444-7143
+			23 text Content loaded
+			75 container
+				76 content list
+					182 text NRestarts=0
+					183 text MemoryCurrent=382812160
+					184 text Id=exchange-bot.service
+					185 text ActiveState=active
+					186 text SubState=running
+					187 text NRestarts=0
+					188 text MemoryCurrent=444583936
+					189 text Id=grafana-server.service
+					190 text ActiveState=active
+					191 text SubState=running
+					192 text Result=success
+					193 text ExecMainStatus=0
+					194 text                total        used        free      shared  buff/cache   available
+					195 text Mem:            1909        1048         110         109         750         600
+					196 text Swap:              0           0           0
+					197 text {"status":"UP"}[ec2-user@ip-172-31-44-141 ~]$ 
+				198 text p ExecMainStatus; free -m; curl -fsS http://127.0.0.1:8081/actuator/health/livenessclear; sudo systemctl show exchange-bot grafana-server -p Id -p ActiveState -p SubState -p NRestarts -p MemoryCurrent; sudo systemctl show exchange-bot-capacity.service -p Result -p ExecMainStatus; free -m; curl -fsS http://127.0.0.1:8081/actuator/health/liveness NRestarts=0 MemoryCurrent=382812160 Id=exchange-bot.service ActiveState=active SubState=running NRestarts=0 MemoryCurrent=444583936 Id=grafana-server.service ActiveState=active SubState=running Result=success ExecMainStatus=0 total used free shared buff/cache available Mem: 1909 1048 110 109 750 600 Swap: 0 0 0 {"status":"UP"}[ec2-user@ip-172-31-44-141 ~]$
+				90 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				91 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			92 container
+				93 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		33 container f
+			34 container console-nav-footer
+				35 container awsc-nav-footer-content
+					94 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					36 button Agent Toolkit for AWS
+					95 button Feedback, ID: feedback
+						96 text Feedback
+					37 button Console Mobile App, ID: mobile_app_button
+						38 image
+						39 text Console Mobile App
+					181 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					42 content list
+						43 link Description: Privacy, Value: aws.amazon.com/privacy/
+						44 link Description: Terms, Value: aws.amazon.com/terms/
+						45 button Cookie preferences
+
+The focused UI element is 90 text field (settable) Terminal input

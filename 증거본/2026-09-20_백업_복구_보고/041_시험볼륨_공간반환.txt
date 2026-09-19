@@ -1,0 +1,67 @@
+Browser tab: 2017667323, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		2 container consoleNavHeader
+			3 container awsc-nav-header
+				4 image Account color: 설정 해제
+				5 container Global
+					6 container awsc-top-level-nav
+						7 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						8 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						9 button (collapsed) Description: Services, Secondary Actions: Expand
+							10 image
+						11 container aws-unified-search-container
+							12 container
+								13 image Search
+								14 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								15 button Ask Amazon Q
+								16 text [Alt+S]
+						17 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						18 container
+							19 pop up button Description: Notifications (none available), Help: Notifications
+								20 image Notifications
+							21 image Notifications
+						22 content list awsc-navigation__more-menu--list
+							23 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								24 image Support
+							25 button (collapsed) Description: Settings, Secondary Actions: Expand
+							26 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								27 text 아시아 태평양 (서울)
+							28 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								29 text Account ID: 6192-5696-4117
+								30 text 2026-ai-kopo-04
+		31 container
+			32 container Notifications
+				33 content list Description: Notifications, ID: flashbar1-1789831483374-1663
+			34 text Content loaded
+			35 container
+				36 content list
+					83 text PASS: 설정 반영. 앱·봇 프로세스는 재시작하지 않음.
+					84 text Filesystem      Size  Used Avail Use% Mounted on
+					85 text /dev/nvme0n1p1   20G  2.5G   18G  13% /
+					86 text /dev/loop0      115M   14K  112M   1% /mnt/exchange-disk-alert-test
+					87 text [ec2-user@ip-172-31-2-86 ~]$ 
+				88 text nLndpdGhfbmFtZSgncHJvbWV0aGV1cy55bWwuYmVmb3JlLWRiLXJlY292ZXJ5LTIwMjYwOTIwJykKICAgIGlmIGJhY2t1cC5leGlzdHMoKToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCfqtIDsuKEg7KCE7ZmYIOq4sOuhneydtCDsnojsirXri4jri6QuIOykkeuztSDsoITtmZjtlZjsp4Ag7JWK7Iq164uI64ukLicpCiAgICBvbGQgPSBjb25maWcucmVhZF90ZXh0KCkKICAgIGlmIG9sZC5jb3VudCgnMTcyLjMxLjEuMjI5JykgIT0gMiBvciBvbGQuY291bnQoJzE3Mi4zMS4zMy4xOTUnKSAhPSAyOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoJ0RCIOq0gOy4oSDrjIDsg4Eg7IiYIO2ZleyduCDtlYTsmpQnKQogICAgc2h1dGlsLmNvcHkyKGNvbmZpZywgYmFja3VwKQogICAgY29uZmlnLndyaXRlX3RleHQob2xkLnJlcGxhY2UoJzE3Mi4zMS4xLjIyOScsICdURU1QX0RCX0hPU1QnKS5yZXBsYWNlKCcxNzIuMzEuMzMuMTk1JywgJzE3Mi4zMS4xLjIyOScpLnJlcGxhY2UoJ1RFTVBfREJfSE9TVCcsICcxNzIuMzEuMzMuMTk1JykpCiAgICB0cnk6CiAgICAgICAgc3VicHJvY2Vzcy5ydW4oWycvdXNyL2xvY2FsL2Jpbi9wcm9tdG9vbCcsICdjaGVjaycsICdjb25maWcnLCBzdHIoY29uZmlnKV0sIGNoZWNrPVRydWUpCiAgICBleGNlcHQgRXhjZXB0aW9uOgogICAgICAgIGNvbmZpZy53cml0ZV90ZXh0KG9sZCkKICAgICAgICByYWlzZQogICAgc3VicHJvY2Vzcy5ydW4oWydzeXN0ZW1jdGwnLCAncmVzdGFydCcsICdwcm9tZXRoZXVzJ10sIGNoZWNrPVRydWUpCnByaW50KCdQQVNTOiDshKTsoJUg67CY7JiBLiDslbHCt+u0hyDtlITroZzshLjsiqTripQg7J6s7Iuc7J6R7ZWY7KeAIOyViuydjC4nKQo=' | base64 -d > /tmp/finish-db-recovery.pyprintf '%s' 'IiIi67O16rWsIOyLnOyXsCDrkqQg6rSA7LihIOyXre2VoOqzvCBKYXZhIOyEnOu5hOyKpOydmCDsoJXsg4Eg7KKF66OMIOy9lOuTnOulvCDrp57stpjri6QuIiIiCmltcG9ydCBhcmdwYXJzZQpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKaW1wb3J0IHNodXRpbAppbXBvcnQgc3VicHJvY2VzcwoKcCA9IGFyZ3BhcnNlLkFyZ3VtZW50UGFyc2VyKCkKcC5hZGRfYXJndW1lbnQoJ2hvc3QnLCBjaG9pY2VzPSgnYXBwJywgJ2JvdCcpKQphID0gcC5wYXJzZV9hcmdzKCkKdW5pdCA9ICdleGNoYW5nZS1hcHAnIGlmIGEuaG9zdCA9PSAnYXBwJyBlbHNlICdleGNoYW5nZS1ib3QnCmRyb3BpbiA9IFBhdGgoJy9ldGMvc3lzdGVtZC9zeXN0ZW0nKSAvICh1bml0ICsgJy5zZXJ2aWNlLmQnKQpkcm9waW4ubWtkaXIoZXhpc3Rfb2s9VHJ1ZSkKKGRyb3BpbiAvICc0MC1qYXZhLXNodXRkb3duLmNvbmYnKS53cml0ZV90ZXh0KCdbU2VydmljZV1cblN1Y2Nlc3NFeGl0U3RhdHVzPTE0M1xuJykKc3VicHJvY2Vzcy5ydW4oWydzeXN0ZW1jdGwnLCAnZGFlbW9uLXJlbG9hZCddLCBjaGVjaz1UcnVlKQppZiBhLmhvc3QgPT0gJ2JvdCc6CiAgICBjb25maWcgPSBQYXRoKCcvZXRjL3Byb21ldGhldXMvcHJvbWV0aGV1cy55bWwnKQogICAgYmFja3VwID0gY29uZmlnLndpdGhfbmFtZSgncHJvbWV0aGV1cy55bWwuYmVmb3JlLWRiLXJlY292ZXJ5LTIwMjYwOTIwJykKICAgIGlmIGJhY2t1cC5leGlzdHMoKToKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCfqtIDsuKEg7KCE7ZmYIOq4sOuhneydtCDsnojsirXri4jri6QuIOykkeuztSDsoITtmZjtlZjsp4Ag7JWK7Iq164uI64ukLicpCiAgICBvbGQgPSBjb25maWcucmVhZF90ZXh0KCkKICAgIGlmIG9sZC5jb3VudCgnMTcyLjMxLjEuMjI5JykgIT0gMiBvciBvbGQuY291bnQoJzE3Mi4zMS4zMy4xOTUnKSAhPSAyOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoJ0RCIOq0gOy4oSDrjIDsg4Eg7IiYIO2ZleyduCDtlYTsmpQnKQogICAgc2h1dGlsLmNvcHkyKGNvbmZpZywgYmFja3VwKQogICAgY29uZmlnLndyaXRlX3RleHQob2xkLnJlcGxhY2UoJzE3Mi4zMS4xLjIyOScsICdURU1QX0RCX0hPU1QnKS5yZXBsYWNlKCcxNzIuMzEuMzMuMTk1JywgJzE3Mi4zMS4xLjIyOScpLnJlcGxhY2UoJ1RFTVBfREJfSE9TVCcsICcxNzIuMzEuMzMuMTk1JykpCiAgICB0cnk6CiAgICAgICAgc3VicHJvY2Vzcy5ydW4oWycvdXNyL2xvY2FsL2Jpbi9wcm9tdG9vbCcsICdjaGVjaycsICdjb25maWcnLCBzdHIoY29uZmlnKV0sIGNoZWNrPVRydWUpCiAgICBleGNlcHQgRXhjZXB0aW9uOgogICAgICAgIGNvbmZpZy53cml0ZV90ZXh0KG9sZCkKICAgICAgICByYWlzZQogICAgc3VicHJvY2Vzcy5ydW4oWydzeXN0ZW1jdGwnLCAncmVzdGFydCcsICdwcm9tZXRoZXVzJ10sIGNoZWNrPVRydWUpCnByaW50KCdQQVNTOiDshKTsoJUg67CY7JiBLiDslbHCt+u0hyDtlITroZzshLjsiqTripQg7J6s7Iuc7J6R7ZWY7KeAIOyViuydjC4nKQo=' | base64 -d > /tmp/finish-db-recovery.py [ec2-user@ip-172-31-2-86 ~]$ clear; sudo python3 /tmp/finish-db-recovery.py app; df -h / /mnt/exchange-disk-alert-testclear; sudo python3 /tmp/finish-db-recovery.py app; df -h / /mnt/exchange-disk-alert-test PASS: 설정 반영. 앱·봇 프로세스는 재시작하지 않음. Filesystem Size Used Avail Use% Mounted on /dev/nvme0n1p1 20G 2.5G 18G 13% / /dev/loop0 115M 14K 112M 1% /mnt/exchange-disk-alert-test [ec2-user@ip-172-31-2-86 ~]$
+				62 text field (settable) Terminal input
+			63 button Close instance info
+			64 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				65 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			66 container
+				67 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		68 container f
+			69 container console-nav-footer
+				70 container awsc-nav-footer-content
+					71 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					72 button Agent Toolkit for AWS
+					73 button Feedback, ID: feedback
+						74 text Feedback
+					75 button Console Mobile App, ID: mobile_app_button
+						76 image
+						77 text Console Mobile App
+					78 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					79 content list
+						80 link Description: Privacy, Value: aws.amazon.com/privacy/
+						81 link Description: Terms, Value: aws.amazon.com/terms/
+						82 button Cookie preferences
+
+The focused UI element is 62 text field (settable) Terminal input

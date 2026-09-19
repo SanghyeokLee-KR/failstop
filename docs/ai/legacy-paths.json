@@ -1,0 +1,13 @@
+{
+  "files": {
+    "docs/architecture/아키텍처_개관.md": "docs/reports/프로젝트_이해하기.md"
+  },
+  "prefixes": {
+    "docs/architecture/": "docs/reference/architecture/",
+    "docs/contracts/": "docs/reference/contracts/",
+    "docs/product/": "docs/reference/product/",
+    "docs/operations/": "docs/reference/operations/",
+    "docs/adr/": "docs/reference/adr/",
+    "docs/측정/": "docs/measurements/"
+  }
+}

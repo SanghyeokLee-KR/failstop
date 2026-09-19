@@ -1,0 +1,154 @@
+{
+  "type": "message",
+  "attachments": [
+    {
+      "contentType": "application/vnd.microsoft.card.adaptive",
+      "contentUrl": null,
+      "content": {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.2",
+        "body": [
+          {
+            "type": "TextBlock",
+            "text": "페일스톱 운영 관제 · exchange / 로컬 실습",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "\ud83d\udd34 Standby DB 수집 경로 장애 발생",
+            "wrap": true,
+            "size": "Large",
+            "weight": "Bolder",
+            "color": "Attention"
+          },
+          {
+            "type": "TextBlock",
+            "text": "P1 · 즉시 대응 필요",
+            "wrap": true,
+            "weight": "Bolder"
+          },
+          {
+            "type": "FactSet",
+            "facts": [
+              {
+                "title": "대상",
+                "value": "local-db-standby"
+              },
+              {
+                "title": "발생",
+                "value": "2026-09-18 14:16 KST"
+              }
+            ]
+          },
+          {
+            "type": "TextBlock",
+            "text": "영향  \\|  DB 관측 공백 · DB 직접 접속 및 서비스 영향 미확인",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "담당자 조치",
+            "wrap": true,
+            "weight": "Bolder",
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "P1 · 관측·DB 운영 담당 · 즉시 확인 권고",
+            "wrap": true,
+            "weight": "Bolder",
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "Exporter 프로세스·수집 경로 확인 및 DB 직접 접속 점검",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "완료: Exporter 응답·pg\\_up=1 및 DB 접속 확인",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "P3 · DB 운영 담당 · 금일 확인 권고",
+            "wrap": true,
+            "weight": "Bolder",
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "백업 파일·다음 예약 실행·격리 복원 결과 대조",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "완료: 예약 활성·다음 실행 시각과 백업 ID에 연결된 복원 성공 기록 확보",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "후속 관측 · 2026-09-18 14:17 KST",
+            "wrap": true,
+            "weight": "Bolder",
+            "size": "Small",
+            "separator": true
+          },
+          {
+            "type": "FactSet",
+            "facts": [
+              {
+                "title": "DB 연결",
+                "value": "11개"
+              },
+              {
+                "title": "WAL 재생 거리",
+                "value": "0 B"
+              },
+              {
+                "title": "지표 수집 응답",
+                "value": "4/4개 응답"
+              },
+              {
+                "title": "서비스 요청",
+                "value": "0.00건/초"
+              }
+            ]
+          },
+          {
+            "type": "TextBlock",
+            "text": "미확인 자료 13항목 · 상세 보고의 수집 범위 참조",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "수집 근거로 판정 · AI 분석 없음",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true,
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "기록 221bd96033c1 · 자동 조치 없음",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          }
+        ]
+      }
+    }
+  ]
+}

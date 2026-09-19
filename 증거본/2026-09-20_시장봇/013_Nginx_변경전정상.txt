@@ -1,0 +1,85 @@
+Browser tab: 2017667323, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		32 container consoleNavHeader
+			33 container awsc-nav-header
+				34 image Account color: 설정 해제
+				35 container Global
+					36 container awsc-top-level-nav
+						37 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						38 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						39 button (collapsed) Description: Services, Secondary Actions: Expand
+							40 image
+						41 container aws-unified-search-container
+							42 container
+								43 image Search
+								44 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								45 button Ask Amazon Q
+								46 text [Alt+S]
+						47 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						48 container
+							49 pop up button Description: Notifications (none available), Help: Notifications
+								50 image Notifications
+							51 image Notifications
+						52 content list awsc-navigation__more-menu--list
+							53 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								54 image Support
+							55 button (collapsed) Description: Settings, Secondary Actions: Expand
+							56 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								57 text 아시아 태평양 (서울)
+							58 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								59 text Account ID: 6192-5696-4117
+								60 text 2026-ai-kopo-04
+		9 container
+			10 container Notifications
+				61 content list Description: Notifications, ID: flashbar1-1789831483374-1663
+			11 text Content loaded
+			62 container
+				63 content list
+					64 text    ,     #_
+					65 text    ~\_  ####_        Amazon Linux 2023
+					66 text   ~~  \_#####\
+					67 text   ~~     \###|
+					68 text   ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+					69 text    ~~       V~' '->
+					70 text     ~~~         /
+					71 text       ~~._.   _/
+					72 text          _/ _/
+					73 text        _/m/'
+					74 text Last login: Sat Sep 19 14:47:54 2026 from 13.209.1.61
+					89 text [ec2-user@ip-172-31-2-86 ~]$ sudo nginx -t; sudo sha256sum /etc/nginx/nginx.conf; sudo systemctl --no-p
+					90 text ager is-active nginx exchange-app; free -m
+					91 text nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+					92 text nginx: configuration file /etc/nginx/nginx.conf test is successful
+					93 text e6eb82e035417e8d056ea1e1053460cc09dc87e047603a6812c510dfe9751678  /etc/nginx/nginx.conf
+					94 text active
+					95 text active
+					96 text                total        used        free      shared  buff/cache   available
+					97 text Mem:            1909         548         192         111        1169        1103
+					98 text Swap:              0           0           0
+					99 text [ec2-user@ip-172-31-2-86 ~]$ 
+				100 text sudo nginx -t; sudo sha256sum /etc/nginx/nginx.conf; sudo systemctl --no-pager is-active nginx exchange-app; free -msudo nginx -t; sudo sha256sum /etc/nginx/nginx.conf; sudo systemctl --no-pager is-active nginx exchange-app; free -m nginx: the configuration file /etc/nginx/nginx.conf syntax is ok nginx: configuration file /etc/nginx/nginx.conf test is successful e6eb82e035417e8d056ea1e1053460cc09dc87e047603a6812c510dfe9751678 /etc/nginx/nginx.conf active active total used free shared buff/cache available Mem: 1909 548 192 111 1169 1103 Swap: 0 0 0 [ec2-user@ip-172-31-2-86 ~]$
+				77 text field (settable) Terminal input
+			19 button Close instance info
+			78 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				79 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			80 container
+				81 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		22 container f
+			23 container console-nav-footer
+				24 container awsc-nav-footer-content
+					82 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					83 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					25 button Console Mobile App, ID: mobile_app_button
+						26 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					28 content list
+						29 link Description: Privacy, Value: aws.amazon.com/privacy/
+						30 link Description: Terms, Value: aws.amazon.com/terms/
+						31 button Cookie preferences
+
+The focused UI element is 77 text field (settable) Terminal input

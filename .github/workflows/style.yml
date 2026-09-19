@@ -76,6 +76,14 @@ jobs:
       # 로컬 검사와 같은 호출로 고정한다. -File은 스크립트 종료코드를 그대로 넘긴다.
       - name: check doc links
         run: pwsh -NoProfile -File scripts/check-doclinks.ps1
+      - name: check document structure and AI entrypoints
+        run: pwsh -NoProfile -File scripts/check-docs.ps1
+      - name: test document checker
+        run: pwsh -NoProfile -File scripts/tests/check-docs.Tests.ps1
+      - name: check current architecture review
+        run: pwsh -NoProfile -File scripts/check-adr-current.ps1
+      - name: test current architecture checker
+        run: pwsh -NoProfile -File scripts/tests/check-adr-current.Tests.ps1
 
   # 토큰 게이트는 diff가 아니라 전체 상태를 본다. 드리프트는 추가된 줄이 아니라
   # "선언과 소비가 어긋난 현재 상태"라서 범위가 다르다.

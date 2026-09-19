@@ -1,0 +1,87 @@
+Browser tab: 2017667300, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-099799f0dc164ae71&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-099799f0dc164ae71&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		38 container consoleNavHeader
+			39 container awsc-nav-header
+				40 image Account color: 설정 해제
+				41 container Global
+					42 container awsc-top-level-nav
+						43 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						44 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-099799f0dc164ae71&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						45 button (collapsed) Description: Services, Secondary Actions: Expand
+							46 image
+						47 container aws-unified-search-container
+							48 container
+								49 image Search
+								50 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								51 button Ask Amazon Q
+								52 text [Alt+S]
+						53 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						54 container
+							55 pop up button Description: Notifications (none available), Help: Notifications
+								56 image Notifications
+							57 image Notifications
+						58 content list awsc-navigation__more-menu--list
+							59 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								60 image Support
+							61 button (collapsed) Description: Settings, Secondary Actions: Expand
+							62 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								63 text 아시아 태평양 (서울)
+							64 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								65 text Account ID: 6192-5696-4117
+								66 text 2026-ai-kopo-04
+		15 container
+			16 container Notifications
+				17 content list Description: Notifications, ID: flashbar1-1789828702989-3962
+			18 text Content loaded
+			67 container
+				68 content list
+					69 text    ,     #_
+					70 text    ~\_  ####_        Amazon Linux 2023
+					71 text   ~~  \_#####\
+					72 text   ~~     \###|
+					73 text   ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+					74 text    ~~       V~' '->
+					75 text     ~~~         /
+					76 text       ~~._.   _/
+					77 text          _/ _/
+					78 text        _/m/'
+					79 text Last login: Sat Sep 19 13:08:32 2026 from 13.209.1.59
+					92 text [ec2-user@ip-172-31-33-195 ~]$ sudo -u postgres psql -X -d exchange -c "SELECT pg_is_in_recovery(), (SE
+					93 text LECT count(*) FROM assets) AS assets, (SELECT count(*) FROM markets) AS markets, (SELECT count(*) FROM 
+					94 text accounts WHERE owner_type='SYSTEM') AS system_accounts; SELECT status, received_tli FROM pg_stat_wal_re
+					95 text ceiver;"
+					96 text  pg_is_in_recovery | assets | markets | system_accounts 
+					97 text -------------------+--------+---------+-----------------
+					98 text  t                 |     13 |      12 |              39
+					99 text (1 row)
+					100 text   status   | received_tli 
+					101 text -----------+--------------
+					102 text  streaming |            1
+					103 text (1 row)
+					104 text [ec2-user@ip-172-31-33-195 ~]$ 
+				105 text sudo -u postgres psql -X -d exchange -c "SELECT pg_is_in_recovery(), (SELECT count(*) FROM assets) AS assets, (SELECT count(*) FROM markets) AS markets, (SELECT count(*) FROM accounts WHERE owner_type='SYSTEM') AS system_accounts; SELECT status, received_tli FROM pg_stat_wal_receiver;"sudo -u postgres psql -X -d exchange -c "SELECT pg_is_in_recovery(), (SELECT count(*) FROM assets) AS assets, (SELECT count(*) FROM markets) AS markets, (SELECT count(*) FROM accounts WHERE owner_type='SYSTEM') AS system_accounts; SELECT status, received_tli FROM pg_stat_wal_receiver;" pg_is_in_recovery | assets | markets | system_accounts -------------------+--------+---------+----------------- t | 13 | 12 | 39 (1 row) status | received_tli -----------+-------------- streaming | 1 (1 row) [ec2-user@ip-172-31-33-195 ~]$
+				82 text field (settable) Terminal input
+			26 button Close instance info
+			27 heading i-099799f0dc164ae71 (2026-ai-kopo-04-db-standby-01), Value: 3
+				83 text i-099799f0dc164ae71 (2026-ai-kopo-04-db-standby-01)
+			84 container
+				85 text PublicIPs: 3.34.125.226 PrivateIPs: 172.31.33.195
+		28 container f
+			29 container console-nav-footer
+				30 container awsc-nav-footer-content
+					86 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					31 button Agent Toolkit for AWS
+					87 button Feedback, ID: feedback
+						88 text Feedback
+					32 button Console Mobile App, ID: mobile_app_button
+						33 image
+						89 text Console Mobile App
+					90 container
+						91 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					34 content list
+						35 link Description: Privacy, Value: aws.amazon.com/privacy/
+						36 link Description: Terms, Value: aws.amazon.com/terms/
+						37 button Cookie preferences
+
+The focused UI element is 82 text field (settable) Terminal input

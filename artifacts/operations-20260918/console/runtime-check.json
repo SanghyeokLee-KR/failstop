@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2026-09-18T08:08:14.277427+00:00",
+  "status": "PASS",
+  "scope": {
+    "customer": "exchange",
+    "environment": "local-lab"
+  },
+  "metrics": 40,
+  "customerTargets": 4,
+  "customerTargetsUp": 4,
+  "sourceErrors": 0,
+  "reports": 6,
+  "events": 6,
+  "reportFiles": {
+    "pdf": {
+      "status": 200,
+      "bytes": 115667
+    },
+    "html": {
+      "status": 200,
+      "bytes": 15816
+    }
+  },
+  "grafana": {
+    "users": 1,
+    "dashboards": 4,
+    "datasources": 1,
+    "state": "ok"
+  },
+  "awsMetrics": {
+    "aws_healthy_hosts": "missing",
+    "aws_unhealthy_hosts": "missing",
+    "aws_requests": "missing",
+    "aws_latency_p95": "missing",
+    "aws_errors": "missing",
+    "aws_asg_desired": "missing",
+    "aws_asg_inservice": "missing",
+    "aws_ebs_queue": "missing"
+  },
+  "awsLiveValidated": false,
+  "teamsSent": false,
+  "databaseStopped": false
+}

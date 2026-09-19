@@ -1,0 +1,105 @@
+Browser tab: 2017667309, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		36 container consoleNavHeader
+			37 container awsc-nav-header
+				38 image Account color: 설정 해제
+				39 container Global
+					40 container awsc-top-level-nav
+						41 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						42 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						43 button (collapsed) Description: Services, Secondary Actions: Expand
+							44 image
+						45 container aws-unified-search-container
+							46 container
+								47 image Search
+								48 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								49 button Ask Amazon Q
+								50 text [Alt+S]
+						51 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						52 container
+							53 pop up button Description: Notifications (none available), Help: Notifications
+								54 image Notifications
+							55 image Notifications
+						56 content list awsc-navigation__more-menu--list
+							57 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								58 image Support
+							59 button (collapsed) Description: Settings, Secondary Actions: Expand
+							60 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								61 text 아시아 태평양 (서울)
+							62 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								63 text Account ID: 6192-5696-4117
+								64 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789829137356-8727
+			15 text Content loaded
+			65 container
+				66 content list
+					91 text Server  : Tomcat started on port 8081 (http) with context path '/'
+					92 text                total        used        free      shared  buff/cache   available
+					93 text Mem:            1909         641          95         109        1172        1002
+					94 text Swap:              0           0           0
+					95 text NRestarts=0
+					96 text MemoryCurrent=281489408
+					97 text Id=exchange-bot.service
+					98 text ActiveState=active
+					99 text NRestarts=0
+					100 text MemoryCurrent=164462592
+					101 text Id=grafana-server.service
+					102 text ActiveState=active
+					103 text NRestarts=0
+					104 text MemoryCurrent=91000832
+					105 text Id=prometheus.service
+					106 text ActiveState=active
+					107 text [ec2-user@ip-172-31-44-141 ~]$ sudo journalctl -u exchange-bot --since '2026-09-19 14:58:00 UTC' --no-p
+					108 text ager -o cat | grep -E 'BotFleet|BotSeeder|Started|ERROR|WARN' | tail -25; curl -fsS http://127.0.0.1:80
+					109 text 81/actuator/health/liveness; curl -fsS 'https://www.sang.it.kr/api/v1/trades?market=KRW-BTC&count=2'; c
+					110 text at /proc/pressure/memory
+					111 text Started exchange-bot.service - Exchange market bot via HTTPS.
+					112 text 2026-09-19T14:58:32.262Z  WARN 41156 --- [exchange] [           main] trationDelegate$BeanPostProcessor
+					113 text Checker : Bean 'engineConfig' of type [kr.exchange.config.EngineConfig$$SpringCGLIB$$0] is not eligible
+					114 text  for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). The cur
+					115 text rently created BeanPostProcessor [projectionSignalWiring] is declared through a non-static factory meth
+					116 text od on that class; consider declaring it as static instead.
+					117 text 2026-09-19T14:58:38.893Z  INFO 41156 --- [exchange] [           main] o.s.m.s.b.SimpleBrokerMessageHand
+					118 text ler     : Started.
+					119 text 2026-09-19T14:58:44.027Z  INFO 41156 --- [exchange] [           main] kr.exchange.sim.BotFleet         
+					120 text         : 봇 플릿 기동: 마켓 1 타입당 풀 30 캡(타입 30) 균형주기 3000ms targetOps 2.0
+					121 text 2026-09-19T14:58:44.065Z  INFO 41156 --- [exchange] [           main] kr.exchange.ExchangeApplication  
+					122 text         : Started ExchangeApplication in 16.772 seconds (process running for 18.05)
+					123 text 2026-09-19T14:58:44.308Z  WARN 41156 --- [exchange] [           main] kr.exchange.engine.HaAvailability
+					124 text         : readiness 오발행 정정: 발행=ACCEPTING_TRAFFIC, 목표=REFUSING_TRAFFIC
+					125 text {"status":"UP"}{"schema_version":"1.0","data":[{"trade_id":"1000000000036","market":"KRW-BTC","price":"
+					126 text 84314000","volume":"0.002","taker_side":"ask","liquidity_flag_taker":"TAKER","timestamp":"2026-09-19T14
+					127 text :59:05.984Z","seq":1000000000036},{"trade_id":"1000000000034","market":"KRW-BTC","price":"84314000","vo
+					128 text lume":"0.002","taker_side":"ask","liquidity_flag_taker":"TAKER","timestamp":"2026-09-19T14:59:05.486Z",
+					129 text "seq":1000000000034}],"pagination":{"next_cursor":"eyJ0cyI6IjIwMjYtMDktMTlUMTQ6NTk6MDUuNDg2WiIsImlkIjoi
+					130 text MTAwMDAwMDAwMDAzNCJ9","has_more":true}}some avg10=0.00 avg60=0.00 avg300=0.00 total=720421824
+					131 text full avg10=0.00 avg60=0.00 avg300=0.00 total=707058443
+					132 text [ec2-user@ip-172-31-44-141 ~]$ 
+				133 text sudo journalctl -u exchange-bot --since '2026-09-19 14:58:00 UTC' --no-pager -o cat | grep -E 'BotFleet|BotSeeder|Started|ERROR|WARN' | tail -25; curl -fsS http://127.0.0.1:8081/actuator/health/liveness; curl -fsS 'https://www.sang.it.kr/api/v1/trades?market=KRW-BTC&count=2'; cat /proc/pressure/memory Started exchange-bot.service - Exchange market bot via HTTPS. 2026-09-19T14:58:32.262Z WARN 41156 --- [exchange] [ main] trationDelegate$BeanPostProcessorChecker : Bean 'engineConfig' of type [kr.exchange.config.EngineConfig$$SpringCGLIB$$0] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). The currently created BeanPostProcessor [projectionSignalWiring] is declared through a non-static factory method on that class; consider declaring it as static instead. 2026-09-19T14:58:38.893Z INFO 41156 --- [exchange] [ main] o.s.m.s.b.SimpleBrokerMessageHandler : Started. 2026-09-19T14:58:44.027Z INFO 41156 --- [exchange] [ main] kr.exchange.sim.BotFleet : 봇 플릿 기동: 마켓 1 타입당 풀 30 캡(타입 30) 균형주기 3000ms targetOps 2.0 2026-09-19T14:58:44.065Z INFO 41156 --- [exchange] [ main] kr.exchange.ExchangeApplication : Started ExchangeApplication in 16.772 seconds (process running for 18.05) 2026-09-19T14:58:44.308Z WARN 41156 --- [exchange] [ main] kr.exchange.engine.HaAvailability : readiness 오발행 정정: 발행=ACCEPTING_TRAFFIC, 목표=REFUSING_TRAFFIC {"status":"UP"}{"schema_version":"1.0","data":[{"trade_id":"1000000000036","market":"KRW-BTC","price":"84314000","volume":"0.002","taker_side":"ask","liquidity_flag_taker":"TAKER","timestamp":"2026-09-19T14:59:05.984Z","seq":1000000000036},{"trade_id":"1000000000034","market":"KRW-BTC","price":"84314000","volume":"0.002","taker_side":"ask","liquidity_flag_taker":"TAKER","timestamp":"2026-09-19T14:59:05.486Z","seq":1000000000034}],"pagination":{"next_cursor":"eyJ0cyI6IjIwMjYtMDktMTlUMTQ6NTk6MDUuNDg2WiIsImlkIjoiMTAwMDAwMDAwMDAzNCJ9","has_more":true}}some avg10=0.00 avg60=0.00 avg300=0.00 total=720421824 full avg10=0.00 avg60=0.00 avg300=0.00 total=707058443 [ec2-user@ip-172-31-44-141 ~]$
+				80 text field (settable) Terminal input
+			23 button Close instance info
+			81 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				82 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			83 container
+				84 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		26 container f
+			27 container console-nav-footer
+				28 container awsc-nav-footer-content
+					85 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					29 button Agent Toolkit for AWS
+					86 button Feedback, ID: feedback
+						87 text Feedback
+					30 button Console Mobile App, ID: mobile_app_button
+						31 image
+						88 text Console Mobile App
+					89 container
+						90 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					32 content list
+						33 link Description: Privacy, Value: aws.amazon.com/privacy/
+						34 link Description: Terms, Value: aws.amazon.com/terms/
+						35 button Cookie preferences
+
+The focused UI element is 80 text field (settable) Terminal input

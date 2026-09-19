@@ -1,0 +1,100 @@
+Browser tab: 2017667318, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		36 container consoleNavHeader
+			37 container awsc-nav-header
+				38 image Account color: 설정 해제
+				39 container Global
+					40 container awsc-top-level-nav
+						41 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						42 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						43 button (collapsed) Description: Services, Secondary Actions: Expand
+							44 image
+						45 container aws-unified-search-container
+							46 container
+								47 image Search
+								48 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								49 button Ask Amazon Q
+								50 text [Alt+S]
+						51 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						52 container
+							53 pop up button Description: Notifications (none available), Help: Notifications
+								54 image Notifications
+							55 image Notifications
+						56 content list awsc-navigation__more-menu--list
+							57 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								58 image Support
+							59 button (collapsed) Description: Settings, Secondary Actions: Expand
+							60 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								61 text 아시아 태평양 (서울)
+							62 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								63 text Account ID: 6192-5696-4117
+								64 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789830838246-7422
+			15 text Content loaded
+			65 container
+				66 content list
+					129 text     ~~~         /
+					130 text       ~~._.   _/
+					131 text          _/ _/
+					132 text        _/m/'
+					133 text Last login: Sat Sep 19 14:51:55 2026 from 13.209.1.60
+					134 text [ec2-user@ip-172-31-1-229 ~]$ sudo -u postgres psql -X -P pager=off -d exchange -c "SELECT now(),pg_dat
+					135 text abase_size('exchange') AS db_bytes; SELECT m.symbol,count(t.id) AS trades,max(t.created_at) AS last_tra
+					136 text de FROM markets m LEFT JOIN trades t ON t.market_id=m.id WHERE m.symbol IN ('KRW-BTC','KRW-ETH','KRW-XR
+					137 text P') GROUP BY m.symbol ORDER BY m.symbol; SELECT count(*) AS balance_mismatches FROM balance_ledger_chec
+					138 text k WHERE mismatch; SELECT asset_id,sum(amount) AS ledger_net FROM ledger_entries GROUP BY asset_id; SELE
+					139 text CT state,sync_state,pg_wal_lsn_diff(sent_lsn,replay_lsn) AS replay_bytes FROM pg_stat_replication;"
+					140 text               now              | db_bytes 
+					141 text -------------------------------+----------
+					142 text  2026-09-19 15:14:56.820204+00 | 20682419
+					143 text (1 row)
+					144 text  symbol  | trades |         last_trade         
+					145 text ---------+--------+----------------------------
+					146 text  KRW-BTC |    342 | 2026-09-19 15:14:56.721+00
+					147 text  KRW-ETH |      7 | 2026-09-19 15:14:55.719+00
+					148 text  KRW-XRP |      4 | 2026-09-19 15:14:56.388+00
+					149 text (3 rows)
+					150 text  balance_mismatches 
+					151 text --------------------
+					152 text                   0
+					153 text (1 row)
+					154 text  asset_id |      ledger_net      
+					155 text ----------+----------------------
+					156 text         3 | 0.000000000000000000
+					157 text         5 | 0.000000000000000000
+					158 text         2 | 0.000000000000000000
+					159 text         1 | 0.000000000000000000
+					160 text (4 rows)
+					161 text    state   | sync_state | replay_bytes 
+					162 text -----------+------------+--------------
+					163 text  streaming | async      |            0
+					164 text (1 row)
+					165 text [ec2-user@ip-172-31-1-229 ~]$ 
+				128 text Too much output to announce, navigate to rows manually to readsudo -u postgres psql -X -P pager=off -d exchange -c "SELECT now(),pg_database_size('exchange') AS db_bytes; SELECT m.symbol,count(t.id) AS trades,max(t.created_at) AS last_trade FROM markets m LEFT JOIN trades t ON t.market_id=m.id WHERE m.symbol IN ('KRW-BTC','KRW-ETH','KRW-XRP') GROUP BY m.symbol ORDER BY m.symbol; SELECT count(*) AS balance_mismatches FROM balance_ledger_check WHERE mismatch; SELECT asset_id,sum(amount) AS ledger_net FROM ledger_entries GROUP BY asset_id; SELECT state,sync_state,pg_wal_lsn_diff(sent_lsn,replay_lsn) AS replay_bytes FROM pg_stat_replication;"sudo -u postgres psql -X -P pager=off -d exchange -c "SELECT now(),pg_database_size('exchange') AS db_bytes; SELECT m.symbol,count(t.id) AS trades,max(t.created_at) AS last_trade FROM markets m LEFT JOIN trades t ON t.market_id=m.id WHERE m.symbol IN ('KRW-BTC','KRW-ETH','KRW-XRP') GROUP BY m.symbol ORDER BY m.symbol; SELECT count(*) AS balance_mismatches FROM balance_ledger_check WHERE mismatch; SELECT asset_id,sum(amount) AS ledger_net FROM ledger_entries GROUP BY asset_id; SELECT state,sync_state,pg_wal_lsn_diff(sent_lsn,replay_lsn) AS replay_bytes FROM pg_stat_replication;" now | db_bytes -------------------------------+---------- 2026-09-19 15:14:56.820204+00 | 20682419 (1 row) symbol | trades | last_trade ---------+--------+---------------------------- KRW-BTC | 342 | 2026-09-19 15:14:56.721+00 KRW-ETH | 7 | 2026-09-19 15:14:55.719+00 KRW-XRP | 4 | 2026-09-19 15:14:56.388+00 (3 rows) balance_mismatches -------------------- 0 (1 row) asset_id | ledger_net ----------+---------------------- 3 | 0.000000000000000000
+				80 text field (settable) Terminal input
+			23 button Close instance info
+			81 heading i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01), Value: 3
+				82 text i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01)
+			83 container
+				84 text PublicIPs: 13.125.150.154 PrivateIPs: 172.31.1.229
+		26 container f
+			27 container console-nav-footer
+				28 container awsc-nav-footer-content
+					85 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					29 button Agent Toolkit for AWS
+					86 button Feedback, ID: feedback
+						87 text Feedback
+					30 button Console Mobile App, ID: mobile_app_button
+						31 image
+						88 text Console Mobile App
+					89 container
+						90 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					32 content list
+						33 link Description: Privacy, Value: aws.amazon.com/privacy/
+						34 link Description: Terms, Value: aws.amazon.com/terms/
+						35 button Cookie preferences
+
+The focused UI element is 80 text field (settable) Terminal input

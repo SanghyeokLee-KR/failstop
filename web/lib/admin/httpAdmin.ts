@@ -634,10 +634,11 @@ export class HttpAdminApi implements AdminApi {
     this.base = base.replace(/\/+$/, "");
   }
 
-  private async http<T>(path: string, init: RequestInit = {}): Promise<T> {
+  private async http<T>(path: string, init: RequestInit = {}, authorization?: string): Promise<T> {
     const headers: Record<string, string> = {
       ...(init.body != null ? JSON_HEADERS : {}),
       ...(this.session ? { Authorization: `Bearer ${this.session.token}` } : {}),
+      ...(authorization ? { Authorization: authorization } : {}),
       // 세션 발급 후에도 매 요청에 싣는다. AdminAuthFilter 가 세션 operator 를 현재 mTLS
       // 신원과 재대조하므로(관리자 설계 §3-6 4단계) 발급 때만 실으면 다음 요청이 401 이다
       ...(this.forwardCn ? { "X-Operator-Cn": this.forwardCn } : {}),
@@ -703,11 +704,26 @@ export class HttpAdminApi implements AdminApi {
     }));
   }
 
-  async establishSession(certId?: string): Promise<AdminSession> {
+  async establishSession(certId?: string, password?: string): Promise<AdminSession> {
+    let authorization: string | undefined;
+    if (password !== undefined) {
+      this.endSession();
+      const origin = typeof window !== "undefined" ? window.location.origin : undefined;
+      const protocol = this.base ? new URL(this.base, origin).protocol : origin ? new URL(origin).protocol : "";
+      if (protocol !== "https:") {
+        throw new AdminError("invalid_parameter", "운영자 로그인은 HTTPS에서만 가능합니다.");
+      }
+      if (!certId?.trim() || certId.includes(":") || !password) {
+        throw new AdminError("invalid_parameter", "운영자 아이디 또는 비밀번호 오류");
+      }
+      // 비밀번호는 HTTPS 로그인 요청 한 번에만 쓰고 세션 객체에 보관하지 않는다.
+      const bytes = new TextEncoder().encode(`${certId.trim()}:${password}`);
+      authorization = `Basic ${btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(""))}`;
+    }
     // dev 게이트웨이 모드는 고른 CN을 신원으로 싣는다. 운영은 인자를 무시하고 TLS 신원만 쓴다
-    this.forwardCn = DEV_OPERATOR_CNS.includes(certId ?? "") ? (certId ?? null) : null;
+    this.forwardCn = password === undefined && DEV_OPERATOR_CNS.includes(certId ?? "") ? (certId ?? null) : null;
     // 서버 세션 응답은 snake_case. camelCase 도메인으로 명시 매핑한다. issued_at은 수신 시각으로 파생.
-    const raw = await this.http<WireSession>("/admin/v1/session", { method: "POST" });
+    const raw = await this.http<WireSession>("/admin/v1/session", { method: "POST" }, authorization);
     const s: AdminSession = {
       operatorId: raw.operator_id ?? "",
       displayName: raw.display_name ?? "",

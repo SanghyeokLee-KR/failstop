@@ -1,0 +1,70 @@
+Browser tab: 2017667323, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		2 container consoleNavHeader
+			3 container awsc-nav-header
+				4 image Account color: 설정 해제
+				5 container Global
+					6 container awsc-top-level-nav
+						7 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						8 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						9 button (collapsed) Description: Services, Secondary Actions: Expand
+							10 image
+						11 container aws-unified-search-container
+							12 container
+								13 image Search
+								14 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								15 button Ask Amazon Q
+								16 text [Alt+S]
+						17 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						18 container
+							19 pop up button Description: Notifications (none available), Help: Notifications
+								20 image Notifications
+							21 image Notifications
+						22 content list awsc-navigation__more-menu--list
+							23 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								24 image Support
+							25 button (collapsed) Description: Settings, Secondary Actions: Expand
+							26 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								27 text 아시아 태평양 (서울)
+							28 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								29 text Account ID: 6192-5696-4117
+								30 text 2026-ai-kopo-04
+		31 container
+			32 container Notifications
+				33 content list Description: Notifications, ID: flashbar1-1789831483374-1663
+			34 text Content loaded
+			35 container
+				36 content list
+					83 text Sat Sep 19 16:51:06 UTC 2026
+					84 text mke2fs 1.46.5 (30-Dec-2021)
+					85 text Running timer as unit: exchange-disk-test-release.timer
+					86 text Will run service as unit: exchange-disk-test-release.service
+					87 text Filesystem      Size  Used Avail Use% Mounted on
+					88 text /dev/loop0      115M  109M  3.4M  98% /mnt/exchange-disk-alert-test
+					89 text 시험용 128MiB 파일시스템. 7분 후 자동으로 공간 반환. 운영 루트·DB는 유지.
+					90 text [ec2-user@ip-172-31-2-86 ~]$ 
+				91 text printf '%s' 'IiIiMTI4TWlCIOyLnO2XmCDtjIzsnbzsi5zsiqTthZzrp4wg7LGE7Jq064ukLiDsmrTsmIEgRELCt+ujqO2KuCDtjIzsnbzsnYAg67OA6rK97ZWY7KeAIOyViuuKlOuLpC4iIiIKaW1wb3J0IG9zCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAppbXBvcnQgc3VicHJvY2VzcwoKaW1hZ2UgPSBQYXRoKCcvdmFyL2xpYi9leGNoYW5nZS1kaXNrLWFsZXJ0LXRlc3QuaW1nJykKbW91bnQgPSBQYXRoKCcvbW50L2V4Y2hhbmdlLWRpc2stYWxlcnQtdGVzdCcpCmlmIG9zLmdldGV1aWQoKSAhPSAwIG9yIGltYWdlLmV4aXN0cygpIG9yIG1vdW50LmV4aXN0cygpOgogICAgcmFpc2UgU3lzdGVtRXhpdCgncm9vdCDrsI8g7IOI66Gc7Jq0IOyLnO2XmCDqsr3roZzqsIAg7ZWE7JqU7ZWp64uI64ukLicpCndpdGggaW1hZ2Uub3BlbigneGInKSBhcyBzdHJlYW06CiAgICBzdHJlYW0udHJ1bmNhdGUoMTI4ICogMTAyNCAqIDEwMjQpCm1vdW50Lm1rZGlyKG1vZGU9MG83NTUpCnN1YnByb2Nlc3MucnVuKFsnbWtmcy5leHQ0JywgJy1GJywgJy1tJywgJzAnLCBzdHIoaW1hZ2UpXSwgY2hlY2s9VHJ1ZSwgc3Rkb3V0PXN1YnByb2Nlc3MuREVWTlVMTCkKc3VicHJvY2Vzcy5ydW4oWydtb3VudCcsICctbycsICdsb29wLG5vZGV2LG5vc3VpZCxub2V4ZWMnLCBzdHIoaW1hZ2UpLCBzdHIobW91bnQpXSwgY2hlY2s9VHJ1ZSkKIyDrqoXroLnsnbTrgpgg7Jew6rKw7J20IOykkeuLqOuPvOuPhCDsi5ztl5gg7YyM7J287J2YIOqzteqwhOydgCDsnpDrj5nsnLzroZwg67CY7ZmY7ZWc64ukLgpzdWJwcm9jZXNzLnJ1bihbJ3N5c3RlbWQtcnVuJywgJy0tdW5pdD1leGNoYW5nZS1kaXNrLXRlc3QtcmVsZWFzZScsICctLW9uLWFjdGl2ZT00MjBzJywKICAgICAgICAgICAgICAgICcvdXNyL2Jpbi90cnVuY2F0ZScsICctcycsICcwJywgc3RyKG1vdW50IC8gJ2ZpbGwnKV0sIGNoZWNrPVRydWUpCnN0YXQgPSBvcy5zdGF0dmZzKG1vdW50KQp3aXRoIChtb3VudCAvICdmaWxsJykub3BlbigneGInKSBhcyBzdHJlYW06CiAgICBvcy5wb3NpeF9mYWxsb2NhdGUoc3RyZWFtLmZpbGVubygpLCAwLCBpbnQoc3RhdC5mX2JhdmFpbCAqIHN0YXQuZl9mcnNpemUgKiAuOTcpKQpzdWJwcm9jZXNzLnJ1bihbJ2RmJywgJy1oJywgc3RyKG1vdW50KV0sIGNoZWNrPVRydWUpCnByaW50KCfsi5ztl5jsmqkgMTI4TWlCIO2MjOydvOyLnOyKpO2FnC4gN+u2hCDtm4Qg7J6Q64+Z7Jy866GcIOqzteqwhCDrsJjtmZguIOyatOyYgSDro6jtirjCt0RC64qUIOycoOyngC4nKQo=' | base64 -d > /tmp/disk-alert-exercise.py [ec2-user@ip-172-31-2-86 ~]$ clear; date -u; sudo python3 /tmp/disk-alert-exercise.pyclear; date -u; sudo python3 /tmp/disk-alert-exercise.py Sat Sep 19 16:51:06 UTC 2026 mke2fs 1.46.5 (30-Dec-2021) Running timer as unit: exchange-disk-test-release.timer Will run service as unit: exchange-disk-test-release.service Filesystem Size Used Avail Use% Mounted on /dev/loop0 115M 109M 3.4M 98% /mnt/exchange-disk-alert-test 시험용 128MiB 파일시스템. 7분 후 자동으로 공간 반환. 운영 루트·DB는 유지. [ec2-user@ip-172-31-2-86 ~]$
+				62 text field (settable) Terminal input
+			63 button Close instance info
+			64 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				65 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			66 container
+				67 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		68 container f
+			69 container console-nav-footer
+				70 container awsc-nav-footer-content
+					71 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					72 button Agent Toolkit for AWS
+					73 button Feedback, ID: feedback
+						74 text Feedback
+					75 button Console Mobile App, ID: mobile_app_button
+						76 image
+						77 text Console Mobile App
+					78 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					79 content list
+						80 link Description: Privacy, Value: aws.amazon.com/privacy/
+						81 link Description: Terms, Value: aws.amazon.com/terms/
+						82 button Cookie preferences
+
+The focused UI element is 62 text field (settable) Terminal input

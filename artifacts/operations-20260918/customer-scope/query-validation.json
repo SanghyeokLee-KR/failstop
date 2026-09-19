@@ -1,0 +1,1407 @@
+[
+  {
+    "name": "report:target_up",
+    "expr": "up{customer=\"exchange\",role=~\"app|reader|data|standby|probe\",job=~\"exchange-api|linux-host|postgres|blackbox-http\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "__name__": "up",
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "http://host.docker.internal:58180/actuator/health/read",
+              "job": "blackbox-http",
+              "node": "local-spring-probe",
+              "role": "probe",
+              "service": "probes"
+            },
+            "value": [
+              1789704082.179,
+              "1"
+            ]
+          },
+          {
+            "metric": {
+              "__name__": "up",
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "host.docker.internal:58180",
+              "job": "exchange-api",
+              "node": "local-spring",
+              "role": "app",
+              "service": "apps"
+            },
+            "value": [
+              1789704082.179,
+              "1"
+            ]
+          },
+          {
+            "metric": {
+              "__name__": "up",
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "postgres-primary:9187",
+              "job": "postgres",
+              "node": "local-db-primary",
+              "role": "data",
+              "service": "databases"
+            },
+            "value": [
+              1789704082.179,
+              "1"
+            ]
+          },
+          {
+            "metric": {
+              "__name__": "up",
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "postgres-standby:9187",
+              "job": "postgres",
+              "node": "local-db-standby",
+              "role": "standby",
+              "service": "databases"
+            },
+            "value": [
+              1789704082.179,
+              "1"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "report:disk_available",
+    "expr": "node_filesystem_avail_bytes{customer=\"exchange\",role=~\"app|reader|data|standby|probe\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{customer=\"exchange\",role=~\"app|reader|data|standby|probe\",fstype!~\"tmpfs|overlay\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "report:inode_free",
+    "expr": "node_filesystem_files_free{customer=\"exchange\",role=~\"app|reader|data|standby|probe\",fstype!~\"tmpfs|overlay|9p|drvfs\"} / node_filesystem_files{customer=\"exchange\",role=~\"app|reader|data|standby|probe\",fstype!~\"tmpfs|overlay|9p|drvfs\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "report:io_time",
+    "expr": "rate(node_disk_io_time_seconds_total{customer=\"exchange\",role=~\"app|reader|data|standby|probe\"}[5m])",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "report:network_errors",
+    "expr": "rate(node_network_receive_errs_total{customer=\"exchange\",role=~\"app|reader|data|standby|probe\"}[5m])",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "report:services_failed",
+    "expr": "node_systemd_unit_state{customer=\"exchange\",role=~\"app|reader|data|standby|probe\",state=\"failed\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "report:db_connections",
+    "expr": "pg_stat_database_numbackends{customer=\"exchange\",role=~\"app|reader|data|standby|probe\",datname=\"exchange\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "__name__": "pg_stat_database_numbackends",
+              "customer": "exchange",
+              "datid": "16384",
+              "datname": "exchange",
+              "environment": "local-lab",
+              "instance": "postgres-primary:9187",
+              "job": "postgres",
+              "node": "local-db-primary",
+              "role": "data",
+              "service": "databases"
+            },
+            "value": [
+              1789704082.187,
+              "9"
+            ]
+          },
+          {
+            "metric": {
+              "__name__": "pg_stat_database_numbackends",
+              "customer": "exchange",
+              "datid": "16384",
+              "datname": "exchange",
+              "environment": "local-lab",
+              "instance": "postgres-standby:9187",
+              "job": "postgres",
+              "node": "local-db-standby",
+              "role": "standby",
+              "service": "databases"
+            },
+            "value": [
+              1789704082.187,
+              "2"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "report:db_replication_lag",
+    "expr": "pg_replication_client_sent_replay_bytes{customer=\"exchange\",role=~\"app|reader|data|standby|probe\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "__name__": "pg_replication_client_sent_replay_bytes",
+              "application_name": "walreceiver",
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "postgres-primary:9187",
+              "job": "postgres",
+              "node": "local-db-primary",
+              "role": "data",
+              "server": "standby:5432",
+              "service": "databases",
+              "state": "streaming",
+              "sync_state": "async"
+            },
+            "value": [
+              1789704082.189,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "report:request_rate",
+    "expr": "sum(rate(http_server_requests_seconds_count{customer=\"exchange\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[5m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.19,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "report:server_errors",
+    "expr": "sum(rate(http_server_requests_seconds_count{customer=\"exchange\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"5..\"}[5m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "report:latency_p95",
+    "expr": "histogram_quantile(0.95, sum by(le) (rate(http_server_requests_seconds_bucket{customer=\"exchange\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[5m])))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "report:backup_success",
+    "expr": "failstop_backup_last_success_timestamp_seconds{customer=\"exchange\",role=~\"app|reader|data|standby|probe\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "사이트 접속",
+    "expr": "min(probe_success{job=\"blackbox-http\",customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.196,
+              "1"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "실패율",
+    "expr": "sum(rate(http_server_requests_seconds_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"5..\"}[5m]))/clamp_min(sum(rate(http_server_requests_seconds_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[5m])),0.001)*100",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "Spring 응답 시간 P95",
+    "expr": "histogram_quantile(0.95,sum by(le)(rate(http_server_requests_seconds_bucket{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[5m])))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "초당 요청",
+    "expr": "sum(rate(http_server_requests_seconds_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.2,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "초당 체결",
+    "expr": "sum(rate(exchange_trades_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "Spring 수집 성공 노드",
+    "expr": "sum(up{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.203,
+              "1"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Spring CPU",
+    "expr": "100 * max(process_cpu_usage{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.204,
+              "0.033355570380253496"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Spring JVM 힙",
+    "expr": "sum(jvm_memory_used_bytes{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",area=\"heap\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.205,
+              "63842016"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "고객 서버 네트워크",
+    "expr": "sum(rate(node_network_receive_bytes_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m])) + sum(rate(node_network_transmit_bytes_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "DB 서버 CPU",
+    "expr": "max(100 * (1 - avg by(node,instance)(rate(node_cpu_seconds_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",role=~\"data|standby\",mode=\"idle\"}[5m]))))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "DB 커넥션",
+    "expr": "sum(pg_stat_activity_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})/max(pg_settings_max_connections{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})*100",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.21,
+              "6.666666666666667"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "커넥션 풀 대기",
+    "expr": "sum(hikaricp_connections_pending{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.212,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "초당 트랜잭션",
+    "expr": "sum(rate(pg_stat_database_xact_commit{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.213,
+              "8.067383767445994"
+            ]
+          }
+        ]
+      },
+      "infos": [
+        "PromQL info: metric might not be a counter, name does not end in _total/_sum/_count/_bucket: \"pg_stat_database_xact_commit\" (1:10)"
+      ]
+    }
+  },
+  {
+    "name": "잠금",
+    "expr": "sum(pg_locks_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.214,
+              "2"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "발화 중인 알람",
+    "expr": "ALERTS{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "초당 요청",
+    "expr": "sum by(node)(rate(http_server_requests_seconds_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "node": "local-spring"
+            },
+            "value": [
+              1789704082.217,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "초당 요청",
+    "expr": "sum(rate(http_server_requests_seconds_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.218,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "초당 체결과 대기열",
+    "expr": "sum(rate(exchange_trades_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "초당 체결과 대기열",
+    "expr": "max(exchange_sequencer_queue_size{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.22,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "응답 코드",
+    "expr": "sum by(status)(rate(http_server_requests_seconds_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "status": "404"
+            },
+            "value": [
+              1789704082.222,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "주문 거절 사유",
+    "expr": "sum by(reason)(rate(exchange_orders_rejected_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "주문 응답 시간",
+    "expr": "histogram_quantile(0.50,sum by(le)(rate(exchange_order_latency_seconds_bucket{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m])))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "주문 응답 시간",
+    "expr": "histogram_quantile(0.95,sum by(le)(rate(exchange_order_latency_seconds_bucket{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m])))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "주문 응답 시간",
+    "expr": "histogram_quantile(0.99,sum by(le)(rate(exchange_order_latency_seconds_bucket{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m])))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "밖에서 본 응답 시간",
+    "expr": "max by(target)(probe_duration_seconds{job=\"blackbox-http\",customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.229,
+              "0.00710275"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "밖에서 본 응답 시간",
+    "expr": "max by(target)(probe_success{job=\"blackbox-http\",customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.231,
+              "1"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "고객 서버 CPU",
+    "expr": "100 * (1 - avg by(node,instance)(rate(node_cpu_seconds_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",mode=\"idle\"}[5m])))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "고객 서버 메모리",
+    "expr": "100 * (1 - node_memory_MemAvailable_bytes{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} / node_memory_MemTotal_bytes{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "고객 서버 송수신",
+    "expr": "rate(node_network_receive_bytes_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m])",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "고객 서버 송수신",
+    "expr": "rate(node_network_transmit_bytes_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",device!~\"lo|veth.*|docker.*|br-.*\"}[5m])",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "Spring CPU",
+    "expr": "100 * process_cpu_usage{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "host.docker.internal:58180",
+              "job": "exchange-api",
+              "node": "local-spring",
+              "role": "app",
+              "service": "apps"
+            },
+            "value": [
+              1789704082.236,
+              "0.033355570380253496"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "힙 사용",
+    "expr": "sum by(node)(jvm_memory_used_bytes{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\",area=\"heap\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "node": "local-spring"
+            },
+            "value": [
+              1789704082.237,
+              "63842016"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "살아 있는 스레드",
+    "expr": "sum by(node)(jvm_threads_live_threads{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "node": "local-spring"
+            },
+            "value": [
+              1789704082.239,
+              "41"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "노드 상태",
+    "expr": "max by(node)(up{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "node": "local-spring"
+            },
+            "value": [
+              1789704082.24,
+              "1"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "노드 상태",
+    "expr": "max by(node)(exchange_leader_is_leader{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "node": "local-spring"
+            },
+            "value": [
+              1789704082.241,
+              "1"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Filesystem used percent",
+    "expr": "100 * (1 - node_filesystem_avail_bytes{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",fstype!~\"tmpfs|overlay|squashfs\"} / node_filesystem_size_bytes)",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "Inode used percent",
+    "expr": "100 * (1 - node_filesystem_files_free{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",fstype!~\"tmpfs|overlay|squashfs\"} / node_filesystem_files)",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "Disk I/O busy percent",
+    "expr": "100 * rate(node_disk_io_time_seconds_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[5m])",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "Network received bytes/s",
+    "expr": "rate(node_network_receive_bytes_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",device!=\"lo\"}[5m])",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "Failed systemd units",
+    "expr": "node_systemd_unit_state{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",state=\"failed\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "Host evidence age seconds",
+    "expr": "time() - failstop_host_collection_timestamp_seconds{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "Node collector success",
+    "expr": "node_scrape_collector_success{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "Host scrape availability",
+    "expr": "up{job=\"linux-host\",customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "커넥션 사용률",
+    "expr": "sum(pg_stat_activity_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})/max(pg_settings_max_connections{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})*100",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.252,
+              "6.666666666666667"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "DB 서버 CPU",
+    "expr": "max(100 * (1 - avg by(node,instance)(rate(node_cpu_seconds_total{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",role=~\"data|standby\",mode=\"idle\"}[5m]))))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "DB 서버 메모리",
+    "expr": "max(100 * (1 - node_memory_MemAvailable_bytes{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",role=~\"data|standby\"} / node_memory_MemTotal_bytes{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",role=~\"data|standby\"}))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": []
+      }
+    }
+  },
+  {
+    "name": "복제 지연",
+    "expr": "max(pg_replication_client_replay_lag_seconds{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.255,
+              "0.003115"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "초당 트랜잭션",
+    "expr": "sum(rate(pg_stat_database_xact_commit{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.256,
+              "8.067383767445994"
+            ]
+          }
+        ]
+      },
+      "infos": [
+        "PromQL info: metric might not be a counter, name does not end in _total/_sum/_count/_bucket: \"pg_stat_database_xact_commit\" (1:10)"
+      ]
+    }
+  },
+  {
+    "name": "초당 트랜잭션",
+    "expr": "sum(rate(pg_stat_database_xact_rollback{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.257,
+              "0"
+            ]
+          }
+        ]
+      },
+      "infos": [
+        "PromQL info: metric might not be a counter, name does not end in _total/_sum/_count/_bucket: \"pg_stat_database_xact_rollback\" (1:10)"
+      ]
+    }
+  },
+  {
+    "name": "읽기와 쓰기",
+    "expr": "sum(rate(pg_stat_database_tup_fetched{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.258,
+              "1058.0718286069873"
+            ]
+          }
+        ]
+      },
+      "infos": [
+        "PromQL info: metric might not be a counter, name does not end in _total/_sum/_count/_bucket: \"pg_stat_database_tup_fetched\" (1:10)"
+      ]
+    }
+  },
+  {
+    "name": "읽기와 쓰기",
+    "expr": "sum(rate(pg_stat_database_tup_inserted{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.26,
+              "0"
+            ]
+          }
+        ]
+      },
+      "infos": [
+        "PromQL info: metric might not be a counter, name does not end in _total/_sum/_count/_bucket: \"pg_stat_database_tup_inserted\" (1:10)"
+      ]
+    }
+  },
+  {
+    "name": "읽기와 쓰기",
+    "expr": "sum(rate(pg_stat_database_tup_updated{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m]))",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.261,
+              "0.4222597564227931"
+            ]
+          }
+        ]
+      },
+      "infos": [
+        "PromQL info: metric might not be a counter, name does not end in _total/_sum/_count/_bucket: \"pg_stat_database_tup_updated\" (1:10)"
+      ]
+    }
+  },
+  {
+    "name": "커넥션 풀",
+    "expr": "sum by(node)(hikaricp_connections_active{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "node": "local-spring"
+            },
+            "value": [
+              1789704082.263,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "커넥션 풀",
+    "expr": "sum by(node)(hikaricp_connections_pending{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "node": "local-spring"
+            },
+            "value": [
+              1789704082.264,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "커넥션 풀",
+    "expr": "max(hikaricp_connections_max{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.264,
+              "16"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "커넥션 확보 시간",
+    "expr": "sum by(node)(rate(hikaricp_connections_acquire_seconds_sum{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m]))/clamp_min(sum by(node)(rate(hikaricp_connections_acquire_seconds_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}[1m])),0.001)",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "node": "local-spring"
+            },
+            "value": [
+              1789704082.265,
+              "0.0003279943846153768"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "잠금",
+    "expr": "sum by(mode)(pg_locks_count{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "mode": "accessexclusivelock"
+            },
+            "value": [
+              1789704082.267,
+              "0"
+            ]
+          },
+          {
+            "metric": {
+              "mode": "accesssharelock"
+            },
+            "value": [
+              1789704082.267,
+              "2"
+            ]
+          },
+          {
+            "metric": {
+              "mode": "exclusivelock"
+            },
+            "value": [
+              1789704082.267,
+              "0"
+            ]
+          },
+          {
+            "metric": {
+              "mode": "rowexclusivelock"
+            },
+            "value": [
+              1789704082.267,
+              "0"
+            ]
+          },
+          {
+            "metric": {
+              "mode": "rowsharelock"
+            },
+            "value": [
+              1789704082.267,
+              "0"
+            ]
+          },
+          {
+            "metric": {
+              "mode": "sharelock"
+            },
+            "value": [
+              1789704082.267,
+              "0"
+            ]
+          },
+          {
+            "metric": {
+              "mode": "sharerowexclusivelock"
+            },
+            "value": [
+              1789704082.267,
+              "0"
+            ]
+          },
+          {
+            "metric": {
+              "mode": "shareupdateexclusivelock"
+            },
+            "value": [
+              1789704082.267,
+              "0"
+            ]
+          },
+          {
+            "metric": {
+              "mode": "sireadlock"
+            },
+            "value": [
+              1789704082.267,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "DB 크기",
+    "expr": "max(pg_database_size_bytes{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\",datname=\"exchange\"})",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {},
+            "value": [
+              1789704082.268,
+              "15799987"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Standby WAL replay distance",
+    "expr": "pg_replication_client_sent_replay_bytes{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "__name__": "pg_replication_client_sent_replay_bytes",
+              "application_name": "walreceiver",
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "postgres-primary:9187",
+              "job": "postgres",
+              "node": "local-db-primary",
+              "role": "data",
+              "server": "standby:5432",
+              "service": "databases",
+              "state": "streaming",
+              "sync_state": "async"
+            },
+            "value": [
+              1789704082.269,
+              "0"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "DB collection status",
+    "expr": "pg_up{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "__name__": "pg_up",
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "postgres-primary:9187",
+              "job": "postgres",
+              "node": "local-db-primary",
+              "role": "data",
+              "service": "databases"
+            },
+            "value": [
+              1789704082.27,
+              "1"
+            ]
+          },
+          {
+            "metric": {
+              "__name__": "pg_up",
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "postgres-standby:9187",
+              "job": "postgres",
+              "node": "local-db-standby",
+              "role": "standby",
+              "service": "databases"
+            },
+            "value": [
+              1789704082.27,
+              "1"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "Standby last replay age",
+    "expr": "pg_replica_replay_delay_seconds{customer=\"exchange\",environment=~\"local-lab\",role=~\"app|reader|data|standby|probe\"}",
+    "response": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [
+          {
+            "metric": {
+              "__name__": "pg_replica_replay_delay_seconds",
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "postgres-primary:9187",
+              "job": "postgres",
+              "node": "local-db-primary",
+              "role": "data",
+              "server": "standby:5432",
+              "service": "databases"
+            },
+            "value": [
+              1789704082.27,
+              "NaN"
+            ]
+          },
+          {
+            "metric": {
+              "__name__": "pg_replica_replay_delay_seconds",
+              "customer": "exchange",
+              "environment": "local-lab",
+              "instance": "postgres-standby:9187",
+              "job": "postgres",
+              "node": "local-db-standby",
+              "role": "standby",
+              "server": "rejoined:5432",
+              "service": "databases"
+            },
+            "value": [
+              1789704082.27,
+              "1.436611"
+            ]
+          }
+        ]
+      }
+    }
+  }
+]

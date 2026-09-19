@@ -1,0 +1,44 @@
+services:
+  read:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,read
+      SPRING_APPLICATION_JSON: '{"management.metrics.distribution.percentiles-histogram.http.server.requests":true,"management.metrics.distribution.minimum-expected-value.http.server.requests":"1ms","management.metrics.distribution.maximum-expected-value.http.server.requests":"30s"}'
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME:-exchange}
+      SPRING_DATASOURCE_USERNAME: ${READ_DB_USER:?READ_DB_USER is required}
+      SPRING_DATASOURCE_PASSWORD: ${READ_DB_PASSWORD:?READ_DB_PASSWORD is required}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${READ_DB_POOL_MAX:-8}
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "2"
+      SPRING_DATASOURCE_HIKARI_READ_ONLY: "true"
+      SPRING_FLYWAY_ENABLED: "false"
+      EXCHANGE_NODE_ROLE: read
+      EXCHANGE_ENGINE_ENABLED: "false"
+      EXCHANGE_HARNESS_ENABLED: "false"
+      EXCHANGE_ADMIN_ENABLED: "false"
+      EXCHANGE_TRUSTED_PROXIES: ${EXCHANGE_TRUSTED_PROXIES:-127\.0\.0\.1}
+      EXCHANGE_AUTH_MASTER_KEY_BASE64: ${MASTER_KEY_BASE64}
+      EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64: ${PASSWORD_PEPPER_BASE64}
+      EXCHANGE_MEMBER_SESSION_SEED_BASE64: ${SESSION_SEED_BASE64}
+      EXCHANGE_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      APP_WS_ALLOWED_ORIGINS: ${WS_ALLOWED_ORIGINS}
+    ports:
+      - "${APP_BIND_IP:-127.0.0.1}:${APP_PORT:-8080}:8080"
+      - "${MGMT_BIND_IP:-127.0.0.1}:${MGMT_PORT:-8081}:8081"
+    healthcheck:
+      # DB 장애는 ALB의 read health에서 빼고 ASG 교체에는 EC2/liveness를 쓴다.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health/liveness"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    stop_grace_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${READ_MEMORY:-768m}
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"

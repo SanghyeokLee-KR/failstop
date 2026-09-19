@@ -17,43 +17,31 @@ import socket
 import time
 import threading
 import http.server
+import http.client
 
 SOCK = '/var/run/docker.sock'
 PORT = 9200
 INTERVAL = 5
 
 _lock = threading.Lock()
-_text = ''
+_text = 'failstop_container_collection_success 0\n'
+_last_success = 0
 
 
 def _api(path):
     """도커 유닉스 소켓에 HTTP 요청 하나를 보낸다. 라이브러리를 쓰지 않는다."""
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.settimeout(10)
-    s.connect(SOCK)
-    s.sendall(('GET %s HTTP/1.1\r\nHost: docker\r\nConnection: close\r\n\r\n' % path).encode())
-    buf = b''
-    while True:
-        chunk = s.recv(65536)
-        if not chunk:
-            break
-        buf += chunk
-    s.close()
-    head, _, body = buf.partition(b'\r\n\r\n')
-    if b'Transfer-Encoding: chunked' in head:
-        out, rest = b'', body
-        while rest:
-            ln, _, rest = rest.partition(b'\r\n')
-            try:
-                n = int(ln.split(b';')[0], 16)
-            except ValueError:
-                break
-            if n == 0:
-                break
-            out += rest[:n]
-            rest = rest[n + 2:]
-        body = out
-    return json.loads(body.decode('utf-8', 'replace'))
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+        connection.settimeout(10)
+        connection.connect(SOCK)
+        connection.sendall(('GET %s HTTP/1.1\r\nHost: docker\r\nConnection: close\r\n\r\n' % path).encode())
+        with http.client.HTTPResponse(connection) as response:
+            response.begin()
+            if response.status != 200:
+                raise RuntimeError('Docker API collection failed')
+            body = response.read(8 * 1024 * 1024 + 1)
+            if len(body) > 8 * 1024 * 1024:
+                raise RuntimeError('Docker API response exceeded limit')
+    return json.loads(body)
 
 
 def _cpu_percent(st):
@@ -77,8 +65,9 @@ def collect():
         name = (c.get('Names') or ['/?'])[0].lstrip('/')
         try:
             st = _api('/containers/%s/stats?stream=false' % c['Id'])
-        except Exception:
-            continue
+        except Exception as error:
+            # 일부 컨테이너를 빠뜨린 합계를 정상 사용량으로 게시하지 않는다.
+            raise RuntimeError('container stats unavailable') from error
         cpu = _cpu_percent(st)
         mem = st.get('memory_stats', {})
         used = mem.get('usage')
@@ -86,9 +75,9 @@ def collect():
         cache = (mem.get('stats') or {}).get('inactive_file') or 0
         if used is not None:
             used = max(0, used - cache)
-        nets = st.get('networks') or {}
-        rx = sum(v.get('rx_bytes', 0) for v in nets.values())
-        tx = sum(v.get('tx_bytes', 0) for v in nets.values())
+        nets = st.get('networks')
+        rx = sum(v['rx_bytes'] for v in nets.values()) if nets and all('rx_bytes' in v for v in nets.values()) else None
+        tx = sum(v['tx_bytes'] for v in nets.values()) if nets and all('tx_bytes' in v for v in nets.values()) else None
         rows.append({
             'name': name,
             'container_cpu_percent': cpu,
@@ -124,17 +113,30 @@ def render(rows):
             v = r.get(metric)
             if v is None:
                 continue
-            out.append('%s{name="%s"} %g' % (metric, r['name'], v))
+            name = r['name'].replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+            out.append('%s{name="%s"} %g' % (metric, name, v))
     return '\n'.join(out) + '\n'
+
+
+def sample():
+    """실패한 수집은 오래된 값이나 0으로 바꾸지 않고 별도 상태를 낸다."""
+    global _last_success
+    try:
+        rows = collect()
+        body = render(rows)
+        _last_success = time.time()
+        success = 1
+    except Exception:
+        body = ''
+        success = 0
+    return (body + 'failstop_container_collection_success %d\n' % success
+            + 'failstop_container_collection_last_success_seconds %g\n' % _last_success)
 
 
 def loop():
     global _text
     while True:
-        try:
-            t = render(collect())
-        except Exception as e:
-            t = '# collect_error %s\n' % type(e).__name__
+        t = sample()
         with _lock:
             _text = t
         time.sleep(INTERVAL)
@@ -142,6 +144,9 @@ def loop():
 
 class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path != '/metrics':
+            self.send_error(404)
+            return
         with _lock:
             b = _text.encode('utf-8')
         self.send_response(200)

@@ -1,0 +1,91 @@
+로컬 문서 검사 원문. 브라우저/서버 스크린샷이 아니며 Linux 서버 명령 실행 기록도 아니다.
+작업 폴더: C:/Users/DEV-PC/Desktop/프로젝트
+
+명령: pwsh -NoProfile -File scripts/check-docs.ps1
+종료 코드: 0
+Markdown 83개, 로컬 링크 603개 검사. 외부 링크 48개 제외.
+범위 밖: HTML 링크, 앵커 내용, 코드 예시, 일반 텍스트 경로, 외부 URL의 응답, 보고서 문장 품질.
+역할 설정은 공통 문서 연결과 reviewer의 제한만 검사한다. TOML 전체 문법과 실행 시 권한은 별도 확인한다.
+문서 구조 검사 통과.
+
+
+명령: pwsh -NoProfile -File scripts/check-doclinks.ps1
+종료 코드: 0
+
+경로 인용 715 건, 인용 파일 114 개, 대상 문서 59 종.
+소스 주석의 이전 문서 경로 15 건은 경로 대응표로 확인했다.
+폴더를 넘는 맨 파일명 인용과 docs/archive/ 발신은 이 집계와 판정 밖이다.
+문서 링크 게이트 통과.
+
+
+명령: pwsh -NoProfile -File scripts/check-adr-current.ps1
+종료 코드: 0
+ADR 종합본 검사 통과: 결정 ADR 29개, 원본 자료 62개.
+
+
+명령: pwsh -NoProfile -File scripts/check-style.ps1
+종료 코드: 0
+warning: unable to access 'C:\Users\DEV-PC/.config/git/ignore': Permission denied
+warning: in the working copy of 'docs/reference/adr/0015-manual-scaling.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/reference/adr/0016-observability-on-bot-node.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/reference/adr/0018-synchronous-quorum-any1.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/reference/adr/0015-manual-scaling.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/reference/adr/0016-observability-on-bot-node.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/reference/adr/0018-synchronous-quorum-any1.md', CRLF will be replaced by LF the next time Git touches it
+스타일 게이트 통과.
+
+
+명령: pwsh -NoProfile -File scripts/check-style.ps1 docs/reports/Linux_운영_실무_조사.md docs/reference/adr/0029-school-aws-first-personal-account-expansion.md
+종료 코드: 0
+스타일 게이트 통과.
+
+
+학교 안내 원문 확인 후 로컬 문서 검사
+명령: pwsh -NoProfile -File scripts/check-docs.ps1
+종료 코드: 0
+Markdown 83개, 로컬 링크 603개 검사. 외부 링크 49개 제외.
+범위 밖: HTML 링크, 앵커 내용, 코드 예시, 일반 텍스트 경로, 외부 URL의 응답, 보고서 문장 품질.
+역할 설정은 공통 문서 연결과 reviewer의 제한만 검사한다. TOML 전체 문법과 실행 시 권한은 별도 확인한다.
+문서 구조 검사 통과.
+
+명령: pwsh -NoProfile -File scripts/check-doclinks.ps1
+종료 코드: 0
+
+경로 인용 715 건, 인용 파일 114 개, 대상 문서 59 종.
+소스 주석의 이전 문서 경로 15 건은 경로 대응표로 확인했다.
+폴더를 넘는 맨 파일명 인용과 docs/archive/ 발신은 이 집계와 판정 밖이다.
+문서 링크 게이트 통과.
+
+명령: pwsh -NoProfile -File scripts/check-adr-current.ps1
+종료 코드: 0
+ADR 종합본 검사 통과: 결정 ADR 29개, 원본 자료 62개.
+
+명령: pwsh -NoProfile -File scripts/check-style.ps1
+종료 코드: 0
+warning: in the working copy of 'docs/reference/adr/0015-manual-scaling.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/reference/adr/0016-observability-on-bot-node.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/reference/adr/0018-synchronous-quorum-any1.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/reference/adr/0015-manual-scaling.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/reference/adr/0016-observability-on-bot-node.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'docs/reference/adr/0018-synchronous-quorum-any1.md', CRLF will be replaced by LF the next time Git touches it
+스타일 게이트 통과.
+
+명령: pwsh -NoProfile -File scripts/check-style.ps1 증거본/2026-09-19_학교AWS/README.md docs/reference/adr/0029-school-aws-first-personal-account-expansion.md
+종료 코드: 0
+스타일 게이트 통과.
+2026-09-19T09:19:56.3121939Z
+EC2 생성 및 Linux 기본 조회 반영 후 문서 검사
+로컬 Windows 검사이며 EC2에서 실행한 명령이 아니다. 화면 캡처는 없고 도구 출력에서 확인한 결과를 요약한다.
+pwsh -NoProfile -File scripts/check-docs.ps1 : exit=0, Markdown 83개, 로컬 링크 603개, 통과.
+pwsh -NoProfile -File scripts/check-doclinks.ps1 : exit=0, 경로 인용 717건, 통과.
+pwsh -NoProfile -File scripts/check-adr-current.ps1 : exit=0, 결정 ADR 29개, 원본 자료 62개, 통과.
+pwsh -NoProfile -File scripts/check-style.ps1 : exit=0, 통과. 기존 ADR 0015/0016/0018의 CRLF 변환 경고 있음.
+pwsh -NoProfile -File scripts/check-style.ps1 증거본/2026-09-19_학교AWS/README.md 증거본/README.md docs/reference/adr/0029-school-aws-first-personal-account-expansion.md : exit=0, 통과.
+2026-09-19T09:31:30.0926977Z
+로그 보존 및 재부팅 검증 반영 후 로컬 Windows 검사 결과 요약. EC2 실행 기록 아님.
+check-docs.ps1 exit=0: Markdown 83개, 로컬 링크 606개.
+check-doclinks.ps1 exit=0: 링크 게이트 통과.
+check-adr-current.ps1 exit=0: ADR 29개, 원본 62개.
+check-style.ps1 exit=0 및 증거본 README와 journald 설정 파일 지정 검사 exit=0.
+로컬 설정 파일 Get-FileHash SHA256: 5B1D5A88358944BD90353927848F7C36536E67C2514B350FBB0080B4831A0EB3. 서버 sha256sum과 일치.
+

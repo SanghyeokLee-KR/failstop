@@ -1,0 +1,100 @@
+# 전용 프로젝트/새 볼륨의 로컬 연습이다. 기존 개발 DB를 연결하지 않는다.
+services:
+  primary:
+    image: postgres:17-alpine
+    environment: &db-env
+      POSTGRES_USER: ops_admin
+      POSTGRES_PASSWORD: ${LAB_DB_PASSWORD:?run_lab.py_first}
+      POSTGRES_DB: exchange
+      REPL_USER: replicator
+      REPL_PASSWORD: ${LAB_REPL_PASSWORD:?run_lab.py_first}
+      REPL_SLOT: ops_standby
+      REPL_CIDR: 0.0.0.0/0
+    command: [postgres, -c, wal_level=replica, -c, max_wal_senders=6, -c, max_replication_slots=6, -c, max_connections=150, -c, max_slot_wal_keep_size=1GB]
+    volumes:
+      - primary-data:/var/lib/postgresql/data
+      - ../pg-init-replication.sh:/docker-entrypoint-initdb.d/10-replication.sh:ro
+    ports: ['127.0.0.1:${LAB_DB_PRIMARY_PORT:-55440}:5432']
+    healthcheck: &db-health
+      test: [CMD-SHELL, 'pg_isready -U ops_admin -d exchange']
+      interval: 2s
+      timeout: 3s
+      retries: 40
+    labels: {io.failstop.lab: 'true'}
+  standby:
+    image: postgres:17-alpine
+    environment:
+      PRIMARY_HOST: primary
+      PRIMARY_PORT: 5432
+      REPL_USER: replicator
+      REPL_PASSWORD: ${LAB_REPL_PASSWORD}
+      REPL_SLOT: ops_standby
+    entrypoint: [sh, /deploy/standby.sh]
+    command: [-c, wal_level=replica, -c, max_wal_senders=6, -c, max_replication_slots=6, -c, max_connections=150]
+    volumes:
+      - standby-data:/var/lib/postgresql/data
+      - ../pg-standby-entrypoint.sh:/deploy/standby.sh:ro
+    ports: ['127.0.0.1:${LAB_DB_STANDBY_PORT:-55441}:5432']
+    healthcheck: *db-health
+    depends_on: {primary: {condition: service_healthy}}
+    labels: {io.failstop.lab: 'true'}
+  app:
+    image: ${LAB_APP_IMAGE:-failstop-ops:local}
+    environment: &app-env
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_APPLICATION_JSON: '{"management.metrics.distribution.percentiles-histogram.http.server.requests":true,"management.metrics.distribution.minimum-expected-value.http.server.requests":"1ms","management.metrics.distribution.maximum-expected-value.http.server.requests":"30s"}'
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${LAB_ACTIVE_DB:-primary}:5432/exchange
+      SPRING_DATASOURCE_USERNAME: ops_admin
+      SPRING_DATASOURCE_PASSWORD: ${LAB_DB_PASSWORD}
+      SPRING_FLYWAY_ENABLED: ${LAB_FLYWAY_ENABLED:-true}
+      EXCHANGE_AUTH_MASTER_KEY_BASE64: ${LAB_MASTER_KEY}
+      EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64: ${LAB_PEPPER}
+      EXCHANGE_MEMBER_SESSION_SEED_BASE64: ${LAB_SESSION_SEED}
+      EXCHANGE_HARNESS_ENABLED: 'false'
+    ports: ['127.0.0.1:${LAB_APP_PORT:-58180}:8080']
+    mem_limit: 1g
+    healthcheck:
+      test: [CMD-SHELL, 'curl -fsS http://localhost:8080/actuator/health/readiness']
+      interval: 3s
+      timeout: 3s
+      retries: 70
+      start_period: 40s
+    labels: {io.failstop.lab: 'true'}
+  restored:
+    profiles: [restore]
+    image: postgres:17-alpine
+    environment: *db-env
+    volumes: [restore-data:/var/lib/postgresql/data]
+    healthcheck: *db-health
+    labels: {io.failstop.lab: 'true'}
+  restored-app:
+    profiles: [restore]
+    image: ${LAB_APP_IMAGE:-failstop-ops:local}
+    environment:
+      <<: *app-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://restored:5432/exchange
+      SPRING_FLYWAY_ENABLED: 'false'
+    ports: ['127.0.0.1:${LAB_RESTORED_APP_PORT:-58182}:8080']
+    mem_limit: 1g
+    labels: {io.failstop.lab: 'true'}
+  rejoined:
+    profiles: [rejoin]
+    image: postgres:17-alpine
+    environment:
+      PRIMARY_HOST: standby
+      PRIMARY_PORT: 5432
+      REPL_USER: replicator
+      REPL_PASSWORD: ${LAB_REPL_PASSWORD}
+      REPL_SLOT: ops_rejoined
+    entrypoint: [sh, /deploy/standby.sh]
+    command: [-c, max_connections=150]
+    volumes:
+      - rejoined-data:/var/lib/postgresql/data
+      - ../pg-standby-entrypoint.sh:/deploy/standby.sh:ro
+    healthcheck: *db-health
+    labels: {io.failstop.lab: 'true'}
+volumes:
+  primary-data:
+  standby-data:
+  restore-data:
+  rejoined-data:

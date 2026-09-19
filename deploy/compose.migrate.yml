@@ -1,0 +1,47 @@
+# 동일 APP_IMAGE의 내장 Flyway만 실행한다. V46 업그레이드는 쓰기 정지 창이 선행되어야 한다.
+services:
+  migrate:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    entrypoint:
+      - java
+      - -Dloader.main=kr.exchange.deploy.MigrateSchema
+      - -cp
+      - /app/app.jar
+      - org.springframework.boot.loader.launch.PropertiesLauncher
+    environment:
+      MIGRATION_JDBC_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME:-exchange}
+      MIGRATION_DB_USER: ${DB_ADMIN_USER:?DB_ADMIN_USER is required}
+      MIGRATION_DB_PASSWORD: ${DB_ADMIN_PASSWORD:?DB_ADMIN_PASSWORD is required}
+    restart: "no"
+  catalog-seed:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    entrypoint:
+      - java
+      - -Dloader.main=kr.exchange.deploy.SeedMarketCatalog
+      - -cp
+      - /app/app.jar
+      - org.springframework.boot.loader.launch.PropertiesLauncher
+    environment:
+      MIGRATION_JDBC_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME:-exchange}
+      MIGRATION_DB_USER: ${DB_ADMIN_USER:?DB_ADMIN_USER is required}
+      MIGRATION_DB_PASSWORD: ${DB_ADMIN_PASSWORD:?DB_ADMIN_PASSWORD is required}
+    restart: "no"
+  provision:
+    image: postgres:17-alpine
+    entrypoint: ["sh", "/deploy/provision-runtime-roles.sh"]
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-exchange}
+      DB_ADMIN_USER: ${DB_ADMIN_USER:?DB_ADMIN_USER is required}
+      DB_ADMIN_PASSWORD: ${DB_ADMIN_PASSWORD:?DB_ADMIN_PASSWORD is required}
+      DB_USER: ${DB_USER:?DB_USER is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      READ_DB_USER: ${READ_DB_USER:?READ_DB_USER is required}
+      READ_DB_PASSWORD: ${READ_DB_PASSWORD:?READ_DB_PASSWORD is required}
+      BOT_DB_USER: ${BOT_DB_USER:?BOT_DB_USER is required}
+      BOT_DB_PASSWORD: ${BOT_DB_PASSWORD:?BOT_DB_PASSWORD is required}
+    volumes:
+      - ./provision-runtime-roles.sh:/deploy/provision-runtime-roles.sh:ro
+      - ./provision-runtime-roles.sql:/deploy/provision-runtime-roles.sql:ro
+    restart: "no"

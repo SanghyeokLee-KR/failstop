@@ -1,0 +1,8 @@
+{
+  "environment": "local Ubuntu reporting service, mock connection card",
+  "status": "accepted_by_webhook",
+  "report_id": "test:57a0fa5a797c45efa93896c1d4f8b218",
+  "channel_delivery_verified": false,
+  "daily_schedule": "09:00 Asia/Seoul",
+  "analyzer": "mock"
+}

@@ -1,0 +1,58 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: aws
+    account: school
+
+# 다른 호스트는 접근 규칙과 수집 성공을 확인한 뒤 추가한다.
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['127.0.0.1:9090']
+        labels:
+          node: bot-1
+          customer: exchange
+          environment: aws
+          account: school
+          role: observability
+          service: monitoring
+  - job_name: linux
+    static_configs:
+      - targets: ['127.0.0.1:9100']
+        labels:
+          node: bot-1
+          customer: exchange
+          environment: aws
+          account: school
+          role: observability
+          service: infra
+
+  - job_name: exchange-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['172.31.2.86:9101']
+        labels:
+          node: app-1
+          customer: exchange
+          environment: aws
+          account: school
+          role: app
+          service: api
+
+  - job_name: linux-host
+    static_configs:
+      - targets: ['172.31.2.86:9100']
+        labels: {customer: exchange, environment: aws, account: school, role: app, node: app-1}
+      - targets: ['172.31.33.195:9100']
+        labels: {customer: exchange, environment: aws, account: school, role: data, node: db-primary}
+      - targets: ['172.31.1.229:9100']
+        labels: {customer: exchange, environment: aws, account: school, role: standby, node: db-standby}
+
+  - job_name: postgres
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ['172.31.33.195:9187']
+        labels: {customer: exchange, environment: aws, account: school, role: data, node: db-primary}
+      - targets: ['172.31.1.229:9187']
+        labels: {customer: exchange, environment: aws, account: school, role: standby, node: db-standby}

@@ -13,13 +13,21 @@ services:
     environment:
       # 상시면은 prod. 관리 포트가 8081로 분리된다(application.yml:127).
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_APPLICATION_JSON: '{"management.metrics.distribution.percentiles-histogram.http.server.requests":true,"management.metrics.distribution.minimum-expected-value.http.server.requests":"1ms","management.metrics.distribution.maximum-expected-value.http.server.requests":"30s"}'
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT:-5432}/${DB_NAME:-exchange}
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      # 스키마 확정은 한 노드만 한다. 두 노드가 동시에 Flyway를 돌리면 잠금 경합이 난다.
-      # 롤링 배포에서 먼저 뜨는 노드가 true를 받는다. 그 노드의 마이그레이션이 끝난 뒤 나머지 노드를
-      # 올린다. V41 처럼 코드가 DB 전제에 기대는 판에서 순서가 뒤집히면 stale write 가 열린다(ADR 0026).
-      SPRING_FLYWAY_ENABLED: ${FLYWAY_ENABLED:-false}
+      # compose.migrate.yml을 별도 실행한 뒤 런타임 계정으로 시작한다.
+      SPRING_FLYWAY_ENABLED: "false"
+      EXCHANGE_ENGINE_ENABLED: ${EXCHANGE_ENGINE_ENABLED:-true}
+      EXCHANGE_NODE_ROLE: engine
+      EXCHANGE_TRUSTED_PROXIES: ${EXCHANGE_TRUSTED_PROXIES:-127\.0\.0\.1}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_DB_POOL_MAX:-32}
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${APP_DB_POOL_IDLE:-8}
+      EXCHANGE_ENGINE_APPENDDATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_APPEND_POOL_MAX:-14}
+      EXCHANGE_ENGINE_LEASEDATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${APP_LEASE_POOL_MAX:-2}
+      SERVER_SHUTDOWN: graceful
+      SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE: 30s
       EXCHANGE_AUTH_MASTER_KEY_BASE64: ${MASTER_KEY_BASE64}
       EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64: ${PASSWORD_PEPPER_BASE64}
       EXCHANGE_MEMBER_SESSION_SEED_BASE64: ${SESSION_SEED_BASE64}
@@ -32,8 +40,9 @@ services:
       EXCHANGE_HARNESS_ENABLED: ${HARNESS_ENABLED:-false}
     ports:
       # 고객 평면과 관리 포트를 분리해 노출한다. 8081은 edge에서만 스크레이프한다.
-      - "${APP_PORT:-8080}:8080"
-      - "${MGMT_PORT:-8081}:8081"
+      - "${APP_BIND_IP:-127.0.0.1}:${APP_PORT:-8080}:8080"
+      - "${MGMT_BIND_IP:-127.0.0.1}:${MGMT_PORT:-8081}:8081"
+    stop_grace_period: 40s
     healthcheck:
       # liveness로 판정한다. readiness는 팔로워에서 설계상 503(REFUSING_TRAFFIC)이라
       # 정상 팔로워가 영구 unhealthy가 된다. 컨테이너 기동 여부와 트래픽 수용 여부는

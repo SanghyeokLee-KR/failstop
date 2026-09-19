@@ -1,0 +1,102 @@
+Browser tab: 2017667343, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		48 container consoleNavHeader
+			49 container awsc-nav-header
+				50 image Account color: 설정 해제
+				51 container Global
+					52 container awsc-top-level-nav
+						53 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						54 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						55 button (collapsed) Description: Services, Secondary Actions: Expand
+							56 image
+						57 container aws-unified-search-container
+							58 container
+								59 image Search
+								60 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								61 button Ask Amazon Q
+								62 text [Alt+S]
+						63 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						64 container
+							65 pop up button Description: Notifications (none available), Help: Notifications
+								66 image Notifications
+							67 image Notifications
+						68 content list awsc-navigation__more-menu--list
+							69 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								70 image Support
+							71 button (collapsed) Description: Settings, Secondary Actions: Expand
+							72 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								73 text 아시아 태평양 (서울)
+							74 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								75 text Account ID: 6192-5696-4117
+								76 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789834523290-9949
+			23 text Content loaded
+			77 container
+				78 content list
+					96 text Running transaction test
+					97 text Transaction test succeeded.
+					98 text Running transaction
+					99 text   Preparing        :                                                                                                                                                                                          1/1 
+					100 text   Installing       : libxcrypt-compat-4.4.33-7.amzn2023.x86_64                                                                                                                                                1/8 
+					101 text   Installing       : python3.11-pip-wheel-22.3.1-2.amzn2023.0.14.noarch                                                                                                                                       2/8 
+					102 text   Installing       : python3.11-setuptools-wheel-65.5.1-2.amzn2023.0.7.noarch                                                                                                                                 3/8 
+					103 text   Installing       : mpdecimal-2.5.1-3.amzn2023.0.3.x86_64                                                                                                                                                    4/8 
+					104 text   Installing       : python3.11-3.11.16-1.amzn2023.0.1.x86_64                                                                                                                                                 5/8 
+					105 text   Installing       : python3.11-libs-3.11.16-1.amzn2023.0.1.x86_64                                                                                                                                            6/8 
+					106 text   Installing       : python3.11-setuptools-65.5.1-2.amzn2023.0.7.noarch                                                                                                                                       7/8 
+					107 text   Installing       : python3.11-pip-22.3.1-2.amzn2023.0.14.noarch                                                                                                                                             8/8 
+					108 text   Running scriptlet: python3.11-pip-22.3.1-2.amzn2023.0.14.noarch                                                                                                                                             8/8 
+					109 text   Verifying        : libxcrypt-compat-4.4.33-7.amzn2023.x86_64                                                                                                                                                1/8 
+					110 text   Verifying        : mpdecimal-2.5.1-3.amzn2023.0.3.x86_64                                                                                                                                                    2/8 
+					111 text   Verifying        : python3.11-3.11.16-1.amzn2023.0.1.x86_64                                                                                                                                                 3/8 
+					112 text   Verifying        : python3.11-libs-3.11.16-1.amzn2023.0.1.x86_64                                                                                                                                            4/8 
+					113 text   Verifying        : python3.11-pip-22.3.1-2.amzn2023.0.14.noarch                                                                                                                                             5/8 
+					114 text   Verifying        : python3.11-pip-wheel-22.3.1-2.amzn2023.0.14.noarch                                                                                                                                       6/8 
+					115 text   Verifying        : python3.11-setuptools-65.5.1-2.amzn2023.0.7.noarch                                                                                                                                       7/8 
+					116 text   Verifying        : python3.11-setuptools-wheel-65.5.1-2.amzn2023.0.7.noarch                                                                                                                                 8/8 
+					117 text Installed:
+					118 text   libxcrypt-compat-4.4.33-7.amzn2023.x86_64     mpdecimal-2.5.1-3.amzn2023.0.3.x86_64               python3.11-3.11.16-1.amzn2023.0.1.x86_64            python3.11-libs-3.11.16-1.amzn2023.0.1.x86_64            
+					119 text   python3.11-pip-22.3.1-2.amzn2023.0.14.noarch  python3.11-pip-wheel-22.3.1-2.amzn2023.0.14.noarch  python3.11-setuptools-65.5.1-2.amzn2023.0.7.noarch  python3.11-setuptools-wheel-65.5.1-2.amzn2023.0.7.noarch 
+					120 text Complete!
+					121 text Collecting reportlab==4.4.9
+					122 text   Downloading reportlab-4.4.9-py3-none-any.whl (2.0 MB)
+					123 text      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 73.7 MB/s eta 0:00:00
+					124 text Collecting pillow>=9.0.0
+					125 text   Downloading pillow-12.3.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (6.9 MB)
+					126 text      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.9/6.9 MB 132.4 MB/s eta 0:00:00
+					127 text Collecting charset-normalizer
+					128 text   Downloading charset_normalizer-3.5.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (262 kB)
+					129 text      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 262.3/262.3 kB 53.4 MB/s eta 0:00:00
+					130 text Installing collected packages: pillow, charset-normalizer, reportlab
+					131 text Successfully installed charset-normalizer-3.5.1 pillow-12.3.0 reportlab-4.4.9
+					132 text [notice] A new release of pip available: 22.3.1 -> 26.2.1
+					133 text [notice] To update, run: python3.11 -m pip install --upgrade pip
+					134 text Python 3.11.16
+					135 text [ec2-user@ip-172-31-44-141 ~]$ 
+				136 text clear; sudo dnf install -y python3.11 python3.11-pip && sudo python3.11 -m venv /opt/exchange-report-runtime && sudo /opt/exchange-report-runtime/bin/pip install reportlab==4.4.9 && /opt/exchange-report-runtime/bin/python --versionclear; sudo dnf install -y python3.11 python3.11-pip && sudo python3.11 -m venv /opt/exchange-report-runtime && sudo /opt/exchange-report-runtime/bin/pip install reportlab==4.4.9 && /opt/exchange-report-runtime/bin/python --version Too much output to announce, navigate to rows manually to readLast metadata expiration check: 4:55:51 ago on Sat Sep 19 11:33:31 2026. Dependencies resolved. ================================================================================================================================================================================================================== Package Architecture Version Repository Size ================================================================================================================================================================================================================== Installing: python3.11 x86_64 3.11.16-1.amzn2023.0.1 amazonlinux 28 k python3.11-pip noarch 22.3.1-2.amzn2023.0.14 amazonlinux 2.8 M Installing dependencies: mpdecimal x86_64 2.5.1-3.amzn2023.0.3 amazonlinux 101 k python3.11-libs x86_64 3.11.16-1.amzn2023.0.1 amazonlinux 9.7 M python3.11-pip-wheel noarch 22.3.1-2.amzn2023.0.14 amazonlinux 1.4 M python3.11-setuptools-wheel noarch 65.5.1-2.amzn2023.0.7 amazonlinux 717 k Installing weak dependencies: libxcrypt-compat x86_64 4.4.33-7.amzn2023 amazonlinux 92 k python3.11-setuptools noarch 65.5.1-2.amzn2023.0.7 amazonlinux 1.5 M Transaction Summary ================================================================================================================================================================================================================== Install 8 Packages
+				92 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				33 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			34 container
+				35 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		36 container f
+			37 container console-nav-footer
+				38 container awsc-nav-footer-content
+					93 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					39 button Agent Toolkit for AWS
+					94 button Feedback, ID: feedback
+						95 text Feedback
+					40 button Console Mobile App, ID: mobile_app_button
+						41 image
+						42 text Console Mobile App
+					43 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					44 content list
+						45 link Description: Privacy, Value: aws.amazon.com/privacy/
+						46 link Description: Terms, Value: aws.amazon.com/terms/
+						47 button Cookie preferences
+
+The focused UI element is 92 text field (settable) Terminal input

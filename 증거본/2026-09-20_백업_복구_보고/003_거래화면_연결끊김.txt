@@ -1,0 +1,255 @@
+Browser tab: 2017667299, Title: "홈 · 페일스톱", URL: "https://www.sang.it.kr/home".
+0 AXWebArea 홈 · 페일스톱, URL: sang.it.kr/home
+	1 link Description: 본문 바로가기, Value: sang.it.kr/home#main
+	2 container
+		3 link Description: 홈으로 이동, Value: sang.it.kr/home
+		4 container 주요 메뉴
+			5 link Description: 홈, Value: sang.it.kr/home
+			6 link Description: 거래소, Value: sang.it.kr/exchange
+			7 link Description: 자산, Value: sang.it.kr/assets
+			8 link Description: 입출금, Value: sang.it.kr/transfers
+			9 link Description: 거래내역, Value: sang.it.kr/history
+		10 link Description: 공지, Value: sang.it.kr/notices
+		11 link Description: 로그인, Value: sang.it.kr/auth/login
+		12 link Description: 회원 가입, Value: sang.it.kr/auth/signup
+		13 text 연결 끊김
+		14 button 다크 모드로 전환
+	15 container
+		16 heading 홈, Value: 1
+			17 text 홈
+		18 text 실시간 연결 끊김. 마지막 시세를 표시하며 자동 재연결 중.
+		19 container 시장 개관
+			20 text 24시간 총 거래대금 지연
+			21 text -
+			22 text 상승
+			23 container
+				24 text ▲ -
+			25 text 하락
+			26 container
+				27 text ▼ -
+			28 text 보합
+			29 text -
+			30 content list
+				31 button 비트코인 거래 화면으로 이동
+					32 text 비트코인
+					33 text BTC
+					34 text -
+				35 button 이더리움 거래 화면으로 이동
+					36 text 이더리움
+					37 text ETH
+					38 text -
+				39 button 솔라나 거래 화면으로 이동
+					40 text 솔라나
+					41 text SOL
+					42 text -
+				43 button 리플 거래 화면으로 이동
+					44 text 리플
+					45 text XRP
+					46 text -
+		47 container 대표 코인
+			48 text 대표 코인 지연
+			49 tab group 대표 코인 선택
+				50 tab (selected, settable, boolean) BTC, Value: 1
+				51 tab (selectable, settable, boolean) ETH, Value: 0
+				52 tab (selectable, settable, boolean) SOL, Value: 0
+				53 tab (selectable, settable, boolean) XRP, Value: 0
+				54 tab (selectable, settable, boolean) DOGE, Value: 0
+				55 tab (selectable, settable, boolean) ADA, Value: 0
+			56 text 비트코인 KRW-BTC -
+			57 tab group 차트 주기
+				58 tab (selectable, settable, boolean) 15분, Value: 0
+				59 tab (selected, settable, boolean) 1시간, Value: 1
+				60 tab (selectable, settable, boolean) 1일, Value: 0
+			61 container
+				62 container KRW-BTC 60m 캔들 차트. 양봉은 빨간색(상승), 음봉은 파란색(하락), 하단은 거래량입니다.
+				63 text 표시할 차트 데이터 없음
+			64 text 고가(24H) - 저가(24H) - 거래량(24H) -
+			65 link Description: 비트코인 거래하기, Value: sang.it.kr/exchange/KRW-BTC
+		66 container 실시간 순위
+			67 container
+				68 heading 실시간 순위, Value: 2
+					69 text 실시간 순위
+				70 text 지연
+				71 tab group 순위 정렬 기준
+					72 tab (selected, settable, boolean) 거래대금순, Value: 1
+					73 tab (selectable, settable, boolean) 급상승, Value: 0
+					74 tab (selectable, settable, boolean) 급하락, Value: 0
+			75 table 코인 순위 목록
+				76 row
+					77 cell
+						78 text #
+					79 cell
+						80 text 코인
+					81 cell
+						82 text 현재가
+					83 cell
+						84 text 전일대비
+					85 cell
+						86 text 거래대금
+				87 container
+					88 row 비트코인 거래 화면으로 이동
+						89 cell
+							90 text 1
+						91 cell
+							92 text 비트코인 BTC /KRW
+						93 cell
+							94 text -
+						95 cell
+							96 text -
+						97 cell
+							98 text -
+					99 row 이더리움 거래 화면으로 이동
+						100 cell
+							101 text 2
+						102 cell
+							103 text 이더리움 ETH /KRW
+						104 cell
+							105 text -
+						106 cell
+							107 text -
+						108 cell
+							109 text -
+					110 row 솔라나 거래 화면으로 이동
+						111 cell
+							112 text 3
+						113 cell
+							114 text 솔라나 SOL /KRW
+						115 cell
+							116 text -
+						117 cell
+							118 text -
+						119 cell
+							120 text -
+					121 row 리플 거래 화면으로 이동
+						122 cell
+							123 text 4
+						124 cell
+							125 text 리플 XRP /KRW
+						126 cell
+							127 text -
+						128 cell
+							129 text -
+						130 cell
+							131 text -
+					132 row 도지코인 거래 화면으로 이동
+						133 cell
+							134 text 5
+						135 cell
+							136 text 도지코인 DOGE /KRW
+						137 cell
+							138 text -
+						139 cell
+							140 text -
+						141 cell
+							142 text -
+					143 row 에이다 거래 화면으로 이동
+						144 cell
+							145 text 6
+						146 cell
+							147 text 에이다 ADA /KRW
+						148 cell
+							149 text -
+						150 cell
+							151 text -
+						152 cell
+							153 text -
+					154 row 트론 거래 화면으로 이동
+						155 cell
+							156 text 7
+						157 cell
+							158 text 트론 TRX /KRW
+						159 cell
+							160 text -
+						161 cell
+							162 text -
+						163 cell
+							164 text -
+					165 row 체인링크 거래 화면으로 이동
+						166 cell
+							167 text 8
+						168 cell
+							169 text 체인링크 LINK /KRW
+						170 cell
+							171 text -
+						172 cell
+							173 text -
+						174 cell
+							175 text -
+					176 row 폴카닷 거래 화면으로 이동
+						177 cell
+							178 text 9
+						179 cell
+							180 text 폴카닷 DOT /KRW
+						181 cell
+							182 text -
+						183 cell
+							184 text -
+						185 cell
+							186 text -
+					187 row 폴리곤 거래 화면으로 이동
+						188 cell
+							189 text 10
+						190 cell
+							191 text 폴리곤 MATIC /KRW
+						192 cell
+							193 text -
+						194 cell
+							195 text -
+						196 cell
+							197 text -
+					198 row 아발란체 거래 화면으로 이동
+						199 cell
+							200 text 11
+						201 cell
+							202 text 아발란체 AVAX /KRW
+						203 cell
+							204 text -
+						205 cell
+							206 text -
+						207 cell
+							208 text -
+					209 row 코스모스 거래 화면으로 이동
+						210 cell
+							211 text 12
+						212 cell
+							213 text 코스모스 ATOM /KRW
+						214 cell
+							215 text -
+						216 cell
+							217 text -
+						218 cell
+							219 text -
+		220 container 관심 코인
+			221 container
+				222 heading 관심 코인, Value: 2
+					223 text 관심 코인
+				224 text 2 지연
+			225 content list
+				226 button 비트코인 BTC -
+					227 text 비트코인
+					228 text BTC
+					229 text -
+				230 button 리플 XRP -
+					231 text 리플
+					232 text XRP
+					233 text -
+				234 container
+					235 text 거래대금 상위
+					236 button 이더리움 ETH -
+						237 text 이더리움
+						238 text ETH
+						239 text -
+				240 button 솔라나 SOL -
+					241 text 솔라나
+					242 text SOL
+					243 text -
+				244 button 도지코인 DOGE -
+					245 text 도지코인
+					246 text DOGE
+					247 text -
+				248 button 에이다 ADA -
+					249 text 에이다
+					250 text ADA
+					251 text -
+
+The focused UI element is 0 AXWebArea 홈 · 페일스톱, URL: sang.it.kr/home

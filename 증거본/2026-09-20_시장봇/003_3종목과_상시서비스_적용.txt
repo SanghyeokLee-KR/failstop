@@ -1,0 +1,107 @@
+Browser tab: 2017667317, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		46 container consoleNavHeader
+			47 container awsc-nav-header
+				48 image Account color: 설정 해제
+				49 container Global
+					50 container awsc-top-level-nav
+						51 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						52 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						53 button (collapsed) Description: Services, Secondary Actions: Expand
+							54 image
+						55 container aws-unified-search-container
+							56 container
+								57 image Search
+								58 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								59 button Ask Amazon Q
+								60 text [Alt+S]
+						61 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						62 container
+							63 pop up button Description: Notifications (none available), Help: Notifications
+								64 image Notifications
+							65 image Notifications
+						66 content list awsc-navigation__more-menu--list
+							67 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								68 image Support
+							69 button (collapsed) Description: Settings, Secondary Actions: Expand
+							70 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								71 text 아시아 태평양 (서울)
+							72 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								73 text Account ID: 6192-5696-4117
+								74 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789830565444-7143
+			23 text Content loaded
+			75 container
+				76 content list
+					97 text ENIQU5HRV9TSU1fVEFLRVJfTEFNQkRBPTAuMgpFWENIQU5HRV9TSU1fTUFSS0VUU18wX1NZTUJPTD1LUlctQlRDCkVYQ0hBTkdFX1NJ
+					98 text TV9NQVJLRVRTXzBfSU5JVElBTFBSSUNFPTg0MzIwMDAwCkVYQ0hBTkdFX1NJTV9NQVJLRVRTXzBfTU1DT1VOVD0yCkVYQ0hBTkdFX1N
+					99 text JTV9NQVJLRVRTXzBfVEFLRVJDT1VOVD0xCkVYQ0hBTkdFX1NJTV9NQVJLRVRTXzBfUVVPVEVTSVpFPTAuMDEKRVhDSEFOR0VfU0lNX0
+					100 text 1BUktFVFNfMF9RVFlTVEVQPTAuMDAxCkVYQ0hBTkdFX1NJTV9NQVJLRVRTXzBfQkFTRUZVTkRJTkc9MTAwCkVYQ0hBTkdFX1NJTV9NQ
+					101 text VJLRVRTXzBfVFJFTkRDT1VOVD0xCkVYQ0hBTkdFX1NJTV9NQVJLRVRTXzBfTk9JU0VDT1VOVD0xCkVYQ0hBTkdFX1NJTV9NQVJLRVRT
+					102 text XzFfU1lNQk9MPUtSVy1FVEgKRVhDSEFOR0VfU0lNX01BUktFVFNfMV9JTklUSUFMUFJJQ0U9NDUxMjAwMApFWENIQU5HRV9TSU1fTUF
+					103 text SS0VUU18xX01NQ09VTlQ9MgpFWENIQU5HRV9TSU1fTUFSS0VUU18xX1RBS0VSQ09VTlQ9MQpFWENIQU5HRV9TSU1fTUFSS0VUU18xX1
+					104 text FVT1RFU0laRT0wLjA1CkVYQ0hBTkdFX1NJTV9NQVJLRVRTXzFfUVRZU1RFUD0wLjAxCkVYQ0hBTkdFX1NJTV9NQVJLRVRTXzFfQkFTR
+					105 text UZVTkRJTkc9NTAwMApFWENIQU5HRV9TSU1fTUFSS0VUU18xX1RSRU5EQ09VTlQ9MQpFWENIQU5HRV9TSU1fTUFSS0VUU18xX05PSVNF
+					106 text Q09VTlQ9MQpFWENIQU5HRV9TSU1fTUFSS0VUU18yX1NZTUJPTD1LUlctWFJQCkVYQ0hBTkdFX1NJTV9NQVJLRVRTXzJfSU5JVElBTFB
+					107 text SSUNFPTc0MgpFWENIQU5HRV9TSU1fTUFSS0VUU18yX01NQ09VTlQ9MgpFWENIQU5HRV9TSU1fTUFSS0VUU18yX1RBS0VSQ09VTlQ9MQ
+					108 text pFWENIQU5HRV9TSU1fTUFSS0VUU18yX1FVT1RFU0laRT0yMApFWENIQU5HRV9TSU1fTUFSS0VUU18yX1FUWVNURVA9OApFWENIQU5HR
+					109 text V9TSU1fTUFSS0VUU18yX0JBU0VGVU5ESU5HPTEwMDAwMDAwCkVYQ0hBTkdFX1NJTV9NQVJLRVRTXzJfVFJFTkRDT1VOVD0xCkVYQ0hB
+					110 text TkdFX1NJTV9NQVJLRVRTXzJfTk9JU0VDT1VOVD0xCg==' | base64 -d > /tmp/bot.env.school && printf '%s' 'W1VuaXR
+					111 text dCkRlc2NyaXB0aW9uPUV4Y2hhbmdlIG1hcmtldCBib3QgdmlhIEhUVFBTCldhbnRzPW5ldHdvcmstb25saW5lLnRhcmdldApBZnRlcj
+					112 text 1uZXR3b3JrLW9ubGluZS50YXJnZXQgcHJvbWV0aGV1cy5zZXJ2aWNlClN0YXJ0TGltaXRJbnRlcnZhbFNlYz05MDAKU3RhcnRMaW1pd
+					113 text EJ1cnN0PTMKCltTZXJ2aWNlXQpUeXBlPXNpbXBsZQpVc2VyPWV4Y2hhbmdlLWJvdApHcm91cD1leGNoYW5nZS1ib3QKV29ya2luZ0Rp
+					114 text cmVjdG9yeT0vdmFyL2xpYi9leGNoYW5nZS1ib3QKRW52aXJvbm1lbnRGaWxlPS9ldGMvZXhjaGFuZ2UtYm90L2JvdC5lbnYKRW52aXJ
+					115 text vbm1lbnRGaWxlPS9ldGMvZXhjaGFuZ2UtYm90L2JvdC1zZWNyZXQuZW52CkV4ZWNTdGFydD0vdXNyL2Jpbi9qYXZhIC1EdXNlci50aW
+					116 text 1lem9uZT1VVEMgLVhtczEyOG0gLVhteDM4NG0gLVhYOitFeGl0T25PdXRPZk1lbW9yeUVycm9yIC1qYXIgL29wdC9leGNoYW5nZS1ib
+					117 text 3QvY3VycmVudC9hcHAuamFyCiMg67CY67O1IOyLpO2MqOuKlCDshLgg67KI7JeQ7IScIOupiOy2mOuLpC4g7Jqp65+JIOygkOqygOyc
+					118 text vOuhnCDspJHsp4DtlZwg7ISc67mE7Iqk64qUIOyekOuPmSDsnqzqsJztlZjsp4Ag7JWK64qU64ukLgpSZXN0YXJ0PW9uLWZhaWx1cmU
+					119 text KUmVzdGFydFNlYz02MApUaW1lb3V0U3RvcFNlYz02MApVTWFzaz0wMDI3Ck5vTmV3UHJpdmlsZWdlcz10cnVlClByaXZhdGVUbXA9dH
+					120 text J1ZQpQcm90ZWN0U3lzdGVtPXN0cmljdApQcm90ZWN0SG9tZT10cnVlClJlYWRXcml0ZVBhdGhzPS92YXIvbGliL2V4Y2hhbmdlLWJvd
+					121 text ApNZW1vcnlIaWdoPTY0ME0KTWVtb3J5TWF4PTc2OE0KVGFza3NNYXg9NTEyCkxpbWl0Tk9GSUxFPTY1NTM2ClN0YW5kYXJkT3V0cHV0
+					122 text PWpvdXJuYWwKU3RhbmRhcmRFcnJvcj1qb3VybmFsClN5c2xvZ0lkZW50aWZpZXI9ZXhjaGFuZ2UtYm90CgpbSW5zdGFsbF0KV2FudGV
+					123 text kQnk9bXVsdGktdXNlci50YXJnZXQK' | base64 -d > /tmp/exchange-bot.serviceFuZ2UtYm90CgpbSW5zdGFsbF0KV2FudGV
+					124 text [ec2-user@ip-172-31-44-141 ~]$ sudo cp -p -n /etc/exchange-bot/bot.env /etc/exchange-bot/bot.env.before
+					125 text -three-markets && sudo cp -p -n /etc/systemd/system/exchange-bot.service /etc/systemd/system/exchange-b
+					126 text ot.service.before-three-markets && sudo systemctl stop exchange-bot && sudo install -m 0644 /tmp/bot.en
+					127 text v.school /etc/exchange-bot/bot.env && sudo install -m 0644 /tmp/exchange-bot.service /etc/systemd/syste
+					128 text m/exchange-bot.service && sudo install -m 0644 /tmp/capacity_guard.py /opt/exchange-bot/capacity_guard.
+					129 text py && sudo install -m 0644 /tmp/exchange-bot-capacity.service /tmp/exchange-bot-capacity.timer /etc/sys
+					130 text temd/system/ && sudo systemd-analyze verify /etc/systemd/system/exchange-bot.service /etc/systemd/syste
+					131 text m/exchange-bot-capacity.service /etc/systemd/system/exchange-bot-capacity.timer && sudo systemctl daemo
+					132 text n-reload && sudo systemctl start exchange-bot-capacity.service && sudo systemctl enable --now exchange-
+					133 text bot-capacity.timer exchange-bot.service
+					134 text /usr/lib/systemd/system/acpid.socket:6: ListenStream= references a path below legacy directory /var/run
+					135 text /, updating /var/run/acpid.socket → /run/acpid.socket; please update the unit file accordingly.
+					136 text Created symlink /etc/systemd/system/timers.target.wants/exchange-bot-capacity.timer → /etc/systemd/syst
+					137 text em/exchange-bot-capacity.timer.
+					138 text Created symlink /etc/systemd/system/multi-user.target.wants/exchange-bot.service → /etc/systemd/system/
+					139 text exchange-bot.service.
+					140 text [ec2-user@ip-172-31-44-141 ~]$ 
+				141 text sudo cp -p -n /etc/exchange-bot/bot.env /etc/exchange-bot/bot.env.before-three-markets && sudo cp -p -n /etc/systemd/system/exchange-bot.service /etc/systemd/system/exchange-bot.service.before-three-markets && sudo systemctl stop exchange-bot && sudo install -m 0644 /tmp/bot.env.school /etc/exchange-bot/bot.env && sudo install -m 0644 /tmp/exchange-bot.service /etc/systemd/system/exchange-bot.service && sudo install -m 0644 /tmp/capacity_guard.py /opt/exchange-bot/capacity_guard.py && sudo install -m 0644 /tmp/exchange-bot-capacity.service /tmp/exchange-bot-capacity.timer /etc/systemd/system/ && sudo systemd-analyze verify /etc/systemd/system/exchange-bot.service /etc/systemd/system/exchange-bot-capacity.service /etc/systemd/system/exchange-bot-capacity.timer && sudo systemctl daemon-reload && sudo systemctl start exchange-bot-capacity.service && sudo systemctl enable --now exchange-bot-capacity.timer exchange-bot.servicesudo cp -p -n /etc/exchange-bot/bot.env /etc/exchange-bot/bot.env.before-three-markets && sudo cp -p -n /etc/systemd/system/exchange-bot.service /etc/systemd/system/exchange-bot.service.before-three-markets && sudo systemctl stop exchange-bot && sudo install -m 0644 /tmp/bot.env.school /etc/exchange-bot/bot.env && sudo install -m 0644 /tmp/exchange-bot.service /etc/systemd/system/exchange-bot.service && sudo install -m 0644 /tmp/capacity_guard.py /opt/exchange-bot/capacity_guard.py && sudo install -m 0644 /tmp/exchange-bot-capacity.service /tmp/exchange-bot-capacity.timer /etc/systemd/system/ && sudo systemd-analyze verify /etc/systemd/system/exchange-bot.service /etc/systemd/system/exchange-bot-capacity.service /etc/systemd/system/exchange-bot-capacity.timer && sudo systemctl daemon-reload && sudo systemctl start exchange-bot-capacity.service && sudo systemctl enable --now exchange-bot-capacity.timer exchange-bot.service /usr/lib/systemd/system/acpid.socket:6: ListenStream= references a path below legacy directory /var/run/, updating /var/run/acpid.socket → /run/acpid.socket; please update the unit file accordingly. Created symlink /etc/systemd/system/timers.target.wants/exchange-bot-capacity.timer → /etc/systemd/system/exchange-bot-capacity.timer. Created symlink /etc/systemd/system/multi-user.target.wants/exchange-bot.service → /etc/systemd/system/exchange-bot.service. [ec2-user@ip-172-31-44-141 ~]$
+				90 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				91 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			92 container
+				93 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		33 container f
+			34 container console-nav-footer
+				35 container awsc-nav-footer-content
+					94 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					36 button Agent Toolkit for AWS
+					95 button Feedback, ID: feedback
+						96 text Feedback
+					37 button Console Mobile App, ID: mobile_app_button
+						38 image
+						39 text Console Mobile App
+					40 container
+						41 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					42 content list
+						43 link Description: Privacy, Value: aws.amazon.com/privacy/
+						44 link Description: Terms, Value: aws.amazon.com/terms/
+						45 button Cookie preferences
+
+The focused UI element is 90 text field (settable) Terminal input

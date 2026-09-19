@@ -11,6 +11,7 @@
 # 재기동 안전. 두 번째 기동부터는 PGDATA 가 차 있으므로 basebackup 을 건너뛴다. 받아 둔 WAL 을
 # 이어서 재생한다. 이 성질이 없으면 재기동마다 전량 복사가 돌아 복구가 느려진다.
 set -e
+umask 077
 
 : "${PRIMARY_HOST:?PRIMARY_HOST 가 필요하다}"
 : "${PRIMARY_PORT:=5432}"
@@ -18,9 +19,20 @@ set -e
 : "${REPL_PASSWORD:?REPL_PASSWORD 가 필요하다}"
 : "${PGDATA:=/var/lib/postgresql/data}"
 
+# 이 스크립트가 초기화할 수 있는 경로는 전용 데이터 볼륨 한 곳뿐이다.
+# 오타나 심볼릭 링크가 다른 디렉터리의 삭제로 이어지지 않게 한다.
+if [ "$PGDATA" != /var/lib/postgresql/data ] || [ -L "$PGDATA" ]; then
+  echo "PGDATA must be /var/lib/postgresql/data and not a symlink" >&2
+  exit 1
+fi
+
 export PGPASSWORD="$REPL_PASSWORD"
 
 mkdir -p "$PGDATA"
+if [ "$(readlink -f "$PGDATA")" != /var/lib/postgresql/data ]; then
+  echo "PGDATA resolved outside the data volume" >&2
+  exit 1
+fi
 chown -R postgres:postgres "$PGDATA"
 
 if [ ! -s "$PGDATA/PG_VERSION" ]; then

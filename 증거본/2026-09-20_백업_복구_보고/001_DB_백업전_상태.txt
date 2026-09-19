@@ -1,0 +1,101 @@
+Browser tab: 2017667342, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		32 container consoleNavHeader
+			33 container awsc-nav-header
+				34 image Account color: 설정 해제
+				35 container Global
+					36 container awsc-top-level-nav
+						37 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						38 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						39 button (collapsed) Description: Services, Secondary Actions: Expand
+							40 image
+						41 container aws-unified-search-container
+							42 container
+								43 image Search
+								44 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								45 button Ask Amazon Q
+								46 text [Alt+S]
+						47 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						48 container
+							49 pop up button Description: Notifications (none available), Help: Notifications
+								50 image Notifications
+							51 image Notifications
+						52 content list awsc-navigation__more-menu--list
+							53 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								54 image Support
+							55 button (collapsed) Description: Settings, Secondary Actions: Expand
+							56 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								57 text 아시아 태평양 (서울)
+							58 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								59 text Account ID: 6192-5696-4117
+								60 text 2026-ai-kopo-04
+		9 container
+			10 container Notifications
+				11 content list Description: Notifications, ID: flashbar1-1789834489005-3585
+			12 text Content loaded
+			61 container
+				62 content list
+					86 text   ~~  \_#####\
+					87 text   ~~     \###|
+					88 text   ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+					89 text    ~~       V~' '->
+					90 text     ~~~         /
+					91 text       ~~._.   _/
+					92 text          _/ _/
+					93 text        _/m/'
+					94 text Last login: Sat Sep 19 15:14:01 2026 from 13.209.1.61
+					95 text [ec2-user@ip-172-31-1-229 ~]$ date -u; df -h /var/lib/pgsql; free -m; sudo -u postgres psql -X -P pager=off -d exchange -c "SELECT version(),pg_is_in_recovery(),pg_database_size('exchange'); SHOW data_directory
+					96 text ; SHOW hba_file; SELECT application_name,client_addr,state,sync_state,sent_lsn,replay_lsn FROM pg_stat_replication;"; command -v pg_dump; command -v pg_restore; sudo find /usr -name initdb -o -name pg_ctl
+					97 text Sat Sep 19 16:16:07 UTC 2026
+					98 text Filesystem      Size  Used Avail Use% Mounted on
+					99 text /dev/nvme0n1p1   50G  2.3G   48G   5% /
+					100 text                total        used        free      shared  buff/cache   available
+					101 text Mem:            1909         277         719         152         913        1332
+					102 text Swap:              0           0           0
+					103 text                                                     version                                                    | pg_is_in_recovery | pg_database_size 
+					104 text ---------------------------------------------------------------------------------------------------------------+-------------------+------------------
+					105 text  PostgreSQL 17.11 on x86_64-amazon-linux-gnu, compiled by gcc (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5), 64-bit | f                 |         58726067
+					106 text (1 row)
+					107 text    data_directory    
+					108 text ---------------------
+					109 text  /var/lib/pgsql/data
+					110 text (1 row)
+					111 text             hba_file             
+					112 text ---------------------------------
+					113 text  /var/lib/pgsql/data/pg_hba.conf
+					114 text (1 row)
+					115 text  application_name |  client_addr  |   state   | sync_state | sent_lsn  | replay_lsn 
+					116 text ------------------+---------------+-----------+------------+-----------+------------
+					117 text  school_standby_1 | 172.31.33.195 | streaming | async      | 0/EBD0C28 | 0/EBD0C28
+					118 text (1 row)
+					119 text /usr/bin/pg_dump
+					120 text /usr/bin/pg_restore
+					121 text /usr/bin/initdb
+					122 text /usr/bin/pg_ctl
+					123 text /usr/libexec/initscripts/legacy-actions/postgresql/initdb
+					124 text [ec2-user@ip-172-31-1-229 ~]$ 
+				125 text date -u; df -h /var/lib/pgsql; free -m; sudo -u postgres psql -X -P pager=off -d exchange -c "SELECT version(),pg_is_in_recovery(),pg_database_size('exchange'); SHOW data_directory; SHOW hba_file; SELECT application_name,client_addr,state,sync_state,sent_lsn,replay_lsn FROM pg_stat_replication;"; command -v pg_dump; command -v pg_restore; sudo find /usr -name initdb -o -name pg_ctlToo much output to announce, navigate to rows manually to readdate -u; df -h /var/lib/pgsql; free -m; sudo -u postgres psql -X -P pager=off -d exchange -c "SELECT version(),pg_is_in_recovery(),pg_database_size('exchange'); SHOW data_directory; SHOW hba_file; SELECT application_name,client_addr,state,sync_state,sent_lsn,replay_lsn FROM pg_stat_replication;"; command -v pg_dump; command -v pg_restore; sudo find /usr -name initdb -o -name pg_ctl Sat Sep 19 16:16:07 UTC 2026 Filesystem Size Used Avail Use% Mounted on /dev/nvme0n1p1 50G 2.3G 48G 5% / total used free shared buff/cache available Mem: 1909 277 719 152 913 1332 Swap: 0 0 0 version | pg_is_in_recovery | pg_database_size ---------------------------------------------------------------------------------------------------------------+-------------------+------------------ PostgreSQL 17.11 on x86_64-amazon-linux-gnu, compiled by gcc (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5), 64-bit | f | 58726067 (1 row) data_directory --------------------- /var/lib/pgsql/data (1 row) hba_file --------------------------------- /var/lib/pgsql/data/pg_hba.conf (1 row)
+				76 text field (settable) Terminal input
+			20 button Close instance info
+			21 heading i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01), Value: 3
+				77 text i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01)
+			78 container
+				79 text PublicIPs: 13.125.150.154 PrivateIPs: 172.31.1.229
+		22 container f
+			23 container console-nav-footer
+				24 container awsc-nav-footer-content
+					80 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					81 button Agent Toolkit for AWS
+					82 button Feedback, ID: feedback
+						83 text Feedback
+					25 button Console Mobile App, ID: mobile_app_button
+						26 image
+						84 text Console Mobile App
+					85 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					28 content list
+						29 link Description: Privacy, Value: aws.amazon.com/privacy/
+						30 link Description: Terms, Value: aws.amazon.com/terms/
+						31 button Cookie preferences
+
+The focused UI element is 76 text field (settable) Terminal input

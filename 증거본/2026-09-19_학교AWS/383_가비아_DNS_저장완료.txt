@@ -1,0 +1,121 @@
+Browser tab: 530300451, Title: "웹을 넘어 클라우드로. 가비아", URL: "https://dns.gabia.com/dns/internals/total_set".
+1 AXWebArea 웹을 넘어 클라우드로. 가비아, URL: dns.gabia.com/dns/internals/total_set
+	2 container
+		3 container mm_wrap
+			4 link Description: 본문 영역으로 바로가기, Value: dns.gabia.com/dns/internals/total_set#content
+			5 container header
+				6 heading gabia Gabia DNS 관리, Value: 1
+					7 link Description: gabia Gabia, Value: dns.gabia.com/
+					8 link Description: DNS 관리, Value: dns.gabia.com/dns
+				9 container
+					10 text 이상혁님
+					11 link Description: 로그아웃, Value: gabia.com/login/logout.php?origin_site=https://domain.gabia.com
+				12 heading 전체 도메인, Value: 2
+					13 text 전체 도메인
+				14 container
+					15 text 전체 도메인 
+					16 text 1개
+					17 text (가비아 등록 도메인 + 타기관 등록 도메인)
+				18 container
+					19 text 한국어 English
+					20 link Description: My 가비아, Value: gabia.com/mygabia/service
+					21 text |
+					22 link Description: 1:1 문의, Value: customer.gabia.com/1to1/my_list
+				23 container
+					24 text 현재 페이지
+					25 link Description: 홈, Value: dns.gabia.com/
+					26 text  > DNS 관리
+					27 link Description: 메뉴얼, Value: customer.gabia.com/manuals/index?service=dns
+			28 container mm_container
+				29 content list
+					30 container
+						31 link Description: 가비아 등록 도메인, Value: dns.gabia.com/dns
+						32 content list
+							33 link Description: DNS 관리, Value: dns.gabia.com/dns/internals
+							34 link Description: DNS 권한 설정, Value: dns.gabia.com/dns/internals/authority_list
+				35 content list
+					36 link Description: 타기관 등록 도메인, Value: dns.gabia.com/dns/externals
+				37 heading DNS 관리, Value: 3
+					38 text DNS 관리
+				39 container
+					40 heading sang.it.kr, Value: 4
+						41 text sang.it.kr
+					42 content list
+						43 container
+							44 text 레코드 개수 : 
+							45 text 2
+							46 text 개
+						47 container
+							48 text 최근 업데이트 : 
+							49 text 2026-09-19 23:19:28
+						50 container
+							51 text 네임서버 : 
+							52 link dns.gabia.com/dns/internals/total_set#
+							53 text ns.gabia.co.kr
+					54 link Description: 이력 확인, Value: javascript:void(0)
+					55 link Description: 엑셀 다운로드, Value: dns.gabia.com/dns/internals/dns_excel?domain=sang.it.kr, ID: excel_down
+				56 content list
+					57 container
+						58 container
+							59 text DNS 설정
+							60 button 레코드 수정
+						61 table record_list_tbl
+							62 row
+								63 cell
+									64 pop up button (collapsed, settable) Value: 타입 전체, Secondary Actions: Expand
+										65 menu
+											66 (selected) 타입 전체
+											67 CNAME
+											68 A
+									69 link Description: 부가정보 보기, Value: javascript:void(0)
+								70 cell
+									71 text 호스트
+								72 cell
+									73 text 값/위치
+								74 cell
+									75 text TTL
+								76 cell
+									77 text 우선순위
+								78 cell
+									79 pop up button (collapsed, settable) Value: 서비스, Secondary Actions: Expand
+										80 menu
+											81 (selected) 서비스
+											82 DNS 설정
+							96 container record_list
+								97 row
+									98 cell
+										99 text CNAME
+									100 cell
+										101 text _87b1561022baed08a5d63cb6f34387a4.www
+									102 cell
+										103 text _5fa7d8a2afb680712fd99340d8913663.jkddzztszm.acm-validations.aws.
+									104 cell
+										105 text 3600
+									106 cell
+										107 text DNS 설정
+								108 row
+									109 cell
+										110 text A
+									111 cell
+										112 text www
+									113 cell
+										114 text 43.201.253.75
+									115 cell
+										116 text 600
+									117 cell
+										118 text DNS 설정
+					83 container
+						84 text 도메인 연결
+						85 button 설정
+					86 container
+						87 text 포워딩
+						88 button 설정
+					89 container
+						90 text 웹 파킹
+						91 button 설정
+					92 container
+						93 text 모바일 파킹
+						94 button 설정
+			95 text ⓒ Gabia Inc. All Rights Reserved.
+
+The focused UI element is 1 AXWebArea 웹을 넘어 클라우드로. 가비아, URL: dns.gabia.com/dns/internals/total_set

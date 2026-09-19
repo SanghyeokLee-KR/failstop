@@ -1,0 +1,7 @@
+__pycache__/
+*.sqlite3
+*.sqlite3-*
+.env
+reports/
+evidence/
+.state/

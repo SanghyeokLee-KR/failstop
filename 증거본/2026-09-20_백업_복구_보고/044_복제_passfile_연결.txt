@@ -1,0 +1,65 @@
+Browser tab: 2017667342, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		32 container consoleNavHeader
+			33 container awsc-nav-header
+				34 image Account color: 설정 해제
+				35 container Global
+					36 container awsc-top-level-nav
+						37 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						38 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						39 button (collapsed) Description: Services, Secondary Actions: Expand
+							40 image
+						41 container aws-unified-search-container
+							42 container
+								43 image Search
+								44 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								45 button Ask Amazon Q
+								46 text [Alt+S]
+						47 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						48 container
+							49 pop up button Description: Notifications (none available), Help: Notifications
+								50 image Notifications
+							51 image Notifications
+						52 content list awsc-navigation__more-menu--list
+							53 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								54 image Support
+							55 button (collapsed) Description: Settings, Secondary Actions: Expand
+							56 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								57 text 아시아 태평양 (서울)
+							58 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								59 text Account ID: 6192-5696-4117
+								60 text 2026-ai-kopo-04
+		9 container
+			10 container Notifications
+				11 content list Description: Notifications, ID: flashbar1-1789834489005-3585
+			12 text Content loaded
+			61 container
+				62 content list
+					86 text Sat Sep 19 17:01:46 UTC 2026
+					87 text PASS: postgres 전용 0600 passfile 연결, TLS verify-full 유지
+					88 text [ec2-user@ip-172-31-1-229 ~]$ 
+				89 text clear; date -u; sudo python3 /tmp/fix-replication-passfile.pyclear; date -u; sudo python3 /tmp/fix-replication-passfile.py Sat Sep 19 17:01:46 UTC 2026 PASS: postgres 전용 0600 passfile 연결, TLS verify-full 유지 [ec2-user@ip-172-31-1-229 ~]$
+				76 text field (settable) Terminal input
+			20 button Close instance info
+			21 heading i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01), Value: 3
+				77 text i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01)
+			78 container
+				79 text PublicIPs: 13.125.150.154 PrivateIPs: 172.31.1.229
+		22 container f
+			23 container console-nav-footer
+				24 container awsc-nav-footer-content
+					80 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					81 button Agent Toolkit for AWS
+					82 button Feedback, ID: feedback
+						83 text Feedback
+					25 button Console Mobile App, ID: mobile_app_button
+						26 image
+						84 text Console Mobile App
+					85 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					28 content list
+						29 link Description: Privacy, Value: aws.amazon.com/privacy/
+						30 link Description: Terms, Value: aws.amazon.com/terms/
+						31 button Cookie preferences
+
+The focused UI element is 76 text field (settable) Terminal input

@@ -1,0 +1,105 @@
+Browser tab: 2017667309, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		36 container consoleNavHeader
+			37 container awsc-nav-header
+				38 image Account color: 설정 해제
+				39 container Global
+					40 container awsc-top-level-nav
+						41 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						42 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						43 button (collapsed) Description: Services, Secondary Actions: Expand
+							44 image
+						45 container aws-unified-search-container
+							46 container
+								47 image Search
+								48 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								49 button Ask Amazon Q
+								50 text [Alt+S]
+						51 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						52 container
+							53 pop up button Description: Notifications (none available), Help: Notifications
+								54 image Notifications
+							55 image Notifications
+						56 content list awsc-navigation__more-menu--list
+							57 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								58 image Support
+							59 button (collapsed) Description: Settings, Secondary Actions: Expand
+							60 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								61 text 아시아 태평양 (서울)
+							62 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								63 text Account ID: 6192-5696-4117
+								64 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789829137356-8727
+			15 text Content loaded
+			65 container
+				66 content list
+					91 text mory.events; curl -fsS http://127.0.0.1:9090/api/v1/targets | python3 -c 'import sys,json; d=json.load(
+					92 text sys.stdin)["data"]["activeTargets"]; print("수집 대상",len(d),"정상",sum(t["health"]=="up" for t in d))
+					93 text '; sudo ss -lntp | grep -E ':8080|:8081'; sudo journalctl -u exchange-bot --since '2026-09-19 14:59:00 
+					94 text UTC' --no-pager -p warning -o cat
+					95 text                total        used        free      shared  buff/cache   available
+					96 text Mem:            1909         666          68         109        1174         976
+					97 text Swap:              0           0           0
+					98 text NRestarts=0
+					99 text MemoryCurrent=300519424
+					100 text Id=exchange-bot.service
+					101 text ActiveState=active
+					102 text NRestarts=0
+					103 text MemoryCurrent=164462592
+					104 text Id=grafana-server.service
+					105 text ActiveState=active
+					106 text NRestarts=0
+					107 text MemoryCurrent=91783168
+					108 text Id=prometheus.service
+					109 text ActiveState=active
+					110 text low 0
+					111 text high 0
+					112 text max 0
+					113 text oom 0
+					114 text oom_kill 0
+					115 text oom_group_kill 0
+					116 text 수집 대상 8 정상 8
+					117 text LISTEN 0      100    [::ffff:127.0.0.1]:8081            *:*    users:(("java",pid=41156,fd=14))       
+					118 text LISTEN 0      100    [::ffff:127.0.0.1]:8080            *:*    users:(("java",pid=41156,fd=10))       
+					119 text [ec2-user@ip-172-31-44-141 ~]$ sha256sum /etc/exchange-bot/bot.env /etc/systemd/system/exchange-bot.ser
+					120 text vice /tmp/transfer-secrets.py /tmp/install-bot.sh; sudo systemctl is-enabled exchange-bot; sudo systemc
+					121 text tl is-active exchange-bot grafana-server prometheus; date -u
+					122 text 61e736bb0abc2f3831921a07946b7a384977246cbfb83926352b97ef1ef84e66  /etc/exchange-bot/bot.env
+					123 text d567a9441e25118882197246a9916ae18aa20d698e51fc7d82413f8d21e90f8c  /etc/systemd/system/exchange-bot.serv
+					124 text ice
+					125 text 3d03d8eb2a263a3b675019f0b9fc1609994a75e46d2579aae9b15fadb7538d83  /tmp/transfer-secrets.py
+					126 text 990e5ecbbc08e85fa1b729bb6d8eca2e2379c9cfdf587f1385ae7408fd0ccc14  /tmp/install-bot.sh
+					127 text disabled
+					128 text active
+					129 text active
+					130 text active
+					131 text Sat Sep 19 15:03:53 UTC 2026
+					132 text [ec2-user@ip-172-31-44-141 ~]$ 
+				133 text sha256sum /etc/exchange-bot/bot.env /etc/systemd/system/exchange-bot.service /tmp/transfer-secrets.py /tmp/install-bot.sh; sudo systemctl is-enabled exchange-bot; sudo systemctl is-active exchange-bot grafana-server prometheus; date -u 61e736bb0abc2f3831921a07946b7a384977246cbfb83926352b97ef1ef84e66 /etc/exchange-bot/bot.env d567a9441e25118882197246a9916ae18aa20d698e51fc7d82413f8d21e90f8c /etc/systemd/system/exchange-bot.service 3d03d8eb2a263a3b675019f0b9fc1609994a75e46d2579aae9b15fadb7538d83 /tmp/transfer-secrets.py 990e5ecbbc08e85fa1b729bb6d8eca2e2379c9cfdf587f1385ae7408fd0ccc14 /tmp/install-bot.sh disabled active active active Sat Sep 19 15:03:53 UTC 2026 [ec2-user@ip-172-31-44-141 ~]$
+				80 text field (settable) Terminal input
+			23 button Close instance info
+			81 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				82 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			83 container
+				84 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		26 container f
+			27 container console-nav-footer
+				28 container awsc-nav-footer-content
+					85 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					29 button Agent Toolkit for AWS
+					86 button Feedback, ID: feedback
+						87 text Feedback
+					30 button Console Mobile App, ID: mobile_app_button
+						31 image
+						88 text Console Mobile App
+					89 container
+						90 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					32 content list
+						33 link Description: Privacy, Value: aws.amazon.com/privacy/
+						34 link Description: Terms, Value: aws.amazon.com/terms/
+						35 button Cookie preferences
+
+The focused UI element is 80 text field (settable) Terminal input

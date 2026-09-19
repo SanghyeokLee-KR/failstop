@@ -327,4 +327,4 @@ DynamoDB 는 3초마다 갱신되고 PostgreSQL 행은 승격 시각에 고정�
 | `harness/replication/repl_sampler.py` | 표본기. 리스 지표와 readiness 포함 |
 | `harness/replication/analyze.py` | 집계기 |
 | `harness/evidence/replication-fault-20260908/` | 이전 구조의 같은 실험 |
-| `docs/adr/0017-leader-lease-out-of-commit-path.md` | 결정 기록 |
+| `docs/reference/adr/0017-leader-lease-out-of-commit-path.md` | 결정 기록 |

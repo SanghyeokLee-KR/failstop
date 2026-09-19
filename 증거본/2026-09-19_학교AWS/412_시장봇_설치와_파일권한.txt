@@ -1,0 +1,107 @@
+Browser tab: 2017667309, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		36 container consoleNavHeader
+			37 container awsc-nav-header
+				38 image Account color: 설정 해제
+				39 container Global
+					40 container awsc-top-level-nav
+						41 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						42 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						43 button (collapsed) Description: Services, Secondary Actions: Expand
+							44 image
+						45 container aws-unified-search-container
+							46 container
+								47 image Search
+								48 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								49 button Ask Amazon Q
+								50 text [Alt+S]
+						51 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						52 container
+							53 pop up button Description: Notifications (none available), Help: Notifications
+								54 image Notifications
+							55 image Notifications
+						56 content list awsc-navigation__more-menu--list
+							57 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								58 image Support
+							59 button (collapsed) Description: Settings, Secondary Actions: Expand
+							60 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								61 text 아시아 태평양 (서울)
+							62 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								63 text Account ID: 6192-5696-4117
+								64 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789829137356-8727
+			15 text Content loaded
+			65 container
+				66 content list
+					91 text W5nZS1ib3QvYm90LmVudgpFbnZpcm9ubWVudEZpbGU9L2V0Yy9leGNoYW5nZS1ib3QvYm90LXNlY3JldC5lbnYKRXhlY1N0YXJ0PS91
+					92 text c3IvYmluL2phdmEgLUR1c2VyLnRpbWV6b25lPVVUQyAtWG1zMTI4bSAtWG14Mzg0bSAtWFg6K0V4aXRPbk91dE9mTWVtb3J5RXJyb3I
+					93 text gLWphciAvb3B0L2V4Y2hhbmdlLWJvdC9jdXJyZW50L2FwcC5qYXIKIyDsi5ztl5gg7KSRIOuplOuqqOumrCDrtoDsobHsnbTrgpgg7I
+					94 text Sk7KCVIOyYpOulmOqwgCDrgpjrqbQg7JuQ7J247J2EIO2ZleyduO2VnCDrkqQg64uk7IucIOyLnOyeke2VnOuLpC4KUmVzdGFydD1ub
+					95 text wpUaW1lb3V0U3RvcFNlYz02MApVTWFzaz0wMDI3Ck5vTmV3UHJpdmlsZWdlcz10cnVlClByaXZhdGVUbXA9dHJ1ZQpQcm90ZWN0U3lz
+					96 text dGVtPXN0cmljdApQcm90ZWN0SG9tZT10cnVlClJlYWRXcml0ZVBhdGhzPS92YXIvbGliL2V4Y2hhbmdlLWJvdApNZW1vcnlIaWdoPTY
+					97 text 0ME0KTWVtb3J5TWF4PTc2OE0KVGFza3NNYXg9NTEyCkxpbWl0Tk9GSUxFPTY1NTM2ClN0YW5kYXJkT3V0cHV0PWpvdXJuYWwKU3Rhbm
+					98 text RhcmRFcnJvcj1qb3VybmFsClN5c2xvZ0lkZW50aWZpZXI9ZXhjaGFuZ2UtYm90CgpbSW5zdGFsbF0KV2FudGVkQnk9bXVsdGktdXNlc
+					99 text i50YXJnZXQK' | base64 -d > /tmp/exchange-bot.service && printf '%s' 'IyEvdXNyL2Jpbi9lbnYgYmFzaApzZXQgLW
+					100 text V1byBwaXBlZmFpbAoKIyDqsoDspp3tlZwg6riw7KG0IOyVsSBKQVLrpbwg67SHIOyghOyaqSDsgqzsmqnsnpDsmYAg6rK966Gc7JeQI
+					101 text OyEpOy5mO2VnOuLpC4g6riw64+Z7J2AIOuzhOuPhCDri6jqs4Tri6QuCnRlc3QgIiQoaWQgLXUpIiAtZXEgMApjZCAvdG1wCnByaW50
+					102 text ZiAnJXNcbicgJ2U0MDFhNzc4ZWRhY2Y2ZTAyNzkyMjlmMzdkY2FlYmMwNjE5YmM4MWYzODVhMDBjYTJhYmI1OTRmYmJjNWM1ZWQgIGV
+					103 text 4Y2hhbmdlLWFwcC0zMzYyMTE3LnppcCcgfCBzaGEyNTZzdW0gLWMgLQppZiAhIGlkIGV4Y2hhbmdlLWJvdCA+L2Rldi9udWxsIDI+Jj
+					104 text E7IHRoZW4KICAgIHVzZXJhZGQgLS1zeXN0ZW0gLS1ob21lLWRpciAvdmFyL2xpYi9leGNoYW5nZS1ib3QgLS1zaGVsbCAvc2Jpbi9ub
+					105 text 2xvZ2luIGV4Y2hhbmdlLWJvdApmaQppbnN0YWxsIC1kIC1vIHJvb3QgLWcgcm9vdCAtbSAwNzU1IC9ldGMvZXhjaGFuZ2UtYm90IC9v
+					106 text cHQvZXhjaGFuZ2UtYm90L3JlbGVhc2VzLzMzNjIxMTcKaW5zdGFsbCAtZCAtbyBleGNoYW5nZS1ib3QgLWcgZXhjaGFuZ2UtYm90IC1
+					107 text tIDA3NTAgL3Zhci9saWIvZXhjaGFuZ2UtYm90CnRlc3QgISAtZSAvb3B0L2V4Y2hhbmdlLWJvdC9jdXJyZW50CnRlc3QgISAtZSAvZX
+					108 text RjL3N5c3RlbWQvc3lzdGVtL2V4Y2hhbmdlLWJvdC5zZXJ2aWNlCnVuemlwIC1wIGV4Y2hhbmdlLWFwcC0zMzYyMTE3LnppcCBhcHAua
+					109 text mFyID4gL29wdC9leGNoYW5nZS1ib3QvcmVsZWFzZXMvMzM2MjExNy9hcHAuamFyCmNobW9kIDA0NDQgL29wdC9leGNoYW5nZS1ib3Qv
+					110 text cmVsZWFzZXMvMzM2MjExNy9hcHAuamFyCmxuIC1zIC9vcHQvZXhjaGFuZ2UtYm90L3JlbGVhc2VzLzMzNjIxMTcgL29wdC9leGNoYW5
+					111 text nZS1ib3QvY3VycmVudAppbnN0YWxsIC1vIHJvb3QgLWcgcm9vdCAtbSAwNjQ0IC90bXAvYm90LmVudi5zY2hvb2wgL2V0Yy9leGNoYW
+					112 text 5nZS1ib3QvYm90LmVudgppbnN0YWxsIC1vIHJvb3QgLWcgcm9vdCAtbSAwNjQ0IC90bXAvZXhjaGFuZ2UtYm90LnNlcnZpY2UgL2V0Y
+					113 text y9zeXN0ZW1kL3N5c3RlbS9leGNoYW5nZS1ib3Quc2VydmljZQp0ZXN0IC1zIC9ldGMvZXhjaGFuZ2UtYm90L2JvdC1zZWNyZXQuZW52
+					114 text CnRlc3QgIiQoc3RhdCAtYyAnJWE6JVU6JUcnIC9ldGMvZXhjaGFuZ2UtYm90L2JvdC1zZWNyZXQuZW52KSIgPSAnNjAwOnJvb3Q6cm9
+					115 text vdCcKc3VkbyAtdSBleGNoYW5nZS1ib3QgdGVzdCAtciAvZXRjL2V4Y2hhbmdlLWJvdC9wcmltYXJ5LmNydApzeXN0ZW1kLWFuYWx5em
+					116 text UgdmVyaWZ5IC9ldGMvc3lzdGVtZC9zeXN0ZW0vZXhjaGFuZ2UtYm90LnNlcnZpY2UKc3lzdGVtY3RsIGRhZW1vbi1yZWxvYWQKc3Rhd
+					117 text CAtYyAnJWEgJVU6JUcgJW4nIC9ldGMvZXhjaGFuZ2UtYm90LyogL29wdC9leGNoYW5nZS1ib3QvY3VycmVudC9hcHAuamFyCnByaW50
+					118 text ZiAnJXNcbicgJ+yEpOy5mCDtmZXsnbgg7JmE66OMLiDslYTsp4Eg7Iuc7J6R7ZWY6rGw64KYIOyekOuPmSDquLDrj5nsnYQg7Lyc7Ke
+					119 text AIOyViuyVmOuLpC4nCg==' | base64 -d > /tmp/install-bot.sh7J6R7ZWY6rGw64KYIOyekOuPmSDquLDrj5nsnYQg7Lyc7Ke
+					120 text [ec2-user@ip-172-31-44-141 ~]$ sudo aws s3 cp s3://2026-ai-kopo-04-exchange-artifacts-619256964117/tran
+					121 text sfer/bot-settings-20260919.cms /root/exchange-bot-transfer/bot-settings.cms --only-show-errors && sudo 
+					122 text chmod 600 /root/exchange-bot-transfer/bot-settings.cms && sudo python3 /tmp/transfer-secrets.py open --
+					123 text sha256 fad30a8a1d6af989568a5f37d37677c05d47dff81cebdcf5d723220c68ef35c0 && sudo bash /tmp/install-bot.s
+					124 text h
+					125 text 봇 전용 경로에 설정 네 항목과 DB 공개 인증서 배치 완료. 원문 출력 없음.
+					126 text exchange-app-3362117.zip: OK
+					127 text /usr/lib/systemd/system/acpid.socket:6: ListenStream= references a path below legacy directory /var/run
+					128 text /, updating /var/run/acpid.socket → /run/acpid.socket; please update the unit file accordingly.
+					129 text 600 root:root /etc/exchange-bot/bot-secret.env
+					130 text 644 root:root /etc/exchange-bot/bot.env
+					131 text 644 root:root /etc/exchange-bot/primary.crt
+					132 text 444 root:root /opt/exchange-bot/current/app.jar
+					133 text 설치 확인 완료. 아직 시작하거나 자동 기동을 켜지 않았다.
+					134 text [ec2-user@ip-172-31-44-141 ~]$ 
+				135 text fer/bot-settings-20260919.cms /root/exchange-bot-transfer/bot-settings.cms --only-show-errors && sudo chmod 600 /root/exchange-bot-transfer/bot-settings.cms && sudo python3 /tmp/transfer-secrets.py open --sha256 fad30a8a1d6af989568a5f37d37677c05d47dff81cebdcf5d723220c68ef35c0 && sudo bash /tmp/install-bot.shsudo aws s3 cp s3://2026-ai-kopo-04-exchange-artifacts-619256964117/transfer/bot-settings-20260919.cms /root/exchange-bot-transfer/bot-settings.cms --only-show-errors && sudo chmod 600 /root/exchange-bot-transfer/bot-settings.cms && sudo python3 /tmp/transfer-secrets.py open --sha256 fad30a8a1d6af989568a5f37d37677c05d47dff81cebdcf5d723220c68ef35c0 && sudo bash /tmp/install-bot.sh 봇 전용 경로에 설정 네 항목과 DB 공개 인증서 배치 완료. 원문 출력 없음. exchange-app-3362117.zip: OK /usr/lib/systemd/system/acpid.socket:6: ListenStream= references a path below legacy directory /var/run/, updating /var/run/acpid.socket → /run/acpid.socket; please update the unit file accordingly. 600 root:root /etc/exchange-bot/bot-secret.env 644 root:root /etc/exchange-bot/bot.env 644 root:root /etc/exchange-bot/primary.crt 444 root:root /opt/exchange-bot/current/app.jar 설치 확인 완료. 아직 시작하거나 자동 기동을 켜지 않았다. [ec2-user@ip-172-31-44-141 ~]$
+				80 text field (settable) Terminal input
+			23 button Close instance info
+			81 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				82 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			83 container
+				84 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		26 container f
+			27 container console-nav-footer
+				28 container awsc-nav-footer-content
+					85 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					29 button Agent Toolkit for AWS
+					86 button Feedback, ID: feedback
+						87 text Feedback
+					30 button Console Mobile App, ID: mobile_app_button
+						31 image
+						88 text Console Mobile App
+					89 container
+						90 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					32 content list
+						33 link Description: Privacy, Value: aws.amazon.com/privacy/
+						34 link Description: Terms, Value: aws.amazon.com/terms/
+						35 button Cookie preferences
+
+The focused UI element is 80 text field (settable) Terminal input

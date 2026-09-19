@@ -1,0 +1,42 @@
+{
+  "started_at": "2026-09-18T01:26:45+00:00",
+  "scope": "local-test-only",
+  "channel_post_confirmed": false,
+  "notifications_after_test": "quiet",
+  "status": "PASS",
+  "basic_before": {
+    "sent": 2.0,
+    "failed": 0.0
+  },
+  "first_attempt_note": "Both firing messages were accepted; key-order comparison caused test timeout. Resume uses the same alert identity.",
+  "firing": {
+    "id": "incident:f49339a50b526a05963fced74c58ee0d6a57fd25e5084f1744c16938fccbad0d",
+    "status": "sent",
+    "attempts": 1,
+    "mode": "mock"
+  },
+  "duplicate_suppressed": true,
+  "resolved": {
+    "id": "incident:2c3d1c541523c6e0cf1843d27dc244d7c21f3386bb4fde466e4632f0b172246f",
+    "status": "sent",
+    "attempts": 2,
+    "mode": "mock"
+  },
+  "basic_notifications": {
+    "sent": 2.0,
+    "failed": 0.0
+  },
+  "daily_enqueue": {
+    "status": "queued",
+    "duplicate": false,
+    "id": "daily:2026-09-18"
+  },
+  "daily": {
+    "id": "daily:2026-09-18",
+    "status": "sent",
+    "attempts": 1,
+    "mode": "mock"
+  },
+  "daily_duplicate_suppressed": true,
+  "timer_active": true
+}

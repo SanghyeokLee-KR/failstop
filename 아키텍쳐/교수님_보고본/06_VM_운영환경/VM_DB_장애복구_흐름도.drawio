@@ -1,0 +1,382 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" version="31.4.4" type="device">
+  <diagram id="db-recovery" name="VM DB 장애 복구 흐름">
+    <mxGraphModel dx="2560" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2560" pageHeight="1600" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="v1" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#FFFFFF;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="0" y="0" width="2560" height="1600" as="geometry" />
+        </mxCell>
+        <mxCell id="v2" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#2767A0;strokeColor=#2767A0;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="64" y="49" width="6" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="v3" value="VM DB 장애 복구 흐름" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=44;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="42" width="1860" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="v4" value="비동기 복제 · 운영자 수동 승격 · 거래 재개 전 데이터 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="93" y="111" width="1900" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="v5" value="" style="rounded=1;arcSize=4;absoluteArcSize=1;fillColor=#EEF5FB;strokeColor=#EEF5FB;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="2255" y="53" width="240" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v6" value="구축 설계안" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#2767A0;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2263" y="53" width="224" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v7" value="Linux VM · 2026.09.19" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2065" y="107" width="430" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="v8" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#F2F6FB;strokeColor=#DBE3E9;strokeWidth=1.1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="64" y="177" width="744" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="v9" value="장애 전" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#2767A0;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="187" width="696" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v10" value="DB01 Primary / DB02 Standby" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="224" width="696" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="v11" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FCF5EE;strokeColor=#DBE3E9;strokeWidth=1.1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="844" y="177" width="872" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="v12" value="복구 중" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#AE6E36;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="868" y="187" width="824" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v13" value="신규 접수 보류 · 격리 확인 · 운영자 판단" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="868" y="224" width="824" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="v14" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#F2F8F4;strokeColor=#DBE3E9;strokeWidth=1.1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1756" y="177" width="740" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="v15" value="복구 후" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#438B58;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1780" y="187" width="692" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v16" value="DB02 Primary / DB01은 Standby로 재구성" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1780" y="224" width="692" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="v17" value="›" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=38;fontColor=#61758A;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="817" y="186" width="22" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="v18" value="›" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=38;fontColor=#61758A;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1729" y="186" width="22" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="v19" value="01  장애 확인부터 새 Primary 준비까지" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=28;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="65" y="312" width="1630" height="43" as="geometry" />
+        </mxCell>
+        <mxCell id="v20" value="격리가 확인되기 전에는 승격하지 않음" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#AE6E36;fontStyle=1;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1785" y="319" width="710" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="step-1" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#BFCEDA;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="64" y="390" width="521" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="v22" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="65" y="391" width="519" height="61" as="geometry" />
+        </mxCell>
+        <mxCell id="v23" value="01" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=29;fontColor=#2767A0;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="85" y="402" width="62" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="v24" value="장애 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="162" y="401" width="402" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v25" value="앱·DB·네트워크 상태 구분" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="480" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v26" value="쓰기 요청·봇 주문 접수 보류" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="523" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v27" value="장애 시각·외부 ACK 기록 보존" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="566" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v28" value="ACK: 클라이언트가 받은 접수 응답" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#2767A0;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="636" width="473" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="step-2" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#BFCEDA;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="701" y="390" width="521" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="v30" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="702" y="391" width="519" height="61" as="geometry" />
+        </mxCell>
+        <mxCell id="v31" value="02" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=29;fontColor=#2767A0;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="722" y="402" width="62" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="v32" value="기존 Primary 격리" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="799" y="401" width="402" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v33" value="서비스 중지 또는 VM 격리" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="725" y="480" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v34" value="앱의 쓰기 경로 차단 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="725" y="523" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v35" value="재기동 후 재연결도 차단" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="725" y="566" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v36" value="" style="rounded=1;arcSize=4;absoluteArcSize=1;fillColor=#FCF3E9;strokeColor=#E5C8A7;strokeWidth=1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="720" y="628" width="483" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="v37" value="격리 확인 불가 → 승격 중단" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#AE6E36;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="733" y="632" width="457" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="step-3" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#BFCEDA;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1338" y="390" width="521" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="v39" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1339" y="391" width="519" height="61" as="geometry" />
+        </mxCell>
+        <mxCell id="v40" value="03" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=29;fontColor=#2767A0;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1359" y="402" width="62" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="v41" value="복제·유실 범위 판단" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1436" y="401" width="402" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v42" value="수신 WAL 재생 완료·LSN 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1362" y="480" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v43" value="미전송 WAL 유실 가능성 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1362" y="523" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v44" value="유실 범위가 불명확하면 기록" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1362" y="566" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v45" value="" style="rounded=1;arcSize=4;absoluteArcSize=1;fillColor=#FCF3E9;strokeColor=#E5C8A7;strokeWidth=1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1357" y="628" width="483" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="v46" value="운영자가 위험을 판단한 뒤 진행" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#AE6E36;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="632" width="457" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="step-4" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#BFCEDA;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1975" y="390" width="521" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="v48" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1976" y="391" width="519" height="61" as="geometry" />
+        </mxCell>
+        <mxCell id="v49" value="04" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=29;fontColor=#2767A0;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1996" y="402" width="62" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="v50" value="Standby 수동 승격" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2073" y="401" width="402" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v51" value="운영자가 DB02를 승격" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1999" y="480" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v52" value="pg_is_in_recovery() = false" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1999" y="523" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v53" value="쓰기 가능한 DB는 한 대" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1999" y="566" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v54" value="DB 승격과 앱 리더 전환은 별개" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#2767A0;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1999" y="636" width="473" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="e55" edge="1" parent="1" source="step-1" target="step-2" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.49;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.49;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="585" y="537" as="sourcePoint" />
+            <mxPoint x="701" y="537" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e56" edge="1" parent="1" source="step-2" target="step-3" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.49;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.49;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1222" y="537" as="sourcePoint" />
+            <mxPoint x="1338" y="537" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e57" edge="1" parent="1" source="step-3" target="step-4" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.49;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.49;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1859" y="537" as="sourcePoint" />
+            <mxPoint x="1975" y="537" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e58" edge="1" parent="1" source="step-4" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;exitPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2235.5" y="690" as="sourcePoint" />
+            <mxPoint x="64" y="1017" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="2235.5" y="766" />
+              <mxPoint x="40" y="766" />
+              <mxPoint x="40" y="1017" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v59" value="새 Primary를 기준으로 연결을 바꾸고 거래를 검증한다" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=22;fontColor=#2767A0;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="710" y="715" width="1270" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="v60" value="02  서비스 복구와 이중화 재구성" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=28;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="65" y="804" width="1610" height="43" as="geometry" />
+        </mxCell>
+        <mxCell id="v61" value="시험 거래 확인 후 일반 거래를 개방" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#438B58;fontStyle=1;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1800" y="811" width="695" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="step-5" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#BFCEDA;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="64" y="870" width="521" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="v63" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="65" y="871" width="519" height="61" as="geometry" />
+        </mxCell>
+        <mxCell id="v64" value="05" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=29;fontColor=#2767A0;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="85" y="882" width="62" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="v65" value="앱 연결·리더 복구" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="162" y="881" width="402" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v66" value="모든 앱 DB 주소 변경·재기동" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="960" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v67" value="앱 리더 1대·저널 복구 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="1003" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v68" value="NGINX 경로·WS 재접속 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="1046" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v69" value="일반 거래 접수는 계속 보류" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#2767A0;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="1116" width="473" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="step-6" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#BFCEDA;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="701" y="870" width="521" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="v71" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="702" y="871" width="519" height="61" as="geometry" />
+        </mxCell>
+        <mxCell id="v72" value="06" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=29;fontColor=#2767A0;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="722" y="882" width="62" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="v73" value="ACK 대조·시험 거래" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="799" y="881" width="402" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v74" value="외부 ACK ↔ 명령 기록 대조" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="725" y="960" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v75" value="주문·취소·체결 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="725" y="1003" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v76" value="원장·잔고 일치 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="725" y="1046" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v77" value="" style="rounded=1;arcSize=4;absoluteArcSize=1;fillColor=#FCF3E9;strokeColor=#E5C8A7;strokeWidth=1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="720" y="1108" width="483" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="v78" value="불일치 미해결 → 거래 재개 보류" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#AE6E36;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="733" y="1112" width="457" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="step-7" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#BFCEDA;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1338" y="870" width="521" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="v80" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1339" y="871" width="519" height="61" as="geometry" />
+        </mxCell>
+        <mxCell id="v81" value="07" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=29;fontColor=#438B58;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1359" y="882" width="62" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="v82" value="일반 거래 재개" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1436" y="881" width="402" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v83" value="복구·정합성 확인 후 개방" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1362" y="960" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v84" value="오류율·지연·DB 연결 관찰" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1362" y="1003" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v85" value="장애 발생부터 거래 재개까지 기록" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1362" y="1046" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v86" value="승격 명령 시간 ≠ 전체 복구 시간" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#438B58;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1362" y="1116" width="473" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="step-8" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#BFCEDA;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1975" y="870" width="521" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="v88" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1976" y="871" width="519" height="61" as="geometry" />
+        </mxCell>
+        <mxCell id="v89" value="08" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=29;fontColor=#438B58;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1996" y="882" width="62" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="v90" value="기존 DB 재구성" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2073" y="881" width="402" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v91" value="기존 자료·진단 근거 보존" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1999" y="960" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v92" value="새 Primary의 전량 베이스백업" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1999" y="1003" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v93" value="DB01을 Standby로 재합류" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1999" y="1046" width="473" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v94" value="recovery = true · 복제 재개 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#438B58;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1999" y="1116" width="473" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="e95" edge="1" parent="1" source="step-5" target="step-6" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.49;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.49;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="585" y="1017" as="sourcePoint" />
+            <mxPoint x="701" y="1017" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e96" edge="1" parent="1" source="step-6" target="step-7" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.49;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.49;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1222" y="1017" as="sourcePoint" />
+            <mxPoint x="1338" y="1017" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e97" edge="1" parent="1" source="step-7" target="step-8" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.49;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.49;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1859" y="1017" as="sourcePoint" />
+            <mxPoint x="1975" y="1017" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v98" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FCF5EE;strokeColor=#E8D6C2;strokeWidth=1.2;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="64" y="1225" width="2432" height="83" as="geometry" />
+        </mxCell>
+        <mxCell id="v99" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%23AE6E36%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M16%202%2028%207v9c0%207-8%2012-12%2014C12%2028%204%2023%204%2016V7zM10%2016l4%204%208-9%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="89" y="1248" width="34" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v100" value="복제 재개 전까지는 DB 한 대로 운영" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=25;fontColor=#AE6E36;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="147" y="1236" width="1250" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="v101" value="새 Primary의 추가 장애에 대비하고, 복제 연결·지연까지 확인한 뒤 이중화 복구로 기록한다." style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="147" y="1277" width="2320" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="v102" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#F6F8FA;strokeColor=#DFE6EC;strokeWidth=1.1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="64" y="1350" width="782" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="v103" value="유실 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="1364" width="734" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v104" value="지연 0이나 수신·재생 LSN 일치만으로" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="1407" width="734" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v105" value="미전송 WAL의 무손실을 판정하지 않는다." style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="88" y="1444" width="734" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v106" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#F6F8FA;strokeColor=#DFE6EC;strokeWidth=1.1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="889" y="1350" width="782" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="v107" value="증거 보존" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="913" y="1364" width="734" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v108" value="ACK는 장애 DB 밖에 보존하고," style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="913" y="1407" width="734" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v109" value="승격한 DB의 명령 기록과 대조한다." style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="913" y="1444" width="734" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v110" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#F6F8FA;strokeColor=#DFE6EC;strokeWidth=1.1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1714" y="1350" width="782" height="138" as="geometry" />
+        </mxCell>
+        <mxCell id="v111" value="백업 복원" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1738" y="1364" width="734" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v112" value="복제본 재구성과 백업 복원은 별개다." style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1738" y="1407" width="734" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v113" value="격리된 복원 대상에서 백업도 확인한다." style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1738" y="1444" width="734" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v114" value="실습 전 절차 설계안 · 실제 서비스 이름·설정 경로·차단 방법은 VM 구축 시 확정" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="64" y="1529" width="1800" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v115" value="RTO·유실량은 실습 후 측정" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1995" y="1529" width="501" height="31" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -140,6 +140,6 @@ pg_rewind: error: could not find previous WAL record at 0/21FFFFC0
   주입, `standby.signal` 생성)가 이 회차에서 한 번도 실행되지 않았다. 되감기 전제 자체가 없을
   때 타는 분기도 마찬가지로 NOT RUN 이다. 이 회차는 전제가 섰고 되감기를 시도했다.
 - **절차 전체를 돌린 것이 아니다.** 잰 것은 승격과 재편입이고, 구 primary fencing, 앱
-  `DB_HOST` 전환, 리스 재획득은 이 주행 밖이다. `docs/operations/DB_수동_페일오버.md` 참조.
+  `DB_HOST` 전환, 리스 재획득은 이 주행 밖이다. `docs/reference/operations/DB_수동_페일오버.md` 참조.
 - **앱을 붙이지 않았다.** 프로브가 직접 psql 로 쓴다. 주문 경로의 유실량이 아니라 저장 계층의
   유실량이다.

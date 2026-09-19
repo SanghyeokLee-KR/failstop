@@ -1,0 +1,1 @@
+[{"IpProtocol": "tcp", "FromPort": 9100, "ToPort": 9100, "UserIdGroupPairs": [{"GroupId": "sg-064b0da59e8c9a13c", "Description": "Linux metrics from monitoring only"}]}]

@@ -1,0 +1,206 @@
+Browser tab: 2017667304, Title: "07 · 디스크·용량 - MSP 운영 - Dashboards - Grafana", URL: "https://www.sang.it.kr/grafana/d/msp-storage/07-c2b7-eb9494-ec8aa4-ed81ac-c2b7-ec9aa9-eb9f89?from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&orgId=1&var-node=$__all&refresh=auto".
+0 AXWebArea 07 · 디스크·용량 - MSP 운영 - Dashboards - Grafana, URL: sang.it.kr/grafana/d/msp-storage/07-c2b7-eb9494-ec8aa4-ed81ac-c2b7-ec9aa9-eb9f89?from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&orgId=1&var-node=$__all&refresh=auto
+	1 container reactRoot
+		2 container floating-boundary
+			3 link Description: Skip to main content, Value: sang.it.kr/grafana/#pageContent
+			4 container
+				5 link Description: Grafana, Help: Home, Value: sang.it.kr/grafana/
+				6 text Grafana
+				7 button Description: Undock menu, ID: dock-menu-button
+				8 button Close menu
+				9 container
+					10 content list Navigation
+						11 link Description: Home, Value: sang.it.kr/grafana/
+						12 container
+							13 link Description: Bookmarks, Value: sang.it.kr/grafana/bookmarks
+							14 button (collapsed) Description: Expand section: Bookmarks, Secondary Actions: Expand
+						15 container
+							16 link Description: Starred, Value: sang.it.kr/grafana/dashboards?starred
+							17 button (collapsed) Description: Expand section: Starred, Secondary Actions: Expand
+						18 container
+							19 link Description: Dashboards, Value: sang.it.kr/grafana/dashboards
+							20 button (collapsed) Description: Expand section: Dashboards, Secondary Actions: Expand
+						21 link Description: Explore, Value: sang.it.kr/grafana/explore
+						22 container
+							23 link Description: Drilldown, Value: sang.it.kr/grafana/drilldown
+							24 button (collapsed) Description: Expand section: Drilldown, Secondary Actions: Expand
+						25 container
+							26 link Description: Connections, Value: sang.it.kr/grafana/connections
+							27 button (collapsed) Description: Expand section: Connections, Secondary Actions: Expand
+						28 container
+							29 link Description: Administration, Value: sang.it.kr/grafana/admin
+							30 button (collapsed) Description: Expand section: Administration, Secondary Actions: Expand
+			31 container
+				32 container Breadcrumbs
+					33 content list
+						45 link Description: Dashboards, Value: sang.it.kr/grafana/dashboards
+						46 link Description: MSP 운영, Value: sang.it.kr/grafana/dashboards/f/cfyq520tq7ncwc/msp-ec9ab4-ec9881
+						47 text 07 · 디스크·용량
+				48 checkbox Description: Mark "07 · 디스크·용량" as favorite, Value: 0
+				38 button Search...
+				39 text ctrl+k
+				40 button (collapsed) Description: New, Secondary Actions: Expand
+				41 button (collapsed) Description: Help, Secondary Actions: Expand
+				42 button (collapsed) Description: Profile, Secondary Actions: Expand
+					43 image User avatar
+			44 container pageContent
+				49 container
+					50 container
+						51 button Move 30m backward
+						52 button (collapsed) Description: Time range selected: Last 1 hour, Secondary Actions: Expand
+							53 container
+								54 text Last 1 hour KST
+						55 button Move time range forwards
+						56 button Zoom out time range
+						57 button 5s
+						58 button (collapsed) Description: Choose refresh time interval with current interval Auto selected, Secondary Actions: Expand
+						59 button Copy link
+						60 button (collapsed) Description: Share, Secondary Actions: Expand
+						61 button Make editable
+						62 text 고객사
+						63 container db7f5c45-ed0a-4a93-9736-87e0ad91f3a8
+							64 container
+								65 text exchange
+								66 combo box (collapsed, settable) 고객사, ID: var-db7f5c45-ed0a-4a93-9736-87e0ad91f3a8, Secondary Actions: Expand
+						67 text 환경
+						68 container e1f958bc-9d61-417c-8534-32bcb9832f87
+							69 container
+								70 text aws
+								71 combo box (collapsed, settable) 환경, ID: var-e1f958bc-9d61-417c-8534-32bcb9832f87, Secondary Actions: Expand
+						72 text 서버
+						73 container 90c30a62-97d1-428a-8b12-7174b4eb843a
+							74 container
+								75 container
+									76 text All
+									77 button Remove
+								78 combo box (collapsed, settable) 서버, ID: var-90c30a62-97d1-428a-8b12-7174b4eb843a, Secondary Actions: Expand
+								79 button Clear value
+						80 link Description: 01 · 서비스 관제, Value: sang.it.kr/grafana/d/msp-overview?from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all
+						81 link Description: 02 · 트래픽·Spring, Value: sang.it.kr/grafana/d/msp-service?from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all
+						82 link Description: 03 · AWS·서버, Value: sang.it.kr/grafana/d/msp-infra?from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all
+						83 link Description: 04 · DB 관제, Value: sang.it.kr/grafana/d/msp-db?from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all
+						84 link Description: 05 · SQL·세션, Value: sang.it.kr/grafana/d/msp-db-workload?from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all
+						85 link Description: 06 · 복제·복구, Value: sang.it.kr/grafana/d/msp-db-replication?from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all
+						86 link Description: 07 · 디스크·용량, Value: sang.it.kr/grafana/d/msp-storage?from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all
+						87 link Description: 다크, Value: sang.it.kr/grafana/d/msp-storage?theme=dark&from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all
+						88 link Description: 라이트, Value: sang.it.kr/grafana/d/msp-storage?theme=light&from=now-1h&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all
+					89 container
+						90 container 디스크 사용률 · 최대
+							91 heading 디스크 사용률 · 최대, Value: 2
+								92 text 디스크 사용률 · 최대
+							93 container
+								94 text 19.5 %
+						95 container 남은 용량 · 최소
+							96 heading 남은 용량 · 최소, Value: 2
+								97 text 남은 용량 · 최소
+							98 container
+								99 text 16.0  GiB
+						100 container inode 사용률 · 최대
+							101 heading inode 사용률 · 최대, Value: 2
+								102 text inode 사용률 · 최대
+							103 container
+								104 text 0.6 %
+						105 container 호스트 수집 · 정상 / 등록
+							106 heading 호스트 수집 · 정상 / 등록, Value: 2
+								107 text 호스트 수집 · 정상 / 등록
+							108 button (collapsed) Description: Menu for panel 호스트 수집 · 정상 &#x2F; 등록, Help: Menu, Secondary Actions: Expand
+							109 container
+								110 container
+									111 text 정상
+									112 text 4
+								113 container
+									114 text 등록
+									115 text 4
+						116 container 서버별 사용률
+							117 heading 서버별 사용률, Value: 2
+								118 text 서버별 사용률
+							119 container
+								120 text bot-1
+								121 container
+									122 text 19.5 %
+								123 text db-standby
+								124 container
+									125 text 4.4 %
+								126 text db-primary
+								127 container
+									128 text 4.4 %
+								129 text app-1
+								130 container
+									131 text 11.9 %
+						132 container 서버별 남은 용량
+							133 heading 서버별 남은 용량, Value: 2
+								134 text 서버별 남은 용량
+							135 container
+								136 text bot-1 16.0  GiB db-standby 47.7  GiB db-primary 47.7  GiB app-1 17.5  GiB
+						137 container 파일시스템 크기
+							138 heading 파일시스템 크기, Value: 2
+								139 text 파일시스템 크기
+							140 container
+								141 text bot-1 19.9  GiB db-standby 49.9  GiB db-primary 49.9  GiB app-1 19.9  GiB
+						142 container 남은 용량 추이
+							143 heading 남은 용량 추이, Value: 2
+								144 text 남은 용량 추이
+							145 container
+								146 content list
+									147 container
+										148 pop up button (collapsed) Description: Edit color for app-1, Secondary Actions: Expand
+										149 button All series selected
+									150 container
+										151 pop up button (collapsed) Description: Edit color for bot-1, Secondary Actions: Expand
+										152 button All series selected
+									153 container
+										154 pop up button (collapsed) Description: Edit color for db-primary, Secondary Actions: Expand
+										155 button All series selected
+									156 container
+										157 pop up button (collapsed) Description: Edit color for db-standby, Secondary Actions: Expand
+										158 button All series selected
+						159 container inode 사용률 추이
+							160 heading inode 사용률 추이, Value: 2
+								161 text inode 사용률 추이
+							162 container
+								163 content list
+									164 container
+										165 pop up button (collapsed) Description: Edit color for app-1, Secondary Actions: Expand
+										166 button All series selected
+									167 container
+										168 pop up button (collapsed) Description: Edit color for bot-1, Secondary Actions: Expand
+										169 button All series selected
+									170 container
+										171 pop up button (collapsed) Description: Edit color for db-primary, Secondary Actions: Expand
+										172 button All series selected
+									173 container
+										174 pop up button (collapsed) Description: Edit color for db-standby, Secondary Actions: Expand
+										175 button All series selected
+						176 container PostgreSQL · exchange DB 크기
+							177 heading PostgreSQL · exchange DB 크기, Value: 2
+								178 text PostgreSQL · exchange DB 크기
+							179 container
+								180 content list
+									181 container
+										182 pop up button (collapsed) Description: Edit color for db-primary, Secondary Actions: Expand
+										183 button All series selected
+									184 container
+										185 pop up button (collapsed) Description: Edit color for db-standby, Secondary Actions: Expand
+										186 button All series selected
+						187 container PostgreSQL · WAL 디렉터리 크기
+							188 heading PostgreSQL · WAL 디렉터리 크기, Value: 2
+								189 text PostgreSQL · WAL 디렉터리 크기
+							190 container
+								191 content list
+									192 container
+										193 pop up button (collapsed) Description: Edit color for db-primary, Secondary Actions: Expand
+										194 button All series selected
+									195 container
+										196 pop up button (collapsed) Description: Edit color for db-standby, Secondary Actions: Expand
+										197 button All series selected
+						198 container 용량이 늘 때 확인할 순서
+							199 heading 용량이 늘 때 확인할 순서, Value: 2
+								200 text 용량이 늘 때 확인할 순서
+							201 container
+								202 text 70% 주의 · 85% 조치 · 95% 긴급 은 화면 기준입니다. 자동 삭제나 Teams 경보는 연결하지 않았습니다.  로그·캐시·오래된 백업 확인 → 보존 기준과 복원 가능 여부 확인 → 승인된 파일만 정리.  DB 데이터와  pg_wal 은 직접 지우지 않습니다. 두 DB의 50GiB는 각각의 볼륨입니다. 복제 때문에 저장 공간이 합쳐지지 않으며, OS·로그·WAL도 같은 디스크를 사용합니다.
+					203 container sidebar-container
+						204 button (collapsed) Description: Export, Secondary Actions: Expand
+						205 button (collapsed) Description: Outline, Secondary Actions: Expand
+						206 button Hide
+
+The focused UI element is 58 button (collapsed) Description: Choose refresh time interval with current interval Auto selected, Secondary Actions: Expand

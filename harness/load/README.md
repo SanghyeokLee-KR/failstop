@@ -1,113 +1,60 @@
-# k6 부하 시나리오 (외부 SLO 계측 + CI 게이트)
+# k6 부하 실행
 
-시스템 완전 외부에서 개방 루프(ramping-arrival-rate)로 주문·조회를 주입하고,
-coordinated-omission 없는 p99를 계측한다. thresholds 위반 시 non-zero exit로 실험/CI를
-FAIL 판정한다. 정본: `../../docs/contracts/하네스_검증설계.md` §2-2·§6, `../../docs/contracts/하네스_CICD_IaC.md` §6-1.
+k6로 거래 서버에 일정한 도착률의 주문·조회 요청을 보내고 지연, 거절과 오류를 측정한다. 시장을 만드는 봇과 함께 사용할 수 있다. 판정 기준은 [하네스 검증 설계](../../docs/reference/contracts/하네스_검증설계.md) §2와 §6을 따른다.
 
-봇 플릿(시장 형성·배경 부하)과 직교한다. 봇은 폐쇄 루프로 시장을 만들고, k6는 그 위에
-개방 루프 스파이크를 중첩해 외부 관점 SLO·다운타임을 계측한다.
+## 준비
 
-## 파일
+현재 [Compose](../../compose.yaml)는 `grafana/k6:1.4.0`을 사용한다. [STOMP 구현](lib/stomp.js)은 이 버전의 `k6/experimental/websockets`를 가져온다. 다른 버전이나 모듈 경로로 바꾸려면 호환성을 먼저 확인한다.
+
+실행 전에 API, 봇과 실제 부하 계정 키를 준비한다. 예제 JSON을 복사한 것만으로 유효한 계정이 생기지는 않는다. 기동과 계정 준비는 [실행 가이드](../../실행_가이드.md)를 따른다.
+
+`RUN_ID`는 회차마다 새로 만들고, 사전 검사와 본 실행에서는 같은 값을 사용한다. 이 값은 주문 식별자에 포함되므로 재사용하면 새 요청이 기존 주문의 재시도로 처리될 수 있다.
+
+## 기본 실행
+
+로컬 스택과 부하 계정 키가 준비된 상태에서 저장소 루트의 PowerShell로 실행한다. 이 명령은 Compose에 정의된 `demo` 프로파일의 k6 시나리오를 사용한다.
+
+```powershell
+$env:RUN_ID = (Get-Date).ToString('yyyyMMdd-HHmmss')
+docker compose --env-file harness/.env.chaos --profile load run --rm chaos-k6
+```
+
+Compose의 `chaos-preflight`와 본 실행은 공통 환경 값을 사용한다. 사전 검사가 실패하면 계정, 잔고, 주문 식별자와 연결 조건을 먼저 확인한다.
+
+E6 등 다른 시나리오는 [config/e6.env](config/e6.env)와 [order_flow.js](order_flow.js)의 입력을 확인해 실행한다. `harness/config/e6.env`의 봇 OPS와 `harness/load/config/e6.env`의 k6 요청률은 다른 값이다. 이름이 비슷하다는 이유로 서로 복사하지 않는다.
+
+## 파일 위치
 
 | 파일 | 역할 |
 |---|---|
-| `order_flow.js` | 정본 시나리오. orders_steady·orders_spike·market_reads·ws_stomp 4종 + thresholds |
-| `lib/sign.js` | HMAC 서명(API§3-3). JCS 템플릿 치환으로 서명 비용 절감(§2-2) |
-| `lib/stomp.js` | STOMP 1.2 프레임 순수 JS 구현(k6/websockets 위, §6-1) |
-| `scenarios/thundering-herd.js` | WS 동시연결 5,000 버스트(§3-3 예산) |
-| `config/e6.env`,`config/demo.env` | 타임라인·환경변수(재현용). 오케스트레이터가 카오스와 공유 |
-| `secrets/k6_keys.example.json` | 부하 계정 키 형식. 실계정은 seed 잡이 발급(gitignore) |
+| [order_flow.js](order_flow.js) | 정상·폭주 주문, 시세 조회와 STOMP 측정 |
+| [preflight.js](preflight.js) | 계정, 식별자와 실행 조건 사전 확인 |
+| [cleanup.js](cleanup.js) | 부하 계정의 잔여 주문 취소 |
+| [lib/sign.js](lib/sign.js) | API 요청 서명 |
+| [lib/stomp.js](lib/stomp.js) | STOMP 연결과 메시지 처리 |
+| [scenarios/thundering-herd.js](scenarios/thundering-herd.js) | WebSocket 동시 연결 부하 |
+| [config/](config/) | 시나리오별 부하와 장애 시간 설정 |
 
-## 도구 핀 (사전 게이트로 검증)
+## 판정할 때 주의할 점
 
-k6 **v2.1.0**. WS는 안정 `k6/websockets`. 부재 시 `lib/stomp.js`의 import를
-`k6/experimental/websockets`로 교체(§0 폴백). CI 사전 스모크:
+`order_flow.js`의 thresholds가 실행 결과를 판정한다. 현재 적용할 숫자는 소스와 검증 설계에서 확인하며, 다른 회차의 수치를 그대로 가져오지 않는다.
 
-```
-k6 version
-echo "import { WebSocket } from 'k6/websockets'; export default function(){}" > /tmp/ws.js && k6 run --vus 0 --iterations 0 /tmp/ws.js
-```
+- 신규 접수량과 실제 표본 수를 함께 본다. 전량 거절되거나 표본이 없으면 지연이 낮아도 정상 처리의 증거가 아니다.
+- `accepted_req_duration`은 수용된 요청의 지연이다. 전체 요청 지연과 구분한다.
+- 주문 재시도는 같은 식별자로 재조회하는지 확인한다. 서버의 신규 접수 중복 검사는 별도의 불변식 검증이 맡는다.
+- 호가와 체결 채널은 순번 규칙이 다르다. 체결 순번의 빈 구간을 곧바로 유실로 계산하지 않는다.
+- `ws_epoch_resync_fail`이라는 이름만으로 재동기화 전체를 검증했다고 해석하지 않는다. 현재 측정 범위와 남은 한계는 검증 설계 §2-4를 본다.
 
-## 실행
+## 장애 구간 설정
 
-```
-# 부하 계정 키 준비(seed 잡 산출물을 복사)
-cp secrets/k6_keys.example.json secrets/k6_keys.json   # 실키로 치환
+`CHAOS_T0_S`와 `CHAOS_T1_S`를 함께 지정한다. 이 구간의 표본은 `phase:chaos`, 나머지는 `phase:steady`로 나눈다. 한쪽만 주면 실행을 중단한다.
 
-# RUN_ID는 주행마다 유일해야 한다. config/*.env에 고정하지 않는 이유가 그것이다.
-# 값이 겹치면 client_order_id가 겹치고 서버가 멱등 재생 200을 내며 그 요청은 엔진에 닿지
-# 않는다. 실측 78%. order_flow.js는 미주입이면 init에서 중단한다(조용한 오염을 막는다).
-RUN_ID=$(date +%y%m%d%H%M%S)
+페일오버를 허용하는 실험은 `FAILOVER_WINDOW=1`과 `RTO_TARGET_S`를 지정한다. 장애 구간의 접수 실패율 상한은 복구 시간 목표를 구간 길이로 나눈 값이다. 예를 들어 60초 구간과 30초 목표면 `rate<0.5`다. 페일오버를 허용하지 않는 실험에는 같은 예산을 적용하지 않는다.
 
-# 표준 E6(폭주 + 리더 kill 복합). config/e6.env를 -e로 전개
-k6 run -e RUN_ID=$RUN_ID $(sed -e 's/[[:space:]]*#.*$//' -e '/^$/d' -e 's/^/-e /' config/e6.env) order_flow.js
+정상 구간에서 통과했다는 사실만으로 장애 구간의 WebSocket 복구까지 통과했다고 볼 수 없다. k6 결과와 장애 스크립트의 판정을 함께 확인한다.
 
-# 데모(15분). PROFILE=demo, kill 05:30
-k6 run -e RUN_ID=$RUN_ID $(sed -e 's/[[:space:]]*#.*$//' -e '/^$/d' -e 's/^/-e /' config/demo.env) order_flow.js
+## 결과 보존
 
-# thundering-herd(WS 5,000 동시연결)
-k6 run -e WS_TARGET=5000 scenarios/thundering-herd.js
-```
+실행 로그, 종료코드, 실제 요청량과 요약 결과를 같은 회차로 보관한다. 필요하면 Prometheus 출력이나 HTML 보고서를 함께 남긴다. 새 주문 접수의 `ACK|...` 로그는 외부 응답 기록과 DB 명령 기록을 대조하는 데 사용한다.
 
-PowerShell에서는 각 줄을 `--env KEY=VALUE`로 전개한다.
-
-## 판정(기계)
-
-| threshold | 의미 |
-|---|---|
-| `http_req_failed{scenario:orders_steady,name:placeOrder,phase:steady} < 0.001` | 정상 구간 접수 가용성 99.9%(API§7-4). 수용 제한 응답은 expectedStatuses로 제외 |
-| `http_req_failed{scenario:orders_steady,name:placeOrder,phase:chaos}` | 카오스 창 접수 가용성. 상한은 창 설정에서 유도(아래 창 실패 예산) |
-| `http_req_failed{name:lookup,phase:steady} < 0.001` | 정상 창 재조회 실패 0. 200·404·409·429는 요청별 responseCallback으로 정상 선언 |
-| `accepted_req_duration{scenario:orders_steady,phase:steady} p95<200 p99<500` | 정상 구간 수용(2xx) 요청 지연 SLO. 창의 느린 2xx가 상위 백분위를 점유하지 않게 한정 |
-| `accepted_total{phase:steady} > 900` | 양성 증거. 지연 임계도 실패율도 표본 0에서 통과한다. 429는 정상 선언이라 전량 거절 주행이 HTTP 축 전건을 통과한다 |
-| `checks{check:idempotent_safe} == 1` | UNKNOWN→재조회→재전송 규약 위반 0 |
-| `ws_seq_gap{phase:steady,dest:orderbook} == 0` | orderbook은 채널별 조밀 seq라 결번이 곧 유실. 카오스 창(phase:chaos)은 제외 |
-| `ws_stale_discarded{phase:steady,dest:orderbook} < 200` | 계약(API§5-2)이 `seq <= 기준점`을 두 채널 모두 폐기하라 하므로 폐기는 실패가 아니다. 구독 경계 폐기는 정상이라 기저가 있다 |
-| `ws_stale_discarded{phase:steady,dest:trade} < 10` | trade는 실측 기저 0. orderbook 예산과 섞으면 이상이 흡수된다 |
-| `ws_seq_observed{phase:steady,dest:orderbook,stream:realtime} > 100` | 양성 증거. 위 임계가 전부 단측이라 표본 0이면 전건 통과한다(채널이 죽어도 초록). realtime 한정인 이유는 구독마다 스냅샷 1건이 별도 경로로 오기 때문이다 |
-| `ws_seq_observed{phase:steady,dest:trade} > 10` | 같은 이유. 채널별로 가르지 않으면 한쪽만 살아도 통과한다 |
-| `ws_epoch_resync_fail == 0` | 카오스 창 밖 WS 연결 오류 0. 이름과 달리 재동기화 성패를 재지 않는다(검증설계 §2-4 미해소 항) |
-
-이중 신규 접수 0 검증은 서버측 C07'(command_journal NEW 축) 상시 검증이 전담한다(검증설계
-§4-1). k6는 UNKNOWN 시 재조회만 하고 재전송 경로가 없어 dup를 만들 수 없으므로, k6 임계로
-두면 항상 통과하는 토톨로지가 된다(구 dup_ack_order 임계 제거 사유).
-
-## 카오스 창 제외 규약
-
-오케스트레이터가 `CHAOS_T0_S`(주입 시각 초)·`CHAOS_T1_S`(T0+60s)를 k6와 카오스 주입에
-동일 타임라인으로 주입한다. 스크립트는 경과 시간이 창 안이면 `phase:chaos`, 밖이면
-`phase:steady`로 표본을 태깅한다. 카오스 창 내 seq gap은 무계상이고 현행 계측 대상은 카오스 창 밖 WS 연결 오류이며 카오스 창 WS 판정 축은 부재다(검증설계 §2-4 미해소 항)라 재동기화 성공(`ws_epoch_resync_fail==0`)
-으로 판정하고, steady 창의 결번은 orderbook 채널만 0을 강제한다(trade는 sparse 도메인이라 역행만 본다, API§5-2). E3의 "gap 감지→재동기화 흡수" 정상 경로가
-FAIL로 오판되지 않는다.
-
-둘은 반드시 함께 준다. T0만 주면 T0 이후 전 구간이 `phase:chaos`가 되어 정상 구간 임계가
-그 뒤로 아무것도 재지 않는다. 한쪽만 설정되면 k6가 init에서 중단한다.
-
-## 창 실패 예산
-
-창을 정상 구간 임계에서 빼는 것이 창을 판정하지 않는다는 뜻은 아니다.
-
-| 창 성격 | 전달 변수 | `phase:chaos` 접수 실패율 상한 |
-|---|---|---|
-| 페일오버(E2·E4·E5·E6·E7) | `FAILOVER_WINDOW=1` + `RTO_TARGET_S` | `RTO_TARGET_S / 창 길이`. 정본 60s·30s에서 `rate<0.5` |
-| 비페일오버(E1·E3·E8·E9) | 표식 없음 | `rate<0.001`(다운타임 허용 없음, 검증설계 §3 E1 1차) |
-
-상한은 임의 상수가 아니라 유도값이다. 창 전체가 RTO 목표만큼 끊겨도 정본상 정상이므로
-상한은 RTO 목표를 창 길이로 나눈 값이다. `FAILOVER_WINDOW=1`인데 `RTO_TARGET_S`가 없으면
-유도 근거가 없어 init에서 중단한다. `chaos_window_5xx_total`은 같은 창의 관측 보조 지표다.
-
-## 출력
-
-- `-o experimental-prometheus-rw`(`K6_PROMETHEUS_RW_SERVER_URL`) → Grafana 합류(대시보드 19665).
-- `K6_WEB_DASHBOARD_EXPORT=report.html` → HTML 리포트 보존(발표 증거).
-- 각 2xx 신규 접수는 `ACK|{ak,coid,oid,t}` 라인을 stdout에 출력한다. 실험 러너가 이를 추출해
-  `harness.loadtest_accounts` 조인 후 `harness.loadtest_acks`로 COPY(source='k6')한다(§2-5, C16 원천).
-  실험 시작 훅이 `POST /harness/v1/loadtest-acks/reset`으로 TRUNCATE를 선행한다.
-
-## ACK → loadtest_acks 적재(§2-5 파이프라인)
-
-```
-k6 run ... order_flow.js 2>&1 | grep '^ACK|' | sed 's/^ACK|//' > acks.ndjson
-# acks.ndjson의 ak를 harness.loadtest_accounts로 user_id 변환 후 CSV 생성 → \copy
-psql -c "\copy harness.loadtest_acks(user_id,client_order_id,order_id,acked_at,source) FROM 'acks.csv' CSV"
-```
+ACK 수집·적재는 실험 러너와 [하네스 검증 설계](../../docs/reference/contracts/하네스_검증설계.md) §2-5를 따른다. 로그에 값이 있다는 것과 `harness.loadtest_acks`에 실제 적재됐다는 것을 구분한다.

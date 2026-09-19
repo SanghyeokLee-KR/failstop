@@ -318,9 +318,9 @@ export default function BotsPage() {
               <input
                 type="range"
                 // 서버 parsePositive가 0을 400으로 반려한다(sim도 동일 정렬). 정지는 전용 버튼 소관
-                min={10}
+                min={1}
                 max={OPS_MAX}
-                step={10}
+                step={1}
                 value={rateDraft}
                 disabled={!canOps}
                 aria-label="전역 OPS 목표"

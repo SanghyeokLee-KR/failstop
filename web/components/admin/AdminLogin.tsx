@@ -1,9 +1,8 @@
 "use client";
 
 /**
- * 관리 평면 진입 화면(§1-3). mTLS 클라이언트 인증서 제시 → 신원 유래 단기 세션 확립.
- * 데모는 브라우저 인증서 저장소 설치분을 인증서 목록으로 모사한다(§1-6).
- * 인증서가 없으면 접근 불가 안내만 노출한다(고객 평면과 물리 분리).
+ * 운영자 로그인 화면. 학교 배포는 HTTPS 비밀번호 게이트웨이를 쓰고,
+ * 기본 mTLS 모드는 브라우저 인증서로 세션을 발급한다. 데모 모드는 인증서 목록을 모사한다.
  */
 
 import { useState } from "react";
@@ -12,15 +11,28 @@ import BrandMark from "@/components/BrandMark";
 import { toast } from "@/components/Toast";
 import styles from "./admin.module.css";
 
-// http 모드는 mTLS를 TLS 계층(브라우저 인증서)이 처리하고 앱은 POST /admin/v1/session으로
-// 신원 유래 세션만 발급받는다. 인증서 열거가 없으므로 세션 확립 액션을 직접 노출한다.
-// 판정은 api.ts와 같은 함수를 쓴다. 여기서 환경변수를 다시 읽으면 어댑터는 sim인데 화면은
-// http 분기를 그리는 어긋남이 생긴다.
+// 데이터 원본은 API 어댑터와 같은 판정을 사용한다. 비밀번호 모드는 HTTP 어댑터에서만 켠다.
 const IS_HTTP = isAdminHttp();
+const PASSWORD_LOGIN = IS_HTTP && process.env.NEXT_PUBLIC_ADMIN_AUTH === "password";
 
 export default function AdminLogin() {
   const certs = getAdminApi().listDemoCerts();
   const [busy, setBusy] = useState<string | null>(null);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const login = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy("password");
+    try {
+      await getAdminApi().establishSession(username, password);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "로그인 실패", "error");
+    } finally {
+      setPassword("");
+      setBusy(null);
+    }
+  };
 
   const present = async (certId: string) => {
     setBusy(certId);
@@ -40,12 +52,27 @@ export default function AdminLogin() {
           <span className={styles.loginPlateMark} aria-hidden="true">
             <BrandMark size={18} />
           </span>
-          <span className={styles.loginPlateText}>페일스톱 관리 평면 · admin.exchange.local</span>
+          <span className={styles.loginPlateText}>페일스톱 · 운영 관리</span>
         </div>
-        <h1 className={styles.loginTitle}>관리 평면 접속</h1>
-        <p className={styles.loginDesc}>운영자 인증서 신원으로 접속. 세션은 단기 발급</p>
+        <h1 className={styles.loginTitle}>{PASSWORD_LOGIN ? "운영자 로그인" : "관리 평면 접속"}</h1>
+        <p className={styles.loginDesc}>{PASSWORD_LOGIN ? "운영자 계정으로 로그인해 시장 봇을 관리합니다." : "운영자 인증서 신원으로 접속. 세션은 단기 발급"}</p>
 
-        {certs.length === 0 && IS_HTTP ? (
+        {PASSWORD_LOGIN ? (
+          <form className={styles.passwordLogin} onSubmit={(event) => void login(event)}>
+            <label className={styles.field}>
+              아이디
+              <input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required disabled={busy !== null} />
+            </label>
+            <label className={styles.field}>
+              비밀번호
+              <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required disabled={busy !== null} />
+            </label>
+            <button type="submit" className={styles.certOption} disabled={busy !== null} aria-busy={busy !== null}>
+              <span className={styles.certCn}>{busy ? "로그인 중" : "로그인"}</span>
+            </button>
+            <p className={styles.loginHint}>Grafana 계정과 별도로 등록한 봇 운영자 계정을 사용합니다.</p>
+          </form>
+        ) : certs.length === 0 && IS_HTTP ? (
           <>
             <span className={styles.loginPickLabel}>브라우저 클라이언트 인증서로 세션 확립</span>
             <button

@@ -1,0 +1,22 @@
+[Unit]
+Description=Linux host metrics
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=node_exporter
+Group=node_exporter
+EnvironmentFile=/etc/node_exporter/listen.env
+ExecStart=/usr/local/bin/node_exporter --web.listen-address=${NODE_EXPORTER_ADDRESS}:9100 --collector.disable-defaults --collector.cpu --collector.meminfo --collector.filesystem --collector.diskstats --collector.netdev --collector.netstat --collector.sockstat --collector.loadavg --collector.stat --collector.time --collector.uname --collector.vmstat --collector.filefd --collector.pressure --collector.systemd --collector.systemd.unit-include=(sshd|chronyd|postgresql|exchange-app|exchange-bots|prometheus|grafana-server|node_exporter)[.]service
+Restart=on-failure
+RestartSec=5
+MemoryMax=128M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

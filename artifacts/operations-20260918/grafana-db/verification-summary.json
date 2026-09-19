@@ -1,0 +1,51 @@
+{
+  "recorded_at": "2026-09-18T11:04:54.992003+00:00",
+  "native_grafana_pages": 6,
+  "browser": {
+    "status": "PASS",
+    "pages": 24
+  },
+  "interactions": {
+    "status": "PASS",
+    "checks": 12
+  },
+  "live_queries": {
+    "parsed": 124,
+    "with_data": 104
+  },
+  "app_tests": {
+    "tests": 624,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "engine_tests": "UP-TO-DATE; not rerun",
+  "read_probe": {
+    "requests": 1800,
+    "success": 899,
+    "rate_limited": 901,
+    "writes": 0,
+    "capacity_benchmark": false
+  },
+  "runtime_after": {
+    "orders": 4,
+    "trades": 2,
+    "primary_in_recovery": false,
+    "streaming_replicas": 1,
+    "app_health": "healthy",
+    "app_restarts": 0,
+    "old_primary": "exited"
+  },
+  "remaining": [
+    "AWS account/IAM/live CloudWatch integration",
+    "representative production-data and multi-client capacity measurement"
+  ],
+  "evidence": [
+    "browser/browser-check.json",
+    "browser/interactions-check.json",
+    "query-check.json",
+    "read-observation.json",
+    "sql-statistics-activation.json",
+    "live-after.json"
+  ]
+}

@@ -1,0 +1,105 @@
+Browser tab: 2017667310, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		35 container consoleNavHeader
+			36 container awsc-nav-header
+				37 image Account color: 설정 해제
+				38 container Global
+					39 container awsc-top-level-nav
+						40 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						41 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						42 button (collapsed) Description: Services, Secondary Actions: Expand
+							43 image
+						44 container aws-unified-search-container
+							45 container
+								46 image Search
+								47 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								48 button Ask Amazon Q
+								49 text [Alt+S]
+						50 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						51 container
+							52 pop up button Description: Notifications (none available), Help: Notifications
+								53 image Notifications
+							54 image Notifications
+						55 content list awsc-navigation__more-menu--list
+							56 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								57 image Support
+							58 button (collapsed) Description: Settings, Secondary Actions: Expand
+							59 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								60 text 아시아 태평양 (서울)
+							61 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								62 text Account ID: 6192-5696-4117
+								63 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789829271585-974
+			64 text Content loaded
+			65 container
+				66 content list
+					91 text F0aCwgb3MuT19XUk9OTFkgfCBvcy5PX0NSRUFUIHwgb3MuT19FWENMLCBtb2RlKQogICAgd2l0aCBvcy5mZG9wZW4oZmQsICd3YicpI
+					92 text GFzIGZpbGU6CiAgICAgICAgZmlsZS53cml0ZShkYXRhKQoKCnBhcnNlciA9IGFyZ3BhcnNlLkFyZ3VtZW50UGFyc2VyKCkKcGFyc2Vy
+					93 text LmFkZF9hcmd1bWVudCgnYWN0aW9uJywgY2hvaWNlcz1bJ3NlYWwnLCAnb3BlbiddKQpwYXJzZXIuYWRkX2FyZ3VtZW50KCctLXNoYTI
+					94 text 1NicpCmFyZ3MgPSBwYXJzZXIucGFyc2VfYXJncygpCm9zLnVtYXNrKDBvMDc3KQp3b3JrID0gUGF0aCgnL3Jvb3QvZXhjaGFuZ2UtYm
+					95 text 90LXRyYW5zZmVyJykKd29yay5ta2Rpcihtb2RlPTBvNzAwLCBleGlzdF9vaz1UcnVlKQplbnZlbG9wZSA9IHdvcmsgLyAnYm90LXNld
+					96 text HRpbmdzLmNtcycKaWYgYXJncy5hY3Rpb24gPT0gJ3NlYWwnOgogICAgc291cmNlID0gUGF0aCgnL2V0Yy9leGNoYW5nZS9hcHAtc2Vj
+					97 text cmV0LmVudicpLnJlYWRfdGV4dCgpCiAgICBjaG9zZW4gPSAnXG4nLmpvaW4obGluZSBmb3IgbGluZSBpbiBzb3VyY2Uuc3BsaXRsaW5
+					98 text lcygpIGlmIGxpbmUucGFydGl0aW9uKCc9JylbMF0gaW4gS0VZUykKICAgIHBheWxvYWQgPSBqc29uLmR1bXBzKHsKICAgICAgICAnZW
+					99 text 52JzogdmFsaWRhdGVfZW52KGNob3NlbiksCiAgICAgICAgJ2NlcnQnOiBQYXRoKCcvZXRjL2V4Y2hhbmdlL3ByaW1hcnkuY3J0Jykuc
+					100 text mVhZF90ZXh0KCksCiAgICB9KS5lbmNvZGUoKQogICAgZW5jcnlwdGVkID0gc3VicHJvY2Vzcy5ydW4oWwogICAgICAgICdvcGVuc3Ns
+					101 text JywgJ2NtcycsICctZW5jcnlwdCcsICctYmluYXJ5JywgJy1hZXMyNTYnLCAnLW91dGZvcm0nLCAnREVSJywKICAgICAgICBzdHIod29
+					102 text yayAvICdyZWNpcGllbnQuY3J0JyksCiAgICBdLCBpbnB1dD1wYXlsb2FkLCBjYXB0dXJlX291dHB1dD1UcnVlLCBjaGVjaz1UcnVlKS
+					103 text 5zdGRvdXQKICAgIHdyaXRlX25ldyhlbnZlbG9wZSwgZW5jcnlwdGVkLCAwbzYwMCkKICAgIHByaW50KCfslZTtmLjtmZQg7JmE66OML
+					104 text iBTSEEyNTY6JywgaGFzaGxpYi5zaGEyNTYoZW5jcnlwdGVkKS5oZXhkaWdlc3QoKSkKZWxzZToKICAgIGVuY3J5cHRlZCA9IGVudmVs
+					105 text b3BlLnJlYWRfYnl0ZXMoKQogICAgaWYgbm90IGFyZ3Muc2hhMjU2IG9yIGhhc2hsaWIuc2hhMjU2KGVuY3J5cHRlZCkuaGV4ZGlnZXN
+					106 text 0KCkgIT0gYXJncy5zaGEyNTY6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgn7JWU7Zi466y4IO2VtOyLnOqwgCDslbHsl5DshJwg7Z
+					107 text mV7J247ZWcIOqwkuqzvCDri6TrpbTri6QuJykKICAgIHBheWxvYWQgPSBzdWJwcm9jZXNzLnJ1bihbCiAgICAgICAgJ29wZW5zc2wnL
+					108 text CAnY21zJywgJy1kZWNyeXB0JywgJy1iaW5hcnknLCAnLWluZm9ybScsICdERVInLAogICAgICAgICctcmVjaXAnLCBzdHIod29yayAv
+					109 text ICdyZWNpcGllbnQuY3J0JyksICctaW5rZXknLCBzdHIod29yayAvICdyZWNpcGllbnQua2V5JyksCiAgICBdLCBpbnB1dD1lbmNyeXB
+					110 text 0ZWQsIGNhcHR1cmVfb3V0cHV0PVRydWUsIGNoZWNrPVRydWUpLnN0ZG91dAogICAgdmFsdWVzID0ganNvbi5sb2FkcyhwYXlsb2FkKQ
+					111 text ogICAgZW52ID0gdmFsaWRhdGVfZW52KHZhbHVlc1snZW52J10pLmVuY29kZSgpCiAgICBjZXJ0ID0gdmFsdWVzWydjZXJ0J10uZW5jb
+					112 text 2RlKCkKICAgIHN1YnByb2Nlc3MucnVuKFsnb3BlbnNzbCcsICd4NTA5JywgJy1ub291dCddLCBpbnB1dD1jZXJ0LCBjYXB0dXJlX291
+					113 text dHB1dD1UcnVlLCBjaGVjaz1UcnVlKQogICAgdGFyZ2V0ID0gUGF0aCgnL2V0Yy9leGNoYW5nZS1ib3QnKQogICAgdGFyZ2V0Lm1rZGl
+					114 text yKG1vZGU9MG83NTUsIGV4aXN0X29rPVRydWUpCiAgICBpZiBhbnkoKHRhcmdldCAvIG5hbWUpLmV4aXN0cygpIGZvciBuYW1lIGluIC
+					115 text gnYm90LXNlY3JldC5lbnYnLCAncHJpbWFyeS5jcnQnKSk6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgn6riw7KG0IOu0hyDshKTso
+					116 text JXsnbQg7J6I64ukLiDrja7slrTsk7Dsp4Ag7JWK64qU64ukLicpCiAgICB3cml0ZV9uZXcodGFyZ2V0IC8gJ2JvdC1zZWNyZXQuZW52
+					117 text JywgZW52LCAwbzYwMCkKICAgIHdyaXRlX25ldyh0YXJnZXQgLyAncHJpbWFyeS5jcnQnLCBjZXJ0LCAwbzY0NCkKICAgIG9zLmNobW9
+					118 text kKHRhcmdldCAvICdwcmltYXJ5LmNydCcsIDBvNjQ0KQogICAgcHJpbnQoJ+u0hyDsoITsmqkg6rK966Gc7JeQIOyEpOyglSDrhKQg7Z
+					119 text Wt66qp6rO8IERCIOqzteqwnCDsnbjspp3shJwg67Cw7LmYIOyZhOujjC4g7JuQ66y4IOy2nOugpSDsl4bsnYwuJykK' | base64 -d
+					120 text  > /tmp/transfer-secrets.py
+					121 text [ec2-user@ip-172-31-2-86 ~]$ sudo python3 /tmp/transfer-secrets.py seal
+					122 text 암호화 완료. SHA256: fad30a8a1d6af989568a5f37d37677c05d47dff81cebdcf5d723220c68ef35c0
+					123 text [ec2-user@ip-172-31-2-86 ~]$ sudo aws s3 cp /root/exchange-bot-transfer/bot-settings.cms s3://2026-ai-k
+					124 text opo-04-exchange-artifacts-619256964117/transfer/bot-settings-20260919.cms --sse AES256 --only-show-erro
+					125 text rs
+					126 text [ec2-user@ip-172-31-2-86 ~]$ curl -fsS http://127.0.0.1:8081/actuator/health/readiness; sudo systemctl 
+					127 text show exchange-app -p ActiveState -p MemoryCurrent -p NRestarts; sudo journalctl -u exchange-app --since
+					128 text  "2026-09-19 14:58:00 UTC" --no-pager -o cat | grep -E "ERROR|OutOfMemory|stale|fenc" | tail -15
+					129 text NRestarts=0UP"}
+					130 text MemoryCurrent=329199616
+					131 text ActiveState=active
+					132 text [ec2-user@ip-172-31-2-86 ~]$ 
+				133 text how exchange-app -p ActiveState -p MemoryCurrent -p NRestarts; sudo journalctl -u exchange-app --since "2026-09-19 14:58:00 UTC" --no-pager -o cat | grep -E "ERROR|OutOfMemory|stale|fenc" | tail -15curl -fsS http://127.0.0.1:8081/actuator/health/readiness; sudo systemctl show exchange-app -p ActiveState -p MemoryCurrent -p NRestarts; sudo journalctl -u exchange-app --since "2026-09-19 14:58:00 UTC" --no-pager -o cat | grep -E "ERROR|OutOfMemory|stale|fenc" | tail -15 {"status":"UP"}NRestarts=0 MemoryCurrent=329199616 ActiveState=active [ec2-user@ip-172-31-2-86 ~]$
+				80 text field (settable) Terminal input
+			22 button Close instance info
+			81 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				82 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			83 container
+				84 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		25 container f
+			26 container console-nav-footer
+				27 container awsc-nav-footer-content
+					85 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					28 button Agent Toolkit for AWS
+					86 button Feedback, ID: feedback
+						87 text Feedback
+					29 button Console Mobile App, ID: mobile_app_button
+						30 image
+						88 text Console Mobile App
+					89 container
+						90 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					31 content list
+						32 link Description: Privacy, Value: aws.amazon.com/privacy/
+						33 link Description: Terms, Value: aws.amazon.com/terms/
+						34 button Cookie preferences
+
+The focused UI element is 80 text field (settable) Terminal input

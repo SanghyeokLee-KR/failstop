@@ -1,0 +1,78 @@
+Browser tab: 2017667333, Title: "관리 콘솔 · 페일스톱", URL: "https://www.sang.it.kr/admin/members".
+0 AXWebArea 관리 콘솔 · 페일스톱, URL: sang.it.kr/admin/members
+	1 link Description: 본문 바로가기, Value: sang.it.kr/admin/members#main
+	2 container main
+		3 link Description: 관리 본문 바로가기, Value: sang.it.kr/admin/members#admin-main
+		4 container 관리 메뉴
+			5 text 관리 콘솔
+			6 container 관리 화면
+				7 text 상황
+				8 link Description: 종합 상태, Value: sang.it.kr/admin
+				9 link Description: 모니터링, Value: sang.it.kr/admin/monitoring
+				10 text 제어
+				11 link Description: 용량, Value: sang.it.kr/admin/capacity
+				12 link Description: 봇 플릿, Value: sang.it.kr/admin/bots
+				13 link Description: 카오스, Value: sang.it.kr/admin/chaos
+				14 link Description: 마켓·공지, Value: sang.it.kr/admin/config
+				15 link Description: 출금 승인, Value: sang.it.kr/admin/transfers
+				16 link Description: 문의 답변, Value: sang.it.kr/admin/support
+				17 link Description: 커뮤니티 신고, Value: sang.it.kr/admin/community
+				18 link Description: 회원 운영, Value: sang.it.kr/admin/members
+				19 text 거버넌스
+				20 link Description: 운영자, Value: sang.it.kr/admin/operators
+				21 link Description: 감사 로그, Value: sang.it.kr/admin/audit
+		22 container
+			23 text 이상혁 · 시장 봇 운영 봇 운영 조회
+			24 button 다크 모드로 전환
+			25 button 세션 종료
+		26 container admin-main
+			27 container
+				28 heading 회원 운영, Value: 1
+					29 text 회원 운영
+				30 text 정지·복구는 즉시 반영, 폐쇄는 비가역이라 2인 승인
+			31 text 회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능
+			32 tab group 회원 상태 필터
+				33 tab (selected, settable, boolean) 전체, Value: 1
+				34 tab (selectable, settable, boolean) 정상, Value: 0
+				35 tab (selectable, settable, boolean) 정지, Value: 0
+				36 tab (selectable, settable, boolean) 폐쇄, Value: 0
+			37 container
+				38 heading 회원 목록, Value: 2
+					39 text 회원 목록
+				40 table 회원 목록
+					41 row
+						42 cell
+							43 text 이메일
+						44 cell
+							45 text 표시명
+						46 cell
+							47 text 상태
+						48 cell
+							49 text 미체결
+						50 cell
+							51 text 보유 종류
+						52 cell
+							53 text 최근 주문
+						54 cell
+							55 text 가입
+						56 cell
+							57 text 조치
+					58 row
+						59 cell
+							60 checkbox demo@exchange.local, Value: 0
+						61 cell
+							62 text -
+						63 cell
+							64 text 정상
+						65 cell
+							66 text 0
+						67 cell
+							68 text 3
+						69 cell
+							70 text -
+						71 cell
+							72 text 09.19 23:36
+						73 cell
+							74 button (disabled) 정지
+
+The focused UI element is 18 link Description: 회원 운영, URL: sang.it.kr/admin/members

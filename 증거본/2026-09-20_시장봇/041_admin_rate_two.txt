@@ -1,0 +1,263 @@
+Browser tab: 2017667333, Title: "관리 콘솔 · 페일스톱", URL: "https://www.sang.it.kr/admin/bots".
+1 AXWebArea 관리 콘솔 · 페일스톱, URL: sang.it.kr/admin/bots
+	2 link Description: 본문 바로가기, Value: sang.it.kr/admin/bots#main
+	3 container main
+		4 link Description: 관리 본문 바로가기, Value: sang.it.kr/admin/bots#admin-main
+		5 container 관리 메뉴
+			6 text 관리 콘솔
+			7 container 관리 화면
+				8 text 상황
+				9 link Description: 종합 상태, Value: sang.it.kr/admin
+				10 link Description: 모니터링, Value: sang.it.kr/admin/monitoring
+				11 text 제어
+				12 link Description: 용량, Value: sang.it.kr/admin/capacity
+				13 link Description: 봇 플릿, Value: sang.it.kr/admin/bots
+				14 link Description: 카오스, Value: sang.it.kr/admin/chaos
+				15 link Description: 마켓·공지, Value: sang.it.kr/admin/config
+				16 link Description: 출금 승인, Value: sang.it.kr/admin/transfers
+				17 link Description: 문의 답변, Value: sang.it.kr/admin/support
+				18 link Description: 커뮤니티 신고, Value: sang.it.kr/admin/community
+				19 link Description: 회원 운영, Value: sang.it.kr/admin/members
+				20 text 거버넌스
+				21 link Description: 운영자, Value: sang.it.kr/admin/operators
+				22 link Description: 감사 로그, Value: sang.it.kr/admin/audit
+		23 container
+			24 text 이상혁 · 시장 봇 운영 봇 운영 조회
+			25 button 다크 모드로 전환
+			26 button 세션 종료
+		27 container admin-main
+			28 heading 봇 플릿, Value: 1
+				29 text 봇 플릿
+			30 text 플릿 상태
+			31 text 가동 중
+			32 container OPS
+				33 text 초당 주문 수 2 목표 2
+			34 text 활성 봇
+			35 text 15 / 15
+			36 text 성공률
+			37 text 미측정
+			38 text 평균 지연
+			39 text 미측정
+			40 text 중복 체결
+			41 text 미측정
+			42 container
+				43 heading 플릿 제어, Value: 2
+					44 text 플릿 제어
+				45 button 시작
+				46 button 일시정지 전환
+				47 button 정지
+				48 text 전역 OPS
+				49 slider (settable, integer) Description: 전역 OPS 목표, Value: 2
+				50 text 2
+				51 button (disabled) 적용
+			52 container
+				53 heading 국면 프리셋, Value: 2
+					54 text 국면 프리셋
+				55 text 승인 불요 · 전량 감사
+				56 button 평상 OPS 기준 중립 0.00, Help: steady · 기준선 복귀. 다른 국면에서 되돌아오는 경로
+					57 text 평상
+					58 text OPS 
+					59 text 기준
+					60 text 중립 0.00
+				61 button 변동 확대 OPS x1.5 중립 0.00, Help: volatile · 호가를 얇게 해 같은 주문이 더 큰 이동을 만든다. 방향은 없다
+					62 text 변동 확대
+					63 text OPS 
+					64 text x1.5
+					65 text 중립 0.00
+				66 button 완만한 상승 OPS x2 양전 ▲ +0.35, Help: ramp · 균형 제어가 붙어 있어 서서히 오른다
+					67 text 완만한 상승
+					68 text OPS 
+					69 text x2
+					70 text 양전 ▲ +0.35
+				71 button 급등 폭주 OPS x10 양전 ▲ +0.60, Help: spike · 균형 제어를 끄고 목표 방향을 직접 넣는다. 대수는 그대로
+					72 text 급등 폭주
+					73 text OPS 
+					74 text x10
+					75 text 양전 ▲ +0.60
+				76 button 급락 투매 OPS x10 음전 ▼ −0.60, Help: selloff · 급등 폭주의 방향 대칭. 부하는 같고 방향만 반대
+					77 text 급락 투매
+					78 text OPS 
+					79 text x10
+					80 text 음전 ▼ −0.60
+				81 button 일제 쏠림 OPS x12 양전 ▲ +0.70, Help: thundering-herd · 전 봇이 한 방향으로 몰리는 순간 버스트
+					82 text 일제 쏠림
+					83 text OPS 
+					84 text x12
+					85 text 양전 ▲ +0.70
+			86 container
+				87 heading 플릿 인벤토리, Value: 2
+					88 text 플릿 인벤토리
+				89 text 마켓 x 유형
+				90 table 플릿 인벤토리
+					91 row
+						92 cell
+							93 text 마켓
+						94 cell
+							95 text 마켓메이커
+						96 cell
+							97 text 테이커
+						98 cell
+							99 text 추세
+						100 cell
+							101 text 노이즈
+						102 cell
+							103 text 합계
+						104 cell
+							105 text 체결률
+						106 cell
+							107 text 실측 방향
+						108 cell
+							109 text 가동
+					110 container
+						111 row
+							112 cell
+								113 text KRW-BTC
+							114 cell
+								115 text 2
+							116 cell
+								117 text 1
+							118 cell
+								119 text 1
+							120 cell
+								121 text 1
+							122 cell
+								123 text 5
+							124 cell
+								125 text 0.00
+							126 cell
+								127 text 중립 0.00
+							128 cell
+								129 text 거래 중
+						130 row
+							131 cell
+								132 text KRW-ETH
+							133 cell
+								134 text 2
+							135 cell
+								136 text 1
+							137 cell
+								138 text 1
+							139 cell
+								140 text 1
+							141 cell
+								142 text 5
+							143 cell
+								144 text 1.00
+							145 cell
+								146 text 중립 0.00
+							147 cell
+								148 text 거래 중
+						149 row
+							150 cell
+								151 text KRW-XRP
+							152 cell
+								153 text 2
+							154 cell
+								155 text 1
+							156 cell
+								157 text 1
+							158 cell
+								159 text 1
+							160 cell
+								161 text 5
+							162 cell
+								163 text 0.50
+							164 cell
+								165 text 중립 0.00
+							166 cell
+								167 text 거래 중
+			168 container
+				169 heading 시장 생동감, Value: 2
+					170 text 시장 생동감
+				171 text 대상 마켓
+				172 pop up button (collapsed, settable) Description: 생동감 대상 마켓, Value: 비트코인 (KRW-BTC), Secondary Actions: Expand
+					173 menu
+						174 (selected) 비트코인 (KRW-BTC)
+						175 이더리움 (KRW-ETH)
+						176 솔라나 (KRW-SOL)
+						177 리플 (KRW-XRP)
+						178 도지코인 (KRW-DOGE)
+						179 에이다 (KRW-ADA)
+						180 트론 (KRW-TRX)
+						181 체인링크 (KRW-LINK)
+						182 폴카닷 (KRW-DOT)
+						183 폴리곤 (KRW-MATIC)
+						184 아발란체 (KRW-AVAX)
+						185 코스모스 (KRW-ATOM)
+				186 heading 봇 타입별 대수, Value: 3
+					187 text 봇 타입별 대수
+				188 text 서버가 목표 대수로 자동 수렴 · 적용 버튼으로 반영 마켓메이커
+				189 slider (settable, integer) Description: 마켓메이커 목표 대수, Value: 2
+				190 text 2 활성 2 / 목표 2 테이커
+				191 slider (settable, integer) Description: 테이커 목표 대수, Value: 1
+				192 text 1 활성 1 / 목표 1 추세
+				193 slider (settable, integer) Description: 추세 목표 대수, Value: 1
+				194 text 1 활성 1 / 목표 1 노이즈
+				195 slider (settable, integer) Description: 노이즈 목표 대수, Value: 1
+				196 text 1 활성 1 / 목표 1 합계  5  / 캡  80
+				197 button 대수 적용
+				198 heading 방향 바이어스, Value: 3
+					199 text 방향 바이어스
+				200 text 적용 버튼으로 반영 · 실측·유효로 수렴 확인
+				201 slider (settable, integer) Description: 목표 방향 바이어스, Value: 0
+				202 text 중립 0.00
+				203 container 방향 바이어스 판독: 목표 0.00, 실측 0.00, 유효 0.00
+				204 text ▽ 목표  0.00 ▲ 실측  0.00 | 유효  0.00 체결률  0.00
+				205 checkbox (settable, integer) Description: 자동 균형, Value: 0
+				206 text 자동 균형 강도  0.50
+				207 slider (disabled, settable, float) Description: 자동 균형 강도, Value: 0.5
+				208 button 바이어스 적용
+				209 heading 체결 시각효과 강도, Value: 3
+					210 text 체결 시각효과 강도
+				211 text 선택 즉시 반영 · 자동은 체결률에 따라 상한 조절
+				212 tab group 체결 시각효과 강도
+					213 tab (selectable, settable, boolean) 끔, Value: 0
+					214 tab (selectable, settable, boolean) 약, Value: 0
+					215 tab (selected, settable, boolean) 보통, Value: 1
+					216 tab (selectable, settable, boolean) 강, Value: 0
+					217 tab (selectable, settable, boolean) 자동, Value: 0
+			218 container
+				219 heading 봇 생성, Value: 2
+					220 text 봇 생성
+				221 text 유형
+				222 pop up button (collapsed, settable) Description: 봇 유형, Value: 마켓메이커, Secondary Actions: Expand
+					223 menu
+						224 (selected) 마켓메이커
+						225 테이커
+						226 추세
+						227 노이즈
+				228 text 마켓
+				229 pop up button (collapsed, settable) Description: 봇 마켓, Value: 비트코인 (KRW-BTC), Secondary Actions: Expand
+					230 menu
+						231 (selected) 비트코인 (KRW-BTC)
+						232 이더리움 (KRW-ETH)
+						233 솔라나 (KRW-SOL)
+						234 리플 (KRW-XRP)
+						235 도지코인 (KRW-DOGE)
+						236 에이다 (KRW-ADA)
+						237 트론 (KRW-TRX)
+						238 체인링크 (KRW-LINK)
+						239 폴카닷 (KRW-DOT)
+						240 폴리곤 (KRW-MATIC)
+						241 아발란체 (KRW-AVAX)
+						242 코스모스 (KRW-ATOM)
+				243 text 대수
+				244 stepper (settable, integer) Description: 생성 대수, Value: 1
+				245 button 생성
+			246 container
+				247 heading 파라미터 변경 요청, Value: 2
+					248 text 파라미터 변경 요청
+				249 text 2인 승인 실행 중 파라미터 변경은 파괴 액션이라 다른 운영자의 승인과 요청자 실행을 거칩니다. 기동 중인 플릿은 봇 id를 발행하지 않습니다(유형별 파킹 풀). 대상 지정이 필요한 이 경로는 id를 내는 플릿에서만 씁니다. 대수·방향·OPS는 위 제어로 바꿉니다 대상 봇
+				250 pop up button (disabled, collapsed, settable) Description: 대상 봇, Value: 대상 없음, Secondary Actions: Expand
+					251 menu
+						252 (disabled) 대상 없음
+				253 text 호가 간격(spread)
+				254 text field (settable) Description: 호가 간격(spread), Value: 0.0008
+				255 text 주문 수량(size)
+				256 text field (settable) Description: 주문 수량(size), Value: 0.02
+				257 text 주문 수명 ms(ttl_ms)
+				258 text field (settable) Description: 주문 수명 ms(ttl_ms), Value: 1500
+				259 button (disabled) 변경 요청
+				260 text 대기 중인 파라미터 변경 승인 없음 위 폼에서 요청하면 여기에서 발급·실행
+
+The focused UI element is 1 AXWebArea 관리 콘솔 · 페일스톱, URL: sang.it.kr/admin/bots

@@ -1,0 +1,461 @@
+{
+  "status": "PASS",
+  "started_at": "2026-09-18T05:15:32.428062+00:00",
+  "customer": "exchange",
+  "environment": "local-lab",
+  "replica": "failstop-ops-lab-rejoined-1",
+  "instance": "postgres-standby:9187",
+  "alertname": "DatabaseExporterUnavailable",
+  "primary_interrupted": false,
+  "aws_verified": false,
+  "teams_channel_visible": "confirmed_by_user",
+  "failure_samples": [
+    {
+      "metric": {
+        "__name__": "pg_up",
+        "customer": "exchange",
+        "environment": "local-lab",
+        "instance": "postgres-standby:9187",
+        "job": "postgres",
+        "node": "local-db-standby",
+        "role": "standby",
+        "service": "databases"
+      },
+      "value": [
+        1789708547.856,
+        "0"
+      ]
+    }
+  ],
+  "firing_alert": [
+    {
+      "metric": {
+        "__name__": "ALERTS",
+        "alertname": "DatabaseExporterUnavailable",
+        "alertstate": "firing",
+        "component": "monitoring",
+        "customer": "exchange",
+        "environment": "local-lab",
+        "instance": "postgres-standby:9187",
+        "job": "postgres",
+        "node": "local-db-standby",
+        "role": "standby",
+        "service": "databases",
+        "severity": "critical"
+      },
+      "value": [
+        1789708628.167,
+        "1"
+      ]
+    }
+  ],
+  "firing_report": {
+    "id": "incident:2e70048e80b1815c205b612215773e4d8908cee7da201f2b1329221bd96033c1",
+    "status": "sent",
+    "attempts": 1,
+    "created": 1789708656.9437597,
+    "sent": 1789708659.0592706,
+    "error": null,
+    "transitions": [
+      "firing"
+    ],
+    "scope": {
+      "customer": "exchange",
+      "environment": "local-lab"
+    },
+    "analysis": "facts-only",
+    "facts": [
+      {
+        "id": "target_up",
+        "status": "ok"
+      },
+      {
+        "id": "disk_available",
+        "status": "missing"
+      },
+      {
+        "id": "inode_free",
+        "status": "missing"
+      },
+      {
+        "id": "io_time",
+        "status": "missing"
+      },
+      {
+        "id": "network_errors",
+        "status": "missing"
+      },
+      {
+        "id": "services_failed",
+        "status": "missing"
+      },
+      {
+        "id": "db_connections",
+        "status": "ok"
+      },
+      {
+        "id": "db_replication_lag",
+        "status": "ok"
+      },
+      {
+        "id": "request_rate",
+        "status": "ok"
+      },
+      {
+        "id": "server_errors",
+        "status": "missing"
+      },
+      {
+        "id": "latency_p95",
+        "status": "missing"
+      },
+      {
+        "id": "backup_success",
+        "status": "missing"
+      },
+      {
+        "id": "alerts",
+        "status": "ok"
+      },
+      {
+        "id": "host",
+        "status": "missing"
+      },
+      {
+        "id": "journal",
+        "status": "missing"
+      },
+      {
+        "id": "aws_activity",
+        "status": "missing"
+      },
+      {
+        "id": "backup_schedule",
+        "status": "missing"
+      },
+      {
+        "id": "backup_restore",
+        "status": "missing"
+      },
+      {
+        "id": "trigger",
+        "status": "ok"
+      }
+    ]
+  },
+  "replica_restart_requested": true,
+  "replication_streaming": true,
+  "recovery_samples": [
+    {
+      "metric": {
+        "__name__": "pg_up",
+        "customer": "exchange",
+        "environment": "local-lab",
+        "instance": "postgres-standby:9187",
+        "job": "postgres",
+        "node": "local-db-standby",
+        "role": "standby",
+        "service": "databases"
+      },
+      "value": [
+        1789708675.431,
+        "1"
+      ]
+    }
+  ],
+  "resolved_report": {
+    "id": "incident:05cf1ee4faed5226a936ed369c2f74cf14475a57d8c2e78c8f1b2a41dfffd0f8",
+    "status": "sent",
+    "attempts": 1,
+    "created": 1789708956.9287314,
+    "sent": 1789708958.8890667,
+    "error": null,
+    "transitions": [
+      "resolved"
+    ],
+    "scope": {
+      "customer": "exchange",
+      "environment": "local-lab"
+    },
+    "analysis": "facts-only",
+    "facts": [
+      {
+        "id": "target_up",
+        "status": "ok"
+      },
+      {
+        "id": "disk_available",
+        "status": "missing"
+      },
+      {
+        "id": "inode_free",
+        "status": "missing"
+      },
+      {
+        "id": "io_time",
+        "status": "missing"
+      },
+      {
+        "id": "network_errors",
+        "status": "missing"
+      },
+      {
+        "id": "services_failed",
+        "status": "missing"
+      },
+      {
+        "id": "db_connections",
+        "status": "ok"
+      },
+      {
+        "id": "db_replication_lag",
+        "status": "ok"
+      },
+      {
+        "id": "request_rate",
+        "status": "ok"
+      },
+      {
+        "id": "server_errors",
+        "status": "missing"
+      },
+      {
+        "id": "latency_p95",
+        "status": "missing"
+      },
+      {
+        "id": "backup_success",
+        "status": "missing"
+      },
+      {
+        "id": "alerts",
+        "status": "ok"
+      },
+      {
+        "id": "host",
+        "status": "missing"
+      },
+      {
+        "id": "journal",
+        "status": "missing"
+      },
+      {
+        "id": "aws_activity",
+        "status": "missing"
+      },
+      {
+        "id": "backup_schedule",
+        "status": "missing"
+      },
+      {
+        "id": "backup_restore",
+        "status": "missing"
+      },
+      {
+        "id": "trigger",
+        "status": "ok"
+      }
+    ]
+  },
+  "report_rows": [
+    {
+      "id": "incident:2e70048e80b1815c205b612215773e4d8908cee7da201f2b1329221bd96033c1",
+      "status": "sent",
+      "attempts": 1,
+      "created": 1789708656.9437597,
+      "sent": 1789708659.0592706,
+      "error": null,
+      "transitions": [
+        "firing"
+      ],
+      "scope": {
+        "customer": "exchange",
+        "environment": "local-lab"
+      },
+      "analysis": "facts-only",
+      "facts": [
+        {
+          "id": "target_up",
+          "status": "ok"
+        },
+        {
+          "id": "disk_available",
+          "status": "missing"
+        },
+        {
+          "id": "inode_free",
+          "status": "missing"
+        },
+        {
+          "id": "io_time",
+          "status": "missing"
+        },
+        {
+          "id": "network_errors",
+          "status": "missing"
+        },
+        {
+          "id": "services_failed",
+          "status": "missing"
+        },
+        {
+          "id": "db_connections",
+          "status": "ok"
+        },
+        {
+          "id": "db_replication_lag",
+          "status": "ok"
+        },
+        {
+          "id": "request_rate",
+          "status": "ok"
+        },
+        {
+          "id": "server_errors",
+          "status": "missing"
+        },
+        {
+          "id": "latency_p95",
+          "status": "missing"
+        },
+        {
+          "id": "backup_success",
+          "status": "missing"
+        },
+        {
+          "id": "alerts",
+          "status": "ok"
+        },
+        {
+          "id": "host",
+          "status": "missing"
+        },
+        {
+          "id": "journal",
+          "status": "missing"
+        },
+        {
+          "id": "aws_activity",
+          "status": "missing"
+        },
+        {
+          "id": "backup_schedule",
+          "status": "missing"
+        },
+        {
+          "id": "backup_restore",
+          "status": "missing"
+        },
+        {
+          "id": "trigger",
+          "status": "ok"
+        }
+      ]
+    },
+    {
+      "id": "incident:05cf1ee4faed5226a936ed369c2f74cf14475a57d8c2e78c8f1b2a41dfffd0f8",
+      "status": "sent",
+      "attempts": 1,
+      "created": 1789708956.9287314,
+      "sent": 1789708958.8890667,
+      "error": null,
+      "transitions": [
+        "resolved"
+      ],
+      "scope": {
+        "customer": "exchange",
+        "environment": "local-lab"
+      },
+      "analysis": "facts-only",
+      "facts": [
+        {
+          "id": "target_up",
+          "status": "ok"
+        },
+        {
+          "id": "disk_available",
+          "status": "missing"
+        },
+        {
+          "id": "inode_free",
+          "status": "missing"
+        },
+        {
+          "id": "io_time",
+          "status": "missing"
+        },
+        {
+          "id": "network_errors",
+          "status": "missing"
+        },
+        {
+          "id": "services_failed",
+          "status": "missing"
+        },
+        {
+          "id": "db_connections",
+          "status": "ok"
+        },
+        {
+          "id": "db_replication_lag",
+          "status": "ok"
+        },
+        {
+          "id": "request_rate",
+          "status": "ok"
+        },
+        {
+          "id": "server_errors",
+          "status": "missing"
+        },
+        {
+          "id": "latency_p95",
+          "status": "missing"
+        },
+        {
+          "id": "backup_success",
+          "status": "missing"
+        },
+        {
+          "id": "alerts",
+          "status": "ok"
+        },
+        {
+          "id": "host",
+          "status": "missing"
+        },
+        {
+          "id": "journal",
+          "status": "missing"
+        },
+        {
+          "id": "aws_activity",
+          "status": "missing"
+        },
+        {
+          "id": "backup_schedule",
+          "status": "missing"
+        },
+        {
+          "id": "backup_restore",
+          "status": "missing"
+        },
+        {
+          "id": "trigger",
+          "status": "ok"
+        }
+      ]
+    }
+  ],
+  "spring_ready": true,
+  "finished_at": "2026-09-18T05:22:44.056856+00:00",
+  "channel_confirmation": {
+    "source": "user_reply",
+    "reports": [
+      "firing",
+      "resolved"
+    ],
+    "confirmed_at": "2026-09-18T05:25:20.492388+00:00",
+    "statement": "두 보고 모두 보입니다"
+  }
+}

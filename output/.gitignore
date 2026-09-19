@@ -1,0 +1,7 @@
+# 실제 전달한 보고 표본만 보존한다. 미리보기와 페이지 이미지는 재생성한다.
+*
+!.gitignore
+!pdf/
+pdf/*
+!pdf/failstop-standby-incident.pdf
+!pdf/failstop-standby-incident.html

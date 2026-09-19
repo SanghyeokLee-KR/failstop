@@ -1,0 +1,146 @@
+{
+  "dashboards": [
+    {
+      "uid": "msp-overview",
+      "http_status": 200,
+      "title": "MSP 종합",
+      "panels": 19
+    },
+    {
+      "uid": "msp-service",
+      "http_status": 200,
+      "title": "서비스 상세",
+      "panels": 9
+    },
+    {
+      "uid": "msp-infra",
+      "http_status": 200,
+      "title": "인프라 상세",
+      "panels": 19
+    },
+    {
+      "uid": "msp-db",
+      "http_status": 200,
+      "title": "DB 상세",
+      "panels": 16
+    }
+  ],
+  "datasource": {
+    "details": {
+      "application": "Prometheus",
+      "features": {
+        "rulerApiEnabled": false
+      }
+    },
+    "message": "Successfully queried the Prometheus API.",
+    "status": "OK"
+  },
+  "targets": [
+    {
+      "job": "blackbox-http",
+      "health": "up",
+      "last_error": ""
+    },
+    {
+      "job": "exchange-api",
+      "health": "up",
+      "last_error": ""
+    },
+    {
+      "job": "linux-host",
+      "health": "up",
+      "last_error": ""
+    },
+    {
+      "job": "operations-reporter",
+      "health": "up",
+      "last_error": ""
+    },
+    {
+      "job": "postgres",
+      "health": "up",
+      "last_error": ""
+    },
+    {
+      "job": "postgres",
+      "health": "up",
+      "last_error": ""
+    },
+    {
+      "job": "prometheus",
+      "health": "up",
+      "last_error": ""
+    }
+  ],
+  "metrics": {
+    "host_availability": [
+      "1"
+    ],
+    "node_failed_collectors": [],
+    "filesystem": [
+      "0.14913290443151594"
+    ],
+    "db": [
+      "1",
+      "1"
+    ],
+    "replication": [
+      "0"
+    ],
+    "backup": [
+      "1789693090"
+    ],
+    "daily": [
+      "1789695077.2720933"
+    ],
+    "textfile_error": [
+      "0"
+    ],
+    "report_delivery_enabled": [
+      "1"
+    ]
+  },
+  "alert_labels": [
+    {
+      "alertname": "TradeSilence",
+      "component": "bots",
+      "customer": "exchange",
+      "environment": "local-lab",
+      "severity": "warning",
+      "stack": "operations"
+    }
+  ],
+  "checked_at": "2026-09-18T01:41:37.801850+00:00",
+  "alerts": [
+    {
+      "name": "TradeSilence",
+      "state": "firing",
+      "mountpoint": null
+    },
+    {
+      "name": "LinuxDiskSpaceLow",
+      "state": "pending",
+      "mountpoint": "/mnt/c"
+    },
+    {
+      "name": "LinuxDiskSpaceLow",
+      "state": "pending",
+      "mountpoint": "/usr/lib/wsl/drivers"
+    }
+  ],
+  "route_validation": {
+    "config": "PASS",
+    "local_trade_silence": [
+      "local-quiet"
+    ],
+    "production_trade_silence": [
+      "teams",
+      "evidence-reporter"
+    ],
+    "local_disk_low": [
+      "teams",
+      "evidence-reporter"
+    ]
+  },
+  "operating_routes": "enabled"
+}

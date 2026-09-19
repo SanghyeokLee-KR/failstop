@@ -1,0 +1,372 @@
+{
+  "captured_at": "2026-09-18T10:58:47.667397+00:00",
+  "metrics": {
+    "roles": [
+      {
+        "metric": {
+          "__name__": "pg_wal_position_in_recovery",
+          "customer": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-primary:9187",
+          "job": "postgres",
+          "node": "local-db-primary",
+          "role": "data",
+          "server": "standby:5432",
+          "service": "databases"
+        },
+        "value": [
+          1789729127.696,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_wal_position_in_recovery",
+          "customer": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-standby:9187",
+          "job": "postgres",
+          "node": "local-db-standby",
+          "role": "standby",
+          "server": "rejoined:5432",
+          "service": "databases"
+        },
+        "value": [
+          1789729127.696,
+          "1"
+        ]
+      }
+    ],
+    "sql_available": [
+      {
+        "metric": {
+          "__name__": "pg_ops_sql_collection_available",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-primary:9187",
+          "job": "postgres",
+          "node": "local-db-primary",
+          "role": "data",
+          "server": "standby:5432",
+          "service": "databases"
+        },
+        "value": [
+          1789729127.698,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sql_collection_available",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-standby:9187",
+          "job": "postgres",
+          "node": "local-db-standby",
+          "role": "standby",
+          "server": "rejoined:5432",
+          "service": "databases"
+        },
+        "value": [
+          1789729127.698,
+          "1"
+        ]
+      }
+    ],
+    "collector_error": [
+      {
+        "metric": {
+          "__name__": "pg_exporter_last_scrape_error",
+          "customer": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-primary:9187",
+          "job": "postgres",
+          "node": "local-db-primary",
+          "role": "data",
+          "service": "databases"
+        },
+        "value": [
+          1789729127.701,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_exporter_last_scrape_error",
+          "customer": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-standby:9187",
+          "job": "postgres",
+          "node": "local-db-standby",
+          "role": "standby",
+          "service": "databases"
+        },
+        "value": [
+          1789729127.701,
+          "0"
+        ]
+      }
+    ],
+    "read_429": [
+      {
+        "metric": {
+          "uri": "/api/v1/trades"
+        },
+        "value": [
+          1789729127.703,
+          "451"
+        ]
+      },
+      {
+        "metric": {
+          "uri": "/api/v1/orderbook"
+        },
+        "value": [
+          1789729127.703,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "uri": "/api/v1/candles/{unit}"
+        },
+        "value": [
+          1789729127.703,
+          "450"
+        ]
+      }
+    ],
+    "sessions": [
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-primary:9187",
+          "job": "postgres",
+          "node": "local-db-primary",
+          "role": "data",
+          "server": "standby:5432",
+          "service": "databases",
+          "session_state": "active_no_wait"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-primary:9187",
+          "job": "postgres",
+          "node": "local-db-primary",
+          "role": "data",
+          "server": "standby:5432",
+          "service": "databases",
+          "session_state": "active_waiting"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-primary:9187",
+          "job": "postgres",
+          "node": "local-db-primary",
+          "role": "data",
+          "server": "standby:5432",
+          "service": "databases",
+          "session_state": "idle"
+        },
+        "value": [
+          1789729127.706,
+          "9"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-primary:9187",
+          "job": "postgres",
+          "node": "local-db-primary",
+          "role": "data",
+          "server": "standby:5432",
+          "service": "databases",
+          "session_state": "idle_in_transaction"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-primary:9187",
+          "job": "postgres",
+          "node": "local-db-primary",
+          "role": "data",
+          "server": "standby:5432",
+          "service": "databases",
+          "session_state": "idle_in_transaction_aborted"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-primary:9187",
+          "job": "postgres",
+          "node": "local-db-primary",
+          "role": "data",
+          "server": "standby:5432",
+          "service": "databases",
+          "session_state": "other"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-standby:9187",
+          "job": "postgres",
+          "node": "local-db-standby",
+          "role": "standby",
+          "server": "rejoined:5432",
+          "service": "databases",
+          "session_state": "active_no_wait"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-standby:9187",
+          "job": "postgres",
+          "node": "local-db-standby",
+          "role": "standby",
+          "server": "rejoined:5432",
+          "service": "databases",
+          "session_state": "active_waiting"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-standby:9187",
+          "job": "postgres",
+          "node": "local-db-standby",
+          "role": "standby",
+          "server": "rejoined:5432",
+          "service": "databases",
+          "session_state": "idle"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-standby:9187",
+          "job": "postgres",
+          "node": "local-db-standby",
+          "role": "standby",
+          "server": "rejoined:5432",
+          "service": "databases",
+          "session_state": "idle_in_transaction"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-standby:9187",
+          "job": "postgres",
+          "node": "local-db-standby",
+          "role": "standby",
+          "server": "rejoined:5432",
+          "service": "databases",
+          "session_state": "idle_in_transaction_aborted"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "__name__": "pg_ops_sessions_count",
+          "customer": "exchange",
+          "datname": "exchange",
+          "environment": "local-lab",
+          "instance": "postgres-standby:9187",
+          "job": "postgres",
+          "node": "local-db-standby",
+          "role": "standby",
+          "server": "rejoined:5432",
+          "service": "databases",
+          "session_state": "other"
+        },
+        "value": [
+          1789729127.706,
+          "0"
+        ]
+      }
+    ]
+  }
+}

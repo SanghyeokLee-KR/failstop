@@ -1,7 +1,7 @@
 # 출처·라이선스 표기
 
 시드 타임 수집 산출물의 출처를 명시한다. 화면(푸터·About)과 저장소 양쪽에 유지한다.
-근거는 docs/contracts/외부API_전략.md.
+근거는 docs/reference/contracts/외부API_전략.md.
 
 ## Upbit Open API (시세 파생)
 
@@ -27,4 +27,4 @@
 
 ## 미수집 항목
 
-- Binance: 규제·재현성 리스크로 미사용(docs/contracts/외부API_전략.md 3절).
+- Binance: 규제·재현성 리스크로 미사용(docs/reference/contracts/외부API_전략.md 3절).

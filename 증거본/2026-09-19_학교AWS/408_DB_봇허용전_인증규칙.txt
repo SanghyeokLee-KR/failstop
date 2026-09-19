@@ -1,0 +1,92 @@
+Browser tab: 2017667312, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		33 container consoleNavHeader
+			34 container awsc-nav-header
+				35 image Account color: 설정 해제
+				36 container Global
+					37 container awsc-top-level-nav
+						38 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						39 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						40 button (collapsed) Description: Services, Secondary Actions: Expand
+							41 image
+						42 container aws-unified-search-container
+							43 container
+								44 image Search
+								45 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								46 button Ask Amazon Q
+								47 text [Alt+S]
+						48 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						49 container
+							50 pop up button Description: Notifications (none available), Help: Notifications
+								51 image Notifications
+							52 image Notifications
+						53 content list awsc-navigation__more-menu--list
+							54 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								55 image Support
+							56 button (collapsed) Description: Settings, Secondary Actions: Expand
+							57 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								58 text 아시아 태평양 (서울)
+							59 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								60 text Account ID: 6192-5696-4117
+								61 text 2026-ai-kopo-04
+		9 container
+			10 container Notifications
+				11 content list Description: Notifications, ID: flashbar1-1789829511985-2481
+			12 text Content loaded
+			62 container
+				63 content list
+					64 text    ,     #_
+					65 text    ~\_  ####_        Amazon Linux 2023
+					66 text   ~~  \_#####\
+					67 text   ~~     \###|
+					68 text   ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+					69 text    ~~       V~' '->
+					70 text     ~~~         /
+					71 text       ~~._.   _/
+					72 text          _/ _/
+					73 text        _/m/'
+					74 text Last login: Sat Sep 19 14:35:04 2026 from 13.209.1.60
+					89 text [ec2-user@ip-172-31-1-229 ~]$ sudo -u postgres psql -X -d exchange -c "SHOW hba_file; SELECT line_numbe
+					90 text r,type,database,user_name,address,auth_method,error FROM pg_hba_file_rules; SELECT pg_size_pretty(pg_da
+					91 text tabase_size('exchange')) AS db_size, count(*) AS orders FROM orders;"
+					92 text             hba_file             
+					93 text ---------------------------------
+					94 text  /var/lib/pgsql/data/pg_hba.conf
+					95 text (1 row)
+					96 text  line_number |  type   |   database    |   user_name    |    address    |  auth_method  | error 
+					97 text -------------+---------+---------------+----------------+---------------+---------------+-------
+					98 text            1 | local   | {all}         | {all}          |               | peer          | 
+					99 text            2 | hostssl | {replication} | {replicator}   | 172.31.33.195 | scram-sha-256 | 
+					100 text            3 | hostssl | {exchange}    | {exchange_app} | 172.31.2.86   | scram-sha-256 | 
+					101 text (3 rows)
+					102 text  db_size | orders 
+					103 text ---------+--------
+					104 text  15 MB   |      0
+					105 text (1 row)
+					106 text [ec2-user@ip-172-31-1-229 ~]$ 
+				107 text sudo -u postgres psql -X -d exchange -c "SHOW hba_file; SELECT line_number,type,database,user_name,address,auth_method,error FROM pg_hba_file_rules; SELECT pg_size_pretty(pg_database_size('exchange')) AS db_size, count(*) AS orders FROM orders;"sudo -u postgres psql -X -d exchange -c "SHOW hba_file; SELECT line_number,type,database,user_name,address,auth_method,error FROM pg_hba_file_rules; SELECT pg_size_pretty(pg_database_size('exchange')) AS db_size, count(*) AS orders FROM orders;" hba_file --------------------------------- /var/lib/pgsql/data/pg_hba.conf (1 row) line_number | type | database | user_name | address | auth_method | error -------------+---------+---------------+----------------+---------------+---------------+------- 1 | local | {all} | {all} | | peer | 2 | hostssl | {replication} | {replicator} | 172.31.33.195 | scram-sha-256 | 3 | hostssl | {exchange} | {exchange_app} | 172.31.2.86 | scram-sha-256 | (3 rows) db_size | orders ---------+-------- 15 MB | 0 (1 row) [ec2-user@ip-172-31-1-229 ~]$
+				77 text field (settable) Terminal input
+			20 button Close instance info
+			78 heading i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01), Value: 3
+				79 text i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01)
+			80 container
+				81 text PublicIPs: 13.125.150.154 PrivateIPs: 172.31.1.229
+		23 container f
+			24 container console-nav-footer
+				25 container awsc-nav-footer-content
+					82 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					83 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					26 button Console Mobile App, ID: mobile_app_button
+						27 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					29 content list
+						30 link Description: Privacy, Value: aws.amazon.com/privacy/
+						31 link Description: Terms, Value: aws.amazon.com/terms/
+						32 button Cookie preferences
+
+The focused UI element is 77 text field (settable) Terminal input

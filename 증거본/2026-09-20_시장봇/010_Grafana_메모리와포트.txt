@@ -1,0 +1,104 @@
+Browser tab: 2017667317, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		46 container consoleNavHeader
+			47 container awsc-nav-header
+				48 image Account color: 설정 해제
+				49 container Global
+					50 container awsc-top-level-nav
+						51 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						52 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						53 button (collapsed) Description: Services, Secondary Actions: Expand
+							54 image
+						55 container aws-unified-search-container
+							56 container
+								57 image Search
+								58 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								59 button Ask Amazon Q
+								60 text [Alt+S]
+						61 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						62 container
+							63 pop up button Description: Notifications (none available), Help: Notifications
+								64 image Notifications
+							65 image Notifications
+						66 content list awsc-navigation__more-menu--list
+							67 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								68 image Support
+							69 button (collapsed) Description: Settings, Secondary Actions: Expand
+							70 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								71 text 아시아 태평양 (서울)
+							72 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								73 text Account ID: 6192-5696-4117
+								74 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789830565444-7143
+			23 text Content loaded
+			75 container
+				76 content list
+					97 text       "total_bytes": 53607378944,
+					98 text       "free_inodes": 26155304,
+					99 text       "total_inodes": 26208240
+					100 text     },
+					101 text     "db-standby": {
+					102 text       "available_bytes": 51250216960,
+					103 text       "total_bytes": 53607378944,
+					104 text       "free_inodes": 26155302,
+					105 text       "total_inodes": 26208240
+					106 text     }
+					107 text   },
+					108 text   "checked_at": "2026-09-19T15:15:25.894475+00:00",
+					109 text   "sample_hour": "2026-09-19T15"
+					110 text }
+					111 text 2026-09-19T15:13:11.621632+00:00,app-1,18843840512,21395124224,10427459,10479552
+					112 text 2026-09-19T15:13:11.621632+00:00,bot-1,17231306752,21395124224,10412576,10479600
+					113 text 2026-09-19T15:13:11.621632+00:00,db-primary,51252768768,53607378944,26155311,26208240
+					114 text 2026-09-19T15:13:11.621632+00:00,db-standby,51252731904,53607378944,26155309,26208240
+					115 text [ec2-user@ip-172-31-44-141 ~]$ sudo systemctl show grafana-server -p FragmentPath -p ExecStart; sudo gr
+					116 text ep -E '^\[|^(http_addr|http_port|root_url|serve_from_sub_path|enabled|allow_sign_up|cookie_secure|disab
+					117 text le_initial_admin_creation) *=' /etc/grafana/grafana.ini; sudo ss -lntp | grep ':3000'; free -m
+					118 text ExecStart={ path=/usr/share/grafana/bin/grafana ; argv[]=/usr/share/grafana/bin/grafana server --confi>
+					119 text FragmentPath=/usr/lib/systemd/system/grafana-server.service
+					120 text [server]
+					121 text http_addr = 127.0.0.1
+					122 text http_port = 3000
+					123 text [security]
+					124 text disable_initial_admin_creation = true
+					125 text [auth.anonymous]
+					126 text enabled = false
+					127 text [users]
+					128 text allow_sign_up = false
+					129 text [analytics]
+					130 text [log]
+					131 text [unified_alerting]
+					132 text enabled = false
+					133 text LISTEN 0      4096            127.0.0.1:3000      0.0.0.0:*    users:(("grafana",pid=34175,fd=22))    
+					134 text                total        used        free      shared  buff/cache   available
+					135 text Mem:            1909         715          66         109        1127         928
+					136 text Swap:              0           0           0
+					137 text [ec2-user@ip-172-31-44-141 ~]$ 
+				138 text [server] http_addr = 127.0.0.1 http_port = 3000 [security] disable_initial_admin_creation = true [auth.anonymous] enabled = false [users] allow_sign_up = false [analytics] [log] [unified_alerting] enabled = false LISTEN 0 4096 127.0.0.1:3000 0.0.0.0:* users:(("grafana",pid=34175,fd=22)) total used free shared buff/cache available Mem: 1909 715 66 109 1127 928 Swap: 0 0 0 [ec2-user@ip-172-31-44-141 ~]$
+				90 text field (settable) Description: Terminal input, Value: q
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				91 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			92 container
+				93 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		33 container f
+			34 container console-nav-footer
+				35 container awsc-nav-footer-content
+					94 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					36 button Agent Toolkit for AWS
+					95 button Feedback, ID: feedback
+						96 text Feedback
+					37 button Console Mobile App, ID: mobile_app_button
+						38 image
+						39 text Console Mobile App
+					40 container
+						41 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					42 content list
+						43 link Description: Privacy, Value: aws.amazon.com/privacy/
+						44 link Description: Terms, Value: aws.amazon.com/terms/
+						45 button Cookie preferences
+
+The focused UI element is 90 text field (settable) Description: Terminal input, Value: q

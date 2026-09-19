@@ -350,4 +350,4 @@ CPU 는 `process_cpu_usage` 로 1.0 이 코어 하나다. 기동 직후 한 틱�
 | `containers.md` | 환경과 상태 스냅샷 |
 | `harness/replication/run.sh` | 회차 드라이버 |
 | `harness/evidence/leader-failover-20260908/` | 이 결함이 처음 드러난 회차 |
-| `docs/contracts/백엔드_DB_설계.md` 5.5-a | 정본 |
+| `docs/reference/contracts/백엔드_DB_설계.md` 5.5-a | 정본 |

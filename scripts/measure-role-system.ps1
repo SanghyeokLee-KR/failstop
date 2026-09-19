@@ -1,4 +1,4 @@
-# 역할 체계 산출 실측. docs/records/역할체계_운영기록.md 의 수치를 재생성한다.
+# 지정한 커밋의 트리별 파일·행 수와 커밋 분포를 출력한다.
 #
 # 사용:
 #   pwsh -NoProfile -File scripts/measure-role-system.ps1

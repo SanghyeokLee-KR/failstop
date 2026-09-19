@@ -1,0 +1,600 @@
+Browser tab: 2017667299, Title: "BTC 84,319,000 ▲+0.01% · 페일스톱", URL: "https://www.sang.it.kr/exchange/KRW-BTC".
+0 AXWebArea BTC 84,319,000 ▲+0.01% · 페일스톱, URL: sang.it.kr/exchange/KRW-BTC
+	1 link Description: 본문 바로가기, Value: sang.it.kr/exchange/KRW-BTC#main
+	2 container
+		3 link Description: 홈으로 이동, Value: sang.it.kr/home
+		4 container 주요 메뉴
+			5 link Description: 홈, Value: sang.it.kr/home
+			6 link Description: 거래소, Value: sang.it.kr/exchange
+			7 link Description: 자산, Value: sang.it.kr/assets
+			8 link Description: 입출금, Value: sang.it.kr/transfers
+			9 link Description: 거래내역, Value: sang.it.kr/history
+		10 link Description: 공지, Value: sang.it.kr/notices
+		11 link Description: 로그인, Value: sang.it.kr/auth/login
+		12 link Description: 회원 가입, Value: sang.it.kr/auth/signup
+		13 text 연결됨
+		14 button 다크 모드로 전환
+	15 container
+		16 link Description: 주문으로 바로가기, Value: sang.it.kr/exchange/KRW-BTC#trade-order
+		17 heading 비트코인 KRW-BTC 거래, Value: 1
+			18 text 비트코인 KRW-BTC 거래
+		19 pop up button (collapsed) Description: 마켓 전환, 현재 비트코인, Secondary Actions: Expand
+		20 link Description: 비트코인 토론 게시판으로 이동, Value: sang.it.kr/community/KRW-BTC
+		21 text 84,318,000
+		22 container 상승 0.00퍼센트
+			23 text ▲ +4,000 +0.00%
+		24 text 고가(24H) 84,328,000 저가(24H) 84,314,000 거래대금(24H) 734만 거래량(24H) 0.08700000 BTC
+		25 checkbox Description: 관심 해제, Value: 1
+		26 container 차트
+			27 heading 차트, Value: 2
+				28 text 차트
+			29 tab group 차트 주기
+				30 tab (selectable, settable, boolean) 1초, Value: 0
+				31 tab (selected, settable, boolean) 1분, Value: 1
+				32 tab (selectable, settable, boolean) 3분, Value: 0
+				33 tab (selectable, settable, boolean) 5분, Value: 0
+				34 tab (selectable, settable, boolean) 15분, Value: 0
+				35 tab (selectable, settable, boolean) 30분, Value: 0
+				36 tab (selectable, settable, boolean) 1시간, Value: 0
+				37 tab (selectable, settable, boolean) 4시간, Value: 0
+				38 tab (selectable, settable, boolean) 1일, Value: 0
+				39 tab (selectable, settable, boolean) 1주, Value: 0
+			40 button (collapsed) Description: 지표 선택, 1개 사용 중, Help: 지표 1, Secondary Actions: Expand
+				41 text 지표
+				42 text 1
+			43 button 추세선 그리기
+			44 button 수평선 그리기
+			45 button 피보나치 그리기
+			46 button 그리기 전체 지우기
+			47 container
+				48 container KRW-BTC 1분 캔들 차트. 양봉은 빨간색 상승, 음봉은 파란색 하락, 하단은 거래량입니다.
+				484 text KRW-BTC 1분 새 봉 시작. 시가 84,319,000, 고가 84,320,000, 저가 84,319,000, 종가 84,320,000, 거래량 0.01, 상승.
+		51 heading 호가, Value: 2
+			52 text 호가
+		53 container
+			577 button 매도호가 84,332,000원, 잔량 0.03, 주문 가격으로 입력
+				578 text 0.03
+				579 text 84,332,000
+				580 text +0.02%
+			581 button 매도호가 84,331,000원, 잔량 0.02, 주문 가격으로 입력
+				582 text 0.02
+				583 text 84,331,000
+				584 text +0.02%
+			489 button 매도호가 84,330,000원, 잔량 0.03, 주문 가격으로 입력
+				490 text 0.03
+				491 text 84,330,000
+				492 text +0.02%
+			54 button 매도호가 84,320,000원, 잔량 0.001, 주문 가격으로 입력
+				55 text 0.001
+				56 text 84,320,000
+				57 text +0.01%
+			58 button 매도호가 84,319,000원, 잔량 0.001, 주문 가격으로 입력
+				59 text 0.001
+				60 text 84,319,000
+				61 text +0.01%
+			62 button 매도호가 84,318,000원, 잔량 0.016, 주문 가격으로 입력
+				63 text 0.016
+				64 text 84,318,000
+				65 text +0.00%
+			66 text 84,318,000 현재가
+			67 button 매수호가 84,307,000원, 잔량 0.03, 주문 가격으로 입력
+				68 text 0.03
+				69 text 84,307,000
+				70 text −0.01%
+			71 button 매수호가 84,306,000원, 잔량 0.02, 주문 가격으로 입력
+				72 text 0.02
+				73 text 84,306,000
+				74 text −0.01%
+			75 button 매수호가 84,305,000원, 잔량 0.03, 주문 가격으로 입력
+				76 text 0.03
+				77 text 84,305,000
+				78 text −0.01%
+		87 text 매도 잔량 0.098 매수 잔량 0.08
+		88 heading 체결, Value: 2
+			89 text 체결
+		90 table
+			91 row
+				92 cell
+					93 text 체결가
+				94 cell
+					95 text 체결량
+				96 cell
+					97 text 전일대비
+				98 cell
+					99 text 시각
+			585 row
+				586 cell
+					587 container 매도 체결 84,318,000원
+						588 text ▼  84,318,000
+				589 cell
+					590 text 0.004
+				591 cell
+					592 text +0.00%
+				593 cell
+					594 text 00:00:06
+			595 row
+				596 cell
+					597 container 매도 체결 84,319,000원, 대형 체결 84만
+						598 text ▼  84,319,000
+				599 cell
+					600 text 0.01
+				601 cell
+					602 text +0.01%
+				603 cell
+					604 text 00:00:05
+			605 row
+				606 cell
+					607 container 매수 체결 84,320,000원, 대형 체결 84만
+						608 text ▲  84,320,000
+				609 cell
+					610 text 0.01
+				611 cell
+					612 text +0.01%
+				613 cell
+					614 text 00:00:01
+			497 row
+				498 cell
+					499 container 매도 체결 84,319,000원
+						500 text ▼  84,319,000
+				501 cell
+					502 text 0.001
+				503 cell
+					504 text +0.01%
+				505 cell
+					506 text 23:59:56
+			507 row
+				508 cell
+					509 container 매수 체결 84,320,000원, 대형 체결 84만
+						510 text ▲  84,320,000
+				511 cell
+					512 text 0.01
+				513 cell
+					514 text +0.01%
+				515 cell
+					516 text 23:59:55
+			517 row
+				518 cell
+					519 container 매수 체결 84,319,000원, 대형 체결 76만
+						520 text ▲  84,319,000
+				521 cell
+					522 text 0.009
+				523 cell
+					524 text +0.01%
+				525 cell
+					526 text 23:59:54
+			527 row
+				528 cell
+					529 container 매도 체결 84,318,000원
+						530 text 84,318,000
+				531 cell
+					532 text 0.001
+				533 cell
+					534 text +0.00%
+				535 cell
+					536 text 23:59:52
+			537 row
+				538 cell
+					539 container 매도 체결 84,318,000원
+						540 text ▼  84,318,000
+				541 cell
+					542 text 0.001
+				543 cell
+					544 text +0.00%
+				545 cell
+					546 text 23:59:52
+			547 row
+				548 cell
+					549 container 매수 체결 84,319,000원
+						550 text ▲  84,319,000
+				551 cell
+					552 text 0.001
+				553 cell
+					554 text +0.01%
+				555 cell
+					556 text 23:59:50
+			557 row
+				558 cell
+					559 container 매도 체결 84,318,000원
+						560 text ▼  84,318,000
+				561 cell
+					562 text 0.001
+				563 cell
+					564 text +0.00%
+				565 cell
+					566 text 23:59:47
+			567 row
+				568 cell
+					569 container 매수 체결 84,328,000원, 대형 체결 101만
+						570 text ▲  84,328,000
+				571 cell
+					572 text 0.012
+				573 cell
+					574 text +0.02%
+				575 cell
+					576 text 23:59:42
+			100 row
+				101 cell
+					102 container 매도 체결 84,318,000원
+						103 text 84,318,000
+				104 cell
+					105 text 0.001
+				106 cell
+					107 text +0.00%
+				108 cell
+					109 text 23:59:38
+			110 row
+				111 cell
+					112 container 매도 체결 84,318,000원
+						113 text ▼  84,318,000
+				114 cell
+					115 text 0.001
+				116 cell
+					117 text +0.00%
+				118 cell
+					119 text 23:59:38
+			120 row
+				121 cell
+					122 container 매수 체결 84,322,000원
+						123 text ▲  84,322,000
+				124 cell
+					125 text 0.002
+				126 cell
+					127 text +0.01%
+				128 cell
+					129 text 23:59:36
+			130 row
+				131 cell
+					132 container 매도 체결 84,318,000원
+						133 text ▼  84,318,000
+				134 cell
+					135 text 0.001
+				136 cell
+					137 text +0.00%
+				138 cell
+					139 text 23:59:36
+			140 row
+				141 cell
+					142 container 매수 체결 84,322,000원
+						143 text 84,322,000
+				144 cell
+					145 text 0.001
+				146 cell
+					147 text +0.01%
+				148 cell
+					149 text 23:59:36
+			150 row
+				151 cell
+					152 container 매수 체결 84,322,000원
+						153 text 84,322,000
+				154 cell
+					155 text 0.001
+				156 cell
+					157 text +0.01%
+				158 cell
+					159 text 23:59:33
+			160 row
+				161 cell
+					162 container 매수 체결 84,322,000원
+						163 text 84,322,000
+				164 cell
+					165 text 0.002
+				166 cell
+					167 text +0.01%
+				168 cell
+					169 text 23:59:28
+			170 row
+				171 cell
+					172 container 매수 체결 84,322,000원
+						173 text ▼  84,322,000
+				174 cell
+					175 text 0.001
+				176 cell
+					177 text +0.01%
+				178 cell
+					179 text 23:59:23
+			180 row
+				181 cell
+					182 container 매수 체결 84,324,000원
+						183 text 84,324,000
+				184 cell
+					185 text 0.001
+				186 cell
+					187 text +0.01%
+				188 cell
+					189 text 23:59:18
+			190 row
+				191 cell
+					192 container 매수 체결 84,324,000원
+						193 text 84,324,000
+				194 cell
+					195 text 0.001
+				196 cell
+					197 text +0.01%
+				198 cell
+					199 text 23:59:13
+			200 row
+				201 cell
+					202 container 매수 체결 84,324,000원
+						203 text ▲  84,324,000
+				204 cell
+					205 text 0.002
+				206 cell
+					207 text +0.01%
+				208 cell
+					209 text 23:59:10
+			210 row
+				211 cell
+					212 container 매도 체결 84,315,000원
+						213 text ▲  84,315,000
+				214 cell
+					215 text 0.001
+				216 cell
+					217 text +0.00%
+				218 cell
+					219 text 23:59:07
+			220 row
+				221 cell
+					222 container 매도 체결 84,314,000원
+						223 text 84,314,000
+				224 cell
+					225 text 0.002
+				226 cell
+					227 text 0.00%
+				228 cell
+					229 text 23:59:05
+			230 row
+				231 cell
+					232 container 매도 체결 84,314,000원
+						233 text 84,314,000
+				234 cell
+					235 text 0.002
+				236 cell
+					237 text 0.00%
+				238 cell
+					239 text 23:59:05
+			240 row
+				241 cell
+					242 container 매도 체결 84,314,000원
+						243 text 84,314,000
+				244 cell
+					245 text 0.001
+				246 cell
+					247 text 0.00%
+				248 cell
+					249 text 23:59:04
+			250 row
+				251 cell
+					252 container 매도 체결 84,314,000원
+						253 text 84,314,000
+				254 cell
+					255 text 0.001
+				256 cell
+					257 text 0.00%
+				258 cell
+					259 text 23:58:59
+			260 row
+				261 cell
+					262 container 매도 체결 84,314,000원
+						263 text ▼  84,314,000
+				264 cell
+					265 text 0.001
+				266 cell
+					267 text 0.00%
+				268 cell
+					269 text 23:58:59
+			270 row
+				271 cell
+					272 container 매수 체결 84,324,000원
+						273 text ▲  84,324,000
+				274 cell
+					275 text 0.002
+				276 cell
+					277 text +0.01%
+				278 cell
+					279 text 23:58:57
+			280 row
+				281 cell
+					282 container 매도 체결 84,314,000원
+						283 text ▼  84,314,000
+				284 cell
+					285 text 0.002
+				286 cell
+					287 text 0.00%
+				288 cell
+					289 text 23:58:54
+			290 row
+				291 cell
+					292 container 매수 체결 84,324,000원
+						293 text 84,324,000
+				294 cell
+					295 text 0.001
+				296 cell
+					297 text +0.01%
+				298 cell
+					299 text 23:58:53
+			300 row
+				301 cell
+					302 container 매수 체결 84,324,000원
+						303 text ▲  84,324,000
+				304 cell
+					305 text 0.001
+				306 cell
+					307 text +0.01%
+				308 cell
+					309 text 23:58:51
+			310 row
+				311 cell
+					312 container 매도 체결 84,314,000원
+						313 text 84,314,000
+				314 cell
+					315 text 0.001
+				316 cell
+					317 text 0.00%
+				318 cell
+					319 text 23:58:49
+			320 row
+				321 cell
+					322 container 매도 체결 84,314,000원
+						323 text 84,314,000
+				324 cell
+					325 text 0.002
+				326 cell
+					327 text 0.00%
+				328 cell
+					329 text 23:58:44
+		330 container 주문
+			331 heading 주문, Value: 2
+				332 text 주문
+			333 주문 방향
+				334 radio button 매수, Value: 1
+				335 radio button 매도, Value: 0
+			336 container 주문 유형
+				337 checkbox 지정가, Value: 1
+			338 text 가격
+			339 button 가격 한 호가 내리기
+			340 text field (settable) Description: 주문 가격(원), Value: 84,314,000, ID: panel-ord-price
+			341 text 원
+			342 button 가격 한 호가 올리기
+			343 text 수량
+			344 text field (settable) Description: 주문 수량(BTC), ID: panel-ord-qty
+			345 text BTC
+			346 container 가용 잔고 비율 선택
+				347 checkbox 10%, Value: 0
+				348 checkbox 25%, Value: 0
+				349 checkbox 50%, Value: 0
+				350 checkbox 최대, Value: 0
+			351 text 주문총액
+			352 text field (settable) Description: 주문총액(원), ID: panel-ord-total
+			353 text 원
+			354 container
+				355 text 예상 수수료 ( 0.05 %) 0.00 BTC 주문가능 데모 자산 100,000,000 원
+				356 link Description: 로그인하고 매수, Value: sang.it.kr/auth/login?next=%2Fexchange%2FKRW-BTC%3Fside%3Dbid%26price%3D84314000
+		357 container 마켓
+			358 heading 마켓, Value: 2
+				359 text 마켓
+			360 text field (settable) 코인명 또는 심볼 검색
+			361 tab group 마켓 목록 구분
+				362 tab (selected, settable, boolean) 원화, Value: 1
+				363 tab (selectable, settable, boolean) 관심, Value: 0
+				364 tab (selectable, settable, boolean) 보유, Value: 0
+			365 table 마켓 시세 목록
+				366 row
+					367 cell
+						368 button 한글명 기준 정렬
+					369 cell
+						370 button 현재가 기준 정렬
+					371 cell
+						372 button 전일대비 기준 정렬
+					373 cell
+						374 button 거래대금 기준 정렬 (내림차순)
+				375 container
+					376 row 비트코인 거래 화면으로 이동
+						377 cell
+							378 text 비트코인 BTC /KRW
+						379 cell
+							380 text 84,318,000
+						381 cell
+							382 text ▲ +0.00%
+						383 cell
+							384 text 734만
+					385 row 이더리움 거래 화면으로 이동
+						386 cell
+							387 text 이더리움 ETH /KRW
+						388 cell
+							389 text -
+						390 cell
+							391 text 0.00%
+						392 cell
+							393 text 0
+					394 row 솔라나 거래 화면으로 이동
+						395 cell
+							396 text 솔라나 SOL /KRW
+						397 cell
+							398 text -
+						399 cell
+							400 text 0.00%
+						401 cell
+							402 text 0
+					403 row 리플 거래 화면으로 이동
+						404 cell
+							405 text 리플 XRP /KRW
+						406 cell
+							407 text -
+						408 cell
+							409 text 0.00%
+						410 cell
+							411 text 0
+					412 row 도지코인 거래 화면으로 이동
+						413 cell
+							414 text 도지코인 DOGE /KRW
+						415 cell
+							416 text -
+						417 cell
+							418 text 0.00%
+						419 cell
+							420 text 0
+					421 row 에이다 거래 화면으로 이동
+						422 cell
+							423 text 에이다 ADA /KRW
+						424 cell
+							425 text -
+						426 cell
+							427 text 0.00%
+						428 cell
+							429 text 0
+					430 row 트론 거래 화면으로 이동
+						431 cell
+							432 text 트론 TRX /KRW
+						433 cell
+							434 text -
+						435 cell
+							436 text 0.00%
+						437 cell
+							438 text 0
+					439 row 체인링크 거래 화면으로 이동
+						440 cell
+							441 text 체인링크 LINK /KRW
+						442 cell
+							443 text -
+						444 cell
+							445 text 0.00%
+						446 cell
+							447 text 0
+					448 row 폴카닷 거래 화면으로 이동
+						449 cell
+							450 text 폴카닷 DOT /KRW
+						451 cell
+							452 text -
+						453 cell
+							454 text 0.00%
+						455 cell
+							456 text 0
+					457 row 폴리곤 거래 화면으로 이동
+						458 cell
+							459 text 폴리곤 MATIC /KRW
+						460 cell
+							461 text -
+						462 cell
+							463 text 0.00%
+						464 cell
+							465 text 0
+					466 row 아발란체 거래 화면으로 이동
+						467 cell
+							468 text 아발란체 AVAX /KRW
+						469 cell
+							470 text -
+						471 cell
+							472 text 0.00%
+						473 cell
+							474 text 0
+					475 row 코스모스 거래 화면으로 이동
+						476 cell
+							477 text 코스모스 ATOM /KRW
+						478 cell
+							479 text -
+						480 cell
+							481 text 0.00%
+						482 cell
+							483 text 0
+
+The focused UI element is 31 tab (selected, settable, boolean) 1분, Value: 1

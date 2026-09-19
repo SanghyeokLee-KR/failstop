@@ -1,0 +1,458 @@
+{
+  "generatedAt": "2026-09-18T09:08:49.450Z",
+  "checks": [
+    {
+      "name": "native-home-and-starred-sidebar",
+      "status": "PASS",
+      "homeDashboard": "msp-overview",
+      "sidebar": [
+        {
+          "title": "01 · 서비스 관제",
+          "uid": "msp-overview"
+        },
+        {
+          "title": "02 · 트래픽·Spring",
+          "uid": "msp-service"
+        },
+        {
+          "title": "03 · AWS·서버",
+          "uid": "msp-infra"
+        },
+        {
+          "title": "04 · DB·복구",
+          "uid": "msp-db"
+        }
+      ]
+    },
+    {
+      "name": "native-dashboard-links-and-time-range",
+      "status": "PASS",
+      "timeRange": "now-6h",
+      "dashboardLinks": 4,
+      "scopePreserved": true
+    },
+    {
+      "name": "native-alert-rules-and-alertmanager",
+      "status": "PASS",
+      "ruleGroups": 3,
+      "rules": 55,
+      "alertmanagerStatus": 200
+    },
+    {
+      "name": "native-profile-theme-options",
+      "status": "PASS",
+      "profileOptions": [
+        "기본값",
+        "다크",
+        "라이트",
+        "시스템 기본 설정",
+        "Desert bloom",
+        "Deuteranopia/Protanopia Dark",
+        "Deuteranopia/Protanopia Light",
+        "Gilded grove",
+        "Gloom",
+        "Sapphire dusk",
+        "Tritanopia Dark",
+        "Tritanopia Light"
+      ],
+      "selectedLight": true,
+      "renderedLight": true,
+      "preferenceUnchanged": true
+    },
+    {
+      "name": "service-canvas-dark-fixtures",
+      "status": "PASS",
+      "browserResponseOnly": true,
+      "theme": "dark",
+      "uid": "msp-overview",
+      "outcomes": [
+        {
+          "state": "healthy",
+          "stateLabels": [
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            }
+          ],
+          "iconColors": [
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)"
+          ]
+        },
+        {
+          "state": "failed",
+          "stateLabels": [
+            {
+              "text": "▲ 장애",
+              "color": "rgb(242, 73, 92)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(242, 73, 92)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(242, 73, 92)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(242, 73, 92)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(242, 73, 92)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(242, 73, 92)"
+            }
+          ],
+          "iconColors": [
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)"
+          ]
+        },
+        {
+          "state": "missing",
+          "stateLabels": [
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            }
+          ],
+          "iconColors": [
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "database-canvas-dark-fixtures",
+      "status": "PASS",
+      "browserResponseOnly": true,
+      "theme": "dark",
+      "uid": "msp-db",
+      "outcomes": [
+        {
+          "state": "healthy",
+          "stateLabels": [
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            }
+          ],
+          "iconColors": [
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)"
+          ]
+        },
+        {
+          "state": "failed",
+          "stateLabels": [
+            {
+              "text": "▲ 장애",
+              "color": "rgb(242, 73, 92)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(242, 73, 92)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(242, 73, 92)"
+            }
+          ],
+          "iconColors": [
+            "rgb(242, 73, 92)",
+            "rgb(242, 73, 92)"
+          ]
+        },
+        {
+          "state": "missing",
+          "stateLabels": [
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            }
+          ],
+          "iconColors": [
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "service-canvas-light-fixtures",
+      "status": "PASS",
+      "browserResponseOnly": true,
+      "theme": "light",
+      "uid": "msp-overview",
+      "outcomes": [
+        {
+          "state": "healthy",
+          "stateLabels": [
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            }
+          ],
+          "iconColors": [
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)"
+          ]
+        },
+        {
+          "state": "failed",
+          "stateLabels": [
+            {
+              "text": "▲ 장애",
+              "color": "rgb(224, 47, 68)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(224, 47, 68)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(224, 47, 68)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(224, 47, 68)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(224, 47, 68)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(224, 47, 68)"
+            }
+          ],
+          "iconColors": [
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)"
+          ]
+        },
+        {
+          "state": "missing",
+          "stateLabels": [
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            }
+          ],
+          "iconColors": [
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "database-canvas-light-fixtures",
+      "status": "PASS",
+      "browserResponseOnly": true,
+      "theme": "light",
+      "uid": "msp-db",
+      "outcomes": [
+        {
+          "state": "healthy",
+          "stateLabels": [
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            },
+            {
+              "text": "● 정상",
+              "color": "rgb(22, 138, 114)"
+            }
+          ],
+          "iconColors": [
+            "rgb(22, 138, 114)",
+            "rgb(22, 138, 114)"
+          ]
+        },
+        {
+          "state": "failed",
+          "stateLabels": [
+            {
+              "text": "▲ 장애",
+              "color": "rgb(224, 47, 68)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(224, 47, 68)"
+            },
+            {
+              "text": "▲ 장애",
+              "color": "rgb(224, 47, 68)"
+            }
+          ],
+          "iconColors": [
+            "rgb(224, 47, 68)",
+            "rgb(224, 47, 68)"
+          ]
+        },
+        {
+          "state": "missing",
+          "stateLabels": [
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            },
+            {
+              "text": "미수집",
+              "color": "rgb(120, 131, 150)"
+            }
+          ],
+          "iconColors": [
+            "rgb(120, 131, 150)",
+            "rgb(120, 131, 150)"
+          ]
+        }
+      ]
+    }
+  ],
+  "actualServiceStopped": false,
+  "teamsMessagesSent": 0,
+  "status": "PASS"
+}
