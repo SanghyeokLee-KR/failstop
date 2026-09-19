@@ -1,5 +1,7 @@
 # Linux 호스트 설치와 운영 점검
 
+학교 EC2는 Amazon Linux 2023에 직접 설치한 `app/`, `bot/`, `postgresql/`, `observability/`, `reporting/` 설정을 사용한다. 현재 호스트·DB 역할·실행 명령은 [AWS 작업 안내](../../docs/reports/AWS_작업.md)를 먼저 읽는다. 아래 Ubuntu·Rocky bootstrap과 Docker 제어 절차는 별도 로컬 실습 구현이며, 학교 서버에 실행했던 명령으로 혼동하거나 기존 서비스에 그대로 적용하지 않는다.
+
 이 폴더는 Ubuntu 실습 환경과 Rocky Linux 운영 호스트의 계정, 별도 SSH 접속, 서비스 자동 기동, 로그 보존과 역할별 방화벽을 구성한다. 기본 명령은 변경 내용을 미리 보여 주며 `--apply`를 붙였을 때만 설치한다. 실제 적용 결과는 [로드맵](../../docs/ROADMAP.md)에서 관리한다. 이 설정을 작성한 것과 AWS에 적용한 것은 구분한다.
 
 운영자 계정 `failstop-ops`에는 Docker 그룹이나 일반 관리자 그룹을 주지 않는다. 공개키로 로그인한 뒤 등록된 역할의 서비스 상태 조회와 재시작만 `sudo failstop-control`로 수행한다. 진단 timer는 로그인할 수 없는 `failstop` 계정으로 실행한다. Docker를 제어하는 Compose 서비스는 root로 실행하고, 해당 구성과 환경 파일은 root만 변경할 수 있게 둔다. 컨테이너 내부 실행 사용자는 각 이미지의 설정을 따른다.

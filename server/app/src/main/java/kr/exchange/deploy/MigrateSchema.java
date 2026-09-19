@@ -21,7 +21,7 @@ public final class MigrateSchema {
     static String required(String key) {
         String value = System.getenv(key);
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("마이그레이션 필수 설정이 없습니다: " + key);
+            throw new IllegalArgumentException("마이그레이션 필수 설정 누락: " + key);
         }
         return value;
     }
