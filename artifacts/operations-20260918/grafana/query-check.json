@@ -1,0 +1,601 @@
+{
+  "validated_queries": 85,
+  "with_data": 61,
+  "results": [
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "요청 처리율",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "서버 오류율 · 5xx",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "응답 시간 · P95",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "고객 라벨 경보",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "B",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "C",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "D",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "E",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "F",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "요청 추이 · 인스턴스",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "응답 시간 · 평균 / P95",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "응답 시간 · 평균 / P95",
+      "refId": "B",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "DB 복제 · WAL 재생 거리",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "CPU / JVM 사용률",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "CPU / JVM 사용률",
+      "refId": "B",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "서비스 가용성 · 장애 구간",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "서비스 가용성 · 장애 구간",
+      "refId": "B",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "서비스 가용성 · 장애 구간",
+      "refId": "C",
+      "series": 2,
+      "finite_series": 2
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "진행 경보 · 고객 라벨",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "등록 대상",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "10-msp-overview.json",
+      "panel": "수집 응답률",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "요청 처리율",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "서버 오류율 · 5xx",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "응답 시간 · P95",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "서비스 상태",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "B",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "C",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "D",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "E",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "F",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "요청 처리율 · 인스턴스",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "응답 시간 · 평균 / P95 / P99",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "응답 시간 · 평균 / P95 / P99",
+      "refId": "B",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "응답 시간 · 평균 / P95 / P99",
+      "refId": "C",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "HTTP 응답 코드 · 처리율",
+      "refId": "A",
+      "series": 2,
+      "finite_series": 2
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "CPU 사용률 · Spring",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "JVM 메모리 사용률",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "JVM 메모리 사용률",
+      "refId": "B",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "JVM GC 시간 비율",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "활성 스레드",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "DB 연결 풀 · 사용 / 한도",
+      "refId": "A",
+      "series": 3,
+      "finite_series": 3
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "DB 연결 풀 · 사용 / 한도",
+      "refId": "B",
+      "series": 3,
+      "finite_series": 3
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "인스턴스 · 요청 수용 상태",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "요청 경로 · 상위 5개",
+      "refId": "A",
+      "series": 2,
+      "finite_series": 2
+    },
+    {
+      "dashboard": "11-msp-service.json",
+      "panel": "요청 수용 · 인스턴스 이력",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "고객 호스트 · 등록 수",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "CPU 사용률 · 최대",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "메모리 사용률 · 최대",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "디스크 사용률 · 최대",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "B",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "C",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "D",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "E",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "서비스 경로 · 계층별 상태",
+      "refId": "F",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "CPU 사용률 · 고객 호스트",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "메모리 사용률",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "파일시스템 사용률",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "inode 사용률",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "네트워크 수신",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "네트워크 송신",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "디스크 I/O 활성 시간",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "호스트 수집 · 응답 이력",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "12-msp-infra.json",
+      "panel": "수집 대상 · 고객 자원",
+      "refId": "A",
+      "series": 4,
+      "finite_series": 4
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "Primary · 단일 구성",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "Standby · 복제 구성",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "연결 사용률 · 최대",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "WAL 재생 거리",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "DB 복제 구성 · 현재 역할",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "DB 복제 구성 · 현재 역할",
+      "refId": "B",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "DB 복제 구성 · 현재 역할",
+      "refId": "C",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "DB 복제 구성 · 현재 역할",
+      "refId": "D",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "WAL 재생 거리",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "DB 연결 사용률",
+      "refId": "A",
+      "series": 2,
+      "finite_series": 2
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "트랜잭션 처리율",
+      "refId": "A",
+      "series": 2,
+      "finite_series": 2
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "활성 세션",
+      "refId": "A",
+      "series": 2,
+      "finite_series": 2
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "전체 잠금 수",
+      "refId": "A",
+      "series": 2,
+      "finite_series": 2
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "WAL 위치 증가율",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "복제 지연 · replay lag",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "테이블 크기 · 상위 5개",
+      "refId": "A",
+      "series": 5,
+      "finite_series": 5
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "DB 역할 · 복구 모드",
+      "refId": "A",
+      "series": 2,
+      "finite_series": 2
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "최근 백업 · 경과 시간",
+      "refId": "A",
+      "series": 0,
+      "finite_series": 0
+    },
+    {
+      "dashboard": "13-msp-db.json",
+      "panel": "진행 경보 · 고객 라벨",
+      "refId": "A",
+      "series": 1,
+      "finite_series": 1
+    }
+  ]
+}

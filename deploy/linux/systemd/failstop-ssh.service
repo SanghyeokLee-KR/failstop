@@ -1,0 +1,17 @@
+[Unit]
+Description=Failstop operator SSH
+After=network.target failstop-firewall.service
+ConditionPathExists=/etc/failstop/sshd_config
+
+[Service]
+Type=exec
+ExecStartPre=/usr/bin/install -d -m 0755 /run/sshd
+ExecStartPre=/usr/sbin/sshd -t -f /etc/failstop/sshd_config
+ExecStart=/usr/sbin/sshd -D -e -f /etc/failstop/sshd_config
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

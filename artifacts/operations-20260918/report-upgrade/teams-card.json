@@ -1,0 +1,190 @@
+{
+  "type": "message",
+  "attachments": [
+    {
+      "contentType": "application/vnd.microsoft.card.adaptive",
+      "contentUrl": null,
+      "content": {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.2",
+        "body": [
+          {
+            "type": "TextBlock",
+            "text": "페일스톱 · 운영 보고",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "DB 백업 상태 확인 필요 · 해제",
+            "wrap": true,
+            "size": "Large",
+            "weight": "Bolder"
+          },
+          {
+            "type": "TextBlock",
+            "text": "알림 해제  \\|  2026-09-18 11:07 KST",
+            "wrap": true,
+            "color": "Good",
+            "weight": "Bolder"
+          },
+          {
+            "type": "TextBlock",
+            "text": "이번 알림 1건의 해제 전환을 수신했습니다. 서비스 전체 복구를 의미하지는 않습니다.",
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "지표 구간: 2026-09-18 10:52 KST ~ 2026-09-18 11:07 KST",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "영향과 현재 상태",
+            "wrap": true,
+            "weight": "Bolder",
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "사용자 영향은 미확인입니다. 이 자료에는 요청 실패 범위·영향 사용자 수를 확정할 근거가 없습니다.",
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "이번 알림 1건의 해제 전환을 수신했습니다. 서비스 전체 복구를 의미하지는 않습니다. 수집 당시 전체 경보 목록에는 진행 3건이 별도로 관측됐습니다.",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "해제 · DB 백업 상태 확인 필요 / 대상 정보 미제공",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "분석 요약 · 운영자 검토 필요",
+            "wrap": true,
+            "weight": "Bolder",
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "현재 호스트 디스크 가용 공간 부족\\(15% 미만\\) 경보가 지속 중이며, 거래 체결이 발생하지 않는 TradeSilence 경보가 활성화되어 있습니다. DB 복제 및 연결 상태는 정상이나, 업무 트래픽 지표가 수집되지 않아 서비스 영향도를 즉시 판단하기 어렵습니다.",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "핵심 지표",
+            "wrap": true,
+            "weight": "Bolder",
+            "separator": true
+          },
+          {
+            "type": "FactSet",
+            "facts": [
+              {
+                "title": "최근 백업 성공",
+                "value": "2026-09-18 09:58 KST"
+              },
+              {
+                "title": "디스크 여유",
+                "value": "14.74% 여유"
+              },
+              {
+                "title": "지표 수집 응답",
+                "value": "7/7개 응답"
+              },
+              {
+                "title": "실패 서비스",
+                "value": "0개 실패"
+              },
+              {
+                "title": "DB 연결",
+                "value": "11개"
+              },
+              {
+                "title": "WAL 재생 거리",
+                "value": "0 B"
+              }
+            ]
+          },
+          {
+            "type": "TextBlock",
+            "text": "최근 백업 성공: 1.2시간 전 · 성공 시각만 확인하며 복원 가능 여부는 별도 검증이 필요합니다.",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "디스크 여유: /mnt/c · 구간 마지막 값 중 최소 / 6개 수집 표본 · 수집 구간 최저 14.74%",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "우선 확인",
+            "wrap": true,
+            "weight": "Bolder",
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "1. 디스크 가용 공간을 확보하고, 서비스 로그에서 쓰기 오류나 디스크 관련 예외 사항이 발생하는지 확인이 필요합니다.",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "2. TradeSilence 경보와 관련하여 애플리케이션 내부 상태 및 거래 엔진 프로세스의 정상 작동 여부를 점검해야 합니다.",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "3. 업무 트래픽 지표 수집이 누락된 원인을 파악하기 위해 메트릭 수집기\\(Prometheus\\)의 대상 연결 상태를 재점검합니다.",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "확인하지 못한 자료: 서비스 요청: 자료 없음; 5xx 응답: 자료 없음; 응답 시간 P95: 자료 없음; 상세 로그: 자료 없음; AWS 변경 기록: 자료 없음",
+            "wrap": true,
+            "size": "Small",
+            "color": "Warning"
+          },
+          {
+            "type": "TextBlock",
+            "text": "Gemini 분석 참고 · 생성된 의견은 운영자 확인이 필요하며 상태 표시는 수집 근거를 따릅니다.",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true,
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "자동 운영 조치는 실행하지 않았습니다. 아래 항목은 확인 권고입니다.",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "보고 ID: review:backup-1789697244",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          }
+        ]
+      }
+    }
+  ]
+}

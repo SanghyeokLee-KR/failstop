@@ -14,6 +14,7 @@ on:
     branches: [main, develop]
     paths:
       - 'server/**'
+      - 'deploy/provision-runtime-roles.sql'
       - 'harness/prometheus/**'
       - 'harness/grafana/dashboards/**'
       - '.github/workflows/ci-backend.yml'
@@ -23,6 +24,7 @@ on:
     branches: [main, develop]
     paths:
       - 'server/**'
+      - 'deploy/provision-runtime-roles.sql'
       - 'harness/prometheus/**'
       - 'harness/grafana/dashboards/**'
       - '.github/workflows/ci-backend.yml'

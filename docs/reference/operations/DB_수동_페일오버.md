@@ -1,13 +1,10 @@
 # PostgreSQL 수동 페일오버 절차
 
-상태: 2-4 승격과 2-7 재편입은 단일 호스트에서 실측했다(`harness/evidence/failover-rpo-20260912/`).
-2-2 fencing, 2-5 엔드포인트 전환, 2-6 리스 재획득을 포함한 전체 리허설은 0회이고 다중 호스트
-기동도 0건이다.
+2026-09-18에는 [격리 실습 도구](../../../deploy/lab/README.md)로 primary 정지 확인, 승격, 앱 주소 전환·리스 회복, 새 볼륨 재편입과 백업 복원을 한 Docker 호스트에서 검증했다. 실제 체결·ACK·원장과 불변식 판정은 [실행 근거](../../../artifacts/operations-20260918/db-recovery-drill.json)에 있다. 쓰기를 멈추고 복제를 따라잡게 한 조건이며 AWS 다중 호스트나 급작스러운 장애의 무손실 결과가 아니다. 이전 승격·재편입 측정은 `harness/evidence/failover-rpo-20260912/`에 보존한다.
 정본 관계: 복제 정책은 `docs/reference/adr/0024-async-two-node-replication.md`. 배선은
 `deploy/compose.node-data.yml`.
 
-**자동 페일오버가 아니다.** 저장소에 `pg_ctl promote`, `pg_promote()`, `promote_trigger_file` 이
-한 건도 없다. 사람이 판단하고 사람이 승격한다. 이 문서가 그 순서다.
+사람이 장애와 격리를 판단하고 수동으로 승격한다. 실습 도구가 명시적으로 실행하는 `pg_promote()`를 운영 자동 페일오버 정책으로 해석하지 않는다.
 
 앱 리더 페일오버(`leader_lease`, `assert_current_leader` fencing)와 혼동하지 않는다. 그것은
 DB 가 살아 있을 때 앱 사이에서 도는 장치이고, 여기는 DB 자체가 죽었을 때다.
@@ -43,14 +40,14 @@ pg_isready -h <primary> -p 5432 -U <db_user> -d exchange
 **이 단계를 건너뛰지 않는다.** 가능한 수단을 위에서부터 시도한다.
 
 1. 컨테이너 정지. `docker stop <primary 컨테이너>`
-2. 도달 불가면 보안그룹에서 5432 인바운드를 제거한다. 앱이 붙을 수 없게 만든다.
+2. 연결을 차단할 때는 새 접속뿐 아니라 이미 연결된 앱의 쓰기까지 차단됐는지 확인한다. 보안 그룹 규칙 제거만으로 기존 추적 연결이 즉시 끊겼다고 판단하지 않는다.
 3. 인스턴스 정지. 마지막 수단이다.
 
 fencing 이 확인되기 전에는 아래로 내려가지 않는다.
 
 ### 2-3. standby 복제 상태 확인
 
-승격 전에 얼마나 받았는지 본다. **이 값이 이번 장애의 실제 RPO 다.** 기록한다.
+승격 전에 receive·replay WAL 위치와 마지막 replay 시각을 기록한다. 마지막 replay 이후 경과 시간은 쓰기가 없을 때도 증가하므로 이 값만으로 실제 RPO나 유실 거래 수를 단정하지 않는다.
 
 ```sql
 SELECT pg_last_wal_receive_lsn(),
@@ -61,8 +58,7 @@ SELECT pg_last_wal_receive_lsn(),
 `receive` 와 `replay` 가 벌어져 있으면 재생이 끝나기를 기다린다. 재생 중 승격하면 그만큼 더
 잃는다.
 
-구 primary 에 접근할 수 있다면 그쪽 `pg_current_wal_lsn()` 과 비교해 유실 구간을 산출한다.
-접근 불가면 유실량을 모른다. 모르면 모른다고 기록한다.
+구 primary에 접근할 수 있다면 `pg_current_wal_lsn()`과 비교해 WAL 거리와 재생 대기 여부를 확인한다. WAL 바이트 차이는 거래 건수나 손실 시간과 같지 않다. 실제 승인된 주문 ACK·명령 저널·체결을 비교해 유실 범위를 판정한다. 접근이 불가하거나 원자료가 없으면 유실량을 미확인으로 남긴다.
 
 ### 2-4. standby 승격
 
@@ -83,7 +79,7 @@ SELECT pg_is_in_recovery();   -- f 가 나와야 한다
 
 ### 2-5. 앱 DB 엔드포인트 전환
 
-앱 노드의 `DB_HOST` 를 새 primary 로 바꾸고 재기동한다.
+앱·조회·봇의 `DB_HOST`를 새 primary로 바꾸고 재기동한다. exporter와 백업 대상도 새 역할에 맞춘다.
 
 ```
 # 각 앱 노드에서
@@ -91,7 +87,7 @@ sed -i 's/^DB_HOST=.*/DB_HOST=<새 primary>/' .env
 docker compose -f compose.node-app.yml --env-file .env up -d --force-recreate app
 ```
 
-**`deploy/` 에 엔드포인트 자동 전환 장치가 없다.** DNS 전환이든 변수 교체든 사람이 한다.
+운영 주소 전환은 DNS든 변수 교체든 사람이 수행한다. 실습 도구의 전용 환경 파일 전환은 실제 AWS 전환 장치가 아니다.
 
 ### 2-6. 리스 재획득과 앱 정상화
 

@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "source": "evidence-report.json",
+  "checks": {
+    "pages": 2,
+    "a4": true,
+    "backup_resolved": true,
+    "backup_record": true,
+    "db_connections": true,
+    "impact_unknown": true,
+    "no_ai_claim": true,
+    "no_script": true
+  },
+  "visual_review": "Both pages rendered and inspected; no clipping, overlaps or missing Korean glyphs."
+}

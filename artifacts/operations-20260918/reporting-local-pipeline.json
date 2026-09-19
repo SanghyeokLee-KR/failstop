@@ -1,0 +1,29 @@
+{
+  "started_at": "2026-09-18T01:17:56+00:00",
+  "destination": "loopback-only mock sink",
+  "external_messages": 0,
+  "firing": {
+    "id": "incident:2406b4c6cc8d143cbebe67ab31ddf6e04a60aa96cd50bee4324ff25591cd7966",
+    "status": "sent",
+    "attempts": 1,
+    "mode": "mock"
+  },
+  "duplicate_suppressed": true,
+  "resolved": {
+    "id": "incident:56e485dc935a997b3d4d0db689649aad3714eef151140f170d184547ae6e028a",
+    "status": "sent",
+    "attempts": 1,
+    "mode": "mock"
+  },
+  "daily": {
+    "id": "daily:2026-09-18",
+    "status": "sent",
+    "attempts": 1,
+    "mode": "mock"
+  },
+  "daily_duplicate_suppressed": true,
+  "cards_received": 5,
+  "adaptive_card_envelopes": true,
+  "status": "PASS",
+  "notifications_after_test": "quiet"
+}

@@ -1,0 +1,192 @@
+{
+  "type": "message",
+  "attachments": [
+    {
+      "contentType": "application/vnd.microsoft.card.adaptive",
+      "contentUrl": null,
+      "content": {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.2",
+        "body": [
+          {
+            "type": "TextBlock",
+            "text": "페일스톱 · 운영 보고",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "P2 · 담당자 조치 필요",
+            "wrap": true,
+            "size": "Large",
+            "weight": "Bolder",
+            "color": "Warning"
+          },
+          {
+            "type": "TextBlock",
+            "text": "/mnt/c 디스크 여유 14.8%",
+            "wrap": true,
+            "weight": "Bolder"
+          },
+          {
+            "type": "TextBlock",
+            "text": "최근 DB 백업 확인 경보 · 해제 \\| 2026-09-18 11:42 KST",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "10:40 KST에 최근 DB 백업 확인 경보가 해제됐습니다.\n마지막 백업 성공 기록은 09:58 KST입니다.",
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "후속 지표 구간: 2026-09-18 11:27 KST ~ 2026-09-18 11:42 KST",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "고객 영향 미확인 · 요청 실패 범위·영향 사용자 수 자료 없음",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "진행 경보: 디스크 여유 공간 부족 2건; 거래 발생 없음 \\(유휴 실습 참고\\) 1건",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "조치와 완료 조건",
+            "wrap": true,
+            "weight": "Bolder",
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "P2 · Linux 운영 담당 · 금일 점검 권고",
+            "wrap": true,
+            "weight": "Bolder",
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "/mnt/c 증가 원인·잔여 용량·보존 대상 확인 후 정리 또는 증설 검토",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "완료: 여유 15% 이상과 5분 뒤 경보 상태 확인",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "P3 · DB 운영 담당 · 금일 확인 권고",
+            "wrap": true,
+            "weight": "Bolder",
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "백업 파일·다음 예약 실행·격리 복원 결과 대조",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "완료: 예약 활성·다음 실행 시각과 백업 ID에 연결된 복원 성공 기록 확보",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "P3 · 관측·서비스 운영 담당 · 다음 판정 전 확인 권고",
+            "wrap": true,
+            "weight": "Bolder",
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "누락·오래된 항목의 대상·수집 시각·명시된 누락 사유 확인",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "완료: 필수 근거의 최신 표본과 실제 요청 결과 확보",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "핵심 지표",
+            "wrap": true,
+            "weight": "Bolder",
+            "separator": true
+          },
+          {
+            "type": "FactSet",
+            "facts": [
+              {
+                "title": "최근 백업 성공",
+                "value": "2026-09-18 09:58 KST"
+              },
+              {
+                "title": "디스크 여유",
+                "value": "14.79% 여유"
+              },
+              {
+                "title": "지표 수집 응답",
+                "value": "7/7개 응답"
+              },
+              {
+                "title": "실패 서비스",
+                "value": "0개 실패"
+              },
+              {
+                "title": "DB 연결",
+                "value": "11개"
+              },
+              {
+                "title": "WAL 재생 거리",
+                "value": "0 B"
+              }
+            ]
+          },
+          {
+            "type": "TextBlock",
+            "text": "판단 제한: 서비스 요청: 자료 없음; 5xx 응답: 자료 없음; 응답 시간 P95: 자료 없음; 상세 로그: 자료 없음; AWS 변경 기록: 자료 없음",
+            "wrap": true,
+            "size": "Small",
+            "color": "Warning"
+          },
+          {
+            "type": "TextBlock",
+            "text": "수집 근거로 판정 · AI 분석 없음 · 수집 시점의 권고 기준 · 담당 역할·착수 시점은 SLA나 작업 배정이 아님 · 자동 조치 없음",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true,
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "보고 ID: review:backup-template-1789699321",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          }
+        ]
+      }
+    }
+  ]
+}

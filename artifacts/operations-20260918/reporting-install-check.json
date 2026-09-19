@@ -1,0 +1,16 @@
+{
+  "operator_ssh": "PASS",
+  "collector_refresh_permissions": "PASS",
+  "report_status": {
+    "counts": {
+      "sent": 4
+    },
+    "last_daily_sent": 1789695077.2720933,
+    "oldest_pending": null,
+    "delivery_enabled": true
+  },
+  "timer": "ActiveState=active\nNextElapseUSecRealtime=Sat 2026-09-19 09:00:00 KST",
+  "services": "failstop-firewall.service        loaded active   exited  Failstop scoped host and container firewall\nfailstop-host-check.service      loaded inactive dead    Failstop host diagnostics\nfailstop-host-evidence.service   loaded inactive dead    Collect bounded Linux operating evidence\nfailstop-node-exporter.service   loaded active   running Failstop Linux metrics\nfailstop-reporting-daily.service loaded inactive dead    Queue one daily operational report\nfailstop-reporting.service       loaded active   running Failstop operational evidence and Teams reporting\nfailstop-ssh.service             loaded active   running Failstop operator SSH\nfailstop-host-check.timer        loaded active   waiting Run Failstop host diagnostics every five minutes\nfailstop-host-evidence.timer     loaded active   waiting Collect Linux evidence every minute\nfailstop-reporting-daily.timer   loaded active   waiting Daily operations report at 09:00 Asia/Seoul",
+  "scope": "local Ubuntu after targeted WSL restart",
+  "status": "PASS"
+}

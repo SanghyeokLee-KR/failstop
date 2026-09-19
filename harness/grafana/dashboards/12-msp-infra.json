@@ -1,17 +1,102 @@
 {
   "uid": "msp-infra",
-  "title": "인프라 상세",
+  "title": "03 · AWS·서버",
+  "description": "고객 서비스 관제 · 실측 자료 · 미수집 분리 · 운영자 판단",
   "tags": [
-    "msp"
+    "MSP",
+    "customer-operations"
   ],
-  "timezone": "browser",
   "schemaVersion": 39,
-  "editable": true,
-  "refresh": "10s",
+  "version": 1,
+  "editable": false,
+  "timezone": "Asia/Seoul",
+  "refresh": "15s",
   "time": {
-    "from": "now-30m",
+    "from": "now-1h",
     "to": "now"
   },
+  "timepicker": {
+    "refresh_intervals": [
+      "15s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "links": [
+    {
+      "type": "link",
+      "title": "01 · 서비스 관제",
+      "url": "/d/msp-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "02 · 트래픽·Spring",
+      "url": "/d/msp-service",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "03 · AWS·서버",
+      "url": "/d/msp-infra",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "04 · DB 관제",
+      "url": "/d/msp-db",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "05 · SQL·세션",
+      "url": "/d/msp-db-workload",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "06 · 복제·복구",
+      "url": "/d/msp-db-replication",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "다크",
+      "url": "/d/msp-infra?theme=dark",
+      "targetBlank": true,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "라이트",
+      "url": "/d/msp-infra?theme=light",
+      "targetBlank": true,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    }
+  ],
   "templating": {
     "list": [
       {
@@ -22,561 +107,3192 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": {
-          "query": "label_values(up, customer)",
-          "refId": "customer"
-        },
         "refresh": 1,
-        "current": {},
-        "includeAll": false,
-        "multi": false
+        "query": "label_values(up{role=~\"app|reader|data|standby|probe\"}, customer)",
+        "current": {
+          "text": "exchange",
+          "value": "exchange"
+        }
       },
       {
-        "name": "service",
-        "label": "서비스",
+        "name": "environment",
+        "label": "환경",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": {
-          "query": "label_values(up{customer=\"$customer\"}, service)",
-          "refId": "service"
-        },
         "refresh": 1,
-        "current": {},
-        "includeAll": true,
-        "multi": false
+        "query": "label_values(up{customer=\"$customer\",role=~\"app|reader|data|standby|probe\"}, environment)",
+        "current": {
+          "text": "local-lab",
+          "value": "local-lab"
+        }
+      },
+      {
+        "name": "aws_region",
+        "label": "AWS 리전",
+        "type": "textbox",
+        "hide": 2,
+        "query": "ap-northeast-2",
+        "current": {
+          "text": "ap-northeast-2",
+          "value": "ap-northeast-2"
+        },
+        "skipUrlSync": false
+      },
+      {
+        "name": "aws_alb",
+        "label": "ALB",
+        "type": "textbox",
+        "hide": 2,
+        "query": "UNCONFIGURED",
+        "current": {
+          "text": "UNCONFIGURED",
+          "value": "UNCONFIGURED"
+        },
+        "skipUrlSync": false
+      },
+      {
+        "name": "aws_asg",
+        "label": "조회 ASG",
+        "type": "textbox",
+        "hide": 2,
+        "query": "UNCONFIGURED",
+        "current": {
+          "text": "UNCONFIGURED",
+          "value": "UNCONFIGURED"
+        },
+        "skipUrlSync": false
+      },
+      {
+        "name": "aws_reader_target_group",
+        "label": "조회 대상 그룹",
+        "type": "textbox",
+        "hide": 2,
+        "query": "UNCONFIGURED",
+        "current": {
+          "text": "UNCONFIGURED",
+          "value": "UNCONFIGURED"
+        },
+        "skipUrlSync": false
+      },
+      {
+        "name": "aws_ebs_volume",
+        "label": "EBS 볼륨",
+        "type": "textbox",
+        "hide": 2,
+        "query": "UNCONFIGURED",
+        "current": {
+          "text": "UNCONFIGURED",
+          "value": "UNCONFIGURED"
+        },
+        "skipUrlSync": false
       }
     ]
   },
-  "links": [
-    {
-      "type": "dashboards",
-      "title": "MSP 대시보드",
-      "tags": [
-        "msp"
-      ],
-      "asDropdown": false,
-      "includeVars": true,
-      "keepTime": true,
-      "icon": "external link"
-    },
-    {
-      "type": "link",
-      "title": "MSP 종합",
-      "url": "/d/msp-overview?${__url_time_range}",
-      "icon": "arrow-left",
-      "targetBlank": false
-    }
-  ],
+  "annotations": {
+    "list": [
+      {
+        "name": "고객 경보",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "red",
+        "expr": "(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"} and (time() - timestamp(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"}) < 90))",
+        "titleFormat": "{{alertname}}",
+        "textFormat": "{{node}} · {{severity}}"
+      }
+    ]
+  },
   "panels": [
     {
-      "type": "row",
-      "title": "노드",
+      "type": "stat",
+      "title": "고객 호스트 · 등록 수",
+      "description": "",
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 24,
-        "h": 1
+        "w": 6,
+        "h": 3
       },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "컨테이너 CPU",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "호스트 코어 1개가 100 이다.",
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"})",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "CPU 사용률 · 최대",
+      "description": "",
       "gridPos": {
-        "x": 0,
-        "y": 1,
-        "w": 12,
-        "h": 8
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "decimals": 0,
-          "max": null,
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "orange"
+              },
+              {
+                "value": 90,
+                "color": "red"
+              }
+            ]
           }
         },
         "overrides": []
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(100 * (1 - avg by(node,instance)(((rate(node_cpu_seconds_total{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",mode=\"idle\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)))))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "메모리 사용률 · 최대",
+      "description": "",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "orange"
+              },
+              {
+                "value": 90,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(100 * (1 - ((node_memory_MemAvailable_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)) / ((node_memory_MemTotal_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1))))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "디스크 사용률 · 최대",
+      "description": "",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "orange"
+              },
+              {
+                "value": 90,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(100 * (1 - ((node_filesystem_avail_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",fstype!~\"tmpfs|overlay|squashfs|9p|drvfs\",mountpoint!~\"/run.*|/var/lib/docker.*\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)) / ((node_filesystem_size_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",fstype!~\"tmpfs|overlay|squashfs|9p|drvfs\",mountpoint!~\"/run.*|/var/lib/docker.*\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1))))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 4
+    },
+    {
+      "type": "canvas",
+      "title": "서비스 경로 · 계층별 상태",
+      "description": "선택 고객·환경의 실측 상태. 회색은 미수집 또는 미연결. 화살표는 설계 경로이며 구간별 네트워크 성공 판정이 아님. DB 역할은 호출 쿼리의 in_recovery 기준.",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "transparent": false,
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(min(((probe_success{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) < 90)) == 1))) == 0) or (min(((probe_success{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) < 90)) == 1))) and on() (count(((probe_success{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) < 90)) == 1))) == count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"})))",
+          "legendFormat": "edge",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "min(((probe_success{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\",service=\"cloudfront\",environment=\"aws\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) < 90)) == 1)))",
+          "legendFormat": "cloudfront",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "C",
+          "expr": "min(((probe_success{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\",service=\"alb\",environment=\"aws\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"blackbox-http\"}) < 90)) == 1)))",
+          "legendFormat": "alb",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "D",
+          "expr": "(min(((exchange_node_serviceable{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) == 0) or (min(((exchange_node_serviceable{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) and on() (count(((exchange_node_serviceable{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"}) < 90)) == 1))) == count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"exchange-api\"})))",
+          "legendFormat": "spring",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "E",
+          "expr": "(0 * ((count(((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (0 * count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))))) > 1)) or (((count(((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (0 * count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))))) == bool 1) and on() (count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))) == count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"})))",
+          "legendFormat": "primary",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "F",
+          "expr": "((count(((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1) or (0 * count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))))) >= bool 1) and on() (count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))) == count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}))",
+          "legendFormat": "standby",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "미수집",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#788396"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "#788396"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "D"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "E"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "F"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "inlineEditing": false,
+        "panZoom": false,
+        "zoomToContent": false,
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "single",
+          "disableForOneClick": false
+        },
+        "root": {
+          "name": "관측 경로",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "edge-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 0.6,
+                "right": 84.4,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "edge",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "cloudfront-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "edge-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 1.6,
+                "right": 95.30000000000001,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/globe.svg"
+                },
+                "fill": {
+                  "field": "edge",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "edge-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 5.3,
+                "right": 84.9,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "외부 접속"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "edge-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 1.1,
+                "right": 84.9,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "edge"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "cloudfront-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 17.200000000000003,
+                "right": 67.8,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "cloudfront",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "alb-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "cloudfront-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 18.200000000000003,
+                "right": 78.7,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/cloud.svg"
+                },
+                "fill": {
+                  "field": "cloudfront",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "cloudfront-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 21.900000000000002,
+                "right": 68.3,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "CloudFront"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "cloudfront-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 17.700000000000003,
+                "right": 68.3,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "cloudfront"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "alb-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 33.800000000000004,
+                "right": 51.19999999999999,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "alb",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "spring-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "alb-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 34.800000000000004,
+                "right": 62.09999999999999,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/exchange.svg"
+                },
+                "fill": {
+                  "field": "alb",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "alb-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 38.50000000000001,
+                "right": 51.69999999999999,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "ALB"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "alb-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 34.300000000000004,
+                "right": 51.69999999999999,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "alb"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "spring-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 50.400000000000006,
+                "right": 34.599999999999994,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "spring",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "primary-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "spring-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 51.400000000000006,
+                "right": 45.49999999999999,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/server.svg"
+                },
+                "fill": {
+                  "field": "spring",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "spring-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 55.10000000000001,
+                "right": 35.099999999999994,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Spring Boot"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "spring-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 50.900000000000006,
+                "right": 35.099999999999994,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "spring"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 67.0,
+                "right": 18.0,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "primary",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "standby-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "primary-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 68.0,
+                "right": 28.9,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/database.svg"
+                },
+                "fill": {
+                  "field": "primary",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 71.7,
+                "right": 18.499999999999996,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Primary DB"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 67.5,
+                "right": 18.5,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "primary"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 83.6,
+                "right": 1.4000000000000057,
+                "top": 4,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "standby",
+                  "fixed": "#788396"
+                }
+              }
+            },
+            {
+              "name": "standby-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 84.6,
+                "right": 12.300000000000006,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/database.svg"
+                },
+                "fill": {
+                  "field": "standby",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 88.3,
+                "right": 1.9000000000000021,
+                "top": 16,
+                "bottom": 54,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Standby DB"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 84.1,
+                "right": 1.9000000000000057,
+                "top": 59,
+                "bottom": 16,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "standby"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            }
+          ]
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU 사용률 · 고객 호스트",
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "max": 100
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - avg by(node,instance)(((rate(node_cpu_seconds_total{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",mode=\"idle\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1))))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
         }
       },
-      "targets": [
-        {
-          "expr": "max by(name)(container_cpu_percent{name=~\"chaos-.*\"})",
-          "legendFormat": "{{name}}",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ]
+      "id": 6
     },
     {
       "type": "timeseries",
-      "title": "컨테이너 메모리",
+      "title": "메모리 사용률",
+      "description": "",
+      "gridPos": {
+        "x": 6,
+        "y": 7,
+        "w": 6,
+        "h": 4
+      },
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "max": 100
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - ((node_memory_MemAvailable_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)) / ((node_memory_MemTotal_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "파일시스템 사용률",
       "description": "",
       "gridPos": {
         "x": 12,
-        "y": 1,
-        "w": 12,
-        "h": 8
+        "y": 7,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
           "unit": "percent",
-          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
           "max": 100,
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "orange"
+              }
+            ]
           }
         },
         "overrides": []
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - ((node_filesystem_avail_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",fstype!~\"tmpfs|overlay|squashfs|9p|drvfs\",mountpoint!~\"/run.*|/var/lib/docker.*\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)) / ((node_filesystem_size_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",fstype!~\"tmpfs|overlay|squashfs|9p|drvfs\",mountpoint!~\"/run.*|/var/lib/docker.*\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)))",
+          "legendFormat": "{{node}} {{mountpoint}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
         }
       },
-      "targets": [
-        {
-          "expr": "max by(name)(container_mem_bytes{name=~\"chaos-.*\"})/clamp_min(max by(name)(container_mem_limit_bytes{name=~\"chaos-.*\"}),1)*100",
-          "legendFormat": "{{name}}",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ]
-    },
-    {
-      "type": "row",
-      "title": "망과 스레드",
-      "gridPos": {
-        "x": 0,
-        "y": 9,
-        "w": 24,
-        "h": 1
-      },
-      "collapsed": false,
-      "panels": []
+      "id": 8
     },
     {
       "type": "timeseries",
-      "title": "네트워크",
+      "title": "inode 사용률",
+      "description": "",
+      "gridPos": {
+        "x": 18,
+        "y": 7,
+        "w": 6,
+        "h": 4
+      },
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
-      },
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 10,
-        "w": 12,
-        "h": 8
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "Bps",
-          "decimals": 0,
-          "max": null,
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
           "color": {
             "mode": "palette-classic"
           },
+          "unit": "percent",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 2,
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
             "fillOpacity": 8,
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
             "stacking": {
               "mode": "none",
               "group": "A"
             },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "orange"
+              }
+            ]
           }
         },
         "overrides": []
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - ((node_filesystem_files_free{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",fstype!~\"tmpfs|overlay|squashfs|9p|drvfs\",mountpoint!~\"/run.*|/var/lib/docker.*\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)) / (((node_filesystem_files{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",fstype!~\"tmpfs|overlay|squashfs|9p|drvfs\",mountpoint!~\"/run.*|/var/lib/docker.*\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)) > 0))",
+          "legendFormat": "{{node}} {{mountpoint}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
         }
       },
-      "targets": [
-        {
-          "expr": "max by(name)(rate(container_net_rx_bytes{name=~\"chaos-.*\"}[1m]))",
-          "legendFormat": "{{name}} 수신",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "expr": "max by(name)(rate(container_net_tx_bytes{name=~\"chaos-.*\"}[1m]))",
-          "legendFormat": "{{name}} 송신",
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ]
+      "id": 9
     },
     {
       "type": "timeseries",
-      "title": "스레드",
+      "title": "네트워크 수신",
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((rate(node_network_receive_bytes_total{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",device!=\"lo\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1))",
+          "legendFormat": "{{node}} {{device}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "네트워크 송신",
+      "description": "",
+      "gridPos": {
+        "x": 6,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((rate(node_network_transmit_bytes_total{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\",device!=\"lo\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1))",
+          "legendFormat": "{{node}} {{device}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11
+    },
+    {
+      "type": "timeseries",
+      "title": "디스크 I/O 활성 시간",
       "description": "",
       "gridPos": {
         "x": 12,
-        "y": 10,
-        "w": 12,
-        "h": 8
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "max": null,
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
           "color": {
             "mode": "palette-classic"
           },
+          "unit": "percent",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 2,
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
             "fillOpacity": 8,
             "showPoints": "never",
-            "spanNulls": true,
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
             "stacking": {
               "mode": "none",
               "group": "A"
             },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           }
         },
         "overrides": []
       },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * ((rate(node_disk_io_time_seconds_total{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}[$__rate_interval])) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1))",
+          "legendFormat": "{{node}} {{device}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
       "options": {
         "legend": {
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
         }
       },
-      "targets": [
-        {
-          "expr": "max by(name)(container_pids{name=~\"chaos-.*\"})",
-          "legendFormat": "{{name}}",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ]
+      "id": 12
     },
     {
-      "type": "row",
-      "title": "JVM",
+      "type": "state-timeline",
+      "title": "호스트 수집 · 응답 이력",
+      "description": "회색·빈 구간은 미수집. 수집 응답과 실제 서비스 상태의 구분.",
+      "gridPos": {
+        "x": 18,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "▲ 장애",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "● 정상",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 75,
+            "spanNulls": false,
+            "insertNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "center",
+        "rowHeight": 0.72,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 13
+    },
+    {
+      "type": "table",
+      "title": "수집 대상 · 고객 자원",
+      "description": "",
       "gridPos": {
         "x": 0,
-        "y": 18,
+        "y": 15,
+        "w": 12,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "minWidth": 50,
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "등록 역할"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 75
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "응답"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "응답"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      }
+                    }
+                  },
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null+nan",
+                      "result": {
+                        "text": "미수집",
+                        "color": "text"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=~\"exchange-api|linux-host|postgres|blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=~\"exchange-api|linux-host|postgres|blackbox-http\"}) < 90))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "editorMode": "code"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "node",
+                "role",
+                "job",
+                "Value"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "node": 0,
+              "role": 1,
+              "job": 2,
+              "Value": 3
+            },
+            "renameByName": {
+              "node": "대상",
+              "role": "등록 역할",
+              "job": "수집 경로",
+              "Value": "응답"
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 14
+    },
+    {
+      "type": "text",
+      "title": "AWS 운영 · 수집 범위",
+      "description": "",
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**현재 환경** · `$environment`　|　**AWS 배포 대상** · 서울 리전 / 2 AZ  \n**고객 자원** · Spring·조회 API·PostgreSQL·등록 Linux 서버·접속 검사  \n**미등록 자원** · 미수집　|　**확장 범위** · 조회 API ASG　|　**DB 승격** · 수동"
+      },
+      "id": 15
+    },
+    {
+      "id": 1000,
+      "type": "row",
+      "title": "CloudWatch · AWS 수집 설정 · 연결 전",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 19,
         "w": 24,
         "h": 1
       },
-      "collapsed": false,
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "힙 사용",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 19,
-        "w": 8,
-        "h": 7
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "decimals": 0,
-          "max": null,
-          "color": {
-            "mode": "palette-classic"
+      "panels": [
+        {
+          "type": "text",
+          "title": "AWS 연결 · 배포 설정",
+          "description": "",
+          "gridPos": {
+            "x": 0,
+            "y": 20,
+            "w": 24,
+            "h": 3
           },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum by(node)(jvm_memory_used_bytes{customer=\"$customer\",job=\"exchange-api\",area=\"heap\"})",
-          "legendFormat": "{{node}}",
-          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
-          }
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "살아 있는 스레드",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "",
-      "gridPos": {
-        "x": 8,
-        "y": 19,
-        "w": 8,
-        "h": 7
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "max": null,
-          "color": {
-            "mode": "palette-classic"
           },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "미수집",
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null+nan",
+                    "result": {
+                      "text": "미수집",
+                      "color": "text"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "palette-classic"
+              },
+              "unit": "short"
             },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum by(node)(jvm_threads_live_threads{customer=\"$customer\",job=\"exchange-api\"})",
-          "legendFormat": "{{node}}",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "노드 상태",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "리더는 한 노드만 1 이다. 둘 다 0 이면 쓰기가 멈춘다.",
-      "gridPos": {
-        "x": 16,
-        "y": 19,
-        "w": 8,
-        "h": 7
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "max": null,
-          "color": {
-            "mode": "palette-classic"
+            "overrides": []
           },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "mode": "none",
-              "group": "A"
+          "options": {
+            "mode": "markdown",
+            "content": "**질의 비활성** · AWS 계정·권한 및 고객별 자원 매핑 적용 전  \n인스턴스 역할·CloudWatch 데이터 소스·ALB/조회 ASG/EBS 등록 및 선택 고객·환경과의 일치 확인 후 활성화  \n리전 `$aws_region` · ALB `$aws_alb` · 조회 ASG `$aws_asg` · EBS `$aws_ebs_volume`"
+          },
+          "id": 1001
+        },
+        {
+          "type": "timeseries",
+          "title": "ALB 요청 · 분당",
+          "description": "",
+          "gridPos": {
+            "x": 0,
+            "y": 23,
+            "w": 8,
+            "h": 5
+          },
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "미수집",
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null+nan",
+                    "result": {
+                      "text": "미수집",
+                      "color": "text"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "palette-classic"
+              },
+              "unit": "short",
+              "min": 0,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 1.5,
+                "fillOpacity": 8,
+                "showPoints": "never",
+                "spanNulls": false,
+                "insertNulls": true,
+                "axisPlacement": "auto",
+                "axisLabel": "",
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
             },
-            "axisSoftMin": 0,
-            "gradientMode": "opacity"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max"
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": true,
+              "queryMode": "Metrics",
+              "metricQueryType": 0,
+              "metricEditorMode": 0,
+              "namespace": "AWS/ApplicationELB",
+              "metricName": "RequestCount",
+              "statistic": "Sum",
+              "period": "60",
+              "region": "$aws_region",
+              "dimensions": {
+                "LoadBalancer": [
+                  "$aws_alb"
+                ]
+              },
+              "matchExact": true,
+              "id": "",
+              "expression": ""
+            }
           ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "expr": "max by(node)(up{customer=\"$customer\",job=\"exchange-api\"})",
-          "legendFormat": "{{node}} 수집",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 1002
         },
         {
-          "expr": "max by(node)(exchange_leader_is_leader{customer=\"$customer\"})",
-          "legendFormat": "{{node}} 리더",
-          "refId": "B",
+          "type": "timeseries",
+          "title": "ALB 대상 응답 시간 · P95",
+          "description": "",
+          "gridPos": {
+            "x": 8,
+            "y": 23,
+            "w": 8,
+            "h": 5
+          },
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "미수집",
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null+nan",
+                    "result": {
+                      "text": "미수집",
+                      "color": "text"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "palette-classic"
+              },
+              "unit": "s",
+              "min": 0,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 1.5,
+                "fillOpacity": 8,
+                "showPoints": "never",
+                "spanNulls": false,
+                "insertNulls": true,
+                "axisPlacement": "auto",
+                "axisLabel": "",
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": true,
+              "queryMode": "Metrics",
+              "metricQueryType": 0,
+              "metricEditorMode": 0,
+              "namespace": "AWS/ApplicationELB",
+              "metricName": "TargetResponseTime",
+              "statistic": "p95",
+              "period": "60",
+              "region": "$aws_region",
+              "dimensions": {
+                "LoadBalancer": [
+                  "$aws_alb"
+                ]
+              },
+              "matchExact": true,
+              "id": "",
+              "expression": ""
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 1003
+        },
+        {
+          "type": "timeseries",
+          "title": "ALB 비정상 대상 · 최대",
+          "description": "",
+          "gridPos": {
+            "x": 16,
+            "y": 23,
+            "w": 8,
+            "h": 5
+          },
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "미수집",
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null+nan",
+                    "result": {
+                      "text": "미수집",
+                      "color": "text"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "palette-classic"
+              },
+              "unit": "short",
+              "min": 0,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 1.5,
+                "fillOpacity": 8,
+                "showPoints": "never",
+                "spanNulls": false,
+                "insertNulls": true,
+                "axisPlacement": "auto",
+                "axisLabel": "",
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": true,
+              "queryMode": "Metrics",
+              "metricQueryType": 0,
+              "metricEditorMode": 0,
+              "namespace": "AWS/ApplicationELB",
+              "metricName": "UnHealthyHostCount",
+              "statistic": "Maximum",
+              "period": "60",
+              "region": "$aws_region",
+              "dimensions": {
+                "LoadBalancer": [
+                  "$aws_alb"
+                ],
+                "TargetGroup": [
+                  "$aws_reader_target_group"
+                ]
+              },
+              "matchExact": true,
+              "id": "",
+              "expression": ""
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 1004
+        },
+        {
+          "type": "timeseries",
+          "title": "조회 ASG · 가동 인스턴스",
+          "description": "",
+          "gridPos": {
+            "x": 0,
+            "y": 28,
+            "w": 8,
+            "h": 5
+          },
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "미수집",
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null+nan",
+                    "result": {
+                      "text": "미수집",
+                      "color": "text"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "palette-classic"
+              },
+              "unit": "short",
+              "min": 0,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 1.5,
+                "fillOpacity": 8,
+                "showPoints": "never",
+                "spanNulls": false,
+                "insertNulls": true,
+                "axisPlacement": "auto",
+                "axisLabel": "",
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": true,
+              "queryMode": "Metrics",
+              "metricQueryType": 0,
+              "metricEditorMode": 0,
+              "namespace": "AWS/AutoScaling",
+              "metricName": "GroupInServiceInstances",
+              "statistic": "Average",
+              "period": "60",
+              "region": "$aws_region",
+              "dimensions": {
+                "AutoScalingGroupName": [
+                  "$aws_asg"
+                ]
+              },
+              "matchExact": true,
+              "id": "",
+              "expression": ""
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 1005
+        },
+        {
+          "type": "timeseries",
+          "title": "대상 5xx · 분당",
+          "description": "",
+          "gridPos": {
+            "x": 8,
+            "y": 28,
+            "w": 8,
+            "h": 5
+          },
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "미수집",
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null+nan",
+                    "result": {
+                      "text": "미수집",
+                      "color": "text"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "palette-classic"
+              },
+              "unit": "short",
+              "min": 0,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 1.5,
+                "fillOpacity": 8,
+                "showPoints": "never",
+                "spanNulls": false,
+                "insertNulls": true,
+                "axisPlacement": "auto",
+                "axisLabel": "",
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": true,
+              "queryMode": "Metrics",
+              "metricQueryType": 0,
+              "metricEditorMode": 0,
+              "namespace": "AWS/ApplicationELB",
+              "metricName": "HTTPCode_Target_5XX_Count",
+              "statistic": "Sum",
+              "period": "60",
+              "region": "$aws_region",
+              "dimensions": {
+                "LoadBalancer": [
+                  "$aws_alb"
+                ]
+              },
+              "matchExact": true,
+              "id": "",
+              "expression": ""
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 1006
+        },
+        {
+          "type": "timeseries",
+          "title": "EBS 대기열 · 평균",
+          "description": "",
+          "gridPos": {
+            "x": 16,
+            "y": 28,
+            "w": 8,
+            "h": 5
+          },
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "미수집",
+              "mappings": [
+                {
+                  "type": "special",
+                  "options": {
+                    "match": "null+nan",
+                    "result": {
+                      "text": "미수집",
+                      "color": "text"
+                    }
+                  }
+                }
+              ],
+              "color": {
+                "mode": "palette-classic"
+              },
+              "unit": "short",
+              "min": 0,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 1.5,
+                "fillOpacity": 8,
+                "showPoints": "never",
+                "spanNulls": false,
+                "insertNulls": true,
+                "axisPlacement": "auto",
+                "axisLabel": "",
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              }
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "hide": true,
+              "queryMode": "Metrics",
+              "metricQueryType": 0,
+              "metricEditorMode": 0,
+              "namespace": "AWS/EBS",
+              "metricName": "VolumeQueueLength",
+              "statistic": "Average",
+              "period": "60",
+              "region": "$aws_region",
+              "dimensions": {
+                "VolumeId": [
+                  "$aws_ebs_volume"
+                ]
+              },
+              "matchExact": true,
+              "id": "",
+              "expression": ""
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 1007
         }
       ]
     }

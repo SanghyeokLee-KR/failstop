@@ -1,6 +1,16 @@
 # 하네스 CI/CD·IaC·관측성 설계서 (v2.0)
 
-2026-09-18 운영 범위: [ADR 0027](../adr/0027-msp-operations-and-autoscaling.md)이 AWS 조회 ASG·CloudWatch 확장 정책, Linux·네트워크 관제와 Teams·AI 보고를 현재 목표로 정했다. 아래의 수동 확장 전용·CloudWatch 비채택 전제는 새 배포 정책으로 적용하지 않는다. 기존 로컬 설정·측정·이미지·검사 계약은 각자의 구현 범위로 보존한다. AWS 경로·지표·준비 및 축소·최대 대수·권한은 배포 전 설계와 실제 검증이 남아 있다.
+2026-09-18 운영 범위: [ADR 0027](../adr/0027-msp-operations-and-autoscaling.md)에 따라 조회 ASG·CloudWatch 정책, Linux 관측과 Teams·보고의 배포 코드를 추가했다. 실행 순서는 [배포 안내](../../../deploy/README.md), 현재 검증은 [로드맵](../../ROADMAP.md)에 있다. 아래 09-09 실물 조사의 수동 확장 전용·CloudWatch 비채택·배포 미구현 설명은 당시 기록이다. 새 배포의 역할·연결 예산은 다음 절을 우선하며 AWS 실제 적용·권한·증설/축소 시험은 남아 있다.
+
+## 2026-09-18 역할별 배포 계약
+
+일반 앱·봇·조회는 Flyway를 실행하지 않는다. 동일 digest 이미지의 `compose.migrate.yml`에서 migrate→catalog-seed→provision을 순서대로 실행한다. 최초 시드는 자산·마켓과 잔고 0의 SYSTEM 계정만 만들고 회원·USER 계정·원장을 만들지 않는다. 기존 데이터의 V41·V44·V46 적용 조건과 쓰기 정지 창은 ADR 0022를 따른다.
+
+DB는 명시적인 사설 호스트 주소에 published port를 연결한다. 앱·조회·봇 로그인과 스키마 소유자를 분리하고 reader에는 assets·markets·trades SELECT만 부여한다. HTTP에서도 GET/HEAD markets·trades·candles 이외 경로를 거절한다. 호가·티커·주문·WS는 고정 엔진 경로다. 조회의 DB readiness와 EC2 ASG의 교체 조건은 분리한다.
+
+새 배포 연결 상한은 `(엔진 2 + 교체 1) × (32+14+2) + 조회 최대 2 × (8+1+1) + 봇 1 × (8+1+1) + 운영 10 + 복제 4 = 188`이다. DB의 `max_connections=200`, 관리자 예약 3으로 일반 한도 197을 둔다. [검사기](../../../deploy/check-config.py)가 최대 대수·교체 여유와 풀 설정을 함께 검사한다. 현재 접속 사용량이나 2 GiB 메모리 적정성의 측정값이 아니며 AWS 부하 검증이 필요하다. 아래 과거 배포 106 대 97의 부족 문제를 이 설정이 대체한다.
+
+호스트 node_exporter, 제한된 pg_monitor 로그인, 검증된 file discovery, 기존 Grafana를 사용한다. 수집 실패·지표 부재를 0으로 채우지 않는다. 기본 Teams 알림과 근거 보고는 독립 경로이며 보고는 09:00 KST timer와 영속 SQLite outbox를 사용한다. 기본 분석은 mock, 실제 AI 모델은 미정이고 AI는 운영 조치를 실행하지 않는다.
 
 > 전제 계약: `docs/reference/contracts/백엔드_DB_설계.md`, `docs/reference/contracts/백엔드_API_설계.md`, `docs/reference/contracts/하네스_검증설계.md`. 판번호는 각 문서 헤더가 갖는다. 여기에 복사하지 않는다. 복사한 판번호는 반드시 드리프트한다.
 >

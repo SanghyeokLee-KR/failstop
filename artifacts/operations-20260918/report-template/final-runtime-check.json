@@ -1,0 +1,36 @@
+{
+  "checked_at": "2026-09-18T06:08:23.243099+00:00",
+  "targets_total": 7,
+  "targets_up": 7,
+  "customer_targets": 4,
+  "reporter": {
+    "counts": {
+      "sent": 11
+    },
+    "last_daily_sent": 1789695077.2720933,
+    "oldest_pending": null,
+    "ai_usage": {
+      "day": "2026-09-18",
+      "month": "2026-09",
+      "daily_attempts": 0,
+      "monthly_attempts": 0,
+      "completed": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "thought_tokens": 0
+    },
+    "artifacts": {
+      "ready": 2
+    },
+    "delivery_enabled": true
+  },
+  "pdf_pages": 2,
+  "pdf_creation_date": "D:20260918060631Z",
+  "pdf_text_lengths": [
+    1062,
+    1371
+  ],
+  "teams_pdf_open_confirmed_by_user": true,
+  "aws_verified": false,
+  "customer_scope": "exchange; app|reader|data|standby|probe"
+}

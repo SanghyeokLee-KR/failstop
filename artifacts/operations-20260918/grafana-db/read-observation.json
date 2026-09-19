@@ -1,0 +1,67 @@
+{
+  "started_at": "2026-09-18T10:57:06.471368+00:00",
+  "purpose": "HTTP 429 route-label and SQL collection verification; not a capacity benchmark",
+  "target_rps": 60,
+  "seconds_per_route": 10,
+  "workers": 8,
+  "writes": 0,
+  "rate_limit_changed": false,
+  "before": [
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"CLIENT_ERROR\",status=\"429\",uri=\"/api/v1/trades\"} 1",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"INFORMATIONAL\",status=\"101\",uri=\"/ws/v1\"} 2",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/actuator/health/**\"} 17",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/actuator/prometheus\"} 3",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/accounts\"} 2",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/exchange-config\"} 1",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/orderbook\"} 3",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/orders/closed\"} 2",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/orders/open\"} 3",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/ticker\"} 3",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/trades\"} 2",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"POST\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/demo/session\"} 1"
+  ],
+  "routes": [
+    {
+      "name": "orderbook",
+      "responses": {
+        "200": 599,
+        "429": 1
+      },
+      "elapsed_seconds": 9.98399999999674
+    },
+    {
+      "name": "trades",
+      "responses": {
+        "429": 450,
+        "200": 150
+      },
+      "elapsed_seconds": 10.01600000000326
+    },
+    {
+      "name": "candles",
+      "responses": {
+        "429": 450,
+        "200": 150
+      },
+      "elapsed_seconds": 10.01500000001397
+    }
+  ],
+  "after": [
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"CLIENT_ERROR\",status=\"429\",uri=\"/api/v1/candles/{unit}\"} 450",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"CLIENT_ERROR\",status=\"429\",uri=\"/api/v1/orderbook\"} 1",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"CLIENT_ERROR\",status=\"429\",uri=\"/api/v1/trades\"} 451",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"INFORMATIONAL\",status=\"101\",uri=\"/ws/v1\"} 2",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/actuator/health/**\"} 28",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/actuator/prometheus\"} 6",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/accounts\"} 2",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/candles/{unit}\"} 150",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/exchange-config\"} 1",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/orderbook\"} 602",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/orders/closed\"} 2",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/orders/open\"} 3",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/ticker\"} 3",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"GET\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/trades\"} 152",
+    "http_server_requests_seconds_count{error=\"none\",exception=\"none\",method=\"POST\",outcome=\"SUCCESS\",status=\"200\",uri=\"/api/v1/demo/session\"} 1"
+  ],
+  "finished_at": "2026-09-18T10:57:36.586531+00:00"
+}

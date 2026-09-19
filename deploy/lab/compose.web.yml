@@ -1,0 +1,16 @@
+# 이미 기동한 운영 실습 앱에만 연결한다. DB나 복제 역할은 변경하지 않는다.
+services:
+  web:
+    image: nginx:1.29
+    ports: ['127.0.0.1:3000:80']
+    volumes:
+      - ../../web/out:/usr/share/nginx/html:ro
+      - ./web.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [lab]
+    mem_limit: 64m
+    restart: unless-stopped
+    labels: {io.failstop.lab: 'true'}
+networks:
+  lab:
+    external: true
+    name: failstop-ops-lab_default

@@ -83,4 +83,6 @@ tasks.withType<Test> {
     val harnessSql = rootProject.file("../harness/sql")
     inputs.dir(harnessSql).withPropertyName("harnessSql").withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("harness.sql.dir", harnessSql.absolutePath)
+    inputs.file(rootProject.file("../deploy/provision-runtime-roles.sql"))
+        .withPropertyName("runtimeRoleProvisioning").withPathSensitivity(PathSensitivity.RELATIVE)
 }

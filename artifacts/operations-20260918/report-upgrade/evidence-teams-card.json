@@ -1,0 +1,177 @@
+{
+  "type": "message",
+  "attachments": [
+    {
+      "contentType": "application/vnd.microsoft.card.adaptive",
+      "contentUrl": null,
+      "content": {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.2",
+        "body": [
+          {
+            "type": "TextBlock",
+            "text": "페일스톱 · 운영 보고",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "최근 DB 백업 확인 경보 · 해제",
+            "wrap": true,
+            "size": "Large",
+            "weight": "Bolder"
+          },
+          {
+            "type": "TextBlock",
+            "text": "알림 해제  \\|  2026-09-18 11:07 KST",
+            "wrap": true,
+            "color": "Good",
+            "weight": "Bolder"
+          },
+          {
+            "type": "TextBlock",
+            "text": "10:40 KST에 최근 DB 백업 확인 경보가 해제됐습니다.\n마지막 백업 성공 기록은 09:58 KST입니다.",
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "지표 구간: 2026-09-18 10:52 KST ~ 2026-09-18 11:07 KST",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "영향과 현재 상태",
+            "wrap": true,
+            "weight": "Bolder",
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "사용자 영향은 미확인입니다. 이 자료에는 요청 실패 범위·영향 사용자 수를 확정할 근거가 없습니다.",
+            "wrap": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "수집 시점에 남은 경보: 디스크 여유 공간 부족 2건; 거래 발생 없음 \\(유휴 실습 참고\\) 1건.",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "해제 · 최근 DB 백업 확인 경보 / 대상 정보 미제공",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "핵심 지표",
+            "wrap": true,
+            "weight": "Bolder",
+            "separator": true
+          },
+          {
+            "type": "FactSet",
+            "facts": [
+              {
+                "title": "최근 백업 성공",
+                "value": "2026-09-18 09:58 KST"
+              },
+              {
+                "title": "디스크 여유",
+                "value": "14.74% 여유"
+              },
+              {
+                "title": "지표 수집 응답",
+                "value": "7/7개 응답"
+              },
+              {
+                "title": "실패 서비스",
+                "value": "0개 실패"
+              },
+              {
+                "title": "DB 연결",
+                "value": "11개"
+              },
+              {
+                "title": "WAL 재생 거리",
+                "value": "0 B"
+              }
+            ]
+          },
+          {
+            "type": "TextBlock",
+            "text": "최근 백업 성공: 1.2시간 전 · 성공 시각만 확인하며 복원 가능 여부는 별도 검증이 필요합니다.",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "디스크 여유: /mnt/c · 구간 마지막 값 중 최소 / 6개 수집 표본 · 수집 구간 최저 14.74%",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "우선 확인",
+            "wrap": true,
+            "weight": "Bolder",
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "1. 백업 성공 시각과 실제 백업 파일을 대조하고 다음 예약 실행을 확인합니다.",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "2. 격리 환경 복원 결과로 복구 가능 여부를 확인합니다. 알림 해제만으로 복원 성공을 판단하지 않습니다.",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "3. 여유 공간이 낮은 파일시스템의 증가 원인과 남은 용량을 확인합니다. 삭제 전에 보존 대상부터 구분합니다.",
+            "wrap": true,
+            "size": "Small"
+          },
+          {
+            "type": "TextBlock",
+            "text": "확인하지 못한 자료: 서비스 요청: 자료 없음; 5xx 응답: 자료 없음; 응답 시간 P95: 자료 없음; 상세 로그: 자료 없음; AWS 변경 기록: 자료 없음",
+            "wrap": true,
+            "size": "Small",
+            "color": "Warning"
+          },
+          {
+            "type": "TextBlock",
+            "text": "수집 근거 요약 · AI 원인 분석을 사용하지 않았습니다.",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true,
+            "separator": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "자동 운영 조치는 실행하지 않았습니다. 아래 항목은 확인 권고입니다.",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          },
+          {
+            "type": "TextBlock",
+            "text": "보고 ID: review:backup-evidence-only",
+            "wrap": true,
+            "size": "Small",
+            "isSubtle": true
+          }
+        ]
+      }
+    }
+  ]
+}

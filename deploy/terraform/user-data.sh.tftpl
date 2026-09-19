@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+set +x
+umask 077
+export AWS_PAGER=""
+install -d -o root -g root -m 0700 /var/lib/failstop-bootstrap
+printf '%s' '${configuration}' | base64 --decode > /var/lib/failstop-bootstrap/config.json
+python3 - <<'PY'
+import hashlib
+import json
+import pathlib
+import subprocess
+import tarfile
+
+root = pathlib.Path("/var/lib/failstop-bootstrap")
+config = json.loads((root / "config.json").read_text())
+release = config["release"]
+archive = root / "release.tar.gz"
+subprocess.run(["aws", "s3api", "get-object", "--region", config["region"],
+                "--bucket", release["bucket"], "--key", release["key"],
+                "--version-id", release["version_id"], str(archive)],
+               check=True, stdout=subprocess.DEVNULL)
+if hashlib.sha256(archive.read_bytes()).hexdigest() != release["sha256"]:
+    raise SystemExit("Release SHA256 verification failed")
+target = root / release["sha256"]
+target.mkdir(exist_ok=True)
+with tarfile.open(archive) as bundle:
+    for member in bundle.getmembers():
+        if not (member.isfile() or member.isdir()):
+            raise SystemExit("Release archive must not contain links or special files")
+    bundle.extractall(target, filter="data")
+subprocess.run(["bash", str(target / "deploy/terraform/bootstrap-node.sh"),
+                str(root / "config.json")], check=True)
+PY

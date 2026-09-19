@@ -1,0 +1,19 @@
+[Unit]
+Description=Failstop host diagnostics
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=failstop
+Group=failstop
+ExecStart=/opt/failstop/linux/check-host.sh --inspect
+StandardOutput=append:/var/log/failstop/host-check.log
+StandardError=journal
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+UMask=0077

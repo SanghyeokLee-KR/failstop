@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Failstop PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Asia/Seoul
+RandomizedDelaySec=5min
+Persistent=true
+Unit=failstop-backup.service
+
+[Install]
+WantedBy=timers.target

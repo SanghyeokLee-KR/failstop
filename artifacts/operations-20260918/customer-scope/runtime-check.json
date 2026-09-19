@@ -1,0 +1,105 @@
+{
+  "checked_at": "2026-09-18T04:01:22.430481+00:00",
+  "scope": "local-customer-workload",
+  "queries_passed": 73,
+  "customer_targets": [
+    {
+      "__name__": "up",
+      "customer": "exchange",
+      "environment": "local-lab",
+      "instance": "http://host.docker.internal:58180/actuator/health/read",
+      "job": "blackbox-http",
+      "node": "local-spring-probe",
+      "role": "probe",
+      "service": "probes"
+    },
+    {
+      "__name__": "up",
+      "customer": "exchange",
+      "environment": "local-lab",
+      "instance": "host.docker.internal:58180",
+      "job": "exchange-api",
+      "node": "local-spring",
+      "role": "app",
+      "service": "apps"
+    },
+    {
+      "__name__": "up",
+      "customer": "exchange",
+      "environment": "local-lab",
+      "instance": "postgres-primary:9187",
+      "job": "postgres",
+      "node": "local-db-primary",
+      "role": "data",
+      "service": "databases"
+    },
+    {
+      "__name__": "up",
+      "customer": "exchange",
+      "environment": "local-lab",
+      "instance": "postgres-standby:9187",
+      "job": "postgres",
+      "node": "local-db-standby",
+      "role": "standby",
+      "service": "databases"
+    }
+  ],
+  "grafana": [
+    {
+      "uid": "msp-overview",
+      "title": "MSP 종합",
+      "queries": 15,
+      "customer_scope_loaded": true
+    },
+    {
+      "uid": "msp-service",
+      "title": "서비스 상세",
+      "queries": 11,
+      "customer_scope_loaded": true
+    },
+    {
+      "uid": "msp-infra",
+      "title": "인프라 상세",
+      "queries": 17,
+      "customer_scope_loaded": true
+    },
+    {
+      "uid": "msp-db",
+      "title": "DB 상세",
+      "queries": 18,
+      "customer_scope_loaded": true
+    }
+  ],
+  "no_data": [
+    "DB 서버 CPU",
+    "DB 서버 메모리",
+    "Disk I/O busy percent",
+    "Failed systemd units",
+    "Filesystem used percent",
+    "Host evidence age seconds",
+    "Host scrape availability",
+    "Inode used percent",
+    "Network received bytes/s",
+    "Node collector success",
+    "Spring 응답 시간 P95",
+    "report:backup_success",
+    "report:disk_available",
+    "report:inode_free",
+    "report:io_time",
+    "report:latency_p95",
+    "report:network_errors",
+    "report:server_errors",
+    "report:services_failed",
+    "고객 서버 CPU",
+    "고객 서버 네트워크",
+    "고객 서버 메모리",
+    "고객 서버 송수신",
+    "발화 중인 알람",
+    "실패율",
+    "주문 거절 사유",
+    "주문 응답 시간",
+    "초당 체결",
+    "초당 체결과 대기열"
+  ],
+  "aws_verified": false
+}

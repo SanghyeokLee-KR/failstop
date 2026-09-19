@@ -1,0 +1,3439 @@
+{
+  "created_at": "2026-09-18T01:18:57Z",
+  "destination": "사용자가 .env에 준비한 Teams Workflows 웹훅의 채널. 비밀 URL은 포함하지 않는다.",
+  "scope": "기본 시험 알림 firing/resolved 2건, 모의 사건 보고 2건, 모의 일일 보고 1건",
+  "message_count": 5,
+  "sent": false,
+  "channel_post_confirmed": false,
+  "note": "승인 후 실행 시 보고 ID와 수집 시각·지표 값은 최신 값으로 갱신된다. 계정정보·웹훅URL·원문 앱로그는 포함하지 않는다.",
+  "messages": [
+    {
+      "kind": "alertmanager_basic_firing",
+      "title": "[LOCAL TEST firing] OperationsIntegrationCheck",
+      "text": "로컬 운영 보고 연결 시험이다. 실제 장애가 아니다."
+    },
+    {
+      "kind": "mock_incident_firing",
+      "report": {
+        "id": "approval-preview-incident-firing",
+        "kind": "incident",
+        "evidence": {
+          "schema_version": 1,
+          "collected_at": "2026-09-18T01:18:57.940441+00:00",
+          "window_end": 1789694337.8370514,
+          "window_seconds": 86400,
+          "facts": [
+            {
+              "id": "target_up",
+              "kind": "metric",
+              "description": "수집 대상 가용 여부",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:58180",
+                    "job": "exchange-api"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "operations-reporter"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "[URL REDACTED]",
+                    "job": "blackbox-http"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "localhost:9090",
+                    "job": "prometheus"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-standby:9187",
+                    "job": "postgres"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "disk_available",
+              "kind": "metric",
+              "description": "Linux 파일시스템 가용 비율",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "device": "/dev/sdd",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/"
+                  },
+                  "last": 0.9472759975869884,
+                  "min": 0.9472759975869884,
+                  "max": 0.9472759975869884,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "/dev/sdd",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/wslg/distro"
+                  },
+                  "last": 0.9472759975869884,
+                  "min": 0.9472759975869884,
+                  "max": 0.9472759975869884,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "C:\\134",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/c"
+                  },
+                  "last": 0.14964364287263612,
+                  "min": 0.14964364287263612,
+                  "max": 0.14964364287263612,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "D:\\134",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/d"
+                  },
+                  "last": 0.958002787556505,
+                  "min": 0.958002787556505,
+                  "max": 0.958002787556505,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "drivers",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/usr/lib/wsl/drivers"
+                  },
+                  "last": 0.14964364287263612,
+                  "min": 0.14964364287263612,
+                  "max": 0.14964364287263612,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "rootfs",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/init"
+                  },
+                  "last": 0.9996578440124183,
+                  "min": 0.9996578440124183,
+                  "max": 0.9996578440124183,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "inode_free",
+              "kind": "metric",
+              "description": "Linux inode 가용 비율",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "device": "/dev/sdd",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/"
+                  },
+                  "last": 0.9992756545543671,
+                  "min": 0.9992756545543671,
+                  "max": 0.9992756545543671,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "/dev/sdd",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/wslg/distro"
+                  },
+                  "last": 0.9992756545543671,
+                  "min": 0.9992756545543671,
+                  "max": 0.9992756545543671,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "C:\\134",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/c"
+                  },
+                  "last": 1001.001001001001,
+                  "min": 1001.001001001001,
+                  "max": 1001.001001001001,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "D:\\134",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/d"
+                  },
+                  "last": 1001.001001001001,
+                  "min": 1001.001001001001,
+                  "max": 1001.001001001001,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "drivers",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/usr/lib/wsl/drivers"
+                  },
+                  "last": 1001.001001001001,
+                  "min": 1001.001001001001,
+                  "max": 1001.001001001001,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "rootfs",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/init"
+                  },
+                  "last": 0.9999940752209943,
+                  "min": 0.9999940752209943,
+                  "max": 0.9999940752209943,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "io_time",
+              "kind": "metric",
+              "description": "디스크 I/O 사용 시간 비율",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "device": "sda",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "sdb",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "sdc",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.000294753389663394,
+                  "min": 0.000294753389663394,
+                  "max": 0.000294753389663394,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "sdd",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.02349605591892878,
+                  "min": 0.02349605591892878,
+                  "max": 0.02349605591892878,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "sde",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.01466749010470766,
+                  "min": 0.01466749010470766,
+                  "max": 0.01466749010470766,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "sdf",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "network_errors",
+              "kind": "metric",
+              "description": "수신 네트워크 오류율",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "device": "eth0",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "lo",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "services_failed",
+              "kind": "metric",
+              "description": "systemd 실패 서비스",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-firewall.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-host-check.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-host-check.timer",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-host-evidence.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-host-evidence.timer",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-node-exporter.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-reporting-daily.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-reporting-daily.timer",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-reporting.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-ssh.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "db_connections",
+              "kind": "metric",
+              "description": "PostgreSQL 연결 수",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-standby:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres"
+                  },
+                  "last": 10.0,
+                  "min": 10.0,
+                  "max": 10.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-standby:9187",
+                    "job": "postgres"
+                  },
+                  "last": 2.0,
+                  "min": 2.0,
+                  "max": 2.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-standby:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-standby:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "db_replication_lag",
+              "kind": "metric",
+              "description": "PostgreSQL 전송 WAL과 replay 위치 차이 bytes",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "application_name": "walreceiver",
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres",
+                    "state": "streaming"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "request_rate",
+              "kind": "metric",
+              "description": "서비스 초당 요청 수",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {},
+                  "last": 0.45967170317138384,
+                  "min": 0.45967170317138384,
+                  "max": 0.45967170317138384,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "server_errors",
+              "kind": "metric",
+              "description": "서비스 초당 5xx 응답 수",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "latency_p95",
+              "kind": "metric",
+              "description": "서비스 응답 p95 초",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "backup_success",
+              "kind": "metric",
+              "description": "최근 성공 백업 timestamp (복원 검증과 별도)",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "alerts",
+              "kind": "alerts",
+              "status": "ok",
+              "records": [
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "bonding",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "00c9dcdd26fdddb7"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "ipvs",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "05be66ebf53517c6"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "infiniband",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "061d502676982294"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "nfs",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "1c93e90bb3357969"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "nfsd",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "2d4b9068bcf24683"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "tapestats",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "451582cc8789e613"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxDiskSpaceLow",
+                    "component": "storage",
+                    "customer": "exchange",
+                    "device": "C:\\134",
+                    "fstype": "9p",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/c",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "파일시스템 가용 공간이 15퍼센트 미만이다"
+                  },
+                  "startsAt": "2026-09-18T01:15:51.691Z",
+                  "endsAt": "2026-09-18T01:22:21.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "49f8d2d5895fed79"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "mdadm",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "8f444cd5d38e308b"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "dmi",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "a8bc9b17474742d2"
+                },
+                {
+                  "labels": {
+                    "alertname": "TradeSilence",
+                    "component": "bots",
+                    "customer": "exchange",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "dashboard": "MSP 종합 (msp-overview)",
+                    "duration": "1m",
+                    "metric": "trade rate 2m",
+                    "runbook": "기획안 §7.10 침묵 판정",
+                    "summary": "체결 침묵",
+                    "threshold": "= 0 TPS",
+                    "value": "0 TPS"
+                  },
+                  "startsAt": "2026-09-18T01:11:48.422Z",
+                  "endsAt": "2026-09-18T01:21:38.422Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "b4ef7ed14270fd08"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxDiskSpaceLow",
+                    "component": "storage",
+                    "customer": "exchange",
+                    "device": "drivers",
+                    "fstype": "9p",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/usr/lib/wsl/drivers",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "파일시스템 가용 공간이 15퍼센트 미만이다"
+                  },
+                  "startsAt": "2026-09-18T01:15:51.691Z",
+                  "endsAt": "2026-09-18T01:22:21.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "c213bf3a5fb4d231"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "zfs",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "c7f448cd0d3ef30d"
+                }
+              ]
+            },
+            {
+              "id": "host",
+              "kind": "host",
+              "status": "ok",
+              "collected_at": "2026-09-18T01:18:37.142278+00:00",
+              "source_status": "PASS",
+              "records": {
+                "filesystems": {
+                  "ok": true,
+                  "output": "Filesystem     Type    1024-blocks      Used  Available Capacity Mounted on\n/dev/sdd       ext4     1055762868   1960576 1000098820       1% /\nrootfs         rootfs      8101568      2772    8098796       1% /init\nnone           tmpfs       8107324         0    8107324       0% /dev/shm\nnone           tmpfs       8107324       556    8106768       1% /run\nnone           tmpfs       8107324         0    8107324       0% /run/lock\ndrivers        9p        248495100 211309080   37186020      86% /usr/lib/wsl/drivers\nnone           overlay     8107324         0    8107324       0% /usr/lib/wsl/lib\nnone           tmpfs       8107324     23080    8084244       1% /mnt/wsl\nnone           tmpfs       8107324        36    8107288       1% /mnt/wslg\nnone           overlay     8107324        80    8107244       1% /mnt/wslg/versions.txt\nnone           overlay     8107324        80    8107244       1% /mnt/wslg/doc\ntmpfs          tmpfs       1621464        12    1621452       1% /mnt/wslg/run/user/0\ntmpfs          tmpfs       1621464        12    1621452       1% /mnt/wslg/run/user/1000\nnone           overlay     8107324         0    8107324       0% /usr/lib/modules/[IP REDACTED]-microsoft-standard-WSL2\nC:\\            9p        248495100 211309080   37186020      86% /mnt/c\nD:\\            9p        976760828  41021232  935739596       5% /mnt/d\ntmpfs          tmpfs       8107328         0    8107328       0% /tmp\n",
+                  "error": ""
+                },
+                "inodes": {
+                  "ok": true,
+                  "output": "Filesystem       Inodes   IUsed    IFree IUse% Mounted on\n/dev/sdd       67108864   48612 67060252    1% /\nrootfs          2025392      12  2025380    1% /init\nnone            2026831       1  2026830    1% /dev/shm\nnone            2026831     614  2026217    1% /run\nnone            2026831       2  2026829    1% /run/lock\ndrivers             999 -999001  1000000     - /usr/lib/wsl/drivers\nnone            2026831       5  2026826    1% /usr/lib/wsl/lib\nnone            2026831       8  2026823    1% /mnt/wsl\nnone            2026831      24  2026807    1% /mnt/wslg\nnone            2026831      53  2026778    1% /mnt/wslg/versions.txt\nnone            2026831      53  2026778    1% /mnt/wslg/doc\ntmpfs            405366      46   405320    1% /mnt/wslg/run/user/0\ntmpfs            405366      44   405322    1% /mnt/wslg/run/user/1000\nnone            2026831       5  2026826    1% /usr/lib/modules/[IP REDACTED]-microsoft-standard-WSL2\nC:\\                 999 -999001  1000000     - /mnt/c\nD:\\                 999 -999001  1000000     - /mnt/d\ntmpfs           1048576      17  1048559    1% /tmp\n",
+                  "error": ""
+                },
+                "failed_services": {
+                  "ok": true,
+                  "output": "",
+                  "error": ""
+                },
+                "service_states": {
+                  "ok": true,
+                  "output": "UNIT                           LOAD   ACTIVE     SUB     JOB   DESCRIPTION\nfailstop-firewall.service      loaded active     exited        Failstop scoped host and container firewall\nfailstop-host-evidence.service loaded activating start   start Collect bounded Linux operating evidence\nfailstop-node-exporter.service loaded active     running       Failstop Linux metrics\nfailstop-reporting.service     loaded active     running       Failstop operational evidence and Teams reporting\nfailstop-ssh.service           loaded active     running       Failstop operator SSH\nfailstop-host-check.timer      loaded active     waiting       Run Failstop host diagnostics every five minutes\nfailstop-host-evidence.timer   loaded active     running       Collect Linux evidence every minute\nfailstop-reporting-daily.timer loaded active     waiting       Daily operations report at 09:00 Asia/Seoul\n\nLegend: LOAD   → Reflects whether the unit definition was properly loaded.\n        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.\n        SUB    → The low-level unit activation state, values depend on unit type.\n        JOB    → Pending job for the unit.\n\n8 loaded units listed. Pass --all to see loaded but inactive units, too.\nTo show all installed unit files use 'systemctl list-unit-files'.\n",
+                  "error": ""
+                },
+                "disk_io": {
+                  "ok": true,
+                  "output": "Linux [IP REDACTED]-microsoft-standard-WSL2 (KOPO) \t09/18/26 \t_x86_64_\t(12 CPU)\n\nDevice            r/s     rkB/s   rrqm/s  %rrqm r_await rareq-sz     w/s     wkB/s   wrqm/s  %wrqm w_await wareq-sz     d/s     dkB/s   drqm/s  %drqm d_await dareq-sz     f/s f_await  aqu-sz  %util\nloop0            0.02      0.22     0.00   0.00    0.10    13.88    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.00\nloop1            0.38    129.70     0.00   0.00    2.87   339.82    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.05\nsda              0.23     51.85     0.15  38.40    0.50   222.40    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.01\nsdb              0.05      2.76     0.02  32.70    0.61    59.56    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.01\nsdc              6.71     38.11     2.69  28.59    0.45     5.68    4.08     40.04     5.93  59.28    6.50     9.82    0.00      0.00     0.00   0.00    0.00     0.00    0.00   10.00    0.03  84.60\nsdd             35.46   2224.44    13.54  27.64    1.17    62.73    4.39    220.23     5.15  54.01    6.05    50.21    0.30    558.53     0.05  14.65    0.21  1835.52    1.36    1.82    0.07   1.35\nsde             10.90    989.16     3.17  22.55    2.56    90.71  149.44   4880.93   141.19  48.58   18.03    32.66    6.70 350998.64     2.88  30.05    0.09 52398.48   63.87    0.81    2.77   6.49\nsdf              0.09     17.32     2.30  96.27    1.06   194.30    0.04      0.03     0.00   0.00    3.74     0.85    0.00      0.77     0.00   0.00    0.17   391.00    0.01    7.26    0.00   0.01\n\n\nDevice            r/s     rkB/s   rrqm/s  %rrqm r_await rareq-sz     w/s     wkB/s   wrqm/s  %wrqm w_await wareq-sz     d/s     dkB/s   drq",
+                  "error": ""
+                },
+                "network": {
+                  "ok": true,
+                  "output": "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000\n    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00\n    RX:  bytes packets errors dropped  missed   mcast           \n       3995650    4356      0       0       0       0 \n    TX:  bytes packets errors dropped carrier collsns           \n       3995650    4356      0       0       0       0 \n2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\n    link/ether 00:15:5d:05:17:f8 brd ff:ff:ff:ff:ff:ff\n    RX:  bytes packets errors dropped  missed   mcast           \n      50702991   42079      0       0       0    8123 \n    TX:  bytes packets errors dropped carrier collsns           \n        853310    8910      0       0       0       0 \n    altname enx00155d0517f8\n",
+                  "error": ""
+                },
+                "journal_usage": {
+                  "ok": true,
+                  "output": "Archived and active journals take up 256.1M in the file system.\n",
+                  "error": ""
+                }
+              }
+            },
+            {
+              "id": "journal",
+              "kind": "journal",
+              "status": "missing",
+              "records": []
+            },
+            {
+              "id": "aws_activity",
+              "kind": "aws_activity",
+              "status": "missing",
+              "records": []
+            },
+            {
+              "id": "trigger",
+              "kind": "alert_trigger",
+              "status": "ok",
+              "records": [
+                {
+                  "labels": {
+                    "alertname": "OperationsIntegrationCheck",
+                    "instance": "local-reporting-test",
+                    "severity": "info"
+                  },
+                  "annotations": {
+                    "summary": "로컬 운영 보고 연결 시험. 실제 장애가 아니다."
+                  },
+                  "startsAt": "2026-09-18T01:18:57Z",
+                  "status": "firing"
+                }
+              ]
+            }
+          ]
+        },
+        "analysis": {
+          "mode": "mock",
+          "reason": "모의 분석이며 실제 AI를 호출하지 않았습니다.",
+          "summary": "확인된 자료의 수집 상태입니다. 원인과 정상 여부는 확정하지 않았습니다.",
+          "observations": [
+            {
+              "text": "target_up: ok",
+              "evidence": [
+                "target_up"
+              ]
+            },
+            {
+              "text": "disk_available: ok",
+              "evidence": [
+                "disk_available"
+              ]
+            },
+            {
+              "text": "inode_free: ok",
+              "evidence": [
+                "inode_free"
+              ]
+            },
+            {
+              "text": "io_time: ok",
+              "evidence": [
+                "io_time"
+              ]
+            },
+            {
+              "text": "network_errors: ok",
+              "evidence": [
+                "network_errors"
+              ]
+            },
+            {
+              "text": "services_failed: ok",
+              "evidence": [
+                "services_failed"
+              ]
+            },
+            {
+              "text": "db_connections: ok",
+              "evidence": [
+                "db_connections"
+              ]
+            },
+            {
+              "text": "db_replication_lag: ok",
+              "evidence": [
+                "db_replication_lag"
+              ]
+            },
+            {
+              "text": "request_rate: ok",
+              "evidence": [
+                "request_rate"
+              ]
+            },
+            {
+              "text": "server_errors: missing",
+              "evidence": [
+                "server_errors"
+              ]
+            },
+            {
+              "text": "latency_p95: missing",
+              "evidence": [
+                "latency_p95"
+              ]
+            },
+            {
+              "text": "backup_success: missing",
+              "evidence": [
+                "backup_success"
+              ]
+            },
+            {
+              "text": "alerts: ok",
+              "evidence": [
+                "alerts"
+              ]
+            },
+            {
+              "text": "host: ok",
+              "evidence": [
+                "host"
+              ]
+            },
+            {
+              "text": "journal: missing",
+              "evidence": [
+                "journal"
+              ]
+            },
+            {
+              "text": "aws_activity: missing",
+              "evidence": [
+                "aws_activity"
+              ]
+            },
+            {
+              "text": "trigger: ok",
+              "evidence": [
+                "trigger"
+              ]
+            }
+          ],
+          "hypotheses": [],
+          "next_checks": []
+        }
+      },
+      "card": {
+        "type": "message",
+        "attachments": [
+          {
+            "contentType": "application/vnd.microsoft.card.adaptive",
+            "contentUrl": null,
+            "content": {
+              "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+              "type": "AdaptiveCard",
+              "version": "1.2",
+              "body": [
+                {
+                  "type": "TextBlock",
+                  "text": "페일스톱 incident 운영 보고",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "보고 ID: approval-preview-incident-firing | 분석: mock",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "모의 분석이며 실제 AI를 호출하지 않았습니다.",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "확인된 자료의 수집 상태입니다. 원인과 정상 여부는 확정하지 않았습니다.",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: target_up: ok [근거: target_up]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: disk_available: ok [근거: disk_available]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: inode_free: ok [근거: inode_free]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: io_time: ok [근거: io_time]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: network_errors: ok [근거: network_errors]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: services_failed: ok [근거: services_failed]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: db_connections: ok [근거: db_connections]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: db_replication_lag: ok [근거: db_replication_lag]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: request_rate: ok [근거: request_rate]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: server_errors: missing [근거: server_errors]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: latency_p95: missing [근거: latency_p95]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: backup_success: missing [근거: backup_success]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[target_up] ok: [{\"labels\":{\"instance\":\"host.docker.internal:58180\",\"job\":\"exchange-api\"},\"last\":1.0,\"min\":1.0,\"max\":1.0,\"count\":1},{\"labels\":{\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\"},\"last\":1.0,\"min\":1.0,\"max\":1.0,\"count\":1},{\"labels\":{\"instance\":\"host.docker.internal:59188\",\"job\":\"operations-re (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[disk_available] ok: [{\"labels\":{\"device\":\"/dev/sdd\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"mountpoint\":\"/\"},\"last\":0.9472759975869884,\"min\":0.9472759975869884,\"max\":0.9472759975869884,\"count\":1},{\"labels\":{\"device\":\"/dev/sdd\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"mountpoint\":\" (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[inode_free] ok: [{\"labels\":{\"device\":\"/dev/sdd\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"mountpoint\":\"/\"},\"last\":0.9992756545543671,\"min\":0.9992756545543671,\"max\":0.9992756545543671,\"count\":1},{\"labels\":{\"device\":\"/dev/sdd\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"mountpoint\":\" (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[io_time] ok: [{\"labels\":{\"device\":\"sda\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"device\":\"sdb\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"device\":\"sdc\",\"instance\":\"host. (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[network_errors] ok: [{\"labels\":{\"device\":\"eth0\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"device\":\"lo\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1}]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[services_failed] ok: [{\"labels\":{\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"name\":\"failstop-firewall.service\",\"state\":\"failed\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"name\":\"failstop-host-check.service\",\"state\":\"failed\"},\"last\":0. (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[db_connections] ok: [{\"labels\":{\"instance\":\"postgres-primary:9187\",\"job\":\"postgres\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"instance\":\"postgres-standby:9187\",\"job\":\"postgres\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"instance\":\"postgres-primary:9187\",\"job\":\"postgres\"},\"last\":10.0,\"min\":10.0, (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[db_replication_lag] ok: [{\"labels\":{\"application_name\":\"walreceiver\",\"instance\":\"postgres-primary:9187\",\"job\":\"postgres\",\"state\":\"streaming\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1}]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[request_rate] ok: [{\"labels\":{},\"last\":0.45967170317138384,\"min\":0.45967170317138384,\"max\":0.45967170317138384,\"count\":1}]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[server_errors] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[latency_p95] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[backup_success] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[alerts] ok: [{\"labels\":{\"alertname\":\"LinuxCollectorFailed\",\"collector\":\"bonding\",\"component\":\"monitoring\",\"customer\":\"exchange\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"node\":\"local-lab\",\"service\":\"hosts\",\"severity\":\"warning\",\"stack\":\"operations\"},\"annotations\":{\"summary\":\"Linux 수집기 일부가 실패했다\" (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[host] ok: {\"filesystems\":{\"ok\":true,\"output\":\"Filesystem     Type    1024-blocks      Used  Available Capacity Mounted on\\n/dev/sdd       ext4     1055762868   1960576 1000098820       1% /\\nrootfs         rootfs      8101568      2772    8098796       1% /init\\nnone           tmpfs       8107324         0    (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[journal] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[aws_activity] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[trigger] ok: [{\"labels\":{\"alertname\":\"OperationsIntegrationCheck\",\"instance\":\"local-reporting-test\",\"severity\":\"info\"},\"annotations\":{\"summary\":\"로컬 운영 보고 연결 시험. 실제 장애가 아니다.\"},\"startsAt\":\"2026-09-18T01:18:57Z\",\"status\":\"firing\"}]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "수집: 2026-09-18T01:18:57.940441+00:00. 운영 조치를 실행하지 않았습니다. 원자료는 같은 보고 ID의 SQLite 저장본입니다.",
+                  "wrap": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "alertmanager_basic_resolved",
+      "title": "[LOCAL TEST resolved] OperationsIntegrationCheck",
+      "text": "로컬 운영 보고 연결 시험이다. 실제 장애가 아니다."
+    },
+    {
+      "kind": "mock_incident_resolved",
+      "report": {
+        "id": "approval-preview-incident-resolved",
+        "kind": "incident",
+        "evidence": {
+          "schema_version": 1,
+          "collected_at": "2026-09-18T01:18:58.027196+00:00",
+          "window_end": 1789694337.940803,
+          "window_seconds": 86400,
+          "facts": [
+            {
+              "id": "target_up",
+              "kind": "metric",
+              "description": "수집 대상 가용 여부",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:58180",
+                    "job": "exchange-api"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "operations-reporter"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "[URL REDACTED]",
+                    "job": "blackbox-http"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "localhost:9090",
+                    "job": "prometheus"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-standby:9187",
+                    "job": "postgres"
+                  },
+                  "last": 1.0,
+                  "min": 1.0,
+                  "max": 1.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "disk_available",
+              "kind": "metric",
+              "description": "Linux 파일시스템 가용 비율",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "device": "/dev/sdd",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/"
+                  },
+                  "last": 0.9472759975869884,
+                  "min": 0.9472759975869884,
+                  "max": 0.9472759975869884,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "/dev/sdd",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/wslg/distro"
+                  },
+                  "last": 0.9472759975869884,
+                  "min": 0.9472759975869884,
+                  "max": 0.9472759975869884,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "C:\\134",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/c"
+                  },
+                  "last": 0.14964364287263612,
+                  "min": 0.14964364287263612,
+                  "max": 0.14964364287263612,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "D:\\134",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/d"
+                  },
+                  "last": 0.958002787556505,
+                  "min": 0.958002787556505,
+                  "max": 0.958002787556505,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "drivers",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/usr/lib/wsl/drivers"
+                  },
+                  "last": 0.14964364287263612,
+                  "min": 0.14964364287263612,
+                  "max": 0.14964364287263612,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "rootfs",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/init"
+                  },
+                  "last": 0.9996578440124183,
+                  "min": 0.9996578440124183,
+                  "max": 0.9996578440124183,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "inode_free",
+              "kind": "metric",
+              "description": "Linux inode 가용 비율",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "device": "/dev/sdd",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/"
+                  },
+                  "last": 0.9992756545543671,
+                  "min": 0.9992756545543671,
+                  "max": 0.9992756545543671,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "/dev/sdd",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/wslg/distro"
+                  },
+                  "last": 0.9992756545543671,
+                  "min": 0.9992756545543671,
+                  "max": 0.9992756545543671,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "C:\\134",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/c"
+                  },
+                  "last": 1001.001001001001,
+                  "min": 1001.001001001001,
+                  "max": 1001.001001001001,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "D:\\134",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/d"
+                  },
+                  "last": 1001.001001001001,
+                  "min": 1001.001001001001,
+                  "max": 1001.001001001001,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "drivers",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/usr/lib/wsl/drivers"
+                  },
+                  "last": 1001.001001001001,
+                  "min": 1001.001001001001,
+                  "max": 1001.001001001001,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "rootfs",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/init"
+                  },
+                  "last": 0.9999940752209943,
+                  "min": 0.9999940752209943,
+                  "max": 0.9999940752209943,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "io_time",
+              "kind": "metric",
+              "description": "디스크 I/O 사용 시간 비율",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "device": "sda",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "sdb",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "sdc",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0002947533896633939,
+                  "min": 0.0002947533896633939,
+                  "max": 0.0002947533896633939,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "sdd",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.02349605591892877,
+                  "min": 0.02349605591892877,
+                  "max": 0.02349605591892877,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "sde",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.014667490104707656,
+                  "min": 0.014667490104707656,
+                  "max": 0.014667490104707656,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "sdf",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "network_errors",
+              "kind": "metric",
+              "description": "수신 네트워크 오류율",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "device": "eth0",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "device": "lo",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "services_failed",
+              "kind": "metric",
+              "description": "systemd 실패 서비스",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-firewall.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-host-check.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-host-check.timer",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-host-evidence.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-host-evidence.timer",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-node-exporter.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-reporting-daily.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-reporting-daily.timer",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-reporting.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "name": "failstop-ssh.service",
+                    "state": "failed"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "db_connections",
+              "kind": "metric",
+              "description": "PostgreSQL 연결 수",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-standby:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres"
+                  },
+                  "last": 10.0,
+                  "min": 10.0,
+                  "max": 10.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-standby:9187",
+                    "job": "postgres"
+                  },
+                  "last": 2.0,
+                  "min": 2.0,
+                  "max": 2.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-standby:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                },
+                {
+                  "labels": {
+                    "instance": "postgres-standby:9187",
+                    "job": "postgres"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "db_replication_lag",
+              "kind": "metric",
+              "description": "PostgreSQL 전송 WAL과 replay 위치 차이 bytes",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {
+                    "application_name": "walreceiver",
+                    "instance": "postgres-primary:9187",
+                    "job": "postgres",
+                    "state": "streaming"
+                  },
+                  "last": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "request_rate",
+              "kind": "metric",
+              "description": "서비스 초당 요청 수",
+              "status": "ok",
+              "samples": [
+                {
+                  "labels": {},
+                  "last": 0.45967170317138384,
+                  "min": 0.45967170317138384,
+                  "max": 0.45967170317138384,
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "id": "server_errors",
+              "kind": "metric",
+              "description": "서비스 초당 5xx 응답 수",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "latency_p95",
+              "kind": "metric",
+              "description": "서비스 응답 p95 초",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "backup_success",
+              "kind": "metric",
+              "description": "최근 성공 백업 timestamp (복원 검증과 별도)",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "alerts",
+              "kind": "alerts",
+              "status": "ok",
+              "records": [
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "bonding",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "00c9dcdd26fdddb7"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "ipvs",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "05be66ebf53517c6"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "infiniband",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "061d502676982294"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "nfs",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "1c93e90bb3357969"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "nfsd",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "2d4b9068bcf24683"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "tapestats",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "451582cc8789e613"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxDiskSpaceLow",
+                    "component": "storage",
+                    "customer": "exchange",
+                    "device": "C:\\134",
+                    "fstype": "9p",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/c",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "파일시스템 가용 공간이 15퍼센트 미만이다"
+                  },
+                  "startsAt": "2026-09-18T01:15:51.691Z",
+                  "endsAt": "2026-09-18T01:22:21.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "49f8d2d5895fed79"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "mdadm",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "8f444cd5d38e308b"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "dmi",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "a8bc9b17474742d2"
+                },
+                {
+                  "labels": {
+                    "alertname": "TradeSilence",
+                    "component": "bots",
+                    "customer": "exchange",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "dashboard": "MSP 종합 (msp-overview)",
+                    "duration": "1m",
+                    "metric": "trade rate 2m",
+                    "runbook": "기획안 §7.10 침묵 판정",
+                    "summary": "체결 침묵",
+                    "threshold": "= 0 TPS",
+                    "value": "0 TPS"
+                  },
+                  "startsAt": "2026-09-18T01:11:48.422Z",
+                  "endsAt": "2026-09-18T01:21:38.422Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "b4ef7ed14270fd08"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxDiskSpaceLow",
+                    "component": "storage",
+                    "customer": "exchange",
+                    "device": "drivers",
+                    "fstype": "9p",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/usr/lib/wsl/drivers",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "파일시스템 가용 공간이 15퍼센트 미만이다"
+                  },
+                  "startsAt": "2026-09-18T01:15:51.691Z",
+                  "endsAt": "2026-09-18T01:22:21.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "c213bf3a5fb4d231"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "zfs",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "c7f448cd0d3ef30d"
+                }
+              ]
+            },
+            {
+              "id": "host",
+              "kind": "host",
+              "status": "ok",
+              "collected_at": "2026-09-18T01:18:37.142278+00:00",
+              "source_status": "PASS",
+              "records": {
+                "filesystems": {
+                  "ok": true,
+                  "output": "Filesystem     Type    1024-blocks      Used  Available Capacity Mounted on\n/dev/sdd       ext4     1055762868   1960576 1000098820       1% /\nrootfs         rootfs      8101568      2772    8098796       1% /init\nnone           tmpfs       8107324         0    8107324       0% /dev/shm\nnone           tmpfs       8107324       556    8106768       1% /run\nnone           tmpfs       8107324         0    8107324       0% /run/lock\ndrivers        9p        248495100 211309080   37186020      86% /usr/lib/wsl/drivers\nnone           overlay     8107324         0    8107324       0% /usr/lib/wsl/lib\nnone           tmpfs       8107324     23080    8084244       1% /mnt/wsl\nnone           tmpfs       8107324        36    8107288       1% /mnt/wslg\nnone           overlay     8107324        80    8107244       1% /mnt/wslg/versions.txt\nnone           overlay     8107324        80    8107244       1% /mnt/wslg/doc\ntmpfs          tmpfs       1621464        12    1621452       1% /mnt/wslg/run/user/0\ntmpfs          tmpfs       1621464        12    1621452       1% /mnt/wslg/run/user/1000\nnone           overlay     8107324         0    8107324       0% /usr/lib/modules/[IP REDACTED]-microsoft-standard-WSL2\nC:\\            9p        248495100 211309080   37186020      86% /mnt/c\nD:\\            9p        976760828  41021232  935739596       5% /mnt/d\ntmpfs          tmpfs       8107328         0    8107328       0% /tmp\n",
+                  "error": ""
+                },
+                "inodes": {
+                  "ok": true,
+                  "output": "Filesystem       Inodes   IUsed    IFree IUse% Mounted on\n/dev/sdd       67108864   48612 67060252    1% /\nrootfs          2025392      12  2025380    1% /init\nnone            2026831       1  2026830    1% /dev/shm\nnone            2026831     614  2026217    1% /run\nnone            2026831       2  2026829    1% /run/lock\ndrivers             999 -999001  1000000     - /usr/lib/wsl/drivers\nnone            2026831       5  2026826    1% /usr/lib/wsl/lib\nnone            2026831       8  2026823    1% /mnt/wsl\nnone            2026831      24  2026807    1% /mnt/wslg\nnone            2026831      53  2026778    1% /mnt/wslg/versions.txt\nnone            2026831      53  2026778    1% /mnt/wslg/doc\ntmpfs            405366      46   405320    1% /mnt/wslg/run/user/0\ntmpfs            405366      44   405322    1% /mnt/wslg/run/user/1000\nnone            2026831       5  2026826    1% /usr/lib/modules/[IP REDACTED]-microsoft-standard-WSL2\nC:\\                 999 -999001  1000000     - /mnt/c\nD:\\                 999 -999001  1000000     - /mnt/d\ntmpfs           1048576      17  1048559    1% /tmp\n",
+                  "error": ""
+                },
+                "failed_services": {
+                  "ok": true,
+                  "output": "",
+                  "error": ""
+                },
+                "service_states": {
+                  "ok": true,
+                  "output": "UNIT                           LOAD   ACTIVE     SUB     JOB   DESCRIPTION\nfailstop-firewall.service      loaded active     exited        Failstop scoped host and container firewall\nfailstop-host-evidence.service loaded activating start   start Collect bounded Linux operating evidence\nfailstop-node-exporter.service loaded active     running       Failstop Linux metrics\nfailstop-reporting.service     loaded active     running       Failstop operational evidence and Teams reporting\nfailstop-ssh.service           loaded active     running       Failstop operator SSH\nfailstop-host-check.timer      loaded active     waiting       Run Failstop host diagnostics every five minutes\nfailstop-host-evidence.timer   loaded active     running       Collect Linux evidence every minute\nfailstop-reporting-daily.timer loaded active     waiting       Daily operations report at 09:00 Asia/Seoul\n\nLegend: LOAD   → Reflects whether the unit definition was properly loaded.\n        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.\n        SUB    → The low-level unit activation state, values depend on unit type.\n        JOB    → Pending job for the unit.\n\n8 loaded units listed. Pass --all to see loaded but inactive units, too.\nTo show all installed unit files use 'systemctl list-unit-files'.\n",
+                  "error": ""
+                },
+                "disk_io": {
+                  "ok": true,
+                  "output": "Linux [IP REDACTED]-microsoft-standard-WSL2 (KOPO) \t09/18/26 \t_x86_64_\t(12 CPU)\n\nDevice            r/s     rkB/s   rrqm/s  %rrqm r_await rareq-sz     w/s     wkB/s   wrqm/s  %wrqm w_await wareq-sz     d/s     dkB/s   drqm/s  %drqm d_await dareq-sz     f/s f_await  aqu-sz  %util\nloop0            0.02      0.22     0.00   0.00    0.10    13.88    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.00\nloop1            0.38    129.70     0.00   0.00    2.87   339.82    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.05\nsda              0.23     51.85     0.15  38.40    0.50   222.40    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.01\nsdb              0.05      2.76     0.02  32.70    0.61    59.56    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.01\nsdc              6.71     38.11     2.69  28.59    0.45     5.68    4.08     40.04     5.93  59.28    6.50     9.82    0.00      0.00     0.00   0.00    0.00     0.00    0.00   10.00    0.03  84.60\nsdd             35.46   2224.44    13.54  27.64    1.17    62.73    4.39    220.23     5.15  54.01    6.05    50.21    0.30    558.53     0.05  14.65    0.21  1835.52    1.36    1.82    0.07   1.35\nsde             10.90    989.16     3.17  22.55    2.56    90.71  149.44   4880.93   141.19  48.58   18.03    32.66    6.70 350998.64     2.88  30.05    0.09 52398.48   63.87    0.81    2.77   6.49\nsdf              0.09     17.32     2.30  96.27    1.06   194.30    0.04      0.03     0.00   0.00    3.74     0.85    0.00      0.77     0.00   0.00    0.17   391.00    0.01    7.26    0.00   0.01\n\n\nDevice            r/s     rkB/s   rrqm/s  %rrqm r_await rareq-sz     w/s     wkB/s   wrqm/s  %wrqm w_await wareq-sz     d/s     dkB/s   drq",
+                  "error": ""
+                },
+                "network": {
+                  "ok": true,
+                  "output": "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000\n    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00\n    RX:  bytes packets errors dropped  missed   mcast           \n       3995650    4356      0       0       0       0 \n    TX:  bytes packets errors dropped carrier collsns           \n       3995650    4356      0       0       0       0 \n2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\n    link/ether 00:15:5d:05:17:f8 brd ff:ff:ff:ff:ff:ff\n    RX:  bytes packets errors dropped  missed   mcast           \n      50702991   42079      0       0       0    8123 \n    TX:  bytes packets errors dropped carrier collsns           \n        853310    8910      0       0       0       0 \n    altname enx00155d0517f8\n",
+                  "error": ""
+                },
+                "journal_usage": {
+                  "ok": true,
+                  "output": "Archived and active journals take up 256.1M in the file system.\n",
+                  "error": ""
+                }
+              }
+            },
+            {
+              "id": "journal",
+              "kind": "journal",
+              "status": "missing",
+              "records": []
+            },
+            {
+              "id": "aws_activity",
+              "kind": "aws_activity",
+              "status": "missing",
+              "records": []
+            },
+            {
+              "id": "trigger",
+              "kind": "alert_trigger",
+              "status": "ok",
+              "records": [
+                {
+                  "labels": {
+                    "alertname": "OperationsIntegrationCheck",
+                    "instance": "local-reporting-test",
+                    "severity": "info"
+                  },
+                  "annotations": {
+                    "summary": "로컬 운영 보고 연결 시험. 실제 장애가 아니다."
+                  },
+                  "startsAt": "2026-09-18T01:18:57Z",
+                  "status": "resolved"
+                }
+              ]
+            }
+          ]
+        },
+        "analysis": {
+          "mode": "mock",
+          "reason": "모의 분석이며 실제 AI를 호출하지 않았습니다.",
+          "summary": "확인된 자료의 수집 상태입니다. 원인과 정상 여부는 확정하지 않았습니다.",
+          "observations": [
+            {
+              "text": "target_up: ok",
+              "evidence": [
+                "target_up"
+              ]
+            },
+            {
+              "text": "disk_available: ok",
+              "evidence": [
+                "disk_available"
+              ]
+            },
+            {
+              "text": "inode_free: ok",
+              "evidence": [
+                "inode_free"
+              ]
+            },
+            {
+              "text": "io_time: ok",
+              "evidence": [
+                "io_time"
+              ]
+            },
+            {
+              "text": "network_errors: ok",
+              "evidence": [
+                "network_errors"
+              ]
+            },
+            {
+              "text": "services_failed: ok",
+              "evidence": [
+                "services_failed"
+              ]
+            },
+            {
+              "text": "db_connections: ok",
+              "evidence": [
+                "db_connections"
+              ]
+            },
+            {
+              "text": "db_replication_lag: ok",
+              "evidence": [
+                "db_replication_lag"
+              ]
+            },
+            {
+              "text": "request_rate: ok",
+              "evidence": [
+                "request_rate"
+              ]
+            },
+            {
+              "text": "server_errors: missing",
+              "evidence": [
+                "server_errors"
+              ]
+            },
+            {
+              "text": "latency_p95: missing",
+              "evidence": [
+                "latency_p95"
+              ]
+            },
+            {
+              "text": "backup_success: missing",
+              "evidence": [
+                "backup_success"
+              ]
+            },
+            {
+              "text": "alerts: ok",
+              "evidence": [
+                "alerts"
+              ]
+            },
+            {
+              "text": "host: ok",
+              "evidence": [
+                "host"
+              ]
+            },
+            {
+              "text": "journal: missing",
+              "evidence": [
+                "journal"
+              ]
+            },
+            {
+              "text": "aws_activity: missing",
+              "evidence": [
+                "aws_activity"
+              ]
+            },
+            {
+              "text": "trigger: ok",
+              "evidence": [
+                "trigger"
+              ]
+            }
+          ],
+          "hypotheses": [],
+          "next_checks": []
+        }
+      },
+      "card": {
+        "type": "message",
+        "attachments": [
+          {
+            "contentType": "application/vnd.microsoft.card.adaptive",
+            "contentUrl": null,
+            "content": {
+              "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+              "type": "AdaptiveCard",
+              "version": "1.2",
+              "body": [
+                {
+                  "type": "TextBlock",
+                  "text": "페일스톱 incident 운영 보고",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "보고 ID: approval-preview-incident-resolved | 분석: mock",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "모의 분석이며 실제 AI를 호출하지 않았습니다.",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "확인된 자료의 수집 상태입니다. 원인과 정상 여부는 확정하지 않았습니다.",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: target_up: ok [근거: target_up]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: disk_available: ok [근거: disk_available]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: inode_free: ok [근거: inode_free]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: io_time: ok [근거: io_time]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: network_errors: ok [근거: network_errors]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: services_failed: ok [근거: services_failed]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: db_connections: ok [근거: db_connections]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: db_replication_lag: ok [근거: db_replication_lag]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: request_rate: ok [근거: request_rate]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: server_errors: missing [근거: server_errors]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: latency_p95: missing [근거: latency_p95]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: backup_success: missing [근거: backup_success]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[target_up] ok: [{\"labels\":{\"instance\":\"host.docker.internal:58180\",\"job\":\"exchange-api\"},\"last\":1.0,\"min\":1.0,\"max\":1.0,\"count\":1},{\"labels\":{\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\"},\"last\":1.0,\"min\":1.0,\"max\":1.0,\"count\":1},{\"labels\":{\"instance\":\"host.docker.internal:59188\",\"job\":\"operations-re (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[disk_available] ok: [{\"labels\":{\"device\":\"/dev/sdd\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"mountpoint\":\"/\"},\"last\":0.9472759975869884,\"min\":0.9472759975869884,\"max\":0.9472759975869884,\"count\":1},{\"labels\":{\"device\":\"/dev/sdd\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"mountpoint\":\" (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[inode_free] ok: [{\"labels\":{\"device\":\"/dev/sdd\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"mountpoint\":\"/\"},\"last\":0.9992756545543671,\"min\":0.9992756545543671,\"max\":0.9992756545543671,\"count\":1},{\"labels\":{\"device\":\"/dev/sdd\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"mountpoint\":\" (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[io_time] ok: [{\"labels\":{\"device\":\"sda\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"device\":\"sdb\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"device\":\"sdc\",\"instance\":\"host. (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[network_errors] ok: [{\"labels\":{\"device\":\"eth0\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"device\":\"lo\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1}]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[services_failed] ok: [{\"labels\":{\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"name\":\"failstop-firewall.service\",\"state\":\"failed\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"name\":\"failstop-host-check.service\",\"state\":\"failed\"},\"last\":0. (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[db_connections] ok: [{\"labels\":{\"instance\":\"postgres-primary:9187\",\"job\":\"postgres\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"instance\":\"postgres-standby:9187\",\"job\":\"postgres\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1},{\"labels\":{\"instance\":\"postgres-primary:9187\",\"job\":\"postgres\"},\"last\":10.0,\"min\":10.0, (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[db_replication_lag] ok: [{\"labels\":{\"application_name\":\"walreceiver\",\"instance\":\"postgres-primary:9187\",\"job\":\"postgres\",\"state\":\"streaming\"},\"last\":0.0,\"min\":0.0,\"max\":0.0,\"count\":1}]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[request_rate] ok: [{\"labels\":{},\"last\":0.45967170317138384,\"min\":0.45967170317138384,\"max\":0.45967170317138384,\"count\":1}]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[server_errors] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[latency_p95] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[backup_success] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[alerts] ok: [{\"labels\":{\"alertname\":\"LinuxCollectorFailed\",\"collector\":\"bonding\",\"component\":\"monitoring\",\"customer\":\"exchange\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"node\":\"local-lab\",\"service\":\"hosts\",\"severity\":\"warning\",\"stack\":\"operations\"},\"annotations\":{\"summary\":\"Linux 수집기 일부가 실패했다\" (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[host] ok: {\"filesystems\":{\"ok\":true,\"output\":\"Filesystem     Type    1024-blocks      Used  Available Capacity Mounted on\\n/dev/sdd       ext4     1055762868   1960576 1000098820       1% /\\nrootfs         rootfs      8101568      2772    8098796       1% /init\\nnone           tmpfs       8107324         0    (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[journal] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[aws_activity] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[trigger] ok: [{\"labels\":{\"alertname\":\"OperationsIntegrationCheck\",\"instance\":\"local-reporting-test\",\"severity\":\"info\"},\"annotations\":{\"summary\":\"로컬 운영 보고 연결 시험. 실제 장애가 아니다.\"},\"startsAt\":\"2026-09-18T01:18:57Z\",\"status\":\"resolved\"}]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "수집: 2026-09-18T01:18:58.027196+00:00. 운영 조치를 실행하지 않았습니다. 원자료는 같은 보고 ID의 SQLite 저장본입니다.",
+                  "wrap": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mock_daily",
+      "report": {
+        "id": "daily:2026-09-18",
+        "kind": "daily",
+        "evidence": {
+          "schema_version": 1,
+          "collected_at": "2026-09-18T01:18:58.118479+00:00",
+          "window_end": 1789689600.0,
+          "window_seconds": 86400,
+          "facts": [
+            {
+              "id": "target_up",
+              "kind": "metric",
+              "description": "수집 대상 가용 여부",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "disk_available",
+              "kind": "metric",
+              "description": "Linux 파일시스템 가용 비율",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "inode_free",
+              "kind": "metric",
+              "description": "Linux inode 가용 비율",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "io_time",
+              "kind": "metric",
+              "description": "디스크 I/O 사용 시간 비율",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "network_errors",
+              "kind": "metric",
+              "description": "수신 네트워크 오류율",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "services_failed",
+              "kind": "metric",
+              "description": "systemd 실패 서비스",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "db_connections",
+              "kind": "metric",
+              "description": "PostgreSQL 연결 수",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "db_replication_lag",
+              "kind": "metric",
+              "description": "PostgreSQL 전송 WAL과 replay 위치 차이 bytes",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "request_rate",
+              "kind": "metric",
+              "description": "서비스 초당 요청 수",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "server_errors",
+              "kind": "metric",
+              "description": "서비스 초당 5xx 응답 수",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "latency_p95",
+              "kind": "metric",
+              "description": "서비스 응답 p95 초",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "backup_success",
+              "kind": "metric",
+              "description": "최근 성공 백업 timestamp (복원 검증과 별도)",
+              "status": "missing",
+              "samples": []
+            },
+            {
+              "id": "alerts",
+              "kind": "alerts",
+              "status": "ok",
+              "records": [
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "bonding",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "00c9dcdd26fdddb7"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "ipvs",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "05be66ebf53517c6"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "infiniband",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "061d502676982294"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "nfs",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "1c93e90bb3357969"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "nfsd",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "2d4b9068bcf24683"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "tapestats",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "451582cc8789e613"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxDiskSpaceLow",
+                    "component": "storage",
+                    "customer": "exchange",
+                    "device": "C:\\134",
+                    "fstype": "9p",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/mnt/c",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "파일시스템 가용 공간이 15퍼센트 미만이다"
+                  },
+                  "startsAt": "2026-09-18T01:15:51.691Z",
+                  "endsAt": "2026-09-18T01:22:21.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "49f8d2d5895fed79"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "mdadm",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "8f444cd5d38e308b"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "dmi",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "a8bc9b17474742d2"
+                },
+                {
+                  "labels": {
+                    "alertname": "TradeSilence",
+                    "component": "bots",
+                    "customer": "exchange",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "dashboard": "MSP 종합 (msp-overview)",
+                    "duration": "1m",
+                    "metric": "trade rate 2m",
+                    "runbook": "기획안 §7.10 침묵 판정",
+                    "summary": "체결 침묵",
+                    "threshold": "= 0 TPS",
+                    "value": "0 TPS"
+                  },
+                  "startsAt": "2026-09-18T01:11:48.422Z",
+                  "endsAt": "2026-09-18T01:21:38.422Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "b4ef7ed14270fd08"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxDiskSpaceLow",
+                    "component": "storage",
+                    "customer": "exchange",
+                    "device": "drivers",
+                    "fstype": "9p",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "mountpoint": "/usr/lib/wsl/drivers",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "파일시스템 가용 공간이 15퍼센트 미만이다"
+                  },
+                  "startsAt": "2026-09-18T01:15:51.691Z",
+                  "endsAt": "2026-09-18T01:22:21.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "c213bf3a5fb4d231"
+                },
+                {
+                  "labels": {
+                    "alertname": "LinuxCollectorFailed",
+                    "collector": "zfs",
+                    "component": "monitoring",
+                    "customer": "exchange",
+                    "instance": "host.docker.internal:59188",
+                    "job": "linux-host",
+                    "node": "local-lab",
+                    "service": "hosts",
+                    "severity": "warning",
+                    "stack": "operations"
+                  },
+                  "annotations": {
+                    "summary": "Linux 수집기 일부가 실패했다"
+                  },
+                  "startsAt": "2026-09-18T01:11:51.691Z",
+                  "endsAt": "2026-09-18T01:22:06.691Z",
+                  "status": {
+                    "inhibitedBy": [],
+                    "mutedBy": [],
+                    "silencedBy": [],
+                    "state": "active"
+                  },
+                  "fingerprint": "c7f448cd0d3ef30d"
+                }
+              ]
+            },
+            {
+              "id": "host",
+              "kind": "host",
+              "status": "ok",
+              "collected_at": "2026-09-18T01:18:37.142278+00:00",
+              "source_status": "PASS",
+              "records": {
+                "filesystems": {
+                  "ok": true,
+                  "output": "Filesystem     Type    1024-blocks      Used  Available Capacity Mounted on\n/dev/sdd       ext4     1055762868   1960576 1000098820       1% /\nrootfs         rootfs      8101568      2772    8098796       1% /init\nnone           tmpfs       8107324         0    8107324       0% /dev/shm\nnone           tmpfs       8107324       556    8106768       1% /run\nnone           tmpfs       8107324         0    8107324       0% /run/lock\ndrivers        9p        248495100 211309080   37186020      86% /usr/lib/wsl/drivers\nnone           overlay     8107324         0    8107324       0% /usr/lib/wsl/lib\nnone           tmpfs       8107324     23080    8084244       1% /mnt/wsl\nnone           tmpfs       8107324        36    8107288       1% /mnt/wslg\nnone           overlay     8107324        80    8107244       1% /mnt/wslg/versions.txt\nnone           overlay     8107324        80    8107244       1% /mnt/wslg/doc\ntmpfs          tmpfs       1621464        12    1621452       1% /mnt/wslg/run/user/0\ntmpfs          tmpfs       1621464        12    1621452       1% /mnt/wslg/run/user/1000\nnone           overlay     8107324         0    8107324       0% /usr/lib/modules/[IP REDACTED]-microsoft-standard-WSL2\nC:\\            9p        248495100 211309080   37186020      86% /mnt/c\nD:\\            9p        976760828  41021232  935739596       5% /mnt/d\ntmpfs          tmpfs       8107328         0    8107328       0% /tmp\n",
+                  "error": ""
+                },
+                "inodes": {
+                  "ok": true,
+                  "output": "Filesystem       Inodes   IUsed    IFree IUse% Mounted on\n/dev/sdd       67108864   48612 67060252    1% /\nrootfs          2025392      12  2025380    1% /init\nnone            2026831       1  2026830    1% /dev/shm\nnone            2026831     614  2026217    1% /run\nnone            2026831       2  2026829    1% /run/lock\ndrivers             999 -999001  1000000     - /usr/lib/wsl/drivers\nnone            2026831       5  2026826    1% /usr/lib/wsl/lib\nnone            2026831       8  2026823    1% /mnt/wsl\nnone            2026831      24  2026807    1% /mnt/wslg\nnone            2026831      53  2026778    1% /mnt/wslg/versions.txt\nnone            2026831      53  2026778    1% /mnt/wslg/doc\ntmpfs            405366      46   405320    1% /mnt/wslg/run/user/0\ntmpfs            405366      44   405322    1% /mnt/wslg/run/user/1000\nnone            2026831       5  2026826    1% /usr/lib/modules/[IP REDACTED]-microsoft-standard-WSL2\nC:\\                 999 -999001  1000000     - /mnt/c\nD:\\                 999 -999001  1000000     - /mnt/d\ntmpfs           1048576      17  1048559    1% /tmp\n",
+                  "error": ""
+                },
+                "failed_services": {
+                  "ok": true,
+                  "output": "",
+                  "error": ""
+                },
+                "service_states": {
+                  "ok": true,
+                  "output": "UNIT                           LOAD   ACTIVE     SUB     JOB   DESCRIPTION\nfailstop-firewall.service      loaded active     exited        Failstop scoped host and container firewall\nfailstop-host-evidence.service loaded activating start   start Collect bounded Linux operating evidence\nfailstop-node-exporter.service loaded active     running       Failstop Linux metrics\nfailstop-reporting.service     loaded active     running       Failstop operational evidence and Teams reporting\nfailstop-ssh.service           loaded active     running       Failstop operator SSH\nfailstop-host-check.timer      loaded active     waiting       Run Failstop host diagnostics every five minutes\nfailstop-host-evidence.timer   loaded active     running       Collect Linux evidence every minute\nfailstop-reporting-daily.timer loaded active     waiting       Daily operations report at 09:00 Asia/Seoul\n\nLegend: LOAD   → Reflects whether the unit definition was properly loaded.\n        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.\n        SUB    → The low-level unit activation state, values depend on unit type.\n        JOB    → Pending job for the unit.\n\n8 loaded units listed. Pass --all to see loaded but inactive units, too.\nTo show all installed unit files use 'systemctl list-unit-files'.\n",
+                  "error": ""
+                },
+                "disk_io": {
+                  "ok": true,
+                  "output": "Linux [IP REDACTED]-microsoft-standard-WSL2 (KOPO) \t09/18/26 \t_x86_64_\t(12 CPU)\n\nDevice            r/s     rkB/s   rrqm/s  %rrqm r_await rareq-sz     w/s     wkB/s   wrqm/s  %wrqm w_await wareq-sz     d/s     dkB/s   drqm/s  %drqm d_await dareq-sz     f/s f_await  aqu-sz  %util\nloop0            0.02      0.22     0.00   0.00    0.10    13.88    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.00\nloop1            0.38    129.70     0.00   0.00    2.87   339.82    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.05\nsda              0.23     51.85     0.15  38.40    0.50   222.40    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.01\nsdb              0.05      2.76     0.02  32.70    0.61    59.56    0.00      0.00     0.00   0.00    0.00     0.00    0.00      0.00     0.00   0.00    0.00     0.00    0.00    0.00    0.00   0.01\nsdc              6.71     38.11     2.69  28.59    0.45     5.68    4.08     40.04     5.93  59.28    6.50     9.82    0.00      0.00     0.00   0.00    0.00     0.00    0.00   10.00    0.03  84.60\nsdd             35.46   2224.44    13.54  27.64    1.17    62.73    4.39    220.23     5.15  54.01    6.05    50.21    0.30    558.53     0.05  14.65    0.21  1835.52    1.36    1.82    0.07   1.35\nsde             10.90    989.16     3.17  22.55    2.56    90.71  149.44   4880.93   141.19  48.58   18.03    32.66    6.70 350998.64     2.88  30.05    0.09 52398.48   63.87    0.81    2.77   6.49\nsdf              0.09     17.32     2.30  96.27    1.06   194.30    0.04      0.03     0.00   0.00    3.74     0.85    0.00      0.77     0.00   0.00    0.17   391.00    0.01    7.26    0.00   0.01\n\n\nDevice            r/s     rkB/s   rrqm/s  %rrqm r_await rareq-sz     w/s     wkB/s   wrqm/s  %wrqm w_await wareq-sz     d/s     dkB/s   drq",
+                  "error": ""
+                },
+                "network": {
+                  "ok": true,
+                  "output": "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000\n    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00\n    RX:  bytes packets errors dropped  missed   mcast           \n       3995650    4356      0       0       0       0 \n    TX:  bytes packets errors dropped carrier collsns           \n       3995650    4356      0       0       0       0 \n2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000\n    link/ether 00:15:5d:05:17:f8 brd ff:ff:ff:ff:ff:ff\n    RX:  bytes packets errors dropped  missed   mcast           \n      50702991   42079      0       0       0    8123 \n    TX:  bytes packets errors dropped carrier collsns           \n        853310    8910      0       0       0       0 \n    altname enx00155d0517f8\n",
+                  "error": ""
+                },
+                "journal_usage": {
+                  "ok": true,
+                  "output": "Archived and active journals take up 256.1M in the file system.\n",
+                  "error": ""
+                }
+              }
+            },
+            {
+              "id": "journal",
+              "kind": "journal",
+              "status": "missing",
+              "records": []
+            },
+            {
+              "id": "aws_activity",
+              "kind": "aws_activity",
+              "status": "missing",
+              "records": []
+            }
+          ]
+        },
+        "analysis": {
+          "mode": "mock",
+          "reason": "모의 분석이며 실제 AI를 호출하지 않았습니다.",
+          "summary": "확인된 자료의 수집 상태입니다. 원인과 정상 여부는 확정하지 않았습니다.",
+          "observations": [
+            {
+              "text": "target_up: missing",
+              "evidence": [
+                "target_up"
+              ]
+            },
+            {
+              "text": "disk_available: missing",
+              "evidence": [
+                "disk_available"
+              ]
+            },
+            {
+              "text": "inode_free: missing",
+              "evidence": [
+                "inode_free"
+              ]
+            },
+            {
+              "text": "io_time: missing",
+              "evidence": [
+                "io_time"
+              ]
+            },
+            {
+              "text": "network_errors: missing",
+              "evidence": [
+                "network_errors"
+              ]
+            },
+            {
+              "text": "services_failed: missing",
+              "evidence": [
+                "services_failed"
+              ]
+            },
+            {
+              "text": "db_connections: missing",
+              "evidence": [
+                "db_connections"
+              ]
+            },
+            {
+              "text": "db_replication_lag: missing",
+              "evidence": [
+                "db_replication_lag"
+              ]
+            },
+            {
+              "text": "request_rate: missing",
+              "evidence": [
+                "request_rate"
+              ]
+            },
+            {
+              "text": "server_errors: missing",
+              "evidence": [
+                "server_errors"
+              ]
+            },
+            {
+              "text": "latency_p95: missing",
+              "evidence": [
+                "latency_p95"
+              ]
+            },
+            {
+              "text": "backup_success: missing",
+              "evidence": [
+                "backup_success"
+              ]
+            },
+            {
+              "text": "alerts: ok",
+              "evidence": [
+                "alerts"
+              ]
+            },
+            {
+              "text": "host: ok",
+              "evidence": [
+                "host"
+              ]
+            },
+            {
+              "text": "journal: missing",
+              "evidence": [
+                "journal"
+              ]
+            },
+            {
+              "text": "aws_activity: missing",
+              "evidence": [
+                "aws_activity"
+              ]
+            }
+          ],
+          "hypotheses": [],
+          "next_checks": []
+        }
+      },
+      "card": {
+        "type": "message",
+        "attachments": [
+          {
+            "contentType": "application/vnd.microsoft.card.adaptive",
+            "contentUrl": null,
+            "content": {
+              "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+              "type": "AdaptiveCard",
+              "version": "1.2",
+              "body": [
+                {
+                  "type": "TextBlock",
+                  "text": "페일스톱 daily 운영 보고",
+                  "weight": "Bolder",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "보고 ID: daily:2026-09-18 | 분석: mock",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "모의 분석이며 실제 AI를 호출하지 않았습니다.",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "확인된 자료의 수집 상태입니다. 원인과 정상 여부는 확정하지 않았습니다.",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: target_up: missing [근거: target_up]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: disk_available: missing [근거: disk_available]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: inode_free: missing [근거: inode_free]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: io_time: missing [근거: io_time]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: network_errors: missing [근거: network_errors]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: services_failed: missing [근거: services_failed]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: db_connections: missing [근거: db_connections]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: db_replication_lag: missing [근거: db_replication_lag]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: request_rate: missing [근거: request_rate]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: server_errors: missing [근거: server_errors]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: latency_p95: missing [근거: latency_p95]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "관측: backup_success: missing [근거: backup_success]",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[target_up] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[disk_available] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[inode_free] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[io_time] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[network_errors] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[services_failed] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[db_connections] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[db_replication_lag] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[request_rate] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[server_errors] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[latency_p95] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[backup_success] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[alerts] ok: [{\"labels\":{\"alertname\":\"LinuxCollectorFailed\",\"collector\":\"bonding\",\"component\":\"monitoring\",\"customer\":\"exchange\",\"instance\":\"host.docker.internal:59188\",\"job\":\"linux-host\",\"node\":\"local-lab\",\"service\":\"hosts\",\"severity\":\"warning\",\"stack\":\"operations\"},\"annotations\":{\"summary\":\"Linux 수집기 일부가 실패했다\" (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[host] ok: {\"filesystems\":{\"ok\":true,\"output\":\"Filesystem     Type    1024-blocks      Used  Available Capacity Mounted on\\n/dev/sdd       ext4     1055762868   1960576 1000098820       1% /\\nrootfs         rootfs      8101568      2772    8098796       1% /init\\nnone           tmpfs       8107324         0    (원자료 저장본 참조)",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[journal] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "[aws_activity] missing: []",
+                  "wrap": true
+                },
+                {
+                  "type": "TextBlock",
+                  "text": "수집: 2026-09-18T01:18:58.118479+00:00. 운영 조치를 실행하지 않았습니다. 원자료는 같은 보고 ID의 SQLite 저장본입니다.",
+                  "wrap": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

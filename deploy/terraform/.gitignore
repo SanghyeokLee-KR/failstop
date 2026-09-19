@@ -1,0 +1,11 @@
+.tools/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+!example.tfvars
+crash.log
+.test-output/
+release-*.tar.gz

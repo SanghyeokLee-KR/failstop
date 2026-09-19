@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh EC2 monitoring targets every thirty seconds
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+Unit=failstop-discovery.service
+
+[Install]
+WantedBy=timers.target

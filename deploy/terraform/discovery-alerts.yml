@@ -1,0 +1,24 @@
+groups:
+  - name: failstop-aws-target-discovery
+    rules:
+      - alert: TargetDiscoveryFailed
+        expr: failstop_target_discovery_success{job="linux-host",role="bot"} == 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: AWS 관측 대상 검색 실패
+          description: 마지막 대상 목록의 갱신이 실패했습니다. EC2 API와 관측 역할 권한을 확인합니다.
+      - alert: TargetDiscoveryStale
+        expr: time() - failstop_target_discovery_last_success_seconds{job="linux-host",role="bot"} > 120
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: AWS 관측 대상 목록 갱신 지연
+          description: 대상 목록을 2분 넘게 갱신하지 못했습니다. discovery timer와 journal을 확인합니다.
+      - alert: TargetDiscoveryMetricMissing
+        expr: up{job="linux-host",role="bot"} == 1 unless on(instance) failstop_target_discovery_success{job="linux-host",role="bot"}
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: AWS 대상 검색 지표 누락
+          description: 호스트 exporter는 응답하지만 discovery 지표가 없습니다. 수집 작업의 설치와 실행을 확인합니다.
