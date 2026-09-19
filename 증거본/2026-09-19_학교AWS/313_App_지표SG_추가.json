@@ -1,0 +1,20 @@
+{
+    "Return": true,
+    "SecurityGroupRules": [
+        {
+            "SecurityGroupRuleId": "sgr-0a21d2a6470ed76ba",
+            "GroupId": "sg-0e321b38da5cc8aaf",
+            "GroupOwnerId": "619256964117",
+            "IsEgress": false,
+            "IpProtocol": "tcp",
+            "FromPort": 9101,
+            "ToPort": 9101,
+            "ReferencedGroupInfo": {
+                "GroupId": "sg-064b0da59e8c9a13c",
+                "UserId": "619256964117"
+            },
+            "Description": "App metrics from bot monitoring only",
+            "SecurityGroupRuleArn": "arn:aws:ec2:ap-northeast-2:619256964117:security-group-rule/sgr-0a21d2a6470ed76ba"
+        }
+    ]
+}

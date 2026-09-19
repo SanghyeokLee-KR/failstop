@@ -1,0 +1,101 @@
+Browser tab: 2017667296, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		35 container consoleNavHeader
+			36 container awsc-nav-header
+				37 image Account color: 설정 해제
+				38 container Global
+					39 container awsc-top-level-nav
+						40 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						41 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						42 button (collapsed) Description: Services, Secondary Actions: Expand
+							43 image
+						44 container aws-unified-search-container
+							45 container
+								46 image Search
+								47 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								48 button Ask Amazon Q
+								49 text [Alt+S]
+						50 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						51 container
+							52 pop up button Description: Notifications (none available), Help: Notifications
+								53 image Notifications
+							54 image Notifications
+						55 content list awsc-navigation__more-menu--list
+							56 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								57 image Support
+							58 button (collapsed) Description: Settings, Secondary Actions: Expand
+							59 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								60 text 아시아 태평양 (서울)
+							61 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								62 text Account ID: 6192-5696-4117
+								63 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789827823231-823
+			15 text Content loaded
+			64 container
+				65 content list
+					89 text Content-Length: 28282
+					90 text Last-Modified: Sat, 19 Sep 2026 12:02:47 GMT
+					91 text Connection: keep-alive
+					92 text ETag: "6aae79e7-6e7a"
+					93 text X-Content-Type-Options: nosniff
+					94 text X-Frame-Options: DENY
+					95 text Referrer-Policy: same-origin
+					96 text Accept-Ranges: bytes
+					97 text subject=CN=www.sang.it.kr
+					98 text issuer=C=US, O=Let's Encrypt, CN=YE2
+					99 text notBefore=Sep 19 13:30:56 2026 GMT
+					100 text notAfter=Dec 18 13:30:55 2026 GMT
+					101 text [ec2-user@ip-172-31-2-86 ~]$ printf '%s' 'IyEvYmluL3NoCiMg6rCx7Iug7ZWcIOyduOymneyEnOulvCDsoIHsmqntlZjqu
+					102 text LAg7KCE7JeQIOyghOyytCBOZ2lueCDqtazrrLjsnYQg6rKA7IKs7ZWc64ukLgpzZXQgLWV1Ci91c3Ivc2Jpbi9uZ2lueCAtdAovdXNy
+					103 text L2Jpbi9zeXN0ZW1jdGwgcmVsb2FkIG5naW54Cg==' | base64 -d > /tmp/certbot-nginx-reload.sh && sudo install -o
+					104 text  root -g root -m 0755 /tmp/certbot-nginx-reload.sh /etc/letsencrypt/renewal-hooks/deploy/nginx-reload &
+					105 text & sudo systemctl enable --now certbot-renew.timer && systemctl list-timers certbot-renew.timer --no-pag
+					106 text er && sudo certbot renew --dry-run --run-deploy-hooks
+					107 text Created symlink /etc/systemd/system/timers.target.wants/certbot-renew.timer → /usr/lib/systemd/system/c
+					108 text ertbot-renew.timer.
+					109 text NEXT                        LEFT     LAST PASSED UNIT                ACTIVATES
+					110 text Sun 2026-09-20 05:25:34 UTC 14h left -    -      certbot-renew.timer certbot-renew.service
+					111 text 1 timers listed.
+					112 text Pass --all to see loaded but inactive timers, too.
+					113 text Saving debug log to /var/log/letsencrypt/letsencrypt.log
+					114 text - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+					115 text Processing /etc/letsencrypt/renewal/www.sang.it.kr.conf
+					116 text - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+					117 text Account registered.
+					118 text Simulating renewal of an existing certificate for www.sang.it.kr
+					119 text Hook 'deploy-hook' ran with error output:
+					120 text  nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+					121 text  nginx: configuration file /etc/nginx/nginx.conf test is successful
+					122 text - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+					123 text Congratulations, all simulated renewals succeeded: 
+					124 text   /etc/letsencrypt/live/www.sang.it.kr/fullchain.pem (success)
+					125 text - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+					126 text [ec2-user@ip-172-31-2-86 ~]$ 
+				127 text printf '%s' 'IyEvYmluL3NoCiMg6rCx7Iug7ZWcIOyduOymneyEnOulvCDsoIHsmqntlZjquLAg7KCE7JeQIOyghOyytCBOZ2lueCDqtazrrLjsnYQg6rKA7IKs7ZWc64ukLgpzZXQgLWV1Ci91c3Ivc2Jpbi9uZ2lueCAtdAovdXNyL2Jpbi9zeXN0ZW1jdGwgcmVsb2FkIG5naW54Cg==' | base64 -d > /tmp/certbot-nginx-reload.sh && sudo install -o root -g root -m 0755 /tmp/certbot-nginx-reload.sh /etc/letsencrypt/renewal-hooks/deploy/nginx-reload && sudo systemctl enable --now certbot-renew.timer && systemctl list-timers certbot-renew.timer --no-pager && sudo certbot renew --dry-run --run-deploy-hooks Created symlink /etc/systemd/system/timers.target.wants/certbot-renew.timer → /usr/lib/systemd/system/certbot-renew.timer. NEXT LEFT LAST PASSED UNIT ACTIVATES Sun 2026-09-20 05:25:34 UTC 14h left - - certbot-renew.timer certbot-renew.service 1 timers listed. Pass --all to see loaded but inactive timers, too. Saving debug log to /var/log/letsencrypt/letsencrypt.log - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - Processing /etc/letsencrypt/renewal/www.sang.it.kr.conf - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - Account registered. Simulating renewal of an existing certificate for www.sang.it.kr Hook 'deploy-hook' ran with error output:Too much output to announce, navigate to rows manually to read nginx: the configuration file /etc/nginx/nginx.conf syntax is ok nginx: configuration file /etc/nginx/nginx.conf test is successful - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - Congratulations, all simulated renewals succeeded: /etc/letsencrypt/live/www.sang.it.kr/fullchain.pem (success)
+				79 text field (settable) Terminal input
+			23 button Close instance info
+			24 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				80 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			81 container
+				82 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		25 container f
+			26 container console-nav-footer
+				27 container awsc-nav-footer-content
+					83 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					28 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					29 button Console Mobile App, ID: mobile_app_button
+						30 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					31 content list
+						32 link Description: Privacy, Value: aws.amazon.com/privacy/
+						33 link Description: Terms, Value: aws.amazon.com/terms/
+						34 button Cookie preferences
+
+The focused UI element is 79 text field (settable) Terminal input

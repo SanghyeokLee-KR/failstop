@@ -1,0 +1,35 @@
+{
+    "Return": true,
+    "SecurityGroupRules": [
+        {
+            "SecurityGroupRuleId": "sgr-0781650c699b59ee1",
+            "GroupId": "sg-03b023cf05dc4bafe",
+            "GroupOwnerId": "619256964117",
+            "IsEgress": false,
+            "IpProtocol": "tcp",
+            "FromPort": 9100,
+            "ToPort": 9100,
+            "ReferencedGroupInfo": {
+                "GroupId": "sg-064b0da59e8c9a13c",
+                "UserId": "619256964117"
+            },
+            "Description": "Linux and PostgreSQL metrics from monitoring only",
+            "SecurityGroupRuleArn": "arn:aws:ec2:ap-northeast-2:619256964117:security-group-rule/sgr-0781650c699b59ee1"
+        },
+        {
+            "SecurityGroupRuleId": "sgr-0f1242181a9463673",
+            "GroupId": "sg-03b023cf05dc4bafe",
+            "GroupOwnerId": "619256964117",
+            "IsEgress": false,
+            "IpProtocol": "tcp",
+            "FromPort": 9187,
+            "ToPort": 9187,
+            "ReferencedGroupInfo": {
+                "GroupId": "sg-064b0da59e8c9a13c",
+                "UserId": "619256964117"
+            },
+            "Description": "Linux and PostgreSQL metrics from monitoring only",
+            "SecurityGroupRuleArn": "arn:aws:ec2:ap-northeast-2:619256964117:security-group-rule/sgr-0f1242181a9463673"
+        }
+    ]
+}

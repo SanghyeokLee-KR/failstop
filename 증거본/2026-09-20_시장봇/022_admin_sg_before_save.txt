@@ -1,0 +1,226 @@
+Browser tab: 2017667324, Title: "ModifyInboundSecurityGroupRules | EC2 | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#ModifyInboundSecurityGroupRules:securityGroupId=sg-064b0da59e8c9a13c".
+0 AXWebArea ModifyInboundSecurityGroupRules | EC2 | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#ModifyInboundSecurityGroupRules:securityGroupId=sg-064b0da59e8c9a13c
+	1 container b
+		78 container consoleNavHeader
+			79 container awsc-nav-header
+				80 image 계정 색상: 설정 해제
+				81 container 글로벌
+					82 container awsc-top-level-nav
+						83 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						84 link Description: 기본 콘텐츠로 건너뛰기, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#c
+						85 button (collapsed) Description: Amazon Q, ID: toolbar_@amzn/conversational-experience-module_amazon-q-tool, Secondary Actions: Expand
+						86 button (collapsed) Description: 서비스, Secondary Actions: Expand
+							87 image
+						88 container aws-unified-search-container
+							89 container
+								90 image 검색
+								91 combo box (collapsed, settable) Description: 검색, ID: awsc-concierge-input, Secondary Actions: Expand
+								92 button Amazon Q에게 질문하기 
+								93 text [알트+S]
+						94 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						95 container
+							96 pop up button Description: 알림(사용 가능한 알림 없음), Help: 알림
+								97 image 알림
+							98 image 알림
+						99 content list awsc-navigation__more-menu--list
+							100 button (collapsed) Description: 도움말 및 지원, Secondary Actions: Expand
+								101 image 지원
+							102 button (collapsed) Description: 설정, Secondary Actions: Expand
+							103 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								104 text 아시아 태평양 (서울)
+							105 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								106 text 계정 ID: 6192-5696-4117
+								107 text 2026-ai-kopo-04
+		2 container app
+			3 container
+				254 container 측면 탐색
+					255 pop up button (collapsed) Description: 측면 탐색 열기, Secondary Actions: Expand
+				5 container 브레드크럼
+					6 content list
+						7 link Description: EC2, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Home:
+						8 link Description: 보안 그룹, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroups:
+						256 link Description: sg-064b0da59e8c9a13c, Value: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#SecurityGroup:groupId=sg-064b0da59e8c9a13c
+						257 link (disabled) 인바운드 규칙 편집
+							258 text 인바운드 규칙 편집
+				259 container 드로어
+					260 toolbar 드로어
+						261 pop up button (collapsed) Description: 도움말 창 열기, Secondary Actions: Expand
+						262 pop up button (collapsed) Description: Console-to-Code, Secondary Actions: Expand
+			73 container
+				252 container Description: ModifyInboundSecurityGroupRules, ID: security-groups-react-frame
+					253 AXWebArea ModifyInboundSecurityGroupRules, URL: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#ModifyInboundSecurityGroupRules:securityGroupId=sg-064b0da59e8c9a13c
+						263 container
+							264 container 알림
+								265 content list Description: Notifications, ID: flashbar:reg:
+							266 heading 인바운드 규칙 편집, Value: 1
+								324 text 인바운드 규칙 편집
+							267 link Description: 정보 : 인바운드 규칙 편집, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rel:
+							325 text 인바운드 규칙은 인스턴스에 도달하도록 허용된 수신 트래픽을 제어합니다.
+							268 container :reo:
+								326 container
+									327 heading 인바운드 규칙, Value: 2
+										328 text 인바운드 규칙
+									329 link Description: 정보 : 인바운드 규칙, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rer:
+								330 text 인바운드 규칙 1
+								271 button 인바운드 규칙 1 삭제
+								331 container
+									332 text 보안 그룹 규칙 ID
+									333 text sgr-0eb709a90a91ff952
+								334 container
+									335 container formField:rf2:-label
+										336 text 유형
+										337 link Description: 유형에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rf4:
+									338 container
+										339 pop up button (collapsed) 유형 유형에 대한 정보 인바운드 규칙 1 유형 사용자 지정 TCP, ID: formField:rf6:, Secondary Actions: Expand
+											340 text 사용자 지정 TCP
+								341 container
+									342 container formField:rfh:-label
+										343 text 프로토콜
+										344 link Description: 프로토콜에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rfj:
+									345 text field (disabled) Description: 인바운드 규칙 1 프로토콜, Value: TCP, ID: formField:rfl:
+								346 container
+									347 container formField:rfn:-label
+										348 text 포트 범위
+										349 link Description: 포트 범위에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rfp:
+									350 text field (settable) Description: 인바운드 규칙 1 포트 범위, Value: 3000, ID: formField:rfr:
+								351 container
+									352 container formField:rft:-label
+										353 text 소스 유형
+										354 link Description: 소스 유형에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rfv:
+									355 container
+										356 pop up button (collapsed) 소스 유형 소스 유형에 대한 정보 인바운드 규칙 1 소스 사용자 지정, ID: formField:rg1:, Secondary Actions: Expand
+											357 text 사용자 지정
+								358 container
+									359 container formField:rgb:-label
+										360 text 소스
+										361 link Description: 소스에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rgd:
+									362 container
+										363 combo box (collapsed, settable) 소스 소스에 대한 정보, ID: formField:rgf:, Secondary Actions: Expand
+										364 content list :rj7:
+											365 container sg-0e321b38da5cc8aaf
+												366 container
+													367 text sg-0e321b38da5cc8aaf
+													368 button sg-0e321b38da5cc8aaf에 대한 토큰 제거
+								369 container
+									370 container formField:rgm:-label
+										371 text 설명 - 선택 사항
+										372 link Description: 설명에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rgo:
+									373 text field (settable) Description: 인바운드 규칙 1 설명 - 선택 사항, Value: Grafana from app HTTPS proxy only, ID: formField:rgq:
+								374 text 인바운드 규칙 2
+								295 button 인바운드 규칙 2 삭제
+								375 container
+									376 text 보안 그룹 규칙 ID
+									377 text sgr-0e7af443475164fe8
+								378 container
+									379 container formField:rh1:-label
+										380 text 유형
+										381 link Description: 유형에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rh3:
+									382 container
+										383 pop up button (collapsed) 유형 유형에 대한 정보 인바운드 규칙 2 유형 SSH, ID: formField:rh5:, Secondary Actions: Expand
+											384 text SSH
+								385 container
+									386 container formField:rhg:-label
+										387 text 프로토콜
+										388 link Description: 프로토콜에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rhi:
+									389 text field (disabled) Description: 인바운드 규칙 2 프로토콜, Value: TCP, ID: formField:rhk:
+								390 container
+									391 container formField:rhm:-label
+										392 text 포트 범위
+										393 link Description: 포트 범위에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rho:
+									394 text field (disabled) Description: 인바운드 규칙 2 포트 범위, Value: 22, ID: formField:rhq:
+								395 container
+									396 container formField:rhs:-label
+										397 text 소스 유형
+										398 link Description: 소스 유형에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rhu:
+									399 container
+										400 pop up button (collapsed) 소스 유형 소스 유형에 대한 정보 인바운드 규칙 2 소스 사용자 지정, ID: formField:ri0:, Secondary Actions: Expand
+											401 text 사용자 지정
+								402 container
+									403 container formField:ria:-label
+										404 text 소스
+										405 link Description: 소스에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:ric:
+									406 container
+										407 combo box (collapsed, settable) 소스 소스에 대한 정보, ID: formField:rie:, Secondary Actions: Expand
+										408 content list :rj9:
+											409 container pl-00ec8fd779e5b4175
+												410 container
+													411 text pl-00ec8fd779e5b4175
+													412 button pl-00ec8fd779e5b4175에 대한 토큰 제거
+								413 container
+									414 container formField:ril:-label
+										415 text 설명 - 선택 사항
+										416 link Description: 설명에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rin:
+									417 text field (settable) Description: 인바운드 규칙 2 설명 - 선택 사항, Value: SSH from Seoul EC2 Instance Connect only, ID: formField:rip:
+								420 text 인바운드 규칙 3
+								421 button 인바운드 규칙 3 삭제
+								422 container
+									423 text 보안 그룹 규칙 ID
+									424 text –
+								425 container
+									426 container formField:rjg:-label
+										427 text 유형
+										428 link Description: 유형에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rji:
+									429 container
+										430 pop up button (collapsed) 유형 유형에 대한 정보 인바운드 규칙 3 유형 사용자 지정 TCP, ID: formField:rjk:, Secondary Actions: Expand
+											431 text 사용자 지정 TCP
+								432 container
+									433 container formField:rjv:-label
+										434 text 프로토콜
+										435 link Description: 프로토콜에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rk1:
+									436 text field (disabled) Description: 인바운드 규칙 3 프로토콜, Value: TCP, ID: formField:rk3:
+								437 container
+									438 container formField:rk5:-label
+										439 text 포트 범위
+										440 link Description: 포트 범위에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rk7:
+									441 text field (settable) Description: 인바운드 규칙 3 포트 범위, Value: 8443, ID: formField:rk9:
+								442 container
+									443 container formField:rkb:-label
+										444 text 소스 유형
+										445 link Description: 소스 유형에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rkd:
+									446 container
+										447 pop up button (collapsed) 소스 유형 소스 유형에 대한 정보 인바운드 규칙 3 소스 사용자 지정, ID: formField:rkf:, Secondary Actions: Expand
+											448 text 사용자 지정
+								449 container
+									450 container formField:rkp:-label
+										451 text 소스
+										452 link Description: 소스에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rkr:
+									460 container
+										461 container
+											462 combo box (collapsed, settable) 소스 소스에 대한 정보, Value: sg-0e321b38da5cc8aaf, ID: formField:rkt:, Secondary Actions: Expand
+											463 button 지우기
+										468 content list :rlc:
+											469 container sg-0e321b38da5cc8aaf
+												470 container
+													471 text sg-0e321b38da5cc8aaf
+													472 button sg-0e321b38da5cc8aaf에 대한 토큰 제거
+								455 container
+									456 container formField:rl4:-label
+										457 text 설명 - 선택 사항
+										458 link Description: 설명에 대한 정보, Value: docs.aws.amazon.com/ko_kr/console/ec2/security-groups, ID: link-self:rl6:
+									459 text field (settable) Description: 인바운드 규칙 3 설명 - 선택 사항, Value: Admin mTLS from app gateway only, ID: formField:rl8:
+								318 button 규칙 추가
+							319 container
+								418 image 정보
+								419 text 보안 그룹 규칙에서 접두사 목록을 참조할 때 접두사 목록의 최대 항목 수는 보안 그룹 항목 수의 할당량에 포함됩니다. 예를 들어 최대 20개의 항목으로 구성된 접두사 목록을 만들고 보안 그룹 규칙에서 해당 접두사 목록을 참조하는 경우 이는 20개의 보안 그룹 규칙으로 계산됩니다.
+								320 button 알림 무시
+							321 button 취소
+							322 button 변경 사항 미리 보기
+							323 button 규칙 저장
+		227 container f
+			228 container console-nav-footer
+				229 container awsc-nav-footer-content
+					230 button CloudShell, Help: 열기 CloudShell, ID: tools-experience-ingress
+					231 button AWS용 에이전트 툴킷
+					232 button 의견, ID: feedback
+						233 text 의견
+					234 button Console 모바일 앱, ID: mobile_app_button
+						235 image
+						236 text Console 모바일 앱
+					237 container
+						238 text ©  2026 ,  Amazon Web Services, Inc. 또는 계열사.
+					239 content list
+						240 link Description: 개인 정보 보호, Value: aws.amazon.com/privacy/
+						241 link Description: 약관, Value: aws.amazon.com/terms/
+						242 button 쿠키 기본 설정
+
+The focused UI element is 462 combo box (collapsed, settable) 소스 소스에 대한 정보, Value: sg-0e321b38da5cc8aaf, ID: formField:rkt:, Secondary Actions: Expand

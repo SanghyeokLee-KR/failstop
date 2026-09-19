@@ -1,0 +1,77 @@
+Browser tab: 2017667345, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-099799f0dc164ae71&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-099799f0dc164ae71&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		45 container consoleNavHeader
+			46 container awsc-nav-header
+				47 image Account color: 설정 해제
+				48 container Global
+					49 container awsc-top-level-nav
+						50 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						51 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-099799f0dc164ae71&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						52 button (collapsed) Description: Services, Secondary Actions: Expand
+							53 image
+						54 container aws-unified-search-container
+							55 container
+								56 image Search
+								57 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								58 button Ask Amazon Q
+								59 text [Alt+S]
+						60 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						61 container
+							62 pop up button Description: Notifications (none available), Help: Notifications
+								63 image Notifications
+							64 image Notifications
+						65 content list awsc-navigation__more-menu--list
+							66 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								67 image Support
+							68 button (collapsed) Description: Settings, Secondary Actions: Expand
+							69 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								70 text 아시아 태평양 (서울)
+							71 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								72 text Account ID: 6192-5696-4117
+								73 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789835297777-4974
+			23 text Content loaded
+			74 container
+				75 content list
+					96 text Sat Sep 19 16:29:02 UTC 2026
+					97 text  pg_is_in_recovery | pg_last_wal_receive_lsn | pg_last_wal_replay_lsn 
+					98 text -------------------+-------------------------+------------------------
+					99 text  t                 | 0/110A62B0              | 0/110A62B0
+					100 text (1 row)
+					101 text   type   |   database    |  user_name   |    address    |  auth_method  
+					102 text ---------+---------------+--------------+---------------+---------------
+					103 text  local   | {all}         | {all}        |               | peer
+					104 text  hostssl | {replication} | {replicator} | 172.31.33.195 | scram-sha-256
+					105 text (2 rows)
+					106 text notBefore=Sep 19 10:13:26 2026 GMT
+					107 text notAfter=Dec 18 10:13:26 2026 GMT
+					108 text X509v3 Subject Alternative Name: 
+					109 text     IP Address:172.31.33.195
+					110 text [ec2-user@ip-172-31-33-195 ~]$ 
+				111 text clear; date -u; sudo -u postgres psql -X -P pager=off -d exchange -c "SELECT pg_is_in_recovery(),pg_last_wal_receive_lsn(),pg_last_wal_replay_lsn(); SELECT type,database,user_name,address,auth_method FROM pg_hba_file_rules WHERE error IS NULL;"; sudo openssl x509 -in /etc/postgresql/server.crt -noout -dates -ext subjectAltNameclear; date -u; sudo -u postgres psql -X -P pager=off -d exchange -c "SELECT pg_is_in_recovery(),pg_last_wal_receive_lsn(),pg_last_wal_replay_lsn(); SELECT type,database,user_name,address,auth_method FROM pg_hba_file_rules WHERE error IS NULL;"; sudo openssl x509 -in /etc/postgresql/server.crt -noout -dates -ext subjectAltName Sat Sep 19 16:29:02 UTC 2026 pg_is_in_recovery | pg_last_wal_receive_lsn | pg_last_wal_replay_lsn -------------------+-------------------------+------------------------ t | 0/110A62B0 | 0/110A62B0 (1 row) type | database | user_name | address | auth_method ---------+---------------+--------------+---------------+--------------- local | {all} | {all} | | peer hostssl | {replication} | {replicator} | 172.31.33.195 | scram-sha-256 (2 rows) notBefore=Sep 19 10:13:26 2026 GMT notAfter=Dec 18 10:13:26 2026 GMT X509v3 Subject Alternative Name: IP Address:172.31.33.195 [ec2-user@ip-172-31-33-195 ~]$
+				89 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-099799f0dc164ae71 (2026-ai-kopo-04-db-standby-01), Value: 3
+				90 text i-099799f0dc164ae71 (2026-ai-kopo-04-db-standby-01)
+			91 container
+				92 text PublicIPs: 3.34.125.226 PrivateIPs: 172.31.33.195
+		33 container f
+			34 container console-nav-footer
+				35 container awsc-nav-footer-content
+					93 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					36 button Agent Toolkit for AWS
+					94 button Feedback, ID: feedback
+						95 text Feedback
+					37 button Console Mobile App, ID: mobile_app_button
+						38 image
+						39 text Console Mobile App
+					40 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					41 content list
+						42 link Description: Privacy, Value: aws.amazon.com/privacy/
+						43 link Description: Terms, Value: aws.amazon.com/terms/
+						44 button Cookie preferences
+
+The focused UI element is 89 text field (settable) Terminal input

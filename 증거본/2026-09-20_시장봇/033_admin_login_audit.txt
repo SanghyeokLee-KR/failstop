@@ -1,0 +1,527 @@
+Browser tab: 2017667333, Title: "관리 콘솔 · 페일스톱", URL: "https://www.sang.it.kr/admin/audit".
+0 AXWebArea 관리 콘솔 · 페일스톱, URL: sang.it.kr/admin/audit
+	1 link Description: 본문 바로가기, Value: sang.it.kr/admin/audit#main
+	2 container main
+		3 link Description: 관리 본문 바로가기, Value: sang.it.kr/admin/audit#admin-main
+		4 container 관리 메뉴
+			5 text 관리 콘솔
+			6 container 관리 화면
+				7 text 상황
+				8 link Description: 종합 상태, Value: sang.it.kr/admin
+				9 link Description: 모니터링, Value: sang.it.kr/admin/monitoring
+				10 text 제어
+				11 link Description: 용량, Value: sang.it.kr/admin/capacity
+				12 link Description: 봇 플릿, Value: sang.it.kr/admin/bots
+				13 link Description: 카오스, Value: sang.it.kr/admin/chaos
+				14 link Description: 마켓·공지, Value: sang.it.kr/admin/config
+				15 link Description: 출금 승인, Value: sang.it.kr/admin/transfers
+				16 link Description: 문의 답변, Value: sang.it.kr/admin/support
+				17 link Description: 커뮤니티 신고, Value: sang.it.kr/admin/community
+				18 link Description: 회원 운영, Value: sang.it.kr/admin/members
+				19 text 거버넌스
+				20 link Description: 운영자, Value: sang.it.kr/admin/operators
+				21 link Description: 감사 로그, Value: sang.it.kr/admin/audit
+		22 container
+			23 text 이상혁 · 시장 봇 운영 봇 운영 조회
+			24 button 다크 모드로 전환
+			25 button 세션 종료
+		26 container admin-main
+			27 container
+				28 heading 감사 로그, Value: 1
+					29 text 감사 로그
+				30 text 수정·삭제 불가 기록
+			31 container
+				32 heading 관리 액션 감사, Value: 2
+					33 text 관리 액션 감사
+				34 pop up button (collapsed, settable) Description: 운영자 필터, Value: 전체 운영자, Secondary Actions: Expand
+					35 menu
+						36 (selected) 전체 운영자
+						37 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+				38 pop up button (collapsed, settable) Description: 액션 필터, Value: 전체 액션, Secondary Actions: Expand
+					39 menu
+						40 (selected) 전체 액션
+						41 GET /admin/v1/approvals
+						42 GET /admin/v1/audit
+						43 GET /admin/v1/capacity
+						44 GET /admin/v1/chaos/runs
+						45 GET /admin/v1/community/reports
+						46 GET /admin/v1/config/markets
+						47 GET /admin/v1/config/notices
+						48 GET /admin/v1/ha/invariants
+						49 GET /admin/v1/ha/recovery
+						50 GET /admin/v1/ha/status
+						51 GET /admin/v1/operators
+						52 GET /admin/v1/sim/status
+						53 GET /admin/v1/support
+						54 GET /admin/v1/transfers
+						55 POST /admin/v1/session
+						56 operator
+				57 pop up button (collapsed, settable) Description: 기간 필터, Value: 전체 기간, Secondary Actions: Expand
+					58 menu
+						59 (selected) 전체 기간
+						60 최근 5분
+						61 최근 15분
+						62 최근 30분
+				63 container 결과 필터
+					64 checkbox 전체, Value: 1
+					65 checkbox 성공(OK), Value: 0
+					66 checkbox 오류(ERROR), Value: 0
+					67 checkbox 거부(DENIED), Value: 0
+				68 text 표시  40 건 · 불러온  40 건 기준
+				69 table 관리 감사 로그
+					70 row
+						71 cell
+							72 text 시각
+						73 cell
+							74 text 운영자
+						75 cell
+							76 text 액션
+						77 cell
+							78 text 대상
+						79 cell
+							80 text 결과
+						81 cell
+							82 text 승인 ID
+					83 container
+						84 row
+							85 cell
+								86 text 00:55 :20
+							87 cell
+								88 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							89 cell
+								90 text GET /admin/v1/audit
+							91 cell
+								92 text /admin/v1/audit
+							93 cell
+								94 text 성공
+						95 row
+							96 cell
+								97 text 00:55 :19
+							98 cell
+								99 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							100 cell
+								101 text GET /admin/v1/approvals
+							102 cell
+								103 text /admin/v1/approvals
+							104 cell
+								105 text 성공
+						106 row
+							107 cell
+								108 text 00:55 :19
+							109 cell
+								110 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							111 cell
+								112 text GET /admin/v1/operators
+							113 cell
+								114 text /admin/v1/operators
+							115 cell
+								116 text 성공
+						117 row
+							118 cell
+								119 text 00:55 :17
+							120 cell
+								121 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							122 cell
+								123 text GET /admin/v1/approvals
+							124 cell
+								125 text /admin/v1/approvals
+							126 cell
+								127 text 성공
+						128 row
+							129 cell
+								130 text 00:55 :17
+							131 cell
+								132 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							133 cell
+								134 text GET /admin/v1/ha/status
+							135 cell
+								136 text /admin/v1/ha/status
+							137 cell
+								138 text 성공
+						139 row
+							140 cell
+								141 text 00:55 :17
+							142 cell
+								143 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							144 cell
+								145 text GET /admin/v1/ha/status
+							146 cell
+								147 text /admin/v1/ha/status
+							148 cell
+								149 text 성공
+						150 row
+							151 cell
+								152 text 00:55 :17
+							153 cell
+								154 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							155 cell
+								156 text GET /admin/v1/approvals
+							157 cell
+								158 text /admin/v1/approvals
+							159 cell
+								160 text 성공
+						161 row
+							162 cell
+								163 text 00:55 :17
+							164 cell
+								165 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							166 cell
+								167 text GET /admin/v1/ha/recovery
+							168 cell
+								169 text /admin/v1/ha/recovery
+							170 cell
+								171 text 성공
+						172 row
+							173 cell
+								174 text 00:55 :17
+							175 cell
+								176 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							177 cell
+								178 text GET /admin/v1/config/markets
+							179 cell
+								180 text /admin/v1/config/markets
+							181 cell
+								182 text 성공
+						183 row
+							184 cell
+								185 text 00:55 :17
+							186 cell
+								187 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							188 cell
+								189 text GET /admin/v1/chaos/runs
+							190 cell
+								191 text /admin/v1/chaos/runs
+							192 cell
+								193 text 성공
+						194 row
+							195 cell
+								196 text 00:55 :17
+							197 cell
+								198 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							199 cell
+								200 text GET /admin/v1/ha/invariants
+							201 cell
+								202 text /admin/v1/ha/invariants
+							203 cell
+								204 text 성공
+						205 row
+							206 cell
+								207 text 00:55 :17
+							208 cell
+								209 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							210 cell
+								211 text GET /admin/v1/sim/status
+							212 cell
+								213 text /admin/v1/sim/status
+							214 cell
+								215 text 성공
+						216 row
+							217 cell
+								218 text 00:55 :16
+							219 cell
+								220 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							221 cell
+								222 text GET /admin/v1/ha/status
+							223 cell
+								224 text /admin/v1/ha/status
+							225 cell
+								226 text 성공
+						227 row
+							228 cell
+								229 text 00:55 :16
+							230 cell
+								231 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							232 cell
+								233 text GET /admin/v1/ha/recovery
+							234 cell
+								235 text /admin/v1/ha/recovery
+							236 cell
+								237 text 성공
+						238 row
+							239 cell
+								240 text 00:55 :16
+							241 cell
+								242 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							243 cell
+								244 text GET /admin/v1/ha/invariants
+							245 cell
+								246 text /admin/v1/ha/invariants
+							247 cell
+								248 text 성공
+						249 row
+							250 cell
+								251 text 00:55 :11
+							252 cell
+								253 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							254 cell
+								255 text GET /admin/v1/ha/status
+							256 cell
+								257 text /admin/v1/ha/status
+							258 cell
+								259 text 성공
+						260 row
+							261 cell
+								262 text 00:55 :11
+							263 cell
+								264 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							265 cell
+								266 text GET /admin/v1/ha/recovery
+							267 cell
+								268 text /admin/v1/ha/recovery
+							269 cell
+								270 text 성공
+						271 row
+							272 cell
+								273 text 00:55 :11
+							274 cell
+								275 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							276 cell
+								277 text GET /admin/v1/ha/invariants
+							278 cell
+								279 text /admin/v1/ha/invariants
+							280 cell
+								281 text 성공
+						282 row
+							283 cell
+								284 text 00:55 :10
+							285 cell
+								286 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							287 cell
+								288 text GET /admin/v1/community/reports
+							289 cell
+								290 text /admin/v1/community/reports
+							291 cell
+								292 text ■ 거부
+						293 row
+							294 cell
+								295 text 00:55 :10
+							296 cell
+								297 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							298 cell
+								299 text GET /admin/v1/community/reports
+							300 cell
+								301 text /admin/v1/community/reports
+							302 cell
+								303 text ■ 거부
+						304 row
+							305 cell
+								306 text 00:55 :09
+							307 cell
+								308 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							309 cell
+								310 text GET /admin/v1/support
+							311 cell
+								312 text /admin/v1/support
+							313 cell
+								314 text 성공
+						315 row
+							316 cell
+								317 text 00:55 :09
+							318 cell
+								319 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							320 cell
+								321 text GET /admin/v1/support
+							322 cell
+								323 text /admin/v1/support
+							324 cell
+								325 text 성공
+						326 row
+							327 cell
+								328 text 00:55 :09
+							329 cell
+								330 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							331 cell
+								332 text GET /admin/v1/transfers
+							333 cell
+								334 text /admin/v1/transfers
+							335 cell
+								336 text 성공
+						337 row
+							338 cell
+								339 text 00:55 :09
+							340 cell
+								341 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							342 cell
+								343 text GET /admin/v1/transfers
+							344 cell
+								345 text /admin/v1/transfers
+							346 cell
+								347 text 성공
+						348 row
+							349 cell
+								350 text 00:55 :08
+							351 cell
+								352 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							353 cell
+								354 text GET /admin/v1/config/notices
+							355 cell
+								356 text /admin/v1/config/notices
+							357 cell
+								358 text 성공
+						359 row
+							360 cell
+								361 text 00:55 :08
+							362 cell
+								363 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							364 cell
+								365 text GET /admin/v1/config/markets
+							366 cell
+								367 text /admin/v1/config/markets
+							368 cell
+								369 text 성공
+						370 row
+							371 cell
+								372 text 00:55 :07
+							373 cell
+								374 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							375 cell
+								376 text GET /admin/v1/config/notices
+							377 cell
+								378 text /admin/v1/config/notices
+							379 cell
+								380 text 성공
+						381 row
+							382 cell
+								383 text 00:55 :07
+							384 cell
+								385 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							386 cell
+								387 text GET /admin/v1/config/markets
+							388 cell
+								389 text /admin/v1/config/markets
+							390 cell
+								391 text 성공
+						392 row
+							393 cell
+								394 text 00:55 :07
+							395 cell
+								396 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							397 cell
+								398 text GET /admin/v1/approvals
+							399 cell
+								400 text /admin/v1/approvals
+							401 cell
+								402 text 성공
+						403 row
+							404 cell
+								405 text 00:55 :06
+							406 cell
+								407 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							408 cell
+								409 text GET /admin/v1/chaos/runs
+							410 cell
+								411 text /admin/v1/chaos/runs
+							412 cell
+								413 text 성공
+						414 row
+							415 cell
+								416 text 00:55 :06
+							417 cell
+								418 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							419 cell
+								420 text GET /admin/v1/chaos/runs
+							421 cell
+								422 text /admin/v1/chaos/runs
+							423 cell
+								424 text 성공
+						425 row
+							426 cell
+								427 text 00:55 :04
+							428 cell
+								429 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							430 cell
+								431 text GET /admin/v1/capacity
+							432 cell
+								433 text /admin/v1/capacity
+							434 cell
+								435 text 성공
+						436 row
+							437 cell
+								438 text 00:54 :59
+							439 cell
+								440 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							441 cell
+								442 text GET /admin/v1/capacity
+							443 cell
+								444 text /admin/v1/capacity
+							445 cell
+								446 text 성공
+						447 row
+							448 cell
+								449 text 00:54 :58
+							450 cell
+								451 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							452 cell
+								453 text GET /admin/v1/sim/status
+							454 cell
+								455 text /admin/v1/sim/status
+							456 cell
+								457 text 성공
+						458 row
+							459 cell
+								460 text 00:54 :56
+							461 cell
+								462 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							463 cell
+								464 text GET /admin/v1/approvals
+							465 cell
+								466 text /admin/v1/approvals
+							467 cell
+								468 text 성공
+						469 row
+							470 cell
+								471 text 00:54 :56
+							472 cell
+								473 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							474 cell
+								475 text GET /admin/v1/sim/status
+							476 cell
+								477 text /admin/v1/sim/status
+							478 cell
+								479 text 성공
+						480 row
+							481 cell
+								482 text 00:54 :56
+							483 cell
+								484 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							485 cell
+								486 text POST /admin/v1/session
+							487 cell
+								488 text sanghyuk-bot-operator
+							489 cell
+								490 text 성공
+						491 row
+							492 cell
+								493 text 00:54 :46
+							494 cell
+								495 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							496 cell
+								497 text GET /admin/v1/sim/status
+							498 cell
+								499 text /admin/v1/sim/status
+							500 cell
+								501 text ■ 거부
+						502 row
+							503 cell
+								504 text 00:52 :11
+							505 cell
+								506 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							507 cell
+								508 text GET /admin/v1/sim/status
+							509 cell
+								510 text /admin/v1/sim/status
+							511 cell
+								512 text ■ 거부
+						513 row
+							514 cell
+								515 text 00:49 :25
+							516 cell
+								517 text 이상혁 · 시장 봇 운영 (sanghyuk-bot-operator)
+							518 cell
+								519 text operator. bootstrap
+							520 cell
+								521 text sanghyuk-bot-operator
+							522 cell
+								523 text 성공
+
+The focused UI element is 21 link Description: 감사 로그, URL: sang.it.kr/admin/audit

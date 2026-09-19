@@ -1,0 +1,93 @@
+Browser tab: 2017667296, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		35 container consoleNavHeader
+			36 container awsc-nav-header
+				37 image Account color: 설정 해제
+				38 container Global
+					39 container awsc-top-level-nav
+						40 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						41 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						42 button (collapsed) Description: Services, Secondary Actions: Expand
+							43 image
+						44 container aws-unified-search-container
+							45 container
+								46 image Search
+								47 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								48 button Ask Amazon Q
+								49 text [Alt+S]
+						50 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						51 container
+							52 pop up button Description: Notifications (none available), Help: Notifications
+								53 image Notifications
+							54 image Notifications
+						55 content list awsc-navigation__more-menu--list
+							56 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								57 image Support
+							58 button (collapsed) Description: Settings, Secondary Actions: Expand
+							59 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								60 text 아시아 태평양 (서울)
+							61 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								62 text Account ID: 6192-5696-4117
+								63 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789827823231-823
+			15 text Content loaded
+			64 container
+				65 content list
+					89 text active
+					90 text {"status":"UP"}
+					91 text markets: 12
+					92 text Sep 19 14:36:48 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:48
+					93 text .826Z  WARN 41197 --- [exchange] [           main] trationDelegate$BeanPostProcessorChecker : Bean 'eng
+					94 text ineConfig' of type [kr.exchange.config.EngineConfig$$SpringCGLIB$$0] is not eligible for getting proces
+					95 text sed by all BeanPostProcessors (for example: not eligible for auto-proxying). The currently created Bean
+					96 text PostProcessor [projectionSignalWiring] is declared through a non-static factory method on that class; c
+					97 text onsider declaring it as static instead.
+					98 text Sep 19 14:36:54 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:54
+					99 text .838Z  INFO 41197 --- [exchange] [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : Started.
+					100 text Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55
+					101 text .194Z  INFO 41197 --- [exchange] [           main] kr.exchange.engine.LeaderLeaseService    : 리스 보관
+					102 text 소: postgres(leader_lease) + 계측, ttl=PT10S, tick=PT3S
+					103 text Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55
+					104 text .195Z  INFO 41197 --- [exchange] [   leader-lease] com.zaxxer.hikari.HikariDataSource       : exchange-
+					105 text lease - Starting...
+					106 text Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55
+					107 text .236Z  INFO 41197 --- [exchange] [           main] kr.exchange.ExchangeApplication          : Started E
+					108 text xchangeApplication in 11.026 seconds (process running for 12.028)
+					109 text Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55
+					110 text .274Z  INFO 41197 --- [exchange] [   leader-lease] com.zaxxer.hikari.pool.HikariPool        : exchange-
+					111 text lease - Added connection org.postgresql.jdbc.PgConnection@69563621
+					112 text Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55
+					113 text .275Z  INFO 41197 --- [exchange] [   leader-lease] com.zaxxer.hikari.HikariDataSource       : exchange-
+					114 text lease - Start completed.
+					115 text Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55
+					116 text .287Z  INFO 41197 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리더 승격
+					117 text : holder=478fd20f-296b-4648-947b-0726ff7b54bb, epoch=4
+					118 text [ec2-user@ip-172-31-2-86 ~]$ 
+				119 text tuator/health/readiness; echo; curl -fsS https://www.sang.it.kr/api/v1/markets | python3 -c 'import json,sys; d=json.load(sys.stdin); print("markets:",len(d["data"]))'; sudo journalctl -u exchange-app -n 45 --no-pager | grep -E 'ERROR|WARN|Started|leader|Leader|market|Market'clear; systemctl is-active exchange-app; curl -fsS http://127.0.0.1:8081/actuator/health/readiness; echo; curl -fsS https://www.sang.it.kr/api/v1/markets | python3 -c 'import json,sys; d=json.load(sys.stdin); print("markets:",len(d["data"]))'; sudo journalctl -u exchange-app -n 45 --no-pager | grep -E 'ERROR|WARN|Started|leader|Leader|market|Market' active {"status":"UP"} markets: 12 Sep 19 14:36:48 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:48.826Z WARN 41197 --- [exchange] [ main] trationDelegate$BeanPostProcessorChecker : Bean 'engineConfig' of type [kr.exchange.config.EngineConfig$$SpringCGLIB$$0] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). The currently created BeanPostProcessor [projectionSignalWiring] is declared through a non-static factory method on that class; consider declaring it as static instead. Sep 19 14:36:54 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:54.838Z INFO 41197 --- [exchange] [ main] o.s.m.s.b.SimpleBrokerMessageHandler : Started. Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55.194Z INFO 41197 --- [exchange] [ main] kr.exchange.engine.LeaderLeaseService : 리스 보관소: postgres(leader_lease) + 계측, ttl=PT10S, tick=PT3S Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55.195Z INFO 41197 --- [exchange] [ leader-lease] com.zaxxer.hikari.HikariDataSource : exchange-lease - Starting... Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55.236Z INFO 41197 --- [exchange] [ main] kr.exchange.ExchangeApplication : Started ExchangeApplication in 11.026 seconds (process running for 12.028) Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55.274Z INFO 41197 --- [exchange] [ leader-lease] com.zaxxer.hikari.pool.HikariPool : exchange-lease - Added connection org.postgresql.jdbc.PgConnection@69563621 Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55.275Z INFO 41197 --- [exchange] [ leader-lease] com.zaxxer.hikari.HikariDataSource : exchange-lease - Start completed. Sep 19 14:36:55 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[41197]: 2026-09-19T14:36:55.287Z INFO 41197 --- [exchange] [ leader-lease] kr.exchange.engine.LeaderLeaseService : 리더 승격: holder=478fd20f-296b-4648-947b-0726ff7b54bb, epoch=4 [ec2-user@ip-172-31-2-86 ~]$
+				79 text field (settable) Terminal input
+			23 button Close instance info
+			24 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				80 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			81 container
+				82 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		25 container f
+			26 container console-nav-footer
+				27 container awsc-nav-footer-content
+					83 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					28 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					29 button Console Mobile App, ID: mobile_app_button
+						30 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					31 content list
+						32 link Description: Privacy, Value: aws.amazon.com/privacy/
+						33 link Description: Terms, Value: aws.amazon.com/terms/
+						34 button Cookie preferences
+
+The focused UI element is 79 text field (settable) Terminal input

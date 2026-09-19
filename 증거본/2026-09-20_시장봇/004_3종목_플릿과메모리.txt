@@ -1,0 +1,106 @@
+Browser tab: 2017667317, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		46 container consoleNavHeader
+			47 container awsc-nav-header
+				48 image Account color: 설정 해제
+				49 container Global
+					50 container awsc-top-level-nav
+						51 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						52 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						53 button (collapsed) Description: Services, Secondary Actions: Expand
+							54 image
+						55 container aws-unified-search-container
+							56 container
+								57 image Search
+								58 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								59 button Ask Amazon Q
+								60 text [Alt+S]
+						61 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						62 container
+							63 pop up button Description: Notifications (none available), Help: Notifications
+								64 image Notifications
+							65 image Notifications
+						66 content list awsc-navigation__more-menu--list
+							67 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								68 image Support
+							69 button (collapsed) Description: Settings, Secondary Actions: Expand
+							70 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								71 text 아시아 태평양 (서울)
+							72 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								73 text Account ID: 6192-5696-4117
+								74 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789830565444-7143
+			23 text Content loaded
+			75 container
+				76 content list
+					97 text /, updating /var/run/acpid.socket → /run/acpid.socket; please update the unit file accordingly.
+					98 text Created symlink /etc/systemd/system/timers.target.wants/exchange-bot-capacity.timer → /etc/systemd/syst
+					99 text em/exchange-bot-capacity.timer.
+					100 text Created symlink /etc/systemd/system/multi-user.target.wants/exchange-bot.service → /etc/systemd/system/
+					101 text exchange-bot.service.
+					102 text [ec2-user@ip-172-31-44-141 ~]$ sudo journalctl -u exchange-bot --since '2026-09-19 15:14:00 UTC' --no-p
+					103 text ager -o cat | grep -E '플릿|Started|ERROR|WARN|Exception' | tail -20; free -m; sudo systemctl show exch
+					104 text ange-bot -p ActiveState -p MemoryCurrent -p TasksCurrent -p NRestarts; cat /sys/fs/cgroup/system.slice/
+					105 text exchange-bot.service/memory.events; sudo systemctl list-timers exchange-bot-capacity.timer --no-pager
+					106 text 2026-09-19T15:14:23.327Z  INFO 41156 --- [exchange] [ionShutdownHook] kr.exchange.sim.BotFleet         
+					107 text         : 봇 플릿 정지 완료
+					108 text Started exchange-bot.service - Exchange market bot via HTTPS.
+					109 text 2026-09-19T15:14:30.729Z  WARN 42650 --- [exchange] [           main] trationDelegate$BeanPostProcessor
+					110 text Checker : Bean 'engineConfig' of type [kr.exchange.config.EngineConfig$$SpringCGLIB$$0] is not eligible
+					111 text  for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). The cur
+					112 text rently created BeanPostProcessor [projectionSignalWiring] is declared through a non-static factory meth
+					113 text od on that class; consider declaring it as static instead.
+					114 text 2026-09-19T15:14:37.154Z  INFO 42650 --- [exchange] [           main] o.s.m.s.b.SimpleBrokerMessageHand
+					115 text ler     : Started.
+					116 text 2026-09-19T15:14:48.309Z  INFO 42650 --- [exchange] [           main] kr.exchange.sim.BotFleet         
+					117 text         : 봇 플릿 기동: 마켓 3 타입당 풀 30 캡(타입 30) 균형주기 3000ms targetOps 3.0
+					118 text 2026-09-19T15:14:48.348Z  INFO 42650 --- [exchange] [           main] kr.exchange.ExchangeApplication  
+					119 text         : Started ExchangeApplication in 22.356 seconds (process running for 23.475)
+					120 text 2026-09-19T15:14:48.549Z  WARN 42650 --- [exchange] [           main] kr.exchange.engine.HaAvailability
+					121 text         : readiness 오발행 정정: 발행=ACCEPTING_TRAFFIC, 목표=REFUSING_TRAFFIC
+					122 text                total        used        free      shared  buff/cache   available
+					123 text Mem:            1909         687          69         109        1152         956
+					124 text Swap:              0           0           0
+					125 text NRestarts=0
+					126 text MemoryCurrent=312197120
+					127 text TasksCurrent=426
+					128 text ActiveState=active
+					129 text low 0
+					130 text high 0
+					131 text max 0
+					132 text oom 0
+					133 text oom_kill 0
+					134 text oom_group_kill 0
+					135 text NEXT                 LEFT     LAST                  PASSED  UNIT                  ACTIVATES            
+					136 text Sat 2026-09-19 15:1… 28s left Sat 2026-09-19 15:14… 31s ago exchange-bot-capacit… exchange-bot-capacit…
+					137 text 1 timers listed.
+					138 text Pass --all to see loaded but inactive timers, too.
+					139 text [ec2-user@ip-172-31-44-141 ~]$ 
+				140 text Too much output to announce, navigate to rows manually to readger -o cat | grep -E '플릿|Started|ERROR|WARN|Exception' | tail -20; free -m; sudo systemctl show exchange-bot -p ActiveState -p MemoryCurrent -p TasksCurrent -p NRestarts; cat /sys/fs/cgroup/system.slice/exchange-bot.service/memory.events; sudo systemctl list-timers exchange-bot-capacity.timer --no-pagersudo journalctl -u exchange-bot --since '2026-09-19 15:14:00 UTC' --no-pager -o cat | grep -E '플릿|Started|ERROR|WARN|Exception' | tail -20; free -m; sudo systemctl show exchange-bot -p ActiveState -p MemoryCurrent -p TasksCurrent -p NRestarts; cat /sys/fs/cgroup/system.slice/exchange-bot.service/memory.events; sudo systemctl list-timers exchange-bot-capacity.timer --no-pager 2026-09-19T15:14:23.327Z INFO 41156 --- [exchange] [ionShutdownHook] kr.exchange.sim.BotFleet : 봇 플릿 정지 완료 Started exchange-bot.service - Exchange market bot via HTTPS. 2026-09-19T15:14:30.729Z WARN 42650 --- [exchange] [ main] trationDelegate$BeanPostProcessorChecker : Bean 'engineConfig' of type [kr.exchange.config.EngineConfig$$SpringCGLIB$$0] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying). The currently created BeanPostProcessor [projectionSignalWiring] is declared through a non-static factory method on that class; consider declaring it as static instead. 2026-09-19T15:14:37.154Z INFO 42650 --- [exchange] [ main] o.s.m.s.b.SimpleBrokerMessageHandler : Started. 2026-09-19T15:14:48.309Z INFO 42650 --- [exchange] [ main] kr.exchange.sim.BotFleet : 봇 플릿 기동: 마켓 3 타입당 풀 30 캡(타입 30) 균형주기 3000ms targetOps 3.0 2026-09-19T15:14:48.348Z INFO 42650 --- [exchange] [ main] kr.exchange.ExchangeApplication : Started ExchangeApplication in 22.356 seconds (process running for 23.475) 2026-09-19T15:14:48.549Z WARN 42650 --- [exchange] [ main] kr.exchange.engine.HaAvailability : readiness 오발행 정정: 발행=ACCEPTING_TRAFFIC, 목표=REFUSING_TRAFFIC total used free shared buff/cache available Mem: 1909 687 69 109 1152 956 Swap: 0 0 0 NRestarts=0 MemoryCurrent=312197120 TasksCurrent=426 ActiveState=active low 0 high 0 max 0 oom 0 oom_kill 0 oom_group_kill 0
+				90 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				91 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			92 container
+				93 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		33 container f
+			34 container console-nav-footer
+				35 container awsc-nav-footer-content
+					94 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					36 button Agent Toolkit for AWS
+					95 button Feedback, ID: feedback
+						96 text Feedback
+					37 button Console Mobile App, ID: mobile_app_button
+						38 image
+						39 text Console Mobile App
+					40 container
+						41 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					42 content list
+						43 link Description: Privacy, Value: aws.amazon.com/privacy/
+						44 link Description: Terms, Value: aws.amazon.com/terms/
+						45 button Cookie preferences
+
+The focused UI element is 90 text field (settable) Terminal input

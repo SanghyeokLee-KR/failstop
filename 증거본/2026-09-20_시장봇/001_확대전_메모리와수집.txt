@@ -1,0 +1,86 @@
+Browser tab: 2017667317, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		46 container consoleNavHeader
+			47 container awsc-nav-header
+				48 image Account color: 설정 해제
+				49 container Global
+					50 container awsc-top-level-nav
+						51 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						52 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						53 button (collapsed) Description: Services, Secondary Actions: Expand
+							54 image
+						55 container aws-unified-search-container
+							56 container
+								57 image Search
+								58 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								59 button Ask Amazon Q
+								60 text [Alt+S]
+						61 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						62 container
+							63 pop up button Description: Notifications (none available), Help: Notifications
+								64 image Notifications
+							65 image Notifications
+						66 content list awsc-navigation__more-menu--list
+							67 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								68 image Support
+							69 button (collapsed) Description: Settings, Secondary Actions: Expand
+							70 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								71 text 아시아 태평양 (서울)
+							72 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								73 text Account ID: 6192-5696-4117
+								74 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789830565444-7143
+			23 text Content loaded
+			75 container
+				76 content list
+					77 text    ,     #_
+					78 text    ~\_  ####_        Amazon Linux 2023
+					79 text   ~~  \_#####\
+					80 text   ~~     \###|
+					81 text   ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+					82 text    ~~       V~' '->
+					83 text     ~~~         /
+					84 text       ~~._.   _/
+					85 text          _/ _/
+					86 text        _/m/'
+					87 text Last login: Sat Sep 19 14:45:40 2026 from 13.209.1.60
+					97 text [ec2-user@ip-172-31-44-141 ~]$ free -m; sudo systemctl show exchange-bot -p ActiveState -p MemoryCurren
+					98 text t -p TasksCurrent; curl -fsS http://127.0.0.1:9090/api/v1/targets | python3 -c 'import json,sys; t=json
+					99 text .load(sys.stdin)["data"]["activeTargets"]; print([(r["labels"].get("node"),r["health"]) for r in t])'
+					100 text                total        used        free      shared  buff/cache   available
+					101 text Mem:            1909         670          78         109        1160         973
+					102 text Swap:              0           0           0
+					103 text MemoryCurrent=307073024
+					104 text TasksCurrent=159
+					105 text ActiveState=active
+					106 text [('app-1', 'up'), ('bot-1', 'up'), ('db-standby', 'up'), ('app-1', 'up'), ('db-primary', 'up'), ('db-pr
+					107 text imary', 'up'), ('db-standby', 'up'), ('bot-1', 'up')]
+					108 text [ec2-user@ip-172-31-44-141 ~]$ 
+				109 text free -m; sudo systemctl show exchange-bot -p ActiveState -p MemoryCurrent -p TasksCurrent; curl -fsS http://127.0.0.1:9090/api/v1/targets | python3 -c 'import json,sys; t=json.load(sys.stdin)["data"]["activeTargets"]; print([(r["labels"].get("node"),r["health"]) for r in t])'free -m; sudo systemctl show exchange-bot -p ActiveState -p MemoryCurrent -p TasksCurrent; curl -fsS http://127.0.0.1:9090/api/v1/targets | python3 -c 'import json,sys; t=json.load(sys.stdin)["data"]["activeTargets"]; print([(r["labels"].get("node"),r["health"]) for r in t])' total used free shared buff/cache available Mem: 1909 670 78 109 1160 973 Swap: 0 0 0 MemoryCurrent=307073024 TasksCurrent=159 ActiveState=active [('app-1', 'up'), ('bot-1', 'up'), ('db-standby', 'up'), ('app-1', 'up'), ('db-primary', 'up'), ('db-primary', 'up'), ('db-standby', 'up'), ('bot-1', 'up')] [ec2-user@ip-172-31-44-141 ~]$
+				90 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				91 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			92 container
+				93 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		33 container f
+			34 container console-nav-footer
+				35 container awsc-nav-footer-content
+					94 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					36 button Agent Toolkit for AWS
+					95 button Feedback, ID: feedback
+						96 text Feedback
+					37 button Console Mobile App, ID: mobile_app_button
+						38 image
+						39 text Console Mobile App
+					40 container
+						41 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					42 content list
+						43 link Description: Privacy, Value: aws.amazon.com/privacy/
+						44 link Description: Terms, Value: aws.amazon.com/terms/
+						45 button Cookie preferences
+
+The focused UI element is 90 text field (settable) Terminal input

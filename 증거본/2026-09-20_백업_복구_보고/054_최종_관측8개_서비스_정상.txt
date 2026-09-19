@@ -1,0 +1,92 @@
+Browser tab: 2017667343, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		48 container consoleNavHeader
+			49 container awsc-nav-header
+				50 image Account color: 설정 해제
+				51 container Global
+					52 container awsc-top-level-nav
+						53 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						54 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						55 button (collapsed) Description: Services, Secondary Actions: Expand
+							56 image
+						57 container aws-unified-search-container
+							58 container
+								59 image Search
+								60 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								61 button Ask Amazon Q
+								62 text [Alt+S]
+						63 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						64 container
+							65 pop up button Description: Notifications (none available), Help: Notifications
+								66 image Notifications
+							67 image Notifications
+						68 content list awsc-navigation__more-menu--list
+							69 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								70 image Support
+							71 button (collapsed) Description: Settings, Secondary Actions: Expand
+							72 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								73 text 아시아 태평양 (서울)
+							74 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								75 text Account ID: 6192-5696-4117
+								76 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789834523290-9949
+			23 text Content loaded
+			77 container
+				78 content list
+					96 text Sat Sep 19 17:11:52 UTC 2026
+					97 text up [('bot-1', '1'), ('bot-1', '1'), ('app-1', '1'), ('app-1', '1'), ('db-standby', '1'), ('db-primary', '1'), ('db-primary', '1'), ('db-standby', '1')]
+					98 text pg_up [('db-standby', '1'), ('db-primary', '1')]
+					99 text pg_wal_position_in_recovery [('db-standby', '1'), ('db-primary', '0')]
+					100 text pg_replication_client_sent_replay_bytes [('db-primary', '0')]
+					101 text NRestarts=0
+					102 text MemoryCurrent=321474560
+					103 text Id=exchange-bot.service
+					104 text ActiveState=active
+					105 text NRestarts=0
+					106 text MemoryCurrent=158826496
+					107 text Id=grafana-server.service
+					108 text ActiveState=active
+					109 text NRestarts=0
+					110 text MemoryCurrent=49676288
+					111 text Id=failstop-reporting.service
+					112 text ActiveState=active
+					113 text NRestarts=0
+					114 text MemoryCurrent=14155776
+					115 text Id=alertmanager.service
+					116 text ActiveState=active
+					117 text disk_guard {'stop': False, 'failures': 0, 'reasons': [], 'nodes': {'app-1': {'available_bytes': 18798755840, 'total_bytes': 21395124224, 'free_inodes': 10426275, 'total_inodes': 10479552}, 'bot-1': {'available_
+					118 text bytes': 16932925440, 'total_bytes': 21395124224, 'free_inodes': 10406173, 'total_inodes': 10479600}, 'db-primary': {'available_bytes': 51113410560, 'total_bytes': 53607378944, 'free_inodes': 26155281, 'total_in
+					119 text odes': 26208240}, 'db-standby': {'available_bytes': 50830233600, 'total_bytes': 53607378944, 'free_inodes': 26150877, 'total_inodes': 26208240}}, 'checked_at': '2026-09-19T17:11:52.135619+00:00', 'sample_hour':
+					120 text  '2026-09-19T17'}
+					121 text NEXT                        LEFT    LAST PASSED UNIT                           ACTIVATES                       
+					122 text Sun 2026-09-20 00:00:00 UTC 6h left -    -      failstop-reporting-daily.timer failstop-reporting-daily.service
+					123 text 1 timers listed.
+					124 text Pass --all to see loaded but inactive timers, too.
+					125 text [ec2-user@ip-172-31-44-141 ~]$ 
+				126 text clear; date -u; sudo python3 /tmp/verify-school-final.pyToo much output to announce, navigate to rows manually to readclear; date -u; sudo python3 /tmp/verify-school-final.py Sat Sep 19 17:11:52 UTC 2026 up [('bot-1', '1'), ('bot-1', '1'), ('app-1', '1'), ('app-1', '1'), ('db-standby', '1'), ('db-primary', '1'), ('db-primary', '1'), ('db-standby', '1')] pg_up [('db-standby', '1'), ('db-primary', '1')] pg_wal_position_in_recovery [('db-standby', '1'), ('db-primary', '0')] pg_replication_client_sent_replay_bytes [('db-primary', '0')] NRestarts=0 MemoryCurrent=321474560 Id=exchange-bot.service ActiveState=active NRestarts=0 MemoryCurrent=158826496 Id=grafana-server.service ActiveState=active NRestarts=0 MemoryCurrent=49676288 Id=failstop-reporting.service ActiveState=active
+				92 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				33 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			34 container
+				35 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		36 container f
+			37 container console-nav-footer
+				38 container awsc-nav-footer-content
+					93 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					39 button Agent Toolkit for AWS
+					94 button Feedback, ID: feedback
+						95 text Feedback
+					40 button Console Mobile App, ID: mobile_app_button
+						41 image
+						42 text Console Mobile App
+					43 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					44 content list
+						45 link Description: Privacy, Value: aws.amazon.com/privacy/
+						46 link Description: Terms, Value: aws.amazon.com/terms/
+						47 button Cookie preferences
+
+The focused UI element is 92 text field (settable) Terminal input

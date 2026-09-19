@@ -40,6 +40,8 @@
 
 ## 결정과 원본
 
-[ADR 폴더](adr/)에는 설계를 선택하거나 바꾼 이유가 있다. [0001](adr/0001-record-architecture-decisions.md)은 작성 규칙이다. 0099는 현재 구조를 계속 갱신하는 예약 번호이며 일반 결정 순번에서 제외한다. 최신 MSP 운영·자동 확장·Teams 보고 방향은 [0027](adr/0027-msp-operations-and-autoscaling.md)에 있다. 개별 결정이 대체됐다면 0099의 적용 관계와 후속 ADR을 확인한다.
+학교·개인 실습의 NAT Gateway 제외와 조회 ASG 최소 2대·최대 3대 기준은 [0030](adr/0030-nat-free-lab-and-bounded-read-asg.md)을 따른다. 피어링은 학교 운영자의 연결·라우팅 허용이 필요하며 실제 구축 완료와 구분한다.
+
+[ADR 폴더](adr/)에는 설계를 선택하거나 바꾼 이유가 있다. [0001](adr/0001-record-architecture-decisions.md)은 작성 규칙이다. 0099는 현재 구조를 계속 갱신하는 예약 번호이며 일반 결정 순번에서 제외한다. 최신 MSP 운영·자동 확장·Teams 보고 방향은 [0027](adr/0027-msp-operations-and-autoscaling.md)에 있다. 학교 EC2에서 먼저 검증하고 10월 초 개인 계정에서 보강하는 순서는 [0029](adr/0029-school-aws-first-personal-account-expansion.md)를 따른다. [0028](adr/0028-vm-validation-before-aws.md)의 VM 선행 조건은 보류했다. 개별 결정이 대체됐다면 0099의 적용 관계와 후속 ADR을 확인한다.
 
 [웹 화면 명세 HTML](contracts/웹_화면명세서.html)은 같은 폴더 PDF의 원본이다. [화면설계서 HTML](product/화면설계서.html)은 별도의 화면 설계 원본이다. 측정 결과는 [측정 폴더](../measurements/README.md), 배포 설정은 [deploy 안내](../../deploy/README.md)에서 확인한다.

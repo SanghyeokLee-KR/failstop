@@ -1,0 +1,20 @@
+{
+    "Return": true,
+    "SecurityGroupRules": [
+        {
+            "SecurityGroupRuleId": "sgr-03db84e92d17eb1e6",
+            "GroupId": "sg-0e321b38da5cc8aaf",
+            "GroupOwnerId": "619256964117",
+            "IsEgress": false,
+            "IpProtocol": "tcp",
+            "FromPort": 9100,
+            "ToPort": 9100,
+            "ReferencedGroupInfo": {
+                "GroupId": "sg-064b0da59e8c9a13c",
+                "UserId": "619256964117"
+            },
+            "Description": "Linux metrics from monitoring only",
+            "SecurityGroupRuleArn": "arn:aws:ec2:ap-northeast-2:619256964117:security-group-rule/sgr-03db84e92d17eb1e6"
+        }
+    ]
+}

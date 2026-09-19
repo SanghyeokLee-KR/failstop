@@ -1,0 +1,71 @@
+2026-09-19 PC 접속 단계 기록
+PC 터미널 캡처 기능이 없어 명령과 확인 결과를 기록했다.
+
+aws login --profile school-2026-ai-kopo-04 --region ap-northeast-2 --no-cli-pager
+CLI 정상 종료. OAuth 콜백 인증 코드는 저장하지 않았다.
+
+aws sts get-caller-identity --profile school-2026-ai-kopo-04 --query Arn --output text
+arn:aws:iam::619256964117:user/2026-ai-kopo-04
+
+Session Manager 공식 Windows 설치 파일의 Authenticode 확인:
+Valid, 서명자 Amazon Web Services, Inc.
+서명 검증을 조건으로 설치한 결과 0, 설치 파일 존재 True.
+
+session-manager-plugin --version
+1.2.835.0
+
+포트 매개변수 파일: tmp/aws-web/ssm-grafana-ports.json
+내용: {"portNumber":["3000"],"localPortNumber":["13000"]}
+aws ssm start-session --profile school-2026-ai-kopo-04 --region ap-northeast-2 --target i-06ff9b16739362b14 --document-name AWS-StartPortForwardingSession --parameters file://<저장소>/tmp/aws-web/ssm-grafana-ports.json
+숨긴 프로세스로 실행했으며 표준 출력은 PC_SSM_접속.log에 저장했다.
+
+Get-NetTCPConnection -State Listen -LocalPort 13000
+127.0.0.1:13000, 프로세스 22088. AWS CLI 부모 프로세스 28508.
+브라우저에서 Grafana 로그인 페이지 표시 확인: 증거 308.
+
+앱 지표 연결: aws ec2 authorize-security-group-ingress --group-id sg-0e321b38da5cc8aaf --ip-permissions file://tmp/aws-web/app-metrics-ingress.json --profile school-2026-ai-kopo-04 --region ap-northeast-2
+[{"IpProtocol":"tcp","FromPort":9101,"ToPort":9101,"UserIdGroupPairs":[{"GroupId":"sg-064b0da59e8c9a13c","Description":"App metrics from bot monitoring only"}]}]
+응답: 313_App_지표SG_추가.json
+
+SSM 오류 복구: 직접 응답하는 Grafana 헬스와 여유 메모리 확인 후 기존 PC 전용 클라이언트 22088,28508을 프로세스 이름 대조 후 종료. 같은 학교 프로파일·같은 13000->3000 매개변수로 재연결. 새 AWS CLI PID 29788. 출력: PC_SSM_재접속.log. 서버 세션 종료 API 성공을 의미하지 않음.
+
+2026-09-19T22:02:35.720532 최신 MSP GitHub 확인 및 S3 업로드
+git log --oneline HEAD..origin/codex/docs-linux-operations
+6ee1179 feat: 고객 관제와 DB 진단 대시보드 고도화
+d2d0b2b feat: Linux 운영·관제와 Teams PDF 보고 구현
+python deploy/linux/observability/build-msp-dashboards.py
+aws s3 cp tmp/msp-latest/msp-6ee1179-school.tar.gz s3://2026-ai-kopo-04-exchange-artifacts-619256964117/msp-6ee1179-school.tar.gz --profile school-2026-ai-kopo-04 --region ap-northeast-2 --no-progress
+업로드 성공. 로컬 터미널 화면 캡처 불가; 명령과 도구 결과로 기록.
+9d9cae2fae22e5fb0ded065f2f07a4af7b78c00cd32a39c58394fd26cb67ee82 10-msp-overview.json
+1ddd3177283932a1b7369a87f1d8fb1f0ab1c4302335e587c0cf36180c941bc2 11-msp-service.json
+6649023cd70127a49f0621dab1362aa043be99bf131555aefff4790f9d54660b 12-msp-infra.json
+57f9e669cfa0d3e909a06644a55966cf66ad44c5bbaa68cc1d1b528a12c1bf7b 13-msp-db.json
+e3ba0c2adb909744c57c2bb7eba220e4e9e5c097b79a0e1967eba88efa963332 14-msp-db-workload.json
+648cfe790d5a9fef832d4a8c662c780a9aec4741f2f3a6eb25e394a1d956641e 15-msp-db-replication.json
+
+2026-09-19T22:28:16.589639 학교 AWS 호스트·DB 관측 작업 기록
+PC 콘솔 화면은 캡처하지 못했다. AWS CLI 결과 원문은 346_App_호스트지표SG.json, 347_DB_관측지표SG.json에 보존했다.
+호출: aws ec2 authorize-security-group-ingress --group-id sg-0e321b38da5cc8aaf --ip-permissions file://tmp/host-db-observation/sg-app.json --profile school-2026-ai-kopo-04 --region ap-northeast-2
+호출: aws ec2 authorize-security-group-ingress --group-id sg-03b023cf05dc4bafe --ip-permissions file://tmp/host-db-observation/sg-db.json --profile school-2026-ai-kopo-04 --region ap-northeast-2
+결과: 앱 TCP9100, DB TCP9100/9187 소스 sg-064b0da59e8c9a13c만 추가. 원본 요청 JSON도 함께 보관한다. 최종 콘솔 화면 371~372와 대조했다.
+생성: python deploy/linux/observability/build-msp-dashboards.py
+결과: 고정 Git 커밋의 6개 화면 및 16-msp-storage.json. 마지막 storage JSON SHA256 ceab58bd78de6a340c865da10303b5f4f2e61db86527af52c33456834ddeec66
+업로드: aws s3 cp tmp/host-db-observation/msp-storage-20260919-final.tar.gz s3://2026-ai-kopo-04-exchange-artifacts-619256964117/msp-storage-20260919-final.tar.gz --profile school-2026-ai-kopo-04 --region ap-northeast-2 --only-show-errors
+실제 결과: 종료 코드 0. 46050 bytes SHA256 fe0f49222a52606f719dfa3fa9bb727397c9e2f031b527bfb6b533fb5779c873
+Linux 다운로드와 동일 해시는 증거 373. 최종 묶음은 JSON7개 및 queries.json만 포함한다.
+
+2026-09-19 학교 피어링·라우트 권한 검사
+실행 파일: C:\Program Files\Amazon\AWSCLIV2\aws.exe
+학교 사용자 profile school-2026-ai-kopo-04, region ap-northeast-2 사용. PC 터미널 화면 캡처 불가. 원문 파일 374~377과 콘솔 캡처 378을 구분한다.
+
+실행 주체 조회: sts get-caller-identity. 결과 374: arn:aws:iam::619256964117:user/2026-ai-kopo-04
+라우트 조회: ec2 describe-route-tables, VPC 필터 Name=vpc-id,Values=vpc-07ad90c6c3880faee. 결과 375: main rtb-089b2928f869157a4, local 및 0.0.0.0/0 → igw-06f91ef880c597734.
+
+권한 검사 호출:
+aws ec2 create-vpc-peering-connection --vpc-id vpc-07ad90c6c3880faee --peer-vpc-id vpc-0fde453622068a4cb --peer-owner-id 377228489329 --peer-region ap-northeast-2 --dry-run --profile school-2026-ai-kopo-04 --region ap-northeast-2 --no-cli-pager
+결과 376: UnauthorizedOperation, CLI 254. no identity-based policy allows ec2:CreateVpcPeeringConnection. 기존 개인 VPC는 주소 중복으로 실제 연결 대상이 될 수 없으며 이 호출은 권한 검사에만 사용했다.
+
+aws ec2 create-route --route-table-id rtb-089b2928f869157a4 --destination-cidr-block 0.0.0.0/0 --gateway-id igw-06f91ef880c597734 --dry-run --profile school-2026-ai-kopo-04 --region ap-northeast-2 --no-cli-pager
+결과 377: UnauthorizedOperation, CLI 254. no identity-based policy allows ec2:CreateRoute. 기존 목적지와 IGW를 지정한 권한 검사이며 미래 피어링 경로 검증이 아니다. --dry-run 없는 재실행 명령으로 사용하지 않는다.
+
+실제 연결 요청, 라우트 변경, IAM 변경 없음. AcceptVpcPeeringConnection 미검사. 학교 정책상 예외와 운영자 설정이 먼저 필요하다.

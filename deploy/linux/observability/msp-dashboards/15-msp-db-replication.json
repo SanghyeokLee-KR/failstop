@@ -1,0 +1,2392 @@
+{
+  "uid": "msp-db-replication",
+  "title": "06 · 복제·복구",
+  "description": "학교 AWS 배포. 원본 Git 커밋 6ee1179. 앱·Linux·DB 지표 수집 대상. 외부 프로브·CloudWatch·경보 규칙은 연결 전. 미수집은 정상 판정이 아니다.",
+  "tags": [
+    "MSP",
+    "customer-operations",
+    "school-aws"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "timezone": "Asia/Seoul",
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "15s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "links": [
+    {
+      "type": "link",
+      "title": "01 · 서비스 관제",
+      "url": "/d/msp-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "02 · 트래픽·Spring",
+      "url": "/d/msp-service",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "03 · AWS·서버",
+      "url": "/d/msp-infra",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "04 · DB 관제",
+      "url": "/d/msp-db",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "05 · SQL·세션",
+      "url": "/d/msp-db-workload",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "06 · 복제·복구",
+      "url": "/d/msp-db-replication",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "07 · 디스크·용량",
+      "url": "/d/msp-storage",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "type": "link",
+      "title": "다크",
+      "url": "/d/msp-db-replication?theme=dark",
+      "targetBlank": true,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "라이트",
+      "url": "/d/msp-db-replication?theme=light",
+      "targetBlank": true,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "customer",
+        "label": "고객사",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "refresh": 1,
+        "query": "label_values(up{role=~\"app|reader|data|standby|probe\"}, customer)",
+        "current": {
+          "text": "exchange",
+          "value": "exchange"
+        }
+      },
+      {
+        "name": "environment",
+        "label": "환경",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "refresh": 1,
+        "query": "label_values(up{customer=\"$customer\",role=~\"app|reader|data|standby|probe\"}, environment)",
+        "current": {
+          "text": "aws",
+          "value": "aws"
+        },
+        "options": []
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "고객 경보",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "red",
+        "expr": "(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"} and (time() - timestamp(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"}) < 90))",
+        "titleFormat": "{{alertname}}",
+        "textFormat": "{{node}} · {{severity}}"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "복제 연결 · Streaming",
+      "description": "Primary의 pg_stat_replication 상태. 연결 정상만으로 무손실 또는 복구 완료 판정 불가.",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "▲ 장애",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "● 정상",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min((((pg_replication_client_sent_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",state=\"streaming\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) >= bool 0) or (0 * ((pg_replication_client_sent_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "WAL 생성량",
+      "description": "Primary pg_stat_wal.wal_bytes의 초당 증가량. LSN 위치 차분·복제 지연량과 구분.",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "unit": "Bps",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(((rate(pg_ops_wal_generated_bytes_total{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}[$__rate_interval])) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "복제 지연량 · 재생",
+      "description": "",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "bytes",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 104857600,
+                "color": "orange"
+              },
+              {
+                "value": 268435456,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(((pg_replication_client_sent_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "백업 성공 · 경과 시간",
+      "description": "선택 고객 DB에 연결된 백업 수집만 사용. 백업 성공이 실제 복원 검증을 뜻하지 않음.",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "unit": "s",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 93600,
+                "color": "orange"
+              },
+              {
+                "value": 172800,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - max(((failstop_backup_last_success_timestamp_seconds{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 30
+        },
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 4
+    },
+    {
+      "type": "canvas",
+      "title": "DB 복제 구성 · 현재 역할",
+      "description": "Primary/Standby는 in_recovery 실측으로 선택. 복제 상태와 WAL 거리는 별도 지표. 자료 부재는 미수집이며 복제 정상 또는 무손실 판정 제외. 자동 승격 미적용.",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "transparent": false,
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(0 * ((count(((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (0 * count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))))) > 1)) or (((count(((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (0 * count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))))) == bool 1) and on() (count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))) == count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"})))",
+          "legendFormat": "primary",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "((count(((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1) or (0 * count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))))) >= bool 1) and on() (count(((((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0) or (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))) == count(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}))",
+          "legendFormat": "standby",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "C",
+          "expr": "min((((pg_replication_client_sent_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",state=\"streaming\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) >= bool 0) or (0 * ((pg_replication_client_sent_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))))",
+          "legendFormat": "replication",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "D",
+          "expr": "max(((pg_replication_client_sent_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))))",
+          "legendFormat": "wal_gap",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "E",
+          "expr": "sum((sum by(node,instance)(((pg_stat_database_numbackends{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",datname=\"exchange\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))))) and on(instance) (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0))",
+          "legendFormat": "primary_connections",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "F",
+          "expr": "sum((sum by(node,instance)(((pg_stat_database_numbackends{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",datname=\"exchange\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))))) and on(instance) (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))",
+          "legendFormat": "standby_connections",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "G",
+          "expr": "max((100 * sum by(node,instance)(((pg_stat_activity_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))) / (max by(node,instance)(((pg_settings_max_connections{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))) > 0)) and on(instance) (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 0))",
+          "legendFormat": "primary_utilization",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "H",
+          "expr": "max((100 * sum by(node,instance)(((pg_stat_activity_count{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))) / (max by(node,instance)(((pg_settings_max_connections{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))) > 0)) and on(instance) (((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) == 1))",
+          "legendFormat": "standby_utilization",
+          "instant": true,
+          "range": false,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "미수집",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#788396"
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "#788396"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "▲ 장애",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "● 정상",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "미수집",
+                        "color": "#788396"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "D"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "E"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "F"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "G"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "H"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "inlineEditing": false,
+        "panZoom": false,
+        "zoomToContent": false,
+        "showAdvancedTypes": false,
+        "tooltip": {
+          "mode": "single",
+          "disableForOneClick": false
+        },
+        "root": {
+          "name": "관측 경로",
+          "type": "frame",
+          "elements": [
+            {
+              "name": "primary-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 1,
+                "right": 68,
+                "top": 3,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "primary",
+                  "fixed": "#788396"
+                }
+              },
+              "connections": [
+                {
+                  "targetName": "standby-card",
+                  "path": "straight",
+                  "source": {
+                    "x": 1,
+                    "y": 0
+                  },
+                  "target": {
+                    "x": -1,
+                    "y": 0
+                  },
+                  "color": {
+                    "field": "replication",
+                    "fixed": "#788396"
+                  },
+                  "size": {
+                    "fixed": 2,
+                    "min": 1,
+                    "max": 3
+                  },
+                  "direction": {
+                    "mode": "fixed",
+                    "fixed": "forward"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "primary-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 12,
+                "right": 79,
+                "top": 7,
+                "bottom": 75,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/database.svg"
+                },
+                "fill": {
+                  "field": "primary",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 2,
+                "right": 69,
+                "top": 27,
+                "bottom": 59,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Primary"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 17,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 2,
+                "right": 69,
+                "top": 45,
+                "bottom": 42,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "primary"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary_connections-label",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 2.0,
+                "right": 83.5,
+                "top": 65,
+                "bottom": 23,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "연결 수"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 12,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary_connections-value",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 2.0,
+                "right": 83.5,
+                "top": 80,
+                "bottom": 7,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "primary_connections"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary_utilization-label",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 16.5,
+                "right": 69.0,
+                "top": 65,
+                "bottom": 23,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "사용률"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 12,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "primary_utilization-value",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 16.5,
+                "right": 69.0,
+                "top": 80,
+                "bottom": 7,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "primary_utilization"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby-card",
+              "type": "rectangle",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 68,
+                "right": 1,
+                "top": 3,
+                "bottom": 4,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "panel-bg"
+                }
+              },
+              "border": {
+                "width": 1,
+                "radius": 7,
+                "color": {
+                  "field": "standby",
+                  "fixed": "#788396"
+                }
+              }
+            },
+            {
+              "name": "standby-icon",
+              "type": "icon",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 79,
+                "right": 12,
+                "top": 7,
+                "bottom": 75,
+                "rotation": 0
+              },
+              "config": {
+                "path": {
+                  "mode": "fixed",
+                  "fixed": "img/icons/unicons/database.svg"
+                },
+                "fill": {
+                  "field": "standby",
+                  "fixed": "#788396"
+                }
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 69,
+                "right": 2,
+                "top": 27,
+                "bottom": 59,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "Standby"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 17,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 69,
+                "right": 2,
+                "top": 45,
+                "bottom": 42,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "standby"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby_connections-label",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 69.0,
+                "right": 16.5,
+                "top": 65,
+                "bottom": 23,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "연결 수"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 12,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby_connections-value",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 69.0,
+                "right": 16.5,
+                "top": 80,
+                "bottom": 7,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "standby_connections"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby_utilization-label",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 83.5,
+                "right": 2.0,
+                "top": 65,
+                "bottom": 23,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "사용률"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 12,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "standby_utilization-value",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 83.5,
+                "right": 2.0,
+                "top": 80,
+                "bottom": 7,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "standby_utilization"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "replication-title",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 34,
+                "right": 34,
+                "top": 9,
+                "bottom": 78,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "비동기 복제"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "replication-state",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 34,
+                "right": 34,
+                "top": 25,
+                "bottom": 62,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "replication"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "wal-gap-label",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 34,
+                "right": 34,
+                "top": 64,
+                "bottom": 24,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "재생 지연량"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 12,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            },
+            {
+              "name": "wal-gap-value",
+              "type": "text",
+              "constraint": {
+                "horizontal": "scale",
+                "vertical": "scale"
+              },
+              "placement": {
+                "left": 34,
+                "right": 34,
+                "top": 80,
+                "bottom": 7,
+                "rotation": 0
+              },
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "fixed": "미수집",
+                  "field": "wal_gap"
+                },
+                "color": {
+                  "fixed": "text"
+                },
+                "size": 15,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "width": 0
+              }
+            }
+          ]
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "table",
+      "title": "DB 대상 · 현재 역할",
+      "description": "등록 대상 라벨의 전체 이름. 실제 역할은 pg_is_in_recovery()로 판정. 수집 접속점은 쿼리 검사에서 확인. 앱의 SQL 경로는 Primary이며 Standby 조회 분산 미적용. 호스트 IP·AZ를 임의 추정하지 않음.",
+      "gridPos": {
+        "x": 8,
+        "y": 3,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "minWidth": 50,
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "실제 역할"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 122
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "실제 역할"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "Primary · 쓰기",
+                        "color": "green"
+                      },
+                      "1": {
+                        "text": "Standby · 복제",
+                        "color": "blue"
+                      }
+                    }
+                  },
+                  {
+                    "type": "special",
+                    "options": {
+                      "match": "null+nan",
+                      "result": {
+                        "text": "미수집",
+                        "color": "text"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((pg_wal_position_in_recovery{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "editorMode": "code"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "node",
+                "Value"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "node": 0,
+              "Value": 1
+            },
+            "renameByName": {
+              "node": "등록 대상",
+              "Value": "실제 역할"
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "state-timeline",
+      "title": "DB 접속 / 복제 연결",
+      "description": "회색·빈 구간은 미수집. 수집 응답과 실제 서비스 상태의 구분.",
+      "gridPos": {
+        "x": 16,
+        "y": 3,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "▲ 장애",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "● 정상",
+                  "color": "green"
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short",
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 75,
+            "spanNulls": false,
+            "insertNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1)",
+          "legendFormat": "{{node}} 접속",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "min((((pg_replication_client_sent_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\",state=\"streaming\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0))) >= bool 0) or (0 * ((pg_replication_client_sent_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))))",
+          "legendFormat": "Streaming",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "center",
+        "rowHeight": 0.72,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "WAL 생성량 · Primary",
+      "description": "pg_stat_wal.wal_bytes 증가율. 업무 변경뿐 아니라 유지보수 등 모든 WAL 포함.",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "Bps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((rate(pg_ops_wal_generated_bytes_total{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}[$__rate_interval])) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8
+    },
+    {
+      "type": "timeseries",
+      "title": "복제 지연량 · 전송 대기",
+      "description": "Primary 현재 WAL 위치 − Standby로 전송한 위치. 네트워크 지연 시간과 구분.",
+      "gridPos": {
+        "x": 6,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((pg_replication_client_current_sent_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))",
+          "legendFormat": "{{node}} → {{application_name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9
+    },
+    {
+      "type": "timeseries",
+      "title": "복제 지연량 · 기록 대기",
+      "description": "Standby가 write한 WAL 위치 − 디스크에 flush한 위치. 내구성 확보 전 대기량이며 네트워크 지연과 구분.",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((pg_replication_client_write_flush_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))",
+          "legendFormat": "{{node}} → {{application_name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "복제 지연량 · 적용 대기",
+      "description": "Standby flush 위치 − replay 위치. 기록된 WAL의 재생 대기량이며 실제 데이터 유실량이 아님.",
+      "gridPos": {
+        "x": 18,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((pg_replication_client_flush_replay_bytes{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))",
+          "legendFormat": "{{node}} → {{application_name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11
+    },
+    {
+      "type": "timeseries",
+      "title": "복제 지연 시간 · Replay",
+      "description": "pg_stat_replication.replay_lag. 유휴 시 NULL은 미산정. 마지막 트랜잭션의 경과 시간 또는 RPO와 구분.",
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 5,
+                "color": "orange"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((pg_replication_client_replay_lag_seconds{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) and on(instance,job) (((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"}) < 90)) == 1) and on(instance,job) (pg_up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 1) and on(instance,job) (pg_exporter_last_scrape_error{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"postgres\"} == 0)))",
+          "legendFormat": "{{node}} → {{application_name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12
+    },
+    {
+      "type": "timeseries",
+      "title": "백업 성공 · 경과 시간",
+      "description": "고객 백업 지표 부재는 미수집. 예약 실행·실제 복원·불변식 검증은 별도 확인.",
+      "gridPos": {
+        "x": 8,
+        "y": 13,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 1.5,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": true,
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 93600,
+                "color": "orange"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - (((failstop_backup_last_success_timestamp_seconds{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=\"linux-host\"}) < 90)) == 1)))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13
+    },
+    {
+      "type": "text",
+      "title": "DB 복구 · 사람 개입",
+      "description": "",
+      "gridPos": {
+        "x": 16,
+        "y": 13,
+        "w": 8,
+        "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**① Primary 격리** · 쓰기 차단  \n**② 수동 승격** · WAL 유실 위험 확인  \n**③ 접속 전환** · 앱·원장 확인  \n**④ 재편입·복원** · RTO/RPO 대조"
+      },
+      "id": 14
+    },
+    {
+      "type": "text",
+      "title": "",
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 2
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "미수집",
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**복제 경로** · 생성 → 전송 → 디스크 기록 → 재생　|　**비동기 복제** · 미복제 데이터 유실 가능성  \n**복구 완료 조건** · 앱 요청 회복 + 원장·ACK 대조 + 새 Standby 복제　|　자동 DB 승격 미적용"
+      },
+      "id": 15
+    }
+  ],
+  "id": null
+}

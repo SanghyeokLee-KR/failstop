@@ -1,0 +1,26 @@
+[Unit]
+Description=PostgreSQL operating metrics
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=failstop_monitor
+Group=failstop_monitor
+EnvironmentFile=/etc/postgres_exporter/listen.env
+Environment="DATA_SOURCE_NAME=host=/var/run/postgresql dbname=exchange user=failstop_monitor application_name=postgres_exporter connect_timeout=3"
+ExecStart=/usr/local/bin/postgres_exporter --web.listen-address=${PG_EXPORTER_ADDRESS}:9187 --extend.query-path=/etc/postgres_exporter/queries.yaml
+Restart=on-failure
+RestartSec=5
+Environment=GOMEMLIMIT=96MiB
+MemoryMax=160M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

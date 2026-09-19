@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily operations report
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 Asia/Seoul
+Persistent=true
+Unit=exchange-report@daily.service
+
+[Install]
+WantedBy=timers.target

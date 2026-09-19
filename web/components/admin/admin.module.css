@@ -357,6 +357,10 @@
   padding: var(--space-8) var(--space-6);
   background: var(--bg-muted);
 }
+.passwordLogin {
+  display: grid;
+  gap: var(--space-4);
+}
 .loginCard {
   width: 100%;
   max-width: 520px;

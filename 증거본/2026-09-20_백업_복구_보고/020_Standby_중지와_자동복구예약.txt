@@ -1,0 +1,71 @@
+Browser tab: 2017667345, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-099799f0dc164ae71&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-099799f0dc164ae71&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		45 container consoleNavHeader
+			46 container awsc-nav-header
+				47 image Account color: 설정 해제
+				48 container Global
+					49 container awsc-top-level-nav
+						50 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						51 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-099799f0dc164ae71&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						52 button (collapsed) Description: Services, Secondary Actions: Expand
+							53 image
+						54 container aws-unified-search-container
+							55 container
+								56 image Search
+								57 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								58 button Ask Amazon Q
+								59 text [Alt+S]
+						60 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						61 container
+							62 pop up button Description: Notifications (none available), Help: Notifications
+								63 image Notifications
+							64 image Notifications
+						65 content list awsc-navigation__more-menu--list
+							66 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								67 image Support
+							68 button (collapsed) Description: Settings, Secondary Actions: Expand
+							69 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								70 text 아시아 태평양 (서울)
+							71 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								72 text Account ID: 6192-5696-4117
+								73 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789835297777-4974
+			23 text Content loaded
+			74 container
+				75 content list
+					96 text Sat Sep 19 16:38:11 UTC 2026
+					97 text Running timer as unit: exchange-standby-test-recovery.timer
+					98 text Will run service as unit: exchange-standby-test-recovery.service
+					99 text inactive
+					100 text NEXT                        LEFT          LAST PASSED UNIT                                 ACTIVATES
+					101 text Sat 2026-09-19 16:41:11 UTC 2min 59s left -    -      exchange-standby-test-recovery.timer exchange-standby-test-recovery.service
+					102 text 1 timers listed.
+					103 text Pass --all to see loaded but inactive timers, too.
+					104 text [ec2-user@ip-172-31-33-195 ~]$ 
+				105 text clear; date -u; sudo systemd-run --unit=exchange-standby-test-recovery --on-active=180s /usr/bin/systemctl start postgresql && sudo systemctl stop postgresql; systemctl is-active postgresql; systemctl list-timers exchange-standby-test-recovery.timer --no-pagerclear; date -u; sudo systemd-run --unit=exchange-standby-test-recovery --on-active=180s /usr/bin/systemctl start postgresql && sudo systemctl stop postgresql; systemctl is-active postgresql; systemctl list-timers exchange-standby-test-recovery.timer --no-pager Sat Sep 19 16:38:11 UTC 2026 Running timer as unit: exchange-standby-test-recovery.timer Will run service as unit: exchange-standby-test-recovery.service inactive NEXT LEFT LAST PASSED UNIT ACTIVATES Sat 2026-09-19 16:41:11 UTC 2min 59s left - - exchange-standby-test-recovery.timer exchange-standby-test-recovery.service 1 timers listed. Pass --all to see loaded but inactive timers, too. [ec2-user@ip-172-31-33-195 ~]$
+				89 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-099799f0dc164ae71 (2026-ai-kopo-04-db-standby-01), Value: 3
+				90 text i-099799f0dc164ae71 (2026-ai-kopo-04-db-standby-01)
+			91 container
+				92 text PublicIPs: 3.34.125.226 PrivateIPs: 172.31.33.195
+		33 container f
+			34 container console-nav-footer
+				35 container awsc-nav-footer-content
+					93 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					36 button Agent Toolkit for AWS
+					94 button Feedback, ID: feedback
+						95 text Feedback
+					37 button Console Mobile App, ID: mobile_app_button
+						38 image
+						39 text Console Mobile App
+					40 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					41 content list
+						42 link Description: Privacy, Value: aws.amazon.com/privacy/
+						43 link Description: Terms, Value: aws.amazon.com/terms/
+						44 button Cookie preferences
+
+The focused UI element is 89 text field (settable) Terminal input

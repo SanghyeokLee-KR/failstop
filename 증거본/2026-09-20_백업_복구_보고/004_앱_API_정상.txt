@@ -1,0 +1,93 @@
+Browser tab: 2017667323, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		2 container consoleNavHeader
+			3 container awsc-nav-header
+				4 image Account color: 설정 해제
+				5 container Global
+					6 container awsc-top-level-nav
+						7 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						8 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						9 button (collapsed) Description: Services, Secondary Actions: Expand
+							10 image
+						11 container aws-unified-search-container
+							12 container
+								13 image Search
+								14 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								15 button Ask Amazon Q
+								16 text [Alt+S]
+						17 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						18 container
+							19 pop up button Description: Notifications (none available), Help: Notifications
+								20 image Notifications
+							21 image Notifications
+						22 content list awsc-navigation__more-menu--list
+							23 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								24 image Support
+							25 button (collapsed) Description: Settings, Secondary Actions: Expand
+							26 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								27 text 아시아 태평양 (서울)
+							28 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								29 text Account ID: 6192-5696-4117
+								30 text 2026-ai-kopo-04
+		31 container
+			32 container Notifications
+				33 content list Description: Notifications, ID: flashbar1-1789831483374-1663
+			34 text Content loaded
+			35 container
+				36 content list
+					83 text Sat Sep 19 16:21:01 UTC 2026
+					84 text NRestarts=0
+					85 text ActiveState=active
+					86 text SubState=running
+					87 text {"status":"UP","groups":["liveness","read","readiness"]}
+					88 text market_http=200
+					89 text 2026/09/19 16:04:43 [warn] 46160#46160: *18409 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000155, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /gra
+					90 text fana/api/ds/query?ds_type=prometheus&requestId=SQR1958 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db-replication/06-c2b7-ebb3b5-eca09c-c2b7-ebb3b5-eab5ac?from=now-5m&to=n
+					91 text ow&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all&orgId=1&refresh=15s"
+					92 text 2026/09/19 16:13:49 [warn] 46160#46160: *21219 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000156, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /gra
+					93 text fana/api/ds/query?ds_type=prometheus&requestId=SQR1971 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db-replication/06-c2b7-ebb3b5-eca09c-c2b7-ebb3b5-eab5ac?from=now-5m&to=n
+					94 text ow&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all&orgId=1&refresh=15s"
+					95 text 2026/09/19 16:14:04 [warn] 46161#46161: *25387 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000157, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /gra
+					96 text fana/api/ds/query?ds_type=prometheus&requestId=SQR104 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db-replication/06-c2b7-ebb3b5-eca09c-c2b7-ebb3b5-eab5ac?from=now-5m&to=no
+					97 text w&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all&orgId=1&refresh=15s"
+					98 text 2026/09/19 16:14:08 [warn] 46160#46160: *24216 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000158, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /gra
+					99 text fana/api/ds/query?ds_type=prometheus&requestId=SQR117 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db/04-c2b7-db-eab480-eca09c?from=now-5m&to=now&timezone=Asia%2FSeoul&var-
+					100 text customer=exchange&var-environment=aws&orgId=1&refresh=15s"
+					101 text 2026/09/19 16:14:08 [warn] 46161#46161: *25387 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000159, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /gra
+					102 text fana/api/ds/query?ds_type=prometheus&requestId=SQR122 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db/04-c2b7-db-eab480-eca09c?from=now-5m&to=now&timezone=Asia%2FSeoul&var-
+					103 text customer=exchange&var-environment=aws&orgId=1&refresh=15s"
+					104 text 2026/09/19 16:14:10 [warn] 46160#46160: *21219 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000160, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /gra
+					105 text fana/api/ds/query?ds_type=prometheus&requestId=SQR131 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db-workload/05-c2b7-sqlc2b7-ec84b8-ec8598?from=now-5m&to=now&timezone=Asi
+					106 text a%2FSeoul&var-customer=exchange&var-environment=aws&orgId=1&refresh=15s"
+					107 text 2026/09/19 16:14:12 [warn] 46160#46160: *25389 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000161, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /gra
+					108 text fana/api/ds/query?ds_type=prometheus&requestId=SQR145 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-service/02-c2b7-ed8ab8-eb9e98-ed94bd-c2b7-spring?from=now-5m&to=now&timez
+					109 text one=Asia%2FSeoul&var-customer=exchange&var-environment=aws&orgId=1&refresh=15s"
+					110 text 2026/09/19 16:14:27 [warn] 46161#46161: *25387 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000162, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /gra
+					111 text fana/api/ds/query?ds_type=prometheus&requestId=SQR161 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-service/02-c2b7-ed8ab8-eb9e98-ed94bd-c2b7-spring?from=now-5m&to=now&timez
+					112 text one=Asia%2FSeoul&var-customer=exchange&var-environment=aws&orgId=1&refresh=15s"
+					113 text [ec2-user@ip-172-31-2-86 ~]$ 
+				114 text clear; date -u; systemctl show exchange-app.service -p ActiveState -p SubState -p NRestarts; curl -s http://127.0.0.1:8081/actuator/health; curl -s -o /dev/null -w '\nmarket_http=%{http_code}\n' https://www.sang.it.kr/api/v1/markets; sudo tail -n 8 /var/log/nginx/error.logclear; date -u; systemctl show exchange-app.service -p ActiveState -p SubState -p NRestarts; curl -s http://127.0.0.1:8081/actuator/health; curl -s -o /dev/null -w '\nmarket_http=%{http_code}\n' https://www.sang.it.kr/api/v1/markets; sudo tail -n 8 /var/log/nginx/error.log Sat Sep 19 16:21:01 UTC 2026 NRestarts=0 ActiveState=active SubState=running {"status":"UP","groups":["liveness","read","readiness"]} market_http=200 2026/09/19 16:04:43 [warn] 46160#46160: *18409 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000155, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /grafana/api/ds/query?ds_type=prometheus&requestId=SQR1958 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db-replication/06-c2b7-ebb3b5-eca09c-c2b7-ebb3b5-eab5ac?from=now-5m&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all&orgId=1&refresh=15s" 2026/09/19 16:13:49 [warn] 46160#46160: *21219 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000156, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /grafana/api/ds/query?ds_type=prometheus&requestId=SQR1971 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db-replication/06-c2b7-ebb3b5-eca09c-c2b7-ebb3b5-eab5ac?from=now-5m&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all&orgId=1&refresh=15s" 2026/09/19 16:14:04 [warn] 46161#46161: *25387 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000157, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /grafana/api/ds/query?ds_type=prometheus&requestId=SQR104 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db-replication/06-c2b7-ebb3b5-eca09c-c2b7-ebb3b5-eab5ac?from=now-5m&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&var-node=$__all&orgId=1&refresh=15s" 2026/09/19 16:14:08 [warn] 46160#46160: *24216 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000158, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /grafana/api/ds/query?ds_type=prometheus&requestId=SQR117 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db/04-c2b7-db-eab480-eca09c?from=now-5m&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&orgId=1&refresh=15s" 2026/09/19 16:14:08 [warn] 46161#46161: *25387 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000159, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /grafana/api/ds/query?ds_type=prometheus&requestId=SQR122 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db/04-c2b7-db-eab480-eca09c?from=now-5m&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&orgId=1&refresh=15s" 2026/09/19 16:14:10 [warn] 46160#46160: *21219 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000160, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /grafana/api/ds/query?ds_type=prometheus&requestId=SQR131 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-db-workload/05-c2b7-sqlc2b7-ec84b8-ec8598?from=now-5m&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&orgId=1&refresh=15s" 2026/09/19 16:14:12 [warn] 46160#46160: *25389 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000161, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /grafana/api/ds/query?ds_type=prometheus&requestId=SQR145 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-service/02-c2b7-ed8ab8-eb9e98-ed94bd-c2b7-spring?from=now-5m&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&orgId=1&refresh=15s" 2026/09/19 16:14:27 [warn] 46161#46161: *25387 a client request body is buffered to a temporary file /var/lib/nginx/tmp/client_body/0000000162, client: 175.210.93.41, server: www.sang.it.kr, request: "POST /grafana/api/ds/query?ds_type=prometheus&requestId=SQR161 HTTP/1.1", host: "www.sang.it.kr", referrer: "https://www.sang.it.kr/grafana/d/msp-service/02-c2b7-ed8ab8-eb9e98-ed94bd-c2b7-spring?from=now-5m&to=now&timezone=Asia%2FSeoul&var-customer=exchange&var-environment=aws&orgId=1&refresh=15s" [ec2-user@ip-172-31-2-86 ~]$
+				62 text field (settable) Terminal input
+			63 button Close instance info
+			64 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				65 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			66 container
+				67 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		68 container f
+			69 container console-nav-footer
+				70 container awsc-nav-footer-content
+					71 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					72 button Agent Toolkit for AWS
+					73 button Feedback, ID: feedback
+						74 text Feedback
+					75 button Console Mobile App, ID: mobile_app_button
+						76 image
+						77 text Console Mobile App
+					78 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					79 content list
+						80 link Description: Privacy, Value: aws.amazon.com/privacy/
+						81 link Description: Terms, Value: aws.amazon.com/terms/
+						82 button Cookie preferences
+
+The focused UI element is 62 text field (settable) Terminal input

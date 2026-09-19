@@ -1,0 +1,28 @@
+[Unit]
+Description=Failstop operational evidence and Teams reporting
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=failstop-report
+Group=failstop-report
+WorkingDirectory=/opt/failstop/deploy/reporting
+EnvironmentFile=/etc/failstop/reporting.env
+ExecStart=/usr/bin/python3 /opt/failstop/deploy/reporting/reporter.py serve --config /etc/failstop/reporting.json --bind ${REPORT_BIND} --port 9088 --state /var/lib/failstop-reporting/outbox.sqlite3
+Restart=on-failure
+RestartSec=5
+StateDirectory=failstop-reporting
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+LockPersonality=true
+MemoryMax=256M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,79 @@
+Browser tab: 2017667296, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		35 container consoleNavHeader
+			36 container awsc-nav-header
+				37 image Account color: 설정 해제
+				38 container Global
+					39 container awsc-top-level-nav
+						40 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						41 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						42 button (collapsed) Description: Services, Secondary Actions: Expand
+							43 image
+						44 container aws-unified-search-container
+							45 container
+								46 image Search
+								47 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								48 button Ask Amazon Q
+								49 text [Alt+S]
+						50 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						51 container
+							52 pop up button Description: Notifications (none available), Help: Notifications
+								53 image Notifications
+							54 image Notifications
+						55 content list awsc-navigation__more-menu--list
+							56 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								57 image Support
+							58 button (collapsed) Description: Settings, Secondary Actions: Expand
+							59 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								60 text 아시아 태평양 (서울)
+							61 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								62 text Account ID: 6192-5696-4117
+								63 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789827823231-823
+			15 text Content loaded
+			64 container
+				65 content list
+					89 text GET /exchange/KRW-BTC: 308, expected=308
+					90 text GET /exchange/KRW-BTC: 200, expected=200
+					91 text GET /admin: 403, expected=403
+					92 text GET /admin.html: 403, expected=403
+					93 text GET /api/admin/health: 403, expected=403
+					94 text GET /api/v1/admin: 403, expected=403
+					95 text GET /actuator/health: 403, expected=403
+					96 text GET /.env: 404, expected=404
+					97 text GET /api/v1/accounts: 401, expected=401
+					98 text GET /api/v1/markets: 200, expected=200
+					99 text markets: 12
+					100 text POST /api/v1/demo/session: 200, expected=200
+					101 text GET /api/v1/accounts: 200, expected=200
+					102 text demo assets: 13
+					103 text PASS: TLS 검증, 공개 경로, 관리 경로 차단, 데모 조회
+					104 text [ec2-user@ip-172-31-2-86 ~]$ 
+				105 text printf '%s' 'IiIi6rO16rCcIOqyveuhnOyZgCDrjbDrqqgg7J296riwIOq2jO2VnOydhCDqsoDsgqztlZzri6QuIO2GoO2BsMK37J6U6rOgIOybkOusuOydgCDstpzroKXtlZjsp4Ag7JWK64qU64ukLiIiIgppbXBvcnQganNvbgppbXBvcnQgdXJsbGliLmVycm9yCmltcG9ydCB1cmxsaWIucmVxdWVzdAoKQkFTRSA9ICdodHRwczovL3d3dy5zYW5nLml0LmtyJwoKCmNsYXNzIE5vUmVkaXJlY3QodXJsbGliLnJlcXVlc3QuSFRUUFJlZGlyZWN0SGFuZGxlcik6CiAgICBkZWYgcmVkaXJlY3RfcmVxdWVzdChzZWxmLCByZXEsIGZwLCBjb2RlLCBtc2csIGhlYWRlcnMsIG5ld3VybCk6CiAgICAgICAgcmV0dXJuIE5vbmUKCgpvcGVuZXIgPSB1cmxsaWIucmVxdWVzdC5idWlsZF9vcGVuZXIoTm9SZWRpcmVjdCkKCgpkZWYgY2hlY2socGF0aCwgZXhwZWN0ZWQsIG1ldGhvZD0nR0VUJywgdG9rZW49Tm9uZSwgYmFzZT1CQVNFKToKICAgIGhlYWRlcnMgPSB7J0F1dGhvcml6YXRpb24nOiAnQmVhcmVyICcgKyB0b2tlbn0gaWYgdG9rZW4gZWxzZSB7fQogICAgcmVxID0gdXJsbGliLnJlcXVlc3QuUmVxdWVzdChiYXNlICsgcGF0aCwgaGVhZGVycz1oZWFkZXJzLCBtZXRob2Q9bWV0aG9kKQogICAgdHJ5OgogICAgICAgIHJlc3BvbnNlID0gb3BlbmVyLm9wZW4ocmVxLCB0aW1lb3V0PTE1KQogICAgZXhjZXB0IHVybGxpYi5lcnJvci5IVFRQRXJyb3IgYXMgZXJyb3I6CiAgICAgICAgcmVzcG9uc2UgPSBlcnJvcgogICAgd2l0aCByZXNwb25zZToKICAgICAgICBib2R5ID0gcmVzcG9uc2UucmVhZCgpCiAgICAgICAgc3RhdHVzID0gcmVzcG9uc2UuY29kZQogICAgICAgIHByaW50KGYne21ldGhvZH0ge3BhdGh9OiB7c3RhdHVzfSwgZXhwZWN0ZWQ9e2V4cGVjdGVkfScpCiAgICAgICAgaWYgc3RhdHVzICE9IGV4cGVjdGVkOgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCfsnZHri7Ug7L2U65OcIOu2iOydvOy5mCcpCiAgICAgICAgaWYgZXhwZWN0ZWQgPT0gMzA4IGFuZCByZXNwb25zZS5oZWFkZXJzLmdldCgnTG9jYXRpb24nKSAhPSBCQVNFICsgcGF0aDoKICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgnSFRUUFMg7J2064+ZIOyjvOyGjCDrtojsnbzsuZgnKQogICAgICAgIHJldHVybiBib2R5CgoKY2hlY2soJy9leGNoYW5nZS9LUlctQlRDJywgMzA4LCBiYXNlPSdodHRwOi8vd3d3LnNhbmcuaXQua3InKQpjaGVjaygnL2V4Y2hhbmdlL0tSVy1CVEMnLCAyMDApCmZvciBwYXRoIGluICgnL2FkbWluJywgJy9hZG1pbi5odG1sJywgJy9hcGkvYWRtaW4vaGVhbHRoJywgJy9hcGkvdjEvYWRtaW4nLCAnL2FjdHVhdG9yL2hlYWx0aCcpOgogICAgY2hlY2socGF0aCwgNDAzKQpjaGVjaygnLy5lbnYnLCA0MDQpCmNoZWNrKCcvYXBpL3YxL2FjY291bnRzJywgNDAxKQptYXJrZXRzID0ganNvbi5sb2FkcyhjaGVjaygnL2FwaS92MS9tYXJrZXRzJywgMjAwKSlbJ2RhdGEnXQppZiBsZW4obWFya2V0cykgIT0gMTI6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCfrk7HroZ3rkJwg66eI7LyTIOyImCDrtojsnbzsuZgnKQpwcmludCgnbWFya2V0czonLCBsZW4obWFya2V0cykpCnNlc3Npb24gPSBqc29uLmxvYWRzKGNoZWNrKCcvYXBpL3YxL2RlbW8vc2Vzc2lvbicsIDIwMCwgbWV0aG9kPSdQT1NUJykpCmFjY291bnRzID0ganNvbi5sb2FkcyhjaGVjaygnL2FwaS92MS9hY2NvdW50cycsIDIwMCwgdG9rZW49c2Vzc2lvblsnYWNjZXNzX3Rva2VuJ10pKVsnZGF0YSddCmlmIGxlbihhY2NvdW50cykgIT0gMTM6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCfrjbDrqqgg7J6Q7IKwIOqzhOyglSDsiJgg67aI7J287LmYJykKcHJpbnQoJ2RlbW8gYXNzZXRzOicsIGxlbihhY2NvdW50cykpCnByaW50KCdQQVNTOiBUTFMg6rKA7KadLCDqs7XqsJwg6rK966GcLCDqtIDrpqwg6rK966GcIOywqOuLqCwg642w66qoIOyhsO2ajCcpCg==' | base64 -d > /tmp/verify-public.py && clear && python3 /tmp/verify-public.pyprintf '%s' 'IiIi6rO16rCcIOqyveuhnOyZgCDrjbDrqqgg7J296riwIOq2jO2VnOydhCDqsoDsgqztlZzri6QuIO2GoO2BsMK37J6U6rOgIOybkOusuOydgCDstpzroKXtlZjsp4Ag7JWK64qU64ukLiIiIgppbXBvcnQganNvbgppbXBvcnQgdXJsbGliLmVycm9yCmltcG9ydCB1cmxsaWIucmVxdWVzdAoKQkFTRSA9ICdodHRwczovL3d3dy5zYW5nLml0LmtyJwoKCmNsYXNzIE5vUmVkaXJlY3QodXJsbGliLnJlcXVlc3QuSFRUUFJlZGlyZWN0SGFuZGxlcik6CiAgICBkZWYgcmVkaXJlY3RfcmVxdWVzdChzZWxmLCByZXEsIGZwLCBjb2RlLCBtc2csIGhlYWRlcnMsIG5ld3VybCk6CiAgICAgICAgcmV0dXJuIE5vbmUKCgpvcGVuZXIgPSB1cmxsaWIucmVxdWVzdC5idWlsZF9vcGVuZXIoTm9SZWRpcmVjdCkKCgpkZWYgY2hlY2socGF0aCwgZXhwZWN0ZWQsIG1ldGhvZD0nR0VUJywgdG9rZW49Tm9uZSwgYmFzZT1CQVNFKToKICAgIGhlYWRlcnMgPSB7J0F1dGhvcml6YXRpb24nOiAnQmVhcmVyICcgKyB0b2tlbn0gaWYgdG9rZW4gZWxzZSB7fQogICAgcmVxID0gdXJsbGliLnJlcXVlc3QuUmVxdWVzdChiYXNlICsgcGF0aCwgaGVhZGVycz1oZWFkZXJzLCBtZXRob2Q9bWV0aG9kKQogICAgdHJ5OgogICAgICAgIHJlc3BvbnNlID0gb3BlbmVyLm9wZW4ocmVxLCB0aW1lb3V0PTE1KQogICAgZXhjZXB0IHVybGxpYi5lcnJvci5IVFRQRXJyb3IgYXMgZXJyb3I6CiAgICAgICAgcmVzcG9uc2UgPSBlcnJvcgogICAgd2l0aCByZXNwb25zZToKICAgICAgICBib2R5ID0gcmVzcG9uc2UucmVhZCgpCiAgICAgICAgc3RhdHVzID0gcmVzcG9uc2UuY29kZQogICAgICAgIHByaW50KGYne21ldGhvZH0ge3BhdGh9OiB7c3RhdHVzfSwgZXhwZWN0ZWQ9e2V4cGVjdGVkfScpCiAgICAgICAgaWYgc3RhdHVzICE9IGV4cGVjdGVkOgogICAgICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCfsnZHri7Ug7L2U65OcIOu2iOydvOy5mCcpCiAgICAgICAgaWYgZXhwZWN0ZWQgPT0gMzA4IGFuZCByZXNwb25zZS5oZWFkZXJzLmdldCgnTG9jYXRpb24nKSAhPSBCQVNFICsgcGF0aDoKICAgICAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgnSFRUUFMg7J2064+ZIOyjvOyGjCDrtojsnbzsuZgnKQogICAgICAgIHJldHVybiBib2R5CgoKY2hlY2soJy9leGNoYW5nZS9LUlctQlRDJywgMzA4LCBiYXNlPSdodHRwOi8vd3d3LnNhbmcuaXQua3InKQpjaGVjaygnL2V4Y2hhbmdlL0tSVy1CVEMnLCAyMDApCmZvciBwYXRoIGluICgnL2FkbWluJywgJy9hZG1pbi5odG1sJywgJy9hcGkvYWRtaW4vaGVhbHRoJywgJy9hcGkvdjEvYWRtaW4nLCAnL2FjdHVhdG9yL2hlYWx0aCcpOgogICAgY2hlY2socGF0aCwgNDAzKQpjaGVjaygnLy5lbnYnLCA0MDQpCmNoZWNrKCcvYXBpL3YxL2FjY291bnRzJywgNDAxKQptYXJrZXRzID0ganNvbi5sb2FkcyhjaGVjaygnL2FwaS92MS9tYXJrZXRzJywgMjAwKSlbJ2RhdGEnXQppZiBsZW4obWFya2V0cykgIT0gMTI6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCfrk7HroZ3rkJwg66eI7LyTIOyImCDrtojsnbzsuZgnKQpwcmludCgnbWFya2V0czonLCBsZW4obWFya2V0cykpCnNlc3Npb24gPSBqc29uLmxvYWRzKGNoZWNrKCcvYXBpL3YxL2RlbW8vc2Vzc2lvbicsIDIwMCwgbWV0aG9kPSdQT1NUJykpCmFjY291bnRzID0ganNvbi5sb2FkcyhjaGVjaygnL2FwaS92MS9hY2NvdW50cycsIDIwMCwgdG9rZW49c2Vzc2lvblsnYWNjZXNzX3Rva2VuJ10pKVsnZGF0YSddCmlmIGxlbihhY2NvdW50cykgIT0gMTM6CiAgICByYWlzZSBTeXN0ZW1FeGl0KCfrjbDrqqgg7J6Q7IKwIOqzhOyglSDsiJgg67aI7J287LmYJykKcHJpbnQoJ2RlbW8gYXNzZXRzOicsIGxlbihhY2NvdW50cykpCnByaW50KCdQQVNTOiBUTFMg6rKA7KadLCDqs7XqsJwg6rK966GcLCDqtIDrpqwg6rK966GcIOywqOuLqCwg642w66qoIOyhsO2ajCcpCg==' | base64 -d > /tmp/verify-public.py && clear && python3 /tmp/verify-public.py GET /exchange/KRW-BTC: 308, expected=308 GET /exchange/KRW-BTC: 200, expected=200 GET /admin: 403, expected=403 GET /admin.html: 403, expected=403 GET /api/admin/health: 403, expected=403 GET /api/v1/admin: 403, expected=403 GET /actuator/health: 403, expected=403 GET /.env: 404, expected=404 GET /api/v1/accounts: 401, expected=401 GET /api/v1/markets: 200, expected=200 markets: 12 POST /api/v1/demo/session: 200, expected=200 GET /api/v1/accounts: 200, expected=200 demo assets: 13 PASS: TLS 검증, 공개 경로, 관리 경로 차단, 데모 조회 [ec2-user@ip-172-31-2-86 ~]$
+				79 text field (settable) Terminal input
+			23 button Close instance info
+			24 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				80 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			81 container
+				82 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		25 container f
+			26 container console-nav-footer
+				27 container awsc-nav-footer-content
+					83 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					28 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					29 button Console Mobile App, ID: mobile_app_button
+						30 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					31 content list
+						32 link Description: Privacy, Value: aws.amazon.com/privacy/
+						33 link Description: Terms, Value: aws.amazon.com/terms/
+						34 button Cookie preferences
+
+The focused UI element is 79 text field (settable) Terminal input

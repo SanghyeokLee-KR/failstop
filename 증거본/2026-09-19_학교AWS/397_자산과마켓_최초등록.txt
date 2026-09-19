@@ -1,0 +1,104 @@
+Browser tab: 2017667298, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		35 container consoleNavHeader
+			36 container awsc-nav-header
+				37 image Account color: 설정 해제
+				38 container Global
+					39 container awsc-top-level-nav
+						40 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						41 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0e302764af73d861f&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						42 button (collapsed) Description: Services, Secondary Actions: Expand
+							43 image
+						44 container aws-unified-search-container
+							45 container
+								46 image Search
+								47 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								48 button Ask Amazon Q
+								49 text [Alt+S]
+						50 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						51 container
+							52 pop up button Description: Notifications (none available), Help: Notifications
+								53 image Notifications
+							54 image Notifications
+						55 content list awsc-navigation__more-menu--list
+							56 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								57 image Support
+							58 button (collapsed) Description: Settings, Secondary Actions: Expand
+							59 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								60 text 아시아 태평양 (서울)
+							61 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								62 text Account ID: 6192-5696-4117
+								63 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789828501061-864
+			15 text Content loaded
+			64 container
+				65 content list
+					89 text VkFMVUVTCiAoMSwnS1JXJywn7JuQ7ZmUJywnRklBVCcsMCksICgyLCdCVEMnLCfruYTtirjsvZTsnbgnLCdDUllQVE8nLDgpLAogKDM
+					90 text sJ0VUSCcsJ+ydtOuNlOumrOybgCcsJ0NSWVBUTycsMTgpLCAoNCwnU09MJywn7IaU652864KYJywnQ1JZUFRPJyw2KSwKICg1LCdYUl
+					91 text AnLCfrpqztlIwnLCdDUllQVE8nLDIpLCAoNiwnRE9HRScsJ+uPhOyngOy9lOyduCcsJ0NSWVBUTycsMiksCiAoNywnQURBJywn7JeQ7
+					92 text J2064ukJywnQ1JZUFRPJywyKSwgKDgsJ1RSWCcsJ+2KuOuhoCcsJ0NSWVBUTycsMiksCiAoOSwnTElOSycsJ+yytOyduOunge2BrCcs
+					93 text J0NSWVBUTycsNCksICgxMCwnRE9UJywn7Y+07Lm064u3JywnQ1JZUFRPJyw0KSwKICgxMSwnTUFUSUMnLCftj7Trpqzqs6QnLCdDUll
+					94 text QVE8nLDIpLCAoMTIsJ0FWQVgnLCfslYTrsJzrnoDssrQnLCdDUllQVE8nLDQpLAogKDEzLCdBVE9NJywn7L2U7Iqk66qo7IqkJywnQ1
+					95 text JZUFRPJyw0KTsKCklOU0VSVCBJTlRPIGFjY291bnRzIChvd25lcl90eXBlLCBvd25lcl9pZCwgcHVycG9zZSwgYXNzZXRfaWQsIHNoY
+					96 text XJkKQpTRUxFQ1QgJ1NZU1RFTScsIDAsIHAucHVycG9zZSwgYS5pZCwgMApGUk9NIGFzc2V0cyBhIENST1NTIEpPSU4gKFZBTFVFUyAo
+					97 text J0ZFRV9JTkNPTUUnKSwoJ0dFTkVTSVMnKSwoJ0dBVEVXQVknKSkgcChwdXJwb3NlKTsKCklOU0VSVCBJTlRPIG1hcmtldHMKIChpZCw
+					98 text gc3ltYm9sLCBiYXNlX2Fzc2V0X2lkLCBxdW90ZV9hc3NldF9pZCwgdGlja19zaXplLCBsb3Rfc2l6ZSwKICBtaW5fbm90aW9uYWwsIG
+					99 text 1heF9ub3Rpb25hbCwgbWF4X3F0eSwgbWFrZXJfZmVlX3JhdGUsIHRha2VyX2ZlZV9yYXRlKSBWQUxVRVMKICgxLCdLUlctQlRDJywyL
+					100 text DEsMTAwMCwwLjAwMDAwMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwLDAuMDAwNSwwLjAwMDUpLAogKDIsJ0tSVy1FVEgnLDMsMSwxMDAw
+					101 text LDAuMDAwMDAwMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICgzLCdLUlctU09MJyw0LDEsNTAsMC4wMDA
+					102 text wMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwLDAuMDAwNSwwLjAwMDUpLAogKDQsJ0tSVy1YUlAnLDUsMSwxLDAuMDEsNTAwMCwxMD
+					103 text AwMDAwMDAwLDEwMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICg1LCdLUlctRE9HRScsNiwxLDEsMC4wMSw1MDAwLDEwMDAwMDAwMDAsM
+					104 text TAwMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICg2LCdLUlctQURBJyw3LDEsMSwwLjAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMDAs
+					105 text MC4wMDA1LDAuMDAwNSksCiAoNywnS1JXLVRSWCcsOCwxLDEsMC4wMSw1MDAwLDEwMDAwMDAwMDAsMTAwMDAwMDAwLDAuMDAwNSwwLjA
+					106 text wMDUpLAogKDgsJ0tSVy1MSU5LJyw5LDEsMTAsMC4wMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKIC
+					107 text g5LCdLUlctRE9UJywxMCwxLDUsMC4wMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMDAsMC4wMDA1LDAuMDAwNSksCiAoMTAsJ0tSV
+					108 text y1NQVRJQycsMTEsMSwxLDAuMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICgxMSwnS1JXLUFWQVgn
+					109 text LDEyLDEsMTAsMC4wMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICgxMiwnS1JXLUFUT00nLDEzLDE
+					110 text sNSwwLjAwMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwLDAuMDAwNSwwLjAwMDUpOwpDT01NSVQ7ClNFTEVDVCAoU0VMRUNUIGNvdW
+					111 text 50KCopIEZST00gYXNzZXRzKSBBUyBhc3NldHMsCiAgICAgICAoU0VMRUNUIGNvdW50KCopIEZST00gbWFya2V0cykgQVMgbWFya2V0c
+					112 text ywKICAgICAgIChTRUxFQ1QgY291bnQoKikgRlJPTSBhY2NvdW50cyBXSEVSRSBvd25lcl90eXBlPSdTWVNURU0nKSBBUyBzeXN0ZW1f
+					113 text YWNjb3VudHM7Cg==' | base64 -d > /tmp/bootstrap-markets.sql && sudo -u postgres psql -X -d exchange -f /
+					114 text tmp/bootstrap-markets.sql
+					115 text BEGIN
+					116 text SET
+					117 text SET
+					118 text SET
+					119 text LOCK TABLE
+					120 text DO
+					121 text INSERT 0 13
+					122 text INSERT 0 39
+					123 text INSERT 0 12
+					124 text COMMIT
+					125 text  assets | markets | system_accounts 
+					126 text --------+---------+-----------------
+					127 text      13 |      12 |              39
+					128 text (1 row)
+					129 text [ec2-user@ip-172-31-1-229 ~]$ 
+				130 text printf '%s' 'LS0gRGV2RGF0YVNlZWRlcuyZgCDqsJnsnYAg7J6Q7IKwwrfrp4jsvJMg6riw67O46rCSLiDqsbDrnpjCt+2ajOybkMK37J6U6rOg64qUIOy0iOq4sO2ZlO2VmOyngCDslYrripTri6QuCi0tIOy1nOy0iCDrsLDtj6zsnZgg67mIIOy5tO2DiOuhnOq3uOyXkOunjCDsi6TtlontlZzri6QuIOyerOyLpO2WieydgCDslYTrnpgg6rKA7IKs7JeQ7IScIOykkeuLqOuQnOuLpC4KXHNldCBPTl9FUlJPUl9TVE9QIG9uCkJFR0lOOwpTRVQgTE9DQUwgbG9ja190aW1lb3V0ID0gJzVzJzsKU0VUIExPQ0FMIHN0YXRlbWVudF90aW1lb3V0ID0gJzMwcyc7ClNFVCBMT0NBTCBST0xFIGV4Y2hhbmdlX293bmVyOwpMT0NLIFRBQkxFIGFzc2V0cywgbWFya2V0cyBJTiBTSEFSRSBST1cgRVhDTFVTSVZFIE1PREU7CkRPICQkIEJFR0lOCiAgICBJRiBFWElTVFMgKFNFTEVDVCAxIEZST00gYXNzZXRzKSBPUiBFWElTVFMgKFNFTEVDVCAxIEZST00gbWFya2V0cykgVEhFTgogICAgICAgIFJBSVNFIEVYQ0VQVElPTiAnYXNzZXRzIOuYkOuKlCBtYXJrZXRz6rCAIOu5hOyWtCDsnojsp4Ag7JWK64ukLiDquLDsobQg6rCS7J2EIOuovOyggCDtmZXsnbjtlZzri6QuJzsKICAgIEVORCBJRjsKRU5EICQkOwoKSU5TRVJUIElOVE8gYXNzZXRzIChpZCwgc3ltYm9sLCBuYW1lLCBraW5kLCBzY2FsZSkgVkFMVUVTCiAoMSwnS1JXJywn7JuQ7ZmUJywnRklBVCcsMCksICgyLCdCVEMnLCfruYTtirjsvZTsnbgnLCdDUllQVE8nLDgpLAogKDMsJ0VUSCcsJ+ydtOuNlOumrOybgCcsJ0NSWVBUTycsMTgpLCAoNCwnU09MJywn7IaU652864KYJywnQ1JZUFRPJyw2KSwKICg1LCdYUlAnLCfrpqztlIwnLCdDUllQVE8nLDIpLCAoNiwnRE9HRScsJ+uPhOyngOy9lOyduCcsJ0NSWVBUTycsMiksCiAoNywnQURBJywn7JeQ7J2064ukJywnQ1JZUFRPJywyKSwgKDgsJ1RSWCcsJ+2KuOuhoCcsJ0NSWVBUTycsMiksCiAoOSwnTElOSycsJ+yytOyduOunge2BrCcsJ0NSWVBUTycsNCksICgxMCwnRE9UJywn7Y+07Lm064u3JywnQ1JZUFRPJyw0KSwKICgxMSwnTUFUSUMnLCftj7Trpqzqs6QnLCdDUllQVE8nLDIpLCAoMTIsJ0FWQVgnLCfslYTrsJzrnoDssrQnLCdDUllQVE8nLDQpLAogKDEzLCdBVE9NJywn7L2U7Iqk66qo7IqkJywnQ1JZUFRPJyw0KTsKCklOU0VSVCBJTlRPIGFjY291bnRzIChvd25lcl90eXBlLCBvd25lcl9pZCwgcHVycG9zZSwgYXNzZXRfaWQsIHNoYXJkKQpTRUxFQ1QgJ1NZU1RFTScsIDAsIHAucHVycG9zZSwgYS5pZCwgMApGUk9NIGFzc2V0cyBhIENST1NTIEpPSU4gKFZBTFVFUyAoJ0ZFRV9JTkNPTUUnKSwoJ0dFTkVTSVMnKSwoJ0dBVEVXQVknKSkgcChwdXJwb3NlKTsKCklOU0VSVCBJTlRPIG1hcmtldHMKIChpZCwgc3ltYm9sLCBiYXNlX2Fzc2V0X2lkLCBxdW90ZV9hc3NldF9pZCwgdGlja19zaXplLCBsb3Rfc2l6ZSwKICBtaW5fbm90aW9uYWwsIG1heF9ub3Rpb25hbCwgbWF4X3F0eSwgbWFrZXJfZmVlX3JhdGUsIHRha2VyX2ZlZV9yYXRlKSBWQUxVRVMKICgxLCdLUlctQlRDJywyLDEsMTAwMCwwLjAwMDAwMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwLDAuMDAwNSwwLjAwMDUpLAogKDIsJ0tSVy1FVEgnLDMsMSwxMDAwLDAuMDAwMDAwMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICgzLCdLUlctU09MJyw0LDEsNTAsMC4wMDAwMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwLDAuMDAwNSwwLjAwMDUpLAogKDQsJ0tSVy1YUlAnLDUsMSwxLDAuMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICg1LCdLUlctRE9HRScsNiwxLDEsMC4wMSw1MDAwLDEwMDAwMDAwMDAsMTAwMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICg2LCdLUlctQURBJyw3LDEsMSwwLjAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMDAsMC4wMDA1LDAuMDAwNSksCiAoNywnS1JXLVRSWCcsOCwxLDEsMC4wMSw1MDAwLDEwMDAwMDAwMDAsMTAwMDAwMDAwLDAuMDAwNSwwLjAwMDUpLAogKDgsJ0tSVy1MSU5LJyw5LDEsMTAsMC4wMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICg5LCdLUlctRE9UJywxMCwxLDUsMC4wMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMDAsMC4wMDA1LDAuMDAwNSksCiAoMTAsJ0tSVy1NQVRJQycsMTEsMSwxLDAuMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICgxMSwnS1JXLUFWQVgnLDEyLDEsMTAsMC4wMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICgxMiwnS1JXLUFUT00nLDEzLDEsNSwwLjAwMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwLDAuMDAwNSwwLjAwMDUpOwpDT01NSVQ7ClNFTEVDVCAoU0VMRUNUIGNvdW50KCopIEZST00gYXNzZXRzKSBBUyBhc3NldHMsCiAgICAgICAoU0VMRUNUIGNvdW50KCopIEZST00gbWFya2V0cykgQVMgbWFya2V0cywKICAgICAgIChTRUxFQ1QgY291bnQoKikgRlJPTSBhY2NvdW50cyBXSEVSRSBvd25lcl90eXBlPSdTWVNURU0nKSBBUyBzeXN0ZW1fYWNjb3VudHM7Cg==' | base64 -d > /tmp/bootstrap-markets.sql && sudo -u postgres psql -X -d exchange -f /tmp/bootstrap-markets.sqlprintf '%s' 'LS0gRGV2RGF0YVNlZWRlcuyZgCDqsJnsnYAg7J6Q7IKwwrfrp4jsvJMg6riw67O46rCSLiDqsbDrnpjCt+2ajOybkMK37J6U6rOg64qUIOy0iOq4sO2ZlO2VmOyngCDslYrripTri6QuCi0tIOy1nOy0iCDrsLDtj6zsnZgg67mIIOy5tO2DiOuhnOq3uOyXkOunjCDsi6TtlontlZzri6QuIOyerOyLpO2WieydgCDslYTrnpgg6rKA7IKs7JeQ7IScIOykkeuLqOuQnOuLpC4KXHNldCBPTl9FUlJPUl9TVE9QIG9uCkJFR0lOOwpTRVQgTE9DQUwgbG9ja190aW1lb3V0ID0gJzVzJzsKU0VUIExPQ0FMIHN0YXRlbWVudF90aW1lb3V0ID0gJzMwcyc7ClNFVCBMT0NBTCBST0xFIGV4Y2hhbmdlX293bmVyOwpMT0NLIFRBQkxFIGFzc2V0cywgbWFya2V0cyBJTiBTSEFSRSBST1cgRVhDTFVTSVZFIE1PREU7CkRPICQkIEJFR0lOCiAgICBJRiBFWElTVFMgKFNFTEVDVCAxIEZST00gYXNzZXRzKSBPUiBFWElTVFMgKFNFTEVDVCAxIEZST00gbWFya2V0cykgVEhFTgogICAgICAgIFJBSVNFIEVYQ0VQVElPTiAnYXNzZXRzIOuYkOuKlCBtYXJrZXRz6rCAIOu5hOyWtCDsnojsp4Ag7JWK64ukLiDquLDsobQg6rCS7J2EIOuovOyggCDtmZXsnbjtlZzri6QuJzsKICAgIEVORCBJRjsKRU5EICQkOwoKSU5TRVJUIElOVE8gYXNzZXRzIChpZCwgc3ltYm9sLCBuYW1lLCBraW5kLCBzY2FsZSkgVkFMVUVTCiAoMSwnS1JXJywn7JuQ7ZmUJywnRklBVCcsMCksICgyLCdCVEMnLCfruYTtirjsvZTsnbgnLCdDUllQVE8nLDgpLAogKDMsJ0VUSCcsJ+ydtOuNlOumrOybgCcsJ0NSWVBUTycsMTgpLCAoNCwnU09MJywn7IaU652864KYJywnQ1JZUFRPJyw2KSwKICg1LCdYUlAnLCfrpqztlIwnLCdDUllQVE8nLDIpLCAoNiwnRE9HRScsJ+uPhOyngOy9lOyduCcsJ0NSWVBUTycsMiksCiAoNywnQURBJywn7JeQ7J2064ukJywnQ1JZUFRPJywyKSwgKDgsJ1RSWCcsJ+2KuOuhoCcsJ0NSWVBUTycsMiksCiAoOSwnTElOSycsJ+yytOyduOunge2BrCcsJ0NSWVBUTycsNCksICgxMCwnRE9UJywn7Y+07Lm064u3JywnQ1JZUFRPJyw0KSwKICgxMSwnTUFUSUMnLCftj7Trpqzqs6QnLCdDUllQVE8nLDIpLCAoMTIsJ0FWQVgnLCfslYTrsJzrnoDssrQnLCdDUllQVE8nLDQpLAogKDEzLCdBVE9NJywn7L2U7Iqk66qo7IqkJywnQ1JZUFRPJyw0KTsKCklOU0VSVCBJTlRPIGFjY291bnRzIChvd25lcl90eXBlLCBvd25lcl9pZCwgcHVycG9zZSwgYXNzZXRfaWQsIHNoYXJkKQpTRUxFQ1QgJ1NZU1RFTScsIDAsIHAucHVycG9zZSwgYS5pZCwgMApGUk9NIGFzc2V0cyBhIENST1NTIEpPSU4gKFZBTFVFUyAoJ0ZFRV9JTkNPTUUnKSwoJ0dFTkVTSVMnKSwoJ0dBVEVXQVknKSkgcChwdXJwb3NlKTsKCklOU0VSVCBJTlRPIG1hcmtldHMKIChpZCwgc3ltYm9sLCBiYXNlX2Fzc2V0X2lkLCBxdW90ZV9hc3NldF9pZCwgdGlja19zaXplLCBsb3Rfc2l6ZSwKICBtaW5fbm90aW9uYWwsIG1heF9ub3Rpb25hbCwgbWF4X3F0eSwgbWFrZXJfZmVlX3JhdGUsIHRha2VyX2ZlZV9yYXRlKSBWQUxVRVMKICgxLCdLUlctQlRDJywyLDEsMTAwMCwwLjAwMDAwMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwLDAuMDAwNSwwLjAwMDUpLAogKDIsJ0tSVy1FVEgnLDMsMSwxMDAwLDAuMDAwMDAwMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICgzLCdLUlctU09MJyw0LDEsNTAsMC4wMDAwMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwLDAuMDAwNSwwLjAwMDUpLAogKDQsJ0tSVy1YUlAnLDUsMSwxLDAuMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICg1LCdLUlctRE9HRScsNiwxLDEsMC4wMSw1MDAwLDEwMDAwMDAwMDAsMTAwMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICg2LCdLUlctQURBJyw3LDEsMSwwLjAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMDAsMC4wMDA1LDAuMDAwNSksCiAoNywnS1JXLVRSWCcsOCwxLDEsMC4wMSw1MDAwLDEwMDAwMDAwMDAsMTAwMDAwMDAwLDAuMDAwNSwwLjAwMDUpLAogKDgsJ0tSVy1MSU5LJyw5LDEsMTAsMC4wMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICg5LCdLUlctRE9UJywxMCwxLDUsMC4wMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMDAsMC4wMDA1LDAuMDAwNSksCiAoMTAsJ0tSVy1NQVRJQycsMTEsMSwxLDAuMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICgxMSwnS1JXLUFWQVgnLDEyLDEsMTAsMC4wMDAxLDUwMDAsMTAwMDAwMDAwMCwxMDAwMDAwMCwwLjAwMDUsMC4wMDA1KSwKICgxMiwnS1JXLUFUT00nLDEzLDEsNSwwLjAwMDEsNTAwMCwxMDAwMDAwMDAwLDEwMDAwMDAwLDAuMDAwNSwwLjAwMDUpOwpDT01NSVQ7ClNFTEVDVCAoU0VMRUNUIGNvdW50KCopIEZST00gYXNzZXRzKSBBUyBhc3NldHMsCiAgICAgICAoU0VMRUNUIGNvdW50KCopIEZST00gbWFya2V0cykgQVMgbWFya2V0cywKICAgICAgIChTRUxFQ1QgY291bnQoKikgRlJPTSBhY2NvdW50cyBXSEVSRSBvd25lcl90eXBlPSdTWVNURU0nKSBBUyBzeXN0ZW1fYWNjb3VudHM7Cg==' | base64 -d > /tmp/bootstrap-markets.sql && sudo -u postgres psql -X -d exchange -f /tmp/bootstrap-markets.sql BEGIN SET SET SET LOCK TABLE DO INSERT 0 13 INSERT 0 39 INSERT 0 12 COMMIT assets | markets | system_accounts --------+---------+----------------- 13 | 12 | 39 (1 row) [ec2-user@ip-172-31-1-229 ~]$
+				79 text field (settable) Terminal input
+			23 button Close instance info
+			24 heading i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01), Value: 3
+				80 text i-0e302764af73d861f (2026-ai-kopo-04-db-primary-01)
+			81 container
+				82 text PublicIPs: 13.125.150.154 PrivateIPs: 172.31.1.229
+		25 container f
+			26 container console-nav-footer
+				27 container awsc-nav-footer-content
+					83 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					28 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					29 button Console Mobile App, ID: mobile_app_button
+						30 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					31 content list
+						32 link Description: Privacy, Value: aws.amazon.com/privacy/
+						33 link Description: Terms, Value: aws.amazon.com/terms/
+						34 button Cookie preferences
+
+The focused UI element is 79 text field (settable) Terminal input

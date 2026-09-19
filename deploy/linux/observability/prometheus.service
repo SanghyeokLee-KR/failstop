@@ -1,0 +1,25 @@
+[Unit]
+Description=Prometheus metrics storage
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus --storage.tsdb.retention.time=7d --storage.tsdb.retention.size=2GB --web.listen-address=127.0.0.1:9090
+Restart=on-failure
+RestartSec=5
+StateDirectory=prometheus
+UMask=0027
+MemoryHigh=384M
+MemoryMax=512M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

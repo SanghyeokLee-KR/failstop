@@ -1,0 +1,24 @@
+[Unit]
+Description=Exchange operations report (%i)
+After=network-online.target prometheus.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=exchange-report
+Group=exchange-report
+LoadCredential=gemini_api_key:/etc/exchange-report/gemini_api_key
+LoadCredential=teams_webhook_url:/etc/exchange-report/teams_webhook_url
+ExecStart=/usr/bin/python3 /opt/exchange-report/report.py --config /etc/exchange-report/config.json --state-dir /var/lib/exchange-report --mode %i --send
+StateDirectory=exchange-report
+StateDirectoryMode=0700
+UMask=0077
+MemoryMax=96M
+TimeoutStartSec=480
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true

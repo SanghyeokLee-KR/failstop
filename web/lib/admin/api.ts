@@ -70,7 +70,7 @@ export interface AdminApi {
   /** 브라우저 인증서 저장소 설치분(데모 mTLS 인증서 목록) */
   listDemoCerts(): DemoClientCert[];
   /** mTLS 인증서 제시로 신원 유래 단기 세션 확립. certId=CN=operatorId */
-  establishSession(certId: string): Promise<AdminSession>;
+  establishSession(certId: string, password?: string): Promise<AdminSession>;
   getSession(): AdminSession | null;
   endSession(): void;
   /** 세션 변화 통지(로그인·전환·만료). 등록 즉시 현재 상태 1회 통지 */

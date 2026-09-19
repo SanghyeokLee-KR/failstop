@@ -1,0 +1,76 @@
+Browser tab: 2017667323, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		2 container consoleNavHeader
+			3 container awsc-nav-header
+				4 image Account color: 설정 해제
+				5 container Global
+					6 container awsc-top-level-nav
+						7 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						8 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						9 button (collapsed) Description: Services, Secondary Actions: Expand
+							10 image
+						11 container aws-unified-search-container
+							12 container
+								13 image Search
+								14 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								15 button Ask Amazon Q
+								16 text [Alt+S]
+						17 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						18 container
+							19 pop up button Description: Notifications (none available), Help: Notifications
+								20 image Notifications
+							21 image Notifications
+						22 content list awsc-navigation__more-menu--list
+							23 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								24 image Support
+							25 button (collapsed) Description: Settings, Secondary Actions: Expand
+							26 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								27 text 아시아 태평양 (서울)
+							28 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								29 text Account ID: 6192-5696-4117
+								30 text 2026-ai-kopo-04
+		31 container
+			32 container Notifications
+				33 content list Description: Notifications, ID: flashbar1-1789831483374-1663
+			34 text Content loaded
+			35 container
+				36 content list
+					83 text /tmp/exchange-web-origin-20260920.zip: OK
+					84 text /opt/exchange-web/releases/origin-20260920
+					85 text GET /admin/bots: 200, expected=200
+					86 text POST /admin/v1/session: 401, expected=401
+					87 text POST /admin/v1/session/: 404, expected=404
+					88 text GET /admin/v1/sim/status: 401, expected=401
+					89 text GET /grafana/login: 200, expected=200
+					90 text GET /grafana/api/search: 401, expected=401
+					91 text GET /api/admin/health: 403, expected=403
+					92 text GET /actuator/health: 403, expected=403
+					93 text GET /.env: 404, expected=404
+					94 text GET /exchange/KRW-BTC: 200, expected=200
+					95 text PASS: HTTPS 화면과 비인증 접근 차단
+					96 text [ec2-user@ip-172-31-2-86 ~]$ 
+				97 text clear; aws s3 cp s3://2026-ai-kopo-04-exchange-artifacts-619256964117/exchange-web-origin-20260920.zip /tmp/exchange-web-origin-20260920.zip --region ap-northeast-2 --only-show-errors && echo '5df8abe14f8a488622aa647baaea75b48fa979926dfbc5cfc2bdd8720bd66282 /tmp/exchange-web-origin-20260920.zip' | sha256sum -c - && sudo install -d -m 755 /opt/exchange-web/releases/origin-20260920 && sudo python3 -m zipfile -e /tmp/exchange-web-origin-20260920.zip /opt/exchange-web/releases/origin-20260920 && sudo find /opt/exchange-web/releases/origin-20260920 -type d -exec chmod 755 {} + && sudo find /opt/exchange-web/releases/origin-20260920 -type f -exec chmod 644 {} + && sudo ln -sfn /opt/exchange-web/releases/origin-20260920 /opt/exchange-web/current-next && sudo mv -Tf /opt/exchange-web/current-next /opt/exchange-web/current && readlink -f /opt/exchange-web/current && python3 /tmp/verify-admin-public.py /tmp/exchange-web-origin-20260920.zip: OK /opt/exchange-web/releases/origin-20260920 GET /admin/bots: 200, expected=200 POST /admin/v1/session: 401, expected=401 POST /admin/v1/session/: 404, expected=404 GET /admin/v1/sim/status: 401, expected=401 GET /grafana/login: 200, expected=200 GET /grafana/api/search: 401, expected=401 GET /api/admin/health: 403, expected=403 GET /actuator/health: 403, expected=403 GET /.env: 404, expected=404 GET /exchange/KRW-BTC: 200, expected=200 PASS: HTTPS 화면과 비인증 접근 차단 [ec2-user@ip-172-31-2-86 ~]$
+				62 text field (settable) Terminal input
+			63 button Close instance info
+			64 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				65 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			66 container
+				67 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		68 container f
+			69 container console-nav-footer
+				70 container awsc-nav-footer-content
+					71 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					72 button Agent Toolkit for AWS
+					73 button Feedback, ID: feedback
+						74 text Feedback
+					75 button Console Mobile App, ID: mobile_app_button
+						76 image
+						77 text Console Mobile App
+					78 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					79 content list
+						80 link Description: Privacy, Value: aws.amazon.com/privacy/
+						81 link Description: Terms, Value: aws.amazon.com/terms/
+						82 button Cookie preferences
+
+The focused UI element is 62 text field (settable) Terminal input

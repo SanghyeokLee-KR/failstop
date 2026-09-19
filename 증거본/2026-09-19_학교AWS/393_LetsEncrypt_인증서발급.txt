@@ -1,0 +1,103 @@
+Browser tab: 2017667296, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		35 container consoleNavHeader
+			36 container awsc-nav-header
+				37 image Account color: 설정 해제
+				38 container Global
+					39 container awsc-top-level-nav
+						40 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						41 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						42 button (collapsed) Description: Services, Secondary Actions: Expand
+							43 image
+						44 container aws-unified-search-container
+							45 container
+								46 image Search
+								47 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								48 button Ask Amazon Q
+								49 text [Alt+S]
+						50 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						51 container
+							52 pop up button Description: Notifications (none available), Help: Notifications
+								53 image Notifications
+							54 image Notifications
+						55 content list awsc-navigation__more-menu--list
+							56 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								57 image Support
+							58 button (collapsed) Description: Settings, Secondary Actions: Expand
+							59 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								60 text 아시아 태평양 (서울)
+							61 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								62 text Account ID: 6192-5696-4117
+								63 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789827823231-823
+			15 text Content loaded
+			64 container
+				65 content list
+					89 text [ec2-user@ip-172-31-2-86 ~]$ printf '%s' 'IiIi6riw7KG0IEhUVFAg66+466as67O06riw7J2YIFBDIOygnO2VnOydhCDsn
+					90 text KDsp4DtlZjrqbTshJwg7J247Kad7IScIOqygOymnSDqsr3roZzrpbwg7KSA67mE7ZWc64ukLiIiIgpmcm9tIHBhdGhsaWIgaW1wb3J0
+					91 text IFBhdGgKaW1wb3J0IHNodXRpbAppbXBvcnQgc3VicHJvY2VzcwoKY29uZmlnID0gUGF0aCgnL2V0Yy9uZ2lueC9uZ2lueC5jb25mJyk
+					92 text KYmFja3VwID0gUGF0aCgnL2V0Yy9uZ2lueC9uZ2lueC5jb25mLmJlZm9yZS1hY21lJykKaWYgYmFja3VwLmV4aXN0cygpOgogICAgcm
+					93 text Fpc2UgU3lzdGVtRXhpdCgn6riw7KG0IOuwseyXheydtCDsnojri6QuIOyggeyaqSDsg4Htg5zrpbwg7ZmV7J247ZWcIOuSpCDsp4Ttl
+					94 text ontlZzri6QuJykKdGV4dCA9IGNvbmZpZy5yZWFkX3RleHQoKQppZiB0ZXh0LmNvdW50KCdzZXJ2ZXJfbmFtZSBfOycpICE9IDEgb3Ig
+					95 text J2xpc3RlbiA4MCBkZWZhdWx0X3NlcnZlcjsnIG5vdCBpbiB0ZXh0OgogICAgcmFpc2UgU3lzdGVtRXhpdCgn7JiI7IOB7ZWcIEhUVFA
+					96 text g66+466as67O06riwIOyEpOygleydtCDslYTri4jri6QuJykKc2h1dGlsLmNvcHkyKGNvbmZpZywgYmFja3VwKQp0ZXh0ID0gdGV4dC
+					97 text 5yZXBsYWNlKCdzZXJ2ZXJfbmFtZSBfOycsICcnJ3NlcnZlcl9uYW1lIHd3dy5zYW5nLml0LmtyOwogICAgICAgIGFsbG93IDE3NS4yM
+					98 text TAuOTMuNDE7CiAgICAgICAgZGVueSBhbGw7CiAgICAgICAgbG9jYXRpb24gXn4gLy53ZWxsLWtub3duL2FjbWUtY2hhbGxlbmdlLyB7
+					99 text CiAgICAgICAgICAgIGFsbG93IGFsbDsKICAgICAgICAgICAgcm9vdCAvdmFyL2xpYi9sZXRzZW5jcnlwdDsKICAgICAgICAgICAgZGV
+					100 text mYXVsdF90eXBlIHRleHQvcGxhaW47CiAgICAgICAgICAgIHRyeV9maWxlcyAkdXJpID00MDQ7CiAgICAgICAgfScnJykKUGF0aCgnL3
+					101 text Zhci9saWIvbGV0c2VuY3J5cHQvLndlbGwta25vd24vYWNtZS1jaGFsbGVuZ2UnKS5ta2RpcihwYXJlbnRzPVRydWUsIGV4aXN0X29rP
+					102 text VRydWUpCmNvbmZpZy53cml0ZV90ZXh0KHRleHQpCnRyeToKICAgIHN1YnByb2Nlc3MucnVuKFsnbmdpbngnLCAnLXQnXSwgY2hlY2s9
+					103 text VHJ1ZSkKICAgIHN1YnByb2Nlc3MucnVuKFsnc3lzdGVtY3RsJywgJ3JlbG9hZCcsICduZ2lueCddLCBjaGVjaz1UcnVlKQpleGNlcHQ
+					104 text gc3VicHJvY2Vzcy5DYWxsZWRQcm9jZXNzRXJyb3I6CiAgICBzaHV0aWwuY29weTIoYmFja3VwLCBjb25maWcpCiAgICByYWlzZQpwcm
+					105 text ludCgnQUNNRSDqsr3roZwg7KSA67mEIOyZhOujjC4g6riw7KG0IOyVsSDrr7jrpqzrs7TquLDripQgUEMgSVDrp4wg7ZeI7Jqp7ZWc6
+					106 text 4ukLicpCg==' | base64 -d > /tmp/prepare-acme.py && sudo python3 /tmp/prepare-acme.py
+					107 text nginx: [warn] could not build optimal types_hash, you should increase either types_hash_max_size: 1024 
+					108 text or types_hash_bucket_size: 64; ignoring types_hash_bucket_size
+					109 text nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+					110 text nginx: configuration file /etc/nginx/nginx.conf test is successful
+					111 text ACME 경로 준비 완료. 기존 앱 미리보기는 PC IP만 허용한다.
+					112 text [ec2-user@ip-172-31-2-86 ~]$ sudo certbot certonly --webroot -w /var/lib/letsencrypt -d www.sang.it.kr 
+					113 text --non-interactive --agree-tos --register-unsafely-without-email
+					114 text Saving debug log to /var/log/letsencrypt/letsencrypt.log
+					115 text Account registered.
+					116 text Requesting a certificate for www.sang.it.kr
+					117 text Successfully received certificate.
+					118 text Certificate is saved at: /etc/letsencrypt/live/www.sang.it.kr/fullchain.pem
+					119 text Key is saved at:         /etc/letsencrypt/live/www.sang.it.kr/privkey.pem
+					120 text This certificate expires on 2026-12-18.
+					121 text These files will be updated when the certificate renews.
+					122 text Certbot has set up a scheduled task to automatically renew this certificate in the background.
+					123 text - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+					124 text If you like Certbot, please consider supporting our work by:
+					125 text  * Donating to ISRG / Let's Encrypt:   https://letsencrypt.org/donate
+					126 text  * Donating to EFF:                    https://eff.org/donate-le
+					127 text - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+					128 text [ec2-user@ip-172-31-2-86 ~]$ 
+				129 text -non-interactive -agre-tos -register-unsafely-without-email Saving debug log to /var/log/letsencrypt/letsencrypt.log Account registered. Requesting a certificate for www.sang.it.kr Successfully received certificate. Certificate is saved at: /etc/letsencrypt/live/www.sang.it.kr/fullchain.pem Key is saved at: /etc/letsencrypt/live/www.sang.it.kr/privkey.pem This certificate expires on 2026-12-18. These files will be updated when the certificate renews. Certbot has set up a scheduled task to automatically renew this certificate in the background. - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - If you like Certbot, please consider supporting our work by: * Donating to ISRG / Let's Encrypt: https://letsencrypt.org/donate * Donating to EFF: https://eff.org/donate-le - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - [ec2-user@ip-172-31-2-86 ~]$
+				79 text field (settable) Terminal input
+			23 button Close instance info
+			24 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				80 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			81 container
+				82 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		25 container f
+			26 container console-nav-footer
+				27 container awsc-nav-footer-content
+					83 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					28 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					29 button Console Mobile App, ID: mobile_app_button
+						30 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					31 content list
+						32 link Description: Privacy, Value: aws.amazon.com/privacy/
+						33 link Description: Terms, Value: aws.amazon.com/terms/
+						34 button Cookie preferences
+
+The focused UI element is 79 text field (settable) Terminal input

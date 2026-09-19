@@ -1,0 +1,105 @@
+Browser tab: 2017667343, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		48 container consoleNavHeader
+			49 container awsc-nav-header
+				50 image Account color: 설정 해제
+				51 container Global
+					52 container awsc-top-level-nav
+						53 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						54 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						55 button (collapsed) Description: Services, Secondary Actions: Expand
+							56 image
+						57 container aws-unified-search-container
+							58 container
+								59 image Search
+								60 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								61 button Ask Amazon Q
+								62 text [Alt+S]
+						63 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						64 container
+							65 pop up button Description: Notifications (none available), Help: Notifications
+								66 image Notifications
+							67 image Notifications
+						68 content list awsc-navigation__more-menu--list
+							69 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								70 image Support
+							71 button (collapsed) Description: Settings, Secondary Actions: Expand
+							72 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								73 text 아시아 태평양 (서울)
+							74 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								75 text Account ID: 6192-5696-4117
+								76 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789834523290-9949
+			23 text Content loaded
+			77 container
+				78 content list
+					96 text Sat Sep 19 16:20:13 UTC 2026
+					97 text NRestarts=0
+					98 text MemoryCurrent=389103616
+					99 text ActiveState=active
+					100 text SubState=running
+					101 text enabled
+					102 text                total        used        free      shared  buff/cache   available
+					103 text Mem:            1909         795         355         109         758         853
+					104 text Swap:              0           0           0
+					105 text {
+					106 text   "stop": false,
+					107 text   "failures": 0,
+					108 text   "reasons": [],
+					109 text   "nodes": {
+					110 text     "app-1": {
+					111 text       "available_bytes": 18819526656,
+					112 text       "total_bytes": 21395124224,
+					113 text       "free_inodes": 10426655,
+					114 text       "total_inodes": 10479552
+					115 text     },
+					116 text     "bot-1": {
+					117 text       "available_bytes": 17200963584,
+					118 text       "total_bytes": 21395124224,
+					119 text       "free_inodes": 10412542,
+					120 text       "total_inodes": 10479600
+					121 text     },
+					122 text     "db-primary": {
+					123 text       "available_bytes": 51184267264,
+					124 text       "total_bytes": 53607378944,
+					125 text       "free_inodes": 26155293,
+					126 text       "total_inodes": 26208240
+					127 text     },
+					128 text     "db-standby": {
+					129 text       "available_bytes": 51176521728,
+					130 text       "total_bytes": 53607378944,
+					131 text       "free_inodes": 26155291,
+					132 text       "total_inodes": 26208240
+					133 text     }
+					134 text   },
+					135 text   "checked_at": "2026-09-19T16:19:12.174751+00:00",
+					136 text   "sample_hour": "2026-09-19T16"
+					137 text }
+					138 text {"status":"OUT_OF_SERVICE","groups":["liveness","read","readiness"]}[ec2-user@ip-172-31-44-141 ~]$ 
+				139 text date -u; systemctl show exchange-bot.service -p ActiveState -p SubState -p NRestarts -p MemoryCurrent; systemctl is-enabled exchange-bot.service; free -m; sudo cat /var/lib/exchange-bot-guard/state.json; curl -s http://127.0.0.1:8081/actuator/healthToo much output to announce, navigate to rows manually to readdate -u; systemctl show exchange-bot.service -p ActiveState -p SubState -p NRestarts -p MemoryCurrent; systemctl is-enabled exchange-bot.service; free -m; sudo cat /var/lib/exchange-bot-guard/state.json; curl -s http://127.0.0.1:8081/actuator/health Sat Sep 19 16:20:13 UTC 2026 NRestarts=0 MemoryCurrent=389103616 ActiveState=active SubState=running enabled total used free shared buff/cache available Mem: 1909 795 355 109 758 853 Swap: 0 0 0 { "stop": false, "failures": 0, "reasons": [], "nodes": { "app-1": { "available_bytes": 18819526656, "total_bytes": 21395124224, "free_inodes": 10426655, "total_inodes": 10479552 },
+				92 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				33 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			34 container
+				35 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		36 container f
+			37 container console-nav-footer
+				38 container awsc-nav-footer-content
+					93 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					39 button Agent Toolkit for AWS
+					94 button Feedback, ID: feedback
+						95 text Feedback
+					40 button Console Mobile App, ID: mobile_app_button
+						41 image
+						42 text Console Mobile App
+					43 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					44 content list
+						45 link Description: Privacy, Value: aws.amazon.com/privacy/
+						46 link Description: Terms, Value: aws.amazon.com/terms/
+						47 button Cookie preferences
+
+The focused UI element is 92 text field (settable) Terminal input

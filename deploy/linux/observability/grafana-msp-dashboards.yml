@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: school-msp
+    orgId: 1
+    folder: MSP 운영
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 10
+    options:
+      path: /var/lib/grafana/msp-dashboards

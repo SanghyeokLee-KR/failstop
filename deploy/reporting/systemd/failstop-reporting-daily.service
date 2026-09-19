@@ -1,0 +1,14 @@
+[Unit]
+Description=Queue one daily operational report
+
+[Service]
+Type=oneshot
+User=failstop-report
+Group=failstop-report
+ExecStart=/usr/bin/python3 /opt/failstop/deploy/reporting/reporter.py daily --config /etc/failstop/reporting.json --state /var/lib/failstop-reporting/outbox.sqlite3
+StateDirectory=failstop-reporting
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

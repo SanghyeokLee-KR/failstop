@@ -1,0 +1,103 @@
+Browser tab: 2017667317, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		46 container consoleNavHeader
+			47 container awsc-nav-header
+				48 image Account color: 설정 해제
+				49 container Global
+					50 container awsc-top-level-nav
+						51 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						52 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						53 button (collapsed) Description: Services, Secondary Actions: Expand
+							54 image
+						55 container aws-unified-search-container
+							56 container
+								57 image Search
+								58 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								59 button Ask Amazon Q
+								60 text [Alt+S]
+						61 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						62 container
+							63 pop up button Description: Notifications (none available), Help: Notifications
+								64 image Notifications
+							65 image Notifications
+						66 content list awsc-navigation__more-menu--list
+							67 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								68 image Support
+							69 button (collapsed) Description: Settings, Secondary Actions: Expand
+							70 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								71 text 아시아 태평양 (서울)
+							72 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								73 text Account ID: 6192-5696-4117
+								74 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789830565444-7143
+			23 text Content loaded
+			75 container
+				76 content list
+					97 text         "UserIdGroupPairs": [],
+					98 text         "IpRanges": [],
+					99 text         "Ipv6Ranges": [],
+					100 text         "PrefixListIds": [
+					101 text             {
+					102 text                 "Description": "SSH from Seoul EC2 Instance Connect only",
+					103 text                 "PrefixListId": "pl-00ec8fd779e5b4175"
+					104 text             }
+					105 text         ]
+					106 text     }
+					107 text ]
+					108 text [ec2-user@ip-172-31-44-141 ~]$ aws ec2 authorize-security-group-ingress --region ap-northeast-2 --group
+					109 text -id sg-064b0da59e8c9a13c --ip-permissions '[{"IpProtocol":"tcp","FromPort":3000,"ToPort":3000,"UserIdGr
+					110 text oupPairs":[{"GroupId":"sg-0e321b38da5cc8aaf","Description":"Grafana from app HTTPS proxy only"}]}]' --n
+					111 text o-cli-pager
+					112 text An error occurred (UnauthorizedOperation) when calling the AuthorizeSecurityGroupIngress operation: You
+					113 text  are not authorized to perform this operation. User: arn:aws:sts::619256964117:assumed-role/SafeRole-20
+					114 text 26-ai-kopo-04/i-06ff9b16739362b14 is not authorized to perform: ec2:AuthorizeSecurityGroupIngress on re
+					115 text source: arn:aws:ec2:ap-northeast-2:619256964117:security-group/sg-064b0da59e8c9a13c because no identity
+					116 text -based policy allows the ec2:AuthorizeSecurityGroupIngress action. Encoded authorization failure messag
+					117 text e: Kiy5dm_o7O2VHMipVLcV4NYWXakMWxX2w4-JBSLPXsbqOmf4XHQLBruVNSCrSzXW4i-7r4i3hsfUp3Qy4QlMUqP1TPVILeprwXEn
+					118 text DR6QIW2NsQpjn1K2uKJ-4CYSGUCozKTFiKQd53yjtF6MXuYeNKDeBv9dHW-Mj4OO_m-oz3EYlTSjk8Ksr6LgiGa0TAYbIPBYuBslWx2
+					119 text XKv2lHQnzpL0r_SK1ykZmURZnrG3sEoj2KMOMDFmeMJLWJ5POAyplliNII8F9ZA6H9aO10WKfPekNfVR79_rjfxF7fty_WuCnLUHp-r
+					120 text b4w-woJ7n5wQCafC0DRtwstxJzX79RuZ5z1XQrO9zrLNmW8xviGpdGMzNfFLx2xU2QPl6uMLDx-8P8OL82SUcl8_S2o1OvHjXp2ZAEJ
+					121 text sAYw9VBa_aMQIx0ANadAtDHzP1XHByTXHI0jqebYXAXgbeS5pZrx_mEXZHwx2CsLWgctqhRg5PXzAzCJjEVd7c5krrvNfdt0Cvi56sM
+					122 text PobUX3TxFfkEfDyWHaAXvpPbdowLXXey2KEmboo1-ry_8MQDODkQArM8eOaVA5GtuVmnjBwZlnRwmDYHwWCWc95NZknRxNEDW8tSwvD
+					123 text Di66aC-otiH2x5yjgV0yxcmuq3NGGEARiEkmKkEBTLx5Kp_qg3i9n958-M_wlCTrUn2EzlELBHp2Jfw0ibiOWxQAgh6NTmqg
+					124 text [ec2-user@ip-172-31-44-141 ~]$ printf '%s' 'W3NlcnZlcl0KcHJvdG9jb2wgPSBodHRwCmh0dHBfYWRkciA9IDE3Mi4zMS4
+					125 text 0NC4xNDEKaHR0cF9wb3J0ID0gMzAwMApkb21haW4gPSB3d3cuc2FuZy5pdC5rcgpyb290X3VybCA9IGh0dHBzOi8vd3d3LnNhbmcuaX
+					126 text Qua3IvZ3JhZmFuYS8Kc2VydmVfZnJvbV9zdWJfcGF0aCA9IHRydWUKCltzZWN1cml0eV0KZGlzYWJsZV9pbml0aWFsX2FkbWluX2NyZ
+					127 text WF0aW9uID0gdHJ1ZQpjb29raWVfc2VjdXJlID0gdHJ1ZQpjb29raWVfc2FtZXNpdGUgPSBsYXgKYWxsb3dfZW1iZWRkaW5nID0gZmFs
+					128 text c2UKClthdXRoLmFub255bW91c10KZW5hYmxlZCA9IGZhbHNlCgpbYXV0aC5wcm94eV0KZW5hYmxlZCA9IGZhbHNlCgpbdXNlcnNdCmF
+					129 text sbG93X3NpZ25fdXAgPSBmYWxzZQoKW2FuYWx5dGljc10KcmVwb3J0aW5nX2VuYWJsZWQgPSBmYWxzZQpjaGVja19mb3JfdXBkYXRlcy
+					130 text A9IGZhbHNlCgpbbG9nXQptb2RlID0gY29uc29sZQpsZXZlbCA9IGluZm8KClt1bmlmaWVkX2FsZXJ0aW5nXQplbmFibGVkID0gZmFsc
+					131 text 2UK' | base64 -d > /tmp/grafana-public.ini
+					132 text [ec2-user@ip-172-31-44-141 ~]$ sudo cp -a /etc/grafana/grafana.ini /etc/grafana/grafana.ini.before-http
+					133 text s-20260920 && sudo install -o root -g grafana -m 0640 /tmp/grafana-public.ini /etc/grafana/grafana.ini 
+					134 text && sudo systemctl restart grafana-server && sudo systemctl --no-pager is-active grafana-server
+					135 text active
+					136 text [ec2-user@ip-172-31-44-141 ~]$ 
+				137 text -20260920 && sudo install -o root -g grafana -m 0640 /tmp/grafana-public.ini /etc/grafana/grafana.ini && sudo systemctl restart grafana-server && sudo systemctl --no-pager is-active grafana-serversudo cp -a /etc/grafana/grafana.ini /etc/grafana/grafana.ini.before-https-20260920 && sudo install -o root -g grafana -m 0640 /tmp/grafana-public.ini /etc/grafana/grafana.ini && sudo systemctl restart grafana-server && sudo systemctl --no-pager is-active grafana-server active [ec2-user@ip-172-31-44-141 ~]$
+				90 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				91 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			92 container
+				93 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		33 container f
+			34 container console-nav-footer
+				35 container awsc-nav-footer-content
+					94 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					36 button Agent Toolkit for AWS
+					95 button Feedback, ID: feedback
+						96 text Feedback
+					37 button Console Mobile App, ID: mobile_app_button
+						38 image
+						39 text Console Mobile App
+					40 container
+						41 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					42 content list
+						43 link Description: Privacy, Value: aws.amazon.com/privacy/
+						44 link Description: Terms, Value: aws.amazon.com/terms/
+						45 button Cookie preferences
+
+The focused UI element is 90 text field (settable) Terminal input

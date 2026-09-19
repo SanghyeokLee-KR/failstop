@@ -1,0 +1,104 @@
+Browser tab: 2017667323, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		32 container consoleNavHeader
+			33 container awsc-nav-header
+				34 image Account color: 설정 해제
+				35 container Global
+					36 container awsc-top-level-nav
+						37 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						38 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						39 button (collapsed) Description: Services, Secondary Actions: Expand
+							40 image
+						41 container aws-unified-search-container
+							42 container
+								43 image Search
+								44 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								45 button Ask Amazon Q
+								46 text [Alt+S]
+						47 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						48 container
+							49 pop up button Description: Notifications (none available), Help: Notifications
+								50 image Notifications
+							51 image Notifications
+						52 content list awsc-navigation__more-menu--list
+							53 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								54 image Support
+							55 button (collapsed) Description: Settings, Secondary Actions: Expand
+							56 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								57 text 아시아 태평양 (서울)
+							58 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								59 text Account ID: 6192-5696-4117
+								60 text 2026-ai-kopo-04
+		9 container
+			10 container Notifications
+				61 content list Description: Notifications, ID: flashbar1-1789831483374-1663
+			11 text Content loaded
+			62 container
+				63 content list
+					89 text lkgYWx3YXlzOwogICAgICAgIGFkZF9oZWFkZXIgUmVmZXJyZXItUG9saWN5IHNhbWUtb3JpZ2luIGFsd2F5czsKICAgICAgICBpbmNs
+					90 text dWRlIC9ldGMvbmdpbngvZXhjaGFuZ2UtZ3JhZmFuYS5jb25mOwoKICAgICAgICBpbmNsdWRlIC9ldGMvbmdpbngvZXhjaGFuZ2UtYWR
+					91 text taW4uY29uZjsKICAgICAgICBsb2NhdGlvbiBefiAvYXBpL2FkbWluIHsgcmV0dXJuIDQwMzsgfQogICAgICAgIGxvY2F0aW9uIF5+IC
+					92 text 9hcGkvdjEvYWRtaW4geyByZXR1cm4gNDAzOyB9CiAgICAgICAgbG9jYXRpb24gXn4gL2FjdHVhdG9yIHsgcmV0dXJuIDQwMzsgfQogI
+					93 text CAgICAgIGxvY2F0aW9uIH4gL1wuIHsgcmV0dXJuIDQwNDsgfQogICAgICAgIGxvY2F0aW9uIC9hcGkvIHsKICAgICAgICAgICAgcHJv
+					94 text eHlfcGFzcyBodHRwOi8vMTI3LjAuMC4xOjgwODA7CiAgICAgICAgICAgIHByb3h5X3NldF9oZWFkZXIgSG9zdCB3d3cuc2FuZy5pdC5
+					95 text rcjsKICAgICAgICAgICAgcHJveHlfc2V0X2hlYWRlciBYLUZvcndhcmRlZC1Ib3N0IHd3dy5zYW5nLml0LmtyOwogICAgICAgICAgIC
+					96 text Bwcm94eV9zZXRfaGVhZGVyIFgtRm9yd2FyZGVkLVByb3RvIGh0dHBzOwogICAgICAgICAgICBwcm94eV9zZXRfaGVhZGVyIFgtRm9yd
+					97 text 2FyZGVkLVBvcnQgNDQzOwogICAgICAgICAgICBwcm94eV9zZXRfaGVhZGVyIFgtRm9yd2FyZGVkLUZvciAkcmVtb3RlX2FkZHI7CiAg
+					98 text ICAgICAgICAgIHByb3h5X3NldF9oZWFkZXIgRm9yd2FyZGVkICIiOwogICAgICAgICAgICBwcm94eV9zZXRfaGVhZGVyIFgtT3BlcmF
+					99 text 0b3ItQ24gIiI7CiAgICAgICAgICAgIHByb3h5X2Nvbm5lY3RfdGltZW91dCAzczsKICAgICAgICAgICAgcHJveHlfcmVhZF90aW1lb3
+					100 text V0IDMwczsKICAgICAgICAgICAgcHJveHlfYnVmZmVyaW5nIG9mZjsKICAgICAgICB9CiAgICAgICAgbG9jYXRpb24gPSAvd3MvdjEge
+					101 text wogICAgICAgICAgICBwcm94eV9wYXNzIGh0dHA6Ly8xMjcuMC4wLjE6ODA4MDsKICAgICAgICAgICAgcHJveHlfaHR0cF92ZXJzaW9u
+					102 text IDEuMTsKICAgICAgICAgICAgcHJveHlfc2V0X2hlYWRlciBVcGdyYWRlICRodHRwX3VwZ3JhZGU7CiAgICAgICAgICAgIHByb3h5X3N
+					103 text ldF9oZWFkZXIgQ29ubmVjdGlvbiAkY29ubmVjdGlvbl91cGdyYWRlOwogICAgICAgICAgICBwcm94eV9zZXRfaGVhZGVyIEhvc3Qgd3
+					104 text d3LnNhbmcuaXQua3I7CiAgICAgICAgICAgIHByb3h5X3NldF9oZWFkZXIgWC1Gb3J3YXJkZWQtUHJvdG8gaHR0cHM7CiAgICAgICAgI
+					105 text CAgIHByb3h5X3NldF9oZWFkZXIgWC1Gb3J3YXJkZWQtRm9yICRyZW1vdGVfYWRkcjsKICAgICAgICAgICAgcHJveHlfc2V0X2hlYWRl
+					106 text ciBGb3J3YXJkZWQgIiI7CiAgICAgICAgICAgIHByb3h5X3JlYWRfdGltZW91dCA3NXM7CiAgICAgICAgfQogICAgICAgIGxvY2F0aW9
+					107 text uIC93cyB7IHJldHVybiA0MDQ7IH0KICAgICAgICBsb2NhdGlvbiAvIHsgdHJ5X2ZpbGVzICR1cmkgJHVyaS5odG1sICR1cmkvaW5kZX
+					108 text guaHRtbCA9NDA0OyB9CiAgICB9Cn0K' | base64 -d > /tmp/nginx-https.conf
+					109 text [ec2-user@ip-172-31-2-86 ~]$ aws s3 cp s3://2026-ai-kopo-04-exchange-artifacts-619256964117/exchange-we
+					110 text b-admin-20260920.zip /tmp/exchange-web-admin-20260920.zip --region ap-northeast-2 --only-show-errors &&
+					111 text  echo 'ca6b5a67d1e1a9f5bb9a644518cd73d91a458c5952744a4158052d04e61b9686  /tmp/exchange-web-admin-202609
+					112 text 20.zip' | sha256sum -c - && readlink -f /opt/exchange-web/current
+					113 text /tmp/exchange-web-admin-20260920.zip: OK
+					114 text /opt/exchange-web/releases/20260919
+					115 text [ec2-user@ip-172-31-2-86 ~]$ sudo install -d -m 755 /opt/exchange-web/releases/admin-20260920 && sudo p
+					116 text ython3 -m zipfile -e /tmp/exchange-web-admin-20260920.zip /opt/exchange-web/releases/admin-20260920 && 
+					117 text sudo find /opt/exchange-web/releases/admin-20260920 -type d -exec chmod 755 {} + && sudo find /opt/exch
+					118 text ange-web/releases/admin-20260920 -type f -exec chmod 644 {} + && test -f /opt/exchange-web/releases/adm
+					119 text in-20260920/admin/bots.html && echo '관리자 웹 배포 파일 준비 완료'
+					120 text 관리자 웹 배포 파일 준비 완료
+					121 text [ec2-user@ip-172-31-2-86 ~]$ sudo curl -sS --resolve school-bot-admin.internal:8443:172.31.44.141 --cac
+					122 text ert /etc/nginx/admin-pki/ca.crt --cert /etc/nginx/admin-pki/gateway.crt --key /etc/nginx/admin-pki/gate
+					123 text way.key -o /dev/null -w '관리 API 무세션 HTTP %{http_code}
+					124 text ' https://school-bot-admin.internal:8443/admin/v1/sim/status; sudo openssl x509 -in /etc/nginx/admin-pk
+					125 text i/gateway.crt -noout -subject -enddate
+					126 text 관리 API 무세션 HTTP 401
+					127 text subject=CN=sanghyuk-bot-operator
+					128 text notAfter=Nov 18 15:48:35 2026 GMT
+					129 text [ec2-user@ip-172-31-2-86 ~]$ 
+				130 text rt /etc/nginx/admin-pki/ca.crt --cert /etc/nginx/admin-pki/gateway.crt --key /etc/nginx/admin-pki/gateway.key -o /dev/null -w '관리 API 무세션 HTTP %{http_code} ' https://school-bot-admin.internal:8443/admin/v1/sim/status; sudo openssl x509 -in /etc/nginx/admin-pki/gateway.crt -noout -subject -enddatesudo curl -sS --resolve school-bot-admin.internal:8443:172.31.44.141 --cacert /etc/nginx/admin-pki/ca.crt --cert /etc/nginx/admin-pki/gateway.crt --key /etc/nginx/admin-pki/gateway.key -o /dev/null -w '관리 API 무세션 HTTP %{http_code} ' https://school-bot-admin.internal:8443/admin/v1/sim/status; sudo openssl x509 -in /etc/nginx/admin-pki/gateway.crt -noout -subject -enddate 관리 API 무세션 HTTP 401 subject=CN=sanghyuk-bot-operator notAfter=Nov 18 15:48:35 2026 GMT [ec2-user@ip-172-31-2-86 ~]$
+				77 text field (settable) Terminal input
+			19 button Close instance info
+			78 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				79 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			80 container
+				81 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		22 container f
+			23 container console-nav-footer
+				24 container awsc-nav-footer-content
+					82 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					83 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					25 button Console Mobile App, ID: mobile_app_button
+						26 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					28 content list
+						29 link Description: Privacy, Value: aws.amazon.com/privacy/
+						30 link Description: Terms, Value: aws.amazon.com/terms/
+						31 button Cookie preferences
+
+The focused UI element is 77 text field (settable) Terminal input

@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for changed operations issues
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=2min
+Unit=exchange-report@incident.service
+
+[Install]
+WantedBy=timers.target

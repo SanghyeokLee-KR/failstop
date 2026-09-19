@@ -1,0 +1,128 @@
+groups:
+  - name: linux.operations
+    rules:
+      - alert: LinuxTargetsMissing
+        expr: absent(up{job="linux-host"})
+        for: 2m
+        labels: {severity: warning, component: monitoring}
+        annotations:
+          summary: Linux 수집 대상 미등록
+      - alert: LinuxHostUnreachable
+        expr: up{job="linux-host"} == 0
+        for: 1m
+        labels: {severity: critical, component: linux}
+        annotations:
+          summary: Linux 호스트 수집 경로 장애 발생
+      - alert: LinuxCollectorFailed
+        expr: node_scrape_collector_success{job="linux-host"} == 0
+        for: 1m
+        labels: {severity: warning, component: monitoring}
+        annotations:
+          summary: Linux 수집기 부분 실패
+      - alert: LinuxDiskSpaceLow
+        expr: (node_filesystem_avail_bytes{job="linux-host",fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes < 0.15) and on(instance,device,mountpoint) (node_filesystem_readonly == 0)
+        for: 5m
+        labels: {severity: warning, component: storage}
+        annotations:
+          summary: 디스크 여유 공간 부족 · 15% 미만
+      - alert: LinuxInodesLow
+        expr: node_filesystem_files_free{job="linux-host",fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_files < 0.10
+        for: 5m
+        labels: {severity: warning, component: storage}
+        annotations:
+          summary: inode 여유 부족 · 10% 미만
+      - alert: LinuxServiceFailed
+        expr: node_systemd_unit_state{job="linux-host",state="failed"} == 1
+        for: 30s
+        labels: {severity: critical, component: linux}
+        annotations:
+          summary: Linux 서비스 장애 발생
+      - alert: LinuxLogCollectionStale
+        expr: (time() - failstop_host_collection_timestamp_seconds > 180) or (failstop_host_collection_success == 0) or (up{job="linux-host"} == 1 unless on(instance) failstop_host_collection_timestamp_seconds)
+        for: 1m
+        labels: {severity: warning, component: monitoring}
+        annotations:
+          summary: 호스트 운영 기록 수집 지연·실패
+      - alert: DatabaseReplicationUnknown
+        expr: pg_wal_position_in_recovery{job="postgres"} == 0 unless on(instance) pg_replication_client_sent_replay_bytes
+        for: 2m
+        labels: {severity: critical, component: database}
+        annotations:
+          summary: Primary·Standby 복제 연결 미확인
+      - alert: DatabaseExporterUnavailable
+        expr: (up{job="postgres"} == 0) or absent(up{job="postgres"}) or (up{job="postgres"} == 1 unless on(customer,environment,instance) pg_up{job="postgres"})
+        for: 1m
+        labels: {severity: critical, component: monitoring}
+        annotations:
+          summary: DB 수집 경로 장애 발생
+          description: 수집기 응답 또는 DB 접속 지표 누락. DB 프로세스 장애 여부 별도 확인 필요
+          resolved_summary: DB 수집 경로 경보 해제
+      - alert: DatabaseConnectionFailed
+        expr: (pg_up{job="postgres",role=~"data|standby"} == 0) and on(customer,environment,instance) (up{job="postgres"} == 1)
+        for: 1m
+        labels: {severity: critical, component: database}
+        annotations:
+          summary: '{{ if eq $labels.role "standby" }}Standby{{ else if eq $labels.role "data" }}Primary{{ else }}PostgreSQL{{ end }} DB 접속 장애 발생'
+          description: 수집기 응답 정상 · DB 접속 실패. DB 프로세스·네트워크·인증 상태 확인 필요
+          resolved_summary: '{{ if eq $labels.role "standby" }}Standby{{ else if eq $labels.role "data" }}Primary{{ else }}PostgreSQL{{ end }} DB 접속 장애 경보 해제'
+      - alert: DatabaseMetricsMissing
+        expr: (pg_exporter_last_scrape_error{job="postgres"} == 1) or (pg_up{job="postgres"} == 1 unless on(instance) pg_wal_position_in_recovery)
+        for: 2m
+        labels: {severity: warning, component: monitoring}
+        annotations:
+          summary: DB 확장 지표 누락·질의 실패
+      - alert: ApplicationTargetsMissing
+        expr: absent(up{job="exchange-api"})
+        for: 2m
+        labels: {severity: warning, component: monitoring}
+        annotations:
+          summary: Spring 수집 대상 미등록
+      - alert: SpringMetricsUnavailable
+        expr: up{job="exchange-api",role=~"app|reader"} == 0
+        for: 1m
+        labels: {severity: critical, component: application}
+        annotations:
+          summary: Spring 수집 경로 장애 발생
+          description: 관리 포트·Spring 프로세스·외부 접속 검사 대조 필요
+      - alert: ExternalProbeTargetsMissing
+        expr: absent(up{job="blackbox-http"})
+        for: 2m
+        labels: {severity: warning, component: monitoring}
+        annotations:
+          summary: 외부 접속 검사 대상 미등록
+      - alert: OperationsReporterUnavailable
+        expr: (up{job="operations-reporter"} == 0) or absent(up{job="operations-reporter"})
+        for: 2m
+        labels: {severity: warning, component: reporting}
+        annotations:
+          summary: 운영 보고 서비스 수집 중단
+      - alert: OperationsReportDeliveryFailed
+        expr: report_jobs{status="dead"} > 0
+        for: 1m
+        labels: {severity: warning, component: reporting}
+        annotations:
+          summary: 운영 보고 전송 실패
+      - alert: OperationsReportArtifactFailed
+        expr: report_artifacts{status="failed"} > 0
+        for: 1m
+        labels: {severity: warning, component: reporting}
+        annotations:
+          summary: 운영 보고 PDF 생성 실패
+      - alert: OperationsReportQueueStale
+        expr: report_oldest_pending_age_seconds > 3600
+        for: 5m
+        labels: {severity: warning, component: reporting}
+        annotations:
+          summary: 운영 보고 전송 지연 · 1시간 초과
+      - alert: OperationsDailyReportMissing
+        expr: (time() - report_last_daily_sent_timestamp_seconds > 93600) or absent(report_last_daily_sent_timestamp_seconds)
+        for: 15m
+        labels: {severity: warning, component: reporting}
+        annotations:
+          summary: 일일 운영 보고 미전달 · 26시간 초과
+      - alert: DatabaseBackupUnknownOrStale
+        expr: (time() - failstop_backup_last_success_timestamp_seconds > 93600) or absent(failstop_backup_last_success_timestamp_seconds)
+        for: 15m
+        labels: {severity: warning, component: backup}
+        annotations:
+          summary: 최근 성공 백업 미확인 · 26시간 기준

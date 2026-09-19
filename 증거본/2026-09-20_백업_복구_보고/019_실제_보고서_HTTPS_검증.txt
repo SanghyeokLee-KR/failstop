@@ -1,0 +1,67 @@
+Browser tab: 2017667343, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		48 container consoleNavHeader
+			49 container awsc-nav-header
+				50 image Account color: 설정 해제
+				51 container Global
+					52 container awsc-top-level-nav
+						53 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						54 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						55 button (collapsed) Description: Services, Secondary Actions: Expand
+							56 image
+						57 container aws-unified-search-container
+							58 container
+								59 image Search
+								60 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								61 button Ask Amazon Q
+								62 text [Alt+S]
+						63 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						64 container
+							65 pop up button Description: Notifications (none available), Help: Notifications
+								66 image Notifications
+							67 image Notifications
+						68 content list awsc-navigation__more-menu--list
+							69 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								70 image Support
+							71 button (collapsed) Description: Settings, Secondary Actions: Expand
+							72 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								73 text 아시아 태평양 (서울)
+							74 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								75 text Account ID: 6192-5696-4117
+								76 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789834523290-9949
+			23 text Content loaded
+			77 container
+				78 content list
+					96 text Teams webhook accepted: school-live-check-20260920 analysis: gemini
+					97 text PDF HTTPS=200 stored-content-match=true bytes= 111333
+					98 text HTML HTTPS=200 stored-content-match=true bytes= 16445
+					99 text PASS: URL 서명 원문은 기록하지 않음. 채널 실제 표시 확인은 별도.
+					100 text [ec2-user@ip-172-31-44-141 ~]$ 
+				101 text printf '%s' 'IiIi67O06rOgIFVSTMK367mE67CA7J2EIOy2nOugpe2VmOyngCDslYrqs6Ag7Iuk7KCcIEhUVFBTIO2MjOydvOqzvCDsoIDsnqUg7IOB7YOc66W8IO2ZleyduO2VnOuLpC4iIiIKaW1wb3J0IGhhc2hsaWIKaW1wb3J0IGpzb24KaW1wb3J0IG9zCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAppbXBvcnQgc3FsaXRlMwppbXBvcnQgc3lzCmltcG9ydCB0aW1lCmltcG9ydCB1cmxsaWIucmVxdWVzdAoKc3lzLnBhdGguaW5zZXJ0KDAsICcvb3B0L2ZhaWxzdG9wL2RlcGxveS9yZXBvcnRpbmcnKQpmcm9tIGFydGlmYWN0cyBpbXBvcnQgc2lnbmF0dXJlLCBrZXkKCmZvciBsaW5lIGluIFBhdGgoJy9ldGMvZmFpbHN0b3AvcmVwb3J0aW5nLmVudicpLnJlYWRfdGV4dCgpLnNwbGl0bGluZXMoKToKICAgIGlmIGxpbmUgYW5kIG5vdCBsaW5lLnN0YXJ0c3dpdGgoJyMnKToKICAgICAgICBuYW1lLCB2YWx1ZSA9IGxpbmUuc3BsaXQoJz0nLCAxKQogICAgICAgIG9zLmVudmlyb25bbmFtZV0gPSB2YWx1ZQpkYiA9IHNxbGl0ZTMuY29ubmVjdCgnL3Zhci9saWIvZmFpbHN0b3AtcmVwb3J0aW5nL291dGJveC5zcWxpdGUzJykKcm93ID0gZGIuZXhlY3V0ZSgiU0VMRUNUIGlkLHN0YXR1cyxyZXBvcnQsZXJyb3IgRlJPTSBqb2JzIFdIRVJFIGlkPSdzY2hvb2wtbGl2ZS1jaGVjay0yMDI2MDkyMCciKS5mZXRjaG9uZSgpCmlmIG5vdCByb3cgb3Igcm93WzFdICE9ICdzZW50JzoKICAgIHJhaXNlIFN5c3RlbUV4aXQoJ+2YhOyerCDrs7Tqs6Ag66+47KCR7IiYOiAnICsgc3RyKE5vbmUgaWYgbm90IHJvdyBlbHNlIChyb3dbMV0sIHJvd1szXSkpKQpyZXBvcnQgPSBqc29uLmxvYWRzKHJvd1syXSkKcHJpbnQoJ1RlYW1zIHdlYmhvb2sgYWNjZXB0ZWQ6Jywgcm93WzBdLCAnYW5hbHlzaXM6JywgcmVwb3J0WydhbmFseXNpcyddLmdldCgnbW9kZScpKQpzZXR0aW5ncyA9IGpzb24ubG9hZHMoUGF0aCgnL2V0Yy9mYWlsc3RvcC9yZXBvcnRpbmcuanNvbicpLnJlYWRfdGV4dCgpKVsnYXJ0aWZhY3RzJ10KaWRlbnRpZmllciA9IGhhc2hsaWIuc2hhMjU2KHJvd1swXS5lbmNvZGUoKSkuaGV4ZGlnZXN0KCkKZXhwaXJlcyA9IGludCh0aW1lLnRpbWUoKSkgKyAzNjAwCmZvciBleHQgaW4gKCdwZGYnLCAnaHRtbCcpOgogICAgdXJsID0gc2V0dGluZ3NbJ3B1YmxpY19iYXNlX3VybCddICsgZicvcmVwb3J0cy97aWRlbnRpZmllcn0ve2V4cGlyZXN9LycgKyBzaWduYXR1cmUoaWRlbnRpZmllciwgZXhwaXJlcywgZXh0LCBrZXkoKSkgKyAnL3JlcG9ydC4nICsgZXh0CiAgICB3aXRoIHVybGxpYi5yZXF1ZXN0LnVybG9wZW4odXJsLCB0aW1lb3V0PTIwKSBhcyByZXNwb25zZToKICAgICAgICBib2R5ID0gcmVzcG9uc2UucmVhZCg4ICogMTAyNCAqIDEwMjQgKyAxKQogICAgICAgIGFzc2VydCByZXNwb25zZS5zdGF0dXMgPT0gMjAwCiAgICAgICAgYXNzZXJ0IGxlbihib2R5KSA8PSA4ICogMTAyNCAqIDEwMjQKICAgICAgICBhc3NlcnQgYm9keSA9PSAoUGF0aChzZXR0aW5nc1snZGlyZWN0b3J5J10pIC8gaWRlbnRpZmllciAvICgncmVwb3J0LicgKyBleHQpKS5yZWFkX2J5dGVzKCkKICAgICAgICBhc3NlcnQgKGJvZHkuc3RhcnRzd2l0aChiJyVQREYtJykgaWYgZXh0ID09ICdwZGYnIGVsc2UgYic8aHRtbCcgaW4gYm9keVs6MTAwMF0ubG93ZXIoKSkKICAgICAgICBwcmludChleHQudXBwZXIoKSwgJ0hUVFBTPTIwMCcsICdzdG9yZWQtY29udGVudC1tYXRjaD10cnVlJywgJ2J5dGVzPScsIGxlbihib2R5KSkKcHJpbnQoJ1BBU1M6IFVSTCDshJzrqoUg7JuQ66y47J2AIOq4sOuhne2VmOyngCDslYrsnYwuIOyxhOuEkCDsi6TsoJwg7ZGc7IucIO2ZleyduOydgCDrs4Trj4QuJykK' | base64 -d > /tmp/verify-school-report.py [ec2-user@ip-172-31-44-141 ~]$ clear; sudo -u failstop-report /opt/exchange-report-runtime/bin/python /tmp/verify-school-report.pyclear; sudo -u failstop-report /opt/exchange-report-runtime/bin/python /tmp/verify-school-report.py Teams webhook accepted: school-live-check-20260920 analysis: gemini PDF HTTPS=200 stored-content-match=true bytes= 111333 HTML HTTPS=200 stored-content-match=true bytes= 16445 PASS: URL 서명 원문은 기록하지 않음. 채널 실제 표시 확인은 별도. [ec2-user@ip-172-31-44-141 ~]$
+				92 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				33 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			34 container
+				35 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		36 container f
+			37 container console-nav-footer
+				38 container awsc-nav-footer-content
+					93 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					39 button Agent Toolkit for AWS
+					94 button Feedback, ID: feedback
+						95 text Feedback
+					40 button Console Mobile App, ID: mobile_app_button
+						41 image
+						42 text Console Mobile App
+					43 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					44 content list
+						45 link Description: Privacy, Value: aws.amazon.com/privacy/
+						46 link Description: Terms, Value: aws.amazon.com/terms/
+						47 button Cookie preferences
+
+The focused UI element is 92 text field (settable) Terminal input

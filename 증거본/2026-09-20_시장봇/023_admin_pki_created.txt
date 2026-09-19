@@ -1,0 +1,104 @@
+Browser tab: 2017667317, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		46 container consoleNavHeader
+			47 container awsc-nav-header
+				48 image Account color: 설정 해제
+				49 container Global
+					50 container awsc-top-level-nav
+						51 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						52 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						53 button (collapsed) Description: Services, Secondary Actions: Expand
+							54 image
+						55 container aws-unified-search-container
+							56 container
+								57 image Search
+								58 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								59 button Ask Amazon Q
+								60 text [Alt+S]
+						61 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						62 container
+							63 pop up button Description: Notifications (none available), Help: Notifications
+								64 image Notifications
+							65 image Notifications
+						66 content list awsc-navigation__more-menu--list
+							67 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								68 image Support
+							69 button (collapsed) Description: Settings, Secondary Actions: Expand
+							70 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								71 text 아시아 태평양 (서울)
+							72 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								73 text Account ID: 6192-5696-4117
+								74 text 2026-ai-kopo-04
+		20 container
+			21 container Notifications
+				22 content list Description: Notifications, ID: flashbar1-1789830565444-7143
+			23 text Content loaded
+			75 container
+				76 content list
+					97 text vb2wtc2VydmljZS1jYScsCiAgICAgICAgJy1maWxlJywgc3RyKFdPUksgLyAnY2EuY3J0JyksICcta2V5c3RvcmUnLCBzdHIocGtpIC
+					98 text 8gJ29wZXJhdG9ycy5wMTInKSwKICAgICAgICAnLXN0b3JldHlwZScsICdQS0NTMTInLCAnLXN0b3JlcGFzczpmaWxlJywgc3RyKFdPU
+					99 text ksgLyAnc3RvcmUtcGFzc3dvcmQnKSkKICAgIGZvciBwYXRoIGluIHBraS5nbG9iKCcqLnAxMicpOgogICAgICAgIHBhdGguY2htb2Qo
+					100 text MG82NDApCiAgICAgICAgc2h1dGlsLmNob3duKHBhdGgsIHVzZXI9J3Jvb3QnLCBncm91cD0nZXhjaGFuZ2UtYm90JykKICAgIHJlY2l
+					101 text waWVudCA9IFdPUksgLyAnYXBwLXJlY2lwaWVudC5jcnQnCiAgICBydW4oJ2F3cycsICdzMycsICdjcCcsIEJVQ0tFVCArICdhZG1pbi
+					102 text 1nYXRld2F5LXJlY2lwaWVudC5jcnQnLCBzdHIocmVjaXBpZW50KSwKICAgICAgICAnLS1yZWdpb24nLCAnYXAtbm9ydGhlYXN0LTInL
+					103 text CAnLS1vbmx5LXNob3ctZXJyb3JzJykKICAgIHBheWxvYWQgPSBqc29uLmR1bXBzKHtuYW1lOiAoV09SSyAvIG5hbWUpLnJlYWRfdGV4
+					104 text dCgpCiAgICAgICAgICAgICAgICAgICAgICAgICAgZm9yIG5hbWUgaW4gKCdnYXRld2F5LmtleScsICdnYXRld2F5LmNydCcsICdjYS5
+					105 text jcnQnKX0pLmVuY29kZSgpCiAgICBlbmNyeXB0ZWQgPSBydW4oJ29wZW5zc2wnLCAnY21zJywgJy1lbmNyeXB0JywgJy1iaW5hcnknLC
+					106 text AnLWFlczI1NicsICctb3V0Zm9ybScsICdERVInLCBzdHIocmVjaXBpZW50KSwgZGF0YT1wYXlsb2FkKQogICAgd3JpdGVfcHJpdmF0Z
+					107 text ShXT1JLIC8gJ2dhdGV3YXkuY21zJywgZW5jcnlwdGVkKQogICAgcnVuKCdhd3MnLCAnczMnLCAnY3AnLCBzdHIoV09SSyAvICdnYXRl
+					108 text d2F5LmNtcycpLCBCVUNLRVQgKyAnYWRtaW4tZ2F0ZXdheS5jbXMnLAogICAgICAgICctLXJlZ2lvbicsICdhcC1ub3J0aGVhc3QtMic
+					109 text sICctLW9ubHktc2hvdy1lcnJvcnMnKQogICAgcHJpbnQoJ+yEnOuyhCBQS0nsmYAg7JWU7Zi47ZmU65CcIOqyjOydtO2KuOybqOydtC
+					110 text Dsnbjspp3shJwg7KSA67mEIOyZhOujjC4g7ISc67KEIOqwhCDsnbjspp3shJwg7Jyg7Zqo6riw6rCEIDYw7J28LicpCgoKZGVmIGFwc
+					111 text F9pbnN0YWxsKCk6CiAgICBvdXRwdXQgPSBQYXRoKCcvZXRjL25naW54L2FkbWluLXBraScpCiAgICBpZiBvdXRwdXQuZXhpc3RzKCk6
+					112 text CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgn6riw7KG0IOqyjOydtO2KuOybqOydtCBQS0nrpbwg642u7Ja07JOw7KeAIOyViuuKlOu
+					113 text LpC4nKQogICAgZW5jcnlwdGVkID0gcnVuKCdhd3MnLCAnczMnLCAnY3AnLCBCVUNLRVQgKyAnYWRtaW4tZ2F0ZXdheS5jbXMnLCAnLS
+					114 text csCiAgICAgICAgICAgICAgICAgICAgJy0tcmVnaW9uJywgJ2FwLW5vcnRoZWFzdC0yJywgJy0tb25seS1zaG93LWVycm9ycycpCiAgI
+					115 text CBjbGVhciA9IHJ1bignb3BlbnNzbCcsICdjbXMnLCAnLWRlY3J5cHQnLCAnLWJpbmFyeScsICctaW5mb3JtJywgJ0RFUicsCiAgICAg
+					116 text ICAgICAgICAgICAnLXJlY2lwJywgc3RyKFdPUksgLyAncmVjaXBpZW50LmNydCcpLCAnLWlua2V5Jywgc3RyKFdPUksgLyAncmVjaXB
+					117 text pZW50LmtleScpLCBkYXRhPWVuY3J5cHRlZCkKICAgIHZhbHVlcyA9IGpzb24ubG9hZHMoY2xlYXIpCiAgICBpZiBzZXQodmFsdWVzKS
+					118 text AhPSB7J2dhdGV3YXkua2V5JywgJ2dhdGV3YXkuY3J0JywgJ2NhLmNydCd9OgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoJ+yghOuLr
+					119 text CDtjIzsnbwg6rWs7ISx7J20IOuLpOultOuLpC4nKQogICAgc3RhZ2UgPSBXT1JLIC8gJ3ZlcmlmaWVkJwogICAgbmV3X2RpcmVjdG9y
+					120 text eShzdGFnZSkKICAgIGZvciBuYW1lLCB2YWx1ZSBpbiB2YWx1ZXMuaXRlbXMoKToKICAgICAgICB3cml0ZV9wcml2YXRlKHN0YWdlIC8
+					121 text gbmFtZSwgdmFsdWUuZW5jb2RlKCkpCiAgICBydW4oJ29wZW5zc2wnLCAndmVyaWZ5JywgJy1wdXJwb3NlJywgJ3NzbGNsaWVudCcsIC
+					122 text ctQ0FmaWxlJywgc3RyKHN0YWdlIC8gJ2NhLmNydCcpLCBzdHIoc3RhZ2UgLyAnZ2F0ZXdheS5jcnQnKSkKICAgIHB1YmxpYyA9IHJ1b
+					123 text ignb3BlbnNzbCcsICd4NTA5JywgJy1pbicsIHN0cihzdGFnZSAvICdnYXRld2F5LmNydCcpLCAnLXB1YmtleScsICctbm9vdXQnKQog
+					124 text ICAgaWYgcHVibGljICE9IHJ1bignb3BlbnNzbCcsICdwa2V5JywgJy1pbicsIHN0cihzdGFnZSAvICdnYXRld2F5LmtleScpLCAnLXB
+					125 text 1Ym91dCcpOgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoJ+qyjOydtO2KuOybqOydtCDsnbjspp3shJzsmYAg6rCc7J247YKk6rCAIO
+					126 text uLpOultOuLpC4nKQogICAgbmV3X2RpcmVjdG9yeShvdXRwdXQpCiAgICBmb3IgbmFtZSBpbiB2YWx1ZXM6CiAgICAgICAgc2h1dGlsL
+					127 text mNvcHkyKHN0YWdlIC8gbmFtZSwgb3V0cHV0IC8gbmFtZSkKICAgIHByaW50KCdOZ2lueCByb290IOyghOyaqSDqsr3roZzsl5Ag7ISc
+					128 text 67KEIOqwhCDsnbjspp3shJzrpbwg67Cw7LmY7ZaI64ukLiDqsJzsnbjtgqQg7Lac66ClIOyXhuydjC4nKQoKCmlmIF9fbmFtZV9fID0
+					129 text 9ICdfX21haW5fXyc6CiAgICBwYXJzZXIgPSBhcmdwYXJzZS5Bcmd1bWVudFBhcnNlcigpCiAgICBwYXJzZXIuYWRkX2FyZ3VtZW50KC
+					130 text dhY3Rpb24nLCBjaG9pY2VzPVsnYXBwLXJlY2lwaWVudCcsICdib3QtcGtpJywgJ2FwcC1pbnN0YWxsJ10pCiAgICBhcmdzID0gcGFyc
+					131 text 2VyLnBhcnNlX2FyZ3MoKQogICAgaWYgb3MuZ2V0ZXVpZCgpICE9IDA6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdCgncm9vdCDqtozt
+					132 text lZzsnbQg7ZWE7JqU7ZWY64ukLicpCiAgICBvcy51bWFzaygwbzA3NykKICAgIHsnYXBwLXJlY2lwaWVudCc6IGFwcF9yZWNpcGllbnQ
+					133 text sICdib3QtcGtpJzogYm90X3BraSwgJ2FwcC1pbnN0YWxsJzogYXBwX2luc3RhbGx9W2FyZ3MuYWN0aW9uXSgpCg==' | base64 -d 
+					134 text xlPS9ldGMvZXhjaGFuZ2UtYm90L2FkbWluLXNlY3JldC5lbnYK' | base64 -d > /tmp/admin-service-override.confnRGaW
+					135 text [ec2-user@ip-172-31-44-141 ~]$ sudo python3 /tmp/prepare-admin-gateway.py bot-pki
+					136 text 서버 PKI와 암호화된 게이트웨이 인증서 준비 완료. 서버 간 인증서 유효기간 60일.
+					137 text [ec2-user@ip-172-31-44-141 ~]$ 
+				138 text sudo python3 /tmp/prepare-admin-gateway.py bot-pki 서버 PKI와 암호화된 게이트웨이 인증서 준비 완료. 서버 간 인증서 유효기간 60일. [ec2-user@ip-172-31-44-141 ~]$
+				90 text field (settable) Terminal input
+			31 button Close instance info
+			32 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				91 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			92 container
+				93 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		33 container f
+			34 container console-nav-footer
+				35 container awsc-nav-footer-content
+					94 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					36 button Agent Toolkit for AWS
+					95 button Feedback, ID: feedback
+						96 text Feedback
+					37 button Console Mobile App, ID: mobile_app_button
+						38 image
+						39 text Console Mobile App
+					40 container
+						41 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					42 content list
+						43 link Description: Privacy, Value: aws.amazon.com/privacy/
+						44 link Description: Terms, Value: aws.amazon.com/terms/
+						45 button Cookie preferences
+
+The focused UI element is 90 text field (settable) Terminal input

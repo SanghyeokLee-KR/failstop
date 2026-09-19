@@ -1,0 +1,101 @@
+Browser tab: 2017667296, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		35 container consoleNavHeader
+			36 container awsc-nav-header
+				37 image Account color: 설정 해제
+				38 container Global
+					39 container awsc-top-level-nav
+						40 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						41 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-0465dd41a0390f262&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						42 button (collapsed) Description: Services, Secondary Actions: Expand
+							43 image
+						44 container aws-unified-search-container
+							45 container
+								46 image Search
+								47 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								48 button Ask Amazon Q
+								49 text [Alt+S]
+						50 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						51 container
+							52 pop up button Description: Notifications (none available), Help: Notifications
+								53 image Notifications
+							54 image Notifications
+						55 content list awsc-navigation__more-menu--list
+							56 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								57 image Support
+							58 button (collapsed) Description: Settings, Secondary Actions: Expand
+							59 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								60 text 아시아 태평양 (서울)
+							61 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								62 text Account ID: 6192-5696-4117
+								63 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789827823231-823
+			15 text Content loaded
+			64 container
+				65 content list
+					89 text Total                                                                  5.0 MB/s | 1.4 MB     00:00     
+					90 text Running transaction check
+					91 text Transaction check succeeded.
+					92 text Running transaction test
+					93 text Transaction test succeeded.
+					94 text Running transaction
+					95 text   Preparing        :                                                                               1/1 
+					96 text   Installing       : python3-pyrfc3339-1.1-16.amzn2023.noarch                                     1/10 
+					97 text   Installing       : python3-pyOpenSSL-21.0.0-1.amzn2023.0.2.noarch                               2/10 
+					98 text   Installing       : python3-parsedatetime-2.6-10.amzn2023.noarch                                 3/10 
+					99 text   Installing       : python3-configargparse-1.7-1.amzn2023.noarch                                 4/10 
+					100 text   Installing       : python-josepy-doc-1.13.0-6.amzn2023.noarch                                   5/10 
+					101 text   Installing       : python3-josepy-1.13.0-6.amzn2023.noarch                                      6/10 
+					102 text   Installing       : python3-acme-2.6.0-4.amzn2023.0.1.noarch                                     7/10 
+					103 text   Installing       : python3-certbot-2.6.0-4.amzn2023.0.1.noarch                                  8/10 
+					104 text   Installing       : fontawesome-fonts-1:4.7.0-11.amzn2023.0.2.noarch                             9/10 
+					105 text   Installing       : certbot-2.6.0-4.amzn2023.0.1.noarch                                         10/10 
+					106 text   Running scriptlet: certbot-2.6.0-4.amzn2023.0.1.noarch                                         10/10 
+					107 text Certbot auto renewal timer is not started by default.
+					108 text Run 'systemctl start certbot-renew.timer' to enable automatic renewals.
+					109 text   Verifying        : certbot-2.6.0-4.amzn2023.0.1.noarch                                          1/10 
+					110 text   Verifying        : fontawesome-fonts-1:4.7.0-11.amzn2023.0.2.noarch                             2/10 
+					111 text   Verifying        : python-josepy-doc-1.13.0-6.amzn2023.noarch                                   3/10 
+					112 text   Verifying        : python3-acme-2.6.0-4.amzn2023.0.1.noarch                                     4/10 
+					113 text   Verifying        : python3-certbot-2.6.0-4.amzn2023.0.1.noarch                                  5/10 
+					114 text   Verifying        : python3-configargparse-1.7-1.amzn2023.noarch                                 6/10 
+					115 text   Verifying        : python3-josepy-1.13.0-6.amzn2023.noarch                                      7/10 
+					116 text   Verifying        : python3-parsedatetime-2.6-10.amzn2023.noarch                                 8/10 
+					117 text   Verifying        : python3-pyOpenSSL-21.0.0-1.amzn2023.0.2.noarch                               9/10 
+					118 text   Verifying        : python3-pyrfc3339-1.1-16.amzn2023.noarch                                    10/10 
+					119 text Installed:
+					120 text   certbot-2.6.0-4.amzn2023.0.1.noarch               fontawesome-fonts-1:4.7.0-11.amzn2023.0.2.noarch   
+					121 text   python-josepy-doc-1.13.0-6.amzn2023.noarch        python3-acme-2.6.0-4.amzn2023.0.1.noarch           
+					122 text   python3-certbot-2.6.0-4.amzn2023.0.1.noarch       python3-configargparse-1.7-1.amzn2023.noarch       
+					123 text   python3-josepy-1.13.0-6.amzn2023.noarch           python3-parsedatetime-2.6-10.amzn2023.noarch       
+					124 text   python3-pyOpenSSL-21.0.0-1.amzn2023.0.2.noarch    python3-pyrfc3339-1.1-16.amzn2023.noarch           
+					125 text Complete!
+					126 text [ec2-user@ip-172-31-2-86 ~]$ 
+				127 text Too much output to announce, navigate to rows manually to read Last metadata expiration check: 4:47:29 ago on Sat Sep 19 09:37:16 2026. Dependencies resolved. ======================================================================================================= Package Architecture Version Repository Size ======================================================================================================= Installing: certbot noarch 2.6.0-4.amzn2023.0.1 amazonlinux 49 k Installing dependencies: fontawesome-fonts noarch 1:4.7.0-11.amzn2023.0.2 amazonlinux 205 k python3-acme noarch 2.6.0-4.amzn2023.0.1 amazonlinux 161 k python3-certbot noarch 2.6.0-4.amzn2023.0.1 amazonlinux 677 k python3-configargparse noarch 1.7-1.amzn2023 amazonlinux 45 k python3-josepy noarch 1.13.0-6.amzn2023 amazonlinux 61 k python3-parsedatetime noarch 2.6-10.amzn2023 amazonlinux 80 k python3-pyOpenSSL noarch 21.0.0-1.amzn2023.0.2 amazonlinux 92 k python3-pyrfc3339 noarch 1.1-16.amzn2023 amazonlinux 19 k Installing weak dependencies: python-josepy-doc noarch 1.13.0-6.amzn2023 amazonlinux 20 k Transaction Summary
+				79 text field (settable) Terminal input
+			23 button Close instance info
+			24 heading i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01), Value: 3
+				80 text i-0465dd41a0390f262 (2026-ai-kopo-04-linux-lab-01)
+			81 container
+				82 text PublicIPs: 43.201.253.75 PrivateIPs: 172.31.2.86
+		25 container f
+			26 container console-nav-footer
+				27 container awsc-nav-footer-content
+					83 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					28 button Agent Toolkit for AWS
+					84 button Feedback, ID: feedback
+						85 text Feedback
+					29 button Console Mobile App, ID: mobile_app_button
+						30 image
+						86 text Console Mobile App
+					87 container
+						88 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					31 content list
+						32 link Description: Privacy, Value: aws.amazon.com/privacy/
+						33 link Description: Terms, Value: aws.amazon.com/terms/
+						34 button Cookie preferences
+
+The focused UI element is 79 text field (settable) Terminal input

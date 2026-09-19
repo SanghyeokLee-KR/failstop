@@ -1,0 +1,8 @@
+2026-09-19T11:09:46.559Z
+												708 text 오류 AccessDenied: User: arn:aws:iam::619256964117:user/2026-ai-kopo-04 is not authorized to perform: elasticloadbalancing:CreateLoadBalancer on resource: arn:aws:elasticloadbalancing:ap-northeast-2:619256964117:loadbalancer/app/2026-ai-kopo-04-alb-check/* because no identity-based policy allows the elasticloadbalancing:CreateLoadBalancer action
+										709 button (collapsed) 리스너 생성 작업 '리스너 생성'의 상태는 시작되지 않음입니다. 시작되지 않음, ID: :rf4:-trigger, Secondary Actions: Expand
+												712 image 작업 '리스너 생성'의 상태는 시작되지 않음입니다.
+												713 text 시작되지 않음
+2026-09-19T11:11:36.858Z
+											269 text You are not authorized to perform this operation. User: arn:aws:iam::619256964117:user/2026-ai-kopo-04 is not authorized to perform: ec2:CreateLaunchTemplate on resource: arn:aws:ec2:ap-northeast-2:619256964117:launch-template/* because no identity-based policy allows the ec2:CreateLaunchTemplate action. 
+ASG CreateAutoScalingGroup request not submitted: no launch template available and CreateLaunchTemplate denied.

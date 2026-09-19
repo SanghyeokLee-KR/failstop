@@ -6,13 +6,15 @@
 
 현재 채택한 구조와 AWS 전에 판단할 사항은 [0099 현재 구조](reference/adr/0099-current-architecture.md)에 모았다. 과거 ADR을 처음부터 모두 읽지 않아도 지금 적용하는 결정과 확인이 남은 부분을 볼 수 있다.
 
-교수님께 이미 설명한 구성도와 화면은 프로젝트 루트의 [아키텍쳐 자료](../아키텍쳐/README.md)에 있다. 원본을 보존하면서 현재 구현과의 차이, 지원금 40만 원을 기준으로 한 영상·캡처 준비 방향을 정리했다.
+교수님께 이미 설명한 구성도와 화면은 프로젝트 루트의 [아키텍쳐 자료](../아키텍쳐/README.md)에 있다. 원본을 보존하면서 현재 구현과의 차이, 월 40만 원 운영 예산을 기준으로 한 영상·캡처 준비 방향을 정리했다.
 
 | 필요한 내용 | 읽을 곳 |
 |---|---|
 | 전체 구조를 한 번에 이해하기 | [프로젝트 이해하기](reports/프로젝트_이해하기.md) |
+| MSP 업무와 연결할 Linux·네트워크 설정과 실습 | [Linux 운영 실무 조사](reports/Linux_운영_실무_조사.md) |
 | 현재 구조와 결정의 적용 관계 | [0099 현재 구조](reference/adr/0099-current-architecture.md) |
 | 지금 끝낸 일과 남은 일 | [로드맵](ROADMAP.md) |
+| AWS 접속 정보·실행 근거·다음 작업 이어가기 | [AWS 작업 안내](reports/AWS_작업.md) |
 | Claude·Codex와 작업하는 방법 | [AI와 개발하기](reports/AI와_개발하기.md) |
 | 기능을 고칠 때 열어볼 소스와 테스트 | [코드 지도](reference/architecture/프로젝트_코드지도.md) |
 | API·DB·화면·운영의 상세 조건 | [상세 자료 안내](reference/README.md) |
@@ -33,7 +35,7 @@ docs/
 
 AI는 루트 [AGENTS.md](../AGENTS.md)를 시작점으로 삼는다. Claude의 [CLAUDE.md](../CLAUDE.md)도 같은 파일을 가져온다. 문서를 고치는 절차는 [문서 작성 기준](ai/writing.md), 바로 사용할 요청문은 [작업 프롬프트](ai/prompts.md)에 있다.
 
-새 세션은 AGENTS → 0099 → 로드맵 순서로 읽는다. AWS·Linux 운영을 시작할 때는 ADR 0027과 배포 안내도 읽고 로드맵의 '다음 작업의 시작점'에서 이어간다. 다른 PC로 옮기는 방법과 일반 채팅에 파일을 전달하는 방법은 [AI와 개발하기](reports/AI와_개발하기.md)에 있다.
+새 세션은 AGENTS → 0099 → 로드맵 순서로 읽는다. AWS·Linux 운영을 시작할 때는 ADR 0027, [학교 AWS 선행 결정](reference/adr/0029-school-aws-first-personal-account-expansion.md)과 배포 안내도 읽고 로드맵의 '다음 작업의 시작점'에서 이어간다. 다른 PC로 옮기는 방법과 일반 채팅에 파일을 전달하는 방법은 [AI와 개발하기](reports/AI와_개발하기.md)에 있다.
 
 실행은 [실행 가이드](../실행_가이드.md), AWS 설정은 [배포 안내](../deploy/README.md)를 따른다. 실험 원자료는 [harness/evidence](../harness/evidence/)에 남긴다. 날짜별 결과는 그때의 코드와 환경에 한정된다.
 

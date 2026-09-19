@@ -1,0 +1,628 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" version="31.4.4" type="device">
+  <diagram id="native-linux-vm" name="Linux VM 운영환경">
+    <mxGraphModel dx="2560" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2560" pageHeight="1600" background="#FFFFFF" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="v1" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#FFFFFF;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="0" y="0" width="2560" height="1600" as="geometry" />
+        </mxCell>
+        <mxCell id="v2" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#2767A0;strokeColor=#2767A0;strokeWidth=0;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="64" y="49" width="6" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="v3" value="Linux VM 운영환경" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=46;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="90" y="42" width="1610" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="v4" value="Linux 기반 AWS 인프라 구축 및 운영" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="93" y="111" width="1350" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="v5" value="" style="rounded=1;arcSize=4;absoluteArcSize=1;fillColor=#EEF5FB;strokeColor=#EEF5FB;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="2255" y="53" width="240" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v6" value="구축 설계안" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#2767A0;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2263" y="53" width="224" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v7" value="역할별 배치 예시 · 2026.09.18" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2040" y="107" width="455" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="v8" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#F5F7F9;strokeColor=#E1E7ED;strokeWidth=1.2;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="64" y="177" width="740" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="v9" value="01" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=28;fontColor=#61758A;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="86" y="192" width="55" height="43" as="geometry" />
+        </mxCell>
+        <mxCell id="v10" value="개발팀 Docker 검증" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="152" y="187" width="628" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v11" value="기존 시험 결과와 실행 조건 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="152" y="222" width="628" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="v12" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#EDF5FC;strokeColor=#B6CDE1;strokeWidth=1.2;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="844" y="177" width="872" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="v13" value="02" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=28;fontColor=#2767A0;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="866" y="192" width="55" height="43" as="geometry" />
+        </mxCell>
+        <mxCell id="v14" value="인프라팀 VM 검증" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="932" y="187" width="760" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v15" value="Linux에 직접 설치하고 운영·복구 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="932" y="222" width="760" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="v16" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#F5F7F9;strokeColor=#E1E7ED;strokeWidth=1.2;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1756" y="177" width="740" height="77" as="geometry" />
+        </mxCell>
+        <mxCell id="v17" value="03" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=28;fontColor=#61758A;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1778" y="192" width="55" height="43" as="geometry" />
+        </mxCell>
+        <mxCell id="v18" value="AWS 구축·검증" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1844" y="187" width="628" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v19" value="실제 부하 · ASG · DB 복구 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1844" y="222" width="628" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="v20" value="›" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=38;fontColor=#61758A;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="817" y="186" width="22" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="v21" value="›" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=38;fontColor=#61758A;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1729" y="186" width="22" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="host" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FCFDFE;strokeColor=#B5C5D4;strokeWidth=1.6;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="282" y="299" width="1942" height="1090" as="geometry" />
+        </mxCell>
+        <mxCell id="v23" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%2218%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M9%208h1M9%2023h1M17%208h7M17%2023h7%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="309" y="320" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="v24" value="실습 PC / 하이퍼바이저" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="354" y="315" width="920" height="43" as="geometry" />
+        </mxCell>
+        <mxCell id="v25" value="6개 역할 분리 예시 · VM 대수·IP·자원은 PC 확인 후 확정" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="321" width="946" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="v26" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#F7FAFD;strokeColor=#DBE5ED;strokeWidth=1.1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="310" y="376" width="1886" height="545" as="geometry" />
+        </mxCell>
+        <mxCell id="v27" value="서비스 통신" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#2767A0;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="335" y="390" width="375" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v28" value="주문·취소·WebSocket은 현재 리더로 전달" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="680" y="390" width="615" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v29" value="DB 접속과 리스는 현재 Primary를 사용" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1390" y="390" width="760" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-vm" value="" style="rounded=1;arcSize=5;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#BCCBD7;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="340" y="507" width="300" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="v31" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="341" y="508" width="298" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v32" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%2218%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M9%208h1M9%2023h1M17%208h7M17%2023h7%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="355" y="515" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="v33" value="EDGE01" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#61758A;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="384" y="508" width="128" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v34" value="웹 진입" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#2767A0;fontStyle=1;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="507" y="508" width="117" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v35" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20version%3D%221.1%22%20viewBox%3D%220%200%2050%2055.5%22%3E%0D%0A%20%20%3Cdefs%3E%0D%0A%20%20%20%20%3Cstyle%3E%0A%20%20%20%20%20%20.cls-1%20%7B%0A%20%20%20%20%20%20%20%20fill%3A%20%23009639%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20.cls-2%20%7B%0A%20%20%20%20%20%20%20%20fill%3A%20%23fff%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%3C%2Fstyle%3E%0D%0A%20%20%3C%2Fdefs%3E%0D%0A%20%20%3C!--%20Generator%3A%20Adobe%20Illustrator%2028.7.1%2C%20SVG%20Export%20Plug-In%20.%20SVG%20Version%3A%201.2.0%20Build%20142)%20%20--%3E%0D%0A%20%20%3Cg%3E%0D%0A%20%20%20%20%3Cg%20id%3D%22Layer_1%22%3E%0D%0A%20%20%20%20%20%20%3Cpath%20class%3D%22cls-1%22%20d%3D%22M5.3%2C39.1c.2.4.5.7.9.9l17.6%2C10.2c.7.4%2C1.6.4%2C2.3%2C0l17.6-10.2c.7-.4%2C1.2-1.2%2C1.2-2v-20.4c0-.8-.4-1.6-1.2-2L26.2%2C5.3c-.7-.4-1.6-.4-2.3%2C0S6.2%2C15.5%2C6.2%2C15.5c-.7.4-1.2%2C1.2-1.2%2C2v20.4c0%2C.4.1.8.3%2C1.2%22%20%2F%3E%0D%0A%20%20%20%20%20%20%3Cpath%20class%3D%22cls-2%22%20d%3D%22M19.3%2C35.5c0%2C1.2-1%2C2.3-2.3%2C2.3s-2.3-1-2.3-2.3v-15.6c0-1.2%2C1.1-2.2%2C2.6-2.2%2C1.2%2C0%2C2.3.5%2C3.1%2C1.4l.7.8%2C9.5%2C11.4v-11.3c0-1.2%2C1-2.3%2C2.3-2.3s2.3%2C1%2C2.3%2C2.3v15.6c0%2C1.2-1.1%2C2.2-2.6%2C2.2-1.2%2C0-2.3-.5-3.1-1.4l-10.2-12.2v11.3Z%22%20%2F%3E%0D%0A%20%20%20%20%3C%2Fg%3E%0D%0A%20%20%3C%2Fg%3E%0D%0A%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="362" y="568" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="v36" value="NGINX" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=29;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="426" y="562" width="192" height="49" as="geometry" />
+        </mxCell>
+        <mxCell id="v37" value="정적 웹 · API / WS 프록시" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="362" y="632" width="254" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="v38" value="systemd · :80 / :443" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="362" y="680" width="254" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v39" value="리더 경로·재접속 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#2767A0;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="362" y="727" width="254" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="app-1" value="" style="rounded=1;arcSize=5;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#A9C3AD;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="800" y="462" width="370" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="v41" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="801" y="463" width="368" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v42" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%23438B58%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%2218%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M9%208h1M9%2023h1M17%208h7M17%2023h7%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="815" y="470" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="v43" value="APP01" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#61758A;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="844" y="463" width="198" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v44" value="리더 예시" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#438B58;fontStyle=1;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1037" y="463" width="117" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v45" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3C!--%20Generator%3A%20Adobe%20Illustrator%2024.0.3%2C%20SVG%20Export%20Plug-In%20.%20SVG%20Version%3A%206.00%20Build%200)%20%20--%3E%0D%0A%3Csvg%20version%3D%221.1%22%20id%3D%22Layer_1%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20xmlns%3Axlink%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxlink%22%20x%3D%220px%22%20y%3D%220px%22%20viewBox%3D%220%200%20510%20457.8%22%20style%3D%22enable-background%3Anew%200%200%20510%20457.8%3B%22%20xml%3Aspace%3D%22preserve%22%3E%0A%3Cstyle%20type%3D%22text%2Fcss%22%3E%0A%09.st0%7Bfill%3A%236DB33F%3B%7D%0A%3C%2Fstyle%3E%0A%3Ctitle%3Eicon-spring-boot%3C%2Ftitle%3E%0A%3Cg%20id%3D%22Layer_2_1_%22%3E%0A%09%3Cg%20id%3D%22Layer_1-2%22%3E%0A%09%09%3Cpath%20class%3D%22st0%22%20d%3D%22M503.5%2C201.4L403%2C27.5C394.3%2C12.4%2C372.9%2C0%2C355.4%2C0H154.6c-17.4%2C0-38.9%2C12.4-47.6%2C27.5L6.6%2C201.4%20%20%20%20c-8.7%2C15.1-8.7%2C39.8%2C0%2C54.9l100.4%2C174c8.7%2C15.1%2C30.1%2C27.5%2C47.6%2C27.5h200.9c17.4%2C0%2C38.8-12.4%2C47.6-27.5l100.4-174%20%20%20%20C512.2%2C241.2%2C512.2%2C216.5%2C503.5%2C201.4z%20M233.3%2C96.2c0-11.4%2C9.3-20.7%2C20.7-20.7c11.4%2C0%2C20.7%2C9.3%2C20.7%2C20.7v123.7%20%20%20%20c0%2C11.4-9.3%2C20.7-20.7%2C20.7c-11.4%2C0-20.7-9.3-20.7-20.7l0%2C0V96.2z%20M254%2C360.3c-77.4%2C0-140.4-63-140.4-140.4%20%20%20%20c0.1-44.4%2C21.1-86.1%2C56.7-112.7c8.2-6.1%2C19.7-4.4%2C25.8%2C3.8s4.4%2C19.7-3.8%2C25.8l0%2C0c-45.9%2C34.1-55.5%2C99-21.4%2C144.9%20%20%20%20s99%2C55.5%2C144.9%2C21.4c26.3-19.5%2C41.8-50.4%2C41.8-83.2c-0.1-32.9-15.7-63.8-42.2-83.4c-8.2-6-9.9-17.6-3.9-25.8s17.6-9.9%2C25.8-3.9%20%20%20%20c35.9%2C26.5%2C57%2C68.5%2C57.1%2C113.1C394.4%2C297.4%2C331.4%2C360.3%2C254%2C360.3z%22%20%2F%3E%0A%09%3C%2Fg%3E%0A%3C%2Fg%3E%0A%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="822" y="520" width="43" height="43" as="geometry" />
+        </mxCell>
+        <mxCell id="v46" value="Spring Boot" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=28;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="881" y="511" width="268" height="49" as="geometry" />
+        </mxCell>
+        <mxCell id="v47" value="Java 21 · JAR · systemd" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="822" y="574" width="326" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="v48" value="API :8080" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#438B58;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="822" y="606" width="326" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="app-2" value="" style="rounded=1;arcSize=5;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#B9C7D4;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="800" y="709" width="370" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="v50" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="801" y="710" width="368" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v51" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%2361758A%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%2218%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M9%208h1M9%2023h1M17%208h7M17%2023h7%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="815" y="717" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="v52" value="APP02" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#61758A;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="844" y="710" width="198" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v53" value="대기 예시" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#61758A;fontStyle=1;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1037" y="710" width="117" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v54" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3C!--%20Generator%3A%20Adobe%20Illustrator%2024.0.3%2C%20SVG%20Export%20Plug-In%20.%20SVG%20Version%3A%206.00%20Build%200)%20%20--%3E%0D%0A%3Csvg%20version%3D%221.1%22%20id%3D%22Layer_1%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20xmlns%3Axlink%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxlink%22%20x%3D%220px%22%20y%3D%220px%22%20viewBox%3D%220%200%20510%20457.8%22%20style%3D%22enable-background%3Anew%200%200%20510%20457.8%3B%22%20xml%3Aspace%3D%22preserve%22%3E%0A%3Cstyle%20type%3D%22text%2Fcss%22%3E%0A%09.st0%7Bfill%3A%236DB33F%3B%7D%0A%3C%2Fstyle%3E%0A%3Ctitle%3Eicon-spring-boot%3C%2Ftitle%3E%0A%3Cg%20id%3D%22Layer_2_1_%22%3E%0A%09%3Cg%20id%3D%22Layer_1-2%22%3E%0A%09%09%3Cpath%20class%3D%22st0%22%20d%3D%22M503.5%2C201.4L403%2C27.5C394.3%2C12.4%2C372.9%2C0%2C355.4%2C0H154.6c-17.4%2C0-38.9%2C12.4-47.6%2C27.5L6.6%2C201.4%20%20%20%20c-8.7%2C15.1-8.7%2C39.8%2C0%2C54.9l100.4%2C174c8.7%2C15.1%2C30.1%2C27.5%2C47.6%2C27.5h200.9c17.4%2C0%2C38.8-12.4%2C47.6-27.5l100.4-174%20%20%20%20C512.2%2C241.2%2C512.2%2C216.5%2C503.5%2C201.4z%20M233.3%2C96.2c0-11.4%2C9.3-20.7%2C20.7-20.7c11.4%2C0%2C20.7%2C9.3%2C20.7%2C20.7v123.7%20%20%20%20c0%2C11.4-9.3%2C20.7-20.7%2C20.7c-11.4%2C0-20.7-9.3-20.7-20.7l0%2C0V96.2z%20M254%2C360.3c-77.4%2C0-140.4-63-140.4-140.4%20%20%20%20c0.1-44.4%2C21.1-86.1%2C56.7-112.7c8.2-6.1%2C19.7-4.4%2C25.8%2C3.8s4.4%2C19.7-3.8%2C25.8l0%2C0c-45.9%2C34.1-55.5%2C99-21.4%2C144.9%20%20%20%20s99%2C55.5%2C144.9%2C21.4c26.3-19.5%2C41.8-50.4%2C41.8-83.2c-0.1-32.9-15.7-63.8-42.2-83.4c-8.2-6-9.9-17.6-3.9-25.8s17.6-9.9%2C25.8-3.9%20%20%20%20c35.9%2C26.5%2C57%2C68.5%2C57.1%2C113.1C394.4%2C297.4%2C331.4%2C360.3%2C254%2C360.3z%22%20%2F%3E%0A%09%3C%2Fg%3E%0A%3C%2Fg%3E%0A%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="822" y="767" width="43" height="43" as="geometry" />
+        </mxCell>
+        <mxCell id="v55" value="Spring Boot" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=28;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="881" y="758" width="268" height="49" as="geometry" />
+        </mxCell>
+        <mxCell id="v56" value="Java 21 · JAR · systemd" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="822" y="821" width="326" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="v57" value="API :8080" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="822" y="853" width="326" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="v58" value="앱 리더는 자동 전환" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#438B58;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="807" y="657" width="355" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="db-primary" value="" style="rounded=1;arcSize=5;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#9FBDD3;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="462" width="310" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="v60" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1401" y="463" width="308" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v61" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%2218%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M9%208h1M9%2023h1M17%208h7M17%2023h7%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1415" y="470" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="v62" value="DB01" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#61758A;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1444" y="463" width="138" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v63" value="Primary" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#2767A0;fontStyle=1;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1577" y="463" width="117" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v64" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3C!DOCTYPE%20svg%20PUBLIC%20%22-%2F%2FW3C%2F%2FDTD%20SVG%201.1%2F%2FEN%22%20%22http%3A%2F%2Fwww.w3.org%2FGraphics%2FSVG%2F1.1%2FDTD%2Fsvg11.dtd%22%5B%5D%3E%0D%0A%3Csvg%20width%3D%22432.071pt%22%20height%3D%22445.383pt%22%20viewBox%3D%220%200%20432.071%20445.383%22%20xml%3Aspace%3D%22preserve%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Cg%20id%3D%22orginal%22%20style%3D%22fill-rule%3Anonzero%3Bclip-rule%3Anonzero%3Bstroke%3A%23000000%3Bstroke-miterlimit%3A4%3B%22%3E%0A%09%3C%2Fg%3E%0A%3Cg%20id%3D%22Layer_x0020_3%22%20style%3D%22fill-rule%3Anonzero%3Bclip-rule%3Anonzero%3Bfill%3Anone%3Bstroke%3A%23FFFFFF%3Bstroke-width%3A12.4651%3Bstroke-linecap%3Around%3Bstroke-linejoin%3Around%3Bstroke-miterlimit%3A4%3B%22%3E%0A%3Cpath%20style%3D%22fill%3A%23000000%3Bstroke%3A%23000000%3Bstroke-width%3A37.3953%3Bstroke-linecap%3Abutt%3Bstroke-linejoin%3Amiter%3B%22%20d%3D%22M323.205%2C324.227c2.833-23.601%2C1.984-27.062%2C19.563-23.239l4.463%2C0.392c13.517%2C0.615%2C31.199-2.174%2C41.587-7c22.362-10.376%2C35.622-27.7%2C13.572-23.148c-50.297%2C10.376-53.755-6.655-53.755-6.655c53.111-78.803%2C75.313-178.836%2C56.149-203.322%20%20%20%20C352.514-5.534%2C262.036%2C26.049%2C260.522%2C26.869l-0.482%2C0.089c-9.938-2.062-21.06-3.294-33.554-3.496c-22.761-0.374-40.032%2C5.967-53.133%2C15.904c0%2C0-161.408-66.498-153.899%2C83.628c1.597%2C31.936%2C45.777%2C241.655%2C98.47%2C178.31%20%20%20%20c19.259-23.163%2C37.871-42.748%2C37.871-42.748c9.242%2C6.14%2C20.307%2C9.272%2C31.912%2C8.147l0.897-0.765c-0.281%2C2.876-0.157%2C5.689%2C0.359%2C9.019c-13.572%2C15.167-9.584%2C17.83-36.723%2C23.416c-27.457%2C5.659-11.326%2C15.734-0.797%2C18.367c12.768%2C3.193%2C42.305%2C7.716%2C62.268-20.224%20%20%20%20l-0.795%2C3.188c5.325%2C4.26%2C4.965%2C30.619%2C5.72%2C49.452c0.756%2C18.834%2C2.017%2C36.409%2C5.856%2C46.771c3.839%2C10.36%2C8.369%2C37.05%2C44.036%2C29.406c29.809-6.388%2C52.6-15.582%2C54.677-101.107%22%20%2F%3E%0A%3Cpath%20style%3D%22fill%3A%23336791%3Bstroke%3Anone%3B%22%20d%3D%22M402.395%2C271.23c-50.302%2C10.376-53.76-6.655-53.76-6.655c53.111-78.808%2C75.313-178.843%2C56.153-203.326c-52.27-66.785-142.752-35.2-144.262-34.38l-0.486%2C0.087c-9.938-2.063-21.06-3.292-33.56-3.496c-22.761-0.373-40.026%2C5.967-53.127%2C15.902%20%20%20%20c0%2C0-161.411-66.495-153.904%2C83.63c1.597%2C31.938%2C45.776%2C241.657%2C98.471%2C178.312c19.26-23.163%2C37.869-42.748%2C37.869-42.748c9.243%2C6.14%2C20.308%2C9.272%2C31.908%2C8.147l0.901-0.765c-0.28%2C2.876-0.152%2C5.689%2C0.361%2C9.019c-13.575%2C15.167-9.586%2C17.83-36.723%2C23.416%20%20%20%20c-27.459%2C5.659-11.328%2C15.734-0.796%2C18.367c12.768%2C3.193%2C42.307%2C7.716%2C62.266-20.224l-0.796%2C3.188c5.319%2C4.26%2C9.054%2C27.711%2C8.428%2C48.969c-0.626%2C21.259-1.044%2C35.854%2C3.147%2C47.254c4.191%2C11.4%2C8.368%2C37.05%2C44.042%2C29.406c29.809-6.388%2C45.256-22.942%2C47.405-50.555%20%20%20%20c1.525-19.631%2C4.976-16.729%2C5.194-34.28l2.768-8.309c3.192-26.611%2C0.507-35.196%2C18.872-31.203l4.463%2C0.392c13.517%2C0.615%2C31.208-2.174%2C41.591-7c22.358-10.376%2C35.618-27.7%2C13.573-23.148z%22%20%2F%3E%0A%3Cpath%20d%3D%22M215.866%2C286.484c-1.385%2C49.516%2C0.348%2C99.377%2C5.193%2C111.495c4.848%2C12.118%2C15.223%2C35.688%2C50.9%2C28.045c29.806-6.39%2C40.651-18.756%2C45.357-46.051c3.466-20.082%2C10.148-75.854%2C11.005-87.281%22%20%2F%3E%0A%3Cpath%20d%3D%22M173.104%2C38.256c0%2C0-161.521-66.016-154.012%2C84.109c1.597%2C31.938%2C45.779%2C241.664%2C98.473%2C178.316c19.256-23.166%2C36.671-41.335%2C36.671-41.335%22%20%2F%3E%0A%3Cpath%20d%3D%22M260.349%2C26.207c-5.591%2C1.753%2C89.848-34.889%2C144.087%2C34.417c19.159%2C24.484-3.043%2C124.519-56.153%2C203.329%22%20%2F%3E%0A%3Cpath%20style%3D%22stroke-linejoin%3Abevel%3B%22%20d%3D%22M348.282%2C263.953c0%2C0%2C3.461%2C17.036%2C53.764%2C6.653c22.04-4.552%2C8.776%2C12.774-13.577%2C23.155c-18.345%2C8.514-59.474%2C10.696-60.146-1.069c-1.729-30.355%2C21.647-21.133%2C19.96-28.739c-1.525-6.85-11.979-13.573-18.894-30.338%20%20%20%20c-6.037-14.633-82.796-126.849%2C21.287-110.183c3.813-0.789-27.146-99.002-124.553-100.599c-97.385-1.597-94.19%2C119.762-94.19%2C119.762%22%20%2F%3E%0A%3Cpath%20d%3D%22M188.604%2C274.334c-13.577%2C15.166-9.584%2C17.829-36.723%2C23.417c-27.459%2C5.66-11.326%2C15.733-0.797%2C18.365c12.768%2C3.195%2C42.307%2C7.718%2C62.266-20.229c6.078-8.509-0.036-22.086-8.385-25.547c-4.034-1.671-9.428-3.765-16.361%2C3.994z%22%20%2F%3E%0A%3Cpath%20d%3D%22M187.715%2C274.069c-1.368-8.917%2C2.93-19.528%2C7.536-31.942c6.922-18.626%2C22.893-37.255%2C10.117-96.339c-9.523-44.029-73.396-9.163-73.436-3.193c-0.039%2C5.968%2C2.889%2C30.26-1.067%2C58.548c-5.162%2C36.913%2C23.488%2C68.132%2C56.479%2C64.938%22%20%2F%3E%0A%3Cpath%20style%3D%22fill%3A%23FFFFFF%3Bstroke-width%3A4.155%3Bstroke-linecap%3Abutt%3Bstroke-linejoin%3Amiter%3B%22%20d%3D%22M172.517%2C141.7c-0.288%2C2.039%2C3.733%2C7.48%2C8.976%2C8.207c5.234%2C0.73%2C9.714-3.522%2C9.998-5.559c0.284-2.039-3.732-4.285-8.977-5.015c-5.237-0.731-9.719%2C0.333-9.996%2C2.367z%22%20%2F%3E%0A%3Cpath%20style%3D%22fill%3A%23FFFFFF%3Bstroke-width%3A2.0775%3Bstroke-linecap%3Abutt%3Bstroke-linejoin%3Amiter%3B%22%20d%3D%22M331.941%2C137.543c0.284%2C2.039-3.732%2C7.48-8.976%2C8.207c-5.238%2C0.73-9.718-3.522-10.005-5.559c-0.277-2.039%2C3.74-4.285%2C8.979-5.015c5.239-0.73%2C9.718%2C0.333%2C10.002%2C2.368z%22%20%2F%3E%0A%3Cpath%20d%3D%22M350.676%2C123.432c0.863%2C15.994-3.445%2C26.888-3.988%2C43.914c-0.804%2C24.748%2C11.799%2C53.074-7.191%2C81.435%22%20%2F%3E%0A%3Cpath%20style%3D%22stroke-width%3A3%3B%22%20d%3D%22M0%2C60.232%22%20%2F%3E%0A%3C%2Fg%3E%0A%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1422" y="516" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="v65" value="PostgreSQL" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=27;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="516" width="210" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="v66" value="17 · systemd · :5432" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1422" y="579" width="266" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="v67" value="거래 데이터 · leader_lease" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1422" y="617" width="266" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v68" value="" style="rounded=1;arcSize=4;absoluteArcSize=1;fillColor=#F2F7FB;strokeColor=#E3ECF3;strokeWidth=1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1418" y="663" width="274" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="v69" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cellipse%20cx%3D%2216%22%20cy%3D%226%22%20rx%3D%2212%22%20ry%3D%224%22%2F%3E%3Cpath%20d%3D%22M4%206v19c0%206%2024%206%2024%200V6M4%2015c0%206%2024%206%2024%200%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1432" y="676" width="29" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="v70" value="별도 데이터 디스크" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#2767A0;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1473" y="676" width="205" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="db-standby" value="" style="rounded=1;arcSize=5;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#9FBDD3;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1840" y="462" width="310" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="v72" value="" style="rounded=0;arcSize=0;absoluteArcSize=1;fillColor=#F3F6F9;strokeColor=#F3F6F9;strokeWidth=1.5;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1841" y="463" width="308" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v73" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%2218%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M9%208h1M9%2023h1M17%208h7M17%2023h7%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1855" y="470" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="v74" value="DB02" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#61758A;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1884" y="463" width="138" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v75" value="Standby" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#2767A0;fontStyle=1;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2017" y="463" width="117" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v76" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3C!DOCTYPE%20svg%20PUBLIC%20%22-%2F%2FW3C%2F%2FDTD%20SVG%201.1%2F%2FEN%22%20%22http%3A%2F%2Fwww.w3.org%2FGraphics%2FSVG%2F1.1%2FDTD%2Fsvg11.dtd%22%5B%5D%3E%0D%0A%3Csvg%20width%3D%22432.071pt%22%20height%3D%22445.383pt%22%20viewBox%3D%220%200%20432.071%20445.383%22%20xml%3Aspace%3D%22preserve%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Cg%20id%3D%22orginal%22%20style%3D%22fill-rule%3Anonzero%3Bclip-rule%3Anonzero%3Bstroke%3A%23000000%3Bstroke-miterlimit%3A4%3B%22%3E%0A%09%3C%2Fg%3E%0A%3Cg%20id%3D%22Layer_x0020_3%22%20style%3D%22fill-rule%3Anonzero%3Bclip-rule%3Anonzero%3Bfill%3Anone%3Bstroke%3A%23FFFFFF%3Bstroke-width%3A12.4651%3Bstroke-linecap%3Around%3Bstroke-linejoin%3Around%3Bstroke-miterlimit%3A4%3B%22%3E%0A%3Cpath%20style%3D%22fill%3A%23000000%3Bstroke%3A%23000000%3Bstroke-width%3A37.3953%3Bstroke-linecap%3Abutt%3Bstroke-linejoin%3Amiter%3B%22%20d%3D%22M323.205%2C324.227c2.833-23.601%2C1.984-27.062%2C19.563-23.239l4.463%2C0.392c13.517%2C0.615%2C31.199-2.174%2C41.587-7c22.362-10.376%2C35.622-27.7%2C13.572-23.148c-50.297%2C10.376-53.755-6.655-53.755-6.655c53.111-78.803%2C75.313-178.836%2C56.149-203.322%20%20%20%20C352.514-5.534%2C262.036%2C26.049%2C260.522%2C26.869l-0.482%2C0.089c-9.938-2.062-21.06-3.294-33.554-3.496c-22.761-0.374-40.032%2C5.967-53.133%2C15.904c0%2C0-161.408-66.498-153.899%2C83.628c1.597%2C31.936%2C45.777%2C241.655%2C98.47%2C178.31%20%20%20%20c19.259-23.163%2C37.871-42.748%2C37.871-42.748c9.242%2C6.14%2C20.307%2C9.272%2C31.912%2C8.147l0.897-0.765c-0.281%2C2.876-0.157%2C5.689%2C0.359%2C9.019c-13.572%2C15.167-9.584%2C17.83-36.723%2C23.416c-27.457%2C5.659-11.326%2C15.734-0.797%2C18.367c12.768%2C3.193%2C42.305%2C7.716%2C62.268-20.224%20%20%20%20l-0.795%2C3.188c5.325%2C4.26%2C4.965%2C30.619%2C5.72%2C49.452c0.756%2C18.834%2C2.017%2C36.409%2C5.856%2C46.771c3.839%2C10.36%2C8.369%2C37.05%2C44.036%2C29.406c29.809-6.388%2C52.6-15.582%2C54.677-101.107%22%20%2F%3E%0A%3Cpath%20style%3D%22fill%3A%23336791%3Bstroke%3Anone%3B%22%20d%3D%22M402.395%2C271.23c-50.302%2C10.376-53.76-6.655-53.76-6.655c53.111-78.808%2C75.313-178.843%2C56.153-203.326c-52.27-66.785-142.752-35.2-144.262-34.38l-0.486%2C0.087c-9.938-2.063-21.06-3.292-33.56-3.496c-22.761-0.373-40.026%2C5.967-53.127%2C15.902%20%20%20%20c0%2C0-161.411-66.495-153.904%2C83.63c1.597%2C31.938%2C45.776%2C241.657%2C98.471%2C178.312c19.26-23.163%2C37.869-42.748%2C37.869-42.748c9.243%2C6.14%2C20.308%2C9.272%2C31.908%2C8.147l0.901-0.765c-0.28%2C2.876-0.152%2C5.689%2C0.361%2C9.019c-13.575%2C15.167-9.586%2C17.83-36.723%2C23.416%20%20%20%20c-27.459%2C5.659-11.328%2C15.734-0.796%2C18.367c12.768%2C3.193%2C42.307%2C7.716%2C62.266-20.224l-0.796%2C3.188c5.319%2C4.26%2C9.054%2C27.711%2C8.428%2C48.969c-0.626%2C21.259-1.044%2C35.854%2C3.147%2C47.254c4.191%2C11.4%2C8.368%2C37.05%2C44.042%2C29.406c29.809-6.388%2C45.256-22.942%2C47.405-50.555%20%20%20%20c1.525-19.631%2C4.976-16.729%2C5.194-34.28l2.768-8.309c3.192-26.611%2C0.507-35.196%2C18.872-31.203l4.463%2C0.392c13.517%2C0.615%2C31.208-2.174%2C41.591-7c22.358-10.376%2C35.618-27.7%2C13.573-23.148z%22%20%2F%3E%0A%3Cpath%20d%3D%22M215.866%2C286.484c-1.385%2C49.516%2C0.348%2C99.377%2C5.193%2C111.495c4.848%2C12.118%2C15.223%2C35.688%2C50.9%2C28.045c29.806-6.39%2C40.651-18.756%2C45.357-46.051c3.466-20.082%2C10.148-75.854%2C11.005-87.281%22%20%2F%3E%0A%3Cpath%20d%3D%22M173.104%2C38.256c0%2C0-161.521-66.016-154.012%2C84.109c1.597%2C31.938%2C45.779%2C241.664%2C98.473%2C178.316c19.256-23.166%2C36.671-41.335%2C36.671-41.335%22%20%2F%3E%0A%3Cpath%20d%3D%22M260.349%2C26.207c-5.591%2C1.753%2C89.848-34.889%2C144.087%2C34.417c19.159%2C24.484-3.043%2C124.519-56.153%2C203.329%22%20%2F%3E%0A%3Cpath%20style%3D%22stroke-linejoin%3Abevel%3B%22%20d%3D%22M348.282%2C263.953c0%2C0%2C3.461%2C17.036%2C53.764%2C6.653c22.04-4.552%2C8.776%2C12.774-13.577%2C23.155c-18.345%2C8.514-59.474%2C10.696-60.146-1.069c-1.729-30.355%2C21.647-21.133%2C19.96-28.739c-1.525-6.85-11.979-13.573-18.894-30.338%20%20%20%20c-6.037-14.633-82.796-126.849%2C21.287-110.183c3.813-0.789-27.146-99.002-124.553-100.599c-97.385-1.597-94.19%2C119.762-94.19%2C119.762%22%20%2F%3E%0A%3Cpath%20d%3D%22M188.604%2C274.334c-13.577%2C15.166-9.584%2C17.829-36.723%2C23.417c-27.459%2C5.66-11.326%2C15.733-0.797%2C18.365c12.768%2C3.195%2C42.307%2C7.718%2C62.266-20.229c6.078-8.509-0.036-22.086-8.385-25.547c-4.034-1.671-9.428-3.765-16.361%2C3.994z%22%20%2F%3E%0A%3Cpath%20d%3D%22M187.715%2C274.069c-1.368-8.917%2C2.93-19.528%2C7.536-31.942c6.922-18.626%2C22.893-37.255%2C10.117-96.339c-9.523-44.029-73.396-9.163-73.436-3.193c-0.039%2C5.968%2C2.889%2C30.26-1.067%2C58.548c-5.162%2C36.913%2C23.488%2C68.132%2C56.479%2C64.938%22%20%2F%3E%0A%3Cpath%20style%3D%22fill%3A%23FFFFFF%3Bstroke-width%3A4.155%3Bstroke-linecap%3Abutt%3Bstroke-linejoin%3Amiter%3B%22%20d%3D%22M172.517%2C141.7c-0.288%2C2.039%2C3.733%2C7.48%2C8.976%2C8.207c5.234%2C0.73%2C9.714-3.522%2C9.998-5.559c0.284-2.039-3.732-4.285-8.977-5.015c-5.237-0.731-9.719%2C0.333-9.996%2C2.367z%22%20%2F%3E%0A%3Cpath%20style%3D%22fill%3A%23FFFFFF%3Bstroke-width%3A2.0775%3Bstroke-linecap%3Abutt%3Bstroke-linejoin%3Amiter%3B%22%20d%3D%22M331.941%2C137.543c0.284%2C2.039-3.732%2C7.48-8.976%2C8.207c-5.238%2C0.73-9.718-3.522-10.005-5.559c-0.277-2.039%2C3.74-4.285%2C8.979-5.015c5.239-0.73%2C9.718%2C0.333%2C10.002%2C2.368z%22%20%2F%3E%0A%3Cpath%20d%3D%22M350.676%2C123.432c0.863%2C15.994-3.445%2C26.888-3.988%2C43.914c-0.804%2C24.748%2C11.799%2C53.074-7.191%2C81.435%22%20%2F%3E%0A%3Cpath%20style%3D%22stroke-width%3A3%3B%22%20d%3D%22M0%2C60.232%22%20%2F%3E%0A%3C%2Fg%3E%0A%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1862" y="516" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="v77" value="PostgreSQL" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=27;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1920" y="516" width="210" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="v78" value="17 · systemd · :5432" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1862" y="579" width="266" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="v79" value="WAL 수신 · 복제 지연 확인" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1862" y="617" width="266" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v80" value="" style="rounded=1;arcSize=4;absoluteArcSize=1;fillColor=#F2F7FB;strokeColor=#E3ECF3;strokeWidth=1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1858" y="663" width="274" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="v81" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cellipse%20cx%3D%2216%22%20cy%3D%226%22%20rx%3D%2212%22%20ry%3D%224%22%2F%3E%3Cpath%20d%3D%22M4%206v19c0%206%2024%206%2024%200V6M4%2015c0%206%2024%206%2024%200%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1872" y="676" width="29" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="v82" value="별도 데이터 디스크" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#2767A0;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1913" y="676" width="205" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="backup" value="" style="rounded=1;arcSize=4;absoluteArcSize=1;fillColor=#F6FAF8;strokeColor=#C4D8CA;strokeWidth=1.2;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="790" width="310" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="v84" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%23438B58%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cellipse%20cx%3D%2216%22%20cy%3D%226%22%20rx%3D%2212%22%20ry%3D%224%22%2F%3E%3Cpath%20d%3D%22M4%206v19c0%206%2024%206%2024%200V6M4%2015c0%206%2024%206%2024%200%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1418" y="806" width="29" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="v85" value="별도 백업 저장소" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#438B58;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1461" y="799" width="228" height="43" as="geometry" />
+        </mxCell>
+        <mxCell id="restore" value="" style="rounded=1;arcSize=4;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#B8C8D3;strokeWidth=1.2;dashed=1;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1840" y="790" width="310" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="v87" value="격리 복원 대상 · 필요 시" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1856" y="799" width="278" height="43" as="geometry" />
+        </mxCell>
+        <mxCell id="v88" value="기존 Primary 격리 → Standby 수동 승격 → 앱 DB 연결 변경" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#19324B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="867" width="750" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="v89" value="비동기 복제: 미복제 데이터 유실 가능" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="893" width="750" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="v90" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%2319324B%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%228%22%20r%3D%225%22%2F%3E%3Cpath%20d%3D%22M5%2029v-4c0-7%2022-7%2022%200v4M2%2030h28%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="107" y="523" width="65" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="v91" value="사용자" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=25;fontColor=#19324B;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="57" y="605" width="165" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="v92" value="브라우저 · 부하 도구" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="39" y="653" width="201" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="e93" edge="1" parent="1" target="edge-vm" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;entryX=0.0;entryY=0.2814814814814815;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="197" y="583" as="sourcePoint" />
+            <mxPoint x="340" y="583" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v94" value="HTTP(S)" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#19324B;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="206" y="544" width="122" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="e95" edge="1" parent="1" source="edge-vm" target="app-1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.28888888888888886;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.49142857142857144;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="640" y="585" as="sourcePoint" />
+            <mxPoint x="800" y="548" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="722" y="585" />
+              <mxPoint x="722" y="548" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e96" edge="1" parent="1" target="app-2" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=1;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;entryX=0.0;entryY=0.49142857142857144;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="722" y="585" as="sourcePoint" />
+            <mxPoint x="800" y="795" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="722" y="795" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v97" value="API · WS" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#19324B;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="649" y="511" width="139" height="27" as="geometry" />
+        </mxCell>
+        <mxCell id="v98" value="전환 후" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="658" y="803" width="125" height="27" as="geometry" />
+        </mxCell>
+        <mxCell id="e99" edge="1" parent="1" source="app-1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=none;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.49142857142857144;exitDx=0;exitDy=0;exitPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1170" y="548" as="sourcePoint" />
+            <mxPoint x="1301" y="580" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1301" y="548" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e100" edge="1" parent="1" source="app-2" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=none;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.49142857142857144;exitDx=0;exitDy=0;exitPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1170" y="795" as="sourcePoint" />
+            <mxPoint x="1301" y="580" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1301" y="795" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e101" edge="1" parent="1" target="db-primary" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;entryX=0.0;entryY=0.42142857142857143;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1301" y="580" as="sourcePoint" />
+            <mxPoint x="1400" y="580" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v102" value="SQL · 리스" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#19324B;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1182" y="487" width="189" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v103" value=":5432" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="523" width="76" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="e104" edge="1" parent="1" source="db-primary" target="db-standby" style="edgeStyle=none;rounded=0;html=0;strokeColor=#438B58;strokeWidth=2.5;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.3392857142857143;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.3392857142857143;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1710" y="557" as="sourcePoint" />
+            <mxPoint x="1840" y="557" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v105" value="비동기 WAL" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#438B58;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1716" y="515" width="116" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="e106" edge="1" parent="1" source="db-primary" target="backup" style="edgeStyle=none;rounded=0;html=0;strokeColor=#438B58;strokeWidth=2.1;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=0.5;exitY=1.0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1555" y="742" as="sourcePoint" />
+            <mxPoint x="1555" y="790" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v107" value="백업" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#438B58;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1570" y="751" width="110" height="27" as="geometry" />
+        </mxCell>
+        <mxCell id="e108" edge="1" parent="1" source="backup" target="restore" style="edgeStyle=none;rounded=0;html=0;strokeColor=#438B58;strokeWidth=2.1;dashed=1;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1710" y="821" as="sourcePoint" />
+            <mxPoint x="1840" y="821" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v109" value="복원 시험" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#438B58;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1715" y="782" width="121" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="metrics" value="" style="rounded=1;arcSize=4;absoluteArcSize=1;fillColor=#F6F3FA;strokeColor=#DBD3E8;strokeWidth=1.1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="340" y="950" width="1810" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="v111" value="지표 대상" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=22;fontColor=#7964A4;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="361" y="962" width="145" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="v112" value="모든 VM: node_exporter   ·   앱: Actuator   ·   DB: postgres_exporter" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#7964A4;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="541" y="962" width="1582" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="ops-vm" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#FAF8FD;strokeColor=#CFC4DF;strokeWidth=1.4;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="340" y="1063" width="1810" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="v114" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%237964A4%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Crect%20x%3D%224%22%20y%3D%2218%22%20width%3D%2224%22%20height%3D%2211%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22M9%208h1M9%2023h1M17%208h7M17%2023h7%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="361" y="1080" width="25" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="v115" value="OPS01 · 관제와 운영 보고" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#7964A4;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="399" y="1073" width="693" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="v116" value="도구 직접 설치 · systemd 관리" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1577" y="1078" width="547" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="e117" edge="1" parent="1" source="ops-vm" target="metrics" style="edgeStyle=none;rounded=0;html=0;strokeColor=#7964A4;strokeWidth=2.3;dashed=1;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=0.14475138121546963;exitY=0.0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.14475138121546963;entryY=1.0;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="602" y="1063" as="sourcePoint" />
+            <mxPoint x="602" y="1008" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v118" value="지표 수집" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#7964A4;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="624" y="1019" width="244" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="prom" value="" style="rounded=1;arcSize=5;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#C9BDD9;strokeWidth=1.2;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="385" y="1140" width="350" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="v120" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20xml%3Aspace%3D%22preserve%22%20width%3D%22113.333%22%20height%3D%22113.331%22%20viewBox%3D%220%200%20113.333%20113.331%22%3E%0D%0A%20%20%3Cpath%20d%3D%22M56.667%200C25.372%200%200%2025.369%200%2056.665c0%2031.295%2025.372%2056.666%2056.667%2056.666s56.666-25.371%2056.666-56.666C113.333%2025.369%2087.961%200%2056.667%200Zm0%20106.055c-8.904%200-16.123-5.948-16.123-13.283H72.79c0%207.334-7.219%2013.283-16.123%2013.283zm26.63-17.682H30.034v-9.658h53.264v9.658zm-.191-14.629h-52.92c-.176-.203-.356-.403-.526-.609-5.452-6.62-6.736-10.076-7.983-13.598-.021-.116%206.611%201.355%2011.314%202.413%200%200%202.42.56%205.958%201.205-3.397-3.982-5.414-9.044-5.414-14.218%200-11.359%208.712-21.285%205.569-29.308%203.059.249%206.331%206.456%206.552%2016.161%203.252-4.494%204.613-12.701%204.613-17.733%200-5.21%203.433-11.262%206.867-11.469-3.061%205.045.793%209.37%204.219%2020.099%201.285%204.03%201.121%2010.812%202.113%2015.113.329-8.933%201.865-21.967%207.532-26.467-2.5%205.667.37%2012.758%202.333%2016.167C76.5%2037%2078.42%2041.167%2078.42%2049.048c0%205.284-1.951%2010.259-5.242%2014.148%203.742-.702%206.326-1.335%206.326-1.335l12.152-2.371c.001-.001-1.765%207.261-8.55%2014.254z%22%20style%3D%22fill%3A%23e6522c%3Bfill-opacity%3A1%22%20%2F%3E%0D%0A%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="407" y="1160" width="42" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="v121" value="Prometheus" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=27;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="465" y="1155" width="247" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="v122" value="지표 수집 · 알림 규칙 평가" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="407" y="1220" width="306" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v123" value="호스트 · 서비스 · DB 상태" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="407" y="1260" width="306" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="grafana" value="" style="rounded=1;arcSize=5;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#C9BDD9;strokeWidth=1.2;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="810" y="1129" width="350" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="v125" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3C!--%20Generator%3A%20Adobe%20Illustrator%2020.1.0%2C%20SVG%20Export%20Plug-In%20.%20SVG%20Version%3A%206.00%20Build%200)%20%20--%3E%0D%0A%3Csvg%20version%3D%221.1%22%20id%3D%22Layer_1%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20xmlns%3Axlink%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2Fxlink%22%20x%3D%220px%22%20y%3D%220px%22%20width%3D%22351px%22%20height%3D%22365px%22%20viewBox%3D%220%200%20351%20365%22%20style%3D%22enable-background%3Anew%200%200%20351%20365%3B%22%20xml%3Aspace%3D%22preserve%22%3E%0A%3Cstyle%20type%3D%22text%2Fcss%22%3E%0A%09.st0%7Bfill%3Aurl(%23SVGID_1_)%3B%7D%0A%3C%2Fstyle%3E%0A%3Cg%20id%3D%22Layer_1_1_%22%3E%0A%3C%2Fg%3E%0A%3ClinearGradient%20id%3D%22SVGID_1_%22%20gradientUnits%3D%22userSpaceOnUse%22%20x1%3D%22175.5%22%20y1%3D%2230%25%22%20x2%3D%22175.5%22%20y2%3D%2299%25%22%3E%0A%09%3Cstop%20offset%3D%220%22%20style%3D%22stop-color%3A%23F05A28%22%20%2F%3E%0A%09%3Cstop%20offset%3D%221%22%20style%3D%22stop-color%3A%23FBCA0A%22%20%2F%3E%0A%3C%2FlinearGradient%3E%0A%3Cpath%20class%3D%22st0%22%20d%3D%22M342%2C161.2c-0.6-6.1-1.6-13.1-3.6-20.9c-2-7.7-5-16.2-9.4-25c-4.4-8.8-10.1-17.9-17.5-26.8%20%20c-2.9-3.5-6.1-6.9-9.5-10.2c5.1-20.3-6.2-37.9-6.2-37.9c-19.5-1.2-31.9%2C6.1-36.5%2C9.4c-0.8-0.3-1.5-0.7-2.3-1%20%20c-3.3-1.3-6.7-2.6-10.3-3.7c-3.5-1.1-7.1-2.1-10.8-3c-3.7-0.9-7.4-1.6-11.2-2.2c-0.7-0.1-1.3-0.2-2-0.3%20%20c-8.5-27.2-32.9-38.6-32.9-38.6c-27.3%2C17.3-32.4%2C41.5-32.4%2C41.5s-0.1%2C0.5-0.3%2C1.4c-1.5%2C0.4-3%2C0.9-4.5%2C1.3c-2.1%2C0.6-4.2%2C1.4-6.2%2C2.2%20%20c-2.1%2C0.8-4.1%2C1.6-6.2%2C2.5c-4.1%2C1.8-8.2%2C3.8-12.2%2C6c-3.9%2C2.2-7.7%2C4.6-11.4%2C7.1c-0.5-0.2-1-0.4-1-0.4c-37.8-14.4-71.3%2C2.9-71.3%2C2.9%20%20c-3.1%2C40.2%2C15.1%2C65.5%2C18.7%2C70.1c-0.9%2C2.5-1.7%2C5-2.5%2C7.5c-2.8%2C9.1-4.9%2C18.4-6.2%2C28.1c-0.2%2C1.4-0.4%2C2.8-0.5%2C4.2%20%20C18.8%2C192.7%2C8.5%2C228%2C8.5%2C228c29.1%2C33.5%2C63.1%2C35.6%2C63.1%2C35.6c0%2C0%2C0.1-0.1%2C0.1-0.1c4.3%2C7.7%2C9.3%2C15%2C14.9%2C21.9c2.4%2C2.9%2C4.8%2C5.6%2C7.4%2C8.3%20%20c-10.6%2C30.4%2C1.5%2C55.6%2C1.5%2C55.6c32.4%2C1.2%2C53.7-14.2%2C58.2-17.7c3.2%2C1.1%2C6.5%2C2.1%2C9.8%2C2.9c10%2C2.6%2C20.2%2C4.1%2C30.4%2C4.5%20%20c2.5%2C0.1%2C5.1%2C0.2%2C7.6%2C0.1l1.2%2C0l0.8%2C0l1.6%2C0l1.6-0.1l0%2C0.1c15.3%2C21.8%2C42.1%2C24.9%2C42.1%2C24.9c19.1-20.1%2C20.2-40.1%2C20.2-44.4l0%2C0%20%20c0%2C0%2C0-0.1%2C0-0.3c0-0.4%2C0-0.6%2C0-0.6l0%2C0c0-0.3%2C0-0.6%2C0-0.9c4-2.8%2C7.8-5.8%2C11.4-9.1c7.6-6.9%2C14.3-14.8%2C19.9-23.3%20%20c0.5-0.8%2C1-1.6%2C1.5-2.4c21.6%2C1.2%2C36.9-13.4%2C36.9-13.4c-3.6-22.5-16.4-33.5-19.1-35.6l0%2C0c0%2C0-0.1-0.1-0.3-0.2%20%20c-0.2-0.1-0.2-0.2-0.2-0.2c0%2C0%2C0%2C0%2C0%2C0c-0.1-0.1-0.3-0.2-0.5-0.3c0.1-1.4%2C0.2-2.7%2C0.3-4.1c0.2-2.4%2C0.2-4.9%2C0.2-7.3l0-1.8l0-0.9%20%20l0-0.5c0-0.6%2C0-0.4%2C0-0.6l-0.1-1.5l-0.1-2c0-0.7-0.1-1.3-0.2-1.9c-0.1-0.6-0.1-1.3-0.2-1.9l-0.2-1.9l-0.3-1.9%20%20c-0.4-2.5-0.8-4.9-1.4-7.4c-2.3-9.7-6.1-18.9-11-27.2c-5-8.3-11.2-15.6-18.3-21.8c-7-6.2-14.9-11.2-23.1-14.9%20%20c-8.3-3.7-16.9-6.1-25.5-7.2c-4.3-0.6-8.6-0.8-12.9-0.7l-1.6%2C0l-0.4%2C0c-0.1%2C0-0.6%2C0-0.5%2C0l-0.7%2C0l-1.6%2C0.1c-0.6%2C0-1.2%2C0.1-1.7%2C0.1%20%20c-2.2%2C0.2-4.4%2C0.5-6.5%2C0.9c-8.6%2C1.6-16.7%2C4.7-23.8%2C9c-7.1%2C4.3-13.3%2C9.6-18.3%2C15.6c-5%2C6-8.9%2C12.7-11.6%2C19.6c-2.7%2C6.9-4.2%2C14.1-4.6%2C21%20%20c-0.1%2C1.7-0.1%2C3.5-0.1%2C5.2c0%2C0.4%2C0%2C0.9%2C0%2C1.3l0.1%2C1.4c0.1%2C0.8%2C0.1%2C1.7%2C0.2%2C2.5c0.3%2C3.5%2C1%2C6.9%2C1.9%2C10.1c1.9%2C6.5%2C4.9%2C12.4%2C8.6%2C17.4%20%20c3.7%2C5%2C8.2%2C9.1%2C12.9%2C12.4c4.7%2C3.2%2C9.8%2C5.5%2C14.8%2C7c5%2C1.5%2C10%2C2.1%2C14.7%2C2.1c0.6%2C0%2C1.2%2C0%2C1.7%2C0c0.3%2C0%2C0.6%2C0%2C0.9%2C0c0.3%2C0%2C0.6%2C0%2C0.9-0.1%20%20c0.5%2C0%2C1-0.1%2C1.5-0.1c0.1%2C0%2C0.3%2C0%2C0.4-0.1l0.5-0.1c0.3%2C0%2C0.6-0.1%2C0.9-0.1c0.6-0.1%2C1.1-0.2%2C1.7-0.3c0.6-0.1%2C1.1-0.2%2C1.6-0.4%20%20c1.1-0.2%2C2.1-0.6%2C3.1-0.9c2-0.7%2C4-1.5%2C5.7-2.4c1.8-0.9%2C3.4-2%2C5-3c0.4-0.3%2C0.9-0.6%2C1.3-1c1.6-1.3%2C1.9-3.7%2C0.6-5.3%20%20c-1.1-1.4-3.1-1.8-4.7-0.9c-0.4%2C0.2-0.8%2C0.4-1.2%2C0.6c-1.4%2C0.7-2.8%2C1.3-4.3%2C1.8c-1.5%2C0.5-3.1%2C0.9-4.7%2C1.2c-0.8%2C0.1-1.6%2C0.2-2.5%2C0.3%20%20c-0.4%2C0-0.8%2C0.1-1.3%2C0.1c-0.4%2C0-0.9%2C0-1.2%2C0c-0.4%2C0-0.8%2C0-1.2%2C0c-0.5%2C0-1%2C0-1.5-0.1c0%2C0-0.3%2C0-0.1%2C0l-0.2%2C0l-0.3%2C0%20%20c-0.2%2C0-0.5%2C0-0.7-0.1c-0.5-0.1-0.9-0.1-1.4-0.2c-3.7-0.5-7.4-1.6-10.9-3.2c-3.6-1.6-7-3.8-10.1-6.6c-3.1-2.8-5.8-6.1-7.9-9.9%20%20c-2.1-3.8-3.6-8-4.3-12.4c-0.3-2.2-0.5-4.5-0.4-6.7c0-0.6%2C0.1-1.2%2C0.1-1.8c0%2C0.2%2C0-0.1%2C0-0.1l0-0.2l0-0.5c0-0.3%2C0.1-0.6%2C0.1-0.9%20%20c0.1-1.2%2C0.3-2.4%2C0.5-3.6c1.7-9.6%2C6.5-19%2C13.9-26.1c1.9-1.8%2C3.9-3.4%2C6-4.9c2.1-1.5%2C4.4-2.8%2C6.8-3.9c2.4-1.1%2C4.8-2%2C7.4-2.7%20%20c2.5-0.7%2C5.1-1.1%2C7.8-1.4c1.3-0.1%2C2.6-0.2%2C4-0.2c0.4%2C0%2C0.6%2C0%2C0.9%2C0l1.1%2C0l0.7%2C0c0.3%2C0%2C0%2C0%2C0.1%2C0l0.3%2C0l1.1%2C0.1%20%20c2.9%2C0.2%2C5.7%2C0.6%2C8.5%2C1.3c5.6%2C1.2%2C11.1%2C3.3%2C16.2%2C6.1c10.2%2C5.7%2C18.9%2C14.5%2C24.2%2C25.1c2.7%2C5.3%2C4.6%2C11%2C5.5%2C16.9c0.2%2C1.5%2C0.4%2C3%2C0.5%2C4.5%20%20l0.1%2C1.1l0.1%2C1.1c0%2C0.4%2C0%2C0.8%2C0%2C1.1c0%2C0.4%2C0%2C0.8%2C0%2C1.1l0%2C1l0%2C1.1c0%2C0.7-0.1%2C1.9-0.1%2C2.6c-0.1%2C1.6-0.3%2C3.3-0.5%2C4.9%20%20c-0.2%2C1.6-0.5%2C3.2-0.8%2C4.8c-0.3%2C1.6-0.7%2C3.2-1.1%2C4.7c-0.8%2C3.1-1.8%2C6.2-3%2C9.3c-2.4%2C6-5.6%2C11.8-9.4%2C17.1%20%20c-7.7%2C10.6-18.2%2C19.2-30.2%2C24.7c-6%2C2.7-12.3%2C4.7-18.8%2C5.7c-3.2%2C0.6-6.5%2C0.9-9.8%2C1l-0.6%2C0l-0.5%2C0l-1.1%2C0l-1.6%2C0l-0.8%2C0%20%20c0.4%2C0-0.1%2C0-0.1%2C0l-0.3%2C0c-1.8%2C0-3.5-0.1-5.3-0.3c-7-0.5-13.9-1.8-20.7-3.7c-6.7-1.9-13.2-4.6-19.4-7.8%20%20c-12.3-6.6-23.4-15.6-32-26.5c-4.3-5.4-8.1-11.3-11.2-17.4c-3.1-6.1-5.6-12.6-7.4-19.1c-1.8-6.6-2.9-13.3-3.4-20.1l-0.1-1.3l0-0.3%20%20l0-0.3l0-0.6l0-1.1l0-0.3l0-0.4l0-0.8l0-1.6l0-0.3c0%2C0%2C0%2C0.1%2C0-0.1l0-0.6c0-0.8%2C0-1.7%2C0-2.5c0.1-3.3%2C0.4-6.8%2C0.8-10.2%20%20c0.4-3.4%2C1-6.9%2C1.7-10.3c0.7-3.4%2C1.5-6.8%2C2.5-10.2c1.9-6.7%2C4.3-13.2%2C7.1-19.3c5.7-12.2%2C13.1-23.1%2C22-31.8c2.2-2.2%2C4.5-4.2%2C6.9-6.2%20%20c2.4-1.9%2C4.9-3.7%2C7.5-5.4c2.5-1.7%2C5.2-3.2%2C7.9-4.6c1.3-0.7%2C2.7-1.4%2C4.1-2c0.7-0.3%2C1.4-0.6%2C2.1-0.9c0.7-0.3%2C1.4-0.6%2C2.1-0.9%20%20c2.8-1.2%2C5.7-2.2%2C8.7-3.1c0.7-0.2%2C1.5-0.4%2C2.2-0.7c0.7-0.2%2C1.5-0.4%2C2.2-0.6c1.5-0.4%2C3-0.8%2C4.5-1.1c0.7-0.2%2C1.5-0.3%2C2.3-0.5%20%20c0.8-0.2%2C1.5-0.3%2C2.3-0.5c0.8-0.1%2C1.5-0.3%2C2.3-0.4l1.1-0.2l1.2-0.2c0.8-0.1%2C1.5-0.2%2C2.3-0.3c0.9-0.1%2C1.7-0.2%2C2.6-0.3%20%20c0.7-0.1%2C1.9-0.2%2C2.6-0.3c0.5-0.1%2C1.1-0.1%2C1.6-0.2l1.1-0.1l0.5-0.1l0.6%2C0c0.9-0.1%2C1.7-0.1%2C2.6-0.2l1.3-0.1c0%2C0%2C0.5%2C0%2C0.1%2C0l0.3%2C0%20%20l0.6%2C0c0.7%2C0%2C1.5-0.1%2C2.2-0.1c2.9-0.1%2C5.9-0.1%2C8.8%2C0c5.8%2C0.2%2C11.5%2C0.9%2C17%2C1.9c11.1%2C2.1%2C21.5%2C5.6%2C31%2C10.3%20%20c9.5%2C4.6%2C17.9%2C10.3%2C25.3%2C16.5c0.5%2C0.4%2C0.9%2C0.8%2C1.4%2C1.2c0.4%2C0.4%2C0.9%2C0.8%2C1.3%2C1.2c0.9%2C0.8%2C1.7%2C1.6%2C2.6%2C2.4c0.9%2C0.8%2C1.7%2C1.6%2C2.5%2C2.4%20%20c0.8%2C0.8%2C1.6%2C1.6%2C2.4%2C2.5c3.1%2C3.3%2C6%2C6.6%2C8.6%2C10c5.2%2C6.7%2C9.4%2C13.5%2C12.7%2C19.9c0.2%2C0.4%2C0.4%2C0.8%2C0.6%2C1.2c0.2%2C0.4%2C0.4%2C0.8%2C0.6%2C1.2%20%20c0.4%2C0.8%2C0.8%2C1.6%2C1.1%2C2.4c0.4%2C0.8%2C0.7%2C1.5%2C1.1%2C2.3c0.3%2C0.8%2C0.7%2C1.5%2C1%2C2.3c1.2%2C3%2C2.4%2C5.9%2C3.3%2C8.6c1.5%2C4.4%2C2.6%2C8.3%2C3.5%2C11.7%20%20c0.3%2C1.4%2C1.6%2C2.3%2C3%2C2.1c1.5-0.1%2C2.6-1.3%2C2.6-2.8C342.6%2C170.4%2C342.5%2C166.1%2C342%2C161.2z%22%20%2F%3E%0A%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="830" y="1149" width="38" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="v126" value="Grafana" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="886" y="1143" width="252" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="v127" value="운영 대시보드" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="888" y="1180" width="252" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="alertmanager" value="" style="rounded=1;arcSize=5;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#C9BDD9;strokeWidth=1.2;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="810" y="1250" width="350" height="63" as="geometry" />
+        </mxCell>
+        <mxCell id="v129" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%20width%3D%2264%22%20height%3D%2264%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23198D86%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M13%2046h38l-5-7V27c0-9-5-15-14-15s-14%206-14%2015v12l-5%207zM26%2052a6%206%200%200012%200M29%2012V9a3%203%200%20016%200v3M8%2022a25%2025%200%20015-9M56%2022a25%2025%200%2000-5-9%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="830" y="1262" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="v130" value="Alertmanager" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=24;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="886" y="1260" width="252" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="report" value="" style="rounded=1;arcSize=5;absoluteArcSize=1;fillColor=#FFFFFF;strokeColor=#B9D5D5;strokeWidth=1.3;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="1140" width="740" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="v132" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232A878B%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M7%202h13l6%206v22H7zM20%202v7h6M11%2015h11M11%2020h11M11%2025h8%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1393" y="1162" width="42" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="v133" value="일일·장애 보고" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=28;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1455" y="1154" width="628" height="47" as="geometry" />
+        </mxCell>
+        <mxCell id="v134" value="서비스 로그·지표 수집 → AI 요약(외부 API) → 보고서" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=21;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1393" y="1220" width="694" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v135" value="systemd timer · 장애 발생 시 실행 / 운영 조치는 사람이 판단" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#2A878B;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1393" y="1261" width="694" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="e136" edge="1" parent="1" source="prom" target="grafana" style="edgeStyle=none;rounded=0;html=0;strokeColor=#7964A4;strokeWidth=2.1;dashed=1;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.4909090909090909;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="735" y="1221" as="sourcePoint" />
+            <mxPoint x="810" y="1168" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="771" y="1221" />
+              <mxPoint x="771" y="1168" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e137" edge="1" parent="1" target="alertmanager" style="edgeStyle=none;rounded=0;html=0;strokeColor=#7964A4;strokeWidth=2.1;dashed=1;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;entryX=0.0;entryY=0.49206349206349204;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="771" y="1221" as="sourcePoint" />
+            <mxPoint x="810" y="1281" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="771" y="1281" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e138" edge="1" parent="1" source="alertmanager" target="report" style="edgeStyle=none;rounded=0;html=0;strokeColor=#7964A4;strokeWidth=2.1;dashed=1;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.49206349206349204;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.0;entryY=0.4666666666666667;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1160" y="1281" as="sourcePoint" />
+            <mxPoint x="1370" y="1217" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1220" y="1281" />
+              <mxPoint x="1220" y="1217" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v139" value="장애 보고" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#7964A4;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="1177" width="126" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="e140" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#7964A4;strokeWidth=2.1;dashed=1;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1220" y="1281" as="sourcePoint" />
+            <mxPoint x="2304" y="1267" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1220" y="1361" />
+              <mxPoint x="2252" y="1361" />
+              <mxPoint x="2252" y="1267" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v141" value="기본 장애 알림 · AI 응답을 기다리지 않음" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#7964A4;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1410" y="1365" width="676" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="e142" edge="1" parent="1" source="report" style="edgeStyle=none;rounded=0;html=0;strokeColor=#2A878B;strokeWidth=2.3;dashed=1;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;exitX=1.0;exitY=0.4303030303030303;exitDx=0;exitDy=0;exitPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2110" y="1211" as="sourcePoint" />
+            <mxPoint x="2304" y="1211" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v143" value="HTTPS" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#2A878B;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2164" y="1173" width="108" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="teams" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#F6F5FB;strokeColor=#CAC5E0;strokeWidth=1.4;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="2304" y="1160" width="205" height="163" as="geometry" />
+        </mxCell>
+        <mxCell id="v145" value="" style="rounded=1;arcSize=3;absoluteArcSize=1;fillColor=#6264A7;strokeColor=#6264A7;strokeWidth=1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="2328" y="1181" width="45" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v146" value="T" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=29;fontColor=#FFFFFF;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2332" y="1181" width="37" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="v147" value="Microsoft" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2384" y="1181" width="111" height="27" as="geometry" />
+        </mxCell>
+        <mxCell id="v148" value="Teams" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=26;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2384" y="1210" width="109" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v149" value="장애 알림 · 운영 보고" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=17;fontColor=#61758A;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2320" y="1273" width="173" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="v150" value="VM에서 연계 검증" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2301" y="1339" width="211" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="v151" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%222%22%20y%3D%225%22%20width%3D%2228%22%20height%3D%2222%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22m7%2011%205%205-5%205M16%2021h8%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="106" y="1124" width="61" height="61" as="geometry" />
+        </mxCell>
+        <mxCell id="v152" value="운영자" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=25;fontColor=#19324B;fontStyle=1;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="61" y="1207" width="160" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="v153" value="SSH 키 · sudo 제한" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="34" y="1252" width="218" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="e154" edge="1" parent="1" target="host" style="edgeStyle=none;rounded=0;html=0;strokeColor=#2767A0;strokeWidth=2.1;dashed=1;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;entryX=0.0;entryY=0.789908256880734;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="190" y="1160" as="sourcePoint" />
+            <mxPoint x="282" y="1160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v155" value="SSH" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#2767A0;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="198" y="1125" width="77" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="v156" value="관리 접근 → 각 VM" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=center;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="39" y="1298" width="211" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v157" value="" style="rounded=1;arcSize=6;absoluteArcSize=1;fillColor=#F5F7F9;strokeColor=#E0E7ED;strokeWidth=1.1;dashed=0;dashPattern=6 4;" vertex="1" parent="1">
+          <mxGeometry x="64" y="1420" width="2432" height="98" as="geometry" />
+        </mxCell>
+        <mxCell id="v158" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M16%202%2028%207v9c0%207-8%2012-12%2014C12%2028%204%2023%204%2016V7zM10%2016l4%204%208-9%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="86" y="1447" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="v159" value="계정·접근" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=23;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="139" y="1433" width="512" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v160" value="SSH 키 · 최소 sudo · 서비스 계정" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="139" y="1476" width="512" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v161" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%222%22%20y%3D%225%22%20width%3D%2228%22%20height%3D%2222%22%20rx%3D%222%22%2F%3E%3Cpath%20d%3D%22m7%2011%205%205-5%205M16%2021h8%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="692" y="1447" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="v162" value="서비스·로그" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=23;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="745" y="1433" width="512" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v163" value="systemd · 재부팅 확인 · 로그 보존" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="745" y="1476" width="512" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v164" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%2211%22%20y%3D%222%22%20width%3D%2210%22%20height%3D%228%22%20rx%3D%221%22%2F%3E%3Crect%20x%3D%221%22%20y%3D%2223%22%20width%3D%2210%22%20height%3D%227%22%20rx%3D%221%22%2F%3E%3Crect%20x%3D%2221%22%20y%3D%2223%22%20width%3D%2210%22%20height%3D%227%22%20rx%3D%221%22%2F%3E%3Cpath%20d%3D%22M16%2010v8M6%2023v-5h20v5%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1298" y="1447" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="v165" value="네트워크" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=23;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1351" y="1433" width="512" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v166" value="허용 포트 · firewalld · SELinux" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1351" y="1476" width="512" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="v167" value="" style="shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%20fill%3D%22none%22%20stroke%3D%22%232767A0%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cellipse%20cx%3D%2216%22%20cy%3D%226%22%20rx%3D%2212%22%20ry%3D%224%22%2F%3E%3Cpath%20d%3D%22M4%206v19c0%206%2024%206%2024%200V6M4%2015c0%206%2024%206%2024%200%22%2F%3E%3C%2Fsvg%3E;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1904" y="1447" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="v168" value="디스크·복원" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=23;fontColor=#19324B;fontStyle=1;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1957" y="1433" width="512" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="v169" value="마운트 · 권한 · 별도 백업 복원" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=20;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="1957" y="1476" width="512" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="e170" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#19324B;strokeWidth=2.4;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="67" y="1558" as="sourcePoint" />
+            <mxPoint x="110" y="1558" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v171" value="서비스" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="121" y="1541" width="116" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="e172" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#438B58;strokeWidth=2.4;dashed=0;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="262" y="1558" as="sourcePoint" />
+            <mxPoint x="305" y="1558" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v173" value="복제·백업" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="317" y="1541" width="159" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="e174" edge="1" parent="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#7964A4;strokeWidth=2.1;dashed=1;dashPattern=6 5;endArrow=block;endFill=1;endSize=9;startArrow=none;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="483" y="1558" as="sourcePoint" />
+            <mxPoint x="526" y="1558" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="v175" value="관측·보고" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=18;fontColor=#61758A;fontStyle=0;align=left;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="538" y="1541" width="176" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v176" value="단일 PC의 VM 실습은 물리 HA·AWS ASG 검증을 대신하지 않음" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#61758A;fontStyle=0;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="855" y="1540" width="1170" height="31" as="geometry" />
+        </mxCell>
+        <mxCell id="v177" value="주소·통신 정책은 구축 시 확정" style="text;html=0;whiteSpace=wrap;overflow=hidden;strokeColor=none;fillColor=none;fontFamily=Malgun Gothic;fontSize=19;fontColor=#61758A;fontStyle=0;align=right;verticalAlign=middle;spacing=0;" vertex="1" parent="1">
+          <mxGeometry x="2070" y="1540" width="426" height="31" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

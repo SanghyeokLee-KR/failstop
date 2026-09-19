@@ -1,0 +1,107 @@
+Browser tab: 2017667309, Title: "EC2 Instance Connect | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4".
+0 AXWebArea EC2 Instance Connect | ap-northeast-2, URL: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4
+	1 container b
+		36 container consoleNavHeader
+			37 container awsc-nav-header
+				38 image Account color: 설정 해제
+				39 container Global
+					40 container awsc-top-level-nav
+						41 link Description: AWS 콘솔 홈, Value: ap-northeast-2.console.aws.amazon.com/console/home?region=ap-northeast-2, ID: nav-home-link
+						42 link Description: Skip to Main Content, Value: ap-northeast-2.console.aws.amazon.com/ec2-instance-connect/ssh/home?region=ap-northeast-2&connType=standard&instanceId=i-06ff9b16739362b14&osUser=ec2-user&sshPort=22&addressFamily=ipv4#c
+						43 button (collapsed) Description: Services, Secondary Actions: Expand
+							44 image
+						45 container aws-unified-search-container
+							46 container
+								47 image Search
+								48 combo box (collapsed, settable) Description: Search, ID: awsc-concierge-input, Secondary Actions: Expand
+								49 button Ask Amazon Q
+								50 text [Alt+S]
+						51 link Description: CloudShell, Value: ap-northeast-2.console.aws.amazon.com/cloudshell/home?region=ap-northeast-2, ID: awsc-nav-scallop-icon
+						52 container
+							53 pop up button Description: Notifications (none available), Help: Notifications
+								54 image Notifications
+							55 image Notifications
+						56 content list awsc-navigation__more-menu--list
+							57 button (collapsed) Description: Help & support, Secondary Actions: Expand
+								58 image Support
+							59 button (collapsed) Description: Settings, Secondary Actions: Expand
+							60 combo box (collapsed) Description: Regions (아시아 태평양 (서울)), Value: 아시아 태평양 (서울), Secondary Actions: Expand
+								61 text 아시아 태평양 (서울)
+							62 button (collapsed) Description: 2026-ai-kopo-04 @ 6192-5696-4117, ID: nav-usernameMenu, Secondary Actions: Expand
+								63 text Account ID: 6192-5696-4117
+								64 text 2026-ai-kopo-04
+		12 container
+			13 container Notifications
+				14 content list Description: Notifications, ID: flashbar1-1789829137356-8727
+			15 text Content loaded
+			65 container
+				66 content list
+					91 text OpenJDK Runtime Environment Corretto-21.0.12.9.1 (build 21.0.12.1+9-LTS)
+					92 text OpenJDK 64-Bit Server VM Corretto-21.0.12.9.1 (build 21.0.12.1+9-LTS, mixed mode, sharing)
+					93 text exchange HTTPS: 200
+					94 text [ec2-user@ip-172-31-44-141 ~]$ aws s3 cp s3://2026-ai-kopo-04-exchange-artifacts-619256964117/exchange-
+					95 text app-3362117.zip /tmp/exchange-app-3362117.zip --only-show-errors && sha256sum /tmp/exchange-app-3362117
+					96 text .zip && unzip -l /tmp/exchange-app-3362117.zip | head -n 16
+					97 text e401a778edacf6e0279229f37dcaebc0619bc81f385a00ca2abb594fbbc5c5ed  /tmp/exchange-app-3362117.zip
+					98 text Archive:  /tmp/exchange-app-3362117.zip
+					99 text   Length      Date    Time    Name
+					100 text ---------  ---------- -----   ----
+					101 text  53461799  09-19-2026 18:41   app.jar
+					102 text      2454  09-19-2026 19:30   MigrateDatabase.class
+					103 text ---------                     -------
+					104 text  53464253                     2 files
+					105 text [ec2-user@ip-172-31-44-141 ~]$ sudo install -d -m 0700 /root/exchange-bot-transfer && sudo openssl req 
+					106 text -x509 -newkey rsa:3072 -sha256 -nodes -days 2 -subj '/CN=school-bot-settings-transfer' -keyout /root/ex
+					107 text change-bot-transfer/recipient.key -out /root/exchange-bot-transfer/recipient.crt 2>/dev/null && sudo ch
+					108 text mod 600 /root/exchange-bot-transfer/recipient.key && sudo cat /root/exchange-bot-transfer/recipient.crt
+					109 text -----BEGIN CERTIFICATE-----
+					110 text MIIELzCCApegAwIBAgIUfNLJ0k2HQOsiPiiodXA4W1wGkQ0wDQYJKoZIhvcNAQEL
+					111 text BQAwJzElMCMGA1UEAwwcc2Nob29sLWJvdC1zZXR0aW5ncy10cmFuc2ZlcjAeFw0y
+					112 text NjA5MTkxNDUxNTJaFw0yNjA5MjExNDUxNTJaMCcxJTAjBgNVBAMMHHNjaG9vbC1i
+					113 text b3Qtc2V0dGluZ3MtdHJhbnNmZXIwggGiMA0GCSqGSIb3DQEBAQUAA4IBjwAwggGK
+					114 text AoIBgQCtxTErvIPAM8bfnhanVdlWUxiP6b7+uWrB9CUjBu6uT/fpELjG9F0h8dxG
+					115 text GGABdtyk1CwzHrQ8r3zMV/en7YH7GT401ah99WDZhMm9JfQkCrAa4KilDEsFCihR
+					116 text jdVZ0T0m8hOm/boyWZPp68ZdwlHf6n0JyZBK/BJBccGOxW9naJ8bqGycI8kZzjAn
+					117 text Mrwe3qlpLoS6chWXXOgkDS6pXzQdHRGvXjCdebMkRAA5WKsUbcwUBQy/aKz+0dXo
+					118 text RS/ihgOJ0NhdRzBkVdDIhda2XEHCgjn2rZbH8tKu3P45kfHbVeiQPaDAckFpgnVh
+					119 text EeDMbsWx4RH9p0KNU2fVW5C016x36MEweEkaLWNwPvjuz/FuBG+mo/s8rJR/wGG/
+					120 text RBT4kyCNYE3FixkacCymiiwTPBnUEL1sUUeDq5G12ouGYWesMHTsPjpLe6cjF+hT
+					121 text DgsWj6Swwo8XlBphOlgvVU17a+yD3enZZOBp1hlfOn+o7Obwof9Itqdqs4haDZR8
+					122 text FrnMxp8CAwEAAaNTMFEwHQYDVR0OBBYEFM+NDSjMpT+NU7s1DKPS6Mc5iiM5MB8G
+					123 text A1UdIwQYMBaAFM+NDSjMpT+NU7s1DKPS6Mc5iiM5MA8GA1UdEwEB/wQFMAMBAf8w
+					124 text DQYJKoZIhvcNAQELBQADggGBAFt3Ehwl3gZ4i37X7JVsW/XbiwMGQ4d+p3hesFb5
+					125 text ay0JFnmGLNqNCS0kgDdmhYSG2pG6fVzp59ZwntEpaz1juj1Ke5wv9nqwvyl1BZNO
+					126 text CicQ3W+LhzqaDMC7tq1zMAINhfTRLr2jba0JSTgS5PmOqRz769I+AGk5mQgmMPiK
+					127 text w98GbcpqD978mT4HngTvzV1o1p1N034bPSVDWmnfHQcXpyzSRZhTaBjKPY9r71ZJ
+					128 text BFu43QxNt+xKtJE52Jxg8cqMMl/Eibi373/T7PtMn7+XJMNh3WgYUOJbusbicLaR
+					129 text vbYr6bVATJlZSQ8XiIC0j1csyvybgl+xr451BRGNLq704a2i7V+1soO7hagJPNlI
+					130 text WRys/sATDf7oX1N8jXsj0W7aR4Xo6wE/YgKz0cS+WJVpcCqSpyN2nUUmz3QGKwM1
+					131 text +LAXPTiLidMOjSzXK9xCeIbKYJEJo/otl9bPDzQDmdrD8YW5hlHyYlDIyIkMs1eg
+					132 text TQ4+lSB6pPTPf747b093g89vwg==
+					133 text -----END CERTIFICATE-----
+					134 text [ec2-user@ip-172-31-44-141 ~]$ 
+				135 text Too much output to announce, navigate to rows manually to readx509 -newkey rsa:3072 -sha256 -nodes -days 2 -subj '/CN=school-bot-settings-transfer' -keyout /root/exchange-bot-transfer/recipient.key -out /root/exchange-bot-transfer/recipient.crt 2>/dev/null && sudo chmod 600 /root/exchange-bot-transfer/recipient.key && sudo cat /root/exchange-bot-transfer/recipient.crt sudo install -d -m 0700 /root/exchange-bot-transfer && sudo openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 2 -subj '/CN=school-bot-settings-transfer' -keyout /root/exchange-bot-transfer/recipient.key -out /root/exchange-bot-transfer/recipient.crt 2>/dev/null && sudo chmod 600 /root/exchange-bot-transfer/recipient.key && sudo cat /root/exchange-bot-transfer/recipient.crt t -----BEGIN CERTIFICATE----- MIIELzCCApegAwIBAgIUfNLJ0k2HQOsiPiiodXA4W1wGkQ0wDQYJKoZIhvcNAQEL BQAwJzElMCMGA1UEAwwcc2Nob29sLWJvdC1zZXR0aW5ncy10cmFuc2ZlcjAeFw0y NjA5MTkxNDUxNTJaFw0yNjA5MjExNDUxNTJaMCcxJTAjBgNVBAMMHHNjaG9vbC1i b3Qtc2V0dGluZ3MtdHJhbnNmZXIwggGiMA0GCSqGSIb3DQEBAQUAA4IBjwAwggGK AoIBgQCtxTErvIPAM8bfnhanVdlWUxiP6b7+uWrB9CUjBu6uT/fpELjG9F0h8dxG GGABdtyk1CwzHrQ8r3zMV/en7YH7GT401ah99WDZhMm9JfQkCrAa4KilDEsFCihR jdVZ0T0m8hOm/boyWZPp68ZdwlHf6n0JyZBK/BJBccGOxW9naJ8bqGycI8kZzjAn Mrwe3qlpLoS6chWXXOgkDS6pXzQdHRGvXjCdebMkRAA5WKsUbcwUBQy/aKz+0dXo RS/ihgOJ0NhdRzBkVdDIhda2XEHCgjn2rZbH8tKu3P45kfHbVeiQPaDAckFpgnVh EeDMbsWx4RH9p0KNU2fVW5C016x36MEweEkaLWNwPvjuz/FuBG+mo/s8rJR/wGG/ RBT4kyCNYE3FixkacCymiiwTPBnUEL1sUUeDq5G12ouGYWesMHTsPjpLe6cjF+hT DgsWj6Swwo8XlBphOlgvVU17a+yD3enZZOBp1hlfOn+o7Obwof9Itqdqs4haDZR8 FrnMxp8CAwEAAaNTMFEwHQYDVR0OBBYEFM+NDSjMpT+NU7s1DKPS6Mc5iiM5MB8G A1UdIwQYMBaAFM+NDSjMpT+NU7s1DKPS6Mc5iiM5MA8GA1UdEwEB/wQFMAMBAf8w DQYJKoZIhvcNAQELBQADggGBAFt3Ehwl3gZ4i37X7JVsW/XbiwMGQ4d+p3hesFb5 ay0JFnmGLNqNCS0kgDdmhYSG2pG6fVzp59ZwntEpaz1juj1Ke5wv9nqwvyl1BZNO CicQ3W+LhzqaDMC7tq1zMAINhfTRLr2jba0JSTgS5PmOqRz769I+AGk5mQgmMPiK w98GbcpqD978mT4HngTvzV1o1p1N034bPSVDWmnfHQcXpyzSRZhTaBjKPY9r71ZJ BFu43QxNt+xKtJE52Jxg8cqMMl/Eibi373/T7PtMn7+XJMNh3WgYUOJbusbicLaR
+				80 text field (settable) Terminal input
+			23 button Close instance info
+			81 heading i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01), Value: 3
+				82 text i-06ff9b16739362b14 (2026-ai-kopo-04-bot-01)
+			83 container
+				84 text PublicIPs: 43.201.27.88 PrivateIPs: 172.31.44.141
+		26 container f
+			27 container console-nav-footer
+				28 container awsc-nav-footer-content
+					85 button CloudShell, Help: Open CloudShell, ID: tools-experience-ingress
+					29 button Agent Toolkit for AWS
+					86 button Feedback, ID: feedback
+						87 text Feedback
+					30 button Console Mobile App, ID: mobile_app_button
+						31 image
+						88 text Console Mobile App
+					89 container
+						90 text ©  2026 ,  Amazon Web Services, Inc. or its affiliates.
+					32 content list
+						33 link Description: Privacy, Value: aws.amazon.com/privacy/
+						34 link Description: Terms, Value: aws.amazon.com/terms/
+						35 button Cookie preferences
+
+The focused UI element is 80 text field (settable) Terminal input
