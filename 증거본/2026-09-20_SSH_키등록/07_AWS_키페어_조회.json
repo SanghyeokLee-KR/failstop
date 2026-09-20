@@ -1,0 +1,16 @@
+[
+    {
+        "Name": "2026-ai-kopo-04-ssh-01",
+        "Id": "key-0ac302e384325e1b8",
+        "Tags": [
+            {
+                "Key": "group",
+                "Value": "2026-ai-kopo"
+            },
+            {
+                "Key": "username",
+                "Value": "2026-ai-kopo-04"
+            }
+        ]
+    }
+]

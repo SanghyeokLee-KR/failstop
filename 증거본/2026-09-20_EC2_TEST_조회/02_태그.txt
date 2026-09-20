@@ -1,0 +1,44 @@
+Browser tab: 2017667404, Title: "인스턴스 | EC2 | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Instances:v=3;$case=tags:true%5C,client:false;$regex=tags:false%5C,client:false".
+The following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 530-725
+~										520 button 왼쪽으로 스크롤
+~											522 tab (selectable, settable, boolean) 세부 정보, Value: 0, ID: awsui-tabs-:rf7:-details
+~											528 tab (selected, settable, boolean) 태그, Value: 1, ID: awsui-tabs-:rf7:-tags
+~										529 button (disabled) 오른쪽으로 스크롤
++										742 container Description: 태그, ID: awsui-tabs-:rf7:-tags-panel
++											743 container :rq0:
++												744 heading 태그, Value: 2
++													745 text 태그
++												746 button 태그 관리
++												747 search text field (settable)
++												748 content list
++													749 button (disabled) 이전 페이지
++													750 button 전체 페이지 중 1페이지
++													751 button (disabled) 다음 페이지
++												752 button Preferences
++												753 table 태그
++													754 row
++														755 cell
++															756 button Key
++																757 text Key
++															758 í¬ê¸° ì¡°ì  ë²í¼ Key
++														759 cell
++															760 button Value
++																761 text Value
++															762 í¬ê¸° ì¡°ì  ë²í¼ Value
++													763 row
++														764 cell
++															765 text username
++														766 cell
++															767 text jpro
++													768 row
++														769 cell
++															770 text Name
++														771 cell
++															772 text EC2_TEST
++													773 row
++														774 cell
++															775 text group
++														776 cell
++															777 text admin
+The focused UI element is 528 tab (selected, settable, boolean) 태그, Value: 1, ID: awsui-tabs-:rf7:-tags

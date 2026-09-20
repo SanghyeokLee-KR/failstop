@@ -1,0 +1,2 @@
+uid=1000(ec2-user) gid=1000(ec2-user) groups=1000(ec2-user),4(adm),10(wheel),190(systemd-journal) context=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+ip-172-31-1-229.ap-northeast-2.compute.internal

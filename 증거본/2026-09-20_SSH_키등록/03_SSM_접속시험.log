@@ -1,0 +1,2 @@
+
+aws: [ERROR]: An error occurred (AccessDeniedException) when calling the TerminateSession operation: User: arn:aws:iam::619256964117:user/2026-ai-kopo-04 is not authorized to perform: ssm:TerminateSession on resource: arn:aws:ssm:ap-northeast-2:619256964117:session/2026-ai-kopo-04-els8ulec6qkj8xenvs55u5apyy because no identity-based policy allows the ssm:TerminateSession action

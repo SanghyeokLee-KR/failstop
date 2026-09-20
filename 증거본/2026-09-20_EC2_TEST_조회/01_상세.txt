@@ -1,0 +1,3 @@
+Browser tab: 2017667404, Title: "인스턴스 | EC2 | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Instances:v=3;$case=tags:true%5C,client:false;$regex=tags:false%5C,client:false".
+There has been no change in the accessibility tree.
+The focused UI element is 112 AXWebArea 인스턴스, URL: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#Instances:v=3;$case=tags:true%5C,client:false;$regex=tags:false%5C,client:false

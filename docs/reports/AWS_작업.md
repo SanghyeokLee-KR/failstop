@@ -25,6 +25,31 @@
 
 SSM 콘솔의 대상 조회 권한은 거부됐지만 학교 사용자 CloudShell과 이 PC에서 봇 노드의 포트 포워딩 세션 생성은 성공했다. 조회 거부를 모든 세션 연결의 거부로 해석하지 않는다. PC 브라우저에서 Grafana 로그인 화면까지 확인했으며 관리자 계정 생성과 대시보드 로그인·지표 표시까지 확인했다. 아래 접속 절에서 이어간다.
 
+## AWS 키페어와 PuTTY 접속 파일
+
+2026-09-20 학교 계정의 EC2 키페어 `2026-ai-kopo-04-ssh-01`을 RSA 2048비트·PEM 형식으로 생성했다. ID는 `key-0ac302e384325e1b8`이며 username·group 자동 태그를 확인했다. AWS에서 생성한 개인키를 이 PC에 저장하고 같은 키의 PuTTY PPK 사본을 만들었다. 원본 PEM과 PPK에서 추출한 공개키가 일치한다. 키 내용은 Git·증거·채팅에 저장하지 않는다.
+
+PC 저장 위치는 `C:\Users\DEV-PC\.ssh\school-exchange`다. `2026-ai-kopo-04-ssh-01.pem`은 OpenSSH용, `2026-ai-kopo-04-ssh-01.ppk`는 PuTTY용이다. 파일은 현재 Windows 사용자와 SYSTEM만 접근하도록 제한했다. 개인키에 별도 암호문구는 설정하지 않았으므로 파일 자체를 자격증명으로 보호한다. 다른 PC로 옮길 때 Git이나 공개 링크를 사용하지 않는다.
+
+앱·DB 두 대·봇 서버의 `ec2-user` 공개키 목록에 기존 항목을 보존하며 추가했다. `.ssh`는 700, `authorized_keys`는 600과 ec2-user 소유권을 확인했다. sshd 설정 검사와 네 서버 모두 실제 공개키 인증·사용자·호스트명 확인을 마쳤다. 호스트 공개키는 인증된 SSM 세션에서 수집해 별도 known_hosts에 저장하고 SSH에서 엄격하게 대조했다. 서비스 재시작·DB 변경·SG 변경은 하지 않았다.
+
+실행 중인 인스턴스에 공개키를 추가해도 EC2의 '시작 시 할당된 키 페어' 표시는 바뀌지 않는다. 해당 표시는 생성 당시 설정이며 SSH 인증 가능 여부는 서버의 공개키 등록과 실제 접속으로 판단한다.
+
+현재 성공한 경로는 SSM을 경유한 SSH다. 인터넷 전체에 22번 포트를 열지 않았다. PuTTY에서 공인 IP로 직접 접속하려면 현재 접속 PC의 공인 IP 한 개를 허용하는 기존 SG 규칙이 별도로 필요하며, 이 변경은 아직 적용하지 않았다. 키 파일이 있다고 네트워크 제한을 통과하는 것은 아니다.
+
+PuTTY에서 사용할 파일은 위 PPK이며 로그인 사용자는 `ec2-user`다. 직접 접속 경로가 허용된 뒤 서버의 현재 공인 IP·포트 22를 입력하고 Connection → SSH → Auth → Credentials의 개인키 파일 항목에서 PPK를 선택한다. 최초 호스트키는 이번 증거의 서버별 공개키와 대조한다. 이번에 PuTTY GUI 접속 자체를 시험한 것은 아니다.
+
+OpenSSH의 검증된 접속 예시는 다음과 같다. 기존 AWS CLI 프로파일 로그인이 유효해야 하며 만료됐으면 학교 계정으로 다시 로그인한다.
+
+```powershell
+$env:PATH = 'C:\Program Files\Amazon\SessionManagerPlugin\bin;' + $env:PATH
+$keyDir = Join-Path $env:USERPROFILE '.ssh\school-exchange'
+$proxy = 'aws.exe ssm start-session --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p --profile school-2026-ai-kopo-04 --region ap-northeast-2'
+ssh -o "ProxyCommand=$proxy" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o HostKeyAlgorithms=ssh-ed25519 -o "UserKnownHostsFile=$keyDir\known_hosts" -i "$keyDir\2026-ai-kopo-04-ssh-01.pem" ec2-user@i-0465dd41a0390f262
+```
+
+키 생성 시 직접 태그 추가는 정책으로 거부돼 태그 없이 생성하고 자동 태그를 확인했다. SSM SendCommand·인스턴스 목록 조회는 거부됐지만 StartInteractiveCommand와 StartSSHSession은 성공했다. PC의 Session Manager 플러그인 경로 누락으로 초기 접속이 실패했으며 해당 프로세스의 PATH를 보완했다. 이를 권한 우회나 전체 SSM 권한 허용으로 해석하지 않는다. [명령·접속 결과·콘솔 화면](../../증거본/2026-09-20_SSH_키등록/README.md)에 근거를 남겼다.
+
 ## 완료한 작업과 확인 방법
 
 서버 생성 뒤 OS·메모리·디스크·라우팅·시간 동기화·기본 서비스를 확인했다. 이어 journald에 디스크 사용 상한 256MiB와 보존 기간 상한 7일을 설정하고, 실제 재부팅 뒤 이전 부팅의 시험 로그가 남는지 확인했다. SSH 재접속과 기본 서비스의 실행, 루트 파일시스템의 읽기·쓰기도 확인했다. 거래 서비스나 DB 복구 시험은 아직 아니다.
@@ -55,7 +80,7 @@ DB 그룹 `sg-03b023cf05dc4bafe`는 빈 인바운드로 생성하고 username �
 4. ALB·ASG와 시작 템플릿 권한을 학교 운영자에게 확인한 후 조회 계층 min 2 / desired 2 / max 3을 배포·검증한다. 기존 쓰기 앱의 이중화는 리더·인증 설정·DB 연결 풀까지 별도로 확인한다. 권한이 없으면 새 노드를 임의 생성하지 않는다.
 5. [보고한 전체 구성도](../../아키텍쳐/교수님_보고본/01_전체구성/거래소_하이브리드_인프라_v5.png)와 실제 배치의 차이를 설명하고, 부하·복구·보고의 실제 영상과 측정값을 발표에 넣는다. 구성 요소가 늘면 비용을 다시 계산한다. 완료 조건은 로드맵 M4를 따른다.
 
-Claude로 이어갈 때는 [시작 요청문](../ai/prompts.md#학교-aws-작업을-claude에서-이어갈-때)을 사용한다. 아래 설치 절은 재현을 위한 당시 기록이다. 학교 원격 브랜치의 구현을 통합했지만 기존 EC2를 이번에 재배포한 것은 아니므로, 코드와 실행 상태를 구분한다.
+Claude로 이어갈 때는 [시작 요청문](../ai/prompts.md#학교-aws-작업을-claude에서-이어갈-때)을 사용한다. 발표용 그림 제작은 별도의 [다이어그램 제작 전달 사항](../ai/prompts.md#claude에서-발표용-awslinux-다이어그램을-이어서-만들-때)에 범위·순서·완료 기준을 정리했다. 아래 설치 절은 재현을 위한 당시 기록이다. 학교 원격 브랜치의 구현을 통합했지만 기존 EC2를 이번에 재배포한 것은 아니므로, 코드와 실행 상태를 구분한다.
 
 앱 실행 조건은 [application.yml](../../server/app/src/main/resources/application.yml)의 `prod` 설정과 [기존 앱 배포 설정](../../deploy/compose.node-app.yml)에서 확인했다. DB 접속 정보 외에 `EXCHANGE_AUTH_MASTER_KEY_BASE64`, `EXCHANGE_MEMBER_PASSWORD_PEPPER_BASE64`, `EXCHANGE_MEMBER_SESSION_SEED_BASE64`, CORS와 WebSocket 허용 출처가 필요하다. 실제 비밀 값은 이 문서·화면·Git에 남기지 않는다. DB 마이그레이션은 첫 노드에서 한 번 적용하고 이미 적용한 Flyway 파일은 수정하지 않는다.
 

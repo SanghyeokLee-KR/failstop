@@ -1,0 +1,28 @@
+Browser tab: 2017667404, Title: "키 페어 | EC2 | ap-northeast-2", URL: "https://ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#KeyPairs:".
+The following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 159, 162
++												187 container 다음 키 페어 선택: 2026-ai-kopo-04-ssh-01
++													188 checkbox (settable, integer) Description: 다음 키 페어 선택: 2026-ai-kopo-04-ssh-01, Value: 0, ID: :rcm:
++											189 cell
++												190 text 2026-ai-kopo-04-ssh-01
++											191 cell
++												192 text rsa
++											193 cell
++												194 text 2026/09/20 02:49 GMT+9
++											195 cell
++												196 text ef:70:ce:f4:b4:2e:99:c7:75:00:2e:8a:5b:bb:14:ca:3b:9a:4e:72
++											197 cell
++												198 text key-0ac302e384325e1b8
++												199 container 다음 키 페어 선택: jpr_EC2_TEST
++													200 checkbox (settable, integer) Description: 다음 키 페어 선택: jpr_EC2_TEST, Value: 0, ID: :rco:
++											201 cell
++												202 text jpr_EC2_TEST
++											203 cell
++												204 text rsa
++											205 cell
++												206 text 2026/09/19 13:28 GMT+9
++											207 cell
++												208 text c8:3d:b7:2a:f8:3e:68:b0:84:80:9b:45:40:0b:cf:5c:92:a4:34:49
++											209 cell
++												210 text key-097d77b8cf74f3ce3
+The focused UI element is 111 AXWebArea 키 페어, URL: ap-northeast-2.console.aws.amazon.com/ec2/home?region=ap-northeast-2#KeyPairs:

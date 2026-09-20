@@ -1,0 +1,15 @@
+{
+  "commands": [
+    "set -eu",
+    "id ec2-user",
+    "test -d /home/ec2-user",
+    "install -d -m 700 -o ec2-user -g ec2-user /home/ec2-user/.ssh",
+    "touch /home/ec2-user/.ssh/authorized_keys",
+    "grep -qxF 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC9YKZt7Oi4QGcmDYqwZqgS50pobgmXiaMy8zgDp/ZvnCeG7f4YQfGipUcv5OuXLJpfjF+opfBcpj3+42wo/Z/NfKdOyqbZc1pQDeJ6M4sSmRSzPjuT/EV1KvsWkLIE3R/OGritW+4Dl3gJl6J1HYyAiO4yyLAiYlexeQWhIVuWmR18LjTmBetloP/J5CGQ7hXhlCjyj+3QLEKJ0er7urFNnCQdYi7jOl6zhv5uKh3A++yNhUlVERJzIcOuuLcl/9UmRSY1SO0G1jSF2DpopfV4ETUh3uNbmc9z4yDmPELarMm4UEfgHK7zPbVmq7++7zaY3iqGlRC6ytv7hSjHK/0L 2026-ai-kopo-04-ssh-01' /home/ec2-user/.ssh/authorized_keys || printf '%s\\n' 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC9YKZt7Oi4QGcmDYqwZqgS50pobgmXiaMy8zgDp/ZvnCeG7f4YQfGipUcv5OuXLJpfjF+opfBcpj3+42wo/Z/NfKdOyqbZc1pQDeJ6M4sSmRSzPjuT/EV1KvsWkLIE3R/OGritW+4Dl3gJl6J1HYyAiO4yyLAiYlexeQWhIVuWmR18LjTmBetloP/J5CGQ7hXhlCjyj+3QLEKJ0er7urFNnCQdYi7jOl6zhv5uKh3A++yNhUlVERJzIcOuuLcl/9UmRSY1SO0G1jSF2DpopfV4ETUh3uNbmc9z4yDmPELarMm4UEfgHK7zPbVmq7++7zaY3iqGlRC6ytv7hSjHK/0L 2026-ai-kopo-04-ssh-01' >> /home/ec2-user/.ssh/authorized_keys",
+    "chown ec2-user:ec2-user /home/ec2-user/.ssh/authorized_keys",
+    "chmod 600 /home/ec2-user/.ssh/authorized_keys",
+    "ssh-keygen -lf /home/ec2-user/.ssh/authorized_keys",
+    "/usr/sbin/sshd -t",
+    "stat -c \"%U %G %a %n\" /home/ec2-user/.ssh /home/ec2-user/.ssh/authorized_keys"
+  ]
+}

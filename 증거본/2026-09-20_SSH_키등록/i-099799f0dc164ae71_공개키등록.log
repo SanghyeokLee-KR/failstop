@@ -1,0 +1,11 @@
+
+Starting session with SessionId: 2026-ai-kopo-04-chf7sakkygbairg5kcziyy6qpe
+uid=1000(ec2-user) gid=1000(ec2-user) groups=1000(ec2-user),4(adm),10(wheel),190(systemd-journal)
+2048 SHA256:aS9Smz1HUw59uMP5xpZhEVuOWG7CHnzeZbGg6RA31EQ 2026-ai-kopo-04-ssh-01 (RSA)
+ec2-user ec2-user 700 /home/ec2-user/.ssh
+ec2-user ec2-user 600 /home/ec2-user/.ssh/authorized_keys
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGJtj4/U13thG5UwqoeW9UvvmmHLF+37jH1ffW33AZst root@ip-172-31-33-195.ap-northeast-2.compute.internal
+
+
+Exiting session with sessionId: 2026-ai-kopo-04-chf7sakkygbairg5kcziyy6qpe.
+
