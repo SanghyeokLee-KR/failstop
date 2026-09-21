@@ -1,0 +1,28 @@
+top - 08:18:59 up 1 day, 22:54,  1 user,  load average: 3.39, 3.32, 2.82
+Threads:  47 total,   5 running,  42 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 50.0 us, 50.0 sy,  0.0 ni,  0.0 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
+MiB Mem :   1909.7 total,     66.3 free,    692.9 used,   1150.5 buff/cache
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.    942.9 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 167172 exchange  20   0 3588500 522224  26312 R  66.7  26.7  14:31.49 HikariP+
+  49513 exchange  20   0 3588500 522224  26312 R  60.0  26.7  19:23.83 ForkJoi+
+  49481 exchange  20   0 3588500 522224  26312 R  40.0  26.7  12:28.63 market-+
+  49568 exchange  20   0 3588500 522224  26312 R  33.3  26.7   4:39.33 Virtual+
+  49480 exchange  20   0 3588500 522224  26312 R  13.3  26.7  13:12.83 HikariP+
+  49460 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:00.01 java
+  49461 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:09.63 java
+  49462 exchange  20   0 3588500 522224  26312 S   0.0  26.7   1:47.33 VM Peri+
+  49463 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:19.49 VM Thre+
+  49464 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:00.03 Referen+
+  49465 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:00.00 Finaliz+
+  49466 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:00.00 Signal +
+  49467 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:00.25 Service+
+  49468 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:17.72 Monitor+
+  49469 exchange  20   0 3588500 522224  26312 S   0.0  26.7   1:02.56 C2 Comp+
+  49470 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:08.64 C1 Comp+
+  49471 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:02.00 Notific+
+  49472 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:00.11 Common-+
+  49473 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:00.15 Cleaner+
+  49476 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:06.95 Catalin+
+  49477 exchange  20   0 3588500 522224  26312 S   0.0  26.7   0:06.75 Catalin+

@@ -95,7 +95,7 @@ exchange-platform/   (목표 구조. 정정 2026-09-10: 실제 Gradle 모듈은 
 | 관심사 | 최종 선택 | 확정 버전 (2026-07 기준) | 선택 이유 |
 |---|---|---|---|
 | **런타임 기반** | **Spring Boot 3.5.16 + Java 21** | SB 3.5.16 | 전 스택 GA 검증. Resilience4j·Chaos Monkey 등 회복탄력성/카오스 도구가 정식 지원되는 유일한 안정 경로. |
-| **REST 계층** | Spring MVC + **Java 21 Virtual Threads** (`spring.threads.virtual.enabled=true`) | SB BOM | DB-heavy 워크로드에서 가상 스레드가 tail latency 우세. JPA/JDBC 그대로 사용 → 완성도·유지보수 유리. |
+| **REST 계층** | Spring MVC + **플랫폼 스레드**(`spring.threads.virtual.enabled=false`) | SB BOM | 정정(2026-09-21): 가상 스레드를 껐다. 학교 app-1에서 HikariCP `ConcurrentBag`의 연결 인계가 가상 스레드 대기자에게 성립하지 않아 반납·추가·예약해제가 `Thread.yield` 루프에 갇히는 라이브락이 발생했다(ADR 0033, §7-5). 이 뒤는 종전 선정 사유이며 현 설정이 아니다. ~~DB-heavy 워크로드에서 가상 스레드가 tail latency 우세.~~ JPA/JDBC 그대로 사용 → 완성도·유지보수 유리. |
 | **실시간 푸시** | **WebSocket + STOMP** (`spring-boot-starter-websocket`) | SB BOM | 호가/체결/잔고 다채널 구독. 공개 `/topic/**`=Redis Pub/Sub 릴레이, 비공개 `/user/queue/**`=**외부 STOMP 브로커 릴레이(RabbitMQ/ActiveMQ)로 크로스노드 user-destination 라우팅**(§5-1). |
 | **영속성(도메인)** | ~~Spring Data JPA / Hibernate 6.6.x~~ **미채택** | 없음 | 정정(2026-09-10): 의존과 사용처가 저장소에 0건이다. 실제 배선은 `spring-boot-starter-jdbc` 의 `JdbcClient` 하나다(`server/app/build.gradle.kts:19`). 낙관적 락은 `@Version` 이 아니라 SQL 로 건다. |
 | **영속성(핫패스 조회)** | **미채택**. 정정(2026-09-10): jOOQ 의존이 저장소에 0건이고 핫패스 조회도 `JdbcClient` 로 쓴다. 이 뒤는 종전 선정 사유이며 현 배선이 아니다. ~~jOOQ~~ (Community, Apache 2.0) | **SB BOM 위임(3.5.x 관리 라인=3.19.x)** | 호가 집계·체결 페이징·리포팅. 컴파일타임 타입안전. 정정(v2.4): 개별 핀 `3.20/3.21` 제거. jOOQ는 SB BOM 관리 항목이라 개별 핀은 버전 고정 원칙(하단) 위반이자 BOM 라인 오버라이드(Q12의 Flyway와 동일 논리). |
@@ -111,7 +111,7 @@ exchange-platform/   (목표 구조. 정정 2026-09-10: 실제 Gradle 모듈은 
 | **부하 테스트** | **k6 (메인)** + Gatling(발표용, 선택) | k6 2.0 / Gatling 3.13+ | Thresholds→exit code로 SLO CI 게이팅. WS 부하 지원. |
 | **카오스** | **Toxiproxy(네트워크) + Chaos Monkey(앱) + docker kill(인프라)** | toxiproxy 모듈=**TC(SB BOM) 위임**(v2.4, TC 개별 핀 제거와 동일 논리) / **chaos-monkey-spring-boot 3.x (SB3 정합, BOM 미관리 → 개별 관리)** | 정정: 초안의 "Chaos Monkey 4.0.0=SB3 타깃" 경고는 **사실과 반대**(4.0.0은 SB4.0.2 기반=SB4 지원). SB3.5 경로에선 **3.x 라인을 사용**. Toxiproxy=네트워크, Chaos Monkey=앱 계층 상호보완. |
 | **매칭엔진 동시성** | **LMAX Disruptor** | 4.0.0 (min JDK 11, Java 21 OK) | 락-프리 링버퍼. 참고: 4.0.0(2023-09) 이후 유지보수 정체 → **1차 `ArrayBlockingQueue`로 결정론 완성 후, 벤치마크로 실측 이득 확인되면 교체**(handler 인터페이스 동일). |
-| **커넥션 풀** | **HikariCP** | SB BOM | 신규: VirtualThreads+JDBC 조합의 **pinning·풀 사이징** 명시(§7-5). 풀 고갈이 p99 SLO 직결. |
+| **커넥션 풀** | **HikariCP** | SB BOM | 신규: VirtualThreads+JDBC 조합의 **pinning·풀 사이징** 명시(§7-5). 풀 고갈이 p99 SLO 직결. 정정(2026-09-21): 가상 스레드 조합 자체를 철회했다(ADR 0033). 풀을 작게 고정하는 기준과 트랜잭션 경계를 짧게 유지하는 기준은 유지한다. |
 | **DB 자체 HA** | **PostgreSQL 직접 운영**(primary 1대 + standby 1대, 비동기 스트리밍 복제) | (인프라) | 정정(v2.44): 초안이 Patroni(+etcd)+HAProxy 였으나 채택하지 않았다. `server`·`deploy`·`harness` 전역에 patroni·etcd·haproxy 가 0건이다. 정정(ADR 0024): 상시면 복제를 비동기 2노드로 내린다. `synchronous_standby_names` 를 비우므로 standby 상실이 primary 커밋을 멈추지 않는다. 배선은 `deploy/compose.node-data.yml` 이다. 종전의 동기 정족수(`ANY 1`, standby 2대, ADR 0018)는 `harness/scale/standby_up.sh` 가 거는 카오스·규격 평면 실험 구성으로만 남고 상시면 계약이 아니다. **failover 포함 RPO=0 은 주장하지 않는다.** 유실 창은 복제 지연만큼이다. 정정(v2.45): 2026-09-12 실측에서 복제가 따라오는 중 급사는 ACK 88건 중 0건, 대기 서버를 8초 멈춘 뒤 급사는 ACK 122건 중 36건이다(`harness/evidence/failover-rpo-20260912/`). 정상 구간의 0을 무손실 보장으로 읽지 않는다. 무손실 failover 요건은 DB§7.2 가 소유하며 현행 구성은 그 요건을 충족하지 않는다. **DB 자동 페일오버가 없다**(저장소 전역에 `pg_ctl promote`·`pg_promote()`·`promote_trigger_file` 0건). 수동 승격 절차는 `docs/reference/operations/DB_수동_페일오버.md` 다. 진입 라우팅은 `deploy/nginx-edge.conf.template` 의 두 업스트림(`exchange_read`·`exchange_write`)이 맡는다. | 정정(v2.44): 초안이 Patroni(+etcd)+HAProxy 였으나 채택하지 않았다. `server`·`deploy`·`harness` 전역에 patroni·etcd·haproxy 가 0건이고, 정족수는 `harness/scale/standby_up.sh` 가 `ALTER SYSTEM SET synchronous_standby_names = 'ANY 1 (...)'` 로 직접 건다(정본 6.3, ADR 0018). failover RPO=0은 무조건 성립하지 않는다. 성립 조건(운영 요건): 동기 standby 강제, 정산·저널 트랜잭션에 `synchronous_commit=on`(remote flush 이상), PITR 아카이브 병행. 비동기 standby failover·스토리지 손실·조기 승격에서는 유실 가능. 진입 라우팅은 `deploy/nginx-edge.conf.template` 의 두 업스트림(`exchange_read`·`exchange_write`)이 맡는다. **DB 클러스터 리더 선출과 STONITH 의 담당 주체는 미결이다**(정본 13.2 의 10 이 승격 시 동기 복제 대상 재설정을 미배선으로 등재). |
 
 **버전 고정 원칙**: Micrometer/JUnit/Hibernate 개별 고정 금지 → **Spring Boot BOM 위임**. 스타터만 추가. (표에서 개별 핀은 Resilience4j·ShedLock 등 BOM 미관리 항목에만 남긴다.) 정정(v2.44): 종전 열거의 Kafka-client 를 뺀다. 메시징/이벤트가 미채택이라 BOM 위임 대상 자체가 없다(위 메시징/이벤트 행).
@@ -1534,8 +1534,12 @@ CONNECT 자체 인증 실패만 연결 종료(이때는 STOMP 1.2 규약대로 `
 
 ### 7-5. VirtualThreads × JDBC 커넥션 풀 (기술 검증 반영)
 
-- HikariCP `maximumPoolSize`는 CPU/DB 코어에 맞춰 **작게 고정**한다. 현행 배포는 dev 16 / prod 32 다(`server/app/src/main/resources/application.yml` 116·167행). 버킷 배분은 §2-5-a. 가상 스레드는 수만 개여도 **DB 동시성은 풀 크기로 제한**하는 것이 핵심(무한 확장 금지).
-- **pinning 회피**: JDBC 드라이버가 `synchronized` 블록에서 캐리어 스레드를 고정할 수 있으므로, 트랜잭션 경계를 짧게 유지하고 `jdk.tracePinnedThreads`로 모니터링. 풀 고갈이 p99 SLO 직결 → 부하테스트로 풀 사이즈 튜닝.
+**정정(2026-09-21): 가상 스레드를 채택하지 않는다(ADR 0033).** 아래 두 항목은 풀 크기 고정과 캐리어 고정만 위험으로 다뤘고, 반납한 연결이 대기자에게 인계되지 않는 경우를 다루지 않았다. 학교 app-1에서 `ConcurrentBag`이 가상 스레드 대기자에게 연결을 직접 넘기지 못해 `add`·`requite`·`unreserve`가 모두 `Thread.yield` 루프에 갇혔다. 반납·추가 측은 플랫폼 스레드라 2 vCPU를 그대로 소모했고, 캐리어가 스케줄되지 못해 인계가 더 어려워지는 자기강화 구조가 됐다. 초당 459,033~573,169회 컨텍스트 스위치와 시스템 시간 57~64%가 관측됐고 모든 요청이 응답하지 않았다. 데드락이 아니라 라이브락이라 JVM 데드락 진단에는 잡히지 않는다. 원본은 `증거본/2026-09-21_앱장애_행/`에 있다.
+
+이번 장애는 **풀 고갈이 아니라 인계 실패**이므로 `maximumPoolSize` 상한을 올려도 해결되지 않는다. 풀을 작게 고정한다는 아래 기준은 그대로 유지한다.
+
+- HikariCP `maximumPoolSize`는 CPU/DB 코어에 맞춰 **작게 고정**한다. 현행 배포는 dev 16 / prod 32 다(`server/app/src/main/resources/application.yml` 121·184행). 버킷 배분은 §2-5-a. 동시 요청이 아무리 늘어도 **DB 동시성은 풀 크기로 제한**하는 것이 핵심(무한 확장 금지). 정정(2026-09-21): 종전 문장의 "가상 스레드는 수만 개여도"라는 전제를 뺀다.
+- **pinning 회피**: JDBC 드라이버가 `synchronized` 블록에서 캐리어 스레드를 고정할 수 있으므로, 트랜잭션 경계를 짧게 유지하고 `jdk.tracePinnedThreads`로 모니터링. 풀 고갈이 p99 SLO 직결 → 부하테스트로 풀 사이즈 튜닝. 정정(2026-09-21): 캐리어가 없으므로 pinning은 현재 적용 대상이 아니다. 트랜잭션 경계를 짧게 유지하는 기준과 부하테스트로 풀을 정한다는 기준은 유지한다. 가상 스레드를 다시 켠다면 이 항목과 위 라이브락을 함께 확인한다.
 
 ### 7-6. 페일오버 주문 상태머신 (UNKNOWN 해소)
 

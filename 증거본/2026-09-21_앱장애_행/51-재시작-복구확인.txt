@@ -1,0 +1,46 @@
+** WARNING: connection is not using a post-quantum key exchange algorithm.
+** This session may be vulnerable to "store now, decrypt later" attacks.
+** The server may need to be upgraded. See https://openssh.com/pq.html
+##### readiness 폴링 (최대 150초)
+08:21:56 시도1 readiness=000
+08:22:01 시도2 readiness=000
+08:22:07 시도3 readiness=200
+##### 서비스 상태
+● exchange-app.service - Exchange API and matching engine
+     Loaded: loaded (/etc/systemd/system/exchange-app.service; enabled; preset: disabled)
+    Drop-In: /etc/systemd/system/exchange-app.service.d
+             └─40-java-shutdown.conf
+     Active: active (running) since Mon 2026-09-21 08:21:50 UTC; 16s ago
+   Main PID: 169481 (java)
+      Tasks: 59 (limit: 512)
+     Memory: 290.6M (max: 1.3G available: 1.0G)
+        CPU: 29.141s
+     CGroup: /system.slice/exchange-app.service
+             └─169481 /usr/bin/java -Duser.timezone=UTC -Xms256m -Xmx768m -XX:+ExitOnOutOfMemoryError -jar /opt/exchange/current/app.jar
+
+##### 기동 로그 (엔진 복구·리더 확인)
+2026-09-21T08:22:03.881Z  INFO 169481 --- [exchange] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 153 ms
+2026-09-21T08:22:03.904Z  INFO 169481 --- [exchange] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 5 endpoints beneath base path '/actuator'
+2026-09-21T08:22:04.019Z  INFO 169481 --- [exchange] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8081 (http) with context path '/'
+2026-09-21T08:22:04.045Z  INFO 169481 --- [exchange] [           main] kr.exchange.config.EngineConfig          : 명령 채번 축: 전역 (journal_cutover command_seq 래치 없음)
+2026-09-21T08:22:04.112Z  INFO 169481 --- [exchange] [0.1-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-09-21T08:22:04.112Z  INFO 169481 --- [exchange] [0.1-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-09-21T08:22:04.115Z  INFO 169481 --- [exchange] [0.1-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 3 ms
+2026-09-21T08:22:04.182Z  INFO 169481 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 스냅샷 채택(마켓별): [1@414037, 2@413887, 4@413992]
+2026-09-21T08:22:04.659Z  INFO 169481 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 재생 1단계(마켓별 물질화 경계 상한): 마켓 3개, 적용 83건, 대조 133건
+2026-09-21T08:22:04.667Z  INFO 169481 --- [exchange] [           main] kr.exchange.engine.EngineRecovery        : 재생 적용(마켓별): {1=414037..414049 8건, 2=413887..414048 58건, 4=413992..414052 17건}
+2026-09-21T08:22:04.686Z  INFO 169481 --- [exchange] [           main] kr.exchange.engine.LeaderLeaseService    : 리스 보관소: postgres(leader_lease) + 계측, ttl=PT10S, tick=PT3S
+2026-09-21T08:22:04.688Z  INFO 169481 --- [exchange] [           main] kr.exchange.engine.FollowerCatchUp       : 팔로워 따라잡기 시작: 주기 PT1S
+2026-09-21T08:22:04.688Z  INFO 169481 --- [exchange] [   leader-lease] com.zaxxer.hikari.HikariDataSource       : exchange-lease - Starting...
+2026-09-21T08:22:04.734Z  INFO 169481 --- [exchange] [           main] kr.exchange.ExchangeApplication          : Started ExchangeApplication in 12.716 seconds (process running for 13.86)
+2026-09-21T08:22:04.780Z  INFO 169481 --- [exchange] [   leader-lease] com.zaxxer.hikari.pool.HikariPool        : exchange-lease - Added connection org.postgresql.jdbc.PgConnection@3a42e7fe
+2026-09-21T08:22:04.782Z  INFO 169481 --- [exchange] [   leader-lease] com.zaxxer.hikari.HikariDataSource       : exchange-lease - Start completed.
+2026-09-21T08:22:04.799Z  INFO 169481 --- [exchange] [   leader-lease] kr.exchange.engine.LeaderLeaseService    : 리더 승격: holder=459bd839-790f-49c9-a576-bdf1ac433a58, epoch=6
+2026-09-21T08:22:04.810Z  INFO 169481 --- [exchange] [ngine-promotion] k.exchange.engine.PromotionCoordinator   : 승격 재생 생략(모든 마켓 head 도달), 라이터에 설치: epoch=6, 마켓 커서={1=414049, 2=414048, 4=414052}, head={1=414049, 2=414048, 4=414052}
+2026-09-21T08:22:04.812Z  INFO 169481 --- [exchange] [ngine-promotion] kr.exchange.engine.HaAvailability        : readiness 전이: ACCEPTING_TRAFFIC
+2026-09-21T08:22:05.397Z  INFO 169481 --- [exchange] [0.1-8080-exec-4] com.zaxxer.hikari.HikariDataSource       : exchange-append - Starting...
+2026-09-21T08:22:05.451Z  INFO 169481 --- [exchange] [0.1-8080-exec-4] com.zaxxer.hikari.pool.HikariPool        : exchange-append - Added connection org.postgresql.jdbc.PgConnection@22bd426e
+2026-09-21T08:22:05.453Z  INFO 169481 --- [exchange] [0.1-8080-exec-4] com.zaxxer.hikari.HikariDataSource       : exchange-append - Start completed.
+2026-09-21T08:22:06.982Z  INFO 169481 --- [exchange] [0.1-8081-exec-1] o.a.c.c.C.[Tomcat-1].[localhost].[/]     : Initializing Spring DispatcherServlet 'dispatcherServletRegistration'
+2026-09-21T08:22:06.982Z  INFO 169481 --- [exchange] [0.1-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServletRegistration'
+2026-09-21T08:22:06.983Z  INFO 169481 --- [exchange] [0.1-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 0 ms

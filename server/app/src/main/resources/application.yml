@@ -16,7 +16,12 @@ spring:
     name: exchange
   threads:
     virtual:
-      enabled: true
+      # 2026-09-21 학교 app-1의 요청 처리가 전면 중단됐다. HikariCP ConcurrentBag은 대기자가 있으면
+      # 연결을 인계 큐로 직접 넘기는데 대기 측이 가상 스레드여서 인계가 성립하지 않았다. 반납·추가·
+      # 예약해제가 모두 Thread.yield 루프에 갇혀 2 vCPU를 채웠고, 캐리어가 스케줄되지 못해 스스로를
+      # 강화하는 라이브락이 됐다. 다시 켜려면 인계 경로부터 바꾸고 부하 조건에서 재현을 검증한다.
+      # ADR 0033, 증거본/2026-09-21_앱장애_행.
+      enabled: false
   profiles:
     default: dev
 

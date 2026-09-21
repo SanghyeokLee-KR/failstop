@@ -1,0 +1,34 @@
+** WARNING: connection is not using a post-quantum key exchange algorithm.
+** This session may be vulnerable to "store now, decrypt later" attacks.
+** The server may need to be upgraded. See https://openssh.com/pq.html
+##### CPU·컨텍스트 스위치 정상화 확인 (장애 시 cs 46~57만)
+procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+ 0  0      0 277392    840 1167908    0    0     1    34  118   78  1  1 98  0  0
+ 0  0      0 277360    840 1167920    0    0     0     4  805  796 16  1 83  0  0
+ 2  0      0 277108    840 1167928    0    0     0     4 1005 1227 39  2 59  0  0
+##### load
+ 08:22:18 up 1 day, 22:57,  1 user,  load average: 2.91, 3.24, 2.89
+##### 가상 스레드 비활성 확인 (VirtualThread/ForkJoinPool carrier 부재 + exec 스레드 존재)
+     24 http-ni+
+      4 Catalin+
+      3 matchin+
+      2 java
+      2 exchang+
+      2 contain+
+      2 VM
+      2 HikariP+
+      2 Cleaner+
+      1 ws-hear+
+      1 snapsho+
+      1 market-+
+##### yield 스핀 재발 여부
+ConcurrentBag yield 스핀 프레임: 0건 (장애 시 3건)
+Carrying virtual thread: 0건 (장애 시 1건)
+##### 내부 API 응답
+/api/v1/markets -> 200 0.003725s
+/api/v1/candles?market=KRW-BTC -> 404 0.014959s
+##### 최근 체결 (봇 거래 재개 확인)
+{"schema_version":"1.0","data":[{"trade_id":"1000000232465","market":"KRW-BTC","price":"84692000","volume":"0.001","taker_side":"ask","liquidity_flag_taker":"TAKER","timestamp":"2026-09-21T08:22:19.424Z","seq":1000000232465},{"trade_id":"1000000232463","market":"KRW-BTC","price":"84697000","volume":"0.003","taker_side":"bid","liquidity_flag_taker":"TAKER","timestamp":"2026-09-21T08:22:18.480Z","se
+##### DB 연결 수
+10

@@ -1,0 +1,85 @@
+** WARNING: connection is not using a post-quantum key exchange algorithm.
+** This session may be vulnerable to "store now, decrypt later" attacks.
+** The server may need to be upgraded. See https://openssh.com/pq.html
+##### 수집시각
+2026-09-21T08:18:11+00:00
+##### uptime / load / vCPU
+ 08:18:11 up 1 day, 22:53,  1 user,  load average: 3.37, 3.30, 2.77
+nproc=2
+3.37 3.30 2.77 7/194 168986
+##### 메모리
+               total        used        free      shared  buff/cache   available
+Mem:            1909         692          65         123        1151         944
+Swap:              0           0           0
+##### 디스크
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p1   20G  2.6G   18G  13% /
+-- inode
+/dev/nvme0n1p1 10479552 53329 10426223    1% /
+##### CPU 상태 (steal=크레딧 소진 지표)
+procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+ 5  0      0  66916    840 1178804    0    0     1    34  108   27  1  1 98  0  0
+ 5  0      0  66924    840 1178868    0    0     0     0 2854 573169 43 57  0  0  0
+ 3  0      0  66924    840 1178868    0    0     0    52 7852 544109 36 64  0  0  0
+##### 상위 프로세스
+top - 08:18:13 up 1 day, 22:53,  1 user,  load average: 3.37, 3.30, 2.77
+Tasks: 114 total,   1 running, 113 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 33.3 us, 66.7 sy,  0.0 ni,  0.0 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
+MiB Mem :   1909.7 total,     65.2 free,    692.4 used,   1152.1 buff/cache
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.    944.2 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+  49460 exchange  20   0 3588500 522224  26312 S 182.4  26.7  98:15.29 java
+      1 root      20   0  173708  18132  10948 S   0.0   0.9   0:50.52 systemd
+      2 root      20   0       0      0      0 S   0.0   0.0   0:00.04 kthreadd
+      3 root      20   0       0      0      0 S   0.0   0.0   0:00.00 pool_wo+
+      4 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+      5 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+      6 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+      7 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+      8 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+     10 root       0 -20       0      0      0 I   0.0   0.0   0:00.45 kworker+
+     13 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+     14 root      20   0       0      0      0 S   0.0   0.0   0:02.36 ksoftir+
+     15 root      20   0       0      0      0 I   0.0   0.0   0:29.08 rcu_pre+
+##### exchange-app 서비스
+● exchange-app.service - Exchange API and matching engine
+     Loaded: loaded (/etc/systemd/system/exchange-app.service; enabled; preset: disabled)
+    Drop-In: /etc/systemd/system/exchange-app.service.d
+             └─40-java-shutdown.conf
+     Active: active (running) since Sat 2026-09-19 16:55:35 UTC; 1 day 15h ago
+   Main PID: 49460 (java)
+      Tasks: 47 (limit: 512)
+     Memory: 500.1M (max: 1.3G available: 899.8M)
+        CPU: 1h 38min 15.467s
+     CGroup: /system.slice/exchange-app.service
+             └─49460 /usr/bin/java -Duser.timezone=UTC -Xms256m -Xmx768m -XX:+ExitOnOutOfMemoryError -jar /opt/exchange/current/app.jar
+
+Sep 21 03:26:47 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[49460]: 2026-09-21T03:26:47.749Z  INFO 49460 --- [exchange] [MessageBroker-2] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 60 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(60)-CONNECTED(36)-DISCONNECT(14)], stompBrokerRelay[null], inboundChannel[unknown], outboundChannel[unknown], sockJsScheduler[pool size = 2, active threads = 1, queued tasks = 0, completed tasks = 69]
+Sep 21 03:56:47 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[49460]: 2026-09-21T03:56:47.750Z  INFO 49460 --- [exchange] [MessageBroker-2] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 60 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(60)-CONNECTED(36)-DISCONNECT(14)], stompBrokerRelay[null], inboundChannel[unknown], outboundChannel[unknown], sockJsScheduler[pool size = 2, active threads = 1, queued tasks = 0, completed tasks = 70]
+Sep 21 04:26:47 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[49460]: 2026-09-21T04:26:47.750Z  INFO 49460 --- [exchange] [MessageBroker-2] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 60 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(60)-CONNECTED(36)-DISCONNECT(14)], stompBrokerRelay[null], inboundChannel[unknown], outboundChannel[unknown], sockJsScheduler[pool size = 2, active threads = 1, queued tasks = 0, completed tasks = 71]
+Sep 21 04:56:47 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[49460]: 2026-09-21T04:56:47.751Z  INFO 49460 --- [exchange] [MessageBroker-2] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 61 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(61)-CONNECTED(37)-DISCONNECT(14)], stompBrokerRelay[null], inboundChannel[unknown], outboundChannel[unknown], sockJsScheduler[pool size = 2, active threads = 1, queued tasks = 0, completed tasks = 72]
+Sep 21 05:26:47 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[49460]: 2026-09-21T05:26:47.751Z  INFO 49460 --- [exchange] [MessageBroker-1] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 61 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(61)-CONNECTED(37)-DISCONNECT(14)], stompBrokerRelay[null], inboundChannel[unknown], outboundChannel[unknown], sockJsScheduler[pool size = 2, active threads = 1, queued tasks = 0, completed tasks = 73]
+Sep 21 05:56:47 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[49460]: 2026-09-21T05:56:47.751Z  INFO 49460 --- [exchange] [MessageBroker-1] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 61 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(61)-CONNECTED(37)-DISCONNECT(14)], stompBrokerRelay[null], inboundChannel[unknown], outboundChannel[unknown], sockJsScheduler[pool size = 2, active threads = 1, queued tasks = 0, completed tasks = 74]
+Sep 21 06:26:47 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[49460]: 2026-09-21T06:26:47.752Z  INFO 49460 --- [exchange] [MessageBroker-1] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 61 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(61)-CONNECTED(37)-DISCONNECT(14)], stompBrokerRelay[null], inboundChannel[unknown], outboundChannel[unknown], sockJsScheduler[pool size = 2, active threads = 1, queued tasks = 0, completed tasks = 75]
+Sep 21 06:56:47 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[49460]: 2026-09-21T06:56:47.752Z  INFO 49460 --- [exchange] [MessageBroker-1] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 61 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(61)-CONNECTED(37)-DISCONNECT(14)], stompBrokerRelay[null], inboundChannel[unknown], outboundChannel[unknown], sockJsScheduler[pool size = 2, active threads = 1, queued tasks = 0, completed tasks = 76]
+Sep 21 07:26:47 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[49460]: 2026-09-21T07:26:47.753Z  INFO 49460 --- [exchange] [MessageBroker-1] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 61 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(61)-CONNECTED(37)-DISCONNECT(14)], stompBrokerRelay[null], inboundChannel[unknown], outboundChannel[unknown], sockJsScheduler[pool size = 2, active threads = 1, queued tasks = 0, completed tasks = 77]
+Sep 21 07:56:47 ip-172-31-2-86.ap-northeast-2.compute.internal exchange-app[49460]: 2026-09-21T07:56:47.754Z  INFO 49460 --- [exchange] [MessageBroker-1] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 65 total, 0 closed abnormally (0 connect failure, 0 send limit, 2 transport error)], stompSubProtocol[processed CONNECT(65)-CONNECTED(41)-DISCONNECT(16)], stompBrokerRelay[null], inboundChannel[unknown], outboundChannel[unknown], sockJsScheduler[pool size = 2, active threads = 1, queued tasks = 0, completed tasks = 78]
+##### listen 포트
+LISTEN 0      511               0.0.0.0:80        0.0.0.0:*    users:(("nginx",pid=48339,fd=8),("nginx",pid=48338,fd=8),("nginx",pid=33804,fd=8))   
+LISTEN 0      511               0.0.0.0:443       0.0.0.0:*    users:(("nginx",pid=48339,fd=15),("nginx",pid=48338,fd=15),("nginx",pid=33804,fd=15))
+LISTEN 0      100    [::ffff:127.0.0.1]:8080            *:*    users:(("java",pid=49460,fd=13))                                                     
+LISTEN 0      100    [::ffff:127.0.0.1]:8081            *:*    users:(("java",pid=49460,fd=17))                                                     
+##### 8080 연결 수
+21
+##### DB 5432 연결 시험 (현재 Primary 172.31.33.195)
+OK
+##### DB 5432 연결 시험 (Standby 172.31.1.229)
+OK
+##### 앱이 연 DB 연결 수
+12
+##### readiness (관리 8081)
+code=000 time=15.001467s
+##### 앱 직접 호출 8080
+code=000 time=15.001943s

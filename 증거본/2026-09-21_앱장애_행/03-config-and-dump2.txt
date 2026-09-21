@@ -1,0 +1,35 @@
+** WARNING: connection is not using a post-quantum key exchange algorithm.
+** This session may be vulnerable to "store now, decrypt later" attacks.
+** The server may need to be upgraded. See https://openssh.com/pq.html
+##### 앱 환경설정에서 virtual/hikari/pool 관련 (값은 마스킹)
+/etc/exchange/app.env:SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=16
+/etc/exchange/app.env:SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE=4
+/etc/exchange/app.env:EXCHANGE_ENGINE_APPEND_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=14
+/etc/exchange/app.env:EXCHANGE_ENGINE_APPEND_DATASOURCE_HIKARI_MINIMUM_IDLE=2
+/etc/exchange/app.env:EXCHANGE_ENGINE_LEASE_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=2
+/etc/exchange/app.env:EXCHANGE_ENGINE_LEASE_DATASOURCE_HIKARI_MINIMUM_IDLE=1
+/etc/exchange/app.env.before-https:SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=16
+/etc/exchange/app.env.before-https:SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE=4
+/etc/exchange/app.env.before-https:EXCHANGE_ENGINE_APPEND_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=14
+/etc/exchange/app.env.before-https:EXCHANGE_ENGINE_APPEND_DATASOURCE_HIKARI_MINIMUM_IDLE=2
+/etc/exchange/app.env.before-https:EXCHANGE_ENGINE_LEASE_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=2
+/etc/exchange/app.env.before-https:EXCHANGE_ENGINE_LEASE_DATASOURCE_HIKARI_MINIMUM_IDLE=1
+/etc/exchange/app.env.before-recovery-20260920:SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=16
+/etc/exchange/app.env.before-recovery-20260920:SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE=4
+/etc/exchange/app.env.before-recovery-20260920:EXCHANGE_ENGINE_APPEND_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=14
+/etc/exchange/app.env.before-recovery-20260920:EXCHANGE_ENGINE_APPEND_DATASOURCE_HIKARI_MINIMUM_IDLE=2
+/etc/exchange/app.env.before-recovery-20260920:EXCHANGE_ENGINE_LEASE_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=2
+/etc/exchange/app.env.before-recovery-20260920:EXCHANGE_ENGINE_LEASE_DATASOURCE_HIKARI_MINIMUM_IDLE=1
+##### 서비스 파일 환경
+EnvironmentFile=/etc/exchange/app.env
+EnvironmentFile=/etc/exchange/app-secret.env
+ExecStart=/usr/bin/java -Duser.timezone=UTC -Xms256m -Xmx768m -XX:+ExitOnOutOfMemoryError -jar /opt/exchange/current/app.jar
+##### JVM 시작 인자
+/usr/bin/java -Duser.timezone=UTC -Xms256m -Xmx768m -XX:+ExitOnOutOfMemoryError -jar /opt/exchange/current/app.jar 
+##### 두 번째 스레드 덤프 (같은 지점에 갇혀 있는지 확인)
+2회차 yield 스핀 스레드 프레임 수: 6
+      1         at com.zaxxer.hikari.util.ConcurrentBag.add(ConcurrentBag.java:224)
+      1         at com.zaxxer.hikari.util.ConcurrentBag.requite(ConcurrentBag.java:198)
+      1         at com.zaxxer.hikari.util.ConcurrentBag.unreserve(ConcurrentBag.java:322)
+##### 현재 CPU 재확인
+ 5  0      0  74452    840 1168500    0    0     0     0 23309 459033 40 60  0  0  0

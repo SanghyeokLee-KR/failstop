@@ -630,3 +630,39 @@ Standby를 3분간 중지하고 자동 재기동을 예약해 DB 접속 실패·
 남은 운영 작업은 백업의 서버 외부 보관·자동 예약, 인증서 만료 대응, 실제 회원 주문과 장시간 증가량·메모리·CPU 크레딧 측정이다. 로컬 디스크의 백업과 보존한 옛 PGDATA는 볼륨 자체가 사라지는 사고를 막아 주지 않는다. 이번 시연에서는 실제 거래 데이터나 옛 데이터 디렉터리를 삭제하지 않았다.
 
 관측 역할 변경 뒤 과거 시계열이 남아 용량 보호기가 봇을 안전 중지했다. 90초 이내 파일시스템 표본만 선택하도록 보완했고, 첫 수정에서 발생한 PromQL 422 오류도 고쳤다. 네 호스트 용량·inode와 실패 누적 0을 확인한 뒤 봇을 수동 재개했다. 용량 임계값이나 수집 누락 시 중지 기준은 낮추지 않았다. 이 중단은 위 DB 전환 시간에 포함되지 않는다.
+
+## 2026-09-21 앱 무응답과 가상 스레드 철회
+
+공개 `https://www.sang.it.kr`의 정적 웹과 Grafana는 정상인데 `/api/*`만 30초 뒤 504를 반환했다. Nginx의 `proxy_connect_timeout`은 3초라서 프로세스가 죽었으면 즉시 502가 나야 한다. 504는 8080 연결이 성립하고 응답만 오지 않는다는 뜻이므로, 먼저 이 구분으로 죽은 것과 멈춘 것을 갈라야 한다.
+
+호스트에서 확인한 결과 `exchange-app`은 `active (running)`이었고 메모리 944MiB 여유, 루트 디스크 13% 사용, Primary·Standby 5432 연결 성립, `vmstat`의 steal 0이었다. 자원과 DB는 원인이 아니다. 대신 컨텍스트 스위치가 초당 459,033~573,169회, 시스템 시간이 57~64%였다.
+
+원인은 스레드 덤프로 확인했다. 8분 간격으로 두 번 뜬 덤프가 모두 `ConcurrentBag.add`·`requite`·`unreserve` 세 지점에서 `Thread.yield` 루프에 갇혀 있었다. HikariCP가 반납한 연결을 대기자에게 직접 인계하는 구간인데, 대기 측이 가상 스레드여서 인계가 성립하지 않았다. 반납 측은 플랫폼 스레드라 2 vCPU를 그대로 소모했고 캐리어가 스케줄되지 못해 상황이 더 나빠졌다. 데드락이 아니라 라이브락이라 JVM 진단에도 잡히지 않는다.
+
+### 재현할 때의 진단 순서
+
+```bash
+# 죽었나 멈췄나부터 가른다. 502면 프로세스, 504면 응답 없음이다.
+curl -s -o /dev/null -w '%{http_code} %{time_total}s\n' --max-time 40 https://www.sang.it.kr/api/v1/markets
+# 자원·DB를 먼저 배제한다. steal이 0이면 CPU 크레딧 문제가 아니다.
+free -m; df -h /; vmstat 1 3
+timeout 5 bash -c '</dev/tcp/172.31.33.195/5432' && echo "DB OK" || echo "DB FAIL"
+# 재시작 전에 덤프를 뜬다. 재시작하면 원인이 사라진다. SIGQUIT은 프로세스를 죽이지 않는다.
+sudo kill -3 $(systemctl show -p MainPID --value exchange-app); sleep 3
+sudo journalctl -u exchange-app --since '-1min' --no-pager > /tmp/threaddump.txt
+grep -cE 'ConcurrentBag\.(add|requite|unreserve)' /tmp/threaddump.txt
+```
+
+이 서버에 `jcmd`는 없다. Corretto headless 패키지에 포함되지 않으므로 `kill -3`으로 덤프를 받아 journald에서 읽는다.
+
+### 적용한 조치
+
+`/etc/exchange/app.env`를 `app.env.before-vthreads-20260921`로 복사해 SHA-256을 대조한 뒤 `SPRING_THREADS_VIRTUAL_ENABLED=false`를 추가하고 재시작했다. 파일 권한 `root:exchange 0640`은 유지했다. 재빌드나 재배포는 하지 않았고 JAR과 코드 리비전은 그대로다. 되돌리려면 이 줄을 지우고 재시작하면 되지만, 인계 경로를 바꾸지 않은 채 되돌리면 같은 장애가 재발한다.
+
+기동은 12.7초가 걸렸고 엔진 복구는 마켓별 스냅샷을 채택해 83건을 재생했다. 리더는 epoch=6으로 승격하고 모든 마켓이 head에 도달해 승격 재생을 생략했다. 조치 후 컨텍스트 스위치는 초당 78~1,227회, 시스템 시간은 1~2%로 내려갔고 양보 프레임과 가상 스레드 운반 표시는 0건이었다. 공개 API는 33ms에 200을 반환했고 봇 체결도 이어졌다.
+
+저장소 기본값도 같은 값으로 맞췄다. 근거와 한계는 [ADR 0033](../reference/adr/0033-no-virtual-threads-for-request-handling.md), 명령과 출력 원본은 [증거본](../../증거본/2026-09-21_앱장애_행/README.md)에 있다. 최초 유발 계기와 플랫폼 스레드 풀의 부하 여유는 확인하지 못했다.
+
+### 접속 경로 메모
+
+이번 진단은 앱 SG `sg-0e321b38da5cc8aaf`에 작업 PC 공인 IP 한 개를 허용하는 임시 규칙을 추가해 기존 키페어로 직접 SSH했다. 작업 후 규칙은 제거했다. 키 파일이 있어도 SG가 막혀 있으면 접속할 수 없으므로, 급할 때는 규칙 추가 대신 EC2 Instance Connect 브라우저 SSH를 쓰는 편이 빠르다. 임시 규칙을 남겨 두지 않는다.

@@ -1,0 +1,27 @@
+** WARNING: connection is not using a post-quantum key exchange algorithm.
+** This session may be vulnerable to "store now, decrypt later" attacks.
+** The server may need to be upgraded. See https://openssh.com/pq.html
+##### 1) 백업 (기존 백업 명명 규칙 유지)
+-rw-r-----. 1 root exchange 962 Sep 19 16:55 /etc/exchange/app.env
+-rw-r-----. 1 root exchange 962 Sep 19 16:55 /etc/exchange/app.env.before-vthreads-20260921
+##### 백업 해시 대조
+      2 993369db4197057f94175ac7ea68039e7b57a6d8365be46e99e7ce28b93affa2
+##### 2) 기존에 같은 키가 있는지 확인
+0
+없음(정상)
+##### 3) 설정 추가
+-- 추가 결과 (마지막 5줄)
+
+# 2026-09-21 HikariCP ConcurrentBag 라이브락 대응. 가상 스레드 인계 실패로
+# connection-adder/housekeeper/market-catalog-refresh가 Thread.yield 스핀에 갇혀
+# 요청 처리가 멈췄다. 되돌리려면 이 줄을 지운다. 증거본/2026-09-21_앱장애_행 참조.
+SPRING_THREADS_VIRTUAL_ENABLED=false
+-- 파일 권한 유지 확인
+-rw-r-----. 1 root exchange 1289 Sep 21 08:21 /etc/exchange/app.env
+##### 4) 재시작 직전 상태 기록
+2026-09-21T08:21:19+00:00
+ 08:21:19 up 1 day, 22:56,  1 user,  load average: 3.58, 3.35, 2.90
+재시작 전 PID: 49460
+##### 5) 재시작
+-- 재시작 명령 반환: 0
+재시작 후 PID: 169481
