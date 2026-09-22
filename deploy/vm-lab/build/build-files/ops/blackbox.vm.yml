@@ -1,0 +1,37 @@
+# OPS01 blackbox_exporter 설정. 배치 위치는 /etc/blackbox_exporter/blackbox.yml 이다.
+#
+# 무엇을 하는가
+#   EDGE01 의 진입 주소로 주기 조회를 넣어 진입 경로가 실제로 살아 있는지 확인한다.
+#   MSP 화면의 '서비스 경로 · 계층별 상태' canvas 가 edge 계층을 probe_success 로 판정하므로
+#   이 프로브가 없으면 그 칸이 영원히 '미수집' 이다.
+#
+# 덤으로 얻는 것
+#   /api/v1/markets 프로브는 EDGE01 을 지나 앱까지 도달한다. 그래서 앱의
+#   http_server_requests 히스토그램에 표본이 쌓이고 P95 응답시간 패널이 값을 갖는다.
+#   이 실습망에는 시장 봇이 없어 그 전에는 여섯 시간에 요청이 한 건이었다.
+#   합성 프로브가 만든 표본이라는 점은 잊지 않는다. 실제 사용자 부하가 아니다.
+#
+# 인증서를 왜 검증하는가
+#   EDGE01 인증서는 자체 서명이지만 SAN 에 192.168.10.11 과 192.168.56.11 이 함께 들어 있다.
+#   그래서 insecure_skip_verify 를 켜지 않고 그 인증서 자체를 CA 로 주면 검증이 통과한다.
+#   검증을 끄면 중간에서 가로채도 프로브가 성공으로 보인다. 관제가 거짓을 말하게 된다.
+#   인증서를 새로 만들면 /etc/blackbox_exporter/edge01.crt 도 함께 바꾼다.
+
+modules:
+  # 진입 경로 확인용. 2xx 만 성공으로 본다.
+  https_2xx:
+    prober: http
+    timeout: 8s
+    http:
+      method: GET
+      valid_http_versions: [HTTP/1.1, HTTP/2.0]
+      valid_status_codes: [200]
+      follow_redirects: false
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      tls_config:
+        ca_file: /etc/blackbox_exporter/edge01.crt
+        insecure_skip_verify: false
+      # EDGE01 은 Host 헤더를 그대로 앱에 넘긴다. 프로브도 실제 진입 주소를 쓴다.
+      headers:
+        User-Agent: blackbox_exporter/vm-lab

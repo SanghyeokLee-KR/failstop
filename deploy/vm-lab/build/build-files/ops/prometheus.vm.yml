@@ -80,3 +80,34 @@ scrape_configs:
         labels: {customer: exchange, environment: vm-lab, role: data, node: db01, service: database}
       - targets: ['192.168.10.32:9187']
         labels: {customer: exchange, environment: vm-lab, role: standby, node: db02, service: database}
+
+  # EDGE01 진입 경로의 합성 프로브. blackbox_exporter 가 OPS01 루프백 9115 에서 돈다.
+  # MSP 화면의 '서비스 경로 · 계층별 상태' canvas 가 edge 계층을 probe_success{job="blackbox-http"}
+  # 로 판정하므로 작업 이름을 바꾸지 않는다. role 은 02-정본결정.md 8절의 허용 값 안에 있어야
+  # 그 패널의 정규식에 걸린다.
+  #
+  # 대상이 둘인 이유는 보는 것이 다르기 때문이다. / 는 EDGE01 의 정적 웹까지, /api/v1/markets 는
+  # EDGE01 을 지나 앱까지 도달한다. 뒤엣것이 앱의 http_server_requests 히스토그램에 표본을 남겨
+  # P95 응답시간 패널이 값을 갖게 한다. 15초 주기로 5분 창에 스무 표본이 들어온다.
+  # 이 표본은 합성 프로브가 만든 것이다. 실제 사용자 부하가 아니라는 점을 판정에 반영한다.
+  #
+  # relabel 순서가 중요하다. __address__ 에 적은 URL 을 __param_target 으로 옮기고,
+  # instance 를 그 URL 로 잡은 다음, 마지막에 __address__ 를 exporter 주소로 바꾼다.
+  # 마지막 줄을 먼저 두면 Prometheus 가 URL 이 아니라 exporter 를 프로브 대상으로 넘긴다.
+  - job_name: blackbox-http
+    metrics_path: /probe
+    scrape_timeout: 10s
+    params:
+      module: [https_2xx]
+    static_configs:
+      - targets: ['https://192.168.10.11/']
+        labels: {customer: exchange, environment: vm-lab, role: edge, node: edge01, service: edge}
+      - targets: ['https://192.168.10.11/api/v1/markets']
+        labels: {customer: exchange, environment: vm-lab, role: edge, node: edge01, service: edge}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115

@@ -32,6 +32,14 @@ set -euo pipefail
 LAN_IP=192.168.10.11          # lab-lan. 앱·관측과 통신하는 주소
 MGMT_IP=192.168.56.11         # host-only. 작업 PC 에서 붙는 주소
 ENTRY_CLIENT=192.168.56.1     # 작업 PC 의 host-only 어댑터 주소. 443/80 의 실습 사용자다
+PROBE_SOURCE=192.168.10.41    # OPS01 의 lab-lan 주소. blackbox_exporter 가 주기 조회로 붙는다
+# 왜 프로브를 443 에 들여보내는가
+#   MSP 화면의 '서비스 경로 · 계층별 상태' canvas 가 edge 계층을 probe_success 로 판정한다.
+#   프로브가 없으면 그 칸이 영원히 '미수집' 이고 진입 경로가 살아 있는지도 알 수 없다.
+#   덤으로 앱까지 도달하는 주기 요청이 생겨 P95 응답시간 패널이 표본을 얻는다. 이 실습망에는
+#   시장 봇이 없어 그 전에는 여섯 시간에 요청이 한 건이었다.
+#   출발지는 관리 대역이 아니라 lab-lan 주소 하나다. 인증서 SAN 에 192.168.10.11 이 함께 들어 있어
+#   검증을 끄지 않고 서비스망으로 붙는다. 00-주소계획.md 의 443 행에 이 출발지를 올린 뒤 넣었다.
 APP1_IP=192.168.10.21         # APP01. 현재 리더로 쓰는 primary 업스트림
 APP2_IP=192.168.10.22         # APP02. 대기. backup 업스트림
 APP_PORT=8080
@@ -289,6 +297,7 @@ LEGACY_NFT=/etc/nftables/edge01.nft   # 이전 판이 만들던 단독 구성 �
 # 443 과 80 의 허용 출발지 목록을 만든다.
 web_sources() {
     printf '%s/32\n' "$ENTRY_CLIENT"
+    printf '%s/32\n' "$PROBE_SOURCE"
     if [[ $ALLOW_PFSENSE_FORWARD == 1 ]]; then
         printf '%s/32\n' "$PFSENSE_IP"
     fi
@@ -303,6 +312,7 @@ role_firewall_common() {
         printf '%s\n' '# 기본 차단은 /etc/vm-lab/firewall.nft 가 이미 걸었다. 여기서는 443 과 80 만 연다.'
         printf '%s\n' '# 출발지는 00-주소계획.md 의 "EDGE01 TCP 443 / 80 = 실습 사용자" 를 옮긴 값이다.'
         printf '%s\n' "#   ${ENTRY_CLIENT}/32   작업 PC 의 host-only 어댑터. 실습 사용자는 이 주소 하나다."
+        printf '%s\n' "#   ${PROBE_SOURCE}/32   OPS01 의 lab-lan 주소. blackbox_exporter 의 합성 프로브다."
         printf '%s\n' '#   관리 대역 /24 전체를 열지 않는다. 그 대역에는 다른 VM 의 host-only 주소도 들어 있다.'
         if [[ $ALLOW_PFSENSE_FORWARD == 1 ]]; then
             printf '%s\n' "#   ${PFSENSE_IP}/32   pfSense 포트 포워딩을 거쳐 들어오는 경우. 표에 올린 뒤 켰다."

@@ -7,6 +7,10 @@ After=network-online.target
 User=prometheus
 Group=prometheus
 ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus --storage.tsdb.retention.time=7d --storage.tsdb.retention.size=2GB --web.listen-address=127.0.0.1:9090
+# 설정을 바꾼 뒤 재시작하지 않고 반영하려면 이 줄이 있어야 한다.
+# 없으면 systemctl reload 가 "Job type reload is not applicable" 로 거절되고
+# 수집 대상 추가 같은 변경에 재시작이 필요해진다. 재시작은 수집 공백을 만든다.
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5
 StateDirectory=prometheus

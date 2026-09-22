@@ -1,0 +1,34 @@
+# OPS01 의 blackbox_exporter. 배치 위치는 /etc/systemd/system/blackbox_exporter.service 다.
+#
+# 루프백에만 연다. Prometheus 가 같은 호스트에서 /probe 를 부르므로 밖에 열 이유가 없다.
+# 00-주소계획.md 포트 표의 'OPS01 TCP 9115 루프백만' 이 이 설정이다.
+# 샌드박스는 같은 노드의 alertmanager·prometheus 유닛과 같은 수준으로 맞췄다.
+
+[Unit]
+Description=Prometheus blackbox exporter (VM lab 진입 경로 프로브)
+Documentation=https://github.com/prometheus/blackbox_exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=blackbox_exporter
+Group=blackbox_exporter
+ExecStart=/usr/local/bin/blackbox_exporter \
+  --config.file=/etc/blackbox_exporter/blackbox.yml \
+  --web.listen-address=127.0.0.1:9115
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+# 프로브는 원시 소켓을 쓰지 않는다. ICMP 모듈을 쓰지 않으므로 CAP_NET_RAW 를 주지 않는다.
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
