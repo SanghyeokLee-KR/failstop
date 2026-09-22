@@ -18,6 +18,7 @@ import { useCallback, useRef, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import type { CapacityAdvice, CapacityNode, CapacityState } from "@/lib/admin/types";
 import PanelCard from "@/components/PanelCard";
+import NodeStrip from "@/components/admin/NodeStrip";
 import Skeleton from "@/components/Skeleton";
 import { HealthPill, PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
@@ -144,11 +145,7 @@ export default function CapacityPage() {
       </PanelCard>
 
       <PanelCard title="서버 한 대씩">
-        <div className={styles.capacityNodes}>
-          {d.nodes.map((n) => (
-            <NodeCard key={n.id} node={n} perSecond={perSecond(n)} />
-          ))}
-        </div>
+        <NodeStrip nodes={d.nodes} perSecond={perSecond} />
       </PanelCard>
 
       <PanelCard title="무엇을 늘릴 수 있나">
@@ -232,76 +229,6 @@ function AdviceCard({
         <button type="button" className="btn" onClick={() => onAct(advice.action!)}>
           {advice.action === "SCALE_OUT" ? "서버 추가" : "서버 줄이기"}
         </button>
-      )}
-    </div>
-  );
-}
-
-/**
- * 서버 한 대. 계약과 관측을 위아래로 나눠 싣는다.
- *
- * 응답하지 않는 서버는 관측 칸을 비운다. 마지막으로 본 값을 남기면 죽은 서버가 살아 있는
- * 것처럼 보인다.
- */
-function NodeCard({ node, perSecond }: { node: CapacityNode; perSecond: number | null }) {
-  const health = !node.reachable
-    ? node.expected
-      ? "danger"
-      : "success"
-    : node.cpuRatio !== null && node.cpuRatio >= 0.9
-      ? "warning"
-      : "success";
-  const stateLabel = !node.reachable
-    ? node.expected
-      ? "응답 없음"
-      : "꺼져 있음"
-    : node.leader
-      ? "주문 + 조회"
-      : "조회만";
-  const heapPct =
-    node.heapUsedBytes !== null && node.heapMaxBytes !== null && node.heapMaxBytes > 0
-      ? Math.round((node.heapUsedBytes / node.heapMaxBytes) * 100)
-      : null;
-
-  return (
-    <div className={styles.nodeCard} data-health={health}>
-      <div className={styles.nodeHead}>
-        <strong>{node.id}</strong>
-        <HealthPill health={health} label={stateLabel} />
-      </div>
-      <dl className={styles.capacityMeta}>
-        <dt>가용영역</dt>
-        <dd>{node.az || "미지정"}</dd>
-        <dt>사양</dt>
-        <dd>{node.instanceType || "미지정"}</dd>
-        <dt>역할</dt>
-        <dd>
-          {node.engine ? "주문 처리 담당" : "조회 전용"}
-          {!node.scalable && <span className={styles.capacityTag}>늘릴 수 없음</span>}
-        </dd>
-        <dt>계약</dt>
-        <dd>{node.expected ? "떠 있어야 함" : "지금은 필요 없음"}</dd>
-      </dl>
-      {node.reachable ? (
-        <dl className={styles.capacityMeta}>
-          <dt>사용률</dt>
-          <dd>
-            {node.cpuRatio === null ? "읽지 못함" : `${Math.round(node.cpuRatio * 100)}%`}
-            {node.cpuCount !== null && <span className={styles.capacityTag}>{node.cpuCount}코어</span>}
-          </dd>
-          <dt>메모리</dt>
-          <dd>{heapPct === null ? "읽지 못함" : `${heapPct}%`}</dd>
-          <dt>초당 요청</dt>
-          <dd>{perSecond === null ? "측정 중" : `${Math.round(perSecond).toLocaleString()}건`}</dd>
-          <dt>동시 접속</dt>
-          <dd>{node.wsClients === null ? "없음" : `${Math.round(node.wsClients).toLocaleString()}명`}</dd>
-        </dl>
-      ) : (
-        <p className={styles.capacityNote}>
-          {node.expected
-            ? "이 서버가 응답하지 않는다. 상태를 읽을 수 없다."
-            : "지금 대수에서는 쓰지 않는 서버다."}
-        </p>
       )}
     </div>
   );
