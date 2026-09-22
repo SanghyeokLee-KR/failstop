@@ -221,8 +221,8 @@ export default function AdminTransfersPage() {
           title={pending.action === "approve" ? "출금 승인" : "출금 거절"}
           description={
             pending.action === "approve"
-              ? "잠긴 금액이 즉시 빠져나간다. 되돌릴 수 없다"
-              : "잠금이 풀려 요청자 가용 잔고로 돌아간다"
+              ? "잠긴 금액 즉시 출금. 되돌릴 수 없음"
+              : "잠금 해제. 요청자 가용 잔고로 환원"
           }
           target={`${pending.row.userEmail} · ${formatKRW(pending.row.amount)}원`}
           blastRadius="요청자 1명"

@@ -101,7 +101,7 @@ export default function AdminSupportPage() {
     <div className={styles.page}>
       <PageHeader
         title="문의 답변"
-        desc="회원 문의. 답변은 사용자 문의 화면에 그대로 표시된다"
+        desc="회원 문의. 답변은 사용자 문의 화면에 그대로 노출"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 

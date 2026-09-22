@@ -230,7 +230,7 @@ const DRILL_LEADER: DrillDef = {
   lead: "주문을 처리하던 노드를 내리고 남은 노드가 그 자리를 받는지 본다",
   claim: "쓰기는 한 노드만 한다. 그 노드를 잃으면 다른 노드가 선출돼 거래가 재개된다.",
   needs: ["cap", "ha", "rec"],
-  prep: ["노드 두 대 기동. 리더 후보가 하나뿐이면 승격할 노드가 없다"],
+  prep: ["노드 두 대 기동. 리더 후보가 하나면 승격 대상 없음"],
   steps: [
     {
       id: "before",
@@ -316,7 +316,7 @@ const DRILL_DB: DrillDef = {
   needs: [],
   prep: [
     "별도 실습 스택. DB 실습은 failstop-ops-lab 프로젝트에서 돌고 이 콘솔이 보는 스택이 아니다",
-    "서버 bootJar. 실습이 현재 빌드를 그대로 띄운다",
+    "서버 bootJar. 실습이 현재 빌드를 그대로 기동",
     `판정 원본. 실행 결과는 ${LAB_EVIDENCE} 에 남는다`,
   ],
   steps: [
@@ -369,10 +369,10 @@ const DRILL_DB: DrillDef = {
 const DRILL_PRESSURE: DrillDef = {
   id: "pressure",
   title: "디스크·메모리 압박",
-  lead: "로컬에 호스트 지표 원천이 없어 판정까지 가지 못한다",
+  lead: "로컬에 호스트 지표 원천이 없어 판정 불가",
   claim: "이 축은 학교 AWS에서만 판정한다. 로컬 결과를 그 판정으로 바꾸어 적지 않는다.",
   needs: ["cap"],
-  prep: ["호스트 지표 수집기. 로컬 카오스 스택에는 없다"],
+  prep: ["호스트 지표 수집기. 로컬 카오스 스택에 없음"],
   steps: [
     {
       id: "disk",

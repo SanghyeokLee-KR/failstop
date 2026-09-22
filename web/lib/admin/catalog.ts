@@ -46,7 +46,7 @@ export const SCENARIO_CATALOG: ScenarioDef[] = [
     name: "ramp", label: "완만한 상승", opsMult: 2.0, lambdaMult: 2.0,
     scale: { MARKET_MAKER: 1.0, TAKER: 1.4, TREND: 2.0, NOISE: 1.0 },
     targetBias: "0.35", autoBalance: true, strength: "0.3", intensity: "calm",
-    note: "균형 제어가 붙어 있어 서서히 오른다",
+    note: "균형 제어가 붙어 있어 완만한 상승",
   },
   {
     name: "spike", label: "급등 폭주", opsMult: 10.0, lambdaMult: 10.0,

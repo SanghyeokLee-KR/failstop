@@ -310,7 +310,7 @@ interface ErrorEnvelope {
 /** 429 대기 초 -> 안내 문구. 초를 알면 명시, 모르면 "잠시 후"로 열화 */
 function rateLimitMessage(retryAfter: number | null): string {
   const when = retryAfter != null && retryAfter > 0 ? `${retryAfter}초 후` : "잠시 후";
-  return `관리 요청이 많습니다. ${when} 다시 시도하세요`;
+  return `관리 요청 한도 초과. ${when} 다시 시도 필요`;
 }
 
 /** POST /admin/v1/session 와이어 스키마(§3-6, snake_case). issued_at은 서버 미전송 */
@@ -673,7 +673,7 @@ export class HttpAdminApi implements AdminApi {
       const origin = typeof window !== "undefined" ? window.location.origin : undefined;
       const protocol = this.base ? new URL(this.base, origin).protocol : origin ? new URL(origin).protocol : "";
       if (protocol !== "https:") {
-        throw new AdminError("invalid_parameter", "운영자 로그인은 HTTPS에서만 가능합니다.");
+        throw new AdminError("invalid_parameter", "운영자 로그인은 HTTPS 전용");
       }
       if (!certId?.trim() || certId.includes(":") || !password) {
         throw new AdminError("invalid_parameter", "운영자 아이디 또는 비밀번호 오류");

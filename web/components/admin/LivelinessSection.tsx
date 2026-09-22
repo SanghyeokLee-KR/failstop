@@ -110,8 +110,8 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
       const res = await getAdminApi().setDirectionBias(market, biasNorm(biasDraft), autoDraft, biasNorm(strengthDraft));
       toast(
         res.fleetPresent
-          ? `방향 바이어스를 적용했습니다 (effective ${res.effectiveBias})`
-          : `플릿이 기동되지 않아 방향 의도만 기록했습니다 (effective ${res.effectiveBias})`,
+          ? `방향 바이어스 적용 완료. 유효 ${res.effectiveBias}`
+          : `플릿 미기동. 방향 의도만 기록. 유효 ${res.effectiveBias}`,
         "info",
       );
       onChanged();
@@ -129,7 +129,7 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
     try {
       const applied = await getAdminApi().setEffectConfig(next);
       setFlash(applied);
-      toast(`효과 강도를 ${FLASH_LABEL[applied]}로 바꿨습니다`, "info");
+      toast(`효과 강도 ${FLASH_LABEL[applied]} 적용 완료`, "info");
       onChanged();
     } catch (e) {
       setFlash(prev); // 직전 값으로 롤백
@@ -201,7 +201,7 @@ export default function LivelinessSection({ sim, canOps, onChanged }: Props) {
           </span>
           {scaleOver && (
             <span className={styles.scaleErr} role="alert">
-              마켓 합계 상한을 넘습니다. 조정 후 적용하세요.
+              마켓 합계 상한 초과. 조정 후 적용 필요
             </span>
           )}
           <button type="button" className={styles.primaryBtn} disabled={!canOps || scaleBusy || scaleOver} onClick={() => void applyScale()}>

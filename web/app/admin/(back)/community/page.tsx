@@ -157,7 +157,7 @@ export default function AdminCommunityPage() {
     <div className={styles.page}>
       <PageHeader
         title="커뮤니티 신고"
-        desc="회원 신고 큐. 대상 처리와 신고 종결을 함께 남긴다"
+        desc="회원 신고 큐. 대상 처리와 신고 종결을 함께 기록"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
@@ -238,7 +238,7 @@ export default function AdminCommunityPage() {
       {pendingDelete && (
         <ConfirmDialog
           title="게시물 삭제 처리"
-          description="삭제는 종료 상태다. 숨김 복구로 되돌아오지 않는다"
+          description="삭제는 종료 상태. 숨김 복구로 되돌아오지 않음"
           target={pendingDelete.targetExcerpt ?? `신고 ${pendingDelete.reportId}`}
           blastRadius={`${TYPE_LABEL[pendingDelete.targetType]} 1건 영구 비공개`}
           confirmLabel="삭제 처리"

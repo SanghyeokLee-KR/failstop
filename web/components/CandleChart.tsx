@@ -253,7 +253,7 @@ export default function CandleChart({ market, unit, height = 264 }: Props) {
         ref={containerRef}
         style={{ position: "absolute", inset: 0 }}
         role="img"
-        aria-label={`${market} ${unit} 캔들 차트. 양봉은 빨간색(상승), 음봉은 파란색(하락), 하단은 거래량입니다.`}
+        aria-label={`${market} ${unit} 캔들 차트. 양봉은 빨간색 상승, 음봉은 파란색 하락, 하단은 거래량`}
       />
       {loading && (
         <div style={{ position: "absolute", inset: 0 }} aria-hidden="true">

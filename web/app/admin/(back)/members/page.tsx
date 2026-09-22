@@ -295,7 +295,7 @@ export default function AdminMembersPage() {
               </div>
 
               {detail.status === "CLOSED" ? (
-                <p className={styles.formHelp}>폐쇄된 계정이다. 되돌아오는 전이는 없다.</p>
+                <p className={styles.formHelp}>폐쇄된 계정. 되돌아오는 전이 없음</p>
               ) : (
                 <div className={styles.controlRow}>
                   <p className={styles.formHelp}>
@@ -308,7 +308,7 @@ export default function AdminMembersPage() {
                     label="폐쇄 요청"
                     confirm={{
                       title: "회원 폐쇄 요청",
-                      description: "승인·실행 뒤 되돌릴 수 없다. 미체결 주문이 전량 취소된다",
+                      description: "승인·실행 뒤 되돌릴 수 없음. 미체결 주문 전량 취소",
                       target: detail.email,
                       blastRadius: `미체결 ${detail.openOrderCount}건 취소 · 세션 전량 폐기`,
                       tone: "danger",

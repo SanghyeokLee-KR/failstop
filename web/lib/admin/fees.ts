@@ -17,8 +17,8 @@ export type FeeField = "maker_fee" | "taker_fee";
 export function feeRateError(raw: string, field: FeeField): string | null {
   const v = raw.trim();
   if (v === "") return null;
-  if (!FEE_RE.test(v)) return `${field} 형식이 올바르지 않습니다.`;
-  if (decimalsOf(v) > FEE_SCALE) return `${field}는 소수 ${FEE_SCALE}자리 이하여야 합니다.`;
-  if (compareDecimal(v, FEE_MAX) > 0) return `${field}는 0 이상 ${FEE_MAX} 이하여야 합니다.`;
+  if (!FEE_RE.test(v)) return `${field} 형식 오류`;
+  if (decimalsOf(v) > FEE_SCALE) return `${field} 소수 ${FEE_SCALE}자리 초과`;
+  if (compareDecimal(v, FEE_MAX) > 0) return `${field} 허용 범위 0 ~ ${FEE_MAX} 밖`;
   return null;
 }

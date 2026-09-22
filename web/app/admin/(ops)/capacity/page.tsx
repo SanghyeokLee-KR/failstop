@@ -201,7 +201,7 @@ export default function CapacityPage() {
               <td>
                 <HealthPill health="success" label="용량 증가" />
               </td>
-              <td>서버마다 조회를 나눠 받는다.</td>
+              <td>서버별 조회 분담</td>
             </tr>
             <tr>
               <th scope="row">주문</th>

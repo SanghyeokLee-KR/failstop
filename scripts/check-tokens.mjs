@@ -258,6 +258,37 @@ function checkContract(tokens) {
   }
 }
 
+/**
+ * 'ㅂ니다' 어미인가. 종전 규칙은 '습니다'만 보아 '됩니다'·'뜹니다'·'입니다'를 통과시켰다.
+ * 그렇다고 '니다'를 통으로 잡으면 '아니다' 같은 평서형까지 존댓말로 걸린다.
+ * 앞 글자의 종성이 ㅂ인지로 가른다. 한글 음절은 (코드 - 0xAC00) % 28 이 종성 색인이고 ㅂ은 17이다.
+ */
+function hasHonorificNida(text) {
+  for (let i = 1; i + 1 < text.length; i += 1) {
+    if (text[i] !== "니" || text[i + 1] !== "다") continue;
+    const c = text.charCodeAt(i - 1);
+    if (c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 === 17) return true;
+  }
+  return false;
+}
+
+/** 소스에서 한국어가 든 문자열·JSX 텍스트를 모은다. 세 따옴표를 모두 본다 */
+function koreanLiterals(code) {
+  const out = [];
+  for (const m of code.matchAll(/"([^"\n]*[가-힣][^"\n]*)"/g)) out.push(m[1]);
+  for (const m of code.matchAll(/'([^'\n]*[가-힣][^'\n]*)'/g)) out.push(m[1]);
+  /* 백틱은 줄바꿈을 품을 수 있다. 한 문장으로 접어 어미만 본다.
+     다만 중첩 표현식과 JSX 때문에 구간이 엉뚱하게 길게 잡힐 수 있어 코드로 보이는 것은 버린다.
+     UI 문구에는 세미콜론도 큰따옴표도 닫는 태그도 들어가지 않는다 */
+  for (const m of code.matchAll(/`([^`]*[가-힣][^`]*)`/g)) {
+    const t = m[1];
+    if (t.length > 200 || /[;"]|<\/|\/>/.test(t)) continue;
+    out.push(t.replace(/\s+/g, " "));
+  }
+  for (const m of code.matchAll(/>([^<>{}\n]*[가-힣][^<>{}\n]*)</g)) out.push(m[1].trim());
+  return out;
+}
+
 function checkFiles(tokens, files) {
   const referenced = new Set();
   const declaredAnywhere = new Set(tokens.declared);
@@ -284,10 +315,10 @@ function checkFiles(tokens, files) {
     }
 
     if (!COPY_TONE_EXEMPT.includes(r) && /\.tsx?$/.test(file)) {
-      const strings = [...code.matchAll(/"([^"\n]*[가-힣][^"\n]*)"/g)].map((m) => m[1]);
-      const jsx = [...code.matchAll(/>([^<>{}\n]*[가-힣][^<>{}\n]*)</g)].map((m) => m[1].trim());
-      for (const t of [...strings, ...jsx]) {
-        if (/(습니다|하세요|하십시오|십시오|해 주세요)/.test(t)) {
+      /* 작은따옴표·백틱도 본다. 토스트 문구가 대부분 템플릿 리터럴이라 큰따옴표만 보면
+         규칙이 정확히 그 자리에서만 샌다 */
+      for (const t of koreanLiterals(code)) {
+        if (/(하세요|하십시오|십시오|해 주세요|해주세요)/.test(t) || hasHonorificNida(t)) {
           fail("copy-tone", r, `존댓말 종결 "${t.slice(0, 34)}". UI 카피는 명사형`);
         }
       }
@@ -344,6 +375,10 @@ function checkServerCopy() {
     const code = stripComments(readFileSync(file, "utf8"), false);
     for (const m of code.matchAll(/"([^"\n]*[가-힣][^"\n]*)"/g)) {
       const text = m[1];
+      /* 서버는 아직 넓히지 않는다. 'ㅂ니다'까지 잡으면 29개 파일 138건이 한꺼번에 걸리고,
+         그것은 전 평면의 API 오류 문구를 바꾸는 일이라 API 계약과 서버 테스트를 함께 봐야 한다.
+         관리 콘솔 카피와 범위가 다르므로 별도 변경으로 남긴다(로드맵). 여기 기준을 낮춘 것이
+         아니라 종전 그대로 두는 것이다. */
       if (/(습니다|하세요|하십시오|십시오|해 주세요|해주세요)/.test(text)) {
         fail("copy-tone", rel, `존댓말 종결 "${text.slice(0, 40)}". 사용자에게 그대로 노출된다`);
       }

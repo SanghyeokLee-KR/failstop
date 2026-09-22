@@ -167,7 +167,7 @@ function CommandChip({ command }: { command: string }) {
       <span className={styles.drillCopy} aria-hidden="true">
         {copied ? "복사됨" : "복사"}
       </span>
-      <span className="sr-only">호스트 명령 복사. 콘솔이 실행하지 않는다</span>
+      <span className="sr-only">호스트 명령 복사. 콘솔은 실행하지 않음</span>
     </button>
   );
 }
