@@ -400,8 +400,8 @@ export default function BotsPage() {
         <p className={styles.formHelp}>실행 중 파라미터 변경은 파괴 액션. 승인 발급 후 요청자가 실행</p>
         {sim && namedBots.length === 0 && (
           <p className={styles.formHelp}>
-            기동 중인 플릿은 봇 id를 발행하지 않습니다(유형별 파킹 풀). 대상 지정이 필요한 이 경로는
-            id를 내는 플릿에서만 씁니다. 대수·방향·OPS는 위 제어로 바꿉니다
+            기동 중인 플릿은 봇 id를 발행하지 않음(유형별 파킹 풀). 대상 지정이 필요한 이 경로는
+            id를 내는 플릿 전용. 대수·방향·OPS는 위 제어로 변경
           </p>
         )}
         <div className={styles.formRow}>

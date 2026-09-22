@@ -160,7 +160,7 @@ export default function AdminTransfersPage() {
     <div className={styles.page}>
       <PageHeader
         title="출금 승인"
-        desc="회원 원화 출금 요청. 승인하면 잠긴 금액이 빠져나가고 되돌릴 수 없다"
+        desc="회원 원화 출금 요청. 승인하면 잠긴 금액 출금, 되돌릴 수 없음"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 

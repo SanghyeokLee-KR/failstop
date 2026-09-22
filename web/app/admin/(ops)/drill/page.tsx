@@ -138,7 +138,7 @@ export default function DrillPage() {
     <div className={styles.page}>
       <PageHeader
         title="시연"
-        desc="상황별 단계와 판정. 충족 여부는 지금 읽은 값으로만 적는다"
+        desc="상황별 단계와 판정. 충족 여부는 지금 읽은 값에서만 판단"
         actions={
           needs.length > 0 ? (
             <ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />

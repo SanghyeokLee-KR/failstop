@@ -87,15 +87,15 @@ export default function AdminLogin() {
               <span className={styles.certAction}>{busy === "" ? "확립 중" : "세션 확립"}</span>
             </button>
             <p className={styles.loginHint}>
-              TLS 핸드셰이크에서 제시된 운영자 인증서 신원으로 단기 세션을 발급합니다. 인증서 미설치·비인가 신원은 서버가 거절합니다.
+              TLS 핸드셰이크에서 제시된 운영자 인증서 신원으로 단기 세션 발급. 인증서 미설치·비인가 신원은 서버가 거절
             </p>
           </>
         ) : certs.length === 0 ? (
           <div className={styles.loginNoCert} role="alert">
             <span className={styles.loginNoCertTitle}>클라이언트 인증서 없음</span>
             <span className={styles.loginNoCertDesc}>
-              운영자 네트워크에서 브라우저 인증서 저장소에 설치된 운영자 인증서로 접속하세요. 인증서 없이는 관리 평면에
-              접근할 수 없습니다.
+              운영자 네트워크에서 브라우저 인증서 저장소에 설치된 운영자 인증서로 접속 필요. 인증서 없이는 관리 평면
+              접근 불가
             </span>
           </div>
         ) : (

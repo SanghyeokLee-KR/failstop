@@ -295,7 +295,13 @@ function koreanLiterals(code) {
   for (const m of code.matchAll(/'([^'\n]*)'/g)) take(m[1], false);
   /* 백틱은 줄바꿈을 품을 수 있다. 한 문장으로 접어 어미만 본다 */
   for (const m of code.matchAll(/`([^`]*)`/g)) take(m[1], true);
-  for (const m of code.matchAll(/>([^<>{}\n]*[가-힣][^<>{}\n]*)</g)) out.push(m[1].trim());
+  /* JSX 텍스트는 줄바꿈을 품는다. 태그 사이에 홀로 놓인 문단이 그렇다. 줄바꿈을 막으면
+     그 형태가 통째로 빠지는데, 로그인 안내문이 정확히 그 모양으로 규칙을 피해 있었다.
+     꺾쇠와 중괄호를 제외한 구간이라 태그를 넘어가지 않는다 */
+  for (const m of code.matchAll(/>([^<>{}]*)</g)) {
+    const t = m[1].trim();
+    if (/[가-힣]/.test(t)) out.push(t.replace(/\s+/g, " "));
+  }
   return out;
 }
 

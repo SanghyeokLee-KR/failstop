@@ -126,12 +126,12 @@ const adviceSaysOut = (c: CapacityState) => c.advice.some((a) => a.action === "S
 const DRILL_SCALE: DrillDef = {
   id: "scale",
   title: "트래픽 임계와 조회 증설",
-  lead: "봇 발행률을 올려 앱 CPU를 밀고 조회 노드를 한 대 늘린다",
+  lead: "봇 발행률로 앱 CPU를 밀어 조회 노드 한 대 증설",
   claim: "조회는 대수를 늘려 용량이 는다. 주문은 늘지 않는다. 그 차이를 같은 화면에서 본다.",
   needs: ["cap", "sim"],
   prep: [
-    "조절기 기동. 콘솔은 희망 대수만 바꾸고 컨테이너는 조절기가 움직인다",
-    "증설 노드 생성. docker compose --profile scale create 로 한 번 만들어 둔다",
+    "조절기 기동. 콘솔은 희망 대수만 변경, 컨테이너 기동은 조절기 소관",
+    "증설 노드 생성. docker compose --profile scale create 로 한 번 생성",
   ],
   steps: [
     {
@@ -227,7 +227,7 @@ const DRILL_SCALE: DrillDef = {
 const DRILL_LEADER: DrillDef = {
   id: "leader",
   title: "앱 리더 전환",
-  lead: "주문을 처리하던 노드를 내리고 남은 노드가 그 자리를 받는지 본다",
+  lead: "주문 노드 중단과 남은 노드의 승격 확인",
   claim: "쓰기는 한 노드만 한다. 그 노드를 잃으면 다른 노드가 선출돼 거래가 재개된다.",
   needs: ["cap", "ha", "rec"],
   prep: ["노드 두 대 기동. 리더 후보가 하나면 승격 대상 없음"],
@@ -311,13 +311,13 @@ const LAB_EVIDENCE = "artifacts/operations-20260918/db-recovery-drill.json";
 const DRILL_DB: DrillDef = {
   id: "db",
   title: "DB 수동 복구",
-  lead: "주 DB를 잃었을 때 대기 DB를 사람이 승격시키는 절차를 따라간다",
+  lead: "주 DB 상실 시 대기 DB의 수동 승격 절차",
   claim: "DB 전환은 자동이 아니다. 구 주 DB를 쓰기 불가로 만든 뒤에 새 주 DB를 연다.",
   needs: [],
   prep: [
-    "별도 실습 스택. DB 실습은 failstop-ops-lab 프로젝트에서 돌고 이 콘솔이 보는 스택이 아니다",
+    "별도 실습 스택. DB 실습은 failstop-ops-lab 프로젝트 소관이며 이 콘솔이 보는 스택 밖",
     "서버 bootJar. 실습이 현재 빌드를 그대로 기동",
-    `판정 원본. 실행 결과는 ${LAB_EVIDENCE} 에 남는다`,
+    `판정 원본. 실행 결과는 ${LAB_EVIDENCE} 에 기록`,
   ],
   steps: [
     {

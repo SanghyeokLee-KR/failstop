@@ -178,11 +178,16 @@ test("단계 id와 대본 id가 유일하다", () => {
   }
 });
 
-test("제목이 명사형이다", () => {
-  // 디자인시스템 §9. 관리 평면도 예외가 아니다
-  const verbEnding = /(다|요|니다|세요)$/;
+test("제목과 한 줄 설명이 명사형이다", () => {
+  // 디자인시스템 §9. 관리 평면도 예외가 아니다. 여러 문장으로 이유를 적는 detail·claim은
+  // 대상이 아니다. 그쪽까지 접으면 이유를 적을 자리가 사라진다
+  const verbEnding = /(다|요|니다|세요)[.]?$/;
   for (const def of DRILLS) {
     assert.ok(!verbEnding.test(def.title), `${def.id} 대본 제목이 서술형이다`);
+    assert.ok(!verbEnding.test(def.lead), `${def.id} 대본 한 줄 설명이 서술형이다`);
+    for (const p of def.prep ?? []) {
+      assert.ok(!verbEnding.test(p), `${def.id} 사전 조건이 서술형이다: ${p}`);
+    }
     for (const step of def.steps) {
       assert.ok(!verbEnding.test(step.title), `${def.id}/${step.id} 단계 제목이 서술형이다`);
     }
