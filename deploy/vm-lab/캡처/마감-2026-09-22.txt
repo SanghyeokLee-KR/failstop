@@ -1,0 +1,29 @@
+===== 마감 상태 2026-09-22 21:47:32
+
+수집 대상 : 13/13 up
+발화 경보 : 0건
+P95       : 0.009565342008333333 초
+probe     : 1
+SQL 수집  : 1
+Grafana   : ok
+Databasus : healthy
+복제      : streaming 지연 0바이트
+EDGE01    : https 200 / WS 101
+
+리더      : APP02 (epoch 2). EDGE01 업스트림도 APP02 가 primary 다.
+저장소    : a9892c3 까지 푸시 완료. 원격과 차이 0건.
+=== savestate (21:47:59) ===
+  EDGE01   저장 완료
+  DB01     저장 완료
+  DB02     저장 완료
+  APP01    저장 완료
+  APP02    저장 완료
+  OPS01    저장 완료
+=== 남은 실행 VM ===
+  0대
+  EDGE01   saved
+  DB01     saved
+  DB02     saved
+  APP01    saved
+  APP02    saved
+  OPS01    saved
