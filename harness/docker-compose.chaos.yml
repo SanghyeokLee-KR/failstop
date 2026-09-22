@@ -133,7 +133,7 @@ services:
       retries: 30
       start_period: 40s
     restart: unless-stopped
-    deploy: { resources: { limits: { memory: 1g } } }
+    deploy: { resources: { limits: { memory: 1g, cpus: "1.0" } } }
     networks: [chaos-net]
 
   chaos-api-2:
@@ -157,7 +157,38 @@ services:
       retries: 30
       start_period: 40s
     restart: unless-stopped
-    deploy: { resources: { limits: { memory: 1g } } }
+    deploy: { resources: { limits: { memory: 1g, cpus: "1.0" } } }
+    networks: [chaos-net]
+
+  # 조회 전용 증설 노드. 조절기가 붙였다 뗀다. 기본 기동에 없다(profiles: scale).
+  #
+  # 엔진과 flyway를 끄는 것이 조회 전용의 성립 조건이다. 엔진을 켠 채 띄우면 기동 시
+  # 리더 승격을 시도하고 리스 TTL만큼 소진한 뒤 거부당한다. 마이그레이션도 api-1 단독이다.
+  #
+  # 토식을 지나지 않는다. 이 노드는 카오스 주입 대상이 아니라 용량 시연 대상이다.
+  # 토식을 태우면 DB 차단 실험이 증설 노드까지 끊어 두 실험이 서로를 깬다.
+  chaos-api-3:
+    image: *app-image
+    container_name: chaos-api-3
+    environment:
+      <<: *api-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-pg:5432/exchange
+      SPRING_FLYWAY_ENABLED: "false"
+      EXCHANGE_ENGINE_ENABLED: "false"
+      EXCHANGE_HARNESS_ENABLED: "false"
+    ports: ["38080:8080"]
+    depends_on:
+      chaos-api-1: { condition: service_healthy }
+    # 조회 전용은 설계상 readiness가 REFUSING_TRAFFIC(503)이라 api-2와 같은 규약으로 liveness를 본다
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health/liveness"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 40s
+    restart: unless-stopped
+    deploy: { resources: { limits: { memory: 1g, cpus: "1.0" } } }
+    profiles: [scale]
     networks: [chaos-net]
 
   chaos-lb:

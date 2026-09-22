@@ -98,6 +98,8 @@ CloudFront는 정적 웹을 S3에서, API와 WebSocket을 ALB에서 받아 브�
 
 조회 역할은 원격 작업에서 구현돼 통합됐다. [read 프로파일](../../../server/app/src/main/resources/application-read.yml), [경로 제한 필터](../../../server/app/src/main/java/kr/exchange/api/common/ReadRoleFilter.java), [조회 Compose](../../../deploy/compose.node-read.yml)가 엔진·관리 쓰기를 끄고 markets·trades·candles의 GET/HEAD와 관리 상태 조회만 허용한다. 학교 AWS의 ALB·ASG 배포와 실제 부하·축소 검증은 아직 하지 않았다. ALB의 DB 연계 read health와 EC2/ASG의 liveness·교체 조건을 분리하는 설정을 실제 환경에서 검증해야 한다. [ADR 0027](0027-msp-operations-and-autoscaling.md)
 
+2026-09-23에는 로컬 카오스 스택에 조회 전용 노드 한 대를 더 붙일 수 있게 했다. 로드밸런서의 업스트림을 쓰기와 조회로 가르고 조회만 세 노드에 나눈다. 쓰기 업스트림은 페일오버 실측의 전제라 종전 구성을 그대로 뒀다. 증설 노드는 compose 프로파일로 분리해 기본 기동에서 빼고, 용량 조정기가 로드밸런서 등록과 컨테이너 기동을 맞춘다. 조회 분산과 증설·축소 소요는 로컬에서 실측했다. 이것은 로컬 실행 근거이며 학교나 개인 AWS의 ALB·ASG 배포를 대신하지 않는다. 같은 조정기가 AWS 정책과 같은 대수를 동시에 제어하지 않게 한다는 위 경계는 그대로 유효하다. [검증 설계 §3](../contracts/하네스_검증설계.md), [하네스 안내](../../../harness/README.md)
+
 GitHub `6ee1179`의 Grafana MSP 6개 화면을 재사용하되 호스트 Linux의 파일시스템·inode·I/O·네트워크·서비스 상태를 보강한다. 학교 AWS에서는 호스트 4대와 DB 2대 지표를 연결했고 별도 디스크·용량 화면을 추가했다. 앱·DB의 수집 포트는 봇 SG로만 제한하고 DB 관측은 로컬 peer 인증과 통계 권한을 사용한다. 학교의 SQL 통계 확장·외부 사이트 프로브·CloudWatch는 미연결이다. 앱·DB·디스크 경보는 연결해 발생·해제 보고를 확인했다. 실제 원천과 조회식을 맞추고 미수집을 정상이나 지연 0으로 해석하지 않는다. 관측 노드 자체의 실패도 외부에서 감지해야 한다. 기존 봇·관측 동거는 자원과 장애를 공유하므로 부하 발생과 보고 작업이 관제를 방해하지 않는 배치·자원 한도를 정한다. 사용자는 메모리가 부족하면 두 역할을 분리하도록 지시했다. 세 마켓의 저속 봇과 관측의 짧은 동시 기동은 확인했으며, 장시간 부하와 보고 작업까지 포함한 자원 여유는 별도 검증한다. [학교 MSP 화면](../../../deploy/linux/observability/msp-dashboards/10-msp-overview.json), [학교 DB 화면](../../../deploy/linux/observability/msp-dashboards/13-msp-db.json)
 
 기본 장애 알림 뒤에 AI 근거 보고를 보내고, 일일 보고는 별도 예약 작업으로 실행한다. Linux systemd timer 또는 cron의 시간대·중복·실패 이력을 관리한다. 과거 Docker 카오스는 Discord 설정을 보존한다. 학교 AWS는 Teams Workflows·Adaptive Card와 Gemini 요약, PDF·HTML 보고를 사용하며 실제 카드와 파일 열람을 확인했다. 일일 예약 시각의 실행·전송은 후속 확인 대상이다. 상세한 보고 흐름과 완료 조건은 ADR 0027을 따른다. [현재 알림 설정](../../../harness/alertmanager/alertmanager.yml)
@@ -252,4 +254,4 @@ DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`�
 
 이 검사는 내용을 자동으로 요약하지 않으며, 소스만 바뀌었을 때 구조 설명이 맞는지까지 증명하지 않는다. Claude와 Codex는 코드 변경도 [공통 작업 규칙](../../../AGENTS.md)에 따라 관련 문서와 대조해야 한다. 이번 검토에서 읽지 않은 개별 테스트 전체와 서비스 배포·DNS·청구 상태는 미확인이다. 본인 SG·첫 EC2 생성, 기존 프로파일 연결, 제한된 EC2 Instance Connect SSH와 Linux 기본 점검은 확인했다. SSM 조회 권한은 부족하며 이를 모든 서비스의 허용으로 확대하지 않는다. 비밀 값은 증거에 저장하지 않는다.
 
-<!-- sources-sha256: a09ee33059b666cc764c79815e6796e3ff664784e37c1161ce6c3692e37f1898 -->
+<!-- sources-sha256: 745df2cecd4b6354bae505bb59cf48d9c4e6eadefa8ce4ca6819b0d3300c25a2 -->

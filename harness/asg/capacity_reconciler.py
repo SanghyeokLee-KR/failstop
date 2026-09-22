@@ -17,8 +17,13 @@ CPU 를 보지 않고 임계도 없다.
 움직인다. 두 대를 동시에 세우면 그 사이 로드밸런서 재적재가 두 번 겹치고, 실패했을 때
 어디까지 갔는지 알기 어렵다.
 
+스택이 둘이다. `ex` 는 2026-09-07 부터 쓰던 수동 스택이고 `chaos` 는 compose 로 뜨는
+격리 스택이다. 같은 조정 규칙을 두 곳에 쓰려고 노드 이름·포트·컨테이너를 상수에서 인자로
+옮겼다. 기본값이 `ex` 라 종전 호출은 그대로 돈다.
+
 사용:
   python harness/asg/capacity_reconciler.py --lb-conf <경로> --log <경로>
+  python harness/asg/capacity_reconciler.py --stack chaos --lb-conf harness/nginx/nginx.conf --log <경로>
   python harness/asg/capacity_reconciler.py --once        한 주기만 돌고 끝낸다
 
 산출: --log 경로에 JSON Lines. 한 줄이 한 번의 조치다.
@@ -30,6 +35,45 @@ import sys
 import time
 
 import asg_controller as ctl
+
+
+# ===== 스택 규격 =====
+#
+# leader    매칭엔진 보유 노드. 조정 대상이 아니고 항상 구성원으로 센다.
+# pool      조정 단위. 앞에서부터 붙이고 뒤에서부터 뗀다.
+# min_pool  절대로 빼지 않는 pool 앞머리 대수. chaos 스택의 api-2 는 쓰기 백업이라
+#           조회 대수가 줄어도 남아야 한다. 이 칸이 없으면 희망값 1 이 페일오버 전제를 지운다.
+# start_mode 노드를 세우는 방법.
+#   run    이미지와 인자를 조정기가 직접 조립해 docker run 한다(ex 스택).
+#   start  compose 가 만들어 둔 컨테이너를 docker start 한다(chaos 스택). 환경 변수와
+#          네트워크를 compose 파일 한 곳에만 두려는 것이다. 조정기가 같은 값을 두 번째로
+#          적어 두면 둘이 갈라지는 날 원인을 찾지 못한다.
+STACKS = {
+    'ex': {
+        'leader': 'ex-app',
+        'pool': ['ex-app2', 'ex-app3'],
+        'host_port': {'ex-app': 8080, 'ex-app2': 8081, 'ex-app3': 8082},
+        'lb_container': 'ex-lb',
+        'pg_container': 'ex-pg',
+        'network': 'exnet',
+        'image': 'failstop-app:wslimit',
+        'start_mode': 'run',
+        'min_pool': 0,
+        'node_cpus': 2.0,
+    },
+    'chaos': {
+        'leader': 'chaos-api-1',
+        'pool': ['chaos-api-2', 'chaos-api-3'],
+        'host_port': {'chaos-api-1': 18080, 'chaos-api-2': 28080, 'chaos-api-3': 38080},
+        'lb_container': 'chaos-lb',
+        'pg_container': 'chaos-pg',
+        'network': 'chaos-net',
+        'image': 'exchange-chaos-app:local',
+        'start_mode': 'start',
+        'min_pool': 1,
+        'node_cpus': 1.0,
+    },
+}
 
 
 def desired_from_db(container, database, user):
@@ -48,6 +92,13 @@ def desired_from_db(container, database, user):
         return int(line)
     except ValueError:
         return None
+
+
+def exists(name):
+    """컨테이너가 만들어져 있는가. 멈춰 있어도 참이다."""
+    out = ctl.sh(['docker', 'ps', '-a', '--filter', 'name=^%s$' % name, '--format', '{{.Names}}'],
+                 check=False)
+    return out.strip() == name
 
 
 class Reconciler:
@@ -86,6 +137,22 @@ class Reconciler:
         else:
             self.remove()
 
+    def start_node(self, target):
+        """노드를 기동한다. 성공하면 참을 준다. 실패는 호출부가 그대로 기록한다."""
+        if self.a.start_mode == 'start':
+            # compose 가 만들어 둔 컨테이너를 다시 켠다. 없으면 만들지 않는다. 여기서
+            # docker run 으로 대신하면 compose 의 환경 변수를 조정기가 추측해 채우게 된다.
+            if not exists(target):
+                self.emit('add.absent', node=target,
+                          note='컨테이너 미생성. docker compose --profile scale create 필요')
+                return False
+            ctl.sh(['docker', 'start', target], check=False, timeout=60)
+            return True
+        if self.key is None:
+            self.key = ctl.master_key()
+        ctl.launch(target, self.key)
+        return True
+
     def add(self):
         target = next((n for n in ctl.POOL
                        if not (self.lb.active(n) and ctl.running(n))), None)
@@ -93,11 +160,10 @@ class Reconciler:
             self.emit('add.exhausted', note='설정에 더 쓸 노드가 없다')
             return
         t0 = time.time()
-        if self.key is None:
-            self.key = ctl.master_key()
         if not ctl.running(target):
-            self.emit('add.launch', node=target)
-            ctl.launch(target, self.key)
+            self.emit('add.launch', node=target, mode=self.a.start_mode)
+            if not self.start_node(target):
+                return
             if not ctl.wait_healthy(target, self.a.launch_budget):
                 self.emit('add.timeout', node=target, budget=self.a.launch_budget)
                 return
@@ -108,7 +174,9 @@ class Reconciler:
 
     def remove(self):
         # 뒤에서부터 뺀다. 리더는 목록에 없으므로 절대 대상이 되지 않는다.
-        target = next((n for n in reversed(ctl.POOL)
+        # min_pool 앞머리도 대상에서 뺀다. chaos 스택에서는 그 자리가 쓰기 백업이다.
+        removable = ctl.POOL[self.a.min_pool:]
+        target = next((n for n in reversed(removable)
                        if self.lb.active(n) and ctl.running(n)), None)
         if target is None:
             self.emit('remove.none', note='뺄 수 있는 조회 노드가 없다')
@@ -126,8 +194,9 @@ class Reconciler:
                   elapsed=round(time.time() - t0, 1))
 
     def run(self):
-        self.emit('start', interval=self.a.interval, drain=self.a.drain,
-                  once=self.a.once, nodes=len(ctl.POOL) + 1)
+        self.emit('start', stack=self.a.stack, interval=self.a.interval, drain=self.a.drain,
+                  once=self.a.once, nodes=len(ctl.POOL) + 1, leader=ctl.LEADER,
+                  pool=','.join(ctl.POOL), min_pool=self.a.min_pool, mode=self.a.start_mode)
         end = time.time() + self.a.duration
         while True:
             try:
@@ -143,9 +212,16 @@ class Reconciler:
 
 def main():
     p = argparse.ArgumentParser()
+    p.add_argument('--stack', choices=sorted(STACKS), default='ex',
+                   help='노드 이름·포트·컨테이너 규격 묶음. 개별 인자가 이 값을 덮는다')
     p.add_argument('--lb-conf', required=True, help='nginx.conf 호스트 경로. 바인드 마운트 원본')
-    p.add_argument('--lb-container', default='ex-lb')
-    p.add_argument('--pg-container', default='ex-pg')
+    p.add_argument('--lb-container')
+    p.add_argument('--pg-container')
+    p.add_argument('--leader', help='매칭엔진 보유 노드. 조정 대상이 아니다')
+    p.add_argument('--pool', help='조정 단위 노드를 쉼표로 잇는다. 앞에서 붙이고 뒤에서 뗀다')
+    p.add_argument('--min-pool', type=int, help='절대로 빼지 않는 pool 앞머리 대수')
+    p.add_argument('--start-mode', choices=['run', 'start'],
+                   help='run 은 docker run 으로 조립하고 start 는 compose 가 만든 컨테이너를 켠다')
     p.add_argument('--database', default='exchange')
     p.add_argument('--user', default='exchange')
     p.add_argument('--log', required=True)
@@ -153,11 +229,34 @@ def main():
     p.add_argument('--duration', type=float, default=3600)
     p.add_argument('--drain', type=float, default=15, help='connection draining 창')
     p.add_argument('--launch-budget', type=float, default=90)
-    p.add_argument('--node-cpus', type=float, default=2.0, help='새 노드에 줄 vCPU')
+    p.add_argument('--node-cpus', type=float, help='새 노드에 줄 vCPU. run 모드에서만 쓴다')
     p.add_argument('--once', action='store_true', help='한 주기만 돌고 끝낸다')
     a = p.parse_args()
-    # launch() 가 모듈 전역을 읽는다. 조정기가 세우는 노드의 규격을 여기서 정한다.
+
+    s = STACKS[a.stack]
+    for field in ('lb_container', 'pg_container', 'start_mode', 'node_cpus', 'min_pool'):
+        if getattr(a, field) is None:
+            setattr(a, field, s[field])
+    leader = a.leader or s['leader']
+    pool = [n.strip() for n in a.pool.split(',') if n.strip()] if a.pool else list(s['pool'])
+    if leader in pool:
+        p.error('리더는 조정 단위가 아니다. --pool 에서 %s 를 뺀다' % leader)
+    if not 0 <= a.min_pool <= len(pool):
+        p.error('--min-pool 은 0 과 pool 대수 사이여야 한다')
+
+    # asg_controller 의 실행부가 모듈 전역을 읽는다. 조정기가 다룰 스택을 여기서 갈아끼운다.
+    ctl.LEADER = leader
+    ctl.POOL = pool
+    ctl.NETWORK = s['network']
+    ctl.IMAGE = s['image']
     ctl.CPUS_PER_NODE = a.node_cpus
+    host_port = dict(s['host_port'])
+    # 규격에 없는 이름을 --pool 로 받으면 healthy() 가 포트를 찾지 못해 영구 미통과가 된다.
+    missing = [n for n in [leader] + pool if n not in host_port]
+    if missing:
+        p.error('호스트 포트를 모르는 노드가 있다: %s' % ', '.join(missing))
+    ctl.HOST_PORT = host_port
+
     try:
         Reconciler(a).run()
     except KeyboardInterrupt:

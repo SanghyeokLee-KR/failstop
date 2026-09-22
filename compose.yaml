@@ -100,7 +100,9 @@ services:
     image: ${CHAOS_APP_IMAGE:-exchange-chaos-app:local}
     container_name: chaos-admin
     environment:
-      SPRING_PROFILES_ACTIVE: dev,admin
+      # admin-chaos 가 exchange.capacity.nodes 를 싣는다. 없으면 용량 화면이 통째로 빈다.
+      # 노드 목록은 컨테이너 이름 주소라 chaos-net 안에서만 해석된다.
+      SPRING_PROFILES_ACTIVE: dev,admin,admin-chaos
       # 관리 평면은 토식을 지나지 않는다. 카오스 주입 중에도 승인·감사가 살아 있어야
       # 실험을 통제할 수 있다. 주입 대상은 서빙 노드지 관리 평면이 아니다.
       SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-pg:5432/exchange
