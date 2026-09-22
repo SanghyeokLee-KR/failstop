@@ -1,0 +1,56 @@
+== 10. nftables 규칙
+   공통 기반(inet vmlab)을 찾았다. 역할 규칙만 덧붙인다.
+   역할 파일: /etc/vm-lab/firewall.d/21-app01.nft (inet vmlab, 기본 차단 위)
+     table inet vmlab {
+     	chain input {
+     		type filter hook input priority filter; policy drop;
+     		iif "lo" counter packets 0 bytes 0 accept comment "loopback"
+     		ct state established,related counter packets 0 bytes 0 accept comment "응답만 통과"
+     		ct state invalid counter packets 0 bytes 0 drop comment "상태 불명 차단"
+     		iifname "enp0s9" ip saddr 192.168.56.0/24 tcp dport 22 ct state new counter packets 0 bytes 0 accept comment "관리 SSH"
+     		ip saddr 192.168.10.41 tcp dport 9100 ct state new counter packets 0 bytes 0 accept comment "node_exporter"
+     		ip saddr { 192.168.10.0/24, 192.168.56.0/24 } icmp type { destination-unreachable, echo-request, time-exceeded } counter packets 0 bytes 0 accept comment "실습 대역 ICMP"
+     		iifname "enp0s3" udp sport 67 udp dport 68 counter packets 0 bytes 0 accept comment "구축용 DHCP"
+     		jump roles
+     		limit rate 5/minute burst 5 packets log prefix "vmlab-drop: " level info
+     		counter packets 0 bytes 0 comment "기본 차단 도달"
+     	}
+     
+     	chain roles {
+     		ip saddr 192.168.10.11 tcp dport 8080 ct state new counter packets 0 bytes 0 accept comment "APP API"
+     		ip saddr 192.168.10.41 tcp dport 8081 ct state new counter packets 0 bytes 0 accept comment "APP actuator"
+     	}
+     
+     	chain forward {
+     		type filter hook forward priority filter; policy drop;
+     		counter packets 0 bytes 0 comment "전달 금지"
+     	}
+     
+     	chain output {
+     		type filter hook output priority filter; policy accept;
+     	}
+     }
+
+== 11. 서비스 기동 준비
+   방화벽 경로: vmlab
+   node_exporter: active
+   없음: /etc/exchange/db01.crt . DB01의 서버 공개 인증서를 받아 지문을 대조하고 root:exchange 0644로 둔다.
+
+== 11-1. 스키마 적용 확인 (APP01·APP02 공통)
+   스키마 확인 불가: /etc/exchange/app-secret.env 의 SPRING_DATASOURCE_PASSWORD 가 비어 있어 질의할 수 없다.
+   확인하지 못한 상태를 적용됨으로 보지 않는다. 기동은 사람이 확인한 뒤에 한다.
+   참고: 이 노드에 /etc/exchange/.migrated 표식이 없다. 판정 기준은 위 DB 질의다.
+   [미완료] /etc/exchange/app-secret.env 의 빈 값을 채운다. 지금 켜면 prod가 기동을 중단한다.
+   [미완료] DB01의 서버 공개 인증서를 /etc/exchange/db01.crt 에 놓는다.
+   [미완료] 스키마 적용 여부를 확인하지 못했다. 위 사유를 해결하고 다시 실행하거나, DB01에서 psql -d exchange -c "\dt flyway_schema_history" 로 직접 확인한다.
+   끝나면: sudo systemctl enable --now exchange-app
+
+== 끝. 다음을 직접 확인한다
+   ss -ltnp | grep -E ':(8080|8081|9100|22)\b'
+   sudo nft list table inet vmlab
+   sudo ausearch -m avc -ts recent
+   sudo grep -i thread /etc/exchange/app.env
+   sudo systemctl is-enabled exchange-app node_exporter vm-lab-firewall
+   sudo systemctl is-enabled nftables.service   (masked 여야 한다)
+   sudo grep -E '^(EXCHANGE_CORS_ALLOWED_ORIGINS|APP_WS_ALLOWED_ORIGINS)=' /etc/exchange/app.env
+[exit=0]

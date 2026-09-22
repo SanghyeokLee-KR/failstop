@@ -1,0 +1,52 @@
+2026-09-22T05:40:36Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== docker ps ==="
+sudo docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+echo
+echo "=== 헬스체크 이력 ==="
+sudo docker inspect databasus --format "상태={{.State.Status}}  헬스={{.State.Health.Status}}  재시작={{.RestartCount}}회  시작={{.State.StartedAt}}"
+sudo docker inspect databasus --format "{{range .State.Health.Log}}{{.Start}} 종료코드={{.ExitCode}} {{.Output}}{{end}}" | tail -3
+echo
+echo "=== 자원 사용 ==="
+sudo docker stats databasus --no-stream --format "  CPU {{.CPUPerc}}  메모리 {{.MemUsage}} ({{.MemPerc}})"
+echo
+echo "=== 컨테이너 로그 마지막 20줄 ==="
+sudo docker logs databasus 2>&1 | tail -20
+
+=== docker ps ===
+NAMES       IMAGE                         STATUS                   PORTS
+databasus   databasus/databasus:v3.59.0   Up 3 minutes (healthy)   127.0.0.1:4005->4005/tcp
+
+=== 헬스체크 이력 ===
+상태=running  헬스=healthy  재시작=0회  시작=2026-09-22T05:37:34.629750832Z
+time="2026/09/22 05:40:19" level=INFO msg="environment variables loaded successfully"
+healthcheck ok
+
+
+=== 자원 사용 ===
+CPU 2.18%  메모리 85.15MiB / 5.762GiB (1.44%)
+
+=== 컨테이너 로그 마지막 20줄 ===
+time="2026/09/22 05:37:41" level=INFO msg="audit log cleanup started" job_name=audit_log_cleanup
+time="2026/09/22 05:37:41" level=INFO msg="download token cleanup started" job_name=download_token_cleanup
+time="2026/09/22 05:37:41" level=INFO msg="verification scheduler started" job_name=verification_scheduler
+time="2026/09/22 05:37:41" level=INFO msg="logical backup retention cleaner started" job_name=logical_backup_retention_cleanup
+time="2026/09/22 05:37:41" level=INFO msg="storage file deletion started" job_name=storage_file_deletion
+time="2026/09/22 05:37:41" level=INFO msg="sign-in code cleanup started" job_name=sign_in_code_cleanup
+time="2026/09/22 05:37:41" level=INFO msg="restore scheduler started" job_id=b02ece45-1760-45ab-b99b-c99dea0f00f9 job_name=restore_scheduler
+time="2026/09/22 05:37:41" level=INFO msg="logical backup scheduler started" job_name=logical_backup_scheduler
+time="2026/09/22 05:37:41" level=INFO msg="database healthcheck started" job_name=healthcheck_attempt_scan
+time="2026/09/22 05:37:41" level=INFO msg="startup physical backup slot cleanup complete: 0 dropped, 0 skipped (unreachable), 0 failed" job_id=7742feb8-998c-4cf6-9f84-445b57e2ded9 job_name=physical_backup_retention_cleanup
+time="2026/09/22 05:37:41" level=INFO msg="physical backup scheduler started" job_name=physical_backup_scheduler
+time="2026/09/22 05:37:46" level=INFO msg="GET /api/v1/system/version -> 200 in 0ms" route=/api/v1/system/version client_ip=::1 response_bytes=44 request_id=0f8091b2-e7d6-4161-b0ce-5c293d3cbe16
+time="2026/09/22 05:38:16" level=INFO msg="GET /api/v1/system/version -> 200 in 0ms" route=/api/v1/system/version client_ip=::1 response_bytes=44 request_id=88f319c5-1aca-42ca-87b8-c0ed154a7f2a
+time="2026/09/22 05:38:41" level=INFO msg="telemetry ping sent, next in 24h3m44.6567413s" job_id=999da38b-fcda-4d16-aead-e7b7b6705b73 job_name=telemetry_ping
+time="2026/09/22 05:38:47" level=INFO msg="GET /api/v1/system/version -> 200 in 0ms" route=/api/v1/system/version client_ip=::1 response_bytes=44 request_id=6cb56549-14f7-4598-b712-b67b3dd07360
+time="2026/09/22 05:39:18" level=INFO msg="GET /api/v1/system/version -> 200 in 0ms" route=/api/v1/system/version client_ip=::1 response_bytes=44 request_id=6b806e19-e9e8-4026-9126-5e878cbb1047
+time="2026/09/22 05:39:20" level=INFO msg="HEAD / -> 200 in 0ms" route=static client_ip=172.18.0.1 response_bytes=-1 request_id=d70deb45-de12-41af-959e-1db3a2f7e02e
+time="2026/09/22 05:39:20" level=INFO msg="GET /api/v1/system/health -> 200 in 3ms" route=/api/v1/system/health client_ip=172.18.0.1 response_bytes=136 request_id=71a53a51-e107-4bb5-a758-049dfd507f69
+time="2026/09/22 05:39:48" level=INFO msg="GET /api/v1/system/version -> 200 in 0ms" route=/api/v1/system/version client_ip=::1 response_bytes=44 request_id=7f13c135-ef29-4a66-a67e-07925b304a29
+time="2026/09/22 05:40:19" level=INFO msg="GET /api/v1/system/version -> 200 in 0ms" route=/api/v1/system/version client_ip=::1 response_bytes=44 request_id=47f5e2b6-cfe3-467e-91bf-a8963840566d

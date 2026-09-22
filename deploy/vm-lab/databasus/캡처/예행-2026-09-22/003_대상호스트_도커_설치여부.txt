@@ -1,0 +1,16 @@
+2026-09-22T05:33:27Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== Docker 설치 여부 (설치 전 상태) ==="
+command -v docker || echo "  docker 명령 없음"
+rpm -qa | grep -iE "docker|containerd|podman" || echo "  관련 패키지 없음"
+echo "is-active  : $(systemctl is-active docker 2>&1)"
+echo "is-enabled : $(systemctl is-enabled docker 2>&1)"
+
+=== Docker 설치 여부 (설치 전 상태) ===
+  docker 명령 없음
+  관련 패키지 없음
+is-active  : inactive
+is-enabled : not-found

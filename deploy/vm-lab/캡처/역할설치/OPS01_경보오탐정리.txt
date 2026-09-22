@@ -1,0 +1,63 @@
+2026-09-22T06:28:21Z  ops01.lab
+
+# LinuxCollectorFailed 상시 오탐 정리
+#
+# 무엇이 문제였나
+#   node_exporter 를 --collector.pressure 로 띄웠는데 이 커널에는 PSI 가 없다.
+#   /proc/pressure 가 없고 /proc/cmdline 에 psi= 도 없다. 그래서 이 수집기는 매 수집마다
+#   실패했고 node_scrape_collector_success{collector="pressure"} 가 계속 0 이었다.
+#   경보 규칙 node_scrape_collector_success{job="linux-host"} == 0 이 여섯 대에서 상시 발화했다.
+#   이 관제 시스템이 내던 유일한 경보가 영원히 풀리지 않는 오탐이었다는 뜻이다.
+#
+# 무엇을 했나
+#   사용자가 두 방법 중 첫째를 골랐다. 쓰지 않을 지표이므로 인자를 뺀다.
+#   경보 규칙은 건드리지 않았다. 규칙을 약하게 만들어 조용히 시킨 것이 아니라
+#   성공할 수 없는 수집기를 없앤 것이다. 아래 '규칙이 살아 있는가' 절이 그 근거다.
+#
+# 무엇을 하지 않았나
+#   failstop/deploy/linux/observability 의 유닛은 그대로 두었다. 학교 AWS 는
+#   Amazon Linux 2023 이고 PSI 기본값이 다를 수 있다. 거기서 확인한 뒤 따로 판단한다.
+
+##### 적용 전 상태 (이 작업 직전에 실제로 관측한 값)
+  발화 중 경보 6건 — 전부 LinuxCollectorFailed collector=pressure
+    192.168.10.11 / .21 / .22 / .31 / .32 / .41
+  node_scrape_collector_success==0 시계열 6건 (여섯 대 전부, 수집기는 pressure 하나)
+  커널: /proc/pressure 없음, /proc/cmdline 에 psi= 없음
+
+##### 고친 곳
+  각 VM: /etc/systemd/system/node_exporter.service 의 ExecStart 에서 --collector.pressure 제거
+  DB01·DB02 추가: /etc/systemd/system/node_exporter.service.d/10-unit-include.conf
+    이 드롭인이 ExecStart 를 비우고 다시 선언하므로 유닛 파일만 고치면 반영되지 않았다.
+    실제로 유닛 파일을 고친 뒤에도 두 대만 pressure 가 계속 노출돼 드러났다.
+  원본 3곳: build/scripts/00-common-setup.sh, build/scripts/ops01/node_exporter.ops01.service,
+           build/build-files/db/node_exporter-host.service
+    30·31 스크립트는 유닛 파일에서 ExecStart 를 읽어 드롭인을 만들므로 고칠 필요가 없었다.
+  되돌릴 파일은 각 VM 에 .before-pressure-removal 로 남겼다.
+
+##### 적용 후: 여섯 대의 수집기 상태
+  EDGE01  성공 14개 / 실패 0개 / node_ 지표 412건 / 서비스 active
+  APP01   성공 14개 / 실패 0개 / node_ 지표 438건 / 서비스 active
+  APP02   성공 14개 / 실패 0개 / node_ 지표 438건 / 서비스 active
+  DB01    성공 14개 / 실패 0개 / node_ 지표 473건 / 서비스 active
+  DB02    성공 14개 / 실패 0개 / node_ 지표 523건 / 서비스 active
+  OPS01   성공 14개 / 실패 0개 / node_ 지표 510건 / 서비스 active
+
+##### 적용 후: Prometheus
+  수집 대상 11/11 up
+  실패 수집기 시계열 0건
+  발화 중 경보 0건
+
+##### 규칙이 살아 있는가 (조용히 시킨 것이 아님을 보이는 근거)
+  규칙 LinuxCollectorFailed / 식 node_scrape_collector_success{job="linux-host"} == 0
+  health=ok state=inactive 평가오류=없음
+  감시 중인 호스트 6대, 호스트당 수집기 14개
+  이 중 하나라도 0 이 되면 규칙이 발화한다. 규칙은 그대로 두었다.
+
+##### 남은 수집기 목록 (pressure 만 빠졌는지)
+  cpu, diskstats, filefd, filesystem, loadavg, meminfo, netdev, netstat, sockstat, stat, systemd, time, uname, vmstat
+  총 14종. node_pressure_* 를 쓰는 대시보드나 경보 규칙은 없어 잃은 화면이 없다.
+
+##### 곁가지가 깨지지 않았는가
+  Grafana DB: ok
+  Alertmanager: OK
+  DB 유닛 상태 수집 유지: 5건

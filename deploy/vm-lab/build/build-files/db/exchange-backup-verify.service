@@ -1,0 +1,24 @@
+[Unit]
+# 별도 백업 저장소의 격리 복원 시험. DB02에서만 쓴다.
+# 배치 위치는 /etc/systemd/system/exchange-backup-verify.service (root:root 0644)다.
+#
+# timer를 걸지 않는다. 자동 주기 실행은 아직 정하지 않았고, 복원 시험은 디스크와
+# 시간을 함께 쓰므로 운영자가 시점을 보고 수동으로 start 한다.
+#   sudo systemctl start exchange-backup-verify.service
+#   sudo journalctl -u exchange-backup-verify -n 80 --no-pager
+Description=Isolated restore check for the exchange backup archive on DB02
+Documentation=file:///opt/vm-lab/bin/db02-restore-check.sh
+After=local-fs.target
+ConditionPathIsDirectory=/srv/pgbackup/incoming
+
+[Service]
+Type=oneshot
+ExecStart=/opt/vm-lab/bin/db02-restore-check.sh --latest
+# 복원과 불변식 판정은 데이터 양에 따라 길어진다. 중간에 끊기면 임시 클러스터가
+# 남으므로 넉넉히 준다. 스크립트 자신이 trap으로 클러스터를 내린다.
+TimeoutStartSec=3600
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

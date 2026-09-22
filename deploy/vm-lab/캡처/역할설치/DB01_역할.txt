@@ -1,0 +1,135 @@
+
+[21:13:42] config: 설정 파일을 배치한다
+       exchange.conf 해시 확인: 8acbe28b479fa81c73ede1acfd978f1c232d2a85ed478287762a27ad90b603bd
+       postgresql.conf에 include를 추가했다. 원본은 postgresql.conf.initdb-* 로 보관한다.
+       Relabeled /etc/postgresql from unconfined_u:object_r:etc_t:s0 to unconfined_u:object_r:postgresql_etc_t:s0
+       total 8
+       -rw-r-----. 1 root postgres system_u:object_r:postgresql_etc_t:s0 1188 Sep 21 21:13 exchange.conf
+       -rw-r-----. 1 root postgres system_u:object_r:postgresql_etc_t:s0 2158 Sep 21 21:13 node.conf
+
+[21:13:42] tls: 서버 인증서를 만든다
+.......+..........+..+..........+.....+.+...+............+..+.......+.....................+.....+....+++++++++++++++++++++++++++++++++++++++*.+......+........+......+......+...+++++++++++++++++++++++++++++++++++++++*....+...+..+....+.....+.+..+............+.........+......+....+...........+....+..+.......+........+...+.........+.+...........+......+....+........+......+...................+..+....+.........+......+......+......+.................+.+...............+.....+......+..........+.....+......+...+....+..+......+.........+....+..++++++
+..+.+.....+.+...........+...+....+...+..+...+.......+...........+.......+...+++++++++++++++++++++++++++++++++++++++*.........+......+........+......+......+...+...+....+...+........+..........+........+....+.................+..........+...........+.......+..+++++++++++++++++++++++++++++++++++++++*.+.....+...................+.........+..+...+.......+........+.......+...+...+..+..........+...+..+.............+........+.......++++++
+-----
+       인증서 내용
+       subject=CN=db01.lab
+       notBefore=Sep 21 12:13:42 2026 GMT
+       notAfter=Sep 21 12:13:42 2027 GMT
+       X509v3 Subject Alternative Name: 
+           IP Address:192.168.10.31, DNS:db01.lab
+       지문(APP01·APP02·DB02로 옮긴 뒤 같은 값인지 비교한다)
+       sha256 Fingerprint=36:BC:A5:8A:03:F6:77:F9:0C:3D:64:89:58:E7:B5:D2:40:50:F4:E0:63:FA:B4:FD:35:9E:DF:B2:6B:62:9B:B4
+       만료일을 운영 기록에 적는다. 자체 서명이라 갱신도 배포도 수동이다.
+       공개 인증서만 옮긴다: /etc/postgresql/server.crt. 개인 키 server.key 는 옮기지 않는다.
+
+[21:13:42] hba: pg_hba.conf 를 배치한다
+       initdb가 만든 원본을 /var/lib/pgsql/17/data//pg_hba.conf.initdb 로 보관했다.
+       local     all             all                                     peer
+       hostssl   exchange        exchange_app    192.168.10.21/32        scram-sha-256
+       hostssl   exchange        exchange_app    192.168.10.22/32        scram-sha-256
+       hostssl   replication     replicator      192.168.10.32/32        scram-sha-256
+
+[21:13:42] start: PostgreSQL을 기동한다
+Created symlink '/etc/systemd/system/multi-user.target.wants/postgresql-17.service' → '/usr/lib/systemd/system/postgresql-17.service'.
+/run/postgresql:5432 - accepting connections
+       active
+       실효 설정
+            data_directory     
+       ------------------------
+        /var/lib/pgsql/17/data
+       (1 row)
+       
+           listen_addresses     
+       -------------------------
+        localhost,192.168.10.31
+       (1 row)
+       
+        ssl 
+       -----
+        on
+       (1 row)
+       
+        wal_level 
+       -----------
+        replica
+       (1 row)
+       
+        password_encryption 
+       ---------------------
+        scram-sha-256
+       (1 row)
+       
+        synchronous_standby_names 
+       ---------------------------
+        
+       (1 row)
+       
+
+[21:13:43] roles: 데이터베이스와 역할을 만든다
+-- 이미 있으면 만들지 않는다. 앞의 SELECT가 행을 낼 때만 뒤의 명령이 실행된다.
+CREATE ROLE
+CREATE ROLE
+CREATE ROLE
+CREATE DATABASE
+REVOKE
+GRANT
+GRANT
+-- 역할 권한 확인
+    rolname     | rolcanlogin | rolsuper | rolcreatedb | rolcreaterole | rolreplication 
+----------------+-------------+----------+-------------+---------------+----------------
+ exchange_app   | t           | f        | f           | f             | f
+ exchange_owner | t           | f        | f           | f             | f
+ replicator     | t           | f        | f           | f             | t
+(3 rows)
+
+       비밀번호는 아직 없다. passwords 단계에서 사람이 직접 넣는다.
+       exchange_owner 도 비밀번호를 받는다. 그 값이 없으면 APP01의 Flyway가 scram 인증에 실패한다.
+
+[21:13:43] monitor: 관측 계정을 만든다
+       OS 계정 failstop_monitor 를 만들었다(로그인 불가).
+psql: error: /home/ops/build/build-files/db/create-monitor-role.sql: Permission denied
+
+[21:14:01] exporters: node_exporter와 postgres_exporter를 설치한다
+       이미 설치된 node_exporter 유닛을 그대로 쓴다. 덮어쓰지 않는다.
+       node_exporter 바인딩 주소 확인: 192.168.10.31
+       systemd 수집기 필터를 postgresql-17 로 맞춘 드롭인을 놓았다.
+       postgres_exporter-0.17.1.linux-amd64.tar.gz 을 내려받는다. NAT 경로가 필요하다.
+/opt/vm-lab/downloads/postgres_exporter-0.17.1.linux-amd64.tar.gz: OK
+Created symlink '/etc/systemd/system/multi-user.target.wants/postgres_exporter.service' → '/etc/systemd/system/postgres_exporter.service'.
+       드롭인이 바뀌었으므로 node_exporter를 다시 시작한다
+       active
+       active
+       로컬에서 지표 응답을 확인한다
+curl: (23) Failure writing output to destination, passed 2048 returned 0
+       # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+  [확인 필요] node_exporter 응답이 없다.
+       pg_up 1
+       postgres_exporter의 사용자 쿼리 옵션은 폐기 예정 기능이다. 버전을 올릴 때 호환성을 확인한다.
+
+[21:14:05] journald: 로그 보존 설정을 배치한다
+       같은 보존 설정이 이미 적용되어 있다. 재시작하지 않는다.
+       Archived and active journals take up 16M in the file system.
+       재부팅 뒤에도 보존되는지는 reboot 후에 따로 확인한다.
+
+[21:14:05] firewall: nftables 규칙을 적용한다
+  [확인 필요] 허용하지 않은 인바운드가 끊긴다. SSH가 막힐 경우를 대비해 VirtualBox 콘솔을 열어 둔다.
+       공통 기반을 찾았다. /etc/vm-lab/firewall.d 에 역할 규칙을 더한다.
+       구문 확인 통과
+       table inet vmlab {
+       	chain input {
+       		type filter hook input priority filter; policy drop;
+       		iif "lo" counter packets 0 bytes 0 accept comment "loopback"
+       		ct state established,related counter packets 0 bytes 0 accept comment "응답만 통과"
+       		ct state invalid counter packets 0 bytes 0 drop comment "상태 불명 차단"
+       		iifname "enp0s9" ip saddr 192.168.56.0/24 tcp dport 22 ct state new counter packets 0 bytes 0 accept comment "관리 SSH"
+       		ip saddr 192.168.10.41 tcp dport 9100 ct state new counter packets 0 bytes 0 accept comment "node_exporter"
+       		ip saddr { 192.168.10.0/24, 192.168.56.0/24 } icmp type { destination-unreachable, echo-request, time-exceeded } counter packets 0 bytes 0 accept comment "실습 대역 ICMP"
+       		iifname "enp0s3" udp sport 67 udp dport 68 counter packets 0 bytes 0 accept comment "구축용 DHCP"
+       		jump roles
+       		limit rate 5/minute burst 5 packets log prefix "vmlab-drop: " level info
+       		counter packets 0 bytes 0 comment "기본 차단 도달"
+       	}
+       }
+       허용한 출발지에서 접속되는지, 아닌 곳에서 막히는지 각각 확인한다(verify 단계 안내 참고).
+
+[21:14:05] 끝났다. 실행하지 않은 확인 항목을 통과했다고 적지 않는다.

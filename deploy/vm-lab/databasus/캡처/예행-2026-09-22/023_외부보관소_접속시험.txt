@@ -1,0 +1,48 @@
+2026-09-22T05:40:28Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== OPS01 -> EDGE01 SFTP (전용 키, 셸 없음, /srv/db-backup 에 가둠) ==="
+sudo sh -c "printf \"pwd\nls -la\nquit\n\" | sftp -q -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes -i /etc/databasus/sftp-key dbbackup@192.168.56.11"
+echo "  루트가 / 로 보이는 것이 ChrootDirectory 가 걸린 증거다."
+echo
+echo "=== 쓰기와 삭제 ==="
+sudo sh -c "date -u > /tmp/보관시험.txt; printf \"cd databasus\nput /tmp/보관시험.txt\nls -l\nrm 보관시험.txt\nls -l\nquit\n\" | sftp -q -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes -i /etc/databasus/sftp-key dbbackup@192.168.56.11"
+echo
+echo "=== 셸 접속은 막혀야 한다 ==="
+sudo timeout 12 ssh -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes -i /etc/databasus/sftp-key dbbackup@192.168.56.11 "id; cat /etc/shadow" 2>&1 | tail -3
+echo "  ForceCommand internal-sftp 때문에 셸이 실행되지 않는다."
+echo
+echo "=== 컨테이너에서도 같은 경로가 열리는가 ==="
+sudo docker exec databasus sh -c "timeout 8 bash -c \"</dev/tcp/192.168.56.11/22\" && echo \"  컨테이너 -> 192.168.56.11:22 열림\"" 2>&1 | tail -1
+
+=== OPS01 -> EDGE01 SFTP (전용 키, 셸 없음, /srv/db-backup 에 가둠) ===
+sftp> pwd
+Remote working directory: /
+sftp> ls -la
+drwxr-xr-x    ? root     root           91 Sep 22 14:39 .
+drwxr-xr-x    ? root     root           91 Sep 22 14:39 ..
+-rw-r--r--    ? 992      992            18 Oct 29  2024 .bash_logout
+-rw-r--r--    ? 992      992           144 Oct 29  2024 .bash_profile
+-rw-r--r--    ? 992      992           522 Oct 29  2024 .bashrc
+drwx------    ? 992      992            29 Sep 22 14:39 .ssh
+drwx------    ? 992      992             6 Sep 22 14:39 databasus
+sftp> quit
+  루트가 / 로 보이는 것이 ChrootDirectory 가 걸린 증거다.
+
+=== 쓰기와 삭제 ===
+sftp> cd databasus
+sftp> put /tmp/보관시험.txt
+sftp> ls -l
+-rw-r--r--    ? 992      992            32 Sep 22 14:40 보관시험.txt
+sftp> rm 보관시험.txt
+sftp> ls -l
+sftp> quit
+
+=== 셸 접속은 막혀야 한다 ===
+This service allows sftp connections only.
+  ForceCommand internal-sftp 때문에 셸이 실행되지 않는다.
+
+=== 컨테이너에서도 같은 경로가 열리는가 ===
+  컨테이너 -> 192.168.56.11:22 열림

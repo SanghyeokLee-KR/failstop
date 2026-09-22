@@ -1,0 +1,71 @@
+       공통 설정 include 를 확인했다.
+       복사된 pg_hba.conf 의 유효 규칙
+       local     all             all                                     peer
+       hostssl   exchange        exchange_app    192.168.10.21/32        scram-sha-256
+       hostssl   exchange        exchange_app    192.168.10.22/32        scram-sha-256
+       hostssl   replication     replicator      192.168.10.32/32        scram-sha-256
+       위 규칙에 앱 접속 줄이 보이는 것이 정상이다. DB01의 파일을 그대로 받았기 때문이다.
+       승격 전 DB02의 5432는 nftables 한 겹으로만 막는다. 그 한 겹을 확인하는 것이 verify 의 5432 항목이다.
+       postgres postgres 700 /var/lib/pgsql/17/data/
+       unconfined_u:object_r:postgresql_db_t:s0 backup_label
+       unconfined_u:object_r:postgresql_db_t:s0 backup_manifest
+       unconfined_u:object_r:postgresql_db_t:s0 base
+       unconfined_u:object_r:postgresql_db_t:s0 global
+       unconfined_u:object_r:postgresql_db_t:s0 pg_commit_ts
+       베이스백업과 manifest 검증을 마쳤다.
+
+[11:31:51] start: PostgreSQL을 기동하고 복제를 확인한다
+Created symlink '/etc/systemd/system/multi-user.target.wants/postgresql-17.service' → '/usr/lib/systemd/system/postgresql-17.service'.
+       pg_is_in_recovery = t
+         status   |  sender_host  | sender_port | slot_name 
+       -----------+---------------+-------------+-----------
+        streaming | 192.168.10.31 |        5432 | 
+       (1 row)
+       
+              name        |         setting         
+       -------------------+-------------------------
+        hot_standby       | on
+        listen_addresses  | localhost,192.168.10.32
+        port              | 5432
+        primary_slot_name | 
+        ssl               | on
+        wal_level         | replica
+       (6 rows)
+       
+       State  Recv-Q Send-Q Local Address:Port Peer Address:Port
+       LISTEN 0      200        127.0.0.1:5432      0.0.0.0:*   
+       LISTEN 0      128    192.168.56.32:22        0.0.0.0:*   
+       LISTEN 0      4096   192.168.10.32:9100      0.0.0.0:*   
+       LISTEN 0      200    192.168.10.32:5432      0.0.0.0:*   
+       LISTEN 0      200            [::1]:5432         [::]:*   
+       기동과 복제 수신을 확인했다.
+
+[11:31:53] monitor: 관측 계정을 확인한다
+       OS 계정 failstop_monitor 를 만들었다(로그인 불가).
+       DB 역할 failstop_monitor 가 복제로 넘어온 것을 확인했다.
+             member_of       
+       ----------------------
+        pg_read_all_settings
+        pg_read_all_stats
+       (2 rows)
+       
+          current_user   | pg_is_in_recovery 
+       ------------------+-------------------
+        failstop_monitor | t
+       (1 row)
+       
+
+[11:31:53] exporters: node_exporter와 postgres_exporter를 설치한다
+       이미 설치된 node_exporter 유닛을 그대로 쓴다. 덮어쓰지 않는다.
+       node_exporter 바인딩 주소 확인: 192.168.10.32
+       systemd 수집기 필터를 postgresql-17 로 맞춘 드롭인을 놓았다.
+       postgres_exporter-0.17.1.linux-amd64.tar.gz 을 내려받는다. NAT 경로가 필요하다.
+/opt/vm-lab/downloads/postgres_exporter-0.17.1.linux-amd64.tar.gz: OK
+Created symlink '/etc/systemd/system/multi-user.target.wants/postgres_exporter.service' → '/etc/systemd/system/postgres_exporter.service'.
+       active
+       active
+       # HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+       # TYPE go_gc_duration_seconds summary
+       go_gc_duration_seconds{quantile="0"} 0
+curl: (23) Failure writing output to destination, passed 2048 returned 0
+[exit=23]

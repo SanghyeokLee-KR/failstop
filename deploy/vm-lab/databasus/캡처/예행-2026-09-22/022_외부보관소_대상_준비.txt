@@ -1,0 +1,49 @@
+2026-09-22T05:39:02Z  edge01.lab
+
+# 실행 대상 192.168.56.11
+# 실행 명령
+
+echo "=== 예행용 외부 보관 대상: EDGE01 ==="
+echo "  DB01(원본)도 OPS01(백업 도구)도 아닌 노드여야 서버 밖 보관을 보일 수 있다."
+echo "  실습망에 전용 백업 호스트가 없어 EDGE01 을 빌려 쓴다. 운영 배치는 S3 또는 전용 SFTP 다."
+echo "  이 제약은 예행 폴더 README 와 보고서에 그대로 적는다."
+echo
+echo "=== 전용 계정 생성 (로그인 셸 없음) ==="
+sudo useradd --system --create-home --home-dir /srv/db-backup --shell /sbin/nologin dbbackup 2>&1 || echo "  이미 있음"
+sudo mkdir -p /srv/db-backup/databasus
+sudo chown dbbackup:dbbackup /srv/db-backup/databasus
+sudo chmod 0700 /srv/db-backup /srv/db-backup/databasus
+id dbbackup
+sudo ls -la /srv/db-backup/
+echo
+echo "=== 디스크 여유 ==="
+df -h /srv 2>/dev/null || df -h /
+echo
+echo "=== sshd 의 SFTP 하위 시스템 ==="
+sudo /usr/sbin/sshd -T | grep -Ei "^(subsystem|allowtcpforwarding|listenaddress|permitrootlogin|passwordauthentication)"
+
+=== 예행용 외부 보관 대상: EDGE01 ===
+  DB01(원본)도 OPS01(백업 도구)도 아닌 노드여야 서버 밖 보관을 보일 수 있다.
+  실습망에 전용 백업 호스트가 없어 EDGE01 을 빌려 쓴다. 운영 배치는 S3 또는 전용 SFTP 다.
+  이 제약은 예행 폴더 README 와 보고서에 그대로 적는다.
+
+=== 전용 계정 생성 (로그인 셸 없음) ===
+uid=992(dbbackup) gid=992(dbbackup) groups=992(dbbackup)
+total 12
+drwx------. 3 dbbackup dbbackup  79 Sep 22 14:39 .
+drwxr-xr-x. 3 root     root      23 Sep 22 14:39 ..
+-rw-r--r--. 1 dbbackup dbbackup  18 Oct 29  2024 .bash_logout
+-rw-r--r--. 1 dbbackup dbbackup 144 Oct 29  2024 .bash_profile
+-rw-r--r--. 1 dbbackup dbbackup 522 Oct 29  2024 .bashrc
+drwx------. 2 dbbackup dbbackup   6 Sep 22 14:39 databasus
+
+=== 디스크 여유 ===
+Filesystem                 Size  Used Avail Use% Mounted on
+/dev/mapper/vg_os-lv_root   13G  1.4G   11G  12% /
+
+=== sshd 의 SFTP 하위 시스템 ===
+listenaddress 192.168.56.11:22
+permitrootlogin no
+passwordauthentication no
+allowtcpforwarding no
+subsystem sftp /usr/libexec/openssh/sftp-server

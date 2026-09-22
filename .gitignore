@@ -68,3 +68,17 @@ __pycache__/
 
 # k6 원문 로그. 회차마다 수 MB 이고 진단용이다. 판정은 clean-*.json 이 갖는다.
 harness/evidence/k6-*.log
+
+# VM 실습망(deploy/vm-lab)의 내려받은 배포물은 추적하지 않는다.
+# 설치 ISO 약 3.3GB, 앱 JAR 과 exporter 배포본 약 118MB 다. 저장소에 둘 크기가 아니고
+# 상류에서 다시 받을 수 있다. 받는 주소와 SHA-256 은 build/scripts 의 절차가 갖고 있다.
+deploy/vm-lab/stage/
+deploy/vm-lab/iso/
+*.viso
+# 작업 중 생기는 SSH 호스트키 캐시. 증거가 아니다.
+deploy/vm-lab/캡처/**/known_hosts
+# 관리 키 자리. 공개키만 추적한다. 2026-09-21 에 이 폴더에 개인키가 평문으로 들어가
+# 여섯 대의 root 권한과 같아진 적이 있다(deploy/vm-lab/build/01-검증지적.txt).
+# 개인키는 사용자 프로필의 ~/.ssh 아래에 두고 여기에는 .pub 만 놓는다.
+deploy/vm-lab/build/keys/*
+!deploy/vm-lab/build/keys/*.pub

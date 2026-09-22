@@ -1,0 +1,26 @@
+# Databasus 컨테이너를 systemd 로 감싼다. 배치 위치는 /etc/systemd/system/databasus.service 다.
+#
+# 상류는 Docker 의 restart: unless-stopped 만 쓴다. 그러면 부팅 시 기동과 실패 기록이
+# journal 에 일관되게 남지 않고, 다른 서비스와 같은 방법으로 상태를 볼 수 없다.
+# 이 유닛은 compose 를 호출만 하며 컨테이너 정의를 여기에 옮겨 적지 않는다.
+# 정의가 두 곳에 있으면 한쪽만 고치는 사고가 난다.
+
+[Unit]
+Description=Databasus PostgreSQL backup tool (docker compose)
+Documentation=https://databasus.com/installation
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/databasus
+ExecStart=/usr/bin/docker compose up -d --wait
+ExecStop=/usr/bin/docker compose down
+ExecReload=/usr/bin/docker compose up -d --wait
+# 이미지 내려받기와 첫 기동에 시간이 걸린다. 상류 문서가 첫 기동 약 2분을 적고 있다.
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

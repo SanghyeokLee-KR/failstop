@@ -1,0 +1,57 @@
+##### 수집 2026-09-22T11:32:13+09:00 (작업 PC 기준)
+
+########## DB01 Primary 에서 본 복제 상태
+-[ RECORD 1 ]----+--------------
+client_addr      | 192.168.10.32
+usename          | replicator
+application_name | vm_standby
+state            | streaming
+sync_state       | async
+sent_lsn         | 0/3000060
+write_lsn        | 0/3000060
+flush_lsn        | 0/3000060
+replay_lsn       | 0/3000060
+write_lag        | 
+flush_lag        | 
+replay_lag       | 
+
+--- Primary 여부와 현재 WAL 위치
+ f           | 0/3000060
+
+
+########## DB02 Standby 에서 본 수신 상태
+-[ RECORD 1 ]---+------------------------------
+status          | streaming
+sender_host     | 192.168.10.31
+sender_port     | 5432
+has_conninfo    | t
+latest_end_lsn  | 0/3000060
+latest_end_time | 2026-09-22 11:31:58.769585+09
+
+ t           | 0/3000060   | 0/3000060
+
+##### 실제 쓰기 전파 시험 2026-09-22T11:32:23+09:00
+--- DB01 에 시험 테이블을 만들고 행을 넣는다
+ rows_on_primary 
+-----------------
+               1
+(1 row)
+
+--- DB02 에서 같은 행이 보이는가
+ rows_on_standby 
+-----------------
+               1
+(1 row)
+
+ id |                     note                     
+----+----------------------------------------------
+  1 | DB02 복제 확인 2026-09-22 11:32:22.092137+09
+(1 row)
+
+--- DB02 는 읽기 전용이어야 한다
+ERROR:  cannot execute INSERT in a read-only transaction
+--- 복제 지연
+ vm_standby       | streaming |         0
+
+--- 시험 테이블 정리
+정리 완료

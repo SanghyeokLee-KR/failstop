@@ -1,0 +1,35 @@
+2026-09-22T05:33:25Z  db01.lab
+
+# 실행 대상 192.168.56.31
+# 실행 명령
+
+echo "=== DB01 의 현재 백업 보관 상태 ==="
+sudo ls -la /var/lib/pgsql/backups 2>/dev/null || echo "  전용 백업 디렉터리가 없다"
+echo
+echo "=== DB 크기 ==="
+sudo -u postgres psql -d exchange -c "SELECT pg_size_pretty(pg_database_size(current_database())) AS exchange_db_size;"
+echo "=== 디스크 ==="
+df -h | grep -vE "tmpfs|devtmpfs|efivarfs"
+echo
+echo "=== 판정 ==="
+echo "서버 밖으로 나간 사본이 없다. 예약 백업도 반복 복원 검증도 없다."
+
+=== DB01 의 현재 백업 보관 상태 ===
+  전용 백업 디렉터리가 없다
+
+=== DB 크기 ===
+ exchange_db_size 
+------------------
+ 13 MB
+(1 row)
+
+=== 디스크 ===
+Filesystem                   Size  Used Avail Use% Mounted on
+/dev/mapper/vg_os-lv_root     10G  1.5G  8.5G  15% /
+/dev/sdb2                    960M  210M  751M  22% /boot
+/dev/sdb1                    599M  9.0M  590M   2% /boot/efi
+/dev/mapper/vg_os-lv_varlog  4.0G  136M  3.9G   4% /var/log
+/dev/sda1                     20G  493M   20G   3% /var/lib/pgsql
+
+=== 판정 ===
+서버 밖으로 나간 사본이 없다. 예약 백업도 반복 복원 검증도 없다.

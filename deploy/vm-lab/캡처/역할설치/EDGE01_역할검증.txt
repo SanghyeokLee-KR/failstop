@@ -1,0 +1,113 @@
+
+== 설정 검사
+     nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+     nginx: configuration file /etc/nginx/nginx.conf test is successful
+  [OK]   nginx -t
+
+== 수신 소켓
+     State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess                                                   
+     LISTEN 0      511    192.168.56.11:80        0.0.0.0:*    users:(("nginx",pid=3307,fd=7),("nginx",pid=3131,fd=7))  
+     LISTEN 0      128    192.168.56.11:22        0.0.0.0:*    users:(("sshd",pid=902,fd=7))                            
+     LISTEN 0      511    192.168.10.11:80        0.0.0.0:*    users:(("nginx",pid=3307,fd=6),("nginx",pid=3131,fd=6))  
+     LISTEN 0      511    192.168.10.11:443       0.0.0.0:*    users:(("nginx",pid=3307,fd=11),("nginx",pid=3131,fd=11))
+     LISTEN 0      511    192.168.56.11:443       0.0.0.0:*    users:(("nginx",pid=3307,fd=12),("nginx",pid=3131,fd=12))
+     LISTEN 0      511        127.0.0.1:8090      0.0.0.0:*    users:(("nginx",pid=3307,fd=13),("nginx",pid=3131,fd=13))
+     LISTEN 0      4096   192.168.10.11:9100      0.0.0.0:*    users:(("node_exporter",pid=900,fd=3))                   
+  [OK]   수신 192.168.10.11:443
+  [OK]   수신 192.168.56.11:443
+  [OK]   수신 192.168.10.11:80
+  [OK]   수신 192.168.56.11:80
+  [OK]   수신 127.0.0.1:8090
+  [OK]   수신 192.168.10.11:9100
+  [OK]   전체 주소 바인딩 없음
+
+== HTTPS 전환
+  [OK]   80 -> 308 https://192.168.56.11/
+
+== 정적 웹과 보안 헤더
+  [OK]   443 정적 200
+  [OK]   X-Content-Type-Options
+  [OK]   X-Frame-Options
+  [OK]   server_tokens off
+
+== 인증서
+     subject=CN=edge01
+     notBefore=Sep 22 04:40:53 2026 GMT
+     notAfter=Dec 25 04:40:53 2028 GMT
+     X509v3 Subject Alternative Name: 
+         IP Address:192.168.56.11, IP Address:192.168.10.11
+
+== 차단 경로
+  [OK]   /actuator/health = 403
+  [OK]   /api/v1/admin = 403
+  [OK]   /api/admin/health = 403
+  [OK]   /admin = 403
+  [OK]   /admin.html = 403
+  [OK]   /.env = 404
+
+== 앱 연동 (APP01·APP02 와 DB 가 올라와 있어야 한다)
+  [OK]   /api/v1/accounts = 401
+  [SKIP] 마켓 조회 결과 0. 앱과 DB 가 올라와 있어야 한다
+
+== WebSocket 핸드셰이크
+  [OK]   /ws/v1 = 101
+   핸드셰이크 성공은 게시 도착을 뜻하지 않는다. 화면에서 시세가 흐르는지 직접 본다.
+
+== SELinux 거부 기록
+  [OK]   AVC 거부 없음
+
+== 방화벽 규칙
+     table inet vmlab {
+     	chain input {
+     		type filter hook input priority filter; policy drop;
+     		iif "lo" counter packets 385 bytes 126463 accept comment "loopback"
+     		ct state established,related counter packets 222 bytes 77548 accept comment "응답만 통과"
+     		ct state invalid counter packets 0 bytes 0 drop comment "상태 불명 차단"
+     		iifname "enp0s9" ip saddr 192.168.56.0/24 tcp dport 22 ct state new counter packets 6 bytes 312 accept comment "관리 SSH"
+     		ip saddr 192.168.10.41 tcp dport 9100 ct state new counter packets 0 bytes 0 accept comment "node_exporter"
+     		ip saddr { 192.168.10.0/24, 192.168.56.0/24 } icmp type { destination-unreachable, echo-request, time-exceeded } counter packets 0 bytes 0 accept comment "실습 대역 ICMP"
+     		iifname "enp0s3" udp sport 67 udp dport 68 counter packets 0 bytes 0 accept comment "구축용 DHCP"
+     		jump roles
+     		limit rate 5/minute burst 5 packets log prefix "vmlab-drop: " level info
+     		counter packets 0 bytes 0 comment "기본 차단 도달"
+     	}
+     
+     	chain roles {
+     		ip saddr 192.168.56.1 tcp dport 443 ct state new counter packets 0 bytes 0 accept comment "EDGE01 웹"
+     		ip saddr 192.168.56.1 tcp dport 80 ct state new counter packets 0 bytes 0 accept comment "EDGE01 전환"
+     	}
+     
+     	chain forward {
+     		type filter hook forward priority filter; policy drop;
+     		counter packets 0 bytes 0 comment "전달 금지"
+     	}
+     
+     	chain output {
+     		type filter hook output priority filter; policy accept;
+     	}
+     }
+  [OK]   inet vmlab 테이블 적용
+  [OK]   기본 정책 drop
+  [OK]   역할 파일 /etc/vm-lab/firewall.d/20-edge01.nft
+  [OK]   443 허용 규칙 있음
+  [OK]   80 허용 규칙 있음
+  [OK]   443·80 출발지에 관리 대역 전체 없음
+  [OK]   inet failstop 테이블 없음
+  [OK]   배포판 nftables.service 비활성
+  [OK]   /etc/sysconfig/nftables.conf 에 활성 지시자 없음
+  [OK]   이전 단독 구성 파일 없음
+
+== 부팅 자동 기동
+  [OK]   nginx enabled
+  [OK]   nginx active
+  [OK]   vm-lab-firewall enabled
+  [OK]   vm-lab-firewall active
+  [OK]   sshd enabled
+  [OK]   sshd active
+  [OK]   chronyd enabled
+  [OK]   chronyd active
+  [OK]   node_exporter enabled
+  [OK]   firewalld masked
+
+== 판정 요약: 통과 42 / 실패 0 / 건너뜀 1
+   이 출력은 실행한 시점의 결과다. 다른 환경의 결과로 옮겨 적지 않는다.

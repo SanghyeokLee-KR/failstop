@@ -1,0 +1,33 @@
+===== EDGE01 (192.168.56.11) SSH 대기 13:40:10
+SSH 열림 13:40:10
+########## 설치 직후 상태
+Warning: Permanently added '192.168.56.11' (ED25519) to the list of known hosts.
+edge01.lab
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+enp0s3           UP             10.0.2.15/24 fe80::a00:27ff:fe90:8a77/64 
+enp0s8           UP             192.168.10.11/24 fe80::a00:27ff:fe86:9913/64 
+enp0s9           UP             192.168.56.11/24 fe80::a00:27ff:fed9:a5a5/64 
+NAME                 SIZE FSTYPE      MOUNTPOINT
+sda                   20G             
+├─sda1               600M vfat        /boot/efi
+├─sda2                 1G xfs         /boot
+└─sda3              18.4G LVM2_member 
+  ├─vg_os-lv_root   12.4G xfs         /
+  ├─vg_os-lv_swap      2G swap        [SWAP]
+  └─vg_os-lv_varlog    4G xfs         /var/log
+Enforcing
+실패 서비스 0개
+########## 자료 전송 (keys 제외) 후 /opt/vm-lab 로 배치
+개인키 유입 0건
+########## 공통 설치
+changed=chrony(makestep 무제한, 검증된 소스 우선)
+applied host=edge01 changed=1
+########## 검증
+LISTEN 0      128    192.168.56.11:22        0.0.0.0:*    users:(("sshd",pid=902,fd=7))         
+LISTEN 0      4096   192.168.10.11:9100      0.0.0.0:*    users:(("node_exporter",pid=900,fd=3))
+	chain input {
+		type filter hook input priority filter; policy drop;
+		jump roles
+	chain roles {
+		type filter hook forward priority filter; policy drop;
+SELinux=Enforcing AVC=0 실패서비스=0개

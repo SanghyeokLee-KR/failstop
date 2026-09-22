@@ -1,0 +1,45 @@
+2026-09-22T05:41:54Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== 화면을 밖에 열지 않고 SSH 터널로만 본다 ==="
+echo "  작업 PC 에서 실행한 명령:"
+echo "    ssh -f -N -L 14005:127.0.0.1:4005 -i ~/.ssh/vm-lab_ed25519 ops@192.168.56.41"
+echo "  14005 를 쓴 이유는 작업 PC 의 다른 포트와 겹치지 않게 하기 위해서다. 목적지는 4005 다."
+echo
+echo "=== 전달 목적지 제한 (터널을 가진 사람이 아무 데나 못 가게) ==="
+sudo /usr/sbin/sshd -T | grep -iE "allowtcpforwarding|permitopen|gatewayports"
+echo "  00-주소계획.md 포트 표에 OPS01 TCP 4005 루프백만 을 올린 뒤 이 목록에 더했다."
+echo
+echo "=== 이 화면이 어느 서버인지 증명하는 값 ==="
+hostname; cat /etc/vm-lab/role
+ip -4 -br addr | grep -vw lo
+sudo ss -lntp | grep 4005
+echo
+echo "=== 브라우저 주소창은 127.0.0.1:14005 로 보인다 ==="
+echo "  터널이라 그렇다. 실제 대상은 위 ss 출력의 ops01.lab 127.0.0.1:4005 다."
+
+=== 화면을 밖에 열지 않고 SSH 터널로만 본다 ===
+  작업 PC 에서 실행한 명령:
+    ssh -f -N -L 14005:127.0.0.1:4005 -i ~/.ssh/vm-lab_ed25519 ops@192.168.56.41
+  14005 를 쓴 이유는 작업 PC 의 다른 포트와 겹치지 않게 하기 위해서다. 목적지는 4005 다.
+
+=== 전달 목적지 제한 (터널을 가진 사람이 아무 데나 못 가게) ===
+gatewayports no
+allowtcpforwarding local
+permitopen 127.0.0.1:3000 127.0.0.1:9090 127.0.0.1:9093 127.0.0.1:4005
+  00-주소계획.md 포트 표에 OPS01 TCP 4005 루프백만 을 올린 뒤 이 목록에 더했다.
+
+=== 이 화면이 어느 서버인지 증명하는 값 ===
+ops01.lab
+ops01
+enp0s3           UP             10.0.2.15/24 
+enp0s8           UP             192.168.10.41/24 
+enp0s9           UP             192.168.56.41/24 
+docker0          DOWN           172.17.0.1/16 
+databasus0       UP             172.18.0.1/16 
+LISTEN 0      4096       127.0.0.1:4005      0.0.0.0:*    users:(("docker-proxy",pid=4735,fd=8))
+
+=== 브라우저 주소창은 127.0.0.1:14005 로 보인다 ===
+  터널이라 그렇다. 실제 대상은 위 ss 출력의 ops01.lab 127.0.0.1:4005 다.

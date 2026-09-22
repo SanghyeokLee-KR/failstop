@@ -1,0 +1,74 @@
+2026-09-22T05:33:57Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== 사전: Grafana 저장소 GPG 키를 먼저 등록한다 (dnf 가 대화형으로 멈추지 않게) ==="
+sudo rpm --import https://rpm.grafana.com/gpg.key && echo "  grafana 키 등록"
+
+echo
+echo "=== Docker CE 저장소 파일 배치 ==="
+echo "  dnf5 의 config-manager 는 --from-repofile 을 받지 않는다. 파일을 직접 내려받아 둔다."
+sudo curl -fsSL -o /etc/yum.repos.d/docker-ce.repo https://download.docker.com/linux/rhel/docker-ce.repo
+sudo sed -i "s/\$releasever/10/g" /etc/yum.repos.d/docker-ce.repo
+echo "  stable 구간만 남기고 나머지는 enabled=0 인지 확인"
+grep -E "^\[|^enabled|^baseurl" /etc/yum.repos.d/docker-ce.repo | head -12
+echo
+echo "=== GPG 키 지문 ==="
+sudo rpm --import https://download.docker.com/linux/rhel/gpg
+rpm -qa gpg-pubkey* --qf "%{SUMMARY}\n" | grep -i docker || true
+echo
+echo "=== 설치 ==="
+sudo dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 2>&1 | tail -22
+echo
+sudo docker --version
+sudo docker compose version
+
+=== 사전: Grafana 저장소 GPG 키를 먼저 등록한다 (dnf 가 대화형으로 멈추지 않게) ===
+  grafana 키 등록
+
+=== Docker CE 저장소 파일 배치 ===
+  dnf5 의 config-manager 는 --from-repofile 을 받지 않는다. 파일을 직접 내려받아 둔다.
+  stable 구간만 남기고 나머지는 enabled=0 인지 확인
+[docker-ce-stable]
+baseurl=https://download.docker.com/linux/rhel/10/$basearch/stable
+enabled=1
+[docker-ce-stable-source]
+baseurl=https://download.docker.com/linux/rhel/10/source/stable
+enabled=0
+[docker-ce-test]
+baseurl=https://download.docker.com/linux/rhel/10/$basearch/test
+enabled=0
+[docker-ce-test-source]
+baseurl=https://download.docker.com/linux/rhel/10/source/test
+enabled=0
+
+=== GPG 키 지문 ===
+Docker Release (CE rpm) <docker@docker.com> public key
+
+=== 설치 ===
+  Installing       : containerd.io-2.3.5-1.el10.x86_64                      5/8 
+  Running scriptlet: containerd.io-2.3.5-1.el10.x86_64                      5/8 
+  Installing       : iptables-nft-1.8.11-13.el10.x86_64                     6/8 
+  Running scriptlet: iptables-nft-1.8.11-13.el10.x86_64                     6/8 
+  Installing       : docker-ce-rootless-extras-29.8.1-1.el10.x86_64         7/8 
+  Running scriptlet: docker-ce-rootless-extras-29.8.1-1.el10.x86_64         7/8 
+  Installing       : docker-ce-3:29.8.1-1.el10.x86_64                       8/8 
+  Running scriptlet: docker-ce-3:29.8.1-1.el10.x86_64                       8/8 
+  Running scriptlet: container-selinux-4:2.246.0-1.el10.noarch              8/8 
+  Running scriptlet: docker-ce-3:29.8.1-1.el10.x86_64                       8/8 
+
+Installed:
+  container-selinux-4:2.246.0-1.el10.noarch                                     
+  containerd.io-2.3.5-1.el10.x86_64                                             
+  docker-buildx-plugin-0.37.1-1.el10.x86_64                                     
+  docker-ce-3:29.8.1-1.el10.x86_64                                              
+  docker-ce-cli-1:29.8.1-1.el10.x86_64                                          
+  docker-ce-rootless-extras-29.8.1-1.el10.x86_64                                
+  docker-compose-plugin-5.5.1-1.el10.x86_64                                     
+  iptables-nft-1.8.11-13.el10.x86_64                                            
+
+Complete!
+
+Docker version 29.8.1, build 4a63305
+Docker Compose version v5.5.1

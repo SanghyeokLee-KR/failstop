@@ -1,0 +1,53 @@
+2026-09-22T05:38:47Z  db01.lab
+
+# 실행 대상 192.168.56.31
+# 실행 명령
+
+HBA=$(sudo -u postgres psql -Atc "show hba_file")
+echo "=== 변경 전 (exchange DB 관련 줄) ==="
+sudo grep -nE "^hostssl|^host " "$HBA"
+echo
+echo "=== databasus_ro 줄 추가 ==="
+echo "  OPS01 의 lab-lan 주소 하나만, exchange DB 하나만, scram-sha-256 으로 제한한다."
+sudo grep -q "databasus_ro" "$HBA" || sudo sh -c "printf \"hostssl   exchange        databasus_ro    192.168.10.41/32        scram-sha-256\n\" >> $HBA"
+echo
+echo "=== 변경 후 ==="
+sudo grep -nE "^hostssl|^host " "$HBA"
+echo
+echo "=== 적용 ==="
+sudo -u postgres psql -Atc "SELECT pg_reload_conf();"
+sudo -u postgres psql -c "SELECT type, database, user_name, address, auth_method FROM pg_hba_file_rules WHERE user_name::text LIKE :qu ORDER BY line_number;" -v qu="'%databasus%'" 2>&1 | tail -6
+echo
+echo "=== 방화벽: OPS01 에서 오는 5432 허용 ==="
+sudo install -o root -g root -m 0600 /tmp/db01-databasus-firewall.d.nft /etc/vm-lab/firewall.d/35-db01-databasus.nft
+sudo nft --check --file /etc/vm-lab/firewall.nft && echo "  구문 통과"
+sudo systemctl reload vm-lab-firewall.service && echo "  적용"
+sudo nft list chain inet vmlab roles | grep 5432
+
+=== 변경 전 (exchange DB 관련 줄) ===
+27:hostssl   exchange        exchange_app    192.168.10.21/32        scram-sha-256
+28:hostssl   exchange        exchange_app    192.168.10.22/32        scram-sha-256
+32:hostssl   replication     replicator      192.168.10.32/32        scram-sha-256
+
+=== databasus_ro 줄 추가 ===
+  OPS01 의 lab-lan 주소 하나만, exchange DB 하나만, scram-sha-256 으로 제한한다.
+
+=== 변경 후 ===
+27:hostssl   exchange        exchange_app    192.168.10.21/32        scram-sha-256
+28:hostssl   exchange        exchange_app    192.168.10.22/32        scram-sha-256
+32:hostssl   replication     replicator      192.168.10.32/32        scram-sha-256
+49:hostssl   exchange        databasus_ro    192.168.10.41/32        scram-sha-256
+
+=== 적용 ===
+t
+ERROR:  syntax error at or near ":"
+LINE 1: ...FROM pg_hba_file_rules WHERE user_name::text LIKE :qu ORDER ...
+                                                             ^
+
+=== 방화벽: OPS01 에서 오는 5432 허용 ===
+  구문 통과
+  적용
+		ip saddr 192.168.10.21 tcp dport 5432 ct state new counter packets 0 bytes 0 accept comment "app01 sql"
+		ip saddr 192.168.10.22 tcp dport 5432 ct state new counter packets 0 bytes 0 accept comment "app02 sql"
+		ip saddr 192.168.10.32 tcp dport 5432 ct state new counter packets 0 bytes 0 accept comment "db02 replication"
+		ip saddr 192.168.10.41 tcp dport 5432 ct state new counter packets 0 bytes 0 accept comment "databasus backup"

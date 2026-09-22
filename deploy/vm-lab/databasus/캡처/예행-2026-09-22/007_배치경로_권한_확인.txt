@@ -1,0 +1,48 @@
+2026-09-22T05:35:57Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== 배치 경로 생성 ==="
+sudo mkdir -p /opt/databasus/databasus-data
+sudo install -o root -g root -m 0644 /tmp/databasus-compose.yml /opt/databasus/docker-compose.yml
+sudo install -o root -g root -m 0644 /tmp/databasus.service /etc/systemd/system/databasus.service
+sudo systemctl daemon-reload
+echo
+echo "=== 상류 정의와 우리 정의의 차이 ==="
+echo "  상류:  ports: - \"4005:4005\"            image: databasus/databasus:latest"
+echo "  우리:  ports: - \"127.0.0.1:4005:4005\"  image: databasus/databasus:v3.59.0"
+echo "  이유는 /opt/databasus/docker-compose.yml 머리말에 적었다."
+echo
+echo "=== 권한 ==="
+sudo ls -la /opt/databasus/
+sudo stat -c "%n  소유자 %U:%G  권한 %a" /opt/databasus /opt/databasus/docker-compose.yml /opt/databasus/databasus-data /etc/systemd/system/databasus.service
+echo
+echo "=== compose 구문 검사 (값을 실행하지 않고 해석만 한다) ==="
+cd /opt/databasus && sudo docker compose config --quiet && echo "  구문 통과"
+sudo docker compose config | grep -E "image:|published:|host_ip:|container_name:"
+
+=== 배치 경로 생성 ===
+
+=== 상류 정의와 우리 정의의 차이 ===
+  상류:  ports: - "4005:4005"            image: databasus/databasus:latest
+  우리:  ports: - "127.0.0.1:4005:4005"  image: databasus/databasus:v3.59.0
+  이유는 /opt/databasus/docker-compose.yml 머리말에 적었다.
+
+=== 권한 ===
+total 4
+drwxr-xr-x. 3 root root   54 Sep 22 14:35 .
+drwxr-xr-x. 5 root root   55 Sep 22 14:35 ..
+drwxr-xr-x. 2 root root    6 Sep 22 14:35 databasus-data
+-rw-r--r--. 1 root root 2008 Sep 22 14:35 docker-compose.yml
+/opt/databasus  소유자 root:root  권한 755
+/opt/databasus/docker-compose.yml  소유자 root:root  권한 644
+/opt/databasus/databasus-data  소유자 root:root  권한 755
+/etc/systemd/system/databasus.service  소유자 root:root  권한 644
+
+=== compose 구문 검사 (값을 실행하지 않고 해석만 한다) ===
+  구문 통과
+    container_name: databasus
+    image: databasus/databasus:v3.59.0
+        host_ip: 127.0.0.1
+        published: "4005"

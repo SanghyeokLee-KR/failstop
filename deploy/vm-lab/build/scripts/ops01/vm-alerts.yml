@@ -1,0 +1,76 @@
+# OPS01 경보 규칙. 원본은 failstop/deploy/linux/reporting/school-alerts.yml이며
+# 바꾼 곳은 두 가지다. 라벨 environment를 aws에서 vm-lab으로 바꿨고,
+# 그룹 이름을 school.operations에서 vm.operations로 바꿨다. 식과 임계값은 원본과 같다.
+# 그룹 이름은 라벨이 아니라 규칙 묶음의 이름이며 경보 본문에 들어가지 않는다.
+#
+# 설치에 쓰는 정본은 build-files/ops/alerts.vm.yml이다. 이 파일은 설계 단계 사본이며
+# 주석을 뺀 본문이 정본과 같아야 한다. 40-ops01-observability.sh의 preflight가 그 차이를 알린다.
+# 배치 위치: /etc/prometheus/vm-alerts.yml (root:prometheus 0640)
+groups:
+  - name: vm.operations
+    rules:
+      - alert: LinuxHostUnreachable
+        expr: up{job="linux-host"} == 0
+        for: 1m
+        labels: {customer: exchange, environment: vm-lab, severity: critical, component: linux}
+        annotations:
+          summary: Linux 호스트 수집 경로 장애 발생
+      - alert: LinuxCollectorFailed
+        expr: node_scrape_collector_success{job="linux-host"} == 0
+        for: 1m
+        labels: {customer: exchange, environment: vm-lab, severity: warning, component: monitoring}
+        annotations:
+          summary: Linux 수집기 부분 실패
+      - alert: LinuxDiskSpaceLow
+        expr: (node_filesystem_avail_bytes{job="linux-host",fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes < 0.15) and on(instance,device,mountpoint) (node_filesystem_readonly == 0)
+        for: 5m
+        labels: {customer: exchange, environment: vm-lab, severity: warning, component: storage}
+        annotations:
+          summary: 디스크 여유 공간 부족 · 15% 미만
+      - alert: LinuxInodesLow
+        expr: node_filesystem_files_free{job="linux-host",fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_files < 0.10
+        for: 5m
+        labels: {customer: exchange, environment: vm-lab, severity: warning, component: storage}
+        annotations:
+          summary: inode 여유 부족 · 10% 미만
+      - alert: LinuxServiceFailed
+        expr: node_systemd_unit_state{job="linux-host",state="failed"} == 1
+        for: 30s
+        labels: {customer: exchange, environment: vm-lab, severity: critical, component: linux}
+        annotations:
+          summary: Linux 서비스 장애 발생
+      - alert: DatabaseReplicationUnknown
+        expr: pg_wal_position_in_recovery{job="postgres"} == 0 unless on(instance) pg_replication_client_sent_replay_bytes{state="streaming"}
+        for: 2m
+        labels: {customer: exchange, environment: vm-lab, severity: critical, component: database}
+        annotations:
+          summary: Primary·Standby 복제 연결 미확인
+      - alert: DatabaseExporterUnavailable
+        expr: (up{job="postgres"} == 0) or absent(up{job="postgres"}) or (up{job="postgres"} == 1 unless on(customer,environment,instance) pg_up{job="postgres"})
+        for: 1m
+        labels: {customer: exchange, environment: vm-lab, severity: critical, component: monitoring}
+        annotations:
+          summary: DB 수집 경로 장애 발생
+          description: 수집기 응답 또는 DB 접속 지표 누락. DB 프로세스 장애 여부 별도 확인 필요
+          resolved_summary: DB 수집 경로 경보 해제
+      - alert: DatabaseConnectionFailed
+        expr: (pg_up{job="postgres",role=~"data|standby"} == 0) and on(customer,environment,instance) (up{job="postgres"} == 1)
+        for: 1m
+        labels: {customer: exchange, environment: vm-lab, severity: critical, component: database}
+        annotations:
+          summary: '{{ if eq $labels.role "standby" }}Standby{{ else if eq $labels.role "data" }}Primary{{ else }}PostgreSQL{{ end }} DB 접속 장애 발생'
+          description: 수집기 응답 정상 · DB 접속 실패. DB 프로세스·네트워크·인증 상태 확인 필요
+          resolved_summary: '{{ if eq $labels.role "standby" }}Standby{{ else if eq $labels.role "data" }}Primary{{ else }}PostgreSQL{{ end }} DB 접속 장애 경보 해제'
+      - alert: DatabaseMetricsMissing
+        expr: (pg_exporter_last_scrape_error{job="postgres"} == 1) or (pg_up{job="postgres"} == 1 unless on(instance) pg_wal_position_in_recovery)
+        for: 2m
+        labels: {customer: exchange, environment: vm-lab, severity: warning, component: monitoring}
+        annotations:
+          summary: DB 확장 지표 누락·질의 실패
+      - alert: SpringMetricsUnavailable
+        expr: up{job="exchange-api",role=~"app|reader"} == 0
+        for: 1m
+        labels: {customer: exchange, environment: vm-lab, severity: critical, component: application}
+        annotations:
+          summary: Spring 수집 경로 장애 발생
+          description: 관리 포트·Spring 프로세스·외부 접속 검사 대조 필요

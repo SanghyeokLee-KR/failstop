@@ -1,0 +1,28 @@
+# OPS01의 Alertmanager 서비스. 원본은 deploy/linux/reporting/alertmanager.service이며
+# 다음만 바꿨다.
+#  - 실행 계정을 failstop-report에서 전용 계정 alertmanager로 교체
+#    (보고 역할이 아직 없을 때도 관측만으로 기동할 수 있게 한다)
+#  - 보고 서비스에 대한 After 의존을 제거
+# 보고 역할을 설치한 뒤에는 비밀 파일 두 개를 두 계정이 모두 읽을 수 있는지 확인한다.
+# 바인딩 127.0.0.1:9093과 메모리 상한 128M은 원본 그대로다.
+# 배치 위치: /etc/systemd/system/alertmanager.service (root:root 0644)
+[Unit]
+Description=VM lab operational alerts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=alertmanager
+Group=alertmanager
+ExecStart=/usr/local/bin/alertmanager --config.file=/etc/failstop/alertmanager.yml --storage.path=/var/lib/exchange-alertmanager --web.listen-address=127.0.0.1:9093 --cluster.listen-address=
+StateDirectory=exchange-alertmanager
+Restart=on-failure
+RestartSec=5
+MemoryMax=128M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,48 @@
+# OPS01 의 Databasus 배치 정의. 배치 위치는 /opt/databasus/docker-compose.yml 이다.
+#
+# 상류 README 의 운영용 정의를 바탕으로 하되 세 가지를 바꿨고 이유는 아래와 같다.
+#
+# 1. 게시 주소를 127.0.0.1 로 묶었다.
+#    상류는 "4005:4005" 라서 호스트의 모든 주소에 열린다. 00-주소계획.md 의 포트 표는
+#    관제 화면을 OPS01 루프백과 SSH 터널로만 열기로 정했고 Grafana 3000, Prometheus 9090,
+#    Alertmanager 9093 이 같은 규칙을 따른다. 백업 도구의 화면은 그 셋보다 더 민감하다.
+#    DB 자격증명과 백업 목록과 복원 명령이 한 화면에 모이기 때문이다.
+#
+# 2. 이미지 태그를 latest 가 아니라 판을 고정했다.
+#    latest 는 컨테이너를 다시 만들 때마다 내용이 달라질 수 있어 어떤 판으로 백업했는지
+#    증거에 남지 않는다. 판을 올릴 때는 이 파일을 고치고 그 변경을 기록한다.
+#
+# 3. 재시작을 Docker 정책에만 맡기지 않고 systemd 유닛으로 감쌌다.
+#    상류 설치 스크립트는 unless-stopped 만 쓴다. 이 저장소의 다른 서비스는 전부
+#    systemd 로 기동과 실패를 남기므로 한 곳에서 보려면 유닛이 필요하다.
+#    유닛은 build-files/ops/databasus.service 다.
+#
+# 볼륨이 하나뿐이라는 점이 중요하다. 설정, 자격증명, 메타데이터, 마스터 키가 모두
+# ./databasus-data 한 곳에 모인다. 이 디렉터리를 잃으면 백업 자체가 남아 있어도
+# 복호화 경로를 잃는다. 그래서 이 디렉터리도 별도로 보관해야 한다.
+
+services:
+  databasus:
+    container_name: databasus
+    image: databasus/databasus:v3.59.0
+    ports:
+      - "127.0.0.1:4005:4005"
+    volumes:
+      - ./databasus-data:/databasus-data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "databasus", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+# 브리지 이름을 고정한다.
+#   compose 는 기본으로 br-<네트워크ID 앞 12자> 라는 이름의 브리지를 만든다. 그 이름은
+#   네트워크를 다시 만들 때마다 바뀌므로 방화벽 규칙에서 인터페이스로 지목할 수 없다.
+#   실제로 이름을 고정하기 전에는 inet vmlab 의 forward 규칙이 docker0 을 가리켜
+#   컨테이너가 DB01 로 나가지 못했다. 이름을 고정해야 규칙이 재생성에도 살아남는다.
+networks:
+  default:
+    driver_opts:
+      com.docker.network.bridge.name: databasus0

@@ -1,0 +1,51 @@
+2026-09-22T05:40:39Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== 데이터 디렉터리 구조 (볼륨 하나에 모든 것이 모인다) ==="
+sudo ls -la /opt/databasus/databasus-data/
+echo
+echo "=== 마스터 키 파일 — 내용을 절대 출력하지 않는다 ==="
+echo "  cat 도 sha256sum 도 하지 않는다. 해시도 사실상 지문이 된다."
+sudo find /opt/databasus/databasus-data -maxdepth 2 -name "*.key" -o -maxdepth 2 -name "secret*" 2>/dev/null | while read f; do
+  sudo stat -c "  %n  소유자 %U:%G  권한 %a  크기 %s바이트  수정 %y" "$f"
+done
+echo
+echo "=== 디렉터리 권한 ==="
+sudo stat -c "  %n  소유자 %U:%G  권한 %a" /opt/databasus /opt/databasus/databasus-data
+echo
+echo "=== 이 디렉터리를 잃으면 무엇을 잃는가 ==="
+echo "  설정, 자격증명, 메타데이터, 암호화 마스터 키가 전부 여기 하나에 있다."
+echo "  백업 파일이 외부 보관소에 남아 있어도 이 디렉터리를 잃으면 복호화 경로를 잃는다."
+echo "  그래서 이 디렉터리 자체도 따로 보관해야 한다. 보고서에 이 항목을 남긴다."
+echo
+echo "=== 디스크 여유 ==="
+df -h /opt /var/lib | grep -v Filesystem
+
+=== 데이터 디렉터리 구조 (볼륨 하나에 모든 것이 모인다) ===
+total 60
+drwxrwx---.  6 systemd-oom systemd-oom   105 Sep 22 14:38 .
+drwxr-xr-x.  3 root        root           54 Sep 22 14:37 ..
+drwxrwx---.  2 systemd-oom systemd-oom     6 Sep 22 14:37 backups
+-rw-------.  1 systemd-oom systemd-oom 52724 Sep 22 14:40 databasus.log
+-rw-------.  1 systemd-oom systemd-oom    80 Sep 22 14:38 instance.json
+drwx------. 19 systemd-oom systemd-oom  4096 Sep 22 14:37 pgdata
+drwx------.  2 systemd-oom systemd-oom    53 Sep 22 14:37 pgsocket
+drwx------.  2 systemd-oom systemd-oom     6 Sep 22 14:37 temp
+
+=== 마스터 키 파일 — 내용을 절대 출력하지 않는다 ===
+  cat 도 sha256sum 도 하지 않는다. 해시도 사실상 지문이 된다.
+
+=== 디렉터리 권한 ===
+  /opt/databasus  소유자 root:root  권한 755
+  /opt/databasus/databasus-data  소유자 systemd-oom:systemd-oom  권한 770
+
+=== 이 디렉터리를 잃으면 무엇을 잃는가 ===
+  설정, 자격증명, 메타데이터, 암호화 마스터 키가 전부 여기 하나에 있다.
+  백업 파일이 외부 보관소에 남아 있어도 이 디렉터리를 잃으면 복호화 경로를 잃는다.
+  그래서 이 디렉터리 자체도 따로 보관해야 한다. 보고서에 이 항목을 남긴다.
+
+=== 디스크 여유 ===
+/dev/mapper/vg_os-lv_root     13G  3.4G  9.0G  28% /
+/dev/mapper/vg_os-lv_varlib   10G  1.8G  8.2G  19% /var/lib

@@ -1,0 +1,82 @@
+# OPS01 Prometheus 수집 설정. 40-ops01-observability.sh 가 이 파일을 설치한다.
+#
+# 설치 위치: /etc/prometheus/prometheus.yml (root:prometheus 0640)
+# 주소는 build/00-주소계획.md 의 lab-lan 열 값만 쓴다. 여기서 새 주소를 만들지 않는다.
+#
+# 원본은 failstop/deploy/linux/observability/prometheus.yml 이며 바꾼 자리는 다음 여섯 곳이다.
+#   1. 학교 사설 대역 172.31.x -> VM lab-lan 192.168.10.x
+#   2. external_labels 의 environment: aws -> vm-lab, account: school 제거
+#   3. 앱 지표를 Nginx 9101 중계 대신 Actuator 8081 에서 직접 수집
+#      (VM_네트워크_접근제어도.svg 의 "앱 8081 Actuator · OPS01만 허용" 정책을 따른다)
+#   4. 관측 노드 자신의 node_exporter 를 127.0.0.1 대신 192.168.10.41 로 등록
+#      (02-정본결정.md 7절. 여섯 대 모두 lab-lan 주소에 바인딩한다)
+#   5. 여섯 VM 전부를 linux-host 작업에 넣어 같은 호스트 경보를 받게 함
+#   6. rule_files 와 alerting 을 처음부터 포함 (학교에서는 나중에 덧붙였다)
+#
+# 작업 이름 linux-host · exchange-api · postgres 는 바꾸지 않는다.
+# 경보 규칙(vm-alerts.yml), Grafana 화면, 보고 코드가 같은 이름을 함께 쓴다.
+#
+# 같은 내용의 설계 단계 사본이 build/scripts/ops01/prometheus.yml 에 있다.
+# 설치 원본은 이 파일이며 둘 중 하나만 고치면 스크립트가 preflight 에서 차이를 알린다.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: vm-lab
+    lab: virtualbox
+
+rule_files:
+  - /etc/prometheus/vm-alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['127.0.0.1:9093']
+
+scrape_configs:
+  # Prometheus 자신. 수집 지연과 규칙 평가 실패를 이 대상으로 본다.
+  - job_name: prometheus
+    static_configs:
+      - targets: ['127.0.0.1:9090']
+        labels: {customer: exchange, environment: vm-lab, role: observability, node: ops01, service: monitoring}
+
+  # 여섯 VM 의 node_exporter. 02-정본결정.md 7절대로 여섯 대 모두 자기 lab-lan 주소의
+  # 9100 에 바인딩한다. OPS01 만 루프백으로 두던 분기는 없앴고, 주소는 여섯 대 모두
+  # /etc/node_exporter/listen.env 의 NODE_EXPORTER_ADDRESS 에서 읽는다.
+  # OPS01 자신도 192.168.10.41 로 등록한다. 자기 호스트 주소라 실제 연결은 lo 로 들어온다.
+  # 40-ops01-observability.sh 의 exporter 단계는 실제 바인딩이 이 값과 같은지 확인만 하고,
+  # 다르면 설치본을 고쳐 덮지 않고 listen.env 를 고치라고 알린다.
+  - job_name: linux-host
+    static_configs:
+      - targets: ['192.168.10.11:9100']
+        labels: {customer: exchange, environment: vm-lab, role: edge, node: edge01, service: infra}
+      - targets: ['192.168.10.21:9100']
+        labels: {customer: exchange, environment: vm-lab, role: app, node: app01, service: infra}
+      - targets: ['192.168.10.22:9100']
+        labels: {customer: exchange, environment: vm-lab, role: app, node: app02, service: infra}
+      - targets: ['192.168.10.31:9100']
+        labels: {customer: exchange, environment: vm-lab, role: data, node: db01, service: infra}
+      - targets: ['192.168.10.32:9100']
+        labels: {customer: exchange, environment: vm-lab, role: standby, node: db02, service: infra}
+      - targets: ['192.168.10.41:9100']
+        labels: {customer: exchange, environment: vm-lab, role: observability, node: ops01, service: infra}
+
+  # 앱 두 대의 Actuator. 앱 역할이 MANAGEMENT_SERVER_ADDRESS 를 각자의 lab-lan 주소로 두고
+  # 노출 엔드포인트를 지표·헬스로 제한해야 이 수집이 성립한다. 조건이 없으면 down 으로 남는다.
+  - job_name: exchange-api
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['192.168.10.21:8081']
+        labels: {customer: exchange, environment: vm-lab, role: app, node: app01, service: api}
+      - targets: ['192.168.10.22:8081']
+        labels: {customer: exchange, environment: vm-lab, role: app, node: app02, service: api}
+
+  # DB 두 대의 postgres_exporter. 수집기는 로컬 peer 인증으로 DB 에 붙고 지표만 lab-lan 에 연다.
+  # 사용자 질의(pg-queries.yaml)가 붙어 있어 기본 수집보다 오래 걸릴 수 있으므로 시간 제한을 늘렸다.
+  - job_name: postgres
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ['192.168.10.31:9187']
+        labels: {customer: exchange, environment: vm-lab, role: data, node: db01, service: database}
+      - targets: ['192.168.10.32:9187']
+        labels: {customer: exchange, environment: vm-lab, role: standby, node: db02, service: database}

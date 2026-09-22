@@ -1,0 +1,47 @@
+=== 40-ops01-observability.sh all 시작 2026-09-22T14:23:29+09:00 ===
+
+=== 사전 확인 ===
+  Rocky Linux release 10.2 (Red Quartz)
+  호스트명 ops01.lab
+  [확인] 역할 표시 /etc/vm-lab/role = ops01
+  [확인] SELinux Enforcing
+  [확인] chronyd 실행 중
+    Reference ID    : D8EF2300 (time1.google.com)
+    Stratum         : 2
+    Ref time (UTC)  : Tue Sep 22 05:23:13 2026
+    System time     : 0.000000761 seconds slow of NTP time
+
+=== 주소와 자원 ===
+  lo               UNKNOWN        127.0.0.1/8 ::1/128 
+  enp0s3           UP             10.0.2.15/24 fd17:625c:f037:2:a00:27ff:feaa:d405/64 fe80::a00:27ff:feaa:d405/64 
+  enp0s8           UP             192.168.10.41/24 fe80::a00:27ff:fe4b:9bf7/64 
+  enp0s9           UP             192.168.56.41/24 fe80::a00:27ff:febc:fc8c/64 
+  [확인] enp0s8 = 192.168.10.41
+  [확인] enp0s9 = 192.168.56.41
+                 total        used        free      shared  buff/cache   available
+  Mem:            3890         443        3361           0         294        3446
+  Swap:           2047           0        2047
+  Filesystem                   Size  Used Avail Use% Mounted on
+  /dev/mapper/vg_os-lv_root     13G  1.4G   12G  11% /
+  /dev/mapper/vg_os-lv_varlog  4.0G  132M  3.9G   4% /var/log
+  /dev/mapper/vg_os-lv_varlib   10G  248M  9.7G   3% /var/lib
+
+=== 설치 원본 확인 ===
+  prometheus.vm.yml <- /opt/vm-lab/build-files/ops/prometheus.vm.yml
+  prometheus.service <- /opt/vm-lab/build-files/ops/prometheus.service
+  node_exporter.ops01.service <- /opt/vm-lab/scripts/ops01/node_exporter.ops01.service
+  ops01-firewall.nft <- /opt/vm-lab/scripts/ops01/ops01-firewall.nft
+  vm-lab-firewall.service <- /opt/vm-lab/build-files/ops/vm-lab-firewall.service
+  grafana.repo <- /opt/vm-lab/build-files/ops/grafana.repo
+  grafana.ini <- /opt/vm-lab/build-files/ops/grafana.ini
+  grafana-limits.conf <- /opt/vm-lab/build-files/ops/grafana-limits.conf
+  grafana-datasource.yml <- /opt/vm-lab/build-files/ops/grafana-datasource.yml
+  grafana-dashboards.vm.yml <- /opt/vm-lab/scripts/ops01/grafana-dashboards.vm.yml
+  grafana-msp-dashboards.vm.yml <- /opt/vm-lab/scripts/ops01/grafana-msp-dashboards.vm.yml
+  linux-dashboard.vm.json <- /opt/vm-lab/build-files/ops/linux-dashboard.vm.json
+  bootstrap-grafana-admin.sh <- /opt/vm-lab/build-files/ops/bootstrap-grafana-admin.sh
+  alertmanager.hold.yml <- /opt/vm-lab/scripts/ops01/alertmanager.hold.yml
+  alertmanager.vm.yml <- /opt/vm-lab/build-files/ops/alertmanager.vm.yml
+  alertmanager.vm.service <- /opt/vm-lab/scripts/ops01/alertmanager.vm.service
+  경보 규칙 <- /opt/vm-lab/build-files/ops/alerts.vm.yml
+  [확인] MSP 화면 JSON 7개

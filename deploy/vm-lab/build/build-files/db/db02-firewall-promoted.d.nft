@@ -1,0 +1,34 @@
+# DB02를 승격했을 때만 쓰는 역할별 방화벽 규칙. 공통 기반이 있는 VM에서 쓴다.
+#
+# 방화벽은 table inet vmlab 한 계통만 쓴다. 설정은 /etc/vm-lab/firewall.nft,
+# 유닛은 vm-lab-firewall.service 하나다. 단독 테이블(inet failstop)의 승격판 파일은
+# 없앴다. 승격 경로도 공통 기반 위에서만 돈다.
+#
+# 배치 위치는 /etc/vm-lab/firewall.d/31-db02.nft 이며, 승격 절차가 평상시 파일을
+# 백업한 뒤 이 파일로 덮어쓴다. 권한은 0600이다.
+#
+# 나가는 통신(output)은 여기서 제한하지 않는다. 발신 제한은 pfSense 경계에서 건다.
+# 호스트마다 발신 규칙을 따로 두면 정책이 여섯 벌로 갈리기 때문이다.
+#
+# 평상시 파일에 이 규칙을 미리 넣어 두지 않는다. 승격 전 DB02가 5432를 열고 있으면
+# 앱이 실수로 붙거나, DB01이 살아 있는 동안 두 노드가 동시에 쓰기를 받을 여지가 생긴다.
+# 32-db-failover.sh 의 06-open 단계가 pg_hba.conf 규칙을 먼저 넣고 이 파일로 교체한다.
+# 그 두 가지를 하기 전에는 앱이 붙지 못한다.
+#
+# 적용(승격 절차 안에서만):
+#   sudo install -o root -g root -m 0600 db02-firewall-promoted.d.nft /etc/vm-lab/firewall.d/31-db02.nft
+#   sudo nft --check --file /etc/vm-lab/firewall.nft
+#   sudo systemctl reload vm-lab-firewall.service
+#   sudo nft list chain inet vmlab input
+#
+# 되돌릴 때는 db02-firewall.d.nft 를 같은 자리에 다시 깔고 reload 한다.
+# DB01을 재편입해 DB02가 다시 Primary 자리를 넘겨줄 때가 그때다.
+
+# 거래 DB. 앱 두 대와 재편입할 DB01만 5432에 붙는다.
+# OPS01은 여기에 없다. 관제는 9187의 postgres_exporter로만 본다.
+add rule inet vmlab roles ip saddr 192.168.10.21 tcp dport 5432 ct state new counter accept comment "app01 sql"
+add rule inet vmlab roles ip saddr 192.168.10.22 tcp dport 5432 ct state new counter accept comment "app02 sql"
+add rule inet vmlab roles ip saddr 192.168.10.31 tcp dport 5432 ct state new counter accept comment "db01 rejoin"
+
+# DB 지표. OPS01의 lab-lan 주소 하나만 허용한다.
+add rule inet vmlab roles ip saddr 192.168.10.41 tcp dport 9187 ct state new counter accept comment "postgres_exporter"

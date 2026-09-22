@@ -1,0 +1,33 @@
+# DB01의 역할별 방화벽 규칙. 공통 기반(00-common-setup.sh)을 적용한 VM에서 쓴다.
+#
+# 방화벽은 table inet vmlab 한 계통만 쓴다. 설정은 /etc/vm-lab/firewall.nft,
+# 유닛은 vm-lab-firewall.service 하나다. 배포판 nftables.service 를 두 번째
+# 정책원으로 살려 두지 않는다. DB01 단독 테이블(inet failstop) 파일은 없앴다.
+#
+# 배치 위치는 /etc/vm-lab/firewall.d/30-db01.nft 이며 권한은 0600이다.
+# 공통 기반이 만든 /etc/vm-lab/firewall.nft 가 이 디렉터리를 include 하므로
+# 테이블과 체인을 다시 선언하지 않고 add rule 형식으로만 덧붙인다.
+# 기본 정책은 이미 drop이고 22와 9100은 공통 기반이 열어 두었다.
+#
+# 나가는 통신(output)은 여기서 제한하지 않는다. 구축 단계에는 NAT로 패키지를
+# 내려받아야 하고, 발신 제한은 pfSense 경계에서 거는 것으로 정했다. 호스트마다
+# 발신 규칙을 따로 두면 정책이 여섯 벌로 갈리고 경계의 정책과 어긋난다.
+# 그래서 이 전환 전까지는 "모든 통신이 방화벽을 지난다"고 적지 않는다.
+#
+# 적용:
+#   sudo install -o root -g root -m 0600 db01-firewall.d.nft /etc/vm-lab/firewall.d/30-db01.nft
+#   sudo nft --check --file /etc/vm-lab/firewall.nft
+#   sudo systemctl reload vm-lab-firewall.service
+#   sudo nft list chain inet vmlab input
+# 30-db-primary-setup.sh 의 firewall 단계가 이 순서를 그대로 실행한다.
+#
+# 규칙 주석은 짧게 쓴다. nftables 주석은 128바이트 제한이 있고 한글은 한 글자가 3바이트다.
+
+# 거래 DB. 앱 두 대와 Standby 한 대만 5432에 붙는다.
+# OPS01은 여기에 없다. 관제는 9187의 postgres_exporter로만 본다.
+add rule inet vmlab roles ip saddr 192.168.10.21 tcp dport 5432 ct state new counter accept comment "app01 sql"
+add rule inet vmlab roles ip saddr 192.168.10.22 tcp dport 5432 ct state new counter accept comment "app02 sql"
+add rule inet vmlab roles ip saddr 192.168.10.32 tcp dport 5432 ct state new counter accept comment "db02 replication"
+
+# DB 지표. OPS01의 lab-lan 주소 하나만 허용한다.
+add rule inet vmlab roles ip saddr 192.168.10.41 tcp dport 9187 ct state new counter accept comment "postgres_exporter"

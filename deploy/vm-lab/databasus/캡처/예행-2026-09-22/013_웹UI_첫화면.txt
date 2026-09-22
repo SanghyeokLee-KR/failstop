@@ -1,0 +1,37 @@
+2026-09-22T05:41:00Z  ops01.lab (SSH 터널 경유, 작업 PC 브라우저에서 확인)
+
+# 화면 주소
+http://127.0.0.1:14005  ->  터널  ->  ops01.lab 127.0.0.1:4005
+# 같은 시각의 호스트 증명은 012_접근경로_개설_확인.txt 에 있다.
+
+# 접근성 원문 (브라우저가 읽어 준 그대로)
+Title: Databasus - databases backups (PostgreSQL, MySQL, MongoDB)
+URL: http://127.0.0.1:14005
+
+Databasus
+Docs
+Community
+Sponsorship
+Star on GitHub
+8,620
+EN
+System
+Sign up
+This is the first account on this instance, so it will administer it.
+Your name
+Your email
+Password
+Confirm password
+Sign up
+
+# 이 화면이 증명하는 것
+- 컨테이너가 올라와 웹 UI 가 응답한다.
+- 사전 생성된 admin 계정이 없다. 최초 가입자가 이 인스턴스를 관리한다.
+  v3.59.0 에서 바뀐 동작이며 01-도구조사.md 의 "인증과 계정 운영" 절과 일치한다.
+- 그래서 설치와 소유자 계정 생성 사이를 벌리면 안 된다. 그 사이에 다른 사람이
+  같은 화면에 닿을 수 있으면 소유권을 가져간다. 지금은 4005 가 루프백에만 있고
+  터널 목적지도 제한돼 있어 이 실습망 밖에서는 이 화면에 닿을 수 없다.
+
+# 캡처하지 않은 구간
+- 이 화면에 값을 넣는 과정은 캡처하지 않는다. 비밀번호 입력 화면이기 때문이다.
+- 계정 생성은 사용자가 직접 한다. 결과 화면부터 다시 캡처한다.

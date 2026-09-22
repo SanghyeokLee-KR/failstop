@@ -1,0 +1,42 @@
+2026-09-22T05:35:17Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== Docker 기동과 부팅 자동 시작 ==="
+sudo systemctl enable --now docker 2>&1 | tail -2
+echo "is-enabled : $(systemctl is-enabled docker)"
+echo "is-active  : $(systemctl is-active docker)"
+sudo docker --version; sudo docker compose version
+echo
+echo "=== 운영자 계정에 docker 그룹을 주지 않는다 (기존 방침 유지) ==="
+id ops
+echo "  docker 소켓 권한: $(stat -c \"%U:%G %a\" /var/run/docker.sock)"
+echo
+echo "=== 방화벽 계통 확인: Docker 는 ip 계열, 우리 정책은 inet vmlab ==="
+sudo nft list tables
+echo
+echo "  /etc/vm-lab/firewall.nft 는 flush table inet vmlab 만 한다. Docker 규칙을 지우지 않는다."
+sudo grep -n "^flush" /etc/vm-lab/firewall.nft
+
+=== Docker 기동과 부팅 자동 시작 ===
+Created symlink '/etc/systemd/system/multi-user.target.wants/docker.service' → '/usr/lib/systemd/system/docker.service'.
+is-enabled : enabled
+is-active  : active
+Docker version 29.8.1, build 4a63305
+Docker Compose version v5.5.1
+
+=== 운영자 계정에 docker 그룹을 주지 않는다 (기존 방침 유지) ===
+uid=1000(ops) gid=1000(ops) groups=1000(ops),10(wheel)
+stat: cannot statx '%a"': No such file or directory
+  docker 소켓 권한: "root:docker
+
+=== 방화벽 계통 확인: Docker 는 ip 계열, 우리 정책은 inet vmlab ===
+table inet vmlab
+table ip nat
+table ip filter
+table ip6 nat
+table ip6 filter
+
+  /etc/vm-lab/firewall.nft 는 flush table inet vmlab 만 한다. Docker 규칙을 지우지 않는다.
+10:flush table inet vmlab

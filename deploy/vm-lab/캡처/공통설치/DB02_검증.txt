@@ -1,0 +1,11 @@
+##### 리슨
+LISTEN 0      128    192.168.56.32:22        0.0.0.0:*    users:(("sshd",pid=954,fd=7))          
+LISTEN 0      4096   192.168.10.32:9100      0.0.0.0:*    users:(("node_exporter",pid=2123,fd=3))
+##### nftables
+	chain input {
+		type filter hook input priority filter; policy drop;
+		jump roles
+	chain roles {
+		type filter hook forward priority filter; policy drop;
+##### SELinux/AVC/실패서비스
+SELinux=Enforcing AVC=0 실패=0개

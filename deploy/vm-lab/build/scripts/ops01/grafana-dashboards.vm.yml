@@ -1,0 +1,13 @@
+# Linux 화면 프로비저닝. 원본은 deploy/linux/observability/grafana-dashboards.yml이며
+# 공급자 이름만 school-linux에서 vm-linux로 바꿨다. 폴더와 경로는 원본과 같다.
+# 배치 위치: /etc/grafana/provisioning/dashboards/vm-linux.yml (root:grafana 0640)
+apiVersion: 1
+providers:
+  - name: vm-linux
+    orgId: 1
+    folder: Linux 운영
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /var/lib/grafana/dashboards

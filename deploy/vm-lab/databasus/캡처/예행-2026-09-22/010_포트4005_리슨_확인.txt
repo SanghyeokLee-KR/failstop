@@ -1,0 +1,49 @@
+2026-09-22T05:39:20Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== 4005 바인드 주소 ==="
+sudo ss -lntp | grep 4005
+echo "  0.0.0.0 이 아니라 127.0.0.1 이어야 한다. 화면을 밖에 열지 않는다는 뜻이다."
+echo
+echo "=== 헬스 ==="
+curl -sI --max-time 10 http://127.0.0.1:4005/ | head -3
+curl -s --max-time 10 http://127.0.0.1:4005/api/v1/system/health; echo
+echo
+echo "=== 다른 VM 에서 접근되면 안 된다 (lab-lan 주소로 시도) ==="
+timeout 6 curl -s -o /dev/null -w "  192.168.10.41:4005 = %{http_code} (000 이면 도달 못함)\n" http://192.168.10.41:4005/ || echo "  192.168.10.41:4005 도달 못함"
+echo
+echo "=== 컨테이너에서 밖으로 나가는 경로 ==="
+echo "--- DB01 5432"
+sudo docker exec databasus pg_isready -h 192.168.10.31 -p 5432 -t 8 2>&1 | tail -2
+echo "--- EDGE01 22 (외부 보관 대상)"
+sudo docker exec databasus sh -c "timeout 8 bash -c \"</dev/tcp/192.168.56.11/22\" && echo \"  192.168.56.11:22 열림\"" 2>&1 | tail -2
+echo
+echo "=== forward 규칙 카운터 (실제로 통과했는지) ==="
+sudo nft list chain inet vmlab forward | grep databasus
+
+=== 4005 바인드 주소 ===
+LISTEN 0      4096       127.0.0.1:4005      0.0.0.0:*    users:(("docker-proxy",pid=4735,fd=8))
+  0.0.0.0 이 아니라 127.0.0.1 이어야 한다. 화면을 밖에 열지 않는다는 뜻이다.
+
+=== 헬스 ===
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+{"status":"Application is healthy, internal DB working fine and disk usage is below 95%. You can connect downdetector to this endpoint"}
+
+=== 다른 VM 에서 접근되면 안 된다 (lab-lan 주소로 시도) ===
+  192.168.10.41:4005 = 000 (000 이면 도달 못함)
+  192.168.10.41:4005 도달 못함
+
+=== 컨테이너에서 밖으로 나가는 경로 ===
+--- DB01 5432
+192.168.10.31:5432 - accepting connections
+--- EDGE01 22 (외부 보관 대상)
+  192.168.56.11:22 열림
+
+=== forward 규칙 카운터 (실제로 통과했는지) ===
+		ct state established,related counter packets 70 bytes 12656 accept comment "databasus reply"
+		iifname "databasus0" ct state new counter packets 4 bytes 240 accept comment "databasus egress"
+		oifname "databasus0" ct state new counter packets 0 bytes 0 accept comment "databasus ingress"

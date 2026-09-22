@@ -1,0 +1,45 @@
+# OPS01의 node_exporter 서비스. 원본은 deploy/linux/observability/node_exporter-host.service이며
+# systemd 수집 대상 목록만 OPS01에서 실제로 도는 서비스에 맞췄다.
+#  - 뺀 것: postgresql, exchange-app, exchange-bots (OPS01에 없다)
+#  - 넣은 것: alertmanager, vm-lab-firewall
+# 방화벽 유닛 이름은 02-정본결정.md 4절이 정한 vm-lab-firewall.service 하나다.
+# 배포판 nftables.service는 끄고 mask하지만 되살아나면 바로 보이도록 목록에 남긴다.
+# 이 목록에 없는 서비스는 LinuxServiceFailed 경보에서 보이지 않는다.
+# 다른 VM은 각 역할의 서비스 이름으로 같은 자리를 고친다.
+#
+# 바인딩 주소는 02-정본결정.md 7절대로 lab-lan 주소다. 여섯 대가 모두 같은 방식이며
+# OPS01만 루프백에 두는 분기는 없앴다. 값은 /etc/node_exporter/listen.env의
+# NODE_EXPORTER_ADDRESS=192.168.10.41에서 온다. 유닛 본문에 주소를 박지 않는다.
+# Prometheus 대상도 같은 192.168.10.41:9100이다(build-files/ops/prometheus.vm.yml).
+# 배치 위치: /etc/systemd/system/node_exporter.service (root:root 0644)
+[Unit]
+Description=Linux host metrics
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=node_exporter
+Group=node_exporter
+EnvironmentFile=/etc/node_exporter/listen.env
+# 2026-09-22: --collector.pressure 를 뺐다. 이 커널에는 PSI 가 없다.
+# /proc/pressure 가 없고 /proc/cmdline 에 psi= 도 없어 이 수집기는 매 수집마다 실패했다.
+# 그 결과 LinuxCollectorFailed 경보가 여섯 대에서 상시 발화했고, 이 관제 시스템이 내는
+# 유일한 경보가 영원히 풀리지 않는 오탐이 됐다. 오탐이 상주하면 진짜 경보를 가린다.
+# node_pressure_* 를 쓰는 대시보드나 경보 규칙은 없으므로 빼도 잃는 화면이 없다.
+# PSI 지표를 쓰기로 하면 여섯 대의 부팅 인자에 psi=1 을 넣고(ks/*.ks 의 bootloader --append 포함)
+# /proc/pressure/cpu 가 값을 내는 것을 확인한 뒤 이 인자를 되돌린다.
+# 학교 AWS 의 Amazon Linux 2023 은 PSI 기본값이 다를 수 있으므로
+# failstop/deploy/linux/observability 의 유닛은 그쪽에서 확인한 뒤 따로 판단한다.
+ExecStart=/usr/local/bin/node_exporter --web.listen-address=${NODE_EXPORTER_ADDRESS}:9100 --collector.disable-defaults --collector.cpu --collector.meminfo --collector.filesystem --collector.diskstats --collector.netdev --collector.netstat --collector.sockstat --collector.loadavg --collector.stat --collector.time --collector.uname --collector.vmstat --collector.filefd --collector.systemd --collector.systemd.unit-include=(sshd|chronyd|nftables|vm-lab-firewall|prometheus|alertmanager|grafana-server|node_exporter)[.]service
+Restart=on-failure
+RestartSec=5
+MemoryMax=128M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

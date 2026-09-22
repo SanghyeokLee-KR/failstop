@@ -1,0 +1,83 @@
+===== DB01 (192.168.56.31) 대기
+  SSH 열림 20:43:26
+########## 설치 직후 상태
+Warning: Permanently added '192.168.56.31' (ED25519) to the list of known hosts.
+db01.lab
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+enp0s3           UP             10.0.2.15/24 fd17:625c:f037:2:a00:27ff:fed9:33ab/64 fe80::a00:27ff:fed9:33ab/64 
+enp0s8           UP             192.168.10.31/24 fe80::a00:27ff:fe96:86b8/64 
+enp0s9           UP             192.168.56.31/24 fe80::a00:27ff:fe99:5d12/64 
+NAME                 SIZE MOUNTPOINT
+sda                   20G 
+sdb                   20G 
+├─sdb1               600M /boot/efi
+├─sdb2                 1G /boot
+└─sdb3              18.4G 
+  ├─vg_os-lv_root     10G /
+  ├─vg_os-lv_swap      2G [SWAP]
+  └─vg_os-lv_varlog    4G /var/log
+sr0                 1024M 
+Enforcing
+실패 서비스 0개
+########## 자료 전송 (keys 제외)
+개인키 유입: 0건
+########## --plan
+mode=plan host=db01 phase=build
+lab-lan(enp0s8)=192.168.10.31  host-only(enp0s9)=192.168.56.31  NAT(enp0s3)=DHCP
+sshd 22 바인딩=192.168.56.31
+node_exporter 9100 바인딩=192.168.10.31 (여섯 대 모두 lab-lan 주소. listen.env 에서 읽는다)
+9100 허용 출발지=192.168.10.41
+구축 단계 DHCP 허용 규칙=true
+설치할 패키지=sysstat tcpdump nmap-ncat bind-utils logrotate python3
+pfSense 예약 주소=192.168.10.1 (사용자가 직접 구축한다. 이 스크립트는 건드리지 않는다)
+
+설치할 파일
+  /etc/systemd/journald.conf.d/60-exchange-lab.conf   0644
+  /etc/logrotate.d/vm-lab                             0644
+  /opt/vm-lab/check-host.sh                           0755
+  /etc/systemd/system/vm-lab-firewall.service         0644
+  /etc/systemd/system/vm-lab-host-check.service       0644
+  /etc/systemd/system/vm-lab-host-check.timer         0644
+  /etc/systemd/system/node_exporter.service           0644
+  /etc/systemd/system/sshd.service.d/10-wait-network.conf 0644
+  /etc/ssh/sshd_config.d/20-vm-lab.conf               0600
+  /etc/sudoers.d/90-vm-lab-ops                        0440
+  /etc/vm-lab/firewall.nft                            0600
+  /etc/vm-lab/firewall.d/00-placeholder.nft           0600
+  /etc/node_exporter/listen.env                       0644
+
+바꿀 서비스 상태
+  enable  sshd chronyd vm-lab-firewall node_exporter vm-lab-host-check.timer
+  disable + mask  firewalld nftables
+
+적용할 nftables 규칙
+  # VM 실습 호스트 방화벽. 00-common-setup.sh 가 생성한다. 직접 고치지 않는다.
+  # 역할별 포트는 /etc/vm-lab/firewall.d/*.nft 에 add rule 형태로 덧붙인다.
+  #
+########## --apply --download
+changed=packages(sysstat tcpdump nmap-ncat bind-utils)
+changed=user(vm-lab)
+changed=user(node_exporter)
+changed=logrotate
+changed=check-host.sh
+changed=unit(vm-lab-firewall.service)
+changed=unit(vm-lab-host-check.service)
+changed=unit(vm-lab-host-check.timer)
+changed=unit(node_exporter.service)
+changed=node_exporter(binary)
+changed=node_exporter(listen.env)
+changed=node_exporter(restart)
+changed=firewall.d placeholder
+changed=firewall.nft
+WARN: 방화벽 규칙을 적용한다. SSH 가 끊길 수 있으므로 VirtualBox 콘솔을 열어 둔다.
+changed=firewall(apply)
+applied host=db01 changed=15
+########## 검증
+LISTEN 0      4096   192.168.10.31:9100      0.0.0.0:*    users:(("node_exporter",pid=1529,fd=3))
+LISTEN 0      128    192.168.56.31:22        0.0.0.0:*    users:(("sshd",pid=953,fd=7))          
+	chain input {
+		type filter hook input priority filter; policy drop;
+		jump roles
+	chain roles {
+		type filter hook forward priority filter; policy drop;
+SELinux=Enforcing  AVC=0

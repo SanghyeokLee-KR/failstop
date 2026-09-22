@@ -1,0 +1,43 @@
+##### 수집 2026-09-21T21:14:38+09:00
+##### PostgreSQL 버전과 유닛
+ PostgreSQL 17.11 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 14.3.1 20251022 (Red Hat 14.3.1-4), 64-bit
+active
+##### PGDATA 위치와 마운트
+ /var/lib/pgsql/17/data
+
+/dev/sda1 /var/lib/pgsql xfs rw,noatime,seclabel,attr2,inode64,logbufs=8,logbsize=32k,noquota
+##### 마운트 요구 드롭인
+RequiresMountsFor=
+##### 리슨과 인증
+ localhost,192.168.10.31
+
+ local   | {all}         | {all}          |               | peer
+ hostssl | {exchange}    | {exchange_app} | 192.168.10.21 | scram-sha-256
+ hostssl | {exchange}    | {exchange_app} | 192.168.10.22 | scram-sha-256
+ hostssl | {replication} | {replicator}   | 192.168.10.32 | scram-sha-256
+
+##### 역할
+ exchange_owner | t           | f
+ exchange_app   | t           | f
+ replicator     | t           | t
+
+##### 리슨 포트
+LISTEN 0      4096   192.168.10.31:9187      0.0.0.0:*    users:(("postgres_export",pid=3936,fd=3))
+LISTEN 0      4096   192.168.10.31:9100      0.0.0.0:*    users:(("node_exporter",pid=3941,fd=3))  
+LISTEN 0      200        127.0.0.1:5432      0.0.0.0:*    users:(("postgres",pid=3527,fd=7))       
+LISTEN 0      128    192.168.56.31:22        0.0.0.0:*    users:(("sshd",pid=2750,fd=7))           
+LISTEN 0      200    192.168.10.31:5432      0.0.0.0:*    users:(("postgres",pid=3527,fd=8))       
+LISTEN 0      200            [::1]:5432         [::]:*    users:(("postgres",pid=3527,fd=6))       
+##### 방화벽 역할 규칙
+table inet vmlab {
+	chain roles {
+		ip saddr 192.168.10.21 tcp dport 5432 ct state new counter packets 0 bytes 0 accept comment "app01 sql"
+		ip saddr 192.168.10.22 tcp dport 5432 ct state new counter packets 0 bytes 0 accept comment "app02 sql"
+		ip saddr 192.168.10.32 tcp dport 5432 ct state new counter packets 0 bytes 0 accept comment "db02 replication"
+		ip saddr 192.168.10.41 tcp dport 9187 ct state new counter packets 0 bytes 0 accept comment "postgres_exporter"
+	}
+}
+##### 지표
+postgres_exporter 지표 0
+##### SELinux / 실패 서비스
+SELinux=Enforcing 실패서비스=1개 AVC=0

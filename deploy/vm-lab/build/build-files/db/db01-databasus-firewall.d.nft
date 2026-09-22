@@ -1,0 +1,10 @@
+# DB01 에 Databasus 백업 경로를 여는 역할 규칙. 배치 위치는 /etc/vm-lab/firewall.d/35-db01-databasus.nft 다.
+#
+# 00-주소계획.md 의 포트 표는 DB01 5432 의 허용 출발지를 APP01, APP02, DB02 로 정했다.
+# Databasus 를 OPS01 에 두기로 하면서 백업을 읽어 갈 출발지가 하나 늘어난다.
+# 표를 먼저 고치고 이 파일을 둔다. 순서를 반대로 하지 않는다.
+#
+# 이 규칙은 OPS01 의 lab-lan 주소 하나만 연다. 관리 대역 전체를 열지 않는다.
+# 실제로 붙는 계정은 읽기 전용이며 권한 범위는 pg_hba.conf 와 역할 권한으로 따로 제한한다.
+# 방화벽만으로 "안전하게 백업한다" 를 주장하지 않는다.
+add rule inet vmlab roles ip saddr 192.168.10.41 tcp dport 5432 ct state new counter accept comment "databasus backup"

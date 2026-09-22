@@ -1,0 +1,98 @@
+=== 40-ops01-observability.sh verify 시작 2026-09-22T14:27:28+09:00 ===
+
+=== 서비스 상태 ===
+  [확인] prometheus active
+  [확인] grafana-server active
+  [확인] alertmanager active
+  [확인] node_exporter active
+
+=== 바인딩 주소 ===
+  State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess                                 
+  LISTEN 0      4096       127.0.0.1:9090      0.0.0.0:*    users:(("prometheus",pid=2877,fd=6))   
+  LISTEN 0      4096       127.0.0.1:9093      0.0.0.0:*    users:(("alertmanager",pid=3423,fd=3)) 
+  LISTEN 0      4096       127.0.0.1:3000      0.0.0.0:*    users:(("grafana",pid=3172,fd=74))     
+  LISTEN 0      4096   192.168.10.41:9100      0.0.0.0:*    users:(("node_exporter",pid=1565,fd=3))
+  LISTEN 0      128    192.168.56.41:22        0.0.0.0:*    users:(("sshd",pid=954,fd=7))          
+  [확인] Prometheus 127.0.0.1:9090
+  [확인] Grafana 127.0.0.1:3000
+  [확인] Alertmanager 127.0.0.1:9093
+  [확인] node_exporter 192.168.10.41:9100
+  [확인] 0.0.0.0 바인딩 없음
+
+=== 설정 구문 ===
+  [확인] promtool check config SUCCESS
+  [확인] amtool check-config 통과
+
+=== 수집 상태 ===
+  [확인] Prometheus Server is Ready.
+  [확인] 수집 대상 11개 모두 응답
+  응답하지 않는 대상
+    down postgres 192.168.10.32:9187 db02
+  노드별 수집기 성공 여부 (HTTP 수집 성공과 수집기별 성공은 다르다)
+    edge01 0
+    app02 0
+    db02 0
+    db01 0
+    app01 0
+    ops01 0
+
+=== Grafana ===
+  [확인] api/health database ok
+  [확인] MemoryMax=939524096 (896M)
+  현재 사용량 528920576
+
+=== 방화벽 ===
+  방화벽 테이블 (table inet vmlab)
+  table inet vmlab {
+  	chain input {
+  		type filter hook input priority filter; policy drop;
+  		iif "lo" counter packets 377 bytes 374265 accept comment "loopback"
+  		ct state established,related counter packets 362831 bytes 547263617 accept comment "응답만 통과"
+  		ct state invalid counter packets 0 bytes 0 drop comment "상태 불명 차단"
+  		iifname "enp0s9" ip saddr 192.168.56.0/24 tcp dport 22 ct state new counter packets 10 bytes 520 accept comment "관리 SSH"
+  		ip saddr 192.168.10.41 tcp dport 9100 ct state new counter packets 0 bytes 0 accept comment "node_exporter"
+  		ip saddr { 192.168.10.0/24, 192.168.56.0/24 } icmp type { destination-unreachable, echo-request, time-exceeded } counter packets 0 bytes 0 accept comment "실습 대역 ICMP"
+  		iifname "enp0s3" udp sport 67 udp dport 68 counter packets 0 bytes 0 accept comment "구축용 DHCP"
+  		jump roles
+  		limit rate 5/minute burst 5 packets log prefix "vmlab-drop: " level info
+  		counter packets 17 bytes 1272 comment "기본 차단 도달"
+  	}
+  
+  	chain roles {
+  	}
+  
+  	chain forward {
+  		type filter hook forward priority filter; policy drop;
+  		counter packets 0 bytes 0 comment "전달 금지"
+  	}
+  
+  	chain output {
+  		type filter hook output priority filter; policy accept;
+  	}
+  }
+  [확인] input 기본 정책 drop
+  [확인] 예전 계통 table inet failstop 없음
+  [확인] 배포판 nftables.service 비활성 (masked)
+
+=== 커널 메모리 회수와 SELinux ===
+  [확인] 최근 1시간 OOM 기록 없음
+  [확인] 최근 SELinux 거부 없음
+
+=== 이 스크립트가 확인하지 못하는 것 ===
+  1. 다른 VM 에서의 차단 확인. EDGE01 같은 곳에서 아래 두 명령이 모두 실패해야 한다.
+       curl --max-time 3 http://192.168.10.41:9090/-/ready
+       curl --max-time 3 http://192.168.10.41:9100/metrics
+  2. 재부팅 후 상태. sudo reboot 뒤에 이 verify 를 다시 실행한다. enable 만으로 끝내지 않는다.
+  3. 경보 경로. EDGE01 에서 node_exporter 를 멈추고 1분 뒤 아래를 확인한 다음 되돌린다.
+       curl -fsS http://127.0.0.1:9090/api/v1/alerts
+       curl -fsS http://127.0.0.1:9093/api/v2/alerts
+  4. 화면 7개의 패널 값. 거래가 없어 비는 패널은 비어 있는 그대로 둔다.
+     02-정본결정.md 8절대로 role 정규식에 edge 와 observability 를 넣었으므로
+     호스트 목록 패널에 EDGE01 과 OPS01 도 나와야 한다. 두 대가 없으면 화면이 옛 사본이다.
+     다시 만드는 명령은 scripts/ops01/make-vm-dashboards.py 의 머리말에 있다.
+
+=== 검증 결과 ===
+  실패 항목 없음. 위 네 가지는 따로 확인한다.
+
+=== 40-ops01-observability.sh verify 끝 2026-09-22T14:27:29+09:00 (실패 0 건) ===
+기록: /var/log/vm-lab/40-ops01-verify.log

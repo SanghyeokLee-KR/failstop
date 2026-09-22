@@ -1,0 +1,80 @@
+2026-09-22T05:35:33Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== 상류 설치 스크립트를 파이프로 바로 실행하지 않는다. 먼저 받아서 내용을 본다. ==="
+cd /tmp
+curl -fsSL -o install-databasus.sh https://raw.githubusercontent.com/databasus/databasus/main/install-databasus.sh
+curl -fsSL -o databasus-README.md https://raw.githubusercontent.com/databasus/databasus/main/README.md
+sha256sum install-databasus.sh databasus-README.md
+echo
+echo "=== 설치 스크립트가 하는 일 (앞 40줄) ==="
+head -40 install-databasus.sh
+echo
+echo "=== README 가 제시하는 운영용 compose 정의 ==="
+awk "/services:/,/^\`\`\`$/" databasus-README.md | head -30
+
+=== 상류 설치 스크립트를 파이프로 바로 실행하지 않는다. 먼저 받아서 내용을 본다. ===
+488e3d553f43b4f6014c3a95fa41e99c53b9b1bb11b428650f4e609ac65abded  install-databasus.sh
+960c7d7c21dffeb9aa4c2a45e838535645ce3291cf8e7418071623df00634174  databasus-README.md
+
+=== 설치 스크립트가 하는 일 (앞 40줄) ===
+#!/bin/bash
+
+set -e  # Exit on any error
+
+# Check if script is run as root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Error: This script must be run as root (sudo ./install-databasus.sh)" >&2
+    exit 1
+fi
+
+# Set up logging
+LOG_FILE="/var/log/databasus-install.log"
+INSTALL_DIR="/opt/databasus"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+# Create log file if doesn't exist
+touch "$LOG_FILE"
+log "Starting Databasus installation..."
+
+# Create installation directory
+log "Creating installation directory..."
+if [ ! -d "$INSTALL_DIR" ]; then
+    mkdir -p "$INSTALL_DIR"
+    log "Created directory: $INSTALL_DIR"
+else
+    log "Directory already exists: $INSTALL_DIR"
+fi
+
+# Detect OS
+detect_os() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$ID
+        VERSION_CODENAME=${VERSION_CODENAME:-}
+    else
+        log "ERROR: Cannot detect OS. /etc/os-release not found."
+        exit 1
+
+=== README 가 제시하는 운영용 compose 정의 ===
+services:
+  databasus:
+    container_name: databasus
+    image: databasus/databasus:latest
+    ports:
+      - "4005:4005"
+    volumes:
+      - ./databasus-data:/databasus-data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "databasus", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+```

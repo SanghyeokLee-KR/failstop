@@ -1,0 +1,63 @@
+# OPS01 수집 설정. 주소는 00-주소계획.md의 lab-lan 값만 사용한다.
+# 원본은 failstop/deploy/linux/observability/prometheus.yml이며 다음만 바꿨다.
+#  - 172.31.x 사설 주소를 192.168.10.x로 교체
+#  - environment 라벨 aws -> vm-lab, account: school 제거
+#  - 앱 지표를 Nginx 9101 프록시 대신 Actuator 8081에서 직접 수집
+#  - 여섯 VM 전부를 linux-host 작업에 등록해 경보 규칙이 모두에 적용되게 함
+#  - rule_files와 alerting을 처음부터 포함 (학교에서는 connect 단계에서 덧붙였다)
+# 배치 위치: /etc/prometheus/prometheus.yml (root:prometheus 0640)
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: vm-lab
+    lab: virtualbox
+
+rule_files:
+  - /etc/prometheus/vm-alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['127.0.0.1:9093']
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['127.0.0.1:9090']
+        labels: {customer: exchange, environment: vm-lab, role: observability, node: ops01, service: monitoring}
+
+  # 여섯 VM의 node_exporter. 각 VM이 lab-lan 주소에만 바인딩한다.
+  - job_name: linux-host
+    static_configs:
+      - targets: ['192.168.10.11:9100']
+        labels: {customer: exchange, environment: vm-lab, role: edge, node: edge01, service: infra}
+      - targets: ['192.168.10.21:9100']
+        labels: {customer: exchange, environment: vm-lab, role: app, node: app01, service: infra}
+      - targets: ['192.168.10.22:9100']
+        labels: {customer: exchange, environment: vm-lab, role: app, node: app02, service: infra}
+      - targets: ['192.168.10.31:9100']
+        labels: {customer: exchange, environment: vm-lab, role: data, node: db01, service: infra}
+      - targets: ['192.168.10.32:9100']
+        labels: {customer: exchange, environment: vm-lab, role: standby, node: db02, service: infra}
+      - targets: ['192.168.10.41:9100']
+        labels: {customer: exchange, environment: vm-lab, role: observability, node: ops01, service: infra}
+
+  # 앱 두 대의 Actuator. 접근제어도의 "앱 8081 Actuator" 정책을 따른다.
+  # 앱은 MANAGEMENT_SERVER_ADDRESS를 자기 lab-lan 주소로 두고 노출 엔드포인트를 제한한다.
+  - job_name: exchange-api
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['192.168.10.21:8081']
+        labels: {customer: exchange, environment: vm-lab, role: app, node: app01, service: api}
+      - targets: ['192.168.10.22:8081']
+        labels: {customer: exchange, environment: vm-lab, role: app, node: app02, service: api}
+
+  # DB 두 대의 postgres_exporter. 로컬 peer 인증으로 DB에 붙고 지표만 lab-lan에 연다.
+  - job_name: postgres
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ['192.168.10.31:9187']
+        labels: {customer: exchange, environment: vm-lab, role: data, node: db01, service: database}
+      - targets: ['192.168.10.32:9187']
+        labels: {customer: exchange, environment: vm-lab, role: standby, node: db02, service: database}

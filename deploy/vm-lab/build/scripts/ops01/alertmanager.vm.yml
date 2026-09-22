@@ -1,0 +1,56 @@
+# OPS01의 목표 Alertmanager 설정. 원본은 failstop/deploy/linux/reporting/alertmanager.school.yml이며
+# 다음만 바꿨다.
+#  - 보고 수신 주소를 학교 사설 172.31.44.141:9088에서 OPS01 루프백 127.0.0.1:9088로 교체
+#  - 카드 제목의 환경 표기에 vm-lab 분기 추가
+# 두 비밀 파일을 먼저 만든 뒤에 적용한다. 파일이 없으면 Alertmanager가 기동에 실패한다.
+#  - /etc/failstop/teams-webhook  (root:alertmanager 0640)
+#  - /etc/failstop/reporter-token (root:alertmanager 0640)
+# 보고 서비스의 실제 바인딩 주소와 9088 포트는 보고 역할 산출물과 대조한다.
+# 배치 위치: /etc/failstop/alertmanager.yml (root:alertmanager 0640)
+# 기본 알림은 분석 서비스와 별도 통지여서 AI 실패에도 계속 전달된다.
+route:
+  receiver: teams
+  group_by: [customer, environment, alertname, component, instance]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - receiver: teams
+      continue: true
+    - receiver: evidence-reporter
+receivers:
+  - name: teams
+    msteamsv2_configs:
+      - webhook_url_file: /etc/failstop/teams-webhook
+        send_resolved: true
+        http_config:
+          follow_redirects: false
+        title: >-
+          {{ if eq .Status "firing" }}{{ printf "%c" 128308 }}{{ else }}{{ printf "%c" 128994 }}{{ end }}
+          {{ if eq .Status "resolved" }}{{ if .CommonAnnotations.resolved_summary }}{{ .CommonAnnotations.resolved_summary }}{{ else }}경보 해제 · {{ .CommonAnnotations.summary }}{{ end }}{{ else }}{{ .CommonAnnotations.summary }}{{ end }}
+        text: |-
+          **{{ .CommonLabels.customer }} · {{ if eq .CommonLabels.environment "aws" }}AWS{{ else if eq .CommonLabels.environment "vm-lab" }}VM 실습{{ else if eq .CommonLabels.environment "local-lab" }}로컬 검증{{ else }}{{ .CommonLabels.environment }}{{ end }}**
+
+          {{ range .Alerts -}}
+          **대상** {{ if .Labels.node }}{{ .Labels.node }}{{ else }}{{ .Labels.instance }}{{ end }}{{ if .Labels.role }} · {{ if eq .Labels.role "standby" }}Standby DB{{ else if eq .Labels.role "data" }}Primary DB{{ else if eq .Labels.role "reader" }}조회 API{{ else if eq .Labels.role "app" }}Spring API{{ else }}{{ .Labels.role }}{{ end }}{{ end }}
+
+          **감지** {{ .StartsAt | tz "Asia/Seoul" | date "2006-01-02 15:04:05" }} KST{{ if eq .Status "resolved" }} · **해제** {{ .EndsAt | tz "Asia/Seoul" | date "15:04:05" }} KST{{ end }}
+
+          {{ if eq .Status "firing" }}{{ if .Annotations.description }}**확인 사항** {{ .Annotations.description }}{{ else }}**대응** 담당자 확인 필요{{ end }}{{ else }}**후속 확인** 서비스 응답·복제 상태 재점검 필요{{ end }}
+
+          {{ end -}}
+          **경보 코드** `{{ .CommonLabels.alertname }}`
+  - name: evidence-reporter
+    webhook_configs:
+      - url: http://127.0.0.1:9088/alerts
+        send_resolved: true
+        max_alerts: 30
+        http_config:
+          follow_redirects: false
+          authorization:
+            type: Bearer
+            credentials_file: /etc/failstop/reporter-token
+inhibit_rules:
+  - source_matchers: [alertname="LinuxHostUnreachable"]
+    target_matchers: [alertname=~"LinuxCollectorFailed|LinuxLogCollectionStale"]
+    equal: [instance]

@@ -1,0 +1,75 @@
+2026-09-22T05:38:41Z  db01.lab
+
+# 실행 대상 192.168.56.31
+# 실행 명령
+
+echo "=== 역할 속성 ==="
+sudo -u postgres psql -d exchange -c "\du databasus_ro"
+echo "=== 소속 역할과 상속 적용 여부 ==="
+sudo -u postgres psql -d exchange -c "SELECT r.rolname AS 상위역할, m.inherit_option AS 상속적용 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.roleid JOIN pg_roles u ON u.oid=m.member WHERE u.rolname='databasus_ro';"
+echo "  PostgreSQL 16 부터 상속 여부는 역할 속성이 아니라 이 GRANT 기록에 고정된다."
+echo "  NOINHERIT 로 만든 뒤 ALTER ROLE 로 바꿔도 이미 준 멤버십은 따라오지 않아 읽기가 막혔다."
+echo
+echo "=== 권한별 테이블 수 (명시 GRANT 기준) ==="
+sudo -u postgres psql -d exchange -c "
+SELECT count(*) AS 전체테이블,
+  count(*) FILTER (WHERE has_table_privilege('databasus_ro', format('%I.%I', table_schema, table_name), 'INSERT')) AS 삽입가능,
+  count(*) FILTER (WHERE has_table_privilege('databasus_ro', format('%I.%I', table_schema, table_name), 'UPDATE')) AS 수정가능,
+  count(*) FILTER (WHERE has_table_privilege('databasus_ro', format('%I.%I', table_schema, table_name), 'DELETE')) AS 삭제가능,
+  count(*) FILTER (WHERE has_table_privilege('databasus_ro', format('%I.%I', table_schema, table_name), 'TRUNCATE')) AS 비우기가능
+FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';"
+echo
+echo "=== 실제 동작 확인: 역할을 갈아입고 해 본다 ==="
+echo "--- 읽기 (되어야 한다)"
+sudo -u postgres psql -d exchange -c "SET ROLE databasus_ro; SELECT count(*) AS 원장기록 FROM ledger_entries;" 2>&1 | tail -4
+sudo -u postgres psql -d exchange -c "SET ROLE databasus_ro; SELECT count(*) AS 잔고행 FROM balances;" 2>&1 | tail -4
+echo "--- 쓰기 (거부되어야 한다)"
+sudo -u postgres psql -d exchange -c "SET ROLE databasus_ro; DELETE FROM ledger_entries;" 2>&1 | tail -2
+sudo -u postgres psql -d exchange -c "SET ROLE databasus_ro; UPDATE balances SET available = 0;" 2>&1 | tail -2
+echo "--- 객체 생성 (거부되어야 한다)"
+sudo -u postgres psql -d exchange -c "SET ROLE databasus_ro; CREATE TABLE public.권한시험 (x int);" 2>&1 | tail -2
+echo "--- 슈퍼유저 여부"
+sudo -u postgres psql -d exchange -Atc "SELECT rolsuper AS 슈퍼유저, rolcreatedb AS DB생성, rolcreaterole AS 역할생성, rolreplication AS 복제권한 FROM pg_roles WHERE rolname='databasus_ro';"
+
+=== 역할 속성 ===
+        List of roles
+  Role name   |  Attributes   
+--------------+---------------
+ databasus_ro | 4 connections
+
+=== 소속 역할과 상속 적용 여부 ===
+     상위역할     | 상속적용 
+------------------+----------
+ pg_read_all_data | t
+(1 row)
+
+  PostgreSQL 16 부터 상속 여부는 역할 속성이 아니라 이 GRANT 기록에 고정된다.
+  NOINHERIT 로 만든 뒤 ALTER ROLE 로 바꿔도 이미 준 멤버십은 따라오지 않아 읽기가 막혔다.
+
+=== 권한별 테이블 수 (명시 GRANT 기준) ===
+ 전체테이블 | 삽입가능 | 수정가능 | 삭제가능 | 비우기가능 
+------------+----------+----------+----------+------------
+        104 |        0 |        0 |        0 |          0
+(1 row)
+
+
+=== 실제 동작 확인: 역할을 갈아입고 해 본다 ===
+--- 읽기 (되어야 한다)
+----------
+        0
+(1 row)
+
+--------
+      0
+(1 row)
+
+--- 쓰기 (거부되어야 한다)
+SET
+ERROR:  permission denied for table ledger_entries
+LINE 1: SET ROLE databasus_ro; UPDATE balances SET available = 0;
+                                                   ^
+--- 객체 생성 (거부되어야 한다)
+LINE 1: SET ROLE databasus_ro; CREATE TABLE public.권한시험 (x int);
+                                            ^
+--- 슈퍼유저 여부
+f|f|f|f

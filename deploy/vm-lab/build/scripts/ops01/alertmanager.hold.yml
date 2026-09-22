@@ -1,0 +1,16 @@
+# 설치 직후 사용하는 Alertmanager 설정. 외부로 아무것도 보내지 않는다.
+# 경보가 Prometheus에서 Alertmanager까지 도달하는지만 확인하는 단계다.
+# 비밀 값(Teams 웹훅, 보고 토큰)을 만든 뒤 alertmanager.vm.yml로 교체한다.
+# 배치 위치: /etc/failstop/alertmanager.yml (root:alertmanager 0640)
+route:
+  receiver: hold
+  group_by: [customer, environment, alertname, component, instance]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+receivers:
+  - name: hold
+inhibit_rules:
+  - source_matchers: [alertname="LinuxHostUnreachable"]
+    target_matchers: [alertname=~"LinuxCollectorFailed|LinuxLogCollectionStale"]
+    equal: [instance]

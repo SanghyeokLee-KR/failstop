@@ -1,0 +1,67 @@
+===== DB02 Standby 구성 09:46:01
+--- 1) 비밀번호가 필요 없는 단계
+  perl-parent-1:0.241-512.el10.noarch                                           
+  perl-podlators-1:5.01-511.el10.noarch                                         
+  perl-vars-1.05-515.el10_2.noarch                                              
+  postgresql17-17.11-4PGDG.rhel10.2.x86_64                                      
+  postgresql17-contrib-17.11-4PGDG.rhel10.2.x86_64                              
+  postgresql17-libs-17.11-4PGDG.rhel10.2.x86_64                                 
+  postgresql17-server-17.11-4PGDG.rhel10.2.x86_64                               
+
+Complete!
+       유닛   : postgresql-17.service
+       PGDATA : /var/lib/pgsql/17/data/
+       실행파일: /usr/pgsql-17/bin
+       postgres (PostgreSQL) 17.11
+  [확인 필요] DB01에서 SELECT version(); 을 실행해 마이너 버전까지 같은지 눈으로 대조한다.
+       /var/lib/pgsql 소유권과 SELinux 문맥을 맞춘다
+       /srv/pgbackup 소유권과 SELinux 문맥을 맞춘다
+       /srv/pgbackup 에 postgresql_db_t 문맥 규칙을 등록했다
+       drwx------. 2 postgres postgres system_u:object_r:postgresql_db_t:s0  6 Sep 22 09:45 /srv/pgbackup
+       drwx------. 3 postgres postgres system_u:object_r:postgresql_db_t:s0 37 Sep 22 09:46 /var/lib/pgsql
+       Standby에서는 initdb를 실행하지 않는다. PGDATA는 basebackup 단계가 만든다.
+
+[09:46:48] config: exchange.conf 와 node.conf 를 배치한다
+/opt/vm-lab/build-files/db/exchange.conf: OK
+       8acbe28b479fa81c73ede1acfd978f1c232d2a85ed478287762a27ad90b603bd  /etc/postgresql/exchange.conf
+       root postgres 640 /etc/postgresql/exchange.conf
+       root postgres 640 /etc/postgresql/node.conf
+       node.conf 를 PGDATA 밖에 두었다. 베이스백업이 DB01의 주소로 덮어쓰지 않는다.
+
+[09:46:48] tls: DB02 서버 인증서를 만든다
+.+..............+..........+.....+.+........++++++++++++++++++++++++++++++++++++++++++*....+...+......++++++++++++++++++++++++++++++++++++++++++*...+......+....+......+...........+.........+.+...+..............+................+............+..+............+...+...............+.+.....+.......+..+......+....+........+..........+...+......+...+...........+.+++++
+.........+................+..............+.......+...+.....+..........+...+.....+....++++++++++++++++++++++++++++++++++++++++++*..+...+...+...++++++++++++++++++++++++++++++++++++++++++*.......................+...+.+.....................+...+..+.........+......+.....................+.............+.................+....+........+......+.+.......................+..........+...+..................+..+.......+..+..................+...............+..................+...+......+...+.......+...+..+.+...+..........................+......+...+.+...+...........+...............+.........+...+....+...+...+...............+.....+...+......+...+.......+.....+............................+..+....+.....+.....................+.+............+..+.........+....+++++
+-----
+       DB02 서버 인증서 지문. 승격할 때 APP01과 APP02에 전달할 값이다.
+       subject=CN=db02
+       notBefore=Sep 22 00:46:48 2026 GMT
+       notAfter=Sep 22 00:46:48 2027 GMT
+       X509v3 Subject Alternative Name: 
+           IP Address:192.168.10.32, DNS:db02.lab, DNS:db02
+       sha256 Fingerprint=69:2A:5B:0D:88:9E:3C:09:D7:13:CF:74:A4:1E:77:D5:AA:32:A5:54:2C:84:66:77:3F:D0:57:46:9B:9E:9A:6A
+       server.key 는 postgres:postgres 0600이며 이 호스트 밖으로 복사하지 않는다.
+--- 2) DB01 공개 인증서를 가져온다
+인증서 확보: 19줄
+--- 3) DB01 인증서 지문 (대조용)
+지문: 36:BC:A5:8A:03:F6:77:F9:0C:3D:64:89:58:E7:B5:D2:40:50:F4:E0:63:FA:B4:FD:35:9E:DF:B2:6B:62:9B:B4
+--- 4) DB02 에 배치하고 대조
+[09:46:50] primary-cert: DB01 공개 인증서를 배치한다
+       이 파일의 지문
+       subject=CN=db01.lab
+       notBefore=Sep 21 12:13:42 2026 GMT
+       notAfter=Sep 21 12:13:42 2027 GMT
+       sha256 Fingerprint=36:BC:A5:8A:03:F6:77:F9:0C:3D:64:89:58:E7:B5:D2:40:50:F4:E0:63:FA:B4:FD:35:9E:DF:B2:6B:62:9B:B4
+
+       DB01 화면에서 아래를 실행해 나온 값과 눈으로 대조한다.
+         openssl x509 -in /etc/postgresql/server.crt -noout -fingerprint -sha256
+       일치하면 다음을 실행한다.
+         sudo 31-db-standby-setup.sh confirm-primary <DB01 화면에서 읽은 지문>
+       전송 자체를 신뢰 근거로 삼지 않는다. 대조가 끝나야 베이스백업 단계가 열린다.
+
+[09:46:50] confirm-primary: DB01 인증서 지문을 대조한다
+       대조를 마쳤다. 이제 passfile 단계로 넘어간다.
+
+===== 여기까지 자동. 다음은 사용자가 직접 한다 =====
+  ssh -i C:\Users\kopo26\.ssh\vm-lab_ed25519 ops@192.168.56.32
+  cd /opt/vm-lab && sudo bash scripts/31-db-standby-setup.sh passfile
+  (DB01 에서 정한 replicator 비밀번호를 넣는다)

@@ -1,0 +1,248 @@
+
+########## 검증 판정 (20건)
+구축 순서와 의존 관점에서 치명적인 결함 5건, 중간 결함 9건, 경미한 결함 5건을 확인했다. 가장 심각한 것은 DB01과 DB02가 설치 직후 로그인 불가 상태가 된다는 점, Flyway 마이그레이션 계정 exchange_owner의 비밀번호를 만드는 단계가 어디에도 없어 스키마를 적용할 수 없다는 점, 그리고 EDGE01 정본 진입 오리진과 앱에 넣는 CORS 오리진이 서로 다른 주소라는 점이다. kickstart 전달 경로가 두 가지로 갈려 있고 서로를 참조하지 않는 것이 여러 결함의 공통 원인이다. 각 항목은 실제 파일을 열어 확인했으며 추측은 넣지 않았다.
+
+########## 검증 판정 (23건)
+주소·포트 체계 자체(IP 중복, 대역 충돌)는 어긋난 곳이 없지만, 같은 사실을 두 곳에 다르게 적어 둔 산출물이 여럿이고 그중 셋은 절차를 그대로 따라가면 실패한다. 특히 (1) DB01·DB02 kickstart가 공개키 자리표시자를 그대로 둔 채 root·ops를 모두 잠가 설치 후 접속 경로가 전혀 없고, (2) EDGE01이 확정한 정본 오리진(192.168.56.11)과 APP 절차서·스크립트 예시(192.168.10.11)가 어긋나 CORS·WS가 막히며, (3) 41 스크립트의 9088 방화벽 확인이 40 스크립트가 만들지 않는 테이블을 보므로 항상 경고가 나고 안내대로 다시 실행해도 해결되지 않는다. 그리고 SSH 개인키가 산출물 폴더에 평문으로 들어 있다. 00-주소계획.md의 포트 표에도 실제로 여는 포트(8090, 9088)와 실습 사용자의 실제 출발지(192.168.56.1)가 빠져 있어 "유일한 기준" 역할을 못 하고 있다.
+
+########## 검증 판정 (16건)
+산출물은 문체·대시·이모지 게이트를 통과하고, SELinux를 끄는 처리는 한 군데도 없으며, 문서에 "실행하지 않은 검증을 통과했다"는 문장도 없다. 그러나 안전 측면에서 통과시킬 수 없다. (1) 암호가 걸리지 않은 SSH 개인키가 산출물 폴더에 그대로 들어 있고, DB01·DB02 절차가 그 키를 포함한 build 폴더를 통째로 VM에 복사하라고 지시한다. 이 키는 여섯 대 전부에서 `NOPASSWD: ALL` sudo를 가진 ops 계정의 유일한 인증 수단이다. (2) `ks/db01.ks`는 `ListenAddress`를 고정하면서 다른 다섯 개 kickstart가 모두 넣은 sshd 기동 순서 드롭인만 빠져 있어 DB01이 콘솔 외에는 못 들어가는 상태가 될 수 있다. (3) `01-create-vms.ps1`은 `@@OPS_SSH_PUBKEY@@`가 남은 DB kickstart를 그대로 VirtualBox에 넘기는데, root와 ops 비밀번호가 모두 잠겨 있어 키가 배치되지 않으면 콘솔 로그인조차 불가능하다. kickstart가 남기는 복구 안내("콘솔에서 로그인한 뒤")를 따를 수 없다. 방화벽은 `inet vmlab`(기본 차단)과 `inet failstop`(policy accept) 두 계통이 병행 유지되면서 OPS01·EDGE01 대체 경로가 도면의 "허용하지 않은 새 인바운드 연결은 차단"과 어긋나고, EDGE01은 배포판 nftables.service를 두 번째 정책원으로 살려 둔다. kickstart 세트도 `ks/*.ks`와 `ks-*.cfg` 두 벌이 공존하며 후자에는 OPS01 SSH 터널 드롭인이 없어 관제 화면 접근 경로가 끊긴다. 아래 항목을 고치기 전에는 구축을 시작하지 않는 것이 맞다.
+
+
+===== 지적 총 59건 =====
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\ks\db01.ks
+  문제: db01.ks와 db02.ks에는 sshkey 줄이 없고 %post의 공개키가 자리표시자 '@@OPS_SSH_PUBKEY@@' 그대로다(db01.ks 50행 user --name=ops ... --lock, 48행 rootpw --lock, %post의 OPS_PUBKEY='@@OPS_SSH_PUBKEY@@'). scripts/01-create-vms.ps1은 이 파일을 치환 없이 --script-template 으로 넘긴다(53행 $ks = Join-Path $KsDir "$($n.ToLower()).ks"). 그 결과 ops는 비밀번호가 잠기고 키도 없으며 root도 잠겨 있어 SSH도 VirtualBox 콘솔도 들어갈 수 없다. %post가 남기는 안내문 'VirtualBox 콘솔에서 로그인한 뒤 /home/ops/.ssh/authorized_keys를 직접 만든다'와 DB01_구축절차.md 5절의 '들어가지 못하면 VirtualBox 콘솔에서 ops로 로그인해'는 잠긴 계정에서는 실행할 수 없는 복구 경로다. edge01.ks, app01.ks, app02.ks, ops01.ks에는 sshkey 줄이 채워져 있어 DB 두 대만 이 상태다.
+  수정: db01.ks와 db02.ks에 다른 네 대와 같은 형식의 sshkey 줄을 넣는다. 예: sshkey --username=ops "ssh-ed25519 AAAA... vm-lab-ops". 자리표시자를 유지하려면 01-create-vms.ps1이 $ks를 읽어 @@OPS_SSH_PUBKEY@@를 keys/lab_ed25519.pub로 치환한 임시 파일을 만들고 그 파일을 --script-template 으로 넘기며, 치환 후 '@@'가 남아 있으면 throw 로 멈추게 한다. 복구 경로를 남기려면 %post 안내문을 지우고 대신 db01.ks의 user 줄에서 --lock 을 빼는 대신 콘솔 전용 임시 비밀번호를 쓰지 말고, 키 배치 실패 시 설치 자체를 실패시키는 쪽으로 바꾼다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\keys\lab_ed25519
+  문제: OpenSSH 개인 키 본문이 build 폴더 안에 평문으로 들어 있다(첫 줄 -----BEGIN OPENSSH PRIVATE KEY-----, 권한 -rw-r--r--). 00-주소계획.md의 계정 절은 '비밀 값은 이 저장소와 증거에 남기지 않는다'고 적어 두었는데 이 키가 그 규칙의 예외로 남아 있다. 게다가 여섯 대 모두 /etc/sudoers.d에 'ops ALL=(ALL) NOPASSWD: ALL'을 두므로 이 키 하나가 전체 VM의 root 권한과 같다. DB01_구축절차.md 5절, EDGE01_구축절차.md 43행, APP_구축절차.md 92행이 모두 이 경로를 그대로 인용하고 있어 문서에도 위치가 고정돼 있다.
+  수정: keys/lab_ed25519 를 build 폴더에서 빼고 사용자 프로필의 ~/.ssh 아래로 옮긴 뒤 icacls 로 현재 사용자만 읽게 좁힌다. build 폴더에는 공개키만 남긴다. 문서의 -i 경로를 %USERPROFILE%\.ssh\lab_ed25519 로 바꾸고, 00-주소계획.md의 계정 절에 '관리 키는 build 폴더에 두지 않는다. 생성 명령은 ssh-keygen -t ed25519 -f $env:USERPROFILE\.ssh\lab_ed25519 -C vm-lab-ops 다'를 명시한다. 이미 만들어 둔 키는 폐기하고 새로 만든다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\scripts\30-db-primary-setup.sh
+  문제: step_roles(487행)가 exchange_owner 를 LOGIN 으로 만들지만 비밀번호를 주지 않고, step_passwords(528행)는 'for role in exchange_app replicator' 두 개만 돌린다. exchange_owner 는 어느 단계에서도 비밀번호를 받지 않는다. 그런데 21-app-migrate.sh는 기본 db_user=exchange_owner 로 APP01에서 TCP 접속해 Flyway를 돌리고(47행), pg_hba.vm.conf의 인증 방식은 hostssl scram-sha-256 이다. 비밀번호가 없는 역할은 scram 인증에 성공할 수 없으므로 스키마 적용이 구조적으로 불가능하다. DB01_구축절차.md 11절 '다른 역할과 맞춰야 하는 값' 표에도 replicator 와 exchange_app 두 개만 있고 exchange_owner 가 빠져 있다. 또한 pg_hba.vm.conf에는 exchange_owner 용 hostssl 줄 자체가 없고 주석으로 '한시적으로 추가한다'고만 적혀 있어, 마이그레이션 직전에 무엇을 해야 하는지가 실행 가능한 단계로 존재하지 않는다.
+  수정: 30-db-primary-setup.sh의 step_passwords 반복 목록을 'for role in exchange_owner exchange_app replicator' 로 바꾼다. 그리고 마이그레이션 창을 여닫는 단계를 스크립트에 추가한다. 예: 30-db-primary-setup.sh 에 migrate-open 과 migrate-close 하위 명령을 두고, migrate-open 이 pg_hba.conf 에 'hostssl exchange exchange_owner 192.168.10.21/32 scram-sha-256' 한 줄을 넣고 reload 한 뒤 그 줄의 줄 번호를 /etc/vm-lab/migrate-window 에 남기며, migrate-close 가 그 줄을 지우고 ALTER ROLE exchange_owner NOLOGIN 을 실행하게 한다. DB01_구축절차.md 11절 표에 exchange_owner 비밀번호 행을 추가하고 APP_구축절차.md 175행 앞에 migrate-open 선행 단계를 넣는다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\문서\APP_구축절차.md
+  문제: 진입 오리진이 두 문서에서 서로 다르다. EDGE01_구축절차.md 11행은 '정본 진입 주소는 https://192.168.56.11 하나로 정했다'고 못박고 177행에서 EXCHANGE_CORS_ALLOWED_ORIGINS 와 APP_WS_ALLOWED_ORIGINS 를 https://192.168.56.11 로 두라고 적었으며 131행의 build-web.ps1 -Origin 도 같은 값이다. 그런데 APP_구축절차.md 133행과 202행은 'sudo bash 20-app-setup.sh 1 --origin https://192.168.10.11' 이고, 20-app-setup.sh 8~10행의 실행 예도 같은 lab-lan 주소다. 이 값이 그대로 app.env 의 두 오리진 키에 들어간다(app.env.vm.example 의 __ORIGIN__). 작업 PC 브라우저는 host-only 주소로 들어오므로 Origin 헤더가 https://192.168.56.11 이 되고, 앱의 CORS 검사와 WebSocketConfig 의 오리진 검사에서 모두 막힌다. 10-edge01-setup.sh 665행의 verify 도 ENTRY_ORIGIN 기준으로 WS 를 확인하므로 이 불일치는 verify 단계에서야 드러난다.
+  수정: APP_구축절차.md 133행과 202행의 --origin 값을 https://192.168.56.11 로 고치고, 20-app-setup.sh 8~10행 주석의 실행 예도 같은 값으로 바꾼다. 재발을 막으려면 20-app-setup.sh 에 진입 오리진 상수 entry_origin=https://192.168.56.11 을 두고 --origin 이 그 값과 다르면 경고를 내거나, 10-edge01-setup.sh 의 ENTRY_HOST 와 같은 값을 00-주소계획.md 의 새 표 한 줄('정본 진입 오리진 https://192.168.56.11')로 올려 두 스크립트가 같은 출처를 인용하게 한다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\scripts\01-create-vms.ps1
+  문제: kickstart 전달 경로가 서로 맞지 않는 세 가지로 갈려 있고 어느 것이 정본인지 정해져 있지 않다. (1) 01-create-vms.ps1 은 ks/<name>.ks 를 VBoxManage unattended install --script-template 으로 넘긴다(53, 99행). (2) 공통_구축절차.md 2~3절은 base.ks.template 에서 ks-<name>.cfg 를 새로 만들어 inst.ks=http://10.0.2.2:8000/ks-app01.cfg 로 받게 한다(78행). (3) DB01_구축절차.md 105행은 inst.ks=http://10.0.2.2:8000/db01.generated.ks 를 쓰는데 이 파일은 ks 폴더에 존재하지 않고 같은 문서 85~87행의 치환 명령으로 사람이 먼저 만들어야 한다. (4) OPS01_관측_구축절차.md 44행은 inst.ks=http://192.168.56.1:8000/ops01.ks 로 host-only 바인딩을 쓰는데, 공통_구축절차.md 는 그 방식이 Windows 방화벽 인바운드 개방과 사용자 승인을 필요로 한다고 적어 두었다. 세 경로가 만드는 설치 결과도 다르다. base.ks.template 로 만든 app 노드에는 /etc/vm-lab-node 표식이 없어 20-app-setup.sh 136~142행의 역할 확인이 조용히 건너뛰어진다.
+  수정: 정본 경로 하나를 정해 나머지를 지운다. 01-create-vms.ps1 을 정본으로 삼는다면 공통_구축절차.md 2~3절과 DB01_구축절차.md 4절, OPS01_관측_구축절차.md 의 inst.ks 안내를 모두 삭제하고 '설치는 01-create-vms.ps1 하나로 한다'로 통일한다. 그리고 01-create-vms.ps1 에 치환 단계를 넣어 ks/<name>.ks 안의 @@OPS_SSH_PUBKEY@@ 와 __로 감싼 자리표시자를 keys/lab_ed25519.pub 와 $vm 의 값으로 채운 임시 파일을 만들고, 치환 후 '@@' 또는 '__[A-Z_]+__' 가 남으면 throw 한다. base.ks.template 은 설계 참고용으로만 남기고 '이 파일로 설치하지 않는다'를 머리말에 적는다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\keys\lab_ed25519
+  문제: SSH 개인키가 산출물 폴더에 평문으로 들어 있다. 첫 줄이 -----BEGIN OPENSSH PRIVATE KEY----- 다. 같은 키쌍의 공개키가 ks/app01.ks, ks/app02.ks, ks/edge01.ks, ks/ops01.ks에 그대로 박혀 있어 이 폴더를 넘기는 순간 여섯 대 전부의 ops 계정 접근 권한이 함께 넘어간다. 작업 지시의 '비밀 값을 파일에 하드코딩하지 않는다'에 정면으로 어긋난다.
+  수정: keys/lab_ed25519를 산출물 폴더 밖(예: %USERPROFILE%\.ssh\)으로 옮기고 build 폴더에는 공개키(lab_ed25519.pub)만 남긴다. 00-주소계획.md의 계정 절에 'ssh-keygen -t ed25519 -f ~/.ssh/vm-lab -N \"\"'로 각자 만들고 .pub만 kickstart에 넣는다는 문장을 추가한다. 이미 만든 키는 폐기하고 새로 만든다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\ks\db01.ks
+  문제: 136행 OPS_PUBKEY='@@OPS_SSH_PUBKEY@@' 가 자리표시자 그대로다. scripts/01-create-vms.ps1은 이 파일을 치환 없이 --script-template 으로 넘기므로(53~54행, 99행) 설치 후 /home/ops/.ssh/authorized_keys가 만들어지지 않는다. 그런데 48행 rootpw --lock 과 50행 user --name=ops --lock 으로 두 계정의 비밀번호가 모두 잠겨 있고 sshd는 PasswordAuthentication no 다. 146~147행 대비책은 'VirtualBox 콘솔에서 로그인한 뒤'라고 적었지만 잠긴 계정으로는 콘솔 로그인도 되지 않는다. ks/db02.ks 154행도 동일하다. 반면 app01/app02/edge01/ops01 kickstart에는 sshkey 줄에 실제 키가 박혀 있어 네 대만 접속된다.
+  수정: ks/db01.ks와 ks/db02.ks에서 %post의 OPS_PUBKEY 블록을 지우고 나머지 네 대와 같은 형식인 `sshkey --username=ops "<lab_ed25519.pub 내용>"` 한 줄로 바꾼다. 또는 scripts/01-create-vms.ps1이 ks 파일을 임시 폴더에 복사하면서 @@OPS_SSH_PUBKEY@@를 (Get-Content keys\lab_ed25519.pub -Raw).Trim() 으로 치환한 뒤 그 복사본을 --script-template에 넘기도록 고치고, 치환 후 '@@'가 남아 있으면 throw 한다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\scripts\20-app-setup.sh
+  문제: 8행·10행 사용 예시가 --origin https://192.168.10.11 (EDGE01의 lab-lan 주소)이고 문서/APP_구축절차.md 133행·202행도 같은 값이다. 그런데 scripts/10-edge01-setup.sh 42~43행이 ENTRY_HOST=$MGMT_IP 로 정본 진입 주소를 https://192.168.56.11 로 확정했고, build-files/edge01/nginx-vm.conf 114행·140행이 proxy_set_header Host 192.168.56.11 을 고정했으며 문서/EDGE01_구축절차.md 11행도 그 값을 정본으로 선언했다. 예시대로 앱을 설치하면 브라우저가 보내는 Origin: https://192.168.56.11 이 EXCHANGE_CORS_ALLOWED_ORIGINS·APP_WS_ALLOWED_ORIGINS와 달라 CORS와 WS 오리진 검사에서 막힌다. 문서/APP_구축절차.md 334행은 '오리진이 미확정이다'라고 적어 두었는데 EDGE01 쪽은 이미 확정했다.
+  수정: scripts/20-app-setup.sh 8행·10행과 문서/APP_구축절차.md 133행·202행의 --origin 값을 https://192.168.56.11 로 바꾼다. 문서/APP_구축절차.md 334행의 '미확정' 문장은 지우고 EDGE01_구축절차.md 11행을 근거로 확정 문장으로 바꾼다. 00-주소계획.md의 포트 표 아래에 '정본 진입 오리진 = https://192.168.56.11' 한 줄을 추가해 세 산출물이 같은 곳을 보게 한다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\scripts\41-ops01-reporting.sh
+  문제: 665행이 `nft list table inet failstop | grep 'tcp dport 9088'` 으로 방화벽 규칙을 확인하는데, scripts/40-ops01-observability.sh의 stage_firewall(536~546행 부근)은 /etc/vm-lab/firewall.nft 가 있으면 ops01-firewall.nft를 설치하지 않고 return 0 한다. 00-common-setup.sh를 모든 VM에 적용하는 것이 기본 절차이므로 inet failstop 테이블은 정상 경로에서 아예 생기지 않는다. 결과적으로 668행 경고가 항상 나오고, 그 경고문이 안내하는 '40의 firewall 단계를 다시 실행'을 따라도 같은 이유로 또 건너뛴다. 해결되지 않는 안내가 증거본에 남는다.
+  수정: 41-ops01-reporting.sh 664~669행을 공통 기반 우선으로 고친다. /etc/vm-lab/firewall.nft 가 있으면 `nft list chain inet vmlab input`에 policy drop 이 있는지 확인하고 '기본 차단이 9088을 막는다'로 통과 처리하며, 없을 때만 inet failstop 의 9088 drop 을 찾는다. 경고문도 '공통 기반을 쓰면 별도 9088 규칙이 필요 없다'로 바꾼다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\scripts\ops01\make-vm-dashboards.py
+  문제: 변환 대상이 environment 변수, 태그, 설명 세 가지뿐이라 패널 쿼리의 role 정규식을 그대로 둔다. scripts/ops01/msp-dashboards-vm/*.json 안에 role=~\"app|reader|data|standby|probe\" 가 1393곳 남아 있고 edge와 observability가 없다. build-files/ops/prometheus.vm.yml은 EDGE01(192.168.10.11, role: edge)과 OPS01(192.168.10.41, role: observability)을 일부러 linux-host 작업에 넣어 수집하는데 MSP 화면 7개에서는 두 대가 한 패널에도 나오지 않는다. 같은 문제를 build-files/ops/reporting.config.vm.json은 role=~\"edge|app|reader|data|standby|probe|observability\" 로 이미 고쳐 두었으므로 두 산출물의 기준이 서로 다르다.
+  수정: make-vm-dashboards.py의 convert()에 문자열 치환을 한 줄 추가한다. dashboard를 json.loads 하기 전에 원본 텍스트에서 'role=~\\"app|reader|data|standby|probe\\"' 를 'role=~\\"edge|app|reader|data|standby|probe|observability\\"' 로 바꾸고(reporting.config.vm.json과 같은 값), 치환 건수를 print 한다. 그 뒤 --source deploy/linux/observability/msp-dashboards 로 7개를 다시 생성한다. 반영 후 문서/OPS01_관측_구축절차.md 208행의 '두 대는 그 패널에 나오지 않는다' 설명도 고친다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\scripts\00-common-setup.sh
+  문제: 152행과 285~294행이 ops01일 때만 node_exporter를 127.0.0.1:9100에 고정 바인딩하고 listen.env를 쓰지 않는다. 그런데 build-files/ops/prometheus.vm.yml 62행은 대상이 '192.168.10.41:9100' 이고, scripts/ops01/node_exporter.ops01.service 7행·18행은 주소가 listen.env의 NODE_EXPORTER_ADDRESS=192.168.10.41 에서 온다고 적었으며, scripts/ops01/ops01-firewall.nft 27행 주석도 lab-lan 주소를 전제한다. 한 값에 대해 네 파일이 두 가지로 갈린다. 40-ops01-observability.sh의 reconcile_self_target(499~521행)은 설치본 /etc/prometheus/prometheus.yml 한 줄만 고치고 원본은 그대로 두므로 build 폴더의 모순은 계속 남는다.
+  수정: 어느 쪽을 정본으로 할지 00-주소계획.md에 먼저 적는다. 루프백을 택하면 build-files/ops/prometheus.vm.yml 62행을 '127.0.0.1:9100'으로, scripts/ops01/node_exporter.ops01.service 7행·17행(EnvironmentFile)과 ops01-firewall.nft 27~29행 주석을 루프백 기준으로 고친다. lab-lan을 택하면 00-common-setup.sh 152행의 ops01 분기를 없애고 여섯 대 모두 listen.env 방식으로 통일한 뒤 /etc/vm-lab/firewall.d/ 에 9100 자기 허용 규칙이 필요한지 확인한다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\문서\DB01_구축절차.md
+  문제: 118~123행이 `scp -i ...\keys\lab_ed25519 -r C:\Users\kopo26\Desktop\vm-lab\build ops@192.168.56.31:/tmp/build` 로 build 폴더를 통째로 넘긴다. 이 폴더에는 `keys/lab_ed25519`(암호 없는 개인키)가 들어 있으므로 여섯 대 전부의 root 상당 권한을 주는 개인키가 DB01의 /tmp에 떨어지고, 이어지는 `sudo rsync -a /tmp/build/ /opt/vm-lab/`(128행)로 0755인 /opt/vm-lab 아래에 남는다. 같은 문제가 `문서\DB02_구축과_승격절차.md` 67행의 `rsync -av --delete C:/Users/kopo26/Desktop/vm-lab/build/ ops@192.168.56.32:/opt/vm-lab/` 에도 있다. `문서\EDGE01_구축절차.md` 26행과 `ks/ops01.ks` 65행은 같은 파일을 두고 'VM에 복사하지 않는다'고 적어 두어 산출물 안에서 지시가 서로 충돌한다.
+  수정: `문서\OPS01_관측_구축절차.md` 74행처럼 하위 폴더를 하나씩 지정하는 형태로 바꾼다. DB01은 `scp -i $key -r "$root\build-files" "$root\scripts" "$root\ks" "$root\문서" "$root\00-주소계획.md" ops@192.168.56.31:/home/ops/build/`, DB02는 rsync에 `--exclude keys/`를 추가한다. 덧붙여 전송 직후 VM에서 `find /opt/vm-lab -name 'lab_ed25519*'`가 비어 있는지 확인하는 줄을 두 문서에 넣는다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\keys\lab_ed25519
+  문제: 암호가 걸리지 않은 Ed25519 개인키가 산출물 폴더에 그대로 들어 있다. 파일 머리의 `AAAABG5vbmUAAAAEbm9uZQ`가 cipher none, kdf none을 뜻하므로 복호 없이 바로 쓸 수 있다. 여섯 대가 같은 키 하나를 쓰고 그 키로 들어간 ops는 `ks/db01.ks` 158~162행과 `scripts/00-common-setup.sh` 528~531행이 넣는 `ops ALL=(ALL) NOPASSWD: ALL` 을 가진다. 즉 이 파일 하나가 여섯 대의 root다. 지시된 원칙은 비밀 값을 파일로 남기지 않고 생성 명령과 권한 설정만 적는 것인데, `문서\공통_구축절차.md` 25행과 `문서\DB01_구축절차.md` 54행이 생성 명령을 이미 제공하고 있으므로 파일 자체가 남아 있을 이유가 없다. Windows 쪽 ACL 제한(icacls)은 `문서\OPS01_관측_구축절차.md` 187~188행에만 나오고 키를 처음 만드는 두 문서에는 없다.
+  수정: `build/keys/`의 개인키와 공개키를 지우고 산출물에서 제외한다. 키는 `%USERPROFILE%\.ssh\vm-lab_ed25519`에 `ssh-keygen -t ed25519 -f ... -C vm-lab-ops` 로 만들되 암호구를 반드시 넣고, 생성 직후 `icacls ... /inheritance:r /grant:r "$env:USERNAME:(R)"` 를 같은 코드 블록에 붙인다. 문서의 모든 `build\keys\lab_ed25519` 경로를 새 경로로 바꾸고, `00-주소계획.md` 계정 절에 '개인키는 build 폴더에 두지 않는다'를 명시한다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\ks\db01.ks
+  문제: 121행에서 `ListenAddress 192.168.56.31`로 sshd 바인딩을 고정하는데, 이 파일에만 `/etc/systemd/system/sshd.service.d/10-wait-network.conf` 드롭인이 없다. `ks/db02.ks` 139~142행, `ks/app01.ks` 101~104행, `ks/app02.ks`, `ks/edge01.ks` 174~184행, `ks/ops01.ks`, `ks/base.ks.template`은 모두 '주소가 올라오기 전에 sshd가 뜨면 바인딩에 실패한다'는 같은 이유로 이 드롭인을 넣는다. db01.ks는 `NetworkManager-wait-online.service` 활성화도 하지 않는다. 배포판 sshd.service에는 Restart 지시자가 없으므로 첫 부팅에서 enp0s9가 늦게 올라오면 sshd가 실패한 채로 남고, rootpw와 ops 비밀번호가 모두 잠겨 있어 VirtualBox 콘솔로도 복구할 수 없다.
+  수정: db01.ks의 %post에 다른 kickstart와 같은 블록을 추가한다. `install -d -o root -g root -m 0755 /etc/systemd/system/sshd.service.d` 후 `[Unit]` `After=network-online.target` `Wants=network-online.target` 내용의 `10-wait-network.conf`를 0644로 쓰고 `systemctl enable NetworkManager-wait-online.service || true` 를 넣는다.
+
+[HIGH] C:\Users\kopo26\Desktop\vm-lab\build\scripts\01-create-vms.ps1
+  문제: 53행에서 `ks/<이름>.ks` 를 그대로 `VBoxManage unattended install --script-template` 에 넘긴다. 그런데 `ks/db01.ks` 136행과 `ks/db02.ks`는 공개키 자리에 `OPS_PUBKEY='@@OPS_SSH_PUBKEY@@'` 를 그대로 두고 있고, VirtualBox는 `@@VBOX_INSERT_*@@` 형태만 치환하므로 이 토큰은 치환되지 않는다. 그 결과 db01.ks 145~150행의 else 분기가 돌아 authorized_keys를 만들지 않는다. 동시에 48행 `rootpw --lock` 과 50행 `user --name=ops ... --lock` 으로 root와 ops 비밀번호가 모두 잠겨 있어, kickstart가 build-notes.txt에 남기는 복구 안내('VirtualBox 콘솔에서 로그인한 뒤 authorized_keys를 직접 만든다')를 실행할 수 없다. DB01·DB02는 rescue 부팅 없이는 들어갈 수 없는 VM이 된다. 스크립트에는 자리표시자가 남았는지 확인하는 검사가 없다.
+  수정: 01-create-vms.ps1의 kickstart 존재 확인(53~54행) 바로 뒤에 치환 검사를 넣는다. `$ksText = Get-Content $ks -Raw; if ($ksText -match '@@OPS_SSH_PUBKEY@@|__OPSKEY__|__HOSTNAME__|__LANIP__|__MGMTIP__') { throw "$ks 에 치환되지 않은 자리표시자가 있다" }`. 더 나은 방법은 스크립트가 `keys/lab_ed25519.pub`(또는 -PublicKeyPath 인자로 받은 파일)을 읽어 임시 ks 사본에 직접 치환한 뒤 그 사본을 넘기고, 원본 ks는 자리표시자 형태로 통일하는 것이다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\20-app-setup.sh
+  문제: 536~542행의 pending 판정이 스키마 선행 조건을 APP01 에만 건다. 조건이 'elif [[ $node == 1 && ! -f /etc/exchange/.migrated ]]' 이므로 node 가 2면 이 분기를 타지 않고, 비밀 값과 인증서만 채워져 있으면 551~552행에서 곧바로 systemctl enable --now exchange-app 을 실행한다. APP02 를 APP01 보다 먼저 구축하면 스키마가 없는 DB 에 앱이 붙어 기동에 실패하고, exchange-app.service 의 StartLimitBurst 에 걸려 실패 상태로 남는다. 21-app-migrate.sh 가 만드는 /etc/exchange/.migrated 표식은 APP01 안에만 있어 APP02 에서는 확인할 수 없다.
+  수정: node 번호와 무관한 스키마 확인으로 바꾼다. pending 분기에서 psql 로 DB01 에 붙어 flyway_schema_history 존재 여부를 확인하거나, 최소한 APP02 에도 게이트를 걸어 'elif [[ ! -f /etc/exchange/.migrated && $node == 1 ]]' 를 'elif [[ $node == 1 && ! -f /etc/exchange/.migrated ]]' 와 'elif [[ $node == 2 ]] && ! psql "$db_url" -U exchange_app -c "SELECT 1 FROM flyway_schema_history LIMIT 1" >/dev/null 2>&1' 두 분기로 나눈다. 앞의 elif 사슬은 조건이 하나만 보고되므로 pending 을 배열로 모아 전부 출력하도록 함께 고친다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\31-db-standby-setup.sh
+  문제: 복제 슬롯 사용 여부가 DB01 쪽과 DB02 쪽에서 정반대로 적혀 있다. 30-db-primary-setup.sh 의 step_slot(541행)은 슬롯을 만들고 554행에서 'DB02의 pg_basebackup -S 옵션에 같은 이름 standby_1 을 쓴다'고 지시하며, DB01_구축절차.md 11절 표도 '복제 슬롯 standby_1 / DB02의 pg_basebackup -S standby_1' 로 적었다. 반면 31-db-standby-setup.sh 의 step_basebackup(582~586행)은 '-S 를 붙이지 않는 것이 이 구성의 선택이다'라고 적고 592행에서 실제로 -S 없이 받으며, 603~608행에서 primary_slot_name = '' 를 명시한다. slot 단계는 30 스크립트의 ALL_STEPS 에 들어 있어 all 로 무조건 만들어지므로, 결과적으로 DB01 에는 영구히 활성화되지 않는 슬롯이 하나 남는다.
+  수정: 둘 중 하나로 정한다. 슬롯을 쓰지 않기로 하면 30-db-primary-setup.sh 의 ALL_STEPS(898행)에서 slot 을 빼고 step_slot 을 지우거나 명시적으로만 호출되게 남기며, 554행 안내문과 DB01_구축절차.md 11절 표의 슬롯 행을 삭제한다. 슬롯을 쓰기로 하면 31-db-standby-setup.sh 587~592행의 conn 과 pg_basebackup 호출에 -S standby_1 을 넣고 603~608행의 primary_slot_name 빈 값 지정을 primary_slot_name = 'standby_1' 로 바꾼다. 어느 쪽이든 31 스크립트 1073~1075행의 verify 안내문도 함께 맞춘다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\41-ops01-reporting.sh
+  문제: stage_verify 663~668행이 nft list table inet failstop 에서 'tcp dport 9088' 규칙을 찾고, 없으면 'scripts/ops01/ops01-firewall.nft 에는 tcp dport 9088 counter drop 이 들어 있으니 40-ops01-observability.sh firewall 단계를 다시 실행해 적용한다'고 안내한다. 그런데 40-ops01-observability.sh 의 stage_firewall 은 /etc/vm-lab/firewall.nft 가 있으면(권장 경로) '이 스크립트는 규칙을 더하지 않는다'로 빠져나가며 inet failstop 테이블을 만들지 않는다(OPS01_FORCE_OWN_FIREWALL=1 일 때만 만든다). 공통 기반을 먼저 적용하는 정상 순서를 따르면 이 확인은 항상 경고를 내고, 안내대로 firewall 단계를 다시 돌려도 상태가 바뀌지 않는다.
+  수정: 41-ops01-reporting.sh 663~668행을 공통 기반 경로와 단독 경로로 나눈다. /etc/vm-lab/firewall.nft 가 있으면 inet failstop 을 찾지 말고 'nft list chain inet vmlab input' 에 9088 허용 규칙이 없다는 것과 ss -lnt 의 9088 바인딩이 127.0.0.1 인 것을 함께 확인해 통과로 판정하고, 그 근거를 출력한다. 단독 경로일 때만 기존 검사를 유지한다. 안내문의 '40-ops01-observability.sh firewall 단계를 다시 실행해 적용한다'는 잘못된 지시이므로 지운다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\ks\db01.ks
+  문제: DB 두 대만 sshd drop-in 이름이 달라 공통 설정과 겹친다. db01.ks %post 는 /etc/ssh/sshd_config.d/10-lab.conf 를 만들고 그 안에 ListenAddress 192.168.56.31, AllowUsers ops, ClientAliveInterval 300 을 넣는다. 그 뒤 00-common-setup.sh 는 /etc/ssh/sshd_config.d/20-vm-lab.conf 를 설치하며 같은 ListenAddress 192.168.56.31, AllowUsers ops@192.168.56.0/24, ClientAliveInterval 60 을 넣는다. sshd 는 먼저 읽은 값을 쓰므로 AllowUsers 는 출발지 제한이 없는 10-lab.conf 쪽이 이기고, 00-주소계획.md 포트 표의 'TCP 22 허용 출발지 관리 대역 192.168.56.0/24' 를 sshd 계층에서 만족하지 못한다. ListenAddress 는 누적 지시자라 같은 주소가 두 번 들어가 두 번째 bind 가 실패하고 로그에 오류가 남는다. 나머지 네 대는 20-vm-lab.conf 하나만 쓴다.
+  수정: db01.ks 와 db02.ks 의 %post 에서 10-lab.conf 생성 블록을 지우고 다른 네 대와 같이 20-vm-lab.conf 를 같은 내용으로 만들게 바꾼다. 공통 설정을 kickstart 가 미리 넣는 구조가 싫다면 반대로 db01.ks 의 파일 이름만 20-vm-lab.conf 로 바꾸고 AllowUsers 를 ops@192.168.56.0/24 로, ClientAlive 값을 60/3 으로 맞춘다. 어느 쪽이든 최종 판정은 sshd -T | grep -E '^(allowusers|listenaddress|clientaliveinterval)' 출력으로 확인하도록 DB01_구축절차.md 에 확인 명령을 넣는다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\문서\DB01_구축절차.md
+  문제: 265행의 차단 증거 확인 명령 'journalctl -k --since \'-10min\' | grep failstop-drop' 이 권장 경로에서는 아무 것도 내지 않는다. 'failstop-drop' 로그 접두사는 단독 구성 규칙 파일(build-files/db/db01-firewall.nft 68행, db02-firewall.nft 74행, db02-firewall-promoted.nft 47행)에만 들어 있다. 00-common-setup.sh 가 만드는 공통 기반 /etc/vm-lab/firewall.nft 에는 log 규칙이 하나도 없고 마지막 줄이 'counter comment "기본 차단 도달"' 뿐이다. 30-db-primary-setup.sh 와 31-db-standby-setup.sh 는 모두 공통 기반을 우선 쓰므로, 문서가 지시한 증거 수집 단계는 정상 구축에서 빈 출력만 남긴다.
+  수정: 00-common-setup.sh 의 render_firewall 마지막 카운터 앞에 속도 제한 로그 한 줄을 넣는다. 예: printf '  limit rate 5/minute burst 5 packets log prefix "vmlab-drop: " level info\n'. 그리고 DB01_구축절차.md 265행을 journalctl -k --since '-10min' --grep 'vmlab-drop' 으로 바꾸되, 공통 기반이 아닌 단독 구성에서는 failstop-drop 을 본다는 단서를 함께 적는다. 로그를 넣지 않기로 하면 문서의 확인 방법을 'sudo nft list chain inet vmlab input 의 기본 차단 카운터 증가분을 앞뒤로 비교한다' 로 바꾼다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\ks\edge01.ks
+  문제: 배포판 nftables.service 의 상태가 여섯 대에서 네 가지로 갈린다. edge01.ks 57행과 base.ks.template 46행은 services --enabled 에 nftables 를 넣고, app01.ks 63행과 app02.ks 64행과 ops01.ks 45행은 --disabled 에 넣으며, db01.ks 78행과 db02.ks 82행은 언급하지 않아 패키지 기본값에 맡긴다. 00-common-setup.sh 는 694~700행에서 '일부 버전의 nftables.service 는 중지할 때 ruleset 전체를 비운다'고 적어 위험을 알면서도 disable 이나 mask 를 하지 않고 ExecStop 값을 출력만 한다. 반면 20-app-setup.sh 202행은 systemctl disable nftables.service 를 실제로 실행한다. EDGE01 에서 nftables.service 가 멈추면 vm-lab-firewall.service 가 세운 inet vmlab 테이블까지 사라져 22번을 포함한 모든 규칙이 내려간다.
+  수정: 00-common-setup.sh 의 firewalld 처리 블록(687~693행) 옆에 nftables.service 도 같은 방식으로 disable 과 mask 하고 record 로 기록하는 단계를 추가한다. 그리고 여섯 개 kickstart 의 services 줄을 하나로 통일한다: services --enabled=sshd,chronyd --disabled=firewalld,nftables. base.ks.template 46행과 edge01.ks 57행이 고칠 대상이고 db01.ks 78행과 db02.ks 82행에는 nftables 를 --disabled 목록에 추가한다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\ks\db02.ks
+  문제: db01.ks 30행과 db02.ks 33행은 'reboot' 만 쓰고 firstboot 지시자가 없다. 나머지 네 대(app01.ks 21행, app02.ks 22행, edge01.ks 44행, ops01.ks 30행, base.ks.template)는 'firstboot --disable' 과 'reboot --eject' 를 쓴다. --eject 가 없으면 설치 후 재부팅에서 설치 매체가 그대로 붙어 있어 VirtualBox 기본 부팅 순서에 따라 설치 메뉴로 다시 들어갈 수 있고, 무인 설치가 같은 디스크를 다시 지우는 경로가 열린다. 01-create-vms.ps1 은 --start-vm=headless 로 돌리기 때문에 화면을 보지 않으면 이 상태를 바로 알아채기 어렵다.
+  수정: db01.ks 30행과 db02.ks 33행의 reboot 를 reboot --eject 로 바꾸고 그 앞에 firstboot --disable 을 넣어 나머지 네 대와 같게 만든다. 추가로 01-create-vms.ps1 의 modifyvm 호출에 --boot1 disk --boot2 dvd --boot3 none --boot4 none 을 넣어 설치가 끝난 뒤에는 디스크가 먼저 선택되게 한다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\30-db-primary-setup.sh
+  문제: 898행의 ALL_STEPS 가 (preflight disk packages initdb config tls hba start roles slot monitor exporters journald firewall verify) 이고 passwords 가 빠져 있다. 그런데 verify 는 ALL_STEPS 안에 들어 있어 'all' 실행 중 마지막에 돌아간다. db01.ks %post 의 build-notes 가 안내하는 순서도 'all' 다음에 'passwords' 다음에 'verify' 이므로, all 을 그대로 실행하면 비밀번호가 없는 상태에서 먼저 verify 가 판정을 내리고 그 출력이 증거로 남는다. 851행의 역할 권한 확인은 rolcanlogin 만 보고 비밀번호 유무를 보지 않아 이 구멍이 verify 에서도 드러나지 않는다.
+  수정: ALL_STEPS 에서 verify 를 빼고 사용법 안내를 'all -> passwords -> verify' 로 바꾸거나, passwords 를 ALL_STEPS 에 verify 앞으로 넣는다. 함께 step_verify 에 비밀번호 확인 항목을 추가한다: check '역할 비밀번호' psql_postgres -c "SELECT rolname, (rolpassword IS NOT NULL) AS has_password FROM pg_authid WHERE rolname IN ('exchange_owner','exchange_app','replicator') ORDER BY rolname;" 로 두고, 하나라도 f 면 실패로 센다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\문서\DB01_구축절차.md
+  문제: 85~87행의 답안 파일 치환 명령이 Set-Content -NoNewline -Encoding utf8 을 쓴다. Windows PowerShell 5.1 에서 -Encoding utf8 은 BOM 을 붙이고, Get-Content -Raw 로 읽은 CRLF 는 -NoNewline 때문에 그대로 보존된다. 같은 산출물의 공통_구축절차.md 60~62행은 '줄바꿈을 LF로 바꾸고 BOM 없는 UTF-8로 쓰는 부분을 건너뛰지 않는다. anaconda는 CRLF가 섞인 ks 파일이나 BOM이 붙은 첫 줄에서 구문 오류를 낸다'고 명시하고 [System.IO.File]::WriteAllText 와 UTF8Encoding($false) 를 쓴다. 두 문서가 같은 위험에 대해 반대로 지시한다.
+  수정: DB01_구축절차.md 85~87행과 DB02 쪽 대응 블록을 공통_구축절차.md 와 같은 방식으로 바꾼다. $utf8NoBom = New-Object System.Text.UTF8Encoding($false) 를 만들고 치환 결과에 -replace "`r`n", "`n" 을 적용한 뒤 [System.IO.File]::WriteAllText 로 쓴다. 검증 줄도 Select-String -Pattern '@@' 가 아무 것도 내지 않는지 확인하는 형태로 맞춘다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\10-edge01-setup.sh
+  문제: 294행 web_sources()가 443·80의 허용 출발지로 MGMT_CIDR 즉 192.168.56.0/24 전체를 쓴다. 이 대역에는 작업 PC(192.168.56.1)뿐 아니라 pfsense-fw .10, APP01 .21, APP02 .22, DB01 .31, DB02 .32, OPS01 .41 의 host-only 인터페이스가 모두 들어 있다. VM_네트워크_접근제어도.svg는 EDGE01 443에 대해 '승인된 실습 단말만 접근'이라고 적었고 검증 항목에도 '사용자 → 앱·DB·관리 포트 직접 접근 차단'이 있다. 지금 규칙은 DB01에서 EDGE01의 443으로 붙는 것도 허용한다.
+  수정: web_sources()의 첫 줄을 MGMT_CIDR 대신 실습 단말 주소 하나로 좁힌다. 스크립트 상단에 ENTRY_CLIENT=192.168.56.1 을 두고 printf '%s/32\n' "$ENTRY_CLIENT" 로 바꾼다. 00-주소계획.md 포트 표의 '실습 사용자' 칸도 '192.168.56.1(작업 PC host-only 어댑터)'로 구체화하고, host-only 어댑터 주소를 VM 배치 표 위에 한 줄 적어 둔다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\10-edge01-setup.sh
+  문제: 46행 ALLOW_PFSENSE_FORWARD 기본값이 1이라 443·80의 허용 출발지에 192.168.10.1/32(pfSense)가 항상 들어간다. 00-주소계획.md 포트 표에는 EDGE01 443·80의 허용 출발지가 '실습 사용자' 하나뿐이고 pfSense 포트 포워딩은 어디에도 없다. pfSense는 사용자가 아직 구축하지 않았으므로 지금은 근거 없이 열려 있는 출발지다.
+  수정: 46행 기본값을 0으로 바꾸고, pfSense 포트 포워딩을 쓰기로 정한 뒤에 00-주소계획.md 포트 표에 'EDGE01 TCP 443/80 허용 출발지에 192.168.10.1 추가(pfSense 포워딩 채택 시)' 줄을 먼저 넣고 나서 1로 되돌린다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\32-db-failover.sh
+  문제: 477~478행 주석이 'pg_basebackup 이 DB01의 HBA를 그대로 복사하므로 Standby의 pg_hba.conf 에는 앱 접속 규칙이 없다'고 적었는데 인과가 뒤집혀 있다. build-files/db/pg_hba.vm.conf 25~26행이 DB01에 hostssl exchange exchange_app 192.168.10.21/32, 192.168.10.22/32 를 넣어 두었고 pg_basebackup은 그 파일을 통째로 복사하므로, 승격 전 DB02의 pg_hba.conf에는 앱 규칙이 이미 들어 있다. 그 결과 pg_hba.vm.conf 8행의 '방화벽에서 한 번 거르고 DB에서 다시 거른다'와 scripts/31-db-standby-setup.sh 1083행의 '성공하면 승격 전 정책이 깨진 것이므로 방화벽과 pg_hba 를 다시 본다'는 DB02에 대해서는 성립하지 않는다. DB02:5432를 막는 것은 nftables 한 겹뿐이다.
+  수정: 둘 중 하나를 고른다. (가) 31-db-standby-setup.sh에 basebackup 직후 DB02의 pg_hba.conf에서 exchange_app 두 줄을 주석 처리하는 단계를 넣고, 32-db-failover.sh의 06-open이 그 주석을 푸는 방식으로 바꿔 실제로 두 겹을 만든다. (나) 두 겹 주장을 접고 32-db-failover.sh 477~478행 주석을 '승격 전 DB02는 nftables 한 겹으로만 막는다. pg_hba는 DB01에서 복사돼 앱 규칙을 이미 갖고 있다'로 고치고, pg_hba.vm.conf 8행과 31-db-standby-setup.sh 1083행 문장도 같이 고친다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\ops01\ops01-firewall.nft
+  문제: 19행이 policy accept 다. build-files/db/db01-firewall.nft 35행, db02-firewall.nft 42행, db02-firewall-promoted.nft 23행은 모두 policy drop 이고 그 파일들은 머리말에서 '접근제어도의 허용하지 않은 새 인바운드 연결은 차단을 그대로 맞추려면 정책 자체가 drop이어야 한다'고 이유까지 적었다. OPS01만 반대 정책이며 여기에는 Teams 웹훅과 AI 키가 놓인다. 42행 주석은 9088이 00-주소계획.md 포트 표에 없다고 스스로 적어 두었다.
+  수정: ops01-firewall.nft를 db01-firewall.nft와 같은 모양으로 다시 쓴다. 19행을 policy drop 으로 바꾸고 lo accept, ct state established/related accept, ct state invalid drop, icmp 허용, enp0s3 DHCP 허용, 192.168.56.0/24 의 22 허용만 남긴 뒤 25·30·34·35·36·42행의 개별 drop 줄을 지운다. 동시에 00-주소계획.md 포트 표에 'OPS01 TCP 9088 · 루프백만 · 보고 서비스 수신' 행과 'EDGE01 TCP 8090 · 루프백만 · nginx stub_status' 행을 추가해 실제로 여는 포트가 표에 다 있게 만든다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\ops01\vm-alerts.yml
+  문제: 2행 그룹 이름이 school.operations 로 남아 있다. 정본인 build-files/ops/alerts.vm.yml 17행은 vm.operations 이고, 주석 없는 내용을 비교하면 두 파일의 차이는 이 한 줄뿐이다. scripts/40-ops01-observability.sh 302~307행의 preflight가 sha256으로 두 파일을 비교하므로 실행할 때마다 '내용이 다르다. 규칙을 대조한다' 경고가 나온다. 학교 AWS 표기를 VM으로 옮기지 않은 자리이기도 하다.
+  수정: scripts/ops01/vm-alerts.yml 2행을 '  - name: vm.operations' 로 바꾼다. 또는 build-files/ops/alerts.vm.yml 7~9행이 스스로 정본이라고 선언했으므로 scripts/ops01/vm-alerts.yml 사본을 지우고 40-ops01-observability.sh 302~307행의 비교 블록도 함께 없앤다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\ks\app01.ks
+  문제: 92행이 AllowUsers ops 로 출발지 제한이 없다. ks/app02.ks 93행, ks/db01.ks 127행, ks/db02.ks 132행도 같다. 반면 ks/edge01.ks 167행과 ks/ops01.ks 173행은 AllowUsers ops@192.168.56.0/24 이고 scripts/00-common-setup.sh 529행도 그 형식으로 덮어쓴다. 00-주소계획.md 포트 표는 22의 허용 출발지를 관리 대역 192.168.56.0/24 로 정했다. 공통 절차를 돌리기 전 구간에서 네 대만 sshd 쪽 제한이 없다.
+  수정: ks/app01.ks 92행, ks/app02.ks 93행, ks/db01.ks 127행, ks/db02.ks 132행을 'AllowUsers ops@192.168.56.0/24' 로 바꿔 나머지 두 대 및 00-common-setup.sh 529행과 형식을 맞춘다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\01-create-vms.ps1
+  문제: 96행이 여섯 대 모두에 --hostname="<name>.lab.local" 을 준다. 그런데 kickstart는 제각각이다. ks/app01.ks 51행 app01.lab.local, ks/db01.ks 59행 db01.lab, ks/edge01.ks 69행 edge01, ks/ops01.ks 57행 ops01 이다. /etc/hosts도 갈린다. ks/db01.ks 169~174행은 'app01.lab app01' 형식인데 ks/edge01.ks 223행 이후와 ks/ops01.ks 247행 이후는 짧은 이름만 넣고, ks/app01.ks와 ks/app02.ks에는 /etc/hosts 블록이 아예 없다. scripts/30-db-primary-setup.sh 407~408행은 인증서 CN과 SAN DNS에 <node>.lab 을 쓴다. 이름 체계가 세 가지로 섞여 있다.
+  수정: 이름을 하나로 정해 00-주소계획.md VM 배치 표에 열을 추가한다. DB 인증서가 이미 쓰는 <node>.lab 으로 통일하는 것이 변경이 가장 적다. 01-create-vms.ps1 96행을 "$($n.ToLower()).lab" 로, ks/app01.ks 51행과 ks/app02.ks 52행의 --hostname 을 app01.lab / app02.lab 로, ks/edge01.ks 69행과 ks/ops01.ks 57행을 edge01.lab / ops01.lab 로 바꾼다. /etc/hosts 블록은 ks/db01.ks 166~175행 형식으로 통일하고 같은 블록을 ks/app01.ks와 ks/app02.ks의 %post에 추가한다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\build-files\db\failstop-firewall.service
+  문제: [Unit]의 Before=failstop-ssh.service docker.service 가 학교 AWS 자산 그대로다. VM에는 failstop-ssh.service도 docker.service도 없다. systemd는 없는 유닛에 대한 Before를 조용히 무시하므로 방화벽이 sshd보다 먼저 선다는 보장이 사라진다. scripts/30-db-primary-setup.sh 809~811행과 scripts/31-db-standby-setup.sh 876~879행이 이 파일을 그대로 설치한다. 같은 문제를 scripts/00-common-setup.sh는 이미 알고 116~119행에서 vm-lab-firewall.service의 Before를 sshd.service로 바꿔 두었다. build-files/ops/failstop-firewall.service도 내용이 동일하다.
+  수정: build-files/db/failstop-firewall.service와 build-files/ops/failstop-firewall.service의 Before 줄을 'Before=sshd.service' 로 바꾼다. 00-common-setup.sh 113~119행처럼 바꾼 이유를 파일 머리말 주석에 남긴다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\문서\공통_구축절차.md
+  문제: 36~58행의 PowerShell 블록이 base.ks.template로 ks-edge01.cfg ~ ks-ops01.cfg 여섯 개를 만드는데, scripts/01-create-vms.ps1 53행은 Join-Path $KsDir "$($n.ToLower()).ks" 즉 edge01.ks ~ ops01.ks 를 찾는다. 생성물과 소비처의 파일명이 달라 두 경로가 만나지 않는다. 두 판의 내용도 다르다. base.ks.template 70~79행은 볼륨그룹 vg0, zerombr 없음, biosboot 파티션 없음인데 ks/db01.ks 64~75행은 zerombr, --disklabel=gpt, part biosboot, 볼륨그룹 vg_os 다. ks/db01.ks 79행은 '둘을 섞어 쓰지 않는다'고만 적고 어느 쪽이 정본인지 정하지 않았다.
+  수정: 정본을 하나로 정한다. 01-create-vms.ps1이 per-host .ks를 쓰므로 그쪽을 정본으로 삼고, 공통_구축절차.md 36~58행의 생성 블록을 지우거나 출력 파일명을 "$build\ks\$($n.name).ks" 로 바꾸고 base.ks.template의 파티션 설정을 db01.ks와 같은 gpt+biosboot+vg_os 로 맞춘다. 반대로 템플릿을 정본으로 삼는다면 01-create-vms.ps1 53행의 확장자를 .cfg로 바꾸고 per-host .ks 여섯 개를 지운다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\00-주소계획.md
+  문제: 41~52행 포트 표에 실제로 여는 포트 두 개와 실습 사용자의 실제 출발지가 빠져 있다. build-files/edge01/nginx-vm.conf 161행이 127.0.0.1:8090에 stub_status를 열고, scripts/41-ops01-reporting.sh 56행·376행이 127.0.0.1:9088에 보고 서비스를 연다. scripts/ops01/ops01-firewall.nft 41행은 '00-주소계획.md의 포트 표에는 9088이 없다'고 직접 적어 두었고 문서/OPS01_보고_구축절차.md 47행도 '표를 먼저 고치지 않고 열지 않는다'고 했지만 표는 그대로다. 또 '실습 사용자'가 누구인지 주소로 정의돼 있지 않고 host-only 어댑터의 호스트 측 주소 192.168.56.1(문서/공통_구축절차.md 28행·73행, 문서/OPS01_관측_구축절차.md 44행에서 사용)도 표에 없다.
+  수정: 00-주소계획.md 포트 표에 세 행을 추가한다. 'EDGE01 | TCP 8090 | 루프백만 | nginx stub_status', 'OPS01 | TCP 9088 | 루프백만 | 보고 서비스 수신(Alertmanager evidence-reporter)'. 그리고 네트워크 절에 'host-only 어댑터의 호스트 측 주소는 192.168.56.1이며 실습 사용자는 이 주소다' 문장을 넣고 443·80 행의 허용 출발지를 '192.168.56.1(실습 사용자)'로 고친다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\ops01\ops01-firewall.nft
+  문제: input 체인이 `type filter hook input priority -10; policy accept;` 다. 열거한 22·9100·3000·9090·9093·9088만 drop하고 나머지 모든 포트는 열려 있다. `00-주소계획.md` 56행('나머지 새 인바운드 연결은 차단한다')과 도면 `VM_네트워크_접근제어도.svg`의 '허용하지 않은 새 인바운드 연결은 차단' 항목에 정면으로 어긋난다. 같은 폴더의 `build-files/db/db01-firewall.nft` 는 같은 이유를 들어 policy drop을 쓰고 있어 산출물 안에서 판단이 갈린다. `scripts/40-ops01-observability.sh` 536행의 가드 덕에 공통 기반이 있으면 이 파일을 안 쓰지만, 322행 경로(공통 기반 없음)와 `OPS01_FORCE_OWN_FIREWALL=1` 에서는 실제로 적용된다.
+  수정: ops01-firewall.nft를 db01-firewall.nft와 같은 모양으로 고친다. `policy drop`으로 바꾸고 `iifname "lo" accept`, `ct state established,related counter accept`, `ct state invalid counter drop`, 진단용 ICMP, `iifname "enp0s3" udp sport 67 udp dport 68 counter accept`(NAT 구간 한정), `ip saddr 192.168.56.0/24 tcp dport 22 counter accept` 만 남기고 3000·9090·9093·9088·9100의 개별 drop 줄은 지운다. 기본 정책이 drop이면 그 줄들은 불필요하다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\ks\db01.ks
+  문제: 118~132행이 `/etc/ssh/sshd_config.d/10-lab.conf` 에 `AllowUsers ops` 를 쓴다. `ks/db02.ks` 123행, `ks/app01.ks` 82행, `ks/app02.ks`도 같다. sshd는 같은 지시자에 대해 먼저 읽은 값을 쓰는데 파일 번호가 10이라 `scripts/00-common-setup.sh` 561행이 나중에 설치하는 `20-vm-lab.conf`의 `AllowUsers ops@192.168.56.0/24` 가 무시된다. 결과적으로 여섯 대 중 네 대에서 도면의 '운영자 주소만 허용'이 AllowUsers 수준에서 적용되지 않는다. 같은 이유로 `ClientAliveInterval 300`, `ClientAliveCountMax 2`(db01.ks 129~130행)가 공통 설정의 60/3을 덮어쓴다. `ks/edge01.ks` 144행과 `ks/ops01.ks` 150행은 파일 이름을 20-vm-lab.conf로 두어 이 문제가 없다.
+  수정: db01.ks·db02.ks·app01.ks·app02.ks의 드롭인 파일명을 `20-vm-lab.conf` 로 바꾸고 내용을 edge01.ks 144~169행과 같은 항목으로 맞춘다. AllowUsers는 `ops@192.168.56.0/24` 로 적고 ClientAlive 값은 60/3으로 통일한다. 바꾼 뒤 각 VM에서 `sudo sshd -T | grep -Ei '^(allowusers|clientalive)'` 출력을 증거로 남긴다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\문서\공통_구축절차.md
+  문제: 34~57행이 `base.ks.template` 을 치환해 `ks/ks-<이름>.cfg` 여섯 개를 만들고 78행에서 `inst.ks=http://10.0.2.2:8000/ks-app01.cfg` 로 그 파일들로 설치하라고 지시한다. 그런데 `scripts/01-create-vms.ps1` 53행은 손으로 쓴 `ks/<이름>.ks` 를 쓴다. 같은 여섯 대에 대해 내용이 다른 kickstart 두 벌이 존재하고 어느 쪽이 정본인지 적혀 있지 않다. 특히 base.ks.template에는 `ks/ops01.ks` 186~193행의 `/etc/ssh/sshd_config.d/10-ops01-tunnel.conf`(`AllowTcpForwarding local`, `PermitOpen 127.0.0.1:3000 127.0.0.1:9090 127.0.0.1:9093`)가 없다. 템플릿 경로로 OPS01을 설치하면 149행의 `AllowTcpForwarding no` 만 남아 `ssh -L 3000:127.0.0.1:3000` 이 거부되고, 00-주소계획.md 54행이 정한 유일한 관제 화면 접근 경로가 막힌다. `/etc/vm-lab/role` 표식도 템플릿에 없어 `scripts/40-ops01-observability.sh` 220~231행의 대상 확인이 경고로 빠진다.
+  수정: kickstart를 한 벌로 정한다. 역할별 `ks/*.ks` 를 정본으로 삼고 `base.ks.template` 과 `ks-*.cfg` 생성 절차는 문서에서 뺀 뒤 템플릿 파일은 설계 근거로만 남긴다는 문구를 붙인다. 템플릿 경로를 유지하려면 base.ks.template에 `10-ops01-tunnel.conf` 생성 블록과 `/etc/vm-lab/role` 표식을 조건부로 넣고, 공통_구축절차.md에 `01-create-vms.ps1`이 쓰는 파일과 HTTP로 내보내는 파일이 같은 것임을 명시한다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\ks\edge01.ks
+  문제: 57행이 `services --enabled=sshd,chronyd,nftables --disabled=firewalld` 로 배포판 nftables.service를 켠다. 같은 파일 54행은 '정책원을 둘로 만들지 않는다'고 적고 있어 서술과 설정이 어긋난다. `ks/app01.ks` 63행, `ks/app02.ks` 64행, `ks/ops01.ks` 45행은 `--disabled=firewalld,nftables` 로 끄고 있어 여섯 대의 처리가 갈린다. 더해서 `scripts/10-edge01-setup.sh` 381~384행은 `/etc/sysconfig/nftables.conf` 에 `include "/etc/nftables/edge01.nft"` 를 덧붙이고 `systemctl enable --now nftables` 를 실행한다. 이 상태에서 `scripts/00-common-setup.sh` 695~700행은 해당 파일에 활성 지시자가 있으면 경고만 내고 유닛을 끄지 않는다. 결과적으로 EDGE01에는 input 후크에 base chain이 두 개(priority -10 policy accept, priority 0 policy drop) 서고, 배포판 nftables.service를 중지하면 ruleset 전체가 사라질 수 있다(00-common-setup.sh 700행이 ExecStop을 출력해 두는 이유가 이것이다).
+  수정: edge01.ks 57행과 base.ks.template 46행을 `services --enabled=sshd,chronyd --disabled=firewalld,nftables` 로 바꾼다. 10-edge01-setup.sh의 `role_firewall_standalone` 에서는 nftables.service 대신 `failstop-firewall.service`(또는 vm-lab-firewall.service)를 쓰고, `/etc/sysconfig/nftables.conf` 를 건드리지 않는다. 00-common-setup.sh는 해당 파일에 활성 지시자가 있으면 경고 대신 die로 멈추게 한다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\10-edge01-setup.sh
+  문제: 337~339행 주석이 '공통 기반을 적용하면 이 파일을 지우고 /etc/vm-lab/firewall.d/20-edge01.nft 를 쓴다'고 적었지만 그렇게 하는 코드가 없다. `step_firewall`(387~396행)은 공통 기반 유무로 분기만 하고, 대체 경로로 이미 만들어 둔 `/etc/nftables/edge01.nft`, `/etc/sysconfig/nftables.conf` 의 include 줄, enable된 nftables.service를 지우지 않는다. 대체 경로를 먼저 쓰고 나중에 00-common-setup.sh를 적용하라고 396행이 권하고 있어 이 순서가 실제로 일어난다. 716~717행의 verify는 `/etc/vm-lab/firewall.nft` 가 있으면 `fw_unit=vm-lab-firewall` 만 보고 nftables.service가 아직 켜져 있는지는 검사하지 않는다.
+  수정: `role_firewall_common` 시작부에 정리 단계를 넣는다. `/etc/nftables/edge01.nft` 가 있으면 `nft delete table inet failstop 2>/dev/null || true`, `systemctl disable --now nftables`, `systemctl mask nftables`, `/etc/sysconfig/nftables.conf` 의 include 줄 삭제, 파일 삭제를 순서대로 수행하고 각 동작을 출력한다. verify에는 `systemctl is-enabled nftables` 가 masked 또는 disabled인지 보는 판정을 추가한다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\build-files\db\failstop-firewall.service
+  문제: 저장소 원본을 그대로 가져와 `Before=failstop-ssh.service docker.service` 가 남아 있다. VM에는 failstop-ssh.service가 없고(배포판 sshd.service를 쓴다) Docker도 설치하지 않는다. 존재하지 않는 유닛에 대한 Before는 무시되므로 '방화벽이 SSH보다 먼저'라는 순서가 실제로는 성립하지 않는다. `build-files/ops/failstop-firewall.service` 도 같은 내용이다. 같은 자리에서 `scripts/00-common-setup.sh` 197~209행이 만드는 vm-lab-firewall.service는 이 부분을 `Before=sshd.service` 로 고쳐 두어 두 유닛의 처리가 다르다. 또 두 파일 모두 `After=local-fs.target` 과 `WantedBy=multi-user.target` 뿐이라 네트워크가 올라온 뒤에 규칙이 서는 구간이 남는다.
+  수정: 두 파일의 Before 줄을 `Before=sshd.service` 로 바꾸고 docker.service를 뺀다. 부팅 시 규칙이 인터페이스보다 먼저 서도록 `Wants=network-pre.target` 과 `Before=network-pre.target` 을 [Unit]에 추가하고 `DefaultDependencies=no` 사용 여부를 함께 판단해 근거를 파일 주석에 남긴다. vm-lab-firewall.service에도 같은 순서를 적용한다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\ops01\vm-alerts.yml
+  문제: 2행 그룹 이름이 아직 `school.operations` 다. 학교 AWS 전용 표기가 VM 산출물에 남았다. 정본으로 쓰이는 `build-files/ops/alerts.vm.yml` 은 같은 자리가 `vm.operations` 이라 두 사본의 내용이 다르다. `scripts/40-ops01-observability.sh` 132~138행의 `find_rules_file` 은 alerts.vm.yml이 있으면 그것을 쓰지만, 293~300행의 `same_content` 비교 대상은 prometheus와 alertmanager 두 쌍뿐이고 경보 규칙 쌍은 비교하지 않는다. alerts.vm.yml이 빠지면 학교 이름이 붙은 사본이 조용히 설치된다.
+  수정: `scripts/ops01/vm-alerts.yml` 2행을 `vm.operations` 로 고쳐 alerts.vm.yml과 본문을 맞춘다. 40-ops01-observability.sh의 preflight에 `same_content "$OPS_FILES/alerts.vm.yml" "$SPEC_FILES/vm-alerts.yml"` 비교를 추가하고, 다르면 prometheus 쌍과 같은 문구로 경고한다.
+
+[MEDIUM] C:\Users\kopo26\Desktop\vm-lab\build\scripts\41-ops01-reporting.sh
+  문제: 197~204행 `check_secret_file` 이 존재·심볼릭 링크 아님·일반 파일·비어 있지 않음만 본다. 소유자와 권한을 확인하지 않으므로 `/etc/failstop/teams-webhook` 이나 `/etc/failstop/gemini-key` 가 0644로 남아 있어도 통과한다. `00-주소계획.md` 64행은 비밀 값 권한을 0600으로 두라고 정했고, 같은 저장소의 `scripts/00-common-setup.sh` 59~65행에는 이미 `require_protected_file`(root 소유, group·other 쓰기 없음 확인)이 있어 같은 기준을 쓸 수 있다.
+  수정: check_secret_file에 `[[ $(stat -c %u "${path}") == 0 ]]` 와 `(( (8#$(stat -c %a "${path}") & 8#0177) == 0 ))` 검사를 추가하고 어긋나면 die로 멈춘다. 메시지에 `sudo chown root:root`, `sudo chmod 0600` 명령을 함께 적는다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\build-files\ops\prometheus.vm.yml
+  문제: 같은 설정이 build-files/ops 와 scripts/ops01 두 곳에 중복으로 있고 실제로 내용이 다르다. prometheus.vm.yml 과 scripts/ops01/prometheus.yml, alerts.vm.yml 과 scripts/ops01/vm-alerts.yml, alertmanager.vm.yml 이 각각 짝을 이루는데 차이는 전부 머리말 주석이다. 40-ops01-observability.sh 294~307행의 preflight 는 이 차이를 same_content 로 비교해 경고를 내므로, 정상 상태에서도 매번 '내용이 다르다' 경고가 뜬다. 항상 뜨는 경고는 실제 규칙 차이가 생겼을 때 구분되지 않는다. alertmanager.vm.yml 은 비교 대상에 아예 없어 조용히 갈라진다.
+  수정: scripts/ops01 아래의 prometheus.yml, vm-alerts.yml, alertmanager.vm.yml 을 지우고 build-files/ops 한 곳만 남긴다. 설계 근거는 문서에 적고 파일을 복제하지 않는다. 사본을 유지해야 한다면 same_content 를 주석과 빈 줄을 제거한 뒤 비교하도록 바꾸고(예: grep -vE '^\s*(#|$)' 로 정규화), 비교 대상 목록에 alertmanager.vm.yml 을 추가한다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\문서\OPS01_관측_구축.md
+  문제: OPS01 문서가 두 개이고 H1 제목이 둘 다 'OPS01 관측 구축 절차' 로 같다. OPS01_관측_구축.md 7행은 'OPS01_관측_구축절차.md 를 기준으로 삼는다'고 하고, OPS01_관측_구축절차.md 10행은 'OPS01_관측_구축.md 에 설계 배경이 있다'고 하여 서로를 가리킨다. 두 파일 모두 24KB 대이고 재사용 파일 목록, 포트 표, 터널 절차가 겹친다. 다른 다섯 역할은 문서가 하나씩이다.
+  수정: 둘을 하나로 합쳐 OPS01_관측_구축절차.md 만 남기고 OPS01_관측_구축.md 의 설계 근거 절(학교 AWS 값 대조표, 쓰지 않은 파일 목록)을 그 문서의 '설계에서 의도적으로 벗어난 곳' 절로 옮긴다. 다른 역할 문서와 같은 구성이 된다. 합치지 않는다면 최소한 H1 을 'OPS01 관측 설계 근거' 와 'OPS01 관측 구축 절차' 로 구분한다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\scripts\01-create-vms.ps1
+  문제: 57~58행의 -WhatIfOnly 출력이 깨진다. 'Write-Output "  [계획] ..." `' 다음 줄이 '+ $(if (...) {...})' 인데 PowerShell 은 인자 모드에서 + 를 문자열 인자로 읽는다. 문자열 결합이 되지 않고 본문, '+', 조건식 결과 세 개가 각각 출력된다. 계획만 보려는 사용자가 데이터 디스크 유무를 한 줄로 확인하지 못한다.
+  수정: 부분 문자열을 먼저 변수에 담고 한 번에 출력한다. 예: $extra = if ($vm.DataDiskGB) { " + 데이터 $($vm.DataDiskGB)GB" } else { "" }; Write-Output "  [계획] vCPU $($vm.Cpus) / 메모리 $($vm.MemMB)MB / 디스크 $($vm.DiskGB)GB$extra"
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\문서\공통_구축절차.md
+  문제: 240행이 OPS01 터널 예외 파일 이름을 /etc/ssh/sshd_config.d/10-ops01.conf 로 적었지만 ks/ops01.ks 189행이 실제로 만드는 파일은 /etc/ssh/sshd_config.d/10-ops01-tunnel.conf 다. OPS01_관측_구축절차.md 64행은 10-ops01-tunnel.conf 를 쓴다. 문제가 생겼을 때 문서가 가리키는 경로에 파일이 없어 진단이 한 단계 늦어진다.
+  수정: 공통_구축절차.md 240행의 파일 이름을 10-ops01-tunnel.conf 로 고친다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\ks\base.ks.template
+  문제: 28~29행 주석이 '설치 원본은 부팅에 쓴 DVD다. ks 파일만 HTTP로 받고 패키지는 ISO에서 읽는다'고 단정한다. 그런데 01-create-vms.ps1 은 HTTP 가 아니라 VBoxManage unattended install --script-template 과 --auxiliary-base-path 로 보조 매체를 만들어 ks 를 주입한다. 전달 방식이 두 가지인데 템플릿 주석은 한 가지만 사실로 적어 두었다.
+  수정: base.ks.template 28~29행을 '설치 원본은 부팅에 쓴 DVD다. ks 파일의 전달 방식은 01-create-vms.ps1 의 보조 매체 주입과 inst.ks HTTP 두 가지이며 어느 쪽을 썼는지 증거에 적는다' 로 바꾸거나, 위 5번 항목대로 전달 경로를 하나로 줄인 뒤 그 하나만 적는다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\scripts\01-create-vms.ps1
+  문제: 호스트 전용 어댑터의 존재와 주소를 확인하지 않는다. 72행이 --host-only-adapter3 $HostOnly 로 'VirtualBox Host-Only Ethernet Adapter' 를 지정하지만, 그 어댑터가 없거나 호스트 IP 가 192.168.56.1/24 가 아니면 설치 후 SSH 진입 경로가 통째로 막힌다. 19~20행은 VBoxManage 와 ISO 존재만 확인한다. 이 스크립트가 만드는 여섯 대의 유일한 관리 진입 경로가 이 어댑터다.
+  수정: 19~20행 옆에 어댑터 확인을 추가한다. $hostonly = & $vbm list hostonlyifs 로 목록을 받아 $HostOnly 이름이 있는지, IPAddress 가 192.168.56.1 인지 확인하고 아니면 throw 한다. 함께 DHCP 서버 범위가 정적 주소 .11~.41 과 겹치지 않는지 & $vbm list dhcpservers 출력으로 확인하고 겹치면 경고를 낸다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\ks\app01.ks
+  문제: 51~53행 network 줄에 --noipv6 가 없다. ks/db01.ks 56~58행, ks/db02.ks 60~62행, ks/edge01.ks 63~68행, ks/ops01.ks 51~56행, ks/base.ks.template 52~57행은 모두 --noipv6 를 붙이고 ks/db01.ks 55행은 'IPv6는 쓰지 않는다. 주소 체계를 하나로 두어야 방화벽과 바인딩 확인이 단순해진다'고 이유까지 적었다. build-files/db/db01-firewall.nft 46행도 'IPv6는 설치 단계에서 끈다'를 전제로 한다. APP 두 대만 IPv6가 살아 있으면 ss -lntp 확인과 바인딩 판정이 다른 네 대와 달라진다. ks/app02.ks 53~54행도 같다.
+  수정: ks/app01.ks 51~53행과 ks/app02.ks 52~54행의 각 network 줄 끝에 --noipv6 를 붙여 나머지 네 대와 맞춘다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\build-files\ops\grafana-limits.conf
+  문제: 2행 '6개 MSP 화면에서 메모리 회수 지연을 확인했다'가 실행 결과 서술인데 VM에서는 아직 아무것도 돌리지 않았다. 학교 AWS에서 본 것을 어디서 본 것인지 밝히지 않고 옮겨 적었다. 개수도 어긋난다. scripts/ops01/msp-dashboards-vm/ 에는 10-msp-overview.json부터 16-msp-storage.json까지 7개가 있고 문서/OPS01_관측_구축.md 11행과 문서/OPS01_관측_구축절차.md 28행도 7개라고 적었다.
+  수정: 2행을 '학교 AWS에서 MSP 화면 7개를 띄웠을 때 메모리 회수 지연을 확인한 값이다. VM에서는 아직 측정하지 않았다.'로 바꾼다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\build-files\db\exchange.conf
+  문제: 1행이 '학교 EC2의 PostgreSQL 17 공통 설정'이다. 이 파일은 VM의 DB01·DB02에 /etc/postgresql/exchange.conf 로 설치되는 산출물인데 머리말이 학교 EC2를 가리킨다. 같은 폴더의 build-files/db/postgresql.vm.conf 9~10행은 '공통 설정(exchange.conf)은 failstop 저장소의 deploy/linux/postgresql/exchange.conf를 고치지 않고 그대로 쓴다'고 적어 두어, 내용을 그대로 쓰는 것은 의도이나 머리말만 안 맞는다.
+  수정: 1행을 'PostgreSQL 17 공통 설정. 원본은 failstop/deploy/linux/postgresql/exchange.conf 이며 값은 고치지 않고 그대로 쓴다. 노드 주소와 인증서는 node.conf에서 지정한다.'로 바꾼다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\build-files\db\node_exporter-host.service
+  문제: 18행(두 번째 유닛 본문)의 --collector.systemd.unit-include 목록에 exchange-app 과 exchange-bots 가 들어 있다. 이 파일은 DB 노드용인데 DB01·DB02에는 앱도 봇도 없다. 같은 폴더 기준으로 scripts/ops01/node_exporter.ops01.service 1~6행은 OPS01용으로 postgresql·exchange-app·exchange-bots를 빼고 alertmanager·nftables·failstop-firewall을 넣었다고 밝히며 '다른 VM은 각 역할의 서비스 이름으로 같은 자리를 고친다'고 적었는데 DB용 파일에서는 그 정리가 안 됐다. scripts/00-common-setup.sh 254행의 공통 목록에는 exchange-bots가 없어 기준도 다르다.
+  수정: build-files/db/node_exporter-host.service의 unit-include 정규식에서 exchange-app 과 exchange-bots 를 빼고 nftables|failstop-firewall|postgres_exporter 를 넣어 DB 노드에서 실제로 도는 서비스만 남긴다. 머리말에 어느 항목을 왜 뺐는지 한 줄 적는다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\build-files\edge01\verify-public-vm.py
+  문제: 13행 사용 예시가 EDGE01_BASE=https://192.168.10.11 인데 25행 기본값은 https://192.168.56.11 이다. 같은 파일 안에서 두 주소가 갈리고, 문서/EDGE01_구축절차.md 11행이 정본 진입 주소를 192.168.56.11 하나로 정했다. 예시대로 lab-lan 주소로 실행하면 인증서 SAN에는 두 주소가 다 들어 있어(scripts/10-edge01-setup.sh 109행) 통과하지만 확인 대상이 정본 경로가 아니게 된다.
+  수정: 13행 예시를 'EDGE01_BASE=https://192.168.56.11 python3 verify-public-vm.py' 로 바꾸고, lab-lan 주소로도 확인하고 싶다면 별도 줄로 '정본 경로 확인 뒤 보조 경로 점검용'이라고 이유를 붙여 적는다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\build-files\edge01\nginx-vm.conf
+  문제: 114행과 140행이 proxy_set_header Host 192.168.56.11 로 주소를 직접 박아 두었다. scripts/10-edge01-setup.sh는 같은 값을 42~43행 ENTRY_HOST/ENTRY_ORIGIN 변수로 다루고 469~470행에서 이 파일을 그대로 설치한다. ENTRY_HOST를 바꿔도 이 파일은 따라오지 않아 인증서 SAN·번들 오리진·앱 오리진만 바뀌고 Host 헤더만 옛 주소로 남는다.
+  수정: nginx-vm.conf를 스크립트가 sed로 치환하는 자리표시자(__ENTRY_HOST__)로 바꾸고 10-edge01-setup.sh의 설치 단계(469행 부근)에서 ENTRY_HOST 값으로 채운 뒤 설치한다. 치환되지 않은 __ 가 남으면 die 한다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\build-files\db\db01-firewall.nft
+  문제: 53행 SSH 허용이 ip saddr 192.168.56.0/24 tcp dport 22 로 출발지만 본다. scripts/00-common-setup.sh 344~346행은 같은 규칙을 iifname "enp0s9" ip saddr 192.168.56.0/24 로 만들고 '인터페이스를 묶어 lab-lan 쪽에서 출발지를 위조해 들어오는 경로를 막는다'고 이유를 적었다. 45행의 ICMP 허용도 출발지 제한이 없어 공통 기반의 '실습 두 대역만 허용'(00-common-setup.sh 355~357행)보다 넓다. db02-firewall.nft 62행·53행, db02-firewall-promoted.nft 36행·30행도 같다. 이 세 파일은 머리말에서 firewall-host.sh와의 이탈만 설명하고 공통 기반과의 이 차이는 적지 않았다.
+  수정: 세 파일의 22번 허용 줄을 iifname "enp0s9" ip saddr 192.168.56.0/24 tcp dport 22 counter accept 로 바꾸고, ICMP 줄에 ip saddr { 192.168.10.0/24, 192.168.56.0/24 } 를 붙여 00-common-setup.sh 344~357행과 같은 범위로 맞춘다. 남는 차이는 머리말에 이유와 함께 적는다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\scripts\01-create-vms.ps1
+  문제: 57~60행의 -WhatIfOnly 분기가 깨져 있다. `Write-Output "..." `(백틱 줄바꿈) `+ $(if ...)` 형태라 Write-Output이 문자열 하나가 아니라 세 개의 인수를 받는다. 실제로 실행해 확인한 결과 `  [계획] vCPU 2`, `+`, ` + 데이터` 세 줄이 따로 출력된다. 계획 확인 모드의 출력이 사람이 읽을 수 없는 형태가 된다.
+  수정: 한 줄로 합친다. `$extra = if ($vm.DataDiskGB) { " + 데이터 $($vm.DataDiskGB)GB" } else { "" }` 를 먼저 계산하고 `Write-Output "  [계획] vCPU $($vm.Cpus) / 메모리 $($vm.MemMB)MB / 디스크 $($vm.DiskGB)GB$extra"` 로 출력한다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\scripts\30-db-primary-setup.sh
+  문제: 887행이 확인 명령으로 `journalctl -k --since '-10min' | grep failstop-drop` 을 제시한다. 그 로그 접두사는 `build-files/db/db01-firewall.nft` 78행의 `log prefix "failstop-drop: "` 규칙에서만 나온다. 공통 기반 경로(`scripts/00-common-setup.sh` 가 만드는 inet vmlab)에는 log 규칙이 아예 없어서 차단이 정상 동작해도 이 명령은 영원히 빈 출력을 낸다. 어느 방화벽 경로를 쓰는지에 따라 확인 항목이 성립하지 않는데 그 조건이 적혀 있지 않다.
+  수정: 887행 앞에 경로 판정을 넣어 `inet vmlab` 일 때는 `sudo nft -a list chain inet vmlab input` 의 counter 증가로 확인하도록 분기하거나, 00-common-setup.sh의 render_firewall 마지막 카운터 규칙 앞에 `limit rate 5/minute burst 5 packets log prefix "vmlab-drop: " level info` 를 추가하고 확인 명령을 그 접두사로 바꾼다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\build-files\db\node_exporter-host.service
+  문제: 10행 `--collector.systemd.unit-include` 정규식에 `exchange-bots` 가 남아 있다. VM 배치에는 봇 노드가 없다(00-주소계획.md의 VM 배치 표에 없음). 반대로 DB 노드가 실제로 돌리는 `postgres_exporter` 와 방화벽 유닛은 목록에 없다. `scripts/00-common-setup.sh` 254~256행은 같은 이유로 exchange-bots를 빼고 postgres_exporter·nftables·alertmanager를 넣는다고 적어 두어, 이 파일만 학교 목록 그대로 남았다.
+  수정: 10행의 unit-include를 `(sshd|chronyd|nftables|vm-lab-firewall|failstop-firewall|postgresql|postgres_exporter|node_exporter)[.]service` 로 바꾼다. 어느 방화벽 유닛을 쓰는지 확정되면 해당 하나만 남기고 파일 주석에 근거를 적는다.
+
+[LOW] C:\Users\kopo26\Desktop\vm-lab\build\build-files\ops\bootstrap-grafana-admin.sh
+  문제: 13~14행이 관리자 아이디 기본값으로 개인 이름 `sanghyuk` 을 하드코딩한다. 또 30~36행은 입력받은 비밀번호를 `/etc/grafana/bootstrap-password.XXXXXX` 에 평문으로 쓰고 `chmod 640` 으로 grafana 그룹에 읽기를 준다. trap에서 지우기는 하지만 스크립트가 중간에 kill -9 되면 평문 비밀번호 파일이 남는다.
+  수정: 기본 아이디를 `admin` 같은 일반 값으로 바꾸거나 기본값 없이 입력을 강제한다. 임시 파일은 `mktemp -p /run` 으로 만들어 재부팅 시 사라지게 하고 `chmod 0640` 전에 `chown root:grafana` 를 먼저 수행한다. 정리 실패에 대비해 문서에 `sudo rm -f /etc/grafana/bootstrap-password.*` 확인 줄을 남긴다.

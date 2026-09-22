@@ -1,0 +1,35 @@
+2026-09-22T05:33:26Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+hostnamectl --static; cat /etc/vm-lab/role 2>/dev/null
+echo; ip -4 -br addr | grep -vw lo; echo
+echo "nproc=$(nproc)"; free -m; echo; df -h | grep -vE "tmpfs|devtmpfs|efivarfs"
+echo; echo "=== 이미 이 노드가 맡고 있는 일 ==="
+for s in prometheus grafana-server alertmanager node_exporter; do printf "  %-16s %s\n" $s "$(systemctl is-active $s)"; done
+
+ops01.lab
+ops01
+
+enp0s3           UP             10.0.2.15/24 
+enp0s8           UP             192.168.10.41/24 
+enp0s9           UP             192.168.56.41/24 
+
+nproc=2
+               total        used        free      shared  buff/cache   available
+Mem:            5900         785        4577           0         752        5114
+Swap:           2047           0        2047
+
+Filesystem                   Size  Used Avail Use% Mounted on
+/dev/mapper/vg_os-lv_root     13G  3.0G  9.5G  24% /
+/dev/sda2                    960M  210M  751M  22% /boot
+/dev/sda1                    599M  9.0M  590M   2% /boot/efi
+/dev/mapper/vg_os-lv_varlog  4.0G  133M  3.9G   4% /var/log
+/dev/mapper/vg_os-lv_varlib   10G  759M  9.2G   8% /var/lib
+
+=== 이미 이 노드가 맡고 있는 일 ===
+  prometheus       active
+  grafana-server   active
+  alertmanager     active
+  node_exporter    active

@@ -1,0 +1,70 @@
+# OPS01 단독 구성용 nftables 규칙.
+#
+# 정본은 공통 절차 00-common-setup.sh 가 설치하는 /etc/vm-lab/firewall.nft 다.
+# 이 파일은 공통 절차를 아직 적용하지 않은 OPS01 을 같은 형식으로 세우기 위한 것이며,
+# /etc/vm-lab/firewall.nft 가 이미 있으면 40-ops01-observability.sh 가 이 파일을 쓰지 않는다.
+#
+# 02-정본결정.md 4절대로 방화벽은 한 계통만 쓴다.
+#   - 테이블: table inet vmlab
+#   - 설정: /etc/vm-lab/firewall.nft
+#   - 유닛: vm-lab-firewall.service
+#   - input 체인 기본 정책: drop
+#   - 역할별 규칙: /etc/vm-lab/firewall.d/*.nft include
+# 예전의 table inet failstop 과 policy accept 는 쓰지 않는다. 열거한 포트만 개별 drop 하면
+# 적지 않은 포트가 열린 채로 남아 접근제어도의 '허용하지 않은 새 인바운드 연결은 차단'과 어긋난다.
+# 배포판 nftables.service 도 두 번째 정책원으로 살려 두지 않는다.
+#
+# 관제 화면 3000·9090·9093 과 보고 서비스 9088 은 127.0.0.1 에만 바인딩한다.
+# 기본 정책이 drop 이므로 포트마다 drop 줄을 따로 두지 않는다. 바인딩이 실제로 루프백인지는
+# 40-ops01-observability.sh 와 41-ops01-reporting.sh 의 verify 가 ss 출력으로 확인한다.
+#
+# node_exporter 9100 은 02-정본결정.md 7절대로 lab-lan 주소 192.168.10.41 에 바인딩한다.
+# Prometheus 가 192.168.10.41:9100 으로 붙지만 자기 호스트 주소라 커널이 lo 로 보내므로
+# 아래 lo 허용 줄이 먼저 받는다. 다른 VM 이 OPS01 의 9100 을 읽을 일은 없어 lab-lan 쪽은 열지 않는다.
+#
+# 나가는 통신은 이 파일에서 제한하지 않는다. 발신 제한은 pfSense 경계가 맡는다.
+# 이 파일만으로 발신 허용목록을 적용했다고 적지 않는다.
+#
+# 적용 순서:
+#   sudo nft --check --file ops01-firewall.nft
+#   sudo install -d -o root -g root -m 0755 /etc/vm-lab /etc/vm-lab/firewall.d
+#   sudo install -o root -g root -m 0600 ops01-firewall.nft /etc/vm-lab/firewall.nft
+#   sudo systemctl restart vm-lab-firewall.service
+#
+# add table 과 flush table 을 한 파일에 담아 갱신 중 차단 공백을 만들지 않는다.
+add table inet vmlab
+flush table inet vmlab
+table inet vmlab {
+ chain input {
+  # 허용하지 않은 새 인바운드 연결은 여기서 끝난다. 접근제어도의 기본 차단이다.
+  type filter hook input priority 0; policy drop;
+  # 루프백. Grafana, Prometheus, Alertmanager, 보고 서비스 통신이 이 줄에 의존한다.
+  iif lo counter accept comment "loopback"
+  ct state established,related counter accept comment "응답만 통과"
+  ct state invalid counter drop comment "상태 불명 차단"
+  # 관리 SSH. host-only NIC 로 들어온 관리 대역만 받는다. 인터페이스를 묶어 위조를 막는다.
+  iifname "enp0s9" ip saddr 192.168.56.0/24 tcp dport 22 ct state new counter accept comment "관리 SSH"
+  # 경로 확인과 PMTU. 실습 두 대역만 허용한다.
+  ip saddr { 192.168.10.0/24, 192.168.56.0/24 } icmp type { echo-request, destination-unreachable, time-exceeded } counter accept comment "실습 대역 ICMP"
+  # 구축 단계 한정. NAT 의 DHCP 응답은 새 연결이라 established 로 잡히지 않는다.
+  # NAT 를 내리고 기본 경로를 pfSense 로 옮긴 뒤에는 이 줄을 지운다.
+  iifname "enp0s3" udp sport 67 udp dport 68 counter accept comment "구축용 DHCP"
+  # 차단 증거. 기본 차단에 닿은 연결을 커널 로그에 남긴다. 접두사는 vmlab-drop 이다.
+  # 분당 5건으로 제한하므로 이 줄의 건수를 차단 총량으로 읽지 않는다. 총량은 아래 counter 로 본다.
+  limit rate 5/minute burst 5 packets log prefix "vmlab-drop: " level info
+  # 여기까지 온 새 인바운드 연결은 기본 정책이 버린다. 이 카운터로 차단량을 본다.
+  counter comment "기본 차단 도달"
+ }
+ chain forward {
+  # VM 은 라우터가 아니다. 전달은 pfSense 가 한다.
+  type filter hook forward priority 0; policy drop;
+  counter comment "전달 금지"
+ }
+ chain output {
+  # 발신 제한은 pfSense 몫이다. 호스트에서 이중으로 막지 않는다.
+  type filter hook output priority 0; policy accept;
+ }
+}
+
+# 역할별 규칙. 자리표시자만 있으면 아무 규칙도 붙지 않는다.
+include "/etc/vm-lab/firewall.d/*.nft"

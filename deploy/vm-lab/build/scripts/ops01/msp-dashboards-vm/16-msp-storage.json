@@ -1,0 +1,998 @@
+{
+  "uid": "msp-storage",
+  "title": "07 · 디스크·용량",
+  "description": "VM 실습 환경 배포. 학교 AWS 화면을 lab-lan 주소와 vm-lab 라벨로 옮긴 것이다. 미수집은 정상 판정이 아니다.",
+  "tags": [
+    "MSP",
+    "customer-operations",
+    "vm-lab"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "timezone": "Asia/Seoul",
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "15s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "links": [
+    {
+      "type": "link",
+      "title": "01 · 서비스 관제",
+      "url": "/d/msp-overview",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "02 · 트래픽·Spring",
+      "url": "/d/msp-service",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "03 · AWS·서버",
+      "url": "/d/msp-infra",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "04 · DB 관제",
+      "url": "/d/msp-db",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "05 · SQL·세션",
+      "url": "/d/msp-db-workload",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "06 · 복제·복구",
+      "url": "/d/msp-db-replication",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "07 · 디스크·용량",
+      "url": "/d/msp-storage",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    },
+    {
+      "type": "link",
+      "title": "다크",
+      "url": "/d/msp-storage?theme=dark",
+      "targetBlank": true,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    },
+    {
+      "type": "link",
+      "title": "라이트",
+      "url": "/d/msp-storage?theme=light",
+      "targetBlank": true,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "dashboard"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "customer",
+        "label": "고객사",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "refresh": 1,
+        "query": "label_values(up{role=~\"edge|app|reader|data|standby|probe|observability\"}, customer)",
+        "current": {
+          "text": "exchange",
+          "value": "exchange"
+        }
+      },
+      {
+        "name": "environment",
+        "label": "환경",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "refresh": 1,
+        "query": "label_values(up{customer=\"$customer\",role=~\"edge|app|reader|data|standby|probe|observability\"}, environment)",
+        "current": {
+          "text": "vm-lab",
+          "value": "vm-lab"
+        },
+        "options": []
+      },
+      {
+        "name": "node",
+        "label": "서버",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\"}, node)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": []
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "고객 경보",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "red",
+        "expr": "(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"edge|app|reader|data|standby|probe|observability\",component!=\"reporting\",alertstate=\"firing\"} and (time() - timestamp(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"edge|app|reader|data|standby|probe|observability\",component!=\"reporting\",alertstate=\"firing\"}) < 90))",
+        "titleFormat": "{{alertname}}",
+        "textFormat": "{{node}} · {{severity}}"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "디스크 사용률 · 최대",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "미수집",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(100 * (1 - ((node_filesystem_avail_bytes{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"}) < 90))) / ((node_filesystem_size_bytes{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"}) < 90)))))",
+          "legendFormat": "{{node}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "남은 용량 · 최소",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "미수집",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min((node_filesystem_avail_bytes{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"}) < 90)))",
+          "legendFormat": "{{node}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "inode 사용률 · 최대",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "미수집",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max((100 * (1 - node_filesystem_files_free{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"} / node_filesystem_files{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"})) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"}) < 90)))",
+          "legendFormat": "{{node}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "호스트 수집 · 정상 / 등록",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 3
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "미수집",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"})",
+          "legendFormat": "정상",
+          "instant": true,
+          "range": false
+        },
+        {
+          "refId": "B",
+          "expr": "count(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"})",
+          "legendFormat": "등록",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "서버별 사용률",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "미수집",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(node) (100 * (1 - ((node_filesystem_avail_bytes{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"}) < 90))) / ((node_filesystem_size_bytes{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"}) < 90)))))",
+          "legendFormat": "{{node}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "서버별 남은 용량",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 8,
+        "y": 3,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "미수집",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(node) ((node_filesystem_avail_bytes{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"}) < 90)))",
+          "legendFormat": "{{node}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "파일시스템 크기",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 16,
+        "y": 3,
+        "w": 8,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "미수집",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ],
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(node) ((node_filesystem_size_bytes{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"}) < 90)))",
+          "legendFormat": "{{node}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "남은 용량 추이",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "미수집",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(node) ((node_filesystem_avail_bytes{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"}) < 90)))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "inode 사용률 추이",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "미수집",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by(node) ((100 * (1 - node_filesystem_files_free{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"} / node_filesystem_files{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\",mountpoint=\"/\",fstype=~\"xfs|ext4\"})) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=~\"linux-host|linux\",node=~\"$node\"}) < 90)))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "PostgreSQL · exchange DB 크기",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "미수집",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(pg_database_size_bytes{customer=\"$customer\",environment=\"$environment\",job=\"postgres\",node=~\"$node\",datname=\"exchange\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=\"postgres\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=\"postgres\",node=~\"$node\"}) < 90))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "PostgreSQL · WAL 디렉터리 크기",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "미수집",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null+nan",
+                "result": {
+                  "text": "미수집",
+                  "color": "text"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(pg_wal_position_dir_bytes{customer=\"$customer\",environment=\"$environment\",job=\"postgres\",node=~\"$node\"}) and on(instance,job) ((up{customer=\"$customer\",environment=\"$environment\",job=\"postgres\",node=~\"$node\"} == 1) and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",job=\"postgres\",node=~\"$node\"}) < 90))",
+          "legendFormat": "{{node}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "용량이 늘 때 확인할 순서",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**70% 주의 · 85% 조치 · 95% 긴급**은 화면 기준입니다. 자동 삭제나 Teams 경보는 연결하지 않았습니다.  **로그·캐시·오래된 백업 확인 → 보존 기준과 복원 가능 여부 확인 → 승인된 파일만 정리.** DB 데이터와 `pg_wal`은 직접 지우지 않습니다.  두 DB의 50GiB는 각각의 볼륨입니다. 복제 때문에 저장 공간이 합쳐지지 않으며, OS·로그·WAL도 같은 디스크를 사용합니다."
+      }
+    }
+  ],
+  "id": null
+}

@@ -1,0 +1,134 @@
+{
+  "_note": "OPS01 보고 설정. 원본은 failstop/deploy/reporting/config.example.json이며 scoped_config(config, \"exchange\", \"vm-lab\")로 모든 쿼리 선택자와 alert_matchers를 VM 값으로 묶었다. 쿼리 role 정규식에 edge를 더해 EDGE01 사실이 빠지지 않게 했고 alert_matchers에는 observability도 더해 OPS01 자신의 경보가 보고에 들어가게 했다. 배치 위치는 /etc/failstop/reporting.json (root:failstop-report 0640)이다. 비밀 값은 이 파일에 없으며 reporting.env의 파일 경로로만 참조한다.",
+  "prometheus_url": "http://127.0.0.1:9090",
+  "alertmanager_url": "http://127.0.0.1:9093",
+  "analyzer": "gemini",
+  "ai_model": "gemini-3.1-flash-lite",
+  "ai_max_input_tokens": 6000,
+  "ai_max_output_tokens": 1200,
+  "ai_daily_calls": 50,
+  "ai_monthly_calls": 1000,
+  "ai_minute_calls": 4,
+  "http_timeout": 5,
+  "ai_timeout": 10,
+  "window_seconds": 86400,
+  "incident_window_seconds": 900,
+  "evidence_root": "/var/lib/failstop/evidence",
+  "host_file": "host-latest.json",
+  "journal_file": null,
+  "aws_activity_file": null,
+  "backup_schedule_file": null,
+  "backup_restore_file": null,
+  "alert_matchers": [
+    "customer=\"exchange\"",
+    "environment=\"vm-lab\"",
+    "role=~\"edge|app|reader|data|standby|probe|observability\"",
+    "component!=\"reporting\""
+  ],
+  "queries": [
+    {
+      "id": "target_up",
+      "description": "고객 서비스와 서버의 수집 상태",
+      "expr": "up{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",job=~\"exchange-api|linux-host|postgres|blackbox-http\"}",
+      "range": true,
+      "unit": "boolean",
+      "scope": "고객 Spring·서버·DB·접속 검사 대상만 집계합니다. 관측 도구 자체와 부하 봇은 제외하며 수집 성공은 서비스 정상 판정과 다릅니다."
+    },
+    {
+      "id": "disk_available",
+      "description": "Linux 파일시스템 가용 비율",
+      "expr": "node_filesystem_avail_bytes{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",fstype!~\"tmpfs|overlay\"}",
+      "range": true,
+      "unit": "ratio",
+      "scope": "호스트·파일시스템별 비율"
+    },
+    {
+      "id": "inode_free",
+      "description": "Linux inode 가용 비율",
+      "expr": "node_filesystem_files_free{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",fstype!~\"tmpfs|overlay|9p|drvfs\"} / node_filesystem_files{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",fstype!~\"tmpfs|overlay|9p|drvfs\"}",
+      "range": true,
+      "unit": "ratio",
+      "scope": "inode를 제공하는 호스트 파일시스템의 비율; Windows 공유 9p·drvfs는 제외"
+    },
+    {
+      "id": "io_time",
+      "description": "디스크 I/O 사용 시간 비율",
+      "expr": "rate(node_disk_io_time_seconds_total{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\"}[5m])",
+      "range": true,
+      "unit": "ratio",
+      "scope": "호스트·디스크별 최근 5분 사용 시간 비율"
+    },
+    {
+      "id": "network_errors",
+      "description": "수신 네트워크 오류율",
+      "expr": "rate(node_network_receive_errs_total{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\"}[5m])",
+      "range": true,
+      "unit": "errors_per_second",
+      "scope": "호스트·인터페이스별 최근 5분 오류율"
+    },
+    {
+      "id": "services_failed",
+      "description": "systemd 실패 서비스",
+      "expr": "node_systemd_unit_state{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",state=\"failed\"}",
+      "range": false,
+      "unit": "boolean",
+      "scope": "수집한 서비스별 failed 상태 값; 목록 전체가 비어 있으면 미수집입니다."
+    },
+    {
+      "id": "db_connections",
+      "description": "exchange 데이터베이스 연결 수",
+      "expr": "pg_stat_database_numbackends{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",datname=\"exchange\"}",
+      "range": true,
+      "unit": "connections",
+      "scope": "DB 인스턴스별 exchange 연결 수; 서버 전체 연결 수와 다릅니다."
+    },
+    {
+      "id": "db_replication_lag",
+      "description": "PostgreSQL 전송 WAL과 replay 위치 차이",
+      "expr": "pg_replication_client_sent_replay_bytes{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\"}",
+      "range": true,
+      "unit": "bytes",
+      "scope": "primary가 관측한 standby별 전송·재생 위치 차이; 실제 유실량의 확정값은 아닙니다."
+    },
+    {
+      "id": "request_rate",
+      "description": "업무 HTTP 초당 요청 수",
+      "expr": "sum(rate(http_server_requests_seconds_count{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[5m]))",
+      "range": true,
+      "unit": "requests_per_second",
+      "aggregation": "sum_across_api_instances",
+      "scope": "API·조회 노드 합산, Actuator 상태 확인·지표 수집 요청 제외",
+      "missing_reason": "업무 HTTP 시계열 또는 최근 5분의 충분한 표본이 없습니다. 관측 요청을 업무 트래픽으로 계산하지 않았습니다."
+    },
+    {
+      "id": "server_errors",
+      "description": "업무 HTTP 초당 5xx 응답 수",
+      "expr": "(sum(rate(http_server_requests_seconds_count{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\",status=~\"5..\"}[5m]))) or (0 * (sum(rate(http_server_requests_seconds_count{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[5m]))))",
+      "range": true,
+      "unit": "errors_per_second",
+      "aggregation": "sum_across_api_instances",
+      "scope": "API·조회 노드의 업무 HTTP 5xx 합산. 업무 요청 카운터가 수집된 구간에서만 미생성 5xx 시계열을 0으로 집계하며 Actuator 요청은 제외합니다.",
+      "missing_reason": "업무 요청 카운터가 없거나 최근 5분의 충분한 표본이 없습니다. 오류 0건으로 대체하지 않았습니다."
+    },
+    {
+      "id": "latency_p95",
+      "description": "업무 HTTP 응답 p95",
+      "expr": "(histogram_quantile(0.95, sum by(le) (rate(http_server_requests_seconds_bucket{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[5m]))) < +Inf) and on() ((sum(rate(http_server_requests_seconds_count{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\",job=\"exchange-api\",uri!~\"/actuator(/.*)?\"}[5m]))) > 0)",
+      "range": true,
+      "unit": "seconds",
+      "aggregation": "histogram_quantile_across_api_instances",
+      "scope": "API·조회 노드의 업무 HTTP histogram 합산 p95. 최근 5분의 업무 요청 증가가 있고 분위수가 정의된 표본만 집계하며 Actuator 요청은 제외합니다.",
+      "missing_reason": "응답 시간 histogram 지표가 없거나 유효한 업무 요청 표본이 없습니다. p95를 계산하지 않았습니다."
+    },
+    {
+      "id": "backup_success",
+      "description": "최근 성공 백업 시각",
+      "expr": "failstop_backup_last_success_timestamp_seconds{customer=\"exchange\",environment=\"vm-lab\",role=~\"edge|app|reader|data|standby|probe\"}",
+      "range": false,
+      "unit": "unix_timestamp_seconds",
+      "scope": "백업 완료 시각이며 복원 검증 성공과 다릅니다."
+    }
+  ],
+  "customer": "exchange",
+  "environment": "vm-lab"
+}

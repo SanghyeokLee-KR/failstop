@@ -1,0 +1,47 @@
+2026-09-22T05:36:02Z  ops01.lab
+
+# 실행 대상 192.168.56.41
+# 실행 명령
+
+echo "=== systemd 유닛으로 기동한다 (docker compose 를 직접 부르지 않는다) ==="
+sudo systemctl enable databasus.service 2>&1 | tail -1
+time sudo systemctl start databasus.service 2>&1 | tail -5
+echo
+echo "=== 유닛 상태 ==="
+systemctl is-enabled databasus; systemctl is-active databasus
+sudo systemctl status databasus --no-pager -n 12 2>&1 | tail -16
+echo
+echo "=== 내려받은 이미지 ==="
+sudo docker image ls databasus/databasus --format "  {{.Repository}}:{{.Tag}}  {{.ID}}  {{.Size}}"
+sudo docker image inspect databasus/databasus:v3.59.0 --format "  digest: {{index .RepoDigests 0}}"
+
+=== systemd 유닛으로 기동한다 (docker compose 를 직접 부르지 않는다) ===
+Created symlink '/etc/systemd/system/multi-user.target.wants/databasus.service' → '/etc/systemd/system/databasus.service'.
+
+=== 유닛 상태 ===
+
+real	1m1.400s
+user	0m0.016s
+sys	0m0.021s
+enabled
+active
+   Main PID: 3720 (code=exited, status=0/SUCCESS)
+   Mem peak: 24.7M
+        CPU: 631ms
+
+Sep 22 14:36:46 ops01.lab docker[3732]:  Image databasus/databasus:v3.59.0 Pulled
+Sep 22 14:36:46 ops01.lab docker[3732]:  Network databasus_default Creating
+Sep 22 14:36:46 ops01.lab docker[3732]:  Network databasus_default Creating
+Sep 22 14:36:46 ops01.lab docker[3732]:  Network databasus_default Created
+Sep 22 14:36:46 ops01.lab docker[3732]:  Network databasus_default Created
+Sep 22 14:36:46 ops01.lab docker[3732]:  Container databasus Creating
+Sep 22 14:36:52 ops01.lab docker[3732]:  Container databasus Created
+Sep 22 14:36:52 ops01.lab docker[3732]:  Container databasus Starting
+Sep 22 14:36:53 ops01.lab docker[3732]:  Container databasus Started
+Sep 22 14:36:53 ops01.lab docker[3732]:  Container databasus Waiting
+Sep 22 14:37:04 ops01.lab docker[3732]:  Container databasus Healthy
+Sep 22 14:37:04 ops01.lab systemd[1]: Finished databasus.service - Databasus PostgreSQL backup tool (docker compose).
+
+=== 내려받은 이미지 ===
+databasus/databasus:v3.59.0  a3f7ec00e1fb  1.13GB
+  digest: databasus/databasus@sha256:a3f7ec00e1fb64257bdc69c699a5446a222c18bb06ef95d06eca142e6afc850d

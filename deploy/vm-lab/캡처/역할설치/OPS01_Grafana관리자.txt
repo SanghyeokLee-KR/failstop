@@ -1,0 +1,58 @@
+2026-09-22T06:21:02Z  ops01.lab
+
+# Grafana 관리자 생성과 로그인 준비 확인
+# 관리자 계정은 사용자가 직접 bootstrap-grafana-admin.sh 로 만들었다.
+# 비밀번호는 입력 화면에 표시되지 않고 이 기록에도 남지 않는다.
+
+##### 관리자 계정 (비밀번호·해시 열은 조회하지 않는다)
+  id=1 login=dltkdgur email=admin@localhost 서버관리자=1 비활성=0 생성=2026-09-22 05:49:27 조직역할=Admin
+  생성 시각(KST 14:49:27)과 겹치는 대화형 접속 기록:
+    ops      pts/0        192.168.56.1     Tue Sep 22 14:49:17 2026 - Tue Sep 22 14:49:54 2026  (00:00)
+    작업 PC(192.168.56.1)에서 온 37초짜리 세션이다. 그 안에서 계정이 만들어졌다.
+    AI 가 만든 것이 아니다. AI 는 계정 생성과 비밀번호 입력을 수행하지 않는다.
+
+##### 부트스트랩이 임시 파일을 남기지 않았는가
+  /run 깨끗함
+  /etc/grafana 깨끗함
+  disable_initial_admin_creation 복원값: true
+
+##### 로그인 준비 상태로 바꾼 것 두 가지
+  1) 기본 홈 대시보드 지정. 없으면 로그인해도 빈 Grafana 기본 홈이 뜬다.
+     28:default_home_dashboard_path = /var/lib/grafana/msp-dashboards/10-msp-overview.json
+  2) secret_key 생성. 없으면 배포본에 들어 있는 공개 상수로 비밀이 암호화된다.
+     13:secret_key = <가림>
+     값은 이 호스트에서 만들었고 화면·문서·저장소 어디에도 남기지 않았다.
+     적용 시점에 암호화되어 저장된 비밀은 0건이라 기존 값이 깨지지 않았다.
+  이전 설정은 /etc/grafana/grafana.ini.before-hardening 에 보관했다.
+
+##### 적재된 대시보드
+  dashboards msp-db               folder=dfyzryzb0xtkwd
+  dashboards msp-db-replication   folder=dfyzryzb0xtkwd
+  dashboards msp-db-workload      folder=dfyzryzb0xtkwd
+  dashboards msp-infra            folder=dfyzryzb0xtkwd
+  dashboards msp-overview         folder=dfyzryzb0xtkwd
+  dashboards msp-service          folder=dfyzryzb0xtkwd
+  dashboards msp-storage          folder=dfyzryzb0xtkwd
+  dashboards vm-linux             folder=ffyzryyhomrcwa
+  folders    dfyzryzb0xtkwd       folder=
+  folders    ffyzryyhomrcwa       folder=
+
+##### 데이터 원본
+  uid=prometheus name=Prometheus type=prometheus url=http://127.0.0.1:9090 기본=1
+
+##### 접근 경로 (화면은 밖에 열지 않는다)
+LISTEN 0      4096       127.0.0.1:3000      0.0.0.0:*    users:(("grafana",pid=89768,fd=65))   
+LISTEN 0      4096       127.0.0.1:9090      0.0.0.0:*    users:(("prometheus",pid=957,fd=6))   
+LISTEN 0      4096       127.0.0.1:9093      0.0.0.0:*    users:(("alertmanager",pid=943,fd=3)) 
+allowtcpforwarding local
+permitopen 127.0.0.1:3000 127.0.0.1:9090 127.0.0.1:9093 127.0.0.1:4005
+  /login = 200
+  인증 없이 홈 API = 401 (401 이어야 정상)
+
+##### 남은 결함: 지금 울리는 경보가 전부 오탐이다
+  발화 중 6건
+   LinuxCollectorFailed collector=pressure 6건
+  원인: node_exporter 가 --collector.pressure 로 뜨는데 커널에 PSI 가 없다.
+   /proc/pressure 없음. 부팅 인자에 psi= 도 없다:
+   (확인함: /proc/cmdline 에 psi= 없음)
+  이 경보는 영원히 풀리지 않는다. 고치는 방법은 보고에 적었다. 이번 작업 범위 밖이라 실행하지 않았다.
