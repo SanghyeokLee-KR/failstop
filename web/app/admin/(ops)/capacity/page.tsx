@@ -16,11 +16,12 @@
 
 import { useCallback, useRef, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
-import type { CapacityAdvice, CapacityNode, CapacityState } from "@/lib/admin/types";
+import type { CapacityAdvice, CapacityNode, CapacityState, SimStatus } from "@/lib/admin/types";
 import PanelCard from "@/components/PanelCard";
 import NodeStrip from "@/components/admin/NodeStrip";
 import GrafanaLink from "@/components/admin/GrafanaLink";
 import DecisionFooter from "@/components/admin/DecisionFooter";
+import OpsThrottle from "@/components/admin/OpsThrottle";
 import SourceMark, { sourceWord } from "@/components/admin/SourceMark";
 import Skeleton from "@/components/Skeleton";
 import { HealthPill, PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
@@ -41,11 +42,26 @@ const ADVICE_HEALTH = { ok: "success", info: "success", warn: "warning", danger:
  *  화면이 알기 때문이다. 첫 표본에는 이전 값이 없으므로 빈칸으로 둔다. */
 type RateSample = { at: number; total: number };
 
+/** 이 화면은 부하 입력과 용량 조치를 한자리에 둔다. 그래서 두 원천을 함께 읽는다 */
+interface CapacityView {
+  cap: CapacityState;
+  sim: SimStatus;
+}
+
 export default function CapacityPage() {
   const api = getAdminApi();
-  const load = useCallback(() => api.getCapacity(), [api]);
-  const res = useAdminResource<CapacityState>(load, { isSessionError });
+  // 부하를 넣는 레버와 그 결과로 움직이는 대수가 다른 화면에 있으면 시연이 화면 전환에서
+  // 끊기고, 보는 쪽은 무엇이 무엇을 움직였는지 잇지 못한다
+  const load = useCallback(
+    async (): Promise<CapacityView> => {
+      const [cap, sim] = await Promise.all([api.getCapacity(), api.getSimStatus()]);
+      return { cap, sim };
+    },
+    [api],
+  );
+  const res = useAdminResource<CapacityView>(load, { isSessionError });
   const canScale = useCan("SUPER");
+  const canOps = useCan("BOT_OPS");
   const [pending, setPending] = useState<"SCALE_OUT" | "SCALE_IN" | null>(null);
   const [busy, setBusy] = useState(false);
   const rates = useRef<Map<string, RateSample>>(new Map());
@@ -88,7 +104,8 @@ export default function CapacityPage() {
   if (res.error || !res.data) {
     return <AdminErrorState reason={res.errorReason} onRetry={res.reload} />;
   }
-  const d = res.data;
+  const d = res.data.cap;
+  const sim = res.data.sim;
   const pct = d.readAvgCpuRatio === null ? null : Math.round(d.readAvgCpuRatio * 100);
 
   // 임계 판정의 정본은 서버 advice다. 화면이 0.60을 복제하면 서버가 값을 조일 때 갈린다
@@ -113,6 +130,17 @@ export default function CapacityPage() {
           />
         ))}
       </div>
+
+      <div className={styles.opsRow}>
+        <PanelCard title="부하 입력">
+          {!canOps && <PermissionNote>봇 제어 권한(BOT_OPS 이상) 없음</PermissionNote>}
+          <OpsThrottle
+            rate={sim.rate}
+            currentOps={sim.currentOps}
+            canOps={canOps}
+            onApplied={res.reload}
+          />
+        </PanelCard>
 
       <PanelCard title="서버 대수" actions={<GrafanaLink board="msp-service" label="앱 CPU 추이" />}>
         <div className={styles.kpiGrid} data-cols="3">
@@ -152,6 +180,7 @@ export default function CapacityPage() {
         )}
         {!canScale && <PermissionNote>서버 수 변경은 총괄 권한 필요</PermissionNote>}
       </PanelCard>
+      </div>
 
       <PanelCard title="서버 한 대씩" actions={<GrafanaLink board="msp-infra" label="호스트 추이" />}>
         <NodeStrip nodes={d.nodes} perSecond={perSecond} />

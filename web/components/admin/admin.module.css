@@ -948,7 +948,8 @@
   font-size: var(--font-caption-size);
   color: var(--text-secondary);
 }
-.rateField input[type="range"] {
+.rateField input[type="range"],
+.throttle input[type="range"] {
   width: 200px;
 }
 .rateField b {
@@ -974,7 +975,8 @@
    biasTrack과 동일한 rule-tick 눈금으로 캘리퍼처럼 읽게 한다. 히트 44px. */
 .field input[type="range"],
 .scaleRow input[type="range"],
-.rateField input[type="range"] {
+.rateField input[type="range"],
+.throttle input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   min-height: 44px;
@@ -986,7 +988,8 @@
 }
 .field input[type="range"]::-webkit-slider-runnable-track,
 .scaleRow input[type="range"]::-webkit-slider-runnable-track,
-.rateField input[type="range"]::-webkit-slider-runnable-track {
+.rateField input[type="range"],
+.throttle input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: var(--radius-full);
   background:
@@ -995,7 +998,8 @@
 }
 .field input[type="range"]::-moz-range-track,
 .scaleRow input[type="range"]::-moz-range-track,
-.rateField input[type="range"]::-moz-range-track {
+.rateField input[type="range"],
+.throttle input[type="range"]::-moz-range-track {
   height: 6px;
   border-radius: var(--radius-full);
   background:
@@ -1004,7 +1008,8 @@
 }
 .field input[type="range"]::-webkit-slider-thumb,
 .scaleRow input[type="range"]::-webkit-slider-thumb,
-.rateField input[type="range"]::-webkit-slider-thumb {
+.rateField input[type="range"],
+.throttle input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 16px;
@@ -1017,7 +1022,8 @@
 }
 .field input[type="range"]::-moz-range-thumb,
 .scaleRow input[type="range"]::-moz-range-thumb,
-.rateField input[type="range"]::-moz-range-thumb {
+.rateField input[type="range"],
+.throttle input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border-radius: var(--radius-full);
@@ -2222,4 +2228,58 @@
 }
 .decisionArrow {
   color: var(--text-secondary);
+}
+
+/* ===== 전역 OPS 조절기 =====
+   부하를 넣는 유일한 레버라 봇 화면과 용량 화면에 같은 모양으로 선다.
+   값과 레일과 적용을 세로로 쌓아 어느 폭에 놓여도 형태가 같다 */
+.throttle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.throttleHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.throttleLabel {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+/* 드래프트는 아직 서버가 받지 않은 값이다. 적용값과 무게를 갈라 둔다 */
+.throttleDraft {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.throttle > input[type="range"] {
+  width: 100%;
+}
+.throttleFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.throttleReadout {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 2층 조작대. 부하 입력(좌)과 용량 조치(우)를 나란히 둔다. 입력과 조치가 세로로
+   떨어져 있으면 무엇을 눌러 무엇이 움직였는지 한 눈에 잇지 못한다 */
+.opsRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: stretch;
 }
