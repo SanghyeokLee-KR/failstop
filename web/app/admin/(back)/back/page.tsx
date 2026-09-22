@@ -42,11 +42,15 @@ interface QueueCounts {
   reports: QueueCount;
 }
 
-/** 건수를 세지 않는 곳. 대기가 쌓이는 큐가 아니라 조회·설정하러 가는 화면이다 */
+/**
+ * 건수를 세지 않는 곳. 대기가 쌓이는 큐가 아니라 조회·설정하러 가는 화면이다.
+ * 라벨은 내비와 한 글자까지 같게 둔다. 같은 화면을 두 이름으로 부르면 어느 쪽이
+ * 무엇을 가리키는지 사람이 매번 맞춰 봐야 한다.
+ */
 const DESKS: { href: string; label: string; desc: string; icon: AdminIconName }[] = [
-  { href: "/admin/config", label: "마켓·공지", desc: "거래 중지·재개, 수수료, 공지", icon: "config" },
   { href: "/admin/members", label: "회원 운영", desc: "정지·복구·폐쇄", icon: "members" },
-  { href: "/admin/operators", label: "운영자", desc: "신원·역할", icon: "operators" },
+  { href: "/admin/config", label: "마켓·공지", desc: "거래 중지·재개, 수수료, 공지", icon: "config" },
+  { href: "/admin/operators", label: "운영자·역할", desc: "신원·역할", icon: "operators" },
   { href: "/admin/audit", label: "감사 로그", desc: "수정·삭제 불가 기록", icon: "audit" },
 ];
 
@@ -123,7 +127,8 @@ export default function BackOfficeHome() {
             </Link>
           </div>
 
-          <PanelCard title="구성·거버넌스">
+          {/* 큐가 없는 자리를 모은다. 내비의 두 묶음에 걸쳐 있어 그중 한 묶음의 이름을 쓰지 않는다 */}
+          <PanelCard title="큐 없는 자리">
             <div className={styles.deskList}>
               {DESKS.map((d) => (
                 <Link key={d.href} href={d.href} className={styles.deskRow}>

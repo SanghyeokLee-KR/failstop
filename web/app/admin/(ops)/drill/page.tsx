@@ -136,8 +136,10 @@ export default function DrillPage() {
 
   return (
     <div className={styles.page}>
+      {/* 제목은 내비 항목과 같은 이름으로 부른다. 한 화면을 두 이름으로 부르면 어느 쪽이
+          무엇을 가리키는지 사람이 매번 맞춰 봐야 한다 */}
       <PageHeader
-        title="시연"
+        title="상황별 대본"
         desc="상황별 단계와 판정. 충족 여부는 지금 읽은 값에서만 판단"
         actions={
           needs.length > 0 ? (
