@@ -1904,7 +1904,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin-bottom: var(--space-4);
 }
 .capacityAdvice {
   display: flex;
@@ -2269,11 +2268,11 @@
    대본 레일이 위, 단계 기둥이 아래다. 레일은 고르는 자리라 가볍게 두고
    단계는 읽는 자리라 무게를 준다. 단계를 카드 격자로 놓지 않는 이유는 순서가
    있는 것이기 때문이다. 왼쪽 번호 기둥이 순서를 말한다. */
+/* 바깥 여백은 page 래퍼의 세로 리듬이 준다. 여기서 또 주면 이 줄만 간격이 두 배가 된다 */
 .drillRail {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-2);
-  margin-bottom: var(--space-4);
 }
 .drillTab {
   display: flex;
@@ -2397,7 +2396,9 @@
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   gap: var(--space-3);
-  padding: var(--space-3) 0;
+  /* 왼쪽 여백을 모든 줄에 같이 준다. 현재 줄에만 주면 그 줄의 번호 기둥이 12px 밀려
+     세로로 이어지던 기둥이 한 칸에서 꺾인다 */
+  padding: var(--space-3) 0 var(--space-3) var(--space-3);
   border-top: 1px solid var(--surface-seam);
 }
 .drillStep:first-child {
@@ -2406,7 +2407,6 @@
 /* 지금 볼 단계만 한 단 들어 올린다. 나머지는 눕혀 둔다 */
 .drillStep[data-current] {
   box-shadow: inset 2px 0 0 var(--text-strong);
-  padding-left: var(--space-3);
 }
 /* 판정하지 않는 줄은 한 단 물린다. 읽을 수는 있고 주장하지는 않는다는 신호다 */
 .drillStep[data-state="NO_SOURCE"],

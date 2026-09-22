@@ -135,7 +135,7 @@ export default function DrillPage() {
   };
 
   return (
-    <>
+    <div className={styles.page}>
       <PageHeader
         title="시연"
         desc="상황별 단계와 판정. 충족 여부는 지금 읽은 값으로만 적는다"
@@ -233,7 +233,7 @@ export default function DrillPage() {
           />
         </div>
       )}
-    </>
+    </div>
   );
 }
 

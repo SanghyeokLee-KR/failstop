@@ -272,19 +272,29 @@ function hasHonorificNida(text) {
   return false;
 }
 
-/** 소스에서 한국어가 든 문자열·JSX 텍스트를 모은다. 세 따옴표를 모두 본다 */
+/**
+ * 소스에서 한국어가 든 문자열·JSX 텍스트를 모은다. 세 따옴표를 모두 본다.
+ *
+ * 한국어 조건을 정규식 안에 넣지 않는 이유가 있다. 그렇게 하면 한국어가 없는 문자열의
+ * 닫는 따옴표와 그다음 문자열의 여는 따옴표가 한 쌍으로 잡혀, 사이의 코드를 문자열로
+ * 삼키고 정작 그다음의 진짜 문구를 놓친다. OperatorBar의 토스트가 그렇게 빠져나갔다.
+ * 따옴표 짝은 순서대로 뜨고 한국어 여부는 그 뒤에 가른다.
+ */
 function koreanLiterals(code) {
   const out = [];
-  for (const m of code.matchAll(/"([^"\n]*[가-힣][^"\n]*)"/g)) out.push(m[1]);
-  for (const m of code.matchAll(/'([^'\n]*[가-힣][^'\n]*)'/g)) out.push(m[1]);
-  /* 백틱은 줄바꿈을 품을 수 있다. 한 문장으로 접어 어미만 본다.
-     다만 중첩 표현식과 JSX 때문에 구간이 엉뚱하게 길게 잡힐 수 있어 코드로 보이는 것은 버린다.
-     UI 문구에는 세미콜론도 큰따옴표도 닫는 태그도 들어가지 않는다 */
-  for (const m of code.matchAll(/`([^`]*[가-힣][^`]*)`/g)) {
-    const t = m[1];
-    if (t.length > 200 || /[;"]|<\/|\/>/.test(t)) continue;
-    out.push(t.replace(/\s+/g, " "));
+  const take = (t, fold) => {
+    if (!/[가-힣]/.test(t)) return;
+    /* 중첩 표현식과 JSX 때문에 구간이 엉뚱하게 길게 잡힐 수 있어 코드로 보이는 것은 버린다.
+       UI 문구에는 세미콜론도 큰따옴표도 닫는 태그도 들어가지 않는다 */
+    if (t.length > 200 || /[;"]|<\/|\/>/.test(t)) return;
+    out.push(fold ? t.replace(/\s+/g, " ") : t);
+  };
+  for (const m of code.matchAll(/"([^"\n]*)"/g)) {
+    if (/[가-힣]/.test(m[1])) out.push(m[1]);
   }
+  for (const m of code.matchAll(/'([^'\n]*)'/g)) take(m[1], false);
+  /* 백틱은 줄바꿈을 품을 수 있다. 한 문장으로 접어 어미만 본다 */
+  for (const m of code.matchAll(/`([^`]*)`/g)) take(m[1], true);
   for (const m of code.matchAll(/>([^<>{}\n]*[가-힣][^<>{}\n]*)</g)) out.push(m[1].trim());
   return out;
 }
@@ -373,8 +383,11 @@ function checkServerCopy() {
     const rel = relative(ROOT, file).split(sep).join("/");
     if (SERVER_COPY_EXEMPT.includes(rel)) continue;
     const code = stripComments(readFileSync(file, "utf8"), false);
-    for (const m of code.matchAll(/"([^"\n]*[가-힣][^"\n]*)"/g)) {
+    /* 한국어 조건을 정규식 안에 넣지 않는다. 넣으면 따옴표 짝이 어긋나 문구를 놓친다
+       (koreanLiterals 주석) */
+    for (const m of code.matchAll(/"([^"\n]*)"/g)) {
       const text = m[1];
+      if (!/[가-힣]/.test(text)) continue;
       /* 서버는 아직 넓히지 않는다. 'ㅂ니다'까지 잡으면 29개 파일 138건이 한꺼번에 걸리고,
          그것은 전 평면의 API 오류 문구를 바꾸는 일이라 API 계약과 서버 테스트를 함께 봐야 한다.
          관리 콘솔 카피와 범위가 다르므로 별도 변경으로 남긴다(로드맵). 여기 기준을 낮춘 것이

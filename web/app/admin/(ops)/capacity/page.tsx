@@ -112,7 +112,7 @@ export default function CapacityPage() {
   const scaleAdvised = d.advice.some((a) => a.action === "SCALE_OUT");
 
   return (
-    <>
+    <div className={styles.page}>
       <PageHeader
         title="용량·부하"
         desc="조회를 받는 서버 증설과 축소. 주문을 처리하는 서버는 한 대 고정"
@@ -251,7 +251,7 @@ export default function CapacityPage() {
           onClose={() => setPending(null)}
         />
       )}
-    </>
+    </div>
   );
 }
 

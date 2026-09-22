@@ -79,7 +79,7 @@ export default function OperatorBar() {
     if (certId === session.operatorId) return;
     try {
       await getAdminApi().establishSession(certId);
-      toast(`${certId} 인증서로 세션을 전환했습니다`, "info");
+      toast(`${certId} 인증서로 세션 전환 완료`, "info");
     } catch (e) {
       toast(e instanceof Error ? e.message : "세션 전환 실패", "error");
     }
