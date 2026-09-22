@@ -14,7 +14,8 @@ import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import { PageHeader } from "@/components/admin/ui";
-import { useAdminResource } from "@/components/admin/useAdminResource";
+import { useCursorPages } from "@/components/admin/useCursorPages";
+import { AUDIT_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { formatKRW, formatTimeHMS } from "@/lib/format";
@@ -134,35 +135,14 @@ const RESULT_SEGMENTS: { value: "" | AuditResult; label: string }[] = [
   { value: "DENIED", label: "거부(DENIED)" },
 ];
 
-/* 한 쪽 200건. 감사는 표를 훑는 화면이고 15초 폴링이 같은 쪽을 다시 읽으므로,
-   쪽이 커지면 그 비용이 계속 나간다. 서버 상한은 500이다 */
-const PAGE_SIZE = 200;
-
 export default function AuditPage() {
-  /* 감사 로그는 append-only라 영구 누적이다. i번째 칸이 i쪽을 여는 커서고
-     첫 쪽은 null이다(§2-6은 앞으로만 커서를 발급한다) */
-  const [page, setPage] = useState(0);
-  const cursors = useRef<(string | null)[]>([null]);
-
-  const load = useCallback(async () => {
-    const res = await getAdminApi().getAudit({
-      cursor: cursors.current[page] ?? null,
-      limit: PAGE_SIZE,
-    });
-    cursors.current[page + 1] = res.nextCursor;
-    return res;
-  }, [page]);
-  // 감사는 append-only라 3초 폴링이면 단조 증가 테이블을 계속 재수신한다.
-  // 판독 용도에 15초면 충분하고 레이트리밋 예산도 아낀다
-  const { data: pageData, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { isSessionError });
-  const rows = pageData?.data ?? null;
-  const hasMore = pageData?.hasMore ?? false;
-
-  useEffect(() => {
-    void reload();
-    // reload는 안정 참조다. 쪽 변화에만 반응한다
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  /* 감사 로그는 append-only라 영구 누적이다. 필터가 없어 조건 키도 없다 */
+  const load = useCallback(
+    (cursor: string | null) => getAdminApi().getAudit({ cursor, limit: AUDIT_PAGE_SIZE }),
+    [],
+  );
+  const { page, rows, hasMore, move, res } = useCursorPages<AuditEntry>(load, { isSessionError });
+  const { loading, error, errorReason, stale, lastUpdatedAt, reload } = res;
 
   const [opFilter, setOpFilter] = useState("");
   const [nsFilter, setNsFilter] = useState("");
@@ -172,18 +152,17 @@ export default function AuditPage() {
   // 정렬 고정이라 폴링으로 옵션이 늘어도 select 내부에서만 자란다(시프트 0)
   const operators = useMemo(() => {
     const byId = new Map<string, string>();
-    for (const e of rows ?? []) if (!byId.has(e.operatorId)) byId.set(e.operatorId, e.operatorName);
+    for (const e of rows) if (!byId.has(e.operatorId)) byId.set(e.operatorId, e.operatorName);
     return [...byId.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [rows]);
 
   const namespaces = useMemo(() => {
     const set = new Set<string>();
-    for (const e of rows ?? []) set.add(nsOf(e.action));
+    for (const e of rows) set.add(nsOf(e.action));
     return [...set].sort();
   }, [rows]);
 
   const filtered = useMemo(() => {
-    if (!rows) return [];
     // 세션 30분 데모 척도라 기간 비교는 클라이언트 시계로 충분하다. 폴링 리렌더가 기준 시각을 갱신한다
     const cutoff = periodMin > 0 ? Date.now() - periodMin * 60_000 : null;
     return rows.filter(
@@ -213,7 +192,7 @@ export default function AuditPage() {
       <PanelCard title="관리 액션 감사">
         {loading ? (
           <Skeleton variant="card" width="100%" height={280} />
-        ) : error || !rows ? (
+        ) : error ? (
           <AdminErrorState reason={errorReason} onRetry={reload} />
         ) : (
           <div className={styles.staleRegion} data-stale={stale ? "" : undefined}>
@@ -297,7 +276,7 @@ export default function AuditPage() {
             <Pager
               page={page}
               hasMore={hasMore}
-              onMove={setPage}
+              onMove={move}
               ariaLabel="감사 기록 쪽 이동"
             />
           </div>

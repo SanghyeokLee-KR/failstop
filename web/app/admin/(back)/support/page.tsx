@@ -5,15 +5,16 @@
  * 질문과 답을 같은 화면에 나란히 둔다.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
-import type { AdminPage, AdminInquiry } from "@/lib/admin/types";
+import type { AdminInquiry } from "@/lib/admin/types";
 import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import SegmentedTab from "@/components/SegmentedTab";
 import { PageHeader } from "@/components/admin/ui";
-import { useAdminResource } from "@/components/admin/useAdminResource";
+import { useCursorPages } from "@/components/admin/useCursorPages";
+import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { toast } from "@/components/Toast";
@@ -36,9 +37,6 @@ const MAX_ANSWER = 2000;
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
-/* 한 쪽 50건. 폴링이 같은 쪽을 다시 읽으므로 쪽이 커지면 그 비용이 계속 나간다 */
-const PAGE_SIZE = 50;
-
 export default function AdminSupportPage() {
   const [status, setStatus] = useState<"OPEN" | "ANSWERED">("OPEN");
   /* 답변 초안은 문의별로 따로 든다. 하나의 상태로 두면 다른 문의를 열었을 때 앞서 쓰던
@@ -46,36 +44,16 @@ export default function AdminSupportPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  /* ANSWERED는 답변 뒤에도 누적된다. status가 바뀌면 쪽 경계가 새로 생기므로
+  /* ANSWERED는 답변 뒤에도 누적된다. 상태가 바뀌면 쪽 경계가 새로 생기므로 훅이
      커서를 버리고 첫 쪽부터 다시 센다 */
-  const [page, setPage] = useState(0);
-  const cursors = useRef<(string | null)[]>([null]);
-  const loader = useCallback(async () => {
-    const r = await getAdminApi().getInquiries(status, {
-      cursor: cursors.current[page] ?? null,
-      limit: PAGE_SIZE,
-    });
-    cursors.current[page + 1] = r.nextCursor;
-    return r;
-  }, [status, page]);
-  const res = useAdminResource<AdminPage<AdminInquiry>>(loader, { isSessionError });
-  const rows = res.data?.data ?? [];
-  const hasMore = res.data?.hasMore ?? false;
-  /* 상태와 쪽을 한 효과로 묶는다. 둘로 나누면 쪽이 이미 0일 때 상태만 바뀌는 경우
-     setPage(0)이 무동작이라 재조회가 걸리지 않고, 이전 필터의 결과가 새 탭 아래 남는다
-     (다음 폴링 틱까지). 상태 변경은 커서를 먼저 버리므로 순서도 맞는다 */
-  useEffect(() => {
-    void res.reload();
-    // reload는 안정 참조다. 상태·쪽 변화에만 반응한다
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, page]);
-
-  /* 상태가 바뀌면 쪽 경계가 새로 생긴다. 들고 있던 커서는 이전 조건의 것이라 버린다 */
-  const changeStatus = (next: "OPEN" | "ANSWERED") => {
-    cursors.current = [null];
-    setPage(0);
-    setStatus(next);
-  };
+  const loader = useCallback(
+    (cursor: string | null) => getAdminApi().getInquiries(status, { cursor, limit: QUEUE_PAGE_SIZE }),
+    [status],
+  );
+  const { page, rows, hasMore, move, res } = useCursorPages<AdminInquiry>(loader, {
+    key: status,
+    isSessionError,
+  });
 
   const submit = async (row: AdminInquiry) => {
     const text = (drafts[row.externalId] ?? "").trim();
@@ -106,7 +84,7 @@ export default function AdminSupportPage() {
       />
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={changeStatus} ariaLabel="상태 필터" />
+        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" />
       </div>
 
       <PanelCard title="문의 목록">
@@ -177,7 +155,7 @@ export default function AdminSupportPage() {
           </ol>
         )}
 
-        <Pager page={page} hasMore={hasMore} onMove={setPage} ariaLabel="문의 큐 쪽 이동" />
+        <Pager page={page} hasMore={hasMore} onMove={move} ariaLabel="문의 큐 쪽 이동" />
       </PanelCard>
     </div>
   );

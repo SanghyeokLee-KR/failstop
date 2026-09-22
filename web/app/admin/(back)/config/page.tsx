@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { feeRateError } from "@/lib/admin/fees";
+import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { useCan } from "@/lib/admin/store";
 import {
   NOTICE_SEVERITIES,
@@ -43,10 +44,6 @@ const SEVERITY_HEALTH: Record<NoticeSeverity, "warning" | "danger" | null> = {
   critical: "danger",
 };
 
-/* 한 쪽 20건. 운영자 화면이라 한 번에 훑는 양이 사용자 화면보다 크지만, 폴링이 5초마다
-   같은 쪽을 다시 읽으므로 쪽이 커지면 그 비용이 계속 나간다 */
-const NOTICE_PAGE_SIZE = 20;
-
 export default function ConfigPage() {
   const canSuper = useCan("SUPER");
   const [title, setTitle] = useState("");
@@ -66,7 +63,8 @@ export default function ConfigPage() {
 
   /* 공지는 철회만 되고 삭제되지 않아(V5 §7) 계속 쌓인다. 한 쪽씩 끊어 읽는다.
      i번째 칸이 i쪽을 여는 커서고 첫 쪽은 null이다(§2-6은 앞으로만 커서를 발급한다).
-     loader가 ref로 잡히므로 폴링 틱도 보고 있는 쪽을 그대로 다시 읽는다 */
+     이 화면은 마켓 목록과 공지를 한 리소스로 합성하므로 useCursorPages 대신 직접 든다.
+     훅은 AdminPage 하나를 돌려주는 목록용이고, 여기서 쓰면 마켓 조회가 쪽 이동에 얹힌다 */
   const [noticePage, setNoticePage] = useState(0);
   const noticeCursors = useRef<(string | null)[]>([null]);
 
@@ -75,7 +73,7 @@ export default function ConfigPage() {
       const api = getAdminApi();
       const [markets, noticePageData] = await Promise.all([
         api.getConfigMarkets(),
-        api.getNotices({ cursor: noticeCursors.current[noticePage] ?? null, limit: NOTICE_PAGE_SIZE }),
+        api.getNotices({ cursor: noticeCursors.current[noticePage] ?? null, limit: QUEUE_PAGE_SIZE }),
       ]);
       noticeCursors.current[noticePage + 1] = noticePageData.nextCursor;
       return { markets, notices: noticePageData };

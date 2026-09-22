@@ -26,6 +26,8 @@ const LIVE_MS = 5000;
 
 interface LedgerState {
   rows: ApprovalRequest[];
+  /** 첫 쪽 뒤에 더 있는가. 목록이 받은 만큼만 그린다는 사실을 화면이 적는다 */
+  hasMore: boolean;
   lastAt: number | null;
   /** 첫 로드 완료 전 */
   loading: boolean;
@@ -58,6 +60,7 @@ const useLedger = create<LedgerState & LedgerActions>((set, get) => {
 
   return {
     rows: [],
+    hasMore: false,
     lastAt: null,
     loading: true,
     subscribers: 0,
@@ -74,7 +77,7 @@ const useLedger = create<LedgerState & LedgerActions>((set, get) => {
         const all = await getAdminApi().listApprovals("ISSUED");
         // 더 새 요청이 출발했으면 이 응답은 버린다. 늦은 응답이 최신 원장을 되돌리지 않는다
         if (seq !== get().seq) return;
-        set({ rows: all.data, lastAt: Date.now(), loading: false });
+        set({ rows: all.data, hasMore: all.hasMore, lastAt: Date.now(), loading: false });
       } catch {
         // 세션 만료 등은 레이아웃 게이트가 처리한다. 여기서는 마지막 값을 유지한다
         if (seq === get().seq) set({ loading: false });
@@ -110,11 +113,13 @@ const useLedger = create<LedgerState & LedgerActions>((set, get) => {
  */
 export function useApprovalLedger(): {
   rows: ApprovalRequest[];
+  hasMore: boolean;
   loading: boolean;
   lastAt: number | null;
   invalidate: () => void;
 } {
   const rows = useLedger((s) => s.rows);
+  const hasMore = useLedger((s) => s.hasMore);
   const loading = useLedger((s) => s.loading);
   const lastAt = useLedger((s) => s.lastAt);
   const invalidate = useLedger((s) => s.invalidate);
@@ -125,7 +130,7 @@ export function useApprovalLedger(): {
     return unsubscribe;
   }, []);
 
-  return { rows, loading, lastAt, invalidate };
+  return { rows, hasMore, loading, lastAt, invalidate };
 }
 
 /** 시연 구간 승격. 구간이 끝나면 반드시 false로 되돌린다 */

@@ -5,10 +5,9 @@
  * 앞이 되고 뒤가 실패한 경우를 문구로 구분한다(숨김은 재시도가 안전하다).
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import type {
-  AdminPage,
   CommunityReport,
   ContentStatus,
   ModerationAction,
@@ -22,7 +21,8 @@ import Skeleton from "@/components/Skeleton";
 import SegmentedTab from "@/components/SegmentedTab";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { PageHeader, PermissionNote } from "@/components/admin/ui";
-import { useAdminResource } from "@/components/admin/useAdminResource";
+import { useCursorPages } from "@/components/admin/useCursorPages";
+import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { useCan } from "@/lib/admin/store";
@@ -90,32 +90,15 @@ export default function AdminCommunityPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = useState<CommunityReport | null>(null);
 
-  const [page, setPage] = useState(0);
-  const cursors = useRef<(string | null)[]>([null]);
-  const loader = useCallback(async () => {
-    const r = await getAdminApi().getCommunityReports(status, {
-      cursor: cursors.current[page] ?? null,
-      limit: PAGE_SIZE,
-    });
-    cursors.current[page + 1] = r.nextCursor;
-    return r;
-  }, [status, page]);
-  const res = useAdminResource<AdminPage<CommunityReport>>(loader, { isSessionError });
-  const rows = res.data?.data ?? [];
-  const hasMore = res.data?.hasMore ?? false;
-
-  /* 상태와 쪽을 한 효과로 묶는다. 둘로 나누면 쪽이 이미 0일 때 상태만 바뀌는 경우
-     setPage(0)이 무동작이라 재조회가 걸리지 않는다(문의 큐와 같은 규약) */
-  useEffect(() => {
-    void res.reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, page]);
-
-  const changeStatus = (next: ReportStatus) => {
-    cursors.current = [null];
-    setPage(0);
-    setStatus(next);
-  };
+  const loader = useCallback(
+    (cursor: string | null) =>
+      getAdminApi().getCommunityReports(status, { cursor, limit: QUEUE_PAGE_SIZE }),
+    [status],
+  );
+  const { page, rows, hasMore, move, res } = useCursorPages<CommunityReport>(loader, {
+    key: status,
+    isSessionError,
+  });
 
   const apply = async (row: CommunityReport, d: Decision) => {
     if (busyId !== null) return;
@@ -164,7 +147,7 @@ export default function AdminCommunityPage() {
       {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={changeStatus} ariaLabel="신고 상태 필터" />
+        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="신고 상태 필터" />
       </div>
 
       <PanelCard title="신고 목록">
@@ -229,7 +212,7 @@ export default function AdminCommunityPage() {
         <Pager
           page={page}
           hasMore={hasMore}
-          onMove={setPage}
+          onMove={move}
           ariaLabel="신고 큐 쪽 이동"
           busy={busyId !== null}
         />

@@ -68,7 +68,7 @@ export default function ApprovalList({
   const stashToken = useApprovalVault((s) => s.stashToken);
   const dropToken = useApprovalVault((s) => s.dropToken);
 
-  const { rows: ledgerRows, invalidate } = useApprovalLedger();
+  const { rows: ledgerRows, hasMore: ledgerHasMore, invalidate } = useApprovalLedger();
   const [busy, setBusy] = useState<string | null>(null);
   // 소각은 되돌릴 수 없어 확인 다이얼로그로 한 번 더 막는다
   const [execTarget, setExecTarget] = useState<ApprovalRequest | null>(null);
@@ -266,6 +266,10 @@ export default function ApprovalList({
           );
         })}
       </ul>
+      )}
+      {/* 원장의 첫 쪽만 그린다. 받은 범위 밖을 없는 것으로 적지 않는다 */}
+      {ledgerHasMore && (
+        <p className={styles.approvalCapNote}>첫 쪽 표시. 대기 승인이 더 있음</p>
       )}
       {doneRows.length > 0 && (
         // 종결분은 대기와 분리해 이력으로만 남긴다. 버튼 없는 판독 전용 행

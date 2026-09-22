@@ -2553,3 +2553,11 @@
     min-width: 0;
   }
 }
+
+/* 원장의 받은 범위를 적는 자리. 계기가 아니라 고지라 무채로 눕힌다 */
+.approvalCapNote {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}

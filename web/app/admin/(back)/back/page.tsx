@@ -25,14 +25,21 @@ import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { AdminIcon, type AdminIconName } from "@/components/admin/icons";
+import { QUEUE_COUNT_CAP, countLabel } from "@/lib/admin/paging";
 import styles from "@/components/admin/admin.module.css";
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
+/** 세어 본 만큼의 건수. 상한을 채웠으면 그 이상이라는 사실을 함께 든다 */
+interface QueueCount {
+  loaded: number;
+  hasMore: boolean;
+}
+
 interface QueueCounts {
-  transfers: number;
-  inquiries: number;
-  reports: number;
+  transfers: QueueCount;
+  inquiries: QueueCount;
+  reports: QueueCount;
 }
 
 /** 건수를 세지 않는 곳. 대기가 쌓이는 큐가 아니라 조회·설정하러 가는 화면이다 */
@@ -46,13 +53,19 @@ const DESKS: { href: string; label: string; desc: string; icon: AdminIconName }[
 export default function BackOfficeHome() {
   const load = useCallback(async (): Promise<QueueCounts> => {
     const api = getAdminApi();
-    // 첫 쪽 건수다. 한 쪽을 넘긴 대기는 이 카드가 아니라 각 큐 화면에서 다룰 상태다
+    /* 서버에 개수 API가 없어 첫 쪽 길이로 센다. 상한을 채우면 그 이상이라고 적는다.
+       종전에는 상한이 그대로 건수가 되어, 대기가 그 수를 넘은 순간부터 카드가 조용히
+       같은 수를 계속 띄웠다. 세어 본 범위 밖을 없는 것으로 적지 않는다 */
     const [t, i, r] = await Promise.all([
-      api.getTransfers("REQUESTED", { limit: 100 }),
-      api.getInquiries("OPEN", { limit: 100 }),
-      api.getCommunityReports("PENDING", { limit: 100 }),
+      api.getTransfers("REQUESTED", { limit: QUEUE_COUNT_CAP }),
+      api.getInquiries("OPEN", { limit: QUEUE_COUNT_CAP }),
+      api.getCommunityReports("PENDING", { limit: QUEUE_COUNT_CAP }),
     ]);
-    return { transfers: t.data.length, inquiries: i.data.length, reports: r.data.length };
+    const count = (p: { data: unknown[]; hasMore: boolean }): QueueCount => ({
+      loaded: p.data.length,
+      hasMore: p.hasMore,
+    });
+    return { transfers: count(t), inquiries: count(i), reports: count(r) };
   }, []);
 
   const { data, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, {
@@ -85,7 +98,7 @@ export default function BackOfficeHome() {
               <StatTile
                 compact
                 label="출금 승인"
-                value={data.transfers}
+                value={countLabel(data.transfers.loaded, data.transfers.hasMore)}
                 unit="건"
                 sub="승인 시 잠긴 금액 출금"
               />
@@ -94,7 +107,7 @@ export default function BackOfficeHome() {
               <StatTile
                 compact
                 label="문의 답변"
-                value={data.inquiries}
+                value={countLabel(data.inquiries.loaded, data.inquiries.hasMore)}
                 unit="건"
                 sub="답변은 회원 화면에 그대로 표시"
               />
@@ -103,7 +116,7 @@ export default function BackOfficeHome() {
               <StatTile
                 compact
                 label="커뮤니티 신고"
-                value={data.reports}
+                value={countLabel(data.reports.loaded, data.reports.hasMore)}
                 unit="건"
                 sub="대상 처리와 신고 종결"
               />

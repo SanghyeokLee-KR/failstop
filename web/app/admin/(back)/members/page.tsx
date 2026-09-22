@@ -5,12 +5,11 @@
  * 상세를 옆에 세우는 이유는 폐쇄 판단에 미체결 주문 수가 필요해서다.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import type {
   AdminMember,
   AdminMemberDetail,
-  AdminPage,
   MemberStatus,
 } from "@/lib/admin/types";
 import Pager from "@/components/Pager";
@@ -21,7 +20,8 @@ import DataTable, { type DataColumn } from "@/components/DataTable";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
 import { PageHeader, PermissionNote } from "@/components/admin/ui";
-import { useAdminResource } from "@/components/admin/useAdminResource";
+import { useCursorPages } from "@/components/admin/useCursorPages";
+import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { useCan } from "@/lib/admin/store";
@@ -47,8 +47,6 @@ const CLOSE_ACTIONS: DestructiveAction[] = ["members.close"];
 
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
-const PAGE_SIZE = 50;
-
 export default function AdminMembersPage() {
   const canMod = useCan("MEMBER_MOD");
   const [filter, setFilter] = useState<MemberStatus | "ALL">("ALL");
@@ -56,29 +54,18 @@ export default function AdminMembersPage() {
   const [detail, setDetail] = useState<AdminMemberDetail | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [page, setPage] = useState(0);
-  const cursors = useRef<(string | null)[]>([null]);
-  const loader = useCallback(async () => {
-    const r = await getAdminApi().getMembers(filter === "ALL" ? undefined : filter, {
-      cursor: cursors.current[page] ?? null,
-      limit: PAGE_SIZE,
-    });
-    cursors.current[page + 1] = r.nextCursor;
-    return r;
-  }, [filter, page]);
-  const res = useAdminResource<AdminPage<AdminMember>>(loader, { isSessionError });
-  const rows = res.data?.data ?? [];
-
-  useEffect(() => {
-    void res.reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, page]);
-
-  const changeFilter = (next: MemberStatus | "ALL") => {
-    cursors.current = [null];
-    setPage(0);
-    setFilter(next);
-  };
+  const loader = useCallback(
+    (cursor: string | null) =>
+      getAdminApi().getMembers(filter === "ALL" ? undefined : filter, {
+        cursor,
+        limit: QUEUE_PAGE_SIZE,
+      }),
+    [filter],
+  );
+  const { page, rows, hasMore, move, res } = useCursorPages<AdminMember>(loader, {
+    key: filter,
+    isSessionError,
+  });
 
   /* 상세는 선택할 때만 읽는다. 목록 폴링에 얹으면 안 보는 회원까지 매 주기 조회한다 */
   const loadDetail = useCallback(async (externalId: string) => {
@@ -232,7 +219,7 @@ export default function AdminMembersPage() {
       {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={filter} onChange={changeFilter} ariaLabel="회원 상태 필터" />
+        <SegmentedTab items={TABS} value={filter} onChange={setFilter} ariaLabel="회원 상태 필터" />
       </div>
 
       <PanelCard title="회원 목록">
@@ -250,8 +237,8 @@ export default function AdminMembersPage() {
         )}
         <Pager
           page={page}
-          hasMore={res.data?.hasMore ?? false}
-          onMove={setPage}
+          hasMore={hasMore}
+          onMove={move}
           ariaLabel="회원 목록 쪽 이동"
           busy={busy}
         />
