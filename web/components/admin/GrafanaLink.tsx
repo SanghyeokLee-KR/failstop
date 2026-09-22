@@ -7,37 +7,16 @@
  * 그리면 같은 것을 두 번 수집하고, 그린 쪽은 반드시 Grafana보다 못하다. 그래서 값이 왜
  * 그렇게 됐는지 묻는 자리마다 링크를 두고 판단은 그쪽에서 이어 간다.
  *
- * uid를 문자열로 받지 않고 목록으로 좁힌 이유. 오타가 나면 링크가 죽는데 죽은 링크는
- * 눌러 보기 전에는 보이지 않는다. 로컬 프로비저닝에 실재하는 것만 열거한다.
- * 07 디스크·용량(msp-storage)은 학교 배포본에만 있고 로컬에는 없어 여기 없다.
+ * uid 목록은 lib/admin/boards.ts 가 소유한다. 링크를 그리지 않는 자리(시연 대본)도
+ * 보드 이름을 쓰므로 데이터를 컴포넌트에서 꺼냈다.
  */
 
 import type { ReactNode } from "react";
+import { BOARD_TITLE, type GrafanaBoard } from "@/lib/admin/boards";
 import styles from "./admin.module.css";
 
-/** harness/grafana/dashboards 프로비저닝에 실재하는 uid */
-export type GrafanaBoard =
-  | "msp-overview"
-  | "msp-service"
-  | "msp-infra"
-  | "msp-db"
-  | "msp-db-workload"
-  | "msp-db-replication"
-  | "proof-integrity"
-  | "proof-recovery"
-  | "proof-load-slo";
-
-const BOARD_TITLE: Record<GrafanaBoard, string> = {
-  "msp-overview": "01 서비스 관제",
-  "msp-service": "02 트래픽·Spring",
-  "msp-infra": "03 AWS·서버",
-  "msp-db": "04 DB 관제",
-  "msp-db-workload": "05 SQL·세션",
-  "msp-db-replication": "06 복제·복구",
-  "proof-integrity": "① 체결 무결성 증명",
-  "proof-recovery": "② 자동 복구 증명",
-  "proof-load-slo": "③ 부하·SLO",
-};
+/* 보드 목록은 lib/admin/boards.ts 로 옮겼다. 여기서 다시 선언하지 않는다 */
+export type { GrafanaBoard };
 
 /**
  * 관측 스택 주소. 배포마다 다르므로 빌드 타임에 주입한다.

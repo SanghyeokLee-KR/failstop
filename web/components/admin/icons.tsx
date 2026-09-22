@@ -16,7 +16,8 @@ export type AdminIconName =
   | "community"
   | "members"
   | "operators"
-  | "audit";
+  | "audit"
+  | "drill";
 
 const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   // 게이지: 눈금 원 + 바늘
@@ -92,6 +93,18 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
       <circle cx="5.75" cy="8" r="1.6" />
       <path d="M9 6.75 H11.75" />
       <path d="M9 9.25 H11.75" />
+    </>
+  ),
+  // 단계 기둥: 세로선 위 세 마디
+  drill: (
+    <>
+      <path d="M4.25 2.75 V13.25" />
+      <circle cx="4.25" cy="4.5" r="1.25" />
+      <circle cx="4.25" cy="8" r="1.25" />
+      <circle cx="4.25" cy="11.5" r="1.25" />
+      <path d="M7.5 4.5 H12.25" />
+      <path d="M7.5 8 H12.25" />
+      <path d="M7.5 11.5 H10" />
     </>
   ),
   // 줄 눈금 문서

@@ -54,9 +54,9 @@ const SCREENS = [
   "/order/KRW-BTC", "/coin/KRW-BTC", "/community/KRW-BTC",
   "/assets", "/transfers", "/history", "/notices", "/support", "/mypage", "/system",
   "/auth/login", "/auth/signup",
-  "/admin", "/admin/audit", "/admin/back", "/admin/bots", "/admin/capacity", "/admin/community",
-  "/admin/config", "/admin/members", "/admin/operators",
-  "/admin/transfers", "/admin/support",
+  "/admin", "/admin/audit", "/admin/back", "/admin/bots", "/admin/capacity",
+  "/admin/community", "/admin/config", "/admin/drill", "/admin/members",
+  "/admin/operators", "/admin/transfers", "/admin/support",
 ];
 
 /* ---------- 페이지 안에서 도는 프로브 ---------- */

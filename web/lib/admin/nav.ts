@@ -38,6 +38,10 @@ export const OPS_NAV: AdminNavGroup[] = [
       { href: "/admin/bots", label: "봇 플릿", icon: "bots" },
     ],
   },
+  {
+    label: "시연",
+    items: [{ href: "/admin/drill", label: "상황별 대본", icon: "drill" }],
+  },
 ];
 
 /** 백오피스. 제품 운영이라 실험 대상이 아니다 */

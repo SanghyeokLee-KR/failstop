@@ -223,6 +223,11 @@
 :root{
   --font-sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,
               system-ui,'Apple SD Gothic Neo','Segoe UI',Roboto,sans-serif;
+  /* 사람이 그대로 옮겨 칠 문자열에만 쓴다(관리 평면의 호스트 명령). 본문·수치는 sans다.
+     이 한 자리에 고정폭이 필요한 이유는 장식이 아니다. l 과 1, O 와 0 을 가르지 못하면
+     운영자가 명령을 잘못 친다. 웹폰트를 더 싣지 않고 OS 기본 고정폭을 빌린다 */
+  --font-mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,
+              'Liberation Mono',monospace;
   --fw-light:300; --fw-regular:400; --fw-medium:500; --fw-semibold:600; --fw-bold:700;
   --font-feature-num:"tnum" 1,"lnum" 1;
 

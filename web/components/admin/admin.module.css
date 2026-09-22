@@ -2264,3 +2264,292 @@
 .opsRow[data-cols="control"] {
   grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
 }
+
+/* ===== 시연 화면 =====
+   대본 레일이 위, 단계 기둥이 아래다. 레일은 고르는 자리라 가볍게 두고
+   단계는 읽는 자리라 무게를 준다. 단계를 카드 격자로 놓지 않는 이유는 순서가
+   있는 것이기 때문이다. 왼쪽 번호 기둥이 순서를 말한다. */
+.drillRail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.drillTab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 88px;
+  padding: var(--space-3);
+  text-align: left;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+  cursor: pointer;
+}
+.drillTab:hover {
+  background: var(--surface-control-hover);
+}
+/* 선택은 왼쪽 띠로 낸다. 배경을 물들이면 그 위 본문 대비가 상태마다 달라진다 */
+.drillTab[data-active] {
+  box-shadow: inset 3px 0 0 var(--text-strong);
+  background: var(--surface-control);
+}
+.drillTabTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.drillTabLead {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.drillTabMeta {
+  margin-top: auto;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+/* 증명하려는 것과 주행 조작을 한 줄에 마주 세운다. 왼쪽은 읽는 것, 오른쪽은 누르는 것 */
+.drillLead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--surface-seam);
+  margin-bottom: var(--space-3);
+}
+.drillRunBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+.drillProgress {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.drillProgressNote {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+
+.drillClaim {
+  margin: 0;
+  max-width: 68ch;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-default);
+}
+/* 사전 조건은 단계가 아니다. 번호 기둥 밖에 눕혀 둔다 */
+.drillPrep {
+  display: flex;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--panel-radius);
+  background: var(--surface-sunken);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.drillPrepLabel {
+  flex: none;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.drillPrep ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.drillPrep li + li {
+  margin-top: var(--space-1);
+}
+.drillNote {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+
+/* 단계 기둥. 헤어라인으로만 나누고 카드 테두리를 두르지 않는다(정숙 계기) */
+.drillSteps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.drillStep {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--surface-seam);
+}
+.drillStep:first-child {
+  border-top: 0;
+}
+/* 지금 볼 단계만 한 단 들어 올린다. 나머지는 눕혀 둔다 */
+.drillStep[data-current] {
+  box-shadow: inset 2px 0 0 var(--text-strong);
+  padding-left: var(--space-3);
+}
+/* 판정하지 않는 줄은 한 단 물린다. 읽을 수는 있고 주장하지는 않는다는 신호다 */
+.drillStep[data-state="NO_SOURCE"],
+.drillStep[data-state="BLOCKED"] {
+  opacity: 0.72;
+}
+.drillStep[data-state="BLOCKED"] .drillValue {
+  color: var(--text-secondary);
+}
+.drillIndex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  font-size: var(--font-micro-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.drillStep[data-state="MET"] .drillIndex {
+  color: var(--color-success-text);
+}
+.drillStep[data-current] .drillIndex {
+  background: var(--surface-control);
+  color: var(--text-strong);
+}
+.drillBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.drillHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.drillTitle {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+/* 판독값과 상태어를 오른쪽에 모은다. 줄마다 같은 자리라 값끼리 한 열로 읽힌다 */
+.drillMeasure {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex: none;
+  text-align: right;
+}
+.drillValue {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-strong);
+}
+.drillState {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 56px;
+  justify-content: flex-end;
+  white-space: nowrap;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.drillState[data-tone="success"] {
+  color: var(--color-success-text);
+}
+.drillState[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.drillDetail {
+  margin: 0;
+  max-width: 88ch;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+/* 기록은 지금 값이 아니라 이번 주행의 흔적이라 한 단 낮춘다 */
+.drillStamp {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+.drillActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+/* 호스트 명령. 버튼처럼 보이지 않게 둔다. 누르면 복사만 되고 실행되지 않는다 */
+.drillCommand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--panel-radius);
+  background: var(--surface-sunken);
+  cursor: pointer;
+}
+.drillCommand:hover {
+  background: var(--surface-control);
+}
+.drillCommand code {
+  font-family: var(--font-mono);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-default);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.drillCopy {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1080px) {
+  .drillRail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .drillLead {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  /* 좁은 폭에서는 판독을 제목 아래로 내린다. 한 줄에 넣으면 제목이 두 글자씩 끊긴다 */
+  .drillHead {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+  .drillMeasure {
+    text-align: left;
+  }
+  .drillState {
+    min-width: 0;
+  }
+}
