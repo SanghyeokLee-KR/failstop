@@ -33,6 +33,10 @@ services:
       - "-c"
       - "max_connections=200"
     ports: ["55432:5432"]
+    # 기본 64MiB 는 병렬 질의 워커의 공유 메모리에 모자란다. 데이터가 쌓인 뒤 하네스 불변식
+    # 배치가 "could not resize shared memory segment ... No space left on device" 로 터졌다
+    # (2026-09-23, trades 13만 행). 그 실패는 E4 의 사전 권위 run 을 막아 실험 자체를 세운다.
+    shm_size: 256m
     volumes: ["chaos-pgdata:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${CHAOS_PG_USER:-exchange} -d ${CHAOS_PG_DB:-exchange}"]
