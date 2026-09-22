@@ -941,26 +941,11 @@
   font-size: var(--font-caption-size);
   color: var(--text-secondary);
 }
-.rateField {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-caption-size);
-  color: var(--text-secondary);
-}
-.rateField input[type="range"],
+
 .throttle input[type="range"] {
-  width: 200px;
+  width: 100%;
 }
-.rateField b {
-  color: var(--text-strong);
-}
-/* 드래프트와 적용값 차이 고지. 슬라이더 편집이 아직 반영 전임을 무채 캡션으로 알린다 */
-.rateApplied {
-  font-size: var(--font-micro-size);
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
+
 .paramCell {
   font-size: var(--font-caption-size);
   color: var(--text-secondary);
@@ -975,7 +960,6 @@
    biasTrack과 동일한 rule-tick 눈금으로 캘리퍼처럼 읽게 한다. 히트 44px. */
 .field input[type="range"],
 .scaleRow input[type="range"],
-.rateField input[type="range"],
 .throttle input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -988,7 +972,6 @@
 }
 .field input[type="range"]::-webkit-slider-runnable-track,
 .scaleRow input[type="range"]::-webkit-slider-runnable-track,
-.rateField input[type="range"],
 .throttle input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: var(--radius-full);
@@ -998,7 +981,6 @@
 }
 .field input[type="range"]::-moz-range-track,
 .scaleRow input[type="range"]::-moz-range-track,
-.rateField input[type="range"],
 .throttle input[type="range"]::-moz-range-track {
   height: 6px;
   border-radius: var(--radius-full);
@@ -1008,7 +990,6 @@
 }
 .field input[type="range"]::-webkit-slider-thumb,
 .scaleRow input[type="range"]::-webkit-slider-thumb,
-.rateField input[type="range"],
 .throttle input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -1022,7 +1003,6 @@
 }
 .field input[type="range"]::-moz-range-thumb,
 .scaleRow input[type="range"]::-moz-range-thumb,
-.rateField input[type="range"],
 .throttle input[type="range"]::-moz-range-thumb {
   width: 16px;
   height: 16px;
@@ -2257,9 +2237,6 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
-.throttle > input[type="range"] {
-  width: 100%;
-}
 .throttleFoot {
   display: flex;
   align-items: center;
@@ -2282,4 +2259,8 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: var(--space-4);
   align-items: stretch;
+}
+/* 봇 화면은 좌우 무게가 반대다. 수명주기와 레버가 넓고 프리셋이 좁다 */
+.opsRow[data-cols="control"] {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
 }

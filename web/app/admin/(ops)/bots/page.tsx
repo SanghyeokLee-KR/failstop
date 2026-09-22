@@ -22,6 +22,7 @@ import LivelinessSection from "@/components/admin/LivelinessSection";
 import ScenarioSection from "@/components/admin/ScenarioSection";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
+import OpsThrottle from "@/components/admin/OpsThrottle";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
 import type { Health } from "@/components/admin/ui";
@@ -69,20 +70,10 @@ export default function BotsPage() {
   const [ttl, setTtl] = useState("1500");
 
   // 전역 OPS는 로컬 드래프트 + 적용(§3). 슬라이더 드래그마다 커밋하던 즉시 폭주를 없앤다
-  const [rateDraft, setRateDraft] = useState(0);
-  const rateSeeded = useRef(false);
 
   const res = useAdminResource<SimStatus>(() => getAdminApi().getSimStatus(), { cadence: "idle", isSessionError });
   const sim = res.data;
   const load = res.reload;
-
-  useEffect(() => {
-    // 미보고면 씨앗을 심지 않는다. 0을 심으면 슬라이더가 정지값으로 서고 적용 시 그 값이 나간다
-    if (sim && sim.rate != null && !rateSeeded.current) {
-      setRateDraft(sim.rate);
-      rateSeeded.current = true;
-    }
-  }, [sim]);
 
   const run = async <T,>(
     fn: () => Promise<T>,
@@ -103,15 +94,6 @@ export default function BotsPage() {
 
   const api = getAdminApi();
 
-  // 큐 경로는 성공이지만 완료는 아니다. 프리셋과 같은 어휘를 쓴다. 즉시 완료로 단정하면
-  // 봇 JVM이 죽어 명령이 PENDING으로 남은 상태에서도 화면이 반영을 주장한다.
-  const applyRate = async () => {
-    const target = rateDraft;
-    await run(() => api.simSetRate(target), `OPS 목표를 ${target}로 바꿨습니다`, (r) =>
-      r.applyPath === "queued"
-        ? `OPS 목표 ${target}를 봇 노드에 전달했습니다. 반영까지 최대 1초 걸립니다`
-        : null);
-  };
   const paramActions = useMemo(() => PARAM_ACTIONS, []);
 
   // 분기는 미반영 어댑터 대비다. 반영 실패는 어댑터가 에러로 던져 아래 run()의 에러 토스트를 탄다
@@ -298,6 +280,10 @@ export default function BotsPage() {
         </div>
       )}
 
+      {/* 2층 조작대. 수명주기와 부하 레버(좌)를 국면 프리셋(우)과 나란히 둔다.
+          세로로 쌓으면 슬라이더가 화면 폭을 가로질러 라벨과 값이 멀어지고,
+          장면 전환과 미세 조정이 스크롤로 갈라진다 */}
+      <div className={styles.opsRow} data-cols="control">
       <PanelCard title="플릿 제어">
         {!canOps && <PermissionNote>봇 제어 권한(BOT_OPS 이상) 없음. 조회만 가능</PermissionNote>}
         <div className={styles.controlRow}>
@@ -313,35 +299,12 @@ export default function BotsPage() {
           <button type="button" className={styles.dangerBtn} disabled={!canOps} onClick={() => setStopOpen(true)}>
             정지
           </button>
-          {sim && (
-            <div className={styles.rateField}>
-              <span>전역 OPS</span>
-              <input
-                type="range"
-                // 서버 parsePositive가 0을 400으로 반려한다(sim도 동일 정렬). 정지는 전용 버튼 소관
-                min={1}
-                max={OPS_MAX}
-                step={1}
-                value={rateDraft}
-                disabled={!canOps}
-                aria-label="전역 OPS 목표"
-                onChange={(e) => setRateDraft(Number(e.target.value))}
-              />
-              <b className="num">{formatCount(rateDraft)}</b>
-              {sim.rate != null && rateDraft !== sim.rate && (
-                <span className={styles.rateApplied}>적용값 {formatCount(sim.rate)}</span>
-              )}
-              <button
-                type="button"
-                className={styles.primaryBtn}
-                disabled={!canOps || rateDraft === sim.rate}
-                onClick={() => void applyRate()}
-              >
-                적용
-              </button>
-            </div>
-          )}
         </div>
+        {/* 용량 화면과 같은 컴포넌트다. 부하 레버가 두 곳에 필요하되 구현은 하나여야
+            두 화면이 다른 값을 말하지 않는다 */}
+        {sim && (
+          <OpsThrottle rate={sim.rate} currentOps={sim.currentOps} canOps={canOps} onApplied={load} />
+        )}
         {stopOpen && (
           <ConfirmDialog
             title="봇 플릿 정지"
@@ -362,6 +325,7 @@ export default function BotsPage() {
       {/* 국면은 OPS·대수·방향을 한 번에 얹는 상위 제어라 개별 튜닝(생동감)보다 위에 둔다.
           당직자의 순서가 장면 전환 다음 미세 조정이다 */}
       <ScenarioSection canOps={canOps} onChanged={load} />
+      </div>
 
       {/* 조회 빈도 순서: 목록이 튜닝·생성보다 위. 당직자는 봇이 뭘 하는지부터 본다 */}
       <PanelCard title="플릿 인벤토리" actions={<span className={styles.panelMeta}>마켓 x 유형</span>}>
