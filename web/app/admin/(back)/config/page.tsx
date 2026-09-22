@@ -25,7 +25,8 @@ import DataTable, { type DataColumn } from "@/components/DataTable";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { HealthPill, PageHeader, PermissionNote } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
 import { mulDecimal } from "@/lib/decimal";
@@ -80,7 +81,7 @@ export default function ConfigPage() {
       return { markets, notices: noticePageData };
     },
     // GET 2건 합성 + 승인 목록 폴링 동거 화면. 2초 주기는 관리 레이트리밋(60건/분) 초과라 5초로 완화
-    { intervalMs: 5000, isSessionError },
+    { isSessionError },
   );
   const markets: ConfigMarket[] | null = res.data?.markets ?? null;
   const notices: Notice[] | null = res.data?.notices.data ?? null;
@@ -216,7 +217,7 @@ export default function ConfigPage() {
       <PageHeader
         title="마켓·공지"
         desc="중지·재개·수수료 변경은 1인 승인"
-        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
+        actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       <PanelCard title="마켓 상태·수수료">

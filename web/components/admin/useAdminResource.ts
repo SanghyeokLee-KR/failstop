@@ -36,15 +36,32 @@ export interface AdminResource<T> {
   reload: () => void;
 }
 
+/**
+ * 갱신 리듬. 화면이 밀리초를 직접 적지 않는다.
+ *
+ * 종전에는 화면마다 intervalMs를 손으로 박았고 그 값이 신선도가 아니라 레이트리밋 예산으로
+ * 정해져 있었다. 주석에 "10초면 관리 레이트리밋에 정확히 닿아 상호작용 여유가 0이 된다"고
+ * 적고 15초로 물러난 자리가 그 증거다. 예산이 화면마다 흩어져 있으면 한 화면을 고칠 때
+ * 다른 화면의 여유를 알 수 없다.
+ *
+ * manual 화면은 값이 언제 것인지가 반드시 보여야 하므로 최종 실측 시각과 새로고침을
+ * 머리에 상설한다(ResourceStamp).
+ */
+export type Cadence = "manual" | "idle" | "live";
+
+/** live는 시연 구간용이다. 평시에 쓰면 종전 문제로 돌아간다 */
+const CADENCE_MS: Record<Cadence, number | null> = { manual: null, idle: 30000, live: 3000 };
+
 interface Options {
-  /** 폴링 주기(ms). 생략하면 1회 로드만 한다 */
-  intervalMs?: number;
+  /** 갱신 리듬. 생략하면 manual이고 진입 1회 + 새로고침만 한다 */
+  cadence?: Cadence;
   /** 세션 만료 판별. 어댑터 에러 형태를 화면이 주입한다 */
   isSessionError?: (e: unknown) => boolean;
 }
 
 export function useAdminResource<T>(loader: () => Promise<T>, options: Options = {}): AdminResource<T> {
-  const { intervalMs, isSessionError } = options;
+  const { cadence = "manual", isSessionError } = options;
+  const intervalMs = CADENCE_MS[cadence];
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState(false);
   const [errorReason, setErrorReason] = useState<ErrorReason>("server");

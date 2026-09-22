@@ -56,7 +56,7 @@ export const BACK_NAV: AdminNavGroup[] = [
     label: "구성·거버넌스",
     items: [
       { href: "/admin/config", label: "마켓·공지", icon: "config" },
-      { href: "/admin/operators", label: "운영자", icon: "operators" },
+      { href: "/admin/operators", label: "운영자·역할", icon: "operators" },
       { href: "/admin/audit", label: "감사 로그", icon: "audit" },
     ],
   },

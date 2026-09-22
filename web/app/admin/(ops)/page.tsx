@@ -19,7 +19,8 @@ import ApprovalList from "@/components/admin/ApprovalList";
 import HealthHero from "@/components/admin/HealthHero";
 import { PageHeader, StatTile } from "@/components/admin/ui";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { formatKRW } from "@/lib/format";
 import styles from "@/components/admin/admin.module.css";
 
@@ -27,17 +28,17 @@ const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jw
 
 export default function AdminOverviewPage() {
   const load = useCallback(() => getAdminApi().getOverview(), []);
-  // getOverview가 6건을 합성한다. 10초 주기는 승인 목록 폴링과 합쳐 관리 레이트리밋
-  // (60건/60초)에 닿아 상호작용 여유가 0이 된다. 15초로 완화한다
+  // getOverview가 6건을 합성한다. 이 화면은 "지금 손댈 것이 있나"에 답하는 자리라
+  // 초 단위 신선도가 필요 없다. idle 리듬으로 두고 조작 직후와 새로고침에 즉시 갱신한다
   const { data, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, {
-    intervalMs: 15000,
+    cadence: "idle",
     isSessionError,
   });
   const ov = data;
 
   return (
     <div className={styles.page}>
-      <PageHeader title="종합 관제" actions={stale ? <StaleBadge since={lastUpdatedAt} /> : undefined} />
+      <PageHeader title="종합 관제" actions={<ResourceStamp lastUpdatedAt={lastUpdatedAt} stale={stale} onReload={reload} />} />
 
       {loading ? (
         <div className={styles.pageStack}>

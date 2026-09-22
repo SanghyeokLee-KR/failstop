@@ -22,7 +22,8 @@ import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
 import { PageHeader, PermissionNote } from "@/components/admin/ui";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { useCan } from "@/lib/admin/store";
 import { toast } from "@/components/Toast";
 import { formatCount, formatHistoryTime } from "@/lib/format";
@@ -65,7 +66,7 @@ export default function AdminMembersPage() {
     cursors.current[page + 1] = r.nextCursor;
     return r;
   }, [filter, page]);
-  const res = useAdminResource<AdminPage<AdminMember>>(loader, { intervalMs: 30000, isSessionError });
+  const res = useAdminResource<AdminPage<AdminMember>>(loader, { isSessionError });
   const rows = res.data?.data ?? [];
 
   useEffect(() => {
@@ -225,7 +226,7 @@ export default function AdminMembersPage() {
       <PageHeader
         title="회원 운영"
         desc="정지·복구는 즉시 반영, 폐쇄는 비가역이라 1인 승인"
-        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
+        actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}

@@ -2121,3 +2121,39 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ===== 최종 실측 도장(전 관리 화면 머리) =====
+   manual 갱신 화면이 값의 나이를 말하는 자리. 시각은 판독이고 버튼은 조작이라
+   같은 줄에 두되 무게를 가른다 */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.stampTime {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.stampBtn {
+  position: relative;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius);
+  background: var(--surface-control);
+  color: var(--text-default);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  cursor: pointer;
+}
+.stampBtn:hover {
+  background: var(--surface-control-hover);
+}
+/* 시각 높이 32에 히트 44를 투명 확장으로 얹는다(§10-2) */
+.stampBtn::after {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
+}

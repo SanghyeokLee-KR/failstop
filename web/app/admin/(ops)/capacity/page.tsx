@@ -23,7 +23,8 @@ import Skeleton from "@/components/Skeleton";
 import { HealthPill, PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { useCan } from "@/lib/admin/store";
 import { toast } from "@/components/Toast";
 import styles from "@/components/admin/admin.module.css";
@@ -40,7 +41,7 @@ type RateSample = { at: number; total: number };
 export default function CapacityPage() {
   const api = getAdminApi();
   const load = useCallback(() => api.getCapacity(), [api]);
-  const res = useAdminResource<CapacityState>(load, { intervalMs: 5000, isSessionError });
+  const res = useAdminResource<CapacityState>(load, { isSessionError });
   const canScale = useCan("SUPER");
   const [pending, setPending] = useState<"SCALE_OUT" | "SCALE_IN" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -90,9 +91,9 @@ export default function CapacityPage() {
   return (
     <>
       <PageHeader
-        title="용량"
+        title="용량·부하"
         desc="조회를 받는 서버 증설과 축소. 주문을 처리하는 서버는 한 대 고정"
-        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
+        actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       {/* 권고. 표시이고 자동 조치가 아니다. 조치 버튼이 붙는 것만 사람이 누른다 */}

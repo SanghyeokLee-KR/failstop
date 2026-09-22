@@ -21,7 +21,8 @@ import ApprovalList from "@/components/admin/ApprovalList";
 import LivelinessSection from "@/components/admin/LivelinessSection";
 import ScenarioSection from "@/components/admin/ScenarioSection";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
 import type { Health } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
@@ -71,7 +72,7 @@ export default function BotsPage() {
   const [rateDraft, setRateDraft] = useState(0);
   const rateSeeded = useRef(false);
 
-  const res = useAdminResource<SimStatus>(() => getAdminApi().getSimStatus(), { intervalMs: 2000, isSessionError });
+  const res = useAdminResource<SimStatus>(() => getAdminApi().getSimStatus(), { cadence: "idle", isSessionError });
   const sim = res.data;
   const load = res.reload;
 
@@ -221,7 +222,7 @@ export default function BotsPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="봇 플릿" actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined} />
+      <PageHeader title="봇 플릿" actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />} />
 
       {res.error ? (
         <AdminErrorState reason={res.errorReason} onRetry={res.reload} />

@@ -22,7 +22,8 @@ import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import { PageHeader, StatTile } from "@/components/admin/ui";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { AdminIcon, type AdminIconName } from "@/components/admin/icons";
 import styles from "@/components/admin/admin.module.css";
 
@@ -63,7 +64,7 @@ export default function BackOfficeHome() {
       <PageHeader
         title="처리 대기"
         desc="고객 응대 큐의 대기 건수"
-        actions={stale ? <StaleBadge since={lastUpdatedAt} /> : undefined}
+        actions={<ResourceStamp lastUpdatedAt={lastUpdatedAt} stale={stale} onReload={reload} />}
       />
 
       {loading ? (

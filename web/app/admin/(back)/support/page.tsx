@@ -14,7 +14,8 @@ import Skeleton from "@/components/Skeleton";
 import SegmentedTab from "@/components/SegmentedTab";
 import { PageHeader } from "@/components/admin/ui";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { toast } from "@/components/Toast";
 import { formatTimeHMS } from "@/lib/format";
 import styles from "@/components/admin/admin.module.css";
@@ -57,7 +58,7 @@ export default function AdminSupportPage() {
     cursors.current[page + 1] = r.nextCursor;
     return r;
   }, [status, page]);
-  const res = useAdminResource<AdminPage<AdminInquiry>>(loader, { intervalMs: 20000, isSessionError });
+  const res = useAdminResource<AdminPage<AdminInquiry>>(loader, { isSessionError });
   const rows = res.data?.data ?? [];
   const hasMore = res.data?.hasMore ?? false;
   /* 상태와 쪽을 한 효과로 묶는다. 둘로 나누면 쪽이 이미 0일 때 상태만 바뀌는 경우
@@ -101,7 +102,7 @@ export default function AdminSupportPage() {
       <PageHeader
         title="문의 답변"
         desc="회원 문의. 답변은 사용자 문의 화면에 그대로 표시된다"
-        actions={res.stale ? <StaleBadge /> : undefined}
+        actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       <div className={styles.transferTabs}>

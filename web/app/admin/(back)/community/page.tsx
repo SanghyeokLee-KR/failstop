@@ -23,7 +23,8 @@ import SegmentedTab from "@/components/SegmentedTab";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { PageHeader, PermissionNote } from "@/components/admin/ui";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { useCan } from "@/lib/admin/store";
 import { toast } from "@/components/Toast";
 import { formatTimeHMS } from "@/lib/format";
@@ -99,7 +100,7 @@ export default function AdminCommunityPage() {
     cursors.current[page + 1] = r.nextCursor;
     return r;
   }, [status, page]);
-  const res = useAdminResource<AdminPage<CommunityReport>>(loader, { intervalMs: 20000, isSessionError });
+  const res = useAdminResource<AdminPage<CommunityReport>>(loader, { isSessionError });
   const rows = res.data?.data ?? [];
   const hasMore = res.data?.hasMore ?? false;
 
@@ -157,7 +158,7 @@ export default function AdminCommunityPage() {
       <PageHeader
         title="커뮤니티 신고"
         desc="회원 신고 큐. 대상 처리와 신고 종결을 함께 남긴다"
-        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
+        actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}

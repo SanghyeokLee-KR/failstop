@@ -17,7 +17,8 @@ import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
 import RoleBadge from "@/components/admin/RoleBadge";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { HealthPill, PageHeader, PermissionNote } from "@/components/admin/ui";
 import styles from "@/components/admin/admin.module.css";
 
@@ -35,7 +36,7 @@ export default function OperatorsPage() {
   const [newName, setNewName] = useState("");
   const actions = useMemo(() => OP_ACTIONS, []);
 
-  const res = useAdminResource<AdminOperator[]>(() => getAdminApi().getOperators(), { intervalMs: 3000, isSessionError });
+  const res = useAdminResource<AdminOperator[]>(() => getAdminApi().getOperators(), { isSessionError });
   const ops = res.data;
   const load = res.reload;
 
@@ -56,7 +57,7 @@ export default function OperatorsPage() {
       <PageHeader
         title="운영자·역할"
         desc="생성·상태·역할 변경은 1인 승인"
-        actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
+        actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       <PanelCard title="운영자">

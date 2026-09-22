@@ -15,7 +15,8 @@ import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import { PageHeader } from "@/components/admin/ui";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { formatKRW, formatTimeHMS } from "@/lib/format";
 import styles from "@/components/admin/admin.module.css";
 
@@ -153,7 +154,7 @@ export default function AuditPage() {
   }, [page]);
   // 감사는 append-only라 3초 폴링이면 단조 증가 테이블을 계속 재수신한다.
   // 판독 용도에 15초면 충분하고 레이트리밋 예산도 아낀다
-  const { data: pageData, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { intervalMs: 15000, isSessionError });
+  const { data: pageData, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, { isSessionError });
   const rows = pageData?.data ?? null;
   const hasMore = pageData?.hasMore ?? false;
 
@@ -207,7 +208,7 @@ export default function AuditPage() {
       <PageHeader
         title="감사 로그"
         desc="수정·삭제 불가 기록"
-        actions={stale ? <StaleBadge since={lastUpdatedAt} /> : undefined}
+        actions={<ResourceStamp lastUpdatedAt={lastUpdatedAt} stale={stale} onReload={reload} />}
       />
       <PanelCard title="관리 액션 감사">
         {loading ? (

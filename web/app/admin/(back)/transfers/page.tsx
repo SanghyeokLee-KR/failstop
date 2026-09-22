@@ -16,7 +16,8 @@ import SegmentedTab from "@/components/SegmentedTab";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { PageHeader } from "@/components/admin/ui";
 import { useAdminResource } from "@/components/admin/useAdminResource";
-import { AdminErrorState, StaleBadge } from "@/components/admin/ResourceState";
+import { AdminErrorState } from "@/components/admin/ResourceState";
+import ResourceStamp from "@/components/admin/ResourceStamp";
 import { toast } from "@/components/Toast";
 import { formatKRW, formatTimeHMS } from "@/lib/format";
 import styles from "@/components/admin/admin.module.css";
@@ -53,7 +54,7 @@ export default function AdminTransfersPage() {
     cursors.current[page + 1] = r.nextCursor;
     return r;
   }, [status, page]);
-  const res = useAdminResource<AdminPage<AdminTransfer>>(loader, { intervalMs: 15000, isSessionError });
+  const res = useAdminResource<AdminPage<AdminTransfer>>(loader, { isSessionError });
   const rows = res.data?.data ?? [];
   const hasMore = res.data?.hasMore ?? false;
   /* 상태와 쪽을 한 효과로 묶는다. 둘로 나누면 쪽이 이미 0일 때 상태만 바뀌는 경우
@@ -182,7 +183,7 @@ export default function AdminTransfersPage() {
       <PageHeader
         title="출금 승인"
         desc="회원 원화 출금 요청. 승인하면 잠긴 금액이 빠져나가고 되돌릴 수 없다"
-        actions={res.stale ? <StaleBadge /> : undefined}
+        actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
       {/* 상태 3종은 배타 선택이라 세그먼트가 맞다. 새 칩 어휘를 만들지 않는다 */}
