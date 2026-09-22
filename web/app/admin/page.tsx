@@ -89,15 +89,6 @@ export default function AdminOverviewPage() {
                     sub={ov.currentOps == null ? "상태 미보고" : `초당 ${formatKRW(ov.currentOps)}건 처리`}
                   />
                 </Link>
-                <Link href="/admin/chaos" className={styles.railLink}>
-                  <StatTile
-                    compact
-                    label="진행 카오스"
-                    value={ov.chaosRunning}
-                    tone={ov.chaosRunning > 0 ? "warning" : undefined}
-                    alarm={ov.chaosRunning > 0}
-                  />
-                </Link>
                 <Link href="/admin/config" className={styles.railLink}>
                   <StatTile
                     compact
@@ -136,7 +127,7 @@ export default function AdminOverviewPage() {
               <ApprovalList
                 onChange={reload}
                 emptyLabel="대기 중이거나 실행 가능한 승인 없음"
-                emptyDesc="카오스·마켓·운영자 화면에서 파괴 액션을 요청하면 여기에 적재"
+                emptyDesc="마켓·운영자·회원 화면에서 파괴 액션을 요청하면 여기에 적재"
               />
             </PanelCard>
           </div>

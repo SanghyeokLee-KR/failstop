@@ -10,7 +10,7 @@ import type { AdminApi } from "./api";
 import { AdminError } from "./api";
 import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles";
 import { feeRateError } from "./fees";
-import { CHAOS_CATALOG, INVARIANT_DEFS, scenarioDef } from "./catalog";
+import { INVARIANT_DEFS, scenarioDef } from "./catalog";
 import type {
   AdminPage,
   PageOpts,
@@ -26,8 +26,6 @@ import type {
   CapacityAdvice,
   CapacityNode,
   CapacityState,
-  ChaosExperimentDef,
-  ChaosRun,
   ConfigMarket,
   CreateBotResult,
   DemoClientCert,
@@ -172,7 +170,6 @@ export class SimAdminApi implements AdminApi {
 
   // 발급형 원장. token·payload는 내부 보관하고 listApprovals 프로젝션에서 제외한다(§6-B)
   private approvals: IssuedApproval[] = [];
-  private chaosRuns: ChaosRun[] = [];
   private notices: Notice[] = [
     {
       id: uid("not"),
@@ -361,15 +358,14 @@ export class SimAdminApi implements AdminApi {
   }
 
   private tick(): void {
-    // HA seq 단조 증가 + follower lag 요동. 진행 중 실험은 팔로워 lag를 밀어 올린다
-    const chaosLag = this.chaosActive() ? Math.round(rand(60, 160)) : 0;
+    // HA seq 단조 증가 + follower lag 요동
     for (const n of this.nodes) {
       if (n.role === "leader" && n.health !== "down") n.seq += Math.round(rand(3, 9));
       if (n.role === "follower") {
         // 중단 노드는 복제가 멎는다. seq·lag를 재추첨하면 죽은 노드가 산 노드보다 빠른 역전이 생긴다
         if (n.health === "down") continue;
         n.seq = Math.min(n.seq + Math.round(rand(3, 9)), this.leader().seq);
-        n.followerLagMs = Math.max(0, Math.round(rand(5, 40) + (n.health === "degraded" ? 120 : 0) + chaosLag));
+        n.followerLagMs = Math.max(0, Math.round(rand(5, 40) + (n.health === "degraded" ? 120 : 0)));
       }
     }
     this.tradesTotal += Math.round(rand(20, 90) * (this.simPaused ? 0 : 1));
@@ -399,40 +395,6 @@ export class SimAdminApi implements AdminApi {
     return this.nodes.find((n) => n.role === "leader") ?? this.nodes[0];
   }
 
-  private chaosActive(): boolean {
-    return this.chaosRuns.some((r) => r.state === "RUNNING");
-  }
-
-  private chaosRunningIds(): Set<string> {
-    return new Set(this.chaosRuns.filter((r) => r.state === "RUNNING").map((r) => r.experimentId));
-  }
-
-  /**
-   * 실험이 노드 헬스에 남기는 효과(§2-2 데모 결합).
-   * 주입이 화면에 보이지 않으면 카오스 콘솔이 상태 기계 없는 목록으로 전락한다.
-   */
-  private applyChaosNodeEffect(experimentId: string): void {
-    if (experimentId === "E4" || experimentId === "E6") {
-      this.leader().health = "down";
-    } else if (experimentId === "E5") {
-      const f = this.nodes.find((n) => n.role === "follower" && n.health === "healthy");
-      if (f) f.health = "degraded";
-    } else if (experimentId === "E7") {
-      this.leader().health = "degraded";
-    }
-  }
-
-  /** 해제 시 잔여 효과 회수. 같은 계열 실험이 아직 돌고 있으면 남긴다 */
-  private clearChaosNodeEffect(): void {
-    const running = this.chaosRunningIds();
-    const killActive = running.has("E4") || running.has("E6");
-    const degradeActive = running.has("E5") || running.has("E7");
-    for (const n of this.nodes) {
-      if (n.health === "down" && !killActive) n.health = "healthy";
-      if (n.health === "degraded" && !degradeActive) n.health = "healthy";
-    }
-  }
-
   private failover(): void {
     const old = this.leader();
     const next = this.nodes.find((n) => n.role === "follower" && n.health !== "down");
@@ -442,10 +404,8 @@ export class SimAdminApi implements AdminApi {
     }
     this.epoch += 1;
     old.role = "follower";
-    // E4로 죽은 노드는 해제 전까지 중단, E7(일시 정지)로 저하된 노드는 해제 전까지 저하를
-    // 유지한다. 자연 발생 degraded만 승격과 함께 회복
-    const e7Active = this.chaosRunningIds().has("E7");
-    old.health = old.health === "down" ? "down" : e7Active ? "degraded" : "healthy";
+    // 중단 노드는 승격 뒤에도 중단으로 남고, 자연 발생 degraded만 승격과 함께 회복한다
+    old.health = old.health === "down" ? "down" : "healthy";
     old.ownedMarkets = [];
     old.followerLagMs = 20;
     next.role = "leader";
@@ -656,47 +616,8 @@ export class SimAdminApi implements AdminApi {
     return Promise.resolve();
   }
 
-  executeDirect(payload: ApprovalPayload): Promise<void> {
-    // 실행 권한은 그대로 본다. 없앤 것은 "다른 사람의 승인"이지 역할 게이트가 아니다
-    const s = this.auth(ACTION_CAP[payload.action]);
-    this.applyEffect(payload, s);
-    // 승인 id 자리는 null 이다. 부재와 미승인은 다른 사실이고 여기서는 뒤쪽이 참이다
-    this.log(s, `execute:${payload.action}`, approvalConsoleTarget(payload).label, null, "OK");
-    return Promise.resolve();
-  }
-
   private applyEffect(payload: ApprovalPayload, by: AdminSession): void {
     switch (payload.action) {
-      case "chaos.inject": {
-        const def = CHAOS_CATALOG.find((d) => d.id === payload.experimentId);
-        if (!def) throw new AdminError("invalid_parameter", "알 수 없는 실험");
-        const runId = uid("chx");
-        this.chaosRuns.unshift({
-          id: runId,
-          // sim은 별도 toxic 이름이 없어 run id가 곧 해제 키다(clear 매칭도 id 기준)
-          clearKey: runId,
-          experimentId: def.id,
-          label: def.label,
-          state: "RUNNING",
-          blastRadius: def.blastRadius,
-          grafanaAnnotation: `annotation-${def.id}-${Date.now().toString(36)}`,
-          injectedBy: by.operatorId,
-          startedAt: isoNow(),
-          clearedAt: null,
-        });
-        this.chaosRuns = this.chaosRuns.slice(0, 40);
-        this.applyChaosNodeEffect(def.id);
-        break;
-      }
-      case "chaos.clear": {
-        const run = this.chaosRuns.find((r) => r.id === payload.runId);
-        if (run && run.state === "RUNNING") {
-          run.state = "CLEARED";
-          run.clearedAt = isoNow();
-          this.clearChaosNodeEffect();
-        }
-        break;
-      }
       case "sim.bots.params": {
         const bot = this.bots.find((b) => b.id === payload.botId);
         if (bot) bot.params = { ...bot.params, ...payload.params };
@@ -781,8 +702,7 @@ export class SimAdminApi implements AdminApi {
 
   private overallHealth(): "success" | "warning" | "danger" {
     if (this.nodes.some((n) => n.health === "down")) return "danger";
-    // 진행 중 실험은 지표 압력을 만들므로(getHaStatus) 종합도 최소 주의로 내린다
-    if (this.nodes.some((n) => n.health === "degraded") || this.invariants.some((i) => !i.ok) || this.chaosActive()) {
+    if (this.nodes.some((n) => n.health === "degraded") || this.invariants.some((i) => !i.ok)) {
       return "warning";
     }
     return "success";
@@ -804,7 +724,6 @@ export class SimAdminApi implements AdminApi {
       lastVerdict: aggregateVerdict(this.recovery),
       botsActive: this.bots.filter((b) => b.active).length,
       currentOps: this.currentOps(),
-      chaosRunning: this.chaosRuns.filter((r) => r.state === "RUNNING").length,
       // 발급형: ISSUED는 소각 대기분(발급=승인). 발급 전 요청은 서버 상태가 아니라 카운트하지 않는다
       pendingApprovals: this.approvals.filter((a) => a.state === "ISSUED").length,
       suspendedMarkets: this.markets.filter((m) => m.state === "HALTED").length,
@@ -908,8 +827,7 @@ export class SimAdminApi implements AdminApi {
 
   getHaStatus(): Promise<HaStatus> {
     this.auth("VIEW");
-    // 노드 이상뿐 아니라 진행 중 실험(E1 지연·E8 예외 폭풍 등)도 지표 압력으로 나타난다
-    const degraded = this.nodes.some((n) => n.health !== "healthy") || this.chaosActive();
+    const degraded = this.nodes.some((n) => n.health !== "healthy");
     return Promise.resolve({
       epoch: this.epoch,
       leaderNodeId: this.leader().id,
@@ -1220,15 +1138,6 @@ export class SimAdminApi implements AdminApi {
     this.tradeFlash = tradeFlash;
     this.log(s, "sim.effects", `trade_flash=${tradeFlash}`, null, "OK");
     return Promise.resolve(tradeFlash);
-  }
-
-  getChaosCatalog(): ChaosExperimentDef[] {
-    return CHAOS_CATALOG.slice();
-  }
-
-  getChaosRuns(opts: PageOpts = {}): Promise<AdminPage<ChaosRun>> {
-    this.auth("VIEW");
-    return Promise.resolve(simPage(this.chaosRuns, opts, (r) => r.id, (r) => ({ ...r })));
   }
 
   getConfigMarkets(): Promise<ConfigMarket[]> {

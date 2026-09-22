@@ -14,8 +14,6 @@ import type {
   ApprovalState,
   BotType,
   CapacityState,
-  ChaosExperimentDef,
-  ChaosRun,
   ConfigMarket,
   CreateBotResult,
   DemoClientCert,
@@ -89,14 +87,6 @@ export interface AdminApi {
   rejectApproval(approvalId: string): Promise<ApprovalRequest>;
   /** 요청 운영자 본인이 발급 토큰을 파괴 액션 바디에 실어 소각(실효 액션 실행) */
   consumeApproval(approval: IssuedApproval): Promise<void>;
-  /**
-   * 승인 없이 즉시 실행한다(§3-6 v2.34 카오스 승인 완화).
-   *
-   * 카오스 4종만 서버가 approval_token 을 불요로 열었다. 승인 티켓 자체를 생략하는 경로이며,
-   * 1인 승인(ADR 0019)과는 별개로 실험 주입의 회전율을 위해 완화한 것이다.
-   * 나머지 파괴 액션은 필수 열거에 그대로 남아 있어 이 경로로 부르면 서버가 반려한다.
-   */
-  executeDirect(payload: ApprovalPayload): Promise<void>;
 
   /* ===== 모니터링(§2-3, 읽기 전용) ===== */
   getOverview(): Promise<AdminOverview>;
@@ -140,11 +130,6 @@ export interface AdminApi {
    * 값이 기준선 대비 배수라 같은 프리셋을 두 번 눌러도 결과가 같고, steady가 복귀 경로다.
    */
   activateScenario(name: ScenarioName): Promise<ScenarioResult>;
-
-  /* ===== 카오스(§2-2) ===== */
-  getChaosCatalog(): ChaosExperimentDef[];
-  /** 실험 이력 한 쪽. 감사 로그에 영구 누적된다 */
-  getChaosRuns(opts?: PageOpts): Promise<AdminPage<ChaosRun>>;
 
   /* ===== 마켓 설정(§2, config) ===== */
   getConfigMarkets(): Promise<ConfigMarket[]>;

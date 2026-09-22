@@ -6,6 +6,8 @@
 export const ACTION_GLOSS: Record<string, string> = {
   "session.establish": "콘솔 접속",
   "session.revoke": "콘솔 종료",
+  // 카오스 화면은 폐기했지만 감사 로그는 append-only라 과거 행이 남는다.
+  // 용어집을 지우면 그 행들이 원문 코드로 깨지므로 읽기 전용 풀이만 보존한다.
   "chaos.inject": "카오스 주입",
   "chaos.clear": "카오스 해제",
   "sim.bots.params": "봇 파라미터 변경",

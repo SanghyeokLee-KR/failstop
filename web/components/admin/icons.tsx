@@ -10,7 +10,6 @@ export type AdminIconName =
   | "overview"
   | "monitoring"
   | "bots"
-  | "chaos"
   | "config"
   | "transfers"
   | "support"
@@ -41,16 +40,6 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
       <path d="M6.5 11.25 H9.5" />
       <path d="M4.75 6.5 V9.5" />
       <path d="M11.25 6.5 V9.5" />
-    </>
-  ),
-  // 분기: 단일 입력이 두 갈래 종점 노드로 갈라진다
-  chaos: (
-    <>
-      <path d="M2.5 8 H6" />
-      <path d="M6 8 L10.6 4.5" />
-      <path d="M6 8 L10.6 11.5" />
-      <circle cx="12.1" cy="4.5" r="1.5" />
-      <circle cx="12.1" cy="11.5" r="1.5" />
     </>
   ),
   // 슬라이더 2열: 트랙 절단부에 썸 원

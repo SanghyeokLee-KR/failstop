@@ -917,7 +917,7 @@
 .approveBtn:hover:not(:disabled) {
   background: var(--brand-primary-hover);
 }
-/* 컨트롤 면을 쓴다. sunken을 쓰면 sunken 행(chaos 주입 요청·operators 관리) 위에서
+/* 컨트롤 면을 쓴다. sunken을 쓰면 sunken 행(operators 관리 등) 위에서
    버튼 형태가 사라지고, hover가 같은 값이라 반응도 없다 */
 .primaryBtn,
 .controlBtn,
@@ -1541,7 +1541,7 @@
   gap: var(--space-2);
 }
 /* 행 배경은 bg-muted까지만. sunken(grey-100) 위 secondary 텍스트는 4.27:1로 자체 기준 미달이라
-   행 문법 전체(approval·chaos·notice·op·role)가 muted + hairline 조합을 쓴다 */
+   행 문법 전체(approval·notice·op·role)가 muted + hairline 조합을 쓴다 */
 .approvalItem {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) auto;
@@ -1605,75 +1605,13 @@
 
 /* ===== 카오스 =====
    카탈로그는 승인 목록과 같은 행 문법의 주사 존. 상세 설명은 주입 확인 다이얼로그 소관 */
-/* 진행 중·승인 대기는 짧은 패널이라 세로 적층 대신 2열로 눕혀 카탈로그를 첫 화면으로 올린다 */
+/* 짧은 패널 두 장은 세로 적층 대신 2열로 눕혀 첫 화면에 함께 올린다 */
 .pairGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
   align-items: stretch;
 }
-.chaosList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.chaosRow {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1.4fr) auto;
-  align-items: center;
-  gap: var(--space-3);
-  /* 우측 요청 버튼 히트 44px(::after)가 행 안에 온전히 들어오는 최소 높이 */
-  min-height: 52px;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--panel-radius);
-  background: var(--bg-muted);
-}
-.chaosId {
-  font-size: var(--font-caption-size);
-  font-weight: var(--fw-bold);
-  color: var(--text-secondary);
-}
-.chaosLabel {
-  font-size: var(--font-body-sm-size);
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.chaosBlast {
-  font-size: var(--font-caption-size);
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.runningList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.runningItem {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--panel-radius);
-  background: var(--bg-muted);
-}
-.runningLabel {
-  font-size: var(--font-body-sm-size);
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
-}
-.runningBlast {
-  flex: 1;
-  font-size: var(--font-caption-size);
-  color: var(--text-secondary);
-}
-
 /* ===== 공지 ===== */
 .noticeForm {
   display: flex;
@@ -2134,23 +2072,6 @@
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   color: var(--text-secondary);
-}
-
-/* 카오스 등급. 영향 대상 옆에 붙어 "얼마나 깨지나"를 글자로 말한다.
-   버튼 형태(dangerBtn)와 짝을 이뤄 색 단독 표현을 피한다 */
-.chaosSeverity {
-  margin-left: var(--space-2);
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-full);
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-}
-/* 체결이 실제로 끊기는 등급만 발화한다. 나머지는 잉크다(정상은 잉크와 같은 규율) */
-.chaosSeverity[data-severity="high"] {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
 }
 
 /* 빈 상태가 늘어난 카드 안에서 세로 중앙에 선다. stretchCard는 왼쪽 열 높이를 흡수하려고

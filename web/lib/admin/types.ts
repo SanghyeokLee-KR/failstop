@@ -66,11 +66,9 @@ export interface AdminSession {
 
 /**
  * approval_token 필수 파괴 액션(§3-6 완결 열거).
- * 콘솔 의미 액션이라 백엔드 바인딩 문자열과 별도다(wireBinding이 chaos.inject를 분해한다).
+ * 콘솔 의미 액션이라 백엔드 바인딩 문자열과 별도다.
  */
 export type DestructiveAction =
-  | "chaos.inject"
-  | "chaos.clear"
   | "sim.bots.params"
   | "config.market.halt"
   | "config.market.resume"
@@ -87,8 +85,6 @@ export type DestructiveAction =
 export type ApprovalState = "ISSUED" | "CONSUMED" | "EXPIRED" | "REJECTED";
 
 export type ApprovalPayload =
-  | { action: "chaos.inject"; experimentId: string }
-  | { action: "chaos.clear"; runId: string }
   | { action: "sim.bots.params"; botId: string; params: Record<string, string> }
   | { action: "config.market.halt"; symbol: string }
   | { action: "config.market.resume"; symbol: string }
@@ -430,48 +426,6 @@ export interface MarketSimState {
   tradeFlash: TradeFlash;
 }
 
-/* ===== 카오스 (§2-2, /admin/v1/chaos/*) ===== */
-
-export type ChaosState = "RUNNING" | "CLEARED";
-
-/** 정적 실험 카탈로그 원소(E1~E9) */
-export interface ChaosExperimentDef {
-  id: string;
-  label: string;
-  injectPath: string;
-  blastRadius: string;
-  description: string;
-  /**
-   * 폭발 반경 등급. 경로(injectPath)에서 유추하지 않는다. 같은 network 주입이라도 응답
-   * 지연(E1)과 노드 간 분할(E5)은 멈추는 범위가 다르다. 위험은 실험의 성질이다.
-   * high: 체결 경로가 멈춘다 / medium: 의존 계층이 끊긴다 / low: 지연이 낀다
-   */
-  severity: "high" | "medium" | "low";
-  /**
-   * kill-node 계열의 주입 원시연산. E7은 pause라 kill과 파괴 강도가 다르다.
-   * 콘솔이 상수로 박으면 운영자가 고른 것보다 파괴적인 연산이 나간다.
-   */
-  method?: "docker_kill" | "docker_pause";
-  /** network 계열 toxic 종류. 실험마다 다르고 상수로 접으면 화면 라벨과 실제가 갈린다 */
-  toxicType?: "latency" | "timeout" | "reset_peer";
-}
-
-/** 진행·이력 실험 원소 */
-export interface ChaosRun {
-  id: string;
-  /** 해제 요청 target. 정본 §3-6은 주입 시 발급한 이름(toxic 등)을 해제 target으로 재사용한다.
-   * sim은 run id, http는 감사 행 target(주입 이름)이다. 화면 chaos.clear payload는 id가 아니라 이 값을 쓴다 */
-  clearKey: string;
-  experimentId: string;
-  label: string;
-  state: ChaosState;
-  blastRadius: string;
-  grafanaAnnotation: string;
-  injectedBy: string;
-  startedAt: string;
-  clearedAt: string | null;
-}
-
 /* ===== 마켓 설정 (§2, /admin/v1/config/*) ===== */
 
 /**
@@ -652,7 +606,6 @@ export interface AdminOverview {
   /** 봇 노드가 상태를 발행하지 않으면 미상이다. 0을 채우면 정지로 읽힌다 */
   botsActive: number | null;
   currentOps: number | null;
-  chaosRunning: number;
   pendingApprovals: number;
   suspendedMarkets: number;
   generatedAt: string;

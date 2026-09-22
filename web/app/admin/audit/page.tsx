@@ -48,7 +48,7 @@ function glossOf(code: string): string | undefined {
 }
 
 function renderAction(e: AuditEntry) {
-  // 합성 코드(approval.issue:chaos.inject, execute:...)는 head·tail을 각각 주해해 이어 붙인다.
+  // 합성 코드(approval.issue:config.market.halt, execute:...)는 head·tail을 각각 주해해 이어 붙인다.
   // 원문만 남기면 세션 행(주해 병기)과 열 질감이 갈라진다
   const colon = e.action.indexOf(":");
   const gloss =
@@ -118,7 +118,7 @@ const COLUMNS: DataColumn<AuditEntry>[] = [
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
 /* 액션 코드의 첫 점 앞 네임스페이스. 필터 select의 파생 축.
-   합성 코드(approval.issue:chaos.inject, execute:chaos.inject)의 콜론 뒤는 대상 한정자라 잘라낸다 */
+   합성 코드(approval.issue:members.close, execute:members.close)의 콜론 뒤는 대상 한정자라 잘라낸다 */
 function nsOf(action: string): string {
   const colon = action.indexOf(":");
   const code = colon === -1 ? action : action.slice(0, colon);

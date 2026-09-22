@@ -1,24 +1,9 @@
 /**
- * lib/admin/catalog.ts. 정적 카탈로그(카오스 실험 E1~E9, 불변식 검사 항목).
+ * lib/admin/catalog.ts. 정적 카탈로그(봇 시나리오 프리셋, 불변식 검사 항목).
  * 관측 값과 무관한 상수라 sim·http 구현이 공유한다(§2-2 정적 데이터 제시).
  */
 
-import type { BotType, ChaosExperimentDef, ScenarioName } from "./types";
-
-/* 라벨은 한국어 평이어 1차 표기(§4-2 표시층). 원어는 description·title 채널이 전달하고 id·injectPath는 불변.
-   severity는 멈추는 범위다. high는 체결이 실제로 끊기는 실험(리더 종료·정지·분할·복합),
-   medium은 의존 계층이 끊기는 것(DB 차단·Redis 장애·커밋 절단), low는 지연만 끼는 것이다 */
-export const CHAOS_CATALOG: ChaosExperimentDef[] = [
-  { id: "E1", severity: "low", label: "저널 DB 응답 지연", injectPath: "/admin/v1/chaos/network", toxicType: "latency", blastRadius: "저널 DB 연결", description: "PostgreSQL 응답에 지연·지터 주입" },
-  { id: "E2", severity: "medium", label: "저널 DB 연결 차단", injectPath: "/admin/v1/chaos/network", toxicType: "timeout", blastRadius: "저널 DB 연결", description: "PG 연결을 down·timeout으로 차단" },
-  { id: "E3", severity: "medium", label: "세션 캐시(Redis) 장애", injectPath: "/admin/v1/chaos/network", toxicType: "timeout", blastRadius: "세션·캐시 계층", description: "Redis toxic·app 장애 주입" },
-  { id: "E4", severity: "high", label: "매칭 리더 강제 종료", injectPath: "/admin/v1/chaos/kill-node", method: "docker_kill", blastRadius: "체결 엔진 리더", description: "리더 노드 강제 종료, failover 유도" },
-  { id: "E5", severity: "high", label: "노드 간 네트워크 분할", injectPath: "/admin/v1/chaos/network", toxicType: "timeout", blastRadius: "노드 간 링크", description: "split-brain 유도 분할" },
-  { id: "E6", severity: "high", label: "폭주 + 리더 종료 복합", injectPath: "/admin/v1/chaos/kill-node", method: "docker_kill", blastRadius: "전 체결 경로", description: "봇 스파이크와 리더 kill 조합(최종 증명)" },
-  { id: "E7", severity: "high", label: "리더 일시 정지", injectPath: "/admin/v1/chaos/kill-node", method: "docker_pause", blastRadius: "체결 엔진 리더", description: "리더 일시 정지(pause), 응답 지연 유도" },
-  { id: "E8", severity: "low", label: "앱 내부 지연·예외 폭풍", injectPath: "/admin/v1/chaos/app", blastRadius: "애플리케이션 스레드", description: "앱 내부 지연·예외 주입" },
-  { id: "E9", severity: "medium", label: "커밋 응답 절단", injectPath: "/admin/v1/chaos/network", toxicType: "reset_peer", blastRadius: "커밋 응답 경로", description: "limit_data·reset_peer로 멱등성 증명" },
-];
+import type { BotType, ScenarioName } from "./types";
 
 /** 시나리오 프리셋 정의(§6-A v2.31 배수표 미러). 서버 SimScenario enum과 값이 같아야 한다 */
 export interface ScenarioDef {
