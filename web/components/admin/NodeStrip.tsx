@@ -101,7 +101,7 @@ export default function NodeStrip({
               </>
             ) : (
               // 관측 네 칸을 한 칸으로 합쳐 비운다. 칸마다 "미수집"을 네 번 적으면
-              // 읽는 쪽이 네 개의 실패로 읽는다. 실패는 하나다 — 서버가 대답하지 않는 것.
+              // 읽는 쪽이 네 개의 실패로 읽는다. 실패는 하나다. 서버가 대답하지 않는 것이다.
               <span className={styles.nodeStripNote}>{n.expected ? "상태 읽기 불가" : "현재 대수에서 미사용"}</span>
             )}
           </div>

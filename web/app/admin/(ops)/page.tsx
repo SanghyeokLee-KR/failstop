@@ -37,7 +37,7 @@ export default function AdminOverviewPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="종합 상태" actions={stale ? <StaleBadge since={lastUpdatedAt} /> : undefined} />
+      <PageHeader title="종합 관제" actions={stale ? <StaleBadge since={lastUpdatedAt} /> : undefined} />
 
       {loading ? (
         <div className={styles.pageStack}>

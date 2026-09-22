@@ -2065,3 +2065,59 @@
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
 }
+
+/* 평면 전환 링크. 내비 목록 바깥 바닥에 두어 "화면 하나"로 읽히지 않게 한다.
+   가로 음수 여백으로 사이드바 패딩을 상쇄해 구분선이 면 끝까지 닿는다 */
+.navCross {
+  margin: auto calc(var(--space-4) * -1) 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.navCross:hover {
+  background: var(--surface-hover);
+  color: var(--text-default);
+}
+
+/* ===== 백오피스 진입점(/admin/back) =====
+   건수를 세지 않는 화면들의 목록. 큐 카드와 달리 숫자가 없으므로 행으로 눕힌다 */
+.deskList {
+  display: flex;
+  flex-direction: column;
+}
+.deskRow {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 8rem) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  text-decoration: none;
+  color: var(--text-default);
+}
+.deskRow:last-child {
+  border-bottom: 0;
+}
+.deskRow:hover {
+  background: var(--surface-hover);
+}
+.deskIcon {
+  display: inline-flex;
+  color: var(--text-secondary);
+}
+.deskLabel {
+  font-weight: var(--fw-medium);
+  color: var(--text-strong);
+}
+.deskDesc {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

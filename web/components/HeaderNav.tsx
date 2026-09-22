@@ -209,7 +209,7 @@ export default function HeaderNav() {
   useEffect(() => getDataSource().onConnectionChange(setConnected), [setConnected]);
   useMemberSessionBootstrap();
 
-  // 관리 평면은 자체 셸(AdminLayout)을 쓴다. 공개 HeaderNav를 렌더하지 않는다(§4-1)
+  // 관리 평면은 자체 셸(AdminShell)을 쓴다. 공개 HeaderNav를 렌더하지 않는다(§4-1)
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return null;
 
   // 온보딩은 진입 게이트다. 내비가 홈·거래소를 열면 게이트를 우회하고, 로그인·가입 링크는

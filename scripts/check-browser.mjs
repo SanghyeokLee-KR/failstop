@@ -54,7 +54,7 @@ const SCREENS = [
   "/order/KRW-BTC", "/coin/KRW-BTC", "/community/KRW-BTC",
   "/assets", "/transfers", "/history", "/notices", "/support", "/mypage", "/system",
   "/auth/login", "/auth/signup",
-  "/admin", "/admin/audit", "/admin/bots", "/admin/capacity", "/admin/community",
+  "/admin", "/admin/audit", "/admin/back", "/admin/bots", "/admin/capacity", "/admin/community",
   "/admin/config", "/admin/members", "/admin/operators",
   "/admin/transfers", "/admin/support",
 ];
