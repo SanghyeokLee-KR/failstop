@@ -54,8 +54,8 @@ export default function AdminOverviewPage() {
           <Skeleton variant="card" width="100%" height={128} />
           <div className={styles.overviewCols}>
             <div className={styles.overviewLeft}>
-              <div className={styles.kpiGrid} data-cols="2">
-                {Array.from({ length: 4 }, (_, i) => (
+              <div className={styles.kpiGrid} data-cols="3">
+                {Array.from({ length: 3 }, (_, i) => (
                   <Skeleton key={i} variant="card" width="100%" height={96} />
                 ))}
               </div>
@@ -71,7 +71,7 @@ export default function AdminOverviewPage() {
           <HealthHero ov={ov} />
           <div className={styles.overviewCols}>
             <div className={styles.overviewLeft}>
-              <div className={styles.kpiGrid} data-cols="2">
+              <div className={styles.kpiGrid} data-cols="3">
                 <Link href="/admin/capacity" className={styles.railLink}>
                   <StatTile
                     compact
