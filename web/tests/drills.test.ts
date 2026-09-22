@@ -186,10 +186,21 @@ test("제목과 한 줄 설명이 명사형이다", () => {
     assert.ok(!verbEnding.test(def.title), `${def.id} 대본 제목이 서술형이다`);
     assert.ok(!verbEnding.test(def.lead), `${def.id} 대본 한 줄 설명이 서술형이다`);
     for (const p of def.prep ?? []) {
-      assert.ok(!verbEnding.test(p), `${def.id} 사전 조건이 서술형이다: ${p}`);
+      assert.ok(!verbEnding.test(p.text), `${def.id} 사전 조건이 서술형이다: ${p.text}`);
     }
     for (const step of def.steps) {
       assert.ok(!verbEnding.test(step.title), `${def.id}/${step.id} 단계 제목이 서술형이다`);
+    }
+  }
+});
+
+test("사전 조건의 명령은 콘솔이 실행하지 않는 것만 둔다", () => {
+  // 조작은 버튼으로, 호스트 일은 명령으로 가른다. 한 줄이 둘을 겸하면 무엇이 실행되는지 갈린다
+  for (const def of DRILLS) {
+    for (const p of def.prep ?? []) {
+      if (p.command === undefined) continue;
+      assert.ok(p.command.trim().length > 0, `${def.id} 사전 조건 명령이 비었다`);
+      assert.ok(!/^\s/.test(p.command), `${def.id} 사전 조건 명령에 앞 공백이 있다`);
     }
   }
 });

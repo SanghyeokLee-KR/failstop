@@ -2561,3 +2561,11 @@
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
 }
+
+/* 사전 조건의 명령 칩. 줄 안에 얹히므로 한 줄 높이를 넘기지 않는다 */
+.drillPrep li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

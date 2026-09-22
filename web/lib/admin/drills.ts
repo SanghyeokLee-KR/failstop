@@ -57,6 +57,18 @@ export type DrillAct =
   | { kind: "SCALE_OUT"; label: string }
   | { kind: "SCALE_IN"; label: string };
 
+/**
+ * 사전 조건 한 줄. 명령이 붙으면 화면이 복사 칩으로 낸다.
+ *
+ * 조건만 적고 명령을 문서 밖에 두면 시연자가 화면과 문서를 번갈아 보게 된다. 정작
+ * 그 두 명령을 빠뜨리면 첫 단계부터 막히는데, 막힌 이유가 화면에 없다.
+ */
+export interface DrillPrep {
+  text: string;
+  /** 호스트에서 칠 명령. 콘솔은 실행하지 않는다 */
+  command?: string;
+}
+
 export interface DrillStep {
   id: string;
   /** 명사형 종결. 이 단계에서 무엇이 성립해야 하는가 */
@@ -83,7 +95,7 @@ export interface DrillDef {
   /** 이 시연이 증명하려는 것 */
   claim: string;
   /** 사전 조건. 없으면 첫 단계부터 막힌다 */
-  prep?: string[];
+  prep?: DrillPrep[];
   /**
    * 읽을 원천. 선언과 실제 사용이 어긋나면 화면이 값을 못 읽고 영구 미수집이 된다.
    * tests/drills.test.ts 가 선언한 것만 준 판정과 전부 준 판정을 대조해 어긋남을 잡는다.
@@ -130,8 +142,15 @@ const DRILL_SCALE: DrillDef = {
   claim: "조회는 대수를 늘려 용량이 는다. 주문은 늘지 않는다. 그 차이를 같은 화면에서 본다.",
   needs: ["cap", "sim"],
   prep: [
-    "조절기 기동. 콘솔은 희망 대수만 변경, 컨테이너 기동은 조절기 소관",
-    "증설 노드 생성. docker compose --profile scale create 로 한 번 생성",
+    {
+      text: "증설 노드 생성. 한 번 만들어 두면 조절기가 그 컨테이너를 켜고 끄는 대상으로 삼음",
+      command: "docker compose --env-file harness/.env.chaos --profile scale create chaos-api-3",
+    },
+    {
+      text: "조절기 기동. 콘솔은 희망 대수만 변경, 컨테이너 기동은 조절기 소관",
+      command:
+        "python harness/asg/capacity_reconciler.py --stack chaos --lb-conf harness/nginx/nginx.conf --log recon.jsonl",
+    },
   ],
   steps: [
     {
@@ -230,7 +249,7 @@ const DRILL_LEADER: DrillDef = {
   lead: "주문 노드 중단과 남은 노드의 승격 확인",
   claim: "쓰기는 한 노드만 한다. 그 노드를 잃으면 다른 노드가 선출돼 거래가 재개된다.",
   needs: ["cap", "ha", "rec"],
-  prep: ["노드 두 대 기동. 리더 후보가 하나면 승격 대상 없음"],
+  prep: [{ text: "노드 두 대 기동. 리더 후보가 하나면 승격 대상 없음" }],
   steps: [
     {
       id: "before",
@@ -315,9 +334,9 @@ const DRILL_DB: DrillDef = {
   claim: "DB 전환은 자동이 아니다. 구 주 DB를 쓰기 불가로 만든 뒤에 새 주 DB를 연다.",
   needs: [],
   prep: [
-    "별도 실습 스택. DB 실습은 failstop-ops-lab 프로젝트 소관이며 이 콘솔이 보는 스택 밖",
-    "서버 bootJar. 실습이 현재 빌드를 그대로 기동",
-    `판정 원본. 실행 결과는 ${LAB_EVIDENCE} 에 기록`,
+    { text: "별도 실습 스택. DB 실습은 failstop-ops-lab 프로젝트 소관이며 이 콘솔이 보는 스택 밖" },
+    { text: "서버 bootJar. 실습이 현재 빌드를 그대로 기동", command: "cd server && ./gradlew.bat :app:bootJar" },
+    { text: `판정 원본. 실행 결과는 ${LAB_EVIDENCE} 에 기록` },
   ],
   steps: [
     {
@@ -372,7 +391,7 @@ const DRILL_PRESSURE: DrillDef = {
   lead: "로컬에 호스트 지표 원천이 없어 판정 불가",
   claim: "이 축은 학교 AWS에서만 판정한다. 로컬 결과를 그 판정으로 바꾸어 적지 않는다.",
   needs: ["cap"],
-  prep: ["호스트 지표 수집기. 로컬 카오스 스택에 없음"],
+  prep: [{ text: "호스트 지표 수집기. 로컬 카오스 스택에 없음" }],
   steps: [
     {
       id: "disk",

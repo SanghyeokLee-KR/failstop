@@ -26,7 +26,7 @@ import {
 } from "@/lib/admin/drills";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import DrillStepper from "@/components/admin/DrillStepper";
+import DrillStepper, { CommandChip } from "@/components/admin/DrillStepper";
 import DecisionFooter from "@/components/admin/DecisionFooter";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -208,7 +208,10 @@ export default function DrillPage() {
                 <span className={styles.drillPrepLabel}>사전 조건</span>
                 <ul>
                   {def.prep.map((p) => (
-                    <li key={p}>{p}</li>
+                    <li key={p.text}>
+                      {p.text}
+                      {p.command && <CommandChip command={p.command} />}
+                    </li>
                   ))}
                 </ul>
               </div>
