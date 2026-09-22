@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 운영자·역할(/admin/operators). 생성·비활성·역할 부여/회수는 SUPER + 2인 승인(§3-1).
+ * 운영자·역할(/admin/operators). 생성·비활성·역할 부여/회수는 SUPER + 1인 승인(§3-1, ADR 0019).
  * 운영자 신원은 mTLS 인증서 CN 유래이며 password_hash가 없다(V5 admin_operators).
  * 역할은 단건 부여/회수로 다룬다. 승인 감사에 어떤 역할이 바뀌는지 단건으로 남긴다.
  */
@@ -55,7 +55,7 @@ export default function OperatorsPage() {
     <div className={styles.page}>
       <PageHeader
         title="운영자·역할"
-        desc="생성·상태·역할 변경은 2인 승인"
+        desc="생성·상태·역할 변경은 1인 승인"
         actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
       />
 
@@ -99,7 +99,7 @@ export default function OperatorsPage() {
         )}
       </PanelCard>
 
-      <PanelCard title="운영자 관리" actions={<span className={styles.panelMeta}>2인 승인</span>}>
+      <PanelCard title="운영자 관리" actions={<span className={styles.panelMeta}>1인 승인</span>}>
         {!canSuper && <PermissionNote>운영자 관리 권한(SUPER) 없음. 조회만 가능</PermissionNote>}
         {selected ? (
           <div className={styles.roleEditor}>
@@ -180,12 +180,12 @@ export default function OperatorsPage() {
           <div className="empty-state empty-state--compact">
             <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
             <span className="empty-state__title">관리할 운영자 선택 필요</span>
-            <span className="empty-state__desc">상태 변경과 역할 부여·회수는 건마다 다른 운영자의 승인을 거칩니다</span>
+            <span className="empty-state__desc">상태 변경과 역할 부여·회수는 건마다 승인 티켓 발급 후 실행</span>
           </div>
         )}
       </PanelCard>
 
-      <PanelCard title="운영자 생성 요청" actions={<span className={styles.panelMeta}>2인 승인</span>}>
+      <PanelCard title="운영자 생성 요청" actions={<span className={styles.panelMeta}>1인 승인</span>}>
         {!canSuper && <PermissionNote>운영자 생성 권한(SUPER) 없음</PermissionNote>}
         <div className={styles.roleEditor}>
           <div className={styles.formRow}>
@@ -208,7 +208,7 @@ export default function OperatorsPage() {
           {newId.length > 0 && !idValid && <PermissionNote>operatorId는 소문자·숫자·하이픈 2자 이상</PermissionNote>}
           {idTaken && <PermissionNote>이미 존재하는 operatorId</PermissionNote>}
           {/* 정상 절차 설명은 경보면이 아니라 무채 각주. 이 화면의 유채는 실제 이탈에만 남긴다 */}
-          <p className={styles.formHelp}>생성은 신원 등록만 수행. 역할은 생성 후 관리 패널에서 다른 운영자의 승인으로 부여</p>
+          <p className={styles.formHelp}>생성은 신원 등록만 수행. 역할은 생성 후 관리 패널에서 승인 티켓으로 부여</p>
           {createReady ? (
             <RequestButton
               action="operators.create"

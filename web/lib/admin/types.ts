@@ -62,7 +62,7 @@ export interface AdminSession {
   expiresAt: string;
 }
 
-/* ===== 이중 승인: 발급형 (§3-6, §6-B 완결 열거) ===== */
+/* ===== 승인 티켓: 발급형 (§3-6, §6-B 완결 열거) ===== */
 
 /**
  * approval_token 필수 파괴 액션(§3-6 완결 열거).

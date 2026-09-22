@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 마켓·공지(/admin/config). 마켓 halt/resume/수수료는 SUPER + 2인 승인(발급형).
+ * 마켓·공지(/admin/config). 마켓 halt/resume/수수료는 SUPER + 1인 승인(발급형, ADR 0019).
  * DELISTED는 종국 상태라 재개 대상이 아니다. 공지 발급은 SUPER 즉시(가역), 소프트 삭제·active 토글 제공.
  */
 
@@ -215,7 +215,7 @@ export default function ConfigPage() {
     <div className={styles.page}>
       <PageHeader
         title="마켓·공지"
-        desc="중지·재개·수수료 변경은 2인 승인"
+        desc="중지·재개·수수료 변경은 1인 승인"
         actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
       />
 
@@ -232,7 +232,7 @@ export default function ConfigPage() {
         )}
       </PanelCard>
 
-      <PanelCard title="수수료 변경 요청" actions={<span className={styles.panelMeta}>2인 승인</span>}>
+      <PanelCard title="수수료 변경 요청" actions={<span className={styles.panelMeta}>1인 승인</span>}>
         {!canSuper && <PermissionNote>수수료 변경 권한(SUPER) 없음</PermissionNote>}
         <div className={styles.formRow}>
           <label className={styles.field}>

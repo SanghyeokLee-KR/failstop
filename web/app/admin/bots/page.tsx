@@ -2,7 +2,7 @@
 
 /**
  * 봇 플릿(/admin/bots). start/stop/pause·OPS·생성은 BOT_OPS 즉시 실행(가역).
- * 실행 중 파라미터 변경은 파괴 액션으로 2인 승인 필수(§2-1, §3-2).
+ * 실행 중 파라미터 변경은 파괴 액션으로 승인 티켓 필수(1인 승인, §2-1, §3-2).
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -59,7 +59,7 @@ export default function BotsPage() {
   const [newMarket, setNewMarket] = useState(COIN_META[0]?.market ?? "KRW-BTC");
   const [newCount, setNewCount] = useState(1);
 
-  // 정지는 가역이라 2인 승인까지는 불필요하지만, 파급이 전 마켓이라 확인은 받는다
+  // 정지는 가역이라 승인 티켓까지는 불필요하지만, 파급이 전 마켓이라 확인은 받는다
   const [stopOpen, setStopOpen] = useState(false);
 
   const [paramBotId, setParamBotId] = useState("");
@@ -430,9 +430,9 @@ export default function BotsPage() {
         </div>
       </PanelCard>
 
-      <PanelCard title="파라미터 변경 요청" actions={<span className={styles.panelMeta}>2인 승인</span>}>
+      <PanelCard title="파라미터 변경 요청" actions={<span className={styles.panelMeta}>1인 승인</span>}>
         {/* 정상 절차 설명은 경보면이 아니라 무채 각주. 경보색은 권한 부족 등 이탈 전용 */}
-        <p className={styles.formHelp}>실행 중 파라미터 변경은 파괴 액션이라 다른 운영자의 승인과 요청자 실행을 거칩니다.</p>
+        <p className={styles.formHelp}>실행 중 파라미터 변경은 파괴 액션. 승인 발급 후 요청자가 실행</p>
         {sim && namedBots.length === 0 && (
           <p className={styles.formHelp}>
             기동 중인 플릿은 봇 id를 발행하지 않습니다(유형별 파킹 풀). 대상 지정이 필요한 이 경로는

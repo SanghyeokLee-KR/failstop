@@ -1,5 +1,5 @@
 /**
- * SimAdminApi 카오스·헬스 결합 검증. 주입 효과와 해제 회수가 2인 승인 경로로만 도달하는지,
+ * SimAdminApi 카오스·헬스 결합 검증. 주입 효과와 해제 회수가 승인 경로로 도달하는지,
  * 복구 이력 시드가 RtoSpark 게이트(n>=3)와 정합한지 본다.
  * 타이머(tick)는 브라우저 전용이라 노드 환경에서는 주입 직후의 동기 상태만 단정한다.
  */
@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { SimAdminApi } from "../lib/admin/simAdmin";
 import type { ApprovalPayload } from "../lib/admin/types";
 
-/** 요청(op-01) -> 발급(op-02) -> 실행(op-01). 반결탁 계약 그대로 통과시킨다 */
+/** 요청(op-01) -> 발급(op-02) -> 실행(op-01). 다른 운영자가 발급하는 경로를 통과시킨다 */
 async function approveAndRun(api: SimAdminApi, payload: ApprovalPayload) {
   await api.establishSession("op-02");
   const issued = await api.issueApproval("op-01", payload.action, payload);
@@ -68,11 +68,11 @@ test("노드를 건드리지 않는 실험(E1)도 진행 중에는 종합을 주
   assert.equal(ov.overallHealth, "warning");
 });
 
-test("주입 승인은 발급 주체와 요청 주체가 같으면 반려된다", async () => {
+test("주입 승인은 발급 주체와 요청 주체가 같아도 발급된다(1인 승인)", async () => {
   const api = new SimAdminApi();
   await api.establishSession("op-01");
-  await assert.rejects(
-    api.issueApproval("op-01", "chaos.inject", { action: "chaos.inject", experimentId: "E1" }),
-    /다른 운영자/,
-  );
+  const issued = await api.issueApproval("op-01", "chaos.inject", { action: "chaos.inject", experimentId: "E1" });
+  // ADR 0019가 발급 가드를 뗐다. 역할 게이트와 확인 다이얼로그, 전량 감사는 그대로다
+  assert.equal(issued.requesterId, "op-01");
+  assert.equal(issued.approverId, "op-01");
 });

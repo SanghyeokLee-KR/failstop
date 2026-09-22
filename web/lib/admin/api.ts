@@ -76,24 +76,24 @@ export interface AdminApi {
   /** 세션 변화 통지(로그인·전환·만료). 등록 즉시 현재 상태 1회 통지 */
   onSessionChange(cb: (s: AdminSession | null) => void): () => void;
 
-  /* ===== 이중 승인: 발급형(§3-6) ===== */
+  /* ===== 승인 티켓: 발급형(§3-6) ===== */
   /**
-   * 승인 발급. 발급 주체(현재 세션)가 요청 운영자(requesterId)와 다를 때만 성립(반결탁).
+   * 승인 발급. 1인 승인이라 발급 주체(현재 세션)가 요청 운영자(requesterId)와 같아도 성립한다(ADR 0019).
    * 액션+대상에 바인딩된 단회 토큰을 반환한다. 토큰은 이 응답에만 실린다(원장 프로젝션 제외).
    */
   issueApproval(requesterId: string, action: DestructiveAction, payload: ApprovalPayload): Promise<IssuedApproval>;
   /** 승인 원장 조회(state 필터). token은 반환하지 않는다 */
   /** 승인 이력 한 쪽. 소비·만료 뒤에도 남아 누적된다 */
   listApprovals(state?: ApprovalState, opts?: PageOpts): Promise<AdminPage<ApprovalRequest>>;
-  /** ISSUED 승인 거부(ISSUED->REJECTED). 발급 주체 또는 요청 주체만 가능(소유·반결탁) */
+  /** ISSUED 승인 거부(ISSUED->REJECTED). 발급 주체 또는 요청 주체만 가능(소유 검사) */
   rejectApproval(approvalId: string): Promise<ApprovalRequest>;
   /** 요청 운영자 본인이 발급 토큰을 파괴 액션 바디에 실어 소각(실효 액션 실행) */
   consumeApproval(approval: IssuedApproval): Promise<void>;
   /**
    * 승인 없이 즉시 실행한다(§3-6 v2.34 카오스 승인 완화).
    *
-   * 카오스 4종만 서버가 approval_token 을 불요로 열었다. 2인 승인은 발급 주체와 사용 주체가
-   * 서로 달라야 성립하는데(반결탁) 이 배포의 실행 주체는 1인이라 그 조건을 만족시킬 방법이 없다.
+   * 카오스 4종만 서버가 approval_token 을 불요로 열었다. 승인 티켓 자체를 생략하는 경로이며,
+   * 1인 승인(ADR 0019)과는 별개로 실험 주입의 회전율을 위해 완화한 것이다.
    * 나머지 파괴 액션은 필수 열거에 그대로 남아 있어 이 경로로 부르면 서버가 반려한다.
    */
   executeDirect(payload: ApprovalPayload): Promise<void>;

@@ -1,6 +1,7 @@
 /**
  * 관리 평면 데모 시뮬레이터. 런타임 외부 의존 0.
- * 데모 인증서 2종(op-01, op-02)으로 반결탁을 시연한다. 요청자와 승인자가 같으면 반려된다(§1-3).
+ * 데모 인증서 2종(op-01, op-02)으로 운영자 전환을 시연한다. 1인 승인이라 요청자와 발급자가
+ * 같아도 발급된다(ADR 0019). 다른 운영자가 발급하는 경로도 그대로 통한다.
  */
 
 import { isoNow } from "../format";
@@ -570,18 +571,16 @@ export class SimAdminApi implements AdminApi {
   }
 
   issueApproval(requesterId: string, action: DestructiveAction, payload: ApprovalPayload): Promise<IssuedApproval> {
-    // 발급 주체 요건은 요청 운영자와 다른 mTLS 신원뿐(관리자_설계 §3-6). 서버 ApprovalController.issue와
-    // 동일하게 역할을 요구하지 않는다(무역할 운영자도 발급 가능). 소각 권한은 소각 시점에 본다
+    // 발급 주체 요건은 활성 mTLS 신원뿐이다(ADR 0019, 관리자_설계 v1.4). 요청 운영자와 같아도 된다.
+    // 서버 ApprovalController.issue와 동일하게 역할도 요구하지 않는다. 소각 권한은 소각 시점에 본다
     const approver = this.requireSession();
     const requester = this.operators.find((o) => o.operatorId === requesterId);
     if (!requester || requester.status !== "ACTIVE") {
       return Promise.reject(new AdminError("invalid_parameter", "요청 운영자를 레지스트리에서 찾을 수 없음"));
     }
-    // 반결탁: 발급 주체와 요청 주체가 같으면 발급 불가(§3-6)
-    if (approver.operatorId === requesterId) {
-      this.log(approver, `approval.issue.denied:${action}`, requesterId, null, "DENIED");
-      return Promise.reject(new AdminError("admin_forbidden", "발급 주체와 요청 주체가 같은 운영자. 다른 운영자 인증서로 발급 필요"));
-    }
+    // 발급 주체와 요청 주체가 같아도 통과시킨다. 1인 승인이다(ADR 0019). V34가 DB의
+    // chk_approval_two_person을 떼었고 서버 ApprovalService.issue에도 동일성 가드가 없다.
+    // 종전 반결탁 반려는 야간 단독 운영 시간대의 정지 명령을 봉쇄해 철회했다
     const { key, label } = approvalConsoleTarget(payload);
     const now = Date.now();
     const issued: IssuedApproval = {
@@ -733,7 +732,7 @@ export class SimAdminApi implements AdminApi {
         break;
       }
       case "operators.create": {
-        // 생성은 신원만 등록한다. 역할은 operators.roles 별도 승인 경로로만 부여한다(§3-6, 반결탁).
+        // 생성은 신원만 등록한다. 역할은 operators.roles 별도 승인 경로로만 부여한다(§3-6).
         // 중복 operatorId는 생성하지 않는다(§6-D 409 market 대응)
         if (!this.operators.some((o) => o.operatorId === payload.operatorId)) {
           this.operators.push({

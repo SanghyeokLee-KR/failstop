@@ -694,8 +694,8 @@ export class HttpAdminApi implements AdminApi {
 
   listDemoCerts(): DemoClientCert[] {
     // 운영 mTLS는 OS·브라우저 인증서 저장소를 쓴다. 앱이 인증서를 열거하지 않는다.
-    // dev 게이트웨이 모드에서만 선택지를 세운다. 2인 승인은 서로 다른 두 운영자를 요구하므로
-    // (반결탁) 신원을 하나로 고정하면 승인 경로를 화면에서 검증할 수 없다
+    // dev 게이트웨이 모드에서만 선택지를 세운다. 신원을 하나로 고정하면 운영자별 역할 차이와
+    // 다른 운영자가 발급하는 경로를 화면에서 검증할 수 없다
     return DEV_OPERATOR_CNS.map((cn) => ({
       certId: cn,
       subjectCn: `CN=${cn}`,
@@ -766,14 +766,14 @@ export class HttpAdminApi implements AdminApi {
     for (const cb of this.listeners) cb(this.session);
   }
 
-  /* ===== 이중 승인: 발급형(§3-6) ===== */
+  /* ===== 승인 티켓: 발급형(§3-6) ===== */
 
   async issueApproval(requesterId: string, action: DestructiveAction, payload: ApprovalPayload): Promise<IssuedApproval> {
     const approver = this.getSession();
     if (!approver) throw new AdminError("jwt_verification", "관리자 세션 없음");
     const bind = wireBinding(payload);
     const { key, label } = approvalConsoleTarget(payload);
-    // 발급 주체(현재 mTLS 세션)와 요청 주체 분리는 서버가 인증서 CN으로 강제한다(반결탁)
+    // 발급 주체는 현재 mTLS 세션이다. 1인 승인이라 요청 주체와 같아도 서버가 받는다(ADR 0019)
     const res = await this.http<WireIssue>("/admin/v1/approvals", {
       method: "POST",
       body: JSON.stringify({ requester_operator_id: requesterId, action: bind.action, target: bind.target }),

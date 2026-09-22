@@ -1,6 +1,6 @@
 /**
  * lib/admin/roles.ts. 역할 기반 권한(RBAC) 판정과 라벨 (§1-2).
- * 최소 권한 원칙. 파괴 액션 2인 승인은 역할과 독립이며 여기서 강제하지 않는다(승인 원장이 강제).
+ * 최소 권한 원칙. 파괴 액션 승인 티켓은 역할과 독립이며 여기서 강제하지 않는다(승인 원장이 강제).
  */
 
 import type { AdminRole, ApprovalPayload, DestructiveAction } from "./types";

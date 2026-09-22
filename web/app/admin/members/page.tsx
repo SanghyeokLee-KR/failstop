@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 정지·복구는 가역이라 즉시 실행하고, 폐쇄는 비가역이라 2인 승인을 거친다(§6-E).
+ * 정지·복구는 가역이라 즉시 실행하고, 폐쇄는 비가역이라 1인 승인을 거친다(§6-E, ADR 0019).
  * 상세를 옆에 세우는 이유는 폐쇄 판단에 미체결 주문 수가 필요해서다.
  */
 
@@ -224,7 +224,7 @@ export default function AdminMembersPage() {
     <div className={styles.page}>
       <PageHeader
         title="회원 운영"
-        desc="정지·복구는 즉시 반영, 폐쇄는 비가역이라 2인 승인"
+        desc="정지·복구는 즉시 반영, 폐쇄는 비가역이라 1인 승인"
         actions={res.stale ? <StaleBadge since={res.lastUpdatedAt} /> : undefined}
       />
 
@@ -259,7 +259,7 @@ export default function AdminMembersPage() {
       {selected && (
         <PanelCard
           title="선택 회원"
-          actions={<span className={styles.panelMeta}>폐쇄는 2인 승인</span>}
+          actions={<span className={styles.panelMeta}>폐쇄는 1인 승인</span>}
         >
           {!detail ? (
             <Skeleton variant="card" width="100%" height={120} />

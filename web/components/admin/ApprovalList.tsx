@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * 요청은 로컬 의도, 발급은 다른 운영자, 실행은 요청자의 토큰 소각이다(§3-6).
- * 발급 버튼은 요청 운영자 본인 세션에 노출하지 않고 서버도 인증서 CN으로 이중 강제한다.
+ * 요청은 로컬 의도, 발급은 승인 티켓 생성, 실행은 요청자의 토큰 소각이다(§3-6).
+ * 1인 승인이라 요청 운영자 본인도 발급할 수 있다(ADR 0019). 다른 운영자가 발급하는 경로도
+ * 그대로 통한다. 본인이 발급하면 발급·실행이 같은 신원으로 감사에 남는다.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -198,6 +199,7 @@ export default function ApprovalList({
                 <span>
                   요청 {intent.requesterName} · {formatTimeHMS(intent.proposedAt)}
                 </span>
+                {mine && <span>본인 발급 시 발급·실행이 같은 신원으로 감사 적재</span>}
               </div>
               <div className={styles.approvalActions}>
                 {health && (
@@ -205,18 +207,15 @@ export default function ApprovalList({
                     {HEALTH_ICON[health]} {PHASE_LABEL.REQUESTED}
                   </span>
                 )}
-                {mine ? (
-                  <span className={styles.waitNote}>다른 운영자 발급 대기</span>
-                ) : (
-                  <button
-                    type="button"
-                    className={styles.approveBtn}
-                    disabled={busy === id}
-                    onClick={() => void issue(intent)}
-                  >
-                    발급
-                  </button>
-                )}
+                {mine && <span className={styles.waitNote}>본인 발급</span>}
+                <button
+                  type="button"
+                  className={styles.approveBtn}
+                  disabled={busy === id}
+                  onClick={() => void issue(intent)}
+                >
+                  발급
+                </button>
                 <button
                   type="button"
                   className={styles.neutralBtn}
@@ -273,7 +272,7 @@ export default function ApprovalList({
                     실행
                   </button>
                 )}
-                {phase === "AWAITING_EXECUTION" && mine && !held && <span className={styles.waitNote}>발급 토큰 수신 대기</span>}
+                {phase === "AWAITING_EXECUTION" && mine && !held && <span className={styles.waitNote}>다른 세션 발급. 이 세션에 토큰 없음</span>}
                 {phase === "AWAITING_EXECUTION" && !mine && <span className={styles.waitNote}>요청자 실행 대기</span>}
                 {phase === "AWAITING_EXECUTION" && owner && (
                   <button type="button" className={styles.neutralBtn} disabled={busy === a.id} onClick={() => void act(a.id, () => getAdminApi().rejectApproval(a.id), "거부 완료")}>
