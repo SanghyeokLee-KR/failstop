@@ -23,6 +23,7 @@ const cap: CapacityState = {
   observedTotal: 3,
   reconciled: true,
   readAvgCpuRatio: 0.71,
+  thresholds: { scaleOutCpuRatio: 0.6, scaleInCpuRatio: 0.3 },
   nodes: [
     {
       id: "app-1",

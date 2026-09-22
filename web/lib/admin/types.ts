@@ -205,6 +205,17 @@ export interface CapacityPlan {
   updatedAt: string;
 }
 
+/**
+ * 권고 임계. 서버가 소유한다.
+ *
+ * 화면이 0.60을 복제하고 있었다. 서버가 환경에 맞춰 값을 조이면 게이지 눈금만 옛 값에
+ * 남아 "임계 미만인데 증설 권고"처럼 읽힌다. 판정과 눈금이 같은 값을 쓰게 서버에서 받는다.
+ */
+export interface CapacityThresholds {
+  scaleOutCpuRatio: number;
+  scaleInCpuRatio: number;
+}
+
 export interface CapacityState {
   tier: string;
   plan: CapacityPlan;
@@ -214,6 +225,8 @@ export interface CapacityState {
   reconciled: boolean;
   /** 조회를 받는 노드의 평균 사용률 0~1. 못 읽으면 null이고 그때는 권고를 내지 않는다 */
   readAvgCpuRatio: number | null;
+  /** 증설·축소 권고 임계. 화면의 게이지 눈금도 이 값을 쓴다 */
+  thresholds: CapacityThresholds;
   nodes: CapacityNode[];
   advice: CapacityAdvice[];
 }

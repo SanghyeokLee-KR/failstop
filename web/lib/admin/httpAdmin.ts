@@ -139,6 +139,12 @@ function mapCapacity(w: WireCapacity): CapacityState {
     observedTotal: num(w.observed_total),
     reconciled: w.reconciled === true,
     readAvgCpuRatio: nullableNum(w.read_avg_cpu_ratio),
+    // 서버가 안 실어 보내면 계약 기본값으로 떨어진다. 옛 서버와 새 화면이 섞여도
+    // 눈금이 사라지지 않게 한다
+    thresholds: {
+      scaleOutCpuRatio: num(w.thresholds?.scale_out_cpu_ratio, 0.6),
+      scaleInCpuRatio: num(w.thresholds?.scale_in_cpu_ratio, 0.3),
+    },
     nodes,
     advice,
   };
@@ -481,6 +487,7 @@ interface WireCapacity {
   observed_total?: number;
   reconciled?: boolean;
   read_avg_cpu_ratio?: number | null;
+  thresholds?: { scale_out_cpu_ratio?: number; scale_in_cpu_ratio?: number };
   nodes?: WireCapacityNode[];
   advice?: { id?: string; level?: string; headline?: string; detail?: string; action?: string | null }[];
 }

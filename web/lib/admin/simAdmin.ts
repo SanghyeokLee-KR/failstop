@@ -70,6 +70,10 @@ import { FLEET_TYPE_CAP } from "./types";
 const SESSION_TTL_MS = 30 * 60_000; // 단기 관리자 세션
 const APPROVAL_TTL_MS = 5 * 60_000; // §1-4 TTL 5분
 const DEMO_CA = "demo-ca (Exchange Admin Demo Root)";
+/* 시뮬레이터 권고 임계. 계약 기본값을 그대로 쓴다. 실서버는 환경 설정이 정본이고
+   화면은 응답의 thresholds 를 읽으므로 여기 값이 화면 눈금을 정하지 않는다 */
+const SIM_SCALE_OUT_CPU = 0.6;
+const SIM_SCALE_IN_CPU = 0.3;
 
 let seq = 0;
 function uid(prefix: string): string {
@@ -804,10 +808,10 @@ export class SimAdminApi implements AdminApi {
     const advice: CapacityAdvice[] = avg === null
       ? [{ id: "no_metrics", level: "warn", headline: "상태 읽기 실패",
           detail: "조회를 받는 서버에서 사용률을 가져오지 못했다. 판단 근거가 없어 권고를 내지 않는다.", action: null }]
-      : avg >= 0.6 && this.capacityDesired < 3
+      : avg >= SIM_SCALE_OUT_CPU && this.capacityDesired < 3
         ? [{ id: "scale_out", level: "warn", headline: "조회 부하 높음",
             detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 늘리면 부하가 나뉜다. 추가에 약 17초가 걸리고 서비스는 멈추지 않는다.`, action: "SCALE_OUT" }]
-        : avg <= 0.3 && this.capacityDesired > 2
+        : avg <= SIM_SCALE_IN_CPU && this.capacityDesired > 2
           ? [{ id: "scale_in", level: "info", headline: "조회 부하 낮음",
               detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 줄이면 비용이 준다. 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내린다.`, action: "SCALE_IN" }]
           : [{ id: "steady", level: "ok", headline: "안정",
@@ -819,6 +823,7 @@ export class SimAdminApi implements AdminApi {
       observedTotal: up,
       reconciled: up === this.capacityDesired,
       readAvgCpuRatio: avg,
+      thresholds: { scaleOutCpuRatio: SIM_SCALE_OUT_CPU, scaleInCpuRatio: SIM_SCALE_IN_CPU },
       nodes,
       advice,
     };

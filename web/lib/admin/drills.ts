@@ -167,7 +167,7 @@ const DRILL_SCALE: DrillDef = {
     {
       id: "load",
       title: "발행률 상향",
-      detail: `봇 목표를 초당 ${SCALE_OPS}건으로 올린다. 주문이 늘면 조회도 함께 늘어 조회 노드의 CPU가 오른다.`,
+      detail: `봇 목표를 초당 ${SCALE_OPS}건으로 올린다. 주문이 늘어 주문 노드의 CPU가 오른다. 조회 계층은 이것만으로 움직이지 않는다. 봇이 내는 주문은 쓰기 경로이고 봇이 보는 호가·티커도 노드 로컬 순번이라 쓰기 경로에 남기 때문이다.`,
       act: { kind: "OPS", rate: SCALE_OPS, label: `초당 ${SCALE_OPS}건 적용` },
       board: "msp-service",
       check: (s) =>
@@ -180,9 +180,24 @@ const DRILL_SCALE: DrillDef = {
         ),
     },
     {
+      id: "readload",
+      title: "조회 부하 주입",
+      detail: "로드밸런서가 조회 업스트림으로 보내는 것은 DB에서 완결되는 마켓·체결·캔들뿐이다. 조회 계층을 밀려면 그 경로로 넣어야 한다. 이 스택의 천장은 20 작업자 근처이고 더 올리면 수용 제어가 먼저 걸려 처리량이 오히려 준다.",
+      command: "python harness/scripts/read-load.py --vus 20 --sec 300",
+      board: "msp-service",
+      check: (s) =>
+        capCheck(s, (c) =>
+          c.readAvgCpuRatio === null
+            ? missing("조회 평균 사용률")
+            : c.readAvgCpuRatio > c.thresholds.scaleInCpuRatio
+              ? met(`평균 ${pct(c.readAvgCpuRatio)}`)
+              : pending(`평균 ${pct(c.readAvgCpuRatio)} · 유휴`),
+        ),
+    },
+    {
       id: "breach",
       title: "임계 도달",
-      detail: "조회 노드의 평균 사용률이 증설 임계에 닿아 서버가 증설을 권고한다. 임계값은 서버가 소유하고 화면은 권고만 읽는다.",
+      detail: "조회 노드의 평균 사용률이 증설 임계에 닿아 서버가 증설을 권고한다. 임계값은 서버가 소유하고 환경마다 다르다. 로컬은 이 스택이 닿을 수 있는 값으로 내려 두었고 AWS 운영값과 구분한다.",
       board: "msp-service",
       check: (s) =>
         capCheck(s, (c) =>

@@ -45,6 +45,8 @@ docker compose --env-file harness/.env.chaos --profile scale create chaos-api-3
 python harness/asg/capacity_reconciler.py --stack chaos --lb-conf harness/nginx/nginx.conf --log <로그경로>
 ```
 
+조회 계층에 부하를 넣을 때는 `python harness/scripts/read-load.py --vus 20 --sec 300`을 쓴다. 봇 발행률로는 조회 계층이 움직이지 않는다. 봇이 내는 주문은 쓰기 경로이고 봇이 보는 호가·티커도 노드 로컬 순번이라 쓰기 경로에 남기 때문이다. 권고 임계는 서버가 소유하며 이 스택은 `admin-chaos` 프로파일에서 0.25로 내려 두었다. AWS 운영값 0.60과 구분한다.
+
 희망 대수는 관리 API의 `POST /admin/v1/capacity/scale-out`과 `scale-in`이 바꾸고 조정기가 그 값을 따라간다. 조정기는 한 주기에 한 대만 움직이고, 축소할 때는 로드밸런서에서 먼저 빼고 드레이닝 창을 기다린 뒤에 컨테이너를 내린다. 쓰기 백업 노드는 축소 대상에서 제외한다. `--stack` 기본값은 종전 `ex-*` 스택이라 옛 호출은 그대로 돈다.
 
 ## 장애 실험

@@ -167,7 +167,13 @@ export default function CapacityPage() {
             /* 임계 판정은 서버 advice가 내린다. 화면이 숫자를 들면 두 곳이 갈린다 */
             tone={pct === null ? "warning" : scaleAdvised ? "warning" : "success"}
             sub={pct === null ? "판단 근거 없음" : "서버 추가 시 분산"}
-            meter={pct === null ? undefined : { value: pct, max: 100, threshold: 60 }}
+            /* 눈금도 서버 임계를 쓴다. 화면이 값을 복제하면 서버가 환경에 맞춰 조일 때
+               판정과 눈금이 갈린다 */
+            meter={
+              pct === null
+                ? undefined
+                : { value: pct, max: 100, threshold: Math.round(d.thresholds.scaleOutCpuRatio * 100) }
+            }
             title="average CPU of read-serving nodes"
           />
         </div>

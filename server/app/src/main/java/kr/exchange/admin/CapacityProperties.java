@@ -26,6 +26,20 @@ public class CapacityProperties {
     /** 노드 한 대를 재는 데 허용하는 시간. 넘으면 그 노드를 도달 불가로 본다. */
     private Duration probeTimeout = Duration.ofSeconds(2);
 
+    /**
+     * 증설·축소 권고 임계. 조회를 받는 노드의 평균 사용률 기준이다.
+     *
+     * 상수가 아니라 설정인 이유. 같은 코드가 도는 환경마다 닿을 수 있는 사용률이 다르다.
+     * 로컬 카오스 스택은 조회 부하를 올려도 DB 풀 수용 제어가 먼저 걸려 조회 계층 평균이
+     * 0.33 근처에서 멈춘다(2026-09-23 실측). 그 환경에서 0.60 을 기준으로 두면 권고가
+     * 영원히 나오지 않고, 화면은 조치할 수 없는 상태를 계속 안정이라고 적는다.
+     *
+     * 기본값은 계약값이라 값을 주지 않는 환경은 종전과 같다. AWS 운영값은 이 기본값이다.
+     */
+    private double scaleOutCpu = 0.60;
+
+    private double scaleInCpu = 0.30;
+
     private final List<Node> nodes = new ArrayList<>();
 
     public Duration getProbeTimeout() {
@@ -34,6 +48,22 @@ public class CapacityProperties {
 
     public void setProbeTimeout(Duration probeTimeout) {
         this.probeTimeout = probeTimeout;
+    }
+
+    public double getScaleOutCpu() {
+        return scaleOutCpu;
+    }
+
+    public void setScaleOutCpu(double scaleOutCpu) {
+        this.scaleOutCpu = scaleOutCpu;
+    }
+
+    public double getScaleInCpu() {
+        return scaleInCpu;
+    }
+
+    public void setScaleInCpu(double scaleInCpu) {
+        this.scaleInCpu = scaleInCpu;
     }
 
     public List<Node> getNodes() {
