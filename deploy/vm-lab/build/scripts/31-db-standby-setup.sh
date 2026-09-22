@@ -87,7 +87,7 @@ MARK_DIR=/etc/vm-lab
 
 # failstop 저장소 deploy/linux/postgresql/exchange.conf 의 해시.
 # 학교 EC2 적용본과 같은 값이며 파일이 바뀌면 여기서 멈춘다.
-EXCHANGE_CONF_SHA256=8acbe28b479fa81c73ede1acfd978f1c232d2a85ed478287762a27ad90b603bd
+EXCHANGE_CONF_SHA256=a03ed6236983133a24cac6610628072205e258e7fdeb21a1db7598c68db45958
 
 # exporter 배포본. 해시는 docs/reports/AWS_작업.md 268~269행의 학교 기록값이다.
 # 이번 VM에서 실제로 대조하는 것이 이 스크립트의 역할이며, 값이 다르면 멈춘다.

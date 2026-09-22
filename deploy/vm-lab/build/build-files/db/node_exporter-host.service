@@ -26,7 +26,14 @@ EnvironmentFile=/etc/node_exporter/listen.env
 # /proc/pressure/cpu 가 값을 내는 것을 확인한 뒤 이 인자를 되돌린다.
 # 학교 AWS 의 Amazon Linux 2023 은 PSI 기본값이 다를 수 있으므로
 # failstop/deploy/linux/observability 의 유닛은 그쪽에서 확인한 뒤 따로 판단한다.
-ExecStart=/usr/local/bin/node_exporter --web.listen-address=${NODE_EXPORTER_ADDRESS}:9100 --collector.disable-defaults --collector.cpu --collector.meminfo --collector.filesystem --collector.diskstats --collector.netdev --collector.netstat --collector.sockstat --collector.loadavg --collector.stat --collector.time --collector.uname --collector.vmstat --collector.filefd --collector.systemd --collector.systemd.unit-include=(sshd|chronyd|nftables|vm-lab-firewall|postgresql|postgres_exporter|node_exporter)[.]service
+# 2026-09-22: textfile 수집기를 켠다. 백업 같은 배치 작업이 .prom 파일을 써 두면
+# node_exporter 가 그 값을 함께 내보내는 경로다. 15-msp-db-replication 의
+# '백업 성공 · 경과 시간' 패널 두 개가 failstop_backup_last_success_timestamp_seconds 를
+# 조회하는데 이 수집기가 없으면 지표가 올라올 길 자체가 없었다.
+# 켠다고 값이 생기지는 않는다. 쓰는 쪽(백업 작업)이 VM 에 아직 배포돼 있지 않다.
+# 디렉터리는 비어 있어도 되고 없으면 node_exporter 가 경고만 낸다.
+# ProtectSystem=strict 이지만 읽기는 막지 않으므로 별도 ReadWritePaths 가 필요 없다.
+ExecStart=/usr/local/bin/node_exporter --web.listen-address=${NODE_EXPORTER_ADDRESS}:9100 --collector.disable-defaults --collector.cpu --collector.meminfo --collector.filesystem --collector.diskstats --collector.netdev --collector.netstat --collector.sockstat --collector.loadavg --collector.stat --collector.time --collector.uname --collector.vmstat --collector.filefd --collector.textfile --collector.textfile.directory=/var/lib/node_exporter/textfile --collector.systemd --collector.systemd.unit-include=(sshd|chronyd|nftables|vm-lab-firewall|postgresql|postgres_exporter|node_exporter)[.]service
 Restart=on-failure
 RestartSec=5
 MemoryMax=128M

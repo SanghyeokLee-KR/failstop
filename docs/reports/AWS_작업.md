@@ -97,6 +97,8 @@ Claude로 이어갈 때는 [시작 요청문](../ai/prompts.md#학교-aws-작업
 
 설정 본문은 [exchange.conf](../../deploy/linux/postgresql/exchange.conf)에 있다. 두 서버 적용본과 저장소의 SHA-256은 `8acbe28b479fa81c73ede1acfd978f1c232d2a85ed478287762a27ad90b603bd`로 일치했다. 최초 전송에서 브라우저 입력이 줄바꿈을 없앴고 일반 사용자 셸이 제한된 디렉터리의 와일드카드를 확장하지 못했다. 파일을 줄바꿈 보존 방식으로 다시 전송하고 명시 경로로 소유권을 수정한 뒤 해시·기동·실효 설정을 확인했다. 실패 화면 186·187도 그대로 보관했다.
 
+2026-09-22에 저장소의 `exchange.conf`가 바뀌었다. VM 실습망의 MSP 화면에서 SQL 실행량과 평균 시간 패널 다섯 개가 비는 원인이 `pg_stat_statements` 미적재였고, 공통 기준 파일에 그 모듈과 관련 설정 다섯 줄을 더했다. 저장소 원본의 SHA-256은 이제 `a03ed6236983133a24cac6610628072205e258e7fdeb21a1db7598c68db45958`이다. 위 문단의 `8acbe28b...`는 2026-09-19에 학교 EC2 두 대에서 실제로 잰 값이며 그대로 둔다. **학교 EC2에는 이 변경을 아직 적용하지 않았다.** `shared_preload_libraries`는 재기동이 필요해 적용 창을 따로 잡아야 하고, 적용 전까지 학교 EC2의 적용본 해시는 `8acbe28b...`가 맞다. 적용하면 두 서버에서 다시 재고 이 문단 아래에 그 결과를 적는다.
+
 | 위치 | 용도와 주의점 |
 |---|---|
 | `/etc/postgresql/exchange.conf` | 두 DB 공통 설정, root:postgres 0640. shared_buffers 256MB, work_mem 4MB, max_connections 100. 부하 측정 전 초기값이다. |

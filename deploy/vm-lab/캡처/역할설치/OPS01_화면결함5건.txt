@@ -1,0 +1,78 @@
+2026-09-22T10:02:11Z  ops01.lab
+
+# MSP 화면 결함 5건 수정
+#
+# 점검에서 확인된 21건 중 대시보드 패널이 비는 원인 다섯 가지를 고쳤다.
+# 고친 것과 고쳐도 값이 안 나오는 것을 구분해서 적는다. 설정을 켰다는 사실과
+# 화면에 값이 보인다는 사실은 다르다.
+
+##### 1. P95 응답시간 (10-msp-overview, 11-msp-service 의 패널 4개)
+  원인: Actuator 기본이 summary 라 _count/_sum 만 나오고 _bucket 이 없었다.
+        histogram_quantile 은 버킷이 입력이라 값을 내지 못한다.
+  조치: app.env 에 SPRING_APPLICATION_JSON 으로 히스토그램을 켰다. 환경변수 낱개 대신
+        점 표기를 그대로 넘겨 완화 바인딩의 철자 해석에 기대지 않았다.
+        Docker 검증에서 쓴 deploy/compose.node-app.yml:16 과 같은 형태다.
+  실측: APP02 에서 먼저 확인했다. 재기동 뒤 TYPE 선언이 summary 에서 histogram 으로 바뀌고
+        요청 한 건에 버킷 69계열이 생겼다. 그 뒤 APP01 에도 넣었다.
+  주의: 버킷은 관측이 있어야 쌓인다. 이 실습망에는 상시 요청원이 없다.
+        6시간 동안 앱 전체 요청이 1건이었고, 패널에는 sum(rate(count))>0 게이트가 붙어 있다.
+        지금 값이 보이는 것은 확인하려고 넣은 조회 때문이다. 조회가 멎으면 다시 빈다.
+        시장 봇이나 주기 조회를 세우기 전에는 이 패널이 상시로 채워지지 않는다.
+  확인: 버킷 계열 276개 / 앱 노드 2대
+        P95 패널 식 = 0.008344283838555911 초
+
+##### 2. SQL 실행량·평균시간 (13-msp-db, 14-msp-db-workload 의 패널 5개)
+  원인: shared_preload_libraries 가 비어 있어 pg_stat_statements 가 안 올라왔고
+        exchange DB 에 확장도 없었다. postgres_exporter 의 pg_ops_sql_collection_available
+        이 0 이 되면 관련 계열을 아예 내보내지 않아 값 0 이 아니라 패널이 빈다.
+  조치: 공통 기준 파일 deploy/linux/postgresql/exchange.conf 에 모듈과 설정 다섯 줄을 더했다.
+        context=postmaster 라 reload 로는 안 되고 재기동이 필요했다.
+        순서는 Standby(DB02) 먼저, 그다음 Primary(DB01) 다. 확장은 Primary 에서 한 번 만들었다.
+  주의: 이 파일은 학교 AWS 와 공유한다. 학교 EC2 에는 아직 적용하지 않았고 그 사실을
+        docs/reports/AWS_작업.md 에 적었다. 2026-09-19 의 해시 측정 기록은 덮어쓰지 않았다.
+  확인:
+    collection_available = 1 (두 노드 최소값. 1이어야 한다)
+    pg_ops_sql_calls_total 14계열 / execution_seconds 14계열
+
+##### 3. 백업 경과시간 (15-msp-db-replication 의 패널 2개)
+  원인: node_exporter 에 textfile 수집기가 없어 배치 작업이 지표를 올릴 경로 자체가 없었다.
+  조치: 여섯 대 모두에 --collector.textfile 과 디렉터리를 넣었다. DB 두 대는
+        10-unit-include.conf 드롭인이 ExecStart 를 다시 선언하므로 드롭인도 함께 고쳤다.
+  실측: 시험용 지표를 써 넣으니 노출되고 지우니 사라졌다. 경로는 동작한다.
+        백업 지표 이름으로는 시험하지 않았다. 없는 백업을 있는 것처럼 만들지 않기 위해서다.
+  주의: 이 패널은 여전히 빈다. 값을 쓰는 주체인 백업 작업이 VM 에 배포돼 있지 않다.
+        /opt/failstop 도 /opt/backup 도 없고 백업 유닛도 없다. 이 프로젝트의 백업 방향은
+        Databasus 이므로(ADR 0034 초안) 그쪽을 세운 뒤 이 경로로 지표를 내보내면 된다.
+  확인: textfile 수집기 성공 6대 / 수집기 15종 / 실패 없음
+        백업 지표 = 없음 (백업 미배포라 이 값이 맞다)
+
+##### 4. 경보 링크 / 5. canvas 계층
+  4의 원인: 패널 링크가 /alerting/list 를 가리켰다. grafana.ini 가 통합 경보를 껐으므로 빈 화면이다.
+  4의 조치: Prometheus 경보 화면으로 돌렸다. 발화 중인 것만이 아니라 규칙 전체와 상태를 보여
+            '전체 경보' 라는 이름과 맞고, 9090 은 OPS01 sshd 의 PermitOpen 에 있어 터널로 열린다.
+  5의 원인: canvas 타깃 한 선택자에 environment="$environment" 와 environment="aws" 가 함께 걸려
+            모순이었다. blackbox 를 배포해도 결과가 빈다. 게다가 CloudFront 와 ALB 는 VM 에 없다.
+  5의 조치: AWS 전용 두 계층을 통째로 뺐다. 남기면 영원히 '미수집' 으로 보여 관측이 고장난 것처럼
+            읽힌다. 빠진 자리는 남은 계층을 앞으로 당겨 격자를 맞췄다.
+  둘 다 산출물 JSON 이 아니라 생성기 make-vm-dashboards.py 를 고쳤다. 산출물만 고치면
+  다음에 생성기를 돌릴 때 되살아난다. 기대한 수(계층 요소 24개, 링크 2곳)와 다르면 멈추게 했다.
+  확인 (Grafana 가 적재한 본문 기준):
+    msp-overview   /alerting/list=0  9090/alerts=1  environment=aws=0
+      canvas 계층 = ['edge', 'spring', 'primary', 'standby']
+    msp-service    /alerting/list=0  9090/alerts=0  environment=aws=0
+      canvas 계층 = ['edge', 'spring', 'primary', 'standby']
+    msp-infra      /alerting/list=0  9090/alerts=0  environment=aws=0
+      canvas 계층 = ['edge', 'spring', 'primary', 'standby']
+    msp-db         /alerting/list=0  9090/alerts=1  environment=aws=0
+      canvas 계층 = ['primary', 'standby', 'replication', 'wal_gap', 'primary_connections', 'standby_connections', 'primary_utilization', 'standby_utilization']
+
+##### 부수 영향
+  APP01 재기동으로 리더가 APP02 로 넘어갔다(epoch 1 -> 2). ADR 0017 의 재승격 금지 때문에
+  APP01 이 살아나도 돌려받지 않는다. EDGE01 업스트림을 swap-upstream 으로 APP02 로 돌렸다.
+  DB01 재기동 뒤에도 리더는 APP02 그대로였고 추가 교체가 필요하지 않았다.
+  되돌릴 파일은 각 노드에 .before-histogram, .before-pgss, .before-textfile 로 남겼다.
+  대시보드 이전 판은 /var/lib/grafana/msp-dashboards.before-fix/ 에 있다.
+  확인: 수집 대상 11/11 up  발화 경보 0건
+        리더 8825748e-deb2-435e-ad78-0af613f19e96 epoch 2
+        복제 streaming 지연 0바이트
+        preload pg_stat_statements
