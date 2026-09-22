@@ -29,7 +29,6 @@ const NAV_GROUPS: AdminNavGroup[] = [
     label: "상황",
     items: [
       { href: "/admin", label: "종합 상태", icon: "overview", exact: true },
-      { href: "/admin/monitoring", label: "모니터링", icon: "monitoring" },
     ],
   },
   {

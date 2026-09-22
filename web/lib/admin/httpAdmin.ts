@@ -7,6 +7,7 @@
 import { AdminError, type AdminApi } from "./api";
 import { approvalConsoleTarget } from "./roles";
 import { INVARIANT_DEFS } from "./catalog";
+import { summarizeInvariants } from "./invariants";
 import { isoNow } from "../format";
 import { COIN_META } from "../sim/engine";
 import type {
@@ -889,18 +890,19 @@ export class HttpAdminApi implements AdminApi {
       // 종합 카드가 아니라 승인 화면에서 다뤄야 할 상태다
       this.listApprovals("ISSUED").then((r) => r.data.length),
     ]);
-    const okCount = inv.filter((i) => i.ok).length;
-    const health: "success" | "warning" | "danger" = ha.nodes.some((n) => n.health === "down")
-      ? "danger"
-      : ha.nodes.some((n) => n.health === "degraded") || okCount < inv.length
-        ? "warning"
-        : "success";
+    const invariants = summarizeInvariants(inv);
+    // 위반은 danger, 미수집·부분수집은 warning이다. 미판정을 통과로 칠하지 않는다
+    const health: "success" | "warning" | "danger" =
+      ha.nodes.some((n) => n.health === "down") || invariants.state === "VIOLATED"
+        ? "danger"
+        : ha.nodes.some((n) => n.health === "degraded") || invariants.state !== "PASS"
+          ? "warning"
+          : "success";
     return {
       overallHealth: health,
       epoch: ha.epoch,
       leaderNodeId: ha.leaderNodeId,
-      invariantsOk: okCount,
-      invariantsTotal: inv.length,
+      invariants,
       lastRtoMs: rec.lastRtoMs,
       lastVerdict: rec.lastVerdict,
       botsActive: sim.activeBots,
@@ -953,12 +955,7 @@ export class HttpAdminApi implements AdminApi {
       epoch: node.epoch,
       leaderNodeId: holder,
       nodes: [node],
-      sequencerQueueSize: 0,
-      orderLatencyP99Ms: 0,
-      // 원장 불균형 실측은 invariants(ledger_imbalance)가 담당한다. status에는 없어 보존값으로 둔다
-      ledgerImbalance: "0",
       tradesTotal: trades,
-      hikariPending: 0,
       generatedAt: isoNow(),
     };
   }

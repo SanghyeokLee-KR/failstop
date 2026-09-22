@@ -32,7 +32,7 @@ const NODE_HEALTH_LABEL: Record<string, string> = { healthy: "정상", degraded:
 export default function AdminOverviewPage() {
   const load = useCallback(async (): Promise<OverviewData> => {
     const api = getAdminApi();
-    // 노드 요약은 모니터링과 같은 소스를 재사용한다(신규 계약 없음)
+    // 노드 요약은 용량 화면과 같은 소스를 재사용한다(신규 계약 없음)
     const [ov, ha] = await Promise.all([api.getOverview(), api.getHaStatus()]);
     return { ov, ha };
   }, []);
@@ -72,7 +72,7 @@ export default function AdminOverviewPage() {
           <div className={styles.overviewCols}>
             <div className={styles.overviewLeft}>
               <div className={styles.kpiGrid} data-cols="2">
-                <Link href="/admin/monitoring" className={styles.railLink}>
+                <Link href="/admin/capacity" className={styles.railLink}>
                   <StatTile
                     compact
                     label="매칭 리더"
@@ -104,7 +104,7 @@ export default function AdminOverviewPage() {
                   {data.ha.nodes.map((n) => (
                     <Link
                       key={n.id}
-                      href="/admin/monitoring"
+                      href="/admin/capacity"
                       className={`${styles.nodeSummaryRow} num`}
                       data-leader={n.role === "leader" || undefined}
                     >

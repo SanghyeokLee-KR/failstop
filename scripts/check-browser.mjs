@@ -55,7 +55,7 @@ const SCREENS = [
   "/assets", "/transfers", "/history", "/notices", "/support", "/mypage", "/system",
   "/auth/login", "/auth/signup",
   "/admin", "/admin/audit", "/admin/bots", "/admin/capacity", "/admin/community",
-  "/admin/config", "/admin/members", "/admin/monitoring", "/admin/operators",
+  "/admin/config", "/admin/members", "/admin/operators",
   "/admin/transfers", "/admin/support",
 ];
 

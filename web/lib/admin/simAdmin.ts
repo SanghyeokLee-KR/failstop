@@ -11,6 +11,7 @@ import { AdminError } from "./api";
 import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles";
 import { feeRateError } from "./fees";
 import { INVARIANT_DEFS, scenarioDef } from "./catalog";
+import { summarizeInvariants } from "./invariants";
 import type {
   AdminPage,
   PageOpts,
@@ -701,23 +702,21 @@ export class SimAdminApi implements AdminApi {
   }
 
   private overallHealth(): "success" | "warning" | "danger" {
-    if (this.nodes.some((n) => n.health === "down")) return "danger";
-    if (this.nodes.some((n) => n.health === "degraded") || this.invariants.some((i) => !i.ok)) {
-      return "warning";
-    }
+    const inv = summarizeInvariants(this.invariants);
+    if (this.nodes.some((n) => n.health === "down") || inv.state === "VIOLATED") return "danger";
+    // 미수집·부분수집은 통과가 아니다. http 어댑터와 같은 판정식을 쓴다
+    if (this.nodes.some((n) => n.health === "degraded") || inv.state !== "PASS") return "warning";
     return "success";
   }
 
   getOverview(): Promise<AdminOverview> {
     this.auth("VIEW");
     this.sweep();
-    const okCount = this.invariants.filter((i) => i.ok).length;
     return Promise.resolve({
       overallHealth: this.overallHealth(),
       epoch: this.epoch,
       leaderNodeId: this.leader().id,
-      invariantsOk: okCount,
-      invariantsTotal: this.invariants.length,
+      invariants: summarizeInvariants(this.invariants),
       // 목에 페일오버 주행 표가 없다. 재생 소요를 RTO로 실으면 없는 축을 지어낸다.
       lastRtoMs: null,
       // getRecovery와 같은 함수다. 두 화면이 다른 결론을 내면 안 된다.
@@ -827,16 +826,11 @@ export class SimAdminApi implements AdminApi {
 
   getHaStatus(): Promise<HaStatus> {
     this.auth("VIEW");
-    const degraded = this.nodes.some((n) => n.health !== "healthy");
     return Promise.resolve({
       epoch: this.epoch,
       leaderNodeId: this.leader().id,
       nodes: this.nodes.map((n) => ({ ...n, ownedMarkets: n.ownedMarkets.slice() })),
-      sequencerQueueSize: Math.round(rand(0, degraded ? 320 : 40)),
-      orderLatencyP99Ms: Math.round(degraded ? rand(80, 160) : rand(6, 22)),
-      ledgerImbalance: "0",
       tradesTotal: this.tradesTotal,
-      hikariPending: Math.round(rand(0, degraded ? 12 : 2)),
       generatedAt: isoNow(),
     });
   }

@@ -837,6 +837,15 @@
 .heroGaugeValue[data-tone="danger"] {
   color: var(--color-danger);
 }
+.heroGaugeValue[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+/* 판독 보조행. 검사 시각 또는 미수집 사유. 값과 같은 칼럼에서 한 단 낮춘다 */
+.heroGaugeSub {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
 /* 우측 키·값 칼럼. 잔여 정보는 계기 승격 없이 캡션 3행으로만 남긴다 */
 .heroKv {
   display: flex;
@@ -1303,97 +1312,6 @@
 }
 .flashPreview[data-level="auto"] .flashAutoNote {
   opacity: 1;
-}
-
-/* ===== 핵심 안전 검사 릴레이(모니터링 1층) =====
-   불변식 검사를 릴레이 램프 스트립으로 병렬 판독한다. 정상은 램프·라벨만(잉크),
-   위반 셀만 danger 면·상단 레일·위반 텍스트로 발화하고 전이 순간 셀 단위 플래시. */
-.relayGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-/* 내용 폭 좌측 패킹. 균등 7트랙은 1280에서 다섯 번째 라벨을 자르고 1600에서 셀마다 죽은 폭을 남겼다.
-   위반 전이 시 해당 셀만 자라는 1회성 리플로는 사건 자체가 드물어 감수한다 */
-.relayStrip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-.relayCell {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-2);
-  /* 1행 계기 셀. 위반 상세는 스트립 아래 상시 발화선이 전담하므로 세로 예약이 없다 */
-  min-height: 40px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--panel-radius);
-  background: var(--surface-default);
-  transition: background-color var(--dur-flash) var(--ease-standard);
-}
-.relayCell[data-health="danger"] {
-  border-color: var(--color-danger);
-  background: var(--color-danger-bg);
-  box-shadow: inset 0 3px 0 var(--color-danger);
-}
-.relayLamp {
-  font-size: 10px;
-  line-height: 1;
-}
-/* 검사 항목이 평시에 전부 통과다. 램프까지 초록이면 스트립 전체가 초록 띠가 되고
-   위반 하나가 그 안에 묻힌다. 통과 램프는 잉크, 위반만 색으로 발화한다 */
-.relayCell[data-health="success"] .relayLamp {
-  color: var(--text-secondary);
-}
-.relayCell[data-health="danger"] .relayLamp {
-  color: var(--color-danger);
-}
-.relayLabel {
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  font-weight: var(--fw-medium);
-  color: var(--text-secondary);
-  /* 라벨 길이 차이가 셀 폭을 못 흔들게 1줄 말줄임. 전문은 title이 보존 */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.relayState {
-  font-size: var(--font-body-sm-size);
-  font-weight: var(--fw-semibold);
-  color: var(--color-danger);
-  white-space: nowrap;
-}
-/* 상시 발화선. 정상·위반 모두 정확히 1행 점유라 전이 시프트 0 */
-.relayAnnunciator {
-  min-height: var(--font-caption-line);
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-secondary);
-}
-.relayAnnunciator[data-health="danger"] {
-  color: var(--color-danger);
-  font-weight: var(--fw-semibold);
-}
-.relayCell[data-transition="success"] {
-  background-color: var(--color-health-flash-success);
-}
-.relayCell[data-transition="danger"] {
-  background-color: var(--color-health-flash-danger);
-}
-@media (prefers-reduced-motion: reduce) {
-  /* 플래시 명시 킬. 위반 셀의 정지 배경(danger-bg)은 후속 선언이 복원한다 */
-  .relayCell[data-transition] {
-    background: var(--surface-default) !important;
-  }
-  .relayCell[data-health="danger"] {
-    background: var(--color-danger-bg) !important;
-  }
 }
 
 /* ===== 노드 토폴로지(모니터링 노드 상태) =====

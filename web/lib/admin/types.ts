@@ -137,16 +137,18 @@ export interface HaNode {
   health: NodeHealth;
 }
 
+/**
+ * 시퀀서 큐·주문 지연 p99·원장 불균형·Hikari 대기는 싣지 않는다.
+ * `/admin/v1/ha/status`가 이 넷을 방출하지 않아 http 어댑터가 리터럴 0을 채우고 있었고,
+ * 그 결과 관제 화면이 어떤 부하에서도 경보를 내지 못하면서 "대기 0 · 지연 0ms"를
+ * 측정값처럼 띄웠다. 없는 값을 0으로 채우지 않는다는 이 파일의 규율을 그 넷만 깨고 있었다.
+ * 이 축들의 추이는 Grafana 02(트래픽·Spring)와 04(DB 관제)가 실측으로 그린다.
+ */
 export interface HaStatus {
   epoch: number;
   leaderNodeId: string;
   nodes: HaNode[];
-  sequencerQueueSize: number;
-  orderLatencyP99Ms: number;
-  /** exchange_ledger_imbalance 총합. 자산 보존이면 "0" */
-  ledgerImbalance: string;
   tradesTotal: number;
-  hikariPending: number;
   generatedAt: string;
 }
 
@@ -214,6 +216,22 @@ export interface CapacityState {
   readAvgCpuRatio: number | null;
   nodes: CapacityNode[];
   advice: CapacityAdvice[];
+}
+
+/**
+ * 불변식 요약 판정. 분모는 기대 검사 수(카탈로그)이고 서버 응답 길이가 아니다.
+ * NONE(행 없음)과 PARTIAL(일부만 수집)은 통과가 아니라 미판정이다.
+ */
+export type InvariantState = "PASS" | "VIOLATED" | "PARTIAL" | "NONE";
+
+export interface InvariantSummary {
+  state: InvariantState;
+  ok: number;
+  violated: number;
+  /** 기대 검사 수. INVARIANT_DEFS 길이 */
+  expected: number;
+  /** 최신 검사 시각. 행이 없으면 null이고 현재 시각으로 채우지 않는다 */
+  checkedAt: string | null;
 }
 
 /** invariant_checks 원소. 항목 수는 서버가 정한다(실측 26종) */
@@ -599,8 +617,7 @@ export interface AdminOverview {
   overallHealth: "success" | "warning" | "danger";
   epoch: number;
   leaderNodeId: string;
-  invariantsOk: number;
-  invariantsTotal: number;
+  invariants: InvariantSummary;
   lastRtoMs: number | null;
   lastVerdict: RecoveryVerdict | null;
   /** 봇 노드가 상태를 발행하지 않으면 미상이다. 0을 채우면 정지로 읽힌다 */
