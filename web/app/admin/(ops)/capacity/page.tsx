@@ -19,6 +19,9 @@ import { AdminError, getAdminApi } from "@/lib/admin/api";
 import type { CapacityAdvice, CapacityNode, CapacityState } from "@/lib/admin/types";
 import PanelCard from "@/components/PanelCard";
 import NodeStrip from "@/components/admin/NodeStrip";
+import GrafanaLink from "@/components/admin/GrafanaLink";
+import DecisionFooter from "@/components/admin/DecisionFooter";
+import SourceMark, { sourceWord } from "@/components/admin/SourceMark";
 import Skeleton from "@/components/Skeleton";
 import { HealthPill, PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
@@ -88,6 +91,9 @@ export default function CapacityPage() {
   const d = res.data;
   const pct = d.readAvgCpuRatio === null ? null : Math.round(d.readAvgCpuRatio * 100);
 
+  // 임계 판정의 정본은 서버 advice다. 화면이 0.60을 복제하면 서버가 값을 조일 때 갈린다
+  const scaleAdvised = d.advice.some((a) => a.action === "SCALE_OUT");
+
   return (
     <>
       <PageHeader
@@ -108,7 +114,7 @@ export default function CapacityPage() {
         ))}
       </div>
 
-      <PanelCard title="서버 대수">
+      <PanelCard title="서버 대수" actions={<GrafanaLink board="msp-service" label="앱 CPU 추이" />}>
         <div className={styles.kpiGrid} data-cols="3">
           <StatTile
             label="지금 응답하는 서버"
@@ -128,24 +134,26 @@ export default function CapacityPage() {
           />
           <StatTile
             label="조회 평균 사용률"
-            value={pct === null ? "읽지 못함" : pct}
+            value={pct === null ? sourceWord("MISSING") : pct}
             unit={pct === null ? undefined : "%"}
-            tone={pct === null ? "warning" : pct >= 60 ? "warning" : "success"}
-            sub={pct === null ? "판단 근거 없음" : "서버를 추가하면 이 값이 나뉜다"}
+            /* 임계 판정은 서버 advice가 내린다. 화면이 숫자를 들면 두 곳이 갈린다 */
+            tone={pct === null ? "warning" : scaleAdvised ? "warning" : "success"}
+            sub={pct === null ? "판단 근거 없음" : "서버 추가 시 분산"}
             meter={pct === null ? undefined : { value: pct, max: 100, threshold: 60 }}
             title="average CPU of read-serving nodes"
           />
         </div>
         {!d.reconciled && (
+          /* 종전 문구는 "약 17초 뒤 맞는다"라고 적어 조절기가 돌고 있음을 단정했다.
+             콘솔에는 조절기 생존을 알 원천이 없다. 계약과 관측이 어긋났다는 사실만 적는다 */
           <p className={styles.capacityNote}>
-            요청한 대수와 실제 대수가 다르다. 서버 한 대를 세우는 데 약 17초가 걸리므로
-            추가 직후에는 잠시 이 상태가 된다. 오래 지속되면 서버가 뜨지 못한 것이다.
+            <SourceMark state="NOT_APPLIED" note={`계약 ${d.plan.desired}대 · 관측 ${d.observedTotal}대`} />
           </p>
         )}
         {!canScale && <PermissionNote>서버 수 변경은 총괄 권한 필요</PermissionNote>}
       </PanelCard>
 
-      <PanelCard title="서버 한 대씩">
+      <PanelCard title="서버 한 대씩" actions={<GrafanaLink board="msp-infra" label="호스트 추이" />}>
         <NodeStrip nodes={d.nodes} perSecond={perSecond} />
       </PanelCard>
 
@@ -189,6 +197,14 @@ export default function CapacityPage() {
           </tbody>
         </table>
       </PanelCard>
+
+      <DecisionFooter
+        steps={[
+          "평균 사용률 확인",
+          <GrafanaLink key="svc" board="msp-service" label="앱 CPU 추이" />,
+          "권고에 따라 증설·축소",
+        ]}
+      />
 
       {pending && (
         <ConfirmDialog

@@ -779,8 +779,11 @@
 .heroGaugeValue[data-tone="warning"] {
   color: var(--color-warning-text);
 }
-/* 판독 보조행. 검사 시각 또는 미수집 사유. 값과 같은 칼럼에서 한 단 낮춘다 */
+/* 판독 보조행. 검사 시각 또는 미수집 사유와 관측 딥링크가 한 줄에 선다 */
 .heroGaugeSub {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
@@ -2156,4 +2159,67 @@
   content: "";
   position: absolute;
   inset: -6px 0;
+}
+
+/* ===== 관측 딥링크·원천 표기 =====
+   추이는 콘솔이 그리지 않는다. 링크는 크롬 악센트를 잉크로만 쓰고 면을 칠하지 않는다 */
+.boardLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--chrome-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.boardLink:hover {
+  text-decoration: underline;
+}
+
+/* 값이 없는 이유. 무채로 적는다. 없음은 장애가 아니라 사실이라 발화하지 않는다 */
+.sourceMark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-secondary);
+}
+/* 조작이 아직 안 일어난 상태만 한 단 밝힌다. 판정을 기다리는 자리라는 신호다 */
+.sourceMark[data-state="NOT_RUN"],
+.sourceMark[data-state="NOT_APPLIED"] {
+  color: var(--text-default);
+}
+.sourceNote {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+
+/* ===== 판단 순서 푸터 =====
+   Grafana 관제 화면이 바닥에 박아 둔 것과 같은 형식이다. 무엇을 먼저 보고 다음에
+   어디로 가는지를 화면이 스스로 말한다. 신참 운영자의 첫 이동을 줄이는 자리라
+   계기가 아니라 안내이고, 그래서 sunken 면에 무채로 눕힌다 */
+.decisionFooter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--panel-radius);
+  background: var(--surface-sunken);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  /* sunken 면에서 secondary는 4.27:1이라 계약 미달이다. default로 올린다(§2-1) */
+  color: var(--text-default);
+}
+.decisionStep {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+.decisionArrow {
+  color: var(--text-secondary);
 }

@@ -13,6 +13,7 @@
 import type { AdminOverview, InvariantState } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
 import { HEALTH_ICON, type Health } from "./ui";
+import GrafanaLink from "./GrafanaLink";
 import { useHealthTransition } from "./useHealthTransition";
 import styles from "./admin.module.css";
 
@@ -78,7 +79,10 @@ export default function HealthHero({ ov }: { ov: AdminOverview }) {
           )}
           {invWord}
         </span>
-        <span className={styles.heroGaugeSub}>{invSub}</span>
+        <span className={styles.heroGaugeSub}>
+          {invSub}
+          <GrafanaLink board="proof-integrity" label="항목별 내역" />
+        </span>
       </div>
       <div className={styles.heroKv}>
         {/* 값과 판정을 한 필드에 묶지 않는다. 원천이 다르다. 복구 시간은 최신 주행 1건이고
