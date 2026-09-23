@@ -3,7 +3,7 @@
 # DB01 Primary 구축 스크립트. Rocky Linux 10.2 minimal에 PostgreSQL 17을 직접 설치한다.
 #
 # 이 스크립트가 하는 일
-#   데이터 디스크 파티션과 마운트, PostgreSQL 17 설치, initdb, 공통 설정 배치,
+#   데이터 디스크 파티션과 마운트, PostgreSQL 17 설치, 유닛의 마운트 요구, initdb, 공통 설정 배치,
 #   TLS 자체 서명 인증서, pg_hba, 역할과 데이터베이스, 계정 비밀번호, 관측 계정,
 #   마이그레이션 창 개폐, node_exporter와 postgres_exporter, journald 보존,
 #   nftables 역할 규칙, 상태 확인.
@@ -280,26 +280,14 @@ step_disk() {
   # fstab에 nofail을 넣어 마운트가 없어도 부팅은 되게 했다. 대신 PostgreSQL이 빈 경로 위에서
   # 뜨면 안 되므로 유닛이 이 마운트를 요구하게 한다. 마운트가 없으면 서비스만 멈춘다.
   # detect_pg 는 유닛이 없으면 die 한다. 이 단계는 패키지 설치보다 앞이라 없는 것이 정상이다.
-  # 그래서 직접 조회하고, 없으면 packages 단계 뒤에 다시 걸도록 안내만 남긴다.
+  # 그래서 직접 조회하고, 없으면 packages 뒤의 mount-guard 단계가 건다.
   local pgunit
   # 매칭이 없으면 systemctl 이 exit 1 을 낸다. set -e 에 걸리지 않게 || true 를 붙인다.
-  pgunit=$(systemctl list-unit-files --type=service --no-legend 'postgresql*.service' 2>/dev/null | awk '{print $1}' | head -1 || true)
+  pgunit=$(systemctl list-unit-files --type=service --no-legend 'postgresql*.service' 2>/dev/null | awk '{print $1}' | grep -v '@' | head -1 || true)
   if [[ -n $pgunit ]]; then
-    PG_UNIT=$pgunit
-    install -d -m 0755 "/etc/systemd/system/${PG_UNIT}.d"
-    {
-      printf '[Unit]
-'
-      printf '# %s 마운트가 없으면 기동하지 않는다. 빈 경로 위에서 PGDATA를 여는 사고를 막는다.
-' "$DATA_MOUNT"
-      printf 'RequiresMountsFor=%s
-' "$DATA_MOUNT"
-    } > "/etc/systemd/system/${PG_UNIT}.d/10-requires-mount.conf"
-    chmod 0644 "/etc/systemd/system/${PG_UNIT}.d/10-requires-mount.conf"
-    systemctl daemon-reload
-    info "${PG_UNIT} 에 RequiresMountsFor=${DATA_MOUNT} 를 걸었다."
+    write_mount_guard "$pgunit"
   else
-    info 'PostgreSQL 유닛이 아직 없다. packages 단계 뒤에 mount-guard 로 다시 건다.'
+    info 'PostgreSQL 유닛이 아직 없다. packages 단계 뒤의 mount-guard 단계가 마운트 요구를 건다.'
   fi
   mount -a
   findmnt "$DATA_MOUNT" | sed 's/^/       /'
@@ -308,6 +296,46 @@ step_disk() {
   # nofail로 부팅은 막지 않는다. 대신 PostgreSQL 유닛이 RequiresMountsFor로 마운트를 요구한다.
   # PGDATA 없이 서비스가 뜨는 것보다 멈추는 편이 낫다고 판단한 값이다.
   info 'fstab 옵션에 nofail을 넣었다. 디스크가 없어도 부팅은 되고 PostgreSQL 유닛이 마운트를 요구해 멈춘다.'
+}
+
+# PostgreSQL 유닛이 데이터 마운트를 요구하게 하는 드롭인을 쓴다. 내용이 같으면 다시 쓰지 않는다.
+# 드롭인은 다음 기동부터 적용되므로 실행 중인 PostgreSQL 을 재시작하지 않는다.
+write_mount_guard() {
+  local unit=$1
+  local dir="/etc/systemd/system/${unit}.d"
+  local file="$dir/10-requires-mount.conf"
+  local content
+  content=$(printf '[Unit]\n# %s 마운트가 없으면 기동하지 않는다. 빈 경로 위에서 PGDATA를 여는 사고를 막는다.\nRequiresMountsFor=%s' "$DATA_MOUNT" "$DATA_MOUNT")
+  if [[ -f $file && $(cat "$file") == "$content" ]]; then
+    info "${unit} 에 RequiresMountsFor=${DATA_MOUNT} 가 이미 걸려 있다."
+    return 0
+  fi
+  install -d -m 0755 "$dir"
+  printf '%s\n' "$content" > "$file"
+  chmod 0644 "$file"
+  systemctl daemon-reload
+  info "${unit} 에 RequiresMountsFor=${DATA_MOUNT} 를 걸었다. 다음 기동부터 적용된다."
+}
+
+# ---------------------------------------------------------------------------
+# mount-guard: PostgreSQL 유닛이 데이터 마운트를 요구하게 한다.
+# disk 단계는 패키지 설치 전이라 유닛이 없어 이 일을 하지 못한다. 그래서 packages 뒤에 둔다.
+# ---------------------------------------------------------------------------
+step_mount_guard() {
+  log 'mount-guard: PostgreSQL 유닛이 데이터 마운트를 요구하게 한다'
+  need_root
+  detect_pg
+  findmnt "$DATA_MOUNT" >/dev/null || die "$DATA_MOUNT 가 마운트돼 있지 않다. disk 단계를 먼저 실행한다."
+  write_mount_guard "$PG_UNIT"
+  info "적용값: RequiresMountsFor=$(systemctl show -p RequiresMountsFor --value "$PG_UNIT")"
+}
+
+# verify 용. 유닛의 RequiresMountsFor 에 데이터 마운트가 들어 있어야 0 을 돌려준다.
+v_mount_guard() {
+  local value
+  value=$(systemctl show -p RequiresMountsFor --value "$PG_UNIT" 2>/dev/null || true)
+  printf 'RequiresMountsFor=%s\n' "$value"
+  [[ " $value " == *" $DATA_MOUNT "* ]]
 }
 
 # ---------------------------------------------------------------------------
@@ -1073,6 +1101,7 @@ step_verify() {
 
   check '디스크와 마운트' lsblk -f
   check '마운트 지점' findmnt "$DATA_MOUNT"
+  check '마운트 요구 드롭인(데이터 마운트가 있어야 한다)' v_mount_guard
   check '용량' df -h "$DATA_MOUNT"
   check '데이터 경로 권한과 SELinux 문맥' ls -ldZ "$DATA_MOUNT" "$PGDATA"
   check 'SELinux 상태' getenforce
@@ -1139,7 +1168,7 @@ EOF
 # verify 는 all 에 넣지 않는다. 비밀번호가 없는 상태에서 먼저 판정을 내리면
 # 그 출력이 통과한 증거처럼 남는다. 순서는 all -> passwords -> migrate-open ->
 # (APP01에서 마이그레이션) -> migrate-close -> verify 다.
-ALL_STEPS=(preflight disk packages initdb config tls hba start roles monitor exporters journald firewall)
+ALL_STEPS=(preflight disk packages mount-guard initdb config tls hba start roles monitor exporters journald firewall)
 
 usage() {
   cat <<EOF
@@ -1181,6 +1210,7 @@ main() {
     case "$step" in
       preflight|disk|packages|initdb|config|tls|hba|start|roles|passwords|monitor|exporters|journald|firewall|verify)
         "step_$step" ;;
+      mount-guard)   step_mount_guard ;;
       migrate-open)  step_migrate_open ;;
       migrate-close) step_migrate_close ;;
       grant-app-role) step_grant_app_role ;;

@@ -1,6 +1,6 @@
 # EDGE01 구축 절차
 
-EDGE01은 VM 운영환경의 웹 진입 노드다. Nginx 하나가 정적 웹을 내보내고 `/api/`와 `/ws/v1`을 APP01과 APP02로 넘긴다. 443에서 웹과 API와 WebSocket을 함께 받고 80은 HTTPS 전환에만 쓴다. 이 문서는 실행하기 전에 쓴 절차다. 아래 명령은 아직 하나도 실행하지 않았고 어떤 검증도 통과했다고 적지 않았다. 학교 AWS에서 얻은 결과를 이 환경의 결과로 옮겨 적지 않는다.
+EDGE01은 VM 운영환경의 웹 진입 노드다. Nginx 하나가 정적 웹을 내보내고 `/api/`와 `/ws/v1`을 APP01과 APP02로 넘긴다. 443에서 웹과 API와 WebSocket을 함께 받고 80은 HTTPS 전환에만 쓴다. 이 문서는 절차이며 검증 결과가 아니다. 이 절차로 EDGE01을 구축했고 실제 출력은 [역할 설치 캡처](../../캡처/역할설치/EDGE01_역할검증.txt)와 재부팅 스냅숏에 있다. 아래 기대값을 통과 기록으로 옮겨 적지 않는다. 학교 AWS에서 얻은 결과를 이 환경의 결과로 옮겨 적지 않는다.
 
 값의 기준은 `build/00-주소계획.md`다. 이 문서와 계획서가 어긋나면 계획서를 먼저 고치고 나머지를 맞춘다. 설계 정책의 출처는 `아키텍쳐/교수님_보고본/06_VM_운영환경`의 세 도면이다.
 
@@ -108,9 +108,14 @@ curl -sI http://192.168.56.11/
 공통 기반이 이미 기본 차단을 걸었으므로 EDGE01이 더 열 것은 443과 80 둘뿐이다. 스크립트가 `/etc/vm-lab/firewall.d/20-edge01.nft`에 `add rule` 형태로만 덧붙이고 테이블과 체인을 다시 선언하지 않는다. 적용은 `systemctl reload vm-lab-firewall.service`다.
 
 ```
-add rule inet vmlab input ip saddr 192.168.56.1/32 tcp dport 443 ct state new counter accept
-add rule inet vmlab input ip saddr 192.168.56.1/32 tcp dport 80 ct state new counter accept
+add rule inet vmlab roles ip saddr 192.168.56.1/32 tcp dport 443 ct state new counter accept comment "EDGE01 웹"
+add rule inet vmlab roles ip saddr 192.168.10.41/32 tcp dport 443 ct state new counter accept comment "EDGE01 웹"
+add rule inet vmlab roles ip saddr 192.168.56.1/32 tcp dport 80 ct state new counter accept comment "EDGE01 전환"
 ```
+
+규칙은 공통 기반의 `input` 체인이 끝에서 넘기는 `roles` 체인에 들어간다. 443은 실습 단말 `192.168.56.1`과 OPS01 합성 프로브 `192.168.10.41`에 열고, 80은 주소계획대로 실습 단말에만 연다. 프로브는 https로만 조회하므로 80이 필요 없다.
+
+스크립트는 한때 합성 프로브 주소를 80에도 열었다. 2026-09-23 재부팅 스냅숏(`캡처/재부팅검증-2026-09-23/EDGE01_부팅후.txt`)에도 `saddr 192.168.10.41 tcp dport 80` 규칙이 남아 있다. 저장소 스크립트만 주소계획에 맞게 고쳤고 EDGE01에는 아직 적용하지 않았다. 다음에 `preview`를 다시 실행하면 역할 파일이 새로 만들어지고 그 규칙이 빠진다. `verify`는 80이 프로브 주소에 열려 있으면 실패로 센다.
 
 허용 출발지는 관리 대역 전체가 아니라 실습 단말 한 주소 `192.168.56.1`이다. `192.168.56.0/24`에는 나머지 다섯 VM과 pfSense의 host-only 인터페이스가 모두 들어 있어서, 대역으로 열면 DB01에서 EDGE01의 443으로 붙는 것까지 허용된다. 접근제어도의 "승인된 실습 단말만 접근"과 "사용자에서 앱·DB·관리 포트로 직접 접근 차단"을 만족하려면 주소 하나여야 한다.
 
@@ -307,6 +312,6 @@ STOMP 하트비트가 계속 오가면 `proxy_read_timeout 75s`가 연결을 끊
 
 능동 헬스체크를 넣지 않았다. 오픈소스 nginx에 없고, 대신 쓸 수 있는 `/actuator/health/readiness`는 앱 8081에 있는데 주소계획이 그 포트의 허용 출발지를 OPS01로만 정했다. 도입하려면 `00-주소계획.md`를 먼저 고쳐 EDGE01을 8081 허용 출발지에 넣어야 한다. 이 문서에서 임의로 바꾸지 않았다.
 
-Rocky 10 minimal의 AppStream에서 nginx를 받을 수 있는지, 그 nginx의 버전과 기본 모듈 구성이 어떤지 아직 확인하지 않았다. `http_ssl_module`이 없으면 443 구성이 기동에 실패한다. 스크립트가 패키지 단계에서 이 항목을 검사하고 없으면 멈춘다. NAT가 살아 있는 동안에만 설치가 가능하다는 점도 같이 본다.
+Rocky 10 minimal에서 NAT로 받은 nginx로 443 구성이 기동했다. [EDGE01 역할 검증 캡처](../../캡처/역할설치/EDGE01_역할검증.txt)에 `nginx -t` 성공, 두 주소의 443 수신, 443 정적 응답 200이 있다. `http_ssl_module`이 없으면 443 구성이 기동에 실패하고 스크립트가 패키지 단계에서 이를 검사해 멈추므로 모듈은 있었다고 본다. 다만 nginx 버전과 `nginx -V`의 모듈 목록은 캡처에 없다. 패키지는 NAT가 살아 있는 동안에만 받을 수 있다는 점도 같이 본다.
 
-방화벽 계통은 `table inet vmlab` 한 가지로 정했고 여섯 대가 같은 형식을 쓴다. 다만 이 통일을 아직 VM에서 적용해 확인하지 않았다. `10-edge01-setup.sh`에 남아 있는 단독 경로 분기와 `/etc/sysconfig/nftables.conf`를 건드리는 단계를 걷어내는 일도 아직 하지 않았다. 여섯 대를 올려 `nft list table inet vmlab`과 `systemctl is-enabled nftables` 출력을 직접 보기 전에는 "방화벽 정책을 통일했다"고 적지 않는다.
+방화벽 계통은 `table inet vmlab` 한 가지로 정했고 여섯 대가 같은 형식을 쓴다. EDGE01은 역할 검증 캡처에서 `table inet vmlab` 적용, input 기본 정책 drop, `inet failstop` 테이블 없음, 배포판 `nftables.service` 비활성, `/etc/sysconfig/nftables.conf`에 활성 지시자 없음을 확인했다. OPS01도 [관측 검증 캡처](../../캡처/역할설치/OPS01_관측검증.txt)에 `table inet vmlab`과 `nftables.service` masked가 있다. 나머지 네 대는 [공통 설치 캡처](../../캡처/공통설치/)의 input·forward 기본 차단과 `roles` 체인, 2026-09-23 재부팅 스냅숏의 `vm-lab-firewall.service` enabled와 역할 규칙 줄까지만 보았다. 그 네 대에서 `systemctl is-enabled nftables`를 직접 출력한 기록은 없고, 스냅숏의 enabled 목록에 `nftables.service`가 없다는 것만 안다. `10-edge01-setup.sh`의 이전 단독 경로는 남아 있는 구성을 지우는 정리 단계와 `verify`의 확인 항목만 남았다.

@@ -801,7 +801,11 @@ if [[ -f /etc/chrony.conf ]]; then
         sed -i 's/^makestep 1.0 3$/makestep 1.0 -1/' /etc/chrony.conf
         chrony_changed=true
     fi
-    if ! grep -q '^server time.google.com' /etc/chrony.conf; then
+    # pfSense 로 시각원을 옮긴 뒤에는 외부 서버를 다시 넣지 않는다. 넣으면 prefer 가 pfSense 를 이긴다.
+    # 주소를 정규식에 넣으면 점이 아무 문자와 일치하므로 awk 로 필드를 문자열 그대로 비교한다.
+    if awk -v ip="$PFSENSE_LAN_IP" '$1 == "server" && $2 == ip { found = 1 } END { exit !found }' /etc/chrony.conf; then
+        note "chrony 시각원이 pfSense(${PFSENSE_LAN_IP})다. 외부 서버를 넣지 않는다."
+    elif ! grep -q '^server time.google.com' /etc/chrony.conf; then
         sed -i '1i server time.google.com iburst prefer' /etc/chrony.conf
         sed -i '2i server time.cloudflare.com iburst' /etc/chrony.conf
         chrony_changed=true
@@ -816,7 +820,8 @@ if [[ -f /etc/chrony.conf ]]; then
     note "시각 확인: VM $(date -Is). 작업 PC 와 외부 응답 헤더로 대조한다."
 fi
 
-# pfSense 전환 시 /etc/chrony.conf 의 server 를 192.168.10.1 로 바꾼다. 여기서는 바꾸지 않는다.
+# pfSense 전환 시 /etc/chrony.conf 의 server 를 192.168.10.1 로 바꾼다. 여기서는 바꾸지 않고,
+# 그 줄이 있으면 위 단계가 외부 서버를 다시 넣지 않는다.
 note "chrony 원본=$(awk '/^(server|pool)/ {printf "%s ", $2}' /etc/chrony.conf 2>/dev/null || echo '확인불가')"
 
 # --- 9. node_exporter -----------------------------------------------------------

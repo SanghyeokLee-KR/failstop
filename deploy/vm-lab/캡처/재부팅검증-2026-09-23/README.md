@@ -8,15 +8,38 @@ VM 을 저장 상태에서 재개만 해 왔기 때문에 콜드 부팅을 한 �
 고정한 뒤 DB, 앱, 진입·관측 순으로 켜서 같은 항목을 다시 뜨는 것이다. 기준선과 부팅 뒤 스냅숏은
 이 폴더의 `*_종료전.txt` 와 `*_부팅후.txt` 다.
 
+스냅숏이 담는 항목은 활성·실행·실패 유닛, 타이머, 리슨 포트, 방화벽 규칙의 출발지와 포트, SELinux,
+마운트, 그리고 역할별 몇 값이다. 커널 인자(`/proc/cmdline`), 시계원, 리더 epoch, EDGE01 업스트림
+순서는 스냅숏 항목이 아니다. 아래에서 그 값을 말하는 문장은 작업 중에 확인한 기록이며 이 폴더의
+원자료로는 다시 확인할 수 없다.
+
 ## 결론
 
-서비스 구성은 그대로 돌아왔다. 켜져 있어야 할 유닛, 리슨 포트, 방화벽 규칙, 마운트가 여섯 대 모두
-기준선과 같다. 차이로 잡힌 것은 한가해지면 스스로 끝나는 `fwupd` 와 타이머가 그 순간 돌린
-`vm-lab-host-check` 뿐이다. docker, databasus, blackbox_exporter, Grafana 모두 부팅으로 올라왔다.
+두 스냅숏을 비교하면 DB01 과 DB02 만 기준선과 같다. `fwupd` 는 DB01 을 뺀 다섯 대의 기준선 실행
+목록에만 있었는데, 한가해지면 스스로 끝나는 서비스라 차이로 보지 않는다. 나머지 네 대에는 기준선에
+없던 차이가 남았다.
 
-그러나 부팅 자체가 안정적이지 않았다. 아래 첫 번째 항목이 이번 검증에서 찾은 가장 큰 문제다.
+- OPS01 은 `grafana-server` 가 실행 목록에 없고 `127.0.0.1:3000` 리슨도 없다. 역할 값도 기준선의
+  `grafana=ok` 에서 빈 값 `grafana=` 로 바뀌었다(`OPS01_부팅후.txt` 의 running 절과 ops 절).
+  활성 목록에는 남아 있으므로 부팅 때 기동 대상이었지만 스냅숏을 뜬 시점에는 떠 있지 않았다.
+  Databasus 헬스도 기준선의 `healthy` 가 아니라 `starting` 이었다.
+- EDGE01, APP01, APP02, OPS01 네 대는 `vm-lab-host-check.service` 가 `failed` 로 남았다. 기준선의
+  실패 목록은 여섯 대 모두 비어 있었다. 이 유닛은 타이머가 돌리는 oneshot 점검이라 점검 항목 하나만
+  실패해도 failed 가 된다. 어느 항목이 실패했는지는 스냅숏에 없고, `/var/log/vm-lab/host-check.log`
+  와 journal 은 이 폴더에 남기지 않았다.
+- 활성 유닛 목록, 방화벽 규칙, SELinux, 마운트는 여섯 대 모두 기준선과 같다. 리슨 포트는 OPS01 의
+  3000 을 뺀 나머지가 같다.
 
-## 1. 커널이 부팅 초기에 멈춘다 — 네 대
+그러므로 여섯 대가 모두 기준선으로 돌아왔다고 적지 않는다. 이 폴더가 보여 주는 것은 docker,
+databasus(헬스는 기동 중), blackbox_exporter 가 부팅으로 올라왔고 Grafana 는 스냅숏 시점에 떠 있지
+않았다는 것이다. Grafana 가 그 뒤에 올라왔는지, 네 대의 점검이 왜 실패했는지는 확인하지 못했다.
+5절의 플러그인 갱신이 Grafana 기동을 늦췄을 수 있지만 추정이다. 다음에 VM 을 켜면
+`systemctl status grafana-server vm-lab-host-check.service` 와 `host-check.log` 의 마지막 실행분을
+떠서 이 폴더에 더한다.
+
+그리고 부팅 자체가 안정적이지 않았다. 아래 첫 번째 항목이 이번 검증에서 찾은 가장 큰 문제다.
+
+## 1. 네 대의 커널이 부팅 초기에 멈춘다
 
 EDGE01, APP01, DB01, DB02 는 커널 인자 `clocksource=hpet tsc=unstable` 없이 설치된 VM 이다.
 그 인자는 2026-09-22 에 kickstart 에 넣었지만 그 뒤에 설치한 APP02 와 OPS01 에만 들어갔다.
@@ -36,12 +59,24 @@ EDGE01, APP01, DB01, DB02 는 커널 인자 `clocksource=hpet tsc=unstable` 없�
 네 대 모두 `grubby --update-kernel=ALL --args="clocksource=hpet tsc=unstable"` 로 인자를 넣었다.
 kickstart 는 이미 같은 인자를 갖고 있어 다시 설치해도 유지된다.
 
+이 수정은 캡처로 확인되지 않는다. 스냅숏에 `/proc/cmdline` 항목이 없고 grubby 실행 출력도 남기지
+않았다. 위 표의 부팅 횟수와 성공 시간도 작업 중 화면으로 판정한 기록이며, 원자료로 남은 것은 정지
+화면 PNG 두 장뿐이다. 다음에 VM 을 켜면 네 대에서 `cat /proc/cmdline` 과
+`sudo grubby --info=ALL | grep '^args'` 를 떠서 이 폴더에 더한다.
+
 이 결과가 뜻하는 것은 발표 당일 PC 를 차갑게 켜면 Primary DB 와 리더 앱 노드가 안 뜰 수 있었다는
 것이다. 저장 상태 재개로는 결코 드러나지 않는 종류의 결함이다.
 
 DB01·DB02 는 인자를 넣은 뒤에도 시계원이 `kvm-clock` 으로 잡힌다. 두 대는 준가상 인터페이스가
 기본값(KVM)이라 커널이 그쪽을 고른 것이다. 멈춤이 일어나는 TSC 보정 경로는 `tsc=unstable` 이
 막으므로 부팅에는 문제가 없었다.
+
+이 상태는 `build/scripts/01-create-vms.ps1` 과 다르다. 스크립트는 여섯 대 모두에
+`--paravirt-provider none --hpet on` 을 걸므로, 스크립트로 DB 두 대를 다시 만들면 준가상 설정과
+시계원이 지금과 달라진다. 두 대가 왜 기본값으로 남았는지는 기록에 없다. 이 절을 고친 작업 PC 에는 VM 이
+등록돼 있지 않아 `VBoxManage showvminfo DB01 --machinereadable` 로 현재 값을 다시 확인하지도 못했다.
+스크립트에 맞추려면 VM 을 끈 상태에서 `VBoxManage modifyvm DB01 --paravirt-provider none --hpet on`
+을 두 대에 실행하고 콜드 부팅을 다시 확인한다. 실행하지 않았다.
 
 ## 2. DB 가 한 번 재기동되기만 해도 리더와 진입 경로가 어긋난다
 
@@ -84,7 +119,8 @@ VBoxManage controlvm APP02 setlinkstate2 off; VBoxManage controlvm APP02 setlink
 못하므로 낡은 리더가 쓰기를 할 수는 없었다. 펜싱은 설계대로 동작했다.
 
 3과 4를 합치면 "VM 저장 후 PC 종료" 는 편하지만 재개 직후 점검이 필요한 방식이다.
-발표 당일에는 콜드 부팅을 권한다. 1번을 고쳤으므로 이제 콜드 부팅이 안전하다.
+발표 당일에는 콜드 부팅을 권한다. 1번을 고친 뒤 콜드 부팅이 모두 성공했다고 기록했지만, 결론 절의
+Grafana 미기동과 점검 실패가 남아 있으므로 콜드 부팅 뒤에도 서비스 점검을 생략하지 않는다.
 
 ## 5. Grafana 가 부팅할 때 플러그인을 내려받아 갱신한다
 
@@ -98,3 +134,4 @@ VBoxManage controlvm APP02 setlinkstate2 off; VBoxManage controlvm APP02 setlink
 이 단계를 돌렸을 때 앞서 해 둔 swap 이 조용히 되돌려졌고, 20:01 부터 저장한 21:48 까지 EDGE01 이
 팔로워로 요청을 보냈다. 마감 기록에는 "EDGE01 업스트림도 APP02 가 primary 다" 라고 확인 없이 적었다.
 그 기록에 정정을 덧붙였고, `https` 단계가 기존 순서를 지키도록 고친 뒤 실제로 시험해 확인했다.
+다만 이 폴더의 스냅숏에는 업스트림 순서 항목이 없어 그 시험 출력은 여기서 확인할 수 없다.

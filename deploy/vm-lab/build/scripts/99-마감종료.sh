@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # 22:00 안전 종료. 사용자가 지시한 무인 종료다.
 # 21:55 에 VM 상태를 저장하고 22:00 에 PC 를 끈다. VM 은 savestate 라 다음에 이어서 쓸 수 있다.
+# 저장 상태로 재개하면 시각이 밀리고 내부망 NIC 이 끊길 수 있다. 재개 직후 점검은
+# 캡처/재부팅검증-2026-09-23/README.md 3·4절을 따르고, 발표 당일은 정상 종료 뒤 콜드 부팅을 쓴다.
 set -uo pipefail
 VBM="/c/Program Files/Oracle/VirtualBox/VBoxManage.exe"
 LOG="/c/Users/kopo26/Desktop/vm-lab/캡처/마감종료.txt"

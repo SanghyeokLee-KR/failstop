@@ -294,13 +294,18 @@ EOF
 ROLE_NFT=/etc/vm-lab/firewall.d/20-edge01.nft
 LEGACY_NFT=/etc/nftables/edge01.nft   # 이전 판이 만들던 단독 구성 파일. 지우기만 한다.
 
-# 443 과 80 의 허용 출발지 목록을 만든다.
-web_sources() {
+# 80 의 허용 출발지 목록. 00-주소계획.md 포트 표의 'EDGE01 TCP 80 = 실습 사용자' 를 옮긴 값이다.
+redirect_sources() {
     printf '%s/32\n' "$ENTRY_CLIENT"
-    printf '%s/32\n' "$PROBE_SOURCE"
     if [[ $ALLOW_PFSENSE_FORWARD == 1 ]]; then
         printf '%s/32\n' "$PFSENSE_IP"
     fi
+}
+
+# 443 의 허용 출발지 목록. 80 의 출발지에 합성 프로브를 더한다. 프로브는 https 로만 조회한다.
+web_sources() {
+    redirect_sources
+    printf '%s/32\n' "$PROBE_SOURCE"
 }
 
 # 공통 기반 위에 역할 규칙만 얹는다. add rule 형태로만 덧붙이고 table 과 chain 을 다시 선언하지 않는다.
@@ -310,9 +315,9 @@ role_firewall_common() {
     {
         printf '%s\n' '# EDGE01 역할 규칙. 생성: scripts/10-edge01-setup.sh'
         printf '%s\n' '# 기본 차단은 /etc/vm-lab/firewall.nft 가 이미 걸었다. 여기서는 443 과 80 만 연다.'
-        printf '%s\n' '# 출발지는 00-주소계획.md 의 "EDGE01 TCP 443 / 80 = 실습 사용자" 를 옮긴 값이다.'
-        printf '%s\n' "#   ${ENTRY_CLIENT}/32   작업 PC 의 host-only 어댑터. 실습 사용자는 이 주소 하나다."
-        printf '%s\n' "#   ${PROBE_SOURCE}/32   OPS01 의 lab-lan 주소. blackbox_exporter 의 합성 프로브다."
+        printf '%s\n' '# 출발지는 00-주소계획.md 포트 표의 EDGE01 443 행과 80 행을 옮긴 값이다.'
+        printf '%s\n' "#   ${ENTRY_CLIENT}/32   작업 PC 의 host-only 어댑터. 실습 사용자는 이 주소 하나다. 443 과 80."
+        printf '%s\n' "#   ${PROBE_SOURCE}/32   OPS01 의 lab-lan 주소. blackbox_exporter 의 합성 프로브다. 443 만."
         printf '%s\n' '#   관리 대역 /24 전체를 열지 않는다. 그 대역에는 다른 VM 의 host-only 주소도 들어 있다.'
         if [[ $ALLOW_PFSENSE_FORWARD == 1 ]]; then
             printf '%s\n' "#   ${PFSENSE_IP}/32   pfSense 포트 포워딩을 거쳐 들어오는 경우. 표에 올린 뒤 켰다."
@@ -327,8 +332,10 @@ role_firewall_common() {
         printf '%s\n' '# 긴 설명은 규칙 comment 가 아니라 이 # 주석에만 적는다.'
         while read -r src; do
             printf 'add rule inet vmlab roles ip saddr %s tcp dport 443 ct state new counter accept comment "%s"\n' "$src" 'EDGE01 웹'
-            printf 'add rule inet vmlab roles ip saddr %s tcp dport 80 ct state new counter accept comment "%s"\n' "$src" 'EDGE01 전환'
         done < <(web_sources)
+        while read -r src; do
+            printf 'add rule inet vmlab roles ip saddr %s tcp dport 80 ct state new counter accept comment "%s"\n' "$src" 'EDGE01 전환'
+        done < <(redirect_sources)
     } > "$ROLE_NFT"
     chown root:root "$ROLE_NFT"
     chmod 0600 "$ROLE_NFT"
@@ -749,6 +756,13 @@ step_verify() {
             ng '443 또는 80 이 관리 대역 전체에 열려 있다. web_sources 를 확인한다.'
         else
             ok '443·80 출발지에 관리 대역 전체 없음'
+        fi
+        # 합성 프로브는 https 로만 조회하므로 80 에는 열지 않는다(00-주소계획.md 80 행).
+        # 주소의 점이 정규식에서 아무 문자와 일치하지 않도록 고정 문자열로 찾는다.
+        if grep -qF "saddr ${PROBE_SOURCE} tcp dport 80 " <<<"$entry_rules"; then
+            ng "80 이 ${PROBE_SOURCE} 에도 열려 있다. 주소계획은 80 을 실습 단말에만 연다. preview 를 다시 실행한다."
+        else
+            ok "80 출발지에 합성 프로브 주소 없음"
         fi
     else
         ng '방화벽 테이블이 없다. 00-common-setup.sh 와 preview 를 확인한다.'

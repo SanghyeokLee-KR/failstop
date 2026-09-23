@@ -4,7 +4,7 @@ OPS01 한 대에 Prometheus, Grafana, Alertmanager, node_exporter를 Rocky Linux
 
 주소와 포트는 [주소 계획](../00-주소계획.md)의 값만 쓴다. 설계 근거는 `아키텍쳐/교수님_보고본/06_VM_운영환경`의 `Linux_VM_운영환경_구성도.svg`와 `VM_네트워크_접근제어도.svg`다. 설정 파일은 대부분 `failstop/deploy/linux` 아래의 학교 AWS 자산을 그대로 가져왔고, 바꾼 자리는 각 파일의 머리말 주석에 적었다.
 
-이 문서는 실행 전 절차다. 아직 OPS01에서 한 번도 돌린 적이 없으므로 어떤 검증도 통과했다고 적지 않는다. 각 단계의 기대 출력은 "실행하면 이렇게 보여야 한다"는 기준이며 관측한 결과가 아니다. 실제로 돌린 뒤에는 출력 그대로를 증거로 남기고, 기대와 다르면 그 자리에서 멈추고 원인을 적는다.
+이 문서는 절차다. 2026-09-22에 이 절차로 OPS01의 관측 역할을 설치했고, 실제 출력은 [역할 설치 캡처](../../캡처/역할설치/)의 `OPS01_*.txt`에 있다. 각 단계의 기대 출력은 "실행하면 이렇게 보여야 한다"는 기준이며 관측한 결과가 아니다. 결과는 캡처 파일을 사실로 보고, 기대와 다르면 그 자리에서 멈추고 원인을 적는다. 보고 역할(`OPS01_보고_구축절차.md`)은 아직 설치하지 않았다.
 
 OPS01 관측 문서는 이 파일 하나다. 설계 근거와 학교 AWS 값 대조표는 아래 "설계에서 의도적으로 벗어난 곳" 절에 함께 담았다. 다른 다섯 역할과 같은 구성이다.
 
@@ -234,7 +234,7 @@ sudo /opt/vm-lab/scripts/40-ops01-observability.sh verify
 | `sudo promtool check config /etc/prometheus/prometheus.yml` | `SUCCESS` |
 | `sudo amtool check-config /etc/failstop/alertmanager.yml` | 문법 오류 없음 |
 | `curl -fsS http://127.0.0.1:9090/-/ready` | `Prometheus Server is Ready.` |
-| `count(up)` | 여섯 VM이 모두 켜져 있으면 11 |
+| `count(up == 1)` | `/api/v1/targets?state=active`의 대상 수와 같다. 지금 설정에서는 13 |
 | `up == 0` | 비어 있어야 한다. 값이 있으면 그 대상의 바인딩과 방화벽을 본다 |
 | `min by(node)(node_scrape_collector_success{job="linux-host"})` | 노드마다 1. HTTP 수집 성공과 수집기별 성공은 다르다 |
 | `curl -fsS http://127.0.0.1:3000/api/health` | `database: ok` |
@@ -244,7 +244,7 @@ sudo /opt/vm-lab/scripts/40-ops01-observability.sh verify
 | `journalctl -k --since -1h` | OOM 기록이 없다 |
 | `sudo ausearch -m AVC -ts recent` | 거부 없음. 거부가 나오면 포트 타입이나 파일 문맥을 더한다 |
 
-수집 대상 11개는 Prometheus 자신 1개, 여섯 VM의 9100 6개, 앱 두 대의 8081 2개, DB 두 대의 9187 2개다.
+수집 대상 13개는 Prometheus 자신 1개, 여섯 VM의 9100 6개, 앱 두 대의 8081 2개, DB 두 대의 9187 2개, EDGE01 진입 경로의 합성 프로브 2개다. `count(up)`은 응답하지 않는 대상까지 세므로 판정에 쓰지 않는다. `verify`는 `up == 1`인 대상 수를 Prometheus가 실제로 불러들인 대상 수와 비교한다. 이 판정 수정은 저장소 스크립트만 고친 것이며 OPS01에서 다시 실행하지 않았다.
 
 스크립트가 대신할 수 없는 확인이 네 가지 있다.
 
@@ -313,7 +313,7 @@ curl --max-time 3 http://192.168.10.41:9100/metrics   # OPS01 자신 외에는 �
 
 ### 수집 대상
 
-수집 대상은 모두 11개다. 여섯 VM의 9100, 앱 두 대의 8081, DB 두 대의 9187, 그리고 Prometheus 자신이다.
+수집 대상은 모두 13개다. 여섯 VM의 9100, 앱 두 대의 8081, DB 두 대의 9187, Prometheus 자신, 그리고 EDGE01 진입 경로를 확인하는 합성 프로브 두 개다.
 
 | 작업 이름 | 대상 | 라벨 |
 |---|---|---|
@@ -321,6 +321,9 @@ curl --max-time 3 http://192.168.10.41:9100/metrics   # OPS01 자신 외에는 �
 | `linux-host` | 192.168.10.11 / .21 / .22 / .31 / .32 / .41 의 9100 | `role`은 edge, app, app, data, standby, observability |
 | `exchange-api` | 192.168.10.21 / .22 의 8081 | `role=app`, `node=app01`, `app02` |
 | `postgres` | 192.168.10.31 / .32 의 9187 | `role=data`, `role=standby` |
+| `blackbox-http` | `https://192.168.10.11/`, `https://192.168.10.11/api/v1/markets` | `role=edge`, `node=edge01`. 수집 주소는 OPS01 루프백의 blackbox_exporter `127.0.0.1:9115`다 |
+
+`blackbox-http` 작업은 `build-files/ops/prometheus.vm.yml`에 들어 있지만 blackbox_exporter 설치는 `40-ops01-observability.sh`의 단계에 없다. 2026-09-22에 OPS01에서 따로 설치했고 그 기록은 `캡처/역할설치/OPS01_주기조회_프로브.txt`에 있다. 이 스크립트만으로 OPS01을 새로 만들면 두 프로브 대상은 down으로 남는다.
 
 작업 이름은 학교와 같게 둔다. 경보 규칙이 `job="linux-host"`, `job="postgres"`, `job="exchange-api"`를 쓰고 화면과 보고 코드도 같은 이름을 쓴다. 이름을 바꾸면 세 곳을 같이 고쳐야 한다.
 
@@ -343,11 +346,11 @@ Linux 운영 화면을 저장소 원본이 아니라 VM 사본으로 넣는 이�
 
 ## 증거 남기기
 
-AWS와 Linux 작업은 [증거본](../../../failstop/증거본/README.md) 기준대로 단계별 실제 화면과 명령·출력을 남긴다. 스크립트 출력은 `/var/log/vm-lab/`에 쌓이므로 그 파일과 화면 캡처를 함께 둔다. Grafana 관리자 비밀번호와 Teams 웹훅, 보고 토큰을 넣는 구간은 캡처하지 않고 누락 구간으로 표시한다.
+AWS와 Linux 작업은 [증거본](../../../../증거본/README.md) 기준대로 단계별 실제 화면과 명령·출력을 남긴다. 스크립트 출력은 `/var/log/vm-lab/`에 쌓이므로 그 파일과 화면 캡처를 함께 둔다. Grafana 관리자 비밀번호와 Teams 웹훅, 보고 토큰을 넣는 구간은 캡처하지 않고 누락 구간으로 표시한다.
 
 ## 한계와 미확인
 
-아직 아무것도 실행하지 않았다. 작업 PC에서 실제로 돌린 것은 화면 변환기 두 개뿐이고, 그것도 JSON 파일이 만들어졌다는 뜻이지 OPS01에서 화면이 그려진다는 뜻이 아니다.
+이 절은 절차를 쓸 때 확인하지 못한 항목이다. 2026-09-22 설치에서 실제로 본 결과는 캡처 파일에 있으며, 이 절의 항목을 캡처와 하나씩 대조해 지우지는 않았다. 화면 변환기 두 개를 작업 PC에서 돌린 것은 JSON 파일이 만들어졌다는 뜻이지 OPS01에서 화면이 그려진다는 뜻이 아니다.
 
 Grafana RPM 저장소가 Rocky 10에 맞는 패키지를 주는지 확인하지 않았다. 학교에서 설치한 13.1.0은 EL9 기준이었다. `dnf install grafana`에서 의존성 문제가 나오면 그 자리에서 판단하고 기록한다. Prometheus 3.13.3, Alertmanager 0.31.1, node_exporter 1.12.1이 Rocky 10의 glibc에서 도는지도 실행해 봐야 안다.
 
@@ -357,7 +360,7 @@ SELinux는 Enforcing으로 둔다. `/usr/local/bin`의 바이너리는 `bin_t` �
 
 Alertmanager를 `failstop-report`가 아니라 전용 계정 `alertmanager`로 돌린다. 보고 역할이 `failstop-report`로 9088을 열면 두 계정이 같은 비밀 파일을 읽어야 할 수 있다. 권한을 넓히기 전에 파일을 나누는 쪽을 먼저 본다.
 
-공통 절차와 이 절차가 같은 자리를 건드리는 곳이 두 군데 있다. 하나는 `/etc/systemd/system/node_exporter.service`이고 다른 하나는 방화벽 정책이다. 정본은 둘 다 공통 절차다. node_exporter는 여섯 대가 lab-lan 주소에 붙고 OPS01도 `192.168.10.41:9100`이며, 방화벽은 `table inet vmlab` 하나다. 이 스크립트는 기존 유닛이 있으면 그대로 두고 실제 바인딩에 수집 설정을 맞추며, 방화벽에는 규칙을 더하지 않는다. 다만 이 통일을 아직 VM에서 적용해 확인하지 않았다. `ss -lntp`와 `nft list table inet vmlab` 출력을 직접 보기 전에는 통일됐다고 적지 않는다.
+공통 절차와 이 절차가 같은 자리를 건드리는 곳이 두 군데 있다. 하나는 `/etc/systemd/system/node_exporter.service`이고 다른 하나는 방화벽 정책이다. 정본은 둘 다 공통 절차다. node_exporter는 여섯 대가 lab-lan 주소에 붙고 OPS01도 `192.168.10.41:9100`이며, 방화벽은 `table inet vmlab` 하나다. 이 스크립트는 기존 유닛이 있으면 그대로 두고 실제 바인딩에 수집 설정을 맞추며, 방화벽에는 규칙을 더하지 않는다. 2026-09-22 [관측 검증 캡처](../../캡처/역할설치/OPS01_관측검증.txt)에는 node_exporter가 `192.168.10.41:9100`에만 붙은 `ss` 출력과 `roles` 체인이 비어 있는 `table inet vmlab`, masked 상태의 `nftables.service`가 있다. OPS01 한 대의 두 자리는 이 캡처로 확인했고, 다른 노드와의 통일은 각 역할 캡처에서 따로 본다.
 
 경보 규칙 파일이 아직 두 벌이다. 정본은 `build-files/ops/alerts.vm.yml`이고 `scripts/ops01/vm-alerts.yml`은 설계 단계의 사본이다. 두 파일은 경보 그룹 이름 한 줄이 다르다. 정본은 `vm.operations`인데 사본에는 학교 AWS 표기 `school.operations`가 남아 있다. 둘 다 `/etc/prometheus/vm-alerts.yml`로 가므로 사본이 설치되면 학교 이름이 붙은 규칙이 올라간다. `preflight`가 차이를 알리지만, 사본을 지우거나 그 한 줄을 정본과 맞추기 전에는 이 항목이 정리됐다고 적지 않는다. 같은 이유로 `scripts/ops01`의 `prometheus.yml`과 `alertmanager.vm.yml` 사본도 남아 있어 매 실행마다 차이 경고가 나온다.
 

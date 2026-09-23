@@ -851,12 +851,20 @@ stage_verify() {
     else
         fail "Prometheus /-/ready 실패"
     fi
-    local total
-    total=$(promvalue 'count(up)' || true)
-    if [[ $total == 11 ]]; then
-        ok "수집 대상 11개 모두 응답"
+    # count(up) 은 down 대상도 센다. 응답한 대상(up == 1)을 설치본에 실제로 걸린 대상 수와 비교한다.
+    local expected healthy
+    expected=$(curl -fsS --max-time 5 'http://127.0.0.1:9090/api/v1/targets?state=active' | python3 -c '
+import json, sys
+print(len(json.load(sys.stdin)["data"]["activeTargets"]))
+' 2>/dev/null || true)
+    healthy=$(promvalue 'count(up == 1)' || true)
+    healthy=${healthy:-0}
+    if [[ -z $expected || $expected == 0 ]]; then
+        fail "수집 대상 목록을 읽지 못했다. /api/v1/targets 를 직접 본다."
+    elif [[ $healthy == "$expected" ]]; then
+        ok "수집 대상 ${expected}개 모두 응답 (up == 1)"
     else
-        warn "count(up) = ${total:-확인 실패}. 여섯 VM 이 모두 켜져 있으면 11 이다."
+        warn "응답한 대상 ${healthy}/${expected}. 아래 목록의 down 대상을 본다. 여섯 VM 이 모두 켜져 있어야 전부 응답한다."
     fi
     info "응답하지 않는 대상"
     promquery 'up == 0' | python3 -c '
