@@ -36,6 +36,10 @@ from k6_ceiling import run_k6, duration_fill, markets  # noqa: E402
 CHAOS = str(ROOT / 'harness/docker-compose.chaos.yml')
 SCALE = str(ROOT / 'harness/docker-compose.scale.yml')
 ENVF = str(ROOT / 'harness/.env.chaos')
+# compose 프로젝트. 기본은 compose 파일의 name 과 같고, 폐기용 스택은 CHAOS_PROJECT 로 가른다(harness/scripts/lib.ps1 과 같은 규칙).
+PROJECT = os.environ.get('CHAOS_PROJECT') or 'exchange-chaos'
+# 추가 오버레이. CHAOS_EXTRA_COMPOSE 에 세미콜론으로 이은 파일 경로를 주면 두 파일 뒤에 겹친다(비우면 종전과 같다).
+EXTRA = [a for f in (os.environ.get('CHAOS_EXTRA_COMPOSE') or '').split(';') if f.strip() for a in ('-f', f.strip())]
 WRITE_SHARE = 0.40
 
 
@@ -49,7 +53,7 @@ def compose(args, env=None, timeout=900):
     if env:
         e.update(env)
     p = subprocess.run(
-        ['docker', 'compose', '-f', CHAOS, '-f', SCALE, '--env-file', ENVF] + args,
+        ['docker', 'compose', '-p', PROJECT, '-f', CHAOS, '-f', SCALE] + EXTRA + ['--env-file', ENVF] + args,
         cwd=str(ROOT / 'harness'), env=e, capture_output=True, text=True, timeout=timeout)
     if p.returncode != 0:
         LAST_ERR[0] = ((p.stderr or '') + (p.stdout or ''))[-700:]

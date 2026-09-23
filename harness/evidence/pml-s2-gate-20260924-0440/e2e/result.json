@@ -1,0 +1,161 @@
+{
+  "phase": "E2E",
+  "pre": {
+    "flyway": {
+      "rows": 49,
+      "max_version": 48,
+      "failed": 0,
+      "last": {
+        "version": "48",
+        "installed_by": "exchange",
+        "installed_on": "2026-09-23T19:53:06.207752"
+      }
+    },
+    "lease": [
+      {
+        "resource": "matching-engine",
+        "holder": "34a1628e-5f6d-44b7-b4f0-4db398cb6977",
+        "epoch": 1
+      },
+      {
+        "resource": "matching-p0",
+        "holder": "",
+        "epoch": 0
+      },
+      {
+        "resource": "matching-p1",
+        "holder": "",
+        "epoch": 0
+      }
+    ],
+    "protocol": "1"
+  },
+  "roles": [
+    {
+      "role": "pml_app",
+      "super": false,
+      "login": true,
+      "member_of": [
+        "app_role"
+      ]
+    },
+    {
+      "role": "pml_bot",
+      "super": false,
+      "login": true,
+      "member_of": [
+        "app_role"
+      ]
+    },
+    {
+      "role": "pml_read",
+      "super": false,
+      "login": true,
+      "member_of": null
+    }
+  ],
+  "run": {
+    "label": "B-app-role",
+    "image": "exchange-chaos-app:pml",
+    "imageId": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+    "imagesOk": true,
+    "epochBefore": 1,
+    "leader": {
+      "holder": "7a0795fc-71e5-41e9-9c44-3cc0457674e7",
+      "epoch": 2,
+      "alive": true
+    },
+    "since": "2026-09-23 19:53:26.787",
+    "writes": {
+      "cmd_epoch": 569,
+      "evt_epoch": 990,
+      "trade_evt_epoch": 337,
+      "snapshots_epoch": 3,
+      "snapshot_markets_epoch": 3,
+      "orders_since": 504,
+      "trades_since": 337
+    },
+    "writesOk": true,
+    "connections": {
+      "ips": {
+        "chaos-toxiproxy": "172.18.0.4",
+        "chaos-bots": "172.18.0.6"
+      },
+      "rows": [
+        {
+          "usename": "exchange",
+          "client_addr": null,
+          "n": 1
+        },
+        {
+          "usename": "pml_app",
+          "client_addr": "172.18.0.4",
+          "n": 22
+        },
+        {
+          "usename": "pml_bot",
+          "client_addr": "172.18.0.6",
+          "n": 10
+        }
+      ],
+      "apiLogins": [
+        "pml_app"
+      ],
+      "botLogins": [
+        "pml_bot"
+      ]
+    },
+    "loginOk": true,
+    "containers": {
+      "chaos-api-1": {
+        "imageId": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_app",
+        "flyway": "SPRING_FLYWAY_ENABLED=false"
+      },
+      "chaos-api-2": {
+        "imageId": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_app",
+        "flyway": "SPRING_FLYWAY_ENABLED=false"
+      },
+      "chaos-bots": {
+        "imageId": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_bot",
+        "flyway": "SPRING_FLYWAY_ENABLED=false"
+      }
+    },
+    "drain": {
+      "botsStopped": true,
+      "drained": true
+    },
+    "summary": {
+      "rc": 0,
+      "checks": 31,
+      "fail": [],
+      "skip": [],
+      "c29": "PASS",
+      "allZero": true
+    },
+    "logErrors": {
+      "chaos-api-1": {
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "errorLines": 0
+      },
+      "chaos-api-2": {
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "errorLines": 0
+      },
+      "chaos-bots": {
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "errorLines": 0
+      }
+    },
+    "verdict": "PASS"
+  },
+  "verdict": "PASS"
+}

@@ -19,7 +19,8 @@ $ErrorActionPreference = 'Stop'
 $cfg = Read-EnvFile $ConfigPath
 $runId = "E5-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
 $target = $cfg['TARGET_NODE']
-$net = $cfg['NETWORK']
+# 설정 파일 값은 기본 프로젝트(exchange-chaos)의 망 이름이다. 다른 프로젝트로 띄운 폐기용 스택이면 그 프로젝트의 망을 쓴다.
+$net = $(if ($env:CHAOS_PROJECT) { $Global:CHAOS.Network } else { $cfg['NETWORK'] })
 $targetPort = [int]$cfg['TARGET_PORT']
 $standbyPort = [int]$cfg['STANDBY_PORT']
 $rtoTarget = [int]$cfg['RTO_TARGET_SEC']

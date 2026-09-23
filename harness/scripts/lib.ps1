@@ -3,12 +3,19 @@
 
 $ErrorActionPreference = 'Stop'
 
+# compose 프로젝트 이름. 기본은 compose 파일의 name(exchange-chaos)과 같다. 폐기용 실험 스택은
+# CHAOS_PROJECT=exchange-pml 처럼 다른 이름을 주어 볼륨과 네트워크를 보존 스택과 가른다. 컨테이너
+# 이름(chaos-*)은 compose 파일에 고정돼 있어 두 프로젝트를 동시에 띄울 수는 없다.
+$chaosProject = $(if ($env:CHAOS_PROJECT) { $env:CHAOS_PROJECT } else { 'exchange-chaos' })
+if ($chaosProject -notmatch '^[a-z0-9][a-z0-9_-]*$') { throw "CHAOS_PROJECT 형식 위반: $chaosProject" }
+
 $Global:CHAOS = @{
     ComposeFile = Join-Path $PSScriptRoot '..\docker-compose.chaos.yml'
     EnvFile     = Join-Path $PSScriptRoot '..\.env.chaos'
+    Project     = $chaosProject
     Pg          = 'chaos-pg'
     # 컴포즈가 프로젝트 접두를 붙인 실명이다. E5 분할과 캘리브레이션이 이 값을 쓴다.
-    Network     = 'exchange-chaos_chaos-net'
+    Network     = "${chaosProject}_chaos-net"
     Api1Port    = 18080
     Api2Port    = 28080
     LbPort      = 58080
@@ -19,7 +26,8 @@ $Global:CHAOS = @{
     PgDb        = 'exchange'
     RepoRoot    = Join-Path $PSScriptRoot '..\..'
     # 실험 판정 파일이 떨어지는 곳. 컨테이너 볼륨이 아니라 저장소라 down -v 에 살아남는다.
-    EvidenceDir = Join-Path $PSScriptRoot '..\evidence\chaos-runs'
+    # CHAOS_EVIDENCE_DIR 를 주면 그 폴더에 쓴다(폐기용 스택 회차의 증거를 한 폴더에 모을 때).
+    EvidenceDir = $(if ($env:CHAOS_EVIDENCE_DIR) { $env:CHAOS_EVIDENCE_DIR } else { Join-Path $PSScriptRoot '..\evidence\chaos-runs' })
 }
 
 # param 블록을 두지 않는 이유: [Parameter()]가 붙는 순간 고급 함수가 되고, 그러면 PowerShell이
@@ -28,7 +36,7 @@ $Global:CHAOS = @{
 # 인자 3개만 남겨 볼륨이 지워지지 않았고, down.ps1이 전체 파기를 약속한 채 원장을 존치시켜
 # 이후 실험이 이전 상태를 물려받았다. 자동 변수 $args를 쓰는 단순 함수는 바인딩을 하지 않는다.
 function Invoke-Compose {
-    & docker compose -f $Global:CHAOS.ComposeFile --env-file $Global:CHAOS.EnvFile @args
+    & docker compose -p $Global:CHAOS.Project -f $Global:CHAOS.ComposeFile --env-file $Global:CHAOS.EnvFile @args
 }
 
 # 네이티브 호출 공용 래퍼. cmd /c로 감싸 스트림을 nul에 버린다. PowerShell에서 compose를 직접
@@ -37,7 +45,7 @@ function Invoke-Compose {
 # 반환은 종료코드다. 호출부는 반드시 변수에 받는다. 미포획이면 상위 함수의 반환값에 섞여 배열이 된다.
 function Invoke-ComposeQuiet {
     param([string] $ComposeArgs)
-    $cmd = "docker compose -f `"$($Global:CHAOS.ComposeFile)`" --env-file `"$($Global:CHAOS.EnvFile)`" $ComposeArgs"
+    $cmd = "docker compose -p $($Global:CHAOS.Project) -f `"$($Global:CHAOS.ComposeFile)`" --env-file `"$($Global:CHAOS.EnvFile)`" $ComposeArgs"
     & cmd /c "$cmd >nul 2>nul"
     return $LASTEXITCODE
 }

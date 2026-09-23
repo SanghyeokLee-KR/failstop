@@ -41,8 +41,11 @@ Copy-Item $jar.FullName (Join-Path $harness 'app.jar') -Force
 Write-Host "jar: $($jar.Name) → app.jar"
 
 Write-Section '2/3 이미지 빌드'
-$env = Read-EnvFile $Global:CHAOS.EnvFile
-$image = $env['CHAOS_APP_IMAGE']
+# compose 는 셸 환경변수를 --env-file 값보다 앞세운다. 빌드 태그도 같은 순서로 정해야 compose 가 방금 구운 이미지로 뜬다.
+$image = $env:CHAOS_APP_IMAGE
+if ([string]::IsNullOrWhiteSpace($image)) { $image = (Read-EnvFile $Global:CHAOS.EnvFile)['CHAOS_APP_IMAGE'] }
+if ([string]::IsNullOrWhiteSpace($image)) { throw 'CHAOS_APP_IMAGE 가 셸과 .env.chaos 어디에도 없다' }
+Write-Host "이미지 태그: $image, compose 프로젝트: $($Global:CHAOS.Project)"
 Push-Location $harness
 try {
     Invoke-Native { & docker build -f Dockerfile.app -t $image . } '이미지 빌드 실패'

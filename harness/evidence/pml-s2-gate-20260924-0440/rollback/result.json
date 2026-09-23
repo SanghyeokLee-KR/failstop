@@ -1,0 +1,202 @@
+{
+  "phase": "Rollback",
+  "pre": {
+    "flyway": {
+      "rows": 49,
+      "max_version": 48,
+      "failed": 0,
+      "last": {
+        "version": "48",
+        "installed_by": "exchange",
+        "installed_on": "2026-09-23T20:07:47.051372"
+      }
+    },
+    "lease": {
+      "holder": "7a6b9d75-c218-4ed2-88e3-0681f28f7168",
+      "epoch": 1,
+      "alive": true
+    },
+    "containers": {
+      "chaos-api-1": {
+        "imageId": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+        "flyway": "SPRING_FLYWAY_ENABLED=true"
+      },
+      "chaos-api-2": {
+        "imageId": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+        "flyway": "SPRING_FLYWAY_ENABLED=false"
+      },
+      "chaos-bots": {
+        "imageId": "sha256:09aacc67818b2dde558d68671c5d1af1489cd43f69793648f2132aba4d941ca5",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+        "flyway": "SPRING_FLYWAY_ENABLED=false"
+      }
+    },
+    "protocol": "1"
+  },
+  "roles": [
+    {
+      "role": "pml_app",
+      "super": false,
+      "login": true,
+      "member_of": [
+        "app_role"
+      ]
+    },
+    {
+      "role": "pml_bot",
+      "super": false,
+      "login": true,
+      "member_of": [
+        "app_role"
+      ]
+    },
+    {
+      "role": "pml_read",
+      "super": false,
+      "login": true,
+      "member_of": null
+    }
+  ],
+  "migrateRc": 0,
+  "afterMigrate": {
+    "rows": 49,
+    "max_version": 48,
+    "failed": 0,
+    "last": {
+      "version": "48",
+      "installed_by": "exchange",
+      "installed_on": "2026-09-23T20:07:47.051372"
+    }
+  },
+  "springFlyway": {
+    "rc": 0,
+    "leader": {
+      "holder": "5da18382-d005-4baf-88e2-30483cc2fed3",
+      "epoch": 2,
+      "alive": true
+    },
+    "afterFlyway": {
+      "rows": 49,
+      "max_version": 48,
+      "failed": 0,
+      "last": {
+        "version": "48",
+        "installed_by": "exchange",
+        "installed_on": "2026-09-23T20:07:47.051372"
+      }
+    },
+    "ok": true
+  },
+  "flywayUnchanged": true,
+  "run": {
+    "label": "A-rollback-app-role",
+    "image": "exchange-chaos-app:mainref",
+    "imageId": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+    "imagesOk": true,
+    "epochBefore": 2,
+    "leader": {
+      "holder": "19017c42-9fb8-4412-abb4-43326a263072",
+      "epoch": 3,
+      "alive": true
+    },
+    "since": "2026-09-23 20:15:38.886",
+    "writes": {
+      "cmd_epoch": 573,
+      "evt_epoch": 1121,
+      "trade_evt_epoch": 418,
+      "snapshots_epoch": 3,
+      "snapshot_markets_epoch": 3,
+      "orders_since": 509,
+      "trades_since": 418
+    },
+    "writesOk": true,
+    "connections": {
+      "ips": {
+        "chaos-toxiproxy": "172.18.0.10",
+        "chaos-bots": "172.18.0.12"
+      },
+      "rows": [
+        {
+          "usename": "exchange",
+          "client_addr": "172.18.0.9",
+          "n": 1
+        },
+        {
+          "usename": "exchange",
+          "client_addr": null,
+          "n": 1
+        },
+        {
+          "usename": "pml_app",
+          "client_addr": "172.18.0.10",
+          "n": 22
+        },
+        {
+          "usename": "pml_bot",
+          "client_addr": "172.18.0.12",
+          "n": 10
+        }
+      ],
+      "apiLogins": [
+        "pml_app"
+      ],
+      "botLogins": [
+        "pml_bot"
+      ]
+    },
+    "loginOk": true,
+    "containers": {
+      "chaos-api-1": {
+        "imageId": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_app",
+        "flyway": "SPRING_FLYWAY_ENABLED=false"
+      },
+      "chaos-api-2": {
+        "imageId": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_app",
+        "flyway": "SPRING_FLYWAY_ENABLED=false"
+      },
+      "chaos-bots": {
+        "imageId": "sha256:d8136cf99aa1ffe507f4ef433b6b9e806a585f6c58e60d6f498b29e9522cd430",
+        "datasourceUser": "SPRING_DATASOURCE_USERNAME=pml_bot",
+        "flyway": "SPRING_FLYWAY_ENABLED=false"
+      }
+    },
+    "drain": {
+      "botsStopped": true,
+      "drained": true
+    },
+    "summary": {
+      "rc": 0,
+      "checks": 31,
+      "fail": [],
+      "skip": [],
+      "c29": "PASS",
+      "allZero": true
+    },
+    "logErrors": {
+      "chaos-api-1": {
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "errorLines": 0
+      },
+      "chaos-api-2": {
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "errorLines": 0
+      },
+      "chaos-bots": {
+        "permissionDenied": 0,
+        "sqlstate42501": 0,
+        "undefinedFunction": 0,
+        "errorLines": 0
+      }
+    },
+    "verdict": "PASS"
+  },
+  "verdict": "PASS"
+}
