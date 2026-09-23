@@ -1,4 +1,4 @@
-# DB 설계 (v2.50)
+# DB 설계 (v2.51)
 
 PostgreSQL 17 계열에서 사용하는 데이터 모델, 제약조건과 거래 저장 규칙을 설명한다. 금액과 잔고를 확인할 때는 1절과 원장 관련 절, 테이블을 바꿀 때는 3절, 정산·복구를 바꿀 때는 5절부터 읽는다.
 
@@ -381,6 +381,7 @@ erDiagram
 | V44 | `V44__command_band_cutover_latch.sql` | 대역 채번 커트오버 래치(ADR 0022 6단계). 삽입 전용 표 `journal_cutover`(UPDATE·DELETE 는 트리거가 거부)의 행이 없으면 전역 채번, 있으면 마켓 대역 채번이다. 6인자 `append_command_prologue(..., p_market_id)` 가 채번 직전에 같은 트랜잭션에서 래치를 읽어 `next_journal_value('command_seq')` 와 `next_market_command_seq(p_market_id)` 가운데 하나를 부르고, 멱등 조회 정렬·어드바이저리 락 키·VOLATILE 은 V43 과 같다. 5인자 판은 래치가 있으면 예외를 내되 강등 분류 문구를 쓰지 않는다. `latch_command_band_cutover()` 는 대역 잎과 꼬리 파티션 실재, 마켓별 `command_seq` 카운터 행, `command_journal_default` 0행을 검사한 뒤 래치 행을 넣고 소유자만 실행한다. 래치 행이 없을 때만 되돌릴 수 있다. |
 | V45 | `V45__band_headroom.sql` | 채번 대역 여유 뷰 `v_journal_band_headroom`(ADR 0022 7단계 3-2). `journal_band_spec` 의 축마다 `market_journal_counters` 의 마켓별 `next_value`, 남은 배정 가능 번호 수 `remaining`(`band_span - next_value`), `remaining_ratio`(`remaining / band_span`)를 낸다. 채번 함수가 지역 번호를 `band_span - 1` 까지 주므로 `next_value` 가 `band_span` 이면 `remaining` 이 0 이다. 카운터 행이 없는 마켓은 쓴 번호가 없어 행이 없다. 하네스 C26_CMD_BAND_HEADROOM 과 게이지 `exchange.journal.band.remaining` 의 원천이고 `app_role`·`harness_role` 에 SELECT 를 준다. 뷰 하나라 DROP 으로 되돌린다 | V40(`journal_band_spec`), V36(`market_journal_counters`), V0(롤 GRANT) |
 | V46 | `V46__event_seq_band_widen.sql` | 이벤트 저널 대역 확대(ADR 0022 9단계, 3-3). `journal_band_spec('event_seq')` 를 (10^7, 19) 에서 (10^12, 63) 으로 올리고, 꼬리 잎 `event_journal_p200000000` [2x10^8, 10^12) 와 마켓이 있는 id K 마다 대역 잎 `event_journal_b<K>` [K x 10^12, (K+1) x 10^12) 를 만든다. 파생을 DB 로 옮겨 `next_market_event_seq(p_market_id, p_count)` 가 마켓 안 번호와 `market_id * band_span + market_seq` 를 함께 돌려주고, 앱 파생 판이 부르던 `next_market_journal_value(.., 'event_seq', ..)` 는 55000 으로 거부한다. 잎 생성 단일 진입점은 `ensure_event_band_partition`(SECURITY DEFINER, PUBLIC 회수)이고 마켓 생성 트리거가 두 저널 잎을 함께 만든다. 적용 전 확인 셋(명세 (10^7, 19), `event_journal_default` 0행, 앞으로 배정될 대역 값과 겹치는 TRADE·RELEASE `business_event_id` 0건)이 실패하면 멈춘다. 기존 행은 그대로이고 `market_seq` 가 같은 카운터에서 이어져 마켓 안 증가가 유지된다. prod 풀 타임아웃을 `SET LOCAL` 로 해제한다. 첫 대역 행이 쓰인 뒤에는 되돌릴 수 없다(ADR 0022 7절 9단계) | V40(`journal_band_spec`, `next_market_journal_value`, `seed_market_journal_counters`, `ensure_command_band_partition`), V36(`market_journal_counters`, `event_journal.market_id`·`market_seq`), V1(`event_journal`, `ledger_transactions`), V0(`app_role` GRANT) |
+| V47 | `V47__order_intake_failure_resolution.sql` | 주문 접수의 append 가 예외로 끝난 뒤의 판정. `idempotency_keys` 에 널 허용 열 `shared_at` 을 더한다(기본값이 없어 표를 다시 쓰지 않는다). 기존 키로 내용을 대조한 요청이 append 전에 이 열을 채운다. 함수 `resolve_failed_order_intake(user_id, idem_key, request_hash, assigned_order_id, discard_key)` 는 V44 머리말과 같은 어드바이저리 락(`cmd-new:<user>:<key>`)을 잡은 뒤, 이 요청의 주문 id 로 커밋된 NEW 가 있으면 `JOURNALED` 와 그 seq·market_id·fencing_token 을 돌려주고 키를 지우지 않는다(커밋 응답 유실). 없으면 `discard_key` 일 때 `shared_at` 이 비어 있는 그 해시의 키만 지우고 `DISCARDED`·`KEPT`·`ABSENT` 를, 아니면 `NOT_JOURNALED` 를 돌려준다. 판정에 `created_at` 을 쓰지 않아 DB 시계 역행과 무관하다. 보존 태그 `wip/per-market-leader-20260923` 의 같은 번호 파일(`created_at` 비교판)과 다른 파일이다. 함수를 지우고 게이트웨이를 되돌리는 새 마이그레이션으로 되돌리며 `shared_at` 은 남겨도 무해하다 | V44(어드바이저리 락 키), V1(`idempotency_keys`, `command_journal`), V9(`idempotency_keys` DELETE), V0(`app_role` GRANT) |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -1414,9 +1415,13 @@ END $$;
 ```
 
 위 블록은 V1 시점 상태다. `idempotency_keys`는 이후 `V9`가 DELETE를 추가로 부여한다.
-`OrderGateway.deleteOrphanKey`와 `gc-idem` cron이 하드 DELETE로 정리하는 효과 테이블이라
-V1의 SELECT·INSERT·UPDATE만으로는 운영 롤 경로에서 42501이 나기 때문이다. 관리 평면
+`OrderGateway.deleteOrphanKey`, `resolve_failed_order_intake`(V47), `gc-idem` cron이 하드 DELETE로
+정리하는 효과 테이블이라 V1의 SELECT·INSERT·UPDATE만으로는 운영 롤 경로에서 42501이 나기 때문이다. 관리 평면
 `operator_roles`(V5) DELETE도 같은 이유로 V9가 부여한다(효과 테이블, 소프트 삭제 아님).
+V47은 `idempotency_keys`에 `shared_at TIMESTAMPTZ`(널 허용)를 더한다. 기존 키로 내용을 대조한 요청이 저널 append 전에
+V1의 UPDATE 권한으로 채우고, 채워진 키는 키를 넣은 요청이 저널 전에 실패해도 지우지 않는다(§3 V47 행, API §2-4).
+게이트웨이는 저널에 같은 키의 NEW 가 없음을 관측한 요청만 이 열을 채우고, 대조 불가 거절의 키 삭제(`deleteOrphanKey`)는
+이 열이 빈 행만 지운다.
 
 ```sql
 
@@ -2136,7 +2141,8 @@ FOR KEY SHARE OF l;
 - 권위 참조: 저널 max가 아니라 `leader_lease.epoch` 참조.
 - 부팅 승격 대기: 강제 종료 직후 재기동은 직전 프로세스 리스가 TTL 내 유효하므로, 부팅 복구 경로는 즉시 실패하지 않고 TTL 1.5배(상한 30초)까지 짧은 간격으로 try_acquire_leader를 재시도한 뒤 실패 처리한다(만료 전 탈취 없음, 승격 규칙 불변).
 - 강등 사유 분류(v2.23, E2 라이브 교정): 강등은 **종신**과 **회복 가능** 두 등급이다. 가르는 축은 사유 문구가 아니라 **그 강등이 단일 라이터 루프를 정지시켰는가**다. 루프가 halt되면 인메모리 오더북이 타 리더의 커밋을 반영하지 못한 stale로 굳고 소비자도 사라져, 리스만 다시 얻으면 '접수는 ACK되는데 체결이 없는' 반쪽 리더가 된다. 그때만 종신이다.
-  - 종신(재승격 금지, 복귀는 재기동): 이벤트 sink 실패(루프 fail-fast), 접수 개방 이후의 renew 거부·fencing 상실, 서비스 불능 지속의 자발적 강등. 전부 self-shutdown(루프 halt)을 동반한다.
+  - 종신(재승격 금지, 복귀는 재기동): 이벤트 sink 실패(루프 fail-fast), 접수 개방 이후의 renew 거부·fencing 상실, 서비스 불능 지속의 자발적 강등. 전부 self-shutdown(루프 halt)을 동반한다. 이벤트 sink 실패는 아래 정산 sink 오류 분류(v2.51)가 재시도로 흡수하지 못한 것만 해당한다.
+  - 정산 sink 오류 분류(v2.51): 일시 DB 오류 넷(55P03 잠금 대기 초과, 57014 문장 취소, 40P01 교착 희생, 40001 직렬화 실패)은 정산이 배치 전체를 다시 돌린다. 시도는 첫 시도를 포함해 4회이고, 첫 시도 시작부터 5초가 지나면 새 시도를 열지 않으며, 대기는 50~100, 100~200, 200~400밀리초의 무작위 값이다. 넷 다 커밋 전에 트랜잭션이 롤백되는 오류이고, 매 시도가 새 트랜잭션에서 로컬 리더 확인과 `assert_and_lock_leader`, 레지스트리 멱등 판정(§5.5 ②)부터 다시 하므로 이중 정산과 오래된 리더의 쓰기가 생기지 않는다. 재시도 제한을 넘긴 일시 오류와 재시도 대상이 아닌 오류는 종전대로 fail-fast 하고 종신 강등한다. 후자는 fencing 거부(P0001), 무결성 위반(23xxx, 잔고 CHECK 23514 포함), 커밋 여부를 알 수 없는 연결 오류(08xxx), 계약 위반(`IllegalStateException`) 등이다. 운영 기본 풀의 `lock_timeout 2000ms`·`statement_timeout 3000ms`(prod 프로파일)가 정산에 걸려도 한 번의 초과로 강등하지 않게 하는 것이 목적이다. 시간 상한은 하나로 정해지지 않는다. 한 시도가 문장마다 `lock_timeout`이나 `statement_timeout`까지 기다릴 수 있어서, 흔한 최악은 5초에 마지막 한 시도(잠금 대기 초과면 그 문장에서 끝나 대략 2초)를 더한 값이고 문장마다 상한 직전까지 기다리는 병적인 경우는 더 길다. 그 시간만큼 그 마켓 라이터가 멈추고 승격 재생의 크래시 창 재정산도 늘어난다. 재시도 수는 `exchange.settlement.transient_retries`, 흡수하지 못해 라이터로 올린 수는 `exchange.settlement.transient_exhausted` 로 본다. 제한을 넘기면 여전히 종신 강등이고 앱이 한 대인 배치에서는 사람이 재기동할 때까지 주문이 멈춘다.
   - 회복 가능(리스 반납, 만료 후 재승격 허용): **승격 재생 구간의 실패**. 이 구간은 fresh 엔진에 대한 스냅샷 로드 → tail 재생 → 크래시 창 재정산이 끝나야 엔진을 루프에 설치하고 접수를 열므로, 실패 시점의 루프는 승격 전 상태 그대로이고 게이트도 닫힌 채다. 종신이 전제하는 상태가 성립하지 않는다. 다음 승격은 새 epoch로 재생을 처음부터 다시 하므로 stale 상태를 물려받지 않는다.
   - 근거(E2 라이브 실측): 스탠바이가 epoch 2를 정상 획득한 123ms 뒤 승격 재생의 정산이 assert_current_leader 거부를 받아 종신 강등했고, 같은 창에서 구 리더도 sink 실패로 종신 강등해 **승격 가능한 후보가 0**이 됐다. leader_lease는 epoch 2·만료 상태로 남고 체결이 영구 정지했다(재기동으로만 해소). 무결성은 유지됐으므로 결함은 정확성이 아니라 가용성 등급 판정에 있었다.
   - 원자성·fencing 불변: 회복 가능 반납도 leader_lease에 **아무것도 쓰지 않는다**. 갱신만 멈추므로 다음 리더는 종전대로 TTL 만료 뒤 try_acquire_leader(epoch +1) 단독 UPDATE로만 정해진다. 반납한 노드의 인메모리 epoch는 즉시 비워져 이후 모든 쓰기가 DB 왕복 전에 거부되고, 다시 승격하면 반드시 더 큰 epoch를 받으므로 구 epoch의 append는 계속 0행이다. 만료 전 창에서 타 노드가 탈취할 수 없다는 성질도 그대로다.
@@ -2151,7 +2157,7 @@ FOR KEY SHARE OF l;
 - 접수 개방 조건에 소비자 생존 포함(v2.24): 승격 재생 완료 후 접수 게이트를 여는 조건은 [승격 시도 세대 일치 + 상태 PROMOTING + 리스 보유 + **단일 라이터 루프 가동**]이다. 정지한 루프 위에서 게이트를 열면 저널에 커밋되고 영원히 체결되지 않는 주문이 생긴다. 현재 배선에서는 재생 구간에 루프가 유휴라 도달하지 않지만 그 불변이 코드에 없으면 배선 변경으로 무음으로 깨진다. 이 조건에 걸리면 종신 강등한다. 루프 정지는 강등 등급 분류의 종신 축 그 자체이고, 회복 가능으로 내리면 죽은 루프 위에서 승격과 반납을 무한 반복한다.
 - 승격 경계 판정 초기화(v2.23): 자발적 강등 판정기(아래)의 누적 창은 승격 시점에 다시 세운다. serviceable() 판정은 renew 직전에만 불리고 renew는 리더만 하므로 팔로워 구간에는 표본이 한 번도 채취되지 않는다. 그 사이 쌓인 수요는 '리더 일을 못 했다'가 아니라 '리더가 아니어서 거절했다'는 기록이다. 초기화하지 않으면 승격 후 첫 표본이 팔로워 구간 전량을 완료 0과 함께 창에 접고, 비율이 임계를 회복하려면 그 분모의 5%를 새로 채워야 해서 정상 처리율로도 임계 시간 안에 회복이 불가능하다. 결과는 페일오버 standdownAfter 초 뒤의 확정적 재강등이며, 2노드에서는 곧 클러스터 정지다.
 - 유효 범위: 이 fencing은 동일 primary 접속 앱 사이에서만 성립한다. DB 클러스터 failover의 무손실·단일 primary 보장은 §7.2 요건이 담당한다(P0-6).
-- 리스 전용 커넥션 풀(v2.18): renew_leader_lease heartbeat와 try_acquire_leader 승격 UPDATE는 요청 트래픽용 기본 HikariCP 풀과 분리된 소형 전용 풀(`exchange.engine.lease-datasource`, maximum-pool-size 2·minimum-idle 1·connection-timeout 2000ms·session init UTC)로만 수행한다. 근거: 요청 풀이 pg 지연·부하 급증으로 포화되면 heartbeat가 커넥션을 얻지 못해 TTL 내 갱신에 실패하고, 정당 단독 리더가 스스로 페일오버한다(하네스 검증 §3 E1 라이브 실측: downstream latency가 다중행 쿼리 점유를 폭증시켜 무제한 봇 부하와 겹쳐 풀을 고갈, heartbeat 기아). 전용 풀은 요청 부하와 무관하게 renew에 커넥션을 즉시 내주므로 가용성이 보전된다. 분리 범위는 리스 UPDATE(heartbeat·승격 시도)와 승격 다운타임 관측 SELECT뿐이다. 승격 성사 이후의 재생·저널 append·정산은 기존 기본 풀·트랜잭션 경계를 그대로 타므로(append의 FOR KEY SHARE fencing 원자성 불변) split-brain 차단 성질에는 영향이 없다. statement_timeout은 전용 풀 세션에 걸지 않는다(단일 행 renew가 슬로 윈도에서 취소돼 리더십을 잃는 것을 막음). 풀 격리는 커넥션 축만 막는다. 행 잠금 축은 v2.43 FOR KEY SHARE 가 막는다.
+- 리스 전용 커넥션 풀(v2.18): renew_leader_lease heartbeat와 try_acquire_leader 승격 UPDATE는 요청 트래픽용 기본 HikariCP 풀과 분리된 소형 전용 풀(`exchange.engine.lease-datasource`, maximum-pool-size 2·minimum-idle 1·connection-timeout 2000ms·session init UTC)로만 수행한다. 근거: 요청 풀이 pg 지연·부하 급증으로 포화되면 heartbeat가 커넥션을 얻지 못해 TTL 내 갱신에 실패하고, 정당 단독 리더가 스스로 페일오버한다(하네스 검증 §3 E1 라이브 실측: downstream latency가 다중행 쿼리 점유를 폭증시켜 무제한 봇 부하와 겹쳐 풀을 고갈, heartbeat 기아). 전용 풀은 요청 부하와 무관하게 renew에 커넥션을 즉시 내주므로 가용성이 보전된다. 리스 풀이 싣는 것은 리스 UPDATE(heartbeat·승격 시도), 승격 다운타임 관측 SELECT, 그리고 리스 보관소가 DynamoDB일 때의 fencing epoch 게시(`publish_leader_epoch`)다. 나머지 쓰기는 두 풀로 나뉜다(2026-09-23 정정). 접수의 명령 저널 append는 전용 append 풀(`exchange.engine.append-datasource`, 최대 14·연결 대기 2초, `LeaseDataSourceConfig.appendDataSource`)과 그 풀의 트랜잭션 관리자를 쓰고(ADR 0022 4-1), 재생과 정산은 기본 풀을 쓴다. 어느 풀이든 fencing 검사(FOR KEY SHARE)는 그 쓰기와 같은 트랜잭션 안에 있으므로 split-brain 차단 성질에는 영향이 없다. statement_timeout은 전용 풀 세션에 걸지 않는다(단일 행 renew가 슬로 윈도에서 취소돼 리더십을 잃는 것을 막음). 풀 격리는 커넥션 축만 막는다. 행 잠금 축은 v2.43 FOR KEY SHARE 가 막는다.
 - 서비스 불능 지속 시 자발적 강등(standdown, v2.19): 전용 풀 격리는 하트비트 생존성을 서비스 생존성과 분리한다. 그 결과 요청 경로가 완전히 멈춘 노드도 heartbeat만은 성공해 리스가 계속 유효하고, 스탠바이는 만료를 보지 못해 승격하지 않는다(좀비 리더 → 클러스터 무기한 정지, 라이브 실측: 요청 풀 고갈 상태의 리더가 30분 이상 체결 0인 채 lease_until만 전진, epoch 불변). 앱은 renew 직전에 이 노드가 일을 할 수 있는지 판정하고, 불능이 임계 시간 동안 끊김 없이 지속되면 **갱신을 포기**한다.
   - 판정 명제: **쓰기 수요 대비 완료율이 붕괴한 상태가 임계 시간 지속되면 리더 자격을 내려놓는다.** 원인은 묻지 않는다. 두 축뿐이다. ① 주문 쓰기 요청 도착(수요), ② 그 요청 경로가 끝낸 일(완료). 둘 다 인메모리 카운터라 판정이 굶거나 실패할 여지가 없다(판정이 DB를 타면 판정 자체가 굶어 하트비트를 막는다).
   - 신호가 **비율**인 근거(라이브 3회 실증): 이 장애는 정지가 아니라 처리율 붕괴다. (1차) 요청 풀 전량 점유(active >= maximum-pool-size)를 필수 조건으로 뒀더니, 실제 좀비는 커넥션 대기가 아니라 CPU 폭주(chaos-api-1 463%, HikariCP housekeeper 지연 59초)로 죽어 있어 커넥션이 계속 반납됐고 점유 조건이 거짓인 표본이 섞여 발동하지 않았다. (2차) '완료 0'을 조건으로 뒀더니, 노드가 완전히 죽지 않고 **5분에 체결 1건**을 내는 상태였다(정상은 초당 20건). 완료 1건이 누적을 초기화하는 규칙 때문에 역시 발동하지 않았다. (3차) 비율을 도입했으나 완료 축이 넓어 발동하지 않았다(아래 ②). 정상 구간의 완료/수요는 1 이상이고 좀비 구간은 0.04 수준이므로, 그 간극을 비율로 재면 임계 선택이 예민하지 않다. 풀 점유는 판정에서 빼고 강등 로그의 진단 정보로만 남긴다(사후 원인 분류용). 능동 커넥션 프로브도 채택하지 않는다. HikariCP가 대기자를 FIFO로 처리하므로 대기열이 길기만 해도 실패해 지연을 정지로 오판하고 v2.18 이전(헛페일오버)으로 회귀한다.
@@ -2507,7 +2513,7 @@ SELECT * FROM position_cost_sanity_check;                                    -- 
 
 C24·C25는 하네스 불변식 카탈로그 번호다(§6.1~§6.4의 원문 기호 ①~⑰과 별개 축). DB 설계 §6.4가 이미 ⑧~⑩을 쓰고 있어 번호 충돌을 피해 하네스 축으로 배정했다. 두 검사는 계층 ③ 파생 프로젝션 대상이므로 **자산 보존(§6.1)이나 봉인 무결성(§6.2)의 판정을 대체하지 않는다.** 위반 시 조치는 `rebuild_position_cost()` 재구축이며(§5.5 ⑤ 프로젝션 재구성 경로에 `orders`·`balances`와 나란히 놓인다), 자금 경로는 건드리지 않는다.
 
-재구축 실행 조건: `apply_position_cost`가 no-RAISE 계약을 입력 계열(22·23)로만 한정하고 잠금·취소·데드락은 상위로 올리므로, 정산이 가동 중인 상태에서 `rebuild_position_cost()`를 돌리면 라이브 게시가 잠금 타임아웃을 맞고 롤백돼 엔진이 fail-fast한다. **재구축은 정산 정지 창에서 소유자 롤로 실행한다.** V13 안의 백필도 같은 호출이므로, 롤링 배포로 다른 노드가 정산 중일 때 이 마이그레이션을 적용하면 그 노드가 fail-fast한다(운영 규모에서는 테이블·함수만 만들고 백필을 부팅 후 1회 잡으로 분리한다. 백필 전까지 평단가가 비는 것은 무해한 열화다).
+재구축 실행 조건: `apply_position_cost`가 no-RAISE 계약을 입력 계열(22·23)로만 한정하고 잠금·취소·데드락은 상위로 올리므로, 정산이 가동 중인 상태에서 `rebuild_position_cost()`를 돌리면 라이브 게시가 잠금 타임아웃을 맞고 롤백된다. 정산은 이 오류를 제한 재시도하지만(§5.4 정산 sink 오류 분류, v2.51) 재구축이 재시도 기한 5초보다 오래 잠금을 쥐는 것이 보통이라 결국 엔진이 fail-fast한다. **재구축은 정산 정지 창에서 소유자 롤로 실행한다.** V13 안의 백필도 같은 호출이므로, 롤링 배포로 다른 노드가 정산 중일 때 이 마이그레이션을 적용하면 그 노드가 fail-fast한다(운영 규모에서는 테이블·함수만 만들고 백필을 부팅 후 1회 잡으로 분리한다. 백필 전까지 평단가가 비는 것은 무해한 열화다).
 
 ### 6.5 상시 강제 + 위반 대응 (초안 missing)
 
@@ -3603,3 +3609,11 @@ ADR 0022 9단계(이벤트 대역 확대)를 정본에 먼저 반영한다. 2026
 §3.2 partman 채택 코드와 템플릿 권한 회수 대상에서 `event_journal` 을 뺀다. 2x10^8 격자 premake 가 V46 꼬리와 대역 잎에 겹친다. §3.2 연속성 규약과 §3.2-a-4 경계 목록에 두 잎을 더한다. §3.1 6.2·6.6 주석, §4.4 `event_journal.event_seq` 행, §5.5 STEP2 주석과 ② event_seq 배정, §6.3 ⑥ 주석의 `market_id * 10^7 + market_seq` 를 `journal_band_spec` 의 `band_span` 파생으로 고친다. 같은 서술을 `docs/reference/contracts/백엔드_API_설계.md` v2.51 §5-2 와 `docs/reference/contracts/하네스_검증설계.md` §2-4 에서 맞췄다.
 
 검증 SQL ⑤~⑰ 은 바뀌지 않는다. ⑥ 은 `market_seq` 로, ⑮ 는 `event_seq` 짝으로, ⑰ 이벤트 팔은 카운터와 `market_seq` 로 세어 대역 폭을 읽지 않는다. 문서 헤더 버전을 v2.50 으로 순증. 2026-09-14 갱신.
+
+## v2.51 패치 반영 사항
+
+주문 접수의 모호한 커밋과 정산의 일시 DB 오류를 단일 리더 모드에서 고친다. 보존 태그 `wip/per-market-leader-20260923` 의 단일 리더 안전 보강 가운데 두 결함에 해당하는 부분을 옮기되, 멱등 키 판정은 시계를 읽지 않게 다시 짰다. 마켓별 리더 결정과는 무관하다. 2026-09-23 갱신.
+
+§5.4 강등 사유 분류의 종신 항목이 "이벤트 sink 실패는 원인 불문 종신"으로 읽혔다. 운영 기본 풀의 `lock_timeout 2000ms` 한 번 초과가 곧 종신 강등이었고, 앱이 한 대라 재기동 전까지 주문이 멈췄다. 이제 일시 DB 오류 넷(55P03·57014·40P01·40001)은 정산이 시도 4회·경과 5초 안에서 다시 돌리고, 그 제한을 넘긴 것과 재시도 대상이 아닌 오류만 종신 강등한다. 재시도 대상이 아닌 오류에는 fencing 거부와 무결성 위반뿐 아니라 연결 오류(08xxx)와 계약 위반 `IllegalStateException` 도 남는다. 연결 오류는 커밋 여부를 알 수 없어 다시 돌리지 않는다. §6.4 재구축 실행 조건의 fail-fast 서술을 재시도 뒤 fail-fast 로 고친다. 결론(재구축은 정산 정지 창에서)은 그대로다. V13 파일 주석의 "그 게시가 롤백된다"는 재시도 도입 전 서술이며 적용된 파일이라 고치지 않는다.
+
+§3 표에 V47 행을 더하고 §3.1 권한 주석에 `shared_at` 을 적는다. 종전 게이트웨이는 append 예외 뒤 선삽입한 멱등 키를 무조건 지우고 in-flight 예약을 바로 풀었다. 커밋 응답만 잃은 경우 같은 키 재시도가 409 가 되고, 정산 전 창에서 같은 잔고를 다른 주문이 통과해 정산 예약 23514 로 라이터가 멈출 수 있었다. 이제 이 요청의 주문 id 로 커밋을 확인하면 키와 예약을 남기고, 라이터에 그 명령의 회수(`SingleWriterLoop.requestCatchUp`)를 요청해 정상 접수로 끝낸다. 같은 내용의 다른 요청이 대조한 키는 `shared_at` 으로 표시해 넣은 요청이 실패해도 남긴다. 태그 판의 `created_at` 선후 비교는 DB 시계가 뒤로 가면 틀리므로 쓰지 않는다. `command_journal` 스키마는 바뀌지 않는다. 문서 헤더 버전을 v2.51 로 순증.

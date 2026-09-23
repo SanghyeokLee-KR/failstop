@@ -3,6 +3,7 @@ package kr.exchange.engine.core;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -78,6 +79,8 @@ public final class SingleWriterLoop {
             new java.util.concurrent.atomic.LongAdder();
     private final java.util.concurrent.atomic.LongAdder catchUpNanos =
             new java.util.concurrent.atomic.LongAdder();
+    // 큐를 거치지 않고 저널에만 커밋된 명령의 회수 요청. 마켓마다 적용돼야 할 가장 큰 seq 하나만 둔다.
+    private final ConcurrentHashMap<Integer, Long> catchUpRequests = new ConcurrentHashMap<>();
 
     public SingleWriterLoop(int queueCapacity, MatchingEngine engine, EventSink eventSink,
                             CatchUpSource catchUpSource, Consumer<Throwable> fatalHandler) {
@@ -95,6 +98,18 @@ public final class SingleWriterLoop {
      */
     public boolean offer(OrderCommand command) {
         return queue.offer(command);
+    }
+
+    /**
+     * 저널에는 커밋됐지만 큐에 들어오지 않은 명령을 seq 까지 적용하게 한다.
+     *
+     * 접수가 커밋 응답을 잃으면 그 명령은 저널에만 있다. 이 요청이 없으면 같은 마켓의 다음 명령이 갭을 드러낼 때까지
+     * 적용되지 않고, 한가한 마켓에서는 그 시간이 게이트웨이 in-flight 예약의 TTL 을 넘을 수 있다. 라이터 스레드가 다음
+     * 순회(유휴면 최대 100밀리초 뒤)에 갭 회수와 같은 경로로 저널을 읽어 적용한다. 회수 실패도 갭 회수와 같이 fail-fast 다.
+     * seq 는 저널에 커밋된 것이 확인된 값이어야 한다. 이미 적용된 seq 면 아무것도 하지 않는다.
+     */
+    public void requestCatchUp(int marketId, long seq) {
+        catchUpRequests.merge(marketId, seq, Math::max);
     }
 
     /** 매칭 적용 누적 나노초. 앱이 게이지로 읽는다. */
@@ -220,11 +235,14 @@ public final class SingleWriterLoop {
                 Thread.currentThread().interrupt();
                 return;
             }
-            if (command == null) {
+            if (command == null && catchUpRequests.isEmpty()) {
                 continue;
             }
             try {
-                process(command);
+                applyRequestedCatchUps();
+                if (command != null) {
+                    process(command);
+                }
             } catch (Throwable t) {
                 // Exception뿐 아니라 Error(OOM·AssertionError·NoClassDefFoundError 등)도 잡는다.
                 // Error를 흘리면 라이터 스레드만 조용히 죽고 running=true가 남아, 접수는
@@ -252,7 +270,7 @@ public final class SingleWriterLoop {
             return;
         }
         if (command.seq() > last + 1) {
-            catchUpTo(command);
+            catchUpTo(command.marketId(), command.seq());
             if (command.seq() <= engine.appliedSeq(command.marketId())) {
                 return;
             }
@@ -260,9 +278,21 @@ public final class SingleWriterLoop {
         applyAndSink(command);
     }
 
-    private void catchUpTo(OrderCommand command) throws Exception {
-        long target = command.seq();
-        int marketId = command.marketId();
+    /** requestCatchUp 으로 받은 요청을 라이터 스레드에서 적용한다. 요청 seq 가 이미 적용됐으면 건너뛴다. */
+    private void applyRequestedCatchUps() throws Exception {
+        if (catchUpRequests.isEmpty()) {
+            return;
+        }
+        for (Integer marketId : catchUpRequests.keySet()) {
+            Long seq = catchUpRequests.remove(marketId);
+            if (seq != null && seq > engine.appliedSeq(marketId)) {
+                catchUpTo(marketId, seq + 1);
+            }
+        }
+    }
+
+    /** 그 마켓에서 target 보다 작은 seq 의 명령을 저널에서 읽어 적용한다. */
+    private void catchUpTo(int marketId, long target) throws Exception {
         // 대역 채번에서는 마켓 사이 seq 대소가 적용 순서가 아니다. 그래서 이 마켓 커서부터 읽고 이 마켓 행만 적용한다.
         // 전 마켓 최댓값에서 읽으면 레거시 누락분을 건너뛰고, 남의 마켓 행을 적용하면 그 마켓 커서가 제 누락분 위로 뛴다.
         long from = engine.appliedSeq(marketId);

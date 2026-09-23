@@ -111,6 +111,11 @@ class InflightReserves {
         }
     }
 
+    /** 키의 현재 누계. 없으면 0 이다. 지연 회수 대기분도 포함한다. */
+    BigDecimal pending(String key) {
+        return totals.getOrDefault(key, BigDecimal.ZERO);
+    }
+
     /** 정산 미관측 종료 경로. 누계를 유지한 채 주문 row 관측 또는 TTL로 지연 회수한다. */
     void defer(String key, BigDecimal amount, long orderId) {
         deferred.add(new Deferred(key, amount, orderId, clock.getAsLong() + deferTtlMs));

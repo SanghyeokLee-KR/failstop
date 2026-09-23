@@ -185,9 +185,11 @@ spring:
       minimum-idle: 8
       connection-timeout: 3000
       # 세션 TZ를 UTC로 고정(dev와 동일 근거)한 뒤 세션 상한을 건다. 장기 잠금 대기·폭주 질의가
-      # 스레드·커넥션을 무한 점유하지 못하게 하고, 초과는 Postgres가 취소해 게이트웨이가
-      # TransientDataAccessException으로 503 변환한다. 이 상한은 Flyway 마이그레이션 세션에도
-      # 상속되므로, 데이터 무거운 마이그레이션(V8·V10)은 트랜잭션 한정 SET LOCAL로 상한을 해제한다.
+      # 스레드·커넥션을 무한 점유하지 못하게 하고, 초과는 Postgres가 취소한다. 문장 취소(57014)는
+      # TransientDataAccessException이라 게이트웨이가 503으로 바꾸지만, 잠금 대기 초과(55P03)는 Spring
+      # 기본 번역기가 분류하지 못해 500이다. 정산은 둘 다 제한 재시도한 뒤에만 강등한다(SettlementService).
+      # 이 상한은 Flyway 마이그레이션 세션에도 상속되므로, 데이터 무거운 마이그레이션(V8·V10)은
+      # 트랜잭션 한정 SET LOCAL로 상한을 해제한다.
       connection-init-sql: "SET TIME ZONE 'UTC'; SET statement_timeout TO '3000ms'; SET lock_timeout TO '2000ms'"
 
 exchange:
@@ -476,7 +478,8 @@ exchange:
         engine: false
 
 ---
-# 카오스 스택 관리 평면의 노드 인벤토리. admin-local 과 같은 계약면이고 주소만 다르다.
+# 카오스 스택 관리 평면의 노드 인벤토리. admin-local 과 같은 계약면이다. 주소가 다르고,
+# 두 번째 노드가 조회 전용이 아니라 리더 후보인 것이 다르다.
 #
 # admin-local 을 그대로 쓸 수 없는 이유가 둘이다. 그 프로파일은 server.address 를
 # 127.0.0.1 로 묶어 컨테이너 밖에서 닿지 않고, base-url 이 호스트 포트라 chaos-net 안에서
@@ -512,15 +515,18 @@ exchange:
         az: ap-northeast-2a
         instance-type: 1vCPU/1GiB
         base-url: http://chaos-api-1:8080
-        # 매칭엔진 보유. 리더가 될 수 있는 유일한 노드다.
+        # 매칭엔진 보유. api-2 와 리더 자리를 다툰다.
         engine: true
         # 확장 대상이 아니다. 단일 라이터라 늘려도 주문 천장이 오르지 않는다.
         scalable: false
+      # 페일오버 스탠바이. compose 에서 api-1 과 같은 환경(EXCHANGE_ENGINE_ENABLED=true)으로 뜨는
+      # 리더 후보라 api-1 과 같이 적는다(harness/docker-compose.chaos.yml chaos-api-2).
       - id: chaos-api-2
         az: ap-northeast-2c
         instance-type: 1vCPU/1GiB
         base-url: http://chaos-api-2:8080
-        engine: false
+        engine: true
+        scalable: false
       - id: chaos-api-3
         az: ap-northeast-2c
         instance-type: 1vCPU/1GiB

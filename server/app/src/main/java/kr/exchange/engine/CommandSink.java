@@ -21,6 +21,13 @@ public interface CommandSink {
     /** 그 마켓의 명령을 받을 라이터가 살아 있는가. 한 마켓 라이터의 정지가 다른 마켓 접수를 닫지 않는다. */
     boolean isRunning(int marketId);
 
+    /**
+     * 큐에 넣지 못한 채 저널에 커밋된 명령을 그 마켓 라이터가 seq 까지 적용하게 한다(SingleWriterLoop.requestCatchUp).
+     * 기본은 아무것도 하지 않는다. 투입 순서만 기록하는 시험용 구현이 이것을 몰라도 되게 하기 위해서다.
+     */
+    default void requestCatchUp(int marketId, long seq) {
+    }
+
     /** 루프 하나가 전 마켓을 받던 종전 배선. 통합 시험과 단일 라이터 경로가 쓴다. */
     static CommandSink of(SingleWriterLoop loop) {
         return new CommandSink() {
@@ -32,6 +39,11 @@ public interface CommandSink {
             @Override
             public boolean isRunning(int marketId) {
                 return loop.isRunning();
+            }
+
+            @Override
+            public void requestCatchUp(int marketId, long seq) {
+                loop.requestCatchUp(marketId, seq);
             }
         };
     }
@@ -47,6 +59,12 @@ public interface CommandSink {
             @Override
             public boolean isRunning(int marketId) {
                 return router.isRunning(marketId);
+            }
+
+            @Override
+            public void requestCatchUp(int marketId, long seq) {
+                // offer 와 같이 샤드가 없으면 만든다. 그 마켓의 첫 명령이 응답을 잃은 경우가 그렇다.
+                router.loop(marketId).requestCatchUp(marketId, seq);
             }
         };
     }

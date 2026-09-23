@@ -323,6 +323,60 @@ class SingleWriterLoopTest {
         }
     }
 
+    /**
+     * 커밋 응답을 잃은 접수의 명령은 저널에만 있고 큐에 오지 않는다. 회수 요청이 있으면 다음 명령을 기다리지 않고 적용한다.
+     * 이미 적용된 seq 의 요청과 다른 마켓 행은 건드리지 않는다.
+     */
+    @Test
+    void requestedCatchUpAppliesJournalOnlyCommandWithoutNextOffer() throws Exception {
+        List<OrderCommand> journal = List.of(limitBuy(1, 1, 1), limitBuy(2, 2, 2), limitBuy(3, 1, 3));
+        MatchingEngineImpl engine = new MatchingEngineImpl();
+        AtomicReference<Throwable> fatal = new AtomicReference<>();
+        SingleWriterLoop loop = new SingleWriterLoop(16, engine,
+                events -> { },
+                (afterSeq, limit) -> journal.stream()
+                        .filter(c -> c.seq() > afterSeq).limit(limit).toList(),
+                fatal::set);
+        loop.start();
+        try {
+            assertTrue(loop.offer(journal.get(0)));
+            await(() -> engine.appliedSeq(1) == 1);
+
+            loop.requestCatchUp(1, 3);
+            await(() -> engine.appliedSeq(1) == 3);
+            assertEquals(2, engine.orderBook(1).openOrderCount());
+            assertEquals(0, engine.appliedSeq(2), "마켓 1 회수가 마켓 2 행을 적용했다");
+            assertEquals(1, loop.catchUpCalls());
+
+            // 이미 적용된 seq 의 요청과 뒤늦게 온 같은 명령은 아무것도 하지 않는다.
+            loop.requestCatchUp(1, 3);
+            assertTrue(loop.offer(journal.get(2)));
+            pause(300);
+            assertEquals(1, loop.catchUpCalls(), "이미 적용된 seq 를 다시 회수했다");
+            assertEquals(2, loop.applyCount());
+            assertNull(fatal.get());
+            assertTrue(loop.isRunning());
+        } finally {
+            loop.stop();
+        }
+    }
+
+    /** 회수 요청의 seq 까지 저널이 채워지지 않으면 갭 회수와 같이 fail-fast 다. 순서 보장이 깨진 상태를 넘기지 않는다. */
+    @Test
+    void requestedCatchUpBeyondJournalStopsLoop() {
+        MatchingEngineImpl engine = new MatchingEngineImpl();
+        AtomicReference<Throwable> fatal = new AtomicReference<>();
+        SingleWriterLoop loop = new SingleWriterLoop(16, engine,
+                events -> { },
+                (afterSeq, limit) -> List.of(),
+                fatal::set);
+        loop.start();
+        loop.requestCatchUp(1, 7);
+        await(() -> !loop.isRunning());
+        assertInstanceOf(IllegalStateException.class, fatal.get());
+        assertEquals(0, engine.appliedSeq(1));
+    }
+
     private static OrderCommand limitBuy(long seq, long orderId) {
         return limitBuy(seq, 1, orderId);
     }

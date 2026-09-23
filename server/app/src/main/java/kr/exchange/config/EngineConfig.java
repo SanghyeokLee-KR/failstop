@@ -172,10 +172,24 @@ public class EngineConfig {
                                                ObjectMapper objectMapper,
                                                MarketCatalog marketCatalog,
                                                CommandPayloadMapper commandPayloadMapper,
-                                               LeaderWriteProgress leaderWriteProgress) {
-        return new SettlementService(jdbcClient, transactionTemplate, leaderLeaseService,
-                objectMapper, marketCatalog, commandPayloadMapper,
+                                               LeaderWriteProgress leaderWriteProgress,
+                                               MeterRegistry meterRegistry) {
+        SettlementService settlement = new SettlementService(jdbcClient, transactionTemplate,
+                leaderLeaseService, objectMapper, marketCatalog, commandPayloadMapper,
                 leaderWriteProgress);
+        // 0 이 아니면 정산이 잠금 경합이나 문장 취소를 만났다는 뜻이다. 강등 없이 흡수했는지는 아래 소진 수와 함께 본다.
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.settlement.transient_retries", settlement,
+                        SettlementService::transientRetries)
+                .description("정산이 일시 DB 오류(55P03·57014·40P01·40001)로 배치를 다시 돌린 횟수")
+                .register(meterRegistry);
+        // 1 이상이면 재시도로 흡수하지 못한 일시 오류가 그 마켓 라이터를 세우고 노드를 종신 강등했다. 경보 대상이다.
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.settlement.transient_exhausted", settlement,
+                        SettlementService::transientExhausted)
+                .description("정산 일시 DB 오류가 재시도 제한(시도 4회 또는 경과 5초)을 넘겨 라이터로 올라간 횟수")
+                .register(meterRegistry);
+        return settlement;
     }
 
     // 접수 경로를 깨우는 신호. 정산(생산)과 접수(소비)가 같은 객체를 봐야 하므로 빈으로 둔다.
@@ -380,7 +394,7 @@ public class EngineConfig {
                     marketDataPublisher.publishSettled(settled);
                 },
                 new JournalCatchUpSource(commandJournalReader, commandPayloadMapper),
-                // 이벤트 정산 실패는 무음 재시도 대상이 아니다. 원인 불문 리더십을 함께
+                // 정산이 제한 재시도로 흡수하지 못한 실패는 원인 불문 리더십을 함께
                 // 내려놓아 접수 경로를 닫는다(LoopFatalHandler, DB 설계 §5.4).
                 new LoopFatalHandler(leaderLeaseService));
         // 큐 깊이 Gauge 는 여기서 등록하지 않는다. 접수가 마켓별 라우터로 가므로 이 빈의

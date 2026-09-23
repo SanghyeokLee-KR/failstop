@@ -120,11 +120,22 @@ public class EngineBridge {
     /** 카탈로그 없이 엔진만 세우는 경로용. 정지 판정은 그 경우 호출자 책임이다. */
     public static final MarketStatusSource NEVER_HALTED = marketId -> false;
 
-    /** 저널 커밋 전 거부. 게이트웨이 통과와 정지가 겹친 창에서만 난다. */
+    /**
+     * 저널 커밋 전 거부. 주문 생성은 게이트웨이 검증과 정지가 겹친 창에서만 나고, 취소는 게이트웨이가
+     * 마켓 상태를 보지 않아 정지 중이면 늘 난다.
+     */
     public static class MarketHaltedException extends RuntimeException {
         public MarketHaltedException(int marketId) {
             super("마켓 정지 상태: 접수 거부(market=" + marketId + ")");
         }
+    }
+
+    /**
+     * 저널에 커밋된 것이 확인됐지만 큐에 넣지 못한 명령을 그 마켓 라이터가 seq 까지 적용하게 한다.
+     * 접수가 append 예외를 받은 뒤 그 명령의 커밋을 저널에서 확인한 경우에 쓴다(OrderGateway).
+     */
+    public void requestCatchUp(int marketId, long seq) {
+        sink.requestCatchUp(marketId, seq);
     }
 
     public SubmitResult submit(OrderIntake intake) {

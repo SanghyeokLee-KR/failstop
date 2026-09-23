@@ -15,6 +15,9 @@ import kr.exchange.journal.EventSeqBlock;
 import kr.exchange.journal.FencingErrors;
 import kr.exchange.journal.JournalEntry;
 import kr.exchange.journal.StaleLeaderException;
+import kr.exchange.journal.TransientDbErrors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -29,6 +32,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * 이벤트 유형별 정산과 event_journal append의 원자 커밋 경로(DB 설계 §5.1~§5.3, §3.1 6.2).
@@ -44,10 +50,31 @@ import java.util.concurrent.ConcurrentHashMap;
  * 잔고 부족을 접수 트랜잭션에서 REJECTED로 종결하지만, 그 판정은 게이트웨이 사전 예약
  * 검증(M1-4)의 몫이다. 엔진이 이미 수락·매칭한 뒤의 사후 거절은 오더북과 저널의
  * disposition을 가르므로 여기서는 무결성 위반으로 취급해 루프를 세운다.
+ *
+ * 일시 DB 오류(잠금 대기 초과, 문장 취소, 교착, 직렬화 실패)는 배치 전체를 제한 안에서 다시 돌린다. 실패한
+ * 시도는 커밋 전에 롤백되고 다음 시도는 위 레지스트리 멱등 판정부터 다시 하므로 이중 정산이 생기지 않는다.
+ * 한도를 넘긴 일시 오류와 재시도 대상이 아닌 오류(fencing 거부, 무결성 위반, 연결 오류, 계약 위반
+ * IllegalStateException 등)는 예외를 그대로 올려 라이터가 fail-fast 한다.
  */
 public class SettlementService {
 
+    private static final Logger log = LoggerFactory.getLogger(SettlementService.class);
+
     private static final short PAYLOAD_SCHEMA_VERSION = 1;
+    // 일시 DB 오류의 재시도 제한. 시도 수(첫 시도 포함)와 경과 시간 중 먼저 닿는 쪽에서 멈춘다.
+    //
+    // 대기 상한은 시도마다 두 배(100, 200, 400밀리초)이고 실제 대기는 그 절반에서 상한 사이의 무작위 값이다. 여러 마켓
+    // 라이터가 같은 DB 정체에서 한꺼번에 실패해도 같은 순간에 다시 몰리지 않게 흩는다.
+    //
+    // 시도 수만으로는 시간이 묶이지 않는다. 한 시도는 여러 문장을 보내고 문장마다 prod 기본 풀의 lock_timeout 2초나
+    // statement_timeout 3초까지 기다릴 수 있다. 57014 도 재시도하므로 네 시도가 모두 3초 문장 취소로 끝나면 대기까지
+    // 약 12.7초다. 그래서 첫 시도 시작부터 RETRY_DEADLINE 이 지나면 새 시도를 열지 않는다. 최악은 대략 이 기한에 마지막
+    // 한 시도의 길이를 더한 값이다. 잠금 대기 초과는 그 문장에서 시도를 끝내므로 흔한 경우는 기한 + 2초 안쪽이고,
+    // 문장마다 상한 직전까지 기다리는 병적인 경우는 더 길 수 있다. 이 시간만큼 라이터 한 마켓이 멈추고, 승격 재생의
+    // 크래시 창 재정산도 같은 경로라 그만큼 길어진다(좀비 판정 창 45초, in-flight 예약 TTL 30초와 비교할 값이다).
+    private static final int MAX_ATTEMPTS = 4;
+    private static final long RETRY_BACKOFF_MS = 100;
+    private static final long DEFAULT_RETRY_DEADLINE_MS = 5_000;
     /** 수수료 샤드 수 K=1 박제. K 변경은 재생·catch-up의 샤드 배정 동일성을 깬다(DB 설계 §1.2). */
     private static final int FEE_SHARD = 0;
     /** notional(quote 지정) 매수의 quote 소진 scale. 엔진 소진액 규약과 동일해야 이벤트
@@ -131,6 +158,9 @@ public class SettlementService {
     // 체결마다 5~6회 왕복하던 매핑 조회를 제거한다. 성공 조회만 저장하고 미스는 캐시하지 않는다.
     private final Map<Short, Long> feeAccountCache = new ConcurrentHashMap<>();
     private final Map<UserAccountKey, Long> userAccountCache = new ConcurrentHashMap<>();
+    private final LongAdder transientRetries = new LongAdder();
+    private final LongAdder transientExhausted = new LongAdder();
+    private volatile long retryDeadlineNanos = TimeUnit.MILLISECONDS.toNanos(DEFAULT_RETRY_DEADLINE_MS);
 
     private record UserAccountKey(long userId, String purpose, short assetId) {
     }
@@ -164,6 +194,24 @@ public class SettlementService {
         this.projectionSignal = signal;
     }
 
+    /** 일시 DB 오류로 배치를 다시 돌린 횟수. 흡수한 잠금 경합의 크기다. */
+    public long transientRetries() {
+        return transientRetries.sum();
+    }
+
+    /** 일시 DB 오류를 재시도 제한 안에서 흡수하지 못해 라이터로 올린 횟수. 1 이상이면 그 마켓 라이터가 멈추고 강등됐다. */
+    public long transientExhausted() {
+        return transientExhausted.sum();
+    }
+
+    /**
+     * 재시도 경과 기한을 바꾼다. 첫 시도 시작부터 이 시간이 지나면 새 시도를 열지 않는다. 기본 5초다.
+     * 운영 배선은 기본값을 쓴다. 시험이 시도 수보다 기한이 먼저 닿는 경로를 만들 때 쓴다.
+     */
+    public void setRetryDeadline(java.time.Duration deadline) {
+        this.retryDeadlineNanos = deadline.toNanos();
+    }
+
     /** 단일 명령의 방출 배치를 원자 정산하고 event_seq가 부여된 목록을 반환한다. */
     public List<EngineEvent> appendAndSettle(List<EngineEvent> events) {
         if (events.isEmpty()) {
@@ -177,6 +225,48 @@ public class SettlementService {
                         "정산 배치는 단일 명령의 방출분이어야 한다: " + cmdSeq + " vs " + event.sourceCmdSeq());
             }
         }
+        long startedAt = System.nanoTime();
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return settleOnce(cmdSeq, events);
+            } catch (DataAccessException e) {
+                if (!TransientDbErrors.isRetryable(e)) {
+                    throw e;
+                }
+                long backoffMs = backoffMs(attempt);
+                long elapsedNanos = System.nanoTime() - startedAt;
+                if (attempt >= MAX_ATTEMPTS
+                        || elapsedNanos + TimeUnit.MILLISECONDS.toNanos(backoffMs) > retryDeadlineNanos) {
+                    transientExhausted.increment();
+                    log.error("정산 일시 DB 오류를 재시도 제한 안에서 흡수하지 못했다. 라이터가 멈추고 강등한다: cmd_seq={}, "
+                                    + "sqlstate={}, 시도={}/{}, 경과_ms={}, 원인={}",
+                            cmdSeq, TransientDbErrors.sqlState(e), attempt, MAX_ATTEMPTS,
+                            TimeUnit.NANOSECONDS.toMillis(elapsedNanos), e.getMostSpecificCause().getMessage());
+                    throw e;
+                }
+                transientRetries.increment();
+                log.warn("정산 일시 DB 오류, 배치를 다시 돌린다: cmd_seq={}, sqlstate={}, 시도={}/{}, 대기_ms={}, 원인={}",
+                        cmdSeq, TransientDbErrors.sqlState(e), attempt, MAX_ATTEMPTS, backoffMs,
+                        e.getMostSpecificCause().getMessage());
+                try {
+                    Thread.sleep(backoffMs);
+                } catch (InterruptedException interrupted) {
+                    // 인터럽트는 정지 요청(라이터 halt 등)이다. 재시도를 멈추고 원래 오류를 올린다.
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+    }
+
+    /** attempt 번째 실패 뒤의 대기. 상한의 절반에서 상한 사이 무작위 값이다(50~100, 100~200, 200~400밀리초). */
+    private static long backoffMs(int attempt) {
+        long cap = RETRY_BACKOFF_MS << (attempt - 1);
+        return cap / 2 + ThreadLocalRandom.current().nextLong(cap / 2 + 1);
+    }
+
+    private List<EngineEvent> settleOnce(long cmdSeq, List<EngineEvent> events) {
+        // 시도마다 로컬 리더십을 다시 본다. 대기 중에 강등됐으면 DB 왕복 없이 멈춘다.
         LeaderIdentity leader = lease.requireLeader();
         try {
             List<EngineEvent> settled = tx.execute(status -> settleInTx(leader, cmdSeq, events));

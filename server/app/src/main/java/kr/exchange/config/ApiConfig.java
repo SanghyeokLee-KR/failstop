@@ -369,6 +369,20 @@ public class ApiConfig {
                 .builder("exchange.inflight.lock.hold.nanos", gateway,
                         OrderGateway::inflightLockHoldNanos)
                 .description("in-flight 예약 락 보유 누적 나노초").register(meterRegistry);
+        // 셋 다 드문 경로라 0 이 정상이다. 첫째가 늘면 커밋 응답 유실을, 둘째는 같은 client_order_id 의 동시 재시도
+        // 경합을, 셋째는 append 실패 직후 DB 에 닿지 못한 창을 뜻한다(V47).
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.order.intake.commit_recovered", gateway, OrderGateway::commitsRecovered)
+                .description("append 예외 뒤 이 요청의 NEW 가 저널에 있어 회수를 요청하고 접수로 처리한 횟수")
+                .register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.order.idempotency_key.kept", gateway, OrderGateway::keysKept)
+                .description("저널 전 실패로 끝난 요청의 멱등 키를 다른 요청의 공유 표시 때문에 남긴 횟수")
+                .register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.order.intake.unresolved", gateway, OrderGateway::unresolvedFailures)
+                .description("append 예외 뒤 저널 판정마저 실패해 키와 예약을 남긴 횟수")
+                .register(meterRegistry);
         return gateway;
     }
 
