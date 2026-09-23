@@ -86,7 +86,9 @@ services:
     environment: &api-env
       # chaos-monkey 프로파일이 E8 assault 주입기(actuator /chaosmonkey)와 CB 프로브 평면을 로드한다.
       # 격리 chaos 스택 서빙 노드 한정. 데모(dev,bots)·prod·봇 노드는 이 프로파일을 활성화하지 않는다.
-      SPRING_PROFILES_ACTIVE: dev,chaos-monkey
+      # 운영 풀 상한(lock_timeout 2초·statement_timeout 3초)으로 돌리려면 CHAOS_SPRING_PROFILES 에
+      # dev,chaos-monkey,prod-timeouts 를 준다. 비우면 dev,chaos-monkey 다(application.yml prod-timeouts 문서).
+      SPRING_PROFILES_ACTIVE: ${CHAOS_SPRING_PROFILES:-dev,chaos-monkey}
       SPRING_DATASOURCE_URL: jdbc:postgresql://chaos-toxiproxy:15432/exchange
       SPRING_DATASOURCE_USERNAME: ${CHAOS_PG_USER:-exchange}
       SPRING_DATASOURCE_PASSWORD: ${CHAOS_PG_PASSWORD:-exchange}

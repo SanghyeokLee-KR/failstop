@@ -33,6 +33,8 @@ pwsh -File harness/scripts/up.ps1 -Obs
 
 API 로드밸런서는 1차 노드와 백업 노드를 둔 정적 설정이다. DB standby와는 별개이며, 모든 상황에서 리더를 자동으로 찾아 라우팅하는 구성은 아니다.
 
+기본 스택은 API 노드를 `dev,chaos-monkey` 프로파일로 띄워 기본 풀에 `lock_timeout`과 `statement_timeout`이 없다. 운영과 같은 세션 상한(lock_timeout 2초, statement_timeout 3초)으로 실험하려면 스택을 올리기 전에 `$env:CHAOS_SPRING_PROFILES = 'dev,chaos-monkey,prod-timeouts'`를 준다(ADR 0034 S1). 이 상한에서는 지연 주입 중에 기본 풀의 느린 조회와 불변식 검증 집계가 취소될 수 있다. 불변식 결과를 0으로 읽기 전에 그 검사가 실제로 끝났는지 확인하고, 취소된 검사는 실행하지 않은 것으로 적는다.
+
 ## 장애 실험
 
 실행할 실험의 설정을 `config/`에서 확인한 뒤 해당 스크립트를 실행한다. 예를 들어 앱 리더 중단은 다음과 같다.

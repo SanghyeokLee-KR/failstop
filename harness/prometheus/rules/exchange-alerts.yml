@@ -103,6 +103,22 @@ groups:
           dashboard: "② 자동 복구 증명 (proof-recovery)"
           runbook: "기획안 §6.5 리더 임차와 세대 번호 · DB 설계 §5.4"
 
+      # 정산이 일시 DB 오류를 재시도 제한(시도 4회 또는 경과 5초) 안에서 흡수하지 못했다. 그 마켓 라이터가 멈추고
+      # 노드가 종신 강등했다는 뜻이라 한 번이어도 알린다. 재시도로 흡수한 경합은 transient_retries 로만 보고 알리지 않는다.
+      - alert: SettlementTransientExhausted
+        expr: increase(exchange_settlement_transient_exhausted_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "정산 일시 DB 오류 재시도 소진"
+          metric: "transient_exhausted 5m"
+          value: "{{ $value }}"
+          threshold: "> 0"
+          duration: "0s"
+          dashboard: "② 자동 복구 증명 (proof-recovery)"
+          runbook: "DB 설계 §5.4 정산 sink 오류 분류 · ADR 0034 결정 8"
+
       - alert: SnapshotPersistFailed
         expr: rate(exchange_snapshot_persist_failed_total[5m]) > 0
         for: 1m

@@ -13,11 +13,14 @@ import java.time.Duration;
  *                            TTL보다 충분히 길어야 정상 갱신 주기와 겹치지 않는다
  * @param queueCapacity       단일 라이터 유계 큐 크기. 초과분은 백프레셔 거부
  * @param followerCatchUpInterval 팔로워가 리더 저널을 따라잡는 주기
+ * @param acceptLockWait      마켓 접수 락 대기 상한. 넘으면 저널 전에 503으로 돌려보낸다. 0(기본)이면 상한이 없다
+ * @param acceptLockTimeout   접수 append 트랜잭션의 DB lock_timeout. 0이면 걸지 않고 append 풀 세션 값을 따른다
  */
 @ConfigurationProperties(prefix = "exchange.engine")
 public record EngineProperties(Duration leaseTtl, Duration leaseTickInterval,
                                Duration leaseStanddownAfter, int queueCapacity,
-                               Duration followerCatchUpInterval) {
+                               Duration followerCatchUpInterval,
+                               Duration acceptLockWait, Duration acceptLockTimeout) {
 
     public EngineProperties {
         if (leaseTtl == null) {
@@ -37,6 +40,21 @@ public record EngineProperties(Duration leaseTtl, Duration leaseTickInterval,
         // 줄이면 조회 왕복만 늘어난다.
         if (followerCatchUpInterval == null) {
             followerCatchUpInterval = Duration.ofSeconds(1);
+        }
+        // 기본은 꺼 둔다(상한 없이 기다린다). 단일 리더 모드의 접수를 오늘과 같게 두기 위해서다. 켜면 한 마켓의 줄이
+        // 상한을 넘을 때 그 요청이 503 을 받는데, max_fails=1 인 nginx 업스트림(harness/nginx, deploy/nginx-edge)은 그
+        // 503 하나로 노드를 2초 빼고 POST 를 다른 노드로 넘긴다. 곧 한 마켓의 정체가 모든 마켓의 쓰기 중단으로 번진다.
+        // 파티션 모드처럼 줄 머리 막힘을 끊어야 할 때 그 부작용과 함께 판단해 켠다(ADR 0034 S3 이후).
+        if (acceptLockWait == null) {
+            acceptLockWait = Duration.ZERO;
+        }
+        // 운영 append 풀에는 lock_timeout 이 없다. 기본값을 그와 같게 두어 켜지 않으면 접수 왕복이 늘지 않는다.
+        if (acceptLockTimeout == null) {
+            acceptLockTimeout = Duration.ZERO;
+        }
+        if (acceptLockWait.isNegative() || acceptLockTimeout.isNegative()) {
+            throw new IllegalArgumentException("acceptLockWait·acceptLockTimeout은 음수일 수 없다: wait="
+                    + acceptLockWait + " timeout=" + acceptLockTimeout);
         }
         // tick이 TTL 이상이면 갱신 전 리스가 만료돼 정당 단독 리더가 스스로 펜싱된다(half-leader).
         if (leaseTickInterval.compareTo(leaseTtl) >= 0) {

@@ -1,6 +1,7 @@
 package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
+import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.CursorPages;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -98,6 +99,19 @@ public class MemberAdminController {
         MemberAdminService.Transition t = members.close(externalId);
         audit.record(principal.operatorId(), "members.close", externalId,
                 AdminRequestContext.requestId(request), approvalId, "OK", detail(t));
+        if (t.pendingOrders() > 0) {
+            // 상태 전이·세션 폐기·일부 취소는 이미 커밋됐고 감사도 위에서 남겼다. 취소가 저널에 닿지 못한 주문은 아직
+            // 열려 있어 폐쇄 계정에 체결이 생길 수 있으므로 200 으로 덮지 않는다. 새 승인으로 폐쇄를 다시 부르면
+            // 남은 주문만 다시 취소한다(CLOSED->CLOSED 허용, 이미 쓴 토큰은 재사용할 수 없다).
+            Map<String, Object> detail = new LinkedHashMap<>();
+            detail.put("status", t.status());
+            detail.put("canceled_orders", t.canceledOrders());
+            detail.put("pending_orders", t.pendingOrders());
+            detail.put("approval_id", approvalId);
+            throw new ApiException(409, "orders_cancel_incomplete",
+                    "폐쇄는 확정됐으나 미체결 주문 일부를 취소하지 못했습니다. 새 승인으로 폐쇄를 다시 요청하세요.",
+                    detail, null);
+        }
         Map<String, Object> out = response(t);
         out.put("approval_id", approvalId);
         return out;
@@ -116,7 +130,7 @@ public class MemberAdminController {
 
     private static Map<String, Object> detail(MemberAdminService.Transition t) {
         return Map.of("status", t.status(), "canceled_orders", t.canceledOrders(),
-                "revoked_sessions", t.revokedSessions());
+                "revoked_sessions", t.revokedSessions(), "pending_orders", t.pendingOrders());
     }
 
     private static Map<String, Object> response(MemberAdminService.Transition t) {

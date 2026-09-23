@@ -46,6 +46,8 @@ public class CommandJournalAppender {
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
     private final LeaderLeaseService lease;
+    // 접수 트랜잭션의 잠금 대기 상한("200ms" 꼴). null 이면 걸지 않는다(setLockTimeout).
+    private volatile String lockTimeout;
     // §5-2 계약 메트릭. requireLeader 이후 tx 커밋(=fsync=ACK) 완료까지의 지연을 잰다(RPO=0 비용).
     private final Timer appendTimer;
     // 좀비 리더 판정의 진행 축(§5.4). appendTimer는 실패한 시도도 세므로 진행성 신호로 못 쓴다.
@@ -135,6 +137,16 @@ public class CommandJournalAppender {
                 .register(meterRegistry);
     }
 
+    /**
+     * 접수 트랜잭션에 DB lock_timeout 을 건다. 0 이나 null 이면 걸지 않고 풀 세션 값을 따른다.
+     *
+     * 걸면 트랜잭션마다 첫 문장으로 한 왕복이 는다. 초과는 55P03 으로 트랜잭션 전체를 롤백하므로 저널 행과 채번이
+     * 남지 않고, 강등하지 않으며, 호출자에게는 일시 DB 오류(503)로 올라간다.
+     */
+    public void setLockTimeout(java.time.Duration timeout) {
+        this.lockTimeout = timeout == null || timeout.isZero() ? null : timeout.toMillis() + "ms";
+    }
+
     public AppendResult append(CommandDraft draft) {
         LeaderIdentity leader = lease.requireLeader();
         try {
@@ -206,6 +218,14 @@ public class CommandJournalAppender {
     }
 
     private AppendResult appendInTxTimed(LeaderIdentity leader, CommandDraft draft) {
+        String timeout = lockTimeout;
+        if (timeout != null) {
+            // 트랜잭션 한정(is_local)이라 커밋·롤백 뒤 풀 커넥션에 남지 않는다.
+            jdbc.sql("SELECT set_config('lock_timeout', ?, true)")
+                    .params(timeout)
+                    .query(String.class)
+                    .single();
+        }
         // 머리말 한 왕복(V44 6인자 판). 종전에는 리더 검증과 어드바이저리 락과 멱등 조회와 채번을
         // 네 문장으로 보냈다. 넷 다 이 트랜잭션 안에서 끝나므로 함수 하나에 담긴다.
         // 판정 순서와 예외와 락 키는 그 함수가 종전 그대로 정한다.

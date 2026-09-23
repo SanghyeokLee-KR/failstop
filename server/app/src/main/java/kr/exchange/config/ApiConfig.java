@@ -369,6 +369,14 @@ public class ApiConfig {
                 .builder("exchange.inflight.lock.hold.nanos", gateway,
                         OrderGateway::inflightLockHoldNanos)
                 .description("in-flight 예약 락 보유 누적 나노초").register(meterRegistry);
+        // 둘 다 드문 경로라 0 이 정상이다. 늘면 커밋 응답 유실이나 같은 client_order_id 의 동시 재시도 경합을 본다.
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.order.idempotency_key.kept", gateway, OrderGateway::orphanKeysKept)
+                .description("저널 전 실패로 본 접수의 멱등 키를 저널이 쥐고 있어 남긴 횟수(V47)")
+                .register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.order.idempotency_key.restored", gateway, OrderGateway::keysRestored)
+                .description("앞 요청이 지운 멱등 키를 저널 커밋 뒤 되살린 횟수").register(meterRegistry);
         return gateway;
     }
 

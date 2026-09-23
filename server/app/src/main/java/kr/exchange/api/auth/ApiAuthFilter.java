@@ -10,6 +10,7 @@ import kr.exchange.api.common.ErrorRenderer;
 import kr.exchange.api.common.PublicMarketPaths;
 import kr.exchange.api.common.RequestBodyLimit;
 import kr.exchange.engine.LeaderWriteProgress;
+import kr.exchange.journal.TransientDbErrors;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -119,6 +120,13 @@ public class ApiAuthFilter extends OncePerRequestFilter {
                     "일시적 처리 불가. 잠시 후 재시도 필요", null, 1));
             return;
         } catch (RuntimeException e) {
+            if (TransientDbErrors.isRetryable(e)) {
+                // Spring 6 기본 번역기는 55P03(lock_timeout 초과)을 분류하지 못해 UncategorizedSQLException 으로
+                // 올린다. 위 catch 와 같은 일시 실패이므로 컨트롤러 계층(ApiExceptionHandler)과 같은 503 으로 맞춘다.
+                errorRenderer.write(response, new ApiException(503, "service_unavailable",
+                        "일시적 처리 불가. 잠시 후 재시도 필요", null, 1));
+                return;
+            }
             // 인증 단계에서 던진 비 ApiException(예: HMAC 계산 실패)이 컨테이너 기본 페이지로 새면
             // 클라이언트가 표준 에러 엔벌로프(§2-3)로 파싱하지 못한다. 500으로 표준화한다.
             //

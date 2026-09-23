@@ -1,14 +1,17 @@
 package kr.exchange.api.common;
 
 import jakarta.servlet.http.HttpServletResponse;
+import kr.exchange.engine.EngineBridge;
 import kr.exchange.engine.NotLeaderException;
 import kr.exchange.engine.NotReadyException;
+import kr.exchange.journal.TransientDbErrors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
+import org.springframework.jdbc.UncategorizedSQLException;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -71,6 +74,16 @@ public class ApiExceptionHandler {
                 "승격 준비 중. 잠시 후 재시도 필요", null, 1), response);
     }
 
+    @ExceptionHandler(EngineBridge.AcceptBusyException.class)
+    public ResponseEntity<Object> acceptBusy(EngineBridge.AcceptBusyException e, HttpServletResponse response) {
+        // 마켓 접수 락 대기 상한 초과. 저널 전 거부라 같은 client_order_id 로 재시도하면 된다. 게이트웨이를 거친 주문은
+        // OrderGateway 가 먼저 API 예외로 바꾸므로 여기는 그 밖의 호출 경로 몫이다. 상한은 기본으로 꺼져 있다. 켜면 이
+        // 503 하나로 max_fails=1 인 nginx 가 노드를 잠시 빼므로 그 부작용을 알고 켠다(EngineProperties). 건수는
+        // exchange.submit.lock.timeouts 로 본다.
+        return render(new ApiException(503, "service_unavailable",
+                "접수 대기 상한 초과. 잠시 후 재시도 필요", null, 1), response);
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Object> illegalState(IllegalStateException e, HttpServletResponse response) {
         String requestId = resolveRequestId(response);
@@ -91,6 +104,16 @@ public class ApiExceptionHandler {
         log.warn("일시적 DB 접근 실패 request_id={}: {}", requestId, e.getMessage());
         return render(new ApiException(503, "service_unavailable",
                 "일시적 처리 불가. 잠시 후 재시도 필요", null, 1), response, requestId);
+    }
+
+    @ExceptionHandler(UncategorizedSQLException.class)
+    public ResponseEntity<Object> uncategorizedSql(UncategorizedSQLException e, HttpServletResponse response) {
+        // Spring 6 기본 번역기는 PostgreSQL 55P03(lock_timeout 초과)을 분류하지 못해 이 예외로 올린다. 잠금 대기
+        // 초과는 위와 같은 일시 실패라 503 으로 보내고, 나머지 미분류 SQL 오류는 catch-all 500 그대로다.
+        if (TransientDbErrors.isRetryable(e)) {
+            return transientDataAccess(e, response);
+        }
+        return unexpected(e, response);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

@@ -108,7 +108,8 @@ public class EngineConfig {
             javax.sql.DataSource appendDataSource,
             LeaderLeaseService leaderLeaseService,
             MeterRegistry meterRegistry,
-            LeaderWriteProgress leaderWriteProgress) {
+            LeaderWriteProgress leaderWriteProgress,
+            EngineProperties props) {
         // JdbcClient 와 TransactionTemplate 을 빈으로 내놓지 않고 여기서 만든다. 빈으로 두면
         // 그 타입의 후보가 둘이 되고, 한정자 없이 타입으로 주입받는 다른 배선이 이름으로
         // 아무거나 문다. 실제로 그렇게 관리 평면의 승인 롤백이 append 풀의 트랜잭션
@@ -121,6 +122,7 @@ public class EngineConfig {
                 new TransactionTemplate(
                         new org.springframework.jdbc.support.JdbcTransactionManager(appendDataSource)),
                 leaderLeaseService, meterRegistry, leaderWriteProgress);
+        appender.setLockTimeout(props.acceptLockTimeout());
         // 임계구역 안 분해(ADR 0022 0단계 (b)). 접수 락 보유의 3분의 2가 데이터베이스 밖에
         // 있다는 것까지만 알고 그 안을 모른다(정본 5.7.10). appendTimer 에서 inTx 를 빼면
         // 커넥션 획득과 트랜잭션 경계와 커밋이 남는다. 그 셋은 여기서 더 못 가른다.
@@ -172,10 +174,24 @@ public class EngineConfig {
                                                ObjectMapper objectMapper,
                                                MarketCatalog marketCatalog,
                                                CommandPayloadMapper commandPayloadMapper,
-                                               LeaderWriteProgress leaderWriteProgress) {
-        return new SettlementService(jdbcClient, transactionTemplate, leaderLeaseService,
-                objectMapper, marketCatalog, commandPayloadMapper,
+                                               LeaderWriteProgress leaderWriteProgress,
+                                               MeterRegistry meterRegistry) {
+        SettlementService settlement = new SettlementService(jdbcClient, transactionTemplate,
+                leaderLeaseService, objectMapper, marketCatalog, commandPayloadMapper,
                 leaderWriteProgress);
+        // 0 이 아니면 정산이 잠금 경합을 만났다는 뜻이다. 강등 없이 흡수했는지는 이것과 강등 축을 함께 본다.
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.settlement.transient_retries", settlement,
+                        SettlementService::transientRetries)
+                .description("정산이 일시 DB 오류(55P03·57014·40P01·40001)로 배치를 다시 돌린 횟수")
+                .register(meterRegistry);
+        // 1 이상이면 재시도로 흡수하지 못한 일시 오류가 그 마켓 라이터를 세우고 강등을 일으켰다. 경보 대상이다.
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.settlement.transient_exhausted", settlement,
+                        SettlementService::transientExhausted)
+                .description("정산 일시 DB 오류가 재시도 제한(시도 4회 또는 경과 5초)을 넘겨 라이터로 올라간 횟수")
+                .register(meterRegistry);
+        return settlement;
     }
 
     // 접수 경로를 깨우는 신호. 정산(생산)과 접수(소비)가 같은 객체를 봐야 하므로 빈으로 둔다.
@@ -380,7 +396,7 @@ public class EngineConfig {
                     marketDataPublisher.publishSettled(settled);
                 },
                 new JournalCatchUpSource(commandJournalReader, commandPayloadMapper),
-                // 이벤트 정산 실패는 무음 재시도 대상이 아니다. 원인 불문 리더십을 함께
+                // 정산이 제한 재시도로 흡수하지 못한 실패는 원인 불문 리더십을 함께
                 // 내려놓아 접수 경로를 닫는다(LoopFatalHandler, DB 설계 §5.4).
                 new LoopFatalHandler(leaderLeaseService));
         // 큐 깊이 Gauge 는 여기서 등록하지 않는다. 접수가 마켓별 라우터로 가므로 이 빈의
@@ -477,12 +493,14 @@ public class EngineConfig {
                                      CommandPayloadMapper commandPayloadMapper,
                                      PromotionCoordinator promotionCoordinator,
                                      kr.exchange.api.market.MarketDirectory markets,
+                                     EngineProperties props,
                                      MeterRegistry meterRegistry) {
         // ADR 0021 5단계. 접수가 마켓별 라이터로 간다. 종전에는 SingleWriterLoop 하나였다.
         // 라우터가 marketId 로 라우팅하고 그 마켓의 라이터가 없으면 만든다.
         EngineBridge bridge = new EngineBridge(appender, router, commandPayloadMapper,
                 promotionCoordinator.gate(),
                 marketId -> "HALTED".equals(markets.byId(marketId).status()));
+        bridge.setAcceptLockWait(props.acceptLockWait());
         // 접수 임계구역 분해(정본 13.5 한계 29). 대기가 크면 경합이, 보유가 크면
         // 임계구역 안 작업이 상한이다. rate() 로 초당 소비 시간이 나오고 그것이 점유율이다.
         // 락이 마켓별이라 마켓이 처음 접수될 때 market 태그로 등록한다. 태그 없는 같은 이름을 함께
@@ -501,6 +519,10 @@ public class EngineConfig {
                     .builder("exchange.submit.count", bridge, b -> b.submitCount(marketId))
                     .tag("market", tag)
                     .description("마켓별 접수 시도 수. 위 둘의 분모").register(meterRegistry);
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.submit.lock.timeouts", bridge, b -> b.lockTimeoutCount(marketId))
+                    .tag("market", tag)
+                    .description("마켓별 접수 락 대기 상한 초과로 저널 전에 503을 낸 수").register(meterRegistry);
         });
         return bridge;
     }

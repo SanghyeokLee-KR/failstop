@@ -186,7 +186,8 @@ spring:
       connection-timeout: 3000
       # 세션 TZ를 UTC로 고정(dev와 동일 근거)한 뒤 세션 상한을 건다. 장기 잠금 대기·폭주 질의가
       # 스레드·커넥션을 무한 점유하지 못하게 하고, 초과는 Postgres가 취소해 게이트웨이가
-      # TransientDataAccessException으로 503 변환한다. 이 상한은 Flyway 마이그레이션 세션에도
+      # 503으로 변환한다(ApiExceptionHandler. 55P03은 SQLSTATE로 가른다). 정산은 같은 초과를 제한 재시도한다
+      # (SettlementService). 이 상한은 Flyway 마이그레이션 세션에도
       # 상속되므로, 데이터 무거운 마이그레이션(V8·V10)은 트랜잭션 한정 SET LOCAL로 상한을 해제한다.
       connection-init-sql: "SET TIME ZONE 'UTC'; SET statement_timeout TO '3000ms'; SET lock_timeout TO '2000ms'"
 
@@ -404,6 +405,23 @@ resilience4j:
         # health indicator를 끈다. CB open이 /actuator/health를 DOWN으로 만들어 컨테이너 헬스체크·
         # 레디니스에 개입하는 것을 막는다(readiness 그룹은 readinessState 한정이지만 이중 방어).
         register-health-indicator: false
+
+---
+# 운영 세션 상한을 dev 위에 얹는 프로파일(ADR 0034 S1). 명시 활성이 전제이고 기본 기동은 바뀌지 않는다.
+#
+# 카오스 스택은 dev 라 기본 풀에 lock_timeout 이 없다. 그러면 정산이 잠금 대기 초과(55P03)를 만나 강등으로
+# 번지는 운영 경로를 재현하지 못한다. 켜려면 카오스 기동 전에 CHAOS_SPRING_PROFILES=dev,chaos-monkey,prod-timeouts
+# 를 준다(harness/docker-compose.chaos.yml). 이 문서가 dev 문서 뒤에 있어 같은 키를 덮는다(last-active-wins).
+#
+# 값은 prod 문서의 같은 키와 같아야 한다. ProdTimeoutsProfileTest 가 대조한다. 켜면 dev 가 일부러 두지 않은
+# statement_timeout 3초도 걸리므로 지연 주입 창에서는 기본 풀의 느린 조회와 불변식 검증기 집계가 취소될 수 있다.
+spring:
+  config:
+    activate:
+      on-profile: prod-timeouts
+  datasource:
+    hikari:
+      connection-init-sql: "SET TIME ZONE 'UTC'; SET statement_timeout TO '3000ms'; SET lock_timeout TO '2000ms'"
 
 ---
 # 관리 평면 로컬 동거 프로파일. 명시 활성(--spring.profiles.active=dev,bots,admin-local)이 전제다.

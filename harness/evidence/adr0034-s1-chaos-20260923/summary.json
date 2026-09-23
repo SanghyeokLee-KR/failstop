@@ -1,0 +1,51 @@
+{
+  "image": "exchange-chaos-app:adr0034-s1-wt",
+  "imageId": "sha256:b2de366705b5b297e39537c168efb79c1078d78373412bd72aa94aa849acc628",
+  "imageRevision": "5e59ff0+adr0034-s1-uncommitted-worktree",
+  "harnessCommit": "5e59ff01be128c2f00eef0ab6549af01e1bd1e5b",
+  "latchBeforeTraffic": false,
+  "snapshotEvidence": false,
+  "localLogDir": "C:\\Users\\kopo26\\AppData\\Local\\Temp\\claude\\C--Users-kopo26-Desktop-failstop\\9779e47b-0c27-4c1a-94b1-d8b85ca0cb2c\\scratchpad\\chaos-logs",
+  "experiments": [
+    {
+      "experiment": "E2",
+      "script": "harness/scripts/e2-db-cut.ps1",
+      "image": "exchange-chaos-app:adr0034-s1-wt",
+      "imageId": "sha256:b2de366705b5b297e39537c168efb79c1078d78373412bd72aa94aa849acc628",
+      "분리 판정": "BLOCKED",
+      "사유": "compose up 종료코드 1"
+    },
+    {
+      "experiment": "E4",
+      "script": "harness/scripts/e4-leader-kill.ps1",
+      "image": "exchange-chaos-app:adr0034-s1-wt",
+      "imageId": "sha256:b2de366705b5b297e39537c168efb79c1078d78373412bd72aa94aa849acc628",
+      "분리 판정": "BLOCKED",
+      "사유": "compose up 종료코드 1"
+    },
+    {
+      "experiment": "E5",
+      "script": "harness/scripts/e5-net-partition.ps1",
+      "image": "exchange-chaos-app:adr0034-s1-wt",
+      "imageId": "sha256:b2de366705b5b297e39537c168efb79c1078d78373412bd72aa94aa849acc628",
+      "분리 판정": "BLOCKED",
+      "사유": "compose up 종료코드 1"
+    },
+    {
+      "experiment": "E6",
+      "script": "harness/scripts/e6-spike-failover.ps1",
+      "image": "exchange-chaos-app:adr0034-s1-wt",
+      "imageId": "sha256:b2de366705b5b297e39537c168efb79c1078d78373412bd72aa94aa849acc628",
+      "분리 판정": "BLOCKED",
+      "사유": "compose up 종료코드 1"
+    },
+    {
+      "experiment": "E7",
+      "script": "harness/scripts/e7-gray-pause.ps1",
+      "image": "exchange-chaos-app:adr0034-s1-wt",
+      "imageId": "sha256:b2de366705b5b297e39537c168efb79c1078d78373412bd72aa94aa849acc628",
+      "분리 판정": "BLOCKED",
+      "사유": "compose up 종료코드 1"
+    }
+  ]
+}

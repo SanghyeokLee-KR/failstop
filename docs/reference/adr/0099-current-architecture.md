@@ -116,6 +116,8 @@ GitHub `6ee1179`의 Grafana MSP 6개 화면을 재사용하되 호스트 Linux�
 
 리더 권한은 클러스터당 하나다. 기본 제공자는 PostgreSQL 리스이고 DynamoDB 구현도 선택할 수 있다. 어느 쪽이든 거래 쓰기의 마지막 권한 검사는 PostgreSQL 트랜잭션 안에 남는다. 현재 검사 함수는 리스 행을 `FOR KEY SHARE`로 잠가 시간 갱신은 허용하고, holder·epoch 교체는 진행 중 쓰기와 직렬화한다. 이 동작에는 V41의 `(resource, holder, epoch)` UNIQUE 인덱스가 필수다. [리스 구성](../../../server/app/src/main/java/kr/exchange/config/LeaseStoreConfig.java), [V41](../../../server/app/src/main/resources/db/migration/V41__lease_key_share_lock.sql)
 
+2026-09-23에 매칭 리더십을 두 파티션 리스(`matching-p0`·`matching-p1`)로 나누고 자금 예약을 저널 append 트랜잭션 안으로 옮기는 [ADR 0034](0034-market-partitioned-leadership.md)를 채택했지만, 진행 중인 단계는 S0 문서와 S1 단일 리더 안전 보강이다. 실행 중인 구조는 여전히 위의 리스 행 하나를 쓰는 단일 리더(P1)이며 파티션 모드는 구현하지도 측정하지도 않았다. [단계 계획](../architecture/마켓분할_리더_단계계획.md)
+
 팔로워 앱은 평소 마켓별로 저널을 따라가며 엔진 상태를 검증한다. 승격 시 모든 마켓의 최신 위치에 도달해 있으면 재생을 생략하고 그 엔진을 설치한다. 복구가 필요하면 마켓별로 채택 가능한 스냅샷을 읽고 이후 명령을 재생한다. 이미 정산된 구간은 각 마켓의 연속 물질화 경계까지 검증하고 미완료 꼬리를 다시 처리한 뒤 접수를 연다. 손상된 스냅샷은 해당 마켓에서 제외하고 이전 스냅샷이나 전량 재생으로 돌아간다. 스냅샷 저장에도 같은 트랜잭션 안의 리더 권한 검사가 연결돼 있다. 과거 ADR의 “스냅샷 미배선”이나 “저장 시 권한 검사 없음”은 현재 상태가 아니다. [승격 분기](../../../server/app/src/main/java/kr/exchange/engine/PromotionCoordinator.java), [EngineRecovery](../../../server/app/src/main/java/kr/exchange/engine/EngineRecovery.java), [SnapshotStore](../../../server/app/src/main/java/kr/exchange/snapshot/SnapshotStore.java)
 
 DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`의 3노드 안은 ADR 0024가 대체했다. primary가 사라지면 운영자가 옛 primary를 격리하고 standby를 승격한 뒤 앱의 DB 연결을 바꾼다. 돌아온 옛 노드는 전체 베이스백업으로 다시 편입한다. `pg_rewind`를 위한 추가 WAL 보존·아카이브는 채택하지 않았으며 재편입 동안 이중화 공백이 생긴다. 별도의 백업·복원 검증은 여전히 필요하다. [DB 수동 페일오버](../operations/DB_수동_페일오버.md)
@@ -182,7 +184,7 @@ DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`�
 
 ### 3. 외부 사용자에게 열기 전에 거래와 접근 통제를 확인한다
 
-주문 접수에는 우선 확인할 위험 경로가 있다. `OrderGateway`는 저널 제출이 반환돼야 `journaled=true`로 표시하고, 그 전에 예외가 나면 선삽입한 멱등 키를 삭제한다. DB 커밋 여부가 불명확했던 요청을 재시도할 때 기존 저널의 내용 대조가 불가능해지면 새 키를 요구하는 응답으로 이어질 수 있다. 같은 주문을 새 키로 제출하면 중복 접수할 위험이 있으므로 해당 예외·타임아웃을 재현하고 재조회·재시도 계약을 고친 뒤 회귀 검증한다. 이번에는 현재 코드 경로와 ADR 0022 §9-13을 대조했으며 장애를 다시 실행하지는 않았다. [OrderGateway](../../../server/app/src/main/java/kr/exchange/api/order/OrderGateway.java)
+주문 접수에는 우선 확인할 위험 경로가 있다. `OrderGateway`는 저널 제출이 반환돼야 `journaled=true`로 표시하고, 그 전에 예외가 나면 선삽입한 멱등 키를 삭제한다. DB 커밋 여부가 불명확했던 요청을 재시도할 때 기존 저널의 내용 대조가 불가능해지면 새 키를 요구하는 응답으로 이어질 수 있다. 같은 주문을 새 키로 제출하면 중복 접수할 위험이 있으므로 해당 예외·타임아웃을 재현하고 재조회·재시도 계약을 고친 뒤 회귀 검증한다. 이번에는 현재 코드 경로와 ADR 0022 §9-13을 대조했으며 장애를 다시 실행하지는 않았다. ADR 0034 S1 작업 브랜치는 이 삭제를 조건부로 바꿨다. 키를 넣은 뒤 저널에 들어온 같은 키의 명령이 있으면 키를 남기고(V47), 앞 요청이 지운 키는 커밋한 쪽이 되살린다. 로컬 통합 시험이 커밋 뒤 응답을 잃는 경우를 JVM 안에서 재현해 재시도가 새 주문을 만들지 않는 것을 확인했다. 그 명령은 라이터 큐에 들어가지 않아 같은 마켓의 다음 명령 전까지 정산되지 않고 그동안 재시도는 `409 order_in_progress`로 끝나는 한계가 남는다. E9 커밋 응답 절단 실험은 다시 돌리지 않았다. [OrderGateway](../../../server/app/src/main/java/kr/exchange/api/order/OrderGateway.java)
 
 실제 공개 도메인·TLS와 웹의 API·WebSocket 주소, 서버의 허용 오리진이 일치하는지 확인한다. 공개 번들에서 관리 화면을 제거하고 관리 API·관리 포트는 사설 접근으로 제한한다. `prod,admin`을 사용할 때만 해당 운영 인증서 구성도 적용한다. ALB·CloudFront 뒤에서 클라이언트 주소를 올바르게 읽도록 신뢰 프록시 범위를 설정한다. 현재 앱 Compose에는 `EXCHANGE_TRUSTED_PROXIES` 전달이 없으므로 기본 설정 그대로 사용했을 때 요청 제한이 프록시 주소 하나에 몰리지 않는지 확인해야 한다. [앱 설정](../../../server/app/src/main/resources/application.yml), [배포 안내](../../../deploy/README.md)
 
@@ -201,7 +203,7 @@ DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`�
 | ADR | 현재 적용하는 내용과 후속 변경 |
 |---|---|
 | [0001 기록 관례](0001-record-architecture-decisions.md) | 개별 결정은 이력으로 남긴다. 0099는 현재 구조를 계속 갱신하는 예외다. |
-| [0002 단일 리더](0002-db-leader-lease-single-writer.md) | 클러스터 리더 하나와 DB 트랜잭션 내 쓰기 권한 검사. 리스 제공자는 0017, 잠금 방식은 0026이 보완했다. |
+| [0002 단일 리더](0002-db-leader-lease-single-writer.md) | 클러스터 리더 하나와 DB 트랜잭션 내 쓰기 권한 검사. 리스 제공자는 0017, 잠금 방식은 0026이 보완했다. 리스 분할 금지는 0034가 P3 전환부터 대체한다. |
 | [0003 금액 정밀도](0003-numeric-40-18-no-float.md) | NUMERIC(40,18)·BigDecimal·십진 문자열과 용도별 반올림을 유지한다. |
 | [0004 자체 운영 DB](0004-no-rds-self-managed-postgres.md) | 장애 실험을 위해 PostgreSQL을 EC2에서 운영한다. 현재 복제 구성은 0024를 따른다. |
 | [0005 주문 멱등 키](0005-client-order-id-mandatory.md) | client_order_id 필수와 같은 키 재조회·재시도. 현재 저널 키의 범위는 0022 및 DDL을 함께 본다. |
@@ -221,7 +223,7 @@ DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`�
 | [0019 1인 승인](0019-single-operator-approval.md) | 한 운영자가 승인·실행할 수 있다. 티켓 수명·단회 사용·대상 바인딩은 유지한다. |
 | [0020 관리형 NAT](0020-managed-nat-gateway.md) | 현재 학교·개인 실습의 NAT Gateway 사용은 0030으로 대체됐다. 기존 보고 도면은 이력으로 보존한다. |
 | [0021 마켓별 처리](0021-market-partitioned-ordering.md) | 한 리더 안의 마켓별 라이터 기반. 명령 저널·복구·이벤트 폭은 0022에서 후속 변경됐다. |
-| [0022 마켓별 명령 저널](0022-market-partitioned-command-journal.md) | 0~9단계 코드와 로컬 검증이 들어왔다. DB 래치·V46 적용 상태와 클라우드 사전 조건은 별도로 판단한다. |
+| [0022 마켓별 명령 저널](0022-market-partitioned-command-journal.md) | 0~9단계 코드와 로컬 검증이 들어왔다. DB 래치·V46 적용 상태와 클라우드 사전 조건은 별도로 판단한다. 전역 접수 게이트와 노드 단위 강등은 0034가 S4부터 파티션 단위로 바꾼다. |
 | [0023 재생 경계와 커서](0023-replay-bound-and-cursor-axis.md) | 연속 물질화 경계와 엔진 유도 커서를 사용한다. 0022가 마켓별 복구 축으로 확장했다. |
 | [0024 비동기 2노드](0024-async-two-node-replication.md) | primary 1 + standby 1, DB 수동 승격. 미복제 ACK 기록을 잃을 수 있다. |
 | [0025 베이스백업 재편입](0025-rejoin-by-basebackup-no-wal-retention.md) | 구 primary는 전량 복사로 편입한다. rewind용 WAL 보존은 비채택이고 이중화 공백이 남는다. |
@@ -231,6 +233,7 @@ DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`�
 | [0029 학교 AWS 선행](0029-school-aws-first-personal-account-expansion.md) | 학교 EC2에서 직접 운영을 검증하고 10월 초 개인 계정에서 보강한다. 계정별 제한·비용·실행 증거를 구분한다. |
 | [0030 NAT 제외·조회 ASG 대수](0030-nat-free-lab-and-bounded-read-asg.md) | 학교·개인 실습에서 NAT Gateway를 제외하고 조회 ASG min 2 / desired 2 / max 3을 계획한다. 피어링의 학교 허용은 별도 조건이며 실제 ASG 배포는 미완료다. |
 | [0033 가상 스레드 비사용](0033-no-virtual-threads-for-request-handling.md) | 요청 처리를 플랫폼 스레드로 되돌린다. HikariCP 연결 인계가 가상 스레드 대기자에게 성립하지 않아 생긴 라이브락을 실제로 겪었다. 풀을 작게 고정한다는 기존 기준은 유지한다. |
+| [0034 마켓 파티션 리더](0034-market-partitioned-leadership.md) | 매칭 리더십을 두 파티션으로 나누고 자금 예약을 접수 트랜잭션의 DB 차감으로 옮기기로 했다. S0·S1 진행 중이며 현재 동작은 단일 리더(P1)다. 파티션 모드 구현과 측정은 없고 학교 DB는 P1로 둔다. |
 
 학교 DB의 현재 역할은 AZ-c `172.31.33.195`가 Primary, AZ-a `172.31.1.229`가 Standby다. 수동 전환에서 쓰기 중단·복제 완료·옛 Primary의 서비스 중지와 mask·접속 거부를 확인한 다음 승격했다. 앱·봇은 새 공개 인증서를 검증하는 TLS 연결로 전환했다. 기존 데이터 디렉터리를 보존하고 베이스백업 검증 후 옛 Primary를 Standby로 재편입했으며 기존 복제 슬롯 참조는 해제했다. 복제 계정의 비밀번호는 재사용하고 postgres 전용 0600 passfile로 연결한다. 현재 복제는 비동기·슬롯 없음이며 단절 중 필요한 WAL이 사라지면 다시 베이스백업한다. 실측 결과와 제한은 로드맵·실행 증거를 따른다. 앱 한 대인 현재 구성을 고가용성 완성으로 표현하지 않는다.
 
@@ -252,4 +255,4 @@ DB는 primary 한 대와 standby 한 대의 비동기 복제다. 동기 `ANY 1`�
 
 이 검사는 내용을 자동으로 요약하지 않으며, 소스만 바뀌었을 때 구조 설명이 맞는지까지 증명하지 않는다. Claude와 Codex는 코드 변경도 [공통 작업 규칙](../../../AGENTS.md)에 따라 관련 문서와 대조해야 한다. 이번 검토에서 읽지 않은 개별 테스트 전체와 서비스 배포·DNS·청구 상태는 미확인이다. 본인 SG·첫 EC2 생성, 기존 프로파일 연결, 제한된 EC2 Instance Connect SSH와 Linux 기본 점검은 확인했다. SSM 조회 권한은 부족하며 이를 모든 서비스의 허용으로 확대하지 않는다. 비밀 값은 증거에 저장하지 않는다.
 
-<!-- sources-sha256: a09ee33059b666cc764c79815e6796e3ff664784e37c1161ce6c3692e37f1898 -->
+<!-- sources-sha256: a292d3200ea1f2c3bb6de0a671504854fa3cccec6d9bd5b93f87af2bb16fff08 -->

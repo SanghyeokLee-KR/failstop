@@ -11,7 +11,11 @@ import kr.exchange.engine.OrderIntake;
 import kr.exchange.engine.SubmitResult;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.journal.CommandDraft;
+import kr.exchange.journal.TransientDbErrors;
 import kr.exchange.ledger.Fees;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import java.math.BigDecimal;
@@ -22,6 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * 주문 접수 게이트웨이. 검증·사전 가드·박제(external_id, 수수료율, engine_ts)를 끝낸 뒤
@@ -30,8 +35,19 @@ import java.util.UUID;
  * 잔고 사전 가드는 필수다. 가드 없이 잔고 부족 명령이 저널을 통과하면 정산 예약(23514)이
  * 루프 정지 + demote로 이어진다(DB 설계 §5.1 v2.9). 가드와 정산 사이의 짧은 경합 창은
  * 인메모리 in-flight 예약 누계로 좁힌다(단일 노드 전제. 다중 노드는 M2에서 재설계).
+ *
+ * 저널 전 503(라이터 정지, 접수 락 대기 상한, append 잠금 대기 초과 같은 일시 DB 오류)이 남기는 것. nonce 와 주문
+ * 레이트리밋 토큰은 이 클래스 앞의 인증 필터와 컨트롤러가 이미 소비했다. 주문 id 시퀀스 값 하나가 빈다(결번 허용).
+ * 이번 요청이 넣은 멱등 키 행은 지우고 in-flight 예약은 즉시 해제한다. 저널 행과 채번은 남지 않는다.
+ *
+ * 예외가 저널 커밋 뒤에 났을 수 있는 경우(커밋 응답 유실)는 다르게 끝난다. 키를 넣은 뒤 저널에 들어온 그 키의 NEW 가
+ * 있으면 키를 남기고(V47), in-flight 예약도 바로 풀지 않고 주문 행 관측이나 TTL 까지 미룬다. 그 NEW 는 라이터 큐에
+ * 들어가지 않았으므로 같은 마켓의 다음 명령이 catch-up 을 일으킬 때까지 정산되지 않는다. 그 사이 재시도는 멱등
+ * 재생으로 인식되지만 주문 행이 없어 409 order_in_progress 로 끝난다. 한가한 마켓에서는 이 상태가 길어질 수 있다.
  */
 public class OrderGateway {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderGateway.class);
 
     public record Placement(OrderQueryService.OrderRow row, boolean replayed, long epoch) {
     }
@@ -47,6 +63,8 @@ public class OrderGateway {
     private final MarketDirectory markets;
     private final OrderQueryService orders;
     private final InflightReserves inflight;
+    private final LongAdder orphanKeysKept = new LongAdder();
+    private final LongAdder keysRestored = new LongAdder();
     // 프로젝션 반영을 알리는 신호. 없으면 종전대로 폴링만 한다.
     private ProjectionSignal signal;
 
@@ -147,6 +165,9 @@ public class OrderGateway {
         boolean replayed = false;
         // 저널 기록 여부와 무관하게 이번에 넣은 키 행을 폐기해야 하는 경우(대조 불가 재사용 거절)
         boolean discardKey = false;
+        // 저널 전 실패로 보고 키를 정리하려 했으나 지우지 못한 경우. 그 키의 NEW 가 저널에 있다는 뜻이라(V47) 예약을
+        // 바로 풀면 가드와 정산 사이 창이 다시 열린다.
+        boolean keyKept = false;
         OrderQueryService.OrderRow row = null;
         long orderId = 0;
         try {
@@ -171,8 +192,26 @@ public class OrderGateway {
                 // 루프 정지(리더십 상실 창). 저널 커밋 전 거부이므로 재조회 계약으로 수렴시킨다.
                 throw new ApiException(503, "service_unavailable",
                         "페일오버 진행 중. 재조회 후 판단 필요", null, 1);
+            } catch (EngineBridge.AcceptBusyException e) {
+                // 접수 락 대기 상한 초과. 락 밖에서 끝나 저널에 닿지 않았다. API 예외로 바꿔야 배치 주문이 이 원소만
+                // per-item 실패로 적고 다음 원소로 넘어간다(§4-B-6). 바꾸지 않으면 배치 전체가 503 이 된다.
+                throw acceptBusy();
+            } catch (DataAccessException e) {
+                if (!TransientDbErrors.isRetryable(e)) {
+                    throw e;
+                }
+                // 잠금 대기 초과·문장 취소·교착·직렬화 실패는 커밋 전에 append 트랜잭션을 롤백한다. 저널 전 거부와 같아
+                // 같은 client_order_id 로 다시 보내면 된다. 배치 주문의 per-item 처리도 위와 같은 이유로 여기서 바꾼다.
+                throw transientUnavailable();
             }
             replayed = result.replayed();
+            if (!replayed && !insertedKey && contentVerified) {
+                // 다른 요청이 넣은 키를 보고 내용을 대조한 뒤 새로 저널에 넣었다. 그 키를 넣은 요청이 저널 전에 실패하면
+                // 우리 append 가 시작되기 전에 키를 지웠을 수 있다. 그러면 이 주문에 키가 없어 재시도가 내용 대조를
+                // 못 하고 409 나 잔고 부족 400 을 받는다. 내용은 이미 대조했으므로 같은 해시로 되살린다. 키가 남아
+                // 있으면 아무것도 하지 않는다. 키를 새로 넣은 요청의 정상 경로에는 이 왕복이 없다.
+                restoreKey(userId, clientOrderId, requestHash);
+            }
 
             // 저널이 같은 client_order_id를 이미 갖고 있는데(replay) 내용 대조를 한 번도 못 했다면
             // 200으로 원 주문을 돌려줄 근거가 없다. idempotency_keys가 비어 있었다는 뜻이고, 그
@@ -207,20 +246,24 @@ public class OrderGateway {
             if (signal != null && orderId > 0) {
                 signal.forget(orderId);
             }
-            if (insertedKey && (!journaled || discardKey)) {
-                // 저널 미기록 확정(페일오버 창 submit 실패 등)이면 선삽입한 고아 멱등 키를 정리해
-                // 다음 재시도가 잔고 가드를 재적용하게 한다. 정리 실패해도 재시도 경로의
-                // command_journal 실재 확인이 backstop이라 가드 무력화로 이어지지 않는다.
-                // discardKey는 저널에는 있으나 내용 대조가 불가해 재사용으로 거절한 경우다. 이번
-                // 요청 해시가 남으면 다음 재시도가 그 해시로 대조에 성공해 거절이 무력화된다.
+            if (insertedKey && discardKey) {
+                // 저널에는 있으나 내용 대조가 불가해 재사용으로 거절한 경우다. 이번 요청 해시가 남으면 다음
+                // 재시도가 그 해시로 대조에 성공해 거절이 무력화되므로 저널 실재와 무관하게 지운다.
                 deleteOrphanKey(userId, clientOrderId, requestHash);
+            } else if (insertedKey && !journaled) {
+                // submit 이 예외로 끝났다(페일오버 창, 접수 대기 상한, 일시 DB 오류, 커밋 응답 유실 등). 선삽입한 고아
+                // 키를 정리해 다음 재시도가 잔고 가드를 다시 받게 한다. 다만 키를 넣은 뒤 같은 키로 저널에 커밋된 NEW 가
+                // 있으면 그 주문의 키이므로 남긴다(V47). 정리 실패는 재시도 경로의 command_journal 실재 확인이 흡수한다.
+                keyKept = !discardOrphanKey(userId, clientOrderId, requestHash);
             }
             if (guarded) {
-                if (releaseImmediately(row != null, journaled, replayed)) {
+                if (!keyKept && releaseImmediately(row != null, journaled, replayed)) {
                     inflight.release(reserveKey, required);
                 } else {
-                    // 저널 이후 정산 미관측(프로젝션 타임아웃 등). 즉시 해제는 가드-정산 경합 창을
-                    // 다시 열므로 주문 row 관측 또는 TTL로 지연 회수한다(M1-4 재판정 #4).
+                    // 저널 이후 정산 미관측(프로젝션 타임아웃, 커밋 응답 유실 등). 즉시 해제는 가드-정산 경합 창을
+                    // 다시 열므로 주문 row 관측 또는 TTL로 지연 회수한다(M1-4 재판정 #4). 키를 남긴 경우의 NEW 가
+                    // 같은 내용의 다른 요청 것이면 이 orderId 의 행은 생기지 않아 TTL 로만 풀린다. 그동안은 거부 쪽으로만
+                    // 틀린다(같은 사용자의 다음 주문이 잔고 부족 400 을 받을 수 있다).
                     inflight.defer(reserveKey, required, orderId);
                 }
             }
@@ -259,6 +302,68 @@ public class OrderGateway {
         } catch (RuntimeException ignored) {
             // 정리 실패는 재시도 경로의 commandJournaled 확인이 흡수한다.
         }
+    }
+
+    /**
+     * 저널 전 실패로 끝난 요청이 넣은 키를 조건부로 지운다(V47). 지웠으면 참이다.
+     *
+     * 거짓이면 키가 남았다. 키를 넣은 뒤 저널에 들어온 그 키의 NEW 가 있거나(커밋 응답 유실, 같은 내용의 동시 요청)
+     * 정리 자체가 실패한 경우다. 드문 경로라 건마다 남기고 센다. 이 수가 늘면 응답 유실이나 동시 재시도 경합을 의심한다.
+     */
+    private boolean discardOrphanKey(long userId, String clientOrderId, String requestHash) {
+        boolean deleted;
+        try {
+            deleted = Boolean.TRUE.equals(jdbc.sql("SELECT discard_orphan_idempotency_key(?, ?, ?)")
+                    .params(userId, clientOrderId, requestHash)
+                    .query(Boolean.class)
+                    .single());
+        } catch (RuntimeException e) {
+            // 키가 남으면 재시도가 내용 대조 뒤 command_journal 실재로 가드 적용을 가른다. 가드가 풀리지 않는다.
+            deleted = false;
+        }
+        if (!deleted) {
+            orphanKeysKept.increment();
+            log.warn("저널 전 실패로 본 접수의 멱등 키를 남겼다: user_id={}, client_order_id={}. 키를 넣은 뒤 저널에 들어온 "
+                    + "그 키의 NEW 가 있거나 정리가 실패했다. in-flight 예약은 지연 회수한다", userId, clientOrderId);
+        }
+        return deleted;
+    }
+
+    /** 내용을 대조한 뒤 새로 저널에 넣은 주문의 키를 되살린다. 이미 있으면 그대로 둔다. 실패해도 접수 결과는 그대로다. */
+    private void restoreKey(long userId, String clientOrderId, String requestHash) {
+        try {
+            int restored = jdbc.sql("""
+                            INSERT INTO idempotency_keys (user_id, idem_key, request_hash)
+                            VALUES (?, ?, ?) ON CONFLICT (user_id, idem_key) DO NOTHING
+                            """)
+                    .params(userId, clientOrderId, requestHash)
+                    .update();
+            if (restored > 0) {
+                keysRestored.increment();
+            }
+        } catch (RuntimeException ignored) {
+            // 키가 없으면 그 주문의 재시도가 409 나 400 을 받는다. 이중 주문은 저널 멱등이 막으므로 자산 영향은 없다.
+        }
+    }
+
+    /** 저널 전 실패로 보고 키를 남긴 횟수(V47 이 지우지 않은 경우). */
+    public long orphanKeysKept() {
+        return orphanKeysKept.sum();
+    }
+
+    /** 앞 요청이 지운 키를 커밋 뒤 되살린 횟수. */
+    public long keysRestored() {
+        return keysRestored.sum();
+    }
+
+    private static ApiException acceptBusy() {
+        return new ApiException(503, "service_unavailable",
+                "접수 대기 상한 초과. 잠시 후 재시도 필요", null, 1);
+    }
+
+    private static ApiException transientUnavailable() {
+        return new ApiException(503, "service_unavailable",
+                "일시적 처리 불가. 잠시 후 재시도 필요", null, 1);
     }
 
     private Optional<String> storedRequestHash(long userId, String clientOrderId) {
@@ -312,14 +417,21 @@ public class OrderGateway {
                 "주문 처리 중. 재조회 필요", null, 1);
     }
 
+    /**
+     * 일괄 취소 결과. unsubmitted 는 failed 가운데 취소 명령이 저널에 닿지 못한 수다(503. 라이터 정지, 접수 대기 상한,
+     * 일시 DB 오류). 그 주문은 아직 열려 있고 다시 취소해야 닫힌다. 나머지 실패(체결로 먼저 종결, 취소 저널 뒤 반영
+     * 대기 409)는 다시 부를 필요가 없다.
+     */
     public record BulkCancelResult(List<String> canceledIds,
-                                   List<CancelAllResponse.Failure> failed) {
+                                   List<CancelAllResponse.Failure> failed,
+                                   int unsubmitted) {
     }
 
     /** 일괄 취소(§4-B-3). 미체결(OPEN·PARTIAL) 전량을 개별 취소하고 성패를 per-item 집계한다. */
     public BulkCancelResult cancelAll(long userId, String market) {
         List<String> canceled = new ArrayList<>();
         List<CancelAllResponse.Failure> failed = new ArrayList<>();
+        int unsubmitted = 0;
         for (UUID externalId : orders.openOrderIds(userId, market)) {
             try {
                 Placement placement = cancel(userId, externalId);
@@ -332,9 +444,12 @@ public class OrderGateway {
                 }
             } catch (ApiException e) {
                 failed.add(new CancelAllResponse.Failure(externalId.toString(), e.name()));
+                if (e.status() == 503) {
+                    unsubmitted++;
+                }
             }
         }
-        return new BulkCancelResult(canceled, failed);
+        return new BulkCancelResult(canceled, failed, unsubmitted);
     }
 
     private long currentEpoch() {
@@ -350,6 +465,15 @@ public class OrderGateway {
             // 루프 정지(리더십 상실 창). 저널 커밋 전 거부이므로 재조회 계약으로 수렴시킨다.
             throw new ApiException(503, "service_unavailable",
                     "페일오버 진행 중. 재조회 후 판단 필요", null, 1);
+        } catch (EngineBridge.AcceptBusyException e) {
+            // 일괄 취소가 이 건만 실패로 집계하고 다음 주문으로 넘어가도록 API 예외로 바꾼다(§4-B-3 per-item).
+            throw acceptBusy();
+        } catch (DataAccessException e) {
+            if (!TransientDbErrors.isRetryable(e)) {
+                throw e;
+            }
+            // 커밋 전에 롤백된 일시 DB 오류라 저널에 닿지 않았다. 위와 같은 이유로 per-item 실패로 바꾼다.
+            throw transientUnavailable();
         }
     }
 

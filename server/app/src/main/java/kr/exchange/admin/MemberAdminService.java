@@ -44,9 +44,12 @@ public class MemberAdminService {
         this.orders = orders;
     }
 
-    /** 전이 결과. 운영자가 무엇이 함께 정리됐는지 보고 확인한다 */
+    /**
+     * 전이 결과. 운영자가 무엇이 함께 정리됐는지 보고 확인한다.
+     * pendingOrders 는 취소 명령이 저널에 닿지 못해 아직 열려 있는 주문 수다. 0 이 아니면 폐쇄가 덜 끝났다.
+     */
     public record Transition(String externalId, String status, int canceledOrders,
-                             int revokedSessions) {
+                             int revokedSessions, int pendingOrders) {
     }
 
     // ------------------------------------------------------------------
@@ -195,6 +198,7 @@ public class MemberAdminService {
      * requireActiveUser를 통과한다. 액세스 토큰이 스테이트리스 15분이라 세션 폐기로도
      * 막히지 않는다. 스냅샷 밖 신규 주문이 취소되지 않은 채 상태만 CLOSED로 확정된다.
      * 상태를 먼저 닫으면 그 창이 사라지고, 남은 취소는 재호출로 수렴한다(CLOSED->CLOSED 허용).
+     * 남은 취소가 있는지는 Transition.pendingOrders 로 알린다.
      *
      * 취소를 트랜잭션 밖에 두는 이유는 그대로다. cancelAll이 주문별로 매칭 경로를 타고 각자
      * 커밋하므로 바깥 트랜잭션에 넣으면 경계가 겹친다.
@@ -221,10 +225,15 @@ public class MemberAdminService {
             return sessions;
         });
         int canceled = 0;
+        int pending = 0;
         if (cancelOrders) {
-            canceled = orders.cancelAll(user.id(), null).canceledIds().size();
+            OrderGateway.BulkCancelResult result = orders.cancelAll(user.id(), null);
+            canceled = result.canceledIds().size();
+            // 취소가 저널에 닿지 못한 주문(라이터 정지, 접수 대기 상한, 일시 DB 오류)은 아직 열려 있어 체결될 수 있다.
+            // 성공으로 덮지 않고 수를 돌려준다. 컨트롤러가 감사에 남긴 뒤 409 로 알린다.
+            pending = result.unsubmitted();
         }
-        return new Transition(externalId, target, canceled, revoked);
+        return new Transition(externalId, target, canceled, revoked, pending);
     }
 
     private record UserRow(long id, String status) {
