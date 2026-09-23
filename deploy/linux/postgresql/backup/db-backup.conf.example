@@ -1,0 +1,41 @@
+# /etc/failstop/db-backup.conf 예시. root:postgres 0640으로 설치한다.
+# KEY=value 한 줄 형식이다. 셸 변수 치환이나 따옴표 해석은 하지 않는다.
+# 비밀번호는 없다. postgres OS 계정이 로컬 소켓 peer 인증으로 접속한다.
+
+# 이 역할일 때만 백업한다. primary, standby, any 중 하나.
+# 두 DB에 같은 타이머를 설치하면 승격·재편입 뒤에도 현재 Primary만 백업한다.
+BACKUP_ROLE=primary
+
+# PGDATA 밖이어야 한다. postgres 소유 0700으로 만든다.
+BACKUP_DIR=/var/lib/pgsql/backups/basebackup
+
+# 검증을 통과한 로컬 백업을 몇 개 남길지. 새 백업 검증이 성공한 뒤에만 오래된 것을 지운다.
+KEEP_LOCAL=3
+
+# 백업 뒤에도 남겨 둘 여유 공간. 두 값 중 큰 쪽을 쓴다. 부족하면 새 백업을 만들지 않고 실패한다.
+MIN_FREE_BYTES=2147483648
+MIN_FREE_PERCENT=20
+
+# none 또는 gzip, gzip:1~9. 클라이언트 쪽 gzip만 지원한다.
+COMPRESSION=gzip:6
+
+# spread는 Primary의 정규 체크포인트를 기다린다. fast는 즉시 체크포인트를 걸어 쓰기 지연을 만들 수 있다.
+CHECKPOINT=spread
+
+# 건수 확인과 논리 덤프 대상 DB.
+DATABASE=exchange
+LOGICAL_DUMP=on
+
+# node_exporter textfile 수집 디렉터리. DB의 node_exporter는 /etc/node_exporter/textfile.env
+# (observability/node_exporter-textfile.env.db)로 같은 경로를 읽는다. 바꾸면 두 곳과 서비스의 ReadWritePaths를 함께 바꾼다.
+TEXTFILE_DIR=/var/lib/node_exporter/textfile
+
+# 외부 보관. 두 값이 모두 비어 있으면 업로드를 건너뛰고 '외부 보관 미설정'으로 기록한다.
+# 학교 데이터 반출 정책과 PutObject 권한을 확인하기 전에는 채우지 않는다.
+# 실제 버킷 이름은 서버의 설정 파일에만 적고 저장소에는 넣지 않는다.
+S3_BUCKET=
+S3_PREFIX=
+S3_REGION=ap-northeast-2
+# AES256(SSE-S3) 또는 aws:kms.
+S3_SSE=AES256
+AWS_CLI=/usr/bin/aws

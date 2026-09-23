@@ -1,0 +1,49 @@
+[Unit]
+Description=Failstop PostgreSQL role-aware base backup
+After=postgresql.service network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/failstop/db-backup.conf
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+UMask=0077
+ExecStart=/usr/bin/python3 -B /usr/local/lib/failstop/db-backup.py --config /etc/failstop/db-backup.conf
+# 다른 실행이 잠금을 잡고 있으면(BUSY) 지표를 바꾸지 않고 75로 끝난다. 결과는 실행 중인 쪽이 기록하므로
+# 이 실행을 failed로 남기지 않는다. failed로 남으면 DatabaseBackupServiceFailed가 다음 날까지 발생한다.
+SuccessExitStatus=75
+# 외부 명령마다 1시간 상한이 따로 걸려 합이 3시간을 넘을 수 있다. 넘으면 systemd가 SIGTERM을 보내고,
+# db-backup.py가 이를 실행 실패로 바꿔 실패 지표를 쓴다. 정리가 90초(기본 TimeoutStopSec) 안에 끝나지 않으면 SIGKILL이다.
+TimeoutStartSec=3h
+SyslogIdentifier=failstop-db-backup
+Environment=PYTHONDONTWRITEBYTECODE=1
+# 거래 쿼리와 겹칠 때 백업이 CPU·디스크를 양보한다. t3.small의 CPU 크레딧도 덜 쓴다.
+Nice=10
+CPUWeight=20
+IOWeight=20
+MemoryMax=512M
+# 쓰기는 백업 디렉터리와 지표 디렉터리만 허용한다. 두 디렉터리가 없으면 서비스가 시작되지 않는다.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/pgsql/backups /var/lib/node_exporter/textfile
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+# AF_UNIX는 로컬 소켓 접속, AF_INET·AF_INET6은 S3와 인스턴스 메타데이터(역할 자격 증명)에 쓴다.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=@system-service

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""운영 DB를 백업하고 외부 접속이 없는 별도 PostgreSQL에서 읽기·정합성을 확인한다."""
+"""운영 DB를 백업하고 외부 접속이 없는 별도 PostgreSQL에서 읽기·정합성을 확인한다.
+
+--basebackup을 주면 새로 덤프하지 않고 postgresql/backup/db-backup.py가 만든 tar·매니페스트
+백업을 같은 방식의 격리 클러스터에 복원해 확인한다. 이때는 운영 DB에 접속하지 않는다.
+"""
 import argparse
 import csv
 import datetime as dt
@@ -9,8 +13,10 @@ import json
 import os
 from pathlib import Path
 import pwd
+import re
 import shutil
 import subprocess
+import tarfile
 import time
 
 
@@ -26,9 +32,136 @@ def run(args, **kw):
                           timeout=600, **kw).stdout.strip()
 
 
+def check_invariants(target, invariants, root, result):
+    output = run(target + ['--csv', '-f', str(invariants.resolve(strict=True))])
+    (root / 'invariants.csv').write_text(output + '\n')
+    rows = list(csv.DictReader(io.StringIO(output)))
+    if len(rows) < 28 or any(row.get('verdict') not in ('PASS', 'FAIL', 'SKIP') for row in rows):
+        raise RuntimeError('정합성 검사 결과가 불완전합니다.')
+    failed = [r['code'] for r in rows if r['severity'] in ('CRITICAL', 'HIGH') and r['verdict'] != 'PASS']
+    result.update(invariant_count=len(rows), failed_invariants=failed)
+    if failed:
+        raise RuntimeError('복원 데이터의 필수 정합성 검사가 실패했습니다.')
+
+
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, 'rb') as source:
+        for block in iter(lambda: source.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def verify_checksums(source):
+    expected = {}
+    for line in (source / 'SHA256SUMS').read_text().splitlines():
+        digest, _, name = line.partition('  ')
+        if not re.fullmatch(r'[0-9a-f]{64}', digest) or not re.fullmatch(r'[A-Za-z0-9_-][A-Za-z0-9._-]*', name):
+            raise RuntimeError('SHA256SUMS 형식이 올바르지 않습니다.')
+        expected[name] = digest
+    present = {path.name for path in source.iterdir()} - {'SHA256SUMS', 'offsite.json'}
+    if present != set(expected):
+        raise RuntimeError('SHA256SUMS 목록과 백업 디렉터리의 파일이 다릅니다.')
+    for name, digest in sorted(expected.items()):
+        if sha256_file(source / name) != digest:
+            raise RuntimeError(name + '의 SHA-256이 기록과 다릅니다.')
+    return len(expected)
+
+
+def extract(archive, target):
+    # 서버에는 이 파일만 복사해 실행하므로 db-backup.py의 같은 함수를 가져오지 않는다.
+    target.mkdir(mode=0o700, exist_ok=True)
+    with tarfile.open(archive, 'r:*') as tar:
+        for member in tar:
+            if member.name.startswith('/') or '..' in Path(member.name).parts or not (member.isfile() or member.isdir()):
+                raise RuntimeError(archive.name + '에 허용하지 않는 항목이 있습니다: ' + member.name)
+            tar.extract(member, target, set_attrs=False)
+
+
+def isolate(data, sock):
+    # 복원본의 설정은 운영 사설 주소 listen, TLS 키, include 경로를 가리킨다. 시험 클러스터는 소켓 하나만 연다.
+    (data / 'postgresql.conf').write_text("listen_addresses = ''\nport = 55432\n"
+                                          f"unix_socket_directories = '{sock}'\n"
+                                          "shared_buffers = '32MB'\nmax_connections = 10\n"
+                                          "autovacuum = off\narchive_mode = off\nssl = off\n")
+    (data / 'postgresql.auto.conf').write_text('')
+    (data / 'pg_hba.conf').write_text('local all all peer\n')
+    for name in ('standby.signal', 'recovery.signal'):
+        if (data / name).exists():
+            (data / name).unlink()
+
+
+def check_basebackup(args, base):
+    source = args.basebackup
+    if source.is_symlink() or not source.is_dir():
+        raise RuntimeError('베이스백업 디렉터리를 지정해야 합니다.')
+    source = source.resolve()
+    metadata = json.loads((source / 'metadata.json').read_text())
+    backup_id = metadata.get('backup_id', '')
+    if not re.fullmatch(r'\d{8}T\d{6}Z-[0-9a-f]{6}', backup_id):
+        raise RuntimeError('metadata.json의 백업 ID 형식이 올바르지 않습니다.')
+    manifest = json.loads((source / 'backup_manifest').read_text())
+    data_bytes = sum(entry['Size'] for entry in manifest['Files'])
+    disk = shutil.disk_usage(base)
+    if disk.free < max(2 * data_bytes + 2 * 1024**3, disk.total // 5):
+        raise RuntimeError('시험 복원에 필요한 디스크 여유가 부족합니다.')
+    root = base / (backup_id + '-restore-' + dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    root.mkdir(mode=0o700)
+    data, sock = root / 'restore-data', root / 'socket'
+    sock.mkdir(mode=0o700)
+    offsite = source / 'offsite.json'
+    result = {'mode': 'basebackup', 'backup_id': backup_id, 'status': 'RUNNING', 'source_dir': str(source),
+              'external_copy': offsite.is_file() and json.loads(offsite.read_text()).get('status') == 'VERIFIED',
+              'tcp_listen': False, 'roles_acl_checked': False, 'application_boot_checked': False}
+    started = time.monotonic()
+    running = False
+    try:
+        result['sha256_files'] = verify_checksums(source)
+        suffix = '.tar.gz' if (source / 'base.tar.gz').is_file() else '.tar'
+        extract(source / ('base' + suffix), data)
+        extract(source / ('pg_wal' + suffix), data / 'pg_wal')
+        run(['pg_verifybackup', '--manifest-path', str(source / 'backup_manifest'), str(data)])
+        result['pg_verifybackup'] = 'PASS'
+        isolate(data, sock)
+        run(['pg_ctl', '-D', str(data), '-l', str(root / 'restore-server.log'), '-w', '-t', '540',
+             '-o', f"-c listen_addresses='' -c port=55432 -c unix_socket_directories='{sock}'", 'start'])
+        running = True
+        target = ['psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-h', str(sock), '-p', '55432', '-d', 'exchange']
+        restored = json.loads(run(target + ['-At', '-c', COUNTS]))
+        result['restored_counts'] = restored
+        if not all(value > 0 for value in restored.values()):
+            raise RuntimeError('거래 데이터가 없는 복원은 복구 증명이 되지 않습니다.')
+        # 네 테이블은 append-only라 복원 시점이 백업 시작 전과 종료 뒤 건수 사이에 있어야 한다.
+        before, after = metadata['counts_before'], metadata['counts_after']
+        outside = [name for name, value in sorted(restored.items()) if not before[name] <= value <= after[name]]
+        result['counts_within_backup_window'] = not outside
+        if outside:
+            raise RuntimeError('복원 건수가 백업 시작 전·종료 뒤 건수 범위 밖입니다: ' + ', '.join(outside))
+        check_invariants(target, args.invariants, root, result)
+        result['status'] = 'PASS'
+    except Exception as error:
+        result.update(status='FAIL', error_type=type(error).__name__, error=str(error)[:800])
+        raise
+    finally:
+        if running:
+            run(['pg_ctl', '-D', str(data), '-m', 'fast', '-w', 'stop'])
+        result['test_cluster_stopped'] = not (data / 'postmaster.pid').exists()
+        if result['status'] == 'PASS' and not args.keep_restore_data:
+            shutil.rmtree(data)
+            result['restore_data_removed'] = True
+        result['duration_seconds'] = round(time.monotonic() - started, 3)
+        result['completed_at'] = dt.datetime.now(dt.timezone.utc).isoformat()
+        (root / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--invariants', required=True, type=Path)
+    parser.add_argument('--basebackup', type=Path,
+                        help='db-backup.py가 만든 백업 디렉터리. 주면 새 덤프 대신 이 백업을 복원한다.')
+    parser.add_argument('--keep-restore-data', action='store_true',
+                        help='--basebackup 검사가 통과해도 풀어 놓은 시험 클러스터를 지우지 않는다.')
     args = parser.parse_args()
     if os.geteuid() != pwd.getpwnam('postgres').pw_uid:
         raise RuntimeError('postgres OS 계정으로 실행해야 합니다.')
@@ -37,6 +170,9 @@ def main():
     base.mkdir(mode=0o700, exist_ok=True)
     if base.is_symlink():
         raise RuntimeError('백업 경로의 심볼릭 링크는 허용하지 않습니다.')
+    if args.basebackup:
+        check_basebackup(args, base)
+        return
     psql = ['psql', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-d', 'exchange']
     if run(psql + ['-c', 'SELECT pg_is_in_recovery()']) != 'f':
         raise RuntimeError('현재 Primary에서만 실행합니다.')
@@ -93,15 +229,7 @@ def main():
         result['restored_counts'] = restored
         if restored != source_counts:
             raise RuntimeError('동일 스냅샷의 원본·복원 데이터 건수가 다릅니다.')
-        output = run(target + ['--csv', '-f', str(args.invariants.resolve(strict=True))])
-        (root / 'invariants.csv').write_text(output + '\n')
-        rows = list(csv.DictReader(io.StringIO(output)))
-        if len(rows) < 28 or any(row.get('verdict') not in ('PASS', 'FAIL', 'SKIP') for row in rows):
-            raise RuntimeError('정합성 검사 결과가 불완전합니다.')
-        failed = [r['code'] for r in rows if r['severity'] in ('CRITICAL', 'HIGH') and r['verdict'] != 'PASS']
-        result.update(invariant_count=len(rows), failed_invariants=failed)
-        if failed:
-            raise RuntimeError('복원 데이터의 필수 정합성 검사가 실패했습니다.')
+        check_invariants(target, args.invariants, root, result)
         result['status'] = 'PASS'
     except Exception as error:
         result.update(status='FAIL', error_type=type(error).__name__)
