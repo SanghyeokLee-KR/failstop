@@ -115,7 +115,7 @@ export default function AdminMembersPage() {
           onClick={() => select(m.externalId)}
           aria-pressed={selected === m.externalId}
         >
-          {m.email}
+          <span className={styles.linkCellText}>{m.email}</span>
         </button>
       ),
     },
@@ -233,7 +233,8 @@ export default function AdminMembersPage() {
             <span className="empty-state__title">해당 상태의 회원 없음</span>
           </div>
         ) : (
-          <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={44} ariaLabel="회원 목록" defaultAlign="center" />
+          // 이메일 버튼의 44px 히트에 행 구분선 1px를 더한 높이다(admin.module.css .linkCell)
+          <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={45} ariaLabel="회원 목록" defaultAlign="center" />
         )}
         <Pager
           page={page}

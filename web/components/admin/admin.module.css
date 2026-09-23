@@ -217,6 +217,12 @@
   color: var(--text-default);
   font-size: var(--font-body-sm-size);
 }
+/* 브라우저 기본 플레이스홀더 색은 다크 면에서 3.78:1이다. 전용 단계로 칠한다 */
+.field input::placeholder,
+.field textarea::placeholder,
+.noticeForm textarea::placeholder {
+  color: var(--text-placeholder);
+}
 /* OS 기본 셰브런은 자체 토큰 밖 유일한 크롬이라 걷어내고 토큰 셰브런으로 대체한다.
    폭 상한: 옵션 문자열이 길어도 컨트롤이 패널 전폭으로 늘어지지 않게 막는다 */
 .field select {
@@ -1533,12 +1539,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 36px;
+  min-height: 44px;
   margin-bottom: var(--space-3);
 }
-/* 필터 셀렉트는 주사 존 리듬(36px)에 맞춘다. 폼 존 40px과 분리, 히트는 셀렉트 자체 면적 */
+/* 필터 셀렉트의 히트는 셀렉트 자체 면적이다. select에는 ::after가 그려지지 않아 투명 확장을
+   쓸 수 없으므로 시각 높이를 44px로 둔다(§10-2). 감사 로그 밀도 예외는 행에만 걸린다 */
 .auditFilterRow .field select {
-  min-height: 36px;
+  min-height: 44px;
   padding-top: 0;
   padding-bottom: 0;
 }
@@ -1825,25 +1832,35 @@
 }
 
 /* ===== 회원 운영 ===== */
-/* 목록에서 상세를 여는 셀. 링크가 아니라 선택이라 밑줄을 두지 않고 잉크만 승격한다 */
+/* 목록에서 상세를 여는 셀. 링크가 아니라 선택이라 밑줄을 두지 않고 잉크만 승격한다.
+   히트는 버튼 자체 44px이다(§10-2). 셀이 overflow: hidden이라 ::after 확장은 셀 상자에서
+   잘려 글자 높이 18px만 남는다. 버튼을 44px로 세우고, 말줄임과 선택 하드라인은 안쪽
+   글자(.linkCellText)가 맡아 밑줄 자리가 글자 바로 아래에 남게 한다.
+   행은 44 + 구분선 1px = 45px여야 한다(회원 화면 rowHeight). 44px 행에 넣으면 버튼이 반 픽셀
+   위로 밀려 sticky 머리와 다음 행에 가장자리를 내준다 */
 .linkCell {
   display: inline-flex;
   align-items: center;
+  min-width: 0;
   max-width: 100%;
+  min-height: 44px;
   padding: 0;
   background: none;
   color: var(--text-strong);
   font-size: inherit;
   text-align: left;
+}
+.linkCellText {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.linkCell:hover {
+.linkCell:hover .linkCellText {
   text-decoration: underline;
 }
 /* 선택 상태는 색이 아니라 위치 신호다. 무채 하드라인으로 표시한다(§6.6 엣지 규약) */
-.linkCell[aria-pressed="true"] {
+.linkCell[aria-pressed="true"] .linkCellText {
   box-shadow: inset 0 -1px 0 var(--chrome-accent);
 }
 
@@ -1931,12 +1948,13 @@
   font-size: var(--font-caption-size);
   line-height: var(--font-body-line);
 }
+/* sunken 면에서 secondary는 4.27:1이라 계약 미달이다. default로 올린다(§2-1) */
 .capacityTag {
   margin-left: var(--space-2);
   padding: 0 var(--space-2);
   border-radius: var(--control-radius);
   background: var(--surface-sunken);
-  color: var(--text-secondary);
+  color: var(--text-default);
 }
 .capacityTable {
   width: 100%;
@@ -1950,8 +1968,9 @@
   vertical-align: top;
   border-bottom: 1px solid var(--border-subtle);
 }
+/* 열 머리는 무엇을 읽는지 알려 주는 정보라 tertiary(장식·비활성 전용)를 쓸 수 없다 */
 .capacityTable thead th {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 .capacityTable tbody th {
@@ -2057,6 +2076,10 @@
 /* 평면 전환 링크. 내비 목록 바깥 바닥에 두어 "화면 하나"로 읽히지 않게 한다.
    가로 음수 여백으로 사이드바 패딩을 상쇄해 구분선이 면 끝까지 닿는다 */
 .navCross {
+  display: flex;
+  align-items: center;
+  /* 캡션 한 줄에 패딩을 더하면 43px이라 탭 타깃(§10-2)에 1px 모자란다. 높이를 직접 보장한다 */
+  min-height: 44px;
   margin: auto calc(var(--space-4) * -1) 0;
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-subtle);
@@ -2139,16 +2162,22 @@
 .stampBtn:hover {
   background: var(--surface-control-hover);
 }
-/* 시각 높이 32에 히트 44를 투명 확장으로 얹는다(§10-2) */
+/* 시각 높이 32에 히트 44를 투명 확장으로 얹는다(§10-2). inset으로 위아래를 벌리면 기준이
+   테두리 안쪽(padding box 30px)이라 42px에 그친다. 높이를 직접 준다 */
 .stampBtn::after {
   content: "";
   position: absolute;
-  inset: -6px 0;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
 }
 
 /* ===== 관측 딥링크·원천 표기 =====
    추이는 콘솔이 그리지 않는다. 링크는 크롬 악센트를 잉크로만 쓰고 면을 칠하지 않는다 */
 .boardLink {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -2157,6 +2186,19 @@
   color: var(--chrome-accent);
   text-decoration: none;
   white-space: nowrap;
+}
+/* 캡션 한 줄 높이의 링크라 히트만 44px로 넓힌다(§10-2). 가로는 글자 폭을 따르되 "추이"처럼
+   38px짜리 링크(대본 단계)도 있어 44px를 하한으로 두고 가운데로 맞춘다. 좌우로 3px씩 넘치는
+   정도라 단계 줄의 조작 간격(12px) 안에 머문다 */
+.boardLink::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  min-width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
 }
 .boardLink:hover {
   text-decoration: underline;
@@ -2289,10 +2331,10 @@
 .drillTab:hover {
   background: var(--surface-control-hover);
 }
-/* 선택은 왼쪽 띠로 낸다. 배경을 물들이면 그 위 본문 대비가 상태마다 달라진다 */
+/* 선택은 왼쪽 띠로 낸다. 배경을 물들이면 그 위 본문 대비가 상태마다 달라진다.
+   surface-control을 깔았을 때 라이트에서 secondary 설명·단계 수가 3.93:1로 떨어졌다 */
 .drillTab[data-active] {
   box-shadow: inset 3px 0 0 var(--text-strong);
-  background: var(--surface-control);
 }
 .drillTabTitle {
   font-size: var(--font-body-sm-size);
@@ -2364,11 +2406,13 @@
   line-height: var(--font-caption-line);
   color: var(--text-default);
 }
+/* sunken 면에서 secondary는 4.27:1이라 계약 미달이다. default로 올린다(§2-1).
+   본문과 같은 잉크지만 micro 크기와 고정 칼럼이 라벨임을 가른다 */
 .drillPrepLabel {
   flex: none;
   font-size: var(--font-micro-size);
   line-height: var(--font-caption-line);
-  color: var(--text-secondary);
+  color: var(--text-default);
   white-space: nowrap;
 }
 .drillPrep ul {
@@ -2378,6 +2422,11 @@
 }
 .drillPrep li + li {
   margin-top: var(--space-1);
+}
+/* 명령 칩은 히트를 위아래 6px씩 넓힌다. 칩 줄 둘이 4px로 붙으면 두 히트가 8px 겹쳐
+   아래 칩이 위 칩의 가장자리를 가져간다(§10-2 겹침 금지). 칩 줄끼리만 12px를 둔다 */
+.drillPrepCmd + .drillPrepCmd {
+  margin-top: var(--space-3);
 }
 .drillNote {
   margin: 0 0 var(--space-4);
@@ -2502,8 +2551,15 @@
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-3);
 }
+/* 단계의 추이 링크가 혼자 한 줄을 차지하면 줄이 18px이다. 44px 히트가 단계 아래 여백(12px)을
+   1px 넘고, 그 자리를 다음 단계가 덮는다(판정 없는 단계는 opacity로 쌓임 맥락을 만든다).
+   링크 상자를 칩 높이로 세워 히트가 제 단계 안에 머물게 한다 */
+.drillActions .boardLink {
+  min-height: 32px;
+}
 /* 호스트 명령. 버튼처럼 보이지 않게 둔다. 누르면 복사만 되고 실행되지 않는다 */
 .drillCommand {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -2513,6 +2569,16 @@
   border-radius: var(--panel-radius);
   background: var(--surface-sunken);
   cursor: pointer;
+}
+/* 칩은 줄 안에 얹혀 시각 높이 32px를 넘기지 않는다. 히트만 44px로 넓힌다(§10-2) */
+.drillCommand::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
 }
 .drillCommand:hover {
   background: var(--surface-control);
