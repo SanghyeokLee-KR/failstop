@@ -15,7 +15,7 @@ import type {
 import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import SegmentedTab from "@/components/SegmentedTab";
+import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import RequestButton from "@/components/admin/RequestButton";
 import ApprovalList from "@/components/admin/ApprovalList";
@@ -222,30 +222,33 @@ export default function AdminMembersPage() {
       {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={filter} onChange={setFilter} ariaLabel="회원 상태 필터" />
+        <SegmentedTab items={TABS} value={filter} onChange={setFilter} ariaLabel="회원 상태 필터" panelId="members-panel" />
       </div>
 
       <PanelCard title="회원 목록">
-        {res.error ? (
-          <AdminErrorState reason={res.errorReason} onRetry={() => void res.reload()} />
-        ) : res.data === null ? (
-          <Skeleton variant="card" width="100%" height={240} />
-        ) : rows.length === 0 ? (
-          <div className="empty-state empty-state--compact">
-            <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-            <span className="empty-state__title">해당 상태의 회원 없음</span>
-          </div>
-        ) : (
-          // 이메일 버튼의 44px 히트에 행 구분선 1px를 더한 높이다(admin.module.css .linkCell)
-          <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={45} ariaLabel="회원 목록" defaultAlign="center" />
-        )}
-        <Pager
-          page={page}
-          hasMore={hasMore}
-          onMove={move}
-          ariaLabel="회원 목록 쪽 이동"
-          busy={busy}
-        />
+        {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
+        <div role="tabpanel" id="members-panel" aria-labelledby={segmentedTabId("members-panel", filter)} tabIndex={0}>
+          {res.error ? (
+            <AdminErrorState reason={res.errorReason} onRetry={() => void res.reload()} />
+          ) : res.data === null ? (
+            <Skeleton variant="card" width="100%" height={240} />
+          ) : rows.length === 0 ? (
+            <div className="empty-state empty-state--compact">
+              <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+              <span className="empty-state__title">해당 상태의 회원 없음</span>
+            </div>
+          ) : (
+            // 이메일 버튼의 44px 히트에 행 구분선 1px를 더한 높이다(admin.module.css .linkCell)
+            <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={45} ariaLabel="회원 목록" defaultAlign="center" />
+          )}
+          <Pager
+            page={page}
+            hasMore={hasMore}
+            onMove={move}
+            ariaLabel="회원 목록 쪽 이동"
+            busy={busy}
+          />
+        </div>
       </PanelCard>
 
       {selected && (

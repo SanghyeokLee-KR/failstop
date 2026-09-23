@@ -2,8 +2,8 @@
 
 /**
  * 요청은 로컬 의도, 발급은 승인 티켓 생성, 실행은 요청자의 토큰 소각이다(§3-6).
- * 1인 승인이라 요청 운영자 본인도 발급할 수 있다(ADR 0019). 다른 운영자가 발급하는 경로도
- * 그대로 통한다. 본인이 발급하면 발급·실행이 같은 신원으로 감사에 남는다.
+ * 1인 승인이라 요청 운영자 본인이 발급해 실행한다(ADR 0019). 토큰은 발급한 탭의 메모리에만
+ * 있어(store.ts) 다른 운영자가 다른 브라우저에서 발급하면 요청자에게 넘어가는 경로가 없다.
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -16,6 +16,7 @@ import type { ApprovalRequest, DestructiveAction } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "./ConfirmDialog";
+import { AdminErrorState } from "./ResourceState";
 import { HEALTH_ICON } from "./ui";
 import styles from "./admin.module.css";
 
@@ -68,7 +69,14 @@ export default function ApprovalList({
   const stashToken = useApprovalVault((s) => s.stashToken);
   const dropToken = useApprovalVault((s) => s.dropToken);
 
-  const { rows: ledgerRows, hasMore: ledgerHasMore, invalidate } = useApprovalLedger();
+  const {
+    rows: ledgerRows,
+    hasMore: ledgerHasMore,
+    loading: ledgerLoading,
+    failed: ledgerFailed,
+    lastAt: ledgerLastAt,
+    invalidate: refresh,
+  } = useApprovalLedger();
   const [busy, setBusy] = useState<string | null>(null);
   // 소각은 되돌릴 수 없어 확인 다이얼로그로 한 번 더 막는다
   const [execTarget, setExecTarget] = useState<ApprovalRequest | null>(null);
@@ -85,19 +93,18 @@ export default function ApprovalList({
   // 원장은 공용 폴러가 한 번 받아 오고 화면은 자기 범위만 거른다. 다섯 화면이 같은 원장을
   // 각자 읽던 다섯 폴러가 하나로 모였다(lib/admin/approvals)
   const rows = useMemo(() => ledgerRows.filter((a) => inScope(a.action)), [ledgerRows, inScope]);
-  const refresh = invalidate;
 
   const act = async (id: string, fn: () => Promise<unknown>, ok: string) => {
     setBusy(id);
     try {
       await fn();
       toast(ok, "info");
+      // 다이얼로그를 먼저 닫는다. 열린 채면 배경이 inert라 아래 폴백 focus()가 무시된다
+      setExecTarget(null);
       await refresh();
       onChange?.();
-      setExecTarget(null);
-      // 발급은 intent 행을 소거하고 실행은 행 상태를 바꾼다. 남아 있으면 그 행, 아니면 목록으로.
-      // 마지막 대기 행이 종결로 넘어가면 목록 ul 자체가 언마운트되므로 빈 상태 컨테이너까지
-      // 폴백해 body 유실을 막는다(§9 키보드 흐름)
+      // 발급은 intent 행을 소거하고 실행은 행 상태를 바꾼다. 새 원장이 반영된 뒤라 남은 행이면
+      // 그 행, 사라졌으면 목록, 목록째 언마운트됐으면 빈 상태로 옮겨 body 유실을 막는다(§9 키보드 흐름)
       requestAnimationFrame(() => (rowRefs.current[id] ?? listRef.current ?? emptyRef.current)?.focus());
     } catch (e) {
       toast(e instanceof Error ? e.message : "처리 실패", "error");
@@ -141,6 +148,21 @@ export default function ApprovalList({
 
   const emptyActive = scopedIntents.length === 0 && activeRows.length === 0;
 
+  // 원장을 한 번도 받지 못했으면 대기 승인이 없다고 적을 근거가 없다. 첫 로드 중과 실패를 가른다
+  if (emptyActive && ledgerLastAt === null) {
+    return ledgerLoading ? (
+      <div className="empty-state empty-state--compact" ref={emptyRef} tabIndex={-1} aria-busy="true">
+        <span className="empty-state__title">승인 목록 확인 중</span>
+      </div>
+    ) : (
+      <AdminErrorState
+        title="승인 목록을 불러오지 못함"
+        desc="대기 승인 유무 미확인. 다시 시도 필요"
+        onRetry={() => void refresh()}
+      />
+    );
+  }
+
   // 빈 상태 문법 통일: 좌측 캡션이 아니라 중앙 계기형. 다음 행동(요청 유입 경로)을 desc가 안내한다
   const emptyState = (
     <div className="empty-state empty-state--compact" ref={emptyRef} tabIndex={-1}>
@@ -149,9 +171,22 @@ export default function ApprovalList({
       {emptyDesc && <span className="empty-state__desc">{emptyDesc}</span>}
     </div>
   );
+  // 마지막 갱신이 실패했으면 보이는 목록이 언제 것인지, 원장을 아예 못 받았는지를 함께 적는다
+  const staleNote = ledgerFailed && (
+    <p className={styles.approvalCapNote} role="status">
+      {ledgerLastAt === null
+        ? "승인 원장을 불러오지 못함. 발급된 승인은 표시되지 않음"
+        : `갱신 실패. ${formatTimeHMS(new Date(ledgerLastAt).toISOString())} 기준 목록`}
+    </p>
+  );
 
   if (emptyActive && doneRows.length === 0) {
-    return emptyState;
+    return (
+      <>
+        {emptyState}
+        {staleNote}
+      </>
+    );
   }
 
   return (
@@ -271,6 +306,7 @@ export default function ApprovalList({
       {ledgerHasMore && (
         <p className={styles.approvalCapNote}>첫 쪽 표시. 대기 승인이 더 있음</p>
       )}
+      {staleNote}
       {doneRows.length > 0 && (
         // 종결분은 대기와 분리해 이력으로만 남긴다. 버튼 없는 판독 전용 행
         <div className={styles.approvalDoneGroup}>

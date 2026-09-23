@@ -6,10 +6,12 @@
 export const ACTION_GLOSS: Record<string, string> = {
   "session.establish": "콘솔 접속",
   "session.revoke": "콘솔 종료",
-  // 카오스 화면은 폐기했지만 감사 로그는 append-only라 과거 행이 남는다.
-  // 용어집을 지우면 그 행들이 원문 코드로 깨지므로 읽기 전용 풀이만 보존한다.
-  "chaos.inject": "카오스 주입",
-  "chaos.clear": "카오스 해제",
+  // 콘솔에 장애 주입 화면은 없지만 서버 API(ChaosAdminController)는 이 코드로 감사에 적재한다.
+  // 감사 로그는 append-only라 그 행도 남으므로 서버가 실제로 쓰는 코드로 풀이를 둔다
+  "chaos.kill_node": "노드 중단 주입",
+  "chaos.network": "네트워크 장애 주입",
+  "chaos.app": "앱 장애 주입",
+  "chaos.network.clear": "네트워크 장애 해제",
   "sim.bots.params": "봇 파라미터 변경",
   "sim.scenario": "국면 프리셋 적용",
   "community.post.moderate": "게시글 처리",
@@ -29,7 +31,7 @@ export const ACTION_GLOSS: Record<string, string> = {
   "members.suspend": "회원 정지",
   "members.reinstate": "회원 복구",
   "members.close": "회원 폐쇄",
-  // 합성 코드(head:tail)의 head 주해. 감사 화면이 "실행 · 카오스 주입"처럼 이어 붙인다
+  // 합성 코드(head:tail)의 head 주해. 감사 화면이 "실행 · 마켓 중지"처럼 이어 붙인다
   "approval.issue": "승인 발급",
   "approval.reject": "승인 거부",
   execute: "실행",

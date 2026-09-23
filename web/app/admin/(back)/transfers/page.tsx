@@ -12,7 +12,7 @@ import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import DataTable, { type DataColumn } from "@/components/DataTable";
-import SegmentedTab from "@/components/SegmentedTab";
+import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { PageHeader } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
@@ -166,32 +166,35 @@ export default function AdminTransfersPage() {
 
       {/* 상태 3종은 배타 선택이라 세그먼트가 맞다. 새 칩 어휘를 만들지 않는다 */}
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" />
+        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="transfers-panel" />
       </div>
 
       <PanelCard title="요청 목록">
-        {res.error ? (
-          <AdminErrorState reason={res.errorReason} onRetry={() => void res.reload()} />
-        ) : res.data === null ? (
-          <Skeleton variant="card" width="100%" height={240} />
-        ) : rows.length === 0 ? (
-          <div className="empty-state empty-state--compact">
-            <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-            <span className="empty-state__title">
-              {status === "REQUESTED" ? "대기 중인 출금 없음" : "해당 상태의 요청 없음"}
-            </span>
-          </div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={rows}
-            rowKey={(r) => r.externalId}
-            ariaLabel="출금 요청 목록"
-            defaultAlign="center"
-          />
-        )}
+        {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
+        <div role="tabpanel" id="transfers-panel" aria-labelledby={segmentedTabId("transfers-panel", status)} tabIndex={0}>
+          {res.error ? (
+            <AdminErrorState reason={res.errorReason} onRetry={() => void res.reload()} />
+          ) : res.data === null ? (
+            <Skeleton variant="card" width="100%" height={240} />
+          ) : rows.length === 0 ? (
+            <div className="empty-state empty-state--compact">
+              <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+              <span className="empty-state__title">
+                {status === "REQUESTED" ? "대기 중인 출금 없음" : "해당 상태의 요청 없음"}
+              </span>
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              rows={rows}
+              rowKey={(r) => r.externalId}
+              ariaLabel="출금 요청 목록"
+              defaultAlign="center"
+            />
+          )}
 
-        <Pager page={page} hasMore={hasMore} onMove={move} ariaLabel="출금 큐 쪽 이동" />
+          <Pager page={page} hasMore={hasMore} onMove={move} ariaLabel="출금 큐 쪽 이동" />
+        </div>
       </PanelCard>
 
       {pending && (

@@ -16,7 +16,8 @@ export const ROLE_LABEL: Record<AdminRole, string> = {
 export const ROLE_DESC: Record<AdminRole, string> = {
   VIEWER: "모니터링·상태·감사 열람 전용",
   BOT_OPS: "봇 플릿 제어(생성·정지·OPS·파라미터)",
-  CHAOS_OPS: "부하·장애 실험 실행, 봇 제어 포함",
+  // 서버 AdminRole이 내려주는 역할이고 봇 제어 승계가 걸려 있다. 장애 주입은 서버 API만 있다
+  CHAOS_OPS: "봇 제어 포함, 장애 주입 API 실행(콘솔 화면 없음)",
   MEMBER_MOD: "회원·게시판 운영",
   SUPER: "전 권한 + 운영자·역할 관리",
 };

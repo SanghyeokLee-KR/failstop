@@ -10,8 +10,9 @@ import { AdminError } from "@/lib/admin/api";
 
 export type ErrorReason = "session" | "server";
 
-// 429 백오프 기본 유예(초). Retry-After 부재 시 사용. 서버 버킷(60건/60초, 리필 1건/초) 기준
-const RATE_LIMIT_FALLBACK_SEC = 5;
+// 429 백오프 기본 유예(초). Retry-After 부재 시 사용.
+// 요청 한 건(10토큰)이 계약 기본 버킷(60토큰/60초)에서 다시 차는 시간이다
+const RATE_LIMIT_FALLBACK_SEC = 10;
 
 /** 레이트리밋 오류면 유예 초를 돌려준다(Retry-After 우선). 아니면 null */
 function rateLimitPauseSec(e: unknown): number | null {
@@ -37,19 +38,21 @@ export interface AdminResource<T> {
 }
 
 /**
- * 갱신 리듬. 화면이 밀리초를 직접 적지 않는다.
+ * 갱신 리듬. 화면이 밀리초를 직접 적지 않는다. 예산이 화면마다 흩어져 있으면 한 화면을
+ * 고칠 때 다른 화면의 여유를 알 수 없다.
  *
- * 종전에는 화면마다 intervalMs를 손으로 박았고 그 값이 신선도가 아니라 레이트리밋 예산으로
- * 정해져 있었다. 주석에 "10초면 관리 레이트리밋에 정확히 닿아 상호작용 여유가 0이 된다"고
- * 적고 15초로 물러난 자리가 그 증거다. 예산이 화면마다 흩어져 있으면 한 화면을 고칠 때
- * 다른 화면의 여유를 알 수 없다.
+ * 예산의 사실. 서버는 관리 요청 한 건마다 운영자 버킷에서 10토큰을 뺀다(AdminAuthFilter).
+ * 계약 기본값 60토큰/60초는 분당 6건이라 종합 화면 진입(합성 6건과 승인 원장 1건)도 다 받지
+ * 못한다. 콘솔을 쓰는 배포는 버킷을 올린다. 학교는 600토큰(분당 60건), 로컬 프로파일은
+ * 6000토큰(분당 600건)이다. live 3초에 세 축을 읽는 화면은 분당 60건이라 학교 버킷이 1분에 다시
+ * 채우는 양 전부를 폴링이 쓴다.
  *
  * manual 화면은 값이 언제 것인지가 반드시 보여야 하므로 최종 실측 시각과 새로고침을
  * 머리에 상설한다(ResourceStamp).
  */
 export type Cadence = "manual" | "idle" | "live";
 
-/** live는 시연 구간용이다. 평시에 쓰면 종전 문제로 돌아간다 */
+/** live는 시연 구간용이다. 평시에 쓰면 조작 요청이 쓸 버킷이 폴링으로 먼저 빠진다 */
 const CADENCE_MS: Record<Cadence, number | null> = { manual: null, idle: 30000, live: 3000 };
 
 interface Options {

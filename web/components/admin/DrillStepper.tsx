@@ -44,6 +44,8 @@ const STATE_TONE: Record<DrillState, Health | undefined> = {
 export interface DrillStepperProps {
   def: DrillDef;
   checks: DrillCheck[];
+  /** 단계별 호스트 명령. 대상을 아직 관측하지 못한 명령은 null이라 칩을 그리지 않는다 */
+  commands: (string | null)[];
   /** 이번 주행에서 처음 충족한 시각. 단계 id에서 ISO 문자열로 */
   metAt: Record<string, string>;
   currentIndex: number | null;
@@ -57,6 +59,7 @@ export interface DrillStepperProps {
 export default function DrillStepper({
   def,
   checks,
+  commands,
   metAt,
   currentIndex,
   onAct,
@@ -71,6 +74,7 @@ export default function DrillStepper({
           step={step}
           index={i}
           check={checks[i]}
+          command={commands[i]}
           metAt={metAt[step.id]}
           current={i === currentIndex}
           onAct={onAct}
@@ -86,6 +90,7 @@ function StepRow({
   step,
   index,
   check,
+  command,
   metAt,
   current,
   onAct,
@@ -95,6 +100,7 @@ function StepRow({
   step: DrillStep;
   index: number;
   check: DrillCheck;
+  command: string | null;
   metAt: string | undefined;
   current: boolean;
   onAct: (step: DrillStep) => void | Promise<void>;
@@ -102,7 +108,7 @@ function StepRow({
   busy: boolean;
 }) {
   const tone = STATE_TONE[check.state];
-  const hasFoot = Boolean(step.act || step.command || step.board || metAt);
+  const hasFoot = Boolean(step.act || command || step.board || metAt);
   return (
     <li className={styles.drillStep} data-state={check.state} data-current={current ? "" : undefined}>
       <span className={styles.drillIndex} aria-hidden="true">
@@ -136,7 +142,7 @@ function StepRow({
                 {step.act.label}
               </button>
             )}
-            {step.command && <CommandChip command={step.command} />}
+            {command && <CommandChip command={command} />}
             {step.board && <GrafanaLink board={step.board} label="추이" />}
             {metAt && <span className={styles.drillStamp}>이번 주행 {formatTimeHMS(metAt)} 충족</span>}
           </div>

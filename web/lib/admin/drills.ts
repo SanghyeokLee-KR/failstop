@@ -14,7 +14,7 @@
  * 2. 콘솔이 못 하는 일은 명령으로 적는다. 리더를 죽이거나 DB를 승격하는 일은 관리 API에
  *    없다. 버튼 모양으로 그려 두면 누를 수 있다고 오해한다. 명령 문자열로 적고
  *    결과만 라이브로 감지한다.
- * 3. 원천이 없는 축은 원천 없음으로 적는다. 로컬에 호스트 지표 수집기가 없어
+ * 3. 원천이 없는 축은 원천 없음으로 적는다. 관리 API가 호스트 지표를 내지 않아
  *    디스크·메모리 압박은 판정할 수 없다. 그것을 통과나 미달로 적지 않는다.
  */
 
@@ -69,6 +69,9 @@ export interface DrillPrep {
   command?: string;
 }
 
+/** 앞 단계가 지날 때 읽은 값. 단계 id에서. 뒤 단계가 세대나 사용률을 이 값과 대조한다 */
+export type DrillSeen = Record<string, DrillSignals | undefined>;
+
 export interface DrillStep {
   id: string;
   /** 명사형 종결. 이 단계에서 무엇이 성립해야 하는가 */
@@ -77,11 +80,26 @@ export interface DrillStep {
   detail: string;
   /** 콘솔 조작. 없으면 사람이 다른 자리에서 한다 */
   act?: DrillAct;
-  /** 호스트에서 쳐야 하는 명령. 콘솔은 실행하지 않고 결과만 감지한다 */
-  command?: string;
+  /**
+   * 호스트에서 쳐야 하는 명령. 콘솔은 실행하지 않고 결과만 감지한다.
+   * 대상이 관측에 달린 명령은 함수로 두고, 앞 단계가 대상을 보지 못했으면 null을 낸다.
+   */
+  command?: string | ((seen: DrillSeen) => string | null);
   /** 추이를 볼 자리 */
   board?: GrafanaBoard;
-  check(s: DrillSignals): DrillCheck;
+  check(s: DrillSignals, seen: DrillSeen): DrillCheck;
+}
+
+/** 단계를 지난 시각과 그때 읽은 값 */
+export interface DrillRecord {
+  at: string;
+  seen: DrillSignals;
+}
+
+/** 주행 한 번. since 는 주행을 켠 시각이고 이보다 앞선 관측과 기록은 이 주행의 증거가 아니다 */
+export interface DrillRun {
+  since: string;
+  steps: Record<string, DrillRecord>;
 }
 
 /** 이 대본이 실제로 읽는 원천. 화면이 필요 없는 왕복을 내지 않게 한다 */
@@ -124,6 +142,15 @@ function pct(ratio: number | null): string {
   return ratio === null ? "미수집" : `${Math.round(ratio * 100)}%`;
 }
 
+/**
+ * 그 표본에서 리더로 응답한 노드. 한 대가 아니면 null이다.
+ * 리스 보유자는 프로세스마다 새로 받는 식별자라 노드 이름은 용량 관측에서 읽는다.
+ */
+function leaderOf(s: DrillSignals | undefined): string | null {
+  const leaders = s?.cap?.nodes.filter((n) => n.reachable && n.leader) ?? [];
+  return leaders.length === 1 ? leaders[0].id : null;
+}
+
 /* ===== 1. 트래픽 임계와 조회 증설 ===== */
 
 /**
@@ -134,6 +161,14 @@ function pct(ratio: number | null): string {
 const SCALE_OPS = 300;
 /** 서버 advice가 임계를 소유한다. 화면이 0.60을 복제하면 서버가 값을 조일 때 갈린다 */
 const adviceSaysOut = (c: CapacityState) => c.advice.some((a) => a.action === "SCALE_OUT");
+
+/**
+ * 그 표본에서 조회를 받고 사용률이 읽힌 노드. 서버가 조회 평균에 넣는 노드와 같은 조건이다.
+ * 평균만 보면 몇 대가 나눠 받은 값인지 알 수 없어서 분산 판정은 이 목록을 함께 대조한다.
+ */
+function readers(c: CapacityState): string[] {
+  return c.nodes.filter((n) => n.reachable && n.servesReads && n.cpuRatio !== null).map((n) => n.id);
+}
 
 const DRILL_SCALE: DrillDef = {
   id: "scale",
@@ -230,16 +265,30 @@ const DRILL_SCALE: DrillDef = {
     {
       id: "spread",
       title: "사용률 하락",
-      detail: "같은 부하를 더 많은 노드가 나눠 받아 평균 사용률이 내려간다. 내려가지 않으면 분산이 성립하지 않은 것이므로 로드밸런서 배선을 먼저 본다.",
+      detail: "조회 부하가 남은 채 늘린 노드가 조회를 받기 시작하고 평균 사용률이 증설 권고가 뜬 때보다 내려가야 분산이다. 부하 주입이 끝나 내려간 사용률은 유휴이고, 조회 노드 수가 그대로인 채 내려간 사용률은 워밍이나 표본 흔들림일 수 있어 둘 다 치지 않는다. 최대 대수에서는 서버가 증설을 권고하지 않으므로 권고가 사라진 것만으로도 분산이라 하지 않는다. 부하 주입이 끝났으면 다시 넣고, 노드가 늘었는데 내려가지 않으면 로드밸런서 배선을 먼저 본다.",
       board: "msp-service",
-      check: (s) =>
-        capCheck(s, (c) =>
-          c.readAvgCpuRatio === null
-            ? missing("조회 평균 사용률")
-            : adviceSaysOut(c)
-              ? pending(`평균 ${pct(c.readAvgCpuRatio)} · 아직 증설 권고`)
-              : met(`평균 ${pct(c.readAvgCpuRatio)}`),
-        ),
+      check: (s, seen) =>
+        capCheck(s, (c) => {
+          if (c.readAvgCpuRatio === null) return missing("조회 평균 사용률");
+          // 권고가 처음 뜬 표본이 증설 전 기준이다. 서버는 최대 대수 미만에서만 증설을 권고한다
+          const before = seen.breach?.cap ?? null;
+          const base = before?.readAvgCpuRatio ?? null;
+          if (before === null || base === null) return pending(`평균 ${pct(c.readAvgCpuRatio)} · 증설 전 기준 미기록`);
+          const trend = `기준 ${pct(base)} → 평균 ${pct(c.readAvgCpuRatio)}`;
+          // 콘솔은 요청률을 읽지 않아 부하가 증설 전과 같은지는 확인하지 못한다. 대신 읽을 수 있는
+          // 두 가지를 요구한다. 부하가 남아 있는지는 조회 부하 단계와 같은 축소 임계로 본다
+          if (c.readAvgCpuRatio <= c.thresholds.scaleInCpuRatio) return pending(`${trend} · 유휴`);
+          // 늘린 노드가 조회를 받아야 나눠 받은 것이다. 같은 노드들의 사용률만 내려간 것은
+          // 재기동 직후 워밍이 끝났거나 표본이 흔들린 것일 수 있다
+          const was = readers(before).length;
+          const now = readers(c).length;
+          const nodes = `조회 노드 ${was}대 → ${now}대`;
+          if (now <= was) return pending(`${trend} · ${nodes}`);
+          // 화면에 적는 정수 퍼센트로 비교한다. 소수점 아래 흔들림을 하락으로 읽지 않는다
+          return Math.round(c.readAvgCpuRatio * 100) < Math.round(base * 100)
+            ? met(`${trend} · ${nodes}`)
+            : pending(`${trend} · 하락 없음`);
+        }),
     },
     {
       id: "restore",
@@ -253,6 +302,12 @@ const DRILL_SCALE: DrillDef = {
             : pending(`희망 ${c.plan.desired}대 · 관측 ${c.observedTotal}대`),
         ),
     },
+    {
+      id: "reconciler",
+      title: "조절기 정지",
+      detail: "축소가 끝나면 조절기를 띄운 터미널에서 Ctrl+C로 끝낸다. 조절기가 돈 채로 리더 전환을 하면 리더가 빠진 만큼 대수가 모자란다고 읽고 노드를 켠다. 죽인 노드가 되살아나거나 증설 노드가 붙어 전환 실험의 구성이 바뀌므로 두 시연을 겹치지 않는다.",
+      check: () => ({ state: "NO_SOURCE", readout: "조절기 프로세스는 콘솔이 읽지 않음" }),
+    },
   ],
 };
 
@@ -264,47 +319,70 @@ const DRILL_LEADER: DrillDef = {
   lead: "주문 노드 중단과 남은 노드의 승격 확인",
   claim: "쓰기는 한 노드만 한다. 그 노드를 잃으면 다른 노드가 선출돼 거래가 재개된다.",
   needs: ["cap", "ha", "rec"],
-  prep: [{ text: "노드 두 대 기동. 리더 후보가 하나면 승격 대상 없음" }],
+  prep: [
+    { text: "노드 두 대 기동. 리더 후보가 하나면 승격 대상 없음" },
+    { text: "조절기 정지. 돌고 있으면 리더가 빠진 대수를 채우려 노드를 켜서 전환 실험의 구성이 바뀜" },
+  ],
   steps: [
     {
       id: "before",
       title: "현재 리더 확인",
-      detail: "전환 전의 선출 세대를 적어 둔다. 세대가 오르지 않으면 전환이 일어나지 않은 것이다.",
-      check: (s) => (s.ha ? met(`리더 ${s.ha.leaderNodeId} · 세대 ${s.ha.epoch}`) : missing("리더 상태")),
+      detail: "전환 전의 리더 노드와 선출 세대를 적어 둔다. 뒤 단계가 그 노드의 중단과 복귀를 이 이름으로 보고, 세대가 오르지 않으면 전환이 일어나지 않은 것으로 본다.",
+      check: (s) => {
+        const ha = s.ha;
+        if (!ha) return missing("리더 상태");
+        return capCheck(s, (c) => {
+          const leaders = c.nodes.filter((n) => n.reachable && n.leader);
+          return leaders.length === 1
+            ? met(`리더 ${leaders[0].id} · 세대 ${ha.epoch}`)
+            : pending(`리더 ${leaders.length}대 관측 · 세대 ${ha.epoch}`);
+        });
+      },
     },
     {
       id: "kill",
       title: "리더 중단",
-      detail: "관리 API에 노드를 내리는 조작이 없다. 장애 주입은 콘솔의 일이 아니라 호스트의 일이다. 스크립트를 쓰는 이유는 복구 시간을 재서 판정 표에 남기기 때문이다. docker kill만 치면 아래 판정 단계에 읽을 행이 생기지 않는다.",
+      detail: "관리 API에 노드를 내리는 조작이 없다. 장애 주입은 콘솔의 일이 아니라 호스트의 일이다. 스크립트를 쓰는 이유는 복구 시간을 재서 판정 표에 남기기 때문이다. docker kill만 치면 아래 판정 단계에 읽을 행이 생기지 않는다. 앞 단계에서 적은 리더가 응답을 멈춰야 충족이고, 팔로워만 멈춘 것은 리더 중단이 아니다.",
       command: "pwsh -File harness/scripts/e4-leader-kill.ps1",
-      check: (s) =>
+      check: (s, seen) =>
         capCheck(s, (c) => {
-          const down = c.nodes.filter((n) => n.expected && !n.reachable);
-          return down.length > 0
-            ? met(`미응답 ${down.map((n) => n.id).join(", ")}`)
-            : pending(`응답 ${c.observedTotal}대 · 미응답 없음`);
+          const old = leaderOf(seen.before);
+          if (old === null) return pending("기준 리더 미기록");
+          return c.nodes.find((n) => n.id === old)?.reachable === false
+            ? met(`${old} 미응답`)
+            : pending(`${old} 응답 중`);
         }),
     },
     {
       id: "promote",
       title: "새 리더 선출",
-      detail: "남은 노드 중 하나가 리스를 잡아 주문을 받기 시작한다. 두 노드가 동시에 리더로 보이면 그것이 곧 결함이다.",
+      detail: "남은 노드 중 하나가 리스를 잡아 주문을 받기 시작하고 선출 세대가 오른다. 두 노드가 동시에 리더로 보이면 그것이 곧 결함이다.",
       board: "proof-recovery",
-      check: (s) =>
-        capCheck(s, (c) => {
+      check: (s, seen) => {
+        const ha = s.ha;
+        if (!ha) return missing("리더 상태");
+        return capCheck(s, (c) => {
+          const old = leaderOf(seen.before);
+          const base = seen.before?.ha?.epoch;
+          if (old === null || base === undefined) return pending("기준 세대 미기록");
           const leaders = c.nodes.filter((n) => n.reachable && n.leader);
-          if (leaders.length === 1) return met(`리더 ${leaders[0].id} 단독`);
-          if (leaders.length === 0) return pending("리더 없음. 선출 대기");
-          return { state: "PENDING", readout: `리더 ${leaders.length}대 동시 관측` };
-        }),
+          if (leaders.length > 1) return pending(`리더 ${leaders.length}대 동시 관측`);
+          if (leaders.length === 0) return pending(`리더 없음 · 세대 ${ha.epoch}. 선출 대기`);
+          if (leaders[0].id === old) return pending(`옛 리더 ${old} 그대로 · 세대 ${ha.epoch}`);
+          return ha.epoch > base
+            ? met(`리더 ${leaders[0].id} · 세대 ${base} → ${ha.epoch}`)
+            : pending(`리더 ${leaders[0].id} · 세대 ${ha.epoch} 그대로`);
+        });
+      },
     },
     {
       id: "verdict",
       title: "복구 판정",
-      detail: "복구 시간이 목표 안에 들었는지 서버가 판정한다. 판정 대상이 없으면 통과가 아니라 미판정이다.",
+      detail: "복구 시간이 목표 안에 들었는지 서버가 판정한다. 판정은 주행을 켠 뒤 적재된 행만 센다. 앞선 실험의 행까지 세면 이번 전환을 보지 않고도 통과가 뜬다. 판정 대상이 없으면 통과가 아니라 미판정이다.",
       board: "proof-recovery",
       check: (s) => {
         if (!s.rec) return missing("복구 이력");
+        if (s.rec.verdictScope !== "since") return pending("주행 창 미적용 · 전체 이력 판정");
         if (s.rec.failoverVerdict === null || s.rec.failoverVerdict === "UNKNOWN") {
           return pending(`복구 시간 ${s.rec.lastRtoMs === null ? "미측정" : `${(s.rec.lastRtoMs / 1000).toFixed(1)}초`} · 미판정`);
         }
@@ -316,14 +394,28 @@ const DRILL_LEADER: DrillDef = {
     {
       id: "rejoin",
       title: "옛 리더 복귀",
-      detail: "내린 노드를 다시 올려도 리더로 돌아가지 않는다. 돌아가면 선출이 두 번 일어나 거래가 두 번 끊긴다.",
-      command: "docker start chaos-api-1",
-      check: (s) =>
-        capCheck(s, (c) =>
-          c.reconciled && c.nodes.filter((n) => n.reachable && n.leader).length === 1
-            ? met(`관측 ${c.observedTotal}대 · 리더 단독`)
-            : pending(`관측 ${c.observedTotal}대 · 계약 ${c.plan.desired}대`),
-        ),
+      detail: "내린 노드를 다시 올려도 리더로 돌아가지 않는다. 돌아가면 선출이 두 번 일어나 거래가 두 번 끊긴다. 명령의 노드 이름은 첫 단계에서 관측한 리더이고, 관측이 없으면 명령을 만들지 않는다.",
+      // 로컬 스택은 용량 노드 id가 compose 컨테이너 이름과 같다(application.yml admin-chaos)
+      command: (seen) => {
+        const old = leaderOf(seen.before);
+        return old === null ? null : `docker start ${old}`;
+      },
+      check: (s, seen) => {
+        const ha = s.ha;
+        if (!ha) return missing("리더 상태");
+        return capCheck(s, (c) => {
+          const old = leaderOf(seen.before);
+          const promoted = seen.promote?.ha?.epoch;
+          if (old === null || promoted === undefined) return pending("옛 리더 미기록");
+          if (c.nodes.find((n) => n.id === old)?.reachable !== true) return pending(`${old} 미응답`);
+          const now = leaderOf(s);
+          if (now === old) return pending(`옛 리더 ${old} 리더 재획득`);
+          if (now === null) return pending(`${old} 응답 · 리더 단독 아님`);
+          return ha.epoch === promoted
+            ? met(`${old} 복귀 · 리더 ${now} 유지 · 세대 ${ha.epoch}`)
+            : pending(`세대 ${promoted} → ${ha.epoch} · 재선출`);
+        });
+      },
     },
   ],
 };
@@ -397,22 +489,22 @@ const DRILL_DB: DrillDef = {
 
 /**
  * 원천이 없는 시연을 목록에서 지우지 않는 이유. 지우면 "이 축은 검증하지 않았다"는 사실도
- * 함께 사라진다. 남겨 두고 왜 판정할 수 없는지 화면이 말하게 한다. 학교 AWS에는 호스트
- * 지표 수집기가 붙어 있어 그쪽에서는 같은 대본이 판정까지 간다.
+ * 함께 사라진다. 남겨 두고 왜 판정할 수 없는지 화면이 말하게 한다. 관리 API가 호스트 지표를
+ * 내지 않아 디스크와 메모리는 학교 AWS를 포함한 어느 환경에서도 원천 없음이다.
  */
 const DRILL_PRESSURE: DrillDef = {
   id: "pressure",
   title: "디스크·메모리 압박",
-  lead: "로컬에 호스트 지표 원천이 없어 판정 불가",
-  claim: "이 축은 학교 AWS에서만 판정한다. 로컬 결과를 그 판정으로 바꾸어 적지 않는다.",
+  lead: "관리 API에 호스트 지표가 없어 콘솔 판정 불가",
+  claim: "이 축은 학교 AWS 호스트에서 판정한다. 콘솔과 로컬 결과를 그 판정으로 바꾸어 적지 않는다.",
   needs: ["cap"],
-  prep: [{ text: "호스트 지표 수집기. 로컬 카오스 스택에 없음" }],
+  prep: [{ text: "호스트 지표. 관리 API가 내지 않아 콘솔이 읽을 경로 없음" }],
   steps: [
     {
       id: "disk",
       title: "디스크 사용률",
-      detail: "호스트 파일시스템 사용률과 inode 여유를 본다. 로컬 스택에는 호스트 지표 수집기가 없어 값이 오지 않는다.",
-      check: () => ({ state: "NO_SOURCE", readout: "로컬 스택에 호스트 지표 수집기 없음" }),
+      detail: "호스트 파일시스템 사용률과 inode 여유를 본다. 관리 API가 호스트 지표를 내지 않아 환경과 무관하게 값이 오지 않는다.",
+      check: () => ({ state: "NO_SOURCE", readout: "관리 API에 호스트 지표 없음" }),
     },
     {
       id: "memory",
@@ -450,6 +542,12 @@ export interface DrillEvaluation {
   checks: DrillCheck[];
   /** 게이트를 걷어낸 라이브 판정. 진단용이고 화면은 쓰지 않는다 */
   raw: DrillCheck[];
+  /** 단계별 호스트 명령. 대상을 아직 관측하지 못했으면 null */
+  commands: (string | null)[];
+  /** 이번 주행 기록으로 지난 단계와 그 시각. 화면의 시각 도장이다 */
+  metAt: Record<string, string>;
+  /** 이번 관측으로 새로 지난 단계. 주행 중인 화면이 기록에 더한다 */
+  fresh: Record<string, DrillRecord>;
   /** 판정 가능한 단계 수. 원천 없는 단계는 분모에서 뺀다 */
   judgeable: number;
   total: number;
@@ -464,20 +562,36 @@ export interface DrillEvaluation {
  *
  * 지났다의 정의가 둘인 이유. 지금 충족했거나, 이번 주행에서 충족한 적이 있거나다.
  * 발행률을 올렸다가 되돌리면 그 단계는 다시 미충족이 되는데 그것이 사실이고, 그렇다고
- * 진행을 되감으면 축소 단계에서 대본이 첫 칸으로 돌아간다. 기록은 실제로 관측한
- * 시각이고 화면이 그 시각을 함께 적으므로 지어낸 통과가 아니다.
+ * 진행을 되감으면 축소 단계에서 대본이 첫 칸으로 돌아간다.
+ *
+ * 기록은 게이트를 지난 단계에만, 주행을 켠 뒤이면서 앞 단계 기록보다 늦게 요청한 관측에서만
+ * 생긴다. 판정할 때도
+ * 주행 시작보다 앞서거나 앞 단계 기록보다 앞선 기록은 지남으로 치지 않는다. 그 순서가
+ * 깨진 기록은 뒤 단계가 먼저 참이었던 순간을 적은 것이지 시연의 진행이 아니다.
  */
 export function evaluateDrill(
   def: DrillDef,
   signals: DrillSignals,
-  /** 이번 주행의 충족 기록. 단계 id에서 시각으로 */
-  recorded: Record<string, string> = {},
+  run: DrillRun | null = null,
+  /** 이 신호를 요청한 시각. 주행 시작보다 앞서면 기록하지 않는다 */
+  observedAt: string | null = null,
 ): DrillEvaluation {
-  const raw = def.steps.map((s) => s.check(signals));
+  // 새 기록에 찍을 시각. 주행 밖이거나 주행 전에 요청한 관측이면 null이다
+  const stamp = run !== null && observedAt !== null && observedAt >= run.since ? observedAt : null;
+  const seen: DrillSeen = {};
+  const raw: DrillCheck[] = [];
   const checks: DrillCheck[] = [];
+  const commands: (string | null)[] = [];
+  const metAt: Record<string, string> = {};
+  const fresh: Record<string, DrillRecord> = {};
+  // 다음 기록이 넘어야 할 시각. 주행 시작에서 출발해 지난 단계의 기록 시각으로 오른다
+  let floor = run?.since ?? "";
   let open = true;
   let currentIndex: number | null = null;
-  raw.forEach((c, i) => {
+  def.steps.forEach((step, i) => {
+    const c = step.check(signals, seen);
+    raw.push(c);
+    commands.push(typeof step.command === "function" ? step.command(seen) : step.command ?? null);
     if (c.state === "NO_SOURCE") {
       // 판정 대상이 아니라 막지도 않는다. 원천이 없는 축에 진행이 걸리면 대본이 멈춘다
       checks.push(c);
@@ -488,17 +602,35 @@ export function evaluateDrill(
       return;
     }
     checks.push(c);
-    const passed = c.state === "MET" || recorded[def.steps[i].id] !== undefined;
-    if (!passed) {
-      open = false;
-      currentIndex = i;
+    const kept = run?.steps[step.id];
+    if (kept !== undefined && kept.at >= floor) {
+      seen[step.id] = kept.seen;
+      metAt[step.id] = kept.at;
+      floor = kept.at;
+      return;
     }
+    if (c.state === "MET") {
+      seen[step.id] = signals;
+      // 앞 단계 기록보다 앞선 관측은 적지 않는다. 적으면 다음 판정이 그 기록을 순서 위반으로
+      // 버리고 같은 단계를 다시 새 기록으로 내므로 화면이 기록을 더하는 일을 멈추지 못한다
+      if (stamp !== null && stamp >= floor) {
+        fresh[step.id] = { at: stamp, seen: signals };
+        metAt[step.id] = stamp;
+        floor = stamp;
+      }
+      return;
+    }
+    open = false;
+    currentIndex = i;
   });
   const judgeable = raw.filter((c) => c.state !== "NO_SOURCE").length;
   const total = def.steps.length;
   return {
     checks,
     raw,
+    commands,
+    metAt,
+    fresh,
     judgeable,
     total,
     currentIndex,

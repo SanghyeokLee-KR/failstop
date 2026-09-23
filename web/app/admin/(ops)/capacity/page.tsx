@@ -14,7 +14,7 @@
  * 그 서버가 죽으면 서버를 추가해도 조회 용량만 돌아온다. 화면이 그렇게 적는다.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import type { CapacityAdvice, CapacityNode, CapacityState, SimStatus } from "@/lib/admin/types";
 import PanelCard from "@/components/PanelCard";
@@ -42,6 +42,30 @@ const ADVICE_HEALTH = { ok: "success", info: "success", warn: "warning", danger:
  *  화면이 알기 때문이다. 첫 표본에는 이전 값이 없으므로 빈칸으로 둔다. */
 type RateSample = { at: number; total: number };
 
+/**
+ * 노드별 초당 요청. 이전 조회의 표본과 이번 조회의 표본을 뺀다. 이전 표본이 없거나 값이 줄었으면
+ * (재기동) null이다. 표본 시각은 조회가 성공한 시각이라 렌더가 몇 번 돌든 값이 같다.
+ */
+function sampleRates(
+  prev: Map<string, RateSample>,
+  nodes: CapacityNode[],
+  at: number,
+): { samples: Map<string, RateSample>; rates: Map<string, number | null> } {
+  const samples = new Map<string, RateSample>();
+  const rates = new Map<string, number | null>();
+  for (const n of nodes) {
+    if (n.httpRequests === null) {
+      rates.set(n.id, null);
+      continue;
+    }
+    samples.set(n.id, { at, total: n.httpRequests });
+    const p = prev.get(n.id);
+    const seconds = p ? (at - p.at) / 1000 : 0;
+    rates.set(n.id, !p || n.httpRequests < p.total || seconds < 1 ? null : (n.httpRequests - p.total) / seconds);
+  }
+  return { samples, rates };
+}
+
 /** 이 화면은 부하 입력과 용량 조치를 한자리에 둔다. 그래서 두 원천을 함께 읽는다 */
 interface CapacityView {
   cap: CapacityState;
@@ -64,7 +88,18 @@ export default function CapacityPage() {
   const canOps = useCan("BOT_OPS");
   const [pending, setPending] = useState<"SCALE_OUT" | "SCALE_IN" | null>(null);
   const [busy, setBusy] = useState(false);
-  const rates = useRef<Map<string, RateSample>>(new Map());
+  const samples = useRef<Map<string, RateSample>>(new Map());
+  const [rates, setRates] = useState<Map<string, number | null>>(new Map());
+
+  // 표본은 조회 한 번에 하나다. 렌더마다 찍으면 같은 누적값끼리 빼서 manual 화면이 늘 0이나 빈칸이 된다
+  const capData = res.data?.cap ?? null;
+  const sampledAt = res.lastUpdatedAt;
+  useEffect(() => {
+    if (!capData || sampledAt === null) return;
+    const next = sampleRates(samples.current, capData.nodes, sampledAt);
+    samples.current = next.samples;
+    setRates(next.rates);
+  }, [capData, sampledAt]);
 
   const run = async (kind: "SCALE_OUT" | "SCALE_IN") => {
     setBusy(true);
@@ -83,21 +118,6 @@ export default function CapacityPage() {
     } finally {
       setBusy(false);
     }
-  };
-
-  /** 누적 요청 수의 차로 초당 값을 낸다. 이전 표본이 없거나 값이 줄었으면(재기동) 빈칸이다. */
-  const perSecond = (node: CapacityNode): number | null => {
-    if (node.httpRequests === null) {
-      rates.current.delete(node.id);
-      return null;
-    }
-    const now = Date.now();
-    const prev = rates.current.get(node.id);
-    rates.current.set(node.id, { at: now, total: node.httpRequests });
-    if (!prev || node.httpRequests < prev.total) return null;
-    const seconds = (now - prev.at) / 1000;
-    if (seconds < 1) return null;
-    return (node.httpRequests - prev.total) / seconds;
   };
 
   if (res.loading) return <Skeleton variant="card" width="100%" height={320} />;
@@ -189,7 +209,7 @@ export default function CapacityPage() {
       </div>
 
       <PanelCard title="서버 한 대씩" actions={<GrafanaLink board="msp-infra" label="호스트 추이" />}>
-        <NodeStrip nodes={d.nodes} perSecond={perSecond} />
+        <NodeStrip nodes={d.nodes} perSecond={(n) => rates.get(n.id) ?? null} cpuMark={d.thresholds.scaleOutCpuRatio} />
       </PanelCard>
 
       <PanelCard title="무엇을 늘릴 수 있나">

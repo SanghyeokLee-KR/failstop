@@ -61,6 +61,9 @@ export function useCursorPages<T>(
     isSessionError: opts.isSessionError,
   });
 
+  // 마지막으로 조회를 낸 조건과 쪽. 진입 조회는 useAdminResource가 이미 내므로 초기값으로 둔다
+  const loaded = useRef({ key, page });
+
   useEffect(() => {
     if (lastKey.current !== key) {
       lastKey.current = key;
@@ -71,6 +74,8 @@ export function useCursorPages<T>(
         return;
       }
     }
+    if (loaded.current.key === key && loaded.current.page === page) return;
+    loaded.current = { key, page };
     void res.reload();
     // reload는 안정 참조다. 조건과 쪽 변화에만 반응한다
     // eslint-disable-next-line react-hooks/exhaustive-deps

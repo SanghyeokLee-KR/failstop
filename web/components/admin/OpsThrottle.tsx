@@ -37,13 +37,16 @@ export default function OpsThrottle({
   canOps: boolean;
   onApplied: () => void | Promise<void>;
 }) {
-  const [draft, setDraft] = useState(rate ?? 1);
+  // 사용자가 잡은 값. 잡기 전에는 서버 값을 그대로 따르고, 잡은 뒤에는 서버 값이 바뀌어도 뺏지 않는다
+  const [picked, setPicked] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const draft = picked ?? rate ?? 1;
 
-  // 서버 값이 바뀌면 드래프트를 맞춘다. 단 사용자가 이미 다른 값을 잡고 있으면 뺏지 않는다
+  // 서버가 잡은 값에 닿으면 다시 서버 값을 따른다. 큐 경로는 적용 직후 응답이 아직 옛 값일 수 있어
+  // 적용 성공만으로 풀지 않는다
   useEffect(() => {
-    if (rate != null && !busy) setDraft((d) => (d === 0 ? rate : d));
-  }, [rate, busy]);
+    if (picked !== null && rate === picked) setPicked(null);
+  }, [rate, picked]);
 
   const apply = async () => {
     setBusy(true);
@@ -78,7 +81,7 @@ export default function OpsThrottle({
         value={draft}
         disabled={!canOps || busy}
         aria-label="전역 OPS 목표"
-        onChange={(e) => setDraft(Number(e.target.value))}
+        onChange={(e) => setPicked(Number(e.target.value))}
       />
       <div className={styles.throttleFoot}>
         <span className={styles.throttleReadout}>

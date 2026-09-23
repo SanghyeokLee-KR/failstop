@@ -232,8 +232,8 @@ export interface CapacityState {
 }
 
 /**
- * 불변식 요약 판정. 분모는 기대 검사 수(카탈로그)이고 서버 응답 길이가 아니다.
- * NONE(행 없음)과 PARTIAL(일부만 수집)은 통과가 아니라 미판정이다.
+ * 불변식 요약 판정. 분모는 기대 검사 수이고 서버 응답 길이가 아니다.
+ * NONE(행 없음)과 PARTIAL(정기 검사 일부만 수집)은 통과가 아니라 미판정이다.
  */
 export type InvariantState = "PASS" | "VIOLATED" | "PARTIAL" | "NONE";
 
@@ -241,13 +241,13 @@ export interface InvariantSummary {
   state: InvariantState;
   ok: number;
   violated: number;
-  /** 기대 검사 수. INVARIANT_DEFS 길이 */
+  /** 기대 검사 수. 정기 검사 전부에 응답에 실린 권위 run 전용 검사 수를 더한다 */
   expected: number;
   /** 최신 검사 시각. 행이 없으면 null이고 현재 시각으로 채우지 않는다 */
   checkedAt: string | null;
 }
 
-/** invariant_checks 원소. 항목 수는 서버가 정한다(실측 26종) */
+/** invariant_checks 원소. 항목 수는 서버 InvariantCheck enum이 정한다(정기 22종, 권위 run 전용 7종) */
 export interface InvariantCheck {
   name: string;
   label: string;

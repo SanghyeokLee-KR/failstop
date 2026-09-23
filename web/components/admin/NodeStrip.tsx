@@ -20,9 +20,6 @@ import { MeterRail } from "./instruments/MeterRail";
 import { HealthPill, type Health } from "./ui";
 import styles from "./admin.module.css";
 
-/** 사용률 경보선. 판정은 서버 advice가 내리고 여기 선은 판독 보조다 */
-const CPU_MARK = 0.6;
-
 function heapRatio(n: CapacityNode): number | null {
   if (n.heapUsedBytes === null || n.heapMaxBytes === null || n.heapMaxBytes <= 0) return null;
   return n.heapUsedBytes / n.heapMaxBytes;
@@ -45,13 +42,26 @@ function count(v: number | null, unit: string): string {
   return v === null ? "미수집" : `${Math.round(v).toLocaleString("ko-KR")}${unit}`;
 }
 
+/**
+ * 초당 요청 칸. 값이 없는 사유가 둘이라 말을 가른다. 서버가 요청 누적값을 비워 보냈으면
+ * 지표를 받지 못한 것이라 다른 칸과 같은 "미수집"이다. 누적값은 왔는데 비율이 없으면
+ * 첫 표본이거나 재기동으로 값이 줄었거나 간격이 1초 미만이라 차분을 낼 표본이 모자란 것이다.
+ */
+function requestRate(n: CapacityNode, rps: number | null): string {
+  if (n.httpRequests === null) return "미수집";
+  return rps === null ? "표본 부족" : count(rps, "건");
+}
+
 export default function NodeStrip({
   nodes,
   perSecond,
+  cpuMark,
 }: {
   nodes: CapacityNode[];
-  /** 누적 카운터 차분으로 만든 초당 요청. 표본이 한 번뿐이면 null */
+  /** 누적 카운터 차분으로 만든 초당 요청. 누적값이 없거나 차분을 낼 표본이 모자라면 null */
   perSecond: (n: CapacityNode) => number | null;
+  /** 사용률 경보선. 서버 응답의 증설 임계를 그대로 받는다. 판정은 서버 advice가 내리고 선은 판독 보조다 */
+  cpuMark: number;
 }) {
   return (
     <div className={styles.nodeStrip}>
@@ -89,14 +99,14 @@ export default function NodeStrip({
                       <MeterRail
                         value={n.cpuRatio}
                         max={1}
-                        threshold={CPU_MARK}
-                        tone={n.cpuRatio >= CPU_MARK ? "warning" : undefined}
+                        threshold={cpuMark}
+                        tone={n.cpuRatio >= cpuMark ? "warning" : undefined}
                       />
                     </span>
                   )}
                 </span>
                 <span className={`${styles.nodeStripValue} num`}>{pct(heap)}</span>
-                <span className={`${styles.nodeStripValue} num`}>{rps === null ? "측정 중" : count(rps, "건")}</span>
+                <span className={`${styles.nodeStripValue} num`}>{requestRate(n, rps)}</span>
                 <span className={`${styles.nodeStripValue} num`}>{count(n.wsClients, "명")}</span>
               </>
             ) : (

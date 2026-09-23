@@ -78,7 +78,7 @@ export default function ConfigPage() {
       noticeCursors.current[noticePage + 1] = noticePageData.nextCursor;
       return { markets, notices: noticePageData };
     },
-    // GET 2건 합성 + 승인 목록 폴링 동거 화면. 2초 주기는 관리 레이트리밋(60건/분) 초과라 5초로 완화
+    // 주기 폴링 없이 진입·쪽 이동·조작 뒤에만 읽는다. 한 번에 GET 2건(20토큰)이고 승인 원장이 따로 돈다
     { isSessionError },
   );
   const markets: ConfigMarket[] | null = res.data?.markets ?? null;
@@ -90,7 +90,11 @@ export default function ConfigPage() {
   const moveNoticePage = (target: number) => {
     setNoticePage(target);
   };
+  // 진입 조회는 useAdminResource가 이미 낸다. 여기서 또 부르면 같은 쪽을 두 번 받는다
+  const loadedPage = useRef(noticePage);
   useEffect(() => {
+    if (loadedPage.current === noticePage) return;
+    loadedPage.current = noticePage;
     void load();
     // load는 useAdminResource가 안정 참조로 준다. noticePage 변화에만 반응한다
     // eslint-disable-next-line react-hooks/exhaustive-deps

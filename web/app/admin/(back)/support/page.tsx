@@ -11,7 +11,7 @@ import type { AdminInquiry } from "@/lib/admin/types";
 import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import SegmentedTab from "@/components/SegmentedTab";
+import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
 import { PageHeader } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
 import { QUEUE_PAGE_SIZE } from "@/lib/admin/paging";
@@ -84,78 +84,81 @@ export default function AdminSupportPage() {
       />
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" />
+        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="상태 필터" panelId="inquiries-panel" />
       </div>
 
       <PanelCard title="문의 목록">
-        {res.error ? (
-          <AdminErrorState reason={res.errorReason} onRetry={() => void res.reload()} />
-        ) : res.data === null ? (
-          <Skeleton variant="card" width="100%" height={240} />
-        ) : rows.length === 0 ? (
-          <div className="empty-state empty-state--compact">
-            <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-            <span className="empty-state__title">
-              {status === "OPEN" ? "대기 중인 문의 없음" : "답변한 문의 없음"}
-            </span>
-          </div>
-        ) : (
-          <ol className={styles.inquiryList}>
-            {rows.map((row) => (
-              <li key={row.externalId} className={styles.inquiryItem}>
-                <div className={styles.inquiryMeta}>
-                  <span className={styles.categoryChip}>{CATEGORY_LABEL[row.category]}</span>
-                  <span className={styles.auditNs}>{row.userEmail}</span>
-                  <time className={`${styles.inquiryTime} num`} dateTime={new Date(row.createdAt).toISOString()}>
-                    {formatTimeHMS(new Date(row.createdAt).toISOString())}
-                  </time>
-                </div>
-                <h3 className={styles.inquiryTitle}>{row.title}</h3>
-                <p className={styles.inquiryBody}>{row.body}</p>
-
-                {row.status === "ANSWERED" ? (
-                  <div className={styles.inquiryAnswer}>
-                    <span className={styles.inquiryAnswerLabel}>등록된 답변</span>
-                    <p className={styles.inquiryAnswerBody}>{row.answer}</p>
+        {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
+        <div role="tabpanel" id="inquiries-panel" aria-labelledby={segmentedTabId("inquiries-panel", status)} tabIndex={0}>
+          {res.error ? (
+            <AdminErrorState reason={res.errorReason} onRetry={() => void res.reload()} />
+          ) : res.data === null ? (
+            <Skeleton variant="card" width="100%" height={240} />
+          ) : rows.length === 0 ? (
+            <div className="empty-state empty-state--compact">
+              <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+              <span className="empty-state__title">
+                {status === "OPEN" ? "대기 중인 문의 없음" : "답변한 문의 없음"}
+              </span>
+            </div>
+          ) : (
+            <ol className={styles.inquiryList}>
+              {rows.map((row) => (
+                <li key={row.externalId} className={styles.inquiryItem}>
+                  <div className={styles.inquiryMeta}>
+                    <span className={styles.categoryChip}>{CATEGORY_LABEL[row.category]}</span>
+                    <span className={styles.auditNs}>{row.userEmail}</span>
+                    <time className={`${styles.inquiryTime} num`} dateTime={new Date(row.createdAt).toISOString()}>
+                      {formatTimeHMS(new Date(row.createdAt).toISOString())}
+                    </time>
                   </div>
-                ) : (
-                  <div className={styles.answerForm}>
-                    <label className={styles.answerField}>
-                      <span className="sr-only">답변 내용</span>
-                      <textarea
-                        className={`focus-ring-owner ${styles.answerInput}`}
-                        value={drafts[row.externalId] ?? ""}
-                        onChange={(e) =>
-                          setDrafts((d) => ({ ...d, [row.externalId]: e.target.value }))
-                        }
-                        maxLength={MAX_ANSWER}
-                        rows={4}
-                        placeholder="사용자에게 그대로 표시됨"
-                        disabled={busyId === row.externalId}
-                      />
-                    </label>
-                    <div className={styles.answerActions}>
-                      <span className={`${styles.answerCount} num`}>
-                        {(drafts[row.externalId] ?? "").trim().length} / {MAX_ANSWER}
-                      </span>
-                      <button
-                        type="button"
-                        className="btn btn--primary"
-                        onClick={() => void submit(row)}
-                        disabled={!(drafts[row.externalId] ?? "").trim() || busyId === row.externalId}
-                        aria-busy={busyId === row.externalId}
-                      >
-                        {busyId === row.externalId ? "등록 중" : "답변 등록"}
-                      </button>
+                  <h3 className={styles.inquiryTitle}>{row.title}</h3>
+                  <p className={styles.inquiryBody}>{row.body}</p>
+
+                  {row.status === "ANSWERED" ? (
+                    <div className={styles.inquiryAnswer}>
+                      <span className={styles.inquiryAnswerLabel}>등록된 답변</span>
+                      <p className={styles.inquiryAnswerBody}>{row.answer}</p>
                     </div>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ol>
-        )}
+                  ) : (
+                    <div className={styles.answerForm}>
+                      <label className={styles.answerField}>
+                        <span className="sr-only">답변 내용</span>
+                        <textarea
+                          className={`focus-ring-owner ${styles.answerInput}`}
+                          value={drafts[row.externalId] ?? ""}
+                          onChange={(e) =>
+                            setDrafts((d) => ({ ...d, [row.externalId]: e.target.value }))
+                          }
+                          maxLength={MAX_ANSWER}
+                          rows={4}
+                          placeholder="사용자에게 그대로 표시됨"
+                          disabled={busyId === row.externalId}
+                        />
+                      </label>
+                      <div className={styles.answerActions}>
+                        <span className={`${styles.answerCount} num`}>
+                          {(drafts[row.externalId] ?? "").trim().length} / {MAX_ANSWER}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn--primary"
+                          onClick={() => void submit(row)}
+                          disabled={!(drafts[row.externalId] ?? "").trim() || busyId === row.externalId}
+                          aria-busy={busyId === row.externalId}
+                        >
+                          {busyId === row.externalId ? "등록 중" : "답변 등록"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
 
-        <Pager page={page} hasMore={hasMore} onMove={move} ariaLabel="문의 큐 쪽 이동" />
+          <Pager page={page} hasMore={hasMore} onMove={move} ariaLabel="문의 큐 쪽 이동" />
+        </div>
       </PanelCard>
     </div>
   );

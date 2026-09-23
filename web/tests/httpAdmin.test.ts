@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { HttpAdminApi } from "../lib/admin/httpAdmin";
 import { AdminError } from "../lib/admin/api";
 import { aggregateVerdict } from "../lib/admin/simAdmin";
+import { SCHEDULED_INVARIANTS } from "../lib/admin/invariants";
 import type { ApprovalPayload, IssuedApproval, RecoveryRun } from "../lib/admin/types";
 
 interface FakeResInit {
@@ -451,6 +452,121 @@ test("source 없는 구 서버 응답도 미보고로 읽는다", async () => {
       assert.equal(s.source, "unknown");
       assert.equal(s.running, null);
       assert.equal(s.markets, null);
+    },
+  );
+});
+
+/* ===== 종합 요약 합성(getOverview) ===== */
+
+interface OverviewFixture {
+  leaderAlive?: boolean;
+  checks?: { check_name: string; ok: boolean }[];
+  approvals?: { approval_id: number; expires_at: string }[];
+}
+
+/** getOverview가 부르는 여섯 경로를 주소로 가려 응답한다. 순서나 동시성에 기대지 않는다 */
+function withOverview(fx: OverviewFixture, run: (api: HttpAdminApi, paths: string[]) => Promise<void>): Promise<void> {
+  const prev = globalThis.fetch;
+  const paths: string[] = [];
+  const body = (url: string): unknown => {
+    const path = new URL(url).pathname;
+    paths.push(path);
+    switch (path) {
+      case "/admin/v1/ha/status":
+        return { lease: { holder: "app-1", epoch: 7, leader_alive: fx.leaderAlive ?? true }, command_watermark: 10, trades_count: 3 };
+      case "/admin/v1/ha/invariants":
+        return {
+          schema_version: "1.0",
+          checks: (fx.checks ?? SCHEDULED_INVARIANTS.map((n) => ({ check_name: n, ok: true }))).map((c) => ({
+            ...c,
+            violated_rows: c.ok ? 0 : 2,
+            checked_at: "2026-09-23T00:00:00.000Z",
+          })),
+        };
+      case "/admin/v1/sim/status":
+        return { schema_version: "1.3", fleet_present: false, source: "unknown", trade_flash: "normal" };
+      case "/admin/v1/config/markets":
+        return { data: [{ market: "KRW-BTC", status: "HALTED" }, { market: "KRW-ETH", status: "ACTIVE" }] };
+      case "/admin/v1/ha/recovery":
+        return {
+          schema_version: "1.2",
+          verdict: { scope: "all", replay_deterministic: "PASS", failover_ok: "UNKNOWN", overall: "UNKNOWN" },
+          recovery_runs: [],
+          failover_runs: [],
+        };
+      case "/admin/v1/approvals":
+        return {
+          data: (fx.approvals ?? []).map((a) => ({
+            ...a,
+            action: "config.market.halt",
+            target: "KRW-BTC",
+            requester_operator_id: "op-01",
+            approver_operator_id: "op-01",
+            state: "ISSUED",
+            issued_at: "2026-09-23T00:00:00.000Z",
+          })),
+          pagination: { has_more: false },
+        };
+      default:
+        throw new Error(`예상 밖 경로 ${path}`);
+    }
+  };
+  globalThis.fetch = (async (input: unknown) => fakeRes({ status: 200, body: body(String(input)) })) as typeof fetch;
+  return run(new HttpAdminApi("http://admin.test"), paths).finally(() => {
+    globalThis.fetch = prev;
+  });
+}
+
+test("종합: 리더 생존과 정기 검사 전부 통과면 정상이고 합성 여섯 경로를 한 번씩 읽는다", async () => {
+  await withOverview({}, async (api, paths) => {
+    const ov = await api.getOverview();
+    assert.equal(ov.overallHealth, "success");
+    assert.equal(ov.invariants.state, "PASS");
+    assert.equal(ov.invariants.ok, SCHEDULED_INVARIANTS.length);
+    assert.equal(ov.leaderNodeId, "app-1");
+    assert.equal(ov.epoch, 7);
+    assert.equal(ov.suspendedMarkets, 1);
+    // 봇 노드 미보고를 0대로 눕히지 않는다
+    assert.equal(ov.botsActive, null);
+    assert.equal(ov.lastVerdict, "UNKNOWN");
+    assert.equal(paths.length, 6);
+    assert.equal(new Set(paths).size, 6);
+  });
+});
+
+test("종합: 리더 리스가 죽었으면 장애다", async () => {
+  await withOverview({ leaderAlive: false }, async (api) => {
+    assert.equal((await api.getOverview()).overallHealth, "danger");
+  });
+});
+
+test("종합: 검사 위반은 장애이고 정기 검사가 빠졌으면 주의다", async () => {
+  const violated = SCHEDULED_INVARIANTS.map((n, i) => ({ check_name: n, ok: i !== 0 }));
+  await withOverview({ checks: violated }, async (api) => {
+    const ov = await api.getOverview();
+    assert.equal(ov.invariants.state, "VIOLATED");
+    assert.equal(ov.overallHealth, "danger");
+  });
+  const partial = SCHEDULED_INVARIANTS.slice(1).map((n) => ({ check_name: n, ok: true }));
+  await withOverview({ checks: partial }, async (api) => {
+    const ov = await api.getOverview();
+    assert.equal(ov.invariants.state, "PARTIAL");
+    assert.equal(ov.overallHealth, "warning");
+  });
+  await withOverview({ checks: [] }, async (api) => {
+    const ov = await api.getOverview();
+    assert.equal(ov.invariants.state, "NONE", "빈 표는 통과가 아니다");
+    assert.equal(ov.overallHealth, "warning");
+  });
+});
+
+test("종합: TTL이 지난 발급분은 대기 승인으로 세지 않는다", async () => {
+  const future = new Date(Date.now() + 300_000).toISOString();
+  const past = new Date(Date.now() - 1_000).toISOString();
+  await withOverview(
+    { approvals: [{ approval_id: 1, expires_at: future }, { approval_id: 2, expires_at: past }] },
+    async (api) => {
+      assert.equal((await api.getOverview()).pendingApprovals, 1);
     },
   );
 });

@@ -91,7 +91,8 @@ export interface AdminApi {
   /* ===== 모니터링(§2-3, 읽기 전용) ===== */
   getOverview(): Promise<AdminOverview>;
   getHaStatus(): Promise<HaStatus>;
-  getRecovery(): Promise<HaRecovery>;
+  /** since(ISO-8601)를 주면 판정과 행을 그 시각 이후로 좁힌다(API§6-C). 없으면 전체 이력이다 */
+  getRecovery(since?: string): Promise<HaRecovery>;
   getInvariants(): Promise<InvariantCheck[]>;
 
   /* ===== 용량(ADR 0015 수동 스케일링) =====

@@ -9,7 +9,9 @@
  */
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import type { AdminNavGroup } from "@/lib/admin/nav";
+import { usePageTitle } from "@/components/PageTitle";
 import AdminSidebar from "./AdminSidebar";
 import OperatorBar from "./OperatorBar";
 import styles from "./admin.module.css";
@@ -25,6 +27,13 @@ export default function AdminShell({
   crossLink: { href: string; label: string };
   children: ReactNode;
 }) {
+  // 관리 화면은 전부 클라이언트 페이지라 metadata로 제목을 못 단다. 내비 이름을 탭 제목으로 쓴다
+  const pathname = usePathname();
+  const current = groups
+    .flatMap((g) => g.items)
+    .find((n) => (n.exact ? pathname === n.href : pathname === n.href || pathname.startsWith(`${n.href}/`)));
+  usePageTitle(`${current?.label ?? title} · 관리 콘솔`);
+
   return (
     <div className={styles.shell}>
       {/* 전역 #main은 셸 전체를 감싸는 앵커라 관리 평면에서는 아무것도 건너뛰지 못한다.

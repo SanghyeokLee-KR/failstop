@@ -193,8 +193,9 @@ function wireBinding(payload: ApprovalPayload): { action: string; target: string
 
 /**
  * 원장의 바인딩 action -> 콘솔 의미 액션 역매핑.
- * 감사 원장은 append-only라 폐기한 카오스 행이 과거 기록으로 남는다. 그 행은 콘솔 액션으로
- * 되돌릴 수 없으므로 폴백으로 흘리고, 화면은 용어집(glossary)이 원문 코드를 풀어 보여 준다.
+ * 서버에는 콘솔 화면이 없는 승인 action(chaos.* 등)도 있다. 그 행은 콘솔 액션으로 되돌릴 수
+ * 없어 폴백으로 흘린다. 승인 목록은 실행 대기(ISSUED)만 읽으므로 그런 행이 목록에 오르는 것은
+ * 콘솔 밖에서 발급한 경우뿐이고, 그때 목록 라벨은 폴백 액션 이름으로 보인다.
  */
 function consoleAction(wireAction: string): DestructiveAction {
   switch (wireAction) {
@@ -894,8 +895,9 @@ export class HttpAdminApi implements AdminApi {
       this.getConfigMarkets(),
       this.getRecovery(),
       // 종합 상태의 대기 건수는 첫 쪽 기준이다. 500건을 넘겨 대기 중인 승인은 이미
-      // 종합 카드가 아니라 승인 화면에서 다뤄야 할 상태다
-      this.listApprovals("ISSUED").then((r) => r.data.length),
+      // 종합 카드가 아니라 승인 화면에서 다뤄야 할 상태다. 서버는 TTL이 지난 발급분도 ISSUED로
+      // 돌려주고 listApprovals가 그것을 EXPIRED로 파생하므로, 실행할 수 없는 행은 세지 않는다
+      this.listApprovals("ISSUED").then((r) => r.data.filter((a) => a.state === "ISSUED").length),
     ]);
     const invariants = summarizeInvariants(inv);
     // 위반은 danger, 미수집·부분수집은 warning이다. 미판정을 통과로 칠하지 않는다
@@ -967,11 +969,12 @@ export class HttpAdminApi implements AdminApi {
     };
   }
 
-  async getRecovery(): Promise<HaRecovery> {
+  async getRecovery(since?: string): Promise<HaRecovery> {
     // 서버는 결정적 재현(recovery_runs)과 장애조치 드릴(failover_runs)을 분리한다. 복구 표는
     // recovery_runs를 행으로 매핑하고, RTO 수치는 failover_runs 최신 1건을 쓴다. 판정은 다르다.
-    // 서버 verdict 객체가 표 전체 집계라 그것을 읽는다(아래).
-    const res = await this.http<WireRecovery>("/admin/v1/ha/recovery");
+    // 서버 verdict 객체가 표 전체(또는 since 창) 집계라 그것을 읽는다(아래).
+    const q = since ? `?${new URLSearchParams({ since })}` : "";
+    const res = await this.http<WireRecovery>(`/admin/v1/ha/recovery${q}`);
     const runs: RecoveryRun[] = (res.recovery_runs ?? []).map((r, i) => {
       const matched = r.matched === true;
       return {

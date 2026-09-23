@@ -17,7 +17,7 @@
 
 import { useCallback } from "react";
 import Link from "next/link";
-import { AdminError, getAdminApi } from "@/lib/admin/api";
+import { getAdminApi } from "@/lib/admin/api";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
 import { PageHeader, StatTile } from "@/components/admin/ui";
@@ -25,21 +25,16 @@ import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { AdminIcon, type AdminIconName } from "@/components/admin/icons";
-import { QUEUE_COUNT_CAP, countLabel } from "@/lib/admin/paging";
+import { countLabel } from "@/lib/admin/paging";
+import { isSessionError, loadQueueCounts, type QueueCount, type QueueCounts } from "@/lib/admin/queueCounts";
+import { sourceWord } from "@/components/admin/SourceMark";
 import styles from "@/components/admin/admin.module.css";
 
-const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
-
-/** 세어 본 만큼의 건수. 상한을 채웠으면 그 이상이라는 사실을 함께 든다 */
-interface QueueCount {
-  loaded: number;
-  hasMore: boolean;
-}
-
-interface QueueCounts {
-  transfers: QueueCount;
-  inquiries: QueueCount;
-  reports: QueueCount;
+/** 타일 값. 권한 거절과 읽기 실패를 0건과 다른 말로 적는다 */
+function queueTile(q: QueueCount, sub: string): { value: string; unit?: string; sub: string; tone?: "warning" } {
+  if (q.kind === "ok") return { value: countLabel(q.loaded, q.hasMore), unit: "건", sub };
+  if (q.kind === "forbidden") return { value: "권한 없음", sub: "이 운영자 역할로는 조회 불가" };
+  return { value: sourceWord("MISSING"), sub: "새로고침으로 다시 읽기", tone: "warning" };
 }
 
 /**
@@ -55,22 +50,11 @@ const DESKS: { href: string; label: string; desc: string; icon: AdminIconName }[
 ];
 
 export default function BackOfficeHome() {
-  const load = useCallback(async (): Promise<QueueCounts> => {
-    const api = getAdminApi();
-    /* 서버에 개수 API가 없어 첫 쪽 길이로 센다. 상한을 채우면 그 이상이라고 적는다.
-       종전에는 상한이 그대로 건수가 되어, 대기가 그 수를 넘은 순간부터 카드가 조용히
-       같은 수를 계속 띄웠다. 세어 본 범위 밖을 없는 것으로 적지 않는다 */
-    const [t, i, r] = await Promise.all([
-      api.getTransfers("REQUESTED", { limit: QUEUE_COUNT_CAP }),
-      api.getInquiries("OPEN", { limit: QUEUE_COUNT_CAP }),
-      api.getCommunityReports("PENDING", { limit: QUEUE_COUNT_CAP }),
-    ]);
-    const count = (p: { data: unknown[]; hasMore: boolean }): QueueCount => ({
-      loaded: p.data.length,
-      hasMore: p.hasMore,
-    });
-    return { transfers: count(t), inquiries: count(i), reports: count(r) };
-  }, []);
+  /* 서버에 개수 API가 없어 첫 쪽 길이로 센다. 상한을 채우면 그 이상이라고 적는다.
+     종전에는 상한이 그대로 건수가 되어, 대기가 그 수를 넘은 순간부터 카드가 조용히
+     같은 수를 계속 띄웠다. 세어 본 범위 밖을 없는 것으로 적지 않는다.
+     큐별 권한 거절과 세션 만료의 판정은 loadQueueCounts에 두고 시험한다 */
+  const load = useCallback((): Promise<QueueCounts> => loadQueueCounts(getAdminApi()), []);
 
   const { data, loading, error, errorReason, stale, lastUpdatedAt, reload } = useAdminResource(load, {
     isSessionError,
@@ -99,31 +83,13 @@ export default function BackOfficeHome() {
         <div className={`${styles.pageStack} ${styles.staleRegion}`} data-stale={stale ? "" : undefined}>
           <div className={styles.kpiGrid} data-cols="3">
             <Link href="/admin/transfers" className={styles.railLink}>
-              <StatTile
-                compact
-                label="출금 승인"
-                value={countLabel(data.transfers.loaded, data.transfers.hasMore)}
-                unit="건"
-                sub="승인 시 잠긴 금액 출금"
-              />
+              <StatTile compact label="출금 승인" {...queueTile(data.transfers, "승인 시 잠긴 금액 출금")} />
             </Link>
             <Link href="/admin/support" className={styles.railLink}>
-              <StatTile
-                compact
-                label="문의 답변"
-                value={countLabel(data.inquiries.loaded, data.inquiries.hasMore)}
-                unit="건"
-                sub="답변은 회원 화면에 그대로 표시"
-              />
+              <StatTile compact label="문의 답변" {...queueTile(data.inquiries, "답변은 회원 화면에 그대로 표시")} />
             </Link>
             <Link href="/admin/community" className={styles.railLink}>
-              <StatTile
-                compact
-                label="커뮤니티 신고"
-                value={countLabel(data.reports.loaded, data.reports.hasMore)}
-                unit="건"
-                sub="대상 처리와 신고 종결"
-              />
+              <StatTile compact label="커뮤니티 신고" {...queueTile(data.reports, "대상 처리와 신고 종결")} />
             </Link>
           </div>
 

@@ -18,7 +18,7 @@ import type {
 import Pager from "@/components/Pager";
 import PanelCard from "@/components/PanelCard";
 import Skeleton from "@/components/Skeleton";
-import SegmentedTab from "@/components/SegmentedTab";
+import SegmentedTab, { segmentedTabId } from "@/components/SegmentedTab";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { PageHeader, PermissionNote } from "@/components/admin/ui";
 import { useCursorPages } from "@/components/admin/useCursorPages";
@@ -147,75 +147,78 @@ export default function AdminCommunityPage() {
       {!canMod && <PermissionNote>회원 운영 권한(MEMBER_MOD 이상) 없음. 조회만 가능</PermissionNote>}
 
       <div className={styles.transferTabs}>
-        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="신고 상태 필터" />
+        <SegmentedTab items={TABS} value={status} onChange={setStatus} ariaLabel="신고 상태 필터" panelId="reports-panel" />
       </div>
 
       <PanelCard title="신고 목록">
-        {res.error ? (
-          <AdminErrorState reason={res.errorReason} onRetry={() => void res.reload()} />
-        ) : res.data === null ? (
-          <Skeleton variant="card" width="100%" height={240} />
-        ) : rows.length === 0 ? (
-          <div className="empty-state empty-state--compact">
-            <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
-            <span className="empty-state__title">{EMPTY_LABEL[status]}</span>
-          </div>
-        ) : (
-          <ol className={styles.inquiryList}>
-            {rows.map((row) => {
-              const terminal = row.targetStatus === "DELETED";
-              return (
-                <li key={row.reportId} className={styles.inquiryItem}>
-                  <div className={styles.inquiryMeta}>
-                    <span className={styles.categoryChip}>{REASON_LABEL[row.reason]}</span>
-                    <span className={styles.auditNs}>{TYPE_LABEL[row.targetType]}</span>
-                    {row.targetStatus && (
-                      <span className={styles.neutralPill}>{TARGET_LABEL[row.targetStatus]}</span>
-                    )}
-                    {row.targetAuthor && <span className={styles.auditNs}>{row.targetAuthor}</span>}
-                    <time className={`${styles.inquiryTime} num`} dateTime={new Date(row.createdAt).toISOString()}>
-                      {formatTimeHMS(new Date(row.createdAt).toISOString())}
-                    </time>
-                  </div>
-
-                  {/* 신고당한 원문이 판단의 근거다. 사유만 보여주면 눈 감고 처리하게 된다 */}
-                  <h3 className={styles.inquiryTitle}>
-                    {row.targetExcerpt ?? "대상 원문을 불러오지 못함"}
-                  </h3>
-                  {row.detail && <p className={styles.inquiryBody}>신고 사유: {row.detail}</p>}
-
-                  {status === "PENDING" && (
-                    <div className={styles.answerActions}>
-                      {terminal && (
-                        <span className={styles.formHelp}>이미 삭제된 대상. 종결만 가능</span>
+        {/* 필터 탭이 고르는 영역이다. 탭만 있고 패널이 없으면 낭독이 무엇을 바꿨는지 잇지 못한다 */}
+        <div role="tabpanel" id="reports-panel" aria-labelledby={segmentedTabId("reports-panel", status)} tabIndex={0}>
+          {res.error ? (
+            <AdminErrorState reason={res.errorReason} onRetry={() => void res.reload()} />
+          ) : res.data === null ? (
+            <Skeleton variant="card" width="100%" height={240} />
+          ) : rows.length === 0 ? (
+            <div className="empty-state empty-state--compact">
+              <span className="empty-state__mark empty-state__mark--sm" aria-hidden="true" />
+              <span className="empty-state__title">{EMPTY_LABEL[status]}</span>
+            </div>
+          ) : (
+            <ol className={styles.inquiryList}>
+              {rows.map((row) => {
+                const terminal = row.targetStatus === "DELETED";
+                return (
+                  <li key={row.reportId} className={styles.inquiryItem}>
+                    <div className={styles.inquiryMeta}>
+                      <span className={styles.categoryChip}>{REASON_LABEL[row.reason]}</span>
+                      <span className={styles.auditNs}>{TYPE_LABEL[row.targetType]}</span>
+                      {row.targetStatus && (
+                        <span className={styles.neutralPill}>{TARGET_LABEL[row.targetStatus]}</span>
                       )}
-                      {DECISIONS.filter((d) => !(terminal && d.moderation)).map((d) => (
-                        <button
-                          key={d.key}
-                          type="button"
-                          className={styles.neutralBtn}
-                          disabled={!canMod || busyId !== null}
-                          aria-busy={busyId === row.reportId}
-                          onClick={() => onPick(row, d)}
-                        >
-                          {d.label}
-                        </button>
-                      ))}
+                      {row.targetAuthor && <span className={styles.auditNs}>{row.targetAuthor}</span>}
+                      <time className={`${styles.inquiryTime} num`} dateTime={new Date(row.createdAt).toISOString()}>
+                        {formatTimeHMS(new Date(row.createdAt).toISOString())}
+                      </time>
                     </div>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        )}
 
-        <Pager
-          page={page}
-          hasMore={hasMore}
-          onMove={move}
-          ariaLabel="신고 큐 쪽 이동"
-          busy={busyId !== null}
-        />
+                    {/* 신고당한 원문이 판단의 근거다. 사유만 보여주면 눈 감고 처리하게 된다 */}
+                    <h3 className={styles.inquiryTitle}>
+                      {row.targetExcerpt ?? "대상 원문을 불러오지 못함"}
+                    </h3>
+                    {row.detail && <p className={styles.inquiryBody}>신고 사유: {row.detail}</p>}
+
+                    {status === "PENDING" && (
+                      <div className={styles.answerActions}>
+                        {terminal && (
+                          <span className={styles.formHelp}>이미 삭제된 대상. 종결만 가능</span>
+                        )}
+                        {DECISIONS.filter((d) => !(terminal && d.moderation)).map((d) => (
+                          <button
+                            key={d.key}
+                            type="button"
+                            className={styles.neutralBtn}
+                            disabled={!canMod || busyId !== null}
+                            aria-busy={busyId === row.reportId}
+                            onClick={() => onPick(row, d)}
+                          >
+                            {d.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+
+          <Pager
+            page={page}
+            hasMore={hasMore}
+            onMove={move}
+            ariaLabel="신고 큐 쪽 이동"
+            busy={busyId !== null}
+          />
+        </div>
       </PanelCard>
 
       {pendingDelete && (

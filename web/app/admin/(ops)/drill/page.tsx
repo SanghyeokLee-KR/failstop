@@ -12,15 +12,17 @@
  * 그 대본을 고르면 서버 호출이 0이다. 화면이 전부를 매번 읽으면 관리 버킷이 거기서 샌다.
  *
  * 주행을 켜야 빨리 읽는다. 평시 30초, 주행 중 3초다. 시연 구간에만 고빈도를 쓴다는
- * 규칙을 사람이 켜고 끄는 스위치로 만든 것이다. 주행 기록도 이 스위치가 연다.
+ * 규칙을 사람이 켜고 끄는 스위치로 만든 것이다. 주행 기록도 이 스위치가 연다. 주행을
+ * 켤 때마다 새 주행이 시작되고 그 시각 이후에 요청한 관측만 기록된다.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import {
   DRILLS,
   evaluateDrill,
   type DrillDef,
+  type DrillRun,
   type DrillSignals,
   type DrillStep,
 } from "@/lib/admin/drills";
@@ -39,62 +41,63 @@ import styles from "@/components/admin/admin.module.css";
 const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jwt_verification";
 
 const EMPTY: DrillSignals = { cap: null, sim: null, ha: null, rec: null };
-/** 빈 기록 참조를 고정한다. 매 렌더 새 객체를 주면 판정이 계속 다시 돈다 */
-const EMPTY_RECORD: Record<string, string> = {};
+
+/** 한 번의 왕복. 요청을 낸 시각을 함께 들어야 주행 시작 전에 출발한 응답을 가른다 */
+interface DrillSample {
+  signals: DrillSignals;
+  requestedAt: string;
+}
 
 export default function DrillPage() {
   const api = getAdminApi();
   const [drillId, setDrillId] = useState(DRILLS[0].id);
-  const [running, setRunning] = useState(false);
+  // 주행 중인 대본. 탭을 바꾸면 그 대본은 주행 중이 아니고 돌아오면 같은 주행이 이어진다
+  const [runningId, setRunningId] = useState<string | null>(null);
   const [actBusy, setActBusy] = useState<string | null>(null);
   const def = useMemo(() => DRILLS.find((d) => d.id === drillId) ?? DRILLS[0], [drillId]);
+  const running = runningId === def.id;
   const canOps = useCan("BOT_OPS");
   const canScale = useCan("SUPER");
+
+  // 주행 기록. 대본마다 따로 둔다. 저장하지 않으므로 새로 고치면 비어 있다
+  const [runs, setRuns] = useState<Record<string, DrillRun>>({});
+  const run = runs[def.id] ?? null;
+  const since = run?.since;
 
   // 대본이 읽는 축만 부른다. needs가 비면 왕복이 하나도 나가지 않는다
   const needs = def.needs;
   // 배열을 의존으로 두면 매 렌더 새 참조라 폴러가 계속 다시 붙는다. 문자열로 좁힌다
   const needKey = needs.join(",");
-  const load = useCallback(async (): Promise<DrillSignals> => {
+  const load = useCallback(async (): Promise<DrillSample> => {
+    const requestedAt = new Date().toISOString();
     const want = needKey.length > 0 ? needKey.split(",") : [];
     const [cap, sim, ha, rec] = await Promise.all([
       want.includes("cap") ? api.getCapacity() : Promise.resolve(null),
       want.includes("sim") ? api.getSimStatus() : Promise.resolve(null),
       want.includes("ha") ? api.getHaStatus() : Promise.resolve(null),
-      want.includes("rec") ? api.getRecovery() : Promise.resolve(null),
+      // 복구 판정은 주행 시작 이후 행으로 좁힌다. 전체 이력은 앞선 실험의 행까지 센다
+      want.includes("rec") ? api.getRecovery(since) : Promise.resolve(null),
     ]);
-    return { cap, sim, ha, rec };
-  }, [api, needKey]);
+    return { signals: { cap, sim, ha, rec }, requestedAt };
+  }, [api, needKey, since]);
 
-  const res = useAdminResource<DrillSignals>(load, {
+  const res = useAdminResource<DrillSample>(load, {
     cadence: running ? "live" : "idle",
     isSessionError,
   });
 
-  const signals = res.data ?? EMPTY;
-  // 이번 주행의 충족 기록. 대본마다 따로 둔다. 저장하지 않으므로 새로 고치면 비어 있다
-  const [metAt, setMetAt] = useState<Record<string, Record<string, string>>>({});
-  const mine = metAt[def.id] ?? EMPTY_RECORD;
-  const ev = useMemo(() => evaluateDrill(def, signals, mine), [def, signals, mine]);
+  const signals = res.data?.signals ?? EMPTY;
+  // 주행을 멈춘 뒤의 관측은 기록 후보도 아니다. 넘기면 기록되지 않은 충족에 시각 도장이 찍힌다
+  const observedAt = running ? res.data?.requestedAt ?? null : null;
+  const ev = useMemo(() => evaluateDrill(def, signals, run, observedAt), [def, signals, run, observedAt]);
 
-  const runningRef = useRef(running);
-  runningRef.current = running;
   useEffect(() => {
-    if (!runningRef.current) return;
-    const now = new Date().toISOString();
-    setMetAt((prev) => {
-      const cur = prev[def.id] ?? {};
-      let changed = false;
-      const next = { ...cur };
-      def.steps.forEach((step, i) => {
-        if (ev.raw[i].state === "MET" && next[step.id] === undefined) {
-          next[step.id] = now;
-          changed = true;
-        }
-      });
-      return changed ? { ...prev, [def.id]: next } : prev;
-    });
-  }, [def, ev]);
+    if (!running || run === null || Object.keys(ev.fresh).length === 0) return;
+    // 판정에 쓴 주행이 그대로일 때만 더한다. 그새 새 주행이 시작됐으면 옛 관측을 싣지 않는다
+    setRuns((prev) =>
+      prev[def.id] === run ? { ...prev, [def.id]: { ...run, steps: { ...run.steps, ...ev.fresh } } } : prev,
+    );
+  }, [running, run, ev, def.id]);
 
   const act = async (step: DrillStep) => {
     if (!step.act) return;
@@ -129,8 +132,25 @@ export default function DrillPage() {
     step.act ? (step.act.kind === "OPS" ? canOps : canScale) : false;
   const anyActLocked = def.steps.some((s) => s.act && !actAllowed(s));
 
+  const startRun = (): DrillRun => ({ since: new Date().toISOString(), steps: {} });
+
+  const toggleRun = () => {
+    if (running) {
+      setRunningId(null);
+      return;
+    }
+    setRuns((prev) => ({ ...prev, [def.id]: startRun() }));
+    setRunningId(def.id);
+  };
+
   const resetRun = () => {
-    setMetAt((prev) => ({ ...prev, [def.id]: {} }));
+    setRuns((prev) => {
+      const next = { ...prev };
+      if (running) next[def.id] = startRun();
+      else delete next[def.id];
+      return next;
+    });
+    if (running) res.reload();
     toast("주행 기록 초기화", "info");
   };
 
@@ -192,7 +212,7 @@ export default function DrillPage() {
                     <button
                       type="button"
                       className={running ? "btn" : styles.primaryBtn}
-                      onClick={() => setRunning((v) => !v)}
+                      onClick={toggleRun}
                     >
                       {running ? "주행 종료" : "주행 시작"}
                     </button>
@@ -225,7 +245,8 @@ export default function DrillPage() {
             <DrillStepper
               def={def}
               checks={ev.checks}
-              metAt={mine}
+              commands={ev.commands}
+              metAt={ev.metAt}
               currentIndex={ev.currentIndex}
               onAct={act}
               actAllowed={actAllowed}
