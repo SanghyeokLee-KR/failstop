@@ -103,6 +103,8 @@ export default function AdminMembersPage() {
     }
   };
 
+  /* 열 최소 폭과 열 간격(8px)의 합은 1280 폭에서 표 안쪽 940px에 들어야 한다.
+     넘치면 격자가 오른쪽 열부터 카드 밖으로 밀린다 */
   const cols: DataColumn<AdminMember>[] = [
     {
       key: "email",
@@ -178,7 +180,8 @@ export default function AdminMembersPage() {
     {
       key: "actions",
       label: "조치",
-      width: "150px",
+      // 버튼 하나(56px)만 담는다. 좌우 4px만 남긴다
+      width: "64px",
       render: (m) => {
         if (m.status === "CLOSED") return <span className={styles.auditNil}>종결</span>;
         return (
