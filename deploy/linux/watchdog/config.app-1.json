@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "watcher": "app-1",
+  "customer": "exchange",
+  "environment": "aws",
+  "fail_after": 3,
+  "recover_after": 2,
+  "remind_seconds": 3600,
+  "timeout_seconds": 5,
+  "teams_secret_file": "/etc/failstop-watchdog/teams-webhook",
+  "textfile": "/var/lib/failstop-watchdog/textfile/failstop_watchdog.prom",
+  "checks": [
+    {
+      "name": "grafana",
+      "type": "http",
+      "target": "bot-1",
+      "label": "Grafana 헬스",
+      "url": "http://172.31.44.141:3000/grafana/api/health",
+      "expect_json": {"database": "ok"}
+    },
+    {
+      "name": "reporting",
+      "type": "http",
+      "target": "bot-1",
+      "label": "보고 서비스 헬스",
+      "url": "http://172.31.44.141:9088/health",
+      "expect_json": {"status": "ok"}
+    },
+    {
+      "name": "prometheus",
+      "type": "http",
+      "target": "bot-1",
+      "label": "Prometheus 준비 상태",
+      "enabled": false,
+      "note": "bot-1 Prometheus의 사설 주소 listen과 봇 SG 9090(앱 SG 출발) 추가를 사용자가 승인한 뒤에만 켠다.",
+      "url": "http://172.31.44.141:9090/-/ready"
+    }
+  ]
+}

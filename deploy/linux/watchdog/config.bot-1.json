@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "watcher": "bot-1",
+  "customer": "exchange",
+  "environment": "aws",
+  "fail_after": 3,
+  "recover_after": 2,
+  "remind_seconds": 3600,
+  "timeout_seconds": 5,
+  "teams_secret_file": "/etc/failstop-watchdog/teams-webhook",
+  "textfile": "/var/lib/failstop-watchdog/textfile/failstop_watchdog.prom",
+  "checks": [
+    {
+      "name": "prometheus",
+      "type": "http",
+      "target": "bot-1",
+      "label": "Prometheus 준비 상태",
+      "url": "http://127.0.0.1:9090/-/ready"
+    },
+    {
+      "name": "alert_pipeline",
+      "type": "alertmanager_watchdog",
+      "target": "bot-1",
+      "label": "경보 경로 Watchdog",
+      "url": "http://127.0.0.1:9093",
+      "labels": {"customer": "exchange", "environment": "aws"}
+    },
+    {
+      "name": "report_queue",
+      "type": "report_queue",
+      "target": "bot-1",
+      "label": "보고 전송 대기열",
+      "url": "http://172.31.44.141:9088/metrics",
+      "token_file": "/etc/failstop/reporter-token",
+      "max_dead": 0,
+      "max_pending_seconds": 1800,
+      "require_delivery": true
+    },
+    {
+      "name": "daily_report",
+      "type": "daily_report",
+      "target": "bot-1",
+      "label": "09:00 일일 보고",
+      "url": "http://172.31.44.141:9088/metrics",
+      "token_file": "/etc/failstop/reporter-token",
+      "timer": "failstop-reporting-daily.timer",
+      "service": "failstop-reporting-daily.service"
+    },
+    {
+      "name": "market_bot",
+      "type": "systemd_active",
+      "target": "bot-1",
+      "label": "시장 봇 서비스",
+      "unit": "exchange-bot.service",
+      "context_unit": "exchange-bot-capacity.service"
+    },
+    {
+      "name": "public_site",
+      "type": "https_site",
+      "target": "app-1",
+      "label": "공개 HTTPS(bot-1에서 확인)",
+      "url": "https://www.sang.it.kr/api/v1/markets",
+      "min_cert_days": 14
+    }
+  ]
+}

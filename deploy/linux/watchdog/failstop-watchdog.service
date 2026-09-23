@@ -1,0 +1,29 @@
+[Unit]
+Description=Failstop observability watchdog (one run)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=failstop-watchdog
+Group=failstop-watchdog
+ExecStart=/usr/bin/python3 /opt/failstop-watchdog/failstop_watchdog.py run --config /etc/failstop-watchdog/config.json --state /var/lib/failstop-watchdog/state.json
+# 웹훅은 root 0600 파일에 두고 systemd가 이 실행에만 읽기 전용 사본으로 전달한다.
+LoadCredential=teams-webhook:/etc/failstop-watchdog/teams-webhook
+StateDirectory=failstop-watchdog
+StateDirectoryMode=0755
+UMask=0077
+TimeoutStartSec=110
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+# systemctl show는 D-Bus UNIX 소켓으로 unit 상태를 읽는다.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=96M
+TasksMax=16

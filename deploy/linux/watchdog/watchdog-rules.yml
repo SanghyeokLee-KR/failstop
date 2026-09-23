@@ -1,0 +1,11 @@
+# Alertmanager에 Watchdog을 watchdog-null로 보내는 경로를 먼저 넣은 뒤에만 불러온다.
+# 그 경로가 없으면 기본 teams·evidence-reporter 경로가 이 경보를 받아 Teams와 보고로 보낸다.
+groups:
+  - name: school.watchdog
+    rules:
+      - alert: Watchdog
+        expr: vector(1)
+        labels: {customer: exchange, environment: aws, severity: none, component: watchdog, role: observability}
+        annotations:
+          summary: 경보 경로 생존 신호
+          description: 항상 발화한다. bot-1 워치독이 Alertmanager API에서 존재를 확인하며 Teams로 보내지 않는다.
