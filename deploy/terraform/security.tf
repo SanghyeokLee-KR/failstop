@@ -49,14 +49,20 @@ resource "aws_vpc_security_group_ingress_rule" "cloudfront_origin" {
   to_port           = 443
 }
 
+locals {
+  # 봇은 공개 ALB를 HTTPS로 호출한다. NAT가 있으면 AZ별 NAT 주소가, 없으면 봇 노드의 공인 IPv4가
+  # 출발지다. 자동 할당 공인 IPv4는 중지 후 시작하면 바뀌므로 그때 다시 apply해 규칙을 맞춘다.
+  bot_egress_ips = var.enable_nat_gateway ? { for key, eip in aws_eip.nat : key => eip.public_ip } : { bot = aws_instance.fixed["bot"].public_ip }
+}
+
 resource "aws_vpc_security_group_ingress_rule" "bot_api" {
-  for_each          = var.enable_public_access ? local.azs : {}
+  for_each          = var.enable_public_access ? local.bot_egress_ips : {}
   security_group_id = aws_security_group.role["alb"].id
-  cidr_ipv4         = "${aws_eip.nat[each.key].public_ip}/32"
+  cidr_ipv4         = "${each.value}/32"
   ip_protocol       = "tcp"
   from_port         = 443
   to_port           = 443
-  description       = "Bot requests reach the public ALB through the private subnet NAT"
+  description       = "Bot requests reach the public ALB from its NAT or public IPv4 address"
 }
 
 resource "aws_vpc_security_group_ingress_rule" "private" {
@@ -82,5 +88,5 @@ resource "aws_vpc_security_group_egress_rule" "runtime" {
   security_group_id = aws_security_group.role[each.key].id
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "-1"
-  description       = "Private egress via same-AZ NAT for image, SSM, package and reporting endpoints"
+  description       = "Egress via same-AZ NAT or node public IPv4 for image, SSM, package and reporting endpoints"
 }

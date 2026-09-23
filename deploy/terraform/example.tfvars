@@ -17,4 +17,7 @@ allowed_client_cidrs        = ["198.51.100.0/24"]
 enable_public_access        = false
 enable_read_asg             = false
 # 600은 검증용 예시이며 실제 AWS 부하 측정으로 선택한다. requests/minute/target 단위다.
+# 대수 1~2는 ADR 0030의 계획(최소 2, 최초 희망 2, 최대 3)이 아니다. db_connections 기본값에서 max = 3이면
+# 연결 예산이 (2+1)x(32+14+2) + 3x(8+2) + (8+2) + 10 + 4 = 198로 가용 197(200-3)을 넘어 plan이 멈춘다.
+# ADR 0030 대수로 배포하려면 먼저 db_connections(max, read_pool 등)를 다시 계산해 넣고 min = 2, max = 3으로 둔다.
 read_capacity = { min = 1, max = 2, requests_per_target = 600, warmup_seconds = 300 }

@@ -6,18 +6,18 @@
 
 | 구성 | 배치와 동작 |
 |---|---|
-| VPC | 두 AZ에 public/private subnet 각 하나. ALB와 AZ별 NAT 두 개는 public에 배치한다. |
-| 엔진 | private 고정 두 대. 리더 검사에 통과한 노드로 주문·취소·WebSocket을 보낸다. |
-| DB | private primary·standby 각 한 대. 비동기 복제·수동 승격이며 ASG 대상이 아니다. |
-| 봇·관측 | private 고정 한 대에 봇, Prometheus, Grafana, Alertmanager, 보고 서비스를 둔다. |
-| 조회 | private 두 subnet의 ASG. 지정한 조회만 처리하고 엔진을 실행하지 않는다. |
+| VPC | 두 AZ에 ALB용 public subnet과 노드용 subnet 각 하나. 기본값 `enable_nat_gateway=false`는 [ADR 0030](../../docs/reference/adr/0030-nat-free-lab-and-bounded-read-asg.md)에 따라 NAT를 만들지 않는다. 노드 subnet도 Internet Gateway로 나가고 노드마다 공인 IPv4를 받는다. `true`로 두면 AZ별 NAT 두 개를 public에 두고 노드는 공인 주소 없이 사설로 둔다. |
+| 엔진 | 노드 subnet 고정 두 대. 리더 검사에 통과한 노드로 주문·취소·WebSocket을 보낸다. |
+| DB | 노드 subnet의 primary·standby 각 한 대. 비동기 복제·수동 승격이며 ASG 대상이 아니다. |
+| 봇·관측 | 노드 subnet 고정 한 대에 봇, Prometheus, Grafana, Alertmanager, 보고 서비스를 둔다. |
+| 조회 | 노드 subnet 두 개에 걸친 ASG. 지정한 조회만 처리하고 엔진을 실행하지 않는다. |
 | 웹 | 비공개 S3와 서명하는 OAC. CloudFront의 정적 웹 origin과 HTTPS ALB origin을 구분한다. |
 
-`enable_public_access=false`가 기본이다. ALB 고객·CloudFront·봇 NAT 주소 ingress를 만들지 않고 CloudFront 배포를 비활성화한다. ALB 자체는 internet-facing이며 이 플래그가 private ALB로 바꾸지는 않는다. NAT, ALB, 고정 EC2는 공개 여부와 관계없이 생성 시 비용이 생긴다. `enable_read_asg=false`가 기본이며 DB 마이그레이션과 고정 노드 점검을 마친 뒤 켠다.
+`enable_public_access=false`가 기본이다. ALB 고객·CloudFront·봇 출발 주소(NAT가 있으면 NAT, 없으면 봇 노드의 공인 IPv4) ingress를 만들지 않고 CloudFront 배포를 비활성화한다. ALB 자체는 internet-facing이며 이 플래그가 private ALB로 바꾸지는 않는다. ALB, 고정 EC2, 노드의 공인 IPv4(NAT를 켜면 NAT와 그 주소)는 공개 여부와 관계없이 생성 시 비용이 생긴다. 공인 IPv4가 있어도 들어오는 연결은 역할 SG가 허용한 출발지로만 제한한다. `enable_read_asg=false`가 기본이며 DB 마이그레이션과 고정 노드 점검을 마친 뒤 켠다.
 
 공개를 켜면 CloudFront 웹은 인터넷에서 접근할 수 있다. `allowed_client_cidrs`는 직접 ALB 접근에만 적용되며 CloudFront 시청자의 허용 목록이 아니다. 제한 공개가 필요하면 별도 접근 제어를 준비한다. CloudFront prefix list의 가중치가 다른 ALB 규칙 한도를 소모하지 않도록 전용 SG를 붙인다. AWS SSH 22는 열지 않는다. 운영자는 기존 SSM 권한과 포트 전달을 사용해 localhost 2222의 키 전용 SSH에 접속한다.
 
-8080은 ALB에서 앱·조회로, 8081은 ALB 검사와 관측 노드에서만 허용한다. DB 5432는 앱·조회·봇·DB SG에서, DB exporter 9187과 호스트 9100은 관측 SG에서만 허용한다. 보고 수신 9088은 관측 SG 내부에 제한한다. 호스트 nft에도 ALB public subnet 두 개를 `--health-cidr`로 전달한다. 런타임 outbound는 이미지·SSM·보고 통신을 위해 같은 AZ의 NAT로 허용한다.
+8080은 ALB에서 앱·조회로, 8081은 ALB 검사와 관측 노드에서만 허용한다. DB 5432는 앱·조회·봇·DB SG에서, DB exporter 9187과 호스트 9100은 관측 SG에서만 허용한다. 보고 수신 9088은 관측 SG 내부에 제한한다. 호스트 nft에도 ALB public subnet 두 개를 `--health-cidr`로 전달한다. 런타임 outbound는 이미지·SSM·보고 통신을 위해 허용한다. 기본값에서는 노드의 공인 IPv4로, NAT를 켜면 같은 AZ의 NAT로 나간다. 봇 노드의 자동 할당 공인 IPv4는 중지 후 시작하면 바뀌므로 그때 다시 apply해 ALB의 봇 허용 주소를 맞춘다.
 
 ## 계정 없이 실행할 검사
 
@@ -45,7 +45,7 @@ AMI는 소유 계정과 ID를 검토한 Rocky Linux 10 ARM64 이미지다. `late
 - 같은 호스트의 Docker Engine과 Compose 플러그인. `docker.service`가 부팅 때 실행되어야 한다.
 - openssh-server, sudo, nftables, logrotate, sysstat, curl, ca-certificates, rsync, iproute, coreutils, tar, policycoreutils-python-utils. SELinux는 유지한다.
 - ARM64 앱 이미지 digest와 pull 권한. 비공개 ECR이면 root Docker credential helper와 역할별 ECR 읽기 권한을 준비한다. userdata는 레지스트리 로그인을 대신하지 않는다.
-- DNS·NAT를 통한 release S3, SSM, 이미지 저장소, 공식 AWS IP 범위, node_exporter 다운로드 경로 접근.
+- DNS와 공인 IPv4(또는 NAT)를 통한 release S3, SSM, 이미지 저장소, 공식 AWS IP 범위, node_exporter 다운로드 경로 접근.
 
 기존 profile은 해당 역할의 `ssm:GetParameter`, 지정 KMS 키의 `kms:Decrypt`, 지정 release version의 `s3:GetObjectVersion`과 SSM 관리 권한이 필요하다. 관측 profile에는 `ec2:DescribeInstances`를 추가한다. DescribeInstances의 태그 필터는 권한 격리 수단이 아니다. ECR·백업 권한은 실제 저장소에 제한한다. 이 모듈은 IAM 역할과 Auto Scaling service-linked role을 생성하지 않는다.
 
@@ -83,7 +83,7 @@ userdata는 특정 object version을 받고 SHA256을 비교한 뒤 일반 파�
 
 ALB는 GET/HEAD의 `/api/v1/markets`, `/api/v1/trades`, `/api/v1/candles/{unit}`만 reader로 보낸다. 주문·인증·호가·티커·WebSocket은 엔진 경로다. reader health는 `/actuator/health/read`의 DB·ping이며 리더 여부를 요구하지 않는다. ASG 교체 검사는 **EC2**로 두어 공통 DB 장애로 전체를 교체하지 않는다. 개별 앱·부팅 실패는 ALB·서비스 관측으로 감지하고 운영자가 복구한다. [ASG 검사](https://docs.aws.amazon.com/autoscaling/ec2/userguide/health-checks-overview.html)
 
-target tracking은 `ALBRequestCountPerTarget`의 대상당 분당 요청량을 쓰며 축소를 허용한다. AWS가 desired capacity를 소유하므로 Terraform이 이를 min으로 덮지 않는다. reader refresh는 추가 인스턴스 없이 교체하므로 min=1에서는 조회 중단이 생길 수 있다. 모든 target이 unhealthy인 경우 ALB fail-open과 backend 리더 권한 확인도 실제 시험에 포함한다. [target tracking](https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-scaling-target-tracking.html)
+target tracking은 `ALBRequestCountPerTarget`의 대상당 분당 요청량을 쓰며 축소를 허용한다. AWS가 desired capacity를 소유하므로 Terraform이 이를 min으로 덮지 않는다. reader refresh는 추가 인스턴스 없이 교체하므로 min=1에서는 조회 중단이 생길 수 있다. `example.tfvars`와 토폴로지 시험의 `read_capacity`(min 1, max 2)는 [ADR 0030](../../docs/reference/adr/0030-nat-free-lab-and-bounded-read-asg.md)의 계획(최소 2, 최초 희망 2, 최대 3)과 다르다. `db_connections` 기본값에서 max 3이면 연결 예산이 198로 가용 197을 넘어 plan에서 `terraform_data.requirements`의 사전 조건이 실패하기 때문이다. ADR 0030 대수로 배포하려면 DB 연결 예산을 먼저 다시 계산해 넣고 min 2, max 3으로 바꾼다. 이 저장소에서는 그 계산과 `terraform test`를 아직 하지 않았다. 모든 target이 unhealthy인 경우 ALB fail-open과 backend 리더 권한 확인도 실제 시험에 포함한다. [target tracking](https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-scaling-target-tracking.html)
 
 DB 예산에는 엔진 두 대와 갱신 여유 한 대의 앱·append·lease 풀, reader 상한, 봇, 운영·복제 연결을 넣는다. 기본 예시는 전체 188, 사용 가능 197이며 reader max=6이면 거절한다. ASG 크기와 DB 풀을 따로 증설하지 않는다. 수동 노드 추가도 예산을 다시 검토한다.
 
@@ -95,6 +95,6 @@ ALB·ASG·EBS의 관리형 지표는 [AWS 관측 Compose 추가 설정](../compo
 
 ## 비용과 실환경 검증
 
-`cost_inventory`는 EC2 고정 5대와 reader 상한, NAT 2개와 public IPv4 2개, ALB, EBS 용량, CloudFront·웹 버킷 수량이다. 가격이나 크레딧 잔액은 아니다. region·크기·기간·전송량을 넣어 AWS 계산기로 확인하고 예산 알림을 준비한다. release·백업 S3, 스냅샷, DNS, 요청·전송, CloudWatch, 세금도 포함한다. AZ별 NAT는 기존 가용성 계획을 따른 선택이며 소규모 실습에서는 큰 고정 비용이 될 수 있다.
+`cost_inventory`는 EC2 고정 5대와 reader 상한, NAT 수와 NAT용 public IPv4 수, reader 상한 기준 노드 공인 IPv4 수, ALB, EBS 용량, CloudFront·웹 버킷 수량이다. 가격이나 크레딧 잔액은 아니다. region·크기·기간·전송량을 넣어 AWS 계산기로 확인하고 예산 알림을 준비한다. release·백업 S3, 스냅샷, DNS, 요청·전송, CloudWatch, 세금도 포함한다. AZ별 NAT는 기존 가용성 계획(ADR 0020)을 따른 선택이며 소규모 실습에서는 큰 고정 비용이 되어 기본값에서 뺐다.
 
 계정이 준비되면 IAM 거절 조건, ARM64 부팅·pull, nft·SG 연결, CloudFront 쿠키·인증·WebSocket·사용자 IP, ALB 리더 전환, 확장·축소, DB 수동 복구·백업 복원, 재부팅 후 서비스·관측을 실제 검증한다. 정리할 때는 고정 노드 보호, DB 보존 EBS, versioned S3 object를 따로 확인하며 보호를 무조건 해제해 일괄 삭제하지 않는다.

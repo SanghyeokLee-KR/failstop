@@ -125,6 +125,12 @@ variable "allowed_client_cidrs" {
   }
 }
 
+variable "enable_nat_gateway" {
+  description = "ADR 0030 default: no NAT Gateway; nodes use their own public IPv4 behind role security groups. true restores the ADR 0020 per-AZ NAT with private nodes."
+  type        = bool
+  default     = false
+}
+
 variable "enable_public_access" {
   description = "Explicit publication gate: default closes ALB client ingress and disables the CloudFront distribution."
   type        = bool

@@ -26,8 +26,9 @@ output "cost_inventory" {
     fixed_ec2                  = 5
     read_ec2_min               = var.enable_read_asg ? var.read_capacity.min : 0
     read_ec2_max               = var.read_capacity.max
-    nat_gateways               = 2
-    public_ipv4_for_nat        = 2
+    nat_gateways               = var.enable_nat_gateway ? 2 : 0
+    public_ipv4_for_nat        = var.enable_nat_gateway ? 2 : 0
+    node_public_ipv4_at_max    = var.enable_nat_gateway ? 0 : 5 + var.read_capacity.max
     application_load_balancers = 1
     root_ebs_gib_at_read_max   = 2 * var.root_volume_gib.engine + 2 * var.root_volume_gib.database + var.root_volume_gib.bot + var.read_capacity.max * var.root_volume_gib.reader
     instance_types             = var.instance_types

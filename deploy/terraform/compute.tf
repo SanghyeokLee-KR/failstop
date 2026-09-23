@@ -19,13 +19,15 @@ data "aws_ec2_instance_type" "selected" {
   instance_type = each.value
 }
 
+# NAT가 없으면(ADR 0030) 이미지·SSM·release S3에 닿으려고 고정·조회 노드가 공인 IPv4를 받는다.
+# 들어오는 연결은 역할 SG가 허용한 출발지로만 제한된다.
 resource "aws_instance" "fixed" {
   for_each                    = local.fixed_nodes
   ami                         = data.aws_ami.selected.id
   instance_type               = var.instance_types[each.value.type]
   subnet_id                   = aws_subnet.private[each.value.az].id
   private_ip                  = each.value.ip
-  associate_public_ip_address = false
+  associate_public_ip_address = !var.enable_nat_gateway
   vpc_security_group_ids      = [aws_security_group.role[each.value.type].id]
   iam_instance_profile        = var.instance_profiles[each.value.type]
   monitoring                  = true
@@ -67,7 +69,7 @@ resource "aws_launch_template" "reader" {
   update_default_version = false
   iam_instance_profile { name = var.instance_profiles.reader }
   network_interfaces {
-    associate_public_ip_address = false
+    associate_public_ip_address = !var.enable_nat_gateway
     security_groups             = [aws_security_group.role["reader"].id]
     delete_on_termination       = true
   }

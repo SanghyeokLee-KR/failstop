@@ -36,15 +36,15 @@ variables {
   read_capacity               = { min = 1, max = 2, requests_per_target = 600 }
 }
 
-run "default_is_private_and_fixed_roles_stay_fixed" {
+run "default_is_nat_free_and_fixed_roles_stay_fixed" {
   command = plan
   assert {
-    condition     = length(aws_nat_gateway.main) == 2 && length(aws_subnet.private) == 2 && length(aws_instance.fixed) == 5
-    error_message = "Preserve two AZs, two NAT gateways and five fixed engine/database/operations nodes."
+    condition     = length(aws_nat_gateway.main) == 0 && length(aws_eip.nat) == 0 && length(aws_subnet.private) == 2 && length(aws_instance.fixed) == 5
+    error_message = "ADR 0030: no NAT Gateway by default; preserve two AZs and five fixed engine/database/operations nodes."
   }
   assert {
-    condition     = alltrue([for node in aws_instance.fixed : !node.associate_public_ip_address])
-    error_message = "Runtime nodes must not receive public IP addresses."
+    condition     = alltrue([for node in aws_instance.fixed : node.associate_public_ip_address]) && tostring(aws_launch_template.reader.network_interfaces[0].associate_public_ip_address) == "true"
+    error_message = "Without NAT, fixed and reader nodes need their own public IPv4 for image, SSM and release access."
   }
   assert {
     condition     = aws_instance.fixed["bot"].metadata_options[0].http_put_response_hop_limit == 2 && aws_instance.fixed["bot"].metadata_options[0].http_tokens == "required"
@@ -69,6 +69,19 @@ run "default_is_private_and_fixed_roles_stay_fixed" {
   assert {
     condition     = output.db_connection_budget.total == 188 && output.db_connection_budget.available == 197
     error_message = "Connection accounting must include all pools, fixed rollout allowance and maximum readers."
+  }
+}
+
+run "nat_gateway_is_an_explicit_opt_in" {
+  command = plan
+  variables { enable_nat_gateway = true }
+  assert {
+    condition     = length(aws_nat_gateway.main) == 2 && length(aws_eip.nat) == 2
+    error_message = "The ADR 0020 layout keeps one NAT Gateway per AZ."
+  }
+  assert {
+    condition     = alltrue([for node in aws_instance.fixed : !node.associate_public_ip_address])
+    error_message = "With NAT, runtime nodes must not receive public IP addresses."
   }
 }
 
