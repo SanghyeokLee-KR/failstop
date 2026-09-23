@@ -119,7 +119,11 @@ class Reconciler:
                                      ' '.join('%s=%s' % (k, v) for k, v in kw.items())), flush=True)
 
     def members(self):
-        """지금 조회를 받는 노드. 리더를 포함한 총 대수다. 화면이 세는 수와 같아야 한다."""
+        """조회 업스트림에 들어 있고 컨테이너가 실행 중인 노드. 리더를 포함한 총 대수다.
+
+        관리 API 의 observed_total 은 액추에이터가 응답하는 노드 수라 정의가 다르다. 켜져 있지만
+        업스트림에서 빠진 노드를 그쪽은 세고 이쪽은 세지 않는다.
+        """
         return [n for n in [ctl.LEADER] + ctl.POOL
                 if self.lb.active(n) and ctl.running(n)]
 
@@ -164,9 +168,11 @@ class Reconciler:
             self.emit('add.launch', node=target, mode=self.a.start_mode)
             if not self.start_node(target):
                 return
-            if not ctl.wait_healthy(target, self.a.launch_budget):
-                self.emit('add.timeout', node=target, budget=self.a.launch_budget)
-                return
+        # 이미 켜진 노드도 헬스를 본다. 앞 주기에 예산을 넘긴 노드가 다음 주기에 여기로 온다.
+        # 실행 중이라는 것만으로 등록하면 조회를 받지 못하는 노드가 업스트림에 들어간다.
+        if not ctl.wait_healthy(target, self.a.launch_budget):
+            self.emit('add.timeout', node=target, budget=self.a.launch_budget)
+            return
         self.lb.set_down(target, False)
         self.lb.reload()
         self.emit('add.done', node=target, total=len(self.members()),
@@ -204,10 +210,16 @@ class Reconciler:
             except Exception as e:
                 # 한 주기의 실패가 조정기를 끝내지 않는다. 다음 주기에 다시 시도한다.
                 self.emit('error', message=str(e)[:200])
-            if self.a.once or time.time() >= end:
-                break
+            if self.a.once:
+                self.emit('stop', reason='once')
+                return
+            if time.time() >= end:
+                # 시간이 다 되면 조용히 끝나지 않는다. 이 뒤로는 관리 화면에서 희망 대수를
+                # 바꿔도 아무도 따라가지 않는다.
+                self.emit('stop', reason='duration', duration=self.a.duration,
+                          note='--duration 을 채웠다. 이후 희망 대수 변경은 반영되지 않는다')
+                return
             time.sleep(self.a.interval)
-        self.emit('stop')
 
 
 def main():
@@ -226,7 +238,8 @@ def main():
     p.add_argument('--user', default='exchange')
     p.add_argument('--log', required=True)
     p.add_argument('--interval', type=float, default=5)
-    p.add_argument('--duration', type=float, default=3600)
+    p.add_argument('--duration', type=float, default=3600,
+                   help='이 초가 지나면 멈춘다. 띄워 두고 잊은 조정기가 다음 실험에 끼지 않게 하는 상한')
     p.add_argument('--drain', type=float, default=15, help='connection draining 창')
     p.add_argument('--launch-budget', type=float, default=90)
     p.add_argument('--node-cpus', type=float, help='새 노드에 줄 vCPU. run 모드에서만 쓴다')
@@ -243,6 +256,19 @@ def main():
         p.error('리더는 조정 단위가 아니다. --pool 에서 %s 를 뺀다' % leader)
     if not 0 <= a.min_pool <= len(pool):
         p.error('--min-pool 은 0 과 pool 대수 사이여야 한다')
+    # run 모드의 launch() 는 ex 스택 인자(ex-pg 접속, dev 프로파일)를 고정으로 조립하고 같은 이름의
+    # 컨테이너를 먼저 지운다. compose 가 만든 노드에 쓰면 그 컨테이너가 DB 에 닿지 못하는 노드로 바뀐다.
+    if a.start_mode == 'run' and s['start_mode'] != 'run':
+        p.error('--start-mode run 은 ex 스택 전용이다. %s 스택의 노드는 compose 가 만든 컨테이너를 '
+                'start 로 켠다' % a.stack)
+    # 축소는 pool 뒤에서부터 docker stop 까지 간다. 쓰기 업스트림에도 있는 노드(chaos 의 쓰기 백업)가
+    # 그 자리에 오면 조회 증설을 줄이다가 쓰기 페일오버 경로를 끊는다. --pool 순서와 --min-pool 이
+    # 그 자리를 정하므로 설정 파일을 읽어 막는다.
+    writers = ctl.Balancer(a.lb_conf, a.lb_container).write_members()
+    exposed = [n for n in pool[a.min_pool:] if n in writers]
+    if exposed:
+        p.error('쓰기 업스트림에도 있는 노드가 축소 대상 자리에 있다: %s. --pool 앞머리 %d 대 안에 '
+                '두거나 --min-pool 을 늘린다' % (', '.join(exposed), a.min_pool))
 
     # asg_controller 의 실행부가 모듈 전역을 읽는다. 조정기가 다룰 스택을 여기서 갈아끼운다.
     ctl.LEADER = leader

@@ -149,16 +149,22 @@ def launch(name, key):
 
 
 class Balancer:
-    """nginx 업스트림에서 노드를 넣고 뺀다.
+    """nginx 조회 업스트림에서 노드를 넣고 뺀다.
 
     노드 줄은 항상 설정에 남겨 두고 `down` 만 토글한다. 지웠다 넣으면 그 사이에 reload 가
     걸릴 때 이름 해석에 실패할 수 있는데, 이 설정은 resolve 를 붙여 그 위험을 이미 없앴다.
     그래도 토글이 더 단순하고 되돌리기 쉽다.
+
+    노드 줄은 조회 업스트림 블록 안에서만 찾는다. 같은 노드가 쓰기 업스트림에도 있고(리더,
+    chaos 스택의 쓰기 백업) 파일에서 그 줄이 먼저 나온다. 파일 전체에서 찾으면 조회 노드를
+    빼려다 쓰기 백업에 down 을 붙인다.
     """
 
-    def __init__(self, conf_path, container):
+    def __init__(self, conf_path, container, upstream='exchange_read'):
         self.conf = conf_path
         self.container = container
+        self.upstream = upstream
+        self._unapplied = None   # 마지막 reload 이후 바꾸기 전의 파일 내용
 
     def _read(self):
         with open(self.conf, 'r', encoding='utf-8') as f:
@@ -170,26 +176,52 @@ class Balancer:
         with open(self.conf, 'w', encoding='utf-8') as f:
             f.write(text)
 
+    def _block(self, text):
+        """조회 업스트림 블록 본문의 시작과 끝 위치. upstream 블록에는 중첩 중괄호가 없다."""
+        m = re.search(r'^\s*upstream\s+%s\s*\{' % re.escape(self.upstream), text, re.M)
+        if not m:
+            raise RuntimeError('%s 에 upstream %s 블록이 없다' % (self.conf, self.upstream))
+        return m.end(), text.index('}', m.end())
+
     def set_down(self, name, down):
         text = self._read()
+        start, end = self._block(text)
+        block = text[start:end]
         pat = re.compile(r'^(\s*server\s+%s:8080[^\n;]*?)(\s+down)?;$' % re.escape(name), re.M)
-        m = pat.search(text)
+        m = pat.search(block)
         if not m:
-            raise RuntimeError('업스트림에 %s 줄이 없다' % name)
+            raise RuntimeError('upstream %s 에 %s 줄이 없다' % (self.upstream, name))
         if bool(m.group(2)) == down:
             return False
-        text = pat.sub(lambda mm: mm.group(1) + (' down' if down else '') + ';', text, count=1)
-        self._write(text)
+        block = pat.sub(lambda mm: mm.group(1) + (' down' if down else '') + ';', block, count=1)
+        if self._unapplied is None:
+            self._unapplied = text
+        self._write(text[:start] + block + text[end:])
         return True
 
     def reload(self):
-        sh(['docker', 'exec', self.container, 'nginx', '-t'])
-        sh(['docker', 'exec', self.container, 'nginx', '-s', 'reload'])
+        unapplied, self._unapplied = self._unapplied, None
+        try:
+            sh(['docker', 'exec', self.container, 'nginx', '-t'])
+            sh(['docker', 'exec', self.container, 'nginx', '-s', 'reload'])
+        except Exception:
+            # nginx 가 새 설정을 받지 않았다. 파일만 바뀐 채로 두면 active() 가 실제 구성원과
+            # 다른 답을 내고, 다음 주기가 그 답을 믿고 움직인다.
+            if unapplied is not None:
+                self._write(unapplied)
+            raise
 
     def active(self, name):
         text = self._read()
-        m = re.search(r'^\s*server\s+%s:8080[^\n]*$' % re.escape(name), text, re.M)
+        start, end = self._block(text)
+        m = re.search(r'^\s*server\s+%s:8080[^\n]*$' % re.escape(name), text[start:end], re.M)
         return bool(m) and ' down;' not in m.group(0)
+
+    def write_members(self):
+        """조회 업스트림 밖에 선언된 노드. 쓰기 경로라 조정기가 내리면 안 된다."""
+        text = self._read()
+        start, end = self._block(text)
+        return set(re.findall(r'^\s*server\s+([\w.-]+):8080', text[:start] + text[end:], re.M))
 
 
 class Asg:

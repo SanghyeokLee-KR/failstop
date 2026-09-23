@@ -38,16 +38,24 @@ pwsh -File harness/scripts/up.ps1 -Obs
 
 조회 노드를 한 대 더 붙였다 떼는 경로다. AWS의 Auto Scaling group 자리를 로컬에서 대신한다. 판정은 사람이 관리 콘솔에서 하고, 조정기는 정해진 희망 대수를 실현하기만 한다.
 
-`chaos-api-3`은 `scale` 프로파일이라 기본 기동에 없다. 한 번 만들어 두면 조정기가 그 컨테이너를 켰다 껐다 한다. 조정기가 직접 `docker run` 하지 않는 이유는 환경 변수를 compose 파일 한 곳에만 두기 위해서다.
+`chaos-api-3`은 `scale` 프로파일이라 기본 기동에 없다. 한 번 만들어 두면 조정기가 그 컨테이너를 켰다 껐다 한다. 조정기가 직접 `docker run` 하지 않는 이유는 환경 변수를 compose 파일 한 곳에만 두기 위해서다. 그래서 chaos 스택에서는 `--start-mode run`을 거부한다. run 모드는 ex 스택용 인자(ex-pg 접속)를 고정으로 조립하고 같은 이름의 컨테이너를 먼저 지우므로, compose가 만든 노드를 DB에 닿지 못하는 노드로 바꾼다. 이미지를 다시 빌드한 뒤에는 `chaos-api-3`도 다시 만든다. scale 프로파일 밖의 `up`은 이 컨테이너를 건드리지 않아 옛 이미지로 켜진다.
 
 ```powershell
 docker compose --env-file harness/.env.chaos --profile scale create chaos-api-3
 python harness/asg/capacity_reconciler.py --stack chaos --lb-conf harness/nginx/nginx.conf --log <로그경로>
 ```
 
-조회 계층에 부하를 넣을 때는 `python harness/scripts/read-load.py --vus 20 --sec 300`을 쓴다. 봇 발행률로는 조회 계층이 움직이지 않는다. 봇이 내는 주문은 쓰기 경로이고 봇이 보는 호가·티커도 노드 로컬 순번이라 쓰기 경로에 남기 때문이다. 권고 임계는 서버가 소유하며 이 스택은 `admin-chaos` 프로파일에서 0.25로 내려 두었다. AWS 운영값 0.60과 구분한다.
+`chaos-api-3`은 AWS 조회 노드 설정(`prod,read` 프로파일, ReadRoleFilter, 읽기 전용 풀)이 아니라 api-1의 환경을 물려받은 `dev,chaos-monkey` 구성으로 뜬다. 이 노드까지 켜면 DB 풀 상한의 합이 `max_connections` 200을 넘는다. 실제로 열리는 연결을 셈한 근거와 함께 [검증 설계 §3](../docs/reference/contracts/하네스_검증설계.md)에 적었다.
 
-희망 대수는 관리 API의 `POST /admin/v1/capacity/scale-out`과 `scale-in`이 바꾸고 조정기가 그 값을 따라간다. 조정기는 한 주기에 한 대만 움직이고, 축소할 때는 로드밸런서에서 먼저 빼고 드레이닝 창을 기다린 뒤에 컨테이너를 내린다. 쓰기 백업 노드는 축소 대상에서 제외한다. `--stack` 기본값은 종전 `ex-*` 스택이라 옛 호출은 그대로 돈다.
+조회 계층에 부하를 넣을 때는 `python harness/scripts/read-load.py --vus 20 --sec 300`을 쓴다. 봇 발행률로는 조회 계층이 거의 움직이지 않는다. 봇 요청의 대부분은 쓰기 경로로 가는 주문·취소·계좌 조회와, 노드 로컬 순번이라 쓰기 경로에 남는 호가·티커다. 평균 회귀 추세 봇의 체결 조회와 플릿 기동 때의 마켓 조회는 조회 업스트림으로 가지만 양이 적다. 2026-09-23 봇 목표 초당 300건 주행에서 조회 계층 평균은 4~12%였다([측정 기록](../docs/measurements/20260923.md)). 권고 임계는 서버가 소유하며 이 스택은 `admin-chaos` 프로파일에서 0.25로 내려 두었다. AWS 운영값 0.60과 구분한다. 재기동 직후에는 조회 부하 없이도 이 값을 넘을 수 있다(같은 날 27.5%).
+
+희망 대수는 관리 API의 `POST /admin/v1/capacity/scale-out`과 `scale-in`이 바꾸고 조정기가 그 값을 따라간다. 조정기는 한 주기에 한 대만 움직인다. 붙일 때는 `/actuator/health/read`를 통과한 노드만 로드밸런서에 등록하고, 앞 주기에 헬스 예산(`--launch-budget`)을 넘긴 노드도 다음 주기에 헬스를 다시 본다. 뗄 때는 로드밸런서에서 먼저 빼고 드레이닝 창을 기다린 뒤에 컨테이너를 내린다. 드레이닝 창은 `--drain`이고 기본 15초다. 측정 기록의 드레이닝 8초·10초는 명령에 `--drain 8`, `--drain 10`을 붙여 잰 값이라 위 명령 그대로는 나오지 않는다.
+
+로드밸런서 설정은 조회 업스트림(`exchange_read`) 블록 안에서만 고친다. 같은 노드 줄이 쓰기 업스트림에도 있기 때문이다. `nginx -t`나 reload가 실패하면 설정 파일을 바꾸기 전으로 되돌린다. 쓰기 업스트림에도 있는 노드(chaos 스택의 쓰기 백업 `chaos-api-2`)는 축소 대상 자리에 둘 수 없다. `--pool` 순서나 `--min-pool`이 그 노드를 뒤로 보내면 조정기가 시작을 거부한다. `--stack` 기본값은 종전 `ex-*` 스택이라 옛 호출은 그대로 돈다.
+
+조정기는 `--duration`(기본 3600초)이 지나면 로그에 `stop reason=duration`을 남기고 끝난다. 그 뒤로는 관리 콘솔에서 희망 대수를 바꿔도 따라가는 쪽이 없다. 한 스택에 조정기는 하나만 띄운다. 2026-09-23 리허설에서는 두 개가 13분 동안 함께 돌아 같은 증설과 축소를 둘 다 실행했다. 조정기를 띄운 채 장애 실험을 돌리지도 않는다. 리더가 죽으면 조정기는 대수가 줄었다고 보고 `chaos-api-3`을 붙이므로 실험 조건이 바뀐다. 이 둘을 막는 잠금은 없다.
+
+조정기가 세는 대수(조회 업스트림에 들어 있고 실행 중인 노드)와 관리 API의 `observed_total`(액추에이터가 응답하는 노드)은 정의가 다르다. 켜져 있지만 업스트림에서 빠진 노드는 관리 API만 센다. 단위 시험은 `python -B -m unittest discover -s harness/asg -p "test_*.py"`로 돌리며 docker와 DB를 부르지 않는다.
 
 ## 장애 실험
 
