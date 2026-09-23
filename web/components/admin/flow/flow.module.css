@@ -1,0 +1,194 @@
+/*
+ * 서비스 흐름 페이지 뼈대. 구성도·지표·대화상자·표는 각자의 모듈(topology, metrics, panels)이
+ * 소유하고 여기에는 머리 조각, 판독 강조, 사건 기록만 남는다. 색은 헬스 도메인만 유채색이다.
+ * 판독 줄의 정상 값은 무채 잉크로 두고, 사건 기록의 형태만 구성도와 같이 정상을 초록으로 칠한다.
+ */
+
+/* 페이지 뿌리를 기준 상자로 세운다. 구성도·지표·표 안의 sr-only 요소는 절대 배치라 기준 상자가
+   없으면 문서 전체를 기준으로 삼는다. 그러면 페이지 아래쪽에 놓인 요소가 셸 밖 문서를 늘려
+   포커스가 옮겨 갈 때 운영자 바까지 함께 밀려 올라간다. 스크롤은 .content 하나만 해야 한다 */
+.root {
+  position: relative;
+  /* 관리 화면 공통 .page 는 1280px 고정 폭이다. 이 화면은 사용자 요청으로 SaaS 처럼 화면 폭을 다 쓴다 */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}
+
+/* 머리 오른쪽 줄. pageActions 는 높이를 늘여 맞추므로 알약이 버튼 높이로 부풀지 않게 가운데로 세운다 */
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* 재생 표시 자리. 가장 긴 표시("Primary 중단과 수동 승격 30/30초", 1280px 에서 약 228px)가 들어가는
+   폭을 비어 있을 때도 잡아 둔다. 표시가 드나들 때 왼쪽 설명 줄이 다시 접히면 아래 패널이 모두
+   한 줄씩 밀린다 */
+.runSlot {
+  display: inline-flex;
+  justify-content: flex-end;
+  min-width: 232px;
+}
+
+/* 판독 줄의 이탈 값. 색만으로 알리지 않도록 사각 형태를 글자 앞에 같이 둔다 */
+.danger {
+  color: var(--color-danger);
+}
+/* 이중화를 잃었지만 쓰기는 이어지는 값(복제 끊김). 삼각 형태를 글자 앞에 같이 둔다 */
+.warning {
+  color: var(--color-warning-text);
+}
+
+/* 일시정지 눌림. 감사 화면 구간 버튼(admin.module.css .auditSeg)과 같은 어휘로 면을 한 단 올리고
+   아래에 크롬 레일을 긋는다. 글자 굵기는 두지 않는다. 굵기가 바뀌면 버튼 폭이 달라져 머리 줄이 흔들린다.
+   레일은 inset 그림자라 전역 포커스 링의 안쪽 헤어라인(--focus-inner)을 덮지 않게 포커스 때 함께 쓴다 */
+.pauseBtn[aria-pressed="true"] {
+  background: var(--surface-control-hover);
+  box-shadow: inset 0 -2px 0 var(--chrome-accent);
+}
+.pauseBtn[aria-pressed="true"]:focus-visible {
+  box-shadow: var(--focus-inner), inset 0 -2px 0 var(--chrome-accent);
+}
+
+/* ===== 사건 기록 ===== */
+
+/* sr-only 알림과 표가 이 상자를 기준으로 놓인다. 페이지 뿌리(.root)와 같은 이유다 */
+.log {
+  position: relative;
+  min-width: 0;
+}
+
+/* 빈 상태. 없음은 장애가 아니라 아직 재생을 걸지 않았다는 사실이라 무채로 조용히 둔다 */
+.logEmpty {
+  margin: 0;
+  padding: var(--space-2) 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+
+.logList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 한 줄에 시각, 형태, 사건. 시각 열은 고정 폭 숫자라 폭을 정해 두면 형태와 사건이 세로로 맞는다 */
+.logRow {
+  display: grid;
+  grid-template-columns: max-content 1em minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--space-3);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.logRow:last-child {
+  border-bottom: 0;
+}
+
+.logTime {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+
+/* 이 화면은 사용자 요구로 정상도 초록으로 칠한다(nodeState.ts). 형태가 판정을 함께 말한다 */
+.logShape {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  text-align: center;
+}
+.logShape[data-health="success"] {
+  color: var(--color-success-text);
+}
+.logShape[data-health="warning"] {
+  color: var(--color-warning-text);
+}
+.logShape[data-health="danger"] {
+  color: var(--color-danger);
+}
+
+.logLabel {
+  min-width: 0;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+
+/* ===== 구성도 무대 =====
+   평소에는 카드 안에 있고, 크게 보기에서는 뷰포트 전체로 뜬다. 재생 대화상자(--z-overlay)가 위에
+   떠야 하므로 한 단 낮은 --z-dropdown 에 둔다. 크게 보기 동안에도 노드를 눌러 재생을 걸 수 있다 */
+.stage {
+  position: relative;
+  min-width: 0;
+}
+.stage[data-expanded] {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dropdown);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6);
+  background: var(--bg-muted);
+  overflow: auto;
+}
+
+/* 무대 머리 줄. 평소에는 오른쪽 끝의 버튼 하나, 크게 보기에서는 제목과 재생 조작이 함께 선다 */
+.stageBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.stage[data-expanded] .stageBar {
+  margin-bottom: 0;
+}
+.stageTitle {
+  margin-right: auto;
+  font-size: var(--font-title-2-size);
+  line-height: var(--font-title-2-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.stage[data-expanded] .stageBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* 확대 상자. 속 상자를 설계 폭으로 배치하고 왼쪽 위를 기준으로 확대·축소한다. 겉 상자가 확대된
+   크기를 차지해 가운데 정렬이 그 크기를 기준으로 된다 */
+.stageBody {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+/* 겉 상자는 확대된 크기 밖을 잘라 낸다. 속 상자는 절대 배치라 자르지 않으면 확대 전 본래 높이가 본문
+   스크롤 높이에 섞인다. 그러면 페이지가 구성도 아래 남은 자리를 음수로 재어 배율을 끝내 구하지 못한다.
+   팝오버는 구성도 안쪽에 열리고(FlowTopology popoverStyle), 가장자리 카드의 포커스 링은 여백만큼 보인다 */
+.zoomBox {
+  position: relative;
+  flex-shrink: 0;
+  overflow: clip;
+  overflow-clip-margin: var(--space-2);
+}
+.zoomInner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+.stage[data-expanded] .zoomInner {
+  padding: var(--space-4);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+}

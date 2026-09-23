@@ -1,0 +1,670 @@
+/*
+ * 서비스 흐름 구성도. AWS 목표 구성(v5)을 AWS 아키텍처 그림의 문법으로 그린다. 바깥에서부터 AWS 틀,
+ * CloudFront 한 장을 감싸는 엣지 칸과 리전 틀, VPC 틀, 그 안의 퍼블릭 칸과 Auto Scaling 그룹과 DB 칸,
+ * 맨 아래 bot-1 호스트 칸이다. 틀은 얇고 둥근 선에 왼쪽 위의 작은 표식과 이름표만 두고, 카드는 모두
+ * 같은 크기로 아이콘 타일과 제목과 상태 한 줄만 싣는다. 연결선과 트래픽 알갱이는 traffic.module.css 가
+ * 맡는다. 선에는 글자를 달지 않는다.
+ *
+ * 노드 색은 이 기능만의 요구를 따른다(2026-09-23 사용자 요청). 실행은 초록 테두리, 중지는 회색,
+ * 장애는 빨강, 전환 중은 주황, 미구축은 회색 점선에 흐리게 그린다. 관리 평면 공용 규칙(정상은
+ * 무채)은 다른 화면에 그대로 남고 여기 모듈 안에서만 바꾼다. 색 하나로 알리지 않도록 상태마다
+ * 상태 줄 앞의 형태(● ▲ ■ ○)와 테두리 모양(굵기, 점선)을 함께 바꾼다.
+ *
+ * 대비는 tokens.css 계약을 따른다. 카드 테두리와 묶음 틀의 선은 면 대비 3:1 을 넘는 text-tertiary
+ * 이상만 쓴다. 틀은 굵기와 모양(점선, 모서리)으로 층을 가른다. secondary 잉크는 bg-muted 까지만
+ * 얹고, 주황·빨강 틴트 위의 보조 글자는 default 잉크로 올린다.
+ *
+ * 위치와 크기는 FlowTopology 가 패널 폭을 재서 px 로 넘긴다. 여기에는 모양만 둔다.
+ */
+
+/* ===== 아이콘 ===== */
+
+/* 로고 SVG 는 그대로 두고 알파만 쓴다. 칠은 currentColor 라 부모 잉크를 따른다 */
+.brandIcon {
+  display: inline-block;
+  flex: none;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.iconNginx {
+  -webkit-mask-image: url("./icons/nginx.svg");
+  mask-image: url("./icons/nginx.svg");
+}
+
+.iconSpringboot {
+  -webkit-mask-image: url("./icons/springboot.svg");
+  mask-image: url("./icons/springboot.svg");
+}
+
+/* 가는 윤곽선 로고라 같은 자리에서 그리는 크기만 1.2배로 키워 꽉 찬 로고들과 무게를 맞춘다. transform 은
+   자리 크기를 바꾸지 않아 타일과 표의 줄 맞춤은 그대로다. 28px 타일의 18px 자리에서 약 22px 로 그려진다 */
+.iconPostgresql {
+  -webkit-mask-image: url("./icons/postgresql.svg");
+  mask-image: url("./icons/postgresql.svg");
+  transform: scale(1.2);
+}
+
+.iconPrometheus {
+  -webkit-mask-image: url("./icons/prometheus.svg");
+  mask-image: url("./icons/prometheus.svg");
+}
+
+.iconGrafana {
+  -webkit-mask-image: url("./icons/grafana.svg");
+  mask-image: url("./icons/grafana.svg");
+}
+
+.glyphIcon {
+  flex: none;
+}
+
+/* 고대비 모드는 배경색을 시스템 색으로 덮어 mask 아이콘이 사라진다. 글자색 시스템 키워드로 되살린다 */
+@media (forced-colors: active) {
+  .brandIcon {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+}
+
+/* ===== 바탕 ===== */
+
+.root {
+  min-width: 0;
+}
+
+.topology {
+  position: relative;
+}
+
+/* AWS 틀. 클라우드 경계라 면을 한 단 가라앉혀 카드가 떠 보이게 한다. 안쪽 틀은 면을 칠하지 않아
+   이 면이 그대로 비친다. 끊김 표식과 알갱이 고리의 바탕(bg-muted)과 한 면으로 읽힌다.
+   가장 바깥 묶음이라 테두리를 안쪽 틀(text-tertiary)보다 한 단 진한 secondary 로 둔다. 패널 면과
+   bg-muted 양쪽에서 4.5:1 안팎이라 3:1 을 넉넉히 넘고, 틀의 층이 바깥에서 안으로 옅어진다 */
+.aws {
+  position: absolute;
+  border: 1px solid var(--text-secondary);
+  border-radius: var(--panel-radius);
+  background: var(--bg-muted);
+}
+
+.awsTitle {
+  position: absolute;
+  top: 10px;
+  left: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+/* ===== 묶음 틀 =====
+   층마다 모양을 바꿔 한눈에 가른다. 엣지와 리전은 논리 경계라 점선, VPC 는 실선, 퍼블릭·DB 칸은
+   모서리를 덜 둥글린 실선, bot-1 은 기계 한 대라 모서리를 더 둥글린다. 선 색은 모두 text-tertiary 라
+   bg-muted 위 3:1 을 넘고, 굵기는 1px 로 두어 카드보다 늘 한 단 뒤에 읽힌다 */
+.frame {
+  position: absolute;
+  border: 1px solid var(--text-tertiary);
+  border-radius: var(--control-radius);
+  pointer-events: none;
+}
+
+.frame[data-kind="edge"],
+.frame[data-kind="region"] {
+  border-style: dashed;
+  border-radius: var(--panel-radius);
+}
+
+.frame[data-kind="vpc"] {
+  border-radius: var(--panel-radius);
+}
+
+.frame[data-kind="subnet"] {
+  border-radius: var(--radius-xs);
+}
+
+.frame[data-kind="host"] {
+  border-radius: var(--panel-radius);
+}
+
+/* 틀 이름표. 모든 틀이 왼쪽 위에 작은 표식과 이름을 둔다. 이름표 띠는 24px 이고 선은 이름표 자리를
+   지나지 않게 배치했다(FlowTopology 의 BAND) */
+.frameLabel {
+  position: absolute;
+  top: 5px;
+  left: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* 다크에서는 text-tertiary 가 bg-muted 위 5.89:1 이라 안쪽 틀 다섯 겹(엣지, 리전, VPC, 칸, bot-1)이
+   민트 카드 테두리(4.89:1)만큼 진하게 읽혀 틀과 카드가 다툰다. 라이트(3.43:1)처럼 틀이 카드 뒤로
+   물러나게 bg-muted 쪽으로 25% 섞어 약 3.9:1 로 낮춘다. 3:1 은 그대로 넘는다. AWS 틀과
+   Auto Scaling 그룹은 secondary 그대로라 바깥 틀과 앱 계층이 한 단 앞에 선다 */
+:global([data-theme="dark"]) .frame {
+  border-color: color-mix(in srgb, var(--text-tertiary) 75%, var(--bg-muted));
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .frame {
+    border-color: color-mix(in srgb, var(--text-tertiary) 75%, var(--bg-muted));
+  }
+}
+
+/* ===== Auto Scaling 그룹 =====
+   앱 계층을 강조하는 틀이다. 다른 틀보다 굵고 진한 선에 모서리를 크게 둥글린다. 조정 중이면 주황
+   점선으로 바꾸고 머리 상태 줄이 ▲ 를 단다. 주황은 원색이 라이트 bg-muted 위 2.95:1 이라 글자
+   단계를 30% 섞어 3:1 을 넘긴다 */
+.asgFrame {
+  position: absolute;
+  border: 1.5px solid var(--text-secondary);
+  border-radius: var(--panel-radius);
+  pointer-events: none;
+  transition: border-color var(--dur-base) var(--ease-standard);
+}
+
+.asgFrame[data-state="transition"] {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-warning) 70%, var(--color-warning-text));
+}
+
+/* 그룹 머리 단추. 틀 머리 자리(44px)를 채우고 이름(16px), min·max(14px), 지금 대수(14px) 세 줄을
+   왼쪽 정렬로 싣는다. 줄 높이를 글자 크기에 바짝 붙여 누름 자리 44px 안에 세 줄이 든다 */
+.asgHead {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--control-radius);
+  background: transparent;
+  color: var(--text-default);
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+
+/* 누를 수 있다는 표시. 면을 카드 면으로 올린다. secondary 잉크는 그 위에서도 4.5:1 을 지킨다 */
+.asgHead:hover {
+  background: var(--surface-default);
+}
+
+.asgHead[aria-expanded="true"] {
+  background: var(--surface-default);
+  box-shadow: 0 0 0 2px var(--chrome-accent);
+}
+
+.asgTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-caption-size);
+  line-height: 16px;
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+/* 범위와 조정 기준(조회 사용률) 한 줄. 좁은 그룹에서는 FlowTopology 가 짧은 꼴을 고르고, 그래도
+   넘치면 말줄임으로 끝낸다. 숫자는 고정폭이라 매초 바뀌어도 줄 길이가 흔들리지 않는다 */
+.asgMeta {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--font-micro-size);
+  line-height: 14px;
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-feature-settings: var(--font-feature-num);
+}
+
+.asgHead .status {
+  line-height: 14px;
+}
+
+/* ===== 범례 =====
+   AWS 틀 머리 오른쪽에 한 줄로 둔다. 노드 상태와 선 모양 두 묶음이다. 형태 기호(● ▲ ■ ○)는 구성도와
+   같은 상태색을 받는다. 선 묶음의 ■ 끊김과 ▲ 전환 중도 끊김 표식(빨강)과 전환 표식(주황 글자 단계)의 색이다 */
+
+.legend {
+  position: absolute;
+  top: 10px;
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  white-space: nowrap;
+}
+
+.legendGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.legendTitle {
+  margin-right: 2px;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+/* 리더 견본. 카드의 크롬 악센트 레일을 그대로 줄여 세운다 */
+.railSwatch {
+  display: block;
+  flex: none;
+  width: 3px;
+  height: 11px;
+  margin-right: 1px;
+  border-radius: 1px;
+  background: var(--chrome-accent);
+}
+
+/* ===== 노드 카드 =====
+   위에서부터 아이콘 타일(28px), 제목, 상태 한 줄이다. AWS 그림처럼 아이콘 밑에 이름을 가운데로 적는다.
+   카드는 모두 같은 크기(높이 66px, 폭은 배치가 112~180px 로 준다)다. 좌우 여백 4px 는 가장 좁은 폭에서
+   가장 긴 상태 줄(형태와 틈을 합쳐 약 99px)이 잘리지 않는 값이다. 테두리 굵기는 1.5px 로 두고 장애만 2px 로 올린다.
+   border-box 라 굵기가 바뀌어도 바깥 크기는 그대로이고 선도 같은 가장자리에 닿는다 */
+
+.node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 4px;
+  border: 1.5px solid var(--text-tertiary);
+  border-radius: var(--control-radius);
+  background: var(--surface-default);
+  box-shadow: var(--shadow-1);
+  color: var(--text-default);
+  text-align: center;
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    box-shadow var(--dur-fast) var(--ease-standard);
+}
+
+.node:hover {
+  box-shadow: var(--shadow-2);
+}
+
+.node[data-state="running"] {
+  border-color: var(--color-success);
+}
+
+/* 주황 원색은 라이트 bg-muted 위 2.95:1 이라 경계 3:1 에 조금 못 미친다. 글자 단계를 30% 섞어
+   3.6:1 로 올린다. 다크는 두 토큰이 같은 값이라 그대로다 */
+.node[data-state="transition"] {
+  border-color: color-mix(in srgb, var(--color-warning) 70%, var(--color-warning-text));
+  background-color: var(--surface-default);
+  background-image: linear-gradient(var(--color-warning-bg), var(--color-warning-bg));
+}
+
+.node[data-state="failure"] {
+  border-width: 2px;
+  border-color: var(--color-danger);
+  background-color: var(--surface-default);
+  background-image: linear-gradient(var(--color-danger-bg), var(--color-danger-bg));
+}
+
+/* 중지는 빈 자리다. 면을 틀 면과 같게 두고 그림자를 빼 카드가 가라앉아 보이게 한다. secondary 잉크가
+   4.5:1 을 지키는 가장 진한 면이 bg-muted 다 */
+.node[data-state="stopped"] {
+  border-color: var(--text-tertiary);
+  background: var(--bg-muted);
+  box-shadow: none;
+}
+
+/* app-3 은 Auto Scaling 그룹의 +1 자리다. 꺼져 있으면 점선으로 비워 두어 한 대를 더 붙일 자리로 읽힌다 */
+.node[data-slot="true"][data-state="stopped"] {
+  border-style: dashed;
+}
+
+/* 미구축은 없는 자리다. 면을 비우고 점선 윤곽만 남긴다. 흐리게 보이는 것은 면과 잉크를 낮춘
+   결과이고, 테두리 자체는 3:1 을 지킨다 */
+.node[data-state="absent"] {
+  border-style: dashed;
+  border-color: var(--text-tertiary);
+  background: transparent;
+  box-shadow: none;
+}
+
+/* 다크에서는 민트 원색이 어두운 면 위에서 번져 보인다. 실행 테두리만 면 쪽으로 한 단 눅여
+   여러 장이 나란히 서도 장애 카드가 먼저 보이게 한다. 섞은 값도 면 대비 3:1 을 넘는다 */
+:global([data-theme="dark"]) .node[data-state="running"] {
+  border-color: color-mix(in srgb, var(--color-success) 68%, var(--surface-default));
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .node[data-state="running"] {
+    border-color: color-mix(in srgb, var(--color-success) 68%, var(--surface-default));
+  }
+}
+
+/* 팝오버를 연 노드. 테두리는 상태가 쓰므로 선택은 2px 띄운 바깥 고리로 둘러 초록·빨강 테두리가
+   고리에 먹히지 않게 한다. 틈은 바탕 면 색이라 틀 안 카드는 틀 면, 틀 밖 카드는 패널 면으로 채운다 */
+.node[aria-expanded="true"] {
+  box-shadow:
+    0 0 0 2px var(--bg-muted),
+    0 0 0 4px var(--chrome-accent),
+    var(--shadow-2);
+}
+
+.node[data-out="true"][aria-expanded="true"] {
+  box-shadow:
+    0 0 0 2px var(--surface-default),
+    0 0 0 4px var(--chrome-accent),
+    var(--shadow-2);
+}
+
+/* 매칭 리더 표식. 채움이 아니라 크롬 악센트 레일이다. 상태 테두리 안쪽에 떨어뜨려 세워
+   초록·빨강 테두리와 겹치지 않고 따로 읽힌다 */
+.node[data-leader="true"]::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: var(--space-3);
+  bottom: var(--space-3);
+  width: 3px;
+  border-radius: 1px;
+  background: var(--chrome-accent);
+}
+
+.tile {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-sunken);
+  color: var(--text-strong);
+}
+
+/* 관측 타일은 로고 둘을 나란히 싣는다 */
+.tile[data-pair="true"] {
+  width: 38px;
+  gap: 2px;
+}
+
+/* 타일 면도 상태를 따른다. 실행은 옅은 초록, 틴트 카드에서는 카드 면과 갈리도록 surface 로 되돌린다 */
+.node[data-state="running"] .tile {
+  background: var(--color-success-bg);
+}
+
+.node[data-state="transition"] .tile,
+.node[data-state="failure"] .tile {
+  background: var(--surface-default);
+}
+
+.node[data-state="stopped"] .tile {
+  border: 1px solid var(--text-tertiary);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.node[data-state="absent"] .tile {
+  border: 1px dashed var(--text-tertiary);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-caption-size);
+  line-height: 16px;
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+
+/* 꺼진 노드와 없는 노드는 제목까지 한 단 낮춘다. bg-muted 와 패널 면 위 secondary 는 대비 계약 안이다 */
+.node[data-state="stopped"] .title,
+.node[data-state="absent"] .title {
+  color: var(--text-secondary);
+}
+
+/* 그룹의 +1 표식. 제목 옆 작은 알약이다 */
+.plus {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid var(--text-tertiary);
+  border-radius: var(--radius-full);
+  font-size: var(--font-micro-size);
+  line-height: 13px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+
+/* ===== 상태 줄 ===== */
+
+/* 형태와 글자 사이는 3px 다. 가장 좁은 카드에서 긴 상태 줄이 잘리지 않게 space-1 보다 1px 좁힌다 */
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  max-width: 100%;
+  min-width: 0;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  font-feature-settings: var(--font-feature-num);
+}
+
+.shape {
+  flex: none;
+}
+
+/* 형태는 그래픽이라 3:1, 글자는 4.5:1 을 받는다. 초록 원색은 흰 면 4.27:1 이라 형태에만 쓰고
+   글자는 -text 단계로 적는다 */
+.status[data-state="running"] {
+  color: var(--color-success-text);
+}
+
+.status[data-state="running"] .shape,
+.shape[data-state="running"] {
+  color: var(--color-success);
+}
+
+.status[data-state="transition"],
+.shape[data-state="transition"] {
+  color: var(--color-warning-text);
+}
+
+.status[data-state="failure"],
+.shape[data-state="failure"] {
+  color: var(--color-danger);
+}
+
+.status[data-state="stopped"],
+.shape[data-state="stopped"],
+.status[data-state="absent"] {
+  color: var(--text-secondary);
+}
+
+.statusText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== 팝오버 ===== */
+
+/* 높이 상한은 FlowTopology 가 구성도 높이로 준다. 넘치는 내용은 팝오버 안에서 스크롤한다 */
+.popover {
+  position: absolute;
+  z-index: var(--z-dropdown);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--panel-radius);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-4);
+}
+
+.popHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.popHead .tile {
+  width: 32px;
+  height: 32px;
+}
+
+.popHead .tile[data-pair="true"] {
+  width: 40px;
+}
+
+.popHeadText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+}
+
+.popTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+
+.popSub {
+  overflow-wrap: anywhere;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+.popHead .status {
+  justify-content: flex-start;
+  margin-top: 2px;
+}
+
+.popRows {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+
+.popRows dt {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* 한국어 낱말 안에서 줄이 갈리지 않게 띄어쓰기에서만 접는다. 띄어쓰기 없는 긴 이름(파일 이름 등)은
+   anywhere 가 그래도 칸 안에서 접는다. 접힌 줄의 끝에 낱말 하나만 남지 않게 줄을 고르게 나눈다 */
+.popRows dd {
+  margin: 0;
+  text-align: right;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  font-weight: var(--fw-medium);
+  color: var(--text-strong);
+}
+
+.popActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.action > button {
+  flex: none;
+}
+
+/* 팝오버의 중립 단추. 다크에서는 컨트롤 면과 팝오버 면이 같은 값이라 면만으로는 단추 모양이 사라진다.
+   보조 단추 경계 토큰(다크 elevated 위 3.12:1)으로 테두리를 둘러 모양을 지킨다. 라이트는 컨트롤 면이
+   흰 팝오버 위에서 이미 갈려 테두리가 보조 역할만 한다 */
+.popActions .popBtn {
+  border: 1px solid var(--btn-secondary-border);
+}
+
+/* 막힌 이유. 버튼 옆 각주라 한 단 낮추되 정보라서 secondary 아래로는 내리지 않는다 */
+.reason {
+  min-width: 0;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+.popFoot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node,
+  .asgHead,
+  .asgFrame {
+    transition: none;
+  }
+}

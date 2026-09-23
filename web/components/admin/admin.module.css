@@ -115,6 +115,66 @@
   background: var(--chrome-accent);
 }
 
+/* 사이드바 접기 단추. 명판 줄 오른쪽 끝에 서고, 접힌 기둥에서는 혼자 남아 가운데 선다 */
+.sidebarToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  flex-shrink: 0;
+  border-radius: var(--panel-radius);
+  color: var(--text-secondary);
+}
+.sidebarToggle:hover {
+  color: var(--text-default);
+  background: var(--surface-hover);
+}
+.navLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 접힌 사이드바. 아이콘 기둥만 남기고 이름은 보조기술과 title 로 남긴다. 폭은 한 번에 바꾼다.
+   폭 전이를 걸면 매 프레임 본문 배치를 다시 계산해 구성도처럼 폭을 재는 화면이 전이 내내 다시 그린다 */
+.sidebar[data-collapsed] {
+  width: 72px;
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+}
+.sidebar[data-collapsed] .brand {
+  justify-content: center;
+  padding: 0;
+}
+.sidebar[data-collapsed] .brandMark,
+.sidebar[data-collapsed] .brandText,
+.sidebar[data-collapsed] .navGroupLabel {
+  display: none;
+}
+.sidebar[data-collapsed] .sidebarToggle {
+  margin-left: 0;
+}
+.sidebar[data-collapsed] .navGroup + .navGroup {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.sidebar[data-collapsed] .navLink {
+  justify-content: center;
+  padding: 0;
+}
+.sidebar[data-collapsed] .navLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 /* ===== 운영자 바 ===== */
 .main {
   flex: 1;
@@ -2057,6 +2117,10 @@
 /* 평면 전환 링크. 내비 목록 바깥 바닥에 두어 "화면 하나"로 읽히지 않게 한다.
    가로 음수 여백으로 사이드바 패딩을 상쇄해 구분선이 면 끝까지 닿는다 */
 .navCross {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
   margin: auto calc(var(--space-4) * -1) 0;
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-subtle);
@@ -2068,6 +2132,16 @@
 .navCross:hover {
   background: var(--surface-hover);
   color: var(--text-default);
+}
+.navCrossIcon {
+  flex-shrink: 0;
+}
+.sidebar[data-collapsed] .navCross {
+  justify-content: center;
+  margin-left: calc(var(--space-3) * -1);
+  margin-right: calc(var(--space-3) * -1);
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* ===== 백오피스 진입점(/admin/back) =====

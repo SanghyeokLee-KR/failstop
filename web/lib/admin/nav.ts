@@ -40,7 +40,13 @@ export const OPS_NAV: AdminNavGroup[] = [
   },
   {
     label: "시연",
-    items: [{ href: "/admin/drill", label: "상황별 대본", icon: "drill" }],
+    items: [
+      { href: "/admin/drill", label: "상황별 대본", icon: "drill" },
+      // 시안. 값은 시뮬레이션이고 백엔드에 연결하지 않았다(flowSim.ts)
+      { href: "/admin/flow", label: "서비스 흐름", icon: "flow" },
+      // 서비스 흐름과 같은 재생 주행의 추이. 흐름 화면에서 걸어 둔 재생이 여기 차트로 이어진다(flowRun.ts)
+      { href: "/admin/monitor", label: "지표 관제", icon: "metrics" },
+    ],
   },
 ];
 
