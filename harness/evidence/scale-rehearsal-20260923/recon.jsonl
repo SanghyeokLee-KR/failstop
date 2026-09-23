@@ -1,0 +1,16 @@
+{"t": 0.0, "kind": "start", "stack": "chaos", "interval": 5, "drain": 15, "once": true, "nodes": 3, "leader": "chaos-api-1", "pool": "chaos-api-2,chaos-api-3", "min_pool": 1, "mode": "start"}
+{"t": 0.8, "kind": "add.launch", "node": "chaos-api-3", "mode": "start"}
+{"t": 11.5, "kind": "add.done", "node": "chaos-api-3", "total": 3, "elapsed": 10.8}
+{"t": 11.5, "kind": "stop"}
+{"t": 0.0, "kind": "start", "stack": "chaos", "interval": 5, "drain": 8.0, "once": true, "nodes": 3, "leader": "chaos-api-1", "pool": "chaos-api-2,chaos-api-3", "min_pool": 1, "mode": "start"}
+{"t": 1.2, "kind": "remove.drain", "node": "chaos-api-3", "window": 8.0}
+{"t": 10.0, "kind": "remove.done", "node": "chaos-api-3", "total": 2, "elapsed": 9.2}
+{"t": 10.0, "kind": "stop"}
+{"t": 0.0, "kind": "start", "stack": "chaos", "interval": 5, "drain": 15, "once": true, "nodes": 3, "leader": "chaos-api-1", "pool": "chaos-api-2,chaos-api-3", "min_pool": 1, "mode": "start"}
+{"t": 0.8, "kind": "add.launch", "node": "chaos-api-3", "mode": "start"}
+{"t": 11.6, "kind": "add.done", "node": "chaos-api-3", "total": 3, "elapsed": 10.9}
+{"t": 11.6, "kind": "stop"}
+{"t": 0.0, "kind": "start", "stack": "chaos", "interval": 5, "drain": 10.0, "once": true, "nodes": 3, "leader": "chaos-api-1", "pool": "chaos-api-2,chaos-api-3", "min_pool": 1, "mode": "start"}
+{"t": 1.2, "kind": "remove.drain", "node": "chaos-api-3", "window": 10.0}
+{"t": 12.0, "kind": "remove.done", "node": "chaos-api-3", "total": 2, "elapsed": 11.2}
+{"t": 12.0, "kind": "stop"}

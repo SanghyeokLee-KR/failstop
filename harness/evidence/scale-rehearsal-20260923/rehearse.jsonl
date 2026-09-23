@@ -1,0 +1,19 @@
+{"t": 5.9, "kind": "start", "observed": 2, "desired": 2, "reconciled": true, "cpu": 0.8567460317460317, "advice": ["scale_out"], "actions": ["SCALE_OUT"]}
+{"t": 9.9, "kind": "ops.set", "target": 300, "apply": "queued"}
+{"t": 12.0, "kind": "breach", "observed": 2, "desired": 2, "reconciled": true, "cpu": 0.5796992481203007, "advice": ["scale_out"], "actions": ["SCALE_OUT"]}
+{"t": 12.0, "kind": "breach.result", "reached": true, "cpu": "58%"}
+{"t": 13.9, "kind": "scale_out.requested"}
+{"t": 15.8, "kind": "joined", "observed": 2, "desired": 3, "reconciled": false, "cpu": 0.5841176470588235, "advice": ["under_provisioned", "at_max"], "actions": []}
+{"t": 23.0, "kind": "joined", "observed": 2, "desired": 3, "reconciled": false, "cpu": 0.5768382352941177, "advice": ["under_provisioned", "at_max"], "actions": []}
+{"t": 30.1, "kind": "joined", "observed": 2, "desired": 3, "reconciled": false, "cpu": 0.5317460317460317, "advice": ["under_provisioned", "at_max"], "actions": []}
+{"t": 37.9, "kind": "joined", "observed": 3, "desired": 3, "reconciled": true, "cpu": 0.7448992655481437, "advice": ["at_max"], "actions": []}
+{"t": 37.9, "kind": "joined.result", "ok": true, "elapsed": 24.0, "cpu": "74%"}
+{"t": 40.2, "kind": "spread", "observed": 3, "desired": 3, "reconciled": true, "cpu": 0.49003036437246966, "advice": ["at_max"], "actions": []}
+{"t": 40.2, "kind": "spread.result", "ok": true, "cpu": "49%"}
+{"t": 42.2, "kind": "ops.restore", "target": 10}
+{"t": 46.4, "kind": "scale_in.requested"}
+{"t": 48.4, "kind": "drained", "observed": 3, "desired": 2, "reconciled": false, "cpu": 0.30144300144300146, "advice": ["over_provisioned", "scale_out"], "actions": ["SCALE_OUT"]}
+{"t": 55.4, "kind": "drained", "observed": 3, "desired": 2, "reconciled": false, "cpu": 0.18578811369509043, "advice": ["over_provisioned", "steady"], "actions": []}
+{"t": 64.7, "kind": "drained", "observed": 2, "desired": 2, "reconciled": true, "cpu": 0.27285714285714285, "advice": ["scale_out"], "actions": ["SCALE_OUT"]}
+{"t": 64.7, "kind": "drained.result", "ok": true, "elapsed": 18.3}
+{"t": 66.7, "kind": "stop", "observed": 2, "desired": 2, "reconciled": true, "cpu": 0.28428571428571425, "advice": ["scale_out"], "actions": ["SCALE_OUT"]}
