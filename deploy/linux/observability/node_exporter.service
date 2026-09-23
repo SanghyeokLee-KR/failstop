@@ -6,7 +6,18 @@ Wants=network-online.target
 [Service]
 User=node_exporter
 Group=node_exporter
-ExecStart=/usr/local/bin/node_exporter --web.listen-address=127.0.0.1:9100 --collector.disable-defaults --collector.cpu --collector.meminfo --collector.filesystem --collector.diskstats --collector.netdev --collector.netstat --collector.sockstat --collector.loadavg --collector.stat --collector.time --collector.uname --collector.vmstat --collector.filefd --collector.pressure --collector.systemd --collector.systemd.unit-include=(sshd|chronyd|postgresql|exchange-app|exchange-bots|prometheus|grafana-server|node_exporter)[.]service
+# textfile 수집 디렉터리는 호스트마다 다르므로 /etc/node_exporter/textfile.env에서 받는다. 그 파일이 없으면
+# 값이 비어 textfile을 읽지 않고 node_textfile_scrape_error는 0이다. 디렉터리를 만든 뒤에만 파일을 둔다.
+# 없는 디렉터리를 가리키면 수집 오류(node_textfile_scrape_error 1)가 된다.
+#   app-1·bot-1: node_exporter-textfile.env.watchdog (/var/lib/failstop-watchdog/textfile)
+#   DB 두 대:    node_exporter-textfile.env.db       (/var/lib/node_exporter/textfile)
+Environment=NODE_EXPORTER_TEXTFILE_DIR=
+EnvironmentFile=-/etc/node_exporter/textfile.env
+# unit-include는 유닛 이름 전체와 일치해야 수집한다. 이름은 deploy/linux의 .service 파일과 설치 패키지의
+# 실제 유닛 이름에 맞춘다. 네 역할이 같은 목록을 쓰며 그 호스트에 없는 유닛은 수집되지 않는다.
+# 일일 보고 타이머는 마지막 실행 시각을 경보로 확인하려고 함께 넣는다. DB 백업(failstop-db-backup)과
+# 관측 워치독(failstop-watchdog)은 지표를 쓰지 못하고 끝난 실행도 failed 상태로 드러나게 넣는다.
+ExecStart=/usr/local/bin/node_exporter --web.listen-address=127.0.0.1:9100 --collector.disable-defaults --collector.cpu --collector.meminfo --collector.filesystem --collector.diskstats --collector.netdev --collector.netstat --collector.sockstat --collector.loadavg --collector.stat --collector.time --collector.uname --collector.vmstat --collector.filefd --collector.pressure --collector.textfile --collector.textfile.directory=${NODE_EXPORTER_TEXTFILE_DIR} --collector.systemd --collector.systemd.unit-include=(sshd|chronyd|nginx|certbot-renew|postgresql|postgres_exporter|exchange-app|exchange-bot|exchange-bot-capacity|prometheus|alertmanager|grafana-server|failstop-reporting|failstop-reporting-daily|failstop-db-backup|failstop-watchdog|node_exporter)[.]service|failstop-reporting-daily[.]timer
 Restart=on-failure
 RestartSec=5
 MemoryMax=128M

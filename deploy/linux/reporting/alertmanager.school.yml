@@ -6,10 +6,16 @@ route:
   group_interval: 5m
   repeat_interval: 4h
   routes:
+    # 항상 발화하는 Watchdog(watchdog/watchdog-rules.yml)은 경보 경로의 생존 신호다. bot-1 워치독이
+    # Alertmanager API에서 존재만 확인하므로 어디에도 보내지 않는다. continue가 없어 아래 두 경로로 가지 않는다.
+    # 이 경로가 적용되기 전에 Watchdog 규칙을 불러오면 Teams와 보고 서비스로 계속 전달된다.
+    - matchers: [alertname="Watchdog"]
+      receiver: watchdog-null
     - receiver: teams
       continue: true
     - receiver: evidence-reporter
 receivers:
+  - name: watchdog-null
   - name: teams
     msteamsv2_configs:
       - webhook_url_file: /etc/failstop/teams-webhook
@@ -44,4 +50,13 @@ receivers:
 inhibit_rules:
   - source_matchers: [alertname="LinuxHostUnreachable"]
     target_matchers: [alertname=~"LinuxCollectorFailed|LinuxLogCollectionStale"]
+    equal: [instance]
+  # bot-1의 node_exporter가 끊기면 systemd 수집값이 사라져 아래 규칙들이 '미수집'으로 함께 발생한다.
+  # 원인인 호스트 수집 장애 하나만 보낸다. absent 결과에는 instance가 없어 node로 묶는다.
+  - source_matchers: [alertname="LinuxHostUnreachable"]
+    target_matchers: [alertname=~"OperationsReporterNotActive|OperationsDailyReportNotTriggered|MarketBotNotActive"]
+    equal: [node]
+  # textfile을 읽지 못하면 그 호스트의 워치독 결과 지표도 함께 사라진다. 원인인 수집 오류 하나만 보낸다.
+  - source_matchers: [alertname="LinuxTextfileMetricsInvalid"]
+    target_matchers: [alertname="WatchdogCheckerMissing"]
     equal: [instance]

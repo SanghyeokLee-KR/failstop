@@ -1,7 +1,7 @@
 {
   "uid": "msp-service",
   "title": "02 · 트래픽·Spring",
-  "description": "학교 AWS 배포. 원본 Git 커밋 6ee1179. 앱·Linux·DB 지표 수집 대상. 외부 프로브·CloudWatch·경보 규칙은 연결 전. 미수집은 정상 판정이 아니다.",
+  "description": "학교 AWS 배포. 원본 Git 커밋 6ee1179. 앱·Linux·DB 지표와 경보 규칙 연결. 외부 프로브·CloudWatch는 연결 전. 미수집은 정상 판정이 아니다.",
   "tags": [
     "MSP",
     "customer-operations",

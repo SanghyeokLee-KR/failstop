@@ -7,7 +7,11 @@ Wants=network-online.target
 User=node_exporter
 Group=node_exporter
 EnvironmentFile=/etc/node_exporter/listen.env
-ExecStart=/usr/local/bin/node_exporter --web.listen-address=${NODE_EXPORTER_ADDRESS}:9100 --collector.disable-defaults --collector.cpu --collector.meminfo --collector.filesystem --collector.diskstats --collector.netdev --collector.netstat --collector.sockstat --collector.loadavg --collector.stat --collector.time --collector.uname --collector.vmstat --collector.filefd --collector.pressure --collector.systemd --collector.systemd.unit-include=(sshd|chronyd|postgresql|exchange-app|exchange-bots|prometheus|grafana-server|node_exporter)[.]service
+# textfile 디렉터리 값과 없을 때의 동작은 node_exporter.service의 설명과 같다.
+Environment=NODE_EXPORTER_TEXTFILE_DIR=
+EnvironmentFile=-/etc/node_exporter/textfile.env
+# 수집기와 유닛 목록은 node_exporter.service와 같다. 한쪽만 바꾸지 않는다.
+ExecStart=/usr/local/bin/node_exporter --web.listen-address=${NODE_EXPORTER_ADDRESS}:9100 --collector.disable-defaults --collector.cpu --collector.meminfo --collector.filesystem --collector.diskstats --collector.netdev --collector.netstat --collector.sockstat --collector.loadavg --collector.stat --collector.time --collector.uname --collector.vmstat --collector.filefd --collector.pressure --collector.textfile --collector.textfile.directory=${NODE_EXPORTER_TEXTFILE_DIR} --collector.systemd --collector.systemd.unit-include=(sshd|chronyd|nginx|certbot-renew|postgresql|postgres_exporter|exchange-app|exchange-bot|exchange-bot-capacity|prometheus|alertmanager|grafana-server|failstop-reporting|failstop-reporting-daily|failstop-db-backup|failstop-watchdog|node_exporter)[.]service|failstop-reporting-daily[.]timer
 Restart=on-failure
 RestartSec=5
 MemoryMax=128M

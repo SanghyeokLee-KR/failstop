@@ -1,7 +1,7 @@
 {
   "uid": "msp-db",
   "title": "04 · DB 관제",
-  "description": "학교 AWS 배포. 원본 Git 커밋 6ee1179. 앱·Linux·DB 지표 수집 대상. 외부 프로브·CloudWatch·경보 규칙은 연결 전. 미수집은 정상 판정이 아니다.",
+  "description": "학교 AWS 배포. 원본 Git 커밋 6ee1179. 앱·Linux·DB 지표와 경보 규칙 연결. 외부 프로브·CloudWatch는 연결 전. 미수집은 정상 판정이 아니다.",
   "tags": [
     "MSP",
     "customer-operations",
@@ -2566,7 +2566,7 @@
       "id": 13
     },
     {
-      "type": "text",
+      "type": "table",
       "title": "진행 경보 · 고객 라벨",
       "description": "선택 고객·환경·역할 라벨이 있는 경보. 미분류 경보는 기본 경고 메뉴에서 별도 확인.",
       "gridPos": {
@@ -2574,6 +2574,10 @@
         "y": 13,
         "w": 8,
         "h": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -2618,10 +2622,55 @@
           }
         ]
       },
-      "targets": [],
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"} and (time() - timestamp(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"}) < 90)) or label_replace((sum((ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"} and (time() - timestamp(ALERTS{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",component!=\"reporting\",alertstate=\"firing\"}) < 90))) or (0 * count((up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=~\"exchange-api|linux-host|postgres|blackbox-http\"} and (time() - timestamp(up{customer=\"$customer\",environment=\"$environment\",role=~\"app|reader|data|standby|probe\",job=~\"exchange-api|linux-host|postgres|blackbox-http\"}) < 90))))) == 0,\"alertname\",\"진행 경보 없음\",\"\",\".*\")",
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table",
+          "editorMode": "code"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "severity",
+                "node",
+                "alertname",
+                "instance"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "severity": 0,
+              "node": 1,
+              "alertname": 2,
+              "instance": 3
+            },
+            "renameByName": {
+              "severity": "등급",
+              "node": "대상",
+              "alertname": "경보",
+              "instance": "접속점"
+            }
+          }
+        }
+      ],
       "options": {
-        "mode": "markdown",
-        "content": "경보 규칙 **미연결** · 현재 화면에서 정상 여부를 판정하지 않습니다."
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
       },
       "links": [
         {

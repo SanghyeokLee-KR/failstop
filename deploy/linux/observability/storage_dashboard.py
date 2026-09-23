@@ -67,7 +67,7 @@ def build_storage(reference):
     panel("PostgreSQL · WAL 디렉터리 크기", "timeseries", (12,14,12,5),
           [observed(f'pg_wal_position_dir_bytes{{{DB}}}',DB)])
     d["panels"].append({"id":12,"title":"용량이 늘 때 확인할 순서","type":"text","gridPos":{"x":0,"y":19,"w":24,"h":3},
-       "options":{"mode":"markdown","content":"**70% 주의 · 85% 조치 · 95% 긴급**은 화면 기준입니다. 자동 삭제나 Teams 경보는 연결하지 않았습니다.  \
+       "options":{"mode":"markdown","content":"**70% 주의 · 85% 조치 · 95% 긴급**은 화면 색상 기준이며 자동 삭제는 없습니다. 경보는 이와 별도로 여유 15% 미만이 5분 이어지면 `LinuxDiskSpaceLow`를 Teams로 보냅니다. bot-1 디스크는 `job=\"linux\"`를 포함한 새 경보 규칙을 서버에 적용해야 대상이 됩니다.  \
 **로그·캐시·오래된 백업 확인 → 보존 기준과 복원 가능 여부 확인 → 승인된 파일만 정리.** DB 데이터와 `pg_wal`은 직접 지우지 않습니다.  \
 두 DB의 50GiB는 각각의 볼륨입니다. 복제 때문에 저장 공간이 합쳐지지 않으며, OS·로그·WAL도 같은 디스크를 사용합니다."}})
     return d

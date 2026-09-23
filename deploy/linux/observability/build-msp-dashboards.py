@@ -20,7 +20,7 @@ def panels(items):
 
 
 def unavailable(panel, message):
-    # 연결 전인 경보를 0건으로, CloudWatch를 쿼리 오류로 보이지 않게 한다.
+    # 연결 전인 CloudWatch를 쿼리 오류로 보이지 않게 한다.
     panel["type"] = "text"
     panel.pop("datasource", None)
     panel.pop("transformations", None)
@@ -39,7 +39,7 @@ def build():
         dashboard["id"] = None
         dashboard["description"] = (
             f"학교 AWS 배포. 원본 Git 커밋 {SOURCE_COMMIT[:7]}. "
-            "앱·Linux·DB 지표 수집 대상. 외부 프로브·CloudWatch·경보 규칙은 연결 전. "
+            "앱·Linux·DB 지표와 경보 규칙 연결. 외부 프로브·CloudWatch는 연결 전. "
             "미수집은 정상 판정이 아니다."
         )
         dashboard["tags"] = list(dict.fromkeys(dashboard.get("tags", []) + ["school-aws"]))
@@ -48,10 +48,10 @@ def build():
                 variable["current"] = {"text": "aws", "value": "aws"}
                 variable["options"] = []
         dashboard["links"].insert(6, {"type": "link", "title": "07 · 디스크·용량", "url": "/d/msp-storage", "includeVars": True, "keepTime": True, "targetBlank": False})
+        # 경보 패널은 원본 조회식을 그대로 쓴다. 학교 Prometheus는 2026-09-20부터 school-alerts.yml을
+        # 평가하므로 ALERTS가 실제 경보 상태다. 원본 식은 고객 서버 역할만 세고 bot-1과 보고 경보는 뺀다.
         for panel in panels(dashboard["panels"]):
-            if any("ALERTS{" in target.get("expr", "") for target in panel.get("targets", [])):
-                unavailable(panel, "경보 규칙 **미연결** · 현재 화면에서 정상 여부를 판정하지 않습니다.")
-            elif panel.get("datasource", {}).get("type") == "cloudwatch":
+            if panel.get("datasource", {}).get("type") == "cloudwatch":
                 unavailable(panel, "CloudWatch **미연결** · AWS 권한과 대상 자원을 확인한 뒤 연결합니다.")
         (DESTINATION / filename).write_text(
             json.dumps(dashboard, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

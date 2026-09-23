@@ -102,7 +102,11 @@ def main():
     temporary.write_text(json.dumps(result, indent=2) + '\n')
     temporary.replace(path)
     print(json.dumps(result))
-    return 1 if result['reasons'] else 0
+    # 판정을 끝냈으면 봇을 멈췄거나 수집이 빠졌어도 정상 종료한다. 판정 결과는 state.json과
+    # 봇 서비스 중지 경보(MarketBotNotActive)로 알린다. 이 유닛이 failed가 되는 것은 봇 중지나
+    # 판정 기록을 끝내지 못한 스크립트 오류뿐이므로 LinuxServiceFailed 경보가 그 경우만 알린다.
+    # 다른 서버의 수집 누락은 그 서버의 LinuxHostUnreachable이 알리므로 여기서 겹쳐 알리지 않는다.
+    return 0
 
 
 if __name__ == '__main__':
