@@ -17,10 +17,11 @@ import { getDataSource, MAX_TRANSFER_KRW } from "@/lib/api/datasource";
 import { ApiError } from "@/lib/api/httpDatasource";
 import { useExchangeStore, useLiveChannels, useMemberSession } from "@/lib/store";
 import { compareDecimal } from "@/lib/decimal";
-import { formatKRW, toNum } from "@/lib/format";
+import { formatKRW } from "@/lib/format";
 import { loginHref } from "@/lib/auth/nextPath";
 import { dest } from "@/lib/types";
 import type { TransferDirection, TransferRequest } from "@/lib/types";
+import { addQuickAmount } from "./quickAmount";
 import styles from "./page.module.css";
 
 const DIRECTIONS: { value: TransferDirection; label: string }[] = [
@@ -254,7 +255,7 @@ export default function TransfersPage() {
                   key={q}
                   type="button"
                   className={styles.quickBtn}
-                  onClick={() => setAmount((prev) => String(toNum(prev || "0") + toNum(q)))}
+                  onClick={() => setAmount((prev) => addQuickAmount(prev, q))}
                   disabled={busy}
                 >
                   +{formatKRW(q)}

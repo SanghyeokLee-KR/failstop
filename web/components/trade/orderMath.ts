@@ -7,6 +7,7 @@
 import type { Side } from "../../lib/types";
 import { toNum } from "../../lib/format";
 import {
+  compareDecimal,
   decimalsOf,
   fromScaledInt,
   normalizeDecimal,
@@ -102,8 +103,9 @@ export function resnapAutoPrice(current: string, auto: string, tick: string | nu
 /**
  * 가격 입력 필드 표기. 정수부는 자리 구분, 소수부는 입력 그대로 유지(입력 중 후행 0·소수점 보존).
  * formatKRW는 Math.round로 소수를 버려 저가 마켓 입력을 0으로 만든다. 그 자리를 대체한다.
+ * 표기값은 다음 입력 때 쉼표만 빠진 채 가격 상태로 돌아간다. 정수부를 number로 거치면
+ * 2^53을 넘는 자리가 바뀌어 제출 가격까지 달라지므로 문자열로 자리를 나눈다.
  */
-const nfGroup = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 });
 export function formatPriceField(raw: string): string {
   if (!raw) return "";
   const neg = raw.startsWith("-");
@@ -111,8 +113,8 @@ export function formatPriceField(raw: string): string {
   const dot = body.indexOf(".");
   const intPart = dot < 0 ? body : body.slice(0, dot);
   const fracPart = dot < 0 ? "" : body.slice(dot + 1);
-  const intNum = intPart === "" ? 0 : Number(intPart);
-  const grouped = Number.isFinite(intNum) ? nfGroup.format(intNum) : intPart || "0";
+  const digits = intPart.replace(/^0+(?=\d)/, "") || "0";
+  const grouped = /^\d+$/.test(digits) ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : intPart;
   return (neg ? "-" : "") + grouped + (dot < 0 ? "" : "." + fracPart);
 }
 
@@ -148,6 +150,31 @@ export function qtyFromTotal(total: string | number, price: string | number, sca
   const den = priceInt * 10n ** BigInt(st);
   const qtyScaled = num / den; // 양수 BigInt 나눗셈은 내림
   return fromScaledInt(qtyScaled, s);
+}
+
+/**
+ * 주문총액 입력칸의 값으로 수량을 역산한다. 숫자만 남겨 14자리로 자른 총액을 기준가로 나눈다.
+ * 역산 수량이 그대로 제출 수량이 되므로 총액과 기준가를 number로 바꾸지 않는다. number를 거치면
+ * 유효 자릿수가 긴 기준가가 반올림되어 역산 수량이 달라진다.
+ */
+export function qtyFromTotalInput(input: string, priceBasis: string, scale: number): string | null {
+  return qtyFromTotal(input.replace(/[^0-9]/g, "").slice(0, 14), priceBasis, scale);
+}
+
+/**
+ * 지정가 가격칸의 한 호가 이동. 입력가가 양수면 입력 문자열에서, 비었거나 0이면 현재가에서
+ * 출발한다. 현재가도 없는 무체결 마켓은 0에서 출발해 최소 한 틱이 된다. 이동 결과가 제출 가격이
+ * 되므로 출발값을 number로 바꾸면 2^53을 넘는 가격이나 긴 소수 가격의 자리가 바뀐 채 나간다.
+ */
+export function stepLimitPrice(
+  priceRaw: string,
+  tradePrice: string | null | undefined,
+  specTick: string | null,
+  fallbackTick: (price: number) => number,
+  sign: 1 | -1,
+): string {
+  const start = compareDecimal(priceRaw || "0", "0") > 0 ? priceRaw : (tradePrice ?? "0");
+  return stepAutoPrice(start, specTick, fallbackTick, sign);
 }
 
 /**

@@ -51,9 +51,10 @@ import {
   isLargeOrder as computeLargeOrder,
   pctOfDecimal,
   qtyFromTotal,
+  qtyFromTotalInput,
   resnapAutoPrice,
   roundToTick,
-  stepAutoPrice,
+  stepLimitPrice,
 } from "./orderMath";
 import styles from "./OrderPanel.module.css";
 
@@ -388,18 +389,17 @@ export default function OrderPanel({ market, initialSide, prefill, accountsHealt
   // 주문총액 입력 → 가격 기준 수량 역산(양방향). 지정가는 입력가, 시장가 매도는 현재가 기준.
   // 수량이 원본, 총액은 파생. 총액 입력은 역산해 수량에 되쓴다.
   const onTotalInput = (v: string) => {
-    const t = toNum(v.replace(/[^0-9]/g, "").slice(0, 14));
     // 역산 기준가는 검증·제출과 같은 틱 반올림가(priceBasisStr). 원시 입력가 기준이면
-    // 격자 밖 가격에서 역산 수량의 반올림가 총액이 입력 총액과 어긋난다
-    const p = toNum(priceBasisStr);
-    const next = qtyFromTotal(t, p, qtyScale);
+    // 격자 밖 가격에서 역산 수량의 반올림가 총액이 입력 총액과 어긋난다. 입력 정리와 역산은
+    // 단위 시험이 고정하는 qtyFromTotalInput 한 곳에 둔다
+    const next = qtyFromTotalInput(v, priceBasisStr, qtyScale);
     if (next !== null) setQtyRaw(next);
     setActivePct(null);
   };
 
   const stepPrice = (sign: 1 | -1) => {
-    const ref = price > 0 ? price : curPrice;
-    setSnappedPrice(stepAutoPrice(ref, specTick, priceStep, sign));
+    // 출발값 선택과 이동은 stepLimitPrice 한 곳에 둔다. 출발값을 number로 바꾸면 제출 가격이 달라진다
+    setSnappedPrice(stepLimitPrice(priceRaw, ticker?.trade_price, specTick, priceStep, sign));
     setActivePct(null);
   };
 

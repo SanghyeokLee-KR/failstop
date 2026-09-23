@@ -14,8 +14,10 @@ import {
   roundToTick,
   stepToTick,
   qtyFromTotal,
+  qtyFromTotalInput,
   resnapAutoPrice,
   stepAutoPrice,
+  stepLimitPrice,
   committedRatioOf,
   isLargeOrder,
 } from "../components/trade/orderMath";
@@ -266,4 +268,42 @@ test("가격 필드 표기: 입력 중 후행 소수점·0 유지", () => {
   assert.equal(formatPriceField("0."), "0.");
   assert.equal(formatPriceField("0.40"), "0.40");
   assert.equal(formatPriceField(""), "");
+});
+
+test("가격 필드 표기: 2^53을 넘는 정수부도 입력 자리를 그대로 나눈다", () => {
+  // 표기값은 다음 입력 때 쉼표만 빠져 가격 상태가 된다. number를 거치면 끝자리가 바뀐 채 되돌아온다
+  assert.equal(formatPriceField("9007199254740993"), "9,007,199,254,740,993");
+  assert.equal(formatPriceField("0012345.60"), "12,345.60");
+  assert.equal(formatPriceField(".5"), "0.5");
+});
+
+test("총액 입력 역산: 쉼표를 걷어 낸 총액을 기준가 문자열 그대로 나눈다", () => {
+  // 총액이나 기준가를 number로 바꾸면 기준가가 1로 뭉개져 99999999999999가 나온다
+  assert.equal(qtyFromTotalInput("99,999,999,999,999", "1.00000000000000001", 8), "99999999999998.999");
+  // 숫자 외 문자를 버린 뒤 14자리에서 자른다
+  assert.equal(qtyFromTotalInput("1,000,000,000,000,000", "1", 0), "10000000000000");
+});
+
+test("총액 입력 역산: 비운 총액은 수량 0, 기준가가 0이면 수량을 바꾸지 않는다", () => {
+  assert.equal(qtyFromTotalInput("", "50000000", 8), "0");
+  // 시장가 매수의 기준가는 "0"이다. null이면 호출부가 수량을 되쓰지 않는다
+  assert.equal(qtyFromTotalInput("1000000", "0", 8), null);
+});
+
+test("지정가 한 호가 이동: 입력가가 있으면 입력 문자열에서 출발한다", () => {
+  // number로 바꾸면 9007199254740993이 ...992가 되어 ...993으로 나간다
+  assert.equal(stepLimitPrice("9007199254740993", "50000000", "1", priceStep, 1), "9007199254740994");
+  // 긴 소수 가격도 한 틱만 움직인다. number로 바꾸면 1에서 출발한다
+  assert.equal(
+    stepLimitPrice("1.00000000000000001", null, "0.00000000000000001", priceStep, 1),
+    "1.00000000000000002",
+  );
+});
+
+test("지정가 한 호가 이동: 입력가가 비었거나 0이면 현재가 문자열에서 출발한다", () => {
+  assert.equal(stepLimitPrice("", "9007199254740993", "1", priceStep, -1), "9007199254740992");
+  assert.equal(stepLimitPrice("0", "9007199254740993", "1", priceStep, 1), "9007199254740994");
+  // 무체결 마켓(현재가 null)과 시세 미수신(undefined)은 0에서 출발해 최소 한 틱이 된다
+  assert.equal(stepLimitPrice("", null, "1", priceStep, -1), "1");
+  assert.equal(stepLimitPrice(".", undefined, "1", priceStep, 1), "1");
 });
