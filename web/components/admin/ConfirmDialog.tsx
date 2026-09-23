@@ -5,7 +5,7 @@
  * 색 단독 금지라 확정에 danger 보더와 라벨을 병기한다.
  */
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styles from "./ConfirmDialog.module.css";
 
@@ -50,13 +50,24 @@ export default function ConfirmDialog({
   // 포커스 셋업 이펙트가 재실행돼 초기 포커스(취소)로 포커스를 되돌리는 강탈을 막는다
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  // 복귀 대상은 첫 렌더에서 잡는다. children의 autoFocus(거절 사유 입력 등)는 커밋 중에 포커스를 옮겨
+  // 이펙트 시점의 activeElement가 트리거가 아니라 다이얼로그 안의 입력이 된다
+  const [opener] = useState(() => document.activeElement as HTMLElement | null);
   // 실제 렌더된 조각만 참조한다. description 없이 target/blastRadius만 있을 때 빈 id 참조를 막는다
   const describedBy =
     [description ? descId : null, target || blastRadius ? summaryId : null].filter(Boolean).join(" ") || undefined;
 
+  // 배경 격리와 포커스 복귀를 한 이펙트에 둔다. React는 이펙트 정리를 선언 순서대로 돌리므로 둘을 나누면
+  // inert가 남은 채 복귀가 먼저 실행되고, inert 안의 트리거는 focus()를 무시해 포커스가 body로 떨어진다
   useEffect(() => {
-    const prevFocused = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
+    const overlay = overlayRef.current;
+    // 토스트 리전은 격리 대상에서 제외한다. inert에 걸리면 열림 중 토스트 낭독·닫기가 죽는다
+    const bg = Array.from(document.body.children).filter(
+      (el) => el !== overlay && !el.hasAttribute("data-toast-region"),
+    ) as HTMLElement[];
+    const prevInert = bg.map((n) => ({ n, inert: n.hasAttribute("inert") }));
+    bg.forEach((n) => n.setAttribute("inert", ""));
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onCloseRef.current();
@@ -93,27 +104,13 @@ export default function ConfirmDialog({
     else dialog?.focus();
     return () => {
       document.removeEventListener("keydown", onKey);
-      // 닫힐 때 트리거로 포커스 복귀(키보드 흐름 유지)
-      prevFocused?.focus?.();
-    };
-    // 마운트 1회만. 초기 포커스·트리거 복귀는 열림·닫힘 경계에서만 일어나야 한다(폴링 리렌더 무관)
-  }, []);
-
-  // 배경 격리는 포커스 효과 뒤에 선언한다. 정리 역순이라 inert 해제가 포커스 복원보다 먼저 돈다
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-    // 토스트 리전은 격리 대상에서 제외한다. inert에 걸리면 열림 중 토스트 낭독·닫기가 죽는다
-    const bg = Array.from(document.body.children).filter(
-      (el) => el !== overlay && !el.hasAttribute("data-toast-region"),
-    ) as HTMLElement[];
-    const prev = bg.map((n) => ({ n, inert: n.hasAttribute("inert") }));
-    bg.forEach((n) => n.setAttribute("inert", ""));
-    return () => {
-      prev.forEach(({ n, inert }) => {
+      prevInert.forEach(({ n, inert }) => {
         if (!inert) n.removeAttribute("inert");
       });
+      // inert를 푼 뒤에 트리거로 포커스를 되돌린다(키보드 흐름 유지)
+      opener?.focus?.();
     };
+    // 마운트 1회만. 초기 포커스·트리거 복귀는 열림·닫힘 경계에서만 일어나야 한다(폴링 리렌더 무관)
   }, []);
 
   return createPortal(

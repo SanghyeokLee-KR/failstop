@@ -65,9 +65,19 @@ export default function OrderConfirmDialog({
     onCloseRef.current = onClose;
   });
 
+  // 배경 격리와 포커스 복귀를 한 이펙트에 둔다. React는 이펙트 정리를 선언 순서대로 돌리므로 둘을 나누면
+  // inert가 남은 채 복귀가 먼저 실행되고, inert 안의 트리거는 focus()를 무시해 포커스가 body로 떨어진다
   useEffect(() => {
     const prevFocused = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
+    const overlay = overlayRef.current;
+    // 토스트 리전은 격리 대상에서 제외한다. inert로 접근성 트리에서 빠지면 열림 중 체결·에러
+    // 토스트가 낭독되지 않고 닫기 버튼도 조작 불가가 된다(z-toast로 시각은 다이얼로그 위)
+    const bg = Array.from(document.body.children).filter(
+      (el) => el !== overlay && !el.hasAttribute("data-toast-region"),
+    ) as HTMLElement[];
+    const prevInert = bg.map((n) => ({ n, inert: n.hasAttribute("inert") }));
+    bg.forEach((n) => n.setAttribute("inert", ""));
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onCloseRef.current();
@@ -103,27 +113,13 @@ export default function OrderConfirmDialog({
     else dialog?.focus();
     return () => {
       document.removeEventListener("keydown", onKey);
+      prevInert.forEach(({ n, inert }) => {
+        if (!inert) n.removeAttribute("inert");
+      });
+      // inert를 푼 뒤에 트리거로 포커스를 되돌린다
       prevFocused?.focus?.();
     };
     // 마운트 1회. 초기 포커스·트랩 등록은 열림 시점에만 수행한다(onClose는 ref 경유)
-  }, []);
-
-  // 배경 격리는 포커스 효과 뒤에 선언한다. 정리 역순이라 inert 해제가 포커스 복원보다 먼저 돈다
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-    // 토스트 리전은 격리 대상에서 제외한다. inert로 접근성 트리에서 빠지면 열림 중 체결·에러
-    // 토스트가 낭독되지 않고 닫기 버튼도 조작 불가가 된다(z-toast로 시각은 다이얼로그 위)
-    const bg = Array.from(document.body.children).filter(
-      (el) => el !== overlay && !el.hasAttribute("data-toast-region"),
-    ) as HTMLElement[];
-    const prev = bg.map((n) => ({ n, inert: n.hasAttribute("inert") }));
-    bg.forEach((n) => n.setAttribute("inert", ""));
-    return () => {
-      prev.forEach(({ n, inert }) => {
-        if (!inert) n.removeAttribute("inert");
-      });
-    };
   }, []);
 
   const sideLabel = side === "bid" ? "매수" : "매도";
