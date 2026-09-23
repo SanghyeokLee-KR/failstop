@@ -37,13 +37,29 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
   const busyRef = useRef(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  // 호출부가 인라인 onClose를 넘긴다. deps에 두면 부모 리렌더마다 격리·포커스 이펙트가 다시 돌아
+  // 입력 중인 포커스를 첫 사유로 옮기므로 최신 참조만 ref로 읽는다
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
+  // 배경 격리와 포커스 복귀를 한 이펙트에 둔다. React는 이펙트 정리를 선언 순서대로 돌리므로 둘을 나누면
+  // inert가 남은 채 복귀가 먼저 실행되고, inert 안의 트리거는 focus()를 무시해 포커스가 body로 떨어진다
   useEffect(() => {
     const prevFocused = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
+    const overlay = overlayRef.current;
+    // 토스트 리전은 격리 대상에서 제외한다. inert에 걸리면 열림 중 토스트 낭독·닫기가 죽는다
+    const bg = Array.from(document.body.children).filter(
+      (el) => el !== overlay && !el.hasAttribute("data-toast-region"),
+    ) as HTMLElement[];
+    // inert가 접근성 트리에서 이미 제거하므로 aria-hidden은 중복이라 두지 않는다
+    const prevInert = bg.map((n) => ({ n, inert: n.hasAttribute("inert") }));
+    bg.forEach((n) => n.setAttribute("inert", ""));
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (!busyRef.current) onClose();
+        if (!busyRef.current) onCloseRef.current();
         return;
       }
       // 모달 포커스 트랩: Tab이 다이얼로그 밖으로 새지 않게 처음·끝을 순환한다
@@ -67,27 +83,13 @@ export default function ReportDialog({ targetType, onClose, onSubmit }: Props) {
     dialog?.querySelector<HTMLElement>("input, button")?.focus();
     return () => {
       document.removeEventListener("keydown", onKey);
-      // 닫힐 때 호출 지점으로 포커스를 복귀시킨다(키보드 흐름 유지)
-      prevFocused?.focus?.();
-    };
-  }, [onClose]);
-
-  // 배경 격리는 포커스 효과 뒤에 선언한다. 정리 역순 실행이라 inert 해제가 포커스 복원보다 먼저 돈다
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-    // 토스트 리전은 격리 대상에서 제외한다. inert에 걸리면 열림 중 토스트 낭독·닫기가 죽는다
-    const bg = Array.from(document.body.children).filter(
-      (el) => el !== overlay && !el.hasAttribute("data-toast-region"),
-    ) as HTMLElement[];
-    // inert가 접근성 트리에서 이미 제거하므로 aria-hidden은 중복이라 두지 않는다
-    const prev = bg.map((n) => ({ n, inert: n.hasAttribute("inert") }));
-    bg.forEach((n) => n.setAttribute("inert", ""));
-    return () => {
-      prev.forEach(({ n, inert }) => {
+      prevInert.forEach(({ n, inert }) => {
         if (!inert) n.removeAttribute("inert");
       });
+      // inert를 푼 뒤에 호출 지점으로 포커스를 복귀시킨다(키보드 흐름 유지)
+      prevFocused?.focus?.();
     };
+    // 마운트 1회. 초기 포커스·복귀는 열림·닫힘 경계에서만 일어나야 한다(onClose는 ref 경유)
   }, []);
 
   const submit = async () => {
