@@ -10,6 +10,7 @@ import kr.exchange.ledger.ProjectionSignal;
 import kr.exchange.engine.OrderIntake;
 import kr.exchange.engine.SubmitResult;
 import kr.exchange.engine.core.OrderCommand;
+import kr.exchange.engine.lease.LeaseResources;
 import kr.exchange.journal.CommandDraft;
 import kr.exchange.ledger.Fees;
 import org.slf4j.Logger;
@@ -454,6 +455,11 @@ public class OrderGateway {
     /**
      * 저널에 닿지 못한 submit 예외를 응답으로 바꾼다. 루프 정지(리더십 상실 창)는 재조회 계약의 503 이다.
      * 검증이 ACTIVE 를 본 뒤 마켓 정지가 들어온 창은 검증의 정지 거부와 같은 422 를 낸다.
+     * 접수 락 대기 상한 초과(ADR 0034 S1, 기본 꺼짐)도 락 밖에서 끝난 저널 전 거부라 503 이다. API 예외로 바꿔야
+     * 배치 주문이 이 원소만 in_progress 로 적고 다음 원소로 넘어간다(§4-B-6).
+     *
+     * 잠금 대기 초과(55P03) 같은 일시 DB 오류는 여기서 503 으로 바꾸지 않는다. 쓰기 업스트림의 max_fails=1 이 503
+     * 하나로 리더를 빼므로 인그레스 설정과 함께 정한다(ADR 0034 결정 11, API 설계 v2.52).
      */
     private static RuntimeException submitFailure(RuntimeException e) {
         if (e instanceof IllegalStateException) {
@@ -462,6 +468,9 @@ public class OrderGateway {
         }
         if (e instanceof EngineBridge.MarketHaltedException) {
             return marketSuspended();
+        }
+        if (e instanceof EngineBridge.AcceptBusyException) {
+            return acceptBusy();
         }
         return e;
     }
@@ -532,14 +541,22 @@ public class OrderGateway {
                 "주문 처리 중. 재조회 필요", null, 1);
     }
 
+    /**
+     * 일괄 취소 결과. unsubmitted 는 failed 가운데 취소 명령이 저널에 닿지 못하고 503 으로 끝난 수다(라이터 정지, 켜 둔
+     * 경우의 접수 락 대기 상한 초과). 그 주문은 아직 열려 있고 곧바로 다시 취소하면 닫힐 수 있다. 정지 마켓의 422 는
+     * 여기에 넣지 않는다. 마켓 재개가 먼저라 곧바로 다시 불러도 닫히지 않는다(API 설계 §6-E). 체결로 먼저 종결된 주문과
+     * 취소 저널 뒤 반영 대기 409 도 다시 부를 필요가 없어 세지 않는다.
+     */
     public record BulkCancelResult(List<String> canceledIds,
-                                   List<CancelAllResponse.Failure> failed) {
+                                   List<CancelAllResponse.Failure> failed,
+                                   int unsubmitted) {
     }
 
     /** 일괄 취소(§4-B-3). 미체결(OPEN·PARTIAL) 전량을 개별 취소하고 성패를 per-item 집계한다. */
     public BulkCancelResult cancelAll(long userId, String market) {
         List<String> canceled = new ArrayList<>();
         List<CancelAllResponse.Failure> failed = new ArrayList<>();
+        int unsubmitted = 0;
         for (UUID externalId : orders.openOrderIds(userId, market)) {
             try {
                 Placement placement = cancel(userId, externalId);
@@ -552,9 +569,12 @@ public class OrderGateway {
                 }
             } catch (ApiException e) {
                 failed.add(new CancelAllResponse.Failure(externalId.toString(), failureReason(e)));
+                if (e.status() == 503) {
+                    unsubmitted++;
+                }
             }
         }
-        return new BulkCancelResult(canceled, failed);
+        return new BulkCancelResult(canceled, failed, unsubmitted);
     }
 
     /** 일괄 취소의 원소별 실패 사유. 도메인 거부는 오류 이름이 아니라 거부 사유를 싣는다(§4-B-3). */
@@ -564,7 +584,8 @@ public class OrderGateway {
     }
 
     private long currentEpoch() {
-        return jdbc.sql("SELECT COALESCE(max(epoch), 0) FROM leader_lease WHERE resource = 'matching-engine'")
+        return jdbc.sql("SELECT COALESCE(max(epoch), 0) FROM leader_lease WHERE resource = ?")
+                .param(LeaseResources.MATCHING_ENGINE)
                 .query(Long.class)
                 .single();
     }
@@ -580,6 +601,10 @@ public class OrderGateway {
             // 취소 경로는 마켓 상태를 미리 보지 않아 정지 중이면 늘 여기서 거부된다. 저널 커밋 전 거부라 주문
             // 생성과 같은 도메인 거부로 돌려야 일괄 취소가 원소별 실패로 집계하고 나머지를 계속 취소한다.
             throw marketSuspended();
+        } catch (EngineBridge.AcceptBusyException e) {
+            // 접수 락 대기 상한 초과(기본 꺼짐). 저널 전 거부라 같은 이유로 API 예외로 바꿔 일괄 취소가 이 건만 실패로
+            // 집계하고 다음 주문으로 넘어가게 한다.
+            throw acceptBusy();
         }
     }
 
@@ -828,6 +853,12 @@ public class OrderGateway {
         return jdbc.sql("SELECT nextval('order_id_seq')")
                 .query(Long.class)
                 .single();
+    }
+
+    /** 접수 락 대기 상한 초과의 저널 전 거부(ADR 0034 S1). 같은 client_order_id 로 다시 보내면 된다. */
+    private static ApiException acceptBusy() {
+        return new ApiException(503, "service_unavailable",
+                "접수 대기 상한 초과. 잠시 후 재시도 필요", null, 1);
     }
 
     /** 정지 마켓의 도메인 거부(API 설계 §4-B-1·§4-B-2). 주문 생성 검증과 생성·취소의 엔진 접수가 같은 응답을 낸다. */

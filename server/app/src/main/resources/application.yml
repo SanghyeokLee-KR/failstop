@@ -408,6 +408,25 @@ resilience4j:
         register-health-indicator: false
 
 ---
+# 운영 세션 상한을 dev 위에 얹는 프로파일(ADR 0034 S1). 명시 활성이 전제이고 기본 기동은 바뀌지 않는다.
+#
+# 카오스 스택은 dev 라 기본 풀에 lock_timeout 이 없다. 그러면 정산이 잠금 대기 초과(55P03)를 만나 재시도하거나
+# 재시도 소진으로 강등하는 운영 경로를 재현하지 못한다. 켜려면 카오스 기동 전에
+# CHAOS_SPRING_PROFILES=dev,chaos-monkey,prod-timeouts 를 준다(harness/docker-compose.chaos.yml).
+# 이 문서가 dev 문서 뒤에 있어 같은 키를 덮는다(last-active-wins).
+#
+# 값은 prod 문서의 같은 키와 같아야 한다. ProdTimeoutsProfileTest 가 대조한다. 켜면 dev 가 일부러 두지 않은
+# statement_timeout 3초도 걸리므로 지연 주입 창에서는 기본 풀의 느린 조회와 불변식 검증기 집계가 취소될 수 있다.
+# append 풀과 리스 풀은 바꾸지 않는다. prod 에서도 그 두 풀에는 세션 상한이 없다.
+spring:
+  config:
+    activate:
+      on-profile: prod-timeouts
+  datasource:
+    hikari:
+      connection-init-sql: "SET TIME ZONE 'UTC'; SET statement_timeout TO '3000ms'; SET lock_timeout TO '2000ms'"
+
+---
 # 관리 평면 로컬 동거 프로파일. 명시 활성(--spring.profiles.active=dev,bots,admin-local)이 전제다.
 #
 # 왜 dev 블록이 아니라 별도 프로파일인가. spring.profiles.default가 dev라 프로파일을 지정하지

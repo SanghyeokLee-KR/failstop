@@ -7,9 +7,10 @@
 --   C22·C23을 CONDITIONAL이라고 빼면 fencing 역행·채번 재사용이 권위 run을 그대로 통과한다.
 --   WARN(C15·C24·C25)은 §4-3이 WARN에 거래 정지를 금지하므로 게이트에서 뺀다.
 -- 미평가 표기: violated_rows IS NULL = SKIP이다. 0(무결)과 구분하지 않으면 미평가가 무결로
---   읽혀 거짓 통과가 된다. 게이트가 verdict='FAIL'만 세므로 SKIP은 판정 대상 밖이며, 이 표기는
---   WARN 행 한정이다. CRITICAL·HIGH 행을 SKIP으로 낼 일이 생기면 미평가가 게이트를 조용히
---   지나므로 그때는 SKIP을 FAIL로 접거나 게이트를 verdict<>'PASS'로 바꿔야 한다.
+--   읽혀 거짓 통과가 된다. SKIP을 내는 행은 WARN인 C24·C25(V13 부재)와 CRITICAL인 C29(V48 부재)다.
+--   이 파일을 읽는 복원·복구 점검(deploy/backup/backup.py, deploy/linux/postgresql의 두 점검,
+--   deploy/lab/run.py, VM 실습망의 두 스크립트)은 CRITICAL·HIGH 행의 verdict<>'PASS'를 실패로 세므로
+--   C29 SKIP은 실패로 드러난다. 게이트를 verdict='FAIL'만 세도록 바꾸면 미평가 C29가 조용히 지난다.
 -- 범위: scope='CONDITIONAL' 행은 권위 run/정지 상태에서만 유효해 상시 스케줄 판정에서 제외한다.
 -- C20~C25의 술어 정본은 앱 InvariantCheck enum이고 C24·C25는 V13 검증 뷰다. 축어 이식만 한다.
 -- C08·C09·C11·C12·C18의 90일 윈도 미정합은 invariants.sql 헤더 참조.
@@ -18,10 +19,14 @@
 -- ============================================================================
 \pset pager off
 
--- V13 미적용 DB에는 원가 검증 뷰가 없다. 무조건 참조하면 단일 문장이라 30개 판정이 통째로
+-- V13 미적용 DB에는 원가 검증 뷰가 없다. 무조건 참조하면 단일 문장이라 31개 판정이 통째로
 -- 사라진다(ON_ERROR_STOP 경로에서 exit 3). 부재 시 두 행을 SKIP으로 낸다.
 SELECT (to_regclass('public.position_cost_qty_check') IS NOT NULL
         AND to_regclass('public.position_cost_sanity_check') IS NOT NULL) AS has_cost_views \gset
+-- V48 미적용 DB(V47 이하 스키마, S2 배포 전 백업의 복원본)에는 파티션 대응 표와 모드 래치가 없다. 같은 이유로
+-- C29 한 행만 SKIP으로 낸다. 그런 DB는 그 스키마를 만든 릴리스의 summary.sql로 점검한다.
+SELECT (to_regclass('public.market_lease_partition') IS NOT NULL
+        AND to_regclass('public.leader_protocol') IS NOT NULL) AS has_partition_lease \gset
 
 WITH v(code, check_name, severity, scope, violated_rows) AS (
     SELECT 'C01','ASSET_CONSERVATION','CRITICAL','ALWAYS',
@@ -207,6 +212,17 @@ WITH v(code, check_name, severity, scope, violated_rows) AS (
             CROSS JOIN s
             WHERE c.seq < s.band_span
               AND c.created_at > b.first_band_at)
+\if :has_partition_lease
+    UNION ALL SELECT 'C29','MARKET_PARTITION_MAP','CRITICAL','ALWAYS',
+           -- 대응 없는 마켓 + 없는 리스 행 + 한 행이 아닌 leader_protocol. InvariantCheck 축어(ADR 0034 S2, V48).
+           (SELECT (SELECT count(*) FROM markets m
+                    WHERE NOT EXISTS (SELECT 1 FROM market_lease_partition p WHERE p.market_id = m.id))
+                 + (SELECT count(*) FROM (VALUES ('matching-engine'), ('matching-p0'), ('matching-p1')) AS r(resource)
+                    WHERE NOT EXISTS (SELECT 1 FROM leader_lease l WHERE l.resource = r.resource))
+                 + (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM leader_protocol))
+\else
+    UNION ALL SELECT 'C29','MARKET_PARTITION_MAP','CRITICAL','ALWAYS', NULL
+\endif
 \if :has_cost_views
     UNION ALL SELECT 'C24','POSITION_COST_QTY','WARN','CONDITIONAL',
            (SELECT count(*) FROM position_cost_qty_check)

@@ -1,6 +1,7 @@
 package kr.exchange.engine;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.IntConsumer;
@@ -36,6 +37,8 @@ public class EngineBridge {
     private final MarketStatusSource marketStatus;
     private final ConcurrentHashMap<Integer, MarketLock> submitLocks = new ConcurrentHashMap<>();
     private volatile IntConsumer marketAdded = marketId -> { };
+    // 0 이하면 상한 없이 기다린다. 운영 배선은 EngineConfig 가 exchange.engine.accept-lock-wait 로 건다(기본 0).
+    private volatile long acceptLockWaitNanos;
 
     /**
      * 마켓 하나의 접수 임계구역과 그 계측(정본 13.5 한계 29).
@@ -49,6 +52,7 @@ public class EngineBridge {
         private final LongAdder waitNanos = new LongAdder();
         private final LongAdder holdNanos = new LongAdder();
         private final LongAdder submits = new LongAdder();
+        private final LongAdder lockTimeouts = new LongAdder();
     }
 
     /** 그 마켓의 락 획득 대기 누적 나노초. 경합의 크기다. 접수가 없던 마켓은 0이다. */
@@ -67,6 +71,22 @@ public class EngineBridge {
     public long submitCount(int marketId) {
         MarketLock market = submitLocks.get(marketId);
         return market == null ? 0 : market.submits.sum();
+    }
+
+    /** 그 마켓에서 락 대기 상한을 넘겨 저널 전에 돌려보낸 접수 수. 상한을 켜지 않았으면 늘 0이다. */
+    public long lockTimeoutCount(int marketId) {
+        MarketLock market = submitLocks.get(marketId);
+        return market == null ? 0 : market.lockTimeouts.sum();
+    }
+
+    /**
+     * 마켓 접수 락 대기 상한을 건다(ADR 0034 S1). 0 이하나 null 이면 상한 없이 기다린다.
+     *
+     * 한 요청의 append 가 DB 에서 멈추면 같은 마켓의 뒤 요청이 전부 그 뒤에 선다. 상한이 있으면 그 줄이 수용 슬롯을
+     * 붙든 채 무기한 쌓이지 않는다. 다른 마켓은 락이 따로라 원래 그 줄에 서지 않는다.
+     */
+    public void setAcceptLockWait(java.time.Duration wait) {
+        this.acceptLockWaitNanos = wait == null ? 0 : wait.toNanos();
     }
 
     /**
@@ -131,6 +151,16 @@ public class EngineBridge {
     }
 
     /**
+     * 마켓 접수 락 대기 상한 초과. 락 밖에서 끝나 저널·채번에 아무것도 남기지 않으므로 같은 요청을 다시 보내도 된다.
+     * 게이트웨이가 503 service_unavailable 로 바꾼다.
+     */
+    public static class AcceptBusyException extends RuntimeException {
+        public AcceptBusyException(int marketId, long waitedMillis) {
+            super("마켓 접수 락 대기 상한 초과(market=" + marketId + ", waited_ms=" + waitedMillis + ")");
+        }
+    }
+
+    /**
      * 저널에 커밋된 것이 확인됐지만 큐에 넣지 못한 명령을 그 마켓 라이터가 seq 까지 적용하게 한다.
      * 접수가 append 예외를 받은 뒤 그 명령의 커밋을 저널에서 확인한 경우에 쓴다(OrderGateway).
      */
@@ -144,7 +174,14 @@ public class EngineBridge {
             return new MarketLock();
         });
         long t0 = System.nanoTime();
-        market.lock.lock();
+        if (!acquire(market)) {
+            // 락을 잡지 못했으므로 아래 finally 를 타지 않는다. 대기와 시도 수를 여기서 센다.
+            long waited = System.nanoTime() - t0;
+            market.waitNanos.add(waited);
+            market.submits.increment();
+            market.lockTimeouts.increment();
+            throw new AcceptBusyException(intake.marketId(), TimeUnit.NANOSECONDS.toMillis(waited));
+        }
         long t1 = System.nanoTime();
         market.waitNanos.add(t1 - t0);
         try {
@@ -184,6 +221,21 @@ public class EngineBridge {
             market.holdNanos.add(System.nanoTime() - t1);
             market.submits.increment();
             market.lock.unlock();
+        }
+    }
+
+    private boolean acquire(MarketLock market) {
+        long wait = acceptLockWaitNanos;
+        if (wait <= 0) {
+            market.lock.lock();
+            return true;
+        }
+        try {
+            return market.lock.tryLock(wait, TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
+            // 락을 못 잡았으니 저널 전 거부와 같다. 인터럽트 표식은 호출자에게 남긴다.
+            Thread.currentThread().interrupt();
+            return false;
         }
     }
 }

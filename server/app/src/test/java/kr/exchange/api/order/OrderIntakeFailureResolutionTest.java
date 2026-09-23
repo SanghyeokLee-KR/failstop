@@ -571,6 +571,67 @@ class OrderIntakeFailureResolutionTest {
         assertEquals(1, journaledNew(coid));
     }
 
+    /** 마켓 접수 락 대기 상한을 넘긴 것처럼 락 밖에서 곧바로 거부하는 브리지(ADR 0034 S1). 저널에 닿지 않는다. */
+    static final class BusyBridge extends EngineBridge {
+        BusyBridge() {
+            super(appender, loop, payloadMapper);
+        }
+
+        @Override
+        public SubmitResult submit(OrderIntake intake) {
+            throw new EngineBridge.AcceptBusyException(intake.marketId(), 3_000);
+        }
+    }
+
+    /**
+     * 접수 락 대기 상한 초과는 저널 전 거부라 503 재시도 신호다. 넣은 키는 V47 판정으로 지우고 in-flight 예약도 바로
+     * 푼다. 같은 키 재시도는 새 접수가 된다. 배치 주문이 이 원소만 in_progress 로 적으려면 API 예외여야 한다.
+     */
+    @Test
+    @Order(12)
+    void acceptBusyIsServiceUnavailableAndLeavesNoKeyOrReserve() {
+        String coid = "accept-busy";
+        byte[] raw = body(coid);
+        OrderGateway busyGateway = new OrderGateway(jdbc, new BusyBridge(), markets, orders);
+
+        ApiException rejected = assertThrows(ApiException.class, () -> busyGateway.place(alice, json(raw), raw));
+
+        assertEquals(503, rejected.status());
+        assertEquals("service_unavailable", rejected.name());
+        assertEquals(1, rejected.retryAfter());
+        assertEquals(0, journaledNew(coid));
+        assertNull(storedHash(coid), "저널에 닿지 않은 요청의 키가 남았다");
+        assertEquals(0, busyGateway.inflightPending(alice, (short) KRW).signum(), "저널 전 거부가 잔고 예약을 남겼다");
+        assertFalse(liveGateway.place(alice, json(raw), raw).replayed(), "같은 키 재시도가 새 접수가 되지 않았다");
+        assertEquals(1, journaledNew(coid));
+    }
+
+    /**
+     * 일괄 취소에서 취소가 저널에 닿지 못하고 503 으로 끝난 주문을 unsubmitted 로 센다. 회원 폐쇄가 이 수로 409
+     * orders_cancel_incomplete 를 낸다(API 설계 §6-E v2.53). 주문은 열린 채 남는다.
+     */
+    @Test
+    @Order(13)
+    void cancelAllCountsCancelsThatNeverReachedJournal() {
+        byte[] raw = body("cancel-all-busy");
+        assertFalse(liveGateway.place(alice, json(raw), raw).replayed());
+        int open = orders.openOrderIds(alice, "KRW-BTC").size();
+        assertTrue(open >= 1);
+
+        OrderGateway.BulkCancelResult result = new OrderGateway(jdbc, new BusyBridge(), markets, orders)
+                .cancelAll(alice, "KRW-BTC");
+
+        assertTrue(result.canceledIds().isEmpty());
+        assertEquals(open, result.failed().size());
+        assertTrue(result.failed().stream().allMatch(f -> "service_unavailable".equals(f.reason())));
+        assertEquals(open, result.unsubmitted(), "저널에 닿지 못한 취소를 세지 않았다");
+        assertEquals(open, orders.openOrderIds(alice, "KRW-BTC").size(), "취소되지 않은 주문이 닫혔다");
+
+        OrderGateway.BulkCancelResult live = liveGateway.cancelAll(alice, "KRW-BTC");
+        assertEquals(0, live.unsubmitted(), "정상 취소를 미완료로 셌다");
+        assertTrue(orders.openOrderIds(alice, "KRW-BTC").isEmpty(), "정상 일괄 취소 뒤 미체결이 남았다");
+    }
+
     /** sql 문에 fragment 가 든 호출 직전에 action 을 돌리는 JdbcClient. 게이트웨이 코드를 바꾸지 않고 경합 지점을 만든다. */
     private static JdbcClient intercepting(JdbcClient delegate, String fragment, Runnable action) {
         return (JdbcClient) Proxy.newProxyInstance(JdbcClient.class.getClassLoader(),

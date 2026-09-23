@@ -8,15 +8,17 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 
 /**
- * leader_lease 행을 보관소로 쓰는 구현. V1 의 함수 3종을 그대로 호출한다(DB 설계 §3.1·§5.4).
+ * leader_lease 행을 보관소로 쓰는 구현. V48 의 자원 인자 함수(try_acquire_lease, renew_lease, release_lease)를
+ * matching-engine 자원으로 부른다(DB 설계 §3.4·§5.4). 판정 규칙과 epoch 배정은 전부 SQL 함수에 있고 여기서는 호출만 한다.
  *
- * 이것이 종전 동작이고 기본값이다. 옮기기 전과 옮긴 뒤를 같은 조건에서 비교하려면 종전 경로가
- * 그대로 남아 있어야 한다. 판정 규칙은 전부 SQL 함수에 있고 여기서는 호출만 한다.
+ * 이것이 기본 보관소다. 옮기기 전과 옮긴 뒤를 같은 조건에서 비교하려면 이 경로가 그대로 남아 있어야 한다.
  *
  * 이 보관소의 알려진 성질을 적어 둔다. 갱신이 곧 커밋이므로 동기 복제 대상 standby 를 전부
  * 잃으면 갱신이 멈춘다. 그것이 이 인터페이스를 만든 이유이며 이 구현의 결함이 아니라 성질이다.
  */
 public final class PostgresLeaderLeaseStore implements LeaderLeaseStore {
+
+    private static final String RESOURCE = LeaseResources.MATCHING_ENGINE;
 
     private final JdbcClient jdbc;
     // 이 노드가 승격을 감시하기 시작한 시각(DB 시계). 첫 다운타임 산정에서 잡는다.
@@ -32,16 +34,16 @@ public final class PostgresLeaderLeaseStore implements LeaderLeaseStore {
     @Override
     public Optional<Long> acquire(String holder, Duration ttl) {
         // 실패는 NULL 반환 계약이라 single()이 아니라 optional()로 받는다.
-        return jdbc.sql("SELECT try_acquire_leader(?, ? * interval '1 millisecond')")
-                .params(holder, ttl.toMillis())
+        return jdbc.sql("SELECT try_acquire_lease(?, ?, ? * interval '1 millisecond')")
+                .params(RESOURCE, holder, ttl.toMillis())
                 .query(Long.class)
                 .optional();
     }
 
     @Override
     public boolean renew(String holder, long epoch, Duration ttl) {
-        Boolean renewed = jdbc.sql("SELECT renew_leader_lease(?, ?, ? * interval '1 millisecond')")
-                .params(holder, epoch, ttl.toMillis())
+        Boolean renewed = jdbc.sql("SELECT renew_lease(?, ?, ?, ? * interval '1 millisecond')")
+                .params(RESOURCE, holder, epoch, ttl.toMillis())
                 .query(Boolean.class)
                 .single();
         return Boolean.TRUE.equals(renewed);
@@ -51,20 +53,17 @@ public final class PostgresLeaderLeaseStore implements LeaderLeaseStore {
     public void release(String holder, long epoch) {
         // 만료 시각을 과거로 미는 것으로 반납한다. epoch 은 건드리지 않는다. 여기서 올리면
         // 승격이 아닌 경로가 fencing 토큰을 소비해 계단이 실제 페일오버 수와 어긋난다.
-        jdbc.sql("""
-                UPDATE leader_lease SET lease_until = clock_timestamp() - interval '1 second'
-                WHERE resource = 'matching-engine' AND holder = ? AND epoch = ?
-                """)
-                .params(holder, epoch)
-                .update();
+        // 소유자 권한 함수로 한다. 앱 역할의 leader_lease UPDATE 는 V49 가 회수한다.
+        jdbc.sql("SELECT release_lease(?, ?, ?)")
+                .params(RESOURCE, holder, epoch)
+                .query(Boolean.class)
+                .single();
     }
 
     @Override
     public Optional<LeaseSnapshot> current() {
-        return jdbc.sql("""
-                SELECT holder, epoch, lease_until FROM leader_lease
-                WHERE resource = 'matching-engine'
-                """)
+        return jdbc.sql("SELECT holder, epoch, lease_until FROM leader_lease WHERE resource = ?")
+                .param(RESOURCE)
                 .query((rs, rowNum) -> new LeaseSnapshot(
                         rs.getString("holder"),
                         rs.getLong("epoch"),
@@ -93,9 +92,9 @@ public final class PostgresLeaderLeaseStore implements LeaderLeaseStore {
                     SELECT CASE WHEN holder <> ''
                                 THEN EXTRACT(EPOCH FROM (clock_timestamp() - GREATEST(lease_until, ?)))
                                 ELSE NULL END
-                    FROM leader_lease WHERE resource = 'matching-engine'
+                    FROM leader_lease WHERE resource = ?
                     """)
-                    .param(watchingSince)
+                    .params(watchingSince, RESOURCE)
                     .query(Double.class)
                     .optional()
                     .orElse(null);

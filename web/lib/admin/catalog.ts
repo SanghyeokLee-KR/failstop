@@ -121,4 +121,5 @@ export const INVARIANT_DEFS: { name: string; label: string; scope: InvariantScop
   { name: "C26_CMD_BAND_HEADROOM", label: "명령 대역 여유", scope: "SCHEDULED", gloss: "잔여 10% 미만 마켓 0" },
   { name: "C27_CMD_DEFAULT_PARTITION", label: "명령 기본 파티션 공백", scope: "SCHEDULED", gloss: "command_journal_default 0행" },
   { name: "C28_CMD_LEGACY_AFTER_CUTOVER", label: "레거시 채번 없음", scope: "SCHEDULED", gloss: "대역 전환 뒤 전역 seq 0" },
+  { name: "C29_MARKET_PARTITION_MAP", label: "마켓 파티션 대응", scope: "SCHEDULED", gloss: "대응·리스 행·모드 래치 누락 0" },
 ];

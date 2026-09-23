@@ -2,7 +2,7 @@ package kr.exchange.journal;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,9 +33,11 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * 리스 행 잠금 모드 계약(ADR 0026, V41). 쓰기 경로의 FOR KEY SHARE 가 갱신은 막지 않고 승격과
- * 게시는 커밋까지 막는지를 행동으로 본다. 리스 행은 하나라 시험마다 절대값으로 다시 심는다.
- * 커밋까지 기다리는 경우는 pg_blocking_pids 로 대기 대상을 확인하고, 기다리지 않거나 막히는지만
- * 보는 경우는 lock_timeout 초과(55P03) 여부로 판정한다.
+ * 게시는 커밋까지 막는지를 행동으로 본다. 커밋까지 기다리는 경우는 pg_blocking_pids 로 대기 대상을 확인하고,
+ * 기다리지 않거나 막히는지만 보는 경우는 lock_timeout 초과(55P03) 여부로 판정한다.
+ *
+ * 시험마다 새 데이터베이스를 쓴다. epoch 를 되감는 시험이 같은 DB 를 나누면 획득 이력 때문에 다음 epoch 가
+ * 시험 순서에 따라 달라진다(S2 설계 6-1 격리 규칙).
  */
 @Testcontainers
 class LeaderLeaseLockModeIntegrationTest {
@@ -50,10 +53,14 @@ class LeaderLeaseLockModeIntegrationTest {
             .withPassword("exchange");
 
     private static final ExecutorService POOL = Executors.newCachedThreadPool();
+    private static final AtomicInteger DATABASES = new AtomicInteger();
+    // 이 시험의 데이터베이스. open() 과 부하 스레드가 읽는다.
+    private static volatile String url;
 
-    @BeforeAll
-    static void migrate() {
-        var result = flyway(POSTGRES.getJdbcUrl()).load().migrate();
+    @BeforeEach
+    void freshDatabase() throws SQLException {
+        url = createDatabase("lockmode_" + DATABASES.incrementAndGet());
+        var result = flyway(url).load().migrate();
         assertTrue(result.success, "Flyway migration failed");
     }
 
@@ -266,21 +273,101 @@ class LeaderLeaseLockModeIntegrationTest {
         }
     }
 
-    /** 인덱스가 없으면 FOR KEY SHARE 가 승격을 막지 못한다. 위 시험들이 인덱스 제거를 검출한다는 대조다. */
+    /**
+     * 인덱스가 없으면 FOR KEY SHARE 가 게시를 막지 못한다. 위 게시 시험들이 인덱스 제거를 검출한다는 대조다.
+     * 획득은 V48 부터 만료 조건 행을 FOR UPDATE 로 잠그므로 인덱스와 무관하게 쓰기를 기다린다(S2 설계 4-4).
+     */
     @Test
-    void promotionDoesNotWaitWithoutFencingKeyIndex() throws Exception {
-        String url = createDatabase("lease_no_key");
-        flyway(url).load().migrate();
-        try (Connection writer = open(url); Connection other = open(url)) {
+    void publishDoesNotWaitWithoutFencingKeyIndexButAcquisitionDoes() throws Exception {
+        try (Connection writer = open(); Connection other = open()) {
             other.createStatement().execute("DROP INDEX uq_leader_lease_fencing_key");
             seedLease(writer, "node-a", 5, 60);
             lockAsWriter(writer, "node-a", 5);
-            other.createStatement().execute("SELECT expire_leader_lease_now()");
 
             setLockTimeout(other, "500ms");
-            assertEquals("6", queryString(other, "SELECT try_acquire_leader('node-b', interval '6 seconds')"));
-            assertEquals("node-b|6", leaseRow(writer), "인덱스 없이도 승격이 쓰기를 기다렸다");
+            assertEquals("6", queryString(other, "SELECT publish_leader_epoch('node-b', 6)"));
+            assertEquals("node-b|6", leaseRow(writer), "인덱스 없이도 게시가 쓰기를 기다렸다");
+
+            other.createStatement().execute("SELECT expire_leader_lease_now()");
+            SQLException blocked = assertThrows(SQLException.class,
+                    () -> queryString(other, "SELECT try_acquire_leader('node-c', interval '6 seconds')"));
+            assertEquals(LOCK_TIMEOUT, blocked.getSQLState(), blocked.getMessage());
             writer.rollback();
+        }
+    }
+
+    /** append 함수가 쥔 KEY SHARE 는 3인자 획득을 커밋까지 막고 3인자 갱신은 막지 않는다. */
+    @Test
+    void appendFunctionKeyShareBlocksThreeArgPromotionNotRenew() throws Exception {
+        try (Connection writer = open(); Connection other = open(); Connection waiter = open();
+             Connection observer = open()) {
+            seedLease(writer, "node-a", 5, 60);
+            writer.setAutoCommit(false);
+            int writerPid = pid(writer);
+            assertEquals(1, appendCommand(writer, 500_000_103L, "node-a", 5));
+
+            setLockTimeout(other, "500ms");
+            assertEquals("t", queryString(other,
+                    "SELECT renew_lease('matching-engine', 'node-a', 5, interval '6 seconds')"));
+            other.createStatement().execute("SELECT expire_leader_lease_now()");
+
+            setStatementTimeout(waiter, "10s");
+            int waiterPid = pid(waiter);
+            Future<String> acquire = submit(waiter,
+                    "SELECT try_acquire_lease('matching-engine', 'node-b', interval '6 seconds')");
+            awaitBlocked(observer, waiterPid, writerPid);
+            assertFalse(acquire.isDone(), "획득이 append 커밋 전에 끝났다");
+
+            writer.rollback();
+            assertEquals("6", acquire.get(5, TimeUnit.SECONDS));
+            assertEquals("node-b|6", leaseRow(observer));
+        }
+    }
+
+    /**
+     * 파티션 판(P3 흉내). p1 마켓 쓰기가 p1 리스 행의 KEY SHARE 를 쥔 동안 p0 획득과 p1 갱신은 기다리지 않고 p1 획득은
+     * 쓰기 커밋까지 기다린다. 리스 행마다 잠금이 따로라 V41 논증이 파티션마다 독립으로 성립한다.
+     */
+    @Test
+    void partitionPromotionWaitsOnlyForItsOwnPartitionWriter() throws Exception {
+        try (Connection writer = open(); Connection other = open(); Connection waiter = open();
+             Connection observer = open()) {
+            try (Statement st = other.createStatement()) {
+                st.execute("INSERT INTO assets (id, symbol, name, kind, scale) VALUES "
+                        + "(1, 'KRW', 'Korean Won', 'FIAT', 0), (2, 'BTC', 'Bitcoin', 'CRYPTO', 8)");
+                st.execute("INSERT INTO markets (id, symbol, base_asset_id, quote_asset_id, tick_size, lot_size, "
+                        + "min_notional, max_notional, max_qty) VALUES "
+                        + "(1, 'M1', 2, 1, 1, 0.0001, 0, 1000000000, 1000000), "
+                        + "(2, 'M2', 2, 1, 1, 0.0001, 0, 1000000000, 1000000)");
+                st.execute("UPDATE leader_protocol SET protocol = 3");
+                st.execute("UPDATE leader_lease SET holder = 'node-a', epoch = 5, "
+                        + "lease_until = clock_timestamp() + interval '60 seconds' WHERE resource = 'matching-p1'");
+            }
+            writer.setAutoCommit(false);
+            int writerPid = pid(writer);
+            assertEquals("5", queryString(writer, "SELECT assert_and_lock_market_leader(2::smallint, 'node-a', 5)"));
+
+            setLockTimeout(other, "500ms");
+            assertEquals("6", queryString(other,
+                    "SELECT try_acquire_lease('matching-p0', 'node-b', interval '6 seconds')"));
+            assertEquals("t", queryString(other,
+                    "SELECT renew_lease('matching-p1', 'node-a', 5, interval '6 seconds')"));
+            other.createStatement().execute("UPDATE leader_lease SET lease_until = clock_timestamp() - interval '1 second' "
+                    + "WHERE resource = 'matching-p1'");
+
+            setStatementTimeout(waiter, "10s");
+            int waiterPid = pid(waiter);
+            Future<String> acquire = submit(waiter,
+                    "SELECT try_acquire_lease('matching-p1', 'node-c', interval '6 seconds')");
+            awaitBlocked(observer, waiterPid, writerPid);
+            assertFalse(acquire.isDone(), "p1 획득이 p1 쓰기 커밋 전에 끝났다");
+
+            writer.commit();
+            assertEquals("7", acquire.get(5, TimeUnit.SECONDS));
+            assertEquals("node-b|6,node-c|7", queryString(observer, """
+                    SELECT string_agg(holder || '|' || epoch, ',' ORDER BY resource) FROM leader_lease
+                    WHERE resource IN ('matching-p0', 'matching-p1')
+                    """));
         }
     }
 
@@ -324,6 +411,7 @@ class LeaderLeaseLockModeIntegrationTest {
         }
     }
 
+    /** 운영 append 문장을 그대로 보내 append_command_journal_row 가 넣은 행 수를 돌려준다. */
     private static int appendCommand(Connection c, long seq, String holder, long epoch) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(CommandJournalAppender.INSERT_SQL)) {
             ps.setLong(1, seq);
@@ -338,7 +426,10 @@ class LeaderLeaseLockModeIntegrationTest {
             ps.setLong(10, 0L);
             ps.setString(11, holder);
             ps.setLong(12, epoch);
-            return ps.executeUpdate();
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue(rs.next());
+                return rs.getInt(1);
+            }
         }
     }
 
@@ -422,14 +513,14 @@ class LeaderLeaseLockModeIntegrationTest {
     }
 
     private static String createDatabase(String name) throws SQLException {
-        try (Connection c = open(); Statement st = c.createStatement()) {
+        try (Connection c = open(POSTGRES.getJdbcUrl()); Statement st = c.createStatement()) {
             st.execute("CREATE DATABASE " + name);
         }
         return POSTGRES.getJdbcUrl().replace("/exchange", "/" + name);
     }
 
     private static Connection open() throws SQLException {
-        return open(POSTGRES.getJdbcUrl());
+        return open(url);
     }
 
     private static Connection open(String url) throws SQLException {

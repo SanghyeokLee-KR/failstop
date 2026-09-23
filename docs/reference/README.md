@@ -37,6 +37,8 @@
 | 학교 DB의 예약 백업, 외부 보관, 격리 복원 | [DB 백업 도구 안내](../../deploy/linux/postgresql/backup/README.md) |
 | 관측 노드(bot-1)와 경보 경로의 감시 | [관측 경로 워치독 안내](../../deploy/linux/watchdog/README.md) |
 | 최종 검증 전 보강할 부분 | [M4 하드닝](architecture/M4_하드닝설계.md) |
+| 매칭 리더를 마켓 파티션 두 개로 나누는 단계와 관문 시험 | [마켓 분할 리더 단계 계획](architecture/마켓분할_리더_단계계획.md), 결정은 [ADR 0034](adr/0034-market-partitioned-leadership.md) |
+| 마켓 분할 리더 S2(파티션 리스 스키마, 마켓에서 리스를 찾는 판정, epoch 배정, 리스 함수 권한)의 상세 설계와 PostgreSQL 동작 확인 | [마켓 분할 리더 S2 설계](architecture/마켓분할_리더_S2_설계.md) |
 | 주문 쓰기 경로를 나눌지 판단할 외부 근거 | [거래소 조회·쓰기 비율 조사](architecture/거래소_조회쓰기_비율_조사.md) |
 
 설계에는 아직 구현과 대조해야 하는 요구가 남아 있다. 특히 게시판의 물리 격리, 클라우드 구성과 실제 권한은 설명서와 로드맵에 적은 확인 범위를 함께 읽는다.

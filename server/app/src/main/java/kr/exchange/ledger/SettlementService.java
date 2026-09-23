@@ -88,9 +88,9 @@ public class SettlementService {
      * 적재됐는지 세는 멱등 탐침, (3) 정산 대상 명령 읽기다. 셋 다 cmdSeq 하나로 정해지는
      * 조회이고 서로의 결과를 입력으로 쓰지 않는다. 그래서 한 문장에 담을 수 있다.
      *
-     * (1) 은 V30 이 이미 두 문장을 하나로 합쳐 둔 것이다. assert_current_leader 호출과
-     * FOR SHARE 조회를 따로 보내던 것을 함수 하나가 겸한다. 거부 시 예외 메시지가 종전과
-     * 같아 FencingErrors 의 강등 분류가 바뀌지 않는다. 그 성질은 여기서도 그대로다.
+     * (1) 은 assert_and_lock_market_leader(V48) 한 함수가 판정과 잠금을 겸한다. 리스 행은 정산할 명령 행의 마켓에서
+     * 찾고, 명령 행이 없을 때만 배치 마켓을 쓴다(DB 설계 §5.4-b). P1 에서는 matching-engine 행이라 판정·잠금·거부
+     * 문구가 V41 의 assert_and_lock_leader 와 같고 FencingErrors 의 강등 분류가 바뀌지 않는다.
      *
      * 왜 하는가. 2026-09-10 실측에서 명령 하나의 직렬 시간 21.36밀리초 중 매칭이 0.02 이고
      * 나머지가 전부 정산이었다. 대기 사유는 행 잠금이 3.8퍼센트뿐이라 경합이 아니었다.
@@ -98,14 +98,13 @@ public class SettlementService {
      * 이번은 그 자리에 (2) 와 (3) 을 마저 붙인다.
      *
      * 왜 이 모양인가. 한 행짜리 원천에 command_journal 을 LEFT JOIN 한다. 안쪽 조인으로 두면
-     * 명령 행이 없을 때 결과가 0행이 되고, 그러면 assert_and_lock_leader 가 아예 실행되지
-     * 않아 fencing 거부와 명령 부재를 가릴 수 없게 된다. LEFT JOIN 이면 언제나 한 행이고
-     * 판정 순서를 종전과 같이 유지할 수 있다.
+     * 명령 행이 없을 때 결과가 0행이 되고, 그러면 판정 함수가 아예 실행되지
+     * 않아 fencing 거부와 명령 부재를 가릴 수 없게 된다. LEFT JOIN 이면 언제나 한 행이다.
      *
-     * 판정 순서는 바뀌지 않는다. 리스 거부, 멱등 스킵, 부분 적재, 명령 부재 순이다.
+     * 판정 순서는 리스 거부, 마켓 불일치, 멱등 스킵, 부분 적재, 명령 부재다.
      */
     private static final String PROLOGUE_SQL =
-            "SELECT assert_and_lock_leader(?, ?) AS epoch,"
+            "SELECT assert_and_lock_market_leader(COALESCE(market_id, ?::smallint), ?, ?) AS epoch,"
             + " (SELECT count(*) FROM event_emission_registry"
             + "   WHERE source_cmd_seq = ?) AS registered,"
             + " " + CommandJournalReader.ENTRY_COLUMNS
@@ -302,11 +301,11 @@ public class SettlementService {
     }
 
     private List<EngineEvent> settleInTx(LeaderIdentity leader, long cmdSeq, List<EngineEvent> events) {
-        // 머리말 한 왕복. fencing 검증과 FOR KEY SHARE 잠금(V41)에 멱등 탐침과 명령 읽기를
-        // 함께 실어 세 왕복을 하나로 줄인다. 거부 메시지는 종전과 같아 강등 분류가 그대로다.
-        // 잠금을 잡은 뒤 판정하므로 판정과 커밋 사이에 epoch 이 바뀌지 않는다.
+        // 머리말 한 왕복. fencing 검증과 FOR KEY SHARE 잠금에 멱등 탐침과 명령 읽기를
+        // 함께 실어 세 왕복을 하나로 줄인다. 잠금을 잡은 뒤 판정하므로 판정과 커밋 사이에 epoch 이 바뀌지 않는다.
+        int batchMarket = events.get(0).marketId();
         Prologue prologue = jdbc.sql(PROLOGUE_SQL)
-                .params(leader.holder(), leader.epoch(), cmdSeq, cmdSeq)
+                .params(batchMarket, leader.holder(), leader.epoch(), cmdSeq, cmdSeq)
                 .query((rs, rowNum) -> new Prologue(
                         (Long) rs.getObject("epoch"),
                         rs.getLong("registered"),
@@ -317,6 +316,18 @@ public class SettlementService {
         if (epoch == null) {
             throw new StaleLeaderException(
                     "stale 리더 정산 거부: holder=" + leader.holder() + ", epoch=" + leader.epoch());
+        }
+
+        // 잠근 리스는 명령 행의 마켓에서 찾았다. 기록할 행이 다른 마켓이면 그 마켓의 리스 판정 없이 쓰게 된다.
+        for (EngineEvent event : events) {
+            if (event.marketId() != batchMarket) {
+                throw new IllegalStateException("정산 배치가 한 마켓이 아니다: cmd_seq=" + cmdSeq
+                        + ", 마켓 " + batchMarket + " vs " + event.marketId());
+            }
+        }
+        if (prologue.entry() != null && prologue.entry().marketId() != batchMarket) {
+            throw new IllegalStateException("정산 배치 마켓이 명령 행 마켓과 다르다: cmd_seq=" + cmdSeq
+                    + ", 명령 마켓=" + prologue.entry().marketId() + ", 배치 마켓=" + batchMarket);
         }
 
         long registered = prologue.registered();

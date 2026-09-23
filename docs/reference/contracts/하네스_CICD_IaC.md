@@ -366,9 +366,9 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 | 12 | msp-infra | 인프라 |
 | 13 | msp-db | 데이터베이스 |
 
-### 5-6. 알람 22개
+### 5-6. 알람 23개
 
-severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
+severity는 critical 7, warning 15, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
 
 | 알람 | severity |
 |---|---|
@@ -377,6 +377,7 @@ severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `Invariant
 | FailoverRtoExceeded | critical |
 | LeaderAbsent | critical |
 | RecoverableStandDownRepeating | critical |
+| SettlementTransientRetryExhausted | critical |
 | WsConnectionsRejected | critical |
 | EdgeProbeDown | critical |
 | OrderP99SloBreach | warning |
@@ -395,7 +396,7 @@ severity는 critical 6, warning 15, 템플릿 1이다. 템플릿 1은 `Invariant
 | ReplicationNotStreaming | warning |
 | ReplicationSyncStateUnexpected | warning |
 
-`for` 분포는 0s 3개, 15s 1개, 30s 6개, 1m 6개, 2m 6개다. `component` 라벨은 snapshot 3, bots 2, ws 2, edge 2, db 2, sequencer 1, order-gateway 1, network 1, transport 1, application 1이고 6개는 라벨이 없다.
+`for` 분포는 0s 4개, 15s 1개, 30s 6개, 1m 6개, 2m 6개다. `component` 라벨은 snapshot 3, bots 2, ws 2, edge 2, db 2, sequencer 1, order-gateway 1, network 1, transport 1, application 1, settlement 1이고 6개는 라벨이 없다. `SettlementTransientRetryExhausted`는 ADR 0034 S1이 2026-09-24 더했고 학교 배포 규칙의 같은 이름 경보와 조건이 같다.
 
 `TradeSilence`가 체결 0을 본다. 체결 0은 평온이거나 사망인데 그 둘을 가르는 것이 봇 플릿의 24시간 기저 트래픽이다(정본 §7.10).
 
@@ -452,15 +453,15 @@ e1부터 e9를 순서대로 도는 오케스트레이터가 없다. 하나씩 �
 
 | 원천 | 개수 | 세는 방법 |
 |---|---|---|
-| `harness/sql/invariants.sql` | **30** | 판정 블록. `\echo '== C` 32행에서 C24·C25의 분기 중복 2행을 뺀다 |
-| `InvariantCheck.java` enum | 29 | 30에서 C04가 빠진다 |
-| 카탈로그 코드 | 28 | C01~C28 |
+| `harness/sql/invariants.sql` | **31** | 판정 블록. `\echo '== C` 33행에서 C24·C25의 분기 중복 2행을 뺀다 |
+| `InvariantCheck.java` enum | 30 | 31에서 C04가 빠진다 |
+| 카탈로그 코드 | 29 | C01~C29 |
 
 C04는 지연 제약 트리거가 데이터베이스 안에서 강제하므로 러너의 조회 대상이 아니다. 코드 축에서 C07이 C07·C07P로, C13이 C13a·C13b로 갈려 블록이 코드보다 둘 많다.
 
-enum의 Severity 분포는 CRITICAL 17, HIGH 9, WARN 3이다. Scope 분포는 SCHEDULED 22, AUTHORITATIVE_ONLY 7이다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
+enum의 Severity 분포는 CRITICAL 18, HIGH 9, WARN 3이다. Scope 분포는 SCHEDULED 23, AUTHORITATIVE_ONLY 7이다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
 
-개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다. 2026-09-14 ADR 0022 6단계가 C28(CRITICAL·SCHEDULED)을 더해 다시 셌다. 같은 날 7단계가 C26(HIGH·SCHEDULED)을 더해 다시 셌다.
+개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다. 2026-09-14 ADR 0022 6단계가 C28(CRITICAL·SCHEDULED)을 더해 다시 셌다. 같은 날 7단계가 C26(HIGH·SCHEDULED)을 더해 다시 셌다. 2026-09-24 ADR 0034 S2가 C29(CRITICAL·SCHEDULED)를 카탈로그에 먼저 등재했고, 같은 날 작업 브랜치 `claude/per-market-leader`의 S2 코드가 `InvariantCheck.java`와 `invariants.sql`·`summary.sql`에 넣어 다시 셌다.
 
 술어 정본은 `하네스_검증설계.md` §4-1이다. 이 절은 미러다.
 

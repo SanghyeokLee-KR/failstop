@@ -204,11 +204,12 @@ class CommandJournalIntegrationTest {
         assertEquals(0, queryLong(
                 "SELECT count(*) FROM command_journal WHERE client_order_id = 'stale-append'"));
 
-        // 운영 append SQL 자체 계약: 구 epoch·구 holder 참조는 0행이다(§5.4).
+        // 운영 append SQL 자체 계약: 구 epoch·구 holder 참조는 0행이다(§5.4). 함수가 넣은 행 수를 돌려준다(V48).
         int rows = jdbc.sql(CommandJournalAppender.INSERT_SQL)
                 .params(999_999_999L, 1, "NEW", 1L, "stale-direct", 1L, 0L, 0L, "{}", 0L,
                         staleHolder, staleEpoch)
-                .update();
+                .query(Integer.class)
+                .single();
         assertEquals(0, rows, "구 epoch fencing INSERT가 0행이 아니다");
 
         // holder·epoch 가 맞아도 만료된 리스면 0행이다. 만료 판정은 문장 평가 시점이다.
@@ -217,7 +218,8 @@ class CommandJournalIntegrationTest {
         int expiredRows = jdbc.sql(CommandJournalAppender.INSERT_SQL)
                 .params(999_999_998L, 1, "NEW", 1L, "expired-direct", 1L, 0L, 0L, "{}", 0L,
                         successor.holder(), successor.requireLeader().epoch())
-                .update();
+                .query(Integer.class)
+                .single();
         assertEquals(0, expiredRows, "만료 리스의 fencing INSERT가 0행이 아니다");
         jdbc.sql("UPDATE leader_lease SET lease_until = clock_timestamp() + interval '120 seconds'"
                 + " WHERE resource = 'matching-engine'").update();

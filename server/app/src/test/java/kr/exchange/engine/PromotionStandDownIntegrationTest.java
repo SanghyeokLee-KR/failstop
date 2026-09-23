@@ -47,9 +47,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 승격 재생 실패의 강등 등급 회귀(DB 설계 §5.4 강등 사유 분류, 하네스 검증 §3 E2). 재현 대상은
  * 한 번의 fencing 거부가 종신 강등을 불러 양 노드가 후보에서 빠진 E2 라이브 실측이다.
  *
- * 거부는 assert_current_leader를 SQL 계층에서 래핑해 앞의 N회만 실패시키고 leader_lease 행은
- * 건드리지 않는다. 리스 권위상 정당한 리더인데 assert만 거부하는 상태가 라이브에서 관측된 형태다.
- * nextval은 롤백되지 않으므로 거부 횟수가 정확히 N으로 고정된다.
+ * 거부는 3인자 판정 assert_lease_holder를 SQL 계층에서 래핑해 앞의 N회만 실패시키고 leader_lease 행은
+ * 건드리지 않는다(쓰기 경로 네 곳이 모두 이 함수를 거친다, DB 설계 §5.4-b). 리스 권위상 정당한 리더인데
+ * assert만 거부하는 상태가 라이브에서 관측된 형태다. nextval은 롤백되지 않으므로 거부 횟수가 정확히 N으로 고정된다.
  *
  * 고정하는 계약. (A) 리스 권위가 유지되는 동안의 fencing 거부는 강등 사유가 아니다. (B) 예산을
  * 소진해도 노드는 FOLLOWER로 남아 다음 만료 구동 승격의 후보가 된다. (C) 반납이 리스 행에 쓰지
@@ -139,6 +139,8 @@ class PromotionStandDownIntegrationTest {
             assertEquals(commandReader.maxSeq(), standby.coordinator.installedEngine().lastAppliedSeq());
             assertEquals(commandReader.maxSeq(), journaledEvents(),
                     "크래시 창 이벤트가 재적재되지 않았다");
+            // 주입이 쓰기 경로에서 실제로 소비됐다는 대조. 거부가 없어도 위 단언은 모두 통과하기 때문이다.
+            assertTrue(faultCalls() > 1, "주입한 거부가 소비되지 않았거나 재시도가 판정을 다시 부르지 않았다");
         } finally {
             removeFencingFault();
             standby.close();
@@ -690,26 +692,32 @@ class PromotionStandDownIntegrationTest {
     }
 
     /**
-     * assert_current_leader 앞의 N회 호출을 fencing 거부로 만든다. 원본은 이름만 바꿔 보존하고
-     * 래퍼가 위임한다. 판정 카운터로 시퀀스를 쓰는 이유는 nextval이 롤백되지 않기 때문이다.
-     * 거부 트랜잭션이 되감겨도 소진 횟수가 유지돼 주입량이 정확히 N으로 고정된다.
+     * 3인자 판정 assert_lease_holder 앞의 N회 호출을 fencing 거부로 만든다. 원본은 이름만 바꿔 보존하고
+     * 래퍼가 위임한다. 2인자 assert_current_leader 에 걸면 쓰기 경로가 그 주입을 비껴간다(FencingInjectionCoverageTest).
+     * 판정 카운터로 시퀀스를 쓰는 이유는 nextval이 롤백되지 않아 주입량이 정확히 N으로 고정되기 때문이다.
      */
     private static void installFencingFault(long calls) throws Exception {
         removeFencingFault();
         exec("CREATE SEQUENCE test_fencing_fault");
-        exec("ALTER FUNCTION assert_current_leader(TEXT, BIGINT) "
-                + "RENAME TO assert_current_leader_real");
+        exec("ALTER FUNCTION assert_lease_holder(TEXT, TEXT, BIGINT) "
+                + "RENAME TO assert_lease_holder_real");
         exec("""
-                CREATE FUNCTION assert_current_leader(p_holder TEXT, p_epoch BIGINT)
+                CREATE FUNCTION assert_lease_holder(p_resource TEXT, p_holder TEXT, p_epoch BIGINT)
                 RETURNS void LANGUAGE plpgsql AS $fault$
                 BEGIN
                     IF nextval('test_fencing_fault') <= %d THEN
                         RAISE EXCEPTION 'fencing 위반: 주입된 일시 거부';
                     END IF;
-                    PERFORM assert_current_leader_real(p_holder, p_epoch);
+                    PERFORM assert_lease_holder_real(p_resource, p_holder, p_epoch);
                 END $fault$
                 """.formatted(calls));
         faultInstalled = true;
+    }
+
+    /** 주입 래퍼가 불린 횟수. */
+    private static long faultCalls() {
+        return jdbc.sql("SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM test_fencing_fault")
+                .query(Long.class).single();
     }
 
     private static void removeFencingFault() {
@@ -718,9 +726,9 @@ class PromotionStandDownIntegrationTest {
         }
         faultInstalled = false;
         try {
-            exec("DROP FUNCTION assert_current_leader(TEXT, BIGINT)");
-            exec("ALTER FUNCTION assert_current_leader_real(TEXT, BIGINT) "
-                    + "RENAME TO assert_current_leader");
+            exec("DROP FUNCTION assert_lease_holder(TEXT, TEXT, BIGINT)");
+            exec("ALTER FUNCTION assert_lease_holder_real(TEXT, TEXT, BIGINT) "
+                    + "RENAME TO assert_lease_holder");
             exec("DROP SEQUENCE test_fencing_fault");
         } catch (Exception e) {
             throw new IllegalStateException("fencing 주입 원복 실패", e);

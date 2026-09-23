@@ -127,6 +127,8 @@ class OrderGatewayMarketHaltIntegrationTest {
             assertEquals(List.of(first.toString(), second.toString()),
                     bulk.failed().stream().map(f -> f.id()).toList());
             assertTrue(bulk.failed().stream().allMatch(f -> "market_suspended".equals(f.reason())));
+            // 정지 마켓의 거부는 재개가 먼저라 회원 폐쇄의 미완료(503) 수에 넣지 않는다(API 설계 §6-E v2.53).
+            assertEquals(0, bulk.unsubmitted());
             assertEquals(2L, jdbc.sql("SELECT count(*) FROM orders WHERE user_id = ? AND status = 'OPEN'"
                             + " AND client_order_id LIKE 'halt-cancel-%'")
                     .params(userId).query(Long.class).single());

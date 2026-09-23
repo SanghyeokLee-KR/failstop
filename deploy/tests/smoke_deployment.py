@@ -132,7 +132,9 @@ def main():
         checks["forbidden_routes"] = all(http(api_port, path, method)[0] == 404
             for path in ("/api/v1/orders", "/api/v1/ticker", "/api/v1/orderbook", "/ws/v1", "/admin/v1/sim")
             for method in ("GET", "POST"))
-        checks["no_leader"] = sql("SELECT count(*) FROM leader_lease WHERE holder = '' AND epoch = 0") == "1"
+        # V48 부터 파티션 행 둘(matching-p0, matching-p1)도 빈 보유자·epoch 0 이라 단일 리더 행만 센다(ADR 0034 S2).
+        checks["no_leader"] = sql("SELECT count(*) FROM leader_lease "
+                                  "WHERE resource = 'matching-engine' AND holder = '' AND epoch = 0") == "1"
         run(*compose, "stop", "db")
         wait(lambda: http(management_port, "/actuator/health/read")[0] == 503, seconds=45)
         checks["db_outage_read_503_liveness_200"] = http(management_port, "/actuator/health/liveness")[0] == 200

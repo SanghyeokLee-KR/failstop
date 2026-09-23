@@ -639,7 +639,7 @@ import csv, datetime as dt, json, sys
 csv_path, out_path = sys.argv[1:3]
 rows = list(csv.DictReader(open(csv_path, encoding='utf-8')))
 problems = []
-# summary.sql은 C01부터 C28까지를 낸다. 행이 모자라면 일부 판정이 사라진 것이다.
+# summary.sql은 C01부터 C29까지를 낸다. 행이 모자라면 일부 판정이 사라진 것이다.
 if len(rows) < 28 or any(r.get('verdict') not in ('PASS', 'FAIL', 'SKIP') for r in rows):
     problems.append('정합성 검사 결과 형식 오류')
 failed = [r['code'] for r in rows

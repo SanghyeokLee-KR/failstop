@@ -102,6 +102,11 @@ SELECT resource, holder, epoch, lease_until FROM leader_lease;
 epoch 가 단조 증가했는지 본다. 앱 쪽은 `/actuator/health` 가 200 이고
 `exchange_leader_is_leader` 가 한 노드에서만 1 이어야 한다.
 
+V48(ADR 0034 S2) 뒤에는 행이 셋이다. 단일 리더가 쓰는 것은 `matching-engine` 행이고, `matching-p0`·`matching-p1` 은
+파티션 모드(P3)용으로 미리 넣어 둔 행이라 P1 에서는 보유자가 비고 epoch 0 인 채로 만료돼 보이는 것이 정상이다.
+epoch 단조는 `matching-engine` 행에서 본다. 새 epoch 는 모든 리스 행과 `lease_acquisitions` 의 최대보다 1 크고,
+승격마다 `lease_acquisitions` 에 한 행이 남는다(DB 설계 §3.4).
+
 ### 2-7. 구 primary 재편입
 
 타임라인이 갈렸으므로 그대로 붙지 않는다. **기본 경로는 전량 베이스백업이다**(ADR 0025).

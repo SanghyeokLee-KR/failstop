@@ -2,6 +2,7 @@ package kr.exchange.api.common;
 
 import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.lease.LeaseResources;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
@@ -24,8 +25,8 @@ public class EpochSource {
         // 부트스트랩 시드로 항상 선재하므로 미조회는 정상 상태가 아니다(single이 그대로 노출).
         return lease.current()
                 .map(LeaderIdentity::epoch)
-                .orElseGet(() -> jdbc.sql(
-                                "SELECT epoch FROM leader_lease WHERE resource = 'matching-engine'")
+                .orElseGet(() -> jdbc.sql("SELECT epoch FROM leader_lease WHERE resource = ?")
+                        .param(LeaseResources.MATCHING_ENGINE)
                         .query(Long.class)
                         .single());
     }

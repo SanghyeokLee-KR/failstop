@@ -248,6 +248,17 @@ public enum InvariantCheck {
               AND c.created_at > b.first_band_at
             """),
 
+    // ── 마켓 파티션 대응·리스 행·모드 래치 누락 0(ADR 0034 S2, V48) ──────────
+    // P3 쓰기는 대응 없는 마켓을 거부하고 리스·프로토콜 행이 없으면 모든 모드의 판정이 멈춘다. P1 쓰기는 막지 않지만
+    // P3 전환의 선행 조건이다. 대응 행은 고치거나 지울 수 없어 조치는 빠진 행을 소유자가 넣는 것이다(검증설계 §4-1 C29).
+    C29_MARKET_PARTITION_MAP(Severity.CRITICAL, Scope.SCHEDULED, """
+            SELECT (SELECT count(*) FROM markets m
+                    WHERE NOT EXISTS (SELECT 1 FROM market_lease_partition p WHERE p.market_id = m.id))
+                 + (SELECT count(*) FROM (VALUES ('matching-engine'), ('matching-p0'), ('matching-p1')) AS r(resource)
+                    WHERE NOT EXISTS (SELECT 1 FROM leader_lease l WHERE l.resource = r.resource))
+                 + (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM leader_protocol)
+            """),
+
     // ── RPO=0 외부 증거(실험 한정): ACK 원장 ⊆ command_journal ───────────
     C16_ACK_JOURNALED(Severity.CRITICAL, Scope.AUTHORITATIVE_ONLY, """
             SELECT count(*) FROM harness.loadtest_acks a

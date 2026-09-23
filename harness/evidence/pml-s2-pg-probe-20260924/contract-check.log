@@ -1,0 +1,178 @@
+container=pml-probe-s2contract-285412740 image=postgres:17-alpine port=127.0.0.1:63750
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+applied V0..V47: 48 files
+v48 exit=0
+== C1 V48 적용 직후
+lease rows|matching-engine:old-node:41,matching-p0::0,matching-p1::0
+protocol|1
+history|1||41
+mapping|1:matching-p0,2:matching-p1,3:matching-p1
+acquisitions|0
+== C2 V49 전에는 앱 역할이 종전처럼 leader_lease 를 직접 UPDATE 하고 command_journal 에 직접 INSERT 한다
+BEGIN
+SET
+UPDATE 1
+INSERT 0 1
+ROLLBACK
+== C3 P1 2인자 획득은 기존 epoch 41 에서 정확히 +1
+
+legacy acquire|42
+== C4 만료 전 3인자 획득은 NULL, 만료 뒤 +1
+not expired is null|t
+
+3-arg acquire|43
+== C5 P1 에서 파티션 자원 획득은 거부
+psql:/contract/contract-check-p1.sql:24: ERROR:  55000: 리스 자원 matching-p0은 P1에서 획득할 수 없다
+CONTEXT:  PL/pgSQL function lease_acquire_core(text,text,interval,boolean) line 30 at RAISE
+PL/pgSQL function try_acquire_lease(text,text,interval) line 3 at RETURN
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+== C6 롤백한 획득은 epoch 를 남기지 않는다
+BEGIN
+
+in-tx acquire|44
+ROLLBACK
+
+acquire after rollback|44
+== C7 P1 게시, 같은 보유자 재게시, 뒤이은 DB 획득
+publish|50
+republish|50
+publish rows|1
+
+acquire after publish|51
+acquisitions|42:matching-engine:node-a:ACQUIRE,43:matching-engine:node-b:ACQUIRE,44:matching-engine:node-c:ACQUIRE,50:matching-engine:node-d:PUBLISH,51:matching-engine:node-e:ACQUIRE
+== C8 앱 역할 쓰기 경로(P1). markets 에 없는 마켓 77 도 쓴다
+BEGIN
+SET
+append m1|1
+append m77|1
+stale append rows|0
+market lock|51
+legacy lock|51
+COMMIT
+journal|1:51,77:51
+== C9 판정 문구(P1 은 V1 과 같다)
+BEGIN
+SET
+psql:/contract/contract-check-p1.sql:54: ERROR:  P0001: fencing 위반: 현재 리더(holder=node-e, epoch=51)가 아님(요청 holder=node-e, epoch=50)
+CONTEXT:  PL/pgSQL function assert_lease_holder(text,text,bigint) line 11 at RAISE
+SQL statement "SELECT assert_lease_holder(v_resource, p_holder, p_epoch)"
+PL/pgSQL function assert_and_lock_market_leader(smallint,text,bigint) line 10 at PERFORM
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ROLLBACK
+== C10 함수 실행 권한(app_role 이 아닌 역할과 app_role)
+DO
+exec|try_acquire_leader(text,interval)|f|t
+exec|try_acquire_lease(text,text,interval)|f|t
+exec|renew_leader_lease(text,bigint,interval)|f|t
+exec|renew_lease(text,text,bigint,interval)|f|t
+exec|release_lease(text,text,bigint)|f|t
+exec|publish_leader_epoch(text,bigint)|f|t
+exec|expire_leader_lease_now()|f|t
+exec|assert_and_lock_leader(text,bigint)|f|t
+exec|assert_and_lock_market_leader(smallint,text,bigint)|f|t
+exec|append_command_journal_row(bigint,smallint,character varying,bigint,character varying,bigint,bigint,bigint,jsonb,bigint,text,bigint)|f|t
+exec|lease_acquire_core(text,text,interval,boolean)|f|f
+exec|allocate_lease_epoch()|f|f
+exec|seed_market_lease_partition()|f|f
+exec|lease_resource_for_market(smallint)|t|t
+exec|assert_lease_holder(text,text,bigint)|t|t
+== C11 앱 역할의 마켓 추가와 대응 표·프로토콜 표의 추가 전용
+BEGIN
+SET
+INSERT 0 3
+COMMIT
+mapping after insert|1:matching-p0,2:matching-p1,3:matching-p1,4:matching-p0,13:matching-p0,14:matching-p1
+psql:/contract/contract-check-p1.sql:77: ERROR:  P0001: append-only 위반: market_lease_partition.UPDATE
+CONTEXT:  PL/pgSQL function forbid_mutation() line 2 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+psql:/contract/contract-check-p1.sql:78: ERROR:  P0001: append-only 위반: market_lease_partition.DELETE
+CONTEXT:  PL/pgSQL function forbid_mutation() line 2 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+psql:/contract/contract-check-p1.sql:79: ERROR:  P0001: append-only 위반: market_lease_partition.TRUNCATE
+CONTEXT:  PL/pgSQL function forbid_mutation() line 2 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+psql:/contract/contract-check-p1.sql:80: ERROR:  P0001: append-only 위반: leader_protocol.DELETE
+CONTEXT:  PL/pgSQL function forbid_mutation() line 2 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+psql:/contract/contract-check-p1.sql:81: ERROR:  P0001: append-only 위반: leader_protocol_history.UPDATE
+CONTEXT:  PL/pgSQL function forbid_mutation() line 2 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+v49 exit=0
+== D1 V49 뒤 앱 역할의 직접 UPDATE, KEY SHARE, command_journal 직접 INSERT 는 거부
+BEGIN
+SET
+psql:/contract/contract-check-p2.sql:5: ERROR:  42501: permission denied for table leader_lease
+LOCATION:  aclcheck_error, aclchk.c:2843
+ROLLBACK
+BEGIN
+SET
+psql:/contract/contract-check-p2.sql:9: ERROR:  42501: permission denied for table leader_lease
+LOCATION:  aclcheck_error, aclchk.c:2843
+ROLLBACK
+BEGIN
+SET
+psql:/contract/contract-check-p2.sql:15: ERROR:  42501: permission denied for table command_journal
+LOCATION:  aclcheck_error, aclchk.c:2843
+ROLLBACK
+== D2 V49 뒤 앱 역할의 함수 경로
+BEGIN
+SET
+renew legacy|t
+renew|t
+append after revoke|1
+market lock after revoke|51
+legacy lock after revoke|51
+COMMIT
+BEGIN
+SET
+release|t
+acquire after revoke|52
+COMMIT
+== D3 P3 흉내(소유자 UPDATE). 같은 값 UPDATE 는 이력을 남기지 않는다
+UPDATE 1
+UPDATE 1
+history|1||41
+history|3|1|52
+
+psql:/contract/contract-check-p2.sql:37: ERROR:  55000: 2인자 try_acquire_leader 는 P1 에서만 획득한다(현재 P3)
+CONTEXT:  PL/pgSQL function lease_acquire_core(text,text,interval,boolean) line 25 at RAISE
+PL/pgSQL function try_acquire_leader(text,interval) line 3 at RETURN
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+psql:/contract/contract-check-p2.sql:38: ERROR:  55000: 리스 자원 matching-engine은 P3에서 획득할 수 없다
+CONTEXT:  PL/pgSQL function lease_acquire_core(text,text,interval,boolean) line 30 at RAISE
+PL/pgSQL function try_acquire_lease(text,text,interval) line 3 at RETURN
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+partition epochs|53|54
+BEGIN
+SET
+cross append rows (p0 holder, market 2)|0
+own append rows (p0 holder, market 1)|1
+COMMIT
+BEGIN
+SET
+psql:/contract/contract-check-p2.sql:49: ERROR:  P0001: fencing 위반: 현재 리더(holder=node-p1, epoch=54)가 아님(요청 holder=node-p0, epoch=53) resource=matching-p1
+CONTEXT:  PL/pgSQL function assert_lease_holder(text,text,bigint) line 11 at RAISE
+SQL statement "SELECT assert_lease_holder(lease_resource_for_market(p_market_id), p_holder, p_epoch)"
+PL/pgSQL function append_command_prologue(text,bigint,boolean,bigint,character varying,smallint) line 6 at PERFORM
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ROLLBACK
+BEGIN
+SET
+psql:/contract/contract-check-p2.sql:53: ERROR:  55000: 마켓 77의 리스 파티션 대응이 없어 쓰기를 거부한다(market_lease_partition)
+CONTEXT:  PL/pgSQL function lease_resource_for_market(smallint) line 16 at RAISE
+PL/pgSQL function assert_and_lock_market_leader(smallint,text,bigint) line 3 during statement block local variable initialization
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ROLLBACK
+psql:/contract/contract-check-p2.sql:55: ERROR:  55000: 파티션 모드(P3)에서는 외부 보관소 epoch 게시를 거부한다
+CONTEXT:  PL/pgSQL function publish_leader_epoch(text,bigint) line 17 at RAISE
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+row after publish attempt|node-f|52
+acquisitions|42:matching-engine:node-a:ACQUIRE:P1,43:matching-engine:node-b:ACQUIRE:P1,44:matching-engine:node-c:ACQUIRE:P1,50:matching-engine:node-d:PUBLISH:P1,51:matching-engine:node-e:ACQUIRE:P1,52:matching-engine:node-f:ACQUIRE:P1,53:matching-p0:node-p0:ACQUIRE:P3,54:matching-p1:node-p1:ACQUIRE:P3
+== D4 C29 과 양성 대조
+C29|0
+SET
+INSERT 0 1
+SET
+C29 after trigger-less insert|1
+== D5 하네스 검증설계 §4-1 C29 술어 원문(트리거를 끈 마켓 하나가 남은 상태라 위반 1행)
+1

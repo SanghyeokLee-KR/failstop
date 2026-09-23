@@ -42,7 +42,8 @@ public final class FencingTokenAlignment {
                              JdbcClient jdbc) {
         Long pgEpoch;
         try {
-            pgEpoch = jdbc.sql("SELECT epoch FROM leader_lease WHERE resource = 'matching-engine'")
+            pgEpoch = jdbc.sql("SELECT epoch FROM leader_lease WHERE resource = ?")
+                    .param(LeaseResources.MATCHING_ENGINE)
                     .query(Long.class)
                     .optional()
                     .orElse(null);

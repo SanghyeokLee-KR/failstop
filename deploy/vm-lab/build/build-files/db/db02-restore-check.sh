@@ -184,7 +184,7 @@ if not source_counts:
     problems.append('DB01 결과 JSON에 source_counts가 없다')
 elif source_counts != restored:
     problems.append('원본과 복원 건수가 다르다')
-# summary.sql은 C01부터 C28까지를 낸다. 행이 모자라면 일부 판정이 사라진 것이다.
+# summary.sql은 C01부터 C29까지를 낸다. 행이 모자라면 일부 판정이 사라진 것이다.
 if len(rows) < 28 or any(r.get('verdict') not in ('PASS', 'FAIL', 'SKIP') for r in rows):
     problems.append('정합성 검사 결과가 불완전하다')
 failed = [r['code'] for r in rows

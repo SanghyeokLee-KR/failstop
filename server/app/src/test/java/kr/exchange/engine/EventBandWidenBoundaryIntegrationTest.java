@@ -90,6 +90,38 @@ class EventBandWidenBoundaryIntegrationTest {
 
     private static final AtomicLong ORDER_IDS = new AtomicLong(1);
 
+    /** V45 위에서 V48 리스 함수 자리를 채우는 판. 본문은 V48 전 앱이 보내던 SQL 과 같은 행을 같은 잠금으로 잡는다. */
+    private static final List<String> LEASE_SHIMS = List.of("""
+            CREATE FUNCTION try_acquire_lease(p_resource TEXT, p_holder TEXT, p_ttl INTERVAL) RETURNS BIGINT
+            LANGUAGE sql AS $$ SELECT try_acquire_leader(p_holder, p_ttl) $$
+            """, """
+            CREATE FUNCTION renew_lease(p_resource TEXT, p_holder TEXT, p_epoch BIGINT, p_ttl INTERVAL) RETURNS BOOLEAN
+            LANGUAGE sql AS $$ SELECT renew_leader_lease(p_holder, p_epoch, p_ttl) $$
+            """, """
+            CREATE FUNCTION assert_and_lock_market_leader(p_market_id SMALLINT, p_holder TEXT, p_epoch BIGINT)
+            RETURNS BIGINT LANGUAGE sql AS $$ SELECT assert_and_lock_leader(p_holder, p_epoch) $$
+            """, """
+            CREATE FUNCTION append_command_journal_row(
+                p_seq BIGINT, p_market_id SMALLINT, p_command_type VARCHAR, p_user_id BIGINT,
+                p_client_order_id VARCHAR, p_assigned_order_id BIGINT, p_engine_ts BIGINT, p_tie_break BIGINT,
+                p_payload JSONB, p_checksum BIGINT, p_holder TEXT, p_epoch BIGINT
+            ) RETURNS INTEGER LANGUAGE plpgsql AS $$
+            DECLARE v_rows INTEGER;
+            BEGIN
+                INSERT INTO command_journal
+                  (seq, market_id, command_type, user_id, client_order_id, assigned_order_id,
+                   engine_ts, tie_break, payload, fencing_token, checksum)
+                SELECT p_seq, p_market_id, p_command_type, p_user_id, p_client_order_id, p_assigned_order_id,
+                       p_engine_ts, p_tie_break, p_payload, l.epoch, p_checksum
+                FROM leader_lease l
+                WHERE l.resource = 'matching-engine'
+                  AND l.holder = p_holder AND l.epoch = p_epoch AND l.lease_until > clock_timestamp()
+                FOR KEY SHARE OF l;
+                GET DIAGNOSTICS v_rows = ROW_COUNT;
+                RETURN v_rows;
+            END $$
+            """);
+
     /** V46 전 크래시 창을 새 리더가 확대 대역으로 재적재하고, 마켓마다 번호를 이어 거래한다. */
     @ParameterizedTest
     @EnumSource(Numbering.class)
@@ -273,6 +305,10 @@ class EventBandWidenBoundaryIntegrationTest {
                             RETURN NEXT;
                         END $$
                         """.formatted(LEGACY_SPAN));
+                // 이 앱은 V48 리스 함수를 부른다. V45 에서는 V48 전 앱과 같은 행·잠금·판정을 내는 시험용 판을 두고 widen() 에서 지운다.
+                for (String shim : LEASE_SHIMS) {
+                    st.execute(shim);
+                }
             }
             HikariConfig config = new HikariConfig();
             config.setJdbcUrl(url);
@@ -319,6 +355,12 @@ class EventBandWidenBoundaryIntegrationTest {
         /** V46 전 파생 함수를 지우고 V46 을 적용한다. 라이터가 멈춘 배포 창에서 부른다(ADR 0022 7절 9단계 적용 시점 조건 2). */
         void widen() {
             jdbc.sql("DROP FUNCTION next_market_event_seq(SMALLINT, BIGINT)").update();
+            jdbc.sql("""
+                    DROP FUNCTION try_acquire_lease(TEXT, TEXT, INTERVAL), renew_lease(TEXT, TEXT, BIGINT, INTERVAL),
+                        assert_and_lock_market_leader(SMALLINT, TEXT, BIGINT),
+                        append_command_journal_row(BIGINT, SMALLINT, VARCHAR, BIGINT, VARCHAR, BIGINT, BIGINT, BIGINT,
+                                                   JSONB, BIGINT, TEXT, BIGINT)
+                    """).update();
             assertTrue(flyway().load().migrate().success, "V46 적용 실패");
             assertEquals(SPAN, count("SELECT band_span FROM journal_band_spec WHERE name = 'event_seq'"));
         }

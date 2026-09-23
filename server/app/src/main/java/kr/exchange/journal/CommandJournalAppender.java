@@ -12,11 +12,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 
 /**
- * command_journal append 단일 경로(DB 설계 v2.9 §5.1 (a'), §5.4).
+ * command_journal append 단일 경로(DB 설계 v2.9 §5.1 (a'), §5.4, §5.4-b).
  *
- * 한 트랜잭션 안에서 [append_command_prologue(V44 6인자 판: 리더 검증, NEW 멱등, 채번) →
- * leader_lease FOR KEY SHARE 참조 INSERT...SELECT]를 원자 수행한다. COMMIT 성공이 곧 ACK다.
- * 롤백되면 카운터 증가도 함께 되돌아가 결번이 없다(P0-5).
+ * 한 트랜잭션 안에서 [append_command_prologue(6인자 판: 리더 검증, NEW 멱등, 채번) →
+ * append_command_journal_row(리스 행 FOR KEY SHARE 참조 INSERT...SELECT)]를 원자 수행한다. COMMIT 성공이 곧 ACK다.
+ * 롤백되면 카운터 증가도 함께 되돌아가 결번이 없다(P0-5). 두 함수 모두 기록할 행의 마켓에서 리스 행을 찾는다(V48).
  */
 public class CommandJournalAppender {
 
@@ -30,22 +30,16 @@ public class CommandJournalAppender {
     private record Prologue(long seq, boolean replayed, long fencing, long orderId) {
     }
 
-    // FOR KEY SHARE 는 holder·epoch 를 바꾸는 승격·게시만 커밋까지 막고 lease_until 갱신은 막지 않는다.
-    // 그 구분은 V41 의 uq_leader_lease_fencing_key 가 있어야 성립한다(ADR 0026).
-    static final String INSERT_SQL = """
-            INSERT INTO command_journal
-              (seq, market_id, command_type, user_id, client_order_id, assigned_order_id,
-               engine_ts, tie_break, payload, fencing_token, checksum)
-            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, l.epoch, ?
-            FROM leader_lease l
-            WHERE l.resource = 'matching-engine'
-              AND l.holder = ? AND l.epoch = ? AND l.lease_until > clock_timestamp()
-            FOR KEY SHARE OF l
-            """;
+    // 소유자 권한 함수(V48)가 market_id 로 리스 행을 찾아 FOR KEY SHARE 로 잡으며 넣고, 넣은 행 수를 돌려준다.
+    // 행 잠금 절은 UPDATE 권한을 요구하므로 앱이 직접 INSERT...SELECT 하면 V49 뒤 권한 오류다(DB 설계 §5.4-b).
+    static final String INSERT_SQL =
+            "SELECT append_command_journal_row(?, ?::smallint, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)";
 
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
     private final LeaderLeaseService lease;
+    // 접수 트랜잭션의 잠금 대기 상한("200ms" 꼴). null 이면 걸지 않는다(setLockTimeout).
+    private volatile String lockTimeout;
     // §5-2 계약 메트릭. requireLeader 이후 tx 커밋(=fsync=ACK) 완료까지의 지연을 잰다(RPO=0 비용).
     private final Timer appendTimer;
     // 좀비 리더 판정의 진행 축(§5.4). appendTimer는 실패한 시도도 세므로 진행성 신호로 못 쓴다.
@@ -135,6 +129,19 @@ public class CommandJournalAppender {
                 .register(meterRegistry);
     }
 
+    /**
+     * 접수 트랜잭션에 DB lock_timeout 을 건다(ADR 0034 S1). 0 이나 null 이면 걸지 않고 풀 세션 값을 따른다.
+     *
+     * 걸면 트랜잭션마다 첫 문장으로 한 왕복이 는다. 초과는 55P03 으로 트랜잭션 전체를 롤백하므로 저널 행과 채번이
+     * 남지 않고, 리스 행에 쓰지 않으므로 강등하지 않는다. 호출자에게는 그 예외가 그대로 올라간다. 게이트웨이는 아직
+     * 55P03 을 503 으로 바꾸지 않는다(API 설계 v2.52). 1밀리초보다 작은 값은 1밀리초로 올린다. 0 밀리초는
+     * PostgreSQL 에서 상한 없음이라 켠 설정이 조용히 꺼지기 때문이다.
+     */
+    public void setLockTimeout(java.time.Duration timeout) {
+        this.lockTimeout = timeout == null || timeout.isZero() || timeout.isNegative()
+                ? null : Math.max(1, timeout.toMillis()) + "ms";
+    }
+
     public AppendResult append(CommandDraft draft) {
         LeaderIdentity leader = lease.requireLeader();
         try {
@@ -206,6 +213,15 @@ public class CommandJournalAppender {
     }
 
     private AppendResult appendInTxTimed(LeaderIdentity leader, CommandDraft draft) {
+        String timeout = lockTimeout;
+        if (timeout != null) {
+            // 트랜잭션 한정(is_local)이라 커밋·롤백 뒤 풀 커넥션에 남지 않는다. 머리말보다 먼저 걸어야 머리말의
+            // 어드바이저리 락 대기와 append 함수의 리스 행 FOR KEY SHARE 대기에도 상한이 걸린다.
+            jdbc.sql("SELECT set_config('lock_timeout', ?, true)")
+                    .params(timeout)
+                    .query(String.class)
+                    .single();
+        }
         // 머리말 한 왕복(V44 6인자 판). 종전에는 리더 검증과 어드바이저리 락과 멱등 조회와 채번을
         // 네 문장으로 보냈다. 넷 다 이 트랜잭션 안에서 끝나므로 함수 하나에 담긴다.
         // 판정 순서와 예외와 락 키는 그 함수가 종전 그대로 정한다.
@@ -236,7 +252,8 @@ public class CommandJournalAppender {
                         draft.engineTs(), draft.tieBreak(), draft.payloadJson(),
                         JournalChecksum.of(seq, draft),
                         leader.holder(), leader.epoch())
-                .update();
+                .query(Integer.class)
+                .single();
         insertNanos.add(System.nanoTime() - tIns);
         if (inserted == 0) {
             // 내 epoch가 밀렸거나 리스 만료. 예외로 롤백해 채번도 함께 되돌린다.

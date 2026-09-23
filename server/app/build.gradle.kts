@@ -85,4 +85,8 @@ tasks.withType<Test> {
     systemProperty("harness.sql.dir", harnessSql.absolutePath)
     inputs.file(rootProject.file("../deploy/provision-runtime-roles.sql"))
         .withPropertyName("runtimeRoleProvisioning").withPathSensitivity(PathSensitivity.RELATIVE)
+    // VM 실습망이 읽는 summary.sql 사본. 원본과 같은지 HarnessSqlCopyTest 가 본다.
+    val vmLabSummarySql = rootProject.file("../deploy/vm-lab/build/build-files/db/summary.sql")
+    inputs.file(vmLabSummarySql).withPropertyName("vmLabSummarySql").withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("vmlab.summary.sql", vmLabSummarySql.absolutePath)
 }

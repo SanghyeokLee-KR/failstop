@@ -1,6 +1,6 @@
 -- ============================================================================
 -- invariants.sql
--- 불변식 카탈로그 C01~C28의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
+-- 불변식 카탈로그 C01~C29의 psql 직조회본. 검증설계 §4-1 정본을 실제 DDL 컬럼명에 맞춘다
 -- (server V1__init.sql, trades.id = event_seq).
 -- 실행: psql -U exchange -d exchange -f invariants.sql
 -- 판정: 각 쿼리는 위반 행만 낸다. 전 쿼리 0행 = 무결. summary.sql이 같은 술어의 건별 카운트다.
@@ -267,8 +267,34 @@ WHERE c.seq < s.band_span
   AND c.created_at > b.first_band_at
 ORDER BY c.market_id, c.seq;
 
+-- V48 미적용 DB(V47 이하 스키마, S2 배포 전 백업의 복원본)에는 파티션 대응 표와 모드 래치가 없다. 무조건 조회하면
+-- ON_ERROR_STOP 경로가 여기서 멈춰 뒤 판정까지 버린다. 부재 시 SKIP을 찍고 미평가를 통과로 접지 않는다.
+SELECT (to_regclass('public.market_lease_partition') IS NOT NULL
+        AND to_regclass('public.leader_protocol') IS NOT NULL) AS has_partition_lease \gset
+
+\if :has_partition_lease
+\echo '== C29 MARKET_PARTITION_MAP [CRITICAL] 마켓 파티션 대응·리스 행·모드 래치 누락 0 =='
+-- violations 열 합이 InvariantCheck.C29_MARKET_PARTITION_MAP 값이다. 대응 없는 마켓, 없는 리스 행, 한 행이 아닌
+-- leader_protocol 을 한 행씩 낸다. 대응 행은 추가 전용이라 조치는 빠진 행을 소유자가 넣는 것이다(ADR 0034 S2, V48).
+SELECT 'unmapped_market' AS term, m.id::text AS subject, 1 AS violations
+FROM markets m
+WHERE NOT EXISTS (SELECT 1 FROM market_lease_partition p WHERE p.market_id = m.id)
+UNION ALL
+SELECT 'missing_lease', r.resource, 1
+FROM (VALUES ('matching-engine'), ('matching-p0'), ('matching-p1')) AS r(resource)
+WHERE NOT EXISTS (SELECT 1 FROM leader_lease l WHERE l.resource = r.resource)
+UNION ALL
+SELECT 'protocol_rows', count(*)::text, 1
+FROM leader_protocol
+HAVING count(*) <> 1
+ORDER BY 1, 2;
+\else
+\echo '== C29 MARKET_PARTITION_MAP [CRITICAL] SKIP: V48 미적용(market_lease_partition·leader_protocol 부재) =='
+\echo '   마켓 파티션 대응 미평가. V48을 적용한 DB에서 다시 돌려야 C29 판정이 성립한다.'
+\endif
+
 -- V13 미적용 DB에서는 아래 두 뷰가 없다. 무조건 조회하면 ON_ERROR_STOP 경로가 C24 이전
--- 28개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이
+-- 29개 판정까지 통째로 버린다. 부재를 통과로 접지도 않는다. 미평가를 무결로 읽으면 그것이
 -- 거짓 통과다. 부재 시 SKIP을 크게 찍고 종료 상태를 남긴다.
 SELECT (to_regclass('public.position_cost_qty_check') IS NOT NULL
         AND to_regclass('public.position_cost_sanity_check') IS NOT NULL) AS has_cost_views \gset

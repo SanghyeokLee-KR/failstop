@@ -19,15 +19,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
- * leader_lease 단일 라이터 리스 관리(DB 설계 §3.1·§6.6·§5.4). 승격은 try_acquire_leader(만료 리스만
- * 탈취, epoch +1), 유지는 renew_leader_lease로만 한다. 정본은 V1 함수 3종이고 여기서는 호출만 한다.
+ * leader_lease 단일 라이터 리스 관리(DB 설계 §3.1·§3.4·§5.4). 승격은 try_acquire_lease(만료 리스만
+ * 탈취, epoch 는 모든 리스 행과 획득 이력의 최대 + 1), 유지는 renew_lease로만 한다. 정본은 V48 의 자원 인자 함수이고
+ * 보관소가 matching-engine 자원으로 부른다. 여기서는 호출만 한다.
  *
  * holder는 프로세스 기동마다 새로 발급하는 UUID다. 호스트명을 쓰면 같은 호스트의 구·신 프로세스를
  * 구분하지 못해 fencing이 무력화된다(P0-1).
  *
  * 강등은 종신(markLost)과 회복 가능(standDown) 두 등급이고, 가르는 축은 그 강등이 단일 라이터 루프를
  * 정지시켰는가다(§5.4 강등 사유 분류). 어느 쪽이든 leader_lease에는 아무것도 쓰지 않아 다음 리더는
- * TTL 만료 뒤 try_acquire_leader 단독 UPDATE로만 정해지고, 이중 리더 차단 성질이 불변이다.
+ * TTL 만료 뒤 만료 조건 획득(try_acquire_lease)으로만 정해지고, 이중 리더 차단 성질이 불변이다.
  *
  * lease_until을 미는 경로는 extendLease 하나뿐이다(§5.4 연장 직전 생존성 판정). 하트비트와 fencing
  * 거부 재확인이 같은 UPDATE를 쓰므로, 판정을 호출자별로 두면 좀비 리더가 리스를 무한 연장한다.
@@ -267,7 +268,7 @@ public class LeaderLeaseService implements AutoCloseable {
 
     /**
      * 회복 가능 반납. 승격 재생이 접수 개방 전에 실패했을 때만 쓴다. 리스 행에는 아무것도 쓰지
-     * 않고 갱신만 멈추므로, 다음 리더는 TTL 만료 뒤 try_acquire_leader(epoch +1)로만
+     * 않고 갱신만 멈추므로, 다음 리더는 TTL 만료 뒤 try_acquire_lease(더 큰 epoch)로만
      * 정해진다. demoted를 세우지 않아 이 노드도 다시 후보가 된다.
      */
     public void standDown(String reason) {

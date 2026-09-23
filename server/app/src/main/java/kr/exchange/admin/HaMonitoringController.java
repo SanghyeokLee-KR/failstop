@@ -2,6 +2,7 @@ package kr.exchange.admin;
 
 import jakarta.servlet.http.HttpServletRequest;
 import kr.exchange.api.common.ApiException;
+import kr.exchange.engine.lease.LeaseResources;
 import kr.exchange.journal.CommandJournalReader;
 import kr.exchange.journal.EventJournalReader;
 import kr.exchange.journal.JournalCheckpoints;
@@ -97,8 +98,9 @@ public class HaMonitoringController {
                                (lease_until > clock_timestamp()) AS leader_alive,
                                GREATEST(0, EXTRACT(EPOCH FROM (lease_until - clock_timestamp()))
                                           * 1000)::bigint AS lease_remaining_ms
-                        FROM leader_lease WHERE resource = 'matching-engine'
+                        FROM leader_lease WHERE resource = ?
                         """)
+                .param(LeaseResources.MATCHING_ENGINE)
                 .query((rs, n) -> {
                     // 키 순서를 고정한다. Map.of는 JVM 기동마다 순회 순서가 바뀌어 증빙
                     // 캡처와 화면 diff가 실행마다 달라진다. 이 컨트롤러의 전 투영과 엔벌로프에 같은 규율을 쓴다.

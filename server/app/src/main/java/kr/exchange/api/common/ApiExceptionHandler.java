@@ -1,6 +1,7 @@
 package kr.exchange.api.common;
 
 import jakarta.servlet.http.HttpServletResponse;
+import kr.exchange.engine.EngineBridge;
 import kr.exchange.engine.NotLeaderException;
 import kr.exchange.engine.NotReadyException;
 import org.slf4j.Logger;
@@ -69,6 +70,16 @@ public class ApiExceptionHandler {
         // 승격 재생 중. 리더 인지 LB는 readiness DOWN으로 이미 제외하나, 경합 창 접수는 여기서 흡수.
         return render(new ApiException(503, "service_unavailable",
                 "승격 준비 중. 잠시 후 재시도 필요", null, 1), response);
+    }
+
+    @ExceptionHandler(EngineBridge.AcceptBusyException.class)
+    public ResponseEntity<Object> acceptBusy(EngineBridge.AcceptBusyException e, HttpServletResponse response) {
+        // 마켓 접수 락 대기 상한 초과(ADR 0034 S1, 기본 꺼짐). 저널 전 거부라 같은 client_order_id 로 재시도하면 된다.
+        // 게이트웨이를 거친 주문·취소는 OrderGateway 가 먼저 API 예외로 바꾸므로 여기는 그 밖의 호출 경로 몫이다.
+        // 켜면 이 503 하나로 max_fails=1 인 nginx 가 노드를 잠시 빼므로 그 부작용을 알고 켠다(EngineProperties).
+        // 건수는 exchange.submit.lock.timeouts 로 본다.
+        return render(new ApiException(503, "service_unavailable",
+                "접수 대기 상한 초과. 잠시 후 재시도 필요", null, 1), response);
     }
 
     @ExceptionHandler(IllegalStateException.class)

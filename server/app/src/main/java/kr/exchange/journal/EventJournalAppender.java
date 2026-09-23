@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * event_journal 저널 전용 append 경로(DB 설계 v2.11 §3.1 6.2).
  *
- * 한 트랜잭션 안에서 [assert_and_lock_leader(검증+FOR KEY SHARE 잠금 한 왕복) →
+ * 한 트랜잭션 안에서 [assert_and_lock_market_leader(배치 마켓의 리스 검증+FOR KEY SHARE 잠금 한 왕복) →
  * next_market_event_seq 마켓별 블록 채번 → 이벤트별 INSERT 반복]을 원자 수행한다.
  * JDBC 배치가 아니라 왕복 N회다. batchUpdate 전환은 실측 병목 확인 후에 한다.
  * created_at은 이벤트의 engine_ts 파생값을 명시 삽입한다(DB now() 금지, P0-4).
@@ -32,14 +32,11 @@ public class EventJournalAppender {
     private static final short PAYLOAD_SCHEMA_VERSION = 1;
 
     /**
-     * fencing 검증·행 잠금·epoch 반환을 한 왕복으로 한다(V30 assert_and_lock_leader).
-     *
-     * 종전에는 assert_current_leader 호출과 FOR SHARE 조회를 따로 보냈다. 앞이 거부
-     * 사유를, 뒤가 커밋까지의 보장을 담당해 둘 다 필요했다. 함수가 둘을 겸하므로 왕복이
-     * 하나 준다. 거부 시 예외 메시지가 종전과 같아 FencingErrors 분류가 바뀌지 않는다.
+     * fencing 검증·행 잠금·epoch 반환을 한 왕복으로 한다(V48 assert_and_lock_market_leader). 리스 행은 배치 마켓에서
+     * 도출한다(DB 설계 §5.4-b). P1 에서는 matching-engine 행이라 거부 문구가 같아 FencingErrors 분류가 바뀌지 않는다.
      */
     private static final String ASSERT_AND_LOCK_SQL =
-            "SELECT assert_and_lock_leader(?, ?)";
+            "SELECT assert_and_lock_market_leader(?::smallint, ?, ?)";
 
     private static final String INSERT_SQL = """
             INSERT INTO event_journal
@@ -83,12 +80,17 @@ public class EventJournalAppender {
     }
 
     private List<EngineEvent> appendInTx(LeaderIdentity leader, List<EngineEvent> events) {
-        // fencing 검증과 FOR KEY SHARE 잠금을 한 왕복으로 한다(V30, V41). 종전에는 두 문장을 연달아
-        // 보냈다. 앞 문장이 거부 사유를 주고 뒤 문장이 커밋까지의 보장을 주는 구조였는데,
-        // 함수가 둘 다 하므로 왕복 하나가 준다. 거부 메시지는 종전과 같아 강등 분류가 그대로다.
+        // 배치는 명령 하나의 방출분이라 전부 같은 마켓이다. 리스를 그 마켓에서 찾으므로 잠그기 전에 확인한다.
+        int marketId = events.get(0).marketId();
+        for (EngineEvent e : events) {
+            if (e.marketId() != marketId) {
+                throw new IllegalArgumentException(
+                        "이벤트 배치가 마켓을 넘는다: " + marketId + " vs " + e.marketId());
+            }
+        }
         // 잠금을 잡은 뒤 판정하므로 판정과 커밋 사이에 epoch 이 바뀌지 않는다.
         Long epoch = jdbc.sql(ASSERT_AND_LOCK_SQL)
-                .params(leader.holder(), leader.epoch())
+                .params(marketId, leader.holder(), leader.epoch())
                 .query(Long.class)
                 .optional()
                 .orElse(null);
@@ -97,15 +99,7 @@ public class EventJournalAppender {
                     "stale 리더 event append 거부: holder=" + leader.holder() + ", epoch=" + leader.epoch());
         }
 
-        // V36. 채번이 마켓별이다. 배치는 명령 하나의 방출분이라 전부 같은 마켓이다.
-        // SettlementService 와 같은 EventSeqBlock 으로 채번한다. 두 경로가 같은 저널에 쓴다.
-        int marketId = events.get(0).marketId();
-        for (EngineEvent e : events) {
-            if (e.marketId() != marketId) {
-                throw new IllegalArgumentException(
-                        "이벤트 배치가 마켓을 넘는다: " + marketId + " vs " + e.marketId());
-            }
-        }
+        // V36. 채번이 마켓별이다. SettlementService 와 같은 EventSeqBlock 으로 채번한다. 두 경로가 같은 저널에 쓴다.
         EventSeqBlock start = EventSeqBlock.allocate(jdbc, marketId, events.size());
 
         List<EngineEvent> assigned = new ArrayList<>(events.size());

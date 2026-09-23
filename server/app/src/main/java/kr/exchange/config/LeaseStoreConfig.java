@@ -9,6 +9,8 @@ import kr.exchange.engine.lease.LeaderLeaseStore;
 import kr.exchange.engine.lease.MeteredLeaderLeaseStore;
 import kr.exchange.engine.lease.PostgresFencingEpochPublisher;
 import kr.exchange.engine.lease.PostgresLeaderLeaseStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -37,6 +39,8 @@ import java.time.Clock;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(LeaderLeaseStoreProperties.class)
 public class LeaseStoreConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(LeaseStoreConfig.class);
 
     /**
      * 리스 전용 DynamoDB 클라이언트. 보관소가 dynamodb 일 때만 만든다.
@@ -79,14 +83,37 @@ public class LeaseStoreConfig {
                                                      DynamoDbClient leaseDynamoDbClient,
                                                      @Qualifier("leaseDataSource") DataSource leaseDataSource,
                                                      MeterRegistry registry) {
+        JdbcClient leaseJdbc = JdbcClient.create(leaseDataSource);
+        refuseInPartitionMode(leaseJdbc);
         // 두 보관소의 카운터가 서로 다른 값에서 시작하므로 전환 첫 회차에 하한을 맞춘다.
         // 맞추지 않으면 게시 단조 조건에 걸려 승격이 영구 실패한다.
-        FencingTokenAlignment.align(leaseDynamoDbClient, props.table(), props.clusterId(),
-                JdbcClient.create(leaseDataSource));
+        FencingTokenAlignment.align(leaseDynamoDbClient, props.table(), props.clusterId(), leaseJdbc);
         return new MeteredLeaderLeaseStore(
                 new DynamoDbLeaderLeaseStore(leaseDynamoDbClient, props.table(), props.clusterId(),
                         Clock.systemUTC()),
                 registry, Clock.systemUTC());
+    }
+
+    /**
+     * 파티션 모드(leader_protocol 3)에서는 DynamoDB 보관소로 뜨지 않는다(ADR 0034 결정한 값 18). 권위는 DB 게시 함수가
+     * P3 게시를 거부하는 것이고 이 검사는 기동에서 빨리 드러내는 보조다. 읽지 못하면(V48 전 DB, DB 불통) 막지 않는다.
+     */
+    static void refuseInPartitionMode(JdbcClient leaseJdbc) {
+        Integer protocol;
+        try {
+            protocol = leaseJdbc.sql("SELECT protocol FROM leader_protocol")
+                    .query(Integer.class)
+                    .optional()
+                    .orElse(null);
+        } catch (RuntimeException e) {
+            log.warn("leader_protocol 을 읽지 못해 DynamoDB 보관소의 파티션 모드 검사를 건너뛴다. "
+                    + "P3 게시는 DB 가 거부한다: {}", e.toString());
+            return;
+        }
+        if (protocol != null && protocol == 3) {
+            throw new IllegalStateException("leader_protocol 이 3(파티션 모드)이라 DynamoDB 리스 보관소로 뜰 수 없다. "
+                    + "파티션 모드의 리스는 PostgreSQL 파티션 행이다(ADR 0034 결정한 값 18)");
+        }
     }
 
     @Bean

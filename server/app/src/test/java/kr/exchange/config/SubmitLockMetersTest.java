@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SubmitLockMetersTest {
 
     private static final List<String> NAMES = List.of(
-            "exchange.submit.lock.wait.nanos", "exchange.submit.lock.hold.nanos", "exchange.submit.count");
+            "exchange.submit.lock.wait.nanos", "exchange.submit.lock.hold.nanos", "exchange.submit.count",
+            "exchange.submit.lock.timeouts");
 
     @Test
     void engineBridgeRegistersSubmitMetersPerMarketOnFirstSubmit() {
@@ -44,7 +45,7 @@ class SubmitLockMetersTest {
         EngineBridge bridge = new EngineConfig().engineBridge(null, router,
                 new CommandPayloadMapper(new ObjectMapper()),
                 new PromotionCoordinator(null, router, null, null, AvailabilitySignal.NOOP),
-                new MarketDirectory(null), registry);
+                new MarketDirectory(null), new EngineProperties(null, null, null, 16, null, null, null), registry);
         for (String name : NAMES) {
             assertTrue(registry.find(name).meters().isEmpty(), name + " 가 첫 접수 전에 등록됐다");
         }
@@ -62,6 +63,8 @@ class SubmitLockMetersTest {
         }
         assertEquals(1.0, registry.get("exchange.submit.count").tag("market", "1").functionCounter().count());
         assertEquals(2.0, registry.get("exchange.submit.count").tag("market", "2").functionCounter().count());
+        // 락 대기 상한은 기본으로 꺼져 있어 상한 초과가 한 번도 나지 않는다(ADR 0034 S1).
+        assertEquals(0.0, registry.get("exchange.submit.lock.timeouts").tag("market", "1").functionCounter().count());
     }
 
     private static OrderIntake order(int marketId, long orderId) {

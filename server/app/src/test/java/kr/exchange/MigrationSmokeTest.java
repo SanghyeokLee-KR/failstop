@@ -46,7 +46,8 @@ class MigrationSmokeTest {
             "admin_audit_log", "system_config", "notices",
             "user_credentials", "user_profiles", "auth_sessions", "user_provisioning",
             "posts", "comments", "post_likes", "comment_likes", "post_rank_snapshot",
-            "reports", "community_moderation_log");
+            "reports", "community_moderation_log",
+            "leader_protocol", "leader_protocol_history", "lease_acquisitions", "market_lease_partition");
 
     @BeforeAll
     static void migrateAndSeed() throws Exception {
@@ -73,7 +74,13 @@ class MigrationSmokeTest {
             for (String table : CORE_TABLES) {
                 assertTrue(tableExists(conn, table), "missing table: " + table);
             }
-            assertEquals(1, countRows(conn, "leader_lease"), "leader_lease bootstrap seed missing");
+            // matching-engine(V1)과 파티션 행 둘(V48). P1 에서는 파티션 행을 아무도 획득하지 않는다.
+            assertEquals(3, countRows(conn, "leader_lease"), "leader_lease bootstrap seed missing");
+            assertEquals(2, queryLong(conn, "SELECT count(*) FROM leader_lease "
+                    + "WHERE resource IN ('matching-p0', 'matching-p1') AND holder = '' AND epoch = 0"),
+                    "파티션 리스 행이 V1 시드 모양이 아니다");
+            assertEquals(1, queryLong(conn, "SELECT protocol FROM leader_protocol"), "모드 래치 시드가 P1 이 아니다");
+            assertEquals(1, countRows(conn, "leader_protocol"), "leader_protocol 은 한 행이다");
             assertEquals(3, countRows(conn, "journal_counters"), "journal_counters seeds missing");
             assertTrue(tableExists(conn, "trades_default"), "trades DEFAULT partition missing");
             assertTrue(tableExists(conn, "command_journal_default"), "command_journal DEFAULT partition missing");
@@ -96,6 +103,25 @@ class MigrationSmokeTest {
                     SELECT has_function_privilege('app_role',
                         'post_ledger_transaction(character varying, bigint, jsonb)', 'EXECUTE')
                     """), "app_role must EXECUTE post_ledger_transaction");
+
+            // V48 표는 앱·하네스 롤이 읽기만 한다. 쓰기는 소유자 권한 함수와 트리거가 한다.
+            for (String t : List.of("leader_protocol", "leader_protocol_history", "lease_acquisitions",
+                    "market_lease_partition")) {
+                for (String role : List.of("app_role", "harness_role")) {
+                    assertTrue(queryBool(conn, "SELECT has_table_privilege('" + role + "', '" + t + "', 'SELECT')"),
+                            role + " must SELECT " + t);
+                    for (String priv : List.of("INSERT", "UPDATE", "DELETE")) {
+                        assertTrue(!queryBool(conn,
+                                        "SELECT has_table_privilege('" + role + "', '" + t + "', '" + priv + "')"),
+                                role + " must not " + priv + " on " + t);
+                    }
+                }
+            }
+            // S2 이미지(V48)는 두 권한을 남겨 S2 이전 바이너리로 되돌릴 수 있게 한다. 회수는 다음 이미지의 V49 다.
+            assertTrue(queryBool(conn, "SELECT has_table_privilege('app_role', 'leader_lease', 'UPDATE')"),
+                    "V48 이 leader_lease UPDATE 를 회수했다");
+            assertTrue(queryBool(conn, "SELECT has_table_privilege('app_role', 'command_journal', 'INSERT')"),
+                    "V48 이 command_journal INSERT 를 회수했다");
 
             // 롤을 분리하면 GRANT 누락이 권한 오류로만 드러나 원인 추적이 한 단계 멀어진다.
             for (String t : List.of("sim_commands", "chaos_commands", "sim_fleet_state")) {
