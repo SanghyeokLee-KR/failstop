@@ -10,14 +10,16 @@ export type AdminIconName =
   | "overview"
   | "monitoring"
   | "bots"
-  | "chaos"
   | "config"
   | "transfers"
   | "support"
   | "community"
   | "members"
   | "operators"
-  | "audit";
+  | "audit"
+  | "drill"
+  | "flow"
+  | "metrics";
 
 const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   // 게이지: 눈금 원 + 바늘
@@ -41,16 +43,6 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
       <path d="M6.5 11.25 H9.5" />
       <path d="M4.75 6.5 V9.5" />
       <path d="M11.25 6.5 V9.5" />
-    </>
-  ),
-  // 분기: 단일 입력이 두 갈래 종점 노드로 갈라진다
-  chaos: (
-    <>
-      <path d="M2.5 8 H6" />
-      <path d="M6 8 L10.6 4.5" />
-      <path d="M6 8 L10.6 11.5" />
-      <circle cx="12.1" cy="4.5" r="1.5" />
-      <circle cx="12.1" cy="11.5" r="1.5" />
     </>
   ),
   // 슬라이더 2열: 트랙 절단부에 썸 원
@@ -103,6 +95,37 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
       <circle cx="5.75" cy="8" r="1.6" />
       <path d="M9 6.75 H11.75" />
       <path d="M9 9.25 H11.75" />
+    </>
+  ),
+  // 단계 기둥: 세로선 위 세 마디
+  drill: (
+    <>
+      <path d="M4.25 2.75 V13.25" />
+      <circle cx="4.25" cy="4.5" r="1.25" />
+      <circle cx="4.25" cy="8" r="1.25" />
+      <circle cx="4.25" cy="11.5" r="1.25" />
+      <path d="M7.5 4.5 H12.25" />
+      <path d="M7.5 8 H12.25" />
+      <path d="M7.5 11.5 H10" />
+    </>
+  ),
+  /* 서비스 흐름. 한 입구에서 두 갈래로 나가는 연결 */
+  flow: (
+    <>
+      <circle cx="3.5" cy="8" r="1.75" />
+      <circle cx="12.5" cy="4" r="1.75" />
+      <circle cx="12.5" cy="12" r="1.75" />
+      <path d="M5.25 8 H8 V4 H10.75" />
+      <path d="M8 8 V12 H10.75" />
+    </>
+  ),
+  /* 지표 관제. 바닥선 위 높이가 다른 세 막대. 용량·부하의 펄스 선(monitoring)과 겹쳐 보이지 않게 막대로 둔다 */
+  metrics: (
+    <>
+      <path d="M2.25 13.25 H13.75" />
+      <path d="M4.75 10.75 V8" />
+      <path d="M8 10.75 V3.25" />
+      <path d="M11.25 10.75 V5.75" />
     </>
   ),
   // 줄 눈금 문서

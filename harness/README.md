@@ -27,11 +27,27 @@ pwsh -File harness/scripts/up.ps1 -Obs
 | PostgreSQL | 55432 |
 | Toxiproxy 관리 API | 58474 |
 | API 1 / API 2 | 18080 / 28080 |
+| API 3 (조회 전용 증설 노드) | 38080 |
 | API 로드밸런서 | 58080 |
 | Prometheus / Grafana | 59090 / 53001 |
 | Alertmanager | 59093 |
 
-API 로드밸런서는 1차 노드와 백업 노드를 둔 정적 설정이다. DB standby와는 별개이며, 모든 상황에서 리더를 자동으로 찾아 라우팅하는 구성은 아니다.
+로드밸런서는 쓰기와 조회를 다른 업스트림으로 보낸다. 쓰기는 1차 노드와 백업 노드를 둔 정적 설정이고 DB standby와는 별개이며, 모든 상황에서 리더를 자동으로 찾아 라우팅하는 구성은 아니다. 조회는 마켓·체결·캔들 경로만 해당하고 켜져 있는 노드에 나눠 보낸다. 호가와 티커는 노드 로컬 순번을 실어 보내므로 쓰기 쪽에 남는다. 배선의 조건과 실측은 [검증 설계 §3](../docs/reference/contracts/하네스_검증설계.md)에 있다.
+
+## 용량 증설과 축소
+
+조회 노드를 한 대 더 붙였다 떼는 경로다. AWS의 Auto Scaling group 자리를 로컬에서 대신한다. 판정은 사람이 관리 콘솔에서 하고, 조정기는 정해진 희망 대수를 실현하기만 한다.
+
+`chaos-api-3`은 `scale` 프로파일이라 기본 기동에 없다. 한 번 만들어 두면 조정기가 그 컨테이너를 켰다 껐다 한다. 조정기가 직접 `docker run` 하지 않는 이유는 환경 변수를 compose 파일 한 곳에만 두기 위해서다.
+
+```powershell
+docker compose --env-file harness/.env.chaos --profile scale create chaos-api-3
+python harness/asg/capacity_reconciler.py --stack chaos --lb-conf harness/nginx/nginx.conf --log <로그경로>
+```
+
+조회 계층에 부하를 넣을 때는 `python harness/scripts/read-load.py --vus 20 --sec 300`을 쓴다. 봇 발행률로는 조회 계층이 움직이지 않는다. 봇이 내는 주문은 쓰기 경로이고 봇이 보는 호가·티커도 노드 로컬 순번이라 쓰기 경로에 남기 때문이다. 권고 임계는 서버가 소유하며 이 스택은 `admin-chaos` 프로파일에서 0.25로 내려 두었다. AWS 운영값 0.60과 구분한다.
+
+희망 대수는 관리 API의 `POST /admin/v1/capacity/scale-out`과 `scale-in`이 바꾸고 조정기가 그 값을 따라간다. 조정기는 한 주기에 한 대만 움직이고, 축소할 때는 로드밸런서에서 먼저 빼고 드레이닝 창을 기다린 뒤에 컨테이너를 내린다. 쓰기 백업 노드는 축소 대상에서 제외한다. `--stack` 기본값은 종전 `ex-*` 스택이라 옛 호출은 그대로 돈다.
 
 ## 장애 실험
 

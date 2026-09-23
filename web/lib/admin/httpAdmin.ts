@@ -6,7 +6,8 @@
 
 import { AdminError, type AdminApi } from "./api";
 import { approvalConsoleTarget } from "./roles";
-import { CHAOS_CATALOG, INVARIANT_DEFS } from "./catalog";
+import { INVARIANT_DEFS } from "./catalog";
+import { summarizeInvariants } from "./invariants";
 import { isoNow } from "../format";
 import { COIN_META } from "../sim/engine";
 import type {
@@ -25,8 +26,6 @@ import type {
   CapacityAdviceLevel,
   CapacityNode,
   CapacityState,
-  ChaosExperimentDef,
-  ChaosRun,
   ConfigMarket,
   CreateBotResult,
   DemoClientCert,
@@ -71,12 +70,6 @@ import type {
 const COIN_NAME = new Map(COIN_META.map((c) => [c.market, c.koreanName]));
 /** 불변식 check_name -> 라벨. 서버 invariants는 라벨을 싣지 않는다 */
 const INVARIANT_LABEL = new Map(INVARIANT_DEFS.map((d) => [d.name, d.label]));
-/**
- * harness/docker-compose.chaos.yml의 실제 컨테이너 이름이다. 이름이 어긋나면 소비기가 전건
- * "No such container"로 실패한다. 실 리더 판별은 콘솔이 아니라 실험 스크립트가 한다.
- */
-const CHAOS_NODE = "chaos-api-1";
-
 /** 커서 쪽 요청 질의문자열. 빈 값은 붙이지 않아 URL이 조건마다 달라지지 않는다 */
 function pageQuery(opts: PageOpts, extra: Record<string, string> = {}): string {
   const q = new URLSearchParams(extra);
@@ -146,6 +139,12 @@ function mapCapacity(w: WireCapacity): CapacityState {
     observedTotal: num(w.observed_total),
     reconciled: w.reconciled === true,
     readAvgCpuRatio: nullableNum(w.read_avg_cpu_ratio),
+    // 서버가 안 실어 보내면 계약 기본값으로 떨어진다. 옛 서버와 새 화면이 섞여도
+    // 눈금이 사라지지 않게 한다
+    thresholds: {
+      scaleOutCpuRatio: num(w.thresholds?.scale_out_cpu_ratio, 0.6),
+      scaleInCpuRatio: num(w.thresholds?.scale_in_cpu_ratio, 0.3),
+    },
     nodes,
     advice,
   };
@@ -167,15 +166,6 @@ function num(v: unknown, fallback = 0): number {
  */
 function wireBinding(payload: ApprovalPayload): { action: string; target: string } {
   switch (payload.action) {
-    case "chaos.inject": {
-      const def = CHAOS_CATALOG.find((d) => d.id === payload.experimentId);
-      const path = def?.injectPath ?? "";
-      if (path.endsWith("kill-node")) return { action: "chaos.kill_node", target: CHAOS_NODE };
-      if (path.endsWith("app")) return { action: "chaos.app", target: `${payload.experimentId.toLowerCase()}-assault` };
-      return { action: "chaos.network", target: `${payload.experimentId.toLowerCase()}-toxic` };
-    }
-    case "chaos.clear":
-      return { action: "chaos.network.clear", target: payload.runId };
     case "sim.bots.params":
       return { action: "sim.bots.params", target: payload.botId };
     case "config.market.halt":
@@ -201,15 +191,13 @@ function wireBinding(payload: ApprovalPayload): { action: string; target: string
   }
 }
 
-/** 원장의 바인딩 action -> 콘솔 의미 액션 역매핑. chaos 3종은 주입 하나로 수렴한다 */
+/**
+ * 원장의 바인딩 action -> 콘솔 의미 액션 역매핑.
+ * 감사 원장은 append-only라 폐기한 카오스 행이 과거 기록으로 남는다. 그 행은 콘솔 액션으로
+ * 되돌릴 수 없으므로 폴백으로 흘리고, 화면은 용어집(glossary)이 원문 코드를 풀어 보여 준다.
+ */
 function consoleAction(wireAction: string): DestructiveAction {
   switch (wireAction) {
-    case "chaos.kill_node":
-    case "chaos.network":
-    case "chaos.app":
-      return "chaos.inject";
-    case "chaos.network.clear":
-      return "chaos.clear";
     case "sim.bots.params":
     case "config.market.halt":
     case "config.market.resume":
@@ -220,7 +208,7 @@ function consoleAction(wireAction: string): DestructiveAction {
     case "members.close":
       return wireAction;
     default:
-      return "chaos.inject";
+      return "sim.bots.params";
   }
 }
 
@@ -328,7 +316,7 @@ interface ErrorEnvelope {
 /** 429 대기 초 -> 안내 문구. 초를 알면 명시, 모르면 "잠시 후"로 열화 */
 function rateLimitMessage(retryAfter: number | null): string {
   const when = retryAfter != null && retryAfter > 0 ? `${retryAfter}초 후` : "잠시 후";
-  return `관리 요청이 많습니다. ${when} 다시 시도하세요`;
+  return `관리 요청 한도 초과. ${when} 다시 시도 필요`;
 }
 
 /** POST /admin/v1/session 와이어 스키마(§3-6, snake_case). issued_at은 서버 미전송 */
@@ -499,6 +487,7 @@ interface WireCapacity {
   observed_total?: number;
   reconciled?: boolean;
   read_avg_cpu_ratio?: number | null;
+  thresholds?: { scale_out_cpu_ratio?: number; scale_in_cpu_ratio?: number };
   nodes?: WireCapacityNode[];
   advice?: { id?: string; level?: string; headline?: string; detail?: string; action?: string | null }[];
 }
@@ -578,16 +567,6 @@ interface WireAudit {
   created_at?: string;
   request_id?: string;
 }
-/** GET /admin/v1/chaos/runs 감사 투영 원소(토큰 미노출). state·blast_radius 없음 */
-interface WireChaosRun {
-  id?: number | string;
-  action?: string;
-  target?: string;
-  experiment_id?: string;
-  operator_id?: string;
-  created_at?: string;
-}
-
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 
 /** 서버 판정 문자열을 좁힌다. 미지값은 null이고 그것을 통과로 읽지 않는다. */
@@ -609,16 +588,6 @@ const DEV_OPERATOR_CNS: string[] = (process.env.NEXT_PUBLIC_ADMIN_DEV_CN ?? "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
-
-/** 카탈로그 조인 실패 시 쓰는 액션 유래 문구. UUID 를 이름 자리에 흘리지 않기 위한 것이다 */
-function chaosActionLabel(action: string | undefined, target: string): string {
-  const a = action ?? "";
-  if (a.includes("clear")) return `주입 해제 (${target})`;
-  if (a.includes("kill")) return `리더 노드 kill (${target})`;
-  if (a.includes("app")) return `앱 계층 주입 (${target})`;
-  if (a.includes("network")) return `네트워크 주입 (${target})`;
-  return target || "알 수 없는 주입";
-}
 
 export class HttpAdminApi implements AdminApi {
   // 반영 여부는 응답 applied와 status 1.2의 running·paused가 원천이다
@@ -694,8 +663,8 @@ export class HttpAdminApi implements AdminApi {
 
   listDemoCerts(): DemoClientCert[] {
     // 운영 mTLS는 OS·브라우저 인증서 저장소를 쓴다. 앱이 인증서를 열거하지 않는다.
-    // dev 게이트웨이 모드에서만 선택지를 세운다. 2인 승인은 서로 다른 두 운영자를 요구하므로
-    // (반결탁) 신원을 하나로 고정하면 승인 경로를 화면에서 검증할 수 없다
+    // dev 게이트웨이 모드에서만 선택지를 세운다. 신원을 하나로 고정하면 운영자별 역할 차이와
+    // 다른 운영자가 발급하는 경로를 화면에서 검증할 수 없다
     return DEV_OPERATOR_CNS.map((cn) => ({
       certId: cn,
       subjectCn: `CN=${cn}`,
@@ -711,7 +680,7 @@ export class HttpAdminApi implements AdminApi {
       const origin = typeof window !== "undefined" ? window.location.origin : undefined;
       const protocol = this.base ? new URL(this.base, origin).protocol : origin ? new URL(origin).protocol : "";
       if (protocol !== "https:") {
-        throw new AdminError("invalid_parameter", "운영자 로그인은 HTTPS에서만 가능합니다.");
+        throw new AdminError("invalid_parameter", "운영자 로그인은 HTTPS 전용");
       }
       if (!certId?.trim() || certId.includes(":") || !password) {
         throw new AdminError("invalid_parameter", "운영자 아이디 또는 비밀번호 오류");
@@ -766,14 +735,14 @@ export class HttpAdminApi implements AdminApi {
     for (const cb of this.listeners) cb(this.session);
   }
 
-  /* ===== 이중 승인: 발급형(§3-6) ===== */
+  /* ===== 승인 티켓: 발급형(§3-6) ===== */
 
   async issueApproval(requesterId: string, action: DestructiveAction, payload: ApprovalPayload): Promise<IssuedApproval> {
     const approver = this.getSession();
     if (!approver) throw new AdminError("jwt_verification", "관리자 세션 없음");
     const bind = wireBinding(payload);
     const { key, label } = approvalConsoleTarget(payload);
-    // 발급 주체(현재 mTLS 세션)와 요청 주체 분리는 서버가 인증서 CN으로 강제한다(반결탁)
+    // 발급 주체는 현재 mTLS 세션이다. 1인 승인이라 요청 주체와 같아도 서버가 받는다(ADR 0019)
     const res = await this.http<WireIssue>("/admin/v1/approvals", {
       method: "POST",
       body: JSON.stringify({ requester_operator_id: requesterId, action: bind.action, target: bind.target }),
@@ -839,7 +808,7 @@ export class HttpAdminApi implements AdminApi {
     // 서버는 200과 {approval_id, state}를 주지만 호출부가 재조회로 원장을 갱신하므로 응답을 버리고 최소 프로젝션을 반환한다
     return {
       id: approvalId,
-      action: "chaos.inject",
+      action: "sim.bots.params",
       targetKey: "",
       targetLabel: "",
       requesterId: "",
@@ -858,55 +827,12 @@ export class HttpAdminApi implements AdminApi {
     return this.perform(approval.payload, approval.token);
   }
 
-  /**
-   * 승인 없이 즉시 실행한다(§3-6 v2.34 카오스 승인 완화).
-   *
-   * 카오스 4종만 서버가 approval_token 을 불요로 열었다. 나머지 파괴 액션은 열거에 그대로
-   * 남아 있어 토큰 없이 부르면 서버가 403 approval_required 로 반려한다. 여기서 미리 막지
-   * 않는 이유는 판정 권위가 서버라서다. 클라이언트가 목록을 따로 들면 두 곳이 갈린다.
-   */
-  async executeDirect(payload: ApprovalPayload): Promise<void> {
-    return this.perform(payload, null);
-  }
-
   /** token 이 null 이면 approval_token 을 싣지 않는다. 그 외 바디는 승인 경로와 같다 */
   private async perform(p: ApprovalPayload, token: string | null): Promise<void> {
     const operatorId = this.opId();
     // 키 자체를 빼야 한다. approval_token: null 은 서버 파싱에서 빈 문자열과 같지 않다
     const approval: Record<string, string> = token ? { approval_token: token } : {};
     switch (p.action) {
-      case "chaos.inject": {
-        const def = CHAOS_CATALOG.find((d) => d.id === p.experimentId);
-        const path = def?.injectPath ?? "/admin/v1/chaos/network";
-        const bind = wireBinding(p);
-        // 주입 파라미터는 카탈로그에서 온다. 상수로 박으면 E7(pause)이 kill로 나가고
-        // network 계열이 전부 지연이 돼 화면 라벨과 실제 주입이 갈린다.
-        // experiment는 소비기가 주입 경로·범위 제외(E3)를 가르는 열쇠라 반드시 싣는다.
-        const common = { operator_id: operatorId, ...approval, experiment: p.experimentId };
-        if (path.endsWith("kill-node")) {
-          await this.http<void>(path, {
-            method: "POST",
-            body: JSON.stringify({ ...common, node: bind.target, method: def?.method ?? "docker_kill", expect_failover: true }),
-          });
-        } else if (path.endsWith("app")) {
-          await this.http<void>(path, {
-            method: "POST",
-            body: JSON.stringify({ ...common, assault: bind.target }),
-          });
-        } else {
-          await this.http<void>(path, {
-            method: "POST",
-            body: JSON.stringify({ ...common, name: bind.target, type: def?.toxicType ?? "latency" }),
-          });
-        }
-        return;
-      }
-      case "chaos.clear":
-        await this.http<void>(`/admin/v1/chaos/network/${encodeURIComponent(wireBinding(p).target)}`, {
-          method: "DELETE",
-          body: JSON.stringify({ operator_id: operatorId, ...approval }),
-        });
-        return;
       case "sim.bots.params":
         await this.http<void>(`/admin/v1/sim/bots/${encodeURIComponent(p.botId)}/params`, {
           method: "PATCH",
@@ -961,34 +887,33 @@ export class HttpAdminApi implements AdminApi {
 
   async getOverview(): Promise<AdminOverview> {
     // 종합 요약은 개별 모니터링 엔드포인트를 합성한다(전용 엔드포인트 없음).
-    const [ha, inv, sim, chaos, markets, rec, pending] = await Promise.all([
+    const [ha, inv, sim, markets, rec, pending] = await Promise.all([
       this.getHaStatus(),
       this.getInvariants(),
       this.getSimStatus(),
-      this.getChaosRuns(),
       this.getConfigMarkets(),
       this.getRecovery(),
       // 종합 상태의 대기 건수는 첫 쪽 기준이다. 500건을 넘겨 대기 중인 승인은 이미
       // 종합 카드가 아니라 승인 화면에서 다뤄야 할 상태다
       this.listApprovals("ISSUED").then((r) => r.data.length),
     ]);
-    const okCount = inv.filter((i) => i.ok).length;
-    const health: "success" | "warning" | "danger" = ha.nodes.some((n) => n.health === "down")
-      ? "danger"
-      : ha.nodes.some((n) => n.health === "degraded") || okCount < inv.length
-        ? "warning"
-        : "success";
+    const invariants = summarizeInvariants(inv);
+    // 위반은 danger, 미수집·부분수집은 warning이다. 미판정을 통과로 칠하지 않는다
+    const health: "success" | "warning" | "danger" =
+      ha.nodes.some((n) => n.health === "down") || invariants.state === "VIOLATED"
+        ? "danger"
+        : ha.nodes.some((n) => n.health === "degraded") || invariants.state !== "PASS"
+          ? "warning"
+          : "success";
     return {
       overallHealth: health,
       epoch: ha.epoch,
       leaderNodeId: ha.leaderNodeId,
-      invariantsOk: okCount,
-      invariantsTotal: inv.length,
+      invariants,
       lastRtoMs: rec.lastRtoMs,
       lastVerdict: rec.lastVerdict,
       botsActive: sim.activeBots,
       currentOps: sim.currentOps,
-      chaosRunning: chaos.data.filter((r) => r.state === "RUNNING").length,
       pendingApprovals: pending,
       suspendedMarkets: markets.filter((m) => m.state === "HALTED").length,
       generatedAt: ha.generatedAt,
@@ -1037,12 +962,7 @@ export class HttpAdminApi implements AdminApi {
       epoch: node.epoch,
       leaderNodeId: holder,
       nodes: [node],
-      sequencerQueueSize: 0,
-      orderLatencyP99Ms: 0,
-      // 원장 불균형 실측은 invariants(ledger_imbalance)가 담당한다. status에는 없어 보존값으로 둔다
-      ledgerImbalance: "0",
       tradesTotal: trades,
-      hikariPending: 0,
       generatedAt: isoNow(),
     };
   }
@@ -1332,46 +1252,6 @@ export class HttpAdminApi implements AdminApi {
       method: "DELETE",
       body: JSON.stringify({ operator_id: this.opId() }),
     });
-  }
-
-  getChaosCatalog(): ChaosExperimentDef[] {
-    return CHAOS_CATALOG.slice();
-  }
-
-  async getChaosRuns(opts: PageOpts = {}): Promise<AdminPage<ChaosRun>> {
-    // 서버 감사 투영에 state·blast_radius가 없어 축소 뷰모델로 좁히고, 활성 여부는 action 스트림을 접어 재구성한다.
-    // experiment_id가 UUID라 카탈로그 id와 직접 조인이 불가해 target 접두에서 파생하고, kill-node류는 action 폴백 라벨을 쓴다.
-    const res = await this.http<PagedEnvelope<WireChaosRun>>(`/admin/v1/chaos/runs${pageQuery(opts)}`);
-    const raw = res.data ?? [];
-    const cleared = new Set<string>();
-    for (const r of raw) {
-      if ((r.action ?? "").includes("clear")) cleared.add(r.target ?? "");
-    }
-    const rows: ChaosRun[] = raw.map((r, i) => {
-      const exp = r.experiment_id ?? "";
-      const target = r.target ?? "";
-      const prefix = (target.split("-")[0] ?? "").toUpperCase();
-      const def = CHAOS_CATALOG.find((d) => d.id === prefix);
-      const isKillNode = (r.action ?? "").includes("kill");
-      const isClear = (r.action ?? "").includes("clear");
-      return {
-        id: String(r.id ?? `chx-${r.created_at ?? ""}-${i}`),
-        // 해제는 감사 행 id가 아니라 주입 시 발급한 이름(target)을 지칭해야 성립한다(§3-6).
-        // clear 행 target과 inject 행 target이 같은 문자열이라 cleared 접기도 이 키로 닫힌다
-        clearKey: target,
-        experimentId: exp,
-        // 카탈로그 조인이 안 되면 액션에서 문구를 만든다. exp 를 그대로 흘리면 화면에
-        // UUID 36자가 뜨는데, 그것은 이름이 아니라 상관추적 키라 읽을 것이 없다
-        label: def?.label ?? chaosActionLabel(r.action, target),
-        state: isClear || cleared.has(target) ? "CLEARED" : "RUNNING",
-        blastRadius: def?.blastRadius ?? (isKillNode ? "체결 엔진 leader" : ""),
-        grafanaAnnotation: "",
-        injectedBy: r.operator_id ?? "",
-        startedAt: r.created_at ?? "",
-        clearedAt: null,
-      };
-    });
-    return toPage(rows, res);
   }
 
   async getConfigMarkets(): Promise<ConfigMarket[]> {

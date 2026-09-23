@@ -38,7 +38,7 @@ export default function ScenarioSection({ canOps, onChanged }: Props) {
       // queued는 관리 평면이 목표 OPS를 모른다. 서버가 안 낸 값을 화면이 지어내지 않는다.
       toast(
         r.applyPath === "queued"
-          ? `${def.label} 국면을 봇 노드에 전달했습니다. 반영까지 최대 1초 걸립니다`
+          ? `${def.label} 국면 전달 완료. 반영까지 최대 1초 소요`
           : `${def.label} 국면 적용 · 목표 OPS ${formatCount(r.targetOps ?? "0")}`,
         "info",
       );

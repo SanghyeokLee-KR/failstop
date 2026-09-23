@@ -474,3 +474,55 @@ exchange:
         instance-type: t4g.small
         base-url: http://localhost:8082
         engine: false
+
+---
+# 카오스 스택 관리 평면의 노드 인벤토리. admin-local 과 같은 계약면이고 주소만 다르다.
+#
+# admin-local 을 그대로 쓸 수 없는 이유가 둘이다. 그 프로파일은 server.address 를
+# 127.0.0.1 로 묶어 컨테이너 밖에서 닿지 않고, base-url 이 호스트 포트라 chaos-net 안에서
+# 해석되지 않는다. 그리고 trusted-forwarding 을 켜 관리 신원이 자가신고가 된다.
+# 여기서는 8443 mTLS 를 그대로 쓰므로 그 값을 켜지 않는다.
+#
+# 나열 순서가 곧 expected 판정이다. CapacityAdminController 가 앞에서부터 희망 대수만큼을
+# "떠 있어야 할 노드" 로 본다. desired 가 2 면 api-3 는 꺼져 있는 것이 정상이고 3 이면
+# 떠 있어야 한다. 순서를 바꾸면 증설 시연의 판정이 뒤집힌다.
+spring:
+  config:
+    activate:
+      on-profile: admin-chaos
+exchange:
+  admin:
+    enabled: true
+    # 관리 버킷 실효 한도는 capacity/weight(10)다. 계약값 60이면 60초에 6요청인데
+    # 콘솔 한 화면이 진입만으로 그 이상을 쓴다. 화면 확인용 기동이라 상향한다.
+    rate-limit:
+      capacity: 6000
+  capacity:
+    probe-timeout: 2s
+    # 로컬 임계. 계약값 0.60/0.30 을 그대로 두면 이 스택에서는 권고가 거의 나오지 않는다.
+    # 2026-09-23 실측(harness/scripts/read-load.py): 조회 부하는 초당 400 건 근처가 천장이고
+    # 그 위는 수용 제어가 429 로 흘려보낸다. 같은 20 작업자에서 워밍이 끝난 스택의 조회 계층
+    # 평균 사용률은 0.33, 재기동 직후는 0.58~0.86 이었다. 편차가 커서 0.60 을 기준으로 두면
+    # 워밍된 상태에서 권고가 나오지 않는다. 유휴(0.05 근처)에서는 닿지 않고 부하에서는 넘는
+    # 값으로 내린다. 이 값은 로컬 전용이고 AWS 운영값은 기본값 0.60/0.30 이다.
+    scale-out-cpu: 0.25
+    scale-in-cpu: 0.10
+    nodes:
+      - id: chaos-api-1
+        az: ap-northeast-2a
+        instance-type: 1vCPU/1GiB
+        base-url: http://chaos-api-1:8080
+        # 매칭엔진 보유. 리더가 될 수 있는 유일한 노드다.
+        engine: true
+        # 확장 대상이 아니다. 단일 라이터라 늘려도 주문 천장이 오르지 않는다.
+        scalable: false
+      - id: chaos-api-2
+        az: ap-northeast-2c
+        instance-type: 1vCPU/1GiB
+        base-url: http://chaos-api-2:8080
+        engine: false
+      - id: chaos-api-3
+        az: ap-northeast-2c
+        instance-type: 1vCPU/1GiB
+        base-url: http://chaos-api-3:8080
+        engine: false

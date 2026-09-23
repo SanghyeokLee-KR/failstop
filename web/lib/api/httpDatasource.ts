@@ -138,7 +138,7 @@ interface ListEnvelope<T> {
 function unwrapList<T>(json: unknown, path: string): T[] {
   const env = json as ListEnvelope<T>;
   if (!env || !Array.isArray(env.data)) {
-    throw new ApiError(0, "invalid_envelope", `리스트 엔벌로프가 아닙니다: ${path}`);
+    throw new ApiError(0, "invalid_envelope", `리스트 엔벌로프 아님: ${path}`);
   }
   return env.data;
 }

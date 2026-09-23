@@ -1,6 +1,7 @@
 /**
  * 관리 평면 데모 시뮬레이터. 런타임 외부 의존 0.
- * 데모 인증서 2종(op-01, op-02)으로 반결탁을 시연한다. 요청자와 승인자가 같으면 반려된다(§1-3).
+ * 데모 인증서 2종(op-01, op-02)으로 운영자 전환을 시연한다. 1인 승인이라 요청자와 발급자가
+ * 같아도 발급된다(ADR 0019). 다른 운영자가 발급하는 경로도 그대로 통한다.
  */
 
 import { isoNow } from "../format";
@@ -9,7 +10,8 @@ import type { AdminApi } from "./api";
 import { AdminError } from "./api";
 import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles";
 import { feeRateError } from "./fees";
-import { CHAOS_CATALOG, INVARIANT_DEFS, scenarioDef } from "./catalog";
+import { INVARIANT_DEFS, scenarioDef } from "./catalog";
+import { summarizeInvariants } from "./invariants";
 import type {
   AdminPage,
   PageOpts,
@@ -25,8 +27,6 @@ import type {
   CapacityAdvice,
   CapacityNode,
   CapacityState,
-  ChaosExperimentDef,
-  ChaosRun,
   ConfigMarket,
   CreateBotResult,
   DemoClientCert,
@@ -70,6 +70,10 @@ import { FLEET_TYPE_CAP } from "./types";
 const SESSION_TTL_MS = 30 * 60_000; // 단기 관리자 세션
 const APPROVAL_TTL_MS = 5 * 60_000; // §1-4 TTL 5분
 const DEMO_CA = "demo-ca (Exchange Admin Demo Root)";
+/* 시뮬레이터 권고 임계. 계약 기본값을 그대로 쓴다. 실서버는 환경 설정이 정본이고
+   화면은 응답의 thresholds 를 읽으므로 여기 값이 화면 눈금을 정하지 않는다 */
+const SIM_SCALE_OUT_CPU = 0.6;
+const SIM_SCALE_IN_CPU = 0.3;
 
 let seq = 0;
 function uid(prefix: string): string {
@@ -171,7 +175,6 @@ export class SimAdminApi implements AdminApi {
 
   // 발급형 원장. token·payload는 내부 보관하고 listApprovals 프로젝션에서 제외한다(§6-B)
   private approvals: IssuedApproval[] = [];
-  private chaosRuns: ChaosRun[] = [];
   private notices: Notice[] = [
     {
       id: uid("not"),
@@ -360,15 +363,14 @@ export class SimAdminApi implements AdminApi {
   }
 
   private tick(): void {
-    // HA seq 단조 증가 + follower lag 요동. 진행 중 실험은 팔로워 lag를 밀어 올린다
-    const chaosLag = this.chaosActive() ? Math.round(rand(60, 160)) : 0;
+    // HA seq 단조 증가 + follower lag 요동
     for (const n of this.nodes) {
       if (n.role === "leader" && n.health !== "down") n.seq += Math.round(rand(3, 9));
       if (n.role === "follower") {
         // 중단 노드는 복제가 멎는다. seq·lag를 재추첨하면 죽은 노드가 산 노드보다 빠른 역전이 생긴다
         if (n.health === "down") continue;
         n.seq = Math.min(n.seq + Math.round(rand(3, 9)), this.leader().seq);
-        n.followerLagMs = Math.max(0, Math.round(rand(5, 40) + (n.health === "degraded" ? 120 : 0) + chaosLag));
+        n.followerLagMs = Math.max(0, Math.round(rand(5, 40) + (n.health === "degraded" ? 120 : 0)));
       }
     }
     this.tradesTotal += Math.round(rand(20, 90) * (this.simPaused ? 0 : 1));
@@ -398,40 +400,6 @@ export class SimAdminApi implements AdminApi {
     return this.nodes.find((n) => n.role === "leader") ?? this.nodes[0];
   }
 
-  private chaosActive(): boolean {
-    return this.chaosRuns.some((r) => r.state === "RUNNING");
-  }
-
-  private chaosRunningIds(): Set<string> {
-    return new Set(this.chaosRuns.filter((r) => r.state === "RUNNING").map((r) => r.experimentId));
-  }
-
-  /**
-   * 실험이 노드 헬스에 남기는 효과(§2-2 데모 결합).
-   * 주입이 화면에 보이지 않으면 카오스 콘솔이 상태 기계 없는 목록으로 전락한다.
-   */
-  private applyChaosNodeEffect(experimentId: string): void {
-    if (experimentId === "E4" || experimentId === "E6") {
-      this.leader().health = "down";
-    } else if (experimentId === "E5") {
-      const f = this.nodes.find((n) => n.role === "follower" && n.health === "healthy");
-      if (f) f.health = "degraded";
-    } else if (experimentId === "E7") {
-      this.leader().health = "degraded";
-    }
-  }
-
-  /** 해제 시 잔여 효과 회수. 같은 계열 실험이 아직 돌고 있으면 남긴다 */
-  private clearChaosNodeEffect(): void {
-    const running = this.chaosRunningIds();
-    const killActive = running.has("E4") || running.has("E6");
-    const degradeActive = running.has("E5") || running.has("E7");
-    for (const n of this.nodes) {
-      if (n.health === "down" && !killActive) n.health = "healthy";
-      if (n.health === "degraded" && !degradeActive) n.health = "healthy";
-    }
-  }
-
   private failover(): void {
     const old = this.leader();
     const next = this.nodes.find((n) => n.role === "follower" && n.health !== "down");
@@ -441,10 +409,8 @@ export class SimAdminApi implements AdminApi {
     }
     this.epoch += 1;
     old.role = "follower";
-    // E4로 죽은 노드는 해제 전까지 중단, E7(일시 정지)로 저하된 노드는 해제 전까지 저하를
-    // 유지한다. 자연 발생 degraded만 승격과 함께 회복
-    const e7Active = this.chaosRunningIds().has("E7");
-    old.health = old.health === "down" ? "down" : e7Active ? "degraded" : "healthy";
+    // 중단 노드는 승격 뒤에도 중단으로 남고, 자연 발생 degraded만 승격과 함께 회복한다
+    old.health = old.health === "down" ? "down" : "healthy";
     old.ownedMarkets = [];
     old.followerLagMs = 20;
     next.role = "leader";
@@ -570,18 +536,16 @@ export class SimAdminApi implements AdminApi {
   }
 
   issueApproval(requesterId: string, action: DestructiveAction, payload: ApprovalPayload): Promise<IssuedApproval> {
-    // 발급 주체 요건은 요청 운영자와 다른 mTLS 신원뿐(관리자_설계 §3-6). 서버 ApprovalController.issue와
-    // 동일하게 역할을 요구하지 않는다(무역할 운영자도 발급 가능). 소각 권한은 소각 시점에 본다
+    // 발급 주체 요건은 활성 mTLS 신원뿐이다(ADR 0019, 관리자_설계 v1.4). 요청 운영자와 같아도 된다.
+    // 서버 ApprovalController.issue와 동일하게 역할도 요구하지 않는다. 소각 권한은 소각 시점에 본다
     const approver = this.requireSession();
     const requester = this.operators.find((o) => o.operatorId === requesterId);
     if (!requester || requester.status !== "ACTIVE") {
       return Promise.reject(new AdminError("invalid_parameter", "요청 운영자를 레지스트리에서 찾을 수 없음"));
     }
-    // 반결탁: 발급 주체와 요청 주체가 같으면 발급 불가(§3-6)
-    if (approver.operatorId === requesterId) {
-      this.log(approver, `approval.issue.denied:${action}`, requesterId, null, "DENIED");
-      return Promise.reject(new AdminError("admin_forbidden", "발급 주체와 요청 주체가 같은 운영자. 다른 운영자 인증서로 발급 필요"));
-    }
+    // 발급 주체와 요청 주체가 같아도 통과시킨다. 1인 승인이다(ADR 0019). V34가 DB의
+    // chk_approval_two_person을 떼었고 서버 ApprovalService.issue에도 동일성 가드가 없다.
+    // 종전 반결탁 반려는 야간 단독 운영 시간대의 정지 명령을 봉쇄해 철회했다
     const { key, label } = approvalConsoleTarget(payload);
     const now = Date.now();
     const issued: IssuedApproval = {
@@ -657,47 +621,8 @@ export class SimAdminApi implements AdminApi {
     return Promise.resolve();
   }
 
-  executeDirect(payload: ApprovalPayload): Promise<void> {
-    // 실행 권한은 그대로 본다. 없앤 것은 "다른 사람의 승인"이지 역할 게이트가 아니다
-    const s = this.auth(ACTION_CAP[payload.action]);
-    this.applyEffect(payload, s);
-    // 승인 id 자리는 null 이다. 부재와 미승인은 다른 사실이고 여기서는 뒤쪽이 참이다
-    this.log(s, `execute:${payload.action}`, approvalConsoleTarget(payload).label, null, "OK");
-    return Promise.resolve();
-  }
-
   private applyEffect(payload: ApprovalPayload, by: AdminSession): void {
     switch (payload.action) {
-      case "chaos.inject": {
-        const def = CHAOS_CATALOG.find((d) => d.id === payload.experimentId);
-        if (!def) throw new AdminError("invalid_parameter", "알 수 없는 실험");
-        const runId = uid("chx");
-        this.chaosRuns.unshift({
-          id: runId,
-          // sim은 별도 toxic 이름이 없어 run id가 곧 해제 키다(clear 매칭도 id 기준)
-          clearKey: runId,
-          experimentId: def.id,
-          label: def.label,
-          state: "RUNNING",
-          blastRadius: def.blastRadius,
-          grafanaAnnotation: `annotation-${def.id}-${Date.now().toString(36)}`,
-          injectedBy: by.operatorId,
-          startedAt: isoNow(),
-          clearedAt: null,
-        });
-        this.chaosRuns = this.chaosRuns.slice(0, 40);
-        this.applyChaosNodeEffect(def.id);
-        break;
-      }
-      case "chaos.clear": {
-        const run = this.chaosRuns.find((r) => r.id === payload.runId);
-        if (run && run.state === "RUNNING") {
-          run.state = "CLEARED";
-          run.clearedAt = isoNow();
-          this.clearChaosNodeEffect();
-        }
-        break;
-      }
       case "sim.bots.params": {
         const bot = this.bots.find((b) => b.id === payload.botId);
         if (bot) bot.params = { ...bot.params, ...payload.params };
@@ -733,7 +658,7 @@ export class SimAdminApi implements AdminApi {
         break;
       }
       case "operators.create": {
-        // 생성은 신원만 등록한다. 역할은 operators.roles 별도 승인 경로로만 부여한다(§3-6, 반결탁).
+        // 생성은 신원만 등록한다. 역할은 operators.roles 별도 승인 경로로만 부여한다(§3-6).
         // 중복 operatorId는 생성하지 않는다(§6-D 409 market 대응)
         if (!this.operators.some((o) => o.operatorId === payload.operatorId)) {
           this.operators.push({
@@ -781,31 +706,27 @@ export class SimAdminApi implements AdminApi {
   }
 
   private overallHealth(): "success" | "warning" | "danger" {
-    if (this.nodes.some((n) => n.health === "down")) return "danger";
-    // 진행 중 실험은 지표 압력을 만들므로(getHaStatus) 종합도 최소 주의로 내린다
-    if (this.nodes.some((n) => n.health === "degraded") || this.invariants.some((i) => !i.ok) || this.chaosActive()) {
-      return "warning";
-    }
+    const inv = summarizeInvariants(this.invariants);
+    if (this.nodes.some((n) => n.health === "down") || inv.state === "VIOLATED") return "danger";
+    // 미수집·부분수집은 통과가 아니다. http 어댑터와 같은 판정식을 쓴다
+    if (this.nodes.some((n) => n.health === "degraded") || inv.state !== "PASS") return "warning";
     return "success";
   }
 
   getOverview(): Promise<AdminOverview> {
     this.auth("VIEW");
     this.sweep();
-    const okCount = this.invariants.filter((i) => i.ok).length;
     return Promise.resolve({
       overallHealth: this.overallHealth(),
       epoch: this.epoch,
       leaderNodeId: this.leader().id,
-      invariantsOk: okCount,
-      invariantsTotal: this.invariants.length,
+      invariants: summarizeInvariants(this.invariants),
       // 목에 페일오버 주행 표가 없다. 재생 소요를 RTO로 실으면 없는 축을 지어낸다.
       lastRtoMs: null,
       // getRecovery와 같은 함수다. 두 화면이 다른 결론을 내면 안 된다.
       lastVerdict: aggregateVerdict(this.recovery),
       botsActive: this.bots.filter((b) => b.active).length,
       currentOps: this.currentOps(),
-      chaosRunning: this.chaosRuns.filter((r) => r.state === "RUNNING").length,
       // 발급형: ISSUED는 소각 대기분(발급=승인). 발급 전 요청은 서버 상태가 아니라 카운트하지 않는다
       pendingApprovals: this.approvals.filter((a) => a.state === "ISSUED").length,
       suspendedMarkets: this.markets.filter((m) => m.state === "HALTED").length,
@@ -887,10 +808,10 @@ export class SimAdminApi implements AdminApi {
     const advice: CapacityAdvice[] = avg === null
       ? [{ id: "no_metrics", level: "warn", headline: "상태 읽기 실패",
           detail: "조회를 받는 서버에서 사용률을 가져오지 못했다. 판단 근거가 없어 권고를 내지 않는다.", action: null }]
-      : avg >= 0.6 && this.capacityDesired < 3
+      : avg >= SIM_SCALE_OUT_CPU && this.capacityDesired < 3
         ? [{ id: "scale_out", level: "warn", headline: "조회 부하 높음",
             detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 늘리면 부하가 나뉜다. 추가에 약 17초가 걸리고 서비스는 멈추지 않는다.`, action: "SCALE_OUT" }]
-        : avg <= 0.3 && this.capacityDesired > 2
+        : avg <= SIM_SCALE_IN_CPU && this.capacityDesired > 2
           ? [{ id: "scale_in", level: "info", headline: "조회 부하 낮음",
               detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 줄이면 비용이 준다. 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내린다.`, action: "SCALE_IN" }]
           : [{ id: "steady", level: "ok", headline: "안정",
@@ -902,6 +823,7 @@ export class SimAdminApi implements AdminApi {
       observedTotal: up,
       reconciled: up === this.capacityDesired,
       readAvgCpuRatio: avg,
+      thresholds: { scaleOutCpuRatio: SIM_SCALE_OUT_CPU, scaleInCpuRatio: SIM_SCALE_IN_CPU },
       nodes,
       advice,
     };
@@ -909,17 +831,11 @@ export class SimAdminApi implements AdminApi {
 
   getHaStatus(): Promise<HaStatus> {
     this.auth("VIEW");
-    // 노드 이상뿐 아니라 진행 중 실험(E1 지연·E8 예외 폭풍 등)도 지표 압력으로 나타난다
-    const degraded = this.nodes.some((n) => n.health !== "healthy") || this.chaosActive();
     return Promise.resolve({
       epoch: this.epoch,
       leaderNodeId: this.leader().id,
       nodes: this.nodes.map((n) => ({ ...n, ownedMarkets: n.ownedMarkets.slice() })),
-      sequencerQueueSize: Math.round(rand(0, degraded ? 320 : 40)),
-      orderLatencyP99Ms: Math.round(degraded ? rand(80, 160) : rand(6, 22)),
-      ledgerImbalance: "0",
       tradesTotal: this.tradesTotal,
-      hikariPending: Math.round(rand(0, degraded ? 12 : 2)),
       generatedAt: isoNow(),
     });
   }
@@ -1221,15 +1137,6 @@ export class SimAdminApi implements AdminApi {
     this.tradeFlash = tradeFlash;
     this.log(s, "sim.effects", `trade_flash=${tradeFlash}`, null, "OK");
     return Promise.resolve(tradeFlash);
-  }
-
-  getChaosCatalog(): ChaosExperimentDef[] {
-    return CHAOS_CATALOG.slice();
-  }
-
-  getChaosRuns(opts: PageOpts = {}): Promise<AdminPage<ChaosRun>> {
-    this.auth("VIEW");
-    return Promise.resolve(simPage(this.chaosRuns, opts, (r) => r.id, (r) => ({ ...r })));
   }
 
   getConfigMarkets(): Promise<ConfigMarket[]> {

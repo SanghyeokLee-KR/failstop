@@ -1,14 +1,16 @@
 "use client";
 
 /**
- * 요청은 로컬 의도, 발급은 다른 운영자, 실행은 요청자의 토큰 소각이다(§3-6).
- * 발급 버튼은 요청 운영자 본인 세션에 노출하지 않고 서버도 인증서 CN으로 이중 강제한다.
+ * 요청은 로컬 의도, 발급은 승인 티켓 생성, 실행은 요청자의 토큰 소각이다(§3-6).
+ * 1인 승인이라 요청 운영자 본인도 발급할 수 있다(ADR 0019). 다른 운영자가 발급하는 경로도
+ * 그대로 통한다. 본인이 발급하면 발급·실행이 같은 신원으로 감사에 남는다.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { getAdminApi } from "@/lib/admin/api";
 import { ACTION_LABEL } from "@/lib/admin/roles";
 import { useAdminSession, useApprovalVault } from "@/lib/admin/store";
+import { useApprovalLedger } from "@/lib/admin/approvals";
 import type { ApprovalIntent } from "@/lib/admin/store";
 import type { ApprovalRequest, DestructiveAction } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
@@ -66,7 +68,7 @@ export default function ApprovalList({
   const stashToken = useApprovalVault((s) => s.stashToken);
   const dropToken = useApprovalVault((s) => s.dropToken);
 
-  const [rows, setRows] = useState<ApprovalRequest[]>([]);
+  const { rows: ledgerRows, hasMore: ledgerHasMore, invalidate } = useApprovalLedger();
   const [busy, setBusy] = useState<string | null>(null);
   // 소각은 되돌릴 수 없어 확인 다이얼로그로 한 번 더 막는다
   const [execTarget, setExecTarget] = useState<ApprovalRequest | null>(null);
@@ -75,34 +77,15 @@ export default function ApprovalList({
   // 목록 ul이 언마운트되는 경로(마지막 대기 행 종결)는 빈 상태 컨테이너가 받는다
   const listRef = useRef<HTMLUListElement>(null);
   const emptyRef = useRef<HTMLDivElement>(null);
-  // 폴링과 액션 후 refresh가 병행한다. 변이 직전 출발한 폴링 응답이 늦게 도착해 최신 상태를
-  // 변이 전 스냅샷으로 되돌리지 않도록, 최신 요청보다 오래된 응답은 폐기한다
-  const refreshSeq = useRef(0);
-
   const inScope = useCallback(
     (action: DestructiveAction) => !actions || actions.includes(action),
     [actions],
   );
 
-  const refresh = useCallback(async () => {
-    const seq = ++refreshSeq.current;
-    try {
-      /* 실행 대기 목록이라 ISSUED만 본다. 상태 없이 부르면 소비·만료된 이력까지 받아
-         화면에서 다시 걸러야 하고, 이력이 쌓일수록 첫 쪽이 처리 대상이 아닌 행으로 찬다 */
-      const all = await getAdminApi().listApprovals("ISSUED");
-      if (seq !== refreshSeq.current) return; // 더 새 요청이 출발했다. 스테일 응답 폐기
-      setRows(all.data.filter((a) => inScope(a.action)));
-    } catch {
-      // 세션 만료 등은 레이아웃 게이트가 처리한다
-    }
-  }, [inScope]);
-
-  useEffect(() => {
-    void refresh();
-    // 5초 주기(12건/분). 동거 폴러(대시보드·config)와 합산해도 관리 레이트리밋(60건/분) 내 유지
-    const iv = setInterval(() => void refresh(), 5000);
-    return () => clearInterval(iv);
-  }, [refresh]);
+  // 원장은 공용 폴러가 한 번 받아 오고 화면은 자기 범위만 거른다. 다섯 화면이 같은 원장을
+  // 각자 읽던 다섯 폴러가 하나로 모였다(lib/admin/approvals)
+  const rows = useMemo(() => ledgerRows.filter((a) => inScope(a.action)), [ledgerRows, inScope]);
+  const refresh = invalidate;
 
   const act = async (id: string, fn: () => Promise<unknown>, ok: string) => {
     setBusy(id);
@@ -198,6 +181,7 @@ export default function ApprovalList({
                 <span>
                   요청 {intent.requesterName} · {formatTimeHMS(intent.proposedAt)}
                 </span>
+                {mine && <span>본인 발급 시 발급·실행이 같은 신원으로 감사 적재</span>}
               </div>
               <div className={styles.approvalActions}>
                 {health && (
@@ -205,18 +189,15 @@ export default function ApprovalList({
                     {HEALTH_ICON[health]} {PHASE_LABEL.REQUESTED}
                   </span>
                 )}
-                {mine ? (
-                  <span className={styles.waitNote}>다른 운영자 발급 대기</span>
-                ) : (
-                  <button
-                    type="button"
-                    className={styles.approveBtn}
-                    disabled={busy === id}
-                    onClick={() => void issue(intent)}
-                  >
-                    발급
-                  </button>
-                )}
+                {mine && <span className={styles.waitNote}>본인 발급</span>}
+                <button
+                  type="button"
+                  className={styles.approveBtn}
+                  disabled={busy === id}
+                  onClick={() => void issue(intent)}
+                >
+                  발급
+                </button>
                 <button
                   type="button"
                   className={styles.neutralBtn}
@@ -273,7 +254,7 @@ export default function ApprovalList({
                     실행
                   </button>
                 )}
-                {phase === "AWAITING_EXECUTION" && mine && !held && <span className={styles.waitNote}>발급 토큰 수신 대기</span>}
+                {phase === "AWAITING_EXECUTION" && mine && !held && <span className={styles.waitNote}>다른 세션 발급. 이 세션에 토큰 없음</span>}
                 {phase === "AWAITING_EXECUTION" && !mine && <span className={styles.waitNote}>요청자 실행 대기</span>}
                 {phase === "AWAITING_EXECUTION" && owner && (
                   <button type="button" className={styles.neutralBtn} disabled={busy === a.id} onClick={() => void act(a.id, () => getAdminApi().rejectApproval(a.id), "거부 완료")}>
@@ -285,6 +266,10 @@ export default function ApprovalList({
           );
         })}
       </ul>
+      )}
+      {/* 원장의 첫 쪽만 그린다. 받은 범위 밖을 없는 것으로 적지 않는다 */}
+      {ledgerHasMore && (
+        <p className={styles.approvalCapNote}>첫 쪽 표시. 대기 승인이 더 있음</p>
       )}
       {doneRows.length > 0 && (
         // 종결분은 대기와 분리해 이력으로만 남긴다. 버튼 없는 판독 전용 행

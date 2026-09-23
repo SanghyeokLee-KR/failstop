@@ -3,11 +3,17 @@
 /**
  * 화면 단일 대표 지표라 상태어만 display-md로 승격한다.
  * 색 단독 금지라 램프(●▲■)·상태어·sr-only 낭독을 병기하고, 헬스 전이 순간에만 플래시한다.
+ *
+ * 안전 검사는 26칸 릴레이가 아니라 한 줄 판독이다. 칸을 늘어놓아도 조작이 붙지 않아
+ * 자리만 먹었고, 항목별 내역은 Grafana의 체결 무결성 증명 화면이 이미 그린다.
+ * 대신 미수집·부분수집을 통과와 다른 상태로 적는다. 분모가 기대 검사 수라
+ * 표가 비면 0/26이 되고, 그것을 통과로 칠하던 경로가 닫힌다.
  */
 
-import type { AdminOverview } from "@/lib/admin/types";
+import type { AdminOverview, InvariantState } from "@/lib/admin/types";
 import { formatTimeHMS } from "@/lib/format";
 import { HEALTH_ICON, type Health } from "./ui";
+import GrafanaLink from "./GrafanaLink";
 import { useHealthTransition } from "./useHealthTransition";
 import styles from "./admin.module.css";
 
@@ -15,15 +21,40 @@ const HEALTH_WORD: Record<Health, string> = { success: "전체 정상", warning:
 // 시각 채널(색·형태)이 aria-hidden이라 심각도를 별도 낭독한다
 const HEALTH_SR: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
 
+/** 미수집·부분수집은 통과가 아니라 미판정이라 warning으로 발화한다 */
+const INV_TONE: Record<InvariantState, "danger" | "warning" | undefined> = {
+  PASS: undefined,
+  VIOLATED: "danger",
+  PARTIAL: "warning",
+  NONE: "warning",
+};
+const INV_SR: Record<InvariantState, string> = {
+  PASS: "통과",
+  VIOLATED: "위험",
+  PARTIAL: "주의",
+  NONE: "주의",
+};
+
 export default function HealthHero({ ov }: { ov: AdminOverview }) {
   const flash = useHealthTransition(ov.overallHealth);
-  // 이진 판정이라 정상은 잉크, 이탈만 danger로 발화한다
-  const invBroken = ov.invariantsOk !== ov.invariantsTotal;
+  const inv = ov.invariants;
+  const invTone = INV_TONE[inv.state];
   const pendingWarn = ov.pendingApprovals > 0;
   const rtoFail = ov.lastVerdict === "FAIL";
   // UNKNOWN은 통과가 아니다. 판정 대상이 없거나 계측값이 NULL인 상태라, 통과로 칠하면
   // 공허 통과가 화면에 통과로 뜬다(API§6-C). 미판정은 미판정으로 적는다.
   const rtoUnknown = ov.lastVerdict === "UNKNOWN";
+
+  const invWord =
+    inv.state === "VIOLATED"
+      ? `위반 ${inv.violated}건`
+      : inv.state === "NONE"
+        ? "미수집"
+        : inv.state === "PARTIAL"
+          ? `${inv.ok} / ${inv.expected} 부분 수집`
+          : `${inv.ok} / ${inv.expected} 통과`;
+  // 검사 시각이 없으면 없는 대로 둔다. 현재 시각으로 채우면 안 돈 배치가 방금 돈 것으로 읽힌다
+  const invSub = inv.checkedAt === null ? "하네스 미가동" : `검사 ${formatTimeHMS(inv.checkedAt)}`;
 
   return (
     <section className={styles.healthHero} data-transition={flash ?? undefined} aria-label="종합 헬스">
@@ -36,19 +67,21 @@ export default function HealthHero({ ov }: { ov: AdminOverview }) {
         <span className="sr-only">종합 헬스 심각도 {HEALTH_SR[ov.overallHealth]}</span>
       </div>
       <div className={styles.heroGauge}>
-        <span className={styles.heroPlate} title="invariant_checks 최신 행 기준. 수용 기준 7종은 검증설계 §4-4가 이 항목들로 해석한다">
-          핵심 안전 검사
-        </span>
-        <span className={`${styles.heroGaugeValue} num`} data-tone={invBroken ? "danger" : undefined}>
-          {invBroken && (
+        <span className={styles.heroPlate}>안전 검사</span>
+        <span className={`${styles.heroGaugeValue} num`} data-tone={invTone}>
+          {invTone && (
             <>
               <span className={styles.toneIcon} aria-hidden="true">
-                {HEALTH_ICON.danger}
+                {HEALTH_ICON[invTone]}
               </span>
-              <span className="sr-only">심각도 {HEALTH_SR.danger}</span>
+              <span className="sr-only">심각도 {INV_SR[inv.state]}</span>
             </>
           )}
-          {ov.invariantsOk} / {ov.invariantsTotal}
+          {invWord}
+        </span>
+        <span className={styles.heroGaugeSub}>
+          {invSub}
+          <GrafanaLink board="proof-integrity" label="항목별 내역" />
         </span>
       </div>
       <div className={styles.heroKv}>

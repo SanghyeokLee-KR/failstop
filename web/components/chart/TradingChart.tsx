@@ -405,7 +405,7 @@ export default function TradingChart({ market }: { market: string }) {
   const readoutCandle = hover ? (latest && hover.timestamp === latest.timestamp ? latest : hover) : latest;
 
   const unitLabel = UNIT_LABEL[unit] ?? unit;
-  const ariaLabel = `${market} ${unitLabel} 캔들 차트. 양봉은 빨간색 상승, 음봉은 파란색 하락, 하단은 거래량입니다.`;
+  const ariaLabel = `${market} ${unitLabel} 캔들 차트. 양봉은 빨간색 상승, 음봉은 파란색 하락, 하단은 거래량`;
 
   return (
     <div className={styles.body}>

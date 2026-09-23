@@ -1,0 +1,329 @@
+/*
+ * 지표 관제 화면의 시계열과 페이지 뼈대. 선 색은 차트 지표선 램프(--chart-series-*)이고 색만으로
+ * 가르지 않도록 굵기와 점선을 같이 바꾼다. 유채색은 헬스 도메인(사건 표식, 권고 기준선)에만 쓴다.
+ */
+
+/* ===== 페이지 뼈대(monitor/page.tsx) ===== */
+
+/* 페이지 뿌리를 기준 상자로 세운다. 사건 표와 낭독 줄은 sr-only 절대 배치라 기준 상자가 없으면
+   문서 전체를 기준으로 삼아 셸 밖 문서를 늘린다. 스크롤은 셸의 .content 하나만 해야 한다 */
+.page {
+  position: relative;
+}
+
+/* 도구 줄과 지표 묶음. 도구 줄이 바로 아래 타임라인에 붙어 읽히도록 페이지 간격보다 좁게 둔다 */
+.metricsGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* 제목 없는 도구 줄. 링크를 오른쪽에 세우고 높이 44px 을 링크의 누름 영역으로 쓴다 */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-5);
+}
+.toolbar > a {
+  min-height: 44px;
+}
+
+/* ===== 지표 묶음 ===== */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* 작은 카드 격자. 6열을 깔고 세 장인 윗줄은 2칸씩, 두 장인 아랫줄은 3칸씩 차지해 두 줄 모두 폭을
+   꽉 채운다. 다섯 장을 3열에 그냥 흘리면 마지막 줄에 빈 칸이 남는다.
+   minmax(0, 1fr) 이 아니면 캔버스 최소 폭이 열을 밀어 가로 스크롤이 생긴다 */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.span2 {
+  grid-column: span 2;
+}
+.span3 {
+  grid-column: span 3;
+}
+
+/* 좁은 화면은 한 줄에 한 장. 셋으로 나눈 카드가 300px 아래로 줄면 판독값이 두 줄로 꺾인다 */
+@media (max-width: 1023px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .span2,
+  .span3 {
+    grid-column: auto;
+  }
+}
+
+.caption {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+
+/* ===== 판독값 ===== */
+
+.readouts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0 0 var(--space-2);
+}
+
+.readout {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.readoutName {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* 자릿수가 바뀌어도 옆 판독값이 밀리지 않게 표 숫자와 최소 폭을 준다 */
+.readoutValue {
+  margin: 0;
+  min-width: 5ch;
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  font-feature-settings: var(--font-feature-num);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+/* 단위는 숫자에 붙인다. 34.2 % 처럼 띄우면 다른 값으로 읽힌다 */
+.unit {
+  margin-left: 0.125em;
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+
+/* 값이 없을 때도 줄 높이는 값과 같게 둬 카드 높이가 흔들리지 않는다 */
+.missing {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+
+.swatch {
+  flex-shrink: 0;
+}
+
+.swatch[data-tone="1"] {
+  color: var(--chart-series-1);
+}
+
+.swatch[data-tone="2"] {
+  color: var(--chart-series-2);
+}
+
+.swatch[data-tone="3"] {
+  color: var(--chart-series-3);
+}
+
+.swatch[data-tone="4"] {
+  color: var(--chart-series-4);
+}
+
+.swatch[data-tone="neutral"] {
+  color: var(--text-secondary);
+}
+
+.swatch[data-tone="warning"] {
+  color: var(--color-warning);
+}
+
+/* ===== 머리 범례 ===== */
+
+.legend {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+/* 사건 형태. 정상은 형태만 초록이고 글자는 잉크로 둔다 */
+.glyph[data-health="success"] {
+  color: var(--color-success-text);
+}
+
+.glyph[data-health="warning"] {
+  color: var(--color-warning-text);
+}
+
+.glyph[data-health="danger"] {
+  color: var(--color-danger);
+}
+
+/* ===== 차트 ===== */
+
+.chartBody {
+  position: relative;
+}
+
+.timelineBody {
+  height: 280px;
+}
+
+.cardBody {
+  height: 156px;
+}
+
+.chartHost {
+  position: absolute;
+  inset: 0;
+}
+
+/* 위쪽 여백은 사건 띠 높이다. 줄 수가 FlowMetrics 상수라 인라인으로 받는다 */
+.timeline {
+  position: relative;
+}
+
+/* 사건 띠. 높이는 사건이 없을 때도 잡아 두어 첫 사건이 들어올 때 차트가 밀리지 않는다. 대신 면을
+   칠하지 않는다. 사건이 드문 평시에 칠한 빈 칸이 차트 위에 큰 회색 띠로 남아 무언가 빠진 자리처럼
+   보였다. 아래 점선 하나만 두어 사건선의 출발점을 보인다 */
+.lane {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px dotted var(--border-strong);
+  pointer-events: none;
+}
+
+/* 빈 띠 안내. 점선 바로 위, 첫 사건 표식이 놓일 맨 아래 줄에 둔다. 카드 면 위 secondary 다 */
+.laneEmpty {
+  padding: 0 0 var(--space-1);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+/* 띠 이름. 오른쪽 가격 축 칸에 세워 축 이름(체결/초, 봇 발행률)과 같은 자리 감각을 준다. 첫 사건
+   표식과 빈 띠 안내가 서는 맨 아래 줄에 맞춘다 */
+.laneLabel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: var(--space-1);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.paneLabel {
+  position: absolute;
+  left: var(--space-2);
+  z-index: 1;
+  padding: 0 var(--space-1);
+  background: var(--surface-default);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.eventLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* 세로선 위치와 길이는 FlowMetrics 가 캔버스 좌표로 준다. 색과 함께 선 모양도 심각도마다 다르다 */
+.eventLine {
+  position: absolute;
+  width: 0;
+  border-left: 1px dotted var(--text-secondary);
+}
+
+.eventLine[data-health="warning"] {
+  border-left: 1px dashed var(--color-warning);
+}
+
+.eventLine[data-health="danger"] {
+  border-left: 1px solid var(--color-danger);
+}
+
+.eventTag {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--surface-elevated);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+
+.eventTag[data-health="warning"] {
+  border-color: var(--color-warning);
+  color: var(--color-warning-text);
+}
+
+.eventTag[data-health="danger"] {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* 작은 카드의 사건선. 이름표는 타임라인이 맡고 여기서는 시각만 맞춘다 */
+.faintLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.faintLine {
+  position: absolute;
+  top: 0;
+  width: 0;
+  border-left: 1px dashed var(--border-strong);
+}

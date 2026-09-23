@@ -62,15 +62,13 @@ export interface AdminSession {
   expiresAt: string;
 }
 
-/* ===== 이중 승인: 발급형 (§3-6, §6-B 완결 열거) ===== */
+/* ===== 승인 티켓: 발급형 (§3-6, §6-B 완결 열거) ===== */
 
 /**
  * approval_token 필수 파괴 액션(§3-6 완결 열거).
- * 콘솔 의미 액션이라 백엔드 바인딩 문자열과 별도다(wireBinding이 chaos.inject를 분해한다).
+ * 콘솔 의미 액션이라 백엔드 바인딩 문자열과 별도다.
  */
 export type DestructiveAction =
-  | "chaos.inject"
-  | "chaos.clear"
   | "sim.bots.params"
   | "config.market.halt"
   | "config.market.resume"
@@ -87,8 +85,6 @@ export type DestructiveAction =
 export type ApprovalState = "ISSUED" | "CONSUMED" | "EXPIRED" | "REJECTED";
 
 export type ApprovalPayload =
-  | { action: "chaos.inject"; experimentId: string }
-  | { action: "chaos.clear"; runId: string }
   | { action: "sim.bots.params"; botId: string; params: Record<string, string> }
   | { action: "config.market.halt"; symbol: string }
   | { action: "config.market.resume"; symbol: string }
@@ -141,16 +137,18 @@ export interface HaNode {
   health: NodeHealth;
 }
 
+/**
+ * 시퀀서 큐·주문 지연 p99·원장 불균형·Hikari 대기는 싣지 않는다.
+ * `/admin/v1/ha/status`가 이 넷을 방출하지 않아 http 어댑터가 리터럴 0을 채우고 있었고,
+ * 그 결과 관제 화면이 어떤 부하에서도 경보를 내지 못하면서 "대기 0 · 지연 0ms"를
+ * 측정값처럼 띄웠다. 없는 값을 0으로 채우지 않는다는 이 파일의 규율을 그 넷만 깨고 있었다.
+ * 이 축들의 추이는 Grafana 02(트래픽·Spring)와 04(DB 관제)가 실측으로 그린다.
+ */
 export interface HaStatus {
   epoch: number;
   leaderNodeId: string;
   nodes: HaNode[];
-  sequencerQueueSize: number;
-  orderLatencyP99Ms: number;
-  /** exchange_ledger_imbalance 총합. 자산 보존이면 "0" */
-  ledgerImbalance: string;
   tradesTotal: number;
-  hikariPending: number;
   generatedAt: string;
 }
 
@@ -207,6 +205,17 @@ export interface CapacityPlan {
   updatedAt: string;
 }
 
+/**
+ * 권고 임계. 서버가 소유한다.
+ *
+ * 화면이 0.60을 복제하고 있었다. 서버가 환경에 맞춰 값을 조이면 게이지 눈금만 옛 값에
+ * 남아 "임계 미만인데 증설 권고"처럼 읽힌다. 판정과 눈금이 같은 값을 쓰게 서버에서 받는다.
+ */
+export interface CapacityThresholds {
+  scaleOutCpuRatio: number;
+  scaleInCpuRatio: number;
+}
+
 export interface CapacityState {
   tier: string;
   plan: CapacityPlan;
@@ -216,8 +225,26 @@ export interface CapacityState {
   reconciled: boolean;
   /** 조회를 받는 노드의 평균 사용률 0~1. 못 읽으면 null이고 그때는 권고를 내지 않는다 */
   readAvgCpuRatio: number | null;
+  /** 증설·축소 권고 임계. 화면의 게이지 눈금도 이 값을 쓴다 */
+  thresholds: CapacityThresholds;
   nodes: CapacityNode[];
   advice: CapacityAdvice[];
+}
+
+/**
+ * 불변식 요약 판정. 분모는 기대 검사 수(카탈로그)이고 서버 응답 길이가 아니다.
+ * NONE(행 없음)과 PARTIAL(일부만 수집)은 통과가 아니라 미판정이다.
+ */
+export type InvariantState = "PASS" | "VIOLATED" | "PARTIAL" | "NONE";
+
+export interface InvariantSummary {
+  state: InvariantState;
+  ok: number;
+  violated: number;
+  /** 기대 검사 수. INVARIANT_DEFS 길이 */
+  expected: number;
+  /** 최신 검사 시각. 행이 없으면 null이고 현재 시각으로 채우지 않는다 */
+  checkedAt: string | null;
 }
 
 /** invariant_checks 원소. 항목 수는 서버가 정한다(실측 26종) */
@@ -430,48 +457,6 @@ export interface MarketSimState {
   tradeFlash: TradeFlash;
 }
 
-/* ===== 카오스 (§2-2, /admin/v1/chaos/*) ===== */
-
-export type ChaosState = "RUNNING" | "CLEARED";
-
-/** 정적 실험 카탈로그 원소(E1~E9) */
-export interface ChaosExperimentDef {
-  id: string;
-  label: string;
-  injectPath: string;
-  blastRadius: string;
-  description: string;
-  /**
-   * 폭발 반경 등급. 경로(injectPath)에서 유추하지 않는다. 같은 network 주입이라도 응답
-   * 지연(E1)과 노드 간 분할(E5)은 멈추는 범위가 다르다. 위험은 실험의 성질이다.
-   * high: 체결 경로가 멈춘다 / medium: 의존 계층이 끊긴다 / low: 지연이 낀다
-   */
-  severity: "high" | "medium" | "low";
-  /**
-   * kill-node 계열의 주입 원시연산. E7은 pause라 kill과 파괴 강도가 다르다.
-   * 콘솔이 상수로 박으면 운영자가 고른 것보다 파괴적인 연산이 나간다.
-   */
-  method?: "docker_kill" | "docker_pause";
-  /** network 계열 toxic 종류. 실험마다 다르고 상수로 접으면 화면 라벨과 실제가 갈린다 */
-  toxicType?: "latency" | "timeout" | "reset_peer";
-}
-
-/** 진행·이력 실험 원소 */
-export interface ChaosRun {
-  id: string;
-  /** 해제 요청 target. 정본 §3-6은 주입 시 발급한 이름(toxic 등)을 해제 target으로 재사용한다.
-   * sim은 run id, http는 감사 행 target(주입 이름)이다. 화면 chaos.clear payload는 id가 아니라 이 값을 쓴다 */
-  clearKey: string;
-  experimentId: string;
-  label: string;
-  state: ChaosState;
-  blastRadius: string;
-  grafanaAnnotation: string;
-  injectedBy: string;
-  startedAt: string;
-  clearedAt: string | null;
-}
-
 /* ===== 마켓 설정 (§2, /admin/v1/config/*) ===== */
 
 /**
@@ -645,14 +630,12 @@ export interface AdminOverview {
   overallHealth: "success" | "warning" | "danger";
   epoch: number;
   leaderNodeId: string;
-  invariantsOk: number;
-  invariantsTotal: number;
+  invariants: InvariantSummary;
   lastRtoMs: number | null;
   lastVerdict: RecoveryVerdict | null;
   /** 봇 노드가 상태를 발행하지 않으면 미상이다. 0을 채우면 정지로 읽힌다 */
   botsActive: number | null;
   currentOps: number | null;
-  chaosRunning: number;
   pendingApprovals: number;
   suspendedMarkets: number;
   generatedAt: string;

@@ -1,6 +1,6 @@
 /**
  * lib/admin/roles.ts. 역할 기반 권한(RBAC) 판정과 라벨 (§1-2).
- * 최소 권한 원칙. 파괴 액션 2인 승인은 역할과 독립이며 여기서 강제하지 않는다(승인 원장이 강제).
+ * 최소 권한 원칙. 파괴 액션 승인 티켓은 역할과 독립이며 여기서 강제하지 않는다(승인 원장이 강제).
  */
 
 import type { AdminRole, ApprovalPayload, DestructiveAction } from "./types";
@@ -8,7 +8,7 @@ import type { AdminRole, ApprovalPayload, DestructiveAction } from "./types";
 export const ROLE_LABEL: Record<AdminRole, string> = {
   VIEWER: "조회",
   BOT_OPS: "봇 운영",
-  CHAOS_OPS: "카오스 운영",
+  CHAOS_OPS: "실험 운영",
   MEMBER_MOD: "회원 운영",
   SUPER: "총괄",
 };
@@ -16,7 +16,7 @@ export const ROLE_LABEL: Record<AdminRole, string> = {
 export const ROLE_DESC: Record<AdminRole, string> = {
   VIEWER: "모니터링·상태·감사 열람 전용",
   BOT_OPS: "봇 플릿 제어(생성·정지·OPS·파라미터)",
-  CHAOS_OPS: "카오스 주입·해제, 봇 제어 포함",
+  CHAOS_OPS: "부하·장애 실험 실행, 봇 제어 포함",
   MEMBER_MOD: "회원·게시판 운영",
   SUPER: "전 권한 + 운영자·역할 관리",
 };
@@ -46,8 +46,6 @@ export function can(roles: AdminRole[], cap: Capability): boolean {
 
 /** 파괴 액션별 요청(소각) 요구 권한. 소각은 요청 운영자가 수행하므로 이 권한은 요청자 기준이다 */
 export const ACTION_CAP: Record<DestructiveAction, Capability> = {
-  "chaos.inject": "CHAOS_OPS",
-  "chaos.clear": "CHAOS_OPS",
   "sim.bots.params": "BOT_OPS",
   "config.market.halt": "SUPER",
   "config.market.resume": "SUPER",
@@ -59,8 +57,6 @@ export const ACTION_CAP: Record<DestructiveAction, Capability> = {
 };
 
 export const ACTION_LABEL: Record<DestructiveAction, string> = {
-  "chaos.inject": "카오스 주입",
-  "chaos.clear": "카오스 해제",
   "sim.bots.params": "봇 파라미터 변경",
   "config.market.halt": "마켓 거래 중지",
   "config.market.resume": "마켓 거래 재개",
@@ -82,10 +78,6 @@ export function canRequest(roles: AdminRole[], action: DestructiveAction): boole
  */
 export function approvalConsoleTarget(payload: ApprovalPayload): { key: string; label: string } {
   switch (payload.action) {
-    case "chaos.inject":
-      return { key: `chaos.inject:${payload.experimentId}`, label: `실험 ${payload.experimentId}` };
-    case "chaos.clear":
-      return { key: `chaos.clear:${payload.runId}`, label: `실행 ${payload.runId}` };
     case "sim.bots.params":
       return { key: `sim.bots.params:${payload.botId}`, label: `봇 ${payload.botId}` };
     case "config.market.halt":

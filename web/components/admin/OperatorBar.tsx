@@ -2,7 +2,7 @@
 
 /**
  * 관리 평면 상단 운영자 바(§4-1). 운영자명·역할 배지·세션 만료 카운트다운·인증서 전환·로그아웃.
- * 인증서 전환은 mTLS 신원 재제시를 모사한다. 2인 승인 시연에 필요하다(다른 운영자로 승인).
+ * 인증서 전환은 mTLS 신원 재제시를 모사한다. 운영자별 역할 차이와 승인 경로 시연에 쓴다.
  * 운영자 ID는 인증서 트리거가 표시하므로 신원 행은 표시 이름만 남긴다.
  */
 
@@ -79,7 +79,7 @@ export default function OperatorBar() {
     if (certId === session.operatorId) return;
     try {
       await getAdminApi().establishSession(certId);
-      toast(`${certId} 인증서로 세션을 전환했습니다`, "info");
+      toast(`${certId} 인증서로 세션 전환 완료`, "info");
     } catch (e) {
       toast(e instanceof Error ? e.message : "세션 전환 실패", "error");
     }

@@ -43,9 +43,6 @@ public class CapacityAdminController {
 
     private static final String TIER = "app";
 
-    /** 권고 임계. ADR 0015 의 운영값이고 클라우드 착지 뒤 관측으로 조인다. */
-    private static final double SCALE_OUT_CPU = 0.60;
-    private static final double SCALE_IN_CPU = 0.30;
 
     public record ScaleBody(String reason) {
     }
@@ -195,6 +192,12 @@ public class CapacityAdminController {
         out.put("reconciled", up == plan.desired());
         out.put("read_avg_cpu_ratio", avgCpu);
         out.put("nodes", nodes);
+        // 임계를 응답에 싣는다. 화면이 0.60 을 복제하고 있어 서버가 값을 조이면 두 곳이
+        // 갈렸다. 게이지 눈금도 판정과 같은 값을 써야 한다
+        Map<String, Object> thresholds = new LinkedHashMap<>();
+        thresholds.put("scale_out_cpu_ratio", props.getScaleOutCpu());
+        thresholds.put("scale_in_cpu_ratio", props.getScaleInCpu());
+        out.put("thresholds", thresholds);
         out.put("advice", advice(plan, up, avgCpu, leaderUp));
         return out;
     }
@@ -233,16 +236,16 @@ public class CapacityAdminController {
             return out;
         }
         int pct = (int) Math.round(avgCpu * 100);
-        if (avgCpu >= SCALE_OUT_CPU && plan.desired() < plan.max()) {
+        if (avgCpu >= props.getScaleOutCpu() && plan.desired() < plan.max()) {
             out.add(card("scale_out", "warn", "조회 부하 높음",
                     "조회를 받는 서버의 평균 사용률 " + pct + "%. 서버를 한 대 늘리면 부하가 "
                             + "나뉜다. 추가에 약 17초가 걸리고 서비스는 멈추지 않는다.",
                     "SCALE_OUT"));
-        } else if (avgCpu >= SCALE_OUT_CPU) {
+        } else if (avgCpu >= props.getScaleOutCpu()) {
             out.add(card("at_max", "warn", "조회 부하 높음. 증설 불가",
                     "평균 사용률 " + pct + "%인데 이미 최대 " + plan.max() + "대다. "
                             + "최대 대수를 올리려면 비용 판정이 먼저다.", null));
-        } else if (avgCpu <= SCALE_IN_CPU && plan.desired() > plan.min()) {
+        } else if (avgCpu <= props.getScaleInCpu() && plan.desired() > plan.min()) {
             out.add(card("scale_in", "info", "조회 부하 낮음",
                     "조회를 받는 서버의 평균 사용률 " + pct + "%. 서버를 한 대 줄이면 비용이 "
                             + "준다. 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내린다.",

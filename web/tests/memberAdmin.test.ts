@@ -88,14 +88,14 @@ test("폐쇄는 승인 소각 경로로만 실행되고 종결 상태다", async
   );
 });
 
-test("폐쇄 승인은 요청자와 발급자가 같으면 반려된다", async () => {
+test("폐쇄 승인은 요청자와 발급자가 같아도 발급된다(1인 승인)", async () => {
   const api = await mod();
-  await assert.rejects(
-    api.issueApproval("op-01", "members.close", {
-      action: "members.close", externalId: TRADER, email: "trader@demo.local",
-    }),
-    /다른 운영자/,
-  );
+  const issued = await api.issueApproval("op-01", "members.close", {
+    action: "members.close", externalId: TRADER, email: "trader@demo.local",
+  });
+  // ADR 0019. 서버 ApprovalService.issue에도 동일성 가드가 없어 sim이 같은 계약을 따른다
+  assert.equal(issued.requesterId, "op-01");
+  assert.equal(issued.approverId, "op-01");
 });
 
 test("폐쇄는 MEMBER_MOD를 요구하고 승인 키는 회원별로 갈린다", () => {

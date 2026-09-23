@@ -55,7 +55,7 @@ export default function AdminLogin() {
           <span className={styles.loginPlateText}>페일스톱 · 운영 관리</span>
         </div>
         <h1 className={styles.loginTitle}>{PASSWORD_LOGIN ? "운영자 로그인" : "관리 평면 접속"}</h1>
-        <p className={styles.loginDesc}>{PASSWORD_LOGIN ? "운영자 계정으로 로그인해 시장 봇을 관리합니다." : "운영자 인증서 신원으로 접속. 세션은 단기 발급"}</p>
+        <p className={styles.loginDesc}>{PASSWORD_LOGIN ? "운영자 계정 로그인. 시장 봇 관리 전용" : "운영자 인증서 신원으로 접속. 세션은 단기 발급"}</p>
 
         {PASSWORD_LOGIN ? (
           <form className={styles.passwordLogin} onSubmit={(event) => void login(event)}>
@@ -70,7 +70,7 @@ export default function AdminLogin() {
             <button type="submit" className={styles.certOption} disabled={busy !== null} aria-busy={busy !== null}>
               <span className={styles.certCn}>{busy ? "로그인 중" : "로그인"}</span>
             </button>
-            <p className={styles.loginHint}>Grafana 계정과 별도로 등록한 봇 운영자 계정을 사용합니다.</p>
+            <p className={styles.loginHint}>Grafana 계정과 별개로 등록한 봇 운영자 계정 필요</p>
           </form>
         ) : certs.length === 0 && IS_HTTP ? (
           <>
@@ -87,15 +87,15 @@ export default function AdminLogin() {
               <span className={styles.certAction}>{busy === "" ? "확립 중" : "세션 확립"}</span>
             </button>
             <p className={styles.loginHint}>
-              TLS 핸드셰이크에서 제시된 운영자 인증서 신원으로 단기 세션을 발급합니다. 인증서 미설치·비인가 신원은 서버가 거절합니다.
+              TLS 핸드셰이크에서 제시된 운영자 인증서 신원으로 단기 세션 발급. 인증서 미설치·비인가 신원은 서버가 거절
             </p>
           </>
         ) : certs.length === 0 ? (
           <div className={styles.loginNoCert} role="alert">
             <span className={styles.loginNoCertTitle}>클라이언트 인증서 없음</span>
             <span className={styles.loginNoCertDesc}>
-              운영자 네트워크에서 브라우저 인증서 저장소에 설치된 운영자 인증서로 접속하세요. 인증서 없이는 관리 평면에
-              접근할 수 없습니다.
+              운영자 네트워크에서 브라우저 인증서 저장소에 설치된 운영자 인증서로 접속 필요. 인증서 없이는 관리 평면
+              접근 불가
             </span>
           </div>
         ) : (

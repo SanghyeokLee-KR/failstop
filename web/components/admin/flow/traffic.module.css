@@ -1,0 +1,262 @@
+/*
+ * 구성도 연결선과 트래픽 알갱이. FlowTraffic 이 그린다.
+ *
+ * 선 색은 선 상태를 따른다(2026-09-23 사용자 요청). 흐름과 유휴는 초록, 끊김은 빨강 점선과 가운데
+ * 끊김 표식, 꺼짐은 회색 점선, 전환 중은 주황 점선이다. 흐름은 세기 단계(약·중·강)마다 선을 굵게
+ * 하고, 강에는 넓고 옅은 두 번째 획을 밑에 깔아 은은한 빛처럼 보이게 한다. 선과 알갱이에는 filter 와
+ * 그림자를 쓰지 않는다. 페인트 비용이 크고 알갱이 층과 섞이면 매 프레임 다시 칠할 수 있다.
+ *
+ * 색 하나로 알리지 않는다. 흐름은 실선과 움직이는 알갱이, 꺼짐·끊김·전환 중은 점선이고, 끊김에는
+ * ■ 끊김 표식, 전환 중에는 ▲ 가 붙는다. 선 색은 모두 면 대비 3:1 을 넘는다. 회색은 text-tertiary,
+ * 주황은 원색이 라이트 bg-muted 위 2.95:1 이라 글자 단계를 30% 섞어 올린다.
+ *
+ * 알갱이는 transform 만 움직인다. 합성 단계에서 돌아 스타일 계산, 레이아웃, 페인트가 매 프레임
+ * 생기지 않는다. 알갱이 모양은 레일의 배경 무늬라 레일이 움직여도 다시 칠하지 않는다. 움직임 자체는
+ * FlowTraffic 이 Web Animations 로 건다. 여기에 animation-name 을 두지 않는다. CSS 애니메이션은 주기
+ * 끝마다 React 의 animationiteration 리스너 때문에 메인 스레드를 깨운다.
+ */
+
+/* ===== 연결선 ===== */
+
+.wires {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* 선 묶음의 글자색이 선 색이다. 획은 currentColor 를 따르므로 상태마다 color 한 줄만 바꾼다 */
+.conn {
+  color: var(--color-success);
+  transition: color var(--dur-base) var(--ease-standard);
+}
+
+.wire,
+.arrow,
+.halo {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wire {
+  stroke-width: 1.5;
+}
+
+.arrow {
+  stroke-width: 1.5;
+}
+
+/* 강한 흐름의 빛. 평소에는 그리지 않는다 */
+.halo {
+  display: none;
+  stroke-width: 8;
+  stroke-opacity: 0.16;
+}
+
+/* 흐름. 단계마다 굵기가 오른다. 화살촉은 굵은 선에서도 뭉개지지 않게 2 에서 멈춘다 */
+.conn[data-kind="flow"][data-tier="1"] .wire {
+  stroke-width: 1.75;
+}
+
+.conn[data-kind="flow"][data-tier="2"] .wire {
+  stroke-width: 2.25;
+}
+
+.conn[data-kind="flow"][data-tier="3"] .wire {
+  stroke-width: 2.75;
+}
+
+.conn[data-kind="flow"][data-tier="3"] .halo {
+  display: inline;
+}
+
+.conn[data-kind="flow"] .arrow {
+  stroke-width: 2;
+}
+
+/* 유휴. 건강하지만 지금 지나는 것이 없다. 가는 초록 실선이다. 노드 카드의 "대기"(멈춘 부하 발생기,
+   회색 꺼짐 선)와 헷갈리지 않게 범례와 연결 목록은 이 상태를 유휴라고 부른다 */
+.conn[data-kind="idle"] .wire {
+  stroke-width: 1;
+}
+
+.conn[data-kind="idle"] .arrow {
+  stroke-width: 1.25;
+}
+
+/* 꺼짐. 없거나 멈춘 쪽이다. 가늘고 성긴 회색 토막이다 */
+.conn[data-kind="off"] {
+  color: var(--text-tertiary);
+}
+
+.conn[data-kind="off"] .wire {
+  stroke-width: 1.25;
+  stroke-dasharray: 4 5;
+  stroke-linecap: butt;
+}
+
+.conn[data-kind="off"] .arrow {
+  stroke-width: 1.25;
+}
+
+/* 끊김. 빨강 토막 선이다. 가운데의 끊김 표식이 선을 가려 틈을 낸다 */
+.conn[data-kind="down"] {
+  color: var(--color-danger);
+}
+
+.conn[data-kind="down"] .wire {
+  stroke-width: 1.75;
+  stroke-dasharray: 6 4;
+  stroke-linecap: butt;
+}
+
+/* 전환 중. 기동·드레이닝·재편입처럼 넘어가는 중인 선이다 */
+.conn[data-kind="transition"] {
+  color: color-mix(in srgb, var(--color-warning) 70%, var(--color-warning-text));
+}
+
+.conn[data-kind="transition"] .wire {
+  stroke-width: 1.75;
+  stroke-dasharray: 6 4;
+  stroke-linecap: butt;
+}
+
+/* 보조 선(지표 수집, 조정기 제어). 상태 색은 그대로 받고 모양만 둥근 점선으로 낮춰 요청 선보다
+   늘 한 단 뒤에 읽힌다. 단계 굵기 규칙보다 뒤에 두어 같은 구체성에서 이긴다 */
+.conn[data-minor="true"][data-kind] .wire {
+  stroke-width: 2;
+  stroke-dasharray: 0.5 5;
+  stroke-linecap: round;
+}
+
+.conn[data-minor="true"][data-kind] .arrow {
+  stroke-width: 1.5;
+}
+
+.conn[data-minor="true"][data-kind] .halo {
+  display: none;
+}
+
+/* ===== 트래픽 알갱이 ===== */
+
+/* 알갱이 층. 구성도 전체를 덮지만 누름은 통과시킨다. 크기가 부모에서 정해지므로 strict 로 가둬
+   안쪽의 변화가 바깥 레이아웃과 페인트로 번지지 않게 한다.
+   카드보다 한 단 위에 둔다. 움직이는 레이어 위에 그려지는 요소는 겹침 때문에 모두 따로 합성돼야
+   해서, 카드 밑에 두면 선에 닿은 카드 열세 장이 레이어로 올라갔다. 트랙은 카드 가장자리에서 잘려
+   카드 위로 그려지는 것이 없으므로 보이는 그림은 같다. 팝오버(z-dropdown)는 여전히 이 층 위다 */
+.traffic {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+/* 알갱이 지름(--packet)은 FlowTraffic 이 흐름 묶음마다 인라인으로 준다. 단계가 오를수록 커진다.
+   모서리와 화살촉 앞에서 트랙을 자르는 계산이 같은 값을 써야 해서 한곳(FlowTraffic 의 PACKET)에 둔다.
+   여기 값은 그 인라인 값이 빠졌을 때의 기본값이다. 둘레의 고리는 틀 면 색이라 같은 초록 선 위에서도
+   알갱이가 떨어져 보인다 */
+.stream {
+  --packet: 6px;
+  --packet-ring: var(--bg-muted);
+}
+
+/* 토막 하나를 따라 놓인 트랙. 보이는 길이만큼만 잘라 알갱이가 카드 가장자리에서 카드 밑으로 들어가
+   보이게 한다. 꺾이는 모서리와 화살촉 앞에서도 FlowTraffic 이 트랙을 알갱이 반지름과 고리만큼 물려
+   알갱이가 곧게 잘리며 들어가고 나온다. 높이는 지름에 고리 여유 2px 를 위아래로 더한 값이고
+   FlowTraffic 의 RING 과 같다. 위치와 회전은 FlowTraffic 이 준다 */
+.track {
+  position: absolute;
+  height: calc(var(--packet) + 4px);
+  overflow: hidden;
+  transform-origin: 0 0;
+}
+
+/* 알갱이를 배경 무늬로 찍은 레일. 무늬 한 칸의 폭(간격)과 레일 폭은 FlowTraffic 이 인라인으로 준다.
+   레일은 자기 폭의 절반만큼 앞으로 가며 되풀이하고, 그 움직임은 FlowTraffic 의 element.animate 다 */
+.rail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-image: radial-gradient(
+    circle,
+    var(--color-success) calc(var(--packet) / 2 - 0.5px),
+    var(--packet-ring) calc(var(--packet) / 2 + 0.25px),
+    var(--packet-ring) calc(var(--packet) / 2 + 1.5px),
+    transparent calc(var(--packet) / 2 + 2px)
+  );
+  background-repeat: repeat-x;
+  background-position: 0 0;
+}
+
+/* 합성 레이어는 움직이는 동안에만 미리 잡는다. 주행 멈춤과 화면 밖에서는 FlowTraffic 이 애니메이션을
+   그 자리에 세우고, 여기서는 레이어를 놓아 메모리를 돌려준다 */
+.traffic:not([data-paused="true"]):not([data-onscreen="false"]) .rail {
+  will-change: transform;
+}
+
+/* ===== 끊김·전환 표식 ===== */
+
+/* 끊긴 선 가운데의 표식. 둘레를 틀 면 색으로 칠해 선이 표식 앞에서 끊겨 보이게 한다.
+   빨강 글자는 흰 면과 다크 면 모두 4.5:1 을 넘는다. 테두리까지 폭이 약 40px 라 구성도는 열 사이 틈이
+   50px 이상일 때만 이 꼴을 쓰고 표식을 틈 가운데에 앉혀 카드와 틀 테두리를 덮지 않게 한다 */
+.cut {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0 2px;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-xs);
+  background: var(--surface-default);
+  box-shadow: 0 0 0 2px var(--bg-muted);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-semibold);
+  color: var(--color-danger);
+  white-space: nowrap;
+}
+
+/* 틈이 좁은 자리의 끊김 표식. 낱말 없이 ■ 하나다. 뜻은 범례의 "■ 끊김"과 연결 목록이 싣는다 */
+.cut[data-tight="true"] {
+  padding: 0 3px;
+}
+
+/* 전환 중은 낱말 없이 ▲ 하나다. 테두리 없이 틀 면으로 선을 조금 가린다 */
+.cut[data-kind="transition"] {
+  padding: 0 2px;
+  border-color: transparent;
+  background: var(--bg-muted);
+  box-shadow: none;
+  color: var(--color-warning-text);
+}
+
+/* ===== 범례 견본 ===== */
+
+.swatch {
+  display: block;
+  flex: none;
+  width: 26px;
+  height: 10px;
+  overflow: visible;
+}
+
+/* 흐름 세기 견본. 약·중·강 세 토막이라 한 칸 견본보다 넓다 */
+.swatch[data-ramp="true"] {
+  width: 34px;
+}
+
+/* 모션 줄이기. 알갱이를 그리지 않는다. FlowTraffic 도 이때는 애니메이션을 만들지 않는다.
+   선 색과 모양, 화살촉이 상태와 방향을 싣는다 */
+@media (prefers-reduced-motion: reduce) {
+  .stream {
+    display: none;
+  }
+
+  .conn {
+    transition: none;
+  }
+}
