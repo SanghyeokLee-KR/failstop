@@ -364,6 +364,25 @@ export interface HttpDataSourceOptions {
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 
+/**
+ * REST 요청 헤더. 호출부 헤더(입출금 Idempotency-Key 등)를 살리고 Content-Type과 Authorization은
+ * 어댑터가 정한다. 호출부가 같은 이름을 넘기면 버린다. 대소문자만 다른 두 값이 함께 실리지 않게 한다.
+ */
+export function requestHeaders(
+  extra: HeadersInit | undefined,
+  hasBody: boolean,
+  token: string | null,
+): Record<string, string> {
+  const headers: Record<string, string> = {};
+  // Headers 생성자가 Headers 객체·[이름, 값] 배열·레코드를 한 형태로 모으고 이름을 소문자로 맞춘다
+  new Headers(extra).forEach((value, name) => {
+    if (name !== "authorization" && name !== "content-type") headers[name] = value;
+  });
+  if (hasBody) Object.assign(headers, JSON_HEADERS);
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
 export class HttpStompDataSource implements DataSource {
   private readonly apiBase: string;
   private readonly wsUrl: string;
@@ -412,10 +431,8 @@ export class HttpStompDataSource implements DataSource {
   private async http<T>(path: string, init: RequestInit = {}, auth = false): Promise<T> {
     const isWrite = (init.method ?? "GET").toUpperCase() !== "GET";
     const run = async (token: string | null) => {
-      const headers: Record<string, string> = {
-        ...(init.body != null ? JSON_HEADERS : {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
+      // 401 뒤 재시도도 같은 init에서 헤더를 다시 만든다. 멱등 키가 바뀌면 서버가 재시도를 새 요청으로 받는다
+      const headers = requestHeaders(init.headers, init.body != null, token);
       try {
         return await this.fetchFn(`${this.apiBase}${path}`, { ...init, headers });
       } catch (e) {
@@ -502,7 +519,7 @@ export class HttpStompDataSource implements DataSource {
 
   async getMarkets(): Promise<Market[]> {
     const list = unwrapList<Market>(await this.http("/api/v1/markets"), "/markets");
-    // 백엔드 실제 마켓 집합을 캐시한다. COIN_META(269종)와 달리 실서버는 일부만 제공하므로,
+    // 백엔드 실제 마켓 집합을 캐시한다. 웹의 COIN_META(sim 시드 12종)와 달리 실서버 목록은 배포 DB가 정하므로,
     // 티커 요청을 이 집합으로 좁혀 미등록 마켓의 400 응답을 애초에 발생시키지 않는다
     this.knownMarkets = new Set(list.map((m) => m.market));
     return list;

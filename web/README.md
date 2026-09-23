@@ -18,7 +18,9 @@ npm run dev
 - `NEXT_PUBLIC_DATASOURCE=http`: 실제 백엔드에 HTTP와 STOMP로 연결한다.
 - 그 외의 값 또는 미설정: 브라우저의 [SimEngine](lib/sim/engine.ts)을 사용한다. 시뮬레이터의 주문·자산은 새로고침하면 초기화된다.
 
-API·WebSocket 주소 설정은 실행 가이드에 있다. `NEXT_PUBLIC_*` 값은 빌드할 때 결과물에 들어가므로, 배포 후 주소를 바꾸려면 다시 빌드해야 한다. 관리자 연결은 [lib/admin/api.ts](lib/admin/api.ts)의 `NEXT_PUBLIC_ADMIN_DATASOURCE`와 `NEXT_PUBLIC_ADMIN_BASE`로 별도 설정할 수 있다.
+`npm run build`는 추적 파일 [.env.production](.env.production)의 `NEXT_PUBLIC_DATASOURCE=http`를 읽어 실제 백엔드용으로 빌드한다. 개발 서버는 이 파일을 읽지 않으므로 값을 주지 않으면 시뮬레이터로 뜬다. 두 경우 모두 셸 환경 변수가 가장 우선하고 그다음이 `.env.local`이다.
+
+API·WebSocket 주소 설정은 실행 가이드에 있다. `NEXT_PUBLIC_*` 값은 빌드할 때 결과물에 들어가므로, 배포 후 주소를 바꾸려면 다시 빌드해야 한다. 관리자 연결은 [lib/admin/api.ts](lib/admin/api.ts)의 `NEXT_PUBLIC_ADMIN_DATASOURCE`와 `NEXT_PUBLIC_ADMIN_BASE`로 별도 설정할 수 있다. `NEXT_PUBLIC_ADMIN_DATASOURCE`를 주지 않으면 `NEXT_PUBLIC_DATASOURCE`를 따른다.
 
 ## 화면을 고칠 때
 
@@ -62,5 +64,7 @@ npm run build
 node ../scripts/prune-admin-bundle.mjs
 node ../scripts/prune-admin-bundle.mjs --check
 ```
+
+제거와 검사는 파일·경로 이름으로 관리 화면을 찾는다([prune-admin-bundle.mjs](../scripts/prune-admin-bundle.mjs)). 이름에 admin이 없는 공용 청크로 들어간 관리 코드는 남으므로 `--check` 통과가 관리 코드 0건을 뜻하지 않는다.
 
 전체 정적 결과물을 그대로 공개하면 관리 화면도 함께 포함된다. 배포 절차는 [배포 안내](../deploy/README.md)와 CI 설정을 함께 확인한다.
