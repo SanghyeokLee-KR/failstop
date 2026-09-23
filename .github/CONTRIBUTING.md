@@ -46,5 +46,5 @@ client_order_id 중복 요청을 replay로 응답한다.
 
 ## 설계 결정 기록(ADR)
 
-- 되돌리기 어려운 결정(스택 변경, 계약 변경, 데이터 모델 변경)은 docs/reference/adr/NNN-제목.md로 남긴다.
-- 형식: 배경, 결정, 근거, 대안, 영향. 한 페이지를 넘기지 않는다.
+- 되돌리기 어려운 결정(스택 변경, 계약 변경, 데이터 모델 변경)은 `docs/reference/adr/NNNN-title-with-dashes.md`(4자리 순번, 소문자 kebab-case 제목)로 남긴다. 0099는 현재 구조용 예약 번호다.
+- 형식: 상태, 배경, 결정, 근거, 대안, 영향. 상태 어휘와 번호 규칙은 [ADR 0001](../docs/reference/adr/0001-record-architecture-decisions.md)을 따른다. 한 페이지를 넘기지 않는다.

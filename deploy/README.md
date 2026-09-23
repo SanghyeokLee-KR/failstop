@@ -28,6 +28,14 @@
 
 EC2에서 계정·권한의 허용과 거부, 재부팅 후 마운트·서비스·로그 보존을 확인한다. 이후 여러 호스트의 통신·관측과 격리된 복원 대상에서 백업·데이터 검증을 수행한다. 학교에서 확인하지 못한 ALB·ASG·권한·성능은 미검증으로 남긴다. [증거본](../증거본/README.md)에 AWS 설정과 명령어별 실제 화면·출력을 보관한다. 개인 계정에서도 주소·권한·배치를 적용한 뒤 재검증한다.
 
+## 로컬 VM 실습망
+
+[ADR 0029](../docs/reference/adr/0029-school-aws-first-personal-account-expansion.md)가 보류한 것은 'VM에서 먼저 검증한 뒤 AWS로 간다'는 착수 조건이다. VM 실습망 자체는 그 조건과 별개로 구축했다. [vm-lab](vm-lab/) 폴더의 kickstart와 스크립트로 VirtualBox VM 여섯 대(EDGE01, APP01, APP02, DB01, DB02, OPS01)에 Rocky Linux 10.2와 각 역할을 직접 설치했고, 2026-09-23에는 여섯 대를 끄고 다시 켜는 재부팅 확인을 했다. 구축과 재부팅 기록은 `vm-lab/캡처/`에 있다. 재부팅 확인에서는 네 대의 콜드 부팅 정지를 커널 인자로 고쳤다고 기록했지만, 스냅숏 시점에 OPS01의 Grafana가 떠 있지 않았고 네 대의 호스트 점검 유닛이 실패로 남았다([재부팅 검증](vm-lab/캡처/재부팅검증-2026-09-23/README.md)). pfSense 경계 방화벽, VM의 DB 수동 승격, OPS01 보고 역할은 아직 만들지 않았다.
+
+로드맵의 09-23 인계에 따르면 여섯 대는 끈 상태로 USB에 옮겼다. 2026-09-23에 VM을 만든 PC가 아닌 지금의 작업 PC에서 확인했을 때 USB가 연결돼 있지 않았고 VirtualBox에 여섯 대가 등록돼 있지 않았으며 관리 개인키(`%USERPROFILE%\.ssh\vm-lab_ed25519`)도 없었다. kickstart가 root와 ops 비밀번호를 잠갔으므로 키가 없으면 SSH로 들어갈 수 없다. VM 작업을 이어가려면 VM과 키를 함께 옮겨야 한다.
+
+VM 결과는 단일 PC의 가상 네트워크에서 얻은 것이다. 학교 AWS나 개인 AWS의 검증 결과로 옮겨 적지 않고, 학교 증거본에도 섞지 않는다. 이 폴더의 스크립트 중 VM 구축 뒤에 고친 것(DB의 `mount-guard` 단계, EDGE01 80 허용 출발지, 관측 수집 대상 판정, chrony 시각원 유지)은 저장소 템플릿만 고친 것이며 VM에는 적용하지 않았다.
+
 ## 사용할 파일
 
 | 파일 | 역할 |
@@ -57,6 +65,8 @@ EC2에서 계정·권한의 허용과 거부, 재부팅 후 마운트·서비스
 | [관리자 로그인 경로](linux/app/nginx-admin.conf), [내부 mTLS](linux/app/nginx-admin-upstream.conf), [계정 생성](linux/app/create-admin-login.py), [공개 접근 검사](linux/app/verify-admin-public.py) | 운영자 1명의 HTTPS 비밀번호 로그인과 내부 mTLS. 설치 순서는 AWS 작업 안내, 신뢰 경계는 ADR 0031을 따른다. |
 | [봇 관리 설정](linux/bot/admin.env.school), [systemd 추가 설정](linux/bot/admin-service-override.conf), [인증서 준비](linux/bot/prepare-admin-gateway.py) | 실제 봇과 같은 JVM에서 사설 8443 관리 API를 실행한다. 인증서 60일, 자동 갱신 미구현. |
 | [운영 보고](linux/reporting/) | bot-1 지표 수집, Gemini 요약, Teams 전송과 systemd 예약. 비밀 값은 별도 root 전용 파일에서 서비스 자격증명으로 전달한다. |
+| [DB 백업](linux/postgresql/backup/README.md) | 현재 Primary에서만 물리 베이스백업을 만들고 검증하는 Docker 없는 도구와 systemd 타이머, 경보 규칙. 비공개 S3 외부 보관은 설정했을 때만 켠다. 2026-09-23 저장소에 추가했고 학교 서버에는 설치하지 않았다. |
+| [관측 노드 감시](linux/watchdog/README.md) | app-1과 bot-1이 관측 경로를 서로 확인하고 Alertmanager를 거치지 않고 Teams로 직접 알리는 워치독과 Watchdog 규칙. 2026-09-23 저장소에 추가했고 학교 서버에는 설치하지 않았다. |
 
 `compose.base.yml`은 없다. 각 노드의 파일을 직접 사용한다. 앱 이미지는 태그만으로 식별하지 않고 배포할 digest를 확정한다.
 

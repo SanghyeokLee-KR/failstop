@@ -1,6 +1,6 @@
 # ADR 0028. AWS 구축 전에 인프라팀의 VM 검증 단계를 둔다
 
-- 상태: 부분 대체됨. 2026-09-19 [ADR 0029](0029-school-aws-first-personal-account-expansion.md)가 VM 선행 조건을 보류하고 학교 EC2 선행으로 바꿨다. Linux 직접 설치·진단 원칙은 유지한다. 아래 본문은 당시 결정 이력이며 현재 AWS 착수 조건으로 적용하지 않는다.
+- 상태: 채택. VM 선행 조건은 2026-09-19 [ADR 0029](0029-school-aws-first-personal-account-expansion.md)가 대체했다(보류, 학교 EC2 선행). Linux 직접 설치·진단 원칙은 0029의 대체 범위 밖이라 유지한다. 아래 본문의 VM 선행 절차는 당시 결정 이력이며 현재 AWS 착수 조건으로 적용하지 않는다.
 - 날짜: 2026-09-18
 - 근거: 사용자가 개발팀의 Docker 검증 결과 확인, 인프라팀의 VM 검증, AWS 구축 순서로 진행하기로 확정했다. VM에서는 Linux에 직접 설치·설정하고 Docker는 꼭 필요한 항목에만 사용한다.
 - 관계: [ADR 0027](0027-msp-operations-and-autoscaling.md)의 Linux·MSP 운영 범위에 VM 선행 단계를 추가한다. AWS 배치, 조회 ASG, DB 비동기 복제·수동 승격 정책은 유지한다.

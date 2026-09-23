@@ -34,6 +34,8 @@
 | 외부 시세 수집 범위 | [외부 API 전략](contracts/외부API_전략.md) |
 | 봇의 매수·매도 방향 제어 | [봇 운영](operations/봇_방향성_거버넌스_설계.md) |
 | DB 승격과 앱 연결 전환 | [DB 수동 페일오버](operations/DB_수동_페일오버.md) |
+| 학교 DB의 예약 백업, 외부 보관, 격리 복원 | [DB 백업 도구 안내](../../deploy/linux/postgresql/backup/README.md) |
+| 관측 노드(bot-1)와 경보 경로의 감시 | [관측 경로 워치독 안내](../../deploy/linux/watchdog/README.md) |
 | 최종 검증 전 보강할 부분 | [M4 하드닝](architecture/M4_하드닝설계.md) |
 | 주문 쓰기 경로를 나눌지 판단할 외부 근거 | [거래소 조회·쓰기 비율 조사](architecture/거래소_조회쓰기_비율_조사.md) |
 

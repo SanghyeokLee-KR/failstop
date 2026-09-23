@@ -1,6 +1,6 @@
 # ADR 0021. 전역 순서 원장을 마켓별 순서 원장으로 바꾼다
 
-- 상태: 진행 중(1에서 5단계 착지와 실측 확인, 6에서 7단계 미착지)
+- 상태: 채택. 1에서 5단계 착지와 실측 확인, 6에서 7단계 미착지
 - 날짜: 2026-09-10
 - 관련: 정본 `제출_20260901/기획안_원본.md` 13.5 항목 29·36, `docs/measurements/20260910.md` 5.6·5.7
 - 코드: `V36__market_seq.sql`, `SettlementService`, `EventJournalAppender`, `ReplayService`, `EventJournalReader`, `EngineRecovery`

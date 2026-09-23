@@ -2,7 +2,9 @@
 
 「Linux 기반 AWS 인프라 구축 및 운영」의 학교 EC2 작업을 이어받기 위한 문서다. 사용자가 요청한 작업 안내 한 파일을 계속 갱신한다. 전체 완료 상태는 [로드맵](../ROADMAP.md), 설계 판단은 [0099](../reference/adr/0099-current-architecture.md), 실행 원본은 [증거본](../../증거본/2026-09-19_학교AWS/README.md)을 기준으로 확인한다.
 
-2026-09-20 복구 시연 이후 DB 역할이 바뀌었다. **현재 Primary는 `172.31.33.195`(AZ-c), Standby는 `172.31.1.229`(AZ-a)**다. 인스턴스 이름은 생성 당시 이름을 유지한다. 아래 초기 설치 절의 주소를 그대로 복사하지 말고, 문서 마지막의 복구 절과 실제 `pg_is_in_recovery()` 결과를 먼저 확인한다. [이번 화면·명령](../../증거본/2026-09-20_백업_복구_보고/README.md)에 전환 근거가 있다.
+2026-09-20 복구 시연 이후 DB 역할이 바뀌었다. **현재 Primary는 `172.31.33.195`(AZ-c), Standby는 `172.31.1.229`(AZ-a)**다. 인스턴스 이름은 생성 당시 이름을 유지한다. 아래 초기 설치 절의 주소를 그대로 복사하지 말고, 뒤쪽의 [DB 수동 전환](#db-수동-전환을-재현할-때) 절과 실제 `pg_is_in_recovery()` 결과를 먼저 확인한다. [이번 화면·명령](../../증거본/2026-09-20_백업_복구_보고/README.md)에 전환 근거가 있다.
+
+저장소의 설정 원본과 학교 서버 적용본은 같지 않다. 2026-09-23에 확인한 차이와 아직 확인하지 못한 운영 사실은 [마지막 절](#2026-09-23-저장소와-학교-서버의-차이)에 모았다. 서버에 파일을 다시 배치하거나 재설치하기 전에 그 절을 먼저 읽는다.
 
 ## 지금 접속할 서버
 
@@ -64,7 +66,7 @@ Amazon Linux 공식 저장소에서 `java-21-amazon-corretto-headless`를 설치
 
 ## 다음 작업 순서
 
-재개할 때 `exchange-app` 서비스와 readiness, DB 복제 상태를 먼저 조회한다. 종목 기본값과 공개 HTTPS·WebSocket, 호스트·DB 관측은 연결했다. 세 종목 시장 봇은 가동 중이며 회원 거래·두 번째 앱과 복구 검증은 남아 있다. 현재 진행 상태는 로드맵의 '다음 작업의 시작점'을 따른다. ALB 조회·생성과 ASG 조회·시작 템플릿 생성이 학교 사용자에게 거부됐으므로 운영자 확인이 필요하다. CloudFront는 콘솔 목록 조회만 성공했고 생성은 하지 않았다.
+재개할 때 `exchange-app` 서비스와 readiness, DB 복제 상태를 먼저 조회한다. 종목 기본값과 공개 HTTPS·WebSocket, 호스트·DB 관측은 연결했다. 세 종목 시장 봇은 가동 중이다. 계획된 DB 수동 전환·재편입과 격리 복원은 2026-09-20에 확인했고, 회원 거래·두 번째 앱·외부 보관 백업은 남아 있다. 현재 진행 상태는 로드맵의 '다음 작업의 시작점'을 따른다. ALB 조회·생성과 ASG 조회·시작 템플릿 생성이 학교 사용자에게 거부됐으므로 운영자 확인이 필요하다. CloudFront는 콘솔 목록 조회만 성공했고 생성은 하지 않았다.
 
 2026-09-19 사용자가 DB primary와 standby를 각각 gp3 50GiB로 지정했다. 두 DB의 루트 볼륨을 각각 암호화 50GiB로 구성하며, 앱 서버의 기존 20GiB는 유지한다. DB 두 대는 t3.small·CPU 크레딧 Standard, Amazon Linux 2023 x86_64로 준비한다. Primary는 기본 VPC의 AZ-a(`subnet-0525d8f575f6529ec`), Standby는 AZ-c(`subnet-05a746c2ab576c30c`)다. 생성 결과와 설치 상태는 로드맵에서 확인한다.
 
@@ -75,7 +77,7 @@ DB 그룹 `sg-03b023cf05dc4bafe`는 빈 인바운드로 생성하고 username �
 가격 확인은 2026-09-19에 수행했다. EC2·EBS 가격 발효일은 2026-09-01이다. [공식 지역 가격표](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/ap-northeast-2/index.csv), [발췌 원본](../../증거본/2026-09-19_학교AWS/AWS_서울_가격조회.csv), [IPv4 요금](https://aws.amazon.com/vpc/pricing/)을 근거로 한다. 인스턴스를 중지해도 남은 EBS는 과금되며 이번 생성이 종료 예약을 포함하지는 않는다.
 
 1. 실제 Primary·Standby 역할, 앱·봇 상태와 최근 보고를 조회한다. DB 전환과 세 종목의 거래는 검증했으므로 초기화·승격 절차를 반복하지 않는다. 기존 데이터와 옛 PGDATA를 보존한다.
-2. 새 Primary의 백업을 호스트 밖으로 보관하고 예약 실행·보존 기간·격리 복원을 검증한다. 현재 확인한 백업은 이전 Primary의 로컬 디스크에 있으므로 서버 상실에 대비한 백업 완료로 판단하지 않는다.
+2. 새 Primary의 백업을 호스트 밖으로 보관하고 예약 실행·보존 기간·격리 복원을 검증한다. 현재 확인한 백업은 이전 Primary의 로컬 디스크에 있으므로 서버 상실에 대비한 백업 완료로 판단하지 않는다. 설치 절차는 [DB 백업 설치와 외부 보관](#db-백업-설치와-외부-보관) 절에 있다.
 3. 이미 수집하는 하루 DB 증가량, 메모리·CPU 크레딧, 봇과 Grafana의 재시작 이력을 확인한다. 외부 사이트 프로브, 인증서 만료 대응과 실제 회원 주문을 점검한다. 일일 보고 timer의 실제 예약 실행도 확인한다.
 4. ALB·ASG와 시작 템플릿 권한을 학교 운영자에게 확인한 후 조회 계층 min 2 / desired 2 / max 3을 배포·검증한다. 기존 쓰기 앱의 이중화는 리더·인증 설정·DB 연결 풀까지 별도로 확인한다. 권한이 없으면 새 노드를 임의 생성하지 않는다.
 5. [보고한 전체 구성도](../../아키텍쳐/교수님_보고본/01_전체구성/거래소_하이브리드_인프라_v5.png)와 실제 배치의 차이를 설명하고, 부하·복구·보고의 실제 영상과 측정값을 발표에 넣는다. 구성 요소가 늘면 비용을 다시 계산한다. 완료 조건은 로드맵 M4를 따른다.
@@ -88,10 +90,12 @@ Claude로 이어갈 때는 [시작 요청문](../ai/prompts.md#학교-aws-작업
 
 두 서버는 같은 Amazon Linux 2023·PostgreSQL 17.11을 사용한다. 학교 지침에 따라 별도 SG 화면에서 빈 그룹 생성, username 자동 태그 확인, 제한 규칙 추가를 거친 뒤 EC2 생성 화면에서 기존 그룹을 선택했다. 사용자가 우려한 '새 보안 그룹 생성' 금지는 EC2 생성 화면의 자동 생성 옵션에 해당한다. 기존 DB 그룹을 다시 만들 필요가 없다.
 
-| 역할 | 인스턴스 | 사설 주소·AZ | 루트 볼륨 |
-|---|---|---|---|
-| Primary | `i-0e302764af73d861f` | `172.31.1.229` / ap-northeast-2a | `vol-026b2f4c824fa9398`, 암호화 gp3 50GiB |
-| Standby | `i-099799f0dc164ae71` | `172.31.33.195` / ap-northeast-2c | `vol-02164bac33fa6596c`, 암호화 gp3 50GiB |
+이 절의 설치 기록에서 Primary·Standby는 생성 당시 역할이다. 2026-09-20 수동 전환 뒤 두 서버의 역할이 바뀌었으므로 명령을 옮길 때는 아래 표의 현재 역할과 실제 `pg_is_in_recovery()` 결과를 함께 확인한다.
+
+| 생성 당시 역할 | 현재 역할(2026-09-20 전환 뒤) | 인스턴스 | 사설 주소·AZ | 루트 볼륨 |
+|---|---|---|---|---|
+| Primary | Standby | `i-0e302764af73d861f` | `172.31.1.229` / ap-northeast-2a | `vol-026b2f4c824fa9398`, 암호화 gp3 50GiB |
+| Standby | Primary | `i-099799f0dc164ae71` | `172.31.33.195` / ap-northeast-2c | `vol-02164bac33fa6596c`, 암호화 gp3 50GiB |
 
 두 서버의 EC2 상태 검사 3/3, 브라우저 SSH, 50GiB XFS, 시간 동기화를 확인했다. `postgresql17-server`와 `postgresql17-contrib`를 공식 저장소에서 설치했다. Primary만 `initdb --encoding=UTF8 --locale=C.UTF-8 --auth-local=peer --auth-host=scram-sha-256 --data-checksums`로 초기화했다. 데이터 경로는 `/var/lib/pgsql/data`, 서비스는 `postgresql.service`다. Standby에서 initdb를 다시 실행하면 안 된다.
 
@@ -104,7 +108,7 @@ Claude로 이어갈 때는 [시작 요청문](../ai/prompts.md#학교-aws-작업
 | `/etc/postgresql/exchange.conf` | 두 DB 공통 설정, root:postgres 0640. shared_buffers 256MB, work_mem 4MB, max_connections 100. 부하 측정 전 초기값이다. |
 | `/etc/postgresql/node.conf` | localhost와 해당 서버의 사설 주소만 listen. 베이스백업으로 다른 서버 주소를 덮어쓰지 않도록 PGDATA 밖에 둔다. |
 | `/var/lib/pgsql/data/postgresql.conf` | 공통 설정 파일을 include한다. |
-| `/var/lib/pgsql/data/pg_hba.conf` | Primary는 로컬 peer, Standby `/32` 복제, 앱 `172.31.2.86/32`의 exchange_app hostssl·SCRAM을 허용한다. Standby HBA는 아직 앱 접속 규칙이 없어 승격 전에 역할에 맞춰 검토해야 한다. |
+| `/var/lib/pgsql/data/pg_hba.conf` | 생성 당시 Primary는 로컬 peer, Standby `/32` 복제, 앱 `172.31.2.86/32`의 exchange_app hostssl·SCRAM을 허용했고 이후 봇 `/32`를 더했다. 전환 때 [준비 도구](../../deploy/linux/postgresql/prepare-db-recovery.py)가 새 Primary `172.31.33.195`에 앱·봇 `/32`와 옛 Primary의 복제 `/32` 규칙을 추가했다. 재편입한 Standby의 PGDATA는 새 Primary의 베이스백업이므로 절차상 이 HBA의 사본을 가진다. 전환 뒤 두 서버의 파일을 다시 조회하지는 않았다. |
 | `/etc/postgresql/server.crt`, `server.key` | 각 노드에서 만든 TLS 인증서·개인 키. 개인 키는 postgres:postgres 0600이며 외부로 복사하지 않았다. 만료는 2026-12-18 UTC다. |
 | Standby의 `/etc/postgresql/primary.crt` | Primary의 공개 인증서를 신뢰 파일로 보관. 원본 지문과 일치하는 것을 확인했다. |
 | Standby의 `/var/lib/pgsql/.pgpass` | 복제 전용 비밀번호, postgres:postgres 0600. 값은 문서·Git·캡처에 남기지 않았다. 내용을 출력하지 않는다. |
@@ -140,7 +144,9 @@ sudo -u postgres psql -X -P pager=off -d infra_validation -c \
   'SELECT id,note FROM replication_probe ORDER BY id;'
 ```
 
-WAL 슬롯 보존은 기존 정책의 4GB를 유지했다. 이 값은 체크포인트 시점에 적용되므로 디스크 사용량의 절대 상한이 아니며, 초과하면 슬롯이 필요한 WAL을 잃어 다시 베이스백업을 받아야 할 수 있다. `wal_keep_size=0`, `archive_mode=off`다. 현재 Standby는 복제본이며 삭제·오입력까지 보호하는 별도 보관 백업을 대신하지 않는다. 앱 계정과 TLS 신뢰는 배포했다. 인증서 교체·만료 관리, 실제 장애 격리·승격·재편입과 별도 백업 복원은 후속 작업이다.
+첫 구성은 복제 슬롯 `standby_1`과 슬롯 WAL 보존 상한 4GB(`max_slot_wal_keep_size`)를 사용했다. 이 상한은 체크포인트 시점에 적용되므로 디스크 사용량의 절대 상한이 아니었다. 2026-09-20 재편입에서는 새 Primary에 그 슬롯이 없어 슬롯 없이 복제를 연결했다([재편입 코드](../../deploy/linux/postgresql/prepare-db-recovery.py)의 `primary_slot_name = ''`). 공통 설정은 `wal_keep_size=0`, `archive_mode=off`이므로 지금 Primary는 Standby를 위해 WAL을 따로 붙잡아 두지 않는다. Standby가 오래 끊기면 필요한 WAL이 재활용되어 베이스백업을 다시 받아야 할 수 있다. 슬롯을 다시 만들지, `wal_keep_size`를 둘지는 외부 백업 방식과 함께 사용자가 정한다. 이후 슬롯을 만든 기록은 없으며 서버에서 `pg_replication_slots`를 다시 조회하지는 않았다.
+
+Standby는 복제본이며 삭제·오입력까지 보호하는 별도 보관 백업을 대신하지 않는다. 앱 계정과 TLS 신뢰는 배포했다. 계획된 격리·승격·재편입과 격리 복원은 2026-09-20에 수행했다(아래 [DB 수동 전환](#db-수동-전환을-재현할-때) 절). 인증서 교체·만료 관리와 서버 밖에 보관하는 예약 백업은 남아 있다.
 
 ## 첫 앱 배포에서 확인한 것
 
@@ -224,7 +230,7 @@ CloudShell 시험에서는 터널을 통한 Grafana 헬스 200과 익명 API 401
 
 학교에서 푸시한 `codex/docs-linux-operations`의 `6ee11791c79564b37c47ea30659373a856eb91c8`을 원본으로 사용한다. 서비스 관제, 트래픽·Spring, AWS·서버, DB 관제, SQL·세션, 복제·복구의 6개 화면이다. 처음에는 두 커밋 뒤처진 PC의 4개 화면을 배포했으나 사용자가 제공한 화면과 대조해 잘못된 버전임을 확인하고 교체했다. GitHub 푸시는 정상이며 저장소 전체를 병합한 것은 아니다. 기존 작업 파일을 보존하고 대시보드 JSON만 해당 커밋에서 읽었다.
 
-[생성 스크립트](../../deploy/linux/observability/build-msp-dashboards.py)는 커밋을 고정해 AWS 사본을 `deploy/linux/observability/msp-dashboards/`에 만든다. 화면의 위치·크기·서비스 흐름도·이동 링크와 지표 식을 유지한다. 환경 기본값은 `aws`로 맞춘다. 아직 구성하지 않은 경보는 0건으로 표시하지 않도록 안내 패널로 대체하고, CloudWatch도 미연결 안내를 표시한다. 원본은 Git 커밋에 그대로 남으며 수집기를 연결할 때 이 제한을 함께 해제한다.
+[생성 스크립트](../../deploy/linux/observability/build-msp-dashboards.py)는 커밋을 고정해 AWS 사본을 `deploy/linux/observability/msp-dashboards/`에 만든다. 화면의 위치·크기·서비스 흐름도·이동 링크와 지표 식을 유지한다. 환경 기본값은 `aws`로 맞춘다. 최초 배포 때는 경보 규칙이 없어 경보 패널을 0건 대신 '미연결' 안내로 바꿨고, CloudWatch도 미연결 안내를 표시한다. 원본은 Git 커밋에 그대로 남으며 수집기를 연결할 때 이 제한을 함께 해제한다. 경보 규칙은 2026-09-20에 연결했으므로 2026-09-23 저장소의 생성 스크립트는 경보 패널을 원본 조회식으로 되돌렸다. 이 패널은 고객 서버 역할(app·reader·data·standby·probe)의 경보만 세며 bot-1과 보고 서비스 경보는 세지 않는다. 학교 Grafana에는 아직 다시 배치하지 않았다(저장소만 수정, 서버 미적용).
 
 ```powershell
 python deploy/linux/observability/build-msp-dashboards.py
@@ -238,7 +244,7 @@ python deploy/linux/observability/build-msp-dashboards.py
 
 Prometheus 설정은 [학교 수집 설정](../../deploy/linux/observability/prometheus.yml)을 `/etc/prometheus/prometheus.yml`에 배치한다. `promtool check config`를 통과한 뒤 서비스를 재시작했다. 앱은 `customer=exchange`, `environment=aws`, `account=school`, `role=app`, `node=app-1`, `job=exchange-api`로 수집한다. `external_labels`만으로는 로컬 조회에 환경 라벨이 붙지 않으므로 각 수집 대상에도 명시했다. bot-1의 역할은 `observability`이며 고객 앱·DB 호스트로 표시하지 않는다. 기존 Linux 대시보드와 AI 보고의 `linux` 작업 이름도 유지했다. 이전 시계열은 보존되며 새 라벨은 적용 시점부터 쌓인다.
 
-최신 화면의 PromQL 121개는 오류 없이 실행됐고 초기 검사에서 16개에 데이터가 있었다. 앱 수집 UP과 서비스 가능 여부·리더·HTTP 요청·CPU 지표를 확인했다. 이 초기 검사 시점에는 DB exporter·앱과 DB의 호스트 수집·사이트 프로브·CloudWatch·경보 규칙이 연결 전이었다. 이후 호스트·DB 지표를 연결했으며 결과는 아래 절을 따른다. 정상 거래·부하와 실제 장애 복구는 따로 검증해야 한다. AI·Teams 보고 범위는 여전히 bot-1이다. 최초 50개 쿼리 검사 결과는 교체 전 화면의 중간 결과이며 최신본 검증으로 인용하지 않는다.
+최신 화면의 PromQL 121개는 오류 없이 실행됐고 초기 검사에서 16개에 데이터가 있었다. 앱 수집 UP과 서비스 가능 여부·리더·HTTP 요청·CPU 지표를 확인했다. 이 초기 검사 시점에는 DB exporter·앱과 DB의 호스트 수집·사이트 프로브·CloudWatch·경보 규칙이 연결 전이었다. 이후 호스트·DB 지표를 연결했으며 결과는 아래 절을 따른다. 정상 거래·부하와 실제 장애 복구는 따로 검증해야 한다. 이 초기 검사 시점의 AI·Teams 보고 범위는 bot-1뿐이었다. 2026-09-20부터는 Alertmanager가 app-1·DB의 경보를 받아 Teams 카드와 AI 보고로 보낸다([2026-09-20 절](#2026-09-20-백업복원과-보고서-연결)). 다만 학교 서버의 Linux 규칙은 app·DB만 보며 bot-1 자신의 호스트·서비스 경보는 아직 없다([마지막 절](#2026-09-23-저장소와-학교-서버의-차이)). 최초 50개 쿼리 검사 결과는 교체 전 화면의 중간 결과이며 최신본 검증으로 인용하지 않는다.
 
 접근 시험은 봇에서 GET `/metrics` 200, POST 403, 다른 경로 404였고 비허용 출발지인 앱 자체에서는 지표 403이었다. 기존 공개 포트의 actuator 차단 403과 앱 홈 200도 확인했다.
 
@@ -317,7 +323,7 @@ sudo ss -lntp
 
 ## 디스크가 차기 전에 확인하는 방법
 
-SSM 터널을 연 뒤 `http://127.0.0.1:13000/d/msp-storage?var-customer=exchange&var-environment=aws`로 접속한다. 상단의 **07 · 디스크·용량**에서도 이동한다. 호스트별 사용률·남은 용량·파일시스템 크기·inode와 PostgreSQL의 DB·WAL 크기를 표시한다. 수집 실패나 오래된 샘플을 정상 0으로 만들지 않는다. 70% 주의, 85% 조치, 95% 긴급은 화면 색상 기준이며 Prometheus 경보나 Teams 발송은 아직 연결하지 않았다.
+SSM 터널을 연 뒤 `http://127.0.0.1:13000/d/msp-storage?var-customer=exchange&var-environment=aws`로 접속한다. 상단의 **07 · 디스크·용량**에서도 이동한다. 호스트별 사용률·남은 용량·파일시스템 크기·inode와 PostgreSQL의 DB·WAL 크기를 표시한다. 수집 실패나 오래된 샘플을 정상 0으로 만들지 않는다. 70% 주의, 85% 조치, 95% 긴급은 화면 색상 기준이다. 경보는 이와 별도로 여유 공간 15% 미만이 5분 이어지면 발생한다. 2026-09-20에 연결했고 app-1의 별도 128MiB 시험 파일시스템으로 발생·해제 보고를 확인했다(아래 [경보 절](#경보-발생과-해제를-확인한-범위)). 이때 서버에 적용한 규칙은 `job="linux-host"`(app-1·DB 두 대)만 보므로 bot-1 디스크는 아직 경보 대상이 아니다. bot-1의 여유가 줄면 [용량 보호](#저장-공간이-부족해지기-전에-멈추기)가 봇만 멈추며, 그 중지를 알리는 경보도 적용본에는 없다. bot-1을 포함한 저장소 규칙은 [마지막 절](#관측-규칙을-서버에-적용하는-순서)의 순서로 적용한다.
 
 50GiB를 넘겨 계속 저장할 수 있는 구조가 아니다. 공간이 가득 차면 DB 쓰기와 로그 기록에 장애가 생길 수 있으므로 그 전에 원인을 찾는다. Primary와 Standby의 디스크는 각각 50GiB이며 복제 때문에 두 용량이 합쳐지지 않는다. 현재 DB 데이터·WAL·OS·로그가 같은 루트 볼륨을 사용한다. 화면의 파일시스템 약 49.9GiB와 EC2의 할당량 50GiB 표시는 구분한다.
 
@@ -345,6 +351,8 @@ DB 자체가 커졌으면 거래 기록의 보존 정책·별도 보관과 용�
 
 ### AI·Teams 운영 보고
 
+이 소절의 아래 여섯 문단은 bot-1만 보던 첫 보고 방식(`report.py`와 `exchange-report-*` 타이머)을 설명한다. 이 타이머는 2026-09-20에 껐고, 지금은 [공통 보고 서비스](../../deploy/reporting/README.md)의 `failstop-reporting`과 Alertmanager가 보고한다. 현재 방식은 아래 [2026-09-20 백업·복원과 보고서 연결](#2026-09-20-백업복원과-보고서-연결) 절을 따른다.
+
 [보고 소스](../../deploy/linux/reporting/report.py)는 Prometheus에서 bot-1 수치와 필요한 서비스 상태를 읽는다. 수집 실패나 오래된 데이터가 있으면 확인 대상으로 표시한다. AI 의견과 별개로 실측값·판정·확인 항목을 보고에 남기며, 모델이 조치를 실행하는 기능은 없다. 현재의 일일 보고는 매일 한 번 실행하는 상태 점검이다. 하루 전체의 가용성 통계나 로그 종합 분석으로 설명하지 않는다.
 
 사용자 승인으로 기존 API 키·웹훅을 `/etc/exchange-report/` 아래 root 0600 파일에 저장했다. systemd `LoadCredential`로 보고 전용 서비스에만 전달하며 값은 명령 이력·캡처·Git에 넣지 않는다. 로컬 원본 `.evn`도 Git에서 제외한다. 파일을 `source`로 실행하지 않는다. 비밀 파일 내용을 다른 계정의 이전 설명서나 배포 ZIP에 넣지 않는다.
@@ -353,9 +361,9 @@ DB 자체가 커졌으면 거래 기록의 보존 정책·별도 보관과 용�
 
 실행 상태는 `systemctl list-timers 'exchange-report-*' --all --full --no-pager`, 최근 결과는 `sudo journalctl -u exchange-report@daily.service -u exchange-report@incident.service -n 30 --no-pager`로 확인한다. `/var/lib/exchange-report/latest-snapshot.json`에 수집값, `latest-report.json`에 보고 본문, `delivery-state.json`에 중복 방지·전송 상태를 남긴다. 같은 날 일일 보고를 다시 실행해도 이미 접수된 보고는 재전송하지 않는다.
 
-전송 중 연결이 끊기면 Teams가 메시지를 받았는지 모호할 수 있다. 이 경우 상태 파일의 `pending`을 유지하고 자동 발송을 멈춘다. Teams 채널과 Workflows 실행 기록을 확인한 뒤 해당 보고가 도착했는지 판단해야 한다. 원인 확인 없이 상태 파일을 지우거나 초기화하면 중복 보고가 생길 수 있다. HTTP 접수 성공과 채널 표시도 별도로 확인한다.
+전송 중 연결이 끊기면 Teams가 메시지를 받았는지 모호할 수 있다. 이 경우 상태 파일의 `pending`을 유지하고 자동 발송을 멈춘다. Teams 채널과 Workflows 실행 기록을 확인한 뒤 해당 보고가 도착했는지 판단해야 한다. 원인 확인 없이 상태 파일을 지우거나 초기화하면 중복 보고가 생길 수 있다. HTTP 접수 성공과 채널 표시도 별도로 확인한다. 이 '불확실하면 멈춤' 동작은 첫 보고 방식의 것이다. 지금 쓰는 `failstop-reporting`은 응답 시간 초과·연결 실패처럼 HTTP 상태가 없는 실패와 408·429·5xx를 재시도 대상으로 보고 한 보고를 최대 6회까지 보낸다([reporter.py](../../deploy/reporting/reporter.py)의 `drain_one`). Teams가 이미 접수한 뒤 응답만 늦었다면 같은 카드가 다시 올 수 있다. 공통 보고 안내도 이 한계를 적고 있다. 멈출지 중복을 허용할지는 사용자 결정으로 남겨 두었고 코드는 바꾸지 않았다.
 
-첫 시험에서는 마지막 수집 후 경과 시간을 AI가 지연으로 설명했다. 15초 수집 주기·60초 신선도 기준을 입력에 명시하고, 이상 항목이 없으면 원인을 추측하지 않도록 고쳤다. 수정본의 AWS 재호출은 정상 범위 수치만 요약했다. 첫 Teams 메시지를 수정하거나 추가 발송하지는 않았다. 실제 장애와 회복 전송, 보고 노드 자체 장애에 대한 외부 감시, 하루 통계·앱·DB·로그 연동은 후속 작업이다.
+첫 시험에서는 마지막 수집 후 경과 시간을 AI가 지연으로 설명했다. 15초 수집 주기·60초 신선도 기준을 입력에 명시하고, 이상 항목이 없으면 원인을 추측하지 않도록 고쳤다. 수정본의 AWS 재호출은 정상 범위 수치만 요약했다. 첫 Teams 메시지를 수정하거나 추가 발송하지는 않았다. 실제 장애와 회복 전송은 2026-09-20 새 보고 서비스로 확인했다. 보고 노드 자체 장애에 대한 외부 감시와 하루 통계·로그 연동은 남아 있다.
 
 ### 계정과 배포 범위
 
@@ -470,7 +478,7 @@ systemctl list-timers certbot-renew.timer --no-pager
 sudo certbot renew --dry-run --run-deploy-hooks
 ```
 
-`/tmp/certbot-nginx-reload.sh`의 원본은 [갱신 후 Nginx 적용 훅](../../deploy/linux/app/certbot-nginx-reload.sh)이다. 타이머 활성화와 모의 갱신 성공을 확인했다. 훅은 `nginx -t`에 성공해야 reload한다. Certbot 출력의 `Hook ran with error output` 아래 두 줄은 Nginx가 표준 오류에 쓰는 구문 검사 성공 메시지이며, 갱신 결과는 success였다. 실제 만료 시점의 자동 갱신은 아직 도래하지 않았다. 이후에는 `journalctl -u certbot-renew.service`와 타이머 상태를 점검한다. 갱신 실패의 Teams 경보는 아직 연결하지 않았다.
+`/tmp/certbot-nginx-reload.sh`의 원본은 [갱신 후 Nginx 적용 훅](../../deploy/linux/app/certbot-nginx-reload.sh)이다. 타이머 활성화와 모의 갱신 성공을 확인했다. 훅은 `nginx -t`에 성공해야 reload한다. Certbot 출력의 `Hook ran with error output` 아래 두 줄은 Nginx가 표준 오류에 쓰는 구문 검사 성공 메시지이며, 갱신 결과는 success였다. 실제 만료 시점의 자동 갱신은 아직 도래하지 않았다. 이후에는 `journalctl -u certbot-renew.service`와 타이머 상태를 점검한다. 갱신이 실패하면 `certbot-renew.service`가 failed 상태가 된다. 2026-09-23 저장소의 node_exporter 수집 목록에 이 유닛을 넣어 기존 `LinuxServiceFailed` 경보가 잡도록 했지만 학교 app-1에는 아직 적용하지 않았다(저장소만 수정, 서버 미적용). 적용 전까지 갱신 실패의 Teams 경보는 없다.
 
 문제가 생기면 `.before-https` 백업 두 파일을 확인한 뒤 `/etc/nginx/nginx.conf`와 `/etc/exchange/app.env`를 복원하고 앱 재시작·`nginx -t`·Nginx reload 순서로 되돌린다. 이 백업은 PC IP 제한과 ACME 경로를 유지하므로 HTTPS 설정 복원과 SG 규칙 철회는 별도다. 기존 SG 규칙을 임의로 수정하지 않는다. 현재 공인 IP는 고정 IP가 아니므로 EC2 중지 후 다시 시작할 때 주소와 DNS를 재확인해야 한다.
 
@@ -528,6 +536,8 @@ DB 연결 풀 상한은 요청 4개·append 1개·lease 1개다. 현재 앱의 3
 
 현재 판정은 `/var/lib/exchange-bot-guard/state.json`, 시간별 용량 표본은 같은 디렉터리의 `hourly-capacity.csv`에 남는다. 정상 상태의 타이머 실행과 로컬 판정 테스트 4개를 확인했다. 실제 디스크를 가득 채워 중지를 유발하는 시험은 하지 않았다. 사용자는 10월 16일까지 가동할 계획이나 종료 시각과 예약 중지는 아직 설정하지 않았다. 하루 증가량은 충분한 표본을 모은 뒤 계산하며 하루 1~2GB라는 추정을 측정값으로 쓰지 않는다.
 
+저장소의 이전 판(`6e97639`)은 봇을 멈추거나 수집 누락을 기록한 판정에도 종료 코드 1로 끝나 `exchange-bot-capacity.service`가 failed로 남는다. bot-1 설치본도 이 판에서 나온 것으로 보지만 서버 파일과 해시를 대조하지는 않았다. 2026-09-23 저장소 판은 판정을 마치면 정상 종료하고, 봇 중지나 판정 기록을 끝내지 못한 스크립트 오류만 failed로 남긴다. 판정 결과는 `state.json`과 봇 서비스 중지 경보로 확인한다. 옛 판을 둔 채 새 수집 목록과 경보 규칙을 적용하면 봇 중지 한 번에 critical 서비스 장애 경보가 겹쳐 나가고, 다른 서버의 수집이 90초 넘게 끊겨도 bot-1의 서비스 장애 경보가 난다. 저장소만 수정했고 서버에는 적용하지 않았다. 적용 순서는 [마지막 절](#관측-규칙을-서버에-적용하는-순서)에 있다. 로컬 테스트는 이 종료 코드를 포함해 7개다.
+
 ### 어드민과 용량 관리
 
 현재 봇 관리자 주소는 `https://www.sang.it.kr/admin/bots`다. 사용자 로그인과 BTC·ETH·XRP 15대 조회, 현재 대수를 유지하는 `sim.scale` 실행을 확인했다. DB 감사에는 `fleet_present=true`와 적용 대수가 기록됐다. 웹에서 3→2→3 OPS를 적용해 서버 현재·목표 값이 함께 바뀌는 것도 확인했다. 시험 후 3 OPS로 복귀했다. 속도 슬라이더는 1 OPS 단위이며 현재 기본값은 전체 3 OPS다. 사용자 PC에 인증서를 설치하지 않는다. 아이디 `dltkdgur`와 앱 서버에서 직접 만든 비밀번호를 쓰며 Grafana와는 별도 계정이다. 현재 운영자는 조회와 봇 제어만 할 수 있다. 학교 배포의 신뢰 경계와 제한은 [ADR 0031](../reference/adr/0031-school-admin-password-gateway.md)을 따른다.
@@ -566,6 +576,8 @@ AWS 조작과 Linux 명령은 한 단계씩 실행하고 실제 화면을 [날�
 ## 2026-09-20 백업·복원과 보고서 연결
 
 화면에 ‘연결 끊김’이 표시됐지만 봇 프로세스와 실제 거래는 계속 실행 중이었다. 직전 웹 빌드에서 `.env.local`의 `localhost:8080`이 번들에 들어간 것이 원인이었다. PowerShell에서 빈 환경 변수 설정이 삭제로 처리될 수 있어 [배포 빌드 도구](../../deploy/linux/app/build-web.ps1)는 HTTPS·WSS 주소를 명시한다. 빌드 뒤 localhost 잔존 검사도 통과해야 한다. 현재 배포 경로는 `/opt/exchange-web/releases/origin-20260920`이며 이전 `admin-controls-20260920`도 보존했다. ZIP SHA-256은 `5df8abe14f8a488622aa647baaea75b48fa979926dfbc5cfc2bdd8720bd66282`다.
+
+이 웹은 지금의 main이 아니다. 이 PC 저장소 루트의 `tmp/exchange-web-origin-20260920.zip`(Git 무시 경로)은 2026-09-23에 다시 잰 SHA-256이 위 값과 같고 파일 시각은 2026-09-20 01:22 KST다. 그 전후로 `web/`을 바꾼 커밋은 같은 날 02:22의 `6e97639` 하나이므로 배포본은 그 무렵의 웹 코드다. 커밋 전 작업 트리에서 빌드했으므로 `6e97639`와 파일 단위로 같은지는 확인하지 않았다. 묶음에는 이후 main에서 삭제한 `admin/chaos.html`과 `admin/monitoring.html`이 들어 있고, 앱 Nginx의 `/admin/` 정적 경로는 이 파일을 로그인 없이 내려준다. 화면이 부르는 관리 API는 로그인 세션과 운영자 역할(VIEWER·BOT_OPS) 검사를 거치지만 각 화면의 호출이 실제로 거절되는지는 확인하지 않았다. `admin-controls-20260920`은 localhost 주소가 들어간 번들이라 되돌릴 대상으로 쓰지 않는다. main의 웹을 다시 배포할지는 사용자가 정한다.
 
 백업은 [백업·격리 복원 도구](../../deploy/linux/postgresql/backup-restore-check.py)와 `harness/sql/summary.sql`을 Primary의 `/tmp`에 전송한 뒤 실행한다.
 
@@ -623,7 +635,7 @@ Java 프로세스의 SIGTERM 종료 코드 143이 systemd에서 실패로 잡히
 
 ## 경보 발생과 해제를 확인한 범위
 
-Standby를 3분간 중지하고 자동 재기동을 예약해 DB 접속 실패·복제 연결 끊김 경보를 확인했다. 수동 DB 전환 중 앱 지표 수집 중단도 감지했다. 별도 128MiB loop 파일시스템을 98% 사용 상태로 만들어 여유 15% 미만 5분 경보를 확인한 뒤, 7분 자동 공간 반환과 경보 해제를 확인했다. 운영 루트·DB 볼륨은 채우지 않았다. 시험 이미지는 남기고 마운트만 해제했다.
+Standby를 3분간 중지하고 자동 재기동을 예약해 DB 접속 실패·복제 연결 끊김 경보를 확인했다. 수동 DB 전환 중 앱 지표 수집 중단도 감지했다. app-1에 만든 별도 128MiB loop 파일시스템을 98% 사용 상태로 만들어 여유 15% 미만 5분 경보를 확인한 뒤, 7분 자동 공간 반환과 경보 해제를 확인했다. 운영 루트·DB 볼륨은 채우지 않았다. 시험 이미지는 남기고 마운트만 해제했다.
 
 발생·해제 모두 보고 저장소에서 `sent`, PDF·HTML 생성은 `ready`, 분석 모드는 `gemini`로 확인했다. 사용자는 연결 검증 카드와 두 파일을 실제 Teams에서 열었다. 개별 장애 카드 전체를 사람이 하나씩 열람했다는 뜻은 아니다. 최종 시각별 결과는 증거본의 025·039·050 이후를 따른다. 외부 사이트 프로브는 아직 없어 앱 프로세스 건강·지표 응답과 인터넷에서의 실제 접속 성공을 구분해야 한다.
 
@@ -663,8 +675,135 @@ grep -cE 'ConcurrentBag\.(add|requite|unreserve)' /tmp/threaddump.txt
 
 기동은 12.7초가 걸렸고 엔진 복구는 마켓별 스냅샷을 채택해 83건을 재생했다. 리더는 epoch=6으로 승격하고 모든 마켓이 head에 도달해 승격 재생을 생략했다. 조치 후 컨텍스트 스위치는 초당 78~1,227회, 시스템 시간은 1~2%로 내려갔고 양보 프레임과 가상 스레드 운반 표시는 0건이었다. 공개 API는 33ms에 200을 반환했고 봇 체결도 이어졌다.
 
+무응답 동안 앱 지표 수집(`SpringMetricsUnavailable`) 경보가 발생해 Teams로 전달됐는지는 기록하지 않았다. 관리 포트까지 응답하지 않았으므로 발생했을 가능성이 크지만, 확인하려면 Teams 채널과 bot-1 보고 저장소(`/var/lib/failstop-reporting/outbox.sqlite3`, [조회 도구](../../deploy/linux/reporting/check-school-alerts.py))의 해당 시각 기록을 읽어야 한다.
+
 저장소 기본값도 같은 값으로 맞췄다. 근거와 한계는 [ADR 0033](../reference/adr/0033-no-virtual-threads-for-request-handling.md), 명령과 출력 원본은 [증거본](../../증거본/2026-09-21_앱장애_행/README.md)에 있다. 최초 유발 계기와 플랫폼 스레드 풀의 부하 여유는 확인하지 못했다.
 
 ### 접속 경로 메모
 
-이번 진단은 앱 SG `sg-0e321b38da5cc8aaf`에 작업 PC 공인 IP 한 개를 허용하는 임시 규칙을 추가해 기존 키페어로 직접 SSH했다. 작업 후 규칙은 제거했다. 키 파일이 있어도 SG가 막혀 있으면 접속할 수 없으므로, 급할 때는 규칙 추가 대신 EC2 Instance Connect 브라우저 SSH를 쓰는 편이 빠르다. 임시 규칙을 남겨 두지 않는다.
+이번 진단은 앱 SG `sg-0e321b38da5cc8aaf`에 작업 PC 공인 IP 한 개를 허용하는 임시 규칙 `sgr-0d9048f7fa2710caa`(TCP 22)를 추가해 기존 키페어로 직접 SSH했다. 이 규칙을 제거했는지는 기록이 서로 다르다. [증거본](../../증거본/2026-09-21_앱장애_행/README.md)은 '아직 남아 있으며 제거 대상'이라고 적었고 이 문서의 이전 판은 제거했다고 적었다. 제거 명령이나 화면은 어디에도 없으므로 미확인으로 둔다. 확인은 EC2 콘솔의 앱 SG 인바운드 규칙 목록이나 읽기 전용 조회 `aws ec2 describe-security-group-rules --filters Name=group-id,Values=sg-0e321b38da5cc8aaf --profile school-2026-ai-kopo-04 --region ap-northeast-2`로 한다. 남아 있으면 제거도 SG 변경이므로 사용자 승인 뒤 수행하고 전후 화면을 증거본에 남긴다. 키 파일이 있어도 SG가 막혀 있으면 접속할 수 없으므로, 급할 때는 규칙 추가 대신 EC2 Instance Connect 브라우저 SSH를 쓰는 편이 빠르다. 임시 규칙을 남겨 두지 않는다.
+
+## 2026-09-23 저장소와 학교 서버의 차이
+
+이 절은 학교 AWS에 접속하지 않고 저장소 파일, 기존 증거와 이 PC에 남은 배포 묶음을 대조해 정리했다. 같은 날 밤 여러 영역(주문, 백업, 워치독, 관측 연결)의 수정을 모은 뒤 다시 맞췄다. 학교 서버의 현재 상태는 이번에 다시 조회하지 않았다. 아래에서 저장소를 고친 항목은 모두 서버에 적용하지 않았으며(저장소 템플릿만 수정, 서버 미적용), 적용은 사용자 승인 뒤 한 단계씩 실행하고 증거본에 남긴다.
+
+### 서버에 아직 반영하지 않은 저장소 수정
+
+| 저장소 파일 | 2026-09-23 저장소 변경 | 학교 서버 적용본 |
+|---|---|---|
+| [app.env.school-private](../../deploy/linux/app/app.env.school-private), [bot.env.school](../../deploy/linux/bot/bot.env.school), [admin.env.school](../../deploy/linux/bot/admin.env.school) | `SPRING_THREADS_VIRTUAL_ENABLED=false`와 ADR 0033 근거 주석 | app-1은 2026-09-21에 같은 값을 넣었다. bot-1은 확인하지 않았다 |
+| 서버 코드와 [V47](../../server/app/src/main/resources/db/migration/V47__order_intake_failure_resolution.sql) | 모호한 커밋 판정과 멱등 키 공유 표시, 정산 일시 오류 재시도, 정지 마켓의 주문·취소 422, 새 카운터 다섯 개 | app-1·bot-1 모두 JAR `3362117`, DB는 V46까지. 아래 [JAR 배포](#주문-v47을-포함한-jar-배포) 절 |
+| [node_exporter.service](../../deploy/linux/observability/node_exporter.service), [node_exporter-host.service](../../deploy/linux/observability/node_exporter-host.service) | 유닛 필터 오타 `exchange-bots`를 `exchange-bot`으로 고치고 nginx·certbot-renew·postgres_exporter·alertmanager·failstop-reporting·용량 보호·일일 보고·DB 백업·워치독 유닛과 타이머를 더했다. textfile 수집기를 켜고 경로는 호스트마다 `/etc/node_exporter/textfile.env`로 받는다([DB용](../../deploy/linux/observability/node_exporter-textfile.env.db), [워치독용](../../deploy/linux/observability/node_exporter-textfile.env.watchdog)) | 옛 목록이라 봇·Nginx·보고 서비스의 상태를 수집하지 않고 textfile 수집기가 없다 |
+| [prometheus.yml](../../deploy/linux/observability/prometheus.yml) | `rule_files` 네 줄(학교·백업·워치독·점검 규칙)과 `alerting` 절 | 2026-09-20 연결 도구가 `school-alerts.yml` 한 줄과 `alerting` 절을 붙였다. 서버 파일과의 해시 대조는 하지 않았다 |
+| [school-alerts.yml](../../deploy/linux/reporting/school-alerts.yml) | bot-1(`job="linux"`) 포함, 보고 서비스 중지·일일 보고 미실행·봇 중지 규칙과 주문·정산 카운터 규칙 세 개 추가(10개에서 16개). `LinuxServiceFailed`는 워치독을 보고 DB 백업 유닛은 뺀다 | 규칙 10개. Linux 규칙은 `job="linux-host"`(app·DB)만 본다 |
+| [alertmanager.school.yml](../../deploy/linux/reporting/alertmanager.school.yml) | 첫 경로로 Watchdog을 빈 수신자 `watchdog-null`에 보낸다. 억제 규칙은 bot-1 수집 중단과 textfile 오류용을 더해 3개, 수신자 3개 | 억제 규칙 1개, Watchdog 경로 없음 |
+| [capacity_guard.py](../../deploy/linux/bot/capacity_guard.py) | 판정(봇 중지·수집 누락)을 마치면 정상 종료하고 스크립트 오류만 failed로 남긴다. [테스트](../../deploy/linux/bot/test_capacity_guard.py) 4개에서 7개 | 이전 판으로 보이며 판정 결과에도 failed가 된다(해시 미대조) |
+| [DB 백업 도구](../../deploy/linux/postgresql/backup/README.md) | 새로 만든 Docker 없는 물리 베이스백업·선택적 S3 보관 도구, systemd 타이머, 경보 7개 | 설치하지 않았다. 아래 [DB 백업](#db-백업-설치와-외부-보관) 절 |
+| [관측 경로 워치독](../../deploy/linux/watchdog/README.md) | 새로 만든 app-1→bot-1 교차 점검과 bot-1 로컬 점검, Watchdog 데드맨 규칙, 점검 중단 규칙, Teams 직접 전송 | 설치하지 않았다 |
+| [MSP 화면 생성 스크립트](../../deploy/linux/observability/build-msp-dashboards.py), [07 디스크·용량 화면](../../deploy/linux/observability/storage_dashboard.py)과 생성 JSON | 10~15번의 경보 패널을 '미연결' 안내에서 원본 조회식으로 복원하고, 16번의 'Teams 경보 미연결' 안내를 실제 디스크 경보 기준과 bot-1 제외 설명으로 고쳤다 | '미연결' 안내 |
+| 웹 | http 모드 입출금의 `Idempotency-Key` 누락과 금액 입력의 number 변환을 고쳤다 | 공개 웹은 `origin-20260920` 묶음이라 두 결함이 그대로다. 재배포 여부는 사용자가 정한다 |
+| [Terraform](../../deploy/terraform/README.md) | NAT Gateway 기본 끔(ADR 0030), `enable_nat_gateway=true`일 때만 AZ별 NAT | 학교와 무관하며 개인 계정에도 배포하지 않았다 |
+
+저장소 규칙은 이 PC에 있던 `prom/prometheus:v3.13.0` 이미지의 promtool로 `check rules`(학교 16개, 백업 7개, 워치독 1개, 점검 2개)와 네 파일을 모두 둔 `check config`(규칙 26개)를 통과했다. Alertmanager 설정은 `prom/alertmanager:v0.34.0`의 `amtool check-config`와 경로 시험을 통과했다(학교는 0.31.1). 새 [규칙 시험](../../deploy/linux/reporting/school-alerts.test.yml)과 백업·워치독 규칙 시험도 promtool에서 통과했고, 파일 경로·유닛 이름·지표 이름이 서로 맞는지 보는 [연결 시험](../../deploy/linux/tests/test_observability_wiring.py) 9건도 통과했다. 시험은 경보가 나야 하는 입력과 나지 않아야 하는 입력을 짝지어 두고 지속 조건이 지난 시각에 평가한다. 봇이 계속 active인 대조 입력을 inactive로 바꾸면 시험이 실패하는 것도 확인했다. 같은 시험의 초기판을 이전 규칙 파일에 돌리면 bot-1 호스트 경보 기대 세 건과 새 규칙 기대 네 건이 어긋나 실패했다. 용량 보호 테스트 7개는 `python -B -m unittest`로 통과했고, 이전 판에 돌리면 종료 코드를 보는 두 개가 실패한다. Terraform은 이 PC에 실행 파일이 없어 `fmt`·`validate`·`test`를 돌리지 못했다. 저장소 CI의 `infrastructure-contracts` 작업이 같은 검사를 실행한다.
+
+### bot-1의 가상 스레드
+
+bot-1에 설치한 JAR `3362117`의 `application.yml`은 `spring.threads.virtual.enabled: true`이고 어느 프로필도 이를 끄지 않는다. 2026-09-21 조치는 app-1의 `/etc/exchange/app.env` 한 곳에만 적용했고, 그때까지 저장소의 봇 설정에는 끄는 값이 없었다. 따라서 bot-1의 봇·관리 API JVM은 app-1에서 라이브락을 일으킨 조합 그대로 요청을 처리하고 있을 가능성이 크다. 이것은 설정 파일에서 끌어낸 추론이며 서버에서 확인하지 않았다. 봇 JVM에서 같은 라이브락이 일어나는지도 시험하지 않았다.
+
+먼저 읽기 전용으로 확인한다. 두 번째 명령은 프로세스 환경에서 해당 변수 한 줄만 고르며 다른 값은 출력하지 않는다. 아무것도 나오지 않으면 JAR 기본값대로 가상 스레드가 켜져 있다.
+
+```bash
+sudo grep -H '^SPRING_THREADS_VIRTUAL_ENABLED=' /etc/exchange-bot/bot.env /etc/exchange-bot/admin.env
+sudo cat /proc/$(systemctl show -p MainPID --value exchange-bot)/environ | tr '\0' '\n' | grep '^SPRING_THREADS_VIRTUAL_ENABLED='
+```
+
+적용은 사용자 승인을 기다린다. 승인되면 app-1과 같은 방식으로 `/etc/exchange-bot/bot.env`를 날짜 붙은 이름으로 복사해 해시를 대조하고, `SPRING_THREADS_VIRTUAL_ENABLED=false` 한 줄을 더한 뒤 `exchange-bot`을 재시작한다. 재시작하는 동안 시장 봇과 `/admin/bots` 관리 API가 잠시 멈춘다. 재시작 뒤 위 확인 명령, 8081 liveness, 봇 체결 재개와 메모리를 확인한다.
+
+### 주문 V47을 포함한 JAR 배포
+
+2026-09-23 저장소의 서버 코드는 모호한 커밋 판정(V47), 정산 일시 오류 재시도, 정지 마켓 422를 담는다. 학교 app-1과 bot-1의 JAR `3362117`에는 이 수정이 없다. V47은 `idempotency_keys`에 기본값 없는 널 허용 열 `shared_at`을 더하고 판정 함수 `resolve_failed_order_intake`를 만든다. 표를 다시 쓰지는 않지만 `ALTER TABLE`이 잠깐 배타 잠금(ACCESS EXCLUSIVE)을 잡고 prod 풀의 `lock_timeout` 2초를 따르므로, 그 표를 잡은 세션이 남아 있으면 앱 기동이 실패한다. 그래서 봇과 앱을 멈춘 쓰기 정지 창에서 적용한다. 아래는 사용자 승인 뒤 실행할 순서이며 아직 실행하지 않았다.
+
+1. ASCII 경로의 `server`에서 `.\gradlew.bat build`를 통과시킨 뒤 bootJar의 SHA-256을 기록하고 기존 절차대로 비공개 S3에 올린다. app-1에 설치된 JAR 파일과 해시도 롤백용으로 따로 기록한다. bot-1의 JAR을 함께 바꿀지는 따로 정한다.
+2. 적용 전 백업: Primary `172.31.33.195`에서 거래 DB 전체를 `pg_dump`로 떠 Primary 로컬 밖에도 보관한다. `SELECT version, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 3;`으로 마지막이 V46 success인지 확인한다.
+3. 쓰기 정지 창 시작: bot-1의 `exchange-bot`, app-1의 `exchange-app`을 차례로 멈춘다. `pg_stat_activity`에서 앱 계정 세션과 `idempotency_keys`를 잡은 세션이 남지 않았는지 본다.
+4. 새 JAR로 바꾸고 `exchange-app`만 먼저 기동한다. prod의 Flyway가 기동 중 V47을 적용한다. 한 노드에서 마이그레이션을 끝낸 뒤 나머지를 기동한다는 0099의 전환 순서와 같다.
+5. 확인: `flyway_schema_history`에 47 success, `\d idempotency_keys`에 `shared_at timestamptz`, `has_function_privilege('app_role', 'resolve_failed_order_intake(bigint,character varying,character varying,bigint,boolean)', 'EXECUTE')`가 true, readiness UP을 본다. 관리 지표에서 `exchange_settlement_transient_retries_total`, `exchange_settlement_transient_exhausted_total`, `exchange_order_intake_commit_recovered_total`, `exchange_order_idempotency_key_kept_total`, `exchange_order_intake_unresolved_total`이 0으로 보이는지 본다. 소액 지정가 주문 1건 접수, 같은 `client_order_id` 재전송의 200 재생(`X-Idempotent-Replay`), 취소를 확인한다.
+6. 봇을 다시 켜고 쓰기 정지 창을 닫는다. 1~6단계의 명령과 출력을 증거본에 남긴다.
+
+되돌릴 때는 이전 JAR로 바꾸고 다시 기동한다. V47은 추가만 하므로 스키마는 그대로 두며, `flyway_schema_history`의 V47 행을 지우거나 repair하지 않는다. Flyway 11.7.2는 기본 설정에서 모르는 미래 버전을 무시하므로 이전 JAR도 검증을 통과할 것으로 보이지만 학교에서 확인한 적은 없다(추정). 이전 JAR로 돌아가면 모호한 커밋 뒤 키 삭제와 정산 재시도 부재가 되살아나고, 새 JAR이 공유 표시를 채운 키도 이전 JAR은 조건 없이 지운다. `shared_at` 열과 판정 함수는 남아도 해가 없다. 보존 태그 `wip/per-market-leader-20260923`의 V47(`V47__discard_orphan_idempotency_key.sql`)은 번호가 겹치므로 이 DB에 올리지 않는다.
+
+저장소 쪽 확인은 Testcontainers 통합 시험과 서버 전체 build(735건 통과)까지다. 장애 주입으로 커밋 응답 유실을 재현하지는 않았다. 주문·정산 경보 세 개(아래 관측 순서 4단계)는 이 JAR 전에는 시계열이 없어 평가 결과가 비므로 먼저 올려도 오탐이 없다.
+
+### 관측 규칙을 서버에 적용하는 순서
+
+저장소의 관측 변경(Alertmanager, node_exporter, 용량 보호, 경보 규칙, DB 백업, 워치독)은 서로 선행 조건이 있다. 순서를 어기면 규칙이 '미수집'으로 바로 발생하거나 실제 Teams 오탐과 critical 중복 경보가 나간다. 미수집을 정상으로 보지 않으려는 의도된 동작이므로 아래 순서를 지킨다. 모두 사용자 승인 뒤 실행하며 아직 실행하지 않았다.
+
+Prometheus 3.13의 `promtool check config`는 `rule_files`에 적은 파일이 하나라도 없으면 실패하고, 서버는 없는 파일을 조용히 건너뛴다. 그래서 서버의 `/etc/prometheus/prometheus.yml`에는 규칙 파일을 둘 때 그 파일의 줄만 함께 더한다. 네 줄이 모두 들어간 저장소 판은 네 파일을 모두 둔 뒤에만 그대로 쓸 수 있다. [연결 도구](../../deploy/linux/reporting/connect-school-reporting.py)는 2026-09-20용 일회성 도구라 새 규칙 파일을 넣지 않는다.
+
+0. 준비: 승인 범위를 확인하고 증거본에 새 날짜 폴더를 만든다. bot-1의 `/etc/prometheus/prometheus.yml`, `/etc/prometheus/school-alerts.yml`, `/etc/failstop/alertmanager.yml`과 네 호스트의 `/etc/systemd/system/node_exporter.service`를 날짜 붙은 이름으로 복사하고, 저장소 판과 diff해 예상한 차이만 있는지 본다.
+1. bot-1 Alertmanager: 저장소 `alertmanager.school.yml`로 `/etc/failstop/alertmanager.yml`을 바꾸고 `amtool check-config`를 통과시킨다. `amtool config routes test`로 `alertname=Watchdog`은 `watchdog-null`, `LinuxHostUnreachable`은 `teams,evidence-reporter`로 가는지 확인한 뒤 다시 읽힌다. 아직 Watchdog 규칙이 없어 알림에 영향이 없고, 뒤 단계 전체의 전제다.
+2. 네 호스트 node_exporter 유닛(`textfile.env` 없이): app-1과 DB 두 대는 `node_exporter-host.service`, bot-1은 `node_exporter.service`를 `/etc/systemd/system/node_exporter.service`에 둔다. `systemctl daemon-reload`와 `systemctl restart node_exporter` 뒤 bot-1 Prometheus에서 `node_textfile_scrape_error`가 0인지, `node_systemd_unit_state{name="exchange-bot.service",state="active"}`와 `node_systemd_timer_last_trigger_seconds{name="failstop-reporting-daily.timer"}`가 한 줄씩 나오는지 확인한다. `/etc/node_exporter/textfile.env`가 없으면 textfile을 읽지 않는다.
+3. bot-1 용량 보호: `/opt/exchange-bot/capacity_guard.py`를 날짜 붙은 이름으로 백업하고 새 판을 `install -o root -g root -m 0644`로 바꾼다. 다음 타이머 실행 뒤 `systemctl show exchange-bot-capacity.service -p Result -p ExecMainStatus`가 `success`·`0`인지, `state.json`의 `failures`가 0인지 확인한다. 이전 판을 둔 채 다음 단계로 가면 봇 중지 판정과 다른 서버의 수집 누락이 critical `LinuxServiceFailed`로도 나간다.
+4. bot-1 `school-alerts.yml`(규칙 16개): PC에서 규칙 시험을 다시 돌린 뒤 파일만 바꾸고 `rule_files`는 이 한 줄을 유지한다. `promtool check config` 뒤 Prometheus를 다시 읽혀 `/api/v1/rules`에서 16개를 확인한다.
+5. DB 백업 설치: 아래 [DB 백업](#db-백업-설치와-외부-보관) 절대로 Primary 다음 Standby에 설치한다. 두 DB에 [DB용 textfile 설정](../../deploy/linux/observability/node_exporter-textfile.env.db)을 `/etc/node_exporter/textfile.env`(root:root 0644)로 두고 node_exporter를 재시작해 `node_textfile_scrape_error` 0을 확인한다. bot-1 Prometheus에서 Primary의 `failstop_db_backup_last_success_timestamp_seconds{job="linux-host"}`와 두 DB의 `failstop_db_backup_role_eligible`이 조회되는지 본다.
+6. bot-1 `backup-alerts.yml`: 5단계 지표가 조회된 뒤에 `/etc/prometheus/backup-alerts.yml`로 두고 `rule_files` 줄을 더한다. `promtool check rules`와 `check config`를 거쳐 다시 읽힌다. 먼저 두면 기록이 없어 10분 뒤 `DatabaseBackupStale`(critical)이 발생한다. 적용 30분 뒤 `DatabaseBackupOffsiteUnconfigured`(warning)가 발생하는 것은 S3를 설정하지 않았다는 사실대로의 경보다. 이 경보를 4시간마다 반복해 받을지는 적용 전에 사용자가 정한다.
+7. 워치독 설치(app-1과 bot-1): 워치독 전용 Teams 웹훅 파일을 만들고, 입력 단계는 캡처하지 않고 누락 구간으로 표시한다. `install-watchdog.sh install`을 실행하되 타이머는 켜지 않는다. 두 호스트의 `systemctl --version`과 `python3 --version`도 증거본에 남긴다.
+8. bot-1 `watchdog-rules.yml`: 1단계 뒤에만 둔다. 파일과 `rule_files` 줄을 더하고 `promtool check config` 뒤 다시 읽힌다. 1분 뒤 Alertmanager의 `/api/v2/alerts?filter=alertname="Watchdog"`에서 `customer=exchange`, `environment=aws`인 Watchdog 1건을 확인하고 Teams와 보고 서비스로 나가지 않았는지 본다. null 경로 없이 먼저 두면 Watchdog이 Teams와 보고 서비스로 계속 간다.
+9. 워치독 켜기: bot-1은 보고 서비스의 전송 포기(dead) 건수를 보고 `max_dead`를 정한 뒤 `test-send`와 `install-watchdog.sh enable`을 실행한다. 8단계 전에 bot-1 타이머를 켜면 약 2분 뒤 실제 Teams '관측 경로 이상 감지'가 나가고 1시간마다 다시 나간다. Prometheus·Alertmanager 변경 승인이 없으면 `alert_pipeline`을 `enabled=false`와 note로 두고, 그동안 데드맨이 꺼져 있음을 증거본에 적는다. app-1도 `test-send` 뒤 `enable`한다. 켠 뒤에는 봇이나 보고 서비스가 멈출 때 Alertmanager 경보(`MarketBotNotActive`, `OperationsReporterNotActive`)와 워치독 카드가 따로 나간다. 워치독은 Alertmanager 경로가 죽었을 때를 위한 별도 경로라 이 겹침은 의도한 것이며, 계획한 봇 중지 때는 `market_bot`을 끄고 Alertmanager 침묵을 함께 건다. 켠 뒤 서비스 실행이 실패하면 2단계와 4단계 때문에 critical `LinuxServiceFailed`가 실제 실패로 나간다.
+10. app-1·bot-1 textfile: 두 호스트에 워치독 결과 파일이 생긴 뒤 [워치독용 textfile 설정](../../deploy/linux/observability/node_exporter-textfile.env.watchdog)을 `/etc/node_exporter/textfile.env`로 두고 node_exporter를 재시작한다. bot-1 Prometheus에서 두 노드의 `failstop_watchdog_last_run_timestamp_seconds`와 `node_textfile_scrape_error` 0을 확인한다.
+11. bot-1 `checker-rules.yml`: 10단계 확인 뒤 파일과 `rule_files` 줄을 더하고 다시 읽힌다. `WatchdogCheckerStale`과 `WatchdogCheckerMissing`이 inactive인지 본다. 먼저 두면 10분 뒤 `WatchdogCheckerMissing`이 발생한다. 이 단계에서 서버의 `rule_files`가 저장소 `prometheus.yml`의 네 줄과 같아진다.
+12. 나머지: 다시 생성한 MSP 화면 JSON 일곱 개(10~16번)는 경보에 영향이 없어 아무 때나 기존 화면 배포 절차대로 `/var/lib/grafana/msp-dashboards/`에 둔다. V47 포함 JAR 배포 뒤에는 관리 지표에서 주문·정산 카운터 세 개가 0이고 해당 경보가 없는지 본다.
+
+세부 명령은 [백업 안내](../../deploy/linux/postgresql/backup/README.md)와 [워치독 안내](../../deploy/linux/watchdog/README.md)에 있다. 저장소 쪽 확인은 promtool 3.13의 규칙 검사와 시험, amtool 0.34의 경로 시험, 그리고 외부로 나갈 수 없는 Docker 내부망에서 실제 Watchdog 규칙과 이 Alertmanager 설정을 띄워 Watchdog이 `watchdog-null`로만 가는지 본 것까지다. systemd(`EnvironmentFile`의 선택 로드와 빈 기본값, `SuccessExitStatus=75`)와 node_exporter 1.12.1은 실제로 실행하지 않았고, node_exporter 동작은 원본 코드를 읽어 판단했다. `failstop-watchdog.service`는 1분 주기 oneshot이라 계속 실패해도 실행 중 표본에서 `LinuxServiceFailed`의 30초 지속 조건이 끊길 수 있다. 기존 `exchange-bot-capacity`와 같은 성질이다.
+
+### 외부 감시가 필요한 부분
+
+학교 경보 규칙은 bot-1의 Prometheus와 Alertmanager가 살아 있을 때만 동작한다. bot-1 전체가 멈추거나 두 서비스가 함께 멈추면 어떤 경보도 나가지 않는다. 저장소에는 이를 위한 [관측 경로 워치독](../../deploy/linux/watchdog/README.md)을 만들었다. app-1은 1분마다 bot-1의 Grafana와 보고 서비스 헬스를 확인한다. bot-1은 항상 발화하는 Watchdog 경보가 Alertmanager에 살아 있는지(데드맨), 보고 서비스의 전송 포기·대기·전송 비활성과 09:00 일일 보고의 실행·전송, 시장 봇 상태, 공개 사이트 응답과 인증서 만료를 확인한다. 이상은 Alertmanager를 거치지 않고 워치독 전용 Teams 웹훅으로 직접 보내며, 워치독 자체가 멈추면 Prometheus의 점검 규칙이 알린다. 학교에는 적용하지 않았다.
+
+워치독도 app-1과 bot-1이 함께 멈추거나, bot-1의 인터넷 출구만 막히거나, Teams·Workflows가 장애이면 알리지 못한다. 공개 사이트 점검은 같은 VPC 안의 다른 호스트 관점이므로 인터넷 밖에서 보는 프로브는 여전히 없다. app-1에서 bot-1 Prometheus를 보는 점검은 사설 listen과 봇 SG 9090 추가 승인이 필요해 꺼 두었다.
+
+보고 서비스의 `/metrics`는 Bearer 토큰이 필요하고 토큰 파일 `/etc/failstop/reporter-token`은 root:failstop-report 0640이라 Prometheus 계정이 읽을 수 없다. 워치독은 systemd `LoadCredential`로 이 토큰을 받아 전송 포기·대기·일일 보고를 본다. Prometheus 규칙으로 같은 값을 볼지는 비밀 값 관리 결정이라 정하지 않았다. 로컬 설계의 같은 규칙은 [로컬 경보 규칙](../../deploy/observability/rules/linux-operations.yml)의 `OperationsReport*`에 있다. 학교 규칙의 일일 보고 규칙은 타이머가 실행됐는지만 보며 Teams 전달 성공을 판정하지 않는다.
+
+### 학교 앱의 P95 응답 시간
+
+학교 app-1 설정에는 HTTP 응답 시간 히스토그램 설정이 없어 보고의 `latency_p95`와 MSP 화면의 P95 패널이 값을 내지 못한다. Docker·VM 실습은 `SPRING_APPLICATION_JSON`으로 `management.metrics.distribution.percentiles-histogram.http.server.requests=true`와 1ms~30s 범위를 준다([VM 앱 설정 예시](../../deploy/vm-lab/build/build-files/app/app.env.vm.example)). 이 설정은 요청 경로·상태 조합마다 버킷 시계열 약 69개를 더하며, 메모리가 빠듯한 bot-1 Prometheus에 얼마나 늘지는 재지 않았다. 그래서 템플릿에 넣지 않았다. 켜려면 적용 전후 bot-1의 `prometheus_tsdb_head_series`와 Prometheus 메모리를 함께 기록한다.
+
+### bot-1 메모리 상한의 합
+
+저장소 유닛 파일 기준으로 bot-1 서비스들의 `MemoryMax` 합은 2,688MiB다. 시장 봇 768MiB, Grafana 896MiB, Prometheus 512MiB, 보고 서비스 256MiB, node_exporter 128MiB, Alertmanager 128MiB다. bot-1의 전체 메모리는 1,909MiB이고 swap은 0이다([2026-09-19 측정](../../증거본/2026-09-19_학교AWS/417_봇동거_메모리와_수집상태.txt)). 각 상한은 서비스 하나가 넘치지 않게 막을 뿐이며, 여러 서비스가 함께 커지면 상한에 닿기 전에 호스트 메모리가 먼저 바닥나 커널 OOM이 어느 프로세스든 종료할 수 있다. 기록된 동시 운영 표본은 짧은 시간의 값이며 장시간 운영의 여유는 재지 않았다.
+
+### 인증서 만료
+
+봇 관리자 경로의 내부 mTLS 인증서는 2026-11-19 00:48 KST에 만료되며 자동 갱신이 없다. 공개 `www.sang.it.kr`의 Let's Encrypt 인증서는 2026-12-18에 만료되며 certbot 타이머가 갱신한다(모의 갱신만 확인). 두 DB의 TLS 서버 인증서는 2026-12-18 UTC에 만료되며 자동 갱신이 없다. 발표일과 30일 상시 운영 기간은 이보다 앞서지만, 11월 19일 뒤에도 운영하면 봇 관리자 로그인 경로가 먼저 끊긴다.
+
+### DB 설정과 백업
+
+저장소 `exchange.conf`는 `pg_stat_statements`를 더해 SHA-256이 `a03ed623...`이고, 학교 두 DB의 적용본은 2026-09-19에 잰 `8acbe28b...`다. 반영하려면 재기동 창이 필요하다(위 [별도 DB](#별도-db에서-한-작업) 절).
+
+기록된 백업 두 개(`exchange-before-markets-20260919.dump`와 격리 복원 시험 `20260919T162452010003Z`)는 모두 당시 Primary였던 `172.31.1.229`(지금 Standby)의 로컬 디스크에 있다. 둘 다 PGDATA 밖이라 재편입 베이스백업으로 옮겨지지도 않았다. 지금 쓰기를 받는 `172.31.33.195`에서 백업을 만들거나 예약 백업·외부 보관을 설정한 기록은 없다. 이번에 서버를 조회하지는 않았으므로 기록 밖의 파일이 있는지는 `sudo ls -la /var/lib/pgsql`, `systemctl list-timers --all`, `sudo crontab -l -u postgres`로 먼저 확인한다. 기존 [백업 도구](../../deploy/backup/README.md)는 Docker로 동작하고 S3 보관 기능이 없어 학교 서버에 그대로 쓸 수 없다. 그래서 2026-09-23에 학교용 도구를 새로 만들었다(아래 절). 외부 보관 방식과 위치는 사용자가 정한다.
+
+### DB 백업 설치와 외부 보관
+
+[DB 백업 도구](../../deploy/linux/postgresql/backup/README.md)는 Docker 없이 postgres 계정으로 돌며, `pg_is_in_recovery()`로 현재 Primary인지 확인한 뒤에만 물리 베이스백업(tar, WAL 포함)과 논리 덤프를 만든다. `pg_verifybackup`과 SHA-256으로 검사하고, S3 버킷과 접두어를 적으면 비공개 S3에 올린 뒤 원격 체크섬과 암호화를 대조한다. 두 값이 비어 있으면 로컬에만 두는 `LOCAL_ONLY`다. 매일 03:40 KST(무작위 지연 최대 20분)에 도는 systemd 타이머를 두 DB에 모두 두면 승격 뒤에도 그때의 Primary만 백업을 만든다. 결과는 node_exporter textfile로 내보내고 [경보 7개](../../deploy/linux/postgresql/backup/backup-alerts.yml)가 본다. 일일 보고의 `backup_success`와 MSP DB 복제 화면의 백업 패널 두 개가 읽는 옛 이름 `failstop_backup_last_success_timestamp_seconds`도 같은 값으로 함께 낸다.
+
+확인한 범위는 Linux 컨테이너의 단위 시험 25건, 일회용 PostgreSQL 17.10 컨테이너에서의 실제 베이스백업과 SIGTERM 중단, promtool 규칙 시험이다. systemd 동작, Amazon Linux 2023의 Python 3.9 실행, 실제 S3 업로드, 학교 규모의 소요 시간과 거래 영향은 확인하지 않았다. 학교에는 설치하지 않았다. `LOCAL_ONLY`는 호스트나 볼륨 상실에 대비한 백업이 아니다.
+
+설치는 사용자 승인 뒤 다음 순서로 하고 명령마다 증거본에 남긴다. 세부 명령은 도구 안내의 '학교 Primary 설치' 절에 있다.
+
+1. Primary `172.31.33.195`에서 읽기 전용으로 확인한다. `pg_is_in_recovery()`가 f인지, `data_directory`, 로컬 복제 peer 규칙, `pg_stat_replication` 행 수, `/var/lib/pgsql` 여유 공간, python3·`pg_basebackup`·`pg_verifybackup` 버전을 본다.
+2. 비공개 S3 배포 묶음으로 `db-backup.py`, `backup-restore-check.py`, `harness/sql/summary.sql`, `db-backup.conf.example`을 옮겨 SHA-256을 대조한다. 도구는 `/usr/local/lib/failstop/`, 설정은 `/etc/failstop/db-backup.conf`(root:postgres 0640, S3 값은 비움)에 둔다. 백업 경로 `/var/lib/pgsql/backups/basebackup`(postgres 0700)과 textfile 경로 `/var/lib/node_exporter/textfile`(postgres:node_exporter 0755)을 만든다.
+3. 수동으로 한 번 실행해 `LOCAL_ONLY`와 `offsite.status` `UNCONFIGURED`, `sha256sum -c SHA256SUMS` 통과, textfile의 새 이름과 옛 이름 값이 같은지 확인한다.
+4. `backup-restore-check.py --basebackup <ID>`로 격리 복원을 돌려 `PASS`, `counts_within_backup_window` true, 필수 정합성 실패 0을 확인한다. TCP 55432가 열리지 않는 것도 본다.
+5. 서비스와 타이머를 설치하고 `systemd-analyze verify`, 수동 `systemctl start`, `systemctl enable --now failstop-db-backup.timer`까지 진행한다.
+6. Standby `172.31.1.229`에 같은 설정으로 2단계와 5단계를 적용한다. 수동 실행 결과는 `SKIPPED_ROLE`이어야 하고 새 백업이 생기지 않아야 한다.
+7. 두 DB의 textfile 수집과 bot-1 경보 연결은 위 [관측 순서](#관측-규칙을-서버에-적용하는-순서)의 5·6단계를 따른다. Grafana MSP DB 화면의 백업 패널과 일일 보고의 `backup_success`에 값이 나오는지 본다.
+8. 외부 보관은 학교 데이터 반출 정책, 버킷 이름 규칙, 퍼블릭 액세스 차단과 기본 암호화, EC2 역할이 새 접두어에 PutObject·GetObject를 할 수 있는지 확인한 뒤에만 켠다. 서버의 설정 파일에만 `S3_BUCKET`과 `S3_PREFIX`를 적고 수동 실행에서 `OFFSITE_VERIFIED`를 확인한다.
+
+수동 승격이나 재편입을 한 뒤에는 새 Primary에서 수동 실행과 격리 복원을 다시 확인한다. 복제 슬롯을 다시 만들지, `wal_keep_size`나 WAL 보관을 둘지는 도구 안내의 '복제 공백 선택지'에 정리만 했고 사용자가 정한다.
+
+### 그 밖에 이 문서에 적은 미확인 사항
+
+- 2026-09-21 진단용 SSH 임시 규칙 `sgr-0d9048f7fa2710caa`의 제거 여부는 기록이 엇갈려 미확인이다. 확인 방법은 [접속 경로 메모](#접속-경로-메모)에 있다.
+- 학교 공개 웹은 main이 아니라 2026-09-20 `origin-20260920` 묶음이다. 근거와 포함된 옛 관리 화면은 [2026-09-20 절](#2026-09-20-백업복원과-보고서-연결)에 있다.
+- 보고 서비스는 응답 시간 초과 때 같은 보고를 다시 보낼 수 있다. 현재 코드 동작은 [AI·Teams 운영 보고](#aiteams-운영-보고) 절에 적었다.
+- 09:00 일일 보고가 예약 시각에 실행돼 Teams에 도착한 기록은 아직 없다.
