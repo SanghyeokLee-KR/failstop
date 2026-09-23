@@ -59,6 +59,21 @@ const SCREENS = [
   "/admin/members", "/admin/operators", "/admin/transfers", "/admin/support",
 ];
 
+/* 관리 화면은 운영자 세션이 서기 전에 어느 경로로 들어가도 같은 로그인 게이트를 그린다.
+   세션 없이 재면 게이트 한 장을 경로 수만큼 재고 정작 관리 화면은 한 번도 재지 않는다.
+   그래서 관리 경로는 sim 인증서로 세션을 세운 뒤에 잰다. 게이트 자체는 ADMIN_GATE에서
+   세션 전에 한 번 따로 잰다 */
+const needsSession = (route) => route.startsWith("/admin");
+const ADMIN_GATE = "/admin";
+
+const VISITS = SCREENS.flatMap((route) => {
+  if (!needsSession(route)) return [{ route, session: false, label: route }];
+  const signedIn = { route, session: true, label: route };
+  return route === ADMIN_GATE
+    ? [{ route, session: false, label: `${route} (로그인 게이트)` }, signedIn]
+    : [signedIn];
+});
+
 /* ---------- 페이지 안에서 도는 프로브 ---------- */
 
 /**
@@ -376,6 +391,24 @@ async function startDev() {
   return { url, stop };
 }
 
+/**
+ * sim 운영자 세션을 세운다. 세션은 인메모리라(simAdmin.ts) page.goto마다 사라지므로 관리
+ * 경로를 열 때마다 다시 부른다. 로그인 화면에도 main h1이 있어서 그것을 기다리면 클릭 직후의
+ * 게이트를 본문으로 착각한다. 셸의 본문(#admin-main)에 제목이 설 때까지 기다린다.
+ *
+ * 클릭은 포인터를 옮기지 않고 이벤트로 보낸다. 실제 포인터로 누르면 로그인 버튼이 있던 자리에
+ * 커서가 남고, 세션 뒤 그 자리에 그려진 요소가 :hover 상태로 측정된다. 다른 화면은 휴지 상태를
+ * 재므로 관리 화면만 뷰포트마다 다른 요소의 hover를 재게 된다.
+ */
+async function establishAdminSession(page, route) {
+  try {
+    await page.getByRole("button", { name: /op-01/ }).dispatchEvent("click", undefined, { timeout: 30_000 });
+    await page.locator("#admin-main h1").waitFor({ timeout: 30_000 });
+  } catch (e) {
+    throw new Error(`${route}: 운영자 세션을 세우지 못함. sim 데이터 원천인지 확인 (${e.message.split("\n")[0]})`);
+  }
+}
+
 const dedupe = (list) => {
   const seen = new Set();
   return list.filter((f) => (seen.has(f.key) ? false : (seen.add(f.key), true)));
@@ -383,7 +416,7 @@ const dedupe = (list) => {
 
 async function main() {
   const only = arg("only");
-  const screens = only ? SCREENS.filter((s) => s.includes(only)) : SCREENS;
+  const screens = only ? VISITS.filter((v) => v.route.includes(only)) : VISITS;
   if (!screens.length) {
     console.error(`--only=${only} 에 걸리는 화면 없음`);
     process.exit(2);
@@ -407,10 +440,11 @@ async function main() {
         colorScheme: "light",
       });
       const page = await ctx.newPage();
-      for (const route of screens) {
+      for (const { route, session, label } of screens) {
         const noScroll = NO_SCROLL.some((re) => re.test(route));
-        step(`${vp.name} ${route}`);
+        step(`${vp.name} ${label}`);
         await page.goto(dev.url + route, { waitUntil: "domcontentloaded", timeout: 60_000 });
+        if (session) await establishAdminSession(page, route);
         await page.waitForTimeout(DATA_MS);
         for (const theme of ["light", "dark"]) {
           await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
@@ -423,7 +457,7 @@ async function main() {
             ...(await page.evaluate(probeTapTarget)),
           ];
           checks += 1;
-          for (const f of dedupe(found)) findings.push({ ...f, route, vp: vp.name, theme });
+          for (const f of dedupe(found)) findings.push({ ...f, route: label, vp: vp.name, theme });
         }
       }
       await ctx.close();

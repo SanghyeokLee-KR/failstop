@@ -208,7 +208,7 @@ export default function DrillPage() {
                 <span className={styles.drillPrepLabel}>사전 조건</span>
                 <ul>
                   {def.prep.map((p) => (
-                    <li key={p.text}>
+                    <li key={p.text} className={p.command ? styles.drillPrepCmd : undefined}>
                       {p.text}
                       {p.command && <CommandChip command={p.command} />}
                     </li>
