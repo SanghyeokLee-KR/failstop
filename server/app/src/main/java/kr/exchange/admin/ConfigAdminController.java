@@ -26,8 +26,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 마켓 운영 구성(관리자 설계 §2, §4-2). 마켓 halt/resume은 파괴 액션이라 2인 승인 필수
- * (사용자 확정 결정). 마켓 상태·수수료는 markets 컬럼이 정본이고 공지는 notices에 둔다.
+ * 마켓 운영 구성(관리자 설계 §2, §4-2). 마켓 halt/resume은 파괴 액션이라 승인 토큰이 필수다
+ * (1인 승인, ADR 0019). 마켓 상태·수수료는 markets 컬럼이 정본이고 공지는 notices에 둔다.
  */
 @RestController
 @RequestMapping("/admin/v1/config")
@@ -131,7 +131,7 @@ public class ConfigAdminController {
     }
 
     /**
-     * 수수료 변경(파괴 액션, SUPER + 2인 승인). maker/taker는 부분 갱신 허용, 값은 문자열이다.
+     * 수수료 변경(파괴 액션, SUPER + 승인 토큰). maker/taker는 부분 갱신 허용, 값은 문자열이다.
      * 수수료 권위 소스는 markets 컬럼(§4-A-1). 승인 토큰과 UPDATE는 같은 트랜잭션이라 검증 실패
      * 시 함께 롤백돼 토큰이 재사용 가능하다.
      */

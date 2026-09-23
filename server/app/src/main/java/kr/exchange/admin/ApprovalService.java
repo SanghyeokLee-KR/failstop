@@ -16,9 +16,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 2인 승인 토큰 수명주기(§3-6 v2.3·v2.4). 발급 주체(approver)와 사용 주체(requester)는
- * 각 요청의 mTLS 인증 주체에서 도출되며 서버가 서로 다름을 강제한다(반결탁). 토큰은
- * action + 대상에 바인딩되고 단회용·TTL 5분이다.
+ * 승인 토큰 수명주기(§3-6, 1인 승인 ADR 0019). 발급 주체(approver)와 사용 주체(requester)는
+ * 각 요청의 인증 주체에서 도출하고 서로 같아도 된다. 토큰은 action + 대상과 requester 에
+ * 바인딩되고 단회용·TTL 5분이다.
  */
 public class ApprovalService {
 
@@ -37,9 +37,9 @@ public class ApprovalService {
     /**
      * 승인 발급. approver는 인증 주체 유래 operator_id, requester는 승인 대상 운영자.
      *
-     * 두 신원이 같아도 된다. 1인 승인이다(ADR 0019, V34). 종전 판은 반결탁을 이유로 서로
-     * 달라야 한다고 걸었는데, 그 제약이 1인 운영에서 파괴 액션 자체를 봉쇄했다. 남는 방어는
-     * 별도 발급 단계와 TTL, 단회 소각, 액션·대상 바인딩, 역할 게이트, append-only 감사다.
+     * 두 신원이 같아도 된다. 1인 승인이다(ADR 0019, V34). 서로 달라야 한다는 제약은 1인 운영에서
+     * 파괴 액션 자체를 봉쇄하므로 두지 않는다. 남는 방어는 별도 발급 단계와 TTL, 단회 소각,
+     * 액션·대상·requester 바인딩, 역할 게이트, append-only 감사다.
      */
     public Issued issue(String approverOperatorId, String requesterOperatorId,
                         String action, String target) {
@@ -60,7 +60,7 @@ public class ApprovalService {
 
     /**
      * 승인 소비. 성공 시 즉시 소각(CONSUMED). action·대상 바인딩 불일치, 만료, 기소각,
-     * 사용 주체 != 지정 requester, 사용 주체 == 발급 주체는 모두 403 admin_forbidden.
+     * 사용 주체 != 지정 requester는 모두 403 admin_forbidden.
      *
      * 전파는 REQUIRED다. 호출자가 트랜잭션을 열고 그 안에서 파괴 액션 DB 쓰기와 함께 호출하면
      * 소각과 액션이 한 단위로 커밋·롤백된다(액션 실패 시 토큰 보존, 재시도 가능). 격리 스택
@@ -114,9 +114,9 @@ public class ApprovalService {
     }
 
     /**
-     * 승인 원장 조회 프로젝션(state 필터·상한 절단). approval_token은 bearer 시크릿이므로
-     * 프로젝션에서 제외한다(VIEWER+ 노출 시 임의 조회자가 소비해 반결탁 붕괴). issued_at DESC,
-     * id DESC 안정 정렬로 LIMIT 절단을 결정화한다.
+     * 승인 원장 조회 프로젝션(state 필터·상한 절단). approval_token은 발급 응답에서만 나가는
+     * bearer 시크릿이므로 프로젝션에서 제외한다(§3-6). issued_at DESC, id DESC 안정 정렬로
+     * LIMIT 절단을 결정화한다.
      */
     public List<CursorPages.Row<Map<String, Object>>> list(String state, Cursors.Cursor cursor, int limit) {
         StringBuilder sql = new StringBuilder("""

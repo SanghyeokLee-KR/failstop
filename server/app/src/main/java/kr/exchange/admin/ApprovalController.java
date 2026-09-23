@@ -18,9 +18,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 2인 승인 발급(§3-6). 인증된 운영자(approver)가 다른 운영자(requester)의 파괴 액션에
- * 대해 approval_token을 발급한다. approver 신원은 세션의 mTLS 유래 operator_id이며,
- * requester와 같으면 반려된다(반결탁).
+ * 승인 발급(§3-6). 인증된 운영자(approver)가 requester의 파괴 액션에 대해 approval_token을
+ * 발급한다. approver 신원은 세션의 인증 주체 유래 operator_id이고 requester와 같아도 된다(1인 승인,
+ * ADR 0019).
  */
 @RestController
 @RequestMapping("/admin/v1")
@@ -87,7 +87,7 @@ public class ApprovalController {
     }
 
     /**
-     * 승인 거부(VIEWER+, de-escalation). 소유·반결탁·단회 전이는 ApprovalService.reject가
+     * 승인 거부(VIEWER+, de-escalation). 당사자 확인·단회 전이는 ApprovalService.reject가
      * FOR UPDATE로 강제한다. approval_token은 소각하지 않는다(ISSUED to REJECTED만).
      */
     @PostMapping("/approvals/{id}/reject")

@@ -20,8 +20,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 운영자·역할 관리(관리자 설계 §3-1). 조회는 VIEWER, 역할 부여·회수는 SUPER + 2인 승인.
- * SUPER 단독으로 요청·승인을 겸할 수 없다(반결탁, ApprovalService가 강제).
+ * 운영자·역할 관리(관리자 설계 §3-1). 조회는 VIEWER, 역할 부여·회수는 SUPER + 승인 토큰이다.
+ * 승인은 1인 승인이라 SUPER 한 명이 발급과 사용을 겸할 수 있다(ADR 0019, ApprovalService).
  */
 @RestController
 @RequestMapping("/admin/v1/operators")
@@ -70,7 +70,7 @@ public class OperatorsController {
     }
 
     /**
-     * 운영자 생성(파괴 액션, SUPER + 2인 승인). 생성 대상 신원은 new_operator_id다. 여기서는
+     * 운영자 생성(파괴 액션, SUPER + 승인 토큰). 생성 대상 신원은 new_operator_id다. 여기서는
      * 레지스트리 등록만 하고 역할은 부여하지 않는다(부여는 roles 별도 승인 경로). 중복 신원은 409.
      */
     @PostMapping
@@ -102,7 +102,7 @@ public class OperatorsController {
     }
 
     /**
-     * 운영자 상태 전이(파괴 액션, SUPER + 2인 승인). ACTIVE|DISABLED. DISABLED 운영자는
+     * 운영자 상태 전이(파괴 액션, SUPER + 승인 토큰). ACTIVE|DISABLED. DISABLED 운영자는
      * 인증 필터가 세션 발급·요청을 거절한다(신원 정지). 존재하지 않으면 404.
      */
     @PatchMapping("/{operatorId}/status")
