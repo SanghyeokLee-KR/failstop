@@ -1,0 +1,83 @@
+### host
+app01.lab
+### enabled
+auditd.service
+bluetooth.service
+chronyd.service
+crond.service
+dbus-broker.service
+dnf-makecache.timer
+exchange-app.service
+fips-crypto-policy-overlay.service
+fstrim.timer
+fwupd-refresh.timer
+getty@.service
+irqbalance.service
+logrotate.timer
+lvm2-monitor.service
+NetworkManager-dispatcher.service
+NetworkManager.service
+NetworkManager-wait-online.service
+node_exporter.service
+rsyslog.service
+selinux-autorelabel-mark.service
+sshd.service
+sssd.service
+sysstat-collect.timer
+sysstat-rotate.timer
+sysstat.service
+sysstat-summary.timer
+systemd-confext.service
+systemd-network-generator.service
+systemd-pstore.service
+systemd-sysext.service
+vm-lab-firewall.service
+vm-lab-host-check.timer
+### running
+auditd.service
+chronyd.service
+crond.service
+dbus-broker.service
+exchange-app.service
+getty@tty1.service
+irqbalance.service
+NetworkManager.service
+node_exporter.service
+rsyslog.service
+sshd.service
+systemd-journald.service
+systemd-logind.service
+systemd-udevd.service
+systemd-userdbd.service
+user@1000.service
+### timers
+dnf-makecache.timer
+fstrim.timer
+fwupd-refresh.timer
+logrotate.timer
+sysstat-collect.timer
+sysstat-rotate.timer
+sysstat-summary.timer
+systemd-tmpfiles-clean.timer
+vm-lab-host-check.timer
+### failed
+vm-lab-host-check.service
+### listen
+192.168.10.21:9100
+192.168.56.21:22
+[::ffff:192.168.10.21]:8080
+[::ffff:192.168.10.21]:8081
+### firewall
+saddr 192.168.10.11 tcp dport 8080
+saddr 192.168.10.41 tcp dport 8081
+### forward
+### selinux
+Enforcing
+### mounts
+/boot/efi vfat
+/boot xfs
+/var/log xfs
+/ xfs
+### app
+liveness=200
+histogram=1

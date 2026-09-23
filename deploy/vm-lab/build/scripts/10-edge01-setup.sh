@@ -497,7 +497,23 @@ step_https_conf() {
         die "nginx-vm.conf 에 치환되지 않은 자리표시자가 남았다. 위에 찍힌 줄을 고친다."
     fi
 
-    write_upstream "$APP1_IP" "$APP2_IP" 1
+    # 업스트림 파일이 이미 있으면 지금의 primary/backup 순서를 지킨다.
+    # 2026-09-22 에 swap-upstream 으로 APP02 를 primary 로 돌린 뒤 이 단계를 다시 돌렸더니
+    # APP01 primary 로 조용히 되돌아갔다. 그 사이 리더는 APP02 였으므로 EDGE01 이 한 시간 넘게
+    # 팔로워로 요청을 보냈다. WebSocket 시세는 리더에서만 나오므로 그동안 시세가 끊겨 있었다.
+    # 순서는 리더를 따라 사람이 swap-upstream 으로 정하는 값이다. 설정 재배치가 그 판단을 덮지 않는다.
+    local up_primary=$APP1_IP up_backup=$APP2_IP
+    if [[ -f $UPSTREAM_CONF ]]; then
+        local cur_p cur_b
+        cur_p=$(grep -E '^\s*server .*max_fails' "$UPSTREAM_CONF" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+        cur_b=$(grep -E '^\s*server .* backup;' "$UPSTREAM_CONF" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+        if [[ -n $cur_p && -n $cur_b ]]; then
+            up_primary=$cur_p
+            up_backup=$cur_b
+            info "기존 업스트림 순서를 유지한다. primary=$up_primary backup=$up_backup"
+        fi
+    fi
+    write_upstream "$up_primary" "$up_backup" 1
     install -o root -g root -m 0644 "$rendered" "$NGINX_CONF"
     rm -f -- "$rendered"
 
@@ -505,7 +521,7 @@ step_https_conf() {
         # upstream 의 zone 지시자를 이 빌드가 받지 않는 경우다. 지우고 다시 본다.
         # 그러면 실패 표시가 워커별로 남지만 worker_processes 1 이라 워커가 하나뿐이다.
         info 'zone 지시자를 뺀 업스트림으로 다시 시도한다.'
-        write_upstream "$APP1_IP" "$APP2_IP" 0
+        write_upstream "$up_primary" "$up_backup" 0
     fi
 
     if ! nginx -t; then

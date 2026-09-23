@@ -1,0 +1,102 @@
+### host
+ops01.lab
+### enabled
+alertmanager.service
+auditd.service
+blackbox_exporter.service
+bluetooth.service
+chronyd.service
+crond.service
+databasus.service
+dbus-broker.service
+dnf-makecache.timer
+docker.service
+fips-crypto-policy-overlay.service
+fstrim.timer
+fwupd-refresh.timer
+getty@.service
+grafana-server.service
+irqbalance.service
+logrotate.timer
+lvm2-monitor.service
+NetworkManager-dispatcher.service
+NetworkManager.service
+NetworkManager-wait-online.service
+node_exporter.service
+prometheus.service
+rsyslog.service
+selinux-autorelabel-mark.service
+sshd.service
+sssd.service
+sysstat-collect.timer
+sysstat-rotate.timer
+sysstat.service
+sysstat-summary.timer
+systemd-confext.service
+systemd-network-generator.service
+systemd-pstore.service
+systemd-sysext.service
+vm-lab-firewall.service
+vm-lab-host-check.timer
+### running
+alertmanager.service
+auditd.service
+blackbox_exporter.service
+chronyd.service
+containerd.service
+crond.service
+dbus-broker.service
+docker.service
+getty@tty1.service
+irqbalance.service
+NetworkManager.service
+node_exporter.service
+prometheus.service
+rsyslog.service
+sshd.service
+systemd-journald.service
+systemd-logind.service
+systemd-udevd.service
+systemd-userdbd.service
+user@1000.service
+### timers
+dnf-makecache.timer
+fstrim.timer
+fwupd-refresh.timer
+logrotate.timer
+sysstat-collect.timer
+sysstat-rotate.timer
+sysstat-summary.timer
+systemd-tmpfiles-clean.timer
+vm-lab-host-check.timer
+### failed
+vm-lab-host-check.service
+### listen
+127.0.0.1:4005
+127.0.0.1:9090
+127.0.0.1:9093
+127.0.0.1:9115
+192.168.10.41:9100
+192.168.56.41:22
+### firewall
+### forward
+iifname "databasus0"
+oifname "databasus0"
+### selinux
+Enforcing
+### mounts
+/boot/efi vfat
+/boot xfs
+/var/lib xfs
+/var/log xfs
+/ xfs
+### ops
+grafana=
+grafana_admin=1
+dashboards=8
+containers=databasus:Up 
+databasus_health=starting
+databasus_data=backups databasus.log instance.json pgdata pgsocket temp 
+blackbox=1
+targets=13/13
+tsdb_series=12747
