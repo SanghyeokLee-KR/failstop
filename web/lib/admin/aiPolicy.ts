@@ -59,6 +59,15 @@ export function limitsOf(items: AiLimit[] | null | undefined): AiLimits {
   return { ...AI_LIMITS_DEFAULT, ...Object.fromEntries(items.map((l) => [l.key, l.value])) };
 }
 
+/**
+ * 같은 조치를 세는 열쇠. 감사 기록의 대상은 조치안 제목이다. 조회 노드는 늘리기와 줄이기가 서로 다른
+ * 조치라 제목의 방향으로 가른다
+ */
+export function actionKey(kind: AiActionKind, title: string): string {
+  if (kind !== "READ_NODES") return kind;
+  return title.includes("+1") ? "READ_NODES:+1" : "READ_NODES:-1";
+}
+
 export const AI_ACTION_LABEL: Record<AiActionKind, string> = {
   READ_NODES: "조회 노드 증감",
   THRESHOLD: "임계값 변경",

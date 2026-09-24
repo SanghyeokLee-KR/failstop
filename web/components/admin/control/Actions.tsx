@@ -29,12 +29,17 @@ export default function ActionsColumn({ center, now, onChanged }: { center: Cont
             </SectionBody>
           )}
           <div className={styles.divider} />
-          <div className={styles.subHead}>사건 타임라인</div>
-          {center && (
-            <SectionBody section={center.incidents} what="사건 기록" compact>
-              {(log) => <TimelineBlock log={log} now={now} />}
-            </SectionBody>
-          )}
+          {center &&
+            (center.incidents.state === "READY" ? (
+              <TimelineBlock log={center.incidents.data} now={now} />
+            ) : (
+              <>
+                <div className={styles.subHead}>사건 타임라인</div>
+                <SectionBody section={center.incidents} what="사건 기록" compact>
+                  {() => null}
+                </SectionBody>
+              </>
+            ))}
           <div className={styles.divider} />
           <div className={styles.subHead}>운영 작업</div>
           {center && (

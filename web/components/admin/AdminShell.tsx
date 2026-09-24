@@ -21,6 +21,8 @@ export default function AdminShell({
   groups,
   crossLink,
   sidebarFoot,
+  barSearch,
+  barSignals,
   children,
 }: {
   title: string;
@@ -28,6 +30,9 @@ export default function AdminShell({
   crossLink: { href: string; label: string };
   /** 사이드바 바닥 상태 줄. 운영 관제만 AI 운영 모드를 넘긴다 */
   sidebarFoot?: ReactNode;
+  /** 운영자 바의 검색과 상태 신호. 관제 데이터를 읽으므로 운영 관제만 넘긴다 */
+  barSearch?: ReactNode;
+  barSignals?: ReactNode;
   children: ReactNode;
 }) {
   // 관리 화면은 전부 클라이언트 페이지라 metadata로 제목을 못 단다. 내비 이름을 탭 제목으로 쓴다
@@ -46,7 +51,7 @@ export default function AdminShell({
       </a>
       <AdminSidebar title={title} groups={groups} crossLink={crossLink} foot={sidebarFoot} />
       <div className={styles.main}>
-        <OperatorBar />
+        <OperatorBar search={barSearch} signals={barSignals} />
         <main id="admin-main" tabIndex={-1} className={styles.content}>
           {children}
         </main>

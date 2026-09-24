@@ -16,11 +16,46 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import BrandMark from "@/components/BrandMark";
 import type { AdminNavGroup, AdminNavItem } from "@/lib/admin/nav";
+import { ROLE_LABEL } from "@/lib/admin/roles";
+import { useAdminSession } from "@/lib/admin/store";
 import { NavBadge } from "./control/NavStatus";
 import { AdminIcon } from "./icons";
+import { mmss, remainMs } from "./OperatorBar";
 import styles from "./admin.module.css";
 
 const COLLAPSE_KEY = "admin.sidebar.collapsed";
+
+/** 사이드바 바닥의 사용자 카드. 누가 어떤 역할로 들어와 있고 세션이 얼마나 남았는지 늘 보인다 */
+function SessionCard({ collapsed }: { collapsed: boolean }) {
+  const session = useAdminSession();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  if (!session) return null;
+  const primary = session.roles.includes("SUPER") ? "SUPER" : session.roles[0];
+  const role = primary ? ROLE_LABEL[primary] : "역할 없음";
+  const ttl = mmss(remainMs(session.expiresAt));
+  return (
+    <div className={styles.sessionCard} title={collapsed ? `${session.displayName} · ${role} · 세션 ${ttl}` : undefined}>
+      <span className={styles.avatar} aria-hidden="true">
+        {session.displayName.slice(0, 1)}
+      </span>
+      <span className={styles.sessionCardText}>
+        <span className={styles.sessionCardName}>{session.displayName}</span>
+        <span className={styles.sessionCardMeta}>
+          {role} · {session.operatorId}
+          {/* 매초 바뀌는 남은 시간은 낭독하지 않는다. 만료 임박은 운영자 바의 알림 리전이 알린다 */}
+          <span aria-hidden="true">
+            {" "}
+            · 세션 <span className="num">{ttl}</span>
+          </span>
+        </span>
+      </span>
+    </div>
+  );
+}
 
 export default function AdminSidebar({
   title,
@@ -125,6 +160,7 @@ export default function AdminSidebar({
         </svg>
         <span className={styles.navLabel}>{crossLink.label}</span>
       </Link>
+      <SessionCard collapsed={collapsed} />
     </aside>
   );
 }

@@ -47,7 +47,7 @@ export default function AiPage() {
     <div className={adminStyles.page}>
       <OpsHead
         title="AI 판단"
-        desc="AI가 무엇을 보고 무엇을 제안했는지, 누가 승인했는지 남긴다. 규칙은 ADR 0035"
+        desc="AI가 무엇을 보고 무엇을 제안했는지, 누가 승인했는지 남깁니다. 규칙은 ADR 0035"
         center={data}
         now={now}
       />
@@ -62,7 +62,7 @@ export default function AiPage() {
             </div>
             <div className={styles.stack}>
               <section className={styles.panel} aria-labelledby="ai-usage">
-                <PanelHead id="ai-usage" title="자동 조치 수와 쿨다운" meta="자동 모드에서 실행 전에 모두 본다" />
+                <PanelHead id="ai-usage" title="자동 조치 수와 쿨다운" meta="자동 모드에서 실행 전에 모두 확인합니다" />
                 {ai === null ? (
                   <p className={styles.lead}>AI 판단 서비스와 서버 정책 엔진 연결 전. 한도 판독 없음</p>
                 ) : (
@@ -119,7 +119,7 @@ export default function AiPage() {
               </section>
               <AiLimitsPanel ai={ai} onChanged={onChanged} />
               <section className={styles.panel} aria-labelledby="ai-rules">
-                <PanelHead id="ai-rules" title="허용·금지 목록" meta="어느 모드에서도 금지 목록은 조치 카드가 되지 않는다" />
+                <PanelHead id="ai-rules" title="허용·금지 목록" meta="어느 모드에서도 금지 목록은 조치 카드가 되지 않습니다" />
                 <div className={styles.autoRules} style={{ marginTop: 0 }}>
                   <div>
                     <span className={styles.rulesTitle}>허용 목록</span>

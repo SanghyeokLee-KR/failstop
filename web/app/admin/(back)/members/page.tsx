@@ -299,8 +299,8 @@ export default function AdminMembersPage() {
               ) : (
                 <div className={styles.controlRow}>
                   <p className={styles.formHelp}>
-                    폐쇄는 미체결 주문 {formatCount(detail.openOrderCount)}건을 전량 취소하고 세션을 끊는다.
-                    되돌릴 수 없다.
+                    폐쇄는 미체결 주문 {formatCount(detail.openOrderCount)}건을 전량 취소하고 세션을 끊습니다.
+                    되돌릴 수 없습니다.
                   </p>
                   <RequestButton
                     action="members.close"

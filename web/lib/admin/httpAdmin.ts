@@ -960,6 +960,8 @@ export class HttpAdminApi implements AdminApi {
       jobs: nc("Databasus API, 인증서·보고 서비스 상태 · 2단계"),
       thresholds: nc("임계값 레지스트리(DB) · 2단계"),
       ai: nc("AI 판단 서비스와 서버 정책 엔진 · 2단계"),
+      aiServer: nc("온프레미스 AI 서버 상태 API · 구축 전"),
+      trends: nc("Prometheus 범위 조회 · 2단계"),
       scenario: null,
     });
   }

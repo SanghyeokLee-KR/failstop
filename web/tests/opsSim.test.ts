@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AI_ACTOR, OpsSim, type OpsActorRef } from "../lib/admin/opsSim";
 import { AdminError } from "../lib/admin/api";
-import type { AiDesk, ControlCenter, IncidentLog, OpsAlert, ThresholdRegistry } from "../lib/admin/types";
+import type { AiDesk, AiServer, ControlCenter, IncidentLog, OpsAlert, OpsHost, OpsTrends, ThresholdRegistry } from "../lib/admin/types";
 
 const OP: OpsActorRef = { id: "op-01", name: "김수퍼" };
 const VIEWER: OpsActorRef = { id: "op-02", name: "이오퍼" };
@@ -382,4 +382,64 @@ test("확인은 경보를 끄지 않고 누가 확인했는지만 남긴다", ()
 
 test("AI 조치의 행위자는 AI 전용 운영 계정이다", () => {
   assert.equal(AI_ACTOR.id, "ai-ops");
+});
+
+test("매칭 노드 두 대는 마켓 묶음을 나눠 맡고 다른 호스트에는 묶음이 없다", () => {
+  const hosts = ready<OpsHost[]>(new OpsSim(T0).snapshot(at(3)).hosts);
+  assert.deepEqual(hosts.map((h) => h.id), ["app-1", "app-2", "db-primary", "db-standby", "bot-1"]);
+  const apps = hosts.filter((h) => h.role === "APP");
+  assert.deepEqual(apps.map((h) => h.partition?.id), ["p0", "p1"]);
+  const markets = apps.flatMap((h) => h.partition?.markets ?? []);
+  assert.equal(new Set(markets).size, markets.length, "한 마켓은 한 노드만 맡는다");
+  assert.ok(hosts.filter((h) => h.role !== "APP").every((h) => h.partition === null));
+});
+
+test("AI 판단 요청이 걸리는 동안 ai-1의 대기 요청과 GPU가 오르고 판단이 나면 응답으로 센다", () => {
+  const sim = new OpsSim(T0);
+  const idle = ready<AiServer>(sim.snapshot(at(3)).aiServer);
+  assert.equal(idle.busy, false);
+  assert.equal(idle.queue, 0);
+  assert.equal(idle.model, "평가 중", "sim은 실제 모델 이름을 적지 않는다");
+  sim.startScenario("READ_SURGE", at(0));
+  let busy: AiServer | null = null;
+  for (let s = 4; s <= 30 && busy === null; s += 1) {
+    const srv = ready<AiServer>(sim.snapshot(at(s)).aiServer);
+    if (srv.busy) busy = srv;
+  }
+  assert.ok(busy, "경보가 선 뒤 판단 중에는 요청이 걸린다");
+  assert.ok((busy.queue ?? 0) >= 1);
+  assert.ok((busy.gpuPct ?? 0) > (idle.gpuPct ?? 0) + 40);
+  const later = ready<AiServer>(sim.snapshot(at(40)).aiServer);
+  assert.ok(later.served > busy.served, "판단이 나면 응답 수가 는다");
+  assert.ok(later.p50Ms !== null && later.p95Ms !== null && later.p95Ms >= later.p50Ms);
+});
+
+test("AI 정지 중에는 ai-1에 판단 요청을 보내지 않는다", () => {
+  const sim = new OpsSim(T0);
+  sim.startScenario("READ_SURGE", at(0));
+  sim.stopAi(OP, at(12));
+  for (let s = 13; s <= 40; s += 1) assert.equal(ready<AiServer>(sim.snapshot(at(s)).aiServer).busy, false, `${s}초`);
+});
+
+test("추세는 범위마다 정한 점 수를 싣고 사건 기록에 있는 사건만 센다", () => {
+  const sim = new OpsSim(T0);
+  const t = ready<OpsTrends>(sim.snapshot(at(5)).trends);
+  assert.deepEqual([t[1].p95.points.length, t[6].p95.points.length, t[24].p95.points.length], [60, 72, 96]);
+  const today = log(sim.snapshot(at(5))).incidents;
+  const inWindow = (hours: number) => today.filter((i) => Date.parse(i.openedAt) > at(5) - hours * 3_600_000).length;
+  for (const h of [1, 6, 24] as const) assert.equal(t[h].incidents.current, inWindow(h), `${h}시간 사건 수`);
+  assert.ok(t[24].incidents.previous !== null && t[24].incidents.previous > 0, "앞 24시간 구간도 기록에서 센다");
+  for (const v of t[24].availability.points) assert.ok(v !== null && v <= 100 && v > 99.8);
+});
+
+test("조회 급증의 p95와 경보가 1시간 추세의 마지막 점에 잡힌다", () => {
+  const sim = new OpsSim(T0);
+  const before = ready<OpsTrends>(sim.snapshot(at(5)).trends)[1];
+  sim.startScenario("READ_SURGE", at(5));
+  run(sim, 95);
+  const after = ready<OpsTrends>(sim.snapshot(at(95)).trends)[1];
+  const last = (s: { points: (number | null)[] }) => s.points[s.points.length - 1] ?? 0;
+  assert.ok(last(after.p95) > last(before.p95) + 50, "급증 구간 p95가 오른다");
+  assert.ok(last(after.alerts) >= 1, "선 경보가 점에 잡힌다");
+  assert.ok((after.alerts.current ?? 0) >= (before.alerts.current ?? 0) + 1, "구간 안 경보 발생 수가 는다");
 });

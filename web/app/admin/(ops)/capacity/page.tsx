@@ -235,8 +235,8 @@ export default function CapacityPage() {
                 <HealthPill health="warning" label="증가 없음" />
               </td>
               <td>
-                주문은 순서를 지켜야 해서 한 대가 전부 처리한다. 서버를 늘려도 그 한 대가
-                그대로라 처리량이 오르지 않는다. 넘치는 주문은 받지 않고 거절한다.
+                주문은 순서를 지켜야 해서 한 대가 전부 처리합니다. 서버를 늘려도 그 한 대가
+                그대로라 처리량이 오르지 않습니다. 넘치는 주문은 받지 않고 거절합니다.
               </td>
             </tr>
             <tr>
@@ -245,8 +245,8 @@ export default function CapacityPage() {
                 <HealthPill health="warning" label="증가 없음" />
               </td>
               <td>
-                데이터베이스는 쓰기를 나눌 수 없어 한 대가 처리한다. 대기 서버가 한 대 더 있지만
-                평소에는 트래픽을 받지 않고 장애 때 대신 선다.
+                데이터베이스는 쓰기를 나눌 수 없어 한 대가 처리합니다. 대기 서버가 한 대 더 있지만
+                평소에는 트래픽을 받지 않고 장애 때 대신 섭니다.
               </td>
             </tr>
           </tbody>
@@ -267,8 +267,8 @@ export default function CapacityPage() {
           title={pending === "SCALE_OUT" ? "서버 한 대 추가" : "서버 한 대 축소"}
           description={
             pending === "SCALE_OUT"
-              ? "새 서버가 준비되면 조회 트래픽을 나눠 받는다. 약 17초가 걸리고 서비스는 멈추지 않는다. 서버가 늘면 비용도 는다."
-              : "진행 중인 요청을 먼저 흘려보낸 뒤 서버를 내린다. 서비스는 멈추지 않는다."
+              ? "새 서버가 준비되면 조회 트래픽을 나눠 받습니다. 약 17초가 걸리고 서비스는 멈추지 않습니다. 서버가 늘면 비용도 늘어납니다."
+              : "진행 중인 요청을 먼저 흘려보낸 뒤 서버를 내립니다. 서비스는 멈추지 않습니다."
           }
           target={`조회 서버 ${d.plan.desired}대 -> ${d.plan.desired + (pending === "SCALE_OUT" ? 1 : -1)}대`}
           confirmLabel={pending === "SCALE_OUT" ? "추가" : "줄이기"}

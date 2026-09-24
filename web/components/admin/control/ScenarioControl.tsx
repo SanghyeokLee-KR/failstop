@@ -2,7 +2,7 @@
 
 /**
  * sim 시나리오 재생(관리자 설계 4-4). 서비스 흐름의 재생 조작과 같은 어휘로 머리 오른쪽에 둔다.
- * 재생 중은 상태가 아니라 주의색을 쓰지 않고 브랜드 약틴트 면에 ▶ 형태를 둔다(§12-3).
+ * 재생 중은 상태가 아니라 주의색을 쓰지 않고 무채 점선 윤곽에 ▶ 형태를 둔다(§12-3, §12-10). 재생 중이라는 말은\n * ▶가 싣고 보조기술에만 글로 적는다. 1280px 창에서 머리 한 줄에 들게 하려는 것이다.
  * http 원천에는 시나리오가 없어 그리지 않는다.
  */
 
@@ -65,7 +65,8 @@ export default function ScenarioControl({ scenario, onChanged }: { scenario: Ops
       {scenario !== null && (
         <span className={styles.runPill}>
           <span aria-hidden="true">{running ? "▶" : "○"}</span>
-          {running ? "재생 중" : "재생 끝"} · {scenario.title}
+          <span className="sr-only">{running ? "재생 중" : "재생 끝"}</span>
+          {scenario.title}
           <b className="num">{mmss(scenario.elapsedSec * 1000)}</b>
         </span>
       )}

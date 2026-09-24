@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 import type { OpsBadgeKind } from "@/lib/admin/nav";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
 import type { ControlCenter, ThresholdKey } from "@/lib/admin/types";
-import { hostTone } from "./Infra";
+import { hostState } from "./Infra";
 import { AiMark, useClock } from "./parts";
 import styles from "./control.module.css";
 
@@ -41,8 +41,9 @@ function badgeOf(kind: OpsBadgeKind, c: ControlCenter): Badge | null {
     }
     case "hosts": {
       if (c.hosts.state !== "READY") return null;
-      const tones = c.hosts.data.map((h) => hostTone(h, reg));
-      const bad = tones.filter((t) => t !== undefined).length;
+      // 전체 상태(운영자 바)와 같은 판정을 쓴다. 수집이 끊긴 노드도 주의로 센다
+      const tones = c.hosts.data.map((h) => hostState(h, reg).tone);
+      const bad = tones.filter((t) => t !== "success").length;
       const tier = c.readTier.state === "READY" ? c.readTier.data : null;
       const out = val("read.scale_out_cpu");
       const hot = tier !== null && tier.avgCpuPct !== null && out !== null && tier.avgCpuPct >= out;

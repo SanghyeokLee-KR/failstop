@@ -18,7 +18,8 @@
  * 구름, 지도 핀, VPC, 자물쇠, 원통, 선반은 묶음 상자의 머리 표식으로만 쓴다. DB 칸 이름표가 13px 에서
  * 로고를 쓰면 윤곽선이 뭉개져 다른 틀의 표식과 굵기가 맞지 않아 원통을 쓴다. 제품 이름은 글자가 적는다.
  * 연결 전 자리의 AI 운영 보고는 줄 세 개가 있는 문서, Teams 는 말풍선으로 그린다. 메신저 제품 로고도
- * 상표라 빌리지 않는다.
+ * 상표라 빌리지 않는다. 온프레미스 AI 서버(ai-1)는 관리 콘솔의 AI 표지와 같은 칩, 그 서버가 놓인 연구소는
+ * 건물로 그린다.
  *
  * 구성도 카드의 ALB 는 nginx 로고가 아니라 부채꼴 그림이다. nginx 는 Docker 대역이 ALB 역할을 맡긴
  * 제품이라 AWS 목표 구성을 그리는 카드 면에 두지 않는다. 컨테이너 단위 표(InstanceTable)는 nginx 를 쓴다.
@@ -44,7 +45,9 @@ export type FlowGlyphIcon =
   | "db"
   | "server"
   | "report"
-  | "chat";
+  | "chat"
+  | "chip"
+  | "building";
 export type FlowIconName = FlowBrandIcon | FlowGlyphIcon;
 
 const BRAND_CLASS: Record<FlowBrandIcon, string> = {
@@ -167,6 +170,22 @@ const GLYPH: Record<FlowGlyphIcon, ReactNode> = {
       <path d="M5.5 7.5 H10.5" />
       <path d="M5.5 9.75 H10.5" />
       <path d="M5.5 12 H8.5" />
+    </>
+  ),
+  // AI 추론 서버. 핀이 네 방향으로 난 칩. 관리 콘솔 사이드바의 AI 표지(icons.tsx ai)와 같은 모양이다
+  chip: (
+    <>
+      <rect x="4.25" y="4.25" width="7.5" height="7.5" rx="1.5" />
+      <path d="M6.5 2 V4.25 M9.5 2 V4.25 M6.5 11.75 V14 M9.5 11.75 V14 M2 6.5 H4.25 M2 9.5 H4.25 M11.75 6.5 H14 M11.75 9.5 H14" />
+    </>
+  ),
+  // 온프레미스(연구소). 높낮이가 다른 두 동과 창 여섯, 바닥선
+  building: (
+    <>
+      <path d="M3 14.25 V3.25 A1 1 0 0 1 4 2.25 H10 A1 1 0 0 1 11 3.25 V14.25" />
+      <path d="M11 7.25 H12.75 A1 1 0 0 1 13.75 8.25 V14.25" />
+      <path d="M1.75 14.25 H14.25" />
+      <path d="M5.5 5 H6 M8 5 H8.5 M5.5 7.75 H6 M8 7.75 H8.5 M5.5 10.5 H6 M8 10.5 H8.5" />
     </>
   ),
   // 메시지 채널. 꼬리가 왼쪽 아래로 난 말풍선

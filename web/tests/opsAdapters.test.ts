@@ -153,7 +153,7 @@ test("http: 관제센터 판독은 네트워크를 부르지 않고 칸마다 '�
     const api: AdminApi = new HttpAdminApi("http://admin.test");
     const c: ControlCenter = await api.getControlCenter();
     assert.equal(c.origin, null);
-    for (const key of ["summary", "hosts", "readTier", "replication", "alerts", "incidents", "jobs", "thresholds", "ai"] as const) {
+    for (const key of ["summary", "hosts", "readTier", "replication", "alerts", "incidents", "jobs", "thresholds", "ai", "aiServer", "trends"] as const) {
       const s = c[key];
       assert.equal(s.state, "NOT_CONNECTED", key);
       assert.ok(s.state === "NOT_CONNECTED" && s.source.length > 0, `${key} 원천 이름`);
@@ -179,4 +179,16 @@ test("http: 관제센터 판독은 네트워크를 부르지 않고 칸마다 '�
   } finally {
     globalThis.fetch = prev;
   }
+});
+
+test("sim: AI 판단 요약의 '과거 같은 조치'는 감사 로그에서 센다", async () => {
+  const api = new SimAdminApi();
+  await api.establishSession("op-01");
+  const before = ready<AiDesk>((await api.getControlCenter()).ai).actionStats;
+  // 시드 기록의 지난 승인(조회 노드 +1, 봇 부하 줄임)이 감사 로그에도 있다
+  assert.deepEqual(before["READ_NODES:+1"], { runs: 1, reverts: 0 });
+  assert.deepEqual(before.BOT_LOAD, { runs: 1, reverts: 0 });
+  assert.equal(before["READ_NODES:-1"], undefined, "기록 없는 조치는 열쇠가 없다");
+  const audit = (await api.getAudit({ limit: 200 })).data;
+  assert.ok(audit.some((e) => e.action === "ai.approve:READ_NODES" && e.operatorName === "김수퍼"));
 });

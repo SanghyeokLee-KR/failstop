@@ -2,13 +2,13 @@
 
 /**
  * 인스턴스 상태 표. 구성도의 노드를 AWS 역할 이름으로 한 줄씩 세우고, 그 역할을 지금 맡은 로컬
- * Docker 컨테이너나 호스트 프로세스를 옆 열에 적는다. 순서는 요청 경로다. CloudFront 와 ALB 로
- * 들어와 Auto Scaling 그룹과 그 안의 앱 세 대를 지나 DB 두 대에 닿고, 그 뒤에 경로 밖에서 스택을
- * 움직이거나 지켜보는 것(봇, 관측, 부하)을 둔다. 정렬을 두지 않는 이유가 그것이다. 뒤섞으면 어디서
- * 끊겼는지 읽기 어렵다.
+ * Docker 컨테이너나 호스트 프로세스를 옆 열에 적는다. 이름은 관제센터와 같다. 순서는 요청 경로다.
+ * CloudFront 와 ALB 로 들어와 매칭 노드 두 대(쓰기)와 Auto Scaling 그룹의 조회 노드 세 대(조회)를 지나
+ * DB 두 대에 닿고, 그 뒤에 경로 밖에서 스택을 움직이거나 지켜보는 것(봇, 관측, 부하)을 둔다. 정렬을
+ * 두지 않는 이유가 그것이다. 뒤섞으면 어디서 끊겼는지 읽기 어렵다.
  *
- * Auto Scaling 은 구성도에서 노드가 아니라 앱 세 대를 감싸는 그룹 상자다. 표에서는 그 상자의 머리를
- * 앱 세 줄 바로 위에 한 줄로 세우고, 앱 세 줄은 이름을 한 단 들여 트리 선으로 그 머리에 매단다.
+ * Auto Scaling 은 구성도에서 노드가 아니라 조회 노드 세 대를 감싸는 그룹 상자다. 표에서는 그 상자의 머리를
+ * 조회 노드 세 줄 바로 위에 한 줄로 세우고, 세 줄은 이름을 한 단 들여 트리 선으로 그 머리에 매단다.
  * 그룹 줄의 값은 nodeViews 가 아니라 asgView 에서 온다.
  *
  * 구성도가 모양으로 보이는 것을 이 표는 글로 다시 적는다. 색과 선을 못 보는 사람도 같은 상태를
@@ -19,8 +19,8 @@
 
 import DataTable, { type DataColumn } from "@/components/DataTable";
 import {
-  APP_IDS,
   APP_NAME,
+  READ_IDS,
   APP_PORT,
   LEASE_TTL,
   asgView,
@@ -49,20 +49,24 @@ interface Row {
 /** 한 줄이 칸에 쓰는 값. 노드 줄은 nodeViews 에서, 그룹 줄은 asgView 에서 같은 모양으로 맞춘다 */
 type RowView = Pick<NodeView, "name" | "container" | "role" | "status" | "state">;
 
-const isApp = (id: RowId): id is AppId => id === "api1" || id === "api2" || id === "api3";
+const isApp = (id: RowId): id is AppId =>
+  id === "api1" || id === "api2" || id === "read1" || id === "read2" || id === "read3";
 
-/* 포트는 docker-compose.chaos.yml 의 ports 항목이다. db-2 는 2단계에서 붙일 컨테이너라 아직 포트가 없다.
-   Auto Scaling 줄은 그룹 머리라 앱 세 줄 바로 위에 둔다. 구성도에서 앱 세 대를 감싸는 상자와 같은 자리이고
+/* 포트는 docker-compose.chaos.yml 의 ports 항목이다. db-standby 는 2단계에서 붙일 컨테이너라 아직 포트가 없다.
+   read-1·2 는 전용 컨테이너가 없어 조회를 겸하는 매칭 노드 컨테이너의 포트를 적는다.
+   Auto Scaling 줄은 그룹 머리라 조회 노드 세 줄 바로 위에 둔다. 구성도에서 조회 노드를 감싸는 상자와 같은 자리이고
    아이콘도 그 상자 머리와 같은 그룹 그림이다. 같은 대상이 두 화면에서 다른 그림이면 다른 것으로 읽힌다.
    ALB 도 구성도 카드와 같은 부하 분산 그림을 쓴다. 이 대역에서 ALB 를 대신하는 nginx(chaos-lb)는
    컨테이너 열과 팝오버가 이름으로 적으므로 아이콘까지 nginx 로 두면 AWS 역할 이름과 어긋난다 */
 const ROWS: Row[] = [
   { id: "cdn", port: "없음", icon: "globe" },
   { id: "alb", port: ":58080", icon: "lb" },
-  { id: "asg", port: "없음", icon: "asg" },
   { id: "api1", port: `:${APP_PORT.api1}`, icon: "springboot" },
   { id: "api2", port: `:${APP_PORT.api2}`, icon: "springboot" },
-  { id: "api3", port: `:${APP_PORT.api3}`, icon: "springboot" },
+  { id: "asg", port: "없음", icon: "asg" },
+  { id: "read1", port: `:${APP_PORT.read1}`, icon: "springboot" },
+  { id: "read2", port: `:${APP_PORT.read2}`, icon: "springboot" },
+  { id: "read3", port: `:${APP_PORT.read3}`, icon: "springboot" },
   { id: "pg1", port: ":55432", icon: "postgresql" },
   { id: "pg2", port: "없음", icon: "postgresql" },
   { id: "bot", port: "없음", icon: "bot" },
@@ -74,13 +78,13 @@ const ROWS: Row[] = [
    (harness/asg/capacity_reconciler.py). 덧말은 nodeViews 의 load-1 과 같은 꼴로 적어 같은 표지로 그린다 */
 const ASG_CONTAINER = "capacity_reconciler.py · 호스트";
 
-/* 이름 칸의 트리 선. 그룹 머리 아이콘 아래에서 세로선이 내려와 앱 세 줄에 가지를 치고 마지막 줄에서
+/* 이름 칸의 트리 선. 그룹 머리 아이콘 아래에서 세로선이 내려와 조회 노드 세 줄에 가지를 치고 마지막 줄에서
    꺾여 끝난다. 구성도의 그룹 상자를 표에서 다시 읽게 하는 장치이고 선 모양은 panels.module.css 가 그린다 */
 const TREE: Partial<Record<RowId, "group" | "member" | "last">> = {
   asg: "group",
-  api1: "member",
-  api2: "member",
-  api3: "last",
+  read1: "member",
+  read2: "member",
+  read3: "last",
 };
 
 /** 구성도와 같은 상태어. 형태가 색 없이도 상태를 가른다. 미구축은 형태 없이 점선 테두리와 낱말만 둔다 */
@@ -324,14 +328,18 @@ function noteText(s: FlowState, id: RowId, asg: AsgView): string {
       return "Docker 대역에 없음 · 목표 구성";
     case "alb": {
       // 쓰기 업스트림은 nginx 설정에 고정돼 있다. 리더가 바뀌어도 app-1 을 먼저 두드리고 실패하면 app-2 로 넘긴다
-      const readers = APP_IDS.filter((a) => s.apps[a].inRead).length;
+      const readers = READ_IDS.filter((a) => s.apps[a].inRead).length;
       return `쓰기 ${APP_NAME.api1} 우선 · 조회 ${readers}대`;
     }
     case "api1":
     case "api2":
       return engineNote(s, id);
-    case "api3":
-      switch (s.apps.api3.status) {
+    case "read1":
+    case "read2":
+      // AWS 에서는 조회 전용 노드다. Docker 대역에는 전용 컨테이너가 없어 매칭 노드 컨테이너가 조회를 겸한다
+      return `Docker 대역 · ${APP_NAME[id === "read1" ? "api1" : "api2"]} 컨테이너가 조회 겸함`;
+    case "read3":
+      switch (s.apps.read3.status) {
         case "stopped":
           return "운영자 승인 뒤 조정기가 기동";
         case "booting":
@@ -340,11 +348,11 @@ function noteText(s: FlowState, id: RowId, asg: AsgView): string {
           return "ALB 제외 · 드레이닝 10초";
         default:
           // Prometheus 가 앱 지표를 긁는 대상은 app-1, app-2, 봇뿐이라 증설 노드의 앱 지표는 비어 있다.
-          // 컨테이너 CPU 는 chaos-cstats 가 실행 중인 컨테이너 전부에서 내므로 app-3 도 받는다
+          // 컨테이너 CPU 는 chaos-cstats 가 실행 중인 컨테이너 전부에서 내므로 read-3 도 받는다
           return "앱 지표 미수집 · CPU 는 cstats";
       }
     case "pg1":
-      // DB 지표 수집기는 chaos-pg 한 대만 본다. db-2 가 붙어도 지금 설정으로는 복제 상대의 지표가 없다
+      // DB 지표 수집기는 chaos-pg 한 대만 본다. db-standby 가 붙어도 지금 설정으로는 복제 상대의 지표가 없다
       return "DB 지표 chaos-pg-exporter";
     case "pg2":
       return "2단계 추가 · 비동기 복제 예정";

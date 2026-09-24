@@ -23,7 +23,13 @@ export type AdminIconName =
   | "ai"
   | "hosts"
   | "database"
-  | "thresholds";
+  | "thresholds"
+  | "search"
+  | "globe"
+  | "clock"
+  | "errors"
+  | "more"
+  | "chevronDown";
 
 const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   // 게이지: 눈금 원 + 바늘
@@ -109,8 +115,13 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
       <path d="M6.75 13.25 H9.25" />
     </>
   ),
-  // AI 판단: 호로 오목하게 그린 네 갈래 반짝임. 관제센터 AI 표지와 같은 모양이다
-  ai: <path d="M8 1.75 A6.25 6.25 0 0 0 14.25 8 A6.25 6.25 0 0 0 8 14.25 A6.25 6.25 0 0 0 1.75 8 A6.25 6.25 0 0 0 8 1.75 Z" />,
+  // AI 판단: 핀이 달린 연산 칩. 반짝임 장식 대신 판단을 계산하는 장치로 그린다(디자인 시스템 §12-10)
+  ai: (
+    <>
+      <rect x="4.25" y="4.25" width="7.5" height="7.5" rx="1.5" />
+      <path d="M6.5 2 V4.25 M9.5 2 V4.25 M6.5 11.75 V14 M9.5 11.75 V14 M2 6.5 H4.25 M2 9.5 H4.25 M11.75 6.5 H14 M11.75 9.5 H14" />
+    </>
+  ),
   // 서버·노드: 겹친 서버 두 대와 표시등
   hosts: (
     <>
@@ -164,6 +175,39 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
       <path d="M6 10.5 H8.25" />
     </>
   ),
+  // 돋보기
+  search: (
+    <>
+      <circle cx="7" cy="7" r="4.25" />
+      <path d="M10.25 10.25 L13.5 13.5" />
+    </>
+  ),
+  // 외부 가용성: 경선과 적도가 있는 지구
+  globe: (
+    <>
+      <circle cx="8" cy="8" r="5.75" />
+      <path d="M2.25 8 H13.75" />
+      <path d="M8 2.25 C6.25 4 6.25 12 8 13.75 C9.75 12 9.75 4 8 2.25 Z" />
+    </>
+  ),
+  // 응답 지연: 시계
+  clock: (
+    <>
+      <circle cx="8" cy="8" r="5.75" />
+      <path d="M8 4.75 V8 L10.25 9.5" />
+    </>
+  ),
+  // 5xx 오류: 원 안의 느낌표
+  errors: (
+    <>
+      <circle cx="8" cy="8" r="5.75" />
+      <path d="M8 5 V8.5" />
+      <path d="M8 10.9 V11" />
+    </>
+  ),
+  // 더 보기: 세로 점 셋. 점도 선 굵기로 그린다
+  more: <path d="M8 3.75 V3.85 M8 7.95 V8.05 M8 12.15 V12.25" strokeWidth="2.25" />,
+  chevronDown: <path d="M4.5 6.25 L8 9.75 L11.5 6.25" />,
 };
 
 export function AdminIcon({ name, size = 16 }: { name: AdminIconName; size?: number }) {

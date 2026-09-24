@@ -1,22 +1,76 @@
 "use client";
 
 /**
- * 관제 화면 머리. 제목 옆에 환경 배지와 출처 칩을 둔다(§12-9). 머리 높이는 판형의 예약 높이를
- * 그대로 써서 다른 관리 화면과 제목 자리가 같다(레이아웃 §7).
+ * 관제 화면 머리. 제목 옆에 환경 배지와 출처 칩을 둔다(§12-9). 관제센터는 오른쪽에 추세 범위와 수집 상태를
+ * 더 싣는다. 머리 높이는 판형의 예약 높이를 그대로 써서 다른 관리 화면과 제목 자리가 같다(레이아웃 §7).
  */
 
 import type { ReactNode } from "react";
-import type { ControlCenter } from "@/lib/admin/types";
+import type { ControlCenter, TrendRange } from "@/lib/admin/types";
 import adminStyles from "../admin.module.css";
-import { EnvBadge, OpsSourceChip } from "./parts";
+import { ago, EnvBadge, OpsSourceChip } from "./parts";
 import styles from "./control.module.css";
 
-export default function OpsHead({ title, desc, center, now, actions }: {
+const RANGES: TrendRange[] = [1, 6, 24];
+/** 실측 원천의 지연 기준. 폴링 두 주기(30초 × 2)다. 출처 칩과 같은 값이다 */
+const LIVE_STALE_MS = 60_000;
+
+/** 수집 상태. 판을 받지 못했거나 오래됐으면 문구와 모양을 바꾼다 */
+export function CollectState({ center, failed, now }: { center: ControlCenter | null; failed: boolean; now: number }) {
+  let kind: "live" | "stale" | "none";
+  let text: string;
+  if (center === null) {
+    kind = "none";
+    text = "수집 확인 중";
+  } else if (center.origin === null) {
+    kind = "none";
+    text = "수집 원천 연결 전";
+  } else if (failed) {
+    kind = "stale";
+    text = center.collectedAt === null ? "수집 지연" : `수집 지연 · 마지막 ${ago(center.collectedAt, now)}`;
+  } else if (center.origin === "LIVE" && (center.collectedAt === null || now - Date.parse(center.collectedAt) > LIVE_STALE_MS)) {
+    kind = "stale";
+    text = center.collectedAt === null ? "수집 지연" : `수집 지연 · ${ago(center.collectedAt, now)}`;
+  } else {
+    kind = "live";
+    text = "실시간 수집 중";
+  }
+  return (
+    <span className={styles.collect} data-kind={kind} role="status">
+      <span className={styles.collectShape} aria-hidden="true">
+        {kind === "live" ? "●" : kind === "stale" ? "▲" : "◌"}
+      </span>
+      {text}
+    </span>
+  );
+}
+
+export function RangeSwitch({ range, onRange }: { range: TrendRange; onRange: (r: TrendRange) => void }) {
+  return (
+    <span className={styles.rangeWrap}>
+      {/* 보이는 이름은 짧게 두고 무엇과 비교하는지는 묶음 이름과 칸마다의 증감 설명이 싣는다 */}
+      <span className={styles.rangeLabel} aria-hidden="true">
+        추세
+      </span>
+      <span className={styles.switch} role="group" aria-label="추세 범위 · 이전 같은 길이 구간 대비">
+        {RANGES.map((r) => (
+          <button key={r} type="button" className={styles.switchBtn} data-size="sm" aria-pressed={range === r} onClick={() => onRange(r)}>
+            {r}시간
+          </button>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+export default function OpsHead({ title, desc, center, now, actions, aside }: {
   title: string;
   desc: ReactNode;
   center: ControlCenter | null;
   now: number;
   actions?: ReactNode;
+  /** 조작 앞에 두는 판독(추세 범위, 수집 상태). 관제센터만 넘긴다 */
+  aside?: ReactNode;
 }) {
   return (
     <header className={adminStyles.pageHead}>
@@ -28,7 +82,13 @@ export default function OpsHead({ title, desc, center, now, actions }: {
         </div>
         <p className={styles.headDesc}>{desc}</p>
       </div>
-      {actions != null && <div className={styles.headActions}>{actions}</div>}
+      {(aside != null || actions != null) && (
+        <div className={styles.headActions}>
+          {aside}
+          {aside != null && actions != null && <span className={styles.headSep} aria-hidden="true" />}
+          {actions}
+        </div>
+      )}
     </header>
   );
 }

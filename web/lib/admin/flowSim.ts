@@ -5,16 +5,23 @@
  *
  *   CloudFront  → 없음. 사용자가 목표 구성대로 켜진 노드로 그리기로 했다(2026-09-23). 상태 글자에 목표 구성이라고 적는다
  *   ALB         → chaos-lb (nginx. 쓰기는 1차·백업, 조회는 least_conn)
- *   app-1·2·3   → chaos-api-1·2·3. 리더 경쟁은 1·2 둘이 하고 3 은 조회 전용 +1 노드라 기본으로 꺼져 있다
+ *   app-1·2     → chaos-api-1·2. 매칭 리더를 다투는 두 노드다. 이름은 관제센터와 같다
+ *   read-1·2    → 전용 컨테이너가 없다. Docker 대역에서는 chaos-api-1·2 가 조회를 겸한다
+ *   read-3      → chaos-api-3. 조회 전용 +1 노드라 기본으로 꺼져 있다
  *   Auto Scaling → capacity_reconciler.py (호스트). 희망 대수를 따라 docker start/stop 한다. 구성도에서는
- *                 노드가 아니라 앱 세 대를 감싸는 그룹 상자로 그린다(asgView)
- *   DB 두 대    → chaos-pg 와 chaos-pg-standby. Standby 는 아직 compose 에 없어 2단계에서 붙인다
+ *                 노드가 아니라 조회 노드 세 대(read-1·2·3)만 감싸는 그룹 상자로 그린다(asgView)
+ *   DB 두 대    → chaos-pg(db-primary)와 chaos-pg-standby(db-standby). Standby 는 아직 compose 에 없어 2단계에서 붙인다
  *   bot-1       → chaos-bots(시장 봇)와 obs 프로필(Prometheus·Grafana). AWS 에서는 한 호스트다
  *   load-1      → read-load.py (호스트)
  *
  * chaos-toxiproxy 는 AWS 에 없는 Docker 전용 장애 주입기라 구성도에서 뺐다(2026-09-23 사용자 결정).
  * 앱이 어느 DB 를 보는지(endpoint)만 상태로 들고 연결선 이름표로 보인다. AWS 에서 이 전환은
  * switch-db-endpoint.py 가 하고, Docker 에서는 2단계에서 같은 모양으로 스크립트화한다.
+ *
+ * 구성도는 AWS 목표 구성을 그리므로 쓰기는 매칭 노드(app-1·2)로, 조회는 조회 노드(read-1·2·3)로 간다.
+ * Docker 대역에서는 chaos-api-1·2 가 조회를 겸해 매칭 노드를 멈추면 그 조회도 멈추지만, 이 시안은 AWS
+ * 목표 구성대로 조회 노드를 그대로 둔다. 매칭은 지금 코드의 단일 리더(리스 경쟁)로 재생한다. 마켓별
+ * 리더(ADR 0034)는 구현 전이라 이 재생의 측정 기록이 없다.
  *
  * 사건의 순서와 간격은 로컬 Docker 측정 기록을 따르고 출처는 describeScenario 가 돌려준다.
  * 기록이 없는 구간(사람의 판단, 앱 DB 접속 전환)은 가정이라고 적는다. 사건 사이의 값은 지어낸
@@ -23,7 +30,11 @@
  */
 
 export type Health = "success" | "warning" | "danger";
-export type AppId = "api1" | "api2" | "api3";
+/** 매칭 노드(app-1·2). 쓰기와 리더 리스를 다룬다 */
+export type EngineId = "api1" | "api2";
+/** 조회 노드(read-1·2·3). Auto Scaling 그룹이 대수를 정한다 */
+export type ReadId = "read1" | "read2" | "read3";
+export type AppId = EngineId | ReadId;
 export type DbId = "pg1" | "pg2";
 export type AppStatus = "running" | "stopped" | "killed" | "booting" | "draining";
 export type DbStatus = "primary" | "standby" | "stopped" | "rejoining";
@@ -31,13 +42,22 @@ export type ScenarioId = "traffic" | "scale" | "leaderKill" | "restart" | "dbSwi
 /** 재생 대상. 앱 노드를 누르는 재생과 DB 를 누르는 재생이 있다 */
 export type TargetId = AppId | DbId;
 
-export const APP_IDS: AppId[] = ["api1", "api2", "api3"];
+export const ENGINE_IDS: EngineId[] = ["api1", "api2"];
+export const READ_IDS: ReadId[] = ["read1", "read2", "read3"];
+export const APP_IDS: AppId[] = [...ENGINE_IDS, ...READ_IDS];
 export const DB_IDS: DbId[] = ["pg1", "pg2"];
-/** 화면 이름은 AWS 역할 이름이다. 컨테이너 이름은 옆에 따로 적는다 */
-export const APP_NAME: Record<AppId, string> = { api1: "app-1", api2: "app-2", api3: "app-3" };
-export const APP_CONTAINER: Record<AppId, string> = { api1: "chaos-api-1", api2: "chaos-api-2", api3: "chaos-api-3" };
-export const APP_PORT: Record<AppId, number> = { api1: 18080, api2: 28080, api3: 38080 };
-export const DB_NAME: Record<DbId, string> = { pg1: "db-1", pg2: "db-2" };
+/** 화면 이름은 AWS 역할 이름이고 관제센터와 같다. 컨테이너 이름은 옆에 따로 적는다 */
+export const APP_NAME: Record<AppId, string> = { api1: "app-1", api2: "app-2", read1: "read-1", read2: "read-2", read3: "read-3" };
+/** 그 역할을 Docker 대역에서 맡은 컨테이너. read-1·2 는 전용 컨테이너 없이 매칭 노드 컨테이너가 조회를 겸한다 */
+export const APP_CONTAINER: Record<AppId, string> = {
+  api1: "chaos-api-1",
+  api2: "chaos-api-2",
+  read1: "chaos-api-1 · 조회 겸함",
+  read2: "chaos-api-2 · 조회 겸함",
+  read3: "chaos-api-3",
+};
+export const APP_PORT: Record<AppId, number> = { api1: 18080, api2: 28080, read1: 18080, read2: 28080, read3: 38080 };
+export const DB_NAME: Record<DbId, string> = { pg1: "db-primary", pg2: "db-standby" };
 export const DB_CONTAINER: Record<DbId, string> = { pg1: "chaos-pg", pg2: "chaos-pg-standby" };
 
 /** 리더 리스 TTL 과 갱신 주기(docker-compose.chaos.yml:100-101) */
@@ -63,7 +83,7 @@ export interface FlowEvent {
 
 export interface AppNode {
   status: AppStatus;
-  /** LB 조회 업스트림(exchange_read)에 들어 있는가. app-3 은 조정기가 down 표식을 토글한다 */
+  /** LB 조회 업스트림(exchange_read)에 들어 있는가. 조회 노드만 쓴다. read-3 은 조정기가 down 표식을 토글한다 */
   inRead: boolean;
 }
 
@@ -94,14 +114,14 @@ export interface FlowState {
   /** 재생 대상. 리더 중단은 시작 때의 리더, 재기동·재편입은 고른 노드, DB 전환은 그때의 Primary */
   target: TargetId | null;
   /** DB 전환이 시작될 때의 리더. 새 Primary 에서 리스를 다시 잡을 노드다 */
-  prevHolder: AppId | null;
+  prevHolder: EngineId | null;
   botOps: number;
   /** 봇 목표치를 천천히 따라가는 실효 발행률. chaos-bots 재생성과 예열을 흉내 낸다 */
   opsEff: number;
   readVu: number;
   apps: Record<AppId, AppNode>;
   /** 리더 리스 보유자. 보유자가 쓰기를 못 해도 리스가 만료되기 전까지는 이름이 남고, 만료되면 비운다 */
-  holder: AppId | null;
+  holder: EngineId | null;
   epoch: number;
   lease: number;
   desired: 2 | 3;
@@ -116,11 +136,12 @@ export interface FlowState {
   events: FlowEvent[];
 }
 
-const otherEngine = (id: AppId): AppId => (id === "api1" ? "api2" : "api1");
+const otherEngine = (id: EngineId): EngineId => (id === "api1" ? "api2" : "api1");
 const otherDb = (id: DbId): DbId => (id === "pg1" ? "pg2" : "pg1");
-const isApp = (t: TargetId | null | undefined): t is AppId => t === "api1" || t === "api2" || t === "api3";
+export const isEngine = (t: TargetId | NodeId | null | undefined): t is EngineId => t === "api1" || t === "api2";
+export const isRead = (t: TargetId | NodeId | null | undefined): t is ReadId => t === "read1" || t === "read2" || t === "read3";
 const isDb = (t: TargetId | null | undefined): t is DbId => t === "pg1" || t === "pg2";
-const appTarget = (s: FlowState): AppId => (isApp(s.target) ? s.target : "api1");
+const appTarget = (s: FlowState): EngineId => (isEngine(s.target) ? s.target : "api1");
 const dbTarget = (s: FlowState): DbId => (isDb(s.target) ? s.target : "pg1");
 
 /** 지금 Primary. 둘 다 아니면(전환 공백) null */
@@ -160,13 +181,13 @@ const SCENARIOS: Record<ScenarioId, { steps: Step[]; length: number }> = {
     steps: [
       { after: 0, health: "warning", label: () => "load-1 조회 부하 20 VU", apply: (s) => { s.readVu = 20; s.utilTarget = 0.58; } },
       { after: 12, health: "warning", label: () => "운영자 +1 승인 · 목표 3대", apply: (s) => { s.desired = 3; } },
-      { after: 13, health: "warning", label: () => "app-3 기동", apply: (s) => { s.apps.api3 = { status: "booting", inRead: false }; } },
+      { after: 13, health: "warning", label: () => "read-3 기동", apply: (s) => { s.apps.read3 = { status: "booting", inRead: false }; } },
       {
         // 기동부터 LB 등록까지 10.9초. 합류 직후는 예열 중이라 평균이 오히려 74% 로 올랐다
         after: 24,
         health: "success",
-        label: () => "app-3 ALB 등록",
-        apply: (s) => { s.apps.api3 = { status: "running", inRead: true }; s.utilTarget = 0.74; },
+        label: () => "read-3 ALB 등록",
+        apply: (s) => { s.apps.read3 = { status: "running", inRead: true }; s.utilTarget = 0.74; },
       },
       { after: 30, health: "success", label: () => "예열 끝 · 사용률 49%", apply: (s) => { s.utilTarget = 0.49; } },
       // 희망 대수 상향부터 관측 3대까지 24.0초
@@ -176,9 +197,9 @@ const SCENARIOS: Record<ScenarioId, { steps: Step[]; length: number }> = {
         after: 61,
         health: "warning",
         label: () => "ALB 제외 · 드레이닝 10초",
-        apply: (s) => { s.apps.api3 = { status: "draining", inRead: false }; s.utilTarget = 0.27; },
+        apply: (s) => { s.apps.read3 = { status: "draining", inRead: false }; s.utilTarget = 0.27; },
       },
-      { after: 71, health: "success", label: () => "app-3 중지", apply: (s) => { s.apps.api3 = { status: "stopped", inRead: false }; } },
+      { after: 71, health: "success", label: () => "read-3 중지", apply: (s) => { s.apps.read3 = { status: "stopped", inRead: false }; } },
       // 축소는 요청부터 관측 2대까지 18.3초. 부하를 유지한 채라 평균이 27% 로 다시 올랐다
       { after: 78, health: "success", label: () => "관측 2대 · 사용률 27%", apply: () => {} },
       { after: 88, health: "success", label: () => "조회 부하 종료", apply: (s) => { s.readVu = 0; s.utilTarget = 0.05; } },
@@ -192,8 +213,8 @@ const SCENARIOS: Record<ScenarioId, { steps: Step[]; length: number }> = {
         after: 0,
         health: "danger",
         label: (s) => `${APP_NAME[appTarget(s)]} kill`,
-        // nginx 설정에는 그대로 남아 요청이 실패로 넘어간다. 조회 업스트림에서 빠지는 것은 app-3 뿐이다
-        apply: (s) => { s.apps[appTarget(s)] = { status: "killed", inRead: true }; },
+        // 쓰기 업스트림(nginx) 설정에는 그대로 남아 쓰기 요청이 실패로 넘어간다
+        apply: (s) => { s.apps[appTarget(s)] = { status: "killed", inRead: false }; },
       },
       {
         after: 8,
@@ -212,13 +233,13 @@ const SCENARIOS: Record<ScenarioId, { steps: Step[]; length: number }> = {
         after: 0,
         health: "warning",
         label: (s) => `${APP_NAME[appTarget(s)]} 재기동`,
-        apply: (s) => { s.apps[appTarget(s)] = { status: "booting", inRead: true }; },
+        apply: (s) => { s.apps[appTarget(s)] = { status: "booting", inRead: false }; },
       },
       {
         after: 13,
         health: "success",
         label: (s) => `${APP_NAME[appTarget(s)]} 리더 대기 합류`,
-        apply: (s) => { s.apps[appTarget(s)] = { status: "running", inRead: true }; },
+        apply: (s) => { s.apps[appTarget(s)] = { status: "running", inRead: false }; },
       },
     ],
   },
@@ -230,7 +251,7 @@ const SCENARIOS: Record<ScenarioId, { steps: Step[]; length: number }> = {
       {
         after: 0,
         health: "danger",
-        label: (s) => `${DB_NAME[dbTarget(s)]} Primary 중단`,
+        label: (s) => `Primary ${DB_NAME[dbTarget(s)]} 중단`,
         apply: (s) => {
           s.db[dbTarget(s)] = "stopped";
           s.replicating = false;
@@ -297,10 +318,13 @@ export function createFlow(): FlowState {
     botOps: BASE_OPS,
     opsEff: BASE_OPS,
     readVu: 0,
+    // 매칭 노드는 쓰기만 받는다. 조회 노드는 ASG 최소 2대가 켜져 있고 read-3 은 +1 자리라 꺼져 있다
     apps: {
-      api1: { status: "running", inRead: true },
-      api2: { status: "running", inRead: true },
-      api3: { status: "stopped", inRead: false },
+      api1: { status: "running", inRead: false },
+      api2: { status: "running", inRead: false },
+      read1: { status: "running", inRead: true },
+      read2: { status: "running", inRead: true },
+      read3: { status: "stopped", inRead: false },
     },
     // chaos-api-1 이 Flyway 를 돌리고 먼저 리스를 잡는다(chaos.yml:87-141)
     holder: "api1",
@@ -312,7 +336,7 @@ export function createFlow(): FlowState {
     replicating: true,
     util: 0.05,
     utilTarget: 0.05,
-    cpuEff: { api1: 12, api2: 6, api3: 0 },
+    cpuEff: { api1: 12, api2: 6, read1: 8, read2: 8, read3: 0 },
     adviceOut: false,
     events: [],
   };
@@ -340,7 +364,7 @@ export function availability(s: FlowState, id: ScenarioId, target?: TargetId): A
     case "traffic":
       return writable(s) ? { ok: true } : { ok: false, reason: "쓰기 리더 없음" };
     case "scale":
-      if (s.apps.api3.status !== "stopped") return { ok: false, reason: "app-3 이미 실행 중" };
+      if (s.apps.read3.status !== "stopped") return { ok: false, reason: "read-3 이미 실행 중" };
       return { ok: true };
     case "leaderKill": {
       if (!writable(s) || s.holder === null) return { ok: false, reason: "쓰기 리더 없음" };
@@ -351,7 +375,7 @@ export function availability(s: FlowState, id: ScenarioId, target?: TargetId): A
       return { ok: true };
     }
     case "restart":
-      if (!isApp(target) || s.apps[target].status !== "killed") return { ok: false, reason: "중단된 앱 노드에만 적용" };
+      if (!isEngine(target) || s.apps[target].status !== "killed") return { ok: false, reason: "중단된 매칭 노드에만 적용" };
       return { ok: true };
     case "dbSwitch": {
       const p = primaryDb(s);
@@ -411,14 +435,20 @@ function tradesFor(ops: number): number {
   return 19.5 * (1 - Math.exp(-ops / 110));
 }
 
+/**
+ * 노드 CPU 의 목표값. 매칭 노드는 쓰기(리더일 때 봇 발행률)만, 조회 노드는 조회 계층 사용률만 따른다.
+ * 조회 노드의 CPU 가 사용률을 따라가야 Auto Scaling 머리의 사용률과 카드의 CPU 가 서로 다른 말을 하지 않는다
+ */
 function cpuTarget(s: FlowState, id: AppId): number {
   const n = s.apps[id];
   if (n.status === "stopped" || n.status === "killed") return 0;
   if (n.status === "booting") return 55;
-  const readers = APP_IDS.filter((a) => s.apps[a].inRead && s.apps[a].status === "running").length || 1;
-  const readShare = n.inRead ? (s.readVu * 2.2) / readers : 0;
+  if (isRead(id)) {
+    if (n.status === "draining") return 10;
+    return n.inRead ? 3 + s.util * 95 : 5;
+  }
   const writeShare = s.holder === id && writable(s) ? s.opsEff * 0.11 : 0;
-  return 5 + readShare + writeShare;
+  return 5 + writeShare;
 }
 
 export function stepFlow(prev: FlowState): { state: FlowState; sample: FlowSample } {
@@ -475,7 +505,7 @@ export function stepFlow(prev: FlowState): { state: FlowState; sample: FlowSampl
     cpu,
     util: Math.max(0, Math.min(1, s.util + noise(s.tick, 3) * 0.01)),
     desired: s.desired,
-    registered: APP_IDS.filter((a) => s.apps[a].inRead).length,
+    registered: READ_IDS.filter((a) => s.apps[a].inRead).length,
     // 쓰기가 흐를 때만 WAL 이 쌓여 지연이 생긴다. 값은 지어낸 것이다
     replLagKb: s.replicating ? Math.max(0, 1.5 + (writable(s) ? s.opsEff * 0.06 : 0) + noise(s.tick, 5) * 0.6) : null,
   };
@@ -538,14 +568,15 @@ function view(name: string, container: string | null, role: string, status: stri
 
 function appView(s: FlowState, id: AppId, cpuNow: number | null): NodeView {
   const n = s.apps[id];
-  const role =
-    id === "api3"
+  const role = isRead(id)
+    ? id === "read3"
       ? "조회 전용 · ASG +1"
-      : s.holder === id
-        ? `매칭 리더 · epoch ${s.epoch}`
-        : n.status === "running" || n.status === "booting"
-          ? "리더 대기 · 쓰기 백업"
-          : "리더 경쟁 제외";
+      : "조회 전용 · ASG"
+    : s.holder === id
+      ? `매칭 리더 · epoch ${s.epoch}`
+      : n.status === "running" || n.status === "booting"
+        ? "리더 대기 · 쓰기 백업"
+        : "리더 경쟁 제외";
   const cpu = cpuNow === null ? "CPU 미수집" : `CPU ${Math.round(cpuNow)}%`;
   const v = (status: string, state: NodeState) => view(APP_NAME[id], APP_CONTAINER[id], role, status, state);
   switch (n.status) {
@@ -558,7 +589,8 @@ function appView(s: FlowState, id: AppId, cpuNow: number | null): NodeView {
     case "draining":
       return v("드레이닝", "transition");
     case "running":
-      if (s.db[s.endpoint] !== "primary" && id !== "api3") return v("DB 접속 불가", "failure");
+      // 매칭 노드는 쓰기를, 조회 노드는 조회를 같은 Primary 에 보낸다. 접속한 DB 가 Primary 가 아니면 둘 다 멈춘다
+      if (s.db[s.endpoint] !== "primary") return v("DB 접속 불가", "failure");
       return v(cpu, "running");
   }
 }
@@ -589,13 +621,15 @@ export function nodeViews(s: FlowState, cpuNow: Record<AppId, number | null>): R
     alb: view(
       "ALB",
       "chaos-lb",
-      "쓰기 1차·백업 · 조회 분산",
+      "쓰기 → 매칭 · 조회 → ASG",
       w && s.holder ? `쓰기 → ${APP_NAME[s.holder]}` : "쓰기 대상 없음",
       w ? "running" : "failure",
     ),
     api1: appView(s, "api1", cpuNow.api1),
     api2: appView(s, "api2", cpuNow.api2),
-    api3: appView(s, "api3", cpuNow.api3),
+    read1: appView(s, "read1", cpuNow.read1),
+    read2: appView(s, "read2", cpuNow.read2),
+    read3: appView(s, "read3", cpuNow.read3),
     pg1: dbView(s, "pg1"),
     pg2: dbView(s, "pg2"),
     bot: view("bot-1 · 시장 봇", "chaos-bots", "주문 발행", w ? `${s.botOps} OPS` : `${s.botOps} OPS · 주문 실패`, "running"),
@@ -605,7 +639,7 @@ export function nodeViews(s: FlowState, cpuNow: Record<AppId, number | null>): R
   };
 }
 
-/** Auto Scaling 그룹 상자의 머리. 노드가 아니라 앱 세 대를 감싸는 그룹이라 따로 돌려준다 */
+/** Auto Scaling 그룹 상자의 머리. 노드가 아니라 조회 노드 세 대를 감싸는 그룹이라 따로 돌려준다 */
 export interface AsgView {
   min: number;
   max: number;
@@ -618,8 +652,8 @@ export interface AsgView {
 }
 
 export function asgView(s: FlowState): AsgView {
-  const registered = APP_IDS.filter((a) => s.apps[a].inRead).length;
-  const moving = APP_IDS.some((a) => s.apps[a].status === "booting" || s.apps[a].status === "draining");
+  const registered = READ_IDS.filter((a) => s.apps[a].inRead).length;
+  const moving = READ_IDS.some((a) => s.apps[a].status === "booting" || s.apps[a].status === "draining");
   const transition = moving || registered !== s.desired;
   return {
     min: 2,
@@ -641,15 +675,16 @@ export type EdgeId =
   | "load-alb"
   | "alb-api1"
   | "alb-api2"
-  | "alb-api3"
+  | "alb-read"
   | "app-db"
+  | "read-db"
   | "repl"
   | "scrape-app"
   | "scrape-db";
 
 export const EDGE_IDS: EdgeId[] = [
-  "users-cdn", "cdn-alb", "bot-alb", "load-alb", "alb-api1", "alb-api2", "alb-api3",
-  "app-db", "repl", "scrape-app", "scrape-db",
+  "users-cdn", "cdn-alb", "bot-alb", "load-alb", "alb-api1", "alb-api2", "alb-read",
+  "app-db", "read-db", "repl", "scrape-app", "scrape-db",
 ];
 
 /**
@@ -690,25 +725,26 @@ const fixed = (kind: Exclude<EdgeKind, "flow">): EdgeFlow => ({ kind, tier: 0, r
 
 /**
  * 연결선마다 지금 무엇이 얼마나 흐르는지. 구성도는 이 값만 보고 선의 색과 흐름 세기를 정한다.
- * 쓰기는 리스 보유자에게만 가고, 조회는 조회 업스트림에 든 실행 중 노드에 고르게 나뉜다
+ * 쓰기는 매칭 노드 가운데 리스 보유자에게만 가고, 조회는 Auto Scaling 그룹(조회 노드)으로 간다.
+ * 조회선은 그룹 하나로 긋는다. 노드마다 몇 건씩 나뉘는지는 그룹 머리의 사용률과 노드 CPU 가 싣는다
  */
 export function edgeFlows(s: FlowState): Record<EdgeId, EdgeFlow> {
   const w = writable(s);
+  const reachable = dbReachable(s);
   const writeRate = w ? s.opsEff : 0;
   const readRate = s.readVu * READ_PER_VU;
-  const readers = APP_IDS.filter((a) => s.apps[a].inRead && s.apps[a].status === "running");
-  const perReader = readers.length > 0 ? (readRate + USER_RATE) / readers.length : 0;
+  const serving = READ_IDS.filter((a) => s.apps[a].inRead && s.apps[a].status === "running").length;
 
-  const albTo = (id: AppId): EdgeFlow => {
+  const albTo = (id: EngineId): EdgeFlow => {
     const st = s.apps[id].status;
     if (st === "killed") return fixed("down");
     if (st === "stopped") return fixed("off");
     if (st === "booting" || st === "draining") return fixed("transition");
-    if (s.db[s.endpoint] !== "primary" && id !== "api3") return fixed("down");
-    const write = s.holder === id ? writeRate : 0;
-    const read = s.apps[id].inRead ? perReader : 0;
-    return flow(write + read);
+    if (!reachable) return fixed("down");
+    return flow(s.holder === id ? writeRate : 0);
   };
+  // 조회 노드가 늘고 주는 동안에도 조회는 남은 노드로 흐른다. 선은 흐름으로 두고 조정 중은 그룹 틀이 알린다
+  const albRead: EdgeFlow = serving === 0 || !reachable ? fixed("down") : flow(readRate + USER_RATE);
 
   const primary = primaryDb(s);
   const standbyState = primary === null ? null : s.db[otherDb(primary)];
@@ -728,8 +764,11 @@ export function edgeFlows(s: FlowState): Record<EdgeId, EdgeFlow> {
     "load-alb": s.readVu > 0 ? flow(readRate) : fixed("off"),
     "alb-api1": albTo("api1"),
     "alb-api2": albTo("api2"),
-    "alb-api3": albTo("api3"),
-    "app-db": s.db[s.endpoint] === "primary" ? flow(writeRate + readRate * 0.3 + USER_RATE) : fixed("down"),
+    "alb-read": albRead,
+    // 쓰기 SQL 은 리더가 있을 때만 흐른다. 리더가 없어도 연결이 살아 있으면 유휴다
+    "app-db": reachable ? flow(writeRate) : fixed("down"),
+    // 조회 SQL 은 캐시에 걸리지 않은 몫만 DB 에 닿는다. 값은 지어낸 비율이다
+    "read-db": reachable ? flow(readRate * 0.3 + USER_RATE) : fixed("down"),
     repl,
     // 관측 수집은 일정한 약한 흐름이다. 끌어올 DB 가 없으면 끊긴다
     "scrape-app": flow(1),
@@ -784,12 +823,12 @@ export function describeScenario(s: FlowState, id: ScenarioId, target?: TargetId
     case "scale":
       return {
         title: "조회 부하와 ASG +1",
-        target: `${app("api3")} · 조회 전용 · 중지 상태`,
+        target: `${app("read3")} · 조회 전용 · 중지 상태`,
         risk: "낮음",
         tone: "warning",
         impacts: [
           "load-1 조회 부하 20 VU 로 사용률 권고 임계 25% 초과",
-          "운영자 승인 뒤 조정기가 app-3 기동과 ALB 등록",
+          "운영자 승인 뒤 조정기가 read-3 기동과 ALB 등록",
           "부하 유지 중 -1 축소, 드레이닝 10초 뒤 중지",
         ],
         observe: ["조회 사용률", "조회 노드 목표·등록", "앱 노드 CPU"],
@@ -837,7 +876,7 @@ export function describeScenario(s: FlowState, id: ScenarioId, target?: TargetId
         length,
       };
     case "restart": {
-      const t: AppId = isApp(target) ? target : "api1";
+      const t: EngineId = isEngine(target) ? target : "api1";
       return {
         title: "중단 노드 재기동",
         target: `${app(t)} · 중단`,

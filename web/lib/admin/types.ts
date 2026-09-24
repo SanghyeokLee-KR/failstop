@@ -707,6 +707,12 @@ export type OpsHostRole = "APP" | "DB_PRIMARY" | "DB_STANDBY" | "BOT_OBS";
 /** 수집 상태. 마지막 수집이 폴링 두 주기를 넘기면 STALE, 받은 적이 없으면 MISSING */
 export type OpsCollect = "OK" | "STALE" | "MISSING";
 
+/** 매칭 노드가 맡은 마켓 묶음(ADR 0034 마켓별 리더). 노드가 멈추면 다른 매칭 노드가 넘겨받는다 */
+export interface OpsPartition {
+  id: string;
+  markets: string[];
+}
+
 export interface OpsHost {
   id: string;
   role: OpsHostRole;
@@ -719,7 +725,54 @@ export interface OpsHost {
   diskUsedPct: number | null;
   /** t3 버스트 크레딧 잔량 */
   cpuCredits: number | null;
+  /** 매칭 노드만 있다 */
+  partition: OpsPartition | null;
 }
+
+/**
+ * 온프레미스 AI 추론 서버(ADR 0038). 구축 전이라 sim 값이거나 원천 연결 전이다.
+ * EC2 호스트와 재는 것이 달라 호스트 목록에 넣지 않는다.
+ */
+export interface AiServer {
+  id: string;
+  hardware: string;
+  runtime: string;
+  /** 적재 모델. 모델은 평가로 정하므로 sim은 실제 모델 이름을 적지 않는다 */
+  model: string;
+  collectedAt: string | null;
+  gpuPct: number | null;
+  memUsedGb: number | null;
+  memTotalGb: number;
+  /** 최근 판단 요청의 추론 지연. 요청이 없었으면 null */
+  p50Ms: number | null;
+  p95Ms: number | null;
+  tokensPerSec: number | null;
+  /** 대기 중인 판단 요청 수 */
+  queue: number | null;
+  /** 관제 서버와의 연결 */
+  link: "OK" | "DOWN";
+  /** 지금 판단 요청을 처리하는 중인가 */
+  busy: boolean;
+  /** 마지막으로 끝낸 판단 요청의 순번. 화면이 요청·응답이 오간 순간을 알아챈다 */
+  served: number;
+}
+
+/** 상태 요약 추세선의 범위(시간) */
+export type TrendRange = 1 | 6 | 24;
+export type TrendMetric = "availability" | "p95" | "errors" | "alerts" | "incidents";
+
+/**
+ * 상태 요약 칸 하나의 추세. points는 오래된 것부터 같은 간격이고 값이 없으면 null이다.
+ * current와 previous는 지금 구간과 바로 앞 같은 길이 구간의 대표값이다. 비율·지연은 평균,
+ * 경보는 발생 수, 사건은 연 수다.
+ */
+export interface OpsTrendSeries {
+  points: (number | null)[];
+  current: number | null;
+  previous: number | null;
+}
+
+export type OpsTrends = Record<TrendRange, Record<TrendMetric, OpsTrendSeries>>;
 
 export type ReadNodeState = "IN_SERVICE" | "PENDING" | "DRAINING" | "OFF";
 
@@ -1038,6 +1091,11 @@ export interface AiDesk {
   limitHistory: AiLimitChange[];
   cooldowns: AiCooldown[];
   observation: AiObservation | null;
+  /**
+   * 같은 조치를 지난날 몇 번 실행했고 몇 번 되돌렸는가. 감사 기록에서 센 값이고 열쇠는
+   * aiPolicy.actionKey다. 기록이 없는 조치는 열쇠가 없다
+   */
+  actionStats: Record<string, { runs: number; reverts: number }>;
 }
 
 export type OpsScenarioId = "READ_SURGE" | "NIGHT_SCALE_IN";
@@ -1065,6 +1123,8 @@ export interface ControlCenter {
   jobs: OpsSection<OpsJobs>;
   thresholds: OpsSection<ThresholdRegistry>;
   ai: OpsSection<AiDesk>;
+  aiServer: OpsSection<AiServer>;
+  trends: OpsSection<OpsTrends>;
   /** sim 시나리오 재생. 재생 중이 아니거나 http면 null */
   scenario: OpsScenarioView | null;
 }

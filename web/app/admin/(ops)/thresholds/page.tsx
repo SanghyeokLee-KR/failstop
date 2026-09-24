@@ -20,7 +20,7 @@ export default function ThresholdsPage() {
     <div className={adminStyles.page}>
       <OpsHead
         title="임계값 관리"
-        desc="값을 바꾸면 게이지 눈금과 경보 판정이 함께 움직인다. 변경은 1인 승인을 거치고 이력에서 되돌린다"
+        desc="값을 바꾸면 게이지 눈금과 경보 판정이 함께 움직입니다. 변경은 1인 승인을 거치고 이력에서 되돌립니다"
         center={data}
         now={now}
       />

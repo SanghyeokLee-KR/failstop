@@ -12,6 +12,7 @@
 import { isoNow } from "../format";
 import { AdminError } from "./api";
 import { AI_LIMIT_DEFS, AI_LIMITS_DEFAULT, AI_RULES, AUTO_HOURS, cooldownSec, type AiLimits } from "./aiPolicy";
+import { TrendBook } from "./opsTrends";
 import type {
   AiActionKind,
   AiDecision,
@@ -25,6 +26,7 @@ import type {
   AiProposal,
   AiProposalStatus,
   AiRisk,
+  AiServer,
   AlertSeverity,
   ControlCenter,
   Incident,
@@ -35,6 +37,7 @@ import type {
   OpsBackup,
   OpsHost,
   OpsHostRole,
+  OpsPartition,
   OpsRef,
   OpsScenarioId,
   OpsSlo,
@@ -98,8 +101,8 @@ interface ThresholdDef {
 const THRESHOLD_DEFS: ThresholdDef[] = [
   { key: "read.scale_out_cpu", label: "조회 증설 CPU 임계", appliesTo: "조회 ASG 평균 CPU", unit: "%", value: 60, min: 40, max: 85, step: 1, aiMaxStep: 5 },
   { key: "read.scale_in_cpu", label: "조회 축소 CPU 임계", appliesTo: "조회 ASG 평균 CPU", unit: "%", value: 30, min: 10, max: 50, step: 1, aiMaxStep: 5 },
-  { key: "host.cpu_alert", label: "호스트 CPU 경보", appliesTo: "네 호스트 CPU", unit: "%", value: 85, min: 60, max: 95, step: 1, aiMaxStep: 5 },
-  { key: "host.mem_alert", label: "메모리 경보", appliesTo: "네 호스트 메모리", unit: "%", value: 90, min: 70, max: 95, step: 1, aiMaxStep: 5 },
+  { key: "host.cpu_alert", label: "호스트 CPU 경보", appliesTo: "EC2 호스트 CPU", unit: "%", value: 85, min: 60, max: 95, step: 1, aiMaxStep: 5 },
+  { key: "host.mem_alert", label: "메모리 경보", appliesTo: "EC2 호스트 메모리", unit: "%", value: 90, min: 70, max: 95, step: 1, aiMaxStep: 5 },
   { key: "host.disk_free_alert", label: "디스크 여유 경보", appliesTo: "루트 디스크 여유(미만이면 경보)", unit: "%", value: 20, min: 10, max: 40, step: 1, aiMaxStep: 5 },
   { key: "db.replication_lag_alert", label: "복제 지연 경보", appliesTo: "Standby 재생 지연", unit: "초", value: 30, min: 5, max: 300, step: 5, aiMaxStep: 10 },
   { key: "backup.delay_alert", label: "백업 지연 경보", appliesTo: "Databasus 마지막 성공 뒤 경과", unit: "시간", value: 26, min: 12, max: 72, step: 1, aiMaxStep: 6 },
@@ -114,14 +117,26 @@ interface HostDef {
   mem: number;
   disk: number;
   credits: number;
+  partition: OpsPartition | null;
 }
 
+/**
+ * EC2 호스트. 매칭 노드 두 대는 마켓을 나눠 맡는 마켓별 리더(ADR 0034, 다른 브랜치에서 구현 중)의
+ * 배치를 따른다. 조회 노드는 ASG라 여기 없고, 온프레미스 AI 서버는 재는 것이 달라 따로 둔다
+ */
 const HOST_DEFS: HostDef[] = [
-  { id: "app-1", role: "APP", az: "ap-northeast-2a", mem: 64, disk: 41, credits: 288 },
-  { id: "db-primary", role: "DB_PRIMARY", az: "ap-northeast-2c", mem: 72, disk: 58, credits: 412 },
-  { id: "db-standby", role: "DB_STANDBY", az: "ap-northeast-2a", mem: 55, disk: 57, credits: 540 },
-  { id: "bot-1", role: "BOT_OBS", az: "ap-northeast-2c", mem: 78, disk: 67, credits: 176 },
+  { id: "app-1", role: "APP", az: "ap-northeast-2a", mem: 64, disk: 41, credits: 288, partition: { id: "p0", markets: ["BTC", "XRP", "DOGE", "TRX", "DOT", "AVAX"] } },
+  { id: "app-2", role: "APP", az: "ap-northeast-2c", mem: 61, disk: 40, credits: 301, partition: { id: "p1", markets: ["ETH", "SOL", "ADA", "LINK", "MATIC", "ATOM"] } },
+  { id: "db-primary", role: "DB_PRIMARY", az: "ap-northeast-2c", mem: 72, disk: 58, credits: 412, partition: null },
+  { id: "db-standby", role: "DB_STANDBY", az: "ap-northeast-2a", mem: 55, disk: 57, credits: 540, partition: null },
+  { id: "bot-1", role: "BOT_OBS", az: "ap-northeast-2c", mem: 78, disk: 67, credits: 176, partition: null },
 ];
+
+/** ai-1의 통합 메모리(DGX Spark 128GB)와 평시에 잡고 있는 양. 적재 모델은 평가로 정하므로 sim 값이다 */
+const AI_MEM_TOTAL_GB = 128;
+const AI_MEM_RESIDENT_GB = 38.4;
+/** 추론 지연 표본을 몇 개까지 두고 p50·p95를 셀지 */
+const AI_LATENCY_KEEP = 20;
 
 export const OPS_SCENARIO_TITLE: Record<OpsScenarioId, string> = {
   READ_SURGE: "조회 급증 대응",
@@ -325,6 +340,17 @@ export class OpsSim {
   private readonly certExpires: number;
   private reportSent: number | null;
 
+  /** 시드 기록의 AI 조치 감사. 어댑터가 처음 한 번 감사 로그 끝(오래된 쪽)에 붙인다 */
+  seededAudit: { at: string; actor: OpsActorRef; action: string; target: string }[] = [];
+
+  private readonly trends = new TrendBook();
+  /** 이번 틱에 새로 선 경보 수. 추세의 경보 발생 수가 쓴다 */
+  private firedNow = 0;
+  /** ai-1에 판단 요청이 걸려 있는가. 판단 직전 '판단 중' 두 틱 동안 걸린다 */
+  private aiBusy = false;
+  private aiServed = 0;
+  private aiLatency: number[] = [];
+
   constructor(now: number, audit: OpsAudit = () => {}) {
     this.audit = audit;
     this.t = now;
@@ -351,7 +377,10 @@ export class OpsSim {
     this.describe(now, []);
   }
 
-  /** 오늘 앞서 있었던 사건 둘. 평균 복구 시간 칸이 첫 화면부터 판독되게 한다 */
+  /**
+   * 지난 이틀의 사건 기록. 오늘 앞서 있었던 둘은 평균 복구 시간 칸이 첫 화면부터 판독되게 하고, 그 앞의
+   * 셋은 상태 요약 추세의 앞 구간을 채운다. 추세의 경보·사건은 이 기록만 센다(opsTrends.ts)
+   */
   private seedHistory(now: number): void {
     const add = (openedAgoMin: number, minutes: number, title: string, severity: AlertSeverity, steps: [number, IncidentEventKind, OpsActor, string, string][]) => {
       const opened = now - openedAgoMin * 60_000;
@@ -361,6 +390,24 @@ export class OpsSim {
         this.events.unshift({ id: uid("evt"), at: isoNow(opened + offMin * 60_000), kind, actor, actorName: name, text, incidentId: inc.id });
       }
     };
+    add(41 * 60 + 12, 9, "디스크 여유 부족 · bot-1", "warning", [
+      [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · 여유 17% < 20%"],
+      [0.5, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · 디스크 정리는 금지 목록. 허용 목록 조치 없음"],
+      [2, "ACKED", "OPERATOR", "김수퍼", "확인 · 오래된 로그 압축과 보관"],
+      [9, "RESOLVED", "SYSTEM", "시스템", "해제 · 여유 34%. 복구 9분 00초"],
+    ]);
+    add(31 * 60 + 40, 3, "복제 지연 · db-standby", "warning", [
+      [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · 재생 지연 33초 ≥ 30초"],
+      [0.4, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · 따라잡는 중. 허용 목록 조치 없음"],
+      [3, "RESOLVED", "SYSTEM", "시스템", "해제 · 지연 0.4초. 복구 3분 00초"],
+    ]);
+    add(26 * 60 + 5, 5, "응답 지연 증가 · 외부 응답", "warning", [
+      [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · p95 431ms ≥ 목표 400ms"],
+      [0.3, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · 조치안 1건(조회 노드 +1) · 확신도 84%"],
+      [1, "APPROVED", "OPERATOR", "김수퍼", "승인 · 조회 노드 +1 (2 → 3대)"],
+      [1, "ACTED", "SYSTEM", "시스템", "조치 · 희망 대수 2 → 3대"],
+      [5, "RESOLVED", "SYSTEM", "시스템", "해제 · p95 188ms. 복구 5분 00초"],
+    ]);
     add(190, 6, "복제 지연 · db-standby", "warning", [
       [0, "OPENED", "SYSTEM", "시스템", "경보 발생 · 재생 지연 41초 ≥ 30초"],
       [0.4, "AI_JUDGED", "AI", AI_ACTOR.name, "판단 · Primary 쓰기 몰림 뒤 따라잡는 중. 허용 목록 조치 없음"],
@@ -374,6 +421,11 @@ export class OpsSim {
       [1.1, "ACTED", "SYSTEM", "시스템", "조치 · 봇 발행 60 → 30 OPS"],
       [4, "RESOLVED", "SYSTEM", "시스템", "해제 · bot-1 CPU 43%. 복구 4분 00초"],
     ]);
+    // 위 기록에서 운영자가 승인한 AI 조치. 감사 로그에도 같은 일이 남아 있어야 두 기록이 같은 말을 한다
+    this.seededAudit = [
+      { at: isoNow(now - (26 * 60 + 4) * 60_000), actor: { id: "op-01", name: "김수퍼" }, action: "ai.approve:READ_NODES", target: "조회 노드 +1 (2 → 3대)" },
+      { at: isoNow(now - (72 - 1.1) * 60_000), actor: { id: "op-01", name: "김수퍼" }, action: "ai.approve:BOT_LOAD", target: "시장 봇 부하 줄임 (60 → 30 OPS)" },
+    ];
   }
 
   /* ===== 시계 ===== */
@@ -389,6 +441,7 @@ export class OpsSim {
 
   private step(now: number): void {
     this.tick += 1;
+    this.firedNow = 0;
     const moved = this.progressNodes();
     this.progressBackup(now);
     this.measure();
@@ -397,10 +450,12 @@ export class OpsSim {
     this.expireSilences(now);
     this.expireAuto(now);
     this.watchObservation(now);
+    this.trends.record(now, this.p95, this.availability, this.errors, this.alerts.length, this.firedNow);
     // 정지 중에는 판단하지 않는다. 관찰 창은 위에서 끝까지 보고, 창이 닫히거나 되돌리면 정지 문장도 따라간다
     if (this.mode === "STOPPED") {
       this.thinking = false;
       this.describeStopped();
+      this.trackAiServer();
       return;
     }
     const phase = this.tick % JUDGE_EVERY;
@@ -409,6 +464,19 @@ export class OpsSim {
     if (phase === 0) this.judge(now);
     // 노드가 기동을 마치거나 내려가면 '준비 중'·'줄이는 중' 문장이 다음 판단까지 거짓으로 남는다
     else if (moved) this.describe(now, this.findings());
+    this.trackAiServer();
+  }
+
+  /**
+   * ai-1에 걸린 판단 요청. '판단 중' 두 틱 동안 요청이 걸려 있고 판단이 나는 틱에 응답이 돌아온다.
+   * 정지로 끊긴 요청은 응답으로 세지 않는다. 지연은 지어낸 값이다
+   */
+  private trackAiServer(): void {
+    if (this.aiBusy && !this.thinking && this.mode !== "STOPPED") {
+      this.aiServed += 1;
+      this.aiLatency = [...this.aiLatency, Math.round(1400 + Math.abs(wobble(this.tick, 11, 1300)))].slice(-AI_LATENCY_KEEP);
+    }
+    this.aiBusy = this.thinking;
   }
 
   private hasConcern(): boolean {
@@ -444,7 +512,9 @@ export class OpsSim {
     this.p95 = Math.round(170 + Math.max(0, avg - 50) * 14 + wobble(this.tick, 2, 6));
     this.errors = Math.round((0.02 + Math.max(0, avg - 65) * 0.06) * 100) / 100;
     this.availability = Math.round((99.98 - Math.max(0, avg - 65) * 0.03) * 100) / 100;
+    // 봇 주문은 마켓으로 두 매칭 노드에 나뉜다. p0 쪽 거래가 조금 더 많다
     this.hostCpu.set("app-1", Math.round(24 + this.botOps * 0.3 + wobble(this.tick, 3, 3)));
+    this.hostCpu.set("app-2", Math.round(22 + this.botOps * 0.26 + wobble(this.tick, 9, 3)));
     this.hostCpu.set("db-primary", Math.round(16 + this.demand * 0.08 + wobble(this.tick, 4, 2)));
     this.hostCpu.set("db-standby", Math.round(8 + wobble(this.tick, 5, 1.5)));
     this.hostCpu.set("bot-1", Math.round(28 + this.botOps * 0.45 + wobble(this.tick, 6, 3)));
@@ -585,6 +655,7 @@ export class OpsSim {
 
   private fire(id: string, b: Breach, now: number): void {
     this.breachTicks.delete(id);
+    this.firedNow += 1;
     if (this.openIncident === null) {
       const inc: Incident = { id: uid("inc"), title: `${b.name} · ${b.target}`, severity: b.severity, openedAt: isoNow(now), resolvedAt: null };
       this.incidents.unshift(inc);
@@ -653,7 +724,7 @@ export class OpsSim {
       out.push({
         sig: "READ_NODES:+1", params: { kind: "READ_NODES", delta: 1 },
         title: `조회 노드 +1 (${this.desired} → ${this.desired + 1}대)`, target: "조회 ASG",
-        impact: `평균 CPU ${Math.round(avg)}% → 약 ${est}% 예상. t3.small 1대 비용이 시간 단위로 는다`,
+        impact: `평균 CPU ${Math.round(avg)}% → 약 ${est}% 예상. t3.small 1대 비용이 시간 단위로 늘어납니다`,
         risk: "LOW", revertPlan: `조회 노드 −1. 쿨다운 ${AI_RULES.readNodesCooldownSec / 60}분 뒤 가능`,
         confidencePct: Math.round(60 + Math.min(24, (avg - scaleOut) * 1.6) + (this.p95 > SLO.p95Ms ? 4 : 0)),
       });
@@ -663,8 +734,8 @@ export class OpsSim {
       out.push({
         sig: "READ_NODES:-1", params: { kind: "READ_NODES", delta: -1 },
         title: `조회 노드 −1 (${this.desired} → ${this.desired - 1}대)`, target: "조회 ASG",
-        impact: `평균 CPU ${Math.round(avg)}% → 약 ${est}% 예상. 한 대 비용이 준다. 진행 중인 요청을 흘려보낸 뒤 내린다`,
-        risk: "LOW", revertPlan: `조회 노드 +1. 관찰 창 안에서 악화하면 자동으로 되돌린다`,
+        impact: `평균 CPU ${Math.round(avg)}% → 약 ${est}% 예상. 한 대 비용이 줄고, 진행 중인 요청을 흘려보낸 뒤 내립니다`,
+        risk: "LOW", revertPlan: `조회 노드 +1. 관찰 창 안에서 악화하면 자동으로 되돌립니다`,
         confidencePct: Math.round(70 + Math.min(20, (scaleIn - avg) * 2) + (this.lowTicks >= 4 ? 4 : 0)),
       });
     }
@@ -678,8 +749,8 @@ export class OpsSim {
         out.push({
           sig: `THRESHOLD:read.scale_out_cpu:${to}`, params: { kind: "THRESHOLD", key: "read.scale_out_cpu", from: scaleOut, to },
           title: `증설 CPU 임계 ${scaleOut}% → ${to}%`, target: "임계값 · 조회 증설",
-          impact: "다음 급증에서 증설이 약 1분 먼저 시작된다. 평시 증설이 잦아질 수 있다",
-          risk: "LOW", revertPlan: "임계값 이력에서 되돌리기. 같은 승인 흐름을 거친다",
+          impact: "다음 급증에서 증설이 약 1분 먼저 시작됩니다. 평시 증설이 잦아질 수 있습니다",
+          risk: "LOW", revertPlan: "임계값 이력에서 되돌립니다. 같은 승인 흐름을 거칩니다",
           confidencePct: 72,
         });
       }
@@ -691,7 +762,7 @@ export class OpsSim {
       out.push({
         sig: "BOT_LOAD", params: { kind: "BOT_LOAD", fromOps: this.botOps, toOps },
         title: `시장 봇 부하 줄임 (${this.botOps} → ${toOps} OPS)`, target: "bot-1 시장 봇",
-        impact: `bot-1 CPU ${botCpu}% → 약 ${Math.round(28 + toOps * 0.45)}% 예상. 관측 수집 여유를 지킨다`,
+        impact: `bot-1 CPU ${botCpu}% → 약 ${Math.round(28 + toOps * 0.45)}% 예상. 관측 수집 여유를 지킵니다`,
         risk: "LOW", revertPlan: `봇 발행 ${this.botOps} OPS로 되돌리기`,
         confidencePct: 86,
       });
@@ -701,8 +772,8 @@ export class OpsSim {
       out.push({
         sig: `SILENCE:${a.id}`, params: { kind: "SILENCE", alertId: a.id, minutes: AI_RULES.silenceMaxMin },
         title: `경보 보류 ${AI_RULES.silenceMaxMin}분 · ${a.name}`, target: `${a.target} 경보`,
-        impact: "정보 등급이라 서비스 영향이 없다. 보류 동안 다른 경보는 그대로 울린다",
-        risk: "LOW", revertPlan: "보류 해제. 30분 뒤에는 저절로 풀린다",
+        impact: "정보 등급이라 서비스 영향이 없습니다. 보류 동안 다른 경보는 그대로 울립니다",
+        risk: "LOW", revertPlan: "보류를 해제합니다. 30분 뒤에는 저절로 풀립니다",
         confidencePct: 83,
       });
     }
@@ -712,8 +783,8 @@ export class OpsSim {
       out.push({
         sig: "BACKUP_NOW", params: { kind: "BACKUP_NOW" },
         title: "백업 즉시 실행 (Databasus)", target: "exchange DB",
-        impact: "읽기 전용 계정으로 전체 백업과 외부 보관, 복원 검증을 한 번 돌린다. 운영 DB 쓰기에는 영향이 없다",
-        risk: "LOW", revertPlan: "되돌릴 것 없음. 백업 한 벌이 늘 뿐이다",
+        impact: "읽기 전용 계정으로 전체 백업과 외부 보관, 복원 검증을 한 번 돌립니다. 운영 DB 쓰기에는 영향이 없습니다",
+        risk: "LOW", revertPlan: "되돌릴 것이 없습니다. 백업 한 벌이 늘 뿐입니다",
         confidencePct: 90,
       });
     }
@@ -757,7 +828,7 @@ export class OpsSim {
     for (const t of this.thresholds.values()) {
       const p = this.proposals.find((x) => x.status === "PROPOSED" && x.params.kind === "THRESHOLD" && x.params.key === t.key);
       t.aiSuggested = p && p.params.kind === "THRESHOLD" ? p.params.to : null;
-      t.aiReason = p ? "급증 때 증설 전에 응답이 목표를 넘었다" : null;
+      t.aiReason = p ? "급증 때 증설 전에 응답이 목표를 넘었습니다" : null;
     }
   }
 
@@ -807,32 +878,32 @@ export class OpsSim {
           : "자동 조치 뒤 지표가 나빠졌습니다. 조치가 지금 상황에 맞지 않았다고 보고 되돌렸습니다.";
       outcome = revert.cause === null ? "운영자 되돌림 · 복구 관찰" : "자동 되돌림 · 복구 관찰";
     } else if (pending) {
-      this.situation = `조회 노드를 ${this.desired}대로 늘렸고 새 노드가 준비 중이다. 준비되면 평균 CPU가 약 ${Math.round(this.demand / this.desired)}%로 내려갈 것으로 본다.`;
-      this.hypothesis = "조회 트래픽 급증으로 조회 계층 용량이 모자랐다. 조치 효과를 관찰한다.";
+      this.situation = `조회 노드를 ${this.desired}대로 늘렸고 새 노드가 준비 중입니다. 준비되면 평균 CPU가 약 ${Math.round(this.demand / this.desired)}%로 내려갈 것으로 봅니다.`;
+      this.hypothesis = "조회 트래픽 급증으로 조회 계층 용량이 모자랐습니다. 조치 효과를 관찰합니다.";
       outcome = "조치 효과 관찰";
     } else if (draining) {
-      this.situation = `조회 노드를 ${this.desired}대로 줄이는 중이다. 진행 중인 요청을 흘려보낸 뒤 내린다.`;
-      this.hypothesis = "야간 조회 감소. 한 대를 줄여도 여유가 남는다.";
+      this.situation = `조회 노드를 ${this.desired}대로 줄이는 중입니다. 진행 중인 요청을 흘려보낸 뒤 내립니다.`;
+      this.hypothesis = "야간 조회가 줄었습니다. 한 대를 줄여도 여유가 남습니다.";
       outcome = "조치 효과 관찰";
     } else if (avg !== null && avg >= scaleOut) {
-      this.situation = `조회 요청이 평소의 ${(this.demand / BASE_DEMAND).toFixed(1)}배로 늘어 조회 노드 평균 CPU가 ${avg}%다. 응답 p95는 ${this.p95}ms로 목표 ${SLO.p95Ms}ms${this.p95 > SLO.p95Ms ? "를 넘었다" : " 안이다"}. 주문 경로와 DB는 여유가 있다.`;
+      this.situation = `조회 요청이 평소의 ${(this.demand / BASE_DEMAND).toFixed(1)}배로 늘어 조회 노드 평균 CPU가 ${avg}%입니다. 응답 p95는 ${this.p95}ms로 목표 ${SLO.p95Ms}ms${this.p95 > SLO.p95Ms ? "를 넘었습니다" : " 안입니다"}. 주문 경로와 DB는 여유가 있습니다.`;
       this.hypothesis = this.desired >= READ_MAX
-        ? "조회 계층이 최대 대수에서 포화됐다. 대수를 더 늘리는 것은 금지 목록(비용 자원 생성)이라 운영자 판단이 필요하다."
-        : "조회 트래픽 급증으로 조회 계층 용량이 모자라다. 매칭 엔진과 DB는 원인이 아니다.";
+        ? "조회 계층이 최대 대수에서 포화됐습니다. 대수를 더 늘리는 것은 금지 목록(비용 자원 생성)이라 운영자 판단이 필요합니다."
+        : "조회 트래픽 급증으로 조회 계층 용량이 모자랍니다. 매칭 엔진과 DB는 원인이 아닙니다.";
       outcome = `조치안 ${open.length}건`;
     } else if (found.some((f) => f.sig === "READ_NODES:-1")) {
-      this.situation = `조회 요청이 줄어 조회 노드 ${this.inService().length}대의 평균 CPU가 ${avg}%다. 축소 임계 ${this.value("read.scale_in_cpu")}% 아래가 이어진다.`;
-      this.hypothesis = "야간 조회 감소. 한 대를 줄여도 여유가 남는다.";
+      this.situation = `조회 요청이 줄어 조회 노드 ${this.inService().length}대의 평균 CPU가 ${avg}%입니다. 축소 임계 ${this.value("read.scale_in_cpu")}% 아래가 이어집니다.`;
+      this.hypothesis = "야간 조회가 줄었습니다. 한 대를 줄여도 여유가 남습니다.";
       outcome = `조치안 ${open.length}건`;
     } else if (firing.length > 0) {
       const names = firing.map((a) => `${a.target} ${a.name}`).join(", ");
       const allowed = open.length > 0;
-      this.situation = `활성 경보 ${firing.length}건(${names}). ${allowed ? `허용 목록 안의 조치안 ${open.length}건을 냈다.` : "허용 목록에 맞는 조치가 없어 운영자 확인이 필요하다."}`;
-      this.hypothesis = allowed ? "경보 원인에 맞는 허용 조치가 있다." : "DB·디스크·재시작 같은 조치는 금지 목록이라 AI가 다루지 않는다.";
+      this.situation = `활성 경보가 ${firing.length}건(${names}) 있습니다. ${allowed ? `허용 목록 안의 조치안 ${open.length}건을 냈습니다.` : "허용 목록에 맞는 조치가 없어 운영자 확인이 필요합니다."}`;
+      this.hypothesis = allowed ? "경보 원인에 맞는 허용 조치가 있습니다." : "DB·디스크·재시작 같은 조치는 금지 목록이라 AI가 다루지 않습니다.";
       outcome = allowed ? `조치안 ${open.length}건` : "운영자 확인 필요";
     } else {
       this.situation = this.normalSituation();
-      this.hypothesis = open.length > 0 ? "직전 사건에서 나온 조정 제안이 남아 있다." : null;
+      this.hypothesis = open.length > 0 ? "직전 사건에서 나온 조정 제안이 남아 있습니다." : null;
       outcome = open.length > 0 ? `남은 조치안 ${open.length}건` : "이상 없음";
     }
     this.confidence = open.length > 0 ? Math.max(...open.map((p) => p.confidencePct)) : null;
@@ -889,7 +960,7 @@ export class OpsSim {
 
   private normalSituation(): string {
     const avg = this.readAvg === null ? "미수집" : `${Math.round(this.readAvg)}%`;
-    return `모든 지표가 임계 안이다. 조회 평균 CPU ${avg}, 응답 p95 ${this.p95}ms, 복제 지연 ${this.lagSec}초.`;
+    return `모든 지표가 임계 안입니다. 조회 평균 CPU ${avg}, 응답 p95 ${this.p95}ms, 복제 지연 ${this.lagSec}초입니다.`;
   }
 
   /* ===== 자동 실행 ===== */
@@ -1459,7 +1530,27 @@ export class OpsSim {
       id: h.id, role: h.role, instanceType: "t3.small", az: h.az, collect: "OK", collectedAt: at,
       cpuPct: this.hostCpu.get(h.id) ?? null, memPct: Math.round(h.mem + wobble(this.tick, h.mem, 1)),
       diskUsedPct: h.disk, cpuCredits: Math.round(this.credits.get(h.id) ?? 0),
+      partition: h.partition === null ? null : { id: h.partition.id, markets: [...h.partition.markets] },
     }));
+    const lat = [...this.aiLatency].sort((a, b) => a - b);
+    const q = (p: number) => (lat.length === 0 ? null : lat[Math.min(lat.length - 1, Math.floor(p * lat.length))]);
+    const aiServer: AiServer = {
+      id: "ai-1",
+      hardware: "DGX Spark",
+      runtime: "Ollama",
+      model: "평가 중",
+      collectedAt: at,
+      gpuPct: Math.round(this.aiBusy ? 74 + wobble(this.tick, 12, 9) : 4 + Math.abs(wobble(this.tick, 12, 2))),
+      memUsedGb: round1(AI_MEM_RESIDENT_GB + (this.aiBusy ? 1.6 : 0) + Math.abs(wobble(this.tick, 13, 0.3))),
+      memTotalGb: AI_MEM_TOTAL_GB,
+      p50Ms: q(0.5),
+      p95Ms: q(0.95),
+      tokensPerSec: this.aiBusy ? Math.round(46 + wobble(this.tick, 14, 6)) : 0,
+      queue: this.aiBusy ? 1 + (this.alerts.length > 1 ? 1 : 0) : 0,
+      link: "OK",
+      busy: this.aiBusy,
+      served: this.aiServed,
+    };
     const serving = this.inService();
     const readNodes: ReadNode[] = this.nodes.map((n, i) => ({
       id: n.id,
@@ -1509,6 +1600,8 @@ export class OpsSim {
       limitHistory: this.limitHistory.map((h) => ({ ...h })),
       cooldowns: [...this.cooldowns].filter(([, until]) => until > now).map(([kind, until]) => ({ kind, until: isoNow(until) })),
       observation: this.observation === null ? null : { startedAt: isoNow(this.observation.startedAt), until: isoNow(this.observation.until), action: this.observation.action },
+      // 감사 로그는 어댑터가 들고 있어 거기서 센다(simAdmin)
+      actionStats: {},
     };
     return {
       origin: "SIM",
@@ -1531,6 +1624,8 @@ export class OpsSim {
       },
       thresholds: { state: "READY", data: { items: THRESHOLD_DEFS.map((d) => ({ ...(this.thresholds.get(d.key) as OpsThreshold) })), history: this.history.map((h) => ({ ...h })) } },
       ai: { state: "READY", data: ai },
+      aiServer: { state: "READY", data: aiServer },
+      trends: { state: "READY", data: this.trends.build(this.t, this.incidents) },
       scenario: this.scenario === null ? null : {
         id: this.scenario.id, title: OPS_SCENARIO_TITLE[this.scenario.id], startedAt: isoNow(this.scenario.startedAt),
         elapsedSec: Math.max(0, Math.floor((this.t - this.scenario.startedAt) / 1000)),

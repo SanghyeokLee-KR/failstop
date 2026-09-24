@@ -49,43 +49,43 @@ function impactOf(t: OpsThreshold, to: number, c: ControlCenter): string {
   switch (t.key) {
     case "read.scale_out_cpu": {
       const avg = tier?.avgCpuPct ?? null;
-      if (avg !== null && avg >= to && avg < t.value) return `지금 조회 평균 CPU가 ${avg}%라 적용 즉시 증설 경보가 울리고 AI가 증설을 제안한다.`;
-      return lower ? "증설이 더 일찍 시작된다. 급증 때 지연 초과가 줄지만 평시 증설이 잦아져 비용이 늘 수 있다." : "증설이 더 늦게 시작된다. 급증 때 응답 지연이 길어질 수 있다.";
+      if (avg !== null && avg >= to && avg < t.value) return `지금 조회 평균 CPU가 ${avg}%라 적용 즉시 증설 경보가 울리고 AI가 증설을 제안합니다.`;
+      return lower ? "증설이 더 일찍 시작됩니다. 급증 때 지연 초과가 줄지만 평시 증설이 잦아져 비용이 늘 수 있습니다." : "증설이 더 늦게 시작됩니다. 급증 때 응답 지연이 길어질 수 있습니다.";
     }
     case "read.scale_in_cpu":
-      return lower ? "축소가 더 늦게 시작된다. 비용 절감이 줄고 여유는 는다." : "축소가 더 일찍 시작된다. 비용이 줄지만 다시 몰릴 때 되돌리는 일이 잦아질 수 있다.";
+      return lower ? "축소가 더 늦게 시작됩니다. 비용 절감이 줄고 여유는 늘어납니다." : "축소가 더 일찍 시작됩니다. 비용이 줄지만 다시 몰릴 때 되돌리는 일이 잦아질 수 있습니다.";
     case "host.cpu_alert": {
       const now = count((v) => v >= t.value, (h) => h.cpuPct);
       const next = count((v) => v >= to, (h) => h.cpuPct);
-      return `지금 값으로 CPU 경보 호스트가 ${now}대에서 ${next}대가 된다.`;
+      return `지금 값으로 CPU 경보 호스트가 ${now}대에서 ${next}대가 됩니다.`;
     }
     case "host.mem_alert": {
       const now = count((v) => v >= t.value, (h) => h.memPct);
       const next = count((v) => v >= to, (h) => h.memPct);
-      return `지금 값으로 메모리 경보 호스트가 ${now}대에서 ${next}대가 된다.`;
+      return `지금 값으로 메모리 경보 호스트가 ${now}대에서 ${next}대가 됩니다.`;
     }
     case "host.disk_free_alert": {
       const now = count((v) => 100 - v < t.value, (h) => h.diskUsedPct);
       const next = count((v) => 100 - v < to, (h) => h.diskUsedPct);
-      return `지금 값으로 디스크 여유 경보 호스트가 ${now}대에서 ${next}대가 된다. 디스크 정리는 금지 목록이라 AI가 하지 않는다.`;
+      return `지금 값으로 디스크 여유 경보 호스트가 ${now}대에서 ${next}대가 됩니다. 디스크 정리는 금지 목록이라 AI가 하지 않습니다.`;
     }
     case "db.replication_lag_alert":
-      return lower ? "복제 지연을 더 일찍 알린다. 비동기 복제라 지연 동안의 기록은 Primary를 잃으면 함께 잃을 수 있다." : "복제 지연을 더 늦게 알린다. 유실 위험 구간을 늦게 알게 된다.";
+      return lower ? "복제 지연을 더 일찍 알립니다. 비동기 복제라 지연 동안의 기록은 Primary를 잃으면 함께 잃을 수 있습니다." : "복제 지연을 더 늦게 알립니다. 유실 위험 구간을 늦게 알게 됩니다.";
     case "backup.delay_alert": {
       const b = c.jobs.state === "READY" ? c.jobs.data.backup.lastSuccessAt : null;
       const h = b === null ? null : Math.floor((Date.now() - Date.parse(b)) / 3_600_000);
-      if (h !== null && h >= to && h < t.value) return `마지막 백업이 ${h}시간 전이라 적용 즉시 백업 지연 경보가 울리고 AI가 즉시 백업을 제안한다.`;
-      return lower ? "백업 지연을 더 일찍 알린다." : "백업 지연을 더 늦게 알린다.";
+      if (h !== null && h >= to && h < t.value) return `마지막 백업이 ${h}시간 전이라 적용 즉시 백업 지연 경보가 울리고 AI가 즉시 백업을 제안합니다.`;
+      return lower ? "백업 지연을 더 일찍 알립니다." : "백업 지연을 더 늦게 알립니다.";
     }
     case "bot.capacity_guard": {
       const bot = hosts.find((h) => h.id === "bot-1")?.cpuPct ?? null;
-      if (bot !== null && bot >= to && bot < t.value) return `bot-1 CPU가 ${bot}%라 적용 즉시 봇 용량 보호가 걸리고 AI가 봇 부하 줄임을 제안한다.`;
-      return lower ? "봇 부하를 더 일찍 줄인다. 관측 수집 여유를 더 지킨다." : "봇 부하를 더 늦게 줄인다.";
+      if (bot !== null && bot >= to && bot < t.value) return `bot-1 CPU가 ${bot}%라 적용 즉시 봇 용량 보호가 걸리고 AI가 봇 부하 줄임을 제안합니다.`;
+      return lower ? "봇 부하를 더 일찍 줄입니다. 관측 수집 여유를 더 지킵니다." : "봇 부하를 더 늦게 줄입니다.";
     }
     case "host.cpu_credit_alert": {
       const now = count((v) => v < t.value, (h) => h.cpuCredits);
       const next = count((v) => v < to, (h) => h.cpuCredits);
-      return `지금 값으로 크레딧 경보 호스트가 ${now}대에서 ${next}대가 된다. 정보 등급이라 AI가 30분 보류를 제안할 수 있다.`;
+      return `지금 값으로 크레딧 경보 호스트가 ${now}대에서 ${next}대가 됩니다. 정보 등급이라 AI가 30분 보류를 제안할 수 있습니다.`;
     }
   }
 }
@@ -147,7 +147,7 @@ function HistoryTable({ history, items, limit }: { history: ThresholdChange[]; i
                     label="되돌리기"
                     confirm={{
                       title: "임계값 되돌리기 요청",
-                      description: "되돌리기도 같은 1인 승인을 거친다. 발급하고 실행하면 적용된다.",
+                      description: "되돌리기도 같은 1인 승인을 거칩니다. 발급하고 실행하면 적용됩니다.",
                       target: `${h.label} ${h.to}${h.unit} → ${h.from}${h.unit}`,
                       blastRadius: "승인 목록에서 발급·실행",
                       tone: "warning",
@@ -183,11 +183,10 @@ export default function ThresholdPanel({ center, onChanged, full = false }: {
       <PanelHead
         id="th-title"
         title="임계값 관리"
-        meta="게이지 눈금과 경보 판정이 이 값을 그대로 쓴다"
+        meta="게이지 눈금과 경보 판정이 이 값을 그대로 씁니다"
         actions={
           <>
             <span className={styles.grafanaNote}>
-              <span aria-hidden="true">◑</span>
               <span>
                 <b>Grafana</b>는 보기만 · 변경·승인·되돌리기는 여기서
               </span>
@@ -245,7 +244,7 @@ export default function ThresholdPanel({ center, onChanged, full = false }: {
                       )}
                     </td>
                     <td>
-                      <span className={styles.editor}>
+                      <label className={styles.editor}>
                         <input
                           type="range"
                           min={t.min}
@@ -264,7 +263,7 @@ export default function ThresholdPanel({ center, onChanged, full = false }: {
                           aria-label={`${t.label} 새 값 숫자`}
                           onChange={(e) => setDraft({ key: t.key, value: Number(e.target.value) })}
                         />
-                      </span>
+                      </label>
                     </td>
                   </tr>
                 );
@@ -293,7 +292,7 @@ export default function ThresholdPanel({ center, onChanged, full = false }: {
                   <b>영향</b> · {impactOf(editing, draft.value, center)}
                 </p>
                 <p className={styles.reviewText}>
-                  <b>적용</b> · 변경 요청 뒤 승인 목록에서 발급하고 실행하면 적용된다. 이력에서 되돌릴 수 있다.
+                  <b>적용</b> · 변경 요청 뒤 승인 목록에서 발급하고 실행하면 적용됩니다. 이력에서 되돌릴 수 있습니다.
                 </p>
                 {error && <p className={styles.reviewError}>■ {error}</p>}
                 <div className={styles.reviewActions}>
@@ -322,7 +321,7 @@ export default function ThresholdPanel({ center, onChanged, full = false }: {
               <div className={styles.review} data-empty="">
                 <div className={styles.subHead}>변경 검토</div>
                 <p className={styles.reviewText}>
-                  왼쪽에서 값을 바꾸면 변경 전후와 영향이 여기 선다. AI 제안값은 보라 표식이다.
+                  왼쪽에서 값을 바꾸면 변경 전후와 영향이 여기에 나타납니다. AI 제안값에는 AI 표식이 붙습니다.
                 </p>
               </div>
             )}

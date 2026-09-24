@@ -3,13 +3,24 @@
 /**
  * 사건 타임라인. 발생, AI 판단, 승인, 조치, 해제 다섯 단계를 누가 언제 했는지와 함께 적는다.
  * 자동 모드의 조치는 사전 승인(자동 모드 켜기 티켓)을 딛고 실행되므로 승인 단계에 '자동'으로 적는다.
+ * 기록은 세로 레일 위의 점으로 늘어서고, 점은 누가 했는지(시스템·AI·운영자)와 발생·해제를 모양과 색으로 가른다.
  */
 
-import type { Incident, IncidentEvent, IncidentLog } from "@/lib/admin/types";
+import { useState } from "react";
+import type { Incident, IncidentEvent, IncidentLog, OpsActor } from "@/lib/admin/types";
 import { AiMark, durationWord, hms, SEVERITY_SHAPE } from "./parts";
 import styles from "./control.module.css";
 
 const STAGES = ["발생", "AI 판단", "승인", "조치", "해제"] as const;
+
+/** 기록 거르기. 경보는 시스템이 낸 기록(경보 발생·해제·알림), AI와 운영자는 행위자로 가른다 */
+export type EventFilter = "ALL" | OpsActor;
+const FILTERS: { id: EventFilter; label: string }[] = [
+  { id: "ALL", label: "전체" },
+  { id: "SYSTEM", label: "경보" },
+  { id: "AI", label: "AI" },
+  { id: "OPERATOR", label: "운영자" },
+];
 
 interface StageMark {
   at: string | null;
@@ -65,9 +76,18 @@ export function Stages({ inc, events }: { inc: Incident; events: IncidentEvent[]
   );
 }
 
+/** 점의 모양. 발생과 해제는 상태 모양을 따르고, 나머지는 누가 했는지를 적는다 */
+function dotKind(e: IncidentEvent): string {
+  if (e.kind === "OPENED") return "opened";
+  if (e.kind === "RESOLVED") return "resolved";
+  if (e.kind === "AUTO_REVERTED") return "reverted";
+  return e.actor.toLowerCase();
+}
+
 export function EventRow({ e, showIncident }: { e: IncidentEvent; showIncident?: string | null }) {
   return (
-    <li className={styles.event}>
+    <li className={styles.event} data-dot={dotKind(e)}>
+      <span className={styles.eventDot} aria-hidden="true" />
       <span className={`${styles.eventTime} num`}>{hms(e.at)}</span>
       <span className={styles.actor} data-actor={e.actor} title={e.actorName}>
         {e.actor === "AI" && <AiMark size={11} />}
@@ -81,11 +101,26 @@ export function EventRow({ e, showIncident }: { e: IncidentEvent; showIncident?:
   );
 }
 
+export function FilterSwitch({ value, onChange, label }: { value: EventFilter; onChange: (f: EventFilter) => void; label: string }) {
+  return (
+    <span className={styles.switch} role="group" aria-label={label}>
+      {FILTERS.map((f) => (
+        <button key={f.id} type="button" className={styles.switchBtn} data-size="xs" aria-pressed={value === f.id} onClick={() => onChange(f.id)}>
+          {f.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
+export const byFilter = (f: EventFilter) => (e: IncidentEvent) => f === "ALL" || e.actor === f;
+
 /** 사건 한 건의 머리, 단계 줄, 기록 */
-export function IncidentView({ inc, log, now, limit }: { inc: Incident; log: IncidentLog; now: number; limit?: number }) {
+export function IncidentView({ inc, log, now, limit, filter = "ALL" }: { inc: Incident; log: IncidentLog; now: number; limit?: number; filter?: EventFilter }) {
   const events = log.events.filter((e) => e.incidentId === inc.id);
   const asc = [...events].reverse();
-  const shown = limit ? events.slice(0, limit) : events;
+  const picked = events.filter(byFilter(filter));
+  const shown = limit ? picked.slice(0, limit) : picked;
   const open = inc.resolvedAt === null;
   const elapsed = (open ? now : Date.parse(inc.resolvedAt as string)) - Date.parse(inc.openedAt);
   return (
@@ -102,39 +137,49 @@ export function IncidentView({ inc, log, now, limit }: { inc: Incident; log: Inc
         </span>
       </div>
       <Stages inc={inc} events={asc} />
-      <ol className={styles.events} aria-label="사건 기록">
-        {shown.map((e) => (
-          <EventRow key={e.id} e={e} />
-        ))}
-      </ol>
+      {shown.length === 0 ? (
+        <p className={styles.eventsEmpty}>이 사건에 고른 종류의 기록이 없습니다</p>
+      ) : (
+        <ol className={styles.events} aria-label="사건 기록">
+          {shown.map((e) => (
+            <EventRow key={e.id} e={e} />
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
 
 /** 관제센터 오른쪽 기둥의 타임라인. 진행 중인 사건이 없으면 가장 최근 사건을 보인다 */
 export default function TimelineBlock({ log, now }: { log: IncidentLog; now: number }) {
+  const [filter, setFilter] = useState<EventFilter>("ALL");
   const current = log.incidents.find((i) => i.resolvedAt === null) ?? log.incidents[0] ?? null;
   // 진행 중인 사건이 있으면 그 기록만 싣는다. 사건 밖 기록은 사건이 없을 때만 자리를 쓴다
-  const loose = current?.resolvedAt === null ? [] : log.events.filter((e) => e.incidentId === null).slice(0, 2);
-  if (current === null) {
-    return (
-      <div className={styles.empty}>
-        <span className={styles.emptyMark} aria-hidden="true" />
-        오늘 사건 없음
-      </div>
-    );
-  }
+  const loose = current?.resolvedAt === null ? [] : log.events.filter((e) => e.incidentId === null).filter(byFilter(filter)).slice(0, 2);
   return (
     <div className={styles.stack} style={{ gap: "var(--space-3)" }}>
-      <IncidentView inc={current} log={log} now={now} limit={4} />
-      {loose.length > 0 && (
+      <div className={styles.subHead}>
+        <span>사건 타임라인</span>
+        <FilterSwitch value={filter} onChange={setFilter} label="기록 거르기" />
+      </div>
+      {current === null ? (
+        <div className={styles.empty}>
+          <span className={styles.emptyMark} aria-hidden="true" />
+          오늘 사건 없음
+        </div>
+      ) : (
         <>
-          <div className={styles.subHead}>사건 밖 운영 기록</div>
-          <ol className={styles.events}>
-            {loose.map((e) => (
-              <EventRow key={e.id} e={e} />
-            ))}
-          </ol>
+          <IncidentView inc={current} log={log} now={now} limit={4} filter={filter} />
+          {loose.length > 0 && (
+            <>
+              <div className={styles.subHead}>사건 밖 운영 기록</div>
+              <ol className={styles.events}>
+                {loose.map((e) => (
+                  <EventRow key={e.id} e={e} />
+                ))}
+              </ol>
+            </>
+          )}
         </>
       )}
     </div>

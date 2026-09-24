@@ -183,12 +183,12 @@ digest 보고 스텝도 같은 이유로 받을 수 없는 `APP_IMAGE` 문자열
 |---|---|---|
 | style | 인라인 (git diff 추가 줄 검사) | S |
 | doclinks | `pwsh scripts/check-doclinks.ps1` | U |
-| tokens | `node scripts/check-tokens.mjs` | T |
+| tokens | `node scripts/check-tokens.mjs`, `node --test scripts/tests/copy-tone.test.mjs` | T |
 | browser | `node scripts/check-browser.mjs` | T-5 |
 
 `style` 잡은 추가된 줄만 본다. `git diff --unified=0 origin/base...HEAD`로 모으고 `.html`, `.pdf`, `.svg`, `.lock`, `.jar`, `package-lock.json`, `node_modules`, `web/out`, `web/.next`, `docs/archive`를 뺀다. 커밋 메시지에도 같은 패턴을 건다.
 
-`tokens` 잡은 `npm ci` 없이 돈다. `check-tokens.mjs`의 import가 `node:fs`, `node:path`, `node:url` 셋뿐이라 외부 의존이 없다.
+`tokens` 잡은 `npm ci` 없이 돈다. `check-tokens.mjs`의 import가 `node:fs`, `node:path`, `node:url`과 같은 폴더의 카피 규칙 모듈 `copy-tone.mjs`뿐이라 외부 의존이 없다. 같은 잡이 카피 규칙 시험(`node --test`)도 돌린다.
 
 ---
 
@@ -620,7 +620,7 @@ Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 �
 | color-literal | 색 리터럴 금지. 토큰으로 소비 | 코인 브랜드색(engine.ts), 대비 계산 입력(brandChip.ts), tokens.css |
 | undefined-token | var(--x)의 x가 어디에도 선언되지 않음 | 없음 |
 | dead-token | 시맨틱·별칭 토큰의 소비처 0 | 팔레트 램프(미사용 단계는 결함 아님) |
-| copy-tone | UI 카피 존댓말 종결 금지. web/ 문자열·JSX와 server/ ApiException 메시지를 함께 본다 | 시드 게시글·댓글(사용자 작성물) |
+| copy-tone | 평면별 UI 카피 종결형(2026-09-25 개정). 관리 콘솔(`web/app/admin`, `web/components/admin`, `web/lib/admin`)은 반말 평서문 종결 금지(문장은 합니다체), 그 밖의 web/ 문자열·JSX와 server/ ApiException 메시지는 존댓말 종결 금지. 규칙은 `scripts/copy-tone.mjs`, 시험은 `scripts/tests/copy-tone.test.mjs` | 시드 게시글·댓글과 신고 본문(사용자 작성물) |
 | direction-format | formatChangeRate 직접 호출 금지, formatDirectional 사용 | 허용 목록에 이유 기재 시 |
 | focus-ring | :focus 계열에서 자체 outline 선언 금지 | none 또는 --focus-outline-* 소비 |
 

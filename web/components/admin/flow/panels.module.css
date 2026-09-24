@@ -430,8 +430,8 @@
   flex: none;
   color: var(--text-secondary);
 }
-/* Auto Scaling 그룹 머리. 구성도에서 앱 세 대를 감싸는 상자의 머리라 이름을 한 단 굵게, 아이콘을
-   이름과 같은 잉크로 올려 아래 앱 세 줄의 머리로 읽히게 한다 */
+/* Auto Scaling 그룹 머리. 구성도에서 조회 노드 세 대를 감싸는 상자의 머리라 이름을 한 단 굵게, 아이콘을
+   이름과 같은 잉크로 올려 아래 조회 노드 세 줄의 머리로 읽히게 한다 */
 .instName[data-group] {
   font-weight: var(--fw-semibold);
 }

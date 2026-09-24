@@ -6,6 +6,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import type { AlertSeverity, ControlCenter, OpsEnvironment, OpsSection } from "@/lib/admin/types";
+import { AdminIcon } from "../icons";
 import { MeterRail } from "../instruments/MeterRail";
 import styles from "./control.module.css";
 
@@ -153,10 +154,10 @@ export function OpsSourceChip({ center, now }: { center: ControlCenter | null; n
 }
 
 /**
- * 게이지. 라벨과 값 아래에 막대를 둔다. 막대의 기준선이 임계값 표의 현재값이다(§12-9).
+ * 게이지 한 줄. 라벨, 막대, 값 순서이고 값은 오른쪽 정렬이다. 막대의 기준선이 임계값 표의 현재값이다(§12-9).
  * 값이 임계를 넘으면 채움이 주의색이고 값 앞에 ▲를 둔다.
  */
-export function GaugeRow({ label, value, unit = "%", threshold, max = 100, danger, name }: {
+export function GaugeRow({ label, value, unit = "%", threshold, max = 100, danger, name, suffix }: {
   label: string;
   value: number | null;
   unit?: string;
@@ -166,24 +167,31 @@ export function GaugeRow({ label, value, unit = "%", threshold, max = 100, dange
   danger?: number;
   /** 낭독 이름. 라벨이 약어(CPU·MEM)라 풀어 쓴다 */
   name: string;
+  /** 값 뒤 단위 앞에 붙는 분모(예: '/128') */
+  suffix?: string;
 }) {
   const tone = value === null || threshold === null ? undefined
     : danger !== undefined && value >= danger ? "danger" : value >= threshold ? "warning" : undefined;
   return (
     <div className={styles.gauge} data-tone={tone}>
-      <span className={styles.gaugeLine} aria-hidden="true">
-        <span className={styles.gaugeLabel}>{label}</span>
-        <span className={`${styles.gaugeValue} num`} data-tone={tone}>
-          {tone && <span>{tone === "danger" ? "■ " : "▲ "}</span>}
-          {value === null ? <span className={styles.missing}>◌</span> : value}
-          {value !== null && <span className={styles.gaugeUnit}>{unit}</span>}
-        </span>
+      <span className={styles.gaugeLabel} aria-hidden="true">
+        {label}
       </span>
-      <span className={styles.gaugeRail}>
+      <span className={styles.gaugeRail} aria-hidden="true">
         <MeterRail value={value ?? 0} max={max} threshold={threshold ?? undefined} tone={tone} />
       </span>
+      <span className={`${styles.gaugeValue} num`} data-tone={tone} aria-hidden="true">
+        {tone && <span>{tone === "danger" ? "■ " : "▲ "}</span>}
+        {value === null ? <span className={styles.missing}>◌</span> : value}
+        {value !== null && (
+          <span className={styles.gaugeUnit}>
+            {suffix}
+            {unit}
+          </span>
+        )}
+      </span>
       <span className="sr-only">
-        {name} {value === null ? "미수집" : `${value}${unit}`}
+        {name} {value === null ? "미수집" : `${value}${suffix ?? ""}${unit}`}
         {threshold !== null && `, 임계 ${threshold}${unit}`}
         {tone === "warning" && ", 주의"}
         {tone === "danger" && ", 장애"}
@@ -192,12 +200,7 @@ export function GaugeRow({ label, value, unit = "%", threshold, max = 100, dange
   );
 }
 
-/** AI 표지. 선과 호만 쓰는 관리 아이콘 어휘로 그린 네 갈래 반짝임이다 */
+/** AI 표지. 관리 아이콘 한 벌의 연산 칩이다. 반짝임 장식을 쓰지 않는다(§12-10) */
 export function AiMark({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
-      strokeLinejoin="round" aria-hidden="true">
-      <path d="M8 1.75 A6.25 6.25 0 0 0 14.25 8 A6.25 6.25 0 0 0 8 14.25 A6.25 6.25 0 0 0 1.75 8 A6.25 6.25 0 0 0 8 1.75 Z" />
-    </svg>
-  );
+  return <AdminIcon name="ai" size={size} />;
 }

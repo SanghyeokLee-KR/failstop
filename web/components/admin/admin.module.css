@@ -237,47 +237,45 @@
   letter-spacing: 0;
   color: var(--text-strong);
 }
-/* 평면 식별은 로그인 플레이트 소관이라 좌측 명판 없이 우측 정렬만 남긴다 */
+/* 운영자 바. 왼쪽은 평면이 넘기는 검색, 오른쪽은 전체 상태·경보 종·시각·테마·사용자 메뉴다.
+   좌우 여백은 본문 판형(.page)과 같은 24px이라 검색칸 왼쪽 끝이 화면 제목과 한 줄에 선다 */
 .opbar {
   position: sticky;
   top: 0;
   z-index: var(--z-nav);
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--space-4);
   height: 56px;
-  padding: 0 var(--space-5);
+  padding: 0 var(--space-6);
   background: var(--surface-default);
   box-shadow: inset 0 -1px 0 var(--border-subtle);
 }
+.opbarLead {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
 .opbarRight {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-}
-/* 신원·세션·인증서·기기 제어를 hairline으로 구획해 판독 단위를 분리한다 */
-.opbarSeg {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-}
-.opbarDivider {
-  width: 1px;
-  height: 20px;
   flex-shrink: 0;
-  background: var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
 }
-.opName {
-  font-size: var(--font-body-sm-size);
-  font-weight: var(--fw-semibold);
-  color: var(--text-strong);
+/* 현재 시각. 관제 화면의 모든 '몇 초 전'이 이 시계를 기준으로 읽힌다 */
+.clock {
+  padding: 0 var(--space-1);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
   white-space: nowrap;
 }
 .roleRow {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
 }
 .sessionTtl {
@@ -340,34 +338,24 @@
   resize: vertical;
   font-family: inherit;
 }
-/* ===== 인증서 전환기 =====
-   select를 버리고 트리거 + 팝오버로 바꾼다. select는 포커스 상태에서 화살표 키가 스치기만 해도
-   감사 기록상 신원이 바뀐다. 전환은 열기·선택 2클릭의 명시 행위여야 한다 */
-.certSwitch {
+/* ===== 사용자 메뉴 =====
+   신원, 세션 남은 시간, 인증서 전환, 세션 종료를 한 팝오버에 싣는다. 인증서 전환은 select가 아니라
+   열기·선택 두 번의 명시 행위다. select는 포커스 상태에서 화살표 키가 스치기만 해도 감사 기록상
+   신원이 바뀐다 */
+.userMenu {
   position: relative;
 }
-.certBtn {
+.userBtn {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 36px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border-default);
+  min-height: 40px;
+  padding: 0 var(--space-2) 0 var(--space-1);
   border-radius: var(--control-radius);
-  background: var(--surface-default);
   color: var(--text-default);
-  font-size: var(--font-body-sm-size);
 }
-/* 셰브런은 ::before + order로 우측에 앉힌다. ::after는 §8 히트 확장 전용 슬롯 */
-.certBtn::before {
-  content: "";
-  order: 2;
-  width: 12px;
-  height: 12px;
-  background: var(--select-chevron) no-repeat center;
-}
-.certBtn::after {
+.userBtn::after {
   content: "";
   position: absolute;
   left: 0;
@@ -376,22 +364,112 @@
   height: 44px;
   transform: translateY(-50%);
 }
-.certBtn:hover {
+.userBtn:hover,
+.userBtn[aria-expanded="true"] {
   background: var(--surface-hover);
 }
-.certMenu {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  z-index: var(--z-nav);
-  min-width: 200px;
+/* 이름 첫 글자 표지. 사진 자리가 아니라 누구의 세션인지 한눈에 가르는 자리라 무채로 둔다 */
+.avatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.userText {
   display: flex;
   flex-direction: column;
-  padding: var(--space-1);
+  align-items: flex-start;
+  min-width: 0;
+}
+.userName {
+  font-size: var(--font-caption-size);
+  line-height: 17px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.userRole {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.userChevron {
+  display: inline-flex;
+  color: var(--text-secondary);
+}
+.userPanel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-dropdown);
+  width: 280px;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border-default);
   border-radius: var(--control-radius);
   background: var(--surface-elevated);
   box-shadow: var(--shadow-2);
+}
+.userPanelHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.userPanelName {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.userPanelId {
+  margin-bottom: var(--space-1);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.userPanelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
+.userPanelRow b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.userPanelGroup {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--space-1);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.userPanelLabel {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.userPanelFoot {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-2) var(--space-3);
 }
 .certMenuItem {
   display: flex;
@@ -441,8 +519,8 @@
 .roleBadge {
   display: inline-flex;
   align-items: center;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-full);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   font-weight: var(--fw-semibold);
@@ -2156,6 +2234,48 @@
   margin-right: calc(var(--space-3) * -1);
   padding-left: 0;
   padding-right: 0;
+}
+/* 사이드바 바닥의 사용자 카드. 평면 전환 링크 바로 아래 헤어라인으로 붙이고 사이드바 바닥 여백까지 채운다 */
+.sessionCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 56px;
+  margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) calc(var(--space-5) * -1);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.sessionCardText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sessionCardName {
+  font-size: var(--font-caption-size);
+  line-height: 17px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sessionCardMeta {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar[data-collapsed] .sessionCard {
+  justify-content: center;
+  margin-left: calc(var(--space-3) * -1);
+  margin-right: calc(var(--space-3) * -1);
+  padding-left: 0;
+  padding-right: 0;
+}
+.sidebar[data-collapsed] .sessionCardText {
+  display: none;
 }
 
 /* ===== 백오피스 진입점(/admin/back) =====

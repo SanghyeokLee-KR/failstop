@@ -103,9 +103,10 @@ export function BackupLine({ b, now, onChanged, detail }: { b: OpsBackup; now: n
         </dd>
         <dt>다음 예약</dt>
         <dd>{b.nextAt ? <b className="num">{dayWord(b.nextAt, now)}</b> : "예약 없음"}</dd>
-        <dt>즉시 실행</dt>
-        <dd>
-          오늘 {b.manualRunsToday}회 · AI 자동 실행은 하루 1회{" "}
+        {/* 단추가 있는 줄은 이름과 글을 단추 높이의 가운데에 맞춘다 */}
+        <dt data-mid="">즉시 실행</dt>
+        <dd className={styles.kvAction}>
+          <span>오늘 {b.manualRunsToday}회 · AI 자동 실행은 하루 1회</span>
           <button type="button" className={adminStyles.neutralBtn} disabled={!canSuper || busy || b.running} onClick={() => void run()}>
             {b.running ? "실행 중" : "지금 백업"}
           </button>

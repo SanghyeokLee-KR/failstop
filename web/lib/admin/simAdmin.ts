@@ -12,6 +12,7 @@ import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles
 import { feeRateError } from "./fees";
 import { INVARIANT_DEFS, scenarioDef } from "./catalog";
 import { summarizeInvariants } from "./invariants";
+import { actionKey } from "./aiPolicy";
 import { OpsSim, type OpsActorRef } from "./opsSim";
 import type {
   AdminPage,
@@ -65,6 +66,7 @@ import type {
   ScenarioName,
   ScenarioResult,
   ScenarioMarketResult,
+  AiActionKind,
   AiDecision,
   ControlCenter,
   OpsScenarioId,
@@ -284,6 +286,14 @@ export class SimAdminApi implements AdminApi {
   private ops = new OpsSim(Date.now(), this.opsAudit);
 
   constructor() {
+    // 관제 시뮬레이터가 시드한 지난 사건의 AI 조치도 감사 로그에 있어야 두 기록이 같은 말을 한다.
+    // 초기화(resetOps)는 사건만 새로 시드하므로 여기서 한 번만 붙인다
+    for (const e of this.ops.seededAudit) {
+      this.audit.push({
+        id: uid("aud"), at: e.at, operatorId: e.actor.id, operatorName: e.actor.name, action: e.action,
+        target: e.target, approvalId: null, result: "OK", requestId: uid("req"),
+      });
+    }
     if (typeof window !== "undefined") {
       this.restore();
       this.start();
@@ -765,7 +775,23 @@ export class SimAdminApi implements AdminApi {
 
   getControlCenter(): Promise<ControlCenter> {
     this.auth("VIEW");
-    return Promise.resolve(this.ops.snapshot(Date.now()));
+    const c = this.ops.snapshot(Date.now());
+    if (c.ai.state === "READY") c.ai.data.actionStats = this.aiActionStats();
+    return Promise.resolve(c);
+  }
+
+  /** 같은 AI 조치를 몇 번 실행했고 몇 번 되돌렸는지 감사 로그에서 센다. AI 판단 요약의 '되돌리기' 칸이 쓴다 */
+  private aiActionStats(): Record<string, { runs: number; reverts: number }> {
+    const out: Record<string, { runs: number; reverts: number }> = {};
+    for (const e of this.audit) {
+      const m = /^ai\.(approve|auto|auto_revert|revert):([A-Z_]+)$/.exec(e.action);
+      if (!m || e.result !== "OK") continue;
+      const key = actionKey(m[2] as AiActionKind, e.target);
+      const s = (out[key] ??= { runs: 0, reverts: 0 });
+      if (m[1] === "approve" || m[1] === "auto") s.runs += 1;
+      else s.reverts += 1;
+    }
+    return out;
   }
 
   ackAlert(alertId: string): Promise<void> {
@@ -929,13 +955,13 @@ export class SimAdminApi implements AdminApi {
     const pct = avg === null ? 0 : Math.round(avg * 100);
     const advice: CapacityAdvice[] = avg === null
       ? [{ id: "no_metrics", level: "warn", headline: "상태 읽기 실패",
-          detail: "조회를 받는 서버에서 사용률을 가져오지 못했다. 판단 근거가 없어 권고를 내지 않는다.", action: null }]
+          detail: "조회를 받는 서버에서 사용률을 가져오지 못했습니다. 판단 근거가 없어 권고를 내지 않습니다.", action: null }]
       : avg >= SIM_SCALE_OUT_CPU && this.capacityDesired < 3
         ? [{ id: "scale_out", level: "warn", headline: "조회 부하 높음",
-            detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 늘리면 부하가 나뉜다. 추가에 약 17초가 걸리고 서비스는 멈추지 않는다.`, action: "SCALE_OUT" }]
+            detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 늘리면 부하가 나뉩니다. 추가에 약 17초가 걸리고 서비스는 멈추지 않습니다.`, action: "SCALE_OUT" }]
         : avg <= SIM_SCALE_IN_CPU && this.capacityDesired > 2
           ? [{ id: "scale_in", level: "info", headline: "조회 부하 낮음",
-              detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 줄이면 비용이 준다. 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내린다.`, action: "SCALE_IN" }]
+              detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 서버를 한 대 줄이면 비용이 줄어듭니다. 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내립니다.`, action: "SCALE_IN" }]
           : [{ id: "steady", level: "ok", headline: "안정",
               detail: `조회를 받는 서버의 평균 사용률 ${pct}%. 조치 불요.`, action: null }];
     const up = nodes.filter((n) => n.reachable).length;

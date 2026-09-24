@@ -82,7 +82,7 @@ function AutoDialog({ limits, onClose, onDone }: { limits: AiLimits; onClose: ()
   return (
     <ConfirmDialog
       title="AI 자동 모드 켜기"
-      description="허용 목록 조치를 AI가 한도 안에서 자동으로 실행한다. 켜면 1인 승인 티켓을 발급하고 곧바로 소각해 승인 원장과 감사 로그에 남긴다."
+      description="허용 목록 조치를 AI가 한도 안에서 자동으로 실행합니다. 켜면 1인 승인 티켓을 발급하고 곧바로 소각해 승인 원장과 감사 로그에 남깁니다."
       target="AI 운영 · 허용 목록 5종"
       blastRadius={`${hours}시간 뒤 수동 복귀 · 이번 자동 모드 ${limits.autoCap}회 상한`}
       tone="warning"
@@ -352,7 +352,7 @@ export default function ModeBar({ center, onChanged }: { center: ControlCenter |
         <AutoItems ai={ai} now={now} />
       ) : (
         <span className={styles.modeText}>
-          <b>수동</b> · AI는 판단과 조치안까지만 한다. 실행은 운영자 승인
+          <b>수동</b> · AI는 판단과 조치안까지만 냅니다. 실행은 운영자 승인
           {pending > 0 && <> · 조치안 <b className="num">{pending}</b>건 대기</>}
         </span>
       )}

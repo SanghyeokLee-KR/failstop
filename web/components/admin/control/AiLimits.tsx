@@ -154,16 +154,19 @@ export default function AiLimitsPanel({ ai, onChanged }: { ai: AiDesk | null; on
                       {l.unit}
                     </td>
                     <td>
-                      <input
-                        type="number"
-                        className={styles.limitInput}
-                        min={l.min}
-                        max={l.max}
-                        step={1}
-                        value={mine && draft ? draft.value : effective(l)}
-                        aria-label={`${l.label} 새 값`}
-                        onChange={(e) => setDraft({ key: l.key, value: Number(e.target.value) })}
-                      />
+                      {/* 숫자칸은 32px 이고 감싼 label 이 누르는 자리를 44px 높이로 채운다(§10-2) */}
+                      <label className={styles.limitHit}>
+                        <input
+                          type="number"
+                          className={styles.limitInput}
+                          min={l.min}
+                          max={l.max}
+                          step={1}
+                          value={mine && draft ? draft.value : effective(l)}
+                          aria-label={`${l.label} 새 값`}
+                          onChange={(e) => setDraft({ key: l.key, value: Number(e.target.value) })}
+                        />
+                      </label>
                     </td>
                   </tr>
                 );
