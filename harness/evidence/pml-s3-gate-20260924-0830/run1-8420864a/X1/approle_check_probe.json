@@ -1,0 +1,226 @@
+{
+  "container": "pml-probe-s3priv-1191109",
+  "checks": {
+    "C01_ASSET_CONSERVATION": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C02_BAL_VS_LEDGER": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C03_TXN_UNSEALED": {
+      "severity": "HIGH",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C05_CMD_GAPLESS": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C06_EVT_GAPLESS": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C07_DUP_ORDER": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C07P_DUP_ORDER_JOURNAL": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C08_DUP_FILL": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C09_TRADE_SEQ_EVENT_MATCH": {
+      "severity": "HIGH",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C10_ORDER_FILL_AGG": {
+      "severity": "HIGH",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C11_TRADE_ORPHAN": {
+      "severity": "HIGH",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C12_EVENT_ORPHAN": {
+      "severity": "HIGH",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C13A_ORDER_MATERIALIZED": {
+      "severity": "CRITICAL",
+      "scope": "AUTHORITATIVE_ONLY",
+      "rc": 0,
+      "error": null
+    },
+    "C13B_ORDER_JOURNALED": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C14_LOCKED_RESERVATION": {
+      "severity": "HIGH",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C20_ORDER_FEE_MATERIALIZED": {
+      "severity": "HIGH",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C17_REPLAY_DETERMINISM": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C18_FILL_PRICE_MAKER": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C15_DEFAULT_PARTITION": {
+      "severity": "WARN",
+      "scope": "SCHEDULED",
+      "rc": 3,
+      "error": "psql:<stdin>:6: ERROR:  permission denied for table ledger_entries_default"
+    },
+    "C26_CMD_BAND_HEADROOM": {
+      "severity": "HIGH",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C27_CMD_DEFAULT_PARTITION": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 3,
+      "error": "psql:<stdin>:3: ERROR:  permission denied for table command_journal_default"
+    },
+    "C28_CMD_LEGACY_AFTER_CUTOVER": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C29_MARKET_PARTITION_MAP": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C31_RESERVATION_LINK": {
+      "severity": "CRITICAL",
+      "scope": "AUTHORITATIVE_ONLY",
+      "rc": 0,
+      "error": null
+    },
+    "C16_ACK_JOURNALED": {
+      "severity": "CRITICAL",
+      "scope": "AUTHORITATIVE_ONLY",
+      "rc": 0,
+      "error": null
+    },
+    "C19_ORDERBOOK_NONCROSS": {
+      "severity": "HIGH",
+      "scope": "AUTHORITATIVE_ONLY",
+      "rc": 0,
+      "error": null
+    },
+    "C21_EVENT_EMISSION_REGISTRY": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 0,
+      "error": null
+    },
+    "C22_FENCING_MONOTONIC": {
+      "severity": "CRITICAL",
+      "scope": "AUTHORITATIVE_ONLY",
+      "rc": 0,
+      "error": null
+    },
+    "C23_COUNTER_SEQ_CONSISTENCY": {
+      "severity": "CRITICAL",
+      "scope": "AUTHORITATIVE_ONLY",
+      "rc": 0,
+      "error": null
+    },
+    "C24_POSITION_COST_QTY": {
+      "severity": "WARN",
+      "scope": "AUTHORITATIVE_ONLY",
+      "rc": 0,
+      "error": null
+    },
+    "C25_POSITION_COST_SANITY": {
+      "severity": "WARN",
+      "scope": "AUTHORITATIVE_ONLY",
+      "rc": 0,
+      "error": null
+    },
+    "insert_invariant_checks": {
+      "rc": 0,
+      "error": null
+    },
+    "ledger_gauge": {
+      "rc": 0,
+      "error": null
+    },
+    "band_gauge": {
+      "rc": 0,
+      "error": null
+    },
+    "watermarks": {
+      "rc": 0,
+      "error": null
+    }
+  },
+  "migrations": 51,
+  "login": {
+    "rc": 0,
+    "stderr": ""
+  },
+  "failed": {
+    "C15_DEFAULT_PARTITION": {
+      "severity": "WARN",
+      "scope": "SCHEDULED",
+      "rc": 3,
+      "error": "psql:<stdin>:6: ERROR:  permission denied for table ledger_entries_default"
+    },
+    "C27_CMD_DEFAULT_PARTITION": {
+      "severity": "CRITICAL",
+      "scope": "SCHEDULED",
+      "rc": 3,
+      "error": "psql:<stdin>:3: ERROR:  permission denied for table command_journal_default"
+    }
+  }
+}

@@ -46,11 +46,24 @@ public class MemberAdminService {
 
     /**
      * 전이 결과. 운영자가 무엇이 함께 정리됐는지 보고 확인한다.
-     * pendingOrders 는 취소 명령이 저널에 닿지 못하고 503 으로 끝나 아직 열려 있는 주문 수다(ADR 0034 S1). 0 이
-     * 아니면 폐쇄가 덜 끝났고 곧바로 다시 부르면 남은 주문을 취소할 수 있다. 정지 마켓의 미체결은 세지 않는다.
+     * pendingOrders 는 취소하지 못하고 남은 미체결 수이고 pendingReasons 는 그 사유별 수다(API 설계 v2.54 §6-E). 사유는
+     * 취소 명령이 저널에 닿지 못하고 503 으로 끝난 service_unavailable(ADR 0034 S1)과 정지 마켓의 market_suspended 다.
+     * 0 인 사유는 싣지 않고 합이 pendingOrders 다. 0 이 아니면 폐쇄가 덜 끝났다. 503 몫은 곧바로 다시 부르면 취소될 수
+     * 있고, 정지 마켓 몫은 그 마켓을 재개한 뒤 다시 불러야 한다.
      */
     public record Transition(String externalId, String status, int canceledOrders,
-                             int revokedSessions, int pendingOrders) {
+                             int revokedSessions, int pendingOrders, Map<String, Integer> pendingReasons) {
+
+        public Transition {
+            // 감사 detail 과 응답의 키 순서를 고정한다. Map.copyOf 는 순회 순서가 JVM 기동마다 바뀐다.
+            pendingReasons = pendingReasons == null ? Map.of()
+                    : java.util.Collections.unmodifiableMap(new LinkedHashMap<>(pendingReasons));
+        }
+
+        public Transition(String externalId, String status, int canceledOrders, int revokedSessions,
+                          int pendingOrders) {
+            this(externalId, status, canceledOrders, revokedSessions, pendingOrders, Map.of());
+        }
     }
 
     // ------------------------------------------------------------------
@@ -200,7 +213,8 @@ public class MemberAdminService {
      * 막히지 않는다. 스냅샷 밖 신규 주문이 취소되지 않은 채 상태만 CLOSED로 확정된다.
      * 상태를 먼저 닫으면 그 창이 사라지고, 남은 취소는 재호출로 수렴한다(CLOSED->CLOSED 허용).
      * 정지 마켓의 미체결은 cancelAll 이 실패로 집계하고 남긴다. 그 마켓을 재개한 뒤 재호출해야 수렴한다.
-     * 취소가 저널에 닿지 못하고 503 으로 끝난 주문은 Transition.pendingOrders 로 알린다. 컨트롤러가 409 로 바꾼다.
+     * 취소가 저널에 닿지 못하고 503 으로 끝난 주문과 정지 마켓 미체결은 Transition.pendingOrders 와 사유별 수로 알린다.
+     * 컨트롤러가 409 로 바꾼다(API 설계 v2.54 §6-E).
      *
      * 취소를 트랜잭션 밖에 두는 이유는 그대로다. cancelAll이 주문별로 매칭 경로를 타고 각자
      * 커밋하므로 바깥 트랜잭션에 넣으면 경계가 겹친다.
@@ -228,14 +242,22 @@ public class MemberAdminService {
         });
         int canceled = 0;
         int pending = 0;
+        Map<String, Integer> reasons = new LinkedHashMap<>();
         if (cancelOrders) {
             OrderGateway.BulkCancelResult result = orders.cancelAll(user.id(), null);
             canceled = result.canceledIds().size();
-            // 취소가 저널에 닿지 못한 주문(라이터 정지, 켜 둔 경우의 접수 락 대기 상한 초과)은 아직 열려 있어 체결될 수
-            // 있다. 성공으로 덮지 않고 수를 돌려준다. 컨트롤러가 감사에 남긴 뒤 409 로 알린다.
-            pending = result.unsubmitted();
+            // 취소가 저널에 닿지 못한 주문(라이터 정지, 켜 둔 경우의 접수 락 대기 상한 초과)과 정지 마켓의 미체결은 아직
+            // 열려 있어 체결될 수 있다. 성공으로 덮지 않고 수를 돌려준다. 컨트롤러가 감사에 남긴 뒤 409 로 알린다.
+            // 정지 마켓 포함은 API 설계 v2.54 §6-E(ADR 0034 결정 15, AI 선택·사용자 확인 필요)다.
+            pending = result.incomplete();
+            if (result.unsubmitted() > 0) {
+                reasons.put("service_unavailable", result.unsubmitted());
+            }
+            if (result.suspended() > 0) {
+                reasons.put("market_suspended", result.suspended());
+            }
         }
-        return new Transition(externalId, target, canceled, revoked, pending);
+        return new Transition(externalId, target, canceled, revoked, pending, reasons);
     }
 
     private record UserRow(long id, String status) {

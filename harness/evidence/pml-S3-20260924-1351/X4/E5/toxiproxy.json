@@ -1,0 +1,18 @@
+{
+  "pg-api1": {
+    "name": "pg-api1",
+    "listen": "[::]:15432",
+    "upstream": "chaos-pg:5432",
+    "enabled": true,
+    "Logger": {},
+    "toxics": []
+  },
+  "pg-api2": {
+    "name": "pg-api2",
+    "listen": "[::]:25432",
+    "upstream": "chaos-pg:5432",
+    "enabled": true,
+    "Logger": {},
+    "toxics": []
+  }
+}

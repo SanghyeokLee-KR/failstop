@@ -347,9 +347,10 @@ class LeaderLeaseLockModeIntegrationTest {
             int writerPid = pid(writer);
             assertEquals("5", queryString(writer, "SELECT assert_and_lock_market_leader(2::smallint, 'node-a', 5)"));
 
+            // V50 뒤 3인자 획득은 P1 전용이다. P3 흉내에서는 최고 모드를 3 으로 넘기는 4인자 판으로 얻는다(ADR 0034 S3).
             setLockTimeout(other, "500ms");
             assertEquals("6", queryString(other,
-                    "SELECT try_acquire_lease('matching-p0', 'node-b', interval '6 seconds')"));
+                    "SELECT try_acquire_lease('matching-p0', 'node-b', interval '6 seconds', 3::smallint)"));
             assertEquals("t", queryString(other,
                     "SELECT renew_lease('matching-p1', 'node-a', 5, interval '6 seconds')"));
             other.createStatement().execute("UPDATE leader_lease SET lease_until = clock_timestamp() - interval '1 second' "
@@ -358,7 +359,7 @@ class LeaderLeaseLockModeIntegrationTest {
             setStatementTimeout(waiter, "10s");
             int waiterPid = pid(waiter);
             Future<String> acquire = submit(waiter,
-                    "SELECT try_acquire_lease('matching-p1', 'node-c', interval '6 seconds')");
+                    "SELECT try_acquire_lease('matching-p1', 'node-c', interval '6 seconds', 3::smallint)");
             awaitBlocked(observer, waiterPid, writerPid);
             assertFalse(acquire.isDone(), "p1 획득이 p1 쓰기 커밋 전에 끝났다");
 

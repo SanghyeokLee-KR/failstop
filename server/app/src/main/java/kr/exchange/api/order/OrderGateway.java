@@ -12,6 +12,8 @@ import kr.exchange.engine.SubmitResult;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.engine.lease.LeaseResources;
 import kr.exchange.journal.CommandDraft;
+import kr.exchange.journal.ReserveCheck;
+import kr.exchange.journal.SqlErrors;
 import kr.exchange.ledger.Fees;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,10 +33,11 @@ import java.util.concurrent.atomic.LongAdder;
  * 주문 접수 게이트웨이. 검증·사전 가드·박제(external_id, 수수료율, engine_ts)를 끝낸 뒤
  * EngineBridge에 넘긴다(DB 설계 §4.4 비결정 입력 박제).
  *
- * 잔고 사전 가드는 필수다. 가드 없이 잔고 부족 명령이 저널을 통과하면 정산 예약(23514)이
- * 루프 정지 + demote로 이어진다(DB 설계 §5.1 v2.9). 가드와 정산 사이의 짧은 경합 창은
- * 인메모리 in-flight 예약 누계로 좁힌다. 누계가 노드 메모리에 있으므로 저널 append 를 리더
- * 한 노드만 한다는 전제에 기댄다.
+ * 잔고 판정은 리더 모드에 따라 다르다(ReserveMode, ADR 0034 S3). P1 에서는 잔고 사전 가드가 필수다. 가드 없이 잔고 부족
+ * 명령이 저널을 통과하면 정산 예약(23514)이 루프 정지 + demote로 이어진다(DB 설계 §5.1 v2.9). 가드와 정산 사이의 짧은
+ * 경합 창은 인메모리 in-flight 예약 누계로 좁힌다. 누계가 노드 메모리에 있으므로 저널 append 를 리더 한 노드만 한다는
+ * 전제에 기댄다. P2 에서는 저널 append 트랜잭션 안의 DB 예약이 권위다(DB 설계 §3.5). 가드는 가용 잔고만 보는 빠른 거부이고
+ * in-flight 누계를 쓰지 않으며, 잔고가 모자란 append 는 23514 로 롤백돼 400 insufficient_funds 가 된다.
  *
  * submit 이 예외로 끝나면 저널에 닿았는지를 이 요청의 주문 id 로 확인한다(V47). 커밋 응답만 잃은 것이면 키를 남기고
  * 라이터에 그 명령의 회수를 요청한 뒤 정상 접수처럼 응답한다. 닿지 않았으면 넣은 키를 정리하되, 같은 내용의 다른 요청이
@@ -53,26 +56,80 @@ public class OrderGateway {
     private static final long SIGNAL_WAIT_MS = 3_000;
     private static final long RESERVE_DEFER_TTL_MS = 30_000;
 
+    /**
+     * 잔고 판정의 권위가 어디 있는가(ADR 0034 S3, S3 설계 4-9). 기동 때 읽은 리더 모드로 정한다(LeaderProtocolBoot).
+     *
+     * IN_FLIGHT(P1): 사전 가드가 가용 잔고에서 이 노드의 in-flight 누계를 빼고 판정하고, 예약은 정산에서 한다.
+     * DB_RESERVATION(P2 이상): 저널 append 트랜잭션 안의 DB 예약이 권위다. 가드는 가용 잔고만 보는 빠른 거부이고 in-flight
+     * 누계를 쓰지 않는다. 잔고가 모자라면 append 가 23514 로 롤백되고 400 insufficient_funds 로 끝난다.
+     */
+    public enum ReserveMode { IN_FLIGHT, DB_RESERVATION }
+
+    /** 예약 자산의 가용 잔고 조회. 계정이 없으면 400 account_not_found 를 던진다. 시험이 호출을 세거나 끼어들 때 바꾼다. */
+    @FunctionalInterface
+    interface BalanceLookup {
+        BigDecimal available(long userId, short assetId);
+    }
+
     private final JdbcClient jdbc;
     private final EngineBridge bridge;
     private final MarketDirectory markets;
     private final OrderQueryService orders;
     private final InflightReserves inflight;
+    private final ReserveMode mode;
     private final LongAdder commitsRecovered = new LongAdder();
     private final LongAdder keysKept = new LongAdder();
     private final LongAdder unresolvedFailures = new LongAdder();
+    // 잔고 부족 거부의 출처별 수(ADR 0034 S3). precheck 는 저널 전 빠른 거부, db 는 append 트랜잭션의 23514 다.
+    private final Map<String, LongAdder> reserveRejections = new java.util.concurrent.ConcurrentHashMap<>();
+    // 접수 append 가 일시 DB 오류로 끝난 수(SQLSTATE 별). 잠금 계획 뒤에는 40P01 이 결함 신호다(S3 설계 4-14).
+    private final Map<String, LongAdder> appendTransient = new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile BalanceLookup balances = this::availableBalance;
     // 프로젝션 반영을 알리는 신호. 없으면 종전대로 폴링만 한다.
     private ProjectionSignal signal;
 
     public OrderGateway(JdbcClient jdbc, EngineBridge bridge, MarketDirectory markets,
                         OrderQueryService orders) {
+        this(jdbc, bridge, markets, orders, ReserveMode.IN_FLIGHT);
+    }
+
+    public OrderGateway(JdbcClient jdbc, EngineBridge bridge, MarketDirectory markets,
+                        OrderQueryService orders, ReserveMode mode) {
         this.jdbc = jdbc;
         this.bridge = bridge;
         this.markets = markets;
         this.orders = orders;
+        this.mode = mode == null ? ReserveMode.IN_FLIGHT : mode;
         this.inflight = new InflightReserves(
                 orderId -> orders.byInternalId(orderId).isPresent(),
                 System::currentTimeMillis, RESERVE_DEFER_TTL_MS);
+    }
+
+    /** 이 게이트웨이의 잔고 판정 모드. */
+    public ReserveMode reserveMode() {
+        return mode;
+    }
+
+    /** in-flight 예약 누계를 쓰는가. P2(DB_RESERVATION)로 뜬 노드는 쓰지 않는다. 게이지 exchange.order.inflight.enabled. */
+    public boolean inflightEnabled() {
+        return mode == ReserveMode.IN_FLIGHT;
+    }
+
+    /** 잔고 부족으로 거부한 수. source 는 precheck(저널 전 빠른 거부) 또는 db(append 의 23514)다. */
+    public long reserveRejections(String source) {
+        LongAdder n = reserveRejections.get(source);
+        return n == null ? 0 : n.sum();
+    }
+
+    /** 접수 append 가 그 SQLSTATE 의 일시 DB 오류로 끝난 수. */
+    public long appendTransient(String sqlState) {
+        LongAdder n = appendTransient.get(sqlState);
+        return n == null ? 0 : n.sum();
+    }
+
+    /** 가용 잔고 조회를 바꾼다. 시험 전용이다. */
+    void setBalanceLookup(BalanceLookup lookup) {
+        this.balances = lookup;
     }
 
     /**
@@ -119,27 +176,54 @@ public class OrderGateway {
         short reserveAsset = parsed.buy() ? market.quoteAssetId() : market.baseAssetId();
         String reserveKey = userId + ":" + reserveAsset;
         BigDecimal required = parsed.reserve();
+        // 원본 명령이 저널에 없어 이 요청이 키를 잡고 새 접수로 가는가. 참이면 키 선점(claimKey)과 append 실패 뒤 V47 판정을
+        // 받는다. P1 에서는 사전 가드 적용 여부와 같고, P2 에서는 빠른 거부 여부와 따로 정한다(S3 설계 4-9).
         boolean guardApplies;
         // 이 요청의 내용이 기존 키의 내용과 같음을 실제로 대조했는지. 저널 멱등 replay를 200으로
         // 돌려줘도 되는지 가르는 유일한 근거다(아래 replay 판정 참조).
         boolean contentVerified = false;
+        // 저널에 같은 키의 NEW 가 없음을 이미 봤는가. 공유 표시의 전제다(claimKey).
+        boolean journalObservedEmpty = false;
         if (stored.isPresent()) {
             requireSameContent(stored.get(), requestHash);
             contentVerified = true;
             guardApplies = !orders.commandJournaled(userId, clientOrderId);
+            journalObservedEmpty = guardApplies;
         } else {
             guardApplies = true;
         }
+        // P1 의 in-flight 예약을 잡았는가. 잡았으면 finally 가 풀거나 지연 회수한다.
         boolean guarded = false;
         if (guardApplies) {
-            // 잔고 사전 가드(§5.1 v2.9). in-flight 예약 누계를 합산해 가드-정산 경합 창을 좁힌다.
-            // 가드 실패는 멱등 키를 소비하기 전이라 같은 키의 후속 시도를 오염시키지 않는다.
-            if (!inflight.tryReserve(reserveKey, required,
-                    () -> availableBalance(userId, reserveAsset))) {
-                throw new ApiException(400, "insufficient_funds", "주문 가능 잔고가 부족합니다.");
+            if (mode == ReserveMode.IN_FLIGHT) {
+                // 잔고 사전 가드(§5.1 v2.9). in-flight 예약 누계를 합산해 가드-정산 경합 창을 좁힌다.
+                // 가드 실패는 멱등 키를 소비하기 전이라 같은 키의 후속 시도를 오염시키지 않는다.
+                if (!inflight.tryReserve(reserveKey, required,
+                        () -> balances.available(userId, reserveAsset))) {
+                    reserveRejected("precheck");
+                    throw insufficientFunds();
+                }
+                guarded = true;
+            } else if (stored.isEmpty()) {
+                // P2 빠른 거부(ADR 0034 S3, S3 설계 4-9, API 설계 v2.54 §2-4). 판정 권위는 append 트랜잭션의 DB 예약이고
+                // 이것은 저널 전에 명백한 잔고 부족과 계정 없음을 끝내는 조회일 뿐이다. in-flight 누계를 쓰지 않는다.
+                // 처음 읽을 때 저장된 해시가 없던 요청에만 건다. 저장된 해시와 같은 내용의 재전송에 걸면, 원본이 재전송의
+                // 저널 확인과 잔고 조회 사이에 커밋할 때 원본의 예약이 빠진 잔고로 400 을 낼 수 있다(검토 R1).
+                if (balances.available(userId, reserveAsset).compareTo(required) < 0) {
+                    // 거부 직전에 해시를 다시 읽는다. 그 사이 원본이 같은 내용의 키를 넣고 커밋했으면 재생 길로 보낸다.
+                    // 재조회는 거부 경로에서만 한 번 더 도는 조회라 정상 접수의 왕복은 늘지 않는다.
+                    Optional<String> again = storedRequestHash(userId, clientOrderId);
+                    if (again.isEmpty()) {
+                        reserveRejected("precheck");
+                        throw insufficientFunds();
+                    }
+                    requireSameContent(again.get(), requestHash);
+                    contentVerified = true;
+                }
             }
-            guarded = true;
         }
+        // claimKey 가 키를 넣거나 공유 표시를 채웠다. append 가 예외로 끝나면 V47 판정으로 이 키를 정리한다.
+        boolean keyed = false;
         boolean insertedKey = false;
         boolean journaled = false;
         boolean replayed = false;
@@ -152,22 +236,32 @@ public class OrderGateway {
         OrderQueryService.OrderRow row = null;
         long orderId = 0;
         try {
-            if (guarded) {
+            if (guardApplies) {
                 // 키를 넣거나 같은 내용의 기존 키에 공유 표시를 채운다(V47). 예약을 잡은 뒤라 여기서 예외가 나도
                 // finally 가 예약을 푼다. 종전에는 이 단계가 try 밖이라 경합 409 나 DB 오류가 예약을 영영 남겼다.
-                // 기존 키로 대조한 요청은 위에서 저널에 같은 키의 NEW 가 없음을 이미 봤다.
-                KeyClaim claim = claimKey(userId, clientOrderId, requestHash, stored.isPresent());
+                // 기존 키로 대조한 요청은 위에서 저널에 같은 키의 NEW 가 없음을 이미 봤다. P2 에서 빠른 거부를 건너뛴
+                // 요청도 여기를 지난다. 빼면 원본이 실패해 V47 이 원본의 키를 지운 뒤 이 요청이 새 접수로 커밋할 때 키 행이
+                // 없어 다음 재시도가 대조 불가 409 로 끝난다(S3 설계 4-9).
+                KeyClaim claim = claimKey(userId, clientOrderId, requestHash, journalObservedEmpty);
                 switch (claim) {
-                    case INSERTED -> insertedKey = true;
-                    case SHARED -> contentVerified = true;
+                    case INSERTED -> {
+                        insertedKey = true;
+                        keyed = true;
+                    }
+                    case SHARED -> {
+                        contentVerified = true;
+                        keyed = true;
+                    }
                     case JOURNALED -> {
                         // 처음 읽을 때 키가 없어 가드를 잡았으나 경합에서 진 뒤 보니 같은 키의 NEW 가 이미 저널에 있다.
                         // 기존 키로 대조한 요청이 저널 실재를 본 경우와 같이 가드 없는 재생으로 보낸다. 재생은 새 명령을
                         // 커밋하지 않으므로 잡은 예약을 여기서 푼다. guarded 를 먼저 내려 finally 가 한 번 더 풀지 않게 한다.
                         // 두 번 풀면 같은 잔고의 다른 요청이 잡은 예약까지 빠져 가드가 빈다.
                         contentVerified = true;
-                        guarded = false;
-                        inflight.release(reserveKey, required);
+                        if (guarded) {
+                            guarded = false;
+                            inflight.release(reserveKey, required);
+                        }
                     }
                 }
             }
@@ -178,19 +272,22 @@ public class OrderGateway {
             if (signal != null) {
                 signal.register(assignedId);
             }
+            // 예약 자산과 금액은 P2 이상에서 머리말이 DB 계산값과 대조한다(ADR 0034 결정한 값 7). 저널 payload 에는 없다.
             OrderIntake intake = new OrderIntake(
                     market.id(), CommandDraft.CommandType.NEW, userId, clientOrderId, assignedId,
                     System.currentTimeMillis(), assignedId,
                     parsed.side(), parsed.ordType(), parsed.timeInForce(),
                     parsed.price(), parsed.quantity(), parsed.quoteOrderQty(),
-                    UUID.randomUUID(), market.makerFeeRate(), market.takerFeeRate());
+                    UUID.randomUUID(), market.makerFeeRate(), market.takerFeeRate(),
+                    new ReserveCheck(reserveAsset, required));
             SubmitResult result;
             try {
                 result = bridge.submit(intake);
                 journaled = true;
             } catch (RuntimeException e) {
-                if (!guarded) {
-                    // 키도 예약도 잡지 않은 재전송이다. 같은 키의 NEW 가 이미 저널에 있어 append 는 재생만 하므로
+                countTransient(e);
+                if (!keyed) {
+                    // 키를 잡지 않은 재전송이다. 같은 키의 NEW 가 이미 저널에 있어 append 는 재생만 하므로
                     // 새로 커밋됐을 명령이 없다.
                     throw submitFailure(e);
                 }
@@ -217,6 +314,12 @@ public class OrderGateway {
                                 + "user_id={}, client_order_id={}, seq={}, 원인={}",
                         userId, clientOrderId, resolution.seq(), e.toString());
                 bridge.requestCatchUp(resolution.marketId(), resolution.seq());
+            }
+            if (guarded && result.reserved()) {
+                // P1 로 뜬 노드가 P2 DB 에서 돈다(전환 뒤 재기동하지 않음). 자금은 DB 가 저널과 함께 예약했으므로 in-flight 몫을
+                // 바로 푼다. 겹쳐 잡은 것은 append 동안뿐이고 거부 쪽으로만 틀렸다(S3 설계 4-9).
+                guarded = false;
+                inflight.release(reserveKey, required);
             }
             replayed = result.replayed();
 
@@ -459,9 +562,14 @@ public class OrderGateway {
      * 배치 주문이 이 원소만 in_progress 로 적고 다음 원소로 넘어간다(§4-B-6).
      *
      * 잠금 대기 초과(55P03) 같은 일시 DB 오류는 여기서 503 으로 바꾸지 않는다. 쓰기 업스트림의 max_fails=1 이 503
-     * 하나로 리더를 빼므로 인그레스 설정과 함께 정한다(ADR 0034 결정 11, API 설계 v2.52).
+     * 하나로 리더를 빼므로 인그레스 설정과 함께 정한다(ADR 0034 결정 11, API 설계 v2.52). 계약 문구는 v2.54 §2-3 에 있고
+     * 코드는 S4 에서 켠다. 그 전까지 55P03 과 교착(40P01)은 500 이다.
+     *
+     * P2 의 잔고 부족(append 트랜잭션의 23514 chk_balance_nonneg)은 400 insufficient_funds 다(API 설계 v2.54 §2-3). 트랜잭션
+     * 전체가 롤백돼 저널·채번·예약이 남지 않았고, 이 요청의 키는 V47 판정이 이미 정리했다. 다른 제약의 23514 는 잔고 부족이
+     * 아니라 결함이라 원래 예외(500)로 둔다.
      */
-    private static RuntimeException submitFailure(RuntimeException e) {
+    private RuntimeException submitFailure(RuntimeException e) {
         if (e instanceof IllegalStateException) {
             return new ApiException(503, "service_unavailable",
                     "페일오버 진행 중. 재조회 후 판단 필요", null, 1);
@@ -472,7 +580,34 @@ public class OrderGateway {
         if (e instanceof EngineBridge.AcceptBusyException) {
             return acceptBusy();
         }
+        if (SqlErrors.isInsufficientFunds(e)) {
+            reserveRejected("db");
+            return insufficientFunds();
+        }
         return e;
+    }
+
+    /** 잔고 부족의 저널 전 거부. P1 은 사전 가드, P2 는 빠른 거부와 append 트랜잭션의 23514 가 낸다. */
+    private static ApiException insufficientFunds() {
+        return new ApiException(400, "insufficient_funds", "주문 가능 잔고가 부족합니다.");
+    }
+
+    private void reserveRejected(String source) {
+        reserveRejections.computeIfAbsent(source, k -> new LongAdder()).increment();
+    }
+
+    /**
+     * append 가 교착(40P01)·직렬화 실패(40001)로 끝난 수를 센다. 응답은 종전대로다(S4 전까지 500). 정산 잠금 계획 뒤 접수
+     * 경로의 교착은 결함 신호라 오류 로그를 남기고 경보(OrderIntakeDeadlock)가 이 계수를 본다(S3 설계 4-14).
+     */
+    private void countTransient(RuntimeException e) {
+        String state = SqlErrors.sqlState(e);
+        if ("40P01".equals(state) || "40001".equals(state)) {
+            appendTransient.computeIfAbsent(state, k -> new LongAdder()).increment();
+            if ("40P01".equals(state)) {
+                log.error("접수 append 가 교착 희생으로 끝났다. 잠금 계획 뒤에는 도달하지 않아야 한다: {}", e.toString());
+            }
+        }
     }
 
     /** append 예외 뒤 이 요청의 NEW 가 커밋돼 있어 접수로 처리한 횟수. 늘면 커밋 응답 유실을 의심한다. */
@@ -543,13 +678,27 @@ public class OrderGateway {
 
     /**
      * 일괄 취소 결과. unsubmitted 는 failed 가운데 취소 명령이 저널에 닿지 못하고 503 으로 끝난 수다(라이터 정지, 켜 둔
-     * 경우의 접수 락 대기 상한 초과). 그 주문은 아직 열려 있고 곧바로 다시 취소하면 닫힐 수 있다. 정지 마켓의 422 는
-     * 여기에 넣지 않는다. 마켓 재개가 먼저라 곧바로 다시 불러도 닫히지 않는다(API 설계 §6-E). 체결로 먼저 종결된 주문과
-     * 취소 저널 뒤 반영 대기 409 도 다시 부를 필요가 없어 세지 않는다.
+     * 경우의 접수 락 대기 상한 초과). 그 주문은 아직 열려 있고 곧바로 다시 취소하면 닫힐 수 있다. suspended 는 정지 마켓의
+     * 422 market_suspended 로 남은 수다. 마켓 재개가 먼저라 곧바로 다시 불러도 닫히지 않는다. 회원 폐쇄는 둘의 합(incomplete)을
+     * 미완료로 센다(API 설계 v2.54 §6-E). 체결로 먼저 종결된 주문과 취소 저널 뒤 반영 대기 409 는 다시 부를 필요가 없어
+     * 어느 쪽에도 세지 않는다.
      */
     public record BulkCancelResult(List<String> canceledIds,
                                    List<CancelAllResponse.Failure> failed,
-                                   int unsubmitted) {
+                                   int unsubmitted,
+                                   int suspended) {
+
+        public BulkCancelResult(List<String> canceledIds, List<CancelAllResponse.Failure> failed, int unsubmitted) {
+            this(canceledIds, failed, unsubmitted, 0);
+        }
+
+        /**
+         * 회원 폐쇄가 미완료로 세는 수(API 설계 v2.54 §6-E). 저널에 닿지 못한 503 과 정지 마켓의 422 market_suspended 의 합이다.
+         * 정지 마켓 주문은 곧바로 다시 불러도 닫히지 않지만 남은 주문이 폐쇄 계정에서 체결될 수 있으므로 완료로 덮지 않는다.
+         */
+        public int incomplete() {
+            return unsubmitted + suspended;
+        }
     }
 
     /** 일괄 취소(§4-B-3). 미체결(OPEN·PARTIAL) 전량을 개별 취소하고 성패를 per-item 집계한다. */
@@ -557,6 +706,7 @@ public class OrderGateway {
         List<String> canceled = new ArrayList<>();
         List<CancelAllResponse.Failure> failed = new ArrayList<>();
         int unsubmitted = 0;
+        int suspended = 0;
         for (UUID externalId : orders.openOrderIds(userId, market)) {
             try {
                 Placement placement = cancel(userId, externalId);
@@ -568,13 +718,16 @@ public class OrderGateway {
                             placement.row().status().toLowerCase(Locale.ROOT)));
                 }
             } catch (ApiException e) {
-                failed.add(new CancelAllResponse.Failure(externalId.toString(), failureReason(e)));
+                String reason = failureReason(e);
+                failed.add(new CancelAllResponse.Failure(externalId.toString(), reason));
                 if (e.status() == 503) {
                     unsubmitted++;
+                } else if (e.status() == 422 && "market_suspended".equals(reason)) {
+                    suspended++;
                 }
             }
         }
-        return new BulkCancelResult(canceled, failed, unsubmitted);
+        return new BulkCancelResult(canceled, failed, unsubmitted, suspended);
     }
 
     /** 일괄 취소의 원소별 실패 사유. 도메인 거부는 오류 이름이 아니라 거부 사유를 싣는다(§4-B-3). */

@@ -28,6 +28,14 @@ ADR 0022 8단계 판정 입력(stage8_judge.py 가 읽는다). 위에 더한다.
               k6 뒤 유지 확인과 칸 끝 복구를 남기고, 실패 경로의 복구는 __main__ 이 맡는다
   WAL 창      프로메테우스 1분 창과 같은 구간의 pg_stat_wal.wal_sync 와 배정 xid 차. 묶음 비가 여기서 나온다
 
+ADR 0034 S3 판정 입력(마켓분할_리더_S3_설계 7-3 X5). 위에 더한다.
+  모드 전환   --protocol-before-traffic 2 이면 스택을 세운 직후, 래치·키 발급·봇 예열 전에 protocol_latch.transition 으로
+              P2 로 올린다. 칸마다 전환 결과와 주행 뒤 모드 상태(예약 행 수, 정산 전 예약)를 남긴다
+  단일 마켓   SCALE_MARKETS 가 마켓 하나면 주행 창의 그 마켓 k6 NEW 수를 주행 초로 나눈 접수율과 과포화 여부(요청률의 80퍼센트
+              이하), 그 마켓의 명령당 접수 락 보유를 남긴다. 봇 주문과 다른 마켓은 세지 않는다
+  이 러너는 칸마다 down -v 를 하므로 보존 스택(CHAOS_PROJECT 미설정·exchange-chaos)에서는 시작하지 않는다. 모드 전환 칸은
+  CHAOS_PROJECT=exchange-pml, CHAOS_APP_IMAGE=exchange-chaos-app:pml 일 때만 시작한다(7-0, 하네스 검증설계 §2-4)
+
 한 칸만 돈다. 규격은 4코어로 고정한다. 정본 5.7.6 이 그 지점을 포화로 판정했다.
 
 돌리는 법:
@@ -54,6 +62,7 @@ import clean_suite as cs  # noqa: E402
 import pg_samplers as pgs  # noqa: E402
 import band_cutover as bc  # noqa: E402
 import commit_delay as cd  # noqa: E402
+import protocol_latch as pl  # noqa: E402
 
 ENV = {'SCALE_POOL': '32', 'SCALE_ORDER_INFLIGHT': '0', 'SCALE_QUERY_INFLIGHT': '0',
        'SCALE_REQUERY_INFLIGHT': '0', 'SCALE_PG_CPUS': '4.0', 'SCALE_PG_MEM': '4g'}
@@ -83,6 +92,21 @@ PROM_SERIES = (
     ('append 풀 대기', 'sum(hikaricp_connections_pending{pool="exchange-append"})'),
 )
 
+# 잔고 행 대기 표본(S3 설계 7-3 X5 기록). 행 잠금을 기다리는 백엔드는 balances 의 tuple 잠금을 쥐거나 기다린다. ctid 로
+# 계정을 찾아 사용자 행(USER)과 시스템 행(수수료 FEE_INCOME 등)을 나눈다. balances 는 파티션 표가 아니다(V1).
+BALANCE_WAIT_SQL = """
+SELECT json_build_object(
+  'ts', to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+  'lock_waiters', (SELECT count(*) FROM pg_stat_activity WHERE datname = 'exchange' AND wait_event_type = 'Lock'),
+  'balance_row_waiters', (SELECT coalesce(json_object_agg(k, n), '{}'::json) FROM (
+        SELECT coalesce(ac.owner_type || ':' || ac.purpose, 'unknown') AS k, count(DISTINCT l.pid) AS n
+          FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid
+          LEFT JOIN balances b ON b.ctid = format('(%s,%s)', l.page, l.tuple)::tid
+          LEFT JOIN accounts ac ON ac.id = b.account_id
+         WHERE l.locktype = 'tuple' AND l.relation = 'balances'::regclass AND a.wait_event_type = 'Lock'
+         GROUP BY 1) t))
+"""
+
 NODE_PORTS = (18080, 28080)
 SCRAPE_NAMES = ('exchange_submit_count_total', 'exchange_submit_lock_hold_nanos_total',
                 'exchange_writer_catchup_calls_total', 'exchange_writer_apply_count_total')
@@ -108,6 +132,24 @@ def pg_counters():
         return int(c), int(d)
     except (ValueError, subprocess.SubprocessError, OSError):
         return None
+
+
+def balance_waits():
+    parsed, err = pgs.parse_json_row(*pgs.run_psql(BALANCE_WAIT_SQL))
+    return parsed if parsed is not None else {'error': err}
+
+
+def summarize_balance_waits(rows):
+    """표본마다 잔고 행 대기 백엔드 수(계정 종류별)의 최댓값과 평균. 표본이 없으면 빈 값이다."""
+    keys = sorted({k for r in rows for k in (r.get('balance_row_waiters') or {})})
+    ok = [r for r in rows if 'balance_row_waiters' in r]
+    out = {'표본 수': len(ok), '오류 표본': len(rows) - len(ok)}
+    for k in keys:
+        vals = [(r.get('balance_row_waiters') or {}).get(k, 0) for r in ok]
+        out[k] = {'최대': max(vals) if vals else None, '평균': (sum(vals) / len(vals)) if vals else None}
+    lw = [r.get('lock_waiters') or 0 for r in ok]
+    out['Lock 대기 전체'] = {'최대': max(lw) if lw else None, '평균': (sum(lw) / len(lw)) if lw else None}
+    return out
 
 
 def by_market(expr):
@@ -239,8 +281,10 @@ class RunSampler(threading.Thread):
             conn = pgs.sample_connections()
             conn['k6_alive'] = alive
             prom = {k: q(e) for k, e in PROM_SERIES}
+            bal = balance_waits()
+            bal['k6_alive'] = alive
             self.rows.append({'ts': counter['ts'], 'k6_alive': alive, 'counter': counter, 'split': split,
-                              'conn': conn, 'prom': prom})
+                              'conn': conn, 'prom': prom, 'balance': bal})
             if not alive:
                 return
             next_t += SAMPLE_INTERVAL_S
@@ -349,6 +393,27 @@ def submit_crosscheck(scrape0, scrape1, accepts):
     return {'마켓별': per, '저널 행 합': sum((r.get('all_commands') or 0) for r in rows) if rows else None}
 
 
+def single_market(s, market, duration, rate):
+    """단일 마켓 과포화 주행의 판정값(S3 설계 7-3 X5 (ii)). 주행 창의 그 마켓 k6 NEW 수 / 주행 초다.
+    명령당 접수 락 보유는 그 마켓 라벨의 보유 점유를 접수 시도율로 나눈 값이고 설명에만 쓴다."""
+    rows = (s.get('접수(DB, 마켓별)') or {}).get('마켓') or []
+    hit = next((r for r in rows if r.get('symbol') == market), None)
+    k6_new = hit.get('k6_new') if hit else None
+    accept = (k6_new / float(duration)) if (k6_new is not None and duration) else None
+    hold = s.get('락 보유 점유(마켓별)') or {}
+    tries = s.get('접수 시도/s(마켓별)') or {}
+    keys = [k for k in (market, str(hit.get('id')) if hit else None) if k is not None]
+    h = next((hold[k] for k in keys if hold.get(k) is not None), None)
+    t = next((tries[k] for k in keys if tries.get(k) is not None), None)
+    return {
+        '마켓': market, 'k6 NEW': k6_new, '주행 초': duration, '요청률': rate,
+        '접수율(/s)': accept,
+        '과포화(요청률의 80% 이하)': (accept <= 0.8 * rate) if accept is not None else None,
+        '명령당 락 보유(ms)': (h / t * 1e3) if (h and t) else None,
+        '락 보유 점유': h, '접수 시도/s': t,
+    }
+
+
 def sha256_of(path):
     try:
         return hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -384,15 +449,36 @@ def main():
                     help='ADR 0022 6단계 B6. 되돌릴 수 없는 래치를 새로 세운 카오스 DB 에 건다')
     a_.add_argument('--commit-delay', type=int, default=None, help='ADR 0022 8단계 칸 값. 마이크로초')
     a_.add_argument('--commit-siblings', type=int, default=None, help='ADR 0022 8단계 칸 값')
+    a_.add_argument('--protocol-before-traffic', type=int, choices=(2,), default=None,
+                    help='ADR 0034 S3. 스택을 세운 직후 키 발급과 봇 예열 전에 이 모드로 전환한다(protocol_latch)')
     a = a_.parse_args()
     if (a.commit_delay is None) != (a.commit_siblings is None):
         a_.error('--commit-delay 와 --commit-siblings 는 함께 준다')
+    # 칸마다 down -v 를 한다. 보존 스택이면 시작하지 않는다(하네스 검증설계 §2-4). 모드 전환 칸은 S3 폐기용 스택
+    # (exchange-pml, exchange-chaos-app:pml)에서만 돈다(S3 설계 7-0). ADR 0022 단계 절차는 자기 태그로 이 러너를 부른다.
+    problems = cs.disposable_problems(protocol=a.protocol_before_traffic is not None)
+    if problems:
+        print('보존 스택 가드로 시작하지 않는다: %s' % '; '.join(problems), flush=True)
+        return 2
 
     started = pgs.now_iso()
     print('[%s] 부하 %d/s' % (a.label, a.rate), flush=True)
     if not cs.reset_stack(ENV):
         print('  초기화 실패: %s' % cs.LAST_ERR[0][-300:], flush=True)
         return 1
+    protocol = None
+    if a.protocol_before_traffic is not None:
+        # 스택 기동 직후, 래치·키 발급·봇 예열보다 먼저 한다. 봇은 스택과 함께 떠 있으므로 전환 도구가 멈추고 드레인한 뒤 되살린다.
+        protocol = pl.transition(a.protocol_before_traffic)
+        if not protocol['ok']:
+            print('  모드 전환 실패(code=%s): %s' % (protocol['code'], protocol['error']), flush=True)
+            if a.out:
+                io.open(a.out + '.protocol-failed.json', 'w', encoding='utf-8').write(
+                    json.dumps(protocol, ensure_ascii=False, indent=2, default=str))
+            return 1
+        print('  모드 전환 P%d, 새 리더 epoch %s, 호출 %sms' % (
+            a.protocol_before_traffic, protocol.get('new_leader_epoch'),
+            (protocol.get('call') or {}).get('duration_ms')), flush=True)
     latch = None
     if a.latch_before_traffic:
         # 키 발급, 봇 워밍업, k6 보다 먼저 건다. 봇은 스택 기동과 함께 돌므로 호출 전 저널 행 수를 함께 남긴다.
@@ -479,6 +565,10 @@ def main():
     s['카운터 행 양성 대조(전역)'] = controls['전역']
     s['카운터 행 양성 대조(마켓)'] = controls['마켓']
     s['래치'] = {'트래픽 전 래치': a.latch_before_traffic, '호출': latch, '상태': bc.latch_state()}
+    s['모드'] = {'트래픽 전 전환': a.protocol_before_traffic, '전환': protocol, '주행 뒤 상태': pl.state()}
+    mk = markets().split(',')
+    if len(mk) == 1:
+        s['단일 마켓'] = single_market(s, mk[0], a.duration, a.rate)
     s['대역 행(DB, 마켓별)'] = bc.band_rows((t0, t1))
     s['C28'] = bc.c28()
     conn_rows = [r['conn'] for r in sampler.rows]
@@ -487,6 +577,9 @@ def main():
     s['연결'] = {'요약': conn_summary, '로그': conn_log, '판정': pgs.connection_verdict(conn_summary, conn_log),
                 '풀 상한(부하 전)': pools, '표본': conn_rows}
     s['표본 시계열'] = [dict(r['prom'], ts=r['ts'], k6_alive=r['k6_alive']) for r in sampler.rows]
+    bal_rows = [r['balance'] for r in sampler.rows if r['k6_alive']]
+    s['잔고 행 대기 표본'] = {'간격(초)': SAMPLE_INTERVAL_S, '요약(k6 주행 중)': summarize_balance_waits(bal_rows),
+                        '표본': [r['balance'] for r in sampler.rows]}
     s['WAL 창'] = pgs.wal_window(wal0, wal1)
     if commit is not None:
         commit['복구'] = cd.reset()
@@ -498,6 +591,11 @@ def main():
         'run_id': run_id,
         'ENV': ENV,
         'CHAOS_APP_IMAGE': os.environ.get('CHAOS_APP_IMAGE'),
+        'CHAOS_PROJECT': os.environ.get('CHAOS_PROJECT'),
+        'SCALE_LOAD_KEYS': cs.load_keys(),
+        'SCALE_MARKETS': os.environ.get('SCALE_MARKETS'),
+        'CHAOS_EXTRA_COMPOSE': os.environ.get('CHAOS_EXTRA_COMPOSE'),
+        'CHAOS_SPRING_PROFILES': os.environ.get('CHAOS_SPRING_PROFILES'),
         '컨테이너 이미지': container_images(),
         '하네스 커밋': git_head(),
         'compose sha256': {Path(f).name: sha256_of(f) for f in (cs.CHAOS, cs.SCALE)},
@@ -520,6 +618,15 @@ def main():
                                              controls['마켓']['상태']), flush=True)
     print('  카운터 행 분리 표본 %s' % s['카운터 행 표본(전역·마켓)']['요약'], flush=True)
     print('  래치 행 %s, C28 %s' % (s['래치']['상태']['래치 행'], s['C28']['위반 행']), flush=True)
+    st = s['모드']['주행 뒤 상태']
+    print('  모드 P%s, 예약 행 %s, 정산 전 예약 %s' % (st.get('protocol'), st.get('reservations'),
+                                               st.get('unsettled_reservations')), flush=True)
+    if s.get('단일 마켓'):
+        sm = s['단일 마켓']
+        print('  단일 마켓 %s 접수율 %s/s, 과포화 %s, 명령당 락 보유 %sms' % (
+            sm['마켓'], None if sm['접수율(/s)'] is None else round(sm['접수율(/s)'], 2),
+            sm['과포화(요청률의 80% 이하)'],
+            None if sm['명령당 락 보유(ms)'] is None else round(sm['명령당 락 보유(ms)'], 3)), flush=True)
     print('  연결 %s' % s['연결']['판정'], flush=True)
     w = s['WAL 창']
     print('  WAL 창 %s초, fsync/s %s, 묶음 비 %s %s' % (w['초'], w['WAL fsync/s'], w['묶음 비'], w['error'] or ''),

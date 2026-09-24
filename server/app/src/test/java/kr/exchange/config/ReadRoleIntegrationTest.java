@@ -1,7 +1,11 @@
 package kr.exchange.config;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import kr.exchange.engine.LeaderLeaseService;
 import kr.exchange.deploy.SeedMarketCatalog;
+import kr.exchange.engine.lease.LeaderProtocolBoot;
+import kr.exchange.ledger.ReservationBacklogMonitor;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +15,11 @@ import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
 
@@ -76,7 +82,33 @@ class ReadRoleIntegrationTest {
     @Autowired TestRestTemplate rest;
     @Autowired ApplicationContext context;
     @Autowired LeaderLeaseService lease;
+    @Autowired MeterRegistry meters;
     @LocalManagementPort int managementPort;
+
+    /**
+     * 조회 로그인이 읽지 못하는 표를 주기적으로 읽는 빈이 이 노드에 없다(ADR 0034 S3 구현 검토). 정산 전 예약 감시는 저널과
+     * 예약 표를 15초마다 읽으므로 여기서 돌면 매번 권한 오류 경고와 NaN 게이지가 남는다. 기동 모드도 읽지 않는다.
+     */
+    @Test
+    void readNodeDoesNotPollTablesItsLoginCannotRead() {
+        assertFalse(context.containsBean("reservationBacklogMonitor"), "조회 노드에 정산 전 예약 감시가 떴다");
+        assertNull(meters.find("exchange.reservation.backlog.query.failed").counter());
+        assertNull(meters.find("exchange.reservation.unsettled.count").gauge());
+        LeaderProtocolBoot boot = context.getBean(LeaderProtocolBoot.class);
+        assertEquals(1, boot.protocol());
+        assertFalse(boot.fromDatabase(), "조회 노드가 leader_protocol 을 읽으려 했다");
+        assertNull(meters.find("exchange.leader.protocol.boot").gauge(), "조회 노드가 기동 모드 게이지를 냈다");
+
+        // 양성 대조: 이 로그인으로 실제 감시 질의와 모드 조회를 돌리면 권한 오류다. 빈을 빼는 이유가 실제로 성립한다.
+        DriverManagerDataSource reader = new DriverManagerDataSource(POSTGRES.getJdbcUrl(), "runtime_read", PASSWORD);
+        ReservationBacklogMonitor probe = new ReservationBacklogMonitor(JdbcClient.create(reader),
+                new TransactionTemplate(new JdbcTransactionManager(reader)), new SimpleMeterRegistry());
+        probe.refresh();
+        assertEquals(1.0, probe.queryFailures(), "조회 로그인이 감시 질의를 읽었다. 빈을 뺀 근거가 없어졌다");
+        assertTrue(Double.isNaN(probe.pending()));
+        LeaderProtocolBoot direct = LeaderProtocolBoot.read(JdbcClient.create(reader));
+        assertFalse(direct.fromDatabase(), "조회 로그인이 leader_protocol 을 읽었다");
+    }
 
     @Test
     void servesDatabaseReadsWithoutJoiningLeadership() {

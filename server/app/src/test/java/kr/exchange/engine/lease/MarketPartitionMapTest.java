@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 마켓과 리스 파티션의 대응(S2 설계 4-5, ADR 0034 결정한 값 3). V48 이 기존 마켓을 시드하고 markets 트리거가 새 마켓을
  * 넣으며, 대응 행은 고치거나 지울 수 없다. C29 는 대응·리스 행·프로토콜 행 누락을 세고 하네스 SQL 두 벌과 값이 같다.
- * V48 표가 없는 DB 에서 하네스 SQL 은 C29 만 SKIP 으로 낸다.
+ * V48 객체가 모두 없는 DB 에서 하네스 SQL 은 C29 를 N/A 로 낸다(ADR 0034 S3 판정 어휘).
  */
 class MarketPartitionMapTest {
 
@@ -111,7 +111,7 @@ class MarketPartitionMapTest {
      * 같게 낸다. summary.sql 은 판정 전체가 한 문장이라 표를 그냥 읽으면 모든 판정이 사라진다.
      */
     @Test
-    void harnessSqlSkipsOnlyC29WhereV48TablesAreMissing() throws Exception {
+    void harnessSqlJudgesC29NotApplicableWhereV48ObjectsAreMissing() throws Exception {
         PartitionLeaseDb v47 = PartitionLeaseDb.createAt("mlp_sql_v47", "47");
         v47.seedMarkets(1, 2);
         PartitionLeaseDb v48 = PartitionLeaseDb.create("mlp_sql_v48");
@@ -120,20 +120,24 @@ class MarketPartitionMapTest {
         Map<String, String> before = summaryByCode(v47);
         Map<String, String> after = summaryByCode(v48);
         assertEquals(after.keySet(), before.keySet(), "V47 DB 에서 빠진 판정이 있다");
-        assertTrue(after.size() > 29, "summary.sql 판정 행이 모자라다: " + after.keySet());
+        assertTrue(after.size() > 30, "summary.sql 판정 행이 모자라다: " + after.keySet());
+        // C31 은 V50 객체를 읽으므로 V47 DB 에서 함께 N/A 다. 두 코드의 판정 전체는 HarnessSqlVerdictTest 가 본다.
         for (String code : after.keySet()) {
-            if (!code.equals("C29")) {
+            if (!code.equals("C29") && !code.equals("C31")) {
                 assertEquals(after.get(code), before.get(code), code);
             }
         }
         assertEquals("C29|MARKET_PARTITION_MAP|CRITICAL|ALWAYS|0|PASS", after.get("C29"));
-        assertEquals("C29|MARKET_PARTITION_MAP|CRITICAL|ALWAYS||SKIP", before.get("C29"));
+        // 2026-09-24 S3 개정: V48 객체가 모두 없는 스키마는 SKIP(미평가)이 아니라 N/A(대상 없음)다(하네스 검증설계 §4-1).
+        assertEquals("C29|MARKET_PARTITION_MAP|CRITICAL|ALWAYS||N/A", before.get("C29"));
 
         List<String> sections47 = sections(v47.psql("invariants.sql"));
         List<String> sections48 = sections(v48.psql("invariants.sql"));
         assertEquals(sections48.stream().map(MarketPartitionMapTest::sectionCode).toList(),
                 sections47.stream().map(MarketPartitionMapTest::sectionCode).toList(), "V47 DB 에서 빠진 판정 블록이 있다");
-        assertEquals(List.of("C29"), skipped(sections47), String.join("\n", sections47));
+        assertEquals(List.of(), skipped(sections47), String.join("\n", sections47));
+        assertTrue(sections47.stream().anyMatch(s -> s.startsWith("== C29 ") && s.contains("] N/A:")),
+                String.join("\n", sections47));
         assertEquals(List.of(), skipped(sections48), String.join("\n", sections48));
     }
 

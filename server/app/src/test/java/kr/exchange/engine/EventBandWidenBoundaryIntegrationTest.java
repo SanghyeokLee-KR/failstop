@@ -122,6 +122,41 @@ class EventBandWidenBoundaryIntegrationTest {
             END $$
             """);
 
+    /**
+     * V45 위에서 이 앱(S3)이 부르는 V50 객체 자리를 채우는 판. 4인자 획득과 10인자 머리말은 V48 전 앱의 3인자 획득·6인자
+     * 머리말과 같은 행을 같은 잠금으로 잡고 예약하지 않는다(P1 과 같다). 예약 행 표는 비어 있어 정산이 종전처럼 정산 시점에
+     * 예약하고, 잠금 계획 함수는 V50 본문과 같다. widen() 이 V46 이후를 적용하기 전에 모두 지운다.
+     */
+    private static final List<String> RESERVATION_SHIMS = List.of("""
+            CREATE FUNCTION try_acquire_lease(p_resource TEXT, p_holder TEXT, p_ttl INTERVAL, p_max_protocol SMALLINT)
+            RETURNS BIGINT LANGUAGE sql AS $$ SELECT try_acquire_leader(p_holder, p_ttl) $$
+            """, """
+            CREATE FUNCTION append_command_prologue(
+                p_holder TEXT, p_epoch BIGINT, p_is_new BOOLEAN, p_user_id BIGINT, p_client_order_id VARCHAR,
+                p_market_id SMALLINT, p_assigned_order_id BIGINT, p_payload JSONB, p_check_asset SMALLINT,
+                p_check_amount NUMERIC
+            ) RETURNS TABLE (out_seq BIGINT, out_replayed BOOLEAN, out_fencing BIGINT, out_order_id BIGINT,
+                             out_reserved BOOLEAN)
+            LANGUAGE sql AS $$
+                SELECT p.out_seq, p.out_replayed, p.out_fencing, p.out_order_id, false
+                FROM append_command_prologue(p_holder, p_epoch, p_is_new, p_user_id, p_client_order_id, p_market_id) p
+            $$
+            """, """
+            CREATE TABLE order_reservations (
+                command_seq BIGINT PRIMARY KEY, order_id BIGINT NOT NULL, user_id BIGINT NOT NULL,
+                market_id SMALLINT NOT NULL, asset_id SMALLINT NOT NULL, available_account_id BIGINT NOT NULL,
+                locked_account_id BIGINT NOT NULL, amount NUMERIC(40,18) NOT NULL)
+            """, """
+            CREATE FUNCTION lock_balance_rows(p_account_ids BIGINT[]) RETURNS INTEGER LANGUAGE plpgsql AS $$
+            DECLARE v_rows INTEGER;
+            BEGIN
+                PERFORM 1 FROM balances b WHERE b.account_id = ANY (p_account_ids) ORDER BY b.account_id
+                    FOR NO KEY UPDATE;
+                GET DIAGNOSTICS v_rows = ROW_COUNT;
+                RETURN v_rows;
+            END $$
+            """);
+
     /** V46 전 크래시 창을 새 리더가 확대 대역으로 재적재하고, 마켓마다 번호를 이어 거래한다. */
     @ParameterizedTest
     @EnumSource(Numbering.class)
@@ -309,6 +344,9 @@ class EventBandWidenBoundaryIntegrationTest {
                 for (String shim : LEASE_SHIMS) {
                     st.execute(shim);
                 }
+                for (String shim : RESERVATION_SHIMS) {
+                    st.execute(shim);
+                }
             }
             HikariConfig config = new HikariConfig();
             config.setJdbcUrl(url);
@@ -359,8 +397,13 @@ class EventBandWidenBoundaryIntegrationTest {
                     DROP FUNCTION try_acquire_lease(TEXT, TEXT, INTERVAL), renew_lease(TEXT, TEXT, BIGINT, INTERVAL),
                         assert_and_lock_market_leader(SMALLINT, TEXT, BIGINT),
                         append_command_journal_row(BIGINT, SMALLINT, VARCHAR, BIGINT, VARCHAR, BIGINT, BIGINT, BIGINT,
-                                                   JSONB, BIGINT, TEXT, BIGINT)
+                                                   JSONB, BIGINT, TEXT, BIGINT),
+                        try_acquire_lease(TEXT, TEXT, INTERVAL, SMALLINT),
+                        append_command_prologue(TEXT, BIGINT, BOOLEAN, BIGINT, VARCHAR, SMALLINT, BIGINT, JSONB,
+                                                SMALLINT, NUMERIC),
+                        lock_balance_rows(BIGINT[])
                     """).update();
+            jdbc.sql("DROP TABLE order_reservations").update();
             assertTrue(flyway().load().migrate().success, "V46 적용 실패");
             assertEquals(SPAN, count("SELECT band_span FROM journal_band_spec WHERE name = 'event_seq'"));
         }

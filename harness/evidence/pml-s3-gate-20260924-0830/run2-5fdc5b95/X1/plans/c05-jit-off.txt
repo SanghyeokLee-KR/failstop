@@ -1,0 +1,195 @@
+BEGIN
+SET
+Result  (cost=1342.62..1342.64 rows=1 width=32) (actual time=3.005..3.008 rows=1 loops=1)
+  Buffers: shared hit=656
+  CTE s
+    ->  Index Scan using journal_band_spec_pkey on journal_band_spec  (cost=0.15..8.17 rows=1 width=8) (actual time=0.014..0.015 rows=1 loops=1)
+          Index Cond: (name = 'command_seq'::text)
+          Buffers: shared hit=2
+  InitPlan 2
+    ->  Aggregate  (cost=0.02..0.04 rows=1 width=4) (actual time=0.017..0.017 rows=1 loops=1)
+          Buffers: shared hit=2
+          ->  CTE Scan on s  (cost=0.00..0.02 rows=1 width=0) (actual time=0.015..0.015 rows=1 loops=1)
+                Buffers: shared hit=2
+  InitPlan 4
+    ->  Aggregate  (cost=510.76..510.78 rows=1 width=8) (actual time=2.959..2.960 rows=1 loops=1)
+          Buffers: shared hit=654
+          InitPlan 3
+            ->  CTE Scan on s s_1  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1 loops=1)
+          ->  Append  (cost=0.29..451.19 rows=7941 width=8) (actual time=0.045..2.311 rows=19371 loops=1)
+                Buffers: shared hit=654
+                ->  Index Only Scan using command_journal_p0_pkey on command_journal_p0 c_1  (cost=0.29..205.23 rows=6441 width=8) (actual time=0.043..1.536 rows=19371 loops=1)
+                      Index Cond: (seq < (InitPlan 3).col1)
+                      Heap Fetches: 853
+                      Buffers: shared hit=654
+                ->  Seq Scan on command_journal_p100000000 c_2  (cost=0.00..13.75 rows=100 width=8) (actual time=0.008..0.008 rows=0 loops=1)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_p200000000 c_3  (cost=0.00..13.75 rows=100 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b1 c_4  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b2 c_5  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b3 c_6  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b4 c_7  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b5 c_8  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b6 c_9  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b7 c_10  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b8 c_11  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b9 c_12  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b10 c_13  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b11 c_14  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b12 c_15  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_default c_16  (cost=0.00..13.75 rows=100 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+                      Filter: (seq < (InitPlan 3).col1)
+  InitPlan 6
+    ->  Aggregate  (cost=823.63..823.64 rows=1 width=32) (actual time=0.026..0.027 rows=1 loops=1)
+          ->  HashAggregate  (cost=817.62..821.12 rows=200 width=10) (actual time=0.025..0.027 rows=0 loops=1)
+                Group Key: c_17.market_id
+                Batches: 1  Memory Usage: 40kB
+                InitPlan 5
+                  ->  CTE Scan on s s_2  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1 loops=1)
+                ->  Append  (cost=0.29..738.19 rows=7941 width=10) (actual time=0.024..0.025 rows=0 loops=1)
+                      ->  Index Scan using command_journal_p0_pkey on command_journal_p0 c_18  (cost=0.29..492.24 rows=6441 width=10) (never executed)
+                            Index Cond: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_p100000000 c_19  (cost=0.00..13.75 rows=100 width=10) (never executed)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_p200000000 c_20  (cost=0.00..13.75 rows=100 width=10) (never executed)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b1 c_21  (cost=0.00..13.75 rows=100 width=10) (actual time=0.003..0.003 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b2 c_22  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b3 c_23  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b4 c_24  (cost=0.00..13.75 rows=100 width=10) (actual time=0.003..0.003 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b5 c_25  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b6 c_26  (cost=0.00..13.75 rows=100 width=10) (actual time=0.003..0.003 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b7 c_27  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b8 c_28  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b9 c_29  (cost=0.00..13.75 rows=100 width=10) (actual time=0.003..0.003 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b10 c_30  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b11 c_31  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b12 c_32  (cost=0.00..13.75 rows=100 width=10) (actual time=0.004..0.004 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_default c_33  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+Planning:
+  Buffers: shared hit=1761
+Planning Time: 9.263 ms
+Execution Time: 3.368 ms
+Result  (cost=1342.62..1342.64 rows=1 width=32) (actual time=2.448..2.450 rows=1 loops=1)
+  Buffers: shared hit=656
+  CTE s
+    ->  Index Scan using journal_band_spec_pkey on journal_band_spec  (cost=0.15..8.17 rows=1 width=8) (actual time=0.014..0.015 rows=1 loops=1)
+          Index Cond: (name = 'command_seq'::text)
+          Buffers: shared hit=2
+  InitPlan 2
+    ->  Aggregate  (cost=0.02..0.04 rows=1 width=4) (actual time=0.017..0.017 rows=1 loops=1)
+          Buffers: shared hit=2
+          ->  CTE Scan on s  (cost=0.00..0.02 rows=1 width=0) (actual time=0.015..0.016 rows=1 loops=1)
+                Buffers: shared hit=2
+  InitPlan 4
+    ->  Aggregate  (cost=510.76..510.78 rows=1 width=8) (actual time=2.408..2.409 rows=1 loops=1)
+          Buffers: shared hit=654
+          InitPlan 3
+            ->  CTE Scan on s s_1  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1 loops=1)
+          ->  Append  (cost=0.29..451.19 rows=7941 width=8) (actual time=0.021..1.755 rows=19371 loops=1)
+                Buffers: shared hit=654
+                ->  Index Only Scan using command_journal_p0_pkey on command_journal_p0 c_1  (cost=0.29..205.23 rows=6441 width=8) (actual time=0.020..0.972 rows=19371 loops=1)
+                      Index Cond: (seq < (InitPlan 3).col1)
+                      Heap Fetches: 853
+                      Buffers: shared hit=654
+                ->  Seq Scan on command_journal_p100000000 c_2  (cost=0.00..13.75 rows=100 width=8) (actual time=0.007..0.007 rows=0 loops=1)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_p200000000 c_3  (cost=0.00..13.75 rows=100 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b1 c_4  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b2 c_5  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b3 c_6  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b4 c_7  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b5 c_8  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b6 c_9  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b7 c_10  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b8 c_11  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b9 c_12  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b10 c_13  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b11 c_14  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_b12 c_15  (cost=0.00..13.75 rows=100 width=8) (never executed)
+                      Filter: (seq < (InitPlan 3).col1)
+                ->  Seq Scan on command_journal_default c_16  (cost=0.00..13.75 rows=100 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+                      Filter: (seq < (InitPlan 3).col1)
+  InitPlan 6
+    ->  Aggregate  (cost=823.63..823.64 rows=1 width=32) (actual time=0.021..0.022 rows=1 loops=1)
+          ->  HashAggregate  (cost=817.62..821.12 rows=200 width=10) (actual time=0.020..0.021 rows=0 loops=1)
+                Group Key: c_17.market_id
+                Batches: 1  Memory Usage: 40kB
+                InitPlan 5
+                  ->  CTE Scan on s s_2  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1 loops=1)
+                ->  Append  (cost=0.29..738.19 rows=7941 width=10) (actual time=0.019..0.020 rows=0 loops=1)
+                      ->  Index Scan using command_journal_p0_pkey on command_journal_p0 c_18  (cost=0.29..492.24 rows=6441 width=10) (never executed)
+                            Index Cond: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_p100000000 c_19  (cost=0.00..13.75 rows=100 width=10) (never executed)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_p200000000 c_20  (cost=0.00..13.75 rows=100 width=10) (never executed)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b1 c_21  (cost=0.00..13.75 rows=100 width=10) (actual time=0.003..0.003 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b2 c_22  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b3 c_23  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b4 c_24  (cost=0.00..13.75 rows=100 width=10) (actual time=0.002..0.002 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b5 c_25  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b6 c_26  (cost=0.00..13.75 rows=100 width=10) (actual time=0.002..0.002 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b7 c_27  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b8 c_28  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b9 c_29  (cost=0.00..13.75 rows=100 width=10) (actual time=0.002..0.002 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b10 c_30  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b11 c_31  (cost=0.00..13.75 rows=100 width=10) (actual time=0.001..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_b12 c_32  (cost=0.00..13.75 rows=100 width=10) (actual time=0.002..0.002 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+                      ->  Seq Scan on command_journal_default c_33  (cost=0.00..13.75 rows=100 width=10) (actual time=0.000..0.001 rows=0 loops=1)
+                            Filter: (seq >= (InitPlan 5).col1)
+Planning:
+  Buffers: shared hit=90
+Planning Time: 0.700 ms
+Execution Time: 2.655 ms
+COMMIT

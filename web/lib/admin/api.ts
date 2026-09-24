@@ -55,11 +55,18 @@ export class AdminError extends Error {
   readonly code: string;
   /** 429 응답의 Retry-After(초). 폴링 백오프 근거. 없으면 null */
   readonly retryAfter: number | null;
-  constructor(code: string, message: string, retryAfter: number | null = null) {
+  /**
+   * 에러 바디의 detail(API §2-3 에러 엔벌로프). 없으면 null. 회원 폐쇄의 409 orders_cancel_incomplete 는 여기에
+   * 남은 수와 사유별 수(pending_reasons)를 싣는다(API 설계 v2.54 §6-E).
+   */
+  readonly detail: Record<string, unknown> | null;
+  constructor(code: string, message: string, retryAfter: number | null = null,
+              detail: Record<string, unknown> | null = null) {
     super(message);
     this.name = code;
     this.code = code;
     this.retryAfter = retryAfter;
+    this.detail = detail;
   }
 }
 

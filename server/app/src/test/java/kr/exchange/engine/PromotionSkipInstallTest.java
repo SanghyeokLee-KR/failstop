@@ -191,7 +191,11 @@ class PromotionSkipInstallTest {
         sunk.clear();
         journal.add(sell(8, 8, "103", "1"));
         assertTrue(router.offer(journal.get(journal.size() - 1)));
-        await(() -> router.engine(MARKET).lastAppliedSeq() == 8);
+        // 적용 카운터는 sink 호출보다 먼저 오른다(SingleWriterLoop.applyAndSink). 카운터만 기다리면 sink 전에 sunk 를 읽어
+        // 빈 집합을 볼 수 있다(2026-09-24 전체 빌드에서 한 번). 그 명령의 이벤트가 sink 에 닿을 때까지 기다린다. 다시 적용된
+        // 명령이 있었다면 그 이벤트는 8 보다 먼저 sink 에 닿으므로 아래 판정이 여전히 잡는다.
+        await(() -> router.engine(MARKET).lastAppliedSeq() == 8
+                && sunk.stream().anyMatch(e -> e.sourceCmdSeq() == 8L));
 
         assertEquals(Set.of(8L),
                 sunk.stream().map(EngineEvent::sourceCmdSeq).collect(Collectors.toSet()),
@@ -313,7 +317,9 @@ class PromotionSkipInstallTest {
         OrderCommand lower = order(1, band + 1, 2, OrderCommand.Side.BUY, "100", "1");
         journal.add(lower);
         assertTrue(router.offer(lower));
-        await(() -> router.engine(1).appliedSeq(1) == band + 1);
+        // 적용 커서는 sink 보다 먼저 오른다. 이벤트가 sink 에 닿을 때까지 기다린다(위 승격 생략 시험과 같은 경합).
+        await(() -> router.engine(1).appliedSeq(1) == band + 1
+                && sunk.stream().anyMatch(e -> e.sourceCmdSeq() == band + 1));
 
         assertEquals(Set.of(band + 1),
                 sunk.stream().map(EngineEvent::sourceCmdSeq).collect(Collectors.toSet()),

@@ -9,8 +9,6 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -41,9 +39,6 @@ public final class PartitionLeaseDb {
     private static final String APP_PASSWORD = "s2-app";
     private static final String BOT_PASSWORD = "s2-bot";
     private static final String READER_PASSWORD = "s2-read";
-
-    // V49 는 S2 이미지에 넣지 않는다(S2 설계 4-1). 권한 상태를 보는 시험은 DB 설계 §3.4 의 V49 계약 SQL 을 이 자원으로 실행한다.
-    private static final String V49_CONTRACT = "/s2-contract/v49-revoke-lease-update-journal-insert.sql";
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("exchange")
@@ -137,20 +132,12 @@ public final class PartitionLeaseDb {
         return this;
     }
 
-    /** DB 설계 §3.4 의 V49 계약 SQL 을 소유자로 실행해 V49 권한 상태를 만든다. */
-    public void applyV49Contract() throws SQLException {
-        String sql;
-        try (InputStream in = PartitionLeaseDb.class.getResourceAsStream(V49_CONTRACT)) {
-            if (in == null) {
-                throw new IllegalStateException(V49_CONTRACT + " 없음");
-            }
-            sql = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new IllegalStateException(V49_CONTRACT + " 읽기 실패", e);
-        }
-        try (Connection c = owner(); Statement st = c.createStatement()) {
-            st.execute(sql);
-        }
+    /**
+     * target 버전까지 Flyway 로 올린다. V49(권한 회수)는 S3 이미지부터 저장소 마이그레이션이라(S3 설계 4-1) V48 만 적용된
+     * DB 에서 V49 권한 상태를 만들 때 "49" 로 부른다. 종전의 시험 자원(DB 설계 §3.4 V49 계약 SQL 사본)은 이것으로 바꿨다.
+     */
+    public void migrateTo(String target) {
+        assertTrue(flyway().target(target).load().migrate().success, "Flyway migration failed: " + name);
     }
 
     /** 컨테이너 psql 로 하네스 SQL 을 돌린 출력 줄. 종료코드를 보지 않으면 문법 오류가 빈 출력, 곧 위반 0 으로 읽힌다. */
@@ -201,6 +188,8 @@ public final class PartitionLeaseDb {
         config.setUsername(user);
         config.setPassword(password);
         config.setMaximumPoolSize(6);
+        // 컨테이너 하나를 시험 여럿이 나눠 쓴다. 쉬는 연결을 미리 채우지 않아 연결 한도(100)를 아낀다.
+        config.setMinimumIdle(1);
         config.setConnectionInitSql("SET TIME ZONE 'UTC'");
         return new HikariDataSource(config);
     }
@@ -287,8 +276,24 @@ public final class PartitionLeaseDb {
                 + "WHERE resource = '" + resource + "'");
     }
 
-    /** P3 을 흉내 낸다. S2 에는 전환 함수가 없어 소유자가 래치 행을 직접 바꾼다(S2 설계 4-6). */
+    /**
+     * 모드 래치를 소유자 UPDATE 로 바꾼다. P3 흉내 전용이다(전환 함수가 3 을 받지 않는다, S3 설계 6-1). 1<->2 는 운영과 같은
+     * 전환 함수(switchProtocol)로 한다. 이 경로는 리스 행을 퇴역시키지 않는다.
+     */
     public void setProtocol(int protocol) throws SQLException {
         exec("UPDATE leader_protocol SET protocol = " + protocol);
+    }
+
+    /** 소유자가 전환 함수 set_leader_protocol 을 부른다(V50). 퇴역 행 수를 돌려준다. */
+    public int switchProtocol(int target, boolean allowDowngrade) throws SQLException {
+        try (Connection c = owner(); Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT * FROM set_leader_protocol(" + target + "::smallint, "
+                     + allowDowngrade + ")")) {
+            int retired = 0;
+            while (rs.next()) {
+                retired++;
+            }
+            return retired;
+        }
     }
 }

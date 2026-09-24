@@ -128,12 +128,23 @@ try {
         } catch { $false }
     } -TimeoutSec ([int]$cfg['REJOIN_OBSERVE_SEC']) -PollSec 1
 
-    Write-Section 'ⓔ 사후 권위 run + fencing 판정'
+    Write-Section 'ⓔ 드레인 + 사후 권위 run + fencing 판정'
     Start-Sleep -Seconds 3
     # Get-LiveNodePort는 18080을 선착순으로 잡으므로 방금 재연결된 구 리더가 사후 run·적재 대상이
     # 될 수 있다. 구 리더는 강등 상태라 판정 대상으로 부적절하다. 승격을 관찰한 스탠바이로 고정한다.
     $postPort = $standbyPort
-    $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
+    # E4·lib 공용 경로와 같이 봇 쓰기를 끊고 물질화가 끝난 뒤 사후 run 을 뜬다. 부하 중에 재면 물질화 전의
+    # 진행 중 NEW 가 C13A(와 rpo_records)에 유실로 계상된다(S3 관문 2026-09-24 X4 E5 첫 회, 드레인 뒤 C13A 0).
+    $botsStopped = Stop-BotLoad
+    try {
+        $requiredStreak = if ($botsStopped) { 1 } else { 2 }
+        $drained = Wait-DrainZero -Sql $Global:CHAOS_DRAIN_SQL -TimeoutSec 90 -RequiredStreak $requiredStreak
+        if (-not $drained) { Write-Host '경고: 드레인 미완. C13A 가 진행 중 NEW 를 포함할 수 있다' -ForegroundColor Yellow }
+        $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
+    } finally {
+        $restoreOps = 0; if ($cfg['BASE_OPS']) { $restoreOps = [int]$cfg['BASE_OPS'] }
+        Restore-BotLoad -WasStopped $botsStopped -Ops $restoreOps
+    }
     $swAfter = Get-EpochWriteCounts -Epoch $oldEpoch -CmdHasFencing $cmdHasFencing
     $staleWrites = Get-StaleWriteDelta -Baseline $swBase -After $swAfter
     # 리스 행 부재는 리더 부재라 정상 상태가 아니지만 질의로는 0행이 나올 수 있다. 0으로 폴백하면

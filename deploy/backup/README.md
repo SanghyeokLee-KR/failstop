@@ -63,7 +63,7 @@ sudo python3 /opt/failstop/deploy/backup/backup.py restore-test \
   --metrics-dir /var/lib/failstop/metrics
 ```
 
-검사는 고유 이름의 새 컨테이너를 `--network none`으로 시작하고 그 안에 복원한다. 호출자가 기존 컨테이너나 원본 DB를 지정하는 옵션은 없다. 원장, 주문 명령, 이벤트, 체결이 모두 있어야 하며 [불변식 SQL](../../harness/sql/summary.sql)의 CRITICAL/HIGH 판정이 모두 PASS여야 성공한다. 거래가 없는 새 DB는 이 복구 증명 조건을 충족하지 않는다. SKIP도 PASS가 아니다. 판정 SQL보다 오래된 스키마의 백업, 예를 들어 V48 이전에 만든 백업은 CRITICAL인 C29가 SKIP으로 나와 실패로 끝난다. 그런 백업은 그 스키마를 만든 릴리스의 `summary.sql`을 `--invariants`로 넘겨 점검한다.
+검사는 고유 이름의 새 컨테이너를 `--network none`으로 시작하고 그 안에 복원한다. 호출자가 기존 컨테이너나 원본 DB를 지정하는 옵션은 없다. 원장, 주문 명령, 이벤트, 체결이 모두 있어야 하며 [불변식 SQL](../../harness/sql/summary.sql)의 CRITICAL/HIGH 판정에 FAIL과 SKIP이 없어야 성공한다. 거래가 없는 새 DB는 이 복구 증명 조건을 충족하지 않는다. SKIP도 PASS가 아니다. 판정 SQL보다 오래된 스키마의 백업, 예를 들어 V48·V50 이전에 만든 백업에서는 그 마이그레이션의 객체가 없어 CRITICAL인 C29·C31이 N/A로 나온다. N/A는 실패로 세지 않지만 통과로도 세지 않고 결과 JSON의 `not_applicable`에 따로 적는다. 그 백업의 C29·C31이 무결하다는 뜻은 아니다. C29·C31 밖의 N/A와 모르는 판정은 형식 오류로 실패한다. 이 규칙은 2026-09-24 작업을 맡은 AI가 정한 방침이고 사용자 확인이 필요하다([하네스 검증설계 §4-1 판정 어휘](../../docs/reference/contracts/하네스_검증설계.md)). N/A를 모르는 이전 판 도구는 새 `summary.sql`의 N/A를 형식 오류로 보므로, 이 도구와 `summary.sql`은 같은 릴리스의 것을 함께 쓴다. S2 판 `summary.sql`은 같은 경우의 C29를 SKIP으로 내 실패로 끝났다.
 
 결과 JSON에는 각 판정과 데이터 건수를 남긴다. `application_boot_checked: false`는 이 CLI가 Java 앱 기동까지 검사하지 않았다는 뜻이다. 앱 기동과 연결 전환을 포함한 실습은 [DB 복구 실습](../lab/README.md)을 따른다. 복원 검사는 역할과 ACL을 재현하지 않고 `--no-owner --no-acl`로 스키마·데이터·원장 상태를 확인한다. 실제 대체 서버는 [배포 안내](../README.md)의 마이그레이션 및 역할 프로비저닝 절차도 수행해야 한다.
 

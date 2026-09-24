@@ -49,6 +49,7 @@
 .icon[data-type="success"] { background: var(--color-success); }
 .icon[data-type="error"] { background: var(--color-danger); }
 .icon[data-type="info"] { background: var(--color-info); }
+.icon[data-type="warning"] { background: var(--color-warning); }
 
 .message { flex: 1; }
 

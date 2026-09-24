@@ -6,7 +6,17 @@
 # -SnapshotEvidence 이면 ADR 0022 7단계 스냅샷 경계 재생 주행이다. 실험 스크립트 전과 뒤에 harness/scale/snapshot_evidence.py 로
 # 스냅샷·복구 증거를 뜨고 전역 모드도 래치 상태를 남긴다. 증거 기본 폴더는 adr0022-stage7-snapshot-<YYYYMMDD>/<global|band>/ 다.
 # 실험 COLD 는 7단계 콜드 재기동 칸(adr0022-stage7-cold-restart.ps1)이다. 두 api 노드를 멈췄다가 올리므로 도달 사건은 stop·start 다.
-# 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic] [-SnapshotEvidence]
+# -Protocol 2 이면 ADR 0034 S3 관문 주행이다(마켓분할_리더_S3_설계 7-3 X2~X4). 실험마다 스택을 세운 직후, 실험 스크립트 전에
+# harness/scale/protocol_latch.py 로 P2 로 전환하고 전환 JSON 을 실험 폴더에 남긴다. 전환이 실패하면 그 실험은 BLOCKED 다.
+# 실험 동안 잔고 행 대기를 표본으로 뜨고, 실험 스크립트가 끝나면 스택을 내리기 전에 harness/scale/s3_common_axes.py judge 로
+# 공통 판정 축(설계 7-3: summary.sql, 정산 23514·잠금 계획 이탈·접수 40P01·접수 500·교착 0, 예약 양성 축, 드레인 뒤 정산 전
+# 예약 0, 리더 노드의 정지·강등 문구 0, 장애 창 밖 ReservationUnsettledStale 0)을 s3_common.json 에 남긴다. 실험 판정이 PASS 여도
+# 공통 판정이 거짓이면 분리 판정은 FAIL(공통 판정)이다.
+# -Protocol 2 의 분리 판정에는 설계 7-3 X2·X3 의 사전 규칙(rpo_records 0, 사후 권위 run C13A 0)도 건다(FAIL(rpo_records)).
+# 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic] [-SnapshotEvidence] [-Protocol 2]
+# 실험마다 down -v 를 하므로 보존 스택(CHAOS_PROJECT 미설정 또는 exchange-chaos)에서는 시작하지 않는다(하네스 검증설계 §2-4 보존
+# 스택 가드). 환경 변수가 빠지면 프로젝트가 exchange-chaos 가 되어 보존 볼륨을 지우기 때문이다. 이미지 태그는 절차가 정한다
+# (7단계 절차는 -Ref 로 구운 태그를 넘긴다). -Protocol 2 는 CHAOS_PROJECT=exchange-pml 과 -Image exchange-chaos-app:pml 에서만 돈다(S3 설계 7-0).
 # 종료코드: 0 전 실험 PASS 이고 연결 고갈 없음, 1 그 밖, 5 BLOCKED(시작 전 조건).
 # 비밀 파일(harness/.env.chaos)은 compose 에 경로로만 넘기고 읽지 않는다.
 param(
@@ -17,7 +27,8 @@ param(
     [int] $AppendPool = 14,
     [switch] $LatchBeforeTraffic,
     [switch] $SnapshotEvidence,
-    [int] $SnapshotWaitSec = 180
+    [int] $SnapshotWaitSec = 180,
+    [ValidateSet(1, 2)][int] $Protocol = 1
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,7 +38,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $date = Get-Date -Format 'yyyyMMdd'
-$runName = $(if ($SnapshotEvidence) { 'adr0022-stage7-snapshot' } elseif ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } else { 'adr0022-stage5' })
+$runName = $(if ($SnapshotEvidence) { 'adr0022-stage7-snapshot' } elseif ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } elseif ($Protocol -eq 2) { 'pml-s3-chaos' } else { 'adr0022-stage5' })
 $runDir = "$runName-$date"
 if ($SnapshotEvidence) { $runDir = Join-Path $runDir $(if ($LatchBeforeTraffic) { 'band' } else { 'global' }) }
 if (-not $EvidenceDir) { $EvidenceDir = Join-Path $repo "harness\evidence\$runDir" }
@@ -121,10 +132,14 @@ function Invoke-Experiment {
     $row = [ordered]@{ experiment = $Exp; script = "harness/scripts/$($scripts[$Exp])"; image = $Image; imageId = $imageId }
     $sampler = $null
     $eventsProc = $null
+    $balanceSampler = $null
     $stop = Join-Path $dir 'stop-conn'
+    $stopBalance = Join-Path $dir 'stop-balance'
     try {
         Write-RunLog "START $Exp"
         $code = Invoke-ComposeQuiet '--profile obs down -v --remove-orphans'
+        # 공통 판정의 프로메테우스 창 시작. 스택을 세우기 전 시각이라 전환의 노드 재기동까지 덮는다.
+        $stackFrom = [DateTimeOffset]::UtcNow
         $code = Invoke-ComposeQuiet '--profile obs up -d --wait'
         if ($code -ne 0) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "compose up 종료코드 $code"; return $row }
         $running = [ordered]@{}
@@ -132,6 +147,13 @@ function Invoke-Experiment {
         $row['containerImages'] = $running
         if (@($running.Values | Where-Object { $_ -ne $imageId }).Count -gt 0) {
             $row['분리 판정'] = 'BLOCKED'; $row['사유'] = '고정한 이미지로 뜨지 않았다'; return $row
+        }
+        if ($Protocol -eq 2) {
+            # 실험 스크립트 전에 P2 로 전환한다(S3 설계 7-2). 도구가 봇을 멈추고 드레인한 뒤 두 노드를 다시 띄우고 봇을 되살린다.
+            $protocolRc = Invoke-Logged 'python' @('harness/scale/protocol_latch.py', 'transition', '--target', '2', '--out',
+                (Get-RelPath (Join-Path $dir 'protocol.json'))) (Join-Path $dir 'protocol.log')
+            $row['protocolTransition'] = [ordered]@{ rc = $protocolRc; file = 'protocol.json' }
+            if ($protocolRc -ne 0) { $row['분리 판정'] = 'BLOCKED'; $row['사유'] = "P2 전환 실패(rc=$protocolRc). protocol.json 을 본다"; return $row }
         }
         if ($LatchBeforeTraffic) {
             # 실험 스크립트가 봇 부하를 정하기 전에 건다. 봇은 compose 기동과 함께 돌므로 호출 전 저널 행 수가 latch.json 에 남는다.
@@ -157,6 +179,13 @@ function Invoke-Experiment {
             -ArgumentList @('harness/scale/pg_samplers.py', 'connections', '--out', (Get-RelPath $samplesPath),
                 '--stop-file', (Get-RelPath $stop), '--interval', '5') `
             -RedirectStandardOutput (Join-Path $dir 'conn_sampler.out') -RedirectStandardError (Join-Path $dir 'conn_sampler.err')
+        if ($Protocol -eq 2) {
+            Remove-Item $stopBalance -Force -ErrorAction SilentlyContinue
+            $balanceSampler = Start-Process -FilePath 'python' -WorkingDirectory $repo -NoNewWindow -PassThru `
+                -ArgumentList @('harness/scale/s3_common_axes.py', 'sample', '--out', (Get-RelPath (Join-Path $dir 'balance_samples.jsonl')),
+                    '--stop-file', (Get-RelPath $stopBalance), '--interval', '2') `
+                -RedirectStandardOutput (Join-Path $dir 'balance_sampler.out') -RedirectStandardError (Join-Path $dir 'balance_sampler.err')
+        }
 
         # 사건 스트림을 실험 스크립트보다 먼저 띄운다. 끝난 뒤 --since 로 되물으면 주입 사건이 데몬 버퍼에 남아 있지 않았다(5단계 E5·E7).
         $eventsPath = Join-Path $dir 'docker_events.jsonl'
@@ -178,6 +207,10 @@ function Invoke-Experiment {
         $row['window'] = [ordered]@{ from = $t0.ToString('o'); to = $t1.ToString('o') }
         New-Item -ItemType File -Force -Path $stop | Out-Null
         if (-not $sampler.WaitForExit(30000)) { Stop-Process -Id $sampler.Id -Force }
+        if ($balanceSampler) {
+            New-Item -ItemType File -Force -Path $stopBalance | Out-Null
+            if (-not $balanceSampler.WaitForExit(30000)) { Stop-Process -Id $balanceSampler.Id -Force }
+        }
         # 마지막 복귀 사건이 스트림에 닿을 틈을 두고 멈춘다.
         Start-Sleep -Seconds 2
         Stop-Process -Id $eventsProc.Id -Force
@@ -198,6 +231,21 @@ function Invoke-Experiment {
         }
 
         # 여기부터 down -v 전 증거. 카오스 볼륨과 컨테이너가 사라지면 다시 뜰 수 없다.
+        if ($Protocol -eq 2) {
+            # 공통 판정(S3 설계 7-3). 봇을 멈추고 드레인한 뒤 판정하므로 뒤의 증거 수집은 무부하 상태에서 돈다.
+            $commonRc = Invoke-Logged 'python' @('harness/scale/s3_common_axes.py', 'judge', '--window-from', $stackFrom.ToString('o'),
+                '--fault-from', $t0.ToString('o'), '--fault-to', $t1.ToString('o'),
+                '--samples', (Get-RelPath (Join-Path $dir 'balance_samples.jsonl')),
+                '--out', (Get-RelPath (Join-Path $dir 's3_common.json'))) (Join-Path $dir 's3_common.log')
+            $common = $null
+            $commonPath = Join-Path $dir 's3_common.json'
+            if (Test-Path $commonPath) { $common = Get-Content $commonPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable }
+            $row['s3Common'] = [ordered]@{ rc = $commonRc; ok = $(if ($common) { $common['ok'] } else { $false })
+                failed = $(if ($common -and $common['axes']) { @($common['axes'].Keys | Where-Object { -not $common['axes'][$_] }) } else { @('판정 파일 없음') })
+                reservations = $(if ($common -and $common['state']) { $common['state']['reservations'] } else { $null })
+                reservedSettledByLaterEpoch = $(if ($common -and $common['state']) { $common['state']['reserved_settled_by_later_epoch'] } else { $null })
+                file = 's3_common.json' }
+        }
         if ($SnapshotEvidence) {
             # 판정은 재생 적용 줄의 구간 안 행 수로 세므로 실험 뒤에 쌓인 새 명령이 이 증거를 흐리지 않는다.
             $row['snapshotEvidence']['post'] = Invoke-Logged 'python' @('harness/scale/snapshot_evidence.py', 'post',
@@ -209,6 +257,11 @@ function Invoke-Experiment {
                 "FROM invariant_checks i WHERE i.details->>'run_id' = '$runId'"))
         }
         Save-Text (Join-Path $dir 'leader_lease.json') (Invoke-Psql "SELECT coalesce(json_agg(l), '[]'::json) FROM leader_lease l")
+        if ($Protocol -eq 2) {
+            # 주행 뒤 모드 상태(예약 행 수, 정산 전 예약, 퇴역 행). 위 공통 판정이 봇을 멈추고 드레인한 뒤의 값이다.
+            Invoke-Logged 'python' @('harness/scale/protocol_latch.py', 'state', '--out',
+                (Get-RelPath (Join-Path $dir 'protocol_state.json'))) (Join-Path $dir 'protocol_state.log') | Out-Null
+        }
         $inversionsRaw = Invoke-Psql $inversionSql
         Save-Text (Join-Path $dir 'created_at_inversions.json') $inversionsRaw
         $inversions = $null
@@ -301,6 +354,17 @@ function Invoke-Experiment {
             elseif (-not $expVerdict) { 'NOT RUN' }
             elseif ($expVerdict -eq 'SKIP') { 'NOT RUN(시계 스큐 SKIP)' }
             else { $expVerdict })
+        if ($Protocol -eq 2 -and $row['분리 판정'] -eq 'PASS' -and -not $row['s3Common'].ok) { $row['분리 판정'] = 'FAIL(공통 판정)' }
+        # 설계 7-3 X2·X3 의 사전 규칙(rpo_records 0, 사후 권위 run C13A 0)을 분리 판정에 건다. 실험 스크립트의 판정은 C13A 를 게이팅에서
+        # 빼고(lib.ps1 CHAOS_GATING_EXEMPT_CHECKS) E7 은 부하를 멈추지 않은 채 사후 run 을 뜬다. 이 축이 없으면 rpo_records 가 1 인
+        # 주행이 PASS 로 남는다(S3 구현 검토, 관문 X3 반복 r1·r2). 물질화 전 NEW 를 센 것인지는 판정을 바꾸지 않고 증거에 적는다.
+        if ($Protocol -eq 2 -and $row['분리 판정'] -eq 'PASS') {
+            $rpoRecords = $(if ($verdict -and $verdict.failover) { $verdict.failover.rpoRecords } else { $null })
+            $postC13a = @($verdict.invariants | Where-Object { $_.window -eq 'post' -and "$($_.check)" -eq 'C13A_ORDER_MATERIALIZED' -and -not $_.ok }).Count
+            $row['rpoAxis'] = [ordered]@{ rpoRecords = $rpoRecords; postC13A = $postC13a }
+            if ($null -eq $rpoRecords) { $row['분리 판정'] = 'NOT RUN(rpo_records 없음)' }
+            elseif ([long]$rpoRecords -ne 0 -or $postC13a -gt 0) { $row['분리 판정'] = 'FAIL(rpo_records)' }
+        }
         # 대역 모드에서 래치 행이나 대역 행이 없으면 대역 채번을 시험하지 않은 주행이다. C28 은 사후 권위 run 에 없을 수 있어 하네스 SQL 값으로 막는다.
         if ($cutover -and $row['분리 판정'] -eq 'PASS') {
             $row['분리 판정'] = $(if (-not $cutover['대역 모드 성립']) { 'NOT RUN(대역 모드 미성립)' }
@@ -358,6 +422,10 @@ function Invoke-Experiment {
             New-Item -ItemType File -Force -Path $stop | Out-Null
             if (-not $sampler.WaitForExit(30000)) { Stop-Process -Id $sampler.Id -Force }
         }
+        if ($balanceSampler -and -not $balanceSampler.HasExited) {
+            New-Item -ItemType File -Force -Path $stopBalance | Out-Null
+            if (-not $balanceSampler.WaitForExit(30000)) { Stop-Process -Id $balanceSampler.Id -Force }
+        }
         if ($eventsProc -and -not $eventsProc.HasExited) { Stop-Process -Id $eventsProc.Id -Force }
         $code = Invoke-ComposeQuiet '--profile obs down -v --remove-orphans'
         Write-RunLog "END $Exp down rc=$code"
@@ -365,13 +433,19 @@ function Invoke-Experiment {
 }
 
 if ($PSVersionTable.PSVersion.Major -lt 7) { Write-Host 'pwsh 7 로 실행한다(CLAUDE.md 30절).'; exit 5 }
-if (-not $Image) { Write-Host '-Image 가 필요하다. 5단계는 4단계 B4 태그, 대역 모드는 adr0022-stage6-b4b6.ps1 가 구운 6단계 태그다.'; exit 5 }
+if (-not $Image) { Write-Host '-Image 가 필요하다. 5단계는 4단계 B4 태그, 대역 모드는 adr0022-stage6-b4b6.ps1 가 구운 6단계 태그, S3 관문(-Protocol 2)은 exchange-chaos-app:pml 이다.'; exit 5 }
+# 보존 스택 가드(하네스 검증설계 §2-4). 실험마다 down -v 를 하므로 보존 스택에서는 아무것도 지우거나 세우지 않는다. lib.ps1 은
+# CHAOS_PROJECT 가 없으면 exchange-chaos 를 쓰므로 미설정도 여기서 걸린다. 이미지 태그는 S3 경로에서만 묶는다(S3 설계 7-0).
+if ($Global:CHAOS.Project -eq 'exchange-chaos') { Write-Host 'CHAOS_PROJECT 가 보존 스택 exchange-chaos 다(미설정 포함). 보존 볼륨을 지울 수 있어 시작하지 않는다. 폐기용 이름(예: exchange-pml)을 준다.'; exit 5 }
+if ($Protocol -eq 2 -and ($Global:CHAOS.Project -ne 'exchange-pml' -or $Image -ne 'exchange-chaos-app:pml')) {
+    Write-Host "S3 경로(-Protocol 2)는 CHAOS_PROJECT=exchange-pml, -Image exchange-chaos-app:pml 에서만 돈다(지금 $($Global:CHAOS.Project), $Image)."; exit 5
+}
 $wanted = @($Experiments.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $unknown = @($wanted | Where-Object { -not $scripts.Contains($_) })
 if ($unknown.Count -gt 0) { Write-Host ('이 절차에 없는 실험: {0}' -f ($unknown -join ', ')); exit 5 }
 if (Test-Path (Join-Path $EvidenceDir 'summary.json')) { Write-Host '이미 summary.json 이 있다. 증거를 덮지 않는다.'; exit 5 }
 New-Item -ItemType Directory -Force -Path $EvidenceDir | Out-Null
-Write-RunLog "RUN adr0022-stage5-chaos Image=$Image Experiments=$($wanted -join ',') LatchBeforeTraffic=$LatchBeforeTraffic SnapshotEvidence=$SnapshotEvidence"
+Write-RunLog "RUN adr0022-stage5-chaos Image=$Image Experiments=$($wanted -join ',') LatchBeforeTraffic=$LatchBeforeTraffic SnapshotEvidence=$SnapshotEvidence Protocol=$Protocol Project=$($Global:CHAOS.Project)"
 if (-not (Test-Path $Global:CHAOS.EnvFile)) { Write-RunLog 'BLOCKED harness/.env.chaos 가 없다'; exit 5 }
 & docker info *> $null
 if ($LASTEXITCODE -ne 0) { Write-RunLog 'BLOCKED 도커 데몬 미응답'; exit 5 }
@@ -388,6 +462,9 @@ $summary = [ordered]@{
     imageRevision = $(if ($labels -and $labels -ne 'null') { ($labels | ConvertFrom-Json).'org.opencontainers.image.revision' } else { $null })
     harnessCommit = (& git -C $repo rev-parse HEAD | Out-String).Trim()
     latchBeforeTraffic = [bool]$LatchBeforeTraffic
+    protocol = $Protocol
+    project = $Global:CHAOS.Project
+    springProfiles = $env:CHAOS_SPRING_PROFILES
     snapshotEvidence = [bool]$SnapshotEvidence
     localLogDir = $LocalLogDir
     experiments = @()

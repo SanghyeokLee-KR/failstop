@@ -1,0 +1,20 @@
+2026-09-24T14:48:26+09:00 [X5] PHASE X5 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-24T14:48:26+09:00 [X5] volumes before unchanged
+2026-09-24T14:48:27+09:00 [X5] PROBE P1a measure=hot rate=300 mode=P1 keys=16 markets=KRW-BTC
+2026-09-24T14:48:27+09:00 [X5] RUN python harness/scale/roundtrip_probe.py --label P1ah --rate 300 --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X5\P1a-hot300.json
+2026-09-24T14:54:31+09:00 [X5] RC 0
+2026-09-24T14:54:43+09:00 [X5] SUMMARY summary-P1a-hot300 rc=0 rows=32 gate=29 notPass=[] C29=PASS C31=PASS
+2026-09-24T14:54:49+09:00 [X5] PROBE P2a measure=hot rate=300 mode=P2 keys=16 markets=KRW-BTC
+2026-09-24T14:54:49+09:00 [X5] RUN python harness/scale/roundtrip_probe.py --label P2ah --rate 300 --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X5\P2a-hot300.json --protocol-before-traffic 2
+2026-09-24T15:01:20+09:00 [X5] RC 0
+2026-09-24T15:01:32+09:00 [X5] SUMMARY summary-P2a-hot300 rc=0 rows=32 gate=29 notPass=[] C29=PASS C31=PASS
+2026-09-24T15:01:40+09:00 [X5] PROBE P1b measure=hot rate=300 mode=P1 keys=16 markets=KRW-BTC
+2026-09-24T15:01:40+09:00 [X5] RUN python harness/scale/roundtrip_probe.py --label P1bh --rate 300 --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X5\P1b-hot300.json
+2026-09-24T15:07:44+09:00 [X5] RC 0
+2026-09-24T15:07:56+09:00 [X5] SUMMARY summary-P1b-hot300 rc=0 rows=32 gate=29 notPass=[] C29=PASS C31=PASS
+2026-09-24T15:08:02+09:00 [X5] PROBE P2b measure=hot rate=300 mode=P2 keys=16 markets=KRW-BTC
+2026-09-24T15:08:02+09:00 [X5] RUN python harness/scale/roundtrip_probe.py --label P2bh --rate 300 --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X5\P2b-hot300.json --protocol-before-traffic 2
+2026-09-24T15:14:33+09:00 [X5] RC 0
+2026-09-24T15:14:45+09:00 [X5] SUMMARY summary-P2b-hot300 rc=0 rows=32 gate=29 notPass=[] C29=PASS C31=PASS
+2026-09-24T15:14:52+09:00 [X5] down -v (exchange-pml) rc=0 after X5 hot
+2026-09-24T15:14:52+09:00 [X5] volumes after unchanged

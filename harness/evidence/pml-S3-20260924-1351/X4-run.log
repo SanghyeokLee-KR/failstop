@@ -1,0 +1,6 @@
+2026-09-24T14:11:50+09:00 [Chaos] PHASE Chaos project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-24T14:11:50+09:00 [Chaos] volumes before unchanged
+2026-09-24T14:11:50+09:00 [Chaos] down -v (exchange-pml) rc=0 before X4
+2026-09-24T14:11:50+09:00 [Chaos] RUN pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:pml -Experiments E2,E5,E6 -Protocol 2 -EvidenceDir X4 -LocalLogDir C:\Users\DEV-PC\AppData\Local\Temp\pml-s3-logs\X4
+2026-09-24T14:21:59+09:00 [Chaos] stage5 rc=1 (X4)
+2026-09-24T14:21:59+09:00 [Chaos] volumes after unchanged

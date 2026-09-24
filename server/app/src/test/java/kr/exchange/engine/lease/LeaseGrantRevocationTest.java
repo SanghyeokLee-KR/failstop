@@ -68,8 +68,8 @@ class LeaseGrantRevocationTest {
                     + ", interval '60 seconds')::text"));
 
             app.setAutoCommit(false);
-            long seq = prologue(app, "app-a", epoch, "grant-1", 1);
-            assertEquals(1, append(app, seq, 1, "app-a", epoch));
+            long seq = prologue(app, "app-a", epoch, "grant-1", 1, true);
+            assertEquals(1, append(app, seq, 1, "app-a", epoch, "NEW"));
             assertEquals(epoch, queryLong(app, "SELECT assert_and_lock_market_leader(1::smallint, 'app-a', " + epoch + ")"));
             assertEquals(epoch, queryLong(app, "SELECT assert_and_lock_leader('app-a', " + epoch + ")"));
             assertEquals(epoch + "|0|" + seq + "|1", queryString(app, """
@@ -159,9 +159,9 @@ class LeaseGrantRevocationTest {
     }
 
     private static PartitionLeaseDb v49Database(String prefix) throws SQLException {
+        // V49 는 저장소 마이그레이션이라 create() 가 이미 적용한다(S3 설계 4-1).
         PartitionLeaseDb db = PartitionLeaseDb.create(prefix).withRuntimeRoles();
         db.seedMarkets(1);
-        db.applyV49Contract();
         return db;
     }
 

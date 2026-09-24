@@ -17,6 +17,7 @@ import java.sql.Statement;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -47,7 +48,8 @@ class MigrationSmokeTest {
             "user_credentials", "user_profiles", "auth_sessions", "user_provisioning",
             "posts", "comments", "post_likes", "comment_likes", "post_rank_snapshot",
             "reports", "community_moderation_log",
-            "leader_protocol", "leader_protocol_history", "lease_acquisitions", "market_lease_partition");
+            "leader_protocol", "leader_protocol_history", "lease_acquisitions", "market_lease_partition",
+            "order_reservations");
 
     @BeforeAll
     static void migrateAndSeed() throws Exception {
@@ -117,11 +119,61 @@ class MigrationSmokeTest {
                     }
                 }
             }
-            // S2 이미지(V48)는 두 권한을 남겨 S2 이전 바이너리로 되돌릴 수 있게 한다. 회수는 다음 이미지의 V49 다.
-            assertTrue(queryBool(conn, "SELECT has_table_privilege('app_role', 'leader_lease', 'UPDATE')"),
-                    "V48 이 leader_lease UPDATE 를 회수했다");
-            assertTrue(queryBool(conn, "SELECT has_table_privilege('app_role', 'command_journal', 'INSERT')"),
-                    "V48 이 command_journal INSERT 를 회수했다");
+            // V49(S3 의 첫 이미지, S3 설계 4-1)가 두 권한을 회수한다. 리스 행은 소유자 권한 함수로만 바꾸고, 명령 저널은
+            // append_command_journal_row 로만 쓴다. S2 이전 바이너리로 되돌리려면 소유자가 두 권한을 먼저 다시 준다.
+            assertFalse(queryBool(conn, "SELECT has_table_privilege('app_role', 'leader_lease', 'UPDATE')"),
+                    "V49 뒤에도 app_role 이 leader_lease 를 UPDATE 할 수 있다");
+            assertFalse(queryBool(conn, "SELECT has_table_privilege('app_role', 'command_journal', 'INSERT')"),
+                    "V49 뒤에도 app_role 이 command_journal 에 INSERT 할 수 있다");
+            assertTrue(queryBool(conn, "SELECT has_table_privilege('app_role', 'leader_lease', 'SELECT')"),
+                    "V49 가 leader_lease SELECT 까지 회수했다");
+
+            // V51: 검증기 C15·C27 이 직접 세는 DEFAULT 잎은 부모 권한을 물려받지 않는다. 앱 롤은 읽기만 받고 쓰기는 부모를 거친다.
+            for (String leaf : List.of("ledger_entries_default", "event_journal_default", "trades_default",
+                    "outbox_default", "command_journal_default")) {
+                for (String role : List.of("app_role", "harness_role")) {
+                    assertTrue(queryBool(conn, "SELECT has_table_privilege('" + role + "', '" + leaf + "', 'SELECT')"),
+                            role + " must SELECT " + leaf);
+                }
+                for (String priv : List.of("INSERT", "UPDATE", "DELETE")) {
+                    assertFalse(queryBool(conn, "SELECT has_table_privilege('app_role', '" + leaf + "', '" + priv + "')"),
+                            "app_role must not " + priv + " on " + leaf);
+                }
+            }
+
+            // V50 예약 행은 소유자 권한 머리말만 쓴다. 앱·하네스 롤은 읽기만 한다.
+            for (String role : List.of("app_role", "harness_role")) {
+                assertTrue(queryBool(conn, "SELECT has_table_privilege('" + role + "', 'order_reservations', 'SELECT')"),
+                        role + " must SELECT order_reservations");
+                for (String priv : List.of("INSERT", "UPDATE", "DELETE", "TRUNCATE")) {
+                    assertFalse(queryBool(conn,
+                                    "SELECT has_table_privilege('" + role + "', 'order_reservations', '" + priv + "')"),
+                            role + " must not " + priv + " on order_reservations");
+                }
+            }
+            // V50 함수. 앱이 부르는 것은 EXECUTE 가 있고, 전환 함수는 앱과 PUBLIC 모두 없다(소유자 전용).
+            for (String fn : List.of(
+                    "append_command_prologue(text, bigint, boolean, bigint, character varying, smallint, bigint, jsonb,"
+                            + " smallint, numeric)",
+                    "try_acquire_lease(text, text, interval, smallint)",
+                    "publish_leader_epoch(text, bigint, smallint)",
+                    "lock_balance_rows(bigint[])",
+                    "order_reserve_amount(smallint, jsonb)")) {
+                assertTrue(queryBool(conn, "SELECT has_function_privilege('app_role', '" + fn + "', 'EXECUTE')"),
+                        "app_role must EXECUTE " + fn);
+            }
+            assertFalse(queryBool(conn,
+                            "SELECT has_function_privilege('app_role', 'set_leader_protocol(smallint, boolean)', 'EXECUTE')"),
+                    "app_role 이 모드 전환 함수를 부를 수 있다");
+            assertFalse(queryBool(conn, """
+                    SELECT EXISTS (SELECT 1 FROM pg_proc p, aclexplode(p.proacl) a
+                                    WHERE p.oid = 'set_leader_protocol(smallint, boolean)'::regprocedure
+                                      AND a.grantee = 0 AND a.privilege_type = 'EXECUTE')
+                    """), "PUBLIC 이 모드 전환 함수를 부를 수 있다");
+            assertTrue(queryBool(conn, """
+                    SELECT p.proacl IS NOT NULL FROM pg_proc p
+                     WHERE p.oid = 'set_leader_protocol(smallint, boolean)'::regprocedure
+                    """), "모드 전환 함수의 기본 PUBLIC EXECUTE 가 회수되지 않았다");
 
             // 롤을 분리하면 GRANT 누락이 권한 오류로만 드러나 원인 추적이 한 단계 멀어진다.
             for (String t : List.of("sim_commands", "chaos_commands", "sim_fleet_state")) {

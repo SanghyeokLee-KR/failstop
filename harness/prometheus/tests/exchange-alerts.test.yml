@@ -72,3 +72,72 @@ tests:
               duration: "30s"
               dashboard: "① 체결 무결성 증명 (proof-integrity)"
               runbook: "기획안 §10.2 무결 판정 · 검증설계 §4-1 체크 카탈로그"
+
+  # ADR 0034 S3 경보 셋(S3 설계 4-16). 정산 23514 와 접수 40P01 은 증가 한 번에 바로, 정산 전 예약 나이는 60초를 넘은 상태가
+  # 2분 이어질 때 발화한다. 나이가 60초 이하이거나 2분이 차지 않으면 발화하지 않는다.
+  - interval: 10s
+    input_series:
+      - series: 'exchange_settlement_insufficient_funds_total{instance="chaos-api-1:8080"}'
+        values: "0 0 1 1 1 1"
+      - series: 'exchange_order_append_transient_total{instance="chaos-api-1:8080", sqlstate="40P01"}'
+        values: "0 0 0 2 2 2"
+      - series: 'exchange_order_append_transient_total{instance="chaos-api-1:8080", sqlstate="40001"}'
+        values: "0 0 5 5 5 5"
+    alert_rule_test:
+      - eval_time: 50s
+        alertname: SettlementInsufficientFunds
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-1:8080"
+              severity: critical
+              component: settlement
+            exp_annotations:
+              summary: "정산 시점 잔고 부족(23514) · 라이터 정지"
+              metric: "settlement_insufficient_funds"
+              value: "1"
+              threshold: "증가 > 0"
+              duration: "0s"
+              dashboard: "② 자동 복구 증명 (proof-recovery)"
+              runbook: "DB 설계 §5.1 P2 정산 규칙 · S3 설계 4-8 · P2 에서는 버그 신호"
+      - eval_time: 50s
+        alertname: OrderIntakeDeadlock
+        exp_alerts:
+          - exp_labels:
+              instance: "chaos-api-1:8080"
+              sqlstate: "40P01"
+              severity: warning
+              component: intake
+            exp_annotations:
+              summary: "접수 append 교착(40P01) · 정산 잠금 계획 뒤에는 결함 신호"
+              metric: "order_append_transient_40P01"
+              value: "2"
+              threshold: "증가 > 0"
+              duration: "0s"
+              dashboard: "④ 시스템 (proof-system)"
+              runbook: "DB 설계 §5.0 v2.54 잠금 계획 · S3 설계 4-13·4-14"
+
+  - interval: 30s
+    input_series:
+      - series: 'exchange_reservation_unsettled_oldest_seconds{instance="chaos-api-1:8080"}'
+        values: "0 30 90 120 150 180 210"
+      - series: 'exchange_reservation_unsettled_oldest_seconds{instance="chaos-api-2:8080"}'
+        values: "0 0 0 0 0 0 0"
+    alert_rule_test:
+      # 60초를 넘은 첫 표본(60s) 뒤 2분이 차기 전에는 대기 상태다.
+      - eval_time: 150s
+        alertname: ReservationUnsettledStale
+        exp_alerts: []
+      - eval_time: 180s
+        alertname: ReservationUnsettledStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: settlement
+            exp_annotations:
+              summary: "정산 전 예약이 60초 넘게 정산되지 않음(정산 정체·재적재 막힘)"
+              metric: "reservation_unsettled_oldest"
+              value: "210s"
+              threshold: "> 60s"
+              duration: "2m"
+              dashboard: "② 자동 복구 증명 (proof-recovery)"
+              runbook: "S3 설계 4-16 · 하네스 검증설계 §4-1 C14 정산 전 예약 항"

@@ -122,4 +122,6 @@ export const INVARIANT_DEFS: { name: string; label: string; scope: InvariantScop
   { name: "C27_CMD_DEFAULT_PARTITION", label: "명령 기본 파티션 공백", scope: "SCHEDULED", gloss: "command_journal_default 0행" },
   { name: "C28_CMD_LEGACY_AFTER_CUTOVER", label: "레거시 채번 없음", scope: "SCHEDULED", gloss: "대역 전환 뒤 전역 seq 0" },
   { name: "C29_MARKET_PARTITION_MAP", label: "마켓 파티션 대응", scope: "SCHEDULED", gloss: "대응·리스 행·모드 래치 누락 0" },
+  // ADR 0034 S3. 비용 때문에 권위 run 한정·최근 창(마켓마다 주문 생성 5,000건)이다. 전수 판은 하네스 SQL 이 센다
+  { name: "C31_RESERVATION_LINK", label: "접수 예약 연결", scope: "AUTHORITATIVE_ONLY", gloss: "예약 행 대 원장·저널" },
 ];

@@ -10,6 +10,7 @@ import type { AdminApi } from "./api";
 import { AdminError } from "./api";
 import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles";
 import { feeRateError } from "./fees";
+import { CLOSE_INCOMPLETE, describeCloseIncomplete } from "./memberClose";
 import { INVARIANT_DEFS, scenarioDef } from "./catalog";
 import { summarizeInvariants } from "./invariants";
 import type {
@@ -614,11 +615,19 @@ export class SimAdminApi implements AdminApi {
     if (!can(s.roles, ACTION_CAP[a.action])) {
       return Promise.reject(new AdminError("admin_forbidden", "소각 시점 권한 부족"));
     }
-    this.applyEffect(a.payload, s);
+    // 회원 폐쇄의 미완료 409 는 효과가 이미 반영된 뒤의 알림이다(API 설계 v2.54 §6-E). 서버처럼 토큰을 소각하고 감사를
+    // OK 로 남긴 다음 알린다. 그 밖의 예외는 소각 전 반려라 그대로 던진다
+    let incomplete: AdminError | null = null;
+    try {
+      this.applyEffect(a.payload, s);
+    } catch (e) {
+      if (!(e instanceof AdminError && e.code === CLOSE_INCOMPLETE)) throw e;
+      incomplete = new AdminError(e.code, e.message, null, { ...(e.detail ?? {}), approval_id: a.id });
+    }
     a.state = "CONSUMED";
     a.consumedAt = isoNow();
     this.log(s, `execute:${a.action}`, a.targetLabel, a.id, "OK");
-    return Promise.resolve();
+    return incomplete ? Promise.reject(incomplete) : Promise.resolve();
   }
 
   private applyEffect(payload: ApprovalPayload, by: AdminSession): void {
@@ -1198,7 +1207,9 @@ export class SimAdminApi implements AdminApi {
   /* ===== 회원 운영 (§6-E) =====
    * 회원 도메인은 고객 어댑터 소관이라 관리 어댑터가 실제 계정을 들고 있지 않다. 전이의
    * 화면·권한·부수 효과 표기를 확인할 수 있도록 씨앗 행을 둔다. 자금은 여기서 안 움직인다. */
-  private members: (AdminMemberDetail & { sessions: number })[] = [
+  // openOrderMarkets 는 sim 전용 필드다. 미체결 하나당 그 마켓 심볼이고 개수가 openOrderCount 다. 폐쇄가 정지 마켓 주문을
+  // 남기는 서버 동작(API 설계 v2.54 §6-E)을 흉내 내려고 둔다
+  private members: (AdminMemberDetail & { sessions: number; openOrderMarkets: string[] })[] = [
     {
       externalId: "11111111-1111-4111-8111-111111111111",
       email: "trader@demo.local", displayName: "김트레이더", status: "ACTIVE",
@@ -1206,6 +1217,7 @@ export class SimAdminApi implements AdminApi {
       updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 30,
       // 폐쇄가 무엇을 취소하는지 화면에서 보이게 미체결을 들고 있는 계정을 하나 둔다
       openOrderCount: 3, lastOrderAt: Date.now() - 1000 * 60 * 8, assetKinds: 4, sessions: 2,
+      openOrderMarkets: ["KRW-BTC", "KRW-BTC", "KRW-ETH"],
     },
     {
       externalId: "22222222-2222-4222-8222-222222222222",
@@ -1213,6 +1225,7 @@ export class SimAdminApi implements AdminApi {
       createdAt: Date.now() - 1000 * 60 * 60 * 24 * 12,
       updatedAt: Date.now() - 1000 * 60 * 60 * 24 * 12,
       openOrderCount: 0, lastOrderAt: null, assetKinds: 1, sessions: 1,
+      openOrderMarkets: [],
     },
     {
       externalId: "33333333-3333-4333-8333-333333333333",
@@ -1220,6 +1233,7 @@ export class SimAdminApi implements AdminApi {
       createdAt: Date.now() - 1000 * 60 * 60 * 24 * 3,
       updatedAt: Date.now() - 1000 * 60 * 60 * 2,
       openOrderCount: 1, lastOrderAt: Date.now() - 1000 * 60 * 60 * 5, assetKinds: 2, sessions: 0,
+      openOrderMarkets: ["KRW-XRP"],
     },
   ];
 
@@ -1242,7 +1256,7 @@ export class SimAdminApi implements AdminApi {
     this.auth("VIEW");
     const m = this.members.find((x) => x.externalId === externalId);
     if (!m) return Promise.reject(new AdminError("not_found", "회원을 찾을 수 없습니다."));
-    const { sessions: _sessions, ...detail } = m;
+    const { sessions: _sessions, openOrderMarkets: _markets, ...detail } = m;
     return Promise.resolve({ ...detail });
   }
 
@@ -1276,14 +1290,31 @@ export class SimAdminApi implements AdminApi {
     if (m.status === "CLOSED" && target !== "CLOSED") {
       throw new AdminError("member_closed", "폐쇄된 계정은 되돌릴 수 없습니다.");
     }
-    // 정지는 가역이라 주문을 남긴다. 폐쇄만 정리한다(서버 MemberAdminService와 같은 규율)
-    const canceled = cancelOrders ? m.openOrderCount : 0;
-    if (cancelOrders) m.openOrderCount = 0;
+    // 정지는 가역이라 주문을 남긴다. 폐쇄만 정리한다(서버 MemberAdminService와 같은 규율). 정지 마켓 주문은 취소되지
+    // 않고 남는다(서버 게이트웨이의 422 market_suspended)
+    let canceled = 0;
+    let suspended = 0;
+    if (cancelOrders) {
+      const halted = m.openOrderMarkets.filter(
+        (symbol) => this.markets.find((x) => x.symbol === symbol)?.state === "HALTED");
+      canceled = m.openOrderMarkets.length - halted.length;
+      suspended = halted.length;
+      m.openOrderMarkets = halted;
+      m.openOrderCount = halted.length;
+    }
     const revoked = target === "ACTIVE" ? 0 : m.sessions;
     if (target !== "ACTIVE") m.sessions = 0;
     m.status = target;
     m.updatedAt = Date.now();
     this.log(s, action, externalId, null, "OK");
+    if (suspended > 0) {
+      // 상태 전이는 확정했다. 남은 주문이 폐쇄 계정에서 체결될 수 있어 완료로 덮지 않는다(API 설계 v2.54 §6-E)
+      const detail = {
+        status: target, canceled_orders: canceled, pending_orders: suspended,
+        pending_reasons: { market_suspended: suspended },
+      };
+      throw new AdminError(CLOSE_INCOMPLETE, describeCloseIncomplete(detail), null, detail);
+    }
     return { externalId, status: target, canceledOrders: canceled, revokedSessions: revoked };
   }
 

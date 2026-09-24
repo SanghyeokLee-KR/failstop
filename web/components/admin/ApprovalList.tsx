@@ -7,7 +7,8 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { getAdminApi } from "@/lib/admin/api";
+import { AdminError, getAdminApi } from "@/lib/admin/api";
+import { CLOSE_INCOMPLETE, describeCloseIncomplete } from "@/lib/admin/memberClose";
 import { ACTION_LABEL } from "@/lib/admin/roles";
 import { useAdminSession, useApprovalVault } from "@/lib/admin/store";
 import { useApprovalLedger } from "@/lib/admin/approvals";
@@ -94,11 +95,13 @@ export default function ApprovalList({
   // 각자 읽던 다섯 폴러가 하나로 모였다(lib/admin/approvals)
   const rows = useMemo(() => ledgerRows.filter((a) => inScope(a.action)), [ledgerRows, inScope]);
 
+  // fn 이 문자열을 돌려주면 요청은 반영됐지만 남은 조치가 있다는 경고다. 성공 경로(목록 갱신·통지)를 그대로 타고 문구만 바꾼다
   const act = async (id: string, fn: () => Promise<unknown>, ok: string) => {
     setBusy(id);
     try {
-      await fn();
-      toast(ok, "info");
+      const outcome = await fn();
+      if (typeof outcome === "string") toast(outcome, "warning");
+      else toast(ok, "info");
       // 다이얼로그를 먼저 닫는다. 열린 채면 배경이 inert라 아래 폴백 focus()가 무시된다
       setExecTarget(null);
       await refresh();
@@ -133,7 +136,18 @@ export default function ApprovalList({
     return act(
       row.id,
       async () => {
-        await getAdminApi().consumeApproval(held);
+        try {
+          await getAdminApi().consumeApproval(held);
+        } catch (e) {
+          // 회원 폐쇄의 409 orders_cancel_incomplete 는 실패가 아니다(API 설계 v2.54 §6-E). 폐쇄는 확정됐고 토큰도 서버에서
+          // 소각됐다. 토큰을 치우고 목록·상세를 다시 읽으며, 남은 수와 다음 조치를 경고로 알린다. 정지 마켓 몫이 있으면
+          // 재개가 먼저다
+          if (e instanceof AdminError && e.code === CLOSE_INCOMPLETE) {
+            dropToken(row.id);
+            return describeCloseIncomplete(e.detail);
+          }
+          throw e;
+        }
         dropToken(row.id);
       },
       "실행 완료",

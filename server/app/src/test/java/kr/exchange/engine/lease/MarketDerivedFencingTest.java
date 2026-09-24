@@ -19,6 +19,7 @@ import kr.exchange.journal.CommandJournalReader;
 import kr.exchange.journal.EventJournalAppender;
 import kr.exchange.journal.FencingErrors;
 import kr.exchange.journal.JournalEntry;
+import kr.exchange.journal.ReserveCheck;
 import kr.exchange.journal.TransientDbErrors;
 import kr.exchange.ledger.AccountBootstrap;
 import kr.exchange.ledger.MarketCatalog;
@@ -73,13 +74,13 @@ class MarketDerivedFencingTest {
             long epoch = acquire(c, "matching-engine", "node-a");
 
             c.setAutoCommit(false);
-            long seq = prologue(c, "node-a", epoch, "m77", 77);
-            assertEquals(1, append(c, seq, 77, "node-a", epoch), "markets 에 없는 마켓의 append 가 거부됐다");
+            long seq = prologue(c, "node-a", epoch, "m77", 77, true);
+            assertEquals(1, append(c, seq, 77, "node-a", epoch, "NEW"), "markets 에 없는 마켓의 append 가 거부됐다");
             c.commit();
-            assertEquals(0, append(c, seq + 100_000, 1, "node-a", epoch - 1), "오래된 epoch append 가 들어갔다");
+            assertEquals(0, append(c, seq + 100_000, 1, "node-a", epoch - 1, "NEW"), "오래된 epoch append 가 들어갔다");
             c.rollback();
             db.expire("matching-engine");
-            assertEquals(0, append(c, seq + 100_001, 1, "node-a", epoch), "만료된 리스로 append 가 들어갔다");
+            assertEquals(0, append(c, seq + 100_001, 1, "node-a", epoch, "NEW"), "만료된 리스로 append 가 들어갔다");
             c.rollback();
             c.setAutoCommit(true);
 
@@ -151,18 +152,21 @@ class MarketDerivedFencingTest {
             assertEquals("matching-p0|matching-p1", queryString(c,
                     "SELECT lease_resource_for_market(1::smallint) || '|' || lease_resource_for_market(2::smallint)"));
 
+            // S3 뒤 P2 이상의 NEW 는 10인자 머리말의 예약 경로로만 들어가고 옛 머리말은 NEW 를 거부한다(ProtocolLatchRaceTest).
+            // 여기서는 리스 판정만 보려고 예약이 없는 CANCEL 행으로 확인한다.
             c.setAutoCommit(false);
-            assertEquals(0, append(c, 900_001, 2, "node-p0", p0), "p0 리스로 p1 마켓 행이 들어갔다");
-            SQLException crossPrologue = assertThrows(SQLException.class, () -> prologue(c, "node-p0", p0, "x2", 2));
+            assertEquals(0, append(c, 900_001, 2, "node-p0", p0, "CANCEL"), "p0 리스로 p1 마켓 행이 들어갔다");
+            SQLException crossPrologue = assertThrows(SQLException.class,
+                    () -> prologue(c, "node-p0", p0, "x2", 2, false));
             assertEquals("P0001", crossPrologue.getSQLState(), crossPrologue.getMessage());
             assertTrue(firstLine(crossPrologue).contains("fencing 위반")
                     && firstLine(crossPrologue).endsWith(" resource=matching-p1"), crossPrologue.getMessage());
             c.rollback();
 
-            long own = prologue(c, "node-p0", p0, "x1", 1);
-            assertEquals(1, append(c, own, 1, "node-p0", p0));
-            long other = prologue(c, "node-p1", p1, "y2", 2);
-            assertEquals(1, append(c, other, 2, "node-p1", p1));
+            long own = prologue(c, "node-p0", p0, "x1", 1, false);
+            assertEquals(1, append(c, own, 1, "node-p0", p0, "CANCEL"));
+            long other = prologue(c, "node-p1", p1, "y2", 2, false);
+            assertEquals(1, append(c, other, 2, "node-p1", p1, "CANCEL"));
             c.commit();
             c.setAutoCommit(true);
             assertEquals("1:" + p0 + ",2:" + p1, queryString(c, """
@@ -323,9 +327,13 @@ class MarketDerivedFencingTest {
 
         AppendResult append(Writer writer, int market, long orderId) {
             OrderIntake intake = sell(market, bob, orderId);
+            // P3 도 접수 시점에 예약한다(V50 머리말은 모드 2 이상에서 예약한다). 매도 예약은 기준 자산 수량이다.
+            // 마켓 1 은 BTC(2), 2 는 ETH(3)다. 대응 없는 마켓은 예약 전에 리스 판정에서 거부되므로 대조값이 없다.
+            ReserveCheck check = market == 1 || market == 2
+                    ? new ReserveCheck((short) (market + 1), intake.quantity()) : null;
             return writer.appender.append(new CommandDraft(intake.marketId(), intake.type(), intake.userId(),
                     intake.clientOrderId(), intake.assignedOrderId(), intake.engineTs(), intake.tieBreak(),
-                    mapper.toPayloadJson(intake)));
+                    mapper.toPayloadJson(intake)), check);
         }
 
         /** writer 로 저널에 적은 명령을 새 엔진에 적용해 정산·이벤트 적재에 넘길 배치를 만든다. */
@@ -392,7 +400,8 @@ class MarketDerivedFencingTest {
 
         @Override
         public Optional<Long> acquire(String holder, Duration ttl) {
-            return jdbc.sql("SELECT try_acquire_lease(?, ?, ? * interval '1 millisecond')")
+            // 파티션 자원은 P3 에서만 얻는다. V50 뒤 3인자 판은 P1 전용이라 P3 를 아는 4인자 판을 쓴다(ADR 0034 S3).
+            return jdbc.sql("SELECT try_acquire_lease(?, ?, ? * interval '1 millisecond', 3::smallint)")
                     .params(resource, holder, ttl.toMillis())
                     .query(Long.class)
                     .optional();
@@ -435,13 +444,15 @@ class MarketDerivedFencingTest {
         return db.ownerLong("SELECT epoch FROM leader_lease WHERE resource = '" + resource + "'");
     }
 
-    static long prologue(Connection c, String holder, long epoch, String clientOrderId, int market) throws SQLException {
+    static long prologue(Connection c, String holder, long epoch, String clientOrderId, int market, boolean isNew)
+            throws SQLException {
         try (PreparedStatement ps = c.prepareStatement(
-                "SELECT out_seq FROM append_command_prologue(?, ?, true, 1, ?, ?::smallint)")) {
+                "SELECT out_seq FROM append_command_prologue(?, ?, ?, 1, ?, ?::smallint)")) {
             ps.setString(1, holder);
             ps.setLong(2, epoch);
-            ps.setString(3, clientOrderId);
-            ps.setInt(4, market);
+            ps.setBoolean(3, isNew);
+            ps.setString(4, clientOrderId);
+            ps.setInt(5, market);
             try (ResultSet rs = ps.executeQuery()) {
                 assertTrue(rs.next());
                 return rs.getLong(1);
@@ -450,16 +461,17 @@ class MarketDerivedFencingTest {
     }
 
     /** append_command_journal_row 가 넣은 행 수. */
-    static int append(Connection c, long seq, int market, String holder, long epoch) throws SQLException {
+    static int append(Connection c, long seq, int market, String holder, long epoch, String type) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement("""
-                SELECT append_command_journal_row(?, ?::smallint, 'NEW', 1, ?, ?, 0, 0, '{}'::jsonb, 0, ?, ?)
+                SELECT append_command_journal_row(?, ?::smallint, ?, 1, ?, ?, 0, 0, '{}'::jsonb, 0, ?, ?)
                 """)) {
             ps.setLong(1, seq);
             ps.setInt(2, market);
-            ps.setString(3, "c" + seq);
-            ps.setLong(4, seq);
-            ps.setString(5, holder);
-            ps.setLong(6, epoch);
+            ps.setString(3, type);
+            ps.setString(4, "c" + seq);
+            ps.setLong(5, seq);
+            ps.setString(6, holder);
+            ps.setLong(7, epoch);
             try (ResultSet rs = ps.executeQuery()) {
                 assertTrue(rs.next());
                 return rs.getInt(1);

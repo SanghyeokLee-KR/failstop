@@ -31,8 +31,10 @@ public final class PostgresFencingEpochPublisher implements FencingEpochPublishe
     @Override
     public boolean publish(String holder, long epoch) {
         try {
-            Long published = jdbc.sql("SELECT publish_leader_epoch(?, ?)")
-                    .params(holder, epoch)
+            // 3인자 판(V50)은 이 바이너리가 아는 최고 모드를 받는다. 현재 모드가 더 높으면 55000 이고 게시 실패다
+            // (DB 설계 §5.4-b 바이너리 능력). 2인자 판은 V50 뒤 P1 전용이다.
+            Long published = jdbc.sql("SELECT publish_leader_epoch(?, ?, ?::smallint)")
+                    .params(holder, epoch, LeaseResources.MAX_PROTOCOL)
                     .query(Long.class)
                     .optional()
                     .orElse(null);

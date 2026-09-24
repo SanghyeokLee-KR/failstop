@@ -205,17 +205,18 @@ public class EngineBridge {
                     intake.marketId(), intake.type(), intake.userId(), intake.clientOrderId(),
                     intake.assignedOrderId(), intake.engineTs(), intake.tieBreak(),
                     payloadMapper.toPayloadJson(intake));
-            AppendResult ack = appender.append(draft);
+            // 대조값은 P2 이상에서 머리말이 DB 예약액과 맞춰 본다(ADR 0034 S3). 취소 명령은 null 이다.
+            AppendResult ack = appender.append(draft, intake.reserveCheck());
             if (ack.replayed()) {
                 // 원본 명령이 이미 큐 또는 저널 catch-up 경로에 있다. 재투입하면 이중 적용 후보만 늘린다.
-                return new SubmitResult(ack.seq(), ack.fencingToken(), true, false);
+                return new SubmitResult(ack.seq(), ack.fencingToken(), true, false, false);
             }
             boolean queued = sink.offer(new OrderCommand(
                     ack.seq(), intake.marketId(), CommandPayloadMapper.commandType(intake.type()),
                     intake.userId(), intake.clientOrderId(), intake.assignedOrderId(), intake.engineTs(),
                     intake.tieBreak(), intake.side(), intake.ordType(), intake.timeInForce(),
                     intake.price(), intake.quantity(), intake.quoteOrderQty(), ack.fencingToken()));
-            return new SubmitResult(ack.seq(), ack.fencingToken(), false, queued);
+            return new SubmitResult(ack.seq(), ack.fencingToken(), false, queued, ack.reserved());
         } finally {
             // 보유 시간은 예외 경로도 센다. 거부로 끝난 접수도 락을 잡고 있었다.
             market.holdNanos.add(System.nanoTime() - t1);

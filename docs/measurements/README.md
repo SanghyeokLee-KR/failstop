@@ -17,7 +17,7 @@
 | [09-15](20260915.md) | 스냅샷 재생, commit_delay 조건, 이벤트 순번 확대 | 5.7.21~5.7.23 |
 | [09-18](20260918.md) | Linux 운영·역할별 배포·DB 복구·관제·Teams PDF 보고 | 해당 없음 |
 | [09-23](20260923.md) | 로컬 조회 증설 경로(분산·조정기·조회 부하·종단 리허설)와 E4 한 회차 | 해당 없음 |
-| [09-24](20260924.md) | 마켓 분할 리더 S1·S2 관문(폐기용 스택 장애 주행, 앱 역할 로그인 주행, A/B 부하, 되돌림) | 해당 없음 |
+| [09-24](20260924.md) | 마켓 분할 리더 S1·S2 관문(폐기용 스택 장애 주행, 앱 역할 로그인 주행, A/B 부하, 되돌림)과 S3 관문·재주행(P2 봇 부하, P2 장애 주행, 결정 5 처리량, 감사 문장 비용) | 해당 없음 |
 
 절 번호는 다른 설계 문서가 인용하고 있어 유지한다. 일부 본문은 이전 측정 문서에서 옮겼으며, 당시 원문은 Git 커밋 `d0ac993`에서 확인할 수 있다. 오래된 '기획안 한계' 번호도 당시 문서의 번호다.
 
@@ -55,6 +55,6 @@
 
 ## 재현
 
-러너와 판정기는 [harness/scale/](../../harness/scale/)에 있다. 각 실험의 시작 조건과 출력 파일을 확인한 뒤 실행한다. `clean_suite.py`는 회차 사이 볼륨을 초기화하므로 보존할 데이터가 있는 환경에 그대로 실행하지 않는다.
+러너와 판정기는 [harness/scale/](../../harness/scale/)에 있다. 각 실험의 시작 조건과 출력 파일을 확인한 뒤 실행한다. `clean_suite.py`는 회차 사이 볼륨을 초기화하므로 보존할 데이터가 있는 환경에 그대로 실행하지 않는다. 2026-09-24부터 이 초기화와 그것을 쓰는 `roundtrip_probe.py`, `harness/scripts/adr0022-stage5-chaos.ps1`은 compose 프로젝트가 보존 스택 `exchange-chaos`(`CHAOS_PROJECT` 미설정 포함)이면 시작하지 않는다. 모드 전환 경로(`protocol_latch.py`, `-Protocol 2`, `--protocol-before-traffic 2`)는 폐기용 스택(`CHAOS_PROJECT=exchange-pml`, `CHAOS_APP_IMAGE=exchange-chaos-app:pml`)에서만 돈다([하네스 검증설계](../reference/contracts/하네스_검증설계.md) §2-4, [S3 설계](../reference/architecture/마켓분할_리더_S3_설계.md) 7-0).
 
 새 결과는 실행한 날짜의 파일에 덧붙인다. 결과를 요약할 때도 코드 버전, 조건, 판정과 원자료 위치를 함께 남긴다. 검사 기준 자체는 [하네스 검증 설계](../reference/contracts/하네스_검증설계.md)와 [CI·CD·인프라 설계](../reference/contracts/하네스_CICD_IaC.md)를 따른다.

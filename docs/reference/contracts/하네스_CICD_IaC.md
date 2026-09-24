@@ -453,15 +453,15 @@ e1부터 e9를 순서대로 도는 오케스트레이터가 없다. 하나씩 �
 
 | 원천 | 개수 | 세는 방법 |
 |---|---|---|
-| `harness/sql/invariants.sql` | **31** | 판정 블록. `\echo '== C` 33행에서 C24·C25의 분기 중복 2행을 뺀다 |
-| `InvariantCheck.java` enum | 30 | 31에서 C04가 빠진다 |
-| 카탈로그 코드 | 29 | C01~C29 |
+| `harness/sql/invariants.sql` | **32** | 판정 블록. `\echo '== C` 39행에서 스키마 조건 분기의 중복 7행(C14 1, C29 2, C31 2, C24·C25 각 1)을 뺀다 |
+| `InvariantCheck.java` enum | 31 | 32에서 C04가 빠진다 |
+| 카탈로그 코드 | 30 | C01~C29, C31(C30은 ADR 0034 S7 예약 번호) |
 
 C04는 지연 제약 트리거가 데이터베이스 안에서 강제하므로 러너의 조회 대상이 아니다. 코드 축에서 C07이 C07·C07P로, C13이 C13a·C13b로 갈려 블록이 코드보다 둘 많다.
 
-enum의 Severity 분포는 CRITICAL 18, HIGH 9, WARN 3이다. Scope 분포는 SCHEDULED 23, AUTHORITATIVE_ONLY 7이다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
+enum의 Severity 분포는 CRITICAL 19, HIGH 9, WARN 3이다. Scope 분포는 SCHEDULED 23, AUTHORITATIVE_ONLY 8이다. 권위 run 전용을 따로 둔 이유는 라이브 프로젝션 지연과 스테일 ack가 오탐을 만들기 때문이다.
 
-개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다. 2026-09-14 ADR 0022 6단계가 C28(CRITICAL·SCHEDULED)을 더해 다시 셌다. 같은 날 7단계가 C26(HIGH·SCHEDULED)을 더해 다시 셌다. 2026-09-24 ADR 0034 S2가 C29(CRITICAL·SCHEDULED)를 카탈로그에 먼저 등재했고, 같은 날 작업 브랜치 `claude/per-market-leader`의 S2 코드가 `InvariantCheck.java`와 `invariants.sql`·`summary.sql`에 넣어 다시 셌다.
+개수는 2026-09-13 ADR 0022 3단계 술어 개정 반영본을 다시 센 값이다. `InvariantCheck.java`의 `Severity`·`Scope` 인자 쌍과 `invariants.sql`의 `\echo '== C` 행을 셌다. C27(CRITICAL·SCHEDULED)이 그 개정에서 세 벌에 들어갔다. 2026-09-14 ADR 0022 6단계가 C28(CRITICAL·SCHEDULED)을 더해 다시 셌다. 같은 날 7단계가 C26(HIGH·SCHEDULED)을 더해 다시 셌다. 2026-09-24 ADR 0034 S2가 C29(CRITICAL·SCHEDULED)를 카탈로그에 먼저 등재했고, 같은 날 작업 브랜치 `claude/per-market-leader`의 S2 코드가 `InvariantCheck.java`와 `invariants.sql`·`summary.sql`에 넣어 다시 셌다. 같은 날 ADR 0034 S3 계약이 C31(CRITICAL·AUTHORITATIVE_ONLY)을 카탈로그에 먼저 등재하고 C14 술어를 C14'로 개정했다. C31은 첫 등재 때 SCHEDULED였으나 같은 날 설계 검토 뒤 비용 때문에 권위 run 한정으로 옮겼다(`하네스_검증설계.md` §4-1 C31, §4-2 ④). 같은 날 같은 브랜치의 S3 코드가 C31을 `InvariantCheck.java`(권위 run 한정의 최근 창 판)와 `invariants.sql`·`summary.sql`(전수 판)에 넣고 C14'의 예약 표 유무 분기와 C29·C31의 N/A·FAIL 분기를 더해 위 값으로 다시 셌다. `summary.sql`의 판정 어휘에 N/A가 더해졌다(`하네스_검증설계.md` §4-1 판정 어휘).
 
 술어 정본은 `하네스_검증설계.md` §4-1이다. 이 절은 미러다.
 

@@ -158,19 +158,27 @@ class EpochAllocationTest {
         assertEquals(0, db.ownerLong("SELECT count(*) FROM lease_acquisitions"));
     }
 
-    /** P2 에서는 2인자 획득과 파티션 자원을 거부하고 3인자 matching-engine 획득만 받는다. */
+    /**
+     * P2 에서는 2인자 획득, S2 바이너리의 3인자 획득(ADR 0034 S3, V50 에서 P1 전용), 파티션 자원을 거부하고 P2 를 아는
+     * 4인자 matching-engine 획득만 받는다. 모드는 전환 함수로 올린다. 전환이 리스 행 셋을 1·2·3 으로 퇴역시키므로 첫 획득은
+     * 마지막 퇴역 + 1 인 4 다.
+     */
     @Test
     void p2RefusesLegacyAcquisitionAndPartitionResources() throws Exception {
         PartitionLeaseDb db = PartitionLeaseDb.create("epoch_p2");
-        db.setProtocol(2);
+        assertEquals(3, db.switchProtocol(2, false));
         try (Connection c = db.owner()) {
             SQLException legacy = assertThrows(SQLException.class, () -> legacyAcquire(c, "old-binary"));
             assertEquals(NOT_IN_PREREQUISITE_STATE, legacy.getSQLState(), legacy.getMessage());
+            SQLException s2Binary = assertThrows(SQLException.class, () -> queryString(c,
+                    "SELECT try_acquire_lease('matching-engine', 's2-binary', interval '60 seconds')"));
+            assertEquals(NOT_IN_PREREQUISITE_STATE, s2Binary.getSQLState(), s2Binary.getMessage());
             SQLException partition = assertThrows(SQLException.class, () -> acquire(c, "matching-p0", "node-x"));
             assertEquals(NOT_IN_PREREQUISITE_STATE, partition.getSQLState(), partition.getMessage());
-            assertEquals(1, acquire(c, "matching-engine", "node-a"));
+            assertEquals(4, acquire(c, "matching-engine", "node-a", 2));
         }
-        assertEquals("1:matching-engine:node-a:2:ACQUIRE", acquisitions(db));
+        assertEquals("1:matching-p0::2:RETIRE,2:matching-p1::2:RETIRE,3:matching-engine::2:RETIRE,"
+                + "4:matching-engine:node-a:2:ACQUIRE", acquisitions(db));
     }
 
     /**
@@ -241,10 +249,20 @@ class EpochAllocationTest {
                 + "44:matching-p1:node-d:3:ACQUIRE", acquisitions(db));
     }
 
+    /**
+     * 파티션 자원까지 아는 바이너리(최고 모드 3)의 획득. V50 뒤 3인자 판은 P1 전용이라(ADR 0034 S3) P3 흉내 시험은 최고 모드를
+     * 넘기는 4인자 판을 쓴다. 자원·모드 판정은 V48 과 같다.
+     */
     static long acquire(Connection c, String resource, String holder) throws SQLException {
-        try (PreparedStatement ps = c.prepareStatement("SELECT try_acquire_lease(?, ?, interval '60 seconds')")) {
+        return acquire(c, resource, holder, 3);
+    }
+
+    static long acquire(Connection c, String resource, String holder, int maxProtocol) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT try_acquire_lease(?, ?, interval '60 seconds', ?::smallint)")) {
             ps.setString(1, resource);
             ps.setString(2, holder);
+            ps.setInt(3, maxProtocol);
             return epochOrFail(ps);
         }
     }

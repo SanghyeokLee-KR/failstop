@@ -1,0 +1,248 @@
+{
+  "cell": "P2a",
+  "measure": "600",
+  "rate": 600,
+  "mode": 2,
+  "probeRc": 0,
+  "file": "P2a-600.json",
+  "window": {
+    "from": "2026-09-24 01:27:21.936398+00",
+    "to": "2026-09-24 01:29:33.773945+00"
+  },
+  "prom": {
+    "from": "2026-09-24 01:27:21.936398+00",
+    "to": "2026-09-24 01:29:33.773945+00",
+    "seconds": 132,
+    "evalAt": 1790213373,
+    "appendMeanMs": 23.193511639450314,
+    "appendP95Ms": 70.30029148041625,
+    "appendP99Ms": 99.30129705683558,
+    "ordersByInstanceStatus": [
+      {
+        "metric": {
+          "instance": "chaos-api-1:8080",
+          "status": "201"
+        },
+        "value": 26507.63490903496
+      },
+      {
+        "metric": {
+          "instance": "chaos-api-1:8080",
+          "status": "422"
+        },
+        "value": 0.0
+      },
+      {
+        "metric": {
+          "instance": "chaos-api-2:8080",
+          "status": "503"
+        },
+        "value": 2846.202596726879
+      }
+    ],
+    "http5xxByInstance": [
+      {
+        "metric": {
+          "instance": "chaos-api-2:8080"
+        },
+        "value": 2849.2341220531453
+      }
+    ],
+    "settlementRetries": 0.0,
+    "settlementRetriesByState": [
+      {
+        "metric": {
+          "sqlstate": "40001"
+        },
+        "value": 0.0
+      },
+      {
+        "metric": {
+          "sqlstate": "40P01"
+        },
+        "value": 0.0
+      },
+      {
+        "metric": {
+          "sqlstate": "55P03"
+        },
+        "value": 0.0
+      },
+      {
+        "metric": {
+          "sqlstate": "57014"
+        },
+        "value": 0.0
+      }
+    ],
+    "append40P01": 0.0,
+    "lockPlanMiss": 0.0,
+    "insufficientFunds": 0.0,
+    "reserveRejectedBySource": [
+      {
+        "metric": {
+          "source": "db"
+        },
+        "value": 0.0
+      },
+      {
+        "metric": {
+          "source": "precheck"
+        },
+        "value": 0.0
+      }
+    ],
+    "api1Cpu": [
+      {
+        "metric": {
+          "customer": "exchange",
+          "instance": "chaos-cstats:9200",
+          "job": "cstats",
+          "name": "chaos-api-1",
+          "service": "infra",
+          "stack": "chaos"
+        },
+        "value": 66.9934323076923
+      }
+    ],
+    "dbCpu": [
+      {
+        "metric": {
+          "customer": "exchange",
+          "instance": "chaos-cstats:9200",
+          "job": "cstats",
+          "name": "chaos-pg",
+          "service": "infra",
+          "stack": "chaos"
+        },
+        "value": 169.61696923076923
+      }
+    ],
+    "queries": {
+      "appendMeanMs": "1000 * sum(increase(exchange_journal_append_seconds_sum[132s])) / sum(increase(exchange_journal_append_seconds_count[132s]))",
+      "appendP95Ms": "1000 * histogram_quantile(0.95, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+      "appendP99Ms": "1000 * histogram_quantile(0.99, sum by (le) (increase(exchange_journal_append_seconds_bucket[132s])))",
+      "ordersByInstanceStatus": "sum by (instance, status) (increase(http_server_requests_seconds_count{uri=\"/api/v1/orders\",method=\"POST\"}[132s]))",
+      "http5xxByInstance": "sum by (instance) (increase(http_server_requests_seconds_count{status=~\"5..\"}[132s]))",
+      "settlementRetries": "sum(increase(exchange_settlement_transient_retries_total[132s]))",
+      "settlementRetriesByState": "sum by (sqlstate) (increase(exchange_settlement_transient_retries_by_state_total[132s]))",
+      "append40P01": "sum(increase(exchange_order_append_transient_total{sqlstate=\"40P01\"}[132s]))",
+      "lockPlanMiss": "sum(increase(exchange_settlement_lock_plan_miss_total[132s]))",
+      "insufficientFunds": "sum(increase(exchange_settlement_insufficient_funds_total[132s]))",
+      "reserveRejectedBySource": "sum by (source) (increase(exchange_order_reserve_rejected_total[132s]))",
+      "api1Cpu": "avg_over_time(container_cpu_percent{name=\"chaos-api-1\"}[132s])",
+      "dbCpu": "avg_over_time(container_cpu_percent{name=\"chaos-pg\"}[132s])"
+    }
+  },
+  "nodeMetrics": {
+    "18080": {
+      "ok": true,
+      "exchange_leader_protocol_boot": 2.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_inflight_enabled": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_reservation_backlog_query_failed_total": 0.0,
+      "exchange_reservation_unsettled_count": 0.0,
+      "exchange_reservation_unsettled_oldest_seconds": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_lock_plan_taken_total": 3470.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+      "orders_post_422": 1.0,
+      "orders_post_201": 29421.0
+    },
+    "28080": {
+      "ok": true,
+      "exchange_leader_protocol_boot": 2.0,
+      "exchange_order_append_transient_total{sqlstate=40001}": 0.0,
+      "exchange_order_append_transient_total{sqlstate=40P01}": 0.0,
+      "exchange_order_inflight_enabled": 0.0,
+      "exchange_order_reserve_rejected_total{source=db}": 0.0,
+      "exchange_order_reserve_rejected_total{source=precheck}": 0.0,
+      "exchange_reservation_backlog_query_failed_total": 0.0,
+      "exchange_reservation_unsettled_count": 0.0,
+      "exchange_reservation_unsettled_oldest_seconds": 0.0,
+      "exchange_settlement_insufficient_funds_total": 0.0,
+      "exchange_settlement_lock_plan_miss_total": 0.0,
+      "exchange_settlement_lock_plan_taken_total": 0.0,
+      "exchange_settlement_transient_exhausted_total": 0.0,
+      "exchange_settlement_transient_retries_total": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40001}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=40P01}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=55P03}": 0.0,
+      "exchange_settlement_transient_retries_by_state_total{sqlstate=57014}": 0.0,
+      "orders_post_503": 2905.0
+    }
+  },
+  "logs": {
+    "chaos-api-1": {
+      "lines": 273,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 2,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    },
+    "chaos-api-2": {
+      "lines": 148,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    },
+    "chaos-bots": {
+      "lines": 42,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    }
+  },
+  "drained": true,
+  "summary": {
+    "rc": 0,
+    "rows": 32,
+    "gateRows": 29,
+    "notPass": [],
+    "warn": [
+      "C15=PASS",
+      "C24=PASS",
+      "C25=PASS"
+    ],
+    "c29": "PASS",
+    "c31": "PASS",
+    "ok": true
+  },
+  "flyway": {
+    "rows": 53,
+    "max_version": 52,
+    "failed": 0
+  }
+}

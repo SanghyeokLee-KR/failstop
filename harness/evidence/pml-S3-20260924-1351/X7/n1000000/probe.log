@@ -1,0 +1,44 @@
+N=1000000 PENDING(마켓당)=300
+migrations: 53 files, V50 sha256 7c757c86aa1a4a79
+container=pml-probe-s3scale-x7-151887422 image=postgres:17-alpine port=127.0.0.1:61923
+nproc=16
+MemTotal:       15917136 kB
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+effective_cache_size=5242888kB
+jit=on
+max_parallel_workers_per_gather=2
+shared_buffers=163848kB
+work_mem=4096kB
+== 적용: 저장소 53개 파일(V0..V50)
+== P2 전환 뒤 획득 epoch=5
+SET
+SET
+SET
+SELECT 1000000
+INSERT 0 1000000
+INSERT 0 1000000
+INSERT 0 2000000
+INSERT 0 1000000
+INSERT 0 996400
+INSERT 0 996400
+INSERT 0 996400
+DROP TABLE
+SET
+== 합성 적재와 VACUUM ANALYZE: 40초
+rows|1000000|1000000|996400|2000000|996400|12
+pending_by_market|1:300,2:300,3:300,4:300,5:300,6:300,7:300,8:300,9:300,10:300,11:300,12:300
+leaves|command_journal|16
+leaves|event_journal|15
+leaves|ledger_entries|15
+leaves|trades|15
+size|1903 MB
+== 끝(적재)
+
+== 문장 시간(둘째 회차, ms)
+c14p     value=12 jit_on=533.169 jit_off=14.187
+c31app   value=0 jit_on=1684.178 jit_off=624.963
+gauge    value=3600|53 jit_on=351.644 jit_off=12.008
+c31full  value=0 jit_on=7490.505 jit_off=6433.286
+precond  value=3600 jit_on=187.607 jit_off=183.02
+c05      value=0 jit_on=58.623 jit_off=58.913
+== 끝

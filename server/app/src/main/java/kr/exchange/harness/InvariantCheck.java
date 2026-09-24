@@ -156,17 +156,44 @@ public enum InvariantCheck {
                OR NOT EXISTS (SELECT 1 FROM command_journal c WHERE c.seq = o.command_seq)
             """),
 
-    // ── LOCKED 잔고 = 열린 주문 잔여 예약 합(과다락·환급 누락) ───────────
+    // ── C14' LOCKED 잔고 = 열린 주문 잔여 예약 + 정산 전 접수 예약 + 대기 출금(ADR 0034 S3) ──────
+    // 정산 전 접수 예약은 P2 이상에서 접수 트랜잭션이 남긴 order_reservations 가운데 event_emission_registry 에 seq 가
+    // 없는 행이다. 정산이 끝난 예약은 주문 행이 넘겨받거나(ACCEPTED) 해제로 0 이 되므로 더하지 않는다. 해제를 빠뜨린
+    // 예약은 초과 LOCKED 로 드러난다. 대기 출금은 transfer_requests 의 WITHDRAW·REQUESTED 다(V14 흐름에서 잠금을 쥔 유일한
+    // 상태, ADR 0034 결정한 값 16). 개정 전 술어는 대기 출금이 있는 계정을 위반으로 셌다.
+    // 정산 전 예약 항은 마켓별 정산 커서 위만 LIMIT 를 단 LATERAL 로 본다(S3 설계 11절 R5). 비용이 누적 행 수가 아니라
+    // 정산 대기 명령 수에 비례한다. 커서 아래 정산 틈과 한 마켓 대기 10만 건 초과 몫은 초과 LOCKED 로 드러나므로 보수 쪽으로만
+    // 틀린다. 술어 원문은 하네스 검증설계 §4-1 C14 이고 이것은 위반 계정 수다.
     C14_LOCKED_RESERVATION(Severity.HIGH, Scope.SCHEDULED, """
             SELECT count(*) FROM (
-                SELECT b.account_id
+                SELECT a.id
                 FROM accounts a
                 JOIN balances b ON b.account_id = a.id
-                LEFT JOIN orders o ON o.locked_account_id = a.id
-                     AND o.status IN ('PENDING','OPEN','PARTIAL')
+                LEFT JOIN (SELECT locked_account_id AS account_id, SUM(locked_amount) AS amt
+                           FROM orders WHERE status IN ('PENDING','OPEN','PARTIAL')
+                           GROUP BY locked_account_id) o ON o.account_id = a.id
+                LEFT JOIN (SELECT r.locked_account_id AS account_id, SUM(r.amount) AS amt
+                           FROM markets m
+                           CROSS JOIN LATERAL (SELECT max(e.source_cmd_seq) AS settled
+                                                 FROM event_journal e WHERE e.market_id = m.id) cur
+                           CROSS JOIN LATERAL (SELECT c.seq FROM command_journal c
+                                                WHERE c.market_id = m.id AND c.command_type = 'NEW'
+                                                  AND c.seq > COALESCE(cur.settled, -1)
+                                                ORDER BY c.seq LIMIT 100000) c
+                           CROSS JOIN LATERAL (SELECT r.locked_account_id, r.amount FROM order_reservations r
+                                                WHERE r.command_seq = c.seq
+                                                  AND NOT EXISTS (SELECT 1 FROM event_emission_registry e
+                                                                   WHERE e.source_cmd_seq = r.command_seq)
+                                                LIMIT 1) r
+                           GROUP BY r.locked_account_id) u ON u.account_id = a.id
+                LEFT JOIN (SELECT la.id AS account_id, SUM(t.amount) AS amt
+                           FROM transfer_requests t
+                           JOIN accounts la ON la.owner_type = 'USER' AND la.owner_id = t.user_id
+                                           AND la.purpose = 'LOCKED' AND la.asset_id = t.asset_id AND la.shard = 0
+                           WHERE t.direction = 'WITHDRAW' AND t.status = 'REQUESTED'
+                           GROUP BY la.id) w ON w.account_id = a.id
                 WHERE a.purpose = 'LOCKED'
-                GROUP BY b.account_id, b.balance
-                HAVING b.balance <> COALESCE(SUM(o.locked_amount), 0)
+                  AND b.balance <> COALESCE(o.amt, 0) + COALESCE(u.amt, 0) + COALESCE(w.amt, 0)
             ) x
             """),
 
@@ -257,6 +284,50 @@ public enum InvariantCheck {
                  + (SELECT count(*) FROM (VALUES ('matching-engine'), ('matching-p0'), ('matching-p1')) AS r(resource)
                     WHERE NOT EXISTS (SELECT 1 FROM leader_lease l WHERE l.resource = r.resource))
                  + (SELECT CASE WHEN count(*) = 1 THEN 0 ELSE 1 END FROM leader_protocol)
+            """),
+
+    // ── C31 접수 예약 연결 무결(ADR 0034 결정 5·6, DB 설계 §3.5 V50) ───────────
+    // 세 항의 합이다. (a) 예약 행과 원장 RESERVE 거래(business_event_id = 주문 id)의 봉인·계정·금액 불일치, (b) P2 이상
+    // epoch(lease_acquisitions.protocol >= 2)로 기록된 예약 없는 주문 생성 명령, (c) 주문·사용자·마켓·payload 해시가 저널
+    // 행과 다른 예약 행. 이 판은 마켓마다 최근 주문 생성 명령 5,000건의 창만 본다('C31 앱 판', 하네스 검증설계 §4-1).
+    // 전수 판은 누적 행 수에 비례해 합성 100만 행에서 6초를 넘었고 운영 풀의 문장 상한 3초에 걸린다(S3 설계 3절 P8).
+    // 그래서 상시 스케줄에서 빼고(AUTHORITATIVE_ONLY) 전수 판은 하네스 SQL(psql)이 맡는다. 창 밖과 저널에 없는 고아 예약
+    // 행은 전수 판만 본다. 돈에 닿는 결과는 상시 C14' 와 정산 23514 경보가 잡는다(S3 설계 4-12).
+    C31_RESERVATION_LINK(Severity.CRITICAL, Scope.AUTHORITATIVE_ONLY, """
+            WITH w AS MATERIALIZED (
+                SELECT c.seq, c.market_id, c.user_id, c.assigned_order_id, c.fencing_token, c.payload
+                FROM markets m
+                CROSS JOIN LATERAL (SELECT c.seq, c.market_id, c.user_id, c.assigned_order_id, c.fencing_token, c.payload
+                                      FROM command_journal c
+                                     WHERE c.market_id = m.id AND c.command_type = 'NEW'
+                                     ORDER BY c.seq DESC LIMIT 5000) c
+            ), wr AS MATERIALIZED (
+                SELECT w.*, r.*
+                FROM w
+                LEFT JOIN LATERAL (SELECT r.command_seq AS r_seq, r.order_id AS r_order, r.user_id AS r_user,
+                                          r.market_id AS r_market, r.asset_id, r.available_account_id, r.locked_account_id,
+                                          r.amount, r.ledger_txn_id, r.payload_sha256, r.created_at AS r_created
+                                     FROM order_reservations r WHERE r.command_seq = w.seq LIMIT 1) r ON true
+            )
+            SELECT (SELECT count(*) FROM wr
+                     WHERE wr.r_seq IS NOT NULL
+                       AND (NOT EXISTS (SELECT 1 FROM ledger_transactions t
+                                         WHERE t.id = wr.ledger_txn_id AND t.business_event_type = 'RESERVE'
+                                           AND t.business_event_id = wr.r_order AND t.status = 'SEALED')
+                            OR NOT EXISTS (SELECT 1 FROM ledger_entries e
+                                            WHERE e.transaction_id = wr.ledger_txn_id AND e.created_at = wr.r_created
+                                              AND e.account_id = wr.locked_account_id AND e.asset_id = wr.asset_id
+                                              AND e.amount = wr.amount)
+                            OR NOT EXISTS (SELECT 1 FROM ledger_entries e
+                                            WHERE e.transaction_id = wr.ledger_txn_id AND e.created_at = wr.r_created
+                                              AND e.account_id = wr.available_account_id AND e.asset_id = wr.asset_id
+                                              AND e.amount = -wr.amount)))
+                 + (SELECT count(*) FROM wr JOIN lease_acquisitions a ON a.epoch = wr.fencing_token AND a.protocol >= 2
+                     WHERE wr.r_seq IS NULL)
+                 + (SELECT count(*) FROM wr
+                     WHERE wr.r_seq IS NOT NULL
+                       AND (wr.r_order <> wr.assigned_order_id OR wr.r_user <> wr.user_id OR wr.r_market <> wr.market_id
+                            OR wr.payload_sha256 <> sha256(convert_to(wr.payload::text, 'UTF8'))))
             """),
 
     // ── RPO=0 외부 증거(실험 한정): ACK 원장 ⊆ command_journal ───────────

@@ -58,7 +58,7 @@ class AppRoleWritePathIntegrationTest {
             bootstrap.userAccounts(bob, 2);
             bootstrap.deposit(bob, 2, new BigDecimal("10"));
         }
-        db.applyV49Contract();
+        // V49 권한 상태는 Flyway 가 이미 만들었다(S3 설계 4-1, V49 는 저장소 마이그레이션이다).
 
         try (HikariDataSource appPool = db.appPool()) {
             JdbcClient app = JdbcClient.create(appPool);

@@ -3,6 +3,8 @@ package kr.exchange.api.transfer;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.common.CursorPages;
 import kr.exchange.api.common.Cursors;
+import kr.exchange.journal.SqlErrors;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -71,6 +73,14 @@ public class TransferService {
         } catch (DuplicateKeyException e) {
             // 같은 키 동시 요청. 상대 트랜잭션이 커밋한 행이 이제 보인다
             return new Result(view(findByIdem(userId, key).orElseThrow(() -> e)), true);
+        } catch (DataAccessException e) {
+            // 출금 잠금의 잔고 부족은 balances CHECK(chk_balance_nonneg)가 23514 로 트랜잭션 전체를 롤백한다. 요청 행도
+            // 원장 거래도 남지 않았으므로 계약대로 422 insufficient_funds 다(API 설계 §4-E). 종전에는 이것을 잡지 않아 범용
+            // 처리기의 500 이었다(ADR 0034 S3, S3 설계 2-4). P2 에서는 같은 잔고를 주문 예약과 다투므로 자주 난다.
+            if (SqlErrors.isInsufficientFunds(e)) {
+                throw new ApiException(422, "insufficient_funds", "출금 가능 잔고가 부족합니다.");
+            }
+            throw e;
         }
     }
 

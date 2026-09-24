@@ -1,0 +1,38 @@
+{
+  "flyway": {
+    "rows": 52,
+    "max_version": 51,
+    "failed": 0
+  },
+  "protocol": "1",
+  "v49": {
+    "lease_update": false,
+    "journal_insert": false,
+    "reservations_select": true,
+    "reservations_insert": false,
+    "set_protocol_execute": false
+  },
+  "containers": {
+    "chaos-api-1": {
+      "imageId": "sha256:5fdc5b956d7ccb3f731d096334ce26a88d550ec0bd4066f36c18c34b5552976d",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "flyway": "SPRING_FLYWAY_ENABLED=true",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+    },
+    "chaos-api-2": {
+      "imageId": "sha256:5fdc5b956d7ccb3f731d096334ce26a88d550ec0bd4066f36c18c34b5552976d",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "flyway": "SPRING_FLYWAY_ENABLED=false",
+      "profiles": "SPRING_PROFILES_ACTIVE=dev,chaos-monkey,prod-timeouts"
+    },
+    "chaos-bots": {
+      "imageId": "sha256:5fdc5b956d7ccb3f731d096334ce26a88d550ec0bd4066f36c18c34b5552976d",
+      "project": "exchange-pml",
+      "datasourceUser": "SPRING_DATASOURCE_USERNAME=exchange",
+      "flyway": "SPRING_FLYWAY_ENABLED=false",
+      "profiles": "SPRING_PROFILES_ACTIVE=bots"
+    }
+  }
+}

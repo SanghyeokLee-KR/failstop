@@ -25,6 +25,10 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
+    // 오류의 제약 이름(chk_balance_nonneg)을 서버 오류 필드에서 읽으려고 컴파일에만 둔다(SqlErrors, ADR 0034 S3).
+    // 실행 클래스패스는 위 runtimeOnly 가 채운다. 버전은 SB BOM 이 정한다.
+    compileOnly("org.postgresql:postgresql")
+    testCompileOnly("org.postgresql:postgresql")
 
     // 회원 비밀번호 Argon2id·회원 세션 EdDSA(Ed25519).
     // spring-security-crypto는 SB BOM 관리(핀 없음). Argon2PasswordEncoder는 bcprov 런타임 의존이고
@@ -89,4 +93,7 @@ tasks.withType<Test> {
     val vmLabSummarySql = rootProject.file("../deploy/vm-lab/build/build-files/db/summary.sql")
     inputs.file(vmLabSummarySql).withPropertyName("vmLabSummarySql").withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("vmlab.summary.sql", vmLabSummarySql.absolutePath)
+    // 관문 기록용 회 수(S3 설계 6-4, `-Dpml.doubleSpend.rounds=1000`). 명령줄의 -D 는 Gradle JVM 에만 가므로 시험 JVM 으로
+    // 넘긴다. 주지 않으면 시험의 기본값을 쓴다. 시스템 속성은 작업 입력이라 값이 바뀌면 캐시된 결과를 쓰지 않는다.
+    System.getProperty("pml.doubleSpend.rounds")?.let { systemProperty("pml.doubleSpend.rounds", it) }
 }

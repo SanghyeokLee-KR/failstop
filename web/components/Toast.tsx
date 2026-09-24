@@ -2,14 +2,15 @@
 
 /**
  * A-14. Toast. 체결·액션 결과·에러. live 시맨틱은 항목 role(status/alert)에만 둬 중첩 낭독을 피한다.
- * success는 시스템 성공(green) 도메인. 가격 방향과 별개 (§0-3).
+ * success는 시스템 성공(green) 도메인. 가격 방향과 별개 (§0-3). warning은 요청은 반영됐지만 남은 조치가 있는
+ * 결과다(예: 회원 폐쇄는 확정됐으나 정지 마켓 주문이 남음). 읽고 다음 행동을 정해야 하므로 에러처럼 오래 남긴다.
  * 사용: toast("주문 접수 완료", "success") / 레이아웃에 <Toaster /> 1회 장착.
  */
 
 import { create } from "zustand";
 import styles from "./Toast.module.css";
 
-type ToastType = "success" | "error" | "info";
+type ToastType = "success" | "error" | "info" | "warning";
 
 interface ToastItem {
   id: number;
@@ -33,7 +34,7 @@ const useToastStore = create<ToastState>((set) => ({
   push(message, type) {
     const id = nextId++;
     set((s) => ({ items: [...s.items, { id, type, message }] }));
-    const ttl = type === "error" ? TOAST_DURATION_ERROR_MS : TOAST_DURATION_MS;
+    const ttl = type === "error" || type === "warning" ? TOAST_DURATION_ERROR_MS : TOAST_DURATION_MS;
     setTimeout(() => set((s) => ({ items: s.items.filter((t) => t.id !== id) })), ttl);
   },
   remove(id) {
@@ -46,7 +47,7 @@ export function toast(message: string, type: ToastType = "info"): void {
 }
 
 // 체크 기호(U+2713)는 스타일 게이트의 기호 범위 검사 대상이라 리터럴 대신 이스케이프로 둔다
-const ICONS: Record<ToastType, string> = { success: "\u2713", error: "!", info: "i" };
+const ICONS: Record<ToastType, string> = { success: "\u2713", error: "!", info: "i", warning: "!" };
 
 export function Toaster() {
   const items = useToastStore((s) => s.items);

@@ -93,6 +93,28 @@ public class EngineConfig {
     }
 
     /**
+     * 기동 때 한 번 읽는 리더 모드(ADR 0034 S3, S3 설계 4-9). 게이트웨이(ApiConfig.orderGateway)와 append 가 같은 값을 쓴다.
+     * 모드 전환(set_leader_protocol)은 정지 창에서 앱을 멈춘 채 하고 다시 띄우므로 실행 중에 다시 읽지 않는다.
+     *
+     * 조회 역할 노드는 읽지 않고 1 로 두며 게이지를 내지 않는다(S3 설계 4-15). 그 노드는 접수와 append 를 하지 않고, 로그인이
+     * leader_protocol 을 읽지 못해 읽으면 기동마다 권한 오류 경고와 실제 모드와 무관한 게이지 1 이 남는다.
+     */
+    @Bean
+    public kr.exchange.engine.lease.LeaderProtocolBoot leaderProtocolBoot(JdbcClient jdbcClient,
+                                                                         MeterRegistry meterRegistry,
+                                                                         org.springframework.core.env.Environment environment) {
+        if (ReadRoleConfig.isReadRole(environment)) {
+            return kr.exchange.engine.lease.LeaderProtocolBoot.notRead("조회 역할 노드");
+        }
+        kr.exchange.engine.lease.LeaderProtocolBoot boot = kr.exchange.engine.lease.LeaderProtocolBoot.read(jdbcClient);
+        io.micrometer.core.instrument.Gauge
+                .builder("exchange.leader.protocol.boot", boot, b -> b.protocol())
+                .description("기동 때 읽은 리더 모드(1 단일 리더, 2 접수 시점 예약). 전환 뒤 두 노드가 같은 값인지 본다")
+                .register(meterRegistry);
+        return boot;
+    }
+
+    /**
      * 접수 저널 append 전용 배선. 커넥션과 트랜잭션 관리자를 요청 풀과 나눈다.
      *
      * 왜 나누는가. 조회 폭주로 요청 풀이 포화돼도 접수가 커넥션을 기다리지 않게 한다. 접수 락이
@@ -109,7 +131,8 @@ public class EngineConfig {
             LeaderLeaseService leaderLeaseService,
             MeterRegistry meterRegistry,
             LeaderWriteProgress leaderWriteProgress,
-            EngineProperties props) {
+            EngineProperties props,
+            kr.exchange.engine.lease.LeaderProtocolBoot leaderProtocolBoot) {
         // JdbcClient 와 TransactionTemplate 을 빈으로 내놓지 않고 여기서 만든다. 빈으로 두면
         // 그 타입의 후보가 둘이 되고, 한정자 없이 타입으로 주입받는 다른 배선이 이름으로
         // 아무거나 문다. 실제로 그렇게 관리 평면의 승인 롤백이 append 풀의 트랜잭션
@@ -124,6 +147,8 @@ public class EngineConfig {
                 leaderLeaseService, meterRegistry, leaderWriteProgress);
         // 기본 0 이면 걸지 않는다(ADR 0034 S1, EngineProperties).
         appender.setLockTimeout(props.acceptLockTimeout());
+        // P2 로 뜬 노드는 DB 가 예약하지 않은 주문 생성 명령을 커밋하지 않는다(게이트웨이가 in-flight 누계를 끄기 때문).
+        appender.setRequireReservation(leaderProtocolBoot.reservesAtIntake());
         // 임계구역 안 분해(ADR 0022 0단계 (b)). 접수 락 보유의 3분의 2가 데이터베이스 밖에
         // 있다는 것까지만 알고 그 안을 모른다(정본 5.7.10). appendTimer 에서 inTx 를 빼면
         // 커넥션 획득과 트랜잭션 경계와 커밋이 남는다. 그 셋은 여기서 더 못 가른다.
@@ -192,7 +217,44 @@ public class EngineConfig {
                         SettlementService::transientExhausted)
                 .description("정산 일시 DB 오류가 재시도 제한(시도 4회 또는 경과 5초)을 넘겨 라이터로 올라간 횟수")
                 .register(meterRegistry);
+        // 재시도의 SQLSTATE 별 몫. 잠금 계획(ADR 0034 S3) 뒤 40P01 몫은 결함 신호라 따로 본다.
+        for (String state : java.util.List.of("55P03", "57014", "40P01", "40001")) {
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.settlement.transient_retries_by_state", settlement,
+                            s -> s.transientRetries(state))
+                    .tag("sqlstate", state)
+                    .description("정산 일시 DB 오류 재시도 수(SQLSTATE 별)")
+                    .register(meterRegistry);
+        }
+        // 0 이어야 한다. P2 에서는 접수가 예약하므로 정산 시점 23514 는 버그 신호다(경보 SettlementInsufficientFunds).
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.settlement.insufficient_funds", settlement, SettlementService::insufficientFunds)
+                .description("정산이 잔고 부족(23514 chk_balance_nonneg)으로 끝난 수")
+                .register(meterRegistry);
+        // 0 이어야 한다. 정산 게시가 잠금 계획 밖 계정을 쓰면 교착 가능성이 돌아온다(S3 설계 4-13).
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.settlement.lock_plan.miss", settlement, SettlementService::lockPlanMisses)
+                .description("정산 게시가 잠금 계획 밖 계정을 쓴 수")
+                .register(meterRegistry);
+        io.micrometer.core.instrument.FunctionCounter
+                .builder("exchange.settlement.lock_plan.taken", settlement, SettlementService::lockPlansTaken)
+                .description("정산 배치가 잠금 계획을 잡은 수")
+                .register(meterRegistry);
         return settlement;
+    }
+
+    /**
+     * 정산 전 예약 감시(ADR 0034 S3, S3 설계 4-16). 조회 역할 노드를 뺀 모든 노드에서 15초마다 계산한다. 하네스 설정·리더
+     * 여부와 무관하다. 기본 풀의 짧은 읽기 트랜잭션 하나다.
+     *
+     * 조회 역할 노드(prod,read)의 로그인은 assets·markets·trades 만 읽는다(deploy/provision-runtime-roles.sql). 그 노드에서
+     * 돌면 질의가 매번 권한 오류로 끝나 15초마다 경고가 쌓이고 두 게이지가 늘 NaN 이다. 그래서 빈을 만들지 않는다.
+     */
+    @Bean(initMethod = "start", destroyMethod = "close")
+    @org.springframework.context.annotation.Conditional(ReadRoleConfig.NotReadRoleCondition.class)
+    public kr.exchange.ledger.ReservationBacklogMonitor reservationBacklogMonitor(
+            JdbcClient jdbcClient, TransactionTemplate transactionTemplate, MeterRegistry meterRegistry) {
+        return new kr.exchange.ledger.ReservationBacklogMonitor(jdbcClient, transactionTemplate, meterRegistry);
     }
 
     // 접수 경로를 깨우는 신호. 정산(생산)과 접수(소비)가 같은 객체를 봐야 하므로 빈으로 둔다.

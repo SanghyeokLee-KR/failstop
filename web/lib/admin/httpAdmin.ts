@@ -311,7 +311,7 @@ function toCommunityReport(w: WireReport): CommunityReport {
 }
 
 interface ErrorEnvelope {
-  error?: { name?: string; message?: string; retry_after?: number | null };
+  error?: { name?: string; message?: string; retry_after?: number | null; detail?: Record<string, unknown> | null };
 }
 
 /** 429 대기 초 -> 안내 문구. 초를 알면 명시, 모르면 "잠시 후"로 열화 */
@@ -626,11 +626,15 @@ export class HttpAdminApi implements AdminApi {
             : "server_error";
       let retryAfter: number | null = null;
       let message = rateLimited ? rateLimitMessage(null) : "관리 요청 실패";
+      // 에러 바디의 detail. 회원 폐쇄 409 는 남은 수와 사유별 수를 싣는다(API 설계 v2.54 §6-E). 버리면 화면이
+      // 폐쇄 확정과 남은 조치를 알릴 근거가 없다
+      let detail: Record<string, unknown> | null = null;
       try {
         const body = (await res.json()) as ErrorEnvelope;
         if (body.error?.name) code = body.error.name;
         retryAfter = body.error?.retry_after ?? null;
         if (body.error?.message) message = body.error.message;
+        if (body.error?.detail && typeof body.error.detail === "object") detail = body.error.detail;
       } catch {
         // 비 JSON 응답은 상태코드 기반 기본값 유지
       }
@@ -644,7 +648,7 @@ export class HttpAdminApi implements AdminApi {
       if (rateLimited && (code === "too_many_requests" || code === "rate_limited")) {
         message = rateLimitMessage(retryAfter);
       }
-      throw new AdminError(code, message, retryAfter);
+      throw new AdminError(code, message, retryAfter, detail);
     }
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;

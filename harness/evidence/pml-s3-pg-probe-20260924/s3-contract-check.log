@@ -1,0 +1,393 @@
+source=documents
+v49 lines=14 v50 lines=519 c14p lines=45 c31 lines=45 c31app lines=41
+7c757c86aa1a4a794b161c89481852477785c62849ae66517cb1f93e98fc7640 *v50.sql
+3230e09a50c1869e075a614a79eb2bc8ce33be1e1acc244b291abd0311dad631 *c14p.sql
+6edb187a55570c159828cd0703047bac5dedc017d9050c00b175d395382ee613 *c31.sql
+310f0686476302cdc384ff50793bf8c95cd1ae1a91c7e2e6b73e553b3d712ae6 *c31app.sql
+container=pml-probe-s3contract-22420780 image=postgres:17-alpine port=127.0.0.1:59034
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+V48__market_partition_lease.sql
+== C0 applied repository migrations: 49 files (V0..V48)
+== C0 applied contract V49 (DB 설계 §3.4 둘째 블록)
+v50 exit=0
+
+== C1 권한. 열: 함수, rdr, app_role
+exec|append_command_journal_row(bigint,smallint,character varying,bigint,character varying,bigint,bigint,bigint,jsonb,bigint,text,bigint)|f|t
+exec|append_command_prologue(text,bigint,boolean,bigint,character varying,smallint)|t|t
+exec|append_command_prologue(text,bigint,boolean,bigint,character varying,smallint,bigint,jsonb,smallint,numeric)|f|t
+exec|lease_acquire_capped(text,text,interval,smallint)|f|f
+exec|lock_balance_rows(bigint[])|f|t
+exec|order_reserve_amount(smallint,jsonb)|t|t
+exec|publish_leader_epoch(text,bigint)|f|t
+exec|publish_leader_epoch(text,bigint,smallint)|f|t
+exec|set_leader_protocol(smallint,boolean)|f|f
+exec|try_acquire_lease(text,text,interval)|f|t
+exec|try_acquire_lease(text,text,interval,smallint)|f|t
+table|order_reservations|t|f|f
+-- appu 의 order_reservations 직접 INSERT(거부 기대)
+ERROR:  permission denied for table order_reservations
+-- appu 의 set_leader_protocol(거부 기대)
+ERROR:  permission denied for function set_leader_protocol
+
+== C2 P1: 4인자 획득(최고 P2), 10인자 머리말은 예약하지 않는다
+acquire3(S2 판, P1)|42
+acquire4(max 2, P1)|43
+BEGIN
+p1 prologue|1|f|f
+p1 row|1
+COMMIT
+p1 reservations|0
+p1 reserve txns|0
+p1 replay|1|t|f
+
+== C3 1->2 전환. 정산 안 된 P1 NEW 가 있으면 거부, 정산한 뒤에는 모든 리스 행을 새 epoch 로 퇴역
+ERROR:  55000: 정산되지 않은 주문 생성 명령이 1건 있다(앞 seq: 1). 정지 창에서 큐를 비운 뒤 다시 부른다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+after refused|1
+5
+INSERT 0 1
+INSERT 0 1
+settled p1 NEW|1
+transition|matching-p0|44|2
+transition|matching-p1|45|2
+transition|matching-engine|46|2
+protocol|2
+history|1||0
+history|2|1|43
+lease|matching-engine||46|t
+lease|matching-p0||44|t
+lease|matching-p1||45|t
+acq|42|matching-engine|node-s2|1|ACQUIRE
+acq|43|matching-engine|node-s3|1|ACQUIRE
+acq|44|matching-p0||2|RETIRE
+acq|45|matching-p1||2|RETIRE
+acq|46|matching-engine||2|RETIRE
+
+== C3b P1 에서는 S2 이전 바이너리의 2인자 게시가 종전대로 된다(복제 DB p1base)
+publish2 in P1|900
+acq|900|matching-engine|dyn-old|1|PUBLISH
+lease|dyn-old|900
+
+== C4 P2 에서 S3 이전 획득·게시 거부, 4인자(최고 P2) 획득
+ERROR:  55000: 2인자 try_acquire_leader 는 P1 에서만 획득한다(현재 P2)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  55000: 이 호출은 P1 까지만 안다. 현재 P2에서는 리스를 획득하지 않는다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  55000: 이 호출은 P1 까지만 안다. 현재 P2에서는 리스를 획득하지 않는다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  55000: 이 호출은 P1 까지만 안다. 현재 P2에서는 epoch 를 게시하지 않는다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  55000: 이 호출은 P1 까지만 안다. 현재 P2에서는 epoch 를 게시하지 않는다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+lease unchanged||46
+acquire4(max 2, P2)|47
+acq last|47|node-p2|2|ACQUIRE
+
+== C5 P2 예약 append(앱 로그인). 지정가 매수 0.3 x 50000 = 15000 KRW
+before|990000.000000000000000000|10000.000000000000000000
+BEGIN
+p2 prologue|2|f|t
+p2 row|1
+COMMIT
+reservation|2|2001|1|15000.000000000000000000|t
+reserve txn|2001|SEALED|-15000.000000000000000000
+reserve txn|2001|SEALED|15000.000000000000000000
+after|975000.000000000000000000|25000.000000000000000000
+
+== C6 같은 키 재전송은 두 번째 예약을 만들지 않는다
+replay|t|f|2001
+reservations|1
+reserve txns|2
+
+== C7 잔고 부족: 23514(chk_balance_nonneg)로 트랜잭션 전체 롤백. 저널·카운터·예약·원장 불변
+before|2|3|1|6
+BEGIN
+ERROR:  23514: new row for relation "balances" violates check constraint "chk_balance_nonneg"
+DETAIL:  Failing row contains (5, -4025000.000000000000000000, f, 4, 2026-09-23 21:42:40.263569+00).
+SCHEMA NAME:  public
+TABLE NAME:  balances
+CONSTRAINT NAME:  chk_balance_nonneg
+LOCATION:  ExecConstraints, execMain.c:2074
+ROLLBACK
+after|2|3|1|6
+
+== C8 오래된 epoch: 머리말은 예약 전에 fencing 거부, INSERT 0행이면 호출자 롤백으로 예약까지 사라진다
+ERROR:  P0001: fencing 위반: 현재 리더(holder=node-p2, epoch=47)가 아님(요청 holder=node-p2, epoch=46)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+BEGIN
+in-tx reservations|2
+stale row|0
+ROLLBACK
+after rollback reservations|1
+after rollback reserve txn 2005|0
+
+== C9 앱 예약액·자산과 DB 계산이 다르면 거부
+ERROR:  P0001: 예약액 대조 불일치: 앱(asset=1, amount=14999) DB(asset=1, amount=15000), order=2006
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  P0001: 예약액 대조 불일치: 앱(asset=2, amount=15000) DB(asset=1, amount=15000), order=2007
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ERROR:  P0001: 예약액 대조 불일치: 앱(asset=<NULL>, amount=<NULL>) DB(asset=1, amount=15000), order=2008
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+reservations|1
+
+== C10 저널 행이 예약 행과 묶인다. payload 가 다르거나 예약 없이 P2 NEW 를 넣으면 거부
+BEGIN
+ERROR:  P0001: P2 주문 생성 명령에 맞는 예약 행이 없다(seq=3, order=2009)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ROLLBACK
+BEGIN
+ERROR:  P0001: P2 주문 생성 명령에 맞는 예약 행이 없다(seq=3, order=2010)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+ROLLBACK
+journal NEW rows|2
+
+== C11 레거시 6인자 머리말은 P2 에서 NEW 를 거부하고 CANCEL 은 받는다(현재 P2 리더로 호출)
+ERROR:  55000: P2 이상에서는 예약 없는 주문 생성 명령을 받지 않는다. 10인자 append_command_prologue 를 부르는 앱이어야 한다(ADR 0034 S3)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+BEGIN
+legacy cancel|t|f
+ROLLBACK
+
+== C12 같은 사용자, 두 마켓, 동시 예약. 뒤의 것은 잔고 행을 기다렸다가 23514
+alice available KRW = 975000 (두 주문이 각각 전액을 요구한다)
+B start|21:42:41.396
+ERROR:  23514: new row for relation "balances" violates check constraint "chk_balance_nonneg"
+DETAIL:  Failing row contains (5, -975000.000000000000000000, f, 5, 2026-09-23 21:42:41.396511+00).
+SCHEMA NAME:  public
+TABLE NAME:  balances
+CONSTRAINT NAME:  chk_balance_nonneg
+LOCATION:  ExecConstraints, execMain.c:2074
+B end|21:42:43.432
+BEGIN
+A start|21:42:40.396
+A row|1
+
+COMMIT
+A committed|21:42:43.431
+-- C12b 같은 경합에 lock_timeout 500ms 를 건 쪽은 55P03
+BEGIN
+500ms
+ERROR:  55P03: canceling statement due to lock timeout
+LOCATION:  ProcessInterrupts, postgres.c:3399
+ROLLBACK
+BEGIN
+
+ROLLBACK
+
+== C13 출금과 주문의 같은 잔고 경합(TransferService 의 reserve_funds 경로). 뒤의 것이 23514
+bob available KRW = 500000
+BEGIN
+INSERT 0 1
+ERROR:  23514: new row for relation "balances" violates check constraint "chk_balance_nonneg"
+DETAIL:  Failing row contains (13, -500000.000000000000000000, f, 3, 2026-09-23 21:42:46.484317+00).
+SCHEMA NAME:  public
+TABLE NAME:  balances
+CONSTRAINT NAME:  chk_balance_nonneg
+LOCATION:  ExecConstraints, execMain.c:2074
+ROLLBACK
+withdraw end|21:42:47.519
+BEGIN
+order row|1
+
+COMMIT
+order committed|21:42:47.518
+
+== C14 대기 출금(결정한 값 16). V48 DB 에서 지금 C14 는 대기 출금을 위반으로 세고, 출금 항을 더한 옛 스키마 판 C14' 는 세지 않는다
+5
+INSERT 0 1
+current C14|1
+C14p without reservation term|0
+-- 계약 DB 에도 대기 출금 하나를 둔다(C14' 출금 항의 양성 축)
+16
+INSERT 0 1
+-- C14' 술어(문서 원문). 정산 전 예약 셋(2001·3001·3005), P1 주문 1001, 대기 출금 하나. 0행 기대
+
+== C15 정산 흉내: 예약 주문 ACCEPTED(orders 가 예약액을 넘겨받음), REJECTED(해제), 해제 누락 음성 대조
+INSERT 0 3
+INSERT 0 3
+-- C14' 와 C31 (ACCEPTED 정산 뒤)
+BEGIN
+rej-release row|1
+COMMIT
+BEGIN
+rej-leak row|1
+COMMIT
+INSERT 0 1
+19
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+-- C14' (해제 누락 한 건이 남아 위반 1행 기대)
+19|0.500000000000000000|0|0|0
+-- 누락분을 해제한 뒤 C14'
+-- C31 (정상 상태 0행 기대)
+-- C31 양성 대조(복제 DB): 원장 없는 예약 행, 예약 없는 P2 NEW
+INSERT 0 1
+INSERT 0 1
+reserve_ledger_mismatch|999999999
+unreserved_new|7
+reservation_journal_mismatch|999999999
+-- C31 앱 판(마켓마다 최근 5,000건 창의 세 항 수). 정상 DB 0, 양성 DB 는 창 안의 예약 없는 P2 NEW 하나((b))를 센다.
+-- 저널에 없는 예약 행(고아)은 앱 판이 보지 못하고 위 전수 판만 센다(계약대로)
+c31app contract: 0
+c31app c31pos: 1
+
+== C16 전환 경합(검토 1 1b). 복제 DB p1base(P1, 정산 끝남, 리더 node-s3)
+-- C16a 진행 중 P1 NEW(KEY SHARE 보유)가 전환 직전에 커밋되면 전환이 선행 조건에서 거부된다
+T start|21:42:49.224
+ERROR:  55000: 정산되지 않은 주문 생성 명령이 1건 있다(앞 seq: 2). 정지 창에서 큐를 비운 뒤 다시 부른다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+T end|21:42:50.253|1
+BEGIN
+A row|1
+
+COMMIT
+A committed|21:42:50.245
+-- C16b 전환이 잠금을 쥔 동안 시작한 10인자 append 는 KEY SHARE 에서 기다렸다가 퇴역 epoch 로 fencing 거부
+A start|21:42:51.325
+ERROR:  P0001: fencing 위반: 현재 리더(holder=, epoch=46)가 아님(요청 holder=node-s3, epoch=43)
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+A end|21:42:52.345
+BEGIN
+T|matching-p0|44|2
+T|matching-p1|45|2
+T|matching-engine|46|2
+
+COMMIT
+T committed|21:42:52.344
+race2 NEW 5002 rows|0
+-- C16c 같은 상황의 S2 경로(6인자 머리말은 잠그지 않고 판정, 행 함수가 KEY SHARE). 행 함수가 0행
+BEGIN
+S2 prologue passed|2|21:42:53.456
+S2 row|0|21:42:54.465
+ROLLBACK
+BEGIN
+T|matching-p0|44|2
+T|matching-p1|45|2
+T|matching-engine|46|2
+
+COMMIT
+T committed|21:42:54.464
+
+== C17 2->1 되돌리기. 확인 인자 없으면 거부, 있으면 전환하고 S2 판 3인자 획득이 다시 된다
+ERROR:  55000: P2 -> P1 은 ADR 0034 결정 8 과 시험 R1 을 확인한 뒤 p_allow_downgrade => true 로만 한다
+LOCATION:  exec_stmt_raise, pl_exec.c:3897
+down|matching-p0|48|1
+down|matching-p1|49|1
+down|matching-engine|50|1
+protocol|1
+acquire3 after downgrade|51
+history|1||0
+history|2|1|43
+history|1|2|47
+
+== C18 하네스 N/A 분류식(하네스 검증설계 §4-1 C29·C31 주석). 열: DB, V48 객체 수(5면 평가), V50 객체 수(2면 평가)
+v47only|0|0
+v48only|5|0
+v48partial|4|0
+contract|5|2
+
+== C19 전환 퇴역 순서와 외부 보관소 첫 게시(검토 대응 R4). 복제 DB p1base(P1, 정산 끝남)
+-- P1 에서 외부 보관소 노드가 epoch 100 을 게시해 둔 상태(3인자 게시, 최고 P2)
+publish in P1|100
+transition|matching-p0|101|2
+transition|matching-p1|102|2
+transition|matching-engine|103|2
+lease|matching-p0|101
+lease|matching-p1|102
+lease|matching-engine|103
+floor(matching-engine row)|103
+floor(max lease, acquisitions)|103
+-- 외부 보관소 노드의 전환 뒤 첫 게시는 하한 + 1 이다(앱 로그인, 3인자 게시)
+first publish after 1->2|104|104
+-- 2->1(확인 인자) 뒤에도 matching-engine 이 마지막 퇴역이고 첫 게시가 된다
+down|matching-p0|105|1
+down|matching-p1|106|1
+down|matching-engine|107|1
+first publish after 2->1|108|108
+acq tail|108|matching-engine|dyn-c|1|PUBLISH
+acq tail|107|matching-engine||1|RETIRE
+acq tail|106|matching-p1||1|RETIRE
+acq tail|105|matching-p0||1|RETIRE
+acq tail|104|matching-engine|dyn-b|2|PUBLISH
+
+== C20 정산 배치와 P2 접수의 교착(검토 대응 R6). p2base(P2, 리더 node-p2)에서 복제
+t
+accounts|6|10|14
+alice A2 before|4.500000000000000000|0.500000000000000000
+-- D1 잠금 계획 없이(음성 대조, 개정 전 정산 모양). 교착 기대
+deadlocks(dl1)|0
+BEGIN
+B start|21:42:56.220
+B row|1|21:42:59.260
+COMMIT
+B end|21:42:59.263
+BEGIN
+A start|21:42:55.218
+A no plan
+A trade|t|21:42:55.242
+
+ERROR:  40P01: deadlock detected
+DETAIL:  Process 503 waits for ShareLock on transaction 934; blocked by process 505.
+Process 505 waits for ShareLock on transaction 931; blocked by process 503.
+HINT:  See server log for query details.
+LOCATION:  DeadLockReport, deadlock.c:1130
+ROLLBACK
+A end|21:42:59.247
+deadlocks(dl1)|1
+-- D2 잠금 계획을 먼저 잡은 정산. 접수는 정산 커밋까지 기다린 뒤 예약한다. 교착 없음 기대
+deadlocks(dl2)|0
+BEGIN
+B start|21:43:01.290
+B row|1|21:43:03.334
+COMMIT
+B end|21:43:03.336
+BEGIN
+A start|21:43:00.287
+A plan locked|4|21:43:00.292
+A trade|t|21:43:00.312
+
+A release|t|21:43:03.319
+COMMIT
+A end|21:43:03.322
+deadlocks(dl2)|0
+alice A2 after D2|4.400000000000000000|0.500000000000000000
+D2 reservations|1
+
+== C21 C14' 정산 전 예약 항의 커서 경계(검토 대응 R5). contract 에서 복제한 c21
+-- 커서 위 정산 전 예약 하나(마켓 3, alice 매도 A2 0.1). 두 판 모두 0행, 게이지 pending 1·나이 2초 이상 기대
+BEGIN
+c21-pend row|7|1
+COMMIT
+[커서 판]
+[전수 판]
+gauge|1|2
+-- 정산 틈(음성 대조): 마켓 2 에서 bob 매도 둘을 예약하고 뒤의 것만 정산한다. 앞의 것은 커서 아래에 정산 전으로 남는다
+BEGIN
+c21-gap row|8|1
+COMMIT
+BEGIN
+c21-next row|9|1
+COMMIT
+INSERT 0 1
+INSERT 0 1
+-- 커서 판(문서 원문): 초과 LOCKED 1행 기대(틈이 드러난다). 전수 판: 0행(틈을 정산 전 예약으로 센다)
+[커서 판]
+19|0.200000000000000000|0.100000000000000000|0|0
+[전수 판]
+-- 틈과 커서 위 예약을 정산한 뒤 두 판 모두 0행, 게이지 pending 0
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+[커서 판]
+[전수 판]
+gauge|0|0
+
+== C22 잠금 계획 함수의 권한과 반환(앱 로그인은 실행, 조회 로그인은 거부). 잠근 행 수를 돌려준다(중복·없는 id 는 세지 않는다)
+BEGIN
+lock_balance_rows(app)|2
+ROLLBACK
+ERROR:  permission denied for function lock_balance_rows
+
+== 끝

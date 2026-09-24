@@ -284,6 +284,15 @@ class InvariantVerifierIntegrationTest {
         assertTrue(run.results().stream()
                         .anyMatch(r -> r.check() == InvariantCheck.C13A_ORDER_MATERIALIZED),
                 "C13A는 권위 run에서 평가돼야 한다");
+        // C31(접수 예약 연결)은 비용 때문에 권위 run 한정이다(ADR 0034 S3, S3 설계 4-12).
+        InvariantCheck c31 = InvariantCheck.valueOf("C31_RESERVATION_LINK");
+        assertEquals(InvariantCheck.Scope.AUTHORITATIVE_ONLY, c31.scope());
+        assertTrue(scheduled.stream().noneMatch(r -> r.check() == c31), "C31 은 상시 스케줄에서 빠져야 한다");
+        assertTrue(run.results().stream().anyMatch(r -> r.check() == c31 && r.ok()), "C31 이 권위 run 에서 돌지 않았다");
+        // 권위 run 은 같은 트랜잭션 안에서 JIT 을 끄고 돈다(감사 문장의 JIT 컴파일이 실행보다 길다, S3 설계 3절 P8).
+        assertEquals("off", verifier.lastAuthoritativeJit(), "권위 run 트랜잭션의 jit 가 off 가 아니다");
+        assertEquals("on", count("SELECT CASE WHEN current_setting('jit') = 'on' THEN 1 ELSE 0 END") == 1 ? "on"
+                : "off", "jit 끔이 트랜잭션 밖으로 새었다(SET LOCAL 이 아니다)");
     }
 
     /**

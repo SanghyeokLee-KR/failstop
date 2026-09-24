@@ -1,0 +1,16 @@
+2026-09-24T10:13:52+09:00 RUN adr0022-stage5-chaos Image=exchange-chaos-app:pml Experiments=E7 LatchBeforeTraffic=False SnapshotEvidence=False Protocol=2 Project=exchange-pml
+2026-09-24T10:13:53+09:00 START E7
+2026-09-24T10:14:31+09:00 RUN python harness/scale/protocol_latch.py transition --target 2 --out harness\evidence\pml-s3-gate-20260924-0830\X3-r3\E7\protocol.json
+2026-09-24T10:14:57+09:00 RC 0
+2026-09-24T10:14:57+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\pml-s3-gate-20260924-0830\X3-r3\E7\budget.json
+2026-09-24T10:14:58+09:00 RC 0
+2026-09-24T10:14:58+09:00 EXPERIMENT E7 pwsh -NoProfile -File harness/scripts/e7-gray-pause.ps1
+2026-09-24T10:16:28+09:00 EXPERIMENT E7 rc=0
+2026-09-24T10:16:30+09:00 RUN python harness/scale/s3_common_axes.py judge --window-from 2026-09-24T01:13:53.3064776+00:00 --fault-from 2026-09-24T01:14:58.2163656+00:00 --fault-to 2026-09-24T01:16:28.0842949+00:00 --samples harness\evidence\pml-s3-gate-20260924-0830\X3-r3\E7\balance_samples.jsonl --out harness\evidence\pml-s3-gate-20260924-0830\X3-r3\E7\s3_common.json
+2026-09-24T10:16:59+09:00 RC 0
+2026-09-24T10:17:00+09:00 RUN python harness/scale/protocol_latch.py state --out harness\evidence\pml-s3-gate-20260924-0830\X3-r3\E7\protocol_state.json
+2026-09-24T10:17:00+09:00 RC 0
+2026-09-24T10:17:02+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\pml-s3-gate-20260924-0830\X3-r3\E7\conn_samples.jsonl --out harness\evidence\pml-s3-gate-20260924-0830\X3-r3\E7\connections.json
+2026-09-24T10:17:02+09:00 RC 0
+2026-09-24T10:17:05+09:00 END E7 down rc=0
+2026-09-24T10:17:05+09:00 DONE E7=PASS

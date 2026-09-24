@@ -358,8 +358,33 @@ public class ApiConfig {
     @Bean
     public OrderGateway orderGateway(JdbcClient jdbc, EngineBridge bridge,
                                      MarketDirectory markets, OrderQueryService orders,
-                                     MeterRegistry meterRegistry) {
-        OrderGateway gateway = new OrderGateway(jdbc, bridge, markets, orders);
+                                     MeterRegistry meterRegistry,
+                                     kr.exchange.engine.lease.LeaderProtocolBoot leaderProtocolBoot) {
+        // 잔고 판정의 권위는 기동 모드가 정한다(ADR 0034 S3). P2 이상이면 append 트랜잭션의 DB 예약이 권위이고
+        // in-flight 누계를 끈다. 1 로 뜬 노드는 P2 DB 에서도 안전하다(DB 예약분을 바로 푼다, OrderGateway).
+        OrderGateway gateway = new OrderGateway(jdbc, bridge, markets, orders,
+                leaderProtocolBoot.reservesAtIntake()
+                        ? OrderGateway.ReserveMode.DB_RESERVATION : OrderGateway.ReserveMode.IN_FLIGHT);
+        io.micrometer.core.instrument.Gauge
+                .builder("exchange.order.inflight.enabled", gateway, g -> g.inflightEnabled() ? 1 : 0)
+                .description("게이트웨이가 in-flight 예약 누계를 쓰는가(1) P2 로 떠 끄는가(0)")
+                .register(meterRegistry);
+        // 잔고 부족 거부의 출처. db 는 append 트랜잭션의 23514 다. 이중 지출 시험이 DB 경로가 돌았음을 이 값으로 보인다.
+        for (String source : java.util.List.of("precheck", "db")) {
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.order.reserve.rejected", gateway, g -> g.reserveRejections(source))
+                    .tag("source", source)
+                    .description("주문 생성의 잔고 부족 거부 수(precheck 저널 전, db append 트랜잭션)")
+                    .register(meterRegistry);
+        }
+        // 접수 append 의 교착·직렬화 실패. 잠금 계획 뒤 40P01 은 결함 신호다(경보 OrderIntakeDeadlock).
+        for (String state : java.util.List.of("40P01", "40001")) {
+            io.micrometer.core.instrument.FunctionCounter
+                    .builder("exchange.order.append.transient", gateway, g -> g.appendTransient(state))
+                    .tag("sqlstate", state)
+                    .description("접수 append 가 일시 DB 오류로 끝난 수")
+                    .register(meterRegistry);
+        }
         // 접수 락과 별개의 직렬 구간이라 따로 잰다(InflightReserves 필드 주석).
         io.micrometer.core.instrument.FunctionCounter
                 .builder("exchange.inflight.lock.wait.nanos", gateway,

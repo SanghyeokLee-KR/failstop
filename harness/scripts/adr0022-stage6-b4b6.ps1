@@ -19,7 +19,14 @@ $env:PYTHONIOENCODING = 'utf-8'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 if (-not $EvidenceDir) { $EvidenceDir = Join-Path $repo ("harness\evidence\adr0022-stage6-b4b6-{0}" -f (Get-Date -Format 'yyyyMMdd')) }
 $commandLog = Join-Path $EvidenceDir 'commands.log'
-$downArgs = @('compose', '-f', 'harness/docker-compose.chaos.yml', '-f', 'harness/docker-compose.scale.yml',
+# 보존 스택 가드(하네스 검증설계 §2-4). 프로브(roundtrip_probe)와 아래 down -v 가 같은 compose 프로젝트를 쓴다. CHAOS_PROJECT 가
+# 없으면 compose 파일 이름(exchange-chaos)이 되어 보존 볼륨을 지우므로 미설정과 exchange-chaos 는 거부한다(2026-09-24).
+$project = $env:CHAOS_PROJECT
+if ([string]::IsNullOrWhiteSpace($project) -or $project -eq 'exchange-chaos') {
+    Write-Host 'CHAOS_PROJECT 가 없거나 보존 스택 exchange-chaos 다. 폐기용 이름(예: exchange-pml)을 주고 다시 실행한다.'; exit 5
+}
+if ($project -notmatch '^[a-z0-9][a-z0-9_-]*$') { Write-Host "CHAOS_PROJECT 형식 위반: $project"; exit 5 }
+$downArgs = @('compose', '-p', $project, '-f', 'harness/docker-compose.chaos.yml', '-f', 'harness/docker-compose.scale.yml',
     '--env-file', 'harness/.env.chaos', '--profile', 'obs', 'down', '-v', '--remove-orphans')
 
 if ($PSVersionTable.PSVersion.Major -lt 7) { Write-Host 'pwsh 7 로 실행한다(CLAUDE.md 30절).'; exit 5 }

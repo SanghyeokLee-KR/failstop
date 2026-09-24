@@ -8,8 +8,9 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 
 /**
- * leader_lease 행을 보관소로 쓰는 구현. V48 의 자원 인자 함수(try_acquire_lease, renew_lease, release_lease)를
- * matching-engine 자원으로 부른다(DB 설계 §3.4·§5.4). 판정 규칙과 epoch 배정은 전부 SQL 함수에 있고 여기서는 호출만 한다.
+ * leader_lease 행을 보관소로 쓰는 구현. 자원 인자 함수(획득은 V50 의 4인자 try_acquire_lease, 갱신·반납은 V48 의
+ * renew_lease·release_lease)를 matching-engine 자원으로 부른다(DB 설계 §3.4·§3.5·§5.4). 판정 규칙과 epoch 배정은 전부
+ * SQL 함수에 있고 여기서는 호출만 한다.
  *
  * 이것이 기본 보관소다. 옮기기 전과 옮긴 뒤를 같은 조건에서 비교하려면 이 경로가 그대로 남아 있어야 한다.
  *
@@ -34,8 +35,10 @@ public final class PostgresLeaderLeaseStore implements LeaderLeaseStore {
     @Override
     public Optional<Long> acquire(String holder, Duration ttl) {
         // 실패는 NULL 반환 계약이라 single()이 아니라 optional()로 받는다.
-        return jdbc.sql("SELECT try_acquire_lease(?, ?, ? * interval '1 millisecond')")
-                .params(RESOURCE, holder, ttl.toMillis())
+        // 4인자 판(V50)은 이 바이너리가 아는 최고 모드를 받는다. 현재 모드가 그보다 높으면 55000 으로 거부해, 그 모드의
+        // 정산을 모르는 바이너리가 리더가 되지 못한다(DB 설계 §5.4-b 바이너리 능력). 3인자 판은 V50 뒤 P1 전용이다.
+        return jdbc.sql("SELECT try_acquire_lease(?, ?, ? * interval '1 millisecond', ?::smallint)")
+                .params(RESOURCE, holder, ttl.toMillis(), LeaseResources.MAX_PROTOCOL)
                 .query(Long.class)
                 .optional();
     }

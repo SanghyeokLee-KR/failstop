@@ -1,0 +1,38 @@
+
+== E6 시작 runId=E6-20260924-100511 ==
+봇 OPS=40 적용(chaos-bots 재기동, settle 5s)
+리더 감지: chaos-api-1 (config 기본과 무관하게 실 리더 대상)
+
+== ⓐ 사전 권위 run ==
+사전 verdict=FAIL old_epoch=5
+
+== 스파이크: 봇 OPS 40 -> 400 (봇 노드 재기동) ==
+봇 OPS=400 적용(chaos-bots 재기동, settle 0s)
+
+== 스파이크 중 불변식 관측(plateau 온디맨드 권위 run) ==
+스파이크 창 권위 run verdict=PASS 위반합=0 스캔체크수=31
+시계가드 통과: 스큐 46ms, 임계 2000ms, 왕복 111ms.
+
+== ⓑ 주입: docker kill (스파이크 plateau 중) ==
+T0=2026-09-24T01:06:20.6565181Z trades_at_inject=951
+
+== ⓒ 관찰(개입 금지) ==
+
+== ⓓ 드레인 + 사후 권위 run ==
+봇 정지(docker stop chaos-bots). 드레인 창 동안 신규 쓰기 없음
+봇 OPS=40 적용(chaos-bots 재기동, settle 0s)
+
+── E6 증거 ─────────────────────
+verdict          : PASS
+RTO(체결 재개)   : 6.263 s (목표 < 30)
+epoch            : 5 -> 6
+자산합(C01)      : 0
+중복 접수/체결   : 0 / 0
+저널 gap C05/C06 : 0 / 0
+주문 유실(C13a)  : 0 (드레인 성립=True)
+failover_run_id  : 1
+────────────────────────────────────────
+1|E6|5|6|6.263|0|PASS
+스파이크 중 불변식 위반 합(게이팅 대상, WARN·조건부 스코프 체크 제외): 0 (0 + 창 내 스캔 31 회여야 폭주 중 무결 성립)
+판정 파일: C:\dev\exchange-pml\harness\evidence\pml-s3-gate-20260924-0830\chaos-runs\E6-20260924-100511.json (불변식 행 93)
+E6 PASS.

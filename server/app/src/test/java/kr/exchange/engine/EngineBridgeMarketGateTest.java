@@ -7,6 +7,7 @@ import kr.exchange.engine.core.SingleWriterLoop;
 import kr.exchange.journal.AppendResult;
 import kr.exchange.journal.CommandDraft;
 import kr.exchange.journal.CommandJournalAppender;
+import kr.exchange.journal.ReserveCheck;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -28,7 +29,7 @@ class EngineBridgeMarketGateTest {
     // 저널 경계만 대신한다. 게이트가 거부한 접수는 여기까지 오지 않아야 한다.
     private final CommandJournalAppender appender = new CommandJournalAppender(null, null, null) {
         @Override
-        public AppendResult append(CommandDraft draft) {
+        public AppendResult append(CommandDraft draft, ReserveCheck check) {
             journaledMarkets.add(draft.marketId());
             return new AppendResult(journaledMarkets.size(), 1, false, draft.assignedOrderId());
         }

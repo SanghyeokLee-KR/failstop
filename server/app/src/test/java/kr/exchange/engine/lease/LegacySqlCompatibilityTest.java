@@ -17,6 +17,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * S2 이전 바이너리가 V48 DB 에서 오늘과 같이 도는지 고정한다(S2 설계 6-1, 4-1 되돌리기). 아래 상수는 S2 변경 직전 코드가 보내던
  * SQL 이다. 세 상태에서 앱 로그인으로 돌린다. (a) V48 DB 는 V47 DB 와 결과가 같다. (b) V49 권한 상태에서는 옛 append INSERT 와
  * 반납 UPDATE 가 42501 이고 나머지는 된다. (c) 되돌리기 GRANT 두 줄 뒤에는 (a) 와 같다.
+ *
+ * (d) S2 바이너리의 SQL(S2BinarySql)이 V50 이후 DB 에서 P1 이면 V48 DB 와 같은 결과를 낸다(S3 설계 4-1·6-3). S3 이미지에서 S2
+ * 이미지로 권한 조치 없이 되돌린다는 논증이 이것에 기댄다. V50 이 그 SQL 이 부르는 함수 넷(3인자 획득, 2인자 게시, 6인자 머리말,
+ * 저널 행 함수)을 바꿨기 때문이다.
  */
 class LegacySqlCompatibilityTest {
 
@@ -80,7 +84,7 @@ class LegacySqlCompatibilityTest {
     @Test
     void v49RefusesOnlyLegacyAppendInsertAndRelease() throws Exception {
         PartitionLeaseDb db = legacyDatabase("legacy_v49", true);
-        db.applyV49Contract();
+        db.migrateTo("49");
         db.expire("matching-engine");
         try (Connection app = db.app()) {
             assertEquals(SEED_EPOCH + 1, acquire(app));
@@ -111,19 +115,171 @@ class LegacySqlCompatibilityTest {
     void grantingTheTwoPrivilegesBackRestoresV48Behaviour() throws Exception {
         List<String> v47 = run(legacyDatabase("legacy_base", false));
         PartitionLeaseDb db = legacyDatabase("legacy_grant", true);
-        db.applyV49Contract();
+        db.migrateTo("49");
         db.exec("GRANT UPDATE ON leader_lease TO app_role");
         db.exec("GRANT INSERT ON command_journal TO app_role");
         assertEquals(v47, run(db));
     }
 
-    /** V47 까지 올려 기존 데이터(마켓 셋, 리스 epoch 41)를 넣고, v48 이면 그 위에 V48 을 올린다. */
+    /**
+     * (d) S2 바이너리의 SQL 은 V50 이후 DB(저장소 끝까지)에서 P1 이면 V48 DB 와 결과가 같다. 두 DB 모두 V47 에서 같은 데이터로
+     * 출발하고 앱 로그인으로 돈다. 양성 축으로 결과 줄에 저널 행 둘(NEW·CANCEL), 재전송 재생, 오래된 epoch 의 0행과 거부, 게시
+     * 셋이 들어 있는지 본다.
+     */
+    @Test
+    void s2SqlBehavesTheSameOnTheLatestSchemaAsOnV48InP1() throws Exception {
+        List<String> v48 = runS2(legacyDatabase("s2sql_v48", true));
+        PartitionLeaseDb latest = legacyDatabase("s2sql_latest", true);
+        latest.migrate();
+        assertEquals(1, latest.ownerLong("SELECT count(*) FROM flyway_schema_history WHERE success AND version = '50'"),
+                "V50 이 적용되지 않았다");
+        assertEquals("1", latest.ownerString("SELECT protocol::text FROM leader_protocol"));
+        List<String> v52 = runS2(latest);
+        assertEquals(v48, v52);
+        assertEquals("acquire=42", v48.get(0), "S2 획득이 V47 epoch 위에서 +1 이 아니다");
+        assertTrue(v48.contains("append=1") && v48.contains("cancel=1") && v48.contains("stale-append=0"),
+                "S2 저널 행 결과가 비었다: " + v48);
+        assertTrue(v48.stream().anyMatch(s -> s.startsWith("replay=") && s.endsWith("|true")), "재전송이 재생이 아니다: " + v48);
+    }
+
+    /** 앱 로그인으로 S2 바이너리의 한 주기를 돌려 결과를 줄로 남긴다. 문장 순서는 S2 앱과 같다. */
+    private static List<String> runS2(PartitionLeaseDb db) throws SQLException {
+        db.expire("matching-engine");
+        List<String> out = new ArrayList<>();
+        try (Connection app = db.app()) {
+            long epoch = s2Acquire(app);
+            out.add("acquire=" + epoch);
+            out.add("renew=" + s2Bool(app, S2BinarySql.RENEW, S2BinarySql.RESOURCE, HOLDER, epoch, TTL_MILLIS));
+            out.add("current=" + current(app));
+
+            app.setAutoCommit(false);
+            long seq = s2Prologue(app, epoch, true, "S" + epoch).seq();
+            out.add("append=" + s2Insert(app, seq, epoch, "NEW", "S" + epoch, 6_000 + seq));
+            app.commit();
+            out.add("replay=" + s2Prologue(app, epoch, true, "S" + epoch));
+            app.rollback();
+            long cancelSeq = s2Prologue(app, epoch, false, null).seq();
+            out.add("cancel=" + s2Insert(app, cancelSeq, epoch, "CANCEL", null, 6_000 + seq));
+            app.commit();
+            out.add("stale-append=" + s2Insert(app, seq + 100_000, epoch - 1, "NEW", "T" + epoch, 7_000 + seq));
+            app.rollback();
+            SQLException stalePrologue = assertThrows(SQLException.class, () -> s2Prologue(app, epoch - 1, true, "U" + epoch));
+            out.add("stale-prologue=" + stalePrologue.getSQLState() + ":" + firstLine(stalePrologue.getMessage()));
+            app.rollback();
+
+            out.add("settle=" + s2SettlePrologue(app, epoch, seq));
+            app.rollback();
+            out.add("event-lock=" + s2EventLock(app, epoch));
+            app.rollback();
+            SQLException staleLock = assertThrows(SQLException.class, () -> s2EventLock(app, epoch - 1));
+            out.add("stale-event-lock=" + staleLock.getSQLState() + ":" + firstLine(staleLock.getMessage()));
+            app.rollback();
+            app.setAutoCommit(true);
+
+            out.add("release=" + s2Bool(app, S2BinarySql.RELEASE, S2BinarySql.RESOURCE, HOLDER, epoch));
+            out.add("expired=" + PartitionLeaseDb.queryString(app, """
+                    SELECT lease_until < clock_timestamp() FROM leader_lease WHERE resource = 'matching-engine'
+                    """));
+            out.add("publish=" + publish(app, PUBLISHER, epoch + 10));
+            out.add("republish=" + publish(app, PUBLISHER, epoch + 10));
+            out.add("stale-publish=" + publish(app, "legacy-other", epoch + 9));
+            out.add("published=" + current(app));
+        }
+        return out;
+    }
+
+    private record S2Prologue(long seq, boolean replayed, long fencing, long orderId) {
+        @Override
+        public String toString() {
+            return seq + "|" + fencing + "|" + orderId + "|" + replayed;
+        }
+    }
+
+    private static long s2Acquire(Connection c) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(S2BinarySql.ACQUIRE)) {
+            ps.setString(1, S2BinarySql.RESOURCE);
+            ps.setString(2, HOLDER);
+            ps.setLong(3, TTL_MILLIS);
+            return single(ps).getLong(1);
+        }
+    }
+
+    private static boolean s2Bool(Connection c, String sql, Object... params) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                ps.setObject(i + 1, params[i]);
+            }
+            return single(ps).getBoolean(1);
+        }
+    }
+
+    private static S2Prologue s2Prologue(Connection c, long epoch, boolean isNew, String clientOrderId)
+            throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(S2BinarySql.APPEND_PROLOGUE)) {
+            ps.setString(1, HOLDER);
+            ps.setLong(2, epoch);
+            ps.setBoolean(3, isNew);
+            ps.setLong(4, 1L);
+            ps.setString(5, clientOrderId);
+            ps.setInt(6, 1);
+            ResultSet rs = single(ps);
+            return new S2Prologue(rs.getLong("out_seq"), rs.getBoolean("out_replayed"), rs.getLong("out_fencing"),
+                    rs.getLong("out_order_id"));
+        }
+    }
+
+    private static int s2Insert(Connection c, long seq, long epoch, String type, String clientOrderId, long orderId)
+            throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(S2BinarySql.APPEND_INSERT)) {
+            ps.setLong(1, seq);
+            ps.setInt(2, 1);
+            ps.setString(3, type);
+            ps.setLong(4, 1L);
+            ps.setString(5, clientOrderId);
+            ps.setLong(6, orderId);
+            ps.setLong(7, 0L);
+            ps.setLong(8, 0L);
+            ps.setString(9, "{}");
+            ps.setLong(10, 0L);
+            ps.setString(11, HOLDER);
+            ps.setLong(12, epoch);
+            return single(ps).getInt(1);
+        }
+    }
+
+    private static String s2SettlePrologue(Connection c, long epoch, long seq) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(S2BinarySql.SETTLE_PROLOGUE)) {
+            ps.setInt(1, 1);
+            ps.setString(2, HOLDER);
+            ps.setLong(3, epoch);
+            ps.setLong(4, seq);
+            ps.setLong(5, seq);
+            ResultSet rs = single(ps);
+            return rs.getLong("epoch") + "|" + rs.getLong("registered") + "|" + rs.getString("seq")
+                    + "|" + rs.getString("market_id") + "|" + rs.getString("command_type")
+                    + "|" + rs.getString("fencing_token");
+        }
+    }
+
+    private static long s2EventLock(Connection c, long epoch) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(S2BinarySql.EVENT_LOCK)) {
+            ps.setInt(1, 1);
+            ps.setString(2, HOLDER);
+            ps.setLong(3, epoch);
+            return single(ps).getLong(1);
+        }
+    }
+
+    /**
+     * V47 까지 올려 기존 데이터(마켓 셋, 리스 epoch 41)를 넣고, v48 이면 그 위에 V48 만 올린다. V49 와 V50 은 저장소
+     * 마이그레이션이라 migrate() 로 올리면 함께 들어간다. 이 시험은 V48 만 적용된 되돌리기 구간을 보므로 목표를 48 로 둔다.
+     */
     private static PartitionLeaseDb legacyDatabase(String prefix, boolean v48) throws SQLException {
         PartitionLeaseDb db = PartitionLeaseDb.createAt(prefix, "47");
         db.seedMarkets(1, 2, 3);
         db.seedLease("matching-engine", "old-node", SEED_EPOCH, 3600);
         if (v48) {
-            db.migrate();
+            db.migrateTo("48");
         }
         return db.withRuntimeRoles();
     }

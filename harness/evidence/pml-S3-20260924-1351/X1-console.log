@@ -1,0 +1,22 @@
+2026-09-24T13:52:56+09:00 [X1] PHASE X1 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-24T13:52:56+09:00 [X1] volumes before unchanged
+2026-09-24T13:53:01+09:00 [X1] down -v (exchange-pml) rc=0
+2026-09-24T13:53:39+09:00 [X1] up --profile obs (owner login, Flyway by api-1, profiles=dev,chaos-monkey,prod-timeouts) rc=0
+2026-09-24T13:53:40+09:00 [X1] RUN provision-runtime-roles.sql (docker exec -i chaos-pg psql -U exchange, 로그인 pml_app·pml_bot·pml_read)
+2026-09-24T13:53:40+09:00 [X1] provision rc=0
+2026-09-24T13:53:40+09:00 [X1] COMPOSE exchange-pml overlays=[override-app-login.yml] up -d --no-deps --force-recreate chaos-api-1 chaos-api-2 chaos-bots image=exchange-chaos-app:pml
+2026-09-24T13:53:53+09:00 [X1] COMPOSE rc=0
+2026-09-24T13:53:53+09:00 [X1] P1 app-login leader epoch=2
+2026-09-24T13:54:13+09:00 [X1] RUN python harness/scale/protocol_latch.py transition --target 2 --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X1\protocol.json
+2026-09-24T13:54:40+09:00 [X1] RC 0
+2026-09-24T13:54:40+09:00 [X1] P2 leader epoch=6 (expected 6)
+2026-09-24T13:54:41+09:00 [X1] bots target_ops=300, run 10min from 2026-09-24 04:54:40.885
+2026-09-24T14:04:56+09:00 [X1] RUN python harness/scale/protocol_latch.py state --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X1\state-after-drain.json
+2026-09-24T14:04:56+09:00 [X1] RC 0
+2026-09-24T14:05:13+09:00 [X1] AUTHORITATIVE X1-post ok=True notOk=[] 
+2026-09-24T14:05:24+09:00 [X1] SUMMARY summary-X1 rc=0 rows=32 gate=29 notPass=[] C29=PASS C31=PASS
+2026-09-24T14:05:24+09:00 [X1] RUN python C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\stmt_timing.py --container chaos-pg --user exchange --db exchange --sql-dir C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\sql --out C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X1\timings.json --plans C:\dev\exchange-pml\harness\evidence\pml-S3-20260924-1351\X1\plans
+2026-09-24T14:05:34+09:00 [X1] RC 0
+2026-09-24T14:05:35+09:00 [X1] X1 verdict=PASS fails=[]
+2026-09-24T14:05:41+09:00 [X1] down -v (exchange-pml) rc=0
+2026-09-24T14:05:41+09:00 [X1] volumes after unchanged

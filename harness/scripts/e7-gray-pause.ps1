@@ -114,10 +114,21 @@ try {
         } catch { $false }
     } -TimeoutSec ([int]$cfg['ZOMBIE_OBSERVE_SEC']) -PollSec 1
 
-    Write-Section 'ⓔ 사후 권위 run + 좀비 stale 쓰기 판정'
+    Write-Section 'ⓔ 드레인 + 사후 권위 run + 좀비 stale 쓰기 판정'
     Start-Sleep -Seconds 3
-    $postPort = Get-LiveNodePort
-    $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
+    # E4 와 같이 봇 쓰기를 끊고 물질화가 끝난 뒤 사후 run 을 뜬다. 부하 중에 재면 물질화 전의 진행 중
+    # NEW 가 C13A(와 rpo_records)에 유실로 계상된다(S3 관문 X3 반복 r1·r2, 마켓분할_리더_S3_설계 12-3).
+    $botsStopped = Stop-BotLoad
+    try {
+        $requiredStreak = if ($botsStopped) { 1 } else { 2 }
+        $drained = Wait-DrainZero -Sql $Global:CHAOS_DRAIN_SQL -TimeoutSec 90 -RequiredStreak $requiredStreak
+        if (-not $drained) { Write-Host '경고: 드레인 미완. C13A 가 진행 중 NEW 를 포함할 수 있다' -ForegroundColor Yellow }
+        $postPort = Get-LiveNodePort
+        $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
+    } finally {
+        $restoreOps = 0; if ($cfg['BASE_OPS']) { $restoreOps = [int]$cfg['BASE_OPS'] }
+        Restore-BotLoad -WasStopped $botsStopped -Ops $restoreOps
+    }
     $swAfter = Get-EpochWriteCounts -Epoch $oldEpoch -CmdHasFencing $cmdHasFencing
     $staleWrites = Get-StaleWriteDelta -Baseline $swBase -After $swAfter
     # 리스 행 부재는 리더 부재라 정상 상태가 아니지만 질의로는 0행이 나올 수 있다. 0으로 폴백하면

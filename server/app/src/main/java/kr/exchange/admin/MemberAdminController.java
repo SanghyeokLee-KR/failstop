@@ -100,16 +100,18 @@ public class MemberAdminController {
         audit.record(principal.operatorId(), "members.close", externalId,
                 AdminRequestContext.requestId(request), approvalId, "OK", detail(t));
         if (t.pendingOrders() > 0) {
-            // 상태 전이·세션 폐기·일부 취소는 이미 커밋됐고 감사도 위에서 남겼다. 취소가 저널에 닿지 못한 주문은 아직
-            // 열려 있어 폐쇄 계정에 체결이 생길 수 있으므로 200 으로 덮지 않는다(API 설계 §6-E v2.53). 새 승인으로
-            // 폐쇄를 다시 부르면 남은 주문만 다시 취소한다(CLOSED->CLOSED 허용, 이미 쓴 토큰은 재사용할 수 없다).
+            // 상태 전이·세션 폐기·일부 취소는 이미 커밋됐고 감사도 위에서 남겼다. 취소하지 못한 주문(저널에 닿지 못한 503,
+            // 정지 마켓의 422)은 아직 열려 있어 폐쇄 계정에 체결이 생길 수 있으므로 200 으로 덮지 않는다(API 설계 v2.54 §6-E).
+            // 새 승인으로 폐쇄를 다시 부르면 남은 주문만 다시 취소한다(CLOSED->CLOSED 허용, 이미 쓴 토큰은 재사용할 수 없다).
+            // 정지 마켓 몫은 그 마켓을 재개한 뒤에 다시 불러야 한다. 사유별 수가 운영자에게 그 순서를 알린다.
             Map<String, Object> detail = new LinkedHashMap<>();
             detail.put("status", t.status());
             detail.put("canceled_orders", t.canceledOrders());
             detail.put("pending_orders", t.pendingOrders());
+            detail.put("pending_reasons", t.pendingReasons());
             detail.put("approval_id", approvalId);
             throw new ApiException(409, "orders_cancel_incomplete",
-                    "폐쇄는 확정됐으나 미체결 주문 일부를 취소하지 못했습니다. 새 승인으로 폐쇄를 다시 요청하세요.",
+                    "폐쇄 확정, 미체결 주문 일부 미취소. 새 승인으로 폐쇄 재요청 필요(정지 마켓은 재개 뒤)",
                     detail, null);
         }
         Map<String, Object> out = response(t);
@@ -129,8 +131,14 @@ public class MemberAdminController {
     }
 
     private static Map<String, Object> detail(MemberAdminService.Transition t) {
-        return Map.of("status", t.status(), "canceled_orders", t.canceledOrders(),
-                "revoked_sessions", t.revokedSessions(), "pending_orders", t.pendingOrders());
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("status", t.status());
+        detail.put("canceled_orders", t.canceledOrders());
+        detail.put("revoked_sessions", t.revokedSessions());
+        detail.put("pending_orders", t.pendingOrders());
+        // 사유별 미완료 수(v2.54). 미완료가 없으면 빈 맵이라 감사 행의 모양은 종전 키에 하나가 더해질 뿐이다.
+        detail.put("pending_reasons", t.pendingReasons());
+        return detail;
     }
 
     private static Map<String, Object> response(MemberAdminService.Transition t) {

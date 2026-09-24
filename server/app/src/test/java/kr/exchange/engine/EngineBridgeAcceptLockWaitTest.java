@@ -7,6 +7,7 @@ import kr.exchange.engine.core.SingleWriterLoop;
 import kr.exchange.journal.AppendResult;
 import kr.exchange.journal.CommandDraft;
 import kr.exchange.journal.CommandJournalAppender;
+import kr.exchange.journal.ReserveCheck;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +45,7 @@ class EngineBridgeAcceptLockWaitTest {
     // 주문 1 의 append 가 DB 에서 멈춘 것처럼 마켓 락을 쥔 채 기다린다. seq 는 마켓 안에서 1부터 잇는다.
     private final CommandJournalAppender appender = new CommandJournalAppender(null, null, null) {
         @Override
-        public AppendResult append(CommandDraft draft) {
+        public AppendResult append(CommandDraft draft, ReserveCheck check) {
             if (draft.assignedOrderId() == 1) {
                 holding.countDown();
                 try {

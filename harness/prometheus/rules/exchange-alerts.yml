@@ -122,6 +122,53 @@ groups:
           dashboard: "② 자동 복구 증명 (proof-recovery)"
           runbook: "DB 설계 §5.4 정산 sink 오류 분류 · ADR 0034 결정 8"
 
+      # ADR 0034 S3(접수 시점 예약) 경보 셋. 학교 배포 규칙은 P1 이라 세 지표가 0 이다. 모드를 올리는 배포(S8)에서
+      # 같은 이름으로 옮긴다(S3 설계 4-16).
+      - alert: SettlementInsufficientFunds
+        expr: increase(exchange_settlement_insufficient_funds_total[5m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+          component: settlement
+        annotations:
+          summary: "정산 시점 잔고 부족(23514) · 라이터 정지"
+          metric: "settlement_insufficient_funds"
+          value: "{{ $value }}"
+          threshold: "증가 > 0"
+          duration: "0s"
+          dashboard: "② 자동 복구 증명 (proof-recovery)"
+          runbook: "DB 설계 §5.1 P2 정산 규칙 · S3 설계 4-8 · P2 에서는 버그 신호"
+
+      - alert: ReservationUnsettledStale
+        expr: max(exchange_reservation_unsettled_oldest_seconds) > 60
+        for: 2m
+        labels:
+          severity: warning
+          component: settlement
+        annotations:
+          summary: "정산 전 예약이 60초 넘게 정산되지 않음(정산 정체·재적재 막힘)"
+          metric: "reservation_unsettled_oldest"
+          value: "{{ $value }}s"
+          threshold: "> 60s"
+          duration: "2m"
+          dashboard: "② 자동 복구 증명 (proof-recovery)"
+          runbook: "S3 설계 4-16 · 하네스 검증설계 §4-1 C14 정산 전 예약 항"
+
+      - alert: OrderIntakeDeadlock
+        expr: increase(exchange_order_append_transient_total{sqlstate="40P01"}[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+          component: intake
+        annotations:
+          summary: "접수 append 교착(40P01) · 정산 잠금 계획 뒤에는 결함 신호"
+          metric: "order_append_transient_40P01"
+          value: "{{ $value }}"
+          threshold: "증가 > 0"
+          duration: "0s"
+          dashboard: "④ 시스템 (proof-system)"
+          runbook: "DB 설계 §5.0 v2.54 잠금 계획 · S3 설계 4-13·4-14"
+
       - alert: SnapshotPersistFailed
         expr: rate(exchange_snapshot_persist_failed_total[5m]) > 0
         for: 1m
