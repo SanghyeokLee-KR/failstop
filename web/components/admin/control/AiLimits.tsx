@@ -252,7 +252,7 @@ export default function AiLimitsPanel({ ai, onChanged }: { ai: AiDesk | null; on
             actions={["ops.ai.limits"]}
             onChange={onChanged}
             emptyLabel="대기 중인 한도 변경 없음"
-            emptyDesc="변경 요청을 하면 여기서 발급하고 실행"
+            emptyDesc="변경을 요청하면 여기서 승인을 발급하고 실행합니다"
           />
           <div className={styles.subHead}>변경 이력</div>
           <History rows={ai.limitHistory} items={ai.limits} mode={ai.mode} />

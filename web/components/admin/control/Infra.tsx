@@ -21,10 +21,12 @@ import type {
   ThresholdRegistry,
 } from "@/lib/admin/types";
 import { refMatches, useOpsFocus } from "@/lib/admin/opsCenter";
-import { hostState, thresholdOf as th, type NodeState } from "@/lib/admin/opsHealth";
+import { hostState, infraCounts, thresholdOf as th, type NodeState } from "@/lib/admin/opsHealth";
+import { joinDots } from "@/lib/admin/text";
 import GrafanaLink from "../GrafanaLink";
 import { MeterRail } from "../instruments/MeterRail";
-import { Ago, GaugeRow, NotConnected, PanelHead, Shape } from "./parts";
+import { SimMark } from "../ui";
+import { Ago, GaugeRow, lagWord, NotConnected, PanelHead, secWord, Shape } from "./parts";
 import styles from "./control.module.css";
 
 /** 카드 둘째 줄의 정체. 서비스와 역할을 적는다 */
@@ -44,32 +46,6 @@ export function alertRefMap(center: ControlCenter | null): Map<string, OpsRef | 
   return m;
 }
 
-/** 인프라 칸 머리의 집계. 켜 둔 노드만 세고, 기동·드레이닝처럼 넘어가는 중인 노드는 주의로 센다 */
-export function infraCounts(c: ControlCenter): { ok: number; warn: number; down: number } | null {
-  if (c.hosts.state !== "READY") return null;
-  const reg = c.thresholds.state === "READY" ? c.thresholds.data : null;
-  const out = { ok: 0, warn: 0, down: 0 };
-  for (const h of c.hosts.data) {
-    const s = hostState(h, reg).tone;
-    if (s === "success") out.ok += 1;
-    else if (s === "danger") out.down += 1;
-    else out.warn += 1;
-  }
-  if (c.readTier.state === "READY") {
-    const out2 = th(reg, "read.scale_out_cpu");
-    const hot = c.readTier.data.avgCpuPct !== null && out2 !== null && c.readTier.data.avgCpuPct >= out2;
-    for (const n of c.readTier.data.nodes) {
-      if (n.state === "OFF") continue;
-      if (n.state === "IN_SERVICE" && !hot) out.ok += 1;
-      else out.warn += 1;
-    }
-  }
-  if (c.aiServer.state === "READY") {
-    if (c.aiServer.data.link === "OK") out.ok += 1;
-    else out.warn += 1;
-  }
-  return out;
-}
 
 function Gauges({ host, reg }: { host: OpsHost; reg: ThresholdRegistry | null }) {
   const diskFreeTh = th(reg, "host.disk_free_alert");
@@ -193,7 +169,7 @@ export function DbPair({ primary, standby, repl, reg, alertRefs }: {
   return (
     <article className={styles.dbPair} data-tone={tone} data-focus={lit ? "" : undefined} aria-label="데이터베이스 · PostgreSQL 17 Primary·Standby">
       <div className={styles.dbPairHead}>
-        <span className={styles.hostKind}>PostgreSQL 17 · 비동기 복제 · 승격은 수동</span>
+        <span className={styles.hostKind}>{joinDots("PostgreSQL 17 · 비동기 복제 · 승격은 수동")}</span>
         {st && (
           <span className={styles.nodeState} data-tone={st.tone}>
             <Shape tone={st.tone}>{st.mark}</Shape>
@@ -203,13 +179,13 @@ export function DbPair({ primary, standby, repl, reg, alertRefs }: {
       </div>
       <div className={styles.dbPairBody}>
         <DbSide host={primary} reg={reg} />
-        <div className={styles.replLink} aria-label={r ? `복제 ${primary.id}에서 ${standby.id}로, 지연 ${r.lagSec ?? "미수집"}초` : "복제 원천 연결 전"}>
+        <div className={styles.replLink} aria-label={r ? `복제 ${primary.id}에서 ${standby.id}로, 지연 ${r.lagSec === null ? "미수집" : lagWord(r.lagSec)}` : "복제 원천 연결 전"}>
           <span className={styles.replArrow} aria-hidden="true" />
           {r ? (
             <>
               <b className="num" data-tone={late ? "warning" : undefined} aria-hidden="true">
                 {late && "▲ "}
-                {r.lagSec === null ? "◌" : `${r.lagSec}초`}
+                {r.lagSec === null ? "◌" : lagWord(r.lagSec)}
               </b>
               <span className="num" aria-hidden="true">
                 {r.lagBytes === null ? "◌" : `${Math.round(r.lagBytes / 1024)}KB`}
@@ -224,7 +200,7 @@ export function DbPair({ primary, standby, repl, reg, alertRefs }: {
       {r && (
         <div className={styles.lag}>
           <span>
-            복제 지연 <b className="num">{r.lagSec === null ? "◌" : `${r.lagSec}초`}</b>
+            복제 지연 <b className="num">{r.lagSec === null ? "◌" : lagWord(r.lagSec)}</b>
             {lagTh !== null && <> · 경보 {lagTh}초</>}
           </span>
           <span className={styles.lagRail}>
@@ -240,7 +216,7 @@ const NODE_WORD: Record<ReadTier["nodes"][number]["state"], string> = {
   IN_SERVICE: "",
   PENDING: "기동 중",
   DRAINING: "드레이닝",
-  OFF: "꺼짐",
+  OFF: "중지",
 };
 
 export function AsgBand({ tier, reg, alertRefs }: { tier: ReadTier; reg: ThresholdRegistry | null; alertRefs: Map<string, OpsRef | null> }) {
@@ -295,15 +271,15 @@ export function AsgBand({ tier, reg, alertRefs }: { tier: ReadTier; reg: Thresho
 }
 
 function fmtMs(ms: number | null): string {
-  if (ms === null) return "요청 없음";
-  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}초` : `${ms}ms`;
+  return ms === null ? "요청 없음" : secWord(ms);
 }
 
 /**
- * 온프레미스 AI 추론 서버(ADR 0038). 구축 전이라 sim에서는 값이 시뮬레이션이고 적재 모델은 이름을
- * 단정하지 않는다. AI 판단이 일어나면 대기 요청과 GPU가 잠깐 오른다
+ * 온프레미스 AI 추론 서버(ADR 0038). 구축 전이고 연결 경로도 정하지 않았다. sim은 붙어서 판단 요청에 답한다고
+ * 가정하므로 카드에 '시뮬레이션 가정'을 달고, '연결됨'과 '경로 결정 전'을 한 줄에 함께 적지 않는다(관리자 설계 4-4).
+ * 적재 모델은 이름을 단정하지 않는다. AI 판단이 일어나면 대기 요청과 GPU가 잠깐 오른다
  */
-export function AiServerCard({ section, sim }: { section: OpsSection<AiServer>; sim: boolean }) {
+export function AiServerCard({ section }: { section: OpsSection<AiServer> }) {
   if (section.state === "NOT_CONNECTED") return <NotConnected what="AI 서버" source={section.source} compact />;
   const a = section.data;
   const s: NodeState = a.link === "DOWN"
@@ -317,6 +293,12 @@ export function AiServerCard({ section, sim }: { section: OpsSection<AiServer>; 
         <span className={styles.hostName}>{a.id}</span>
         <StateWord s={s} />
       </div>
+      {/* 가정 표식은 머리 줄 밖 제 줄에 둔다. 머리 줄에 끼우면 좁은 칸에서 상태 낱말이 잘린다 */}
+      {a.assumed && (
+        <span className={styles.hostMark}>
+          <SimMark kind="assumed" />
+        </span>
+      )}
       <span className={styles.hostKind}>
         {a.hardware} · 로컬 LLM({a.runtime})
       </span>
@@ -343,12 +325,17 @@ export function AiServerCard({ section, sim }: { section: OpsSection<AiServer>; 
         <dd>{a.model}</dd>
         <dt>관제 연결</dt>
         <dd>
-          <Shape tone={a.link === "OK" ? "success" : "warning"}>{a.link === "OK" ? "●" : "▲"}</Shape> {a.link === "OK" ? "연결됨" : "끊김"}
-          {" · 경로 결정 전"}
+          {a.assumed ? (
+            "가정 · 연결 경로 결정 전"
+          ) : (
+            <>
+              <Shape tone={a.link === "OK" ? "success" : "warning"}>{a.link === "OK" ? "●" : "▲"}</Shape> {a.link === "OK" ? "연결됨" : "끊김"}
+            </>
+          )}
         </dd>
       </dl>
       <div className={styles.hostFoot}>
-        <span>{sim ? "구축 전 · 값은 시뮬레이션" : "구축 전"}</span>
+        <span>구축 전 · ADR 0038</span>
         <span className="num">{a.collectedAt === null ? "◌ 미수집" : <Ago at={a.collectedAt} prefix="수집 " />}</span>
       </div>
     </article>
@@ -374,13 +361,12 @@ function Group({ area, label, note, children }: { area: string; label: string; n
 export function InfraGroups({ center, board = false, wide = false }: { center: ControlCenter; board?: boolean; wide?: boolean }) {
   const reg = center.thresholds.state === "READY" ? center.thresholds.data : null;
   const alertRefs = alertRefMap(center);
-  const sim = center.origin === "SIM";
   if (center.hosts.state === "NOT_CONNECTED") {
     return (
       <div className={styles.infraStack}>
         <NotConnected what="호스트 지표" source={center.hosts.source} />
         {center.readTier.state === "NOT_CONNECTED" && <NotConnected what="조회 노드 ASG" source={center.readTier.source} compact />}
-        <AiServerCard section={center.aiServer} sim={sim} />
+        <AiServerCard section={center.aiServer} />
       </div>
     );
   }
@@ -403,7 +389,7 @@ export function InfraGroups({ center, board = false, wide = false }: { center: C
           <DbPair primary={primary} standby={standby} repl={center.replication} reg={reg} alertRefs={alertRefs} />
         </Group>
       )}
-      <Group area="asg" label="조회 ASG" note="AWS 지표 정책이 대수를 정함">
+      <Group area="asg" label="조회 ASG" note="AWS 지표 정책이 대수를 정합니다">
         {center.readTier.state === "READY" ? (
           <AsgBand tier={center.readTier.data} reg={reg} alertRefs={alertRefs} />
         ) : (
@@ -415,8 +401,8 @@ export function InfraGroups({ center, board = false, wide = false }: { center: C
           <HostCard key={h.id} host={h} reg={reg} alertRefs={alertRefs} board={board} />
         ))}
       </Group>
-      <Group area="ai" label="온프레미스 · 연구소">
-        <AiServerCard section={center.aiServer} sim={sim} />
+      <Group area="ai" label="온프레미스 · 연구소" note="구축 전">
+        <AiServerCard section={center.aiServer} />
       </Group>
     </div>
   );

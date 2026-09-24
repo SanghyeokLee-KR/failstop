@@ -241,7 +241,7 @@ export default function OperatorsPage() {
           actions={actions}
           onChange={load}
           emptyLabel="대기 중인 운영자 승인 없음"
-          emptyDesc="생성·상태·역할 요청이 들어오면 여기에서 발급·실행"
+          emptyDesc="생성·상태·역할 요청이 들어오면 여기에서 발급하고 실행합니다"
         />
       </PanelCard>
     </div>

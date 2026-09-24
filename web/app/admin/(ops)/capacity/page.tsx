@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * 용량(/admin/capacity). 조회 서버를 늘리고 줄인다(ADR 0015 수동 스케일링).
+ * 용량(/admin/capacity). 조회 노드를 늘리고 줄인다(ADR 0015 수동 스케일링).
  *
- * 화면이 세 가지를 보인다. 있어야 할 서버 수와 실제로 응답한 서버 수, 서버 한 대씩의 상태,
- * 그리고 지금 무엇을 하면 되는지다. 판정은 서버가 하고 실행은 사람이 누른다.
+ * 화면이 세 가지를 보인다. 있어야 할 노드 수와 실제로 응답한 노드 수, 노드 한 대씩의 상태,
+ * 그리고 지금 무엇을 하면 되는지다. 판정은 서버(관리 API)가 하고 실행은 사람이 누른다.
  *
- * 문구 규칙. 이 화면은 처음 보는 사람이 읽는다. 내부 용어를 그대로 쓰지 않는다.
- * readiness는 "주문 받음", 타겟그룹 소속은 "받는 트래픽", Scale-Out은 "서버 추가"로 적고
- * 원어는 부제로만 병기한다. 문서 절 번호를 화면에 싣지 않는다.
+ * 문구 규칙. 이 화면은 처음 보는 사람이 읽는다. 내부 용어를 그대로 쓰지 않는다. 대상은 콘솔 용어대로
+ * '노드'로 적고(디자인 시스템 §12-12), Scale-Out은 "노드 추가"로 적어 원어는 부제로만 병기한다. 문서 절
+ * 번호를 화면에 싣지 않는다. 불러오는 동안과 실패했을 때도 화면 머리와 페이지 틀을 그대로 둔다(레이아웃 §7).
  *
  * 늘려도 안 되는 것을 숨기지 않는다. 주문은 마켓마다 리더 한 대가 처리하고(로컬 단일 리더는 한 대가 모든
  * 마켓을 맡는다) 이 화면으로 늘릴 수 없다. 리더가 죽으면 조회 서버를 늘려도 조회 용량만 돌아온다. 문구는 단일
@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AdminError, getAdminApi } from "@/lib/admin/api";
+import { AdminError, getAdminApi, isAdminHttp } from "@/lib/admin/api";
 import type { CapacityAdvice, CapacityNode, CapacityState, SimStatus } from "@/lib/admin/types";
 import PanelCard from "@/components/PanelCard";
 import NodeStrip from "@/components/admin/NodeStrip";
@@ -28,7 +28,7 @@ import DecisionFooter from "@/components/admin/DecisionFooter";
 import OpsThrottle from "@/components/admin/OpsThrottle";
 import SourceMark, { sourceWord } from "@/components/admin/SourceMark";
 import Skeleton from "@/components/Skeleton";
-import { HealthPill, PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
+import { HealthPill, PageHeader, PermissionNote, SimMark, StatTile } from "@/components/admin/ui";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -110,10 +110,10 @@ export default function CapacityPage() {
     try {
       if (kind === "SCALE_OUT") {
         await api.scaleOut();
-        toast("서버 추가 요청됨. 준비되면 트래픽 수신", "success");
+        toast("노드를 추가했습니다. 준비되면 조회를 나눠 받습니다", "success");
       } else {
         await api.scaleIn();
-        toast("서버 축소 요청됨. 진행 중인 요청을 먼저 흘려보냄", "success");
+        toast("노드를 줄입니다. 진행 중인 요청을 먼저 흘려보냅니다", "success");
       }
       setPending(null);
       res.reload();
@@ -124,9 +124,21 @@ export default function CapacityPage() {
     }
   };
 
-  if (res.loading) return <Skeleton variant="card" width="100%" height={320} />;
-  if (res.error || !res.data) {
-    return <AdminErrorState reason={res.errorReason} onRetry={res.reload} />;
+  const header = (
+    <PageHeader
+      title="용량·부하"
+      mark={isAdminHttp() ? undefined : <SimMark />}
+      desc="조회 노드를 늘리고 줄입니다. 주문을 처리하는 매칭 노드는 이 화면에서 늘리지 않습니다"
+      actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
+    />
+  );
+  if (res.loading || res.error || !res.data) {
+    return (
+      <div className={styles.page}>
+        {header}
+        {res.loading ? <Skeleton variant="card" width="100%" height={320} /> : <AdminErrorState reason={res.errorReason} onRetry={res.reload} />}
+      </div>
+    );
   }
   const d = res.data.cap;
   const sim = res.data.sim;
@@ -137,11 +149,7 @@ export default function CapacityPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title="용량·부하"
-        desc="조회 서버를 늘리고 줄입니다. 주문을 처리하는 매칭 서버는 이 화면에서 늘리지 않습니다"
-        actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
-      />
+      {header}
 
       {/* 권고. 표시이고 자동 조치가 아니다. 조치 버튼이 붙는 것만 사람이 누른다 */}
       <div className={styles.capacityAdviceList}>
@@ -166,19 +174,19 @@ export default function CapacityPage() {
           />
         </PanelCard>
 
-      <PanelCard title="서버 대수" actions={<GrafanaLink board="msp-service" label="앱 CPU 추이" />}>
+      <PanelCard title="노드 대수" actions={<GrafanaLink board="msp-service" label="앱 CPU 추이" />}>
         <div className={styles.kpiGrid} data-cols="3">
           <StatTile
-            label="지금 응답하는 조회 서버"
+            label="지금 응답하는 조회 노드"
             value={d.observedTotal}
             unit="대"
             hero
-            tone={d.reconciled ? "success" : "warning"}
+            tone={d.reconciled ? undefined : "warning"}
             sub={d.reconciled ? "계약과 일치" : `있어야 할 수 ${d.plan.desired}대`}
             title="observed / desired"
           />
           <StatTile
-            label="있어야 할 조회 서버"
+            label="있어야 할 조회 노드"
             value={d.plan.desired}
             unit="대"
             sub={`최소 ${d.plan.min} · 최대 ${d.plan.max}`}
@@ -188,9 +196,9 @@ export default function CapacityPage() {
             label="조회 평균 사용률"
             value={pct === null ? sourceWord("MISSING") : pct}
             unit={pct === null ? undefined : "%"}
-            /* 임계 판정은 서버 advice가 내린다. 화면이 숫자를 들면 두 곳이 갈린다 */
-            tone={pct === null ? "warning" : scaleAdvised ? "warning" : "success"}
-            sub={pct === null ? "판단 근거 없음" : "서버 추가 시 분산"}
+            /* 임계 판정은 서버 advice가 내린다. 화면이 숫자를 들면 두 곳이 갈린다. 정상은 색을 칠하지 않는다(§12-10) */
+            tone={pct === null ? "warning" : scaleAdvised ? "warning" : undefined}
+            sub={pct === null ? "판단 근거 없음" : "노드를 추가하면 분산"}
             /* 눈금도 서버 임계를 쓴다. 화면이 값을 복제하면 서버가 환경에 맞춰 조일 때
                판정과 눈금이 갈린다 */
             meter={
@@ -208,11 +216,11 @@ export default function CapacityPage() {
             <SourceMark state="NOT_APPLIED" note={`계약 ${d.plan.desired}대 · 관측 ${d.observedTotal}대`} />
           </p>
         )}
-        {!canScale && <PermissionNote>서버 수 변경은 총괄 권한 필요</PermissionNote>}
+        {!canScale && <PermissionNote>노드 수 변경은 총괄 권한이 필요합니다</PermissionNote>}
       </PanelCard>
       </div>
 
-      <PanelCard title="서버 한 대씩" actions={<GrafanaLink board="msp-infra" label="호스트 추이" />}>
+      <PanelCard title="노드 한 대씩" actions={<GrafanaLink board="msp-infra" label="노드 추이" />}>
         <NodeStrip nodes={d.nodes} perSecond={(n) => rates.get(n.id) ?? null} cpuMark={d.thresholds.scaleOutCpuRatio} />
       </PanelCard>
 
@@ -221,33 +229,27 @@ export default function CapacityPage() {
           <thead>
             <tr>
               <th scope="col">축</th>
-              <th scope="col">서버를 늘리면</th>
+              <th scope="col">노드를 늘리면</th>
               <th scope="col">근거</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <th scope="row">조회</th>
-              <td>
-                <HealthPill health="success" label="용량 증가" />
-              </td>
-              <td>서버별 조회 분담</td>
+              <td>용량 증가</td>
+              <td>노드별 조회 분담</td>
             </tr>
             <tr>
               <th scope="row">주문</th>
+              <td className={styles.stateText}>증가 없음</td>
               <td>
-                <HealthPill health="warning" label="증가 없음" />
-              </td>
-              <td>
-                주문은 마켓마다 순서를 지켜야 해서 마켓마다 리더 한 대가 처리합니다. 조회 서버를
+                주문은 마켓마다 순서를 지켜야 해서 마켓마다 리더 한 대가 처리합니다. 조회 노드를
                 늘려도 리더는 그대로라 주문 처리량이 오르지 않습니다. 넘치는 주문은 받지 않고 거절합니다.
               </td>
             </tr>
             <tr>
               <th scope="row">데이터베이스</th>
-              <td>
-                <HealthPill health="warning" label="증가 없음" />
-              </td>
+              <td className={styles.stateText}>증가 없음</td>
               <td>
                 데이터베이스는 쓰기를 나눌 수 없어 Primary 한 대가 처리합니다. Standby는 비동기 복제만
                 받고 평소에는 트래픽을 받지 않습니다. 장애 때는 운영자가 수동으로 승격합니다.
@@ -268,13 +270,13 @@ export default function CapacityPage() {
 
       {pending && (
         <ConfirmDialog
-          title={pending === "SCALE_OUT" ? "서버 한 대 추가" : "서버 한 대 축소"}
+          title={pending === "SCALE_OUT" ? "노드 한 대 추가" : "노드 한 대 축소"}
           description={
             pending === "SCALE_OUT"
-              ? "새 서버가 준비되면 조회 트래픽을 나눠 받습니다. 준비되는 동안 서비스는 멈추지 않고, 서버가 느는 만큼 비용이 늘어납니다."
-              : "진행 중인 요청을 먼저 흘려보낸 뒤 서버를 내립니다. 서비스는 멈추지 않습니다."
+              ? "새 노드가 준비되면 조회 트래픽을 나눠 받습니다. 준비되는 동안 서비스는 멈추지 않고, 노드가 느는 만큼 비용이 늘어납니다."
+              : "진행 중인 요청을 먼저 흘려보낸 뒤 노드를 내립니다. 서비스는 멈추지 않습니다."
           }
-          target={`조회 서버 ${d.plan.desired}대 -> ${d.plan.desired + (pending === "SCALE_OUT" ? 1 : -1)}대`}
+          target={`조회 노드 ${d.plan.desired}대 → ${d.plan.desired + (pending === "SCALE_OUT" ? 1 : -1)}대`}
           confirmLabel={pending === "SCALE_OUT" ? "추가" : "줄이기"}
           tone={pending === "SCALE_OUT" ? "warning" : "danger"}
           busy={busy}
@@ -304,7 +306,7 @@ function AdviceCard({
       </div>
       {advice.action && canScale && (
         <button type="button" className={styles.neutralBtn} onClick={() => onAct(advice.action!)}>
-          {advice.action === "SCALE_OUT" ? "서버 추가" : "서버 줄이기"}
+          {advice.action === "SCALE_OUT" ? "노드 추가" : "노드 줄이기"}
         </button>
       )}
     </div>

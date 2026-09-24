@@ -11,6 +11,7 @@ import { useCan } from "@/lib/admin/store";
 import type { JobOutcome, OpsBackup, OpsJobs } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
 import adminStyles from "../admin.module.css";
+import { kstDay, kstParts } from "@/lib/admin/timeText";
 import { ago, hm, Shape, useClock } from "./parts";
 import styles from "./control.module.css";
 
@@ -55,11 +56,16 @@ function size(bytes: number | null): string {
   return bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)}GB` : `${Math.round(bytes / 1e6)}MB`;
 }
 
+/** KST 날짜가 같은가. 콘솔의 날짜 경계는 KST 자정이다(§12-12) */
+function sameKstDay(a: number, b: number): boolean {
+  return kstDay(a) === kstDay(b);
+}
+
 function dayWord(iso: string, now: number): string {
-  const d = new Date(iso);
-  const same = d.toDateString() === new Date(now).toDateString();
-  const tomorrow = d.toDateString() === new Date(now + 86_400_000).toDateString();
-  return `${same ? "오늘" : tomorrow ? "내일" : `${d.getMonth() + 1}.${d.getDate()}`} ${hm(iso)}`;
+  const t = Date.parse(iso);
+  const k = kstParts(t);
+  const word = sameKstDay(t, now) ? "오늘" : sameKstDay(t, now + 86_400_000) ? "내일" : `${k.month}.${k.day}`;
+  return `${word} ${hm(iso)}`;
 }
 
 export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: () => void; detail?: boolean }) {
@@ -148,8 +154,9 @@ export default function JobsBlock({ jobs, onChanged }: { jobs: OpsJobs; onChange
   const days = Math.floor((Date.parse(jobs.certificate.expiresAt) - now) / 86_400_000);
   const certTone = days < 14 ? "danger" : days < 30 ? "warning" : "success";
   const report = jobs.dailyReport.lastSentAt;
-  const sentToday = report !== null && new Date(report).toDateString() === new Date(now).toDateString();
-  const due = new Date(now).getHours() >= jobs.dailyReport.hour;
+  const sentToday = report !== null && sameKstDay(Date.parse(report), now);
+  const due = kstParts(now).h >= jobs.dailyReport.hour;
+  const expires = kstParts(Date.parse(jobs.certificate.expiresAt));
   return (
     <div className={styles.jobs}>
       <BackupLine b={jobs.backup} onChanged={onChanged} />
@@ -160,7 +167,7 @@ export default function JobsBlock({ jobs, onChanged }: { jobs: OpsJobs; onChange
             <Shape tone={certTone}>{certTone === "success" ? "●" : certTone === "warning" ? "▲" : "■"}</Shape> {jobs.certificate.domain}
           </span>
           <span>
-            만료 <b className="num">D-{days}</b> · {new Date(jobs.certificate.expiresAt).getMonth() + 1}.{new Date(jobs.certificate.expiresAt).getDate()}
+            만료 <b className="num">D-{days}</b> · {expires.month}.{expires.day}
           </span>
         </span>
         <span />

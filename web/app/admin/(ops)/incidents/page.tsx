@@ -15,6 +15,7 @@ import OpsHead from "@/components/admin/control/OpsHead";
 import { alertCounts, Tile, todayIncidents } from "@/components/admin/control/SummaryStrip";
 import { byFilter, EventRow, FilterSwitch, IncidentView, OpenElapsed, type EventFilter } from "@/components/admin/control/Timeline";
 import { durationWord, hm, PanelHead, SectionBody, SEVERITY_SHAPE, useClock } from "@/components/admin/control/parts";
+import { kstDay } from "@/lib/admin/timeText";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/control/control.module.css";
 
@@ -25,7 +26,8 @@ export default function IncidentsPage() {
   const [picked, setPicked] = useState<string | null>(null);
   const [filter, setFilter] = useState<EventFilter>("ALL");
   const onChanged = () => void refresh(true);
-  const today = new Date(now).toDateString();
+  // 오늘의 경계는 KST 자정이다(§12-12)
+  const today = kstDay(now);
 
   return (
     <div className={adminStyles.page}>
@@ -124,7 +126,7 @@ export default function IncidentsPage() {
                 <PanelHead id="inc-list" title="오늘 사건" meta="누르면 오른쪽에 기록을 펼칩니다" />
                 <SectionBody section={data.incidents} what="사건 기록">
                   {(log) => {
-                    const list = log.incidents.filter((i) => new Date(i.openedAt).toDateString() === today);
+                    const list = log.incidents.filter((i) => kstDay(Date.parse(i.openedAt)) === today);
                     if (list.length === 0) {
                       return (
                         <div className={styles.empty}>
@@ -169,7 +171,7 @@ export default function IncidentsPage() {
               />
               <SectionBody section={data.incidents} what="사건 기록">
                 {(log) => {
-                  const list = log.incidents.filter((i) => new Date(i.openedAt).toDateString() === today);
+                  const list = log.incidents.filter((i) => kstDay(Date.parse(i.openedAt)) === today);
                   const inc = list.find((i) => i.id === (picked ?? list[0]?.id)) ?? null;
                   const loose = log.events.filter((e) => e.incidentId === null).filter(byFilter(filter)).slice(0, 12);
                   return (

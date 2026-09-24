@@ -327,7 +327,7 @@ export default function AdminMembersPage() {
               if (selected) void loadDetail(selected);
             }}
             emptyLabel="대기 중인 폐쇄 승인 없음"
-            emptyDesc="위에서 요청하면 여기에서 발급·실행"
+            emptyDesc="위에서 요청하면 여기에서 발급하고 실행합니다"
           />
         </PanelCard>
       )}

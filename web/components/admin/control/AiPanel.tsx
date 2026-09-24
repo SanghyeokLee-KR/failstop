@@ -3,11 +3,12 @@
 /**
  * AI 관제 패널(§12-9). 관제센터의 가운데 기둥이다.
  *
- * 큰 한 줄 판단, 근거, AI 판단 요약(예상 영향, 확신도, 위험도, 되돌리기), 권장 조치, 처리된 조치, 판단
- * 이력 순서로 읽힌다. AI라는 사실은 보라 빛이 아니라 이 내용과 판단 과정으로 드러낸다(§12-10). 조치 카드는
- * 허용 목록 다섯 종에서만 나오고 금지 목록 조치는 어휘에 없어 카드가 될 수 없다(ADR 0035). 번호는 대기
- * 중인 조치안에만 붙인다. 승인 버튼은 운영자의 결정이라 AI 색이 아니라 브랜드 approve다. http 원천에서는
- * 판단을 지어내지 않고 'AI 연결 전'만 그린다.
+ * 큰 한 줄 판단, 권장 조치, 근거와 원인 가설, 처리된 조치, 판단 기록 순서로 읽힌다. 운영자가 할 일(승인하고
+ * 실행)이 판단 바로 아래 첫 화면에 서게 하려는 순서다. AI 판단 요약(확신도, 위험도, 과거 같은 조치)은 조치
+ * 카드마다 한 줄로 싣는다. AI라는 사실은 보라 빛이 아니라 이 내용과 판단 과정으로 드러낸다(§12-10). 조치 카드는
+ * 허용 목록 다섯 종에서만 나오고 금지 목록 조치는 어휘에 없어 카드가 될 수 없다(ADR 0035). 번호는 대기 중인
+ * 조치안에만 붙이고 카드마다 ai-proposal-n 앵커를 두어 모드 줄의 링크가 첫 카드로 온다. 승인 버튼은 운영자의
+ * 결정이라 AI 색이 아니라 브랜드 approve다. http 원천에서는 판단을 지어내지 않고 'AI 연결 전'만 그린다.
  */
 
 import { memo, useEffect, useRef, useState } from "react";
@@ -17,6 +18,7 @@ import { actionKey, AI_ACTION_LABEL, limitsOf, type AiLimits } from "@/lib/admin
 import { useOpsFocus } from "@/lib/admin/opsCenter";
 import { useCan } from "@/lib/admin/store";
 import type { AiActionKind, AiDecision, AiDesk, AiProposal, OpsRef, OpsSection } from "@/lib/admin/types";
+import { joinDots } from "@/lib/admin/text";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "../ConfirmDialog";
 import adminStyles from "../admin.module.css";
@@ -35,6 +37,15 @@ const KIND_REF: Record<AiActionKind, OpsRef | null> = {
   BOT_LOAD: { kind: "HOST", id: "bot-1" },
   BACKUP_NOW: { kind: "BACKUP" },
 };
+
+/**
+ * 확신도의 낱말. 자동 실행 기준(AI 한도의 확신도 기준) 이상이면 높음, 60% 이상이면 보통, 그 아래는 낮음이다.
+ * 기준을 넘는 값을 '보통'으로 적으면 자동 실행 조건과 모순된다(§12-9)
+ */
+export function confidenceWord(pct: number, threshold: number): string {
+  if (pct >= threshold) return "높음";
+  return pct >= 60 ? "보통" : "낮음";
+}
 
 /** 판단 문장을 첫 문장과 나머지로 나눈다. 첫 문장이 패널에서 가장 크게 읽히는 한 줄이다 */
 export function splitLead(text: string): [string, string] {
@@ -225,6 +236,46 @@ function CardMenu({ p, onEvidence }: { p: AiProposal; onEvidence: (p: AiProposal
   );
 }
 
+/**
+ * 조치 카드 안의 요약 한 줄(§12-9). 확신도와 자동 실행 기준 눈금, 위험도, 감사 기록에서 센 과거 같은 조치다.
+ * 좁은 카드에서는 항목 단위로 다음 줄로 넘어가고 항목 안에서는 끊지 않는다
+ */
+function CardSummary({ p, ai, limits }: { p: AiProposal; ai: AiDesk; limits: AiLimits }) {
+  const stats = ai.actionStats[actionKey(p.kind, p.title)];
+  return (
+    <div className={styles.cardSummary}>
+      <span className={styles.sumItem}>
+        확신도{" "}
+        <b className="num">
+          {p.confidencePct}% · {confidenceWord(p.confidencePct, limits.confidencePct)}
+        </b>
+        <span className={styles.confMini} aria-hidden="true">
+          <span className={styles.confFill} style={{ transform: `scaleX(${p.confidencePct / 100})` }} />
+          <span className={styles.confMark} style={{ left: `${limits.confidencePct}%` }} />
+        </span>
+        <span className="sr-only">자동 실행 기준 {limits.confidencePct}%</span>
+      </span>
+      <span className={styles.sumItem}>
+        위험{" "}
+        {/* 위험도는 상태가 아니라 조치의 성질이라 낮음에 초록을 칠하지 않는다. 중간만 주의 색 ▲다(§12-9) */}
+        <span className={styles.shape} data-tone={p.risk === "LOW" ? undefined : "warning"} aria-hidden="true">
+          {p.risk === "LOW" ? "●" : "▲"}
+        </span>{" "}
+        <b>{RISK_WORD[p.risk]}</b>
+      </span>
+      <span className={styles.sumItem}>
+        {stats ? (
+          <>
+            과거 같은 조치 <b className="num">{stats.runs}</b>회 · 되돌림 <b className="num">{stats.reverts}</b>회
+          </>
+        ) : (
+          "과거 같은 조치 기록 없음"
+        )}
+      </span>
+    </div>
+  );
+}
+
 function ProposalCard({ p, index, ai, limits, onChanged, onEvidence }: {
   p: AiProposal;
   index: number;
@@ -251,7 +302,7 @@ function ProposalCard({ p, index, ai, limits, onChanged, onEvidence }: {
     }
   };
   return (
-    <article className={styles.card} data-status={p.status} aria-label={`조치안 ${index}. ${p.title}`}>
+    <article id={`ai-proposal-${index}`} tabIndex={-1} className={styles.card} data-status={p.status} aria-label={`조치안 ${index}. ${p.title}`}>
       <div className={styles.cardTop}>
         <span className={`${styles.cardNo} num`} aria-hidden="true">
           {index}
@@ -262,15 +313,14 @@ function ProposalCard({ p, index, ai, limits, onChanged, onEvidence }: {
         </span>
         <CardMenu p={p} onEvidence={onEvidence} />
       </div>
+      <CardSummary p={p} ai={ai} limits={limits} />
       <dl className={styles.cardRows}>
         <dt>대상</dt>
-        <dd>
-          {p.target} · 확신도 <b className="num">{p.confidencePct}%</b> · 위험 {RISK_WORD[p.risk]}
-        </dd>
+        <dd>{p.target}</dd>
         <dt>예상 영향</dt>
-        <dd>{p.impact}</dd>
+        <dd>{joinDots(p.impact)}</dd>
         <dt>되돌리기</dt>
-        <dd>{p.revertPlan}</dd>
+        <dd>{joinDots(p.revertPlan)}</dd>
       </dl>
       <div className={styles.cardFoot}>
         <button
@@ -315,61 +365,6 @@ function ProposalCard({ p, index, ai, limits, onChanged, onEvidence }: {
   );
 }
 
-/**
- * AI 판단 요약 네 칸. 맨 앞 대기 조치안의 예상 영향, 판단의 확신도, 위험도, 되돌리기다. 되돌리기 칸의
- * '과거 같은 조치'는 감사 기록에서 센 값이고 근거 없는 성공률을 적지 않는다. 조치안이 없어도 칸은 남겨
- * 배치가 흔들리지 않게 한다
- */
-function Summary({ ai, top, limits }: { ai: AiDesk; top: AiProposal | null; limits: AiLimits }) {
-  const [impact, impactRest] = top ? splitLead(top.impact) : ["해당 없음", "권장 조치 없음"];
-  const conf = ai.confidencePct;
-  const word = conf === null ? "" : conf >= 85 ? "높음" : conf >= 70 ? "보통" : "낮음";
-  const stats = top ? ai.actionStats[actionKey(top.kind, top.title)] : undefined;
-  return (
-    <dl className={styles.summaryCells} aria-label="AI 판단 요약">
-      <div className={styles.cell} data-empty={top ? undefined : ""}>
-        <dt>예상 영향</dt>
-        <dd className={styles.cellValue}>{impact.replace(/\.$/, "")}</dd>
-        <dd className={styles.cellSub}>{impactRest}</dd>
-      </div>
-      <div className={styles.cell} data-empty={conf === null ? "" : undefined}>
-        <dt>확신도</dt>
-        <dd className={`${styles.cellValue} num`}>{conf === null ? "해당 없음" : `${conf}% · ${word}`}</dd>
-        <dd className={styles.cellSub}>
-          <span className={styles.confTrack} aria-hidden="true">
-            {conf !== null && <span className={styles.confFill} style={{ transform: `scaleX(${conf / 100})` }} />}
-            <span className={styles.confMark} style={{ left: `${limits.confidencePct}%` }} />
-          </span>
-          자동 실행 기준 {limits.confidencePct}%
-        </dd>
-      </div>
-      <div className={styles.cell} data-empty={top ? undefined : ""}>
-        <dt>위험도</dt>
-        <dd className={styles.cellValue}>
-          {top ? (
-            <>
-              <span className={styles.shape} data-tone={top.risk === "LOW" ? "success" : "warning"} aria-hidden="true">
-                {top.risk === "LOW" ? "●" : "▲"}
-              </span>{" "}
-              {RISK_WORD[top.risk]}
-            </>
-          ) : (
-            "해당 없음"
-          )}
-        </dd>
-        <dd className={styles.cellSub}>{top ? `${AI_ACTION_LABEL[top.kind]} · 허용 목록` : "금지 목록 조치는 내지 않음"}</dd>
-      </div>
-      <div className={styles.cell} data-empty={top ? undefined : ""}>
-        <dt>되돌리기</dt>
-        <dd className={styles.cellValue}>{top ? (top.kind === "BACKUP_NOW" ? "되돌릴 것 없음" : "가능") : "해당 없음"}</dd>
-        <dd className={`${styles.cellSub} num`}>
-          {top ? (stats ? `과거 같은 조치 ${stats.runs}회 · 되돌림 ${stats.reverts}회` : "과거 같은 조치 기록 없음") : "감사 기록에서 셈"}
-        </dd>
-      </div>
-    </dl>
-  );
-}
-
 function AiOff({ source }: { source: string }) {
   return (
     <div className={styles.aiOff}>
@@ -391,16 +386,16 @@ function AiOff({ source }: { source: string }) {
  * AI 칸(판의 ai)만 받는다. 판은 매초 새로 오지만 이 칸은 판단이 바뀔 때만 새 참조라(opsCenter의
  * shareEqual) 패널이 매초 다시 그려지지 않는다
  */
-function AiPanel({ section, sim, onChanged, full = false }: {
+function AiPanel({ section, onChanged, full = false }: {
   /** 판을 받기 전이면 null이다 */
   section: OpsSection<AiDesk> | null;
-  sim: boolean;
   onChanged: () => void;
-  /** AI 판단 화면은 결정된 조치안과 판단 이력을 모두 싣는다 */
+  /** AI 판단 화면은 결정된 조치안과 판단 기록을 모두 싣는다 */
   full?: boolean;
 }) {
   const point = useOpsFocus((s) => s.point);
   const evidenceRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const ai = section?.state === "READY" ? section.data : null;
   const open = ai ? ai.proposals.filter((p) => p.status === "PROPOSED") : [];
   const others = ai ? ai.proposals.filter((p) => p.status !== "PROPOSED") : [];
@@ -409,6 +404,12 @@ function AiPanel({ section, sim, onChanged, full = false }: {
   const limits = limitsOf(ai?.limits);
   const stopped = ai?.mode === "STOPPED";
   const [lead, rest] = ai ? splitLead(ai.situation) : ["", ""];
+  // 새 판단 기록이 생기면 기둥 안 스크롤을 맨 위로 되돌린다. 새 판단과 대기 조치안이 먼저 보여야 한다(§12-9)
+  const latest = ai?.history[0]?.id ?? null;
+  useEffect(() => {
+    if (latest !== null) bodyRef.current?.scrollTo({ top: 0 });
+  }, [latest]);
+  const judgedAt = ai?.judgedAt ? hms(ai.judgedAt) : null;
 
   const showEvidence = (p: AiProposal) => {
     const ref = KIND_REF[p.kind];
@@ -425,7 +426,6 @@ function AiPanel({ section, sim, onChanged, full = false }: {
           </span>
           AI 관제
         </h2>
-        {sim && <span className={styles.simTag}>시뮬레이션</span>}
         {ai && (
           <span className={styles.modeTag} data-mode={ai.mode}>
             {ai.mode === "AUTO" ? "자동 모드" : ai.mode === "STOPPED" ? <><span aria-hidden="true">▲ </span>AI 정지</> : "수동 모드"}
@@ -463,45 +463,10 @@ function AiPanel({ section, sim, onChanged, full = false }: {
         </div>
       ) : (
         <>
-          <div className={styles.aiBody}>
+          <div className={styles.aiBody} ref={bodyRef}>
             <div className={styles.judgement}>
               <p className={styles.aiLead}>{lead}</p>
-              {rest && <p className={styles.aiLeadRest}>{rest}</p>}
-            </div>
-            {ai.evidence.length > 0 && (
-              <div className={styles.evidence} ref={evidenceRef}>
-                <span className={styles.evidenceKey}>근거</span>
-                <div className={styles.evidenceChips}>
-                  {ai.evidence.map((e) => (
-                    <button
-                      key={e.id}
-                      type="button"
-                      className={styles.chip}
-                      onClick={() => {
-                        if (e.ref) point(e.ref);
-                      }}
-                      aria-label={`근거 ${e.label} ${e.value}. 누르면 해당 자리 강조`}
-                    >
-                      {e.severity && (
-                        <span className={styles.shape} data-tone={e.severity === "critical" ? "danger" : e.severity === "warning" ? "warning" : "info"} aria-hidden="true">
-                          {SEVERITY_SHAPE[e.severity]}
-                        </span>
-                      )}
-                      {e.label} <b className="num">{e.value}</b>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {ai.hypothesis && (
-              <p className={styles.hypo}>
-                <span className={styles.hypoKey}>원인 가설</span>
-                {ai.hypothesis}
-              </p>
-            )}
-            <div className={styles.aiSection}>
-              <div className={styles.subHead}>AI 판단 요약</div>
-              <Summary ai={ai} top={open[0] ?? null} limits={limits} />
+              {rest && <p className={styles.aiLeadRest}>{joinDots(rest)}</p>}
             </div>
             <div className={styles.aiSection}>
               <div className={styles.subHead}>
@@ -522,6 +487,43 @@ function AiPanel({ section, sim, onChanged, full = false }: {
                 )}
               </div>
             </div>
+            {ai.evidence.length > 0 && (
+              <div className={styles.evidence} ref={evidenceRef}>
+                <span className={styles.evidenceKey}>근거</span>
+                <div className={styles.evidenceChips}>
+                  {judgedAt && (
+                    <span className={`${styles.evidenceAt} num`}>
+                      판단 <b>{judgedAt}</b> 기준
+                    </span>
+                  )}
+                  {ai.evidence.map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      className={styles.chip}
+                      title={judgedAt ? `판단 ${judgedAt} 기준 값` : undefined}
+                      onClick={() => {
+                        if (e.ref) point(e.ref);
+                      }}
+                      aria-label={`근거 ${e.label} ${e.value}${judgedAt ? `, 판단 ${judgedAt} 기준` : ""}. 누르면 해당 자리 강조`}
+                    >
+                      {e.severity && (
+                        <span className={styles.shape} data-tone={e.severity === "critical" ? "danger" : e.severity === "warning" ? "warning" : "info"} aria-hidden="true">
+                          {SEVERITY_SHAPE[e.severity]}
+                        </span>
+                      )}
+                      {e.label} <b className="num">{e.value}</b>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {ai.hypothesis && (
+              <p className={styles.hypo}>
+                <span className={styles.hypoKey}>원인 가설</span>
+                {ai.hypothesis}
+              </p>
+            )}
             {done.length > 0 && (
               <div className={styles.aiSection}>
                 <div className={styles.subHead}>
@@ -537,7 +539,7 @@ function AiPanel({ section, sim, onChanged, full = false }: {
               </div>
             )}
             <div className={styles.aiSection}>
-              <div className={styles.subHead}>판단 이력</div>
+              <div className={styles.subHead}>판단 기록</div>
               <ol className={styles.historyList}>
                 {history.map((h) => (
                   <li key={h.id} className={styles.historyRow}>

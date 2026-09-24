@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 최종 실측 시각과 새로고침. 관리 화면 머리에 상설한다.
+ * 마지막 조회 시각(KST)과 새로고침. 관리 화면 머리에 상설한다.
  *
  * 갱신을 manual로 내린 화면이 많아졌다. 자동으로 돌지 않는 값은 언제 잰 것인지가 반드시
  * 보여야 한다. 시각 없이 숫자만 있으면 운영자가 그것을 현재로 읽고, 그 오해는 장애 대응
@@ -9,7 +9,7 @@
  */
 
 import { StaleBadge } from "@/components/StatusSignals";
-import { formatTimeHMS } from "@/lib/format";
+import { hms } from "@/lib/admin/timeText";
 import styles from "./admin.module.css";
 
 export default function ResourceStamp({
@@ -25,7 +25,7 @@ export default function ResourceStamp({
     <span className={styles.stamp}>
       {stale && <StaleBadge since={lastUpdatedAt} />}
       <span className={styles.stampTime}>
-        {lastUpdatedAt === null ? "실측 없음" : `최종 실측 ${formatTimeHMS(new Date(lastUpdatedAt).toISOString())}`}
+        {lastUpdatedAt === null ? "조회 전" : `마지막 조회 ${hms(new Date(lastUpdatedAt).toISOString())}`}
       </span>
       <button type="button" className={styles.stampBtn} onClick={onReload}>
         새로고침

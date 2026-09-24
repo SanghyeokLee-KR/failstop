@@ -10,7 +10,7 @@ import type { OpsBadgeKind } from "@/lib/admin/nav";
 import { useOpsPick, useOpsPickShallow } from "@/lib/admin/opsCenter";
 import type { ControlCenter, ThresholdKey } from "@/lib/admin/types";
 import { hostState } from "@/lib/admin/opsHealth";
-import { AiMark, useClock } from "./parts";
+import { AiMark, remainWord, useClock } from "./parts";
 import styles from "./control.module.css";
 
 /** 글자로만 된 배지. 사이드바가 배지를 얕게 견줘 바뀔 때만 다시 그린다 */
@@ -81,10 +81,13 @@ export function NavBadge({ kind }: { kind: OpsBadgeKind }) {
   );
 }
 
-/** 사이드바 바닥의 AI 모드. 자동이면 남은 시간을 시:분으로, 정지면 주의 모양으로 적는다 */
+/**
+ * 사이드바 바닥의 AI 모드. 자동이면 남은 시간을 모드 줄과 같은 꼴('1시간 59분 남음', §12-12)로, 정지면 주의 모양으로
+ * 적는다. 모드 줄과 같은 박자(1초)로 읽어야 분이 바뀌는 순간에 두 자리가 다른 값을 보이지 않는다
+ */
 export function AiModeFoot() {
   const section = useOpsPick((c) => c?.ai ?? null);
-  const now = useClock(15_000);
+  const now = useClock();
   const ai = section?.state === "READY" ? section.data : null;
   const auto = ai?.mode === "AUTO" && ai.auto !== null;
   const stopped = ai?.mode === "STOPPED";
@@ -96,12 +99,9 @@ export function AiModeFoot() {
       </>
     );
   } else if (ai && auto && ai.auto) {
-    const left = Math.max(0, Date.parse(ai.auto.until) - now);
-    const h = Math.floor(left / 3_600_000);
-    const m = Math.floor((left % 3_600_000) / 60_000);
     text = (
       <>
-        AI <b>자동</b> · {h}:{String(m).padStart(2, "0")} 남음
+        AI <b>자동</b> · {remainWord(Date.parse(ai.auto.until) - now)} 남음
       </>
     );
   } else if (ai) {

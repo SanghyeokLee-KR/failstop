@@ -208,7 +208,7 @@ export interface AdminApi {
   silenceAlert(alertId: string, minutes: number): Promise<void>;
   /** AI 조치안 결정. 승인은 실행이고, 임계값 조치안은 1인 승인 티켓(ops.threshold.set)을 발급·소각한다 */
   decideAiProposal(proposalId: string, decision: AiDecision): Promise<void>;
-  /** 자동 실행된 조치를 되돌리기 창 안에서 무른다 */
+  /** 자동 실행된 조치를 되돌리기 창 안에서 되돌린다 */
   revertAiAction(proposalId: string): Promise<void>;
   /** 자동 모드 켜기. 사유와 유효 시간을 받아 1인 승인 티켓(ops.ai.auto)을 발급·소각한다 */
   enableAiAuto(hours: number, reason: string): Promise<void>;

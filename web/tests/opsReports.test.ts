@@ -82,7 +82,8 @@ test("연동 상태: sim은 판에서 가리고, http는 원천 상태에서 가
   assert.equal(byKey.prometheus.sim, true, "시뮬레이터가 흉내 낸 값이라고 적는다");
   assert.equal(byKey.grafana.state, "NOT_CONNECTED", "딥링크 주소가 없으면 연결 전이다");
   assert.equal(byKey.teams.state, "CONNECTED");
-  assert.equal(byKey.ai1.state, "CONNECTED");
+  assert.equal(byKey.ai1.state, "ASSUMED", "구축 전 ai-1은 연결됨으로 세지 않고 시뮬레이션 가정으로 적는다");
+  assert.match(byKey.ai1.detail, /^구축 전 · 연결 경로 결정 전/);
 
   const absent = { ...board, origin: null, sources: null } as ControlCenter;
   const none = integrationsOf(absent, { state: "NOT_CONNECTED", source: "보고 서비스" }, { grafana: true, databasus: true });

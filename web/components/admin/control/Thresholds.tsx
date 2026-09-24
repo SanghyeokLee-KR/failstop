@@ -37,7 +37,7 @@ function checkDraft(t: OpsThreshold, to: number, items: OpsThreshold[]): string 
   return null;
 }
 
-/** 지금 값으로 새 임계를 적용했을 때 무엇이 달라지는지. 판단 근거를 값으로 적는다 */
+/** 현재값에 새 임계를 적용했을 때 무엇이 달라지는지. 판단 근거를 값으로 적는다 */
 function impactOf(t: OpsThreshold, to: number, c: ControlCenter): string {
   const tier = c.readTier.state === "READY" ? c.readTier.data : null;
   const hosts = c.hosts.state === "READY" ? c.hosts.data : [];
@@ -58,17 +58,17 @@ function impactOf(t: OpsThreshold, to: number, c: ControlCenter): string {
     case "host.cpu_alert": {
       const now = count((v) => v >= t.value, (h) => h.cpuPct);
       const next = count((v) => v >= to, (h) => h.cpuPct);
-      return `지금 값으로 CPU 경보 호스트가 ${now}대에서 ${next}대가 됩니다.`;
+      return `현재값 기준으로 CPU 경보 노드가 ${now}대에서 ${next}대가 됩니다.`;
     }
     case "host.mem_alert": {
       const now = count((v) => v >= t.value, (h) => h.memPct);
       const next = count((v) => v >= to, (h) => h.memPct);
-      return `지금 값으로 메모리 경보 호스트가 ${now}대에서 ${next}대가 됩니다.`;
+      return `현재값 기준으로 메모리 경보 노드가 ${now}대에서 ${next}대가 됩니다.`;
     }
     case "host.disk_free_alert": {
       const now = count((v) => 100 - v < t.value, (h) => h.diskUsedPct);
       const next = count((v) => 100 - v < to, (h) => h.diskUsedPct);
-      return `지금 값으로 디스크 여유 경보 호스트가 ${now}대에서 ${next}대가 됩니다. 디스크 정리는 금지 목록이라 AI가 하지 않습니다.`;
+      return `현재값 기준으로 디스크 여유 경보 노드가 ${now}대에서 ${next}대가 됩니다. 디스크 정리는 금지 목록이라 AI가 하지 않습니다.`;
     }
     case "db.replication_lag_alert":
       return lower ? "복제 지연을 더 일찍 알립니다. 비동기 복제라 지연 동안의 기록은 Primary를 잃으면 함께 잃을 수 있습니다." : "복제 지연을 더 늦게 알립니다. 유실 위험 구간을 늦게 알게 됩니다.";
@@ -86,7 +86,7 @@ function impactOf(t: OpsThreshold, to: number, c: ControlCenter): string {
     case "host.cpu_credit_alert": {
       const now = count((v) => v < t.value, (h) => h.cpuCredits);
       const next = count((v) => v < to, (h) => h.cpuCredits);
-      return `지금 값으로 크레딧 경보 호스트가 ${now}대에서 ${next}대가 됩니다. 정보 등급이라 AI가 30분 보류를 제안할 수 있습니다.`;
+      return `현재값 기준으로 크레딧 경보 노드가 ${now}대에서 ${next}대가 됩니다. 정보 등급이라 AI가 30분 보류를 제안할 수 있습니다.`;
     }
   }
 }
@@ -344,7 +344,7 @@ function ThresholdPanel({ section, onChanged, full = false }: {
               actions={["ops.threshold.set"]}
               onChange={onChanged}
               emptyLabel="대기 중인 임계값 변경 없음"
-              emptyDesc="변경 요청을 하면 여기서 발급하고 실행"
+              emptyDesc="변경을 요청하면 여기서 승인을 발급하고 실행합니다"
             />
             <div className={styles.subHead}>변경 이력</div>
             <HistoryTable history={reg.history} items={reg.items} limit={full ? undefined : 4} />

@@ -165,7 +165,7 @@ export default function TimelineBlock({ log }: { log: IncidentLog }) {
   return (
     <div className={styles.stack} style={{ gap: "var(--space-3)" }}>
       <div className={styles.subHead}>
-        <span>사건 타임라인</span>
+        <span>사건 기록</span>
         <FilterSwitch value={filter} onChange={setFilter} label="기록 거르기" />
       </div>
       {current === null ? (

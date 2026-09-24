@@ -10,7 +10,10 @@
   padding: var(--space-6);
   background: var(--overlay-dim);
 }
+/* 대화상자는 셸 밖(body 포털)에 뜨므로 셸의 줄바꿈 규칙을 여기서 다시 건다(§12-12) */
 .dialog {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   width: 100%;
   max-width: 420px;
   display: flex;
@@ -54,8 +57,9 @@
   gap: var(--space-4);
   font-size: var(--font-body-sm-size);
 }
+/* sunken 면 위라 secondary(4.27:1)는 본문 대비에 모자란다. 이름 칸도 본문 잉크를 쓴다 */
 .row dt {
-  color: var(--text-secondary);
+  color: var(--text-default);
   white-space: nowrap;
 }
 .row dd {

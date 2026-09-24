@@ -28,7 +28,7 @@ export default function DatabasePage() {
     <div className={adminStyles.page}>
       <OpsHead
         title="데이터베이스"
-        desc="복제, 자동 전환, 백업. DB 승격과 복제 재구성은 사람이 하고 AI는 하지 않습니다"
+        desc="복제, 자동 전환, 백업을 봅니다. DB 승격과 복제 재구성은 사람이 하고 AI는 하지 않습니다"
         center={data}
         actions={<GrafanaLink board="msp-db-replication" label="06 복제·복구 추이" />}
       />
@@ -72,7 +72,7 @@ export default function DatabasePage() {
                 <>
                   <BackupLine b={jobs.backup} onChanged={() => void refresh(true)} detail />
                   <p className={styles.lead}>
-                    관제센터는 Databasus가 낸 결과를 판독만 하고 백업 설정을 바꾸지 않습니다. 즉시 실행은 Databasus의 백업 실행을 뜻합니다. 도입은 로컬 VM 예행 단계라 이 값은 시뮬레이션입니다.
+                    관제센터는 Databasus가 낸 결과를 판독만 하고 백업 설정을 바꾸지 않습니다. 즉시 실행은 Databasus의 백업 실행을 뜻합니다.
                   </p>
                 </>
               )}

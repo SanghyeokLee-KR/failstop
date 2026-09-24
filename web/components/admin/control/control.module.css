@@ -3,6 +3,11 @@
    색은 토큰만 쓴다. 유채색은 헬스 도메인(success·warning·danger)과 AI 강조(--ai-*)뿐이다.
    ========================================================================== */
 
+/* 숫자와 단위, 짧은 판독 한 덩이. 줄을 바꾸더라도 이 덩이 안에서는 끊지 않는다(§12-12) */
+.nowrap {
+  white-space: nowrap;
+}
+
 /* ===== 화면 머리 ===== */
 .titleRow {
   display: flex;
@@ -26,10 +31,12 @@
 .envBadge[data-env="UNKNOWN"] {
   border-style: dashed;
 }
-/* 출처 칩. 운영 정보라 상태색 없이 중립 윤곽에 본문 잉크를 쓴다. 지연만 주의색을 받는다 */
+/* 출처 칩. 운영 정보라 상태색 없이 중립 윤곽에 본문 잉크를 쓴다. 지연만 주의색을 받는다.
+   inline-flex 안에서는 형태 기호 뒤 공백이 줄 끝 공백으로 지워져 '◌원천'처럼 붙으므로 틈은 gap으로 둔다 */
 .sourceChip {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   min-height: 24px;
   padding: 0 var(--space-2);
   border-radius: var(--radius-xs);
@@ -39,10 +46,6 @@
   font-weight: var(--fw-medium);
   color: var(--text-default);
   white-space: nowrap;
-}
-.sourceChip[data-kind="sim"] {
-  border-style: dashed;
-  border-color: var(--border-strong);
 }
 .sourceChip[data-kind="none"] {
   border-style: dashed;
@@ -176,8 +179,10 @@
 }
 
 /* ===== AI 운영 모드 줄 =====
-   자동을 켜고 끌 때 줄 높이가 같아 아래 판이 움직이지 않는다(레이아웃 §7) */
+   자동을 켜고 끌 때 줄 높이가 같아 아래 판이 움직이지 않는다(레이아웃 §7). 줄 폭을 재는 컨테이너라 좁으면
+   관찰 창 막대와 이름 글을 거두고 숫자를 남긴다 */
 .modeBar {
+  container: modebar / inline-size;
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -216,6 +221,19 @@
 }
 .modeLabel svg {
   color: var(--ai-accent);
+}
+@container modebar (max-width: 1180px) {
+  .observeTrack {
+    display: none;
+  }
+}
+@container modebar (max-width: 1060px) {
+  .modeLabelText {
+    display: none;
+  }
+  .modeItems {
+    gap: var(--space-3);
+  }
 }
 /* 두 칸 분절. 트랙 위 선택 칸만 면을 올린다(A-9와 같은 문법) */
 .switch {
@@ -350,6 +368,71 @@
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
+}
+/* 수동 모드 줄. 뜻 글은 좁으면 말줄임으로 줄고 대기 조치안 링크는 줄지 않는다 */
+.modeLine {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+/* 대기 조치안 링크(§12-9). 텍스트 링크 변형이고 누르면 첫 대기 카드로 스크롤한다 */
+/* 글 한 덩이라 inline-flex의 gap을 쓰지 않는다. gap은 숫자와 단위('2건')를 띄운다(§12-12) */
+.pendingLink {
+  flex-shrink: 0;
+  position: relative;
+  display: inline-block;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--chrome-accent);
+  white-space: nowrap;
+}
+.pendingLink::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
+.pendingLink:hover {
+  text-decoration: underline;
+}
+.pendingLink b {
+  font-weight: var(--fw-bold);
+}
+/* 자동 모드를 켠 사유. 줄에는 표지만 두고 글은 툴팁과 접근 이름이 싣는다 */
+.reasonMark {
+  flex-shrink: 0;
+  display: inline-flex;
+  color: var(--text-secondary);
+  cursor: help;
+}
+/* 운영자 바의 AI 즉시 정지(§12-9). 상태 신호와 세로 헤어라인으로 가른다 */
+.aiStop {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+  box-shadow: inset -1px 0 0 var(--border-subtle);
+  white-space: nowrap;
+}
+.aiStopWord {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-bold);
+  color: var(--color-warning-text);
+}
+/* 수동 모드의 평상 톤. neutral 단추에 형태 ■만 장애색이다. 자동 모드에서는 danger 변형이 이 자리를 갖는다 */
+.stopShape {
+  margin-right: 6px;
+  font-size: 10px;
+}
+.stopCalm .stopShape {
+  color: var(--color-danger);
 }
 /* 규칙 펼침. 요약 단추는 텍스트 링크 문법이고 펼친 판은 드롭다운 층에 뜬다 */
 .rules {
@@ -571,7 +654,8 @@
   color: var(--text-secondary);
   white-space: nowrap;
 }
-/* 앞 구간 대비. 색은 오르내림이 아니라 좋아졌는지다. 방향은 ▲▼ 글자가 싣는다 */
+/* 증감(§12-9). 색은 좋아졌는지로 정하되 칸의 상태색을 넘지 않는다. 정상 칸에서 나빠진 증감은 잉크이고,
+   주의·장애 색은 목표를 벗어난 칸의 '목표 초과 n분째'에만 쓴다. 방향은 ▲▼ 글자가 싣는다 */
 .delta {
   flex-shrink: 0;
   font-size: var(--font-dense-size);
@@ -583,6 +667,12 @@
   color: var(--color-success-text);
 }
 .delta[data-good="bad"] {
+  color: var(--text-default);
+}
+.delta[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.delta[data-tone="danger"] {
   color: var(--color-danger);
 }
 .delta[data-good="flat"],
@@ -644,6 +734,11 @@
 .tileSub b {
   font-weight: var(--fw-semibold);
   color: var(--text-default);
+}
+/* 원천 연결 전 칸의 사유는 값이 없는 자리를 채우는 설명이라 자르지 않고 줄을 넘긴다(§12-12) */
+.tile[data-missing] .tileSub {
+  white-space: normal;
+  overflow: visible;
 }
 .alertCounts {
   display: inline-flex;
@@ -751,9 +846,15 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.9fr);
   gap: var(--space-4);
-  /* 운영자 바 56, 위 여백 24, 머리 57, 모드 줄 52, 요약 112, 간격 16 셋과 바닥 여유 16 */
-  height: max(560px, calc(100vh - 365px));
   min-height: 0;
+}
+/* 1920x1080 같은 넓은 창에서만 세 기둥을 화면 높이에 묶어 스크롤 없이 보인다. 좁은 창에서는 기둥이 내용 높이로
+   서고 본문이 스크롤해 대기 조치안이 기둥 안쪽 스크롤에 묻히지 않는다(레이아웃 §7 v1.6) */
+@media (min-width: 1600px) {
+  .columns {
+    /* 운영자 바 56, 위 여백 24, 머리 57, 모드 줄 52, 요약 112, 간격 16 셋과 바닥 여유 16 */
+    height: max(560px, calc(100vh - 365px));
+  }
 }
 .column {
   display: flex;
@@ -799,13 +900,11 @@
   color: var(--text-strong);
   white-space: nowrap;
 }
+/* 패널 머리의 보조 설명. 좁은 기둥에서 말줄임으로 자르지 않고 낱말 단위로 다음 줄로 넘긴다(§12-12) */
 .panelMeta {
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
 }
 .panelActions {
@@ -1003,8 +1102,9 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
-/* 기둥이 좁으면 카드 둘을 나란히 두지 않는다. 나란히 두면 게이지 막대가 수 px로 줄어 눈금을 읽을 수 없다 */
-@container col (max-width: 300px) {
+/* 기둥이 좁으면(1440·1280px 창) 카드 둘을 나란히 두지 않는다. 나란히 두면 게이지 막대가 수 px로 줄고 온프레미스
+   카드가 칸 밖으로 넘친다(레이아웃 §7 v1.6) */
+@container col (max-width: 340px) {
   .infraGroups:not([data-wide]) {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
@@ -1078,6 +1178,11 @@
 }
 .nodeState[data-tone="off"] {
   color: var(--text-secondary);
+}
+/* 카드 머리 아래의 표식 줄(구축 전 ai-1의 '시뮬레이션 가정') */
+.hostMark {
+  display: flex;
+  margin-top: calc(var(--space-1) * -1);
 }
 .hostKind {
   min-width: 0;
@@ -1205,6 +1310,14 @@
   justify-content: space-between;
   gap: var(--space-2);
   min-width: 0;
+}
+/* 좁은 기둥(1280 창)에서 묶음 설명은 자르지 않고 줄을 넘기고, 복제 상태 낱말은 줄지 않는다 */
+.dbPairHead .hostKind {
+  white-space: normal;
+  overflow: visible;
+}
+.dbPairHead .nodeState {
+  flex-shrink: 0;
 }
 .dbPairBody {
   display: grid;
@@ -1490,18 +1603,6 @@
   display: inline-flex;
   color: var(--ai-accent);
 }
-.simTag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-  padding: 0 6px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-xs);
-  font-size: var(--font-micro-size);
-  font-weight: var(--fw-medium);
-  color: var(--text-default);
-  white-space: nowrap;
-}
 .modeTag {
   font-size: var(--font-dense-size);
   font-weight: var(--fw-medium);
@@ -1669,79 +1770,41 @@
   flex-direction: column;
   gap: var(--space-2);
 }
-/* AI 판단 요약 네 칸. 칸 사이는 헤어라인으로만 가르고 면을 칠하지 않는다 */
-.summaryCells {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 0;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--control-radius);
-}
-.cell {
+/* 조치 카드 안의 AI 판단 요약 한 줄(§12-9). 항목 단위로만 줄을 바꾼다 */
+.cardSummary {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  border-left: 1px solid var(--border-subtle);
-}
-.cell:first-child {
-  border-left: 0;
-}
-.cell dt {
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  font-weight: var(--fw-medium);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--space-3);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
   color: var(--text-secondary);
 }
-.cell dd {
-  margin: 0;
+/* 항목은 글 한 덩이다. flex의 gap을 쓰면 '1 회'처럼 숫자와 단위가 벌어져 inline-block으로 둔다 */
+.sumItem {
+  display: inline-block;
+  white-space: nowrap;
 }
-.cellValue {
-  font-size: var(--font-caption-size);
-  line-height: var(--font-caption-line);
+.sumItem b {
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
-  word-break: keep-all;
-  overflow-wrap: break-word;
 }
-.cell[data-empty] .cellValue {
-  font-weight: var(--fw-medium);
-  color: var(--text-secondary);
-}
-.cellSub {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  color: var(--text-secondary);
-  word-break: keep-all;
-}
-@container (max-width: 520px) {
-  .summaryCells {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .cell:nth-child(3) {
-    border-left: 0;
-  }
-  .cell:nth-child(n + 3) {
-    border-top: 1px solid var(--border-subtle);
-  }
-}
-.confTrack {
+/* 확신도 막대. 48px 트랙에 채움과 자동 실행 기준 눈금이다 */
+.confMini {
   position: relative;
-  display: block;
+  display: inline-block;
+  vertical-align: middle;
+  width: 48px;
   height: 4px;
-  margin-top: 2px;
+  margin-left: 6px;
   border-radius: var(--radius-full);
   background: var(--surface-sunken);
 }
-:global([data-theme="dark"]) .confTrack {
+:global([data-theme="dark"]) .confMini {
   background: var(--border-default);
 }
 @media (prefers-color-scheme: dark) {
-  :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .confTrack {
+  :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .confMini {
     background: var(--border-default);
   }
 }
@@ -1764,6 +1827,21 @@
   width: 2px;
   transform: translateX(-50%);
   background: var(--text-strong);
+}
+/* 근거 칩 묶음의 판단 시점. 칩의 값은 판단한 순간의 값이다(§12-9) */
+.evidenceAt {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.evidenceAt b {
+  margin: 0 3px;
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
 }
 
 /* ===== 조치 카드 ===== */
@@ -1792,6 +1870,11 @@
 .card[data-status="AUTO_EXECUTED"] {
   box-shadow: none;
   border-color: var(--border-subtle);
+}
+/* 모드 줄의 조치안 링크로 온 카드. 어디에 닿았는지 링으로 보인다 */
+.card:focus {
+  outline: var(--focus-outline-width) solid var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset);
 }
 .card[data-status="AUTO_REVERTED"] {
   border-color: var(--color-warning-text);
@@ -2461,12 +2544,17 @@
   color: var(--text-strong);
   white-space: nowrap;
 }
+/* 운영 작업 줄은 시각과 크기가 섞여 늘 tabular로 둔다. 매분 바뀌는 시각에 폭이 흔들리지 않는다 */
 .jobVal {
   min-width: 0;
   color: var(--text-default);
   display: flex;
   flex-wrap: wrap;
   gap: 0 var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+.jobVal > span {
+  white-space: nowrap;
 }
 .jobVal b {
   font-weight: var(--fw-bold);
@@ -2579,11 +2667,12 @@
   gap: var(--space-2);
   min-height: 44px;
 }
+/* 슬라이더 아홉 개가 한 표에 서므로 채움은 무채다. 강조색을 칠하면 표 전체가 파랗게 읽힌다(§12-10) */
 .editor input[type="range"] {
   flex: 1;
   min-width: 80px;
   height: 20px;
-  accent-color: var(--chrome-accent);
+  accent-color: var(--text-secondary);
 }
 .editor input[type="number"] {
   width: 72px;
@@ -2691,11 +2780,23 @@
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
 }
+/* 감사 표. 열 너비를 고정해(table-layout fixed) 카드보다 넓어지지 않는다. 시각·누가·승인은 고정 폭이고
+   액션과 대상이 남는 폭을 나눈다. 원문을 자르지 않는다. 액션 코드는 어디서든 끊고 대상은 낱말 단위로 넘긴다(§12-12) */
 .hist {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
+}
+.hist [data-col="at"] {
+  width: 76px;
+}
+.hist [data-col="who"] {
+  width: 88px;
+}
+.hist [data-col="ok"] {
+  width: 52px;
 }
 .hist th {
   padding: 0 var(--space-2) var(--space-1);
@@ -2711,6 +2812,14 @@
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-default);
   white-space: nowrap;
+  vertical-align: top;
+}
+.hist td[data-code] {
+  white-space: normal;
+  word-break: break-all;
+}
+.hist td[data-wrap] {
+  white-space: normal;
 }
 .hist td[data-num] {
   text-align: right;
@@ -2738,6 +2847,7 @@
 }
 
 /* ===== 거래 요약 띠 ===== */
+/* 거래 요약 띠. 수치와 시각이 섞여 늘 tabular로 둔다 */
 .strip {
   display: flex;
   align-items: center;
@@ -2747,6 +2857,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--panel-radius);
   background: var(--surface-default);
+  font-variant-numeric: tabular-nums;
 }
 .stripTitle {
   font-size: var(--font-caption-size);

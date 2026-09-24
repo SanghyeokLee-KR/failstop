@@ -37,8 +37,8 @@ function stateOf(n: CapacityNode): { health: Health; label: string; off?: true }
   if (n.lifecycle === "DRAINING") return { health: "warning", label: "내리는 중" };
   if (!n.reachable) {
     // 계약상 떠 있어야 하는데 응답이 없으면 장애다. 계약에 없으면 꺼져 있는 것이 정상이다.
-    // 꺼짐은 판정이 아니라 중지라 초록 점이 아니라 무채 ○로 적는다(§12-3)
-    return n.expected ? { health: "danger", label: "응답 없음" } : { health: "success", label: "꺼짐", off: true };
+    // 중지는 판정이 아니라 운영자·정책이 내린 상태라 초록 점이 아니라 무채 ○로 적는다(§12-3)
+    return n.expected ? { health: "danger", label: "응답 없음" } : { health: "success", label: "중지", off: true };
   }
   if (n.cpuRatio !== null && n.cpuRatio >= 0.9) return { health: "warning", label: dutyOf(n) };
   return { health: "success", label: dutyOf(n) };
@@ -90,10 +90,10 @@ export default function NodeStrip({
   return (
     <div className={styles.nodeStrip}>
       <div className={styles.nodeStripHead} aria-hidden="true">
-        <span>서버</span>
+        <span>노드</span>
         <span>구성</span>
         <span>사용률</span>
-        <span>메모리</span>
+        <span title="호스트 메모리가 아니라 앱의 JVM 힙 사용률입니다">JVM 힙</span>
         <span>초당 요청</span>
         <span>동시 접속</span>
       </div>

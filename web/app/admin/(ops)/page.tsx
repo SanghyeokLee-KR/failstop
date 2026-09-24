@@ -7,8 +7,8 @@
  * 조치를 승인하고 기록을 남기는 곳이다. 추세는 상태 요약 칸의 작은 선 하나씩만 두고(범위 1·6·24시간)
  * 탐색은 Grafana로 보낸다. 파괴 액션은 여기서 실행하지 않는다. AI 조치는 ADR 0035의 허용 목록뿐이다.
  *
- * 관제 판은 운영 관제 셸 전체가 나눠 쓰는 폴러(opsCenter)에서 읽고, 거래 요약은 기존 합성 조회
- * (getOverview)를 30초 리듬으로 읽는다. 판은 매초 새로 오지만 기둥마다 자기 칸만 받고(memo) 시계
+ * 관제 판은 운영 관제 셸 전체가 나눠 쓰는 폴러(opsCenter)에서 읽는다. 거래 요약은 판의 거래 칸과 기존 합성 조회
+ * (getOverview, 30초 리듬)를 함께 읽는다. 판은 매초 새로 오지만 기둥마다 자기 칸만 받고(memo) 시계
  * 글자는 그 글자를 그리는 조각만 탄다. 이 화면 머리에서 시계를 받아 아래로 내리지 않는다.
  */
 
@@ -52,7 +52,7 @@ export default function ControlCenterPage() {
         title="관제센터"
         desc={
           <>
-            관찰과 추이는 <b>Grafana</b>, 판단·조치·기록은 <b>관제센터</b>
+            관찰과 추이는 <b>Grafana</b>에서, 판단·조치·기록은 <b>관제센터</b>에서 합니다
           </>
         }
         center={data}
@@ -86,11 +86,11 @@ export default function ControlCenterPage() {
           <SummaryStrip summary={data.summary} alerts={data.alerts} incidents={data.incidents} trends={data.trends} range={range} />
           <div className={styles.columns}>
             <InfraColumn center={data} />
-            <AiPanel section={data.ai} sim={data.origin === "SIM"} onChanged={onChanged} />
+            <AiPanel section={data.ai} onChanged={onChanged} />
             <ActionsColumn alerts={data.alerts} incidents={data.incidents} jobs={data.jobs} onChanged={onChanged} />
           </div>
           <ThresholdPanel section={data.thresholds} onChanged={onChanged} />
-          <TradingStrip ov={ov.data} at={ov.lastUpdatedAt} />
+          <TradingStrip ov={ov.data} at={ov.lastUpdatedAt} trading={data.trading} />
         </div>
       )}
     </div>

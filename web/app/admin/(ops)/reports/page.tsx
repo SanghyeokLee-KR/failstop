@@ -19,6 +19,7 @@ import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import ResourceStamp from "@/components/admin/ResourceStamp";
 import { NotConnected } from "@/components/admin/control/parts";
+import { SimMark } from "@/components/admin/ui";
 import { DeliveryLog, ReportDetail, TeamsCardPreview } from "@/components/admin/reports/ReportView";
 import adminStyles from "@/components/admin/admin.module.css";
 import controlStyles from "@/components/admin/control/control.module.css";
@@ -147,7 +148,7 @@ export default function ReportsPage() {
         <div>
           <div className={controlStyles.titleRow}>
             <h1 className={adminStyles.pageTitle}>보고서</h1>
-            {res.data?.state === "READY" && sim && <span className={controlStyles.sourceChip} data-kind="sim">시뮬레이션 · 예시</span>}
+            {res.data?.state === "READY" && sim && <SimMark />}
             {res.data?.state === "NOT_CONNECTED" && (
               <span className={controlStyles.sourceChip} data-kind="none">
                 <span aria-hidden="true">◌ </span>원천 연결 전

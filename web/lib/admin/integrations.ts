@@ -4,11 +4,13 @@
  * Grafana처럼 콘솔이 링크만 거는 원천은 주소가 들어 있는지만 적는다.
  */
 
-import { hm, hms, kst } from "./timeText";
-import type { ControlCenter, OpsSection, OpsSourceName, OpsSourceState, ReportDesk } from "./types";
+import { collectTargets } from "./opsHealth";
+import { hm, hms, kst, secWord } from "./timeText";
+import type { ControlCenter, OpsSection, OpsSourceName, OpsSourceState, ReportAttempt, ReportDesk } from "./types";
 
 export type IntegrationKey = "prometheus" | "alertmanager" | "grafana" | "databasus" | "teams" | "ai1";
-export type IntegrationState = "CONNECTED" | "NOT_CONNECTED" | "ERROR";
+/** ASSUMED는 구축 전이라 연결을 시뮬레이터가 가정한 원천이다(sim의 ai-1). 연결됨으로 세지 않는다 */
+export type IntegrationState = "CONNECTED" | "NOT_CONNECTED" | "ERROR" | "ASSUMED";
 
 export interface IntegrationRow {
   key: IntegrationKey;
@@ -27,7 +29,28 @@ export const STATE_WORD: Record<IntegrationState, { shape: string; word: string;
   CONNECTED: { shape: "●", word: "연결됨", tone: "success" },
   NOT_CONNECTED: { shape: "◌", word: "연결 전", tone: "off" },
   ERROR: { shape: "■", word: "오류", tone: "danger" },
+  ASSUMED: { shape: "◌", word: "시뮬레이션 가정", tone: "off" },
 };
+
+/** 보고 서비스 경유 Teams 전송의 판정. 설정의 Teams 행과 서비스 흐름의 Teams·AI 운영 보고 자리가 같이 쓴다 */
+export function teamsDelivery(desk: OpsSection<ReportDesk> | null): {
+  state: IntegrationState;
+  last: ReportAttempt | null;
+  lastReportAt: string | null;
+  detail: string;
+} {
+  if (desk?.state !== "READY") {
+    return { state: "NOT_CONNECTED", last: null, lastReportAt: null, detail: desk?.state === "NOT_CONNECTED" ? desk.source : "보고 서비스 확인 중" };
+  }
+  const d = desk.data;
+  const last = d.reports.flatMap((r) => r.attempts).concat(d.tests).sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0] ?? null;
+  const lastReportAt = d.reports.map((r) => r.createdAt).sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
+  const failed = d.delivery.dead > 0;
+  const detail = last
+    ? `마지막 ${kst(last.at, false)} ${last.status === "sent" ? "전송됨" : last.status === "queued" ? "재시도 대기" : "실패"} · 전송 대기 ${d.delivery.pending}${failed ? ` · 실패 ${d.delivery.dead}` : ""}`
+    : "보낸 기록 없음";
+  return { state: failed ? "ERROR" : last ? "CONNECTED" : "NOT_CONNECTED", last, lastReportAt, detail };
+}
 
 function fromSource(sources: OpsSourceState[] | null, name: OpsSourceName): Pick<IntegrationRow, "state" | "detail" | "checkedAt"> {
   if (sources === null) return { state: "NOT_CONNECTED", detail: "관리 API에 관제 모듈 없음(overview 404)", checkedAt: null };
@@ -43,10 +66,8 @@ export function integrationsOf(c: ControlCenter | null, desk: OpsSection<ReportD
   const rows: IntegrationRow[] = [];
 
   if (sim && c) {
-    const hosts = c.hosts.state === "READY" ? c.hosts.data : [];
-    const reads = c.readTier.state === "READY" ? c.readTier.data.nodes.filter((n) => n.state !== "OFF") : [];
-    const ok = hosts.filter((h) => h.collect === "OK").length + reads.filter((n) => n.cpuPct !== null).length;
-    rows.push({ key: "prometheus", name: "Prometheus", role: "지표 수집·조회", state: "CONNECTED", detail: `수집 대상 ${hosts.length + reads.length} · 응답 ${ok}/${hosts.length + reads.length}`, checkedAt: at, sim });
+    const t = collectTargets(c);
+    rows.push({ key: "prometheus", name: "Prometheus", role: "지표 수집·조회", state: "CONNECTED", detail: `수집 대상 ${t.targets} · 응답 ${t.ok}/${t.targets}`, checkedAt: at, sim });
     const alerts = c.alerts.state === "READY" ? c.alerts.data : [];
     rows.push({
       key: "alertmanager",
@@ -89,42 +110,28 @@ export function integrationsOf(c: ControlCenter | null, desk: OpsSection<ReportD
     rows.push({ key: "databasus", name: "Databasus", role: "백업·복원 검증", ...fromSource(c?.sources ?? null, "databasus"), sim: false });
   }
 
-  if (desk?.state === "READY") {
-    const d = desk.data;
-    const last = d.reports.flatMap((r) => r.attempts).concat(d.tests).sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0] ?? null;
-    const failed = d.delivery.dead > 0;
-    rows.push({
-      key: "teams",
-      name: "Teams",
-      role: "보고 서비스 경유 전송",
-      state: failed ? "ERROR" : last ? "CONNECTED" : "NOT_CONNECTED",
-      detail: last
-        ? `마지막 ${kst(last.at, false)} ${last.status === "sent" ? "전송됨" : last.status === "queued" ? "재시도 대기" : "실패"} · 전송 대기 ${d.delivery.pending}${failed ? ` · 실패 ${d.delivery.dead}` : ""}`
-        : "보낸 기록 없음",
-      checkedAt: last?.at ?? null,
-      sim,
-    });
-  } else {
-    rows.push({
-      key: "teams",
-      name: "Teams",
-      role: "보고 서비스 경유 전송",
-      state: "NOT_CONNECTED",
-      detail: desk?.state === "NOT_CONNECTED" ? desk.source : "보고 서비스 확인 중",
-      checkedAt: null,
-      sim: false,
-    });
-  }
+  const teams = teamsDelivery(desk);
+  rows.push({
+    key: "teams",
+    name: "Teams",
+    role: "보고 서비스 경유 전송",
+    state: teams.state,
+    detail: teams.detail,
+    checkedAt: teams.last?.at ?? null,
+    sim: desk?.state === "READY" && sim,
+  });
 
   if (c?.aiServer.state === "READY") {
     const a = c.aiServer.data;
-    const p95 = a.p95Ms === null ? "표본 없음" : a.p95Ms >= 1000 ? `${(a.p95Ms / 1000).toFixed(1)}초` : `${a.p95Ms}ms`;
+    const p95 = a.p95Ms === null ? "표본 없음" : secWord(a.p95Ms);
+    const values = `모델 ${a.model} · 적재 ${a.memUsedGb === null ? "미수집" : a.memUsedGb.toFixed(1)}/${a.memTotalGb}GB · 지연 p95 ${p95} · 마지막 응답 ${a.lastServedAt ? hms(a.lastServedAt) : "기록 없음"}`;
     rows.push({
       key: "ai1",
       name: "AI 서버 ai-1",
       role: `온프레미스 추론 · ${a.hardware} · ${a.runtime}`,
-      state: a.link === "OK" ? "CONNECTED" : "ERROR",
-      detail: `모델 ${a.model} · 적재 ${a.memUsedGb ?? "미수집"}/${a.memTotalGb}GB · 지연 p95 ${p95} · 마지막 응답 ${a.lastServedAt ? hms(a.lastServedAt) : "기록 없음"}`,
+      // 구축 전이라 sim의 연결은 가정이다. 연결됨으로 세지 않고 가정이라는 사실과 가정한 값을 함께 적는다
+      state: a.assumed ? "ASSUMED" : a.link === "OK" ? "CONNECTED" : "ERROR",
+      detail: a.assumed ? `구축 전 · 연결 경로 결정 전 · 가정한 값: ${values}` : values,
       checkedAt: a.collectedAt,
       sim,
     });

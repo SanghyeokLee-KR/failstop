@@ -3,7 +3,7 @@
  * 써야 화면마다 다른 말을 하지 않는다. 상태 어휘와 형태는 디자인 시스템 §12-3을 따른다.
  */
 
-import type { ControlCenter, OpsHost, ThresholdKey, ThresholdRegistry } from "./types";
+import type { ControlCenter, OpsHost, OpsHostRole, ReadNodeState, ThresholdKey, ThresholdRegistry } from "./types";
 
 export interface NodeState {
   tone: "success" | "warning" | "danger" | "off";
@@ -86,9 +86,73 @@ export function overallOf(c: ControlCenter | null): Overall {
     if (c.replication.data.stream === "STOPPED") down = true;
     else if (c.replication.data.stream === "CATCHUP") warn = true;
   }
-  if (c.aiServer.state === "READY" && c.aiServer.data.link === "DOWN") {
+  // 구축 전이라 연결을 가정한 ai-1은 인프라 집계와 같이 세지 않는다
+  if (c.aiServer.state === "READY" && !c.aiServer.data.assumed && c.aiServer.data.link === "DOWN") {
     warn = true;
     nodes += 1;
   }
   return { level: down ? "down" : warn ? "warn" : "ok", alerts: alerts.length, nodes };
+}
+
+/**
+ * 인프라 칸 머리의 집계. 켜 둔 EC2 노드와 조회 노드만 세고, 기동·드레이닝처럼 넘어가는 중인 노드는 주의로 센다.
+ * 구축 전인 ai-1은 세지 않는다. sim이 연결을 가정해 값을 내도 운영 중인 노드가 아니다(관리자 설계 4-4)
+ */
+export function infraCounts(c: ControlCenter): { ok: number; warn: number; down: number } | null {
+  if (c.hosts.state !== "READY") return null;
+  const reg = c.thresholds.state === "READY" ? c.thresholds.data : null;
+  const out = { ok: 0, warn: 0, down: 0 };
+  for (const h of c.hosts.data) {
+    const s = hostState(h, reg).tone;
+    if (s === "success") out.ok += 1;
+    else if (s === "danger") out.down += 1;
+    else out.warn += 1;
+  }
+  if (c.readTier.state === "READY") {
+    const scaleOut = thresholdOf(reg, "read.scale_out_cpu");
+    const hot = c.readTier.data.avgCpuPct !== null && scaleOut !== null && c.readTier.data.avgCpuPct >= scaleOut;
+    for (const n of c.readTier.data.nodes) {
+      if (n.state === "OFF") continue;
+      if (n.state === "IN_SERVICE" && !hot) out.ok += 1;
+      else out.warn += 1;
+    }
+  }
+  return out;
+}
+
+/** 수집 대상 한 줄. EC2 노드와 조회 노드를 같은 표에 싣는다 */
+export interface CollectRow {
+  id: string;
+  kind: OpsHostRole | "READ";
+  instanceType: string;
+  az: string;
+  /** 조회 노드면 ASG 안의 상태. 중지한 노드는 수집 대상이 아니다 */
+  readState: ReadNodeState | null;
+  /** 값을 받고 있는가. 호스트는 수집 상태, 조회 노드는 CPU 판독이 있는지로 가린다 */
+  ok: boolean;
+  collectedAt: string | null;
+  host: OpsHost | null;
+}
+
+/**
+ * 수집 대상. EC2 노드 다섯 대와 중지하지 않은 조회 노드다. 서버·노드 화면의 수집 대상 표와 설정 화면의
+ * Prometheus 행이 이 함수 하나로 세어 두 화면의 수가 어긋나지 않는다. 구축 전인 ai-1은 넣지 않는다
+ */
+export function collectTargets(c: ControlCenter): { rows: CollectRow[]; targets: number; ok: number } {
+  const rows: CollectRow[] = [];
+  if (c.hosts.state === "READY") {
+    for (const h of c.hosts.data) {
+      rows.push({ id: h.id, kind: h.role, instanceType: h.instanceType, az: h.az, readState: null, ok: h.collect === "OK", collectedAt: h.collectedAt, host: h });
+    }
+  }
+  if (c.readTier.state === "READY") {
+    for (const n of c.readTier.data.nodes) {
+      rows.push({
+        id: n.id, kind: "READ", instanceType: n.instanceType, az: n.az, readState: n.state,
+        ok: n.state !== "OFF" && n.cpuPct !== null, collectedAt: n.state === "OFF" ? null : c.collectedAt, host: null,
+      });
+    }
+  }
+  const live = rows.filter((r) => r.readState !== "OFF");
+  return { rows, targets: live.length, ok: live.filter((r) => r.ok).length };
 }

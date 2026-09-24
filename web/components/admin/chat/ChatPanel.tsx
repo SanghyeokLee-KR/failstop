@@ -18,6 +18,7 @@ import { useOpsPick } from "@/lib/admin/opsCenter";
 import { hms } from "@/lib/admin/timeText";
 import type { AiChatEvidence } from "@/lib/admin/types";
 import { AdminIcon } from "../icons";
+import { SimMark } from "../ui";
 import styles from "./chat.module.css";
 
 const KIND_WORD: Record<AiChatEvidence["kind"], string> = {
@@ -95,7 +96,7 @@ function AiAnswer({ m, onRetry, busy }: { m: ChatMessage; onRetry: (q: string) =
         {head}
         <p className={styles.answer} data-tone="warning">
           <span aria-hidden="true">▲ </span>
-          {r.state === "STOPPED" ? "AI 정지 중이라 답하지 않습니다. 관제센터 모드 줄에서 재개하면 다시 답합니다." : "상담 모델 설정이 없어 답하지 않습니다."}
+          {r.state === "STOPPED" ? "AI 정지 중이라 답하지 않습니다. 운영자 바의 'AI 재개'로 재개하면 다시 답합니다." : "상담 모델 설정이 없어 답하지 않습니다."}
         </p>
       </article>
     );
@@ -261,7 +262,7 @@ export default function ChatPanel() {
         <h2 id={titleId} className={styles.title}>
           AI 상담
         </h2>
-        {sim && <span className={styles.simTag}>시뮬레이터 응답</span>}
+        {sim && <SimMark />}
         <span className={styles.headTail}>
           <button type="button" className={styles.textBtn} disabled={messages.length === 0 || pending} onClick={clear}>
             대화 지우기
@@ -271,7 +272,7 @@ export default function ChatPanel() {
           </button>
         </span>
       </header>
-      <p className={styles.lead}>관제 판의 지금 값으로 답합니다 · 조회 전용이라 조치를 실행하지 않습니다</p>
+      <p className={styles.lead}>관제 판의 현재값으로 답합니다. 조회 전용이라 조치를 실행하지 않습니다</p>
 
       <div ref={logRef} className={styles.log} role="log" aria-live="polite" aria-relevant="additions" aria-label="상담 기록">
         {messages.length === 0 ? (
@@ -336,7 +337,7 @@ export default function ChatPanel() {
           <b>
             <span aria-hidden="true">▲ </span>AI 정지 중
           </b>
-          운영자가 AI를 멈춰 상담도 쉽니다. 관제센터 모드 줄에서 재개하면 다시 받습니다.
+          운영자가 AI를 멈춰 상담도 쉽니다. 운영자 바의 'AI 재개'로 재개하면 다시 받습니다.
         </div>
       )}
       <form

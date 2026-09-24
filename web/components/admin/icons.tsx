@@ -34,7 +34,8 @@ export type AdminIconName =
   | "reports"
   | "settings"
   | "close"
-  | "send";
+  | "send"
+  | "info";
 
 const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   // 게이지: 눈금 원 + 바늘
@@ -236,6 +237,14 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
     </>
   ),
   close: <path d="M4.25 4.25 L11.75 11.75 M11.75 4.25 L4.25 11.75" />,
+  // 정보: 원 안의 i. 오류 표지(느낌표)를 위아래로 뒤집은 모양이다
+  info: (
+    <>
+      <circle cx="8" cy="8" r="5.75" />
+      <path d="M8 7.5 V11" />
+      <path d="M8 5 V5.1" />
+    </>
+  ),
   // 보내기: 위로 가는 화살
   send: <path d="M8 12.75 V3.5 M4.25 7.25 L8 3.5 L11.75 7.25" />,
 };

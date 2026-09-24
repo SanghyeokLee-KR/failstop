@@ -12,6 +12,17 @@
   height: 100vh;
   overflow: hidden;
   background: var(--bg-muted);
+  /* 한국어는 낱말 안에서 줄을 바꾸지 않는다. 공백 없이 칸보다 긴 토막(URL, 긴 영문 식별자)만 끊는다(§12-12) */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  /* AI 상담 패널 폭. 패널이 열리면 셸(본문 밀기)과 body(토스트 자리)에 운영자가 정한 폭을 인라인으로 싣는다 */
+  --admin-chat-w: 440px;
+}
+/* AI 상담 패널이 열린 1600px 이상 창에서는 본문 스크롤 상자가 패널 폭만큼 비켜 선다. 운영자 바는 전폭 그대로다 */
+@media (min-width: 1600px) {
+  .shell[data-chat] .content {
+    margin-right: var(--admin-chat-w);
+  }
 }
 .booting {
   min-height: 100vh;
@@ -340,7 +351,7 @@
   gap: var(--space-3);
   min-width: 0;
 }
-/* 현재 시각. 관제 화면의 모든 '몇 초 전'이 이 시계를 기준으로 읽힌다 */
+/* 현재 시각(KST). 관제 화면의 모든 '몇 초 전'이 이 시계를 기준으로 읽힌다 */
 .clock {
   padding: 0 var(--space-1);
   font-size: var(--font-caption-size);
@@ -348,6 +359,15 @@
   font-weight: var(--fw-medium);
   color: var(--text-default);
   white-space: nowrap;
+}
+.clockZone {
+  color: var(--text-secondary);
+}
+/* 1440px보다 좁은 창에서는 날짜를 거둬 검색칸과 정지 단추의 자리를 지킨다(레이아웃 §7) */
+@media (max-width: 1439px) {
+  .clockDate {
+    display: none;
+  }
 }
 .roleRow {
   display: flex;
@@ -610,6 +630,7 @@
 }
 
 /* ===== 진입 화면 ===== */
+/* 로그인은 셸 밖 화면이라 셸의 줄바꿈 규칙을 여기서 다시 건다(§12-12) */
 .login {
   display: flex;
   align-items: center;
@@ -617,6 +638,8 @@
   min-height: 100vh;
   padding: var(--space-8) var(--space-6);
   background: var(--bg-muted);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .passwordLogin {
   display: grid;
@@ -767,6 +790,36 @@
   gap: var(--space-4);
   /* desc 유무와 무관하게 높이를 예약한다(타이틀 32 + desc 21 + 간격 4). 화면 전환 시 첫 패널 시프트 0 */
   min-height: 57px;
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+/* 값의 출처 표식(§12-12). 무채 점선 네모 하나다. 재생은 관제 판과 다른 세계라 한 단 크고 실선이다.
+   주의 상태가 아니라 값의 세계가 다르다는 사실이라 주황을 쓰지 않는다 */
+.simMark {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.simMark[data-kind="replay"] {
+  min-height: 28px;
+  padding: 0 var(--space-2);
+  border: 2px solid var(--border-strong);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
 }
 .pageTitle {
   font-size: var(--font-title-1-size);
@@ -944,6 +997,11 @@
 /* 정상 무채 원칙: 기본 상태는 pill 없이 잉크 강등 텍스트로 남긴다(상태어 자체가 라벨) */
 .stateText {
   color: var(--text-secondary);
+}
+/* 처리할 차례인 행(출금 대기). 이상 상태가 아니라 주황을 쓰지 않고 굵은 잉크로 가른다 */
+.queueWait {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
 }
 /* 행위 불가 상태. 상태어는 정보라 장식 대역(tertiary)을 쓸 수 없다.
    흰 배경에서 tertiary는 3.59:1로 1.4.3의 4.5:1에 미달한다. secondary는 4.75:1.
@@ -1322,8 +1380,9 @@
   margin-top: var(--space-3);
   flex-wrap: wrap;
 }
+/* 자동 균형이 꺼지면 강도는 쓰이지 않는다. 투명도로 흐리면 라벨 대비가 무너지므로(§12-6) 글자만 한 단 낮춘다 */
 .biasControls .field[data-dim] {
-  opacity: 0.5;
+  color: var(--text-secondary);
 }
 .biasControls .field input[type="range"] {
   width: 180px;
@@ -1349,16 +1408,19 @@
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
+/* 미리보기 칸은 패널과 같은 면에 헤어라인을 둔다. sunken 면에 틴트를 겹치면 글자 대비가 4.5:1 아래로 떨어진다 */
 .flashCell {
   position: relative;
   display: inline-flex;
   align-items: center;
   padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--control-radius);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
-  background: var(--surface-sunken);
+  color: var(--text-default);
+  background: var(--surface-default);
 }
 .flashCell[data-dir="up"] {
   color: var(--color-up-text);

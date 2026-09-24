@@ -24,6 +24,7 @@ import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import OpsHead from "@/components/admin/control/OpsHead";
 import { DatabasusLink } from "@/components/admin/control/Jobs";
+import { SimMark } from "@/components/admin/ui";
 import { Ago, NotConnected, PanelHead } from "@/components/admin/control/parts";
 import adminStyles from "@/components/admin/admin.module.css";
 import controlStyles from "@/components/admin/control/control.module.css";
@@ -68,7 +69,7 @@ function IntegrationTable({ rows }: { rows: IntegrationRow[] }) {
         <tr>
           <th scope="col">원천</th>
           <th scope="col">상태</th>
-          <th scope="col">지금 값</th>
+          <th scope="col">현재값</th>
           <th scope="col" data-num="">
             마지막 확인
           </th>
@@ -89,12 +90,16 @@ function IntegrationTable({ rows }: { rows: IntegrationRow[] }) {
                 </span>
               </td>
               <td>
-                <span className={styles.state} data-tone={w.tone === "success" ? undefined : w.tone}>
-                  <span className={styles.shape} data-tone={w.tone} aria-hidden="true">
-                    {w.shape}
+                {r.state === "ASSUMED" ? (
+                  <SimMark kind="assumed" />
+                ) : (
+                  <span className={styles.state} data-tone={w.tone === "success" ? undefined : w.tone}>
+                    <span className={styles.shape} data-tone={w.tone} aria-hidden="true">
+                      {w.shape}
+                    </span>
+                    {w.word}
                   </span>
-                  {w.word}
-                </span>
+                )}
               </td>
               <td className={styles.detail}>{r.detail}</td>
               <td data-num="" className={`${styles.checked} num`}>
@@ -159,7 +164,7 @@ export default function SettingsPage() {
               meta={
                 <span className="num">
                   연결됨 {count("CONNECTED")} · 연결 전 {count("NOT_CONNECTED")} · 오류 {count("ERROR")}
-                  {rows.some((r) => r.sim) && " · 연결됨은 시뮬레이터가 흉내 낸 값"}
+                  {count("ASSUMED") > 0 && ` · 시뮬레이션 가정 ${count("ASSUMED")}`}
                 </span>
               }
             />
@@ -168,11 +173,7 @@ export default function SettingsPage() {
 
           <div className={styles.grid}>
             <section className={controlStyles.panel} aria-labelledby="set-oncall">
-              <PanelHead
-                id="set-oncall"
-                title="담당자·연락 체계"
-                meta={onCall.data?.state === "READY" && !http ? <span className={controlStyles.simTag}>예시 · 시뮬레이션</span> : undefined}
-              />
+              <PanelHead id="set-oncall" title="담당자·연락 체계" meta={onCall.data?.state === "READY" && !http ? "예시 명부" : undefined} />
               {onCall.loading ? (
                 <Skeleton variant="card" width="100%" height={160} />
               ) : onCall.error || !onCall.data ? (

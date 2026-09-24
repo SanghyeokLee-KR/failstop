@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AdminError, getAdminApi } from "@/lib/admin/api";
+import { AdminError, getAdminApi, isAdminHttp } from "@/lib/admin/api";
 import { useCan } from "@/lib/admin/store";
 import { BOT_TYPES, BOT_TYPE_LABEL } from "@/lib/admin/types";
 import type { BotType, DestructiveAction, MarketSimState, SimStatus } from "@/lib/admin/types";
@@ -24,7 +24,7 @@ import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
 import OpsThrottle from "@/components/admin/OpsThrottle";
 import ResourceStamp from "@/components/admin/ResourceStamp";
-import { PageHeader, PermissionNote, StatTile } from "@/components/admin/ui";
+import { PageHeader, PermissionNote, SimMark, StatTile } from "@/components/admin/ui";
 import type { Health } from "@/components/admin/ui";
 import { toast } from "@/components/Toast";
 import styles from "@/components/admin/admin.module.css";
@@ -135,10 +135,12 @@ export default function BotsPage() {
      종전에는 이것을 12행으로 폈는데, 세로를 세 배로 쓰면서 가로는 800px 를 비워 놨다.
      행렬로 두면 마켓 하나가 한 줄이라 세 마켓을 한눈에 견주고, 남는 가로에 마켓 단위 관측치
      (체결률·실측 방향)가 들어간다. 그 둘은 지금 시장 생동감에서 한 번에 한 마켓씩만 보인다 */
+  /* 열 폭은 하한과 비율이다. 고정 폭을 더하면 1280 창에서 표가 본문보다 넓어져 가로로 넘쳤다. 하한은 가장 긴
+     머리글과 값('수렴 중 2개 유형', '▲ 매수 0.35')이 한 줄에 드는 폭이다 */
   const typeCol = (t: BotType): DataColumn<FleetRow> => ({
     key: t,
     label: BOT_TYPE_LABEL[t],
-    width: "110px",
+    width: "minmax(72px, 1fr)",
     align: "center",
     render: (m) => {
       const s = m.scale[t];
@@ -151,26 +153,26 @@ export default function BotsPage() {
 
   const botCols: DataColumn<FleetRow>[] = [
     // 마켓은 식별 텍스트라 왼쪽이다. 나머지 대수 열은 한두 자리 행렬이라 가운데에 둔다(§12-7 예외)
-    { key: "market", label: "마켓", width: "130px", align: "left", render: (m) => m.market },
+    { key: "market", label: "마켓", width: "minmax(88px, 1.1fr)", align: "left", render: (m) => m.market },
     ...BOT_TYPES.map(typeCol),
     {
       key: "sum",
       label: "합계",
-      width: "90px",
+      width: "minmax(56px, 0.8fr)",
       align: "center",
       render: (m) => BOT_TYPES.reduce((n, t) => n + (m.scale[t]?.active ?? 0), 0),
     },
     {
       key: "fill",
       label: "체결률",
-      width: "96px",
+      width: "minmax(64px, 0.9fr)",
       align: "center",
       render: (m) => m.fillRatio,
     },
     {
       key: "bias",
       label: "실측 방향",
-      width: "130px",
+      width: "minmax(96px, 1.1fr)",
       align: "center",
       // 프리셋 타일과 같은 표기다. 같은 값을 두 곳에서 다른 모양으로 적지 않는다
       render: (m) => {
@@ -183,8 +185,8 @@ export default function BotsPage() {
       label: "가동",
       // 마켓 뒤 열은 중앙 정렬이다. 한 자리 수가 넓은 머리글 아래 우측에 붙어 있으면 제 이름표에서
       // 떨어져 보이고, 자릿수가 모두 같아 우측 정렬로 얻는 자리 맞춤도 없다.
-      // 남는 폭은 이 열이 받는다
-      width: "minmax(140px, 1fr)",
+      // 남는 폭은 이 열이 가장 많이 받는다
+      width: "minmax(128px, 1.4fr)",
       align: "center",
       /* 이 열이 답하는 것은 "이 봇들이 지금 일하고 있는가"다. 대수가 목표에 닿았다는 뜻의
          "목표 도달"은 작업이 끝났다는 뜻으로 읽혔다. 봇은 끝나는 일이 아니라 계속 호가를 낸다.
@@ -205,7 +207,11 @@ export default function BotsPage() {
 
   return (
     <div className={styles.page}>
-      <PageHeader title="봇 플릿" actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />} />
+      <PageHeader
+        title="봇 플릿"
+        mark={isAdminHttp() ? undefined : <SimMark />}
+        actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
+      />
 
       {res.error ? (
         <AdminErrorState reason={res.errorReason} onRetry={res.reload} />
@@ -397,7 +403,7 @@ export default function BotsPage() {
 
       <PanelCard title="파라미터 변경 요청" actions={<span className={styles.panelMeta}>1인 승인</span>}>
         {/* 정상 절차 설명은 경보면이 아니라 무채 각주. 경보색은 권한 부족 등 이탈 전용 */}
-        <p className={styles.formHelp}>실행 중 파라미터 변경은 파괴 액션. 승인 발급 후 요청자가 실행</p>
+        <p className={styles.formHelp}>실행 중인 봇의 파라미터를 바꾸는 일은 파괴 액션이라 승인을 발급한 뒤 요청자가 실행합니다</p>
         {sim && namedBots.length === 0 && (
           <p className={styles.formHelp}>
             기동 중인 플릿은 봇 id를 발행하지 않음(유형별 파킹 풀). 대상 지정이 필요한 이 경로는
@@ -450,7 +456,7 @@ export default function BotsPage() {
           actions={paramActions}
           onChange={load}
           emptyLabel="대기 중인 파라미터 변경 승인 없음"
-          emptyDesc="위 폼에서 요청하면 여기에서 발급·실행"
+          emptyDesc="위 폼에서 요청하면 여기에서 발급하고 실행합니다"
         />
       </PanelCard>
     </div>

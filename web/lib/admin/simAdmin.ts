@@ -13,7 +13,7 @@ import { feeRateError } from "./fees";
 import { INVARIANT_DEFS, scenarioDef } from "./catalog";
 import { summarizeInvariants } from "./invariants";
 import { actionKey } from "./aiPolicy";
-import { OpsSim, type OpsActorRef } from "./opsSim";
+import { BASE_BOT_OPS, OpsSim, type OpsActorRef } from "./opsSim";
 import { onBeat } from "./ticker";
 import type {
   AdminPage,
@@ -37,7 +37,6 @@ import type {
   DirectionBiasResult,
   FleetScaleResult,
   FleetScaleTargets,
-  HaNode,
   ControlApply,
   HaRecovery,
   HaStatus,
@@ -82,8 +81,6 @@ import { CHAT_MAX_CHARS, FLEET_TYPE_CAP } from "./types";
 const SESSION_TTL_MS = 30 * 60_000; // 단기 관리자 세션
 const APPROVAL_TTL_MS = 5 * 60_000; // §1-4 TTL 5분
 const DEMO_CA = "demo-ca (Exchange Admin Demo Root)";
-/* 용량 판의 조회 노드 배치. 관제 시뮬레이터의 조회 ASG는 대수와 상태만 들어 AZ를 여기서 번갈아 준다 */
-const READ_NODE_AZ = ["ap-northeast-2a", "ap-northeast-2c"];
 /* JVM 힙 상한. t3.small(2GiB)에 앱 하나를 올린 로컬 실측 규모를 따른다 */
 const SIM_HEAP_MAX = 742_000_000;
 
@@ -116,28 +113,28 @@ export function capacityAdvice(
   if (leadersDown.length > 0) {
     out.push({
       id: "leader_down", level: "danger", headline: "주문 접수 중단",
-      detail: `주문을 처리하는 매칭 서버 ${leadersDown.join("·")}가 응답하지 않습니다. 그 서버가 맡은 마켓의 주문이 멈추고 조회는 조회 서버가 계속 받습니다. 조회 서버를 늘려도 주문은 재개되지 않습니다.`,
+      detail: `주문을 처리하는 매칭 노드 ${leadersDown.join("·")}가 응답하지 않습니다. 그 노드가 맡은 마켓의 주문이 멈추고 조회는 조회 노드가 계속 받습니다. 조회 노드를 늘려도 주문은 재개되지 않습니다.`,
       action: null,
     });
   }
   if (up < plan.desired) {
     out.push({
-      id: "under_provisioned", level: "warn", headline: "서버 부족",
-      detail: `있어야 할 조회 서버가 ${plan.desired}대인데 ${up}대만 응답합니다. 추가한 서버가 준비 중이거나 한 대가 멈춘 상태입니다.`,
+      id: "under_provisioned", level: "warn", headline: "노드 부족",
+      detail: `있어야 할 조회 노드가 ${plan.desired}대인데 ${up}대만 응답합니다. 추가한 노드가 준비 중이거나 한 대가 멈춘 상태입니다.`,
       action: null,
     });
   }
   if (up > plan.desired) {
     out.push({
-      id: "over_provisioned", level: "warn", headline: "서버 초과",
-      detail: `있어야 할 조회 서버가 ${plan.desired}대인데 ${up}대가 응답합니다. 줄이기가 끝나지 않았고 그동안 비용이 더 나갑니다.`,
+      id: "over_provisioned", level: "warn", headline: "노드 초과",
+      detail: `있어야 할 조회 노드가 ${plan.desired}대인데 ${up}대가 응답합니다. 줄이기가 끝나지 않았고 그동안 비용이 더 나갑니다.`,
       action: null,
     });
   }
   if (avg === null) {
     out.push({
       id: "no_metrics", level: "warn", headline: "상태 읽기 실패",
-      detail: "조회를 받는 서버에서 사용률을 가져오지 못했습니다. 판단 근거가 없어 권고를 내지 않습니다.",
+      detail: "조회를 받는 노드에서 사용률을 가져오지 못했습니다. 판단 근거가 없어 권고를 내지 않습니다.",
       action: null,
     });
     return out;
@@ -147,7 +144,7 @@ export function capacityAdvice(
   if (avg >= th.scaleOut && plan.desired < plan.max) {
     out.push({
       id: "scale_out", level: "warn", headline: "조회 부하 높음",
-      detail: `조회를 받는 서버의 평균 사용률이 ${pct}%입니다. 서버를 한 대 늘리면 부하가 나뉘고 서비스는 멈추지 않습니다.`,
+      detail: `조회를 받는 노드의 평균 사용률이 ${pct}%입니다. 노드를 한 대 늘리면 부하가 나뉘고 서비스는 멈추지 않습니다.`,
       action: "SCALE_OUT",
     });
   } else if (avg >= th.scaleOut) {
@@ -159,17 +156,95 @@ export function capacityAdvice(
   } else if (avg <= th.scaleIn && plan.desired > plan.min) {
     out.push({
       id: "scale_in", level: "info", headline: "조회 부하 낮음",
-      detail: `조회를 받는 서버의 평균 사용률이 ${pct}%입니다. 한 대 줄이면 비용이 줄고, 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내립니다.`,
+      detail: `조회를 받는 노드의 평균 사용률이 ${pct}%입니다. 한 대 줄이면 비용이 줄고, 줄이기는 진행 중인 요청을 먼저 흘려보낸 뒤 내립니다.`,
       action: "SCALE_IN",
     });
   } else {
     out.push({
       id: "steady", level: "ok", headline: "안정",
-      detail: `조회를 받는 서버의 평균 사용률이 ${pct}%입니다. 할 조치가 없습니다.`,
+      detail: `조회를 받는 노드의 평균 사용률이 ${pct}%입니다. 할 조치가 없습니다.`,
       action: null,
     });
   }
   return out;
+}
+
+/**
+ * 용량 판을 관제 시뮬레이터의 한 판에서 만든다. 관제센터와 서버·노드 화면이 쓰는 노드 이름(app-1·app-2,
+ * read-1~3), 대수, 임계(임계값 레지스트리의 조회 증설·축소 CPU)를 그대로 쓰므로 세 화면이 한 모델로 움직인다.
+ *
+ * 계약(최소·희망·최대)은 조회 ASG다. 매칭 노드 app-1·app-2는 늘릴 수 없는 쓰기 노드라 행에는 두되 대수와
+ * 평균에서 뺀다. 조회 노드가 기동 중이거나 내리는 중이면 계약과 관측이 어긋난 창이라 reconciled가 false다.
+ */
+export function capacityOf(c: ControlCenter, counted: (id: string, live: boolean, perSec: number) => number | null): CapacityState {
+  const tier = c.readTier.state === "READY" ? c.readTier.data : null;
+  const hosts = c.hosts.state === "READY" ? c.hosts.data : [];
+  const items = c.thresholds.state === "READY" ? c.thresholds.data.items : [];
+  const ratio = (key: string, fallback: number) => (items.find((t) => t.key === key)?.value ?? fallback) / 100;
+  const apps: CapacityNode[] = hosts
+    .filter((h) => h.role === "APP")
+    .map((h, i) => {
+      const up = h.collect !== "MISSING";
+      const cpu = h.collect === "OK" && h.cpuPct !== null ? h.cpuPct / 100 : null;
+      return {
+        id: h.id,
+        az: h.az,
+        instanceType: h.instanceType,
+        engine: true,
+        scalable: false,
+        expected: true,
+        reachable: up,
+        // 마켓별 리더(ADR 0034) 배치라 두 대가 각자 맡은 마켓의 리더다. 조회는 조회 노드가 받는다
+        leader: up,
+        servesReads: false,
+        cpuRatio: cpu,
+        cpuCount: up ? 2 : null,
+        heapUsedBytes: up ? 560_000_000 + i * 24_000_000 : null,
+        heapMaxBytes: up ? SIM_HEAP_MAX : null,
+        httpRequests: counted(h.id, up, 40 + (cpu ?? 0) * 120),
+        wsClients: up ? 0 : null,
+        lifecycle: null,
+      };
+    });
+  const reads: CapacityNode[] = (tier?.nodes ?? []).map((n, i) => {
+    const live = n.state === "IN_SERVICE" || n.state === "DRAINING";
+    const cpu = live && n.cpuPct !== null ? n.cpuPct / 100 : null;
+    return {
+      id: n.id,
+      az: n.az,
+      instanceType: n.instanceType,
+      engine: false,
+      scalable: true,
+      expected: n.state === "IN_SERVICE" || n.state === "PENDING",
+      reachable: live,
+      leader: false,
+      servesReads: n.state === "IN_SERVICE",
+      cpuRatio: cpu,
+      cpuCount: live ? 2 : null,
+      heapUsedBytes: live ? 610_000_000 + i * 20_000_000 : null,
+      heapMaxBytes: live ? SIM_HEAP_MAX : null,
+      httpRequests: counted(n.id, live, (cpu ?? 0) * 520),
+      wsClients: live ? (n.state === "DRAINING" ? 24 : 360 + i * 40) : null,
+      lifecycle: n.state === "PENDING" || n.state === "DRAINING" ? n.state : null,
+    };
+  });
+
+  const plan = { min: tier?.min ?? 2, desired: tier?.desired ?? 2, max: tier?.max ?? 3 };
+  const up = reads.filter((n) => n.reachable).length;
+  const avg = tier === null || tier.avgCpuPct === null ? null : tier.avgCpuPct / 100;
+  const scaleOut = ratio("read.scale_out_cpu", 60);
+  const scaleIn = ratio("read.scale_in_cpu", 30);
+  const down = apps.filter((n) => !n.reachable).map((n) => n.id);
+  return {
+    tier: "read",
+    plan: { ...plan, updatedBy: "sim", updatedAt: c.generatedAt },
+    observedTotal: up,
+    reconciled: up === plan.desired,
+    readAvgCpuRatio: avg,
+    thresholds: { scaleOutCpuRatio: scaleOut, scaleInCpuRatio: scaleIn },
+    nodes: [...apps, ...reads],
+    advice: capacityAdvice(plan, up, avg, { scaleOut, scaleIn }, down),
+  };
 }
 
 const BOT_TYPES: BotType[] = ["MARKET_MAKER", "TAKER", "TREND", "NOISE"];
@@ -288,12 +363,6 @@ export class SimAdminApi implements AdminApi {
     minNotional: "5000",
   }));
 
-  private nodes: HaNode[] = [
-    { id: "engine-01", role: "leader", epoch: 7, seq: 148_233, followerLagMs: 0, ownedMarkets: COIN_META.map((c) => c.market), health: "healthy" },
-    { id: "engine-02", role: "follower", epoch: 7, seq: 148_231, followerLagMs: 12, ownedMarkets: [], health: "healthy" },
-    { id: "engine-03", role: "follower", epoch: 7, seq: 148_230, followerLagMs: 18, ownedMarkets: [], health: "healthy" },
-  ];
-  private epoch = 7;
   /**
    * 용량 판의 노드별 누적 요청 수. 화면이 두 조회의 차로 초당 요청을 내므로 누적값이 시간에 따라 늘어야 한다.
    * 대수와 사용률은 관제 시뮬레이터(this.ops)가 정본이고 여기에는 누적 카운터만 둔다
@@ -330,18 +399,19 @@ export class SimAdminApi implements AdminApi {
     detail: "정상",
     checkedAt: isoNow(),
   }));
+  /** 누적 체결. 관제 시뮬레이터의 초당 체결을 종합 조회 사이의 시간만큼 쌓는다 */
   private tradesTotal = 4_182_557;
-  private simRate = 120;
+  private tradesAt = Date.now();
   private simRunning = true;
   private simPaused = false;
   private duplicateFillTotal = 0;
   private bots: Bot[] = this.seedBots();
 
   /**
-   * 프리셋 배수 기준선(§6-A v2.31). 시드 플릿과 초기 OPS를 한 번만 잡는다. 활성화 시점
+   * 프리셋 배수 기준선(§6-A v2.31). 시드 플릿과 기준 발행률을 한 번만 잡는다. 활성화 시점
    * 현재값을 곱하면 재활성화가 누적돼 spike 3회가 기준선 OPS의 1000배가 된다.
    */
-  private readonly baseRate = this.simRate;
+  private readonly baseRate = BASE_BOT_OPS;
   private readonly scenarioBaseline = this.captureBaseline();
 
   // 시장 생동감 상태(인메모리, 봇_방향성 §7-1 volatile 규율과 동형). 외부 의존 0
@@ -369,6 +439,21 @@ export class SimAdminApi implements AdminApi {
       this.restore();
       this.start();
     }
+    if (this.restoredRate !== null) this.ops.seedBotTarget(this.restoredRate);
+    this.syncFleet();
+  }
+
+  /**
+   * 봇 목록이 바뀔 때마다 관제 시뮬레이터에 알린다. 발행률의 정본은 관제 시뮬레이터라 봇 플릿, 종합 조회,
+   * 관제 판이 같은 값을 읽는다(관리자 설계 4-4 sim 단일 원천)
+   */
+  private syncFleet(): void {
+    const sum = this.bots.filter((b) => b.active).reduce((a, b) => a + b.ops, 0);
+    this.ops.setFleet(sum, this.simRunning && !this.simPaused);
+  }
+
+  private botTarget(): number {
+    return this.ops.botLoad(Date.now()).target;
   }
 
   /**
@@ -390,6 +475,8 @@ export class SimAdminApi implements AdminApi {
    * localStorage 로 두면 어제 눌러 둔 정지가 오늘 처음 연 화면에 남는다.
    */
   private static readonly STORE_KEY = "admin.sim.fleet.v1";
+  /** 새로고침 전에 운영자가 정한 발행률. 관제 시뮬레이터를 세운 뒤 기록 없이 되살린다 */
+  private restoredRate: number | null = null;
 
   private restore(): void {
     try {
@@ -398,7 +485,7 @@ export class SimAdminApi implements AdminApi {
       const p = JSON.parse(raw) as Partial<FleetSnapshot>;
       if (typeof p.running === "boolean") this.simRunning = p.running;
       if (typeof p.paused === "boolean") this.simPaused = p.paused;
-      if (typeof p.rate === "number" && p.rate > 0) this.simRate = p.rate;
+      if (typeof p.rate === "number" && p.rate > 0) this.restoredRate = p.rate;
       if (Array.isArray(p.bots) && p.bots.length > 0) this.bots = p.bots;
       if (p.flash) this.tradeFlash = p.flash;
       if (p.scale) this.scaleTargets = new Map(p.scale);
@@ -414,7 +501,7 @@ export class SimAdminApi implements AdminApi {
     const snap: FleetSnapshot = {
       running: this.simRunning,
       paused: this.simPaused,
-      rate: this.simRate,
+      rate: this.botTarget(),
       bots: this.bots,
       flash: this.tradeFlash,
       scale: [...this.scaleTargets],
@@ -457,29 +544,11 @@ export class SimAdminApi implements AdminApi {
     this.stopTick = onBeat(() => this.tick());
   }
 
+  /**
+   * 매칭 리더와 체결은 관제 시뮬레이터가 소유한다(관리자 설계 4-4 sim 단일 원천). 여기서는 불변식 검사 시각과
+   * 방향 편향의 측정값만 굴린다. 리더를 무작위로 바꾸던 옛 HA 시뮬레이션은 관제 판과 다른 리더를 말해 지웠다
+   */
   private tick(): void {
-    // HA seq 단조 증가 + follower lag 요동
-    for (const n of this.nodes) {
-      if (n.role === "leader" && n.health !== "down") n.seq += Math.round(rand(3, 9));
-      if (n.role === "follower") {
-        // 중단 노드는 복제가 멎는다. seq·lag를 재추첨하면 죽은 노드가 산 노드보다 빠른 역전이 생긴다
-        if (n.health === "down") continue;
-        n.seq = Math.min(n.seq + Math.round(rand(3, 9)), this.leader().seq);
-        n.followerLagMs = Math.max(0, Math.round(rand(5, 40) + (n.health === "degraded" ? 120 : 0)));
-      }
-    }
-    this.tradesTotal += Math.round(rand(20, 90) * (this.simPaused ? 0 : 1));
-
-    // 리더 사망(E4·E6 주입)은 즉시, 드문 자연 degraded는 확률적으로 failover → 복구 run 적재(§2-3)
-    const leader = this.leader();
-    if (leader.health === "down") {
-      this.failover();
-    } else if (leader.health === "healthy" && Math.random() < 0.008) {
-      leader.health = "degraded";
-    } else if (leader.health === "degraded" && Math.random() < 0.4) {
-      this.failover();
-    }
-
     for (const inv of this.invariants) inv.checkedAt = isoNow();
 
     // 측정 net bias가 effective로 느슨하게 수렴(관측 프록시). 자동균형 on이면 강도만큼 빠르게 당긴다
@@ -489,46 +558,6 @@ export class SimAdminApi implements AdminApi {
         st.measured = clampBias(st.measured + (st.effective - st.measured) * pull + rand(-0.01, 0.01));
       }
     }
-  }
-
-  private leader(): HaNode {
-    return this.nodes.find((n) => n.role === "leader") ?? this.nodes[0];
-  }
-
-  private failover(): void {
-    const old = this.leader();
-    const next = this.nodes.find((n) => n.role === "follower" && n.health !== "down");
-    if (!next) {
-      if (old.health === "degraded") old.health = "healthy";
-      return;
-    }
-    this.epoch += 1;
-    old.role = "follower";
-    // 중단 노드는 승격 뒤에도 중단으로 남고, 자연 발생 degraded만 승격과 함께 회복한다
-    old.health = old.health === "down" ? "down" : "healthy";
-    old.ownedMarkets = [];
-    old.followerLagMs = 20;
-    next.role = "leader";
-    next.epoch = this.epoch;
-    next.ownedMarkets = this.markets.map((m) => m.symbol);
-    next.followerLagMs = 0;
-    for (const n of this.nodes) n.epoch = this.epoch;
-    // 재생 소요다. 페일오버 RTO가 아니다(실측 40~159ms).
-    const replayMs = Math.round(rand(40, 160));
-    const replayFrom = next.seq - Math.round(rand(80, 180));
-    this.recovery.unshift({
-      id: uid("rec"),
-      startedAt: isoNow(),
-      durationMs: replayMs,
-      rpoMs: null,
-      replayedFromSeq: replayFrom,
-      replayedToSeq: next.seq,
-      fpReplay: `seq:${replayFrom}-${next.seq}:ev:${next.seq - replayFrom}`,
-      fpLive: `seq:${replayFrom}-${next.seq}:ev:${next.seq - replayFrom}`,
-      matched: true,
-      verdict: "PASS",
-    });
-    this.recovery = this.recovery.slice(0, 20);
   }
 
   listDemoCerts(): DemoClientCert[] {
@@ -812,19 +841,29 @@ export class SimAdminApi implements AdminApi {
 
   private overallHealth(): "success" | "warning" | "danger" {
     const inv = summarizeInvariants(this.invariants);
-    if (this.nodes.some((n) => n.health === "down") || inv.state === "VIOLATED") return "danger";
+    if (inv.state === "VIOLATED") return "danger";
     // 미수집·부분수집은 통과가 아니다. http 어댑터와 같은 판정식을 쓴다
-    if (this.nodes.some((n) => n.health === "degraded") || inv.state !== "PASS") return "warning";
+    if (inv.state !== "PASS") return "warning";
     return "success";
   }
 
+  /**
+   * 종합 조회. 매칭 리더와 발행률, 체결은 관제 시뮬레이터에서 읽는다. 마켓별 리더(ADR 0034)라 리더가 둘이어서
+   * 리더 칸에는 두 노드를, 세대에는 가장 최근 세대를 적는다. 관제센터 거래 요약 띠는 sim에서 이 조회가 아니라
+   * 관제 판의 거래 칸을 읽는다
+   */
   getOverview(): Promise<AdminOverview> {
     this.auth("VIEW");
     this.sweep();
+    const now = Date.now();
+    const load = this.ops.botLoad(now);
+    this.tradesTotal += Math.round(load.tradesPerSec * Math.max(0, (now - this.tradesAt) / 1000));
+    this.tradesAt = now;
+    const leaders = this.ops.leaders();
     return Promise.resolve({
       overallHealth: this.overallHealth(),
-      epoch: this.epoch,
-      leaderNodeId: this.leader().id,
+      epoch: Math.max(...leaders.map((l) => l.epoch)),
+      leaderNodeId: leaders.map((l) => l.node).join("·"),
       invariants: summarizeInvariants(this.invariants),
       // 목에 페일오버 주행 표가 없다. 재생 소요를 RTO로 실으면 없는 축을 지어낸다.
       lastRtoMs: null,
@@ -836,7 +875,7 @@ export class SimAdminApi implements AdminApi {
       pendingApprovals: this.approvals.filter((a) => a.state === "ISSUED").length,
       suspendedMarkets: this.markets.filter((m) => m.state === "HALTED").length,
       tradesTotal: this.tradesTotal,
-      marketPartitions: this.leader().ownedMarkets.length,
+      marketPartitions: leaders.reduce((a, l) => a + l.markets.length, 0),
       generatedAt: isoNow(),
     });
   }
@@ -949,7 +988,9 @@ export class SimAdminApi implements AdminApi {
 
   resetOps(): Promise<void> {
     const s = this.auth("VIEW");
+    // 관제 세계 전체를 처음으로 돌린다. 봇 발행률도 기준값으로 돌아가고 봇 목록은 그대로다
     this.ops = new OpsSim(Date.now(), this.opsAudit);
+    this.syncFleet();
     this.log(s, "ops.scenario.reset", "관제 시뮬레이션", null, "OK");
     return Promise.resolve();
   }
@@ -1050,22 +1091,12 @@ export class SimAdminApi implements AdminApi {
     return this.capacitySnapshot(now);
   }
 
-  /**
-   * 용량 판을 관제 시뮬레이터 판(this.ops)에서 만든다. 관제센터와 서버·노드 화면이 쓰는 노드 이름(app-1·app-2,
-   * read-1~3), 대수, 임계(임계값 레지스트리의 조회 증설·축소 CPU)를 그대로 쓰므로 세 화면이 한 모델로 움직인다.
-   *
-   * 계약(최소·희망·최대)은 조회 ASG다. 매칭 노드 app-1·app-2는 늘릴 수 없는 쓰기 노드라 행에는 두되 대수와
-   * 평균에서 뺀다. 조회 노드가 기동 중이거나 내리는 중이면 계약과 관측이 어긋난 창이라 reconciled가 false다.
-   */
+  /** 용량 판. 누적 요청 카운터만 이 어댑터가 들고 나머지는 관제 시뮬레이터의 한 판에서 만든다(capacityOf) */
   private capacitySnapshot(now: number): CapacityState {
     const c = this.ops.snapshot(now);
     const at = c.collectedAt === null ? now : Date.parse(c.collectedAt);
-    const tier = c.readTier.state === "READY" ? c.readTier.data : null;
-    const hosts = c.hosts.state === "READY" ? c.hosts.data : [];
-    const items = c.thresholds.state === "READY" ? c.thresholds.data.items : [];
-    const ratio = (key: string, fallback: number) => (items.find((t) => t.key === key)?.value ?? fallback) / 100;
     // 누적 요청은 초당 값을 적분해 늘린다. 내려간 노드는 카운터를 지워 다시 뜨면 0부터 센다(화면은 재기동으로 읽는다)
-    const counted = (id: string, live: boolean, perSec: number): number | null => {
+    return capacityOf(c, (id, live, perSec) => {
       if (!live) {
         this.capacityCounters.delete(id);
         return null;
@@ -1074,80 +1105,19 @@ export class SimAdminApi implements AdminApi {
       const total = Math.round(prev.total + Math.max(0, (at - prev.at) / 1000) * perSec);
       this.capacityCounters.set(id, { at, total });
       return total;
-    };
-
-    const apps: CapacityNode[] = hosts
-      .filter((h) => h.role === "APP")
-      .map((h, i) => {
-        const up = h.collect !== "MISSING";
-        const cpu = h.collect === "OK" && h.cpuPct !== null ? h.cpuPct / 100 : null;
-        return {
-          id: h.id,
-          az: h.az,
-          instanceType: h.instanceType,
-          engine: true,
-          scalable: false,
-          expected: true,
-          reachable: up,
-          // 마켓별 리더(ADR 0034) 배치라 두 대가 각자 맡은 마켓의 리더다. 조회는 조회 노드가 받는다
-          leader: up,
-          servesReads: false,
-          cpuRatio: cpu,
-          cpuCount: up ? 2 : null,
-          heapUsedBytes: up ? 560_000_000 + i * 24_000_000 : null,
-          heapMaxBytes: up ? SIM_HEAP_MAX : null,
-          httpRequests: counted(h.id, up, 40 + (cpu ?? 0) * 120),
-          wsClients: up ? 0 : null,
-          lifecycle: null,
-        };
-      });
-    const reads: CapacityNode[] = (tier?.nodes ?? []).map((n, i) => {
-      const live = n.state === "IN_SERVICE" || n.state === "DRAINING";
-      const cpu = live && n.cpuPct !== null ? n.cpuPct / 100 : null;
-      return {
-        id: n.id,
-        az: READ_NODE_AZ[i % READ_NODE_AZ.length],
-        instanceType: "t3.small",
-        engine: false,
-        scalable: true,
-        expected: n.state === "IN_SERVICE" || n.state === "PENDING",
-        reachable: live,
-        leader: false,
-        servesReads: n.state === "IN_SERVICE",
-        cpuRatio: cpu,
-        cpuCount: live ? 2 : null,
-        heapUsedBytes: live ? 610_000_000 + i * 20_000_000 : null,
-        heapMaxBytes: live ? SIM_HEAP_MAX : null,
-        httpRequests: counted(n.id, live, (cpu ?? 0) * 520),
-        wsClients: live ? (n.state === "DRAINING" ? 24 : 360 + i * 40) : null,
-        lifecycle: n.state === "PENDING" || n.state === "DRAINING" ? n.state : null,
-      };
     });
-
-    const plan = { min: tier?.min ?? 2, desired: tier?.desired ?? 2, max: tier?.max ?? 3 };
-    const up = reads.filter((n) => n.reachable).length;
-    const avg = tier === null || tier.avgCpuPct === null ? null : tier.avgCpuPct / 100;
-    const scaleOut = ratio("read.scale_out_cpu", 60);
-    const scaleIn = ratio("read.scale_in_cpu", 30);
-    const down = apps.filter((n) => !n.reachable).map((n) => n.id);
-    return {
-      tier: "read",
-      plan: { ...plan, updatedBy: "sim", updatedAt: c.generatedAt },
-      observedTotal: up,
-      reconciled: up === plan.desired,
-      readAvgCpuRatio: avg,
-      thresholds: { scaleOutCpuRatio: scaleOut, scaleInCpuRatio: scaleIn },
-      nodes: [...apps, ...reads],
-      advice: capacityAdvice(plan, up, avg, { scaleOut, scaleIn }, down),
-    };
   }
 
+  /** 매칭 노드 두 대가 각자 맡은 파티션의 리더다(ADR 0034). 관제 시뮬레이터의 배치를 그대로 옮긴다 */
   getHaStatus(): Promise<HaStatus> {
     this.auth("VIEW");
+    const leaders = this.ops.leaders();
     return Promise.resolve({
-      epoch: this.epoch,
-      leaderNodeId: this.leader().id,
-      nodes: this.nodes.map((n) => ({ ...n, ownedMarkets: n.ownedMarkets.slice() })),
+      epoch: Math.max(...leaders.map((l) => l.epoch)),
+      leaderNodeId: leaders.map((l) => l.node).join("·"),
+      nodes: leaders.map((l) => ({
+        id: l.node, role: "leader" as const, epoch: l.epoch, seq: 0, followerLagMs: 0, ownedMarkets: l.markets.map((m) => `KRW-${m}`), health: "healthy" as const,
+      })),
       tradesTotal: this.tradesTotal,
       generatedAt: isoNow(),
     });
@@ -1175,10 +1145,7 @@ export class SimAdminApi implements AdminApi {
   }
 
   private currentOps(): number {
-    if (!this.simRunning || this.simPaused) return 0;
-    const active = this.bots.filter((b) => b.active);
-    const raw = active.reduce((sum, b) => sum + b.ops, 0);
-    return Math.min(raw, this.simRate);
+    return this.ops.botLoad(Date.now()).current;
   }
 
   getSimStatus(): Promise<SimStatus> {
@@ -1191,7 +1158,7 @@ export class SimAdminApi implements AdminApi {
       stale: false,
       running: this.simRunning,
       paused: this.simPaused,
-      rate: this.simRate,
+      rate: this.botTarget(),
       currentOps: this.currentOps(),
       botCount: this.bots.length,
       activeBots: active,
@@ -1244,6 +1211,7 @@ export class SimAdminApi implements AdminApi {
     this.simRunning = true;
     this.simPaused = false;
     for (const b of this.bots) b.active = true;
+    this.syncFleet();
     this.log(s, "sim.start", "전체 봇", null, "OK");
     return Promise.resolve();
   }
@@ -1252,6 +1220,7 @@ export class SimAdminApi implements AdminApi {
     const s = this.auth("BOT_OPS");
     this.simRunning = false;
     for (const b of this.bots) b.active = false;
+    this.syncFleet();
     this.log(s, "sim.stop", "전체 봇", null, "OK");
     return Promise.resolve();
   }
@@ -1259,6 +1228,7 @@ export class SimAdminApi implements AdminApi {
   simPause(): Promise<void> {
     const s = this.auth("BOT_OPS");
     this.simPaused = !this.simPaused;
+    this.syncFleet();
     this.log(s, "sim.pause", `paused=${this.simPaused}`, null, "OK");
     return Promise.resolve();
   }
@@ -1270,8 +1240,8 @@ export class SimAdminApi implements AdminApi {
     if (next <= 0) {
       return Promise.reject(new AdminError("invalid_parameter", "target_ops는 양수여야 합니다."));
     }
-    this.simRate = next;
-    this.log(s, "sim.rate", `${this.simRate} OPS`, null, "OK");
+    this.ops.setBotTarget(next, actorOf(s), "봇 플릿 화면", Date.now());
+    this.log(s, "sim.rate", `${next} OPS`, null, "OK");
     // 목 어댑터는 거버너와 한 프로세스라 항상 즉시 적용이다.
     return Promise.resolve({ applyPath: "local" as const, queuedCommandId: 0 });
   }
@@ -1295,6 +1265,7 @@ export class SimAdminApi implements AdminApi {
       });
     }
     this.scaleTargets.set(market, { ...(this.scaleTargets.get(market) ?? {}), [type]: target });
+    this.syncFleet();
     this.log(s, "sim.bots.create", `${type} ${market} +${created}`, null, "OK");
     return Promise.resolve({ created, appliedTarget: target, fleetTotal: this.bots.length, clamped, fleetPresent: true });
   }
@@ -1304,6 +1275,7 @@ export class SimAdminApi implements AdminApi {
     const before = this.bots.length;
     this.bots = this.bots.filter((b) => b.id !== botId);
     if (this.bots.length === before) return Promise.reject(new AdminError("invalid_parameter", "대상 봇 없음"));
+    this.syncFleet();
     this.log(s, "sim.bots.delete", botId, null, "OK");
     return Promise.resolve();
   }
@@ -1321,6 +1293,7 @@ export class SimAdminApi implements AdminApi {
       this.convergeScale(market, type, t);
     }
     this.scaleTargets.set(market, { ...(this.scaleTargets.get(market) ?? {}), ...applied });
+    this.syncFleet();
     this.log(s, "sim.scale", market, null, "OK");
     return Promise.resolve({ market, applied, clamped, fleetPresent: true });
   }
@@ -1384,7 +1357,8 @@ export class SimAdminApi implements AdminApi {
   activateScenario(name: ScenarioName): Promise<ScenarioResult> {
     const s = this.auth("BOT_OPS");
     const def = scenarioDef(name);
-    this.simRate = Math.max(1, Math.round(this.baseRate * def.opsMult));
+    const rate = Math.max(1, Math.round(this.baseRate * def.opsMult));
+    this.ops.setBotTarget(rate, actorOf(s), `봇 국면 프리셋 ${name}`, Date.now());
 
     const universe = new Set<string>([
       ...this.scenarioBaseline.keys(),
@@ -1428,6 +1402,7 @@ export class SimAdminApi implements AdminApi {
       markets.push({ market, scaleApplied: base != null, applied, effectiveBias: biasStr(effective) });
     }
 
+    this.syncFleet();
     this.log(s, "sim.scenario", name, null, "OK");
     return Promise.resolve({
       scenario: name,
@@ -1435,7 +1410,7 @@ export class SimAdminApi implements AdminApi {
       // 물리 분리에서만 나오므로 여기서 재현할 대상이 아니다.
       applyPath: "local" as const,
       queuedCommandId: 0,
-      targetOps: String(this.simRate),
+      targetOps: String(rate),
       baseOps: String(this.baseRate),
       autoBalance: def.autoBalance,
       targetNetBias: def.targetBias,

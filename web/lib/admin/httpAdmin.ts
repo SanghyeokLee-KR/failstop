@@ -652,6 +652,7 @@ function boardOf(w: WireOverview | null): ControlCenter {
     thresholds: nc("임계값 레지스트리(DB) · 2단계"),
     ai: nc("AI 판단 서비스와 서버 정책 엔진 · 2단계"),
     aiServer: nc("온프레미스 AI 서버 상태 API · 구축 전"),
+    trading: nc("관제 서버의 거래 칸 · 2단계"),
     trends: nc("Prometheus 범위 조회 · 2단계"),
     scenario: null,
     sources: w ? sourcesOf(w) : null,

@@ -27,7 +27,14 @@
  * 기록이 없는 구간(사람의 판단, 앱 DB 접속 전환)은 가정이라고 적는다. 사건 사이의 값은 지어낸
  * 것이라 화면이 늘 시뮬레이션임을 표시해야 한다. 같은 조작이 같은 그래프를 그리도록 난수 대신
  * 틱에서 정해지는 잡음을 쓴다.
+ *
+ * 재생하지 않는 동안 화면은 이 재생 세계가 아니라 관제 시뮬레이터의 한 판을 그린다(관제 값 모드,
+ * 관리자 설계 4-4 sim 단일 원천). flowFromCenter 가 그 판을 같은 FlowState 꼴로 옮기고, 매칭 리더는
+ * 재생의 단일 리더 대신 마켓 파티션 리더 둘(live.partitions)로 적는다.
  */
+
+import { tradesPerSec } from "./opsSim";
+import type { ControlCenter, IncidentEvent, OpsHost } from "./types";
 
 export type Health = "success" | "warning" | "danger";
 /** 매칭 노드(app-1·2). 쓰기와 리더 리스를 다룬다 */
@@ -106,6 +113,31 @@ export interface FlowSample {
   replLagKb: number | null;
 }
 
+/** 관제 값 모드의 파티션 리더(ADR 0034). 재생은 단일 리더라 쓰지 않는다 */
+export interface FlowPartition {
+  id: string;
+  holder: EngineId;
+  epoch: number;
+}
+
+/**
+ * 관제 값 모드에서만 있는 값. 관제 시뮬레이터의 판에서 옮긴다. 재생 세계에서는 null 이고 그때는 단일 리더(holder)와
+ * 로컬 조정기의 권고 임계(SCALE_OUT_ADVICE)를 쓴다
+ */
+export interface FlowLive {
+  partitions: FlowPartition[];
+  /** 조회 증설·축소 임계(0..1). 임계값 관리의 현재값 */
+  scaleOut: number;
+  scaleIn: number;
+  min: number;
+  max: number;
+  botTarget: number;
+  /** 조회 경로의 대략의 초당 요청. 선의 세기만 가른다 */
+  readRate: number;
+  /** 앱이 아닌 노드의 호스트 CPU(서버·노드 화면과 같은 값). 인스턴스 표의 CPU 칸이 쓴다 */
+  hostCpu: { pg1: number | null; pg2: number | null; bot: number | null };
+}
+
 export interface FlowState {
   tick: number;
   scenario: ScenarioId | null;
@@ -134,6 +166,7 @@ export interface FlowState {
   cpuEff: Record<AppId, number>;
   adviceOut: boolean;
   events: FlowEvent[];
+  live: FlowLive | null;
 }
 
 const otherEngine = (id: EngineId): EngineId => (id === "api1" ? "api2" : "api1");
@@ -307,7 +340,11 @@ const SCENARIOS: Record<ScenarioId, { steps: Step[]; length: number }> = {
   },
 };
 
-export function createFlow(): FlowState {
+/**
+ * 재생 세계의 첫 상태. leader 는 리스를 먼저 잡은 노드이고 기본은 Flyway 를 먼저 돌리는 app-1 이다. 관제 값 모드에서
+ * app-2 의 리더 중단을 고르면 app-2 가 리더인 세계에서 재생을 시작한다(두 파티션 리더 가운데 고른 쪽을 멈춘다)
+ */
+export function createFlow(leader: EngineId = "api1"): FlowState {
   return {
     tick: 0,
     scenario: null,
@@ -327,7 +364,7 @@ export function createFlow(): FlowState {
       read3: { status: "stopped", inRead: false },
     },
     // chaos-api-1 이 Flyway 를 돌리고 먼저 리스를 잡는다(chaos.yml:87-141)
-    holder: "api1",
+    holder: leader,
     epoch: START_EPOCH,
     lease: LEASE_TTL,
     desired: 2,
@@ -339,6 +376,7 @@ export function createFlow(): FlowState {
     cpuEff: { api1: 12, api2: 6, read1: 8, read2: 8, read3: 0 },
     adviceOut: false,
     events: [],
+    live: null,
   };
 }
 
@@ -346,8 +384,19 @@ export function isBusy(s: FlowState): boolean {
   return s.scenario !== null && s.elapsed <= SCENARIOS[s.scenario].length;
 }
 
+/** 이 매칭 노드가 쓰기 리더인가. 관제 값 모드는 파티션 하나라도 맡으면 리더다 */
+export function isLeader(s: FlowState, id: EngineId): boolean {
+  return s.live !== null ? s.live.partitions.some((p) => p.holder === id) : s.holder === id;
+}
+
+/** 이 노드가 맡은 파티션. 재생 세계와 파티션이 없는 노드는 빈 배열이다 */
+export function partitionsOf(s: FlowState, id: EngineId): FlowPartition[] {
+  return s.live === null ? [] : s.live.partitions.filter((p) => p.holder === id);
+}
+
 /** 리스 보유자가 살아 있고 DB 에 닿아서 쓰기를 받을 수 있는가 */
 export function writable(s: FlowState): boolean {
+  if (s.live !== null) return s.live.partitions.some((p) => s.apps[p.holder].status === "running") && dbReachable(s);
   return s.holder !== null && s.apps[s.holder].status === "running" && dbReachable(s);
 }
 
@@ -430,10 +479,8 @@ function noise(tick: number, channel: number): number {
   return (x - Math.floor(x)) * 2 - 1;
 }
 
-/** 봇 발행률에 따른 체결률. 같은 스택에서 300 OPS 일 때 초당 18.1건이었다(하네스_검증설계.md:495) */
-function tradesFor(ops: number): number {
-  return 19.5 * (1 - Math.exp(-ops / 110));
-}
+/** 봇 발행률에 따른 체결률. 관제 시뮬레이터와 같은 곡선이다(opsSim.tradesPerSec) */
+const tradesFor = tradesPerSec;
 
 /**
  * 노드 CPU 의 목표값. 매칭 노드는 쓰기(리더일 때 봇 발행률)만, 조회 노드는 조회 계층 사용률만 따른다.
@@ -568,15 +615,18 @@ function view(name: string, container: string | null, role: string, status: stri
 
 function appView(s: FlowState, id: AppId, cpuNow: number | null): NodeView {
   const n = s.apps[id];
+  const parts = isEngine(id) ? partitionsOf(s, id) : [];
   const role = isRead(id)
     ? id === "read3"
       ? "조회 전용 · ASG +1"
       : "조회 전용 · ASG"
-    : s.holder === id
-      ? `매칭 리더 · epoch ${s.epoch}`
-      : n.status === "running" || n.status === "booting"
-        ? "리더 대기 · 쓰기 백업"
-        : "리더 경쟁 제외";
+    : parts.length > 0
+      ? `매칭 리더 · ${parts.map((p) => `${p.id} epoch ${p.epoch}`).join(" · ")}`
+      : s.holder === id
+        ? `매칭 리더 · epoch ${s.epoch}`
+        : n.status === "running" || n.status === "booting"
+          ? "리더 대기 · 쓰기 백업"
+          : "리더 경쟁 제외";
   const cpu = cpuNow === null ? "CPU 미수집" : `CPU ${Math.round(cpuNow)}%`;
   const v = (status: string, state: NodeState) => view(APP_NAME[id], APP_CONTAINER[id], role, status, state);
   switch (n.status) {
@@ -622,7 +672,7 @@ export function nodeViews(s: FlowState, cpuNow: Record<AppId, number | null>): R
       "ALB",
       "chaos-lb",
       "쓰기 → 매칭 · 조회 → ASG",
-      w && s.holder ? `쓰기 → ${APP_NAME[s.holder]}` : "쓰기 대상 없음",
+      !w ? "쓰기 대상 없음" : s.live !== null ? `쓰기 → ${ENGINE_IDS.filter((e) => isLeader(s, e)).map((e) => APP_NAME[e]).join("·")}` : s.holder ? `쓰기 → ${APP_NAME[s.holder]}` : "쓰기 대상 없음",
       w ? "running" : "failure",
     ),
     api1: appView(s, "api1", cpuNow.api1),
@@ -656,13 +706,117 @@ export function asgView(s: FlowState): AsgView {
   const moving = READ_IDS.some((a) => s.apps[a].status === "booting" || s.apps[a].status === "draining");
   const transition = moving || registered !== s.desired;
   return {
-    min: 2,
-    max: 3,
+    min: s.live?.min ?? 2,
+    max: s.live?.max ?? 3,
     desired: s.desired,
     registered,
     state: transition ? "transition" : "running",
     status: transition ? `${registered} → ${s.desired}대 조정 중` : `${registered}대 가동`,
   };
+}
+
+/* ===== 관제 값 모드 ===== */
+
+const ENGINE_OF: Record<string, EngineId> = { "app-1": "api1", "app-2": "api2" };
+const READ_OF: Record<string, ReadId> = { "read-1": "read1", "read-2": "read2", "read-3": "read3" };
+
+/** 관제 기록 가운데 흐름 차트의 사건 띠에 올리는 종류와 그 형태 색. 판단·확인·알림 같은 기록은 띠를 어지럽혀 뺀다 */
+export const LIVE_EVENT_HEALTH: Partial<Record<IncidentEvent["kind"], Health>> = {
+  OPENED: "warning",
+  APPROVED: "success",
+  ACTED: "success",
+  AUTO_ACTED: "success",
+  AUTO_REVERTED: "warning",
+  REVERTED: "warning",
+  RESOLVED: "success",
+};
+
+/** 관제 기록 한 줄을 사건 표식 글로 줄인다. 표식은 한 줄이라 앞 두 토막만 싣는다 */
+export function liveEventLabel(text: string): string {
+  return text.split(" · ").slice(0, 2).join(" · ");
+}
+
+/** 역할 하나의 호스트 CPU. 수집이 끊겼으면 잴 값이 없어 null이다 */
+function hostCpuOf(hosts: OpsHost[], role: OpsHost["role"]): number | null {
+  const h = hosts.find((x) => x.role === role);
+  return h && h.collect !== "MISSING" ? h.cpuPct : null;
+}
+
+/**
+ * 관제 판을 흐름 상태와 표본으로 옮긴다. 노드 상태, 조회 ASG, 임계, 매칭 리더, 봇 발행률, DB 복제가 모두 그 판의
+ * 값이라 관제센터와 같은 숫자를 그린다. 판에 필요한 칸이 없으면(원천 연결 전) null 이고 화면은 재생 세계를 그린다.
+ * 리스는 관제 판이 재지 않아 두 파티션 모두 2초마다 갱신하는 모양으로 둔다. tick 은 관제 값 주행의 틱이다
+ */
+export function flowFromCenter(c: ControlCenter, tick: number, events: FlowEvent[]): { state: FlowState; sample: FlowSample } | null {
+  if (c.origin !== "SIM") return null;
+  if (c.hosts.state !== "READY" || c.readTier.state !== "READY" || c.replication.state !== "READY") return null;
+  if (c.thresholds.state !== "READY" || c.trading.state !== "READY") return null;
+  const hosts = c.hosts.data;
+  const tier = c.readTier.data;
+  const repl = c.replication.data;
+  const trading = c.trading.data;
+  const th = (key: string, fallback: number) => (c.thresholds.state === "READY" ? c.thresholds.data.items.find((t) => t.key === key)?.value ?? fallback : fallback) / 100;
+
+  const base = createFlow();
+  const s: FlowState = { ...base, tick, events };
+  const cpu = {} as Record<AppId, number | null>;
+  for (const id of ENGINE_IDS) {
+    const h = hosts.find((x) => ENGINE_OF[x.id] === id);
+    s.apps[id] = { status: !h || h.collect === "MISSING" ? "killed" : "running", inRead: false };
+    cpu[id] = h && h.collect !== "MISSING" ? h.cpuPct : null;
+  }
+  for (const n of tier.nodes) {
+    const id = READ_OF[n.id];
+    if (!id) continue;
+    s.apps[id] = {
+      status: n.state === "IN_SERVICE" ? "running" : n.state === "PENDING" ? "booting" : n.state === "DRAINING" ? "draining" : "stopped",
+      inRead: n.state === "IN_SERVICE",
+    };
+    cpu[id] = n.state === "OFF" ? null : n.cpuPct;
+  }
+  const partitions: FlowPartition[] = trading.leaders
+    .filter((l) => ENGINE_OF[l.node] !== undefined)
+    .map((l) => ({ id: l.partition, holder: ENGINE_OF[l.node], epoch: l.epoch }));
+  const serving = tier.nodes.filter((n) => n.state === "IN_SERVICE").length;
+  const util = tier.avgCpuPct === null ? 0 : tier.avgCpuPct / 100;
+  s.holder = null;
+  s.epoch = Math.max(START_EPOCH, ...partitions.map((p) => p.epoch));
+  // 리스는 2초마다 갱신된다. 잔여는 갱신 직후 TTL 에서 한 틱마다 1씩 준다
+  s.lease = LEASE_TTL - (tick % LEASE_TICK);
+  s.desired = tier.desired >= 3 ? 3 : 2;
+  s.replicating = repl.stream !== "STOPPED";
+  s.botOps = trading.botOps;
+  s.opsEff = trading.botOps;
+  s.util = util;
+  s.utilTarget = util;
+  s.adviceOut = util >= th("read.scale_out_cpu", 60);
+  for (const id of APP_IDS) s.cpuEff[id] = cpu[id] ?? 0;
+  s.live = {
+    partitions,
+    scaleOut: th("read.scale_out_cpu", 60),
+    scaleIn: th("read.scale_in_cpu", 30),
+    min: tier.min,
+    max: tier.max,
+    botTarget: trading.botTargetOps,
+    readRate: Math.round((tier.avgCpuPct ?? 0) * serving * 1.2),
+    hostCpu: {
+      pg1: hostCpuOf(hosts, "DB_PRIMARY"),
+      pg2: hostCpuOf(hosts, "DB_STANDBY"),
+      bot: hostCpuOf(hosts, "BOT_OBS"),
+    },
+  };
+  const sample: FlowSample = {
+    at: tick,
+    trades: trading.tradesPerSec,
+    botOps: trading.botOps,
+    lease: s.lease,
+    cpu,
+    util,
+    desired: s.desired,
+    registered: serving,
+    replLagKb: repl.lagBytes === null || repl.stream === "STOPPED" ? null : repl.lagBytes / 1024,
+  };
+  return { state: s, sample };
 }
 
 /* ===== 연결선의 트래픽 ===== */
@@ -732,8 +886,11 @@ export function edgeFlows(s: FlowState): Record<EdgeId, EdgeFlow> {
   const w = writable(s);
   const reachable = dbReachable(s);
   const writeRate = w ? s.opsEff : 0;
-  const readRate = s.readVu * READ_PER_VU;
+  const readRate = s.live !== null ? s.live.readRate : s.readVu * READ_PER_VU;
   const serving = READ_IDS.filter((a) => s.apps[a].inRead && s.apps[a].status === "running").length;
+  // 관제 값 모드는 쓰기를 마켓 파티션 수만큼 나눠 각 리더로 보낸다. 재생은 단일 리더가 모두 받는다
+  const share = (id: EngineId) =>
+    s.live !== null ? (s.live.partitions.length === 0 ? 0 : partitionsOf(s, id).length / s.live.partitions.length) : s.holder === id ? 1 : 0;
 
   const albTo = (id: EngineId): EdgeFlow => {
     const st = s.apps[id].status;
@@ -741,7 +898,7 @@ export function edgeFlows(s: FlowState): Record<EdgeId, EdgeFlow> {
     if (st === "stopped") return fixed("off");
     if (st === "booting" || st === "draining") return fixed("transition");
     if (!reachable) return fixed("down");
-    return flow(s.holder === id ? writeRate : 0);
+    return flow(writeRate * share(id));
   };
   // 조회 노드가 늘고 주는 동안에도 조회는 남은 노드로 흐른다. 선은 흐름으로 두고 조정 중은 그룹 틀이 알린다
   const albRead: EdgeFlow = serving === 0 || !reachable ? fixed("down") : flow(readRate + USER_RATE);

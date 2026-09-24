@@ -15,6 +15,11 @@
  * 읽어야 하고, 캡처 한 장에 포트와 비고까지 남아야 발표 자료로 쓸 수 있다.
  * 상태·역할은 flowSim 의 nodeViews 와 asgView 에서 오고 값은 시뮬레이션이다. 호스트 포트만
  * docker-compose.chaos.yml 의 실제 값이다.
+ *
+ * 관제 값 모드(state.live)에서는 CPU 와 비고가 관제 판의 값이다. DB·봇 호스트 CPU 는 서버·노드 화면과 같은 값이고,
+ * 비고는 Docker 대역의 사실(조회 겸함, 재생 제외) 대신 관제 판에서 읽히는 다음 볼 것을 적는다. 같은 줄의 CPU 가
+ * 관제 판의 값인데 비고가 Docker 대역을 말하면 한 줄이 두 세계를 말한다. 컨테이너와 포트 열은 역할을 맡을
+ * 로컬 컨테이너의 대응표라 두 모드에서 같다.
  */
 
 import DataTable, { type DataColumn } from "@/components/DataTable";
@@ -24,6 +29,8 @@ import {
   APP_PORT,
   LEASE_TTL,
   asgView,
+  isLeader,
+  partitionsOf,
   writable,
   type AppId,
   type AsgView,
@@ -114,7 +121,6 @@ export interface InstanceTableProps {
 }
 
 export default function InstanceTable({ state, views, cpuNow }: InstanceTableProps) {
-  const leader = state.holder;
   const asg = asgView(state);
   const viewOf = (id: RowId): RowView => (id === "asg" ? groupView(asg) : views[id]);
 
@@ -126,19 +132,19 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
       width: "minmax(148px, 0.9fr)",
       align: "left",
       render: (r) => {
-        const isLeader = r.id === leader;
+        const leader = (r.id === "api1" || r.id === "api2") && isLeader(state, r.id);
         return (
           <span className={styles.instNameCell} data-tree={TREE[r.id]}>
             <span
               className={styles.instName}
-              data-leader={isLeader ? "true" : undefined}
+              data-leader={leader ? "true" : undefined}
               data-group={r.id === "asg" ? "true" : undefined}
             >
               <span className={styles.instGlyph}>
                 <FlowIcon name={r.icon} size={16} />
               </span>
               <span className={styles.instNameText}>{viewOf(r.id).name}</span>
-              {isLeader && <span className={styles.leaderTag}>리더</span>}
+              {leader && <span className={styles.leaderTag}>리더</span>}
             </span>
           </span>
         );
@@ -195,6 +201,25 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
           return (
             <span className={styles.instDim} title="컨테이너 아님 · chaos-cstats 수집 대상 밖">
               없음
+            </span>
+          );
+        }
+        // 관제 값 모드의 DB·봇 줄은 관제 판의 호스트 CPU 다. 관측은 bot-1 호스트에서 돌아 시장 봇 줄과 같은 값이라 다시 적지 않는다
+        if (state.live && (r.id === "pg1" || r.id === "pg2" || r.id === "bot")) {
+          const host = state.live.hostCpu[r.id];
+          return host === null ? (
+            <span className={styles.instDim}>
+              <span aria-hidden="true">◌ </span>
+              미수집
+            </span>
+          ) : (
+            <span className="num">{Math.round(host)}%</span>
+          );
+        }
+        if (state.live && r.id === "obs") {
+          return (
+            <span className={styles.instDim} title="관측은 bot-1 호스트에서 돌아 CPU는 시장 봇 줄과 같습니다">
+              bot-1
             </span>
           );
         }
@@ -320,8 +345,48 @@ function statusDetail(s: FlowState, id: RowId, view: RowView): string | null {
   return rest.length > 0 ? rest.join(" · ") : null;
 }
 
+/**
+ * 관제 값 모드의 비고. 관제 판에서 읽히는 사실만 적는다. 판이 모르는 줄(CloudFront)은 목표 구성이라고만 적고,
+ * 모드와 무관한 줄(매칭 노드, 봇, ASG)은 null 을 돌려 공통 비고를 쓴다
+ */
+function liveNote(s: FlowState, id: RowId): string | null {
+  switch (id) {
+    case "cdn":
+      return "관제 판에 없음 · 목표 구성";
+    case "alb": {
+      const readers = READ_IDS.filter((a) => s.apps[a].inRead).length;
+      return `쓰기 파티션 리더 · 조회 ${readers}대`;
+    }
+    case "read1":
+    case "read2":
+    case "read3":
+      switch (s.apps[id].status) {
+        case "stopped":
+          return "희망 대수가 늘면 기동";
+        case "booting":
+          return "ALB 등록 대기";
+        case "draining":
+          return "ALB 제외 · 드레이닝";
+        default:
+          return "ALB 조회 대상";
+      }
+    case "pg1":
+      return "쓰기 · 복제 원본";
+    case "pg2":
+      return s.replicating ? "비동기 복제 · 스트리밍" : "복제 끊김";
+    case "obs":
+      return "bot-1 · 수집과 대시보드";
+    case "load":
+      return "시험 노드 · 조회 부하";
+    default:
+      return null;
+  }
+}
+
 /** 비고 열. 지금 상태에서 운영자가 다음에 볼 것, 또는 이 대역의 한계를 한 줄로 적는다 */
 function noteText(s: FlowState, id: RowId, asg: AsgView): string {
+  const live = s.live ? liveNote(s, id) : null;
+  if (live !== null) return live;
   switch (id) {
     case "cdn":
       // 구성도는 목표 구성대로 켜진 노드로 그린다. 표는 이 대역에서 요청이 ALB 로 바로 들어간다는 사실을 남긴다
@@ -355,6 +420,7 @@ function noteText(s: FlowState, id: RowId, asg: AsgView): string {
       // DB 지표 수집기는 chaos-pg 한 대만 본다. db-standby 가 붙어도 지금 설정으로는 복제 상대의 지표가 없다
       return "DB 지표 chaos-pg-exporter";
     case "pg2":
+      // 재생은 로컬 Docker 스택의 사실(Standby 컨테이너 없음)이다. 관제 값 모드는 liveNote 가 복제 상태를 적는다
       return "2단계 추가 · 비동기 복제 예정";
     case "bot":
       return "ALB 로 주문 · 봇 계정 DB 직결";
@@ -372,6 +438,11 @@ function noteText(s: FlowState, id: RowId, asg: AsgView): string {
 /** 매칭 리더를 다투는 두 노드의 비고. 리스는 DB 의 leader_lease 에 있다 */
 function engineNote(s: FlowState, id: "api1" | "api2"): string {
   const node = s.apps[id];
+  if (s.live) {
+    const parts = partitionsOf(s, id);
+    if (parts.length === 0) return node.status === "running" ? "보유 파티션 없음" : "재기동 전까지 중단";
+    return `${parts.map((p) => `${p.id} 리스 보유 · epoch ${p.epoch}`).join(" · ")}`;
+  }
   if (s.holder === id) {
     if (writable(s)) return `리스 보유 · epoch ${s.epoch}`;
     // 보유자가 죽거나 DB 에 못 닿아도 리스가 만료되기 전까지는 누구도 넘겨받지 못한다.

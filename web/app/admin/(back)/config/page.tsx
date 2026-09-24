@@ -307,7 +307,7 @@ export default function ConfigPage() {
           actions={actions}
           onChange={load}
           emptyLabel="대기 중인 마켓 제어 승인 없음"
-          emptyDesc="중지·재개·수수료 요청이 들어오면 여기에서 발급·실행"
+          emptyDesc="중지·재개·수수료 요청이 들어오면 여기에서 발급하고 실행합니다"
         />
       </PanelCard>
 

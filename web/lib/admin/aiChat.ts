@@ -9,7 +9,7 @@
 
 import { AI_ACTION_LABEL } from "./aiPolicy";
 import { hostState, overallOf, thresholdOf } from "./opsHealth";
-import { ago, durationWord, hm } from "./timeText";
+import { ago, durationWord, hm, lagWord, secWord } from "./timeText";
 import type {
   AiChatEvidence,
   AiChatGuide,
@@ -300,13 +300,19 @@ function aiServer(c: ControlCenter): Draft {
   const s = c.aiServer;
   if (s.state === "NOT_CONNECTED") return { answer: `ai-1 상태 원천이 연결 전입니다(${s.source}).`, evidence: [] };
   const a = s.data;
-  const lat = (ms: number | null) => (ms === null ? "요청 없음" : ms >= 1000 ? `${(ms / 1000).toFixed(1)}초` : `${ms}ms`);
-  const parts = [
-    `ai-1(${a.hardware} · ${a.runtime})은 ${a.link === "DOWN" ? "관제 서버와 연결이 끊겼습니다" : a.busy ? "지금 판단 요청을 처리하고 있습니다" : "대기 중입니다"}.`,
-    `GPU ${a.gpuPct ?? "미수집"}%, 통합 메모리 ${a.memUsedGb ?? "미수집"}/${a.memTotalGb}GB, 추론 지연 p50 ${lat(a.p50Ms)} · p95 ${lat(a.p95Ms)}, 대기 요청 ${a.queue ?? "미수집"}건입니다.`,
+  const lat = (ms: number | null) => (ms === null ? "요청 없음" : secWord(ms));
+  const state = a.link === "DOWN" ? "관제 서버와 연결이 끊겼습니다" : a.busy ? "지금 판단 요청을 처리하고 있습니다" : "대기 중입니다";
+  // 구축 전이라 연결은 가정이다. 가정이라는 사실을 먼저 말하고 가정한 상태와 값을 뒤에 적는다(관리자 설계 4-4)
+  const parts = a.assumed
+    ? [
+        `ai-1(${a.hardware} · ${a.runtime})은 구축 전이고 연결 경로도 정하지 않았습니다(ADR 0038).`,
+        `관제 시뮬레이터가 연결을 가정해 만든 값으로는 ${state}.`,
+      ]
+    : [`ai-1(${a.hardware} · ${a.runtime})은 ${state}.`];
+  parts.push(
+    `GPU ${a.gpuPct ?? "미수집"}%, 통합 메모리 ${a.memUsedGb === null ? "미수집" : a.memUsedGb.toFixed(1)}/${a.memTotalGb}GB, 추론 지연 p50 ${lat(a.p50Ms)} · p95 ${lat(a.p95Ms)}, 대기 요청 ${a.queue ?? "미수집"}건입니다.`,
     `적재 모델은 평가로 정하는 중이라 '${a.model}'으로 적습니다.`,
-  ];
-  if (c.origin === "SIM") parts.push("장비는 구축 전이라 이 값은 시뮬레이션입니다(ADR 0038).");
+  );
   return {
     answer: parts.join(" "),
     evidence: [
@@ -336,9 +342,9 @@ function db(c: ControlCenter): Draft {
   const states = dbHosts.map((h) => `${h.id} ${hostState(h, reg).word}`).join(", ");
   return {
     answer:
-      `${r.primary}에서 ${r.standby}로 비동기 복제가 ${stream}${r.stream === "STOPPED" ? "" : "입니다"}. 지연은 ${r.lagSec ?? "미수집"}초(${r.lagBytes === null ? "미수집" : `${Math.round(r.lagBytes / 1024)}KB`})이고 경보 기준은 ${lagTh ?? "미설정"}초입니다.` +
+      `${r.primary}에서 ${r.standby}로 비동기 복제가 ${stream}${r.stream === "STOPPED" ? "" : "입니다"}. 지연은 ${r.lagSec === null ? "미수집" : lagWord(r.lagSec)}(${r.lagBytes === null ? "미수집" : `${Math.round(r.lagBytes / 1024)}KB`})이고 경보 기준은 ${lagTh ?? "미설정"}초입니다.` +
       ` ${states ? `${states}입니다. ` : ""}DB 승격과 복제 재구성은 운영자가 하며 AI 금지 목록입니다.`,
-    evidence: [metric("replication_lag", "복제 지연", `${r.lagSec ?? "미수집"}초`), ...dbHosts.map((h) => ({ id: `host:${h.id}`, kind: "HOST" as const, label: h.id, value: `CPU ${h.cpuPct ?? "미수집"}%`, severity: null }))],
+    evidence: [metric("replication_lag", "복제 지연", r.lagSec === null ? "미수집" : lagWord(r.lagSec)), ...dbHosts.map((h) => ({ id: `host:${h.id}`, kind: "HOST" as const, label: h.id, value: `CPU ${h.cpuPct ?? "미수집"}%`, severity: null }))],
   };
 }
 
@@ -392,7 +398,7 @@ function mode(c: ControlCenter, now: number): Draft {
 const GUIDE_TEXT: Record<AiChatGuide, string> = {
   READ_NODES: "조회 노드 증감은 관제센터 조치 카드에서 운영자가 '승인하고 실행'을 누르거나, 용량·부하 화면의 확인 대화상자를 거쳐 합니다. AWS에서는 지표 정책이 대수를 정합니다.",
   THRESHOLD: "임계값은 임계값 관리에서 새 값을 적고 1인 승인(ops.threshold.set)을 발급·실행해야 바뀝니다. 되돌리기도 같은 승인을 거칩니다.",
-  MODE: "AI 모드는 관제센터 모드 줄에서 운영자가 바꿉니다. 자동 모드는 사유와 유효 시간을 적고 1인 승인(ops.ai.auto)을 거쳐야 켜지고, 수동 전환과 AI 즉시 정지는 승인 없이 누를 수 있습니다.",
+  MODE: "AI 모드는 관제센터 모드 줄에서 운영자가 바꿉니다. 자동 모드는 사유와 유효 시간을 적고 1인 승인(ops.ai.auto)을 거쳐야 켜지고, 수동 전환은 승인 없이 됩니다. AI 즉시 정지와 재개는 운영 관제 모든 화면의 운영자 바에 있고, 정지는 승인 없이 누구나 누를 수 있습니다.",
   SILENCE: "경보 보류는 경보·사건 화면에서 운영자가 겁니다. 최대 30분이고 장애 등급과 같은 경보의 연속 보류는 막힙니다.",
   BACKUP: "Databasus 즉시 백업은 데이터베이스 화면이나 관제센터 운영 작업의 [지금 백업]에서 운영자가 누릅니다.",
   PROPOSAL: "조치안의 승인과 거절은 관제센터 조치 카드에서 운영자가 확인 대화상자를 거쳐 합니다. 상담은 승인을 대신하지 않습니다.",

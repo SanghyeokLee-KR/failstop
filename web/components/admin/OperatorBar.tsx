@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * 관리 평면 상단 운영자 바(§4-1). 왼쪽에 평면이 넘기는 검색 자리, 오른쪽에 상태 신호·현재 시각·테마·
- * 사용자 메뉴를 둔다. 검색과 상태 신호는 관제 데이터를 읽으므로 운영 관제 셸만 넘기고 백오피스는 비운다.
+ * 관리 평면 상단 운영자 바(§4-1). 왼쪽에 평면이 넘기는 검색 자리, 오른쪽에 'AI 즉시 정지'·상태 신호·현재 시각·
+ * 테마·사용자 메뉴를 둔다. 검색, 정지 단추와 상태 신호는 관제 데이터를 읽으므로 운영 관제 셸만 넘기고 백오피스는
+ * 비운다. 시각은 KST이고 이 시계만 'KST'를 붙여 콘솔의 모든 시각이 어느 기준인지 한 번 밝힌다(§12-12).
  *
  * 사용자 메뉴가 신원, 세션 남은 시간, 인증서 전환, 세션 종료를 싣는다. 인증서 전환은 mTLS 신원 재제시를
  * 모사한다. 세션이 1분 안에 끝나면 메뉴를 열지 않아도 바에 ▲ 남은 시간을 띄운다.
@@ -13,6 +14,7 @@ import { getAdminApi } from "@/lib/admin/api";
 import { ROLE_LABEL } from "@/lib/admin/roles";
 import { useAdminSession } from "@/lib/admin/store";
 import { useBeat } from "@/lib/admin/ticker";
+import { kstParts } from "@/lib/admin/timeText";
 import { toast } from "@/components/Toast";
 import ThemeToggle from "@/components/ThemeToggle";
 import { AdminIcon } from "./icons";
@@ -21,7 +23,6 @@ import styles from "./admin.module.css";
 
 // 임박 낭독 임계. 이 값 이하에서만 polite 리전이 1회 경고한다(매초 낭독 방지)
 const IMMINENT_SEC = 60;
-const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
 export function remainMs(expiresAt: string): number {
   return Math.max(0, new Date(expiresAt).getTime() - Date.now());
@@ -34,10 +35,10 @@ export function mmss(ms: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function clockText(now: number): string {
-  const d = new Date(now);
+function clockParts(now: number): { date: string; time: string } {
+  const k = kstParts(now);
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAY[d.getDay()]}) ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return { date: `${k.month}월 ${k.day}일 (${k.weekday})`, time: `${p(k.h)}:${p(k.m)}:${p(k.s)}` };
 }
 
 /** 세션 남은 시간 mm:ss. 이 글자만 박자를 탄다 */
@@ -157,12 +158,15 @@ function UserMenu() {
   );
 }
 
-/** 현재 시각. 매초 바뀌는 글자라 이 조각만 콘솔 공용 박자를 탄다 */
+/** 현재 시각(KST). 매초 바뀌는 글자라 이 조각만 콘솔 공용 박자를 탄다. 좁은 창에서는 날짜를 거둔다 */
 function Clock() {
   const now = useBeat();
+  const c = clockParts(now);
   return (
     <time className={`${styles.clock} num`} dateTime={new Date(now).toISOString()}>
-      {clockText(now)}
+      <span className={styles.clockDate}>{c.date} </span>
+      {c.time}
+      <span className={styles.clockZone}> KST</span>
     </time>
   );
 }
@@ -209,9 +213,11 @@ function SessionWarn({ expiresAt }: { expiresAt: string }) {
   );
 }
 
-export default function OperatorBar({ search, signals }: {
+export default function OperatorBar({ search, ai, signals }: {
   /** 왼쪽 검색 자리. 운영 관제 셸만 넘긴다 */
   search?: ReactNode;
+  /** 오른쪽 맨 앞의 'AI 즉시 정지'. 운영 관제 셸만 넘긴다 */
+  ai?: ReactNode;
   /** 시각 앞의 상태 신호(전체 상태, 경보 종). 운영 관제 셸만 넘긴다 */
   signals?: ReactNode;
 }) {
@@ -221,6 +227,7 @@ export default function OperatorBar({ search, signals }: {
     <header className={styles.opbar}>
       <div className={styles.opbarLead}>{search}</div>
       <div className={styles.opbarRight}>
+        {ai}
         {signals}
         <SessionWarn expiresAt={session.expiresAt} />
         <Clock />

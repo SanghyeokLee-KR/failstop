@@ -5,7 +5,8 @@
  * exchange-chaos 스택이 그 역할을 맡는다(2026-09-23 사용자 결정). 카드에는 아이콘, AWS 역할 이름,
  * 상태 한 줄만 둔다. 이름은 관제센터와 같다(app-1·app-2, read-1~3, db-primary·db-standby, bot-1, load-1,
  * ai-1). 그 역할을 대신하는 컨테이너 이름, 포트, 리스 같은 세부는 카드를 눌러 여는 팝오버에만 싣는다.
- * 흐름 값은 모두 flowSim 이 만든 시뮬레이션이고, ai-1 카드와 판단 요청선만 관제 판(opsCenter)을 읽는다.
+ * 재생하지 않는 동안의 값은 관제 판(opsCenter)에서 옮긴 관제 값이고, 재생 중에는 flowSim 의 재생 값이다
+ * (flowRun 의 두 모드). ai-1 카드와 판단 요청선은 어느 모드에서나 관제 판을 읽는다.
  *
  * 그림의 뼈대는 사용자가 준 거래소 인프라 그림을 따르고, 칸은 정해 둔 격자에 맞춘다.
  *  - 구성도 세로 가운데 아래를 지나는 가로줄(주축) 하나에 사용자, CloudFront, ALB, 조회 Auto Scaling 그룹의
@@ -29,9 +30,9 @@
  *  - ai-1 은 AWS 밖 온프레미스 틀에 선다(ADR 0038). 매칭 칸 이름표 띠 높이의 곧은 점선이 ai-1 과 매칭 칸을
  *    잇고, 선 밑 이름표가 '판단 요청 · 연결 경로 결정 전'이라고 적는다. 연결 경로를 정하지 않아 흐름 선에
  *    넣지 않는다. 관제 판에 판단 요청이 걸리면 요청과 응답 알갱이가 한 번씩 지난다(AiLink).
- *  - bot-1 칸의 관측 오른쪽(Standby 열 아래)에 'AI 운영 보고', 0열 아래 AWS 틀 밖에 'Teams' 자리를 점선
- *    카드로 둔다(관리자 설계 7-10 (i) 6). 보고 서비스에 연결하지 않아 두 카드는 '◌ 연결 전'만 적고 누를 수
- *    없다. 관측→AI 운영 보고→Teams 선은 꺼짐 모양이고 흐름 선(EdgeId)에 들지 않는다.
+ *  - bot-1 칸의 관측 오른쪽(Standby 열 아래)에 'AI 운영 보고', 0열 아래 AWS 틀 밖에 'Teams' 자리를 둔다
+ *    (관리자 설계 7-10 (i) 6). 두 카드는 설정 화면의 Teams 행과 같은 판정(보고 서비스의 전송 기록)을 적고
+ *    누를 수 없다. 관측→AI 운영 보고→Teams 선은 흐름 선(EdgeId)에 들지 않는 보고 경로 선이다.
  *  - CloudFront 는 이 대역에 없다. 사용자가 목표 구성대로 켜진 노드로 그리기로 했고 상태 글자와
  *    팝오버가 그 사실을 밝힌다. chaos-toxiproxy 는 AWS 에 없는 Docker 전용 장애 주입기라 그리지 않는다.
  *  - 학교·개인 계정 모두 NAT 없는 퍼블릭 서브넷 구성이라(ADR 0099) DB 와 bot-1 칸에 프라이빗
@@ -77,7 +78,9 @@ import {
   describeScenario,
   edgeFlows,
   isEngine,
+  isLeader,
   isRead,
+  partitionsOf,
   primaryDb,
   writable,
   type DbId,
@@ -95,8 +98,10 @@ import {
   type ScenarioId,
   type TargetId,
 } from "@/lib/admin/flowSim";
-import { useFlowRun } from "@/lib/admin/flowRun";
+import { replayBase, useFlowRun } from "@/lib/admin/flowRun";
+import type { IntegrationState } from "@/lib/admin/integrations";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
+import { hm } from "@/lib/admin/timeText";
 import type { AiServer, OpsSection } from "@/lib/admin/types";
 import { MeterRail } from "@/components/admin/instruments/MeterRail";
 import AiLink from "./AiLink";
@@ -116,10 +121,20 @@ import styles from "./topology.module.css";
 /** 노드를 눌러 고른 재생. 대상은 노드를 지목하는 재생(리더 중단, 재기동, DB 전환, 재편입)에만 붙는다 */
 export type FlowPick = { id: ScenarioId; target?: TargetId };
 
+/** 보고 경로 자리(AI 운영 보고, Teams)의 판정. 설정 화면의 Teams 행과 같은 함수(teamsDelivery)에서 온다 */
+export interface FlowDelivery {
+  state: IntegrationState;
+  /** 마지막 보고를 만든 시각 */
+  lastReportAt: string | null;
+  /** 마지막 전송 시도 시각 */
+  lastSentAt: string | null;
+}
+
 export interface FlowTopologyProps {
   state: FlowState;
   views: Record<NodeId, NodeView>;
   onPick: (req: FlowPick) => void;
+  delivery: FlowDelivery;
 }
 
 /** 팝오버를 여는 자리. 노드 카드, Auto Scaling 그룹 머리, 온프레미스 ai-1 이다 */
@@ -752,16 +767,16 @@ function Status({ state, text }: { state: NodeState; text: string }) {
 }
 
 /**
- * 연결 전 자리 카드. 모양은 미구축 노드(점선 윤곽, 빈 면)와 같고 상태 줄에는 '◌ 연결 전'만 적는다.
- * 단추가 아니라 누를 수 없고 팝오버도 조치도 없다. 보고 서비스에 연결하지 않았으므로 요약이나 수치를
- * 싣지 않는다. 뜻은 연결 목록의 한 줄이 글로 싣는다
+ * 보고 경로 자리 카드(AI 운영 보고, Teams). 단추가 아니라 누를 수 없고 팝오버도 조치도 없다. 설정 화면의 Teams
+ * 행과 같은 판정을 적는다. 보고 서비스가 연결 전이면 미구축 모양(점선 윤곽, ◌ 연결 전), 전송 기록이 있으면 실행
+ * 모양과 마지막 시각, 실패가 남았으면 장애 모양이다. 보고 내용은 싣지 않는다. 뜻은 연결 목록의 한 줄이 글로 싣는다
  */
-function ReserveCard({ box, icon, title, out }: { box: Box; icon: FlowIconName; title: string; out?: boolean }) {
+function ReserveCard({ box, icon, title, out, state, text }: { box: Box; icon: FlowIconName; title: string; out?: boolean; state: NodeState; text: string }) {
   return (
     <div
       className={styles.node}
       style={boxStyle(box)}
-      data-state="absent"
+      data-state={state}
       data-reserve="true"
       data-out={out ? "true" : undefined}
       aria-hidden="true"
@@ -770,12 +785,19 @@ function ReserveCard({ box, icon, title, out }: { box: Box; icon: FlowIconName; 
       <span className={styles.titleRow}>
         <span className={styles.title}>{title}</span>
       </span>
-      <span className={styles.status} data-state="absent">
-        <span className={styles.shape}>◌</span>
-        <span className={styles.statusText}>연결 전</span>
-      </span>
+      <Status state={state} text={state === "absent" ? `◌ ${text}` : text} />
     </div>
   );
+}
+
+/** 보고 경로 두 자리의 모양과 글. 연결 전이면 둘 다 '연결 전'이다 */
+function deliveryView(d: FlowDelivery): { report: { state: NodeState; text: string }; teams: { state: NodeState; text: string }; wire: "off" | "idle" | "down" } {
+  if (d.state === "NOT_CONNECTED" || d.state === "ASSUMED") {
+    return { report: { state: "absent", text: "연결 전" }, teams: { state: "absent", text: "연결 전" }, wire: "off" };
+  }
+  const report = { state: "running" as NodeState, text: d.lastReportAt ? `보고 ${hm(d.lastReportAt)}` : "보고 없음" };
+  if (d.state === "ERROR") return { report, teams: { state: "failure", text: "전송 실패" }, wire: "down" };
+  return { report, teams: { state: "running", text: d.lastSentAt ? `전송 ${hm(d.lastSentAt)}` : "보낸 기록 없음" }, wire: "idle" };
 }
 
 /** 묶음 상자의 머리 이름표. 왼쪽 위의 작은 표식과 이름 */
@@ -865,7 +887,7 @@ interface Detail {
 
 /* ===== 본체 ===== */
 
-export default function FlowTopology({ state, views, onPick }: FlowTopologyProps) {
+export default function FlowTopology({ state, views, onPick, delivery }: FlowTopologyProps) {
   const uid = useId();
   const popId = `${uid}-pop`;
   const titleId = `${uid}-pop-title`;
@@ -881,7 +903,8 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
   const { data: center } = useOpsCenter();
   const aiSection = center?.aiServer ?? null;
   const ai = aiView(aiSection);
-  const aiSim = center?.origin === "SIM";
+  const mode = useFlowRun((r) => r.mode);
+  const report = deliveryView(delivery);
 
   // 패널 안쪽 폭을 재서 배치를 다시 잡는다. 페인트 전에 재야 첫 화면에서 선이 한 번 튀지 않는다
   useIsoLayoutEffect(() => {
@@ -973,8 +996,13 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
   const asg = asgView(state);
   // 그룹이 조정 기준으로 삼는 조회 사용률. 지표 관제의 "조회 사용률 %" 그래프와 같은 표본(마지막 값)을
   // 정수로 골라 두 화면의 숫자가 어긋나지 않는다. 정수라 값이 바뀔 때만 다시 그린다
-  const util = useFlowRun((r) => Math.round(r.samples[r.samples.length - 1].util * 100));
-  const advice = Math.round(SCALE_OUT_ADVICE * 100);
+  const util = useFlowRun((r) => Math.round((r.samples[r.samples.length - 1]?.util ?? 0) * 100));
+  // 증설 기준. 관제 값 모드는 임계값 관리의 증설 임계(관제센터 조회 ASG 눈금과 같은 값), 재생은 로컬 조정기의 권고 임계다
+  const live = state.live;
+  const advice = live ? Math.round(live.scaleOut * 100) : Math.round(SCALE_OUT_ADVICE * 100);
+  const adviceWord = live ? "증설" : "권고";
+  /** 재생을 걸 세계. 관제 값 모드에서는 재생 세계의 첫 상태로 막힘과 설명을 판정한다 */
+  const replayState = (id: ScenarioId, target?: TargetId) => (mode === "live" ? replayBase(id, target) : state);
   // 상태가 바뀐 카드와 그룹 틀에 링 펄스를, 등록 대수가 바뀐 숫자에 플래시를 켠다. 처음 받은 값은 전이가
   // 아니다(useChangeFlags). 매초 바뀌는 CPU·사용률은 상태가 아니라 움직이지 않는다(디자인 시스템 §12-4)
   const pulse = useChangeFlags(
@@ -1020,18 +1048,30 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
         sub: "capacity_reconciler.py · 호스트",
         state: asg.state,
         status: asg.status,
-        rows: [
-          ["범위", `min ${asg.min} · max ${asg.max}`],
-          ["조회 사용률", `${util}% · 증설 권고 ${advice}%`],
-          ["목표", `${asg.desired}대`],
-          ["등록", `${asg.registered}대 · ALB 조회 대상`],
-          ["노드", "read-1 · read-2 · read-3(+1) · 조회 전용"],
-          ["매칭 노드", "app-1 · app-2 는 그룹 밖 · 대수 고정"],
-          ["Docker 대역", "capacity_reconciler.py · docker start·stop · ALB down 표식 토글"],
-          ["AWS", "Auto Scaling group · AWS 지표 정책이 대수를 정함"],
-          ["증설 권고", `조회 사용률 ${advice}% 이상 · AWS 운영값 60%`],
-          ["승인", "운영자 +1·-1 승인 뒤 조정"],
-        ],
+        rows: live
+          ? [
+              ["범위", `min ${asg.min} · max ${asg.max}`],
+              ["조회 사용률", `${util}% · 증설 임계 ${advice}%`],
+              ["목표", `${asg.desired}대`],
+              ["등록", `${asg.registered}대 · ALB 조회 대상`],
+              ["노드", "read-1 · read-2 · read-3(+1) · 조회 전용"],
+              ["매칭 노드", "app-1 · app-2 는 그룹 밖 · 대수 고정"],
+              ["임계", `증설 ${advice}% · 축소 ${Math.round(live.scaleIn * 100)}% · 임계값 관리의 현재값`],
+              ["AWS", "Auto Scaling group · AWS 지표 정책이 대수를 정합니다"],
+              ["값", "관제 판 · 관제센터 조회 ASG와 같은 값"],
+            ]
+          : [
+              ["범위", `min ${asg.min} · max ${asg.max}`],
+              ["조회 사용률", `${util}% · 증설 권고 ${advice}%`],
+              ["목표", `${asg.desired}대`],
+              ["등록", `${asg.registered}대 · ALB 조회 대상`],
+              ["노드", "read-1 · read-2 · read-3(+1) · 조회 전용"],
+              ["매칭 노드", "app-1 · app-2 는 그룹 밖 · 대수 고정"],
+              ["Docker 대역", "capacity_reconciler.py · docker start·stop · ALB down 표식 토글"],
+              ["AWS", "Auto Scaling group · AWS 지표 정책이 대수를 정합니다"],
+              ["증설 권고", `조회 사용률 ${advice}% 이상 · 로컬 조정기 값 · 관제 임계와 별개`],
+              ["승인", "운영자 +1·-1 승인 뒤 조정"],
+            ],
         actions: [{ id: "scale", tone: "neutral" }],
       };
     }
@@ -1048,8 +1088,8 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
             ["추론 지연", `p50 ${ms(a.p50Ms)} · p95 ${ms(a.p95Ms)}`],
             ["처리량", a.tokensPerSec === null ? "미수집" : `${a.tokensPerSec} 토큰/초`],
             ["대기 요청", a.queue === null ? "미수집" : `${a.queue}건`],
-            ["관제 연결", "연결 경로 결정 전 · 선은 그림"],
-            ["구축", aiSim ? "ADR 0038 · 구축 전 · 값은 관제 시뮬레이터" : "ADR 0038 · 구축 전"],
+            ["관제 연결", a.assumed ? "시뮬레이션 가정 · 실제 연결 경로 결정 전" : "연결 경로 결정 전 · 선은 그림"],
+            ["구축", "ADR 0038 · 구축 전"],
           ]
         : [
             ["위치", "연구소 · AWS 밖 · 온프레미스"],
@@ -1059,7 +1099,7 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
       return {
         icon: "chip",
         title: "ai-1 · 온프레미스 AI 서버",
-        sub: a ? `${a.hardware} · ${a.runtime}` : "원천 연결 전",
+        sub: a ? `${a.hardware} · ${a.runtime}${a.assumed ? " · 시뮬레이션 가정" : ""}` : "원천 연결 전",
         state: ai.state,
         status: ai.status,
         rows,
@@ -1121,29 +1161,42 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
           actions: [],
         };
       case "api1":
-      case "api2":
+      case "api2": {
+        const parts = partitionsOf(state, key);
         return {
           ...head,
-          rows: [
-            ["컨테이너", `${APP_CONTAINER[key]} · :${APP_PORT[key]}`],
-            ["역할", v.role],
-            ["상태", v.status],
-            [
-              "리더 리스",
-              state.holder === key
-                ? `보유 · 잔여 ${state.lease}초 · TTL ${LEASE_TTL}초 · 갱신 ${LEASE_TICK}초`
-                : `app-1 · app-2 경쟁 · TTL ${LEASE_TTL}초`,
-            ],
-            ["세대", state.holder === null ? `epoch ${state.epoch} · 보유 없음` : `epoch ${state.epoch} · 보유 ${APP_NAME[state.holder]}`],
-            ["마켓별 리더", "ADR 0034 · 구현 전 · 이 재생은 단일 리더 측정 기록"],
-            ["조회", "받지 않음 · 조회는 Auto Scaling 그룹"],
-            ["DB 접속", endpointLine],
-          ],
+          rows: live
+            ? [
+                ["컨테이너", `${APP_CONTAINER[key]} · :${APP_PORT[key]}`],
+                ["역할", v.role],
+                ["상태", v.status],
+                ["리더 리스", parts.length > 0 ? `${parts.map((p) => p.id).join("·")} 보유 · TTL ${LEASE_TTL}초 · 갱신 ${LEASE_TICK}초` : "보유 파티션 없음"],
+                ["세대", parts.length > 0 ? parts.map((p) => `${p.id} epoch ${p.epoch}`).join(" · ") : "없음"],
+                ["마켓별 리더", "ADR 0034 배치 · 관제 판 값"],
+                ["조회", "받지 않음 · 조회는 Auto Scaling 그룹"],
+                ["DB 접속", endpointLine],
+              ]
+            : [
+                ["컨테이너", `${APP_CONTAINER[key]} · :${APP_PORT[key]}`],
+                ["역할", v.role],
+                ["상태", v.status],
+                [
+                  "리더 리스",
+                  state.holder === key
+                    ? `보유 · 잔여 ${state.lease}초 · TTL ${LEASE_TTL}초 · 갱신 ${LEASE_TICK}초`
+                    : `app-1 · app-2 경쟁 · TTL ${LEASE_TTL}초`,
+                ],
+                ["세대", state.holder === null ? `epoch ${state.epoch} · 보유 없음` : `epoch ${state.epoch} · 보유 ${APP_NAME[state.holder]}`],
+                ["마켓별 리더", "ADR 0034 · 이 재생은 단일 리더 측정 기록"],
+                ["조회", "받지 않음 · 조회는 Auto Scaling 그룹"],
+                ["DB 접속", endpointLine],
+              ],
           actions: [
             { id: "leaderKill", target: key, tone: "danger" },
             { id: "restart", target: key, tone: "neutral" },
           ],
         };
+      }
       case "read1":
       case "read2":
         return {
@@ -1199,7 +1252,7 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
             ["컨테이너", "chaos-bots"],
             ["주문", "ALB :58080 경유"],
             ["DB", "봇 계정용 직결"],
-            ["발행률", `목표 ${state.botOps} OPS · 기본 ${BASE_OPS}`],
+            ["발행률", live ? `목표 ${live.botTarget} OPS · 지금 ${state.botOps} OPS · 봇 플릿과 같은 값` : `목표 ${state.botOps} OPS · 기본 ${BASE_OPS}`],
             ["AWS", "bot-1 한 호스트 · 관측과 함께"],
           ],
           actions: [{ id: "traffic", tone: "neutral" }],
@@ -1283,7 +1336,8 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
         {d.actions.length > 0 && (
           <div className={styles.popActions}>
             {d.actions.map((a) => {
-              const av = availability(state, a.id, a.target);
+              const base = replayState(a.id, a.target);
+              const av = availability(base, a.id, a.target);
               const actionKey = `${a.id}-${a.target ?? "any"}`;
               const reasonId = `${uid}-reason-${actionKey}`;
               return (
@@ -1295,7 +1349,7 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
                     aria-describedby={!av.ok && av.reason ? reasonId : undefined}
                     onClick={() => pick(a.target === undefined ? { id: a.id } : { id: a.id, target: a.target })}
                   >
-                    {describeScenario(state, a.id, a.target).title}
+                    {describeScenario(base, a.id, a.target).title}
                   </button>
                   {!av.ok && av.reason && (
                     <span id={reasonId} className={styles.reason}>
@@ -1320,7 +1374,7 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
    */
   const card = (key: NodeId, out = false) => {
     const v = views[key];
-    const leader = isEngine(key) && state.holder === key;
+    const leader = isEngine(key) && isLeader(state, key);
     const box = L.nodes[key];
     return (
       <Fragment key={key}>
@@ -1372,9 +1426,9 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
     );
   };
 
-  const asgLabel = `조회 Auto Scaling group · min ${asg.min} · max ${asg.max} · 증설 권고 ${advice}% · capacity_reconciler.py · ${asg.status}`;
+  const asgLabel = `조회 Auto Scaling group · min ${asg.min} · max ${asg.max} · ${live ? "증설 임계" : "증설 권고"} ${advice}% · ${asg.status}`;
   const countTone = countFlash.n ? (asg.state === "transition" ? "warning" : "success") : undefined;
-  const aiLabel = `ai-1 · 온프레미스 AI 서버 · ${ai.server ? `${ai.server.hardware} · ${ai.server.runtime}` : "원천 연결 전"} · ${STATE_WORD[ai.state]}${ai.state === "running" ? ` · ${ai.status}` : ""}`;
+  const aiLabel = `ai-1 · 온프레미스 AI 서버 · ${ai.server ? `${ai.server.hardware} · ${ai.server.runtime}` : "원천 연결 전"} · ${STATE_WORD[ai.state]}${ai.state === "running" ? ` · ${ai.status}` : ""}${ai.server?.assumed ? " · 구축 전이라 연결은 시뮬레이션 가정" : ""}`;
 
   return (
     <div className={styles.root}>
@@ -1464,7 +1518,7 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
             z-index 로 카드 위에 올린다(traffic.module.css). 받는 값이 모두 사건 때만 바뀌어 매초의
             다시 그리기가 이 층을 건너뛴다 */}
         <FlowTraffic width={L.width} height={H} wires={wires} sig={sig} />
-        <ReserveWires width={L.width} height={H} paths={reserveWires} />
+        <ReserveWires width={L.width} height={H} paths={reserveWires} kind={report.wire} />
         <AiLink
           x0={right(L.ai)}
           x1={L.match.x}
@@ -1531,7 +1585,9 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
           aria-hidden="true"
         >
           <MeterRail value={util} max={100} threshold={advice} tone={util >= advice ? "warning" : undefined} />
-          <span className={styles.asgRailLabel}>권고 {advice}%</span>
+          <span className={styles.asgRailLabel}>
+            {adviceWord} {advice}%
+          </span>
         </div>
         {popover("asg", L.asgHead)}
         {readRow("read1")}
@@ -1541,8 +1597,8 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
         {card("pg2")}
         {card("bot")}
         {card("obs")}
-        <ReserveCard box={L.reserve.report} icon="report" title="AI 운영 보고" />
-        <ReserveCard box={L.reserve.teams} icon="chat" title="Teams" out />
+        <ReserveCard box={L.reserve.report} icon="report" title="AI 운영 보고" state={report.report.state} text={report.report.text} />
+        <ReserveCard box={L.reserve.teams} icon="chat" title="Teams" out state={report.teams.state} text={report.teams.text} />
         {/* 온프레미스 ai-1. 관제 판의 AI 서버 칸을 읽는다. 조치가 없는 정보 팝오버만 연다 */}
         <button
           {...triggerProps("ai")}
@@ -1557,7 +1613,7 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
           <span className={styles.titleRow}>
             <span className={styles.title}>ai-1</span>
           </span>
-          <Status state={ai.state} text={ai.state === "absent" ? `◌ ${ai.status}` : ai.status} />
+          <Status state={ai.state} text={ai.state === "absent" ? `◌ ${ai.status}` : ai.server?.assumed ? `${ai.status} · 가정` : ai.status} />
         </button>
         {popover("ai", L.ai)}
 
@@ -1568,8 +1624,8 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
             <li key={id}>{edgeText(id, state, views, flows[id])}</li>
           ))}
           <li>{`DB 승격 · 자동 페일오버 없음 · 수동 승격`}</li>
-          <li>{`매칭 app-1·app-2 ↔ ai-1 · 판단 요청 · 연결 경로 결정 전 · ${ai.server?.busy ? "요청 처리 중" : ai.status}`}</li>
-          <li>bot-1 관측 → AI 운영 보고 → Microsoft Teams · 이 화면에 연결 전</li>
+          <li>{`매칭 app-1·app-2 ↔ ai-1 · 판단 요청 · 연결 경로 결정 전${ai.server?.assumed ? " · 시뮬레이션 가정" : ""} · ${ai.server?.busy ? "요청 처리 중" : ai.status}`}</li>
+          <li>{`bot-1 관측 → AI 운영 보고 → Microsoft Teams · ${delivery.state === "CONNECTED" ? `${report.report.text} · ${report.teams.text}` : delivery.state === "ERROR" ? "전송 실패" : "보고 서비스 연결 전"}`}</li>
         </ul>
       </div>
     </div>

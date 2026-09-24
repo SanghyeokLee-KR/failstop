@@ -166,3 +166,64 @@ export class TrendBook {
     return out;
   }
 }
+
+/** 증감을 견줄 앞 시점(분). 고른 범위의 6분의 1 앞이다 */
+export const DELTA_BACK_MIN: Record<TrendRange, number> = { 1: 10, 6: 60, 24: 240 };
+
+export interface TrendDelta {
+  /** 지표 단위의 차이. 사건은 그 사이에 연 수다 */
+  diff: number;
+  text: string;
+  dir: "up" | "down" | "flat";
+  /** 좋아졌는가. 변화가 없으면 null */
+  good: boolean | null;
+}
+
+/**
+ * 상태 요약 칸의 증감(디자인 시스템 §12-9). 지금 값과 범위의 6분의 1 앞 시점 값의 차이다. 한 구간 평균끼리 견주면
+ * 방금 오른 507ms 옆에 '0%'가 서서 칸의 큰 수치와 증감이 서로 다른 말을 한다. 앞 시점 값은 추세 점열에서 그
+ * 시점을 덮는 점이고, 사건은 그 사이에 새로 연 수를 센다. 값이 없으면 비교하지 않는다
+ */
+export function trendDelta(metric: TrendMetric, s: OpsTrendSeries, range: TrendRange, current: number | null): TrendDelta | null {
+  const n = s.points.length;
+  const back = Math.round((DELTA_BACK_MIN[range] / (range * 60)) * POINTS[range]);
+  if (n <= back) return null;
+  let diff: number;
+  if (metric === "incidents") {
+    diff = s.points.slice(n - back).reduce<number>((a, v) => a + (v ?? 0), 0);
+  } else {
+    const ref = s.points[n - 1 - back];
+    if (current === null || ref === null) return null;
+    diff = current - ref;
+  }
+  const better = metric === "availability" ? "up" : "down";
+  let text: string;
+  let flat: boolean;
+  if (metric === "availability" || metric === "errors") {
+    text = `${Math.abs(diff).toFixed(2)}%p`;
+    flat = Math.abs(diff) < 0.005;
+  } else if (metric === "p95") {
+    text = `${Math.round(Math.abs(diff))}ms`;
+    flat = Math.round(Math.abs(diff)) === 0;
+  } else {
+    text = `${Math.round(Math.abs(diff))}건`;
+    flat = Math.round(diff) === 0;
+  }
+  if (flat) return { diff: 0, text: "±0", dir: "flat", good: null };
+  const dir = diff > 0 ? "up" : "down";
+  return { diff, text, dir, good: dir === better };
+}
+
+/**
+ * 목표를 벗어난 채 이어진 분. 1시간 범위의 분 단위 점열 끝에서 거꾸로 세고 지금 분을 더한다. 칸이 목표를 벗어난 동안
+ * 증감 대신 '목표 초과 n분째'로 적는다
+ */
+export function breachMinutes(points: (number | null)[], over: (v: number) => boolean): number {
+  let m = 1;
+  for (let i = points.length - 2; i >= 0; i -= 1) {
+    const v = points[i];
+    if (v === null || !over(v)) break;
+    m += 1;
+  }
+  return m;
+}

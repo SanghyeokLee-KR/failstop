@@ -105,7 +105,7 @@ export type ApprovalPayload =
       from: number;
       to: number;
       reason: string;
-      /** 되돌리기면 되돌리는 변경의 id. 이력이 어떤 변경을 무른 것인지 잇는다 */
+      /** 되돌리기면 되돌리는 변경의 id. 이력이 어떤 변경을 되돌린 것인지 잇는다 */
       revertOf: string | null;
       /** AI 조치안을 승인한 변경이면 그 조치안 id */
       proposalId: string | null;
@@ -756,12 +756,33 @@ export interface AiServer {
   queue: number | null;
   /** 관제 서버와의 연결 */
   link: "OK" | "DOWN";
+  /** 구축 전이라 연결과 값이 시뮬레이터의 가정인가. 화면은 '시뮬레이션 가정'을 함께 적는다 */
+  assumed: boolean;
   /** 지금 판단 요청을 처리하는 중인가 */
   busy: boolean;
   /** 마지막으로 끝낸 판단 요청의 순번. 화면이 요청·응답이 오간 순간을 알아챈다 */
   served: number;
   /** 마지막으로 판단 요청에 답한 시각. 답한 적이 없으면 null */
   lastServedAt: string | null;
+}
+
+/** 마켓 파티션 하나의 매칭 리더(ADR 0034). 세대는 파티션마다 따로 오른다 */
+export interface OpsLeader {
+  partition: string;
+  node: string;
+  epoch: number;
+  markets: string[];
+}
+
+/**
+ * 거래 칸. 매칭 리더와 시장 봇 발행률, 초당 체결이다. 관제센터의 거래 요약 띠, 봇 플릿, 서비스 흐름이 같은
+ * 값을 읽는다. 목표 발행률은 운영자·AI가 정한 값이고 지금 발행률은 봇이 실제로 내는 값이다(정지면 0)
+ */
+export interface OpsTrading {
+  leaders: OpsLeader[];
+  botTargetOps: number;
+  botOps: number;
+  tradesPerSec: number;
 }
 
 /** 상태 요약 추세선의 범위(시간) */
@@ -787,6 +808,8 @@ export interface ReadNode {
   id: string;
   state: ReadNodeState;
   cpuPct: number | null;
+  instanceType: string;
+  az: string;
 }
 
 /** 조회 노드 ASG. 매칭 리더와 DB는 여기 들지 않는다 */
@@ -1131,6 +1154,7 @@ export interface ControlCenter {
   thresholds: OpsSection<ThresholdRegistry>;
   ai: OpsSection<AiDesk>;
   aiServer: OpsSection<AiServer>;
+  trading: OpsSection<OpsTrading>;
   trends: OpsSection<OpsTrends>;
   /** sim 시나리오 재생. 재생 중이 아니거나 http면 null */
   scenario: OpsScenarioView | null;

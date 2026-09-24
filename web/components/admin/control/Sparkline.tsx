@@ -11,6 +11,7 @@
 
 import { memo, useState } from "react";
 import { downsample } from "@/lib/admin/series";
+import { hm } from "@/lib/admin/timeText";
 import styles from "./control.module.css";
 
 const VIEW_H = 100;
@@ -66,10 +67,7 @@ function Sparkline({ points: raw, kind = "line", tone, format, stepMin, label, m
   const lastIdx = points.length - 1 - [...points].reverse().findIndex((v) => v !== null);
   const last = points[lastIdx] as number;
   // 가리킨 점의 시각. 마지막 점을 지금으로 보고 거슬러 센다. 가리킬 때만 읽으므로 시계를 타지 않는다
-  const at = (i: number) => {
-    const d = new Date(Date.now() - (n - 1 - i) * stepMin * factor * 60_000);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  };
+  const at = (i: number) => hm(new Date(Date.now() - (n - 1 - i) * stepMin * factor * 60_000).toISOString());
 
   const onMove = (e: React.PointerEvent<HTMLSpanElement>) => {
     const r = e.currentTarget.getBoundingClientRect();

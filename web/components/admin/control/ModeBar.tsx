@@ -3,10 +3,11 @@
 /**
  * AI 운영 모드 줄(디자인 시스템 §12-9, ADR 0035). 수동이 기본이다.
  *
- * 자동 켜기는 사유와 유효 시간을 받은 뒤 1인 승인 티켓을 발급·소각한다. 'AI 즉시 정지'는 두 모드
- * 어디서든 늘 보이고 승인 없이 누구나 누른다. 정지하면 줄이 주의 면으로 바뀌고 'AI 재개'가 선다.
- * 자동인 동안 줄 테두리만 AI 강조색이 되고 남은 시간, 이번 자동 모드의 조치 수, 쿨다운, 관찰 창을
- * 싣는다. 줄 높이는 모드와 무관하게 같아 아래 판이 움직이지 않는다.
+ * 자동 켜기는 사유와 유효 시간을 받은 뒤 1인 승인 티켓을 발급·소각한다. 'AI 즉시 정지'와 'AI 재개'는 이 줄이
+ * 아니라 운영자 바에 있다(AiStop). 정지하면 줄이 주의 면으로 바뀐다. 대기 조치안 수는 링크라 누르면 AI 관제의
+ * 첫 대기 카드로 스크롤해 포커스를 옮긴다. 자동인 동안 줄 테두리만 AI 강조색이 되고 남은 시간, 이번 자동 모드의
+ * 조치 수, 쿨다운, 관찰 창을 숫자 먼저 싣는다. 켠 사유는 정보 표지의 툴팁으로 옮겼다. 줄 높이는 모드와 무관하게
+ * 같아 아래 판이 움직이지 않는다.
  */
 
 import { memo, useState } from "react";
@@ -18,7 +19,9 @@ import type { AiDesk, OpsSection } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "../ConfirmDialog";
 import adminStyles from "../admin.module.css";
-import { AiMark, hmmss, hms, mmss, useClock } from "./parts";
+import { prefersReducedMotion } from "@/lib/reducedMotion";
+import { AdminIcon } from "../icons";
+import { AiMark, hms, mmss, remainWord, useClock } from "./parts";
 import styles from "./control.module.css";
 
 /** 허용·금지 목록 펼침. 모드 줄과 AI 패널 바닥이 같은 목록을 연다 */
@@ -158,57 +161,31 @@ function AutoDialog({ limits, onClose, onDone }: { limits: AiLimits; onClose: ()
   );
 }
 
-function ResumeDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const ready = reason.trim().length >= 2;
-  const submit = async () => {
-    setBusy(true);
-    try {
-      await getAdminApi().resumeAi(reason);
-      toast("AI 재개 · 수동 모드", "info");
-      onDone();
-      onClose();
-    } catch (e) {
-      toast(e instanceof AdminError ? e.message : "AI 재개 실패", "error");
-    } finally {
-      setBusy(false);
-    }
-  };
+/**
+ * 대기 조치안 링크. 누르면 AI 관제의 첫 대기 카드(ai-proposal-1)로 스크롤하고 그 카드에 포커스를 옮긴다. 조치안이
+ * 기둥 안쪽 스크롤이나 본문 아래에 있어도 '승인하고 실행'까지 한 번에 닿게 한다
+ */
+export function PendingLink({ count }: { count: number }) {
+  if (count === 0) return null;
   return (
-    <ConfirmDialog
-      title="AI 재개"
-      description="수동 모드로만 재개합니다. AI가 다시 판단하고 조치안을 내지만 실행은 운영자 승인입니다. 자동 모드는 다시 승인 티켓(ops.ai.auto)을 거쳐 켭니다."
-      target="AI 운영 · 수동으로 재개"
-      blastRadius="새 판단과 조치안 · 실행 없음"
-      tone="warning"
-      confirmLabel="수동으로 재개"
-      busy={busy}
-      confirmDisabled={!ready}
-      onConfirm={() => void submit()}
-      onClose={() => {
-        if (!busy) onClose();
+    <a
+      href="#ai-proposal-1"
+      className={styles.pendingLink}
+      onClick={(e) => {
+        const el = document.getElementById("ai-proposal-1");
+        if (!el) return;
+        e.preventDefault();
+        el.scrollIntoView({ block: "center", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+        el.focus({ preventScroll: true });
       }}
     >
-      <div className={styles.autoForm}>
-        <label className={styles.autoFormLabel} htmlFor="resume-reason">
-          사유 · 감사 로그와 사건 기록에 남음
-        </label>
-        <input
-          id="resume-reason"
-          className={styles.autoReason}
-          value={reason}
-          maxLength={80}
-          placeholder="예: 원인 확인 끝, 판단 다시 받음"
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </div>
-    </ConfirmDialog>
+      대기 조치안 <b className="num">{count}</b>건
+    </a>
   );
 }
 
 /** 자동 모드의 남은 시간·쿨다운·관찰 창. 매초 바뀌는 숫자라 이 조각만 시계를 탄다 */
-function AutoItems({ ai }: { ai: AiDesk }) {
+function AutoItems({ ai, pending }: { ai: AiDesk; pending: number }) {
   const now = useClock();
   const until = ai.auto ? Date.parse(ai.auto.until) : now;
   const obs = ai.observation;
@@ -219,7 +196,7 @@ function AutoItems({ ai }: { ai: AiDesk }) {
     <div className={styles.modeItems}>
       <span className={styles.modeItem}>
         <span className={styles.modeItemKey}>남은 시간</span>
-        <b className="num" aria-hidden="true">{hmmss(until - now)}</b>
+        <b className="num" aria-hidden="true">{remainWord(until - now)}</b>
         <span className="sr-only">자동 모드 유효 시간 남음</span>
       </span>
       <span className={styles.modeSep} aria-hidden="true" />
@@ -230,13 +207,13 @@ function AutoItems({ ai }: { ai: AiDesk }) {
         </b>
       </span>
       <span className={styles.modeSep} aria-hidden="true" />
-      <span className={styles.modeItem}>
+      <span className={styles.modeItem} data-shrink="">
         <span className={styles.modeItemKey}>쿨다운</span>
         {cooldowns.length === 0 ? (
           <span>없음</span>
         ) : (
           cooldowns.map((c) => (
-            <span key={c.kind}>
+            <span key={c.kind} className={styles.nowrap}>
               {AI_ACTION_LABEL[c.kind]} <b className="num">{mmss(Date.parse(c.until) - now)}</b>
             </span>
           ))
@@ -258,14 +235,16 @@ function AutoItems({ ai }: { ai: AiDesk }) {
           <span>없음</span>
         )}
       </span>
-      {ai.auto && (
+      {pending > 0 && (
         <>
           <span className={styles.modeSep} aria-hidden="true" />
-          <span className={styles.modeItem} title={ai.auto.reason}>
-            <span className={styles.modeItemKey}>사유</span>
-            <span className={styles.reasonText}>{ai.auto.reason}</span>
-          </span>
+          <PendingLink count={pending} />
         </>
+      )}
+      {ai.auto && (
+        <span className={styles.reasonMark} title={`켠 사유 · ${ai.auto.reason}`} aria-label={`켠 사유 ${ai.auto.reason}`} role="img">
+          <AdminIcon name="info" size={14} />
+        </span>
       )}
     </div>
   );
@@ -274,7 +253,7 @@ function AutoItems({ ai }: { ai: AiDesk }) {
 /** AI 칸만 받는다. 모드 줄은 매초 다시 그리지 않고, 자동 모드의 시계 글자만 따로 돈다 */
 function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; onChanged: () => void }) {
   const canSuper = useCan("SUPER");
-  const [dialog, setDialog] = useState<"auto" | "resume" | null>(null);
+  const [dialog, setDialog] = useState<"auto" | null>(null);
   const [busy, setBusy] = useState(false);
   const ai = section?.state === "READY" ? section.data : null;
   const connected = ai !== null;
@@ -283,26 +262,24 @@ function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; o
   const pending = ai ? ai.proposals.filter((p) => p.status === "PROPOSED").length : 0;
   const limits = limitsOf(ai?.limits);
 
-  const run = async (call: () => Promise<void>, done: string, failed: string) => {
+  const toManual = async () => {
     setBusy(true);
     try {
-      await call();
-      toast(done, "info");
+      await getAdminApi().stopAiAuto();
+      toast("AI 자동 모드 꺼짐 · 수동", "info");
       onChanged();
     } catch (e) {
-      toast(e instanceof AdminError ? e.message : failed, "error");
+      toast(e instanceof AdminError ? e.message : "수동 전환 실패", "error");
     } finally {
       setBusy(false);
     }
   };
-  const toManual = () => run(() => getAdminApi().stopAiAuto(), "AI 자동 모드 꺼짐 · 수동", "수동 전환 실패");
-  const stopAi = () => run(() => getAdminApi().stopAi(), "AI 정지 · 새 판단과 조치안 멈춤", "AI 정지 실패");
 
   return (
     <section className={styles.modeBar} data-mode={stopped ? "STOPPED" : auto ? "AUTO" : "MANUAL"} aria-label="AI 운영 모드">
       <span className={styles.modeLabel}>
         <AiMark />
-        AI 운영 모드
+        <span className={styles.modeLabelText}>AI 운영 모드</span>
       </span>
       <div className={styles.switch} role="group" aria-label="AI 운영 모드 선택">
         <button
@@ -333,28 +310,30 @@ function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; o
       </div>
       {!connected ? (
         <span className={styles.modeText}>
-          {section === null ? "모드 확인 중" : <><b>서버 정책 엔진 연결 전</b> · AI 판단, 자동 모드, AI 즉시 정지는 2단계에서 연결</>}
+          {section === null ? "모드 확인 중" : <><b>서버 정책 엔진 연결 전</b> · AI 판단과 자동 모드, AI 즉시 정지는 2단계에서 연결합니다</>}
         </span>
       ) : stopped ? (
-        <span className={styles.modeText} data-tone="warning">
+        <span className={styles.modeText} data-tone="warning" title="새 판단과 조치안을 내지 않습니다. 경보와 ASG 정책은 AI 없이 그대로 동작합니다">
           <b className={styles.stopWord}>
             <span aria-hidden="true">▲ </span>AI 정지 중
-          </b>{" "}
-          · 새 판단과 조치안 없음. 경보와 ASG 정책은 그대로
+          </b>
           {ai.stopped && (
             <>
               {" "}
-              · 정지 {ai.stopped.by} <span className="num">{hms(ai.stopped.at)}</span>
+              · {ai.stopped.by} <span className="num">{hms(ai.stopped.at)}</span> 정지
             </>
           )}
-          {ai.observation && " · 관찰 창은 끝까지 봄"}
+          {ai.observation && " · 관찰 창은 끝까지 봅니다"}
+          {" · 경보와 ASG 정책은 그대로 동작합니다"}
         </span>
       ) : auto ? (
-        <AutoItems ai={ai} />
+        <AutoItems ai={ai} pending={pending} />
       ) : (
-        <span className={styles.modeText}>
-          <b>수동</b> · AI는 판단과 조치안까지만 냅니다. 실행은 운영자 승인
-          {pending > 0 && <> · 조치안 <b className="num">{pending}</b>건 대기</>}
+        <span className={styles.modeLine}>
+          <span className={styles.modeText}>
+            <b>수동</b> · AI는 판단과 조치안까지만 내고 실행은 운영자가 승인합니다
+          </span>
+          <PendingLink count={pending} />
         </span>
       )}
       <span className={styles.modeTail}>
@@ -362,30 +341,8 @@ function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; o
         <Link href="/admin/ai#ai-limits" className={styles.stripLink}>
           AI 한도
         </Link>
-        {stopped ? (
-          <button
-            type="button"
-            className={adminStyles.neutralBtn}
-            disabled={!canSuper || busy}
-            title={canSuper ? undefined : "총괄 권한 필요"}
-            onClick={() => setDialog("resume")}
-          >
-            AI 재개
-          </button>
-        ) : (
-          <button
-            type="button"
-            className={adminStyles.dangerBtn}
-            disabled={!connected || busy}
-            title={connected ? "승인 없이 곧바로 멈춥니다" : "서버 정책 엔진 연결 전"}
-            onClick={() => void stopAi()}
-          >
-            <span aria-hidden="true">■&nbsp;</span>AI 즉시 정지
-          </button>
-        )}
       </span>
       {dialog === "auto" && <AutoDialog limits={limits} onClose={() => setDialog(null)} onDone={onChanged} />}
-      {dialog === "resume" && <ResumeDialog onClose={() => setDialog(null)} onDone={onChanged} />}
     </section>
   );
 }

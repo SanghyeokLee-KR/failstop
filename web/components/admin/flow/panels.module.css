@@ -7,6 +7,7 @@
 
 /* ===== 대화상자 틀 ===== */
 
+/* 관리 셸 밖(body)에 뜨는 층이라 셸의 줄바꿈 규칙을 다시 건다. 낱말 안에서 끊지 않는다(디자인 시스템 §12-12) */
 .overlay {
   position: fixed;
   inset: 0;
@@ -16,6 +17,8 @@
   justify-content: center;
   padding: var(--space-6);
   background: var(--overlay-dim);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 /* 높이는 오버레이 안쪽에 묶는다. 820px 높이 화면에서도 발의 시작 버튼이 화면 밖으로 밀리지 않고,

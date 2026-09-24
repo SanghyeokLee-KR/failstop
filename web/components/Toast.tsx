@@ -6,6 +6,7 @@
  * 사용: toast("주문 접수 완료", "success") / 레이아웃에 <Toaster /> 1회 장착.
  */
 
+import { usePathname } from "next/navigation";
 import { create } from "zustand";
 import styles from "./Toast.module.css";
 
@@ -51,10 +52,12 @@ const ICONS: Record<ToastType, string> = { success: "\u2713", error: "!", info: 
 export function Toaster() {
   const items = useToastStore((s) => s.items);
   const remove = useToastStore((s) => s.remove);
+  // 관리 콘솔은 토스트를 오른쪽 아래, 확인 대화상자 아래 층에 둔다(디자인 시스템 §12-12). 거래 화면 자리는 그대로다
+  const admin = usePathname()?.startsWith("/admin") ?? false;
   return (
     // data-toast-region: 모달 다이얼로그의 배경 inert 대상에서 제외하는 식별자.
-    // 토스트는 z-toast로 다이얼로그 위에 그려지므로 열림 중에도 낭독·닫기가 살아야 한다
-    <div className={styles.region} data-toast-region="">
+    // 거래 화면의 토스트는 z-toast로 다이얼로그 위에 그려지므로 열림 중에도 낭독·닫기가 살아야 한다
+    <div className={styles.region} data-toast-region="" data-place={admin ? "admin" : undefined}>
       {items.map((t) => (
         // live 시맨틱은 항목 role에만 둔다. region이 별도 live면 중첩 낭독이 생긴다.
         // status는 암묵 polite, alert는 암묵 assertive라 에러만 즉시 낭독된다

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 관제센터 오른쪽 기둥. 활성 경보, 사건 타임라인, 운영 작업이다. 판단 결과가 실제 조치와 기록으로
+ * 관제센터 오른쪽 기둥. 활성 경보, 사건 기록, 운영 작업이다. 판단 결과가 실제 조치와 기록으로
  * 이어지는 자리라 누가 언제 무엇을 했는지를 싣는다.
  */
 
@@ -38,7 +38,7 @@ function ActionsColumn({ alerts, incidents, jobs, onChanged }: {
             <TimelineBlock log={incidents.data} />
           ) : (
             <>
-              <div className={styles.subHead}>사건 타임라인</div>
+              <div className={styles.subHead}>사건 기록</div>
               <SectionBody section={incidents} what="사건 기록" compact>
                 {() => null}
               </SectionBody>

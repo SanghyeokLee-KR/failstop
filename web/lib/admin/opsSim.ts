@@ -13,6 +13,7 @@ import { isoNow } from "../format";
 import { AdminError } from "./api";
 import { AI_LIMIT_DEFS, AI_LIMITS_DEFAULT, AI_RULES, AUTO_HOURS, cooldownSec, type AiLimits } from "./aiPolicy";
 import { TrendBook } from "./opsTrends";
+import { hms, lagWord, nextKst } from "./timeText";
 import type {
   AiActionKind,
   AiDecision,
@@ -37,6 +38,7 @@ import type {
   OpsBackup,
   OpsHost,
   OpsHostRole,
+  OpsLeader,
   OpsPartition,
   OpsRef,
   OpsScenarioId,
@@ -72,10 +74,15 @@ const NODE_DRAIN_TICKS = 4;
 const BACKUP_RUN_TICKS = 8;
 /** 조회 수요의 기준. 조회 노드 두 대가 각각 31% 안팎이 되는 값이다 */
 const BASE_DEMAND = 62;
-const BASE_BOT_OPS = 30;
+/** 시장 봇 기준 발행률. 시드 사건 기록의 '봇 발행 60 → 30 OPS' 뒤의 값이다 */
+export const BASE_BOT_OPS = 30;
+/** 호스트 CPU 상한. 봇 발행률을 크게 올려도 사용률이 100%를 넘지 않게 한다 */
+const CPU_CEIL = 99;
 const SLO: OpsSlo = { availabilityPct: 99.5, p95Ms: 400, errorRatePct: 1 };
 const READ_MIN = 2;
 const READ_MAX = 3;
+/** 조회 노드가 번갈아 서는 가용 영역. ASG가 두 AZ에 나눠 띄운다 */
+const READ_AZ = ["ap-northeast-2a", "ap-northeast-2c"];
 /** 조회 축소 임계는 증설 임계보다 이만큼 낮아야 한다. 둘이 붙으면 늘리고 줄이기를 되풀이한다 */
 const SCALE_GAP = 15;
 /** 시나리오 부하 곡선이 끝나는 초. 그 뒤에는 다른 시나리오를 걸 수 있다 */
@@ -138,6 +145,20 @@ const AI_MEM_TOTAL_GB = 128;
 const AI_MEM_RESIDENT_GB = 38.4;
 /** 추론 지연 표본을 몇 개까지 두고 p50·p95를 셀지 */
 const AI_LATENCY_KEEP = 20;
+
+/**
+ * 파티션별 선출 세대. ADR 0034는 세대를 전역 시퀀스 하나에서 받으므로 두 파티션의 값이 서로 다르고 파티션
+ * 안에서만 오른다. 시뮬레이터에는 리더 전환이 없어 이 값이 그대로다
+ */
+const PARTITION_EPOCH: Record<string, number> = { p0: 7, p1: 8 };
+
+/**
+ * 봇 발행률에 따른 초당 체결. 로컬 Docker 스택에서 300 OPS일 때 초당 18.1건을 잰 주행(하네스_검증설계.md:495)에
+ * 맞춘 곡선이다. 관제 판과 서비스 흐름 재생이 같은 곡선을 쓴다
+ */
+export function tradesPerSec(ops: number): number {
+  return 19.5 * (1 - Math.exp(-ops / 110));
+}
 
 const SOURCE_NAMES: OpsSourceName[] = ["prometheus", "alertmanager", "databasus", "llm", "teams"];
 
@@ -254,16 +275,9 @@ function round1(v: number): number {
   return Math.round(v * 10) / 10;
 }
 
-/** 이 시각 이후 가장 가까운 로컬 시:분 */
-function nextLocal(now: number, hour: number, minute: number): number {
-  const d = new Date(now);
-  d.setHours(hour, minute, 0, 0);
-  if (d.getTime() <= now) d.setDate(d.getDate() + 1);
-  return d.getTime();
-}
-
-function lastLocal(now: number, hour: number, minute: number): number {
-  return nextLocal(now, hour, minute) - 86_400_000;
+/** 이 시각 이전 가장 가까운 KST 시:분. 예약 작업의 시각은 KST다(디자인 시스템 §12-12) */
+function lastKst(now: number, hour: number, minute: number): number {
+  return nextKst(now, hour, minute) - 86_400_000;
 }
 
 function limitDef(key: AiLimitKey): (typeof AI_LIMIT_DEFS)[number] {
@@ -292,7 +306,10 @@ export class OpsSim {
     { id: "read-2", state: "IN_SERVICE", since: 0 },
     { id: "read-3", state: "OFF", since: 0 },
   ];
-  private botOps = BASE_BOT_OPS;
+  /** 시장 봇 목표 발행률. 운영자(봇 플릿)와 AI 조치(봇 부하 줄임)가 바꾼다 */
+  private botTarget = BASE_BOT_OPS;
+  /** 봇 플릿. 관리 어댑터가 봇 목록을 바꿀 때 알린다. 봇이 내는 발행률은 목표와 봇들의 합 가운데 작은 쪽이다 */
+  private fleet: { sum: number; running: boolean } = { sum: Number.POSITIVE_INFINITY, running: true };
   private credits = new Map(HOST_DEFS.map((h) => [h.id, h.credits]));
 
   // 이번 틱의 판독값. 틱마다 다시 계산한다
@@ -361,7 +378,7 @@ export class OpsSim {
     for (const d of THRESHOLD_DEFS) {
       this.thresholds.set(d.key, { ...d, aiSuggested: null, aiReason: null, updatedAt: isoNow(now - 6 * 86_400_000), updatedBy: "초기값" });
     }
-    const lastBackup = lastLocal(now, 3, 10);
+    const lastBackup = lastKst(now, 3, 10);
     this.backup = {
       tool: "Databasus",
       lastSuccessAt: isoNow(lastBackup + 4 * 60_000),
@@ -369,11 +386,11 @@ export class OpsSim {
       running: false,
       offsite: { target: "SFTP", outcome: "SUCCESS", at: isoNow(lastBackup + 6 * 60_000) },
       restoreCheck: { outcome: "SUCCESS", lastSuccessAt: isoNow(lastBackup + 21 * 60_000), lastFailureAt: isoNow(lastBackup - 3 * 86_400_000 + 21 * 60_000) },
-      nextAt: isoNow(nextLocal(now, 3, 10)),
+      nextAt: isoNow(nextKst(now, 3, 10)),
       manualRunsToday: 0,
     };
     this.certExpires = now + 62 * 86_400_000;
-    const report = lastLocal(now, 9, 0);
+    const report = lastKst(now, 9, 0);
     this.reportSent = report + 4_000;
     this.seedHistory(now);
     this.measure();
@@ -449,6 +466,7 @@ export class OpsSim {
     const moved = this.progressNodes();
     this.progressBackup(now);
     this.measure();
+    this.credits.set("bot-1", Math.max(0, (this.credits.get("bot-1") ?? 0) - 0.02));
     this.evaluateAlerts(now);
     this.settleIncident(now);
     this.expireSilences(now);
@@ -505,6 +523,11 @@ export class OpsSim {
     return d + wobble(this.tick, 1, 2.5);
   }
 
+  /** 봇이 지금 내는 발행률. 플릿이 멈췄으면 0이고, 봇들의 합이 목표보다 작으면 그 합이다 */
+  private botOpsNow(): number {
+    return this.fleet.running ? Math.min(this.fleet.sum, this.botTarget) : 0;
+  }
+
   private inService(): ReadNodeRec[] {
     return this.nodes.filter((n) => n.state === "IN_SERVICE");
   }
@@ -518,15 +541,15 @@ export class OpsSim {
     this.errors = Math.round((0.02 + Math.max(0, avg - 65) * 0.06) * 100) / 100;
     this.availability = Math.round((99.98 - Math.max(0, avg - 65) * 0.03) * 100) / 100;
     // 봇 주문은 마켓으로 두 매칭 노드에 나뉜다. p0 쪽 거래가 조금 더 많다
-    this.hostCpu.set("app-1", Math.round(24 + this.botOps * 0.3 + wobble(this.tick, 3, 3)));
-    this.hostCpu.set("app-2", Math.round(22 + this.botOps * 0.26 + wobble(this.tick, 9, 3)));
-    this.hostCpu.set("db-primary", Math.round(16 + this.demand * 0.08 + wobble(this.tick, 4, 2)));
-    this.hostCpu.set("db-standby", Math.round(8 + wobble(this.tick, 5, 1.5)));
-    this.hostCpu.set("bot-1", Math.round(28 + this.botOps * 0.45 + wobble(this.tick, 6, 3)));
+    const ops = this.botOpsNow();
+    const cpu = (v: number) => Math.min(CPU_CEIL, Math.round(v));
+    this.hostCpu.set("app-1", cpu(24 + ops * 0.3 + wobble(this.tick, 3, 3)));
+    this.hostCpu.set("app-2", cpu(22 + ops * 0.26 + wobble(this.tick, 9, 3)));
+    this.hostCpu.set("db-primary", cpu(16 + this.demand * 0.08 + wobble(this.tick, 4, 2)));
+    this.hostCpu.set("db-standby", cpu(8 + wobble(this.tick, 5, 1.5)));
+    this.hostCpu.set("bot-1", cpu(28 + ops * 0.45 + wobble(this.tick, 6, 3)));
     this.lagSec = round1(0.2 + Math.abs(wobble(this.tick, 7, 0.2)));
     this.lagBytes = Math.round(12_288 + wobble(this.tick, 8, 3000));
-    const bot = this.credits.get("bot-1") ?? 0;
-    this.credits.set("bot-1", Math.max(0, bot - 0.02));
   }
 
   /** 기동·드레이닝이 끝난 노드가 있으면 true */
@@ -623,7 +646,7 @@ export class OpsSim {
     }
     const lagAlert = this.value("db.replication_lag_alert");
     if (this.lagSec >= lagAlert) {
-      out.set("repl_lag", { name: "복제 지연", severity: "warning", target: "db-standby", detail: `지연 ${this.lagSec}초 ≥ ${lagAlert}초`, thresholdKey: "db.replication_lag_alert", ref: { kind: "REPLICATION" } });
+      out.set("repl_lag", { name: "복제 지연", severity: "warning", target: "db-standby", detail: `지연 ${lagWord(this.lagSec)} ≥ ${lagAlert}초`, thresholdKey: "db.replication_lag_alert", ref: { kind: "REPLICATION" } });
     }
     const last = this.backup.lastSuccessAt ? Date.parse(this.backup.lastSuccessAt) : null;
     const delayH = this.value("backup.delay_alert");
@@ -762,13 +785,13 @@ export class OpsSim {
     }
     const guard = this.value("bot.capacity_guard");
     const botCpu = this.hostCpu.get("bot-1") ?? 0;
-    if (botCpu >= guard && this.botOps > 3) {
-      const toOps = Math.max(3, Math.round(this.botOps / 2));
+    if (botCpu >= guard && this.botTarget > 3) {
+      const toOps = Math.max(3, Math.round(this.botTarget / 2));
       out.push({
-        sig: "BOT_LOAD", params: { kind: "BOT_LOAD", fromOps: this.botOps, toOps },
-        title: `시장 봇 부하 줄임 (${this.botOps} → ${toOps} OPS)`, target: "bot-1 시장 봇",
-        impact: `bot-1 CPU ${botCpu}% → 약 ${Math.round(28 + toOps * 0.45)}% 예상. 관측 수집 여유를 지킵니다`,
-        risk: "LOW", revertPlan: `봇 발행 ${this.botOps} OPS로 되돌리기`,
+        sig: "BOT_LOAD", params: { kind: "BOT_LOAD", fromOps: this.botTarget, toOps },
+        title: `시장 봇 부하 줄임 (${this.botTarget} → ${toOps} OPS)`, target: "bot-1 시장 봇",
+        impact: `bot-1 CPU ${botCpu}% → 약 ${Math.min(CPU_CEIL, Math.round(28 + toOps * 0.45))}% 예상. 관측 수집 여유를 지킵니다`,
+        risk: "LOW", revertPlan: `봇 발행 ${this.botTarget} OPS로 되돌리기`,
         confidencePct: 86,
       });
     }
@@ -866,7 +889,7 @@ export class OpsSim {
         this.evidence.push({ id: "ev-read", label: "조회 평균 CPU", value: `${avg}% · ${this.inService().length}대`, severity: null, ref: { kind: "READ_TIER" } });
       }
       this.evidence.push({ id: "ev-p95", label: "응답 p95", value: `${this.p95}ms`, severity: null, ref: { kind: "SLO", metric: "p95" } });
-      this.evidence.push({ id: "ev-lag", label: "복제 지연", value: `${this.lagSec}초`, severity: null, ref: { kind: "REPLICATION" } });
+      this.evidence.push({ id: "ev-lag", label: "복제 지연", value: lagWord(this.lagSec), severity: null, ref: { kind: "REPLICATION" } });
       const last = this.backup.lastSuccessAt ? Date.parse(this.backup.lastSuccessAt) : null;
       this.evidence.push({ id: "ev-backup", label: "백업", value: last === null ? "기록 없음" : `${Math.floor((now - last) / 3_600_000)}시간 전`, severity: null, ref: { kind: "BACKUP" } });
     }
@@ -877,7 +900,7 @@ export class OpsSim {
     if (revert) {
       this.situation = this.revertSituation(revert, pending, draining);
       this.hypothesis = revert.cause === null
-        ? "운영자가 자동 조치를 무른 뒤 지표를 다시 봅니다."
+        ? "운영자가 자동 조치를 되돌린 뒤 지표를 다시 봅니다."
         : revert.kind === "READ_NODES" && revert.delta < 0
           ? "축소 뒤 조회 요청이 다시 늘어 줄인 대수로는 모자랐습니다. 축소 판단이 일렀습니다."
           : "자동 조치 뒤 지표가 나빠졌습니다. 조치가 지금 상황에 맞지 않았다고 보고 되돌렸습니다.";
@@ -954,7 +977,7 @@ export class OpsSim {
     const s = this.stopped;
     const obs = this.observation;
     this.situation = "AI 정지 중입니다."
-      + (s ? ` 운영자(${s.by})가 ${new Date(s.at).toTimeString().slice(0, 8)}에 멈췄습니다.` : "")
+      + (s ? ` 운영자(${s.by})가 ${hms(isoNow(s.at))}에 멈췄습니다.` : "")
       + " 새 판단과 조치안을 내지 않으며, 경보와 ASG 정책은 AI 없이 그대로 동작합니다."
       + (obs ? ` 정지 전 자동 조치는 관찰 창 끝까지 보고 악화하면 되돌립니다. 관찰 중 · ${obs.action}.` : "")
       + (s && this.lastRevert?.cause && this.lastRevert.at >= s.at ? ` 정지 뒤 관찰 창 안에서 악화해 자동 조치를 되돌렸습니다. ${this.lastRevert.undo}.` : "");
@@ -965,7 +988,7 @@ export class OpsSim {
 
   private normalSituation(): string {
     const avg = this.readAvg === null ? "미수집" : `${Math.round(this.readAvg)}%`;
-    return `모든 지표가 임계 안입니다. 조회 평균 CPU ${avg}, 응답 p95 ${this.p95}ms, 복제 지연 ${this.lagSec}초입니다.`;
+    return `모든 지표가 임계 안입니다. 조회 평균 CPU ${avg}, 응답 p95 ${this.p95}ms, 복제 지연 ${lagWord(this.lagSec)}입니다.`;
   }
 
   /* ===== 자동 실행 ===== */
@@ -1033,7 +1056,7 @@ export class OpsSim {
         break;
       }
       case "BOT_LOAD":
-        this.botOps = q.toOps;
+        this.botTarget = q.toOps;
         did = `봇 발행 ${q.fromOps} → ${q.toOps} OPS`;
         break;
       case "BACKUP_NOW":
@@ -1066,7 +1089,7 @@ export class OpsSim {
     this.describe(now, this.findings());
   }
 
-  /** 조치를 무르고 무른 방향을 조치 제목과 같은 말로 돌려준다. 백업은 되돌릴 것이 없어 호출하지 않는다 */
+  /** 조치를 되돌리고 되돌린 방향을 조치 제목과 같은 말로 돌려준다. 백업은 되돌릴 것이 없어 호출하지 않는다 */
   private undo(p: ProposalRec, actor: OpsActorRef, now: number): string {
     const q = p.params;
     switch (q.kind) {
@@ -1089,7 +1112,7 @@ export class OpsSim {
         return `경보 보류 해제${a ? ` · ${a.name}` : ""}`;
       }
       case "BOT_LOAD":
-        this.botOps = q.fromOps;
+        this.botTarget = q.fromOps;
         return `봇 발행 ${q.toOps} → ${q.fromOps} OPS`;
       case "BACKUP_NOW":
         return "되돌릴 것 없음";
@@ -1140,8 +1163,8 @@ export class OpsSim {
     this.observation = null;
     this.suppressed.set(p.sig, now + REVERT_SUPPRESS_MS);
     this.lastRevert = { at: now, kind: q.kind, delta: q.kind === "READ_NODES" ? q.delta : 0, undo, cause, by: AI_ACTOR.name };
-    // 기록의 첫머리는 되돌리며 실제로 한 일이다. 무른 조치의 제목을 앞에 두면 그 조치를 한 것처럼 읽힌다
-    this.log(this.openIncident, "AUTO_REVERTED", "AI", AI_ACTOR.name, `자동 되돌림 · ${undo} · 무른 조치 ${p.title} · ${why}`);
+    // 기록의 첫머리는 되돌리며 실제로 한 일이다. 되돌린 조치의 제목을 앞에 두면 그 조치를 한 것처럼 읽힌다
+    this.log(this.openIncident, "AUTO_REVERTED", "AI", AI_ACTOR.name, `자동 되돌림 · ${undo} · 되돌린 조치 ${p.title} · ${why}`);
     this.audit(AI_ACTOR, `ai.auto_revert:${q.kind}`, p.title, null);
     const wasAuto = this.mode === "AUTO";
     if (wasAuto) this.setManual("악화로 자동 되돌림 · 수동 전환", "AI", AI_ACTOR.name);
@@ -1209,7 +1232,7 @@ export class OpsSim {
     this.backup.running = true;
     this.backup.manualRunsToday += 1;
     this.backupRunTick = this.tick;
-    this.log(null, "ACTED", "SYSTEM", "Databasus", `백업 시작 · ${new Date(now).getHours()}시 즉시 실행`);
+    this.log(null, "ACTED", "SYSTEM", "Databasus", `백업 시작 · ${hms(isoNow(now))} 즉시 실행`);
   }
 
   /** 임계값 검증. 범위와 증설·축소 간격을 본다 */
@@ -1347,7 +1370,7 @@ export class OpsSim {
     if (this.observation?.proposalId === p.id) this.observation = null;
     this.suppressed.set(p.sig, now + REVERT_SUPPRESS_MS);
     this.lastRevert = { at: now, kind: p.params.kind, delta: p.params.kind === "READ_NODES" ? p.params.delta : 0, undo, cause: null, by: actor.name };
-    this.log(this.openIncident, "REVERTED", "OPERATOR", actor.name, `되돌리기 · ${undo} · 무른 조치 ${p.title}`);
+    this.log(this.openIncident, "REVERTED", "OPERATOR", actor.name, `되돌리기 · ${undo} · 되돌린 조치 ${p.title}`);
     this.audit(actor, `ai.revert:${p.params.kind}`, p.title, null);
     this.describe(now, this.findings());
   }
@@ -1535,6 +1558,63 @@ export class OpsSim {
     this.describe(now, this.findings());
   }
 
+  /**
+   * 관리 어댑터가 봇 목록을 바꿀 때 알린다(생성, 삭제, 대수, 시작·정지·일시정지). 봇이 내는 발행률이 바뀌어
+   * bot-1과 매칭 노드의 CPU가 따라 움직인다. 운영자 조치 기록은 발행률 목표를 바꿀 때만 남긴다
+   */
+  setFleet(sum: number, running: boolean): void {
+    this.fleet = { sum: Math.max(0, sum), running };
+    this.measure();
+  }
+
+  /**
+   * 운영자가 봇 플릿 화면에서 목표 발행률을 바꾼다. AI의 봇 부하 줄임과 같은 값을 바꾸므로 사건 기록에
+   * 운영자 조치로 남기고, 이전 값을 겨냥한 열린 조치안은 거두며, AI 자동 실행이 곧바로 반대로 되돌리지 않게
+   * 봇 부하 쿨다운을 건다. 감사는 어댑터가 sim.* 로 남긴다
+   */
+  setBotTarget(ops: number, actor: OpsActorRef, via: string, now: number): void {
+    this.advance(now);
+    if (!Number.isFinite(ops) || ops <= 0) throw new AdminError("invalid_parameter", "발행률은 양수");
+    const next = Math.round(ops);
+    const before = this.botTarget;
+    if (next === before) return;
+    this.botTarget = next;
+    this.cooldowns.set("BOT_LOAD", now + cooldownSec("BOT_LOAD", this.limits) * 1000);
+    let withdrew = false;
+    for (const p of this.proposals) {
+      if (p.status !== "PROPOSED" || p.params.kind !== "BOT_LOAD") continue;
+      p.status = "WITHDRAWN";
+      p.decidedAt = now;
+      p.decidedBy = actor.name;
+      withdrew = true;
+    }
+    if (withdrew) this.syncSuggestions();
+    this.measure();
+    this.log(this.openIncident, "ACTED", "OPERATOR", actor.name, `봇 발행 ${before} → ${next} OPS · ${via}`);
+    this.describe(now, this.findings());
+  }
+
+  /** 새로고침 전에 운영자가 정한 발행률을 되살린다. 조치가 아니라 복원이라 기록과 쿨다운을 남기지 않는다 */
+  seedBotTarget(ops: number): void {
+    if (Number.isFinite(ops) && ops > 0) this.botTarget = Math.round(ops);
+    this.measure();
+  }
+
+  /** 봇 발행률 판독. 관리 어댑터의 봇 플릿과 종합 조회가 한 판을 만들지 않고 읽는다 */
+  botLoad(now: number): { target: number; current: number; tradesPerSec: number } {
+    this.advance(now);
+    const current = this.botOpsNow();
+    return { target: this.botTarget, current, tradesPerSec: tradesPerSec(current) };
+  }
+
+  /** 마켓 파티션별 매칭 리더. 시뮬레이터에는 리더 전환이 없어 ADR 0034의 선호 배치 그대로다 */
+  leaders(): OpsLeader[] {
+    return HOST_DEFS.filter((h) => h.partition !== null).map((h) => {
+      const part = h.partition as OpsPartition;
+      return { partition: part.id, node: h.id, epoch: PARTITION_EPOCH[part.id], markets: [...part.markets] };
+    });
+  }
+
   startScenario(id: OpsScenarioId, now: number): void {
     this.advance(now);
     if (this.scenario !== null && now - this.scenario.startedAt < SCENARIO_END_SEC * 1000) {
@@ -1576,6 +1656,7 @@ export class OpsSim {
       tokensPerSec: this.aiBusy ? Math.round(46 + wobble(this.tick, 14, 6)) : 0,
       queue: this.aiBusy ? 1 + (this.alerts.length > 1 ? 1 : 0) : 0,
       link: "OK",
+      assumed: true,
       busy: this.aiBusy,
       served: this.aiServed,
       lastServedAt: this.aiServedAt === null ? null : isoNow(this.aiServedAt),
@@ -1584,6 +1665,8 @@ export class OpsSim {
     const readNodes: ReadNode[] = this.nodes.map((n, i) => ({
       id: n.id,
       state: n.state,
+      instanceType: "t3.small",
+      az: READ_AZ[i % READ_AZ.length],
       cpuPct: n.state === "IN_SERVICE" && this.readAvg !== null ? Math.round(this.readAvg + (i - 1) * 1.5) : n.state === "PENDING" ? 4 : n.state === "DRAINING" ? 12 : null,
     }));
     const alerts: OpsAlert[] = this.alerts.map((a) => ({
@@ -1654,6 +1737,10 @@ export class OpsSim {
       thresholds: { state: "READY", data: { items: THRESHOLD_DEFS.map((d) => ({ ...(this.thresholds.get(d.key) as OpsThreshold) })), history: this.history.map((h) => ({ ...h })) } },
       ai: { state: "READY", data: ai },
       aiServer: { state: "READY", data: aiServer },
+      trading: {
+        state: "READY",
+        data: { leaders: this.leaders(), botTargetOps: this.botTarget, botOps: this.botOpsNow(), tradesPerSec: round1(tradesPerSec(this.botOpsNow())) },
+      },
       trends: { state: "READY", data: this.trends.build(this.t, this.incidents) },
       scenario: this.scenario === null ? null : {
         id: this.scenario.id, title: OPS_SCENARIO_TITLE[this.scenario.id], startedAt: isoNow(this.scenario.startedAt),

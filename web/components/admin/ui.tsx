@@ -127,12 +127,45 @@ export function StatTile({
   );
 }
 
-/** 화면 헤더. 제목 + 설명 + 우측 액션 슬롯 */
-export function PageHeader({ title, desc, actions }: { title: string; desc?: string; actions?: ReactNode }) {
+export type SimMarkKind = "sim" | "assumed" | "replay";
+
+const SIM_MARK: Record<SimMarkKind, { text: string; sr: string }> = {
+  sim: { text: "시뮬레이션", sr: "값은 브라우저 시뮬레이터가 만든 것입니다" },
+  assumed: { text: "시뮬레이션 가정", sr: "구축 전이라 연결과 값은 시뮬레이터의 가정입니다" },
+  replay: { text: "재생 · 관제 값과 별개", sr: "로컬 Docker 측정 기록의 사건 순서를 재생하고 사이 값은 지어낸 것이라 관제센터의 값과 다릅니다" },
+};
+
+/**
+ * 값의 출처 표식 하나(디자인 시스템 §12-12). 화면마다 머리에 한 번 둔다. 구축 전 ai-1은 '시뮬레이션 가정',
+ * 로컬 측정 기록 재생은 관제 판과 다른 세계라 '재생 · 관제 값과 별개'를 크게 적는다.
+ *
+ * 보조기술용 설명은 표식 밖의 형제로 둔다. 표식 안에 두면 가려진 글의 줄 상자가 표식 아래로 삐져나가 좁은 줄
+ * (인프라 카드 머리)에서 감김으로 잡히고, 보이는 표식은 설명과 같은 뜻이라 낭독에서 뺀다
+ */
+export function SimMark({ kind = "sim" }: { kind?: SimMarkKind }) {
+  const m = SIM_MARK[kind];
+  return (
+    <>
+      <span className={styles.simMark} data-kind={kind} aria-hidden="true">
+        {kind === "replay" && "▶\u00a0"}
+        {m.text}
+      </span>
+      <span className="sr-only">
+        {m.text} · {m.sr}
+      </span>
+    </>
+  );
+}
+
+/** 화면 헤더. 제목과 출처 표식, 설명, 우측 액션 슬롯 */
+export function PageHeader({ title, desc, actions, mark }: { title: string; desc?: string; actions?: ReactNode; mark?: ReactNode }) {
   return (
     <header className={styles.pageHead}>
       <div>
-        <h1 className={styles.pageTitle}>{title}</h1>
+        <div className={styles.titleRow}>
+          <h1 className={styles.pageTitle}>{title}</h1>
+          {mark}
+        </div>
         {desc && <p className={styles.pageDesc}>{desc}</p>}
       </div>
       {actions != null && <div className={styles.pageActions}>{actions}</div>}

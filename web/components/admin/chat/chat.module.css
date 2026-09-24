@@ -4,11 +4,12 @@
    ========================================================================== */
 
 /* 대화상자(z-overlay) 아래, 드롭다운 위. 확인 대화상자가 뜨면 이 패널도 배경으로 가라앉는다.
+   운영자 바(56px) 아래에서 시작해 운영자 바와 그 안의 'AI 즉시 정지'를 덮지 않는다(§12-11).
    폭은 운영자가 손잡이로 정한 값을 인라인 --chat-w로 받는다. 여기 값은 받기 전의 기본 폭이다 */
 .panel {
   --chat-w: 440px;
   position: fixed;
-  top: 0;
+  top: 56px;
   right: 0;
   bottom: 0;
   z-index: calc(var(--z-overlay) - 1);
@@ -82,20 +83,6 @@
   line-height: var(--font-body-line);
   font-weight: var(--fw-semibold);
   color: var(--text-strong);
-}
-/* 시뮬레이션 표식. 관제센터 AI 패널의 표식과 같은 점선 네모다 */
-.simTag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-  padding: 0 6px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-xs);
-  font-size: var(--font-micro-size);
-  line-height: var(--font-micro-line);
-  font-weight: var(--fw-medium);
-  color: var(--text-default);
-  white-space: nowrap;
 }
 .headTail {
   display: inline-flex;

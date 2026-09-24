@@ -6,24 +6,20 @@
  */
 
 import { isoNow } from "../format";
-import { kst } from "./timeText";
+import { kst, nextKst } from "./timeText";
 import type { OpsReport, ReportDesk } from "./types";
 
 const SEC = 1000;
 const MIN = 60 * SEC;
 const HOUR = 60 * MIN;
 
-/** 이 시각 이전의 가장 가까운 로컬 시:분 */
+/** 이 시각 이전의 가장 가까운 KST 시:분. 보고 서비스의 예약 시각은 KST다 */
 function lastLocal(now: number, hour: number, minute: number): number {
-  const d = new Date(now);
-  d.setHours(hour, minute, 0, 0);
-  if (d.getTime() > now) d.setDate(d.getDate() - 1);
-  return d.getTime();
+  return nextKst(now, hour, minute) - 24 * HOUR;
 }
 
 function dayKey(t: number): string {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return kst(isoNow(t)).slice(0, 10);
 }
 
 const at = (t: number) => isoNow(t);
@@ -56,16 +52,16 @@ function dailyNormal(t: number): OpsReport {
     metrics: [
       { label: "지표 수집 응답", value: "7/7개 응답", detail: "수집 연결 응답 · 업무 요청 성공 여부는 별도", status: "observed" },
       { label: "서비스 요청", value: "41.37건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
-      { label: "응답 시간 P95", value: "186 ms", detail: "수집 P95의 최대값 · 표본·구간에 따른 변동", status: "observed" },
+      { label: "응답 시간 p95", value: "186 ms", detail: "수집 p95의 최대값 · 표본·구간에 따른 변동", status: "observed" },
       { label: "5xx 응답", value: "0.00건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
-      { label: "디스크 여유", value: "58.20% 여유", detail: "/ · 구간 마지막 값 중 최소 / 7개 수집 표본 · 수집 구간 최저 57.91%", status: "observed" },
+      { label: "디스크 여유", value: "58.20%", detail: "/ · 구간 마지막 값 중 최소 / 7개 수집 표본 · 수집 구간 최저 57.91%", status: "observed" },
       { label: "최근 백업 성공", value: kst(at(lastLocal(t, 3, 14))), detail: "5.8시간 전 · 백업 성공 기록 · 복원 검증은 별도", status: "observed" },
     ],
     analysis: {
       mode: "gemini",
       note: "Gemini 참고 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
       summary:
-        "지난 24시간 동안 지표 수집 응답과 업무 요청이 끊기지 않았고 5xx 응답은 관측되지 않았습니다. 응답 시간 P95는 186ms로 목표 안에 있고, 03:14 백업 성공과 복원 확인 기록이 있어 추가 개입 조건은 없습니다.",
+        "지난 24시간 동안 지표 수집 응답과 업무 요청이 끊기지 않았고 5xx 응답은 관측되지 않았습니다. 응답 시간 p95는 186ms로 목표 안에 있고, 03:14 백업 성공과 복원 확인 기록이 있어 추가 개입 조건은 없습니다.",
       model: GEMINI,
     },
     gaps: [],
@@ -113,9 +109,9 @@ function dailyBackupCheck(t: number): OpsReport {
     metrics: [
       { label: "지표 수집 응답", value: "7/7개 응답", detail: "수집 연결 응답 · 업무 요청 성공 여부는 별도", status: "observed" },
       { label: "서비스 요청", value: "39.02건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
-      { label: "응답 시간 P95", value: "201 ms", detail: "수집 P95의 최대값 · 표본·구간에 따른 변동", status: "observed" },
+      { label: "응답 시간 p95", value: "201 ms", detail: "수집 p95의 최대값 · 표본·구간에 따른 변동", status: "observed" },
       { label: "5xx 응답", value: "0.00건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
-      { label: "디스크 여유", value: "58.44% 여유", detail: "/ · 구간 마지막 값 중 최소 / 7개 수집 표본 · 수집 구간 최저 58.02%", status: "observed" },
+      { label: "디스크 여유", value: "58.44%", detail: "/ · 구간 마지막 값 중 최소 / 7개 수집 표본 · 수집 구간 최저 58.02%", status: "observed" },
       { label: "최근 백업 성공", value: kst(at(lastLocal(t, 3, 12))), detail: "5.8시간 전 · 백업 성공 기록 · 복원 검증은 별도", status: "observed" },
     ],
     analysis: { mode: "facts-only", note: "수집 근거로 판정 · AI 분석 없음", summary: "", model: null },
@@ -157,8 +153,8 @@ function incidentAutoRevert(t: number): OpsReport {
         priority: "P3",
         owner: "서비스 운영 담당",
         timing: "복구 직후 확인 권고",
-        task: "조회 노드 3대 복귀와 응답 P95·5xx 정상화 확인",
-        doneWhen: "P95 목표 안 유지와 자동 되돌림 원인·조치 기록",
+        task: "조회 노드 3대 복귀와 응답 p95·5xx 정상화 확인",
+        doneWhen: "p95 목표 안 유지와 자동 되돌림 원인·조치 기록",
       },
       {
         priority: "P3",
@@ -171,15 +167,15 @@ function incidentAutoRevert(t: number): OpsReport {
     metrics: [
       { label: "지표 수집 응답", value: "7/7개 응답", detail: "수집 연결 응답 · 업무 요청 성공 여부는 별도", status: "observed" },
       { label: "서비스 요청", value: "58.40건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
-      { label: "응답 시간 P95", value: "214 ms", detail: "수집 P95의 최대값 · 표본·구간에 따른 변동", status: "observed" },
+      { label: "응답 시간 p95", value: "214 ms", detail: "수집 p95의 최대값 · 표본·구간에 따른 변동", status: "observed" },
       { label: "5xx 응답", value: "0.00건/초", detail: "조회 구간의 마지막 표본 합계", status: "observed" },
-      { label: "디스크 여유", value: "58.10% 여유", detail: "/ · 구간 마지막 값 중 최소 / 7개 수집 표본", status: "observed" },
+      { label: "디스크 여유", value: "58.10%", detail: "/ · 구간 마지막 값 중 최소 / 7개 수집 표본", status: "observed" },
     ],
     analysis: {
       mode: "gemini",
       note: "Gemini 참고 분석 · 개입 등급은 수집 근거와 운영 기준으로 판정",
       summary:
-        "야간 축소로 조회 노드가 2대가 된 뒤 조회 요청이 다시 늘어 응답 P95가 목표 400ms를 넘었습니다. AI 자동 모드가 관찰 창 안에서 축소를 되돌려 3대로 복귀했고, 해제 뒤 P95는 214ms로 내려왔습니다.",
+        "야간 축소로 조회 노드가 2대가 된 뒤 조회 요청이 다시 늘어 응답 p95가 목표 400ms를 넘었습니다. AI 자동 모드가 관찰 창 안에서 축소를 되돌려 3대로 복귀했고, 해제 뒤 p95는 214ms로 내려왔습니다.",
       model: GEMINI,
     },
     gaps: ["상세 로그: 자료 없음"],
@@ -195,11 +191,11 @@ export function simReportDesk(now: number): ReportDesk {
   const reports = [dailyNormal(today), dailyBackupCheck(today - 24 * HOUR), incidentAutoRevert(night)].sort(
     (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
   );
-  const next = new Date(today);
-  next.setDate(next.getDate() + 1);
+  // 다음 일일 보고는 KST 09:00의 하루 뒤다. 브라우저 시간대의 날짜 더하기는 서머타임에서 한 시간 어긋난다
+  const next = today + 24 * HOUR;
   return {
     reports,
-    delivery: { lastDailySentAt: reports.find((r) => r.kind === "daily")?.sentAt ?? null, pending: 0, dead: 0, nextDailyAt: isoNow(next.getTime()) },
+    delivery: { lastDailySentAt: reports.find((r) => r.kind === "daily")?.sentAt ?? null, pending: 0, dead: 0, nextDailyAt: isoNow(next) },
     tests: [],
   };
 }

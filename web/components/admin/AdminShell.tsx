@@ -8,8 +8,9 @@
  * (AdminGate) 이 컴포넌트는 그 안쪽의 모양만 맡는다.
  */
 
-import type { ReactNode } from "react";
+import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { useChat } from "@/lib/admin/chatStore";
 import type { AdminNavGroup, AdminNavItem } from "@/lib/admin/nav";
 import { usePageTitle } from "@/components/PageTitle";
 import AdminSidebar from "./AdminSidebar";
@@ -24,6 +25,7 @@ export default function AdminShell({
   sidebarFoot,
   brandAction,
   barSearch,
+  barAi,
   barSignals,
   overlay,
   children,
@@ -37,8 +39,9 @@ export default function AdminShell({
   sidebarFoot?: ReactNode;
   /** 사이드바 명판 줄의 단추. 운영 관제는 AI 상담 단추를 넘긴다 */
   brandAction?: ReactNode;
-  /** 운영자 바의 검색과 상태 신호. 관제 데이터를 읽으므로 운영 관제만 넘긴다 */
+  /** 운영자 바의 검색, AI 즉시 정지와 상태 신호. 관제 데이터를 읽으므로 운영 관제만 넘긴다 */
   barSearch?: ReactNode;
+  barAi?: ReactNode;
   barSignals?: ReactNode;
   /** 본문 위에 뜨는 층(AI 상담 패널) */
   overlay?: ReactNode;
@@ -49,9 +52,27 @@ export default function AdminShell({
   const current = [...groups.flatMap((g) => g.items), ...(footLinks ?? [])]
     .find((n) => (n.exact ? pathname === n.href : pathname === n.href || pathname.startsWith(`${n.href}/`)));
   usePageTitle(`${current?.label ?? title} · 관리 콘솔`);
+  // AI 상담 패널이 열리면 1600px 이상 창에서 패널 폭만큼 본문을 민다(레이아웃 §7). 상담을 두는 셸(운영 관제)만 민다
+  const chatOpen = useChat((s) => s.open) && overlay != null;
+  const chatWidth = useChat((s) => s.width);
+  // 토스트는 셸 밖(body 아래)에 뜬다. 상담 패널이 열린 동안에는 패널 왼쪽에 서도록 body에 패널 폭을 알린다(§12-12)
+  useEffect(() => {
+    if (!chatOpen) return;
+    const body = document.body;
+    body.dataset.adminChat = "";
+    body.style.setProperty("--admin-chat-w", `${chatWidth}px`);
+    return () => {
+      delete body.dataset.adminChat;
+      body.style.removeProperty("--admin-chat-w");
+    };
+  }, [chatOpen, chatWidth]);
 
   return (
-    <div className={styles.shell}>
+    <div
+      className={styles.shell}
+      data-chat={chatOpen ? "" : undefined}
+      style={chatOpen ? ({ "--admin-chat-w": `${chatWidth}px` } as CSSProperties) : undefined}
+    >
       {/* 전역 #main은 셸 전체를 감싸는 앵커라 관리 평면에서는 아무것도 건너뛰지 못한다.
           자체 앵커를 두되 전역 링크와 문구를 갈라 두 링크가 구분 낭독되게 한다 */}
       <a href="#admin-main" className="skip-link">
@@ -59,7 +80,7 @@ export default function AdminShell({
       </a>
       <AdminSidebar title={title} groups={groups} footLinks={footLinks} crossLink={crossLink} brandAction={brandAction} foot={sidebarFoot} />
       <div className={styles.main}>
-        <OperatorBar search={barSearch} signals={barSignals} />
+        <OperatorBar search={barSearch} ai={barAi} signals={barSignals} />
         <main id="admin-main" tabIndex={-1} className={styles.content}>
           {children}
         </main>

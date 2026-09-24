@@ -188,7 +188,7 @@ export function ReportDetail({ r, sim }: { r: OpsReport; sim: boolean }) {
           자동 조치 <b>{r.autoAction}</b>
         </span>
         <span className={styles.files}>
-          {r.links.pdf === null && <span className={styles.filesNote}>{sim ? "시뮬레이션 예시라 보고 파일이 없습니다" : "보고 파일이 없거나 서명할 수 없습니다"}</span>}
+          {r.links.pdf === null && <span className={styles.filesNote}>{sim ? "예시 보고라 보고 파일이 없습니다" : "보고 파일이 없거나 서명할 수 없습니다"}</span>}
           <FileButton label="PDF 보고서" href={r.links.pdf} />
           <FileButton label="HTML 보고서" href={r.links.html} />
         </span>

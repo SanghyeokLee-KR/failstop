@@ -102,5 +102,5 @@ test("권고 순서는 서버와 같고, 계약과 관측이 어긋난 창에는
   assert.deepEqual(ids(2, null, plan, ["app-2"]), ["leader_down", "no_metrics"]);
   const down = capacityAdvice(plan, 2, 0.4, th, ["app-2"])[0];
   assert.equal(down.level, "danger");
-  assert.match(down.detail, /조회 서버를 늘려도 주문은 재개되지 않습니다/);
+  assert.match(down.detail, /조회 노드를 늘려도 주문은 재개되지 않습니다/);
 });

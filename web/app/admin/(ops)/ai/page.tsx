@@ -47,7 +47,7 @@ export default function AiPage() {
     <div className={adminStyles.page}>
       <OpsHead
         title="AI 판단"
-        desc="AI가 무엇을 보고 무엇을 제안했는지, 누가 승인했는지 남깁니다. 규칙은 ADR 0035"
+        desc="AI가 무엇을 보고 무엇을 제안했는지, 누가 승인했는지 남깁니다. 규칙은 ADR 0035를 따릅니다"
         center={data}
       />
       {data === null ? (
@@ -57,13 +57,13 @@ export default function AiPage() {
           <ModeBar section={data.ai} onChanged={onChanged} />
           <div className={styles.split} data-ratio="wide">
             <div className={styles.aiTall}>
-              <AiPanel section={data.ai} sim={data.origin === "SIM"} onChanged={onChanged} full />
+              <AiPanel section={data.ai} onChanged={onChanged} full />
             </div>
             <div className={styles.stack}>
               <section className={styles.panel} aria-labelledby="ai-usage">
                 <PanelHead id="ai-usage" title="자동 조치 수와 쿨다운" meta="자동 모드에서 실행 전에 모두 확인합니다" />
                 {ai === null ? (
-                  <p className={styles.lead}>AI 판단 서비스와 서버 정책 엔진 연결 전. 한도 판독 없음</p>
+                  <p className={styles.lead}>AI 판단 서비스와 서버 정책 엔진을 연결하기 전이라 한도를 읽지 못합니다</p>
                 ) : (
                   <>
                     <dl className={styles.kv}>
@@ -72,7 +72,7 @@ export default function AiPage() {
                         <b className="num">
                           {ai.autoUsed}/{ai.autoCap}
                         </b>{" "}
-                        · 자동을 새로 켜면 0부터 셉니다. 닿으면 수동 전환과 Teams 알림
+                        · 자동을 새로 켜면 0부터 셉니다. 한도에 닿으면 수동으로 바뀌고 Teams로 알립니다
                       </dd>
                       <dt>관찰 창</dt>
                       <dd>
@@ -95,7 +95,7 @@ export default function AiPage() {
                             <span aria-hidden="true">▲ </span>AI 정지 중 · {ai.stopped.by} <b className="num">{hms(ai.stopped.at)}</b>부터
                           </>
                         ) : (
-                          "꺼짐(수동)"
+                          "중지(수동)"
                         )}
                       </dd>
                     </dl>
@@ -165,27 +165,27 @@ export default function AiPage() {
                     관제 조작 기록 없음
                   </div>
                 ) : (
+                  /* 열 너비를 고정해 카드 폭 안에 둔다. 감사 기록은 원문을 다 읽어야 해서 자르지 않는다. 액션 코드는 기계
+                     식별자라 어디서든 끊고, 대상은 낱말 단위로 다음 줄로 넘긴다(디자인 시스템 §12-12) */
                   <table className={styles.hist}>
                     <thead>
                       <tr>
-                        <th>시각</th>
-                        <th>누가</th>
-                        <th>액션</th>
-                        <th>대상</th>
-                        <th>승인</th>
+                        <th scope="col" data-col="at">시각</th>
+                        <th scope="col" data-col="who">누가</th>
+                        <th scope="col">액션</th>
+                        <th scope="col">대상</th>
+                        <th scope="col" data-col="ok">승인</th>
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((e) => (
                         <tr key={e.id}>
                           <td className="num">{hms(e.at)}</td>
-                          <td>
+                          <td title={e.operatorName}>
                             <b>{e.operatorName}</b>
                           </td>
-                          <td>{e.action}</td>
-                          <td className={styles.cellClip} title={e.target}>
-                            {e.target}
-                          </td>
+                          <td data-code="">{e.action}</td>
+                          <td data-wrap="">{e.target}</td>
                           <td>{e.approvalId ? "티켓" : "없음"}</td>
                         </tr>
                       ))}

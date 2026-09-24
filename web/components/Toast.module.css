@@ -11,6 +11,22 @@
   pointer-events: none;
 }
 
+/* 관리 콘솔은 오른쪽 아래에 두고 층위를 확인 대화상자 바로 아래로 내린다. 가운데 아래에 두면 대화상자의 단추를
+   덮는다. 같은 층의 상담 패널보다는 문서 뒤에 있어 위에 그려진다. 셸 밖이라 줄바꿈 규칙을 다시 건다(§12-12) */
+.region[data-place="admin"] {
+  left: auto;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  transform: none;
+  z-index: calc(var(--z-overlay) - 1);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+/* 상담 패널이 열린 동안에는 패널 왼쪽에 선다. 패널의 입력칸을 덮지 않는다 */
+:global(body[data-admin-chat]) .region[data-place="admin"] {
+  right: calc(var(--admin-chat-w, 440px) + var(--space-6));
+}
+
 .toast {
   pointer-events: auto;
   display: flex;

@@ -117,9 +117,8 @@ export default function AdminTransfersPage() {
         align: "center",
         render: (r) =>
           r.status === "REQUESTED" ? (
-            <span className="status-pill" data-health="warning">
-              대기
-            </span>
+            /* 대기는 처리할 차례라는 뜻이지 이상 상태가 아니다. 상태색 대신 굵은 잉크로 둔다(§12-10) */
+            <span className={styles.queueWait}>대기</span>
           ) : r.status === "COMPLETED" ? (
             /* 완료는 조치가 끝난 행이다. 운영자가 볼 곳은 대기뿐이라 완료까지 색을 쓰면
                큐에서 처리 대상을 골라내는 일이 오히려 어려워진다 */

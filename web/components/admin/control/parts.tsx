@@ -10,6 +10,7 @@ import { ago, mmss } from "@/lib/admin/timeText";
 import type { AlertSeverity, ControlCenter, OpsEnvironment, OpsSection } from "@/lib/admin/types";
 import { AdminIcon } from "../icons";
 import { MeterRail } from "../instruments/MeterRail";
+import { SimMark } from "../ui";
 import styles from "./control.module.css";
 
 /**
@@ -39,7 +40,7 @@ export function Remain({ until, fallback = null }: { until: string; fallback?: R
 }
 
 // 시각 글자는 lib에 있다. AI 상담의 답(lib)과 화면 조각이 같은 말을 쓰게 한곳에 두고 여기서 다시 내보낸다
-export { ago, durationWord, hm, hmmss, hms, mmss } from "@/lib/admin/timeText";
+export { ago, durationWord, hm, hms, lagWord, mdhm, mmss, remainWord, secWord } from "@/lib/admin/timeText";
 
 export const SEVERITY_SHAPE: Record<AlertSeverity, string> = { critical: "■", warning: "▲", info: "●" };
 export const SEVERITY_WORD: Record<AlertSeverity, string> = { critical: "장애", warning: "주의", info: "정보" };
@@ -110,24 +111,24 @@ export function EnvBadge({ env }: { env: OpsEnvironment }) {
 /** 폴링 두 주기를 넘기면 지연이다. 관제 판은 sim 1초, 실측은 15초 주기(opsCenter)라 실측 기준으로 30초다 */
 export const LIVE_STALE_MS = 30_000;
 
-/** 값의 출처와 신선도(§12-9). 원천이 없으면 연결 전을, sim이면 시뮬레이션을 먼저 말한다 */
-export function OpsSourceChip({ center }: { center: ControlCenter | null }) {
-  if (center === null || center.origin === null) {
-    return (
-      <span className={styles.sourceChip} data-kind="none">
-        <span aria-hidden="true">◌ </span>원천 연결 전
-      </span>
-    );
-  }
-  if (center.origin === "SIM") {
-    return (
-      <span className={styles.sourceChip} data-kind="sim">
-        시뮬레이션 · 재생
-        <span className="sr-only"> · 값은 브라우저 시뮬레이터가 지어낸 것</span>
-      </span>
-    );
-  }
-  return <LiveChip at={center.collectedAt} />;
+/**
+ * 값의 출처와 신선도(§12-9, §12-12). sim이면 '시뮬레이션' 표식 하나만 두고 환경 배지를 거둔다. 둘을 나란히 두면
+ * 같은 말을 두 번 한다. 실측이면 환경 배지와 실측 칩, 원천이 없으면 연결 전을 적는다
+ */
+export function OpsSource({ center }: { center: ControlCenter | null }) {
+  if (center?.origin === "SIM") return <SimMark />;
+  return (
+    <>
+      {center && <EnvBadge env={center.environment} />}
+      {center === null || center.origin === null ? (
+        <span className={styles.sourceChip} data-kind="none">
+          <span aria-hidden="true">◌ </span>원천 연결 전
+        </span>
+      ) : (
+        <LiveChip at={center.collectedAt} />
+      )}
+    </>
+  );
 }
 
 /** 실측 칩. 'N초 전'이 매초 바뀌므로 시계는 이 조각만 탄다 */
