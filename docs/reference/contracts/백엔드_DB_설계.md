@@ -1,4 +1,4 @@
-# DB 설계 (v2.51)
+# DB 설계 (v2.51.1)
 
 PostgreSQL 17 계열에서 사용하는 데이터 모델, 제약조건과 거래 저장 규칙을 설명한다. 금액과 잔고를 확인할 때는 1절과 원장 관련 절, 테이블을 바꿀 때는 3절, 정산·복구를 바꿀 때는 5절부터 읽는다.
 
@@ -382,6 +382,7 @@ erDiagram
 | V45 | `V45__band_headroom.sql` | 채번 대역 여유 뷰 `v_journal_band_headroom`(ADR 0022 7단계 3-2). `journal_band_spec` 의 축마다 `market_journal_counters` 의 마켓별 `next_value`, 남은 배정 가능 번호 수 `remaining`(`band_span - next_value`), `remaining_ratio`(`remaining / band_span`)를 낸다. 채번 함수가 지역 번호를 `band_span - 1` 까지 주므로 `next_value` 가 `band_span` 이면 `remaining` 이 0 이다. 카운터 행이 없는 마켓은 쓴 번호가 없어 행이 없다. 하네스 C26_CMD_BAND_HEADROOM 과 게이지 `exchange.journal.band.remaining` 의 원천이고 `app_role`·`harness_role` 에 SELECT 를 준다. 뷰 하나라 DROP 으로 되돌린다 | V40(`journal_band_spec`), V36(`market_journal_counters`), V0(롤 GRANT) |
 | V46 | `V46__event_seq_band_widen.sql` | 이벤트 저널 대역 확대(ADR 0022 9단계, 3-3). `journal_band_spec('event_seq')` 를 (10^7, 19) 에서 (10^12, 63) 으로 올리고, 꼬리 잎 `event_journal_p200000000` [2x10^8, 10^12) 와 마켓이 있는 id K 마다 대역 잎 `event_journal_b<K>` [K x 10^12, (K+1) x 10^12) 를 만든다. 파생을 DB 로 옮겨 `next_market_event_seq(p_market_id, p_count)` 가 마켓 안 번호와 `market_id * band_span + market_seq` 를 함께 돌려주고, 앱 파생 판이 부르던 `next_market_journal_value(.., 'event_seq', ..)` 는 55000 으로 거부한다. 잎 생성 단일 진입점은 `ensure_event_band_partition`(SECURITY DEFINER, PUBLIC 회수)이고 마켓 생성 트리거가 두 저널 잎을 함께 만든다. 적용 전 확인 셋(명세 (10^7, 19), `event_journal_default` 0행, 앞으로 배정될 대역 값과 겹치는 TRADE·RELEASE `business_event_id` 0건)이 실패하면 멈춘다. 기존 행은 그대로이고 `market_seq` 가 같은 카운터에서 이어져 마켓 안 증가가 유지된다. prod 풀 타임아웃을 `SET LOCAL` 로 해제한다. 첫 대역 행이 쓰인 뒤에는 되돌릴 수 없다(ADR 0022 7절 9단계) | V40(`journal_band_spec`, `next_market_journal_value`, `seed_market_journal_counters`, `ensure_command_band_partition`), V36(`market_journal_counters`, `event_journal.market_id`·`market_seq`), V1(`event_journal`, `ledger_transactions`), V0(`app_role` GRANT) |
 | V47 | `V47__order_intake_failure_resolution.sql` | 주문 접수의 append 가 예외로 끝난 뒤의 판정. `idempotency_keys` 에 널 허용 열 `shared_at` 을 더한다(기본값이 없어 표를 다시 쓰지 않는다). 기존 키로 내용을 대조한 요청이 append 전에 이 열을 채운다. 함수 `resolve_failed_order_intake(user_id, idem_key, request_hash, assigned_order_id, discard_key)` 는 V44 머리말과 같은 어드바이저리 락(`cmd-new:<user>:<key>`)을 잡은 뒤, 이 요청의 주문 id 로 커밋된 NEW 가 있으면 `JOURNALED` 와 그 seq·market_id·fencing_token 을 돌려주고 키를 지우지 않는다(커밋 응답 유실). 없으면 `discard_key` 일 때 `shared_at` 이 비어 있는 그 해시의 키만 지우고 `DISCARDED`·`KEPT`·`ABSENT` 를, 아니면 `NOT_JOURNALED` 를 돌려준다. 판정에 `created_at` 을 쓰지 않아 DB 시계 역행과 무관하다. 보존 태그 `wip/per-market-leader-20260923` 의 같은 번호 파일(`created_at` 비교판)과 다른 파일이다. 함수를 지우고 게이트웨이를 되돌리는 새 마이그레이션으로 되돌리며 `shared_at` 은 남겨도 무해하다 | V44(어드바이저리 락 키), V1(`idempotency_keys`, `command_journal`), V9(`idempotency_keys` DELETE), V0(`app_role` GRANT) |
+| V47.1 | `V47_1__revoke_trigger_function_public_execute.sql` | 소유자 권한(SECURITY DEFINER) 트리거 함수 넷 `create_balance_for_account()`·`register_trade_seq()`·`register_event_emission()`(V1)과 `seed_market_journal_counters()`(V36, 현재 본문 V46)에서 PUBLIC 기본 EXECUTE 를 회수한다. `app_role` 에도 주지 않는다. PostgreSQL 은 트리거 함수의 EXECUTE 를 `CREATE TRIGGER` 때만 검사하고 발화 때는 보지 않으므로 기존 트리거 넷(`trg_account_balance`, `trg_trades_register`, `trg_ej_register`, `trg_markets_seed_counters`)은 그대로 돈다. 회수 뒤에도 PUBLIC 에 EXECUTE 가 남은 함수가 있으면 예외로 멈춘다. 표·행·함수 본문은 바꾸지 않는다. 버전 47.1 은 V47 과 V48 사이에 정렬된다(§3.1, v2.51.1) | V1(세 함수와 트리거), V36(`trg_markets_seed_counters`), V46(`seed_market_journal_counters` 본문) |
 | 로드맵 | 미배정 | 파티션 자동화(pg_partman·pg_cron), `audit_log` 감사 트리거, `candles` 비정규화 프로젝션(§7) 셋만 남았다 | 항목별 별도 전제. 번호는 착수 시점 다음 가용값으로 배정 |
 
 ### 3.1 `V0__roles.sql` / `V1__init.sql`
@@ -1448,6 +1449,46 @@ END $$;
 --  감싸 V1 단독 적용성을 유지한다. 신규 파티션 권한 전파는 §3.2 partman 템플릿 REVOKE +
 --  통합테스트로 실증.)
 ```
+
+#### 소유자 권한 트리거 함수의 PUBLIC 회수 (V47.1)
+
+위 회수 목록에는 V1이 소유자 권한으로 만든 트리거 함수 셋(`create_balance_for_account`, `register_trade_seq`, `register_event_emission`)이 빠져 있었다. V36의 `seed_market_journal_counters`(현재 본문 V46)도 회수하지 않았다. 트리거로만 불린다는 전제였지만 그 전제가 틀렸다. PostgreSQL은 트리거 함수의 EXECUTE를 발화 때가 아니라 `CREATE TRIGGER` 때만 검사하고, 데이터베이스의 TEMP 권한은 기본으로 PUBLIC에 있다. 배포 프로비저닝(`deploy/provision-runtime-roles.sql`)도 TEMP를 회수하지 않는다. 그래서 대상 표에 INSERT 권한이 없는 로그인도 자기 임시 표에 이 함수를 트리거로 걸고 행을 넣으면, 함수가 소유자 권한으로 돌아 그 표에 행을 쓴다. `app_role`에 속하지 않는 조회 로그인은 PUBLIC 권한만으로 레지스트리 두 표와 카운터 표에 쓰고 저널 대역 잎을 만들 수 있다. 기본 읽기 전용 설정은 세션에서 끌 수 있다. 앱·봇 로그인(`app_role`)은 카운터 표에 원래 INSERT·UPDATE 권한이 있으므로(V36), 이 경로로 새로 얻는 것은 레지스트리 두 표의 행과 `markets`에 없는 마켓의 대역 잎이다. 2026-09-24 폐기용 `postgres:17-alpine` 컨테이너에서 두 번 실행해 확인했다. 브랜치 `claude/per-market-leader` 커밋 `b04acd5`의 `harness/evidence/pml-s2-pg-probe-20260924/review-check.log` R1a·R1d는 조회 로그인과 봇 흉내 로그인이 `register_event_emission`으로 `event_emission_registry`에 행을 심는 것을 보였다. [V47.1 확인 기록](../../../harness/evidence/revoke-trigger-fn-20260924/probe.log)은 V0~V47 DB에서 네 표의 INSERT 권한이 없는 조회 로그인이 기본 읽기 전용을 끄고 네 함수를 모두 임시 표 트리거로 돌린 결과를 담았다(A1·A2).
+
+함수마다 결과가 다르다. 행을 심은 것까지는 위 기록의 실행 결과이고, 그 행이 정산·체결·저널 append에 주는 영향은 코드 판독이며 실행으로 확인하지 않았다.
+
+- `register_event_emission`: `event_emission_registry`에 행이 생겼다. 정산 머리말은 명령의 레지스트리 행 수가 배치 이벤트 수와 같으면 이미 정산된 명령으로 보고 건너뛰고, 0도 배치 수도 아니면 `IllegalStateException`으로 라이터를 멈춘다(`server/app/src/main/java/kr/exchange/ledger/SettlementService.java` 322~331행). 앞으로 올 `source_cmd_seq`를 선점하면 정산 누락이나 라이터 정지가 된다. V1이 `app_role`에 레지스트리 INSERT를 주지 않은 이유(선점 삽입으로 정상 방출 차단)가 이 경로로 우회된다.
+- `register_trade_seq`: `trade_seq_registry`에 행이 생겼다. 앞으로 올 체결 id를 선점하면 그 체결 INSERT가 23505로 실패한다.
+- `seed_market_journal_counters`: 넣은 행의 `id`를 마켓 번호로 받아 `markets`에 없는 번호 50의 카운터 두 행과 두 저널의 빈 대역 잎이 생겼다. 1~63 밖의 번호는 잎 생성 함수가 거부한다. 잎을 만드는 동안 저널 부모에 ACCESS EXCLUSIVE 잠금이 걸린다(V40·V46 주석).
+- `create_balance_for_account`: 없는 계정 번호로 넣은 행은 `balances.account_id` 외래키에서 23503으로 거부됐다. 이미 잔고가 있는 계정은 기본키가 막는다. 해가 드러나지 않아도 같은 원칙(소유자 권한 함수는 PUBLIC에 열지 않는다)으로 회수한다.
+
+V47.1은 네 함수에서 `REVOKE ALL ... FROM PUBLIC`만 한다. `app_role`에도 EXECUTE를 주지 않는다. 앱은 이 함수를 직접 부르지 않고, 트리거 발화는 EXECUTE를 보지 않으므로 계정 생성의 잔고 행, 체결·이벤트 적재의 레지스트리 행, 마켓 생성의 카운터와 대역 잎은 회수 뒤에도 그대로 생긴다. 트리거는 V1·V36 적용 때 소유자가 이미 만들었고, 함수는 소유자 권한으로 돌아 안에서 부르는 `ensure_*_band_partition`(PUBLIC 회수 상태)도 그대로 부른다. 막히는 것은 소유자가 아닌 역할의 `CREATE TRIGGER ... EXECUTE FUNCTION <함수>()`이고 SQLSTATE 42501이다.
+
+함수에 어떤 권한이든 있지만 소유자(소유자 역할의 구성원 포함)도 수퍼유저도 아닌 역할이 `REVOKE`를 돌리면, 회수할 것이 없어도 오류 없이 경고(01006 `no privileges could be revoked`)만 내고 끝난다. 이 네 함수는 PUBLIC EXECUTE가 있어 모든 역할이 이 경우에 든다. 위 기록 B에서 `app_role`에 속한 봇 흉내 로그인이 `ON_ERROR_STOP`을 켜고 네 줄을 돌렸을 때 경고와 `REVOKE` 명령 태그만 나오고 종료 코드는 0이었으며, PUBLIC의 EXECUTE는 그대로였다. 이 마이그레이션이 아무것도 바꾸지 않은 채 성공으로 기록되지 않도록, 회수 뒤 PUBLIC에 EXECUTE가 남은 함수가 있으면 예외로 멈춘다. 같은 로그인이 파일 전체를 돌리면 이 확인에서 멈췄다. 소유자 계정으로 적용한다.
+
+```sql
+-- V47_1__revoke_trigger_function_public_execute.sql
+REVOKE ALL ON FUNCTION create_balance_for_account() FROM PUBLIC;
+REVOKE ALL ON FUNCTION register_trade_seq() FROM PUBLIC;
+REVOKE ALL ON FUNCTION register_event_emission() FROM PUBLIC;
+REVOKE ALL ON FUNCTION seed_market_journal_counters() FROM PUBLIC;
+
+DO $$
+DECLARE
+    v_open TEXT;
+BEGIN
+    SELECT string_agg(f::TEXT, ', ') INTO v_open
+    FROM unnest(ARRAY['create_balance_for_account()'::regprocedure,
+                      'register_trade_seq()'::regprocedure,
+                      'register_event_emission()'::regprocedure,
+                      'seed_market_journal_counters()'::regprocedure]) AS f
+    WHERE has_function_privilege('public', f::oid, 'EXECUTE');
+    IF v_open IS NOT NULL THEN
+        RAISE EXCEPTION 'PUBLIC EXECUTE 회수 실패: %. 함수 소유자로 적용한다', v_open;
+    END IF;
+END $$;
+```
+
+검증은 `MigrationSmokeTest`가 Testcontainers 일회용 DB에서 한다. 네 함수에 대해 `app_role`과 `app_role`이 아닌 로그인의 `has_function_privilege(..., 'EXECUTE')`가 거짓이고, 두 로그인 모두 임시 표에 거는 `CREATE TRIGGER`가 42501이다. 같은 `app_role` 로그인으로 계정·체결·이벤트·마켓을 넣으면 잔고 행, 두 레지스트리 행, 카운터 두 행과 두 저널의 대역 잎이 생긴다. 앞으로 더할 소유자 권한 함수가 회수를 빠뜨리지 않도록, public 스키마의 소유자 권한 함수가 하나 이상 있고 그중 PUBLIC이 EXECUTE를 가진 함수가 0개인지도 본다. 위 기록 C도 소유자 적용 뒤 같은 결과다. 되돌리기는 PUBLIC에 EXECUTE를 다시 주는 새 마이그레이션이지만 위 경로를 다시 여는 일이라 하지 않는다.
 
 ### 3.2 `V2__partition_automation.sql`: 파티션 소진 방어 실구현 (초안 critical)
 
@@ -3617,3 +3658,11 @@ ADR 0022 9단계(이벤트 대역 확대)를 정본에 먼저 반영한다. 2026
 §5.4 강등 사유 분류의 종신 항목이 "이벤트 sink 실패는 원인 불문 종신"으로 읽혔다. 운영 기본 풀의 `lock_timeout 2000ms` 한 번 초과가 곧 종신 강등이었고, 앱이 한 대라 재기동 전까지 주문이 멈췄다. 이제 일시 DB 오류 넷(55P03·57014·40P01·40001)은 정산이 시도 4회·경과 5초 안에서 다시 돌리고, 그 제한을 넘긴 것과 재시도 대상이 아닌 오류만 종신 강등한다. 재시도 대상이 아닌 오류에는 fencing 거부와 무결성 위반뿐 아니라 연결 오류(08xxx)와 계약 위반 `IllegalStateException` 도 남는다. 연결 오류는 커밋 여부를 알 수 없어 다시 돌리지 않는다. §6.4 재구축 실행 조건의 fail-fast 서술을 재시도 뒤 fail-fast 로 고친다. 결론(재구축은 정산 정지 창에서)은 그대로다. V13 파일 주석의 "그 게시가 롤백된다"는 재시도 도입 전 서술이며 적용된 파일이라 고치지 않는다.
 
 §3 표에 V47 행을 더하고 §3.1 권한 주석에 `shared_at` 을 적는다. 종전 게이트웨이는 append 예외 뒤 선삽입한 멱등 키를 무조건 지우고 in-flight 예약을 바로 풀었다. 커밋 응답만 잃은 경우 같은 키 재시도가 409 가 되고, 정산 전 창에서 같은 잔고를 다른 주문이 통과해 정산 예약 23514 로 라이터가 멈출 수 있었다. 이제 이 요청의 주문 id 로 커밋을 확인하면 키와 예약을 남기고, 라이터에 그 명령의 회수(`SingleWriterLoop.requestCatchUp`)를 요청해 정상 접수로 끝낸다. 같은 내용의 다른 요청이 대조한 키는 `shared_at` 으로 표시해 넣은 요청이 실패해도 남긴다. 태그 판의 `created_at` 선후 비교는 DB 시계가 뒤로 가면 틀리므로 쓰지 않는다. `command_journal` 스키마는 바뀌지 않는다. 문서 헤더 버전을 v2.51 로 순증.
+
+## v2.51.1 패치 반영 사항
+
+소유자 권한 트리거 함수 네 개의 PUBLIC 기본 EXECUTE를 회수하는 V47.1을 정본에 먼저 적는다. 2026-09-24 갱신.
+
+§3 표에 V47.1 행을, §3.1에 '소유자 권한 트리거 함수의 PUBLIC 회수 (V47.1)'를 더한다. V1은 소유자 권한 함수의 PUBLIC 기본 EXECUTE를 회수한다고 정했지만 트리거 함수 셋을 목록에서 뺐고, V36이 만든 `seed_market_journal_counters`도 회수하지 않았다. PostgreSQL은 트리거 함수의 EXECUTE를 `CREATE TRIGGER` 때만 보므로, 조회 로그인은 레지스트리 두 표와 카운터 표에, `app_role` 로그인은 INSERT 권한이 없는 레지스트리 두 표에 자기 임시 표 트리거로 소유자 권한의 행을 쓸 수 있었고, 두 로그인 모두 `markets`에 없는 마켓의 저널 대역 잎을 만들 수 있었다. 잔고 표는 외래키가 막았다. 회수는 트리거 발화에 영향을 주지 않으므로 계정 생성, 체결·이벤트 적재, 마켓 생성은 그대로다.
+
+번호는 사용자가 정했다. 브랜치 `claude/per-market-leader`가 V48 이후와 이 문서의 v2.52~v2.54를 쓰고 있어, 마이그레이션은 V47과 V48 사이에 정렬되는 47.1로, 문서 판은 v2.51.1로 둔다. 그 브랜치의 V48~V52는 네 함수를 건드리지 않고, 그 브랜치가 새로 만든 소유자 권한 함수는 각자 PUBLIC을 회수한다. 표 구조, 함수 본문, `app_role` 권한은 바뀌지 않는다.

@@ -1,0 +1,117 @@
+container=revoke47-probe-12990 image=postgres:17-alpine
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+applied V0..V47: 48 files
+V47_1 sha256: e18a1a5bf23363ebdc22f9f47dfbe7fed5ee43e93b3cf6afb132fb016cc99284
+
+== A0 회수 전 EXECUTE. 열: 함수, rdr, app_role, public
+A0|create_balance_for_account|t|t|t
+A0|register_trade_seq|t|t|t
+A0|register_event_emission|t|t|t
+A0|seed_market_journal_counters|t|t|t
+
+== A1 회수 전: rdr 이 기본 읽기 전용을 끄고 임시 표 트리거로 네 함수를 소유자 권한으로 돌린다
+SET
+A1 rdr INSERT privilege|event_emission_registry|f
+A1 rdr INSERT privilege|trade_seq_registry|f
+A1 rdr INSERT privilege|market_journal_counters|f
+A1 rdr INSERT privilege|balances|f
+CREATE TABLE
+CREATE TRIGGER
+INSERT 0 1
+CREATE TABLE
+CREATE TRIGGER
+INSERT 0 1
+CREATE TABLE
+CREATE TRIGGER
+INSERT 0 1
+CREATE TABLE
+CREATE TRIGGER
+ERROR:  23503: insert or update on table "balances" violates foreign key constraint "balances_account_id_fkey"
+DETAIL:  Key (account_id)=(999999) is not present in table "accounts".
+SCHEMA NAME:  public
+TABLE NAME:  balances
+CONSTRAINT NAME:  balances_account_id_fkey
+LOCATION:  ri_ReportViolation, ri_triggers.c:2599
+A2 planted event registry|1
+A2 planted trade registry|1
+A2 market 50 in markets|0
+A2 market 50 counters|2
+A2 market 50 leaves|t|t
+A2 balance 999999|0
+
+== B 소유자가 아닌 botu 가 회수를 시도한다. REVOKE 네 줄만 돌리면 경고만 내고 끝나고, V47_1 파일은 끝 확인에서 멈춘다
+WARNING:  01006: no privileges could be revoked for "create_balance_for_account"
+LOCATION:  restrict_and_check_grant, aclchk.c:365
+REVOKE
+WARNING:  01006: no privileges could be revoked for "register_trade_seq"
+LOCATION:  restrict_and_check_grant, aclchk.c:365
+REVOKE
+WARNING:  01006: no privileges could be revoked for "register_event_emission"
+LOCATION:  restrict_and_check_grant, aclchk.c:365
+REVOKE
+WARNING:  01006: no privileges could be revoked for "seed_market_journal_counters"
+LOCATION:  restrict_and_check_grant, aclchk.c:365
+REVOKE
+B1 revoke lines exit=0 (ON_ERROR_STOP=1)
+psql:/probe-migration/V47_1__revoke_trigger_function_public_execute.sql:9: WARNING:  no privileges could be revoked for "create_balance_for_account"
+REVOKE
+psql:/probe-migration/V47_1__revoke_trigger_function_public_execute.sql:10: WARNING:  no privileges could be revoked for "register_trade_seq"
+REVOKE
+psql:/probe-migration/V47_1__revoke_trigger_function_public_execute.sql:11: WARNING:  no privileges could be revoked for "register_event_emission"
+REVOKE
+psql:/probe-migration/V47_1__revoke_trigger_function_public_execute.sql:12: WARNING:  no privileges could be revoked for "seed_market_journal_counters"
+REVOKE
+psql:/probe-migration/V47_1__revoke_trigger_function_public_execute.sql:28: ERROR:  PUBLIC EXECUTE 회수 실패: create_balance_for_account(), register_trade_seq(), register_event_emission(), seed_market_journal_counters(). 함수 소유자로 적용한다
+CONTEXT:  PL/pgSQL function inline_code_block line 12 at RAISE
+B2 V47_1 file exit=3
+B3 public still EXECUTE|create_balance_for_account|t
+B3 public still EXECUTE|register_trade_seq|t
+B3 public still EXECUTE|register_event_emission|t
+B3 public still EXECUTE|seed_market_journal_counters|t
+
+== C 소유자가 V47_1 을 적용한다
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+DO
+C0 V47_1 file exit=0
+C1|create_balance_for_account|f|f|f
+C1|register_trade_seq|f|f|f
+C1|register_event_emission|f|f|f
+C1|seed_market_journal_counters|f|f|f
+
+== C2 회수 뒤 rdr 의 임시 표 트리거
+SET
+CREATE TABLE
+ERROR:  42501: permission denied for function public.create_balance_for_account
+LOCATION:  aclcheck_error, aclchk.c:2843
+ERROR:  42501: permission denied for function public.register_trade_seq
+LOCATION:  aclcheck_error, aclchk.c:2843
+ERROR:  42501: permission denied for function public.register_event_emission
+LOCATION:  aclcheck_error, aclchk.c:2843
+ERROR:  42501: permission denied for function public.seed_market_journal_counters
+LOCATION:  aclcheck_error, aclchk.c:2843
+
+== C2 회수 뒤 botu 의 임시 표 트리거
+SET
+CREATE TABLE
+ERROR:  42501: permission denied for function public.create_balance_for_account
+LOCATION:  aclcheck_error, aclchk.c:2843
+ERROR:  42501: permission denied for function public.register_trade_seq
+LOCATION:  aclcheck_error, aclchk.c:2843
+ERROR:  42501: permission denied for function public.register_event_emission
+LOCATION:  aclcheck_error, aclchk.c:2843
+ERROR:  42501: permission denied for function public.seed_market_journal_counters
+LOCATION:  aclcheck_error, aclchk.c:2843
+
+== C3 회수 뒤 botu 의 정상 쓰기. 트리거는 EXECUTE 없이 발화한다
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+C4 market 51 counters|2
+C4 market 51 leaves|t|t
+C4 balance rows for owner 991|1
+C4 trade registry|1
+C4 event registry|1

@@ -542,6 +542,106 @@ class MigrationSmokeTest {
         }
     }
 
+    /**
+     * 소유자 권한 트리거 함수는 남의 임시 표에 걸 수 없고(V47.1), 제 트리거로는 그대로 발화한다.
+     * EXECUTE 는 CREATE TRIGGER 때만 검사되므로 PUBLIC 에 열려 있으면 레지스트리 선점 봉쇄가 우회된다.
+     */
+    @Test
+    void ownerRightsTriggerFunctionsRejectForeignTriggersButStillFire() throws Exception {
+        List<String> functions = List.of("create_balance_for_account", "register_trade_seq",
+                "register_event_emission", "seed_market_journal_counters");
+
+        try (Connection conn = open(); Statement st = conn.createStatement()) {
+            // deploy/provision-runtime-roles.sql 의 앱·봇 로그인과 조회 로그인을 흉내 낸다.
+            st.execute("CREATE ROLE probe_app LOGIN PASSWORD 'probe' IN ROLE app_role");
+            st.execute("CREATE ROLE probe_reader LOGIN PASSWORD 'probe'");
+            st.execute("GRANT USAGE ON SCHEMA public TO probe_reader");
+            st.execute("GRANT SELECT ON assets, markets, trades TO probe_reader");
+            st.execute("ALTER ROLE probe_reader SET default_transaction_read_only = on");
+            assertTrue(!queryBool(conn, "SELECT pg_has_role('probe_reader', 'app_role', 'MEMBER')"),
+                    "probe_reader must hold only PUBLIC privileges");
+            // TEMP 가 있어야 아래 42501 이 임시 표가 아니라 함수 권한에서 나온 것이 된다.
+            assertTrue(queryBool(conn,
+                            "SELECT has_database_privilege('probe_reader', current_database(), 'TEMP')"),
+                    "PUBLIC default TEMP privilege is the premise of this path");
+            for (String fn : functions) {
+                for (String role : List.of("app_role", "probe_reader")) {
+                    assertTrue(!queryBool(conn, "SELECT has_function_privilege('" + role + "', '"
+                                    + fn + "()', 'EXECUTE')"),
+                            role + " must not EXECUTE " + fn);
+                }
+            }
+            // 앞으로 더할 소유자 권한 함수도 PUBLIC 회수를 빠뜨리면 여기서 드러난다.
+            String secdef = "FROM pg_proc WHERE prosecdef AND pronamespace = 'public'::regnamespace";
+            assertTrue(queryInt(conn, "SELECT count(*) " + secdef) > 0, "no SECURITY DEFINER function found");
+            assertEquals(0, queryInt(conn, "SELECT count(*) " + secdef
+                            + " AND has_function_privilege('public', oid, 'EXECUTE')"),
+                    "SECURITY DEFINER functions must not be EXECUTE-able by PUBLIC");
+        }
+
+        for (String login : List.of("probe_app", "probe_reader")) {
+            try (Connection conn = DriverManager.getConnection(POSTGRES.getJdbcUrl(), login, "probe");
+                 Statement st = conn.createStatement()) {
+                // 조회 로그인의 기본 읽기 전용은 세션에서 끌 수 있어 경계가 되지 못한다.
+                st.execute("SET default_transaction_read_only = off");
+                st.execute("CREATE TEMP TABLE probe (id SMALLINT, source_cmd_seq BIGINT, "
+                        + "event_ordinal INT, event_seq BIGINT)");
+                for (String fn : functions) {
+                    SQLException denied = assertThrows(SQLException.class, () -> st.execute(
+                            "CREATE TRIGGER plant_" + fn + " AFTER INSERT ON probe "
+                            + "FOR EACH ROW EXECUTE FUNCTION public." + fn + "()"));
+                    assertEquals("42501", denied.getSQLState(), login + ": " + denied.getMessage());
+                    assertTrue(denied.getMessage().contains(fn), denied.getMessage());
+                }
+            }
+        }
+
+        // 발화는 EXECUTE 를 보지 않는다. EXECUTE 없는 앱 로그인의 정상 쓰기가 네 트리거를 모두 거친다.
+        try (Connection conn = open();
+             Connection app = DriverManager.getConnection(POSTGRES.getJdbcUrl(), "probe_app", "probe");
+             Statement st = app.createStatement()) {
+            assertTrue(queryBool(conn, "SELECT to_regclass('command_journal_b9') IS NULL "
+                    + "AND to_regclass('event_journal_b9') IS NULL"), "market 9 leaves must not pre-exist");
+            st.execute("""
+                    INSERT INTO markets (id, symbol, base_asset_id, quote_asset_id,
+                                         tick_size, lot_size, min_notional, max_notional, max_qty)
+                    VALUES (9, 'PROBE-KRW', 1, 2, 1, 0.0001, 0, 100000000000, 10000)
+                    """);
+            assertEquals(2, queryInt(conn,
+                            "SELECT count(*) FROM market_journal_counters WHERE market_id = 9"),
+                    "market counters must be seeded by trigger");
+            assertEquals(2, queryInt(conn, """
+                            SELECT count(*) FROM pg_inherits
+                            WHERE (inhrelid::regclass::text, inhparent::regclass::text) IN
+                                  (('command_journal_b9', 'command_journal'), ('event_journal_b9', 'event_journal'))
+                            """),
+                    "band leaves must be created by trigger");
+
+            long account = queryLong(app, "INSERT INTO accounts (owner_type, owner_id, purpose, asset_id) "
+                    + "VALUES ('USER', 991, 'AVAILABLE', 1) RETURNING id");
+            assertEquals(1, queryInt(conn, "SELECT count(*) FROM balances WHERE account_id = " + account),
+                    "balance row must be created by trigger");
+
+            st.execute("""
+                    INSERT INTO trades (id, market_id, maker_order_id, taker_order_id,
+                                        maker_user_id, taker_user_id, taker_side, price, quantity,
+                                        fencing_epoch, executed_at, created_at)
+                    VALUES (910101, 9, 1, 2, 11, 12, 'BUY', 100, 1, 1, now(), now())
+                    """);
+            assertEquals(1, queryInt(conn, "SELECT count(*) FROM trade_seq_registry WHERE seq = 910101"),
+                    "trade registry row must be auto-inserted by trigger");
+
+            st.execute("""
+                    INSERT INTO event_journal (event_seq, source_cmd_seq, event_ordinal,
+                                               event_type, payload, fencing_epoch, created_at)
+                    VALUES (900101, 500101, 0, 'ACCEPTED', '{}', 1, now())
+                    """);
+            assertEquals(1, queryInt(conn,
+                            "SELECT count(*) FROM event_emission_registry WHERE source_cmd_seq = 500101"),
+                    "event registry row must be auto-inserted by trigger");
+        }
+    }
+
     private static Connection open() throws SQLException {
         return DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());

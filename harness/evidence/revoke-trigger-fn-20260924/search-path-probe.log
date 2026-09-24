@@ -1,0 +1,13 @@
+container=sp-probe-13295 image=postgres:17-alpine
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+V47_1 sha256: e18a1a5bf23363ebdc22f9f47dfbe7fed5ee43e93b3cf6afb132fb016cc99284
+applied V0..V47.1
+search_path of register_trade_seq|{search_path=public}
+== S1 botu: 임시 trade_seq_registry 로 실제 레지스트리를 가리고 같은 체결 id 를 두 번 넣는다
+CREATE TABLE
+GRANT
+INSERT 0 1
+INSERT 0 1
+S1 temp registry rows|2
+S2 trades with id 888001|2
+S2 real registry rows 888001|0
