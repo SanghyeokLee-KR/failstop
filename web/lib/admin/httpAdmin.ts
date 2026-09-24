@@ -33,6 +33,7 @@ import type {
   DirectionBiasResult,
   FleetScaleResult,
   FleetScaleTargets,
+  HaLease,
   HaNode,
   HaRecovery,
   HaStatus,
@@ -459,10 +460,22 @@ interface WireDataEnvelope<T> {
 }
 /** GET /admin/v1/ha/status. lease·워터마크만 제공(노드 토폴로지 없음) */
 interface WireHaStatus {
-  lease?: { holder?: string; epoch?: number; lease_until?: string; leader_alive?: boolean };
+  lease?: WireHaLease;
+  /** 모드가 쓰는 리스 자원별 행(API 설계 §6-C). 옛 서버는 내지 않는다 */
+  leases?: WireHaLease[];
+  leader_protocol?: number;
   command_watermark?: number;
   event_watermark?: number;
   trades_count?: number;
+}
+interface WireHaLease {
+  resource?: string;
+  holder?: string;
+  epoch?: number;
+  lease_until?: string;
+  leader_alive?: boolean;
+  lease_remaining_ms?: number;
+  markets?: string[];
 }
 /** 용량 콘솔 응답. 서버가 못 읽은 지표는 null로 오고 화면이 빈칸으로 낸다 */
 interface WireCapacityNode {
@@ -964,12 +977,17 @@ export class HttpAdminApi implements AdminApi {
       ownedMarkets: [],
       health: lease.leader_alive === true ? "healthy" : "down",
     };
+    // 리스 표. 옛 서버 응답(leases 없음)이면 lease 한 행을 matching-engine 으로 만든다. 그 응답은 마켓 목록을 주지 않는다.
+    const wireLeases = res.leases && res.leases.length > 0
+      ? res.leases
+      : [{ ...lease, resource: lease.resource ?? "matching-engine" }];
     return {
       epoch: node.epoch,
       leaderNodeId: holder,
       nodes: [node],
       tradesTotal: trades,
       generatedAt: isoNow(),
+      leases: wireLeases.map(mapHaLease),
     };
   }
 
@@ -1495,4 +1513,17 @@ export class HttpAdminApi implements AdminApi {
     });
     return toPage(rows, res);
   }
+}
+
+/** 리스 한 행. 서버가 주지 않은 남은 시간·만료 시각은 null로 둔다 */
+function mapHaLease(w: WireHaLease): HaLease {
+  return {
+    resource: w.resource ?? "matching-engine",
+    holder: w.holder ?? "",
+    epoch: num(w.epoch),
+    leaseUntil: w.lease_until ?? null,
+    leaderAlive: w.leader_alive === true,
+    leaseRemainingMs: typeof w.lease_remaining_ms === "number" ? w.lease_remaining_ms : null,
+    markets: Array.isArray(w.markets) ? w.markets.slice() : [],
+  };
 }

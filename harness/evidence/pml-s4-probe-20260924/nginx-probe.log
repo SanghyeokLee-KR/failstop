@@ -1,0 +1,169 @@
+image python:3.12-alpine sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a
+image nginx:1.29 sha256:1881968aff6f7cdcc4b888c00a11f4ce241ad7ec957e0cb4a9e19e93a3ff87ea
+image curlimages/curl:8.11.0 sha256:83a505ba2ba62f208ed6e410c268b7b9aa48f0f7b403c8108b9773b44199dbba
+nginx version: nginx/1.29.8
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+A=pml-probe-s4a-1476815858 B=pml-probe-s4b-1476815858 nginx=pml-probe-s4ng-1476815858
+
+== C1 harness_write: 1차 A 가 리더(200), 백업 B 가 팔로워(503). A 가 한 요청에만 503
+t=0.02 C1-transient-503 {"node": "B", "status": 503} http=503 upstream_addr=172.19.0.2:8080, 172.19.0.3:8080 upstream_status=503, 503
+t=0.22 C1-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=172.19.0.3:8080, harness_write upstream_status=503, 502
+t=0.43 C1-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=172.19.0.3:8080, harness_write upstream_status=503, 502
+t=0.64 C1-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=172.19.0.3:8080, harness_write upstream_status=503, 502
+t=0.85 C1-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=172.19.0.3:8080, harness_write upstream_status=503, 502
+t=1.05 C1-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=172.19.0.3:8080, harness_write upstream_status=503, 502
+t=1.26 C1-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=172.19.0.3:8080, harness_write upstream_status=503, 502
+t=3.47 C1-after-fail-timeout {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+
+== C2 harness_write: 같은 배치. A 가 한 요청에만 429
+t=0.01 C2-transient-429 {"node": "A", "status": 429} http=429 upstream_addr=172.19.0.2:8080 upstream_status=429
+t=0.22 C2-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=0.42 C2-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=0.63 C2-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=0.84 C2-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=1.05 C2-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=1.26 C2-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+
+== C3 harness_write: 1차 A 가 팔로워(503), 백업 B 가 리더(200)
+t=0.01 C3-first {"node": "B", "status": 200} http=200 upstream_addr=172.19.0.2:8080, 172.19.0.3:8080 upstream_status=503, 200
+t=0.22 C3-follow {"node": "B", "status": 200} http=200 upstream_addr=172.19.0.3:8080 upstream_status=200
+t=0.43 C3-follow {"node": "B", "status": 200} http=200 upstream_addr=172.19.0.3:8080 upstream_status=200
+t=0.64 C3-follow {"node": "B", "status": 200} http=200 upstream_addr=172.19.0.3:8080 upstream_status=200
+t=0.84 C3-follow {"node": "B", "status": 200} http=200 upstream_addr=172.19.0.3:8080 upstream_status=200
+t=3.05 C3-after-fail-timeout {"node": "B", "status": 200} http=200 upstream_addr=172.19.0.2:8080, 172.19.0.3:8080 upstream_status=503, 200
+
+== C4 edge_write: A 리더(200), B 팔로워(503), 라운드로빈. 평시 네 번 뒤 A 가 한 요청에만 503
+t=0.21 C4-steady {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.3:8080, 172.19.0.2:8080 upstream_status=503, 200
+t=0.42 C4-steady {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=0.63 C4-steady {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=0.84 C4-steady {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=0.84 C4-transient-503 <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=172.19.0.2:8080, edge_write upstream_status=503, 502
+t=1.05 C4-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=edge_write upstream_status=502
+t=1.26 C4-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=edge_write upstream_status=502
+t=1.47 C4-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=edge_write upstream_status=502
+t=1.67 C4-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=edge_write upstream_status=502
+t=1.88 C4-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=edge_write upstream_status=502
+t=2.09 C4-follow <html>
+<head><title>502 Bad Gateway</title></head>
+<body>
+<center><h1>502 Bad Gateway</h1></center>
+<hr><center>nginx/1.29.8</center>
+</body>
+</html>
+ http=502 upstream_addr=edge_write upstream_status=502
+t=4.50 C4-after-fail-timeout {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=4.70 C4-after-fail-timeout {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+
+== C5 edge_write: 같은 배치. A 가 한 요청에만 429
+t=0.21 C5-steady {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.3:8080, 172.19.0.2:8080 upstream_status=503, 200
+t=0.42 C5-steady {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=0.43 C5-transient-429 {"node": "A", "status": 429} http=429 upstream_addr=172.19.0.2:8080 upstream_status=429
+t=0.64 C5-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=0.84 C5-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=1.05 C5-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=1.26 C5-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=1.47 C5-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+t=1.67 C5-follow {"node": "A", "status": 200} http=200 upstream_addr=172.19.0.2:8080 upstream_status=200
+
+== counts
+{"node": "A", "count": 27}
+{"node": "B", "count": 15}
+
+== nginx error log (upstream 판정 문구만)
+[error] 29#29: *5 no live upstreams while connecting to upstream, client: -, server: , request: "POST /harness/orders HTTP/1.1", upstream: "http://harness_write/harness/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *7 no live upstreams while connecting to upstream, client: -, server: , request: "POST /harness/orders HTTP/1.1", upstream: "http://harness_write/harness/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *9 no live upstreams while connecting to upstream, client: -, server: , request: "POST /harness/orders HTTP/1.1", upstream: "http://harness_write/harness/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *11 no live upstreams while connecting to upstream, client: -, server: , request: "POST /harness/orders HTTP/1.1", upstream: "http://harness_write/harness/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *13 no live upstreams while connecting to upstream, client: -, server: , request: "POST /harness/orders HTTP/1.1", upstream: "http://harness_write/harness/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *15 no live upstreams while connecting to upstream, client: -, server: , request: "POST /harness/orders HTTP/1.1", upstream: "http://harness_write/harness/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *56 no live upstreams while connecting to upstream, client: -, server: , request: "POST /edge/orders HTTP/1.1", upstream: "http://edge_write/edge/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *58 no live upstreams while connecting to upstream, client: -, server: , request: "POST /edge/orders HTTP/1.1", upstream: "http://edge_write/edge/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *59 no live upstreams while connecting to upstream, client: -, server: , request: "POST /edge/orders HTTP/1.1", upstream: "http://edge_write/edge/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *60 no live upstreams while connecting to upstream, client: -, server: , request: "POST /edge/orders HTTP/1.1", upstream: "http://edge_write/edge/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *61 no live upstreams while connecting to upstream, client: -, server: , request: "POST /edge/orders HTTP/1.1", upstream: "http://edge_write/edge/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *62 no live upstreams while connecting to upstream, client: -, server: , request: "POST /edge/orders HTTP/1.1", upstream: "http://edge_write/edge/orders", host: "pml-probe-s4ng-1476815858:8080"
+[error] 29#29: *63 no live upstreams while connecting to upstream, client: -, server: , request: "POST /edge/orders HTTP/1.1", upstream: "http://edge_write/edge/orders", host: "pml-probe-s4ng-1476815858:8080"

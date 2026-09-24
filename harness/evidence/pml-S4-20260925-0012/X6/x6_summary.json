@@ -1,0 +1,94 @@
+{
+  "a": {
+    "variant": "a",
+    "driverRc": 0,
+    "driver": {
+      "ok": true,
+      "failed": [],
+      "record": {
+        "M_latency_max_ms": 1030.4,
+        "admission_rejected_order_delta": 0.0
+      },
+      "contentionDelta": {
+        "55P03|429": 30.0
+      }
+    },
+    "common": {
+      "lbZero": true,
+      "leaderDemotionsZero": true,
+      "settlementExhaustedDelta": 0.0
+    },
+    "판정": "PASS"
+  },
+  "b": {
+    "variant": "b",
+    "driverRc": 0,
+    "driver": {
+      "ok": true,
+      "failed": [],
+      "record": {
+        "M_429": 15,
+        "M_429_by_bucket": {
+          "market": 15
+        },
+        "M_201": 35,
+        "M_201_latency_max_ms": 2019.3,
+        "admission_rejected_order_delta": 28.0
+      },
+      "contentionDelta": {
+        "55P03|429": 22.0,
+        "lock_wait|429": 28.0
+      }
+    },
+    "common": {
+      "lbZero": true,
+      "leaderDemotionsZero": true,
+      "settlementExhaustedDelta": 0.0
+    },
+    "판정": "PASS"
+  },
+  "c": {
+    "variant": "c",
+    "driverRc": 0,
+    "driver": {
+      "ok": true,
+      "failed": [],
+      "record": {
+        "admission_rejected_order_delta": 0.0
+      },
+      "contentionDelta": {
+        "lock_wait|409": 13.0,
+        "55P03|429": 13.0,
+        "lock_wait|429": 26.0,
+        "55P03|409": 10.0
+      }
+    },
+    "common": {
+      "lbZero": true,
+      "leaderDemotionsZero": true,
+      "settlementExhaustedDelta": 0.0
+    },
+    "판정": "PASS"
+  },
+  "d": {
+    "variant": "d",
+    "driverRc": 0,
+    "driver": {
+      "ok": true,
+      "failed": [],
+      "record": {
+        "attempts": 66,
+        "admission_rejected_order_delta": 0.0
+      },
+      "contentionDelta": {
+        "55P03|429": 66.0
+      }
+    },
+    "common": {
+      "lbZero": true,
+      "leaderDemotionsZero": true,
+      "settlementExhaustedDelta": 0.0
+    },
+    "판정": "PASS"
+  }
+}

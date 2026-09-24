@@ -584,20 +584,22 @@ class OrderIntakeFailureResolutionTest {
     }
 
     /**
-     * 접수 락 대기 상한 초과는 저널 전 거부라 503 재시도 신호다. 넣은 키는 V47 판정으로 지우고 in-flight 예약도 바로
-     * 푼다. 같은 키 재시도는 새 접수가 된다. 배치 주문이 이 원소만 in_progress 로 적으려면 API 예외여야 한다.
+     * 접수 락 대기 상한 초과는 저널 전 거부다. 이 요청이 넣은 키를 V47 판정이 지웠으므로 확정 미접수의 429(bucket market)이다
+     * (API 설계 v2.55 §2-5-b). in-flight 예약도 바로 푼다. 같은 키 재시도는 새 접수가 된다. 배치 주문이 이 원소만 in_progress 로
+     * 적으려면 API 예외여야 한다.
      */
     @Test
     @Order(12)
-    void acceptBusyIsServiceUnavailableAndLeavesNoKeyOrReserve() {
+    void acceptBusyIsConfirmedNotAcceptedAndLeavesNoKeyOrReserve() {
         String coid = "accept-busy";
         byte[] raw = body(coid);
         OrderGateway busyGateway = new OrderGateway(jdbc, new BusyBridge(), markets, orders);
 
         ApiException rejected = assertThrows(ApiException.class, () -> busyGateway.place(alice, json(raw), raw));
 
-        assertEquals(503, rejected.status());
-        assertEquals("service_unavailable", rejected.name());
+        assertEquals(429, rejected.status());
+        assertEquals("too_many_requests", rejected.name());
+        assertEquals("market", rejected.detail().get("bucket"));
         assertEquals(1, rejected.retryAfter());
         assertEquals(0, journaledNew(coid));
         assertNull(storedHash(coid), "저널에 닿지 않은 요청의 키가 남았다");
@@ -607,8 +609,8 @@ class OrderIntakeFailureResolutionTest {
     }
 
     /**
-     * 일괄 취소에서 취소가 저널에 닿지 못하고 503 으로 끝난 주문을 unsubmitted 로 센다. 회원 폐쇄가 이 수로 409
-     * orders_cancel_incomplete 를 낸다(API 설계 §6-E v2.53). 주문은 열린 채 남는다.
+     * 일괄 취소에서 취소가 마켓 접수 경합으로 저널에 닿지 못하고 429 로 끝난 주문을 contended 로 센다. 회원 폐쇄가 이 수로 409
+     * orders_cancel_incomplete 를 낸다(API 설계 §6-E v2.55). 주문은 열린 채 남는다.
      */
     @Test
     @Order(13)
@@ -623,12 +625,13 @@ class OrderIntakeFailureResolutionTest {
 
         assertTrue(result.canceledIds().isEmpty());
         assertEquals(open, result.failed().size());
-        assertTrue(result.failed().stream().allMatch(f -> "service_unavailable".equals(f.reason())));
-        assertEquals(open, result.unsubmitted(), "저널에 닿지 못한 취소를 세지 않았다");
+        assertTrue(result.failed().stream().allMatch(f -> "too_many_requests".equals(f.reason())));
+        assertEquals(open, result.contended(), "저널에 닿지 못한 취소를 세지 않았다");
+        assertEquals(open, result.incomplete());
         assertEquals(open, orders.openOrderIds(alice, "KRW-BTC").size(), "취소되지 않은 주문이 닫혔다");
 
         OrderGateway.BulkCancelResult live = liveGateway.cancelAll(alice, "KRW-BTC");
-        assertEquals(0, live.unsubmitted(), "정상 취소를 미완료로 셌다");
+        assertEquals(0, live.incomplete(), "정상 취소를 미완료로 셌다");
         assertTrue(orders.openOrderIds(alice, "KRW-BTC").isEmpty(), "정상 일괄 취소 뒤 미체결이 남았다");
     }
 

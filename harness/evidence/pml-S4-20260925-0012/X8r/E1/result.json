@@ -1,0 +1,164 @@
+{
+  "experiment": "E1",
+  "rc": 0,
+  "runId": "E1-20260925-013600",
+  "verdict": "PASS",
+  "demotions": 0.0,
+  "acquireLockTimeouts": 0.0,
+  "contention": {
+    "18080": [
+      "exchange_order_intake_contention_total{40001|409}=0",
+      "exchange_order_intake_contention_total{40001|429}=0",
+      "exchange_order_intake_contention_total{40P01|409}=0",
+      "exchange_order_intake_contention_total{40P01|429}=0",
+      "exchange_order_intake_contention_total{55P03|409}=0",
+      "exchange_order_intake_contention_total{55P03|429}=8",
+      "exchange_order_intake_contention_total{57014|409}=0",
+      "exchange_order_intake_contention_total{57014|429}=0",
+      "exchange_order_intake_contention_total{lock_wait|409}=0",
+      "exchange_order_intake_contention_total{lock_wait|429}=4",
+      "exchange_order_intake_contention_total{lock_wait_stuck|409}=0",
+      "exchange_order_intake_contention_total{lock_wait_stuck|429}=0"
+    ],
+    "28080": [
+      "exchange_order_intake_contention_total{40001|409}=0",
+      "exchange_order_intake_contention_total{40001|429}=0",
+      "exchange_order_intake_contention_total{40P01|409}=0",
+      "exchange_order_intake_contention_total{40P01|429}=0",
+      "exchange_order_intake_contention_total{55P03|409}=0",
+      "exchange_order_intake_contention_total{55P03|429}=0",
+      "exchange_order_intake_contention_total{57014|409}=0",
+      "exchange_order_intake_contention_total{57014|429}=0",
+      "exchange_order_intake_contention_total{lock_wait|409}=0",
+      "exchange_order_intake_contention_total{lock_wait|429}=0",
+      "exchange_order_intake_contention_total{lock_wait_stuck|409}=0",
+      "exchange_order_intake_contention_total{lock_wait_stuck|429}=0"
+    ]
+  },
+  "partitions": {
+    "18080": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "ACCEPTING",
+          "epoch": 5,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    },
+    "28080": {
+      "plan": [
+        "matching-engine"
+      ],
+      "partitioned": false,
+      "partitions": [
+        {
+          "resource": "matching-engine",
+          "state": "FOLLOWER",
+          "epoch": null,
+          "participate": true,
+          "preferred": false,
+          "armed": true,
+          "breaker": {
+            "open": false,
+            "demotions_in_window": 0
+          },
+          "demotions": [],
+          "markets": [
+            1,
+            2,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "logs": {
+    "chaos-api-1": {
+      "lines": 288,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 2,
+      "followerBoot": 2,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    },
+    "chaos-api-2": {
+      "lines": 204,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 2,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 1
+    },
+    "chaos-bots": {
+      "lines": 41,
+      "permissionDenied": 0,
+      "sqlstate42501": 0,
+      "undefinedFunction": 0,
+      "writerFailFast": 0,
+      "terminalDemotion": 0,
+      "partitionDemotion": 0,
+      "leadershipLost": 0,
+      "leadershipReleased": 0,
+      "promotions": 0,
+      "followerBoot": 0,
+      "insufficientAtSettlement": 0,
+      "deadlock": 0,
+      "errorLines": 0
+    }
+  },
+  "containerLogs": {
+    "chaos-api-1": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4-logs\\X8r-E1\\chaos-api-1.log",
+      "sha256": "e70d3699ab0cdb24ee322023cbd8c02b7ac28426f83b84bae8d1a51dfa869c7b",
+      "bytes": 70326
+    },
+    "chaos-api-2": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4-logs\\X8r-E1\\chaos-api-2.log",
+      "sha256": "94899a839b86f1702ab36a223b6df62371f17170800be70a532a7cf19194ce73",
+      "bytes": 56237
+    },
+    "chaos-bots": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4-logs\\X8r-E1\\chaos-bots.log",
+      "sha256": "45e1d2ce83cbfe59e7b5c605e31d6120b459b3852829bc37ca93dcd368423d08",
+      "bytes": 6490
+    },
+    "chaos-lb": {
+      "path": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4-logs\\X8r-E1\\chaos-lb.log",
+      "sha256": "c54446c10714c3c20d2cb9da91e6cbb383be005a38c709da650b5e5a3a173a52",
+      "bytes": 556554
+    }
+  }
+}

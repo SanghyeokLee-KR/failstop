@@ -1,0 +1,36 @@
+
+== COLD 시작 runId=COLD-20260925-005158 ==
+
+== warmup ==
+봇 OPS=40 적용(chaos-bots 재기동, settle 5s)
+리더 chaos-api-1, 팔로워 chaos-api-2
+
+== ⓐ 사전 권위 run ==
+사전 verdict=PASS 위반합=0 old_epoch=5
+시계가드 통과: 스큐 53ms, 임계 2000ms, 왕복 142ms.
+
+== ⓑ 주입: chaos-api-2, chaos-api-1 순서로 docker stop -t 10 ==
+T0=2026-09-24T15:52:38.8013863Z trades_at_stop=627
+
+== ⓒ 기동: chaos-api-1 를 올려 새 epoch 리더와 접수 재개를 본 뒤 chaos-api-2 ==
+기동 완료: chaos-api-1=12.573s, chaos-api-2=13.82s, 새 epoch=6, 접수 재개=2026-09-24T15:52:54.080026Z
+
+== ⓓ 드레인 + 사후 권위 run ==
+봇 정지(docker stop chaos-bots). 드레인 창 동안 신규 쓰기 없음
+봇 OPS=40 적용(chaos-bots 재기동, settle 0s)
+
+== ⓔ 판정·기록 ==
+
+── COLD 증거 ───────────────────────────
+verdict             : PASS
+멈춤·기동 순서      : chaos-api-2 -> chaos-api-1 / chaos-api-1 -> chaos-api-2
+epoch               : 5 -> 6 (합류 뒤 6)
+기동 완료(초)       : chaos-api-1=12.573, chaos-api-2=13.82
+접수 재개(초)       : 15.279
+체결 재개(초)       : 15.892
+CRITICAL 위반       : 체크 17, 위반 행 0 
+드레인 성립         : True
+failover_run_id     : 1
+────────────────────────────────────────
+판정 파일: C:\dev\exchange-pml\harness\evidence\pml-S4-20260925-0012\chaos-runs\COLD-20260925-005158.json (불변식 행 62)
+COLD PASS.

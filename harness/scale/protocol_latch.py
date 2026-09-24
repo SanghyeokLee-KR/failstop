@@ -83,8 +83,10 @@ SELECT json_build_object(
   'db_now', clock_timestamp())
 """ % UNSETTLED_NEW_SQL
 
+# 리스 자원은 인자로 받는다(S4 설계 4-18). 이 도구는 P1 과 P2 사이만 전환하고 두 모드 모두 matching-engine 이 리더다.
 LEADER_SQL = ("SELECT json_build_object('holder', holder, 'epoch', epoch, 'alive', lease_until > clock_timestamp()) "
-              "FROM leader_lease WHERE resource = 'matching-engine'")
+              "FROM leader_lease WHERE resource = '%s'")
+LEASE_RESOURCES = ('matching-engine', 'matching-p0', 'matching-p1')
 
 GAUGES = ('exchange_leader_protocol_boot', 'exchange_order_inflight_enabled')
 GAUGE_LINE = re.compile(r'^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{[^}]*\})?\s+(\S+)')
@@ -178,8 +180,10 @@ def drain_wait(limit_s=DRAIN_LIMIT_S):
     return {'ok': False, 'seconds': round(time.monotonic() - start, 1), 'samples': samples[-20:]}
 
 
-def leader():
-    parsed, _ = pgs.parse_json_row(*pgs.run_psql(LEADER_SQL))
+def leader(resource='matching-engine'):
+    if resource not in LEASE_RESOURCES:
+        raise ValueError('알 수 없는 리스 자원: %s' % resource)
+    parsed, _ = pgs.parse_json_row(*pgs.run_psql(LEADER_SQL % resource))
     return parsed
 
 

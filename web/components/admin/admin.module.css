@@ -2505,6 +2505,18 @@
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
 }
+/* 리더 리스 표(S4 설계 4-17). 좁은 화면에서 표만 가로로 밀리고 페이지는 밀리지 않는다 */
+.drillLeases {
+  margin-top: var(--space-4);
+  overflow-x: auto;
+}
+.drillLeasesCaption {
+  padding: 0 var(--space-3) var(--space-2);
+  text-align: left;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-secondary);
+}
 
 /* 단계 기둥. 헤어라인으로만 나누고 카드 테두리를 두르지 않는다(정숙 계기) */
 .drillSteps {

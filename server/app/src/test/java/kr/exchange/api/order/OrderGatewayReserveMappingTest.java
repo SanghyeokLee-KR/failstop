@@ -112,28 +112,153 @@ class OrderGatewayReserveMappingTest {
     }
 
     /**
-     * 접수 append 일시 오류 계수의 양성 축(S3 구현 검토). 브리지가 교착(40P01)이나 직렬화 실패(40001)로 끝나면
-     * exchange.order.append.transient{sqlstate} 가 오르고 응답은 원래 예외다(S4 전까지 500). 잠금 대기 초과(55P03)는 이
-     * 계수가 세지 않는다. 이 사례가 없으면 이중 지출 시험과 스택 관문의 '접수 40P01 0' 판정은 계수가 깨져도 통과한다.
+     * 마켓 접수 경합의 확정 미접수(API 설계 §2-5-b). 키를 새로 넣은 요청이 경합으로 끝나고 V47 이 그 키를 지우면(DISCARDED)
+     * 429 too_many_requests(bucket market)이고 503 이 아니다. 일시 오류 넷은 exchange.order.append.transient{sqlstate} 로 모두
+     * 센다. 이 계수가 없으면 이중 지출 시험과 스택 관문의 '접수 40P01 0' 판정은 계수가 깨져도 통과한다.
      */
     @Test
-    void appendDeadlockAndSerializationFailuresAreCounted() throws Exception {
-        for (String state : new String[] {"40P01", "40001", "55P03"}) {
-            RuntimeException failure = new org.springframework.dao.CannotAcquireLockException("append " + state,
-                    new PSQLException(new ServerErrorMessage("SERROR\u0000C" + state + "\u0000Mappend failed\u0000")));
+    void contentionWithDiscardedKeyIsConfirmedNotAccepted429() throws Exception {
+        for (String state : new String[] {"40P01", "40001", "55P03", "57014"}) {
             FakeBridge bridge = new FakeBridge(intake -> {
-                throw failure;
+                throw contention(state);
             });
             OrderGateway gateway = p2(bridge);
             String key = key();
 
-            RuntimeException e = assertThrows(RuntimeException.class, () -> place(gateway, rich, key, "50000", "1"));
+            ApiException e = assertThrows(ApiException.class, () -> place(gateway, rich, key, "50000", "1"));
 
-            assertSame(failure, e, state + " 응답을 바꿨다");
+            assertMarketContention429(e, state);
+            assertTrue(e.demandExcluded(), state + " 경합을 좀비 판정 수요에서 빼지 않았다");
             assertEquals(1, bridge.calls.get(), state + " 이 브리지에 닿지 않았다");
-            assertEquals("55P03".equals(state) ? 0 : 1, gateway.appendTransient(state), state);
+            assertEquals(1, gateway.appendTransient(state), state);
+            assertEquals(1, gateway.intakeContention(state, "429"), state);
             assertEquals(0, keyRows(rich, key), state + " 뒤 V47 판정이 키를 정리하지 않았다");
         }
+        OrderGateway busy = p2(new FakeBridge(intake -> {
+            throw new EngineBridge.AcceptBusyException(1, 2000);
+        }));
+        assertMarketContention429(assertThrows(ApiException.class, () -> place(busy, rich, key(), "50000", "1")),
+                "lock_wait");
+        assertEquals(1, busy.intakeContention("lock_wait", "429"));
+        OrderGateway stuck = p2(new FakeBridge(intake -> {
+            throw new EngineBridge.AcceptBusyException(1, 2000, true);
+        }));
+        ApiException stuckResponse = assertThrows(ApiException.class, () -> place(stuck, rich, key(), "50000", "1"));
+        assertMarketContention429(stuckResponse, "lock_wait_stuck");
+        assertTrue(!stuckResponse.demandExcluded(), "멈춘 보유자 때문의 대기 초과를 수요에서 뺐다");
+        assertEquals(1, stuck.intakeContention("lock_wait_stuck", "429"));
+    }
+
+    /**
+     * 확정할 수 없는 경합은 409 order_in_progress 다(API 설계 §2-5-b). 같은 키의 다른 요청이 공유 표시를 채워 키가 남은 경우
+     * (KEPT), 키가 사라진 경우(ABSENT), 공유 표시를 채운 요청(NOT_JOURNALED), V47 판정 실패, 이미 저널에 있는 주문의 재전송이다.
+     * 어느 것도 429 나 503 이 아니다.
+     */
+    @Test
+    void contentionThatCannotConfirmNonAcceptanceIs409OrderInProgress() throws Exception {
+        // KEPT: 이 요청이 넣은 키에 같은 내용의 다른 요청이 공유 표시를 채웠다.
+        String kept = key();
+        OrderGateway keptGateway = p2(new FakeBridge(intake -> {
+            jdbc.sql("UPDATE idempotency_keys SET shared_at = now() WHERE user_id = ? AND idem_key = ?")
+                    .params(rich, kept).update();
+            throw contention("55P03");
+        }));
+        assertOrderInProgress(assertThrows(ApiException.class, () -> place(keptGateway, rich, kept, "50000", "1")));
+        assertEquals(1, keyRows(rich, kept), "공유 표시가 있는 키를 지웠다");
+        assertEquals(1, keptGateway.intakeContention("55P03", "409"));
+
+        // ABSENT: 키 행이 사라졌다.
+        String absent = key();
+        OrderGateway absentGateway = p2(new FakeBridge(intake -> {
+            jdbc.sql("DELETE FROM idempotency_keys WHERE user_id = ? AND idem_key = ?").params(rich, absent).update();
+            throw contention("40001");
+        }));
+        assertOrderInProgress(assertThrows(ApiException.class, () -> place(absentGateway, rich, absent, "50000", "1")));
+
+        // NOT_JOURNALED: 같은 내용의 기존 키에 공유 표시를 채운 요청이다. 키를 넣은 원본이 뒤이어 커밋할 수 있다.
+        String shared = key();
+        jdbc.sql("INSERT INTO idempotency_keys (user_id, idem_key, request_hash) VALUES (?, ?, ?)")
+                .params(rich, shared, hash(rich, shared, "50000", "1")).update();
+        OrderGateway sharedGateway = p2(new FakeBridge(intake -> {
+            throw new EngineBridge.AcceptBusyException(1, 2000);
+        }));
+        assertOrderInProgress(assertThrows(ApiException.class, () -> place(sharedGateway, rich, shared, "50000", "1")));
+        assertEquals(1, sharedRows(rich, shared), "공유 표시 요청이 키를 지웠다");
+        assertEquals(1, sharedGateway.intakeContention("lock_wait", "409"));
+
+        // 재생: 같은 키의 주문이 이미 저널에 있어 키를 잡지 않은 재전송이다.
+        String replay = key();
+        jdbc.sql("INSERT INTO idempotency_keys (user_id, idem_key, request_hash) VALUES (?, ?, ?)")
+                .params(rich, replay, hash(rich, replay, "50000", "1")).update();
+        journalNew(rich, replay);
+        OrderGateway replayGateway = p2(new FakeBridge(intake -> {
+            throw contention("40P01");
+        }));
+        assertOrderInProgress(assertThrows(ApiException.class, () -> place(replayGateway, rich, replay, "50000", "1")));
+
+        // V47 판정 실패: 키와 예약을 남기고 확정하지 않는다.
+        String unresolved = key();
+        OrderGateway unresolvedGateway = p2(new FakeBridge(intake -> {
+            jdbc.sql("ALTER FUNCTION resolve_failed_order_intake(BIGINT, VARCHAR, VARCHAR, BIGINT, BOOLEAN) "
+                    + "RENAME TO resolve_failed_order_intake_off").update();
+            throw contention("55P03");
+        }));
+        try {
+            assertOrderInProgress(assertThrows(ApiException.class,
+                    () -> place(unresolvedGateway, rich, unresolved, "50000", "1")));
+            assertEquals(1, unresolvedGateway.unresolvedFailures(), "판정 실패 경로를 타지 않았다");
+            assertEquals(1, keyRows(rich, unresolved), "판정 실패인데 키를 지웠다");
+        } finally {
+            jdbc.sql("ALTER FUNCTION resolve_failed_order_intake_off(BIGINT, VARCHAR, VARCHAR, BIGINT, BOOLEAN) "
+                    + "RENAME TO resolve_failed_order_intake").update();
+        }
+    }
+
+    /** 경합이 아닌 예외의 응답은 S3 와 같다. 비접수 55P03 은 이 경로가 아니다(ApiExceptionHandler 가 500 으로 둔다). */
+    @Test
+    void nonContentionFailuresKeepTheirS3Responses() throws Exception {
+        RuntimeException broken = new org.springframework.dao.DataAccessResourceFailureException("connection refused");
+        OrderGateway gateway = p2(new FakeBridge(intake -> {
+            throw broken;
+        }));
+        RuntimeException e = assertThrows(RuntimeException.class, () -> place(gateway, rich, key(), "50000", "1"));
+        assertSame(broken, e, "경합이 아닌 예외의 응답을 바꿨다");
+        for (String cause : new String[] {"lock_wait", "lock_wait_stuck", "55P03", "57014", "40P01", "40001"}) {
+            assertEquals(0, gateway.intakeContention(cause, "429") + gateway.intakeContention(cause, "409"), cause);
+        }
+    }
+
+    private static RuntimeException contention(String state) {
+        return new org.springframework.dao.CannotAcquireLockException("append " + state,
+                new PSQLException(new ServerErrorMessage("SERROR\u0000C" + state + "\u0000Mappend failed\u0000")));
+    }
+
+    private static void assertMarketContention429(ApiException e, String cause) {
+        assertEquals(429, e.status(), cause);
+        assertEquals("too_many_requests", e.name(), cause);
+        assertEquals("market", e.detail().get("bucket"), cause);
+        assertEquals("order", e.detail().get("scope"), cause);
+        assertEquals(1, e.retryAfter(), cause);
+    }
+
+    private static void assertOrderInProgress(ApiException e) {
+        assertEquals(409, e.status(), "확정할 수 없는 경합이 409 가 아니다: " + e.name());
+        assertEquals("order_in_progress", e.name());
+        assertEquals(1, e.retryAfter());
+        assertTrue(e.demandExcluded());
+    }
+
+    /** 저널에 이 키의 주문 생성 명령을 둔다. 재전송 판정(commandJournaled)이 읽는다. */
+    private static void journalNew(long user, String key) {
+        long seq = jdbc.sql("SELECT COALESCE(max(seq), 0) + 1 FROM command_journal").query(Long.class).single();
+        jdbc.sql("""
+                        INSERT INTO command_journal (seq, market_id, command_type, user_id, client_order_id,
+                                                     assigned_order_id, engine_ts, tie_break, payload,
+                                                     fencing_token, checksum)
+                        VALUES (?, 1, 'NEW', ?, ?, ?, 0, 0, '{}', 1, 0)
+                        """)
+                .params(seq, user, key, nextval())
+                .update();
     }
 
     @Test

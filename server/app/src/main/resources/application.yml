@@ -83,6 +83,13 @@ exchange:
       table: exchange-leader-lease
       cluster-id: exchange-main
       create-table-if-missing: false
+    # 파티션 리더 설정(DB 설계 §5.4-c 9·10). 선호·참여는 P3 에서만 뜻이 있다. 참여를 비우면 계획의 전부다. 차단기는 창 안의
+    # 파티션 치명 강등이 상한에 이르면 이 노드에서 그 파티션을 차단한다(ADR 0034 결정 12).
+    partition:
+      preferred: []
+      participate: []
+      max-demotions: 3
+      demotion-window: 10m
 
 ---
 spring:
@@ -141,6 +148,14 @@ exchange:
     # 4.5배, 카오스 TTL 6s의 7.5배라 정상 갱신 주기와 겹치지 않는다. 일시 지연은 완료율이,
     # 무주문 유휴 구간은 누적 수요 하한이 걸러낸다.
     lease-standdown-after: 45s
+    # 리스 획득 트랜잭션의 잠금 대기 상한(DB 설계 §5.4-c 3). 옛 리더의 쓰기가 리스 행을 쥐면 획득이 그 KEY SHARE 를
+    # 기다린다. 틱(기본 3s, 카오스 2s)보다 짧아야 같은 리스 풀의 다른 파티션 갱신이 한 틱 넘게 기다리지 않는다.
+    lease-acquire-lock-timeout: 1000ms
+    # 마켓 접수 경합의 상한(S4 설계 4-12, API 설계 §2-5-b). 접수 락 대기 2초, append 트랜잭션의 잠금 대기 1초다. 초과는
+    # 429(확정 미접수)나 409 order_in_progress 이고 503 이 아니다. 한 사용자의 잔고 행이 잠기면 그 마켓의 접수가 건당
+    # 최대 1초씩 직렬로 막힌다. 값은 폐기용 스택 X6 의 증폭 크기를 보고 다시 정할 수 있다(사용자 확인 대상).
+    accept-lock-wait: 2000ms
+    accept-lock-timeout: 1000ms
     lease-datasource:
       hikari:
         maximum-pool-size: 2
@@ -162,11 +177,12 @@ exchange:
         connection-init-sql: "SET TIME ZONE 'UTC'"
 
 # dev·하네스 chaos 스택은 8080에서 /actuator/prometheus를 스크레이프한다(harness prometheus.yml).
+# partitions 의 쓰기(참여·차단기 해제)는 앱이 loopback 요청만 받는다(API 설계 §6-C). dev 의 8080 은 LB 와 호스트 포트로도 닿는다.
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics, admission
+        include: health, info, prometheus, metrics, admission, partitions
 
 ---
 # 운영 프로파일. 명시 활성(SPRING_PROFILES_ACTIVE=prod)이 전제다. 시크릿 fail-fast를 켜고
@@ -202,6 +218,10 @@ exchange:
     # 수요 하한이 무주문 구간을 걸러내므로 주문이 뜸한 시간대를 위한 별도 임계가 필요 없다. 총
     # 페일오버 시간은 이 값 + 리스 TTL이며, kill·pause 페일오버(RTO<30s 게이트)와 다른 경로다.
     lease-standdown-after: 45s
+    # 리스 획득 잠금 대기 상한과 마켓 접수 경합 상한. dev 와 같은 값과 근거다(DB 설계 §5.4-c 3, API 설계 §2-5-b).
+    lease-acquire-lock-timeout: 1000ms
+    accept-lock-wait: 2000ms
+    accept-lock-timeout: 1000ms
     # 리스 하트비트 전용 풀(§5.4). 접속 좌표는 spring.datasource(SPRING_DATASOURCE_* 주입)를
     # 재사용한다. statement_timeout은 걸지 않는다. 기본 풀과 달리 단일 행 renew가 슬로 윈도에서
     # 취소돼 리더십을 잃는 것을 막기 위함이다.
@@ -228,7 +248,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics, admission
+        include: health, info, prometheus, metrics, admission, partitions
 
 ---
 spring:
@@ -242,7 +262,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics, admission
+        include: health, info, prometheus, metrics, admission, partitions
 # 데모용 봇 플릿. 12개 마켓(웹 SSG 로스터 동형). 주력 2종(BTC·ETH)은 MM 2, 나머지는 MM 1 + TAKER 1.
 # 파라미터 근거는 SimProperties 주석. initial-price·quote-size·qty-step은 web 시드가와
 # 마켓 tick/lot/최소주문(5000)에 맞춰 마켓별로 지정한다(markets 리스트 우선, top-level은 폴백).
@@ -364,7 +384,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics, admission, chaosmonkey
+        include: health, info, prometheus, metrics, admission, partitions, chaosmonkey
 
 chaos:
   monkey:

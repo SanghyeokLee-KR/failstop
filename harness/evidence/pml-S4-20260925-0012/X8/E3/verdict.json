@@ -1,0 +1,252 @@
+{
+  "experimentId": "E3",
+  "runId": "E3-20260925-013012",
+  "verdict": "SKIP",
+  "writtenAt": "2026-09-24T16:30:13.8612360Z",
+  "code": {
+    "commit": "91813dd58e24500e0700c532d17a772d7b7ec76f",
+    "uncommittedPaths": 127,
+    "image": "exchange-chaos-app:pml",
+    "imageId": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a"
+  },
+  "metrics": {
+    "dbAuthorityLeaseAlive": "t",
+    "integrityCriticalClean": true,
+    "tradesObserved": 90,
+    "dbAuthorityLeaseHolder": "31640d22-8ccf-4948-87f9-a47ded8fd07a",
+    "reason": "Redisson 런타임 미배선(코드: redis/redisson 의존·빈·spring.data.redis 설정 전무, 참조는 전부 M2 유예 주석). 리더십 권위=DB leader_lease라 Redis 장애가 매칭·리더십·split-brain에 무영향. chaos-redis 추가는 무의미하며 이 SKIP은 유효 판정이다.",
+    "skipIsValidVerdict": true,
+    "integrityViolations": 0,
+    "harnessLeaderAlive": true,
+    "redissonWiredAtRuntime": false,
+    "harnessEpoch": 5,
+    "redisPresent": false,
+    "liveMeaningfulAfterM2": [
+      "M2가 Redisson을 실제 조율·알림 경로로 채택(현재 미채택)",
+      "채택 시: chaos-redis service + redis toxiproxy proxy + app Redisson wiring",
+      "단 Redis는 권위 아닌 보조라 판정은 여전히 무결성 0위반·split-brain 0 중심"
+    ],
+    "redisContainer": "chaos-redis",
+    "redisProxyPresent": false
+  },
+  "invariantRows": 31,
+  "invariants": [
+    {
+      "window": "skip",
+      "check": "C01_ASSET_CONSERVATION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.449853+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C02_BAL_VS_LEDGER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.451713+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C03_TXN_UNSEALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.452935+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C05_CMD_GAPLESS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.453894+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C06_EVT_GAPLESS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.454862+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C07_DUP_ORDER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.455715+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C07P_DUP_ORDER_JOURNAL",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.45656+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C08_DUP_FILL",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.457788+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C09_TRADE_SEQ_EVENT_MATCH",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.458978+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C10_ORDER_FILL_AGG",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.460038+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C11_TRADE_ORPHAN",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.461025+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C12_EVENT_ORPHAN",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.46187+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C13A_ORDER_MATERIALIZED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.462743+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C13B_ORDER_JOURNALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.463551+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C14_LOCKED_RESERVATION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.464501+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C20_ORDER_FEE_MATERIALIZED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.465375+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C17_REPLAY_DETERMINISM",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.466405+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C18_FILL_PRICE_MAKER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.46739+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C15_DEFAULT_PARTITION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.468411+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C26_CMD_BAND_HEADROOM",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.46933+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C27_CMD_DEFAULT_PARTITION",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.470186+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C28_CMD_LEGACY_AFTER_CUTOVER",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.471087+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C29_MARKET_PARTITION_MAP",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.471952+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C31_RESERVATION_LINK",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.472891+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C16_ACK_JOURNALED",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.474418+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C19_ORDERBOOK_NONCROSS",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.475442+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C21_EVENT_EMISSION_REGISTRY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.476385+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C22_FENCING_MONOTONIC",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.477545+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C23_COUNTER_SEQ_CONSISTENCY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.478481+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C24_POSITION_COST_QTY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.479498+09:00"
+    },
+    {
+      "window": "skip",
+      "check": "C25_POSITION_COST_SANITY",
+      "ok": true,
+      "violatedRows": 0,
+      "checkedAt": "2026-09-25T01:30:13.480476+09:00"
+    }
+  ]
+}

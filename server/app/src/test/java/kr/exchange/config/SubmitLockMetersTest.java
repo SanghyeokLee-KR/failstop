@@ -4,11 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import kr.exchange.api.market.MarketDirectory;
-import kr.exchange.engine.AvailabilitySignal;
 import kr.exchange.engine.CommandPayloadMapper;
 import kr.exchange.engine.EngineBridge;
 import kr.exchange.engine.OrderIntake;
-import kr.exchange.engine.PromotionCoordinator;
 import kr.exchange.engine.WriterRouter;
 import kr.exchange.engine.core.OrderCommand;
 import kr.exchange.journal.CommandDraft;
@@ -44,7 +42,7 @@ class SubmitLockMetersTest {
         });
         EngineBridge bridge = new EngineConfig().engineBridge(null, router,
                 new CommandPayloadMapper(new ObjectMapper()),
-                new PromotionCoordinator(null, router, null, null, AvailabilitySignal.NOOP),
+                kr.exchange.engine.TestPartitions.unstarted(kr.exchange.engine.PartitionPlan.single()),
                 new MarketDirectory(null), new EngineProperties(null, null, null, 16, null, null, null), registry);
         for (String name : NAMES) {
             assertTrue(registry.find(name).meters().isEmpty(), name + " 가 첫 접수 전에 등록됐다");

@@ -1,0 +1,285 @@
+{
+  "image": "exchange-chaos-app:pml",
+  "imageId": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+  "imageRevision": null,
+  "harnessCommit": "91813dd58e24500e0700c532d17a772d7b7ec76f",
+  "latchBeforeTraffic": false,
+  "protocol": 2,
+  "partitionAxes": true,
+  "project": "exchange-pml",
+  "springProfiles": "dev,chaos-monkey,prod-timeouts",
+  "snapshotEvidence": false,
+  "localLogDir": "C:\\Users\\DEV-PC\\AppData\\Local\\Temp\\pml-s4-logs\\X5",
+  "experiments": [
+    {
+      "experiment": "COLD",
+      "script": "harness/scripts/adr0022-stage7-cold-restart.ps1",
+      "image": "exchange-chaos-app:pml",
+      "imageId": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+      "containerImages": {
+        "chaos-api-1": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+        "chaos-api-2": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a",
+        "chaos-bots": "sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a"
+      },
+      "protocolTransition": {
+        "rc": 0,
+        "file": "protocol.json"
+      },
+      "clockBefore": {
+        "Skewed": false,
+        "SkewMs": 58,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 139,
+        "PgEpochMs": 1790265117622,
+        "HostEpochMs": 1790265117564
+      },
+      "partitionAxes": {
+        "pre": 0,
+        "post": 0,
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "file": "partition_axes.json"
+      },
+      "exitCode": 0,
+      "window": {
+        "from": "2026-09-24T15:51:58.1888012+00:00",
+        "to": "2026-09-24T15:53:11.6548432+00:00"
+      },
+      "runId": "COLD-20260925-005158",
+      "s3Common": {
+        "rc": 0,
+        "ok": true,
+        "failed": null,
+        "reservations": 1197,
+        "reservedSettledByLaterEpoch": 0,
+        "file": "s3_common.json"
+      },
+      "clockAfter": {
+        "Skewed": false,
+        "SkewMs": 43,
+        "ToleranceMs": 2000,
+        "Reachable": true,
+        "RoundTripMs": 110,
+        "PgEpochMs": 1790265223105,
+        "HostEpochMs": 1790265223062
+      },
+      "실험 판정": "PASS",
+      "연결 판정": "고갈 없음",
+      "분리 판정": "PASS",
+      "rpoAxis": {
+        "rpoRecords": 0,
+        "postC13A": 0
+      },
+      "criteria": {
+        "1 목표 계층 도달": {
+          "기대 사건": [
+            "stop",
+            "start"
+          ],
+          "빠진 사건": [],
+          "사건": [
+            {
+              "time": "2026-09-24T15:52:38.0000000+00:00",
+              "type": "container",
+              "action": "kill",
+              "container": "chaos-api-2"
+            },
+            {
+              "time": "2026-09-24T15:52:39.0000000+00:00",
+              "type": "network",
+              "action": "disconnect",
+              "container": "chaos-api-2"
+            },
+            {
+              "time": "2026-09-24T15:52:39.0000000+00:00",
+              "type": "container",
+              "action": "stop",
+              "container": "chaos-api-2"
+            },
+            {
+              "time": "2026-09-24T15:52:39.0000000+00:00",
+              "type": "container",
+              "action": "die",
+              "container": "chaos-api-2"
+            },
+            {
+              "time": "2026-09-24T15:52:39.0000000+00:00",
+              "type": "container",
+              "action": "kill",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-24T15:52:39.0000000+00:00",
+              "type": "network",
+              "action": "disconnect",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-24T15:52:39.0000000+00:00",
+              "type": "container",
+              "action": "stop",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-24T15:52:39.0000000+00:00",
+              "type": "container",
+              "action": "die",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-24T15:52:40.0000000+00:00",
+              "type": "network",
+              "action": "connect",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-24T15:52:40.0000000+00:00",
+              "type": "container",
+              "action": "start",
+              "container": "chaos-api-1"
+            },
+            {
+              "time": "2026-09-24T15:52:55.0000000+00:00",
+              "type": "network",
+              "action": "connect",
+              "container": "chaos-api-2"
+            },
+            {
+              "time": "2026-09-24T15:52:55.0000000+00:00",
+              "type": "container",
+              "action": "start",
+              "container": "chaos-api-2"
+            }
+          ],
+          "확인": true,
+          "주": null
+        },
+        "2 계약된 반응": {
+          "oldEpoch": 5,
+          "newEpoch": 6,
+          "oldLeader": "b197f98b-78cf-4fcf-a12c-dd0f586feda6",
+          "newLeader": "fc87881b-c3b1-4875-afde-bb315e0b286b",
+          "metrics": {
+            "acceptSeconds": 15.279,
+            "s4Boot": {
+              "gated": true,
+              "ok": true,
+              "leader": {
+                "lines": 114,
+                "followerBootLine": 101,
+                "firstPromotionLine": 110,
+                "promotionLines": 1
+              },
+              "follower": {
+                "lines": 93,
+                "followerBootLine": 85,
+                "firstPromotionLine": -1,
+                "promotionLines": 0
+              },
+              "followerCatchUpState": 1.0,
+              "followerDemotions": 0.0
+            },
+            "drainValid": true,
+            "epochAfterRejoin": 6.0,
+            "firstTradeSeconds": 15.892,
+            "postCritical": {
+              "checks": 17,
+              "violations": 0,
+              "failed": [],
+              "unnamedChecks": 0
+            },
+            "stopOrder": [
+              "chaos-api-2",
+              "chaos-api-1"
+            ],
+            "nodes": {
+              "chaos-api-2": {
+                "role": "follower",
+                "stopRc": 0,
+                "stopSeconds": 0.461,
+                "startRc": 0,
+                "bootSeconds": 13.82
+              },
+              "chaos-api-1": {
+                "role": "leader",
+                "stopRc": 0,
+                "stopSeconds": 0.586,
+                "startRc": 0,
+                "bootSeconds": 12.573
+              }
+            },
+            "postCriticalClean": true,
+            "newLeaderSeconds": 13.712,
+            "epochAtNewLeader": 6,
+            "acceptResumedAt": "2026-09-24T15:52:54.080026Z",
+            "newLeaderAt": "2026-09-24T15:52:52.5132506Z",
+            "postIntegrity": true,
+            "startOrder": [
+              "chaos-api-1",
+              "chaos-api-2"
+            ],
+            "t0": "2026-09-24T15:52:38.8013863Z"
+          }
+        },
+        "3 복구 시간": {
+          "rtoSeconds": 15.892,
+          "downtimeSeconds": 13.954,
+          "목표(초)": null
+        },
+        "4 무결성": {
+          "post 창 위반 체크": [],
+          "rpoRecords": 0,
+          "c22": {
+            "ok": true,
+            "timeArm": 0,
+            "marketArm": 0
+          },
+          "createdAtInversions": {
+            "rows": 1484,
+            "inversions": 0,
+            "max_regression_ms": null
+          },
+          "주": null,
+          "사후 권위 run CRITICAL": {
+            "checks": 17,
+            "violations": 0,
+            "failed": [],
+            "unnamedChecks": 0
+          }
+        },
+        "5 자력 복구": {
+          "acceptResumedAt": "2026-09-24T15:52:54.080026Z",
+          "firstTradeTs": "2026-09-24T15:52:54.693Z",
+          "nodes": {
+            "chaos-api-2": {
+              "role": "follower",
+              "stopRc": 0,
+              "stopSeconds": 0.461,
+              "startRc": 0,
+              "bootSeconds": 13.82
+            },
+            "chaos-api-1": {
+              "role": "leader",
+              "stopRc": 0,
+              "stopSeconds": 0.586,
+              "startRc": 0,
+              "bootSeconds": 12.573
+            }
+          },
+          "stopOrder": [
+            "chaos-api-2",
+            "chaos-api-1"
+          ],
+          "startOrder": [
+            "chaos-api-1",
+            "chaos-api-2"
+          ],
+          "epochAfterRejoin": 6.0,
+          "주": "재기동 소요는 기록만 한다(검증설계 §2-4 7단계 규약)"
+        }
+      }
+    }
+  ]
+}

@@ -64,7 +64,7 @@ public interface CommandSink {
             @Override
             public void requestCatchUp(int marketId, long seq) {
                 // offer 와 같이 샤드가 없으면 만든다. 그 마켓의 첫 명령이 응답을 잃은 경우가 그렇다.
-                router.loop(marketId).requestCatchUp(marketId, seq);
+                router.requestCatchUp(marketId, seq);
             }
         };
     }

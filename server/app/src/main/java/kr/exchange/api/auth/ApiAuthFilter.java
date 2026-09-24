@@ -131,6 +131,12 @@ public class ApiAuthFilter extends OncePerRequestFilter {
         }
         // 컨트롤러 다운스트림 예외는 각 어드바이스가 표준화하므로 이 필터가 삼키지 않는다.
         chain.doFilter(effective, response);
+        if (needsTrade && Boolean.TRUE.equals(effective.getAttribute(ApiException.DEMAND_EXCLUDED_ATTRIBUTE))
+                && (response.getStatus() == 429 || response.getStatus() == 409)) {
+            // 마켓 접수 경합으로 끝난 요청은 좀비 판정의 수요에서 뺀다(DB 설계 §5.4-c 8). DB 에 닿아 유계 시간 안에 확정
+            // 답을 받았으므로 이 노드가 일을 못 한다는 증거가 아니다. 배치 주문·일괄 취소의 200 은 되돌리지 않는다.
+            writeProgress.recordExcluded();
+        }
     }
 
     /** 상태를 바꾸지 않는 메서드만 열거한다. 목록 밖은 전부 쓰기로 본다(미상 메서드도 닫힘) */

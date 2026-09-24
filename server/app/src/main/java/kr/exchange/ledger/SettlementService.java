@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import kr.exchange.engine.CommandPayloadMapper;
 import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.LeaderTerm;
 import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.engine.core.EngineEvent;
 import kr.exchange.engine.core.OrderCommand;
@@ -84,8 +85,7 @@ public class SettlementService {
     private static final int MAX_ATTEMPTS = 4;
     private static final long RETRY_BACKOFF_MS = 100;
     private static final long DEFAULT_RETRY_DEADLINE_MS = 5_000;
-    /** 수수료 샤드 수 K=1 박제. K 변경은 재생·catch-up의 샤드 배정 동일성을 깬다(DB 설계 §1.2). */
-    private static final int FEE_SHARD = 0;
+
     /** notional(quote 지정) 매수의 quote 소진 scale. 엔진 소진액 규약과 동일해야 이벤트
      * 합산 재구성과 어긋나지 않는다(DB 설계 §5.2). 게이트 가드 아닌 산식 상수로 박제한다. */
     private static final int NOTIONAL_SOAK_SCALE = 18;
@@ -188,7 +188,10 @@ public class SettlementService {
     private final TransactionTemplate tx;
     // 접수 경로를 깨우는 신호. 없으면(구 생성자) 신호를 보내지 않고 접수는 폴링으로 돈다.
     private ProjectionSignal projectionSignal;
+    // 기간 없는 종전 경로(appendAndSettle 한 인자)만 쓴다. 파티션 배선은 루프의 기간으로 쓴다.
     private final LeaderLeaseService lease;
+    // 수수료 샤드를 정하는 계획. null 이면 샤드 0 하나다(P1·P2 와 같다).
+    private volatile kr.exchange.engine.PartitionPlan partitionPlan;
     private final ObjectMapper objectMapper;
     private final MarketCatalog catalog;
     private final CommandPayloadMapper payloadMapper;
@@ -197,7 +200,7 @@ public class SettlementService {
     private final LeaderWriteProgress progress;
     // 계정 id는 계정 생성 시점에 확정되고 (owner, purpose, asset, shard)당 불변이라 캐시한다.
     // 체결마다 5~6회 왕복하던 매핑 조회를 제거한다. 성공 조회만 저장하고 미스는 캐시하지 않는다.
-    private final Map<Short, Long> feeAccountCache = new ConcurrentHashMap<>();
+    private final Map<FeeAccountKey, Long> feeAccountCache = new ConcurrentHashMap<>();
     private final Map<UserAccountKey, Long> userAccountCache = new ConcurrentHashMap<>();
     private final LongAdder transientRetries = new LongAdder();
     private final Map<String, LongAdder> transientRetriesByState = new ConcurrentHashMap<>();
@@ -223,6 +226,9 @@ public class SettlementService {
     private record UserAccountKey(long userId, String purpose, short assetId) {
     }
 
+    private record FeeAccountKey(short assetId, int shard) {
+    }
+
     public SettlementService(JdbcClient jdbc, TransactionTemplate tx, LeaderLeaseService lease,
                              ObjectMapper objectMapper, MarketCatalog catalog,
                              CommandPayloadMapper payloadMapper) {
@@ -241,6 +247,28 @@ public class SettlementService {
         this.catalog = catalog;
         this.payloadMapper = payloadMapper;
         this.progress = progress;
+    }
+
+    /** 수수료 샤드를 정할 파티션 계획을 붙인다. 붙이지 않으면 샤드 0 하나다. */
+    public void setPartitionPlan(kr.exchange.engine.PartitionPlan plan) {
+        this.partitionPlan = plan;
+    }
+
+    /**
+     * 체결 수수료를 게시할 FEE_INCOME 계정의 샤드(DB 설계 §1.2, §5.4-c 11, ADR 0034 결정 10). P1·P2 는 0 하나이고, 파티션
+     * 리더 모드(P3)는 그 마켓 파티션의 번호다. 두 파티션의 정산이 같은 수수료 잔고 행을 다투지 않게 하려는 것이다. 값은
+     * 마켓에서만 정해지므로 재생·재정산이 같은 샤드를 고른다.
+     */
+    int feeShard(int marketId) {
+        kr.exchange.engine.PartitionPlan plan = partitionPlan;
+        if (plan == null || !plan.partitioned()) {
+            return 0;
+        }
+        String resource = plan.partitionOf(marketId);
+        if (resource == null) {
+            throw new IllegalStateException("마켓의 리스 파티션 대응이 없다: market=" + marketId);
+        }
+        return plan.index(resource);
     }
 
     /**
@@ -310,8 +338,19 @@ public class SettlementService {
         this.retryDeadlineNanos = deadline.toNanos();
     }
 
-    /** 단일 명령의 방출 배치를 원자 정산하고 event_seq가 부여된 목록을 반환한다. */
+    /** 단일 명령의 방출 배치를 원자 정산하고 event_seq가 부여된 목록을 반환한다. 리스 서비스가 지금 쥔 epoch 로 쓴다. */
     public List<EngineEvent> appendAndSettle(List<EngineEvent> events) {
+        if (lease == null) {
+            throw new IllegalStateException("파티션 배선의 정산은 루프의 기간을 받는다");
+        }
+        return appendAndSettle(null, events);
+    }
+
+    /**
+     * 기간을 쥔 정산(DB 설계 §5.4-c 6). 재시도의 시도마다 기간이 여전히 현재인지 보고, 그 기간의 epoch 로 판정을 받는다. 강등
+     * 전 루프의 재시도가 재승격 뒤에 깨어나도 새 epoch 를 빌리지 못한다.
+     */
+    public List<EngineEvent> appendAndSettle(LeaderTerm term, List<EngineEvent> events) {
         if (events.isEmpty()) {
             return List.of();
         }
@@ -326,7 +365,7 @@ public class SettlementService {
         long startedAt = System.nanoTime();
         for (int attempt = 1; ; attempt++) {
             try {
-                return settleOnce(cmdSeq, events);
+                return settleOnce(term, cmdSeq, events);
             } catch (DataAccessException e) {
                 if (!TransientDbErrors.isRetryable(e)) {
                     throw e;
@@ -365,13 +404,16 @@ public class SettlementService {
         return cap / 2 + ThreadLocalRandom.current().nextLong(cap / 2 + 1);
     }
 
-    private List<EngineEvent> settleOnce(long cmdSeq, List<EngineEvent> events) {
-        // 시도마다 로컬 리더십을 다시 본다. 대기 중에 강등됐으면 DB 왕복 없이 멈춘다.
-        LeaderIdentity leader = lease.requireLeader();
+    private List<EngineEvent> settleOnce(LeaderTerm term, long cmdSeq, List<EngineEvent> events) {
+        // 시도마다 로컬 리더십을 다시 본다. 대기 중에 강등됐으면 DB 왕복 없이 멈춘다. 기간을 쥐었으면 그 기간이어야 한다.
+        LeaderIdentity leader = term == null ? lease.requireLeader() : term.requireCurrent();
         try {
             List<EngineEvent> settled = tx.execute(status -> settleInTx(leader, cmdSeq, events));
             // 커밋 성공만 진행으로 센다. 예외 경로는 카운터를 건드리지 않는다(§5.4 좀비 리더 판정).
             progress.recordCompletion();
+            if (term != null) {
+                term.progress().recordCompletion();
+            }
             // 커밋 뒤에만 깨운다. 커밋 전에 깨우면 접수가 조회해도 행이 아직 안 보인다.
             // 신호 실패가 정산 결과를 바꾸면 안 되므로 예외를 삼킨다. 놓친 접수는 폴링으로 간다.
             if (projectionSignal != null) {
@@ -390,11 +432,11 @@ public class SettlementService {
         } catch (StaleLeaderException e) {
             // fencing 거부는 리스 권위를 재확인한 뒤에만 강등한다(§5.4 강등 사유 분류). 거부
             // 즉시 강등하면 정당한 현재 리더가 일시 원인으로 영구 후보에서 빠진다.
-            lease.demoteUnlessStillLeader(e.getMessage());
+            demoteUnlessStillLeader(term, e.getMessage());
             throw e;
         } catch (DataAccessException e) {
             if (FencingErrors.isFencingRejection(e)) {
-                lease.demoteUnlessStillLeader(
+                demoteUnlessStillLeader(term,
                         "assert_current_leader 거부(정산): " + FencingErrors.rejectionDetail(e));
             }
             if (SqlErrors.isInsufficientFunds(e)) {
@@ -405,6 +447,14 @@ public class SettlementService {
                         cmdSeq, e.getMostSpecificCause().getMessage());
             }
             throw e;
+        }
+    }
+
+    private void demoteUnlessStillLeader(LeaderTerm term, String reason) {
+        if (term != null) {
+            term.demoteUnlessStillLeader(reason);
+        } else {
+            lease.demoteUnlessStillLeader(reason);
         }
     }
 
@@ -524,8 +574,9 @@ public class SettlementService {
             }
         }
         if (trades) {
-            addIfPresent(plan, optionalFeeAccount(meta.baseAssetId()));
-            addIfPresent(plan, optionalFeeAccount(meta.quoteAssetId()));
+            int shard = feeShard(command.marketId());
+            addIfPresent(plan, optionalFeeAccount(meta.baseAssetId(), shard));
+            addIfPresent(plan, optionalFeeAccount(meta.quoteAssetId(), shard));
         }
         java.util.function.LongPredicate trim = lockPlanTrim;
         if (trim != null) {
@@ -778,17 +829,18 @@ public class SettlementService {
             throw new IllegalStateException("체결 분개 부호 위반: event_seq=" + event.eventSeq());
         }
 
+        int shard = feeShard(event.marketId());
         ArrayNode legs = objectMapper.createArrayNode();
         addLeg(legs, seller.lockedAccountId(), meta.baseAssetId(), baseOut.negate(), "TRADE");
         addLeg(legs, userAccount(buyer.userId(), "AVAILABLE", meta.baseAssetId()),
                 meta.baseAssetId(), buyerBaseIn, "TRADE");
-        addLeg(legs, feeAccount(meta.baseAssetId()), meta.baseAssetId(), baseFeeLeg, "FEE");
+        addLeg(legs, feeAccount(meta.baseAssetId(), shard), meta.baseAssetId(), baseFeeLeg, "FEE");
         addLeg(legs, buyer.lockedAccountId(), meta.quoteAssetId(), quoteOut.negate(), "TRADE");
         addLeg(legs, userAccount(buyer.userId(), "AVAILABLE", meta.quoteAssetId()),
                 meta.quoteAssetId(), refund, "TRADE");
         addLeg(legs, userAccount(seller.userId(), "AVAILABLE", meta.quoteAssetId()),
                 meta.quoteAssetId(), sellerQuoteIn, "TRADE");
-        addLeg(legs, feeAccount(meta.quoteAssetId()), meta.quoteAssetId(), quoteFeeLeg, "FEE");
+        addLeg(legs, feeAccount(meta.quoteAssetId(), shard), meta.quoteAssetId(), quoteFeeLeg, "FEE");
         long[] legAccounts = new long[legs.size()];
         for (int i = 0; i < legs.size(); i++) {
             legAccounts[i] = legs.get(i).get("account_id").asLong();
@@ -1068,8 +1120,9 @@ public class SettlementService {
         return id;
     }
 
-    private Long optionalFeeAccount(short assetId) {
-        Long cached = feeAccountCache.get(assetId);
+    private Long optionalFeeAccount(short assetId, int shard) {
+        FeeAccountKey key = new FeeAccountKey(assetId, shard);
+        Long cached = feeAccountCache.get(key);
         if (cached != null) {
             return cached;
         }
@@ -1078,27 +1131,28 @@ public class SettlementService {
                         WHERE owner_type = 'SYSTEM' AND purpose = 'FEE_INCOME'
                           AND asset_id = ? AND shard = ?
                         """)
-                .params(assetId, FEE_SHARD)
+                .params(assetId, shard)
                 .query(Long.class)
                 .optional()
                 .orElse(null);
         if (id != null) {
-            feeAccountCache.putIfAbsent(assetId, id);
+            feeAccountCache.putIfAbsent(key, id);
         }
         return id;
     }
 
-    private long feeAccount(short assetId) {
-        return feeAccountCache.computeIfAbsent(assetId, k ->
+    private long feeAccount(short assetId, int shard) {
+        return feeAccountCache.computeIfAbsent(new FeeAccountKey(assetId, shard), k ->
                 jdbc.sql("""
                                 SELECT id FROM accounts
                                 WHERE owner_type = 'SYSTEM' AND purpose = 'FEE_INCOME'
                                   AND asset_id = ? AND shard = ?
                                 """)
-                        .params(k, FEE_SHARD)
+                        .params(k.assetId(), k.shard())
                         .query(Long.class)
                         .optional()
-                        .orElseThrow(() -> new IllegalStateException("수수료 계정 없음: asset=" + k)));
+                        .orElseThrow(() -> new IllegalStateException(
+                                "수수료 계정 없음: asset=" + k.assetId() + ", shard=" + k.shard())));
     }
 
     private boolean orderExists(long orderId) {

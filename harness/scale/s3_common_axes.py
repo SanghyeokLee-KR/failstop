@@ -14,13 +14,15 @@
              정산된 예약 명령 수(저널 epoch 와 정산 이벤트 epoch 가 다른 예약 명령. 재적재된 예약 명령이 있었는지의 근거).
           5. 하네스 summary.sql 을 소유자 로그인으로 돌려 CRITICAL·HIGH 행이 모두 PASS 인지 본다.
           6. 앱 컨테이너 로그의 라이터 정지·강등·권한·교착 문구 줄 수. 본문은 남기지 않는다. 강등 문구는 장애를 받은 옛 리더에게
-             설계상 나올 수 있으므로(E5·E7) 판정은 실험 끝의 리더 노드만 본다.
+             설계상 나올 수 있으므로(E5·E7) 판정은 실험 끝의 리더 노드만 본다. S4 는 강등 문구를 파티션 강등과 노드 치명으로
+             바꿨다(S4 설계 4-16). 문구가 코드와 어긋나면 이 축이 공허하게 통과하므로, --expect-demotion 이면 실험 끝의 리더가
+             아닌 노드(옛 리더)에서 강등 문구가 1 이상 잡히는지를 양성 대조로 본다.
 판정은 축마다 참·거짓으로 적고, 하나라도 거짓이면 ok=false 다. 폐기용 스택 가드는 protocol_latch 와 같다.
 
 사용:
   python harness/scale/s3_common_axes.py sample --out <jsonl> --stop-file <경로> [--interval 2]
   python harness/scale/s3_common_axes.py judge --window-from <ISO UTC> --fault-from <ISO UTC> --fault-to <ISO UTC>
-         [--samples <jsonl>] --out <json>
+         [--samples <jsonl>] [--resource matching-engine] [--expect-demotion] --out <json>
 종료코드: 0 판정 통과, 1 판정 실패, 2 가드 위반.
 """
 import argparse
@@ -60,7 +62,7 @@ SELECT json_build_object(
          ORDER BY l.pid) t))
 """
 
-STATE_SQL = """
+STATE_SQL_TEMPLATE = """
 SELECT json_build_object(
   'deadlocks', (SELECT deadlocks FROM pg_stat_database WHERE datname = 'exchange'),
   'reservations', (SELECT count(*) FROM order_reservations),
@@ -73,11 +75,25 @@ SELECT json_build_object(
         WHERE e.fencing_epoch <> c.fencing_token),
   'protocol', (SELECT protocol FROM leader_protocol),
   'leader', (SELECT json_build_object('holder', holder, 'epoch', epoch, 'alive', lease_until > clock_timestamp())
-               FROM leader_lease WHERE resource = 'matching-engine'))
-""" % DRAIN_SQL
+               FROM leader_lease WHERE resource = '{resource}'))
+""".replace('%s', DRAIN_SQL)
+LEASE_RESOURCES = ('matching-engine', 'matching-p0', 'matching-p1')
 
+
+def state_sql(resource='matching-engine'):
+    """공통 판정의 DB 상태 질의. 리더는 그 실험이 옮긴 리스 자원의 행이다(S4 설계 4-18)."""
+    if resource not in LEASE_RESOURCES:
+        raise ValueError('알 수 없는 리스 자원: %s' % resource)
+    return STATE_SQL_TEMPLATE.replace('{resource}', resource)
+
+
+STATE_SQL = state_sql()
+
+# 강등 문구(S4). '리더십 상실'은 리스가 놓은 기간, '파티션 강등'은 파티션 수명주기의 강등, '종신 강등'은 노드 치명이다.
+DEMOTION_KEYS = ('terminalDemotion', 'leadershipLost', 'partitionDemotion')
 LOG_PATTERNS = {
     'writerFailFast': 'fail-fast', 'terminalDemotion': '종신 강등', 'leadershipLost': '리더십 상실',
+    'partitionDemotion': '파티션 강등',
     'leadershipReleased': '리더십 반납', 'promotions': '리더 승격', 'permissionDenied': 'permission denied',
     'sqlstate42501': '42501', 'deadlock40P01': '40P01', 'deadlockDetected': 'deadlock detected',
     'settlementInsufficient': 'chk_balance_nonneg',
@@ -268,7 +284,7 @@ def cmd_judge(a):
                           'firing_outside_fault_window': len(outside),
                           'error': alerts.get('error') if isinstance(alerts, dict) else None}
     res['nodes'] = {name: scrape(port) for name, port in NODES}
-    parsed, err = pgs.parse_json_row(*pgs.run_psql(STATE_SQL, timeout=120))
+    parsed, err = pgs.parse_json_row(*pgs.run_psql(state_sql(a.resource), timeout=120))
     res['state'] = parsed if parsed is not None else {'error': err}
     res['summary'] = run_summary()
     logs = {}
@@ -306,13 +322,16 @@ def cmd_judge(a):
         'reservations_gt_0': (st.get('reservations') or 0) > 0,
         'unsettled_reservations_after_drain_0': drained and st.get('unsettled_reservations') == 0,
         'leader_node_no_fatal_or_demotion': bool(leader_node) and all(
-            lead.get(k, 1) == 0 for k in ('writerFailFast', 'terminalDemotion', 'leadershipLost')),
+            lead.get(k, 1) == 0 for k in ('writerFailFast',) + DEMOTION_KEYS),
         'no_permission_errors': all((c or {}).get('permissionDenied', 0) + (c or {}).get('sqlstate42501', 0) == 0
                                     for c in logs.values()),
         'stale_alert_outside_fault_window_0': res['stale_alert']['error'] is None
                                               and res['stale_alert']['firing_outside_fault_window'] == 0,
         'protocol_2': st.get('protocol') == 2,
     }
+    if a.expect_demotion:
+        # 양성 대조(S4 설계 4-16, 7-2). 장애를 받은 옛 리더가 강등 문구를 남겨야 위 리더 노드 축의 0 이 문구 불일치가 아님을 안다.
+        axes['old_leader_demotion_logged'] = demotion_logged(logs, leader_node)
     res['axes'] = axes
     res['ok'] = all(axes.values())
     res['finished'] = pgs.now_iso()
@@ -322,6 +341,12 @@ def cmd_judge(a):
                       'reserved_settled_by_later_epoch': st.get('reserved_settled_by_later_epoch'),
                       'deadlocks': st.get('deadlocks'), 'leader_node': leader_node}, ensure_ascii=False), flush=True)
     return 0 if res['ok'] else 1
+
+
+def demotion_logged(logs, leader_node):
+    """실험 끝의 리더가 아닌 api 노드 가운데 하나라도 강등 문구를 남겼는가."""
+    others = [c for name, c in logs.items() if name != leader_node and name != 'chaos-bots' and isinstance(c, dict)]
+    return any(sum(c.get(k, 0) for k in DEMOTION_KEYS) >= 1 for c in others)
 
 
 def main(argv=None):
@@ -336,6 +361,8 @@ def main(argv=None):
     j.add_argument('--fault-from', required=True)
     j.add_argument('--fault-to', required=True)
     j.add_argument('--samples', default=None)
+    j.add_argument('--resource', default='matching-engine', choices=LEASE_RESOURCES)
+    j.add_argument('--expect-demotion', action='store_true')
     j.add_argument('--out', required=True)
     a = ap.parse_args(argv)
     return cmd_sample(a) if a.cmd == 'sample' else cmd_judge(a)

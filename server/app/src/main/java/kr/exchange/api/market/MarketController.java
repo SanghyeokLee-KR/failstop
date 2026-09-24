@@ -72,7 +72,7 @@ public class MarketController {
         // 잃는다(§5-2 W6). depth가 seq 이후 상태를 담는 방향은 안전하다(중복 폐기로 수렴).
         long seq = sequences.current("orderbook." + m.symbol());
         MarketDataService.Depth depth = data.depth(m.id());
-        return data.orderbookBody(m.symbol(), depth, epochSource.epoch(), seq,
+        return data.orderbookBody(m.symbol(), depth, epochSource.epoch(m.id()), seq,
                 ApiFormats.time(Instant.now()));
     }
 
@@ -132,7 +132,7 @@ public class MarketController {
                 continue;
             }
             MarketDirectory.Market m = markets.bySymbol(symbol);
-            rows.add(data.ticker(m, epochSource.epoch(),
+            rows.add(data.ticker(m, epochSource.epoch(m.id()),
                     sequences.current("ticker." + m.symbol())));
         }
         return envelope(rows, null);

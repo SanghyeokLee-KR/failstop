@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -15,22 +16,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 접수 락 대기 상한과 append lock_timeout 은 기본으로 꺼져 있다(ADR 0034 S1, 결정 11).
- *
- * 켜면 초과 요청이 503 을 받고 max_fails=1 인 nginx 쓰기 업스트림이 그 503 하나로 노드를 빼 한 마켓의 정체가 모든 마켓의
- * 쓰기 중단으로 번진다. 값은 인그레스 설정과 함께 S3·S4 에서 정한다. 그 전에 기본값이나 프로파일 값이 조용히 바뀌면
- * 단일 리더 접수가 오늘과 달라지므로 여기서 고정한다.
+ * 접수 락 대기 상한과 append lock_timeout(S4 설계 4-12, API 설계 §2-5-b). 코드 기본값은 0(끔)이라 시험과 다른 배선은 켜지
+ * 않고, dev·prod 문서가 2000ms·1000ms 로 켠다. 초과는 429(확정 미접수)나 409 order_in_progress 이고 503 이 아니다. 리스 획득
+ * 잠금 대기 상한(DB 설계 §5.4-c 3)은 코드 기본 1000ms 이고 틱보다 짧아야 한다.
  */
 class AcceptLockDefaultsTest {
 
-    private static final String[] KEYS = {"accept-lock-wait", "accept-lock-timeout", "acceptLockWait",
-            "acceptLockTimeout"};
+    private static final Set<String> ENABLED = Set.of("dev", "prod");
 
     @Test
     void unsetValuesDefaultToZero() {
         EngineProperties props = new EngineProperties(null, null, null, 0, null, null, null);
         assertEquals(Duration.ZERO, props.acceptLockWait());
         assertEquals(Duration.ZERO, props.acceptLockTimeout());
+        assertEquals(Duration.ofMillis(1000), props.leaseAcquireLockTimeout());
     }
 
     @Test
@@ -41,23 +40,44 @@ class AcceptLockDefaultsTest {
                 () -> new EngineProperties(null, null, null, 0, null, null, Duration.ofMillis(-1)));
     }
 
-    /** 어떤 프로파일 문서도 두 값을 켜지 않는다. 켜는 것은 S3·S4 의 결정이다. */
+    /** 획득 상한이 0 이면 PostgreSQL 에서 상한 없음이고, 틱 이상이면 막힌 획득이 틱 스레드를 한 틱 넘게 묶는다. */
     @Test
-    void noProfileTurnsTheBoundsOn() {
+    void acquireLockTimeoutMustBePositiveAndShorterThanTheTick() {
+        assertThrows(IllegalArgumentException.class, () -> new EngineProperties(null, Duration.ofSeconds(2), null, 0,
+                null, null, null, Duration.ZERO));
+        assertThrows(IllegalArgumentException.class, () -> new EngineProperties(null, Duration.ofSeconds(2), null, 0,
+                null, null, null, Duration.ofSeconds(2)));
+        assertEquals(Duration.ofMillis(1500), new EngineProperties(null, Duration.ofSeconds(2), null, 0, null, null,
+                null, Duration.ofMillis(1500)).leaseAcquireLockTimeout());
+    }
+
+    /** dev·prod 문서가 두 값을 켜고, 다른 프로파일 문서는 켜지 않는다. */
+    @Test
+    void devAndProdTurnTheBoundsOn() {
         List<Map<String, Object>> docs = documents();
         assertTrue(docs.size() > 1, "application.yml 문서를 읽지 못했다");
+        int enabled = 0;
         for (int i = 0; i < docs.size(); i++) {
             Object engine = dig(docs.get(i), "exchange", "engine");
+            Object profile = dig(docs.get(i), "spring", "config", "activate", "on-profile");
+            if (ENABLED.contains(String.valueOf(profile))) {
+                assertTrue(engine instanceof Map<?, ?>, profile + " 문서에 exchange.engine 이 없다");
+                Map<?, ?> map = (Map<?, ?>) engine;
+                assertEquals("2000ms", String.valueOf(map.get("accept-lock-wait")), profile + " accept-lock-wait");
+                assertEquals("1000ms", String.valueOf(map.get("accept-lock-timeout")), profile + " accept-lock-timeout");
+                enabled++;
+                continue;
+            }
             if (!(engine instanceof Map<?, ?> map)) {
                 continue;
             }
-            for (String key : KEYS) {
+            for (String key : new String[] {"accept-lock-wait", "accept-lock-timeout"}) {
                 Object value = map.get(key);
-                assertTrue(value == null || "0".equals(String.valueOf(value)) || "0s".equals(String.valueOf(value))
-                                || "0ms".equals(String.valueOf(value)),
-                        "application.yml 문서 " + i + " 가 exchange.engine." + key + " 를 켰다: " + value);
+                assertTrue(value == null, "application.yml 문서 " + i + "(" + profile + ") 가 exchange.engine." + key
+                        + " 를 따로 정했다: " + value);
             }
         }
+        assertEquals(2, enabled, "dev·prod 문서를 모두 찾지 못했다");
     }
 
     @SuppressWarnings("unchecked")

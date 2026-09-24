@@ -50,5 +50,34 @@ class SummarizeSamplesTest(unittest.TestCase):
         self.assertIsNone(got['max_lock_waiters'])
 
 
+class S4AxesTest(unittest.TestCase):
+    """S4 설계 4-16·4-18: 리스 자원 인자와 강등 문구의 양성 대조."""
+
+    def test_state_sql_reads_the_given_resource(self):
+        self.assertIn("resource = 'matching-engine'", ax.STATE_SQL)
+        self.assertIn("resource = 'matching-p1'", ax.state_sql('matching-p1'))
+        self.assertNotIn("resource = 'matching-engine'", ax.state_sql('matching-p1'))
+        # 드레인 술어가 그대로 들어갔다.
+        self.assertIn(ax.DRAIN_SQL, ax.state_sql('matching-p0'))
+        with self.assertRaises(ValueError):
+            ax.state_sql("matching-engine'; DROP TABLE x; --")
+
+    def test_log_patterns_follow_s4_phrases(self):
+        # S4 코드의 문구(LeaderLeaseService·PartitionRuntime). 바뀌면 이 축이 공허하게 통과한다.
+        self.assertEqual('리더십 상실', ax.LOG_PATTERNS['leadershipLost'])
+        self.assertEqual('파티션 강등', ax.LOG_PATTERNS['partitionDemotion'])
+        self.assertEqual('종신 강등', ax.LOG_PATTERNS['terminalDemotion'])
+        self.assertEqual(('terminalDemotion', 'leadershipLost', 'partitionDemotion'), ax.DEMOTION_KEYS)
+
+    def test_demotion_logged_looks_at_non_leader_api_nodes(self):
+        logs = {'chaos-api-1': {'partitionDemotion': 2, 'leadershipLost': 1},
+                'chaos-api-2': {'partitionDemotion': 0, 'leadershipLost': 0},
+                'chaos-bots': {'leadershipLost': 5}}
+        self.assertTrue(ax.demotion_logged(logs, 'chaos-api-2'))
+        # 강등 문구가 리더에만 있거나 봇에만 있으면 옛 리더의 양성 대조가 아니다.
+        self.assertFalse(ax.demotion_logged(logs, 'chaos-api-1'))
+        self.assertFalse(ax.demotion_logged({'chaos-api-1': {'ok': False}}, 'chaos-api-2'))
+
+
 if __name__ == '__main__':
     unittest.main()

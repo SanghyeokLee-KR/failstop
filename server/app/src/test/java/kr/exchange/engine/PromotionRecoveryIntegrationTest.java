@@ -302,6 +302,7 @@ class PromotionRecoveryIntegrationTest {
                 Duration.ofSeconds(1));
         takeOver(lease);
         assertTrue(lease.isLeader());
+        LeaderTerm fatalTerm = lease.currentTerm().orElseThrow();
 
         MatchingEngineImpl engine = new MatchingEngineImpl();
         replayService.rebuild(engine);
@@ -333,7 +334,58 @@ class PromotionRecoveryIntegrationTest {
         assertEquals("치명 오류 시뮬레이션", workerUncaught.get().getMessage());
         assertTrue(fatal.get() instanceof Error, "Error가 fatal 경로로 통지돼야 한다");
         assertFalse(lease.isLeader(), "Error fail-fast는 리더십을 내려놓아야 한다");
-        assertFalse(lease.tryAcquire(), "강등 후 재승격 금지");
+        assertFalse(lease.tryAcquire(), "재구성 전 재획득 없음: 강등한 리스가 rearm 전에 다시 얻었다");
+        // VM 오류가 아니므로 노드 치명이 아니다. 재구성이 끝나면 rearm 으로 후보에 돌아올 수 있다(DB 설계 §5.4-c 5).
+        assertFalse(lease.isNodeFatal(), "VM 오류가 아닌 Error를 노드 치명으로 올렸다");
+
+        // 재구성을 마친 수명주기가 rearm 하면 만료 리스를 더 큰 epoch 로 다시 얻는다. 강등 전 기간을 쥔 옛 쓰기는 새 epoch 를
+        // 빌리지 못하고 DB 왕복 없이 거부된다.
+        assertTrue(lease.rearm(), "노드 치명이 아닌 강등이 rearm 되지 않았다");
+        takeOver(lease);
+        assertTrue(lease.requireLeader().epoch() > fatalTerm.epoch(), "재획득 epoch 가 늘지 않았다");
+        assertThrows(NotLeaderException.class, () -> new CommandJournalAppender(jdbc, tx, lease)
+                .append(fatalTerm, new CommandDraft(1, CommandDraft.CommandType.NEW, 3L, "buy-91003", 91003L,
+                        BASE_TS + 91003, 91003L, "{}"), null), "끝난 기간의 append 가 거부되지 않았다");
+        assertEquals(0, jdbc.sql("SELECT count(*) FROM command_journal WHERE client_order_id = ?")
+                .params("buy-91003").query(Long.class).single());
+        lease.close();
+    }
+
+    /**
+     * VM 오류(StackOverflowError)는 노드 치명이다(DB 설계 §5.4-c 5 NODE_FATAL). 루프가 멈추고 리더십을 놓는 것은 같지만,
+     * 후보 표식을 rearm 으로 다시 세울 수 없어 리스가 만료돼도 다시 얻지 않는다. 복귀는 재기동뿐이다.
+     */
+    @Test
+    @Order(5)
+    void vmErrorInRunLoopIsNodeFatalAndCannotBeRearmed() throws Exception {
+        LeaderLeaseService lease = new LeaderLeaseService(jdbc, Duration.ofSeconds(120),
+                Duration.ofSeconds(1));
+        takeOver(lease);
+
+        MatchingEngineImpl engine = new MatchingEngineImpl();
+        replayService.rebuild(engine);
+        AtomicReference<Throwable> fatal = new AtomicReference<>();
+        SingleWriterLoop loop = new SingleWriterLoop(64, engine,
+                events -> { throw new StackOverflowError("VM 오류 시뮬레이션"); },
+                new JournalCatchUpSource(commandReader, mapper),
+                new LoopFatalHandler(lease).andThen(fatal::set));
+        lease.onLeadershipLost(loop::halt);
+        AtomicReference<Throwable> workerUncaught = new AtomicReference<>();
+        loop.setWriterUncaughtExceptionHandler((t, e) -> workerUncaught.set(e));
+        loop.start();
+        EngineBridge bridge = new EngineBridge(new CommandJournalAppender(jdbc, tx, lease), loop, mapper);
+        bridge.submit(buyIntake(3, 91002, "50"));
+        loop.awaitWriterTermination(Duration.ofSeconds(10).toMillis());
+
+        assertFalse(loop.isRunning(), "VM 오류 뒤 루프가 살아 있다");
+        assertTrue(fatal.get() instanceof StackOverflowError, "VM 오류가 치명 경로로 통지되지 않았다");
+        assertFalse(lease.isLeader(), "VM 오류 뒤 리더십을 놓지 않았다");
+        assertTrue(lease.isNodeFatal(), "VM 오류가 노드 치명으로 올라가지 않았다");
+        assertFalse(lease.rearm(), "노드 치명을 rearm 이 풀었다");
+        jdbc.sql("UPDATE leader_lease SET lease_until = clock_timestamp() - interval '1 second' "
+                        + "WHERE resource = 'matching-engine'")
+                .update();
+        assertFalse(lease.tryAcquire(), "노드 치명 리스가 만료 리스를 다시 얻었다(복귀는 재기동뿐이다)");
         lease.close();
     }
 

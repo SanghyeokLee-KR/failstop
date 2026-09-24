@@ -84,7 +84,11 @@ public class OrderGateway {
     private final Map<String, LongAdder> reserveRejections = new java.util.concurrent.ConcurrentHashMap<>();
     // 접수 append 가 일시 DB 오류로 끝난 수(SQLSTATE 별). 잠금 계획 뒤에는 40P01 이 결함 신호다(S3 설계 4-14).
     private final Map<String, LongAdder> appendTransient = new java.util.concurrent.ConcurrentHashMap<>();
+    // 마켓 접수 경합 응답 수(API 설계 §2-5-b). 키는 원인과 응답 코드다.
+    private final Map<String, LongAdder> intakeContention = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile BalanceLookup balances = this::availableBalance;
+    // 응답 epoch 를 읽을 리스 행을 마켓에서 정하는 계획. null 이면 matching-engine 이다.
+    private volatile kr.exchange.engine.PartitionPlan partitionPlan;
     // 프로젝션 반영을 알리는 신호. 없으면 종전대로 폴링만 한다.
     private ProjectionSignal signal;
 
@@ -127,6 +131,15 @@ public class OrderGateway {
         return n == null ? 0 : n.sum();
     }
 
+    /**
+     * 마켓 접수 경합 응답 수(API 설계 §2-5-b). cause 는 lock_wait·lock_wait_stuck·55P03·57014·40P01·40001, response 는
+     * 429·409 다.
+     */
+    public long intakeContention(String cause, String response) {
+        LongAdder n = intakeContention.get(cause + "|" + response);
+        return n == null ? 0 : n.sum();
+    }
+
     /** 가용 잔고 조회를 바꾼다. 시험 전용이다. */
     void setBalanceLookup(BalanceLookup lookup) {
         this.balances = lookup;
@@ -138,6 +151,11 @@ public class OrderGateway {
      */
     public void attachProjectionSignal(ProjectionSignal projectionSignal) {
         this.signal = projectionSignal;
+    }
+
+    /** 응답 epoch 를 그 마켓 파티션의 리스 행에서 읽게 한다(API 설계 §5-2). */
+    public void setPartitionPlan(kr.exchange.engine.PartitionPlan plan) {
+        this.partitionPlan = plan;
     }
 
     /** in-flight 예약 락 획득 대기 누적 나노초. */
@@ -289,7 +307,7 @@ public class OrderGateway {
                 if (!keyed) {
                     // 키를 잡지 않은 재전송이다. 같은 키의 NEW 가 이미 저널에 있어 append 는 재생만 하므로
                     // 새로 커밋됐을 명령이 없다.
-                    throw submitFailure(e);
+                    throw submitFailure(e, IntakeOutcome.REPLAY);
                 }
                 // append 가 커밋된 뒤 응답만 잃었을 수 있다. 이 요청의 주문 id 로 저널을 보고, 커밋되지 않았으면
                 // 넣은 키를 정리한다(V47). 판정은 같은 키의 append 가 끝나기를 기다린 뒤에 한다.
@@ -298,10 +316,10 @@ public class OrderGateway {
                         resolveFailedSubmit(userId, clientOrderId, requestHash, assignedId, insertedKey);
                 if (resolution == null) {
                     outcomeUnknown = true;
-                    throw submitFailure(e);
+                    throw submitFailure(e, IntakeOutcome.UNRESOLVED);
                 }
                 if (!resolution.journaled()) {
-                    throw submitFailure(e);
+                    throw submitFailure(e, IntakeOutcome.ofResolution(resolution.outcome()));
                 }
                 // 커밋은 됐고 명령은 라이터 큐에 들어가지 않았다. 그대로 두면 같은 마켓의 다음 명령이 갭을 드러낼
                 // 때까지 정산되지 않아, 한가한 마켓에서는 in-flight 예약 TTL 이 먼저 끝나 가드가 빈다. 라이터에 회수를
@@ -558,27 +576,33 @@ public class OrderGateway {
     /**
      * 저널에 닿지 못한 submit 예외를 응답으로 바꾼다. 루프 정지(리더십 상실 창)는 재조회 계약의 503 이다.
      * 검증이 ACTIVE 를 본 뒤 마켓 정지가 들어온 창은 검증의 정지 거부와 같은 422 를 낸다.
-     * 접수 락 대기 상한 초과(ADR 0034 S1, 기본 꺼짐)도 락 밖에서 끝난 저널 전 거부라 503 이다. API 예외로 바꿔야
-     * 배치 주문이 이 원소만 in_progress 로 적고 다음 원소로 넘어간다(§4-B-6).
      *
-     * 잠금 대기 초과(55P03) 같은 일시 DB 오류는 여기서 503 으로 바꾸지 않는다. 쓰기 업스트림의 max_fails=1 이 503
-     * 하나로 리더를 빼므로 인그레스 설정과 함께 정한다(ADR 0034 결정 11, API 설계 v2.52). 계약 문구는 v2.54 §2-3 에 있고
-     * 코드는 S4 에서 켠다. 그 전까지 55P03 과 교착(40P01)은 500 이다.
+     * 마켓 접수 경합(접수 락 대기 상한 초과와 append 트랜잭션의 55P03·57014·40P01·40001)은 503 으로 내지 않는다(API 설계
+     * §2-5-b). 쓰기 업스트림의 max_fails=1 이 리더의 503 하나로 리더를 빼 모든 마켓의 쓰기가 502 가 되기 때문이다. 이 요청이
+     * 접수되지 않았음이 확정(outcome DISCARDED)이면 429(bucket market)이고, 같은 키의 다른 요청이 관여했거나 판정을 못 했거나
+     * 이미 접수된 주문의 재전송이면 409 order_in_progress 다. API 예외로 바꿔야 배치 주문이 이 원소만 in_progress 로 적고
+     * 다음 원소로 넘어간다(§4-B-6).
      *
      * P2 의 잔고 부족(append 트랜잭션의 23514 chk_balance_nonneg)은 400 insufficient_funds 다(API 설계 v2.54 §2-3). 트랜잭션
      * 전체가 롤백돼 저널·채번·예약이 남지 않았고, 이 요청의 키는 V47 판정이 이미 정리했다. 다른 제약의 23514 는 잔고 부족이
      * 아니라 결함이라 원래 예외(500)로 둔다.
      */
-    private RuntimeException submitFailure(RuntimeException e) {
+    private RuntimeException submitFailure(RuntimeException e, IntakeOutcome outcome) {
+        String cause = contentionCause(e);
+        if (cause != null) {
+            boolean confirmed = outcome.confirmedNotAccepted();
+            countContention(cause, confirmed ? "429" : "409");
+            // 멈춘 보유자 때문에 난 대기 초과는 좀비 판정의 수요로 남긴다(DB 설계 §5.4-c 8).
+            boolean excluded = !"lock_wait_stuck".equals(cause);
+            return confirmed ? marketContention(excluded)
+                    : new ApiException(409, "order_in_progress", "주문 처리 중. 재조회 필요", null, 1, excluded);
+        }
         if (e instanceof IllegalStateException) {
             return new ApiException(503, "service_unavailable",
                     "페일오버 진행 중. 재조회 후 판단 필요", null, 1);
         }
         if (e instanceof EngineBridge.MarketHaltedException) {
             return marketSuspended();
-        }
-        if (e instanceof EngineBridge.AcceptBusyException) {
-            return acceptBusy();
         }
         if (SqlErrors.isInsufficientFunds(e)) {
             reserveRejected("db");
@@ -597,17 +621,33 @@ public class OrderGateway {
     }
 
     /**
-     * append 가 교착(40P01)·직렬화 실패(40001)로 끝난 수를 센다. 응답은 종전대로다(S4 전까지 500). 정산 잠금 계획 뒤 접수
-     * 경로의 교착은 결함 신호라 오류 로그를 남기고 경보(OrderIntakeDeadlock)가 이 계수를 본다(S3 설계 4-14).
+     * append 가 일시 DB 오류 넷(55P03·57014·40P01·40001)으로 끝난 수를 센다. 정산 잠금 계획 뒤 접수 경로의 교착은 결함
+     * 신호라 오류 로그를 남기고 경보(OrderIntakeDeadlock)가 이 계수를 본다(S3 설계 4-14).
      */
     private void countTransient(RuntimeException e) {
         String state = SqlErrors.sqlState(e);
-        if ("40P01".equals(state) || "40001".equals(state)) {
+        if (state != null && kr.exchange.journal.TransientDbErrors.isRetryable(e)) {
             appendTransient.computeIfAbsent(state, k -> new LongAdder()).increment();
             if ("40P01".equals(state)) {
                 log.error("접수 append 가 교착 희생으로 끝났다. 잠금 계획 뒤에는 도달하지 않아야 한다: {}", e.toString());
             }
         }
+    }
+
+    /** 마켓 접수 경합이면 원인 이름, 아니면 null 이다(API 설계 §2-5-b). */
+    private static String contentionCause(RuntimeException e) {
+        if (e instanceof EngineBridge.AcceptBusyException busy) {
+            return busy.stuckHolder() ? "lock_wait_stuck" : "lock_wait";
+        }
+        if (e instanceof org.springframework.dao.DataAccessException
+                && kr.exchange.journal.TransientDbErrors.isRetryable(e)) {
+            return kr.exchange.journal.TransientDbErrors.sqlState(e);
+        }
+        return null;
+    }
+
+    private void countContention(String cause, String response) {
+        intakeContention.computeIfAbsent(cause + "|" + response, k -> new LongAdder()).increment();
     }
 
     /** append 예외 뒤 이 요청의 NEW 가 커밋돼 있어 접수로 처리한 횟수. 늘면 커밋 응답 유실을 의심한다. */
@@ -645,7 +685,7 @@ public class OrderGateway {
                 .orElseThrow(() -> new ApiException(404, "order_not_found", "주문 없음"));
         if (row.terminal()) {
             // 재취소 멱등(§2-4): 이미 종결이면 현재 상태를 그대로 반환한다.
-            return new Placement(row, true, currentEpoch());
+            return new Placement(row, true, currentEpoch(row.marketId()));
         }
         MarketDirectory.Market market = markets.byId(row.marketId());
         OrderIntake intake = new OrderIntake(
@@ -677,27 +717,33 @@ public class OrderGateway {
     }
 
     /**
-     * 일괄 취소 결과. unsubmitted 는 failed 가운데 취소 명령이 저널에 닿지 못하고 503 으로 끝난 수다(라이터 정지, 켜 둔
-     * 경우의 접수 락 대기 상한 초과). 그 주문은 아직 열려 있고 곧바로 다시 취소하면 닫힐 수 있다. suspended 는 정지 마켓의
-     * 422 market_suspended 로 남은 수다. 마켓 재개가 먼저라 곧바로 다시 불러도 닫히지 않는다. 회원 폐쇄는 둘의 합(incomplete)을
-     * 미완료로 센다(API 설계 v2.54 §6-E). 체결로 먼저 종결된 주문과 취소 저널 뒤 반영 대기 409 는 다시 부를 필요가 없어
-     * 어느 쪽에도 세지 않는다.
+     * 일괄 취소 결과. unsubmitted 는 failed 가운데 취소 명령이 저널에 닿지 못하고 503 으로 끝난 수다(라이터 정지). contended 는
+     * 마켓 접수 경합의 429 로 끝난 수다(API 설계 §2-5-b). 두 경우 모두 그 주문은 아직 열려 있고 곧바로 다시 취소하면 닫힐 수
+     * 있다. suspended 는 정지 마켓의 422 market_suspended 로 남은 수다. 마켓 재개가 먼저라 곧바로 다시 불러도 닫히지 않는다.
+     * 회원 폐쇄는 셋의 합(incomplete)을 미완료로 센다(API 설계 v2.55 §6-E). 체결로 먼저 종결된 주문과 취소 저널 뒤 반영 대기
+     * 409 는 다시 부를 필요가 없어 어느 쪽에도 세지 않는다.
      */
     public record BulkCancelResult(List<String> canceledIds,
                                    List<CancelAllResponse.Failure> failed,
                                    int unsubmitted,
-                                   int suspended) {
+                                   int suspended,
+                                   int contended) {
 
         public BulkCancelResult(List<String> canceledIds, List<CancelAllResponse.Failure> failed, int unsubmitted) {
-            this(canceledIds, failed, unsubmitted, 0);
+            this(canceledIds, failed, unsubmitted, 0, 0);
+        }
+
+        public BulkCancelResult(List<String> canceledIds, List<CancelAllResponse.Failure> failed, int unsubmitted,
+                                int suspended) {
+            this(canceledIds, failed, unsubmitted, suspended, 0);
         }
 
         /**
-         * 회원 폐쇄가 미완료로 세는 수(API 설계 v2.54 §6-E). 저널에 닿지 못한 503 과 정지 마켓의 422 market_suspended 의 합이다.
-         * 정지 마켓 주문은 곧바로 다시 불러도 닫히지 않지만 남은 주문이 폐쇄 계정에서 체결될 수 있으므로 완료로 덮지 않는다.
+         * 회원 폐쇄가 미완료로 세는 수(API 설계 v2.55 §6-E). 저널에 닿지 못한 503·429 와 정지 마켓의 422 market_suspended 의
+         * 합이다. 정지 마켓 주문은 곧바로 다시 불러도 닫히지 않지만 남은 주문이 폐쇄 계정에서 체결될 수 있으므로 완료로 덮지 않는다.
          */
         public int incomplete() {
-            return unsubmitted + suspended;
+            return unsubmitted + suspended + contended;
         }
     }
 
@@ -707,6 +753,7 @@ public class OrderGateway {
         List<CancelAllResponse.Failure> failed = new ArrayList<>();
         int unsubmitted = 0;
         int suspended = 0;
+        int contended = 0;
         for (UUID externalId : orders.openOrderIds(userId, market)) {
             try {
                 Placement placement = cancel(userId, externalId);
@@ -722,23 +769,31 @@ public class OrderGateway {
                 failed.add(new CancelAllResponse.Failure(externalId.toString(), reason));
                 if (e.status() == 503) {
                     unsubmitted++;
+                } else if (isMarketContention(e)) {
+                    contended++;
                 } else if (e.status() == 422 && "market_suspended".equals(reason)) {
                     suspended++;
                 }
             }
         }
-        return new BulkCancelResult(canceled, failed, unsubmitted, suspended);
+        return new BulkCancelResult(canceled, failed, unsubmitted, suspended, contended);
     }
-
     /** 일괄 취소의 원소별 실패 사유. 도메인 거부는 오류 이름이 아니라 거부 사유를 싣는다(§4-B-3). */
     private static String failureReason(ApiException e) {
         Object reason = e.detail() == null ? null : e.detail().get("reject_reason");
         return reason instanceof String s ? s : e.name();
     }
 
-    private long currentEpoch() {
+    /** 마켓 접수 경합의 429 인가. 그 취소는 저널에 닿지 못해 주문이 아직 열려 있다. */
+    private static boolean isMarketContention(ApiException e) {
+        return e.status() == 429 && e.detail() != null && "market".equals(e.detail().get("bucket"));
+    }
+
+    private long currentEpoch(int marketId) {
+        kr.exchange.engine.PartitionPlan plan = partitionPlan;
+        String resource = plan == null ? LeaseResources.MATCHING_ENGINE : plan.partitionOf(marketId);
         return jdbc.sql("SELECT COALESCE(max(epoch), 0) FROM leader_lease WHERE resource = ?")
-                .param(LeaseResources.MATCHING_ENGINE)
+                .param(resource == null ? LeaseResources.MATCHING_ENGINE : resource)
                 .query(Long.class)
                 .single();
     }
@@ -754,10 +809,16 @@ public class OrderGateway {
             // 취소 경로는 마켓 상태를 미리 보지 않아 정지 중이면 늘 여기서 거부된다. 저널 커밋 전 거부라 주문
             // 생성과 같은 도메인 거부로 돌려야 일괄 취소가 원소별 실패로 집계하고 나머지를 계속 취소한다.
             throw marketSuspended();
-        } catch (EngineBridge.AcceptBusyException e) {
-            // 접수 락 대기 상한 초과(기본 꺼짐). 저널 전 거부라 같은 이유로 API 예외로 바꿔 일괄 취소가 이 건만 실패로
-            // 집계하고 다음 주문으로 넘어가게 한다.
-            throw acceptBusy();
+        } catch (RuntimeException e) {
+            String cause = contentionCause(e);
+            if (cause == null) {
+                throw e;
+            }
+            // 취소는 네 오류가 모두 커밋 전에 롤백되고 대기 초과는 저널 전에 끝나므로 이 취소 명령이 저널에 없다는 것이
+            // 확정이다. 429 는 그것만 뜻하고 주문 상태는 그 사이 바뀌었을 수 있다(API 설계 §2-5-b).
+            countTransient(e);
+            countContention(cause, "429");
+            throw marketContention(!"lock_wait_stuck".equals(cause));
         }
     }
 
@@ -1009,9 +1070,13 @@ public class OrderGateway {
     }
 
     /** 접수 락 대기 상한 초과의 저널 전 거부(ADR 0034 S1). 같은 client_order_id 로 다시 보내면 된다. */
-    private static ApiException acceptBusy() {
-        return new ApiException(503, "service_unavailable",
-                "접수 대기 상한 초과. 잠시 후 재시도 필요", null, 1);
+    /**
+     * 마켓 접수 경합의 확정 미접수(API 설계 §2-5-b). 재조회 대상이 아니고 같은 client_order_id 로 다시 보낸다. excluded 면
+     * 좀비 판정의 수요에서 뺀다.
+     */
+    private static ApiException marketContention(boolean excluded) {
+        return new ApiException(429, "too_many_requests", "마켓 접수 혼잡. 잠시 후 재시도 가능",
+                Map.of("bucket", "market", "scope", "order"), 1, excluded);
     }
 
     /** 정지 마켓의 도메인 거부(API 설계 §4-B-1·§4-B-2). 주문 생성 검증과 생성·취소의 엔진 접수가 같은 응답을 낸다. */

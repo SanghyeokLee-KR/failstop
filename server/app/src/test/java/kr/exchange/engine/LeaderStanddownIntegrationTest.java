@@ -140,7 +140,7 @@ class LeaderStanddownIntegrationTest {
             assertEquals(leaseEpochBefore, leaseEpoch(), "강등이 리스 epoch를 건드렸다");
             assertEquals(holderBefore, leaseHolder(), "강등이 리스 holder를 건드렸다");
             assertEquals(leaseUntilBefore, leaseUntil(), "강등이 lease_until을 건드렸다");
-            assertFalse(zombie.tryAcquire(), "강등된 노드가 재승격되면 안 된다");
+            assertFalse(zombie.tryAcquire(), "재구성 전 재획득 없음: 강등한 노드가 rearm 전에 리스를 다시 얻었다");
             assertEquals(1.0, registry.get("exchange.leader.standdown").counter().count());
             assertEquals(0.0, registry.get("exchange.node.serviceable").gauge().value());
 
@@ -152,6 +152,14 @@ class LeaderStanddownIntegrationTest {
                     .until(standby::tryAcquire);
             assertEquals(epoch + 1, standby.requireLeader().epoch(), "승격은 정확히 epoch +1");
             assertEquals(standby.holder(), leaseHolder());
+
+            // 재구성을 마친 수명주기가 rearm 하면 후보로 돌아온다(DB 설계 §5.4-c 5). 유효한 리스는 빼앗지 못하고 만료 뒤
+            // 더 큰 epoch 로 얻는다.
+            assertTrue(zombie.rearm(), "노드 치명이 아닌 강등이 rearm 되지 않았다");
+            assertFalse(zombie.tryAcquire(), "rearm 한 노드가 유효한 리스를 빼앗았다");
+            expireLease();
+            assertTrue(zombie.tryAcquire(), "rearm 한 노드가 만료 리스를 얻지 못했다");
+            assertEquals(epoch + 2, zombie.requireLeader().epoch());
         } finally {
             zombie.close();
         }
@@ -322,8 +330,14 @@ class LeaderStanddownIntegrationTest {
             assertEquals(epoch, leaseEpoch(), "강등이 리스 epoch를 건드렸다");
             assertEquals(leader.holder(), leaseHolder(), "강등이 리스 holder를 건드렸다");
             assertFalse(leader.isLeader(), "자발적 강등 후에도 리더로 남았다");
-            assertEquals(1, lost.get(), "종신 강등 콜백이 정확히 한 번 발화해야 한다");
-            assertFalse(leader.tryAcquire(), "강등된 노드가 재승격되면 안 된다");
+            assertEquals(1, lost.get(), "강등 콜백이 정확히 한 번 발화해야 한다");
+            assertFalse(leader.tryAcquire(), "재구성 전 재획득 없음: 강등한 노드가 rearm 전에 리스를 다시 얻었다");
+            // 재구성 뒤 rearm 하면 만료 리스를 더 큰 epoch 로 다시 얻는다.
+            serviceable.set(1);
+            assertTrue(leader.rearm());
+            expireLease();
+            assertTrue(leader.tryAcquire(), "rearm 한 노드가 만료 리스를 얻지 못했다");
+            assertTrue(leader.requireLeader().epoch() > epoch);
         } finally {
             leader.close();
         }
@@ -332,7 +346,7 @@ class LeaderStanddownIntegrationTest {
     /**
      * 승격 재생 구간 표식은 세대 스코프다. [재생 실패 -> 반납 -> 만료 -> 같은 노드가 재승격]이
      * 정상 경로라 앞선 시도의 뒷정리와 새 시도가 겹칠 수 있고, 낡은 해제가 새 표식을 지우면
-     * 새 시도의 재생 실패가 종신 강등으로 내려가 후보가 소진된다. 확인은 표식 자체가 아니라
+     * 새 시도의 재생 실패가 강등(재구성 전 재획득 없음)으로 내려가 후보가 소진된다. 확인은 표식 자체가 아니라
      * 표식이 만드는 강등 등급으로 한다. 관측 가능한 계약이 그것이다.
      */
     @Test
@@ -358,19 +372,22 @@ class LeaderStanddownIntegrationTest {
             assertTrue(lease.tryAcquire(), "만료 리스 승격 실패");
             lease.demote("재생 실패 모델");
             assertEquals(1, recoverable.get(), "재생 구간의 상실이 회복 가능으로 내려가지 않았다");
-            assertEquals(0, terminal.get(), "재생 구간의 상실이 종신 강등 콜백을 발화시켰다");
+            assertEquals(0, terminal.get(), "재생 구간의 상실이 강등 콜백을 발화시켰다");
 
-            // 짝이 맞는 해제 뒤에는 같은 상실이 종신으로 돌아온다.
+            // 짝이 맞는 해제 뒤에는 같은 상실이 강등으로 돌아온다.
             lease.endPromotionReplay(current);
             assertFalse(lease.inPromotionReplay());
             expireLease();
             assertTrue(lease.tryAcquire(), "회복 가능 반납 후 재승격이 막혔다");
             lease.demote("접수 개방 이후 상실 모델");
-            assertEquals(1, recoverable.get(), "종신 강등이 회복 가능 축으로 계상됐다");
-            assertEquals(1, terminal.get(), "표식 해제 후의 상실이 종신으로 내려가지 않았다");
-            // 만료시켜야 '재승격 금지'와 '유효 리스라 탈취 불가'가 갈린다.
+            assertEquals(1, recoverable.get(), "강등이 회복 가능 축으로 계상됐다");
+            assertEquals(1, terminal.get(), "표식 해제 후의 상실이 강등으로 내려가지 않았다");
+            // 만료시켜야 '재구성 전 재획득 없음'과 '유효 리스라 탈취 불가'가 갈린다.
             expireLease();
-            assertFalse(lease.tryAcquire(), "종신 강등 노드의 재승격 금지가 풀렸다");
+            assertFalse(lease.tryAcquire(), "재구성 전 재획득 없음: 강등한 노드가 rearm 전에 리스를 다시 얻었다");
+            // 재구성을 마친 수명주기가 rearm 하면 만료 리스를 다시 얻는다(DB 설계 §5.4-c 5).
+            assertTrue(lease.rearm(), "노드 치명이 아닌 강등이 rearm 되지 않았다");
+            assertTrue(lease.tryAcquire(), "rearm 뒤 만료 리스를 얻지 못했다");
         } finally {
             lease.close();
         }

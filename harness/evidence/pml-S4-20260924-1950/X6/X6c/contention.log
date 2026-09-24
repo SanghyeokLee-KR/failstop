@@ -1,0 +1,1 @@
+{"variant": "c", "ok": true, "failed": [], "record": {}, "contention_delta": {"55P03|409": 10.0, "lock_wait|409": 14.0, "55P03|429": 14.0, "lock_wait|429": 31.0}}

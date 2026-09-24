@@ -227,7 +227,7 @@ public class OrderController {
         OrderQueryService.OrderRow row = orders.byExternalId(externalId)
                 .filter(r -> r.userId() == principal.userId())
                 .orElseThrow(() -> new ApiException(404, "order_not_found", "주문 없음"));
-        return orders.view(row, epochSource.epoch());
+        return orders.view(row, epochSource.epoch(row.marketId()));
     }
 
     /** 재조회 계약(§4-B-4(a), §7-6): 판정 권위는 command_journal이다. */
@@ -240,7 +240,7 @@ public class OrderController {
             throw new ApiException(404, "order_not_found", "접수된 주문 없음");
         }
         return orders.byClientOrderId(principal.userId(), clientOrderId)
-                .map(row -> orders.view(row, epochSource.epoch()))
+                .map(row -> orders.view(row, epochSource.epoch(row.marketId())))
                 .orElseThrow(() -> new ApiException(409, "order_in_progress",
                         "저널에는 있으나 프로젝션 미반영. 재조회 필요", null, 1));
     }
@@ -310,10 +310,11 @@ public class OrderController {
         Cursors.Cursor decoded = cursor == null ? null : Cursors.decode(cursor);
         List<OrderQueryService.OrderRow> rows =
                 orders.page(principal.userId(), open, market, decoded, limit);
-        long epoch = epochSource.epoch();
         List<OrderResponse> data = new ArrayList<>();
+        // 비리더는 epoch 를 리스 행에서 읽으므로 한 페이지 안에서는 마켓마다 한 번만 읽는다.
+        java.util.Map<Integer, Long> epochs = new java.util.HashMap<>();
         for (OrderQueryService.OrderRow row : rows) {
-            data.add(orders.view(row, epoch));
+            data.add(orders.view(row, epochs.computeIfAbsent(row.marketId(), epochSource::epoch)));
         }
         String nextCursor = null;
         if (rows.size() == limit && !rows.isEmpty()) {

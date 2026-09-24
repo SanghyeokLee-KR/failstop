@@ -304,11 +304,11 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 
 ### 5-2. 커스텀 메트릭
 
-고유 이름 48개다. 등록 호출 지점은 51개다. 고유 이름 기준 타입 분포는 Counter 10, FunctionCounter 16, Timer 2, `Gauge.builder` 16, `MeterRegistry.gauge` 2, MultiGauge 2이다. 2026-09-14 ADR 0022 7단계 판에서 셌다.
+고유 이름 69개다. 등록 호출 지점은 74개다. 고유 이름 기준 타입 분포는 Counter 13, FunctionCounter 29, Timer 3, `Gauge.builder` 20, `MeterRegistry.gauge` 2, MultiGauge 2이다. 2026-09-24 ADR 0034 S4 코드 판에서 S1~S3가 더한 것까지 다시 셌다. 2026-09-14 ADR 0022 7단계 판은 고유 이름 48개, 등록 호출 지점 51개였다.
 
-세는 방법은 `server/app/src/main/java` 아래에서 `.builder("`와 `.gauge("` 등록 인자를 뽑아 중복을 제거하는 것이다. 타입은 등록 호출 바로 앞의 미터 타입 이름으로 가른다.
+세는 방법은 `server/app/src/main/java` 아래에서 `.builder("`와 `.gauge("` 등록 인자를 뽑아 중복을 제거하는 것이다. 타입은 등록 호출 바로 앞의 미터 타입 이름으로 가른다. 이름을 문자열 조합으로 만드는 등록은 이 방법에 잡히지 않는다. 7단계 판부터 있던 `EngineConfig`의 append 분해 계수 일곱(`exchange.journal.intx.nanos` 등)과, S4부터 노드 층과 파티션 층이 같은 코드로 이름을 만드는 좀비 판정 게이지 넷(`exchange.node.serviceable`·`exchange.node.write_completion_ratio`와 `exchange.partition`의 같은 두 이름)이다. 뒤의 넷을 더하면 고유 이름은 73개다.
 
-**규칙이나 대시보드가 실제로 참조하는 것은 19개다.** 29개가 방출만 되고 아무도 보지 않는다. 참조는 `harness/prometheus/rules/`와 `harness/grafana/dashboards/`에서 노출 이름(점을 밑줄로 바꾸고 카운터는 `_total`, 타이머는 `_seconds_*` 접미)을 찾아 센다. 방출 비용은 이미 내고 있으므로, 쓰지 않을 것이면 걷고 쓸 것이면 규칙이나 패널에 걸어야 한다. 이 29개의 처분은 §8-2에 미결로 둔다.
+**규칙이나 대시보드가 실제로 참조하는 것은 26개다.** 위 73개 가운데 47개가 방출만 되고 아무도 보지 않는다(7단계 판은 19개와 29개). 참조는 `harness/prometheus/rules/`와 `harness/grafana/dashboards/`에서 노출 이름(점을 밑줄로 바꾸고 카운터는 `_total`, 타이머는 `_seconds_*` 접미)을 찾아 센다. 방출 비용은 이미 내고 있으므로, 쓰지 않을 것이면 걷고 쓸 것이면 규칙이나 패널에 걸어야 한다. 이 47개의 처분은 §8-2에 미결로 둔다.
 
 `AdmissionControl`의 scope는 4개다(order, query, requery, ws).
 
@@ -317,6 +317,8 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 2026-09-14 ADR 0022 6단계가 `exchange.journal.band.latched`(1 대역 채번, 0 전역 채번)를 더했다. 기동 때 한 번 읽는 값이라 운영 중 래치 뒤에는 재기동 전까지 0 이다. 같은 단계에서 `exchange.follower.catchup.lag_commands.max`·`exchange.follower.catchup.lag_commands.sum_of_markets` 의 격차를 마켓 head 에서 엔진 커서와 물질화 경계 중 큰 쪽을 뺀 값으로 바꿨다. 커서가 대역 시작 아래에 있으면 대역 폭이 격차로 읽히기 때문이다. 경계를 아직 읽지 않은 새 마켓은 다음 틱에 잰다.
 
 2026-09-14 ADR 0022 7단계가 `exchange.journal.band.remaining{name,market}`(채번 대역에 남은 배정 가능 번호 수, `v_journal_band_headroom.remaining`)을 더했다. `InvariantVerifier` 가 상시 run 과 권위 run 끝에서 `exchange_ledger_imbalance` 와 같은 MultiGauge 덮어쓰기로 갱신하므로 하네스를 켠 리더 노드에서 5분 주기로 바뀐다. 줄어드는 속도가 소진 속도다. 같은 단계에서 스냅샷 지표 넷(`exchange.snapshot.captured`·`dropped`·`persist_failed`·`last_persisted_seq`)이 샤드마다 `market` 태그로 등록되고, `exchange.recovery.snapshot_fallback`(스냅샷 시작 복구를 버리고 전량 재생한 횟수)이 더해졌다. `SnapshotStalled` 규칙의 `and` 는 양쪽이 같은 `market` 태그를 가져 마켓마다 짝지어진다. 새 노출 이름 `exchange_journal_band_remaining` 과 `exchange_recovery_snapshot_fallback_total` 은 규칙과 대시보드가 보지 않아 위 29개에 든다. 7단계 판정기 `harness/scale/stage7_judge.py` 는 승격 노드의 `exchange_recovery_snapshot_fallback_total` 과 `exchange_journal_replay_commands_total` 증분을 판정에 쓴다(`docs/reference/contracts/하네스_검증설계.md` §2-4).
+
+2026-09-24 ADR 0034 S4(파티션 단위 리더)의 지표 계약을 코드보다 먼저 적는다. 설계는 `docs/reference/architecture/마켓분할_리더_S4_설계.md` 4-16, 동작 계약은 DB 설계 §5.4-c다. 코드가 들어갈 때 위 개수와 참조 수를 다시 센다. 리더 축 지표는 모두 `partition` 태그(리스 자원 이름, P1·P2에서는 `matching-engine` 하나)를 갖는다. 대상은 `exchange_leader_epoch`, `exchange_leader_is_leader`, `exchange_failover_downtime_seconds`, `exchange.leader.lease.acquire{outcome}`, `exchange.leader.lease.renew{outcome}`, `exchange.leader.lease.last_renew_age_seconds`, `exchange.leader.lease.fencing_token`, `exchange.leader.recoverable_standdown`, `exchange.leader.standdown`, `exchange.follower.catchup.*`다. 획득·갱신 계수기의 기존 태그 이름은 `outcome`(`granted`·`denied`, `ok`·`rejected`·`error`)이고 그대로 둔다(`MeteredLeaderLeaseStore`, E1 스크립트가 이 이름으로 읽는다). 태그 없는 시계열은 남기지 않는다. `max(...)`·`absent(...)`로 읽는 기존 규칙은 P2에서 결과가 같다. `exchange.follower.catchup.state{partition}`의 값은 종전 뜻 그대로다(1 따라잡는 중, 2 리더라 쉬는 중, 0 정지·재구성 중, -1 어긋남). 새 지표는 여덟이다. `exchange.partition.state{partition}`(0 FOLLOWER, 1 PROMOTING, 2 ACCEPTING, 3 REBUILDING, 4 BLOCKED, 5 DEMOTED(노드 치명, 재기동 전용)), `exchange.partition.demotions{partition,reason}`(강등 사유별 카운터, 사유는 DB 설계 §5.4-c 5의 이름), `exchange.partition.breaker.open{partition}`(차단 1), `exchange.partition.rebuild{partition,outcome}`(재구성 시간 타이머), `exchange.partition.serviceable{partition}`·`exchange.partition.write_completion_ratio{partition}`(파티션 층 좀비 판정, 노드 층의 `exchange.node.*`와 같은 뜻), `exchange.leader.lease.acquire.lock_timeouts{partition}`(획득 트랜잭션의 `lock_timeout` 초과), `exchange.order.intake.contention{cause,response}`(마켓 접수 경합 응답 수, `cause`는 `lock_wait`·`lock_wait_stuck`·`55P03`·`57014`·`40P01`·`40001`, `response`는 `429`·`409`, API 설계 §2-5-b)다. 새 게이지에는 `node` 태그를 달지 않는다. 노드는 스크레이프 대상 라벨 `instance`로 가른다. `exchange.order.append.transient{sqlstate}`는 40P01·40001에 더해 55P03·57014도 센다. 2026-09-24 설계 검토에서 첫 판의 `{result}`를 실제 태그 이름 `{outcome}`으로 고치고, 상태 값 5와 경합 계수기의 `response` 태그를 더했다(S4 설계 11절 R15). 같은 날 S4 코드가 이 여덟을 등록했고 위 개수와 참조 수를 다시 셌다. `exchange.partition.serviceable`·`write_completion_ratio`는 노드 층과 같은 코드가 이름을 조합해 등록한다. 같은 날 구현 검토에서 팔로워 따라잡기 틱이 따라잡지 않는 파티션(이 노드가 쥐었거나 재구성 중·어긋남)의 물질화 경계를 읽지 않게 했다. 인계한 마켓의 커서가 인계 시점에 멈춰 그 경계 질의가 그 뒤 커밋된 명령을 매 틱 훑었기 때문이다. 그 파티션의 `exchange.follower.catchup.lag_commands.max`·`sum_of_markets`는 0이고, 모든 파티션을 쥔 노드의 틱은 DB에 가지 않는다(S4 설계 13절).
 
 ### 5-3. Prometheus
 
@@ -366,9 +368,9 @@ RTO는 정지 시각에서 승격 후 최초 신규 체결의 엔진 시각까�
 | 12 | msp-infra | 인프라 |
 | 13 | msp-db | 데이터베이스 |
 
-### 5-6. 알람 23개
+### 5-6. 알람 29개
 
-severity는 critical 7, warning 15, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
+severity는 critical 10, warning 18, 템플릿 1이다. 템플릿 1은 `InvariantViolation`이고 위반한 체크의 등급(CRITICAL·HIGH·WARN)을 `label_replace`로 critical·warning 이진값으로 접어 라벨에 싣는다. 체크 등급 자체는 `exchange_invariant_violations` 메트릭의 원본 `severity` 라벨(대문자 enum 이름)에 그대로 남는다.
 
 | 알람 | severity |
 |---|---|
@@ -377,10 +379,16 @@ severity는 critical 7, warning 15, 템플릿 1이다. 템플릿 1은 `Invariant
 | FailoverRtoExceeded | critical |
 | LeaderAbsent | critical |
 | RecoverableStandDownRepeating | critical |
+| PartitionBreakerOpen | critical |
+| PartitionLeaderAbsent | critical |
 | SettlementTransientRetryExhausted | critical |
+| SettlementInsufficientFunds | critical |
 | WsConnectionsRejected | critical |
 | EdgeProbeDown | critical |
 | OrderP99SloBreach | warning |
+| PartitionRebuildFailing | warning |
+| ReservationUnsettledStale | warning |
+| OrderIntakeDeadlock | warning |
 | SnapshotPersistFailed | warning |
 | SnapshotDropped | warning |
 | SnapshotStalled | warning |
@@ -396,7 +404,9 @@ severity는 critical 7, warning 15, 템플릿 1이다. 템플릿 1은 `Invariant
 | ReplicationNotStreaming | warning |
 | ReplicationSyncStateUnexpected | warning |
 
-`for` 분포는 0s 4개, 15s 1개, 30s 6개, 1m 6개, 2m 6개다. `component` 라벨은 snapshot 3, bots 2, ws 2, edge 2, db 2, sequencer 1, order-gateway 1, network 1, transport 1, application 1, settlement 1이고 6개는 라벨이 없다. `SettlementTransientRetryExhausted`는 ADR 0034 S1이 2026-09-24 더했고 학교 배포 규칙의 같은 이름 경보와 조건이 같다.
+`for` 분포는 0s 8개, 15s 2개, 30s 6개, 1m 6개, 2m 7개다. `component` 라벨은 leader 3, settlement 3, snapshot 3, bots 2, ws 2, edge 2, db 2, intake 1, sequencer 1, order-gateway 1, network 1, transport 1, application 1이고 6개는 라벨이 없다. `SettlementTransientRetryExhausted`는 ADR 0034 S1이 2026-09-24 더했고 학교 배포 규칙의 같은 이름 경보와 조건이 같다. `SettlementInsufficientFunds`·`ReservationUnsettledStale`·`OrderIntakeDeadlock`은 S3가 규칙 파일에 더한 경보인데 이 표에 빠져 있어 S4 코드 단계에서 함께 적었다.
+
+2026-09-24 ADR 0034 S4 코드에서 셋을 규칙 파일에 넣고 위 표와 개수를 고쳤다. `PartitionBreakerOpen`(critical, `max by (instance, partition) (exchange_partition_breaker_open) == 1`, for 0s)은 한 노드에서 파티션이 차단돼 그 노드가 그 파티션의 후보에서 빠졌다는 뜻이다. 차단 게이지에는 `node` 태그가 없으므로 스크레이프 대상 라벨 `instance`로 노드를 가른다(첫 판의 `by (node, partition)`은 노드를 가르지 못했다). 운영자가 원인을 본 뒤 `/actuator/partitions`로 풀거나 재기동한다. `PartitionLeaderAbsent`(critical, `max by (partition) (exchange_leader_is_leader) == 0`, for 15s)는 모든 노드가 그 파티션을 쥐지 않은 상태다. 노드가 모두 죽어 시계열이 없는 경우는 기존 `LeaderAbsent`가 잡는다. `PartitionRebuildFailing`(warning, `increase(exchange_partition_rebuild_seconds_count{outcome="failure"}[5m]) > 3`, for 0s)은 재구성이 되풀이해 실패하는 상태다. P2에서는 파티션이 하나라 `PartitionLeaderAbsent`가 `LeaderAbsent`와 함께 뜬다. 규칙 시험 `harness/prometheus/tests/exchange-alerts.test.yml`에 세 경보의 발화·미발화 사례를 더한다. `PartitionBreakerOpen`은 두 인스턴스 가운데 하나만 차단된 시계열에서 그 인스턴스로만 발화하는지 본다. `promtool check config`·`check rules`·`test rules`(`.github/workflows/ci-backend.yml`의 observability 잡과 같은 이미지 `prom/prometheus:v3.13.0`)는 코드 단계에서 통과했다.
 
 `TradeSilence`가 체결 0을 본다. 체결 0은 평온이거나 사망인데 그 둘을 가르는 것이 봇 플릿의 24시간 기저 트래픽이다(정본 §7.10).
 
@@ -534,7 +544,7 @@ Kafka, RabbitMQ, Tempo, Loki, Gatling, k3d, 커스텀 PostgreSQL 이미지는 �
 
 ### 8-2. 결정이 필요한 것
 
-1. **미참조 메트릭 29개.** 방출은 하는데 규칙도 대시보드도 보지 않는다. 걷을지 걸지 정한다.
+1. **미참조 메트릭 47개.** 방출은 하는데 규칙도 대시보드도 보지 않는다. 걷을지 걸지 정한다. 2026-09-24 ADR 0034 S4 코드 판에서 다시 셌다(§5-2, 7단계 판은 29개).
 2. **`app_role`·`harness_role` 미배선.** 스키마의 롤 경계를 런타임에 세울지, 스키마에서 뺄지 정한다.
 3. **브로커 지위.** Kafka·RabbitMQ를 정본 비채택표에 올릴지 로드맵에 둘지 정한다. `outbox` 테이블은 실재하고 발행기만 없다.
 4. **`develop` 브랜치.** 네 워크플로가 트리거에 적는데 원격에 없다. 만들거나 트리거에서 뺀다.

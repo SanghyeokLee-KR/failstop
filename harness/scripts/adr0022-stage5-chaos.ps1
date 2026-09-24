@@ -13,6 +13,12 @@
 # 예약 0, 리더 노드의 정지·강등 문구 0, 장애 창 밖 ReservationUnsettledStale 0)을 s3_common.json 에 남긴다. 실험 판정이 PASS 여도
 # 공통 판정이 거짓이면 분리 판정은 FAIL(공통 판정)이다.
 # -Protocol 2 의 분리 판정에는 설계 7-3 X2·X3 의 사전 규칙(rpo_records 0, 사후 권위 run C13A 0)도 건다(FAIL(rpo_records)).
+# -PartitionAxes 이면 ADR 0034 S4 관문 주행이다(마켓분할_리더_S4_설계 7-2 X2~X5). 실험 스크립트 전후로
+# harness/scale/s4_partition_axes.py snapshot 을 뜨고, 끝나면 judge 로 파티션 축(창 밖 접수 경합 상한, 창 밖 파티션 경보 0,
+# 리더 노드 강등 0, LB 로그의 no live upstreams·502 기록)을 partition_axes.json 에 남긴다. 거짓이면 분리 판정은 FAIL(파티션 축)이다.
+# E5·E7 은 공통 판정에 옛 리더 강등 문구의 양성 대조(--expect-demotion)를 더한다. E4 는 판정 뒤 합류 단계를 둔다. docker kill 한
+# 옛 리더를 docker start 로 되살려 180초 안에 팔로워로 합류하는지(부팅 획득 없음, 리스 행 불변, 강등 계수 0) 보고 rejoin.json 에
+# 남긴다. 합류가 거짓이면 분리 판정은 FAIL(합류)다. -PartitionAxes 는 -Protocol 2 와 함께만 돈다.
 # 사용: pwsh -NoProfile -File harness/scripts/adr0022-stage5-chaos.ps1 -Image exchange-chaos-app:<태그> [-LatchBeforeTraffic] [-SnapshotEvidence] [-Protocol 2]
 # 실험마다 down -v 를 하므로 보존 스택(CHAOS_PROJECT 미설정 또는 exchange-chaos)에서는 시작하지 않는다(하네스 검증설계 §2-4 보존
 # 스택 가드). 환경 변수가 빠지면 프로젝트가 exchange-chaos 가 되어 보존 볼륨을 지우기 때문이다. 이미지 태그는 절차가 정한다
@@ -28,7 +34,9 @@ param(
     [switch] $LatchBeforeTraffic,
     [switch] $SnapshotEvidence,
     [int] $SnapshotWaitSec = 180,
-    [ValidateSet(1, 2)][int] $Protocol = 1
+    [ValidateSet(1, 2)][int] $Protocol = 1,
+    [switch] $PartitionAxes,
+    [int] $RejoinTimeoutSec = 180
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,7 +46,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $date = Get-Date -Format 'yyyyMMdd'
-$runName = $(if ($SnapshotEvidence) { 'adr0022-stage7-snapshot' } elseif ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } elseif ($Protocol -eq 2) { 'pml-s3-chaos' } else { 'adr0022-stage5' })
+$runName = $(if ($SnapshotEvidence) { 'adr0022-stage7-snapshot' } elseif ($LatchBeforeTraffic) { 'adr0022-stage6-chaos' } elseif ($PartitionAxes) { 'pml-s4-chaos' } elseif ($Protocol -eq 2) { 'pml-s3-chaos' } else { 'adr0022-stage5' })
 $runDir = "$runName-$date"
 if ($SnapshotEvidence) { $runDir = Join-Path $runDir $(if ($LatchBeforeTraffic) { 'band' } else { 'global' }) }
 if (-not $EvidenceDir) { $EvidenceDir = Join-Path $repo "harness\evidence\$runDir" }
@@ -125,6 +133,54 @@ function Get-DockerEvents {
     return , $events
 }
 
+# E4 합류 단계(S4 설계 7-2 X2). docker kill 한 옛 리더를 되살려 팔로워로 합류하는지 본다. '기동은 늘 팔로워'의 스택 확인이다.
+# 되살린 노드가 liveness UP 과 팔로워 상태 1 을 내고 /actuator/partitions 에서 FOLLOWER 이며, 그 노드 로그에 승격 문구가 없고
+# (부팅 획득 없음), leader_lease 의 holder·epoch 가 되살리기 전과 같고, 그 노드의 파티션 강등 계수가 0 이어야 참이다.
+function Invoke-RejoinStep {
+    param([string] $Dir)
+    $res = [ordered]@{ ok = $false }
+    $ports = @{ 'chaos-api-1' = $Global:CHAOS.Api1Port; 'chaos-api-2' = $Global:CHAOS.Api2Port }
+    $stopped = @('chaos-api-1', 'chaos-api-2' | Where-Object { (& docker inspect -f '{{.State.Running}}' $_ 2>$null | Out-String).Trim() -ne 'true' })
+    if ($stopped.Count -ne 1) { $res['사유'] = "멈춘 api 노드가 하나가 아니다($($stopped -join ','))"; Save-Text (Join-Path $Dir 'rejoin.json') ($res | ConvertTo-Json -Depth 6); return $res }
+    $node = $stopped[0]; $port = $ports[$node]
+    $res['node'] = $node
+    $leaseSql = "SELECT coalesce(json_agg(json_build_object('resource', resource, 'holder', holder, 'epoch', epoch) ORDER BY resource), '[]'::json) FROM leader_lease"
+    $leaseBefore = Invoke-Psql $leaseSql
+    $startedAt = [DateTimeOffset]::UtcNow
+    Write-RunLog "REJOIN docker start $node"
+    & docker start $node *> $null
+    $res['startRc'] = $LASTEXITCODE
+    $joined = Wait-For {
+        $live = $false
+        try { $live = (Invoke-RestMethod -Uri "http://localhost:$port/actuator/health/liveness" -TimeoutSec 3).status -eq 'UP' } catch { $live = $false }
+        $state = Get-AppMetric -Port $port -Pattern 'exchange_follower_catchup_state\{[^}]*\}\s+([-0-9.eE]+)'
+        $parts = $null
+        try { $parts = Invoke-RestMethod -Uri "http://localhost:$port/actuator/partitions" -TimeoutSec 3 } catch { $parts = $null }
+        $follower = $parts -and @($parts.partitions | Where-Object { $_.state -ne 'FOLLOWER' }).Count -eq 0 -and @($parts.partitions).Count -gt 0
+        $live -and ($null -ne $state) -and ([double]$state -eq 1) -and $follower
+    } -TimeoutSec $RejoinTimeoutSec -PollSec 2
+    $res['joinedAt'] = $(if ($joined) { $joined.ToString('o') } else { $null })
+    $res['joinSeconds'] = $(if ($joined) { [math]::Round(($joined - $startedAt.UtcDateTime).TotalSeconds, 1) } else { $null })
+    $since = $startedAt.ToUnixTimeSeconds()
+    $logText = (& cmd /c "docker logs --since $since $node 2>&1" | Out-String)
+    $res['promotionLines'] = ([regex]::Matches($logText, '리더 승격')).Count
+    $res['followerBootLines'] = ([regex]::Matches($logText, '팔로워로 기동')).Count
+    $leaseAfter = Invoke-Psql $leaseSql
+    $res['leaseBefore'] = $leaseBefore; $res['leaseAfter'] = $leaseAfter
+    $demotions = 0.0; $scraped = $false
+    try {
+        $text = Invoke-RestMethod -Uri "http://localhost:$port/actuator/prometheus" -TimeoutSec 5
+        $scraped = $true
+        foreach ($m in [regex]::Matches(($text | Out-String), 'exchange_partition_demotions_total\{[^}]*\}\s+([-0-9.eE]+)')) { $demotions += [double]$m.Groups[1].Value }
+    } catch { $scraped = $false }
+    $res['demotions'] = $(if ($scraped) { $demotions } else { $null })
+    $res['ok'] = [bool]$joined -and $res['promotionLines'] -eq 0 -and $res['followerBootLines'] -ge 1 -and
+        ($leaseBefore -eq $leaseAfter) -and $scraped -and $demotions -eq 0
+    Save-Text (Join-Path $Dir 'rejoin.json') ($res | ConvertTo-Json -Depth 6)
+    Write-RunLog ("REJOIN {0} ok={1} joinSeconds={2} promotionLines={3}" -f $node, $res['ok'], $res['joinSeconds'], $res['promotionLines'])
+    return $res
+}
+
 function Invoke-Experiment {
     param([string] $Exp)
     $dir = Join-Path $EvidenceDir $Exp
@@ -194,12 +250,19 @@ function Invoke-Experiment {
                 '--filter', 'type=container', '--filter', 'type=network') `
             -RedirectStandardOutput $eventsPath -RedirectStandardError (Join-Path $dir 'docker_events.err')
 
+        if ($PartitionAxes) {
+            $row['partitionAxes'] = [ordered]@{ pre = (Invoke-Logged 'python' @('harness/scale/s4_partition_axes.py', 'snapshot', '--out',
+                (Get-RelPath (Join-Path $dir 'partition_pre.json'))) (Join-Path $dir 'partition_pre.log')) }
+        }
         $t0 = [DateTimeOffset]::UtcNow
         $console = Join-Path $dir 'console.log'
         Write-RunLog "EXPERIMENT $Exp pwsh -NoProfile -File $($row.script)"
         $eap = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
-        try { & pwsh -NoProfile -File (Join-Path $PSScriptRoot $scripts[$Exp]) *> $console; $expRc = $LASTEXITCODE }
+        # S4 관문의 COLD 는 '기동은 늘 팔로워'를 판정에 더한다(S4 설계 7-2 X5).
+        $expArgs = @()
+        if ($PartitionAxes -and $Exp -eq 'COLD') { $expArgs += '-S4Boot' }
+        try { & pwsh -NoProfile -File (Join-Path $PSScriptRoot $scripts[$Exp]) @expArgs *> $console; $expRc = $LASTEXITCODE }
         finally { $ErrorActionPreference = $eap }
         $t1 = [DateTimeOffset]::UtcNow
         Write-RunLog "EXPERIMENT $Exp rc=$expRc"
@@ -231,12 +294,19 @@ function Invoke-Experiment {
         }
 
         # 여기부터 down -v 전 증거. 카오스 볼륨과 컨테이너가 사라지면 다시 뜰 수 없다.
+        if ($PartitionAxes -and $Exp -eq 'E4') {
+            # 합류 단계(S4 설계 7-2 X2). 공통 판정 전에 돈다. 봇을 멈추기 전이라 새 리더가 부하를 받는 동안 합류한다.
+            $row['rejoin'] = Invoke-RejoinStep $dir
+        }
         if ($Protocol -eq 2) {
             # 공통 판정(S3 설계 7-3). 봇을 멈추고 드레인한 뒤 판정하므로 뒤의 증거 수집은 무부하 상태에서 돈다.
-            $commonRc = Invoke-Logged 'python' @('harness/scale/s3_common_axes.py', 'judge', '--window-from', $stackFrom.ToString('o'),
+            $commonArgs = @('harness/scale/s3_common_axes.py', 'judge', '--window-from', $stackFrom.ToString('o'),
                 '--fault-from', $t0.ToString('o'), '--fault-to', $t1.ToString('o'),
                 '--samples', (Get-RelPath (Join-Path $dir 'balance_samples.jsonl')),
-                '--out', (Get-RelPath (Join-Path $dir 's3_common.json'))) (Join-Path $dir 's3_common.log')
+                '--out', (Get-RelPath (Join-Path $dir 's3_common.json')))
+            # 옛 리더 강등 문구의 양성 대조(S4 설계 7-2). 문구가 코드와 어긋나면 리더 노드 축이 공허하게 통과한다.
+            if ($PartitionAxes -and @('E5', 'E7') -contains $Exp) { $commonArgs += '--expect-demotion' }
+            $commonRc = Invoke-Logged 'python' $commonArgs (Join-Path $dir 's3_common.log')
             $common = $null
             $commonPath = Join-Path $dir 's3_common.json'
             if (Test-Path $commonPath) { $common = Get-Content $commonPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable }
@@ -245,6 +315,22 @@ function Invoke-Experiment {
                 reservations = $(if ($common -and $common['state']) { $common['state']['reservations'] } else { $null })
                 reservedSettledByLaterEpoch = $(if ($common -and $common['state']) { $common['state']['reserved_settled_by_later_epoch'] } else { $null })
                 file = 's3_common.json' }
+        }
+        if ($PartitionAxes) {
+            $postRc = Invoke-Logged 'python' @('harness/scale/s4_partition_axes.py', 'snapshot', '--out',
+                (Get-RelPath (Join-Path $dir 'partition_post.json'))) (Join-Path $dir 'partition_post.log')
+            $axesRc = Invoke-Logged 'python' @('harness/scale/s4_partition_axes.py', 'judge', '--window-from', $stackFrom.ToString('o'),
+                '--fault-from', $t0.ToString('o'), '--fault-to', $t1.ToString('o'),
+                '--pre', (Get-RelPath (Join-Path $dir 'partition_pre.json')), '--post', (Get-RelPath (Join-Path $dir 'partition_post.json')),
+                '--out', (Get-RelPath (Join-Path $dir 'partition_axes.json'))) (Join-Path $dir 'partition_axes.log')
+            $axes = $null
+            $axesPath = Join-Path $dir 'partition_axes.json'
+            if (Test-Path $axesPath) { $axes = Get-Content $axesPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable }
+            $row['partitionAxes']['post'] = $postRc
+            $row['partitionAxes']['rc'] = $axesRc
+            $row['partitionAxes']['ok'] = $(if ($axes) { $axes['ok'] } else { $false })
+            $row['partitionAxes']['failed'] = $(if ($axes -and $axes['axes']) { @($axes['axes'].Keys | Where-Object { -not $axes['axes'][$_] }) } else { @('판정 파일 없음') })
+            $row['partitionAxes']['file'] = 'partition_axes.json'
         }
         if ($SnapshotEvidence) {
             # 판정은 재생 적용 줄의 구간 안 행 수로 세므로 실험 뒤에 쌓인 새 명령이 이 증거를 흐리지 않는다.
@@ -291,7 +377,10 @@ function Invoke-Experiment {
 
         New-Item -ItemType Directory -Force -Path $LocalLogDir | Out-Null
         $logs = @()
-        foreach ($c in 'chaos-api-1', 'chaos-api-2', 'chaos-bots', 'chaos-pg', 'chaos-toxiproxy') {
+        $logContainers = @('chaos-api-1', 'chaos-api-2', 'chaos-bots', 'chaos-pg', 'chaos-toxiproxy')
+        # S4 관문은 LB 로그의 no live upstreams·502 를 창 안팎으로 기록하므로 그 원문도 남긴다(S4 설계 7-2).
+        if ($PartitionAxes) { $logContainers += 'chaos-lb' }
+        foreach ($c in $logContainers) {
             $path = Join-Path $LocalLogDir "$Exp-$c.log"
             & cmd /c "docker logs $c > `"$path`" 2>&1"
             if (Test-Path $path) {
@@ -355,6 +444,8 @@ function Invoke-Experiment {
             elseif ($expVerdict -eq 'SKIP') { 'NOT RUN(시계 스큐 SKIP)' }
             else { $expVerdict })
         if ($Protocol -eq 2 -and $row['분리 판정'] -eq 'PASS' -and -not $row['s3Common'].ok) { $row['분리 판정'] = 'FAIL(공통 판정)' }
+        if ($PartitionAxes -and $row['분리 판정'] -eq 'PASS' -and -not $row['partitionAxes'].ok) { $row['분리 판정'] = 'FAIL(파티션 축)' }
+        if ($PartitionAxes -and $Exp -eq 'E4' -and $row['분리 판정'] -eq 'PASS' -and -not $row['rejoin'].ok) { $row['분리 판정'] = 'FAIL(합류)' }
         # 설계 7-3 X2·X3 의 사전 규칙(rpo_records 0, 사후 권위 run C13A 0)을 분리 판정에 건다. 실험 스크립트의 판정은 C13A 를 게이팅에서
         # 빼고(lib.ps1 CHAOS_GATING_EXEMPT_CHECKS) E7 은 부하를 멈추지 않은 채 사후 run 을 뜬다. 이 축이 없으면 rpo_records 가 1 인
         # 주행이 PASS 로 남는다(S3 구현 검토, 관문 X3 반복 r1·r2). 물질화 전 NEW 를 센 것인지는 판정을 바꾸지 않고 증거에 적는다.
@@ -440,6 +531,7 @@ if ($Global:CHAOS.Project -eq 'exchange-chaos') { Write-Host 'CHAOS_PROJECT 가 
 if ($Protocol -eq 2 -and ($Global:CHAOS.Project -ne 'exchange-pml' -or $Image -ne 'exchange-chaos-app:pml')) {
     Write-Host "S3 경로(-Protocol 2)는 CHAOS_PROJECT=exchange-pml, -Image exchange-chaos-app:pml 에서만 돈다(지금 $($Global:CHAOS.Project), $Image)."; exit 5
 }
+if ($PartitionAxes -and $Protocol -ne 2) { Write-Host '-PartitionAxes 는 -Protocol 2 와 함께만 돈다(S4 설계 7-1).'; exit 5 }
 $wanted = @($Experiments.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $unknown = @($wanted | Where-Object { -not $scripts.Contains($_) })
 if ($unknown.Count -gt 0) { Write-Host ('이 절차에 없는 실험: {0}' -f ($unknown -join ', ')); exit 5 }
@@ -463,6 +555,7 @@ $summary = [ordered]@{
     harnessCommit = (& git -C $repo rev-parse HEAD | Out-String).Trim()
     latchBeforeTraffic = [bool]$LatchBeforeTraffic
     protocol = $Protocol
+    partitionAxes = [bool]$PartitionAxes
     project = $Global:CHAOS.Project
     springProfiles = $env:CHAOS_SPRING_PROFILES
     snapshotEvidence = [bool]$SnapshotEvidence

@@ -1,0 +1,1 @@
+{"variant": "b", "ok": false, "failed": ["M_201_or_market_429"], "record": {"M_429": 13, "M_201_latency_max_ms": 2019.7}, "contention_delta": {"lock_wait|429": 23.0, "55P03|429": 21.0}}

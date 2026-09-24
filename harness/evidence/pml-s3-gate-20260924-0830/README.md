@@ -21,7 +21,7 @@
 
 세 이미지는 모두 작업 트리 `C:\dev\exchange-pml`(브랜치 `claude/per-market-leader`, HEAD `909af89`)의 커밋하지 않은 S3 변경으로 구웠다. 이 단계는 커밋하지 않는다. 최종 이미지의 jar 해시와 추적 파일 diff 해시는 [images.json](images.json)에 있다. 앱 노드는 compose 한도 1 vCPU·1 GiB이고 Windows 11 Docker Desktop 단일 호스트다. 이 기록은 AWS의 장애나 처리량을 대신하지 않는다.
 
-## X1 P2 봇 부하와 불변식 전체 (앱 역할 로그인, V49 이미지 관문 겸함) — PASS
+## X1 P2 봇 부하와 불변식 전체 (앱 역할 로그인, V49 이미지 관문 겸함): PASS
 
 프로필 `dev,chaos-monkey,prod-timeouts`로 소유자 로그인 스택을 세워 api-1이 V1~V52를 적용하게 했다(`flyway_schema_history` 53행, 최대 52, 실패 0). 배포와 같은 [provision-runtime-roles.sql](../../../deploy/provision-runtime-roles.sql)로 런타임 로그인 `pml_app`·`pml_bot`·`pml_read`를 만들고(비밀번호는 실행마다 무작위, 기록하지 않음) S2 관문의 [앱 로그인 오버레이](../pml-s2-gate-20260924-0440/override-app-login.yml)로 api·봇을 다시 만들었다. P1 리더(epoch 2)가 선 뒤 [protocol_latch.py](../../scale/protocol_latch.py)로 P2로 전환하고 봇 목표를 300 OPS로 올려 10분 돌렸다. 봇 플릿이 실제로 낸 주문은 약 27.5/s(16,476건)다.
 
@@ -41,7 +41,7 @@
 
 첫 회(run1)는 권위 run이 HTTP 500이고 api-1 로그에 `permission denied`가 한 줄이라 FAIL이었다([run1-8420864a/X1/result.json](run1-8420864a/X1/result.json)). 폐기용 컨테이너에서 앱 역할 로그인으로 체크마다 문장을 돌려 C15와 C27만 잎 권한으로 거부됨을 확인했고([approle_check_probe.py](run1-8420864a/X1/approle_check_probe.py), [결과](run1-8420864a/X1/approle_check_probe.json)), V51을 넣은 run2와 최종 이미지에서 PASS다.
 
-## X2~X4 장애 실험 (P2, prod 타임아웃) — 본 회차 PASS, X3 반복 r1·r2 FAIL
+## X2~X4 장애 실험 (P2, prod 타임아웃): 본 회차 PASS, X3 반복 r1·r2 FAIL
 
 [adr0022-stage5-chaos.ps1](../../scripts/adr0022-stage5-chaos.ps1) `-Protocol 2`로 실험마다 스택을 새로 세우고, 실험 스크립트 전에 P2로 전환했다. 실험 뒤에는 스택을 내리기 전에 [s3_common_axes.py](../../scale/s3_common_axes.py)가 봇을 멈추고 드레인한 뒤 공통 판정 축을 모은다(`s3_common.json`). 모드 전환은 실험마다 epoch 1(P1 리더) -> 퇴역 2·3·4 -> P2 리더 5였고, 장애 뒤 새 리더는 6이다(전환 뒤 epoch + 1).
 
@@ -65,11 +65,11 @@ run2 X3(V52 전 이미지)은 FAIL이다([run2-5fdc5b95/X3](run2-5fdc5b95/X3/)).
 
 run2의 X2(첫 회, 공통 판정 수집 전)는 [run2-5fdc5b95/X2-first-nocommon](run2-5fdc5b95/X2-first-nocommon/)에, 공통 판정 수집을 더하려고 기동 직후 멈춘 X3 시도는 [run2-5fdc5b95/X3-aborted](run2-5fdc5b95/X3-aborted/)에 남겼다.
 
-## X5 처리량과 결정 5 — 단일 마켓 PASS, 12마켓 NOT RUN(잡음), 결정 5 미판정
+## X5 처리량과 결정 5: 단일 마켓 PASS, 12마켓 NOT RUN(잡음), 결정 5 미판정
 
 [roundtrip_probe.py](../../scale/roundtrip_probe.py)의 독립 칸을 P1a·P2a·P1b·P2b 순서로 돌렸다. 칸마다 `-p exchange-pml` 스택과 볼륨을 지우고 다시 세운 뒤, P2 칸은 예열 전에 전환하고(`--protocol-before-traffic 2`), 부하 계정 16개를 재발급하고, 봇 20 ops로 예열한 다음 k6를 130초 돌렸다. 프로필은 기본값(`dev,chaos-monkey`)이고 append 분포는 S2 관문의 [계측 오버레이](../pml-s2-gate-20260924-0440/override-append-histogram.yml)로 켰다. 원자료는 [X5/](X5/)의 칸 파일, 판정은 [judge_x5.py](judge_x5.py)가 낸 [X5/judge.json](X5/judge.json)이다. 모든 칸에서 400은 0건(자금 부족 없음)이고 드레인 뒤 `summary.sql`의 CRITICAL·HIGH가 PASS, 교착 증가와 정산 재시도는 0이다.
 
-(ii) 단일 마켓(KRW-BTC) 300/s 과포화 — PASS. 판정값은 주행 창의 KRW-BTC k6 NEW 수 / 130초다.
+(ii) 단일 마켓(KRW-BTC) 300/s 과포화: PASS. 판정값은 주행 창의 KRW-BTC k6 NEW 수 / 130초다.
 
 | 칸 | 접수율(/s) | 명령당 접수 락 보유(ms) | 머리말(ms) | 커밋(ms) | append p95/p99(ms) | 라이터 직렬(ms/명령) | 예약 행 |
 |---|---:|---:|---:|---:|---|---:|---:|
@@ -80,7 +80,7 @@ run2의 X2(첫 회, 공통 판정 수집 전)는 [run2-5fdc5b95/X2-first-nocommo
 
 평균 P1 134.9/s, P2 186.1/s, 손실 L = -0.380(P2가 약 38% 많이 받았다), 잡음 n = 0.014다. 모든 칸이 요청률의 80%(240/s) 아래라 과포화다. 명령당 접수 락 보유는 P2에서 2.19ms에서 약 5.1ms로 늘었다(락 보유 비 0.57). 그런데 P1 칸은 접수 락이 아니라 라이터에서 막혔다. P1 라이터의 명령당 직렬 시간 7.4~7.5ms는 초당 약 133건이 한계이고 접수 락 점유는 0.29였다. P2는 정산이 예약을 다시 하지 않아 라이터 직렬 시간이 5.33ms로 줄었고, 대신 접수 락 점유가 0.96으로 접수 락에서 막혔다. 설계 4-17이 적은 두 직렬 구간 가운데 이 스택의 단일 마켓에서는 P1의 라이터가 더 좁았다.
 
-(i) 12마켓 600/s — NOT RUN(잡음 규칙). 판정값은 k6 주행 중 1분 창의 주문 201/s다.
+(i) 12마켓 600/s: NOT RUN(잡음 규칙). 판정값은 k6 주행 중 1분 창의 주문 201/s다.
 
 | 칸 | 접수 201/s | 명령당 접수 락 보유(ms) | 머리말(ms) | 저널 삽입(ms) | 커밋(ms) | append p95/p99(ms) | 라이터 직렬(ms/명령) | 팔로워 503 | 예약 행 |
 |---|---:|---:|---:|---:|---:|---|---:|---:|---:|
@@ -97,7 +97,7 @@ P1a·P1b의 잡음 n = 0.106이 0.10을 넘어 규칙대로 P1c·P2c를 더 돌�
 
 결정 5는 두 측정이 모두 PASS여야 통과이고 NOT RUN이 남으면 판정하지 않은 것이다(설계 7-3). 그래서 결정 5는 미판정이고 S4로 넘어가지 않는다. FAIL은 아니므로 설계 4-17의 2단계 예약 검토는 규칙상 시작 조건이 아니다. 다만 12마켓의 접수 락 보유 증가가 되풀이됐으므로, 조용한 환경에서 600/s 측정을 다시 할 때 FAIL이면 그 검토가 바로 필요하다.
 
-## X7 감사 문장의 누적 행 비용 — PASS
+## X7 감사 문장의 누적 행 비용: PASS
 
 스택 없이 폐기용 `postgres:17-alpine` 컨테이너 하나(`--rm`, 127.0.0.1 무작위 포트, 이름 `pml-probe-s3scale-x7-*`)에서 [X7/s3-scale-probe-12m.sh](X7/s3-scale-probe-12m.sh)를 돌렸다. 저장소의 V0~V52를 올리고 12마켓 시드([X7/seed-12m.sql](X7/seed-12m.sql)) 위에 P2 epoch의 합성 주문 생성 명령을 넣었다. 명령마다 예약 행, SEALED RESERVE 거래와 분개 둘을 두고, 마켓마다 마지막 300건을 뺀 나머지는 정산된 것처럼 두었다([X7/s3-scale-apply-12m.sh](X7/s3-scale-apply-12m.sh)). 트리거를 끄고 넣은 합성 행이라 원장 균형과 잔고 정합은 성립하지 않고 시간만 본다(C14' 값 12는 그 결과다). 문장은 문서 사본이 아니라 코드에서 뽑았다([extract_sql.py](extract_sql.py): 앱 C14'·C31 앱 판·C05, `ReservationBacklogMonitor` 게이지, 하네스 C31 전수 판, 전환 선행 조건). 권위 run과 같은 `BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY` 안에서 `EXPLAIN (ANALYZE, BUFFERS)`를 두 번 돌려 둘째 `Execution Time`을 썼다([stmt_timing.py](stmt_timing.py)). 컨테이너가 보는 CPU는 16, 메모리는 약 15.2GiB이고 PostgreSQL 17.10 기본 설정(shared_buffers 160MB, work_mem 4MB, JIT 켬)이다.
 
@@ -112,7 +112,7 @@ P1a·P1b의 잡음 n = 0.106이 0.10을 넘어 규칙대로 P1c·P2c를 더 돌�
 
 적재와 `VACUUM ANALYZE`는 100만 건 42초·DB 1,903MB, 1,000만 건 596초·18GB였다. 잎 수는 두 DB 모두 `command_journal` 16, `event_journal`·`ledger_entries`·`trades` 15다. 원자료는 [X7/n1000000](X7/n1000000/)과 [X7/n10000000](X7/n10000000/)의 `probe.log`·`timings.json`·`plans/`다. 문턱 셋은 모두 채웠다. 커서로 경계를 둔 C14'·게이지와 창을 둔 C31 앱 판은 행 수가 열 배가 돼도 시간이 거의 그대로였고, 전수 판 셋(C31 전수, 전환 선행 조건, C05)은 행 수에 비례했다. C31 전수 판은 1,000만 건에서 65초라 psql 경로(하네스 SQL, 복원 점검)에서만 돌린다는 설계(4-12)가 그대로 필요하다. 전환 선행 조건 2초는 정지 창에서 한 번 부르는 문장이다. 예비 측정(run1, 저장소 V0~V50)의 100만 건 값은 [run1-8420864a/X7-n1000000](run1-8420864a/X7-n1000000/)에 있고 이 판정과 같은 결론이다.
 
-## X6 R1 스택 판 — NOT RUN
+## X6 R1 스택 판: NOT RUN
 
 설계 7-3 X6은 S2 이미지를 이미지 id로 띄워야 한다. 이 단계의 규칙은 실험 스택을 `exchange-chaos-app:pml` 태그로만 띄우는 것이고, 그 태그는 S3 이미지로 옮겨졌다. 이미지 id로 띄우는 것도 태그 규칙 밖이라 돌리지 않았다. 6-2의 `ProtocolRollbackR1Test`가 Testcontainers 일회용 DB에서 일부를 대신한다. 그 시험은 P2 -> P1 되돌림 뒤 S3 바이너리의 P1 경로와 전량 재생 결정론을 보고, 구현 검토 뒤에는 S2 바이너리의 SQL(3인자 획득, 6인자 머리말, 저널 행 함수, 정산 머리말, 2인자 게시)로 리더가 되어 P2 예약 주문과 체결·취소하는 단계를 더했다. 정산 본체는 S3 바이너리의 P1 정산이라 S2 이미지 자체를 띄운 판은 아니다(부분 대체).
 

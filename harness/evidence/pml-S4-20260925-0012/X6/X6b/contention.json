@@ -1,0 +1,753 @@
+{
+  "variant": "b",
+  "iterations": 10,
+  "lock_sec": 5.0,
+  "started": "2026-09-24T15:29:49Z",
+  "finished": "2026-09-24T15:30:40Z",
+  "accounts": {
+    "L_user_id": 1447,
+    "M_user_id": 1448
+  },
+  "contention_delta": {
+    "55P03|429": 22.0,
+    "lock_wait|429": 28.0
+  },
+  "record": {
+    "M_429": 15,
+    "M_429_by_bucket": {
+      "market": 15
+    },
+    "M_201": 35,
+    "M_201_latency_max_ms": 2019.3,
+    "admission_rejected_order_delta": 28.0
+  },
+  "axes": {
+    "L_all_429": true,
+    "L_no_journal_rows": true,
+    "M_201_or_429_market_or_node": true,
+    "M_no_5xx": true
+  },
+  "ok": true,
+  "rows": [
+    {
+      "i": 0,
+      "L": [
+        {
+          "coid": "x6bL-0aa85fce2aa245158692",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1010.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-a707375a65c940bfa059",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2012.0,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-8946a709452e43f08af4",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2010.2,
+          "replay": false
+        }
+      ],
+      "M": [
+        {
+          "coid": "x6bM-491c0334337548ac9715",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 2018.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-1bf0ec1773244bfebdfa",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1835.4,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-05430f3ef9714c959d74",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1645.5,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-e9189e9a100a41439218",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1448.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-e810e6e4568e45eea70d",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1251.3,
+          "replay": false
+        }
+      ],
+      "L_rows": 0
+    },
+    {
+      "i": 1,
+      "L": [
+        {
+          "coid": "x6bL-15166f5f0a4848628081",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-633047a2eb28494896fa",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2009.2,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-c71009b271ac47e8ad27",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2012.9,
+          "replay": false
+        }
+      ],
+      "M": [
+        {
+          "coid": "x6bM-9812db4e85854d8bba90",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2008.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-bd50136c3e094c5b8854",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1833.5,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-259a07c7a8e44b22a1bf",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1636.4,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-dfb35b80c9f348a89c36",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1452.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-477855a558a3421296d2",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1267.3,
+          "replay": false
+        }
+      ],
+      "L_rows": 0
+    },
+    {
+      "i": 2,
+      "L": [
+        {
+          "coid": "x6bL-764a47bbe3d14f1d8334",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1015.1,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-c5a0e45b1794439dbea2",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2018.0,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-8887c8ff0b81406f9cd3",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2011.0,
+          "replay": false
+        }
+      ],
+      "M": [
+        {
+          "coid": "x6bM-a9851aeee595441c8de0",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2009.9,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-8519d7e53cd846258bf2",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1843.6,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-53409862b5474001a38c",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1667.4,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-c12c149ab8104ea48f05",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1470.7,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-57cfa0a078ce415e9b82",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1288.0,
+          "replay": false
+        }
+      ],
+      "L_rows": 0
+    },
+    {
+      "i": 3,
+      "L": [
+        {
+          "coid": "x6bL-610aea52c05f487da8e8",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1010.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-753988eb0bcd4426b765",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2008.0,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-091bf38c22864e4299cc",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2012.5,
+          "replay": false
+        }
+      ],
+      "M": [
+        {
+          "coid": "x6bM-d6c8147f6bae4b0ea74a",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 2018.5,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-d905873ebed841bea016",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1862.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-dfc31829d73145fc9131",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1669.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-56bc13cae170423fba7d",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1473.2,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-9fd6605d515d4715a4d8",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1276.7,
+          "replay": false
+        }
+      ],
+      "L_rows": 0
+    },
+    {
+      "i": 4,
+      "L": [
+        {
+          "coid": "x6bL-ca092cf927884ed89704",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2014.0,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-e7960eb532f34a7fb9d8",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1012.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-be170ba5f5164f94883e",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 3016.1,
+          "replay": false
+        }
+      ],
+      "M": [
+        {
+          "coid": "x6bM-816d2430f85349c3b4c5",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2008.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-7e783cb65ce14764b9a9",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2007.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-7a777d8319ab46769de5",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2018.2,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-3496a78a145f4eaaab0e",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2008.0,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-0e2eb6b28b8c4410a746",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2011.7,
+          "replay": false
+        }
+      ],
+      "L_rows": 0
+    },
+    {
+      "i": 5,
+      "L": [
+        {
+          "coid": "x6bL-b7d76ec6a2624082848c",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2013.5,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-b4f6e1cc03d3400aa431",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1010.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-22d68ce5fe604db99c4c",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2009.5,
+          "replay": false
+        }
+      ],
+      "M": [
+        {
+          "coid": "x6bM-42d78b51e3e446f1855f",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2012.7,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-7d40df3241bc45de86d1",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1866.6,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-01330de39562476d82e4",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1670.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-2cc353d4d7494313bfe4",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1473.9,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-177770af01c543da9045",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1277.3,
+          "replay": false
+        }
+      ],
+      "L_rows": 0
+    },
+    {
+      "i": 6,
+      "L": [
+        {
+          "coid": "x6bL-7beb5a40ed574db8925b",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2014.6,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-0de5fe633dd141519faa",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1013.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-87e673f38e9e4be489f9",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 3017.5,
+          "replay": false
+        }
+      ],
+      "M": [
+        {
+          "coid": "x6bM-e82c0c35838d4b399a26",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2008.5,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-a518baa332f2427596c4",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2007.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-75291caeb8d64f138c0e",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2011.2,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-03c7c3322c8845b6abbb",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2009.7,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-d5b8feda8cb040cf9191",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2009.2,
+          "replay": false
+        }
+      ],
+      "L_rows": 0
+    },
+    {
+      "i": 7,
+      "L": [
+        {
+          "coid": "x6bL-56a31e23dce847e4b47f",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2015.6,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-30ae7d0c19f2420dad7a",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1012.6,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-dd1ec8e92547492f92bd",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2008.4,
+          "replay": false
+        }
+      ],
+      "M": [
+        {
+          "coid": "x6bM-ed1ba8f2e325462c876e",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2011.1,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-79002391e9a243f99af2",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1844.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-c1b155c6a0bc4611abdd",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1662.4,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-e711e8e711604a768b48",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1465.6,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-e84cde4d70a142f28ec6",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1283.0,
+          "replay": false
+        }
+      ],
+      "L_rows": 0
+    },
+    {
+      "i": 8,
+      "L": [
+        {
+          "coid": "x6bL-65b3270dcb2a4a9f8a86",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-40081128cbb544a29d24",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2012.9,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-bfb6da2fc7fe498e81da",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2009.2,
+          "replay": false
+        }
+      ],
+      "M": [
+        {
+          "coid": "x6bM-e92d7778303a4456a26d",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 2019.3,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-544d8310e2ef4725a928",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1833.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-ca888774a78143af898b",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1653.0,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-af2ee87fe2714ee89338",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1456.5,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-f2a47405478b456b801f",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1273.9,
+          "replay": false
+        }
+      ],
+      "L_rows": 0
+    },
+    {
+      "i": 9,
+      "L": [
+        {
+          "coid": "x6bL-096e04d1497e45cb88c4",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2008.7,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-117e9fb663554662a984",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2013.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bL-150d988766ad450d9069",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 1011.5,
+          "replay": false
+        }
+      ],
+      "M": [
+        {
+          "coid": "x6bM-dc14620a02bb46b982a4",
+          "status": 429,
+          "name": "too_many_requests",
+          "bucket": "market",
+          "ms": 2008.1,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-1d2d28881bd1481da90f",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1833.6,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-4b15adc5b99742ec9b13",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1636.8,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-82022ae42ef14403b10b",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1454.2,
+          "replay": false
+        },
+        {
+          "coid": "x6bM-66ea5b528fe5400ab553",
+          "status": 201,
+          "name": null,
+          "bucket": null,
+          "ms": 1271.4,
+          "replay": false
+        }
+      ],
+      "L_rows": 0
+    }
+  ]
+}

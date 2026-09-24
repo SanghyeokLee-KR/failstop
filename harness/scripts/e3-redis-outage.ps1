@@ -2,7 +2,7 @@
 # 미배선이라 Redis 장애가 매칭·리더십·split-brain에 도달할 경로가 없다.
 # 이 스크립트의 SKIP은 미완이 아니라 유효 판정이다. DB-권위 리더십이 Redis 없이 성립함을
 # 증거로 남긴다. 라이브 E3는 M2 채택 후에만 의미가 있다(chaos-redis 무단 추가 금지).
-param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e3-redis-outage.env'))
+param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e3-redis-outage.env'), [string] $Resource)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
@@ -10,6 +10,8 @@ $cfg = Read-EnvFile $ConfigPath
 $runId = "E3-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
 $redis = $cfg['REDIS_CONTAINER']
 $redisProxy = $cfg['REDIS_PROXY']
+# 볼 리스 자원(S4 설계 4-18). P1·P2 는 matching-engine 이고 P3 에서는 -Resource 가 필수다.
+$leaseResource = Get-LeaseResource -Resource $Resource
 
 function Get-TradeCount { [long](Get-Scalar "SELECT count(*) FROM trades" -Required) }
 
@@ -23,8 +25,8 @@ if (-not $redisPresent) {
     # E3 전제(DB-권위 리더십)의 실증: Redis 없이도 leader_lease가 리더를 배타 선출·유지한다.
     $prePort = Get-LiveNodePort
     $s0 = Get-HarnessStatus -Port $prePort
-    $leaseHolder = Invoke-Psql "SELECT holder FROM leader_lease WHERE resource='matching-engine'"
-    $leaseAlive = Invoke-Psql "SELECT lease_until > now() FROM leader_lease WHERE resource='matching-engine'"
+    $leaseHolder = Invoke-Psql "SELECT holder FROM leader_lease WHERE resource='$leaseResource'"
+    $leaseAlive = Invoke-Psql "SELECT lease_until > now() FROM leader_lease WHERE resource='$leaseResource'"
     $tradesNow = Get-TradeCount
     # Redis 부재로도 무결성이 성립하는지 권위 run 1회.
     $run = Invoke-InvariantRun -Port $prePort -RunId $runId -Window 'skip'

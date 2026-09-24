@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.function.IntPredicate;
 
 /** event_journal 순서 보장 조회. 재생 prefix 대조와 검증 테스트가 같은 경로를 쓴다. */
 public class EventJournalReader {
@@ -55,12 +56,21 @@ public class EventJournalReader {
      * 커서가 head 근처인 정상 상태가 수백 ms 로 늘어난다(harness/evidence/replay-reader-plans-20260913/).
      */
     public JournalCheckpoints materializedThroughByMarket(Map<Integer, Long> cursors) {
+        return materializedThroughByMarket(cursors, marketId -> true);
+    }
+
+    /**
+     * include 가 받는 마켓만 경계를 읽는다. 결과에 없는 마켓의 경계는 판독하지 않은 것이다. 팔로워가 이 노드가 쥔 파티션의 마켓을
+     * 훑지 않게 한다. 인계한 마켓의 커서는 인계 시점에 멈춰 있어 그 경계 질의가 그 뒤 쌓인 명령을 매번 훑는다.
+     */
+    public JournalCheckpoints materializedThroughByMarket(Map<Integer, Long> cursors, IntPredicate include) {
         long legacyBound = legacyBound();
         TreeSet<Integer> markets = new TreeSet<>(cursors.keySet());
         markets.addAll(jdbc.sql(CommandJournalReader.MARKET_IDS_CTE
                         + "SELECT id FROM market_ids WHERE id IS NOT NULL")
                 .query(Integer.class)
                 .list());
+        markets.removeIf(marketId -> !include.test(marketId));
         Map<Integer, Long> bounds = new HashMap<>();
         for (int marketId : markets) {
             long floor = Math.max(cursors.getOrDefault(marketId, 0L), legacyBound);

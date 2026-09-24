@@ -150,6 +150,25 @@ export interface HaStatus {
   nodes: HaNode[];
   tradesTotal: number;
   generatedAt: string;
+  /**
+   * 모드가 쓰는 리스 자원별 한 행(API 설계 §6-C `leases[]`). P1·P2는 matching-engine 하나이고
+   * 파티션 리더 모드(P3)는 matching-p0·matching-p1이다. `leases`가 없는 옛 서버 응답이면
+   * 어댑터가 `lease` 한 행으로 만든다.
+   */
+  leases?: HaLease[];
+}
+
+/** 리스 한 행. 남은 시간·만료 시각은 서버가 주지 않았으면 null이다(0으로 채우지 않는다) */
+export interface HaLease {
+  resource: string;
+  /** 보유 노드의 holder. 비었으면 아무도 쥐지 않았다 */
+  holder: string;
+  epoch: number;
+  leaseUntil: string | null;
+  leaderAlive: boolean;
+  leaseRemainingMs: number | null;
+  /** 그 자원이 덮는 마켓 심볼(마켓 id 순) */
+  markets: string[];
 }
 
 /* ===== 용량 콘솔(ADR 0015 수동 스케일링) =====

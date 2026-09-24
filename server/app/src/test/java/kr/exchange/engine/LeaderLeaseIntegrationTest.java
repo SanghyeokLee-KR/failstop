@@ -43,6 +43,8 @@ class LeaderLeaseIntegrationTest {
     static HikariDataSource dataSource;
     static JdbcClient jdbc;
     static LeaderLeaseService first;
+    // 1에서 얻은 기간. 6에서 재획득 뒤 옛 기간의 쓰기가 거부되는지 본다.
+    static LeaderTerm firstTerm;
 
     @BeforeAll
     static void setUp() {
@@ -78,6 +80,7 @@ class LeaderLeaseIntegrationTest {
         assertTrue(first.tryAcquire(), "만료 시드 리스 승격 실패");
         assertTrue(first.isLeader());
         assertEquals(1, first.requireLeader().epoch());
+        firstTerm = first.currentTerm().orElseThrow();
         assertEquals(first.holder(), leaseHolder());
     }
 
@@ -144,22 +147,50 @@ class LeaderLeaseIntegrationTest {
 
     @Test
     @Order(6)
-    void demotedServiceCannotReacquireLease() {
-        // 4에서 상실 확정된 first는 리스가 만료돼도 재승격이 막혀야 한다. 강등 시점의 엔진
-        // 상태는 stale이고 루프는 halt로 영구 정지라, 복귀는 재생 포함 프로세스 재기동뿐이다.
+    void demotedServiceDoesNotReacquireUntilRearmed() {
+        // 4에서 상실 확정된 first는 리스가 만료돼도 다시 얻지 않는다(DB 설계 §5.4-c 5). 강등 시점의 엔진 상태는
+        // stale이고 라이터는 멈췄다. 파티션 수명주기가 fresh 재구성을 마치고 rearm 해야 후보로 돌아온다.
         expireLease();
-        assertFalse(first.tryAcquire(), "강등된 서비스가 재승격되면 안 된다");
+        assertFalse(first.tryAcquire(), "재구성 전 재획득 없음: 강등한 서비스가 rearm 전에 리스를 다시 얻었다");
         assertFalse(first.isLeader());
+        assertFalse(first.isArmed(), "강등이 후보 표식을 내리지 않았다");
         assertThrows(NotLeaderException.class, first::requireLeader);
 
-        // 재승격 금지는 프로세스(서비스 인스턴스) 단위다. 신규 기동 승격은 열려 있어야 한다.
+        // 다른 인스턴스의 승격은 열려 있어야 한다.
         LeaderLeaseService fresh =
                 new LeaderLeaseService(jdbc, Duration.ofSeconds(60), Duration.ofSeconds(1));
         assertTrue(fresh.tryAcquire(), "신규 인스턴스 승격이 막히면 안 된다");
+        long freshEpoch = fresh.requireLeader().epoch();
+
+        // 재구성을 마쳐 rearm 하면 후보로 돌아온다. 유효한 리스는 여전히 빼앗지 못하고 만료 뒤에만 더 큰 epoch로 얻는다.
+        assertTrue(first.rearm(), "노드 치명이 아닌 강등은 rearm 으로 후보에 돌아와야 한다");
+        assertFalse(first.tryAcquire(), "rearm 한 서비스가 유효한 리스를 빼앗았다");
+        expireLease();
+        assertTrue(first.tryAcquire(), "rearm 한 서비스가 만료 리스를 얻지 못했다");
+        assertTrue(first.requireLeader().epoch() > freshEpoch, "재획득 epoch가 앞 리더보다 커야 한다");
+        assertEquals(first.holder(), leaseHolder());
+        // 같은 서비스가 다시 얻어도 강등 전 기간은 끝났다. 그 기간을 쥔 쓰기는 앱에서 거부되고, 옛 epoch 는 DB 판정도 통과하지 못한다.
+        assertFalse(firstTerm.isCurrent());
+        assertThrows(NotLeaderException.class, firstTerm::requireCurrent);
+        assertThrows(RuntimeException.class, () -> jdbc.sql("SELECT assert_current_leader(?, ?)")
+                .params(first.holder(), firstTerm.epoch()).query(Object.class).optional());
     }
 
     @Test
     @Order(7)
+    void nodeFatalIsNotRearmable() {
+        // VM 오류 뒤의 프로세스는 불건전하다(§5.4-c 5 NODE_FATAL). rearm 이 풀지 않고 재기동으로만 복귀한다.
+        assertTrue(first.isLeader());
+        first.markNodeFatal("시험: VM 오류");
+        assertFalse(first.isLeader());
+        assertTrue(first.isNodeFatal());
+        assertFalse(first.rearm(), "노드 치명을 rearm 이 풀었다");
+        expireLease();
+        assertFalse(first.tryAcquire(), "노드 치명 서비스가 리스를 다시 얻었다");
+    }
+
+    @Test
+    @Order(8)
     void 오래_만료된_리스를_주워도_페일오버_다운타임으로_세지_않는다() {
         // 리스 행은 볼륨에 남아 스택 종료를 넘긴다. 하한이 없으면 꺼 둔 시간이 통째로
         // 다운타임이 되어 RTO 알람이 기동마다 오발화한다.
@@ -179,7 +210,7 @@ class LeaderLeaseIntegrationTest {
     }
 
     @Test
-    @Order(8)
+    @Order(9)
     void 감시_중이던_노드의_실제_페일오버는_그대로_잰다() {
         LeaderLeaseService standby =
                 new LeaderLeaseService(jdbc, Duration.ofSeconds(60), Duration.ofSeconds(1));

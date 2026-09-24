@@ -2,7 +2,8 @@ package kr.exchange.config;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.PartitionLeases;
+import kr.exchange.engine.PartitionPlan;
 import kr.exchange.deploy.SeedMarketCatalog;
 import kr.exchange.engine.lease.LeaderProtocolBoot;
 import kr.exchange.ledger.ReservationBacklogMonitor;
@@ -81,7 +82,7 @@ class ReadRoleIntegrationTest {
 
     @Autowired TestRestTemplate rest;
     @Autowired ApplicationContext context;
-    @Autowired LeaderLeaseService lease;
+    @Autowired PartitionLeases leases;
     @Autowired MeterRegistry meters;
     @LocalManagementPort int managementPort;
 
@@ -120,7 +121,14 @@ class ReadRoleIntegrationTest {
         assertEquals(200, rest.getForEntity("/api/v1/candles/1m?market=KRW-BTC", String.class).getStatusCode().value());
         assertFalse(context.containsBean("engineRuntimeLifecycle"));
         assertFalse(context.containsBean("followerCatchUp"));
-        assertFalse(lease.isLeader());
+        assertFalse(leases.first().isLeader());
+        // 조회 역할의 계획은 DB 를 읽지 않는 matching-engine 하나다(DB 설계 §5.4-c 1). 리스 틱을 시작하지 않는다(§5.4-c 2).
+        PartitionPlan plan = context.getBean(PartitionPlan.class);
+        assertEquals(java.util.List.of("matching-engine"), plan.partitions());
+        assertFalse(plan.partitioned());
+        assertFalse(leases.first().started(), "조회 역할 노드가 리스 틱을 시작했다");
+        // 틱 스레드 이름(leader-lease-*)으로는 보지 않는다. 같은 JVM 에 캐시된 다른 시험 컨텍스트의 틱 스레드가 섞인다.
+        assertTrue(leases.runtimes().isEmpty(), "조회 역할 노드에 파티션 수명주기가 있다");
         assertEquals(200, rest.getForEntity("http://localhost:" + managementPort
                 + "/actuator/health/read", String.class).getStatusCode().value());
     }

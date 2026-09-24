@@ -3,6 +3,7 @@ package kr.exchange.journal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.LeaderTerm;
 import kr.exchange.engine.core.EngineEvent;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -58,24 +59,43 @@ public class EventJournalAppender {
         this.objectMapper = objectMapper;
     }
 
-    /** 배치를 원자 커밋하고 event_seq가 부여된 이벤트 목록을 반환한다. */
+    /** 배치를 원자 커밋하고 event_seq가 부여된 이벤트 목록을 반환한다. 리스 서비스가 지금 쥔 epoch 로 쓴다. */
     public List<EngineEvent> append(List<EngineEvent> events) {
         if (events.isEmpty()) {
             return List.of();
         }
-        LeaderIdentity leader = lease.requireLeader();
+        return append(lease.requireLeader(), null, events);
+    }
+
+    /** 기간을 쥔 append(DB 설계 §5.4-c 6). 기간이 끝났으면 DB 왕복 없이 거부한다. */
+    public List<EngineEvent> append(LeaderTerm term, List<EngineEvent> events) {
+        if (events.isEmpty()) {
+            return List.of();
+        }
+        return append(term.requireCurrent(), term, events);
+    }
+
+    private List<EngineEvent> append(LeaderIdentity leader, LeaderTerm term, List<EngineEvent> events) {
         try {
             return tx.execute(status -> appendInTx(leader, events));
         } catch (StaleLeaderException e) {
             // fencing 거부는 리스 권위를 재확인한 뒤에만 강등한다(§5.4 강등 사유 분류).
-            lease.demoteUnlessStillLeader(e.getMessage());
+            demoteUnlessStillLeader(term, e.getMessage());
             throw e;
         } catch (DataAccessException e) {
             if (FencingErrors.isFencingRejection(e)) {
-                lease.demoteUnlessStillLeader("assert_current_leader 거부(event append): "
+                demoteUnlessStillLeader(term, "assert_current_leader 거부(event append): "
                         + FencingErrors.rejectionDetail(e));
             }
             throw e;
+        }
+    }
+
+    private void demoteUnlessStillLeader(LeaderTerm term, String reason) {
+        if (term != null) {
+            term.demoteUnlessStillLeader(reason);
+        } else {
+            lease.demoteUnlessStillLeader(reason);
         }
     }
 

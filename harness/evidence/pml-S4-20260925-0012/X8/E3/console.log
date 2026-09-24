@@ -1,0 +1,12 @@
+
+== E3(Redis 장애) 시작 runId=E3-20260925-013012 redis=chaos-redis ==
+
+== SKIP: Redis 토폴로지 부재 ==
+
+── verdict(JSON) ───────────────────────
+{"experimentId":"E3","verdict":"SKIP","ts":"2026-09-24T16:30:13.4970636Z","dbAuthorityLeaseAlive":"t","integrityCriticalClean":true,"tradesObserved":90,"dbAuthorityLeaseHolder":"31640d22-8ccf-4948-87f9-a47ded8fd07a","reason":"Redisson 런타임 미배선(코드: redis/redisson 의존·빈·spring.data.redis 설정 전무, 참조는 전부 M2 유예 주석). 리더십 권위=DB leader_lease라 Redis 장애가 매칭·리더십·split-brain에 무영향. chaos-redis 추가는 무의미하며 이 SKIP은 유효 판정이다.","skipIsValidVerdict":true,"integrityViolations":0,"harnessLeaderAlive":true,"redissonWiredAtRuntime":false,"harnessEpoch":5,"redisPresent":false,"liveMeaningfulAfterM2":["M2가 Redisson을 실제 조율·알림 경로로 채택(현재 미채택)","채택 시: chaos-redis service + redis toxiproxy proxy + app Redisson wiring","단 Redis는 권위 아닌 보조라 판정은 여전히 무결성 0위반·split-brain 0 중심"],"redisContainer":"chaos-redis","redisProxyPresent":false}
+────────────────────────────────────────
+판정 파일: C:\dev\exchange-pml\harness\evidence\pml-S4-20260925-0012\chaos-runs\E3-20260925-013012.json (불변식 행 31)
+
+E3 SKIP(유효 판정): Redisson 런타임 미배선, DB-권위 모델이라 Redis 장애가 매칭에 무영향.
+DB-권위 리더십은 위 증거로 성립(leaseHolder alive·무결성 criticalClean). 라이브 E3는 M2 Redisson 채택 후에만 의미.

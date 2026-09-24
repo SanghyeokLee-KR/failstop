@@ -65,7 +65,7 @@ public class OrderbookSnapshotOnSubscribe implements ApplicationListener<Session
             long seq = sequences.current("orderbook." + market.symbol());
             MarketDataService.Depth depth = marketData.depth(market.id());
             Map<String, Object> body = marketData.orderbookBody(market.symbol(), depth,
-                    epochSource.epoch(), seq, ApiFormats.time(Instant.now()));
+                    epochSource.epoch(market.id()), seq, ApiFormats.time(Instant.now()));
             body.put("type", "orderbook");
             body.put("stream", "snapshot");
 

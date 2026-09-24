@@ -1,5 +1,6 @@
 package kr.exchange.harness;
 
+import kr.exchange.engine.PartitionLeases;
 import kr.exchange.engine.lease.LeaderLeaseStore;
 import kr.exchange.engine.lease.LeaseSnapshot;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -34,41 +35,76 @@ public class HarnessController {
     private final InvariantVerifier verifier;
     private final FailoverRecorder failoverRecorder;
     private final LoadKeySeeder loadKeys;
-    // 리더 판정의 권위. leader_lease 행이 아니다.
-    private final LeaderLeaseStore leaseStore;
+    // 리더 판정의 권위. leader_lease 행이 아니라 자원마다의 리스 보관소다.
+    private final PartitionLeases leases;
 
     public HarnessController(JdbcClient jdbc, InvariantVerifier verifier,
                              FailoverRecorder failoverRecorder, LoadKeySeeder loadKeys,
-                             LeaderLeaseStore leaseStore) {
+                             PartitionLeases leases) {
         this.jdbc = jdbc;
         this.verifier = verifier;
         this.failoverRecorder = failoverRecorder;
         this.loadKeys = loadKeys;
-        this.leaseStore = leaseStore;
+        this.leases = leases;
     }
 
-    /** 리더십·워터마크·체결 관측. 리더 판정의 권위는 리스 보관소이고 노드와 무관하다. */
+    /**
+     * 리더십·워터마크·체결 관측. 리더 판정의 권위는 리스 보관소이고 노드와 무관하다. resource 로 리스 자원을 고르고, 없으면
+     * P1·P2 의 matching-engine 이다. 파티션 리더 모드(P3)에서는 자원이 필수다. 한 사건이 파티션 하나만 옮기므로 어느 자원을
+     * 보는지 모른 채 판정하면 다른 파티션의 리더를 보게 된다.
+     */
     @GetMapping("/status")
-    public StatusResponse status() {
+    public StatusResponse status(@RequestParam(required = false) String resource) {
+        LeaderLeaseStore store = leases.get(resolveResource(resource)).store();
         // 리더 판정의 권위는 리스 보관소다. leader_lease 행을 직접 읽던 종전 판정은 리스가
         // PostgreSQL 밖으로 나간 뒤 틀린다. 그 행은 승격 때 한 번만 게시되고 lease_until 이
         // 100년 뒤라 leader_alive 가 항상 참이 된다. 2026-09-08 리더 페일오버 실측에서 리더가
         // 죽고 리스가 만료된 11초 동안 이 엔드포인트가 죽은 노드를 살아 있다고 답했다.
         //
         // 만료 판정은 보관소 시계로 한다. 묻는 쪽 시계를 쓰면 스큐가 판정에 들어온다.
-        java.util.Optional<LeaseSnapshot> lease = leaseStore.current();
-        java.time.Instant storeNow = leaseStore.now();
-        boolean alive = lease.isPresent() && !lease.get().holder().isEmpty()
-                && !lease.get().expiredAt(storeNow);
+        java.util.Optional<LeaseSnapshot> lease = store.current();
+        java.time.Instant storeNow = store.now();
+        List<LeaseView> views = leases.all().stream().map(l -> view(l.resource(), l.store())).toList();
         return new StatusResponse(
                 lease.map(LeaseSnapshot::holder).orElse(""),
                 lease.map(LeaseSnapshot::epoch).orElse(0L),
                 lease.map(l -> l.leaseUntil().atOffset(java.time.ZoneOffset.UTC)).orElse(null),
                 storeNow.atOffset(java.time.ZoneOffset.UTC),
-                alive,
+                alive(lease, storeNow),
                 scalar("SELECT COALESCE(max(seq), 0) FROM command_journal"),
                 scalar("SELECT COALESCE(max(event_seq), 0) FROM event_journal"),
-                scalar("SELECT count(*) FROM trades"));
+                scalar("SELECT count(*) FROM trades"),
+                views);
+    }
+
+    private static LeaseView view(String resource, LeaderLeaseStore store) {
+        java.util.Optional<LeaseSnapshot> lease = store.current();
+        java.time.Instant storeNow = store.now();
+        return new LeaseView(resource,
+                lease.map(LeaseSnapshot::holder).orElse(""),
+                lease.map(LeaseSnapshot::epoch).orElse(0L),
+                lease.map(l -> l.leaseUntil().atOffset(java.time.ZoneOffset.UTC)).orElse(null),
+                alive(lease, storeNow));
+    }
+
+    private static boolean alive(java.util.Optional<LeaseSnapshot> lease, java.time.Instant storeNow) {
+        return lease.isPresent() && !lease.get().holder().isEmpty() && !lease.get().expiredAt(storeNow);
+    }
+
+    /** 요청의 리스 자원. 없으면 P1·P2 의 matching-engine 이고 P3 은 400 이다. 계획에 없는 자원도 400 이다. */
+    private String resolveResource(String resource) {
+        if (resource == null || resource.isBlank()) {
+            if (leases.plan().partitioned()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "파티션 리더 모드에서는 resource 가 필수다: " + leases.plan().partitions());
+            }
+            return leases.plan().first();
+        }
+        if (!leases.plan().contains(resource)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "계획에 없는 resource: " + resource + " (계획 " + leases.plan().partitions() + ")");
+        }
+        return resource;
     }
 
     /** 권위 run 실행(실험 프로토콜 ⓐ 사전 / ⓓ 사후). */
@@ -115,12 +151,13 @@ public class HarnessController {
         // (experiment_id VARCHAR(32) NOT NULL, verdict VARCHAR(8))도 진입부에서 400으로 막는다.
         requireField(req.experimentId(), "experimentId", 32);
         requireField(req.verdict(), "verdict", 8);
+        String resource = resolveResource(req.resource());
         long id = failoverRecorder.record(new FailoverRecorder.FailoverRecord(
                 req.experimentId(), req.oldLeader(), req.newLeader(),
                 req.oldEpoch(), req.newEpoch(),
                 req.lastHeartbeatTs(), req.takeoverTs(), req.firstTradeTs(),
                 req.rtoSeconds(), req.downtimeSeconds(), req.rpoRecords(),
-                req.verdict(), req.details()));
+                req.verdict(), req.details(), resource));
         return Map.of("failover_run_id", id, "verdict", req.verdict());
     }
 
@@ -139,9 +176,15 @@ public class HarnessController {
         return v == null ? 0 : v;
     }
 
+    /** holder·epoch·leaseUntil·leaderAlive 는 고른 자원의 리스이고 leases 는 계획의 모든 자원이다. */
     public record StatusResponse(String holder, long epoch, OffsetDateTime leaseUntil,
                                  OffsetDateTime now, boolean leaderAlive,
-                                 long commandWatermark, long eventWatermark, long tradesCount) {
+                                 long commandWatermark, long eventWatermark, long tradesCount,
+                                 List<LeaseView> leases) {
+    }
+
+    public record LeaseView(String resource, String holder, long epoch, OffsetDateTime leaseUntil,
+                            boolean leaderAlive) {
     }
 
     public record CheckView(String checkName, String severity, boolean ok, long violatedRows) {
@@ -157,6 +200,7 @@ public class HarnessController {
                                   OffsetDateTime lastHeartbeatTs, OffsetDateTime takeoverTs,
                                   OffsetDateTime firstTradeTs,
                                   BigDecimal rtoSeconds, BigDecimal downtimeSeconds,
-                                  Long rpoRecords, String verdict, Map<String, Object> details) {
+                                  Long rpoRecords, String verdict, Map<String, Object> details,
+                                  String resource) {
     }
 }

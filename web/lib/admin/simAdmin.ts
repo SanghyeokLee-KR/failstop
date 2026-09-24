@@ -840,12 +840,23 @@ export class SimAdminApi implements AdminApi {
 
   getHaStatus(): Promise<HaStatus> {
     this.auth("VIEW");
+    const leader = this.leader();
     return Promise.resolve({
       epoch: this.epoch,
-      leaderNodeId: this.leader().id,
+      leaderNodeId: leader.id,
       nodes: this.nodes.map((n) => ({ ...n, ownedMarkets: n.ownedMarkets.slice() })),
       tradesTotal: this.tradesTotal,
       generatedAt: isoNow(),
+      // 목은 단일 리더(P1·P2)라 matching-engine 한 행이다. 리스 만료 시각·남은 시간은 목이 추적하지 않아 null이다.
+      leases: [{
+        resource: "matching-engine",
+        holder: leader.id,
+        epoch: this.epoch,
+        leaseUntil: null,
+        leaderAlive: leader.health !== "down",
+        leaseRemainingMs: null,
+        markets: leader.ownedMarkets.slice(),
+      }],
     });
   }
 

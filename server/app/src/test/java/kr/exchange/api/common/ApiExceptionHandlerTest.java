@@ -64,22 +64,27 @@ class ApiExceptionHandlerTest {
                 .andExpect(jsonPath("$.error.retry_after").value(1));
     }
 
-    /** 접수 락 대기 상한 초과는 저널 전 거부라 503 재시도 신호로 나간다(ADR 0034 S1, API 설계 v2.53). */
+    /**
+     * 접수 락 대기 상한 초과는 저널 전 거부라 429(bucket market)다(API 설계 v2.55 §2-5-b). 503 이면 max_fails=1 인 쓰기
+     * 업스트림이 리더를 빼 모든 마켓의 쓰기가 502 가 된다.
+     */
     @Test
-    void acceptBusyIsRetryableServiceUnavailable() throws Exception {
+    void acceptBusyIsMarketContention429() throws Exception {
         mvc.perform(get("/accept-busy"))
-                .andExpect(status().isServiceUnavailable())
+                .andExpect(status().isTooManyRequests())
                 .andExpect(header().string("Retry-After", "1"))
-                .andExpect(jsonPath("$.error.name").value("service_unavailable"));
+                .andExpect(jsonPath("$.error.name").value("too_many_requests"))
+                .andExpect(jsonPath("$.error.detail.bucket").value("market"))
+                .andExpect(jsonPath("$.error.detail.scope").value("order"));
     }
 
     /**
-     * 잠금 대기 초과(55P03)는 이번 판에서 503 으로 바꾸지 않는다(API 설계 v2.52·v2.53, ADR 0034 결정 11).
-     * 쓰기 업스트림의 max_fails=1 이 503 하나로 리더를 빼므로 인그레스 설정과 함께 S3·S4 에서 정한다. 그 결정 없이
-     * 매핑이 먼저 들어오면 이 시험이 실패해 계약과 함께 고치게 한다.
+     * 주문 생성·취소 밖 경로의 잠금 대기 초과(55P03)는 S4 에서도 500 이다(API 설계 v2.55 §2-3). 인그레스를 바꾸지 않으므로
+     * 503 매핑만 켜면 리더를 쓰기 업스트림에서 빼는 경로가 새로 생긴다. S5 가 파티션별 업스트림과 함께 다시 정한다. 그 결정
+     * 없이 매핑이 먼저 들어오면 이 시험이 실패해 계약과 함께 고치게 한다.
      */
     @Test
-    void appendLockTimeoutStaysServerErrorUntilIngressDecision() throws Exception {
+    void nonIntakeLockTimeoutStaysServerErrorUntilS5() throws Exception {
         mvc.perform(get("/append-lock-timeout"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.error.name").value("server_error"));

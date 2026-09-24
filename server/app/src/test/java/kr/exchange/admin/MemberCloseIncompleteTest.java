@@ -100,6 +100,37 @@ class MemberCloseIncompleteTest {
         }
     }
 
+    /**
+     * 마켓 접수 경합으로 저널에 닿지 못한 취소(429 bucket market)도 미완료다(API 설계 v2.55 §6-E, §2-5-b). pending_reasons 에
+     * too_many_requests 로 실린다.
+     */
+    @Test
+    void marketContentionCancelsCountAsTooManyRequests() throws Exception {
+        kr.exchange.engine.lease.PartitionLeaseDb db = kr.exchange.engine.lease.PartitionLeaseDb.create("close_contention");
+        try (com.zaxxer.hikari.HikariDataSource pool = db.ownerPool()) {
+            org.springframework.jdbc.core.simple.JdbcClient jdbc =
+                    org.springframework.jdbc.core.simple.JdbcClient.create(pool);
+            long id = new kr.exchange.ledger.AccountBootstrap(jdbc).user("contended@member.test");
+            String external = jdbc.sql("SELECT external_id::text FROM users WHERE id = ?").param(id)
+                    .query(String.class).single();
+            kr.exchange.api.order.OrderGateway gateway = new kr.exchange.api.order.OrderGateway(jdbc, null, null, null) {
+                @Override
+                public BulkCancelResult cancelAll(long userId, String market) {
+                    return new BulkCancelResult(java.util.List.of("a"), java.util.List.of(), 1, 2, 3);
+                }
+            };
+            MemberAdminService service = new MemberAdminService(jdbc,
+                    new org.springframework.transaction.support.TransactionTemplate(
+                            new org.springframework.jdbc.support.JdbcTransactionManager(pool)), gateway);
+
+            MemberAdminService.Transition t = service.close(external);
+
+            assertEquals(6, t.pendingOrders(), "경합으로 남은 주문을 미완료로 세지 않았다");
+            assertEquals(Map.of("service_unavailable", 1, "too_many_requests", 3, "market_suspended", 2),
+                    t.pendingReasons());
+        }
+    }
+
     @Test
     void closeWithoutPendingCancelsStays200() {
         when(approvals.consume("op-mod", "apv-2", "members.close", MEMBER)).thenReturn(78L);

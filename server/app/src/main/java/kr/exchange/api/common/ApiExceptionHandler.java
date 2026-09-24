@@ -1,5 +1,6 @@
 package kr.exchange.api.common;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import kr.exchange.engine.EngineBridge;
 import kr.exchange.engine.NotLeaderException;
@@ -33,7 +34,9 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<Object> apiException(ApiException e, HttpServletResponse response) {
+    public ResponseEntity<Object> apiException(ApiException e, HttpServletRequest request,
+                                               HttpServletResponse response) {
+        markDemandExcluded(e, request);
         return render(e, response);
     }
 
@@ -73,13 +76,22 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(EngineBridge.AcceptBusyException.class)
-    public ResponseEntity<Object> acceptBusy(EngineBridge.AcceptBusyException e, HttpServletResponse response) {
-        // 마켓 접수 락 대기 상한 초과(ADR 0034 S1, 기본 꺼짐). 저널 전 거부라 같은 client_order_id 로 재시도하면 된다.
+    public ResponseEntity<Object> acceptBusy(EngineBridge.AcceptBusyException e, HttpServletRequest request,
+                                             HttpServletResponse response) {
+        // 마켓 접수 락 대기 상한 초과. 저널 전 거부라 같은 client_order_id 로 재시도하면 된다(API 설계 §2-5-b).
         // 게이트웨이를 거친 주문·취소는 OrderGateway 가 먼저 API 예외로 바꾸므로 여기는 그 밖의 호출 경로 몫이다.
-        // 켜면 이 503 하나로 max_fails=1 인 nginx 가 노드를 잠시 빼므로 그 부작용을 알고 켠다(EngineProperties).
-        // 건수는 exchange.submit.lock.timeouts 로 본다.
-        return render(new ApiException(503, "service_unavailable",
-                "접수 대기 상한 초과. 잠시 후 재시도 필요", null, 1), response);
+        // 503 으로 내면 max_fails=1 인 nginx 가 리더를 잠시 빼 모든 마켓의 쓰기가 502 가 된다.
+        ApiException mapped = new ApiException(429, "too_many_requests", "마켓 접수 혼잡. 잠시 후 재시도 가능",
+                java.util.Map.of("bucket", "market", "scope", "order"), 1, !e.stuckHolder());
+        markDemandExcluded(mapped, request);
+        return render(mapped, response);
+    }
+
+    /** 마켓 접수 경합 응답이면 인증 필터가 좀비 판정 수요를 되돌리도록 요청에 표시한다(DB 설계 §5.4-c 8). */
+    private static void markDemandExcluded(ApiException e, HttpServletRequest request) {
+        if (e.demandExcluded()) {
+            request.setAttribute(ApiException.DEMAND_EXCLUDED_ATTRIBUTE, Boolean.TRUE);
+        }
     }
 
     @ExceptionHandler(IllegalStateException.class)

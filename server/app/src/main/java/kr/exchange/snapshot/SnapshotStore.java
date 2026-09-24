@@ -85,11 +85,20 @@ public class SnapshotStore implements SnapshotSource {
 
     @Override
     public Map<Integer, MarketLoaded> loadLatestAdoptablePerMarket() {
+        return loadLatestAdoptable(marketId -> true);
+    }
+
+    /** scope 밖 마켓의 스냅샷은 디코딩하지 않는다. */
+    @Override
+    public Map<Integer, MarketLoaded> loadLatestAdoptable(java.util.function.IntPredicate scope) {
         List<Integer> markets = jdbc.sql("SELECT DISTINCT market_id FROM snapshots ORDER BY market_id")
                 .query(Integer.class)
                 .list();
         Map<Integer, MarketLoaded> adopted = new TreeMap<>();
         for (int marketId : markets) {
+            if (!scope.test(marketId)) {
+                continue;
+            }
             List<Long> candidates = jdbc.sql("""
                             SELECT DISTINCT last_applied_seq FROM snapshots
                             WHERE market_id = ? ORDER BY last_applied_seq DESC

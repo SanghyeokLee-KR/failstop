@@ -148,19 +148,20 @@ class PromotionStandDownIntegrationTest {
     }
 
     /**
-     * (B) 재생이 예산을 소진해도 후보로 남는다. 구 리더는 이미 종신 강등(E2에서는 이벤트 sink
-     * 실패)이라 후보가 아니고, 이 노드마저 종신 강등하면 승격 가능한 후보가 0이 된다.
+     * (B) 재생이 예산을 소진해도 후보로 남는다. 구 리더는 이미 강등(E2에서는 이벤트 sink 실패)해 재구성 전에는
+     * 후보가 아니고, 이 노드마저 강등하면 승격 가능한 후보가 0이 된다.
      */
     @Test
     @Order(2)
     void exhaustedReplayStandsDownRecoverablyAndClusterRegainsLeader() throws Exception {
         writeCrashWindowCommands();
-        // 구 리더 모델: 루프 fail-fast로 종신 강등한 노드. 이후 어떤 경로로도 후보가 되지 않는다.
+        // 구 리더 모델: 루프 fail-fast로 강등한 노드. 재구성(rearm) 전에는 어떤 경로로도 후보가 되지 않는다(DB 설계 §5.4-c 5).
+        // 이 시험은 재구성하지 않으므로 끝까지 후보가 아니다.
         LeaderLeaseService oldLeader = new LeaderLeaseService(jdbc, LEASE_TTL, LEASE_TICK);
         takeOver(oldLeader);
         new LoopFatalHandler(oldLeader).accept(new IllegalStateException("이벤트 sink 실패 모델"));
         assertFalse(oldLeader.isLeader());
-        assertFalse(oldLeader.tryAcquire(), "종신 강등 노드의 재승격 금지가 풀렸다");
+        assertFalse(oldLeader.tryAcquire(), "재구성 전 재획득 없음: 강등한 노드가 rearm 전에 리스를 다시 얻었다");
 
         Standby standby = new Standby();
         try {
@@ -383,38 +384,67 @@ class PromotionStandDownIntegrationTest {
     }
 
     /**
-     * (H) 접수 게이트는 소비자 생존까지 본다. 단일 라이터가 정지한 상태에서 게이트를 열면 저널에
-     * 커밋되고 영원히 체결되지 않는 주문이 생긴다. 루프 정지는 강등 등급 분류의 종신 축 그 자체라
-     * 회복 가능으로 내리면 죽은 루프 위에서 승격과 반납을 무한 반복한다.
+     * (H) 접수 게이트는 소비자 생존까지 본다. 정지한 라이터 위에서 게이트를 열면 저널에 커밋되고 영원히 체결되지 않는
+     * 주문이 생긴다. 루프 정지는 강등 사유(PROMOTION_LOOP_DOWN)이고 회복 가능 반납이 아니다. 회복 가능으로 내리면 죽은 루프
+     * 위에서 승격과 반납을 무한 반복한다.
      *
-     * 성공 경로의 재생 표식 해제 지점(접수 개방 전)도 여기서 함께 고정된다. 해제가 개방 뒤로
-     * 밀리면 이 강등이 표식을 쥔 채 일어나 회복 가능으로 내려가고 반납 카운터 단언이 깨진다.
+     * 파티션 배선(S4 설계 6-3)은 루프를 설치 때 기간마다 새로 만들므로 '미리 멈춘 루프' 장면이 성립하지 않는다. 새로 설치한
+     * 루프가 게이트 개방 전에 죽도록 주입한다(PartitionNode.loopKillsBeforeGate). 게이트는 열리지 않고, 그 파티션은
+     * REBUILDING 을 거쳐 FOLLOWER 로 돌아온다. 주입이 없으면 재구성 뒤 새 epoch 로 승격하고, 창 안에서 같은 주입을 세 번
+     * 겪으면 BLOCKED 다. 강등은 리스 행에 쓰지 않는다.
+     *
+     * 성공 경로의 재생 표식 해제 지점(접수 개방 전)도 여기서 함께 고정된다. 해제가 개방 뒤로 밀리면 이 강등이 표식을 쥔 채
+     * 일어나 회복 가능으로 내려가고 반납 계수 단언이 깨진다.
      */
     @Test
     @Order(8)
-    void promotionDoesNotOpenTheGateOnAStoppedWriterLoop() throws Exception {
-        writeCrashWindowCommands();
-        Standby standby = new Standby();
-        try {
-            standby.loop.stop();
-            assertFalse(standby.loop.isRunning(), "루프 정지 전제가 성립하지 않았다");
+    void promotionDoesNotOpenTheGateOnAWriterLoopThatDiedBeforeIt() throws Exception {
+        String resource = "matching-engine";
+        try (kr.exchange.engine.lease.ReservationFixture f =
+                     kr.exchange.engine.lease.ReservationFixture.create("pml_loop_down", 2)) {
+            long bob = f.user("bob", BigDecimal.ZERO);
+            f.deposit(bob, kr.exchange.engine.lease.ReservationFixture.BTC, new BigDecimal("10"));
+            // 설치할 마켓이 있어야 루프가 생긴다. 옛 리더가 주문 하나를 정산까지 마치고 죽었다.
+            LeaderLeaseService oldLeader = f.lease();
+            f.submit(f.appender(oldLeader, true), new MatchingEngineImpl(), f.settlement(oldLeader),
+                    f.limit(kr.exchange.engine.lease.ReservationFixture.KRW_BTC, bob, OrderCommand.Side.SELL,
+                            "50000", "0.1"));
+            oldLeader.close();
+            f.owner.sql("UPDATE leader_lease SET lease_until = clock_timestamp() - interval '1 second' "
+                    + "WHERE resource = ?").param(resource).update();
 
-            long epoch = takeOver(standby.lease);
+            try (PartitionNode node = new PartitionNode("node", f, new PartitionNode.Options().protocol(2))) {
+                PartitionRuntime runtime = node.runtime(resource);
+                AtomicInteger recoverable = new AtomicInteger();
+                node.lease(resource).onRecoverableStandDown(recoverable::incrementAndGet);
+                node.loopKillsBeforeGate.set(1);
+                node.start();
 
-            Awaitility.await().atMost(Duration.ofSeconds(30))
-                    .until(() -> standby.coordinator.state() == PromotionCoordinator.State.DEMOTED);
+                Awaitility.await().atMost(Duration.ofSeconds(30)).until(() -> runtime.demotions().size() == 1);
+                assertEquals(DemotionReason.PROMOTION_LOOP_DOWN, runtime.demotions().get(0).reason());
+                long downEpoch = node.lease(resource).leaseSnapshot().orElseThrow().epoch();
+                assertFalse(node.everAccepting.get(), "죽은 루프 위에서 접수가 열렸다");
+                assertEquals(0, recoverable.get(), "루프 정지가 회복 가능으로 내려갔다(승격·반납 무한 반복 경로)");
+                assertEquals(1, runtime.breaker().count());
+                // REBUILDING 을 거쳐 FOLLOWER 로 돌아오고, 주입이 없으면 옛 리스 만료 뒤 새 epoch 로 승격한다.
+                Awaitility.await().atMost(Duration.ofSeconds(30))
+                        .until(() -> runtime.state() == PromotionCoordinator.State.ACCEPTING);
+                long reacquired = node.lease(resource).currentTerm().orElseThrow().epoch();
+                assertTrue(reacquired > downEpoch, "재구성 뒤 승격 epoch 가 늘지 않았다");
+                assertTrue(node.everAccepting.get());
 
-            assertFalse(standby.coordinator.gate().isAccepting(),
-                    "정지한 루프 위에서 접수가 열렸다");
-            assertFalse(standby.lease.isLeader());
-            assertEquals(0, standby.recoverableStandDowns.get(),
-                    "루프 정지가 회복 가능으로 내려갔다(승격·반납 무한 반복 경로)");
-            assertEquals(epoch, currentEpoch(), "강등이 leader_lease를 건드렸다");
-
-            expireLease();
-            assertFalse(standby.lease.tryAcquire(), "루프가 죽은 노드가 재승격했다");
-        } finally {
-            standby.close();
+                // 같은 주입을 창 안에서 두 번 더 겪으면 세 번째 강등에서 차단된다. 계획 강등으로 다음 승격을 부른다.
+                node.loopKillsBeforeGate.set(2);
+                runtime.setParticipate(false);
+                runtime.setParticipate(true);
+                Awaitility.await().atMost(Duration.ofSeconds(60))
+                        .until(() -> runtime.state() == PromotionCoordinator.State.BLOCKED);
+                assertEquals(3, runtime.demotions().stream()
+                        .filter(d -> d.reason() == DemotionReason.PROMOTION_LOOP_DOWN).count());
+                assertTrue(runtime.breaker().isOpen());
+                assertFalse(node.lease(resource).isArmed(), "차단된 파티션이 후보로 남았다");
+                assertEquals(0, recoverable.get());
+            }
         }
     }
 

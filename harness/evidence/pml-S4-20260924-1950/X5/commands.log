@@ -1,0 +1,22 @@
+2026-09-24T21:04:29+09:00 RUN adr0022-stage5-chaos Image=exchange-chaos-app:pml Experiments=COLD LatchBeforeTraffic=False SnapshotEvidence=False Protocol=2 Project=exchange-pml
+2026-09-24T21:04:30+09:00 START COLD
+2026-09-24T21:05:03+09:00 RUN python harness/scale/protocol_latch.py transition --target 2 --out harness\evidence\pml-S4-20260924-1950\X5\COLD\protocol.json
+2026-09-24T21:05:29+09:00 RC 0
+2026-09-24T21:05:29+09:00 RUN python harness/scale/pg_samplers.py budget --live --api-nodes 2 --request-pool 32 --lease-pool 2 --append-pool 14 --bots-request-pool 10 --exporter 2 --tooling 4 --out harness\evidence\pml-S4-20260924-1950\X5\COLD\budget.json
+2026-09-24T21:05:30+09:00 RC 0
+2026-09-24T21:05:30+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S4-20260924-1950\X5\COLD\partition_pre.json
+2026-09-24T21:05:30+09:00 RC 0
+2026-09-24T21:05:30+09:00 EXPERIMENT COLD pwsh -NoProfile -File harness/scripts/adr0022-stage7-cold-restart.ps1
+2026-09-24T21:06:38+09:00 EXPERIMENT COLD rc=0
+2026-09-24T21:06:40+09:00 RUN python harness/scale/s3_common_axes.py judge --window-from 2026-09-24T12:04:30.2237571+00:00 --fault-from 2026-09-24T12:05:30.8396530+00:00 --fault-to 2026-09-24T12:06:38.2779680+00:00 --samples harness\evidence\pml-S4-20260924-1950\X5\COLD\balance_samples.jsonl --out harness\evidence\pml-S4-20260924-1950\X5\COLD\s3_common.json
+2026-09-24T21:07:05+09:00 RC 0
+2026-09-24T21:07:05+09:00 RUN python harness/scale/s4_partition_axes.py snapshot --out harness\evidence\pml-S4-20260924-1950\X5\COLD\partition_post.json
+2026-09-24T21:07:06+09:00 RC 0
+2026-09-24T21:07:06+09:00 RUN python harness/scale/s4_partition_axes.py judge --window-from 2026-09-24T12:04:30.2237571+00:00 --fault-from 2026-09-24T12:05:30.8396530+00:00 --fault-to 2026-09-24T12:06:38.2779680+00:00 --pre harness\evidence\pml-S4-20260924-1950\X5\COLD\partition_pre.json --post harness\evidence\pml-S4-20260924-1950\X5\COLD\partition_post.json --out harness\evidence\pml-S4-20260924-1950\X5\COLD\partition_axes.json
+2026-09-24T21:07:06+09:00 RC 0
+2026-09-24T21:07:06+09:00 RUN python harness/scale/protocol_latch.py state --out harness\evidence\pml-S4-20260924-1950\X5\COLD\protocol_state.json
+2026-09-24T21:07:07+09:00 RC 0
+2026-09-24T21:07:09+09:00 RUN python harness/scale/pg_samplers.py summarize --samples harness\evidence\pml-S4-20260924-1950\X5\COLD\conn_samples.jsonl --out harness\evidence\pml-S4-20260924-1950\X5\COLD\connections.json
+2026-09-24T21:07:09+09:00 RC 0
+2026-09-24T21:07:15+09:00 END COLD down rc=0
+2026-09-24T21:07:15+09:00 DONE COLD=PASS

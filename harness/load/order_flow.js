@@ -12,7 +12,7 @@
 import http from 'k6/http';
 import exec from 'k6/execution';
 import { check, sleep } from 'k6';
-import { Trend, Counter } from 'k6/metrics';
+import { Trend, Counter, Rate } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 import { signRequest, orderCanonicalBody } from './lib/sign.js';
 import { WebSocket, connectFrame, subscribeFrame, parseFrames, topicOrderbook, topicTrade } from './lib/stomp.js';
@@ -110,6 +110,11 @@ const KEYS = new SharedArray('keys', () => {
 // 수용(2xx) 요청 전용 지연 Trend. 429는 여기 넣지 않아 가용성 지표 오염을 막는다(§2-2).
 const acceptedReqDuration = new Trend('accepted_req_duration', true);
 const rateLimitedTotal = new Counter('rate_limited_total');
+// 마켓 접수 경합(API 설계 §2-5-b, S4 설계 4-18). 429 바디의 error.detail.bucket 이 market 이면 레이트리밋이 아니라 접수 락 대기
+// 초과나 append 잠금 경합이다. 429 는 실패로 세지 않으므로(아래 expectedStatuses) 이 비율이 없으면 경합이 가용성 판정에서
+// 사라진다. 분모는 주문 접수 요청 전부다.
+const marketContention = new Rate('market_contention');
+const marketContentionTotal = new Counter('market_contention_total');
 // 접수 건수. 주문 축의 양성 증거다. accepted_req_duration은 Trend라 count 임계를 못 걸고
 // (k6: unsupported aggregation method count on metric of type trend) 지연 임계도
 // http_req_failed도 표본 0에서 통과한다. 별도 Counter로 하한을 건다.
@@ -160,6 +165,9 @@ const thresholds = {
   // 하한은 STEADY_RATE와 주행 길이에서 유도한다(데모 프로파일 9,000건의 10%).
   'accepted_total{phase:steady,replay:false}': ['count>900'], // 수용 요청 SLO(API§7-4)
   'checks{check:idempotent_safe}': ['rate==1'],   // UNKNOWN→재조회→재전송 규약 위반 0
+  // 정상 구간 마켓 접수 경합 상한(하네스 검증설계 §2-2, S4 설계 4-21). 경합 429 는 가용성 분자에서 빠지므로 이 비율이 대신 본다.
+  // 창 안의 값은 기록만 한다.
+  'market_contention{phase:steady}': ['rate<0.001'],
   // API§5-2가 seq 도메인의 두 실현을 나눈다. orderbook은 채널별 조밀 카운터라 결번이 곧
   // 유실이고, trade는 전역 event_seq라 단일 마켓 구독자에게 결번이 정상이다.
   // 그래서 결번 0은 orderbook 채널만 요구한다.
@@ -247,6 +255,18 @@ export const options = {
 // k6 기본은 429=실패다. 이 선언이 없으면 가용성 지표가 오염된다(§2-2). init 단계 의무.
 http.setResponseCallback(http.expectedStatuses({ min: 200, max: 399 }, 429));
 
+// 마켓 접수 경합 429 인가(API 설계 §2-5-b). 표준 오류 바디(§2-3)의 error.detail.bucket 이 market 이다. 계정 토큰버킷 429 는
+// bucket 이 다르다.
+function isMarketContention(res) {
+  try {
+    const body = JSON.parse(res.body);
+    const detail = body && body.error && body.error.detail;
+    return !!(detail && detail.bucket === 'market');
+  } catch (e) {
+    return false;
+  }
+}
+
 function phase() {
   const s = exec.instance.currentTestRunDuration / 1000;
   return (s >= T0 && s <= T1) ? 'chaos' : 'steady';
@@ -317,6 +337,8 @@ export function placeOrder() {
     tags: { name: 'placeOrder', phase: ph },
   });
 
+  const contention = res.status === 429 && isMarketContention(res);
+  marketContention.add(contention, { phase: ph });
   if (res.status >= 200 && res.status < 300) {
     acceptedReqDuration.add(res.timings.duration, { phase: ph });
     // 멱등 replay(200 + X-Idempotent-Replay)는 신규 접수가 아니므로 dup 계상 제외.
@@ -336,7 +358,11 @@ export function placeOrder() {
   }
 
   if (res.status === 429) {
-    rateLimitedTotal.add(1);
+    if (contention) {
+      marketContentionTotal.add(1, { phase: ph });
+    } else {
+      rateLimitedTotal.add(1);
+    }
     // 토큰버킷 증거는 Retry-After 100% 동반이어야 정상(§2-3).
     check(res, { retry_after_present: (r) => r.headers['Retry-After'] !== undefined });
     return;

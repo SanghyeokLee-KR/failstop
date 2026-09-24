@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariPoolMXBean;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,9 +15,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
 
 /**
- * 좀비 리더 판정기(DB 설계 §5.4 자발적 강등). 쓰기 수요 대비 누적 완료율이 붕괴한 상태가 임계
+ * 좀비 리더 판정기(DB 설계 §5.4 자발적 강등, §5.4-c 8). 쓰기 수요 대비 누적 완료율이 붕괴한 상태가 임계
  * 시간 지속되면 불능으로 본다. 원인은 묻지 않는다. 비율 신호·누적 창·수요 하한·hold·알려진
  * 사각의 근거는 그 절에 있다. 강등 자체는 LeaderLeaseService가 하고 여기서는 상태를 만들지 않는다.
+ *
+ * 노드 층과 파티션 층이 같은 판정기를 쓴다. 노드 층은 인증 이전의 주문 쓰기 수요를, 파티션 층은 게이트가 열린 그 파티션의
+ * 접수를 센다. 두 층 모두 마켓 접수 경합으로 끝난 요청(excluded)은 수요에서 뺀다.
  */
 public final class LeaderStallDetector implements NodeServiceHealth {
 
@@ -31,7 +35,10 @@ public final class LeaderStallDetector implements NodeServiceHealth {
     private final LeaderWriteProgress progress;
     private final long standdownAfterNanos;
     private final LongSupplier nanoClock;
+    // 판정기 자신의 강등 판정 수. 운영 배선은 파티션 강등(STALL)을 exchange.leader.standdown{partition} 으로 세므로 비어 있다.
     private final Counter standdowns;
+    // 로그에서 층을 가른다.
+    private final String scope;
     // 진단 전용. 판정에는 쓰지 않는다(원인 불문 원칙).
     private final HikariDataSource requestPool;
     // 1 정상, 0 강등 판정. 하네스가 좀비 판정 시점을 외부에서 관측하는 단일 지표다.
@@ -41,6 +48,7 @@ public final class LeaderStallDetector implements NodeServiceHealth {
 
     private long lastAttempts;
     private long lastCompletions;
+    private long lastExcluded;
     private long windowDemand;
     private long windowCompletions;
     private boolean stalled;
@@ -52,8 +60,16 @@ public final class LeaderStallDetector implements NodeServiceHealth {
         this(requestDataSource, progress, standdownAfter, registry, System::nanoTime);
     }
 
+    /** 단독 배선. exchange.leader.standdown 을 판정기가 스스로 센다. */
     LeaderStallDetector(DataSource requestDataSource, LeaderWriteProgress progress,
                         Duration standdownAfter, MeterRegistry registry, LongSupplier nanoClock) {
+        this(requestDataSource, progress, standdownAfter, registry, nanoClock, "exchange.node", Tags.empty(),
+                "노드", true);
+    }
+
+    private LeaderStallDetector(DataSource requestDataSource, LeaderWriteProgress progress,
+                                Duration standdownAfter, MeterRegistry registry, LongSupplier nanoClock,
+                                String prefix, Tags tags, String scope, boolean countStanddowns) {
         if (progress == null || standdownAfter == null || registry == null || nanoClock == null) {
             throw new IllegalArgumentException("progress·standdownAfter·registry·clock은 필수");
         }
@@ -64,17 +80,47 @@ public final class LeaderStallDetector implements NodeServiceHealth {
         this.progress = progress;
         this.lastAttempts = progress.attempts();
         this.lastCompletions = progress.completions();
+        this.lastExcluded = progress.excluded();
         this.standdownAfterNanos = standdownAfter.toNanos();
         this.nanoClock = nanoClock;
-        this.standdowns = Counter.builder("exchange.leader.standdown")
-                .description("서비스 불능 지속으로 리스 갱신을 자발적으로 포기한 횟수")
-                .register(registry);
-        Gauge.builder("exchange.node.serviceable", serviceable, AtomicInteger::doubleValue)
+        this.scope = scope;
+        this.standdowns = countStanddowns
+                ? Counter.builder("exchange.leader.standdown")
+                        .description("서비스 불능 지속으로 리스 갱신을 자발적으로 포기한 횟수")
+                        .register(registry)
+                : null;
+        Gauge.builder(prefix + ".serviceable", serviceable, AtomicInteger::doubleValue)
                 .description("리더 일 수행 가능(1)·서비스 불능 지속(0)")
+                .tags(tags)
                 .register(registry);
-        Gauge.builder("exchange.node.write_completion_ratio", this, d -> d.lastRatio)
+        Gauge.builder(prefix + ".write_completion_ratio", this, d -> d.lastRatio)
                 .description("누적 쓰기 완료율(완료/수요). 붕괴 판정 축")
+                .tags(tags)
                 .register(registry);
+    }
+
+    /** 운영 노드 층. 강등 수는 파티션 강등(STALL)이 센다. */
+    public static LeaderStallDetector node(DataSource requestDataSource, LeaderWriteProgress progress,
+                                           Duration standdownAfter, MeterRegistry registry) {
+        return node(requestDataSource, progress, standdownAfter, registry, System::nanoTime);
+    }
+
+    static LeaderStallDetector node(DataSource requestDataSource, LeaderWriteProgress progress,
+                                    Duration standdownAfter, MeterRegistry registry, LongSupplier nanoClock) {
+        return new LeaderStallDetector(requestDataSource, progress, standdownAfter, registry, nanoClock,
+                "exchange.node", Tags.empty(), "노드", false);
+    }
+
+    /** 운영 파티션 층. 지표는 exchange.partition.serviceable{partition}·write_completion_ratio{partition} 이다. */
+    public static LeaderStallDetector partition(String resource, LeaderWriteProgress progress,
+                                                Duration standdownAfter, MeterRegistry registry) {
+        return partition(resource, progress, standdownAfter, registry, System::nanoTime);
+    }
+
+    static LeaderStallDetector partition(String resource, LeaderWriteProgress progress,
+                                         Duration standdownAfter, MeterRegistry registry, LongSupplier nanoClock) {
+        return new LeaderStallDetector(null, progress, standdownAfter, registry, nanoClock,
+                "exchange.partition", Tags.of("partition", resource), "파티션 " + resource, false);
     }
 
     /**
@@ -88,6 +134,7 @@ public final class LeaderStallDetector implements NodeServiceHealth {
     public synchronized void onLeadershipGained() {
         lastAttempts = progress.attempts();
         lastCompletions = progress.completions();
+        lastExcluded = progress.excluded();
         lastRatio = 1.0;
         resetWindow();
     }
@@ -107,12 +154,15 @@ public final class LeaderStallDetector implements NodeServiceHealth {
     private boolean evaluate() {
         long attempts = progress.attempts();
         long completions = progress.completions();
-        long newDemand = attempts - lastAttempts;
+        long excluded = progress.excluded();
+        // 경합으로 끝난 요청을 수요에서 뺀다. 수요와 제외를 다른 시점에 세므로 표본 경계에서 음수가 나올 수 있어 0으로 자른다.
+        long newDemand = Math.max(0, (attempts - lastAttempts) - (excluded - lastExcluded));
         long newCompletions = completions - lastCompletions;
         windowDemand += newDemand;
         windowCompletions += newCompletions;
         lastAttempts = attempts;
         lastCompletions = completions;
+        lastExcluded = excluded;
 
         if (windowDemand < MIN_WINDOW_DEMAND) {
             // 증거 부족. arm도 초기화도 하지 않는다. 무주문 유휴 노드는 여기서 영원히 멈춘다.
@@ -127,8 +177,8 @@ public final class LeaderStallDetector implements NodeServiceHealth {
         if (!stalled) {
             stalled = true;
             stalledSinceNanos = nanoClock.getAsLong();
-            log.warn("리더 처리율 붕괴 관측 시작: 완료율 {}({}/{}), {}초 더 지속되면 강등한다",
-                    String.format("%.4f", ratio), windowCompletions, windowDemand,
+            log.warn("리더 처리율 붕괴 관측 시작({}): 완료율 {}({}/{}), {}초 더 지속되면 강등한다",
+                    scope, String.format("%.4f", ratio), windowCompletions, windowDemand,
                     standdownAfterNanos / 1_000_000_000L);
         }
         return verdict();
@@ -145,9 +195,11 @@ public final class LeaderStallDetector implements NodeServiceHealth {
         serviceable.set(0);
         if (!standdownLogged) {
             standdownLogged = true;
-            standdowns.increment();
-            log.error("서비스 불능 지속 판정: 완료율 {}({}/{}), 지속 {}ms, {}",
-                    String.format("%.4f", lastRatio), windowCompletions, windowDemand,
+            if (standdowns != null) {
+                standdowns.increment();
+            }
+            log.error("서비스 불능 지속 판정({}): 완료율 {}({}/{}), 지속 {}ms, {}",
+                    scope, String.format("%.4f", lastRatio), windowCompletions, windowDemand,
                     stalledNanos / 1_000_000, poolDiagnostics());
         }
         return false;

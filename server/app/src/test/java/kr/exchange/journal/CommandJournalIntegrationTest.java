@@ -237,8 +237,8 @@ class CommandJournalIntegrationTest {
         assertTrue(queryLong("SELECT count(*) FROM command_journal") > 0, "command_journal 행 실재");
         assertEquals(0, queryLong(InvariantCheck.C05_CMD_GAPLESS.sql()), "실패 append 가 결번을 남김");
 
-        // 강등 인스턴스는 재승격 금지 계약이라(§5.4 self-shutdown) 재기동을 시뮬레이션한다:
-        // 이후 테스트는 새 인스턴스가 리더십을 잡고 이어간다.
+        // 강등 인스턴스는 재구성(rearm) 전에 리스를 다시 얻지 않는다(DB 설계 §5.4-c 5). 이 시험은 재구성하지 않으므로
+        // 재기동을 흉내 내 새 인스턴스가 리더십을 잡고 이어간다.
         lease = new LeaderLeaseService(jdbc, Duration.ofSeconds(120), Duration.ofSeconds(1));
         appender = new CommandJournalAppender(jdbc, tx, lease);
         takeOver(lease);

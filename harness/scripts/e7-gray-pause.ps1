@@ -4,16 +4,18 @@
 # 좀비 stale 쓰기 0, RTO < 30s.
 # 종료 훅에서 docker unpause를 무조건 실행한다(pause는 restart 정책으로 복구 안 됨, §3).
 #
-# 실행 전제: 승격 가능한 스탠바이가 실재해야 한다. 종신 강등은 프로세스 내 플래그이고 서버에
-# 자기 종료 경로가 없어(restart 정책도 발동하지 않는다) 한 번 태운 노드는 컨테이너를 다시
-# 세우기 전까지 후보로 돌아오지 않는다. E5 직후 이 실험을 돌리면 승격 후보가 0이라 확정
-# 위양성 FAIL이 난다. 실험 사이에 down -v + up으로 스택을 새로 세운다.
-param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e7-gray-pause.env'))
+# 실행 전제: 승격 가능한 스탠바이가 실재해야 한다. S4 부터 강등한 파티션은 fresh 재구성 뒤 팔로워로 돌아와
+# 다시 후보가 된다(DB 설계 §5.4-c 5). 다만 창(10분) 안에서 강등이 세 번이면 차단기가 그 파티션을 BLOCKED 로
+# 두어 후보에서 빼고, 노드 치명(VM 오류)은 재기동으로만 돌아온다. 페일오버 실험을 연달아 돌릴 때는 실험 사이에
+# 두 노드의 /actuator/partitions 상태를 확인하거나 down -v + up 으로 스택을 새로 세운다.
+param([string] $ConfigPath = (Join-Path $PSScriptRoot '..\config\e7-gray-pause.env'), [string] $Resource)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'lib.ps1')
 $cfg = Read-EnvFile $ConfigPath
 $runId = "E7-$((Get-Date).ToString('yyyyMMdd-HHmmss'))"
+# 볼 리스 자원(S4 설계 4-18). P1·P2 는 matching-engine 이고 P3 에서는 -Resource 가 필수다.
+$leaseResource = Get-LeaseResource -Resource $Resource
 $target = $cfg['TARGET_NODE']
 $targetPort = [int]$cfg['TARGET_PORT']
 $standbyPort = [int]$cfg['STANDBY_PORT']
@@ -37,7 +39,7 @@ try {
     if (-not $ok) { throw "체결 증분 미달(기준 $($cfg['MIN_TRADES_BEFORE_INJECT'])건). 봇 부하가 실리지 않았다. chaos-bots 상태와 BASE_OPS를 확인한다." }
 
     # 실 리더를 대상 삼는다. 팔로워를 pause하면 페일오버가 없어 공허 FAIL 난다(README 리허설).
-    $detected = Get-LeaderContainer
+    $detected = Get-LeaderContainer -Resource $leaseResource
     if ($detected) {
         $target = $detected
         if ($target -eq 'chaos-api-1') { $targetPort = 18080; $standbyPort = 28080 }
@@ -50,9 +52,9 @@ try {
     }
 
     Write-Section 'ⓐ 사전 권위 run'
-    $prePort = Get-LiveNodePort
+    $prePort = Get-LiveNodePort -Resource $leaseResource
     Reset-LoadtestAcks -Port $prePort
-    $s0 = Get-HarnessStatus -Port $prePort
+    $s0 = Get-HarnessStatus -Port $prePort -Resource $leaseResource
     $oldEpoch = [long]$s0.epoch; $oldHolder = $s0.holder
     $leaseUntilBefore = ([datetimeoffset]$s0.leaseUntil).UtcDateTime
     $cmdHasFencing = Test-CommandFencingColumn
@@ -66,7 +68,7 @@ try {
     $tradesAtInject = Get-TradeCount
     # T1(마지막 heartbeat) 역산 기준을 주입 직전 값으로 다시 잡는다. ⓐ 시점 스냅샷을 쓰면
     # 사전 권위 run과 시계 가드가 도는 동안의 갱신분이 그대로 다운타임에 더해져 과대 산출된다.
-    $leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort).leaseUntil).UtcDateTime
+    $leaseUntilBefore = ([datetimeoffset](Get-HarnessStatus -Port $prePort -Resource $leaseResource).leaseUntil).UtcDateTime
     & docker pause $target | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "docker pause 실패(종료코드 $LASTEXITCODE). 유령 주입으로 진행하면 확정 위양성이다." }
     $paused = $true
@@ -81,12 +83,12 @@ try {
 
     Write-Section 'ⓒ 관찰(개입 금지): 신 리더 승격 + 체결 재개'
     $t2 = Wait-For {
-        try { $s = Get-HarnessStatus -Port $standbyPort; ($s.epoch -gt $oldEpoch) -and $s.leaderAlive }
+        try { $s = Get-HarnessStatus -Port $standbyPort -Resource $leaseResource; ($s.epoch -gt $oldEpoch) -and $s.leaderAlive }
         catch { $false }
     } -TimeoutSec $observeSec -PollSec 0.5
-    $sAfter = Get-HarnessStatus -Port $standbyPort
+    $sAfter = Get-HarnessStatus -Port $standbyPort -Resource $leaseResource
     $newEpoch = [long]$sAfter.epoch; $newHolder = $sAfter.holder
-    $t5 = Wait-FirstTradeAfter -OldEpoch $oldEpoch -T0 $t0 -TimeoutSec $observeSec
+    $t5 = Wait-FirstTradeAfter -OldEpoch $oldEpoch -T0 $t0 -TimeoutSec $observeSec -Resource $leaseResource
     $rto = $null; if ($t5) { $rto = ($t5 - $t0).TotalSeconds }
     $leaseTtl = Get-LeaseTtlSec
     $downtime = $null; if ($t2) { $downtime = ($t2 - $leaseUntilBefore).TotalSeconds + $leaseTtl }
@@ -103,13 +105,14 @@ try {
     # 성공을 확인한 뒤에만 플래그를 내린다. 먼저 내리면 실패 시 종료 훅이 재시도하지 않아
     # 컨테이너가 영구 동결로 남고 이후 전 실험이 무관한 이유로 FAIL한다.
     if ($LASTEXITCODE -eq 0) { $paused = $false } else { Write-Host "docker unpause 실패(종료코드 $LASTEXITCODE). 종료 훅에서 재시도한다." -ForegroundColor Yellow }
-    # 좀비 관찰(soft): unpause된 구 리더는 구 epoch heartbeat/append -> fencing 0행 -> self-shutdown.
-    # 재승격 없음(리스 보유자=신 리더, epoch 불변)을 leader_lease 직조회로 확인.
+    # 좀비 관찰(soft): unpause된 구 리더는 구 epoch heartbeat/append -> fencing 0행 -> 그 파티션 강등.
+    # 강등한 파티션은 fresh 재구성 뒤 팔로워로 돌아오고, 신 리더가 리스를 쥐고 있어 되돌려 얻지 않는다.
+    # 그것(리스 보유자=신 리더, epoch 불변)을 leader_lease 직조회로 확인한다.
     $zombieOk = Wait-For {
         try {
-            $holder = Invoke-Psql "SELECT holder FROM leader_lease WHERE resource='matching-engine'"
+            $holder = Invoke-Psql "SELECT holder FROM leader_lease WHERE resource='$leaseResource'"
             # 리스 행 부재·psql 무응답은 $null이다. 캐스팅해 0으로 비교하지 않고 미확인으로 둔다.
-            $epochNow = Get-Scalar "SELECT epoch FROM leader_lease WHERE resource='matching-engine'"
+            $epochNow = Get-Scalar "SELECT epoch FROM leader_lease WHERE resource='$leaseResource'"
             ($holder -eq $newHolder) -and ($null -ne $epochNow) -and ([long]$epochNow -eq $newEpoch)
         } catch { $false }
     } -TimeoutSec ([int]$cfg['ZOMBIE_OBSERVE_SEC']) -PollSec 1
@@ -123,7 +126,7 @@ try {
         $requiredStreak = if ($botsStopped) { 1 } else { 2 }
         $drained = Wait-DrainZero -Sql $Global:CHAOS_DRAIN_SQL -TimeoutSec 90 -RequiredStreak $requiredStreak
         if (-not $drained) { Write-Host '경고: 드레인 미완. C13A 가 진행 중 NEW 를 포함할 수 있다' -ForegroundColor Yellow }
-        $postPort = Get-LiveNodePort
+        $postPort = Get-LiveNodePort -Resource $leaseResource
         $post = Invoke-InvariantRun -Port $postPort -RunId $runId -Window 'post'
     } finally {
         $restoreOps = 0; if ($cfg['BASE_OPS']) { $restoreOps = [int]$cfg['BASE_OPS'] }
@@ -133,7 +136,7 @@ try {
     $staleWrites = Get-StaleWriteDelta -Baseline $swBase -After $swAfter
     # 리스 행 부재는 리더 부재라 정상 상태가 아니지만 질의로는 0행이 나올 수 있다. 0으로 폴백하면
     # final=0이 되어 아래 단조 상승 판정이 우연히 거짓이 되는 것에 기대게 된다. 명시로 가른다.
-    $finalEpochRaw = Get-Scalar "SELECT epoch FROM leader_lease WHERE resource='matching-engine'"
+    $finalEpochRaw = Get-Scalar "SELECT epoch FROM leader_lease WHERE resource='$leaseResource'"
     $finalEpoch = $null; if ($null -ne $finalEpochRaw) { $finalEpoch = [long]$finalEpochRaw }
     $finalEpochDisp = 'n/a(리스 행 부재)'; if ($null -ne $finalEpoch) { $finalEpochDisp = $finalEpoch }
 
@@ -150,7 +153,7 @@ try {
     # 축 저널 행 0)가 전담하므로 epoch는 단조 증가만 본다.
     $epochOk = ($newEpoch -ge $oldEpoch + 1) -and ($null -ne $finalEpoch) -and ($finalEpoch -ge $newEpoch)
     # epoch 상승만으로는 "다른 노드가 받았다"가 증명되지 않는다. [반납 -> 만료 -> 같은 노드
-    # 재승격]도 epoch를 올리고, 승격과 종신 강등이 경합하면 아무도 서빙하지 않는데 epoch만 오른다.
+    # 재승격]도 epoch를 올리고, 승격과 강등이 경합하면 아무도 서빙하지 않는데 epoch만 오른다.
     $holderChanged = (-not [string]::IsNullOrWhiteSpace($newHolder)) -and ($newHolder -ne $oldHolder)
     $rtoOk = ($null -ne $rto -and $rto -lt $rtoTarget)
     $postClean = Test-ExperimentIntegrity $post
@@ -167,7 +170,7 @@ try {
     $rtoEvid = 'n/a'; if ($null -ne $rtoRounded) { $rtoEvid = $rtoRounded }
     $tradesAfter = Get-TradeCount
 
-    $rec = Record-Failover -Port $postPort -Body @{
+    $rec = Record-Failover -Port $postPort -Resource $leaseResource -Body @{
         experimentId = 'E7'; oldLeader = $oldHolder; newLeader = $newHolder
         oldEpoch = $oldEpoch; newEpoch = $newEpoch; firstTradeTs = $firstTradeVal
         rtoSeconds = $rtoRounded; downtimeSeconds = $downtimeRounded

@@ -59,9 +59,12 @@ function Test-AlertState {
     return (($started -join ',') -eq ((@($Expected.Keys) | Sort-Object) -join ','))
 }
 
-# 리더 불변은 컨테이너 로그가 아니라 리스 행으로 판정한다. holder 나 epoch 가 바뀌면 리더가 바뀐 것이다.
+# 리더 불변은 컨테이너 로그가 아니라 리스 행으로 판정한다. holder 나 epoch 가 바뀌면 리더가 바뀐 것이다. 모드가 쓰는
+# 리스 자원을 모두 본다(P1·P2 matching-engine, P3 matching-p0·matching-p1, S4 설계 4-18).
 function Get-LeaseHolder {
-    $v = Invoke-Psql "SELECT holder || '/' || epoch FROM leader_lease WHERE resource='matching-engine' AND lease_until > now()"
+    $resources = (Get-ModeLeaseResources | ForEach-Object { "'$_'" }) -join ','
+    $v = Invoke-Psql ("SELECT string_agg(resource || ':' || holder || '/' || epoch, ',' ORDER BY resource) " +
+        "FROM leader_lease WHERE resource IN ($resources) AND lease_until > now()")
     if ([string]::IsNullOrWhiteSpace($v)) { return $null }
     return "$v".Trim()
 }

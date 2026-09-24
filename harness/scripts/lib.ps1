@@ -213,18 +213,22 @@ function Get-Scalar {
 }
 
 function Get-LiveNodePort {
+    param([string] $Resource)
+    $query = if ([string]::IsNullOrWhiteSpace($Resource)) { '' } else { "?resource=$Resource" }
     foreach ($p in @($Global:CHAOS.Api1Port, $Global:CHAOS.Api2Port)) {
         try {
-            Invoke-RestMethod -Uri "http://localhost:$p/harness/v1/status" -TimeoutSec 3 | Out-Null
+            Invoke-RestMethod -Uri "http://localhost:$p/harness/v1/status$query" -TimeoutSec 3 | Out-Null
             return $p
         } catch { }
     }
     throw '살아있는 api 노드 없음(양 노드 응답 실패)'
 }
 
+# 파티션 리더 모드(P3)에서는 resource 가 필수다(서버가 400). P1·P2 에서는 비우면 종전 모양이다.
 function Get-HarnessStatus {
-    param([int] $Port)
-    return Invoke-RestMethod -Uri "http://localhost:$Port/harness/v1/status" -TimeoutSec 5
+    param([int] $Port, [string] $Resource)
+    $query = if ([string]::IsNullOrWhiteSpace($Resource)) { '' } else { "?resource=$Resource" }
+    return Invoke-RestMethod -Uri "http://localhost:$Port/harness/v1/status$query" -TimeoutSec 5
 }
 
 function Invoke-InvariantRun {
@@ -239,7 +243,10 @@ function Reset-LoadtestAcks {
 }
 
 function Record-Failover {
-    param([int] $Port, [hashtable] $Body)
+    param([int] $Port, [hashtable] $Body, [string] $Resource)
+    # 측정한 리스 자원을 싣는다(V53, S4 설계 4-18). 없으면 서버가 P1·P2 에서 matching-engine 으로 적고 P3 에서 400 이다.
+    # 호출부가 바디에 이미 넣었으면 그대로 둔다.
+    if (-not $Body.ContainsKey('resource')) { $Body['resource'] = Get-LeaseResource -Resource $Resource }
     $json = $Body | ConvertTo-Json -Depth 6
     $resp = Invoke-RestMethod -Uri "http://localhost:$Port/harness/v1/failover" -Method Post `
         -ContentType 'application/json' -Body $json -TimeoutSec 10
@@ -274,11 +281,45 @@ function Remove-AllToxics {
 # 둘과 실측 대조, 등가(=)가 아니라 초과(>)를 쓰는 이유는 모두 그 절에 있다.
 # 조인 전환으로 생긴 결합: 이 측정은 C12(고아 이벤트 0행)에 의존한다. 대응 command 행이 없는
 # TRADE가 생기면 inner join이 그것을 버려 RTO가 n/a가 되고 판정이 FAIL로 떨어진다(fail-closed).
+#
+# 파티션 자원(S4 설계 4-18, 하네스 검증설계 §5-1)이면 그 파티션 마켓의 체결만 본다. 한 사건이 파티션 하나만 옮기므로 다른
+# 파티션의 체결을 재개로 집으면 RTO 를 과소 보고한다. matching-engine 이면 문장이 종전과 바이트 단위로 같다.
 function Get-FirstTradeSql {
-    param([long] $OldEpoch, [string] $T0Iso)
-    return "SELECT min(e.created_at) AT TIME ZONE 'UTC' FROM event_journal e " +
+    param([long] $OldEpoch, [string] $T0Iso, [string] $Resource = 'matching-engine')
+    $sql = "SELECT min(e.created_at) AT TIME ZONE 'UTC' FROM event_journal e " +
         "JOIN command_journal c ON c.seq = e.source_cmd_seq " +
         "WHERE e.event_type='TRADE' AND c.fencing_token > $OldEpoch AND e.created_at > '$T0Iso'"
+    if ($Resource -ne 'matching-engine') {
+        $sql += " AND e.market_id IN (SELECT market_id FROM market_lease_partition WHERE resource = '$Resource')"
+    }
+    return $sql
+}
+
+# 모드가 쓰는 리스 자원 목록(S4 설계 4-18). P1·P2 는 matching-engine 하나, P3 은 matching-p0·matching-p1 이다. 모드를
+# 읽지 못하면 멈춘다.
+function Get-ModeLeaseResources {
+    $protocol = [int](Get-Scalar "SELECT protocol FROM leader_protocol" -Required)
+    if ($protocol -ge 3) { return @('matching-p0', 'matching-p1') }
+    return @('matching-engine')
+}
+
+# 실험이 볼 리스 자원(S4 설계 4-18). leader_protocol 이 1·2 면 matching-engine 이고, 3(파티션 리더 모드)이면 -Resource 가
+# 필수다. 한 사건이 파티션 하나만 옮기므로 어느 자원을 보는지 모른 채 판정하면 다른 파티션의 리더를 본다. 모드를 읽지
+# 못하면 멈춘다. 1 로 가정하면 P3 스택에서 matching-engine 행을 보며 공허하게 통과한다.
+function Get-LeaseResource {
+    param([string] $Resource)
+    $protocol = [int](Get-Scalar "SELECT protocol FROM leader_protocol" -Required)
+    if ($protocol -ge 3) {
+        if ([string]::IsNullOrWhiteSpace($Resource)) {
+            throw "leader_protocol 이 3(파티션 리더 모드)이라 -Resource(matching-p0 또는 matching-p1)가 필수다"
+        }
+        if (@('matching-p0', 'matching-p1') -notcontains $Resource) { throw "P3 에 없는 리스 자원: $Resource" }
+        return $Resource
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Resource) -and $Resource -ne 'matching-engine') {
+        throw "P$protocol 에 없는 리스 자원: $Resource"
+    }
+    return 'matching-engine'
 }
 
 function Write-Section {
@@ -320,8 +361,10 @@ function Complete-FailoverExperiment {
         [long] $OldEpoch, [string] $OldHolder, [datetime] $LeaseUntilBefore,
         [long] $TradesAtInject, [datetime] $T0,
         [int] $ObserveSec, [int] $RtoTarget,
-        [int] $StandbyPort = 0, [int] $RestoreOps = 0
+        [int] $StandbyPort = 0, [int] $RestoreOps = 0, [string] $Resource
     )
+    # 이 사건이 옮기는 리스 자원(S4 설계 4-18). P1·P2 는 matching-engine 이고 P3 에서는 -Resource 가 필수다.
+    $leaseResource = Get-LeaseResource -Resource $Resource
     # 스탠바이 포트를 api-2로 하드코딩하면 리더가 api-2일 때(앞선 실험이 그렇게 남긴 경우)
     # 방금 죽인 노드를 폴링하게 되어 승격을 영영 못 보고 RTO가 n/a로 남는다. 호출부가 실제
     # 스탠바이를 알고 있으면 그것을 쓰고, 없으면 기본 api-2 포트로 떨어진다.
@@ -329,17 +372,17 @@ function Complete-FailoverExperiment {
 
     Write-Section 'ⓒ 관찰(개입 금지)'
     $t2 = Wait-For {
-        try { $s = Get-HarnessStatus -Port $standbyPort; ($s.epoch -gt $OldEpoch) -and $s.leaderAlive }
+        try { $s = Get-HarnessStatus -Port $standbyPort -Resource $leaseResource; ($s.epoch -gt $OldEpoch) -and $s.leaderAlive }
         catch { $false }
     } -TimeoutSec $ObserveSec -PollSec 0.5
-    $statusAfter = Get-HarnessStatus -Port (Get-LiveNodePort)
+    $statusAfter = Get-HarnessStatus -Port (Get-LiveNodePort -Resource $leaseResource) -Resource $leaseResource
     $newEpoch = [long]$statusAfter.epoch
     $newHolder = $statusAfter.holder
 
     # T5 = 페일오버 후 최초 신규 TRADE의 engine_ts(§5-1 정의). created_at은 DB now()가 아니라
     # 엔진 처리 시각이라 커밋 가시화 지연과 무관한 재개 시점을 가리킨다.
     $t0Iso = $T0.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fff') + 'Z'
-    $firstTradeSql = Get-FirstTradeSql -OldEpoch $OldEpoch -T0Iso $t0Iso
+    $firstTradeSql = Get-FirstTradeSql -OldEpoch $OldEpoch -T0Iso $t0Iso -Resource $leaseResource
     $obsResume = Wait-For {
         -not [string]::IsNullOrWhiteSpace((Invoke-Psql $firstTradeSql))
     } -TimeoutSec $ObserveSec -PollSec 0.5
@@ -436,7 +479,7 @@ function Complete-FailoverExperiment {
                      tradesBefore = "$TradesAtInject"; tradesAfter = "$tradesAfter";
                      drainValid = "$drainValid" }
     }
-    $rec = Record-Failover -Port $postPort -Body $body
+    $rec = Record-Failover -Port $postPort -Body $body -Resource $leaseResource
 
     Write-Host ''
     Write-Host "── $ExperimentId 증거 ─────────────────────" -ForegroundColor Green
@@ -583,9 +626,9 @@ function Test-StaleWriteBaseline {
 # 승격 후 최초 신규 TRADE의 engine_ts(§5-1 T5). 커밋 가시화 지연과 무관한 체결 재개 시점.
 # 반환: UtcDateTime 또는 $null. 술어는 Get-FirstTradeSql 공용(재생 산출물 배제 근거는 그 주석).
 function Wait-FirstTradeAfter {
-    param([long] $OldEpoch, [datetime] $T0, [int] $TimeoutSec)
+    param([long] $OldEpoch, [datetime] $T0, [int] $TimeoutSec, [string] $Resource = 'matching-engine')
     $t0Iso = $T0.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fff') + 'Z'
-    $sql = Get-FirstTradeSql -OldEpoch $OldEpoch -T0Iso $t0Iso
+    $sql = Get-FirstTradeSql -OldEpoch $OldEpoch -T0Iso $t0Iso -Resource $Resource
     Wait-For { -not [string]::IsNullOrWhiteSpace((Invoke-Psql $sql)) } -TimeoutSec $TimeoutSec -PollSec 0.5 | Out-Null
     $raw = Invoke-Psql $sql
     if ([string]::IsNullOrWhiteSpace($raw)) { return $null }
@@ -597,9 +640,12 @@ function Wait-FirstTradeAfter {
 # 찍히므로 매칭되는 컨테이너가 현 리더다. ASCII UUID만 대조해 콘솔 인코딩 무관(승격/상실 한글
 # 매칭은 5.1 OEM 코드페이지에서 깨져 신뢰 불가). 실패·리더 부재 시 $null.
 # 용도: E5/E7이 팔로워를 잘못 대상 삼아 페일오버 없이 공허 FAIL 나는 것을 막는다(README 리허설 규약).
+# 파티션 리더 모드(P3)에서는 -Resource 로 파티션을 고른다(Get-LeaseResource). holder 는 노드마다 하나라 그 노드의 모든
+# 파티션이 같은 UUID 를 로그에 남긴다.
 function Get-LeaderContainer {
-    param([string[]] $Candidates = @('chaos-api-1', 'chaos-api-2'))
-    $holder = Invoke-Psql "SELECT holder FROM leader_lease WHERE resource='matching-engine' AND lease_until > now()"
+    param([string[]] $Candidates = @('chaos-api-1', 'chaos-api-2'), [string] $Resource)
+    $leaseResource = Get-LeaseResource -Resource $Resource
+    $holder = Invoke-Psql "SELECT holder FROM leader_lease WHERE resource='$leaseResource' AND lease_until > now()"
     if ([string]::IsNullOrWhiteSpace($holder)) { return $null }
     $matched = @()
     foreach ($c in $Candidates) {

@@ -1,0 +1,25 @@
+2026-09-25T00:53:59+09:00 [X7] PHASE X7 project=exchange-pml repo=C:\dev\exchange-pml image=exchange-chaos-app:pml
+2026-09-25T00:53:59+09:00 [X7] volumes before unchanged
+2026-09-25T00:54:00+09:00 [X7] TAG exchange-chaos-app:pml -> sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b
+2026-09-25T00:54:05+09:00 [X7] PROBE S3a rate=600 image=sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b keys=16 hostCpu=[37.4,38,26.4,44.9,44.4] otherBusy=1
+2026-09-25T00:54:05+09:00 [X7] RUN python harness/scale/roundtrip_probe.py --label S3a --rate 600 --out C:\dev\exchange-pml\harness\evidence\pml-S4-20260925-0012\X7\S3a-600.json --protocol-before-traffic 2
+2026-09-25T01:00:45+09:00 [X7] RC 0
+2026-09-25T01:01:09+09:00 [X7] SUMMARY summary-S3a-600 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T01:01:15+09:00 [X7] TAG exchange-chaos-app:pml -> sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a
+2026-09-25T01:01:20+09:00 [X7] PROBE S4a rate=600 image=sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a keys=16 hostCpu=[40.1,36.8,56.4,33.1,42.1] otherBusy=0
+2026-09-25T01:01:20+09:00 [X7] RUN python harness/scale/roundtrip_probe.py --label S4a --rate 600 --out C:\dev\exchange-pml\harness\evidence\pml-S4-20260925-0012\X7\S4a-600.json --protocol-before-traffic 2
+2026-09-25T01:07:42+09:00 [X7] RC 0
+2026-09-25T01:08:05+09:00 [X7] SUMMARY summary-S4a-600 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T01:08:11+09:00 [X7] TAG exchange-chaos-app:pml -> sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b
+2026-09-25T01:08:16+09:00 [X7] PROBE S3b rate=600 image=sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b keys=16 hostCpu=[40.9,30.1,30.8,41.6,32.9] otherBusy=1
+2026-09-25T01:08:16+09:00 [X7] RUN python harness/scale/roundtrip_probe.py --label S3b --rate 600 --out C:\dev\exchange-pml\harness\evidence\pml-S4-20260925-0012\X7\S3b-600.json --protocol-before-traffic 2
+2026-09-25T01:14:50+09:00 [X7] RC 0
+2026-09-25T01:15:14+09:00 [X7] SUMMARY summary-S3b-600 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T01:15:19+09:00 [X7] TAG exchange-chaos-app:pml -> sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a
+2026-09-25T01:15:24+09:00 [X7] PROBE S4b rate=600 image=sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a keys=16 hostCpu=[56.2,56.4,62.9,53.8,82.7] otherBusy=1
+2026-09-25T01:15:24+09:00 [X7] RUN python harness/scale/roundtrip_probe.py --label S4b --rate 600 --out C:\dev\exchange-pml\harness\evidence\pml-S4-20260925-0012\X7\S4b-600.json --protocol-before-traffic 2
+2026-09-25T01:22:00+09:00 [X7] RC 0
+2026-09-25T01:22:23+09:00 [X7] SUMMARY summary-S4b-600 rc=0 rows=32 gate=29 notPass=[]
+2026-09-25T01:22:31+09:00 [X7] down -v (exchange-pml) rc=0 after X7
+2026-09-25T01:22:31+09:00 [X7] TAG exchange-chaos-app:pml -> sha256:5b8c279fb47240bd002f23c53d7e0059638102ced846f58f0f513784b2f0079a
+2026-09-25T01:22:31+09:00 [X7] volumes after unchanged

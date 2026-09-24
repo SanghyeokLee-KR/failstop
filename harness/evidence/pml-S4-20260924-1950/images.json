@@ -1,0 +1,26 @@
+{
+  "tag": "exchange-chaos-app:pml",
+  "imageId": "sha256:92429e71ea0ddb39da440a1d371480b6f66e84782cb4e57fd60f4d95b444e3ea",
+  "created": "2026-09-24T11:20:45.668773823Z",
+  "s3ImageId": "sha256:0ff1d3c13083a0aac8fc4c67f939822c33703af61e6e307ad7a5935bdd5bf43e",
+  "s3Created": "2026-09-24T04:51:55.061961068Z",
+  "worktree": "C:\\dev\\exchange-pml",
+  "head": "91813dd58e24500e0700c532d17a772d7b7ec76f",
+  "trackedDiffSha256": "62e6d182e1eef31635e744869bffb1bdb130c352e6ef1e4a650ed1e3481faa3c",
+  "changedPaths": 138,
+  "jarSha256": "66d72e839a1510d2529e1e69daf9aefe5e65beb609d96086f76fcd422cee7ff8",
+  "jarWritten": "2026-09-24T19:52:18.6653980+09:00",
+  "flyway": {
+    "rows": 54,
+    "max_version": 53,
+    "failed": 0
+  },
+  "note": "S4 는 이 단계에서 커밋하지 않는다. 이미지는 HEAD 위 작업 트리 변경(추적 파일 diff 해시와 새 파일)을 담는다",
+  "s3ImageLost": "S4 이미지를 :pml 로 구운 뒤 S3 이미지 sha256:0ff1d3c1… 가 사라졌다. 이 PC 의 Docker 는 containerd 이미지 저장소라 이름을 모두 잃은 이미지가 남지 않는다. 지우는 명령은 쓰지 않았다",
+  "s3RefImageId": "sha256:6d97e047c9f96e5dac5568f58c51232b255a3b9bb467584145188167a7eaa31b",
+  "s3RefTag": "exchange-chaos-app:s3ref",
+  "s3RefCreated": "2026-09-24T12:09:29.296877624Z",
+  "s3RefSource": "git archive 60be79e0(S3 커밋, HEAD 91813dd5 와 서버 코드 같음) server·harness/Dockerfile.app 을 저장소 밖 폴더에 풀어 :app:bootJar 로 빌드하고 docker build -f Dockerfile.app 로 구웠다",
+  "s3RefJarSha256": "35e3e4ccceab4b70d5ab00a3b8f35bd3cb7572e020c4636542b6690951af9d23",
+  "s4RefTag": "exchange-chaos-app:s4ref"
+}

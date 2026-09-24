@@ -1,0 +1,530 @@
+{
+  "variant": "c",
+  "iterations": 10,
+  "lock_sec": 5.0,
+  "started": "2026-09-24T15:30:53Z",
+  "finished": "2026-09-24T15:31:47Z",
+  "accounts": {
+    "L_user_id": 1447,
+    "M_user_id": 1448
+  },
+  "contention_delta": {
+    "lock_wait|409": 13.0,
+    "55P03|429": 13.0,
+    "lock_wait|429": 26.0,
+    "55P03|409": 10.0
+  },
+  "record": {
+    "admission_rejected_order_delta": 0.0
+  },
+  "axes": {
+    "R_first_201": true,
+    "same_key_both_409_in_progress": true,
+    "K_retry_201_one_row": true,
+    "R_resend_409_or_200_not_503": true,
+    "R_lookup_200": true
+  },
+  "ok": true,
+  "rows": [
+    {
+      "i": 0,
+      "R_first": {
+        "coid": "x6cR-c9b316f857924fb6b7ad",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 14.0,
+        "replay": false
+      },
+      "same_key": [
+        {
+          "coid": "x6cK-c4f69108473f4f7f8472",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 2010.9,
+          "replay": false
+        },
+        {
+          "coid": "x6cK-c4f69108473f4f7f8472",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 1010.8,
+          "replay": false
+        }
+      ],
+      "R_resend": {
+        "coid": "x6cR-c9b316f857924fb6b7ad",
+        "status": 200,
+        "name": null,
+        "bucket": null,
+        "ms": 1814.2,
+        "replay": true
+      },
+      "R_lookup": {
+        "status": 200,
+        "id": "84a442c5-604f-492e-880f-f274ca8433f6"
+      },
+      "K_retry": {
+        "coid": "x6cK-c4f69108473f4f7f8472",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 15.5,
+        "replay": false
+      },
+      "K_rows": 1
+    },
+    {
+      "i": 1,
+      "R_first": {
+        "coid": "x6cR-de0277983d7945f5af00",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 40.1,
+        "replay": false
+      },
+      "same_key": [
+        {
+          "coid": "x6cK-f6254429ae27435f8d4b",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 1011.2,
+          "replay": false
+        },
+        {
+          "coid": "x6cK-f6254429ae27435f8d4b",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 2010.4,
+          "replay": false
+        }
+      ],
+      "R_resend": {
+        "coid": "x6cR-de0277983d7945f5af00",
+        "status": 200,
+        "name": null,
+        "bucket": null,
+        "ms": 1819.2,
+        "replay": true
+      },
+      "R_lookup": {
+        "status": 200,
+        "id": "5e16acf5-09b8-447e-a2da-bc818acc34bd"
+      },
+      "K_retry": {
+        "coid": "x6cK-f6254429ae27435f8d4b",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 18.7,
+        "replay": false
+      },
+      "K_rows": 1
+    },
+    {
+      "i": 2,
+      "R_first": {
+        "coid": "x6cR-ed06c9885b944a0f920f",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 14.1,
+        "replay": false
+      },
+      "same_key": [
+        {
+          "coid": "x6cK-1c381b9cb4104a939160",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 1009.9,
+          "replay": false
+        },
+        {
+          "coid": "x6cK-1c381b9cb4104a939160",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 2009.2,
+          "replay": false
+        }
+      ],
+      "R_resend": {
+        "coid": "x6cR-ed06c9885b944a0f920f",
+        "status": 200,
+        "name": null,
+        "bucket": null,
+        "ms": 1816.3,
+        "replay": true
+      },
+      "R_lookup": {
+        "status": 200,
+        "id": "b2d09a4f-4a40-4bf3-a60a-ba8992d7f3a1"
+      },
+      "K_retry": {
+        "coid": "x6cK-1c381b9cb4104a939160",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 33.4,
+        "replay": false
+      },
+      "K_rows": 1
+    },
+    {
+      "i": 3,
+      "R_first": {
+        "coid": "x6cR-6d1ff87d3e534f1ab844",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 14.2,
+        "replay": false
+      },
+      "same_key": [
+        {
+          "coid": "x6cK-2cbd5b2dfb3f4fe28098",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 1012.3,
+          "replay": false
+        },
+        {
+          "coid": "x6cK-2cbd5b2dfb3f4fe28098",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 2009.8,
+          "replay": false
+        }
+      ],
+      "R_resend": {
+        "coid": "x6cR-6d1ff87d3e534f1ab844",
+        "status": 409,
+        "name": "order_in_progress",
+        "bucket": null,
+        "ms": 2006.1,
+        "replay": false
+      },
+      "R_lookup": {
+        "status": 200,
+        "id": "f031f3ba-9820-48ad-88f2-d09c70b0b42e"
+      },
+      "K_retry": {
+        "coid": "x6cK-2cbd5b2dfb3f4fe28098",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 16.9,
+        "replay": false
+      },
+      "K_rows": 1
+    },
+    {
+      "i": 4,
+      "R_first": {
+        "coid": "x6cR-4076776678c1453fab05",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 13.8,
+        "replay": false
+      },
+      "same_key": [
+        {
+          "coid": "x6cK-43ffede1b44d4db198f1",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 1011.3,
+          "replay": false
+        },
+        {
+          "coid": "x6cK-43ffede1b44d4db198f1",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 2010.7,
+          "replay": false
+        }
+      ],
+      "R_resend": {
+        "coid": "x6cR-4076776678c1453fab05",
+        "status": 200,
+        "name": null,
+        "bucket": null,
+        "ms": 1825.1,
+        "replay": true
+      },
+      "R_lookup": {
+        "status": 200,
+        "id": "abb4bd9d-7db1-4ecb-965b-71765c930d6c"
+      },
+      "K_retry": {
+        "coid": "x6cK-43ffede1b44d4db198f1",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 18.1,
+        "replay": false
+      },
+      "K_rows": 1
+    },
+    {
+      "i": 5,
+      "R_first": {
+        "coid": "x6cR-34c7a351ec4e4147ad5b",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 15.2,
+        "replay": false
+      },
+      "same_key": [
+        {
+          "coid": "x6cK-6fc60a127d9e4577978f",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 2011.6,
+          "replay": false
+        },
+        {
+          "coid": "x6cK-6fc60a127d9e4577978f",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 1010.6,
+          "replay": false
+        }
+      ],
+      "R_resend": {
+        "coid": "x6cR-34c7a351ec4e4147ad5b",
+        "status": 200,
+        "name": null,
+        "bucket": null,
+        "ms": 1813.4,
+        "replay": true
+      },
+      "R_lookup": {
+        "status": 200,
+        "id": "5ef8fbaf-d1d3-40ff-96f8-0e89685aabb5"
+      },
+      "K_retry": {
+        "coid": "x6cK-6fc60a127d9e4577978f",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 16.1,
+        "replay": false
+      },
+      "K_rows": 1
+    },
+    {
+      "i": 6,
+      "R_first": {
+        "coid": "x6cR-0b8f667690a4468d8ec8",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 14.2,
+        "replay": false
+      },
+      "same_key": [
+        {
+          "coid": "x6cK-9eedd527f3e64642adca",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 2011.1,
+          "replay": false
+        },
+        {
+          "coid": "x6cK-9eedd527f3e64642adca",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 1011.4,
+          "replay": false
+        }
+      ],
+      "R_resend": {
+        "coid": "x6cR-0b8f667690a4468d8ec8",
+        "status": 200,
+        "name": null,
+        "bucket": null,
+        "ms": 1818.9,
+        "replay": true
+      },
+      "R_lookup": {
+        "status": 200,
+        "id": "4258fe1f-591b-4383-a734-8cf5487bc546"
+      },
+      "K_retry": {
+        "coid": "x6cK-9eedd527f3e64642adca",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 30.7,
+        "replay": false
+      },
+      "K_rows": 1
+    },
+    {
+      "i": 7,
+      "R_first": {
+        "coid": "x6cR-1dbd8850aad946dc879d",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 38.6,
+        "replay": false
+      },
+      "same_key": [
+        {
+          "coid": "x6cK-e2430a4ebee64520bfdc",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 1010.5,
+          "replay": false
+        },
+        {
+          "coid": "x6cK-e2430a4ebee64520bfdc",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 2009.3,
+          "replay": false
+        }
+      ],
+      "R_resend": {
+        "coid": "x6cR-1dbd8850aad946dc879d",
+        "status": 409,
+        "name": "order_in_progress",
+        "bucket": null,
+        "ms": 2017.6,
+        "replay": false
+      },
+      "R_lookup": {
+        "status": 200,
+        "id": "022d289d-f109-4f7b-a0bb-07c448cc21dc"
+      },
+      "K_retry": {
+        "coid": "x6cK-e2430a4ebee64520bfdc",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 15.3,
+        "replay": false
+      },
+      "K_rows": 1
+    },
+    {
+      "i": 8,
+      "R_first": {
+        "coid": "x6cR-80e073a8db2b47289de2",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 26.3,
+        "replay": false
+      },
+      "same_key": [
+        {
+          "coid": "x6cK-05d6a32b0b344812a178",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 1010.3,
+          "replay": false
+        },
+        {
+          "coid": "x6cK-05d6a32b0b344812a178",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 2009.2,
+          "replay": false
+        }
+      ],
+      "R_resend": {
+        "coid": "x6cR-80e073a8db2b47289de2",
+        "status": 200,
+        "name": null,
+        "bucket": null,
+        "ms": 1812.4,
+        "replay": true
+      },
+      "R_lookup": {
+        "status": 200,
+        "id": "3090ed59-4eed-4529-8f58-21efb61d353c"
+      },
+      "K_retry": {
+        "coid": "x6cK-05d6a32b0b344812a178",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 34.2,
+        "replay": false
+      },
+      "K_rows": 1
+    },
+    {
+      "i": 9,
+      "R_first": {
+        "coid": "x6cR-1320294a1bf84c3fb686",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 29.4,
+        "replay": false
+      },
+      "same_key": [
+        {
+          "coid": "x6cK-dc8d55b0af2c4b9e9a89",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 1009.9,
+          "replay": false
+        },
+        {
+          "coid": "x6cK-dc8d55b0af2c4b9e9a89",
+          "status": 409,
+          "name": "order_in_progress",
+          "bucket": null,
+          "ms": 2010.3,
+          "replay": false
+        }
+      ],
+      "R_resend": {
+        "coid": "x6cR-1320294a1bf84c3fb686",
+        "status": 409,
+        "name": "order_in_progress",
+        "bucket": null,
+        "ms": 2006.5,
+        "replay": false
+      },
+      "R_lookup": {
+        "status": 200,
+        "id": "0f69e3f2-5f59-42d4-9593-1713418a3b67"
+      },
+      "K_retry": {
+        "coid": "x6cK-dc8d55b0af2c4b9e9a89",
+        "status": 201,
+        "name": null,
+        "bucket": null,
+        "ms": 32.1,
+        "replay": false
+      },
+      "K_rows": 1
+    }
+  ]
+}

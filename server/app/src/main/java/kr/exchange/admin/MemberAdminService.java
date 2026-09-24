@@ -246,12 +246,15 @@ public class MemberAdminService {
         if (cancelOrders) {
             OrderGateway.BulkCancelResult result = orders.cancelAll(user.id(), null);
             canceled = result.canceledIds().size();
-            // 취소가 저널에 닿지 못한 주문(라이터 정지, 켜 둔 경우의 접수 락 대기 상한 초과)과 정지 마켓의 미체결은 아직
-            // 열려 있어 체결될 수 있다. 성공으로 덮지 않고 수를 돌려준다. 컨트롤러가 감사에 남긴 뒤 409 로 알린다.
+            // 취소가 저널에 닿지 못한 주문(라이터 정지, 마켓 접수 경합)과 정지 마켓의 미체결은 아직 열려 있어 체결될 수 있다.
+            // 성공으로 덮지 않고 수를 돌려준다. 컨트롤러가 감사에 남긴 뒤 409 로 알린다.
             // 정지 마켓 포함은 API 설계 v2.54 §6-E(ADR 0034 결정 15, AI 선택·사용자 확인 필요)다.
             pending = result.incomplete();
             if (result.unsubmitted() > 0) {
                 reasons.put("service_unavailable", result.unsubmitted());
+            }
+            if (result.contended() > 0) {
+                reasons.put("too_many_requests", result.contended());
             }
             if (result.suspended() > 0) {
                 reasons.put("market_suspended", result.suspended());

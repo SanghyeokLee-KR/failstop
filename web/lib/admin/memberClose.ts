@@ -1,5 +1,5 @@
 /**
- * 회원 폐쇄의 미완료 알림(API 설계 v2.54 §6-E, ADR 0034 S3). 폐쇄는 상태 전이·세션 폐기·취소를 먼저 커밋한 뒤, 취소하지 못한
+ * 회원 폐쇄의 미완료 알림(API 설계 v2.55 §6-E, ADR 0034 S3·S4). 폐쇄는 상태 전이·세션 폐기·취소를 먼저 커밋한 뒤, 취소하지 못한
  * 주문이 남으면 409 orders_cancel_incomplete 로 알린다. 폐쇄는 이미 확정이고 승인 토큰도 소각됐으므로 화면은 이것을 실패가
  * 아니라 경고로 보이고, 남은 수와 사유별 수, 다음 조치를 안내한다. 가짜 어댑터와 HTTP 어댑터 화면이 같은 문구를 쓰도록 순수
  * 함수로 둔다(web/tests/memberAdmin.test.ts 가 고정한다).
@@ -12,11 +12,13 @@ export const CLOSE_INCOMPLETE = "orders_cancel_incomplete";
 /** 사유 코드 -> 화면 이름. 서버 detail.pending_reasons 의 키다 */
 const REASON_LABEL: Record<string, string> = {
   service_unavailable: "일시 거부",
+  // 마켓 접수 경합으로 저널 전에 끝난 취소(API 설계 §2-5-b). 곧바로 다시 요청하면 풀린다
+  too_many_requests: "접수 혼잡",
   market_suspended: "정지 마켓",
 };
 
-/** 사유 표시 순서. 서버 detail 과 같은 순서로 둔다 */
-const REASON_ORDER = ["service_unavailable", "market_suspended"];
+/** 사유 표시 순서. 서버 detail 과 같은 순서로 둔다(MemberAdminService) */
+const REASON_ORDER = ["service_unavailable", "too_many_requests", "market_suspended"];
 
 function count(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;

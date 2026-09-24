@@ -148,12 +148,12 @@ class PublishGuardTest {
         db.setProtocol(3);
         try (HikariDataSource lease = db.ownerPool(); DynamoDbClient client = unreachableDynamoDb()) {
             IllegalStateException refused = assertThrows(IllegalStateException.class,
-                    () -> new LeaseStoreConfig().dynamoDbLeaderLeaseStore(dynamoProps(), client, lease,
+                    () -> new LeaseStoreConfig().dynamoDbLeaseStores(dynamoProps(), noPartitions(), client, lease,
                             new SimpleMeterRegistry()));
             assertTrue(refused.getMessage().contains("leader_protocol"), refused.getMessage());
 
             db.setProtocol(1);
-            assertNotNull(new LeaseStoreConfig().dynamoDbLeaderLeaseStore(dynamoProps(), client, lease,
+            assertNotNull(new LeaseStoreConfig().dynamoDbLeaseStores(dynamoProps(), noPartitions(), client, lease,
                     new SimpleMeterRegistry()), "P1 에서 DynamoDB 보관소를 만들지 못했다");
         }
     }
@@ -163,7 +163,7 @@ class PublishGuardTest {
     void dynamoDbStoreBeanToleratesMissingProtocolTable() throws Exception {
         PartitionLeaseDb db = PartitionLeaseDb.createAt("publish_v47", "47");
         try (HikariDataSource lease = db.ownerPool(); DynamoDbClient client = unreachableDynamoDb()) {
-            assertNotNull(new LeaseStoreConfig().dynamoDbLeaderLeaseStore(dynamoProps(), client, lease,
+            assertNotNull(new LeaseStoreConfig().dynamoDbLeaseStores(dynamoProps(), noPartitions(), client, lease,
                     new SimpleMeterRegistry()));
         }
     }
@@ -171,6 +171,10 @@ class PublishGuardTest {
     /** 보관소를 PostgreSQL 로 되돌릴 때 부르는 V33 함수. 앱 역할에 EXECUTE 가 있다. */
     private static void expireNow(JdbcClient jdbc) {
         jdbc.sql("SELECT expire_leader_lease_now()").query((rs, rowNum) -> 0).list();
+    }
+
+    private static kr.exchange.config.LeaderPartitionProperties noPartitions() {
+        return new kr.exchange.config.LeaderPartitionProperties(null, null, 0, null);
     }
 
     private static LeaderLeaseStoreProperties dynamoProps() {

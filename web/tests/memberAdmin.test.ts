@@ -132,6 +132,18 @@ test("미완료 문구는 사유별 수와 다음 조치를 싣는다", () => {
     describeCloseIncomplete({ pending_orders: 1, pending_reasons: { service_unavailable: 1 } }),
     "폐쇄 확정, 미완료 1건(일시 거부 1건). 새 승인으로 폐쇄 재요청 필요",
   );
+  // 마켓 접수 경합(API 설계 v2.55 §2-5-b)은 한글 이름으로 적고 서버와 같은 순서에 둔다. 원시 코드가 보이면 안 된다
+  assert.equal(
+    describeCloseIncomplete({
+      pending_orders: 4,
+      pending_reasons: { market_suspended: 1, too_many_requests: 2, service_unavailable: 1 },
+    }),
+    "폐쇄 확정, 미완료 4건(일시 거부 1건, 접수 혼잡 2건, 정지 마켓 1건). 정지 마켓을 재개한 뒤 새 승인으로 폐쇄 재요청 필요",
+  );
+  assert.equal(
+    describeCloseIncomplete({ pending_orders: 2, pending_reasons: { too_many_requests: 2 } }),
+    "폐쇄 확정, 미완료 2건(접수 혼잡 2건). 새 승인으로 폐쇄 재요청 필요",
+  );
   // 사유가 없거나 0 이면 합만 보인다
   assert.equal(describeCloseIncomplete({ pending_orders: 2, pending_reasons: { market_suspended: 0 } }),
     "폐쇄 확정, 미완료 2건. 새 승인으로 폐쇄 재요청 필요");

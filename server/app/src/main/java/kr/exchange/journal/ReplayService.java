@@ -83,6 +83,12 @@ public class ReplayService {
         return eventReader.materializedThroughByMarket(cursors);
     }
 
+    /** include 가 받는 마켓만 경계를 읽는다(팔로워가 따라잡는 파티션의 마켓). */
+    public JournalCheckpoints materializedThroughByMarket(Map<Integer, Long> cursors,
+                                                          java.util.function.IntPredicate include) {
+        return eventReader.materializedThroughByMarket(cursors, include);
+    }
+
     /**
      * 엔진의 마켓 커서로 구한 마켓별 경계(ADR 0023 결정 2). 엔진에 커서가 없는 마켓은 넘기지 않는다. 판독기가 저널에 명령이
      * 있는 마켓을 더하고 그 커서를 0 으로 연다. 마켓 사이에 통하는 바닥은 없다(ADR 0022 7단계).

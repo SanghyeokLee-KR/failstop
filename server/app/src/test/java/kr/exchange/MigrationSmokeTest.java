@@ -620,6 +620,47 @@ class MigrationSmokeTest {
         }
     }
 
+    /**
+     * V53(ADR 0034 S4, DB 설계 §3.8). 페일오버 측정 이력의 리스 자원 열. 널 허용이고 기본값이 없으며, 세 자원 이름만 받는다.
+     * 표 수준 권한이 새 열에도 걸려 app_role 이 그 열로 적재할 수 있다.
+     */
+    @Test
+    void v53FailoverRunsResourceColumn() throws Exception {
+        try (Connection conn = open(); Statement st = conn.createStatement()) {
+            try (ResultSet rs = st.executeQuery("""
+                    SELECT data_type, is_nullable, column_default
+                    FROM information_schema.columns
+                    WHERE table_schema = 'harness' AND table_name = 'failover_runs' AND column_name = 'resource'
+                    """)) {
+                assertTrue(rs.next(), "harness.failover_runs.resource 열이 없다");
+                assertEquals("text", rs.getString(1));
+                assertEquals("YES", rs.getString(2), "resource 는 널 허용이어야 한다");
+                assertEquals(null, rs.getString(3), "resource 에 기본값이 있으면 표를 다시 쓴다");
+            }
+            assertTrue(queryBool(conn, """
+                    SELECT col_description('harness.failover_runs'::regclass,
+                        (SELECT attnum FROM pg_attribute WHERE attrelid = 'harness.failover_runs'::regclass
+                           AND attname = 'resource')) LIKE '%ADR 0034 S4%'
+                    """), "resource 열 주석이 없다");
+            assertTrue(queryBool(conn,
+                            "SELECT has_column_privilege('app_role', 'harness.failover_runs', 'resource', 'INSERT')"),
+                    "app_role 이 resource 로 적재하지 못한다");
+            for (String resource : new String[] {"matching-engine", "matching-p0", "matching-p1"}) {
+                st.execute("""
+                        INSERT INTO harness.failover_runs (experiment_id, verdict, resource)
+                        VALUES ('V53', 'PASS', '%s')
+                        """.formatted(resource));
+            }
+            st.execute("INSERT INTO harness.failover_runs (experiment_id, verdict) VALUES ('V53', 'PASS')");
+            SQLException bad = assertThrows(SQLException.class, () -> st.execute("""
+                    INSERT INTO harness.failover_runs (experiment_id, verdict, resource)
+                    VALUES ('V53', 'PASS', 'matching-p2')
+                    """));
+            assertEquals("23514", bad.getSQLState(), "모르는 자원이 CHECK 에 걸리지 않았다: " + bad.getMessage());
+            assertEquals(4, queryInt(conn, "SELECT count(*) FROM harness.failover_runs WHERE experiment_id = 'V53'"));
+        }
+    }
+
     private static Connection open() throws SQLException {
         return DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());

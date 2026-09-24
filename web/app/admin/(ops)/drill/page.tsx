@@ -35,6 +35,7 @@ import { AdminErrorState } from "@/components/admin/ResourceState";
 import { PageHeader, PermissionNote } from "@/components/admin/ui";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { useCan } from "@/lib/admin/store";
+import { leaseRows, type LeaseRow } from "@/lib/admin/leases";
 import { toast } from "@/components/Toast";
 import styles from "@/components/admin/admin.module.css";
 
@@ -252,6 +253,9 @@ export default function DrillPage() {
               actAllowed={actAllowed}
               actBusy={actBusy}
             />
+            {/* 리더 단계의 근거(S4 설계 4-17). 리스 자원마다 보유 노드·epoch·남은 시간·마켓 수를 한 줄씩 낸다.
+                리더를 읽는 대본에서만 보인다 */}
+            {signals.ha?.leases && signals.ha.leases.length > 0 && <LeaseTable rows={leaseRows(signals.ha.leases)} />}
           </PanelCard>
 
           <DecisionFooter
@@ -281,5 +285,39 @@ function DrillTab({ def, active, onSelect }: { def: DrillDef; active: boolean; o
       <span className={styles.drillTabLead}>{def.lead}</span>
       <span className={`${styles.drillTabMeta} num`}>단계 {def.steps.length}</span>
     </button>
+  );
+}
+
+/**
+ * 리더 리스 표. P1·P2는 matching-engine 한 행, 파티션 리더 모드는 파티션마다 한 행이다. 보유 노드는 holder 앞 8자이고
+ * 남은 시간은 서버가 준 값만 적는다.
+ */
+function LeaseTable({ rows }: { rows: LeaseRow[] }) {
+  return (
+    <div className={styles.drillLeases}>
+      <table className={styles.capacityTable}>
+        <caption className={styles.drillLeasesCaption}>리더 리스</caption>
+        <thead>
+          <tr>
+            <th scope="col">자원</th>
+            <th scope="col">보유 노드</th>
+            <th scope="col">epoch</th>
+            <th scope="col">남은 시간</th>
+            <th scope="col">마켓 수</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.resource}>
+              <th scope="row">{r.resource}</th>
+              <td className="num">{r.holder}</td>
+              <td className="num">{r.epoch}</td>
+              <td className="num">{r.remaining}</td>
+              <td className="num">{r.marketCount}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

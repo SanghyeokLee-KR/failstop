@@ -35,7 +35,6 @@ import kr.exchange.api.ws.MarketDataPublisher;
 import kr.exchange.api.ws.OrderbookSnapshotOnSubscribe;
 import kr.exchange.api.ws.StompAuthInterceptor;
 import kr.exchange.engine.EngineBridge;
-import kr.exchange.engine.LeaderLeaseService;
 import kr.exchange.engine.LeaderWriteProgress;
 import kr.exchange.ledger.AccountBootstrap;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -359,12 +358,14 @@ public class ApiConfig {
     public OrderGateway orderGateway(JdbcClient jdbc, EngineBridge bridge,
                                      MarketDirectory markets, OrderQueryService orders,
                                      MeterRegistry meterRegistry,
-                                     kr.exchange.engine.lease.LeaderProtocolBoot leaderProtocolBoot) {
+                                     kr.exchange.engine.lease.LeaderProtocolBoot leaderProtocolBoot,
+                                     kr.exchange.engine.PartitionPlan partitionPlan) {
         // 잔고 판정의 권위는 기동 모드가 정한다(ADR 0034 S3). P2 이상이면 append 트랜잭션의 DB 예약이 권위이고
         // in-flight 누계를 끈다. 1 로 뜬 노드는 P2 DB 에서도 안전하다(DB 예약분을 바로 푼다, OrderGateway).
         OrderGateway gateway = new OrderGateway(jdbc, bridge, markets, orders,
                 leaderProtocolBoot.reservesAtIntake()
                         ? OrderGateway.ReserveMode.DB_RESERVATION : OrderGateway.ReserveMode.IN_FLIGHT);
+        gateway.setPartitionPlan(partitionPlan);
         io.micrometer.core.instrument.Gauge
                 .builder("exchange.order.inflight.enabled", gateway, g -> g.inflightEnabled() ? 1 : 0)
                 .description("게이트웨이가 in-flight 예약 누계를 쓰는가(1) P2 로 떠 끄는가(0)")
@@ -377,13 +378,24 @@ public class ApiConfig {
                     .description("주문 생성의 잔고 부족 거부 수(precheck 저널 전, db append 트랜잭션)")
                     .register(meterRegistry);
         }
-        // 접수 append 의 교착·직렬화 실패. 잠금 계획 뒤 40P01 은 결함 신호다(경보 OrderIntakeDeadlock).
-        for (String state : java.util.List.of("40P01", "40001")) {
+        // 접수 append 의 일시 DB 오류 넷. 잠금 계획 뒤 40P01 은 결함 신호다(경보 OrderIntakeDeadlock).
+        for (String state : java.util.List.of("55P03", "57014", "40P01", "40001")) {
             io.micrometer.core.instrument.FunctionCounter
                     .builder("exchange.order.append.transient", gateway, g -> g.appendTransient(state))
                     .tag("sqlstate", state)
                     .description("접수 append 가 일시 DB 오류로 끝난 수")
                     .register(meterRegistry);
+        }
+        // 마켓 접수 경합 응답 수(API 설계 §2-5-b). 429 는 확정 미접수, 409 는 그 밖이다. 장애 창 밖에서는 0 이어야 한다.
+        for (String cause : java.util.List.of("lock_wait", "lock_wait_stuck", "55P03", "57014", "40P01", "40001")) {
+            for (String response : java.util.List.of("429", "409")) {
+                io.micrometer.core.instrument.FunctionCounter
+                        .builder("exchange.order.intake.contention", gateway,
+                                g -> g.intakeContention(cause, response))
+                        .tags("cause", cause, "response", response)
+                        .description("마켓 접수 경합으로 저널 전에 끝난 주문 생성·취소 수")
+                        .register(meterRegistry);
+            }
         }
         // 접수 락과 별개의 직렬 구간이라 따로 잰다(InflightReserves 필드 주석).
         io.micrometer.core.instrument.FunctionCounter
@@ -423,8 +435,8 @@ public class ApiConfig {
     }
 
     @Bean
-    public EpochSource epochSource(LeaderLeaseService lease, JdbcClient jdbc) {
-        return new EpochSource(lease, jdbc);
+    public EpochSource epochSource(kr.exchange.engine.PartitionLeases partitionLeases, JdbcClient jdbc) {
+        return new EpochSource(partitionLeases, jdbc);
     }
 
     @Bean

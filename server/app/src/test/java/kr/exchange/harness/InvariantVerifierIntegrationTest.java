@@ -3,6 +3,7 @@ package kr.exchange.harness;
 import com.zaxxer.hikari.HikariDataSource;
 import kr.exchange.api.auth.DemoKeySeeder;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.PartitionLeases;
 import kr.exchange.ledger.AccountBootstrap;
 import kr.exchange.sim.BotFleet;
 import kr.exchange.sim.BotFleetGovernor;
@@ -84,7 +85,7 @@ class InvariantVerifierIntegrationTest {
     @Autowired
     FailoverRecorder failoverRecorder;
     @Autowired
-    LeaderLeaseService appLease;
+    PartitionLeases leases;
     @Autowired
     HikariDataSource dataSource;
     @LocalServerPort
@@ -174,8 +175,8 @@ class InvariantVerifierIntegrationTest {
         long newEpoch = standby.requireLeader().epoch();
         assertEquals(before.epoch() + 1, newEpoch, "승격은 epoch 정확히 +1");
 
-        // 구 리더(app)는 상실을 감지하고 재승격이 금지된다(self-shutdown).
-        Awaitility.await().atMost(Duration.ofSeconds(5)).until(() -> !appLease.isLeader());
+        // 구 리더(app)는 상실을 감지하고 그 파티션을 강등한다(재구성 전 재획득 없음, DB 설계 §5.4-c 5).
+        Awaitility.await().atMost(Duration.ofSeconds(5)).until(() -> !leases.first().isLeader());
 
         // split-brain 반증: 구 epoch로의 fencing 검증은 거부된다(스테일 append 0행 경로).
         assertThrows(RuntimeException.class, () ->

@@ -1,0 +1,1 @@
+{"variant": "b", "ok": true, "failed": [], "record": {"M_429": 15, "M_429_by_bucket": {"market": 15}, "M_201": 35, "M_201_latency_max_ms": 2019.3, "admission_rejected_order_delta": 28.0}, "contention_delta": {"55P03|429": 22.0, "lock_wait|429": 28.0}}

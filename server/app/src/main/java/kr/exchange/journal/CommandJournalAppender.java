@@ -5,6 +5,7 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import kr.exchange.engine.LeaderIdentity;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.LeaderTerm;
 import kr.exchange.engine.LeaderWriteProgress;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.SqlParameterValue;
@@ -45,6 +46,7 @@ public class CommandJournalAppender {
 
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
+    // 기간 없는 종전 경로(append 두 인자)만 쓴다. 파티션 배선은 접수 게이트의 기간으로 쓴다.
     private final LeaderLeaseService lease;
     // 접수 트랜잭션의 잠금 대기 상한("200ms" 꼴). null 이면 걸지 않는다(setLockTimeout).
     private volatile String lockTimeout;
@@ -170,10 +172,25 @@ public class CommandJournalAppender {
 
     /**
      * 명령 하나를 저널에 적는다. check 는 게이트웨이가 계산한 예약 자산과 금액이고 P2 이상의 주문 생성 명령에서만
-     * 머리말이 DB 계산값과 대조한다(DB 설계 §3.5). 다르거나 없으면 트랜잭션 전체가 롤백된다.
+     * 머리말이 DB 계산값과 대조한다(DB 설계 §3.5). 다르거나 없으면 트랜잭션 전체가 롤백된다. 리스 서비스가 지금 쥔 epoch 로
+     * 쓴다(기간 없는 종전 경로).
      */
     public AppendResult append(CommandDraft draft, ReserveCheck check) {
-        LeaderIdentity leader = lease.requireLeader();
+        if (lease == null) {
+            throw new IllegalStateException("파티션 배선의 append 는 접수 게이트의 기간을 받는다");
+        }
+        return append(lease.requireLeader(), null, draft, check);
+    }
+
+    /**
+     * 기간을 쥔 append(DB 설계 §5.4-c 6). 그 기간의 epoch 로 DB 판정을 받고, 기간이 이미 끝났으면 DB 왕복 없이 거부한다.
+     * fencing 거부 뒤의 재확인도 이 기간만 강등한다.
+     */
+    public AppendResult append(LeaderTerm term, CommandDraft draft, ReserveCheck check) {
+        return append(term.requireCurrent(), term, draft, check);
+    }
+
+    private AppendResult append(LeaderIdentity leader, LeaderTerm term, CommandDraft draft, ReserveCheck check) {
         try {
             // 트랜잭션 경계 분해(ADR 0022 0단계 (b) 후속).
             //
@@ -217,17 +234,28 @@ public class CommandJournalAppender {
             }
             // 커밋 성공만 진행으로 센다. 예외 경로는 카운터를 건드리지 않는다(§5.4 좀비 리더 판정).
             progress.recordCompletion();
+            if (term != null) {
+                term.progress().recordCompletion();
+            }
             return result;
         } catch (StaleLeaderException e) {
             // fencing 거부는 리스 권위를 재확인한 뒤에만 강등한다(§5.4 강등 사유 분류).
-            lease.demoteUnlessStillLeader(e.getMessage());
+            demoteUnlessStillLeader(term, e.getMessage());
             throw e;
         } catch (DataAccessException e) {
             if (FencingErrors.isFencingRejection(e)) {
-                lease.demoteUnlessStillLeader(
+                demoteUnlessStillLeader(term,
                         "assert_current_leader 거부: " + FencingErrors.rejectionDetail(e));
             }
             throw e;
+        }
+    }
+
+    private void demoteUnlessStillLeader(LeaderTerm term, String reason) {
+        if (term != null) {
+            term.demoteUnlessStillLeader(reason);
+        } else {
+            lease.demoteUnlessStillLeader(reason);
         }
     }
 

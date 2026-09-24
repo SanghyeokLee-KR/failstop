@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.exchange.api.common.ApiException;
 import kr.exchange.api.transfer.TransferService;
 import kr.exchange.engine.LeaderLeaseService;
+import kr.exchange.engine.PartitionLeases;
 import kr.exchange.engine.WriterRouter;
 import kr.exchange.harness.InvariantCheck;
 import kr.exchange.ledger.AccountBootstrap;
@@ -138,10 +139,10 @@ class SingleLeaderDoubleSpendTest {
     @Autowired
     SettlementService settlement;
     @Autowired
-    LeaderLeaseService lease;
+    PartitionLeases leases;
     @Autowired
     WriterRouter router;
-    @Autowired
+    LeaderLeaseService lease;
     kr.exchange.engine.PromotionCoordinator promotion;
     @Autowired
     JdbcClient appJdbc;
@@ -154,6 +155,9 @@ class SingleLeaderDoubleSpendTest {
 
     @BeforeAll
     void seed() {
+        // P2 는 파티션이 matching-engine 하나라 그 리스와 승격 조율이 곧 노드의 리더다.
+        lease = leases.first();
+        promotion = leases.runtime(lease.resource()).orElseThrow().coordinator();
         bootstrap.asset(KRW, "KRW", "Korean Won", "FIAT", 0);
         bootstrap.asset(2, "BTC", "Bitcoin", "CRYPTO", 8);
         bootstrap.asset(3, "ETH", "Ether", "CRYPTO", 8);

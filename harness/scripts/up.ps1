@@ -62,4 +62,6 @@ Write-Section '상태'
 Invoke-Compose ps
 Write-Host ''
 Write-Host '리더 리스:' -NoNewline
-Invoke-Psql "SELECT holder, epoch, lease_until > now() AS alive FROM leader_lease WHERE resource='matching-engine'"
+# 모드가 쓰는 리스 자원을 모두 보인다(P1·P2 matching-engine, P3 matching-p0·matching-p1, S4 설계 4-18).
+$leaseResources = (Get-ModeLeaseResources | ForEach-Object { "'$_'" }) -join ','
+Invoke-Psql "SELECT resource, holder, epoch, lease_until > now() AS alive FROM leader_lease WHERE resource IN ($leaseResources) ORDER BY resource"
