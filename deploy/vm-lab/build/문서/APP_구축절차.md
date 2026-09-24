@@ -194,7 +194,14 @@ sudo /opt/vm-lab/scripts/30-db-primary-setup.sh migrate-close
 
 계정은 소유자 `exchange_owner`다. 비밀번호는 인자로 받지 않고 화면에 보이지 않게 직접 입력하거나 root 전용 0600 파일로 준다. 인자로 주면 `ps` 출력과 셸 이력에 남는다. 실행이 끝나면 임시 디렉터리를 지운다.
 
-출력에서 `Applied migrations` 개수와 `Schema validation passed`를 확인한다. 저장소의 `server/app/src/main/resources/db/migration`에는 마이그레이션이 47개 있고 배포 JAR 안의 파일과 같아야 한다. 개수가 다르면 JAR과 소스가 어긋난 것이므로 먼저 확인한다.
+출력에서 `Applied migrations` 개수와 `Schema validation passed`를 확인한다. 마이그레이션은 계속 추가되므로 기대 개수를 문서에 고정하지 않는다. 배포 JAR 안의 SQL 파일 수를 JAR을 빌드한 커밋의 `server/app/src/main/resources/db/migration` 파일 수와 대조한다. JAR 쪽 개수는 스크립트 2단계가 `마이그레이션 SQL N 개`로 출력하고, 아래 명령으로 따로 셀 수도 있다. 빈 DB에 처음 적용했다면 `Applied migrations`도 이 수와 같아야 한다. 개수가 다르면 JAR과 소스가 어긋난 것이므로 먼저 확인한다.
+
+```bash
+# 저장소에서. JAR을 빌드한 커밋을 체크아웃한 상태여야 한다
+ls server/app/src/main/resources/db/migration/*.sql | wc -l
+# APP01에서
+unzip -Z1 /opt/exchange/current/app.jar 'BOOT-INF/classes/db/migration/*.sql' | wc -l
+```
 
 체크섬 오류가 나면 repair하지 않는다. 이미 적용한 Flyway 파일은 고치지 않는다. 무엇이 바뀌었는지 먼저 확인한다.
 

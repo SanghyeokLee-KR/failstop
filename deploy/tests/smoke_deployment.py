@@ -109,7 +109,11 @@ def main():
         wait(lambda: run(*compose, "exec", "-T", "db", "pg_isready", "-h", "127.0.0.1",
                          "-U", values["DB_ADMIN_USER"], "-d", "exchange").endswith("accepting connections"))
         run(*compose, "run", "--rm", "--no-deps", "migrate")
-        checks["migration_count_47"] = sql("SELECT count(*) FROM flyway_schema_history WHERE success") == "47"
+        # Flyway는 파일명 V47_1__의 밑줄을 점으로 바꿔 버전 47.1로 기록한다.
+        expected = sorted(path.name[1:].split("__")[0].replace("_", ".")
+                          for path in (root / "server/app/src/main/resources/db/migration").glob("V*__*.sql"))
+        applied = sorted(sql("SELECT version FROM flyway_schema_history WHERE success").splitlines())
+        checks["migrations_match_repository"] = applied == expected
         run(*compose, "run", "--rm", "--no-deps", "catalog-seed")
         run(*compose, "run", "--rm", "--no-deps", "catalog-seed")
         checks["catalog_only"] = sql("SELECT (SELECT count(*) FROM assets), (SELECT count(*) FROM markets),"
