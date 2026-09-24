@@ -40,7 +40,7 @@ const COPY_TONE_EXEMPT = ["lib/community/datasource.ts", "lib/admin/simAdmin.ts"
    빼면 소비처가 임의값을 쓴다. 팔레트 램프, 타이포 램프, 간격·라운드·그림자·모션·z 척도가 해당한다.
    시맨틱 토큰과 §6 별칭만 소비를 강제한다 */
 const SCALE = [
-  /^--(grey|brand|red|azure|green|orange|crimson)-(\d+|alpha-\d+)$/,
+  /^--(grey|brand|red|azure|green|orange|crimson|violet)-(\d+|alpha-\d+)$/,
   /^--font-[a-z0-9-]+-(size|line|weight)$/,
   /^--fw-[a-z]+$/,
   /^--space-\d+$/,
@@ -91,6 +91,9 @@ const CONTRACT = [
   ["--color-success-text", "--color-success-bg", 4.5],
   ["--color-warning-text", "--surface-default", 4.5],
   ["--color-warning-text", "--color-warning-bg", 4.5],
+  /* AI 강조(디자인시스템 §12-9). 글자는 면과 AI 틴트 위에서 4.5:1, 그래픽(테두리·막대·표지)은 3:1 */
+  ...[...TEXT_SURFACES, "--ai-accent-bg"].map((s) => ["--ai-accent-text", s, 4.5]),
+  ...TEXT_SURFACES.map((s) => ["--ai-accent", s, 3]),
   /* CTA·버튼 라벨 */
   ["--text-inverse", "--color-buy", 4.5],
   ["--text-inverse", "--color-sell", 4.5],

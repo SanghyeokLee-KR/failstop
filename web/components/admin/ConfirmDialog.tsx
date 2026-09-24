@@ -26,6 +26,10 @@ interface Props {
   onClose(): void;
   /** 확정 전에 받아야 할 입력(거절 사유 등). 요약과 액션 사이에 놓인다 */
   children?: ReactNode;
+  /** 입력과 규칙 목록을 함께 싣는 대화상자(AI 자동 모드 켜기)는 폭을 넓힌다 */
+  wide?: boolean;
+  /** 입력이 모자라 확정할 수 없을 때. busy와 달리 취소는 그대로 된다 */
+  confirmDisabled?: boolean;
 }
 
 export default function ConfirmDialog({
@@ -40,6 +44,8 @@ export default function ConfirmDialog({
   onConfirm,
   onClose,
   children,
+  wide = false,
+  confirmDisabled = false,
 }: Props) {
   const titleId = useId();
   const descId = useId();
@@ -118,6 +124,7 @@ export default function ConfirmDialog({
       <div
         ref={dialogRef}
         className={styles.dialog}
+        data-wide={wide ? "" : undefined}
         role="alertdialog"
         tabIndex={-1}
         aria-modal="true"
@@ -167,7 +174,7 @@ export default function ConfirmDialog({
             className={styles.confirm}
             data-tone={tone}
             onClick={onConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             aria-busy={busy}
           >
             {/* §7.6 부호·라벨 병기를 중앙에서 강제한다. 호출부가 부호를 잊을 수 없다 */}

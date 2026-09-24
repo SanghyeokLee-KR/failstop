@@ -17,9 +17,13 @@ export type AdminIconName =
   | "members"
   | "operators"
   | "audit"
-  | "drill"
   | "flow"
-  | "metrics";
+  | "metrics"
+  | "incidents"
+  | "ai"
+  | "hosts"
+  | "database"
+  | "thresholds";
 
 const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
   // 게이지: 눈금 원 + 바늘
@@ -97,16 +101,39 @@ const ICON_SHAPES: Record<AdminIconName, ReactNode> = {
       <path d="M9 9.25 H11.75" />
     </>
   ),
-  // 단계 기둥: 세로선 위 세 마디
-  drill: (
+  // 경보·사건: 종 몸통과 추. 울린 것을 모아 보는 자리
+  incidents: (
     <>
-      <path d="M4.25 2.75 V13.25" />
-      <circle cx="4.25" cy="4.5" r="1.25" />
-      <circle cx="4.25" cy="8" r="1.25" />
-      <circle cx="4.25" cy="11.5" r="1.25" />
-      <path d="M7.5 4.5 H12.25" />
-      <path d="M7.5 8 H12.25" />
-      <path d="M7.5 11.5 H10" />
+      <path d="M4 11.25 V7.5 A4 4 0 0 1 12 7.5 V11.25 Z" />
+      <path d="M2.75 11.25 H13.25" />
+      <path d="M6.75 13.25 H9.25" />
+    </>
+  ),
+  // AI 판단: 호로 오목하게 그린 네 갈래 반짝임. 관제센터 AI 표지와 같은 모양이다
+  ai: <path d="M8 1.75 A6.25 6.25 0 0 0 14.25 8 A6.25 6.25 0 0 0 8 14.25 A6.25 6.25 0 0 0 1.75 8 A6.25 6.25 0 0 0 8 1.75 Z" />,
+  // 서버·노드: 겹친 서버 두 대와 표시등
+  hosts: (
+    <>
+      <rect x="2.5" y="2.75" width="11" height="4.25" rx="1" />
+      <rect x="2.5" y="9" width="11" height="4.25" rx="1" />
+      <path d="M5 4.9 H5.1" />
+      <path d="M5 11.1 H5.1" />
+    </>
+  ),
+  // 데이터베이스: 원통 두 칸
+  database: (
+    <>
+      <path d="M3 4 A5 1.75 0 0 0 13 4 A5 1.75 0 0 0 3 4 Z" />
+      <path d="M3 4 V12 A5 1.75 0 0 0 13 12 V4" />
+      <path d="M3 8 A5 1.75 0 0 0 13 8" />
+    </>
+  ),
+  // 임계값 관리: 계기 레일과 그 위에 선 임계 눈금
+  thresholds: (
+    <>
+      <rect x="1.75" y="6.75" width="12.5" height="2.5" rx="1.25" />
+      <path d="M3.25 8 H7.5" />
+      <path d="M10.5 4 V12" />
     </>
   ),
   /* 서비스 흐름. 한 입구에서 두 갈래로 나가는 연결 */

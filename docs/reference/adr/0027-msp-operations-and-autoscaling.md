@@ -6,6 +6,7 @@
 - 근거: 사용자가 교수·업체 관계자와 상담한 뒤 설명한 최신 프로젝트 방향. 특정 업체 전체의 채용 기준이나 공식 승인을 추정하지 않는다.
 - 대체: ADR 0015의 수동 확장만 허용하는 정책. ADR 0008의 거래 런타임 외부 API 비의존은 유지하고, 분리된 운영 보고의 AI·Teams 통신을 허용한다.
 - 보고 경로 후속: 아래 본문의 "Alertmanager 설정은 Discord"와 "AI 모델·호출 방식·비용 상한과 보고 시각은 미정"은 결정 당시 상태다. 2026-09-20 학교 AWS에서는 Alertmanager가 Teams로 통지하도록 설정했고([학교 설정](../../../deploy/linux/reporting/alertmanager.school.yml)), Gemini 3.1 Flash-Lite 보고 서비스와 한국 시간 오전 9시 일일 보고 timer를 연결했다고 [로드맵](../../ROADMAP.md)에 기록돼 있다. 로컬 카오스 스택의 [Alertmanager 설정](../../../harness/alertmanager/alertmanager.yml)은 지금도 Discord로 보낸다.
+- AI 조치 권한 후속: 2026-09-24 [ADR 0035](0035-ai-operations-authority.md)가 아래 본문에서 AI를 근거 정리와 보고에 한정한 원칙과, "AI에 확장 대수 변경·서버 재시작·DB 승격 권한을 주지 않는다" 가운데 확장 대수 변경 부분을 대체했다. AI는 수동·자동 두 모드와 허용 목록·한도 안에서만 조치하고, 서버 재시작과 DB 승격은 0035의 금지 목록으로 계속 막는다. 0035의 서버 정책 엔진과 AI 판단 서비스는 아직 구현하지 않았다.
 
 2026-09-19 후속: [ADR 0030](0030-nat-free-lab-and-bounded-read-asg.md)에서 조회 ASG 최소 2·최초 희망 2·최대 3대와 NAT Gateway 제외를 정했다. 실제 확장 정책·구현은 아직 검증 전이다.
 

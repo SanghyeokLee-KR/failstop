@@ -48,6 +48,9 @@ import type {
   ReportResolution,
   ReportStatus,
   AdminTransferStatus,
+  AiDecision,
+  ControlCenter,
+  OpsScenarioId,
 } from "./types";
 
 /** 표준 관리 에러. name에 API §2-3 코드를 노출(jwt_verification·admin_forbidden 등) */
@@ -186,6 +189,30 @@ export interface AdminApi {
   getOperators(): Promise<AdminOperator[]>;
   /** 감사 로그 한 쪽. append-only라 영구 누적이다 */
   getAudit(opts?: PageOpts): Promise<AdminPage<AuditEntry>>;
+
+  /* ===== MSP AI 관제센터(관리자 설계 4-4) =====
+   * 원천은 sim뿐이다. http 어댑터는 서버를 부르지 않고 칸마다 원천 연결 전을 돌려주며,
+   * 조작은 source_unavailable로 거절한다. 화면은 그 전에 조작을 막는다 */
+  getControlCenter(): Promise<ControlCenter>;
+  /** 경보 확인. 확인 기록이고 경보를 끄지 않는다 */
+  ackAlert(alertId: string): Promise<void>;
+  /** 경보 보류. 최대 30분, 장애 등급 불가, 같은 경보 연속 불가(ADR 0035) */
+  silenceAlert(alertId: string, minutes: number): Promise<void>;
+  /** AI 조치안 결정. 승인은 실행이고, 임계값 조치안은 1인 승인 티켓(ops.threshold.set)을 발급·소각한다 */
+  decideAiProposal(proposalId: string, decision: AiDecision): Promise<void>;
+  /** 자동 실행된 조치를 되돌리기 창 안에서 무른다 */
+  revertAiAction(proposalId: string): Promise<void>;
+  /** 자동 모드 켜기. 사유와 유효 시간을 받아 1인 승인 티켓(ops.ai.auto)을 발급·소각한다 */
+  enableAiAuto(hours: number, reason: string): Promise<void>;
+  /** 즉시 끄기. 승인 없이 세션만 있으면 된다 */
+  stopAiAuto(): Promise<void>;
+  /** Databasus 백업 즉시 실행 */
+  runBackupNow(): Promise<void>;
+  /** 시나리오 재생이 있는 원천인가. sim만 true다 */
+  readonly opsScenarios: boolean;
+  startOpsScenario(id: OpsScenarioId): Promise<void>;
+  /** 관제 시뮬레이션을 처음 상태로 되돌린다 */
+  resetOps(): Promise<void>;
 }
 
 /** 화면이 소비할 때 세션이 필요함을 알린다(요청 요구 권한과 별개) */

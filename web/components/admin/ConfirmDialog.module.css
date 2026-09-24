@@ -21,6 +21,12 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-4);
 }
+.dialog[data-wide] {
+  max-width: 560px;
+  max-height: calc(100vh - var(--space-9));
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
 .title {
   font-size: var(--font-title-3-size);
   line-height: var(--font-title-3-line);

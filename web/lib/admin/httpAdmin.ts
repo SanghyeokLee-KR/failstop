@@ -57,6 +57,7 @@ import type {
   AdminMemberDetail,
   CommunityReport,
   ContentStatus,
+  ControlCenter,
   MemberStatus,
   MemberTransition,
   ModerationAction,
@@ -188,6 +189,10 @@ function wireBinding(payload: ApprovalPayload): { action: string; target: string
     case "members.close":
       // 자원 스코프다. target은 대상 회원의 external_id(§6-E 바인딩)
       return { action: "members.close", target: payload.externalId };
+    case "ops.threshold.set":
+    case "ops.ai.auto":
+      // 서버 승인 원장이 모르는 액션이다. 발급을 보내면 서버가 거절하므로 보내지 않는다
+      throw new AdminError("source_unavailable", OPS_NOT_CONNECTED);
   }
 }
 
@@ -585,6 +590,9 @@ function verdictOf(v: string | undefined): RecoveryVerdict | null {
  * 서버 쪽 짝은 두 겹으로 막혀 있다. 설정이 on-profile: dev 아래에 있고,
  * StartupSecretValidator 가 운영 기동에서 trusted-forwarding=true 를 보면 기동을 중단한다.
  */
+/** 관제센터 조작의 거절 사유. 서버 엔드포인트가 없어 요청을 보내지 않는다 */
+const OPS_NOT_CONNECTED = "관제 원천 연결 전(2단계). 서버에 해당 엔드포인트 없음";
+
 const DEV_OPERATOR_CNS: string[] = (process.env.NEXT_PUBLIC_ADMIN_DEV_CN ?? "")
   .split(",")
   .map((s) => s.trim())
@@ -883,6 +891,9 @@ export class HttpAdminApi implements AdminApi {
           body: JSON.stringify({ operator_id: operatorId, ...approval }),
         });
         return;
+      case "ops.threshold.set":
+      case "ops.ai.auto":
+        throw new AdminError("source_unavailable", OPS_NOT_CONNECTED);
     }
   }
 
@@ -918,8 +929,77 @@ export class HttpAdminApi implements AdminApi {
       currentOps: sim.currentOps,
       pendingApprovals: pending,
       suspendedMarkets: markets.filter((m) => m.state === "HALTED").length,
+      tradesTotal: ha.tradesTotal,
+      // 서버 status는 노드별 마켓을 내지 않아 리더 하나로 합성한다(getHaStatus). 0이 아니라 미보고다
+      marketPartitions: null,
       generatedAt: ha.generatedAt,
     };
+  }
+
+  /* ===== MSP AI 관제센터(관리자 설계 4-4) =====
+   * 서버에 관제센터 엔드포인트가 없다(2단계). 없는 경로를 부르지 않고 칸마다 붙일 원천을 적어
+   * 돌려준다. 화면은 이것을 '원천 연결 전'으로 그리고 값을 지어내지 않는다 */
+
+  readonly opsScenarios = false;
+
+  getControlCenter(): Promise<ControlCenter> {
+    const nc = (source: string) => ({ state: "NOT_CONNECTED" as const, source });
+    return Promise.resolve({
+      origin: null,
+      environment: "UNKNOWN",
+      generatedAt: isoNow(),
+      collectedAt: null,
+      summary: nc("외부 프로브와 Prometheus 조회 API · 2단계"),
+      hosts: nc("Prometheus node_exporter 조회 · 2단계"),
+      readTier: nc("AWS Auto Scaling과 Prometheus 조회 · 2단계"),
+      replication: nc("PostgreSQL 복제 지표 · 2단계"),
+      alerts: nc("Alertmanager API · 2단계"),
+      incidents: nc("사건 기록 저장소 · 2단계"),
+      jobs: nc("Databasus API, 인증서·보고 서비스 상태 · 2단계"),
+      thresholds: nc("임계값 레지스트리(DB) · 2단계"),
+      ai: nc("AI 판단 서비스와 서버 정책 엔진 · 2단계"),
+      scenario: null,
+    });
+  }
+
+  private opsRejected(): Promise<never> {
+    return Promise.reject(new AdminError("source_unavailable", OPS_NOT_CONNECTED));
+  }
+
+  ackAlert(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  silenceAlert(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  decideAiProposal(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  revertAiAction(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  enableAiAuto(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  stopAiAuto(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  runBackupNow(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  startOpsScenario(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  resetOps(): Promise<void> {
+    return this.opsRejected();
   }
 
   /* ===== 용량(ADR 0015) ===== */

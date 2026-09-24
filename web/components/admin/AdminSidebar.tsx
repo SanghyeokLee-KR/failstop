@@ -13,9 +13,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import BrandMark from "@/components/BrandMark";
 import type { AdminNavGroup, AdminNavItem } from "@/lib/admin/nav";
+import { NavBadge } from "./control/NavStatus";
 import { AdminIcon } from "./icons";
 import styles from "./admin.module.css";
 
@@ -25,11 +26,14 @@ export default function AdminSidebar({
   title,
   groups,
   crossLink,
+  foot,
 }: {
   title: string;
   groups: AdminNavGroup[];
   /** 다른 평면으로 건너가는 링크. 두 평면이 서로를 모르면 운영자가 주소를 외워야 한다 */
   crossLink: { href: string; label: string };
+  /** 평면 전환 링크 위에 두는 상태 줄. 운영 관제는 AI 운영 모드를 싣는다 */
+  foot?: ReactNode;
 }) {
   const pathname = usePathname();
   const isActive = (n: AdminNavItem) =>
@@ -100,12 +104,18 @@ export default function AdminSidebar({
                     <AdminIcon name={n.icon} />
                   </span>
                   <span className={styles.navLabel}>{n.label}</span>
+                  {n.badge && (
+                    <span className={styles.navBadgeSlot}>
+                      <NavBadge kind={n.badge} />
+                    </span>
+                  )}
                 </Link>
               );
             })}
           </div>
         ))}
       </nav>
+      {foot != null && <div className={styles.navFoot}>{foot}</div>}
       {/* 평면 전환은 내비 항목이 아니라 바닥의 별도 링크다. 같은 목록에 섞으면
           "이 콘솔의 화면 하나"로 읽혀 두 평면을 가른 의미가 흐려진다 */}
       <Link href={crossLink.href} className={styles.navCross} title={collapsed ? crossLink.label : undefined}>

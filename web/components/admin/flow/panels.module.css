@@ -253,7 +253,7 @@
   background: var(--text-default);
 }
 
-/* 호스트 명령. DrillStepper 의 CommandChip 을 그대로 쓰되 대화상자 폭 안에서 줄을 바꾼다.
+/* 호스트 명령. CommandChip 을 그대로 쓰되 대화상자 폭 안에서 줄을 바꾼다.
    칩은 표 한 줄에 맞춰 말줄임하지만 여기서는 명령 전체가 읽혀야 옮겨 칠 수 있다 */
 .hostList {
   display: flex;

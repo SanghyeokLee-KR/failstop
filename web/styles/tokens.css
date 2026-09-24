@@ -45,6 +45,10 @@
 
   /* ===== Crimson = danger (up-red와 hue/채도 분리; 삭제/오류/시스템 헬스 '장애' 전용) ===== */
   --crimson-500:#C2304C; --crimson-600:#A61E3C; --crimson-700:#8A1730;
+
+  /* ===== Violet = AI 강조 (관제센터의 AI 판단·제안·자동 조치 전용, 디자인시스템 §12-9) =====
+     색상각 252°로 브랜드(220°)와 32°, 하락 azure와 40° 이상 떨어진다 */
+  --violet-50:#F3F0FE; --violet-600:#6A48E0; --violet-700:#5533C4;
 }
 
 /* ===== §2. 시맨틱 토큰·라이트 (:root) ===== */
@@ -140,6 +144,13 @@
      알파를 .03으로만 올려도 4.47:1이라 이 값이 상한이다. 무늬가 면과 1.04:1로 옅어 지연은 배지가 주로 싣는다 */
   --stale-hatch:var(--grey-alpha-50);
 
+  /* ===== AI 강조(§12-9) =====
+     AI가 말하거나 한 일에만 쓴다. 상태·방향·브랜드 조작을 대신하지 않는다.
+     그래픽 on 흰 면 5.81:1, 글자 on 흰 면 7.90:1, AI 틴트 위 글자 7.04:1 */
+  --ai-accent:var(--violet-600);
+  --ai-accent-text:var(--violet-700);
+  --ai-accent-bg:var(--violet-50);
+
   /* ===== Overlay / State / Focus ===== */
   --overlay-dim:rgba(15,23,42,.55);
   --pressed-layer:var(--grey-alpha-100);
@@ -215,6 +226,8 @@
   --color-health-flash-warning:rgba(255,170,43,.16); /* #FFAA2B 파생 */
   --color-health-flash-danger:rgba(255,122,147,.16); /* #FF7A93 파생 */
   --stale-hatch:rgba(255,255,255,.08);   /* 무늬 대 면 1.25:1, 무늬 위 text-secondary 6.48:1. 4%는 면과 1.11:1이라 보이지 않았다 */
+  /* AI 강조. 그래픽 on #171A21 6.28:1, 글자 8.46:1, 틴트 위 글자 6.80:1 */
+  --ai-accent:#9D8BFF; --ai-accent-text:#B7AAFF; --ai-accent-bg:rgba(157,139,255,.14);
 
   --overlay-dim:rgba(0,0,0,.60);
   --pressed-layer:rgba(255,255,255,.06);
@@ -407,6 +420,7 @@
     --color-health-flash-warning:rgba(255,170,43,.16);
     --color-health-flash-danger:rgba(255,122,147,.16);
     --stale-hatch:rgba(255,255,255,.08);
+    --ai-accent:#9D8BFF; --ai-accent-text:#B7AAFF; --ai-accent-bg:rgba(157,139,255,.14);
 
     --overlay-dim:rgba(0,0,0,.60);
     --pressed-layer:rgba(255,255,255,.06);

@@ -16,7 +16,7 @@
 
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
-import { CommandChip } from "@/components/admin/DrillStepper";
+import { CommandChip } from "@/components/admin/CommandChip";
 import { HEALTH_ICON, HealthPill, type Health } from "@/components/admin/ui";
 import type { Availability, Risk, ScenarioView } from "@/lib/admin/flowSim";
 import styles from "./panels.module.css";

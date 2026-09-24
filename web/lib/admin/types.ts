@@ -76,7 +76,10 @@ export type DestructiveAction =
   | "operators.create"
   | "operators.status"
   | "operators.roles"
-  | "members.close";
+  | "members.close"
+  // 관제센터 두 액션은 API §3-6에 아직 없다. 서버 계약 초안(관리자 설계 4-4)이고 sim만 실행한다
+  | "ops.threshold.set"
+  | "ops.ai.auto";
 
 /**
  * admin_approvals.state 정본 어휘(V5__admin.sql CHECK, §6-B). 원장 최초 상태가 ISSUED이고
@@ -92,7 +95,21 @@ export type ApprovalPayload =
   | { action: "operators.create"; operatorId: string; displayName: string }
   | { action: "operators.status"; operatorId: string; status: OperatorStatus }
   | { action: "operators.roles"; operatorId: string; grant: RoleGrant; role: AdminRole }
-  | { action: "members.close"; externalId: string; email: string };
+  | { action: "members.close"; externalId: string; email: string }
+  | {
+      action: "ops.threshold.set";
+      key: ThresholdKey;
+      label: string;
+      unit: ThresholdUnit;
+      from: number;
+      to: number;
+      reason: string;
+      /** 되돌리기면 되돌리는 변경의 id. 이력이 어떤 변경을 무른 것인지 잇는다 */
+      revertOf: string | null;
+      /** AI 조치안을 승인한 변경이면 그 조치안 id */
+      proposalId: string | null;
+    }
+  | { action: "ops.ai.auto"; hours: number; reason: string };
 
 /**
  * 승인 원장 프로젝션(GET /admin/v1/approvals). token과 payload는 응답에 없어 여기에도 없다.
@@ -638,5 +655,354 @@ export interface AdminOverview {
   currentOps: number | null;
   pendingApprovals: number;
   suspendedMarkets: number;
+  /** 누적 체결 수. 초당 체결은 화면이 두 표본의 차로 낸다 */
+  tradesTotal: number;
+  /** 리더가 맡은 마켓 파티션 수. 서버 status가 노드별 마켓을 내지 않으면 미보고(null)다 */
+  marketPartitions: number | null;
   generatedAt: string;
 }
+
+/* ===== MSP AI 관제센터(관리자 설계 4-4) =====
+ *
+ * 관제 데이터는 칸마다 원천이 다르고 원천이 붙는 시점도 다르다. 그래서 칸마다 준비됨과
+ * 원천 연결 전을 갈라 싣는다. 연결 전을 빈 배열이나 0으로 채우면 화면이 정상을 단정한다(ADR 0027). */
+
+/** 값의 출처. SIM은 브라우저 시뮬레이터, LIVE는 관측 원천의 실측이다 */
+export type OpsOrigin = "SIM" | "LIVE";
+
+/** 배포 환경. 서버 설정이 원천이다(2단계). 모르면 UNKNOWN이고 화면이 짐작하지 않는다 */
+export type OpsEnvironment = "SIMULATOR" | "LOCAL_DOCKER" | "SCHOOL_AWS" | "UNKNOWN";
+
+/** 칸 하나. 원천을 붙이기 전이면 값 대신 붙일 원천의 이름을 싣는다 */
+export type OpsSection<T> = { state: "READY"; data: T } | { state: "NOT_CONNECTED"; source: string };
+
+/** 서비스 목표. 상태 요약 칸이 벗어났는지를 이 값과 견준다 */
+export interface OpsSlo {
+  availabilityPct: number;
+  p95Ms: number;
+  errorRatePct: number;
+}
+
+export interface OpsSummary {
+  /** 외부 프로브 성공률(최근 5분) */
+  availabilityPct: number | null;
+  p95Ms: number | null;
+  errorRatePct: number | null;
+  slo: OpsSlo;
+}
+
+export type OpsHostRole = "APP" | "DB_PRIMARY" | "DB_STANDBY" | "BOT_OBS";
+/** 수집 상태. 마지막 수집이 폴링 두 주기를 넘기면 STALE, 받은 적이 없으면 MISSING */
+export type OpsCollect = "OK" | "STALE" | "MISSING";
+
+export interface OpsHost {
+  id: string;
+  role: OpsHostRole;
+  instanceType: string;
+  az: string;
+  collect: OpsCollect;
+  collectedAt: string | null;
+  cpuPct: number | null;
+  memPct: number | null;
+  diskUsedPct: number | null;
+  /** t3 버스트 크레딧 잔량 */
+  cpuCredits: number | null;
+}
+
+export type ReadNodeState = "IN_SERVICE" | "PENDING" | "DRAINING" | "OFF";
+
+export interface ReadNode {
+  id: string;
+  state: ReadNodeState;
+  cpuPct: number | null;
+}
+
+/** 조회 노드 ASG. 매칭 리더와 DB는 여기 들지 않는다 */
+export interface ReadTier {
+  min: number;
+  max: number;
+  desired: number;
+  nodes: ReadNode[];
+  /** 조회를 받는 노드의 평균 CPU. 받는 노드가 없으면 null */
+  avgCpuPct: number | null;
+}
+
+export type ReplicationStream = "STREAMING" | "CATCHUP" | "STOPPED";
+
+/** DB 복제. 비동기라 지연 동안 쓰인 기록은 Primary를 잃으면 함께 잃을 수 있다(ADR 0024) */
+export interface Replication {
+  primary: string;
+  standby: string;
+  stream: ReplicationStream;
+  lagBytes: number | null;
+  lagSec: number | null;
+}
+
+export type AlertSeverity = "critical" | "warning" | "info";
+export type AlertState = "FIRING" | "ACKED" | "SILENCED";
+
+/** 화면에서 강조할 자리. 근거 칩과 경보가 무엇을 가리키는지 적는다 */
+export type OpsRef =
+  | { kind: "HOST"; id: string }
+  | { kind: "READ_TIER" }
+  | { kind: "REPLICATION" }
+  | { kind: "BACKUP" }
+  | { kind: "SLO"; metric: "availability" | "p95" | "errors" }
+  | { kind: "ALERT"; id: string };
+
+export interface OpsAlert {
+  id: string;
+  name: string;
+  severity: AlertSeverity;
+  target: string;
+  detail: string;
+  since: string;
+  thresholdKey: ThresholdKey | null;
+  ref: OpsRef | null;
+  state: AlertState;
+  ackBy: string | null;
+  ackAt: string | null;
+  silencedUntil: string | null;
+  silencedBy: string | null;
+  /** 이미 한 번 보류했는가. 같은 경보를 잇달아 보류하지 못한다(ADR 0035) */
+  silencedBefore: boolean;
+}
+
+export type IncidentEventKind =
+  | "OPENED"
+  | "AI_JUDGED"
+  | "APPROVED"
+  | "REJECTED"
+  | "DEFERRED"
+  | "ACTED"
+  | "AUTO_ACTED"
+  | "AUTO_REVERTED"
+  | "REVERTED"
+  | "MODE"
+  | "NOTIFIED"
+  | "ACKED"
+  | "SILENCED"
+  | "RESOLVED";
+
+export type OpsActor = "SYSTEM" | "AI" | "OPERATOR";
+
+/** 기록 한 줄. 사건에 속하지 않는 조치(모드 전환, 경보 없는 축소 등)는 incidentId가 null이다 */
+export interface IncidentEvent {
+  id: string;
+  at: string;
+  kind: IncidentEventKind;
+  actor: OpsActor;
+  actorName: string;
+  text: string;
+  incidentId: string | null;
+}
+
+export interface Incident {
+  id: string;
+  title: string;
+  severity: AlertSeverity;
+  openedAt: string;
+  resolvedAt: string | null;
+}
+
+/** 최신이 앞이다 */
+export interface IncidentLog {
+  incidents: Incident[];
+  events: IncidentEvent[];
+}
+
+/** Databasus 백업 결과. 관제센터는 판독만 하고 백업 설정을 바꾸지 않는다 */
+export type JobOutcome = "SUCCESS" | "FAILED" | "NONE";
+
+export interface OpsBackup {
+  tool: "Databasus";
+  lastSuccessAt: string | null;
+  lastSizeBytes: number | null;
+  running: boolean;
+  offsite: { target: "SFTP" | "S3"; outcome: JobOutcome; at: string | null };
+  restoreCheck: { outcome: JobOutcome; lastSuccessAt: string | null; lastFailureAt: string | null };
+  nextAt: string | null;
+  /** 오늘 운영자·AI가 즉시 실행한 횟수. 자동 즉시 실행은 하루 1회다(ADR 0035) */
+  manualRunsToday: number;
+}
+
+export interface OpsJobs {
+  backup: OpsBackup;
+  certificate: { domain: string; expiresAt: string };
+  dailyReport: { hour: number; channel: "Teams"; lastSentAt: string | null };
+}
+
+export type ThresholdKey =
+  | "read.scale_out_cpu"
+  | "read.scale_in_cpu"
+  | "host.cpu_alert"
+  | "host.mem_alert"
+  | "host.disk_free_alert"
+  | "db.replication_lag_alert"
+  | "backup.delay_alert"
+  | "bot.capacity_guard"
+  | "host.cpu_credit_alert";
+
+export type ThresholdUnit = "%" | "초" | "시간" | "크레딧";
+
+export interface OpsThreshold {
+  key: ThresholdKey;
+  label: string;
+  appliesTo: string;
+  unit: ThresholdUnit;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  /** AI가 한 번에 바꿀 수 있는 폭. 운영자 변경에는 걸리지 않는다 */
+  aiMaxStep: number;
+  aiSuggested: number | null;
+  aiReason: string | null;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export type ThresholdVia = "MANUAL" | "AI_APPROVED" | "AI_AUTO" | "REVERT";
+
+export interface ThresholdChange {
+  id: string;
+  key: ThresholdKey;
+  label: string;
+  unit: ThresholdUnit;
+  from: number;
+  to: number;
+  at: string;
+  by: string;
+  via: ThresholdVia;
+  approvalId: string | null;
+  reason: string;
+  revertOf: string | null;
+  /** 이 변경을 이미 되돌렸는가 */
+  reverted: boolean;
+}
+
+export interface ThresholdRegistry {
+  items: OpsThreshold[];
+  history: ThresholdChange[];
+}
+
+/** AI 운영 모드(ADR 0035). 수동이 기본이다 */
+export type AiMode = "MANUAL" | "AUTO";
+
+export interface AiAutoGrant {
+  since: string;
+  until: string;
+  reason: string;
+  by: string;
+  approvalId: string;
+}
+
+/** 허용 목록 조치 다섯 종. 금지 목록 조치는 이 어휘에 없어 카드가 될 수 없다 */
+export type AiActionKind = "READ_NODES" | "THRESHOLD" | "SILENCE" | "BOT_LOAD" | "BACKUP_NOW";
+export type AiRisk = "LOW" | "MEDIUM";
+export type AiProposalStatus =
+  | "PROPOSED"
+  | "APPROVED"
+  | "REJECTED"
+  | "DEFERRED"
+  | "AUTO_EXECUTED"
+  | "REVERTED"
+  | "AUTO_REVERTED"
+  | "WITHDRAWN";
+
+export interface AiEvidence {
+  id: string;
+  label: string;
+  value: string;
+  /** 경보 근거면 그 경보의 심각도. 지표 근거는 null */
+  severity: AlertSeverity | null;
+  ref: OpsRef | null;
+}
+
+export interface AiProposal {
+  id: string;
+  kind: AiActionKind;
+  title: string;
+  target: string;
+  impact: string;
+  risk: AiRisk;
+  revertPlan: string;
+  confidencePct: number;
+  status: AiProposalStatus;
+  createdAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  /** 자동 실행 뒤 되돌릴 수 있는 마감. 관찰 창과 같다 */
+  revertibleUntil: string | null;
+  /** 자동 모드에서 실행하지 않고 기다리는 이유 */
+  autoHold: string | null;
+}
+
+export interface AiJudgment {
+  id: string;
+  at: string;
+  summary: string;
+  outcome: string;
+}
+
+export interface AiCooldown {
+  kind: AiActionKind;
+  until: string;
+}
+
+/** 자동 조치 뒤 관찰 창. 창 안에서 악화하면 자동으로 되돌리고 수동으로 바꾼다 */
+export interface AiObservation {
+  startedAt: string;
+  until: string;
+  action: string;
+}
+
+export interface AiDesk {
+  mode: AiMode;
+  auto: AiAutoGrant | null;
+  thinking: boolean;
+  model: string;
+  judgedAt: string | null;
+  evidenceAt: string | null;
+  situation: string;
+  hypothesis: string | null;
+  confidencePct: number | null;
+  evidence: AiEvidence[];
+  proposals: AiProposal[];
+  history: AiJudgment[];
+  autoToday: number;
+  autoDailyCap: number;
+  cooldowns: AiCooldown[];
+  observation: AiObservation | null;
+}
+
+export type OpsScenarioId = "READ_SURGE" | "NIGHT_SCALE_IN";
+
+export interface OpsScenarioView {
+  id: OpsScenarioId;
+  title: string;
+  startedAt: string;
+  elapsedSec: number;
+}
+
+export interface ControlCenter {
+  /** 칸이 모두 연결 전이면 null이다 */
+  origin: OpsOrigin | null;
+  environment: OpsEnvironment;
+  generatedAt: string;
+  /** 근거 지표를 마지막으로 모은 시각 */
+  collectedAt: string | null;
+  summary: OpsSection<OpsSummary>;
+  hosts: OpsSection<OpsHost[]>;
+  readTier: OpsSection<ReadTier>;
+  replication: OpsSection<Replication>;
+  alerts: OpsSection<OpsAlert[]>;
+  incidents: OpsSection<IncidentLog>;
+  jobs: OpsSection<OpsJobs>;
+  thresholds: OpsSection<ThresholdRegistry>;
+  ai: OpsSection<AiDesk>;
+  /** sim 시나리오 재생. 재생 중이 아니거나 http면 null */
+  scenario: OpsScenarioView | null;
+}
+
+export type AiDecision = "APPROVE" | "REJECT" | "DEFER";

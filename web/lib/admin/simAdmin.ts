@@ -12,6 +12,7 @@ import { ACTION_CAP, approvalConsoleTarget, can, type Capability } from "./roles
 import { feeRateError } from "./fees";
 import { INVARIANT_DEFS, scenarioDef } from "./catalog";
 import { summarizeInvariants } from "./invariants";
+import { OpsSim, type OpsActorRef } from "./opsSim";
 import type {
   AdminPage,
   PageOpts,
@@ -64,6 +65,9 @@ import type {
   ScenarioName,
   ScenarioResult,
   ScenarioMarketResult,
+  AiDecision,
+  ControlCenter,
+  OpsScenarioId,
 } from "./types";
 import { FLEET_TYPE_CAP } from "./types";
 
@@ -82,6 +86,10 @@ function uid(prefix: string): string {
 }
 function rand(lo: number, hi: number): number {
   return lo + Math.random() * (hi - lo);
+}
+
+function actorOf(s: { operatorId: string; displayName: string }): OpsActorRef {
+  return { id: s.operatorId, name: s.displayName };
 }
 
 const BOT_TYPES: BotType[] = ["MARKET_MAKER", "TAKER", "TREND", "NOISE"];
@@ -269,6 +277,11 @@ export class SimAdminApi implements AdminApi {
   private tradeFlash: TradeFlash = "normal";
 
   private timer: ReturnType<typeof setInterval> | null = null;
+
+  /** 관제센터 시뮬레이션(관리자 설계 4-4). AI가 한 일도 감사 로그에 AI 운영 계정으로 남긴다 */
+  private readonly opsAudit = (actor: OpsActorRef, action: string, target: string, approvalId: string | null) =>
+    this.log({ operatorId: actor.id, displayName: actor.name }, action, target, approvalId, "OK");
+  private ops = new OpsSim(Date.now(), this.opsAudit);
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -614,14 +627,14 @@ export class SimAdminApi implements AdminApi {
     if (!can(s.roles, ACTION_CAP[a.action])) {
       return Promise.reject(new AdminError("admin_forbidden", "소각 시점 권한 부족"));
     }
-    this.applyEffect(a.payload, s);
+    this.applyEffect(a.payload, s, a.id);
     a.state = "CONSUMED";
     a.consumedAt = isoNow();
     this.log(s, `execute:${a.action}`, a.targetLabel, a.id, "OK");
     return Promise.resolve();
   }
 
-  private applyEffect(payload: ApprovalPayload, by: AdminSession): void {
+  private applyEffect(payload: ApprovalPayload, by: AdminSession, approvalId: string): void {
     switch (payload.action) {
       case "sim.bots.params": {
         const bot = this.bots.find((b) => b.id === payload.botId);
@@ -695,6 +708,13 @@ export class SimAdminApi implements AdminApi {
       case "members.close":
         this.closeMember(payload.externalId);
         break;
+      case "ops.threshold.set":
+        this.ops.applyThreshold(payload.key, payload.from, payload.to, actorOf(by), approvalId, payload.reason,
+          payload.revertOf, payload.proposalId, Date.now());
+        break;
+      case "ops.ai.auto":
+        this.ops.enableAuto(payload.hours, payload.reason, actorOf(by), approvalId, Date.now());
+        break;
     }
   }
 
@@ -730,8 +750,92 @@ export class SimAdminApi implements AdminApi {
       // 발급형: ISSUED는 소각 대기분(발급=승인). 발급 전 요청은 서버 상태가 아니라 카운트하지 않는다
       pendingApprovals: this.approvals.filter((a) => a.state === "ISSUED").length,
       suspendedMarkets: this.markets.filter((m) => m.state === "HALTED").length,
+      tradesTotal: this.tradesTotal,
+      marketPartitions: this.leader().ownedMarkets.length,
       generatedAt: isoNow(),
     });
+  }
+
+  /* ===== MSP AI 관제센터(관리자 설계 4-4) ===== */
+
+  readonly opsScenarios = true;
+
+  getControlCenter(): Promise<ControlCenter> {
+    this.auth("VIEW");
+    return Promise.resolve(this.ops.snapshot(Date.now()));
+  }
+
+  ackAlert(alertId: string): Promise<void> {
+    const s = this.auth("VIEW");
+    this.ops.ackAlert(alertId, actorOf(s), Date.now());
+    this.log(s, "ops.alert.ack", alertId, null, "OK");
+    return Promise.resolve();
+  }
+
+  silenceAlert(alertId: string, minutes: number): Promise<void> {
+    const s = this.auth("SUPER");
+    this.ops.silenceAlert(alertId, minutes, actorOf(s), Date.now());
+    this.log(s, "ops.alert.silence", `${alertId} ${minutes}m`, null, "OK");
+    return Promise.resolve();
+  }
+
+  async decideAiProposal(proposalId: string, decision: AiDecision): Promise<void> {
+    // 승인은 인프라 조치라 SUPER다. 거절과 나중에는 조치를 줄이는 쪽이라 조회 권한으로 된다
+    const s = this.auth(decision === "APPROVE" ? "SUPER" : "VIEW");
+    const now = Date.now();
+    this.ops.checkDecision(proposalId, decision, now);
+    const t = decision === "APPROVE" ? this.ops.thresholdProposal(proposalId) : null;
+    if (t) {
+      // 임계값 변경은 승인 티켓 필수다. 막힐 이유를 먼저 본 뒤 발급해 쓸모없는 티켓을 남기지 않는다
+      const issued = await this.issueApproval(s.operatorId, "ops.threshold.set", {
+        action: "ops.threshold.set", key: t.key, label: t.label, unit: t.unit, from: t.from, to: t.to,
+        reason: "AI 조치안 승인", revertOf: null, proposalId,
+      });
+      await this.consumeApproval(issued);
+      return;
+    }
+    this.ops.decide(proposalId, decision, actorOf(s), now);
+  }
+
+  revertAiAction(proposalId: string): Promise<void> {
+    const s = this.auth("SUPER");
+    this.ops.revert(proposalId, actorOf(s), Date.now());
+    return Promise.resolve();
+  }
+
+  async enableAiAuto(hours: number, reason: string): Promise<void> {
+    const s = this.auth("SUPER");
+    this.ops.checkAuto(hours, reason, Date.now());
+    const issued = await this.issueApproval(s.operatorId, "ops.ai.auto", { action: "ops.ai.auto", hours, reason: reason.trim() });
+    await this.consumeApproval(issued);
+  }
+
+  stopAiAuto(): Promise<void> {
+    // 끄기는 누구든 언제든 된다. 조치를 멈추는 쪽이라 승인과 역할을 요구하지 않는다(ADR 0035)
+    const s = this.auth("VIEW");
+    this.ops.stopAuto(actorOf(s), Date.now());
+    this.log(s, "ops.ai.stop", "AI 자동 모드", null, "OK");
+    return Promise.resolve();
+  }
+
+  runBackupNow(): Promise<void> {
+    const s = this.auth("SUPER");
+    this.ops.runBackup(actorOf(s), Date.now());
+    return Promise.resolve();
+  }
+
+  startOpsScenario(id: OpsScenarioId): Promise<void> {
+    const s = this.auth("VIEW");
+    this.ops.startScenario(id, Date.now());
+    this.log(s, "ops.scenario.start", id, null, "OK");
+    return Promise.resolve();
+  }
+
+  resetOps(): Promise<void> {
+    const s = this.auth("VIEW");
+    this.ops = new OpsSim(Date.now(), this.opsAudit);
+    this.log(s, "ops.scenario.reset", "관제 시뮬레이션", null, "OK");
+    return Promise.resolve();
   }
 
   /* ===== 용량(ADR 0015 수동 스케일링) ===== */
