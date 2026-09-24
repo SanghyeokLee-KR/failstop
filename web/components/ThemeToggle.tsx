@@ -16,6 +16,8 @@ export default function ThemeToggle({ size }: { size?: "sm" }) {
   const toggle = () => {
     const next = theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
+    // 운영자가 고른 순간 관리 기본값 표시를 거둔다. 관리 평면을 떠나도 이 선택은 남는다
+    delete document.documentElement.dataset.themeOrigin;
     try {
       localStorage.setItem("theme", next);
     } catch {

@@ -17,12 +17,11 @@
   white-space: nowrap;
 }
 
-/* 지연 구간 감쇠(A-5): 마지막 값임을 opacity로 알린다. 시프트 0 */
-.staleRegion {
-  transition: opacity var(--dur-fast) var(--ease-standard);
-}
+/* 지연 구간(A-5): 글자는 제 잉크로 두어 마지막 값을 그대로 읽게 하고, 면에 사선 무늬를
+   깔아 지연을 알린다. opacity는 토큰이 지킨 글자 대비를 곱해 무너뜨려 쓰지 않는다. 시프트 0 */
 .staleRegion[data-stale] {
-  opacity: 0.5;
+  background-image: repeating-linear-gradient(135deg, var(--stale-hatch) 0 6px, transparent 6px 12px);
+  border-radius: var(--control-radius);
 }
 
 /* 연결 단절 배너(A-5 warning): 상단 전폭 경고 띠. 색 단독 금지라 형태(▲)·문구 병기 */

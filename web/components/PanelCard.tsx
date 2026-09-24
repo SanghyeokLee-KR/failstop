@@ -20,7 +20,7 @@ interface Props {
   dense?: boolean;
   /** 본문 내부 스크롤 활성 */
   scroll?: boolean;
-  /** 지연 상태. 본문만 opacity 감쇠하고 헤더 배지는 또렷이 유지한다(A-5) */
+  /** 지연 상태. 본문 면에 사선 무늬, 글자는 그대로 둔다. 헤더 배지가 지연을 말한다(A-5) */
   stale?: boolean;
   className?: string;
   children: ReactNode;
@@ -34,8 +34,9 @@ export default function PanelCard({ title, srTitle, actions, dense, scroll, stal
     >
       {srTitle != null && <h2 className="sr-only">{srTitle}</h2>}
       {(title != null || actions != null) && (
-        <header className={styles.header}>
-          {title != null && <h2 className={styles.title}>{title}</h2>}
+        // panel-head·panel-title도 panel-body와 같은 전역 훅이다. 관리 셸이 제목 단계만 덮는다(§12-8)
+        <header className={`panel-head ${styles.header}`}>
+          {title != null && <h2 className={`panel-title ${styles.title}`}>{title}</h2>}
           {actions != null && <div className={styles.actions}>{actions}</div>}
         </header>
       )}

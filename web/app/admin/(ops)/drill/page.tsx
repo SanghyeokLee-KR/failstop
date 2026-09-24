@@ -211,12 +211,12 @@ export default function DrillPage() {
                   <>
                     <button
                       type="button"
-                      className={running ? "btn" : styles.primaryBtn}
+                      className={running ? styles.neutralBtn : styles.primaryBtn}
                       onClick={toggleRun}
                     >
                       {running ? "주행 종료" : "주행 시작"}
                     </button>
-                    <button type="button" className="btn" onClick={resetRun}>
+                    <button type="button" className={styles.neutralBtn} onClick={resetRun}>
                       기록 초기화
                     </button>
                   </>

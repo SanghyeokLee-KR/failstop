@@ -240,7 +240,7 @@ const DASH_ARRAY: Record<Dash, string | undefined> = {
   dotted: "0.1 4",
 };
 
-const HEALTH_WORD: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
+const HEALTH_WORD: Record<Health, string> = { success: "정상", warning: "주의", danger: "장애" };
 
 type Point = LineData<Time> | WhitespaceData<Time>;
 
@@ -277,16 +277,18 @@ function toneColor(t: ChartTokens, tone: Tone): string {
 /**
  * 기준선의 선 색과 축 표지 색. 선은 그래픽이라 3:1 만 넘으면 되어 주황(--color-warning)을 그대로 쓴다.
  * 표지는 11~12px 글자를 얹으므로 4.5:1 이 필요하다. 라이브러리에 맡기면 선 색을 면으로 칠하고 글자색을
- * 밝기로 골라서, 라이트에서 흰 글자가 주황 면 위 3.09:1 로 떨어졌다. 그래서 표지 면은 경고 글자색
- * (라이트 orange-800, 흰 글자와 6.5:1)으로, 글자는 카드 면 색으로 따로 준다. 다크에서는 두 경고 토큰이
- * 같은 밝은 주황이라 면과 선이 한 색이고 어두운 글자와 9.15:1 이다. 무채색 기준선(TTL)도 같은 규칙으로
- * 글자색을 카드 면으로 고정한다
+ * 밝기로 골라서, 라이트에서 흰 글자가 주황 면 위 3.09:1 로 떨어졌다. 그래서 표지 글자는 카드 면 색으로
+ * 따로 준다.
+ *
+ * 주황은 실제 주의에만 쓴다(디자인 시스템 §12-3). 기준선은 늘 서 있는 눈금이라 평소 표지는 무채 기준선
+ * (TTL)과 같은 면이고, 선 값이 기준 이상인 동안만 표지를 경고 글자색 면(라이트 orange-800, 흰 글자와
+ * 6.5:1)으로 칠한다. 다크에서는 두 경고 토큰이 같은 밝은 주황이라 어두운 글자와 9.15:1 이다
  */
-function refFace(t: ChartTokens, tone: RefTone) {
+function refFace(t: ChartTokens, tone: RefTone, over: boolean) {
   const warning = tone === "warning";
   return {
     color: warning ? cssVar("--color-warning") : t.axisText,
-    axisLabelColor: warning ? cssVar("--color-warning-text") : t.axisText,
+    axisLabelColor: warning && over ? cssVar("--color-warning-text") : t.axisText,
     axisLabelTextColor: t.surface,
   };
 }
@@ -535,7 +537,8 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Line">[]>([]);
-  const refLinesRef = useRef<{ line: IPriceLine; tone: RefTone }[]>([]);
+  /** 기준선마다 선 값이 기준 이상인지(over). 넘나들 때만 축 표지 색을 다시 준다 */
+  const refLinesRef = useRef<{ line: IPriceLine; tone: RefTone; spec: RefSpec; over: boolean }[]>([]);
   /** 창마다 하나씩 둔 십자선 가격 표지. 색인이 창 번호다 */
   const crossRef = useRef<CrossLabel[]>([]);
   /** 선마다 마지막 값과 그 표지를 켰는지. 십자선 표지와 눈금 비우기가 쉬는 표지의 자리를 계산할 때 읽는다 */
@@ -591,7 +594,7 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
       crosshair: crosshairOptions(t),
     });
     seriesRef.current.forEach((line, i) => line.applyOptions({ color: toneColor(t, spec.lines[i].tone) }));
-    refLinesRef.current.forEach(({ line, tone }) => line.applyOptions(refFace(t, tone)));
+    refLinesRef.current.forEach(({ line, tone, over }) => line.applyOptions(refFace(t, tone, over)));
     crossRef.current.forEach((label) => label.setFace(crossFace()));
   }, [spec]);
 
@@ -730,9 +733,11 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
 
     refLinesRef.current = spec.refs.map((r) => ({
       tone: r.tone,
+      spec: r,
+      over: false,
       line: series[r.line].createPriceLine({
         price: r.price,
-        ...refFace(t, r.tone),
+        ...refFace(t, r.tone, false),
         lineWidth: 1,
         lineStyle: LineStyle.Dashed,
         axisLabelVisible: true,
@@ -846,6 +851,16 @@ function useFlowChart(spec: ChartSpec, samples: FlowSample[], events: FlowEvent[
       line.setData(data);
       line.applyOptions({ lastValueVisible: shown });
     });
+    // 기준선 표지는 마지막 표본의 값이 기준 이상인 동안만 경고 면이다. 넘나드는 순간에만 색을 다시 준다
+    let refTokens: ChartTokens | null = null;
+    for (const ref of refLinesRef.current) {
+      const v = last !== undefined ? spec.lines[ref.spec.line].pick(last) : null;
+      const over = v !== null && v >= ref.spec.price;
+      if (over === ref.over) continue;
+      ref.over = over;
+      refTokens ??= readChartTokens();
+      ref.line.applyOptions(refFace(refTokens, ref.tone, over));
+    }
     // 창 폭을 고정한다. 표본이 150개가 안 되면 왼쪽이 비고 오른쪽 끝이 늘 지금이다
     const n = samples.length;
     if (n > 0) chart.timeScale().setVisibleLogicalRange({ from: n - WINDOW, to: n + 1 });
@@ -894,7 +909,10 @@ function Readouts({ lines, last }: { lines: LineSpec[]; last: FlowSample | undef
             </dt>
             <dd className={styles.readoutValue}>
               {v === null ? (
-                <span className={styles.missing}>미수집</span>
+                <span className={styles.missing}>
+                  <span aria-hidden="true">◌ </span>
+                  미수집
+                </span>
               ) : (
                 <>
                   {v.toFixed(l.digits)}

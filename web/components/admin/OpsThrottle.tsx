@@ -85,7 +85,14 @@ export default function OpsThrottle({
       />
       <div className={styles.throttleFoot}>
         <span className={styles.throttleReadout}>
-          실측 {currentOps == null ? "미수집" : formatCount(currentOps)}
+          실측{" "}
+          {currentOps == null ? (
+            <>
+              <span aria-hidden="true">◌ </span>미수집
+            </>
+          ) : (
+            formatCount(currentOps)
+          )}
           {rate != null && ` · 적용값 ${formatCount(rate)}`}
         </span>
         <button

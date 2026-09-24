@@ -39,7 +39,7 @@ const FlowMetrics = dynamic(() => import("@/components/admin/flow/FlowMetrics"),
 /** 보조기술용 사건 표의 상한. 재생을 여러 번 돌려도 표가 끝없이 길어지지 않게 최근 것만 둔다 */
 const MAX_EVENT_ROWS = 50;
 
-const HEALTH_WORD: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
+const HEALTH_WORD: Record<Health, string> = { success: "정상", warning: "주의", danger: "장애" };
 
 const pad = (n: number) => String(n).padStart(2, "0");
 function clock(sec: number): string {

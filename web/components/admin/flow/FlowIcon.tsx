@@ -17,6 +17,8 @@
  * 열린 자물쇠(퍼블릭 서브넷), 원통(DB 묶음), 선반 두 칸(호스트 한 대)을 같은 어휘로 새로 그린다. 그중
  * 구름, 지도 핀, VPC, 자물쇠, 원통, 선반은 묶음 상자의 머리 표식으로만 쓴다. DB 칸 이름표가 13px 에서
  * 로고를 쓰면 윤곽선이 뭉개져 다른 틀의 표식과 굵기가 맞지 않아 원통을 쓴다. 제품 이름은 글자가 적는다.
+ * 연결 전 자리의 AI 운영 보고는 줄 세 개가 있는 문서, Teams 는 말풍선으로 그린다. 메신저 제품 로고도
+ * 상표라 빌리지 않는다.
  *
  * 구성도 카드의 ALB 는 nginx 로고가 아니라 부채꼴 그림이다. nginx 는 Docker 대역이 ALB 역할을 맡긴
  * 제품이라 AWS 목표 구성을 그리는 카드 면에 두지 않는다. 컨테이너 단위 표(InstanceTable)는 nginx 를 쓴다.
@@ -28,7 +30,21 @@ import type { ReactNode } from "react";
 import styles from "./topology.module.css";
 
 export type FlowBrandIcon = "nginx" | "springboot" | "postgresql" | "prometheus" | "grafana";
-export type FlowGlyphIcon = "user" | "load" | "bot" | "lb" | "cloud" | "globe" | "asg" | "pin" | "vpc" | "unlock" | "db" | "server";
+export type FlowGlyphIcon =
+  | "user"
+  | "load"
+  | "bot"
+  | "lb"
+  | "cloud"
+  | "globe"
+  | "asg"
+  | "pin"
+  | "vpc"
+  | "unlock"
+  | "db"
+  | "server"
+  | "report"
+  | "chat";
 export type FlowIconName = FlowBrandIcon | FlowGlyphIcon;
 
 const BRAND_CLASS: Record<FlowBrandIcon, string> = {
@@ -141,6 +157,24 @@ const GLYPH: Record<FlowGlyphIcon, ReactNode> = {
       <rect x="2.25" y="8.75" width="11.5" height="4.75" rx="1" />
       <path d="M4.75 4.9 H5.25" />
       <path d="M4.75 11.1 H5.25" />
+    </>
+  ),
+  // 운영 보고. 모서리 하나를 접은 문서와 글 줄 셋
+  report: (
+    <>
+      <path d="M3.25 1.75 H9.75 L12.75 4.75 V14.25 H3.25 Z" />
+      <path d="M9.75 1.75 V4.75 H12.75" />
+      <path d="M5.5 7.5 H10.5" />
+      <path d="M5.5 9.75 H10.5" />
+      <path d="M5.5 12 H8.5" />
+    </>
+  ),
+  // 메시지 채널. 꼬리가 왼쪽 아래로 난 말풍선
+  chat: (
+    <>
+      <path d="M3.5 2.75 H12.5 A1.75 1.75 0 0 1 14.25 4.5 V9.5 A1.75 1.75 0 0 1 12.5 11.25 H7 L3.75 13.75 V11.25 H3.5 A1.75 1.75 0 0 1 1.75 9.5 V4.5 A1.75 1.75 0 0 1 3.5 2.75 Z" />
+      <path d="M5 6 H11" />
+      <path d="M5 8.25 H9" />
     </>
   ),
 };

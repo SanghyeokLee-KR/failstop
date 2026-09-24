@@ -93,7 +93,10 @@
 .confirm[data-tone="warning"]:hover:not(:disabled) {
   background: var(--color-warning-bg);
 }
+/* 비활성은 opacity로 흐리지 않는다(§12-6). 면을 비우고 점선 테두리로 모양을 남긴다 */
 .confirm:disabled {
-  opacity: 0.5;
-  cursor: default;
+  background: transparent;
+  border: 1px dashed var(--text-tertiary);
+  color: var(--text-secondary);
+  cursor: not-allowed;
 }

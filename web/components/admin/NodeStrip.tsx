@@ -25,10 +25,11 @@ function heapRatio(n: CapacityNode): number | null {
   return n.heapUsedBytes / n.heapMaxBytes;
 }
 
-function stateOf(n: CapacityNode): { health: Health; label: string } {
+function stateOf(n: CapacityNode): { health: Health; label: string; off?: true } {
   if (!n.reachable) {
-    // 계약상 떠 있어야 하는데 응답이 없으면 장애다. 계약에 없으면 꺼져 있는 것이 정상이다
-    return n.expected ? { health: "danger", label: "응답 없음" } : { health: "success", label: "꺼짐" };
+    // 계약상 떠 있어야 하는데 응답이 없으면 장애다. 계약에 없으면 꺼져 있는 것이 정상이다.
+    // 꺼짐은 판정이 아니라 중지라 초록 점이 아니라 무채 ○로 적는다(§12-3)
+    return n.expected ? { health: "danger", label: "응답 없음" } : { health: "success", label: "꺼짐", off: true };
   }
   if (n.cpuRatio !== null && n.cpuRatio >= 0.9) return { health: "warning", label: n.leader ? "주문+조회" : "조회" };
   return { health: "success", label: n.leader ? "주문+조회" : "조회" };
@@ -50,6 +51,20 @@ function count(v: number | null, unit: string): string {
 function requestRate(n: CapacityNode, rps: number | null): string {
   if (n.httpRequests === null) return "미수집";
   return rps === null ? "표본 부족" : count(rps, "건");
+}
+
+/**
+ * 미수집은 값을 받지 못했다는 사실이라 무채 ◌ 형태를 앞에 둔다(§12-3). 형태는 낭독하지 않는다.
+ * 값 칸이 세로 flex라 형태와 글자를 한 span으로 묶어야 두 줄로 갈라지지 않는다
+ */
+function Reading({ text }: { text: string }) {
+  if (text !== "미수집") return <>{text}</>;
+  return (
+    <span>
+      <span aria-hidden="true">◌ </span>
+      {text}
+    </span>
+  );
 }
 
 export default function NodeStrip({
@@ -81,7 +96,13 @@ export default function NodeStrip({
           <div key={n.id} className={styles.nodeStripRow} data-leader={n.leader || undefined} data-health={st.health}>
             <span className={styles.nodeStripId}>
               <strong>{n.id}</strong>
-              <HealthPill health={st.health} label={st.label} />
+              {st.off ? (
+                <span className={styles.healthInk} data-off="">
+                  <span aria-hidden="true">○</span> {st.label}
+                </span>
+              ) : (
+                <HealthPill health={st.health} label={st.label} />
+              )}
             </span>
             <span className={styles.nodeStripMeta}>
               {n.az || "구역 미지정"} · {n.instanceType || "사양 미지정"}
@@ -91,7 +112,7 @@ export default function NodeStrip({
             {n.reachable ? (
               <>
                 <span className={`${styles.nodeStripValue} num`}>
-                  {pct(n.cpuRatio)}
+                  <Reading text={pct(n.cpuRatio)} />
                   {n.cpuRatio !== null && (
                     // 세로 flex의 flex-end 안에서 레일은 고유 폭이 없어 0으로 무너진다.
                     // 폭을 소유하는 래퍼를 둬 칼럼 폭을 그대로 물려준다
@@ -105,9 +126,15 @@ export default function NodeStrip({
                     </span>
                   )}
                 </span>
-                <span className={`${styles.nodeStripValue} num`}>{pct(heap)}</span>
-                <span className={`${styles.nodeStripValue} num`}>{requestRate(n, rps)}</span>
-                <span className={`${styles.nodeStripValue} num`}>{count(n.wsClients, "명")}</span>
+                <span className={`${styles.nodeStripValue} num`}>
+                  <Reading text={pct(heap)} />
+                </span>
+                <span className={`${styles.nodeStripValue} num`}>
+                  <Reading text={requestRate(n, rps)} />
+                </span>
+                <span className={`${styles.nodeStripValue} num`}>
+                  <Reading text={count(n.wsClients, "명")} />
+                </span>
               </>
             ) : (
               // 관측 네 칸을 한 칸으로 합쳐 비운다. 칸마다 "미수집"을 네 번 적으면

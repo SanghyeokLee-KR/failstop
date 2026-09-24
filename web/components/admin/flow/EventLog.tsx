@@ -24,7 +24,7 @@ const VISIBLE_ROWS = 8;
 const MAX_TABLE_ROWS = 50;
 
 /** 형태 기호는 aria-hidden 이라 판정은 이 말로 읽힌다 */
-export const HEALTH_WORD: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
+export const HEALTH_WORD: Record<Health, string> = { success: "정상", warning: "주의", danger: "장애" };
 
 const pad = (n: number) => String(n).padStart(2, "0");
 

@@ -3,10 +3,12 @@
 /**
  * 관리 평면 리소스 상태 표현 조각. useAdminResource 상태를 화면에 그린다.
  * - AdminErrorState: 최초 로드 실패. empty-state role=alert + 재시도. 세션·서버 사유 구분.
+ *   빈 상태(값 없음)와 모양을 가른다(§12-8). 서버 실패는 장애 면과 ■, 세션 만료는 주의 면과 ▲다.
  * - StaleBadge: 공용 지연 배지 재노출. 트레이딩·자산 표면과 같은 구현을 공유한다.
  */
 
 import type { ErrorReason } from "./useAdminResource";
+import styles from "./admin.module.css";
 
 export { StaleBadge } from "@/components/StatusSignals";
 
@@ -20,6 +22,9 @@ const REASON_COPY: Record<ErrorReason, { title: string; desc: string }> = {
     desc: "서버 연결 실패. 잠시 후 다시 시도 필요",
   },
 };
+
+/** 색 단독 금지라 사유마다 형태를 병기한다. 형태는 낭독하지 않고 제목이 뜻을 싣는다 */
+const REASON_MARK: Record<ErrorReason, string> = { server: "■", session: "▲" };
 
 export function AdminErrorState({
   reason = "server",
@@ -37,11 +42,16 @@ export function AdminErrorState({
 }) {
   const copy = REASON_COPY[reason];
   return (
-    <div className="empty-state" role="alert">
-      <span className="empty-state__title">{title ?? copy.title}</span>
+    <div className={`empty-state ${styles.errorState}`} data-reason={reason} role="alert">
+      <span className="empty-state__title">
+        <span className={styles.errorMark} aria-hidden="true">
+          {REASON_MARK[reason]}
+        </span>
+        {title ?? copy.title}
+      </span>
       <span className="empty-state__desc">{desc ?? copy.desc}</span>
       {onRetry && reason !== "session" && (
-        <button type="button" className="btn btn--secondary" onClick={onRetry}>
+        <button type="button" className={styles.neutralBtn} onClick={onRetry}>
           {retryLabel}
         </button>
       )}

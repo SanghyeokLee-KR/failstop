@@ -150,7 +150,8 @@ export default function BotsPage() {
   });
 
   const botCols: DataColumn<FleetRow>[] = [
-    { key: "market", label: "마켓", width: "130px", align: "center", render: (m) => m.market },
+    // 마켓은 식별 텍스트라 왼쪽이다. 나머지 대수 열은 한두 자리 행렬이라 가운데에 둔다(§12-7 예외)
+    { key: "market", label: "마켓", width: "130px", align: "left", render: (m) => m.market },
     ...BOT_TYPES.map(typeCol),
     {
       key: "sum",
@@ -180,7 +181,7 @@ export default function BotsPage() {
     {
       key: "state",
       label: "가동",
-      // 전 열 중앙 정렬이다. 한 자리 수가 넓은 머리글 아래 우측에 붙어 있으면 제 이름표에서
+      // 마켓 뒤 열은 중앙 정렬이다. 한 자리 수가 넓은 머리글 아래 우측에 붙어 있으면 제 이름표에서
       // 떨어져 보이고, 자릿수가 모두 같아 우측 정렬로 얻는 자리 맞춤도 없다.
       // 남는 폭은 이 열이 받는다
       width: "minmax(140px, 1fr)",
@@ -338,7 +339,6 @@ export default function BotsPage() {
             rowKey={(m) => m.market}
             rowHeight={44}
             ariaLabel="플릿 인벤토리"
-            defaultAlign="center"
             /* 빈 표를 머리글만 남기고 두지 않는다. 종전에는 empty 를 주지 않아 실서버에서
                행 없는 표가 그대로 떴고, 데이터를 못 받은 화면과 구분되지 않았다 */
             empty={

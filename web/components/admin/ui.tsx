@@ -16,11 +16,11 @@ export type Health = "success" | "warning" | "danger";
 export const HEALTH_ICON: Record<Health, string> = { success: "●", warning: "▲", danger: "■" };
 // 형태·색은 aria-hidden이라 보조기술에 심각도가 안 닿는다. sr-only로 낭독할 라벨
 // 라벨 어휘는 NOTICE_SEVERITY_LABEL·admin 홈 HEALTH_LABEL과 통일(warning=주의)
-const HEALTH_LABEL: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
+const HEALTH_LABEL: Record<Health, string> = { success: "정상", warning: "주의", danger: "장애" };
 
 /**
- * 헬스 상태 표시. 정상은 필을 세우지 않고 잉크로만 적는다.
- * 이 콘솔은 대부분 정상이라, 정상까지 색을 쓰면 초록으로 덮인 화면에서 빨강 하나를 찾아야 한다.
+ * 헬스 상태 표시. 정상은 필을 세우지 않고 점만 초록, 글자는 잉크로 적는다(§12-3).
+ * 이 콘솔은 대부분 정상이라, 정상까지 면을 칠하면 초록으로 덮인 화면에서 빨강 하나를 찾아야 한다.
  */
 export function HealthPill({
   health,
@@ -36,7 +36,10 @@ export function HealthPill({
   if (health === "success") {
     return (
       <span className={styles.healthInk}>
-        <span aria-hidden="true">{HEALTH_ICON[health]}</span> {label}
+        <span className={styles.healthDot} aria-hidden="true">
+          {HEALTH_ICON[health]}
+        </span>{" "}
+        {label}
       </span>
     );
   }

@@ -8,8 +8,11 @@
  *
  * 백엔드에 연결하지 않았다. 값은 모두 lib/admin/flowSim.ts 가 만들고 주행은 lib/admin/flowRun.ts 가
  * 지표 관제(/admin/monitor)와 함께 들고 있다. 사건의 순서와 간격은 로컬 Docker 에서 잰 기록을
- * 재생하고 사건 사이의 값은 지어낸다. 사용자가 화면의 시안 표식과 설명 줄을 빼기로 했다(2026-09-23).
- * 시뮬레이션이라는 사실은 보조기술용 문구(FlowRunControls)에만 남는다. 발표에서는 말로 밝힌다.
+ * 재생하고 사건 사이의 값은 지어낸다. 머리에는 설명 줄을 두지 않는다(2026-09-23 사용자 결정). 값의
+ * 출처는 무대 머리 줄 맨 왼쪽의 출처 칩('재생 · 로컬 측정 기록')이 보여 준다.
+ *
+ * 무대 머리 줄은 출처 칩, 재생 중에만 서는 상황 자막, 크게 보기 순서다(관리자 설계 7-10 (i)). 자막이
+ * 재생 알약과 같은 내용을 실어 이 화면의 머리 조작은 알약 없이 일시정지와 초기화만 둔다.
  *
  * 이 화면은 구성도만 둔다. 사건 기록 목록도 사용자 요청으로 뺐고 보조기술용 알림만 남겼다. 체결률, 리스, CPU, 사용률 추이는 지표 관제로 옮겼고, 리더·세대·
  * Primary 같은 판독 줄도 사용자 요청으로 뺐다. 그 값은 노드 팝오버에 있다.
@@ -27,6 +30,8 @@ import PanelCard from "@/components/PanelCard";
 import { PageHeader } from "@/components/admin/ui";
 import FlowTopology, { type FlowPick } from "@/components/admin/flow/FlowTopology";
 import FlowRunControls from "@/components/admin/flow/FlowRunControls";
+import FlowCaption from "@/components/admin/flow/FlowCaption";
+import SourceChip from "@/components/admin/flow/SourceChip";
 import ExperimentDialog from "@/components/admin/flow/ExperimentDialog";
 import EventLog from "@/components/admin/flow/EventLog";
 import adminStyles from "@/components/admin/admin.module.css";
@@ -173,7 +178,7 @@ export default function FlowPage() {
 
   return (
     <div className={styles.root}>
-      <PageHeader title="서비스 흐름" actions={<FlowRunControls />} />
+      <PageHeader title="서비스 흐름" actions={<FlowRunControls indicator={false} />} />
 
       <PanelCard srTitle="서비스 구성">
         <div
@@ -184,7 +189,12 @@ export default function FlowPage() {
         >
           <div className={styles.stageBar}>
             {expanded && <span className={styles.stageTitle}>서비스 흐름</span>}
-            {expanded && <FlowRunControls />}
+            <SourceChip />
+            {/* 자막이 없을 때도 가운데 칸을 비워 두어 크게 보기 버튼이 오른쪽 끝에 남는다 */}
+            <div className={styles.stageCaption}>
+              <FlowCaption />
+            </div>
+            {expanded && <FlowRunControls indicator={false} />}
             {expanded ? (
               <button ref={closeBtnRef} type="button" className={adminStyles.neutralBtn} onClick={closeExpanded}>
                 닫기

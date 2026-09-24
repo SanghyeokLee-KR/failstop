@@ -142,7 +142,7 @@ export default function AdminSupportPage() {
                         </span>
                         <button
                           type="button"
-                          className="btn btn--primary"
+                          className={styles.approveBtn}
                           onClick={() => void submit(row)}
                           disabled={!(drafts[row.externalId] ?? "").trim() || busyId === row.externalId}
                           aria-busy={busyId === row.externalId}

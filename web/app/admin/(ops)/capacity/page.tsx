@@ -19,7 +19,7 @@ import { AdminError, getAdminApi } from "@/lib/admin/api";
 import type { CapacityAdvice, CapacityNode, CapacityState, SimStatus } from "@/lib/admin/types";
 import PanelCard from "@/components/PanelCard";
 import NodeStrip from "@/components/admin/NodeStrip";
-import GrafanaLink from "@/components/admin/GrafanaLink";
+import GrafanaLink, { grafanaConfigured } from "@/components/admin/GrafanaLink";
 import DecisionFooter from "@/components/admin/DecisionFooter";
 import OpsThrottle from "@/components/admin/OpsThrottle";
 import SourceMark, { sourceWord } from "@/components/admin/SourceMark";
@@ -253,10 +253,11 @@ export default function CapacityPage() {
         </table>
       </PanelCard>
 
+      {/* 관측 주소가 없으면 링크가 null을 그린다. 빈 단계를 배열에 넣지 않아 화살표가 겹치지 않는다 */}
       <DecisionFooter
         steps={[
           "평균 사용률 확인",
-          <GrafanaLink key="svc" board="msp-service" label="앱 CPU 추이" />,
+          ...(grafanaConfigured() ? [<GrafanaLink key="svc" board="msp-service" label="앱 CPU 추이" />] : []),
           "권고에 따라 증설·축소",
         ]}
       />
@@ -298,7 +299,7 @@ function AdviceCard({
         <p className={styles.capacityNote}>{advice.detail}</p>
       </div>
       {advice.action && canScale && (
-        <button type="button" className="btn" onClick={() => onAct(advice.action!)}>
+        <button type="button" className={styles.neutralBtn} onClick={() => onAct(advice.action!)}>
           {advice.action === "SCALE_OUT" ? "서버 추가" : "서버 줄이기"}
         </button>
       )}

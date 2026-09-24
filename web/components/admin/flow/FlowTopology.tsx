@@ -20,7 +20,10 @@
  *    뒤에는 오른쪽 카드가 Primary 가 된다. SQL 선은 그때도 주축에서 그룹을 나오고, 그룹과 DB 칸 사이
  *    틈에서 위로 꺾여 DB 칸 위를 지나 새 Primary 윗변으로 들어간다. 바뀌는 것은 도착점뿐이다.
  *  - load-1 은 ALB 바로 위, 시장 봇은 ALB 바로 아래라 두 선이 ALB 가운데 세로줄 하나로 위아래에서
- *    들어온다. 관측은 DB 칸 바로 아래다. DB 수집선은 곧게 위로, 앱 수집선은 한 번 꺾여 그룹 밑변으로 간다.
+ *    들어온다. 관측은 Primary 열 바로 아래다. DB 수집선은 곧게 위로, 앱 수집선은 한 번 꺾여 그룹 밑변으로 간다.
+ *  - bot-1 칸의 관측 오른쪽(Standby 열 아래)에 'AI 운영 보고', 사용자 열 아래 AWS 틀 밖에 'Teams' 자리를
+ *    점선 카드로 둔다(관리자 설계 7-10 (i) 6). 이 화면은 보고 서비스에 연결하지 않아 두 카드는 '◌ 연결 전'만
+ *    적고 누를 수 없다. 관측→AI→Teams 선은 꺼짐 모양이고 흐름 선(EdgeId)에 들지 않는다. 요약이나 조치는 없다.
  *  - CloudFront 는 이 대역에 없다. 사용자가 목표 구성대로 켜진 노드로 그리기로 했고 상태 글자와
  *    팝오버가 그 사실을 밝힌다. chaos-toxiproxy 는 AWS 에 없는 Docker 전용 장애 주입기라 그리지 않는다.
  *  - 학교·개인 계정 모두 NAT 없는 퍼블릭 서브넷 구성이라(ADR 0099) DB 와 bot-1 칸에 프라이빗
@@ -84,8 +87,18 @@ import {
   type TargetId,
 } from "@/lib/admin/flowSim";
 import { useFlowRun } from "@/lib/admin/flowRun";
+import { MeterRail } from "@/components/admin/instruments/MeterRail";
 import { FlowIcon, type FlowIconName } from "./FlowIcon";
-import FlowTraffic, { ARROW_LEN, LineSwatch, TierSwatch, trafficSignature, type Pt, type Wire } from "./FlowTraffic";
+import FlowTraffic, {
+  ARROW_LEN,
+  LineSwatch,
+  ReserveWires,
+  TierSwatch,
+  trafficSignature,
+  type Pt,
+  type Wire,
+} from "./FlowTraffic";
+import { useChangeFlags } from "./useChangeFlags";
 import styles from "./topology.module.css";
 
 /** 노드를 눌러 고른 재생. 대상은 노드를 지목하는 재생(리더 중단, 재기동, DB 전환, 재편입)에만 붙는다 */
@@ -139,15 +152,22 @@ const BAND = 24;
 const NEST = 16;
 /** 틀 아래 가장자리가 카드에서 떨어진 거리 */
 const INSET = 16;
-/** 카드 높이. 타일 28, 제목 16, 상태 15 와 그 사이 2px 두 번이 1.5px 테두리 안에 꼭 맞는다 */
-const CARD_H = 66;
+/** 카드 높이. 타일 28, 제목 16, 상태 18(핵심 수치 13px 줄)과 그 사이 2px 두 번이 66px 이고, 1.5px 테두리
+    두 겹을 더한 69px 에 3px 여유를 둔다 */
+const CARD_H = 72;
 /** 그룹 안 카드 사이 */
 const STACK_GAP = 12;
-/** Auto Scaling 그룹 머리 단추. 이름, 범위와 사용률, 지금 대수 세 줄(16·14·14px)이다. 956px 폭의 그룹에는
-    한 줄로 이어 쓸 자리가 없다. 틀 테두리(1.5px)에서 3px, app-1 에서 6px 띄운다. 6px 이면 포커스 고리
-    (선 2px, 띄움 2px)가 app-1 테두리에 닿지 않는다 */
-const ASG_HEAD_H = 44;
+/** Auto Scaling 그룹 머리 단추. 이름(16px), 범위와 사용률(18px, 사용률은 13px 굵게), 사용률 막대와 권고
+    임계(14px), 지금 대수(18px) 네 줄이다. 956px 폭의 그룹에는 한 줄로 이어 쓸 자리가 없다. 틀 테두리(1.5px)
+    에서 3px, app-1 에서 6px 띄운다. 6px 이면 포커스 고리(선 2px, 띄움 2px)가 app-1 테두리에 닿지 않는다 */
+const ASG_HEAD_H = 66;
 const ASG_HEAD_INSET = 3;
+// 머리 단추의 좌우 여백과 셋째 줄(사용률 막대)의 위치다. topology.module.css 의 .asgHead 여백 6px,
+// 이름 16px 과 범위 18px 두 줄 아래, .asgRailSlot 높이 14px 와 맞춘다. 네 줄이 66px 을 꽉 채워
+// 세로 가운데 정렬이 여백을 만들지 않으므로 줄 위치가 고정이다
+const ASG_HEAD_PAD = 6;
+const ASG_RAIL_TOP = 16 + 18;
+const ASG_RAIL_H = 14;
 const ASG_HEAD_GAP = 6;
 /** Auto Scaling 그룹 밑변과 bot-1 칸 윗변 사이. 다른 틀 사이와 같은 16px 다. 그룹 테두리가 한 단
     굵고 진해 두 틀이 붙어 보이지 않고, 주축이 구성도 세로 가운데에 한 걸음 더 다가간다 */
@@ -188,8 +208,8 @@ const FAN = 20;
  * 가로. 관리 평면 최소 뷰포트 1280px 에서 패널 안쪽 폭이 956px 이다. 그보다 좁으면 MIN_W 로 두고
  * 가로로 넘친다. 한 줄에 카드 여섯 장(사용자, CloudFront, ALB, 앱, Primary, Standby)이 서고, 틀 여백은
  * 모두 같은 p 라 층마다 같은 간격으로 겹친다.
- *  - 카드 폭 112px 는 가장 긴 상태 줄 "● 10 OPS · 주문 실패"(형태와 틈을 합쳐 약 99px)에 좌우 여백
- *    4px 와 테두리를 더한 값이다. 956px 에서 여백 p 는 11px 이다.
+ *  - 카드 폭 112px 는 가장 긴 상태 줄 "● 10 OPS · 주문 실패"(수치 13px 굵게, 형태와 틈을 합쳐 실측 약
+ *    105px)에 좌우 여백 1px 와 테두리를 더한 값이다. 956px 에서 여백 p 는 11px 이다.
  *  - 남는 폭은 틀과 틀 사이가 아니라 카드와 카드 사이가 같아지게 나눈다. 카드마다 끼는 틀의 겹수가
  *    달라(사용자→CloudFront 는 두 겹, CloudFront→ALB 는 네 겹) 틀 사이를 같게 두면 가장 중요한 사용자
  *    경로가 가장 좁고 앱 쪽이 두 배 가까이 벌어졌다. 주축 네 틈은 같은 d, Primary→Standby 는 한 칸 안이라
@@ -208,9 +228,13 @@ const CUT_ROOM = 50;
 /** Primary→Standby 틈을 주축 카드 사이 거리의 몇 배로 둘지. 1180px 에서 두 끊김 자리(그룹 양옆 틈과 이 틈)가
     모두 CUT_ROOM 을 넘고, 이 틈에서는 표식이 화살촉을 뺀 구간에 들어가도 양쪽에 6px 가 남는 값이다 */
 const DB_RATIO = 0.66;
-/** Auto Scaling 머리의 둘째 줄을 "min 2 · max 3 · 사용률 58%"(약 129px)로 다 쓰는 가장 좁은 글자 폭.
-    1116px(글자 폭 133px)부터 긴 꼴이고, 956px(118px)에서는 "2~3대 · 사용률 58%"(약 93px)로 줄인다 */
-const ASG_META_ROOM = 132;
+/** Auto Scaling 머리의 둘째 줄을 "min 2 · max 3 · 사용률 58%"(사용률 13px 굵게, 약 135px)로 다 쓰는 가장
+    좁은 글자 폭. 약 1200px 부터 긴 꼴이고, 956px(글자 폭 116px)에서는 "2~3대 · 사용률 58%"(약 99px)로 줄인다 */
+const ASG_META_ROOM = 138;
+/** 링 펄스를 켜 두는 시간. --dur-pulse 900ms 두 번이다. tokens.css 와 같이 바꾼다 */
+const PULSE_HOLD_MS = 1800;
+/** 대수 플래시를 켜 두는 시간. useHealthTransition 과 같은 길이다 */
+const FLASH_HOLD_MS = 600;
 
 // 서버 렌더에는 레이아웃이 없어 useLayoutEffect 가 할 일이 없다. 같은 자리를 useEffect 로 받는다
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -228,6 +252,9 @@ interface Layout {
   db: Box;
   host: Box;
   nodes: Record<NodeId, Box>;
+  /** 연결 전 자리. AI 운영 보고는 bot-1 칸의 관측 오른쪽, Teams 는 사용자 열 아래 AWS 틀 밖이다.
+      흐름 노드가 아니라 NodeId 에 넣지 않는다 */
+  reserve: { ai: Box; teams: Box };
   /** ALB 에서 app-1·app-3 으로 갈라지는 세로 줄. 퍼블릭 칸과 그룹 사이 틈의 가운데다 */
   bus: number;
   /** load-1 과 시장 봇 선이 ALB 로 들어가는 세로줄. ALB 가운데다 */
@@ -305,9 +332,10 @@ function computeLayout(measured: number): Layout {
     api3: card(appX, APP_Y.api3),
     pg1: card(pg1X, ROW_Y),
     pg2: card(pg2X, ROW_Y),
-    // bot-1 칸의 두 카드는 위 열에 맞춘다. 시장 봇은 ALB 바로 밑, 관측은 DB 칸 가운데 밑이다
+    // bot-1 칸의 카드는 위 열에 맞춘다. 시장 봇은 ALB 바로 밑, 관측은 Primary 열 밑이다. Standby 열 밑은
+    // AI 운영 보고 자리가 쓴다
     bot: card(albX, HOST_CARD_Y),
-    obs: card(r((dbX + dbR - c) / 2), HOST_CARD_Y),
+    obs: card(pg1X, HOST_CARD_Y),
   };
   const span = (x0: number, x1: number, y0: number, y1: number): Box => ({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
   // load-1 과 시장 봇 선은 ALB 가운데 세로줄로 퍼블릭 칸과 bot-1 칸의 윗변을 지난다. 두 칸의 이름표
@@ -331,6 +359,7 @@ function computeLayout(measured: number): Layout {
     db: span(dbX, dbR, MID_TOP, MID_BOTTOM),
     host: span(pubX, dbR, HOST_TOP, HOST_BOTTOM),
     nodes,
+    reserve: { ai: card(pg2X, HOST_CARD_Y), teams: card(0, HOST_CARD_Y) },
     bus: r((pubR + asgX) / 2),
     spine,
     tight: gap < CUT_ROOM,
@@ -482,12 +511,34 @@ function buildWires(L: Layout, endpoint: DbId, replSrc: DbId): Wire[] {
     {
       id: "scrape-db",
       pts: [
-        [midX(L.db), bottom(L.db)],
-        [midX(L.db), n.obs.y],
+        [midX(n.obs), bottom(L.db)],
+        [midX(n.obs), n.obs.y],
       ],
-      cut: [midX(L.db), (bottom(L.db) + L.host.y) / 2],
+      cut: [midX(n.obs), (bottom(L.db) + L.host.y) / 2],
       minor: true,
     },
+  ];
+}
+
+/**
+ * 연결 전 자리로 가는 선. 관측에서 AI 운영 보고로 곧게, AI 운영 보고에서 리전 틀 아래 띠를 따라 AWS 틀
+ * 밖의 Teams 밑변으로 간다. 흐름 선이 아니라 상태와 알갱이가 없고 늘 꺼짐 모양이다
+ */
+function buildReserveWires(L: Layout): Pt[][] {
+  const obs = L.nodes.obs;
+  const { ai, teams } = L.reserve;
+  const band = REGION_BOTTOM + NEST / 2;
+  return [
+    [
+      [right(obs), midY(obs)],
+      [ai.x, midY(ai)],
+    ],
+    [
+      [midX(ai), bottom(ai)],
+      [midX(ai), band],
+      [midX(teams), band],
+      [midX(teams), bottom(teams)],
+    ],
   ];
 }
 
@@ -593,9 +644,33 @@ function Tile({ icon, size = 18 }: { icon: TileIcon; size?: number }) {
   );
 }
 
+/** 실행 중 노드의 상태 줄에서 키울 핵심 수치. 숫자와 단위(%, VU, OPS, 대)만이다 */
+const FIGURE_RE = /(\d+(?:\.\d+)?)(\s?(?:%|VU|OPS|대))/;
+/** Auto Scaling 상태 줄의 대수. 가동이면 "3대", 조정 중이면 "2 → 3대"(등록 → 목표)다 */
+const ASG_FIGURE_RE = /\d+(?: → \d+)?대/;
+
+/**
+ * 글자에서 첫 일치만 핵심 수치 규격으로 감싼다. 'CPU' 같은 라벨은 11px 그대로 두고 수치만 13px 굵게
+ * 올려 뒷자리에서도 숫자가 먼저 읽힌다(디자인 시스템 §12-2). 일치가 없으면 글자 그대로다
+ */
+function withFigure(text: string, re: RegExp, flash?: "success" | "warning"): ReactNode {
+  const m = re.exec(text);
+  if (m === null) return text;
+  return (
+    <>
+      {text.slice(0, m.index)}
+      <span className={styles.figure} data-flash={flash}>
+        {m[0]}
+      </span>
+      {text.slice(m.index + m[0].length)}
+    </>
+  );
+}
+
 /**
  * 상태 한 줄. 앞의 형태가 색 없이도 상태를 가르고, 형태와 글자가 상태색을 받는다.
- * 미구축은 형태가 없고 낱말만 적는다
+ * 미구축은 형태가 없고 낱말만 적는다. 실행 중일 때만 핵심 수치를 키운다. 장애·전환 중 줄은 사건 문구라
+ * 수치가 주인공이 아니다
  */
 function Status({ state, text }: { state: NodeState; text: string }) {
   const shape = STATE_SHAPE[state];
@@ -606,8 +681,35 @@ function Status({ state, text }: { state: NodeState; text: string }) {
           {shape}
         </span>
       )}
-      <span className={styles.statusText}>{text}</span>
+      <span className={styles.statusText}>{state === "running" ? withFigure(text, FIGURE_RE) : text}</span>
     </span>
+  );
+}
+
+/**
+ * 연결 전 자리 카드. 모양은 미구축 노드(점선 윤곽, 빈 면)와 같고 상태 줄에는 '◌ 연결 전'만 적는다.
+ * 단추가 아니라 누를 수 없고 팝오버도 조치도 없다. 보고 서비스에 연결하지 않았으므로 요약이나 수치를
+ * 싣지 않는다. 뜻은 연결 목록의 한 줄이 글로 싣는다
+ */
+function ReserveCard({ box, icon, title, out }: { box: Box; icon: FlowIconName; title: string; out?: boolean }) {
+  return (
+    <div
+      className={styles.node}
+      style={boxStyle(box)}
+      data-state="absent"
+      data-reserve="true"
+      data-out={out ? "true" : undefined}
+      aria-hidden="true"
+    >
+      <Tile icon={icon} />
+      <span className={styles.titleRow}>
+        <span className={styles.title}>{title}</span>
+      </span>
+      <span className={styles.status} data-state="absent">
+        <span className={styles.shape}>◌</span>
+        <span className={styles.statusText}>연결 전</span>
+      </span>
+    </div>
   );
 }
 
@@ -773,6 +875,7 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
   const endpoint = state.endpoint;
   const replSrc: DbId = primaryDb(state) ?? state.endpoint;
   const wires = useMemo(() => buildWires(L, endpoint, replSrc), [L, endpoint, replSrc]);
+  const reserveWires = useMemo(() => buildReserveWires(L), [L]);
   // 선 상태는 매초 다시 구하지만 서명 문자열은 상태나 단계가 바뀔 때만 달라진다
   const flows = useMemo(() => edgeFlows(state), [state]);
   const sig = trafficSignature(flows);
@@ -781,6 +884,26 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
   // 정수로 골라 두 화면의 숫자가 어긋나지 않는다. 정수라 값이 바뀔 때만 다시 그린다
   const util = useFlowRun((r) => Math.round(r.samples[r.samples.length - 1].util * 100));
   const advice = Math.round(SCALE_OUT_ADVICE * 100);
+  // 상태가 바뀐 카드와 그룹 틀에 링 펄스를, 등록 대수가 바뀐 숫자에 플래시를 켠다. 처음 받은 값은 전이가
+  // 아니다(useChangeFlags). 매초 바뀌는 CPU·사용률은 상태가 아니라 움직이지 않는다(디자인 시스템 §12-4)
+  const pulse = useChangeFlags(
+    {
+      users: views.users.state,
+      cdn: views.cdn.state,
+      load: views.load.state,
+      alb: views.alb.state,
+      api1: views.api1.state,
+      api2: views.api2.state,
+      api3: views.api3.state,
+      pg1: views.pg1.state,
+      pg2: views.pg2.state,
+      bot: views.bot.state,
+      obs: views.obs.state,
+      asg: asg.state,
+    },
+    PULSE_HOLD_MS,
+  );
+  const countFlash = useChangeFlags({ n: asg.registered }, FLASH_HOLD_MS);
 
   const pick = (req: FlowPick) => {
     // 확인 대화상자는 열릴 때의 포커스를 기억했다가 닫힐 때 돌려준다. 팝오버 버튼은 곧 사라지므로
@@ -1073,6 +1196,7 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
           data-leader={leader ? "true" : undefined}
           data-slot={key === "api3" ? "true" : undefined}
           data-out={out ? "true" : undefined}
+          data-pulse={pulse[key] ? "true" : undefined}
         >
           <Tile icon={ICON[key]} />
           <span className={styles.titleRow}>
@@ -1086,7 +1210,8 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
     );
   };
 
-  const asgLabel = `Auto Scaling group · min ${asg.min} · max ${asg.max} · capacity_reconciler.py · ${asg.status}`;
+  const asgLabel = `Auto Scaling group · min ${asg.min} · max ${asg.max} · 증설 권고 ${advice}% · capacity_reconciler.py · ${asg.status}`;
+  const countTone = countFlash.n ? (asg.state === "transition" ? "warning" : "success") : undefined;
 
   return (
     <div className={styles.root}>
@@ -1158,13 +1283,20 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
         </div>
         {/* Auto Scaling 그룹. 앱 계층을 강조하는 틀이라 테두리를 한 단 굵고 진하게 두고, 조정 중이면
             주황 점선으로 바꾼다. 머리는 단추라 눌러 그룹의 범위와 조정 방법을 연다. 머리는 app-1 위,
-            그룹 안에 이름, min·max, 지금 대수 세 줄(44px)로 선다 */}
-        <div className={styles.asgFrame} data-state={asg.state} style={boxStyle(L.asg)} aria-hidden="true" />
+            그룹 안에 이름, min·max와 사용률, 사용률 막대, 지금 대수 네 줄(66px)로 선다 */}
+        <div
+          className={styles.asgFrame}
+          data-state={asg.state}
+          data-pulse={pulse.asg ? "true" : undefined}
+          style={boxStyle(L.asg)}
+          aria-hidden="true"
+        />
 
         {/* 선과 트래픽 층. 선 그림은 카드보다 먼저 두어 화살촉이 카드 테두리 밑에 닿고, 알갱이 층은
             z-index 로 카드 위에 올린다(traffic.module.css). 받는 값이 모두 사건 때만 바뀌어 매초의
             다시 그리기가 이 층을 건너뛴다 */}
         <FlowTraffic width={L.width} height={H} wires={wires} sig={sig} />
+        <ReserveWires width={L.width} height={H} paths={reserveWires} />
 
         {card("users", true)}
         {card("cdn")}
@@ -1185,12 +1317,35 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
           {/* 둘째 줄은 범위와 조정 기준이다. 조정 중(▲)일 때 왜 늘리는지가 머리에서 바로 읽힌다.
               사용률은 매초 바뀌므로 접근 이름에는 싣지 않고 팝오버에 권고 임계와 함께 적는다 */}
           <span className={styles.asgMeta}>
-            {L.asgWide
-              ? `min ${asg.min} · max ${asg.max} · 사용률 ${util}%`
-              : `${asg.min}~${asg.max}대 · 사용률 ${util}%`}
+            {L.asgWide ? `min ${asg.min} · max ${asg.max} · 사용률 ` : `${asg.min}~${asg.max}대 · 사용률 `}
+            <span className={styles.figure}>{util}%</span>
           </span>
-          <Status state={asg.state} text={asg.status} />
+          {/* 셋째 줄은 사용률 막대 자리만 잡는다. 막대(MeterRail)는 div 라 단추의 내용이 될 수 없어
+              단추 밖 형제로 같은 자리에 겹쳐 그린다(아래 asgRail) */}
+          <span className={styles.asgRailSlot} aria-hidden="true" />
+          <span className={styles.status} data-state={asg.state}>
+            <span className={styles.shape} aria-hidden="true">
+              {STATE_SHAPE[asg.state]}
+            </span>
+            <span className={styles.statusText}>{withFigure(asg.status, ASG_FIGURE_RE, countTone)}</span>
+          </span>
         </button>
+        {/* 사용률 막대와 증설 권고 임계. 용량 화면과 같은 계기라 막대 어휘가 같다. 평소 무채이고 임계
+            이상일 때만 주의 채움이다. 머리 단추의 셋째 줄 자리에 겹쳐 두고, 누름은 단추로 흘려보낸다.
+            막대는 그림이라 숨기고 임계는 단추의 접근 이름에 싣는다 */}
+        <div
+          className={styles.asgRail}
+          style={boxStyle({
+            x: L.asgHead.x + ASG_HEAD_PAD,
+            y: L.asgHead.y + ASG_RAIL_TOP,
+            w: L.asgHead.w - ASG_HEAD_PAD * 2,
+            h: ASG_RAIL_H,
+          })}
+          aria-hidden="true"
+        >
+          <MeterRail value={util} max={100} threshold={advice} tone={util >= advice ? "warning" : undefined} />
+          <span className={styles.asgRailLabel}>권고 {advice}%</span>
+        </div>
         {popover("asg", L.asgHead)}
         {card("api1")}
         {card("api2")}
@@ -1199,6 +1354,8 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
         {card("pg2")}
         {card("bot")}
         {card("obs")}
+        <ReserveCard box={L.reserve.ai} icon="report" title="AI 운영 보고" />
+        <ReserveCard box={L.reserve.teams} icon="chat" title="Teams" out />
 
         {/* 선은 그림이라 보조기술에 닿지 않는다. 같은 내용을 목록으로 한 번 더 싣는다. 줄마다 상태와
             세기만 적어 매초 바뀌지 않는다 */}
@@ -1207,6 +1364,7 @@ export default function FlowTopology({ state, views, onPick }: FlowTopologyProps
             <li key={id}>{edgeText(id, state, views, flows[id])}</li>
           ))}
           <li>{`DB 승격 · 자동 페일오버 없음 · 수동 승격`}</li>
+          <li>bot-1 관측 → AI 운영 보고 → Microsoft Teams · 이 화면에 연결 전</li>
         </ul>
       </div>
     </div>

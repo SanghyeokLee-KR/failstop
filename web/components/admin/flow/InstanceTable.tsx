@@ -205,7 +205,13 @@ export default function InstanceTable({ state, views, cpuNow }: InstanceTablePro
         }
         const v = cpuNow[r.id];
         // 꺼진 컨테이너는 chaos-cstats 가 잴 대상이 없어 값이 없다. 0% 로 적으면 한가한 노드로 읽힌다
-        if (v === null) return <span className={styles.instDim}>미수집</span>;
+        if (v === null)
+          return (
+            <span className={styles.instDim}>
+              <span aria-hidden="true">◌ </span>
+              미수집
+            </span>
+          );
         return <span className="num">{Math.round(v)}%</span>;
       },
     },

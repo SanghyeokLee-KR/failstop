@@ -72,7 +72,7 @@ function renderAction(e: AuditEntry) {
 }
 
 const COLUMNS: DataColumn<AuditEntry>[] = [
-  { key: "at", label: "시각", width: "90px", render: renderTime },
+  { key: "at", label: "시각", width: "90px", align: "right", render: renderTime },
   { key: "operator", label: "운영자", width: "minmax(120px, 1fr)", render: (e) => `${e.operatorName} (${e.operatorId})` },
   { key: "action", label: "액션", width: "minmax(160px, 1.2fr)", render: renderAction },
   {
@@ -87,6 +87,7 @@ const COLUMNS: DataColumn<AuditEntry>[] = [
     key: "result",
     label: "결과",
     width: "90px",
+    align: "center",
     // 정상(성공)은 잉크, 이탈만 pill로 발화한다. 색 단독 금지라 기호·라벨 병기
     render: (e) =>
       e.result === "OK" ? (
@@ -252,7 +253,6 @@ export default function AuditPage() {
                 // 비인터랙티브 판독 행이라 36px 밀도로 주사 존을 좁힌다(44px 히트 타깃 규칙은 조작 요소 대상)
                 rowHeight={36}
                 ariaLabel="관리 감사 로그"
-                defaultAlign="center"
                 empty={
                   hasFilter && rows.length > 0 ? (
                     <div className="empty-state">

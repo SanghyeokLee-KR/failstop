@@ -21,8 +21,9 @@ import { HEALTH_ICON, HealthPill, type Health } from "@/components/admin/ui";
 import type { Availability, Risk, ScenarioView } from "@/lib/admin/flowSim";
 import styles from "./panels.module.css";
 
-/* 위험도를 헬스 도메인에 옮긴다. 낮음은 색을 쓰지 않고 잉크로 남긴다(HealthPill 의 정상 규칙) */
-const RISK_HEALTH: Record<Risk, Health> = { 높음: "danger", 중간: "warning", 낮음: "success" };
+/* 위험도의 중간·높음만 헬스 도메인의 주의·장애 필로 옮긴다. 낮음은 상태가 아니라서 정상 초록 점
+   (§12-3)을 받지 않고 형태 없이 잉크 글자로만 적는다 */
+const RISK_HEALTH: Partial<Record<Risk, Health>> = { 높음: "danger", 중간: "warning" };
 
 export interface ExperimentDialogProps {
   view: ScenarioView;
@@ -39,6 +40,7 @@ export default function ExperimentDialog({ view, availability, onStart, onClose 
   const dialogRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const riskHealth = RISK_HEALTH[view.risk];
   // 부모가 매초 다시 그리며 인라인 화살표를 넘겨도 포커스 이펙트를 다시 돌리지 않게 최신 참조만 잡는다.
   // 다시 돌면 초기 포커스가 취소로 되돌아가 읽던 자리를 잃는다(ConfirmDialog 와 같은 이유)
   const onCloseRef = useRef(onClose);
@@ -130,7 +132,11 @@ export default function ExperimentDialog({ view, availability, onStart, onClose 
             </p>
           </div>
           <span className={styles.dialogRisk}>
-            <HealthPill health={RISK_HEALTH[view.risk]} label={`위험도 ${view.risk}`} />
+            {riskHealth ? (
+              <HealthPill health={riskHealth} label={`위험도 ${view.risk}`} />
+            ) : (
+              <span className={styles.riskInk}>위험도 {view.risk}</span>
+            )}
           </span>
         </header>
 

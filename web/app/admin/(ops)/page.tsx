@@ -18,7 +18,7 @@ import Skeleton from "@/components/Skeleton";
 import ApprovalList from "@/components/admin/ApprovalList";
 import HealthHero from "@/components/admin/HealthHero";
 import DecisionFooter from "@/components/admin/DecisionFooter";
-import GrafanaLink from "@/components/admin/GrafanaLink";
+import GrafanaLink, { grafanaConfigured } from "@/components/admin/GrafanaLink";
 import { PageHeader, StatTile } from "@/components/admin/ui";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
@@ -93,10 +93,13 @@ export default function AdminOverviewPage() {
               emptyDesc="마켓·운영자·회원 화면에서 파괴 액션을 요청하면 여기에 적재"
             />
           </PanelCard>
+          {/* 관측 주소가 없으면 링크가 null을 그린다. 빈 단계를 배열에 넣지 않아 화살표가 겹치지 않는다 */}
           <DecisionFooter
             steps={[
               "판정 확인",
-              <GrafanaLink key="ov" board="msp-overview" label="서비스 관제에서 추이" />,
+              ...(grafanaConfigured()
+                ? [<GrafanaLink key="ov" board="msp-overview" label="서비스 관제에서 추이" />]
+                : []),
               <Link key="cap" href="/admin/capacity" className={styles.boardLink}>
                 용량·부하에서 조치
               </Link>,

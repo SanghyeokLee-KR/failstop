@@ -100,6 +100,13 @@
   white-space: nowrap;
 }
 
+/* 위험도 낮음. HealthPill 정상 꼴과 같은 글자 규격이되 형태와 색이 없다. 위험도는 상태가 아니다 */
+.riskInk {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+
 .dialogBody {
   flex: 1 1 auto;
   min-height: 0;

@@ -644,3 +644,28 @@ export function TierSwatch() {
     </svg>
   );
 }
+
+/**
+ * 연결 전 자리로 가는 선(관측 → AI 운영 보고 → Teams). 흐름 선(EdgeId)이 아니라 상태 서명과 알갱이가
+ * 없고 늘 꺼짐 모양(회색 점선과 화살촉)이다. 같은 경로·촉 함수와 꺼짐 규칙을 써서 구성도의 다른 꺼짐 선과
+ * 한 모양으로 읽힌다
+ */
+export function ReserveWires({ width, height, paths }: { width: number; height: number; paths: Pt[][] }) {
+  return (
+    <svg
+      className={styles.wires}
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      aria-hidden="true"
+      focusable="false"
+    >
+      {paths.map((pts, i) => (
+        <g key={i} className={styles.conn} data-kind="off" data-tier={0}>
+          <path className={styles.wire} d={wirePath(pts)} />
+          <path className={styles.arrow} d={arrowPath(pts)} />
+        </g>
+      ))}
+    </svg>
+  );
+}

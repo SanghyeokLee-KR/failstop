@@ -92,6 +92,7 @@ export default function AdminTransfersPage() {
         key: "amount",
         label: "금액",
         width: "160px",
+        align: "right",
         sortValue: (r) => Number(r.amount),
         firstDir: "desc",
         render: (r) => (
@@ -104,6 +105,7 @@ export default function AdminTransfersPage() {
         key: "created",
         label: "요청 시각",
         width: "120px",
+        align: "right",
         sortValue: (r) => r.createdAt,
         firstDir: "desc",
         render: (r) => <span className="num">{formatTimeHMS(new Date(r.createdAt).toISOString())}</span>,
@@ -112,6 +114,7 @@ export default function AdminTransfersPage() {
         key: "status",
         label: "상태",
         width: "110px",
+        align: "center",
         render: (r) =>
           r.status === "REQUESTED" ? (
             <span className="status-pill" data-health="warning">
@@ -130,19 +133,21 @@ export default function AdminTransfersPage() {
         key: "action",
         label: "처리",
         width: "168px",
+        align: "right",
         render: (r) =>
           r.status === "REQUESTED" ? (
             <div className={styles.rowActions}>
+              {/* 긍정 확정 하나만 브랜드 면, 되돌릴 수 없는 거절은 danger 테두리다(§12-5) */}
               <button
                 type="button"
-                className="btn btn--secondary"
+                className={styles.approveBtn}
                 onClick={() => setPending({ row: r, action: "approve" })}
               >
                 승인
               </button>
               <button
                 type="button"
-                className="btn btn--secondary"
+                className={styles.dangerBtn}
                 onClick={() => setPending({ row: r, action: "reject" })}
               >
                 거절
@@ -189,7 +194,6 @@ export default function AdminTransfersPage() {
               rows={rows}
               rowKey={(r) => r.externalId}
               ariaLabel="출금 요청 목록"
-              defaultAlign="center"
             />
           )}
 

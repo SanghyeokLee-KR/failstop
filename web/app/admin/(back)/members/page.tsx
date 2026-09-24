@@ -126,6 +126,7 @@ export default function AdminMembersPage() {
       key: "status",
       label: "상태",
       width: "88px",
+      align: "center",
       // 정상은 잉크로 적는다. 이탈(정지·폐쇄)만 알약으로 세운다
       render: (m) =>
         m.status === "ACTIVE" ? (
@@ -141,6 +142,7 @@ export default function AdminMembersPage() {
       key: "openOrders",
       label: "미체결",
       width: "88px",
+      align: "right",
       render: (m) =>
         m.openOrderCount > 0 ? (
           <span className="num">{formatCount(m.openOrderCount)}</span>
@@ -152,6 +154,7 @@ export default function AdminMembersPage() {
       key: "assetKinds",
       label: "보유 종류",
       width: "96px",
+      align: "right",
       render: (m) =>
         m.assetKinds > 0 ? (
           <span className="num">{formatCount(m.assetKinds)}</span>
@@ -163,6 +166,7 @@ export default function AdminMembersPage() {
       key: "lastOrderAt",
       label: "최근 주문",
       width: "116px",
+      align: "right",
       // 주문 이력이 없으면 시각이 아니라 없음이다. 0시로 채우면 1970년이 뜬다
       render: (m) =>
         m.lastOrderAt ? (
@@ -175,11 +179,13 @@ export default function AdminMembersPage() {
       key: "createdAt",
       label: "가입",
       width: "116px",
+      align: "right",
       render: (m) => <span className="num">{formatHistoryTime(new Date(m.createdAt).toISOString())}</span>,
     },
     {
       key: "actions",
       label: "조치",
+      align: "right",
       // 버튼 하나(56px)만 담는다. 좌우 4px만 남긴다
       width: "64px",
       render: (m) => {
@@ -239,7 +245,7 @@ export default function AdminMembersPage() {
             </div>
           ) : (
             // 이메일 버튼의 44px 히트에 행 구분선 1px를 더한 높이다(admin.module.css .linkCell)
-            <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={45} ariaLabel="회원 목록" defaultAlign="center" />
+            <DataTable columns={cols} rows={rows} rowKey={(m) => m.externalId} rowHeight={45} ariaLabel="회원 목록" />
           )}
           <Pager
             page={page}

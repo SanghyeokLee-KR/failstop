@@ -32,13 +32,26 @@ const STATE_WORD: Record<DrillState, string> = {
   NO_SOURCE: "원천 없음",
 };
 
-/** 헬스 색을 빌린다. 대기는 색을 쓰지 않는다. 아직 일어나지 않은 것은 결함이 아니다 */
+/**
+ * 헬스 색을 빌린다. 대기는 색을 쓰지 않는다. 아직 일어나지 않은 것은 결함이 아니다.
+ * 미수집은 값을 받지 못했다는 사실이라 판정 색 없이 무채 ◌로 적는다(§12-3)
+ */
 const STATE_TONE: Record<DrillState, Health | undefined> = {
   MET: "success",
   PENDING: undefined,
-  MISSING: "warning",
+  MISSING: undefined,
   BLOCKED: undefined,
   NO_SOURCE: undefined,
+};
+
+/**
+ * 판정 색이 없는 상태의 형태. 앞 단계 대기·원천 없음은 판정하지 않는 줄이라 ○(§12-6),
+ * 미수집은 ◌다. 대기는 곧 판정할 줄이라 형태를 붙이지 않는다
+ */
+const STATE_SHAPE: Partial<Record<DrillState, string>> = {
+  MISSING: "◌",
+  BLOCKED: "○",
+  NO_SOURCE: "○",
 };
 
 export interface DrillStepperProps {
@@ -125,6 +138,7 @@ function StepRow({
                   {HEALTH_ICON[tone]}
                 </span>
               )}
+              {!tone && STATE_SHAPE[check.state] && <span aria-hidden="true">{STATE_SHAPE[check.state]} </span>}
               {STATE_WORD[check.state]}
             </span>
           </span>
@@ -135,7 +149,7 @@ function StepRow({
             {step.act && (
               <button
                 type="button"
-                className={current ? styles.primaryBtn : "btn"}
+                className={current ? styles.primaryBtn : styles.neutralBtn}
                 disabled={!allowed || busy}
                 onClick={() => void onAct(step)}
               >

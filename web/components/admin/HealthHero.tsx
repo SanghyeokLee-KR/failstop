@@ -19,7 +19,7 @@ import styles from "./admin.module.css";
 
 const HEALTH_WORD: Record<Health, string> = { success: "전체 정상", warning: "주의", danger: "장애" };
 // 시각 채널(색·형태)이 aria-hidden이라 심각도를 별도 낭독한다
-const HEALTH_SR: Record<Health, string> = { success: "정상", warning: "주의", danger: "위험" };
+const HEALTH_SR: Record<Health, string> = { success: "정상", warning: "주의", danger: "장애" };
 
 /** 미수집·부분수집은 통과가 아니라 미판정이라 warning으로 발화한다 */
 const INV_TONE: Record<InvariantState, "danger" | "warning" | undefined> = {
@@ -30,7 +30,7 @@ const INV_TONE: Record<InvariantState, "danger" | "warning" | undefined> = {
 };
 const INV_SR: Record<InvariantState, string> = {
   PASS: "통과",
-  VIOLATED: "위험",
+  VIOLATED: "장애",
   PARTIAL: "주의",
   NONE: "주의",
 };
@@ -61,7 +61,9 @@ export default function HealthHero({ ov }: { ov: AdminOverview }) {
       <div className={styles.heroMain}>
         <span className={styles.heroPlate}>종합 헬스 · 갱신 {formatTimeHMS(ov.generatedAt)}</span>
         <span className={styles.heroWord} data-health={ov.overallHealth}>
-          <span aria-hidden="true">{HEALTH_ICON[ov.overallHealth]}</span>
+          <span className={styles.heroMark} aria-hidden="true">
+            {HEALTH_ICON[ov.overallHealth]}
+          </span>
           {HEALTH_WORD[ov.overallHealth]}
         </span>
         <span className="sr-only">종합 헬스 심각도 {HEALTH_SR[ov.overallHealth]}</span>

@@ -84,6 +84,12 @@ const DECISIONS: Decision[] = [
   { key: "review", label: "확인만", moderation: null, resolution: "REVIEWED" },
 ];
 
+/** 표시 순서. 대상을 건드리지 않는 종결 묶음이 앞, 대상을 바꾸는 묶음이 뒤다 */
+const DECISION_GROUPS: string[][] = [
+  ["review", "dismiss"],
+  ["hide", "delete"],
+];
+
 export default function AdminCommunityPage() {
   const canMod = useCan("MEMBER_MOD");
   const [status, setStatus] = useState<ReportStatus>("PENDING");
@@ -186,23 +192,35 @@ export default function AdminCommunityPage() {
                     </h3>
                     {row.detail && <p className={styles.inquiryBody}>신고 사유: {row.detail}</p>}
 
+                    {/* 조치는 오른쪽 끝에 모으고 종결만 하는 판단과 대상을 바꾸는 판단을 두 묶음으로
+                        가른다. 되돌릴 수 없는 삭제를 맨 끝에 danger로 둔다(§12-5) */}
                     {status === "PENDING" && (
-                      <div className={styles.answerActions}>
+                      <div className={styles.reportActions}>
                         {terminal && (
                           <span className={styles.formHelp}>이미 삭제된 대상. 종결만 가능</span>
                         )}
-                        {DECISIONS.filter((d) => !(terminal && d.moderation)).map((d) => (
-                          <button
-                            key={d.key}
-                            type="button"
-                            className={styles.neutralBtn}
-                            disabled={!canMod || busyId !== null}
-                            aria-busy={busyId === row.reportId}
-                            onClick={() => onPick(row, d)}
-                          >
-                            {d.label}
-                          </button>
-                        ))}
+                        {DECISION_GROUPS.map((keys) => {
+                          const group = keys
+                            .map((k) => DECISIONS.find((d) => d.key === k)!)
+                            .filter((d) => !(terminal && d.moderation));
+                          if (group.length === 0) return null;
+                          return (
+                            <span key={keys.join()} className={styles.reportGroup}>
+                              {group.map((d) => (
+                                <button
+                                  key={d.key}
+                                  type="button"
+                                  className={d.key === "delete" ? styles.dangerBtn : styles.neutralBtn}
+                                  disabled={!canMod || busyId !== null}
+                                  aria-busy={busyId === row.reportId}
+                                  onClick={() => onPick(row, d)}
+                                >
+                                  {d.label}
+                                </button>
+                              ))}
+                            </span>
+                          );
+                        })}
                       </div>
                     )}
                   </li>

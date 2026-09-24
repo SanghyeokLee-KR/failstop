@@ -9,12 +9,13 @@
    포커스가 옮겨 갈 때 운영자 바까지 함께 밀려 올라간다. 스크롤은 .content 하나만 해야 한다 */
 .root {
   position: relative;
-  /* 관리 화면 공통 .page 는 1280px 고정 폭이다. 이 화면은 사용자 요청으로 SaaS 처럼 화면 폭을 다 쓴다 */
+  /* 공통 .page 는 왼쪽 정렬 최대 1680px 이다. 이 화면은 구성도를 화면 폭에 맞춰 확대하므로 최대 폭 없이
+     전폭을 쓴다. 여백은 공통 틀과 같은 24px 이라 지표 관제와 제목 x·y 가 같다(레이아웃 §7) */
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-5) var(--space-6) var(--space-6);
+  padding: var(--space-6);
 }
 
 /* 머리 오른쪽 줄. pageActions 는 높이를 늘여 맞추므로 알약이 버튼 높이로 부풀지 않게 가운데로 세운다 */
@@ -24,13 +25,32 @@
   gap: var(--space-2);
 }
 
-/* 재생 표시 자리. 가장 긴 표시("Primary 중단과 수동 승격 30/30초", 1280px 에서 약 228px)가 들어가는
-   폭을 비어 있을 때도 잡아 둔다. 표시가 드나들 때 왼쪽 설명 줄이 다시 접히면 아래 패널이 모두
-   한 줄씩 밀린다 */
+/* 재생 표시 자리. 가장 긴 표시("▶ 재생 중 · Primary 중단과 수동 승격 30/30초", 13px 굵게 약 285px)가
+   들어가는 폭을 비어 있을 때도 잡아 둔다. 표시가 드나들 때 왼쪽 설명 줄이 다시 접히면 아래 패널이
+   모두 한 줄씩 밀린다. 지표 관제에서만 그린다 */
 .runSlot {
   display: inline-flex;
   justify-content: flex-end;
-  min-width: 232px;
+  min-width: 288px;
+}
+
+/* 재생 알약. 재생 중은 상태가 아니라 주의색을 쓰지 않는다. 크롬 악센트 약틴트 면에 악센트 글자
+   (라이트 5.58:1, 다크 7.03:1)와 ▶ 형태다(디자인 시스템 §12-3). 경과만 굵게 올린다 */
+.runPill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--brand-weak-bg);
+  color: var(--text-brand);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+}
+.runPill b {
+  font-weight: var(--fw-bold);
 }
 
 /* 판독 줄의 이탈 값. 색만으로 알리지 않도록 사각 형태를 글자 앞에 같이 둔다 */
@@ -138,19 +158,21 @@
   overflow: auto;
 }
 
-/* 무대 머리 줄. 평소에는 오른쪽 끝의 버튼 하나, 크게 보기에서는 제목과 재생 조작이 함께 선다 */
+/* 무대 머리 줄. 평소에는 출처 칩, 상황 자막, 크게 보기 세 칸이고, 크게 보기에서는 앞에 제목, 자막 뒤에
+   재생 조작이 더 선다. 높이 44px 를 늘 잡아 자막이 드나들어도 구성도 배율이 흔들리지 않는다(레이아웃 §7) */
 .stageBar {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
+  column-gap: var(--space-4);
+  min-height: 44px;
   margin-bottom: var(--space-2);
 }
 .stage[data-expanded] .stageBar {
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   margin-bottom: 0;
 }
 .stageTitle {
-  margin-right: auto;
   font-size: var(--font-title-2-size);
   line-height: var(--font-title-2-line);
   font-weight: var(--fw-bold);
@@ -191,4 +213,118 @@
   padding: var(--space-4);
   border-radius: var(--panel-radius);
   background: var(--surface-default);
+}
+
+/* ===== 출처 칩 =====
+   무대 머리 줄 맨 왼쪽. 값의 출처를 적는 운영 정보라 상태색 없이 중립 면에 본문 잉크를 쓴다.
+   가라앉은 면 위 default 잉크는 라이트 11.11:1, 다크 14.96:1 이다 */
+.sourceChip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  color: var(--text-default);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+
+/* ===== 상황 자막 =====
+   재생 중에만 선다. 제목과 경과는 18px 로 뒷자리에서도 읽히게 하고, 사건 한 줄은 본문 크기로 남은
+   폭을 쓰다 말줄임으로 끝낸다. 진행 막대는 줄 아래 4px 이고 틱 주기와 같은 1초 선형으로 늘어난다 */
+.caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.capLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.capTitle {
+  flex: none;
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+.capStep {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  color: var(--text-default);
+}
+.capShape {
+  flex: none;
+}
+.capShape[data-health="success"] {
+  color: var(--color-success);
+}
+.capShape[data-health="warning"] {
+  color: var(--color-warning-text);
+}
+.capShape[data-health="danger"] {
+  color: var(--color-danger);
+}
+.capStepText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.capTime {
+  flex: none;
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+  font-feature-settings: var(--font-feature-num);
+  white-space: nowrap;
+}
+/* 막대 채움은 크롬 악센트다. 라이트 트랙은 --surface-sunken(채움 대 트랙 5.68:1)이다. 다크에서
+   sunken 은 패널 면(--surface-default)과 1.06:1 이라 트랙 끝이 보이지 않아 --border-default 로 올린다.
+   패널 면 대비 1.52:1, 채움 대 트랙 4.25:1 이다 */
+.capTrack {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+:global([data-theme="dark"]) .capTrack {
+  background: var(--border-default);
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"]):not([data-theme="dark"])) .capTrack {
+    background: var(--border-default);
+  }
+}
+.capFill {
+  display: block;
+  height: 100%;
+  background: var(--chrome-accent);
+  transform-origin: left;
+  transition: transform 1000ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .capFill {
+    transition: none;
+  }
+}
+
+/* 무대 머리 줄의 가운데 칸. 자막이 없어도 칸이 남아 오른쪽 조작이 끝에 선다 */
+.stageCaption {
+  min-width: 0;
 }

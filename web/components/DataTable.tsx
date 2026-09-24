@@ -40,8 +40,8 @@ interface Props<T> {
   empty?: ReactNode;
   /**
    * 열이 align을 지정하지 않았을 때의 기본 정렬. 기본 left.
-   * 관리 콘솔 표는 center로 통일한다. 열마다 align을 손으로 적으면 표 하나가 빠져도
-   * 화면에서만 드러나고, 새 열이 추가될 때 조용히 좌측으로 돌아간다.
+   * 관리 콘솔 표는 표 전체를 center로 두지 않고 열의 성격으로 정렬한다(디자인 시스템 §12-7).
+   * 식별 텍스트는 기본값 left에 맡기고 수치·시각·조치는 right, 상태 배지는 center로 열에 적는다.
    */
   defaultAlign?: "left" | "right" | "center";
 }

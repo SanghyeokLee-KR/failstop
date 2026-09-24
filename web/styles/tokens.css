@@ -136,6 +136,9 @@
   --color-health-flash-success:rgba(11,140,93,.10);  /* green-600 #0B8C5D 파생 */
   --color-health-flash-warning:rgba(219,122,0,.10);  /* orange-600 #DB7A00 파생 */
   --color-health-flash-danger:rgba(166,30,60,.10);   /* crimson-600 #A61E3C 파생 */
+  /* 연결 지연 값 면의 사선 무늬(A-5). 글자를 흐리지 않고 면으로 알린다. 무늬 위 text-secondary 4.56:1.
+     알파를 .03으로만 올려도 4.47:1이라 이 값이 상한이다. 무늬가 면과 1.04:1로 옅어 지연은 배지가 주로 싣는다 */
+  --stale-hatch:var(--grey-alpha-50);
 
   /* ===== Overlay / State / Focus ===== */
   --overlay-dim:rgba(15,23,42,.55);
@@ -211,6 +214,7 @@
   --color-health-flash-success:rgba(45,209,150,.16); /* #2DD196 파생 */
   --color-health-flash-warning:rgba(255,170,43,.16); /* #FFAA2B 파생 */
   --color-health-flash-danger:rgba(255,122,147,.16); /* #FF7A93 파생 */
+  --stale-hatch:rgba(255,255,255,.08);   /* 무늬 대 면 1.25:1, 무늬 위 text-secondary 6.48:1. 4%는 면과 1.11:1이라 보이지 않았다 */
 
   --overlay-dim:rgba(0,0,0,.60);
   --pressed-layer:rgba(255,255,255,.06);
@@ -265,6 +269,7 @@
 
   --dur-instant:0ms; --dur-fast:120ms; --dur-base:200ms; --dur-slow:320ms;
   --dur-slower:480ms; --dur-flash:220ms;
+  --dur-pulse:900ms;        /* 상태 전이 링 펄스 한 번(§12-4). 두 번 반복해 1.8초 */
   --flash-throttle:300ms;   /* 셀별 플래시 최소 간격 (플래시 중첩 방지) */
 
   /* 체결 시각효과(디자인시스템 §5-1). 팝 스케일은 모션 계약이라 컴포넌트 상수 대신 토큰.
@@ -295,7 +300,7 @@
 }
 /* 접근성: reduced-motion → 플래시 배경 자체를 무력화 (전환 0ms + 배경 none) */
 @media (prefers-reduced-motion:reduce){
-  :root{--dur-fast:0ms;--dur-base:0ms;--dur-slow:0ms;--dur-slower:0ms;--dur-flash:0ms;--dur-pop:0ms;}
+  :root{--dur-fast:0ms;--dur-base:0ms;--dur-slow:0ms;--dur-slower:0ms;--dur-flash:0ms;--dur-pop:0ms;--dur-pulse:0ms;}
   .price-cell[data-tick]{background:transparent!important;}
   /* 팝·글로우 정적 대체(§5-2). transform·box-shadow 무력화, 값·방향 표식은 유지 */
   .price-cell[data-pop]{transform:none!important;box-shadow:none!important;}
@@ -401,6 +406,7 @@
     --color-health-flash-success:rgba(45,209,150,.16);
     --color-health-flash-warning:rgba(255,170,43,.16);
     --color-health-flash-danger:rgba(255,122,147,.16);
+    --stale-hatch:rgba(255,255,255,.08);
 
     --overlay-dim:rgba(0,0,0,.60);
     --pressed-layer:rgba(255,255,255,.06);

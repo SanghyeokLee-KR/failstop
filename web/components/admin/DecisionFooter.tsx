@@ -8,6 +8,8 @@
  * 어디부터 봐야 하는지 몰라 헤매는 시간이 장애 대응에서 가장 먼저 새는 시간이다.
  *
  * 계기가 아니라 안내라 발화하지 않는다. 무채로 눕히고 색을 쓰지 않는다.
+ * 단계 사이 화살표는 CSS가 비지 않은 단계 사이에만 그린다. 단계로 넘긴 요소가 null을 그려도
+ * 화살표가 겹치지 않는다.
  */
 
 import type { ReactNode } from "react";
@@ -18,11 +20,6 @@ export default function DecisionFooter({ steps }: { steps: ReactNode[] }) {
     <div className={styles.decisionFooter}>
       {steps.map((s, i) => (
         <span key={i} className={styles.decisionStep}>
-          {i > 0 && (
-            <span className={styles.decisionArrow} aria-hidden="true">
-              →
-            </span>
-          )}
           {s}
         </span>
       ))}
