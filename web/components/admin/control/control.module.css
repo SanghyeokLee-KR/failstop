@@ -152,6 +152,18 @@
   border-color: var(--ai-accent);
   background: var(--ai-accent-bg);
 }
+/* 정지는 운영자가 AI를 멈춘 상태다. 장애가 아니라 주의(§12-3 ▲)로 두고, 재개를 잊지 않게 줄 전체를 주의 면으로 바꾼다 */
+.modeBar[data-mode="STOPPED"] {
+  border-color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+}
+.stopWord {
+  font-weight: var(--fw-bold);
+  color: var(--color-warning-text);
+}
+.modeText b.stopWord {
+  color: var(--color-warning-text);
+}
 .modeLabel {
   display: inline-flex;
   align-items: center;
@@ -1071,6 +1083,11 @@
   border-color: var(--ai-accent);
   color: var(--ai-accent-text);
 }
+.modeTag[data-mode="STOPPED"] {
+  border-color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
 .aiStatus {
   margin-left: auto;
   display: inline-flex;
@@ -1299,9 +1316,29 @@
 .card[data-status="REJECTED"],
 .card[data-status="DEFERRED"],
 .card[data-status="REVERTED"],
-.card[data-status="WITHDRAWN"] {
+.card[data-status="WITHDRAWN"],
+.card[data-status="EXPIRED"] {
   box-shadow: inset 3px 0 0 var(--border-strong);
   border-color: var(--border-subtle);
+}
+/* 처리된 조치는 대기 카드보다 한 단 낮춰 둘이 같은 무게로 읽히지 않게 한다 */
+.card:not([data-status="PROPOSED"]) .cardTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+}
+.doneTag {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+  white-space: nowrap;
 }
 .card[data-status="AUTO_REVERTED"] {
   border-color: var(--color-warning-text);
@@ -1738,9 +1775,10 @@
   padding: 0;
   list-style: none;
 }
+/* 행위자 칸은 가장 긴 고정 행위자(Databasus)가 잘리지 않는 폭이다. 더 긴 운영자 이름은 말줄임과 title로 읽는다 */
 .event {
   display: grid;
-  grid-template-columns: 60px 64px minmax(0, 1fr);
+  grid-template-columns: 60px 76px minmax(0, 1fr);
   gap: var(--space-2);
   align-items: baseline;
   padding: 5px 0;
@@ -1758,10 +1796,16 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  min-width: 0;
   font-weight: var(--fw-semibold);
   color: var(--text-default);
   white-space: nowrap;
   overflow: hidden;
+}
+.actorName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .actor[data-actor="AI"] {
   color: var(--ai-accent-text);
@@ -1942,6 +1986,31 @@
 }
 .editor input[type="number"]:focus {
   border-color: var(--brand-primary);
+}
+.limitInput {
+  width: 72px;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius);
+  background: var(--surface-default);
+  color: var(--text-strong);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-semibold);
+  text-align: right;
+}
+.limitInput:focus {
+  border-color: var(--brand-primary);
+}
+.limitName span {
+  word-break: keep-all;
+}
+.limitPending {
+  display: block;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
 }
 .review {
   display: flex;
@@ -2346,6 +2415,14 @@
 }
 .aiFootNav[data-mode="AUTO"] b {
   color: var(--ai-accent-text);
+}
+.aiFootNav[data-mode="STOPPED"] {
+  border-color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+.aiFootNav[data-mode="STOPPED"] b {
+  color: var(--color-warning-text);
 }
 
 /* ===== 움직임 줄이기(§12-4) ===== */

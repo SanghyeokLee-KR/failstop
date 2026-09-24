@@ -191,6 +191,7 @@ function wireBinding(payload: ApprovalPayload): { action: string; target: string
       return { action: "members.close", target: payload.externalId };
     case "ops.threshold.set":
     case "ops.ai.auto":
+    case "ops.ai.limits":
       // 서버 승인 원장이 모르는 액션이다. 발급을 보내면 서버가 거절하므로 보내지 않는다
       throw new AdminError("source_unavailable", OPS_NOT_CONNECTED);
   }
@@ -893,6 +894,7 @@ export class HttpAdminApi implements AdminApi {
         return;
       case "ops.threshold.set":
       case "ops.ai.auto":
+      case "ops.ai.limits":
         throw new AdminError("source_unavailable", OPS_NOT_CONNECTED);
     }
   }
@@ -987,6 +989,14 @@ export class HttpAdminApi implements AdminApi {
   }
 
   stopAiAuto(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  stopAi(): Promise<void> {
+    return this.opsRejected();
+  }
+
+  resumeAi(): Promise<void> {
     return this.opsRejected();
   }
 

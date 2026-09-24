@@ -58,6 +58,7 @@ export const ACTION_CAP: Record<DestructiveAction, Capability> = {
   // 관제센터 조치는 용량 조작과 같이 인프라 조치라 SUPER다(관리자 설계 4-4)
   "ops.threshold.set": "SUPER",
   "ops.ai.auto": "SUPER",
+  "ops.ai.limits": "SUPER",
 };
 
 export const ACTION_LABEL: Record<DestructiveAction, string> = {
@@ -71,6 +72,7 @@ export const ACTION_LABEL: Record<DestructiveAction, string> = {
   "members.close": "회원 폐쇄",
   "ops.threshold.set": "임계값 변경",
   "ops.ai.auto": "AI 자동 모드 켜기",
+  "ops.ai.limits": "AI 한도 변경",
 };
 
 /** 요청 권한 충족 여부 */
@@ -115,5 +117,10 @@ export function approvalConsoleTarget(payload: ApprovalPayload): { key: string; 
       };
     case "ops.ai.auto":
       return { key: "ops.ai.auto", label: `AI 자동 모드 ${payload.hours}시간` };
+    case "ops.ai.limits":
+      return {
+        key: `ops.ai.limits:${payload.key}`,
+        label: `AI 한도 ${payload.label} ${payload.from}${payload.unit} → ${payload.to}${payload.unit}${payload.revertOf ? " (되돌리기)" : ""}`,
+      };
   }
 }

@@ -11,13 +11,16 @@
 
 import { isoNow } from "../format";
 import { AdminError } from "./api";
-import { AI_INITIAL, AI_RULES, AUTO_HOURS, cooldownSec } from "./aiPolicy";
+import { AI_LIMIT_DEFS, AI_LIMITS_DEFAULT, AI_RULES, AUTO_HOURS, cooldownSec, type AiLimits } from "./aiPolicy";
 import type {
   AiActionKind,
   AiDecision,
   AiDesk,
   AiEvidence,
   AiJudgment,
+  AiLimitApply,
+  AiLimitChange,
+  AiLimitKey,
   AiMode,
   AiProposal,
   AiProposalStatus,
@@ -73,6 +76,10 @@ const READ_MAX = 3;
 const SCALE_GAP = 15;
 /** 시나리오 부하 곡선이 끝나는 초. 그 뒤에는 다른 시나리오를 걸 수 있다 */
 export const SCENARIO_END_SEC = 240;
+/** 되돌린 조치를 같은 판단으로 다시 내지 않는 시간. 거절한 조치와 같다 */
+const REVERT_SUPPRESS_MS = 10 * 60_000;
+/** 되돌림을 AI 문장에 적어 두는 시간. 다음 정기 판단을 한 번 지날 때까지다 */
+const REVERT_NOTE_MS = 2 * JUDGE_EVERY * 1000;
 /** 자동 실행 후보가 여럿이면 서비스에 가까운 조치부터 본다 */
 const KIND_PRIORITY: Record<AiActionKind, number> = { READ_NODES: 0, BOT_LOAD: 1, BACKUP_NOW: 2, SILENCE: 3, THRESHOLD: 4 };
 
@@ -146,6 +153,7 @@ interface ProposalRec {
   decidedBy: string | null;
   revertibleUntil: number | null;
   autoHold: string | null;
+  outcome: string | null;
 }
 
 interface Finding {
@@ -201,6 +209,18 @@ interface Observation {
   p95Before: number;
 }
 
+/** 방금 되돌린 조치. AI 문장이 되돌린 방향과 이유를 말하게 한다 */
+interface RevertNote {
+  at: number;
+  kind: AiActionKind;
+  /** 조회 노드 조치면 되돌린 원래 조치의 방향 */
+  delta: number;
+  undo: string;
+  /** AI가 악화를 보고 되돌렸으면 그 악화. 운영자가 되돌렸으면 null */
+  cause: string | null;
+  by: string;
+}
+
 let seq = 0;
 function uid(prefix: string): string {
   seq += 1;
@@ -216,12 +236,6 @@ function round1(v: number): number {
   return Math.round(v * 10) / 10;
 }
 
-function sameLocalDay(a: number, b: number): boolean {
-  const x = new Date(a);
-  const y = new Date(b);
-  return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
-}
-
 /** 이 시각 이후 가장 가까운 로컬 시:분 */
 function nextLocal(now: number, hour: number, minute: number): number {
   const d = new Date(now);
@@ -232,6 +246,12 @@ function nextLocal(now: number, hour: number, minute: number): number {
 
 function lastLocal(now: number, hour: number, minute: number): number {
   return nextLocal(now, hour, minute) - 86_400_000;
+}
+
+function limitDef(key: AiLimitKey): (typeof AI_LIMIT_DEFS)[number] {
+  const d = AI_LIMIT_DEFS.find((x) => x.key === key);
+  if (!d) throw new AdminError("invalid_parameter", "AI 한도 항목 없음");
+  return d;
 }
 
 function mmss(sec: number): string {
@@ -277,6 +297,12 @@ export class OpsSim {
 
   private mode: AiMode = "MANUAL";
   private auto: { since: number; until: number; reason: string; by: string; approvalId: string } | null = null;
+  private stopped: { at: number; by: string } | null = null;
+  private limits: AiLimits = { ...AI_LIMITS_DEFAULT };
+  /** 자동 모드 중에 넓히는 쪽으로 바꾼 한도. 이번 자동 모드가 끝날 때 적용한다 */
+  private pendingLimits = new Map<AiLimitKey, number>();
+  private limitMeta = new Map<AiLimitKey, { at: number; by: string }>();
+  private limitHistory: AiLimitChange[] = [];
   private proposals: ProposalRec[] = [];
   private suppressed = new Map<string, number>();
   private judgments: AiJudgment[] = [];
@@ -287,10 +313,12 @@ export class OpsSim {
   private evidence: AiEvidence[] = [];
   private thinking = false;
   private lastOutcome = "";
-  private autoLog: number[] = [];
-  private aiThresholdLog: { key: ThresholdKey; at: number }[] = [];
+  /** 이번 자동 모드에서 실행한 조치 수. 자동을 새로 켜면 0부터 센다. 쿨다운과 관찰 창은 모드와 무관하게 남는다 */
+  private autoRuns = 0;
+  private aiThresholdRuns = new Map<ThresholdKey, number>();
   private cooldowns = new Map<AiActionKind, number>();
   private observation: Observation | null = null;
+  private lastRevert: RevertNote | null = null;
 
   private backup: OpsBackup;
   private backupRunTick: number | null = null;
@@ -361,7 +389,7 @@ export class OpsSim {
 
   private step(now: number): void {
     this.tick += 1;
-    this.progressNodes();
+    const moved = this.progressNodes();
     this.progressBackup(now);
     this.measure();
     this.evaluateAlerts(now);
@@ -369,10 +397,18 @@ export class OpsSim {
     this.expireSilences(now);
     this.expireAuto(now);
     this.watchObservation(now);
+    // 정지 중에는 판단하지 않는다. 관찰 창은 위에서 끝까지 보고, 창이 닫히거나 되돌리면 정지 문장도 따라간다
+    if (this.mode === "STOPPED") {
+      this.thinking = false;
+      this.describeStopped();
+      return;
+    }
     const phase = this.tick % JUDGE_EVERY;
     // 이상이 있을 때만 판단 직전 두 틱을 '판단 중'으로 둔다. 평시에 늘 도는 표시는 소음이다
     this.thinking = (phase === JUDGE_EVERY - 2 || phase === JUDGE_EVERY - 1) && this.hasConcern();
     if (phase === 0) this.judge(now);
+    // 노드가 기동을 마치거나 내려가면 '준비 중'·'줄이는 중' 문장이 다음 판단까지 거짓으로 남는다
+    else if (moved) this.describe(now, this.findings());
   }
 
   private hasConcern(): boolean {
@@ -418,16 +454,21 @@ export class OpsSim {
     this.credits.set("bot-1", Math.max(0, bot - 0.02));
   }
 
-  private progressNodes(): void {
+  /** 기동·드레이닝이 끝난 노드가 있으면 true */
+  private progressNodes(): boolean {
+    let moved = false;
     for (const n of this.nodes) {
       if (n.state === "PENDING" && this.tick - n.since >= NODE_BOOT_TICKS) {
         n.state = "IN_SERVICE";
         n.since = this.tick;
+        moved = true;
       } else if (n.state === "DRAINING" && this.tick - n.since >= NODE_DRAIN_TICKS) {
         n.state = "OFF";
         n.since = this.tick;
+        moved = true;
       }
     }
+    return moved;
   }
 
   private progressBackup(now: number): void {
@@ -667,7 +708,7 @@ export class OpsSim {
     }
     const backupLate = this.alerts.some((a) => a.id === "backup_delay");
     const botDiskFree = 100 - (HOST_DEFS.find((h) => h.id === "bot-1")?.disk ?? 100);
-    if (backupLate && !this.backup.running && this.backup.manualRunsToday < 1 && botDiskFree >= AI_INITIAL.backupDiskFreePct) {
+    if (backupLate && !this.backup.running && this.backup.manualRunsToday < 1 && botDiskFree >= this.limits.backupDiskFreePct) {
       out.push({
         sig: "BACKUP_NOW", params: { kind: "BACKUP_NOW" },
         title: "백업 즉시 실행 (Databasus)", target: "exchange DB",
@@ -694,7 +735,7 @@ export class OpsSim {
         Object.assign(cur, { title: f.title, target: f.target, impact: f.impact, confidencePct: f.confidencePct, params: f.params });
         cur.streak += 1;
       } else {
-        this.proposals.unshift({ id: uid("prp"), ...f, streak: 1, status: "PROPOSED", createdAt: now, decidedAt: null, decidedBy: null, revertibleUntil: null, autoHold: null });
+        this.proposals.unshift({ id: uid("prp"), ...f, streak: 1, status: "PROPOSED", createdAt: now, decidedAt: null, decidedBy: null, revertibleUntil: null, autoHold: null, outcome: null });
       }
     }
     for (const p of this.proposals) {
@@ -721,11 +762,16 @@ export class OpsSim {
   }
 
   private describe(now: number, found: Finding[]): void {
+    if (this.mode === "STOPPED") {
+      this.describeStopped();
+      return;
+    }
     const avg = this.readAvg === null ? null : Math.round(this.readAvg);
     const open = this.proposals.filter((p) => p.status === "PROPOSED");
     const pending = this.nodes.some((n) => n.state === "PENDING");
     const draining = this.nodes.some((n) => n.state === "DRAINING");
     const firing = this.alerts;
+    const revert = this.revertNote(now, pending || draining);
     this.evidence = [];
     for (const a of firing.slice(0, 3)) {
       this.evidence.push({ id: `ev-${a.id}`, label: a.name, value: a.detail, severity: a.severity, ref: { kind: "ALERT", id: a.id } });
@@ -752,7 +798,15 @@ export class OpsSim {
 
     const scaleOut = this.value("read.scale_out_cpu");
     let outcome = "이상 없음";
-    if (pending) {
+    if (revert) {
+      this.situation = this.revertSituation(revert, pending, draining);
+      this.hypothesis = revert.cause === null
+        ? "운영자가 자동 조치를 무른 뒤 지표를 다시 봅니다."
+        : revert.kind === "READ_NODES" && revert.delta < 0
+          ? "축소 뒤 조회 요청이 다시 늘어 줄인 대수로는 모자랐습니다. 축소 판단이 일렀습니다."
+          : "자동 조치 뒤 지표가 나빠졌습니다. 조치가 지금 상황에 맞지 않았다고 보고 되돌렸습니다.";
+      outcome = revert.cause === null ? "운영자 되돌림 · 복구 관찰" : "자동 되돌림 · 복구 관찰";
+    } else if (pending) {
       this.situation = `조회 노드를 ${this.desired}대로 늘렸고 새 노드가 준비 중이다. 준비되면 평균 CPU가 약 ${Math.round(this.demand / this.desired)}%로 내려갈 것으로 본다.`;
       this.hypothesis = "조회 트래픽 급증으로 조회 계층 용량이 모자랐다. 조치 효과를 관찰한다.";
       outcome = "조치 효과 관찰";
@@ -798,6 +852,41 @@ export class OpsSim {
     }
   }
 
+  /** 방금 되돌린 조치가 아직 AI 문장에 남아야 하는가. 되돌린 노드가 기동·드레이닝 중이면 끝날 때까지 남긴다 */
+  private revertNote(now: number, moving: boolean): RevertNote | null {
+    const r = this.lastRevert;
+    if (r === null) return null;
+    if (now - r.at < REVERT_NOTE_MS || (r.kind === "READ_NODES" && moving)) return r;
+    this.lastRevert = null;
+    return null;
+  }
+
+  /** 되돌린 방향과 이유, 지금 노드 상태를 한 문장 흐름으로 적는다. 노드 상태는 지금 값에서만 말한다 */
+  private revertSituation(r: RevertNote, pending: boolean, draining: boolean): string {
+    const lead = r.cause === null ? `운영자(${r.by})가` : `관찰 창 안에서 ${r.cause}`;
+    if (r.kind !== "READ_NODES") return `${lead} 자동 조치를 되돌렸습니다. ${r.undo}.`;
+    const head = `${lead} 자동 ${r.delta < 0 ? "축소를" : "증설을"} 되돌렸습니다.`;
+    if (pending) {
+      return `${head} 조회 노드를 다시 ${this.desired}대로 늘리는 중이며 새 노드가 준비 중입니다. 준비되면 평균 CPU가 약 ${Math.round(this.demand / this.desired)}%로 내려갈 것으로 봅니다.`;
+    }
+    if (draining) return `${head} 조회 노드를 다시 ${this.desired}대로 줄이는 중입니다.`;
+    return `${head} 조회 노드는 다시 ${this.desired}대입니다.`;
+  }
+
+  /** 정지 중에는 새 판단이 없다. 근거와 가설을 비우고 남은 일(관찰 창)만 적는다 */
+  private describeStopped(): void {
+    const s = this.stopped;
+    const obs = this.observation;
+    this.situation = "AI 정지 중입니다."
+      + (s ? ` 운영자(${s.by})가 ${new Date(s.at).toTimeString().slice(0, 8)}에 멈췄습니다.` : "")
+      + " 새 판단과 조치안을 내지 않으며, 경보와 ASG 정책은 AI 없이 그대로 동작합니다."
+      + (obs ? ` 정지 전 자동 조치는 관찰 창 끝까지 보고 악화하면 되돌립니다. 관찰 중 · ${obs.action}.` : "")
+      + (s && this.lastRevert?.cause && this.lastRevert.at >= s.at ? ` 정지 뒤 관찰 창 안에서 악화해 자동 조치를 되돌렸습니다. ${this.lastRevert.undo}.` : "");
+    this.hypothesis = null;
+    this.confidence = null;
+    this.evidence = [];
+  }
+
   private normalSituation(): string {
     const avg = this.readAvg === null ? "미수집" : `${Math.round(this.readAvg)}%`;
     return `모든 지표가 임계 안이다. 조회 평균 CPU ${avg}, 응답 p95 ${this.p95}ms, 복제 지연 ${this.lagSec}초.`;
@@ -805,25 +894,20 @@ export class OpsSim {
 
   /* ===== 자동 실행 ===== */
 
-  private autoToday(now: number): number {
-    return this.autoLog.filter((at) => sameLocalDay(at, now)).length;
-  }
-
   /** 자동으로 실행하지 않는 이유. 없으면 null이다. 순서는 화면에 한 줄로 적을 우선순위다 */
   private holdReason(p: ProposalRec, now: number): string | null {
     if (this.observation !== null) return "한 번에 한 조치 · 관찰 창이 끝난 뒤";
-    if (this.autoToday(now) >= AI_INITIAL.autoDailyCap) return `하루 자동 조치 상한 ${AI_INITIAL.autoDailyCap}회 도달`;
+    if (this.autoRuns >= this.limits.autoCap) return `이번 자동 모드 상한 ${this.limits.autoCap}회 도달`;
     const cd = this.cooldowns.get(p.params.kind);
     if (cd !== undefined && now < cd) return `쿨다운 ${mmss((cd - now) / 1000)} 남음`;
     if (this.judgedAt === null || now - this.judgedAt > AI_RULES.evidenceMaxAgeSec * 1000) return "근거가 60초보다 오래됨";
-    if (p.confidencePct < AI_INITIAL.confidencePct) return `확신도 ${p.confidencePct}% · 기준 ${AI_INITIAL.confidencePct}% 미만`;
+    if (p.confidencePct < this.limits.confidencePct) return `확신도 ${p.confidencePct}% · 기준 ${this.limits.confidencePct}% 미만`;
     if (p.streak < AI_RULES.sameJudgmentStreak) return `같은 판단 ${p.streak}/${AI_RULES.sameJudgmentStreak}회`;
     const q = p.params;
     if (q.kind === "THRESHOLD") {
       const t = this.thresholds.get(q.key);
       if (!t || Math.abs(q.to - q.from) > t.aiMaxStep) return "1회 변경폭 초과";
-      const used = this.aiThresholdLog.filter((x) => x.key === q.key && sameLocalDay(x.at, now)).length;
-      if (used >= AI_INITIAL.thresholdDailyPerItem) return "이 항목의 오늘 자동 변경 횟수 초과";
+      if ((this.aiThresholdRuns.get(q.key) ?? 0) >= this.limits.thresholdPerItem) return "이 항목의 이번 자동 모드 변경 횟수 초과";
     }
     if (q.kind === "BACKUP_NOW" && this.backup.manualRunsToday >= 1) return "오늘 즉시 백업을 이미 실행함";
     return null;
@@ -843,10 +927,14 @@ export class OpsSim {
     this.execute(chosen, AI_ACTOR, "AUTO", this.auto.approvalId, now);
     // 한 번에 한 조치다. 나머지 제안은 관찰 창 뒤로 미룬 이유를 다시 적는다
     for (const p of this.proposals) if (p.status === "PROPOSED") p.autoHold = this.holdReason(p, now);
-    if (this.autoToday(now) >= AI_INITIAL.autoDailyCap) {
-      this.setManual(now, `하루 자동 조치 상한 ${AI_INITIAL.autoDailyCap}회 도달 · 수동 전환`, "SYSTEM", "시스템");
-      this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", "Teams 알림 · 자동 조치 상한 도달");
-    }
+    this.stopAtCap();
+  }
+
+  /** 이번 자동 모드의 상한에 닿았으면 수동으로 바꾸고 알린다 */
+  private stopAtCap(): void {
+    if (this.mode !== "AUTO" || this.autoRuns < this.limits.autoCap) return;
+    this.setManual(`이번 자동 모드 상한 ${this.limits.autoCap}회 도달 · 수동 전환`, "SYSTEM", "시스템");
+    this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", "Teams 알림 · 자동 조치 상한 도달");
   }
 
   private execute(p: ProposalRec, actor: OpsActorRef, how: "MANUAL" | "AUTO", approvalId: string | null, now: number): void {
@@ -860,7 +948,7 @@ export class OpsSim {
       case "THRESHOLD":
         this.writeThreshold(q.key, q.to, actor, how === "AUTO" ? "AI_AUTO" : "AI_APPROVED", approvalId, "AI 조치안", null, now, false);
         did = `${this.thresholds.get(q.key)?.label ?? q.key} ${q.from} → ${q.to}`;
-        if (how === "AUTO") this.aiThresholdLog.push({ key: q.key, at: now });
+        if (how === "AUTO") this.aiThresholdRuns.set(q.key, (this.aiThresholdRuns.get(q.key) ?? 0) + 1);
         break;
       case "SILENCE": {
         const a = this.alerts.find((x) => x.id === q.alertId);
@@ -877,15 +965,17 @@ export class OpsSim {
         did = "Databasus 백업 시작";
         break;
     }
-    const cd = cooldownSec(q.kind);
+    const cd = cooldownSec(q.kind, this.limits);
     if (cd > 0) this.cooldowns.set(q.kind, now + cd * 1000);
     p.decidedAt = now;
     p.decidedBy = actor.name;
     p.autoHold = null;
+    p.outcome = did;
+    this.lastRevert = null;
     if (how === "AUTO") {
       p.status = "AUTO_EXECUTED";
       p.revertibleUntil = now + AI_RULES.observeSec * 1000;
-      this.autoLog.push(now);
+      this.autoRuns += 1;
       this.observation = { proposalId: p.id, startedAt: now, until: now + AI_RULES.observeSec * 1000, action: p.title, p95Before: this.p95 };
       this.log(this.openIncident, "AUTO_ACTED", "AI", AI_ACTOR.name, `자동 실행 · ${p.title} · ${did}`);
       this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", `Teams 알림 · 자동 조치와 되돌리기 링크`);
@@ -900,13 +990,15 @@ export class OpsSim {
     this.describe(now, this.findings());
   }
 
-  /** 조치를 무른다. 백업은 되돌릴 것이 없어 호출하지 않는다 */
+  /** 조치를 무르고 무른 방향을 조치 제목과 같은 말로 돌려준다. 백업은 되돌릴 것이 없어 호출하지 않는다 */
   private undo(p: ProposalRec, actor: OpsActorRef, now: number): string {
     const q = p.params;
     switch (q.kind) {
-      case "READ_NODES":
-        this.setDesired(this.desired - q.delta);
-        return `희망 대수 ${this.desired + q.delta} → ${this.desired}대`;
+      case "READ_NODES": {
+        const before = this.desired;
+        this.setDesired(before - q.delta);
+        return `조회 노드 ${q.delta > 0 ? "−" : "+"}1 (${before} → ${this.desired}대)`;
+      }
       case "THRESHOLD": {
         const change = this.history.find((c) => c.key === q.key && c.to === q.to && !c.reverted);
         this.writeThreshold(q.key, q.from, actor, "REVERT", null, "자동 조치 되돌리기", change?.id ?? null, now, false);
@@ -918,7 +1010,7 @@ export class OpsSim {
           a.state = a.ackBy ? "ACKED" : "FIRING";
           a.silencedUntil = null;
         }
-        return "보류 해제";
+        return `경보 보류 해제${a ? ` · ${a.name}` : ""}`;
       }
       case "BOT_LOAD":
         this.botOps = q.fromOps;
@@ -948,7 +1040,9 @@ export class OpsSim {
     const slower = this.p95 > SLO.p95Ms && this.p95 > obs.p95Before + 20;
     const saturated = q.kind === "READ_NODES" && q.delta === -1 && this.readAvg !== null && this.readAvg >= scaleOut;
     if ((!slower && !saturated) || q.kind === "BACKUP_NOW") return;
-    const why = saturated ? `조회 평균 CPU ${Math.round(this.readAvg ?? 0)}% ≥ ${scaleOut}%` : `응답 p95 ${this.p95}ms 악화`;
+    const avg = Math.round(this.readAvg ?? 0);
+    const why = saturated ? `조회 평균 CPU ${avg}% ≥ ${scaleOut}%` : `응답 p95 ${this.p95}ms 악화`;
+    const cause = saturated ? `조회 평균 CPU가 ${avg}%로 증설 임계 ${scaleOut}%를 넘어` : `응답 p95가 ${this.p95}ms로 목표 ${SLO.p95Ms}ms를 넘어`;
     if (this.openIncident === null) {
       // 경보가 서기 전에 되돌리므로 사건을 여기서 연다. 되돌림이 어떤 악화 때문인지 한 기록에 남긴다
       const inc: Incident = { id: uid("inc"), title: `자동 조치 뒤 악화 · ${p.target}`, severity: "warning", openedAt: isoNow(now), resolvedAt: null };
@@ -960,28 +1054,46 @@ export class OpsSim {
       }
       this.log(inc.id, "OPENED", "SYSTEM", "시스템", `악화 감지 · 관찰 창 안에서 ${why}`);
     }
-    const did = this.undo(p, AI_ACTOR, now);
+    const undo = this.undo(p, AI_ACTOR, now);
     p.status = "AUTO_REVERTED";
     p.revertibleUntil = null;
+    p.outcome = `되돌림 · ${undo} · ${why}`;
     // 카드는 결정 시각을 보여 준다. 되돌린 뒤에는 되돌린 시각이 그 자리에 와야 한다
     p.decidedAt = now;
     p.decidedBy = AI_ACTOR.name;
     this.observation = null;
-    this.log(this.openIncident, "AUTO_REVERTED", "AI", AI_ACTOR.name, `자동 되돌림 · ${p.title} · ${why} · ${did}`);
+    this.suppressed.set(p.sig, now + REVERT_SUPPRESS_MS);
+    this.lastRevert = { at: now, kind: q.kind, delta: q.kind === "READ_NODES" ? q.delta : 0, undo, cause, by: AI_ACTOR.name };
+    // 기록의 첫머리는 되돌리며 실제로 한 일이다. 무른 조치의 제목을 앞에 두면 그 조치를 한 것처럼 읽힌다
+    this.log(this.openIncident, "AUTO_REVERTED", "AI", AI_ACTOR.name, `자동 되돌림 · ${undo} · 무른 조치 ${p.title} · ${why}`);
     this.audit(AI_ACTOR, `ai.auto_revert:${q.kind}`, p.title, null);
-    if (this.mode === "AUTO") this.setManual(now, "악화로 자동 되돌림 · 수동 전환", "AI", AI_ACTOR.name);
-    this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", "Teams 알림 · 자동 되돌림과 수동 전환");
+    const wasAuto = this.mode === "AUTO";
+    if (wasAuto) this.setManual("악화로 자동 되돌림 · 수동 전환", "AI", AI_ACTOR.name);
+    this.log(this.openIncident, "NOTIFIED", "SYSTEM", "Teams", wasAuto ? "Teams 알림 · 자동 되돌림과 수동 전환" : "Teams 알림 · 자동 되돌림");
+    this.describe(now, this.findings());
   }
 
   private expireAuto(now: number): void {
-    if (this.auto !== null && now >= this.auto.until) this.setManual(now, "유효 시간 만료 · 수동 복귀", "SYSTEM", "시스템");
+    if (this.auto !== null && now >= this.auto.until) this.setManual("유효 시간 만료 · 수동 복귀", "SYSTEM", "시스템");
   }
 
-  private setManual(now: number, text: string, actor: OpsActor, name: string): void {
+  private setManual(text: string, actor: OpsActor, name: string): void {
+    this.leaveAuto();
     this.mode = "MANUAL";
+    this.log(this.openIncident, "MODE", actor, name, `모드 · ${text}`);
+  }
+
+  /** 자동 모드를 끝낸다. 자동 모드 중에 넓힌 한도는 여기서 적용되어 다음 활성부터 쓰인다 */
+  private leaveAuto(): void {
     this.auto = null;
     for (const p of this.proposals) p.autoHold = null;
-    this.log(this.openIncident, "MODE", actor, name, `모드 · ${text}`);
+    for (const [key, to] of this.pendingLimits) {
+      const def = limitDef(key);
+      const from = this.limits[key];
+      this.limits[key] = to;
+      this.log(this.openIncident, "ACTED", "SYSTEM", "시스템", `AI 한도 적용 · ${def.label} ${from} → ${to}${def.unit} · 자동 모드가 끝나 다음 활성부터 씀`);
+    }
+    this.pendingLimits.clear();
   }
 
   /* ===== 효과 ===== */
@@ -991,10 +1103,11 @@ export class OpsSim {
       throw new AdminError("CAPACITY_OUT_OF_BOUNDS", next < READ_MIN ? `최소 ${READ_MIN}대 아래로 축소 불가` : `최대 ${READ_MAX}대 위로 증설 불가`);
     }
     while (this.desired < next) {
-      const off = this.nodes.find((n) => n.state === "OFF");
-      if (off) {
-        off.state = "PENDING";
-        off.since = this.tick;
+      // 빈 자리가 없으면 내리는 중인 노드 자리에 새 노드를 띄운다. 희망 대수와 기동 중인 노드 수가 늘 같다
+      const slot = this.nodes.find((n) => n.state === "OFF") ?? this.nodes.find((n) => n.state === "DRAINING");
+      if (slot) {
+        slot.state = "PENDING";
+        slot.since = this.tick;
       }
       this.desired += 1;
     }
@@ -1149,14 +1262,18 @@ export class OpsSim {
       throw new AdminError("invalid_parameter", "되돌리기 창이 지났거나 자동 조치가 아님");
     }
     if (p.params.kind === "BACKUP_NOW") throw new AdminError("invalid_parameter", "백업은 되돌릴 것이 없음");
-    const did = this.undo(p, actor, now);
+    const undo = this.undo(p, actor, now);
     p.status = "REVERTED";
     p.revertibleUntil = null;
+    p.outcome = `되돌림 · ${undo}`;
     p.decidedAt = now;
     p.decidedBy = actor.name;
     if (this.observation?.proposalId === p.id) this.observation = null;
-    this.log(this.openIncident, "REVERTED", "OPERATOR", actor.name, `되돌리기 · ${p.title} · ${did}`);
+    this.suppressed.set(p.sig, now + REVERT_SUPPRESS_MS);
+    this.lastRevert = { at: now, kind: p.params.kind, delta: p.params.kind === "READ_NODES" ? p.params.delta : 0, undo, cause: null, by: actor.name };
+    this.log(this.openIncident, "REVERTED", "OPERATOR", actor.name, `되돌리기 · ${undo} · 무른 조치 ${p.title}`);
     this.audit(actor, `ai.revert:${p.params.kind}`, p.title, null);
+    this.describe(now, this.findings());
   }
 
   /** 자동 모드를 켤 수 있는지 본다. 승인 티켓을 발급하기 전에 부른다 */
@@ -1166,22 +1283,124 @@ export class OpsSim {
       throw new AdminError("invalid_parameter", `유효 시간은 ${AUTO_HOURS.join("·")}시간 중 하나`);
     }
     if (reason.trim().length < 2) throw new AdminError("invalid_parameter", "사유 입력 필요");
+    if (this.mode === "STOPPED") throw new AdminError("invalid_parameter", "AI 정지 중. 재개해 수동으로 돌린 뒤 켜기");
     if (this.mode === "AUTO") throw new AdminError("invalid_parameter", "이미 자동 모드");
-    if (this.autoToday(now) >= AI_INITIAL.autoDailyCap) throw new AdminError("invalid_parameter", "오늘 자동 조치 상한 도달");
   }
 
   enableAuto(hours: number, reason: string, actor: OpsActorRef, approvalId: string, now: number): void {
     this.checkAuto(hours, reason, now);
     this.mode = "AUTO";
     this.auto = { since: now, until: now + hours * 3_600_000, reason: reason.trim(), by: actor.name, approvalId };
+    // 상한은 활성 1회당이다. 끄고 다시 켜려면 승인 티켓·사유·감사를 다시 거치므로 횟수 우회가 통제된다
+    this.autoRuns = 0;
+    this.aiThresholdRuns.clear();
     this.log(this.openIncident, "MODE", "OPERATOR", actor.name, `모드 · 자동 켜기 ${hours}시간 · 사유 "${reason.trim()}"`);
     for (const p of this.proposals) if (p.status === "PROPOSED") p.autoHold = this.holdReason(p, now);
   }
 
+  /** 자동에서 수동으로 돌아간다. 승인 없이 세션만 있으면 된다. AI 판단은 계속한다 */
   stopAuto(actor: OpsActorRef, now: number): void {
     this.advance(now);
     if (this.mode !== "AUTO") throw new AdminError("invalid_parameter", "자동 모드가 아님");
-    this.setManual(now, "즉시 끄기", "OPERATOR", actor.name);
+    this.setManual("자동 끄기 · 수동 전환", "OPERATOR", actor.name);
+  }
+
+  /**
+   * AI 즉시 정지. 두 모드 어디서든 승인 없이 누구나 누른다. 자동을 끝내고 새 판단을 멈추며 대기 중인
+   * 조치안을 만료시킨다. 진행 중인 관찰 창은 끝까지 보고, 악화하면 되돌리는 것은 안전 방향이라 남긴다
+   */
+  stopAi(actor: OpsActorRef, now: number): void {
+    this.advance(now);
+    if (this.mode === "STOPPED") throw new AdminError("invalid_parameter", "이미 AI 정지 중");
+    const wasAuto = this.mode === "AUTO";
+    if (wasAuto) this.leaveAuto();
+    // 사건 기록과 같은 시계(틱)로 적어 모드 줄의 정지 시각과 타임라인 시각이 어긋나지 않게 한다
+    const at = this.t;
+    this.mode = "STOPPED";
+    this.stopped = { at, by: actor.name };
+    this.thinking = false;
+    let expired = 0;
+    for (const p of this.proposals) {
+      if (p.status !== "PROPOSED") continue;
+      p.status = "EXPIRED";
+      p.decidedAt = at;
+      p.decidedBy = actor.name;
+      p.autoHold = null;
+      p.outcome = "AI 정지로 만료";
+      expired += 1;
+    }
+    this.syncSuggestions();
+    const parts = ["모드 · AI 즉시 정지"];
+    if (wasAuto) parts.push("자동 모드 해제");
+    if (expired > 0) parts.push(`대기 조치안 ${expired}건 만료`);
+    if (this.observation) parts.push("관찰 창은 끝까지 봄");
+    this.log(this.openIncident, "MODE", "OPERATOR", actor.name, parts.join(" · "));
+    this.judgments.unshift({ id: uid("jdg"), at: isoNow(at), summary: `운영자(${actor.name})가 AI를 정지했습니다. 새 판단과 조치안을 내지 않습니다.`, outcome: "AI 정지" });
+    this.lastOutcome = "AI 정지";
+    this.describe(now, []);
+  }
+
+  /** AI 재개. 사유를 받아 수동으로만 돌린다. 자동은 다시 ops.ai.auto 승인을 거친다 */
+  resumeAi(reason: string, actor: OpsActorRef, now: number): void {
+    this.advance(now);
+    if (this.mode !== "STOPPED") throw new AdminError("invalid_parameter", "AI 정지 중이 아님");
+    if (reason.trim().length < 2) throw new AdminError("invalid_parameter", "사유 입력 필요");
+    this.mode = "MANUAL";
+    this.stopped = null;
+    this.log(this.openIncident, "MODE", "OPERATOR", actor.name, `모드 · AI 재개(수동) · 사유 "${reason.trim()}"`);
+    this.describe(now, this.findings());
+  }
+
+  /** 한도 변경을 적용하기 전에 막힐 이유를 본다. 하드 범위, 요청 뒤 바뀐 값, 빈 변경을 거절한다 */
+  checkLimit(key: AiLimitKey, from: number, to: number, now: number): void {
+    this.advance(now);
+    const def = limitDef(key);
+    if (!Number.isInteger(to) || to < def.min || to > def.max) {
+      throw new AdminError("invalid_parameter", `허용 범위 ${def.min}~${def.max}${def.unit} 밖`);
+    }
+    if ((this.pendingLimits.get(key) ?? this.limits[key]) !== from) {
+      throw new AdminError("invalid_parameter", "현재값이 요청 뒤 바뀜. 다시 요청 필요");
+    }
+    if (to === from) throw new AdminError("invalid_parameter", "바뀐 값 없음");
+  }
+
+  /**
+   * AI 한도 변경(ops.ai.limits). AI 권한을 좁히는 변경은 곧바로, 넓히는 변경은 자동 모드 중이면
+   * 이번 자동 모드가 끝난 뒤(다음 활성부터) 적용한다
+   */
+  setLimit(key: AiLimitKey, from: number, to: number, actor: OpsActorRef, approvalId: string, reason: string,
+           revertOf: string | null, now: number): void {
+    // AI 운영 계정은 자기 한도를 바꾸지 못한다(ADR 0035 금지 목록 8)
+    if (actor.id === AI_ACTOR.id) throw new AdminError("admin_forbidden", "AI는 한도를 바꿀 수 없음");
+    if (!approvalId) throw new AdminError("admin_forbidden", "한도 변경은 승인 티켓 필요");
+    if (reason.trim().length < 2) throw new AdminError("invalid_parameter", "사유 입력 필요");
+    this.checkLimit(key, from, to, now);
+    const def = limitDef(key);
+    const cur = this.limits[key];
+    const tighter = to === cur || (def.tighterWhenHigher ? to > cur : to < cur);
+    const apply: AiLimitApply = this.mode === "AUTO" && !tighter ? "NEXT_AUTO" : "NOW";
+    if (apply === "NOW") {
+      this.limits[key] = to;
+      this.pendingLimits.delete(key);
+    } else {
+      this.pendingLimits.set(key, to);
+    }
+    this.limitMeta.set(key, { at: now, by: actor.name });
+    if (revertOf) {
+      const orig = this.limitHistory.find((c) => c.id === revertOf);
+      if (orig) orig.reverted = true;
+    }
+    this.limitHistory.unshift({
+      id: uid("alc"), key, label: def.label, unit: def.unit, from, to, at: isoNow(now), by: actor.name,
+      approvalId, reason: reason.trim(), revertOf, reverted: false, apply,
+    });
+    this.limitHistory = this.limitHistory.slice(0, 40);
+    this.log(this.openIncident, "ACTED", "OPERATOR", actor.name,
+      `AI 한도 ${revertOf ? "되돌리기" : "변경"} · ${def.label} ${from} → ${to}${def.unit} · ${apply === "NOW" ? "곧바로 적용" : "다음 자동 활성부터"}`);
+    if (this.mode === "AUTO") {
+      for (const p of this.proposals) if (p.status === "PROPOSED") p.autoHold = this.holdReason(p, now);
+      this.stopAtCap();
+    }
   }
 
   applyThreshold(key: ThresholdKey, from: number, to: number, actor: OpsActorRef, approvalId: string, reason: string,
@@ -1261,7 +1480,7 @@ export class OpsSim {
       id: p.id, kind: p.params.kind, title: p.title, target: p.target, impact: p.impact, risk: p.risk, revertPlan: p.revertPlan,
       confidencePct: p.confidencePct, status: p.status, createdAt: isoNow(p.createdAt),
       decidedAt: p.decidedAt === null ? null : isoNow(p.decidedAt), decidedBy: p.decidedBy,
-      revertibleUntil: p.revertibleUntil === null ? null : isoNow(p.revertibleUntil), autoHold: p.autoHold,
+      revertibleUntil: p.revertibleUntil === null ? null : isoNow(p.revertibleUntil), autoHold: p.autoHold, outcome: p.outcome,
     }));
     const ai: AiDesk = {
       mode: this.mode,
@@ -1276,8 +1495,18 @@ export class OpsSim {
       evidence: this.evidence.map((e) => ({ ...e })),
       proposals,
       history: this.judgments.slice(0, 12).map((j) => ({ ...j })),
-      autoToday: this.autoToday(now),
-      autoDailyCap: AI_INITIAL.autoDailyCap,
+      autoUsed: this.autoRuns,
+      autoCap: this.limits.autoCap,
+      stopped: this.stopped === null ? null : { at: isoNow(this.stopped.at), by: this.stopped.by },
+      limits: AI_LIMIT_DEFS.map((d) => {
+        const meta = this.limitMeta.get(d.key);
+        return {
+          key: d.key, label: d.label, desc: d.desc, unit: d.unit, value: this.limits[d.key], pending: this.pendingLimits.get(d.key) ?? null,
+          min: d.min, max: d.max, tighterWhenHigher: d.tighterWhenHigher,
+          updatedAt: meta ? isoNow(meta.at) : null, updatedBy: meta ? meta.by : null,
+        };
+      }),
+      limitHistory: this.limitHistory.map((h) => ({ ...h })),
       cooldowns: [...this.cooldowns].filter(([, until]) => until > now).map(([kind, until]) => ({ kind, until: isoNow(until) })),
       observation: this.observation === null ? null : { startedAt: isoNow(this.observation.startedAt), until: isoNow(this.observation.until), action: this.observation.action },
     };

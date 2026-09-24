@@ -10,6 +10,7 @@ import { AdminError } from "../lib/admin/api";
 import type { AiDesk, ControlCenter, IncidentLog, OpsAlert, ThresholdRegistry } from "../lib/admin/types";
 
 const OP: OpsActorRef = { id: "op-01", name: "김수퍼" };
+const VIEWER: OpsActorRef = { id: "op-02", name: "이오퍼" };
 // 로컬 정오. 하루 경계와 새벽 백업 시각에 걸리지 않게 한다
 const T0 = new Date(2026, 8, 24, 12, 0, 0).getTime();
 const at = (sec: number) => T0 + sec * 1000;
@@ -117,7 +118,7 @@ test("자동 모드는 같은 판단 두 번 뒤 허용 조치 하나만 실행�
   assert.ok(done.revertibleUntil !== null);
   assert.ok(desk.observation !== null, "관찰 창이 열린다");
   assert.ok(desk.cooldowns.some((x) => x.kind === "READ_NODES"));
-  assert.equal(desk.autoToday, 1);
+  assert.equal(desk.autoUsed, 1);
   const held = desk.proposals.find((p) => p.status === "PROPOSED" && p.kind === "THRESHOLD");
   assert.ok(held, "임계값 제안은 카드로 남는다");
   assert.match(held.autoHold ?? "", /한 번에 한 조치|확신도/);
@@ -157,13 +158,173 @@ test("자동 모드 켜기는 유효 시간·사유를 검사하고 유효 시�
   assert.equal(ai(sim.snapshot(at(3662))).mode, "MANUAL");
 });
 
-test("즉시 끄기는 자동 모드를 바로 수동으로 바꾸고 기록을 남긴다", () => {
+test("자동 끄기는 자동 모드를 바로 수동으로 바꾸고 기록을 남긴다", () => {
   const sim = new OpsSim(T0);
   sim.enableAuto(8, "시험", OP, "apr-auto", at(0));
-  sim.stopAuto({ id: "op-02", name: "이오퍼" }, at(5));
+  sim.stopAuto(VIEWER, at(5));
   const c = sim.snapshot(at(6));
   assert.equal(ai(c).mode, "MANUAL");
-  assert.ok(log(c).events.some((e) => e.kind === "MODE" && e.text.includes("즉시 끄기") && e.actorName === "이오퍼"));
+  assert.ok(log(c).events.some((e) => e.kind === "MODE" && e.text.includes("자동 끄기") && e.actorName === "이오퍼"));
+});
+
+test("AI 즉시 정지는 수동 모드에서도 되고, 대기 조치안을 만료시키며 새 판단을 멈춘다", async () => {
+  const sim = new OpsSim(T0);
+  sim.startScenario("READ_SURGE", at(0));
+  const before = ai(sim.snapshot(at(20))).proposals.filter((p) => p.status === "PROPOSED");
+  assert.ok(before.length > 0);
+  sim.stopAi(VIEWER, at(20));
+  const c = sim.snapshot(at(21));
+  const desk = ai(c);
+  assert.equal(desk.mode, "STOPPED");
+  assert.equal(desk.stopped?.by, "이오퍼");
+  assert.equal(desk.proposals.filter((p) => p.status === "PROPOSED").length, 0);
+  const expired = desk.proposals.filter((p) => p.status === "EXPIRED");
+  assert.equal(expired.length, before.length, "대기 중이던 조치안이 모두 정지로 만료된다");
+  assert.ok(expired.every((p) => p.outcome === "AI 정지로 만료"));
+  await rejectsWith(() => sim.decide(expired[0].id, "APPROVE", OP, at(21), "apr-x"), "invalid_parameter");
+  assert.ok(reg(c).items.every((t) => t.aiSuggested === null), "만료된 임계값 제안의 AI 표식도 걷힌다");
+  assert.ok(log(c).events.some((e) => e.kind === "MODE" && e.text.startsWith("모드 · AI 즉시 정지") && e.actorName === "이오퍼"));
+
+  const later = ai(sim.snapshot(at(60)));
+  assert.equal(later.proposals.filter((p) => p.status === "PROPOSED").length, 0, "정지 중에는 새 조치안이 없다");
+  assert.equal(later.thinking, false);
+  assert.equal(later.evidence.length, 0);
+  assert.match(later.situation, /AI 정지 중/);
+  await rejectsWith(() => sim.checkAuto(2, "켜기", at(61)), "invalid_parameter");
+  await rejectsWith(() => sim.stopAi(OP, at(61)), "invalid_parameter");
+});
+
+test("자동 모드에서 정지하면 자동이 풀리고, 진행 중 관찰 창은 끝까지 보며 악화하면 되돌린다", () => {
+  const sim = new OpsSim(T0);
+  sim.enableAuto(2, "야간", OP, "apr-auto", at(0));
+  sim.startScenario("NIGHT_SCALE_IN", at(0));
+  let sec = 0;
+  for (let s = 1; s <= 30 && sec === 0; s += 1) {
+    if (ai(sim.snapshot(at(s))).proposals.some((p) => p.status === "AUTO_EXECUTED")) sec = s;
+  }
+  assert.ok(sec > 0);
+  sim.stopAi(VIEWER, at(sec + 1));
+  const stopped = ai(sim.snapshot(at(sec + 2)));
+  assert.equal(stopped.mode, "STOPPED");
+  assert.equal(stopped.auto, null, "자동 모드가 곧바로 풀린다");
+  assert.ok(stopped.observation !== null, "관찰 창은 남는다");
+  const c = sim.snapshot(at(60));
+  assert.equal(ai(c).mode, "STOPPED", "되돌려도 정지 상태를 유지한다");
+  assert.ok(ai(c).proposals.some((p) => p.status === "AUTO_REVERTED"), "정지 중에도 악화하면 되돌린다");
+  assert.equal(ready<{ desired: number }>(c.readTier).desired, 3);
+  const note = log(c).events.find((e) => e.kind === "NOTIFIED" && e.text.includes("자동 되돌림"));
+  assert.ok(note && !note.text.includes("수동 전환"), "정지 중 되돌림은 수동 전환이라고 적지 않는다");
+});
+
+test("정지 중 관찰 창이 악화 없이 끝나면 정지 문장에서 관찰 중이 사라진다", () => {
+  const sim = new OpsSim(T0);
+  sim.enableAuto(2, "시험", OP, "apr-auto", at(0));
+  sim.startScenario("READ_SURGE", at(0));
+  assert.ok(ai(sim.snapshot(at(24))).observation !== null);
+  sim.stopAi(OP, at(25));
+  assert.match(ai(sim.snapshot(at(26))).situation, /관찰 중/);
+  run(sim, 360);
+  const desk = ai(sim.snapshot(at(361)));
+  assert.equal(desk.observation, null);
+  assert.equal(desk.mode, "STOPPED");
+  assert.doesNotMatch(desk.situation, /관찰 중/);
+});
+
+test("AI 재개는 사유를 받아 수동으로만 돌리고, 자동은 다시 켜야 한다", async () => {
+  const sim = new OpsSim(T0);
+  await rejectsWith(() => sim.resumeAi("재개", OP, at(1)), "invalid_parameter");
+  sim.stopAi(OP, at(1));
+  await rejectsWith(() => sim.resumeAi(" ", OP, at(2)), "invalid_parameter");
+  sim.resumeAi("원인 확인 끝", OP, at(3));
+  const c = sim.snapshot(at(4));
+  assert.equal(ai(c).mode, "MANUAL");
+  assert.equal(ai(c).stopped, null);
+  assert.ok(log(c).events.some((e) => e.kind === "MODE" && e.text.includes("AI 재개(수동)") && e.text.includes("원인 확인 끝")));
+  sim.enableAuto(1, "다시", OP, "apr-auto", at(5));
+  assert.equal(ai(sim.snapshot(at(6))).mode, "AUTO");
+});
+
+test("자동 조치 수는 자동을 켤 때마다 0부터 세고 쿨다운은 그대로 남는다", () => {
+  const sim = new OpsSim(T0);
+  sim.enableAuto(2, "시험", OP, "apr-auto", at(0));
+  sim.startScenario("READ_SURGE", at(0));
+  assert.equal(ai(sim.snapshot(at(24))).autoUsed, 1);
+  sim.stopAuto(OP, at(25));
+  sim.enableAuto(2, "다시", OP, "apr-auto-2", at(26));
+  const desk = ai(sim.snapshot(at(27)));
+  assert.equal(desk.autoUsed, 0, "새 활성은 0부터 센다");
+  assert.ok(desk.cooldowns.some((x) => x.kind === "READ_NODES"), "쿨다운은 모드와 무관하게 남는다");
+});
+
+test("이번 자동 모드의 상한에 닿으면 수동으로 바꾸고 Teams로 알린다", () => {
+  const sim = new OpsSim(T0);
+  sim.setLimit("autoCap", 5, 1, OP, "apr-l", "시험 상한", null, at(0));
+  sim.enableAuto(2, "시험", OP, "apr-auto", at(0));
+  sim.startScenario("READ_SURGE", at(0));
+  const c = sim.snapshot(at(24));
+  assert.equal(ai(c).autoUsed, 1);
+  assert.equal(ai(c).mode, "MANUAL");
+  assert.ok(log(c).events.some((e) => e.kind === "MODE" && e.text.includes("상한 1회 도달")));
+  assert.ok(log(c).events.some((e) => e.kind === "NOTIFIED" && e.text.includes("상한 도달")));
+});
+
+test("AI 한도는 하드 범위 밖, 사유 없음, 승인 없음, AI 계정의 변경을 거절한다", async () => {
+  const sim = new OpsSim(T0);
+  await rejectsWith(() => sim.setLimit("confidencePct", 80, 96, OP, "a", "시험", null, at(1)), "invalid_parameter");
+  await rejectsWith(() => sim.setLimit("confidencePct", 80, 69, OP, "a", "시험", null, at(1)), "invalid_parameter");
+  await rejectsWith(() => sim.setLimit("autoCap", 5, 11, OP, "a", "시험", null, at(1)), "invalid_parameter");
+  await rejectsWith(() => sim.setLimit("thresholdPerItem", 2, 4, OP, "a", "시험", null, at(1)), "invalid_parameter");
+  await rejectsWith(() => sim.setLimit("botCooldownMin", 10, 4, OP, "a", "시험", null, at(1)), "invalid_parameter");
+  await rejectsWith(() => sim.setLimit("backupDiskFreePct", 30, 51, OP, "a", "시험", null, at(1)), "invalid_parameter");
+  await rejectsWith(() => sim.setLimit("confidencePct", 75, 85, OP, "a", "시험", null, at(1)), "invalid_parameter");
+  await rejectsWith(() => sim.setLimit("confidencePct", 80, 85, OP, "a", " ", null, at(1)), "invalid_parameter");
+  await rejectsWith(() => sim.setLimit("confidencePct", 80, 85, OP, "", "시험", null, at(1)), "admin_forbidden");
+  await rejectsWith(() => sim.setLimit("confidencePct", 80, 70, AI_ACTOR, "a", "AI 스스로", null, at(1)), "admin_forbidden");
+  assert.equal(ai(sim.snapshot(at(2))).limits.find((l) => l.key === "confidencePct")?.value, 80);
+});
+
+test("자동 모드 중 한도를 좁히면 곧바로, 넓히면 이번 자동 모드가 끝난 뒤 적용한다", () => {
+  const sim = new OpsSim(T0);
+  sim.enableAuto(2, "시험", OP, "apr-auto", at(0));
+  sim.setLimit("confidencePct", 80, 85, OP, "a1", "좁힘", null, at(1));
+  sim.setLimit("autoCap", 5, 8, OP, "a2", "넓힘", null, at(2));
+  sim.setLimit("botCooldownMin", 10, 5, OP, "a3", "넓힘", null, at(3));
+  sim.setLimit("backupDiskFreePct", 30, 40, OP, "a4", "좁힘", null, at(4));
+  const limit = (c: ControlCenter, key: string) => ai(c).limits.find((l) => l.key === key);
+  let c = sim.snapshot(at(5));
+  assert.deepEqual([limit(c, "confidencePct")?.value, limit(c, "confidencePct")?.pending], [85, null]);
+  assert.deepEqual([limit(c, "autoCap")?.value, limit(c, "autoCap")?.pending], [5, 8]);
+  assert.deepEqual([limit(c, "botCooldownMin")?.value, limit(c, "botCooldownMin")?.pending], [10, 5]);
+  assert.deepEqual([limit(c, "backupDiskFreePct")?.value, limit(c, "backupDiskFreePct")?.pending], [40, null]);
+  assert.equal(ai(c).autoCap, 5, "넓힌 상한은 이번 활성에 쓰지 않는다");
+  assert.deepEqual(ai(c).limitHistory.map((h) => h.apply), ["NOW", "NEXT_AUTO", "NEXT_AUTO", "NOW"]);
+  sim.stopAuto(OP, at(6));
+  c = sim.snapshot(at(7));
+  assert.deepEqual([limit(c, "autoCap")?.value, limit(c, "autoCap")?.pending], [8, null]);
+  assert.equal(limit(c, "botCooldownMin")?.value, 5);
+  assert.ok(log(c).events.some((e) => e.kind === "ACTED" && e.text.startsWith("AI 한도 적용")));
+  sim.setLimit("confidencePct", 85, 75, OP, "a5", "수동에서 넓힘", null, at(8));
+  assert.equal(limit(sim.snapshot(at(9)), "confidencePct")?.value, 75, "자동 모드가 꺼져 있으면 곧바로 적용한다");
+});
+
+test("자동 모드 중 상한을 이미 쓴 횟수까지 낮추면 곧바로 수동으로 바뀐다", () => {
+  const sim = new OpsSim(T0);
+  sim.enableAuto(2, "시험", OP, "apr-auto", at(0));
+  sim.startScenario("READ_SURGE", at(0));
+  assert.equal(ai(sim.snapshot(at(24))).autoUsed, 1);
+  sim.setLimit("autoCap", 5, 1, OP, "a", "좁힘", null, at(25));
+  assert.equal(ai(sim.snapshot(at(26))).mode, "MANUAL");
+});
+
+test("한도 변경은 이력에서 되돌리고 사건 기록에 남는다", () => {
+  const sim = new OpsSim(T0);
+  sim.setLimit("thresholdPerItem", 2, 1, OP, "a1", "좁힘", null, at(1));
+  const change = ai(sim.snapshot(at(2))).limitHistory[0];
+  sim.setLimit("thresholdPerItem", 1, 2, OP, "a2", "이력에서 되돌리기", change.id, at(3));
+  const c = sim.snapshot(at(4));
+  assert.equal(ai(c).limits.find((l) => l.key === "thresholdPerItem")?.value, 2);
+  assert.equal(ai(c).limitHistory.find((h) => h.id === change.id)?.reverted, true);
+  assert.ok(log(c).events.some((e) => e.kind === "ACTED" && e.text.startsWith("AI 한도 되돌리기")));
 });
 
 test("임계값을 바꾸면 경보 판정이 새 값을 쓰고, 허용 조치가 없으면 AI는 조치안을 내지 않는다", () => {

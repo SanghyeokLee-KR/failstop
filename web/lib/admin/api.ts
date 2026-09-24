@@ -204,8 +204,12 @@ export interface AdminApi {
   revertAiAction(proposalId: string): Promise<void>;
   /** 자동 모드 켜기. 사유와 유효 시간을 받아 1인 승인 티켓(ops.ai.auto)을 발급·소각한다 */
   enableAiAuto(hours: number, reason: string): Promise<void>;
-  /** 즉시 끄기. 승인 없이 세션만 있으면 된다 */
+  /** 자동에서 수동으로. 승인 없이 세션만 있으면 된다 */
   stopAiAuto(): Promise<void>;
+  /** AI 즉시 정지. 두 모드 어디서든 승인 없이 세션만 있으면 된다 */
+  stopAi(): Promise<void>;
+  /** AI 재개. 사유를 받아 수동으로만 돌린다. 승인 티켓은 없고 SUPER가 한다 */
+  resumeAi(reason: string): Promise<void>;
   /** Databasus 백업 즉시 실행 */
   runBackupNow(): Promise<void>;
   /** 시나리오 재생이 있는 원천인가. sim만 true다 */

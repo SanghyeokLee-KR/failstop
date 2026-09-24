@@ -80,14 +80,21 @@ export function NavBadge({ kind }: { kind: OpsBadgeKind }) {
   );
 }
 
-/** 사이드바 바닥의 AI 모드. 자동이면 남은 시간을 시:분으로 적는다 */
+/** 사이드바 바닥의 AI 모드. 자동이면 남은 시간을 시:분으로, 정지면 주의 모양으로 적는다 */
 export function AiModeFoot() {
   const { data } = useOpsCenter();
   const now = useClock(15_000);
   const ai = data?.ai.state === "READY" ? data.ai.data : null;
   const auto = ai?.mode === "AUTO" && ai.auto !== null;
+  const stopped = ai?.mode === "STOPPED";
   let text: ReactNode = "AI 연결 전";
-  if (ai && auto && ai.auto) {
+  if (stopped) {
+    text = (
+      <>
+        <span aria-hidden="true">▲ </span>AI <b>정지</b> · 판단 멈춤
+      </>
+    );
+  } else if (ai && auto && ai.auto) {
     const left = Math.max(0, Date.parse(ai.auto.until) - now);
     const h = Math.floor(left / 3_600_000);
     const m = Math.floor((left % 3_600_000) / 60_000);
@@ -104,7 +111,7 @@ export function AiModeFoot() {
     );
   }
   return (
-    <div className={styles.aiFootNav} data-mode={auto ? "AUTO" : "MANUAL"} title="AI 운영 모드">
+    <div className={styles.aiFootNav} data-mode={stopped ? "STOPPED" : auto ? "AUTO" : "MANUAL"} title="AI 운영 모드">
       <AiMark size={14} />
       <span className={styles.aiFootNavText}>{text}</span>
     </div>

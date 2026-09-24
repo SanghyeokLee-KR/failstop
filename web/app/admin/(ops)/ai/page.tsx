@@ -7,12 +7,13 @@
 
 import { useCallback } from "react";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
-import { AI_ACTION_LABEL, AI_ALLOWED, AI_AUTO_PRECONDITIONS, AI_FORBIDDEN, cooldownSec } from "@/lib/admin/aiPolicy";
+import { AI_ACTION_LABEL, AI_FORBIDDEN, allowedRules, autoPreconditions, cooldownSec, limitsOf } from "@/lib/admin/aiPolicy";
 import { useOpsCenter } from "@/lib/admin/opsCenter";
 import type { AiActionKind, AuditEntry } from "@/lib/admin/types";
 import Skeleton from "@/components/Skeleton";
 import { useAdminResource } from "@/components/admin/useAdminResource";
 import { AdminErrorState } from "@/components/admin/ResourceState";
+import AiLimitsPanel from "@/components/admin/control/AiLimits";
 import AiPanel from "@/components/admin/control/AiPanel";
 import ModeBar from "@/components/admin/control/ModeBar";
 import OpsHead from "@/components/admin/control/OpsHead";
@@ -39,6 +40,7 @@ export default function AiPage() {
     reloadAudit();
   }, [refresh, reloadAudit]);
   const ai = data?.ai.state === "READY" ? data.ai.data : null;
+  const limits = limitsOf(ai?.limits);
   const rows = (audit.data?.data ?? []).filter(isOpsAudit).slice(0, 14);
 
   return (
@@ -59,19 +61,19 @@ export default function AiPage() {
               <AiPanel center={data} now={now} onChanged={onChanged} full />
             </div>
             <div className={styles.stack}>
-              <section className={styles.panel} aria-labelledby="ai-limits">
-                <PanelHead id="ai-limits" title="한도와 쿨다운" meta="자동 모드에서 실행 전에 모두 본다" />
+              <section className={styles.panel} aria-labelledby="ai-usage">
+                <PanelHead id="ai-usage" title="자동 조치 수와 쿨다운" meta="자동 모드에서 실행 전에 모두 본다" />
                 {ai === null ? (
                   <p className={styles.lead}>AI 판단 서비스와 서버 정책 엔진 연결 전. 한도 판독 없음</p>
                 ) : (
                   <>
                     <dl className={styles.kv}>
-                      <dt>오늘 자동 조치</dt>
+                      <dt>이번 자동 모드</dt>
                       <dd>
                         <b className="num">
-                          {ai.autoToday}/{ai.autoDailyCap}
+                          {ai.autoUsed}/{ai.autoCap}
                         </b>{" "}
-                        · 넘으면 수동 전환과 Teams 알림
+                        · 자동을 새로 켜면 0부터 셉니다. 닿으면 수동 전환과 Teams 알림
                       </dd>
                       <dt>관찰 창</dt>
                       <dd>
@@ -89,6 +91,10 @@ export default function AiPage() {
                           <>
                             <b className="num">{hms(ai.auto.until)}</b>까지 · 승인 {ai.auto.by} · 사유 {ai.auto.reason}
                           </>
+                        ) : ai.stopped ? (
+                          <>
+                            <span aria-hidden="true">▲ </span>AI 정지 중 · {ai.stopped.by} <b className="num">{hms(ai.stopped.at)}</b>부터
+                          </>
                         ) : (
                           "꺼짐(수동)"
                         )}
@@ -102,21 +108,23 @@ export default function AiPage() {
                           <div key={k} className={styles.limit} data-active={left > 0 ? "" : undefined}>
                             <span>{AI_ACTION_LABEL[k]}</span>
                             <b className="num">{left > 0 ? mmss(left) : "쿨다운 없음"}</b>
-                            <span>{cooldownSec(k) > 0 ? `쿨다운 ${cooldownSec(k) / 60}분` : "쿨다운 규칙 별도"}</span>
+                            <span>{cooldownSec(k, limits) > 0 ? `쿨다운 ${cooldownSec(k, limits) / 60}분` : "쿨다운 규칙 별도"}</span>
                           </div>
                         );
                       })}
                     </div>
+                    <p className={styles.reviewText}>쿨다운과 관찰 창은 시스템 안정을 위한 것이라 모드를 바꾸거나 자동을 다시 켜도 초기화하지 않습니다.</p>
                   </>
                 )}
               </section>
+              <AiLimitsPanel ai={ai} onChanged={onChanged} />
               <section className={styles.panel} aria-labelledby="ai-rules">
                 <PanelHead id="ai-rules" title="허용·금지 목록" meta="어느 모드에서도 금지 목록은 조치 카드가 되지 않는다" />
                 <div className={styles.autoRules} style={{ marginTop: 0 }}>
                   <div>
                     <span className={styles.rulesTitle}>허용 목록</span>
                     <ul className={styles.rulesList}>
-                      {AI_ALLOWED.map((r) => (
+                      {allowedRules(limits).map((r) => (
                         <li key={r.kind}>
                           <span aria-hidden="true">●</span>
                           <span>
@@ -140,7 +148,7 @@ export default function AiPage() {
                 </div>
                 <span className={styles.rulesTitle}>자동 실행 조건</span>
                 <ul className={styles.rulesList}>
-                  {AI_AUTO_PRECONDITIONS.map((r) => (
+                  {autoPreconditions(limits).map((r) => (
                     <li key={r}>
                       <span aria-hidden="true">▲</span>
                       <span>{r}</span>

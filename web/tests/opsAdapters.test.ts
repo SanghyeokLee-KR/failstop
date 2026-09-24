@@ -20,7 +20,7 @@ async function rejectsWith(run: () => Promise<unknown>, code: string): Promise<v
   await assert.rejects(async () => run(), (e: unknown) => e instanceof AdminError && e.code === code);
 }
 
-test("sim: 조회 권한 운영자는 자동 모드를 켜지 못하지만 즉시 끄기는 누구나 한다", async () => {
+test("sim: 조회 권한 운영자는 자동 모드를 켜지 못하지만 자동 끄기는 누구나 한다", async () => {
   const api = new SimAdminApi();
   await api.establishSession("op-02");
   await rejectsWith(() => api.enableAiAuto(2, "야간 대기"), "admin_forbidden");
@@ -43,6 +43,50 @@ test("sim: 자동 모드 켜기는 승인 티켓을 발급·소각한 기록을 
   const desk = ready<AiDesk>((await api.getControlCenter()).ai);
   assert.equal(desk.auto?.approvalId, auto.id);
   assert.equal(desk.auto?.reason, "점검");
+});
+
+test("sim: AI 즉시 정지는 조회 권한으로 두 모드에서 되고, 재개는 SUPER가 사유를 적어 수동으로 한다", async () => {
+  const api = new SimAdminApi();
+  await api.establishSession("op-02");
+  await api.stopAi();
+  assert.equal(ready<AiDesk>((await api.getControlCenter()).ai).mode, "STOPPED", "수동 모드에서도 정지한다");
+  await rejectsWith(() => api.resumeAi("다시 봄"), "admin_forbidden");
+  await api.establishSession("op-01");
+  await rejectsWith(() => api.enableAiAuto(2, "정지 중 켜기"), "invalid_parameter");
+  await api.resumeAi("원인 확인 끝");
+  assert.equal(ready<AiDesk>((await api.getControlCenter()).ai).mode, "MANUAL");
+  await api.enableAiAuto(2, "야간 대기");
+  await api.establishSession("op-02");
+  await api.stopAi();
+  const desk = ready<AiDesk>((await api.getControlCenter()).ai);
+  assert.equal(desk.mode, "STOPPED", "자동 모드에서도 정지한다");
+  assert.equal(desk.auto, null);
+  await api.establishSession("op-01");
+  const audit = (await api.getAudit({ limit: 50 })).data.map((e) => e.action);
+  assert.ok(audit.includes("ops.ai.stop") && audit.includes("ops.ai.resume"), "정지와 재개가 감사 로그에 남는다");
+});
+
+test("sim: AI 한도는 ops.ai.limits 1인 승인 티켓으로 바뀌고 조회 권한 운영자는 소각해도 바꾸지 못한다", async () => {
+  const api = new SimAdminApi();
+  await api.establishSession("op-02");
+  const denied = await api.issueApproval("op-02", "ops.ai.limits", {
+    action: "ops.ai.limits", key: "autoCap", label: "자동 조치 상한", unit: "회", from: 5, to: 3, reason: "좁힘", revertOf: null,
+  });
+  await rejectsWith(() => api.consumeApproval(denied), "admin_forbidden");
+  await api.establishSession("op-01");
+  const issued = await api.issueApproval("op-01", "ops.ai.limits", {
+    action: "ops.ai.limits", key: "autoCap", label: "자동 조치 상한", unit: "회", from: 5, to: 3, reason: "야간 좁힘", revertOf: null,
+  });
+  await api.consumeApproval(issued);
+  const desk = ready<AiDesk>((await api.getControlCenter()).ai);
+  assert.equal(desk.limits.find((l) => l.key === "autoCap")?.value, 3);
+  assert.equal(desk.autoCap, 3);
+  assert.equal(desk.limitHistory[0].approvalId, issued.id);
+  assert.equal(desk.limitHistory[0].reason, "야간 좁힘");
+  const out = await api.issueApproval("op-01", "ops.ai.limits", {
+    action: "ops.ai.limits", key: "confidencePct", label: "확신도 기준", unit: "%", from: 80, to: 99, reason: "범위 밖", revertOf: null,
+  });
+  await rejectsWith(() => api.consumeApproval(out), "invalid_parameter");
 });
 
 test("sim: 잘못된 유효 시간은 티켓을 발급하기 전에 거절한다", async () => {
@@ -123,6 +167,8 @@ test("http: 관제센터 판독은 네트워크를 부르지 않고 칸마다 '�
       () => api.revertAiAction("p"),
       () => api.enableAiAuto(1, "사유"),
       () => api.stopAiAuto(),
+      () => api.stopAi(),
+      () => api.resumeAi("사유"),
       () => api.runBackupNow(),
       () => api.startOpsScenario("READ_SURGE"),
       () => api.resetOps(),

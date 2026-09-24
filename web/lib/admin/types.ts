@@ -77,9 +77,10 @@ export type DestructiveAction =
   | "operators.status"
   | "operators.roles"
   | "members.close"
-  // 관제센터 두 액션은 API §3-6에 아직 없다. 서버 계약 초안(관리자 설계 4-4)이고 sim만 실행한다
+  // 관제센터 세 액션은 API §3-6에 아직 없다. 서버 계약 초안(관리자 설계 4-4)이고 sim만 실행한다
   | "ops.threshold.set"
-  | "ops.ai.auto";
+  | "ops.ai.auto"
+  | "ops.ai.limits";
 
 /**
  * admin_approvals.state 정본 어휘(V5__admin.sql CHECK, §6-B). 원장 최초 상태가 ISSUED이고
@@ -109,7 +110,18 @@ export type ApprovalPayload =
       /** AI 조치안을 승인한 변경이면 그 조치안 id */
       proposalId: string | null;
     }
-  | { action: "ops.ai.auto"; hours: number; reason: string };
+  | { action: "ops.ai.auto"; hours: number; reason: string }
+  | {
+      action: "ops.ai.limits";
+      key: AiLimitKey;
+      label: string;
+      unit: string;
+      from: number;
+      to: number;
+      reason: string;
+      /** 되돌리기면 되돌리는 변경의 id */
+      revertOf: string | null;
+    };
 
 /**
  * 승인 원장 프로젝션(GET /admin/v1/approvals). token과 payload는 응답에 없어 여기에도 없다.
@@ -886,8 +898,52 @@ export interface ThresholdRegistry {
   history: ThresholdChange[];
 }
 
-/** AI 운영 모드(ADR 0035). 수동이 기본이다 */
-export type AiMode = "MANUAL" | "AUTO";
+/** AI 운영 모드(ADR 0035). 수동이 기본이다. STOPPED는 운영자가 AI 즉시 정지를 누른 상태이고 재개하면 수동이다 */
+export type AiMode = "MANUAL" | "AUTO" | "STOPPED";
+
+export interface AiStop {
+  at: string;
+  by: string;
+}
+
+/** 운영자가 1인 승인으로 바꾸는 AI 한도(ADR 0035). AI는 바꿀 수 없다 */
+export type AiLimitKey = "confidencePct" | "autoCap" | "thresholdPerItem" | "botCooldownMin" | "backupDiskFreePct";
+
+export interface AiLimit {
+  key: AiLimitKey;
+  label: string;
+  desc: string;
+  unit: string;
+  value: number;
+  /** 자동 모드 중에 넓히는 쪽으로 바꾼 값. 이번 자동 모드가 끝나면 적용된다 */
+  pending: number | null;
+  /** 코드에 고정한 하드 범위. 이 밖의 값은 입력 단계에서 막는다 */
+  min: number;
+  max: number;
+  /** 값을 올리면 AI가 할 수 있는 일이 줄어드는가 */
+  tighterWhenHigher: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+/** NOW는 곧바로, NEXT_AUTO는 이번 자동 모드가 끝난 뒤(다음 활성부터) 적용한 변경이다 */
+export type AiLimitApply = "NOW" | "NEXT_AUTO";
+
+export interface AiLimitChange {
+  id: string;
+  key: AiLimitKey;
+  label: string;
+  unit: string;
+  from: number;
+  to: number;
+  at: string;
+  by: string;
+  approvalId: string;
+  reason: string;
+  revertOf: string | null;
+  reverted: boolean;
+  apply: AiLimitApply;
+}
 
 export interface AiAutoGrant {
   since: string;
@@ -908,7 +964,9 @@ export type AiProposalStatus =
   | "AUTO_EXECUTED"
   | "REVERTED"
   | "AUTO_REVERTED"
-  | "WITHDRAWN";
+  | "WITHDRAWN"
+  /** AI 즉시 정지로 만료된 조치안. 승인할 수 없다 */
+  | "EXPIRED";
 
 export interface AiEvidence {
   id: string;
@@ -936,6 +994,8 @@ export interface AiProposal {
   revertibleUntil: string | null;
   /** 자동 모드에서 실행하지 않고 기다리는 이유 */
   autoHold: string | null;
+  /** 처리된 조치안이 실제로 바꾼 것. 되돌린 조치는 되돌린 방향과 이유다. 대기 중이면 null */
+  outcome: string | null;
 }
 
 export interface AiJudgment {
@@ -970,8 +1030,12 @@ export interface AiDesk {
   evidence: AiEvidence[];
   proposals: AiProposal[];
   history: AiJudgment[];
-  autoToday: number;
-  autoDailyCap: number;
+  /** 이번 자동 모드에서 실행한 조치 수와 상한. 자동을 새로 켜면 0부터 센다 */
+  autoUsed: number;
+  autoCap: number;
+  stopped: AiStop | null;
+  limits: AiLimit[];
+  limitHistory: AiLimitChange[];
   cooldowns: AiCooldown[];
   observation: AiObservation | null;
 }

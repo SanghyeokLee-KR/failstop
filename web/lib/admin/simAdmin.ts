@@ -715,6 +715,9 @@ export class SimAdminApi implements AdminApi {
       case "ops.ai.auto":
         this.ops.enableAuto(payload.hours, payload.reason, actorOf(by), approvalId, Date.now());
         break;
+      case "ops.ai.limits":
+        this.ops.setLimit(payload.key, payload.from, payload.to, actorOf(by), approvalId, payload.reason, payload.revertOf, Date.now());
+        break;
     }
   }
 
@@ -811,10 +814,25 @@ export class SimAdminApi implements AdminApi {
   }
 
   stopAiAuto(): Promise<void> {
-    // 끄기는 누구든 언제든 된다. 조치를 멈추는 쪽이라 승인과 역할을 요구하지 않는다(ADR 0035)
+    // 자동 끄기와 AI 정지는 누구든 언제든 된다. 조치를 멈추는 쪽이라 승인과 역할을 요구하지 않는다(ADR 0035)
     const s = this.auth("VIEW");
     this.ops.stopAuto(actorOf(s), Date.now());
-    this.log(s, "ops.ai.stop", "AI 자동 모드", null, "OK");
+    this.log(s, "ops.ai.manual", "AI 자동 모드", null, "OK");
+    return Promise.resolve();
+  }
+
+  stopAi(): Promise<void> {
+    const s = this.auth("VIEW");
+    this.ops.stopAi(actorOf(s), Date.now());
+    this.log(s, "ops.ai.stop", "AI 운영", null, "OK");
+    return Promise.resolve();
+  }
+
+  resumeAi(reason: string): Promise<void> {
+    // 재개는 AI가 다시 조치안을 내게 하는 쪽이라 조치안 승인과 같은 SUPER로 둔다
+    const s = this.auth("SUPER");
+    this.ops.resumeAi(reason, actorOf(s), Date.now());
+    this.log(s, "ops.ai.resume", `AI 운영 · 사유 ${reason.trim()}`, null, "OK");
     return Promise.resolve();
   }
 

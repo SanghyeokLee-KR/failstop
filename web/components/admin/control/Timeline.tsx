@@ -71,7 +71,7 @@ export function EventRow({ e, showIncident }: { e: IncidentEvent; showIncident?:
       <span className={`${styles.eventTime} num`}>{hms(e.at)}</span>
       <span className={styles.actor} data-actor={e.actor} title={e.actorName}>
         {e.actor === "AI" && <AiMark size={11} />}
-        {e.actorName}
+        <span className={styles.actorName}>{e.actorName}</span>
       </span>
       <span className={styles.eventText} data-kind={e.kind}>
         {e.text}

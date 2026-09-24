@@ -3,16 +3,17 @@
 /**
  * AI 관제 패널(§12-9). 관제센터의 주인공이다.
  *
- * 지금 상황, 근거, 원인 가설과 확신도, 권장 조치, 판단 이력 순서로 읽힌다. 조치 카드는 허용 목록
- * 다섯 종에서만 나오고 금지 목록 조치는 어휘에 없어 카드가 될 수 없다(ADR 0035). 승인 버튼은
- * 운영자의 결정이라 AI 색이 아니라 브랜드 approve다. http 원천에서는 판단을 지어내지 않고
- * 'AI 연결 전'만 그린다.
+ * 지금 상황, 근거, 원인 가설과 확신도, 권장 조치, 처리된 조치, 판단 이력 순서로 읽힌다. 조치 카드는
+ * 허용 목록 다섯 종에서만 나오고 금지 목록 조치는 어휘에 없어 카드가 될 수 없다(ADR 0035). 번호는
+ * 대기 중인 조치안에만 붙인다. 처리된 조치는 번호 없이 실제로 바꾼 것을 적어 대기 카드로 읽히지
+ * 않게 한다. 승인 버튼은 운영자의 결정이라 AI 색이 아니라 브랜드 approve다. http 원천에서는 판단을
+ * 지어내지 않고 'AI 연결 전'만 그린다.
  */
 
 import { useState } from "react";
 import Link from "next/link";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
-import { AI_INITIAL } from "@/lib/admin/aiPolicy";
+import { limitsOf } from "@/lib/admin/aiPolicy";
 import { useOpsFocus } from "@/lib/admin/opsCenter";
 import { useCan } from "@/lib/admin/store";
 import type { AiDecision, AiDesk, AiProposal, ControlCenter } from "@/lib/admin/types";
@@ -64,7 +65,7 @@ function Decided({ p, now }: { p: AiProposal; now: number }) {
     case "AUTO_REVERTED":
       return (
         <span className={styles.decided} data-tone="warning">
-          <span aria-hidden="true">▲</span> 자동 되돌림 · 수동 모드로 전환 · {when}
+          <span aria-hidden="true">▲</span> 자동 되돌림 · {when}
         </span>
       );
     case "REVERTED":
@@ -79,16 +80,80 @@ function Decided({ p, now }: { p: AiProposal; now: number }) {
           <span aria-hidden="true">○</span> 상황이 바뀌어 거둠 · {when}
         </span>
       );
+    case "EXPIRED":
+      return (
+        <span className={styles.decided}>
+          <span aria-hidden="true">○</span> AI 정지로 만료 · {who} {when}
+        </span>
+      );
     case "PROPOSED":
       return null;
   }
 }
 
-function ProposalCard({ p, index, mode, now, onChanged }: {
+/** 처리된 조치. 번호와 예상 영향 대신 실제로 바꾼 것(결과)을 적는다 */
+function DoneCard({ p, now, onChanged }: { p: AiProposal; now: number; onChanged: () => void }) {
+  const canSuper = useCan("SUPER");
+  const [busy, setBusy] = useState(false);
+  const revert = async () => {
+    setBusy(true);
+    try {
+      await getAdminApi().revertAiAction(p.id);
+      toast("자동 조치 되돌림", "info");
+      onChanged();
+    } catch (e) {
+      toast(e instanceof AdminError ? e.message : "되돌리기 실패", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const revertible = p.status === "AUTO_EXECUTED" && p.revertibleUntil !== null && Date.parse(p.revertibleUntil) > now && p.kind !== "BACKUP_NOW";
+  return (
+    <article className={styles.card} data-status={p.status} aria-label={`처리된 조치. ${p.title}`}>
+      <div className={styles.cardTop}>
+        <span className={styles.cardTitle}>{p.title}</span>
+        <span className={styles.doneTag}>처리됨</span>
+      </div>
+      <dl className={styles.cardRows}>
+        <dt>대상</dt>
+        <dd>{p.target}</dd>
+        {p.outcome && (
+          <>
+            <dt>결과</dt>
+            <dd>{p.outcome}</dd>
+          </>
+        )}
+        {revertible && (
+          <>
+            <dt>되돌리기</dt>
+            <dd>{p.revertPlan}</dd>
+          </>
+        )}
+      </dl>
+      <div className={styles.cardFoot}>
+        {p.status === "EXPIRED" && (
+          <button type="button" className={adminStyles.approveBtn} disabled title="AI 정지로 만료되었습니다. 재개 뒤 새 판단을 기다립니다">
+            승인하고 실행
+          </button>
+        )}
+        <Decided p={p} now={now} />
+        {revertible && (
+          <>
+            <span className={styles.spacer} />
+            <button type="button" className={adminStyles.neutralBtn} disabled={!canSuper || busy} onClick={() => void revert()}>
+              되돌리기
+            </button>
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function ProposalCard({ p, index, mode, onChanged }: {
   p: AiProposal;
   index: number;
   mode: AiDesk["mode"];
-  now: number;
   onChanged: () => void;
 }) {
   const canSuper = useCan("SUPER");
@@ -107,19 +172,6 @@ function ProposalCard({ p, index, mode, now, onChanged }: {
       setBusy(false);
     }
   };
-  const revert = async () => {
-    setBusy(true);
-    try {
-      await getAdminApi().revertAiAction(p.id);
-      toast("자동 조치 되돌림", "info");
-      onChanged();
-    } catch (e) {
-      toast(e instanceof AdminError ? e.message : "되돌리기 실패", "error");
-    } finally {
-      setBusy(false);
-    }
-  };
-  const revertible = p.status === "AUTO_EXECUTED" && p.revertibleUntil !== null && Date.parse(p.revertibleUntil) > now && p.kind !== "BACKUP_NOW";
   return (
     <article className={styles.card} data-status={p.status} aria-label={`조치안 ${index}. ${p.title}`}>
       <div className={styles.cardTop}>
@@ -145,38 +197,22 @@ function ProposalCard({ p, index, mode, now, onChanged }: {
         <dd>{p.revertPlan}</dd>
       </dl>
       <div className={styles.cardFoot}>
-        {p.status === "PROPOSED" ? (
-          <>
-            <button
-              type="button"
-              className={adminStyles.approveBtn}
-              disabled={!canSuper || busy}
-              title={canSuper ? undefined : "총괄 권한 필요"}
-              onClick={() => setConfirm(true)}
-            >
-              승인하고 실행
-            </button>
-            <button type="button" className={adminStyles.neutralBtn} disabled={busy} onClick={() => void decide("REJECT")}>
-              거절
-            </button>
-            <button type="button" className={adminStyles.neutralBtn} disabled={busy} onClick={() => void decide("DEFER")}>
-              나중에
-            </button>
-            {mode === "AUTO" && p.autoHold && <span className={styles.hold}>자동 대기 · {p.autoHold}</span>}
-          </>
-        ) : (
-          <>
-            <Decided p={p} now={now} />
-            {revertible && (
-              <>
-                <span className={styles.spacer} />
-                <button type="button" className={adminStyles.neutralBtn} disabled={!canSuper || busy} onClick={() => void revert()}>
-                  되돌리기
-                </button>
-              </>
-            )}
-          </>
-        )}
+        <button
+          type="button"
+          className={adminStyles.approveBtn}
+          disabled={!canSuper || busy}
+          title={canSuper ? undefined : "총괄 권한 필요"}
+          onClick={() => setConfirm(true)}
+        >
+          승인하고 실행
+        </button>
+        <button type="button" className={adminStyles.neutralBtn} disabled={busy} onClick={() => void decide("REJECT")}>
+          거절
+        </button>
+        <button type="button" className={adminStyles.neutralBtn} disabled={busy} onClick={() => void decide("DEFER")}>
+          나중에
+        </button>
+        {mode === "AUTO" && p.autoHold && <span className={styles.hold}>자동 대기 · {p.autoHold}</span>}
       </div>
       {confirm && (
         <ConfirmDialog
@@ -203,7 +239,7 @@ function ProposalCard({ p, index, mode, now, onChanged }: {
   );
 }
 
-function Confidence({ pct }: { pct: number }) {
+function Confidence({ pct, bar }: { pct: number; bar: number }) {
   const word = pct >= 85 ? "높음" : pct >= 70 ? "보통" : "낮음";
   return (
     <div className={styles.confidence}>
@@ -213,9 +249,9 @@ function Confidence({ pct }: { pct: number }) {
       </span>
       <span className={styles.confTrack} aria-hidden="true">
         <span className={styles.confFill} style={{ width: `${pct}%` }} />
-        <span className={styles.confMark} style={{ left: `${AI_INITIAL.confidencePct}%` }} />
+        <span className={styles.confMark} style={{ left: `${bar}%` }} />
       </span>
-      <span className={styles.confNote}>눈금 {AI_INITIAL.confidencePct}%는 자동 실행 기준</span>
+      <span className={styles.confNote}>눈금 {bar}%는 자동 실행 기준</span>
     </div>
   );
 }
@@ -250,8 +286,10 @@ export default function AiPanel({ center, now, onChanged, full = false }: {
   const ai = section?.state === "READY" ? section.data : null;
   const open = ai ? ai.proposals.filter((p) => p.status === "PROPOSED") : [];
   const others = ai ? ai.proposals.filter((p) => p.status !== "PROPOSED") : [];
-  const shown = full ? [...open, ...others] : [...open, ...others.slice(0, Math.max(1, 3 - open.length))];
+  const done = full ? others : others.slice(0, Math.max(1, 3 - open.length));
   const history = ai ? (full ? ai.history : ai.history.slice(0, 4)) : [];
+  const limits = limitsOf(ai?.limits);
+  const stopped = ai?.mode === "STOPPED";
 
   return (
     <section className={styles.ai} aria-labelledby="ai-title" aria-busy={ai?.thinking || undefined}>
@@ -261,10 +299,18 @@ export default function AiPanel({ center, now, onChanged, full = false }: {
           AI 관제
         </h2>
         {sim && <span className={styles.simTag}>시뮬레이션</span>}
-        {ai && <span className={styles.modeTag} data-mode={ai.mode}>{ai.mode === "AUTO" ? "자동 모드" : "수동 모드"}</span>}
+        {ai && (
+          <span className={styles.modeTag} data-mode={ai.mode}>
+            {ai.mode === "AUTO" ? "자동 모드" : ai.mode === "STOPPED" ? <><span aria-hidden="true">▲ </span>AI 정지</> : "수동 모드"}
+          </span>
+        )}
         <span className={styles.aiStatus}>
           {ai === null ? (
             section === null ? "불러오는 중" : "연결 전"
+          ) : stopped ? (
+            <>
+              판단 멈춤{ai.stopped && <> · 정지 <b className="num">{hms(ai.stopped.at)}</b></>}
+            </>
           ) : ai.thinking ? (
             <>
               <span className={styles.dots} aria-hidden="true">
@@ -322,7 +368,7 @@ export default function AiPanel({ center, now, onChanged, full = false }: {
                   <span className={styles.aiKicker}>원인 가설</span>
                   <p className={styles.hypoText}>{ai.hypothesis}</p>
                 </div>
-                {ai.confidencePct !== null && <Confidence pct={ai.confidencePct} />}
+                {ai.confidencePct !== null && <Confidence pct={ai.confidencePct} bar={limits.confidencePct} />}
               </div>
             )}
             <div>
@@ -335,16 +381,28 @@ export default function AiPanel({ center, now, onChanged, full = false }: {
                 )}
               </div>
               <div className={styles.proposals} style={{ marginTop: "var(--space-2)" }}>
-                {shown.length === 0 ? (
+                {open.length === 0 ? (
                   <div className={styles.empty}>
                     <span className={styles.emptyMark} aria-hidden="true" />
-                    조치안 없음 · 허용 목록에 맞는 조치가 필요할 때만 낸다
+                    {stopped ? "AI 정지 중 · 재개하면 다시 판단합니다" : "조치안 없음 · 허용 목록에 맞는 조치가 필요할 때만 낸다"}
                   </div>
                 ) : (
-                  shown.map((p, i) => <ProposalCard key={p.id} p={p} index={i + 1} mode={ai.mode} now={now} onChanged={onChanged} />)
+                  open.map((p, i) => <ProposalCard key={p.id} p={p} index={i + 1} mode={ai.mode} onChanged={onChanged} />)
                 )}
               </div>
             </div>
+            {done.length > 0 && (
+              <div>
+                <div className={styles.subHead}>
+                  처리된 조치 <span className={`${styles.count} num`}>{others.length}</span>건
+                </div>
+                <div className={styles.proposals} style={{ marginTop: "var(--space-2)" }}>
+                  {done.map((p) => (
+                    <DoneCard key={p.id} p={p} now={now} onChanged={onChanged} />
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <div className={styles.subHead}>판단 이력</div>
               <ol className={styles.historyList} style={{ marginTop: "var(--space-1)" }}>
@@ -380,7 +438,7 @@ export default function AiPanel({ center, now, onChanged, full = false }: {
               <span className={styles.guardText}>
                 AI는 허용 목록 안의 조치만 제안하고, 자동 모드에서만 한도 안에서 실행한다. DB 승격, 데이터 삭제, 보안 설정, 재시작은 어느 모드에서도 하지 않는다.
               </span>
-              <RulesDisclosure label="목록" up />
+              <RulesDisclosure label="목록" up limits={limits} />
             </div>
           </footer>
         </>
