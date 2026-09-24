@@ -36,7 +36,7 @@ export default function AiPage() {
   const audit = useAdminResource(loadAudit, { cadence: "idle", isSessionError });
   const reloadAudit = audit.reload;
   const onChanged = useCallback(() => {
-    void refresh();
+    void refresh(true);
     reloadAudit();
   }, [refresh, reloadAudit]);
   const ai = data?.ai.state === "READY" ? data.ai.data : null;
@@ -49,16 +49,15 @@ export default function AiPage() {
         title="AI 판단"
         desc="AI가 무엇을 보고 무엇을 제안했는지, 누가 승인했는지 남깁니다. 규칙은 ADR 0035"
         center={data}
-        now={now}
       />
       {data === null ? (
         loading ? <Skeleton variant="card" width="100%" height={520} /> : <AdminErrorState onRetry={() => void refresh()} />
       ) : (
         <>
-          <ModeBar center={data} onChanged={onChanged} />
+          <ModeBar section={data.ai} onChanged={onChanged} />
           <div className={styles.split} data-ratio="wide">
             <div className={styles.aiTall}>
-              <AiPanel center={data} now={now} onChanged={onChanged} full />
+              <AiPanel section={data.ai} sim={data.origin === "SIM"} onChanged={onChanged} full />
             </div>
             <div className={styles.stack}>
               <section className={styles.panel} aria-labelledby="ai-usage">

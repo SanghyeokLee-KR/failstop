@@ -5,16 +5,16 @@
  *
  * 자동 켜기는 사유와 유효 시간을 받은 뒤 1인 승인 티켓을 발급·소각한다. 'AI 즉시 정지'는 두 모드
  * 어디서든 늘 보이고 승인 없이 누구나 누른다. 정지하면 줄이 주의 면으로 바뀌고 'AI 재개'가 선다.
- * 자동인 동안 줄 전체가 AI 강조 면이 되고 남은 시간, 이번 자동 모드의 조치 수, 쿨다운, 관찰 창을
+ * 자동인 동안 줄 테두리만 AI 강조색이 되고 남은 시간, 이번 자동 모드의 조치 수, 쿨다운, 관찰 창을
  * 싣는다. 줄 높이는 모드와 무관하게 같아 아래 판이 움직이지 않는다.
  */
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import Link from "next/link";
 import { getAdminApi, AdminError } from "@/lib/admin/api";
 import { AI_ACTION_LABEL, AI_FORBIDDEN, allowedRules, autoPreconditions, AUTO_HOURS, limitsOf, type AiLimits } from "@/lib/admin/aiPolicy";
 import { useCan } from "@/lib/admin/store";
-import type { AiDesk, ControlCenter } from "@/lib/admin/types";
+import type { AiDesk, OpsSection } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "../ConfirmDialog";
 import adminStyles from "../admin.module.css";
@@ -207,7 +207,9 @@ function ResumeDialog({ onClose, onDone }: { onClose: () => void; onDone: () => 
   );
 }
 
-function AutoItems({ ai, now }: { ai: AiDesk; now: number }) {
+/** 자동 모드의 남은 시간·쿨다운·관찰 창. 매초 바뀌는 숫자라 이 조각만 시계를 탄다 */
+function AutoItems({ ai }: { ai: AiDesk }) {
+  const now = useClock();
   const until = ai.auto ? Date.parse(ai.auto.until) : now;
   const obs = ai.observation;
   const obsTotal = obs ? Date.parse(obs.until) - Date.parse(obs.startedAt) : 1;
@@ -269,12 +271,11 @@ function AutoItems({ ai, now }: { ai: AiDesk; now: number }) {
   );
 }
 
-export default function ModeBar({ center, onChanged }: { center: ControlCenter | null; onChanged: () => void }) {
-  const now = useClock();
+/** AI 칸만 받는다. 모드 줄은 매초 다시 그리지 않고, 자동 모드의 시계 글자만 따로 돈다 */
+function ModeBar({ section, onChanged }: { section: OpsSection<AiDesk> | null; onChanged: () => void }) {
   const canSuper = useCan("SUPER");
   const [dialog, setDialog] = useState<"auto" | "resume" | null>(null);
   const [busy, setBusy] = useState(false);
-  const section = center?.ai ?? null;
   const ai = section?.state === "READY" ? section.data : null;
   const connected = ai !== null;
   const auto = ai?.mode === "AUTO";
@@ -349,7 +350,7 @@ export default function ModeBar({ center, onChanged }: { center: ControlCenter |
           {ai.observation && " · 관찰 창은 끝까지 봄"}
         </span>
       ) : auto ? (
-        <AutoItems ai={ai} now={now} />
+        <AutoItems ai={ai} />
       ) : (
         <span className={styles.modeText}>
           <b>수동</b> · AI는 판단과 조치안까지만 냅니다. 실행은 운영자 승인
@@ -388,3 +389,5 @@ export default function ModeBar({ center, onChanged }: { center: ControlCenter |
     </section>
   );
 }
+
+export default memo(ModeBar);

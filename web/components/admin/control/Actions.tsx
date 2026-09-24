@@ -5,16 +5,23 @@
  * 이어지는 자리라 누가 언제 무엇을 했는지를 싣는다.
  */
 
+import { memo } from "react";
 import Link from "next/link";
-import type { ControlCenter } from "@/lib/admin/types";
+import type { IncidentLog, OpsAlert, OpsJobs, OpsSection } from "@/lib/admin/types";
 import AlertList from "./Alerts";
 import JobsBlock from "./Jobs";
 import { PanelHead, SectionBody } from "./parts";
 import TimelineBlock from "./Timeline";
 import styles from "./control.module.css";
 
-export default function ActionsColumn({ center, now, onChanged }: { center: ControlCenter | null; now: number; onChanged: () => void }) {
-  const firing = center?.alerts.state === "READY" ? center.alerts.data.length : null;
+/** 경보·사건·운영 작업 세 칸만 받는다. 세 칸이 그대로면 판이 매초 새로 와도 다시 그리지 않는다 */
+function ActionsColumn({ alerts, incidents, jobs, onChanged }: {
+  alerts: OpsSection<OpsAlert[]>;
+  incidents: OpsSection<IncidentLog>;
+  jobs: OpsSection<OpsJobs>;
+  onChanged: () => void;
+}) {
+  const firing = alerts.state === "READY" ? alerts.data.length : null;
   return (
     <section className={styles.column} aria-labelledby="col-actions">
       <PanelHead id="col-actions" title="조치와 기록" actions={<Link href="/admin/incidents" className={styles.stripLink}>경보·사건</Link>} />
@@ -23,32 +30,29 @@ export default function ActionsColumn({ center, now, onChanged }: { center: Cont
           <div className={styles.subHead}>
             활성 경보 {firing !== null && <span className={`${styles.count} num`}>{firing}</span>}
           </div>
-          {center && (
-            <SectionBody section={center.alerts} what="경보" compact>
-              {(alerts) => <AlertList alerts={alerts} now={now} onChanged={onChanged} />}
-            </SectionBody>
-          )}
+          <SectionBody section={alerts} what="경보" compact>
+            {(list) => <AlertList alerts={list} onChanged={onChanged} />}
+          </SectionBody>
           <div className={styles.divider} />
-          {center &&
-            (center.incidents.state === "READY" ? (
-              <TimelineBlock log={center.incidents.data} now={now} />
-            ) : (
-              <>
-                <div className={styles.subHead}>사건 타임라인</div>
-                <SectionBody section={center.incidents} what="사건 기록" compact>
-                  {() => null}
-                </SectionBody>
-              </>
-            ))}
+          {incidents.state === "READY" ? (
+            <TimelineBlock log={incidents.data} />
+          ) : (
+            <>
+              <div className={styles.subHead}>사건 타임라인</div>
+              <SectionBody section={incidents} what="사건 기록" compact>
+                {() => null}
+              </SectionBody>
+            </>
+          )}
           <div className={styles.divider} />
           <div className={styles.subHead}>운영 작업</div>
-          {center && (
-            <SectionBody section={center.jobs} what="운영 작업" compact>
-              {(jobs) => <JobsBlock jobs={jobs} now={now} onChanged={onChanged} />}
-            </SectionBody>
-          )}
+          <SectionBody section={jobs} what="운영 작업" compact>
+            {(j) => <JobsBlock jobs={j} onChanged={onChanged} />}
+          </SectionBody>
         </div>
       </div>
     </section>
   );
 }
+
+export default memo(ActionsColumn);

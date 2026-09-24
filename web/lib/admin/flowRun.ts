@@ -13,6 +13,7 @@
 
 import { useEffect } from "react";
 import { create } from "zustand";
+import { onBeat } from "./ticker";
 import {
   createFlow,
   startScenario,
@@ -25,8 +26,6 @@ import {
 
 /** 표본 보관 상한. 차트 창은 150초라 넉넉히 10분을 둔다. 한 번의 따라잡기도 이만큼까지만 밟는다 */
 export const MAX_SAMPLES = 600;
-/** 따라잡기 폴링 주기. 1초로 걸면 발화 시각이 초 경계 양쪽으로 흔들려 한 번 건너뛰고 둘을 몰아 싣는다 */
-const POLL_MS = 250;
 
 interface FlowRun {
   /** 초기화마다 바뀐다. 차트를 새로 만드는 열쇠다 */
@@ -90,14 +89,16 @@ export const useFlowRun = create<FlowRun>((set, get) => ({
   },
 }));
 
-/** 주행 시계. 재생을 보여 주는 화면이 하나씩 건다. 멈춘 동안에는 타이머를 걸지 않는다 */
+/**
+ * 주행 시계. 재생을 보여 주는 화면이 하나씩 건다. 멈춘 동안에는 박자를 타지 않는다. 콘솔 공용 박자는
+ * 초 경계 바로 뒤에 뛰므로 한 박자에 한 틱씩 밟고, 탭이 숨은 동안 밀린 틱은 돌아와 한 번에 밟는다
+ */
 export function useFlowClock(): void {
   const paused = useFlowRun((r) => r.paused);
   useEffect(() => {
     if (paused) return;
     const advance = useFlowRun.getState().advance;
     advance();
-    const id = window.setInterval(advance, POLL_MS);
-    return () => window.clearInterval(id);
+    return onBeat(advance);
   }, [paused]);
 }

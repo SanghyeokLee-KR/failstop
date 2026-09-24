@@ -212,6 +212,11 @@ export interface CapacityNode {
   /** 누적 요청 수. 초당 값은 화면이 두 표본의 차로 낸다 */
   httpRequests: number | null;
   wsClients: number | null;
+  /**
+   * 기동 중(PENDING)이거나 내리는 중(DRAINING)인 조회 노드. sim이 관제 시뮬레이터의 조회 ASG에서 옮겨 온다.
+   * 서버 응답에는 이 축이 없어 비어 있고, 그때 화면은 계약(expected)과 응답(reachable)만으로 읽는다
+   */
+  lifecycle?: "PENDING" | "DRAINING" | null;
 }
 
 export type CapacityAdviceLevel = "ok" | "info" | "warn" | "danger";
@@ -683,7 +688,7 @@ export interface AdminOverview {
 export type OpsOrigin = "SIM" | "LIVE";
 
 /** 배포 환경. 서버 설정이 원천이다(2단계). 모르면 UNKNOWN이고 화면이 짐작하지 않는다 */
-export type OpsEnvironment = "SIMULATOR" | "LOCAL_DOCKER" | "SCHOOL_AWS" | "UNKNOWN";
+export type OpsEnvironment = "SIMULATOR" | "LOCAL_DOCKER" | "SCHOOL_AWS" | "PERSONAL_AWS" | "UNKNOWN";
 
 /** 칸 하나. 원천을 붙이기 전이면 값 대신 붙일 원천의 이름을 싣는다 */
 export type OpsSection<T> = { state: "READY"; data: T } | { state: "NOT_CONNECTED"; source: string };
@@ -755,6 +760,8 @@ export interface AiServer {
   busy: boolean;
   /** 마지막으로 끝낸 판단 요청의 순번. 화면이 요청·응답이 오간 순간을 알아챈다 */
   served: number;
+  /** 마지막으로 판단 요청에 답한 시각. 답한 적이 없으면 null */
+  lastServedAt: string | null;
 }
 
 /** 상태 요약 추세선의 범위(시간) */
@@ -1127,6 +1134,189 @@ export interface ControlCenter {
   trends: OpsSection<OpsTrends>;
   /** sim 시나리오 재생. 재생 중이 아니거나 http면 null */
   scenario: OpsScenarioView | null;
+  /**
+   * 관제 서버가 붙인 원천의 상태(서버 계약 초안의 overview sources). 연동 설정 화면이 읽는다.
+   * 관리 API에 관제 모듈이 없어 모르면 null이다
+   */
+  sources: OpsSourceState[] | null;
 }
 
 export type AiDecision = "APPROVE" | "REJECT" | "DEFER";
+
+/** 담당자와 연락 체계 한 줄. 역할 이름은 보고 서비스의 권고 담당 역할과 같다(intervention.py) */
+export interface OnCallEntry {
+  role: string;
+  person: string;
+  operatorId: string | null;
+  /** 연락 경로 */
+  channel: string;
+  /** 대응 시간 */
+  hours: string;
+}
+
+/** 관제 서버가 부르는 원천. teams는 관제 서버의 통지기이고, 일일·사건 보고의 Teams 전송은 보고 서비스가 한다 */
+export type OpsSourceName = "prometheus" | "alertmanager" | "databasus" | "llm" | "teams";
+
+/** READY는 붙어서 읽힘, NOT_CONNECTED는 설정 없음, UNAVAILABLE은 설정은 있으나 마지막 확인이 실패했다는 뜻이다 */
+export interface OpsSourceState {
+  name: OpsSourceName;
+  state: "READY" | "NOT_CONNECTED" | "UNAVAILABLE";
+  /** 마지막으로 성공한 확인 시각. 모르면 null */
+  checkedAt: string | null;
+  /** 실패 분류 코드(timeout, unreachable 등). READY면 null */
+  reason: string | null;
+}
+
+/* ===== AI 상담(관리자 설계 4-6) =====
+ * 운영자가 대화로 지금 상태를 묻는 칸이다. 조회만 하고 조치를 실행하지 않는다. 서버 계약 초안은
+ * POST /admin/v1/msp/ai/chat이고(요청: 질문과 최근 대화, 응답: 답·근거·수집 시각·모델·상태) 연결 전이다. */
+
+/** 질문 길이 상한(글자). 서버 계약 초안과 같고 입력칸이 남은 글자를 보인다 */
+export const CHAT_MAX_CHARS = 500;
+/** 질문과 함께 보내는 최근 대화 수. 운영자·AI가 세 번 주고받은 만큼이다 */
+export const CHAT_RECENT_TURNS = 6;
+
+export type AiChatRole = "operator" | "ai";
+
+export interface AiChatTurn {
+  role: AiChatRole;
+  text: string;
+}
+
+/** OK는 답이 있음, STOPPED는 AI 정지 중이라 답하지 않음, NOT_CONFIGURED는 상담 모델 설정이 없음 */
+export type AiChatState = "OK" | "STOPPED" | "NOT_CONFIGURED";
+
+export type AiChatEvidenceKind = "METRIC" | "ALERT" | "INCIDENT" | "PROPOSAL" | "THRESHOLD" | "HOST";
+
+/** 답이 근거로 든 항목. id는 관제 판의 항목을 가리키고(예: alert:{id}), 값은 답을 낸 순간의 값이다 */
+export interface AiChatEvidence {
+  id: string;
+  kind: AiChatEvidenceKind;
+  label: string;
+  value: string;
+  /** 경보 근거면 그 경보의 심각도 */
+  severity: AlertSeverity | null;
+}
+
+export interface AiChatReply {
+  state: AiChatState;
+  /** 합니다체 답. state가 OK가 아니면 빈 문자열이다 */
+  answer: string;
+  evidence: AiChatEvidence[];
+  /** 근거를 모은 시각 */
+  collectedAt: string | null;
+  /** 답을 낸 모델. sim은 모델이 아니라 규칙이라 그렇게 적는다 */
+  model: string | null;
+  /** 실행을 요청한 질문이라 실행하지 않고 조치 카드·승인 절차로 안내한 답인가 */
+  declined: boolean;
+  /** 답이 가리키는 절차. 화면은 이 값으로 그 절차가 있는 화면 링크만 보이고 실행 단추는 두지 않는다 */
+  guide: AiChatGuide | null;
+}
+
+/**
+ * 답이 안내하는 운영 절차. 조회 노드 증감, 임계값 변경, AI 모드, 경보 보류, 백업 즉시 실행, 대기 조치안의
+ * 승인, 금지 목록(AI가 어느 모드에서도 하지 않는 일)이다
+ */
+export type AiChatGuide = "READ_NODES" | "THRESHOLD" | "MODE" | "SILENCE" | "BACKUP" | "PROPOSAL" | "FORBIDDEN";
+
+/* ===== 운영 보고(관리자 설계 4-7) =====
+ * bot-1 보고 서비스(deploy/reporting)가 만든 일일·사건 보고와 Teams 전송 기록이다. 관제 콘솔은 읽기만
+ * 한다. 표시 모델은 보고 서비스의 공통 표시 모델(presentation.py build_brief)과 개입 판정(intervention.py)의
+ * 필드를 그대로 옮긴 것이다. 서버 계약 초안은 보고 서비스 읽기 프록시(GET /admin/v1/msp/reports)이고
+ * 연결 전이다. */
+
+export type ReportKind = "daily" | "incident";
+
+/** 보고 서비스의 작업 상태(reporter.py jobs.status). sent는 웹훅이 접수했다는 뜻이고 채널 게시의 증거가 아니다 */
+export type ReportJobStatus = "pending" | "processing" | "queued" | "sending" | "sent" | "dead";
+
+/** 개입 판정(intervention.py). P1 즉시 대응, P2 담당자 조치, P3 담당자 확인, P4 관찰 유지 */
+export type InterventionCode = "immediate" | "scheduled" | "verify" | "monitor";
+
+export interface ReportAction {
+  priority: string;
+  owner: string;
+  timing: string;
+  task: string;
+  doneWhen: string;
+}
+
+export interface ReportMetric {
+  label: string;
+  value: string;
+  detail: string;
+  /** observed 관측, attention 기준 초과, unknown 확인 필요(자료 없음·오래됨) */
+  status: "observed" | "attention" | "unknown";
+}
+
+export interface ReportEvent {
+  name: string;
+  /** 진행, 해제, 확인 필요 */
+  statusLabel: string;
+  target: string;
+  startedAt: string;
+  endedAt: string | null;
+}
+
+/** 보고 한 건의 전송 시도(reporter.py job_attempts) */
+export interface ReportAttempt {
+  attempt: number;
+  at: string;
+  status: "sent" | "queued" | "dead";
+  /** 정제한 오류 코드(http_429 등). 성공이면 null */
+  error: string | null;
+}
+
+export interface OpsReport {
+  id: string;
+  kind: ReportKind;
+  createdAt: string;
+  sentAt: string | null;
+  status: ReportJobStatus;
+  title: string;
+  /** 사건 전환(presentation.py status.code). 일일 보고는 unknown이나 mixed일 수 있다 */
+  transition: "firing" | "resolved" | "mixed" | "unknown";
+  intervention: { code: InterventionCode; priority: string; label: string; reason: string };
+  customer: string;
+  environment: string;
+  /** 보고 기준 시각(근거 수집 시각) */
+  collectedAt: string;
+  windowStart: string;
+  windowEnd: string;
+  lead: string;
+  impact: string;
+  currentState: string;
+  events: ReportEvent[];
+  actions: ReportAction[];
+  /** 후속 관측. 카드는 이 가운데 확인 필요가 아닌 넷을 싣는다 */
+  metrics: ReportMetric[];
+  analysis: {
+    /** facts-only는 AI 없이 수집 근거로만 판정, 그 밖은 AI 참고 분석이 붙은 보고다 */
+    mode: "facts-only" | "mock" | "gemini" | "remote";
+    note: string;
+    /** AI 요약. 없으면 빈 문자열이다 */
+    summary: string;
+    model: string | null;
+  };
+  /** 미확인 자료 */
+  gaps: string[];
+  /** 자동 조치 여부. 보고 서비스는 조치하지 않고, AI 자동 모드가 한 일은 그 사실을 적는다 */
+  autoAction: string;
+  /** PDF·HTML 보고서의 서명 주소. 파일이 없거나 서명할 수 없으면 null이다 */
+  links: { pdf: string | null; html: string | null };
+  attempts: ReportAttempt[];
+}
+
+export interface ReportDesk {
+  reports: OpsReport[];
+  delivery: {
+    lastDailySentAt: string | null;
+    /** 아직 보내지 않은 작업 수(pending·processing·queued·sending) */
+    pending: number;
+    /** 다시 보내지 않는 실패 수 */
+    dead: number;
+    nextDailyAt: string | null;
+  };
+  /** Teams 연결 시험(운영 자료를 싣지 않는 모의 전송) 기록. 최신이 앞이다 */
+  tests: ReportAttempt[];
+}

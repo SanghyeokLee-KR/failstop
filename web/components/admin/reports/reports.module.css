@@ -1,0 +1,716 @@
+/* ============================================================================
+   reports.module.css. 보고서 화면(관리자 설계 4-7). 목록과 상세, 'Teams로 보낸 카드' 미리보기.
+   카드와 패널은 1px 헤어라인으로 가르고 그림자를 쓰지 않는다(§12-10). 모든 값은 tokens.css 소비.
+   ========================================================================== */
+
+/* 전송 요약 네 칸. AI 판단 요약과 같은 문법으로 한 헤어라인 상자 안에 세로 헤어라인으로 가른다 */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+}
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+}
+.cell + .cell {
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+}
+.cellKey {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.cellValue {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.cellValue small {
+  margin-left: 2px;
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+.cellSub {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+
+/* 보고 문장은 한국어라 낱말 안에서 줄을 바꾸지 않는다. 기록 id처럼 긴 영문 토막만 어디서든 끊는다 */
+.layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+/* ===== 목록 ===== */
+.listPanel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+  overflow: hidden;
+}
+.listHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: 0 var(--space-3) 0 var(--space-4);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+.listTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.list {
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  column-gap: var(--space-3);
+  row-gap: 2px;
+  align-items: baseline;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+}
+.row + .row {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+.row:hover {
+  background: var(--surface-hover);
+}
+/* 고른 행. 사이드바 활성 항목과 같은 문법(왼쪽 2px 레일과 sunken 면)이다 */
+.row[aria-current="true"] {
+  background: var(--surface-sunken);
+}
+.row[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  width: 2px;
+  background: var(--chrome-accent);
+}
+.rowShape {
+  grid-row: 1;
+  font-size: 11px;
+  line-height: var(--font-body-sm-line);
+}
+.rowTitle {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.rowPriority {
+  grid-column: 3;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.rowMeta {
+  grid-column: 2 / 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.rowMeta > span + span::before {
+  content: "·";
+  margin-right: var(--space-2);
+  color: var(--text-tertiary);
+}
+/* 고른 행의 sunken 면 위에서 secondary 12px은 라이트에서 4.27:1이라 한 단 올린다(4.5:1 계약) */
+.row[aria-current="true"] .rowMeta {
+  color: var(--text-default);
+}
+
+/* 상태 형태. 색만으로 알리지 않고 늘 글자와 함께 둔다(§12-3) */
+.shape[data-tone="success"] {
+  color: var(--color-success);
+}
+.shape[data-tone="warning"] {
+  color: var(--color-warning);
+}
+.shape[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.shape[data-tone="off"] {
+  color: var(--text-secondary);
+}
+.toneText[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.toneText[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.toneText[data-tone="success"] {
+  color: var(--color-success-text);
+}
+
+/* ===== 상세 ===== */
+/* 컨테이너 쿼리는 컨테이너 자신이 아니라 안쪽만 바꾸므로 폭을 재는 틀과 격자를 가른다 */
+.detailWrap {
+  container-type: inline-size;
+  min-width: 0;
+}
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+.aside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-content: start;
+}
+@container (min-width: 720px) {
+  .aside {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
+  }
+}
+@container (min-width: 1080px) {
+  .detail {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+  .aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+}
+.bodyHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+}
+.eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.kindTag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.reportTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-title-2-size);
+  line-height: var(--font-title-2-line);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.reportTitle .shape {
+  font-size: 14px;
+}
+.decision {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+}
+.decision b {
+  font-weight: var(--fw-semibold);
+}
+.decisionReason {
+  color: var(--text-default);
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-3) var(--space-3) var(--space-3) 0;
+}
+.fact + .fact {
+  padding-left: var(--space-3);
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+}
+.fact dt {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.fact dd {
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+@container (max-width: 640px) {
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .fact:nth-child(3) {
+    padding-left: 0;
+    box-shadow: inset 0 1px 0 var(--border-subtle);
+  }
+  .fact:nth-child(4) {
+    box-shadow: inset 1px 0 0 var(--border-subtle), inset 0 1px 0 var(--border-subtle);
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+.section + .section {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.sectionMeta {
+  font-weight: var(--fw-regular);
+  color: var(--text-secondary);
+}
+.lead {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.prose {
+  font-size: var(--font-body-sm-size);
+  line-height: 22px;
+  color: var(--text-default);
+  word-break: keep-all;
+}
+.kv {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+}
+.kv dt {
+  color: var(--text-secondary);
+}
+.kv dd {
+  color: var(--text-default);
+}
+
+/* 사건 경과. 발생과 해제를 시각 순서로 한 줄씩 */
+.events {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+}
+.event {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+.eventState {
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.eventName {
+  min-width: 0;
+  color: var(--text-strong);
+}
+.eventName small {
+  display: block;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.eventTime {
+  font-size: var(--font-dense-size);
+  color: var(--text-default);
+  text-align: right;
+}
+
+/* 담당자 조치. 보고 서비스 조치표의 열(순위, 담당·착수, 할 일, 완료 조건)을 그대로 쓴다 */
+.actions {
+  display: flex;
+  flex-direction: column;
+}
+.action {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 0.8fr) minmax(0, 1.2fr) minmax(0, 1.2fr);
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  font-size: var(--font-caption-size);
+  line-height: 19px;
+}
+.action + .action {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+.actionHead {
+  padding: 0 0 var(--space-1);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.priority {
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.owner b {
+  display: block;
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.owner span {
+  color: var(--text-secondary);
+}
+.task {
+  color: var(--text-strong);
+}
+.done {
+  color: var(--text-default);
+}
+@container (max-width: 640px) {
+  .action {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+  .action > :nth-child(n + 3) {
+    grid-column: 2;
+  }
+  .actionHead {
+    display: none;
+  }
+}
+
+/* 후속 관측. 칸마다 이름, 값(수치), 설명이고 확인 필요 칸은 ◌와 점선으로 가른다 */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@container (max-width: 640px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--control-radius);
+}
+.metric[data-status="attention"] {
+  border-color: var(--color-warning);
+}
+.metric[data-status="unknown"] {
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+.metricKey {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.metricValue {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.metricDetail {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* 참고 분석. AI 요약이면 AI 표지와 모델 이름을 머리에 적어 사람이 쓴 판정과 가른다 */
+.aiMark {
+  display: inline-flex;
+  color: var(--ai-accent);
+}
+.modelTag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--ai-accent);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-semibold);
+  color: var(--ai-accent-text);
+}
+.note {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.foot b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.gaps summary {
+  cursor: pointer;
+  color: var(--text-default);
+}
+.gaps ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  color: var(--text-secondary);
+}
+.files {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.filesNote {
+  font-size: var(--font-dense-size);
+  color: var(--text-secondary);
+}
+
+/* ===== Teams로 보낸 카드 ===== */
+.panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+}
+.panelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+.panelTitle {
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.panelMeta {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+/* 대화 화면처럼 한 단 가라앉은 바탕 위에 카드를 올려 '보낸 것'임을 읽힌다. 모양은 이 콘솔의 판면이다 */
+.canvas {
+  padding: var(--space-4);
+  background: var(--surface-sunken);
+  border-radius: 0 0 var(--panel-radius) var(--panel-radius);
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-4) var(--space-4) var(--space-4) calc(var(--space-4) + 2px);
+  border: 1px solid var(--border-default);
+  border-radius: var(--control-radius);
+  background: var(--surface-default);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+/* 카드의 색 표지는 조치 카드와 같은 안쪽 왼쪽 2px 선이다. 제목 색과 형태 기호가 같은 뜻을 함께 싣는다 */
+.card[data-tone="attention"] {
+  box-shadow: inset 2px 0 0 var(--color-danger);
+}
+.card[data-tone="warning"] {
+  box-shadow: inset 2px 0 0 var(--color-warning);
+}
+.card[data-tone="good"] {
+  box-shadow: inset 2px 0 0 var(--color-success);
+}
+.cardText[data-size="small"] {
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+}
+.cardText[data-size="large"] {
+  font-size: var(--font-body-lg-size);
+  line-height: 24px;
+}
+.cardText[data-bolder] {
+  font-weight: var(--fw-bold);
+  color: var(--text-strong);
+}
+.cardText[data-subtle] {
+  color: var(--text-secondary);
+}
+.cardText[data-tone="attention"] {
+  color: var(--color-danger);
+}
+.cardText[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.cardText[data-tone="good"] {
+  color: var(--color-success-text);
+}
+.cardSep {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+.cardFacts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px var(--space-3);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+}
+.cardFacts dt {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.cardFacts dd {
+  color: var(--text-default);
+  overflow-wrap: anywhere;
+}
+.cardActions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.cardButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-dense-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.cardNoFiles {
+  margin-top: var(--space-2);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+/* ===== 전송 기록 ===== */
+.attempts {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+.attempt {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+}
+.attempt + .attempt {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+.attemptNo {
+  font-size: var(--font-dense-size);
+  color: var(--text-secondary);
+}
+.attemptWord b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.attemptWord small {
+  display: block;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+.attemptTime {
+  font-size: var(--font-dense-size);
+  color: var(--text-default);
+}
+.attemptsNote {
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}

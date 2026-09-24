@@ -41,6 +41,7 @@ import type {
   OpsRef,
   OpsScenarioId,
   OpsSlo,
+  OpsSourceName,
   OpsThreshold,
   ReadNode,
   ReadNodeState,
@@ -137,6 +138,8 @@ const AI_MEM_TOTAL_GB = 128;
 const AI_MEM_RESIDENT_GB = 38.4;
 /** 추론 지연 표본을 몇 개까지 두고 p50·p95를 셀지 */
 const AI_LATENCY_KEEP = 20;
+
+const SOURCE_NAMES: OpsSourceName[] = ["prometheus", "alertmanager", "databasus", "llm", "teams"];
 
 export const OPS_SCENARIO_TITLE: Record<OpsScenarioId, string> = {
   READ_SURGE: "조회 급증 대응",
@@ -349,6 +352,7 @@ export class OpsSim {
   /** ai-1에 판단 요청이 걸려 있는가. 판단 직전 '판단 중' 두 틱 동안 걸린다 */
   private aiBusy = false;
   private aiServed = 0;
+  private aiServedAt: number | null = null;
   private aiLatency: number[] = [];
 
   constructor(now: number, audit: OpsAudit = () => {}) {
@@ -474,6 +478,7 @@ export class OpsSim {
   private trackAiServer(): void {
     if (this.aiBusy && !this.thinking && this.mode !== "STOPPED") {
       this.aiServed += 1;
+      this.aiServedAt = this.t;
       this.aiLatency = [...this.aiLatency, Math.round(1400 + Math.abs(wobble(this.tick, 11, 1300)))].slice(-AI_LATENCY_KEEP);
     }
     this.aiBusy = this.thinking;
@@ -1507,6 +1512,29 @@ export class OpsSim {
     this.audit(actor, "ops.backup.run", "Databasus exchange", null);
   }
 
+  /**
+   * 운영자가 용량·부하 화면에서 조회 노드 희망 대수를 바꾼다. AI 조치와 같은 희망 대수를 바꾸므로 관제센터와
+   * 용량 화면의 대수가 함께 움직인다. 사람이 이미 정한 대수를 겨냥한 열린 조치안은 거두고, AI 자동 실행이
+   * 곧바로 반대로 되돌리지 않게 조회 노드 쿨다운을 건다. 감사는 어댑터가 capacity.* 로 남긴다
+   */
+  scaleReadNodes(delta: 1 | -1, actor: OpsActorRef, now: number): void {
+    this.advance(now);
+    const before = this.desired;
+    this.setDesired(before + delta);
+    this.cooldowns.set("READ_NODES", now + AI_RULES.readNodesCooldownSec * 1000);
+    let withdrew = false;
+    for (const p of this.proposals) {
+      if (p.status !== "PROPOSED" || p.params.kind !== "READ_NODES") continue;
+      p.status = "WITHDRAWN";
+      p.decidedAt = now;
+      p.decidedBy = actor.name;
+      withdrew = true;
+    }
+    if (withdrew) this.syncSuggestions();
+    this.log(this.openIncident, "ACTED", "OPERATOR", actor.name, `조회 노드 ${delta > 0 ? "+1" : "−1"} (${before} → ${this.desired}대) · 용량·부하 화면`);
+    this.describe(now, this.findings());
+  }
+
   startScenario(id: OpsScenarioId, now: number): void {
     this.advance(now);
     if (this.scenario !== null && now - this.scenario.startedAt < SCENARIO_END_SEC * 1000) {
@@ -1550,6 +1578,7 @@ export class OpsSim {
       link: "OK",
       busy: this.aiBusy,
       served: this.aiServed,
+      lastServedAt: this.aiServedAt === null ? null : isoNow(this.aiServedAt),
     };
     const serving = this.inService();
     const readNodes: ReadNode[] = this.nodes.map((n, i) => ({
@@ -1630,6 +1659,8 @@ export class OpsSim {
         id: this.scenario.id, title: OPS_SCENARIO_TITLE[this.scenario.id], startedAt: isoNow(this.scenario.startedAt),
         elapsedSec: Math.max(0, Math.floor((this.t - this.scenario.startedAt) / 1000)),
       },
+      // 시뮬레이터가 흉내 내는 원천은 모두 붙어 있는 것으로 둔다. 확인 시각은 이 판의 시각이다
+      sources: SOURCE_NAMES.map((name) => ({ name, state: "READY", checkedAt: at, reason: null })),
     };
   }
 }

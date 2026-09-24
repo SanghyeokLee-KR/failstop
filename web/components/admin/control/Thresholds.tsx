@@ -6,9 +6,10 @@
  * 흐름(ApprovalList)으로 이어진다. 되돌리기도 같은 승인을 거친다.
  */
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import Link from "next/link";
-import type { ApprovalPayload, ControlCenter, OpsThreshold, ThresholdChange, ThresholdVia } from "@/lib/admin/types";
+import { useOpsCenter } from "@/lib/admin/opsCenter";
+import type { ApprovalPayload, ControlCenter, OpsSection, OpsThreshold, ThresholdChange, ThresholdRegistry, ThresholdVia } from "@/lib/admin/types";
 import ApprovalList from "../ApprovalList";
 import RequestButton from "../RequestButton";
 import GrafanaLink from "../GrafanaLink";
@@ -166,13 +167,41 @@ function HistoryTable({ history, items, limit }: { history: ThresholdChange[]; i
   );
 }
 
-export default function ThresholdPanel({ center, onChanged, full = false }: {
-  center: ControlCenter | null;
+/** 변경 검토의 영향 문장. 지금 판의 값으로 계산하므로 편집하는 동안 이 조각만 판을 따라 다시 그린다 */
+function Impact({ t, to }: { t: OpsThreshold; to: number }) {
+  const { data } = useOpsCenter();
+  return <>{data ? impactOf(t, to, data) : "영향 계산 중"}</>;
+}
+
+/** 확인 대화상자에 실을 영향 문장. 누를 때 한 번 계산한다 */
+function ImpactRequest({ t, to, onDone }: { t: OpsThreshold; to: number; onDone: () => void }) {
+  const { data } = useOpsCenter();
+  return (
+    <RequestButton
+      action="ops.threshold.set"
+      payload={payloadOf(t, to, "운영자 변경", null)}
+      label="변경 요청"
+      onRequested={onDone}
+      confirm={{
+        title: "임계값 변경 요청",
+        description: data ? impactOf(t, to, data) : undefined,
+        target: `${t.label} ${t.value}${t.unit} → ${to}${t.unit}`,
+        blastRadius: "승인 목록에서 발급·실행 뒤 적용",
+        tone: "warning",
+        confirmLabel: "변경 요청",
+      }}
+    />
+  );
+}
+
+/** 임계값 칸만 받는다. 표는 값이 바뀔 때만 다시 그리고, 편집 중의 영향 문장만 판을 따라 움직인다 */
+function ThresholdPanel({ section, onChanged, full = false }: {
+  /** 판을 받기 전이면 null이다 */
+  section: OpsSection<ThresholdRegistry> | null;
   onChanged: () => void;
   full?: boolean;
 }) {
   const [draft, setDraft] = useState<{ key: OpsThreshold["key"]; value: number } | null>(null);
-  const section = center?.thresholds ?? null;
   const reg = section?.state === "READY" ? section.data : null;
   const editing = reg && draft ? reg.items.find((t) => t.key === draft.key) ?? null : null;
   const dirty = editing !== null && draft !== null && draft.value !== editing.value;
@@ -271,7 +300,7 @@ export default function ThresholdPanel({ center, onChanged, full = false }: {
             </tbody>
           </table>
           <div className={styles.stack} style={{ gap: "var(--space-3)" }}>
-            {editing && draft && dirty && center ? (
+            {editing && draft && dirty ? (
               <div className={styles.review}>
                 <div className={styles.subHead}>변경 검토 · {editing.label}</div>
                 <div className={`${styles.reviewDiff} num`}>
@@ -289,29 +318,14 @@ export default function ThresholdPanel({ center, onChanged, full = false }: {
                   </span>
                 </div>
                 <p className={styles.reviewText}>
-                  <b>영향</b> · {impactOf(editing, draft.value, center)}
+                  <b>영향</b> · <Impact t={editing} to={draft.value} />
                 </p>
                 <p className={styles.reviewText}>
                   <b>적용</b> · 변경 요청 뒤 승인 목록에서 발급하고 실행하면 적용됩니다. 이력에서 되돌릴 수 있습니다.
                 </p>
                 {error && <p className={styles.reviewError}>■ {error}</p>}
                 <div className={styles.reviewActions}>
-                  {error === null && (
-                    <RequestButton
-                      action="ops.threshold.set"
-                      payload={payloadOf(editing, draft.value, "운영자 변경", null)}
-                      label="변경 요청"
-                      onRequested={() => setDraft(null)}
-                      confirm={{
-                        title: "임계값 변경 요청",
-                        description: impactOf(editing, draft.value, center),
-                        target: `${editing.label} ${editing.value}${editing.unit} → ${draft.value}${editing.unit}`,
-                        blastRadius: "승인 목록에서 발급·실행 뒤 적용",
-                        tone: "warning",
-                        confirmLabel: "변경 요청",
-                      }}
-                    />
-                  )}
+                  {error === null && <ImpactRequest t={editing} to={draft.value} onDone={() => setDraft(null)} />}
                   <button type="button" className={styles.smallBtn} onClick={() => setDraft(null)}>
                     취소
                   </button>
@@ -340,3 +354,5 @@ export default function ThresholdPanel({ center, onChanged, full = false }: {
     </section>
   );
 }
+
+export default memo(ThresholdPanel);

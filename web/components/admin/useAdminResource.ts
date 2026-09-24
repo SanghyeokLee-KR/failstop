@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminError } from "@/lib/admin/api";
+import { onBeat } from "@/lib/admin/ticker";
 
 export type ErrorReason = "session" | "server";
 
@@ -118,8 +119,14 @@ export function useAdminResource<T>(loader: () => Promise<T>, options: Options =
   useEffect(() => {
     void run();
     if (!intervalMs) return;
-    const iv = setInterval(() => void run(), intervalMs);
-    return () => clearInterval(iv);
+    // 화면마다 타이머를 두지 않고 콘솔 공용 박자를 탄다. 탭이 숨으면 박자가 멎어 읽지 않고,
+    // 다시 보이면 박자가 곧바로 뛰어 밀린 조회를 한 번 한다
+    let nextAt = Date.now() + intervalMs;
+    return onBeat((now) => {
+      if (now < nextAt) return;
+      nextAt = now + intervalMs;
+      void run();
+    });
   }, [run, intervalMs]);
 
   const reload = useCallback(() => {

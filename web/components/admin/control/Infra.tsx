@@ -21,9 +21,10 @@ import type {
   ThresholdRegistry,
 } from "@/lib/admin/types";
 import { refMatches, useOpsFocus } from "@/lib/admin/opsCenter";
+import { hostState, thresholdOf as th, type NodeState } from "@/lib/admin/opsHealth";
 import GrafanaLink from "../GrafanaLink";
 import { MeterRail } from "../instruments/MeterRail";
-import { ago, GaugeRow, NotConnected, PanelHead, Shape } from "./parts";
+import { Ago, GaugeRow, NotConnected, PanelHead, Shape } from "./parts";
 import styles from "./control.module.css";
 
 /** 카드 둘째 줄의 정체. 서비스와 역할을 적는다 */
@@ -35,42 +36,6 @@ export const HOST_KIND: Record<OpsHostRole, string> = {
 };
 /** bot-1이 시장 봇과 함께 싣는 관측 서비스 */
 const BOT_SERVICES = "Prometheus · Grafana · Alertmanager · 보고";
-
-type Tone = "warning" | "danger" | undefined;
-
-export interface NodeState {
-  tone: "success" | "warning" | "danger" | "off";
-  shape: string;
-  word: string;
-}
-
-function th(reg: ThresholdRegistry | null, key: ThresholdKey): number | null {
-  return reg?.items.find((t) => t.key === key)?.value ?? null;
-}
-
-/** 호스트 한 대의 판정. 게이지 가운데 가장 나쁜 쪽을 따른다 */
-export function hostTone(h: OpsHost, reg: ThresholdRegistry | null): Tone {
-  if (h.collect === "STALE") return "warning";
-  const cpu = th(reg, "host.cpu_alert");
-  const mem = th(reg, "host.mem_alert");
-  const free = th(reg, "host.disk_free_alert");
-  const diskFree = h.diskUsedPct === null ? null : 100 - h.diskUsedPct;
-  if (free !== null && diskFree !== null && diskFree < free / 2) return "danger";
-  if (cpu !== null && h.cpuPct !== null && h.cpuPct >= cpu) return "warning";
-  if (mem !== null && h.memPct !== null && h.memPct >= mem) return "warning";
-  if (free !== null && diskFree !== null && diskFree < free) return "warning";
-  return undefined;
-}
-
-/** 카드의 상태 문구. 운영 중, 임계치 초과, 수집 끊김 세 가지로 적는다 */
-export function hostState(h: OpsHost, reg: ThresholdRegistry | null): NodeState {
-  if (h.collect === "MISSING") return { tone: "off", shape: "◌", word: "수집 끊김" };
-  if (h.collect === "STALE") return { tone: "warning", shape: "▲", word: "수집 끊김" };
-  const t = hostTone(h, reg);
-  if (t === "danger") return { tone: "danger", shape: "■", word: "임계치 초과" };
-  if (t === "warning") return { tone: "warning", shape: "▲", word: "임계치 초과" };
-  return { tone: "success", shape: "●", word: "운영 중" };
-}
 
 /** 경보가 가리키는 자리. 근거 칩이 경보를 가리켜도 그 경보의 카드가 함께 켜진다 */
 export function alertRefMap(center: ControlCenter | null): Map<string, OpsRef | null> {
@@ -132,10 +97,9 @@ function StateWord({ s }: { s: NodeState }) {
   );
 }
 
-export function HostCard({ host, reg, now, alertRefs, board = true }: {
+export function HostCard({ host, reg, alertRefs, board = true }: {
   host: OpsHost;
   reg: ThresholdRegistry | null;
-  now: number;
   alertRefs: Map<string, OpsRef | null>;
   board?: boolean;
 }) {
@@ -169,7 +133,7 @@ export function HostCard({ host, reg, now, alertRefs, board = true }: {
           크레딧 <b className="num" data-tone={lowCredit ? "info" : undefined}>{host.cpuCredits ?? "◌"}</b>
           {lowCredit && <span> · 경보 {creditTh} 미만</span>}
         </span>
-        <span className="num">{host.collectedAt === null ? "◌ 미수집" : `수집 ${ago(host.collectedAt, now)}`}</span>
+        <span className="num">{host.collectedAt === null ? "◌ 미수집" : <Ago at={host.collectedAt} prefix="수집 " />}</span>
       </div>
       {board && (
         <div className={styles.hostFoot}>
@@ -189,7 +153,7 @@ const STREAM: Record<Replication["stream"], { word: string; tone: "success" | "w
   STOPPED: { word: "끊김", tone: "danger", mark: "■" },
 };
 
-function DbSide({ host, reg, now }: { host: OpsHost; reg: ThresholdRegistry | null; now: number }) {
+function DbSide({ host, reg }: { host: OpsHost; reg: ThresholdRegistry | null }) {
   const s = hostState(host, reg);
   return (
     <div className={styles.dbSide} data-tone={s.tone === "success" ? undefined : s.tone}>
@@ -199,7 +163,7 @@ function DbSide({ host, reg, now }: { host: OpsHost; reg: ThresholdRegistry | nu
       </div>
       <span className={styles.hostKind}>{host.role === "DB_PRIMARY" ? "Primary · 쓰기" : "Standby · 비동기 복제"}</span>
       <Gauges host={host} reg={reg} />
-      <span className={`${styles.dbCollected} num`}>{host.collectedAt === null ? "◌ 미수집" : `수집 ${ago(host.collectedAt, now)}`}</span>
+      <span className={`${styles.dbCollected} num`}>{host.collectedAt === null ? "◌ 미수집" : <Ago at={host.collectedAt} prefix="수집 " />}</span>
     </div>
   );
 }
@@ -208,12 +172,11 @@ function DbSide({ host, reg, now }: { host: OpsHost; reg: ThresholdRegistry | nu
  * DB 두 대를 한 묶음에 나란히 두고 사이에 복제 방향·지연·상태를 적는다. 비동기 복제라 지연 동안 쓰인
  * 기록은 Primary를 잃으면 함께 잃을 수 있다(ADR 0024). 승격은 사람이 한다
  */
-export function DbPair({ primary, standby, repl, reg, now, alertRefs }: {
+export function DbPair({ primary, standby, repl, reg, alertRefs }: {
   primary: OpsHost;
   standby: OpsHost;
   repl: OpsSection<Replication>;
   reg: ThresholdRegistry | null;
-  now: number;
   alertRefs: Map<string, OpsRef | null>;
 }) {
   const focus = useOpsFocus((s) => s.ref);
@@ -239,7 +202,7 @@ export function DbPair({ primary, standby, repl, reg, now, alertRefs }: {
         )}
       </div>
       <div className={styles.dbPairBody}>
-        <DbSide host={primary} reg={reg} now={now} />
+        <DbSide host={primary} reg={reg} />
         <div className={styles.replLink} aria-label={r ? `복제 ${primary.id}에서 ${standby.id}로, 지연 ${r.lagSec ?? "미수집"}초` : "복제 원천 연결 전"}>
           <span className={styles.replArrow} aria-hidden="true" />
           {r ? (
@@ -256,7 +219,7 @@ export function DbPair({ primary, standby, repl, reg, now, alertRefs }: {
             <span aria-hidden="true">◌ 연결 전</span>
           )}
         </div>
-        <DbSide host={standby} reg={reg} now={now} />
+        <DbSide host={standby} reg={reg} />
       </div>
       {r && (
         <div className={styles.lag}>
@@ -340,7 +303,7 @@ function fmtMs(ms: number | null): string {
  * 온프레미스 AI 추론 서버(ADR 0038). 구축 전이라 sim에서는 값이 시뮬레이션이고 적재 모델은 이름을
  * 단정하지 않는다. AI 판단이 일어나면 대기 요청과 GPU가 잠깐 오른다
  */
-export function AiServerCard({ section, now, sim }: { section: OpsSection<AiServer>; now: number; sim: boolean }) {
+export function AiServerCard({ section, sim }: { section: OpsSection<AiServer>; sim: boolean }) {
   if (section.state === "NOT_CONNECTED") return <NotConnected what="AI 서버" source={section.source} compact />;
   const a = section.data;
   const s: NodeState = a.link === "DOWN"
@@ -386,7 +349,7 @@ export function AiServerCard({ section, now, sim }: { section: OpsSection<AiServ
       </dl>
       <div className={styles.hostFoot}>
         <span>{sim ? "구축 전 · 값은 시뮬레이션" : "구축 전"}</span>
-        <span className="num">{a.collectedAt === null ? "◌ 미수집" : `수집 ${ago(a.collectedAt, now)}`}</span>
+        <span className="num">{a.collectedAt === null ? "◌ 미수집" : <Ago at={a.collectedAt} prefix="수집 " />}</span>
       </div>
     </article>
   );
@@ -408,7 +371,7 @@ function Group({ area, label, note, children }: { area: string; label: string; n
  * 역할 묶음 전체. 관제센터 인프라 칸과 서버·노드 화면이 같이 쓴다. 칸이 좁으면 위에서부터 앱, DB, 조회 ASG,
  * 관측과 온프레미스(한 줄) 순서이고, 넓은 화면(wide)에서는 두 줄로 편다. 문서 순서는 좁은 칸의 읽는 순서다
  */
-export function InfraGroups({ center, now, board = false, wide = false }: { center: ControlCenter; now: number; board?: boolean; wide?: boolean }) {
+export function InfraGroups({ center, board = false, wide = false }: { center: ControlCenter; board?: boolean; wide?: boolean }) {
   const reg = center.thresholds.state === "READY" ? center.thresholds.data : null;
   const alertRefs = alertRefMap(center);
   const sim = center.origin === "SIM";
@@ -417,7 +380,7 @@ export function InfraGroups({ center, now, board = false, wide = false }: { cent
       <div className={styles.infraStack}>
         <NotConnected what="호스트 지표" source={center.hosts.source} />
         {center.readTier.state === "NOT_CONNECTED" && <NotConnected what="조회 노드 ASG" source={center.readTier.source} compact />}
-        <AiServerCard section={center.aiServer} now={now} sim={sim} />
+        <AiServerCard section={center.aiServer} sim={sim} />
       </div>
     );
   }
@@ -431,13 +394,13 @@ export function InfraGroups({ center, now, board = false, wide = false }: { cent
       <Group area="app" label="앱" note="마켓별 매칭 리더">
         <div className={styles.hostGrid}>
           {apps.map((h) => (
-            <HostCard key={h.id} host={h} reg={reg} now={now} alertRefs={alertRefs} board={board} />
+            <HostCard key={h.id} host={h} reg={reg} alertRefs={alertRefs} board={board} />
           ))}
         </div>
       </Group>
       {primary && standby && (
         <Group area="db" label="데이터베이스">
-          <DbPair primary={primary} standby={standby} repl={center.replication} reg={reg} now={now} alertRefs={alertRefs} />
+          <DbPair primary={primary} standby={standby} repl={center.replication} reg={reg} alertRefs={alertRefs} />
         </Group>
       )}
       <Group area="asg" label="조회 ASG" note="AWS 지표 정책이 대수를 정함">
@@ -449,11 +412,11 @@ export function InfraGroups({ center, now, board = false, wide = false }: { cent
       </Group>
       <Group area="bot" label="관측">
         {bots.map((h) => (
-          <HostCard key={h.id} host={h} reg={reg} now={now} alertRefs={alertRefs} board={board} />
+          <HostCard key={h.id} host={h} reg={reg} alertRefs={alertRefs} board={board} />
         ))}
       </Group>
       <Group area="ai" label="온프레미스 · 연구소">
-        <AiServerCard section={center.aiServer} now={now} sim={sim} />
+        <AiServerCard section={center.aiServer} sim={sim} />
       </Group>
     </div>
   );
@@ -476,7 +439,7 @@ function Counts({ c }: { c: { ok: number; warn: number; down: number } }) {
 }
 
 /** 관제센터 왼쪽 기둥 */
-export default function InfraColumn({ center, now }: { center: ControlCenter | null; now: number }) {
+export default function InfraColumn({ center }: { center: ControlCenter | null }) {
   const counts = center ? infraCounts(center) : null;
   return (
     <section className={styles.column} aria-labelledby="col-infra">
@@ -493,7 +456,7 @@ export default function InfraColumn({ center, now }: { center: ControlCenter | n
           </>
         }
       />
-      <div className={styles.scrollArea}>{center !== null && <InfraGroups center={center} now={now} />}</div>
+      <div className={styles.scrollArea}>{center !== null && <InfraGroups center={center} />}</div>
     </section>
   );
 }

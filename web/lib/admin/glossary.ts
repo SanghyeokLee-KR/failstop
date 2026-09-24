@@ -44,6 +44,11 @@ export const ACTION_GLOSS: Record<string, string> = {
   "sim.effects": "체결 효과 변경",
   "sim.bots.create": "봇 생성",
   "sim.bots.delete": "봇 제거",
+  "capacity.scale_out": "조회 서버 증설",
+  "capacity.scale_in": "조회 서버 축소",
+  // 관제센터(관리자 설계 4-6·4-8). 상담은 조회라 상태를 바꾸지 않지만 무엇을 물었는지 남긴다
+  "ops.ai.chat": "AI 상담 질문",
+  "ops.report.teams_test": "Teams 연결 시험",
 };
 
 /** 액션 코드 네임스페이스(첫 점 앞) -> 한국어. 감사 필터의 액션 select가 병기한다 */
@@ -56,4 +61,6 @@ export const NS_GLOSS: Record<string, string> = {
   sim: "봇 플릿",
   approval: "승인",
   execute: "실행",
+  capacity: "용량",
+  ops: "관제",
 };

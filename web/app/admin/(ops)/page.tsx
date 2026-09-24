@@ -8,7 +8,8 @@
  * 탐색은 Grafana로 보낸다. 파괴 액션은 여기서 실행하지 않는다. AI 조치는 ADR 0035의 허용 목록뿐이다.
  *
  * 관제 판은 운영 관제 셸 전체가 나눠 쓰는 폴러(opsCenter)에서 읽고, 거래 요약은 기존 합성 조회
- * (getOverview)를 30초 리듬으로 읽는다.
+ * (getOverview)를 30초 리듬으로 읽는다. 판은 매초 새로 오지만 기둥마다 자기 칸만 받고(memo) 시계
+ * 글자는 그 글자를 그리는 조각만 탄다. 이 화면 머리에서 시계를 받아 아래로 내리지 않는다.
  */
 
 import { useCallback, useState } from "react";
@@ -27,7 +28,6 @@ import ScenarioControl from "@/components/admin/control/ScenarioControl";
 import SummaryStrip from "@/components/admin/control/SummaryStrip";
 import ThresholdPanel from "@/components/admin/control/Thresholds";
 import TradingStrip from "@/components/admin/control/TradingStrip";
-import { useClock } from "@/components/admin/control/parts";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/control/control.module.css";
 
@@ -35,14 +35,14 @@ const isSessionError = (e: unknown) => e instanceof AdminError && e.code === "jw
 
 export default function ControlCenterPage() {
   const { data, loading, failed, refresh } = useOpsCenter();
-  const now = useClock();
   // 관제센터는 지금을 보는 화면이라 기본 범위는 1시간이다. 긴 범위는 앞 구간 평균에 묻혀 증감이 늦게 움직인다
   const [range, setRange] = useState<TrendRange>(1);
   const loadOverview = useCallback(() => getAdminApi().getOverview(), []);
   const ov = useAdminResource(loadOverview, { cadence: "idle", isSessionError });
   const reloadOverview = ov.reload;
+  // 조작 뒤에는 떠 있던 조회가 조작 전 판일 수 있어 한 번 더 읽는다(force)
   const onChanged = useCallback(() => {
-    void refresh();
+    void refresh(true);
     reloadOverview();
   }, [refresh, reloadOverview]);
 
@@ -56,11 +56,10 @@ export default function ControlCenterPage() {
           </>
         }
         center={data}
-        now={now}
         aside={
           <>
             <RangeSwitch range={range} onRange={setRange} />
-            <CollectState center={data} failed={failed} now={now} />
+            <CollectState center={data} failed={failed} />
           </>
         }
         actions={<ScenarioControl scenario={data?.scenario ?? null} onChanged={onChanged} />}
@@ -80,17 +79,17 @@ export default function ControlCenterPage() {
           </div>
         </>
       ) : data === null ? (
-        <AdminErrorState onRetry={() => void refresh()} />
+        <AdminErrorState onRetry={() => void refresh(true)} />
       ) : (
         <div className={`${adminStyles.pageStack} ${adminStyles.staleRegion}`} data-stale={failed ? "" : undefined}>
-          <ModeBar center={data} onChanged={onChanged} />
-          <SummaryStrip center={data} now={now} range={range} />
+          <ModeBar section={data.ai} onChanged={onChanged} />
+          <SummaryStrip summary={data.summary} alerts={data.alerts} incidents={data.incidents} trends={data.trends} range={range} />
           <div className={styles.columns}>
-            <InfraColumn center={data} now={now} />
-            <AiPanel center={data} now={now} onChanged={onChanged} />
-            <ActionsColumn center={data} now={now} onChanged={onChanged} />
+            <InfraColumn center={data} />
+            <AiPanel section={data.ai} sim={data.origin === "SIM"} onChanged={onChanged} />
+            <ActionsColumn alerts={data.alerts} incidents={data.incidents} jobs={data.jobs} onChanged={onChanged} />
           </div>
-          <ThresholdPanel center={data} onChanged={onChanged} />
+          <ThresholdPanel section={data.thresholds} onChanged={onChanged} />
           <TradingStrip ov={ov.data} at={ov.lastUpdatedAt} />
         </div>
       )}

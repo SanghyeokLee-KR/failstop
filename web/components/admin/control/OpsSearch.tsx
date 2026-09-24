@@ -8,7 +8,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useOpsCenter } from "@/lib/admin/opsCenter";
+import { useOpsPick } from "@/lib/admin/opsCenter";
 import type { ControlCenter, IncidentEventKind } from "@/lib/admin/types";
 import { AdminIcon } from "../icons";
 import { HOST_KIND } from "./Infra";
@@ -59,12 +59,14 @@ function indexOf(c: ControlCenter): Hit[] {
 }
 
 export default function OpsSearch() {
-  const { data } = useOpsCenter();
   const router = useRouter();
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [q, setQ] = useState("");
+  // 찾는 글자가 있을 때만 판을 따라간다. 비어 있으면 판이 매초 새로 와도 검색칸을 다시 그리지 않는다
+  const searching = q.trim() !== "";
+  const data = useOpsPick((c) => (searching ? c : null));
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
 

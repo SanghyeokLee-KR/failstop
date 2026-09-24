@@ -10,8 +10,12 @@
  * readiness는 "주문 받음", 타겟그룹 소속은 "받는 트래픽", Scale-Out은 "서버 추가"로 적고
  * 원어는 부제로만 병기한다. 문서 절 번호를 화면에 싣지 않는다.
  *
- * 늘려도 안 되는 것을 숨기지 않는다. 주문을 처리하는 서버는 한 대뿐이고 늘릴 수 없다.
- * 그 서버가 죽으면 서버를 추가해도 조회 용량만 돌아온다. 화면이 그렇게 적는다.
+ * 늘려도 안 되는 것을 숨기지 않는다. 주문은 마켓마다 리더 한 대가 처리하고(로컬 단일 리더는 한 대가 모든
+ * 마켓을 맡는다) 이 화면으로 늘릴 수 없다. 리더가 죽으면 조회 서버를 늘려도 조회 용량만 돌아온다. 문구는 단일
+ * 리더와 마켓별 리더(ADR 0034) 어느 쪽에서도 참이어야 한다.
+ *
+ * sim은 관제 시뮬레이터의 조회 ASG(read-1~3)를 읽고 움직인다. 관제센터와 서버·노드 화면의 대수, 노드 이름,
+ * 증설·축소 임계가 이 화면과 같다. http는 로컬 조정기의 용량 API(/admin/v1/capacity)를 읽는다.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -135,7 +139,7 @@ export default function CapacityPage() {
     <div className={styles.page}>
       <PageHeader
         title="용량·부하"
-        desc="조회를 받는 서버 증설과 축소. 주문을 처리하는 서버는 한 대 고정"
+        desc="조회 서버를 늘리고 줄입니다. 주문을 처리하는 매칭 서버는 이 화면에서 늘리지 않습니다"
         actions={<ResourceStamp lastUpdatedAt={res.lastUpdatedAt} stale={res.stale} onReload={res.reload} />}
       />
 
@@ -165,7 +169,7 @@ export default function CapacityPage() {
       <PanelCard title="서버 대수" actions={<GrafanaLink board="msp-service" label="앱 CPU 추이" />}>
         <div className={styles.kpiGrid} data-cols="3">
           <StatTile
-            label="지금 응답하는 서버"
+            label="지금 응답하는 조회 서버"
             value={d.observedTotal}
             unit="대"
             hero
@@ -174,7 +178,7 @@ export default function CapacityPage() {
             title="observed / desired"
           />
           <StatTile
-            label="있어야 할 서버"
+            label="있어야 할 조회 서버"
             value={d.plan.desired}
             unit="대"
             sub={`최소 ${d.plan.min} · 최대 ${d.plan.max}`}
@@ -235,8 +239,8 @@ export default function CapacityPage() {
                 <HealthPill health="warning" label="증가 없음" />
               </td>
               <td>
-                주문은 순서를 지켜야 해서 한 대가 전부 처리합니다. 서버를 늘려도 그 한 대가
-                그대로라 처리량이 오르지 않습니다. 넘치는 주문은 받지 않고 거절합니다.
+                주문은 마켓마다 순서를 지켜야 해서 마켓마다 리더 한 대가 처리합니다. 조회 서버를
+                늘려도 리더는 그대로라 주문 처리량이 오르지 않습니다. 넘치는 주문은 받지 않고 거절합니다.
               </td>
             </tr>
             <tr>
@@ -245,8 +249,8 @@ export default function CapacityPage() {
                 <HealthPill health="warning" label="증가 없음" />
               </td>
               <td>
-                데이터베이스는 쓰기를 나눌 수 없어 한 대가 처리합니다. 대기 서버가 한 대 더 있지만
-                평소에는 트래픽을 받지 않고 장애 때 대신 섭니다.
+                데이터베이스는 쓰기를 나눌 수 없어 Primary 한 대가 처리합니다. Standby는 비동기 복제만
+                받고 평소에는 트래픽을 받지 않습니다. 장애 때는 운영자가 수동으로 승격합니다.
               </td>
             </tr>
           </tbody>
@@ -267,7 +271,7 @@ export default function CapacityPage() {
           title={pending === "SCALE_OUT" ? "서버 한 대 추가" : "서버 한 대 축소"}
           description={
             pending === "SCALE_OUT"
-              ? "새 서버가 준비되면 조회 트래픽을 나눠 받습니다. 약 17초가 걸리고 서비스는 멈추지 않습니다. 서버가 늘면 비용도 늘어납니다."
+              ? "새 서버가 준비되면 조회 트래픽을 나눠 받습니다. 준비되는 동안 서비스는 멈추지 않고, 서버가 느는 만큼 비용이 늘어납니다."
               : "진행 중인 요청을 먼저 흘려보낸 뒤 서버를 내립니다. 서비스는 멈추지 않습니다."
           }
           target={`조회 서버 ${d.plan.desired}대 -> ${d.plan.desired + (pending === "SCALE_OUT" ? 1 : -1)}대`}

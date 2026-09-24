@@ -815,14 +815,19 @@
   margin-left: auto;
   flex-shrink: 0;
 }
+/* 좁은 기둥(1280px 판)에서 제목이 낱말 안에서 꺾이지 않게 한다. 자리가 모자라면 거르기 단추가 다음 줄로 내려간다 */
 .subHead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   font-weight: var(--fw-semibold);
   color: var(--text-default);
+}
+.subHead > span:first-child {
+  white-space: nowrap;
 }
 .subHead .count {
   font-weight: var(--fw-bold);
@@ -1740,14 +1745,17 @@
     background: var(--border-default);
   }
 }
+/* 계기 막대와 같이 폭 대신 transform으로 늘인다 */
 .confFill {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
+  width: 100%;
+  transform-origin: left center;
   border-radius: var(--radius-full);
   background: var(--ai-accent);
-  transition: width var(--dur-base) var(--ease-standard);
+  transition: transform var(--dur-base) var(--ease-standard);
 }
 .confMark {
   position: absolute;
@@ -3267,7 +3275,6 @@
   align-items: center;
   gap: var(--space-2);
   min-height: 40px;
-  margin-top: auto;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--control-radius);

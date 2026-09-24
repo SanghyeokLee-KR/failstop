@@ -12,7 +12,7 @@ import { refMatches, useOpsFocus } from "@/lib/admin/opsCenter";
 import { useCan } from "@/lib/admin/store";
 import type { OpsAlert } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
-import { durationWord, hm, SEVERITY_SHAPE, SEVERITY_WORD } from "./parts";
+import { durationWord, hm, SEVERITY_SHAPE, SEVERITY_WORD, useClock } from "./parts";
 import styles from "./control.module.css";
 
 const SILENCE_CHOICES = [10, 20, AI_RULES.silenceMaxMin];
@@ -77,7 +77,14 @@ function SilenceButton({ alert, onDone }: { alert: OpsAlert; onDone: () => void 
   );
 }
 
-export function AlertRow({ alert, now, onChanged }: { alert: OpsAlert; now: number; onChanged: () => void }) {
+/** 경보가 울린 지 얼마인지. 매초 바뀌는 글자라 이 조각만 시계를 탄다 */
+function AlertAge({ since }: { since: string }) {
+  const now = useClock();
+  const ms = now - Date.parse(since);
+  return <>{ms < 2000 ? "방금" : `${durationWord(ms)}째`}</>;
+}
+
+export function AlertRow({ alert, onChanged }: { alert: OpsAlert; onChanged: () => void }) {
   const focus = useOpsFocus((s) => s.ref);
   const lit = refMatches(focus, { kind: "ALERT", id: alert.id });
   const ack = async () => {
@@ -99,7 +106,9 @@ export function AlertRow({ alert, now, onChanged }: { alert: OpsAlert; now: numb
         <span className="sr-only">{SEVERITY_WORD[alert.severity]} 경보 </span>
         {alert.name}
       </span>
-      <span className={`${styles.alertAge} num`}>{now - Date.parse(alert.since) < 2000 ? "방금" : `${durationWord(now - Date.parse(alert.since))}째`}</span>
+      <span className={`${styles.alertAge} num`}>
+        <AlertAge since={alert.since} />
+      </span>
       <span className={styles.alertDetail}>
         {alert.target} · {alert.detail}
       </span>
@@ -125,7 +134,7 @@ export function AlertRow({ alert, now, onChanged }: { alert: OpsAlert; now: numb
   );
 }
 
-export default function AlertList({ alerts, now, onChanged }: { alerts: OpsAlert[]; now: number; onChanged: () => void }) {
+export default function AlertList({ alerts, onChanged }: { alerts: OpsAlert[]; onChanged: () => void }) {
   if (alerts.length === 0) {
     return (
       <div className={styles.empty}>
@@ -139,7 +148,7 @@ export default function AlertList({ alerts, now, onChanged }: { alerts: OpsAlert
   return (
     <ul className={styles.alertList} aria-label="활성 경보">
       {sorted.map((a) => (
-        <AlertRow key={a.id} alert={a} now={now} onChanged={onChanged} />
+        <AlertRow key={a.id} alert={a} onChanged={onChanged} />
       ))}
     </ul>
   );

@@ -15,13 +15,12 @@ import { AdminErrorState } from "@/components/admin/ResourceState";
 import { alertRefMap, DbPair } from "@/components/admin/control/Infra";
 import { BackupLine, DatabasusLink } from "@/components/admin/control/Jobs";
 import OpsHead from "@/components/admin/control/OpsHead";
-import { PanelHead, SectionBody, useClock } from "@/components/admin/control/parts";
+import { PanelHead, SectionBody } from "@/components/admin/control/parts";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/control/control.module.css";
 
 export default function DatabasePage() {
   const { data, loading, refresh } = useOpsCenter();
-  const now = useClock();
   const reg = data?.thresholds.state === "READY" ? data.thresholds.data : null;
   const alertRefs = alertRefMap(data);
 
@@ -31,7 +30,6 @@ export default function DatabasePage() {
         title="데이터베이스"
         desc="복제, 자동 전환, 백업. DB 승격과 복제 재구성은 사람이 하고 AI는 하지 않습니다"
         center={data}
-        now={now}
         actions={<GrafanaLink board="msp-db-replication" label="06 복제·복구 추이" />}
       />
       {data === null ? (
@@ -46,7 +44,7 @@ export default function DatabasePage() {
                   const primary = hosts.find((h) => h.role === "DB_PRIMARY");
                   const standby = hosts.find((h) => h.role === "DB_STANDBY");
                   return primary && standby ? (
-                    <DbPair primary={primary} standby={standby} repl={data.replication} reg={reg} now={now} alertRefs={alertRefs} />
+                    <DbPair primary={primary} standby={standby} repl={data.replication} reg={reg} alertRefs={alertRefs} />
                   ) : null;
                 }}
               </SectionBody>
@@ -72,7 +70,7 @@ export default function DatabasePage() {
             <SectionBody section={data.jobs} what="백업">
               {(jobs) => (
                 <>
-                  <BackupLine b={jobs.backup} now={now} onChanged={() => void refresh()} detail />
+                  <BackupLine b={jobs.backup} onChanged={() => void refresh(true)} detail />
                   <p className={styles.lead}>
                     관제센터는 Databasus가 낸 결과를 판독만 하고 백업 설정을 바꾸지 않습니다. 즉시 실행은 Databasus의 백업 실행을 뜻합니다. 도입은 로컬 VM 예행 단계라 이 값은 시뮬레이션입니다.
                   </p>

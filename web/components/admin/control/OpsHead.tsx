@@ -8,15 +8,14 @@
 import type { ReactNode } from "react";
 import type { ControlCenter, TrendRange } from "@/lib/admin/types";
 import adminStyles from "../admin.module.css";
-import { ago, EnvBadge, OpsSourceChip } from "./parts";
+import { ago, EnvBadge, LIVE_STALE_MS, OpsSourceChip, useClock } from "./parts";
 import styles from "./control.module.css";
 
 const RANGES: TrendRange[] = [1, 6, 24];
-/** 실측 원천의 지연 기준. 폴링 두 주기(30초 × 2)다. 출처 칩과 같은 값이다 */
-const LIVE_STALE_MS = 60_000;
 
-/** 수집 상태. 판을 받지 못했거나 오래됐으면 문구와 모양을 바꾼다 */
-export function CollectState({ center, failed, now }: { center: ControlCenter | null; failed: boolean; now: number }) {
+/** 수집 상태. 판을 받지 못했거나 오래됐으면 문구와 모양을 바꾼다. 'n초 전'이 걸린 조각이라 시계를 직접 탄다 */
+export function CollectState({ center, failed }: { center: ControlCenter | null; failed: boolean }) {
+  const now = useClock();
   let kind: "live" | "stale" | "none";
   let text: string;
   if (center === null) {
@@ -63,11 +62,10 @@ export function RangeSwitch({ range, onRange }: { range: TrendRange; onRange: (r
   );
 }
 
-export default function OpsHead({ title, desc, center, now, actions, aside }: {
+export default function OpsHead({ title, desc, center, actions, aside }: {
   title: string;
   desc: ReactNode;
   center: ControlCenter | null;
-  now: number;
   actions?: ReactNode;
   /** 조작 앞에 두는 판독(추세 범위, 수집 상태). 관제센터만 넘긴다 */
   aside?: ReactNode;
@@ -78,7 +76,7 @@ export default function OpsHead({ title, desc, center, now, actions, aside }: {
         <div className={styles.titleRow}>
           <h1 className={adminStyles.pageTitle}>{title}</h1>
           {center && <EnvBadge env={center.environment} />}
-          <OpsSourceChip center={center} now={now} />
+          <OpsSourceChip center={center} />
         </div>
         <p className={styles.headDesc}>{desc}</p>
       </div>

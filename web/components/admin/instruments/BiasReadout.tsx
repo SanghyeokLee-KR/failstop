@@ -42,13 +42,15 @@ export function BiasReadout({ target, measured, effective }: BiasReadoutProps) {
             style={{ left: `${((t.at + 1) / 2) * 100}%` }}
           />
         ))}
-        <span className={styles.biasMarkEffective} style={{ left: `${pctOf(effective)}%` }} />
+        <span className={styles.biasSlot} style={{ transform: `translateX(${pctOf(effective)}%)` }}>
+          <span className={styles.biasMarkEffective} />
+        </span>
       </div>
-      <span className={styles.biasMarkTarget} style={{ left: `${pctOf(target)}%` }} aria-hidden="true">
-        ▽
+      <span className={styles.biasSlot} style={{ transform: `translateX(${pctOf(target)}%)` }} aria-hidden="true">
+        <span className={styles.biasMarkTarget}>▽</span>
       </span>
-      <span className={styles.biasMarkMeasured} style={{ left: `${pctOf(measured)}%` }} aria-hidden="true">
-        ▲
+      <span className={styles.biasSlot} style={{ transform: `translateX(${pctOf(measured)}%)` }} aria-hidden="true">
+        <span className={styles.biasMarkMeasured}>▲</span>
       </span>
       <div className={styles.biasScale} aria-hidden="true">
         {TICKS.map((t) => (

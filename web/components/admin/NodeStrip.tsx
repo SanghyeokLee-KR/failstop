@@ -25,14 +25,23 @@ function heapRatio(n: CapacityNode): number | null {
   return n.heapUsedBytes / n.heapMaxBytes;
 }
 
+/** 받는 일. 로컬 단일 리더는 주문과 조회를 함께 받고, 마켓별 리더 배치의 매칭 노드는 주문만 받는다 */
+function dutyOf(n: CapacityNode): string {
+  if (n.leader) return n.servesReads ? "주문+조회" : "주문";
+  return "조회";
+}
+
 function stateOf(n: CapacityNode): { health: Health; label: string; off?: true } {
+  // 기동과 내림은 장애가 아니라 대수를 맞추는 중이다. 응답 여부보다 먼저 읽어야 기동 중인 노드가 '응답 없음'으로 보이지 않는다
+  if (n.lifecycle === "PENDING") return { health: "warning", label: "기동 중" };
+  if (n.lifecycle === "DRAINING") return { health: "warning", label: "내리는 중" };
   if (!n.reachable) {
     // 계약상 떠 있어야 하는데 응답이 없으면 장애다. 계약에 없으면 꺼져 있는 것이 정상이다.
     // 꺼짐은 판정이 아니라 중지라 초록 점이 아니라 무채 ○로 적는다(§12-3)
     return n.expected ? { health: "danger", label: "응답 없음" } : { health: "success", label: "꺼짐", off: true };
   }
-  if (n.cpuRatio !== null && n.cpuRatio >= 0.9) return { health: "warning", label: n.leader ? "주문+조회" : "조회" };
-  return { health: "success", label: n.leader ? "주문+조회" : "조회" };
+  if (n.cpuRatio !== null && n.cpuRatio >= 0.9) return { health: "warning", label: dutyOf(n) };
+  return { health: "success", label: dutyOf(n) };
 }
 
 function pct(v: number | null): string {
@@ -116,12 +125,13 @@ export default function NodeStrip({
                   {n.cpuRatio !== null && (
                     // 세로 flex의 flex-end 안에서 레일은 고유 폭이 없어 0으로 무너진다.
                     // 폭을 소유하는 래퍼를 둬 칼럼 폭을 그대로 물려준다
+                    // 증설 임계는 조회 노드 평균에 거는 선이라 늘릴 수 없는 노드에는 긋지 않는다
                     <span className={styles.nodeStripRail}>
                       <MeterRail
                         value={n.cpuRatio}
                         max={1}
-                        threshold={cpuMark}
-                        tone={n.cpuRatio >= cpuMark ? "warning" : undefined}
+                        threshold={n.scalable ? cpuMark : undefined}
+                        tone={n.scalable && n.cpuRatio >= cpuMark ? "warning" : undefined}
                       />
                     </span>
                   )}
@@ -139,7 +149,9 @@ export default function NodeStrip({
             ) : (
               // 관측 네 칸을 한 칸으로 합쳐 비운다. 칸마다 "미수집"을 네 번 적으면
               // 읽는 쪽이 네 개의 실패로 읽는다. 실패는 하나다. 서버가 대답하지 않는 것이다.
-              <span className={styles.nodeStripNote}>{n.expected ? "상태 읽기 불가" : "현재 대수에서 미사용"}</span>
+              <span className={styles.nodeStripNote}>
+                {n.lifecycle === "PENDING" ? "준비되면 값을 읽습니다" : n.expected ? "상태 읽기 불가" : "현재 대수에서 미사용"}
+              </span>
             )}
           </div>
         );

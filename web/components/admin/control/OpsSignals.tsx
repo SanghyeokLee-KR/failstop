@@ -7,66 +7,11 @@
  */
 
 import Link from "next/link";
-import { useOpsCenter } from "@/lib/admin/opsCenter";
-import type { ControlCenter, ThresholdKey } from "@/lib/admin/types";
+import { useOpsPickShallow } from "@/lib/admin/opsCenter";
+import { overallOf, type Overall, type OverallLevel } from "@/lib/admin/opsHealth";
+import type { ControlCenter } from "@/lib/admin/types";
 import { AdminIcon } from "../icons";
-import { hostState } from "./Infra";
 import styles from "./control.module.css";
-
-export type OverallLevel = "ok" | "warn" | "down" | "none" | "loading";
-
-export interface Overall {
-  level: OverallLevel;
-  alerts: number;
-  /** 임계를 넘었거나 멈춘 노드 수 */
-  nodes: number;
-}
-
-/** 전체 상태. 경보는 보류 중이어도 세고(문제가 남아 있다), 정보 등급 경보는 단계를 올리지 않는다 */
-export function overallOf(c: ControlCenter | null): Overall {
-  if (c === null) return { level: "loading", alerts: 0, nodes: 0 };
-  const sections = [c.alerts, c.hosts, c.readTier, c.replication];
-  if (sections.every((s) => s.state === "NOT_CONNECTED")) return { level: "none", alerts: 0, nodes: 0 };
-  const reg = c.thresholds.state === "READY" ? c.thresholds.data : null;
-  const val = (k: ThresholdKey) => reg?.items.find((t) => t.key === k)?.value ?? null;
-  let down = false;
-  let warn = false;
-  let nodes = 0;
-  const alerts = c.alerts.state === "READY" ? c.alerts.data : [];
-  if (alerts.some((a) => a.severity === "critical")) down = true;
-  if (alerts.some((a) => a.severity === "warning")) warn = true;
-  if (c.hosts.state === "READY") {
-    // 수집이 끊긴 노드는 상태를 모르는 것이라 정상으로 세지 않고 주의로 올린다
-    for (const h of c.hosts.data) {
-      const t = hostState(h, reg).tone;
-      if (t === "success") continue;
-      nodes += 1;
-      if (t === "danger") down = true;
-      else warn = true;
-    }
-  }
-  if (c.readTier.state === "READY") {
-    const tier = c.readTier.data;
-    const serving = tier.nodes.filter((n) => n.state === "IN_SERVICE").length;
-    const out = val("read.scale_out_cpu");
-    if (tier.desired > 0 && serving === 0) {
-      down = true;
-      nodes += 1;
-    } else if (tier.avgCpuPct !== null && out !== null && tier.avgCpuPct >= out) {
-      warn = true;
-      nodes += 1;
-    }
-  }
-  if (c.replication.state === "READY") {
-    if (c.replication.data.stream === "STOPPED") down = true;
-    else if (c.replication.data.stream === "CATCHUP") warn = true;
-  }
-  if (c.aiServer.state === "READY" && c.aiServer.data.link === "DOWN") {
-    warn = true;
-    nodes += 1;
-  }
-  return { level: down ? "down" : warn ? "warn" : "ok", alerts: alerts.length, nodes };
-}
 
 const LEVEL: Record<OverallLevel, { shape: string; word: string }> = {
   ok: { shape: "●", word: "정상" },
@@ -76,13 +21,17 @@ const LEVEL: Record<OverallLevel, { shape: string; word: string }> = {
   loading: { shape: "◌", word: "상태 확인 중" },
 };
 
+/** 운영자 바가 그리는 글자만 고른다. 판이 매초 새로 와도 단계와 개수가 같으면 다시 그리지 않는다 */
+function signalsOf(c: ControlCenter | null): Overall & { bell: "danger" | "warning" | "info" } {
+  const alerts = c?.alerts.state === "READY" ? c.alerts.data : [];
+  const bell = alerts.some((a) => a.severity === "critical") ? "danger" : alerts.some((a) => a.severity === "warning") ? "warning" : "info";
+  return { ...overallOf(c), bell };
+}
+
 export default function OpsSignals() {
-  const { data } = useOpsCenter();
-  const o = overallOf(data);
+  const o = useOpsPickShallow(signalsOf);
   const lv = LEVEL[o.level];
   const parts = [o.alerts > 0 ? `경보 ${o.alerts}` : null, o.nodes > 0 ? `노드 ${o.nodes}` : null].filter(Boolean);
-  const alerts = data?.alerts.state === "READY" ? data.alerts.data : [];
-  const bellTone = alerts.some((a) => a.severity === "critical") ? "danger" : alerts.some((a) => a.severity === "warning") ? "warning" : "info";
   return (
     <>
       <Link
@@ -104,12 +53,12 @@ export default function OpsSignals() {
       <Link
         href="/admin/incidents"
         className={styles.bell}
-        aria-label={`경보·사건 · 활성 경보 ${alerts.length}건`}
+        aria-label={`경보·사건 · 활성 경보 ${o.alerts}건`}
       >
         <AdminIcon name="incidents" size={18} />
-        {alerts.length > 0 && (
-          <span className={`${styles.bellCount} num`} data-tone={bellTone} aria-hidden="true">
-            {alerts.length}
+        {o.alerts > 0 && (
+          <span className={`${styles.bellCount} num`} data-tone={o.bell} aria-hidden="true">
+            {o.alerts}
           </span>
         )}
       </Link>

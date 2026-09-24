@@ -10,19 +10,19 @@
  * 판단을 지어내지 않고 'AI 연결 전'만 그린다.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminError, getAdminApi } from "@/lib/admin/api";
 import { actionKey, AI_ACTION_LABEL, limitsOf, type AiLimits } from "@/lib/admin/aiPolicy";
 import { useOpsFocus } from "@/lib/admin/opsCenter";
 import { useCan } from "@/lib/admin/store";
-import type { AiActionKind, AiDecision, AiDesk, AiProposal, ControlCenter, OpsRef } from "@/lib/admin/types";
+import type { AiActionKind, AiDecision, AiDesk, AiProposal, OpsRef, OpsSection } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
 import ConfirmDialog from "../ConfirmDialog";
 import adminStyles from "../admin.module.css";
 import { AdminIcon } from "../icons";
 import { RulesDisclosure } from "./ModeBar";
-import { ago, AiMark, hms, mmss, SEVERITY_SHAPE } from "./parts";
+import { Ago, AiMark, hms, mmss, SEVERITY_SHAPE, useClock } from "./parts";
 import styles from "./control.module.css";
 
 const RISK_WORD = { LOW: "낮음", MEDIUM: "중간" } as const;
@@ -107,8 +107,12 @@ function Decided({ p, now }: { p: AiProposal; now: number }) {
   }
 }
 
-/** 처리된 조치. 번호와 예상 영향 대신 실제로 바꾼 것(결과)을 적는다 */
-function DoneCard({ p, now, onChanged }: { p: AiProposal; now: number; onChanged: () => void }) {
+/**
+ * 처리된 조치. 번호와 예상 영향 대신 실제로 바꾼 것(결과)을 적는다. 되돌리기 창이 열린 자동 실행 카드만
+ * 남은 시간을 매초 다시 그리고, 나머지 카드는 시계를 사실상 타지 않는다(한 시간 간격)
+ */
+function DoneCard({ p, onChanged }: { p: AiProposal; onChanged: () => void }) {
+  const now = useClock(p.status === "AUTO_EXECUTED" ? 1000 : 3_600_000);
   const canSuper = useCan("SUPER");
   const [busy, setBusy] = useState(false);
   const revert = async () => {
@@ -333,7 +337,7 @@ function Summary({ ai, top, limits }: { ai: AiDesk; top: AiProposal | null; limi
         <dd className={`${styles.cellValue} num`}>{conf === null ? "해당 없음" : `${conf}% · ${word}`}</dd>
         <dd className={styles.cellSub}>
           <span className={styles.confTrack} aria-hidden="true">
-            {conf !== null && <span className={styles.confFill} style={{ width: `${conf}%` }} />}
+            {conf !== null && <span className={styles.confFill} style={{ transform: `scaleX(${conf / 100})` }} />}
             <span className={styles.confMark} style={{ left: `${limits.confidencePct}%` }} />
           </span>
           자동 실행 기준 {limits.confidencePct}%
@@ -383,17 +387,20 @@ function AiOff({ source }: { source: string }) {
   );
 }
 
-export default function AiPanel({ center, now, onChanged, full = false }: {
-  center: ControlCenter | null;
-  now: number;
+/**
+ * AI 칸(판의 ai)만 받는다. 판은 매초 새로 오지만 이 칸은 판단이 바뀔 때만 새 참조라(opsCenter의
+ * shareEqual) 패널이 매초 다시 그려지지 않는다
+ */
+function AiPanel({ section, sim, onChanged, full = false }: {
+  /** 판을 받기 전이면 null이다 */
+  section: OpsSection<AiDesk> | null;
+  sim: boolean;
   onChanged: () => void;
   /** AI 판단 화면은 결정된 조치안과 판단 이력을 모두 싣는다 */
   full?: boolean;
 }) {
   const point = useOpsFocus((s) => s.point);
   const evidenceRef = useRef<HTMLDivElement>(null);
-  const section = center?.ai ?? null;
-  const sim = center?.origin === "SIM";
   const ai = section?.state === "READY" ? section.data : null;
   const open = ai ? ai.proposals.filter((p) => p.status === "PROPOSED") : [];
   const others = ai ? ai.proposals.filter((p) => p.status !== "PROPOSED") : [];
@@ -524,7 +531,7 @@ export default function AiPanel({ center, now, onChanged, full = false }: {
                 </div>
                 <div className={styles.proposals}>
                   {done.map((p) => (
-                    <DoneCard key={p.id} p={p} now={now} onChanged={onChanged} />
+                    <DoneCard key={p.id} p={p} onChanged={onChanged} />
                   ))}
                 </div>
               </div>
@@ -554,7 +561,12 @@ export default function AiPanel({ center, now, onChanged, full = false }: {
               </span>
               <span>
                 근거 수집 <b className="num">{ai.evidenceAt ? hms(ai.evidenceAt) : "없음"}</b>
-                {ai.evidenceAt && ` · ${ago(ai.evidenceAt, now)}`}
+                {ai.evidenceAt && (
+                  <>
+                    {" · "}
+                    <Ago at={ai.evidenceAt} />
+                  </>
+                )}
               </span>
             </div>
             <div className={styles.guard}>
@@ -572,3 +584,5 @@ export default function AiPanel({ center, now, onChanged, full = false }: {
     </section>
   );
 }
+
+export default memo(AiPanel);

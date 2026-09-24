@@ -11,7 +11,7 @@ import { useCan } from "@/lib/admin/store";
 import type { JobOutcome, OpsBackup, OpsJobs } from "@/lib/admin/types";
 import { toast } from "@/components/Toast";
 import adminStyles from "../admin.module.css";
-import { ago, hm, Shape } from "./parts";
+import { ago, hm, Shape, useClock } from "./parts";
 import styles from "./control.module.css";
 
 /** Databasus 화면 주소. 빌드 때 넣고 없으면 링크를 그리지 않는다(GrafanaLink와 같은 규약) */
@@ -62,7 +62,9 @@ function dayWord(iso: string, now: number): string {
   return `${same ? "오늘" : tomorrow ? "내일" : `${d.getMonth() + 1}.${d.getDate()}`} ${hm(iso)}`;
 }
 
-export function BackupLine({ b, now, onChanged, detail }: { b: OpsBackup; now: number; onChanged: () => void; detail?: boolean }) {
+export function BackupLine({ b, onChanged, detail }: { b: OpsBackup; onChanged: () => void; detail?: boolean }) {
+  // 날짜와 'n분 전'만 읽으므로 분 단위로만 다시 그린다
+  const now = useClock(60_000);
   const canSuper = useCan("SUPER");
   const [busy, setBusy] = useState(false);
   const run = async () => {
@@ -141,7 +143,8 @@ export function BackupLine({ b, now, onChanged, detail }: { b: OpsBackup; now: n
   );
 }
 
-export default function JobsBlock({ jobs, now, onChanged }: { jobs: OpsJobs; now: number; onChanged: () => void }) {
+export default function JobsBlock({ jobs, onChanged }: { jobs: OpsJobs; onChanged: () => void }) {
+  const now = useClock(60_000);
   const days = Math.floor((Date.parse(jobs.certificate.expiresAt) - now) / 86_400_000);
   const certTone = days < 14 ? "danger" : days < 30 ? "warning" : "success";
   const report = jobs.dailyReport.lastSentAt;
@@ -149,7 +152,7 @@ export default function JobsBlock({ jobs, now, onChanged }: { jobs: OpsJobs; now
   const due = new Date(now).getHours() >= jobs.dailyReport.hour;
   return (
     <div className={styles.jobs}>
-      <BackupLine b={jobs.backup} now={now} onChanged={onChanged} />
+      <BackupLine b={jobs.backup} onChanged={onChanged} />
       <div className={styles.job}>
         <span className={styles.jobKey}>인증서</span>
         <span className={styles.jobVal}>

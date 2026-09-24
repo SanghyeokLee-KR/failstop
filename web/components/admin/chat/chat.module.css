@@ -1,0 +1,581 @@
+/* ============================================================================
+   chat.module.css. AI 상담 패널(관리자 설계 4-6). 오른쪽에 떠 있는 층이라 그림자를 받는다(§12-10).
+   AI라는 사실은 면의 색이 아니라 표지, 근거, 수집 시각과 모델로 드러낸다. 모든 값은 tokens.css 소비.
+   ========================================================================== */
+
+/* 대화상자(z-overlay) 아래, 드롭다운 위. 확인 대화상자가 뜨면 이 패널도 배경으로 가라앉는다.
+   폭은 운영자가 손잡이로 정한 값을 인라인 --chat-w로 받는다. 여기 값은 받기 전의 기본 폭이다 */
+.panel {
+  --chat-w: 440px;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: calc(var(--z-overlay) - 1);
+  display: flex;
+  flex-direction: column;
+  width: var(--chat-w);
+  background: var(--surface-default);
+  box-shadow: inset 1px 0 0 var(--border-default), var(--shadow-4);
+  animation: panelIn var(--dur-base) var(--ease-decelerate);
+}
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+/* 최소 판형(1280px)보다 좁은 창에서는 판 전체를 덮는다. 폭 손잡이는 쓸 데가 없어 뺀다 */
+@media (max-width: 1100px) {
+  .panel {
+    width: 100vw;
+  }
+  .resize {
+    display: none;
+  }
+}
+
+/* 폭 손잡이. 왼쪽 끝 헤어라인 위에 6px 띠로 겹쳐 둔다. 누를 자리는 띠보다 넓다 */
+.resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.resize::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 2px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.resize:hover::after,
+.resize:focus-visible::after,
+.resize[data-drag]::after {
+  opacity: 1;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  height: 56px;
+  padding: 0 var(--space-3) 0 var(--space-5);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+.mark {
+  display: inline-flex;
+  color: var(--ai-accent);
+}
+.title {
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+/* 시뮬레이션 표식. 관제센터 AI 패널의 표식과 같은 점선 네모다 */
+.simTag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
+  white-space: nowrap;
+}
+.headTail {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+.textBtn {
+  position: relative;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border-radius: var(--control-radius);
+  font-size: var(--font-caption-size);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.textBtn:hover:not(:disabled) {
+  color: var(--text-default);
+  background: var(--surface-hover);
+}
+.textBtn:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+.textBtn::after,
+.iconBtn::after {
+  content: "";
+  position: absolute;
+  inset: -6px 0;
+}
+.iconBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--control-radius);
+  color: var(--text-secondary);
+}
+.iconBtn:hover {
+  color: var(--text-default);
+  background: var(--surface-hover);
+}
+.lead {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+
+/* ===== 대화 ===== */
+.log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+
+.me {
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  max-width: 86%;
+}
+.bubble {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md) var(--radius-xs) var(--radius-md) var(--radius-md);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-strong);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+.time {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+
+.ai {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.aiHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 20px;
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-secondary);
+}
+.aiHead b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.aiDot {
+  display: inline-flex;
+  color: var(--ai-accent);
+}
+/* 조회 전용 표식. 실행을 부탁한 질문에 실행하지 않았다는 사실을 답 머리에 적는다 */
+.readOnly {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-micro-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-default);
+}
+.answer {
+  font-size: var(--font-body-sm-size);
+  line-height: 22px;
+  color: var(--text-default);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.answer[data-tone="warning"] {
+  color: var(--color-warning-text);
+}
+.answer[data-tone="danger"] {
+  color: var(--color-danger);
+}
+
+/* 근거. 종류 칸과 칩 칸을 가른다. 종류마다 한 줄이고 칩은 AI 패널의 근거 칩과 같은 무채 네모다(§12-9) */
+.evidence {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  align-items: start;
+  margin: 0;
+}
+.evRow {
+  display: contents;
+}
+.evKey {
+  padding-top: 4px;
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  max-width: 100%;
+  min-height: 24px;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--surface-default);
+  font-size: var(--font-dense-size);
+  line-height: var(--font-dense-line);
+  color: var(--text-default);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip b {
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.shape {
+  font-size: 10px;
+  line-height: 1;
+}
+.shape[data-tone="danger"] {
+  color: var(--color-danger);
+}
+.shape[data-tone="warning"] {
+  color: var(--color-warning);
+}
+.shape[data-tone="info"] {
+  color: var(--text-secondary);
+}
+
+/* 수집 시각과 모델. 답이 무엇을 보고 누가 냈는지 늘 같은 자리에 적는다 */
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+.meta b {
+  font-weight: var(--fw-medium);
+  color: var(--text-default);
+}
+
+/* 관련 화면. 실행 단추가 아니라 절차가 있는 화면으로 가는 텍스트 링크다 */
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  font-weight: var(--fw-medium);
+  color: var(--chrome-accent);
+  text-decoration: none;
+}
+.link:hover {
+  text-decoration: underline;
+}
+.link::after {
+  content: "";
+  position: absolute;
+  inset: -13px -4px;
+}
+
+.retry {
+  align-self: flex-start;
+}
+
+/* 답을 쓰는 중. 관제센터 AI 패널의 판단 중 막대와 같은 움직임이고 transform만 움직인다 */
+.thinking {
+  position: relative;
+  height: 2px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--ai-accent-bg);
+}
+.thinking::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -30%;
+  width: 30%;
+  background: var(--ai-accent);
+  animation: sweep 1.6s linear infinite;
+}
+@keyframes sweep {
+  to {
+    transform: translateX(433%);
+  }
+}
+
+/* ===== 빈 상태와 추천 질문 ===== */
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+}
+.emptyMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--ai-accent);
+}
+.emptyTitle {
+  font-size: var(--font-title-3-size);
+  line-height: var(--font-title-3-line);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.emptyDesc {
+  margin-top: calc(var(--space-2) * -1);
+  font-size: var(--font-body-sm-size);
+  line-height: 22px;
+  color: var(--text-default);
+  word-break: keep-all;
+}
+.suggestLabel {
+  margin-top: var(--space-2);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+.suggest {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--panel-radius);
+  overflow: hidden;
+}
+.suggestItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  font-size: var(--font-body-sm-size);
+  line-height: var(--font-body-sm-line);
+  color: var(--text-default);
+  text-align: left;
+}
+.suggestItem + .suggestItem {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+.suggestItem:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+.suggestItem:disabled {
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+.suggestArrow {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transform: rotate(-90deg);
+}
+
+/* ===== 막힌 상태 ===== */
+/* 연결 전은 §12-8의 셋째 모양(점선, 면 없음)이고, AI 정지는 주의 면이다 */
+.blocked {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 var(--space-5) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--panel-radius);
+  font-size: var(--font-caption-size);
+  line-height: var(--font-caption-line);
+  color: var(--text-default);
+}
+.blocked b {
+  font-size: var(--font-body-sm-size);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+.blocked[data-kind="stopped"] {
+  border-style: solid;
+  border-color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+}
+.blocked[data-kind="stopped"] b {
+  color: var(--color-warning-text);
+}
+
+/* ===== 입력 ===== */
+.composer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5) var(--space-4);
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+.field {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--panel-radius);
+  background: var(--surface-default);
+}
+.field:focus-within {
+  outline: var(--focus-outline-width) solid var(--focus-outline-color);
+  outline-offset: var(--focus-outline-offset);
+}
+.field[data-disabled] {
+  border-style: dashed;
+  border-color: var(--text-tertiary);
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: 24px;
+  max-height: 144px;
+  padding: 4px 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--font-body-sm-size);
+  line-height: 22px;
+  color: var(--text-strong);
+}
+.input::placeholder {
+  color: var(--text-placeholder);
+}
+.input:disabled {
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+.send {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--control-radius);
+  background: var(--brand-primary-fill);
+  color: var(--text-on-brand);
+}
+.send::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+.send:hover:not(:disabled) {
+  background: var(--brand-primary-hover);
+}
+/* 비활성은 opacity가 아니라 빈 면과 점선이다(§12-6) */
+.send:disabled {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+.hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+.hintText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  word-break: keep-all;
+}
+.count {
+  flex-shrink: 0;
+}
+.count[data-near] {
+  color: var(--color-warning-text);
+  font-weight: var(--fw-semibold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
+  .thinking {
+    background: repeating-linear-gradient(90deg, var(--ai-accent) 0 4px, transparent 4px 8px);
+  }
+  .thinking::after {
+    display: none;
+  }
+}

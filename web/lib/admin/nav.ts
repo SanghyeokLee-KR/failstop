@@ -28,11 +28,15 @@ export interface AdminNavItem {
 export interface AdminNavGroup {
   label: string;
   items: AdminNavItem[];
+  /** 처음에는 접어 둔다. 운영자가 펼치면 그 선택을 기억한다 */
+  closedByDefault?: boolean;
 }
 
 /**
  * 운영 관제. MSP 관제센터 구조다(2026-09-24 사용자 요구로 개편, 관리자 설계 4-1).
- * 관제는 판단과 기록, 인프라는 판독, 조치는 값을 바꾸는 자리, 시연은 재생 시안이다.
+ * 관제는 판단과 기록, 인프라는 판독, 조치는 값을 바꾸는 자리, 시연은 재생 시안이다. 보고서는 bot-1 보고
+ * 서비스가 Teams로 보낸 보고를 읽는 자리라 관제에 둔다. 시연은 1280x800 창에서 목록 끝이 스크롤 없이
+ * 보이도록 접은 채로 시작한다.
  */
 export const OPS_NAV: AdminNavGroup[] = [
   {
@@ -41,6 +45,7 @@ export const OPS_NAV: AdminNavGroup[] = [
       { href: "/admin", label: "관제센터", icon: "overview", exact: true },
       { href: "/admin/incidents", label: "경보·사건", icon: "incidents", badge: "incidents" },
       { href: "/admin/ai", label: "AI 판단", icon: "ai", badge: "ai" },
+      { href: "/admin/reports", label: "보고서", icon: "reports" },
     ],
   },
   {
@@ -60,6 +65,7 @@ export const OPS_NAV: AdminNavGroup[] = [
   },
   {
     label: "시연",
+    closedByDefault: true,
     items: [
       // 시안. 값은 시뮬레이션이고 백엔드에 연결하지 않았다(flowSim.ts)
       { href: "/admin/flow", label: "서비스 흐름", icon: "flow" },
@@ -68,6 +74,9 @@ export const OPS_NAV: AdminNavGroup[] = [
     ],
   },
 ];
+
+/** 운영 관제 바닥 줄의 화면. 연동 상태와 연락 체계는 자주 오지 않는 자리라 묶음 밖 바닥에 둔다 */
+export const OPS_FOOT: AdminNavItem[] = [{ href: "/admin/settings", label: "설정", icon: "settings" }];
 
 /** 백오피스. 제품 운영이라 실험 대상이 아니다 */
 export const BACK_NAV: AdminNavGroup[] = [

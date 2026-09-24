@@ -6,11 +6,11 @@
  * 좋아졌는지로 정한다(5xx가 줄면 좋다). 추세는 화면 머리에서 고른 범위(1·6·24시간)이고 탐색은 Grafana로 보낸다.
  */
 
-import type { ReactNode } from "react";
-import type { ControlCenter, IncidentLog, OpsAlert, OpsRef, OpsSection, OpsTrendSeries, TrendRange } from "@/lib/admin/types";
+import { memo, type ReactNode } from "react";
+import type { IncidentLog, OpsAlert, OpsRef, OpsSection, OpsSummary, OpsTrends, OpsTrendSeries, TrendRange } from "@/lib/admin/types";
 import { refMatches, useOpsFocus } from "@/lib/admin/opsCenter";
 import { AdminIcon, type AdminIconName } from "../icons";
-import { durationWord, SEVERITY_WORD } from "./parts";
+import { durationWord, SEVERITY_WORD, useClock } from "./parts";
 import Sparkline from "./Sparkline";
 import styles from "./control.module.css";
 
@@ -143,14 +143,26 @@ export function alertCounts(alerts: OpsAlert[]): Record<"critical" | "warning" |
   return out;
 }
 
+// 추세선이 memo라 표기 함수는 모듈에 둔다. 칸 안에서 만들면 그릴 때마다 새 함수라 추세선이 매번 다시 그린다
 const pct2 = (v: number) => `${v.toFixed(2)}%`;
 const ms0 = (v: number) => `${Math.round(v)}ms`;
+const alertsN = (v: number) => `경보 ${v}건`;
+const incidentsN = (v: number) => `사건 ${v}건`;
 
-export default function SummaryStrip({ center, now, range }: { center: ControlCenter | null; now: number; range: TrendRange }) {
-  const s = center?.summary.state === "READY" ? center.summary.data : null;
-  const alerts = center?.alerts.state === "READY" ? center.alerts.data : null;
-  const log = center?.incidents.state === "READY" ? center.incidents.data : null;
-  const tr = center?.trends.state === "READY" ? center.trends.data[range] : null;
+/** 요약에 쓰는 네 칸만 받는다. 칸이 바뀔 때만 다시 그린다 */
+function SummaryStrip({ summary, alerts: alertSec, incidents, trends, range }: {
+  summary: OpsSection<OpsSummary>;
+  alerts: OpsSection<OpsAlert[]>;
+  incidents: OpsSection<IncidentLog>;
+  trends: OpsSection<OpsTrends>;
+  range: TrendRange;
+}) {
+  // '오늘'의 경계만 읽으므로 분 단위로만 다시 그린다
+  const now = useClock(60_000);
+  const s = summary.state === "READY" ? summary.data : null;
+  const alerts = alertSec.state === "READY" ? alertSec.data : null;
+  const log = incidents.state === "READY" ? incidents.data : null;
+  const tr = trends.state === "READY" ? trends.data[range] : null;
   const avTone: Tone = s && s.availabilityPct !== null && s.availabilityPct < s.slo.availabilityPct ? "danger" : undefined;
   const p95Tone: Tone = s && s.p95Ms !== null && s.p95Ms > s.slo.p95Ms ? "warning" : undefined;
   const errTone: Tone = s && s.errorRatePct !== null && s.errorRatePct >= s.slo.errorRatePct ? "warning" : undefined;
@@ -163,7 +175,7 @@ export default function SummaryStrip({ center, now, range }: { center: ControlCe
   // 축의 최소 폭은 그 지표에서 눈여겨볼 변화의 크기다. 가용성·5xx는 0.06%p, p95는 60ms다
   const spark = (series: OpsTrendSeries | undefined, tone: Tone, format: (v: number) => string, what: string, opt: { kind?: "bars"; minSpan?: number; zero?: boolean } = {}) =>
     series ? (
-      <Sparkline points={series.points} tone={tone} format={format} stepMin={step} now={now} label={`지난 ${range}시간 ${what}`} kind={opt.kind} minSpan={opt.minSpan} zero={opt.zero} />
+      <Sparkline points={series.points} tone={tone} format={format} stepMin={step} label={`지난 ${range}시간 ${what}`} kind={opt.kind} minSpan={opt.minSpan} zero={opt.zero} />
     ) : null;
   const mark = (tone: Tone) =>
     tone && (
@@ -171,7 +183,7 @@ export default function SummaryStrip({ center, now, range }: { center: ControlCe
         {tone === "danger" ? "■" : "▲"}
       </span>
     );
-  const source = (sec: OpsSection<unknown> | undefined) => (sec?.state === "NOT_CONNECTED" ? sec.source : "");
+  const source = (sec: OpsSection<unknown>) => (sec.state === "NOT_CONNECTED" ? sec.source : "");
 
   return (
     <section className={styles.summary} aria-label="상태 요약">
@@ -216,15 +228,15 @@ export default function SummaryStrip({ center, now, range }: { center: ControlCe
         </>
       ) : (
         <>
-          <Missing icon="globe" label="외부 가용성" source={source(center?.summary)} />
-          <Missing icon="clock" label="응답 p95" source={source(center?.summary)} />
-          <Missing icon="errors" label="5xx 비율" source={source(center?.summary)} />
+          <Missing icon="globe" label="외부 가용성" source={source(summary)} />
+          <Missing icon="clock" label="응답 p95" source={source(summary)} />
+          <Missing icon="errors" label="5xx 비율" source={source(summary)} />
         </>
       )}
       {counts && alerts ? (
         <Tile icon="incidents" label="활성 경보" tone={alertTone}
           delta={tr ? <DeltaChip d={deltaOf(tr.alerts, "count", "down")} range={range} /> : null}
-          trend={spark(tr?.alerts, alertTone, (v) => `경보 ${v}건`, "활성 경보", { zero: true })}
+          trend={spark(tr?.alerts, alertTone, alertsN, "활성 경보", { zero: true })}
           value={
             <span className={`${styles.tileValue} num`} data-tone={alertTone}>
               {mark(alertTone)}
@@ -251,12 +263,12 @@ export default function SummaryStrip({ center, now, range }: { center: ControlCe
           }
         />
       ) : (
-        <Missing icon="incidents" label="활성 경보" source={source(center?.alerts)} />
+        <Missing icon="incidents" label="활성 경보" source={source(alertSec)} />
       )}
       {inc ? (
         <Tile icon="audit" label="오늘 사건" tone={inc.open > 0 ? "warning" : undefined}
           delta={tr ? <DeltaChip d={deltaOf(tr.incidents, "count", "down")} range={range} /> : null}
-          trend={spark(tr?.incidents, undefined, (v) => `사건 ${v}건`, "새 사건", { kind: "bars" })}
+          trend={spark(tr?.incidents, undefined, incidentsN, "새 사건", { kind: "bars" })}
           value={
             <span className={`${styles.tileValue} num`}>
               {inc.count}
@@ -276,8 +288,10 @@ export default function SummaryStrip({ center, now, range }: { center: ControlCe
           }
         />
       ) : (
-        <Missing icon="audit" label="오늘 사건" source={source(center?.incidents)} />
+        <Missing icon="audit" label="오늘 사건" source={source(incidents)} />
       )}
     </section>
   );
 }
+
+export default memo(SummaryStrip);

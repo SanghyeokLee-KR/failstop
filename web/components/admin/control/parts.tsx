@@ -4,58 +4,42 @@
  * 관제센터 화면들이 함께 쓰는 작은 조각. 상태 어휘는 디자인 시스템 §12-3, 관제센터 규칙은 §12-9를 따른다.
  */
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { useBeat } from "@/lib/admin/ticker";
+import { ago, mmss } from "@/lib/admin/timeText";
 import type { AlertSeverity, ControlCenter, OpsEnvironment, OpsSection } from "@/lib/admin/types";
 import { AdminIcon } from "../icons";
 import { MeterRail } from "../instruments/MeterRail";
 import styles from "./control.module.css";
 
-/** 매초 다시 그린다. 남은 시간과 'N초 전'처럼 벽시계로 읽는 글자만 쓴다 */
+/**
+ * 콘솔 공용 박자에 맞춰 다시 그리는 시각. 남은 시간과 'N초 전'처럼 벽시계로 읽는 글자만 쓴다.
+ * 넓은 판 위에서 받아 아래로 내리지 말고, 그 글자를 그리는 작은 조각 안에서 부른다
+ */
 export function useClock(intervalMs = 1000): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
+  return useBeat(intervalMs);
 }
 
-export function mmss(ms: number): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+/** 'n초 전'. 이 조각만 매초 다시 그린다 */
+export function Ago({ at, prefix = "" }: { at: string; prefix?: string }) {
+  const now = useClock();
+  return (
+    <>
+      {prefix}
+      {ago(at, now)}
+    </>
+  );
 }
 
-export function hmmss(ms: number): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(s / 3600);
-  return `${h}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+/** 마감까지 남은 mm:ss. 마감이 지나면 fallback을 그린다 */
+export function Remain({ until, fallback = null }: { until: string; fallback?: ReactNode }) {
+  const now = useClock();
+  const left = Date.parse(until) - now;
+  return <>{left > 0 ? mmss(left) : fallback}</>;
 }
 
-export function hm(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-export function hms(iso: string): string {
-  const d = new Date(iso);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-}
-
-export function ago(iso: string, now: number): string {
-  const s = Math.max(0, Math.floor((now - Date.parse(iso)) / 1000));
-  if (s < 60) return `${s}초 전`;
-  if (s < 3600) return `${Math.floor(s / 60)}분 전`;
-  return `${Math.floor(s / 3600)}시간 전`;
-}
-
-export function durationWord(ms: number): string {
-  const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s}초`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}분 ${String(s % 60).padStart(2, "0")}초`;
-  return `${Math.floor(m / 60)}시간 ${m % 60}분`;
-}
+// 시각 글자는 lib에 있다. AI 상담의 답(lib)과 화면 조각이 같은 말을 쓰게 한곳에 두고 여기서 다시 내보낸다
+export { ago, durationWord, hm, hmmss, hms, mmss } from "@/lib/admin/timeText";
 
 export const SEVERITY_SHAPE: Record<AlertSeverity, string> = { critical: "■", warning: "▲", info: "●" };
 export const SEVERITY_WORD: Record<AlertSeverity, string> = { critical: "장애", warning: "주의", info: "정보" };
@@ -110,6 +94,7 @@ const ENV_WORD: Record<OpsEnvironment, string> = {
   SIMULATOR: "시뮬레이터",
   LOCAL_DOCKER: "로컬 Docker",
   SCHOOL_AWS: "학교 AWS",
+  PERSONAL_AWS: "개인 AWS",
   UNKNOWN: "환경 미확인",
 };
 
@@ -122,11 +107,11 @@ export function EnvBadge({ env }: { env: OpsEnvironment }) {
   );
 }
 
-/** 폴링 두 주기를 넘기면 지연이다. 관제 판은 sim 1초, 실측은 30초 주기라 실측 기준으로 60초다 */
-const LIVE_STALE_MS = 60_000;
+/** 폴링 두 주기를 넘기면 지연이다. 관제 판은 sim 1초, 실측은 15초 주기(opsCenter)라 실측 기준으로 30초다 */
+export const LIVE_STALE_MS = 30_000;
 
 /** 값의 출처와 신선도(§12-9). 원천이 없으면 연결 전을, sim이면 시뮬레이션을 먼저 말한다 */
-export function OpsSourceChip({ center, now }: { center: ControlCenter | null; now: number }) {
+export function OpsSourceChip({ center }: { center: ControlCenter | null }) {
   if (center === null || center.origin === null) {
     return (
       <span className={styles.sourceChip} data-kind="none">
@@ -142,7 +127,12 @@ export function OpsSourceChip({ center, now }: { center: ControlCenter | null; n
       </span>
     );
   }
-  const at = center.collectedAt;
+  return <LiveChip at={center.collectedAt} />;
+}
+
+/** 실측 칩. 'N초 전'이 매초 바뀌므로 시계는 이 조각만 탄다 */
+function LiveChip({ at }: { at: string | null }) {
+  const now = useClock();
   const stale = at === null || now - Date.parse(at) > LIVE_STALE_MS;
   return (
     <span className={styles.sourceChip} data-kind={stale ? "stale" : "live"}>

@@ -10,7 +10,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import type { AdminNavGroup } from "@/lib/admin/nav";
+import type { AdminNavGroup, AdminNavItem } from "@/lib/admin/nav";
 import { usePageTitle } from "@/components/PageTitle";
 import AdminSidebar from "./AdminSidebar";
 import OperatorBar from "./OperatorBar";
@@ -19,26 +19,34 @@ import styles from "./admin.module.css";
 export default function AdminShell({
   title,
   groups,
+  footLinks,
   crossLink,
   sidebarFoot,
+  brandAction,
   barSearch,
   barSignals,
+  overlay,
   children,
 }: {
   title: string;
   groups: AdminNavGroup[];
+  /** 사이드바 바닥 줄의 화면. 운영 관제는 설정을 넘긴다 */
+  footLinks?: AdminNavItem[];
   crossLink: { href: string; label: string };
   /** 사이드바 바닥 상태 줄. 운영 관제만 AI 운영 모드를 넘긴다 */
   sidebarFoot?: ReactNode;
+  /** 사이드바 명판 줄의 단추. 운영 관제는 AI 상담 단추를 넘긴다 */
+  brandAction?: ReactNode;
   /** 운영자 바의 검색과 상태 신호. 관제 데이터를 읽으므로 운영 관제만 넘긴다 */
   barSearch?: ReactNode;
   barSignals?: ReactNode;
+  /** 본문 위에 뜨는 층(AI 상담 패널) */
+  overlay?: ReactNode;
   children: ReactNode;
 }) {
   // 관리 화면은 전부 클라이언트 페이지라 metadata로 제목을 못 단다. 내비 이름을 탭 제목으로 쓴다
   const pathname = usePathname();
-  const current = groups
-    .flatMap((g) => g.items)
+  const current = [...groups.flatMap((g) => g.items), ...(footLinks ?? [])]
     .find((n) => (n.exact ? pathname === n.href : pathname === n.href || pathname.startsWith(`${n.href}/`)));
   usePageTitle(`${current?.label ?? title} · 관리 콘솔`);
 
@@ -49,13 +57,14 @@ export default function AdminShell({
       <a href="#admin-main" className="skip-link">
         관리 본문 바로가기
       </a>
-      <AdminSidebar title={title} groups={groups} crossLink={crossLink} foot={sidebarFoot} />
+      <AdminSidebar title={title} groups={groups} footLinks={footLinks} crossLink={crossLink} brandAction={brandAction} foot={sidebarFoot} />
       <div className={styles.main}>
         <OperatorBar search={barSearch} signals={barSignals} />
         <main id="admin-main" tabIndex={-1} className={styles.content}>
           {children}
         </main>
       </div>
+      {overlay}
     </div>
   );
 }

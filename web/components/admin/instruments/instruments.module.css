@@ -21,13 +21,16 @@
      거짓 정밀도만 만든다. 위치 판독은 threshold·mark(실측 위치)가 전담한다 */
   background: var(--surface-sunken);
 }
+/* 폭이 아니라 transform으로 늘인다. 폭을 전이하면 값이 바뀔 때마다 여러 프레임 동안 배치를 다시 잰다 */
 .fill {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
+  width: 100%;
+  transform-origin: left center;
   background: var(--text-secondary);
-  transition: width var(--dur-base) var(--ease-standard);
+  transition: transform var(--dur-base) var(--ease-standard);
 }
 /* 600 원색은 면·그래픽 전용 허용 대역(tokens.css §2). 소형 텍스트가 아니다 */
 .fill[data-tone="success"] {
@@ -92,14 +95,25 @@
   width: 2px;
   background: var(--text-strong);
 }
+/* 마커 자리. 판독 폭 전체를 덮는 틀을 transform으로 옮긴다. 틀의 폭이 곧 판독 폭이라 translateX(n%)가
+   판독 폭의 n%만큼 옮기고, left를 전이할 때와 달리 배치를 다시 재지 않는다 */
+.biasSlot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  pointer-events: none;
+  transition: transform var(--dur-base) var(--ease-standard);
+}
 .biasMarkTarget,
 .biasMarkMeasured {
   position: absolute;
+  left: 0;
   transform: translateX(-50%);
   font-size: 9px;
   line-height: 1;
   pointer-events: none;
-  transition: left var(--dur-base) var(--ease-standard);
 }
 /* 목표(의도)는 레일 위 속빈 삼각, secondary 잉크로 실측과 명도차를 둔다 */
 .biasMarkTarget {
@@ -115,12 +129,12 @@
 .biasMarkEffective {
   position: absolute;
   top: -2px;
+  left: 0;
   width: 2px;
   height: 10px;
   transform: translateX(-50%);
   background: var(--text-strong);
   pointer-events: none;
-  transition: left var(--dur-base) var(--ease-standard);
 }
 .biasScale {
   position: absolute;

@@ -1,6 +1,7 @@
 /**
  * 관제센터 어댑터 검증. sim은 역할 검사와 1인 승인 원장을 거쳐 시뮬레이터를 바꾸고, http는 서버에
- * 없는 관제 엔드포인트를 부르지 않고 '원천 연결 전'을 돌려준다(관리자 설계 4-4, ADR 0035).
+ * 없는 관제 조작 경로를 부르지 않고 거절한다(관리자 설계 4-4, ADR 0035). http의 한 판 조회는
+ * opsTransport.test.ts가 본다.
  */
 
 import { test } from "node:test";
@@ -8,7 +9,7 @@ import assert from "node:assert/strict";
 import { SimAdminApi } from "../lib/admin/simAdmin";
 import { HttpAdminApi } from "../lib/admin/httpAdmin";
 import { AdminError, type AdminApi } from "../lib/admin/api";
-import type { AiDesk, ControlCenter, ThresholdRegistry } from "../lib/admin/types";
+import type { AiDesk, ThresholdRegistry } from "../lib/admin/types";
 
 function ready<T>(s: { state: string; data?: T }): T {
   assert.equal(s.state, "READY");
@@ -141,24 +142,16 @@ test("sim: 경보 보류는 SUPER만, 확인은 조회 권한으로 된다", asy
   await rejectsWith(() => api.ackAlert("없는-경보"), "not_found");
 });
 
-test("http: 관제센터 판독은 네트워크를 부르지 않고 칸마다 '원천 연결 전'과 원천 이름을 돌려준다", async () => {
+test("http: 관제 조작은 서버 경로가 없어 요청을 보내지 않고 '원천 연결 전'으로 거절한다", async () => {
   const prev = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = (async () => {
     calls += 1;
-    throw new Error("관제 엔드포인트를 부르면 안 된다");
+    throw new Error("관제 조작 엔드포인트를 부르면 안 된다");
   }) as typeof fetch;
   try {
     // 계약(AdminApi)으로 부른다. 구현은 인자를 읽지 않고 곧바로 거절한다
     const api: AdminApi = new HttpAdminApi("http://admin.test");
-    const c: ControlCenter = await api.getControlCenter();
-    assert.equal(c.origin, null);
-    for (const key of ["summary", "hosts", "readTier", "replication", "alerts", "incidents", "jobs", "thresholds", "ai", "aiServer", "trends"] as const) {
-      const s = c[key];
-      assert.equal(s.state, "NOT_CONNECTED", key);
-      assert.ok(s.state === "NOT_CONNECTED" && s.source.length > 0, `${key} 원천 이름`);
-    }
-    assert.equal(c.scenario, null);
     assert.equal(api.opsScenarios, false);
     for (const run of [
       () => api.ackAlert("a"),

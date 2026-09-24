@@ -4,14 +4,18 @@
  * 상태 요약 칸의 작은 추세선. 차트 라이브러리 없이 SVG로 그린다. 선은 무채이고 마지막 점만 크롬 악센트다.
  * 칸이 목표를 벗어나면 마지막 점이 상태색을 받는다. 가리키면 그 시점의 값을 보이고, 같은 값은 보조기술용
  * 요약(최저·최고·마지막)과 칸의 수치로도 읽힌다. 가리키기는 값을 더할 뿐 값을 숨기지 않는다.
+ *
+ * 점이 많으면 60점 이하로 줄여 그린다(lib/admin/series.ts). 선은 묶음마다 평균에서 가장 먼 값을 남겨 순간
+ * 치솟음을 지우지 않고, 건수 막대는 묶음의 합을 남긴다.
  */
 
-import { useState } from "react";
+import { memo, useState } from "react";
+import { downsample } from "@/lib/admin/series";
 import styles from "./control.module.css";
 
 const VIEW_H = 100;
 
-export default function Sparkline({ points, kind = "line", tone, format, stepMin, now, label, minSpan, zero = false }: {
+function Sparkline({ points: raw, kind = "line", tone, format, stepMin, label, minSpan, zero = false }: {
   points: (number | null)[];
   /** 사건처럼 드문 일은 칸마다 막대로 그린다 */
   kind?: "line" | "bars";
@@ -26,11 +30,11 @@ export default function Sparkline({ points, kind = "line", tone, format, stepMin
   format: (v: number) => string;
   /** 점 사이 간격(분) */
   stepMin: number;
-  now: number;
   /** 보조기술 요약의 머리말. 무엇의 몇 시간 추세인지 적는다 */
   label: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
+  const { points, factor } = downsample(raw, undefined, kind === "bars" ? "sum" : "extreme");
   const vals = points.filter((v): v is number => v !== null);
   if (vals.length < 2) {
     return (
@@ -61,8 +65,9 @@ export default function Sparkline({ points, kind = "line", tone, format, stepMin
   });
   const lastIdx = points.length - 1 - [...points].reverse().findIndex((v) => v !== null);
   const last = points[lastIdx] as number;
+  // 가리킨 점의 시각. 마지막 점을 지금으로 보고 거슬러 센다. 가리킬 때만 읽으므로 시계를 타지 않는다
   const at = (i: number) => {
-    const d = new Date(now - (n - 1 - i) * stepMin * 60_000);
+    const d = new Date(Date.now() - (n - 1 - i) * stepMin * factor * 60_000);
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   };
 
@@ -101,3 +106,6 @@ export default function Sparkline({ points, kind = "line", tone, format, stepMin
     </span>
   );
 }
+
+/** 점 배열이 그대로면(opsCenter가 같은 참조를 지킨다) 다시 그리지 않는다 */
+export default memo(Sparkline);

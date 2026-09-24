@@ -6,7 +6,7 @@
  * 누적 체결 차로 낸다. 첫 표본에는 이전 값이 없어 비워 둔다.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { AdminOverview, InvariantState } from "@/lib/admin/types";
 import { formatKRW } from "@/lib/format";
@@ -15,7 +15,8 @@ import styles from "./control.module.css";
 
 const INV_WORD: Record<InvariantState, string> = { PASS: "통과", VIOLATED: "위반", PARTIAL: "부분 수집", NONE: "미수집" };
 
-export default function TradingStrip({ ov, at }: { ov: AdminOverview | null; at: number | null }) {
+/** 30초마다 오는 합성 조회만 받는다. 관제 판이 매초 새로 와도 다시 그리지 않는다 */
+function TradingStrip({ ov, at }: { ov: AdminOverview | null; at: number | null }) {
   const prev = useRef<{ at: number; total: number } | null>(null);
   const [rate, setRate] = useState<number | null>(null);
   useEffect(() => {
@@ -79,3 +80,5 @@ export default function TradingStrip({ ov, at }: { ov: AdminOverview | null; at:
     </section>
   );
 }
+
+export default memo(TradingStrip);

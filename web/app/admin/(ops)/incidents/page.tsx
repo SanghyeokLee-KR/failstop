@@ -13,17 +13,18 @@ import { AdminErrorState } from "@/components/admin/ResourceState";
 import AlertList from "@/components/admin/control/Alerts";
 import OpsHead from "@/components/admin/control/OpsHead";
 import { alertCounts, Tile, todayIncidents } from "@/components/admin/control/SummaryStrip";
-import { byFilter, EventRow, FilterSwitch, IncidentView, type EventFilter } from "@/components/admin/control/Timeline";
+import { byFilter, EventRow, FilterSwitch, IncidentView, OpenElapsed, type EventFilter } from "@/components/admin/control/Timeline";
 import { durationWord, hm, PanelHead, SectionBody, SEVERITY_SHAPE, useClock } from "@/components/admin/control/parts";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/control/control.module.css";
 
 export default function IncidentsPage() {
   const { data, loading, refresh } = useOpsCenter();
-  const now = useClock();
+  // '오늘'의 경계만 읽는다. 진행 중 사건의 경과처럼 매초 바뀌는 글자는 그 조각이 시계를 탄다
+  const now = useClock(60_000);
   const [picked, setPicked] = useState<string | null>(null);
   const [filter, setFilter] = useState<EventFilter>("ALL");
-  const onChanged = () => void refresh();
+  const onChanged = () => void refresh(true);
   const today = new Date(now).toDateString();
 
   return (
@@ -32,7 +33,6 @@ export default function IncidentsPage() {
         title="경보·사건"
         desc="경보를 확인·보류하고 사건이 발생에서 해제까지 흐른 순서를 봅니다. 추이는 Grafana"
         center={data}
-        now={now}
         actions={<GrafanaLink board="msp-overview" label="경보 추이" />}
       />
       {data === null ? (
@@ -80,7 +80,15 @@ export default function IncidentsPage() {
                           <span className={styles.tileUnit}>건</span>
                         </span>
                       }
-                      sub={open ? `${hm(open.openedAt)}부터 · ${durationWord(now - Date.parse(open.openedAt))}` : "진행 중인 사건 없음"}
+                      sub={
+                        open ? (
+                          <>
+                            {hm(open.openedAt)}부터 · <OpenElapsed from={open.openedAt} />
+                          </>
+                        ) : (
+                          "진행 중인 사건 없음"
+                        )
+                      }
                     />
                     <Tile
                       icon="audit"
@@ -109,7 +117,7 @@ export default function IncidentsPage() {
               <section className={styles.panel} aria-labelledby="inc-alerts">
                 <PanelHead id="inc-alerts" title="활성 경보" meta="확인은 기록이고 경보를 끄지 않습니다. 보류는 최대 30분" />
                 <SectionBody section={data.alerts} what="경보">
-                  {(alerts) => <AlertList alerts={alerts} now={now} onChanged={onChanged} />}
+                  {(alerts) => <AlertList alerts={alerts} onChanged={onChanged} />}
                 </SectionBody>
               </section>
               <section className={styles.panel} aria-labelledby="inc-list">
@@ -167,7 +175,7 @@ export default function IncidentsPage() {
                   return (
                     <div className={styles.stack}>
                       {inc ? (
-                        <IncidentView inc={inc} log={log} now={now} filter={filter} />
+                        <IncidentView inc={inc} log={log} filter={filter} />
                       ) : (
                         <div className={styles.empty}>
                           <span className={styles.emptyMark} aria-hidden="true" />

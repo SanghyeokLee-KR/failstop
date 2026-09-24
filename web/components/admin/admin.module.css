@@ -17,6 +17,9 @@
   min-height: 100vh;
 }
 
+/* 1280x800 창에서 목록 끝(바닥 줄과 사용자 카드)이 스크롤 없이 보이는 높이 예산으로 간격을 잡는다.
+   시연 묶음이 접힌 기본 모양에서 메뉴 목록이 570px이고, 800px 창에서 목록 자리는 574px이다(2026-09-25 실측).
+   명판 줄은 위 8px에 높이 40px이라 가운데가 운영자 바(56px)의 가운데와 같은 28px에 선다 */
 .sidebar {
   width: 232px;
   flex-shrink: 0;
@@ -25,17 +28,26 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) 0;
   background: var(--surface-default);
   box-shadow: inset -1px 0 0 var(--border-subtle);
 }
 
+/* 단추(36px)의 누르는 자리는 위아래 4px씩 넓혀 44px이다. 줄 밖으로 2px씩 나가는 자리는 위 여백과 아래 간격 안이다 */
 .brand {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 0 var(--space-2);
+  min-height: 40px;
+  padding: 0 0 0 var(--space-2);
+}
+/* 명판 줄 오른쪽 단추 묶음(AI 상담, 메뉴 접기). 단추 사이 8px은 두 히트 영역이 맞닿는 간격이다 */
+.brandTools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
 }
 .brandMark {
   display: flex;
@@ -58,34 +70,89 @@
   overflow-y: auto;
   scrollbar-width: thin;
 }
-/* 의미 그룹(상황·제어·거버넌스) 구획. 그룹 명판이 스캔 경로의 정거장 역할을 한다 */
+/* 의미 그룹(관제·인프라·조치·시연) 구획. 그룹 명판이 스캔 경로의 정거장이자 접기 단추다 */
 .navGroup {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
 }
 .navGroup + .navGroup {
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
+}
+/* 묶음 머리. 시각 32px에 투명 ::after로 위 8px·아래 4px을 더해 누르는 자리가 44px이다(§10-2).
+   위는 묶음 사이 12px 안, 아래는 머리와 첫 항목 사이 6px 안에서만 넓힌다 */
+.navGroupHead {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  margin-bottom: 6px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border-radius: var(--control-radius);
+  text-align: left;
+}
+.navGroupHead::after {
+  content: "";
+  position: absolute;
+  inset: -8px 0 -4px;
+}
+.navGroupHead:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.navGroupHead:hover:not(:disabled) .navGroupLabel {
+  color: var(--text-default);
+}
+.navGroupHead:disabled {
+  cursor: default;
+}
+/* 접힌 묶음은 따라오는 항목이 없어 머리 아래 간격을 두지 않는다 */
+.navGroupHead[aria-expanded="false"] {
+  margin-bottom: 0;
 }
 .navGroupLabel {
-  padding: 0 var(--space-3);
-  margin-bottom: var(--space-1);
   font-size: var(--font-micro-size);
   line-height: var(--font-micro-line);
   font-weight: var(--fw-medium);
   letter-spacing: 0.08em;
   color: var(--text-secondary);
 }
+/* 접힌 묶음의 항목 수. 무엇이 들었는지 이름 옆에 작게 둔다 */
+.navGroupCount {
+  font-size: var(--font-micro-size);
+  line-height: var(--font-micro-line);
+  color: var(--text-secondary);
+}
+.navGroupChevron {
+  display: inline-flex;
+  margin-left: auto;
+  color: var(--text-tertiary);
+  transform: rotate(-90deg);
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+.navGroupChevron[data-open] {
+  transform: none;
+}
+.navGroupItems {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+/* 항목은 시각 40px이고 누르는 자리는 투명 ::after로 위아래 2px씩 늘려 44px이다. 늘린 자리는 항목 사이 4px 안이다 */
 .navLink {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 var(--space-3);
   border-radius: var(--panel-radius);
   font-size: var(--font-body-sm-size);
   font-weight: var(--fw-semibold);
   color: var(--text-secondary);
+}
+.navLink::after {
+  content: "";
+  position: absolute;
+  inset: -2px 0;
 }
 /* 아이콘은 장식 채널(의미는 라벨). 휴지 상태는 tertiary, 상호작용 시 라벨 잉크를 상속한다 */
 .navIcon {
@@ -120,21 +187,31 @@
   background: var(--chrome-accent);
 }
 
-/* 사이드바 접기 단추. 명판 줄 오른쪽 끝에 서고, 접힌 기둥에서는 혼자 남아 가운데 선다 */
-.sidebarToggle {
+/* 명판 줄의 아이콘 단추(AI 상담, 메뉴 접기). 시각 36px에 투명 ::after로 누르는 자리를 44px로 늘린다 */
+.brandAction {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  margin-left: auto;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-  border-radius: var(--panel-radius);
+  border-radius: var(--control-radius);
   color: var(--text-secondary);
 }
-.sidebarToggle:hover {
+.brandAction::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+}
+.brandAction:hover {
   color: var(--text-default);
   background: var(--surface-hover);
+}
+/* 상담이 열려 있는 동안. 크롬 악센트 글자와 sunken 면으로 눌린 상태를 적는다(aria-expanded 병기) */
+.brandAction[data-active] {
+  color: var(--chrome-accent);
+  background: var(--surface-sunken);
 }
 .navLabel {
   min-width: 0;
@@ -156,10 +233,12 @@
 }
 .sidebar[data-collapsed] .brandMark,
 .sidebar[data-collapsed] .brandText,
-.sidebar[data-collapsed] .navGroupLabel {
+.sidebar[data-collapsed] .navGroupHead {
   display: none;
 }
-.sidebar[data-collapsed] .sidebarToggle {
+/* 아이콘 기둥에서는 두 단추를 세로로 쌓는다 */
+.sidebar[data-collapsed] .brandTools {
+  flex-direction: column;
   margin-left: 0;
 }
 .sidebar[data-collapsed] .navGroup + .navGroup {
@@ -186,9 +265,6 @@
 /* 평면 전환 링크 위 상태 줄(AI 운영 모드). 접힌 기둥에서는 공간이 없어 뺀다 */
 .navFoot {
   flex-shrink: 0;
-}
-.navFoot + .navCross {
-  margin-top: 0;
 }
 .sidebar[data-collapsed] .navFoot {
   display: none;
@@ -2205,43 +2281,62 @@
   color: var(--text-secondary);
 }
 
-/* 평면 전환 링크. 내비 목록 바깥 바닥에 두어 "화면 하나"로 읽히지 않게 한다.
+/* 바닥 줄. 설정과 평면 전환 링크를 한 줄에 나란히 두고 세로 헤어라인으로 가른다.
    가로 음수 여백으로 사이드바 패딩을 상쇄해 구분선이 면 끝까지 닿는다 */
+.dockLinks {
+  display: flex;
+  margin: 0 calc(var(--space-4) * -1);
+  border-top: 1px solid var(--border-subtle);
+}
 .navCross {
   display: flex;
+  flex: 1 1 0;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
   /* 캡션 한 줄에 패딩을 더하면 43px이라 탭 타깃(§10-2)에 1px 모자란다. 높이를 직접 보장한다 */
   min-height: 44px;
-  margin: auto calc(var(--space-4) * -1) 0;
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border-subtle);
+  padding: 0 var(--space-4);
   font-size: var(--font-caption-size);
   line-height: var(--font-caption-line);
   color: var(--text-secondary);
   text-decoration: none;
 }
+.navCross + .navCross {
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+}
 .navCross:hover {
   background: var(--surface-hover);
   color: var(--text-default);
 }
+.navCross[data-active] {
+  color: var(--chrome-accent);
+  background: var(--surface-sunken);
+}
 .navCrossIcon {
+  display: inline-flex;
   flex-shrink: 0;
+}
+.sidebar[data-collapsed] .dockLinks {
+  flex-direction: column;
+  margin-left: calc(var(--space-3) * -1);
+  margin-right: calc(var(--space-3) * -1);
 }
 .sidebar[data-collapsed] .navCross {
   justify-content: center;
-  margin-left: calc(var(--space-3) * -1);
-  margin-right: calc(var(--space-3) * -1);
   padding-left: 0;
   padding-right: 0;
 }
-/* 사이드바 바닥의 사용자 카드. 평면 전환 링크 바로 아래 헤어라인으로 붙이고 사이드바 바닥 여백까지 채운다 */
+.sidebar[data-collapsed] .navCross + .navCross {
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+/* 사이드바 바닥의 사용자 카드. 바닥 줄 바로 아래 헤어라인으로 붙이고 사이드바 바닥까지 채운다 */
 .sessionCard {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 56px;
-  margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) calc(var(--space-5) * -1);
+  min-height: 52px;
+  margin: calc(var(--space-3) * -1) calc(var(--space-4) * -1) 0;
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-subtle);
 }

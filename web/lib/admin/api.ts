@@ -49,8 +49,13 @@ import type {
   ReportStatus,
   AdminTransferStatus,
   AiDecision,
+  AiChatReply,
+  AiChatTurn,
   ControlCenter,
+  OnCallEntry,
   OpsScenarioId,
+  OpsSection,
+  ReportDesk,
 } from "./types";
 
 /** 표준 관리 에러. name에 API §2-3 코드를 노출(jwt_verification·admin_forbidden 등) */
@@ -58,11 +63,14 @@ export class AdminError extends Error {
   readonly code: string;
   /** 429 응답의 Retry-After(초). 폴링 백오프 근거. 없으면 null */
   readonly retryAfter: number | null;
-  constructor(code: string, message: string, retryAfter: number | null = null) {
+  /** 서버가 답한 HTTP 상태. 본문의 오류 이름이 상태와 다를 때(404인데 다른 이름) 상태로 가른다. 서버 응답이 아니면 null */
+  readonly status: number | null;
+  constructor(code: string, message: string, retryAfter: number | null = null, status: number | null = null) {
     super(message);
     this.name = code;
     this.code = code;
     this.retryAfter = retryAfter;
+    this.status = status;
   }
 }
 
@@ -217,6 +225,22 @@ export interface AdminApi {
   startOpsScenario(id: OpsScenarioId): Promise<void>;
   /** 관제 시뮬레이션을 처음 상태로 되돌린다 */
   resetOps(): Promise<void>;
+
+  /* ===== AI 상담(관리자 설계 4-6) =====
+   * 서버 계약 초안은 POST /admin/v1/msp/ai/chat이다. http 어댑터는 그 경로가 생기기 전까지 질문을 보내지 않는다 */
+  /** 상담의 원천. sim은 관제 판을 읽는 규칙 답이고, http는 서버 연결 전이다 */
+  readonly aiChat: "SIM" | "NOT_CONNECTED";
+  /** 관제 상태를 묻는다. 조회만 하고 조치를 실행하지 않는다. recent는 최근 대화(CHAT_RECENT_TURNS개까지)다 */
+  askAi(question: string, recent: AiChatTurn[]): Promise<AiChatReply>;
+
+  /* ===== 운영 보고(관리자 설계 4-7) =====
+   * bot-1 보고 서비스의 보고와 Teams 전송 기록을 읽는다. 서버 계약 초안은 보고 서비스 읽기 프록시
+   * (GET /admin/v1/msp/reports)이고 http 어댑터는 연결 전이다 */
+  getReports(): Promise<OpsSection<ReportDesk>>;
+  /** Teams 연결 시험. 운영 자료를 싣지 않는 모의 메시지 한 건을 밖으로 보낸다 */
+  sendTeamsTest(): Promise<void>;
+  /** 담당자와 연락 체계. sim은 예시, http는 운영자·당번 명부 연결 전이다 */
+  getOnCall(): Promise<OpsSection<OnCallEntry[]>>;
 }
 
 /** 화면이 소비할 때 세션이 필요함을 알린다(요청 요구 권한과 별개) */

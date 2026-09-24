@@ -11,15 +11,15 @@ import { useOpsCenter } from "@/lib/admin/opsCenter";
 import Skeleton from "@/components/Skeleton";
 import GrafanaLink from "@/components/admin/GrafanaLink";
 import { AdminErrorState } from "@/components/admin/ResourceState";
-import { HOST_KIND, hostState, InfraGroups } from "@/components/admin/control/Infra";
+import { hostState } from "@/lib/admin/opsHealth";
+import { HOST_KIND, InfraGroups } from "@/components/admin/control/Infra";
 import OpsHead from "@/components/admin/control/OpsHead";
-import { ago, PanelHead, SectionBody, Shape, useClock } from "@/components/admin/control/parts";
+import { Ago, PanelHead, SectionBody, Shape } from "@/components/admin/control/parts";
 import adminStyles from "@/components/admin/admin.module.css";
 import styles from "@/components/admin/control/control.module.css";
 
 export default function HostsPage() {
   const { data, loading, refresh } = useOpsCenter();
-  const now = useClock();
   const reg = data?.thresholds.state === "READY" ? data.thresholds.data : null;
 
   return (
@@ -28,7 +28,6 @@ export default function HostsPage() {
         title="서버·노드"
         desc="역할별 노드의 지금 값. 게이지 눈금은 임계값 관리의 현재값"
         center={data}
-        now={now}
         actions={<GrafanaLink board="msp-infra" label="03 AWS·서버 추이" />}
       />
       {data === null ? (
@@ -37,7 +36,7 @@ export default function HostsPage() {
         <>
           <section className={styles.panel} aria-labelledby="hosts-groups">
             <PanelHead id="hosts-groups" title="역할별 노드" meta="앱 두 대 · DB 두 대 · 조회 ASG · bot-1 · 온프레미스 ai-1" />
-            <InfraGroups center={data} now={now} board wide />
+            <InfraGroups center={data} board wide />
           </section>
           <div className={styles.split} data-ratio="wide">
             <section className={styles.panel} aria-labelledby="hosts-collect">
@@ -70,7 +69,7 @@ export default function HostsPage() {
                               <Shape tone={s.tone}>{s.shape}</Shape> {s.word}
                             </td>
                             <td data-num="" className="num">
-                              {h.collectedAt ? ago(h.collectedAt, now) : "없음"}
+                              {h.collectedAt ? <Ago at={h.collectedAt} /> : "없음"}
                             </td>
                           </tr>
                         );
